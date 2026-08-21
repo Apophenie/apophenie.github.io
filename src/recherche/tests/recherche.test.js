@@ -220,6 +220,48 @@ test('déterminisme — le cache mémoïsé ne change pas le résultat', () => {
   assert.deepEqual(second, premier);
 });
 
+test('déterminisme — l’historique de saisie ne peut pas changer le classement', () => {
+  // Le cache est la seconde entropie possible, après l’horloge : un fragment
+  // déjà connu ne coûtait RIEN au budget de travail, donc un moteur qui avait
+  // déjà servi explorait PLUS de fragments qu’un moteur neuf — et rendait un
+  // autre classement, sans le dire. Deux visiteurs, deux listes ; le même
+  // visiteur qui retape sa phrase, une troisième.
+  //
+  // Les saisies choisies ici sont celles qui SATURENT la borne de travail :
+  // sur une saisie qui tient dans le budget, le défaut est invisible, et un
+  // test qui ne prend que celles-là ne prouve rien.
+  const SATURANTES = [
+    'https://fr.wikipedia.org/wiki/Nombre_de_la_b%C3%AAte',
+    'Le chat dort sur le tapis rouge pendant que la pluie tombe sur les toits de la '
+      + 'ville endormie et que personne ne songe encore à compter les lettres de cette '
+      + 'phrase interminable qui sature le plafond de fragments du moteur.',
+  ];
+  const prealables = ['chat', 'dort', 'tapis', 'wikipedia', 'nombre', 'hope', 'moteur', 'phrase'];
+
+  for (const s of SATURANTES) {
+    const vierge = creerMoteur(catalogue);
+    const attendu = empreinte(vierge.resoudre(s));
+    assert.equal(empreinte(vierge.resoudre(s)), attendu,
+      `${s} : le même moteur ne rend pas deux fois la même liste`);
+
+    const prechauffe = creerMoteur(catalogue);
+    for (const p of prealables) prechauffe.resoudre(p); // l’historique du visiteur
+    assert.equal(empreinte(prechauffe.resoudre(s)), attendu,
+      `${s} : un moteur préchauffé rend un autre classement qu’un moteur neuf`);
+  }
+});
+
+test('déterminisme — au moins une saisie du corpus sature la borne de travail', () => {
+  // Garde-fou de l’étalonnage : si plus AUCUNE saisie ne touche la borne
+  // déterministe, le test ci-dessus ne teste plus rien (il passerait aussi avec
+  // le défaut). Si celui-ci casse, c’est que les budgets ont été relevés — il
+  // faut alors trouver une saisie qui sature à nouveau, pas supprimer le test.
+  const dure = creerMoteur(catalogue)
+    .resoudre('https://fr.wikipedia.org/wiki/Nombre_de_la_b%C3%AAte');
+  assert.equal(dure.tronque, true, 'la borne de travail ne mord plus sur la saisie témoin');
+  assert.equal(dure.tronqueTemps, false, 'et elle doit mordre AVANT le filet temporel');
+});
+
 test('déterminisme — ordre total : aucun ex æquo ne subsiste', () => {
   const m = creerMoteur(catalogue);
   for (const s of SAISIES_DETERMINISME) {

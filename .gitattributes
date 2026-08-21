@@ -1,0 +1,17 @@
+# Les sources sont du texte, toujours. Sans cette déclaration, un seul octet de
+# contrôle (séparateur de clé, cas de test sur des octets nuls) suffit à ce que
+# git classe un fichier en binaire : plus de diff lisible, plus de fusion, plus
+# de revue possible. C'est arrivé sur src/recherche/bfs.js.
+*.js    text diff
+*.mjs   text diff
+*.css   text diff
+*.html  text diff
+*.py    text diff
+*.md    text diff
+*.yml   text diff
+*.json  text diff
+
+# Vraiment binaires.
+*.woff2 binary
+*.ttf   binary
+*.png   binary
