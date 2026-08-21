@@ -1,0 +1,741 @@
+/* NumHeroLOLgeek — reset, polices, typographie, filets, grain */
+
+/* ─────────────────────────── Polices self-hostées ─────────────────────────
+   DEUX familles, pas quatre. Le logo est un bâton géométrique monolinéaire —
+   sans empattement, sans gras, sans délié : c'est la décision fondatrice de
+   l'identité (voir `src/gfx/logo-jost-trace.py`). Un didone à contraste
+   extrême en titre juste dessous disait exactement le contraire ; Bodoni Moda
+   et Spectral sont partis avec lui.
+
+   · Jost* — variable, 100 à 900 : la police DU logo. Elle tient les titres
+     (graisse 500, `--oracle`) et le corps de texte (graisse 400,
+     `--pedagogue`). La hiérarchie ne repose plus sur un contraste
+     serif/sans-serif mais sur la graisse, le corps et l'espacement.
+   · JetBrains Mono — variable : `--machine`. Sa chasse fixe n'est pas
+     décorative, le moteur visuel calcule ses gabarits dessus.
+
+   Jost n'a PAS d'italique dans le fichier variable dont on dispose, et un
+   oblique synthétique sur un géométrique aux o parfaitement ronds se voit :
+   l'italique a donc été retiré du site (voir `.accueil__baseline`,
+   `.resultat__annonce`, `.demo__regle` dans pages.css) au profit d'une autre
+   marque — graisse plus légère et lettres espacées.
+
+   `jost.ttf` n'est pas ici mais dans `src/gfx/` : c'est la source du
+   générateur de logo, un outil de build, jamais chargée par le navigateur.
+
+   OFL 1.1. Les deux textes de licence sont dans `src/fonts/`, recopiés dans
+   `dist/fonts/` au build, et crédités en pied de page. */
+
+@font-face {
+  font-family: "Jost";
+  src: url(../fonts/jost-var.woff2) format("woff2-variations"),
+       url(../fonts/jost-var.woff2) format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url(../fonts/jetbrains-mono-var.woff2) format("woff2-variations"),
+       url(../fonts/jetbrains-mono-var.woff2) format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ─────────────────────────────── Reset sobre ──────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--fg);
+  font-family: var(--pedagogue);
+  font-size: var(--fs-md);
+  line-height: var(--lh-corps);
+  /* Plus de `oldstyle-nums` : les chiffres elzéviriens venaient de Spectral.
+     Jost n'expose que `ss01` et `tnum` — la demande serait restée sans effet,
+     et une déclaration sans effet finit par se faire lire comme un acquis. */
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+  position: relative;
+}
+
+h1, h2, h3, p, ul, ol, dl, figure, blockquote { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+img, svg { max-width: 100%; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; }
+
+/* Le grain : un seul filtre SVG inline, aucune image. */
+.grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: var(--grain);
+  mix-blend-mode: overlay;
+}
+
+/* ────────────────────────────── Typographie ──────────────────────────────── */
+
+.oracle { font-family: var(--oracle); letter-spacing: -.015em; line-height: var(--lh-affichage); }
+.machine {
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  line-height: var(--lh-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.calcul {
+  font-family: var(--machine);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Les titres, en Jost. Il n'y a plus de bride de taille optique ici : elle
+   existait pour Bodoni Moda, dont le trait d'union tombait sous le pixel à
+   `font-optical-sizing: auto` — « hope-hope-hope.fr » s'affichait
+   « hope hope hope.fr ». Jost n'a qu'un axe, `wght` ; il n'y a rien à brider.
+   Ce qui reste à tenir, c'est la HIÉRARCHIE : sans contraste serif/sans-serif,
+   elle repose entièrement sur la graisse, le corps et l'interlettrage. D'où
+   600 en titre contre 400 au corps — un cran de plus que les 500 d'avant, qui
+   suffisaient tant qu'une didone marquait la différence à elle seule. */
+h1, h2, h3, .oracle, .voie__resultat, .saisie-citee { font-weight: 600; }
+.arrivee__nombre { font-weight: 700; }
+
+h1 { font-family: var(--oracle); font-size: var(--fs-2xl); font-weight: 600;
+     line-height: var(--lh-affichage); letter-spacing: -.015em; overflow-wrap: anywhere; }
+h2 { font-family: var(--oracle); font-size: var(--fs-xl); font-weight: 600;
+     line-height: var(--lh-affichage); letter-spacing: -.015em; }
+h3 { font-family: var(--oracle); font-size: var(--fs-lg); font-weight: 600;
+     line-height: var(--lh-affichage); }
+
+.h2-machine {
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--phos);
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+}
+.h2-machine::after {
+  content: "";
+  flex: 1;
+  height: var(--rule);
+  background: var(--line);
+}
+
+p { max-width: var(--mesure); }
+/* Jost n'a pas d'italique dessiné : `font-style: italic` fait fabriquer au
+   navigateur un OBLIQUE synthétique — le romain cisaillé. L'auteur l'a regardé
+   et le juge acceptable ; on garde donc l'emphase là où elle se lit le mieux,
+   en italique, plutôt que de la déplacer sur la graisse. */
+em, i, cite, dfn {
+  font-style: italic;
+}
+
+a {
+  color: var(--rubric);
+  text-decoration-thickness: 1px;
+  text-underline-offset: .18em;
+}
+a:hover { color: var(--rubric-hi); }
+
+code, kbd, samp { font-family: var(--machine); font-size: .92em; }
+
+.legende { font-size: var(--fs-xs); color: var(--fg-3); }
+.secondaire { color: var(--fg-2); }
+.rubrique { color: var(--rubric); }
+.phosphore { color: var(--phos); }
+.or { color: var(--gold); }
+.six { color: var(--gold); font-variant-numeric: lining-nums; }
+
+/* ───────────────────────────── Filets doubles ────────────────────────────── */
+
+.filet-double {
+  border-top: var(--rule) solid var(--line);
+  box-shadow: 0 -3px 0 -2px var(--line);
+}
+hr.filet {
+  border: 0;
+  height: var(--rule);
+  background: var(--line);
+  margin: var(--e5) 0;
+  max-width: var(--mesure);
+}
+hr.filet-double {
+  border: 0; height: 4px; background: none; margin: var(--e5) 0;
+  border-top: var(--rule) solid var(--line);
+  border-bottom: var(--rule) solid var(--line);
+  max-width: var(--mesure);
+  box-shadow: none;
+}
+
+.cadre {
+  background: var(--surface);
+  border: var(--rule) solid var(--line);
+  box-shadow: 0 0 0 3px var(--canvas), 0 0 0 4px var(--line);
+  border-radius: 0;
+}
+
+/* ───────────────────────── Accessibilité transverse ──────────────────────── */
+
+.visuellement-cachee {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+/* Le focus posé par le routeur sur le titre d'une page fraîchement rendue sert
+   aux lecteurs d'écran ; il ne doit pas dessiner d'anneau à la souris. */
+:where([tabindex="-1"]):focus, :where([tabindex="-1"]):focus-visible { outline: none; }
+
+.evitement {
+  position: absolute;
+  left: var(--e2); top: var(--e2);
+  z-index: 80;
+  transform: translateY(-200%);
+  background: var(--raised);
+  color: var(--fg);
+  border: var(--rule) solid var(--line-ui);
+  padding: var(--e2) var(--e3);
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.evitement:focus { transform: none; }
+
+/* ─────────────────────────────── Squelette ───────────────────────────────── */
+
+.page {
+  width: 100%;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 0 var(--e4) var(--e8);
+}
+@media (min-width: 1100px) { .page { max-width: 72rem; } }
+.page--etroite { max-width: 34rem; }
+
+.barre-haute {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  min-height: var(--touche);
+  padding: var(--e2) var(--e4);
+  border-bottom: var(--rule) solid var(--line);
+  position: relative;
+}
+.barre-haute::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -3px;
+  height: var(--rule); background: var(--line);
+}
+
+.lien-retour {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e1);
+  min-height: var(--touche);
+  padding: 0 var(--e2) 0 0;
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  text-decoration: none;
+}
+.lien-retour:hover { color: var(--rubric-hi); }
+.lien-retour svg { width: 12px; height: 12px; }
+
+/* La barre haute porte désormais TROIS contrôles (animation, thème, langue) au
+   lieu de deux : à 500 px elle débordait, et le sélecteur de langue sortait de
+   l'écran avec son panneau. Le groupe de réglages est intouchable — ses cibles
+   font 48 px — donc ce sont le logo et le lien de retour qui cèdent, dans cet
+   ordre. Le libellé du lien reste dans l'arbre d'accessibilité : il est masqué
+   à la vue, jamais retiré. */
+.barre-haute > * { min-width: 0; }
+.barre-haute .reglages { flex: none; }
+.lien-retour { flex: 0 1 auto; }
+@media (max-width: 620px) {
+  /* `.barre-haute` en tête du sélecteur : la règle `.logo-entete { width: 200px }`
+     est déclarée plus bas dans ce fichier, elle gagnerait à spécificité égale. */
+  .barre-haute .logo-entete { width: 160px; }
+  .lien-retour span:not(:first-child) {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+@media (max-width: 420px) {
+  .barre-haute { padding-inline: var(--e2); gap: var(--e2); }
+  .barre-haute .logo-entete { width: auto; flex: 0 1 160px; }
+}
+
+.pied {
+  max-width: 34rem;
+  margin: var(--e8) auto 0;
+  padding: var(--e5) var(--e4) var(--e6);
+  border-top: var(--rule) solid var(--line);
+  box-shadow: 0 -3px 0 -2px var(--line);
+  font-size: var(--fs-xs);
+  color: var(--fg-3);
+  text-align: center;
+}
+.pied p { max-width: none; margin-bottom: var(--e1); }
+.pied a { color: var(--fg-2); }
+
+/* ─────────────────────────────── Bandeaux ───────────────────────────────── */
+
+.bandeau {
+  display: flex;
+  gap: var(--e2);
+  align-items: flex-start;
+  max-width: var(--mesure);
+  margin: 0 auto var(--e4);
+  padding: var(--e2) var(--e3);
+  background: var(--raised);
+  border: var(--rule) solid var(--line-ui);
+  border-left: 3px solid var(--gold);
+  font-size: var(--fs-sm);
+  color: var(--fg-2);
+}
+.bandeau--erreur { border-left-color: var(--rubric); }
+.bandeau__marque { flex: none; color: var(--gold); font-weight: 700; }
+.bandeau--erreur .bandeau__marque { color: var(--rubric); }
+
+/* ───────────────────────────── Interrupteurs ─────────────────────────────── */
+
+/* L'écart de 12 px n'est pas cosmétique : chaque contrôle étend sa cible
+   cliquable de 4 px tout autour (voir ::before ci-dessous). À 6 px d'écart les
+   deux zones se recouvriraient et un pouce viserait le mauvais bouton. */
+.reglages { display: flex; gap: var(--e2); align-items: center; }
+
+/* Le dessin fait 40 px — la finesse d'un appareil de mesure. La CIBLE fait 48 px
+   (WCAG 2.5.5 demande 44, CONTRACTS §6 demande 48 : on prend le plus exigeant),
+   par un pseudo-élément transparent qui déborde sans rien dessiner.
+   Le -5 px n'est pas un -4 px arrondi : le bloc conteneur d'un `::before`
+   absolu est la boîte de REMPLISSAGE, pas la boîte de bordure. Avec un filet de
+   1 px, 40 px de bordure font 38 px de remplissage, et 38 + 2 × 5 = 48. Mesuré
+   au navigateur : `inset: -4px` ne donnait que 46 px. */
+.interrupteur,
+.selecteur__declencheur {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e1);
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: var(--rule) solid var(--line);
+  background: transparent;
+  color: var(--fg-2);
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border-radius: var(--r-champ);
+  transition: color var(--t-court) ease, border-color var(--t-court) ease;
+}
+.interrupteur::before,
+.selecteur__declencheur::before { content: ""; position: absolute; inset: -5px; }
+.interrupteur:hover,
+.selecteur__declencheur:hover { color: var(--fg); border-color: var(--line-ui); }
+.interrupteur svg,
+.selecteur__declencheur svg { width: 20px; height: 20px; flex: none; }
+
+/* ───────────────────────────── Sélecteurs repliés ────────────────────────── */
+
+.selecteur { position: relative; display: inline-flex; }
+
+.selecteur[data-ouvert="oui"] .selecteur__declencheur {
+  color: var(--fg);
+  border-color: var(--gold);
+}
+
+.selecteur__panneau {
+  position: absolute;
+  top: calc(100% + var(--e1));
+  inset-inline-end: 0;
+  z-index: 50;
+  min-width: max-content;
+  padding: 3px;
+  background: var(--raised);
+  color: var(--fg);
+  border: var(--rule) solid var(--line-ui);
+  border-radius: var(--r-champ);
+  box-shadow: var(--halo);
+}
+.selecteur__panneau[hidden] { display: none; }
+
+.selecteur__liste { display: flex; flex-direction: column; }
+
+.selecteur__option {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  min-height: 44px;
+  padding: var(--e1) var(--e2);
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--fg-2);
+  border-radius: var(--r-champ);
+}
+.selecteur__option:hover { background: var(--surface); color: var(--fg); }
+.selecteur__picto { display: inline-flex; flex: none; }
+.selecteur__picto svg { width: 20px; height: 20px; }
+.selecteur__libelle {
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+/* L'option active porte l'aplat doré des cases franchies de la jauge : même
+   vocabulaire, même signification — « c'est ici que vous êtes ». */
+.selecteur__option[aria-selected="true"] {
+  background: var(--gold);
+  color: var(--sur-gold);
+}
+/* Sur l'aplat doré, l'anneau de focus doré serait invisible : il passe à l'encre. */
+.selecteur__option[aria-selected="true"]:focus-visible {
+  outline-color: var(--sur-gold);
+  outline-offset: -4px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE LOGO — « Numérologie » qui cache « Num Hero LOL geek »
+   Bâton géométrique monolinéaire (Jost*, OFL) : sans empattement, sans gras,
+   sans délié — épaisseur uniforme. Le tracé est du SVG dessiné à partir des
+   contours réels de la fonte ; aucune fonte n’est chargée pour l’afficher.
+
+   Le tracé (inline dans index.html) ET la mécanique ci-dessous sont PRODUITS
+   par `.planning/research/proto/logo-jost-trace.py --site`, depuis la même
+   source que le banc d’essai `_logo-test.html`. Ne rien éditer à la main entre
+   les repères `logo:début` / `logo:fin` : la prochaine exécution du générateur
+   écraserait la retouche, et le site divergerait du banc.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.logo-bouton {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+.logo-bouton:focus-visible { outline-offset: 6px; }
+
+/* logo:début */
+/* ── le logo ───────────────────────────────────────────────────────────────
+   QUATRE ÉTAPES successives, une chose à la fois :
+   ① la place du h — 1 s
+   ② la place du l — 1 s
+   ③ le e et l’orbite — 1 s
+   ④ les bras du k — 0,5 s.
+   L'écartement obéit à trois commandes, une par étape qui écarte :
+     --u1  l'écart num|hero et la fente du h              (étape ①)
+     --u2  les écarts hero|lol et lol|geek, fente du l    (étape ②)
+     --u3  l'expansion interne de geek : le e final qui glisse, la fente que
+           le k vient occuper derrière lui                (étape ③)
+   Chacune vaut 1 au repos, 0 son écart ouvert. Une bande de lettres porte les
+   trois coefficients (--a, --b, --c) de la combinaison qui la place : le mot
+   reste CENTRÉ à tout instant, y compris à mi-étape.
+   La fin du mot — g i e → g e e k — garde sa CHORÉGRAPHIE : aucune LETTRE ne
+   s'efface ni n'apparaît, il n'y a que des trajets. Étape ③, trois mouvements
+   indissociables : le e final se décale PENDANT que le point du i, qui est un
+   e miniature, descend et grandit, PENDANT que le fût passe sous le e final et
+   le dépasse, puis s'allonge. Étape ④, et seulement là, les deux BARRES du k.
+   Au repos elles sont ABSENTES — pas repliées le long du fût : absentes. Elles
+   apparaissent couchées DEDANS, à taille réelle, à l'instant même où le fût a
+   pris sa place à droite du e final ; c'est la seule chose de toute la
+   chorégraphie qui ne soit pas un trajet, et elle est invisible puisqu'à cet
+   instant les barres sont confondues avec le fût. Puis chacune s'ouvre COMME
+   UN COMPAS autour de son bout : celle du haut pivote par le haut, celle du
+   bas par le bas.
+   La FERMETURE n'est pas la marche arrière : ordre 1-2-4-3. Les barres
+   doivent se refermer ET disparaître avant que le fût ne reparte en orbite,
+   sinon il voyagerait barres déployées. */
+@property --u1{syntax:"<number>";inherits:true;initial-value:1}
+@property --u2{syntax:"<number>";inherits:true;initial-value:1}
+@property --u3{syntax:"<number>";inherits:true;initial-value:1}
+@keyframes ouverture{
+  0%{--u1:1;--u2:1;--u3:1;animation-timing-function:cubic-bezier(0.4,0,0.2,1)}
+  28.57%{--u1:0;--u2:1;--u3:1;animation-timing-function:cubic-bezier(0.4,0,0.2,1)}
+  57.14%{--u1:0;--u2:0;--u3:1;animation-timing-function:cubic-bezier(0.45,0,0.25,1)}
+  77.86%,100%{--u1:0;--u2:0;--u3:0}
+}
+@keyframes fermeture{
+  0%{--u1:0;--u2:0;--u3:0;animation-timing-function:cubic-bezier(0.8,0,0.6,1)}
+  28.57%{--u1:1;--u2:0;--u3:0;animation-timing-function:cubic-bezier(0.8,0,0.6,1)}
+  57.14%{--u1:1;--u2:1;--u3:0}
+  79.29%{--u1:1;--u2:1;--u3:0;animation-timing-function:cubic-bezier(0.75,0,0.55,1)}
+  100%{--u1:1;--u2:1;--u3:1}
+}
+svg.logo{display:block;width:100%;height:auto;color:var(--fg);
+  --u1:1;--u2:1;--u3:1;--cho:3500ms;
+  transition:--u1 .55s cubic-bezier(.2,.8,.2,1),--u2 .55s cubic-bezier(.2,.8,.2,1),
+             --u3 .55s cubic-bezier(.2,.8,.2,1)}
+.lg-base path{fill:currentColor}
+
+.lg-mov,.lg-mob{translate:calc((var(--a) * var(--u1) + var(--b) * var(--u2)
+  + var(--c) * var(--u3)) * 1px) 0}
+.lg-mob{transform-box:fill-box;transform-origin:center}
+/* le h et le l : leur bande les emporte aux étapes où ils ne bougent pas
+   d'eux-mêmes, et leur propre trajet tient dans une seule commande. */
+.lg-h{translate:calc((var(--a) * var(--u1) + var(--b) * var(--u2)
+    + var(--c) * var(--u3)) * 1px) calc(var(--dy) * var(--u1) * 1px);
+  rotate:calc(var(--deg) * var(--u1));scale:calc(1 + (var(--k) - 1) * var(--u1))}
+.lg-L{translate:calc((var(--a) * var(--u1) + var(--b) * var(--u2)
+    + var(--c) * var(--u3)) * 1px) calc(var(--dy) * var(--u2) * 1px);
+  rotate:calc(var(--deg) * var(--u2));scale:calc(1 + (var(--k) - 1) * var(--u2))}
+
+/* les pièces de la chorégraphie : tracé baké à l'ARRIVÉE, état de
+   REPOS ci-dessous. */
+/* Pas de `transition` ici : le e final et le centre de l'orbite sont
+   désormais une fonction de --u3, et c'est --u3 qui transitionne (sur
+   svg.logo). Une transition sur `translate` se déclencherait à CHAQUE
+   image de l'animation qui fait varier --u3, et traînerait derrière. */
+.lg-cho{transform-box:view-box}
+/* ① le point du i, e miniature perché sur la hampe */
+.lg-e1{translate:-142.5px -420px;scale:0.25}
+/* ② le e final, une fente plus à gauche — et avec lui le centre de
+      l'orbite. Piloté par --u3, comme l'écart qu'il ouvre. */
+.lg-e2,.lg-korb{translate:calc(-255px * var(--u3)) 0}
+/* ③ le fût du k : à 180° sur son orbite, couché à la hauteur d'x… */
+.lg-orb{rotate:180deg}
+.lg-k{translate:35px 155px;scale:1 0.6026}
+/* ④ …et ses deux barres ABSENTES. Pas repliées le long du fût, pas
+      discrètes : absentes. Au repos le mot est « Numérologie » et rien
+      d'autre — rien ne dépasse du fût du i, rien ne s'y devine. La
+      pose écrite ici est celle où elles APPARAÎTRONT, à la fin de
+      l'étape ③ : couchées DANS le fût, à leur taille définitive, le
+      bout de chacune posé là où le compas pivotera. */
+.lg-kbras{translate:-260px 0px;rotate:-46.47deg;opacity:0}
+.lg-kjambe{translate:-280px -31.58px;rotate:39.17deg;opacity:0}
+
+.logo--revele .lg-e1{animation:cho-e1 var(--cho) forwards}
+.logo--revele .lg-orb{animation:cho-orb var(--cho) forwards}
+.logo--revele .lg-k{animation:cho-k var(--cho) forwards}
+.logo--revele .lg-kbras{animation:cho-kbras var(--cho) forwards}
+.logo--revele .lg-kjambe{animation:cho-kjambe var(--cho) forwards}
+.logo--revele .lg-rules{animation:cho-rules var(--cho) forwards}
+/* à la fermeture, les mêmes trajets à l'envers — mais dans l'ordre
+   1-2-4-3, donc à d'autres instants : ce ne sont pas les mêmes
+   @keyframes, jouées à rebours, ce sont d'autres @keyframes. */
+.logo--retour .lg-e1{animation:ret-e1 var(--cho) forwards}
+.logo--retour .lg-orb{animation:ret-orb var(--cho) forwards}
+.logo--retour .lg-k{animation:ret-k var(--cho) forwards}
+.logo--retour .lg-kbras{animation:ret-kbras var(--cho) forwards}
+.logo--retour .lg-kjambe{animation:ret-kjambe var(--cho) forwards}
+.logo--retour .lg-rules{animation:ret-rules var(--cho) forwards}
+
+/* ① le point du i DESCEND à la fente qu'occupait le i et prend sa
+      taille de e. Simultané au décalage du e final et à l'orbite :
+      c'est l'étape ③, la seule où trois choses bougent ensemble. */
+@keyframes cho-e1{
+  0%,57.14%{translate:-142.5px -420px;scale:0.25;animation-timing-function:cubic-bezier(0.5,0,0.2,1)}
+  79.29%,100%{translate:0 0;scale:1}
+}
+/* ② l'orbite : 180° PAR EN DESSOUS. La courbe est celle d'un
+      satellite — lent au départ, rapide au point bas, lent à
+      l'arrivée. Le fût tourne avec elle : parti vertical à gauche du
+      e, il est couché au point bas et se redresse à droite. */
+@keyframes cho-orb{
+  0%,57.14%{rotate:180deg;animation-timing-function:cubic-bezier(0.55,0,0.3,1)}
+  79.29%,100%{rotate:0deg}
+}
+/* ③ le RAYON de l'orbite — la translation ici est radiale, puisque
+      la rotation est au-dessus. Il se resserre (le fût part de plus
+      loin qu'il n'arrive) et se CREUSE au point bas : l'orbite est
+      une ellipse, et c'est ce creux qui fait voir le passage sous le
+      e. PUIS le fût s'allonge — pied planté, la hauteur d'x devient
+      hauteur de hampe. Fin de l'étape ③. */
+@keyframes cho-k{
+  0%,57.14%{translate:35px 155px;scale:1 0.6026;animation-timing-function:cubic-bezier(0.4,0,0.4,1)}
+  66.97%{translate:72.5px 155px;scale:1 0.6026;animation-timing-function:cubic-bezier(0.6,0,0.4,1)}
+  79.29%{translate:0 155px;scale:1 0.6026;animation-timing-function:cubic-bezier(0.2,0.85,0.3,1)}
+  85.71%,100%{translate:0 0;scale:1 1}
+}
+/* ④ et SEULEMENT LÀ, les deux barres. Elles APPARAISSENT couchées
+      dans le fût — le palier à 0 % les tient absentes et le pas
+      (`steps(1)`) les allume net, sans fondu —, puis chacune S'OUVRE
+      AUTOUR DE SON BOUT : celle du haut pivote par le haut, celle du
+      bas par le bas. Rotation et translation ensemble : c'est ce qui
+      garde leur pied sur le fût pendant tout le trajet. */
+@keyframes cho-kbras{
+  0%{translate:-260px 0px;rotate:-46.47deg;opacity:0;animation-timing-function:steps(1)}
+  85.71%{translate:-260px 0px;rotate:-46.47deg;opacity:1;animation-timing-function:cubic-bezier(0.3,0.8,0.3,1)}
+  97.14%,100%{translate:0 0;rotate:0deg;opacity:1}
+}
+@keyframes cho-kjambe{
+  0%{translate:-280px -31.58px;rotate:39.17deg;opacity:0;animation-timing-function:steps(1)}
+  87.14%{translate:-280px -31.58px;rotate:39.17deg;opacity:1;animation-timing-function:cubic-bezier(0.3,0.8,0.3,1)}
+  100%{translate:0 0;rotate:0deg;opacity:1}
+}
+/* et les quatre filets, qui constatent que les quatre mots sont là. */
+@keyframes cho-rules{
+  0%,92.86%{opacity:0;animation-timing-function:linear}
+  100%{opacity:1}
+}
+
+@keyframes ret-e1{
+  0%,77.86%{translate:0 0;scale:1;animation-timing-function:cubic-bezier(0.8,0,0.5,1)}
+  100%{translate:-142.5px -420px;scale:0.25}
+}
+@keyframes ret-orb{
+  0%,77.86%{rotate:0deg;animation-timing-function:cubic-bezier(0.7,0,0.45,1)}
+  100%{rotate:180deg}
+}
+@keyframes ret-k{
+  0%,71.43%{translate:0 0;scale:1 1;animation-timing-function:cubic-bezier(0.7,0,0.8,0.15)}
+  77.86%{translate:0 155px;scale:1 0.6026;animation-timing-function:cubic-bezier(0.6,0,0.4,1)}
+  90.17%{translate:72.5px 155px;scale:1 0.6026;animation-timing-function:cubic-bezier(0.6,0,0.6,1)}
+  100%{translate:35px 155px;scale:1 0.6026}
+}
+@keyframes ret-kbras{
+  0%,60%{translate:0 0;rotate:0deg;opacity:1;animation-timing-function:cubic-bezier(0.7,0,0.7,0.2)}
+  71.43%{translate:-260px 0px;rotate:-46.47deg;opacity:1;animation-timing-function:steps(1,jump-start)}
+  100%{translate:-260px 0px;rotate:-46.47deg;opacity:0}
+}
+@keyframes ret-kjambe{
+  0%,57.14%{translate:0 0;rotate:0deg;opacity:1;animation-timing-function:cubic-bezier(0.7,0,0.7,0.2)}
+  70%{translate:-280px -31.58px;rotate:39.17deg;opacity:1;animation-timing-function:steps(1,jump-start)}
+  100%{translate:-280px -31.58px;rotate:39.17deg;opacity:0}
+}
+/* les filets s'effacent D'EMBLÉE : dès la première étape repliée, ils
+   ne surmontent plus quatre mots. */
+@keyframes ret-rules{
+  0%{opacity:1;animation-timing-function:linear}
+  7.14%,100%{opacity:0}
+}
+
+
+.lg-ghost path{fill:none;stroke:currentColor;opacity:0;transition:opacity .4s}
+.lg-rules{opacity:0}
+.lg-rule{stroke:var(--gold);stroke-width:9;stroke-linecap:round}
+
+.logo-bouton:hover svg.logo:not(.logo--revele),
+.logo-bouton:focus-visible svg.logo:not(.logo--revele){--u1:var(--ouv-eveil,1);--u2:var(--ouv-eveil,1);--u3:var(--ouv-eveil,1)}
+.logo-bouton:hover svg.logo:not(.logo--revele) .lg-ghost path,
+.logo-bouton:focus-visible svg.logo:not(.logo--revele) .lg-ghost path{opacity:var(--lg-fantome, .42)}
+svg.logo.logo--revele{--u1:0;--u2:0;--u3:0;animation:ouverture var(--cho) forwards}
+.logo--revele .lg-ghost path{opacity:0}
+
+/* le RETOUR au repos. Chrome ne déclenche pas de transition quand on RETIRE
+   une animation : sans ça, « geek » redeviendrait « gie » d'un coup sec. On ne
+   retire donc pas l'animation, on en JOUE UNE AUTRE — `fermeture`, qui rejoue
+   les mêmes étapes dans l'ordre 1-2-4-3 et finit exactement sur l'état de
+   repos. `forwards` l'y laisse : la classe peut être ôtée ensuite sans le
+   moindre saut. */
+svg.logo.logo--retour{animation:fermeture var(--cho) forwards}
+
+@media (prefers-reduced-motion:reduce){
+  /* pas de trajet : l'état d'arrivée, tout de suite. Le logo dit la même
+     chose, il la dit sans bouger. Tous les tracés de la chorégraphie sont
+     bakés À L'ARRIVÉE : la dernière image des @keyframes est la
+     transformation neutre, il n'y a donc rien de plus à écrire. Le lecteur pas
+     à pas ne s'affiche pas non plus — il n'y a plus de trajet à parcourir.
+     UN SEUL LEVIER : --cho. Toutes les animations tirent leur durée de lui,
+     y compris `ouverture` et `fermeture`. Poser en plus un
+     `animation-duration:1ms` serait redondant ET nuisible : le réglage
+     explicite « animation complète » (src/styles/base.css, hors repères) rend sa
+     valeur à --cho mais ne pourrait pas défaire une durée écrite en dur — le
+     mot s'écarterait d'un coup pendant que l'orbite prendrait ses 3,5 s. */
+  svg.logo{--cho:1ms}
+  svg.logo,.lg-cho{transition:none}
+  .lg-ghost path{transition-duration:.12s}
+}
+
+/* logo:fin */
+
+/* ── Réglage explicite d'animation ──────────────────────────────────────
+   `data-animation` est posé sur <html> par src/app/reglages.js. Il doit
+   primer sur la préférence système DANS LES DEUX SENS : on peut vouloir
+   l'animation malgré un OS réglé en « réduit », et l'inverse. Sans ces
+   règles l'attribut n'était écouté par aucun sélecteur — le bouton du
+   panneau de réglages ne faisait rien.
+   Un seul levier suffit : `--cho`. Toutes les animations du logo tirent leur
+   durée de lui — c'est ce qui permet à ces règles-ci de le remettre à sa
+   valeur nominale sans avoir à défaire une durée écrite en dur.
+   Hors des repères `logo:*` : le générateur ne doit pas les écraser. */
+html[data-animation="reduite"] svg.logo{--cho:1ms}
+html[data-animation="reduite"] svg.logo,
+html[data-animation="reduite"] .lg-cho{transition:none}
+/* les filets, eux, ne sont plus une transition mais une @keyframes calée sur
+   l'étape ④ : --cho les emporte déjà. */
+html[data-animation="reduite"] .lg-ghost path{transition-duration:.12s}
+
+@media (prefers-reduced-motion:reduce){
+  /* l'utilisateur a demandé explicitement l'animation complète : on rétablit
+     les valeurs nominales que le bloc généré vient de neutraliser. */
+  html[data-animation="complete"] svg.logo{--cho:3500ms;
+    transition:--u1 .55s cubic-bezier(.2,.8,.2,1),--u2 .55s cubic-bezier(.2,.8,.2,1),
+               --u3 .55s cubic-bezier(.2,.8,.2,1)}
+  html[data-animation="complete"] .lg-cho{transition:revert}
+}
+
+/* ── Le lecteur du logo ────────────────────────────────────────────────
+   Le logo se déroule avec le MÊME lecteur que les démonstrations : début ·
+   précédent · lecture/pause · suivant · fin, plus la jauge — quatre segments,
+   un par étape. Il ne s'affiche qu'après le clic qui révèle le logo, il
+   n'encombre donc jamais la page d'accueil ; et pas du tout en mouvement
+   réduit, où il n'y a plus de trajet à parcourir. */
+.logo-bloc { display: block; }
+.logo-bloc__lecteur {
+  max-width: 32rem;
+  margin: 0 auto;
+  /* La barre POUSSE le contenu au lieu de le recouvrir : la mise en page ne
+     doit pas sauter, mais un panneau flottant sur un titre est pire. */
+  animation: logo-lecteur-entree var(--t-court, .18s) ease-out both;
+}
+@media (min-width: 480px) { .logo-bloc__lecteur { max-width: 50rem; } }
+@keyframes logo-lecteur-entree { from { opacity: 0; translate: 0 -6px; } }
+@media (prefers-reduced-motion: reduce) {
+  .logo-bloc__lecteur { animation-duration: 1ms; }
+}
+.logo-bloc__lecteur .transport-groupe { margin-top: var(--e2); }
+
+
+/* une fois la blague découverte, l’éveil par défaut est un peu plus marqué */
+:root[data-logo-vu="1"] svg.logo { --lg-fantome: .55; }
+
+/* La boîte du logo est plus large que le mot : elle contient AUSSI la réserve
+   latérale dans laquelle le texte s'écarte à la révélation (le mot compact en
+   occupe 70,3 % — « geek » révélé, c'est quatre lettres côte à côte là où le
+   repos n'en montre que trois). Les largeurs sont donc majorées d'autant pour
+   que le mot lu garde sa taille optique. */
+.logo-titre { display: block; margin: 0 auto; max-width: 32rem; }
+@media (min-width: 480px) { .logo-titre { max-width: 50rem; } }
+
+.logo-entete { width: 280px; flex: none; }
+.logo-entete svg.logo { color: var(--fg-2); }
+.logo-entete:hover svg.logo { color: var(--fg); }

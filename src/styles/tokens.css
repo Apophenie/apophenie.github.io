@@ -1,0 +1,112 @@
+/* NumHeroLOLgeek — jetons de thème
+   Palette et échelles de research/design.md §2.3 et §2.4.
+   Thème sombre par défaut (CONTRACTS §0.4), thème clair sur préférence système
+   ou sur choix explicite persisté (attribut data-theme sur <html>). */
+
+:root {
+  color-scheme: dark;
+
+  /* — Nuit d'encre (défaut) — */
+  --canvas:    #0B0E14;
+  --surface:   #141A26;
+  --raised:    #1E2634;
+  --line:      #2C3546;
+  --line-ui:   #5E6C86;
+  --fg:        #EFE6D4;
+  --fg-2:      #B9AF9B;
+  --fg-3:      #8E8575;
+  --rubric:    #F0574B;
+  --rubric-hi: #FF6F62;
+  --phos:      #5BE3A6;
+  --gold:      #E3B341;
+  --sur-rubric: #0B0E14;   /* texte posé sur un aplat de rubrique */
+  --sur-gold:   #0B0E14;
+  --grain:      .05;
+  --halo:      0 0 0 1px var(--line-ui), 0 0 24px -8px rgba(227, 179, 65, .55);
+
+  /* — Typographie — */
+  /* Deux familles pour tout le site, alignées sur le logo. `--oracle` et
+     `--pedagogue` désignent la MÊME police : ce ne sont plus deux caractères
+     mais deux VOIX de Jost, que la graisse et l'espacement séparent (voir
+     base.css). Les deux noms restent — ils disent l'intention à l'endroit où
+     ils sont écrits, et rien n'interdit qu'ils divergent de nouveau un jour. */
+  --oracle:   "Jost", Futura, "Century Gothic", "Avenir Next", system-ui, sans-serif;
+  --pedagogue:"Jost", Futura, "Century Gothic", "Avenir Next", system-ui, sans-serif;
+  --machine:  "JetBrains Mono", ui-monospace, "DejaVu Sans Mono", "Courier New", monospace;
+
+  --fs-2xs: .75rem;
+  --fs-xs:  .8125rem;
+  --fs-sm:  .9375rem;
+  --fs-base: 1rem;
+  --fs-md:  1.125rem;
+  --fs-lg:  clamp(1.25rem, 1.1rem + .6vw, 1.5rem);
+  --fs-xl:  clamp(1.5rem, 1.2rem + 1.4vw, 2.125rem);
+  --fs-2xl: clamp(2rem, 1.4rem + 2.6vw, 3.25rem);
+  --fs-3xl: clamp(3rem, 1.6rem + 6vw, 6rem);
+
+  --lh-affichage: 1.1;
+  --lh-corps: 1.55;
+  --lh-mono: 1.4;
+  --mesure: 62ch;
+
+  /* — Espace : base 6, parce que 6 — */
+  --e1: 6px;   --e2: 12px;  --e3: 18px;  --e4: 24px;  --e5: 36px;
+  --e6: 48px;  --e7: 66px;  --e8: 96px;  --e9: 144px;
+
+  /* — Traits et rayons — */
+  --rule: 1px;
+  --rule-strong: 2px;
+  --r-champ: 2px;
+  --touche: 48px;          /* cible tactile minimale */
+
+  /* — Durées (CONTRACTS §0.4) — */
+  --t-court: 160ms;
+  --t-moyen: 320ms;
+  --t-long: 700ms;
+}
+
+/* Thème clair « Parchemin » — sur préférence système, sauf choix explicite inverse */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="sombre"]) {
+    color-scheme: light;
+    --canvas:    #F2EADA;
+    --surface:   #FBF6EA;
+    --raised:    #FFFFFF;
+    --line:      #D8CBB2;
+    --line-ui:   #8E806A;
+    --fg:        #1A1610;
+    --fg-2:      #4A4234;
+    --fg-3:      #6B6151;
+    --rubric:    #A32218;
+    --rubric-hi: #8C1D14;
+    --phos:      #0B6B52;
+    --gold:      #7A5510;
+    --sur-rubric: #FBF6EA;
+    --sur-gold:   #FBF6EA;
+    --grain:      .035;
+    --halo:      0 0 0 1px var(--line-ui), 6px 6px 0 -1px rgba(26, 22, 16, .18);
+  }
+}
+
+/* Choix explicite : il gagne toujours */
+:root[data-theme="clair"] {
+  color-scheme: light;
+  --canvas:    #F2EADA;
+  --surface:   #FBF6EA;
+  --raised:    #FFFFFF;
+  --line:      #D8CBB2;
+  --line-ui:   #8E806A;
+  --fg:        #1A1610;
+  --fg-2:      #4A4234;
+  --fg-3:      #6B6151;
+  --rubric:    #A32218;
+  --rubric-hi: #8C1D14;
+  --phos:      #0B6B52;
+  --gold:      #7A5510;
+  --sur-rubric: #FBF6EA;
+  --sur-gold:   #FBF6EA;
+  --grain:      .035;
+  --halo:      0 0 0 1px var(--line-ui), 6px 6px 0 -1px rgba(26, 22, 16, .18);
+}
+
+:root[data-theme="sombre"] { color-scheme: dark; }

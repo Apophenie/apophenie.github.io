@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Numérologie — la vérité derrière n’importe quoi</title>
+<meta name="description" content="L’art de la numérologie, enfin accessible au plus grand nombre. Tout mène à 666. Démonstration animée à l’appui.">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0B0E14">
+
+<!-- Carte de partage : GÉNÉRIQUE ET UNIQUE, et c'est une contrainte, pas un choix.
+     Le fragment d'URL (#approche#b58) n'est jamais envoyé au serveur : aucun robot
+     d'aperçu n'en voit la trace. En hébergement statique sans build, une carte par
+     démonstration est impossible. La personnalisation vit dans le bouton « Partager ». -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:site_name" content="Numérologie">
+<meta property="og:title" content="La vérité derrière n’importe quoi.">
+<meta property="og:description" content="L’art de la numérologie, enfin accessible au plus grand nombre. Tout mène à 666. Démonstration animée à l’appui.">
+<meta property="og:image" content="og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Le mot Numérologie dévoilant Num Hero LOL geek, au-dessus du nombre 666.">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<link rel="preload" as="font" type="font/woff2" href="fonts/jost-var.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="fonts/jetbrains-mono-var.woff2" crossorigin>
+
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/pages.css">
+<link rel="stylesheet" href="styles/controls.css">
+
+<script>
+/* Pose le thème et la langue avant le premier rendu : sinon on voit le parchemin
+   clignoter avant la nuit d'encre, et le document s'annonce en français à une
+   synthèse vocale anglaise. Dix lignes, sans dépendance, volontairement inline.
+   Contrat du thème : 'clair' ou 'sombre' = choix explicite, ABSENCE de clé =
+   « auto », c'est-à-dire suivre `prefers-color-scheme` — les trois états du
+   sélecteur tiennent dans ces deux valeurs plus le vide. */
+try {
+  var t = localStorage.getItem('nhlg.theme');
+  if (t === 'clair' || t === 'sombre') document.documentElement.setAttribute('data-theme', t);
+  var l = localStorage.getItem('nhlg.langue');
+  if (l !== 'fr' && l !== 'en') {
+    l = (navigator.languages || [navigator.language || 'fr'])
+      .map(function (x) { return String(x).toLowerCase().split('-')[0]; })
+      .filter(function (x) { return x === 'fr' || x === 'en'; })[0] || 'fr';
+  }
+  document.documentElement.setAttribute('lang', l);
+  if (localStorage.getItem('nhlg.logo-vu') === '1') document.documentElement.setAttribute('data-logo-vu', '1');
+} catch (e) {}
+</script>
+</head>
+
+<body>
+<a class="evitement" href="#app" data-i18n="global.allerAuContenu">Aller au contenu</a>
+
+<!-- Le grain : un seul filtre SVG, zéro image. -->
+<svg class="grain" aria-hidden="true" focusable="false">
+  <filter id="grain-filtre">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" stitchTiles="stitch"/>
+    <feColorMatrix type="saturate" values="0"/>
+  </filter>
+  <rect width="100%" height="100%" filter="url(#grain-filtre)"/>
+</svg>
+
+<div id="entete"></div>
+
+<main id="app">
+  <!-- Page d'accueil, écrite en dur : sans JavaScript, elle reste lisible et le
+       logo reste le titre de niveau 1. Le routeur la reconstruit à l'identique. -->
+  <div class="accueil">
+    <div class="accueil__reglages"></div>
+    <h1>
+      <button class="logo-bouton" type="button" aria-expanded="false" aria-describedby="logo-aide">
+      <!-- Le tracé ci-dessous est PRODUIT par
+           `.planning/research/proto/logo-jost-trace.py --site`, depuis la même source que le
+           banc d'essai `_logo-test.html`. Ne rien éditer à la main entre les deux repères. -->
+      <!-- logo:début -->
+      <svg class="logo logo-titre" viewBox="0 0 7975 1250" role="img" aria-labelledby="logo-t logo-d" xmlns="http://www.w3.org/2000/svg" focusable="false">
+      <title id="logo-t">Numérologie</title>
+      <desc id="logo-d">Le mot « Numérologie », dans lequel se cachent les mots « Num Hero LOL geek ».</desc>
+      <g class="lg-base">
+      <g class="lg-mov" style="--a:402.5;--b:395;--c:347.5">
+      <path class="lg-g" data-fente="1" data-grp="num" d="M650 200V721L120 165V900H205V379L735 935V200Z"/>
+      <path class="lg-g" data-fente="2" data-grp="num" d="M970 720V440H890V730Q890 812 933 861Q976 910 1048 910Q1094 910 1128 889.5Q1162 869 1185 828V900H1265V440H1185V720Q1185 754 1170.5 780Q1156 806 1129.5 820.5Q1103 835 1068 835Q1020 835 995 805Q970 775 970 720Z"/>
+      <path class="lg-g" data-fente="3" data-grp="num" d="M2045 610Q2045 553 2027.5 512.5Q2010 472 1977 451Q1944 430 1897 430Q1851 430 1815 451.5Q1779 473 1755 516Q1739 475 1704.5 452.5Q1670 430 1622 430Q1579 430 1547.5 449Q1516 468 1495 507V440H1415V900H1495V620Q1495 584 1508 558Q1521 532 1545 518.5Q1569 505 1602 505Q1647 505 1668.5 533Q1690 561 1690 620V900H1770V620Q1770 584 1783 558Q1796 532 1820 518.5Q1844 505 1877 505Q1922 505 1943.5 533Q1965 561 1965 620V900H2045Z"/>
+      </g>
+      <path class="lg-g lg-mob lg-h" data-fente="5" data-grp="hero" style="--a:-64.5;--b:395;--c:347.5;--dy:-220;--k:0.34;--deg:60deg" d="M2555 120H2475V900H2555ZM2770 620V900H2850V610Q2850 550 2830.5 510Q2811 470 2775.5 450Q2740 430 2692 430Q2644 430 2607.5 455Q2571 480 2550 522.5Q2529 565 2529 620H2555Q2555 587 2569.5 561Q2584 535 2610.5 520Q2637 505 2672 505Q2721 505 2745.5 534Q2770 563 2770 620Z"/>
+      <g class="lg-mov" style="--a:-402.5;--b:395;--c:347.5">
+      <path class="lg-g" data-fente="6" data-grp="hero" d="M3178 910Q3252 910 3306.5 880.5Q3361 851 3397 793L3332 752Q3307 794 3271 814.5Q3235 835 3188 835Q3141 835 3108 815Q3075 795 3058 757Q3041 719 3041 665Q3042 612 3059.5 575.5Q3077 539 3109.5 519.5Q3142 500 3188 500Q3227 500 3256 517Q3285 534 3301.5 564Q3318 594 3318 635Q3318 642 3315 652.5Q3312 663 3309 668L3341 622H3011V690H3404Q3404 688 3404.5 680.5Q3405 673 3405 666Q3405 593 3379 540Q3353 487 3304.5 458.5Q3256 430 3188 430Q3120 430 3068.5 460Q3017 490 2988.5 544Q2960 598 2960 670Q2960 741 2987.5 795Q3015 849 3064.5 879.5Q3114 910 3178 910Z"/>
+      <path class="lg-g" data-fente="7" data-grp="hero" d="M3595 440H3515V900H3595ZM3734 528 3778 462Q3760 443 3738.5 436.5Q3717 430 3692 430Q3660 430 3629 455Q3598 480 3578.5 522.5Q3559 565 3559 620H3595Q3595 587 3601.5 561Q3608 535 3625 520Q3642 505 3672 505Q3692 505 3705 510.5Q3718 516 3734 528Z"/>
+      <path class="lg-g" data-fente="8" data-grp="hero" d="M3818 670Q3818 739 3849.5 793.5Q3881 848 3935 879Q3989 910 4056 910Q4124 910 4177.5 879Q4231 848 4262.5 793.5Q4294 739 4294 670Q4294 600 4262.5 546Q4231 492 4177.5 461Q4124 430 4056 430Q3989 430 3935 461Q3881 492 3849.5 546Q3818 600 3818 670ZM3899 670Q3899 622 3919.5 584.5Q3940 547 3975.5 526Q4011 505 4056 505Q4101 505 4136.5 526Q4172 547 4192.5 584.5Q4213 622 4213 670Q4213 718 4192.5 755Q4172 792 4136.5 813.5Q4101 835 4056 835Q4011 835 3975.5 813.5Q3940 792 3919.5 755Q3899 718 3899 670Z"/>
+      </g>
+      <g class="lg-mov" style="--a:-402.5;--b:115;--c:347.5">
+      <path class="lg-g" data-fente="10" data-grp="lol" d="M4684 120V900H4764V120Z"/>
+      <path class="lg-g" data-fente="11" data-grp="lol" d="M4874 670Q4874 739 4905.5 793.5Q4937 848 4991 879Q5045 910 5112 910Q5180 910 5233.5 879Q5287 848 5318.5 793.5Q5350 739 5350 670Q5350 600 5318.5 546Q5287 492 5233.5 461Q5180 430 5112 430Q5045 430 4991 461Q4937 492 4905.5 546Q4874 600 4874 670ZM4955 670Q4955 622 4975.5 584.5Q4996 547 5031.5 526Q5067 505 5112 505Q5157 505 5192.5 526Q5228 547 5248.5 584.5Q5269 622 5269 670Q5269 718 5248.5 755Q5228 792 5192.5 813.5Q5157 835 5112 835Q5067 835 5031.5 813.5Q4996 792 4975.5 755Q4955 718 4955 670Z"/>
+      </g>
+      <path class="lg-g lg-mob lg-L" data-fente="12" data-grp="lol" style="--a:-402.5;--b:0;--c:347.5;--dy:-230;--k:0.31;--deg:60deg" d="M5460 120V900H5540V120Z"/>
+      <g class="lg-mov" style="--a:-402.5;--b:-395;--c:347.5">
+      <path class="lg-g" data-fente="14" data-grp="geek" d="M5939 930Q5939 989 5968 1034.5Q5997 1080 6048.5 1105Q6100 1130 6167 1130Q6225 1130 6277 1103Q6329 1076 6362 1022.5Q6395 969 6395 890V440H6315V890Q6315 948 6292.5 984.5Q6270 1021 6236 1038Q6202 1055 6167 1055Q6122 1055 6089 1037.5Q6056 1020 6038 991.5Q6020 963 6020 930ZM5930 670Q5930 744 5961 798Q5992 852 6044 881Q6096 910 6158 910Q6216 910 6259 881Q6302 852 6326.5 798Q6351 744 6351 670Q6351 595 6326.5 541.5Q6302 488 6259 459Q6216 430 6158 430Q6096 430 6044 459Q5992 488 5961 541.5Q5930 595 5930 670ZM6011 670Q6011 617 6032.5 580Q6054 543 6090 524Q6126 505 6168 505Q6194 505 6220 516Q6246 527 6267.5 548Q6289 569 6302 599.5Q6315 630 6315 670Q6315 723 6293 760Q6271 797 6237 816Q6203 835 6168 835Q6126 835 6090 816Q6054 797 6032.5 760Q6011 723 6011 670Z"/>
+      <path class="lg-g lg-cho lg-e1" data-fente="15" data-grp="geek" style="transform-origin:6722.5px 670px" d="M6718 910Q6792 910 6846.5 880.5Q6901 851 6937 793L6872 752Q6847 794 6811 814.5Q6775 835 6728 835Q6681 835 6648 815Q6615 795 6598 757Q6581 719 6581 665Q6582 612 6599.5 575.5Q6617 539 6649.5 519.5Q6682 500 6728 500Q6767 500 6796 517Q6825 534 6841.5 564Q6858 594 6858 635Q6858 642 6855 652.5Q6852 663 6849 668L6881 622H6551V690H6944Q6944 688 6944.5 680.5Q6945 673 6945 666Q6945 593 6919 540Q6893 487 6844.5 458.5Q6796 430 6728 430Q6660 430 6608.5 460Q6557 490 6528.5 544Q6500 598 6500 670Q6500 741 6527.5 795Q6555 849 6604.5 879.5Q6654 910 6718 910Z"/>
+      <path class="lg-g lg-cho lg-e2" data-fente="16" data-grp="geek" d="M7233 910Q7307 910 7361.5 880.5Q7416 851 7452 793L7387 752Q7362 794 7326 814.5Q7290 835 7243 835Q7196 835 7163 815Q7130 795 7113 757Q7096 719 7096 665Q7097 612 7114.5 575.5Q7132 539 7164.5 519.5Q7197 500 7243 500Q7282 500 7311 517Q7340 534 7356.5 564Q7373 594 7373 635Q7373 642 7370 652.5Q7367 663 7364 668L7396 622H7066V690H7459Q7459 688 7459.5 680.5Q7460 673 7460 666Q7460 593 7434 540Q7408 487 7359.5 458.5Q7311 430 7243 430Q7175 430 7123.5 460Q7072 490 7043.5 544Q7015 598 7015 670Q7015 741 7042.5 795Q7070 849 7119.5 879.5Q7169 910 7233 910Z"/>
+      <g class="lg-cho lg-korb">
+      <g class="lg-cho lg-orb" style="transform-origin:7237.5px 665px">
+      <g class="lg-cho lg-k" style="transform-origin:7605px 510px">
+      <path class="lg-g lg-kfut" data-fente="16" data-grp="geek" d="M7565 120L7565 900L7645 900L7645 120Z"/>
+      <path class="lg-g lg-cho lg-kbras" data-fente="16" data-grp="geek" style="transform-origin:7865px 440px" d="M7715 630L7915 440L7815 440L7615 630Z"/>
+      <path class="lg-g lg-cho lg-kjambe" data-fente="16" data-grp="geek" style="transform-origin:7885px 900px" d="M7615 630L7835 900L7935 900L7715 630Z"/>
+      </g>
+      </g>
+      </g>
+      </g>
+      </g>
+      <g class="lg-ghost">
+      <path data-grp="hero" style="stroke-width:4" d="M3278.4 157.4H3251.2V422.6H3278.4ZM3351.6 327.4V422.6H3378.8V324Q3378.8 303.6 3372.1 290Q3365.5 276.4 3353.4 269.6Q3341.3 262.8 3325 262.8Q3308.7 262.8 3296.3 271.3Q3283.9 279.8 3276.8 294.2Q3269.6 308.7 3269.6 327.4H3278.4Q3278.4 316.2 3283.4 307.3Q3288.3 298.5 3297.3 293.4Q3306.3 288.3 3318.2 288.3Q3334.9 288.3 3343.2 298.2Q3351.6 308 3351.6 327.4Z"/>
+      <path data-grp="lol" style="stroke-width:4" d="M5432.6 159.1V400.9H5457.4V159.1Z"/>
+      <path data-grp="geek" style="stroke-width:4" d="M6128.1 350.8Q6159.2 350.8 6182.1 338.4Q6205 326 6220.1 301.7L6192.8 284.4Q6182.3 302.1 6167.2 310.7Q6152.1 319.3 6132.3 319.3Q6112.6 319.3 6098.7 310.9Q6084.9 302.5 6077.7 286.5Q6070.6 270.6 6070.6 247.9Q6071 225.6 6078.3 210.3Q6085.7 195 6099.3 186.8Q6113 178.6 6132.3 178.6Q6148.7 178.6 6160.9 185.7Q6173.1 192.9 6180 205.5Q6186.9 218.1 6186.9 235.3Q6186.9 238.2 6185.7 242.7Q6184.4 247.1 6183.1 249.2L6196.6 229.8H6058V258.4H6223Q6223 257.6 6223.2 254.4Q6223.5 251.3 6223.5 248.3Q6223.5 217.7 6212.5 195.4Q6201.6 173.1 6181.2 161.2Q6160.9 149.2 6132.3 149.2Q6103.8 149.2 6082.1 161.8Q6060.5 174.4 6048.5 197.1Q6036.6 219.8 6036.6 250Q6036.6 279.8 6048.1 302.5Q6059.7 325.2 6080.4 338Q6101.2 350.8 6128.1 350.8Z"/>
+      <path data-grp="geek" style="stroke-width:5.4" d="M6090 430V900H6138.2V430ZM6240.6 622.8 6120.1 737.3 6252.7 900H6312.9L6180.4 737.3L6300.9 622.8Z"/>
+      </g>
+      <g class="lg-rules">
+      <line class="lg-rule" data-grp="num" x1="40" y1="1180" x2="2120" y2="1180"/>
+      <line class="lg-rule" data-grp="hero" x1="2400" y1="1180" x2="4329" y2="1180"/>
+      <line class="lg-rule" data-grp="lol" x1="4609" y1="1180" x2="5615" y2="1180"/>
+      <line class="lg-rule" data-grp="geek" x1="5895" y1="1180" x2="7935" y2="1180"/>
+      </g>
+      </svg>
+      <!-- logo:fin -->
+      </button>
+      <span class="visuellement-cachee" data-i18n="global.logoTexte">Numérologie — Num Hero LOL geek</span>
+      <span class="visuellement-cachee" id="logo-aide" data-i18n="global.logoAide">Activer pour révéler ce que le mot dissimule.</span>
+    </h1>
+
+    <p class="accueil__baseline">L’art de la numérologie, enfin accessible au plus grand nombre !</p>
+    <div class="accueil__filet" role="presentation"></div>
+
+    <form class="champ-groupe" novalidate>
+      <label for="saisie">De quel contenu voulez-vous révéler les arcanes ?</label>
+      <div class="champ-boite">
+        <input id="saisie" class="champ" type="text" name="saisie" autocomplete="off"
+               autocapitalize="off" spellcheck="false" maxlength="500"
+               placeholder="un mot, une phrase, une adresse…" aria-describedby="aide-saisie">
+        <span class="compteur" id="compteur-saisie" hidden aria-hidden="true"></span>
+      </div>
+      <button class="bouton-primaire" type="submit">Révéler</button>
+      <p class="message-erreur" id="erreur-saisie" role="alert"></p>
+      <p class="legende" id="aide-saisie">Jusqu’à 500 signes. Tout est calculé dans votre navigateur.</p>
+    </form>
+
+    <noscript>
+      <p class="bandeau" style="margin-top:24px">
+        <span class="bandeau__marque" aria-hidden="true">△</span>
+        <span>La démonstration est entièrement calculée dans votre navigateur : elle a besoin
+        de JavaScript. Sans lui, cette page reste lisible, mais rien ne sera révélé.</span>
+      </p>
+    </noscript>
+
+    <div class="accueil__mentions">
+      <p>Tout est calculé dans votre navigateur : rien n’est envoyé nulle part.</p>
+      <p>Ceci est une parodie. La numérologie ne prédit rien. Le code, si.</p>
+    </div>
+  </div>
+</main>
+
+<footer class="pied">
+  <!-- Le routeur ne reconstruit jamais le pied de page : c'est `data-i18n-html`
+       qui le retraduit (le texte porte des <em> et un lien de licence). -->
+  <p data-i18n-html="pied.polices">Composé en <em>Jost*</em>&#8239;— celui-là même sur lequel le logo est
+     tracé&#8239;— et en <em>JetBrains Mono</em>. Deux caractères sous licence
+     <a href="fonts/OFL-Jost.txt">SIL OFL 1.1</a>, hébergés ici même.</p>
+  <p data-i18n="pied.silence">Aucun cookie, aucune mesure d’audience, aucun appel réseau après le chargement.</p>
+</footer>
+
+<script type="module" src="app/main.js"></script>
+</body>
+</html>

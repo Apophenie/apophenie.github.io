@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<title>Proto — scrubbing WAAPI multi-segments</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 1rem; }
+  svg { border: 1px solid #ccc; width: 100%; height: auto; }
+  text { font: 24px monospace; }
+  #log { white-space: pre; font: 12px monospace; background: #111; color: #0f0; padding: .5rem; }
+</style>
+
+<svg id="stage" viewBox="0 0 400 120" role="img" aria-label="proto">
+  <g id="tokens">
+    <text id="t0" x="20" y="60">H</text>
+    <text id="t1" x="60" y="60">O</text>
+    <text id="t2" x="100" y="60">P</text>
+    <text id="t3" x="140" y="60">E</text>
+  </g>
+</svg>
+
+<div>
+  <button id="start">Début</button>
+  <button id="prev">Précédent</button>
+  <button id="pp">Play</button>
+  <button id="next">Suivant</button>
+  <span id="state"></span>
+</div>
+<div id="log"></div>
+
+<script type="module">
+// ---------------------------------------------------------------------------
+// Modèle : une timeline globale composée de segments (steps).
+// Chaque animation enfant est créée avec delay = t0 du segment, fill: 'both'.
+// seek(t) = pour chaque anim : anim.currentTime = t  (le delay + fill fait le reste)
+// ---------------------------------------------------------------------------
+const log = (...a) => document.getElementById('log').textContent += a.join(' ') + '\n';
+
+const STEPS = [
+  { id: 'highlight', dur: 800 },
+  { id: 'moveRight', dur: 1000 },
+  { id: 'rotate',    dur: 600 },
+];
+// bornes cumulées
+const bounds = [0];
+for (const s of STEPS) bounds.push(bounds.at(-1) + s.dur);
+const TOTAL = bounds.at(-1);
+
+const anims = [];
+function add(el, keyframes, timing) {
+  // fill:'forwards' et NON 'both' : avec 'both' une anim tardive rétro-remplit
+  // sa keyframe de départ et écrase les anims antérieures sur la même propriété.
+  const a = el.animate(keyframes, { fill: 'forwards', easing: 'ease-in-out', ...timing });
+  a.pause();
+  a.persist();           // <-- critique : empêche la suppression auto (replaceState)
+  anims.push(a);
+  return a;
+}
+
+const T = i => document.getElementById('t' + i);
+for (const el of document.querySelectorAll('text')) el.style.transformBox = 'fill-box';
+for (const el of document.querySelectorAll('text')) el.style.transformOrigin = 'center';
+
+// step 0 : highlight (fill)
+[0,1,2,3].forEach(i => add(T(i), [{ fill: '#000' }, { fill: '#e00' }],
+  { delay: bounds[0], duration: STEPS[0].dur }));
+// step 1 : translation — MEME propriété (transform) que le step 2 -> test de replaceState
+[0,1,2,3].forEach(i => add(T(i), [{ transform: 'translate(0px,0px)' }, { transform: `translate(${(3-i)*20}px, 20px)` }],
+  { delay: bounds[1], duration: STEPS[1].dur }));
+// step 2 : rotation sur les mêmes éléments, même propriété transform
+[0,1,2,3].forEach(i => add(T(i), [{ transform: `translate(${(3-i)*20}px, 20px) rotate(0deg)` }, { transform: `translate(${(3-i)*20}px, 20px) rotate(180deg)` }],
+  { delay: bounds[2], duration: STEPS[2].dur }));
+
+// --- moteur -----------------------------------------------------------------
+let playing = false;
+function seek(t) {
+  t = Math.max(0, Math.min(TOTAL, t));
+  for (const a of anims) a.currentTime = t;
+}
+function currentTime() { return anims[0].currentTime ?? 0; }
+function play() {
+  if (currentTime() >= TOTAL) seek(0);
+  for (const a of anims) a.play();
+  // resynchronisation dure : même startTime pour tous
+  Promise.all(anims.map(a => a.ready)).then(() => {
+    const st = anims[0].startTime;
+    for (const a of anims) a.startTime = st;
+  });
+  playing = true; render();
+}
+function pause() { for (const a of anims) a.pause(); playing = false; render(); }
+
+function stepIndexAt(t) { // index du segment contenant t
+  for (let i = 0; i < STEPS.length; i++) if (t < bounds[i+1]) return i;
+  return STEPS.length - 1;
+}
+const EPS = 1;
+function onHinge(t) { return bounds.some(b => Math.abs(b - t) <= EPS); }
+
+function render() {
+  const t = currentTime();
+  document.getElementById('state').textContent =
+    ` t=${Math.round(t)}/${TOTAL} step=${stepIndexAt(t)+1}/${STEPS.length} ${playing?'▶':'⏸'} ${onHinge(t)?'[charnière]':''}`;
+  document.getElementById('pp').textContent = playing ? 'Pause' : 'Play';
+  document.getElementById('prev').disabled = t <= EPS;
+  document.getElementById('start').disabled = t <= EPS;
+  document.getElementById('next').disabled = t >= TOTAL - EPS;
+  if (playing) requestAnimationFrame(render);
+  if (playing && t >= TOTAL - EPS) { playing = false; }
+}
+
+document.getElementById('start').onclick = () => { pause(); seek(0); render(); };
+document.getElementById('pp').onclick = () => playing ? pause() : play();
+document.getElementById('prev').onclick = () => {
+  pause();
+  const t = currentTime();
+  const i = stepIndexAt(t);
+  const target = (Math.abs(t - bounds[i]) <= EPS) ? bounds[Math.max(0, i-1)] : bounds[i];
+  seek(target); render();
+};
+document.getElementById('next').onclick = () => {
+  pause();
+  const t = currentTime();
+  const i = stepIndexAt(t);
+  const target = (Math.abs(t - bounds[i+1]) <= EPS) ? bounds[Math.min(STEPS.length, i+2)] : bounds[i+1];
+  seek(Math.min(TOTAL, target)); render();
+};
+
+seek(0); render();
+
+// --- harness de test automatique -------------------------------------------
+window.__anims = anims;
+window.__sync = () => {
+  const cts = anims.map(a => a.currentTime), sts = anims.map(a => a.startTime);
+  return { spreadCT: Math.max(...cts) - Math.min(...cts), spreadST: Math.max(...sts) - Math.min(...sts) };
+};
+window.__probe = () => ({
+  total: TOTAL,
+  bounds,
+  t: currentTime(),
+  replaceStates: [...new Set(anims.map(a => a.replaceState))],
+  playStates: [...new Set(anims.map(a => a.playState))],
+  fill0: getComputedStyle(T(0)).fill,
+  transform0: getComputedStyle(T(0)).transform,
+});
+window.__seek = t => { seek(t); render(); return window.__probe(); };
+window.__play = () => { play(); return 'ok'; };
+window.__pause = () => { pause(); return 'ok'; };
+window.__reverseTest = () => { for (const a of anims) a.playbackRate = -1; return anims.map(a=>a.playbackRate)[0]; };
+</script>
+</html>

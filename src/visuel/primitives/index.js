@@ -1,0 +1,50 @@
+/**
+ * Le vocabulaire fermé des ops — CONTRACTS §3.1.
+ *
+ * 17 primitives, une par fichier. Ajouter une transformation arithmétique sans
+ * rendu impose d'**ajouter d'abord la primitive ici**, puis de l'émettre : un
+ * `op` hors de cette table est une erreur de compilation, pas une op ignorée.
+ */
+
+import * as highlight from './highlight.js';
+import * as dim from './dim.js';
+import * as drop from './drop.js';
+import * as substitute from './substitute.js';
+import * as move from './move.js';
+import * as group from './group.js';
+import * as insertOperators from './insertOperators.js';
+import * as sum from './sum.js';
+import * as reduce from './reduce.js';
+import * as flip180 from './flip180.js';
+import * as sevenSeg from './sevenSeg.js';
+import * as countStrokes from './countStrokes.js';
+import * as keyboard from './keyboard.js';
+import * as annotate from './annotate.js';
+import * as pulse from './pulse.js';
+import * as reveal from './reveal.js';
+import * as wait from './wait.js';
+
+import { OP_NAMES } from '../constants.js';
+
+export const PRIMITIVES = Object.freeze({
+  highlight, dim, drop, substitute, move, group, insertOperators,
+  sum, reduce, flip180, sevenSeg, countStrokes, keyboard,
+  annotate, pulse, reveal, wait,
+});
+
+// Garde-fou de chargement : la table des primitives et le vocabulaire déclaré
+// doivent coïncider exactement. Échec bruyant, pas de dégradation silencieuse.
+{
+  const implemented = Object.keys(PRIMITIVES);
+  const missing = OP_NAMES.filter((n) => !implemented.includes(n));
+  const extra = implemented.filter((n) => !OP_NAMES.includes(n));
+  if (missing.length || extra.length) {
+    throw new Error(
+      'moteur visuel : le vocabulaire d\'ops et les primitives implémentées divergent — '
+      + `manquantes : [${missing.join(', ')}], en trop : [${extra.join(', ')}].`,
+    );
+  }
+  for (const [n, mod] of Object.entries(PRIMITIVES)) {
+    if (typeof mod.plan !== 'function') throw new Error(`primitive « ${n} » : « plan(ctx) » manquant.`);
+  }
+}

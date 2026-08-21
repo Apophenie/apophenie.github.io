@@ -1,0 +1,648 @@
+/**
+ * `createPlayer()` — WAAPI + automate de navigation.
+ *
+ * Modèle (recherche §1.3, validé par `proto/waapi-scrub.html`) :
+ * `GroupEffect` n'existe dans aucun navigateur ; on synthétise donc le groupe.
+ * Chaque animation couvre **son propre segment** et est décalée sur la timeline
+ * globale par `delay = t0 du step`. Toutes partagent `document.timeline`, donc
+ * `seek(t)` se réduit à `for (const a of anims) a.currentTime = t`.
+ *
+ * Les deux pièges trouvés par le prototype sont ici des règles absolues :
+ *   • `fill: 'forwards'` et **jamais** `'both'` — avec `'both'`, une animation
+ *     tardive rétro-remplit sa keyframe de départ dès t=0 et, plus récente dans
+ *     l'ordre de composition, écrase les steps antérieurs ;
+ *   • `persist()` sur **chaque** animation — sinon WAAPI supprime les animations
+ *     recouvertes (`replaceState → "removed"`) et le retour arrière casse.
+ *
+ * L'UI est un **pur reflet** de ce lecteur (CONTRACTS §3.3) : elle n'a aucune
+ * logique propre, elle s'abonne à `change`.
+ */
+
+import { EPS, VIEWBOX, PALETTE, CAMERA_ID, MARGIN, FONT_FAMILY } from './constants.js';
+import { compile } from './compile.js';
+import { defaultMetrics, defaultLayoutOptions } from './layout.js';
+import { createElementFor, applyBase, applyProp, applyDiscrete, formatValue, layerOf, el, LAYERS } from './dom.js';
+import { resolveDiscrete, createTicker } from './clock.js';
+import * as nav from './nav.js';
+
+/**
+ * @param {SVGSVGElement} svgRoot
+ * @param {object} scenario
+ * @param {{reducedMotion?:'auto'|'force'|'off', speed?:number, autoplay?:boolean,
+ *          glyphes?:object, palette?:object, viewBox?:object}} [options]
+ */
+export function createPlayer(svgRoot, scenario, options = {}) {
+  return new Player(svgRoot, scenario, options);
+}
+
+class Player {
+  constructor(svgRoot, scenario, options) {
+    if (!svgRoot || typeof svgRoot.appendChild !== 'function') {
+      throw new TypeError('createPlayer : premier argument attendu — l\'élément <svg> racine de la scène.');
+    }
+    this.svg = svgRoot;
+    this.scenario = scenario;
+    this.options = {
+      reducedMotion: 'auto',
+      speed: 1,
+      autoplay: true,
+      ...options,
+    };
+    this.listeners = new Map();
+    this.elements = new Map();
+    this.autoplayConsumed = false;
+    this.fontsReady = false;
+    this.destroyed = false;
+    this._lastStep = -1;
+    this._appliedDiscrete = new Set();
+    this._disposers = [];
+
+    this.viewBox = this.options.viewBox || VIEWBOX;
+    this.metrics = this.options.metrics || defaultMetrics();
+
+    this._prefersReduced = matchReduced();
+    this._hasWaapi = detectWaapi();
+
+    this._prepareRoot();
+    this._buildAll();
+    this._installEnvironment();
+  }
+
+  // -- état ------------------------------------------------------------------
+
+  get total() { return this.timeline ? this.timeline.total : 0; }
+
+  get bounds() { return this.timeline ? this.timeline.bounds : [0]; }
+
+  get steps() { return this.timeline ? this.timeline.steps : []; }
+
+  get warnings() { return this.timeline ? this.timeline.warnings : []; }
+
+  get reduced() { return this.timeline ? this.timeline.reduced : false; }
+
+  get currentTime() { return this.engine ? this.engine.currentTime : 0; }
+
+  get playing() { return this.engine ? this.engine.playing : false; }
+
+  get stepIndex() { return nav.stepIndexAt(this.bounds, this.currentTime); }
+
+  get atStart() { return nav.atStart(this.currentTime); }
+
+  get atEnd() { return nav.atEnd(this.currentTime, this.total); }
+
+  get atHinge() { return nav.atHinge(this.currentTime, this.bounds); }
+
+  get step() { return this.steps[this.stepIndex] || null; }
+
+  /** Instantané destiné à l'UI — un pur reflet, recalculé à chaque `change`. */
+  get state() {
+    return {
+      ...nav.controlsState({ t: this.currentTime, playing: this.playing, bounds: this.bounds, total: this.total }),
+      t: this.currentTime,
+      total: this.total,
+      step: this.step,
+      reduced: this.reduced,
+    };
+  }
+
+  // -- commandes (miroir exact de l'automate, CONTRACTS §3.3) ----------------
+
+  toStart() { return this._apply('toStart'); }
+
+  prev() { return this._apply('prev'); }
+
+  next() { return this._apply('next'); }
+
+  /** Bouton « Fin » — CONTRACTS §0.4 (sans lui, atteindre le 666 demande n clics). */
+  toEnd() { return this._apply('toEnd'); }
+
+  play() { return this._apply('play'); }
+
+  pause() { return this._apply('pause'); }
+
+  seek(ms) { return this._apply('seek', ms); }
+
+  seekToStep(i) { return this._apply('seekToStep', i); }
+
+  _apply(action, arg) {
+    if (this.destroyed) return this;
+    const intent = nav.transition(action, {
+      t: this.currentTime, playing: this.playing, bounds: this.bounds, total: this.total,
+    }, arg);
+    if (intent.noop) return this;
+    if (intent.pause) this.engine.pause();
+    if (intent.seek !== undefined) this.engine.seek(intent.seek);
+    if (intent.play) {
+      this.engine.play();
+      this._ticker.start();
+    }
+    if (intent.pause || (!intent.play && intent.seek !== undefined)) this._ticker.stop();
+    this._render();
+    return this;
+  }
+
+  // -- événements ------------------------------------------------------------
+
+  /** @param {'change'|'stepenter'|'end'|'ready'} name */
+  on(name, cb) {
+    if (!this.listeners.has(name)) this.listeners.set(name, new Set());
+    this.listeners.get(name).add(cb);
+    return () => this.off(name, cb);
+  }
+
+  off(name, cb) {
+    const set = this.listeners.get(name);
+    if (set) set.delete(cb);
+  }
+
+  emit(name, payload) {
+    const set = this.listeners.get(name);
+    if (!set) return;
+    for (const cb of [...set]) {
+      try { cb(payload); } catch (err) { console.error(`[nhl-visuel] écouteur « ${name} » :`, err); }
+    }
+  }
+
+  // -- cycle de vie ----------------------------------------------------------
+
+  /**
+   * Recompile layout et timeline en conservant `t` et `playing`
+   * (redimensionnement, changement de thème, recalibrage de police).
+   */
+  rebuild(patch = {}) {
+    if (this.destroyed) return this;
+    const t = this.currentTime;
+    const wasPlaying = this.playing;
+    Object.assign(this.options, patch);
+    this._teardownScene();
+    this._buildAll();
+    this.engine.seek(Math.min(t, this.total));
+    if (wasPlaying) { this.engine.play(); this._ticker.start(); }
+    this._render();
+    return this;
+  }
+
+  /** Changement de scénario (navigation d'URL) : nouvelle démonstration, autoplay ré-autorisé. */
+  setScenario(scenario) {
+    this.scenario = scenario;
+    this.autoplayConsumed = false;
+    this._teardownScene();
+    this._buildAll();
+    this.engine.seek(0);
+    this._render();
+    this._tryAutoplay();
+    return this;
+  }
+
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    for (const dispose of this._disposers) dispose();
+    this._disposers = [];
+    this._teardownScene();
+    this.listeners.clear();
+  }
+
+  // -- construction ----------------------------------------------------------
+
+  _prepareRoot() {
+    const vb = this.viewBox;
+    this.svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+    this.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    // CONTRACTS §6 : la scène est aria-hidden ; « Le Registre » est l'équivalent
+    // accessible obligatoire et le repli si le moteur visuel échoue.
+    this.svg.setAttribute('aria-hidden', 'true');
+    this.svg.setAttribute('focusable', 'false');
+  }
+
+  _readPalette() {
+    const palette = { ...PALETTE, ...(this.options.palette || {}) };
+    if (typeof getComputedStyle !== 'function') return palette;
+    const cs = getComputedStyle(this.svg);
+    // WAAPI n'interpole pas `var(--gold)` de façon fiable : on résout les
+    // couleurs **à la compilation**, ce qui impose un rebuild au changement de thème.
+    for (const [key, cssVar] of Object.entries({
+      fg: '--fg', fg2: '--fg-2', fg3: '--fg-3', rubric: '--rubric',
+      gold: '--gold', phos: '--phos', line: '--line', raised: '--raised', surface: '--surface',
+    })) {
+      const v = cs.getPropertyValue(cssVar).trim();
+      if (v) palette[key] = v;
+    }
+    return palette;
+  }
+
+  _layoutOptions() {
+    const metrics = this.metrics;
+    const opts = defaultLayoutOptions(metrics, this.viewBox);
+    // Rupture de layout : sous 760 px de large, on passe en plusieurs lignes
+    // plutôt que de laisser rétrécir le texte (recherche §5.2).
+    const px = this.svg.clientWidth || (this.svg.getBoundingClientRect && this.svg.getBoundingClientRect().width) || 0;
+    if (px && px < 760) opts.maxWidth = Math.max(this.viewBox.w * 0.5, this.viewBox.w - 2 * MARGIN) * 0.62;
+    return opts;
+  }
+
+  _buildAll() {
+    const reduced = this.options.reducedMotion === 'force'
+      || (this.options.reducedMotion !== 'off' && (this._prefersReduced || !this._hasWaapi));
+
+    this.timeline = compile(this.scenario, {
+      speed: this.options.speed,
+      reduced,
+      metrics: this.metrics,
+      layoutOpts: this._layoutOptions(),
+      palette: this._readPalette(),
+      glyphes: this.options.glyphes,
+      viewBox: this.viewBox,
+    });
+    for (const w of this.timeline.warnings) console.warn(`[nhl-visuel] ${w}`);
+
+    this._buildDom();
+    this.engine = this._hasWaapi
+      ? new WaapiEngine(this.timeline, this.elements)
+      : new StaticEngine(this.timeline, this.elements);
+    this._ticker = createTicker(() => this._tick());
+    this._lastStep = -1;
+    this.engine.seek(0);
+    this._render();
+  }
+
+  _buildDom() {
+    const root = el('g', { class: 'nhl-scene' });
+    const camera = el('g', { class: 'nhl-camera', 'data-nhl-id': CAMERA_ID });
+    // Règle 6 : jamais d'animation de l'attribut viewBox — on anime la caméra.
+    camera.style.transformBox = 'view-box';
+    camera.style.transformOrigin = 'center';
+    const layers = {};
+    for (const name of LAYERS) {
+      layers[name] = el('g', { class: `nhl-layer nhl-layer-${name}` });
+      camera.appendChild(layers[name]);
+    }
+    root.appendChild(camera);
+
+    this.elements.clear();
+    this.elements.set(CAMERA_ID, camera);
+    applyBase(camera, this.timeline.scene.get(CAMERA_ID));
+
+    for (const node of this.timeline.nodes) {
+      if (node.id === CAMERA_ID) continue;
+      const element = createElementFor(node, { metrics: this.timeline.metrics, palette: this.timeline.palette });
+      applyBase(element, node);
+      layers[layerOf(node.role)].appendChild(element);
+      this.elements.set(node.id, element);
+    }
+
+    this._root = root;
+    this.svg.appendChild(root);
+  }
+
+  _teardownScene() {
+    if (this._ticker) this._ticker.stop();
+    if (this.engine) this.engine.destroy();
+    if (this._root && this._root.parentNode) this._root.parentNode.removeChild(this._root);
+    this._root = null;
+    this.elements.clear();
+    this._appliedDiscrete = new Set();
+  }
+
+  // -- rendu -----------------------------------------------------------------
+
+  _tick() {
+    this._render();
+    if (this.playing && this.currentTime >= this.total - EPS) {
+      this.engine.pause();
+      this.engine.seek(this.total);
+      this._ticker.stop();
+      this._render();
+      this.emit('end', { t: this.total });
+    }
+  }
+
+  _render() {
+    const t = this.currentTime;
+    this._renderDiscrete(t);
+    const i = nav.stepIndexAt(this.bounds, t);
+    if (i !== this._lastStep) {
+      this._lastStep = i;
+      this.emit('stepenter', { stepIndex: i, step: this.steps[i] || null });
+    }
+    this.emit('change', this.state);
+  }
+
+  /**
+   * Canal discret : fonctions pures de `t`, appliquées aussi après chaque seek —
+   * c'est ce qui garantit que `seek(t)` donne exactement le même rendu quel que
+   * soit le chemin parcouru (recherche §1.4).
+   */
+  _renderDiscrete(t) {
+    const resolved = resolveDiscrete(this.timeline.discreteIndex, t);
+    for (const key of this._appliedDiscrete) {
+      if (resolved.has(key)) continue;
+      const [id, channel] = key.split('::');
+      const element = this.elements.get(id);
+      const node = this.timeline.scene.get(id);
+      if (element && node && channel === 'text') applyDiscrete(element, channel, node.text);
+    }
+    for (const [key, { entry, value }] of resolved) {
+      const element = this.elements.get(entry.id);
+      if (element) applyDiscrete(element, entry.channel, value);
+      void key;
+    }
+    this._appliedDiscrete = new Set(resolved.keys());
+  }
+
+  // -- environnement : polices, autoplay, visibilité, redimensionnement ------
+
+  _installEnvironment() {
+    const doc = typeof document !== 'undefined' ? document : null;
+    if (!doc) return;
+
+    // Règle 8 : attendre `document.fonts.ready` avant toute mesure. Les métriques
+    // nominales de JetBrains Mono servent d'amorce ; on recalibre ensuite, et on
+    // recompile si l'écart est significatif.
+    const fonts = doc.fonts && doc.fonts.ready ? doc.fonts.ready : Promise.resolve();
+    fonts.then(() => {
+      if (this.destroyed) return;
+      this.fontsReady = true;
+      this._calibrate();
+      this.emit('ready', this.state);
+      this._tryAutoplay();
+    });
+
+    const onVis = () => this._tryAutoplay();
+    const onFocus = () => this._tryAutoplay();
+    const onLoad = () => this._tryAutoplay();
+    doc.addEventListener('visibilitychange', onVis);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', onFocus);
+      window.addEventListener('load', onLoad);
+    }
+    this._disposers.push(() => {
+      doc.removeEventListener('visibilitychange', onVis);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', onFocus);
+        window.removeEventListener('load', onLoad);
+      }
+    });
+
+    // Redimensionnement : rebuild avec conservation de t et playing, debounce 150 ms.
+    if (typeof ResizeObserver === 'function') {
+      let timer = null;
+      let lastW = this.svg.clientWidth;
+      const ro = new ResizeObserver(() => {
+        const w = this.svg.clientWidth;
+        if (w === lastW) return;
+        lastW = w;
+        clearTimeout(timer);
+        timer = setTimeout(() => { if (!this.destroyed) this.rebuild(); }, 150);
+      });
+      ro.observe(this.svg);
+      this._disposers.push(() => { clearTimeout(timer); ro.disconnect(); });
+    }
+
+    // `prefers-reduced-motion` peut changer en cours de session.
+    if (typeof matchMedia === 'function') {
+      const mq = matchMedia('(prefers-reduced-motion: reduce)');
+      const onChange = () => {
+        this._prefersReduced = mq.matches;
+        if (this.options.reducedMotion === 'auto') this.rebuild();
+      };
+      if (mq.addEventListener) {
+        mq.addEventListener('change', onChange);
+        this._disposers.push(() => mq.removeEventListener('change', onChange));
+      }
+    }
+  }
+
+  /** Mesure réelle de la chasse, une seule fois, après `document.fonts.ready`. */
+  _calibrate() {
+    const probe = el('text', {
+      x: 0, y: 0, 'font-family': FONT_FAMILY,
+      'font-size': this.metrics.fontSize, visibility: 'hidden',
+    });
+    probe.textContent = '0000000000';
+    this.svg.appendChild(probe);
+    let advance = null;
+    try {
+      if (typeof probe.getComputedTextLength === 'function') {
+        const l = probe.getComputedTextLength();
+        if (l > 0) advance = l / 10;
+      }
+    } catch { /* moteur sans mesure de texte : on garde la chasse nominale */ }
+    probe.remove();
+    if (!advance) return;
+    const drift = Math.abs(advance - this.metrics.advance) / this.metrics.advance;
+    if (drift > 0.005) {
+      this.metrics = { ...this.metrics, advance };
+      this.rebuild();
+    }
+  }
+
+  /**
+   * Autoplay — CONTRACTS §3.4. Quatre conditions, consommé **une seule fois**.
+   * `autoplayConsumed` passe à `true` AVANT de jouer : un seul autoplay, point.
+   */
+  _tryAutoplay() {
+    if (this.destroyed || this.autoplayConsumed || !this.options.autoplay) return;
+    const doc = typeof document !== 'undefined' ? document : null;
+    if (!doc) return;
+    if (doc.readyState !== 'complete') return;
+    if (!this.fontsReady) return;
+    if (doc.visibilityState !== 'visible') return;
+    if (typeof doc.hasFocus === 'function' && !doc.hasFocus()) return;
+    if (this.reduced) { this.autoplayConsumed = true; return; }
+    this.autoplayConsumed = true;
+    this.play();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Moteurs d'exécution
+// ---------------------------------------------------------------------------
+
+/** Moteur nominal : WAAPI, un `KeyframeEffect` par segment. */
+class WaapiEngine {
+  constructor(timeline, elements) {
+    this.timeline = timeline;
+    this.animations = [];
+    this._playing = false;
+
+    for (const a of timeline.anims) {
+      const element = elements.get(a.id);
+      if (!element) continue;
+      const frames = a.keyframes.map((k) => ({ offset: k.offset, [a.prop]: formatValue(a.prop, k.value) }));
+      const anim = element.animate(frames, {
+        delay: a.delay,
+        duration: a.duration,
+        easing: a.easing,
+        fill: 'forwards', // JAMAIS 'both' — cf. en-tête de fichier
+      });
+      anim.pause();
+      if (typeof anim.persist === 'function') anim.persist(); // critique au retour arrière
+      this.animations.push(anim);
+    }
+
+    this.clock = makeClock(timeline.total, elements.get(CAMERA_ID));
+    this.all = this.clock ? [this.clock, ...this.animations] : this.animations;
+  }
+
+  get currentTime() {
+    const a = this.clock || this.animations[0];
+    if (!a) return 0;
+    const v = a.currentTime;
+    return v === null || v === undefined ? 0 : Number(v);
+  }
+
+  get playing() { return this._playing; }
+
+  seek(t) {
+    const v = clamp(t, 0, this.timeline.total);
+    for (const a of this.all) a.currentTime = v;
+  }
+
+  play() {
+    const t = this.currentTime;
+    const base = timelineNow();
+    for (const a of this.all) {
+      // `play()` seul rembobinerait toute animation déjà terminée (auto-rewind) :
+      // on impose donc un `startTime` commun, comme dans le prototype.
+      a.play();
+      try { a.startTime = base - t; } catch { /* moteur strict : la resynchro différée suffit */ }
+    }
+    this._playing = true;
+    Promise.all(this.all.map((a) => a.ready.catch(() => null))).then(() => {
+      if (!this._playing) return;
+      const st = this.all[0] && this.all[0].startTime;
+      if (st === null || st === undefined) return;
+      for (const a of this.all) {
+        if (a.startTime !== st) { try { a.startTime = st; } catch { /* ignore */ } }
+      }
+    });
+  }
+
+  pause() {
+    for (const a of this.all) a.pause();
+    this._playing = false;
+  }
+
+  destroy() {
+    for (const a of this.all) { try { a.cancel(); } catch { /* ignore */ } }
+    this.animations = [];
+    this.all = [];
+  }
+}
+
+/**
+ * Repli sans WAAPI (Opera Mini, très vieux moteurs) — décision 11 de la
+ * recherche : on réutilise le mode réduit, qui est déjà écrit. Les valeurs sont
+ * appliquées de façon **discrète** : chaque segment saute à sa valeur d'arrivée.
+ */
+class StaticEngine {
+  constructor(timeline, elements) {
+    this.timeline = timeline;
+    this.elements = elements;
+    this._t = 0;
+    this._playing = false;
+    this._raf = null;
+    this.byKey = new Map();
+    for (const a of timeline.anims) {
+      const key = `${a.id}::${a.prop}`;
+      if (!this.byKey.has(key)) this.byKey.set(key, []);
+      this.byKey.get(key).push(a);
+    }
+    for (const list of this.byKey.values()) list.sort((x, y) => x.delay - y.delay);
+  }
+
+  get currentTime() { return this._t; }
+
+  get playing() { return this._playing; }
+
+  seek(t) {
+    this._t = clamp(t, 0, this.timeline.total);
+    for (const [key, list] of this.byKey) {
+      const id = key.slice(0, key.indexOf('::'));
+      const prop = key.slice(key.indexOf('::') + 2);
+      const element = this.elements.get(id);
+      if (!element) continue;
+      let chosen = null;
+      for (const a of list) { if (a.delay <= this._t) chosen = a; else break; }
+      if (!chosen) {
+        const node = this.timeline.scene.get(id);
+        if (node && node.base[prop] !== undefined && node.base[prop] !== null) applyProp(element, prop, node.base[prop]);
+        continue;
+      }
+      const done = this._t >= chosen.delay + chosen.duration;
+      const kf = chosen.keyframes;
+      applyProp(element, prop, done ? kf[kf.length - 1].value : kf[0].value);
+    }
+  }
+
+  play() {
+    if (this._playing) return;
+    this._playing = true;
+    let last = now();
+    const loop = () => {
+      if (!this._playing) return;
+      const t = now();
+      this.seek(this._t + (t - last));
+      last = t;
+      if (this._t >= this.timeline.total) { this._playing = false; return; }
+      this._raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame(loop) : null;
+    };
+    this._raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame(loop) : null;
+  }
+
+  pause() {
+    this._playing = false;
+    if (this._raf !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._raf);
+    this._raf = null;
+  }
+
+  destroy() { this.pause(); }
+}
+
+/**
+ * Horloge maîtresse : une animation sans effet visuel, de la durée totale.
+ * C'est elle qui porte `currentTime` pour tout le lecteur (recherche §1.4).
+ */
+function makeClock(total, fallbackElement) {
+  const timing = { duration: Math.max(1, total), fill: 'forwards' };
+  try {
+    const anim = new Animation(new KeyframeEffect(null, null, timing), document.timeline);
+    anim.pause();
+    if (typeof anim.persist === 'function') anim.persist();
+    return anim;
+  } catch { /* moteur sans KeyframeEffect à cible nulle */ }
+  if (!fallbackElement) return null;
+  const anim = fallbackElement.animate([{ opacity: 1 }, { opacity: 1 }], timing);
+  anim.pause();
+  if (typeof anim.persist === 'function') anim.persist();
+  return anim;
+}
+
+function detectWaapi() {
+  return typeof Element !== 'undefined'
+    && typeof Element.prototype.animate === 'function'
+    && typeof Animation !== 'undefined'
+    && typeof Animation.prototype.persist === 'function';
+}
+
+function matchReduced() {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function timelineNow() {
+  if (typeof document !== 'undefined' && document.timeline && document.timeline.currentTime != null) {
+    return Number(document.timeline.currentTime);
+  }
+  return now();
+}
+
+function now() {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+function clamp(v, lo, hi) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return lo;
+  return n < lo ? lo : n > hi ? hi : n;
+}

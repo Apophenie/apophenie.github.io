@@ -1,0 +1,75 @@
+image: 1000i100/docker-ci-cd-publish
+
+stages:
+  - verify
+  - deploy
+
+variables:
+  BUN_INSTALL_CACHE_DIR: .bun/install/cache
+
+# Un échec d'infrastructure du runner — conteneur non démarrable, exécuteur
+# perdu — ne dit rien du code. Le rejouer évite de relancer un pipeline à la
+# main. Les échecs de script, eux, ne sont jamais rejoués.
+default:
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - scheduler_failure
+
+cache:
+  key:
+    files:
+      - bun.lock
+  paths:
+    - .bun/install/cache/
+
+# `bun run check` enchaîne les tests (node --test, sans build préalable) puis le
+# build. Les deux comptent : le site doit être vert ET constructible.
+verify:
+  stage: verify
+  script:
+    - bun install --frozen-lockfile
+    - bun run check
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+
+# Le logo, le favicon et le bloc CSS de `src/styles/` sont produits par un
+# générateur Python versionné (`src/gfx/logo-jost-trace.py`, avec `jost.ttf` à
+# côté de lui : c'est un outil de build, pas une police servie). Ils sont
+# commités : la CI ne les régénère pas, elle vérifie qu'ils correspondent bien à
+# leur source. Un tracé modifié à la main sans repasser par le générateur fait
+# échouer ce job.
+logo:reproductible:
+  stage: verify
+  needs: []
+  script:
+    - apk add --no-cache python3 py3-pip >/dev/null
+    - pip install --break-system-packages --quiet fonttools
+    - cp src/index.html /tmp/index.avant && cp src/styles/base.css /tmp/base.avant
+    - cp favicon.svg /tmp/favicon.avant && cp src/gfx/_logo-test.html /tmp/banc.avant
+    - bun run logo
+    - diff /tmp/index.avant src/index.html
+    - diff /tmp/base.avant src/styles/base.css
+    - diff /tmp/favicon.avant favicon.svg
+    - diff /tmp/banc.avant src/gfx/_logo-test.html
+  allow_failure: false
+
+pages:
+  stage: deploy
+  needs:
+    - job: verify
+      artifacts: true
+  script:
+    - mv dist public
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+  environment:
+    name: staging
+    url: https://$CI_PROJECT_NAMESPACE.gitlab.io/$CI_PROJECT_NAME
