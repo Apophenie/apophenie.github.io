@@ -1,7 +1,9 @@
 /**
  * Le vocabulaire fermé des ops — CONTRACTS §3.1.
  *
- * 17 primitives, une par fichier. Ajouter une transformation arithmétique sans
+ * Dix-neuf primitives, une par fichier — les dix-sept du socle, plus
+ * `partition` (découper en sous-groupes) et `alphabet` (la réglette numérotée),
+ * ajoutées selon la clause d'extension du contrat. Ajouter une transformation arithmétique sans
  * rendu impose d'**ajouter d'abord la primitive ici**, puis de l'émettre : un
  * `op` hors de cette table est une erreur de compilation, pas une op ignorée.
  */
@@ -23,13 +25,15 @@ import * as annotate from './annotate.js';
 import * as pulse from './pulse.js';
 import * as reveal from './reveal.js';
 import * as wait from './wait.js';
+import * as partition from './partition.js';
+import * as alphabet from './alphabet.js';
 
 import { OP_NAMES } from '../constants.js';
 
 export const PRIMITIVES = Object.freeze({
   highlight, dim, drop, substitute, move, group, insertOperators,
   sum, reduce, flip180, sevenSeg, countStrokes, keyboard,
-  annotate, pulse, reveal, wait,
+  annotate, pulse, reveal, wait, partition, alphabet,
 });
 
 // Garde-fou de chargement : la table des primitives et le vocabulaire déclaré

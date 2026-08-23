@@ -16,6 +16,7 @@
 
 import { FONT_FAMILY, PALETTE } from './constants.js';
 import { glyphTransform } from './assets.js';
+import { alphabetGeometry } from './assets.js';
 
 export const SVGNS = 'http://www.w3.org/2000/svg';
 
@@ -23,7 +24,7 @@ export const SVGNS = 'http://www.w3.org/2000/svg';
 export const LAYERS = ['back', 'mid', 'front'];
 
 const LAYER_OF = {
-  camera: null, halo: 'back', keyboard: 'back',
+  camera: null, halo: 'back', keyboard: 'back', alphabet: 'back', frame: 'back',
   text: 'mid',
   glyph: 'front', seg: 'front', bracket: 'front', label: 'front', marker: 'front',
 };
@@ -106,8 +107,12 @@ export function createElementFor(node, env) {
       // Le tracé vit dans le repère glyphe (0..400 × 0..600, origine en bas à
       // gauche) : un `<g>` interne porte la transformation **statique** de mise
       // à l'échelle et de retournement de l'axe y. Elle n'est jamais animée.
+      // `data.scale` agrandit le glyphe SANS toucher au canal `scale` du nœud :
+      // l'encart de démonstration montre la lettre en grand, et la primitive
+      // garde `scale` libre pour ses propres accents.
+      const zoom = (node.data && node.data.scale) || 1;
       const wrap = el('g');
-      const inner = el('g', { transform: glyphTransform(fs).transform });
+      const inner = el('g', { transform: glyphTransform(fs * zoom).transform });
       inner.appendChild(el('path', {
         d: node.data.d,
         fill: 'none',
@@ -121,6 +126,24 @@ export function createElementFor(node, env) {
       }));
       wrap.appendChild(inner);
       element = wrap;
+      break;
+    }
+    case 'frame': {
+      // L'encart : le cadre dans lequel la lettre est montrée en grand,
+      // changée de police, comptée. Un rectangle, rien de plus — c'est le
+      // contenu qui parle.
+      const h = (node.data && node.data.h) || fs * 2;
+      element = el('rect', {
+        x: -node.w / 2, y: -h / 2, width: node.w, height: h,
+        rx: (node.data && node.data.rx) || 6,
+        fill: (node.data && node.data.fill) || 'none',
+        'stroke-width': 1.5,
+        class: 'nhl-frame',
+      });
+      break;
+    }
+    case 'alphabet': {
+      element = buildAlphabet(node, fs, palette);
       break;
     }
     case 'marker': {
@@ -192,6 +215,28 @@ function buildKeyboard(node, fs, palette) {
     for (const t of geo.rowLabels) {
       g.appendChild(keyLabel(String(t.n), t.cx, t.cy, fs * 0.44, palette.gold));
     }
+  }
+  return g;
+}
+
+/**
+ * Dessine l'alphabet complet, NUMÉROTÉ — deux rangées de treize cases, la
+ * lettre en haut de sa case, son rang en bas.
+ *
+ * C'est le pendant du clavier virtuel pour la conversion « lettre → rang dans
+ * l'alphabet » : on ne se contente pas d'annoncer que `H` vaut 8, on montre
+ * l'alphabet numéroté et on va y chercher le 8.
+ */
+function buildAlphabet(node, fs, palette) {
+  const g = el('g', { class: 'nhl-alphabet' });
+  const geo = node.data.geo || alphabetGeometry({ ordre: node.data.ordre });
+  for (const c of geo.cells) {
+    g.appendChild(el('rect', {
+      x: c.x, y: c.y, width: c.w, height: c.h, rx: 4,
+      fill: palette.raised, stroke: palette.line, 'stroke-width': 1,
+    }));
+    g.appendChild(keyLabel(c.char, c.cx, c.lettreCy, fs * 0.5, palette.fg));
+    g.appendChild(keyLabel(String(c.rang), c.cx, c.rangCy, fs * 0.36, palette.gold));
   }
   return g;
 }

@@ -7,7 +7,8 @@ import { validerCatalogue, chercherSix, operateursExplorables, D_MAX, MAX_NODES,
 import { construireBassin, statistiquesBassin, DISTANCE_MAX } from '../bassin.js';
 import { genererFragments, motifsRepetes, periodicite, tokeniser, zonesSignifiantes, structureUrl } from '../fragments.js';
 import { ordreTotal, comparerCodes, racineEntiere, critereCouverture, critereConcision, noter } from '../score.js';
-import { approcheJoker } from '../assemblage.js';
+import { approcheJoker, normaliserChemin } from '../assemblage.js';
+import { estDecret, titreApproche } from '../titres.js';
 import { catalogue, source, horlogeFactice, demarrerCharge, arreterCharge } from './_catalogue.js';
 
 test(`catalogue de test employé : ${source}`, () => {
@@ -576,5 +577,72 @@ test('fragments — les URL de la liste de fragments sont rejouables', () => {
     assert.ok(rejoue.ok, `${f.texte} → ${f.url} : ${rejoue.raison}`);
     const fin = rejoue.approche.parts[0].chemin.etats.at(-1);
     assert.equal(fin.valeur, 6, `${f.texte} doit valoir 6`);
+  }
+});
+
+
+// ══════════════════════════════════ ce qu'une liste doit garantir à l'œil nu
+
+const SAISIES_LISTE = [
+  'hope-hope-hope.fr',
+  'https://www.google.com',
+  'Millicent',
+  '666',
+  'La numérologie est un art taquin',
+];
+
+test('classement — un décret ne passe jamais devant une démonstration', () => {
+  const m = creerMoteur(catalogue);
+  for (const s of SAISIES_LISTE) {
+    const r = m.resoudre(s);
+    const rangDecret = r.approches.findIndex((a) => estDecret(a));
+    const dernierHonnete = r.approches.reduce((k, a, i) => (estDecret(a) ? k : i), -1);
+    if (rangDecret < 0 || dernierHonnete < 0) continue;
+    assert.ok(rangDecret > dernierHonnete,
+      `« ${s} » : un 6 unique recopié trois fois figure au rang ${rangDecret + 1}, `
+      + `devant une approche qui produit réellement trois 6 (rang ${dernierHonnete + 1})`);
+  }
+});
+
+test('classement — les scores affichés sont décroissants', () => {
+  const m = creerMoteur(catalogue);
+  for (const s of SAISIES_LISTE) {
+    const scores = m.resoudre(s).approches.map((a) => a.score);
+    for (let i = 1; i < scores.length; i++) {
+      assert.ok(scores[i] <= scores[i - 1],
+        `« ${s} » : ${scores[i - 1]} puis ${scores[i]} au rang ${i + 1} — le tri a l’air cassé`);
+    }
+  }
+});
+
+test('titres — un nom de méthode, unique dans la liste, dans les deux langues', () => {
+  const m = creerMoteur(catalogue);
+  for (const s of SAISIES_LISTE) {
+    const r = m.resoudre(s);
+    for (const langue of ['fr', 'en']) {
+      const titres = r.approches.map((a) => titreApproche(a, langue));
+      assert.equal(new Set(titres).size, titres.length,
+        `« ${s} » (${langue}) : deux approches portent le même titre — ${titres.join(' | ')}`);
+      for (const t of titres) assert.ok(t && t.length > 0, `${s} (${langue}) : titre vide`);
+    }
+    // Le titre voyage bilingue jusqu'à l'interface, qui le localise elle-même.
+    for (const a of r.approches) {
+      assert.equal(typeof a.titre.fr, 'string');
+      assert.equal(typeof a.titre.en, 'string');
+      assert.equal(a.titre.fr, titreApproche(a, 'fr'),
+        'le titre posé sur l’approche doit être celui que `titreApproche` recompose (changement de langue)');
+    }
+  }
+});
+
+test('anti-doublons — aucune étape inopérante ne subsiste dans une approche', () => {
+  const m = creerMoteur(catalogue);
+  for (const s of SAISIES_LISTE) {
+    for (const a of m.resoudre(s).approches) {
+      for (const p of a.parts) {
+        assert.equal(normaliserChemin(p.chemin).ops.length, p.chemin.ops.length,
+          `« ${s} » : ${p.chemin.ops.map((o) => o.code).join('+')} garde une étape qui ne change rien`);
+      }
+    }
   }
 });

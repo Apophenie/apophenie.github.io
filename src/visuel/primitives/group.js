@@ -1,18 +1,38 @@
 /**
- * `group` — regroupement (pour une addition, une paire, un mot).
+ * `group` — l'accolade : « ceci, pris ensemble, donne cela ».
  *
- * Recherche §4.5 : deux registres simultanés — une accolade (ou un encadré)
- * tracée par `stroke-dashoffset`, et un **resserrement** de l'espacement entre
- * les membres (~30 %). C'est le resserrement qui *se lit* comme un regroupement.
+ * ## Composition
+ *
+ * L'accolade **embrasse ses sources** : ses deux bras remontent aux extrémités,
+ * les éléments comptés sont donc à l'intérieur, et sa pointe centrale descend
+ * vers le dessous, là où le résultat va paraître. Trois registres, dans cet
+ * ordre de lecture, alignés sur le même axe vertical :
+ *
+ * ```
+ *          H   O   P   E          ← les sources, dans l'accolade
+ *      ⌣___________________⌣
+ *               ▼                  ← la pointe
+ *               Σ                  ← CE QU'ON FAIT (jamais implicite)
+ *              44                  ← le résultat, sous la pointe
+ * ```
+ *
+ * ## Le symbole n'est pas décoratif
+ *
+ * Une accolade nue ne dit pas si l'on additionne, si l'on multiplie ou si l'on
+ * dénombre : trois opérations, trois résultats, un seul dessin. Chaque
+ * combinateur **doit** donc dire ce qu'il fait — `symbol: 'Σ'` pour une somme,
+ * `'∏'` pour un produit, `'#'` pour un comptage, `'−'` pour une soustraction
+ * en chaîne — et peut l'appuyer d'un `label` en toutes lettres.
+ *
+ * ## Géométrie
  *
  * `getTotalLength()` n'est jamais appelé (coûteux, et indisponible hors DOM) :
  * on pose `pathLength="100"` sur le tracé, ce qui normalise `stroke-dasharray`
- * et `stroke-dashoffset` — la longueur réelle devient sans objet.
+ * et `stroke-dashoffset` — la longueur réelle devient sans objet. Tout est en
+ * unités viewBox (CONTRACTS §3.2 règle 5).
  */
 
-import { targetsOf } from './helpers.js';
-import { bboxOf } from '../layout.js';
-import { EASE } from '../constants.js';
+import { targetsOf, tracerAccolade } from './helpers.js';
 import { fail } from '../errors.js';
 
 export const name = 'group';
@@ -25,42 +45,26 @@ export function plan(ctx) {
   }
   const tighten = typeof ctx.op.tighten === 'number' ? ctx.op.tighten : 0.7;
 
-  // 1. resserrement + FLIP.
-  const gap = ctx.layoutOpts.gap;
-  ids.slice(1).forEach((id) => { ctx.scene.get(id).gapBefore = gap * tighten; });
-  ctx.reflow({ at: 0, dur: ctx.dur * 0.6, ease: EASE.move });
+  const acc = tracerAccolade(ctx, ids, {
+    shape,
+    tighten,
+    symbol: ctx.op.symbol,
+    label: ctx.op.label,
+    id: ctx.op.id,
+    at: 0,
+    dur: ctx.dur,
+  });
 
-  // 2. tracé de l'accolade, en unités viewBox.
-  const box = bboxOf(ids, ctx.scene.positions, ctx.metrics, 8);
-  if (!box) return;
-  const id = ctx.op.id && !String(ctx.op.id).startsWith('@') ? ctx.op.id : ctx.gensym('group');
-  const W = box.w / 2;
-  const H = box.h / 2;
-  const d = shape === 'box'
-    ? `M ${-W} ${-H} H ${W} V ${H} H ${-W} Z`
-    : `M ${-W} ${-H} v 12 h ${W - 11} l 11 12 l 11 -12 h ${W - 11} v -12`;
-  const anchorY = shape === 'box' ? box.cy : box.y + box.h + 14;
-
-  ctx.scene.create({
-    id,
-    role: 'bracket',
-    inFlow: false,
-    w: box.w,
-    data: { d, shape },
-    base: { opacity: 1, strokeDashoffset: 100, stroke: ctx.palette.gold },
-  }, { where: ctx.where });
-  ctx.place(id, { x: box.cx, y: anchorY, w: box.w });
-  ctx.anim({ id, prop: 'strokeDashoffset', from: 100, to: 0, at: ctx.dur * 0.25, dur: ctx.dur * 0.75, ease: EASE.fade });
-
-  if (typeof ctx.op.label === 'string' && ctx.op.label) {
-    const lid = ctx.gensym('grouplabel');
-    ctx.scene.create({
-      id: lid, role: 'label', text: ctx.op.label, inFlow: false,
-      w: ctx.metrics.advance * 0.6 * ctx.op.label.length,
-      data: { scale: 0.55 },
-      base: { opacity: 0, fill: ctx.palette.gold },
-    }, { where: ctx.where });
-    ctx.place(lid, { x: box.cx, y: anchorY + 34 });
-    ctx.anim({ id: lid, prop: 'opacity', to: 1, at: ctx.dur * 0.6, dur: ctx.dur * 0.4 });
+  // ★ `fadeAt` — l'accolade se retire quand son travail est fait.
+  //
+  // Un dénombrement se joue en trois gestes enchaînés dans un même step : on
+  // accole, les jetons se ramassent, un nombre reste. L'accolade doit tenir
+  // pendant les trois — donc au-delà de sa propre durée — puis disparaître.
+  // Sans quoi elle survivait au step, et l'on voyait « # · On compte les
+  // voyelles » flotter sous les trois 6 du verdict.
+  if (acc && typeof ctx.op.fadeAt === 'number') {
+    for (const id of acc.ids) {
+      ctx.anim({ id, prop: 'opacity', to: 0, at: ctx.op.fadeAt, dur: 300 });
+    }
   }
 }

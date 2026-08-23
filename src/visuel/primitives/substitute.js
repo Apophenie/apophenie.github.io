@@ -17,7 +17,7 @@
  *     ensuite. Le raccord est invisible.
  */
 
-import { tokenSpec } from './helpers.js';
+import { tokenSpec, espacementDe } from './helpers.js';
 import { EASE } from '../constants.js';
 import { charCenter } from '../layout.js';
 import { fail } from '../errors.js';
@@ -42,10 +42,12 @@ export function plan(ctx) {
     const idx = ctx.scene.flowIndex(j.src.id);
     const eclatement = j.tos.map((t) => t.text).join('') === j.src.text && j.tos.length > 1;
     let offset = 0;
+    const espacement = espacementDe(ctx, j.src.id);
     j.tos.forEach((to, k) => {
       ctx.scene.create({
         id: to.id, text: to.text, kind: to.kind, group: to.group ?? j.src.group,
         role: 'text', inFlow: true, insertAt: idx < 0 ? undefined : idx + 1 + k,
+        ...(k === 0 ? espacement : {}),
         base: { opacity: 0, scale: 1.15, fill: ctx.palette.phos },
       }, { where: ctx.where });
       if (j.tos.length > 1) {

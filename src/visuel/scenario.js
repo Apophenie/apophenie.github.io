@@ -84,14 +84,17 @@ export function validateScenario(scenario) {
       fail(`${at(loc)}« ops » doit être un tableau.`);
     }
 
-    // Deux `keyboard` dans un même step animeraient tous deux la caméra (recul,
-    // recentrage, retour) sur les mêmes instants : les deux se contrediraient et
-    // le scrubbing deviendrait ambigu. Un clavier par step, pas deux.
-    const claviers = (step.ops || []).filter((o) => o && o.op === 'keyboard').length;
-    if (claviers > 1) {
-      fail(`${at(loc)}${claviers} ops « keyboard » dans le même step : chacune anime la caméra `
-        + '(recul, recentrage, retour), elles se contrediraient. Un clavier par step — '
-        + 'émettez un step par touche.');
+    // Deux ops de CAMÉRA dans un même step l'animeraient toutes deux (recul,
+    // recentrage, retour) sur les mêmes instants : elles se contrediraient et le
+    // scrubbing deviendrait ambigu. Une par step, pas deux — c'est vrai du
+    // clavier comme de la réglette alphabétique.
+    for (const nom of ['keyboard', 'alphabet']) {
+      const n = (step.ops || []).filter((o) => o && o.op === nom).length;
+      if (n > 1) {
+        fail(`${at(loc)}${n} ops « ${nom} » dans le même step : chacune anime la caméra `
+          + '(recul, recentrage, retour), elles se contrediraient. Une par step — '
+          + 'émettez un step par jeton.');
+      }
     }
 
     // — invariant 7 : vocabulaire fermé -------------------------------------

@@ -209,7 +209,7 @@ export const methode6 = {
       caption: 'un 9 retourné est un 6 — c’est de bonne guerre',
       ops: [
         { op: 'substitute', pairs: [{ target: 'q4', to: { id: 'q9', text: '9', kind: 'digit' } }] },
-        { op: 'flip180', target: 'q9', to: { id: 'six', text: '6', kind: 'digit' }, at: 950 },
+        { op: 'flip180', target: 'q9', to: { id: 'six', text: '6', kind: 'digit' }, at: 1150 },
       ],
       hold: 400,
     },
@@ -222,14 +222,14 @@ export const methode6 = {
 };
 
 /**
- * Parcours de contrôle : les **17 primitives** du vocabulaire fermé, au moins
+ * Parcours de contrôle : les **19 primitives** du vocabulaire fermé, au moins
  * une fois chacune. Sert de test de non-régression du catalogue et de page de
  * vérification manuelle.
  */
 export const vocabulaire = {
   version: 1,
   input: 'HOPE-HOPE',
-  method: { id: 0, label: 'Parcours des 17 primitives', rule: 'vérification du vocabulaire fermé' },
+  method: { id: 0, label: 'Parcours des 19 primitives', rule: 'vérification du vocabulaire fermé' },
   result: '666',
   tokens: [
     { id: 'v0', text: 'H', kind: 'letter', group: 'w0' },
@@ -242,6 +242,19 @@ export const vocabulaire = {
   ],
   steps: [
     {
+      id: 'p0',
+      title: 'partition',
+      caption: 'on découpe la saisie en deux groupes',
+      ops: [{
+        op: 'partition',
+        groups: [
+          { targets: ['v0', 'v1', 'v2', 'v3'], tag: 'w0', label: 'groupe 1' },
+          { targets: ['w0', 'w1'], tag: 'w1', label: 'groupe 2' },
+        ],
+      }],
+      hold: 300,
+    },
+    {
       id: 'p1',
       title: 'highlight + dim + annotate',
       caption: 'on isole le premier mot',
@@ -253,9 +266,19 @@ export const vocabulaire = {
     },
     {
       id: 'p2',
-      title: 'drop',
-      caption: 'on retire l’extension',
-      ops: [{ op: 'drop', targets: { group: 'w1' }, stagger: 90 }],
+      title: 'alphabet',
+      caption: 'f est la 6ᵉ lettre — la réglette le montre',
+      ops: [{ op: 'alphabet', target: 'w0', letter: 'f', to: { id: 'ab6', text: '6', kind: 'digit' } }],
+      hold: 400,
+    },
+    {
+      id: 'p2b',
+      title: 'drop — on efface, puis on rapproche',
+      caption: 'les deux temps du filtre',
+      ops: [
+        { op: 'drop', targets: ['w1'], mode: 'erase', regroup: false },
+        { op: 'move', at: 900 },
+      ],
     },
     {
       id: 'p3',
@@ -299,7 +322,7 @@ export const vocabulaire = {
             { target: 'v3', to: { id: 'm3', text: '4', kind: 'digit' } },
           ],
         },
-        { op: 'move', order: ['m0', 'm1', 'm2', 'm3', 'kb6'], at: 700 },
+        { op: 'move', order: ['m0', 'm1', 'm2', 'm3', 'kb6', 'ab6'], at: 700 },
       ],
     },
     {
@@ -307,7 +330,7 @@ export const vocabulaire = {
       title: 'group + pulse',
       caption: 'on regroupe les quatre comptes',
       ops: [
-        { op: 'group', targets: ['m0', 'm1', 'm2', 'm3'], shape: 'brace', label: 'HOPE' },
+        { op: 'group', targets: ['m0', 'm1', 'm2', 'm3'], shape: 'brace', symbol: 'Σ', label: 'les traits de HOPE' },
         { op: 'pulse', targets: ['kb6'], at: 500 },
       ],
     },
@@ -338,7 +361,7 @@ export const vocabulaire = {
       caption: 'un 9 retourné fait un 6',
       ops: [
         { op: 'substitute', pairs: [{ target: 'six1', to: { id: 'nine', text: '9', kind: 'digit' } }] },
-        { op: 'flip180', target: 'nine', to: { id: 'six2', text: '6', kind: 'digit' }, at: 950 },
+        { op: 'flip180', target: 'nine', to: { id: 'six2', text: '6', kind: 'digit' }, at: 1150 },
       ],
     },
     {
@@ -346,7 +369,7 @@ export const vocabulaire = {
       title: 'reveal + wait',
       caption: 'C.Q.F.D.',
       ops: [
-        { op: 'reveal', targets: ['kb6', 'six2'], stagger: 220 },
+        { op: 'reveal', targets: ['kb6', 'six2', 'ab6'], stagger: 220 },
         { op: 'wait', dur: 900 },
       ],
     },

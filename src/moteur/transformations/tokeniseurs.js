@@ -21,37 +21,54 @@ const REG_CARACTERES = bilingue('Un caractère, un jeton', 'One character, one t
 const LIB_SEPARATEURS = bilingue('On ne garde que les séparateurs', 'Keep the separators only');
 const REG_SEPARATEURS = bilingue('Les tirets, points et barres comptent aussi', 'Dashes, dots and slashes count too');
 const LIB_CHIFFRES = bilingue('On éclate le nombre en chiffres', 'Break the number into digits');
+const LIB_DECOUPER = bilingue('On découpe en sous-groupes', 'Cut it into sub-groups');
 const estVoyelle = (c) => VOYELLES_Y.includes(sansAccents(c).toUpperCase());
 const estLettre = (c) => /\p{L}/u.test(c);
 
 /**
- * Étape « on regroupe » : accolades, fusion du texte, chute des surnuméraires.
+ * Étape « on découpe en sous-groupes », puis « chaque groupe devient un jeton ».
  *
- * Trois temps ENCHAÎNÉS (`enchainer`) : chaque accolade se trace à son tour,
- * puis les têtes de groupe prennent le texte de leur groupe en un seul
- * `substitute`, puis les surnuméraires tombent. Tracer toutes les accolades au
- * même instant les ferait toutes resserrer le flux en même temps — autant
- * d'animations concurrentes sur `translate`.
+ * ★ **Deux steps, et le premier est le découpage lui-même.** L'ancienne
+ * version traçait les accolades une par une puis fusionnait dans la foulée : le
+ * découpage n'existait jamais comme moment. Or c'est le cœur de la promesse du
+ * README — « trois d'affilée, selon la même méthode » : il faut d'abord VOIR
+ * que la saisie se partage en trois morceaux comparables.
+ *
+ *  ① `partition` — les tokens s'écartent aux frontières, se resserrent à
+ *    l'intérieur, et une accolade numérotée se trace sous chaque groupe. Toutes
+ *    en même temps : c'est UNE op, donc un seul recalcul du flux.
+ *  ② `substitute` + `drop` — chaque tête de groupe prend le texte de son
+ *    groupe, les surnuméraires s'effacent.
  */
 function etapeGroupes(spec) {
   return (avant, apres, ctx) => {
     const groupes = spec.groupes(avant.valeur);
     const sortie = spec.sortie(avant, apres, ctx);
-    const accolades = [];
+    const decoupe = [];
     const pairs = [];
     const perdus = [];
     groupes.forEach((g, k) => {
       const ids = g.indices.map((i) => ctx.ids[i]).filter(Boolean);
       if (!ids.length) return;
-      if (ids.length > 1) accolades.push({ op: 'group', targets: ids, dur: 320 });
+      decoupe.push({ targets: ids, label: `${k + 1}` });
       pairs.push({ target: ids[0], to: token(sortie[k], g.texte, 'letter') });
       perdus.push(...ids.slice(1));
     });
-    return [etape(ctx, dire(spec.libelle, ctx.langue), dire(spec.regle, ctx.langue), enchainer([
-      ...accolades,
+
+    const fusionner = etape(ctx, dire(spec.libelle, ctx.langue), dire(spec.regle, ctx.langue), enchainer([
       pairs.length ? { op: 'substitute', pairs, stagger: 60 } : null,
       perdus.length ? { op: 'drop', targets: perdus, stagger: 30 } : null,
-    ]))];
+    ]), { id: `s_${ctx.cle}_1` });
+
+    // Découper en un seul morceau ne découpe rien : on passe directement à la
+    // fusion (et `partition` refuserait, à juste titre, un groupe unique).
+    if (decoupe.length < 2) return [fusionner];
+
+    return [
+      etape(ctx, dire(LIB_DECOUPER, ctx.langue), dire(spec.regle, ctx.langue),
+        [{ op: 'partition', groups: decoupe }], { id: `s_${ctx.cle}_0` }),
+      fusionner,
+    ];
   };
 }
 
@@ -118,8 +135,13 @@ const brut = [
     notoriete: 0.95, cout: 1,
     apply: (valeur, traces) => (valeur.length ? assembler(valeur, traces, groupesCaracteres(valeur)) : null),
     sortie: sortieConservee,
+    // ★ `move` SANS cible : un simple recalcul du flux. Avec `targets`, la
+    // primitive comprend « amène ces tokens devant » et réordonne la ligne —
+    // ce qui, sur une saisie découpée en plusieurs groupes, faisait passer le
+    // deuxième groupe devant le premier. Prendre les lettres une par une ne
+    // change l'ordre de rien : ça les désigne, une par une.
     steps: (avant, apres, ctx) => [etape(ctx, dire(LIB_CARACTERES, ctx.langue), dire(REG_CARACTERES, ctx.langue), enchainer([
-      { op: 'move', targets: ctx.ids, stagger: 30 },
+      { op: 'move' },
       { op: 'pulse', targets: ctx.ids, stagger: 30 },
     ]))],
   },

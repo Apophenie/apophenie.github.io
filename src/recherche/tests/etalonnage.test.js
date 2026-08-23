@@ -81,15 +81,22 @@ const METHODES = [
   },
   {
     n: 4,
-    nom: 'La somme des 3 répétitions en A1Z26 (132 → 6)',
+    nom: 'A1Z26 sur le triplet + les deux tirets du 6',
     attendu: 85,
-    // ÉCART DE MODÉLISATION : le README tire un 6 du triplet et les DEUX autres
-    // des tirets « touche du 6 » en AZERTY. Or `m.azertyColonne` du catalogue
-    // ne mappe pas le `-` : la recherche ne trouve AUCUN chemin depuis « - ».
-    // On modélise donc la somme A1Z26 des trois répétitions (8+15+16+5 trois
-    // fois = 132 → 1+3+2 = 6), appliquée aux trois 6.
-    parts: () => [0, 1, 2].map(() => part(TRIPLE[0],
-      ['f.lettres', 't.caracteres', 'm.a1z26', 'c.somme', 'p.racineNumerique'])),
+    // La modélisation est celle du README, à la lettre : UN 6 vient de la somme
+    // A1Z26 des trois répétitions (8+15+16+5 trois fois = 132 → 1+3+2 = 6), les
+    // DEUX autres des tirets, « situés sur la touche du 6 en AZERTY ».
+    //
+    // Elle l'est redevenue : l'ancienne version d'ici appliquait le même calcul
+    // trois fois à la saisie entière, faute d'opérateur capable de mapper un
+    // « - ». Le catalogue en a un depuis (`m.toucheChiffre`, code `mv`), et la
+    // modélisation de secours avait un défaut de fond — elle faisait de M4 un
+    // TRIPLEMENT, c'est-à-dire un seul 6 recopié trois fois, précisément ce que
+    // `MALUS.decret` sanctionne et que le README ne demande nulle part.
+    parts: () => [
+      part(TRIPLE[0], ['f.lettres', 't.caracteres', 'm.a1z26', 'c.somme', 'p.racineNumerique']),
+      ...TIRETS.map((iv) => part(iv, ['t.caracteres', 'm.toucheChiffre', 'c.somme'], 'separateurs')),
+    ],
   },
   {
     n: 5,
@@ -174,8 +181,14 @@ test('étalonnage — écart mesuré avec le tableau attendu de research §4.7',
   console.log('    ' + lignes.join('\n    '));
 
   // ── Ce qui est réellement exigé : le COMPORTEMENT, pas la valeur.
-  // 1. La méthode 6 (la plus tordue) est la moins bien classée, mais présente.
-  assert.equal(rangsObtenus.get(6), 7, 'la méthode 6 doit rester en queue de classement');
+  // 1. La méthode 6 (la plus tordue) reste en queue de classement, mais présente.
+  //    Elle n'y est plus SEULE depuis que M4 est modélisée comme le README
+  //    l'écrit : ses trois 6 viennent de trois sources différentes — une
+  //    réduction A1Z26 globale et deux tirets « offerts » par le clavier —, et
+  //    c'est exactement ce que l'homogénéité (poids 0,25) punit. La prédiction
+  //    de §4.7 lui donnait H = 0,90 ; la méthode réelle vaut 0,53. L'écart est
+  //    dans la prédiction, pas dans la mesure : on le laisse voir.
+  assert.ok(rangsObtenus.get(6) >= 6, `la méthode 6 doit rester en queue (rang ${rangsObtenus.get(6)})`);
   // 2. Les méthodes 2 et 3 (les plus « naturelles ») restent dans la moitié
   //    haute. La prédiction les voulait 1ʳᵉ et 2ᵉ ; le catalogue réel leur donne
   //    une notoriété de 0,60 (contre 0,85 prédite), ce qui les fait glisser.

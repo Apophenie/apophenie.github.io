@@ -38,7 +38,7 @@
  * `scenario.js` l'interdit statiquement.
  */
 
-import { tokenSpec } from './helpers.js';
+import { tokenSpec, espacementDe } from './helpers.js';
 import { keyboardGeometry, findKey, keyboardValue, normalizeLayout } from '../assets.js';
 import { CAMERA_ID, EASE } from '../constants.js';
 import { fail } from '../errors.js';
@@ -146,6 +146,7 @@ export function plan(ctx) {
   ctx.scene.create({
     id: to.id, text: to.text, kind: to.kind || 'digit', group: to.group ?? src.group,
     role: 'text', inFlow: true, insertAt: idx < 0 ? undefined : idx + 1,
+    ...espacementDe(ctx, src.id),
     base: { opacity: 0, fill: ctx.palette.gold },
   }, { where: ctx.where });
   ctx.scene.place(to.id, source);
@@ -213,6 +214,7 @@ function substituerSeul(ctx, src, to) {
   ctx.scene.create({
     id: to.id, text: to.text, kind: to.kind || 'digit', group: to.group ?? src.group,
     role: 'text', inFlow: true, insertAt: idx < 0 ? undefined : idx + 1,
+    ...espacementDe(ctx, src.id),
     base: { opacity: 0, fill: ctx.palette.gold },
   }, { where: ctx.where });
   ctx.scene.place(to.id, ctx.scene.pos(src.id) || { x: ctx.layoutOpts.centerX, y: ctx.layoutOpts.centerY });

@@ -113,6 +113,24 @@ export class Scene {
     return node;
   }
 
+  /**
+   * Fait ENTRER dans le flux un nœud qui vivait à côté.
+   *
+   * C'est ce dont a besoin un résultat de calcul : il paraît d'abord **sous la
+   * pointe de l'accolade** — hors flux, à sa place de résultat — puis, une fois
+   * les opérandes consommés, il rejoint la ligne. Sans ce passage, il faudrait
+   * ou bien le créer dans le flux (et il naîtrait au milieu de ses propres
+   * opérandes), ou bien créer deux tokens pour une seule valeur (et l'un des
+   * deux id serait un mensonge).
+   */
+  enterFlow(id, index, where = '') {
+    const n = this.live(id, where);
+    if (this.flow.includes(id)) return false;
+    n.inFlow = true;
+    this.flow.splice(clampIndex(index === undefined ? this.flow.length : index, this.flow.length), 0, id);
+    return true;
+  }
+
   /** Sort un nœud du flux de layout. L'élément reste dans le DOM (règle 7). */
   kill(id, where = '') {
     const n = this.live(id, where);

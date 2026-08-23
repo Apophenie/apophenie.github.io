@@ -98,3 +98,23 @@ test('un scénario de comptage compile contre la table réelle', { skip: !glyphe
   const traits = tl.nodes.filter((n) => n.id.startsWith('@trait:'));
   assert.equal(traits.length, attendu, 'un sous-chemin dessiné par trait compté');
 });
+
+test('les boucles montrées sont composées des traits que le tracé referme', async () => {
+  // `countStrokes` en mode « boucles » n'annonce plus seulement un NOMBRE : il
+  // éclaire, une par une, les boucles fermées. Il lui faut donc savoir quels
+  // traits composent chacune — et cette décomposition doit rester dérivée du
+  // tracé, comme le comptage : autant de groupes que de boucles, jamais un de
+  // plus, jamais un de moins, et jamais un index hors du glyphe.
+  const { GLYPHES } = await import('../../moteur/tables/glyphes.js');
+  for (const [ch, glyphe] of Object.entries(GLYPHES)) {
+    const derive = deriveGlyph(glyphe);
+    assert.equal(derive.boucleGroupes.length, derive.boucles,
+      `« ${ch} » : ${derive.boucles} boucle(s) comptée(s) mais ${derive.boucleGroupes.length} montrée(s)`);
+    for (const membres of derive.boucleGroupes) {
+      assert.ok(membres.length > 0, `« ${ch} » : une boucle sans trait`);
+      for (const i of membres) {
+        assert.ok(derive.sub[i], `« ${ch} » : la boucle désigne le trait ${i}, hors du glyphe`);
+      }
+    }
+  }
+});

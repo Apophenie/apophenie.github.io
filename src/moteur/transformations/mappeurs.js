@@ -9,16 +9,23 @@
  *
  * ## Gestes dédiés du vocabulaire fermé (CONTRACTS §3.1)
  *
- * - **`sevenSeg`** (`md`, `me`) : la lettre est d'abord tracée depuis
- *   `tables/glyphes.js`, puis fond vers l'afficheur, qui s'allume un trait
- *   continu à la fois.
- * - **`countStrokes`** (`mf`…`mk` — traits, extrémités, boucles) : le glyphe est
- *   REDESSINÉ trait par trait, avec un badge numéroté par trait, par extrémité
- *   libre ou par boucle. C'est l'exigence de CONTRACTS §0.3 : « ce que le
- *   spectateur voit à l'écran est, littéralement, ce qui a été compté ». Les
- *   tables de comptage (`tables/derivees.js`) et le tracé animé sortent du même
+ * - **`sevenSeg`** (`md`, `me`) et **`countStrokes`** (`mf`…`mk` — traits,
+ *   extrémités, boucles) partagent une seule grammaire (`src/visuel/primitives/
+ *   encart.js`), et l'émission est la même : **un step par jeton**. La lettre
+ *   monte dans un encart, y change de police (l'afficheur sept segments, ou son
+ *   propre tracé de crayon), un compteur paraît, les segments — ou les traits,
+ *   les pointes, les boucles — s'allument **un par un** en faisant monter le
+ *   compteur, et le nombre du compteur redescend remplacer la lettre.
+ *   C'est l'exigence de CONTRACTS §0.3 : « ce que le spectateur voit à l'écran
+ *   est, littéralement, ce qui a été compté ». Les tables de comptage
+ *   (`tables/derivees.js`) et le tracé animé sortent du même
  *   `tables/glyphes.js`, et `count` fait échouer la compilation s'ils
  *   divergeaient.
+ * - **`alphabet`** (`m1`, `m2`) : l'alphabet complet, NUMÉROTÉ, paraît sous la
+ *   ligne ; la lettre s'envole vers sa case et son rang en redescend. Même
+ *   principe que le clavier — et même contrôle croisé : la primitive refuse
+ *   d'afficher un rang différent de celui qu'annonce l'arithmétique.
+ *   Une op `alphabet` anime la caméra : une par step.
  * - **`keyboard`** (`ml`…`mo`, `mv`) : le clavier monte, la touche — ou la
  *   colonne, ou la rangée — s'illumine, le caractère y vole, et le nombre en
  *   redescend. Trois mesures : `'touche'` (le « tiret du 6 » : le chiffre qui
@@ -47,7 +54,7 @@ import { mesure as mesureGlyphe } from '../tables/derivees.js';
 import { GLYPHES } from '../tables/glyphes.js';
 import { valeurHebreu, valeurGrec, NOTE_SOURCAGE } from '../tables/ecritures.js';
 import { decouperMots } from './filtres.js';
-import { def, etape, token, fusion, nomsTokens, nomToken, enchainer } from './commun.js';
+import { def, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade } from './commun.js';
 import { bilingue, dire } from '../i18n.js';
 
 const pli = (c) => sansAccents(String(c)).toUpperCase();
@@ -116,16 +123,19 @@ function etapeMappeur(spec) {
     };
 
     if (spec.geste === 'sevenSeg' || spec.geste === 'countStrokes') {
-      // Les deux primitives MONTRENT le comptage au-dessus de la lettre sans
-      // rien remplacer : la substitution vient dans un SECOND step, sinon les
-      // deux animeraient l'opacité des mêmes tokens en même temps.
+      // ★ UN STEP PAR JETON. Les deux primitives montent la lettre dans un
+      // encart, l'y changent de police (afficheur, ou tracé de crayon), posent
+      // un compteur, allument un élément à la fois — et c'est le nombre du
+      // compteur qui, à la fin, redescend remplacer la lettre. Montrer quatre
+      // lettres à la fois donnerait quatre chantiers simultanés : illisible.
+      // Une chose à la fois, et tant pis pour la durée.
       //
       // `count` est le contrôle croisé exigé par CONTRACTS §0.3 : le moteur
       // visuel refuse d'allumer, de tracer ou de pointer un nombre différent de
       // celui qu'annonce l'arithmétique. Il redérive le compte du tracé qu'il
       // dessine — les deux viennent de `tables/glyphes.js`, donc ce que le
       // spectateur voit est littéralement ce qui a été compté.
-      const montrer = apres.valeur.map((n, i) => (spec.geste === 'sevenSeg'
+      const montrer = (n, i) => (spec.geste === 'sevenSeg'
         ? {
           op: 'sevenSeg',
           target: ctx.ids[i],
@@ -137,6 +147,7 @@ function etapeMappeur(spec) {
           glyph: GLYPHES[pliCar(i)] ? pliCar(i) : '',
           fusion: spec.mode === 'fusion',
           count: n,
+          to: token(sortie[i], n, 'number'),
         }
         : {
           op: 'countStrokes',
@@ -146,12 +157,39 @@ function etapeMappeur(spec) {
           // c'est le glyphe COMPTÉ qui doit être le glyphe DESSINÉ.
           glyph: spec.casse === 'maj' ? pliCar(i) : pliCar(i).toLowerCase(),
           count: n,
-        }));
-      return [
-        etape(ctx, dire(spec.libelle, ctx.langue), dire(spec.regle, ctx.langue), montrer, { id: `s_${ctx.cle}_0` }),
-        etape(ctx, dire(spec.libelle, ctx.langue), `${avant.valeur.join(', ')} → ${apres.valeur.join(', ')}`,
-          [substitution], { id: `s_${ctx.cle}_1` }),
-      ];
+          to: token(sortie[i], n, 'number'),
+        });
+      return apres.valeur.map((n, i) => etape(
+        ctx,
+        dire(spec.libelle, ctx.langue),
+        `${dire(spec.regle, ctx.langue)} : ${carDe(i)} → ${n}`,
+        [montrer(n, i)],
+        { id: `s_${ctx.cle}_${i}` },
+      ));
+    }
+
+    if (spec.geste === 'alphabet') {
+      // La réglette alphabétique, sur le modèle du clavier : l'alphabet
+      // complet et numéroté paraît, la lettre s'y envole, son rang en
+      // redescend. Un step par lettre — chaque op anime la caméra.
+      const lettreDe = (i) => pliCar(i);
+      if (apres.valeur.every((_, i) => /^[A-Z]$/.test(lettreDe(i)))) {
+        return apres.valeur.map((n, i) => etape(
+          ctx,
+          dire(spec.libelle, ctx.langue),
+          `${dire(spec.regle, ctx.langue)} : ${lettreDe(i)} → ${n}`,
+          [{
+            op: 'alphabet',
+            target: ctx.ids[i],
+            letter: lettreDe(i),
+            ordre: spec.ordre || 'a1z26',
+            to: token(sortie[i], n, 'number'),
+          }],
+          { id: `s_${ctx.cle}_${i}` },
+        ));
+      }
+      // Repli : un caractère hors de l'alphabet latin. On n'affirme rien qu'on
+      // ne sait pas montrer — on substitue, sans réglette.
     }
 
     if (spec.geste === 'keyboard') {
@@ -206,11 +244,15 @@ function etapeMappeur(spec) {
 function etapeMesure(spec) {
   return (avant, apres, ctx) => {
     const sortie = nomsTokens(ctx, 1);
-    return [etape(ctx, dire(spec.libelle, ctx.langue), `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`, enchainer([
-      ctx.ids.length > 1 ? { op: 'group', targets: ctx.ids } : null,
+    return [etape(ctx, dire(spec.libelle, ctx.langue), `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`, retirerAccolade(enchainer([
+      // Une mesure est un dénombrement : le symbole seul (`#`) serait cryptique,
+      // l'accolade porte donc aussi la règle en toutes lettres.
+      ctx.ids.length > 1
+        ? { op: 'group', targets: ctx.ids, symbol: '#', label: dire(spec.libelle, ctx.langue) }
+        : null,
       ctx.ids.length > 1 ? { op: 'drop', targets: ctx.ids.slice(1), stagger: 20 } : null,
       { op: 'substitute', pairs: [{ target: ctx.ids[0], to: token(sortie[0], apres.valeur, 'number') }] },
-    ]))];
+    ])))];
   };
 }
 
@@ -309,6 +351,7 @@ const MAPPEURS_LETTRE = [
       'Each letter is worth its alphabetical rank'),
     regle: bilingue('A=1, B=2, … Z=26', 'A=1, B=2, … Z=26'),
     notoriete: 1.00,
+    geste: 'alphabet', ordre: 'a1z26',
     fn: (c) => valeurTable(A1Z26, pli(c)),
   },
   {
@@ -317,6 +360,7 @@ const MAPPEURS_LETTRE = [
       'Each letter is worth its reversed alphabetical rank'),
     regle: bilingue('A=26, B=25, … Z=1', 'A=26, B=25, … Z=1'),
     notoriete: 0.45,
+    geste: 'alphabet', ordre: 'z26a1',
     fn: (c) => valeurTable(Z26A1, pli(c)),
   },
   {

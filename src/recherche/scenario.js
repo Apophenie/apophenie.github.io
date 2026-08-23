@@ -47,6 +47,9 @@
 // le signale dans `scenario.avertissements`.
 
 import { rendreValeur } from './bfs.js';
+// Le titre et la règle d'une approche vivent dans `titres.js` (voir la note en
+// fin de fichier) ; on les importe pour continuer à les ré-exporter d'ici.
+import { titreApproche, regleApproche } from './titres.js';
 
 /**
  * Une chaîne affichable du catalogue est un couple `{fr, en}` (voir
@@ -66,7 +69,7 @@ function dire(texte, langue = LANGUE_DEFAUT) {
 export const VOCABULAIRE = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'countStrokes', 'keyboard', 'annotate',
-  'pulse', 'reveal', 'wait',
+  'pulse', 'reveal', 'wait', 'partition', 'alphabet',
 ]);
 
 /**
@@ -398,12 +401,12 @@ function emettreAlignement(paires, A, B, courants, alloc, kind, bloc) {
 }
 
 /**
- * Une seule op « géométrique » par step. Deux ops qui recalculent le layout
- * dans le même step animent deux fois `translate` sur les mêmes tokens : le
- * compilateur visuel le signale comme des animations concurrentes, et le
- * scrubbing devient ambigu (recherche visuelle §2.4, contrainte 4).
+ * Une seule op « géométrique » par step — voir `SANS_LAYOUT` plus bas. Deux ops
+ * qui recalculent le layout dans le même step animent deux fois `translate` sur
+ * les mêmes tokens : le compilateur visuel le signale comme des animations
+ * concurrentes, et le scrubbing devient ambigu (recherche visuelle §2.4,
+ * contrainte 4).
  */
-const SANS_LAYOUT = new Set(['highlight', 'dim', 'pulse', 'reveal', 'annotate', 'wait']);
 
 function decouper(ops, bloc) {
   const blocs = [];
@@ -459,10 +462,16 @@ function inventaire(o) {
       ajouter(o.to);
       supprimes.push(...normaliserCibles(o.targets), ...normaliserCibles(o.consume));
       break;
-    case 'flip180': case 'keyboard':
+    case 'flip180': case 'keyboard': case 'alphabet':
+    case 'sevenSeg': case 'countStrokes':
+      // Ces cinq-là remplacent leur cible quand — et seulement quand — un `to`
+      // leur est donné : le clavier fait redescendre son chiffre, la réglette
+      // son rang, l'encart le nombre de son compteur.
       ajouter(o.to);
       if (o.to) supprimes.push(...normaliserCibles(o.target));
       break;
+    case 'partition':
+      break; // découper ne crée ni ne supprime : ça regroupe
     default:
       ajouter(o.to);
       break;
@@ -489,7 +498,97 @@ function referencesDe(o) {
     refs.push(...normaliserCibles(p.target));
     refs.push(...normaliserCibles(p.targets));
   }
+  for (const g of o.groups || []) refs.push(...normaliserCibles(g.targets));
   return refs;
+}
+
+// ══════════════════════════════════ mise en parallèle des groupes
+
+/**
+ * Signature d'un chemin : la suite des codes d'opérateurs.
+ * Deux morceaux qui la partagent subissent LA MÊME MÉTHODE — c'est la condition
+ * pour la leur appliquer en même temps plutôt que l'un après l'autre.
+ */
+function signatureChemin(chemin) {
+  return (chemin.ops || []).map((o) => o.code).join('>');
+}
+
+/**
+ * Ops qui ne touchent pas au layout — plusieurs peuvent cohabiter dans un step.
+ * Une seule op géométrique par step : deux qui recalculent le flux animeraient
+ * deux fois `translate` sur les mêmes tokens (recherche visuelle §2.4).
+ */
+const SANS_LAYOUT = new Set(['highlight', 'dim', 'pulse', 'reveal', 'annotate', 'wait']);
+
+/** Ops dont la fusion consiste simplement à réunir les cibles. */
+const FUSION_PAR_CIBLES = new Set(['drop', 'highlight', 'dim', 'pulse', 'reveal']);
+
+/**
+ * Fusionne les blocs de plusieurs groupes en un seul jeu de blocs, quand la
+ * même transformation peut s'appliquer à tous EN MÊME TEMPS.
+ *
+ * Rend `null` dès que ce n'est pas exprimable — une somme par groupe, une
+ * accolade par groupe, un clavier par groupe : chacune de ces ops recalcule le
+ * flux ou anime la caméra pour son compte, et trois d'un coup se
+ * contrediraient. L'appelant enchaîne alors les groupes.
+ *
+ * @param {Array<Array<{titre:string, legende:?string, ops:Object[]}>>} parGroupe
+ * @returns {Array<{titre:string, legende:?string, ops:Object[]}>|null}
+ */
+function fusionnerBlocs(parGroupe) {
+  const n = parGroupe[0].length;
+  if (!parGroupe.every((b) => b.length === n)) return null;
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const variantes = parGroupe.map((b) => b[k]);
+    const ops = fusionnerOps(variantes.map((v) => v.ops));
+    if (!ops) return null;
+    out.push({ titre: variantes[0].titre, legende: variantes[0].legende, ops, hold: variantes[0].hold });
+  }
+  return out;
+}
+
+function fusionnerOps(listes) {
+  const n = listes[0].length;
+  if (!listes.every((l) => l.length === n && l.every((o, j) => o.op === listes[0][j].op))) return null;
+  const out = [];
+  for (let j = 0; j < n; j++) {
+    const fusion = fusionnerOp(listes.map((l) => l[j]));
+    if (!fusion) return null;
+    out.push(fusion);
+  }
+  if (out.filter((o) => !SANS_LAYOUT.has(o.op)).length > 1) return null;
+  return out;
+}
+
+/** Fusionne une même op appliquée à plusieurs groupes. `null` si impossible. */
+function fusionnerOp(variantes) {
+  const premier = variantes[0];
+  // Identiques mot pour mot (`{op:'move'}` : un simple recalcul du flux) : une
+  // seule suffit, et elle vaut pour toute la ligne.
+  const ref = JSON.stringify(premier);
+  if (variantes.every((o) => JSON.stringify(o) === ref)) return premier;
+
+  if (premier.op === 'substitute') {
+    if (!variantes.every((o) => Array.isArray(o.pairs))) return null;
+    return { ...premier, pairs: variantes.flatMap((o) => o.pairs) };
+  }
+  if (FUSION_PAR_CIBLES.has(premier.op)) {
+    if (!variantes.every((o) => Array.isArray(o.targets))) return null;
+    // Les autres champs (mode, regroup, at…) doivent coïncider : sinon ce n'est
+    // pas le même geste, et les réunir en mentirait sur la règle.
+    if (!variantes.every((o) => memesReglages(o, premier, ['targets']))) return null;
+    return { ...premier, targets: variantes.flatMap((o) => o.targets) };
+  }
+  return null;
+}
+
+function memesReglages(a, b, sauf) {
+  const cles = new Set([...Object.keys(a), ...Object.keys(b)].filter((k) => !sauf.includes(k)));
+  for (const k of cles) {
+    if (JSON.stringify(a[k]) !== JSON.stringify(b[k])) return false;
+  }
+  return true;
 }
 
 // ══════════════════════════════════ construction du scénario
@@ -547,59 +646,155 @@ export function construireScenario(approche, ctx = {}) {
     return s;
   };
 
-  partsUniques.forEach((part, indexPart) => {
-    const positions = positionsDe(part.fragment, saisie.length);
-    let courants = positions.map((i) => [idsParPosition[i]]);
-    const groupe = `p${indexPart}`;
-
-    // Isolation du fragment (inutile s'il couvre déjà toute la saisie).
-    if (positions.length && positions.length < saisie.length) {
-      nouvelleEtape(
-        approche.parts.length > 1 ? MOTS.isolerMorceau(indexPart + 1, langue) : MOTS.isolerPassage[langue],
-        part.fragment ? citer(part.fragment.texte, langue) : null,
-        [
-          { op: 'highlight', targets: { group: groupe }, mode: 'select' },
-          { op: 'dim', targets: { groupNot: groupe }, at: 200 },
-        ],
+  /**
+   * Un passage `avant → apres` d'un groupe, ramené à des blocs comparables
+   * `{titre, legende, ops}` — que les steps viennent du catalogue ou du rendu
+   * générique. C'est cette forme commune qui rend la mise en parallèle possible.
+   */
+  const produire = (op, avant, apres, courants) => {
+    const titreOp = dire(op.libelle, langue) || op.id;
+    const emis = typeof op.steps === 'function'
+      ? essayerCatalogue(op, avant, apres, courants, alloc, avertissements, `x${nCle++}`, langue)
+      : null;
+    if (emis) {
+      return {
+        blocs: emis.steps.map((st) => ({
+          titre: st.title || titreOp,
+          legende: st.caption ?? null,
+          ops: st.ops,
+          hold: st.hold,
+        })),
+        courants: emis.courants,
+      };
+    }
+    const g = emettreGenerique(op, avant, apres, courants, alloc, langue);
+    if (!g) {
+      throw new ErreurRendu(
+        `« ${titreOp} » (${op.code}) transforme ${elementsDe(avant).length} élément(s) `
+        + `en ${elementsDe(apres).length} : aucune primitive du vocabulaire fermé ne sait le montrer. `
+        + 'Cet opérateur doit fournir son propre steps(), ou le moteur visuel doit gagner la primitive '
+        + 'correspondante (CONTRACTS §3.1).',
+        op,
       );
     }
+    return { blocs: g.blocs.map((b) => ({ ...b, hold: undefined })), courants: g.courants };
+  };
 
-    const chemin = part.chemin;
-    for (let i = 0; i < chemin.ops.length; i++) {
-      const op = chemin.ops[i];
-      const avant = chemin.etats[i];
-      const apres = chemin.etats[i + 1];
-      if (rendreValeur(avant) === rendreValeur(apres)) continue; // rien à montrer
+  const poserBloc = (b, suffixe = '') => {
+    if (!b.ops || !b.ops.length) return null;
+    const st = { id: `s${nStep++}`, title: b.titre + suffixe, ops: b.ops, hold: b.hold === undefined ? DUREE_CHARNIERE : b.hold };
+    if (b.legende) st.caption = b.legende;
+    steps.push(st);
+    return st;
+  };
 
-      const emis = typeof op.steps === 'function'
-        ? essayerCatalogue(op, avant, apres, courants, alloc, avertissements, `x${nCle++}`, langue)
-        : null;
-      if (emis) {
-        for (const s of emis.steps) {
-          s.id = `s${nStep++}`;
-          if (!s.title) s.title = dire(op.libelle, langue) || op.id;
-          if (s.hold === undefined) s.hold = DUREE_CHARNIERE;
-          steps.push(s);
-        }
-        courants = emis.courants;
-        continue;
+  // ── Le découpage en sous-groupes ──────────────────────────────────────────
+  // Quand la saisie porte plusieurs morceaux — `hope-hope-hope`, typiquement —
+  // le tout premier geste est de MONTRER le découpage : trois accolades
+  // numérotées, tracées ensemble. Sans lui, la démonstration passait du premier
+  // morceau au deuxième sans jamais dire qu'il y en avait trois, ni qu'ils
+  // étaient comparables — alors que c'est la promesse du README.
+  const groupes = partsUniques.map((part, i) => ({
+    part,
+    tag: `p${i}`,
+    positions: positionsDe(part.fragment, saisie.length),
+    courants: positionsDe(part.fragment, saisie.length).map((k) => [idsParPosition[k]]),
+  }));
+  const horsGroupe = idsParPosition.filter((_, i) => groupeDe[i] === null);
+
+  // La même méthode pour tous ? C'est à cette condition qu'on peut l'appliquer
+  // à chaque groupe EN MÊME TEMPS plutôt que l'un après l'autre.
+  const memeMethode = groupes.length > 1
+    && groupes.every((g) => signatureChemin(g.part.chemin) === signatureChemin(groupes[0].part.chemin));
+
+  if (groupes.length > 1) {
+    poserBloc({
+      titre: MOTS.decouper[langue],
+      legende: memeMethode ? MOTS.decouperLegende[langue] : null,
+      ops: [
+        {
+          op: 'partition',
+          groups: groupes.map((g, i) => ({
+            targets: g.positions.map((k) => idsParPosition[k]),
+            tag: g.tag,
+            label: MOTS.groupe(i + 1, langue),
+          })),
+        },
+        horsGroupe.length ? { op: 'dim', targets: horsGroupe, at: 1500 } : null,
+      ].filter(Boolean),
+    });
+  }
+
+  if (memeMethode) {
+    // ── En parallèle : un seul geste pour les trois groupes ────────────────
+    const nbOps = groupes[0].part.chemin.ops.length;
+    for (let i = 0; i < nbOps; i++) {
+      const rendus = groupes.map((g) => {
+        const chemin = g.part.chemin;
+        const avant = chemin.etats[i];
+        const apres = chemin.etats[i + 1];
+        if (rendreValeur(avant) === rendreValeur(apres)) return null; // rien à montrer
+        return produire(chemin.ops[i], avant, apres, g.courants);
+      });
+      const actifs = rendus.filter(Boolean);
+      if (!actifs.length) continue;
+
+      // Fusionnable ? Alors la transformation s'applique à chaque groupe
+      // SIMULTANÉMENT — c'est littéralement « trois d'affilée, selon la même
+      // méthode ». Sinon (une somme par groupe, une accolade par groupe, une
+      // caméra par groupe), on les enchaîne, groupe après groupe : la règle
+      // reste la même, elle se répète sous les yeux.
+      const fusionnes = actifs.length === groupes.length ? fusionnerBlocs(actifs.map((r) => r.blocs)) : null;
+      if (fusionnes) {
+        for (const b of fusionnes) poserBloc(b);
+      } else {
+        actifs.forEach((r, k) => {
+          const suffixe = actifs.length > 1 ? MOTS.suffixeGroupe(k + 1, langue) : '';
+          for (const b of r.blocs) poserBloc(b, suffixe);
+        });
       }
-      const g = emettreGenerique(op, avant, apres, courants, alloc, langue);
-      if (!g) {
-        throw new ErreurRendu(
-          `« ${dire(op.libelle, langue) || op.id} » (${op.code}) transforme ${elementsDe(avant).length} élément(s) `
-          + `en ${elementsDe(apres).length} : aucune primitive du vocabulaire fermé ne sait le montrer. `
-          + 'Cet opérateur doit fournir son propre steps(), ou le moteur visuel doit gagner la primitive '
-          + 'correspondante (CONTRACTS §3.1).',
-          op,
-        );
-      }
-      for (const b of g.blocs) nouvelleEtape(b.titre, b.legende, b.ops);
-      courants = g.courants;
+      rendus.forEach((r, k) => { if (r) groupes[k].courants = r.courants; });
     }
-    const dernier = courants.flat()[0];
-    if (dernier) resultats.push(dernier);
-  });
+    for (const g of groupes) {
+      const dernier = g.courants.flat()[0];
+      if (dernier) resultats.push(dernier);
+    }
+  } else {
+    // ── L'un après l'autre : les méthodes diffèrent d'un morceau à l'autre ──
+    for (const g of groupes) {
+      const indexPart = groupes.indexOf(g);
+      // Isolation du fragment (inutile s'il couvre déjà toute la saisie, et
+      // inutile aussi si le découpage vient de la montrer).
+      if (groupes.length === 1 && g.positions.length && g.positions.length < saisie.length) {
+        poserBloc({
+          titre: MOTS.isolerPassage[langue],
+          legende: g.part.fragment ? citer(g.part.fragment.texte, langue) : null,
+          ops: [
+            { op: 'highlight', targets: { group: g.tag }, mode: 'select' },
+            { op: 'dim', targets: { groupNot: g.tag }, at: 200 },
+          ],
+        });
+      } else if (groupes.length > 1) {
+        poserBloc({
+          titre: MOTS.isolerMorceau(indexPart + 1, langue),
+          legende: g.part.fragment ? citer(g.part.fragment.texte, langue) : null,
+          ops: [{ op: 'highlight', targets: { group: g.tag }, mode: 'select' }],
+        });
+      }
+
+      const chemin = g.part.chemin;
+      for (let i = 0; i < chemin.ops.length; i++) {
+        const avant = chemin.etats[i];
+        const apres = chemin.etats[i + 1];
+        if (rendreValeur(avant) === rendreValeur(apres)) continue;
+        const r = produire(chemin.ops[i], avant, apres, g.courants);
+        for (const b of r.blocs) poserBloc(b);
+        g.courants = r.courants;
+      }
+      const dernier = g.courants.flat()[0];
+      if (dernier) resultats.push(dernier);
+    }
+  }
 
   const finaux = resultats.filter(Boolean);
   if (!finaux.length) throw new ErreurRendu('aucun résultat à révéler', null);
@@ -679,9 +874,23 @@ export function validerFormeOp(o) {
     case 'highlight': case 'dim': case 'drop': case 'pulse': case 'reveal': case 'group':
       return cibles(o.targets) ? null : '« targets » manquant ou mal formé';
     case 'move':
+      // Sans cible ni ordre, `move` est un simple recalcul du flux — c'est la
+      // forme qu'emploie le second temps d'un filtre (« on rapproche ce qui
+      // reste »), où l'ordre n'a pas changé, seuls les trous se referment.
+      if (o.order === undefined && o.targets === undefined) return null;
       return (Array.isArray(o.order) && o.order.every(chaine)) || cibles(o.targets)
         ? ((o.to === undefined || o.to === 'front' || o.to === 'back') ? null : '« to » doit valoir « front » ou « back »')
         : '« targets » ou « order » manquant';
+    case 'partition': {
+      if (!Array.isArray(o.groups) || o.groups.length < 2) return '« groups » doit lister au moins deux groupes';
+      for (const g of o.groups) {
+        if (!g || typeof g !== 'object' || !cibles(g.targets)) return '« groups[].targets » manquant ou mal formé';
+      }
+      return null;
+    }
+    case 'alphabet':
+      if (!chaine(o.target)) return '« target » manquant';
+      return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
     case 'substitute': {
       if (!Array.isArray(o.pairs) || !o.pairs.length) return '« pairs » manquant';
       for (const p of o.pairs) {
@@ -701,8 +910,12 @@ export function validerFormeOp(o) {
       return tok(o.to) ? null : '« to » doit être {id, text}';
     case 'insertOperators': {
       if (!Array.isArray(o.between) || o.between.length < 2 || !o.between.every(chaine)) return '« between » doit lister au moins deux identifiants';
-      if (o.ids === undefined) return null; // le moteur visuel les nomme lui-même
       const n = o.between.length - 1;
+      if (o.glyphs !== undefined
+        && !(Array.isArray(o.glyphs) && o.glyphs.length === n && o.glyphs.every(chaine))) {
+        return `« glyphs », s'il est fourni, doit contenir exactement ${n} signe(s), un par interstice`;
+      }
+      if (o.ids === undefined) return null; // le moteur visuel les nomme lui-même
       return Array.isArray(o.ids) && o.ids.length === n && o.ids.every(chaine)
         ? null : `« ids », s'il est fourni, doit contenir exactement ${n} identifiant(s)`;
     }
@@ -909,6 +1122,13 @@ function citer(texte, langue) {
  * ou rien (`src/moteur/i18n.js`).
  */
 const MOTS = Object.freeze({
+  decouper: { fr: 'On découpe en sous-groupes', en: 'Cut it into sub-groups' },
+  decouperLegende: {
+    fr: 'Trois morceaux comparables : la même méthode vaudra pour chacun',
+    en: 'Three comparable pieces: one and the same method will do for each',
+  },
+  groupe: (n, langue) => (langue === 'en' ? `group ${n}` : `groupe ${n}`),
+  suffixeGroupe: (n, langue) => (langue === 'en' ? ` — group ${n}` : ` — groupe ${n}`),
   isolerPassage: { fr: 'On isole le passage utile', en: 'Single out the part that matters' },
   isolerMorceau: (n, langue) => (langue === 'en'
     ? `Single out the ${ordinalEn(n)} piece`
@@ -921,27 +1141,12 @@ const MOTS = Object.freeze({
   verdict: { fr: 'Le verdict', en: 'The verdict' },
 });
 
-export function titreApproche(approche, langue = LANGUE_DEFAUT) {
-  const noms = [];
-  for (const p of approche.parts) {
-    for (const o of p.chemin.ops) {
-      const nom = dire(o.libelle, langue);
-      if (nom && !noms.includes(nom)) noms.push(nom);
-    }
-  }
-  return noms.slice(0, 3).join(', ') || (langue === 'en' ? 'Demonstration' : 'Démonstration');
-}
-
-export function regleApproche(approche, langue = LANGUE_DEFAUT) {
-  const regles = [];
-  for (const p of approche.parts) {
-    for (const o of p.chemin.ops) {
-      const r = dire(o.regle, langue);
-      if (r && !regles.includes(r)) regles.push(r);
-    }
-  }
-  return regles.join(' · ');
-}
+// Le titre et la règle d'une approche vivent désormais dans `titres.js` : un
+// titre NOMME une méthode (« L'astuce AZERTY et le retournement du 9 ») là où
+// l'ancienne version d'ici concaténait trois libellés d'opérateurs. Ce module
+// n'en garde que le point d'entrée, parce que `src/app/pont.js` le charge ici
+// pour recomposer les titres à chaque changement de langue.
+export { titreApproche, regleApproche };
 
 // ══════════════════════════════════ validation des 8 invariants (§7.1 visuel)
 

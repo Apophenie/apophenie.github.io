@@ -121,8 +121,15 @@ test('scénario — un opérateur qui fournit steps() est employé tel quel', ()
   const sc = construireScenario(approche, { saisie: 'hope' });
   assert.deepEqual(validerScenario(sc), []);
   assert.equal(sc.avertissements, undefined, 'aucun repli sur le rendu générique');
-  const sub = sc.steps.flatMap((s) => s.ops).find((o) => o.op === 'substitute');
-  assert.deepEqual(sub.pairs.map((p) => p.to.text), ['8', '15', '16', '5']);
+  // `m.a1z26` montre désormais la conversion sur la réglette alphabétique :
+  // un step par lettre, la lettre s'envole vers sa case, le rang en redescend.
+  const rangs = sc.steps.flatMap((s) => s.ops).filter((o) => o.op === 'alphabet');
+  assert.deepEqual(rangs.map((o) => o.to.text), ['8', '15', '16', '5']);
+  assert.deepEqual(rangs.map((o) => o.letter), ['H', 'O', 'P', 'E']);
+  for (const step of sc.steps) {
+    assert.ok(step.ops.filter((o) => o.op === 'alphabet').length <= 1,
+      'une réglette par step : chacune anime la caméra');
+  }
 });
 
 test('scénario — steps() incohérent : repli générique + avertissement, jamais d’échec', () => {

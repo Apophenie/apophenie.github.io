@@ -39,32 +39,57 @@ export const CAP_RATIO = 0.73;
 export const TOKEN_GAP = 6;      // échelle d'espacement design : base 6
 export const LINE_HEIGHT = 78;   // unités viewBox
 
-/** Vocabulaire FERMÉ des ops — CONTRACTS §3.1. 17 primitives, pas une de plus. */
+/**
+ * Vocabulaire FERMÉ des ops — CONTRACTS §3.1.
+ *
+ * Le contrat prévoit l'extension : « Ajouter une transformation arithmétique
+ * sans rendu ⇒ ajouter d'abord la primitive ici, puis l'émettre. » Deux
+ * primitives ont été ajoutées au socle de dix-sept :
+ *
+ *  · `partition` — découper la saisie en sous-groupes, pour appliquer ensuite
+ *    la MÊME transformation à chacun (« trois d'affilée, selon la même
+ *    méthode », README). Sans elle, un `hope-hope-hope` se traitait morceau
+ *    après morceau sans qu'on voie jamais le découpage ;
+ *  · `alphabet` — la réglette alphabétique numérotée, sur le modèle du clavier :
+ *    la lettre s'envole vers son rang, et le rang en redescend.
+ */
 export const OP_NAMES = Object.freeze([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'alphabet',
 ]);
 
-/** Durées par défaut, par op (ms, avant `speed`). */
+/**
+ * Durées par défaut, par op (ms, avant `speed`).
+ *
+ * ★ Elles ont été franchement allongées : « c'est la compréhension et la
+ * lisibilité qui priment, il y a de quoi faire avance rapide si besoin ».
+ * Un comptage ou une conversion se regarde, il ne s'expédie pas.
+ *
+ * `src/moteur/transformations/commun.js` en tient le miroir (le moteur
+ * arithmétique ne dépend pas du moteur visuel) ; un test vérifie qu'ils ne
+ * divergent pas.
+ */
 export const DEFAULT_DUR = Object.freeze({
-  highlight: 500,
-  dim: 500,
-  drop: 700,
-  substitute: 900,
-  move: 700,
-  group: 800,
-  insertOperators: 600,
-  sum: 1200,
-  reduce: DUR_TRANSFORM,
-  flip180: 900,
-  sevenSeg: 1200,
-  countStrokes: DUR_TRANSFORM,
-  keyboard: 1800,
-  annotate: 700,
-  pulse: 500,
-  reveal: 1200,
-  wait: 800,
+  highlight: 600,
+  dim: 700,
+  drop: 2000,
+  substitute: 1100,
+  move: 900,
+  group: 1300,
+  insertOperators: 700,
+  sum: 2800,
+  reduce: 2600,
+  flip180: 1100,
+  sevenSeg: 3000,
+  countStrokes: 3000,
+  keyboard: 2400,
+  annotate: 800,
+  pulse: 600,
+  reveal: 1400,
+  wait: 900,
+  partition: 1800,
+  alphabet: 2800,
 });
 
 /** `kind` des tokens — vocabulaire fermé (recherche §2.2). */

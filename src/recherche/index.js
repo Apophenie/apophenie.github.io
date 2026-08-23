@@ -15,9 +15,12 @@ import {
 } from './bfs.js';
 import { construireBassin } from './bassin.js';
 import { genererFragments, zonesSignifiantes, tokeniser, motifsRepetes } from './fragments.js';
-import { assembler, approcheJoker, deduireMode } from './assemblage.js';
+import {
+  assembler, approcheJoker, deduireMode, normaliserChemins,
+} from './assemblage.js';
 import { noter, diversifier, ordreTotal, REGLAGES } from './score.js';
-import { construireScenario, titreApproche, regleApproche } from './scenario.js';
+import { construireScenario } from './scenario.js';
+import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
 import { lire, ecrire, descripteursDe, BANDEAUX } from './url.js';
 
 export { LIMITE_SAISIE, BANDEAUX, REGLAGES };
@@ -197,7 +200,12 @@ export function creerMoteur(catalogue, options = {}) {
     for (const a of approches) noter(a, ctxScore);
     approches.sort(ordreTotal);
 
-    // Le joker est affiché et assumé, en bas de liste (§0.4).
+    // Le joker est affiché et assumé, en bas de liste (§0.4). Il n'est plus le
+    // seul : le DÉCRET — un unique 6 recopié trois fois — porte désormais son
+    // propre malus (`MALUS.decret`, ×0,40), si bien que le classement suffit à
+    // le renvoyer en fond de liste sans qu'on ait à l'y pousser à la main. Ce
+    // qui compte, et qui est vérifié plus bas, c'est qu'il ne passe JAMAIS
+    // devant une approche qui produit réellement trois 6.
     const jokers = approches.filter((a) => a.mode === 'JOKER');
     const honnetes = approches.filter((a) => a.mode !== 'JOKER');
     const retenues = diversifier(honnetes, { limite: REGLAGES.MAX_APPROCHES - (jokers.length ? 1 : 0) });
@@ -207,18 +215,27 @@ export function creerMoteur(catalogue, options = {}) {
       if (j) { noter(j, ctxScore); retenues.push(j); }
     }
 
+    // Les titres sont posés en une passe sur la LISTE, pas approche par
+    // approche : c'est la seule façon de garantir que deux lignes ne portent
+    // pas le même nom (`titres.js → distinguerTitres`). La distinction se pose
+    // sur l'approche, jamais sur la chaîne rendue, pour que `src/app/pont.js`
+    // recompose exactement le même titre en changeant de langue.
+    nommer(retenues);
     retenues.forEach((a, i) => {
       a.rang = i + 1;
-      a.titre = titreApproche(a);
-      a.regle = regleApproche(a);
       a.url = ecrire({ saisie, fragments: descripteursDe(a, { nbJetons: jetons.length }) });
       a.joker = a.mode === 'JOKER';
     });
 
     const listeFragments = [];
     for (const f of frags) {
-      const chemins = parFrag.get(f.texte.normalize('NFC'));
-      if (!chemins || !chemins.length) continue;
+      // Mêmes chemins canoniques que ceux de l'assemblage : sans quoi la liste
+      // des fragments proposerait des URL passant par des étapes décoratives
+      // que la liste des approches, elle, a retirées.
+      const bruts = parFrag.get(f.texte.normalize('NFC'));
+      if (!bruts || !bruts.length) continue;
+      const chemins = normaliserChemins(bruts);
+      if (!chemins.length) continue;
       listeFragments.push({
         texte: f.texte,
         offset: f.offset,
@@ -307,8 +324,10 @@ export function creerMoteur(catalogue, options = {}) {
     // qu'un lien rejoué affiche le même score que la liste dont il est issu.
     const approche = { parts, ...deduireMode(parts, { saisie, jetons }) };
     noter(approche, { saisie, signifiants: zonesSignifiantes(saisie) });
-    approche.titre = titreApproche(approche);
-    approche.regle = regleApproche(approche);
+    // Hors liste, il n'y a personne dont se distinguer : le titre est celui que
+    // `titres.js` compose à partir de la seule signature du chemin.
+    approche.titre = titreBilingue(approche);
+    approche.regle = regleBilingue(approche);
     approche.url = ecrire({ saisie, fragments: lecture.fragments });
     return { ok: true, approche };
   }
@@ -424,7 +443,8 @@ function serialisable(resultat) {
     tronqueTemps: resultat.tronqueTemps,
     avertissement: resultat.avertissement,
     approches: (resultat.approches || []).map((a) => ({
-      rang: a.rang, mode: a.mode, score: a.score, L: a.L, titre: a.titre,
+      rang: a.rang, mode: a.mode, score: a.score, scoreAjuste: a.scoreAjuste,
+      decret: a.decret, L: a.L, titre: a.titre,
       regle: a.regle, url: a.url, joker: a.joker, criteres: a.criteres,
       codes: a.codes,
     })),

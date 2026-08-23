@@ -15,7 +15,7 @@
  * `reduce` par palier**, chacun dans son step. Le moteur visuel ne boucle jamais.
  */
 
-import { tokenSpec, insertOperatorTokens, accumulate, charPoint } from './helpers.js';
+import { tokenSpec, insertOperatorTokens, accumulate, charPoint, espacementDe } from './helpers.js';
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
 
@@ -48,11 +48,19 @@ export function plan(ctx) {
   specs.forEach((s, i) => {
     ctx.scene.create({
       id: s.id, text: s.text, kind: s.kind || 'digit', group: s.group,
+      // ★ Opacité de base NULLE. Les chiffres éclatés n'existent qu'à partir de
+      // ce step ; nés opaques, ils s'affichaient dès la première image de la
+      // démonstration — « 15 » posé sur le « ho » de « hope » avant même qu'on
+      // ait compté quoi que ce soit. Ils s'allument donc d'un coup (1 ms), à
+      // l'instant précis où le nombre d'origine s'efface : le raccord reste
+      // invisible, mais il ne commence plus avant l'heure.
       role: 'text', inFlow: true, insertAt: srcIdx < 0 ? undefined : srcIdx + 1 + i,
-      base: { opacity: 1, fill: ctx.palette.phos },
+      ...(i === 0 ? espacementDe(ctx, src.id) : {}),
+      base: { opacity: 0, fill: ctx.palette.phos },
     }, { where: ctx.where });
     // Naissance pile sur le glyphe correspondant du token d'origine.
     ctx.scene.place(s.id, charPoint(ctx, src.id, i));
+    ctx.anim({ id: s.id, prop: 'opacity', to: 1, at: 0, dur: 1 });
   });
   ctx.anim({ id: src.id, prop: 'opacity', to: 0, at: 0, dur: Math.max(1, T1 * 0.35) });
   ctx.scene.kill(src.id, ctx.where);
@@ -76,6 +84,7 @@ export function plan(ctx) {
     at: T1 + T2,
     dur: T3,
     partials: Array.isArray(ctx.op.partials) ? ctx.op.partials : null,
+    symbol: 'Σ',
   });
 
   const shown = res.partials[res.partials.length - 1];

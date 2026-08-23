@@ -1,23 +1,39 @@
 /**
- * `sevenSeg` — la lettre passe à l'afficheur 7 segments.
+ * `sevenSeg` — la lettre passe à l'afficheur sept segments, et on compte.
  *
- * Recherche §4.10 : on ne morphe **pas** l'attribut `d` (non Baseline en CSS,
- * et il exigerait des chemins iso-structurés). L'afficheur est pré-dessiné —
- * 7 `<path>` fixes, identiques pour tous les caractères, pilotés uniquement par
- * `opacity`. Le « morphing » est un crossfade du tracé de référence vers
- * l'afficheur, puis un allumage en stagger.
+ * ## Ce qui a changé, et pourquoi
  *
- * Le stagger suit les **traits continus fusionnés** (`b`+`c`, `e`+`f`), pas les
- * segments : c'est la méthode 5 du README, et le spectateur voit littéralement
- * pourquoi `H = 3 traits`.
+ * L'ancien rendu empilait, **au-dessus de chaque lettre de la ligne**, un tracé
+ * de référence fantôme, un afficheur, et des badges numérotés semés autour :
+ * quatre lettres côte à côte donnaient quatre petits chantiers simultanés,
+ * illisibles. On tient désormais la grammaire commune de `encart.js` :
  *
- * La lettre de référence est tracée depuis `src/moteur/tables/glyphes.js`
- * (CONTRACTS §2.4) : ce qui est dessiné est ce qui est compté.
+ *  1. la lettre **monte dans un encart**, seule, au centre ;
+ *  2. elle y **change de police** : le glyphe typographique se fond dans
+ *     l'afficheur, dont les sept segments sont d'abord tous éteints, en
+ *     fantôme — on voit ce qui *pourrait* s'allumer ;
+ *  3. un **compteur** paraît à côté, à zéro ;
+ *  4. les segments **s'allument un par un**, et chacun fait monter le compteur ;
+ *  5. le nombre du compteur **descend remplacer la lettre** dans la ligne.
+ *
+ * Le stagger suit les **traits continus fusionnés** (`b`+`c`, `e`+`f`) quand
+ * `fusion` est demandé, les segments individuels sinon. C'est la méthode 5 du
+ * README, et le spectateur voit littéralement pourquoi `H = 3 traits`.
+ *
+ * ## Contrôle croisé
+ *
+ * `count` est le garde-fou de CONTRACTS §0.3 : si le scénario annonce un nombre
+ * différent de celui que l'afficheur ALLUME réellement, la compilation échoue.
+ * Le moteur visuel refuse d'afficher autre chose que ce qui est compté.
+ *
+ * Recherche §4.10 : on ne morphe **pas** l'attribut `d` (non Baseline en CSS).
+ * L'afficheur est pré-dessiné — sept `<path>` fixes, pilotés par `opacity` et
+ * `stroke`.
  */
 
-import { SEGMENTS, SEGMENT_ORDER, fusedStrokes, glyphToLocal } from '../assets.js';
-import { glyphOf, endpointsOf } from '../glyphes.js';
-import { badge } from './helpers.js';
+import { SEGMENTS, SEGMENT_ORDER, fusedStrokes } from '../assets.js';
+import { tokenSpec } from './helpers.js';
+import { ouvrirEncart, poserCompteur, refermerEncart, ENCART } from './encart.js';
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
 
@@ -36,83 +52,71 @@ export function plan(ctx) {
   if (ctx.op.count !== undefined && ctx.op.count !== count) {
     fail(`${ctx.where}« count » annonce ${ctx.op.count}, mais l’afficheur en montre ${count} (${fusion ? 'traits fusionnés' : 'segments'} : ${fusion ? strokes.join(', ') : [...on].join(', ')}). Le moteur visuel refuse d'afficher autre chose que ce qui est compté.`);
   }
+  const to = ctx.op.to === undefined || ctx.op.to === null ? null : tokenSpec(ctx, ctx.op.to, 'to');
+  if (to !== null && String(to.text) !== String(count)) {
+    fail(`${ctx.where}« to.text » annonce « ${to.text} », mais le compteur s'arrête à ${count}. `
+      + 'Le nombre qui remplace la lettre est celui du compteur, pas un autre.');
+  }
 
-  const pos = ctx.scene.pos(src.id);
-  const anchor = { x: pos.x, y: pos.y - ctx.metrics.fontSize * 1.25 };
   const T = ctx.dur;
 
-  // --- 1. tracé de référence de la lettre ----------------------------------
-  const ch = ctx.op.glyph ?? ([...src.text].length === 1 ? src.text : null);
-  const refIds = [];
-  if (ch) {
-    const table = ctx.glyphes || null;
-    const glyph = glyphOf(ch, table || undefined);
-    glyph.traits.forEach((tr, i) => {
-      const id = `@ref:${src.id}:${i}`;
-      ctx.scene.create({
-        id, role: 'glyph', inFlow: false, w: 0, data: { d: tr.d },
-        base: { opacity: 0, strokeDashoffset: 100, stroke: ctx.palette.fg2 },
-      }, { where: ctx.where });
-      ctx.scene.place(id, anchor);
-      ctx.anim({ id, prop: 'opacity', to: 1, at: 0, dur: T * 0.12 });
-      ctx.anim({ id, prop: 'strokeDashoffset', from: 100, to: 0, at: 0, dur: T * 0.28, ease: EASE.fade });
-      ctx.anim({ id, prop: 'opacity', to: 0, at: T * 0.34, dur: T * 0.16 });
-      refIds.push(id);
-    });
-  }
-  ctx.anim({ id: src.id, prop: 'opacity', to: 0.35, at: 0, dur: T * 0.2 });
+  // --- 1. l'encart s'ouvre, la lettre y monte ------------------------------
+  const encart = ouvrirEncart(ctx, src, {
+    at: 0, dur: T * 0.12, title: typeof ctx.op.note === 'string' ? ctx.op.note : null,
+  });
 
-  // --- 2. l'afficheur apparaît, segments éteints en fantôme -----------------
+  // --- 2. changement de police : les sept segments, tous éteints -----------
+  const apparition = T * 0.2;
   const segIds = {};
-  void refIds;
   SEGMENT_ORDER.forEach((k) => {
     const id = `@seg:${src.id}:${k}`;
-    const lit = on.has(k);
     ctx.scene.create({
-      id, role: 'seg', inFlow: false, w: 0, data: { d: SEGMENTS[k].d, segment: k, lit },
-      base: { opacity: 0, stroke: lit ? ctx.palette.phos : ctx.palette.fg3 },
+      id,
+      role: 'seg',
+      inFlow: false,
+      w: 0,
+      data: { d: SEGMENTS[k].d, segment: k, lit: on.has(k), scale: ENCART.zoomGlyphe },
+      base: { opacity: 0, stroke: ctx.palette.fg3 },
     }, { where: ctx.where });
-    ctx.scene.place(id, anchor);
-    ctx.anim({ id, prop: 'opacity', to: 0.15, at: T * 0.34, dur: T * 0.16 });
+    ctx.scene.place(id, encart.centre);
+    ctx.anim({ id, prop: 'opacity', to: 0.14, at: apparition, dur: T * 0.1 });
     segIds[k] = id;
   });
+  // La lettre s'efface pendant que l'afficheur paraît : c'est le fondu d'une
+  // police vers l'autre, sur le même point d'ancrage.
+  ctx.anim({ id: src.id, prop: 'opacity', to: 0.06, at: apparition, dur: T * 0.1, ease: EASE.fade });
 
-  // --- 3. allumage, un trait continu à la fois -----------------------------
-  const groups = fusion
+  // --- 3 et 4. le compteur, puis l'allumage un par un ----------------------
+  const groupes = fusion
     ? strokes.map((s) => ({ key: s, members: SEGMENT_ORDER.filter((k) => on.has(k) && SEGMENTS[k].stroke === s) }))
-    : [...on].map((k) => ({ key: k, members: [k] }));
+    : SEGMENT_ORDER.filter((k) => on.has(k)).map((k) => ({ key: k, members: [k] }));
 
-  const lightStart = T * 0.52;
-  const per = (T - lightStart) / Math.max(1, groups.length);
-  groups.forEach((g, i) => {
-    const a = lightStart + i * per;
-    for (const k of g.members) {
-      ctx.anim({ id: segIds[k], prop: 'opacity', to: 1, at: a, dur: Math.max(1, per * 0.8) });
-    }
-    const mid = midOfGroup(g.members, ctx.metrics.fontSize);
-    badge(ctx, i + 1, { x: anchor.x + mid.x * 1.35, y: anchor.y + mid.y * 1.35 }, { at: a + per * 0.3, dur: Math.max(1, per * 0.5) });
+  const debut = T * 0.36;
+  const fin = T * 0.82;
+  const cadence = (fin - debut) / Math.max(1, groupes.length);
+
+  const compteur = `@compteur:${src.id}`;
+  poserCompteur(ctx, {
+    id: compteur, centre: encart.centre, cote: encart.cote,
+    total: groupes.length, debut, cadence,
   });
 
-  if (typeof ctx.op.note === 'string' && ctx.op.note) {
-    const nid = ctx.gensym('note');
-    ctx.scene.create({
-      id: nid, role: 'label', text: ctx.op.note, inFlow: false,
-      w: ctx.metrics.advance * 0.55 * ctx.op.note.length,
-      data: { scale: 0.5 },
-      base: { opacity: 0, fill: ctx.palette.fg3 },
-    }, { where: ctx.where });
-    ctx.scene.place(nid, { x: anchor.x, y: anchor.y - ctx.metrics.fontSize * 0.95 });
-    ctx.anim({ id: nid, prop: 'opacity', to: 1, at: T * 0.5, dur: T * 0.3 });
-  }
-}
+  groupes.forEach((g, i) => {
+    const a = debut + i * cadence;
+    for (const k of g.members) {
+      ctx.anim({ id: segIds[k], prop: 'opacity', to: 1, at: a, dur: Math.max(1, cadence * 0.6) });
+      ctx.anim({ id: segIds[k], prop: 'stroke', to: ctx.palette.phos, at: a, dur: Math.max(1, cadence * 0.6) });
+    }
+  });
 
-function midOfGroup(members, fontSize) {
-  let sx = 0; let sy = 0; let n = 0;
-  for (const k of members) {
-    const { start, end } = endpointsOf(SEGMENTS[k].d);
-    const a = glyphToLocal(start, fontSize);
-    const b = glyphToLocal(end, fontSize);
-    sx += (a.x + b.x) / 2; sy += (a.y + b.y) / 2; n++;
-  }
-  return { x: n ? sx / n : 0, y: n ? sy / n : 0 };
+  // --- 5. le nombre du compteur remplace la lettre -------------------------
+  refermerEncart(ctx, {
+    src,
+    to,
+    compteur,
+    encart,
+    montres: SEGMENT_ORDER.map((k) => segIds[k]),
+    at: T * 0.86,
+    dur: T * 0.14,
+  });
 }

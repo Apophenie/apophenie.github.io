@@ -9,6 +9,10 @@
  * La largeur du résultat final est réservée dès le départ (la case est créée
  * avec son texte final) : un compteur qui passe de `8` à `44` ne doit pas faire
  * sauter la mise en page.
+ *
+ * ★ Composition : les opérandes sont **dans** l'accolade, le résultat paraît
+ * **sous sa pointe**, et le symbole de l'opération (`Σ` par défaut, `∏`, `−`…)
+ * est écrit entre les deux. Voir `group.js` pour le détail du dessin.
  */
 
 import { targetsOf, tokenSpec, accumulate } from './helpers.js';
@@ -27,7 +31,13 @@ export function plan(ctx) {
   }
 
   const partials = Array.isArray(ctx.op.partials) ? ctx.op.partials : null;
-  const res = accumulate(ctx, { operands, consume, to, at: 0, dur: ctx.dur, partials });
+  // Le symbole n'est pas une décoration : une accolade nue ne dit pas si l'on
+  // additionne, si l'on multiplie ou si l'on dénombre (voir `group.js`).
+  const res = accumulate(ctx, {
+    operands, consume, to, at: 0, dur: ctx.dur, partials,
+    symbol: typeof ctx.op.symbol === 'string' && ctx.op.symbol ? ctx.op.symbol : 'Σ',
+    label: typeof ctx.op.label === 'string' ? ctx.op.label : null,
+  });
 
   // Garde-fou : ce qui est affiché doit être ce qui est calculé.
   const shown = res.partials[res.partials.length - 1];

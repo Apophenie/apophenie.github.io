@@ -300,9 +300,59 @@ export function deriveGlyph(glyph) {
     traits: sub.length,
     extremites: libres.length,
     boucles: closedCount + cycles,
+    // ★ QUELS traits composent chaque boucle. Le comptage seul suffisait à
+    // annoncer « le B a deux boucles » ; le MONTRER demande de savoir laquelle
+    // éclairer. Même source, même règle : la liste ci-dessous a exactement la
+    // longueur de `boucles`, et un test le vérifie glyphe par glyphe.
+    boucleGroupes: boucleGroupes(sub, jonctions),
     libres,
     sub,
   };
+}
+
+/**
+ * Décomposition en boucles : un sous-chemin fermé est une boucle à lui seul ;
+ * chaque arête de jonction qui referme un cycle en désigne une autre, formée
+ * du chemin d'arbre entre ses deux extrémités.
+ * @returns {number[][]} une liste d'index de sous-chemins par boucle
+ */
+function boucleGroupes(sub, jonctions) {
+  const out = [];
+  for (const s of sub) if (s.closed) out.push([s.index]);
+
+  const parent = sub.map((_, i) => i);
+  const find = (a) => (parent[a] === a ? a : (parent[a] = find(parent[a])));
+  const arbre = sub.map(() => []);
+  for (const [a, b] of jonctions) {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) { parent[ra] = rb; arbre[a].push(b); arbre[b].push(a); continue; }
+    // L'arête referme un cycle : la boucle est le chemin d'arbre de a à b.
+    const chemin = cheminArbre(arbre, a, b);
+    out.push(chemin || [a, b]);
+  }
+  return out;
+}
+
+/** Chemin unique entre deux sommets d'une forêt (parcours en largeur). */
+function cheminArbre(arbre, a, b) {
+  if (a === b) return [a];
+  const vu = new Map([[a, null]]);
+  const file = [a];
+  while (file.length) {
+    const x = file.shift();
+    for (const y of arbre[x]) {
+      if (vu.has(y)) continue;
+      vu.set(y, x);
+      if (y === b) {
+        const chemin = [];
+        for (let z = b; z !== null && z !== undefined; z = vu.get(z)) chemin.push(z);
+        return chemin.reverse();
+      }
+      file.push(y);
+    }
+  }
+  return null;
 }
 
 /** Nombre cyclomatique E − V + C du multigraphe des jonctions. */

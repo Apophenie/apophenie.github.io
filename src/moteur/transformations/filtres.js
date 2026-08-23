@@ -15,6 +15,11 @@ import {
   def, apparier, sortieCreee, sortieConservee, etape, token, fusion, enchainer,
 } from './commun.js';
 
+// Libellés dont `steps()` a besoin avant que `def()` ait figé l'opérateur.
+const LIB_RAPPROCHER = bilingue('On rapproche ce qui reste', 'Close the gaps');
+const REG_RAPPROCHER = bilingue('Les lettres retenues se remettent côte à côte',
+  'The letters we kept move back side by side');
+
 const estLettreLarge = (c) => /\p{L}/u.test(c);
 const pli = (c) => sansAccents(c).toUpperCase();
 const estVoyelle = (c, avecY) => (avecY ? VOYELLES_Y : VOYELLES).includes(pli(c)[0] || '');
@@ -34,22 +39,49 @@ function garder(valeur, traces, predicat) {
 }
 
 /**
- * Étape « on retire » — `drop` sur les tokens disparus.
+ * Étape « on retire » — **deux temps nettement séparés**, un step chacun.
  *
- * Un seul geste : `drop` resserre déjà les survivants (il appelle `reflow` à
- * 60 % de la chute, `src/visuel/primitives/drop.js`). Un `move` de plus dans le
- * même step animerait une seconde fois `translate` sur les mêmes tokens — c'est
- * exactement la contradiction que le compilateur visuel signale.
+ * ```
+ *   h  o  p  e  -  h  o  p  e        ①  on efface ce qui n'est pas retenu,
+ *      o     e        o     e            un caractère à la fois, SUR PLACE
+ *
+ *      o     e        o     e        ②  puis, seulement ensuite,
+ *          o  e  o  e                    on rapproche ce qui reste
+ * ```
+ *
+ * ★ **Aucun surlignage.** L'ancienne version expédiait le filtre en une chute
+ * unique, doublée d'un `highlight` sur les survivants. Or la disparition suffit
+ * à désigner : ce qui reste est ce qui n'a pas été effacé. Souligner en plus,
+ * c'est dire deux fois la même chose — et le halo doré finissait par accompagner
+ * la moitié de la ligne.
+ *
+ * Deux steps, donc deux charnières : on peut s'arrêter *entre* l'effacement et
+ * le rapprochement, et repartir en arrière. C'est là que se lit la règle.
  */
 function etapeRetrait(op) {
   return (avant, apres, ctx) => {
     const gardes = new Set(apparier(avant, apres).filter((i) => i >= 0));
     const perdus = ctx.ids.filter((_, i) => !gardes.has(i));
     const restants = ctx.ids.filter((_, i) => gardes.has(i));
-    return [etape(ctx, dire(op.libelle, ctx.langue), dire(op.regle, ctx.langue), enchainer([
-      perdus.length ? { op: 'drop', targets: perdus, stagger: 40 } : { op: 'move', targets: restants },
-      restants.length ? { op: 'highlight', targets: restants, mode: 'select' } : null,
-    ]))];
+    const titre = dire(op.libelle, ctx.langue);
+    const regle = dire(op.regle, ctx.langue);
+
+    if (!perdus.length) {
+      return [etape(ctx, titre, regle, [{ op: 'move', targets: restants }])];
+    }
+    return [
+      // ① l'effacement. `regroup: false` : rien d'autre ne bouge, et le
+      // stagger laisse voir partir chaque caractère.
+      etape(ctx, titre, regle,
+        [{ op: 'drop', targets: perdus, mode: 'erase', regroup: false }],
+        { id: `s_${ctx.cle}_0` }),
+      // ② le rapprochement, seul geste de son step. `move` sans cible est un
+      // simple recalcul du flux : l'ordre n'a pas changé, seuls les trous
+      // laissés par l'effacement se referment.
+      etape(ctx, dire(LIB_RAPPROCHER, ctx.langue), dire(REG_RAPPROCHER, ctx.langue),
+        [{ op: 'move' }],
+        { id: `s_${ctx.cle}_1` }),
+    ];
   };
 }
 

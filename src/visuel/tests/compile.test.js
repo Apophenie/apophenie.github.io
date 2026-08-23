@@ -26,7 +26,7 @@ test('les scénarios de démonstration compilent tous sans avertissement', () =>
   }
 });
 
-test('le parcours de vérification exerce les 17 primitives', () => {
+test('le parcours de vérification exerce les 19 primitives', () => {
   const used = new Set();
   for (const step of SCENARIOS.vocabulaire.steps) for (const op of step.ops) used.add(op.op);
   const manquantes = OP_NAMES.filter((n) => !used.has(n));
@@ -270,7 +270,7 @@ test('keyboard : une touche inconnue dégrade au lieu de faire tomber la page', 
   assert.ok(tl.nodes.some((n) => n.id === 'huit'), 'la substitution a bien lieu');
 });
 
-test('keyboard : deux claviers dans un même step sont refusés', () => {
+test('caméra : deux claviers — ou deux réglettes — dans un même step sont refusés', () => {
   const tokens = [{ id: 'a1', text: '-', kind: 'sep' }, { id: 'a2', text: '-', kind: 'sep' }];
   assert.throws(() => compile(sc([{
     id: 'a', title: 'A',
@@ -278,7 +278,15 @@ test('keyboard : deux claviers dans un même step sont refusés', () => {
       { op: 'keyboard', target: 'a1', key: '-', to: { id: 's1', text: '6' } },
       { op: 'keyboard', target: 'a2', key: '-', to: { id: 's2', text: '6' } },
     ],
-  }], tokens)), /Un clavier par step/);
+  }], tokens)), /Une par step/);
+
+  assert.throws(() => compile(sc([{
+    id: 'a', title: 'A',
+    ops: [
+      { op: 'alphabet', target: 'b1', to: { id: 's1', text: '8' } },
+      { op: 'alphabet', target: 'b2', to: { id: 's2', text: '15' } },
+    ],
+  }], [{ id: 'b1', text: 'h', kind: 'letter' }, { id: 'b2', text: 'o', kind: 'letter' }])), /Une par step/);
 });
 
 test('toutes les animations sont sur des propriétés individuelles (règle 3)', () => {
@@ -327,8 +335,21 @@ test('le compteur de somme est une fonction pure de u', () => {
   }], tokens));
   const entry = tl.discrete.find((d) => d.channel === 'text');
   assert.ok(entry);
-  assert.equal(entry.render(0), '8');
+  // Le compteur part de zéro : c'est l'arrivée de chaque opérande dans la case
+  // qui le fait monter, et le premier opérande n'y est pas encore.
+  assert.equal(entry.render(0), '0');
   assert.equal(entry.render(1), '44');
   assert.equal(entry.render(0.5), entry.render(0.5), 'déterministe');
-  assert.deepEqual([0, 0.3, 0.6, 0.99, 1].map((u) => entry.render(u)), ['8', '23', '39', '44', '44']);
+  assert.deepEqual([0, 0.25, 0.45, 0.65, 0.99, 1].map((u) => entry.render(u)), ['0', '8', '23', '39', '44', '44']);
+});
+
+test('les durées par défaut du moteur visuel et leur miroir arithmétique coïncident', async () => {
+  // `src/moteur/transformations/commun.js` recopie DEFAULT_DUR pour calculer
+  // ses `at` (le moteur arithmétique ne dépend pas du moteur visuel). Deux
+  // tables qui divergent, ce sont des gestes qui se remettent à se chevaucher.
+  const { DUREE_OP } = await import('../../moteur/transformations/commun.js');
+  assert.deepEqual(Object.keys(DUREE_OP).sort(), [...OP_NAMES].sort());
+  for (const nom of OP_NAMES) {
+    assert.equal(DUREE_OP[nom], DEFAULT_DUR[nom], `durée divergente pour « ${nom} »`);
+  }
 });

@@ -11,6 +11,8 @@
 // regroupées ici, en un seul endroit, pour être réglées après le test à l'aveugle.
 // Le test `tests/etalonnage.test.js` mesure l'écart avec le tableau attendu.
 
+import { estDecret } from './titres.js';
+
 // ══════════════════════════════════ RÉGLAGES — LE SEUL ENDROIT À MODIFIER
 
 /** Poids des 6 critères, en pour-mille. Somme imposée : 1000. */
@@ -52,7 +54,35 @@ export const MALUS = {
   joker: [45, 100],          // ×0,45 par joker employé
   fragmentCreux: [75, 100],  // ×0,75 si un fragment fait < 2 caractères signifiants
   modeLibre: [80, 100],      // ×0,80 pour l'assemblage en fragments disjoints
+  decret: [40, 100],         // ×0,40 : un seul 6 obtenu, trois annoncés — voir ci-dessous
 };
+
+/**
+ * ── Le décret (`MALUS.decret`) ────────────────────────────────────────────
+ *
+ * Une approche qui applique le MÊME programme à la MÊME portée trois fois de
+ * suite ne calcule qu'un seul 6 : les deux autres sont décrétés. Le README ne
+ * demande pas cela — il veut « trois fragments valant 6 chacun » : les trois
+ * « hope » de la méthode 2, les deux tirets plus la réduction de la méthode 6.
+ * Sans malus, ce décret gagnait : il rafle l'homogénéité (trois copies d'un
+ * chemin sont trivialement homogènes) et la couverture (la portée est la saisie
+ * entière) sans jamais payer le prix d'une seconde démonstration.
+ *
+ * Pourquoi ×0,40 plutôt que la suppression pure ? Parce que sur un mot unique —
+ * « Millicent », « macron » — c'est le SEUL assemblage possible, et qu'il reste
+ * plus honnête que le joker : l'arithmétique montrée est vraie, seul le
+ * triplement est de convenance. CONTRACTS §0.4 a déjà tranché ce genre de cas
+ * pour le joker : « affiché et assumé, en bas de liste, sous un intitulé
+ * explicite ». On applique la même règle, et `titres.js` fournit l'intitulé —
+ * « le même 6, trois fois ».
+ *
+ * Pourquoi ×0,40, c'est-à-dire plus sévère que le ×0,45 du joker ? Parce que
+ * les deux se COMPOSENT : l'approche joker est elle-même un décret (le même
+ * chemin, trois fois), donc elle tombe à ×0,18 et reste dernière. Le calibrage
+ * vient d'une contrainte mesurée : sur `https://www.google.com`, la meilleure
+ * approche honnête vaut 3 844 et le meilleur décret 8 743 avant malus ; il faut
+ * descendre sous 0,44 pour que le décret passe derrière. 0,40 laisse une marge.
+ */
 
 export const REGLAGES = {
   L_IDEAL: 9,                    // 3 fragments × 3 étapes
@@ -405,10 +435,15 @@ export function noter(approche, ctx) {
   );
   score = Math.floor((score * PART_CRITERES[0]) / PART_CRITERES[1]);
 
+  // Le décret est calculé une fois : il conditionne un bonus et un malus.
+  const decret = estDecret(approche);
+
   if (approche.resonance) score += BONUS.resonance;
   if (brut >= MILLE) score += BONUS.couvertureTotale;
   const jokers = tousOps.filter((o) => o.isJoker).length;
-  if (!jokers && tousOps.every((o) => pourMille(o.adHoc) === 0)) score += BONUS.sansAdHoc;
+  // « Aucune pirouette » ne peut pas se dire d'une approche qui annonce deux de
+  // ses trois 6 sans les calculer : le triplement EST la pirouette.
+  if (!jokers && !decret && tousOps.every((o) => pourMille(o.adHoc) === 0)) score += BONUS.sansAdHoc;
 
   // Le malus s'applique UNE FOIS par approche, pas une fois par occurrence :
   // §5.4 fixe le plafond d'une approche jokerisée à « ≈ 45/100 contre ≈ 88 pour
@@ -419,11 +454,16 @@ export function noter(approche, ctx) {
   const creux = approche.parts.some((p) => nbSignifiants(p.fragment, ctx) < 2);
   if (creux) score = Math.floor((score * MALUS.fragmentCreux[0]) / MALUS.fragmentCreux[1]);
   if (approche.mode === 'LIBRE') score = Math.floor((score * MALUS.modeLibre[0]) / MALUS.modeLibre[1]);
+  // Le décret vient EN DERNIER et se compose avec le joker : l'approche joker
+  // est elle-même un décret (le même chemin, trois fois), elle cumule donc les
+  // deux facteurs et reste en fond de liste, comme l'exige CONTRACTS §0.4.
+  if (decret) score = Math.floor((score * MALUS.decret[0]) / MALUS.decret[1]);
 
   // `score` est borné à 10 000 comme l'exige §4.7 ; `scoreBrut` conserve la
   // valeur non bornée, indispensable à l'étalonnage des pondérations (§7-1) :
   // avec les poids actuels, les bonus font régulièrement dépasser le plafond, et
   // la saturation gomme les écarts en haut de liste. Voir tests/etalonnage.
+  approche.decret = decret;
   approche.scoreBrut = score;
   approche.score = borner(score, 0, 10000);
   approche.criteres = { H, N, U, C, A, E, brut };
@@ -479,6 +519,17 @@ export function ordreTotal(a, b) {
  * Sélection gloutonne avec pénalité de redondance.
  * C'est ce mécanisme qui montre « lettres+voyelles » ET « A1Z26 » ET
  * « AZERTY+retournement du 9 » plutôt que cinq variantes de comptage de voyelles.
+ *
+ * ── Le MMR CHOISIT, il ne CLASSE PAS. ────────────────────────────────────
+ * La sélection gloutonne rendait sa liste dans l'ordre où elle avait pioché,
+ * c'est-à-dire par score AJUSTÉ décroissant. À l'écran, cela donnait une suite
+ * de scores 9 012, 8 970, 7 930, … puis 8 992 au huitième rang : un tri qui a
+ * l'air cassé. Or l'ordre de pioche ne veut rien dire — ce que le §4.8 demande
+ * au MMR, c'est de décider QUI figure dans les douze, pas dans quel ordre.
+ * On rend donc la sélection triée par `ordreTotal` (le score de conviction,
+ * §4.4-1) : la diversité fait toujours son travail, et la colonne des scores
+ * redevient décroissante. `scoreAjuste` reste posé sur chaque approche, pour
+ * qui veut voir ce que la pénalité de redondance a coûté.
  */
 export function diversifier(approches, options = {}) {
   const lambda = options.lambda ?? REGLAGES.LAMBDA_MMR;
@@ -516,7 +567,7 @@ export function diversifier(approches, options = {}) {
     const m = mappeurApproche(a);
     if (m) compteMappeur.set(m, (compteMappeur.get(m) || 0) + 1);
   }
-  return choisis;
+  return choisis.sort(ordreTotal);
 }
 
 export function mappeurApproche(approche) {

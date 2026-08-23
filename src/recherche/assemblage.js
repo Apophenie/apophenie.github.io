@@ -9,7 +9,9 @@
 // hachage, O(nb de chemins), quasi gratuite.
 
 import { signature, comparerCodes, scorePartiel } from './score.js';
-import { appliquerOp, etat, normaliserCatalogue, cleTrace } from './bfs.js';
+import {
+  appliquerOp, etat, normaliserCatalogue, cleTrace, rendreValeur, ordreCode,
+} from './bfs.js';
 
 /**
  * Modes d'assemblage, du plus convaincant au moins :
@@ -55,6 +57,190 @@ function approche(mode, parts, extra = {}) {
   return { mode, parts, resonance: false, ...extra };
 }
 
+// ══════════════════════════════════ N2 et N3, appliqués au chemin entier
+//
+// `research/heuristique.md §4.8` prévoit quatre niveaux d'anti-doublons. Deux
+// d'entre eux ne mordaient pas, et pour la même raison : ils étaient appliqués
+// LOCALEMENT, sur une étape, alors qu'ils portent sur le chemin.
+//
+//  · N3 — « élimination des opérations neutres ». Le BFS écarte bien l'étape
+//    qui ne change rien à l'état COURANT (`kc === cleSrc`, bfs.js). Mais sur
+//    `hope-hope-hope.fr`, `f.lettres` change l'état courant — il donne
+//    « hopehopehopefr » — et pourtant il ne change RIEN À LA SUITE : le filtre
+//    des voyelles qui vient après aboutit à « oeoeoe » dans les deux cas. Le
+//    chemin `f6+f7+n1` est donc `f7+n1` avec une étape de décor, et les deux
+//    apparaissaient côte à côte dans la liste (défauts 3 et 4). La neutralité
+//    n'est ici vraie que SUR CETTE SAISIE — c'est suffisant, puisque la
+//    démonstration ne porte que sur elle.
+//
+//  · N2 — « normalisation des filtres commutatifs ». Le prototype trie les
+//    codes pour la CLÉ, mais laisse le chemin dans son ordre d'origine ; comme
+//    la clé porte aussi la trace des valeurs, et que la trace diffère,
+//    `f1+f3+n3` et `f3+f1+n3` survivaient tous les deux. §4.8 demande de trier
+//    la suite commutante AVANT de calculer N1 : c'est le chemin qu'on
+//    réordonne, pas seulement sa clé.
+//
+// Les deux se composent : réordonner peut fusionner deux suites commutantes et
+// rendre une étape neutre, retirer une étape peut rapprocher deux filtres. On
+// itère donc jusqu'au point fixe (au plus `TOURS_NORMALISATION` tours).
+
+const TOURS_NORMALISATION = 4;
+
+/** Rejoue une suite d'opérateurs depuis le texte de départ d'un chemin. */
+function rejouerOps(source, ops) {
+  let courant = etat('STR', source, [[0, source.length]]);
+  const etats = [courant];
+  let cout = 0;
+  for (const op of ops) {
+    const apres = appliquerOp(op, courant);
+    if (apres === null) return null;
+    etats.push(apres);
+    cout += op.cout || 0;
+    courant = apres;
+  }
+  return {
+    ops: ops.slice(),
+    etats,
+    valeur: courant.type === 'NUM' ? courant.valeur : null,
+    cout,
+  };
+}
+
+/**
+ * Deux chemins finissent-ils sur exactement le même état ? C'est l'invariant
+ * inviolable de toute simplification : on a le droit d'enlever du décor, jamais
+ * de changer le résultat. Sans ce garde-fou, retirer la DERNIÈRE étape passait
+ * toujours le test de trace (la trace attendue perd justement le dernier état),
+ * et `f7+n1` se « simplifiait » en `f7` — un chemin qui n'arrive nulle part.
+ */
+function memeAboutissement(a, b) {
+  const fa = a.etats[a.etats.length - 1];
+  const fb = b.etats[b.etats.length - 1];
+  return fa.type === fb.type && rendreValeur(fa) === rendreValeur(fb);
+}
+
+/**
+ * N3 étendu : retire la première étape INOPÉRANTE — celle dont l'absence laisse
+ * le chemin aboutir exactement au même endroit.
+ *
+ * Le critère est le RÉSULTAT, pas l'image intermédiaire. C'est délibéré, et
+ * c'est ce qui fait la différence entre attraper le doublon et le laisser
+ * passer : sur `https://www.google.com`, `f1+f3+f7+n7` et `f3+f7+n7` montrent
+ * deux images intermédiaires différentes — « www.google » contre
+ * « https://www.google » — mais le filtre des voyelles les ramène toutes deux à
+ * « ooe ». Le premier filtre n'a rien fait ; exiger l'égalité des images
+ * intermédiaires l'aurait déclaré indispensable.
+ *
+ * Le typage des opérateurs protège le cœur de la méthode : on ne peut pas
+ * retirer `t.caracteres` d'un `t1+m1+c1`, parce que `m1` n'accepte pas un `STR`.
+ * Ce qui saute est ce qui peut sauter : du décor.
+ */
+function retirerUneEtapeInoperante(chemin, source) {
+  for (let i = 0; i < chemin.ops.length; i++) {
+    const sans = chemin.ops.slice(0, i).concat(chemin.ops.slice(i + 1));
+    if (!sans.length) continue;
+    const rejoue = rejouerOps(source, sans);
+    if (!rejoue) continue;
+    if (memeAboutissement(rejoue, chemin)) return rejoue;
+  }
+  return null;
+}
+
+/** N2 : trie chaque suite maximale d'opérateurs commutants par code croissant. */
+function reordonnerCommutants(chemin, source) {
+  const ops = chemin.ops;
+  const trie = [];
+  let bloc = [];
+  const vider = () => {
+    if (!bloc.length) return;
+    bloc.sort((a, x) => {
+      const [fa, ia] = ordreCode(a.code);
+      const [fx, ix] = ordreCode(x.code);
+      return fa !== fx ? fa - fx : ia - ix;
+    });
+    trie.push(...bloc);
+    bloc = [];
+  };
+  for (const op of ops) {
+    if (op.commute) bloc.push(op);
+    else { vider(); trie.push(op); }
+  }
+  vider();
+  if (trie.every((op, i) => op === ops[i])) return null;
+  const rejoue = rejouerOps(source, trie);
+  // Réordonner change les images intermédiaires — c'est le but —, mais jamais
+  // le résultat : sinon ce n'était pas une commutation.
+  if (!rejoue || !memeAboutissement(rejoue, chemin)) return null;
+  return rejoue;
+}
+
+/**
+ * Forme canonique d'un chemin : filtres commutants triés, étapes décoratives
+ * retirées. Mémoïsée sur l'objet chemin — l'assemblage repasse dessus des
+ * dizaines de fois.
+ * @param {Object} chemin
+ * @returns {Object} le chemin canonique (le même objet s'il l'était déjà)
+ */
+export function normaliserChemin(chemin) {
+  if (chemin._can) return chemin._can;
+  const depart = chemin.etats[0];
+  if (!depart || depart.type !== 'STR') { chemin._can = chemin; return chemin; }
+  const source = depart.valeur;
+  let courant = chemin;
+  for (let tour = 0; tour < TOURS_NORMALISATION; tour++) {
+    const range = reordonnerCommutants(courant, source);
+    if (range) courant = range;
+    const allege = retirerUneEtapeInoperante(courant, source);
+    if (!allege) { if (!range) break; continue; }
+    courant = allege;
+  }
+  if (courant !== chemin && !memeAboutissement(courant, chemin)) courant = chemin;
+  if (courant !== chemin) {
+    courant.tronque = chemin.tronque;
+    courant.tronqueTemps = chemin.tronqueTemps;
+    courant._can = courant;
+  }
+  chemin._can = courant;
+  return courant;
+}
+
+/** Ordre déterministe local, calqué sur celui du faisceau (bfs.js). */
+function comparerChemins(a, b) {
+  const sa = scorePartiel(a);
+  const sb = scorePartiel(b);
+  if (sa !== sb) return sb - sa;
+  if (a.ops.length !== b.ops.length) return a.ops.length - b.ops.length;
+  return comparerCodes(a.ops.map((o) => o.code), b.ops.map((o) => o.code));
+}
+
+/**
+ * Combien de chemins on canonicalise par fragment.
+ *
+ * La canonicalisation rejoue le programme une fois par étape candidate : c'est
+ * quadratique en la longueur du chemin, donc à réserver aux chemins qui ont une
+ * chance de servir. La liste arrive triée par `comparerPrefixes` (bfs.js) et
+ * l'assemblage n'en garde que `K_PAR_FRAGMENT` ; on prend une marge de trois
+ * pour que la déduplication ait de quoi puiser, pas plus. Mesuré sur le
+ * paragraphe de test : 3 050 ms sans borne, 300 ms avec.
+ */
+const K_CANONISABLES = K_PAR_FRAGMENT * 3;
+
+/**
+ * Canonicalise puis re-déduplique une liste de chemins. C'est ici que
+ * disparaissent les quasi-doublons — `f6+f7+n1` s'effondre sur `f7+n1`,
+ * `f3+f1+n3` sur `f1+f3+n3`.
+ */
+export function normaliserChemins(chemins) {
+  const vus = new Map();
+  for (const c of chemins.slice(0, K_CANONISABLES)) {
+    const n = normaliserChemin(c);
+    const cle = cleTrace(n) + '' + n.ops.map((o) => o.code).join('+');
+    const ancien = vus.get(cle);
+    if (!ancien || comparerChemins(n, ancien) < 0) vus.set(cle, n);
+  }
+  return [...vus.values()].sort(comparerChemins);
+}
+
 /**
  * @param {string} saisie
  * @param {import('./fragments.js').Fragment[]} fragments
@@ -64,7 +250,21 @@ function approche(mode, parts, extra = {}) {
  */
 export function assembler(saisie, fragments, parFrag, ctx) {
   const approches = [];
-  const cheminsDe = (f) => (parFrag.get(f.texte.normalize('NFC')) || []).slice(0, K_PAR_FRAGMENT);
+  // Les chemins sont canonicalisés AVANT d'entrer dans un assemblage (N2/N3
+  // ci-dessus) : c'est ce qui empêche « voyelles → compter » et « lettres →
+  // voyelles → compter » d'occuper deux lignes de la même liste. Le résultat est
+  // mémoïsé par fragment — `assembler` redemande les mêmes chemins des dizaines
+  // de fois (résonance, partitions, trios libres).
+  const canoniques = new Map();
+  const cheminsDe = (f) => {
+    const cle = f.texte.normalize('NFC');
+    let v = canoniques.get(cle);
+    if (v === undefined) {
+      v = normaliserChemins(parFrag.get(cle) || []).slice(0, K_PAR_FRAGMENT);
+      canoniques.set(cle, v);
+    }
+    return v;
+  };
 
   // ── mode A : RÉSONANCE — les 3 fragments sont littéralement le même texte
   const parMotif = new Map();
@@ -282,7 +482,16 @@ export function dedupliquerApproches(approches) {
   const vus = new Map();
   for (const a of approches) {
     if (!a.parts.every((p) => p.chemin)) continue;
-    const cle = a.parts.map((p) => p.fragment.offset + ':' + cleTrace(p.chemin)).join('|');
+    // La clé porte le TEXTE du fragment, pas son offset, et elle est triée.
+    // Sur `hope-hope-hope.fr`, « le premier hope et les deux tirets » et « le
+    // deuxième hope et les deux tirets » calculent exactement les mêmes trois
+    // 6 sur exactement les mêmes trois textes : c'est un seul spectacle, et
+    // l'occurrence choisie n'est pas une différence de méthode. L'offset, lui,
+    // ne servait qu'à les faire passer pour deux lignes distinctes.
+    const cle = a.parts
+      .map((p) => p.fragment.texte + '' + cleTrace(p.chemin))
+      .sort()
+      .join('|');
     if (!vus.has(cle)) vus.set(cle, a);
   }
   return [...vus.values()];

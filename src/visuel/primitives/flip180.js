@@ -14,7 +14,7 @@
  * du canevas entier (CONTRACTS §3.2 règle 4).
  */
 
-import { tokenSpec } from './helpers.js';
+import { tokenSpec, espacementDe } from './helpers.js';
 import { EASE } from '../constants.js';
 
 export const name = 'flip180';
@@ -32,6 +32,7 @@ export function plan(ctx) {
   ctx.scene.create({
     id: to.id, text: to.text, kind: to.kind || 'digit', group: to.group ?? src.group,
     role: 'text', inFlow: true, insertAt: idx < 0 ? undefined : idx + 1,
+    ...espacementDe(ctx, src.id),
     base: { opacity: 0, rotate: 180, fill: ctx.palette.gold },
   }, { where: ctx.where });
   ctx.scene.kill(src.id, ctx.where);

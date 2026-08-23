@@ -6,7 +6,7 @@
  * (`sum`, avec les sommes partielles — research §4.7).
  */
 
-import { def, etape, token, fusion, nomsTokens, enchainer } from './commun.js';
+import { def, etape, token, fusion, nomsTokens, enchainer, retirerAccolade } from './commun.js';
 import { bilingue, dire } from '../i18n.js';
 import { NUM_MIN, NUM_MAX } from '../etat.js';
 
@@ -19,19 +19,31 @@ function etapeAgregation(spec) {
     const partiels = spec.partiels ? spec.partiels(avant.valeur) : null;
     const ops = [];
     const glyphe = (i) => (typeof spec.glyphe === 'function' ? spec.glyphe(i) : spec.glyphe);
+    const signes = ctx.ids.slice(1).map((_, i) => `${ctx.cle}op${i}`);
     if (spec.glyphe && ctx.ids.length > 1) {
       ops.push({
         op: 'insertOperators',
         between: ctx.ids,
-        ids: ctx.ids.slice(1).map((_, i) => `${ctx.cle}op${i}`),
+        ids: signes,
         glyph: glyphe(0),
+        // Un signe par interstice : la somme alternée n'est pas une
+        // soustraction en chaîne, et l'écran doit dire lequel des deux.
         glyphs: ctx.ids.slice(1).map((_, i) => glyphe(i)),
       });
     }
     const sum = {
       op: 'sum',
       targets: ctx.ids,
+      // ★ Les signes appartiennent au calcul : ils s'en vont avec lui. Nommés
+      // par l'émetteur, ils ne sont pas absorbés d'office par `sum` (qui
+      // n'absorbe que les siens, préfixés « @ ») — il faut les lui déclarer,
+      // faute de quoi une rangée de « + » survivait jusqu'au verdict.
+      ...(spec.glyphe && signes.length ? { consume: signes } : {}),
       to: token(sortie[0], apres.valeur, 'number'),
+      // ★ Chaque combinateur DIT ce qu'il fait : le symbole paraît sous la
+      // pointe de l'accolade, entre les sources et le résultat. Une accolade
+      // nue ne distingue pas une somme d'un produit.
+      symbol: spec.symbole || 'Σ',
     };
     if (partiels) sum.partials = partiels;
     ops.push(sum);
@@ -53,11 +65,15 @@ function etapeAgregation(spec) {
 function etapeDecompte(spec) {
   return (avant, apres, ctx) => {
     const sortie = nomsTokens(ctx, 1);
-    return [etape(ctx, dire(spec.libelle, ctx.langue), `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`, enchainer([
-      ctx.ids.length > 1 ? { op: 'group', targets: ctx.ids } : null,
+    return [etape(ctx, dire(spec.libelle, ctx.langue), `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`, retirerAccolade(enchainer([
+      // L'accolade porte le symbole ET la règle en toutes lettres : un
+      // dénombrement n'a pas de signe consacré, il faut donc l'écrire.
+      ctx.ids.length > 1
+        ? { op: 'group', targets: ctx.ids, symbol: spec.symbole || '#', label: dire(spec.libelle, ctx.langue) }
+        : null,
       ctx.ids.length > 1 ? { op: 'drop', targets: ctx.ids.slice(1), stagger: 20 } : null,
       { op: 'substitute', pairs: [{ target: ctx.ids[0], to: token(sortie[0], apres.valeur, 'number') }] },
-    ]))];
+    ])))];
   };
 }
 
@@ -67,6 +83,7 @@ const partielsSomme = (vs) => vs.reduce((acc, v) => [...acc, (acc[acc.length - 1
 const agregations = [
   {
     id: 'c.somme', code: 'c1',
+    symbole: 'Σ',
     libelle: bilingue('On additionne', 'Add them up'),
     regle: bilingue('La somme des valeurs', 'The sum of the values'),
     notoriete: 1.00, glyphe: '+', lecture: '+',
@@ -75,6 +92,7 @@ const agregations = [
   },
   {
     id: 'c.soustraction', code: 'c2',
+    symbole: '−',
     libelle: bilingue('On soustrait à la chaîne', 'Subtract along the chain'),
     regle: bilingue('Le premier moins tous les autres — les tirets sont des moins',
       'The first one minus all the others — the dashes are minus signs'),
@@ -85,6 +103,7 @@ const agregations = [
   },
   {
     id: 'c.produit', code: 'c3',
+    symbole: '∏',
     libelle: bilingue('On multiplie', 'Multiply them'),
     regle: bilingue('Le produit des valeurs', 'The product of the values'),
     notoriete: 0.60, glyphe: '×', lecture: '×',
@@ -94,6 +113,7 @@ const agregations = [
   },
   {
     id: 'c.alternee', code: 'c4',
+    symbole: '∓',
     libelle: bilingue('On alterne plus et moins', 'Alternate plus and minus'),
     regle: bilingue('v₀ − v₁ + v₂ − v₃… comme un critère de divisibilité',
       'v₀ − v₁ + v₂ − v₃… the way a divisibility test goes'),
@@ -106,6 +126,7 @@ const agregations = [
   },
   {
     id: 'c.maxMoinsMin', code: 'c5',
+    symbole: 'Δ',
     libelle: bilingue('On prend l’écart', 'Take the spread'),
     regle: bilingue('Le plus grand moins le plus petit', 'The largest one minus the smallest'),
     notoriete: 0.30, adHoc: 0.2, lecture: '…',
@@ -114,6 +135,7 @@ const agregations = [
   },
   {
     id: 'c.moyenne', code: 'c6',
+    symbole: 'moy.',
     libelle: bilingue('On fait la moyenne', 'Take the average'),
     regle: bilingue('La somme divisée par le nombre de valeurs, arrondie',
       'The sum divided by how many values there are, rounded'),
@@ -123,6 +145,7 @@ const agregations = [
   },
   {
     id: 'c.cardinal', code: 'c7',
+    symbole: '#',
     libelle: bilingue('On compte les valeurs', 'Count the values'),
     regle: bilingue('Combien de nombres en tout', 'How many numbers there are in all'),
     notoriete: 0.80,
@@ -131,6 +154,7 @@ const agregations = [
   },
   {
     id: 'c.concat', code: 'c8',
+    symbole: '⁀',
     libelle: bilingue('On colle les chiffres', 'Glue the digits together'),
     regle: bilingue('On met les nombres bout à bout et on relit',
       'Set the numbers end to end and read the result'),
@@ -140,6 +164,7 @@ const agregations = [
   },
   {
     id: 'c.max', code: 'c9',
+    symbole: 'max',
     libelle: bilingue('On garde le plus grand', 'Keep the largest'),
     regle: bilingue('Le maximum des valeurs', 'The largest of the values'),
     notoriete: 0.50, adHoc: 0.15,
@@ -148,6 +173,7 @@ const agregations = [
   },
   {
     id: 'c.min', code: 'ca',
+    symbole: 'min',
     libelle: bilingue('On garde le plus petit', 'Keep the smallest'),
     regle: bilingue('Le minimum des valeurs', 'The smallest of the values'),
     notoriete: 0.50, adHoc: 0.15,
@@ -175,6 +201,7 @@ const agregations = [
 const denombrements = [
   {
     id: 'c.compteTokens', code: 'cb',
+    symbole: '#',
     libelle: bilingue('On compte les jetons', 'Count the tokens'),
     regle: bilingue('Combien de morceaux', 'How many pieces there are'),
     notoriete: 0.85,
@@ -182,6 +209,7 @@ const denombrements = [
   },
   {
     id: 'c.compteTokensDistincts', code: 'cc',
+    symbole: '#',
     libelle: bilingue('On compte les jetons distincts', 'Count the distinct tokens'),
     regle: bilingue('Combien de morceaux différents', 'How many different pieces there are'),
     notoriete: 0.60,

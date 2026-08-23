@@ -261,10 +261,33 @@ Format normatif : `Scenario` / `Step` / `Op`, tel que spécifié dans
 
 `highlight` · `dim` · `drop` · `substitute` · `move` · `group` · `insertOperators` ·
 `sum` · `reduce` · `flip180` · `sevenSeg` · `countStrokes` · `keyboard` · `annotate` ·
-`pulse` · `reveal` · `wait`
+`pulse` · `reveal` · `wait` · `partition` · `alphabet`
 
 Ajouter une transformation arithmétique sans rendu ⇒ **ajouter d'abord la primitive
 ici**, puis l'émettre.
+
+> *Amendement — deux primitives ajoutées, selon la clause ci-dessus.*
+>
+> - **`partition`** — « on découpe la saisie en sous-groupes ». Le README promet
+>   « trois d'affilée, **selon la même méthode** » ; sur `hope-hope-hope.fr`, la
+>   démonstration traitait pourtant le premier morceau, puis le deuxième, puis le
+>   troisième, sans jamais montrer qu'il y avait trois morceaux comparables. La
+>   primitive écarte les frontières de groupe, resserre l'intérieur, et trace une
+>   accolade numérotée par groupe. Corollaire côté émetteur
+>   (`src/recherche/scenario.js`) : quand tous les morceaux subissent la **même
+>   suite d'opérateurs**, les étapes sont émises **en parallèle** — une seule op
+>   pour les trois groupes chaque fois que c'est exprimable (`substitute`,
+>   `drop`, `move`, `pulse`…), et sinon les groupes s'enchaînent dans la même
+>   transformation, titrés « — groupe 1 / 2 / 3 ».
+> - **`alphabet`** — la réglette alphabétique, sur le modèle exact du clavier
+>   virtuel : l'alphabet complet et **numéroté** paraît, la lettre s'envole vers
+>   sa case, et son **rang** en redescend. Même contrôle croisé que `keyboard` :
+>   si `to.text` diffère du rang que la réglette MONTRE, la compilation échoue.
+>
+> Comme `keyboard`, `alphabet` anime la caméra : **une par step**, jamais deux
+> (vérifié statiquement par `src/visuel/scenario.js`). De même, `sevenSeg` et
+> `countStrokes` ouvrent désormais un **encart** unique au centre de la scène et
+> acceptent un `to` : ils sont donc émis **un par step**, un jeton à la fois.
 
 ### 3.2 Pièges figés en règles
 
@@ -406,8 +429,40 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   avec bonus/malus de `research/heuristique.md §4.7`.
 - Anti-doublons à 4 niveaux, dont la déduplication **sur ce qui est montré** (trace des
   valeurs affichées) et un MMR de diversité (`λ = 0,35`, au plus 2 approches par mappeur).
+
+  > *Amendement — N2 et N3 portent sur le chemin, pas sur l'étape.* N3 était
+  > appliqué localement (« l'opérateur ne change pas l'état courant »), ce qui
+  > laissait passer les étapes **inopérantes** : sur `hope-hope-hope.fr`,
+  > `f6+f7+n1` et `f7+n1` cohabitaient alors que filtrer les lettres avant les
+  > voyelles ne change rien au résultat. Le critère retenu est désormais le
+  > RÉSULTAT : une étape dont le retrait laisse le chemin aboutir au même état
+  > est retirée, même si elle changeait une image intermédiaire. De même, N2
+  > trie les suites commutantes **dans le chemin** avant de calculer N1 — comme
+  > le §4.8 le demande — et non plus seulement dans la clé, où la trace des
+  > valeurs suffisait à faire survivre `f3+f1+n3` à côté de `f1+f3+n3`.
+  >
+  > *Amendement — le MMR choisit, il ne classe pas.* La sélection gloutonne
+  > rendait sa liste par score AJUSTÉ décroissant, ce qui donnait à l'écran une
+  > colonne de scores non monotone (9 012, 8 970, 7 930, … puis 8 992). La
+  > liste retenue est désormais retriée par `ordreTotal` : la diversité décide
+  > **qui** figure dans les douze, le score décide de **l'ordre**.
 - Garantie « jamais bredouille » : si aucune approche, `approcheJoker()` — le joker
   français appliqué **trois fois** (donc homogène), avec malus `×0,45`.
+
+  > *Amendement — le décret.* Un septième malus, `×0,40`, s'ajoute à la liste de
+  > `research/heuristique.md §4.7` : il frappe l'approche qui applique **le même
+  > programme à la même portée trois fois de suite**, donc n'obtient qu'**un seul
+  > 6** et décrète les deux autres. Sans lui, ce décret gagnait le classement —
+  > il rafle l'homogénéité (trois copies d'un chemin sont trivialement
+  > homogènes) et la couverture (la portée est la saisie entière) sans jamais
+  > payer le prix d'une seconde démonstration —, alors que le README demande
+  > « trois fragments valant 6 chacun ». Il n'est pas supprimé pour autant :
+  > sur un mot unique c'est le seul assemblage possible, et il reste plus
+  > honnête que le joker (l'arithmétique montrée est vraie, seul le triplement
+  > est de convenance). Il est donc traité comme le joker au §0.4 — présent,
+  > dernier, et **intitulé explicitement** : « le même 6, trois fois ». Les deux
+  > malus se composent : l'approche joker étant elle-même un décret, elle tombe
+  > à ×0,18 et reste sous lui.
 - Sortie : `≤ 12` approches diversifiées, `≤ 24` fragments.
 
 **Les pondérations sont une prédiction, pas une mesure** (`research/heuristique.md §8.3`).

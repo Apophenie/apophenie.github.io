@@ -133,6 +133,7 @@ const VECTEURS = [
  * démonstration continuerait de « marcher », mais elle cesserait de prouver.
  */
 const PRIMITIVE_ATTENDUE = Object.freeze({
+  m1: 'alphabet', m2: 'alphabet',
   md: 'sevenSeg', me: 'sevenSeg',
   mf: 'countStrokes', mg: 'countStrokes', mh: 'countStrokes',
   mi: 'countStrokes', mj: 'countStrokes', mk: 'countStrokes',
@@ -140,11 +141,16 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   mv: 'keyboard',
 });
 
-/** Le vocabulaire fermé des ops — CONTRACTS §3.1, 17 primitives, pas une de plus. */
+/**
+ * Le vocabulaire fermé des ops — CONTRACTS §3.1, dix-neuf primitives, pas une
+ * de plus. Le socle de dix-sept, plus `partition` (découper en sous-groupes)
+ * et `alphabet` (la réglette numérotée), ajoutées selon la clause d'extension
+ * du contrat.
+ */
 const OPS_AUTORISEES = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'alphabet',
 ]);
 
 test('grammaire, unicité et ordre croissant des codes (CONTRACTS §4.1)', () => {
@@ -280,6 +286,11 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
       assert.ok(typeof step.title === 'string' && step.title.trim(), `${code} : titre vide`);
       for (const o of step.ops) {
         assert.ok(OPS_AUTORISEES.has(o.op), `${code} : op « ${o.op} » hors vocabulaire`);
+        for (const g of o.groups || []) {
+          for (const cible of [].concat(g.targets || [])) {
+            assert.ok(connus.has(cible), `${code} : op ${o.op} vise un id inconnu « ${cible} »`);
+          }
+        }
         for (const cible of [].concat(o.targets || [], o.target || [], o.between || [])) {
           assert.ok(connus.has(cible), `${code} : op ${o.op} vise un id inconnu « ${cible} »`);
         }
@@ -309,7 +320,16 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
         + 'le comptage ne serait plus montré, seulement affirmé (CONTRACTS §0.3)');
       for (const o of emises) {
         assert.equal(typeof o.target, 'string', `${code} : « ${attendue} » travaille jeton par jeton`);
-        if (attendue === 'keyboard') {
+        if (attendue === 'alphabet') {
+          // Le contrôle croisé de la réglette n'est pas `count` mais `to.text` :
+          // c'est le rang qui redescend de la case, et la primitive refuse de
+          // le faire descendre s'il diffère de ce que la réglette montre.
+          assert.match(String(o.letter), /^[A-Z]$/, `${code} : « letter » manquant ou non replié`);
+          assert.ok(['a1z26', 'z26a1'].includes(o.ordre), `${code} : numérotation inconnue`);
+          assert.match(String(o.to && o.to.text), /^\d+$/,
+            `${code} : « to.text » manquant — c'est lui qui fait échouer la compilation `
+            + 'si la réglette montrait autre chose que le nombre annoncé');
+        } else if (attendue === 'keyboard') {
           // Le contrôle croisé de `keyboard` n'est pas `count` mais `to.text` :
           // c'est le nombre qui redescend de la touche, et la primitive refuse
           // de le faire descendre s'il diffère de ce que le clavier montre.
@@ -325,11 +345,23 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
             + 'si le tracé montré et le nombre annoncé divergeaient');
         }
       }
-      if (attendue === 'keyboard') {
-        // Une op `keyboard` anime la caméra : jamais deux dans le même step.
+      if (attendue === 'keyboard' || attendue === 'alphabet') {
+        // Une op de caméra par step, jamais deux : elles se contrediraient.
         for (const step of steps) {
-          assert.ok(step.ops.filter((o) => o.op === 'keyboard').length <= 1,
-            `${code} : deux claviers dans le step « ${step.id} » animeraient deux fois la caméra`);
+          assert.ok(step.ops.filter((o) => o.op === attendue).length <= 1,
+            `${code} : deux « ${attendue} » dans le step « ${step.id} » animeraient deux fois la caméra`);
+        }
+      }
+      if (attendue === 'sevenSeg' || attendue === 'countStrokes') {
+        // Un encart par step : deux comptages simultanés, c'est le fouillis
+        // qu'on vient de retirer.
+        for (const step of steps) {
+          assert.ok(step.ops.filter((o) => o.op === attendue).length <= 1,
+            `${code} : deux « ${attendue} » dans le step « ${step.id} » ouvriraient deux encarts`);
+        }
+        for (const o of emises) {
+          assert.match(String(o.to && o.to.text), /^\d+$/,
+            `${code} : « to » manquant — c'est le nombre du compteur qui remplace la lettre`);
         }
       }
       if (attendue === 'countStrokes') {

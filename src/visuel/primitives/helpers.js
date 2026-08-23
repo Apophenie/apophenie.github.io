@@ -9,9 +9,14 @@
 import { EASE, KINDS } from '../constants.js';
 import { fail } from '../errors.js';
 import { guessKind } from '../scene.js';
-import { charCenter } from '../layout.js';
+import { charCenter, bboxOf } from '../layout.js';
 
 const KIND_SET = new Set(KINDS);
+
+/** Accolade : hauteur des bras relevés, profondeur de la pointe, rayon des coudes. */
+const BRAS = 13;
+const POINTE = 16;
+const COUDE = 14;
 
 /** Valide un descripteur de token créé par une op : c'est l'émetteur qui nomme. */
 export function tokenSpec(ctx, spec, field) {
@@ -31,6 +36,26 @@ export function tokenSpec(ctx, spec, field) {
     fail(`${ctx.where}« ${field}.kind » = « ${spec.kind} » hors vocabulaire (${KINDS.join(', ')}).`);
   }
   return { id: spec.id, text: spec.text, kind: spec.kind || guessKind(spec.text), group: spec.group ?? null };
+}
+
+/**
+ * Espacement hérité d'un token qu'on remplace.
+ *
+ * ★ Sans cela, un découpage en sous-groupes ne survivait pas à la première
+ * substitution : `partition` écarte les groupes en posant un `gapBefore` sur
+ * leur premier token, et le nombre qui remplaçait ce token naissait avec
+ * l'espacement par défaut. Les trois « hope » se retrouvaient à égale distance
+ * les uns des autres, et le découpage qu'on venait de montrer disparaissait.
+ *
+ * @returns {{gapBefore?:number, breakBefore?:boolean}} à étaler dans `create`
+ */
+export function espacementDe(ctx, srcId) {
+  const n = ctx.scene.get(srcId);
+  if (!n) return {};
+  const out = {};
+  if (n.gapBefore !== undefined) out.gapBefore = n.gapBefore;
+  if (n.breakBefore !== undefined) out.breakBefore = n.breakBefore;
+  return out;
 }
 
 /** Résout `op.targets` (ou un autre champ) en liste d'ids vivants, non vide. */
@@ -83,13 +108,19 @@ export function numberOf(text, ctx, id) {
  */
 export function insertOperatorTokens(ctx, spec) {
   const { between, ids, glyph } = spec;
+  // ★ `glyphs` — un signe par interstice. La somme alternée fait « v₀ − v₁ + v₂
+  // − v₃ » ; n'afficher que le premier signe partout écrivait une soustraction
+  // en chaîne sous une addition alternée, c'est-à-dire un calcul faux.
+  const glyphs = Array.isArray(spec.glyphs) && spec.glyphs.length === between.length - 1
+    ? spec.glyphs
+    : null;
   const created = [];
   for (let i = 0; i < between.length - 1; i++) {
     const leftIdx = ctx.scene.flowIndex(between[i]);
     if (leftIdx < 0) fail(`${ctx.where}« ${between[i]} » n'est pas dans le flux de layout.`);
     const node = ctx.scene.create({
       id: ids[i],
-      text: glyph,
+      text: glyphs ? glyphs[i] : glyph,
       kind: 'operator',
       role: 'text',
       inFlow: true,
@@ -109,15 +140,32 @@ export function insertOperatorTokens(ctx, spec) {
 }
 
 /**
- * Accumulation d'une somme : les opérandes volent vers la case résultat, qui
- * compte. Partagé par `sum` et `reduce`.
+ * Accumulation d'une somme — la composition demandée par CONTRACTS §3.1 pour
+ * tout combinateur : **les sources dans l'accolade, le résultat sous la
+ * pointe, l'opération écrite**.
+ *
+ * Cinq temps, dans cet ordre de lecture :
+ *
+ *  1. l'accolade se trace sous les opérandes, qui se resserrent : ils sont
+ *     dedans, on voit ce qui est pris ensemble ;
+ *  2. le **symbole d'opération** paraît sous la pointe — `Σ`, `∏`, `−`… Une
+ *     accolade nue ne dirait pas ce qu'on fait ;
+ *  3. la case résultat s'ouvre **sous le symbole**, et compte ;
+ *  4. les opérandes y volent un par un et s'y effacent ;
+ *  5. l'accolade se retire et le résultat **remonte prendre leur place** dans
+ *     la ligne — c'est ce dernier geste qui dit que le calcul est refermé.
+ *
+ * Le compteur est du texte : canal discret, fonction pure de `t` (scrubbing
+ * exact). La largeur finale est réservée dès l'ouverture de la case.
  *
  * @param {object} ctx
  * @param {{operands:string[], consume?:string[], to:object, at:number, dur:number,
- *          partials?:number[]}} spec
+ *          partials?:number[], symbol?:string, label?:string}} spec
  */
 export function accumulate(ctx, spec) {
   const { operands, to } = spec;
+  const T = spec.dur;
+  const t0 = spec.at;
   const values = operands.map((id) => numberOf(ctx.scene.live(id, ctx.where).text, ctx, id));
   const consume = absorbOperators(ctx, operands, spec.consume || []);
   const partials = spec.partials || values.reduce((acc, v) => {
@@ -125,49 +173,79 @@ export function accumulate(ctx, spec) {
     return acc;
   }, []);
 
-  // La case résultat prend la place du premier opérande, à sa largeur finale
-  // (recherche §4.7 : réserver la largeur évite le saut de mise en page).
   const firstIdx = ctx.scene.flowIndex(operands[0]);
+
+  // --- 1 & 2. l'accolade et son symbole ------------------------------------
+  const acc = tracerAccolade(ctx, operands, {
+    shape: 'brace',
+    tighten: 0.66,
+    symbol: spec.symbol,
+    label: spec.label,
+    at: t0,
+    dur: T * 0.26,
+  });
+  const ancre = acc ? acc.resultat : posDeRepli(ctx, operands);
+
+  // --- 3. la case résultat, sous la pointe ---------------------------------
+  const espacement = espacementDe(ctx, operands[0]);
   ctx.scene.create({
     id: to.id, text: to.text, kind: to.kind, group: to.group,
-    role: 'text', inFlow: true, insertAt: firstIdx < 0 ? undefined : firstIdx,
+    role: 'text', inFlow: false, ...espacement,
     base: { opacity: 0, fill: ctx.palette.phos },
   }, { where: ctx.where });
+  ctx.scene.place(to.id, ancre);
 
-  const consumed = [...operands, ...consume];
-  for (const id of consumed) ctx.scene.kill(id, ctx.where);
-  ctx.reflow({ at: spec.at, dur: spec.dur * 0.5 });
+  const appear = t0 + T * 0.24;
+  ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: appear, dur: T * 0.12 });
+  ctx.anim({ id: to.id, prop: 'scale', values: [0.8, 1.12, 1], offsets: [0, 0.7, 1], at: appear, dur: T * 0.2, ease: EASE.pop });
 
-  const target = ctx.scene.pos(to.id);
+  // --- 4. les opérandes volent vers elle, un par un ------------------------
   const n = operands.length;
-  const flyDur = spec.dur * 0.55;
-  const step = n > 1 ? (spec.dur * 0.35) / (n - 1) : 0;
+  const debutVol = t0 + T * 0.28;
+  const finVol = t0 + T * 0.72;
+  const cadence = n > 1 ? (finVol - debutVol) * 0.62 / (n - 1) : 0;
+  const vol = Math.max(1, (finVol - debutVol) - cadence * (n - 1));
 
   operands.forEach((id, i) => {
-    const a = spec.at + i * step;
-    ctx.anim({ id, prop: 'translate', to: { x: target.x, y: target.y }, at: a, dur: flyDur, ease: EASE.move });
-    ctx.anim({ id, prop: 'scale', to: 0.7, at: a, dur: flyDur });
-    ctx.anim({ id, prop: 'opacity', to: 0, at: a + flyDur * 0.55, dur: flyDur * 0.45 });
+    const a = debutVol + i * cadence;
+    ctx.anim({ id, prop: 'translate', to: { x: ancre.x, y: ancre.y }, at: a, dur: vol, ease: EASE.move });
+    ctx.anim({ id, prop: 'scale', to: 0.65, at: a, dur: vol });
+    ctx.anim({ id, prop: 'opacity', to: 0, at: a + vol * 0.6, dur: vol * 0.4 });
   });
   for (const id of consume) {
-    ctx.anim({ id, prop: 'opacity', to: 0, at: spec.at, dur: spec.dur * 0.3 });
+    ctx.anim({ id, prop: 'opacity', to: 0, at: debutVol, dur: T * 0.2 });
   }
 
-  // La case résultat apparaît et compte : canal discret (le texte n'est pas
-  // une propriété CSS).
-  const appear = spec.at + spec.dur * 0.25;
-  ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: appear, dur: spec.dur * 0.25 });
-  ctx.anim({ id: to.id, prop: 'scale', values: [0.8, 1.12, 1], offsets: [0, 0.7, 1], at: appear, dur: spec.dur * 0.5, ease: EASE.pop });
-  const texts = partials.map((v) => String(v));
+  // Le compteur suit exactement l'arrivée des opérandes : chaque atterrissage
+  // fait avancer le total. Fonction pure de `t`, donc rejouable en arrière.
+  const texts = ['0', ...partials.map((v) => String(v))];
   ctx.discrete({
     id: to.id,
     channel: 'text',
     at: appear,
-    dur: Math.max(1, spec.dur * 0.7),
+    dur: Math.max(1, (debutVol + cadence * (n - 1) + vol) - appear),
     render: (u) => texts[Math.min(texts.length - 1, Math.floor(u * texts.length))],
   });
 
-  return { partials, resultPos: target };
+  // --- 5. l'accolade se retire, le résultat remonte dans la ligne ----------
+  const retrait = t0 + T * 0.74;
+  if (acc) {
+    for (const id of acc.ids) {
+      ctx.anim({ id, prop: 'opacity', to: 0, at: retrait, dur: T * 0.14 });
+    }
+  }
+  const consumed = [...operands, ...consume];
+  for (const id of consumed) ctx.scene.kill(id, ctx.where);
+  ctx.scene.enterFlow(to.id, firstIdx < 0 ? undefined : firstIdx, ctx.where);
+  ctx.reflow({ at: t0 + T * 0.78, dur: T * 0.22, ease: EASE.move });
+
+  return { partials, resultPos: ctx.scene.pos(to.id), brace: acc };
+}
+
+/** Sans accolade (un seul opérande, ou boîte vide) : sous les opérandes. */
+function posDeRepli(ctx, operands) {
+  const p = ctx.scene.pos(operands[0]);
+  return { x: p.x, y: p.y + ctx.metrics.fontSize * 1.6 };
 }
 
 /**
@@ -214,4 +292,122 @@ export function badge(ctx, text, pos, spec = {}) {
   ctx.anim({ id, prop: 'opacity', to: 1, at: spec.at ?? 0, dur: spec.dur ?? 200 });
   ctx.anim({ id, prop: 'scale', to: 1, at: spec.at ?? 0, dur: spec.dur ?? 200, ease: EASE.pop });
   return id;
+}
+
+/**
+ * Trace l'accolade et pose ses légendes. Partagé avec `sum` / `reduce`
+ * (`helpers.accumulate`), qui a besoin de savoir **où** poser le résultat.
+ *
+ * @returns {{id:string, box:object, pointe:{x:number,y:number},
+ *            resultat:{x:number,y:number}, ids:string[]}|null}
+ */
+export function tracerAccolade(ctx, ids, spec = {}) {
+  const shape = spec.shape || 'brace';
+  const at = spec.at ?? 0;
+  const dur = spec.dur ?? ctx.dur;
+  const fs = ctx.metrics.fontSize;
+
+  // 1. resserrement — c'est lui qui *se lit* comme un regroupement.
+  if (spec.tighten) {
+    const gap = ctx.layoutOpts.gap;
+    ids.slice(1).forEach((id) => { ctx.scene.get(id).gapBefore = gap * spec.tighten; });
+    ctx.reflow({ at, dur: dur * 0.45, ease: EASE.move });
+  }
+
+  const box = bboxOf(ids, ctx.scene.positions, ctx.metrics, 10);
+  if (!box) return null;
+
+  const W = box.w / 2;
+  const H = box.h / 2;
+  const d = shape === 'box'
+    ? `M ${-W} ${-H} H ${W} V ${H} H ${-W} Z`
+    : braceD(W);
+  // L'accolade est ancrée juste SOUS les sources : ses bras remontent vers
+  // elles, sa pointe descend vers le résultat.
+  const anchorY = shape === 'box' ? box.cy : box.y + box.h + BRAS + 6;
+  const pointeY = shape === 'box' ? box.y + box.h + 8 : anchorY + POINTE;
+
+  const id = spec.id && !String(spec.id).startsWith('@') ? spec.id : ctx.gensym('group');
+  ctx.scene.create({
+    id,
+    role: 'bracket',
+    inFlow: false,
+    w: box.w,
+    data: { d, shape },
+    base: { opacity: 1, strokeDashoffset: 100, stroke: ctx.palette.gold },
+  }, { where: ctx.where });
+  ctx.place(id, { x: box.cx, y: anchorY, w: box.w });
+  ctx.anim({
+    id, prop: 'strokeDashoffset', from: 100, to: 0,
+    at: at + dur * 0.2, dur: dur * 0.6, ease: EASE.fade,
+  });
+
+  const crees = [id];
+  // 2. le symbole d'opération, juste sous la pointe : ce qu'on FAIT.
+  const symboleY = pointeY + fs * 0.52;
+  if (typeof spec.symbol === 'string' && spec.symbol) {
+    const sid = ctx.gensym('op');
+    ctx.scene.create({
+      id: sid, role: 'label', text: spec.symbol, inFlow: false,
+      w: ctx.metrics.advance * 0.8 * [...spec.symbol].length,
+      data: { scale: 0.86 },
+      base: { opacity: 0, fill: ctx.palette.gold },
+    }, { where: ctx.where });
+    ctx.scene.place(sid, { x: box.cx, y: symboleY });
+    ctx.anim({ id: sid, prop: 'opacity', to: 1, at: at + dur * 0.55, dur: dur * 0.35 });
+    ctx.anim({ id: sid, prop: 'scale', values: [0.7, 1.1, 1], offsets: [0, 0.7, 1], at: at + dur * 0.55, dur: dur * 0.4, ease: EASE.pop });
+    crees.push(sid);
+  }
+
+  // 3. la légende en toutes lettres, à côté du symbole.
+  if (typeof spec.label === 'string' && spec.label) {
+    const lid = ctx.gensym('grouplabel');
+    ctx.scene.create({
+      id: lid, role: 'label', text: spec.label, inFlow: false,
+      w: ctx.metrics.advance * 0.55 * [...spec.label].length,
+      data: { scale: 0.5 },
+      base: { opacity: 0, fill: ctx.palette.fg2 },
+    }, { where: ctx.where });
+    // Sans symbole — un découpage en sous-groupes, par exemple —, la légende
+    // prend la place du symbole plutôt que de flotter un cran plus bas.
+    ctx.scene.place(lid, { x: box.cx, y: spec.symbol ? symboleY + fs * 0.56 : symboleY });
+    ctx.anim({ id: lid, prop: 'opacity', to: 1, at: at + dur * 0.65, dur: dur * 0.35 });
+    crees.push(lid);
+  }
+
+  return {
+    id,
+    ids: crees,
+    box,
+    pointe: { x: box.cx, y: pointeY },
+    // Où va le résultat : sous la pointe, sous le symbole, sous la légende.
+    resultat: {
+      x: box.cx,
+      y: symboleY + fs * (spec.label ? 1.34 : 0.92),
+    },
+  };
+}
+
+/**
+ * Une vraie accolade horizontale : deux bras qui remontent aux extrémités
+ * (les sources sont dedans), deux coudes arrondis, une pointe centrale qui
+ * descend. Coordonnées locales, `y` vers le bas, origine sur la barre.
+ */
+function braceD(W) {
+  const r = round(Math.min(COUDE, Math.max(3, W * 0.3)));   // coude des bras
+  const p = round(Math.min(COUDE, Math.max(3, W * 0.3)));   // amorce de la pointe
+  const w = round(W);
+  return [
+    `M ${-w} ${-BRAS}`,
+    `Q ${-w} 0 ${-w + r} 0`,
+    `L ${-p} 0`,
+    `Q 0 0 0 ${POINTE}`,
+    `Q 0 0 ${p} 0`,
+    `L ${w - r} 0`,
+    `Q ${w} 0 ${w} ${-BRAS}`,
+  ].join(' ');
+}
+
+function round(v) {
+  return Math.round(v * 1000) / 1000;
 }

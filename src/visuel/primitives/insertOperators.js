@@ -35,5 +35,14 @@ export function plan(ctx) {
     fail(`${ctx.where}« ids » doit contenir exactement ${needed} identifiant(s), un par opérateur inséré : c'est l'émetteur qui nomme les tokens qu'il crée (CONTRACTS §3). Reçu : ${JSON.stringify(ctx.op.ids)}.`);
   }
 
-  insertOperatorTokens(ctx, { between, ids, glyph, at: 0, dur: ctx.dur });
+  // `glyphs` (facultatif) : un signe PAR interstice, pour les combinaisons qui
+  // alternent (`v₀ − v₁ + v₂ − v₃`). À défaut, `glyph` vaut pour tous.
+  const glyphs = ctx.op.glyphs;
+  if (glyphs !== undefined) {
+    if (!Array.isArray(glyphs) || glyphs.length !== needed || !glyphs.every((g) => typeof g === 'string' && g)) {
+      fail(`${ctx.where}« glyphs », s'il est fourni, doit contenir exactement ${needed} signe(s), un par interstice. Reçu : ${JSON.stringify(glyphs)}.`);
+    }
+  }
+
+  insertOperatorTokens(ctx, { between, ids, glyph, glyphs, at: 0, dur: ctx.dur });
 }

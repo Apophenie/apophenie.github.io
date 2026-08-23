@@ -176,12 +176,20 @@ export function etape(ctx, title, caption, ops, extra = {}) {
 /** Token de scène décrit pour une op qui en crée un. */
 export const token = (id, text, kind = 'number') => ({ id, text: String(text), kind });
 
-/** Durées par défaut des primitives — miroir de `src/visuel/constants.js`. */
-const DUREE_OP = Object.freeze({
-  highlight: 500, dim: 500, drop: 700, substitute: 900, move: 700, group: 800,
-  insertOperators: 600, sum: 1200, reduce: 1400, flip180: 900, sevenSeg: 1200,
-  countStrokes: 1400, keyboard: 1800, annotate: 700, pulse: 500, reveal: 1200,
-  wait: 800,
+/**
+ * Durées par défaut des primitives — **miroir** de `src/visuel/constants.js`.
+ *
+ * Le moteur arithmétique ne dépend pas du moteur visuel (CONTRACTS §1) : il ne
+ * peut donc pas importer la table, il en tient une copie. Un test croisé
+ * (`src/visuel/tests/compile.test.js`) échoue si les deux divergent — sans quoi
+ * `enchainer` calculerait des `at` sur des durées périmées et les gestes se
+ * chevaucheraient à nouveau.
+ */
+export const DUREE_OP = Object.freeze({
+  highlight: 600, dim: 700, drop: 2000, substitute: 1100, move: 900, group: 1300,
+  insertOperators: 700, sum: 2800, reduce: 2600, flip180: 1100, sevenSeg: 3000,
+  countStrokes: 3000, keyboard: 2400, annotate: 800, pulse: 600, reveal: 1400,
+  wait: 900, partition: 1800, alphabet: 2800,
 });
 
 /** Nombre de cibles échelonnées par `stagger`, pour mesurer l'étendue réelle. */
@@ -214,6 +222,28 @@ export function enchainer(ops, depart = 0) {
     curseur += dur + (o.stagger || 0) * Math.max(0, nbCibles(o) - 1);
     return o;
   });
+}
+
+/**
+ * Fin réelle d'une suite d'ops déjà enchaînées, en ms depuis le début du step.
+ * Sert à faire se retirer une accolade **une fois les trois gestes joués** —
+ * elle doit tenir pendant le ramassage et la substitution, pas seulement
+ * pendant sa propre durée.
+ */
+export function finDe(ops) {
+  let fin = 0;
+  for (const o of ops) {
+    const dur = o.dur ?? DUREE_OP[o.op] ?? 700;
+    fin = Math.max(fin, (o.at || 0) + dur + (o.stagger || 0) * Math.max(0, nbCibles(o) - 1));
+  }
+  return fin;
+}
+
+/** Programme le retrait de l'accolade d'une suite enchaînée, si elle existe. */
+export function retirerAccolade(ops) {
+  const acc = ops.find((o) => o.op === 'group');
+  if (acc) acc.fadeAt = Math.max(0, finDe(ops) - (acc.at || 0) - 300);
+  return ops;
 }
 
 // ───────────────────────────────────────────────────────────────────────────

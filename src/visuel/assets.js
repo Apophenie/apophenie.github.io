@@ -271,3 +271,94 @@ export function keyboardValue(key, mesure) {
 function round(v) {
   return Math.round(v * 1000) / 1000;
 }
+
+// ---------------------------------------------------------------------------
+// La réglette alphabétique — l'alphabet complet, numéroté
+// ---------------------------------------------------------------------------
+
+/**
+ * L'alphabet latin, tel que le montre la primitive `alphabet`.
+ *
+ * Même parti que le clavier (§ ci-dessus) : ce n'est **pas** une table
+ * arithmétique. La valeur vient du scénario, donc du moteur arithmétique
+ * (`tables/alphabet.js`) ; ici on ne décide que de la géométrie du dessin, et
+ * la primitive refuse d'afficher un rang qui contredirait celui du scénario.
+ */
+export const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+/** Nombre de colonnes de la réglette : deux rangées de treize tiennent en largeur. */
+export const ALPHABET_COLS = 13;
+
+/** Ordres de numérotation modélisés — vocabulaire fermé. */
+export const ALPHABET_ORDRES = Object.freeze(['a1z26', 'z26a1']);
+
+export const CELL = { w: 74, h: 84, gap: 8 };
+
+/** Ordre demandé, ramené au vocabulaire fermé (défaut : A=1). */
+export function normalizeOrdre(ordre) {
+  return ordre === 'z26a1' ? 'z26a1' : 'a1z26';
+}
+
+/**
+ * Rang MONTRÉ par la réglette pour une lettre donnée.
+ * `null` si le caractère n'est pas une lettre latine non accentuée : c'est à
+ * l'émetteur de replier en amont, comme il le fait déjà pour `sevenSeg`.
+ */
+export function alphabetValue(letter, ordre = 'a1z26') {
+  if (typeof letter !== 'string' || !letter) return null;
+  const i = ALPHABET.indexOf(letter.toUpperCase());
+  if (i < 0) return null;
+  return normalizeOrdre(ordre) === 'z26a1' ? 26 - i : i + 1;
+}
+
+/**
+ * Géométrie de la réglette, centrée sur (0,0) dans le repère local du nœud
+ * (y vers le bas, unités viewBox).
+ *
+ * Chaque case porte `{char, rang, colonne, ligne, cx, cy, x, y, w, h}` :
+ * la LETTRE en haut de la case, son RANG en bas — c'est le rang qui redescend
+ * vers la ligne, jamais la lettre.
+ */
+export function alphabetGeometry(options = {}) {
+  const ordre = normalizeOrdre(options.ordre);
+  const cols = options.cols || ALPHABET_COLS;
+  const rows = Math.ceil(ALPHABET.length / cols);
+  const pitchX = CELL.w + CELL.gap;
+  const pitchY = CELL.h + CELL.gap;
+  const width = cols * CELL.w + (cols - 1) * CELL.gap;
+  const height = rows * CELL.h + (rows - 1) * CELL.gap;
+  const x0 = -width / 2;
+  const y0 = -height / 2;
+
+  const cells = [...ALPHABET].map((char, i) => {
+    const colonne = i % cols;
+    const ligne = Math.floor(i / cols);
+    const cx = round(x0 + colonne * pitchX + CELL.w / 2);
+    const cy = round(y0 + ligne * pitchY + CELL.h / 2);
+    return {
+      char,
+      rang: ordre === 'z26a1' ? 26 - i : i + 1,
+      colonne: colonne + 1,
+      ligne,
+      cx,
+      cy,
+      x: round(cx - CELL.w / 2),
+      y: round(cy - CELL.h / 2),
+      w: CELL.w,
+      h: CELL.h,
+      /** Où s'affiche la lettre, et où s'affiche son rang, dans la case. */
+      lettreCy: round(cy - CELL.h * 0.18),
+      rangCy: round(cy + CELL.h * 0.27),
+    };
+  });
+
+  return { ordre, cells, cols, rows, width, height, cellW: CELL.w, cellH: CELL.h };
+}
+
+/** Case portant une lettre — `null` si la lettre n'est pas modélisée. */
+export function findCell(letter, options = {}) {
+  if (typeof letter !== 'string' || !letter) return null;
+  const geo = alphabetGeometry(options);
+  const up = letter.toUpperCase();
+  return geo.cells.find((c) => c.char === up) || null;
+}
