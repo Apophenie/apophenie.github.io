@@ -1,9 +1,12 @@
 /**
  * Le vocabulaire fermé des ops — CONTRACTS §3.1.
  *
- * Dix-neuf primitives, une par fichier — les dix-sept du socle, plus
- * `partition` (découper en sous-groupes) et `alphabet` (la réglette numérotée),
- * ajoutées selon la clause d'extension du contrat. Ajouter une transformation arithmétique sans
+ * Vingt primitives, une par fichier — les dix-sept du socle, plus `partition`
+ * (découper en sous-groupes), `alphabet` (la réglette numérotée) et
+ * `fourteenSeg` (l'afficheur quatorze segments), ajoutées selon la clause
+ * d'extension du contrat. `afficheur.js` n'en est PAS une : c'est le corps
+ * partagé de `sevenSeg` et `fourteenSeg`, qui font le même geste sur deux
+ * afficheurs. Ajouter une transformation arithmétique sans
  * rendu impose d'**ajouter d'abord la primitive ici**, puis de l'émettre : un
  * `op` hors de cette table est une erreur de compilation, pas une op ignorée.
  */
@@ -19,6 +22,7 @@ import * as sum from './sum.js';
 import * as reduce from './reduce.js';
 import * as flip180 from './flip180.js';
 import * as sevenSeg from './sevenSeg.js';
+import * as fourteenSeg from './fourteenSeg.js';
 import * as countStrokes from './countStrokes.js';
 import * as keyboard from './keyboard.js';
 import * as annotate from './annotate.js';
@@ -32,7 +36,7 @@ import { OP_NAMES } from '../constants.js';
 
 export const PRIMITIVES = Object.freeze({
   highlight, dim, drop, substitute, move, group, insertOperators,
-  sum, reduce, flip180, sevenSeg, countStrokes, keyboard,
+  sum, reduce, flip180, sevenSeg, fourteenSeg, countStrokes, keyboard,
   annotate, pulse, reveal, wait, partition, alphabet,
 });
 

@@ -1,4 +1,4 @@
-/** Réglages persistés : thème et niveau d'animation.
+/** Réglages persistés : thème, niveau d'animation, rythme des répétitions.
  *
  *  THÈME — **trois** états, pas une bascule binaire :
  *    · `clair`  — parchemin, imposé ;
@@ -15,11 +15,19 @@
  *  `pages/demonstration.js`).
  *
  *  ANIMATION — initialisée sur `prefers-reduced-motion` mais surchargeable dans
- *  les deux sens (design §4.6). */
+ *  les deux sens (design §4.6).
+ *
+ *  RÉPÉTITIONS — les démonstrations refont le même geste sur chaque fragment.
+ *  La première fois enseigne, les suivantes confirment : par défaut les redites
+ *  passent en accéléré. C'est une préférence de LECTURE, elle se règle donc
+ *  dans les contrôles d'avancement et se persiste ici, comme le thème et la
+ *  langue. Défaut : accéléré — c'est l'expérience qu'on veut par défaut, et le
+ *  réglage sert à la refuser. */
 
 const CLE_THEME = 'nhlg.theme';
 const CLE_ANIM = 'nhlg.animation';
 const CLE_LOGO = 'nhlg.logo-vu';
+const CLE_REPET = 'nhlg.repetitions';
 
 /** Les trois thèmes, dans l'ordre d'affichage du sélecteur : clair · auto · sombre. */
 export const THEMES = ['clair', 'auto', 'sombre'];
@@ -103,6 +111,26 @@ export function appliquerAnimation() {
   document.documentElement.setAttribute('data-animation', animationEffective());
 }
 
+/* ───────────────────────── Répétitions ─────────────────────────────── */
+
+/** `true` quand les étapes qui redisent une étape déjà vue passent en accéléré.
+ *  Absence de clé = accéléré : c'est le défaut, seul le refus se stocke. */
+export const repetitionsAccelerees = () => magasin.lire(CLE_REPET) !== 'pleines';
+
+export function basculerRepetitions() {
+  const suivant = !repetitionsAccelerees();
+  if (suivant) magasin.effacer(CLE_REPET);
+  else magasin.ecrire(CLE_REPET, 'pleines');
+  appliquerRepetitions();
+  prevenir();
+  return suivant;
+}
+
+export function appliquerRepetitions() {
+  document.documentElement.setAttribute(
+    'data-repetitions', repetitionsAccelerees() ? 'accelerees' : 'pleines');
+}
+
 /* ──────────────────────── Mémoire de la blague ─────────────────────── */
 
 export const logoDejaVu = () => magasin.lire(CLE_LOGO) === '1';
@@ -117,5 +145,6 @@ export function appliquerLogoVu() {
 export function appliquerTout() {
   appliquerTheme();
   appliquerAnimation();
+  appliquerRepetitions();
   appliquerLogoVu();
 }

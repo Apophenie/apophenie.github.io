@@ -15,7 +15,7 @@
  * `reduce` par palier**, chacun dans son step. Le moteur visuel ne boucle jamais.
  */
 
-import { tokenSpec, insertOperatorTokens, accumulate, charPoint, espacementDe } from './helpers.js';
+import { tokenSpec, insertOperatorTokens, accumulate, charPoint, espacementDe, exigerPoint } from './helpers.js';
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
 
@@ -59,7 +59,14 @@ export function plan(ctx) {
       base: { opacity: 0, fill: ctx.palette.phos },
     }, { where: ctx.where });
     // Naissance pile sur le glyphe correspondant du token d'origine.
-    ctx.scene.place(s.id, charPoint(ctx, src.id, i));
+    //
+    // ★ C'est ce geste qui fait exister le « 1 » de « 15 » : un chiffre neuf,
+    // porteur d'un texte, dont la position vient d'un CALCUL sur celle de sa
+    // source. Si ce calcul rate, on obtient exactement le symptôme redouté —
+    // un chiffre isolé, à l'origine, hors de toute composition. On l'exige donc
+    // utilisable avant de poser quoi que ce soit.
+    ctx.scene.place(s.id, exigerPoint(ctx, charPoint(ctx, src.id, i),
+      `le chiffre « ${s.text} » de l'éclatement de « ${src.text} »`, s.id));
     ctx.anim({ id: s.id, prop: 'opacity', to: 1, at: 0, dur: 1 });
   });
   ctx.anim({ id: src.id, prop: 'opacity', to: 0, at: 0, dur: Math.max(1, T1 * 0.35) });

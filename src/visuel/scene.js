@@ -11,7 +11,7 @@
  */
 
 import { layoutFlow, measureText } from './layout.js';
-import { CAMERA_ID, ENGINE_PREFIX, PALETTE, colorForKind } from './constants.js';
+import { CAMERA_ID, PAN_ID, ENGINE_PREFIX, PALETTE, colorForKind } from './constants.js';
 import { fail } from './errors.js';
 
 export class Scene {
@@ -30,6 +30,7 @@ export class Scene {
     this.everIds = new Set();
     this.deadIds = new Set();
     this.autoSeq = 0;
+    this.ancres = new Map();   // source → où son résultat doit paraître
 
     // Nœud caméra : c'est lui qu'on zoome/déplace, jamais l'attribut viewBox.
     this.nodes.set(CAMERA_ID, makeNode({
@@ -39,6 +40,26 @@ export class Scene {
     this.order.push(CAMERA_ID);
     this.everIds.add(CAMERA_ID);
     this.positions.set(CAMERA_ID, { x: 0, y: 0, w: 0, line: 0 });
+
+    // Nœud de défilement, imbriqué DANS la caméra (voir `constants.PAN_ID`).
+    // C'est lui qui fait glisser la ligne pour garder l'action au centre quand
+    // la séquence est plus large que la scène.
+    this.nodes.set(PAN_ID, makeNode({
+      id: PAN_ID, role: 'pan', text: '', kind: null, group: null,
+      inFlow: false, w: 0, base: { translate: { x: 0, y: 0 }, opacity: 1, scale: 1 },
+    }));
+    this.order.push(PAN_ID);
+    this.everIds.add(PAN_ID);
+    this.positions.set(PAN_ID, { x: 0, y: 0, w: 0, line: 0 });
+
+    /**
+     * Le défilement en vigueur pendant le step en cours de compilation.
+     * Les primitives qui posent quelque chose « au centre de la scène » (un
+     * clavier, une réglette, un encart) doivent le lire : le centre de la VUE
+     * n'est le centre du viewBox que si la ligne ne défile pas
+     * (`helpers.ancreVue`).
+     */
+    this.pan = { x: 0, y: 0 };
 
     for (const tok of tokens) {
       this.create({
@@ -144,6 +165,34 @@ export class Scene {
   /** Index d'un id dans le flux (−1 s'il n'y est pas). */
   flowIndex(id) { return this.flow.indexOf(id); }
 
+  /**
+   * Publie l'ancre de résultat d'une accolade — le point, sous sa pointe et
+   * sous son symbole, où DOIT paraître ce qu'elle annonce.
+   *
+   * ★ Une accolade qui porte un symbole est une PROMESSE : « ceci, pris
+   * ensemble, donne cela ». `sum` la tient lui-même. Les autres combinateurs —
+   * un dénombrement, une moyenne, un écart — la tenaient jusqu'ici par un
+   * `substitute`, qui faisait naître la valeur **dans la ligne**, en haut et à
+   * gauche de l'accolade : les bras embrassaient les sources, le symbole
+   * pointait vers le bas, et rien ne venait jamais s'y poser. L'accolade
+   * publie donc son ancre, et `substitute` la lit.
+   *
+   * @param {string[]} ids   les sources embrassées
+   * @param {{x:number,y:number}} point
+   */
+  poserAncre(ids, point) {
+    for (const id of ids) this.ancres.set(id, { x: point.x, y: point.y });
+  }
+
+  /** L'ancre de résultat attendue pour la source `id`, s'il y en a une. */
+  ancreDe(id) { return this.ancres.get(id) || null; }
+
+  /**
+   * Oublie les ancres. Appelé à chaque nouveau step : une accolade ne promet
+   * que pour le geste en cours, et le step suivant repart d'une page nette.
+   */
+  oublierAncres() { this.ancres.clear(); }
+
   pos(id) { return this.positions.get(id) || null; }
 
   /**
@@ -154,6 +203,7 @@ export class Scene {
     const node = this.nodes.get(id);
     const prev = this.positions.get(id);
     const next = { x: p.x, y: p.y, w: p.w !== undefined ? p.w : (node ? node.w : 0), line: 0 };
+    if (p.h !== undefined) next.h = p.h;
     this.positions.set(id, next);
     if (!prev) {
       if (node) node.base.translate = { x: next.x, y: next.y };

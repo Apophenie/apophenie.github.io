@@ -18,17 +18,20 @@
  * logique propre, elle s'abonne à `change`.
  */
 
-import { EPS, VIEWBOX, PALETTE, CAMERA_ID, MARGIN, FONT_FAMILY } from './constants.js';
+import { EPS, VIEWBOX, PALETTE, CAMERA_ID, PAN_ID, FONT_FAMILY } from './constants.js';
 import { compile } from './compile.js';
 import { defaultMetrics, defaultLayoutOptions } from './layout.js';
-import { createElementFor, applyBase, applyProp, applyDiscrete, formatValue, layerOf, el, LAYERS } from './dom.js';
+import {
+  createElementFor, applyBase, applyProp, applyDiscrete, formatValue, layerOf, el, LAYERS,
+  valeurUtilisable, masquerSansPosition, enchainer, porteurDe, contenuDe, nomCss, ORIGINE_CAMERA,
+} from './dom.js';
 import { resolveDiscrete, createTicker } from './clock.js';
 import * as nav from './nav.js';
 
 /**
  * @param {SVGSVGElement} svgRoot
  * @param {object} scenario
- * @param {{reducedMotion?:'auto'|'force'|'off', speed?:number, autoplay?:boolean,
+ * @param {{reducedMotion?:'auto'|'force'|'off', speed?:number, repeatSpeed?:number, autoplay?:boolean,
  *          glyphes?:object, palette?:object, viewBox?:object}} [options]
  */
 export function createPlayer(svgRoot, scenario, options = {}) {
@@ -45,6 +48,9 @@ class Player {
     this.options = {
       reducedMotion: 'auto',
       speed: 1,
+      // Facteur appliqué aux SEULES étapes qui redisent une étape déjà jouée
+      // (voir `compile.js`, bloc « Répétitions »). 1 = aucune accélération.
+      repeatSpeed: 1,
       autoplay: true,
       ...options,
     };
@@ -231,14 +237,20 @@ class Player {
     return palette;
   }
 
+  /**
+   * ★ Il n'y a plus de rupture de layout.
+   *
+   * Il y en avait une : sous 760 px de large, la ligne repassait sur plusieurs
+   * lignes plutôt que de laisser rétrécir le texte (recherche §5.2). La
+   * doctrine a changé — **jamais deux lignes**. Une séquence trop large ne se
+   * replie pas, elle **défile**, et le compilateur garde l'action au centre
+   * (voir `defilement.js`). Le layout est donc le même à toutes les largeurs :
+   * une seule ligne, centrée, en unités viewBox — et le responsive redevient ce
+   * que `research/moteur-visuel.md §5.2` promettait d'abord, un simple
+   * changement d'échelle, sans recompilation aux ruptures.
+   */
   _layoutOptions() {
-    const metrics = this.metrics;
-    const opts = defaultLayoutOptions(metrics, this.viewBox);
-    // Rupture de layout : sous 760 px de large, on passe en plusieurs lignes
-    // plutôt que de laisser rétrécir le texte (recherche §5.2).
-    const px = this.svg.clientWidth || (this.svg.getBoundingClientRect && this.svg.getBoundingClientRect().width) || 0;
-    if (px && px < 760) opts.maxWidth = Math.max(this.viewBox.w * 0.5, this.viewBox.w - 2 * MARGIN) * 0.62;
-    return opts;
+    return defaultLayoutOptions(this.metrics, this.viewBox);
   }
 
   _buildAll() {
@@ -247,6 +259,7 @@ class Player {
 
     this.timeline = compile(this.scenario, {
       speed: this.options.speed,
+      repeatSpeed: this.options.repeatSpeed,
       reduced,
       metrics: this.metrics,
       layoutOpts: this._layoutOptions(),
@@ -268,23 +281,44 @@ class Player {
 
   _buildDom() {
     const root = el('g', { class: 'nhl-scene' });
-    const camera = el('g', { class: 'nhl-camera', 'data-nhl-id': CAMERA_ID });
     // Règle 6 : jamais d'animation de l'attribut viewBox — on anime la caméra.
-    camera.style.transformBox = 'view-box';
-    camera.style.transformOrigin = 'center';
+    // Elle a la même chaîne de position que les tokens (dom.js `enchainer`), à
+    // ceci près que son repère de transformation est le `viewBox` entier : un
+    // recul de caméra doit reculer AUTOUR DU CENTRE DE LA SCÈNE, pas autour du
+    // centre de ce qui s'y trouve à cet instant.
+    const vue = el('g', { class: 'nhl-camera-vue' });
+    const chaine = enchainer(vue, { origine: ORIGINE_CAMERA });
+    const camera = chaine.racine;
+    camera.setAttribute('class', 'nhl-camera');
+    camera.setAttribute('data-nhl-id', CAMERA_ID);
+
+    // Le groupe de DÉFILEMENT, imbriqué DANS le contenu de la caméra. C'est lui
+    // qui fait glisser la ligne pour garder l'action au centre quand la
+    // séquence dépasse la largeur de la scène (`defilement.js`). L'ordre
+    // d'imbrication n'est pas indifférent : le recul de caméra s'applique
+    // APRÈS, autour du centre du viewBox, si bien qu'un zoom ne défait jamais
+    // un défilement (voir `constants.PAN_ID`).
+    const panVue = el('g', { class: 'nhl-pan-vue' });
+    const pan = enchainer(panVue).racine;
+    pan.setAttribute('class', 'nhl-pan');
+    pan.setAttribute('data-nhl-id', PAN_ID);
+    vue.appendChild(pan);
+
     const layers = {};
     for (const name of LAYERS) {
       layers[name] = el('g', { class: `nhl-layer nhl-layer-${name}` });
-      camera.appendChild(layers[name]);
+      panVue.appendChild(layers[name]);
     }
     root.appendChild(camera);
 
     this.elements.clear();
     this.elements.set(CAMERA_ID, camera);
     applyBase(camera, this.timeline.scene.get(CAMERA_ID));
+    this.elements.set(PAN_ID, pan);
+    applyBase(pan, this.timeline.scene.get(PAN_ID));
 
     for (const node of this.timeline.nodes) {
-      if (node.id === CAMERA_ID) continue;
+      if (node.id === CAMERA_ID || node.id === PAN_ID) continue;
       const element = createElementFor(node, { metrics: this.timeline.metrics, palette: this.timeline.palette });
       applyBase(element, node);
       layers[layerOf(node.role)].appendChild(element);
@@ -466,11 +500,29 @@ class WaapiEngine {
     this.animations = [];
     this._playing = false;
 
+    // ★ CONTRACTS §3.2 règle 3 : un canal, un élément.
+    //
+    // L'animation n'est PAS montée sur la racine du nœud mais sur le maillon
+    // qui porte son canal (`porteurDe`) : `translate` sur l'enveloppe de
+    // position, `rotate` sur l'enveloppe de rotation, tout le reste sur
+    // l'élément qui dessine. C'est ce qui met le défaut Firefox hors de portée
+    // — l'élément que le compositeur promeut pour son opacité n'a plus aucune
+    // position à perdre, ce sont ses ancêtres qui le placent (voir le long
+    // commentaire de `dom.js`).
     for (const a of timeline.anims) {
       const element = elements.get(a.id);
       if (!element) continue;
-      const frames = a.keyframes.map((k) => ({ offset: k.offset, [a.prop]: formatValue(a.prop, k.value) }));
-      const anim = element.animate(frames, {
+      // ★ WAAPI ne passe PAS par `applyProp` : c'est la seule voie où une
+      // coordonnée non finie serait encore blanchie en 0 par `formatValue`, et
+      // le nœud sauterait à l'origine en pleine lecture. On la ferme ici aussi :
+      // l'animation n'est pas montée, et le nœud est retiré de la vue.
+      const fautive = a.keyframes.find((k) => !valeurUtilisable(a.prop, k.value));
+      if (fautive) { masquerSansPosition(element, a.prop, fautive.value); continue; }
+      const cible = porteurDe(element, a.prop);
+      const nom = nomCss(a.prop);
+      if (!cible || !nom || typeof cible.animate !== 'function') continue;
+      const frames = a.keyframes.map((k) => ({ offset: k.offset, [nom]: formatValue(a.prop, k.value) }));
+      const anim = cible.animate(frames, {
         delay: a.delay,
         duration: a.duration,
         easing: a.easing,
@@ -481,7 +533,11 @@ class WaapiEngine {
       this.animations.push(anim);
     }
 
-    this.clock = makeClock(timeline.total, elements.get(CAMERA_ID));
+    // L'horloge de repli (moteur sans `KeyframeEffect` à cible nulle) anime une
+    // opacité constante. On l'accroche au CONTENU de la caméra, jamais à son
+    // enveloppe de position : ce qu'elle promeut en couche ne doit rien porter
+    // qui place la scène.
+    this.clock = makeClock(timeline.total, contenuDe(elements.get(CAMERA_ID)));
     this.all = this.clock ? [this.clock, ...this.animations] : this.animations;
   }
 

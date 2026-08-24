@@ -43,7 +43,7 @@ export const LINE_HEIGHT = 78;   // unités viewBox
  * Vocabulaire FERMÉ des ops — CONTRACTS §3.1.
  *
  * Le contrat prévoit l'extension : « Ajouter une transformation arithmétique
- * sans rendu ⇒ ajouter d'abord la primitive ici, puis l'émettre. » Deux
+ * sans rendu ⇒ ajouter d'abord la primitive ici, puis l'émettre. » Trois
  * primitives ont été ajoutées au socle de dix-sept :
  *
  *  · `partition` — découper la saisie en sous-groupes, pour appliquer ensuite
@@ -51,11 +51,17 @@ export const LINE_HEIGHT = 78;   // unités viewBox
  *    méthode », README). Sans elle, un `hope-hope-hope` se traitait morceau
  *    après morceau sans qu'on voie jamais le découpage ;
  *  · `alphabet` — la réglette alphabétique numérotée, sur le modèle du clavier :
- *    la lettre s'envole vers son rang, et le rang en redescend.
+ *    la lettre s'envole vers son rang, et le rang en redescend ;
+ *  · `fourteenSeg` — l'afficheur QUATORZE segments. Même geste que `sevenSeg`,
+ *    autre afficheur : le vocabulaire nomme des gestes, et appeler « sept
+ *    segments » un afficheur qui en allume quatorze aurait fait mentir le nom
+ *    de l'op — c'est-à-dire la première chose qu'on lit d'un scénario.
+ *    Sa durée est un peu plus longue : il y a jusqu'à dix traits à allumer un
+ *    par un, contre cinq au plus en sept segments.
  */
 export const OP_NAMES = Object.freeze([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
-  'sum', 'reduce', 'flip180', 'sevenSeg', 'countStrokes', 'keyboard',
+  'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
   'annotate', 'pulse', 'reveal', 'wait', 'partition', 'alphabet',
 ]);
 
@@ -82,6 +88,7 @@ export const DEFAULT_DUR = Object.freeze({
   reduce: 2600,
   flip180: 1100,
   sevenSeg: 3000,
+  fourteenSeg: 3400,
   countStrokes: 3000,
   keyboard: 2400,
   annotate: 800,
@@ -114,6 +121,33 @@ export const ENGINE_PREFIX = '@';
 
 /** Identifiant du groupe caméra (CONTRACTS §3.2 règle 6 : jamais d'animation du viewBox). */
 export const CAMERA_ID = '@camera';
+
+/**
+ * Identifiant du groupe de DÉFILEMENT, imbriqué DANS la caméra.
+ *
+ * ★ Pourquoi un deuxième groupe, et pas simplement le `translate` de la caméra.
+ *
+ * Doctrine : **la séquence ne se met jamais sur deux lignes**. Quand elle est
+ * plus large que la scène, on la fait défiler horizontalement et l'on garde
+ * l'action au centre. C'est un panoramique, donc le `transform` d'un groupe —
+ * jamais l'attribut `viewBox` (règle 6).
+ *
+ * Mais la caméra a déjà un usage : `keyboard` et `alphabet` reculent (`scale`)
+ * et recentrent (`translate`) le temps d'un step. Deux mouvements sur le même
+ * canal du même nœud se contrediraient dans un même step. Le défilement a donc
+ * son propre nœud, **à l'intérieur** du contenu de la caméra :
+ *
+ *     @camera  translate + scale   (le recul ponctuel des primitives)
+ *       └─ @pan  translate         (le défilement de la ligne)
+ *            └─ couches
+ *
+ * L'imbrication n'est pas indifférente. Le recul de caméra se fait autour du
+ * CENTRE DU VIEWBOX ; comme il s'applique APRÈS le défilement, le point que le
+ * défilement a amené au centre y reste, quel que soit le zoom. Un recul de
+ * caméra ne défait donc jamais un défilement, et réciproquement : les deux
+ * gestes sont orthogonaux par construction, sans arithmétique de rattrapage.
+ */
+export const PAN_ID = '@pan';
 
 /**
  * Palette de repli — thème sombre « Nuit d'encre » (design §2.3).
@@ -158,7 +192,11 @@ export function colorForKind(kind, palette = PALETTE) {
   }
 }
 
-/** Canaux animés — propriétés individuelles uniquement (CONTRACTS §3.2 règle 3). */
+/**
+ * Canaux animés. Les trois canaux géométriques sont portés chacun par son
+ * propre élément de la chaîne de position (CONTRACTS §3.2 règle 3) : ce sont
+ * des canaux du moteur, jamais des propriétés CSS individuelles.
+ */
 export const PROPS = Object.freeze([
   'translate', 'rotate', 'scale', 'opacity', 'fill', 'stroke',
   'strokeDashoffset', 'r',

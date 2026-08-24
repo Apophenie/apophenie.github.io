@@ -51,6 +51,52 @@ export const SEG7_APPROXIMATIONS = Object.freeze({
     'approximation: X borrows the shape of H'),
 });
 
+/**
+ * ★ RÉSERVE DE FIDÉLITÉ — la table ci-dessus fait foi, la police non.
+ *
+ * Le Registre montre la lettre en **police** sept segments (DSEG7 Classic,
+ * `src/app/registre.js`), la scène l'**allume** segment par segment depuis
+ * cette table. Les deux ne s'accordent pas partout : DSEG7 dessine sa propre
+ * approximation, et elle diffère de la nôtre sur **12 des 36 signes**.
+ *
+ * | signe | table (`SEG7`) | DSEG7 Classic | segments (`md`) | traits fusionnés (`me`) |
+ * |---|---|---|---|---|
+ * | 7 | `abc`     | `abcf`    | 3 vs 4 | 2 vs 3 ✗ |
+ * | C | `adef`    | `deg`     | 4 vs 3 | 3 vs 3 |
+ * | H | `bcefg`   | `cefg`    | 5 vs 4 | 3 vs 3 |
+ * | I | `bc`      | `c`       | 2 vs 1 | 1 vs 1 |
+ * | J | `bcd`     | `bcde`    | 3 vs 4 | 2 vs 3 ✗ |
+ * | K | `bcefg`   | `acefg`   | 5 vs 5 | 3 vs 4 ✗ |
+ * | M | `aceg`    | `abcef`   | 4 vs 5 | 4 vs 3 ✗ |
+ * | O | `abcdef`  | `cdeg`    | 6 vs 4 | 4 vs 4 |
+ * | S | `acdfg`   | `cdfg`    | 5 vs 4 | 5 vs 4 ✗ |
+ * | U | `bcdef`   | `cde`     | 5 vs 3 | 3 vs 3 |
+ * | W | `bdef`    | `bcdefg`  | 4 vs 6 | 3 vs 4 ✗ |
+ * | Z | `abdeg`   | `abde`    | 5 vs 4 | 5 vs 4 ✗ |
+ *
+ * Ce que ça implique, méthode par méthode :
+ *
+ * · **`me` — traits fusionnés** (la méthode de référence) : le COMPTE tient
+ *   partout sauf sur 7, J, K, M, S, W et Z. Sur `hope` et `fr` — et sur tout
+ *   mot qui les évite — le Registre et la scène annoncent le même nombre.
+ *   Le DESSIN, lui, diffère quand même : DSEG forme un `h` et un `o` de bas
+ *   de casse là où la table allume un `H` et un `O` de capitale.
+ * · **`md` — segments allumés** : les comptes divergent dès C, H, I, O, S, U…
+ *   Le Registre y montre donc un glyphe dont on peut compter les segments sans
+ *   retomber sur le nombre annoncé juste à côté. **C'est le point à trancher**
+ *   — voir la note de l'auteur.
+ *
+ * Le contrôle croisé de CONTRACTS §0.3 reste intact là où il porte : la SCÈNE
+ * redérive son compte du tracé qu'elle allume, et la compilation échoue si les
+ * deux divergent. La police, elle, n'entre pas dans ce circuit — elle illustre.
+ * `segments` voyage dans la figure du scénario précisément pour que l'écart
+ * reste mesurable plutôt que d'être oublié.
+ */
+export const ECARTS_POLICE_SEG7 = Object.freeze({
+  7: 'abcf', C: 'deg', H: 'cefg', I: 'c', J: 'bcde', K: 'acefg',
+  M: 'abcef', O: 'cdeg', S: 'cdfg', U: 'cde', W: 'bcdefg', Z: 'abde',
+});
+
 /** Mention à afficher quand un token traverse une approximation. */
 export const MENTION_SEG7 = bilingue(
   'Approximation d’affichage : K, M, V, W et X ne sont pas représentables sur un '

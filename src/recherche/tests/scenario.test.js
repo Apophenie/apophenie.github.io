@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { creerMoteur } from '../index.js';
-import { construireScenario, validerScenario, VOCABULAIRE, DUREE_MIN, elementsDe } from '../scenario.js';
+import {
+  construireScenario, validerScenario, VOCABULAIRE, DUREE_MIN, elementsDe, validerFormeOp,
+} from '../scenario.js';
 import { etat } from '../bfs.js';
 import { approcheJoker } from '../assemblage.js';
 import { catalogue, operateur } from './_catalogue.js';
@@ -85,6 +87,77 @@ function creations(o) {
   return out;
 }
 
+/**
+ * ★ LE PIÈGE DU MIROIR. `scenario.js` tient sa PROPRE copie du vocabulaire des
+ * ops (`VOCABULAIRE`) et sa propre validation de forme (`validerFormeOp`) —
+ * l'agent heuristique ne dépend pas du moteur visuel. Quand une primitive est
+ * ajoutée d'un côté sans l'autre, rien n'échoue : `essayerCatalogue` note un
+ * avertissement et retombe SILENCIEUSEMENT sur le rendu générique. La méthode
+ * continue de « marcher » — elle cesse seulement de MONTRER ce qu'elle compte,
+ * ce qui est précisément la faute que CONTRACTS §0.3 interdit.
+ *
+ * (Constaté en vrai : `fourteenSeg` ajouté au moteur visuel et au catalogue,
+ * mais pas aux trois miroirs de `scenario.js` — la démonstration quatorze
+ * segments substituait des nombres sans jamais allumer un segment.)
+ */
+/**
+ * Les gestes dédiés attendus, code par code — le même contrat que
+ * `src/moteur/catalogue.test.js › PRIMITIVE_ATTENDUE`, vérifié ici du côté du
+ * PONT plutôt que du catalogue. Ces méthodes comptent quelque chose de VISIBLE.
+ */
+const GESTE_ATTENDU = {
+  m1: 'alphabet', m2: 'alphabet',
+  md: 'sevenSeg', me: 'sevenSeg',
+  mw: 'fourteenSeg', mx: 'fourteenSeg',
+  mf: 'countStrokes', mg: 'countStrokes', mh: 'countStrokes',
+  mi: 'countStrokes', mj: 'countStrokes', mk: 'countStrokes',
+  ml: 'keyboard', mm: 'keyboard', mn: 'keyboard', mo: 'keyboard',
+};
+
+test('★ scénario — aucun geste dédié ne retombe en silence sur le rendu générique', () => {
+  const parCode = new Map((catalogue.operateurs || catalogue).map((o) => [o.code, o]));
+  const entree = etat('TOKENS', ['h', 'o', 'p', 'e'], [[0, 4]]);
+  const traces = [[[0, 1]], [[1, 2]], [[2, 3]], [[3, 4]]];
+  for (const [code, geste] of Object.entries(GESTE_ATTENDU)) {
+    const op = parCode.get(code);
+    assert.ok(op, `${code} : opérateur disparu du catalogue`);
+    const brut = op.apply(entree.valeur, traces);
+    assert.ok(brut, `${code} : inapplicable à « hope »`);
+    const apres = etat('NUMS', brut.valeur, [[0, 4]]);
+    const steps = op.steps(entree, apres, {
+      ids: ['t0', 't1', 't2', 't3'],
+      cle: 'e0',
+      langue: 'fr',
+      elements: ['h', 'o', 'p', 'e'],
+      cibles: brut.valeur.map(String),
+      nouvelId: (p) => `${p}x`,
+    });
+    assert.ok(Array.isArray(steps) && steps.length, `${code} : aucun step`);
+    const emis = new Set();
+    for (const st of steps) {
+      for (const o of st.ops) {
+        // ★ LE PIÈGE DU MIROIR. `scenario.js` tient sa PROPRE copie du
+        // vocabulaire et sa propre validation de forme (l'agent heuristique ne
+        // dépend pas du moteur visuel). Quand une primitive est ajoutée d'un
+        // côté sans l'autre, RIEN N'ÉCHOUE : `essayerCatalogue` note un
+        // avertissement et retombe SILENCIEUSEMENT sur le rendu générique. La
+        // méthode continue de « marcher » — elle cesse seulement de MONTRER ce
+        // qu'elle compte, ce que CONTRACTS §0.3 interdit précisément.
+        // (Constaté en vrai : `fourteenSeg` livré au moteur visuel et au
+        // catalogue, absent des trois miroirs de `scenario.js` — la
+        // démonstration substituait des nombres sans allumer un seul segment.)
+        assert.ok(VOCABULAIRE.has(o.op),
+          `${code} : l'op « ${o.op} » manque au VOCABULAIRE de scenario.js`);
+        assert.equal(validerFormeOp(o), null,
+          `${code} : validerFormeOp refuse l'op « ${o.op} » que l'opérateur émet`);
+        emis.add(o.op);
+      }
+    }
+    assert.ok(emis.has(geste),
+      `${code} annonce le geste « ${geste} » mais émet ${[...emis].join(', ')}`);
+  }
+});
+
 test('scénario — les tokens initiaux reflètent la saisie, caractère par caractère', () => {
   const m = creerMoteur(catalogue);
   const r = m.resoudre('jean-michel');
@@ -130,6 +203,46 @@ test('scénario — un opérateur qui fournit steps() est employé tel quel', ()
     assert.ok(step.ops.filter((o) => o.op === 'alphabet').length <= 1,
       'une réglette par step : chacune anime la caméra');
   }
+});
+
+test('★ scénario — une étape qui ne transforme rien à l’écran est sautée SILENCIEUSEMENT', () => {
+  // « On prend les lettres une par une » fait passer STR 'hope' à
+  // TOKENS ['h','o','p','e'] : le type change, les quatre glyphes de la ligne
+  // sont exactement les mêmes. L'étape ne doit paraître ni dans la scène ni
+  // dans Le Registre — et la NUMÉROTATION doit se refermer sur elle, pas
+  // garder un trou.
+  const a1z26 = operateur('m.a1z26');
+  const approche = {
+    mode: 'TRIPLEMENT',
+    parts: [{
+      fragment: { texte: 'hope', offset: 0, longueur: 4, intervalles: [[0, 4]], famille: 'entier' },
+      chemin: {
+        ops: [operateur('t.caracteres'), a1z26, operateur('c.somme'), operateur('p.racineNumerique')],
+        etats: [
+          etat('STR', 'hope', []),
+          etat('TOKENS', ['h', 'o', 'p', 'e'], []),
+          etat('NUMS', [8, 15, 16, 5], []),
+          etat('NUM', 44, []),
+          etat('NUM', 8, []),
+        ],
+      },
+    }],
+  };
+  const sc = construireScenario(approche, { saisie: 'hope' });
+  assert.deepEqual(validerScenario(sc), []);
+
+  const titres = sc.steps.map((s) => s.title);
+  assert.ok(!titres.some((t) => /lettres une par une/i.test(t)),
+    `« on prend les lettres une par une » subsiste : ${JSON.stringify(titres)}`);
+  // Aucune op ne se rattache au découpage en caractères : ni `move` nu, ni
+  // `pulse` sur toute la ligne.
+  assert.ok(!sc.steps.some((s) => s.ops.some((o) => o.op === 'move' && !o.targets && !o.to)),
+    'le recalcul de flux de t1 subsiste');
+  // Numérotation refermée : des identifiants contigus depuis s0, donc des
+  // numéros contigus dans Le Registre (qui numérote par index).
+  assert.deepEqual(sc.steps.map((s) => s.id), sc.steps.map((_, i) => `s${i}`));
+  // Et la démonstration commence bien par la conversion, pas par un vide.
+  assert.match(sc.steps[0].title, /alphabet/i);
 });
 
 test('scénario — steps() incohérent : repli générique + avertissement, jamais d’échec', () => {

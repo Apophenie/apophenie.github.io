@@ -10,12 +10,23 @@
  *      clavier serait éjecté vers le début du document ;
  *    · un seul bouton Lecture/Pause, dont le NOM ACCESSIBLE change, et SANS
  *      `aria-pressed` — les deux ensemble produisent une annonce contradictoire.
+ *
+ *  Une seule exception au « pur reflet » : la BASCULE DES REDITES. Ce n'est pas
+ *  une commande d'avancement, c'est une préférence de lecture — mais elle règle
+ *  le rythme de l'avancement, donc sa place est ici, à côté des cinq boutons, et
+ *  pas dans la barre haute avec le thème. Elle n'agit pas sur le lecteur : elle
+ *  écrit dans `reglages.js`, et c'est la page de démonstration qui, prévenue,
+ *  fait recompiler la timeline. La barre reste un reflet, d'un réglage cette
+ *  fois plutôt que du lecteur.
  */
 
 import { e, svg as s } from './dom.js';
 import { t } from '../i18n/index.js';
 import { interpoler } from '../i18n/resolution.js';
 import { titreEtape } from './libelles.js';
+import {
+  repetitionsAccelerees, basculerRepetitions, animationEffective, onReglages,
+} from './reglages.js';
 
 const ico = (...enfants) =>
   s('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', focusable: 'false' }, enfants);
@@ -35,6 +46,20 @@ const ICONES = {
   fin: () => ico(
     s('path', { class: 'ico-plein', d: 'M5 5 L15 12 L5 19 Z' }),
     s('path', { class: 'ico-trait', d: 'M18 5V19' })),
+  // Les redites : DEUX chevrons quand elles filent, UN quand elles se lisent en
+  // entier — l'idiome universel de la vitesse de lecture, et le seul qui tienne
+  // à 24 px. La barre oblique a été essayée puis abandonnée : sur un chevron au
+  // trait de 2 px, le liseré de fond qui l'empêche de se fondre dedans hachait
+  // le glyphe en morceaux illisibles.
+  //
+  // Ces deux-là sont AU TRAIT quand les cinq commandes d'avancement sont
+  // pleines : la différence de facture dit du premier coup d'œil que ce bouton
+  // règle quelque chose au lieu de déplacer la tête de lecture.
+  rapide: () => ico(
+    s('path', { class: 'ico-trait', d: 'M4 6 L10 12 L4 18' }),
+    s('path', { class: 'ico-trait', d: 'M13 6 L19 12 L13 18' })),
+  pleines: () => ico(
+    s('path', { class: 'ico-trait', d: 'M8 5 L15 12 L8 19' })),
 };
 
 function boutonTransport(cle, libelle, nomAccessible, principal = false) {
@@ -58,9 +83,13 @@ function boutonTransport(cle, libelle, nomAccessible, principal = false) {
  *   quatre étapes ne sont pas des « transformations » et dont le bouton de
  *   lecture ne « lance » pas une démonstration. Toute clé absente retombe sur
  *   le dictionnaire : la barre des démonstrations n'en passe aucune.
+ * @param {{repetitions?:boolean|number}} [options] une valeur véridique ajoute
+ *   la bascule « redites accélérées » ; un nombre donne en plus le facteur à
+ *   annoncer dans le libellé. Réservé aux démonstrations : la révélation du
+ *   logo ne répète aucun geste, le bouton n'y aurait rien à régler.
  * @returns {{element:HTMLElement, rafraichir:Function, detruire:Function}}
  */
-export function creerTransport(lecteur, libelles = {}) {
+export function creerTransport(lecteur, libelles = {}, options = {}) {
   const nbEtapes = Math.max(1, (lecteur.steps || []).length);
   const tt = (cle, params) => (libelles[cle] !== undefined
     ? interpoler(libelles[cle], params)
@@ -94,10 +123,24 @@ export function creerTransport(lecteur, libelles = {}) {
   const bSuiv = boutonTransport('suivant', tt('suivCourt'), tt('suivant'));
   const bFin = boutonTransport('fin', tt('finCourt'), tt('fin'));
 
+  /* ── la bascule des redites, sixième contrôle et seule préférence ──
+     Elle ne pilote pas le lecteur, elle règle le RYTHME de ce que les cinq
+     autres parcourent : c'est pourquoi elle vit ici et pas dans la barre haute.
+     Un bouton unique à nom accessible variable, sans `aria-pressed` — même
+     règle que Lecture/Pause. */
+  const facteurRedites = typeof options.repetitions === 'number' ? options.repetitions : 5;
+  const bRedites = options.repetitions
+    ? boutonTransport('rapide', tt('reditesCourt'), tt('reditesAccelerer', { facteur: facteurRedites }))
+    : null;
+  if (bRedites) {
+    bRedites.classList.add('transport__bouton--reglage');
+    bRedites.dataset.role = 'redites';
+  }
+
   const barre = e('div.transport', {
     role: 'group',
     'aria-label': tt('groupe'),
-  }, [bDebut, bPrec, bLect, bSuiv, bFin]);
+  }, [bDebut, bPrec, bLect, bSuiv, bFin, ...(bRedites ? [bRedites] : [])]);
 
   const element = e('div.transport-groupe', {}, [jauge, barre]);
 
@@ -116,6 +159,9 @@ export function creerTransport(lecteur, libelles = {}) {
     lecteur.playing ? lecteur.pause() : lecteur.play();
     rafraichir();
   });
+  // La bascule n'appelle rien sur le lecteur : elle écrit la préférence, et
+  // `onReglages` fait recompiler la timeline chez qui l'a construite.
+  if (bRedites) bRedites.addEventListener('click', basculerRepetitions);
 
   let dejaLance = false;
 
@@ -143,20 +189,58 @@ export function creerTransport(lecteur, libelles = {}) {
     else bLect.setAttribute('data-vierge', '1');
 
     const courant = lecteur.stepIndex;
+    const etapes = lecteur.steps || [];
     cases.forEach((c, i) => {
       c.dataset.etat = i < courant ? 'franchie' : (i === courant ? 'courante' : 'a-venir');
       if (i === courant) c.setAttribute('aria-current', 'true');
       else c.removeAttribute('aria-current');
+      // Une case plus étroite pour les redites accélérées : la jauge dit alors
+      // POURQUOI ça vient de filer, sans mentir sur le nombre d'étapes.
+      // `rafraichir` tourne à chaque image pendant la lecture : on n'écrit que
+      // si la valeur change, sinon c'est un recalcul de style par image et par
+      // case pour rien.
+      const redite = !!(etapes[i] && etapes[i].accelerated);
+      if (redite === (c.dataset.redite === '1')) return;
+      if (redite) c.dataset.redite = '1';
+      else delete c.dataset.redite;
     });
   }
 
+  /* Le bouton dit ce qu'un clic FERA, comme Lecture/Pause. En mouvement réduit,
+     il n'y a plus de trajet à abréger — seulement un temps de lecture — et le
+     compilateur ignore l'accélération : on le dit au lieu de faire semblant. */
+  function peindreRedites() {
+    if (!bRedites) return;
+    const rapide = repetitionsAccelerees();
+    const sansEffet = animationEffective() === 'reduite';
+    const nom = sansEffet
+      ? tt('reditesSansEffet')
+      : (rapide ? tt('reditesRalentir') : tt('reditesAccelerer', { facteur: facteurRedites }));
+    bRedites.setAttribute('aria-label', nom);
+    bRedites.setAttribute('title', nom);
+    bRedites.dataset.etat = rapide ? 'accelerees' : 'pleines';
+    if (sansEffet) bRedites.dataset.inoperant = '1';
+    else delete bRedites.dataset.inoperant;
+    const neuve = rapide ? ICONES.rapide() : ICONES.pleines();
+    bRedites.replaceChild(neuve, bRedites._icone);
+    bRedites._icone = neuve;
+  }
+
+  // `rafraichir` suit le lecteur — donc chaque image de la lecture. La bascule
+  // des redites, elle, ne suit que les réglages : elle se repeint sur
+  // `onReglages`, pas soixante fois par seconde pour rien.
   const desabonner = lecteur.on ? lecteur.on('change', rafraichir) : () => {};
+  const desabonnerReglages = bRedites ? onReglages(peindreRedites) : () => {};
+  peindreRedites();
   rafraichir();
 
   return {
     element,
     rafraichir,
-    detruire() { if (typeof desabonner === 'function') desabonner(); },
+    detruire() {
+      if (typeof desabonner === 'function') desabonner();
+      desabonnerReglages();
+    },
   };
 }
 

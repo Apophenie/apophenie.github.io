@@ -39,6 +39,13 @@ const racine = import.meta.dirname;
  *   console) une fois le module devenu script classique : on la retire.
  * · `crossorigin` sur les feuilles de style et les polices déclenche un contrôle
  *   CORS que `file://` ne peut pas satisfaire : on l'enlève partout.
+ * · `<link rel="preload" as="font">` est RETIRÉ, pas seulement dépouillé de son
+ *   `crossorigin`. Une police se précharge obligatoirement en mode CORS anonyme :
+ *   sans `crossorigin` le préchargement n'est jamais réapparié à la requête du
+ *   CSS, donc la police est téléchargée DEUX fois et arrive plus tard qu'avec
+ *   aucun préchargement — Firefox le signale (« préchargée … n'a pas été
+ *   utilisée »). Et le garder casserait en `file://`, dont l'origine est nulle.
+ *   Le CSS charge les polices très bien tout seul.
  */
 function protocoleFichier() {
   return {
@@ -49,6 +56,7 @@ function protocoleFichier() {
       return html
         .replace(/<script type="module" crossorigin src=/g, '<script defer src=')
         .replace(/<link rel="modulepreload"[^>]*>/g, '')
+        .replace(/\s*<link rel="preload"[^>]*as="font"[^>]*>/g, '')
         .replace(/ crossorigin(?=[ >])/g, '');
     },
     generateBundle(_options, bundle) {
@@ -185,6 +193,15 @@ export default defineConfig({
     outDir: resolve(racine, 'dist'),
     emptyOutDir: true,
     target: 'es2022',
+    // ★ Les polices sont INLINÉES en base64 dans le CSS. C'est la réponse la
+    // plus sûre pour un `dist/` destiné à `file://` : plus de requête séparée,
+    // donc plus de question CORS ni de préchargement à réapparier, et surtout
+    // la police est disponible EN MÊME TEMPS que la feuille de style — aucune
+    // fenêtre pendant laquelle le texte serait mesuré sur une police de repli.
+    // Prix : +33 % sur les octets encodés (65 Ko de woff2 → ~87 Ko de base64),
+    // et le CSS cesse d'être mis en cache indépendamment des polices. Pour un
+    // fichier qu'on ouvre au double-clic, l'échange est bon.
+    assetsInlineLimit: 96 * 1024,
     // Sans ça, Vite enveloppe chaque `import()` dans son assistant de préchargement,
     // lequel lit `import.meta.url` — illégal dans un script classique, et le
     // navigateur refuse le fichier entier avant même de l'exécuter.

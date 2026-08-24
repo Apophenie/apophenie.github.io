@@ -75,6 +75,23 @@ export function validateScenario(scenario) {
     if (step.caption !== undefined && typeof step.caption !== 'string') {
       fail(`${at(loc)}« caption » doit être une chaîne.`);
     }
+    // `figure` — l'illustration du Registre (l'afficheur sept segments). Elle
+    // ne concerne PAS la scène : le moteur visuel n'en fait rien, il vérifie
+    // seulement qu'elle porte son équivalent textuel, sans quoi un lecteur
+    // d'écran n'entendrait rien là où l'œil voit un dessin (CONTRACTS §6).
+    if (step.figure !== undefined && step.figure !== null) {
+      const f = step.figure;
+      if (typeof f !== 'object' || Array.isArray(f)) {
+        fail(`${at(loc)}« figure » doit être un objet.`);
+      }
+      if (typeof f.type !== 'string' || !f.type) {
+        fail(`${at(loc)}« figure.type » manquant.`);
+      }
+      if (typeof f.texte !== 'string' || !f.texte.trim()) {
+        fail(`${at(loc)}« figure.texte » non vide obligatoire : une figure sans équivalent `
+          + 'textuel serait muette pour un lecteur d’écran (CONTRACTS §6).');
+      }
+    }
     for (const k of ['duration', 'hold']) {
       if (step[k] !== undefined && (typeof step[k] !== 'number' || !Number.isFinite(step[k]) || step[k] < 0)) {
         fail(`${at(loc)}« ${k} » doit être un nombre de millisecondes ≥ 0.`);
@@ -106,7 +123,7 @@ export function validateScenario(scenario) {
       }
       if (!OP_SET.has(op.op)) {
         fail(`${at(oloc)}op « ${op.op} » hors du vocabulaire fermé. `
-          + `Les 17 primitives sont : ${OP_NAMES.join(', ')}. `
+          + `Les ${OP_NAMES.length} primitives sont : ${OP_NAMES.join(', ')}. `
           + `Ajouter une transformation sans rendu impose d'ajouter d'abord la primitive (CONTRACTS §3.1).`,
         { op: op.op, step: si, index: oi });
       }

@@ -127,7 +127,6 @@ export const fr = {
     demonstration: 'Démonstration',
     sceneLabel: 'Scène de démonstration',
     allerAuRegistre: 'Aller au registre',
-    cqfd: 'C.Q.F.D.',
     revoir: 'Revoir',
     autreVoie: 'Une autre voie',
     nouvelleRecherche: 'Nouvelle recherche',
@@ -175,6 +174,13 @@ export const fr = {
     rejouer: 'Rejouer la démonstration',
     suivant: 'Transformation suivante',
     fin: 'Aller au résultat',
+    // Les redites : une étape qui refait exactement le geste d'une étape déjà
+    // vue, sur un autre morceau de la saisie. La première enseigne, les
+    // suivantes confirment — d'où l'accéléré, et d'où le droit de le refuser.
+    reditesCourt: 'Redites',
+    reditesAccelerer: 'Accélérer les répétitions ({facteur}×)',
+    reditesRalentir: 'Montrer les répétitions en entier',
+    reditesSansEffet: 'Accélération des répétitions sans effet : les animations sont réduites',
   },
 
   registre: {
@@ -215,7 +221,9 @@ export const fr = {
 
   pied: {
     polices: 'Composé en <em>Jost*</em> — celui-là même sur lequel le logo est tracé —'
-      + ' et en <em>JetBrains Mono</em>. Deux caractères sous licence '
+      + ' et en <em>JetBrains Mono</em> ; les afficheurs sont en '
+      + '<em>DSEG7 Classic</em> (sept segments) et <em>DSEG14 Classic</em> '
+      + '(quatorze segments). Quatre caractères sous licence '
       + '<a href="fonts/OFL-Jost.txt">SIL OFL 1.1</a>, hébergés ici même.',
     silence: 'Aucun cookie, aucune mesure d’audience, aucun appel réseau après le chargement.',
   },

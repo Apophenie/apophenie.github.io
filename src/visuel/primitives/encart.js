@@ -29,7 +29,7 @@
  */
 
 import { EASE } from '../constants.js';
-import { espacementDe } from './helpers.js';
+import { espacementDe, ancreVue } from './helpers.js';
 
 /** Géométrie de l'encart, en multiples de la taille de police. */
 export const ENCART = Object.freeze({
@@ -53,9 +53,11 @@ export function ouvrirEncart(ctx, src, spec = {}) {
   const cote = fs * ENCART.cote;
   const at = spec.at ?? 0;
   const dur = spec.dur ?? ctx.dur * 0.18;
-  // Toujours au même endroit, au centre de la scène : d'un jeton au suivant,
-  // l'œil n'a pas à chercher où regarder.
-  const centre = { x: ctx.layoutOpts.centerX, y: ctx.layoutOpts.centerY - fs * ENCART.hauteur };
+  // Toujours au même endroit, au centre de la VUE : d'un jeton au suivant,
+  // l'œil n'a pas à chercher où regarder. Centre de la VUE et non du viewBox —
+  // quand la ligne défile, les deux ne coïncident plus (`ancreVue`).
+  const vue = ancreVue(ctx);
+  const centre = { x: vue.x, y: vue.y - fs * ENCART.hauteur };
 
   const frame = `@encart:${src.id}`;
   ctx.scene.create({

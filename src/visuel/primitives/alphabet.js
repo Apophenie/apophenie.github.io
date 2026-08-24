@@ -32,7 +32,7 @@
  * l'encombrement réel.
  */
 
-import { tokenSpec, espacementDe } from './helpers.js';
+import { tokenSpec, espacementDe, ancreVue } from './helpers.js';
 import { alphabetGeometry, findCell, alphabetValue, normalizeOrdre, ALPHABET_ORDRES } from '../assets.js';
 import { CAMERA_ID, EASE } from '../constants.js';
 import { fail } from '../errors.js';
@@ -70,9 +70,12 @@ export function plan(ctx) {
 
   const T = ctx.dur;
   const geo = alphabetGeometry({ ordre });
+  // La réglette se pose au centre de la VUE — pas du viewBox : si la ligne
+  // défile, le milieu de l'écran n'est plus le milieu de la scène (`ancreVue`).
+  const vue = ancreVue(ctx);
   const boardPos = {
-    x: ctx.layoutOpts.centerX,
-    y: ctx.layoutOpts.centerY + ctx.metrics.fontSize * 1.1 + geo.height / 2,
+    x: vue.x,
+    y: vue.y + ctx.metrics.fontSize * 1.1 + geo.height / 2,
   };
   const cellPos = { x: boardPos.x + cell.cx, y: boardPos.y + cell.lettreCy };
   const rangPos = { x: boardPos.x + cell.cx, y: boardPos.y + cell.rangCy };
@@ -168,7 +171,7 @@ function substituerSeul(ctx, src, to) {
     ...espacementDe(ctx, src.id),
     base: { opacity: 0, fill: ctx.palette.gold },
   }, { where: ctx.where });
-  ctx.scene.place(to.id, ctx.scene.pos(src.id) || { x: ctx.layoutOpts.centerX, y: ctx.layoutOpts.centerY });
+  ctx.scene.place(to.id, ctx.scene.pos(src.id) || ancreVue(ctx));
   ctx.scene.kill(src.id, ctx.where);
   ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: T * 0.35, dur: T * 0.25 });
   ctx.reflow({ at: T * 0.6, dur: T * 0.4, ease: EASE.move });

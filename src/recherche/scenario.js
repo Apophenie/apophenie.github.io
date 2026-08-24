@@ -68,8 +68,8 @@ function dire(texte, langue = LANGUE_DEFAUT) {
 /** Vocabulaire fermé des ops — CONTRACTS.md §3.1. Hors de cette liste = erreur. */
 export const VOCABULAIRE = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
-  'sum', 'reduce', 'flip180', 'sevenSeg', 'countStrokes', 'keyboard', 'annotate',
-  'pulse', 'reveal', 'wait', 'partition', 'alphabet',
+  'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'alphabet',
 ]);
 
 /**
@@ -108,6 +108,33 @@ export function elementsDe(e) {
 
 function genreEtat(type) {
   return type === 'NUM' || type === 'NUMS' ? 'number' : null;
+}
+
+/**
+ * ★ Une transformation qui ne transforme RIEN À L'ÉCRAN est sautée
+ * silencieusement — elle disparaît du Registre **et** de la numérotation, sans
+ * y laisser de trou (les steps ne sont numérotés qu'à l'émission).
+ *
+ * Le critère est la suite des ÉLÉMENTS, c'est-à-dire les unités que le
+ * spectateur distingue — pas le type de l'état, ni la chaîne rendue.
+ *
+ *  · `t1` « on prend les lettres une par une » fait passer `STR 'hope'` à
+ *    `TOKENS ['h','o','p','e']` : le type change, les quatre glyphes de la
+ *    ligne sont exactement les mêmes. Rien à montrer.
+ *    N3 (`research/heuristique.md §4.8`) ne peut PAS l'attraper : retirer `t1`
+ *    du chemin le rend mal typé (`me` part de `TOKENS`), donc le chemin
+ *    n'aboutit plus du tout. C'est bien une question de rendu, pas de
+ *    recherche — d'où ce filtre ici.
+ *  · À l'inverse, `STR 'hope'` → `TOKENS ['hope']` (découpe en mots d'un mot
+ *    unique) rend la MÊME chaîne mais pas les mêmes éléments : quatre glyphes
+ *    deviennent un seul jeton. L'ancien critère (l'égalité de `rendreValeur`)
+ *    sautait ce cas, et laissait la table d'ids désynchronisée de l'état —
+ *    trois jetons survivaient à l'écran sans rien représenter.
+ */
+function rienAMontrer(avant, apres) {
+  const a = elementsDe(avant);
+  const b = elementsDe(apres);
+  return a.length === b.length && a.every((x, i) => x === b[i]);
 }
 
 // ══════════════════════════════════ allocateur d'identifiants
@@ -463,8 +490,8 @@ function inventaire(o) {
       supprimes.push(...normaliserCibles(o.targets), ...normaliserCibles(o.consume));
       break;
     case 'flip180': case 'keyboard': case 'alphabet':
-    case 'sevenSeg': case 'countStrokes':
-      // Ces cinq-là remplacent leur cible quand — et seulement quand — un `to`
+    case 'sevenSeg': case 'fourteenSeg': case 'countStrokes':
+      // Ces six-là remplacent leur cible quand — et seulement quand — un `to`
       // leur est donné : le clavier fait redescendre son chiffre, la réglette
       // son rang, l'encart le nombre de son compteur.
       ajouter(o.to);
@@ -543,7 +570,17 @@ function fusionnerBlocs(parGroupe) {
     const variantes = parGroupe.map((b) => b[k]);
     const ops = fusionnerOps(variantes.map((v) => v.ops));
     if (!ops) return null;
-    out.push({ titre: variantes[0].titre, legende: variantes[0].legende, ops, hold: variantes[0].hold });
+    // Une figure décrit UN jeton ; deux groupes qui n'en montrent pas la même
+    // ne peuvent pas partager un step, sinon le Registre en tairait une.
+    const fig = JSON.stringify(variantes[0].figure ?? null);
+    if (variantes.some((v) => JSON.stringify(v.figure ?? null) !== fig)) return null;
+    out.push({
+      titre: variantes[0].titre,
+      legende: variantes[0].legende,
+      figure: variantes[0].figure ?? null,
+      ops,
+      hold: variantes[0].hold,
+    });
   }
   return out;
 }
@@ -638,9 +675,13 @@ export function construireScenario(approche, ctx = {}) {
   const resultats = [];
   let nStep = 0;
   let nCle = 0; // préfixe unique offert aux opérateurs pour nommer leurs tokens
-  const nouvelleEtape = (titre, legende, ops) => {
+  const nouvelleEtape = (titre, legende, ops, options) => {
     if (!ops || !ops.length) return null;
-    const s = { id: `s${nStep++}`, title: titre, ops, hold: DUREE_CHARNIERE };
+    // `hold` = le temps d'arrêt AVANT la charnière de fin, pour laisser lire ce
+    // que l'étape vient de produire. Par défaut la charnière ordinaire ; le
+    // verdict en demande davantage (voir plus bas).
+    const hold = options && Number.isFinite(options.hold) ? options.hold : DUREE_CHARNIERE;
+    const s = { id: `s${nStep++}`, title: titre, ops, hold };
     if (legende) s.caption = legende;
     steps.push(s);
     return s;
@@ -661,6 +702,10 @@ export function construireScenario(approche, ctx = {}) {
         blocs: emis.steps.map((st) => ({
           titre: st.title || titreOp,
           legende: st.caption ?? null,
+          // La FIGURE d'un step — le petit afficheur sept segments du Registre.
+          // Elle voyage avec le libellé : c'est de l'équivalent accessible, pas
+          // du geste (CONTRACTS §6). Voir `figureSeg7` dans `mappeurs.js`.
+          figure: st.figure ?? null,
           ops: st.ops,
           hold: st.hold,
         })),
@@ -684,6 +729,7 @@ export function construireScenario(approche, ctx = {}) {
     if (!b.ops || !b.ops.length) return null;
     const st = { id: `s${nStep++}`, title: b.titre + suffixe, ops: b.ops, hold: b.hold === undefined ? DUREE_CHARNIERE : b.hold };
     if (b.legende) st.caption = b.legende;
+    if (b.figure) st.figure = b.figure;
     steps.push(st);
     return st;
   };
@@ -733,7 +779,7 @@ export function construireScenario(approche, ctx = {}) {
         const chemin = g.part.chemin;
         const avant = chemin.etats[i];
         const apres = chemin.etats[i + 1];
-        if (rendreValeur(avant) === rendreValeur(apres)) return null; // rien à montrer
+        if (rienAMontrer(avant, apres)) return null; // le spectateur verrait la même chose
         return produire(chemin.ops[i], avant, apres, g.courants);
       });
       const actifs = rendus.filter(Boolean);
@@ -786,7 +832,7 @@ export function construireScenario(approche, ctx = {}) {
       for (let i = 0; i < chemin.ops.length; i++) {
         const avant = chemin.etats[i];
         const apres = chemin.etats[i + 1];
-        if (rendreValeur(avant) === rendreValeur(apres)) continue;
+        if (rienAMontrer(avant, apres)) continue;
         const r = produire(chemin.ops[i], avant, apres, g.courants);
         for (const b of r.blocs) poserBloc(b);
         g.courants = r.courants;
@@ -812,10 +858,16 @@ export function construireScenario(approche, ctx = {}) {
   }
 
   if (aReveler.length > 1) {
+    // Pas de `move` ici : `reveal` efface lui-même les jetons écartés et laisse
+    // le layout recentrer ce qui reste. Un `move ... to: 'front'` ne ferait plus
+    // que tirer les chiffres vers la gauche pendant une demi-seconde, avant que
+    // `reveal` ne défasse ce déplacement.
+    // Le `hold` donne à la chute le temps d'exister : sans lui, le 666 atteint
+    // sa taille pleine à la dernière milliseconde de la timeline, et le lecteur
+    // s'arrête dessus au moment même où il finit de grandir.
     nouvelleEtape(MOTS.verdict[langue], ctx.resultat || '666', [
-      { op: 'move', targets: aReveler, to: 'front' },
       { op: 'reveal', targets: aReveler, at: 250, stagger: 150 },
-    ]);
+    ], { hold: 1200 });
   } else {
     nouvelleEtape(MOTS.verdict[langue], ctx.resultat || '666', [
       { op: 'reveal', targets: aReveler },
@@ -926,6 +978,19 @@ export function validerFormeOp(o) {
       if (!chaine(o.target)) return '« target » manquant';
       if (typeof o.segments !== 'string' || !/^[a-g]+$/.test(o.segments)) return '« segments » doit être une chaîne de a à g';
       return null;
+    case 'fourteenSeg': {
+      // Quatorze segments : `segments` est un TABLEAU de noms, parce que deux
+      // d'entre eux font deux caractères (`g1`, `g2`). Voir
+      // `src/visuel/primitives/fourteenSeg.js` et `tables/seg14.js`.
+      if (!chaine(o.target)) return '« target » manquant';
+      const connus = ['a', 'b', 'c', 'd', 'e', 'f', 'g1', 'g2', 'h', 'i', 'j', 'k', 'l', 'm'];
+      if (!Array.isArray(o.segments) || !o.segments.length
+        || !o.segments.every((x) => connus.includes(x))
+        || new Set(o.segments).size !== o.segments.length) {
+        return `« segments » doit être un tableau de segments allumés, sans doublon, parmi ${connus.join(', ')}`;
+      }
+      return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
+    }
     case 'annotate':
       return typeof o.text === 'string' && o.text.trim() ? null : '« text » non vide obligatoire';
     case 'wait':

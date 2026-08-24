@@ -177,9 +177,17 @@ COURBE_GLIS = (.45, 0, .25, 1)          # le e final qui se décale
 # d'écart d'avant, taillée pour ces durées-là, reprend ici du service — départ
 # franc, freinage long, le compas se pose au lieu de claquer.
 COURBE_COMPAS = (.3, .8, .3, 1)
-# Les deux barres du k : ce qu'elles valent DANS leur étape, et dehors. C'est
-# la seule pièce de la chorégraphie qui n'existe pas en permanence.
-PRESENCE = ('opacity:1', 'opacity:0')
+# Les deux barres du k sont la seule pièce de la chorégraphie qui n'existe pas
+# en permanence : elle NAÎT au début de son étape et meurt à la fin de sa
+# fermeture. Cette présence est une OPACITÉ, et une opacité animée promeut son
+# élément en couche de composition ; Firefox bâtit alors la transformation
+# qu'il confie au compositeur SANS les propriétés individuelles
+# `translate`/`rotate`/`scale` — le nœud est composé à l'identité, donc peint
+# dans le coin du viewBox (.planning/CONTRACTS.md §3.2, amendement aux règles 3
+# et 4 ; garde-fou : src/visuel/tests/compositeur.test.js). La présence vit
+# donc sur un élément À PART, un <path> nu qui n'a AUCUNE position à perdre ;
+# le trajet du compas est porté par le <g> juste au-dessus, qui lui n'est
+# jamais animé en opacité. Voir `_presence` et `_depli`.
 # le creux : de combien l'orbite s'enfonce sous le cercle au point bas. Sans
 # lui, le fût ne passe que de 72 u sous le e — quatre pixels à la taille du
 # titre : on ne VOIT pas qu'il passe dessous. Avec, il en passe 130.
@@ -534,9 +542,10 @@ def build(ident='logo', ecart=280, s_h=.34, h_deg=60, h_dx=50, h_cy=610,
                % (_n(rx_e2 + C['ec']), _n(Y(XH / 2)),
                   _n(rx_k + C['kc']), _n(Y((C['ky0'] + C['ky1']) / 2)),
                   i + 1, poly(C['fut'], rx_k),
-                  ''.join('<path class="lg-g lg-cho %s" data-fente="%d" data-grp="geek" '
-                          'style="transform-origin:%spx %spx" d="%s"/>'
-                          % (cls, i + 1, _n(rx_k + bt[0]), _n(Y(bt[1])),
+                  ''.join('<g class="lg-cho %s" style="transform-origin:%spx %spx">'
+                          '<path class="lg-g %s-nait" data-fente="%d" data-grp="geek" '
+                          'd="%s"/></g>'
+                          % (cls, _n(rx_k + bt[0]), _n(Y(bt[1])), cls, i + 1,
                              poly(q, rx_k)) for cls, q, bt in barres)))
 
     out = []; A = out.append
@@ -821,7 +830,7 @@ def _inv(c):
     return (1 - x2, 1 - y2, 1 - x1, 1 - y1)
 
 
-def _keyframes(nom, etape, images, retour=False, presence=None):
+def _keyframes(nom, etape, images, retour=False):
     """Une pièce de la chorégraphie, minutée dans SON étape.
 
     `images` est la suite (fraction du trajet, déclarations, courbe jusqu'à
@@ -831,43 +840,50 @@ def _keyframes(nom, etape, images, retour=False, presence=None):
     manquant serait synthétisé depuis le style de base et la pièce se
     replierait juste après s'être dépliée.
 
-    `presence` — le couple (ce que la pièce vaut DANS sa fenêtre, ce qu'elle
-    vaut DEHORS, du côté du repos). Les deux barres du k n'existent pas tant
-    que le fût n'a pas pris sa place : hors de leur fenêtre elles ne sont pas
-    repliées, elles sont `opacity:0`. Le palier qui les allume est franchi d'un
-    PAS (`steps(1)`) et non interpolé — sinon elles apparaîtraient en fondu sur
-    les trois étapes précédentes, ce qui est exactement ce qu'on ne veut pas.
-    À l'aller ce pas tombe à l'ENTRÉE de la fenêtre : elles apparaissent,
-    couchées dans le fût, à l'instant même où le fût a fini de prendre sa
-    place. Au retour il tombe à la SORTIE : elles disparaissent dès qu'elles
-    sont refermées, donc avant que le fût ne reparte en orbite — c'est la
-    raison d'être de l'ordre 1-2-4-3."""
-    dans, dehors = presence if presence else ('', '')
+    Ici on ne minute que des TRAJETS. La présence — l'opacité des deux barres
+    du k, la seule pièce qui n'existe pas en permanence — a ses propres
+    @keyframes sur son propre élément (`_presence`) : mêlée au trajet, elle
+    ferait perdre sa place à la barre sous Firefox."""
     im = list(images)
     if retour:
         courbes = [_inv(c) for _, _, c in im[:-1]]
         im = [(f, d, courbes[len(courbes) - 1 - i] if i < len(courbes) else None)
               for i, (f, d, _) in enumerate((f, d, None) for f, d, _ in reversed(im))]
     lignes = []
-    for i, (brut, c, p) in enumerate((d, c, _pc(etape, f, retour)) for f, d, c in im):
-        d = brut + (';' + dans if dans else '')
+    for i, (d, c, p) in enumerate((d, c, _pc(etape, f, retour)) for f, d, c in im):
         tete = _n(p, 2) + '%'
         premier, dernier = i == 0, i == len(im) - 1
-        if premier and p > .001:
-            if dehors and not retour:      # elle n'existe pas encore
-                lignes.append('  0%%{%s;%s;animation-timing-function:steps(1)}' % (brut, dehors))
-            else:
-                tete = '0%,' + tete
-        if dernier and p < 99.999:
-            if dehors and retour:          # refermée : elle cesse d'exister ici
-                c = 'steps(1,jump-start)'
-            else:
-                tete += ',100%'
+        if premier and p > .001: tete = '0%,' + tete
+        if dernier and p < 99.999: tete += ',100%'
         lignes.append('  %s{%s%s}' % (tete, d,
                       '' if c is None else ';animation-timing-function:%s' % _courbe(c)))
-        if dernier and dehors and retour and p < 99.999:
-            lignes.append('  100%%{%s;%s}' % (brut, dehors))
     return '@keyframes %s{\n%s\n}' % (nom, '\n'.join(lignes))
+
+
+def _presence(nom, etape, f, retour=False):
+    """④ la PRÉSENCE d'une barre du k — son opacité, et rien d'autre.
+
+    Les deux barres n'existent pas tant que le fût n'a pas pris sa place : hors
+    de leur fenêtre elles ne sont pas repliées, elles sont `opacity:0`. Le
+    palier qui les allume est franchi d'un PAS (`steps(1)`) et non interpolé —
+    sinon elles apparaîtraient en fondu sur les trois étapes précédentes, ce
+    qui est exactement ce qu'on ne veut pas. À l'aller ce pas tombe à l'ENTRÉE
+    de la fenêtre, en `f` : elles apparaissent, couchées dans le fût, à
+    l'instant même où le fût a fini de prendre sa place. Au retour il tombe à
+    la SORTIE : elles disparaissent dès qu'elles sont refermées, donc avant que
+    le fût ne reparte en orbite — c'est la raison d'être de l'ordre 1-2-4-3.
+
+    Ces @keyframes-ci n'écrivent QUE `opacity`, et elles s'appliquent à un
+    élément qui ne porte aucune transformation : c'est tout l'objet de la
+    séparation (voir la note sur la présence, plus haut). `f` est la fraction
+    du trajet où la barre naît, c'est-à-dire celle de son état COUCHÉ."""
+    p = _n(_pc(etape, f, retour), 2)
+    if not retour:
+        return ('@keyframes %s{\n  0%%{opacity:0;animation-timing-function:steps(1)}\n'
+                '  %s%%,100%%{opacity:1}\n}' % (nom, p))
+    return ('@keyframes %s{\n'
+            '  0%%,%s%%{opacity:1;animation-timing-function:steps(1,jump-start)}\n'
+            '  100%%{opacity:0}\n}' % (nom, p))
 
 
 def _depli(barre, f0, f1):
@@ -889,8 +905,10 @@ def _depli(barre, f0, f1):
     où Jost la met.
 
     Deux images suffisent donc, là où il en fallait cinq. La PRÉSENCE de la
-    barre, elle, ne se dit pas ici : c'est `presence` de `_keyframes` qui la
-    porte, parce qu'elle vaut aussi hors de la fenêtre."""
+    barre, elle, ne se dit pas ici : elle a ses propres @keyframes sur son
+    propre élément (`_presence`), parce qu'elle vaut aussi hors de la fenêtre —
+    et parce qu'une opacité animée et un trajet ne peuvent pas cohabiter sur un
+    même nœud sans que Firefox lui fasse perdre sa place."""
     rot, dx, dy = barre
     return [(f0, 'translate:%spx %spx;rotate:%sdeg'
                  % (_n(dx, 2), _n(-dy, 2), _n(rot, 2)), COURBE_COMPAS),
@@ -900,9 +918,9 @@ def _depli(barre, f0, f1):
 def pieces():
     """Les six pièces à @keyframes propres, avec l'étape qui les porte.
 
-    Chacune est (nom, sélecteur, étape, images, présence) — la présence étant
-    le couple (dans la fenêtre, dehors) de `_keyframes`, et `None` pour tout ce
-    qui existe en permanence.
+    Chacune est (nom, sélecteur, étape, images) et ne décrit qu'un TRAJET. Ce
+    qui naît et meurt — la présence des deux barres du k — est à part, dans
+    `presences()`, sur un élément à part.
 
     Le reste de la mise en place — bandes de lettres, h, l, glissement du e
     final — passe par les trois commandes `--u1 --u2 --u3` : ces mouvements-là
@@ -919,10 +937,10 @@ def pieces():
         ('cho-e1', '.lg-e1', 3, [
             (0, 'translate:%spx %spx;scale:%s'
                 % (_n(C['e1dx'], 2), _n(C['e1dy'], 2), _n(S_PT, 4)), (.5, 0, .2, 1)),
-            (F_ORB, 'translate:0 0;scale:1', None)], None),
+            (F_ORB, 'translate:0 0;scale:1', None)]),
         ('cho-orb', '.lg-orb', 3, [
             (0, 'rotate:180deg', COURBE_ORB),
-            (F_ORB, 'rotate:0deg', None)], None),
+            (F_ORB, 'rotate:0deg', None)]),
         ('cho-k', '.lg-k', 3, [
             (0, 'translate:%spx %spx;scale:1 %s'
                 % (_n(dx_k, 2), _n(dy_k, 2), _n(C['s_k'], 4)), (.4, 0, .4, 1)),
@@ -930,11 +948,12 @@ def pieces():
                 % (_n(dx_k / 2 + CREUX, 2), _n(dy_k, 2), _n(C['s_k'], 4)), (.6, 0, .4, 1)),
             (F_ORB, 'translate:0 %spx;scale:1 %s'
                 % (_n(dy_k, 2), _n(C['s_k'], 4)), (.2, .85, .3, 1)),
-            (1, 'translate:0 0;scale:1 1', None)], None),
-        # ④ les deux barres : ABSENTES tant que le fût n'a pas pris sa place,
-        # d'où `PRESENCE` — puis couchées dedans, puis ouvertes au compas.
-        ('cho-kbras', '.lg-kbras', 4, _depli(C['barre_h'], *F_BRAS), PRESENCE),
-        ('cho-kjambe', '.lg-kjambe', 4, _depli(C['barre_b'], *F_JAMBE), PRESENCE),
+            (1, 'translate:0 0;scale:1 1', None)]),
+        # ④ les deux barres, leur TRAJET seul : couchées dans le fût, puis
+        # ouvertes au compas. Le <g> qui porte ce trajet n'est jamais animé en
+        # opacité — c'est leur présence, un cran plus bas, qui l'est.
+        ('cho-kbras', '.lg-kbras', 4, _depli(C['barre_h'], *F_BRAS)),
+        ('cho-kjambe', '.lg-kjambe', 4, _depli(C['barre_b'], *F_JAMBE)),
         # Les quatre filets sont bakés SOUS LES QUATRE MOTS RÉVÉLÉS : ils ne
         # suivent pas l'écartement, ils le constatent. Tant que le mot est
         # compact ils tombent donc à côté. Avec l'ancien minutage, tout était
@@ -942,8 +961,20 @@ def pieces():
         # bavure de trois secondes. Ils n'apparaissent plus qu'À LA FIN, quand
         # les quatre mots existent — ce qui est aussi ce qu'ils veulent dire.
         ('cho-rules', '.lg-rules', 4, [
-            (.5, 'opacity:0', 'linear'), (1, 'opacity:1', None)], None),
+            (.5, 'opacity:0', 'linear'), (1, 'opacity:1', None)]),
     ]
+
+
+def presences():
+    """Ce qui NAÎT et meurt : les deux barres du k, et rien d'autre.
+
+    Chacune est (nom, sélecteur, étape, fraction de naissance). Le sélecteur
+    désigne le <path> nu logé sous le porteur du trajet : il ne reçoit qu'une
+    opacité, il n'a donc aucune position à perdre quand Firefox le promeut en
+    couche de composition. La fraction est celle de l'état COUCHÉ — l'entrée du
+    trajet à l'aller, sa sortie au retour."""
+    return [('cho-kbras-nait', '.lg-kbras-nait', 4, F_BRAS[0]),
+            ('cho-kjambe-nait', '.lg-kjambe-nait', 4, F_JAMBE[0])]
 
 
 def _commandes_css(nom, retour=False):
@@ -992,13 +1023,17 @@ def _choreo_css(rev, ret):
     Les deux barres, elles, n'existent pas encore : elles attendent l'étape ④,
     et le style de base ci-dessous les tient ABSENTES."""
     C = constantes()
-    P = pieces()
+    P, N = pieces(), presences()
 
     def kf(p, retour=False):
         """Les @keyframes d'une pièce, aller ou retour."""
-        nom, _sel, etape, images, presence = p
-        return _keyframes('ret-' + nom[4:] if retour else nom, etape, images,
-                          retour=retour, presence=presence)
+        nom, _sel, etape, images = p
+        return _keyframes('ret-' + nom[4:] if retour else nom, etape, images, retour=retour)
+
+    def pres(n, retour=False):
+        """Les @keyframes de PRÉSENCE d'une barre, aller ou retour."""
+        nom, _sel, etape, f = n
+        return _presence('ret-' + nom[4:] if retour else nom, etape, f, retour=retour)
     return '\n'.join([
         '/* les pièces de la chorégraphie : tracé baké à l\'ARRIVÉE, état de',
         '   REPOS ci-dessous. */',
@@ -1021,19 +1056,28 @@ def _choreo_css(rev, ret):
         '      d\'autre — rien ne dépasse du fût du i, rien ne s\'y devine. La',
         '      pose écrite ici est celle où elles APPARAÎTRONT, à la fin de',
         '      l\'étape ③ : couchées DANS le fût, à leur taille définitive, le',
-        '      bout de chacune posé là où le compas pivotera. */',
-        '.lg-kbras{translate:%spx %spx;rotate:%sdeg;opacity:0}'
+        '      bout de chacune posé là où le compas pivotera.',
+        '      DEUX ÉLÉMENTS par barre, et ce n\'est pas un caprice : le <g>',
+        '      porte le TRAJET, le <path> qu\'il contient porte la PRÉSENCE.',
+        '      Une opacité animée promeut son élément en couche de composition,',
+        '      et Firefox bâtit alors sa transformation SANS les propriétés',
+        '      individuelles translate/rotate/scale : la barre serait peinte',
+        '      dans le coin du viewBox pendant tout son dépliement. Le <path>',
+        '      n\'ayant aucune position à lui, il n\'a rien à perdre, et le <g>',
+        '      qui l\'y met n\'est jamais animé en opacité. */',
+        '.lg-kbras{translate:%spx %spx;rotate:%sdeg}'
         % (_n(C['barre_h'][1], 2), _n(-C['barre_h'][2], 2), _n(C['barre_h'][0], 2)),
-        '.lg-kjambe{translate:%spx %spx;rotate:%sdeg;opacity:0}'
+        '.lg-kjambe{translate:%spx %spx;rotate:%sdeg}'
         % (_n(C['barre_b'][1], 2), _n(-C['barre_b'][2], 2), _n(C['barre_b'][0], 2)),
+        '.lg-kbras-nait,.lg-kjambe-nait{opacity:0}',
         '',
         '\n'.join('%s %s{animation:%s var(--cho) forwards}' % (rev, sel, nom)
-                  for nom, sel, *_ in P),
+                  for nom, sel, *_ in P + N),
         '/* à la fermeture, les mêmes trajets à l\'envers — mais dans l\'ordre',
         '   %s, donc à d\'autres instants : ce ne sont pas les mêmes' % _ordre_lisible(),
         '   @keyframes, jouées à rebours, ce sont d\'autres @keyframes. */',
         '\n'.join('%s %s{animation:ret-%s var(--cho) forwards}' % (ret, sel, nom[4:])
-                  for nom, sel, *_ in P),
+                  for nom, sel, *_ in P + N),
         '',
         '/* ① le point du i DESCEND à la fente qu\'occupait le i et prend sa',
         '      taille de e. Simultané au décalage du e final et à l\'orbite :',
@@ -1051,18 +1095,26 @@ def _choreo_css(rev, ret):
         '      e. PUIS le fût s\'allonge — pied planté, la hauteur d\'x devient',
         '      hauteur de hampe. Fin de l\'étape ③. */',
         kf(P[2]),
-        '/* ④ et SEULEMENT LÀ, les deux barres. Elles APPARAISSENT couchées',
-        '      dans le fût — le palier à 0 % les tient absentes et le pas',
-        '      (`steps(1)`) les allume net, sans fondu —, puis chacune S\'OUVRE',
-        '      AUTOUR DE SON BOUT : celle du haut pivote par le haut, celle du',
-        '      bas par le bas. Rotation et translation ensemble : c\'est ce qui',
-        '      garde leur pied sur le fût pendant tout le trajet. */',
+        '/* ④ et SEULEMENT LÀ, les deux barres. Leur TRAJET : couchées dans le',
+        '      fût, puis chacune S\'OUVRE AUTOUR DE SON BOUT — celle du haut',
+        '      pivote par le haut, celle du bas par le bas. Rotation et',
+        '      translation ensemble : c\'est ce qui garde leur pied sur le fût',
+        '      pendant tout le trajet. */',
         kf(P[3]),
         kf(P[4]),
+        '/* et la PRÉSENCE de chacune, sur son <path> — le seul endroit de tout',
+        '   le logo où une opacité est animée pendant qu\'une pièce se déplace.',
+        '   Elle est SEULE sur son élément, et cet élément n\'a pas de position',
+        '   à perdre : c\'est la chaîne au-dessus de lui qui l\'y met. Le palier',
+        '   à 0 % les tient absentes et le pas (`steps(1)`) les allume net,',
+        '   sans fondu. */',
+        pres(N[0]),
+        pres(N[1]),
         '/* et les quatre filets, qui constatent que les quatre mots sont là. */',
         kf(P[5]),
         '',
         '\n'.join(kf(p, retour=True) for p in P if p[0] != 'cho-rules'),
+        '\n'.join(pres(n, retour=True) for n in N),
         '/* les filets s\'effacent D\'EMBLÉE : dès la première étape repliée, ils',
         '   ne surmontent plus quatre mots. */',
         _keyframes('ret-rules', 1, [(.75, 'opacity:0', 'linear'), (1, 'opacity:1', None)],

@@ -129,7 +129,6 @@ export const en = {
     demonstration: 'Demonstration',
     sceneLabel: 'Demonstration stage',
     allerAuRegistre: 'Skip to the Ledger',
-    cqfd: 'Q.E.D.',
     revoir: 'Watch again',
     autreVoie: 'Another path',
     nouvelleRecherche: 'New search',
@@ -177,6 +176,13 @@ export const en = {
     rejouer: 'Replay the demonstration',
     suivant: 'Next transformation',
     fin: 'Jump to the result',
+    // Repeats: a step that redoes the exact same gesture as an earlier one, on
+    // another piece of the input. The first one teaches, the others confirm —
+    // hence the fast-forward, and hence the right to turn it off.
+    reditesCourt: 'Repeats',
+    reditesAccelerer: 'Speed up repeated steps ({facteur}×)',
+    reditesRalentir: 'Play repeated steps in full',
+    reditesSansEffet: 'Speeding up repeats has no effect: animations are reduced',
   },
 
   registre: {
@@ -215,7 +221,9 @@ export const en = {
 
   pied: {
     polices: 'Set in <em>Jost*</em> — the very typeface the logo is drawn over — '
-      + 'and in <em>JetBrains Mono</em>. Two typefaces under the '
+      + 'and in <em>JetBrains Mono</em>; the displays are in '
+      + '<em>DSEG7 Classic</em> (seven segments) and <em>DSEG14 Classic</em> '
+      + '(fourteen segments). Four typefaces under the '
       + '<a href="fonts/OFL-Jost.txt">SIL OFL 1.1</a> licence, hosted right here.',
     silence: 'No cookies, no analytics, no network call once the page is loaded.',
   },

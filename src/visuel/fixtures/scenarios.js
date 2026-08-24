@@ -222,14 +222,14 @@ export const methode6 = {
 };
 
 /**
- * Parcours de contrôle : les **19 primitives** du vocabulaire fermé, au moins
+ * Parcours de contrôle : les **20 primitives** du vocabulaire fermé, au moins
  * une fois chacune. Sert de test de non-régression du catalogue et de page de
  * vérification manuelle.
  */
 export const vocabulaire = {
   version: 1,
   input: 'HOPE-HOPE',
-  method: { id: 0, label: 'Parcours des 19 primitives', rule: 'vérification du vocabulaire fermé' },
+  method: { id: 0, label: 'Parcours des 20 primitives', rule: 'vérification du vocabulaire fermé' },
   result: '666',
   tokens: [
     { id: 'v0', text: 'H', kind: 'letter', group: 'w0' },
@@ -299,6 +299,16 @@ export const vocabulaire = {
       title: 'sevenSeg',
       caption: 'O = 4 traits continus',
       ops: [{ op: 'sevenSeg', target: 'v2', segments: 'abcdef', count: 4 }],
+      hold: 300,
+    },
+    {
+      id: 'p5b',
+      title: 'fourteenSeg',
+      caption: 'sur quatorze segments, O en allume 6',
+      ops: [{
+        op: 'fourteenSeg', target: 'v1', segments: ['a', 'b', 'c', 'd', 'e', 'f'],
+        fusion: false, count: 6,
+      }],
       hold: 300,
     },
     {

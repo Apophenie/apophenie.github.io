@@ -38,9 +38,21 @@ test('les positions sont des centres, stables quand la largeur change', () => {
   assert.notEqual(a.positions.get('x').w, b.positions.get('x').w);
 });
 
-test('le passage à la ligne se fait à la frontière d’un token, jamais dedans', () => {
+test('par défaut, jamais deux lignes — la ligne déborde et le signale', () => {
   const many = items(new Array(80).fill('x'));
   const res = layoutFlow(many, opts);
+  assert.equal(res.lines, 1, 'la doctrine est : une seule ligne, toujours (on fait défiler)');
+  assert.ok(res.width > opts.maxWidth, 'elle est plus large que la zone utile');
+  assert.ok(res.overflow, 'et le layout le dit — c’est le signal du défilement');
+  const ys = [...new Set([...res.positions.values()].map((p) => p.y))];
+  assert.equal(ys.length, 1, 'une seule ordonnée : tout est sur la même ligne');
+  assert.ok(Math.abs(res.positions.get('t0').x + res.positions.get('t79').x - 2 * opts.centerX) < 0.001,
+    'la ligne reste centrée sur la scène ; c’est la vue qui se déplacera');
+});
+
+test('le passage à la ligne, quand on le demande, se fait à la frontière d’un token', () => {
+  const many = items(new Array(80).fill('x'));
+  const res = layoutFlow(many, { ...opts, wrap: true });
   assert.ok(res.lines > 1, '80 tokens ne tiennent pas sur une ligne');
   const byLine = new Map();
   for (const [id, p] of res.positions) {
@@ -55,10 +67,11 @@ test('le passage à la ligne se fait à la frontière d’un token, jamais dedan
   assert.equal(ys.length, res.lines);
 });
 
-test('breakBefore force un retour à la ligne', () => {
+test('breakBefore force un retour à la ligne — là où les retours existent', () => {
   const it = items(['a', 'b', 'c']);
   it[1].breakBefore = true;
-  const res = layoutFlow(it, opts);
+  assert.equal(layoutFlow(it, opts).lines, 1, 'sans `wrap`, rien ne casse la ligne');
+  const res = layoutFlow(it, { ...opts, wrap: true });
   assert.equal(res.lines, 2);
   assert.equal(res.positions.get('t0').line, 0);
   assert.equal(res.positions.get('t1').line, 1);

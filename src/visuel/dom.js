@@ -2,9 +2,15 @@
  * Fabrique des éléments SVG et application des états.
  *
  * Règles non négociables appliquées ici (CONTRACTS §3.2) :
- *  3. propriétés individuelles `translate` / `rotate` / `scale`, jamais un
- *     `transform` composite : chaque step anime son propre canal ;
- *  4. `transform-box: fill-box; transform-origin: center` sur tous les tokens ;
+ *  3. **un canal, un élément** : `translate`, `rotate` et `scale` vivent chacun
+ *     sur SON `<g>` de la chaîne de position (voir `enchainer`), sous forme de
+ *     `transform`. Chaque step anime toujours son propre canal — c'est ce que la
+ *     règle 3 protège — mais aucun canal ne partage plus une propriété avec un
+ *     autre, donc aucun ne peut être écrasé ;
+ *  4. une origine de transformation FIXE et commune à toute la chaîne d'un nœud
+ *     (`transform-box: view-box` + un point du repère local) : sans quoi les
+ *     trois maillons tourneraient et grossiraient chacun autour d'un point
+ *     différent ;
  *  5. toutes les valeurs sont en unités viewBox (le suffixe `px` est obligatoire
  *     en CSS, mais l'unité reste celle du système de coordonnées utilisateur) ;
  *  9. **aucun `foreignObject`** : il rend le canvas *tainted* à l'export.
@@ -42,8 +48,161 @@ export function el(name, attrs = {}) {
   return e;
 }
 
+// ───────────────────── la chaîne de position (règle 3, amendée) ────────────
+//
+// ★ Le défaut que cette chaîne supprime, et pourquoi il ne se voyait que sous
+// Firefox.
+//
+// Symptôme : pendant les steps qui font paraître un jeton neuf — la case
+// résultat sous l'accolade, les chiffres de l'éclatement de « 15 » en « 1 » et
+// « 5 » —, ce jeton était peint **en haut à gauche de la scène**, à l'origine du
+// `viewBox`, au lieu de sa place. Sous Chromium, jamais.
+//
+// Ce qui rendait la chasse si difficile : côté moteur, TOUT est juste.
+// `getComputedStyle(el).translate` rend la bonne valeur, `getBoundingClientRect()`
+// rend le bon rectangle, et le filet « nœud sans position » (plus bas) ne se
+// déclenche jamais. Le défaut n'existe qu'à la PEINTURE.
+//
+// Cause : quand Firefox promeut un élément en couche de composition — ce qu'une
+// simple animation d'opacité suffit à déclencher —, la transformation qu'il
+// confie au compositeur est construite **sans les propriétés individuelles**
+// `translate` / `rotate` / `scale`. Le nœud est composé à l'identité : dans le
+// coin. Deux preuves relevées sur la machine de l'auteur : (a) avec
+// `layers.offmainthreadcomposition.async-animations = false` le défaut
+// disparaît intégralement ; (b) un `transform` posé en doublon EST honoré par le
+// compositeur — le nœud se déplace alors deux fois.
+//
+// ★ Ce qu'on a essayé d'abord, et pourquoi ça ne suffisait pas. Annoncer les
+// canaux avec `will-change` avant de les animer. C'est une DEMANDE : rien
+// n'oblige un moteur à composer comme on le lui suggère, et sur le bureau de
+// l'auteur (WebRender, GPU) le défaut est resté. Une correction qui repose sur
+// le bon vouloir du compositeur n'est pas une correction.
+//
+// ★ Le correctif : retirer la cause. Les propriétés individuelles ne sont plus
+// employées NULLE PART. Chaque canal géométrique est un `transform` — la
+// propriété que le compositeur honore, la preuve (b) ci-dessus — porté par son
+// PROPRE élément :
+//
+//     <g class="nhl-pos">          translate     ← jamais d'opacité, jamais promu
+//       <g class="nhl-rot">        rotate
+//         <text/rect/path…>        scale, opacity, fill, texte…
+//
+// Deux conséquences, et ce sont les deux qui comptent :
+//
+//  · le nœud que Firefox promeut en couche (celui dont l'opacité est animée)
+//    n'a plus AUCUNE position à perdre — il est à sa place parce que ses
+//    ancêtres l'y mettent, et la transformation d'un ancêtre dans l'arbre de
+//    couches n'est pas une faveur du compositeur, c'est le mécanisme de base de
+//    toute page web ;
+//  · la raison d'être de la règle 3 est intacte : deux steps qui animent l'un la
+//    rotation, l'autre la position, ne se marchent toujours pas dessus, puisque
+//    leurs `transform` sont sur deux éléments différents.
+//
+// L'ordre d'imbrication translate → rotate → scale reproduit exactement l'ordre
+// dans lequel CSS applique les propriétés individuelles. Les primitives qui en
+// dépendent (`keyboard` et `alphabet` recentrent la caméra en tenant compte du
+// zoom) gardent donc leur arithmétique.
+//
+// ★ L'ORIGINE, et pourquoi la règle 4 devait changer avec la règle 3.
+//
+// Trois canaux sur un seul élément partageaient une seule origine — le centre
+// de sa `fill-box`. Répartis sur trois éléments, chaque maillon a la sienne, et
+// `fill-box` en donne trois DIFFÉRENTES : celle d'une enveloppe est la boîte de
+// ce qu'elle contient, donc déjà mis à l'échelle. Mesuré sous Firefox 154 :
+// dès que rotation ET échelle sont toutes deux actives, la chaîne « fill-box »
+// s'écarte de l'ancienne composition de plusieurs dizaines d'unités viewBox.
+// C'est la même famille d'erreur que celle qu'on corrige — un résultat qui
+// dépend de la façon dont le moteur choisit une boîte.
+//
+// L'origine est donc un POINT FIXE du repère local, le même sur tous les
+// maillons : `transform-box: view-box; transform-origin: 0 0` désigne l'origine
+// locale du nœud. La composition redevient une simple associativité de
+// matrices — T · R · S, chacune autour du même point —, exacte par
+// construction, dans n'importe quel moteur. Mesuré : écart 0,000000 sous
+// Firefox 154 comme sous Chromium, sur rotation, échelle et les deux ensemble.
+//
+// Ce point (0,0) n'est pas un pis-aller : c'est l'ANCRE DE MISE EN PAGE du
+// nœud, celle que `layout.js` positionne. Tous les contenus sont dessinés
+// autour d'elle — `<text>` centré (`text-anchor: middle`, `dominant-baseline:
+// central`), halo et cadre en `-w/2, -h/2`, marqueur en `cx=cy=0`, glyphe
+// recentré par `glyphTransform`. Tourner ou grossir un jeton autour de son
+// ancre est ce qu'on veut dire ; le faire autour du centre de son encre était
+// une approximation, qui en prime se déplaçait quand le canal discret changeait
+// le texte du nœud. Coût mesuré du changement : NUL sur les démonstrations
+// passées au banc — en JetBrains Mono, `text-anchor: middle` +
+// `dominant-baseline: central` mettent déjà le centre de la boîte du texte
+// exactement sur (0,0). Il ne deviendrait sensible (~2 unités viewBox sur un
+// demi-tour) qu'avec une police de repli aux chasses dissymétriques.
+//
+// La caméra fait exception, et pour la même raison qu'avant : son origine est
+// le centre du `viewBox` (règle 6), car un recul de caméra doit reculer autour
+// du centre de la scène.
+
+/** Origine des transformations d'un jeton : son ancre de mise en page. */
+const ORIGINE_TOKEN = '0px 0px';
+
+/** Origine des transformations de la caméra : le centre du `viewBox`. */
+export const ORIGINE_CAMERA = 'center';
+
+const chaines = new WeakMap();   // élément racine → { translate, rotate, content }
+
+/**
+ * Enveloppe un contenu dans sa chaîne de position et enregistre la chaîne.
+ *
+ * @param {Element} contenu   l'élément qui dessine (texte, rect, path, g…)
+ * @param {{origine?:string}} [opt]  `ORIGINE_CAMERA` pour la caméra (règle 6)
+ * @returns {{racine:Element, translate:Element, rotate:Element, content:Element}}
+ */
+export function enchainer(contenu, opt = {}) {
+  // Règle 4, amendée : l'origine des transformations est un POINT FIXE du
+  // repère local, pas le centre d'une boîte englobante. Voir ci-dessus.
+  const origine = opt.origine || ORIGINE_TOKEN;
+  const gT = el('g', { class: 'nhl-pos' });
+  const gR = el('g', { class: 'nhl-rot' });
+  gT.appendChild(gR);
+  gR.appendChild(contenu);
+
+  for (const e of [gR, contenu]) {
+    e.style.transformBox = 'view-box';
+    e.style.transformOrigin = origine;
+  }
+  // L'enveloppe de position n'a pas d'origine à choisir : une translation ne
+  // dépend d'aucun point de référence. On ne lui en donne donc pas.
+  gT.style.pointerEvents = 'none';
+
+  const chaine = { racine: gT, translate: gT, rotate: gR, content: contenu };
+  chaines.set(gT, chaine);
+  return chaine;
+}
+
+/**
+ * L'élément qui PORTE un canal donné, dans la chaîne d'un nœud.
+ *
+ * Appelé avec un élément qui n'est pas une racine de chaîne (un élément de
+ * test, un nœud construit à la main), il rend cet élément : la fonction est
+ * une projection, pas une exigence de structure.
+ */
+export function porteurDe(element, prop) {
+  const c = element ? chaines.get(element) : null;
+  if (!c) return element;
+  if (prop === 'translate') return c.translate;
+  if (prop === 'rotate') return c.rotate;
+  return c.content;
+}
+
+/** L'élément qui dessine, sous la chaîne de position. */
+export function contenuDe(element) {
+  const c = element ? chaines.get(element) : null;
+  return c ? c.content : element;
+}
+
 /**
  * Crée l'élément d'un nœud de scène.
+ *
+ * ★ Rend la **racine de la chaîne de position**, pas l'élément qui dessine :
+ * c'est elle qu'on insère dans une couche, elle qu'on retrouve par
+ * `elements.get(id)`, et `porteurDe` route chaque canal vers le bon maillon.
+ *
  * @param {object} node
  * @param {{metrics:object, palette:object}} env
  */
@@ -110,13 +269,19 @@ export function createElementFor(node, env) {
       // `data.scale` agrandit le glyphe SANS toucher au canal `scale` du nœud :
       // l'encart de démonstration montre la lettre en grand, et la primitive
       // garde `scale` libre pour ses propres accents.
+      // `data.width` : l'épaisseur du trait, quand l'afficheur en demande une
+      // autre que celle du sept segments. Le quatorze segments loge deux fois
+      // plus de barres dans le même cadre — au trait de 56, son moyeu se
+      // referme sur lui-même (`SEG14_STROKE`, `assets.js`).
       const zoom = (node.data && node.data.scale) || 1;
+      const epaisseur = (node.data && node.data.width)
+        || (node.role === 'seg' ? 56 : 46);
       const wrap = el('g');
       const inner = el('g', { transform: glyphTransform(fs * zoom).transform });
       inner.appendChild(el('path', {
         d: node.data.d,
         fill: 'none',
-        'stroke-width': node.role === 'seg' ? 56 : 46,
+        'stroke-width': epaisseur,
         'stroke-linecap': 'round',
         'stroke-linejoin': 'round',
         pathLength: 100,
@@ -158,13 +323,9 @@ export function createElementFor(node, env) {
       element = el('g');
   }
 
-  element.setAttribute('data-nhl-id', node.id);
-  // Règle 4 : sans `fill-box`, un rotate(180deg) tournerait autour du centre du
-  // canevas SVG entier, pas du glyphe.
-  element.style.transformBox = 'fill-box';
-  element.style.transformOrigin = 'center';
-  element.style.pointerEvents = 'none';
-  return element;
+  const racine = enchainer(element).racine;
+  racine.setAttribute('data-nhl-id', node.id);
+  return racine;
 }
 
 /**
@@ -256,15 +417,21 @@ function round(v) {
   return Math.round(v * 1000) / 1000;
 }
 
-/** Sérialise une valeur de canal pour CSS / WAAPI. */
+/**
+ * Sérialise une valeur de canal pour CSS / WAAPI.
+ *
+ * ★ Les trois canaux géométriques sortent en **fonctions de `transform`**, pas
+ * en propriétés individuelles : chacun est seul sur son maillon de la chaîne
+ * (voir `enchainer`), donc `transform` ne compose jamais deux canaux.
+ */
 export function formatValue(prop, v) {
   switch (prop) {
     case 'translate':
-      return `${num(v.x)}px ${num(v.y)}px`;
+      return `translate(${num(v.x)}px, ${num(v.y)}px)`;
     case 'rotate':
-      return `${num(v)}deg`;
+      return `rotate(${num(v)}deg)`;
     case 'scale':
-      return String(num(v));
+      return `scale(${num(v)})`;
     case 'r':
       return `${num(v)}px`;
     case 'opacity':
@@ -275,11 +442,15 @@ export function formatValue(prop, v) {
   }
 }
 
-/** Nom CSS d'un canal (pour `element.style`). */
+/**
+ * Nom CSS d'un canal — pour `element.style` comme pour une keyframe WAAPI.
+ * Les trois canaux géométriques s'écrivent tous dans `transform`, chacun sur
+ * son propre élément.
+ */
 const CSS_NAME = {
-  translate: 'translate',
-  rotate: 'rotate',
-  scale: 'scale',
+  translate: 'transform',
+  rotate: 'transform',
+  scale: 'transform',
   opacity: 'opacity',
   fill: 'fill',
   stroke: 'stroke',
@@ -287,11 +458,105 @@ const CSS_NAME = {
   r: 'r',
 };
 
-/** Applique une valeur de canal directement (état de base, ou repli sans WAAPI). */
+/** @returns {string|null} nom de la propriété CSS animée par ce canal. */
+export function nomCss(prop) {
+  return CSS_NAME[prop] || null;
+}
+
+// ───────────────────── dernier recours : jamais peint dans le coin ─────────
+//
+// ★ Le compilateur refuse déjà un nœud sans position, ou dont une coordonnée
+// n'est pas un nombre (voir la garde en fin de `compile.js`). Ce qui suit est le
+// filet SOUS cette garde, pour l'instant qu'elle ne couvre pas : la LECTURE.
+//
+// Deux chemins mènent au coin supérieur gauche de la scène, et tous deux sont
+// silencieux :
+//
+//  1. `applyBase` retombait sur « translate: 0 0 » quand `base.translate`
+//     manquait ;
+//  2. `formatValue` passe par `num()`, qui rend 0 pour tout ce qui n'est pas
+//     fini : une seule coordonnée devenue `NaN` en cours de route colle le nœud
+//     à l'origine — AVEC SON TEXTE, sans la moindre erreur pour le trahir.
+//
+// La règle est désormais : **mieux vaut un élément manquant qu'un chiffre faux
+// au milieu d'une démonstration qui prétend prouver quelque chose.** Un nœud
+// dont la position n'est pas utilisable est retiré de la vue (`visibility`,
+// qui n'est animée par personne) et l'anomalie est écrite en console, une fois
+// par couple (nœud, canal) — une boucle rAF ne doit pas noyer la console.
+//
+// Le masque est RÉVERSIBLE : dès qu'une valeur utilisable arrive sur le même
+// canal, le nœud réapparaît. Un `seek()` en arrière reste donc exact.
+
+const ATTR_SANS_POSITION = 'data-nhl-sans-position';
+const masques = new WeakMap();   // element → Set des canaux fautifs
+const dejaSignale = new Set();   // `${id}::${prop}` déjà écrits en console
+
+/** Une valeur est-elle utilisable pour un canal géométrique ? */
+export function valeurUtilisable(prop, v) {
+  switch (prop) {
+    case 'translate':
+      return !!v && Number.isFinite(Number(v.x)) && Number.isFinite(Number(v.y));
+    case 'rotate':
+    case 'scale':
+    case 'r':
+      return Number.isFinite(Number(v));
+    default:
+      return true;
+  }
+}
+
+/** Le nœud est-il actuellement retiré de la vue faute de position ? */
+export function sansPosition(element) {
+  const s = masques.get(element);
+  return !!(s && s.size);
+}
+
+/**
+ * Retire un nœud de la vue plutôt que de le peindre à l'origine, et le dit.
+ * @param {Element} element
+ * @param {string} prop     canal fautif
+ * @param {*} value         ce qui a été reçu
+ */
+export function masquerSansPosition(element, prop, value) {
+  let s = masques.get(element);
+  if (!s) { s = new Set(); masques.set(element, s); }
+  s.add(prop);
+  element.style.visibility = 'hidden';
+  if (element.setAttribute) element.setAttribute(ATTR_SANS_POSITION, [...s].join(' '));
+
+  const id = element.getAttribute ? element.getAttribute('data-nhl-id') : null;
+  const cle = `${id}::${prop}`;
+  if (dejaSignale.has(cle)) return;
+  dejaSignale.add(cle);
+  console.error(`[nhl-visuel] « ${id} » : le canal « ${prop} » vaut ${JSON.stringify(value)}, `
+    + 'qui n’est pas une position. Le nœud est RENDU INVISIBLE plutôt que peint à l’origine, '
+    + 'en haut à gauche de la scène. Cherchez la primitive qui l’a placé (scene.place / ctx.reflow).');
+}
+
+/** Le nœud redevient visible dès qu'une valeur utilisable arrive sur ce canal. */
+function demasquer(element, prop) {
+  const s = masques.get(element);
+  if (!s || !s.delete(prop)) return;
+  if (s.size) { if (element.setAttribute) element.setAttribute(ATTR_SANS_POSITION, [...s].join(' ')); return; }
+  masques.delete(element);
+  element.style.visibility = '';
+  if (element.removeAttribute) element.removeAttribute(ATTR_SANS_POSITION);
+}
+
+/**
+ * Applique une valeur de canal directement (état de base, ou repli sans WAAPI).
+ *
+ * ★ La valeur est écrite sur le MAILLON du canal, pas sur la racine : c'est
+ * toute la correction du défaut Firefox (voir `enchainer`). Le masque, lui,
+ * reste sur la racine — un nœud retiré de la vue l'est en entier.
+ */
 export function applyProp(element, prop, value) {
   const name = CSS_NAME[prop];
   if (!name) return;
-  element.style[name] = formatValue(prop, value);
+  if (!valeurUtilisable(prop, value)) { masquerSansPosition(element, prop, value); return; }
+  demasquer(element, prop);
+  const cible = porteurDe(element, prop);
+  if (cible && cible.style) cible.style[name] = formatValue(prop, value);
 }
 
 /** Applique l'état de base d'un nœud (ce qui est vu avant toute animation). */
@@ -300,23 +565,48 @@ export function applyBase(element, node) {
     if (value === null || value === undefined) continue;
     applyProp(element, prop, value);
   }
-  if (node.base.translate == null) applyProp(element, 'translate', { x: 0, y: 0 });
+  // ★ Plus de repli « translate: 0 0 » : un nœud sans position ne se peint pas.
+  if (node.base.translate == null) masquerSansPosition(element, 'translate', node.base.translate);
 }
 
-/** Applique une mise à jour discrète (canal rAF : texte, `d`, attribut). */
+/**
+ * Applique une mise à jour discrète (canal rAF : texte, `d`, attribut).
+ *
+ * ★ Le canal discret écrit le TEXTE d'un nœud indépendamment de toute
+ * animation : c'est par lui qu'un nœud mal placé devient LISIBLE, et c'est
+ * pourquoi un tel défaut ne se voit qu'en lecture. Avant d'écrire, on vérifie
+ * donc les deux conditions qui feraient d'un nœud un jeton orphelin :
+ *   · il n'est plus dans le document (détaché) ;
+ *   · il n'a pas de position utilisable (il est masqué par le filet ci-dessus).
+ * Dans les deux cas on écrit une alerte — une seule fois par canal — et on
+ * n'écrit PAS le texte : un nœud sans place ne doit rien avoir à dire.
+ */
 export function applyDiscrete(element, channel, value) {
+  const detache = element.isConnected === false;
+  if (detache || sansPosition(element)) {
+    const id = element.getAttribute ? element.getAttribute('data-nhl-id') : null;
+    const cle = `discret::${id}::${channel}`;
+    if (!dejaSignale.has(cle)) {
+      dejaSignale.add(cle);
+      console.error(`[nhl-visuel] « ${id} » reçoit « ${channel} » = ${JSON.stringify(value)} alors qu’il est `
+        + `${detache ? 'DÉTACHÉ du document' : 'SANS POSITION utilisable'}. `
+        + 'Le texte n’est pas écrit : un nœud sans place ne doit rien avoir à dire.');
+    }
+    return;
+  }
+  const contenu = contenuDe(element);
   if (channel === 'text') {
-    const target = element.tagName === 'text' ? element : element.querySelector('text');
+    const target = contenu.tagName === 'text' ? contenu : contenu.querySelector('text');
     if (target && target.textContent !== value) target.textContent = value;
     return;
   }
   if (channel === 'd') {
-    const target = element.tagName === 'path' ? element : element.querySelector('path');
+    const target = contenu.tagName === 'path' ? contenu : contenu.querySelector('path');
     if (target) target.setAttribute('d', value);
     return;
   }
   if (channel.startsWith('attr:')) {
-    element.setAttribute(channel.slice(5), value);
+    contenu.setAttribute(channel.slice(5), value);
   }
 }
 

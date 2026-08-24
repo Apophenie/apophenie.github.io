@@ -30,13 +30,29 @@ export function defaultMetrics(fontSize = FONT_SIZE, advanceRatio = ADVANCE_RATI
   };
 }
 
-/** Options de layout par défaut. */
+/**
+ * Options de layout par défaut.
+ *
+ * ★ `wrap: false` — **jamais deux lignes.** `research/moteur-visuel.md §5.2`
+ * prévoyait de repasser en plusieurs lignes sous un seuil de largeur ; la
+ * doctrine a changé. Une séquence qui déborde ne se replie pas, elle
+ * **défile** : le compilateur amène l'action au centre en déplaçant le groupe
+ * `@pan` (voir `compile.js`, bloc « Défilement »). Une ligne coupée en deux
+ * casse la lecture — la chaîne se lit de gauche à droite, d'un bout à l'autre,
+ * et un retour à la ligne au milieu d'une URL invente une frontière qui
+ * n'existe pas.
+ *
+ * `maxWidth` n'est donc plus une largeur de coupure : c'est la **largeur utile
+ * de la scène**, celle dans laquelle le défilement cadre l'action et dans
+ * laquelle `fitScale` fait tenir un clavier ou une réglette.
+ */
 export function defaultLayoutOptions(metrics = defaultMetrics(), viewBox = VIEWBOX) {
   return {
     viewBox,
     gap: TOKEN_GAP,
     lineHeight: LINE_HEIGHT,
     maxWidth: viewBox.w - 2 * MARGIN,
+    wrap: false,
     centerX: viewBox.x + viewBox.w / 2,
     centerY: viewBox.y + viewBox.h / 2,
     metrics,
@@ -52,6 +68,10 @@ export function measureText(text, metrics) {
 /**
  * Dispose une suite d'éléments en ligne(s), centrée dans la zone utile.
  *
+ * Par défaut (`opts.wrap !== true`) : **une seule ligne, toujours**, quelle que
+ * soit sa longueur. `overflow` dit alors qu'elle est plus large que la zone
+ * utile — c'est le signal que le défilement doit prendre le relais.
+ *
  * @param {{id:string,w:number,gapBefore?:number,breakBefore?:boolean}[]} items
  * @param {ReturnType<typeof defaultLayoutOptions>} opts
  * @returns {{positions: Map<string,{x:number,y:number,w:number,line:number}>,
@@ -59,18 +79,19 @@ export function measureText(text, metrics) {
  */
 export function layoutFlow(items, opts) {
   const { gap, lineHeight, maxWidth, centerX, centerY } = opts;
+  const wrap = opts.wrap === true;
   const positions = new Map();
   if (!items.length) return { positions, lines: 0, width: 0, height: 0, overflow: false };
 
   // 1. Découpage en lignes (glouton, jamais à l'intérieur d'un token).
+  //    Sans `wrap`, il n'y a rien à découper : une seule ligne, point.
   const lines = [];
   let cur = { items: [], w: 0 };
-  let overflow = false;
   for (const it of items) {
     const g = cur.items.length === 0 ? 0 : (it.gapBefore ?? gap);
     const need = g + it.w;
-    const mustBreak = it.breakBefore && cur.items.length > 0;
-    if (mustBreak || (cur.items.length > 0 && cur.w + need > maxWidth)) {
+    const mustBreak = wrap && it.breakBefore && cur.items.length > 0;
+    if (mustBreak || (wrap && cur.items.length > 0 && cur.w + need > maxWidth)) {
       lines.push(cur);
       cur = { items: [], w: 0 };
       cur.items.push({ ...it, g: 0 });
@@ -79,7 +100,6 @@ export function layoutFlow(items, opts) {
       cur.items.push({ ...it, g });
       cur.w += need;
     }
-    if (it.w > maxWidth) overflow = true;
   }
   lines.push(cur);
 
@@ -98,7 +118,7 @@ export function layoutFlow(items, opts) {
     }
   });
 
-  return { positions, lines: lines.length, width: maxW, height: totalH, overflow };
+  return { positions, lines: lines.length, width: maxW, height: totalH, overflow: maxW > maxWidth };
 }
 
 /**
@@ -107,10 +127,13 @@ export function layoutFlow(items, opts) {
  */
 export function bboxOf(ids, positions, metrics, pad = 0) {
   let x0 = Infinity; let y0 = Infinity; let x1 = -Infinity; let y1 = -Infinity;
-  const h = metrics.fontSize;
   for (const id of ids) {
     const p = positions.get(id);
     if (!p) continue;
+    // `p.h` n'est renseignée que par les gestes qui changent la TAILLE d'un
+    // jeton (le verdict, qui grossit les chiffres) : sans elle, une annotation
+    // posée « sous » un 6 de sept centimètres se retrouverait au milieu du 6.
+    const h = p.h || metrics.fontSize;
     x0 = Math.min(x0, p.x - p.w / 2);
     x1 = Math.max(x1, p.x + p.w / 2);
     y0 = Math.min(y0, p.y - h / 2);

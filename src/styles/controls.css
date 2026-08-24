@@ -36,6 +36,15 @@
 .jauge__case[data-etat="courante"] { background: var(--gold); }
 .jauge__case:hover { border-color: var(--fg-2); }
 
+/* Les redites accélérées : une case plus ÉTROITE. La jauge continue de compter
+   une case par transformation — elle ne ment pas sur le nombre d'étapes — mais
+   sa largeur se met à dire le temps que chacune prendra. Le repère est une
+   GÉOMÉTRIE, jamais une couleur : les trois états (franchie, courante, à venir)
+   gardent la leur, et la largeur se lit sur les trois pareillement, ce qu'un
+   creusement au fond de la page ne faisait pas — il disparaissait sur les cases
+   pâles. Le `min-width` de 24 px continue de tenir la cible tactile. */
+.jauge__case[data-redite] { flex-grow: .3; }
+
 .transport {
   display: flex;
   align-items: center;
@@ -95,6 +104,27 @@
 }
 .transport__bouton[aria-disabled="true"]:hover { border-color: transparent; }
 
+/* ── La bascule des redites ──────────────────────────────────────────────
+   Sixième bouton de la barre, mais pas une commande d'avancement : un filet
+   vertical l'en sépare, et il se pose à droite du groupe. Son état se lit sur
+   le picto (double chevron, barré ou non) ET sur le cadre — jamais sur la
+   seule couleur. */
+.transport__bouton--reglage {
+  margin-inline-start: var(--e1);
+  border-inline-start: var(--rule) solid var(--line-ui);
+  border-radius: 0;
+  padding-inline-start: calc(var(--e1) + var(--e1));
+}
+/* L'état ne se dit PAS par la couleur — le picto barré le dit déjà, et une
+   pastille dorée au milieu de cinq icônes d'encre se lirait comme une alerte.
+   La couleur ne fait qu'atténuer l'état « rythme plein », qui est le refus. */
+.transport__bouton--reglage[data-etat="accelerees"] { color: var(--fg); }
+.transport__bouton--reglage[data-etat="pleines"] { color: var(--fg-2); }
+/* En mouvement réduit il n'y a plus de trajet à abréger : le compilateur
+   ignore l'accélération. Le bouton reste opérant — la préférence se garde pour
+   le jour où les animations reviennent — mais il dit qu'il ne fait rien ici. */
+.transport__bouton--reglage[data-inoperant] { opacity: .5; }
+
 /* Icônes : tracé de 2 px, terminaisons carrées, currentColor. Filet gravé,
    pas d'icône arrondie générique. */
 .ico-trait {
@@ -112,3 +142,13 @@
 
 /* Le bouton « Partager » signale sa confirmation par du texte, pas par la couleur */
 .copie-faite { color: var(--phos); font-size: var(--fs-xs); font-family: var(--machine); }
+
+/* Les pictos sont décoratifs (`aria-hidden`) : ils ne doivent jamais capter le
+   pointeur. Un SVG ne reçoit le clic que sur ses zones PEINTES — le picto
+   « pause », deux barres séparées par un vide de 2 px, laissait donc un trou en
+   plein centre du bouton, et les marges du viewBox en laissaient d'autres sur
+   les bords. Viser l'icône pouvait ainsi ne rien déclencher, alors que viser le
+   libellé marchait. Avec `pointer-events: none`, tout clic dans le bouton
+   atteint le bouton, quelle que soit la forme dessinée. */
+.transport__bouton svg,
+.transport__bouton svg * { pointer-events: none; }

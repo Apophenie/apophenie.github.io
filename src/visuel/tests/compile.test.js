@@ -6,7 +6,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { compile } from '../compile.js';
+import {
+  compile, stepSignatures, repeatOrigins, REPEAT_SPEED,
+} from '../compile.js';
 import { setGlyphes } from '../glyphes.js';
 import { GLYPHES } from '../fixtures/glyphes.js';
 import { SCENARIOS } from '../fixtures/scenarios.js';
@@ -26,7 +28,7 @@ test('les scénarios de démonstration compilent tous sans avertissement', () =>
   }
 });
 
-test('le parcours de vérification exerce les 19 primitives', () => {
+test('le parcours de vérification exerce les 20 primitives', () => {
   const used = new Set();
   for (const step of SCENARIOS.vocabulaire.steps) for (const op of step.ops) used.add(op.op);
   const manquantes = OP_NAMES.filter((n) => !used.has(n));
@@ -352,4 +354,143 @@ test('les durées par défaut du moteur visuel et leur miroir arithmétique coï
   for (const nom of OP_NAMES) {
     assert.equal(DUREE_OP[nom], DEFAULT_DUR[nom], `durée divergente pour « ${nom} »`);
   }
+});
+
+
+/* ═══════════════════ Accélération des répétitions ═══════════════════
+ *
+ * Une étape qui refait EXACTEMENT le geste d'une étape déjà jouée passe en
+ * accéléré ; la première garde son rythme plein. L'équivalence se lit dans la
+ * structure des ops, jamais dans le libellé.
+ */
+
+/** Deux jetons par lettre, trois groupes : le squelette de « hope-hope ». */
+const deuxGroupes = () => sc([
+  {
+    id: 's0',
+    title: 'Traits continus — groupe 1',
+    ops: [{ op: 'sevenSeg', target: 'a0', segments: 'bcefg', glyph: 'H', count: 3, to: { id: 'n0', text: '3' } }],
+  },
+  {
+    id: 's1',
+    title: 'Continuous strokes — group 2',   // libellé volontairement dans l'autre langue
+    ops: [{ op: 'sevenSeg', target: 'b0', segments: 'bcefg', glyph: 'H', count: 3, to: { id: 'n1', text: '3' } }],
+  },
+], [{ id: 'a0', text: 'H', kind: 'letter' }, { id: 'b0', text: 'H', kind: 'letter' }]);
+
+test('deux steps identiques à un renommage de jetons près ont la même signature', () => {
+  const [s0, s1] = stepSignatures(deuxGroupes());
+  assert.equal(s0, s1);
+  assert.deepEqual(repeatOrigins(deuxGroupes()), [-1, 0]);
+});
+
+test('la signature ignore le libellé — bilingue et cosmétique', () => {
+  const base = deuxGroupes();
+  const renomme = {
+    ...base,
+    steps: base.steps.map((st, i) => ({ ...st, title: `titre ${i}`, caption: `légende ${i}`, hold: i * 100 })),
+  };
+  const [a, b] = stepSignatures(renomme);
+  assert.equal(a, b, 'title, caption et hold ne font pas partie du geste');
+});
+
+test('un geste distinct n’est pas une redite : autre glyphe, autre compte', () => {
+  const scen = sc([
+    { id: 's0', title: 'A', ops: [{ op: 'sevenSeg', target: 'a0', segments: 'bcefg', glyph: 'H', count: 3, to: { id: 'n0', text: '3' } }] },
+    { id: 's1', title: 'B', ops: [{ op: 'sevenSeg', target: 'b0', segments: 'abcdef', glyph: 'O', count: 4, to: { id: 'n1', text: '4' } }] },
+    { id: 's2', title: 'C', ops: [{ op: 'sevenSeg', target: 'c0', segments: 'bcefg', glyph: 'H', count: 3, to: { id: 'n2', text: '3' } }] },
+  ], [
+    { id: 'a0', text: 'H', kind: 'letter' },
+    { id: 'b0', text: 'O', kind: 'letter' },
+    { id: 'c0', text: 'H', kind: 'letter' },
+  ]);
+  // Le « o » inaugure sa forme ; le second « h » redit celle du premier.
+  assert.deepEqual(repeatOrigins(scen), [-1, -1, 0]);
+});
+
+test('la première occurrence garde son rythme, la redite est divisée par le facteur', () => {
+  const scen = deuxGroupes();
+  const plein = compile(scen, { repeatSpeed: 1 });
+  const rapide = compile(scen, { repeatSpeed: REPEAT_SPEED });
+  assert.deepEqual(plein.steps.map((st) => st.accelerated), [false, false]);
+  assert.deepEqual(rapide.steps.map((st) => st.accelerated), [false, true]);
+  assert.equal(rapide.steps[0].duration, plein.steps[0].duration);
+  assert.equal(rapide.steps[1].duration, plein.steps[1].duration / REPEAT_SPEED);
+  assert.equal(rapide.steps[1].repeatOf, 0);
+});
+
+test('les charnières restent cohérentes : bounds, t0/t1 et TOTAL suivent', () => {
+  const tl = compile(deuxGroupes(), { repeatSpeed: 4 });
+  assert.equal(tl.bounds[0], 0);
+  assert.equal(tl.bounds.at(-1), tl.total);
+  for (const st of tl.steps) {
+    assert.equal(st.t0, tl.bounds[st.index]);
+    assert.equal(st.t1, tl.bounds[st.index + 1]);
+    assert.ok(st.duration >= MIN_STEP_DURATION, `step ${st.index} : ${st.duration} ms`);
+  }
+  for (let i = 1; i < tl.bounds.length; i++) {
+    assert.ok(tl.bounds[i] - tl.bounds[i - 1] >= MIN_HINGE_GAP);
+  }
+});
+
+test('aucune animation ne déborde de la timeline accélérée', () => {
+  const tl = compile(deuxGroupes(), { repeatSpeed: REPEAT_SPEED });
+  for (const a of tl.anims) {
+    assert.ok(a.delay >= 0 && a.delay + a.duration <= tl.total + 1e-6,
+      `animation hors bornes : ${a.id}/${a.prop}`);
+  }
+  for (const d of tl.discrete) {
+    assert.ok(d.at >= 0 && d.at + d.dur <= tl.total + 1e-6, `discret hors bornes : ${d.key}`);
+  }
+});
+
+test('la compilation reste déterministe : deux compilations identiques', () => {
+  const a = compile(deuxGroupes(), { repeatSpeed: REPEAT_SPEED });
+  const b = compile(deuxGroupes(), { repeatSpeed: REPEAT_SPEED });
+  assert.deepEqual(a.bounds, b.bounds);
+  assert.deepEqual(a.anims.map((x) => [x.id, x.prop, x.delay, x.duration]),
+    b.anims.map((x) => [x.id, x.prop, x.delay, x.duration]));
+});
+
+test('`repeatSpeed` se compose avec `speed` sans se confondre avec lui', () => {
+  const scen = deuxGroupes();
+  const ref = compile(scen, { repeatSpeed: 1 });
+  const tl = compile(scen, { speed: 2, repeatSpeed: 5 });
+  assert.equal(tl.steps[0].duration, ref.steps[0].duration / 2);
+  assert.equal(tl.steps[1].duration, ref.steps[1].duration / 10);
+});
+
+test('le mouvement réduit ignore l’accélération : le temps de LECTURE est intact', () => {
+  const reduit = compile(deuxGroupes(), { reduced: true, repeatSpeed: REPEAT_SPEED });
+  const temoin = compile(deuxGroupes(), { reduced: true, repeatSpeed: 1 });
+  assert.deepEqual(reduit.steps.map((st) => st.duration), temoin.steps.map((st) => st.duration));
+  assert.deepEqual(reduit.steps.map((st) => st.accelerated), [false, false]);
+  assert.equal(reduit.repeatSpeed, 1);
+});
+
+test('une étape déjà courte n’est jamais accélérée sous le plancher de durée', () => {
+  const scen = sc([
+    { id: 's0', title: 'A', ops: [{ op: 'wait', dur: 60 }] },
+    { id: 's1', title: 'B', ops: [{ op: 'wait', dur: 60 }] },
+  ]);
+  const tl = compile(scen, { repeatSpeed: REPEAT_SPEED });
+  assert.deepEqual(repeatOrigins(scen), [-1, 0], 'la redite est bien détectée…');
+  assert.deepEqual(tl.steps.map((st) => st.accelerated), [false, false], '…mais pas accélérée');
+  assert.equal(tl.total, 120);
+});
+
+test('l’accélération des redites est une OPTION, sans état partagé', () => {
+  // Le facteur vivait autrefois dans un état de module, faute d'option sur le
+  // lecteur. Deux lecteurs coexistent pourtant — celui du logo et celui de la
+  // démonstration — et se seraient marché dessus. L'option est désormais
+  // portée par chaque compilation ; l'absence d'option ne doit RIEN accélérer.
+  assert.equal(compile(deuxGroupes()).steps[1].accelerated, false);
+  assert.equal(compile(deuxGroupes(), { repeatSpeed: 1 }).steps[1].accelerated, false);
+  assert.equal(compile(deuxGroupes(), { repeatSpeed: REPEAT_SPEED }).steps[1].accelerated, true);
+  // Deux compilations concurrentes ne s'influencent pas.
+  const rapide = compile(deuxGroupes(), { repeatSpeed: REPEAT_SPEED });
+  const plein = compile(deuxGroupes());
+  assert.equal(rapide.steps[1].accelerated, true);
+  assert.equal(plein.steps[1].accelerated, false);
+  assert.throws(() => compile(deuxGroupes(), { repeatSpeed: 0.5 }), CompileError);
 });

@@ -188,7 +188,7 @@ export const token = (id, text, kind = 'number') => ({ id, text: String(text), k
 export const DUREE_OP = Object.freeze({
   highlight: 600, dim: 700, drop: 2000, substitute: 1100, move: 900, group: 1300,
   insertOperators: 700, sum: 2800, reduce: 2600, flip180: 1100, sevenSeg: 3000,
-  countStrokes: 3000, keyboard: 2400, annotate: 800, pulse: 600, reveal: 1400,
+  fourteenSeg: 3400, countStrokes: 3000, keyboard: 2400, annotate: 800, pulse: 600, reveal: 1400,
   wait: 900, partition: 1800, alphabet: 2800,
 });
 
@@ -290,6 +290,21 @@ export function def(spec) {
   if (op.note !== null && !estBilingue(op.note)) {
     throw new Error(`opérateur « ${op.id} » : « note » doit être null ou un couple `
       + `{ ${LANGUES.join(', ')} } — reçu ${JSON.stringify(op.note)}.`);
+  }
+  // `gabarit` est un libellé d'étape à trou (« On additionne les %s ») : il est
+  // AFFICHÉ, donc il porte ses deux langues comme le reste, et le trou doit
+  // exister dans chacune — sinon l'accord chiffres/nombres tomberait en silence
+  // dans une seule langue (voir `combinateurs.js`).
+  if (op.gabarit !== undefined) {
+    if (!estBilingue(op.gabarit)) {
+      throw new Error(`opérateur « ${op.id} » : « gabarit » doit être un couple `
+        + `{ ${LANGUES.join(', ')} } — reçu ${JSON.stringify(op.gabarit)}.`);
+    }
+    for (const l of LANGUES) {
+      if (!op.gabarit[l].includes('%s')) {
+        throw new Error(`opérateur « ${op.id} » : « gabarit.${l} » ne porte pas de « %s ».`);
+      }
+    }
   }
   if (op.code[0] !== PREFIXE[op.famille]) {
     throw new Error(`opérateur « ${op.id} » : le code « ${op.code} » ne porte pas le préfixe `

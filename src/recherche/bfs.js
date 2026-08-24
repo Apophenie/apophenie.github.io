@@ -439,6 +439,13 @@ function comparerPrefixes(a, b) {
 /**
  * N2 — tri des suites maximales d'opérateurs commutants par code croissant.
  * `lower ∘ dropVowels` et `dropVowels ∘ lower` deviennent une seule clé.
+ *
+ * ⚠ N2 ne s'applique plus DANS la clé de `canonicaliser` (voir l'amendement
+ * ci-dessous) : il s'applique sur le CHEMIN lui-même, dans
+ * `assemblage.js › normaliserChemins`, comme CONTRACTS §5 le demande. Deux
+ * chemins qui ne diffèrent que par l'ordre d'opérateurs commutants montrent de
+ * toute façon la même chose, donc portent déjà la même trace. Cette fonction
+ * reste l'expression réutilisable de la règle.
  */
 export function codesCanoniques(chemin) {
   const out = [];
@@ -464,11 +471,45 @@ export function cleTrace(chemin) {
   return vues.join('\u001f');
 }
 
-/** N1 + N2 : déduplication sur ce qui est montré, filtres commutatifs normalisés. */
+/**
+ * N1 + N2 : déduplication sur ce qui est montré, filtres commutatifs normalisés.
+ *
+ * > *Amendement — la clé N1 est la trace SEULE, plus la suite des codes.*
+ * >
+ * > La clé valait `cleTrace + codes canoniques`. Or ajouter les codes RAFFINE
+ * > la clé : deux chemins qui montrent exactement la même chose survivaient
+ * > tous les deux dès que leurs codes différaient d'une lettre — c'est-à-dire
+ * > que N1, dont le contrat est la « déduplication sur ce qui est MONTRÉ »
+ * > (CONTRACTS §5), ne dédupliquait pas.
+ * >
+ * > Le défaut est resté invisible tant qu'aucun mappeur ne rendait un vecteur
+ * > CONSTANT. L'afficheur quatorze segments en rend un sur `hope` — `H`, `O`,
+ * > `P` et `E` allument six segments chacun —, et alors « en moyenne », « au
+ * > plus grand » et « au plus petit » donnent le même 6 par le même dessin :
+ * > trois chemins, une seule démonstration à l'écran. Ils occupaient trois des
+ * > huit places que l'assemblage garde par fragment (`K_PAR_FRAGMENT`) et en
+ * > chassaient les trois approches pythagoriciennes.
+ * >
+ * > Mesuré sur quatorze saisies : la liste de `hope-hope-hope.fr` retrouve ses
+ * > douze approches (dont les deux pythagoriciennes, plus « A1Z26 par
+ * > multiplication » qui n'y figurait pas), et dix autres saisies passent de
+ * > quatre ou six lignes à huit ou douze. Aucune méthode ne disparaît. Le
+ * > représentant conservé reste choisi par `comparerPrefixes` — score
+ * > décroissant, coût croissant, codes croissants —, donc le plus notoire des
+ * > jumeaux gagne : entre sept et quatorze segments montrant les mêmes
+ * > nombres, c'est le sept segments qui reste.
+ * >
+ * > Effet de bord mesuré, à connaître : `comparerPrefixes` compare des scores
+ * > LOCAUX de préfixe, pas le score de l'approche assemblée. Sur
+ * > `numherololgeek`, le représentant retenu pour un fragment change et
+ * > l'approche de tête passe de 4 764 à 4 552 points. C'est le même écart
+ * > local/global qui existait déjà ; il devient seulement visible ailleurs.
+ */
 export function canonicaliser(chemins) {
   const vus = new Map();
   for (const c of chemins) {
-    const cle = cleTrace(c) + '\u001e' + codesCanoniques(c).join('+');
+    // ★ La trace SEULE (voir ci-dessus) — ce que le spectateur voit défiler.
+    const cle = cleTrace(c);
     const ancien = vus.get(cle);
     if (!ancien || comparerPrefixes(c, ancien) < 0) vus.set(cle, c);
   }

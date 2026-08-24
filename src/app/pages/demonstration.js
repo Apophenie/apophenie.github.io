@@ -9,8 +9,23 @@ import { creerTransport, brancherClavier } from '../transport.js';
 import { creerRegistre } from '../registre.js';
 import { boutonPartage } from '../partage.js';
 import { interrupteurs } from '../entete.js';
-import { animationEffective, themeEffectif, onReglages } from '../reglages.js';
+import {
+  animationEffective, themeEffectif, repetitionsAccelerees, onReglages,
+} from '../reglages.js';
 import * as pont from '../pont.js';
+
+/** Largeur de fenêtre à partir de laquelle la démonstration tient sur deux
+ *  colonnes — scène à gauche, Le Registre en colonne latérale collante.
+ *
+ *  En dessous, tout reste sur UNE colonne et le Registre passe dans un
+ *  `<details>` ouvert, sous la scène. Le seuil vaut celui du « bureau » de la
+ *  charte (§2.4), et non les 760 px qu'elle annonçait : la colonne latérale
+ *  est fixe (22rem, 352 px) et la gouttière en vaut 48, si bien qu'à 760 px il
+ *  ne resterait que 312 px pour la scène — moins que sur un téléphone.
+ *  ⚠ Ce nombre est en double avec la media query de `.demo__grille`
+ *  (src/styles/pages.css) : CSS ne sait pas lire une variable dans un
+ *  `@media`. Les deux doivent bouger ensemble. */
+export const SEUIL_DEUX_COLONNES = 1100;
 
 /** Les quatre conditions de l'autoplay (CONTRACTS §3.4), consommées une fois. */
 function autoplayAutorise() {
@@ -62,13 +77,19 @@ export function pageDemonstration(ctx) {
 
   /* ──────────────────────── lecteur et reflets ──────────────────── */
 
+  // Le rythme des redites est un réglage de COMPILATION : le lecteur le porte
+  // dans ses options et le repasse à `compile()` à chaque construction, y
+  // compris sur `rebuild()`. Voir `visuel/compile.js` § Répétitions.
+  const facteurRedites = () => (repetitionsAccelerees() ? pont.facteurRepetitions() : 1);
+
   const { lecteur, source: sourceLecteur } = pont.creerLecteur(sceneSvg, scenario, {
     reducedMotion: reglageMouvement(),
     speed: 1,
+    repeatSpeed: facteurRedites(),
     autoplay: autoplayAutorise(),
   });
 
-  const transport = creerTransport(lecteur);
+  const transport = creerTransport(lecteur, {}, { repetitions: pont.facteurRepetitions() });
   const registre = creerRegistre(lecteur, { resultat: scenario.result });
 
   const messages = [];
@@ -118,12 +139,52 @@ export function pageDemonstration(ctx) {
   // Et SEULEMENT un changement de thème : `onReglages` se déclenche aussi pour
   // le réglage d'animation et pour une bascule système en mode « auto ». On
   // compare donc le thème EFFECTIF à celui avec lequel la timeline a été bâtie.
+  //
+  // Le rythme des redites impose lui aussi une recompilation, mais pas la même :
+  // il CHANGE LES DURÉES, donc les charnières se déplacent. Conserver
+  // `currentTime` tel quel — ce que fait `rebuild()` — ferait sauter le
+  // spectateur à un tout autre endroit du récit. On conserve l'ÉTAPE et la
+  // fraction parcourue à l'intérieur : le geste en cours reste le geste en
+  // cours, à la même avancée, seule sa vitesse change.
+  //
+  // Même raisonnement pour le NIVEAU D'ANIMATION : il était jusqu'ici posé une
+  // fois pour toutes à la création du lecteur, si bien qu'un « réduire les
+  // animations » demandé en cours de démonstration ne prenait effet qu'au
+  // rechargement — et la bascule des redites annonçait « sans effet » alors que
+  // l'accélération, elle, courait toujours. Il se recompile donc aussi.
   let themeCompile = themeEffectif();
+  let reditesCompile = repetitionsAccelerees();
+  let mouvementCompile = reglageMouvement();
+
+  function recompilerEnGardantLEtape(patch) {
+    if (typeof lecteur.rebuild !== 'function') return;
+    const i = lecteur.stepIndex;
+    const avant = (lecteur.steps || [])[i];
+    const part = avant && avant.duration > 0
+      ? Math.min(1, Math.max(0, (lecteur.currentTime - avant.t0) / avant.duration))
+      : 0;
+    lecteur.rebuild(patch);
+    const apres = (lecteur.steps || [])[i];
+    if (apres) lecteur.seek(apres.t0 + part * apres.duration);
+  }
+
   const offTheme = onReglages(() => {
-    const courant = themeEffectif();
-    if (courant === themeCompile) return;
-    themeCompile = courant;
-    if (typeof lecteur.rebuild === 'function') lecteur.rebuild();
+    const theme = themeEffectif();
+    const redites = repetitionsAccelerees();
+    const mouvement = reglageMouvement();
+    if (theme === themeCompile && redites === reditesCompile && mouvement === mouvementCompile) return;
+    // Le thème ne touche qu'aux couleurs : `currentTime` reste juste. Le rythme
+    // des redites et le niveau d'animation déplacent les charnières : il faut
+    // alors conserver l'étape, pas l'instant.
+    const dureesChangent = redites !== reditesCompile || mouvement !== mouvementCompile;
+    themeCompile = theme;
+    reditesCompile = redites;
+    mouvementCompile = mouvement;
+    if (dureesChangent) {
+      recompilerEnGardantLEtape({ reducedMotion: mouvement, repeatSpeed: facteurRedites() });
+    } else if (typeof lecteur.rebuild === 'function') {
+      lecteur.rebuild();
+    }
     transport.rafraichir();
     majBadge();
     majArrivee();
@@ -131,13 +192,13 @@ export function pageDemonstration(ctx) {
 
   /* ───────────────────────── l'arrivée ──────────────────────────── */
 
-  // Le résultat ne se montre qu'à l'arrivée : l'afficher d'emblée, c'est raconter
-  // la chute avant la blague.
-  const arrivee = e('div.arrivee', { 'data-arrive': 'non' }, [
-    e('p.arrivee__nombre', { texte: (scenario.result || '666').split('').join(' ') }),
-    e('p.arrivee__cqfd', { texte: t('demo.cqfd') }),
-  ]);
-  const majArrivee = () => arrivee.setAttribute('data-arrive', lecteur.atEnd ? 'oui' : 'non');
+  // Il n'y a plus de bloc d'arrivée. Il affichait « 6 6 6 » et « C.Q.F.D. »
+  // sous la scène, atténués à 12 % avant la fin — assez pour lire la chute
+  // dès la première seconde, alors que toute la démonstration consiste à y
+  // amener. L'animation produit déjà le 666 à sa dernière étape ; le répéter
+  // n'ajoutait rien et le pré-afficher retirait tout.
+  // L'annonce de fin subsiste pour les lecteurs d'écran seuls (`registre.js`).
+  const majArrivee = () => {};
 
   /* ───────────────────────── les actions ────────────────────────── */
 
@@ -184,12 +245,11 @@ export function pageDemonstration(ctx) {
     cadre,
     transport.element,
     registre.regionLive,
-    arrivee,
     actions,
     raccourcis,
   ]);
 
-  const large = matchMedia('(min-width: 760px)').matches;
+  const large = matchMedia(`(min-width: ${SEUIL_DEUX_COLONNES}px)`).matches;
   const colonneRegistre = large
     ? e('aside.registre-colonne', {}, [registre.element])
     : e('details.registre-repli', { open: true }, [

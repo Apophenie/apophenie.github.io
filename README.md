@@ -71,6 +71,12 @@ Deux familles, pas quatre, toutes deux sous SIL OFL 1.1 et hébergées ici même
 * **JetBrains Mono** (variable) — `--machine`. Sa chasse fixe n'est pas décorative : le
   moteur visuel calcule ses gabarits dessus.
 
+À ces deux **voix** s'ajoute un **instrument** : **DSEG7 Classic** et **DSEG14 Classic**
+(même famille, même OFL), les afficheurs à sept et à quatorze segments. Ils ne composent
+aucun titre, aucun corps, aucun badge — Le Registre s'en sert pour montrer la lettre
+*telle que la calculette la forme*, parce que « combien de traits dans ce H ? » n'a aucun
+sens devant un H de Jost\*. 948 et 1 304 octets, sous-réglés aux 36 signes utiles.
+
 Jost n'a pas d'italique. Plutôt qu'un oblique synthétique — le romain cisaillé, très
 visible sur un géométrique aux `o` circulaires —, l'emphase se dit par la graisse : 300 et
 un peu d'air pour la voix douce (baseline, annonce de résultat, énoncé de règle), 500 pour

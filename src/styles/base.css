@@ -23,8 +23,15 @@
    `jost.ttf` n'est pas ici mais dans `src/gfx/` : c'est la source du
    générateur de logo, un outil de build, jamais chargée par le navigateur.
 
-   OFL 1.1. Les deux textes de licence sont dans `src/fonts/`, recopiés dans
-   `dist/fonts/` au build, et crédités en pied de page. */
+   Une TROISIÈME famille s'y ajoute, qui n'est pas une voix de la charte mais
+   un instrument de démonstration : DSEG — l'afficheur sept segments (DSEG7
+   Classic) et l'afficheur quatorze segments (DSEG14 Classic), même fonte,
+   même auteur, même licence (voir leurs @font-face plus bas et l'amendement
+   de CONTRACTS §0.3).
+
+   OFL 1.1. Les textes de licence sont dans `src/fonts/`, recopiés dans
+   `dist/fonts/` au build, et crédités en pied de page. `OFL-DSEG.txt` couvre
+   les deux afficheurs : c'est la même famille, au nom réservé « DSEG ». */
 
 @font-face {
   font-family: "Jost";
@@ -39,6 +46,45 @@
   src: url(../fonts/jetbrains-mono-var.woff2) format("woff2-variations"),
        url(../fonts/jetbrains-mono-var.woff2) format("woff2");
   font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+/* ★ Troisième famille — DSEG7 Classic, l'afficheur sept segments.
+   Elle n'est pas une VOIX de plus (CONTRACTS §0.3 tient à deux familles pour
+   la charte) : c'est un INSTRUMENT DE DÉMONSTRATION, du même ordre que les
+   tracés vectoriels de `tables/glyphes.js` qui montrent les traits de crayon.
+   Sur la méthode « sept segments », Le Registre doit montrer la lettre TELLE
+   QUE LA CALCULETTE LA FORME — la question posée n'a aucun sens sur un H de
+   Jost*. Et un caractère reste un caractère : le DOM porte « H », donc un
+   lecteur d'écran lit H, la sélection et la recherche du navigateur le
+   trouvent, et il grandit avec le zoom.
+   Sous-réglée aux 36 signes utiles (0-9, A-Z) : 948 octets de woff2.
+   OFL 1.1, licence dans `src/fonts/OFL-DSEG.txt`, créditée en pied de page.
+   `font-display: swap` : si elle manque, le « H » reste lisible en JetBrains
+   Mono plutôt que de disparaître. */
+@font-face {
+  font-family: "DSEG7 Classic";
+  src: url(../fonts/dseg7-classic.woff2) format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+/* ★ Le même instrument, à quatorze segments — DSEG14 Classic.
+   Elle n'ajoute pas une quatrième VOIX : c'est le second afficheur du même
+   appareil de démonstration, et il règle ce que le sept segments ne pouvait
+   pas régler. Le sept segments ne sait pas dessiner un « H » capital : il
+   emprunte (K et X reprennent le H), ou il descend en bas de casse (b, d, n,
+   q, r, t, y). Le quatorze segments écrit les 26 lettres en capitales.
+   Et surtout : la table du moteur (`src/moteur/tables/seg14.js`) est DÉRIVÉE
+   de cette police-ci, contour par contour. Le glyphe que Le Registre montre et
+   les segments que la scène allume sont donc le même dessin — l'écart de
+   fidélité que le sept segments doit assumer sur 12 signes n'existe pas ici.
+   Sous-réglée aux 36 signes utiles (0-9, A-Z) : 1 304 octets de woff2.
+   OFL 1.1, licence dans `src/fonts/OFL-DSEG.txt`, créditée en pied de page. */
+@font-face {
+  font-family: "DSEG14 Classic";
+  src: url(../fonts/dseg14-classic.woff2) format("woff2");
+  font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
@@ -111,7 +157,6 @@ button { background: none; border: 0; cursor: pointer; }
    600 en titre contre 400 au corps — un cran de plus que les 500 d'avant, qui
    suffisaient tant qu'une didone marquait la différence à elle seule. */
 h1, h2, h3, .oracle, .voie__resultat, .saisie-citee { font-weight: 600; }
-.arrivee__nombre { font-weight: 700; }
 
 h1 { font-family: var(--oracle); font-size: var(--fs-2xl); font-weight: 600;
      line-height: var(--lh-affichage); letter-spacing: -.015em; overflow-wrap: anywhere; }
@@ -231,13 +276,19 @@ hr.filet-double {
 
 /* ─────────────────────────────── Squelette ───────────────────────────────── */
 
+/* La largeur de contenu est FLUIDE jusqu'à 72rem, où elle se fige (charte
+   §2.4, point de rupture « bureau » à 1100 px : au-delà, la page ne s'élargit
+   plus). Elle ne doit PAS être bridée à 34rem en chemin : c'est ce que faisait
+   la règle d'avant, et la démonstration s'en trouvait enfermée dans 544 px
+   entre 760 et 1100 px de fenêtre — sa colonne de scène tombait à 96 px, plus
+   étroite que sur un téléphone. Les pages qui veulent la colonne étroite la
+   demandent, elles, par `page--etroite`. */
 .page {
   width: 100%;
-  max-width: 34rem;
+  max-width: 72rem;
   margin: 0 auto;
   padding: 0 var(--e4) var(--e8);
 }
-@media (min-width: 1100px) { .page { max-width: 72rem; } }
 .page--etroite { max-width: 34rem; }
 
 .barre-haute {
@@ -538,9 +589,18 @@ svg.logo{display:block;width:100%;height:auto;color:var(--fg);
       d'autre — rien ne dépasse du fût du i, rien ne s'y devine. La
       pose écrite ici est celle où elles APPARAÎTRONT, à la fin de
       l'étape ③ : couchées DANS le fût, à leur taille définitive, le
-      bout de chacune posé là où le compas pivotera. */
-.lg-kbras{translate:-260px 0px;rotate:-46.47deg;opacity:0}
-.lg-kjambe{translate:-280px -31.58px;rotate:39.17deg;opacity:0}
+      bout de chacune posé là où le compas pivotera.
+      DEUX ÉLÉMENTS par barre, et ce n'est pas un caprice : le <g>
+      porte le TRAJET, le <path> qu'il contient porte la PRÉSENCE.
+      Une opacité animée promeut son élément en couche de composition,
+      et Firefox bâtit alors sa transformation SANS les propriétés
+      individuelles translate/rotate/scale : la barre serait peinte
+      dans le coin du viewBox pendant tout son dépliement. Le <path>
+      n'ayant aucune position à lui, il n'a rien à perdre, et le <g>
+      qui l'y met n'est jamais animé en opacité. */
+.lg-kbras{translate:-260px 0px;rotate:-46.47deg}
+.lg-kjambe{translate:-280px -31.58px;rotate:39.17deg}
+.lg-kbras-nait,.lg-kjambe-nait{opacity:0}
 
 .logo--revele .lg-e1{animation:cho-e1 var(--cho) forwards}
 .logo--revele .lg-orb{animation:cho-orb var(--cho) forwards}
@@ -548,6 +608,8 @@ svg.logo{display:block;width:100%;height:auto;color:var(--fg);
 .logo--revele .lg-kbras{animation:cho-kbras var(--cho) forwards}
 .logo--revele .lg-kjambe{animation:cho-kjambe var(--cho) forwards}
 .logo--revele .lg-rules{animation:cho-rules var(--cho) forwards}
+.logo--revele .lg-kbras-nait{animation:cho-kbras-nait var(--cho) forwards}
+.logo--revele .lg-kjambe-nait{animation:cho-kjambe-nait var(--cho) forwards}
 /* à la fermeture, les mêmes trajets à l'envers — mais dans l'ordre
    1-2-4-3, donc à d'autres instants : ce ne sont pas les mêmes
    @keyframes, jouées à rebours, ce sont d'autres @keyframes. */
@@ -557,6 +619,8 @@ svg.logo{display:block;width:100%;height:auto;color:var(--fg);
 .logo--retour .lg-kbras{animation:ret-kbras var(--cho) forwards}
 .logo--retour .lg-kjambe{animation:ret-kjambe var(--cho) forwards}
 .logo--retour .lg-rules{animation:ret-rules var(--cho) forwards}
+.logo--retour .lg-kbras-nait{animation:ret-kbras-nait var(--cho) forwards}
+.logo--retour .lg-kjambe-nait{animation:ret-kjambe-nait var(--cho) forwards}
 
 /* ① le point du i DESCEND à la fente qu'occupait le i et prend sa
       taille de e. Simultané au décalage du e final et à l'orbite :
@@ -585,21 +649,32 @@ svg.logo{display:block;width:100%;height:auto;color:var(--fg);
   79.29%{translate:0 155px;scale:1 0.6026;animation-timing-function:cubic-bezier(0.2,0.85,0.3,1)}
   85.71%,100%{translate:0 0;scale:1 1}
 }
-/* ④ et SEULEMENT LÀ, les deux barres. Elles APPARAISSENT couchées
-      dans le fût — le palier à 0 % les tient absentes et le pas
-      (`steps(1)`) les allume net, sans fondu —, puis chacune S'OUVRE
-      AUTOUR DE SON BOUT : celle du haut pivote par le haut, celle du
-      bas par le bas. Rotation et translation ensemble : c'est ce qui
-      garde leur pied sur le fût pendant tout le trajet. */
+/* ④ et SEULEMENT LÀ, les deux barres. Leur TRAJET : couchées dans le
+      fût, puis chacune S'OUVRE AUTOUR DE SON BOUT — celle du haut
+      pivote par le haut, celle du bas par le bas. Rotation et
+      translation ensemble : c'est ce qui garde leur pied sur le fût
+      pendant tout le trajet. */
 @keyframes cho-kbras{
-  0%{translate:-260px 0px;rotate:-46.47deg;opacity:0;animation-timing-function:steps(1)}
-  85.71%{translate:-260px 0px;rotate:-46.47deg;opacity:1;animation-timing-function:cubic-bezier(0.3,0.8,0.3,1)}
-  97.14%,100%{translate:0 0;rotate:0deg;opacity:1}
+  0%,85.71%{translate:-260px 0px;rotate:-46.47deg;animation-timing-function:cubic-bezier(0.3,0.8,0.3,1)}
+  97.14%,100%{translate:0 0;rotate:0deg}
 }
 @keyframes cho-kjambe{
-  0%{translate:-280px -31.58px;rotate:39.17deg;opacity:0;animation-timing-function:steps(1)}
-  87.14%{translate:-280px -31.58px;rotate:39.17deg;opacity:1;animation-timing-function:cubic-bezier(0.3,0.8,0.3,1)}
-  100%{translate:0 0;rotate:0deg;opacity:1}
+  0%,87.14%{translate:-280px -31.58px;rotate:39.17deg;animation-timing-function:cubic-bezier(0.3,0.8,0.3,1)}
+  100%{translate:0 0;rotate:0deg}
+}
+/* et la PRÉSENCE de chacune, sur son <path> — le seul endroit de tout
+   le logo où une opacité est animée pendant qu'une pièce se déplace.
+   Elle est SEULE sur son élément, et cet élément n'a pas de position
+   à perdre : c'est la chaîne au-dessus de lui qui l'y met. Le palier
+   à 0 % les tient absentes et le pas (`steps(1)`) les allume net,
+   sans fondu. */
+@keyframes cho-kbras-nait{
+  0%{opacity:0;animation-timing-function:steps(1)}
+  85.71%,100%{opacity:1}
+}
+@keyframes cho-kjambe-nait{
+  0%{opacity:0;animation-timing-function:steps(1)}
+  87.14%,100%{opacity:1}
 }
 /* et les quatre filets, qui constatent que les quatre mots sont là. */
 @keyframes cho-rules{
@@ -622,14 +697,20 @@ svg.logo{display:block;width:100%;height:auto;color:var(--fg);
   100%{translate:35px 155px;scale:1 0.6026}
 }
 @keyframes ret-kbras{
-  0%,60%{translate:0 0;rotate:0deg;opacity:1;animation-timing-function:cubic-bezier(0.7,0,0.7,0.2)}
-  71.43%{translate:-260px 0px;rotate:-46.47deg;opacity:1;animation-timing-function:steps(1,jump-start)}
-  100%{translate:-260px 0px;rotate:-46.47deg;opacity:0}
+  0%,60%{translate:0 0;rotate:0deg;animation-timing-function:cubic-bezier(0.7,0,0.7,0.2)}
+  71.43%,100%{translate:-260px 0px;rotate:-46.47deg}
 }
 @keyframes ret-kjambe{
-  0%,57.14%{translate:0 0;rotate:0deg;opacity:1;animation-timing-function:cubic-bezier(0.7,0,0.7,0.2)}
-  70%{translate:-280px -31.58px;rotate:39.17deg;opacity:1;animation-timing-function:steps(1,jump-start)}
-  100%{translate:-280px -31.58px;rotate:39.17deg;opacity:0}
+  0%,57.14%{translate:0 0;rotate:0deg;animation-timing-function:cubic-bezier(0.7,0,0.7,0.2)}
+  70%,100%{translate:-280px -31.58px;rotate:39.17deg}
+}
+@keyframes ret-kbras-nait{
+  0%,71.43%{opacity:1;animation-timing-function:steps(1,jump-start)}
+  100%{opacity:0}
+}
+@keyframes ret-kjambe-nait{
+  0%,70%{opacity:1;animation-timing-function:steps(1,jump-start)}
+  100%{opacity:0}
 }
 /* les filets s'effacent D'EMBLÉE : dès la première étape repliée, ils
    ne surmontent plus quatre mots. */
@@ -718,7 +799,11 @@ html[data-animation="reduite"] .lg-ghost path{transition-duration:.12s}
   animation: logo-lecteur-entree var(--t-court, .18s) ease-out both;
 }
 @media (min-width: 480px) { .logo-bloc__lecteur { max-width: 50rem; } }
-@keyframes logo-lecteur-entree { from { opacity: 0; translate: 0 -6px; } }
+/* `transform` et non `translate` : une opacité animée sur le même élément fait
+   perdre les propriétés individuelles au compositeur Firefox (voir
+   `src/visuel/tests/compositeur.test.js`). Ici l'élément est du HTML et le
+   risque est moindre qu'en SVG, mais une exception affaiblirait la règle. */
+@keyframes logo-lecteur-entree { from { opacity: 0; transform: translateY(-6px); } }
 @media (prefers-reduced-motion: reduce) {
   .logo-bloc__lecteur { animation-duration: 1ms; }
 }

@@ -9,9 +9,11 @@
  *
  * Le token d'arrivée démarre à `rotate: 180deg` (donc visuellement à l'envers,
  * mais invisible) et finit à `360deg` : les deux tournent ensemble, seul
- * l'opacité les distingue. `transform-box: fill-box; transform-origin: center`
- * est posé sur tous les nœuds — sans quoi la rotation se ferait autour du centre
- * du canevas entier (CONTRACTS §3.2 règle 4).
+ * l'opacité les distingue. Le demi-tour se fait autour de l'**ancre de mise en
+ * page** du jeton — l'origine de son repère local, celle que `layout.js`
+ * positionne et autour de laquelle le glyphe est dessiné (CONTRACTS §3.2
+ * règle 4). Sans cette origine explicite, la rotation se ferait autour du
+ * centre du canevas entier.
  */
 
 import { tokenSpec, espacementDe } from './helpers.js';

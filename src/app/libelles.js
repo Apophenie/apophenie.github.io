@@ -26,5 +26,21 @@ export const titreEtape = (etape, i) =>
 /** La légende de calcul d'une étape — `8 + 15 + 16 + 5 = 44`. Souvent absente. */
 export const legendeEtape = (etape) => localiser(etape && etape.caption);
 
+/**
+ * La FIGURE d'une étape — l'illustration que Le Registre dessine sous la
+ * légende (aujourd'hui : l'afficheur sept segments). Déjà dans la langue du
+ * scénario, comme le titre et la légende ; `null` la plupart du temps.
+ *
+ * Elle porte TOUJOURS un `texte`, son équivalent lisible : c'est lui qu'on
+ * annonce dans la région live, où il n'y a pas de dessin (CONTRACTS §6).
+ */
+export const figureEtape = (etape) => (etape && etape.figure) || null;
+
+/** L'équivalent textuel d'une figure, pour la région live et les replis. */
+export const texteFigure = (etape) => {
+  const f = figureEtape(etape);
+  return f && typeof f.texte === 'string' ? f.texte : '';
+};
+
 /** Le libellé de méthode d'un fragment de la page de résultats. */
 export const methodeFragment = (fragment) => localiser(fragment && fragment.methode);

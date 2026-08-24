@@ -19,11 +19,18 @@ import { CATALOGUE, PAR_CODE, etapes, appliquer } from './catalogue.js';
 import { LANGUES, LANGUE_DEFAUT, estBilingue, dire, bilingue, langueValide } from './i18n.js';
 import { depuisSaisie, tokens, num } from './etat.js';
 import { NOTE_AFNOR, TIRET_DU_SIX } from './tables/claviers.js';
-import { MENTION_SEG7, SEG7_APPROXIMATIONS } from './tables/seg7.js';
+import {
+  MENTION_SEG7, SEG7_APPROXIMATIONS, SEG7, ECARTS_POLICE_SEG7, segmentsDe,
+} from './tables/seg7.js';
+import { MENTION_SEG14, segments14De } from './tables/seg14.js';
+import { MOT_OPERANDES, natureOperandes } from './transformations/combinateurs.js';
 import { NOTE_SOURCAGE } from './tables/ecritures.js';
 
-/** Champs affichés à l'écran par l'interface (`catalogue.js → descriptif`). */
-const CHAMPS_AFFICHES = ['libelle', 'regle', 'note'];
+/** Champs affichés à l'écran par l'interface (`catalogue.js → descriptif`).
+ *  `gabarit` est le libellé d'ÉTAPE à trou des combinateurs (« On additionne
+ *  les %s ») : il s'affiche dans Le Registre, donc il porte ses deux langues
+ *  comme le reste (`transformations/combinateurs.js`). */
+const CHAMPS_AFFICHES = ['libelle', 'regle', 'note', 'gabarit'];
 
 /**
  * Les seuls couples légitimement identiques dans les deux langues : de la
@@ -33,7 +40,7 @@ const CHAMPS_AFFICHES = ['libelle', 'regle', 'note'];
 const NOTATIONS = new Set(['fj:regle', 'n2:regle', 'm1:regle', 'm2:regle', 'mb:regle', 'mc:regle']);
 
 test('★ toute chaîne affichable du catalogue porte ses deux langues', () => {
-  assert.equal(CATALOGUE.length, 89, 'le catalogue publié compte 89 opérateurs');
+  assert.equal(CATALOGUE.length, 91, 'le catalogue publié compte 91 opérateurs');
   for (const op of CATALOGUE) {
     assert.ok(estBilingue(op.libelle), `${op.code} (${op.id}) : « libelle » n’est pas bilingue`);
     assert.ok(estBilingue(op.regle), `${op.code} (${op.id}) : « regle » n’est pas bilingue`);
@@ -168,4 +175,106 @@ test('dire() : lecture tolérante, écriture stricte', () => {
   assert.equal(langueValide('en'), 'en');
   assert.equal(langueValide('zz'), 'fr');
   assert.equal(langueValide(undefined), 'fr');
+});
+
+test('★ « les chiffres » ou « les nombres » : le titre s’accorde aux opérandes', () => {
+  // Le mot décrit CE QUI EST À L'ÉCRAN, pas l'opérateur : les comptes de
+  // segments (3, 4, 4, 4) sont des chiffres, les rangs alphabétiques
+  // (8, 15, 16, 5) sont des nombres. Voir `combinateurs.js`.
+  assert.equal(natureOperandes([3, 4, 4, 4]), 'chiffre');
+  assert.equal(natureOperandes([8, 15, 16, 5]), 'nombre');
+  assert.equal(natureOperandes([1, 2, 10]), 'nombre', 'un seul opérande à deux signes suffit');
+  assert.equal(natureOperandes([-3, 4]), 'chiffre', 'le signe n’ajoute pas un chiffre');
+  assert.equal(natureOperandes([]), 'nombre', 'sans opérande, on n’affirme pas « chiffres »');
+  for (const nature of ['chiffre', 'nombre']) {
+    assert.ok(estBilingue(MOT_OPERANDES[nature]), `MOT_OPERANDES.${nature} n’est pas bilingue`);
+  }
+
+  const attendus = {
+    fr: { chiffres: 'On additionne les chiffres', nombres: 'On additionne les nombres' },
+    en: { chiffres: 'Add up the digits', nombres: 'Add up the numbers' },
+  };
+  const c1 = PAR_CODE.get('c1');
+  for (const langue of LANGUES) {
+    for (const [cle, valeurs] of [['chiffres', [3, 4, 4, 4]], ['nombres', [8, 15, 16, 5]]]) {
+      const entree = { type: 'NUMS', valeur: valeurs, traces: [[0, valeurs.length]], origines: null };
+      const apres = appliquer(c1, entree);
+      const ids = valeurs.map((_, i) => `t${i}`);
+      const steps = etapes(c1, entree, apres, { ids, cle: 'e0', langue });
+      assert.equal(steps[0].title, attendus[langue][cle], `c1/${langue}/${cle}`);
+    }
+  }
+});
+
+test('★ la figure sept segments du Registre : du texte, pas un dessin', () => {
+  // La scène est `aria-hidden` (CONTRACTS §6). Le Registre montre la lettre en
+  // POLICE sept segments : le DOM porte « H », donc rien à décrire à la main.
+  // Ce que le scénario transporte, ce n'est pas un rendu — c'est de quoi rendre.
+  const op = PAR_CODE.get('me');
+  const entree = tokens(['h', 'o', 'p', 'e'], [[[0, 1]], [[1, 2]], [[2, 3]], [[3, 4]]]);
+  const apres = appliquer(op, entree);
+  const ids = ['t0', 't1', 't2', 't3'];
+  for (const langue of LANGUES) {
+    const steps = etapes(op, entree, apres, { ids, cle: 'e0', langue });
+    assert.equal(steps.length, 4, 'un step par jeton');
+    steps.forEach((s, i) => {
+      const f = s.figure;
+      assert.ok(f, `${langue} : step ${i} sans figure`);
+      assert.equal(f.type, 'seg7');
+      assert.equal(f.glyphe, 'HOPE'[i], 'la figure montre la lettre elle-même');
+      assert.equal(f.valeur, apres.valeur[i], 'la figure annonce le nombre de l’arithmétique');
+      // `segments` est la trace de ce que la SCÈNE allume — c'est lui qui rend
+      // l'écart avec la police mesurable (voir `tables/seg7.js`).
+      assert.equal(f.segments, segmentsDe(f.glyphe));
+      assert.equal(f.texte, `${f.glyphe} \u2192 ${f.valeur}`);
+      // Un glyphe et un nombre : pas de prose, donc rien à traduire.
+      assert.ok(!/[a-z]/.test(f.texte), 'l’équivalent textuel ne contient pas de prose');
+    });
+  }
+});
+
+test('★ la figure quatorze segments : même contrat, et la police enfin d’accord', () => {
+  // Même exigence que ci-dessus — du texte, pas un dessin — mais ici la table
+  // est DÉRIVÉE de la police du Registre (`tables/seg14.js`) : le glyphe montré
+  // et les segments allumés sont le même dessin, il n'y a pas d'écart à
+  // consigner.
+  for (const code of ['mw', 'mx']) {
+    const op = PAR_CODE.get(code);
+    const entree = tokens(['h', 'o', 'p', 'e'], [[[0, 1]], [[1, 2]], [[2, 3]], [[3, 4]]]);
+    const apres = appliquer(op, entree);
+    const ids = ['t0', 't1', 't2', 't3'];
+    for (const langue of LANGUES) {
+      const steps = etapes(op, entree, apres, { ids, cle: 'e0', langue });
+      assert.equal(steps.length, 4, `${code} : un step par jeton`);
+      steps.forEach((s, i) => {
+        const f = s.figure;
+        assert.ok(f, `${code}/${langue} : step ${i} sans figure`);
+        assert.equal(f.type, 'seg14');
+        assert.equal(f.glyphe, 'HOPE'[i]);
+        assert.equal(f.valeur, apres.valeur[i]);
+        assert.deepEqual(f.segments, [...segments14De(f.glyphe)]);
+        assert.equal(f.fusion, code === 'mx');
+        assert.equal(f.texte, `${f.glyphe} \u2192 ${f.valeur}`);
+        assert.ok(!/[a-z]/.test(f.texte), 'l’équivalent textuel ne contient pas de prose');
+      });
+    }
+  }
+  // La mention du quatorze segments dit l'inverse de celle du sept : rien à
+  // excuser. Les deux langues la portent.
+  assert.ok(estBilingue(MENTION_SEG14));
+  assert.match(MENTION_SEG14.fr, /sans emprunt ni approximation/);
+  assert.match(MENTION_SEG14.en, /no approximation/);
+  assert.match(MENTION_SEG7.fr, /ne sont pas représentables/);
+});
+
+test('★ l’écart entre la police du Registre et la table de la scène est documenté', () => {
+  // On ne le corrige pas — la table fait foi, la police illustre — mais il est
+  // ÉCRIT, et un test empêche qu'il soit oublié en silence.
+  for (const [signe, segs] of Object.entries(ECARTS_POLICE_SEG7)) {
+    assert.ok(SEG7[signe] !== undefined, `${signe} : hors de la table SEG7`);
+    assert.notEqual(segs, SEG7[signe], `${signe} : plus d’écart, la ligne est à retirer`);
+    assert.match(segs, /^[a-g]+$/);
+  }
+  assert.equal(Object.keys(ECARTS_POLICE_SEG7).length, 12,
+    'DSEG7 Classic v0.46 diverge de la table sur 12 des 36 signes');
 });

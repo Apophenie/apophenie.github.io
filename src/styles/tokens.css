@@ -33,6 +33,11 @@
   --oracle:   "Jost", Futura, "Century Gothic", "Avenir Next", system-ui, sans-serif;
   --pedagogue:"Jost", Futura, "Century Gothic", "Avenir Next", system-ui, sans-serif;
   --machine:  "JetBrains Mono", ui-monospace, "DejaVu Sans Mono", "Courier New", monospace;
+  /* L'afficheur sept segments — un instrument de démonstration, pas une voix
+     de la charte (voir le @font-face de base.css et CONTRACTS §0.3). Le repli
+     est `--machine` : sans la police, « H » reste « H ». */
+  --afficheur: "DSEG7 Classic", "JetBrains Mono", ui-monospace, monospace;
+  --afficheur14: "DSEG14 Classic", "JetBrains Mono", ui-monospace, monospace;
 
   --fs-2xs: .75rem;
   --fs-xs:  .8125rem;

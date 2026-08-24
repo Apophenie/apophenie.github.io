@@ -58,6 +58,49 @@ export function espacementDe(ctx, srcId) {
   return out;
 }
 
+/**
+ * Exige un point utilisable avant de poser un nœud dessus.
+ *
+ * ★ La garde du compilateur (fin de `compile.js`) constate qu'un nœud n'a pas
+ * de position utilisable, mais elle le constate À LA FIN, quand elle ne sait
+ * plus quel geste l'a placé. Ici on le dit sur-le-champ, en nommant le geste :
+ * « la case résultat sous la pointe de l'accolade », « le chiffre 1 de
+ * l'éclatement de 15 ». C'est la différence entre un nœud fautif à chercher et
+ * un nœud fautif désigné.
+ *
+ * @param {object} ctx
+ * @param {{x:number,y:number}} point
+ * @param {string} quoi  ce qu'on pose, en toutes lettres
+ * @param {string} id    le nœud concerné
+ * @returns {{x:number,y:number}} le point, inchangé
+ */
+export function exigerPoint(ctx, point, quoi, id) {
+  if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) return point;
+  fail(`${ctx.where}${quoi} : la position calculée est inutilisable (${JSON.stringify(point)}). `
+    + `Le nœud « ${id} » se peindrait à l'origine, en haut à gauche de la scène, avec son texte et `
+    + 'sans rien pour le trahir. Vérifiez les métriques et les positions des sources de ce geste.', { id });
+  return point;
+}
+
+/**
+ * Le centre de la VUE, en coordonnées de scène.
+ *
+ * ★ Il ne coïncide avec le centre du `viewBox` que si la ligne ne défile pas.
+ * Depuis que la séquence tient toujours sur UNE ligne quitte à défiler
+ * (`defilement.js`), tout ce qui doit paraître « au milieu de l'écran » — un
+ * clavier, une réglette alphabétique, l'encart de comptage — doit être posé
+ * ici, et non à `layoutOpts.centerX` : ces objets vivent dans le groupe qui
+ * défile, comme les jetons, et c'est ce qui leur permet d'échanger des
+ * positions avec eux sans arithmétique de rattrapage.
+ *
+ * @param {object} ctx
+ * @returns {{x:number,y:number}}
+ */
+export function ancreVue(ctx) {
+  const p = (ctx && ctx.pan) || { x: 0, y: 0 };
+  return { x: ctx.layoutOpts.centerX - p.x, y: ctx.layoutOpts.centerY - p.y };
+}
+
 /** Résout `op.targets` (ou un autre champ) en liste d'ids vivants, non vide. */
 export function targetsOf(ctx, field = 'targets') {
   const raw = ctx.op[field];
@@ -193,7 +236,8 @@ export function accumulate(ctx, spec) {
     role: 'text', inFlow: false, ...espacement,
     base: { opacity: 0, fill: ctx.palette.phos },
   }, { where: ctx.where });
-  ctx.scene.place(to.id, ancre);
+  ctx.scene.place(to.id, exigerPoint(ctx, ancre,
+    `la case résultat de « ${to.text} », sous la pointe de l'accolade`, to.id));
 
   const appear = t0 + T * 0.24;
   ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: appear, dur: T * 0.12 });
@@ -212,8 +256,15 @@ export function accumulate(ctx, spec) {
     ctx.anim({ id, prop: 'scale', to: 0.65, at: a, dur: vol });
     ctx.anim({ id, prop: 'opacity', to: 0, at: a + vol * 0.6, dur: vol * 0.4 });
   });
+  // ★ Les signes partent AVANT l'envol, pas pendant.
+  //
+  // Effacés en même temps que les opérandes, ils laissaient lire « + 4 + 4 + 4 »
+  // pendant une demi-seconde : une somme dont le premier terme s'est envolé
+  // n'est plus une somme, c'est une faute d'écriture. Ils s'effacent donc
+  // pendant que les opérandes sont tous encore là, et le vol commence sur une
+  // ligne de nombres nus.
   for (const id of consume) {
-    ctx.anim({ id, prop: 'opacity', to: 0, at: debutVol, dur: T * 0.2 });
+    ctx.anim({ id, prop: 'opacity', to: 0, at: t0 + T * 0.2, dur: T * 0.08 });
   }
 
   // Le compteur suit exactement l'arrivée des opérandes : chaque atterrissage
@@ -230,7 +281,21 @@ export function accumulate(ctx, spec) {
   // --- 5. l'accolade se retire, le résultat remonte dans la ligne ----------
   const retrait = t0 + T * 0.74;
   if (acc) {
+    // ★ Le TRACÉ de l'accolade s'en va AU RYTHME DE SES SOURCES.
+    //
+    // Il tenait jusqu'au bout, à sa place de départ, alors que les opérandes
+    // s'étaient envolés un à un : on voyait « 15 −  ⌣_______⌣  − 3444.fr »,
+    // une accolade pleinement tracée sous un trou, à côté de la ligne au lieu
+    // d'être autour. Une accolade n'embrasse que ce qui est encore là : elle se
+    // défait donc exactement pendant le vol, et il ne reste sous la pointe que
+    // ce qui doit y rester — le symbole et le résultat.
+    //
+    // Le défaut ne se voyait pas en pause aux instants où le résultat paraît
+    // (l'accolade y est encore pleine) : il ne se lit qu'entre 30 % et 75 % de
+    // la somme, c'est-à-dire en lecture.
+    ctx.anim({ id: acc.id, prop: 'opacity', to: 0, at: debutVol, dur: Math.max(1, finVol - debutVol) });
     for (const id of acc.ids) {
+      if (id === acc.id) continue;
       ctx.anim({ id, prop: 'opacity', to: 0, at: retrait, dur: T * 0.14 });
     }
   }
@@ -336,6 +401,7 @@ export function tracerAccolade(ctx, ids, spec = {}) {
     data: { d, shape },
     base: { opacity: 1, strokeDashoffset: 100, stroke: ctx.palette.gold },
   }, { where: ctx.where });
+  exigerPoint(ctx, { x: box.cx, y: anchorY }, 'le tracé de l’accolade', id);
   ctx.place(id, { x: box.cx, y: anchorY, w: box.w });
   ctx.anim({
     id, prop: 'strokeDashoffset', from: 100, to: 0,
@@ -353,7 +419,8 @@ export function tracerAccolade(ctx, ids, spec = {}) {
       data: { scale: 0.86 },
       base: { opacity: 0, fill: ctx.palette.gold },
     }, { where: ctx.where });
-    ctx.scene.place(sid, { x: box.cx, y: symboleY });
+    ctx.scene.place(sid, exigerPoint(ctx, { x: box.cx, y: symboleY },
+      `le symbole d'opération « ${spec.symbol} », sous la pointe`, sid));
     ctx.anim({ id: sid, prop: 'opacity', to: 1, at: at + dur * 0.55, dur: dur * 0.35 });
     ctx.anim({ id: sid, prop: 'scale', values: [0.7, 1.1, 1], offsets: [0, 0.7, 1], at: at + dur * 0.55, dur: dur * 0.4, ease: EASE.pop });
     crees.push(sid);
@@ -370,21 +437,34 @@ export function tracerAccolade(ctx, ids, spec = {}) {
     }, { where: ctx.where });
     // Sans symbole — un découpage en sous-groupes, par exemple —, la légende
     // prend la place du symbole plutôt que de flotter un cran plus bas.
-    ctx.scene.place(lid, { x: box.cx, y: spec.symbol ? symboleY + fs * 0.56 : symboleY });
+    ctx.scene.place(lid, exigerPoint(ctx, { x: box.cx, y: spec.symbol ? symboleY + fs * 0.56 : symboleY },
+      'la légende de l’accolade', lid));
     ctx.anim({ id: lid, prop: 'opacity', to: 1, at: at + dur * 0.65, dur: dur * 0.35 });
     crees.push(lid);
   }
+
+  // Où va le résultat : sous la pointe, sous le symbole, sous la légende.
+  const resultat = { x: box.cx, y: symboleY + fs * (spec.label ? 1.34 : 0.92) };
+
+  // ★ Une accolade QUI PORTE UN SYMBOLE promet un résultat sous sa pointe.
+  //
+  // `accumulate` tient la promesse lui-même. Les autres combinateurs — compter,
+  // moyenner, mesurer un écart — la tenaient par un `substitute`, qui faisait
+  // naître la valeur **dans la ligne** : les bras embrassaient les sources, le
+  // symbole désignait le vide sous la pointe, et la valeur annoncée restait en
+  // haut, à gauche de l'axe de l'accolade. On publie donc l'ancre ; c'est
+  // `substitute` qui la lit et vient s'y poser (scene.poserAncre).
+  //
+  // Une accolade SANS symbole ne promet rien — `partition` découpe, elle ne
+  // calcule pas —, elle ne publie donc aucune ancre.
+  if (typeof spec.symbol === 'string' && spec.symbol) ctx.scene.poserAncre(ids, resultat);
 
   return {
     id,
     ids: crees,
     box,
     pointe: { x: box.cx, y: pointeY },
-    // Où va le résultat : sous la pointe, sous le symbole, sous la légende.
-    resultat: {
-      x: box.cx,
-      y: symboleY + fs * (spec.label ? 1.34 : 0.92),
-    },
+    resultat,
   };
 }
 

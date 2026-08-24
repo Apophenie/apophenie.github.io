@@ -18,7 +18,7 @@
  */
 
 export { createPlayer } from './player.js';
-export { compile } from './compile.js';
+export { compile, REPEAT_SPEED, stepSignatures, repeatOrigins } from './compile.js';
 export { validateScenario, assertPure } from './scenario.js';
 export { CompileError } from './errors.js';
 export { loadGlyphes, setGlyphes, getGlyphes, peekGlyphes, deriveGlyph } from './glyphes.js';

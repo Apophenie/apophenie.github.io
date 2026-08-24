@@ -9,7 +9,8 @@
  *
  * ## Gestes dédiés du vocabulaire fermé (CONTRACTS §3.1)
  *
- * - **`sevenSeg`** (`md`, `me`) et **`countStrokes`** (`mf`…`mk` — traits,
+ * - **`sevenSeg`** (`md`, `me`), **`fourteenSeg`** (`mw`, `mx`) et
+ *   **`countStrokes`** (`mf`…`mk` — traits,
  *   extrémités, boucles) partagent une seule grammaire (`src/visuel/primitives/
  *   encart.js`), et l'émission est la même : **un step par jeton**. La lettre
  *   monte dans un encart, y change de police (l'afficheur sept segments, ou son
@@ -48,6 +49,9 @@ import {
   segmentsDe, compteSegments, compteTraitsFusionnes, MENTION_SEG7, SEG7_APPROXIMATIONS,
 } from '../tables/seg7.js';
 import {
+  segments14De, compteSegments14, compteTraitsFusionnes14, MENTION_SEG14,
+} from '../tables/seg14.js';
+import {
   AZERTY, QWERTY, colonne, rangee, chiffreDeTouche, CHIFFRE_DE_TOUCHE, NOTE_AFNOR,
 } from '../tables/claviers.js';
 import { mesure as mesureGlyphe } from '../tables/derivees.js';
@@ -64,6 +68,68 @@ const estVoyelle = (c) => VOYELLES.includes(pli(c));
 const LIB_REDUIRE_CHAQUE = bilingue('On réduit chaque nombre à un chiffre', 'Reduce every number to a single digit');
 const LIB_ZEROS = bilingue('On retire les zéros', 'Drop the zeros');
 const REG_ZEROS = bilingue('Un zéro n’apporte rien à la somme', 'A zero brings nothing to the sum');
+
+// ───────────────────────────────────────────────────────────────────────────
+// La figure « sept segments » du Registre
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * ★ Le Registre est l'équivalent accessible OBLIGATOIRE (CONTRACTS §6) : la
+ * scène est `aria-hidden`, donc tout ce qui est montré doit s'y retrouver.
+ *
+ * Écrire « H → 3 » en typographie courante y perdait le sujet même de la
+ * méthode : la question n'est pas « combien de lignes dans un H de Jost\* »,
+ * c'est « combien de lignes dans le H d'une calculette ». Le Registre montre
+ * donc la lettre SUR L'AFFICHEUR, lui aussi — en police sept segments
+ * (`src/app/registre.js`, `--afficheur`), pas en dessin : un caractère reste
+ * un caractère, lisible par un lecteur d'écran, sélectionnable, copiable,
+ * agrandissable, sans équivalent textuel à écrire à la main.
+ *
+ * Le scénario reste du JSON pur (CONTRACTS §3, invariant 8) : il ne transporte
+ * pas de rendu, seulement DE QUOI rendre — le glyphe, les segments allumés que
+ * la scène va allumer, le compte, et `texte`, l'équivalent en une ligne pour
+ * la région live et pour tout repli sans DOM.
+ *
+ * `segments` n'est pas décoratif : c'est la trace de ce que la SCÈNE allume,
+ * conservée à côté du glyphe pour que les deux restent confrontables (voir la
+ * réserve de fidélité notée dans `tables/seg7.js`).
+ */
+function figureSeg7(glyphe, segments, fusionne, valeur) {
+  if (!segments) return null;
+  return {
+    type: 'seg7',
+    glyphe,
+    segments,
+    fusion: fusionne,
+    valeur,
+    texte: `${glyphe} \u2192 ${valeur}`,
+  };
+}
+
+/**
+ * La même figure, pour l'afficheur **quatorze** segments.
+ *
+ * Une différence de fond avec `figureSeg7`, et elle est heureuse : la table
+ * `SEG14` est DÉRIVÉE de DSEG14 Classic, la police même que Le Registre
+ * affiche (voir l'en-tête de `tables/seg14.js`). Le glyphe montré et les
+ * segments allumés par la scène sont donc le même dessin — il n'y a pas
+ * d'« écart de police » à consigner, et le lecteur qui recompte les segments
+ * du glyphe retombe sur le nombre annoncé juste à côté.
+ *
+ * `segments` voyage en TABLEAU : deux des quatorze noms de segments font deux
+ * caractères (`g1`, `g2`), une chaîne les rendrait ambigus.
+ */
+function figureSeg14(glyphe, segments, fusionne, valeur) {
+  if (!segments) return null;
+  return {
+    type: 'seg14',
+    glyphe,
+    segments: [...segments],
+    fusion: fusionne,
+    valeur,
+    texte: `${glyphe} \u2192 ${valeur}`,
+  };
+}
 
 /** Paliers d'une réduction théosophique : 199 → [19, 10, 1]. */
 function paliersReduction(depart, arrivee) {
@@ -122,8 +188,10 @@ function etapeMappeur(spec) {
       pairs: apres.valeur.map((n, i) => ({ target: ctx.ids[i], to: token(sortie[i], n, 'number') })),
     };
 
-    if (spec.geste === 'sevenSeg' || spec.geste === 'countStrokes') {
-      // ★ UN STEP PAR JETON. Les deux primitives montent la lettre dans un
+    const afficheur = spec.geste === 'sevenSeg' || spec.geste === 'fourteenSeg';
+    if (afficheur || spec.geste === 'countStrokes') {
+      // ★ UN STEP PAR JETON. Les trois primitives — sept segments, quatorze
+      // segments, tracé de crayon — montent la lettre dans un
       // encart, l'y changent de police (afficheur, ou tracé de crayon), posent
       // un compteur, allument un élément à la fois — et c'est le nombre du
       // compteur qui, à la fin, redescend remplacer la lettre. Montrer quatre
@@ -135,21 +203,36 @@ function etapeMappeur(spec) {
       // celui qu'annonce l'arithmétique. Il redérive le compte du tracé qu'il
       // dessine — les deux viennent de `tables/glyphes.js`, donc ce que le
       // spectateur voit est littéralement ce qui a été compté.
-      const montrer = (n, i) => (spec.geste === 'sevenSeg'
-        ? {
-          op: 'sevenSeg',
-          target: ctx.ids[i],
-          segments: segmentsDe(pliCar(i)) || '',
-          // L'afficheur 7 segments connaît aussi les CHIFFRES, la table
-          // vectorielle non (52 glyphes, les lettres). Un chiffre n'a donc pas
-          // de tracé de référence à montrer — et n'en a pas besoin : il est
-          // déjà la forme que l'afficheur va dessiner.
-          glyph: GLYPHES[pliCar(i)] ? pliCar(i) : '',
-          fusion: spec.mode === 'fusion',
-          count: n,
-          to: token(sortie[i], n, 'number'),
+      const montrer = (n, i) => {
+        const to = token(sortie[i], n, 'number');
+        if (spec.geste === 'fourteenSeg') {
+          return {
+            op: 'fourteenSeg',
+            target: ctx.ids[i],
+            // Un TABLEAU de noms : deux des quatorze segments s'écrivent sur
+            // deux caractères (`g1`, `g2`), une chaîne les rendrait ambigus.
+            segments: [...(segments14De(pliCar(i)) || [])],
+            fusion: spec.mode === 'fusion',
+            count: n,
+            to,
+          };
         }
-        : {
+        if (spec.geste === 'sevenSeg') {
+          return {
+            op: 'sevenSeg',
+            target: ctx.ids[i],
+            segments: segmentsDe(pliCar(i)) || '',
+            // L'afficheur 7 segments connaît aussi les CHIFFRES, la table
+            // vectorielle non (52 glyphes, les lettres). Un chiffre n'a donc pas
+            // de tracé de référence à montrer — et n'en a pas besoin : il est
+            // déjà la forme que l'afficheur va dessiner.
+            glyph: GLYPHES[pliCar(i)] ? pliCar(i) : '',
+            fusion: spec.mode === 'fusion',
+            count: n,
+            to,
+          };
+        }
+        return {
           op: 'countStrokes',
           target: ctx.ids[i],
           mode: spec.metrique,
@@ -157,15 +240,30 @@ function etapeMappeur(spec) {
           // c'est le glyphe COMPTÉ qui doit être le glyphe DESSINÉ.
           glyph: spec.casse === 'maj' ? pliCar(i) : pliCar(i).toLowerCase(),
           count: n,
-          to: token(sortie[i], n, 'number'),
-        });
-      return apres.valeur.map((n, i) => etape(
-        ctx,
-        dire(spec.libelle, ctx.langue),
-        `${dire(spec.regle, ctx.langue)} : ${carDe(i)} → ${n}`,
-        [montrer(n, i)],
-        { id: `s_${ctx.cle}_${i}` },
-      ));
+          to,
+        };
+      };
+      return apres.valeur.map((n, i) => {
+        // ★ Sur un afficheur, la lettre est MONTRÉE sur l'afficheur dans le
+        // Registre aussi, pas seulement dans la scène (`figureSeg7`,
+        // `figureSeg14`).
+        // La règle y devient la question posée — « combien faut-il de lignes
+        // droites pour former cette lettre ? » — et la réponse est la figure
+        // elle-même : l'afficheur, une flèche, le nombre.
+        let figure = null;
+        if (spec.geste === 'sevenSeg') {
+          figure = figureSeg7(pliCar(i), segmentsDe(pliCar(i)) || '', spec.mode === 'fusion', n);
+        } else if (spec.geste === 'fourteenSeg') {
+          figure = figureSeg14(pliCar(i), segments14De(pliCar(i)) || null, spec.mode === 'fusion', n);
+        }
+        return etape(
+          ctx,
+          dire(spec.libelle, ctx.langue),
+          figure ? dire(spec.regle, ctx.langue) : `${dire(spec.regle, ctx.langue)} : ${carDe(i)} → ${n}`,
+          [montrer(n, i)],
+          figure ? { id: `s_${ctx.cle}_${i}`, figure } : { id: `s_${ctx.cle}_${i}` },
+        );
+      });
     }
 
     if (spec.geste === 'alphabet') {
@@ -442,18 +540,28 @@ const MAPPEURS_LETTRE = [
   },
   {
     id: 'm.seg7', code: 'md',
-    libelle: bilingue('Segments allumés sur un afficheur', 'Segments lit on a display'),
-    regle: bilingue('Le nombre de segments d’un afficheur 7 segments',
-      'How many segments light up on a seven-segment display'),
+    libelle: bilingue('Lettre vers nombre de segments', 'Letter to number of segments'),
+    regle: bilingue('Sur afficheur 7 segments (calculette par exemple), combien faut-il '
+      + 'allumer de segments pour former cette lettre ?',
+      'On a seven-segment display (a pocket calculator, say), how many segments have to '
+      + 'light up to form this letter?'),
     notoriete: 0.55,
     note: MENTION_SEG7, geste: 'sevenSeg', mode: 'segments',
     fn: (c) => compteSegments(pli(c)),
   },
   {
     id: 'm.seg7Fusion', code: 'me',
-    libelle: bilingue('Traits continus de l’afficheur', 'Continuous strokes on the display'),
-    regle: bilingue('On fusionne les segments alignés qui se touchent, puis on compte les traits',
-      'Merge the aligned segments that touch, then count the strokes that remain'),
+    // ★ « TRAITS », pas « lignes ». Le mot « ligne » est RÉSERVÉ à un comptage
+    // distinct, à venir : celui des seules HORIZONTALES de l'afficheur — les
+    // segments a, d et g, trois horizontales disjointes (voir
+    // `tables/seg7.js`). Employer « ligne » ici ferait se confondre les deux
+    // méthodes le jour où la seconde arrivera. La légende, elle, garde
+    // « lignes droites » : elle décrit le geste du dessin, pas l'unité comptée.
+    libelle: bilingue('Lettre vers nombre de traits', 'Letter to number of strokes'),
+    regle: bilingue('Sur afficheur 7 segments (calculette par exemple), combien faut-il '
+      + 'de lignes droites pour former cette lettre ?',
+      'On a seven-segment display (a pocket calculator, say), how many straight lines does '
+      + 'it take to form this letter?'),
     notoriete: 0.50, note: MENTION_SEG7, geste: 'sevenSeg', mode: 'fusion',
     fn: (c) => compteTraitsFusionnes(pli(c)),
   },
@@ -697,6 +805,62 @@ const AUTRES_MAPPEURS = [
       geste: 'keyboard', disposition: 'azerty', mesureClavier: 'touche',
     }),
   }),
+  // ★ L'afficheur QUATORZE segments — deux méthodes de plus, et deux codes
+  // neufs. Le registre est append-only (CONTRACTS §4.1) : `mv` était le dernier
+  // alloué, ceux-ci prennent `mw` et `mx`. Rien n'est recyclé, `md` et `me`
+  // gardent leur comportement mot pour mot.
+  //
+  // Ce que le quatorze segments apporte au CALCUL — c'est la question posée :
+  // sept lettres y valent 6 segments (`D E G H N O P`) contre deux en sept
+  // segments (`A` et `O`), si bien que `HOP` s'y écrit littéralement 6·6·6 ;
+  // et la borne des traits fusionnés passe de 5 à 10, ce qui ouvre des sommes
+  // que le sept segments ne savait pas produire.
+  def({
+    id: 'm.seg14', code: 'mw', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    libelle: bilingue('Lettre vers nombre de segments, en 14 segments',
+      'Letter to number of segments, on a fourteen-segment display'),
+    regle: bilingue('Sur afficheur 14 segments (celui des autoradios et des tableaux '
+      + 'd’affichage), combien faut-il allumer de segments pour former cette lettre ?',
+      'On a fourteen-segment display (the one in car radios and station boards), how many '
+      + 'segments have to light up to form this letter?'),
+    notoriete: 0.40,
+    note: MENTION_SEG14,
+    apply: parLettre((c) => compteSegments14(pli(c))),
+    steps: etapeMappeur({
+      libelle: bilingue('Lettre vers nombre de segments, en 14 segments',
+        'Letter to number of segments, on a fourteen-segment display'),
+      regle: bilingue('Sur afficheur 14 segments (celui des autoradios et des tableaux '
+        + 'd’affichage), combien faut-il allumer de segments pour former cette lettre ?',
+        'On a fourteen-segment display (the one in car radios and station boards), how many '
+        + 'segments have to light up to form this letter?'),
+      geste: 'fourteenSeg', mode: 'segments',
+    }),
+  }),
+  def({
+    id: 'm.seg14Fusion', code: 'mx', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    // ★ « TRAITS », pas « lignes » — même réserve qu'en sept segments (`me`) :
+    // le mot « ligne » reste réservé au comptage des seules HORIZONTALES.
+    // Le quatorze segments en compte trois (`a`, `d`, et la médiane `g1`+`g2`
+    // qui n'en fait qu'une), ce qui rendrait la confusion d'autant plus facile.
+    libelle: bilingue('Lettre vers nombre de traits, en 14 segments',
+      'Letter to number of strokes, on a fourteen-segment display'),
+    regle: bilingue('Sur afficheur 14 segments, combien faut-il de lignes droites '
+      + 'continues pour former cette lettre ?',
+      'On a fourteen-segment display, how many unbroken straight lines does it take to '
+      + 'form this letter?'),
+    notoriete: 0.35,
+    note: MENTION_SEG14,
+    apply: parLettre((c) => compteTraitsFusionnes14(pli(c))),
+    steps: etapeMappeur({
+      libelle: bilingue('Lettre vers nombre de traits, en 14 segments',
+        'Letter to number of strokes, on a fourteen-segment display'),
+      regle: bilingue('Sur afficheur 14 segments, combien faut-il de lignes droites '
+        + 'continues pour former cette lettre ?',
+        'On a fourteen-segment display, how many unbroken straight lines does it take to '
+        + 'form this letter?'),
+      geste: 'fourteenSeg', mode: 'fusion',
+    }),
+  }),
 ];
 
 /** Les dix caractères que « le tiret du 6 » sait convertir — exposé pour l'UI. */
@@ -704,6 +868,9 @@ export const TOUCHES_CHIFFREES = Object.freeze(Object.keys(CHIFFRE_DE_TOUCHE));
 
 /** Approximations 7 segments assumées — exposé pour l'UI (CONTRACTS §0.4). */
 export { SEG7_APPROXIMATIONS };
+
+/** Le quatorze segments n'en a aucune à assumer — il le dit lui-même. */
+export { MENTION_SEG14 };
 
 export const MESURES_STR = Object.freeze(MESURES);
 export const MAPPEURS = Object.freeze([...MAPPEURS_LETTRE, ...AUTRES_MAPPEURS]);

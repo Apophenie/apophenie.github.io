@@ -98,6 +98,12 @@ const VECTEURS = [
   ['mu', N([8, 0, 15]), [8, 15]],
   // ★ « le tiret du 6 » : les deux séparateurs de hope-hope-hope valent 6 et 6.
   ['mv', T(['-', '-']), [6, 6]],
+  // ★ Quatorze segments. `HOPE` y vaut 6·6·6·6 — sept lettres valent 6 segments
+  // (`D E G H N O P`) contre deux en sept segments. Les traits fusionnés, eux,
+  // retombent sur 3·4·4·4, le vecteur même de la méthode 5 du README : deux
+  // afficheurs, deux dessins, un seul compte.
+  ['mw', T(HOPE), [6, 6, 6, 6]],
+  ['mx', T(HOPE), [3, 4, 4, 4]],
   ['c1', N([8, 15, 16, 5]), 44],
   ['c2', N([8, 15, 16, 5]), -28],
   ['c3', N([8, 15, 16, 5]), 9600],
@@ -135,6 +141,7 @@ const VECTEURS = [
 const PRIMITIVE_ATTENDUE = Object.freeze({
   m1: 'alphabet', m2: 'alphabet',
   md: 'sevenSeg', me: 'sevenSeg',
+  mw: 'fourteenSeg', mx: 'fourteenSeg',
   mf: 'countStrokes', mg: 'countStrokes', mh: 'countStrokes',
   mi: 'countStrokes', mj: 'countStrokes', mk: 'countStrokes',
   ml: 'keyboard', mm: 'keyboard', mn: 'keyboard', mo: 'keyboard',
@@ -142,14 +149,14 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
 });
 
 /**
- * Le vocabulaire fermé des ops — CONTRACTS §3.1, dix-neuf primitives, pas une
- * de plus. Le socle de dix-sept, plus `partition` (découper en sous-groupes)
- * et `alphabet` (la réglette numérotée), ajoutées selon la clause d'extension
- * du contrat.
+ * Le vocabulaire fermé des ops — CONTRACTS §3.1, vingt primitives, pas une
+ * de plus. Le socle de dix-sept, plus `partition` (découper en sous-groupes),
+ * `alphabet` (la réglette numérotée) et `fourteenSeg` (l'afficheur quatorze
+ * segments), ajoutées selon la clause d'extension du contrat.
  */
 const OPS_AUTORISEES = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
-  'sum', 'reduce', 'flip180', 'sevenSeg', 'countStrokes', 'keyboard',
+  'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
   'annotate', 'pulse', 'reveal', 'wait', 'partition', 'alphabet',
 ]);
 

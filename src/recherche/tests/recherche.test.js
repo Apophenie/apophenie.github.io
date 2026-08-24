@@ -425,13 +425,20 @@ test('budget — le pipeline complet tient sous la seconde', () => {
     + 'exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat Duis aute',
   ];
   for (const s of cas) {
+    // On mesure le temps CPU, pas le temps mural. La seconde du contrat
+    // (research §2.6) est une exigence sur le TRAVAIL du moteur ; le temps
+    // mural, lui, dépend de la charge de la machine — et `bun run test` lance
+    // les cinq suites en parallèle, donc ce test créait lui-même la contention
+    // qui le faisait échouer. Un test qui ne passe que sur une machine au repos
+    // ne prouve rien et finit par être ignoré.
+    const u0 = process.cpuUsage();
     const t0 = performance.now();
     const r = m.resoudre(s);
-    const ms = performance.now() - t0;
-    // La seconde vient du contrat (research §2.6) et protège la frappe en
-    // direct : elle n'est pas négociable, c'est au moteur de tenir dedans.
-    assert.ok(ms < 1000, `« ${s.slice(0, 30)} » : ${ms.toFixed(0)} ms`);
-    console.log(`    ${ms.toFixed(1).padStart(7)} ms  ${String(r.approches.length).padStart(2)} approches  ${JSON.stringify(s.slice(0, 40))}`);
+    const mural = performance.now() - t0;
+    const u = process.cpuUsage(u0);
+    const ms = (u.user + u.system) / 1000;
+    assert.ok(ms < 1000, `« ${s.slice(0, 30)} » : ${ms.toFixed(0)} ms CPU (${mural.toFixed(0)} ms mural)`);
+    console.log(`    ${ms.toFixed(1).padStart(7)} ms CPU  ${String(r.approches.length).padStart(2)} approches  ${JSON.stringify(s.slice(0, 40))}`);
   }
 });
 

@@ -1,6 +1,6 @@
 /**
- * Assets vectoriels appartenant au moteur visuel : afficheur 7 segments et
- * clavier (quatre rangées, AZERTY ou QWERTY).
+ * Assets vectoriels appartenant au moteur visuel : afficheurs 7 et 14 segments,
+ * clavier (quatre rangées, AZERTY ou QWERTY), réglette alphabétique.
  *
  * Ce ne sont **pas** des tables arithmétiques : la valeur (quels segments sont
  * allumés, quelle touche porte le `-`, quelle colonne porte le `p`) vient
@@ -78,6 +78,84 @@ export function fusedStrokes(segments) {
   for (const name of ['a', 'd', 'g']) if (on.has(name)) strokes.push(name);
   if (on.has('b') || on.has('c')) strokes.push('bc');
   if (on.has('e') || on.has('f')) strokes.push('ef');
+  return strokes;
+}
+
+// ---------------------------------------------------------------------------
+// Afficheur 14 segments
+// ---------------------------------------------------------------------------
+
+/**
+ * Géométrie des 14 segments (nommage standard `a b c d e f g1 g2 h i j k l m`,
+ * cf. `src/moteur/tables/seg14.js`). Même cadre extérieur que le sept segments
+ * — les deux afficheurs ont exactement la même taille à l'écran.
+ *
+ * ★ **Ce dessin porte la règle de fusion.** Les segments colinéaires et
+ * adjacents se touchent EXACTEMENT, si bien qu'un trait fusionné se voit comme
+ * une ligne continue : `e`+`f` et `b`+`c` (les verticales de côté), `g1`+`g2`
+ * (la médiane, scindée par le moyeu), `i`+`l` (la verticale centrale).
+ *
+ * Les quatre diagonales, elles, visent les **flancs** de la verticale centrale
+ * (`SEG14_HX`), jamais son axe : `h` et `k` convergent à gauche du moyeu, `j`
+ * et `m` à droite. `h` et `m` sont donc parallèles et DÉCALÉES — deux traits,
+ * jamais un. C'est la raison géométrique pour laquelle les diagonales ne
+ * fusionnent avec rien, et `tests/primitives.test.js` la vérifie sur les
+ * coordonnées plutôt que sur la parole.
+ */
+const S14_HX = 24;   // demi-largeur du moyeu : où visent les diagonales
+const S14_DX = 53;   // course horizontale d'une diagonale
+const S14_DY = 196;  // course verticale d'une diagonale
+const S14_HL = 200 - S14_HX; // flanc gauche du moyeu
+const S14_HR = 200 + S14_HX; // flanc droit
+const S14_HAUT = SEG_M + S14_DY;  // sommet des segments intérieurs
+const S14_BAS = SEG_M - S14_DY;   // et leur pied
+
+export const SEGMENTS14 = Object.freeze({
+  a: { d: `M ${SEG_L} ${SEG_T} L ${SEG_R} ${SEG_T}`, stroke: 'a' },
+  b: { d: `M ${SEG_R} ${SEG_T} L ${SEG_R} ${SEG_M}`, stroke: 'bc' },
+  c: { d: `M ${SEG_R} ${SEG_M} L ${SEG_R} ${SEG_B}`, stroke: 'bc' },
+  d: { d: `M ${SEG_L} ${SEG_B} L ${SEG_R} ${SEG_B}`, stroke: 'd' },
+  e: { d: `M ${SEG_L} ${SEG_M} L ${SEG_L} ${SEG_B}`, stroke: 'ef' },
+  f: { d: `M ${SEG_L} ${SEG_T} L ${SEG_L} ${SEG_M}`, stroke: 'ef' },
+  g1: { d: `M ${SEG_L} ${SEG_M} L 200 ${SEG_M}`, stroke: 'g' },
+  g2: { d: `M 200 ${SEG_M} L ${SEG_R} ${SEG_M}`, stroke: 'g' },
+  h: { d: `M ${S14_HL - S14_DX} ${S14_HAUT} L ${S14_HL} ${SEG_M}`, stroke: 'h' },
+  i: { d: `M 200 ${S14_HAUT} L 200 ${SEG_M}`, stroke: 'il' },
+  j: { d: `M ${S14_HR + S14_DX} ${S14_HAUT} L ${S14_HR} ${SEG_M}`, stroke: 'j' },
+  k: { d: `M ${S14_HL - S14_DX} ${S14_BAS} L ${S14_HL} ${SEG_M}`, stroke: 'k' },
+  l: { d: `M 200 ${S14_BAS} L 200 ${SEG_M}`, stroke: 'il' },
+  m: { d: `M ${S14_HR + S14_DX} ${S14_BAS} L ${S14_HR} ${SEG_M}`, stroke: 'm' },
+});
+
+export const SEGMENT14_ORDER = Object.freeze(
+  ['a', 'b', 'c', 'd', 'e', 'f', 'g1', 'g2', 'h', 'i', 'j', 'k', 'l', 'm'],
+);
+
+/**
+ * Épaisseur de trait de l'afficheur 14 segments, en unités du repère glyphe.
+ * Plus fine que celle du sept segments (56) : quatorze segments dans le même
+ * cadre, dont quatre diagonales qui se croisent près du moyeu — au trait épais,
+ * le dessin se referme sur lui-même. 34 reprend la proportion de DSEG14
+ * Classic (≈ 15 % de la largeur de l'afficheur).
+ */
+export const SEG14_STROKE = 34;
+
+/**
+ * Traits continus obtenus par fusion des segments allumés (borne : 10).
+ * ★ MIROIR de `traitsFusionnes14` (`src/moteur/tables/seg14.js`) — le moteur
+ * visuel n'importe pas les tables arithmétiques, il redessine ce qu'on lui
+ * demande de montrer, et le contrôle croisé `count` de la primitive refuse
+ * d'allumer un nombre de traits différent de celui qu'annonce l'arithmétique.
+ */
+export function fusedStrokes14(segments) {
+  const on = new Set(segments);
+  const strokes = [];
+  for (const name of ['a', 'd']) if (on.has(name)) strokes.push(name);
+  if (on.has('g1') || on.has('g2')) strokes.push('g');
+  if (on.has('b') || on.has('c')) strokes.push('bc');
+  if (on.has('e') || on.has('f')) strokes.push('ef');
+  if (on.has('i') || on.has('l')) strokes.push('il');
+  for (const name of ['h', 'j', 'k', 'm']) if (on.has(name)) strokes.push(name);
   return strokes;
 }
 

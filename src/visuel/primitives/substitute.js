@@ -15,9 +15,24 @@
  *     Les tokens d'arrivée naissent **sur** les glyphes du token de départ
  *     quand ils le reconstituent, sinon tous à sa place ; le layout les écarte
  *     ensuite. Le raccord est invisible.
+ *
+ * ## ★ Sous l'accolade, quand il y en a une
+ *
+ * Un dénombrement, une moyenne, un écart se jouent en trois gestes enchaînés :
+ * `group` accole les sources et écrit ce qu'on fait, `drop` les ramasse,
+ * `substitute` pose la valeur. Les deux premiers gestes composent — les bras
+ * embrassent, la pointe et le symbole désignent le dessous —, mais le
+ * troisième faisait naître la valeur **dans la ligne** : au-dessus de
+ * l'accolade, et à gauche de son axe dès que le groupe n'ouvrait pas la ligne.
+ * L'accolade promettait un résultat sous sa pointe et rien n'y venait jamais.
+ *
+ * Quand la source est embrassée par une accolade qui porte un symbole
+ * (`scene.ancreDe`), la valeur naît donc **sous la pointe**, s'y montre, puis
+ * remonte prendre la place dans la ligne — exactement la composition de `sum`
+ * (`helpers.accumulate`), dont c'est le même contrat (CONTRACTS §3.1).
  */
 
-import { tokenSpec, espacementDe } from './helpers.js';
+import { tokenSpec, espacementDe, exigerPoint } from './helpers.js';
 import { EASE } from '../constants.js';
 import { charCenter } from '../layout.js';
 import { fail } from '../errors.js';
@@ -37,6 +52,20 @@ export function plan(ctx) {
     return { src, tos: list.map((t, k) => tokenSpec(ctx, t, `pairs[${i}].to${list.length > 1 ? `[${k}]` : ''}`)) };
   });
 
+  // 0. l'accolade a-t-elle promis un résultat sous sa pointe ? Et où faudra-t-il
+  //    réinsérer la valeur, une fois la source consommée ? On note le voisin de
+  //    gauche SURVIVANT — un index deviendrait faux dès la première suppression.
+  const sources = new Set(jobs.map((j) => j.src.id));
+  for (const j of jobs) {
+    j.ancre = j.tos.length === 1 ? ctx.scene.ancreDe(j.src.id) : null;
+    j.gauche = null;
+    for (let i = ctx.scene.flowIndex(j.src.id) - 1; i >= 0; i--) {
+      const id = ctx.scene.flow[i];
+      if (!sources.has(id)) { j.gauche = id; break; }
+    }
+  }
+  const sousAccolade = jobs.some((j) => j.ancre);
+
   // 1. mutation du modèle : les nouveaux tokens prennent la place de l'ancien.
   for (const j of jobs) {
     const idx = ctx.scene.flowIndex(j.src.id);
@@ -46,26 +75,34 @@ export function plan(ctx) {
     j.tos.forEach((to, k) => {
       ctx.scene.create({
         id: to.id, text: to.text, kind: to.kind, group: to.group ?? j.src.group,
-        role: 'text', inFlow: true, insertAt: idx < 0 ? undefined : idx + 1 + k,
+        // Sous une accolade, la valeur vit d'abord À CÔTÉ du flux : la ligne se
+        // referme sans elle, puis elle y entre (temps 4), comme le résultat
+        // d'une somme.
+        role: 'text', inFlow: !j.ancre, insertAt: idx < 0 ? undefined : idx + 1 + k,
         ...(k === 0 ? espacement : {}),
         base: { opacity: 0, scale: 1.15, fill: ctx.palette.phos },
       }, { where: ctx.where });
-      if (j.tos.length > 1) {
+      if (j.ancre) {
+        ctx.scene.place(to.id, exigerPoint(ctx, j.ancre,
+          `la valeur « ${to.text} », sous la pointe de l'accolade`, to.id));
+      } else if (j.tos.length > 1) {
         // Naissance pile sur les glyphes d'origine (éclatement) ou au même
         // point (résonance) : dans les deux cas, le reflow fait l'écartement.
         const p = ctx.scene.pos(j.src.id);
         const n = [...to.text].length;
-        ctx.scene.place(to.id, eclatement
+        ctx.scene.place(to.id, exigerPoint(ctx, eclatement
           ? { x: charCenter(p, offset + (n - 1) / 2, ctx.metrics).x, y: p.y }
-          : { x: p.x, y: p.y });
+          : { x: p.x, y: p.y }, `le jeton « ${to.text} » né sur « ${j.src.text} »`, to.id));
         offset += n;
       }
     });
     ctx.scene.kill(j.src.id, ctx.where);
   }
 
-  // 2. FLIP des voisins vers le layout d'arrivée.
-  ctx.reflow({ at: 0, dur: ctx.dur, ease: EASE.move });
+  // 2. FLIP des voisins vers le layout d'arrivée. Sous une accolade, ce premier
+  //    reflow ne prend que la moitié du temps : la seconde est pour la remontée.
+  const fermeture = sousAccolade ? ctx.dur * 0.44 : ctx.dur;
+  ctx.reflow({ at: 0, dur: fermeture, ease: EASE.move });
 
   // 3. crossfade, décalé token par token.
   let rang = 0;
@@ -76,12 +113,25 @@ export function plan(ctx) {
     const halo = `@halo:${j.src.id}`;
     if (ctx.scene.has(halo)) ctx.anim({ id: halo, prop: 'opacity', to: 0, at, dur: ctx.dur * 0.4 });
     j.tos.forEach((to, k) => {
-      const a = at + (j.tos.length > 1 ? k * ctx.stagger : 0) + ctx.dur * 0.3;
-      ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: a, dur: ctx.dur * 0.6 });
-      ctx.anim({ id: to.id, prop: 'scale', to: 1, at: a, dur: ctx.dur * 0.6, ease: EASE.pop });
+      // Sous l'accolade, la valeur paraît TÔT et se laisse lire là où le
+      // symbole la désigne ; elle ne remonte qu'ensuite.
+      const a = j.ancre ? at + ctx.dur * 0.14 : at + (j.tos.length > 1 ? k * ctx.stagger : 0) + ctx.dur * 0.3;
+      const d = j.ancre ? ctx.dur * 0.26 : ctx.dur * 0.6;
+      ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: a, dur: d });
+      ctx.anim({ id: to.id, prop: 'scale', to: 1, at: a, dur: d, ease: EASE.pop });
     });
     rang++;
   }
+
+  // 4. la valeur remonte prendre la place dans la ligne — c'est ce geste qui
+  //    dit que le calcul est refermé (le même que le temps 5 de `accumulate`).
+  if (!sousAccolade) return;
+  for (const j of jobs) {
+    if (!j.ancre) continue;
+    const index = j.gauche ? ctx.scene.flowIndex(j.gauche) + 1 : 0;
+    ctx.scene.enterFlow(j.tos[0].id, index, ctx.where);
+  }
+  ctx.reflow({ at: ctx.dur * 0.56, dur: ctx.dur * 0.44, ease: EASE.move });
 }
 
 /** Accepte `target: 'id'` ou `targets: ['id']` (une seule source par paire). */

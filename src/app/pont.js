@@ -111,6 +111,7 @@ export function preparer() {
     if (ok(vis) && typeof vis.createPlayer === 'function') {
       M.createPlayer = vis.createPlayer;
       M.prepare = typeof vis.prepare === 'function' ? vis.prepare : async () => {};
+      M.REPEAT_SPEED = typeof vis.REPEAT_SPEED === 'number' ? vis.REPEAT_SPEED : 5;
       etat.visuel = 'branché';
     } else {
       etat.visuel = 'absent';
@@ -231,6 +232,12 @@ export async function preparerVisuel() {
  * L'UI est un pur reflet du lecteur : elle n'a aucune logique d'animation.
  * @returns {{lecteur:Object, source:'moteur'|'secours'}}
  */
+/** Facteur d'accélération des étapes qui redisent une étape déjà jouée. Le
+ *  lecteur le reçoit dans ses options (`repeatSpeed`) et le repasse à la
+ *  compilation : aucun état partagé entre le lecteur du logo et celui de la
+ *  démonstration. */
+export const facteurRepetitions = () => M.REPEAT_SPEED || 5;
+
 export function creerLecteur(racineSvg, scenario, options) {
   if (M.createPlayer && racineSvg) {
     try {
