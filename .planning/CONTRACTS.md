@@ -830,6 +830,19 @@ ici**, puis l'émettre.
 > automatique reste donc interdit (`wrap` : faux) ; seule s'applique la coupure
 > **explicite** posée par la primitive (`layoutOpts.coupuresExplicites`).
 >
+> ★ **Des triptyques DÉJÀ COURONNÉS vont droit à leur place.** Rassembler puis
+> découper sert à rendre visible une structure qui ne l'est pas : quinze 6
+> alignés ne se lisent pas comme cinq séries tant que rien ne les sépare. Mais
+> quand chaque série porte ses cornes (`horns`), le découpage est sous les yeux
+> depuis longtemps, et le rejouer défait puis refait ce que le spectateur a déjà
+> vu se faire. Un seul trajet les mène alors de là où ils sont à leur place
+> finale, séparations et rangs compris. Mesuré sur « Donald Trump » : trois
+> temps de trajet deviennent **un**, et le verdict passe de 4,9 s à 2,9 s.
+> Le critère est **observé** — on demande à la scène si chaque série porte un
+> décor de cornes, sur l'un quelconque de ses trois chiffres —, jamais déduit du
+> nombre de chiffres : un triptyque contigu mais **nu** n'a jamais été montré
+> comme tel, et repasse par les trois temps.
+>
 > ★ **On ne découpe pas ce qui n'est pas fait de séries entières.** Un verdict
 > de quatre chiffres existe (les bancs d'essai en ont un) : y ouvrir un vide
 > après le troisième affirmerait un « 666 + 6 » que personne n'a démontré. Et un
@@ -1037,6 +1050,93 @@ ici**, puis l'émettre.
 > `0.1:t1+mw+mz,2.1:fl+t1+mw+mz`) : 22 étapes deviennent **23** — un
 > couronnement à la 6ᵉ (au lieu de la 9ᵉ), un second à la 19ᵉ (au lieu de la
 > 21ᵉ), un effacement unique à la 22ᵉ, le verdict à la 23ᵉ.
+
+> *Amendement — les cornes sont CALÉES SUR LE GLYPHE, une par 6, et les trois
+> chiffres changent de camp avec elles.*
+>
+> **La demande de l'auteur, mot pour mot.** « Peux-tu les écarter un chouilla
+> davantage, pour qu'elles soient et restent alignées avec la barre haute des
+> 6 : que le côté droit de la corne droite soit dans le prolongement du côté
+> droit de la barre du 6 de droite, et que la pointe droite de la corne de
+> gauche arrive sur la pointe en haut à droite de la barre du 6 de gauche. » Et,
+> séparément : « j'aimerais que tu colores les 6 associés aux cornes au moment
+> où tu leur ajoutes les cornes ». La silhouette, elle, ne bouge pas — elle est
+> « visuellement fantastique » et n'était pas en cause.
+>
+> ★ **La géométrie du chiffre est DÉRIVÉE, pas transcrite** — §0.3, règle
+> structurelle, appliquée cette fois à la police de la SCÈNE. Le « 6 » de
+> JetBrains Mono porte sa barre haute en trois segments DROITS ; l'abscisse de
+> son sommet droit (0,413 em depuis l'origine du glyphe) et la pente de son
+> flanc (0,623494, en montant) sont relevées sur le contour par
+> `src/gfx/jetbrains-six.py`, commitées dans `visuel/assets.js` entre deux
+> balises repères (`SIX_BARRE`) et **vérifiées en CI** par le même
+> `bun run segments:check` que les afficheurs. Le script refuse d'imprimer quoi
+> que ce soit si le sommet de la barre n'est plus à la hauteur de capitale, si
+> la chasse n'est plus `ADVANCE_RATIO`, ou si l'instance par défaut n'est plus
+> `wght 400` : le repère dans lequel la primitive pose ses cornes est celui dans
+> lequel la police dessine son chiffre, et il est prouvé, pas supposé.
+>
+> ★ **Les deux contraintes de l'auteur tombent juste, et sans arbitrage.** Soit
+> `S` le débord du sommet de la barre depuis le centre de son jeton, `x₀`
+> l'écartement cherché et `e` la largeur de la base d'une corne : la corne droite
+> pose son pied externe sur le sommet du 6 de droite (`x₀ + e/2 = D + S`) et la
+> corne gauche son point le plus à droite sur celui du 6 de gauche
+> (`−x₀ + e/2 = −D + S`). Différence : `x₀ = D`. Somme : `e = 2·S`. Autrement
+> dit **chaque corne est centrée sur SON 6, et sa base est large de deux fois le
+> débord de la barre** — deux contraintes, deux inconnues, une solution exacte,
+> et symétrique par construction. `CORNE.ecart` et `CORNE.base`, qui étaient des
+> réglages à l'œil, disparaissent.
+>
+> Un seul sacrifice, et il est dit : `galbeExterne` cesse d'être libre. Pour que
+> « prolongement » ne soit pas un simple point de contact suivi d'un coude de six
+> degrés, la première poignée de Bézier du bord externe est posée **sur** la
+> droite qui prolonge le flanc. Le galbe externe est ce qui reste une fois la
+> direction imposée : 0,10 devient ≈ 0,072 em, et la corne est un rien moins
+> bombée sur son flanc extérieur. `galbeInterne` — celui qui l'affine, celui
+> qu'on regarde — est intact.
+>
+> ★ **UNE CORNE, UN NŒUD, SUR SON PROPRE 6 — et l'amendement précédent est
+> corrigé sur ce point.** Il posait « un seul nœud pour les deux cornes, ancré
+> sur le jeton médian », au motif que le verdict grossit glyphes et écarts du
+> même facteur et qu'un `scale` suffit donc. **La prémisse est fausse** : le
+> verdict ne multiplie pas les écarts, il les REPOSE (`poserLeFlux` réécrit
+> `gapBefore` depuis `layoutOpts.gap`). Sur « Donald Trump », les cornes se
+> posent pendant un découpage, où `partition` a resserré la ligne à 0,7 écart ;
+> le verdict rend l'écart plein. Mesuré dans le navigateur : l'entraxe passe de
+> 33,0 à 34,8 unités nominales et les pieds des cornes tombaient **7,4 unités**
+> en deçà du sommet des barres, au verdict.
+>
+> Or l'entraxe n'a rien à faire dans le dessin d'une corne : une corne est posée
+> sur UN chiffre. Chaque corne reçoit donc **son propre nœud**, accroché au 6
+> qu'elle couronne (`data.suit`), et l'entraxe disparaît de la géométrie — avec
+> lui toute la classe de défauts « la ligne s'est re-espacée et le décor ne l'a
+> pas su ». Le calage n'est plus préservé par une coïncidence d'échelles, il est
+> **structurellement incassable** : chaque corne suit son 6 à chaque reflow et
+> grandit avec lui au verdict, comme n'importe quel décor accroché. Corollaire
+> sur le geste : chaque corne jaillit du 6 qu'elle couronne, et non du centre du
+> groupe — une corne pousse sur une tête, pas au milieu de trois. Corollaire sur
+> l'amendement « des triptyques déjà couronnés » ci-dessus : le critère observé
+> porte désormais sur **l'un quelconque** des trois chiffres de la série, le
+> médian n'en portant aucune.
+>
+> ★ **Et les trois 6 passent en rubrique au moment où les cornes poussent** —
+> même instant de départ, durée contenue dans la sienne : c'est un seul geste.
+> Les TROIS, pas seulement les deux couronnés : c'est le 666 qu'on désigne, et
+> deux 6 rouges encadrant un 6 pâle ne se lisent pas « 666 ». Le canal `fill`
+> passe par `animSolidaire` (§3.2, solidarité du décor accroché) ; `reveal`
+> repasse ensuite par la même valeur au verdict, dans un step ultérieur — les
+> deux animations se **succèdent** sans jamais se recouvrir, donc aucune
+> concurrence (`tl.warnings` reste vide) et le retour arrière rend la couleur
+> d'origine sans saut.
+>
+> ★ **Le calage est MESURÉ, pas affirmé** — `visuel/tests/cornes.test.js` : que
+> le pied de la corne droite soit sur le prolongement du flanc, que son bord le
+> quitte avec la bonne pente, que le point le plus à droite de la corne gauche
+> (échantillonné sur les cubiques, pas déduit) tombe sur le sommet de l'autre
+> barre. Trois fois : à la taille de la ligne, à celle du verdict (×4), et sur
+> une ligne resserrée par un découpage puis rendue à son écart plein. Un test
+> vérifie en outre que le tracé d'une corne est **identique** quel que soit
+> l'espacement des 6 : c'est la garantie qui rend le reste impossible à casser.
 
 ### 3.2 Pièges figés en règles
 

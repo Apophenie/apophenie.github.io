@@ -190,13 +190,24 @@ test('★ à deux rangs, seules les cornes du rang du haut restent', () => {
     steps.push({ id: 'v', title: 'Le verdict', ops: [{ op: 'reveal', targets: ids }] });
     return compile(sc(steps, chiffres('6'.repeat(n * 3))));
   };
-  /** Les séries dont les cornes finissent invisibles. */
+  /**
+   * Les séries dont les cornes finissent invisibles.
+   *
+   * Une série en porte DEUX, une par 6 extérieur (`horns.js`, « UNE CORNE, UN
+   * NŒUD ») : on exige que les deux s'éteignent, pas l'une des deux — un rang
+   * détrôné à moitié serait pire que pas détrôné du tout.
+   */
   const eteintes = (tl, n) => {
     const out = [];
     for (let s = 0; s < n; s++) {
-      const id = `@cornes:d${s * 3 + 1}`;
-      const derniere = tl.anims.filter((a) => a.id === id && a.prop === 'opacity').at(-1);
-      if (derniere && derniere.keyframes.at(-1).value === 0) out.push(s);
+      const ids = [`@cornes:d${s * 3}`, `@cornes:d${s * 3 + 2}`];
+      const eteinte = (id) => {
+        const derniere = tl.anims.filter((a) => a.id === id && a.prop === 'opacity').at(-1);
+        return !!derniere && derniere.keyframes.at(-1).value === 0;
+      };
+      const combien = ids.filter(eteinte).length;
+      assert.notEqual(combien, 1, `série ${s} : une corne éteinte sur deux`);
+      if (combien === 2) out.push(s);
     }
     return out;
   };

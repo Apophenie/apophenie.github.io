@@ -338,6 +338,55 @@ test('★ le verdict : au-delà de trois séries, deux rangs — chacun centré'
   assert.ok(grow > 2.4, `agrandissement ${grow} — deux rangs doivent faire mieux qu’un`);
 });
 
+test('★ le verdict : des triptyques déjà couronnés vont DROIT à leur place', () => {
+  // « Quand le ou les triptyques sont déjà formés (et cornés), tu peux faire une
+  // transformation plus directe pour les amener à leur position finale sans
+  // passer par l'étape regroupement » (l'auteur). Rassembler puis découper sert
+  // à rendre visible une structure qui ne l'est pas ; sous les cornes, elle
+  // l'est déjà, et la rejouer défait puis refait ce qu'on a vu se faire.
+  const cs = chiffres(6);
+  const tokens = [...cs, { id: 'r0', text: 'x', kind: 'letter' }];
+  const tl = compile(sc([
+    {
+      id: 'c', title: 'Les cornes',
+      ops: [
+        { op: 'horns', targets: ['d0', 'd1', 'd2'] },
+        { op: 'horns', targets: ['d3', 'd4', 'd5'] },
+      ],
+    },
+    { id: 'v', title: 'Le verdict', ops: [{ op: 'reveal', targets: cs.map((t) => t.id) }] },
+  ], tokens));
+
+  const t0 = tl.bounds[tl.bounds.length - 2];
+  const fenetres = [...new Set(tl.anims
+    .filter((a) => a.prop === 'translate' && a.id.startsWith('d') && a.delay >= t0)
+    .map((a) => `${a.delay}|${a.duration}`))];
+  assert.equal(fenetres.length, 1,
+    `${fenetres.length} temps de trajet — un seul est attendu sous les cornes`);
+  assert.equal(tl.warnings.length, 0, tl.warnings.join(' / '));
+
+  // Et le résultat est le même qu'en passant par les trois temps : deux séries
+  // séparées d'une espace, centrées. Aller plus vite ne veut pas dire arriver
+  // ailleurs.
+  const xs = cs.map((t) => tl.scene.pos(t.id).x).sort((a, b) => a - b);
+  const e = xs.slice(1).map((x, i) => Math.round((x - xs[i]) * 100) / 100);
+  assert.equal(e[0], e[1], 'l’écart est constant dans une série');
+  assert.equal(Math.round((e[2] / e[0]) * 1000) / 1000, 2, 'une espace entre les deux séries');
+  assert.ok(Math.abs((xs[0] + xs[5]) / 2 - tl.layoutOpts.centerX) < 0.01, 'et le tout est centré');
+});
+
+test('★ le verdict : un triptyque NU repasse par les trois temps', () => {
+  // Le critère est observé sur la scène, pas déduit du nombre de chiffres :
+  // six 6 contigus mais sans cornes n'ont jamais été montrés comme deux séries,
+  // et il faut donc les découper sous les yeux du spectateur.
+  const tl = verdictDe(6);
+  const t0 = tl.bounds[tl.bounds.length - 2];
+  const fenetres = [...new Set(tl.anims
+    .filter((a) => a.prop === 'translate' && a.id.startsWith('d') && a.delay >= t0)
+    .map((a) => `${a.delay}|${a.duration}`))];
+  assert.equal(fenetres.length, 3, `${fenetres.length} temps — trois sont attendus sans cornes`);
+});
+
 test('★ le verdict : on rassemble, PUIS on découpe, PUIS on grossit', () => {
   const tl = verdictDe(15);
   // On regarde les FENÊTRES, pas un jeton : à chaque temps, un chiffre donné
@@ -1254,12 +1303,16 @@ test('horns : le reste s’efface, puis les cornes poussent sur les trois 6', ()
     ops: [{ op: 'horns', targets: ['d0', 'd1', 'd2'], efface: ['d3', 'd4', 'd5'] }],
   }], suiteDeChiffres('666736')));
 
-  // Un seul nœud de cornes, et il est ACCROCHÉ au 6 du milieu — c'est ce qui le
-  // fera suivre au reflow et grandir au verdict.
+  // Une corne par 6 EXTÉRIEUR, chacune ACCROCHÉE au chiffre qu'elle couronne —
+  // c'est ce qui la fera suivre au reflow et grandir au verdict, et c'est ce qui
+  // rend son calage insensible à l'écart entre les 6 (voir `horns.js`, « UNE
+  // CORNE, UN NŒUD » et `tests/cornes.test.js`).
   const cornes = tl.nodes.filter((n) => n.role === 'horns');
-  assert.equal(cornes.length, 1, 'deux cornes, un seul tracé');
-  assert.equal(cornes[0].data.suit, 'd1', 'les cornes sont accrochées au 6 du milieu');
-  assert.equal(tl.scene.accrochesA('d1')[0], cornes[0].id);
+  assert.equal(cornes.length, 2, 'deux cornes, deux nœuds');
+  assert.deepEqual(cornes.map((n) => n.data.suit), ['d0', 'd2'],
+    'chaque corne est accrochée à SON 6 ; le chiffre du milieu n’en porte pas');
+  assert.equal(tl.scene.accrochesA('d0')[0], cornes[0].id);
+  assert.deepEqual(tl.scene.accrochesA('d1'), [], 'un diable n’a pas de corne frontale');
 
   // Elles poussent : de rien à leur taille, et elles paraissent.
   const pousse = animsDe(tl, cornes[0].id, 'scale')[0];
@@ -1320,19 +1373,25 @@ test('★ horns : les cornes SUIVENT — au reflow comme au verdict', () => {
     { id: 'c', title: 'Verdict', ops: [{ op: 'reveal', targets: ['d1', 'd2', 'd3'] }] },
   ], suiteDeChiffres('4666')));
 
-  const cornes = tl.nodes.find((n) => n.role === 'horns');
-  // Au reflow : le décor se déplace exactement comme le jeton qui le porte.
-  const bougeJeton = animsDe(tl, 'd2', 'translate');
-  const bougeCornes = animsDe(tl, cornes.id, 'translate');
-  assert.ok(bougeJeton.length && bougeCornes.length, 'jeton et cornes se déplacent');
+  // Chaque corne suit LE SIEN — c'est ce qui rend le calage insensible à un
+  // re-espacement de la ligne (`horns.js`, « UNE CORNE, UN NŒUD »).
   const point = (a) => [a.keyframes.at(-1).value.x, a.keyframes.at(-1).value.y];
-  assert.deepEqual(point(bougeCornes.at(-1)), point(bougeJeton.at(-1)),
-    'les cornes atterrissent au même point que le 6 du milieu');
+  for (const hote of ['d1', 'd3']) {
+    const corne = tl.nodes.find((n) => n.role === 'horns' && n.data.suit === hote);
+    assert.ok(corne, `${hote} devrait porter une corne`);
 
-  // Au verdict : elles grandissent du même facteur que les chiffres. Sans quoi
-  // elles resteraient à leur taille au milieu de glyphes huit fois plus hauts.
-  const zoomJeton = animsDe(tl, 'd2', 'scale').at(-1).keyframes.at(-1).value;
-  const zoomCornes = animsDe(tl, cornes.id, 'scale').at(-1).keyframes.at(-1).value;
-  assert.ok(zoomJeton > 1, 'le verdict grossit bien les chiffres');
-  assert.equal(zoomCornes, zoomJeton);
+    // Au reflow : le décor se déplace exactement comme le jeton qui le porte.
+    const bougeJeton = animsDe(tl, hote, 'translate');
+    const bougeCorne = animsDe(tl, corne.id, 'translate');
+    assert.ok(bougeJeton.length && bougeCorne.length, 'jeton et corne se déplacent');
+    assert.deepEqual(point(bougeCorne.at(-1)), point(bougeJeton.at(-1)),
+      `la corne atterrit au même point que « ${hote} »`);
+
+    // Au verdict : elle grandit du même facteur que les chiffres. Sans quoi elle
+    // resterait à sa taille au milieu de glyphes huit fois plus hauts.
+    const zoomJeton = animsDe(tl, hote, 'scale').at(-1).keyframes.at(-1).value;
+    const zoomCorne = animsDe(tl, corne.id, 'scale').at(-1).keyframes.at(-1).value;
+    assert.ok(zoomJeton > 1, 'le verdict grossit bien les chiffres');
+    assert.equal(zoomCorne, zoomJeton);
+  }
 });

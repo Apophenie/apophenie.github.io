@@ -225,6 +225,49 @@ export const SEGMENTS_DSEG14 = Object.freeze({
 /* dseg:fin */
 
 // ---------------------------------------------------------------------------
+// Le « 6 » de JetBrains Mono — le calage des cornes
+// ---------------------------------------------------------------------------
+//
+// ★ Même doctrine que le bloc ci-dessus, appliquée cette fois à la police de la
+// SCÈNE. Les cornes du 666 ne sont pas posées « au-dessus des 6 » : elles sont
+// calées sur le dessin du chiffre, et l'écartement qui les y amène est une
+// coïncidence géométrique, pas un réglage à l'œil. Les trois nombres qui la
+// définissent sont donc relevés sur le contour par
+// `src/gfx/jetbrains-six.py` ; ne les modifiez pas à la main, relancez
+// `bun run segments` — et la CI vérifie que le bloc n'a pas dérivé.
+/* six:début */
+/**
+ * La BARRE HAUTE du « 6 », relevée sur le contour de JetBrains Mono.
+ *
+ * ★ DÉRIVÉE, jamais saisie : `src/gfx/jetbrains-six.py` cherche dans le contour
+ * le segment horizontal le plus haut — le sommet plat de la barre — et le
+ * segment droit qui en part. Relancez le script pour vérifier que ce bloc n’a
+ * pas dérivé ; la CI le fait (`bun run segments:check`).
+ *
+ * ★ À quoi ça sert. `primitives/horns.js` y CALE les deux cornes du 666 : la
+ * corne de droite pousse dans le prolongement exact du flanc droit de la barre
+ * du 6 de droite, et la corne de gauche vient toucher le sommet de celle du 6
+ * de gauche. Sans ces trois nombres, l’écartement des cornes serait un réglage
+ * à l’œil — c’est-à-dire quelque chose qu’on rerègle, et qui se déplace.
+ *
+ * Unités : des **em**, donc multipliables par `fontSize`. `sommetX` et
+ * `gaucheX` se comptent depuis l’ORIGINE du glyphe (le bord gauche de sa
+ * chasse), pas depuis son centre : c’est au consommateur de retrancher la
+ * demi-chasse RÉELLE (`metrics.advance`, recalibrée sur la police servie).
+ * `sommetY` se compte au-dessus de la ligne de base, et vaut la hauteur de
+ * capitale — le script échoue si ce n’est plus vrai.
+ */
+// JetBrains Mono Regular Version 2.211 — « 6 », wght 400.
+export const SIX_BARRE = Object.freeze({
+  sommetX: 0.413,       // sommet DROIT de la barre — le point que les cornes touchent
+  sommetY: 0.73,        // = hauteur de capitale : la « ligne de crâne »
+  gaucheX: 0.313,       // sommet gauche : la barre fait 0.1 em de large
+  pente: 0.623494,      // dx/dy du flanc droit, EN MONTANT (vers la droite)
+  chasse: 0.6,          // la chasse de la police, pour mémoire
+});
+/* six:fin */
+
+// ---------------------------------------------------------------------------
 // Le clavier — quatre rangées, deux dispositions
 // ---------------------------------------------------------------------------
 

@@ -58,13 +58,20 @@ logo:reproductible:
     - diff /tmp/banc.avant src/gfx/_logo-test.html
   allow_failure: false
 
-# La géométrie des afficheurs à segments comptés un par un est DÉRIVÉE des
-# polices DSEG7 / DSEG14 Classic, contour par contour
-# (`src/gfx/dseg-segments.py`), et le résultat est commité dans
-# `src/visuel/assets.js`. Même règle que le logo : la CI ne régénère pas, elle
-# vérifie. Un tracé retouché à la main — ou une police mise à jour sans repasser
-# par le script — fait échouer ce job, et c'est bien le but : « ce qui est
-# montré est ce qui est compté, depuis une source unique ».
+# La géométrie DÉRIVÉE des polices, et elle l'est deux fois :
+#
+#  · les afficheurs à segments comptés un par un, relevés contour par contour
+#    sur DSEG7 / DSEG14 Classic (`src/gfx/dseg-segments.py`) ;
+#  · la barre haute du « 6 » de JetBrains Mono (`src/gfx/jetbrains-six.py`), sur
+#    laquelle les cornes du 666 sont calées — la corne de droite pousse dans le
+#    prolongement exact du flanc de la barre, et cet écartement-là ne doit pas
+#    redevenir un réglage à l'œil.
+#
+# Les deux résultats sont commités dans `src/visuel/assets.js`. Même règle que
+# le logo : la CI ne régénère pas, elle vérifie. Un tracé retouché à la main —
+# ou une police mise à jour sans repasser par le script — fait échouer ce job,
+# et c'est bien le but : « ce qui est montré est ce qui est compté, depuis une
+# source unique ».
 segments:reproductible:
   stage: verify
   needs: []

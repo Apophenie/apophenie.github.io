@@ -10,8 +10,8 @@
     "preview": "vite preview",
     "test": "node --test 'src/*/*.test.js' 'src/visuel/tests/*.test.js' 'src/recherche/tests/*.test.js'",
     "logo": "python3 src/gfx/logo-jost-trace.py src/gfx/_logo-test.html favicon.svg --site",
-    "segments": "python3 src/gfx/dseg-segments.py",
-    "segments:check": "python3 src/gfx/dseg-segments.py --check",
+    "segments": "python3 src/gfx/dseg-segments.py && python3 src/gfx/jetbrains-six.py",
+    "segments:check": "python3 src/gfx/dseg-segments.py --check && python3 src/gfx/jetbrains-six.py --check",
     "check": "bun run test && bun run build"
   },
   "devDependencies": {

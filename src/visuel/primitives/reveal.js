@@ -122,6 +122,32 @@ export function plan(ctx) {
   const series = decouperEnSeries(ids);
   const multi = series.length > 1;
   const lignes = series.length > 3 ? 2 : 1;
+  // ★ Le regroupement est INUTILE quand les triptyques sont déjà là.
+  //
+  // « Quand le ou les triptyques sont déjà formés (et cornés), tu peux faire
+  // une transformation plus directe pour les amener à leur position finale sans
+  // passer par l'étape regroupement, puisqu'ils sont déjà en triptyque »
+  // (l'auteur).
+  //
+  // Les deux premiers temps du verdict — rassembler, puis découper tous les
+  // trois chiffres — servent à rendre VISIBLE une structure qui ne l'est pas :
+  // quinze 6 alignés ne se lisent pas comme cinq séries tant que rien ne les
+  // sépare. Mais quand chaque série porte déjà ses cornes, le découpage est
+  // sous les yeux depuis longtemps ; le rejouer, c'est défaire puis refaire ce
+  // que le spectateur a déjà vu se faire.
+  //
+  // Le critère est OBSERVÉ, pas supposé : on demande à la scène si chaque série
+  // porte un décor de cornes, sur l'un quelconque de ses chiffres. Un triptyque
+  // contigu mais nu repasse par les trois temps — c'est bien qu'il n'a jamais
+  // été montré comme tel.
+  //
+  // ★ « L'UN QUELCONQUE », et non plus « le 6 du milieu » : une corne est
+  // accrochée au 6 qu'elle couronne, donc aux DEUX chiffres extérieurs, et le
+  // médian n'en porte aucune (`primitives/horns.js`, « UNE CORNE, UN NŒUD »).
+  const porteDesCornes = (id) => ctx.scene.accrochesA(id).some(
+    (d) => { const n = ctx.scene.get(d); return n && n.role === 'horns'; },
+  );
+  const couronnes = multi && series.every((s) => s.some(porteDesCornes));
   const grow = typeof ctx.op.scale === 'number'
     ? ctx.op.scale
     : zoomDuVerdict(ctx, ids, series, lignes);
@@ -215,13 +241,18 @@ export function plan(ctx) {
   // — le coup de poing du verdict —, mais sur les DEUX canaux.
   const courbeVerdict = EASE.pop;
 
-  if (!multi) {
+  if (!multi || couronnes) {
     // Un seul 666 : rassembler et grossir sont le MÊME geste. Rien à découper,
     // rien à répartir, et l'intercaler ferait un temps mort au moment de la
     // chute.
+    //
+    // Des triptyques déjà couronnés : même conclusion pour une autre raison —
+    // il n'y a rien à rendre visible, tout l'est. Un seul trajet les mène de là
+    // où ils sont à leur place finale, séparations et rangs compris. C'est le
+    // geste le plus direct, et c'est ce que l'auteur demande.
     tGrossir = depart;
     dGrossir = Math.max(1, ctx.dur - depart);
-    poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, lignes: 1 });
+    poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, lignes });
     centrerLeBloc();
     ctx.reflow({ at: tGrossir, dur: dGrossir, ease: courbeVerdict });
   } else {
