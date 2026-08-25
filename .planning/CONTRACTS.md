@@ -1032,6 +1032,18 @@ changement de scénario via l'URL.
 
 ### 4.1 Codes d'opérateurs — registre append-only
 
+> ## ⛔ LE REGISTRE EST FERMÉ DEPUIS LE 25 AOÛT 2026
+>
+> Le site est en ligne — **https://apophenie.github.io** —, et la page d'accueil
+> affiche elle-même un lien écrit à la main
+> (`#0.1:t1+m4+c1+p1,3.1:f9+n1,5.1:t1+md+c1#…`, la puce « reinfocovid »). Des
+> liens existent donc, et la clause ci-dessous a produit son effet : **plus aucun
+> code ne peut changer de sens, être renommé, réattribué, ni repris à une pierre
+> tombale.** Une correction coûte désormais un code neuf et une dépréciation.
+>
+> Ce qui suit est conservé tel quel : c'est le raisonnement qui a fixé la règle,
+> et il explique pourquoi elle ne se rouvrira pas.
+
 > **Le registre ne se ferme qu'à la publication.** Ce qu'il protège, ce sont les
 > **liens déjà partagés** : une URL rejoue un programme, donc un code qui change
 > de sens fait pointer un lien existant vers une autre démonstration. Tant que le
