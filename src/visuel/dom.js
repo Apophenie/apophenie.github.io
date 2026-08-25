@@ -22,7 +22,6 @@
 
 import { FONT_FAMILY, PALETTE } from './constants.js';
 import { glyphTransform } from './assets.js';
-import { alphabetGeometry } from './assets.js';
 
 export const SVGNS = 'http://www.w3.org/2000/svg';
 
@@ -30,7 +29,7 @@ export const SVGNS = 'http://www.w3.org/2000/svg';
 export const LAYERS = ['back', 'mid', 'front'];
 
 const LAYER_OF = {
-  camera: null, halo: 'back', keyboard: 'back', alphabet: 'back', frame: 'back',
+  camera: null, halo: 'back', keyboard: 'back', table: 'back', frame: 'back',
   text: 'mid',
   glyph: 'front', seg: 'front', bracket: 'front', label: 'front', marker: 'front',
 };
@@ -273,12 +272,24 @@ export function createElementFor(node, env) {
       // autre que celle du sept segments. Le quatorze segments loge deux fois
       // plus de barres dans le même cadre — au trait de 56, son moyeu se
       // referme sur lui-même (`SEG14_STROKE`, `assets.js`).
+      // `data.plein` : le tracé est un CONTOUR FERMÉ, pas un axe — c'est le
+      // segment tel que la police le dessine (`assets.js`, bloc « dseg »). Il
+      // porte son épaisseur dans sa forme, s'allume par son `fill` et n'a
+      // aucune raison d'être arrondi ni épaissi : lui poser un trait le
+      // ferait déborder sur ses voisins, c'est-à-dire défaire exactement ce
+      // que le comptage individuel demande.
       const zoom = (node.data && node.data.scale) || 1;
+      const plein = !!(node.data && node.data.plein);
       const epaisseur = (node.data && node.data.width)
         || (node.role === 'seg' ? 56 : 46);
       const wrap = el('g');
       const inner = el('g', { transform: glyphTransform(fs * zoom).transform });
-      inner.appendChild(el('path', {
+      inner.appendChild(el('path', plein ? {
+        d: node.data.d,
+        stroke: 'none',
+        'fill-rule': 'nonzero',
+        class: node.role === 'seg' ? 'nhl-seg' : 'nhl-glyph',
+      } : {
         d: node.data.d,
         fill: 'none',
         'stroke-width': epaisseur,
@@ -307,8 +318,8 @@ export function createElementFor(node, env) {
       });
       break;
     }
-    case 'alphabet': {
-      element = buildAlphabet(node, fs, palette);
+    case 'table': {
+      element = buildTable(node, fs, palette);
       break;
     }
     case 'marker': {
@@ -381,25 +392,81 @@ function buildKeyboard(node, fs, palette) {
 }
 
 /**
- * Dessine l'alphabet complet, NUMÉROTÉ — deux rangées de treize cases, la
- * lettre en haut de sa case, son rang en bas.
+ * Dessine une **table de correspondance** — réglette, grille ou pavé.
  *
- * C'est le pendant du clavier virtuel pour la conversion « lettre → rang dans
- * l'alphabet » : on ne se contente pas d'annoncer que `H` vaut 8, on montre
- * l'alphabet numéroté et on va y chercher le 8.
+ * Rien n'est décidé ici : `tableGeometry` (`assets.js`) a déjà posé chaque
+ * case et chaque étiquette, y compris de quelle taille et de quelle couleur.
+ * Le dessin ne fait que suivre, ce qui garantit que la case allumée par la
+ * primitive et le texte lu par le spectateur sont au même endroit.
+ *
+ * ★ Les cases VIDES existent : sur le pavé téléphonique, la touche `1` ne
+ * porte aucune lettre. L'effacer ferait de la grille autre chose qu'un
+ * téléphone — on la dessine, en retrait.
  */
-function buildAlphabet(node, fs, palette) {
-  const g = el('g', { class: 'nhl-alphabet' });
-  const geo = node.data.geo || alphabetGeometry({ ordre: node.data.ordre });
+function buildTable(node, fs, palette) {
+  const g = el('g', { class: 'nhl-table' });
+  const geo = node.data.geo;
+  const TONES = { fg: palette.fg, fg3: palette.fg3, gold: palette.gold };
   for (const c of geo.cells) {
     g.appendChild(el('rect', {
       x: c.x, y: c.y, width: c.w, height: c.h, rx: 4,
-      fill: palette.raised, stroke: palette.line, 'stroke-width': 1,
+      fill: fondDeCase(c, palette), stroke: palette.line, 'stroke-width': 1,
+      opacity: c.vide ? 0.35 : 1,
     }));
-    g.appendChild(keyLabel(c.char, c.cx, c.lettreCy, fs * 0.5, palette.fg));
-    g.appendChild(keyLabel(String(c.rang), c.cx, c.rangCy, fs * 0.36, palette.gold));
+    for (const l of c.labels) {
+      g.appendChild(keyLabel(l.text, l.cx, l.cy, l.size, TONES[l.tone] || palette.fg));
+    }
   }
   return g;
+}
+
+/**
+ * ★ Amplitude maximale de la teinte de fond — la part de `--line-ui` mêlée au
+ * fond de case pour la valeur la plus forte.
+ *
+ * Elle est **plafonnée par le contraste**, pas par le goût. `--raised` et
+ * `--line-ui` sont les deux bornes utiles de la charte (§2.3) : en thème clair
+ * `--line-ui` est plus sombre que le fond, en thème sombre il est plus clair.
+ * La direction demandée — « plus foncé en clair, l'inverse en sombre » — est
+ * donc portée par les JETONS EUX-MÊMES, sans que le dessin ait à deviner le
+ * thème. À 0,25, le pire couple texte/fond mesure **5,05:1** (le nombre en or
+ * sur la case la plus teintée, thème clair) et **6,07:1** en thème sombre :
+ * au-dessus du 4,5:1 exigé par design §5.1, avec la marge nécessaire au halo
+ * doré qui passe par-dessus. Chaque palier reste distinct (ΔL* ≈ 2).
+ */
+const TEINTE_MAX = 0.25;
+
+/**
+ * Fond d'une case : le fond nominal, éclairci ou assombri selon sa valeur.
+ *
+ * Exporté pour être MESURÉ : un test calcule le contraste réel de chaque
+ * palier contre le texte de la case, dans les deux thèmes, et refuse une
+ * teinte qui descendrait sous le 4,5:1 de design §5.1.
+ */
+export function fondDeCase(cell, palette) {
+  const t = cell.teinte;
+  if (!t) return palette.raised;
+  const fond = rvbDe(palette.raised);
+  const vers = rvbDe(palette.lineUi || palette.line);
+  if (!fond || !vers) return palette.raised;
+  const k = t * TEINTE_MAX;
+  const m = fond.map((v, i) => Math.round(v + (vers[i] - v) * k));
+  return `#${m.map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Une couleur de la palette en canaux 0–255 — `#abc`, `#aabbcc`, `rgb(…)`. */
+function rvbDe(couleur) {
+  const c = String(couleur || '').trim();
+  const court = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(c);
+  if (court) return [1, 2, 3].map((i) => parseInt(court[i] + court[i], 16));
+  const long = /^#([0-9a-f]{6})$/i.exec(c);
+  if (long) return [0, 2, 4].map((i) => parseInt(long[1].slice(i, i + 2), 16));
+  const rgb = /^rgba?\(([^)]+)\)$/i.exec(c);
+  if (rgb) {
+    const n = rgb[1].split(/[,/\s]+/).filter(Boolean).slice(0, 3).map(Number);
+    if (n.length === 3 && n.every(Number.isFinite)) return n.map((v) => Math.round(v));
+  }
+  return null;
 }
 
 function keyLabel(text, x, y, size, fill) {

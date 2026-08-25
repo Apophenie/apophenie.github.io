@@ -163,8 +163,8 @@ Inspiration :
 
 ---
 
-**Méthode 4 – La somme des 3 répétitions en A1Z26**
-- **Règle** : On utilise la numérologie standard (A=1, B=2... Z=26), puis on réduit la somme des trois mots.
+**Méthode 4 – La somme des 3 répétitions en numérologie latine**
+- **Règle** : On utilise la numérologie latine (A=1, B=2... Z=26), puis on réduit la somme des trois mots.
 - **Calcul** : HOPE = 8+15+16+5 = 44 → 4+4 = 8. Les trois "hope" : 8+8+8 = 24 → 2+4 = 6.
 - **Résultat** : Le triplet global donne 6 et les séparateur en "tiret du 6" donnent les 2 autres 6 -> 666
 

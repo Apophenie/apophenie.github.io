@@ -17,6 +17,26 @@
  * l'épaisseur du trait. Rien d'autre — d'où ce fichier partagé plutôt que deux
  * copies qui se seraient mises à diverger.
  *
+ * ## Deux régimes, deux dessins
+ *
+ * ★ Le régime décide de la GÉOMÉTRIE, parce qu'ils ne montrent pas la même
+ * chose (assets.js, bloc « dseg ») :
+ *
+ * · **fusion** (`me`, `mx`) — on montre que `b` et `c` n'en font qu'un. Les
+ *   segments sont des traits d'AXE colinéaires et jointifs, et on les voit se
+ *   souder. C'est `SEGMENTS` / `SEGMENTS14`, inchangé.
+ *
+ * · **comptage individuel** (`md`, `mw`) — on les compte un par un. Deux
+ *   segments qui se recouvrent seraient deux choses comptées pour une seule
+ *   vue : ils sont donc DISJOINTS, et ce sont ceux de la police elle-même
+ *   (`SEGMENTS_DSEG7` / `SEGMENTS_DSEG14`, dérivés de DSEG par
+ *   `src/gfx/dseg-segments.py`). L'afficheur montre alors exactement ce que Le
+ *   Registre affiche à côté.
+ *
+ * Un trait d'axe s'allume par sa couleur de `stroke`, un polygone plein par sa
+ * couleur de `fill` : le canal animé suit le dessin, et c'est la seule
+ * différence de traitement entre les deux régimes.
+ *
  * ## Contrôle croisé
  *
  * `count` est le garde-fou de CONTRACTS §0.3 : si le scénario annonce un nombre
@@ -35,14 +55,18 @@ import { fail } from '../errors.js';
 
 /**
  * @param {object} ctx
- * @param {{nom:string, SEGMENTS:object, ORDER:string[], fusedStrokes:Function,
- *          lire:Function, largeur?:number}} modele
+ * @param {{nom:string, SEGMENTS:object, PLEINS:object, ORDER:string[],
+ *          fusedStrokes:Function, lire:Function, largeur?:number}} modele
  */
 export function planAfficheur(ctx, modele) {
   const src = ctx.scene.live(ctx.op.target, `${ctx.where}« target » : `);
   const allumes = modele.lire(ctx);
   const on = new Set(allumes);
   const fusion = ctx.op.fusion !== false;
+  // Le régime choisit le dessin, et le dessin choisit le canal d'allumage.
+  const plein = !fusion;
+  const geometrie = plein ? modele.PLEINS : modele.SEGMENTS;
+  const canal = plein ? 'fill' : 'stroke';
   const strokes = modele.fusedStrokes(allumes);
   const count = fusion ? strokes.length : on.size;
   if (ctx.op.count !== undefined && ctx.op.count !== count) {
@@ -72,13 +96,16 @@ export function planAfficheur(ctx, modele) {
       inFlow: false,
       w: 0,
       data: {
-        d: modele.SEGMENTS[k].d,
+        d: geometrie[k].d,
         segment: k,
         lit: on.has(k),
         scale: ENCART.zoomGlyphe,
-        ...(modele.largeur ? { width: modele.largeur } : {}),
+        // Un polygone plein n'a pas d'épaisseur de trait à recevoir : il PORTE
+        // la sienne, celle que la police lui donne.
+        plein,
+        ...(!plein && modele.largeur ? { width: modele.largeur } : {}),
       },
-      base: { opacity: 0, stroke: ctx.palette.fg3 },
+      base: { opacity: 0, [canal]: ctx.palette.fg3 },
     }, { where: ctx.where });
     ctx.scene.place(id, encart.centre);
     ctx.anim({ id, prop: 'opacity', to: 0.14, at: apparition, dur: T * 0.1 });
@@ -110,7 +137,7 @@ export function planAfficheur(ctx, modele) {
     const a = debut + i * cadence;
     for (const k of g.members) {
       ctx.anim({ id: segIds[k], prop: 'opacity', to: 1, at: a, dur: Math.max(1, cadence * 0.6) });
-      ctx.anim({ id: segIds[k], prop: 'stroke', to: ctx.palette.phos, at: a, dur: Math.max(1, cadence * 0.6) });
+      ctx.anim({ id: segIds[k], prop: canal, to: ctx.palette.phos, at: a, dur: Math.max(1, cadence * 0.6) });
     }
   });
 

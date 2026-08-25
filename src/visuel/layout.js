@@ -53,8 +53,13 @@ export function defaultLayoutOptions(metrics = defaultMetrics(), viewBox = VIEWB
     lineHeight: LINE_HEIGHT,
     maxWidth: viewBox.w - 2 * MARGIN,
     wrap: false,
+    // Les coupures posées par une primitive s'appliquent-elles ? Faux par
+    // défaut : personne ne coupe une ligne sans l'avoir demandé.
+    coupuresExplicites: false,
     centerX: viewBox.x + viewBox.w / 2,
     centerY: viewBox.y + viewBox.h / 2,
+    // Report signé de la ligne — zéro tant que la ligne EST le sujet.
+    decalage: 0,
     metrics,
   };
 }
@@ -72,6 +77,33 @@ export function measureText(text, metrics) {
  * soit sa longueur. `overflow` dit alors qu'elle est plus large que la zone
  * utile — c'est le signal que le défilement doit prendre le relais.
  *
+ * ★ **`opts.coupuresExplicites` — la coupure choisie, jamais subie.**
+ *
+ * Le repli automatique reste interdit ; une coupure `breakBefore` posée par une
+ * primitive, elle, est un choix de mise en page et s'applique. Le seul emploi à
+ * ce jour : `reveal`, qui répartit plus de trois séries de 666 sur deux rangs
+ * pour pouvoir les grossir. Un verdict n'est pas une séquence à lire d'un bout
+ * à l'autre, c'est un compte : le couper entre deux séries ne trahit rien.
+ *
+ * ★ **`opts.decalage` — centrer autre chose que la ligne entière.**
+ *
+ * Le layout centre ce qu'il dispose : toute la ligne. C'est le bon centre tant
+ * que la ligne se lit d'un seul œil. `partition` change ce régime — les groupes
+ * deviennent le sujet, le reste s'estompe — et le sujet n'est presque jamais au
+ * milieu de la ligne. `decalage` est le report, **signé**, qui l'y ramène : la
+ * ligne reste posée par la même arithmétique, translatée d'autant.
+ *
+ * Signé, donc symétrique : un sujet trop à droite se ramène par un décalage
+ * négatif, un sujet trop à gauche par un décalage positif. C'est ce que ne
+ * savait pas faire l'ancienne « marge de tête » (le `gapBefore` du premier
+ * jeton), qui ne pouvait pousser que vers la droite — et qui, pire, se
+ * déclenchait toute seule dès qu'un jeton porteur d'un écart de frontière se
+ * retrouvait en tête du flux.
+ *
+ * Il vit dans `layoutOpts`, donc il TRAVERSE les steps : le découpage reste
+ * cadré tant qu'il est le sujet, et `reveal` le remet à zéro pour que le
+ * verdict retrouve le centre exact. Zéro par défaut : rien ne change.
+ *
  * @param {{id:string,w:number,gapBefore?:number,breakBefore?:boolean}[]} items
  * @param {ReturnType<typeof defaultLayoutOptions>} opts
  * @returns {{positions: Map<string,{x:number,y:number,w:number,line:number}>,
@@ -79,7 +111,15 @@ export function measureText(text, metrics) {
  */
 export function layoutFlow(items, opts) {
   const { gap, lineHeight, maxWidth, centerX, centerY } = opts;
+  const decalage = Number.isFinite(opts.decalage) ? opts.decalage : 0;
   const wrap = opts.wrap === true;
+  // ★ Une coupure EXPLICITE n'est pas un repli automatique. `wrap` gouverne le
+  // repli que la doctrine interdit — celui qui coupe une séquence dès qu'elle
+  // dépasse la largeur utile, à un endroit que personne n'a choisi. Une coupure
+  // posée par une primitive (`reveal`, qui répartit cinq séries de 666 sur deux
+  // rangs) est un choix de mise en page, et elle s'applique sans ouvrir la porte
+  // au repli automatique. Voir `reveal.js`, « Quand il y a PLUS qu'un 666 ».
+  const coupures = wrap || opts.coupuresExplicites === true;
   const positions = new Map();
   if (!items.length) return { positions, lines: 0, width: 0, height: 0, overflow: false };
 
@@ -88,9 +128,12 @@ export function layoutFlow(items, opts) {
   const lines = [];
   let cur = { items: [], w: 0 };
   for (const it of items) {
+    // Le premier jeton d'une ligne n'a pas de voisin de gauche : son écart
+    // n'espace rien, et il ne décale pas la ligne — c'est `decalage` qui le
+    // fait, explicitement.
     const g = cur.items.length === 0 ? 0 : (it.gapBefore ?? gap);
     const need = g + it.w;
-    const mustBreak = wrap && it.breakBefore && cur.items.length > 0;
+    const mustBreak = coupures && it.breakBefore && cur.items.length > 0;
     if (mustBreak || (wrap && cur.items.length > 0 && cur.w + need > maxWidth)) {
       lines.push(cur);
       cur = { items: [], w: 0 };
@@ -109,7 +152,7 @@ export function layoutFlow(items, opts) {
   let maxW = 0;
   lines.forEach((line, li) => {
     maxW = Math.max(maxW, line.w);
-    let x = centerX - line.w / 2;
+    let x = centerX - line.w / 2 + decalage;
     const y = y0 + li * lineHeight;
     for (const it of line.items) {
       x += it.g;

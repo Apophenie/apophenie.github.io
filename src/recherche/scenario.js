@@ -50,6 +50,7 @@ import { rendreValeur } from './bfs.js';
 // Le titre et la règle d'une approche vivent dans `titres.js` (voir la note en
 // fin de fichier) ; on les importe pour continuer à les ré-exporter d'ici.
 import { titreApproche, regleApproche } from './titres.js';
+import { serieDeSix, sixDuChemin, compterMoisson, SERIE } from './assemblage.js';
 
 /**
  * Une chaîne affichable du catalogue est un couple `{fr, en}` (voir
@@ -69,7 +70,7 @@ function dire(texte, langue = LANGUE_DEFAUT) {
 export const VOCABULAIRE = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'alphabet',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table',
 ]);
 
 /**
@@ -489,11 +490,18 @@ function inventaire(o) {
       ajouter(o.to);
       supprimes.push(...normaliserCibles(o.targets), ...normaliserCibles(o.consume));
       break;
-    case 'flip180': case 'keyboard': case 'alphabet':
+    case 'flip180': case 'keyboard':
     case 'sevenSeg': case 'fourteenSeg': case 'countStrokes':
-      // Ces six-là remplacent leur cible quand — et seulement quand — un `to`
-      // leur est donné : le clavier fait redescendre son chiffre, la réglette
-      // son rang, l'encart le nombre de son compteur.
+      // Ces cinq-là remplacent leur cible quand — et seulement quand — un `to`
+      // leur est donné : le clavier fait redescendre son chiffre, l'encart le
+      // nombre de son compteur.
+      ajouter(o.to);
+      if (o.to) supprimes.push(...normaliserCibles(o.target));
+      break;
+    case 'table':
+      // La table de correspondance travaille jeton par jeton : la lettre monte
+      // vers sa case, sa valeur en redescend. Comme le clavier, elle ne
+      // remplace sa cible que si un `to` lui est donné.
       ajouter(o.to);
       if (o.to) supprimes.push(...normaliserCibles(o.target));
       break;
@@ -635,24 +643,208 @@ function memesReglages(a, b, sauf) {
  * @param {Object} ctx {saisie, methode:{id,label,rule}, resultat, langue:'fr'|'en'}
  * @returns {Object} Scenario conforme à CONTRACTS.md §3
  */
+/**
+ * ★ Le décor d'une conversion, gardé d'une étape à l'autre.
+ *
+ * L'aller-retour reste **individuel** : une lettre monte vers la table (ou un
+ * caractère vers sa touche), sa valeur en redescend aussitôt, puis la
+ * suivante. Ce qui se mutualise, c'est le **déploiement** — quand plusieurs
+ * conversions emploient le MÊME décor, il monte à la première, demeure, et ne
+ * se retire qu'à la dernière. La caméra fait de même : un recul, un retour,
+ * rien entre les deux.
+ *
+ * Cela vaut pour **les deux décors** : la table de correspondance ET le
+ * clavier. Sur `hope-hope-hope.fr`, les deux tirets du 6 se convertissent l'un
+ * après l'autre ; faire redescendre le clavier puis le remonter entre les deux
+ * n'a aucun sens.
+ *
+ * L'identité d'un décor est celle de son DESSIN (mise en page, colonnes,
+ * correspondances ; disposition et mesure pour le clavier) : une méthode qui
+ * change, c'est un décor qui change, et l'ancien se retire donc bien avant que
+ * le nouveau ne monte.
+ *
+ * ★ **Une étape sans décor ne referme pas la série** — si elle ne touche pas à
+ * la ligne. Entre les deux tirets du 6, l'assemblage intercale « On isole le
+ * troisième morceau » : une simple désignation. Rabattre le clavier pour elle
+ * puis le relever aussitôt ferait un clignotement gratuit ; le laisser en
+ * place dit la vérité, qui est qu'on ne l'a pas quitté. Seules les étapes
+ * **inertes pour la mise en page** peuvent être traversées ainsi
+ * (`SANS_LAYOUT` moins `reveal`, qui conclut) : une étape qui déplace,
+ * substitue ou regroupe des jetons referme la série, parce que la ligne
+ * bouge sous un décor qui, lui, ne suivrait pas.
+ *
+ * ★ Pourquoi ici. `steps()` est appelé opérateur par opérateur : sur
+ * `hope-hope-hope`, les trois groupes sont trois appels distincts, et aucun ne
+ * peut savoir que le suivant montrera la même grille. Seul l'assemblage le
+ * voit. Corollaire assumé : les deux étapes qui portent les drapeaux (la
+ * première et la dernière de la série) cessent d'être alpha-équivalentes aux
+ * autres, et perdent donc l'accélération des redites — elles font en effet
+ * quelque chose de plus, et ce n'est pas une redite de ne rien montrer de neuf.
+ *
+ * @param {Array} steps — modifié en place
+ */
+/** Étapes qu'une série de décor peut traverser sans se refermer. */
+const TRAVERSABLES = new Set(['highlight', 'dim', 'pulse', 'annotate', 'wait']);
+
+function mutualiserDecor(steps) {
+  const cleDecor = (s) => {
+    if (!s || !Array.isArray(s.ops) || s.ops.length !== 1) return null;
+    const o = s.ops[0];
+    if (o && o.op === 'table') {
+      return JSON.stringify(['table',
+        o.disposition || 'reglette', o.colonnes ?? null, o.ordre ?? null,
+        o.cycle ?? null, o.teinte ?? null,
+        (o.entries || []).map((e) => [e.char, e.value, e.note ?? '', e.label ?? '']),
+      ]);
+    }
+    if (o && o.op === 'keyboard') {
+      // Le dessin du clavier, et lui seul : la touche éclairée change à chaque
+      // caractère, le CLAVIER ne change pas.
+      return JSON.stringify(['keyboard', o.layout || 'azerty', o.mesure || 'touche']);
+    }
+    return null;
+  };
+  const traversable = (s) => s && Array.isArray(s.ops) && s.ops.length > 0
+    && s.ops.every((o) => o && TRAVERSABLES.has(o.op));
+
+  let i = 0;
+  while (i < steps.length) {
+    const cle = cleDecor(steps[i]);
+    if (cle === null) { i++; continue; }
+    // La série s'étend tant qu'on retrouve le même décor, en sautant par-dessus
+    // les étapes inertes — mais elle se TERMINE sur une étape à décor, jamais
+    // sur une traversée : sinon le drapeau `retire` tomberait dans le vide.
+    const membres = [i];
+    let j = i + 1;
+    let enAttente = [];
+    while (j < steps.length) {
+      const c = cleDecor(steps[j]);
+      if (c === cle) { membres.push(j); enAttente = []; j++; continue; }
+      if (c === null && traversable(steps[j])) { enAttente.push(j); j++; continue; }
+      break;
+    }
+    const dernier = membres[membres.length - 1];
+    for (const k of membres) {
+      steps[k].ops[0].montre = k === i;
+      steps[k].ops[0].retire = k === dernier;
+    }
+    i = dernier + 1;
+  }
+}
+
+/**
+ * Récolte les 6 d'un vecteur final et fait tomber le reste — le geste propre au
+ * mode GROUPEMENT (`assemblage.js`).
+ *
+ * Rend la liste des jetons à révéler (un multiple de trois), ou `null` si le
+ * chemin ne finit pas sur un vecteur à trois 6 — auquel cas l'appelant reprend
+ * son cours ordinaire.
+ *
+ * ── En mode MOISSON, la récolte est TOTALE. ────────────────────────────────
+ * Le GROUPEMENT tire ses séries d'un seul vecteur : quatre 6 y font une série
+ * de trois, et le quatrième tombe avec le reste. La MOISSON, elle, additionne
+ * ce que rapportent plusieurs portées — les quatre 6 de `hope` ne valent une
+ * série qu'accompagnés du 6 du tiret voisin. Ne garder que trois 6 par portée y
+ * reviendrait à jeter le quart de la récolte avant même de l'avoir comptée : le
+ * verdict annonçait « 666 666 666 666 666 » et la scène ne révélait que douze
+ * chiffres. On garde donc TOUS les 6, et c'est l'appelant qui, une fois toutes
+ * les portées passées, rogne l'appoint qui ne fait pas trois.
+ *
+ * @param {{courants:Array<string[]>}} groupe
+ * @param {Object} chemin
+ * @param {Function} poser  `poserBloc`, pour émettre l'étape de tri
+ * @param {'fr'|'en'} langue
+ * @param {boolean} [tous]  garder tous les 6, et pas seulement un multiple de 3
+ * @returns {string[]|null}
+ */
+function recolterLesSix(groupe, chemin, poser, langue, tous = false) {
+  const fin = chemin.etats[chemin.etats.length - 1];
+  if (!fin) return null;
+  // Une portée qui finit sur un nombre unique n'a rien à trier : son 6 est déjà
+  // seul à l'écran. Le cas n'existe qu'en moisson (un tiret, un `fr`).
+  if (fin.type === 'NUM') {
+    if (!tous || fin.valeur !== 6) return null;
+    const id = (groupe.courants[0] || [])[0] || null;
+    return id ? [id] : null;
+  }
+  // Les 6 retenus sont ceux qu'a désignés `assemblage.js` : la scène ne
+  // recalcule pas le découpage, elle le MONTRE. Deux comptes de séries qui
+  // divergeraient donneraient un verdict « 666 666 » sur quatre jetons révélés.
+  const serie = tous ? sixDuChemin(chemin) : serieDeSix(chemin);
+  if (!serie) return null;
+  const gardes = serie.indices;
+  const premierDe = (k) => (groupe.courants[k] || [])[0] || null;
+  const aGarder = gardes.map(premierDe);
+  // Le vecteur et les jetons de scène doivent se correspondre un pour un ; si
+  // l'opérateur a rendu autre chose, on ne bricole pas — on laisse le rendu
+  // ordinaire faire ce qu'il peut.
+  if (aGarder.some((x) => !x) || groupe.courants.length !== fin.valeur.length) return null;
+
+  const set = new Set(gardes);
+  const aJeter = [];
+  for (let i = 0; i < groupe.courants.length; i++) {
+    if (set.has(i)) continue;
+    const id = premierDe(i);
+    if (id) aJeter.push(id);
+  }
+  if (aJeter.length) {
+    poser({
+      titre: MOTS.recolter[langue],
+      legende: tous
+        ? MOTS.recolteLegende(aGarder.length, aJeter.length, langue)
+        : MOTS.recolterLegende(serie.series, aJeter.length, langue),
+      ops: [
+        { op: 'highlight', targets: aGarder, mode: 'select' },
+        { op: 'drop', targets: aJeter, mode: 'fall', at: 350 },
+        { op: 'move', at: 700 },
+      ],
+    });
+  }
+  groupe.courants = gardes.map((k) => groupe.courants[k]);
+  return aGarder;
+}
+
 export function construireScenario(approche, ctx = {}) {
   const saisie = String(ctx.saisie ?? approche.saisie ?? '').normalize('NFC');
   const langue = ctx.langue === 'en' ? 'en' : LANGUE_DEFAUT;
   const alloc = creerAllocateur();
   const avertissements = [];
 
-  // Les parts identiques (joker, triplement) ne sont rendues qu'une fois : les
-  // tokens d'un fragment ne peuvent pas être consommés trois fois — un id
-  // supprimé n'est jamais réutilisé (invariant 4).
+  // Les parts identiques (joker) ne sont rendues qu'une fois : les tokens d'un
+  // fragment ne peuvent pas être consommés trois fois — un id supprimé n'est
+  // jamais réutilisé (invariant 4).
+  //
+  // ⚠️ La clé porte la PORTÉE **et** le PROGRAMME. Avec la portée seule, une
+  // CONVERGENCE — la même chaîne lue de trois manières différentes — s'effondrait
+  // sur sa première part : la scène montrait un calcul, puis recopiait son 6 en
+  // trois exemplaires. C'est-à-dire qu'elle DÉCRÉTAIT à l'écran ce que
+  // l'assemblage venait justement de démontrer trois fois. Le décret n'a pas à
+  // rentrer par la porte du rendu après avoir été chassé par celle du moteur.
+  // La MOISSON se reconnaît à sa GÉOMÉTRIE — des portées disjointes qui
+  // rapportent ensemble au moins deux séries —, jamais au champ `mode` posé sur
+  // l'approche : `scenarioDe` reçoit aussi bien une approche de la liste qu'une
+  // approche rejouée depuis une URL, et les deux doivent montrer la même scène.
+  const recolteTotale = compterMoisson(approche.parts);
+  const moisson = Boolean(recolteTotale);
+
   const partsUniques = [];
   const vues = new Set();
   for (const p of approche.parts) {
-    const cle = p.fragment ? p.fragment.intervalles.map((iv) => iv.join('.')).join('|') : '';
+    const portee = p.fragment ? p.fragment.intervalles.map((iv) => iv.join('.')).join('|') : '';
+    const cle = portee + '' + p.chemin.ops.map((o) => o.code).join('+');
     if (vues.has(cle)) continue;
     vues.add(cle);
     partsUniques.push(p);
   }
   const repete = partsUniques.length < approche.parts.length;
+
+  // CONVERGENCE : plusieurs parts sur EXACTEMENT la même portée. Il n'y a qu'un
+  // jeu de jetons pour trois lectures, et le premier calcul les consommerait
+  // tous. On les recopie donc d'abord — un geste montré, pas un escamotage —
+  // puis chaque copie suit sa méthode.
+  const porteeDe = (p) => (p.fragment ? p.fragment.intervalles.map((iv) => iv.join('.')).join('|') : '');
+  const convergente = partsUniques.length > 1
+    && new Set(partsUniques.map(porteeDe)).size === 1;
 
   // Chaque caractère de la saisie est un token, étiqueté du groupe de la part
   // qui l'exploite. Le groupe permet d'atténuer le hors-fragment par sélecteur
@@ -660,6 +852,10 @@ export function construireScenario(approche, ctx = {}) {
   // liste d'ids figée qui pointerait des tokens déjà consommés.
   const groupeDe = new Array(saisie.length).fill(null);
   partsUniques.forEach((part, i) => {
+    // Sur une convergence, les trois parts couvrent les mêmes positions : le
+    // tag de groupe irait au dernier arrivé et les sélecteurs `{group}` se
+    // tromperaient de cible. Les copies porteront leurs ids en clair.
+    if (convergente && i > 0) return;
     for (const pos of positionsDe(part.fragment, saisie.length)) groupeDe[pos] = `p${i}`;
   });
   const tokens = [...saisie].map((c, i) => {
@@ -748,12 +944,53 @@ export function construireScenario(approche, ctx = {}) {
   }));
   const horsGroupe = idsParPosition.filter((_, i) => groupeDe[i] === null);
 
+  // ── La RECOPIE de la convergence ──────────────────────────────────────────
+  //
+  // Trois lectures d'une même chaîne réclament trois jeux de jetons. On les
+  // fabrique en un geste visible : chaque signe est remplacé par autant de
+  // copies qu'il y a de lectures, puis un `move` les remet dans l'ordre — les
+  // copies interfoliées `h h h o o o…` redeviennent `hope hope hope`.
+  //
+  // Ce n'est PAS le décret qu'on vient de supprimer : là, un seul 6 était
+  // recopié à l'arrivée sans avoir été calculé ; ici, c'est la chaîne DE DÉPART
+  // qu'on recopie, et les trois 6 sont ensuite gagnés séparément.
+  if (convergente) {
+    const positions = groupes[0].positions;
+    const copies = positions.map(() => []);
+    const paires = positions.map((pos, k) => {
+      const source = idsParPosition[pos];
+      const trio = groupes.map(() => ({
+        id: alloc.nouvel('d'), text: saisie[pos], kind: genreDe(saisie[pos]),
+      }));
+      copies[k] = trio;
+      return { target: source, to: trio };
+    });
+    // L'ordre final : une copie complète de la chaîne par groupe, à la suite.
+    const ordre = [];
+    groupes.forEach((_, i) => { for (const trio of copies) ordre.push(trio[i].id); });
+    // Deux étapes, et non deux ops dans une : `substitute` translate déjà les
+    // copies pour les écarter, et un `move` dans la même étape animerait le même
+    // `translate` sur le même token — le compilateur du moteur visuel le
+    // signale comme « animations concurrentes » (§2.4, contrainte 4).
+    poserBloc({
+      titre: MOTS.recopier(groupes.length, langue),
+      legende: MOTS.recopierLegende(groupes.length, langue),
+      ops: [{ op: 'substitute', pairs: paires, stagger: 80 }],
+    });
+    poserBloc({
+      titre: MOTS.ranger(groupes.length, langue),
+      legende: null,
+      ops: [{ op: 'move', order: ordre }],
+    });
+    groupes.forEach((g, i) => { g.courants = copies.map((trio) => [trio[i].id]); });
+  }
+
   // La même méthode pour tous ? C'est à cette condition qu'on peut l'appliquer
   // à chaque groupe EN MÊME TEMPS plutôt que l'un après l'autre.
   const memeMethode = groupes.length > 1
     && groupes.every((g) => signatureChemin(g.part.chemin) === signatureChemin(groupes[0].part.chemin));
 
-  if (groupes.length > 1) {
+  if (groupes.length > 1 && !convergente) {
     poserBloc({
       titre: MOTS.decouper[langue],
       legende: memeMethode ? MOTS.decouperLegende[langue] : null,
@@ -802,6 +1039,11 @@ export function construireScenario(approche, ctx = {}) {
       rendus.forEach((r, k) => { if (r) groupes[k].courants = r.courants; });
     }
     for (const g of groupes) {
+      // Une moisson dont toutes les portées se lisent de la même façon passe
+      // par ici — trois `hope` en quatorze segments, douze 6 d'un seul geste.
+      // Sans récolte, la scène n'en révélait qu'un par groupe.
+      const recolte = moisson ? recolterLesSix(g, g.part.chemin, poserBloc, langue, true) : null;
+      if (recolte) { resultats.push(...recolte); continue; }
       const dernier = g.courants.flat()[0];
       if (dernier) resultats.push(dernier);
     }
@@ -821,10 +1063,15 @@ export function construireScenario(approche, ctx = {}) {
           ],
         });
       } else if (groupes.length > 1) {
+        // Sur une convergence, les copies n'ont pas de tag de groupe (elles
+        // naissent en cours de scène) : on désigne leurs ids en clair.
+        const cibles = convergente ? g.courants.flat() : { group: g.tag };
         poserBloc({
-          titre: MOTS.isolerMorceau(indexPart + 1, langue),
+          titre: convergente
+            ? MOTS.lecture(indexPart + 1, langue)
+            : MOTS.isolerMorceau(indexPart + 1, langue),
           legende: g.part.fragment ? citer(g.part.fragment.texte, langue) : null,
-          ops: [{ op: 'highlight', targets: { group: g.tag }, mode: 'select' }],
+          ops: [{ op: 'highlight', targets: cibles, mode: 'select' }],
         });
       }
 
@@ -837,13 +1084,43 @@ export function construireScenario(approche, ctx = {}) {
         for (const b of r.blocs) poserBloc(b);
         g.courants = r.courants;
       }
+      // ── Le GROUPEMENT : le calcul ne finit pas sur UN 6, il finit sur un
+      //    VECTEUR qui en porte plusieurs. On les garde, on jette le reste, et
+      //    ce qui reste s'assemble par trois. Sans cette récolte, le verdict
+      //    révélait le premier nombre venu en annonçant « 666 » — c'est-à-dire
+      //    qu'il décrétait, ce que ce mode existe précisément pour ne plus faire.
+      const recolte = recolterLesSix(g, chemin, poserBloc, langue, moisson);
+      if (recolte) { resultats.push(...recolte); continue; }
       const dernier = g.courants.flat()[0];
       if (dernier) resultats.push(dernier);
     }
   }
 
-  const finaux = resultats.filter(Boolean);
+  let finaux = resultats.filter(Boolean);
   if (!finaux.length) throw new ErreurRendu('aucun résultat à révéler', null);
+
+  // ── L'APPOINT de la moisson ────────────────────────────────────────────────
+  // Quinze 6 font cinq séries pile ; seize en feraient cinq et un 6 qui traîne.
+  // Ce qui dépasse le multiple de trois — ou le plafond `MAX_SERIES` — tombe
+  // ici, d'un geste montré, plutôt que de figurer dans un verdict qui ne le
+  // compte pas. Le nombre de chiffres révélés est ainsi TOUJOURS celui que le
+  // verdict annonce.
+  if (moisson) {
+    const garde = recolteTotale.series * SERIE;
+    if (finaux.length > garde) {
+      const surplus = finaux.slice(garde);
+      finaux = finaux.slice(0, garde);
+      poserBloc({
+        titre: MOTS.recolter[langue],
+        legende: MOTS.appointLegende(recolteTotale.series, surplus.length, langue),
+        ops: [
+          { op: 'highlight', targets: finaux, mode: 'select' },
+          { op: 'drop', targets: surplus, mode: 'fall', at: 350 },
+          { op: 'move', at: 700 },
+        ],
+      });
+    }
+  }
 
   let aReveler = finaux;
   if (finaux.length === 1 && repete) {
@@ -874,6 +1151,11 @@ export function construireScenario(approche, ctx = {}) {
       { op: 'annotate', anchor: aReveler, text: ctx.resultat || '666', place: 'below', at: 400 },
     ]);
   }
+
+  // ★ Le DÉCOR des tables se mutualise ici, et nulle part ailleurs : c'est le
+  //   seul endroit qui voit la suite complète des étapes. Un opérateur ne
+  //   connaît que les siennes.
+  mutualiserDecor(steps);
 
   const scenario = {
     version: 1,
@@ -940,9 +1222,34 @@ export function validerFormeOp(o) {
       }
       return null;
     }
-    case 'alphabet':
+    case 'table': {
+      // La table dessinée est celle de l'opérateur : sans `entries` (ou sans
+      // `ordre`, la réglette alphabétique que le moteur visuel sait
+      // recalculer), il n'y a rien à MONTRER — et une conversion qu'on ne
+      // montre pas est une affirmation (CONTRACTS §0.3).
+      const aTable = o.ordre !== undefined
+        || (Array.isArray(o.entries) && o.entries.length
+          && o.entries.every((e) => e && typeof e === 'object'
+            && chaine(e.char) && e.value !== undefined && e.value !== null));
+      if (!aTable) return '« entries » doit lister les correspondances {char, value}, ou « ordre » la réglette alphabétique';
+      // Trois mises en page, et chacune dit quelque chose : la réglette (une
+      // case = une lettre + sa valeur), la GLISSIÈRE (deux réglettes alignées,
+      // celle du bas étant celle du haut déplacée — les chiffrements par
+      // substitution) et le pavé, seul endroit où une case porte plusieurs
+      // lettres parce que la touche 7 porte vraiment « PQRS ».
+      if (o.disposition !== undefined && !['reglette', 'glissiere', 'pave'].includes(o.disposition)) {
+        return '« disposition » doit valoir reglette, glissiere ou pave';
+      }
+      if (o.teinte !== undefined && o.teinte !== 'valeur') return '« teinte » doit valoir valeur';
+      if (o.cycle !== undefined && typeof o.cycle !== 'boolean') return '« cycle » doit être un booléen';
       if (!chaine(o.target)) return '« target » manquant';
+      // Le décor se mutualise d'une étape à l'autre : deux drapeaux, deux
+      // booléens, rien de plus.
+      for (const k of ['montre', 'retire']) {
+        if (o[k] !== undefined && typeof o[k] !== 'boolean') return `« ${k} » doit être un booléen`;
+      }
       return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
+    }
     case 'substitute': {
       if (!Array.isArray(o.pairs) || !o.pairs.length) return '« pairs » manquant';
       for (const p of o.pairs) {
@@ -971,7 +1278,15 @@ export function validerFormeOp(o) {
       return Array.isArray(o.ids) && o.ids.length === n && o.ids.every(chaine)
         ? null : `« ids », s'il est fourni, doit contenir exactement ${n} identifiant(s)`;
     }
-    case 'flip180': case 'keyboard': case 'countStrokes':
+    case 'keyboard':
+      if (!chaine(o.target)) return '« target » manquant';
+      // Le décor se mutualise d'une étape à l'autre, comme celui de la table :
+      // deux drapeaux, deux booléens, rien de plus.
+      for (const k of ['montre', 'retire']) {
+        if (o[k] !== undefined && typeof o[k] !== 'boolean') return `« ${k} » doit être un booléen`;
+      }
+      return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
+    case 'flip180': case 'countStrokes':
       if (!chaine(o.target)) return '« target » manquant';
       return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
     case 'sevenSeg':
@@ -1008,6 +1323,8 @@ export function validerFormeOp(o) {
  * @returns {string|null}
  */
 function validerArithmetiqueOp(o, ctxOp) {
+  /** Le pliage d'`apply()` : sans accent, en capitale. */
+  const plier = (c) => c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
   const valeurDe = (id) => {
     const i = ctxOp.ids.indexOf(id);
     return i < 0 ? null : ctxOp.elements[i];
@@ -1024,6 +1341,35 @@ function validerArithmetiqueOp(o, ctxOp) {
       : nombres.reduce((a, b) => a + b, 0);
     if (String(attendu) !== String(o.to.text)) {
       return `« sum » afficherait ${attendu} alors que « to.text » annonce « ${o.to.text} »`;
+    }
+  }
+  if (o.op === 'table') {
+    // ★ La table AFFICHÉE est-elle celle qui a servi ? Le moteur visuel refuse
+    // déjà de faire redescendre une valeur qui n'est pas dans la case ; on le
+    // rattrape ici, où l'on connaît encore le jeton de départ — et où l'on peut
+    // donc vérifier la troisième chose, celle qu'aucun des deux ne voit seul :
+    // que la lettre envoyée dans la table est bien celle qui est à l'écran.
+    const table = new Map();
+    for (const e of o.entries || []) table.set(String(e.char).toUpperCase(), String(e.value));
+    const source = valeurDe(o.target);
+    const lettre = String(o.letter ?? source ?? '').toUpperCase();
+    if (source !== null && o.letter !== undefined && plier(String(source)) !== lettre) {
+      return `« table » enverrait « ${lettre} » dans la table alors que la ligne porte « ${source} »`;
+    }
+    if (o.to && table.size) {
+      const montre = table.get(lettre);
+      if (montre === undefined) {
+        return `« table » n'a pas de case pour « ${lettre} » : la conversion serait affirmée, pas montrée`;
+      }
+      // ★ À la casse près, et à la casse près SEULEMENT. La valeur d'une case
+      // peut être une LETTRE (Atbash, César) : la réglette est écrite en
+      // capitales, la ligne garde sa casse — « h » en redescend « s » là où la
+      // case porte « S ». C'est le pliage qu'appliquent `atbash` et `cesar`
+      // eux-mêmes. Les tables lettre → nombre ne bougent pas d'un pouce : un
+      // nombre n'a pas de casse.
+      if (montre.toUpperCase() !== String(o.to.text).toUpperCase()) {
+        return `« table » montre « ${lettre} = ${montre} » alors que « to.text » annonce « ${o.to.text} »`;
+      }
     }
   }
   if (o.op === 'reduce' && Array.isArray(o.digits) && o.to) {
@@ -1203,6 +1549,44 @@ const MOTS = Object.freeze({
     fr: 'Le même calcul vaut pour les trois 6',
     en: 'One and the same calculation gives all three 6s',
   },
+  recopier: (n, langue) => (langue === 'en'
+    ? `Write it out ${n === 3 ? 'three times' : `${n} times`}`
+    : `On la recopie ${n === 3 ? 'trois fois' : `${n} fois`}`),
+  ranger: (n, langue) => (langue === 'en'
+    ? `${n === 3 ? 'Three' : n} copies, side by side`
+    : `On range les ${n === 3 ? 'trois' : n} copies`),
+  recopierLegende: (n, langue) => (langue === 'en'
+    ? `The same string, read ${n === 3 ? 'three' : n} different ways`
+    : `La même chaîne, lue de ${n === 3 ? 'trois' : n} manières différentes`),
+  // « lecture » est féminin : `ordinal()` rend le masculin (« premier morceau »).
+  lecture: (n, langue) => (langue === 'en'
+    ? `${ordinalEn(n)} reading`
+    : `${n === 1 ? 'Première' : n === 2 ? 'Deuxième' : n === 3 ? 'Troisième' : `${n}ᵉ`} lecture`),
+  recolter: { fr: 'On ne garde que les 6', en: 'Keep the 6s, and only those' },
+  recolterLegende: (series, jetes, langue) => {
+    if (langue === 'en') {
+      return series > 1
+        ? `${series} runs of three — the other ${jetes} value${jetes > 1 ? 's fall' : ' falls'} away`
+        : `Three of them, side by side — the other ${jetes} value${jetes > 1 ? 's fall' : ' falls'} away`;
+    }
+    const reste = jetes > 1 ? `les ${jetes} autres valeurs tombent` : 'l’autre valeur tombe';
+    return series > 1
+      ? `${series} séries de trois — ${reste}`
+      : `Trois, côte à côte — ${reste}`;
+  },
+  // La récolte d'UNE portée de moisson : elle ne fait pas une série à elle
+  // seule, elle apporte sa part. On dit donc ce qu'on garde, pas des séries.
+  recolteLegende: (gardes, jetes, langue) => {
+    if (langue === 'en') {
+      return `${gardes} six${gardes > 1 ? 'es' : ''} kept — the other `
+        + `${jetes} value${jetes > 1 ? 's fall' : ' falls'} away`;
+    }
+    return `On en garde ${gardes} — ${jetes > 1 ? `les ${jetes} autres valeurs tombent` : 'l’autre valeur tombe'}`;
+  },
+  // Ce qui dépasse le dernier groupe de trois.
+  appointLegende: (series, surplus, langue) => (langue === 'en'
+    ? `${series} runs of three — ${surplus} six${surplus > 1 ? 'es' : ''} left over, and left out`
+    : `${series} séries de trois — ${surplus > 1 ? `les ${surplus} 6 en trop restent` : 'le 6 en trop reste'} sur le carreau`),
   verdict: { fr: 'Le verdict', en: 'The verdict' },
 });
 

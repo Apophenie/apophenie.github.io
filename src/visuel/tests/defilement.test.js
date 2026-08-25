@@ -144,11 +144,11 @@ test('le défilement et le recul de caméra sont deux nœuds distincts', () => {
     {
       id: 'b',
       title: 'B',
-      ops: [{ op: 'alphabet', target: 't62', to: { id: 'r', text: '7' } }],
+      ops: [{ op: 'table', ordre: 'a1z26', target: 't62', to: { id: 'r', text: '7' } }],
     },
   ], longue()));
   const cam = tl.anims.filter((a) => a.id === CAMERA_ID);
-  assert.ok(cam.length >= 2, 'la réglette recule bien la caméra');
+  assert.ok(cam.length >= 2, 'la table recule bien la caméra');
   assert.ok(panDe(tl).length >= 1, 'et la ligne défile');
   assert.deepEqual(tl.warnings, [], 'sans jamais deux animations concurrentes sur un même canal');
 });
@@ -156,14 +156,14 @@ test('le défilement et le recul de caméra sont deux nœuds distincts', () => {
 test('ce qui se pose « au centre » se pose au centre de la VUE', () => {
   const tl = compile(sc([
     { id: 'a', title: 'A', ops: [{ op: 'highlight', targets: ['t0'] }] },
-    { id: 'b', title: 'B', ops: [{ op: 'alphabet', target: 't62', to: { id: 'r', text: '7' } }] },
+    { id: 'b', title: 'B', ops: [{ op: 'table', ordre: 'a1z26', target: 't62', to: { id: 'r', text: '7' } }] },
   ], longue()));
-  const board = tl.nodes.find((n) => n.role === 'alphabet');
-  assert.ok(board, 'la réglette existe');
+  const board = tl.nodes.find((n) => n.role === 'table');
+  assert.ok(board, 'la table existe');
   const pan = tl.anims.filter((a) => a.id === PAN_ID).pop();
   const panFinal = pan ? pan.keyframes[pan.keyframes.length - 1].value : { x: 0 };
   assert.ok(Math.abs(board.base.translate.x + panFinal.x - opts.centerX) < 0.5,
-    'la réglette doit tomber au milieu de l’écran, défilement compris');
+    'la table doit tomber au milieu de l’écran, défilement compris');
 });
 
 // ───────────────────────────── 4. mouvement réduit

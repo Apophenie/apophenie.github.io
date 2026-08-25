@@ -229,7 +229,8 @@ class Player {
     // couleurs **à la compilation**, ce qui impose un rebuild au changement de thème.
     for (const [key, cssVar] of Object.entries({
       fg: '--fg', fg2: '--fg-2', fg3: '--fg-3', rubric: '--rubric',
-      gold: '--gold', phos: '--phos', line: '--line', raised: '--raised', surface: '--surface',
+      gold: '--gold', phos: '--phos', line: '--line', lineUi: '--line-ui',
+      raised: '--raised', surface: '--surface',
     })) {
       const v = cs.getPropertyValue(cssVar).trim();
       if (v) palette[key] = v;

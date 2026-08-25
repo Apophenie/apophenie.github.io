@@ -26,7 +26,7 @@
  * chaîne : deux des quatorze noms font deux caractères (`g1`, `g2`).
  */
 
-import { SEGMENTS14, SEGMENT14_ORDER, fusedStrokes14, SEG14_STROKE } from '../assets.js';
+import { SEGMENTS14, SEGMENTS_DSEG14, SEGMENT14_ORDER, fusedStrokes14, SEG14_STROKE } from '../assets.js';
 import { planAfficheur } from './afficheur.js';
 import { fail } from '../errors.js';
 
@@ -49,6 +49,7 @@ export function plan(ctx) {
   planAfficheur(ctx, {
     nom: 'fourteenSeg',
     SEGMENTS: SEGMENTS14,
+    PLEINS: SEGMENTS_DSEG14,
     ORDER: SEGMENT14_ORDER,
     fusedStrokes: fusedStrokes14,
     largeur: SEG14_STROKE,

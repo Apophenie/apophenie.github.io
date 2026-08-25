@@ -85,7 +85,11 @@ const NOMS = {
   'n.lettresPlusConsonnes': b('Le compte des lettres et des consonnes', 'Counting letters and consonants'),
 
   // ── mappeurs (la table de conversion qui fait la méthode)
-  'm.a1z26': b('La numérologie A1Z26', 'A1Z26 numerology'),
+  // Le nom affiché est « numérologie latine » : c'est l'alphabet latin qu'on
+  // numérote, et le lecteur qui n'a jamais lu « A1Z26 » comprend tout de
+  // même. L'identifiant `m.a1z26` et le code d'URL `m1`, eux, ne changent
+  // JAMAIS — registre append-only (CONTRACTS §4.1).
+  'm.a1z26': b('La numérologie latine', 'Latin numerology'),
   'm.z26a1': b('L’alphabet à rebours', 'The alphabet backwards'),
   'm.pythagore': b('La numérologie pythagoricienne', 'Pythagorean numerology'),
   'm.chaldeen': b('La numérologie chaldéenne', 'Chaldean numerology'),
@@ -180,12 +184,28 @@ const QUALIFIANTS = {
 // ══════════════════════════════════ 3. les mentions d'assemblage
 
 const MENTIONS = {
+  // Le décret n'est plus PRODUIT (`assemblage.js`) ; la mention survit pour les
+  // liens partagés avant sa suppression, que `rejouer` continue d'ouvrir.
   decret: b('le même 6, trois fois', 'the same 6, three times over'),
   direct: b('666 d’un seul tenant', '666 in one go'),
+  groupement: b('les 6 groupés par trois', 'the 6s grouped in threes'),
+  // La convergence NOMME ce qui se passe au lieu d'énumérer : trois lectures
+  // indépendantes de la même chaîne qui tombent toutes sur 6.
+  convergence: b('trois voies convergent', 'three roads converge'),
   sixOfferts: b('tirets du 6 compris', 'dash-key sixes included'),
   uneAutre: b('et une autre règle', 'and one other rule'),
   deuxAutres: b('et deux autres règles', 'and two other rules'),
 };
+
+/** « deux séries de 666 » — quand le vecteur en porte de quoi faire plusieurs. */
+function mentionSeries(n) {
+  if (!n || n < 2) return MENTIONS.groupement;
+  const motsFr = ['', '', 'deux', 'trois', 'quatre', 'cinq', 'six'];
+  const motsEn = ['', '', 'two', 'three', 'four', 'five', 'six'];
+  const fr = motsFr[n] || String(n);
+  const en = motsEn[n] || String(n);
+  return b(`${fr} séries de 666`, `${en} runs of 666`);
+}
 
 // ══════════════════════════════════ lecture d'un chemin
 
@@ -265,7 +285,12 @@ function qualifiant(chemin, idVedette) {
 export function estDecret(approche) {
   const parts = approche && approche.parts;
   if (!parts || !parts.length) return false;
-  if (parts.length === 1) return !atteint666(parts[0].chemin);
+  if (parts.length === 1) {
+    // Une part unique ne décrète rien dans deux cas : elle atteint 666 d'un
+    // seul tenant, ou son vecteur final porte déjà les trois 6 — trois 6
+    // calculés, pas un 6 recopié (mode GROUPEMENT, `assemblage.js`).
+    return !atteint666(parts[0].chemin) && !porteTroisSix(parts[0].chemin);
+  }
   const cle = (p) => `${p.fragment.offset}.${p.fragment.longueur} `
     + p.chemin.ops.map((o) => o.code).join('+');
   const premier = cle(parts[0]);
@@ -275,6 +300,21 @@ export function estDecret(approche) {
 function atteint666(chemin) {
   const fin = chemin.etats[chemin.etats.length - 1];
   return fin && fin.type === 'NUM' && fin.valeur === 666;
+}
+
+/**
+ * L'état final est-il un vecteur portant au moins trois 6 ?
+ *
+ * Le critère est recalculé ici plutôt qu'importé d'`assemblage.js` : `score.js`
+ * importe ce module, `assemblage.js` importe `score.js`, et refermer le triangle
+ * créerait un cycle. Trois lignes valent mieux qu'un cycle.
+ */
+function porteTroisSix(chemin) {
+  const fin = chemin && chemin.etats && chemin.etats[chemin.etats.length - 1];
+  if (!fin || fin.type !== 'NUMS') return false;
+  let n = 0;
+  for (const x of fin.valeur) if (x === 6) n++;
+  return n >= 3;
 }
 
 // ══════════════════════════════════ le titre
@@ -308,9 +348,15 @@ export function titreBilingue(approche) {
 
 function mentionAssemblage(approche, cheminPrincipal) {
   if (approche.joker || (approche.mode === 'JOKER')) return null; // le nom le dit déjà
-  if (estDecret(approche)) {
-    return atteint666(cheminPrincipal) ? MENTIONS.direct : MENTIONS.decret;
+  // La MOISSON annonce ses séries : c'est ce qui la fait passer devant, le
+  // lecteur doit donc pouvoir le lire sans ouvrir la démonstration.
+  if (approche.mode === 'MOISSON') return mentionSeries(approche.series);
+  if (atteint666(cheminPrincipal) && (approche.parts || []).length === 1) return MENTIONS.direct;
+  if (porteTroisSix(cheminPrincipal) && (approche.parts || []).length === 1) {
+    return mentionSeries(approche.series);
   }
+  if (estDecret(approche)) return MENTIONS.decret;
+  if (approche.mode === 'CONVERGENCE') return MENTIONS.convergence;
   const parts = approche.parts || [];
   const signatures = new Set(parts.map((p) => signatureOps(p.chemin)));
   if (approche.mode === 'SIX_OFFERT') return MENTIONS.sixOfferts;
@@ -407,6 +453,17 @@ export function distinguerTitres(approches) {
     groupe.forEach((a, i) => {
       const propre = opsDe(a).find((o) => !ailleurs[i].has(o.id));
       if (propre) { a.distinction = propre.libelle; return; }
+      // Rien en propre parce qu'on est le PLUS DÉPOUILLÉ du groupe : les autres
+      // ajoutent un filtre, une pirouette, et nous non. C'est une différence
+      // parfaitement nommable — « la règle seule » —, et il ne peut y en avoir
+      // qu'un, puisqu'on exige d'être STRICTEMENT le plus court. Sans elle, la
+      // ligne se distinguait par sa suite de codes : « L'alphabet à rebours —
+      // t1+m2+mt », qui n'apprend rien à personne.
+      const taille = (x) => new Set(opsDe(x).map((o) => o.id)).size;
+      if (groupe.every((x) => x === a || taille(x) > taille(a))) {
+        a.distinction = { fr: 'la règle seule', en: 'the rule on its own' };
+        return;
+      }
       const textes = [...new Set((a.parts || []).map((p) => p.fragment.texte))].join(' · ');
       const autresTextes = groupe
         .filter((x) => x !== a)

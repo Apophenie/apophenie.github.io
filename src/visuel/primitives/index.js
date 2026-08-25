@@ -2,9 +2,9 @@
  * Le vocabulaire fermé des ops — CONTRACTS §3.1.
  *
  * Vingt primitives, une par fichier — les dix-sept du socle, plus `partition`
- * (découper en sous-groupes), `alphabet` (la réglette numérotée) et
- * `fourteenSeg` (l'afficheur quatorze segments), ajoutées selon la clause
- * d'extension du contrat. `afficheur.js` n'en est PAS une : c'est le corps
+ * (découper en sous-groupes), `table` (la table de correspondance affichée —
+ * réglette, grille ou pavé téléphonique) et `fourteenSeg` (l'afficheur quatorze
+ * segments), ajoutées selon la clause d'extension du contrat. `afficheur.js` n'en est PAS une : c'est le corps
  * partagé de `sevenSeg` et `fourteenSeg`, qui font le même geste sur deux
  * afficheurs. Ajouter une transformation arithmétique sans
  * rendu impose d'**ajouter d'abord la primitive ici**, puis de l'émettre : un
@@ -30,14 +30,14 @@ import * as pulse from './pulse.js';
 import * as reveal from './reveal.js';
 import * as wait from './wait.js';
 import * as partition from './partition.js';
-import * as alphabet from './alphabet.js';
+import * as table from './table.js';
 
 import { OP_NAMES } from '../constants.js';
 
 export const PRIMITIVES = Object.freeze({
   highlight, dim, drop, substitute, move, group, insertOperators,
   sum, reduce, flip180, sevenSeg, fourteenSeg, countStrokes, keyboard,
-  annotate, pulse, reveal, wait, partition, alphabet,
+  annotate, pulse, reveal, wait, partition, table,
 });
 
 // Garde-fou de chargement : la table des primitives et le vocabulaire déclaré

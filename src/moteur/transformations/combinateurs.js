@@ -6,7 +6,7 @@
  * (`sum`, avec les sommes partielles — research §4.7).
  */
 
-import { def, etape, token, fusion, nomsTokens, enchainer, retirerAccolade } from './commun.js';
+import { def, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade } from './commun.js';
 import { bilingue, dire } from '../i18n.js';
 import { NUM_MIN, NUM_MAX } from '../etat.js';
 
@@ -132,6 +132,212 @@ function etapeDecompte(spec) {
   };
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// Le ramassage sous l'accolade — décompte, nivellement, sélection
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Poids des phases du ramassage sous l'accolade, en millisecondes nominales.
+ *
+ * ⚠ **Miroir** de `poidsRamassage` (`src/visuel/primitives/helpers.js`), pour
+ * la même raison que `DUREE_OP` : le moteur arithmétique ne dépend pas du
+ * moteur visuel (CONTRACTS §1), mais c'est lui qui doit dimensionner la durée
+ * d'une étape dont le contenu varie — neuf transferts de nivellement ne se
+ * jouent pas dans le temps d'un seul. Un test croisé échoue si les deux
+ * divergent : sans lui, l'étape garderait sa durée et le geste se jouerait
+ * accéléré, sans que rien ne le signale.
+ */
+export const POIDS_RAMASSAGE = Object.freeze({
+  accolade: 900, doubles: 800,
+  nivellement0: 260, nivellement1: 340,
+  effacement0: 380, effacement1: 90,
+  vol0: 620, vol1: 260,
+  remontee: 760,
+});
+
+/** Durée d'un ramassage, d'après ce qu'il aura à montrer. */
+export function dureeRamassage({ voler = 0, effacer = 0, doubles = 0, transferts = 0 } = {}) {
+  const P = POIDS_RAMASSAGE;
+  return P.accolade
+    + (doubles ? P.doubles : 0)
+    + (transferts ? P.nivellement0 + transferts * P.nivellement1 : 0)
+    + (effacer ? P.effacement0 + effacer * P.effacement1 : 0)
+    + P.vol0 + voler * P.vol1
+    + P.remontee;
+}
+
+/**
+ * L'op d'un COMPTAGE : l'accolade se ferme, chaque jeton compté descend dans sa
+ * pointe et fait avancer le compteur d'un cran, le total remonte dans la ligne.
+ *
+ * `count` désigne ce qui compte (par défaut : tout ce qui est embrassé) ; le
+ * reste s'efface sur place, sans compter. `doubles` recopie sur une ligne
+ * étiquetée, juste au-dessus, les jetons qui comptent **deux** fois.
+ *
+ * Partagé avec les mesures (`mappeurs.js`) : « compter les lettres » et
+ * « compter les jetons » sont le même geste sur deux matières.
+ */
+export function opComptage({ ids, count = null, doubles = [], doublesLabel = null, symbole = '#', libelle = null, to }) {
+  const comptes = count || ids;
+  return {
+    op: 'group',
+    targets: ids,
+    ...(count ? { count } : {}),
+    ...(doubles.length ? { doubles, ...(doublesLabel ? { doublesLabel } : {}) } : {}),
+    symbol: symbole,
+    ...(libelle ? { label: libelle } : {}),
+    to,
+    dur: dureeRamassage({
+      voler: comptes.length + doubles.length,
+      effacer: ids.length - comptes.length,
+      doubles: doubles.length,
+    }),
+  };
+}
+
+/** Étape de comptage : un `group` qui compte, et c'est tout. */
+function etapeComptage(spec) {
+  return (avant, apres, ctx) => {
+    if (ctx.ids.length < 2) return etapeDecompte(spec)(avant, apres, ctx);
+    const sortie = nomsTokens(ctx, 1);
+    const titre = titreEtape(spec, avant.valeur, ctx.langue);
+    const count = spec.cibles ? spec.cibles(avant.valeur).map((i) => ctx.ids[i]) : null;
+    return [etape(ctx, titre, `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`, [opComptage({
+      ids: ctx.ids,
+      count,
+      symbole: spec.symbole || '#',
+      libelle: titre,
+      to: token(sortie[0], apres.valeur, 'number'),
+    })], { hold: 400 })];
+  };
+}
+
+/**
+ * ★ Le NIVELLEMENT — comment une moyenne se montre au lieu de s'annoncer.
+ *
+ * On prend 1 au plus grand, on le donne au plus petit, on recommence jusqu'à
+ * ce qu'aucun écart ne dépasse 1. La somme est invariante, donc la valeur
+ * commune atteinte EST la moyenne ; et les jetons qui ne l'atteignent pas
+ * sont, littéralement, l'arrondi.
+ *
+ * La suite converge : chaque transfert diminue d'au moins 2 la somme des
+ * carrés des écarts (`Δ = 2 − 2(vᵢ − vⱼ)`, avec `vᵢ − vⱼ ≥ 2`), et une
+ * quantité entière positive strictement décroissante s'arrête. Le nombre de
+ * transferts, lui, croît comme la variance : au-delà de `MAX_TRANSFERTS`, on
+ * rend `converge: false` et l'appelant retombe sur le geste sobre.
+ *
+ * ⚠ **Jumeau** de `nivellementDe` (`src/visuel/primitives/helpers.js`) : le
+ * moteur visuel le rejoue sur les nombres qu'il a À L'ÉCRAN, et refuse le
+ * geste si les deux ne tombent pas d'accord. Un test croisé les compare.
+ */
+export const MAX_TRANSFERTS = 18;
+
+export function nivellementDe(valeurs, maxTransferts = MAX_TRANSFERTS) {
+  const v = valeurs.slice();
+  const transferts = [];
+  while (transferts.length <= maxTransferts) {
+    let hi = 0;
+    let lo = 0;
+    for (let i = 1; i < v.length; i++) {
+      if (v[i] > v[hi]) hi = i;
+      if (v[i] < v[lo]) lo = i;
+    }
+    if (v[hi] - v[lo] <= 1) return { transferts, valeurs: v, converge: true };
+    if (transferts.length === maxTransferts) break;
+    v[hi] -= 1;
+    v[lo] += 1;
+    transferts.push({ de: hi, vers: lo, source: v[hi], cible: v[lo] });
+  }
+  return { transferts, valeurs: v, converge: false };
+}
+
+/** Étape de moyenne : on nivelle, puis les nombres égaux à la moyenne fusionnent. */
+function etapeMoyenne(spec) {
+  return (avant, apres, ctx) => {
+    const { transferts, valeurs, converge } = nivellementDe(avant.valeur);
+    const gagnants = valeurs.filter((v) => v === apres.valeur).length;
+    // Repli honnête : un nivellement interminable ne se montre pas, on retombe
+    // sur l'accolade sobre plutôt que sur un geste qu'on ne saurait pas finir.
+    if (!converge || !gagnants) return etapeDecompte(spec)(avant, apres, ctx);
+    const sortie = nomsTokens(ctx, 1);
+    const titre = titreEtape(spec, avant.valeur, ctx.langue);
+    // La légende dit ce qu'on VA voir — et rien de plus : quand tout se tient
+    // déjà à 1 près, il n'y a aucun transfert à annoncer.
+    const legende = dire(transferts.length ? bilingue(
+      `On donne 1 du plus grand au plus petit jusqu’à ce que tout se tienne à 1 près, puis les ${apres.valeur} fusionnent`,
+      `Hand 1 from the largest to the smallest until nothing is more than 1 apart, then the ${apres.valeur}s merge`,
+    ) : bilingue(
+      `Tout se tient déjà à 1 près : les ${apres.valeur} fusionnent, le reste est l’arrondi`,
+      `Nothing is more than 1 apart already: the ${apres.valeur}s merge, what is left is the rounding`,
+    ), ctx.langue);
+    return [etape(ctx, titre, `${legende} : ${apres.valeur}`, [{
+      op: 'group',
+      targets: ctx.ids,
+      niveler: true,
+      symbol: spec.symbole || 'moy.',
+      label: titre,
+      to: token(sortie[0], apres.valeur, 'number'),
+      dur: dureeRamassage({
+        voler: gagnants,
+        effacer: ctx.ids.length - gagnants,
+        transferts: transferts.length,
+      }),
+    }], { hold: 500 })];
+  };
+}
+
+/**
+ * ★ SÉLECTIONNER n'est pas CALCULER.
+ *
+ * « On garde le plus grand » se jouait comme un dénombrement : tout se
+ * ramassait sous l'accolade, le premier jeton — qui n'était pas le maximum —
+ * survivait, puis un `substitute` le remplaçait par la bonne valeur. Le geste
+ * mentait deux fois : il gardait le mauvais, et il faisait passer une
+ * sélection pour un calcul.
+ *
+ * Le geste juste est plus simple, et il n'a besoin d'aucune accolade : **on
+ * désigne le gagnant, on efface les autres, la ligne se resserre**. Le gagnant
+ * ne bouge pas, ne change pas de valeur, et garde son identité de jeton
+ * (`sortie` ci-dessous) — parce qu'il est le même nombre avant et après.
+ */
+function etapeSelection(spec) {
+  return (avant, apres, ctx) => {
+    const i = avant.valeur.indexOf(apres.valeur);
+    // Un sélecteur dont le résultat n'est aucun de ses opérandes n'en est pas
+    // un : on ne devine pas, on retombe sur le geste générique.
+    if (i < 0) return etapeDecompte(spec)(avant, apres, ctx);
+    const gagnant = ctx.ids[i];
+    const perdants = ctx.ids.filter((_, k) => k !== i);
+    const titre = titreEtape(spec, avant.valeur, ctx.langue);
+    return [etape(ctx, titre, `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`, enchainer([
+      { op: 'highlight', targets: [gagnant] },
+      // « erase », pas « fall » : les perdants ne tombent pas dans un calcul,
+      // ils s'effacent sur place, un par un. Et le rapprochement est un temps
+      // À PART — c'est la discipline de `drop.js`.
+      perdants.length ? { op: 'drop', targets: perdants, mode: 'erase', regroup: false, dur: 1400 } : null,
+      perdants.length ? { op: 'move', dur: 900 } : null,
+    ]), { hold: 400 })];
+  };
+}
+
+/** Le jeton qui survit à une sélection : le gagnant lui-même, pas un neuf. */
+function sortieSelection(avant, apres, ctx) {
+  const i = avant.valeur.indexOf(apres.valeur);
+  return [i >= 0 ? ctx.ids[i] : nomToken(ctx, 0)];
+}
+
+/**
+ * Les gestes disponibles, par nom. Un combinateur DIT lequel lui va : le nom du
+ * geste est la première chose qu'on lit d'une spécification, comme le nom d'une
+ * op est la première chose qu'on lit d'un scénario (CONTRACTS §3.1).
+ */
+const GESTES = Object.freeze({
+  decompte: etapeDecompte,   // on encadre, ça se ramasse, un nombre reste
+  comptage: etapeComptage,   // ça se compte, un jeton à la fois
+  moyenne: etapeMoyenne,     // ça se nivelle, puis ça fusionne
+  selection: etapeSelection, // on garde l'élu, on efface le reste
+});
+
 /** Sommes partielles successives, pour animer un compteur. */
 const partielsSomme = (vs) => vs.reduce((acc, v) => [...acc, (acc[acc.length - 1] ?? 0) + v], [0]);
 
@@ -190,7 +396,7 @@ const agregations = [
     regle: bilingue('Le plus grand moins le plus petit', 'The largest one minus the smallest'),
     notoriete: 0.30, adHoc: 0.2, lecture: '…',
     calcul: (vs) => Math.max(...vs) - Math.min(...vs),
-    decompte: true, minimum: 2,
+    geste: 'decompte', minimum: 2,
   },
   {
     id: 'c.moyenne', code: 'c6',
@@ -201,7 +407,7 @@ const agregations = [
       'The sum divided by how many values there are, rounded'),
     notoriete: 0.55, adHoc: 0.1, lecture: '+',
     calcul: (vs) => Math.round(vs.reduce((a, b) => a + b, 0) / vs.length),
-    decompte: true, minimum: 2,
+    geste: 'moyenne', minimum: 2,
   },
   {
     id: 'c.cardinal', code: 'c7',
@@ -211,7 +417,7 @@ const agregations = [
     regle: bilingue('Combien de nombres en tout', 'How many numbers there are in all'),
     notoriete: 0.80,
     calcul: (vs) => vs.length,
-    decompte: true,
+    geste: 'comptage',
   },
   {
     id: 'c.concat', code: 'c8',
@@ -222,7 +428,7 @@ const agregations = [
       'Set the numbers end to end and read the result'),
     notoriete: 0.20, adHoc: 0.3, lecture: '⁀',
     calcul: (vs) => Number(vs.map((v) => String(Math.abs(v))).join('')),
-    decompte: true, minimum: 2,
+    geste: 'decompte', minimum: 2,
   },
   {
     id: 'c.max', code: 'c9',
@@ -232,7 +438,7 @@ const agregations = [
     regle: bilingue('Le maximum des valeurs', 'The largest of the values'),
     notoriete: 0.50, adHoc: 0.15,
     calcul: (vs) => Math.max(...vs),
-    decompte: true, minimum: 2,
+    geste: 'selection', minimum: 2,
   },
   {
     id: 'c.min', code: 'ca',
@@ -242,10 +448,10 @@ const agregations = [
     regle: bilingue('Le minimum des valeurs', 'The smallest of the values'),
     notoriete: 0.50, adHoc: 0.15,
     calcul: (vs) => Math.min(...vs),
-    decompte: true, minimum: 2,
+    geste: 'selection', minimum: 2,
   },
 ].map((spec) => {
-  const { calcul, minimum = 1, decompte, glyphe, lecture, partiels, ...reste } = spec;
+  const { calcul, minimum = 1, geste, cibles, glyphe, lecture, partiels, ...reste } = spec;
   const base = { ...reste, glyphe, lecture, partiels };
   return def({
     ...reste,
@@ -258,7 +464,10 @@ const agregations = [
       if (n === null) return null;
       return { valeur: n, traces: [fusion(traces)] };
     },
-    steps: decompte ? etapeDecompte({ ...reste }) : etapeAgregation(base),
+    steps: GESTES[geste] ? GESTES[geste]({ ...reste, cibles }) : etapeAgregation(base),
+    // ★ Une SÉLECTION ne crée pas de jeton : elle en garde un. C'est le
+    // gagnant qui représente l'état d'arrivée, à sa place, avec son identité.
+    ...(geste === 'selection' ? { sortie: sortieSelection } : {}),
   });
 });
 
@@ -270,6 +479,7 @@ const denombrements = [
     regle: bilingue('Combien de morceaux', 'How many pieces there are'),
     notoriete: 0.85,
     calcul: (toks) => toks.length,
+    geste: 'comptage',
   },
   {
     id: 'c.compteTokensDistincts', code: 'cc',
@@ -278,9 +488,23 @@ const denombrements = [
     regle: bilingue('Combien de morceaux différents', 'How many different pieces there are'),
     notoriete: 0.60,
     calcul: (toks) => new Set(toks.map((t) => t.toLowerCase())).size,
+    geste: 'comptage',
+    // On ne compte QUE la première occurrence de chaque morceau ; les redites
+    // s'effacent sans faire avancer le compteur — c'est ce qui montre la règle.
+    cibles: (toks) => {
+      const vus = new Set();
+      const out = [];
+      toks.forEach((t, i) => {
+        const k = String(t).toLowerCase();
+        if (vus.has(k)) return;
+        vus.add(k);
+        out.push(i);
+      });
+      return out;
+    },
   },
 ].map((spec) => {
-  const { calcul, ...reste } = spec;
+  const { calcul, geste, cibles, ...reste } = spec;
   return def({
     ...reste,
     famille: 'combinateur',
@@ -290,7 +514,7 @@ const denombrements = [
       const n = borne(calcul(valeur));
       return n === null || n === 0 ? null : { valeur: n, traces: [fusion(traces)] };
     },
-    steps: etapeDecompte(reste),
+    steps: (GESTES[geste] || etapeDecompte)({ ...reste, cibles }),
   });
 });
 

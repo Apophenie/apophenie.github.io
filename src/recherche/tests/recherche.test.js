@@ -6,8 +6,11 @@ import { encoderTexte } from '../base58.js';
 import { validerCatalogue, chercherSix, operateursExplorables, D_MAX, MAX_NODES, BUDGET_MS, N_FRAG_MAX } from '../bfs.js';
 import { construireBassin, statistiquesBassin, DISTANCE_MAX } from '../bassin.js';
 import { genererFragments, motifsRepetes, periodicite, tokeniser, zonesSignifiantes, structureUrl } from '../fragments.js';
-import { ordreTotal, comparerCodes, racineEntiere, critereCouverture, critereConcision, noter } from '../score.js';
-import { approcheJoker, normaliserChemin } from '../assemblage.js';
+import {
+  ordreTotal, comparerCodes, racineEntiere, critereCouverture, critereConcision, noter, maniere,
+  rangConviction, RANG,
+} from '../score.js';
+import { approcheJoker, normaliserChemin, compterMoisson, sixDuChemin, SERIE } from '../assemblage.js';
 import { estDecret, titreApproche } from '../titres.js';
 import { catalogue, source, horlogeFactice, demarrerCharge, arreterCharge } from './_catalogue.js';
 
@@ -352,8 +355,83 @@ test('jamais bredouille — le joker plafonne bien sous une approche honnête', 
   const a = approcheJoker(s, { saisie: s, catalogue });
   noter(a, { saisie: s, signifiants: zonesSignifiantes(s) });
   assert.ok(a.score <= 4500, `un joker ne peut pas dépasser ≈45/100 (mesuré ${a.score / 100})`);
-  const honnete = creerMoteur(catalogue).resoudre(s).approches[0];
+  // Dès qu'une approche honnête EXISTE, elle bat le joker. Le témoin ne peut plus
+  // être « a » : voir le test suivant.
+  const honnete = creerMoteur(catalogue).resoudre('hope').approches[0];
   assert.ok(honnete.score > a.score, 'une approche honnête doit toujours battre le joker');
+});
+
+/**
+ * ★ Ce qui remplace le triplement, saisie courte comprise.
+ *
+ * Le décret appliquait le même calcul trois fois et n'en démontrait qu'un. Ses
+ * deux héritiers gagnent leurs trois 6 :
+ *  · le GROUPEMENT — un seul calcul rend un vecteur qui porte déjà trois 6 ;
+ *  · la CONVERGENCE — la même chaîne lue de trois manières différentes.
+ *
+ * Un caractère unique reste démontrable : « a » n'a rien à partitionner ni à
+ * répéter, mais il se lit de trois manières — sept segments, alphabet à rebours,
+ * clavier téléphonique — qui tombent toutes trois sur 6. Le joker n'est donc
+ * plus le seul recours des saisies courtes ; il redevient ce que §0.4 en dit,
+ * le terminateur des cas où il n'y a vraiment rien à lire.
+ */
+test('★ suppression du décret — les saisies courtes se démontrent sans rien décréter', () => {
+  const m = creerMoteur(catalogue);
+  const rapport = [];
+  for (const s of ['a', 'z', 'w', 'hope', 'macron', 'Millicent', '666', 'le chat dort']) {
+    const r = m.resoudre(s);
+    assert.ok(r.approches.length >= 1, `« ${s} » : aucune approche`);
+    const a = r.approches[0];
+    assert.notEqual(a.mode, 'JOKER', `« ${s} » : le joker ne devrait pas être nécessaire`);
+    assert.ok(!estDecret(a), `« ${s} » : la tête de liste décrète encore — ${a.codes}`);
+    assert.ok(['MOISSON', 'GROUPEMENT', 'CONVERGENCE', 'PARTITION', 'RESONANCE', 'DIRECT', 'LIBRE', 'SIX_OFFERT']
+      .includes(a.mode), `« ${s} » : mode inattendu ${a.mode}`);
+    rapport.push(`${JSON.stringify(s).padEnd(14)} ${String(r.approches.length).padStart(2)} approche(s) `
+      + `→ ${String(a.score).padStart(5)} [${a.mode}] ${a.codes}`);
+  }
+  console.log('    ' + rapport.join('\n    '));
+});
+
+/**
+ * Là où il n'y a vraiment rien à lire — pas une lettre —, le joker reste le seul
+ * recours, et c'est bien ce que CONTRACTS §0.4 prévoit. On le CONSTATE plutôt que
+ * de le déguiser : ces trois saisies sont les seules du corpus dégénéré qui en
+ * dépendent encore.
+ */
+test('★ le joker reste indispensable aux saisies sans lettre', () => {
+  const m = creerMoteur(catalogue);
+  for (const s of ['42', '!!!', '   ']) {
+    const r = m.resoudre(s);
+    assert.equal(r.approches.length, 1, `« ${s} » : ${r.approches.length} approches`);
+    assert.equal(r.approches[0].mode, 'JOKER', `« ${s} » : ${r.approches[0].mode}`);
+  }
+});
+
+/**
+ * La CONVERGENCE exige trois manières RÉELLEMENT différentes — pas trois codes
+ * différents. « L'affichage à sept segments », « les traits fusionnés » et « les
+ * traits en capitale » comptent tous les trois ce qu'on dessine : ce serait une
+ * seule manière montrée trois fois, et donc un décret déguisé.
+ */
+test('★ convergence — les trois voies sont de trois manières distinctes', () => {
+  const m = creerMoteur(catalogue);
+  let vues = 0;
+  for (const s of ['a', 'hope', 'macron', 'ww', '5g', 'https://www.google.com']) {
+    for (const a of m.resoudre(s).approches) {
+      if (a.mode !== 'CONVERGENCE') continue;
+      vues++;
+      const manieres = a.parts.map((p) => maniere(p.chemin));
+      assert.equal(new Set(manieres).size, 3,
+        `« ${s} » : ${manieres.join(', ')} — deux voies partagent une manière`);
+      // Et chacun des trois 6 est bien CALCULÉ, jamais décrété.
+      for (const p of a.parts) {
+        const fin = p.chemin.etats[p.chemin.etats.length - 1];
+        assert.equal(fin.type, 'NUM');
+        assert.equal(fin.valeur, 6, `« ${s} » : une voie n’atterrit pas sur 6`);
+      }
+    }
+  }
+  assert.ok(vues >= 3, `seulement ${vues} convergences observées — le mode est-il vivant ?`);
 });
 
 test('jamais bredouille — s’il paraît, le joker est en bas de liste (§0.4)', () => {
@@ -598,26 +676,75 @@ const SAISIES_LISTE = [
   'La numérologie est un art taquin',
 ];
 
-test('classement — un décret ne passe jamais devant une démonstration', () => {
+/**
+ * ★ Le décret ne figure plus dans une liste — pas même en dernier.
+ *
+ * L'ancienne version de ce test se contentait de vérifier qu'il ne PASSAIT PAS
+ * DEVANT une démonstration honnête ; il était donc toléré en queue, sous un
+ * intitulé qui l'avouait. L'auteur a tranché : « ça enlève la vraisemblance à la
+ * démarche ». `assembler` ne le fabrique plus (`deduireMode` → `DECRET`, filtré),
+ * et la seule exception est le joker, que CONTRACTS §0.4 maintient explicitement.
+ */
+test('★ classement — aucun décret ne figure dans une liste', () => {
   const m = creerMoteur(catalogue);
-  for (const s of SAISIES_LISTE) {
-    const r = m.resoudre(s);
-    const rangDecret = r.approches.findIndex((a) => estDecret(a));
-    const dernierHonnete = r.approches.reduce((k, a, i) => (estDecret(a) ? k : i), -1);
-    if (rangDecret < 0 || dernierHonnete < 0) continue;
-    assert.ok(rangDecret > dernierHonnete,
-      `« ${s} » : un 6 unique recopié trois fois figure au rang ${rangDecret + 1}, `
-      + `devant une approche qui produit réellement trois 6 (rang ${dernierHonnete + 1})`);
+  for (const s of [...SAISIES_LISTE, 'hope', 'macron', 'le chat dort', 'jean-michel']) {
+    for (const a of m.resoudre(s).approches) {
+      if (a.mode === 'JOKER') continue; // affiché et assumé, §0.4
+      assert.ok(!estDecret(a),
+        `« ${s} » : rang ${a.rang} recopie un 6 unique trois fois — ${a.codes}`);
+      assert.notEqual(a.mode, 'DECRET', `« ${s} » : mode DECRET au rang ${a.rang}`);
+    }
   }
 });
 
-test('classement — les scores affichés sont décroissants', () => {
+/**
+ * Un lien partagé AVANT la suppression doit continuer de s'ouvrir : la lecture
+ * d'URL est tolérante (CONTRACTS §4.3), et un décret rejoué s'affiche avec le
+ * score qu'il valait — malus compris — plutôt que d'être refusé.
+ */
+test('★ un lien de décret d’avant la suppression se rejoue encore', () => {
   const m = creerMoteur(catalogue);
-  for (const s of SAISIES_LISTE) {
-    const scores = m.resoudre(s).approches.map((a) => a.score);
-    for (let i = 1; i < scores.length; i++) {
-      assert.ok(scores[i] <= scores[i - 1],
-        `« ${s} » : ${scores[i - 1]} puis ${scores[i]} au rang ${i + 1} — le tri a l’air cassé`);
+  const b58 = encoderTexte('macron');
+  const lecture = lire(`#n1,n1,n1#${b58}`, { catalogue });
+  assert.equal(lecture.forme, 'canonique');
+  const rejoue = m.rejouer(lecture);
+  assert.ok(rejoue.ok, rejoue.raison);
+  assert.equal(rejoue.approche.mode, 'DECRET');
+  assert.ok(estDecret(rejoue.approche));
+});
+
+/**
+ * ★ Le classement est d'abord une HIÉRARCHIE, et ensuite seulement un score.
+ *
+ * L'ancienne version de ce test exigeait des scores globalement décroissants.
+ * Elle ne le peut plus, et c'est délibéré : l'auteur a demandé trois rangs —
+ * « le plus de séries de 666 sans réutiliser les mêmes caractères, puis les plus
+ * simples qui donnent 666, et enfin celles qui réutilisent les mêmes lettres de
+ * manières différentes » —, et un rang ne se négocie pas contre des points.
+ * Voir `score.js › RANG` pour la mesure qui a écarté la solution par bonus
+ * additif (elle coûtait un tiers de l'échelle des sept méthodes du README).
+ *
+ * Ce qui reste exigé, et qui est le vrai contenu du « le tri a l'air cassé » :
+ *  · les RANGS ne remontent jamais ;
+ *  · à l'intérieur d'un rang, les scores décroissent ;
+ *  · au rang des séries, le nombre de 666 décroît.
+ */
+test('classement — rangs croissants, scores décroissants dans chaque rang', () => {
+  const m = creerMoteur(catalogue);
+  for (const s of [...SAISIES_LISTE, 'https://hope-hope-hope.fr/']) {
+    const app = m.resoudre(s).approches;
+    for (let i = 1; i < app.length; i++) {
+      const [avant, apres] = [app[i - 1], app[i]];
+      const [ra, rb] = [rangConviction(avant), rangConviction(apres)];
+      assert.ok(rb >= ra, `« ${s} » : rang ${ra} puis rang ${rb} au rang ${i + 1}`);
+      if (rb !== ra) continue;
+      if (ra === RANG.SERIES && (avant.series || 1) !== (apres.series || 1)) {
+        assert.ok((apres.series || 1) < (avant.series || 1),
+          `« ${s} » : ${avant.series} séries puis ${apres.series} au rang ${i + 1}`);
+        continue;
+      }
+      assert.ok(apres.score <= avant.score,
+        `« ${s} » : ${avant.score} puis ${apres.score} au rang ${i + 1} — le tri a l’air cassé`);
     }
   }
 });
@@ -652,4 +779,158 @@ test('anti-doublons — aucune étape inopérante ne subsiste dans une approche'
       }
     }
   }
+});
+
+// ══════════════════════════════════ ★ la MOISSON et les trois rangs
+
+/**
+ * ★ Le cas d'école du README, poussé jusqu'au bout.
+ *
+ * « Je voudrais avoir pour hope-hope-hope.fr en première stratégie celle des
+ * 14 segments + tiret du 6 + fr → 4+2 → 6, soit 666 666 666 666 666. » —
+ * l'auteur. Le compte : douze lettres qui valent toutes 6 en quatorze segments,
+ * deux tirets qui valent 6 par la touche du 6, un `fr` qui vaut 4 + 2 en sept
+ * segments. Quinze 6, cinq séries, et pas un caractère compté deux fois.
+ */
+test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de liste', () => {
+  const r = creerMoteur(catalogue).resoudre('hope-hope-hope.fr');
+  const tete = r.approches[0];
+  assert.equal(tete.mode, 'MOISSON', `tête de liste : ${tete.mode} (${tete.codes})`);
+  assert.equal(tete.series, 5, `${tete.series} séries — ${tete.codes}`);
+  assert.equal(tete.titre.fr, 'L’affichage à quatorze segments — cinq séries de 666');
+  // Les trois ingrédients demandés, et rien d'autre.
+  const programmes = tete.parts.map((p) => p.chemin.ops.map((o) => o.code).join('+'));
+  assert.equal(programmes.filter((p) => p === 't1+mw').length, 3, 'trois `hope` en quatorze segments');
+  assert.equal(programmes.filter((p) => p.includes('mv')).length, 2, 'deux tirets par la touche du 6');
+  assert.ok(programmes.some((p) => p.includes('md')), 'le `fr` en sept segments (4 + 2)');
+});
+
+/**
+ * ★ « Si en rajoutant https:// devant tu arrives à 666 de plus, ça donnerait
+ * 6 × 666, ce serait l'apothéose ! » — l'auteur. Le schéma en donne exactement
+ * trois : `https` passé à l'Atbash s'écrit `hgkkh`, dont trois lettres valent 6
+ * en quatorze segments. Dix-huit 6, six séries.
+ */
+test('★ moisson — `https://hope-hope-hope.fr/` atteint les six séries', () => {
+  const r = creerMoteur(catalogue).resoudre('https://hope-hope-hope.fr/');
+  const tete = r.approches[0];
+  assert.equal(tete.mode, 'MOISSON');
+  assert.equal(tete.series, 6, `${tete.series} séries — ${tete.codes}`);
+  assert.equal(tete.titre.fr, 'L’affichage à quatorze segments — six séries de 666');
+  // Le préfixe apporte bien trois 6 de plus, et sur SA propre portée.
+  const sans = creerMoteur(catalogue).resoudre('hope-hope-hope.fr').approches[0];
+  assert.equal(tete.series - sans.series, 1, 'une série de plus, exactement');
+});
+
+/**
+ * ★ On ne récolte pas une portée pour la jeter.
+ *
+ * L'ordonnancement pondéré maximise les **6** ; le verdict compte des **séries
+ * de trois**. Les deux ne coïncident pas, et sur `https://hope-hope-hope.fr/`
+ * la moisson ajoutait « fr » pour un seizième 6 qui ne faisait pas une sixième
+ * série : quatre étapes de calcul, puis un rejet. Montrer qu'on calcule une
+ * valeur pour l'écarter aussitôt donne à voir que le compte était arrêté
+ * d'avance — c'est le contraire de ce que la démonstration prétend faire.
+ */
+test('★ moisson — aucune portée n’est entièrement surnuméraire', () => {
+  const m = creerMoteur(catalogue);
+  let vues = 0;
+  for (const s of ['hope-hope-hope.fr', 'https://hope-hope-hope.fr/', 'jean-michel',
+    'Le chat dort sur le tapis rouge', 'https://www.example.com/path/to/page']) {
+    for (const a of m.resoudre(s).approches.filter((x) => x.mode === 'MOISSON')) {
+      vues++;
+      const six = a.parts.map((p) => sixDuChemin(p.chemin).six);
+      const garde = a.series * SERIE;
+      const sansLaDerniere = six.slice(0, -1).reduce((x, y) => x + y, 0);
+      assert.ok(sansLaDerniere < garde,
+        `« ${s} » : la portée « ${a.parts[a.parts.length - 1].fragment.texte} » `
+        + `n’apporte que du surplus (${six.join('+')} pour ${garde} gardés) — ${a.codes}`);
+    }
+  }
+  assert.ok(vues >= 3, `seulement ${vues} moissons observées`);
+});
+
+test('★ moisson — élaguer ne change jamais le verdict', () => {
+  // Le seul cas mesurable de bout en bout : `https://hope-hope-hope.fr/` au
+  // rang 2. Avant élagage : 5 portées, 16 six, cinq séries, et « fr » calculé
+  // puis rejeté. Après : 4 portées, 15 six, les mêmes cinq séries.
+  const r = creerMoteur(catalogue).resoudre('https://hope-hope-hope.fr/');
+  const cinq = r.approches.find((a) => a.mode === 'MOISSON' && a.series === 5);
+  assert.ok(cinq, 'la moisson à cinq séries a disparu du classement');
+  assert.deepEqual(cinq.parts.map((p) => p.fragment.texte), ['https', 'hope', 'hope', 'hope']);
+  const total = cinq.parts.reduce((n, p) => n + sixDuChemin(p.chemin).six, 0);
+  assert.equal(total, 15, 'quinze 6 récoltés pour quinze montrés : rien à jeter');
+});
+
+/**
+ * ★ Le garde-fou du mode : aucun 6 offert, aucun caractère compté deux fois.
+ * Chaque part est démontrée, les portées ne se recouvrent pas, et le nombre de
+ * chiffres révélés à l'écran est exactement celui que le verdict annonce.
+ */
+test('★ moisson — chaque 6 est démontré, sur des portées disjointes', () => {
+  const m = creerMoteur(catalogue);
+  let vues = 0;
+  for (const s of ['hope-hope-hope.fr', 'https://hope-hope-hope.fr/', 'jean-michel',
+    'Le chat dort sur le tapis rouge', 'https://www.example.com/path/to/page']) {
+    const r = m.resoudre(s);
+    for (const a of r.approches.filter((x) => x.mode === 'MOISSON')) {
+      vues++;
+      const recolte = compterMoisson(a.parts);
+      assert.ok(recolte, `« ${s} » : une MOISSON qui n’en est pas une — ${a.codes}`);
+      assert.equal(recolte.series, a.series);
+      assert.ok(a.series >= 2, 'une moisson vaut au moins deux séries');
+      // Aucune part ne se contente d’exister : chacune apporte ses 6.
+      for (const p of a.parts) {
+        assert.ok(sixDuChemin(p.chemin), `« ${s} » : une portée sans 6 — ${a.codes}`);
+      }
+      // Portées deux à deux disjointes, en caractères de la saisie.
+      const iv = a.parts.map((p) => p.fragment.intervalles).flat();
+      for (let i = 0; i < iv.length; i++) {
+        for (let j = i + 1; j < iv.length; j++) {
+          assert.ok(iv[i][1] <= iv[j][0] || iv[j][1] <= iv[i][0],
+            `« ${s} » : deux portées se recouvrent — ${a.codes}`);
+        }
+      }
+      // La scène révèle exactement ce que le verdict annonce.
+      const sc = m.scenarioDe(a, { saisie: r.saisie });
+      const verdict = sc.steps[sc.steps.length - 1];
+      const reveal = verdict.ops.find((o) => o.op === 'reveal');
+      assert.ok(reveal, `« ${s} » : le verdict ne révèle rien`);
+      assert.equal(reveal.targets.length, a.series * SERIE,
+        `« ${s} » : ${reveal.targets.length} chiffres révélés pour « ${sc.result} »`);
+      assert.equal(sc.result, Array.from({ length: a.series }, () => '666').join(' '));
+    }
+  }
+  assert.ok(vues >= 3, `seulement ${vues} moissons observées — le mode est-il vivant ?`);
+});
+
+/**
+ * ★ Les trois rangs de conviction, dans l'ordre demandé par l'auteur :
+ * les séries d'abord, les 666 simples ensuite, les convergences en dernier.
+ */
+test('★ classement — la convergence passe derrière tout ce qui démontre autrement', () => {
+  const m = creerMoteur(catalogue);
+  for (const s of ['a', 'hope', 'macron', 'Millicent', 'hope-hope-hope.fr']) {
+    const app = m.resoudre(s).approches.filter((a) => a.mode !== 'JOKER');
+    const premiereConvergence = app.findIndex((a) => a.mode === 'CONVERGENCE');
+    if (premiereConvergence < 0) continue;
+    for (const a of app.slice(premiereConvergence)) {
+      assert.equal(a.mode, 'CONVERGENCE',
+        `« ${s} » : ${a.mode} au rang ${a.rang}, derrière une convergence`);
+    }
+  }
+});
+
+test('★ classement — le rang de conviction prime sur le score', () => {
+  const series = { mode: 'MOISSON', series: 5, score: 4000, L: 15, codes: 'a' };
+  const simple = { mode: 'RESONANCE', series: 1, score: 9000, L: 9, codes: 'b' };
+  const converge = { mode: 'CONVERGENCE', series: 1, score: 9500, L: 9, codes: 'c' };
+  assert.equal(rangConviction(series), RANG.SERIES);
+  assert.equal(rangConviction(simple), RANG.SIMPLE);
+  assert.equal(rangConviction(converge), RANG.CONVERGENCE);
+  assert.ok(ordreTotal(series, simple) < 0, 'cinq séries passent devant un 666 mieux noté');
+  assert.ok(ordreTotal(simple, converge) < 0, 'un 666 simple passe devant une convergence mieux notée');
+  // À l'intérieur du rang des séries, c'est leur NOMBRE qui commande.
+  const moins = { mode: 'GROUPEMENT', series: 4, score: 9900, L: 3, codes: 'd' };
+  assert.ok(ordreTotal(series, moins) < 0, 'cinq séries passent devant quatre, quel que soit le score');
 });

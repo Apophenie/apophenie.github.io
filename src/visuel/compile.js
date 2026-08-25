@@ -64,7 +64,33 @@ import { indexDiscrete } from './clock.js';
  * « o » ne l'est pas (autre glyphe, autres segments, autre compte), il est la
  * redite du « o » du premier groupe. Chaque geste garde donc UNE lecture
  * pleine, la première, et une seule.
+ *
+ * ★ **Les drapeaux de décor mutualisé ne font pas partie du geste.** Quand
+ * plusieurs conversions d'affilée emploient la même table, l'assemblage marque
+ * la première d'un `montre` et la dernière d'un `retire` (CONTRACTS §3.1,
+ * amendement « `table` ») : la réglette monte une fois, demeure, se retire une
+ * fois. Ces deux booléens décrivent le CYCLE DE VIE DU DÉCOR, pas la
+ * conversion ; les laisser dans la signature avait deux effets, tous deux
+ * faux :
+ *
+ *   · l'étape du MILIEU d'une série ne se reconnaissait plus dans l'étape de
+ *     TÊTE d'une série précédente — sur `hope-hope-hope.fr`, le « h » du
+ *     deuxième groupe (phase 6) ne voyait pas qu'il redisait le « h » du
+ *     premier (phase 2), au seul motif que celui-là avait, en plus, déployé la
+ *     réglette ;
+ *   · l'étape de QUEUE d'une série n'était jamais une redite de personne —
+ *     phase 13, le « e » du troisième groupe, alors qu'il redit mot pour mot
+ *     le « e » du premier.
+ *
+ * Le critère énoncé par l'auteur est **même table ET même conversion**. C'est
+ * exactement ce qu'on obtient en retirant ces deux drapeaux : une même table
+ * employée pour une AUTRE lettre reste une lecture pleine (le `letter` et le
+ * `to.text` diffèrent, donc la signature aussi), et le repli du décor, qui ne
+ * montre rien de neuf, suit le rythme de la conversion qu'il accompagne.
  */
+
+/** Ce qui, dans une op, décrit le décor et non le geste — hors signature. */
+const HORS_SIGNATURE = new Set(['montre', 'retire']);
 
 /** Le facteur proposé à l'interface (CONTRACTS §3.3 : « 5× par exemple »). */
 export const REPEAT_SPEED = 5;
@@ -163,7 +189,10 @@ function signStep(step, ids) {
       const out = {};
       // Clés triées : deux ops identiques écrites dans un ordre de champs
       // différent doivent produire la même signature.
-      for (const k of Object.keys(v).sort()) out[k] = norm(v[k]);
+      for (const k of Object.keys(v).sort()) {
+        if (HORS_SIGNATURE.has(k)) continue;   // cycle de vie du décor, pas le geste
+        out[k] = norm(v[k]);
+      }
       return out;
     }
     return v;
@@ -198,7 +227,11 @@ export function compile(scenario, options = {}) {
   const reduced = !!options.reduced;
   const viewBox = options.viewBox || VIEWBOX;
   const metrics = options.metrics || defaultMetrics();
-  const layoutOpts = options.layoutOpts || defaultLayoutOptions(metrics, viewBox);
+  // Copie : la compilation ÉCRIT dans ces options (`partition` y pose le report
+  // de cadrage du découpage, `reveal` l'y efface). Compiler deux fois le même
+  // scénario doit donner deux fois le même résultat — donc jamais depuis un
+  // objet que la compilation précédente aurait laissé sali.
+  const layoutOpts = { ...(options.layoutOpts || defaultLayoutOptions(metrics, viewBox)) };
   const palette = { ...PALETTE, ...(options.palette || {}) };
 
   const scene = new Scene(scenario.tokens, { metrics, layoutOpts, palette });

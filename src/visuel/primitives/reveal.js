@@ -1,8 +1,9 @@
 /**
  * `reveal` — le verdict.
  *
- * C'est la chute de toute la démonstration : elle doit se voir. Trois gestes,
- * dans cet ordre, et l'ordre est le propos.
+ * C'est la chute de toute la démonstration : elle doit se voir. L'ordre des
+ * gestes est le propos, et il dépend de ce qu'il y a à révéler — **un** 666,
+ * ou plusieurs.
  *
  * ## 1. La scène se vide
  *
@@ -27,6 +28,33 @@
  * la largeur totale sont ramenées à une fraction de la scène, en gardant de
  * l'air autour. Le facteur est le plus contraignant des deux.
  *
+ * ## Quand il y a PLUS qu'un 666
+ *
+ * Une moisson rend « 666 666 666 666 666 ». Quinze chiffres jetés d'un bloc au
+ * milieu de la scène ne se lisent pas : ni comme un nombre (personne ne compte
+ * quinze rangs), ni comme cinq fois 666 (rien ne le dit). Et les grossir tous
+ * ensemble sur une ligne les rapetisse, puisque c'est la LARGEUR qui borne
+ * l'agrandissement — cinq séries d'un seul tenant ne montent qu'à ×1,7 là où
+ * une série monte à ×8,5.
+ *
+ * Le geste se déplie donc en trois temps, et **chaque temps dit une chose** :
+ *
+ *  1. **rassembler** — le reste s'efface, les chiffres se rejoignent au centre,
+ *     **à leur taille**. On voit d'abord qu'il ne reste qu'eux.
+ *  2. **découper** — un vide s'ouvre tous les trois chiffres. Les séries se
+ *     séparent d'elles-mêmes : `666 666 666 666 666`. C'est le moment où la
+ *     suite cesse d'être un nombre pour devenir un compte.
+ *  3. **grossir** — et là seulement. Au-delà de trois séries, elles se
+ *     répartissent sur **deux lignes** : c'est la seule façon de les grossir
+ *     davantage, puisque chaque ligne devient deux fois plus courte.
+ *
+ * Deux lignes ici ne contredisent pas la doctrine du « jamais deux lignes »
+ * (`defilement.js`) : celle-ci défend une SÉQUENCE, qui se lit d'un bout à
+ * l'autre et qu'une coupure au milieu trahirait. Le verdict n'est pas une
+ * séquence, c'est un **compte** — cinq objets identiques dont l'ordre ne dit
+ * rien. Les répartir sur deux rangs ne coupe aucune lecture, et la coupure ne
+ * tombe jamais dans une série : toujours entre deux.
+ *
  * ## Ce qui a été retiré, et pourquoi
  *
  * Le halo doré derrière chaque chiffre. Un halo dit « regarde ici » ; à
@@ -42,21 +70,63 @@ import { EASE } from '../constants.js';
 
 export const name = 'reveal';
 
+/** Longueur d'une série. Le 666 du titre, et rien d'autre. */
+const SERIE = 3;
+
 /** Part de la hauteur de scène occupée par la hauteur de capitale du verdict. */
 const AIR_VERTICAL = 0.62;
 
+/**
+ * Idem, mais pour un verdict sur DEUX rangs : c'est la hauteur du bloc entier
+ * qui est bornée, interligne compris. On peut y prendre plus de place — le
+ * verdict est seul en scène, et deux rangs serrés se lisent moins bien que
+ * deux rangs qui respirent.
+ */
+const AIR_VERTICAL_BLOC = 0.88;
+
+/** Interligne du verdict, en hauteurs de capitale. */
+const INTERLIGNE = 1.45;
+
 /** Part de la largeur utile occupée par le verdict. */
 const AIR_HORIZONTAL = 0.92;
+
+/**
+ * Le vide qui sépare deux séries — **exactement un blanc**.
+ *
+ * Pas un écart choisi à l'œil : la chasse est fixe (JetBrains Mono), donc
+ * « 666 666 » écrit à la main mettrait un caractère d'espace entre les deux, et
+ * la distance de centre à centre y serait le double de celle qui sépare deux
+ * chiffres voisins. C'est cette distance-là que le découpage reproduit. Le
+ * lecteur ne voit pas une séparation décorative, il voit une espace.
+ */
+function videDeSerie(ctx) {
+  return 2 * ctx.layoutOpts.gap + ctx.metrics.advance;
+}
 
 /** Garde-fou : au-delà, un glyphe unique deviendrait grotesque. */
 const ZOOM_MAX = 14;
 
 export function plan(ctx) {
   const ids = targetsOf(ctx);
-  const stagger = ctx.stagger || (ctx.reduced ? 0 : ctx.dur * 0.18);
   const withHalo = ctx.op.halo === true;
   const efface = ctx.op.clear !== false;
-  const grow = typeof ctx.op.scale === 'number' ? ctx.op.scale : zoomDuVerdict(ctx, ids);
+
+  // Combien de 666 ? Un découpage n'a de sens que si la suite EST faite de
+  // séries entières — sinon on n'invente pas des frontières qui n'existent pas.
+  const series = decouperEnSeries(ids);
+  const multi = series.length > 1;
+  const lignes = series.length > 3 ? 2 : 1;
+  const grow = typeof ctx.op.scale === 'number'
+    ? ctx.op.scale
+    : zoomDuVerdict(ctx, series, lignes);
+
+  // Quinze chiffres à 150 ms d'écart, ce sont deux secondes rien que pour les
+  // allumer. La cadence se resserre avec le nombre : c'est le même geste, il
+  // dure le même temps.
+  const stagger = ctx.stagger || (ctx.reduced ? 0 : ctx.dur * 0.18);
+  const cadence = ids.length > 1
+    ? Math.min(stagger, (ctx.dur * 0.5) / (ids.length - 1))
+    : stagger;
 
   // --- 1. ce qui n'est pas le verdict quitte la scène -----------------------
   const restes = efface ? ctx.scene.flow.filter((id) => !ids.includes(id)) : [];
@@ -81,19 +151,42 @@ export function plan(ctx) {
   let depart = ctx.dur * 0.34;
   for (const id of ids) depart = Math.max(depart, ctx.libreA(id, 'translate'));
   depart = Math.min(depart, ctx.dur * 0.75);
-  const reste = Math.max(1, ctx.dur - depart);
 
-  // La mise à l'échelle passe par le LAYOUT : largeur et espacement grandissent
-  // avec les glyphes, et le centrage reste celui du moteur de layout.
-  const gap = ctx.layoutOpts.gap;
-  ids.forEach((id, i) => {
-    const n = ctx.scene.get(id);
-    n.w = mesureNominale(ctx, id) * grow;
-    if (i > 0) n.gapBefore = gap * grow;
-  });
-  const premier = ctx.scene.get(ids[0]);
-  if (ctx.scene.flowIndex(ids[0]) === 0) premier.gapBefore = 0;
-  ctx.reflow({ at: depart, dur: reste, ease: EASE.move });
+  // ★ Le verdict rend son centre à la ligne. `partition` avait décalé le cadrage
+  // pour garder le DÉCOUPAGE au milieu de la vue pendant que le reste était
+  // estompé (`layoutOpts.decalage`, voir `layout.js`) ; ici il n'y a plus ni
+  // groupes ni reste — des chiffres, et rien d'autre à regarder. Le report est
+  // donc levé, et il l'est pendant le geste qui rassemble.
+  ctx.layoutOpts.decalage = 0;
+
+  let tGrossir;
+  let dGrossir;
+
+  if (!multi) {
+    // Un seul 666 : rassembler et grossir sont le MÊME geste. Rien à découper,
+    // rien à répartir, et l'intercaler ferait un temps mort au moment de la
+    // chute.
+    tGrossir = depart;
+    dGrossir = Math.max(1, ctx.dur - depart);
+    poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, lignes: 1 });
+    ctx.reflow({ at: tGrossir, dur: dGrossir, ease: EASE.move });
+  } else {
+    const pas = Math.max(1, ctx.dur * 0.6);
+
+    // (a) rassembler — à leur taille. On voit qu'il ne reste qu'eux.
+    poserLeFlux(ctx, ids, series, { echelle: 1, separation: false, lignes: 1 });
+    ctx.reflow({ at: depart, dur: pas, ease: EASE.move });
+
+    // (b) découper — le vide s'ouvre tous les trois chiffres.
+    poserLeFlux(ctx, ids, series, { echelle: 1, separation: true, lignes: 1 });
+    ctx.reflow({ at: depart + pas, dur: pas, ease: EASE.move });
+
+    // (c) grossir — et se répartir sur deux rangs s'il y a de quoi.
+    tGrossir = depart + 2 * pas;
+    dGrossir = Math.max(1, pas * 1.5);
+    poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, lignes });
+    ctx.reflow({ at: tGrossir, dur: dGrossir, ease: EASE.move });
+  }
 
   // La hauteur réelle du verdict, pour que ce qui se pose « en dessous » (une
   // annotation) se pose bien en dessous et non au milieu des chiffres.
@@ -105,36 +198,112 @@ export function plan(ctx) {
 
   // --- 3. ils paraissent, rougissent, et grandissent ------------------------
   ids.forEach((id, i) => {
-    const at = i * stagger;
+    const at = i * cadence;
     ctx.anim({ id, prop: 'opacity', to: 1, at, dur: Math.max(1, ctx.dur * 0.3) });
     ctx.anim({ id, prop: 'fill', to: ctx.palette.rubric, at, dur: Math.max(1, ctx.dur * 0.45) });
-    ctx.anim({ id, prop: 'scale', to: grow, at: depart, dur: reste, ease: EASE.pop });
+    ctx.anim({ id, prop: 'scale', to: grow, at: tGrossir, dur: dGrossir, ease: EASE.pop });
     if (withHalo) {
       const halo = ensureHalo(ctx, id, 'gold');
-      ctx.anim({ id: halo, prop: 'scale', to: grow, at: depart, dur: reste, ease: EASE.pop });
+      ctx.anim({ id: halo, prop: 'scale', to: grow, at: tGrossir, dur: dGrossir, ease: EASE.pop });
       ctx.anim({ id: halo, prop: 'opacity', to: 0.24, at, dur: Math.max(1, ctx.dur * 0.45) });
     }
   });
 }
 
 /**
+ * Découpe les chiffres révélés en séries de trois.
+ *
+ * Renvoie **une seule** série — donc « pas de découpage » — dès que la suite
+ * n'est pas faite de séries entières, ou qu'il n'y en a qu'une. Un verdict de
+ * quatre chiffres existe (les bancs d'essai en ont un) : y ouvrir un vide après
+ * le troisième affirmerait un « 666 + 6 » que personne n'a démontré.
+ */
+function decouperEnSeries(ids) {
+  if (ids.length <= SERIE || ids.length % SERIE !== 0) return [ids];
+  const out = [];
+  for (let i = 0; i < ids.length; i += SERIE) out.push(ids.slice(i, i + SERIE));
+  return out;
+}
+
+/**
+ * Écrit dans le flux l'état visé : largeur des jetons, écarts, coupure de rang.
+ *
+ * Tout passe par le LAYOUT — largeurs et écarts grandissent avec les glyphes,
+ * et c'est le moteur de layout qui centre. Le geste reste donc idempotent : le
+ * rejouer ne déplace rien, et une recompilation (`rebuild()` au
+ * redimensionnement) repart des mêmes mesures nominales.
+ */
+function poserLeFlux(ctx, ids, series, { echelle, separation, lignes }) {
+  const gap = ctx.layoutOpts.gap * echelle;
+  const vide = separation ? videDeSerie(ctx) * echelle : gap;
+  // La coupure tombe entre deux séries, jamais dedans : la moitié haute prend
+  // le rang du dessus (5 séries → 3 puis 2).
+  const coupure = lignes > 1 ? Math.ceil(series.length / 2) : -1;
+
+  series.forEach((serie, s) => {
+    serie.forEach((id, k) => {
+      const n = ctx.scene.get(id);
+      n.w = mesureNominale(ctx, id) * echelle;
+      n.breakBefore = k === 0 && s === coupure;
+      if (s === 0 && k === 0) n.gapBefore = undefined;
+      else n.gapBefore = k === 0 ? vide : gap;
+    });
+  });
+
+  if (ctx.scene.flowIndex(ids[0]) === 0) ctx.scene.get(ids[0]).gapBefore = 0;
+
+  // `coupuresExplicites` n'ouvre PAS le repli automatique (`wrap`) : il rend
+  // seulement effectives les coupures que la primitive a posées elle-même.
+  // Une ligne qui déborde continue de défiler, elle ne se replie pas.
+  ctx.layoutOpts.coupuresExplicites = lignes > 1;
+  if (lignes > 1) {
+    ctx.layoutOpts.lineHeight = hauteurDeCapitale(ctx) * echelle * INTERLIGNE;
+  }
+}
+
+/**
  * Le facteur d'agrandissement : « qu'ils prennent l'essentiel de l'espace
  * d'affichage animé, tout en laissant un peu d'air autour ».
  *
- * Deux contraintes, la plus serrée gagne : la hauteur de capitale ne dépasse
- * pas `AIR_VERTICAL` de la scène, la largeur totale pas `AIR_HORIZONTAL` de la
- * zone utile. Sur trois chiffres dans une scène de 1200 × 480, cela donne un
- * verdict d'environ 835 × 300 unités — l'essentiel du cadre, et de l'air.
+ * Deux contraintes, la plus serrée gagne : la hauteur de capitale (ou, sur deux
+ * rangs, la hauteur du bloc entier) ne dépasse pas sa part de la scène, et la
+ * largeur du rang le plus long pas `AIR_HORIZONTAL` de la zone utile.
+ *
+ * ★ C'est presque toujours la LARGEUR qui borne, et c'est pour cela que le
+ * second rang existe : sur cinq séries, passer de un à deux rangs fait monter
+ * l'agrandissement de ×1,7 à ×2,9.
  */
-function zoomDuVerdict(ctx, ids) {
-  const fs = ctx.metrics.fontSize;
-  const capitale = ctx.metrics.capHeight || fs * 0.73;
-  const gap = ctx.layoutOpts.gap;
-  const largeur = ids.reduce((s, id) => s + mesureNominale(ctx, id), 0) + (ids.length - 1) * gap;
-  const parLaHauteur = (ctx.layoutOpts.viewBox.h * AIR_VERTICAL) / Math.max(1, capitale);
+function zoomDuVerdict(ctx, series, lignes) {
+  const capitale = hauteurDeCapitale(ctx);
+  const largeur = plusLongRang(ctx, series, lignes);
+  const bloc = lignes > 1
+    ? (ctx.layoutOpts.viewBox.h * AIR_VERTICAL_BLOC) / Math.max(1, capitale * (1 + (lignes - 1) * INTERLIGNE))
+    : (ctx.layoutOpts.viewBox.h * AIR_VERTICAL) / Math.max(1, capitale);
   const parLaLargeur = (ctx.layoutOpts.maxWidth * AIR_HORIZONTAL) / Math.max(1, largeur);
-  const z = Math.min(parLaHauteur, parLaLargeur, ZOOM_MAX);
+  const z = Math.min(bloc, parLaLargeur, ZOOM_MAX);
   return Math.max(1, Math.round(z * 1000) / 1000);
+}
+
+/** Largeur nominale du rang le plus long, séparations comprises. */
+function plusLongRang(ctx, series, lignes) {
+  const gap = ctx.layoutOpts.gap;
+  const vide = series.length > 1 ? videDeSerie(ctx) : gap;
+  const coupure = lignes > 1 ? Math.ceil(series.length / 2) : -1;
+  let max = 0;
+  let courant = 0;
+  series.forEach((serie, s) => {
+    if (s === coupure) { max = Math.max(max, courant); courant = 0; }
+    if (courant > 0) courant += vide;
+    serie.forEach((id, k) => {
+      if (k > 0) courant += gap;
+      courant += mesureNominale(ctx, id);
+    });
+  });
+  return Math.max(max, courant);
+}
+
+function hauteurDeCapitale(ctx) {
+  return ctx.metrics.capHeight || ctx.metrics.fontSize * 0.73;
 }
 
 /**

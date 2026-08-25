@@ -1,6 +1,7 @@
 /**
  * Assets vectoriels appartenant au moteur visuel : afficheurs 7 et 14 segments,
- * clavier (quatre rangées, AZERTY ou QWERTY), réglette alphabétique.
+ * clavier (quatre rangées, AZERTY ou QWERTY), tables de correspondance
+ * (réglette, grille, pavé téléphonique).
  *
  * Ce ne sont **pas** des tables arithmétiques : la valeur (quels segments sont
  * allumés, quelle touche porte le `-`, quelle colonne porte le `p`) vient
@@ -13,7 +14,7 @@
  * transformation d'entrée `glyphTransform()`.
  */
 
-import { CAP_RATIO } from './constants.js';
+import { CAP_RATIO, FONT_SIZE, ADVANCE_RATIO } from './constants.js';
 
 export const GLYPH_BOX = { w: 400, h: 600 };
 
@@ -158,6 +159,70 @@ export function fusedStrokes14(segments) {
   for (const name of ['h', 'j', 'k', 'm']) if (on.has(name)) strokes.push(name);
   return strokes;
 }
+
+// ---------------------------------------------------------------------------
+// Les mêmes segments, dessinés PAR LA POLICE — pour le comptage individuel
+// ---------------------------------------------------------------------------
+//
+// ★ Deux géométries, deux régimes de lecture, et ce n'est pas une redondance.
+//
+// · **Fusion** (`me`, `mx`) : on montre que `b` et `c` n'en font qu'un. Les
+//   segments sont donc des traits d'AXE, colinéaires et jointifs, et on les
+//   voit se souder. C'est ce que portent `SEGMENTS` et `SEGMENTS14` ci-dessus.
+//
+// · **Comptage individuel** (`md`, `mw`) : on les compte un par un. Deux
+//   segments qui se recouvrent seraient deux choses comptées pour une seule
+//   vue ; ils doivent être DISJOINTS. Et tant qu'à les montrer séparément,
+//   autant montrer ceux de la police que Le Registre affiche vraiment.
+//
+// Ce qui suit est donc DÉRIVÉ de DSEG7 et DSEG14 Classic, contour par contour,
+// par `src/gfx/dseg-segments.py` — la même méthode que `dseg14-table.py` pour
+// la table du quatorze segments. Ne le modifiez pas à la main : relancez
+// `bun run segments`, et la CI vérifie que le bloc n'a pas dérivé.
+/* dseg:début */
+/**
+ * Les segments **tels que les dessine la police** — un polygone plein par
+ * segment, disjoint de ses voisins, dans le repère glyphe (0..400 × 0..600,
+ * origine en bas à gauche).
+ *
+ * ★ DÉRIVÉ, jamais saisi : `src/gfx/dseg-segments.py` relève chaque contour
+ * fermé des polices DSEG et le transpose par une similitude. Relancez le
+ * script pour vérifier que ce bloc n’a pas dérivé — la CI le fait.
+ *
+ * Ces tracés servent au COMPTAGE INDIVIDUEL (`md`, `mw`), où deux segments
+ * qui se recouvrent seraient deux choses comptées pour une seule vue. Le
+ * régime de FUSION garde les traits d’axe de `SEGMENTS` / `SEGMENTS14` : là,
+ * il FAUT que les colinéaires se soudent.
+ */
+// DSEG7 Classic-Regular Version 0.46 — segments pleins, disjoints.
+export const SEGMENTS_DSEG7 = Object.freeze({
+  a: { d: 'M 95.77 510.01 L 304.23 510.01 L 336.22 542 L 320.23 558 L 79.77 558 L 63.78 542 Z' },
+  b: { d: 'M 345.51 305.16 L 359.44 305.16 L 359.44 518.78 L 343.45 534.78 L 311.46 502.79 L 311.46 338.7 L 342.93 307.22 Z' },
+  c: { d: 'M 343.45 65.22 L 359.44 81.22 L 359.44 294.32 L 345.51 294.32 L 342.93 292.26 L 311.46 260.78 L 311.46 97.21 Z' },
+  d: { d: 'M 79.77 42 L 320.23 42 L 336.22 58 L 304.23 89.99 L 95.77 89.99 L 63.78 58 Z' },
+  e: { d: 'M 56.55 65.22 L 88.54 97.21 L 88.54 260.78 L 56.55 292.26 L 54.49 294.84 L 40.56 294.84 L 40.56 81.22 Z' },
+  f: { d: 'M 40.56 305.16 L 54.49 305.16 L 56.55 307.74 L 88.54 339.22 L 88.54 502.79 L 56.55 534.78 L 40.56 518.78 Z' },
+  g: { d: 'M 88.54 275.75 L 88.54 276.26 L 311.46 276.26 L 311.46 275.75 L 335.71 299.48 L 311.46 323.74 L 88.54 323.74 L 88.54 324.25 L 63.78 300 Z' },
+});
+
+// DSEG14 Classic-Regular Version 0.46 — segments pleins, disjoints.
+export const SEGMENTS_DSEG14 = Object.freeze({
+  a: { d: 'M 95.77 510.01 L 304.23 510.01 L 336.22 542 L 320.23 558 L 79.77 558 L 63.78 542 Z' },
+  b: { d: 'M 345.51 305.16 L 359.44 305.16 L 359.44 518.78 L 343.45 534.78 L 311.46 502.79 L 311.46 338.7 L 342.93 307.22 Z' },
+  c: { d: 'M 343.45 65.22 L 359.44 81.22 L 359.44 294.32 L 345.51 294.32 L 342.93 292.26 L 311.46 260.78 L 311.46 97.21 Z' },
+  d: { d: 'M 79.77 42 L 320.23 42 L 336.22 58 L 304.23 89.99 L 95.77 89.99 L 63.78 58 Z' },
+  e: { d: 'M 56.55 65.22 L 88.54 97.21 L 88.54 260.78 L 56.55 292.26 L 54.49 294.84 L 40.56 294.84 L 40.56 81.22 Z' },
+  f: { d: 'M 40.56 305.16 L 54.49 305.16 L 56.55 307.74 L 88.54 339.22 L 88.54 502.79 L 56.55 534.78 L 40.56 518.78 Z' },
+  g1: { d: 'M 88.54 275.75 L 88.54 276.26 L 179.88 276.26 L 193.81 300 L 179.88 323.74 L 88.54 323.74 L 88.54 324.25 L 63.78 300 Z' },
+  g2: { d: 'M 311.46 275.75 L 335.71 299.48 L 311.46 323.74 L 220.12 323.74 L 206.19 300 L 220.12 276.26 L 311.46 276.26 Z' },
+  h: { d: 'M 152.53 334.57 L 165.43 334.57 L 165.43 407.84 L 112.28 499.69 L 98.86 499.69 L 98.86 426.94 Z' },
+  i: { d: 'M 200 310.84 L 223.74 352.12 L 223.74 499.69 L 176.26 499.69 L 176.26 352.12 Z' },
+  j: { d: 'M 234.57 334.57 L 247.47 334.57 L 301.14 426.94 L 301.14 499.69 L 287.72 499.69 L 234.57 407.84 Z' },
+  k: { d: 'M 98.86 100.31 L 112.28 100.31 L 165.43 192.16 L 165.43 265.43 L 152.53 265.43 L 98.86 173.06 Z' },
+  l: { d: 'M 176.26 100.31 L 223.74 100.31 L 223.74 247.88 L 200 289.16 L 176.26 247.88 Z' },
+  m: { d: 'M 287.72 100.31 L 301.14 100.31 L 301.14 173.06 L 247.47 265.43 L 234.57 265.43 L 234.57 192.16 Z' },
+});
+/* dseg:fin */
 
 // ---------------------------------------------------------------------------
 // Le clavier — quatre rangées, deux dispositions
@@ -350,37 +415,134 @@ function round(v) {
   return Math.round(v * 1000) / 1000;
 }
 
+
 // ---------------------------------------------------------------------------
-// La réglette alphabétique — l'alphabet complet, numéroté
+// La table de correspondance — une seule forme, trois mises en page
 // ---------------------------------------------------------------------------
 
 /**
- * L'alphabet latin, tel que le montre la primitive `alphabet`.
+ * ★ L'abstraction commune à la réglette alphabétique, à la grille
+ * pythagoricienne et au pavé téléphonique : **une table de correspondance
+ * affichée**.
  *
- * Même parti que le clavier (§ ci-dessus) : ce n'est **pas** une table
- * arithmétique. La valeur vient du scénario, donc du moteur arithmétique
- * (`tables/alphabet.js`) ; ici on ne décide que de la géométrie du dessin, et
- * la primitive refuse d'afficher un rang qui contredirait celui du scénario.
+ * Une conversion par table n'est vérifiable que si la table est sous les yeux.
+ * Le geste est partout le même — la table paraît, la case de la lettre
+ * s'allume, la lettre y vole, la valeur en redescend — et seule la **mise en
+ * page** change :
+ *
+ * | `disposition` | une case porte | employée par |
+ * |---------------|----------------|--------------|
+ * | `reglette`    | **une lettre** et sa valeur | toutes les tables lettre → nombre |
+ * | `glissiere`   | **deux réglettes alignées**, une lettre chacune | les chiffrements par substitution (Atbash, César) |
+ * | `pave`        | **les lettres d'une touche**, aux places du téléphone | T9 (ITU E.161) |
+ *
+ * ★ **Seul le pavé téléphonique met plusieurs lettres dans une case**, parce
+ * que c'est la réalité de l'objet : la touche `7` porte vraiment `PQRS`.
+ * Partout ailleurs — pythagoricienne, chaldéenne, Scrabble comprises — une
+ * case vaut une lettre et un nombre, dans l'ordre alphabétique. Grouper les
+ * lettres par valeur ferait de la mise en page une affirmation de plus : « ces
+ * lettres vont ensemble ». Alignées une par une, elles ne disent que ce
+ * qu'elles sont, et le lecteur y cherche SA lettre comme dans un dictionnaire.
+ *
+ * Deux options changent ce que la réglette **démontre**, et aucune des deux
+ * n'est décorative :
+ *
+ *  - `cycle` — retour à la ligne **là où la table recommence** (la valeur ne
+ *    croît plus). La pythagoricienne réduit le rang modulo 9 : en cassant la
+ *    ligne à chaque retour au 1, les trois rangées s'alignent colonne par
+ *    colonne — `A J S` valent 1, `B K T` valent 2 — et la règle **se voit** au
+ *    lieu d'être affirmée. Le découpage est DÉRIVÉ des valeurs, jamais donné :
+ *    une table non cyclique ne peut donc pas emprunter cette mise en page pour
+ *    se faire passer pour régulière (`primitives/table.js` le refuse).
+ *  - `teinte: 'valeur'` — fond de case d'autant plus contrasté que la valeur
+ *    est grande (Scrabble). La teinte **redouble** le nombre écrit dans la
+ *    case, elle ne le remplace pas : rien n'y repose sur la couleur seule
+ *    (design §5.1).
+ *
+ * ## ★ `glissiere` — la règle EST la mise en page
+ *
+ * Une conversion lettre → **lettre** n'a pas de nombre à montrer : ce qu'il
+ * faut montrer, c'est le RAPPORT entre deux alphabets. La glissière les dessine
+ * donc tels quels, deux réglettes alignées colonne par colonne :
+ *
+ * ```
+ *   Atbash          A B C D … M N … X Y Z      ← l'alphabet
+ *                   Z Y X W … N M …  C B A     ← le même, retourné bout pour bout
+ *
+ *   César (13)      A B C … L M | N O … Y Z    ← l'alphabet
+ *                   N O P … Y Z | A B … L M    ← le même, glissé de treize rangs
+ * ```
+ *
+ * On n'affirme plus que « A devient Z » : on le VOIT, parce que la réglette du
+ * bas n'est **jamais une seconde liste de lettres** — c'est l'alphabet du haut,
+ * déplacé. Retourné pour l'Atbash (l'axe du miroir tombe pile au milieu de la
+ * bande, entre `M|N` et `N|M`), glissé pour César.
+ *
+ * ★ **La coupure du glissement se dessine** (`|` ci-dessus, un vide dans les
+ * deux bandes). C'est le modulo, montré : à gauche de la coupure, les lettres
+ * qui avancent sans sortir de l'alphabet ; à droite, celles qui reviennent au
+ * début. Exactement ce que fait le retour à la ligne de la pythagoricienne pour
+ * son modulo 9. Le miroir, lui, n'a pas de coupure — il n'en a pas besoin.
+ *
+ * ★ Et comme le `cycle`, ce dessin **se refuse** à qui ne le mérite pas
+ * (`pasDeGlissiere`) : si les valeurs ne parcourent pas l'alphabet d'un pas
+ * constant de ±1, la substitution n'est pas un déplacement de la réglette, et
+ * elle ne peut pas emprunter le dessin qui l'affirmerait. Une table de leet
+ * speak ou un chiffrement quelconque reste en `reglette`.
+ *
+ * Ce n'est **pas** une table arithmétique : les correspondances viennent du
+ * scénario, donc de la fonction même de l'opérateur (`entries`). Ici on ne
+ * décide que de la géométrie du dessin, et la primitive `table` refuse
+ * d'afficher une valeur qui contredirait celle du scénario.
  */
+
 export const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-/** Nombre de colonnes de la réglette : deux rangées de treize tiennent en largeur. */
+/** Colonnes par défaut d'une réglette : deux rangées de treize tiennent en largeur. */
 export const ALPHABET_COLS = 13;
 
 /** Ordres de numérotation modélisés — vocabulaire fermé. */
 export const ALPHABET_ORDRES = Object.freeze(['a1z26', 'z26a1']);
 
-export const CELL = { w: 74, h: 84, gap: 8 };
+/**
+ * Mises en page modélisées — vocabulaire fermé.
+ *
+ * La mise en page « une colonne par valeur, les lettres dessous » a disparu :
+ * **seul le clavier téléphonique a plusieurs lettres pour un chiffre**, et
+ * c'est le `pave` qui le dit.
+ *
+ * ★ `glissiere` s'est ajoutée pour les conversions lettre → **lettre** : deux
+ * réglettes alignées, celle du bas étant celle du haut déplacée. Ce n'est pas
+ * une variante décorative de `reglette` — c'est la seule mise en page où le
+ * dessin porte la règle, et elle se refuse à qui n'est pas un déplacement de
+ * l'alphabet.
+ */
+export const DISPOSITIONS = Object.freeze(['reglette', 'glissiere', 'pave']);
+
+/** Encodages de teinte de fond modélisés — vocabulaire fermé. */
+export const TEINTES = Object.freeze(['valeur']);
 
 /** Ordre demandé, ramené au vocabulaire fermé (défaut : A=1). */
 export function normalizeOrdre(ordre) {
   return ordre === 'z26a1' ? 'z26a1' : 'a1z26';
 }
 
+/** Mise en page demandée, ramenée au vocabulaire fermé (défaut : réglette). */
+export function normalizeDisposition(d) {
+  return DISPOSITIONS.includes(d) ? d : 'reglette';
+}
+
 /**
- * Rang MONTRÉ par la réglette pour une lettre donnée.
- * `null` si le caractère n'est pas une lettre latine non accentuée : c'est à
- * l'émetteur de replier en amont, comme il le fait déjà pour `sevenSeg`.
+ * Rang MONTRÉ par la réglette alphabétique pour une lettre donnée.
+ *
+ * ★ C'est le seul **oracle indépendant** du moteur visuel : pour l'alphabet —
+ * et pour lui seul — le rang se recalcule ici, sans rien croire du scénario.
+ * Les autres tables (pythagore, Scrabble, morse…) ne peuvent pas l'avoir sans
+ * recopier le moteur arithmétique, c'est-à-dire sans créer la seconde source
+ * de vérité que ce projet refuse : elles voyagent donc DANS l'op, dérivées de
+ * la fonction même de l'opérateur.
+ *
+ * `null` si le caractère n'est pas une lettre latine non accentuée.
  */
 export function alphabetValue(letter, ordre = 'a1z26') {
   if (typeof letter !== 'string' || !letter) return null;
@@ -389,54 +551,398 @@ export function alphabetValue(letter, ordre = 'a1z26') {
   return normalizeOrdre(ordre) === 'z26a1' ? 26 - i : i + 1;
 }
 
+/** Les 26 correspondances de la réglette alphabétique, dans l'ordre demandé. */
+export function alphabetEntries(ordre = 'a1z26') {
+  const o = normalizeOrdre(ordre);
+  return [...ALPHABET].map((char) => ({ char, value: alphabetValue(char, o) }));
+}
+
+/* ── Métriques de dessin, en unités viewBox ──────────────────────────────── */
+
+/** Tailles de texte dans une case, en fraction de `FONT_SIZE`. */
+const T = Object.freeze({ lettre: 0.46, valeur: 0.36, note: 0.30, tete: 0.5 });
+const PAD_X = 13;
+const PAD_Y = 11;
+const GAP = 8;
+const LIGNE = 26;      // interligne dans une case
+const CELL_MIN_W = 66;
+
+/** Largeur approchée d'un texte à chasse fixe, en unités viewBox. */
+function textWidth(texte, size) {
+  return [...String(texte)].length * size * ADVANCE_RATIO;
+}
+
+/** Lettres par ligne dans une case de grille : au-delà, on replie. */
+const PAR_LIGNE_MAX = 5;
+
 /**
- * Géométrie de la réglette, centrée sur (0,0) dans le repère local du nœud
- * (y vers le bas, unités viewBox).
+ * Géométrie d'une table de correspondance, centrée sur (0,0) dans le repère
+ * local du nœud (y vers le bas, unités viewBox).
  *
- * Chaque case porte `{char, rang, colonne, ligne, cx, cy, x, y, w, h}` :
- * la LETTRE en haut de la case, son RANG en bas — c'est le rang qui redescend
- * vers la ligne, jamais la lettre.
+ * @param {object} options
+ * @param {Array<{char:string,value:(number|string),note?:string}>} options.entries
+ *        les correspondances, telles que l'opérateur les lit
+ * @param {'reglette'|'glissiere'|'pave'} [options.disposition]
+ * @param {number} [options.colonnes]  colonnes fixes de la réglette (défaut 13)
+ * @param {boolean} [options.cycle]    retour à la ligne là où la table recommence
+ * @param {'valeur'} [options.teinte]  fond de case encodant la valeur
+ * @param {number} [options.fontSize]
+ * @returns {{disposition:string, cols:number, rows:number, width:number, height:number,
+ *            cells:Array, index:object}}
+ *
+ * `cells[]` porte de quoi dessiner sans rien recalculer :
+ *   `{ key, col, ligne, x, y, w, h, cx, cy, vide, teinte, labels:[{text,cx,cy,size,tone}] }`
+ *   — `teinte` vaut 0 à 1 (0 = valeur la plus faible) et n'existe que si on l'a
+ *   demandée ; c'est le DESSIN qui décide comment la rendre visible, pas la
+ *   géométrie, parce que la direction dépend du thème.
+ * `index[LETTRE]` porte de quoi mettre en scène :
+ *   `{ cell, lettre:{x,y}, valeur:{x,y}, value, note }`
+ *   — `lettre` est le point où la lettre atterrit, `valeur` celui d'où le
+ *   nombre redescend. Ils diffèrent : en réglette, la valeur est sous la
+ *   lettre ; sur le pavé, c'est la **tête de touche** qui la porte ; en
+ *   glissière, c'est la case de la réglette du BAS, juste dessous.
+ *   `halo`, quand il existe, remplace la case pour l'illumination : en
+ *   glissière c'est la COLONNE entière qu'on éclaire, les deux réglettes à la
+ *   fois, parce que la correspondance est ce qui les relie.
  */
-export function alphabetGeometry(options = {}) {
-  const ordre = normalizeOrdre(options.ordre);
-  const cols = options.cols || ALPHABET_COLS;
-  const rows = Math.ceil(ALPHABET.length / cols);
-  const pitchX = CELL.w + CELL.gap;
-  const pitchY = CELL.h + CELL.gap;
-  const width = cols * CELL.w + (cols - 1) * CELL.gap;
-  const height = rows * CELL.h + (rows - 1) * CELL.gap;
+export function tableGeometry(options = {}) {
+  const disposition = normalizeDisposition(options.disposition);
+  const fs = options.fontSize || FONT_SIZE;
+  const entries = normalizeEntries(options.entries);
+  if (disposition === 'glissiere') return glissiere(entries, fs);
+  return disposition === 'reglette'
+    ? reglette(entries, options, fs)
+    : pave(entries, fs);
+}
+
+/**
+ * ★ Le déplacement de réglette qu'une table de substitution réalise — ou `null`
+ * si elle n'en réalise aucun.
+ *
+ * C'est l'oracle de la glissière, et il est du même bois que `verifierCycle` :
+ * le dessin **affirme** que la réglette du bas est celle du haut déplacée, donc
+ * le dessin se refuse tant que ce n'est pas vrai. Est un déplacement, et rien
+ * d'autre :
+ *
+ *  - la colonne du haut parcourt l'alphabet **d'un pas de +1**, sans trou ;
+ *  - la colonne du bas le parcourt **d'un pas constant, +1 ou −1** (modulo 26) —
+ *    +1 c'est un glissement (César), −1 c'est un retournement (Atbash).
+ *
+ * Les `coutures` sont les colonnes après lesquelles la réglette du bas **revient
+ * au début de l'alphabet** : le modulo, à l'endroit exact où il opère. Il y en
+ * a au plus une, et le miroir n'en a aucune.
+ *
+ * @param {Array<{char:string,value:string}>} entries
+ * @returns {{sens:1|-1, coutures:number[]}|null}
+ */
+export function pasDeGlissiere(entries) {
+  if (!Array.isArray(entries) || entries.length < 2) return null;
+  const rang = (c) => ALPHABET.indexOf(String(c).toUpperCase());
+  const haut = entries.map((e) => rang(e && e.char));
+  const bas = entries.map((e) => (String(e && e.value).length === 1 ? rang(e.value) : -1));
+  if (haut.some((i) => i < 0) || bas.some((i) => i < 0)) return null;
+  const pas = (a, b) => (b - a + 26) % 26;
+  const sens = pas(bas[0], bas[1]) === 1 ? 1 : (pas(bas[0], bas[1]) === 25 ? -1 : 0);
+  if (!sens) return null;
+  const coutures = [];
+  for (let i = 0; i < entries.length - 1; i++) {
+    if (pas(haut[i], haut[i + 1]) !== 1) return null;
+    if (pas(bas[i], bas[i + 1]) !== (sens + 26) % 26) return null;
+    // La couture : là où la réglette du bas repasse par le bout de l'alphabet.
+    if (sens === 1 ? bas[i] === 25 : bas[i] === 0) coutures.push(i);
+  }
+  return { sens, coutures };
+}
+
+/* ── Métriques propres à la glissière ────────────────────────────────────── */
+
+/** Case de glissière : juste de quoi loger une lettre — vingt-six doivent tenir. */
+const GLISS_PAD_X = 9;
+/** Largeur plancher d'une case de glissière (lisible sans être creuse). */
+const GLISS_MIN_W = 38;
+/** Le vide de la couture — plus large que l'inter-bande, pour se lire comme une coupure. */
+const GLISS_COUTURE = 12;
+
+/**
+ * Glissière : **deux réglettes alignées colonne par colonne**, une lettre par
+ * case, celle du bas étant celle du haut déplacée.
+ *
+ * Les cases se touchent à l'intérieur d'une bande — c'est ce qui en fait une
+ * *réglette* et non vingt-six couples indépendants : on lit la bande du bas
+ * comme un alphabet, et on constate qu'elle est bien l'alphabet. Le seul vide
+ * horizontal est la **couture**, là où le glissement ramène au début ; elle est
+ * portée par les DEUX bandes, parce que les colonnes doivent rester alignées et
+ * parce qu'elle sépare, en haut comme en bas, les lettres qui sortent de
+ * l'alphabet de celles qui n'en sortent pas.
+ *
+ * La lettre se pose sur la case du haut — la sienne — et sa conversion redescend
+ * de la case juste dessous. Le halo, lui, couvre la COLONNE entière : c'est le
+ * lien vertical qui est la correspondance, pas l'une ou l'autre case.
+ */
+function glissiere(entries, fs) {
+  const deplacement = pasDeGlissiere(entries);
+  const coutures = new Set(deplacement ? deplacement.coutures : []);
+  const n = Math.max(1, entries.length);
+
+  let large = 0;
+  for (const e of entries) {
+    large = Math.max(large, textWidth(e.label, fs * T.lettre), textWidth(e.value, fs * T.lettre));
+  }
+  const cellW = Math.max(GLISS_MIN_W, Math.ceil(large) + GLISS_PAD_X * 2);
+  const cellH = PAD_Y * 2 + LIGNE;
+
+  const width = n * cellW + coutures.size * GLISS_COUTURE;
+  const height = 2 * cellH + GAP;
+  const x0 = -width / 2;
+  const y0 = -height / 2;
+  const cyHaut = round(y0 + cellH / 2);
+  const cyBas = round(y0 + cellH + GAP + cellH / 2);
+
+  const cells = [];
+  const index = {};
+  let x = x0;
+  entries.forEach((e, col) => {
+    const cx = round(x + cellW / 2);
+    const boite = (cy, texte, tone) => ({
+      key: e.char, col, ligne: tone === 'fg' ? 0 : 1,
+      x: round(cx - cellW / 2), y: round(cy - cellH / 2),
+      w: cellW, h: cellH, cx, cy, vide: false,
+      labels: [{ text: texte, cx, cy, size: round(fs * T.lettre), tone }],
+    });
+    const iHaut = cells.length;
+    cells.push(boite(cyHaut, e.label, 'fg'));
+    cells.push(boite(cyBas, e.value, 'gold'));
+    index[e.char] = {
+      cell: iHaut,
+      lettre: { x: cx, y: cyHaut },
+      valeur: { x: cx, y: cyBas },
+      // ★ La colonne entière : les deux réglettes, et le vide entre elles.
+      halo: { cx, cy: round((cyHaut + cyBas) / 2), w: cellW, h: cyBas - cyHaut + cellH },
+      value: e.value,
+      note: null,
+    };
+    x += cellW + (coutures.has(col) ? GLISS_COUTURE : 0);
+  });
+
+  return {
+    disposition: 'glissiere', cols: n, rows: 2, width, height, cellW, cellH,
+    sens: deplacement ? deplacement.sens : 0,
+    coutures: deplacement ? deplacement.coutures : [],
+    // Les couples tels qu'ils sont DESSINÉS — c'est sur eux que `table.js`
+    // motive son refus, pour que le grief cite la case fautive et pas l'entrée
+    // brute qui, elle, a pu être normalisée ou écartée en chemin.
+    couples: entries.map((e) => ({ char: e.char, value: e.value })),
+    cells, index,
+  };
+}
+
+/**
+ * Découpe de la réglette en rangées.
+ *
+ * ★ `cycle` ne coupe pas tous les N : il coupe **là où la table recommence**,
+ * c'est-à-dire là où la valeur cesse de croître. Le nombre de colonnes est donc
+ * une CONSÉQUENCE des valeurs, jamais une consigne — et c'est ce qui fait de
+ * l'alignement une démonstration : si les colonnes se répondent, c'est que la
+ * table est réellement cyclique. (`primitives/table.js` refuse le contraire.)
+ */
+function decouperEnRangs(entries, options) {
+  if (!entries.length) return [[]];
+  if (options.cycle) {
+    const rangs = [[]];
+    let precedent = null;
+    for (const e of entries) {
+      const v = Number(e.value);
+      const dernier = rangs[rangs.length - 1];
+      if (dernier.length && (!Number.isFinite(v) || !Number.isFinite(precedent) || v <= precedent)) {
+        rangs.push([]);
+      }
+      rangs[rangs.length - 1].push(e);
+      precedent = v;
+    }
+    return rangs;
+  }
+  const cols = Math.max(1, options.colonnes || ALPHABET_COLS);
+  const rangs = [];
+  for (let i = 0; i < entries.length; i += cols) rangs.push(entries.slice(i, i + cols));
+  return rangs;
+}
+
+/**
+ * Teinte de fond par valeur, de 0 (la plus faible) à 1 (la plus forte).
+ *
+ * ★ Par RANG de valeur, pas au prorata : les points du Scrabble vont 1, 2, 3,
+ * 4, 8, 10 — au prorata, les quatre premiers seraient indiscernables. Le rang
+ * garde l'ordre (plus de points, plus de teinte) et rend chaque palier
+ * visible. L'information reste de toute façon écrite en toutes lettres dans la
+ * case : la teinte la redouble, elle ne la porte pas seule.
+ */
+function teinteParValeur(entries, mode) {
+  if (mode !== 'valeur') return null;
+  const vals = [...new Set(entries.map((e) => Number(e.value)))]
+    .filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
+  if (vals.length < 2) return null;
+  return new Map(vals.map((v, i) => [v, round(i / (vals.length - 1))]));
+}
+
+/** Correspondances nettoyées : capitale, valeur en chaîne, note facultative. */
+function normalizeEntries(entries) {
+  if (!Array.isArray(entries)) return [];
+  const out = [];
+  const vues = new Set();
+  for (const e of entries) {
+    if (!e || typeof e !== 'object') continue;
+    const char = String(e.char ?? '').toUpperCase();
+    if (!char || vues.has(char)) continue;
+    if (e.value === undefined || e.value === null) continue;
+    vues.add(char);
+    out.push({
+      char,
+      // `label` — le glyphe DESSINÉ quand il diffère de la clé : le code ASCII
+      // du bas de casse se lit « a → 97 », pas « A → 97 ».
+      label: e.label === undefined || e.label === null || e.label === '' ? char : String(e.label),
+      value: String(e.value),
+      note: e.note === undefined || e.note === null || e.note === '' ? null : String(e.note),
+    });
+  }
+  return out;
+}
+
+/**
+ * Réglette : **une case par lettre**, la valeur dessous (et la note entre
+ * deux). C'est la mise en page de toutes les tables lettre → nombre.
+ *
+ * Les rangées viennent de `decouperEnRangs` : à colonnes fixes, ou au CYCLE de
+ * la table. Dans les deux cas les cases sont posées **à pas constant depuis le
+ * bord gauche**, donc la colonne `j` d'une rangée tombe exactement sous la
+ * colonne `j` de la précédente — c'est cet alignement qui fait la
+ * démonstration de la pythagoricienne, et il est exact par construction, pas
+ * par réglage.
+ */
+function reglette(entries, options, fs) {
+  const rangs = decouperEnRangs(entries, options);
+  const cols = Math.max(1, ...rangs.map((r) => r.length));
+  const rows = Math.max(1, rangs.length);
+  const avecNote = entries.some((e) => e.note);
+  const lignes = avecNote ? 3 : 2;
+  const teintes = teinteParValeur(entries, options.teinte);
+
+  let large = 0;
+  for (const e of entries) {
+    large = Math.max(large, textWidth(e.label, fs * T.lettre), textWidth(e.value, fs * T.valeur));
+    if (e.note) large = Math.max(large, textWidth(e.note, fs * T.note));
+  }
+  const cellW = Math.max(CELL_MIN_W, Math.ceil(large) + PAD_X * 2);
+  const cellH = PAD_Y * 2 + lignes * LIGNE;
+
+  const width = cols * cellW + (cols - 1) * GAP;
+  const height = rows * cellH + (rows - 1) * GAP;
   const x0 = -width / 2;
   const y0 = -height / 2;
 
-  const cells = [...ALPHABET].map((char, i) => {
-    const colonne = i % cols;
-    const ligne = Math.floor(i / cols);
-    const cx = round(x0 + colonne * pitchX + CELL.w / 2);
-    const cy = round(y0 + ligne * pitchY + CELL.h / 2);
-    return {
-      char,
-      rang: ordre === 'z26a1' ? 26 - i : i + 1,
-      colonne: colonne + 1,
-      ligne,
-      cx,
-      cy,
-      x: round(cx - CELL.w / 2),
-      y: round(cy - CELL.h / 2),
-      w: CELL.w,
-      h: CELL.h,
-      /** Où s'affiche la lettre, et où s'affiche son rang, dans la case. */
-      lettreCy: round(cy - CELL.h * 0.18),
-      rangCy: round(cy + CELL.h * 0.27),
-    };
+  const cells = [];
+  const index = {};
+  rangs.forEach((rang, ligne) => {
+    rang.forEach((e, col) => {
+      const cx = round(x0 + col * (cellW + GAP) + cellW / 2);
+      const cy = round(y0 + ligne * (cellH + GAP) + cellH / 2);
+      const haut = cy - ((lignes - 1) / 2) * LIGNE;
+      const yLettre = round(haut);
+      const yNote = round(haut + LIGNE);
+      const yValeur = round(haut + (lignes - 1) * LIGNE);
+      const labels = [
+        { text: e.label, cx, cy: yLettre, size: round(fs * T.lettre), tone: 'fg' },
+        { text: e.value, cx, cy: yValeur, size: round(fs * T.valeur), tone: 'gold' },
+      ];
+      if (e.note) labels.splice(1, 0, { text: e.note, cx, cy: yNote, size: round(fs * T.note), tone: 'fg3' });
+      const cell = {
+        key: e.char, col, ligne,
+        x: round(cx - cellW / 2), y: round(cy - cellH / 2),
+        w: cellW, h: cellH, cx, cy, vide: false, labels,
+      };
+      if (teintes) cell.teinte = teintes.get(Number(e.value)) ?? 0;
+      cells.push(cell);
+      index[e.char] = {
+        cell: cells.length - 1,
+        lettre: { x: cx, y: yLettre },
+        valeur: { x: cx, y: yValeur },
+        value: e.value,
+        note: e.note,
+      };
+    });
   });
 
-  return { ordre, cells, cols, rows, width, height, cellW: CELL.w, cellH: CELL.h };
+  return { disposition: 'reglette', cols, rows, width, height, cellW, cellH, cells, index };
 }
 
-/** Case portant une lettre — `null` si la lettre n'est pas modélisée. */
-export function findCell(letter, options = {}) {
-  if (typeof letter !== 'string' || !letter) return null;
-  const geo = alphabetGeometry(options);
-  const up = letter.toUpperCase();
-  return geo.cells.find((c) => c.char === up) || null;
+/**
+ * Pavé téléphonique : les neuf touches à leur place, la touche en tête, les
+ * lettres qu'elle porte dessous.
+ *
+ * ★ **La seule mise en page où une case porte plusieurs lettres**, et elle ne
+ * l'invente pas : la touche `7` porte vraiment `PQRS`. La touche `1` y est
+ * dessinée VIDE — sur un téléphone elle ne porte aucune lettre, et l'effacer
+ * ferait du dessin autre chose qu'un pavé.
+ */
+function pave(entries, fs) {
+  const groupes = new Map();
+  for (const e of entries) {
+    if (!groupes.has(e.value)) groupes.set(e.value, []);
+    groupes.get(e.value).push({ char: e.char, label: e.label });
+  }
+  const places = ['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => ({
+    key: d, lettres: groupes.get(d) || [],
+    col: (Number(d) - 1) % 3, ligne: Math.floor((Number(d) - 1) / 3),
+  }));
+
+  const cols = 3;
+  const rows = 3;
+  const maxLettres = Math.max(1, ...places.map((p) => p.lettres.length));
+  const parLigne = Math.min(maxLettres, PAR_LIGNE_MAX);
+  const lignesLettres = Math.max(1, Math.ceil(maxLettres / parLigne));
+
+  const pitch = Math.ceil(fs * T.lettre * ADVANCE_RATIO) + 8;
+  let teteLarge = 0;
+  for (const p of places) teteLarge = Math.max(teteLarge, textWidth(p.key, fs * T.tete));
+  const cellW = Math.max(CELL_MIN_W, Math.ceil(Math.max(teteLarge, parLigne * pitch)) + PAD_X * 2);
+  const cellH = PAD_Y * 2 + LIGNE + lignesLettres * LIGNE;
+
+  const width = cols * cellW + (cols - 1) * GAP;
+  const height = rows * cellH + (rows - 1) * GAP;
+  const x0 = -width / 2;
+  const y0 = -height / 2;
+
+  const cells = [];
+  const index = {};
+  for (const p of places) {
+    const cx = round(x0 + p.col * (cellW + GAP) + cellW / 2);
+    const cy = round(y0 + p.ligne * (cellH + GAP) + cellH / 2);
+    const yTete = round(cy - cellH / 2 + PAD_Y + LIGNE / 2);
+    const labels = [{ text: p.key, cx, cy: yTete, size: round(fs * T.tete), tone: 'gold' }];
+    const rangs = [];
+    for (let i = 0; i < p.lettres.length; i += parLigne) rangs.push(p.lettres.slice(i, i + parLigne));
+    rangs.forEach((rang, r) => {
+      const y = round(yTete + LIGNE * (r + 1));
+      const xDepart = cx - ((rang.length - 1) / 2) * pitch;
+      rang.forEach((l, j) => {
+        const x = round(xDepart + j * pitch);
+        labels.push({ text: l.label, cx: x, cy: y, size: round(fs * T.lettre), tone: 'fg' });
+        index[l.char] = {
+          cell: cells.length,
+          lettre: { x, y },
+          // ★ Le nombre redescend de la TÊTE de la touche : c'est elle qui
+          // porte la valeur, et c'est elle que le spectateur a lue.
+          valeur: { x: cx, y: yTete },
+          value: p.key,
+          note: null,
+        };
+      });
+    });
+    cells.push({
+      key: p.key, col: p.col, ligne: p.ligne,
+      x: round(cx - cellW / 2), y: round(cy - cellH / 2),
+      w: cellW, h: cellH, cx, cy, vide: p.lettres.length === 0, labels,
+    });
+  }
+
+  return { disposition: 'pave', cols, rows, width, height, cellW, cellH, cells, index };
 }

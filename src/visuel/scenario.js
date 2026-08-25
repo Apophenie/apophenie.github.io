@@ -104,13 +104,13 @@ export function validateScenario(scenario) {
     // Deux ops de CAMÉRA dans un même step l'animeraient toutes deux (recul,
     // recentrage, retour) sur les mêmes instants : elles se contrediraient et le
     // scrubbing deviendrait ambigu. Une par step, pas deux — c'est vrai du
-    // clavier comme de la réglette alphabétique.
-    for (const nom of ['keyboard', 'alphabet']) {
+    // clavier comme de la table de correspondance.
+    for (const nom of ['keyboard', 'table']) {
       const n = (step.ops || []).filter((o) => o && o.op === nom).length;
       if (n > 1) {
         fail(`${at(loc)}${n} ops « ${nom} » dans le même step : chacune anime la caméra `
           + '(recul, recentrage, retour), elles se contrediraient. Une par step — '
-          + 'émettez un step par jeton.');
+          + 'une seule table pour toute la ligne, ou un step par jeton.');
       }
     }
 

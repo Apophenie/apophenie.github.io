@@ -14,6 +14,7 @@ import { GLYPHES } from '../fixtures/glyphes.js';
 import { SCENARIOS } from '../fixtures/scenarios.js';
 import { OP_NAMES, MIN_STEP_DURATION, MIN_HINGE_GAP, DEFAULT_DUR } from '../constants.js';
 import { CompileError } from '../errors.js';
+import { alphabetEntries } from '../assets.js';
 
 setGlyphes(GLYPHES, 'fixtures/glyphes.js');
 
@@ -272,7 +273,7 @@ test('keyboard : une touche inconnue dégrade au lieu de faire tomber la page', 
   assert.ok(tl.nodes.some((n) => n.id === 'huit'), 'la substitution a bien lieu');
 });
 
-test('caméra : deux claviers — ou deux réglettes — dans un même step sont refusés', () => {
+test('caméra : deux claviers — ou deux tables — dans un même step sont refusés', () => {
   const tokens = [{ id: 'a1', text: '-', kind: 'sep' }, { id: 'a2', text: '-', kind: 'sep' }];
   assert.throws(() => compile(sc([{
     id: 'a', title: 'A',
@@ -285,8 +286,8 @@ test('caméra : deux claviers — ou deux réglettes — dans un même step sont
   assert.throws(() => compile(sc([{
     id: 'a', title: 'A',
     ops: [
-      { op: 'alphabet', target: 'b1', to: { id: 's1', text: '8' } },
-      { op: 'alphabet', target: 'b2', to: { id: 's2', text: '15' } },
+      { op: 'table', ordre: 'a1z26', target: 'b1', to: { id: 's1', text: '8' } },
+      { op: 'table', ordre: 'a1z26', target: 'b2', to: { id: 's2', text: '15' } },
     ],
   }], [{ id: 'b1', text: 'h', kind: 'letter' }, { id: 'b2', text: 'o', kind: 'letter' }])), /Une par step/);
 });
@@ -342,7 +343,13 @@ test('le compteur de somme est une fonction pure de u', () => {
   assert.equal(entry.render(0), '0');
   assert.equal(entry.render(1), '44');
   assert.equal(entry.render(0.5), entry.render(0.5), 'déterministe');
-  assert.deepEqual([0, 0.25, 0.45, 0.65, 0.99, 1].map((u) => entry.render(u)), ['0', '8', '23', '39', '44', '44']);
+  // ★ Le compteur suit EXACTEMENT les atterrissages — un seuil par arrivée, pas
+  // une division en parts égales de la durée de l'enregistrement. Il vaut donc
+  // 0 tant que rien n'est arrivé dans la case, puis monte d'un opérande par
+  // atterrissage, sans jamais reculer ni sauter une somme partielle.
+  const lus = Array.from({ length: 21 }, (_, k) => entry.render(k / 20));
+  assert.deepEqual([...new Set(lus)], ['0', '8', '23', '39', '44'],
+    'les cinq valeurs, dans l’ordre, une par arrivée');
 });
 
 test('les durées par défaut du moteur visuel et leur miroir arithmétique coïncident', async () => {
@@ -406,6 +413,79 @@ test('un geste distinct n’est pas une redite : autre glyphe, autre compte', ()
   ]);
   // Le « o » inaugure sa forme ; le second « h » redit celle du premier.
   assert.deepEqual(repeatOrigins(scen), [-1, -1, 0]);
+});
+
+/**
+ * ★ Le même piège sur la TABLE DE CORRESPONDANCE, où il est plus sournois : le
+ * décor déployé est identique d'une lettre à l'autre — même réglette, mêmes
+ * vingt-six cases. Si la signature ne retenait que le décor, convertir `H` puis
+ * `O` deviendrait indistinguable, et la seconde conversion serait accélérée
+ * alors qu'elle n'a encore rien montré.
+ *
+ * Le critère est le GESTE ENTIER : la table ET le signe converti ET la valeur
+ * obtenue. Une table déjà montrée n'est une redite que si l'on y refait la
+ * MÊME conversion — **même table ET même lettre**.
+ *
+ * (Les trois étapes comparées ici portent les mêmes drapeaux de décor : c'est
+ * bien la conversion, et elle seule, qui les distingue.)
+ */
+test('une table redéployée pour une AUTRE lettre n’est pas une redite', () => {
+  const entrees = alphabetEntries('a1z26');
+  const pas = (target, letter, text, id) => ({
+    id: `s_${id}`,
+    title: 'conversion',
+    ops: [{ op: 'table', ordre: 'a1z26', entries: entrees, disposition: 'reglette',
+      target, letter, to: { id, text }, montre: false, retire: false }],
+  });
+  const scen = sc([
+    pas('t0', 'H', '8', 'r0'),
+    pas('t1', 'O', '15', 'r1'),
+    pas('t2', 'H', '8', 'r2'),
+  ], [
+    { id: 't0', text: 'h', kind: 'letter' },
+    { id: 't1', text: 'o', kind: 'letter' },
+    { id: 't2', text: 'h', kind: 'letter' },
+  ]);
+  // Le « O » inaugure sa forme malgré la même réglette ; le second « H » redit
+  // bien la première conversion.
+  assert.deepEqual(repeatOrigins(scen), [-1, -1, 0]);
+});
+
+/**
+ * ★ Le revers du même critère : les drapeaux `montre` / `retire` disent quand
+ * la réglette MONTE et quand elle SE RETIRE — le cycle de vie du décor
+ * mutualisé, pas la conversion. Tant qu'ils entraient dans la signature, la
+ * tête d'une série ne pouvait être redite par personne (elle seule portait
+ * `montre`), et la queue non plus (elle seule portait `retire`). Sur
+ * `hope-hope-hope.fr` : le « h » du deuxième groupe ne voyait pas qu'il redisait
+ * le « h » du premier, et le « e » du troisième ne voyait pas qu'il redisait le
+ * « e » du premier.
+ *
+ * Le critère de l'auteur — **même table ET même conversion** — ne dit rien du
+ * décor : deux séries qui refont la même conversion sont des redites, où que
+ * la conversion tombe dans sa série.
+ */
+test('les drapeaux de décor mutualisé ne changent pas le geste', () => {
+  const entrees = alphabetEntries('a1z26');
+  const pas = (target, letter, text, id, montre, retire) => ({
+    id: `s_${id}`,
+    title: 'conversion',
+    ops: [{ op: 'table', ordre: 'a1z26', entries: entrees, disposition: 'reglette',
+      target, letter, to: { id, text }, montre, retire }],
+  });
+  // Deux séries de deux conversions, chacune avec sa montée et son repli.
+  const scen = sc([
+    pas('t0', 'H', '8', 'r0', true, false),
+    pas('t1', 'E', '5', 'r1', false, true),
+    pas('t2', 'H', '8', 'r2', true, false),
+    pas('t3', 'E', '5', 'r3', false, true),
+  ], [
+    { id: 't0', text: 'h', kind: 'letter' },
+    { id: 't1', text: 'e', kind: 'letter' },
+    { id: 't2', text: 'h', kind: 'letter' },
+    { id: 't3', text: 'e', kind: 'letter' },
+  ]);
+  assert.deepEqual(repeatOrigins(scen), [-1, -1, 0, 1]);
 });
 
 test('la première occurrence garde son rythme, la redite est divisée par le facteur', () => {

@@ -1,9 +1,22 @@
 /**
  * `keyboard` — superposition d'un clavier, AZERTY ou QWERTY.
  *
- * Recherche §4.12 : le clavier monte en fondu, la touche concernée s'illumine,
- * le caractère de la saisie **vole** vers elle, le nombre en redescend, puis le
- * clavier disparaît.
+ * Recherche §4.12 : le clavier monte en fondu, le caractère de la saisie
+ * **vole** vers sa touche EN PASSANT PAR-DESSUS elle, la touche s'illumine à
+ * son arrivée, le nombre en redescend, puis le clavier disparaît.
+ *
+ * ★ Le geste lui-même est écrit dans `decor.js`, et `table` l'emploie mot pour
+ * mot : c'est celui-ci qui a servi de modèle, l'auteur l'ayant jugé « bien
+ * plus lisible que les autres ». Les deux primitives restent distinctes — un
+ * clavier est un objet physique à trois mesures, une table une correspondance
+ * abstraite qu'on met en page — mais elles ne peuvent plus diverger sur le
+ * geste.
+ *
+ * ★ Le DÉCOR se mutualise. Deux conversions d'affilée sur le même clavier ne
+ * le font pas redescendre puis remonter : `montre` sur la première, `retire`
+ * sur la dernière (`mutualiserDecor`, `src/recherche/scenario.js`). Sur
+ * `hope-hope-hope.fr`, les deux tirets du 6 se convertissent sous un clavier
+ * qui ne bouge plus, caméra comprise.
  *
  * ## Trois mesures, trois choses éclairées
  *
@@ -34,13 +47,17 @@
  * Quatre rangées, c'est large ET haut. CONTRACTS §3.2 règle 6 — on n'anime
  * **jamais** l'attribut `viewBox` : on anime le `scale` et le `translate` du
  * groupe `@camera`. Le facteur est **calculé** à partir de l'encombrement réel,
- * pas deviné. Deux `keyboard` dans un même step animeraient tous deux la caméra :
- * `scenario.js` l'interdit statiquement.
+ * pas deviné (`decor.js`). Deux `keyboard` dans un même step animeraient tous
+ * deux la caméra : `scenario.js` l'interdit statiquement. Le recul se paie au
+ * déploiement et le retour au repli : entre les deux, le cadrage ne bouge plus.
  */
 
-import { tokenSpec, espacementDe, ancreVue } from './helpers.js';
+import { tokenSpec, ancreVue } from './helpers.js';
+// ★ Le geste — monter le décor, allumer la touche, faire passer le caractère
+//   PAR-DESSUS, faire redescendre le nombre — est écrit une seule fois, et
+//   `table` l'appelle aussi. C'est CE geste-ci qui a servi de modèle.
+import { monterDecor, allerRetour, replierDecor, substituerSeul, decorEnLAir } from './decor.js';
 import { keyboardGeometry, findKey, keyboardValue, normalizeLayout } from '../assets.js';
-import { CAMERA_ID, EASE } from '../constants.js';
 import { fail } from '../errors.js';
 
 export const name = 'keyboard';
@@ -76,7 +93,11 @@ export function plan(ctx) {
   // c'est à l'émetteur de filtrer en amont, comme la table des glyphes le fait
   // pour `sevenSeg`.
   if (!key) {
-    substituerSeul(ctx, src, to);
+    substituerSeul(ctx, src, to, 'digit');
+    const orphelin = `@kbd:${layout}:${rows}:${mesure}`;
+    if (ctx.op.montre !== true && ctx.op.retire !== false && decorEnLAir(ctx, orphelin)) {
+      replierDecor(ctx, orphelin, 0);
+    }
     return;
   }
 
@@ -90,7 +111,6 @@ export function plan(ctx) {
       + 'Le moteur visuel refuse d’afficher autre chose que ce qui est compté.');
   }
 
-  const T = ctx.dur;
   // Le clavier se pose au centre de la VUE — pas du viewBox : si la ligne
   // défile, le milieu de l'écran n'est plus le milieu de la scène (`ancreVue`).
   const vue = ancreVue(ctx);
@@ -107,61 +127,43 @@ export function plan(ctx) {
       ? { x: boardPos.x + geo.marginCx, y: boardPos.y + geo.rowLabels[key.rangee - 1].cy }
       : keyPos;
 
-  // --- caméra : on recule ET on recentre, puis on revient ------------------
-  const cam = ctx.scene.get(CAMERA_ID);
-  const restScale = cam.base.scale ?? 1;
-  const restT = cam.base.translate ?? { x: 0, y: 0 };
-  const { zoom, dy } = cadrage(ctx, geo, boardPos, mesure);
-  ctx.anim({ id: CAMERA_ID, prop: 'scale', to: restScale * zoom, at: 0, dur: T * 0.22, ease: EASE.move });
-  ctx.anim({ id: CAMERA_ID, prop: 'translate', to: { x: restT.x, y: restT.y + dy }, at: 0, dur: T * 0.22, ease: EASE.move });
-  ctx.anim({ id: CAMERA_ID, prop: 'scale', to: restScale, at: T * 0.82, dur: T * 0.18, ease: EASE.move });
-  ctx.anim({ id: CAMERA_ID, prop: 'translate', to: restT, at: T * 0.82, dur: T * 0.18, ease: EASE.move });
+  // ── 1. le décor : monté maintenant, ou déjà là ──────────────────────────
+  //   ★ Le clavier se MUTUALISE, comme la table : sur `hope-hope-hope.fr`, les
+  //   deux tirets du 6 se convertissent l'un après l'autre — le faire
+  //   redescendre puis remonter entre les deux n'aurait aucun sens. L'identité
+  //   du nœud est celle du DESSIN (disposition, rangées montrées, repères de
+  //   la mesure) : deux ops qui montrent le même clavier partagent le nœud,
+  //   deux claviers différents ne peuvent pas se confondre.
+  const board = `@kbd:${layout}:${rows}:${mesure}`;
+  const deployer = !decorEnLAir(ctx, board) || ctx.op.montre === true;
+  const replier = ctx.op.retire !== false;
 
-  // --- le clavier monte -----------------------------------------------------
-  const board = `@kbd:${src.id}`;
-  ctx.scene.create({
-    id: board, role: 'keyboard', inFlow: false, w: geo.width,
-    data: { geo, mesure, layout },
-    base: { opacity: 0, translate: { x: boardPos.x, y: boardPos.y + 30 } },
-  }, { where: ctx.where });
-  ctx.scene.place(board, { x: boardPos.x, y: boardPos.y + 30, w: geo.width });
-  ctx.anim({ id: board, prop: 'opacity', to: 1, at: 0, dur: T * 0.2 });
-  ctx.place(board, { x: boardPos.x, y: boardPos.y, w: geo.width }, { at: 0, dur: T * 0.22 });
+  const t0 = monterDecor(ctx, {
+    id: board, role: 'keyboard', data: { geo, mesure, layout },
+    pos: boardPos, width: geo.width, deployer,
+    encombrement: {
+      // La réglette de colonnes dépasse au-dessus du clavier ; la marge des
+      // rangées dépasse à gauche. La caméra doit les faire tenir aussi.
+      haut: boardPos.y - geo.height / 2 - (mesure === 'colonne' ? geo.keyH * 0.7 : 0),
+      bas: boardPos.y + geo.height / 2,
+      largeur: mesure === 'rangee' ? geo.width + geo.keyW : geo.width,
+      pad: PAD,
+    },
+  });
 
-  // --- ce qu'on éclaire : une touche, une colonne, ou une rangée ------------
-  const hid = `@key:${src.id}`;
-  ctx.scene.create({
-    id: hid, role: 'halo', inFlow: false, w: halo.w,
-    data: { h: halo.h, rx: 6, tone: 'gold' },
-    base: { opacity: 0, fill: ctx.palette.gold },
-  }, { where: ctx.where });
-  ctx.scene.place(hid, { x: boardPos.x + halo.cx, y: boardPos.y + halo.cy, w: halo.w });
-  ctx.anim({ id: hid, prop: 'opacity', to: 0.42, at: T * 0.34, dur: T * 0.18 });
+  // ── 2. l'aller-retour de CE caractère, en entier ────────────────────────
+  const fin = allerRetour(ctx, {
+    src, to, t0, kind: 'digit',
+    case: {
+      id: `@key:${src.id}`, w: halo.w, h: halo.h, rx: 6,
+      x: boardPos.x + halo.cx, y: boardPos.y + halo.cy,
+    },
+    arrivee: keyPos,
+    source,
+  });
 
-  // --- le caractère vole vers sa touche ------------------------------------
-  ctx.anim({ id: src.id, prop: 'translate', to: keyPos, at: T * 0.2, dur: T * 0.24, ease: EASE.move });
-  ctx.anim({ id: src.id, prop: 'opacity', to: 0, at: T * 0.4, dur: T * 0.14 });
-
-  if (!to) return;
-
-  // --- le nombre redescend vers la place laissée libre ---------------------
-  const idx = ctx.scene.flowIndex(src.id);
-  ctx.scene.create({
-    id: to.id, text: to.text, kind: to.kind || 'digit', group: to.group ?? src.group,
-    role: 'text', inFlow: true, insertAt: idx < 0 ? undefined : idx + 1,
-    ...espacementDe(ctx, src.id),
-    base: { opacity: 0, fill: ctx.palette.gold },
-  }, { where: ctx.where });
-  ctx.scene.place(to.id, source);
-  ctx.scene.kill(src.id, ctx.where);
-
-  ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: T * 0.5, dur: T * 0.12 });
-  ctx.reflow({ at: T * 0.56, dur: T * 0.26, ease: EASE.move });
-  ctx.anim({ id: to.id, prop: 'scale', values: [1, 1.25, 1], offsets: [0, 0.6, 1], at: T * 0.56, dur: T * 0.26, ease: EASE.pop });
-
-  // --- le clavier repart ----------------------------------------------------
-  ctx.anim({ id: hid, prop: 'opacity', to: 0, at: T * 0.8, dur: T * 0.16 });
-  ctx.anim({ id: board, prop: 'opacity', to: 0, at: T * 0.8, dur: T * 0.2 });
+  // ── 3. le décor se retire — seulement si la suite ne l'emploie plus ─────
+  if (replier) replierDecor(ctx, board, fin);
 }
 
 const DIT = Object.freeze({ touche: 'le chiffre', colonne: 'la colonne', rangee: 'la rangée' });
@@ -182,50 +184,3 @@ function haloDe(geo, key, mesure) {
   return { cx: key.cx, cy: key.cy, w: key.w, h: key.h };
 }
 
-/**
- * Facteur de recul et recentrage de la caméra.
- * Calculé sur l'encombrement réel (tokens + clavier), jamais deviné : quatre
- * rangées ne tiennent pas dans le cadrage d'une seule.
- */
-function cadrage(ctx, geo, boardPos, mesure) {
-  const o = ctx.layoutOpts;
-  const fs = ctx.metrics.fontSize;
-  const hautClavier = boardPos.y - geo.height / 2 - (mesure === 'colonne' ? geo.keyH * 0.7 : 0);
-  const basClavier = boardPos.y + geo.height / 2;
-  const haut = Math.min(o.centerY - fs, hautClavier);
-  const bas = Math.max(o.centerY + fs, basClavier);
-  const hauteur = Math.max(1, bas - haut);
-  const largeur = mesure === 'rangee' ? geo.width + geo.keyW : geo.width;
-  const auto = Math.min(1, o.maxWidth / largeur, (o.viewBox.h - 2 * PAD) / hauteur);
-  const zoom = typeof ctx.op.zoom === 'number' ? ctx.op.zoom : round(auto);
-  // `translate` est appliqué AVANT `scale` (ordre CSS des propriétés
-  // individuelles) : il subit donc le facteur, d'où la division.
-  const dy = round((o.centerY - (haut + bas) / 2) / zoom);
-  return { zoom, dy };
-}
-
-/**
- * Repli sans clavier : le caractère s'efface, le nombre prend sa place. Aucune
- * caméra, aucun halo — on ne met pas en scène une touche qu'on ne sait pas
- * dessiner.
- */
-function substituerSeul(ctx, src, to) {
-  const T = ctx.dur;
-  ctx.anim({ id: src.id, prop: 'opacity', to: 0, at: 0, dur: T * 0.3 });
-  if (!to) return;
-  const idx = ctx.scene.flowIndex(src.id);
-  ctx.scene.create({
-    id: to.id, text: to.text, kind: to.kind || 'digit', group: to.group ?? src.group,
-    role: 'text', inFlow: true, insertAt: idx < 0 ? undefined : idx + 1,
-    ...espacementDe(ctx, src.id),
-    base: { opacity: 0, fill: ctx.palette.gold },
-  }, { where: ctx.where });
-  ctx.scene.place(to.id, ctx.scene.pos(src.id) || ancreVue(ctx));
-  ctx.scene.kill(src.id, ctx.where);
-  ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: T * 0.35, dur: T * 0.25 });
-  ctx.reflow({ at: T * 0.6, dur: T * 0.4, ease: EASE.move });
-}
-
-function round(v) {
-  return Math.round(v * 1000) / 1000;
-}

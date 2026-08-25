@@ -58,30 +58,67 @@ export const MALUS = {
 };
 
 /**
- * ── Le décret (`MALUS.decret`) ────────────────────────────────────────────
+ * ── Le décret (`MALUS.decret`) — un malus devenu FILET, plus un réglage ──────
  *
  * Une approche qui applique le MÊME programme à la MÊME portée trois fois de
  * suite ne calcule qu'un seul 6 : les deux autres sont décrétés. Le README ne
  * demande pas cela — il veut « trois fragments valant 6 chacun » : les trois
  * « hope » de la méthode 2, les deux tirets plus la réduction de la méthode 6.
- * Sans malus, ce décret gagnait : il rafle l'homogénéité (trois copies d'un
- * chemin sont trivialement homogènes) et la couverture (la portée est la saisie
- * entière) sans jamais payer le prix d'une seconde démonstration.
  *
- * Pourquoi ×0,40 plutôt que la suppression pure ? Parce que sur un mot unique —
- * « Millicent », « macron » — c'est le SEUL assemblage possible, et qu'il reste
- * plus honnête que le joker : l'arithmétique montrée est vraie, seul le
- * triplement est de convenance. CONTRACTS §0.4 a déjà tranché ce genre de cas
- * pour le joker : « affiché et assumé, en bas de liste, sous un intitulé
- * explicite ». On applique la même règle, et `titres.js` fournit l'intitulé —
- * « le même 6, trois fois ».
+ * Ce décret a d'abord été PÉNALISÉ (×0,40) et affiché sous un intitulé qui
+ * l'avouait, « le même 6, trois fois », par analogie avec le traitement du joker
+ * au §0.4. L'aveu ne suffisait pas : sur `macron`, sur `hope`, sur `Millicent`,
+ * la liste entière décrétait, et une liste qui ne montre que des démonstrations
+ * de convenance ne démontre rien. L'auteur a tranché — il DISPARAÎT.
  *
- * Pourquoi ×0,40, c'est-à-dire plus sévère que le ×0,45 du joker ? Parce que
- * les deux se COMPOSENT : l'approche joker est elle-même un décret (le même
- * chemin, trois fois), donc elle tombe à ×0,18 et reste dernière. Le calibrage
- * vient d'une contrainte mesurée : sur `https://www.google.com`, la meilleure
- * approche honnête vaut 3 844 et le meilleur décret 8 743 avant malus ; il faut
- * descendre sous 0,44 pour que le décret passe derrière. 0,40 laisse une marge.
+ * `assemblage.js` ne le fabrique donc plus : `deduireMode` le nomme `DECRET` et
+ * `assembler` le jette avant même la notation. Ce qui remplace le décret sur une
+ * saisie courte est le GROUPEMENT — trois 6 réellement calculés d'un seul geste,
+ * pris dans un vecteur qui en porte quatre ou davantage.
+ *
+ * Le malus survit pour deux cas, et deux seulement :
+ *  · un lien partagé avant la suppression, que `rejouer` continue d'ouvrir
+ *    (CONTRACTS §4.3, lecture tolérante) — il doit s'afficher avec le score
+ *    qu'il valait, pas avec un score flatteur ;
+ *  · l'approche joker, qui est structurellement un décret (le même chemin, trois
+ *    fois) et que CONTRACTS §0.4 maintient explicitement en fond de liste. Les
+ *    deux facteurs se composent : ×0,45 × ×0,40 = ×0,18.
+ */
+
+/**
+ * ── Le rendement d'une récolte (`rendementSix`) ─────────────────────────────
+ *
+ * Un huitième malus, et le seul qui ne soit pas une constante : il se CALCULE
+ * sur le vecteur.
+ *
+ * Le mode GROUPEMENT prend les 6 d'un vecteur et les assemble par trois. Sur
+ * `hope`, le quatorze segments rend `[6,6,6,6]` : tout le vecteur vaut 6, la
+ * démonstration est totale. Sur `https://www.google.com`, la numérologie
+ * pythagoricienne rend dix-sept nombres dont trois valent 6 — et prétendre en
+ * tirer un 666 revient à dire « regardez, trois de ces dix-sept nombres sont
+ * des 6 ». Les six critères ne voient pas la différence : la méthode est la même
+ * (H = 1), la couverture de la SAISIE est la même (U = 1), la longueur aussi.
+ * Le tri les mettait donc à égalité, et le second gagnait souvent, ses nombres
+ * intermédiaires étant plus élégants.
+ *
+ * Le rendement mesure ce que les critères ne voient pas : la part du vecteur qui
+ * vaut réellement 6. Il est appliqué en RACINE — `√rendement` — et non tel quel,
+ * pour la même raison que la couverture est élevée à la puissance 1,5 mais dans
+ * l'autre sens : la peine doit être franche sans être capitale. Mesuré :
+ *
+ *   `hope` → `[6,6,6,6]`                    4/4  → ×1,00
+ *   `hopehopehopefr` → quatorze segments   12/14 → ×0,92   (quatre 666)
+ *   `hopehopehopefr` → pythagore            4/14 → ×0,53
+ *   `wwwgooglecom` → pythagore              3/17 → ×0,42
+ *
+ * C'est exactement la lecture de l'auteur : le groupement vaut « quand tu
+ * arrives à faire AUTANT de 6 », pas quand trois s'y trouvent par hasard.
+ *
+ * La MOISSON pose la même question sur plusieurs vecteurs à la fois : le calcul
+ * additionne les 6 d'un côté, les valeurs de l'autre. Mesuré :
+ *
+ *   `hope-hope-hope.fr`         15/15 → ×1,00   (cinq 666)
+ *   `https://hope-hope-hope.fr/` 18/20 → ×0,95   (six 666)
  */
 
 export const REGLAGES = {
@@ -168,8 +205,101 @@ export function mappeurPrincipal(chemin) {
   return signatures(chemin).mappeur;
 }
 
+/**
+ * La famille du mappeur, pour le palier « même famille » de `similarite`.
+ *
+ * ⚠️ Ce palier est plus GROSSIER que `research/heuristique.md §4.2` ne le
+ * prévoit, et c'est délibéré. Le catalogue publié ne porte de `genre` sur aucun
+ * de ses quarante mappeurs : la valeur rendue est donc « mappeur » ou
+ * « mesure », si bien que deux mappeurs quelconques touchent le palier
+ * `memeFamille = 0,30` au lieu du plancher `sinon = 0,05`.
+ *
+ * On a essayé de le raffiner avec la table `MANIERES` ci-dessous, qui donne la
+ * taxonomie manquante. MESURE : l'homogénéité d'un 666 à trois sources — un
+ * `hope` par la numérologie chaldéenne, un `-` par la touche AZERTY, un `fr`
+ * par le sept segments — tombe de 0,30 à 0,05, et son score de 3 038 à 2 727.
+ * Autrement dit, raffiner ce palier DURCIT le mur d'homogénéité au lieu de
+ * l'abaisser — exactement l'inverse de ce que demande l'assemblage mixte. On
+ * garde donc la version grossière, qui fait office de plancher, et `MANIERES`
+ * ne sert qu'au mode CONVERGENCE, où l'exigence est de trouver des méthodes
+ * DIFFÉRENTES et non de mesurer leur parenté.
+ */
 function familleMappeur(chemin) {
   return signatures(chemin).familleMappeur;
+}
+
+/**
+ * ── La MANIÈRE d'un chemin : ce qu'un lecteur appellerait « une façon de faire ».
+ *
+ * `research/heuristique.md §4.2` prévoit un palier « même famille de mappeur
+ * (ex. deux règles géométriques) ». Il repose sur un attribut `genre` que le
+ * contrat n'impose pas et que le catalogue publié ne porte sur AUCUN de ses
+ * quarante mappeurs : `familleMappeur` retombe donc sur `op.famille`, qui ne
+ * distingue que « mappeur » de « mesure ». Le palier existe dans le code et ne
+ * mord jamais.
+ *
+ * Cette table est le repli. Elle ne touche PAS à `similarite` — changer
+ * l'homogénéité de toutes les approches d'un coup n'est pas une décision que
+ * peut prendre un correctif de mode d'assemblage — mais elle donne au mode
+ * CONVERGENCE de quoi exiger trois manières réellement différentes : « les
+ * segments allumés », « les traits fusionnés » et « les traits en capitale » ne
+ * sont qu'une seule manière de compter, quels que soient leurs trois codes.
+ *
+ * Un opérateur absent de la table est sa propre manière : la table restreint,
+ * elle n'invente pas de parenté.
+ */
+const MANIERES = new Map(Object.entries({
+  // dessiner la lettre et compter ce qu'on voit
+  'm.seg7': 'geometrie', 'm.seg7Fusion': 'geometrie', 'm.seg14': 'geometrie',
+  'm.seg14Fusion': 'geometrie', 'm.traitsMaj': 'geometrie', 'm.traitsMin': 'geometrie',
+  'm.extremitesMaj': 'geometrie', 'm.extremitesMin': 'geometrie',
+  'm.bouclesMaj': 'geometrie', 'm.bouclesMin': 'geometrie',
+  // numéroter l'alphabet, d'une façon ou d'une autre
+  'm.a1z26': 'alphabet', 'm.z26a1': 'alphabet', 'm.pythagore': 'alphabet',
+  'm.chaldeen': 'alphabet', 'm.englishX6': 'alphabet', 'm.hebreu': 'alphabet',
+  'm.grec': 'alphabet',
+  // les points d'un jeu
+  'm.scrabbleFR': 'jeu', 'm.scrabbleEN': 'jeu',
+  // la géographie d'un clavier
+  'm.t9': 'clavier', 'm.toucheChiffre': 'clavier',
+  'm.azertyColonne': 'clavier', 'm.azertyRangee': 'clavier',
+  'm.qwertyColonne': 'clavier', 'm.qwertyRangee': 'clavier',
+  // un code de transmission
+  'm.asciiMaj': 'code', 'm.asciiMin': 'code',
+  'm.morseSignaux': 'code', 'm.morseTraits': 'code',
+  // compter des signes, des mots, des lettres
+  'n.longueur': 'comptage', 'n.voyelles': 'comptage', 'n.consonnes': 'comptage',
+  'n.lettresDistinctes': 'comptage', 'n.separateurs': 'comptage', 'n.mots': 'comptage',
+  'n.lettresPlusVoyelles': 'comptage', 'n.lettresPlusConsonnes': 'comptage',
+  'm.longueurNom': 'comptage', 'm.longueurToken': 'comptage',
+  'c.compteTokens': 'comptage', 'c.compteTokensDistincts': 'comptage',
+}));
+
+/** Combinateurs qui ignorent les valeurs et ne comptent que leur nombre. */
+const COMBINATEURS_AVEUGLES = new Set(['c.cardinal', 'c.compteTokens', 'c.compteTokensDistincts']);
+
+/**
+ * La manière d'un chemin, pour le mode CONVERGENCE.
+ * @param {Object} chemin
+ * @returns {string} une clé de manière, jamais vide
+ */
+export function maniere(chemin) {
+  // ★ Le mappeur AVEUGLE. `c.cardinal` — « au nombre de valeurs » — rend la
+  // taille du vecteur, pas son contenu : `t1+m3+c7` et `t1+m7+c7` annoncent la
+  // numérologie pythagoricienne et le Scrabble anglais, et comptent tous deux
+  // les lettres. Trois « manières » ainsi bâties n'en font qu'une, et c'est
+  // exactement le genre de fausse diversité que la convergence doit refuser.
+  // Le typage empêche N3 de retirer le mappeur inerte (`m3` est TOKENS→NUMS,
+  // `c7` est NUMS→NUM) : c'est donc ici qu'on le débusque.
+  for (const o of chemin.ops) if (COMBINATEURS_AVEUGLES.has(o.id)) return 'comptage';
+  const m = mappeurPrincipal(chemin);
+  if (m) return MANIERES.get(m) || m;
+  // Ni mappeur ni mesure : c'est le combinateur — l'addition, la soustraction —
+  // qui fait la méthode à lui seul.
+  for (const o of chemin.ops) {
+    if (o.famille === 'combinateur') return MANIERES.get(o.id) || o.id;
+  }
+  return chemin.ops.length ? chemin.ops[chemin.ops.length - 1].id : 'vide';
 }
 
 /** Similarité entre deux chemins, par paliers — en pour-mille. */
@@ -454,6 +584,9 @@ export function noter(approche, ctx) {
   const creux = approche.parts.some((p) => nbSignifiants(p.fragment, ctx) < 2);
   if (creux) score = Math.floor((score * MALUS.fragmentCreux[0]) / MALUS.fragmentCreux[1]);
   if (approche.mode === 'LIBRE') score = Math.floor((score * MALUS.modeLibre[0]) / MALUS.modeLibre[1]);
+  // Le rendement du groupement — calculé, pas réglé. Voir le pavé ci-dessus.
+  const rendement = rendementSix(approche);
+  if (rendement !== null) score = Math.floor((score * racineEntiere(rendement * MILLE)) / MILLE);
   // Le décret vient EN DERNIER et se compose avec le joker : l'approche joker
   // est elle-même un décret (le même chemin, trois fois), elle cumule donc les
   // deux facteurs et reste en fond de liste, comme l'exige CONTRACTS §0.4.
@@ -466,10 +599,55 @@ export function noter(approche, ctx) {
   approche.decret = decret;
   approche.scoreBrut = score;
   approche.score = borner(score, 0, 10000);
-  approche.criteres = { H, N, U, C, A, E, brut };
+  approche.criteres = { H, N, U, C, A, E, brut, ...(rendement === null ? {} : { R: rendement }) };
   approche.L = L;
   approche.codes = chemins.map((c) => c.ops.map((o) => o.code).join('+')).join(',');
   return approche;
+}
+
+/**
+ * Part des valeurs récoltées qui vaut 6, en pour-mille — ou `null` si
+ * l'approche ne récolte rien dans un vecteur.
+ *
+ * Le test est STRUCTUREL et non nominal, pour la même raison que le mode est
+ * redéduit de la géométrie plutôt que transporté par l'URL : un lien rejoué doit
+ * retrouver exactement le score de la liste dont il est issu.
+ *
+ * ── Il s'applique désormais aussi à la MOISSON ──────────────────────────────
+ * Le rendement mesure ce que les six critères ne voient pas : la part de ce
+ * qu'on a calculé qui vaut réellement 6. Un GROUPEMENT n'a qu'un vecteur ; une
+ * moisson en a autant que de portées, et la question est la même — récolter
+ * quinze 6 sur quinze valeurs (`hope-hope-hope.fr`) n'est pas récolter trois 6
+ * parmi dix-sept. On additionne donc les 6 d'un côté, les valeurs de l'autre.
+ *
+ * Une approche dont toutes les parts finissent sur un `NUM` (résonance,
+ * partition, trio libre) rend un rendement de 1 000, c'est-à-dire un facteur
+ * neutre : elle n'a rien laissé tomber. Le calcul ne mord que là où il y a du
+ * déchet, et c'est exactement ce qu'on lui demande.
+ */
+function rendementSix(approche) {
+  const parts = approche.parts;
+  if (!parts || !parts.length) return null;
+  let six = 0;
+  let total = 0;
+  let unVecteur = false;
+  for (const p of parts) {
+    const etats = p.chemin && p.chemin.etats;
+    const fin = etats && etats[etats.length - 1];
+    if (!fin) return null;
+    if (fin.type === 'NUM') {
+      total += 1;
+      if (fin.valeur === 6) six++;
+    } else if (fin.type === 'NUMS' && fin.valeur.length) {
+      unVecteur = true;
+      total += fin.valeur.length;
+      for (const x of fin.valeur) if (x === 6) six++;
+    } else return null;
+  }
+  // Sans vecteur, il n'y a rien à récolter ni rien à jeter : le facteur serait
+  // neutre, on n'en fabrique pas un.
+  if (!unVecteur || six < 3 || !total) return null;
+  return borner(Math.floor((six * MILLE) / total), 0, MILLE);
 }
 
 function intervallesDe(fragment) {
@@ -506,9 +684,76 @@ function couvertureApproche(approche, ctx) {
 
 // ══════════════════════════════════ ordre total (§4.4-1)
 
-/** score DESC → L ASC → suite des codes ASC. Aucun ex æquo ne subsiste. */
+/**
+ * ── LES TROIS RANGS DE CONVICTION ────────────────────────────────────────────
+ *
+ * « Côté score pour l'ordre des stratégies, privilégie celle qui donne le plus
+ * de séries de 666 sans réutiliser les mêmes caractères, puis les plus simples
+ * qui donnent 666, et enfin celles qui réutilisent les mêmes lettres mais de
+ * manières différentes pour chacun des 6. » — l'auteur.
+ *
+ * Trois rangs, et le score ne départage QU'À L'INTÉRIEUR d'un rang :
+ *
+ *  0. SÉRIES — au moins deux 666, tirés de caractères disjoints. C'est la
+ *     quantité de démonstration, et rien d'autre ne l'égale : quinze 6 sur
+ *     `hope-hope-hope.fr` valent mieux qu'un 666 parfaitement homogène.
+ *  1. SIMPLE — un 666, obtenu honnêtement. Le gros de la liste.
+ *  2. CONVERGENCE — la même chaîne relue trois fois. Honnête (les trois 6 sont
+ *     calculés), mais les mêmes caractères y servent trois fois : en dernier.
+ *
+ * ── Pourquoi un rang, et non un bonus de score ──────────────────────────────
+ * On a essayé le bonus additif. Pour qu'une moisson à cinq séries (score de
+ * critères ≈ 5 900 : trois méthodes différentes, donc H ≈ 0,30) passe devant un
+ * groupement homogène à 8 479, il faut ≈ 2 600 milli-unités de bonus, et jusqu'à
+ * 3 000 pour six séries. Or les bonus se prélèvent sur la RÉSERVE
+ * (`PART_CRITERES`) : ouvrir 3 000 de réserve écrase la part des critères de
+ * 0,83 à 0,55, ce qui fait tomber les sept méthodes du README d'un tiers — la
+ * méthode 6, mesurée à 48/100, passerait sous le plafond du joker. Le bonus
+ * aurait donc acheté la hiérarchie demandée au prix de l'échelle entière.
+ *
+ * Le rang, lui, ne touche à aucun score : il dit seulement que ces trois
+ * questions ne se comparent pas entre elles. Corollaire assumé et VISIBLE : la
+ * colonne des scores n'est décroissante qu'à l'intérieur d'un rang. C'est le
+ * prix d'une hiérarchie explicite, et il se paie en toutes lettres — le titre de
+ * la ligne annonce ses séries (« cinq séries de 666 »), donc le lecteur voit
+ * pourquoi elle passe devant.
+ */
+export const RANG = { SERIES: 0, SIMPLE: 1, CONVERGENCE: 2 };
+
+/**
+ * Le rang de conviction d'une approche. Se lit sur le mode et sur le nombre de
+ * séries, tous deux redéduits de la géométrie par `deduireMode` — donc stable au
+ * rejeu d'une URL.
+ */
+export function rangConviction(approche) {
+  if (!approche) return RANG.SIMPLE;
+  if (approche.mode === 'CONVERGENCE') return RANG.CONVERGENCE;
+  return (approche.series || 1) >= 2 ? RANG.SERIES : RANG.SIMPLE;
+}
+
+/**
+ * rang ASC → séries DESC (rang 0) → score DESC → séries DESC → L ASC → codes ASC.
+ * Aucun ex æquo ne subsiste.
+ *
+ * ── Pourquoi les SÉRIES s'intercalent juste sous le score ────────────────────
+ * Un GROUPEMENT dont le vecteur porte douze 6 aligne quatre 666 ; celui qui en
+ * porte quatre n'en aligne qu'un. Les six critères ne voient pas la différence —
+ * même méthode, même couverture, même longueur —, si bien que les deux tombent
+ * au même score et que le départage se faisait sur la suite des codes, c'est-à-
+ * dire sur rien. Le nombre de 666 réellement produits n'est pas un détail
+ * d'affichage : c'est la quantité de démonstration.
+ */
 export function ordreTotal(a, b) {
+  const ra = rangConviction(a);
+  const rb = rangConviction(b);
+  if (ra !== rb) return ra - rb;
+  const sa = a.series || 1;
+  const sb = b.series || 1;
+  // Au rang des séries, c'est LEUR NOMBRE qui commande, avant le score : c'est
+  // la demande de l'auteur, mot pour mot — « le plus de séries de 666 ».
+  if (ra === RANG.SERIES && sa !== sb) return sb - sa;
   if (a.score !== b.score) return b.score - a.score;
+  if (sa !== sb) return sb - sa;
   if (a.L !== b.L) return a.L - b.L;
   return a.codes < b.codes ? -1 : a.codes > b.codes ? 1 : 0;
 }
@@ -554,8 +799,13 @@ export function diversifier(approches, options = {}) {
       }
       // λ × h ramené à l'échelle du score (0..10000)
       const ajuste = a.score - Math.floor((lambda * redondance) / 100);
-      if (ajuste > meilleurScore
-        || (ajuste === meilleurScore && meilleur >= 0 && ordreTotal(a, restants[meilleur]) < 0)) {
+      // ★ La pénalité de redondance joue À L'INTÉRIEUR d'un rang, jamais entre
+      // deux rangs. Sans ce garde-fou, la sélection gloutonne repartait du score
+      // brut et remettait la hiérarchie à plat : sur `hope-hope-hope.fr`, les
+      // deux groupements quatorze segments épuisaient le quota du mappeur
+      // (MAX_PAR_MAPPEUR) avant que la moisson à cinq séries n'ait été
+      // regardée — le mode le mieux classé n'atteignait jamais la liste.
+      if (meilleur < 0 || plusConvaincant(a, ajuste, restants[meilleur], meilleurScore)) {
         meilleurScore = ajuste;
         meilleur = i;
       }
@@ -568,6 +818,24 @@ export function diversifier(approches, options = {}) {
     if (m) compteMappeur.set(m, (compteMappeur.get(m) || 0) + 1);
   }
   return choisis.sort(ordreTotal);
+}
+
+/**
+ * Le même ordre que `ordreTotal`, mais sur des scores AJUSTÉS par la pénalité
+ * de redondance : le rang de conviction d'abord, le nombre de séries ensuite,
+ * puis seulement le score ajusté.
+ */
+function plusConvaincant(a, ajusteA, b, ajusteB) {
+  const ra = rangConviction(a);
+  const rb = rangConviction(b);
+  if (ra !== rb) return ra < rb;
+  if (ra === RANG.SERIES) {
+    const sa = a.series || 1;
+    const sb = b.series || 1;
+    if (sa !== sb) return sa > sb;
+  }
+  if (ajusteA !== ajusteB) return ajusteA > ajusteB;
+  return ordreTotal(a, b) < 0;
 }
 
 export function mappeurApproche(approche) {

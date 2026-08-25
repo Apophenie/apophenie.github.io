@@ -11,11 +11,11 @@
  * vocabulaire suffit à les raconter.
  */
 
-/** Méthode 4 — la somme A1Z26 de « hope », réduite. */
+/** Méthode 4 — la somme de « hope » en numérologie latine, réduite. */
 export const methode4 = {
   version: 1,
   input: 'hope',
-  method: { id: 4, label: 'La somme des 3 répétitions en A1Z26', rule: 'A=1, B=2 … Z=26, puis réduction théosophique' },
+  method: { id: 4, label: 'La somme des 3 répétitions en numérologie latine', rule: 'A=1, B=2 … Z=26, puis réduction théosophique' },
   result: '8',
   tokens: [
     { id: 'a0', text: 'h', kind: 'letter', group: 'w0' },
@@ -266,9 +266,9 @@ export const vocabulaire = {
     },
     {
       id: 'p2',
-      title: 'alphabet',
-      caption: 'f est la 6ᵉ lettre — la réglette le montre',
-      ops: [{ op: 'alphabet', target: 'w0', letter: 'f', to: { id: 'ab6', text: '6', kind: 'digit' } }],
+      title: 'table',
+      caption: 'f est la 6ᵉ lettre — la table le montre',
+      ops: [{ op: 'table', ordre: 'a1z26', target: 'w0', letter: 'f', to: { id: 'ab6', text: '6', kind: 'digit' } }],
       hold: 400,
     },
     {

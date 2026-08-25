@@ -84,10 +84,19 @@ test('★ intégration — la figure du Registre traverse le compilateur intacte
     // pas le scénario brut. Une figure perdue en route rendrait le Registre
     // muet là où la scène montre un afficheur (CONTRACTS §6).
     const m = creerMoteur(catalogue);
-    const r = m.resoudre('hope');
+    // La saisie est celle du README, et non plus le seul mot « hope ».
+    //
+    // Depuis la suppression du triplement (`assemblage.js`), un mot isolé n'est
+    // plus démontrable par « un 6 recopié trois fois » : ce qui lui reste est le
+    // GROUPEMENT, et sur quatre lettres seul le quatorze segments donne assez de
+    // 6. Le sept segments, lui, reste offert dès que la saisie porte trois
+    // morceaux — c'est la méthode 5 du README, sur `hope-hope-hope`. Le test
+    // vérifie le passage de la FIGURE par le compilateur ; il n'a jamais eu à
+    // dire sur quelle saisie une méthode donnée devait être proposée.
+    const r = m.resoudre('https://hope-hope-hope.fr/');
     const a = r.approches.find((x) => x.codes && x.codes.includes('me'))
       || r.approches.find((x) => x.codes && x.codes.includes('md'));
-    assert.ok(a, 'aucune approche sept segments dans les résultats de « hope »');
+    assert.ok(a, 'aucune approche sept segments dans les résultats de « hope-hope-hope »');
     const sc = m.scenarioDe(a, { saisie: r.saisie });
     const avecFigure = sc.steps.filter((st) => st.figure);
     assert.ok(avecFigure.length, 'le scénario n’émet aucune figure');
@@ -235,7 +244,15 @@ test('intégration — « hope-hope-hope » : les trois « hope » ne se lisent 
   { skip: compile ? false : 'src/visuel/ absent' }, () => {
     const m = creerMoteur(catalogue);
     const r = m.resoudre('https://hope-hope-hope.fr/');
-    const sc = m.scenarioDe(r.approches[0], { saisie: r.saisie });
+    // Ce que ce test mesure est la détection des REDITES : « le même geste, trois
+    // fois de suite, ne se lit qu'une fois en entier ». Il lui faut donc une
+    // approche qui répète — c'est-à-dire une RÉSONANCE, les trois « hope » traités
+    // de la même façon. Elle n'est plus forcément en tête depuis que le
+    // GROUPEMENT existe : celui-ci fait ses trois 6 d'un seul geste, il n'a
+    // justement rien à redire. On le nomme au lieu de prendre le premier venu.
+    const resonante = r.approches.find((a) => a.mode === 'RESONANCE');
+    assert.ok(resonante, 'le cas d’école du README doit offrir au moins une résonance');
+    const sc = m.scenarioDe(resonante, { saisie: r.saisie });
     const plein = compile(sc, { repeatSpeed: 1 });
     const rapide = compile(sc, { repeatSpeed: REPEAT_SPEED });
     const redites = rapide.steps.filter((st) => st.accelerated);

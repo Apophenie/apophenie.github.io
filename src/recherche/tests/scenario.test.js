@@ -7,6 +7,8 @@ import {
 import { etat } from '../bfs.js';
 import { approcheJoker } from '../assemblage.js';
 import { catalogue, operateur } from './_catalogue.js';
+import { lire as lireUrl } from '../url.js';
+import { encoderTexte } from '../base58.js';
 
 const SAISIES = ['https://hope-hope-hope.fr/', 'hope', 'macron', 'a', '666', 'jean-michel', 'Éléonore à Nîmes'];
 
@@ -106,7 +108,9 @@ function creations(o) {
  * PONT plutôt que du catalogue. Ces méthodes comptent quelque chose de VISIBLE.
  */
 const GESTE_ATTENDU = {
-  m1: 'alphabet', m2: 'alphabet',
+  m1: 'table', m2: 'table', m3: 'table', m4: 'table', m5: 'table',
+  m6: 'table', m7: 'table', m8: 'table', m9: 'table', ma: 'table',
+  mb: 'table', mc: 'table', mp: 'table', mq: 'table', mr: 'table',
   md: 'sevenSeg', me: 'sevenSeg',
   mw: 'fourteenSeg', mx: 'fourteenSeg',
   mf: 'countStrokes', mg: 'countStrokes', mh: 'countStrokes',
@@ -182,7 +186,7 @@ test('scénario — un opérateur qui fournit steps() est employé tel quel', ()
   const avant = etat('TOKENS', ['h', 'o', 'p', 'e'], []);
   const apres = etat('NUMS', [8, 15, 16, 5], []);
   const approche = {
-    mode: 'TRIPLEMENT',
+    mode: 'DECRET', // fixture : un seul fragment, un seul 6 — le mode n'est ici qu'une étiquette
     parts: [{
       fragment: { texte: 'hope', offset: 0, longueur: 4, intervalles: [[0, 4]], famille: 'entier' },
       chemin: {
@@ -194,15 +198,83 @@ test('scénario — un opérateur qui fournit steps() est employé tel quel', ()
   const sc = construireScenario(approche, { saisie: 'hope' });
   assert.deepEqual(validerScenario(sc), []);
   assert.equal(sc.avertissements, undefined, 'aucun repli sur le rendu générique');
-  // `m.a1z26` montre désormais la conversion sur la réglette alphabétique :
-  // un step par lettre, la lettre s'envole vers sa case, le rang en redescend.
-  const rangs = sc.steps.flatMap((s) => s.ops).filter((o) => o.op === 'alphabet');
-  assert.deepEqual(rangs.map((o) => o.to.text), ['8', '15', '16', '5']);
-  assert.deepEqual(rangs.map((o) => o.letter), ['H', 'O', 'P', 'E']);
+  // `m.a1z26` montre désormais la conversion sur la table de correspondance :
+  // un step par lettre — elle s'envole vers sa case, sa valeur en redescend
+  // aussitôt — et le DÉCOR, lui, reste monté d'une étape à l'autre.
+  const tables = sc.steps.flatMap((s) => s.ops).filter((o) => o.op === 'table');
+  assert.equal(tables.length, 4, 'un aller-retour par lettre, jamais groupé');
+  assert.deepEqual(tables.map((o) => o.to.text), ['8', '15', '16', '5']);
+  assert.deepEqual(tables.map((o) => o.letter), ['H', 'O', 'P', 'E']);
+  assert.equal(tables[0].entries.length, 26, 'et elle porte les 26 correspondances');
+  assert.deepEqual(tables.map((o) => o.montre), [true, false, false, false],
+    'la table se déploie à la première lettre seulement');
+  assert.deepEqual(tables.map((o) => o.retire), [false, false, false, true],
+    'et se retire à la dernière seulement');
   for (const step of sc.steps) {
-    assert.ok(step.ops.filter((o) => o.op === 'alphabet').length <= 1,
-      'une réglette par step : chacune anime la caméra');
+    assert.ok(step.ops.filter((o) => o.op === 'table').length <= 1,
+      'une table par step : chacune anime la caméra');
   }
+});
+
+/**
+ * ★ Le décor mutualisé, mesuré sur le cas réel.
+ *
+ * L'aller-retour reste individuel — une lettre, sa valeur, la suivante — mais
+ * la table, elle, ne redescend pas entre deux lettres, ni même entre deux
+ * groupes qui l'emploient d'affilée. Sur `hope-hope-hope.fr`, les trois
+ * conversions sont trois appels distincts à `steps()` : seul l'assemblage peut
+ * voir qu'elles montrent la même grille.
+ */
+test('★ scénario — le décor d’une table reste monté sur les étapes d’affilée', () => {
+  const m = creerMoteur(catalogue);
+  const r = m.resoudre('https://hope-hope-hope.fr/');
+  const a = r.approches.find((x) => /^t1\+m1\+/.test(x.codes));
+  assert.ok(a, 'la voie A1Z26 existe sur ce cas');
+  const sc = m.scenarioDe(a, { saisie: r.saisie });
+
+  const tables = sc.steps.flatMap((s) => s.ops).filter((o) => o.op === 'table');
+  assert.equal(tables.length, 12, 'douze lettres, douze allers-retours');
+  assert.equal(tables.filter((o) => o.montre).length, 1, 'la table ne monte qu’une fois…');
+  assert.equal(tables.filter((o) => o.retire).length, 1, '… et ne redescend qu’une fois');
+  assert.equal(tables[0].montre, true);
+  assert.equal(tables[11].retire, true);
+
+  // Et les douze étapes se suivent VRAIMENT : rien ne s'intercale, sans quoi
+  // garder la table montée la ferait flotter au-dessus d'autre chose.
+  const rangs = sc.steps.map((s, i) => (s.ops.some((o) => o.op === 'table') ? i : -1)).filter((i) => i >= 0);
+  assert.deepEqual(rangs, rangs.map((_, k) => rangs[0] + k), 'les étapes de table sont contiguës');
+});
+
+/**
+ * ★ Le même contrat pour le CLAVIER — et par-dessus une étape inerte.
+ *
+ * Sur `hope-hope-hope.fr`, les deux tirets du 6 se convertissent l'un après
+ * l'autre, mais l'assemblage intercale entre eux « On isole le troisième
+ * morceau » : une simple désignation, qui ne touche pas à la ligne. Rabattre le
+ * clavier pour elle puis le relever aussitôt serait un clignotement gratuit.
+ */
+test('★ scénario — le clavier reste monté par-dessus une étape inerte', () => {
+  const m = creerMoteur(catalogue);
+  const lecture = lireUrl('#0.1:t1+m4+c6,1.1:t1+mv+c1,3.1:t1+mv+c1#' + encoderTexte('hope-hope-hope.fr'));
+  const rejeu = m.rejouer(lecture);
+  assert.ok(rejeu.ok, 'ce chemin — chaldéenne puis deux tirets du 6 — est rejouable');
+  const sc = m.scenarioDe(rejeu.approche, { saisie: 'hope-hope-hope.fr' });
+
+  const claviers = sc.steps.flatMap((s) => s.ops).filter((o) => o.op === 'keyboard');
+  assert.equal(claviers.length, 2, 'deux tirets, deux conversions');
+  assert.deepEqual(claviers.map((o) => o.montre), [true, false], 'le clavier ne monte qu’une fois…');
+  assert.deepEqual(claviers.map((o) => o.retire), [false, true], '… et ne redescend qu’une fois');
+
+  // … et il y a bien une étape entre les deux : c'est tout l'objet du test.
+  const rangs = sc.steps.map((s, i) => (s.ops.some((o) => o.op === 'keyboard') ? i : -1)).filter((i) => i >= 0);
+  assert.equal(rangs[1] - rangs[0], 2, 'une étape s’intercale, et la série la traverse');
+  assert.deepEqual(sc.steps[rangs[0] + 1].ops.map((o) => o.op), ['highlight'],
+    'l’étape traversée est inerte : elle désigne, elle ne déplace rien');
+
+  // La table chaldéenne qui précède, elle, referme sa série avant le clavier :
+  // un décor qui change, c'est l'ancien qui se retire avant que le neuf ne monte.
+  const tables = sc.steps.flatMap((s) => s.ops).filter((o) => o.op === 'table');
+  assert.equal(tables[tables.length - 1].retire, true);
 });
 
 test('★ scénario — une étape qui ne transforme rien à l’écran est sautée SILENCIEUSEMENT', () => {
@@ -213,7 +285,7 @@ test('★ scénario — une étape qui ne transforme rien à l’écran est saut
   // garder un trou.
   const a1z26 = operateur('m.a1z26');
   const approche = {
-    mode: 'TRIPLEMENT',
+    mode: 'DECRET', // fixture : un seul fragment, un seul 6 — le mode n'est ici qu'une étiquette
     parts: [{
       fragment: { texte: 'hope', offset: 0, longueur: 4, intervalles: [[0, 4]], famille: 'entier' },
       chemin: {
@@ -252,7 +324,7 @@ test('scénario — steps() incohérent : repli générique + avertissement, jam
     steps: () => [{ title: 'boum', ops: [{ op: 'inexistante', targets: ['t0'] }] }],
   };
   const approche = {
-    mode: 'TRIPLEMENT',
+    mode: 'DECRET', // fixture : un seul fragment, un seul 6 — le mode n'est ici qu'une étiquette
     parts: [{
       fragment: { texte: 'hope', offset: 0, longueur: 4, intervalles: [[0, 4]], famille: 'entier' },
       chemin: {
@@ -275,7 +347,7 @@ test('scénario — steps() qui lève une exception ne casse pas la démonstrati
     steps: () => { throw new Error('boum'); },
   };
   const approche = {
-    mode: 'TRIPLEMENT',
+    mode: 'DECRET', // fixture : un seul fragment, un seul 6 — le mode n'est ici qu'une étiquette
     parts: [{
       fragment: { texte: 'ho', offset: 0, longueur: 2, intervalles: [[0, 2]], famille: 'entier' },
       chemin: {

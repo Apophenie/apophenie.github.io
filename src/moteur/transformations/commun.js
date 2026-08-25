@@ -95,10 +95,31 @@ export function elementsDe(etat) {
  * @returns {number[]} pour chaque élément de `apres`, l'index dans `avant` (ou −1)
  */
 export function apparier(avant, apres) {
-  const parTrace = apparierParTrace(avant, apres);
-  if (parTrace.every((i) => i >= 0)) return parTrace;
+  // ★ L'appariement par trace ne DISCRIMINE que si chaque élément a la sienne.
+  //
+  // Le défaut, mesuré sur `https://www.example.com/path/to/page` : « On ne
+  // garde que les consonnes » appliqué à `path` effaçait le **h** et gardait le
+  // **a**. Les états du moteur de recherche ne portent pas d'`origines` par
+  // élément (CONTRACTS §2.1 n'impose que `traces`) : `origineDe` rend alors la
+  // MÊME trace pour les quatre lettres, et l'appariement par trace, au lieu
+  // d'échouer franchement, apparie **dans l'ordre** — `pth` → `p a t`. Comme
+  // il ne rendait aucun `-1`, le repli par sous-suite n'était jamais consulté,
+  // et c'est un appariement faux qui décidait quel caractère s'efface à
+  // l'écran. On regarde donc d'abord si les traces séparent quoi que ce soit.
+  if (tracesDiscriminantes(avant)) {
+    const parTrace = apparierParTrace(avant, apres);
+    if (parTrace.every((i) => i >= 0)) return parTrace;
+  }
   const parValeur = apparierParSousSuite(avant, apres);
-  return parValeur && parValeur.every((i) => i >= 0) ? parValeur : parTrace;
+  if (parValeur && parValeur.every((i) => i >= 0)) return parValeur;
+  return apparierParTrace(avant, apres);
+}
+
+/** Chaque élément porte-t-il SA trace ? Sinon l'appariement par trace est aveugle. */
+function tracesDiscriminantes(etat) {
+  const ts = tracesDe(etat);
+  if (!ts || ts.length < 2) return true;
+  return new Set(ts.map(cleTrace)).size === ts.length;
 }
 
 function apparierParTrace(avant, apres) {
@@ -189,7 +210,7 @@ export const DUREE_OP = Object.freeze({
   highlight: 600, dim: 700, drop: 2000, substitute: 1100, move: 900, group: 1300,
   insertOperators: 700, sum: 2800, reduce: 2600, flip180: 1100, sevenSeg: 3000,
   fourteenSeg: 3400, countStrokes: 3000, keyboard: 2400, annotate: 800, pulse: 600, reveal: 1400,
-  wait: 900, partition: 1800, alphabet: 2800,
+  wait: 900, partition: 1800, table: 2600,
 });
 
 /** Nombre de cibles échelonnées par `stagger`, pour mesurer l'étendue réelle. */

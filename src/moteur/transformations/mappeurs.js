@@ -22,11 +22,42 @@
  *   (`tables/derivees.js`) et le tracé animé sortent du même
  *   `tables/glyphes.js`, et `count` fait échouer la compilation s'ils
  *   divergeaient.
- * - **`alphabet`** (`m1`, `m2`) : l'alphabet complet, NUMÉROTÉ, paraît sous la
- *   ligne ; la lettre s'envole vers sa case et son rang en redescend. Même
- *   principe que le clavier — et même contrôle croisé : la primitive refuse
- *   d'afficher un rang différent de celui qu'annonce l'arithmétique.
- *   Une op `alphabet` anime la caméra : une par step.
+ * - **`table`** (`m1`…`m9`, `ma`…`mc`, `mp`, `mq`, `mr`) : **la table de
+ *   correspondance, MONTRÉE**. Une conversion par table n'est vérifiable que si
+ *   la table est sous les yeux — « P = 7 » est une affirmation tant qu'on n'a
+ *   pas vu la colonne du 7. La table paraît sous la ligne, la case s'allume, la
+ *   lettre y vole, la valeur en redescend. Le geste ne change jamais ; seule la
+ *   MISE EN PAGE varie, et elle est une option (`forme`), pas une primitive de
+ *   plus : `reglette` (**une case = une lettre + un nombre**, dans l'ordre
+ *   alphabétique — c'est le cas de TOUTES les tables) et `pave` (les touches à
+ *   leur place sur le téléphone : T9). ★ **Seul le clavier téléphonique a
+ *   plusieurs lettres pour un chiffre** : c'est la réalité de l'objet, pas une
+ *   commodité de mise en page. Une case porte jusqu'à trois lignes — le
+ *   glyphe, l'INTERMÉDIAIRE quand il en existe un (le code morse, la lettre
+ *   hébraïque, le nom français), et la valeur : « H → ···· → 4 » se compte,
+ *   « H → 4 » se croit.
+ *
+ *   Deux options de réglette DÉMONTRENT quelque chose et ne décorent rien :
+ *   `cycle` casse la ligne là où la table recommence (la pythagoricienne y
+ *   aligne `A J S` = 1, `B K T` = 2 : la règle se voit), et `teinte` fonce le
+ *   fond de case avec la valeur (le Scrabble), sans jamais porter seule
+ *   l'information, qui reste écrite dans la case.
+ *
+ *   ★ Contrôle croisé. La table qui voyage dans l'op est **dérivée de `fn`**,
+ *   la fonction même qu'`apply()` applique (`tableDe`) : la table montrée et la
+ *   table employée sont une seule source. La primitive refuse en outre de faire
+ *   redescendre une valeur qui n'est pas dans la case qu'elle dessine, et le
+ *   pont recoupe une troisième fois. Seul l'alphabet garde un oracle
+ *   INDÉPENDANT (`ordre`) : le moteur visuel y recalcule le rang au lieu de
+ *   nous croire.
+ *
+ *   ★ UN ALLER-RETOUR PAR LETTRE, complet : la lettre monte, sa valeur
+ *   redescend aussitôt à sa place, puis la suivante. Un step par lettre —
+ *   grouper les départs puis les retours ferait perdre quelle lettre a donné
+ *   quel nombre. Ce qui se mutualise, c'est le DÉCOR : `montre` sur la
+ *   première, `retire` sur la dernière, et la table reste montée entre les
+ *   deux (l'assemblage l'étend même aux transformations d'affilée qui
+ *   emploient la même table — `src/recherche/scenario.js`).
  * - **`keyboard`** (`ml`…`mo`, `mv`) : le clavier monte, la touche — ou la
  *   colonne, ou la rangée — s'illumine, le caractère y vole, et le nombre en
  *   redescend. Trois mesures : `'touche'` (le « tiret du 6 » : le chiffre qui
@@ -42,9 +73,9 @@
 
 import {
   A1Z26, Z26A1, PYTHAGORE, CHALDEEN, ENGLISH_X6, NOM_LETTRE_FR,
-  VOYELLES, sansAccents, estLettre, valeur as valeurTable,
+  VOYELLES, sansAccents, estLettre, valeur as valeurTable, LETTRES,
 } from '../tables/alphabet.js';
-import { SCRABBLE_FR, SCRABBLE_EN, T9, morseSignaux, morseTraits } from '../tables/jeux.js';
+import { SCRABBLE_FR, SCRABBLE_EN, T9, MORSE, morseSignaux, morseTraits } from '../tables/jeux.js';
 import {
   segmentsDe, compteSegments, compteTraitsFusionnes, MENTION_SEG7, SEG7_APPROXIMATIONS,
 } from '../tables/seg7.js';
@@ -56,9 +87,12 @@ import {
 } from '../tables/claviers.js';
 import { mesure as mesureGlyphe } from '../tables/derivees.js';
 import { GLYPHES } from '../tables/glyphes.js';
-import { valeurHebreu, valeurGrec, NOTE_SOURCAGE } from '../tables/ecritures.js';
+import {
+  valeurHebreu, valeurGrec, NOTE_SOURCAGE, TRANSLIT_HEBREU, TRANSLIT_GREC,
+} from '../tables/ecritures.js';
 import { decouperMots } from './filtres.js';
 import { def, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade } from './commun.js';
+import { opComptage } from './combinateurs.js';
 import { bilingue, dire } from '../i18n.js';
 
 const pli = (c) => sansAccents(String(c)).toUpperCase();
@@ -68,6 +102,7 @@ const estVoyelle = (c) => VOYELLES.includes(pli(c));
 const LIB_REDUIRE_CHAQUE = bilingue('On réduit chaque nombre à un chiffre', 'Reduce every number to a single digit');
 const LIB_ZEROS = bilingue('On retire les zéros', 'Drop the zeros');
 const REG_ZEROS = bilingue('Un zéro n’apporte rien à la somme', 'A zero brings nothing to the sum');
+
 
 // ───────────────────────────────────────────────────────────────────────────
 // La figure « sept segments » du Registre
@@ -143,6 +178,49 @@ function paliersReduction(depart, arrivee) {
   }
   return out;
 }
+
+/**
+ * ★ La table de correspondance **dérivée de l'opérateur lui-même**.
+ *
+ * C'est le cœur du contrôle croisé exigé par CONTRACTS §0.3, appliqué aux
+ * conversions par table : ce qui sera DESSINÉ n'est pas une seconde copie de
+ * `PYTHAGORE`, de `SCRABBLE_FR` ou de `T9` — c'est `fn`, la fonction même que
+ * `apply()` emploie, évaluée sur les vingt-six lettres. Une divergence entre la
+ * table montrée et la table utilisée est donc **impossible par construction**,
+ * exactement comme `tables/derivees.js` rend impossible qu'un compte de traits
+ * diffère du tracé qu'on dessine.
+ *
+ * Le moteur visuel refuse en outre de faire redescendre une valeur qui ne
+ * serait pas dans la case (`src/visuel/primitives/table.js`), et le pont la
+ * recoupe une troisième fois (`src/recherche/scenario.js`).
+ *
+ * @param {(c:string)=>number|null} fn      la fonction de l'opérateur
+ * @param {{noteDe?:Function, labelDe?:Function}} [opts]
+ *        `noteDe` — l'intermédiaire à MONTRER quand il y en a un (le code
+ *        morse, la lettre hébraïque, le nom français de la lettre) : sans lui,
+ *        « H → 4 » resterait une affirmation même table à l'appui.
+ * @returns {ReadonlyArray<{char:string,value:number,note?:string,label?:string}>}
+ */
+function tableDe(fn, opts = {}) {
+  const out = [];
+  for (const char of LETTRES) {
+    const v = fn(char);
+    if (v === null || v === undefined || !Number.isFinite(v)) continue;
+    const e = { char, value: v };
+    const label = opts.labelDe ? opts.labelDe(char) : null;
+    if (label && label !== char) e.label = label;
+    const note = opts.noteDe ? opts.noteDe(char) : null;
+    if (note) e.note = note;
+    out.push(Object.freeze(e));
+  }
+  return Object.freeze(out);
+}
+
+/** Le morse, écrit comme il se lit : points ronds et traits longs, même compte. */
+const morseLisible = (c) => {
+  const m = MORSE[c];
+  return m === undefined ? null : [...m].map((s) => (s === '-' ? '\u2013' : '\u00b7')).join('');
+};
 
 /** Un mappeur lettre à lettre : `null` dès qu'un jeton n'est pas une lettre seule. */
 function parLettre(fn) {
@@ -266,28 +344,69 @@ function etapeMappeur(spec) {
       });
     }
 
-    if (spec.geste === 'alphabet') {
-      // La réglette alphabétique, sur le modèle du clavier : l'alphabet
-      // complet et numéroté paraît, la lettre s'y envole, son rang en
-      // redescend. Un step par lettre — chaque op anime la caméra.
+    if (spec.geste === 'table') {
+      // ★ LA TABLE EST MONTRÉE, PAS ANNONCÉE — et l'aller-retour est INDIVIDUEL.
+      //
+      // Une lettre monte vers la table, sa case s'allume, **sa valeur en
+      // redescend aussitôt à sa place** — puis seulement la lettre suivante.
+      // Faire partir les quatre lettres puis revenir les quatre nombres d'un
+      // bloc fait gagner du temps et perdre la démonstration : on ne voit plus
+      // quelle lettre a donné quel nombre, c'est-à-dire exactement ce qu'il
+      // fallait montrer. Un step par lettre, donc, comme pour l'encart de
+      // comptage et pour le clavier.
+      //
+      // ★ Ce qu'on mutualise, c'est le DÉCOR. `montre` sur la première lettre,
+      // `retire` sur la dernière : entre les deux, la table **reste montée**
+      // et la caméra ne rebouge pas. Le déploiement se paie une fois, les
+      // allers-retours gardent chacun leur rythme plein.
+      const cases = new Map((spec.table || []).map((e) => [e.char, e]));
       const lettreDe = (i) => pliCar(i);
-      if (apres.valeur.every((_, i) => /^[A-Z]$/.test(lettreDe(i)))) {
-        return apres.valeur.map((n, i) => etape(
-          ctx,
-          dire(spec.libelle, ctx.langue),
-          `${dire(spec.regle, ctx.langue)} : ${lettreDe(i)} → ${n}`,
-          [{
-            op: 'alphabet',
-            target: ctx.ids[i],
-            letter: lettreDe(i),
-            ordre: spec.ordre || 'a1z26',
-            to: token(sortie[i], n, 'number'),
-          }],
-          { id: `s_${ctx.cle}_${i}` },
-        ));
+      const montrable = cases.size > 0 && apres.valeur.every((n, i) => {
+        const e = cases.get(lettreDe(i));
+        return e !== undefined && String(e.value) === String(n);
+      });
+      if (montrable) {
+        const dernier = apres.valeur.length - 1;
+        return apres.valeur.map((n, i) => {
+          const e = cases.get(lettreDe(i));
+          // L'intermédiaire est MONTRÉ dans Le Registre comme dans la scène :
+          // « H → ···· → 4 » se suit, « H → 4 » se croit. Et c'est le glyphe
+          // de la case qui est cité, pas la clé : la méthode ASCII du bas de
+          // casse se lit « h → 104 ».
+          const glyphe = e.label || e.char;
+          const detail = e.note ? `${glyphe} → ${e.note} → ${n}` : `${glyphe} → ${n}`;
+          return etape(
+            ctx,
+            dire(spec.libelle, ctx.langue),
+            `${dire(spec.regle, ctx.langue)} : ${detail}`,
+            [{
+              op: 'table',
+              disposition: spec.forme || 'reglette',
+              ...(spec.colonnes ? { colonnes: spec.colonnes } : {}),
+              // Le retour à la ligne au cycle et la teinte par valeur ne sont
+              // pas des ornements : ils MONTRENT la règle de la table. Ils
+              // voyagent donc avec elle, et le moteur visuel les recoupe.
+              ...(spec.cycle ? { cycle: true } : {}),
+              ...(spec.teinte ? { teinte: spec.teinte } : {}),
+              // `ordre` déclenche l'oracle indépendant du moteur visuel : pour
+              // la seule réglette alphabétique, il recalcule le rang au lieu de
+              // nous croire, et confronte notre table à la sienne.
+              ...(spec.ordre ? { ordre: spec.ordre } : {}),
+              entries: (spec.table || []).map((t) => ({ ...t })),
+              target: ctx.ids[i],
+              letter: lettreDe(i),
+              to: token(sortie[i], n, 'number'),
+              // Le décor : monté à la première, gardé au milieu, retiré à la
+              // dernière. Une seule op de caméra à chaque bout.
+              montre: i === 0,
+              retire: i === dernier,
+            }],
+            { id: `s_${ctx.cle}_${i}` },
+          );
+        });
       }
-      // Repli : un caractère hors de l'alphabet latin. On n'affirme rien qu'on
-      // ne sait pas montrer — on substitue, sans réglette.
+      // Repli : un caractère hors de la table. On n'affirme rien qu'on ne sait
+      // pas montrer — on substitue, sans table.
     }
 
     if (spec.geste === 'keyboard') {
@@ -335,22 +454,71 @@ function etapeMappeur(spec) {
 }
 
 /**
- * Étape d'une mesure : toute la chaîne devient un nombre.
- * On encadre, les lettres se ramassent, il reste un nombre — les trois gestes
- * sont ENCHAÎNÉS, chacun recalculant le layout à son tour.
+ * ★ Étape d'une mesure : un comptage SE COMPTE, caractère par caractère.
+ *
+ * Le geste précédent — on encadre, tout se ramasse d'un bloc, un nombre reste —
+ * *affirmait* : rien n'y distinguait « on compte les lettres » de « on compte
+ * les voyelles », et le nombre annoncé n'était jamais celui qu'on avait vu se
+ * former. Désormais chaque caractère **compté** descend dans la pointe de
+ * l'accolade et fait avancer le compteur d'un cran ; ce qui n'est pas compté
+ * s'efface sur place, sans le faire bouger. C'est ce qui rend la règle visible
+ * : sur `hope.fr`, le point ne compte pas, et on le voit ne pas compter.
+ *
+ * `cibles(valeur)` dit QUELS caractères comptent (par leur rang), `doubles`
+ * ceux qui comptent **deux** fois — ils sont recopiés sur une ligne étiquetée
+ * juste au-dessus, et l'on voit chaque voyelle passer deux fois dans
+ * l'accolade. Sans cette ligne, « les lettres, plus les voyelles » resterait
+ * une formule.
+ *
+ * Garde-fou d'émetteur : si le nombre de cibles (doublons compris) ne retombe
+ * pas sur `compte(valeur)`, on n'émet pas le geste — le moteur visuel le
+ * refuserait de toute façon (contrôle croisé), mais un échec de compilation se
+ * produirait au clic de l'utilisateur. On retombe alors sur le geste sobre.
  */
 function etapeMesure(spec) {
   return (avant, apres, ctx) => {
     const sortie = nomsTokens(ctx, 1);
-    return [etape(ctx, dire(spec.libelle, ctx.langue), `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`, retirerAccolade(enchainer([
+    const titre = dire(spec.libelle, ctx.langue);
+    const to = token(sortie[0], apres.valeur, 'number');
+    const compte = comptageDe(spec, avant.valeur, apres.valeur, ctx);
+    if (compte) {
+      return [etape(ctx, titre, `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`,
+        [opComptage({ ...compte, symbole: '#', libelle: titre, to })], { hold: 400 })];
+    }
+    return [etape(ctx, titre, `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`, retirerAccolade(enchainer([
       // Une mesure est un dénombrement : le symbole seul (`#`) serait cryptique,
       // l'accolade porte donc aussi la règle en toutes lettres.
       ctx.ids.length > 1
-        ? { op: 'group', targets: ctx.ids, symbol: '#', label: dire(spec.libelle, ctx.langue) }
+        ? { op: 'group', targets: ctx.ids, symbol: '#', label: titre }
         : null,
       ctx.ids.length > 1 ? { op: 'drop', targets: ctx.ids.slice(1), stagger: 20 } : null,
-      { op: 'substitute', pairs: [{ target: ctx.ids[0], to: token(sortie[0], apres.valeur, 'number') }] },
+      { op: 'substitute', pairs: [{ target: ctx.ids[0], to }] },
     ])))];
+  };
+}
+
+/**
+ * Ce que l'accolade comptera, ou `null` si la mesure ne sait pas le désigner
+ * caractère par caractère (elle retombe alors sur le geste sobre).
+ */
+function comptageDe(spec, valeur, total, ctx) {
+  if (typeof spec.cibles !== 'function' || ctx.ids.length < 2) return null;
+  const rangs = spec.cibles(valeur);
+  const rangsDoubles = typeof spec.doubles === 'function' ? spec.doubles(valeur) : [];
+  const valide = (r) => Number.isInteger(r) && r >= 0 && r < ctx.ids.length;
+  if (!Array.isArray(rangs) || !rangs.every(valide)) return null;
+  if (!Array.isArray(rangsDoubles) || !rangsDoubles.every((r) => valide(r) && rangs.includes(r))) return null;
+  // Contrôle croisé côté émetteur : ce qu'on va MONTRER doit faire le compte.
+  if (rangs.length + rangsDoubles.length !== total) return null;
+  const chars = [...valeur];
+  return {
+    ids: ctx.ids,
+    count: rangs.map((r) => ctx.ids[r]),
+    doubles: rangsDoubles.map((r) => ({
+      target: ctx.ids[r],
+      to: token(`${ctx.cle}d${r}`, chars[r], 'letter'),
+    })),
+    doublesLabel: rangsDoubles.length ? dire(spec.motDouble, ctx.langue) : null,
   };
 }
 
@@ -370,6 +538,18 @@ const mesureStr = (spec) => def({
 
 const lettres = (s) => [...s].filter(estLettre);
 
+// ── Ce que l'accolade compte, par rang de caractère ────────────────────────
+// Un rang, un caractère à l'écran : `ctx.ids[r]` est le jeton du r-ième signe
+// de la saisie. Ces prédicats sont la SOURCE de ce qui vole dans l'accolade,
+// et `compte()` reste la source du nombre : le contrôle croisé confronte les
+// deux, et l'étape retombe sur le geste sobre s'ils ne s'accordent pas.
+const rangs = (s, test) => [...s].map((c, i) => (test(c, i) ? i : -1)).filter((i) => i >= 0);
+const rangsLettres = (s) => rangs(s, estLettre);
+const rangsVoyelles = (s) => rangs(s, (c) => estLettre(c) && estVoyelle(c));
+const rangsConsonnes = (s) => rangs(s, (c) => estLettre(c) && !estVoyelle(c));
+const MOT_VOYELLE = bilingue('voyelle', 'vowel');
+const MOT_CONSONNE = bilingue('consonne', 'consonant');
+
 const MESURES = [
   {
     id: 'n.longueur', code: 'n1',
@@ -377,6 +557,7 @@ const MESURES = [
     regle: bilingue('Le nombre de lettres du mot', 'How many letters the word has'),
     notoriete: 1.00,
     compte: (s) => lettres(s).length || null,
+    cibles: rangsLettres,
   },
   {
     id: 'n.voyelles', code: 'n2',
@@ -384,6 +565,7 @@ const MESURES = [
     regle: bilingue('A, E, I, O, U', 'A, E, I, O, U'),
     notoriete: 0.85,
     compte: (s) => lettres(s).filter(estVoyelle).length || null,
+    cibles: rangsVoyelles,
   },
   {
     id: 'n.consonnes', code: 'n3',
@@ -391,6 +573,7 @@ const MESURES = [
     regle: bilingue('Toutes les lettres sauf A, E, I, O, U', 'Every letter but A, E, I, O, U'),
     notoriete: 0.85,
     compte: (s) => lettres(s).filter((c) => !estVoyelle(c)).length || null,
+    cibles: rangsConsonnes,
   },
   {
     id: 'n.lettresDistinctes', code: 'n4',
@@ -398,6 +581,16 @@ const MESURES = [
     regle: bilingue('Une lettre répétée ne compte qu’une fois', 'A repeated letter counts only once'),
     notoriete: 0.70,
     compte: (s) => new Set(lettres(s).map(pli)).size || null,
+    // Seule la PREMIÈRE occurrence compte ; les redites s'effacent sans faire
+    // avancer le compteur, et c'est là qu'on voit la règle.
+    cibles: (s) => {
+      const vus = new Set();
+      return rangs(s, (c) => {
+        if (!estLettre(c) || vus.has(pli(c))) return false;
+        vus.add(pli(c));
+        return true;
+      });
+    },
   },
   {
     id: 'n.separateurs', code: 'n5',
@@ -405,6 +598,7 @@ const MESURES = [
     regle: bilingue('Les tirets, points et barres', 'Dashes, dots and slashes'),
     notoriete: 0.65,
     compte: (s) => [...s].filter((c) => /[-._/]/.test(c)).length || null,
+    cibles: (s) => rangs(s, (c) => /[-._/]/.test(c)),
   },
   {
     id: 'n.mots', code: 'n6',
@@ -413,6 +607,9 @@ const MESURES = [
       'Whatever the dashes, dots and slashes set apart'),
     notoriete: 0.80,
     compte: (s) => decouperMots(s).length || null,
+    // Un mot n'est pas un jeton : c'est sa PREMIÈRE lettre qui le représente
+    // dans l'accolade — une par mot, et l'on compte bien des mots.
+    cibles: (s) => decouperMots(s).map((m) => m.debut),
   },
   {
     id: 'n.lettresPlusVoyelles', code: 'n7',
@@ -423,6 +620,9 @@ const MESURES = [
       const l = lettres(s);
       return l.length ? l.length + l.filter(estVoyelle).length : null;
     },
+    cibles: rangsLettres,
+    doubles: rangsVoyelles,
+    motDouble: MOT_VOYELLE,
   },
   {
     id: 'n.lettresPlusConsonnes', code: 'n8',
@@ -439,6 +639,9 @@ const MESURES = [
       const l = lettres(s);
       return l.length ? l.length + l.filter((c) => !estVoyelle(c)).length : null;
     },
+    cibles: rangsLettres,
+    doubles: rangsConsonnes,
+    motDouble: MOT_CONSONNE,
   },
 ].map(mesureStr);
 
@@ -449,7 +652,7 @@ const MAPPEURS_LETTRE = [
       'Each letter is worth its alphabetical rank'),
     regle: bilingue('A=1, B=2, … Z=26', 'A=1, B=2, … Z=26'),
     notoriete: 1.00,
-    geste: 'alphabet', ordre: 'a1z26',
+    geste: 'table', forme: 'reglette', ordre: 'a1z26',
     fn: (c) => valeurTable(A1Z26, pli(c)),
   },
   {
@@ -458,7 +661,7 @@ const MAPPEURS_LETTRE = [
       'Each letter is worth its reversed alphabetical rank'),
     regle: bilingue('A=26, B=25, … Z=1', 'A=26, B=25, … Z=1'),
     notoriete: 0.45,
-    geste: 'alphabet', ordre: 'z26a1',
+    geste: 'table', forme: 'reglette', ordre: 'z26a1',
     fn: (c) => valeurTable(Z26A1, pli(c)),
   },
   {
@@ -467,6 +670,15 @@ const MAPPEURS_LETTRE = [
     regle: bilingue('Le rang réduit à un chiffre : 1 à 9, cycliquement',
       'The rank cut down to one digit: 1 to 9, over and over'),
     notoriete: 0.80,
+    // ★ Une case par lettre, dans l'ordre alphabétique — et un RETOUR À LA
+    // LIGNE là où la table recommence. La pythagoricienne réduit le rang
+    // modulo 9 : en cassant la ligne à chaque retour au 1, on obtient trois
+    // rangées qui s'alignent colonne par colonne — « A J S » valent 1, « B K
+    // T » valent 2 — et la règle SE VOIT au lieu d'être affirmée. Le
+    // découpage est dérivé des valeurs, pas d'un « 9 » écrit ici : le moteur
+    // visuel refuserait cette mise en page si les colonnes ne se répondaient
+    // pas (`src/visuel/primitives/table.js`, `verifierCycle`).
+    geste: 'table', forme: 'reglette', cycle: true,
     fn: (c) => valeurTable(PYTHAGORE, pli(c)),
   },
   {
@@ -475,6 +687,17 @@ const MAPPEURS_LETTRE = [
     regle: bilingue('Table chaldéenne traditionnelle — elle ignore le 9',
       'The traditional Chaldean table — it leaves out the 9'),
     notoriete: 0.55,
+    // ★ Réglette simple, ordre alphabétique, deux rangées de treize — la MÊME
+    // forme que la numérologie latine, et c'est tout l'argument. La table
+    // chaldéenne ne vient pas d'un calcul mais d'une tradition sonore : elle
+    // n'est pas positionnelle, elle n'emploie jamais le 9, et rien ne s'y
+    // répète cycliquement. Un retour à la ligne (`cycle`) y serait un MENSONGE
+    // VISUEL — il suggérerait une régularité qui n'existe pas ; le moteur
+    // visuel le refuserait d'ailleurs. Un regroupement par valeur affirmerait
+    // que « ces lettres vont ensemble » sans jamais dire pourquoi. Reste
+    // l'ordre alphabétique : on y cherche sa lettre comme dans un
+    // dictionnaire, et l'absence de 9 se constate en parcourant les cases.
+    geste: 'table', forme: 'reglette',
     fn: (c) => valeurTable(CHALDEEN, pli(c)),
   },
   {
@@ -483,6 +706,7 @@ const MAPPEURS_LETTRE = [
     regle: bilingue('Le rang multiplié par six : A=6, B=12, … Z=156',
       'The rank times six: A=6, B=12, … Z=156'),
     notoriete: 0.30, adHoc: 0.15,
+    geste: 'table', forme: 'reglette',
     fn: (c) => valeurTable(ENGLISH_X6, pli(c)),
   },
   {
@@ -491,6 +715,12 @@ const MAPPEURS_LETTRE = [
     regle: bilingue('La valeur des jetons du jeu, édition française',
       'The tile values of the game, French edition'),
     notoriete: 0.75,
+    // Une case par lettre, ordre alphabétique — l'ordre où l'on CHERCHE une
+    // lettre —, et un fond de case d'autant plus contrasté que le jeton vaut
+    // cher : le « K » à 10 points se repère avant d'être lu. La teinte
+    // redouble le nombre écrit dans la case, elle ne le remplace jamais
+    // (design §5.1, « couleur seule : jamais »).
+    geste: 'table', forme: 'reglette', teinte: 'valeur',
     fn: (c) => valeurTable(SCRABBLE_FR, pli(c)),
   },
   {
@@ -499,6 +729,7 @@ const MAPPEURS_LETTRE = [
     regle: bilingue('La valeur des jetons du jeu, édition anglaise',
       'The tile values of the game, English edition'),
     notoriete: 0.70,
+    geste: 'table', forme: 'reglette', teinte: 'valeur',
     fn: (c) => valeurTable(SCRABBLE_EN, pli(c)),
   },
   {
@@ -507,6 +738,13 @@ const MAPPEURS_LETTRE = [
     regle: bilingue('ABC=2, DEF=3, … WXYZ=9 (norme ITU E.161)',
       'ABC=2, DEF=3, … WXYZ=9 (ITU E.161 standard)'),
     notoriete: 0.70,
+    // ★ Le PAVÉ, et la SEULE table où une case porte plusieurs lettres : les
+    // huit touches à leur place sur le téléphone, la touche 1 dessinée vide
+    // parce qu'elle l'est. Ici le groupement n'est pas une commodité de mise
+    // en page, c'est l'objet lui-même — la touche 7 porte vraiment « PQRS ».
+    // Une réglette de vingt-six cases aurait dit la même chose sans jamais
+    // ressembler à ce dont elle parle.
+    geste: 'table', forme: 'pave',
     fn: (c) => valeurTable(T9, pli(c)),
   },
   {
@@ -515,6 +753,9 @@ const MAPPEURS_LETTRE = [
     regle: bilingue('Le nombre de points et de traits de la lettre',
       'How many dots and dashes the letter takes'),
     notoriete: 0.60,
+    // Le code EST l'argument : « B → –··· → 4 » se compte à l'œil, « B → 4 »
+    // se croit. La note porte donc le code, et la valeur le compte.
+    geste: 'table', forme: 'reglette', noteDe: morseLisible,
     fn: (c) => morseSignaux(pli(c)),
   },
   {
@@ -522,6 +763,7 @@ const MAPPEURS_LETTRE = [
     libelle: bilingue('Traits du morse', 'Morse dashes'),
     regle: bilingue('Les traits seuls, sans les points', 'The dashes alone, dots not counted'),
     notoriete: 0.35, adHoc: 0.15,
+    geste: 'table', forme: 'reglette', noteDe: morseLisible,
     fn: (c) => morseTraits(pli(c)),
   },
   {
@@ -529,6 +771,7 @@ const MAPPEURS_LETTRE = [
     libelle: bilingue('Code ASCII de la capitale', 'ASCII code of the capital'),
     regle: bilingue('A=65, B=66, … Z=90', 'A=65, B=66, … Z=90'),
     notoriete: 0.45,
+    geste: 'table', forme: 'reglette',
     fn: (c) => (estLettre(pli(c)) ? pli(c).charCodeAt(0) : null),
   },
   {
@@ -536,6 +779,9 @@ const MAPPEURS_LETTRE = [
     libelle: bilingue('Code ASCII du bas de casse', 'ASCII code of the lower-case letter'),
     regle: bilingue('a=97, b=98, … z=122', 'a=97, b=98, … z=122'),
     notoriete: 0.45,
+    // La table montre le BAS DE CASSE, puisque c'est lui qu'on code : afficher
+    // « A → 97 » ferait mentir la case.
+    geste: 'table', forme: 'reglette', labelDe: (c) => c.toLowerCase(),
     fn: (c) => (estLettre(pli(c)) ? pli(c).toLowerCase().charCodeAt(0) : null),
   },
   {
@@ -655,6 +901,10 @@ const MAPPEURS_LETTRE = [
       'Transliterate into Hebrew, then read off the value of each letter'),
     notoriete: 0.55,
     note: NOTE_SOURCAGE,
+    // La translittération est la moitié de la méthode : la case montre la
+    // lettre hébraïque avant sa valeur, sans quoi le saut « P → 80 » serait
+    // une affirmation de plus.
+    geste: 'table', forme: 'reglette', noteDe: (c) => TRANSLIT_HEBREU[c] || null,
     fn: (c) => valeurHebreu(pli(c)),
   },
   {
@@ -664,6 +914,7 @@ const MAPPEURS_LETTRE = [
       'Transliterate into Greek, then read off the value of each letter'),
     notoriete: 0.55,
     note: NOTE_SOURCAGE,
+    geste: 'table', forme: 'reglette', noteDe: (c) => TRANSLIT_GREC[c] || null,
     fn: (c) => valeurGrec(pli(c)),
   },
   {
@@ -679,14 +930,29 @@ const MAPPEURS_LETTRE = [
       + 'not the English "ef", "double-u", "why". The method is French, and stays French.',
     ),
     notoriete: 0.15, adHoc: 0.25,
+    // ★ Ce n'en est pas moins une table lettre → nombre : simplement, la
+    // correspondance passe par un MOT, et c'est le mot qui prouve le nombre.
+    // La case porte donc les trois : « W → double vé → 8 ». Neuf colonnes,
+    // parce que « double vé » ne tient pas dans une case de treizième.
+    geste: 'table', forme: 'reglette', colonnes: 9,
+    noteDe: (c) => NOM_LETTRE_FR[c] || null,
     fn: (c) => {
       const nom = NOM_LETTRE_FR[pli(c)];
       return nom ? [...sansAccents(nom)].filter(estLettre).length : null;
     },
   },
 ].map((spec) => {
-  const { fn, geste, mode, metrique, casse, disposition, mesureClavier, ...reste } = spec;
-  const base = { ...reste, geste, mode, metrique, casse, disposition, mesureClavier };
+  const {
+    fn, geste, mode, metrique, casse, disposition, mesureClavier,
+    forme, colonnes, cycle, teinte, noteDe, labelDe, ...reste
+  } = spec;
+  const base = {
+    ...reste, geste, mode, metrique, casse, disposition, mesureClavier,
+    forme, colonnes, cycle, teinte,
+    // ★ La table MONTRÉE est dérivée de `fn`, la fonction même que `apply()`
+    // applique. Une seule source, donc aucune divergence possible.
+    table: geste === 'table' ? tableDe(fn, { noteDe, labelDe }) : null,
+  };
   return def({
     ...reste,
     famille: 'mappeur',

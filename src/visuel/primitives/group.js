@@ -24,6 +24,29 @@
  * `'∏'` pour un produit, `'#'` pour un comptage, `'−'` pour une soustraction
  * en chaîne — et peut l'appuyer d'un `label` en toutes lettres.
  *
+ * ## ★ Trois remplissages, une seule accolade
+ *
+ * Le vocabulaire nomme des **gestes**, et le geste est ici toujours le même :
+ * l'accolade se ferme sur des choses et il en sort une valeur. Ce qui change,
+ * c'est ce qui se passe **dedans**. `to` fourni, l'accolade tient la promesse
+ * elle-même au lieu de la déléguer à un `substitute` (qui faisait naître la
+ * valeur dans la ligne, à côté de l'axe que la pointe désigne) :
+ *
+ * | forme | ce qu'on voit |
+ * |---|---|
+ * | *sans `to`* | l'accolade seule — un autre geste posera le résultat |
+ * | `to` + `count` | **le décompte** : chaque jeton compté descend dans la pointe et le compteur avance de 1 ; ce qui n'est pas compté s'efface sur place |
+ * | `to` + `niveler` | **le nivellement** : un `1` passe du plus grand au plus petit jusqu'à ce qu'aucun écart ne dépasse 1, puis les nombres égaux à la moyenne fusionnent |
+ *
+ * `doubles` ajoute au décompte une **ligne étiquetée juste au-dessus**, où les
+ * jetons qui comptent double sont recopiés. « Les lettres, plus les voyelles »
+ * cesse alors d'être une formule : les voyelles montent d'un cran sous le mot
+ * « voyelle », et l'on voit chacune passer deux fois dans l'accolade.
+ *
+ * Le décompte et le nivellement se paient un **contrôle croisé** chacun : le
+ * nombre de jetons réellement comptés, et la moyenne réellement calculée sur
+ * les nombres affichés, doivent égaler `to.text`. Sinon, échec de compilation.
+ *
  * ## Géométrie
  *
  * `getTotalLength()` n'est jamais appelé (coûteux, et indisponible hors DOM) :
@@ -32,13 +55,23 @@
  * unités viewBox (CONTRACTS §3.2 règle 5).
  */
 
-import { targetsOf, tracerAccolade } from './helpers.js';
+import {
+  targetsOf, tracerAccolade, tokenSpec, accumulate, numberOf,
+  nivellementDe, MAX_TRANSFERTS,
+} from './helpers.js';
 import { fail } from '../errors.js';
 
 export const name = 'group';
 
 export function plan(ctx) {
   const ids = targetsOf(ctx);
+
+  // L'accolade qui tient sa promesse elle-même : décompte ou nivellement.
+  if (ctx.op.to !== undefined) {
+    planRamassage(ctx, ids);
+    return;
+  }
+
   const shape = ctx.op.shape || 'brace';
   if (shape !== 'brace' && shape !== 'box') {
     fail(`${ctx.where}« shape » = « ${shape} » : seules « brace » et « box » existent.`);
@@ -67,4 +100,144 @@ export function plan(ctx) {
       ctx.anim({ id, prop: 'opacity', to: 0, at: ctx.op.fadeAt, dur: 300 });
     }
   }
+}
+
+/** L'accolade qui rend une valeur : décompte (`count`) ou nivellement (`niveler`). */
+function planRamassage(ctx, ids) {
+  const to = tokenSpec(ctx, ctx.op.to, 'to');
+  if (!to.kind || to.kind === 'letter') to.kind = 'number';
+  const symbol = typeof ctx.op.symbol === 'string' && ctx.op.symbol ? ctx.op.symbol : '#';
+  const label = typeof ctx.op.label === 'string' && ctx.op.label ? ctx.op.label : null;
+  if (ctx.op.niveler) planNivellement(ctx, ids, to, symbol, label);
+  else planDecompte(ctx, ids, to, symbol, label);
+}
+
+/**
+ * ★ Un comptage SE COMPTE, jeton par jeton.
+ *
+ * « On compte les lettres : 4 » était une affirmation : l'accolade se fermait,
+ * tout tombait d'un bloc et un 4 paraissait. Rien, dans ce geste, ne
+ * distinguait « compter les lettres » de « compter les voyelles » ou de
+ * n'importe quel autre nombre sorti d'ailleurs. Désormais chaque jeton compté
+ * descend dans la pointe de l'accolade et **fait avancer le compteur d'un
+ * cran** : le nombre annoncé est celui qu'on a vu se former.
+ */
+function planDecompte(ctx, ids, to, symbol, label) {
+  const compte = ctx.op.count === undefined ? ids : ctx.scene.resolve(ctx.op.count, ctx.where);
+  for (const id of compte) {
+    if (!ids.includes(id)) {
+      fail(`${ctx.where}« count » désigne « ${id} », qui n'est pas embrassé par l'accolade : `
+        + 'on ne compte que ce que le geste montre.');
+    }
+  }
+  const vus = new Set();
+  for (const id of compte) {
+    if (vus.has(id)) fail(`${ctx.where}« count » désigne deux fois « ${id} » : un jeton ne se compte qu'une fois.`);
+    vus.add(id);
+  }
+
+  const doubles = (ctx.op.doubles || []).map((d, i) => {
+    if (!d || typeof d.target !== 'string' || !d.target) {
+      fail(`${ctx.where}doubles[${i}] : « target » manquant — un doublon recopie UN jeton.`);
+    }
+    if (!ids.includes(d.target)) {
+      fail(`${ctx.where}doubles[${i}] : « ${d.target} » n'est pas embrassé par l'accolade.`);
+    }
+    if (!vus.has(d.target)) {
+      fail(`${ctx.where}doubles[${i}] : « ${d.target} » est recopié mais n'est pas compté une première fois — `
+        + 'un doublon compte DEUX fois, pas une.');
+    }
+    const spec = tokenSpec(ctx, d.to, `doubles[${i}].to`);
+    const src = ctx.scene.live(d.target, `${ctx.where}doubles[${i}].target : `);
+    if (spec.text !== src.text) {
+      fail(`${ctx.where}doubles[${i}] : la copie porte « ${spec.text} » là où l'original porte « ${src.text} » — `
+        + 'un doublon est une COPIE, il ne transforme rien.');
+    }
+    return { src: d.target, spec };
+  });
+
+  // Contrôle croisé : le total annoncé est celui des jetons qui entrent
+  // réellement dans l'accolade, doublons compris.
+  const total = compte.length + doubles.length;
+  if (String(total) !== to.text) {
+    fail(`${ctx.where}incohérence : l'accolade compte ${total} jeton(s) — ${compte.length} sur la ligne`
+      + `${doubles.length ? ` et ${doubles.length} en doublon` : ''} —, mais « to.text » annonce « ${to.text} ». `
+      + 'Le moteur visuel refuse d\'afficher un compte qu\'il ne montre pas.');
+  }
+
+  accumulate(ctx, {
+    operands: ids,
+    to,
+    at: 0,
+    dur: ctx.dur,
+    numerique: false,
+    // Un comptage, c'est une accumulation dont chaque terme vaut 1.
+    partials: Array.from({ length: total }, (_, i) => i + 1),
+    voler: [...compte, ...doubles.map((d) => d.spec.id)],
+    effacer: ids.filter((id) => !vus.has(id)),
+    doubles,
+    doublesLabel: typeof ctx.op.doublesLabel === 'string' ? ctx.op.doublesLabel : null,
+    symbol,
+    label,
+  });
+}
+
+/**
+ * ★ Une moyenne SE NIVELLE.
+ *
+ * « La somme divisée par le nombre de valeurs » est une définition, pas un
+ * geste : à l'écran, elle donnait une accolade et un nombre tombé du ciel. Une
+ * moyenne, c'est un **partage équitable** — on prend 1 au plus grand, on le
+ * donne au plus petit, et on recommence jusqu'à ce que tout le monde ait la
+ * même chose à une unité près. Ce qui reste alors sur la ligne EST la moyenne,
+ * et les jetons qui n'ont pas atteint la valeur commune sont, littéralement,
+ * l'arrondi.
+ */
+function planNivellement(ctx, ids, to, symbol, label) {
+  const valeurs = ids.map((id) => numberOf(ctx.scene.live(id, ctx.where).text, ctx, id));
+  if (valeurs.length < 2) {
+    fail(`${ctx.where}un nivellement demande au moins deux nombres : il n'y a rien à égaliser.`);
+  }
+  // Contrôle croisé n° 1 — la moyenne des nombres MONTRÉS est-elle celle qu'on
+  // annonce ? Le calcul est refait ici, sur ce que porte la ligne.
+  const somme = valeurs.reduce((a, b) => a + b, 0);
+  const moyenne = Math.round(somme / valeurs.length);
+  if (String(moyenne) !== to.text) {
+    fail(`${ctx.where}incohérence : la moyenne de ${valeurs.join(', ')} vaut ${moyenne}, `
+      + `mais « to.text » annonce « ${to.text} ». Le moteur visuel refuse d'afficher un calcul faux.`);
+  }
+
+  const { transferts, valeurs: nivelees, converge } = nivellementDe(valeurs);
+  if (!converge) {
+    fail(`${ctx.where}le nivellement de ${valeurs.join(', ')} demanderait plus de ${MAX_TRANSFERTS} `
+      + 'transferts : le geste serait interminable. L\'émetteur doit retomber sur le geste sobre '
+      + '(accolade, ramassage, valeur) au lieu d\'émettre « niveler ».');
+  }
+  // Contrôle croisé n° 2 — le nivellement conserve la somme, donc il aboutit
+  // forcément sur la moyenne ; on le vérifie plutôt que de le supposer.
+  const sommeApres = nivelees.reduce((a, b) => a + b, 0);
+  if (sommeApres !== somme) {
+    fail(`${ctx.where}le nivellement a perdu ${somme - sommeApres} en route : un transfert donne autant qu'il prend.`);
+  }
+  const gagnants = ids.filter((_, i) => nivelees[i] === moyenne);
+  if (!gagnants.length) {
+    fail(`${ctx.where}aucun nombre n'atteint ${moyenne} après nivellement (${nivelees.join(', ')}) : `
+      + 'la fusion n\'aurait rien à fusionner.');
+  }
+
+  accumulate(ctx, {
+    operands: ids,
+    to,
+    at: 0,
+    dur: ctx.dur,
+    transferts,
+    voler: gagnants,
+    effacer: ids.filter((id) => !gagnants.includes(id)),
+    // Chaque jeton qui fusionne vaut déjà la moyenne : la case ne compte pas,
+    // elle accueille. Elle reste donc vide jusqu'au premier arrivé.
+    partials: gagnants.map(() => moyenne),
+    depart: '',
+    symbol,
+    label,
+  });
 }

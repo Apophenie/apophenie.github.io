@@ -58,6 +58,22 @@ logo:reproductible:
     - diff /tmp/banc.avant src/gfx/_logo-test.html
   allow_failure: false
 
+# La géométrie des afficheurs à segments comptés un par un est DÉRIVÉE des
+# polices DSEG7 / DSEG14 Classic, contour par contour
+# (`src/gfx/dseg-segments.py`), et le résultat est commité dans
+# `src/visuel/assets.js`. Même règle que le logo : la CI ne régénère pas, elle
+# vérifie. Un tracé retouché à la main — ou une police mise à jour sans repasser
+# par le script — fait échouer ce job, et c'est bien le but : « ce qui est
+# montré est ce qui est compté, depuis une source unique ».
+segments:reproductible:
+  stage: verify
+  needs: []
+  script:
+    - apk add --no-cache python3 py3-pip >/dev/null
+    - pip install --break-system-packages --quiet fonttools brotli
+    - bun run segments:check
+  allow_failure: false
+
 pages:
   stage: deploy
   needs:

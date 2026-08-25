@@ -139,7 +139,9 @@ const VECTEURS = [
  * démonstration continuerait de « marcher », mais elle cesserait de prouver.
  */
 const PRIMITIVE_ATTENDUE = Object.freeze({
-  m1: 'alphabet', m2: 'alphabet',
+  m1: 'table', m2: 'table', m3: 'table', m4: 'table', m5: 'table',
+  m6: 'table', m7: 'table', m8: 'table', m9: 'table', ma: 'table',
+  mb: 'table', mc: 'table', mp: 'table', mq: 'table', mr: 'table',
   md: 'sevenSeg', me: 'sevenSeg',
   mw: 'fourteenSeg', mx: 'fourteenSeg',
   mf: 'countStrokes', mg: 'countStrokes', mh: 'countStrokes',
@@ -151,13 +153,14 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
 /**
  * Le vocabulaire fermé des ops — CONTRACTS §3.1, vingt primitives, pas une
  * de plus. Le socle de dix-sept, plus `partition` (découper en sous-groupes),
- * `alphabet` (la réglette numérotée) et `fourteenSeg` (l'afficheur quatorze
- * segments), ajoutées selon la clause d'extension du contrat.
+ * `table` (la table de correspondance affichée — réglette, grille ou pavé) et
+ * `fourteenSeg` (l'afficheur quatorze segments), ajoutées selon la clause
+ * d'extension du contrat.
  */
 const OPS_AUTORISEES = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'alphabet',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table',
 ]);
 
 test('grammaire, unicité et ordre croissant des codes (CONTRACTS §4.1)', () => {
@@ -327,15 +330,30 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
         + 'le comptage ne serait plus montré, seulement affirmé (CONTRACTS §0.3)');
       for (const o of emises) {
         assert.equal(typeof o.target, 'string', `${code} : « ${attendue} » travaille jeton par jeton`);
-        if (attendue === 'alphabet') {
-          // Le contrôle croisé de la réglette n'est pas `count` mais `to.text` :
-          // c'est le rang qui redescend de la case, et la primitive refuse de
-          // le faire descendre s'il diffère de ce que la réglette montre.
+        if (attendue === 'table') {
+          // ★ L'aller-retour est INDIVIDUEL : une lettre monte, sa valeur
+          // redescend, puis la suivante. Ce qui se mutualise, c'est le DÉCOR.
+          // ★ Deux mises en page, pas trois : seul le clavier téléphonique met
+          //   plusieurs lettres dans une case. Partout ailleurs, une case vaut
+          //   une lettre et un nombre.
+          assert.ok(['reglette', 'pave'].includes(o.disposition),
+            `${code} : mise en page inconnue`);
+          assert.ok(o.teinte === undefined || o.teinte === 'valeur',
+            `${code} : encodage de teinte inconnu`);
+          assert.ok(o.cycle === undefined || o.cycle === true,
+            `${code} : « cycle » est un drapeau, pas un réglage`);
+          // Le contrôle croisé n'est pas `count` mais la TABLE elle-même : elle
+          // voyage dans l'op, dérivée de la fonction de l'opérateur, et la
+          // primitive refuse de faire redescendre une valeur qui n'y est pas.
+          assert.ok(Array.isArray(o.entries) && o.entries.length >= 26,
+            `${code} : « entries » manquant — la conversion serait affirmée, pas montrée`);
+          const cases = new Map(o.entries.map((e) => [e.char, String(e.value)]));
           assert.match(String(o.letter), /^[A-Z]$/, `${code} : « letter » manquant ou non replié`);
-          assert.ok(['a1z26', 'z26a1'].includes(o.ordre), `${code} : numérotation inconnue`);
           assert.match(String(o.to && o.to.text), /^\d+$/,
             `${code} : « to.text » manquant — c'est lui qui fait échouer la compilation `
-            + 'si la réglette montrait autre chose que le nombre annoncé');
+            + 'si la table montrait autre chose que le nombre annoncé');
+          assert.equal(cases.get(o.letter), String(o.to.text),
+            `${code} : la table montrée et le nombre annoncé divergent sur « ${o.letter} »`);
         } else if (attendue === 'keyboard') {
           // Le contrôle croisé de `keyboard` n'est pas `count` mais `to.text` :
           // c'est le nombre qui redescend de la touche, et la primitive refuse
@@ -352,12 +370,23 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
             + 'si le tracé montré et le nombre annoncé divergeaient');
         }
       }
-      if (attendue === 'keyboard' || attendue === 'alphabet') {
+      if (attendue === 'keyboard' || attendue === 'table') {
         // Une op de caméra par step, jamais deux : elles se contrediraient.
         for (const step of steps) {
           assert.ok(step.ops.filter((o) => o.op === attendue).length <= 1,
             `${code} : deux « ${attendue} » dans le step « ${step.id} » animeraient deux fois la caméra`);
         }
+      }
+      if (attendue === 'table') {
+        // ★ Le décor est mutualisé : déployé UNE fois, retiré UNE fois. Entre
+        // les deux la table reste montée — c'est là qu'est l'économie, pas
+        // dans l'aller-retour, qui reste entier pour chaque lettre.
+        assert.equal(emises.filter((o) => o.montre === true).length, 1,
+          `${code} : la table doit se déployer exactement une fois`);
+        assert.equal(emises.filter((o) => o.retire === true).length, 1,
+          `${code} : la table doit se retirer exactement une fois`);
+        assert.equal(emises[0].montre, true, `${code} : elle monte à la première lettre`);
+        assert.equal(emises[emises.length - 1].retire, true, `${code} : elle part à la dernière`);
       }
       if (attendue === 'sevenSeg' || attendue === 'countStrokes') {
         // Un encart par step : deux comptages simultanés, c'est le fouillis

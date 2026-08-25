@@ -16,7 +16,7 @@ import {
 import { construireBassin } from './bassin.js';
 import { genererFragments, zonesSignifiantes, tokeniser, motifsRepetes } from './fragments.js';
 import {
-  assembler, approcheJoker, deduireMode, normaliserChemins,
+  assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe,
 } from './assemblage.js';
 import { noter, diversifier, ordreTotal, REGLAGES } from './score.js';
 import { construireScenario } from './scenario.js';
@@ -344,7 +344,10 @@ export function creerMoteur(catalogue, options = {}) {
         label: titreApproche(approche, langue),
         rule: regleApproche(approche, langue),
       },
-      resultat: '666',
+      // Le verdict n'est plus forcément « 666 » : un GROUPEMENT dont le vecteur
+      // porte douze 6 en aligne quatre séries, et l'annoncer « 666 » reviendrait
+      // à cacher les trois quarts de ce qu'on vient de montrer (`verdictDe`).
+      resultat: ctx.resultat || verdictDe(approche),
     });
   }
 

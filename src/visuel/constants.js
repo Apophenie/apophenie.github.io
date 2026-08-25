@@ -50,8 +50,14 @@ export const LINE_HEIGHT = 78;   // unités viewBox
  *    la MÊME transformation à chacun (« trois d'affilée, selon la même
  *    méthode », README). Sans elle, un `hope-hope-hope` se traitait morceau
  *    après morceau sans qu'on voie jamais le découpage ;
- *  · `alphabet` — la réglette alphabétique numérotée, sur le modèle du clavier :
- *    la lettre s'envole vers son rang, et le rang en redescend ;
+ *  · `table` — la TABLE DE CORRESPONDANCE affichée, sur le modèle du clavier :
+ *    la lettre monte vers sa case, qui s'allume, et sa valeur en redescend
+ *    aussitôt à sa place. Trois mises en page — réglette (une case par lettre),
+ *    grille (une colonne par valeur) et pavé téléphonique —, mais un seul
+ *    geste : une primitive par table aurait été une primitive par méthode.
+ *    Sa durée couvre un aller-retour complet ; le déploiement du décor
+ *    (`montre`) et son repli (`retire`) ne se paient qu'aux deux bouts d'une
+ *    série d'étapes qui emploient la même table ;
  *  · `fourteenSeg` — l'afficheur QUATORZE segments. Même geste que `sevenSeg`,
  *    autre afficheur : le vocabulaire nomme des gestes, et appeler « sept
  *    segments » un afficheur qui en allume quatorze aurait fait mentir le nom
@@ -62,7 +68,7 @@ export const LINE_HEIGHT = 78;   // unités viewBox
 export const OP_NAMES = Object.freeze([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'alphabet',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table',
 ]);
 
 /**
@@ -96,7 +102,7 @@ export const DEFAULT_DUR = Object.freeze({
   reveal: 1400,
   wait: 900,
   partition: 1800,
-  alphabet: 2800,
+  table: 2600,
 });
 
 /** `kind` des tokens — vocabulaire fermé (recherche §2.2). */
@@ -162,6 +168,11 @@ export const PALETTE = Object.freeze({
   surface: '#141A26',
   raised: '#1E2634',
   line: '#2C3546',
+  // `line-ui` — le trait porteur de sens (design §2.3). Il sert aussi de BORNE
+  // à la teinte de fond des tables : plus sombre que `raised` en thème clair,
+  // plus clair en thème sombre, donc la direction de la teinte est portée par
+  // les jetons et non par une détection de thème.
+  lineUi: '#5E6C86',
   fg: '#EFE6D4',
   fg2: '#B9AF9B',
   fg3: '#8E8575',

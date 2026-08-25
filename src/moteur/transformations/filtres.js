@@ -1,18 +1,23 @@
 /**
  * Filtres — `STR → STR`. Codes `f…` (CONTRACTS §4.1).
  *
- * Deux gestes visuels seulement : ceux qui **retirent** des caractères émettent
- * un `drop` (les tokens conservés gardent leur identifiant), ceux qui
- * **remplacent** émettent un `substitute` (ils créent donc de nouveaux tokens).
+ * Trois gestes visuels : ceux qui **retirent** des caractères émettent un `drop`
+ * (les tokens conservés gardent leur identifiant), ceux qui **remplacent**
+ * émettent un `substitute` (ils créent donc de nouveaux tokens) — et ceux qui
+ * **chiffrent**, c'est-à-dire qui remplacent une lettre par une autre selon une
+ * règle, MONTRENT leur table : `table`, une lettre à la fois, exactement comme
+ * les mappeurs lettre → nombre. Une conversion par table n'est vérifiable que
+ * si la table est sous les yeux (CONTRACTS §0.3) ; « A devient Z » est une
+ * affirmation tant qu'on n'a pas vu les deux alphabets face à face.
  *
  * Convention : un filtre qui ne changerait rien retourne `null`. Une étape qui
  * ne fait rien n'a pas à être montrée, et le moteur de recherche l'élague.
  */
 
-import { VOYELLES, VOYELLES_Y, sansAccents, atbash, cesar } from '../tables/alphabet.js';
+import { LETTRES, VOYELLES, VOYELLES_Y, sansAccents, atbash, cesar } from '../tables/alphabet.js';
 import { bilingue, dire } from '../i18n.js';
 import {
-  def, apparier, sortieCreee, sortieConservee, etape, token, fusion, enchainer,
+  def, apparier, sortieCreee, sortieConservee, etape, token, fusion, enchainer, nomToken,
 } from './commun.js';
 
 // Libellés dont `steps()` a besoin avant que `def()` ait figé l'opérateur.
@@ -113,6 +118,127 @@ function etapeRemplacement(op) {
   };
 }
 
+/**
+ * ★ La réglette d'un chiffrement, **dérivée de la fonction qui chiffre**.
+ *
+ * Même discipline que `tableDe` chez les mappeurs (CONTRACTS §0.3) : ce qui
+ * sera DESSINÉ n'est pas une seconde copie de la règle Atbash ou César, c'est
+ * `fn` — la fonction même qu'`apply()` applique — évaluée sur les caractères de
+ * son domaine. Une divergence entre la table montrée et la table employée est
+ * impossible par construction ; le moteur visuel refuse en outre de faire
+ * redescendre une lettre qui ne serait pas dans la case
+ * (`src/visuel/primitives/table.js`), et le pont la recoupe une troisième fois
+ * (`src/recherche/scenario.js`).
+ *
+ * @param {string|string[]} domaine  les caractères que le chiffrement traite
+ * @param {(c:string)=>string} fn    la fonction de l'opérateur
+ */
+function regletteDe(domaine, fn) {
+  return Object.freeze([...domaine].map((char) => {
+    const value = fn(char);
+    if (typeof value !== 'string' || [...value].length !== 1) {
+      throw new Error(`réglette : « ${char} » ne rend pas une lettre unique (${JSON.stringify(value)}).`);
+    }
+    return Object.freeze({ char, value });
+  }));
+}
+
+/**
+ * Sortie d'un filtre qui MUE caractère par caractère : **les inchangés gardent
+ * leur identifiant**.
+ *
+ * Un chiffrement par substitution ne touche pas au tiret de `hope-hope-hope` ni
+ * au chiffre d'un `h0pe` : le recréer à l'identique ferait clignoter un jeton
+ * que rien n'a transformé, et l'animation raconterait un travail qui n'a pas eu
+ * lieu. `sortieCreee` reste le repli quand les longueurs diffèrent — là, plus
+ * rien ne s'aligne, et c'est `etapeRemplacement` qui prend la main.
+ */
+function sortieMuee(avant, apres, ctx) {
+  const av = [...avant.valeur];
+  const ap = [...apres.valeur];
+  if (av.length !== ap.length) return sortieCreee(avant, apres, ctx);
+  return ap.map((c, i) => (c === av[i] ? ctx.ids[i] : nomToken(ctx, i)));
+}
+
+/**
+ * Étape « on chiffre » — **la table est MONTRÉE, et un aller-retour par lettre**.
+ *
+ * ```
+ *   h  t  t  p  s        ①  « h » monte vers sa colonne de la glissière,
+ *   ↑                        elle s'allume, « S » en redescend à sa place
+ *   A B C … H … Z
+ *   Z Y X … S … A
+ * ```
+ *
+ * ★ Pourquoi une table, alors que le résultat tient en une lettre. Parce que
+ * `h → s` est une AFFIRMATION tant qu'on n'a pas vu pourquoi. L'Atbash décide
+ * désormais de la sixième série de 666 sur `hope-hope-hope.fr` : une étape qui
+ * pèse ce poids ne peut pas rester une substitution muette. La glissière montre
+ * les deux alphabets, l'un à l'endroit, l'autre à l'envers — et la règle se lit
+ * d'un coup d'œil au lieu d'être crue sur parole.
+ *
+ * ★ **Un aller-retour par lettre, jamais groupé** — même raison que les tables
+ * lettre → nombre : faire monter les cinq lettres de `https` puis redescendre
+ * les cinq résultats d'un bloc fait perdre QUELLE lettre a donné QUOI, ce qui
+ * est précisément ce qu'il fallait montrer.
+ *
+ * ★ **Ce qui se mutualise, c'est le DÉCOR.** `montre` sur la première lettre,
+ * `retire` sur la dernière : entre les deux, la glissière reste montée et la
+ * caméra ne rebouge pas. `mutualiserDecor` (`src/recherche/scenario.js`) étend
+ * ensuite la série par-dessus les étapes voisines qui emploient la même table.
+ *
+ * ★ **Les lettres inchangées ne font pas d'étape.** Le tiret de `hope-hope-hope`
+ * n'est pas dans l'alphabet : l'Atbash ne le touche pas, et rien à l'écran ne
+ * doit laisser croire le contraire.
+ */
+function etapeTable(op) {
+  return (avant, apres, ctx) => {
+    const sortie = op.sortie(avant, apres, ctx);
+    const av = [...avant.valeur];
+    const ap = [...apres.valeur];
+    const titre = dire(op.libelle, ctx.langue);
+    const regle = dire(op.regle, ctx.langue);
+
+    // Longueurs désalignées : plus rien à mettre en face de quoi. On rend la
+    // main au geste générique, qui sait faire porter la queue du mot d'arrivée.
+    if (av.length !== ap.length) return etapeRemplacement(op)(avant, apres, ctx);
+
+    const cases = new Map(op.table.map((e) => [e.char, e]));
+    const mues = ap.map((c, i) => (c === av[i] ? -1 : i)).filter((i) => i >= 0);
+    if (!mues.length) return [etape(ctx, titre, regle, [{ op: 'move' }])];
+
+    // Repli : une lettre changée dont on ne saurait pas montrer la case. On
+    // n'affirme rien qu'on ne sait pas montrer — on substitue, sans table.
+    if (!mues.every((i) => cases.has(pli(av[i])))) {
+      return [etape(ctx, titre, regle, enchainer([{
+        op: 'substitute', stagger: 60,
+        pairs: mues.map((i) => ({ target: ctx.ids[i], to: token(sortie[i], ap[i], 'letter') })),
+      }]))];
+    }
+
+    const dernier = mues[mues.length - 1];
+    return mues.map((i) => etape(
+      ctx,
+      titre,
+      `${regle} : ${av[i]} → ${ap[i]}`,
+      [{
+        op: 'table',
+        disposition: op.forme || 'reglette',
+        entries: op.table.map((e) => ({ ...e })),
+        target: ctx.ids[i],
+        // La lettre PLIÉE — c'est celle qu'`apply()` a convertie, et celle que
+        // la réglette porte : elle est écrite en capitales, la ligne garde sa
+        // casse.
+        letter: pli(av[i]),
+        to: token(sortie[i], ap[i], 'letter'),
+        montre: i === mues[0],
+        retire: i === dernier,
+      }],
+      { id: `s_${ctx.cle}_${i}` },
+    ));
+  };
+}
+
 /** Petit dictionnaire embarqué (zéro dépendance, zéro requête réseau). */
 export const DICO_EN_FR = Object.freeze({
   hope: 'espoir', love: 'amour', life: 'vie', death: 'mort', god: 'dieu',
@@ -153,6 +279,16 @@ function muer(valeur, traces, fn) {
 }
 
 const PROTOCOLES = /^(?:https?|ftp|ftps|ssh|file):\/\//i;
+
+/**
+ * Le leet speak, dans le sens où on le DÉCODE : le chiffre, puis la lettre.
+ *
+ * La substitution est écrite une fois ; `deleet` l'applique, et la réglette
+ * montrée s'obtient en appliquant `deleet` — pas en relisant la table. Le
+ * dessin ne peut donc pas diverger du calcul.
+ */
+const LEET = Object.freeze({ 4: 'a', 3: 'e', 1: 'i', 0: 'o', 5: 's', 7: 't' });
+const deleet = (s) => s.replace(/[431057]/g, (c) => LEET[c] ?? c);
 
 const brut = [
   {
@@ -364,9 +500,15 @@ const brut = [
     libelle: bilingue('On décode le leetspeak', 'Decode the leetspeak'),
     regle: bilingue('4→a, 3→e, 1→i, 0→o, 5→s, 7→t', '4→a, 3→e, 1→i, 0→o, 5→s, 7→t'),
     notoriete: 0.30, adHoc: 0.15,
-    apply: (valeur, traces) => muer(valeur, traces,
-      (s) => s.replace(/[431057]/g, (c) => ({ 4: 'a', 3: 'e', 1: 'i', 0: 'o', 5: 's', 7: 't' }[c] ?? c))),
+    apply: (valeur, traces) => muer(valeur, traces, deleet),
     remplace: true,
+    // ★ Six correspondances, arbitraires : rien à démontrer, tout à MONTRER.
+    //   Une réglette ordinaire suffit — le chiffre en haut, la lettre dessous —
+    //   et la règle cesse d'être une ligne de légende qu'il faut croire. Pas de
+    //   glissière ici : le leet n'est pas un déplacement de l'alphabet, et le
+    //   moteur visuel refuserait ce dessin (`primitives/table.js`).
+    forme: 'reglette',
+    table: regletteDe(Object.keys(LEET).sort(), deleet),
   },
   {
     id: 'f.atbash', code: 'fk', famille: 'filtre', from: 'STR', to: 'STR',
@@ -376,6 +518,13 @@ const brut = [
     notoriete: 0.30, adHoc: 0.2,
     apply: (valeur, traces) => muer(valeur, traces, atbash),
     remplace: true,
+    // ★ La règle EST une symétrie : elle se montre par deux alphabets alignés,
+    //   l'un à l'endroit, l'autre à l'envers. `A` en face de `Z`, `B` en face
+    //   de `Y`, et l'axe du miroir tombe pile au milieu de la bande. La
+    //   glissière est refusée à qui n'est pas un déplacement de la réglette :
+    //   celle-ci l'est, d'un pas de −1.
+    forme: 'glissiere',
+    table: regletteDe(LETTRES, atbash),
   },
   {
     id: 'f.rot13', code: 'fl', famille: 'filtre', from: 'STR', to: 'STR',
@@ -384,6 +533,12 @@ const brut = [
     notoriete: 0.25, adHoc: 0.25,
     apply: (valeur, traces) => muer(valeur, traces, (s) => cesar(s, 13)),
     remplace: true,
+    // ★ Un décalage se montre par une réglette qui GLISSE : la bande du bas est
+    //   la même que celle du haut, partie treize rangs plus loin. Sa couture —
+    //   le vide entre `Z` et `A` — est le modulo, à l'endroit exact où il
+    //   opère, comme le retour à la ligne de la pythagoricienne pour son 9.
+    forme: 'glissiere',
+    table: regletteDe(LETTRES, (c) => cesar(c, 13)),
   },
 ];
 
@@ -411,8 +566,32 @@ export function decouperMots(valeur) {
   return out;
 }
 
+/**
+ * Trois gestes, et le choix se lit dans le descripteur :
+ *
+ * | le filtre… | sortie | geste |
+ * |------------|--------|-------|
+ * | retire des caractères | ids conservés | `drop`, puis `move` |
+ * | remplace, **table à l'appui** | ids des seuls mués | `table`, une lettre à la fois |
+ * | remplace | ids recréés | `substitute` |
+ *
+ * ★ La table n'est pas donnée à tous les `remplace`, et c'est délibéré. Elle
+ * répond à « comment fais-tu cette conversion ? » : l'Atbash, César et le leet
+ * speak doivent une réponse, parce que rien dans `h → s` ne se devine. La
+ * capitale, le bas de casse et le retrait des accents n'en doivent aucune — le
+ * glyphe d'arrivée montre lui-même ce qui s'est passé, et une réglette de
+ * vingt-six cases où `A` donne `A` serait une tautologie mise en scène. La
+ * traduction, elle, ne travaille pas lettre à lettre : c'est le mot entier qui
+ * change, et sa table serait le dictionnaire.
+ */
 export const FILTRES = Object.freeze(brut.map((spec) => {
   const { remplace, ...reste } = spec;
-  const base = { ...reste, sortie: remplace ? sortieCreee : sortieConservee };
-  return def({ ...base, steps: remplace ? etapeRemplacement(base) : etapeRetrait(base) });
+  const parTable = remplace && Array.isArray(spec.table) && spec.table.length > 0;
+  const base = {
+    ...reste,
+    sortie: parTable ? sortieMuee : (remplace ? sortieCreee : sortieConservee),
+  };
+  const steps = parTable ? etapeTable(base)
+    : (remplace ? etapeRemplacement(base) : etapeRetrait(base));
+  return def({ ...base, steps });
 }));

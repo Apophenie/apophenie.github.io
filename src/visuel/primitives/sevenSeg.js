@@ -14,7 +14,7 @@
  * README, et le spectateur voit littéralement pourquoi `H = 3 traits`.
  */
 
-import { SEGMENTS, SEGMENT_ORDER, fusedStrokes } from '../assets.js';
+import { SEGMENTS, SEGMENTS_DSEG7, SEGMENT_ORDER, fusedStrokes } from '../assets.js';
 import { planAfficheur } from './afficheur.js';
 import { fail } from '../errors.js';
 
@@ -33,6 +33,7 @@ export function plan(ctx) {
   planAfficheur(ctx, {
     nom: 'sevenSeg',
     SEGMENTS,
+    PLEINS: SEGMENTS_DSEG7,
     ORDER: SEGMENT_ORDER,
     fusedStrokes: (allumes) => fusedStrokes(allumes.join('')),
     lire,
