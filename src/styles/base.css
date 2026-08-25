@@ -156,7 +156,7 @@ button { background: none; border: 0; cursor: pointer; }
    elle repose entièrement sur la graisse, le corps et l'interlettrage. D'où
    600 en titre contre 400 au corps — un cran de plus que les 500 d'avant, qui
    suffisaient tant qu'une didone marquait la différence à elle seule. */
-h1, h2, h3, .oracle, .voie__resultat, .saisie-citee { font-weight: 600; }
+h1, h2, h3, .oracle, .saisie-citee { font-weight: 600; }
 
 h1 { font-family: var(--oracle); font-size: var(--fs-2xl); font-weight: 600;
      line-height: var(--lh-affichage); letter-spacing: -.015em; overflow-wrap: anywhere; }

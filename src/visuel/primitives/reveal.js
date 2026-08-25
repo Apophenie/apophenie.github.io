@@ -69,6 +69,43 @@
  * posé sous un chiffre. La palette dit déjà tout ce qu'il y a à dire : les
  * chiffres passent en **rubrique**, la couleur de l'affirmation (design §2.3).
  * `halo: true` le rétablit pour qui en voudrait.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ## L'ORAGE — la scénographie du registre scénique
+ *
+ * « En thème clair, le passage à un fond noir/lugubre ; puis, quel que soit le
+ * thème, un flash d'éclair/foudre qui s'applique au fond ; et un effet
+ * d'embrasement animé autour de chaque 666 et chaque 666 à cornes. »
+ * (l'auteur)
+ *
+ * ★ **Ce n'est PAS une op du vocabulaire, et c'est délibéré.** Le vocabulaire
+ * §3.1 nomme les GESTES DE LA DÉMONSTRATION — ce qui est fait aux jetons, et
+ * dont Le Registre doit rendre compte. La nuit, la foudre et le feu ne font
+ * rien à aucun jeton : ils ne changent ni une valeur, ni un rang, ni un
+ * compte, et Le Registre n'a rigoureusement rien à en dire. Ce sont des objets
+ * du MOTEUR, de la même famille que `@camera` et `@pan` — qui ne sont pas non
+ * plus dans le vocabulaire. Les faire entrer aurait eu deux coûts : un
+ * vingt-deuxième nom à tenir en trois exemplaires, et surtout un scénario qui
+ * ne serait plus le même objet dans les deux registres, alors que c'est
+ * précisément ce qu'on veut garantir — même programme, même verdict, même
+ * score, deux mises en scène.
+ *
+ * Elle est donc pilotée par `ctx.scenographie`, une option de COMPILATION,
+ * posée par la page qui a lu le lien (`app/pages/demonstration.js`), au même
+ * titre que `reduced` et `repeatSpeed`.
+ *
+ * ★ **Tout est fonction du temps, rien n'est tiré au sort** (CONTRACTS §4.4) :
+ * l'éclair est une enveloppe d'opacité écrite à la main, en `values` /
+ * `offsets`. Un `Math.random()` aurait donné un éclair différent à chaque
+ * lecture — donc un scrubbing qui ne retomberait jamais sur la même image.
+ *
+ * ★ **Et la nuit tombe DANS LES DEUX THÈMES.** L'auteur ne la demande qu'en
+ * thème clair, mais la suite de sa phrase — « puisque maintenant la scène est
+ * sur fond sombre dans tous les cas » — dit l'intention : ce qu'il veut, c'est
+ * que les trois effets partagent le même fond. On l'obtient en faisant tomber
+ * la nuit partout, avec la même couleur : basculement complet en thème clair,
+ * approfondissement en thème sombre. Une seule palette de nuit, donc un seul
+ * contraste à mesurer (voir `tokens.css`, `--scene-nuit`).
  */
 
 import { targetsOf, ensureHalo } from './helpers.js';
@@ -111,6 +148,52 @@ function videDeSerie(ctx) {
 
 /** Garde-fou : au-delà, un glyphe unique deviendrait grotesque. */
 const ZOOM_MAX = 14;
+
+/**
+ * ★ L'ÉCLAIR — **deux** éclats, et pas un de plus.
+ *
+ * WCAG 2.3.1 (« Trois flashs ou moins ») interdit plus de trois éclats dans
+ * une seconde quelconque, dès lors que la surface qui clignote dépasse un
+ * certain angle — et ici elle occupe la scène entière. L'enveloppe compte donc
+ * **deux** crêtes, sur une animation qui ne se répète jamais : deux dans la
+ * seconde, sous le seuil de trois, quelle que soit la fenêtre d'une seconde
+ * qu'on y promène.
+ *
+ * Ce n'est pas seulement une case à cocher : deux éclats, c'est aussi ce que
+ * fait la foudre. Un stroboscope ne ressemble pas à un orage.
+ *
+ * La seconde crête est plus faible et plus courte que la première — la
+ * décharge de retour —, et la queue s'éteint lentement. Le plafond à 0,55
+ * laisse la nuit transparaître : un blanc plein effacerait le 666 pendant
+ * l'éclair, c'est-à-dire cacherait la chute au moment de la chute.
+ */
+const ECLAIR = Object.freeze({
+  offsets: [0, 0.05, 0.13, 0.21, 0.30, 0.46, 1],
+  valeurs: [0, 0.55, 0.08, 0.38, 0.05, 0.015, 0],
+});
+
+/**
+ * ★ L'EMBRASEMENT — une flamme respire, elle ne bat pas.
+ *
+ * L'enveloppe joue sur l'OPACITÉ seule, jamais sur l'échelle : le canal
+ * `scale` du brasier appartient déjà à la solidarité du décor accroché
+ * (`animSolidaire`, CONTRACTS §3.2 règle 10), qui le fait grandir avec le 6
+ * qu'il entoure. Deux animations sur ce canal se contrediraient — et
+ * `tl.warnings` le dirait. Le feu vacille donc en intensité, ce qui est de
+ * toute façon ce que fait le feu.
+ *
+ * Six paliers sur toute la durée du verdict : la cadence la plus rapide est de
+ * l'ordre de 250 ms, très loin d'un clignotement.
+ */
+const BRASIER = Object.freeze({
+  offsets: [0, 0.18, 0.36, 0.55, 0.78, 1],
+  valeurs: [0, 0.98, 0.66, 0.92, 0.74, 0.86],
+  /** Demi-axes de la lueur, en largeurs de chasse et en corps de glyphe. */
+  rayonX: 2.6,
+  rayonY: 1.45,
+  /** Le feu prend par le bas : la lueur s'assied un peu sous l'ancre. */
+  assise: 0.10,
+});
 
 export function plan(ctx) {
   const ids = targetsOf(ctx);
@@ -185,6 +268,12 @@ export function plan(ctx) {
   // divergent, et même remède — le décor partage tout, y compris son instant
   // de naissance.
   const halos = withHalo ? ids.map((id) => ensureHalo(ctx, id, 'gold')) : [];
+
+  // ★ ET L'ORAGE NAÎT ICI AUSSI, pour la même raison : un décor accroché
+  //   partage l'instant de naissance de ce qu'il suit (CONTRACTS §3.2 règle
+  //   10). Un brasier créé après le regroupement serait posé d'un coup à
+  //   l'arrivée pendant que son chiffre, lui, y voyagerait.
+  const orage = ctx.scenographie ? monterLOrage(ctx, ids) : null;
 
   // --- 2. le regroupement : quand le canal est libre, et pas avant ----------
   //
@@ -290,17 +379,44 @@ export function plan(ctx) {
   // paires de cornes sur deux rangs, ce n'est plus une trouvaille qu'on
   // souligne, c'est un motif de papier peint. Sur un seul rang, tous ceux qui
   // sont couronnés le restent : il n'y a rien à alléger.
+  //
+  // ★ Et ce sont les CORNES qui se retirent, pas tout le décor. L'embrasement
+  //   du rang du bas reste : la surcharge que l'auteur veut éviter, c'est
+  //   « cinq paires de cornes sur deux rangs », un motif de papier peint fait
+  //   d'un dessin répété. Une lueur n'est pas un motif — trois lueurs voisines
+  //   se fondent en une seule —, et un 666 qui brûlerait sur un rang mais pas
+  //   sur l'autre dirait qu'il y en a deux sortes.
   const rangDuBas = lignes > 1 ? Math.ceil(series.length / 2) : Infinity;
   const detrones = new Set();
   series.forEach((serie, s) => {
     if (s < rangDuBas) return;
-    for (const id of serie) for (const sid of ctx.scene.accrochesA(id)) detrones.add(sid);
+    for (const id of serie) {
+      for (const sid of ctx.scene.accrochesA(id)) {
+        const n = ctx.scene.get(sid);
+        if (n && n.role === 'horns') detrones.add(sid);
+      }
+    }
   });
+
+  // ★ SOUS LA NUIT, C'EST LA RUBRIQUE DE NUIT — et c'est une question de
+  //   lisibilité, pas de goût. La rubrique du thème clair est un rouge sombre
+  //   fait pour le parchemin (#A32218) : sur le fond lugubre elle tombe à
+  //   2,7:1, c'est-à-dire illisible à l'instant exact où la démonstration
+  //   livre sa chute. `--scene-rubric` y tient 7,4:1 (voir `tokens.css`).
+  //   Hors scénographie, rien ne change : le fond n'a pas bougé.
+  const encreDuVerdict = ctx.scenographie ? ctx.palette.rubricNuit : ctx.palette.rubric;
 
   ids.forEach((id, i) => {
     const at = i * cadence;
     ctx.anim({ id, prop: 'opacity', to: 1, at, dur: Math.max(1, ctx.dur * 0.3) });
-    ctx.anim({ id, prop: 'fill', to: ctx.palette.rubric, at, dur: Math.max(1, ctx.dur * 0.45) });
+    // ★ Les CORNES passent à la même encre, au même instant, sur la même
+    //   courbe. Elles ont pris la rubrique du thème au couronnement, sous le
+    //   fond du thème ; la nuit tombée, elles disparaîtraient dans le noir en
+    //   thème clair. `animSolidaire` est exactement l'outil de ce cas : un
+    //   décor accroché partage ce qui bouge (§3.2 règle 10). Hors
+    //   scénographie, on garde `anim` — il n'y a rien à emmener.
+    const peindre = ctx.scenographie ? ctx.animSolidaire : ctx.anim;
+    peindre({ id, prop: 'fill', to: encreDuVerdict, at, dur: Math.max(1, ctx.dur * 0.45) });
     // ★ Ce qui est POSÉ SUR un chiffre grandit avec lui — les cornes du 666.
     //
     // Le verdict grossit les glyphes ET leurs écarts du même facteur, sur une
@@ -325,6 +441,140 @@ export function plan(ctx) {
   for (const sid of detrones) {
     ctx.anim({ id: sid, prop: 'opacity', to: 0, at: tGrossir, dur: dGrossir * 0.5, ease: EASE.fade });
   }
+
+  if (orage) allumerLOrage(ctx, orage);
+}
+
+/* ══════════════════════════════ L'ORAGE ═══════════════════════════════════ */
+
+/**
+ * Crée les nœuds de l'orage — sans rien animer encore.
+ *
+ * Séparé de l'allumage pour une raison de contrat et non de style : un décor
+ * accroché doit **exister avant le premier déplacement** de ce qu'il suit
+ * (CONTRACTS §3.2 règle 10), et le regroupement du verdict a lieu bien avant
+ * que le feu ne prenne. La naissance est donc appelée en tête de `plan`,
+ * l'allumage à la fin.
+ *
+ * @returns {{nuit:string, eclair:?string, brasiers:string[]}}
+ */
+function monterLOrage(ctx, ids) {
+  const vb = ctx.layoutOpts.viewBox;
+  // Trois fois la scène : voir `dom.js`, rôle « nuit ». Un aplat uni ne se
+  // paie pas au pixel, et l'on est certain qu'aucun bord ne se découvrira.
+  const w = vb.w * 3;
+  const h = vb.h * 3;
+  const centre = { x: vb.x + vb.w / 2, y: vb.y + vb.h / 2 };
+
+  const aplat = (id, role, couleur) => {
+    if (!ctx.scene.has(id)) {
+      ctx.scene.create({
+        id, role, inFlow: false, w,
+        data: { w, h },
+        base: { opacity: 0, fill: couleur },
+      }, { where: ctx.where });
+    }
+    ctx.place(id, { x: centre.x, y: centre.y, w, h });
+    return id;
+  };
+
+  const nuit = aplat('@nuit', 'nuit', ctx.palette.nuit);
+  // ★ Pas d'éclair en mouvement réduit. Une enveloppe compilée à 1 ms n'est
+  //   plus un éclair, c'est une image blanche d'une frame — c'est-à-dire très
+  //   exactement ce que `prefers-reduced-motion` existe pour épargner. La
+  //   nuit, elle, reste : ce n'est pas un mouvement, c'est un état.
+  const eclair = ctx.reduced ? null : aplat('@eclair', 'eclair', ctx.palette.eclair);
+
+  const rx = ctx.metrics.advance * BRASIER.rayonX;
+  const ry = ctx.metrics.fontSize * BRASIER.rayonY;
+  const brasiers = ids.map((id) => {
+    const bid = `@brasier:${id}`;
+    if (!ctx.scene.has(bid)) {
+      ctx.scene.create({
+        id: bid,
+        role: 'brasier',
+        inFlow: false,
+        w: rx * 2,
+        // ★ `suit` fait du brasier un SATELLITE du chiffre : il le suit à
+        //   chaque reflow et grandit avec lui au verdict, exactement comme une
+        //   corne. C'est ce qui rend le calage incassable — la lueur ne peut
+        //   pas se décrocher de ce qu'elle entoure.
+        //
+        //   ★ Et pas de `debord` : `reveal` s'en sert pour RÉTRÉCIR le verdict
+        //   afin qu'un décor pointu ne sorte pas du cadre. Une lueur qui
+        //   s'éteint en dégradé n'a pas de pointe et n'a aucun bord à
+        //   respecter : au contraire, un feu qui déborde du cadre est ce qu'on
+        //   veut voir. Le déclarer ferait payer au 666 une taille qu'il n'a
+        //   aucune raison de perdre.
+        data: {
+          suit: id, rx, ry, couleur: ctx.palette.brasier,
+          decalageY: ctx.metrics.fontSize * BRASIER.assise,
+        },
+        // ★ `fill` doit figurer dans la base, même si le dégradé le reprend.
+        //   Sans elle, `lastValue` (compile.js) retombe sur `DEFAULT_BASE`, qui
+        //   n'a pas de couleur, donc sur `0` : le navigateur refuse la keyframe
+        //   (« Invalid keyframe value for property fill: 0 ») et l'animation est
+        //   jetée EN SILENCE. Six brasiers muets sur « Donald Trump », quinze
+        //   sur `hope-hope-hope.fr`, sans qu'aucun test ne s'en aperçoive.
+        base: { opacity: 0, fill: ctx.palette.brasier },
+      }, { where: ctx.where });
+    }
+    const p = ctx.scene.pos(id);
+    if (p) {
+      ctx.place(bid, {
+        x: p.x,
+        // Le feu prend par le bas — la lueur s'assied un peu sous l'ancre du
+        // glyphe. Le report suit l'échelle puisqu'il est posé avant le
+        // grossissement, comme tout le reste du décor accroché.
+        y: p.y + ctx.metrics.fontSize * BRASIER.assise,
+        w: rx * 2, h: ry * 2,
+      });
+    }
+    return bid;
+  });
+
+  return { nuit, eclair, brasiers };
+}
+
+/**
+ * Allume l'orage. Trois temps, et ils se suivent dans l'ordre où on les lit :
+ * **la nuit tombe**, **la foudre frappe**, **le feu prend**.
+ *
+ * Le feu part APRÈS l'éclair, pas avant : dans cet ordre, c'est la foudre qui
+ * met le feu, et l'orage raconte quelque chose. Dans l'autre, ce sont trois
+ * effets posés côte à côte.
+ */
+function allumerLOrage(ctx, { nuit, eclair, brasiers }) {
+  const d = ctx.dur;
+
+  // 1. LA NUIT — d'abord, et vite : tout le reste se joue dessus. C'est le
+  //    seul temps qui survit au mouvement réduit, parce que c'est un état.
+  ctx.anim({ id: nuit, prop: 'opacity', to: 1, at: 0, dur: Math.max(1, d * 0.26), ease: EASE.fade });
+
+  // 2. LA FOUDRE — juste après, sur un fond déjà sombre. L'enveloppe est
+  //    écrite à la main (`ECLAIR`), donc fonction du temps et rien d'autre.
+  if (eclair) {
+    ctx.anim({
+      id: eclair, prop: 'opacity',
+      values: ECLAIR.valeurs, offsets: ECLAIR.offsets,
+      at: d * 0.24, dur: Math.max(1, d * 0.62), ease: EASE.linear,
+    });
+  }
+
+  // 3. LE FEU — il prend là où la foudre a frappé, et il ne s'éteint plus. En
+  //    mouvement réduit, une lueur fixe : le feu est là, il ne vacille pas.
+  brasiers.forEach((bid, i) => {
+    const at = d * 0.36 + i * (ctx.stagger ? Math.min(ctx.stagger, d * 0.04) : d * 0.02);
+    if (ctx.reduced) {
+      ctx.anim({ id: bid, prop: 'opacity', to: 0.86, at, dur: 1 });
+      return;
+    }
+    ctx.anim({
+      id: bid, prop: 'opacity',
+      values: BRASIER.valeurs, offsets: BRASIER.offsets,
+      at, dur: Math.max(1, d - at), ease: EASE.linear,
+    });
+  });
 }
 
 /**

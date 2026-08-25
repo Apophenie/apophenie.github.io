@@ -120,6 +120,16 @@ export const fr = {
     aucuneVoie: 'Aucune voie trouvée. C’est mathématiquement impossible ; nous enquêtons.',
     voieNumero: 'n° {rang}',
     voieSansTitre: 'Approche n° {rang}',
+    /* Les deux accès d'un panneau de voie. Le libellé VISIBLE est court — il
+       tient sur une demi-largeur de carte —, le nom ACCESSIBLE porte le titre
+       de la voie : douze cartes offrant douze liens « Sobre » ne distingueraient
+       rien dans la liste des liens d'un lecteur d'écran. */
+    acces: {
+      sobre: 'Sobre',
+      sobreLabel: '{titre} — version sobre, sans mise en scène',
+      scenique: 'Scénique',
+      sceniqueLabel: '{titre} — version scénique, avec cornes et orage',
+    },
     jokerNote: 'Joker français : ne fonctionne qu’en français, et c’est un argument.',
     cheminUnique: '{n} chemin',
     cheminsPluriels: '{n} chemins',
@@ -140,6 +150,8 @@ export const fr = {
       resonanceTexte: 'résonance : le même programme sur les trois occurrences d’un motif répété.',
       portee: '#0.1:m1+c1,1.1:n2#…',
       porteeTexte: 'portée : offset et longueur en jetons de la saisie.',
+      registre: '#sobre!…#…  ·  #scenique!…#…',
+      registreTexte: 'registre de mise en scène, en tête de l’approche. Absent, il vaut « scénique » — c’est ainsi que se lisent les liens d’avant.',
       copier: 'Copier le lien de cette page',
     },
   },
@@ -153,6 +165,8 @@ export const fr = {
     allerAuRegistre: 'Aller au registre',
     revoir: 'Revoir',
     autreVoie: 'Une autre voie',
+    voirSobre: 'Voir en sobre',
+    voirScenique: 'Voir en scénique',
     nouvelleRecherche: 'Nouvelle recherche',
     debug: {
       etape: 'étape',
@@ -205,6 +219,14 @@ export const fr = {
     reditesAccelerer: 'Accélérer les répétitions ({facteur}×)',
     reditesRalentir: 'Montrer les répétitions en entier',
     reditesSansEffet: 'Accélération des répétitions sans effet : les animations sont réduites',
+    /* La coupure du son. Trois libellés pour trois états réels — voir
+       `src/app/sons.js` : le bouton dit ce qu'un clic FERA, et l'infobulle
+       dit ce qui se passe quand la préférence est « actif » mais que le
+       navigateur n'a pas encore laissé passer le son. */
+    sonCourt: 'Son',
+    sonActiver: 'Activer le son',
+    sonCouper: 'Couper le son',
+    sonEnAttente: 'Son activé — il partira au premier clic dans la page',
   },
 
   registre: {
@@ -249,6 +271,13 @@ export const fr = {
       + '<em>DSEG7 Classic</em> (sept segments) et <em>DSEG14 Classic</em> '
       + '(quatorze segments). Quatre caractères sous licence '
       + '<a href="fonts/OFL-Jost.txt">SIL OFL 1.1</a>, hébergés ici même.',
+    /* Les sons sont cités là où les polices le sont, et pour la même raison :
+       ce site redistribue des œuvres de tiers. CC0 n'exige aucune attribution,
+       ce qui rend cette ligne facultative — donc d'autant plus révélatrice de
+       ce que la maison considère comme normal. */
+    sons: 'L’orage de la version scénique — tonnerre, brasier, abîme, effroi — est fait '
+      + 'de quatre sons du domaine public sous '
+      + '<a href="sons/CC0-sons.txt">CC0 1.0</a>, hébergés ici même eux aussi.',
     silence: 'Aucun cookie, aucune mesure d’audience, aucun appel réseau après le chargement.',
   },
 };

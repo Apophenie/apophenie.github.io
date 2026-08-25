@@ -1101,6 +1101,63 @@ function reglerLesCornes(steps, langue) {
 }
 
 /**
+ * LE REGISTRE SOBRE — les cornes ne poussent pas, et la trouvaille se dit
+ * quand même.
+ *
+ * ★ **« Désactiver les cornes » n'est PAS « désactiver `mz` ».** L'opérateur
+ * TRONQUE le vecteur : `[6,6,6,7,3,6]` devient `[6,6,6]`. Retirer le geste
+ * sans retirer l'opérateur donnerait une démonstration qui jette trois
+ * chiffres sans dire pourquoi — exactement ce que ce projet refuse partout
+ * ailleurs. Et retirer l'opérateur donnerait autre chose encore : un autre
+ * programme, donc une autre URL, un autre score, un autre rang. Or les deux
+ * boutons du panneau doivent mener à LA MÊME VOIE, à un marqueur près.
+ *
+ * Ce qu'on retire, c'est donc le DESSIN et le RYTHME, pas le raisonnement :
+ *
+ *  · plus de cornes — le geste redevient ce que le vocabulaire sait dire de
+ *    plus sobre : on DÉSIGNE les trois 6 (`highlight`), et on EFFACE le reste
+ *    sur place (`drop` en mode gomme, sans regroupement, le même
+ *    `helpers.effacerSurPlace` que la primitive employait) ;
+ *  · plus de couronnement anticipé, plus d'effacement différé — le geste
+ *    reste là où l'opérateur l'a posé. Les deux moments (`reglerLesCornes`)
+ *    n'existent que parce que les cornes DURENT jusqu'au verdict ; un
+ *    surlignage qu'aucun décor ne prolonge n'a rien à gagner à venir plus tôt.
+ *
+ * La LÉGENDE ne bouge pas — `6 6 6 7 3 6 → 666`, émise par `mz` lui-même. Le
+ * spectateur voit donc les mêmes valeurs entrer et les mêmes sortir, avec la
+ * même justification écrite dans Le Registre. Seule la mise en scène a changé,
+ * ce qui est très exactement la promesse du registre.
+ *
+ * ★ **Les trois verrous du contrôle croisé ne sont pas relâchés.** Ils ont
+ * déjà tous joué quand cette fonction s'exécute : `mappeurs.js` a dérivé
+ * cibles et effacement du même index, et `validerArithmetiqueOp` a vérifié sur
+ * la ligne — encore pleine — que les trois cibles portent un « 6 » et occupent
+ * trois rangs consécutifs. La réécriture n'a lieu qu'après, sur une op déjà
+ * validée ; ce qu'elle fait disparaître, c'est le troisième verrou
+ * (`primitives/horns.js`), et il n'a plus rien à vérifier puisqu'il n'y a plus
+ * de couronne à mériter.
+ *
+ * @param {Array} steps — modifié en place
+ * @returns {null} aucun jalon : sans couronnement, il n'y a rien à mesurer
+ */
+function sobrifierLesCornes(steps) {
+  for (const st of steps) {
+    const ops = st.ops || [];
+    const i = ops.findIndex((o) => o && o.op === 'horns');
+    if (i < 0) continue;
+    const { targets, efface } = ops[i];
+    const sobre = [{ op: 'highlight', targets: [...targets] }];
+    // `efface` peut être vide — un 666 qui occupe déjà toute la ligne n'a rien
+    // autour de lui. Un `drop` sans cible serait refusé par `validerFormeOp`.
+    if (efface && efface.length) {
+      sobre.push({ op: 'drop', targets: [...efface], mode: 'erase', regroup: false });
+    }
+    ops.splice(i, 1, ...sobre);
+  }
+  return null;
+}
+
+/**
  * ★ CE QUE LES CORNES DISENT AU SCORE — l'information, rendue disponible.
  *
  * « Les amener à l'étape 5 plutôt qu'à l'étape 9 devrait apporter un bonus de
@@ -1150,6 +1207,11 @@ export function jalonsDesCornes(scenario, mesures = null) {
 export function construireScenario(approche, ctx = {}) {
   const saisie = String(ctx.saisie ?? approche.saisie ?? '').normalize('NFC');
   const langue = ctx.langue === 'en' ? 'en' : LANGUE_DEFAUT;
+  // Le REGISTRE de mise en scène (`src/recherche/url.js`). Il ne touche qu'à
+  // UNE chose dans ce module — les cornes —, et rien d'autre : ni les codes,
+  // ni les valeurs, ni le verdict, ni le nombre de jetons. Une valeur inconnue
+  // vaut « scénique », comme dans la grammaire d'URL.
+  const registre = ctx.registre === 'sobre' ? 'sobre' : 'scenique';
   const alloc = creerAllocateur();
   const avertissements = [];
 
@@ -1523,7 +1585,14 @@ export function construireScenario(approche, ctx = {}) {
   //   et ne peut donc savoir ni quand ses trois 6 sont nés, ni ce que la suite
   //   leur fera. Avant `mutualiserDecor`, parce que déplacer une étape change
   //   les séries qu'une table traverse.
-  const cornes = reglerLesCornes(steps, langue);
+  //
+  // ★ …ou ne poussent pas du tout : c'est ici, et ici seulement, que le
+  //   REGISTRE sobre se distingue du scénique côté scénario. Tout le reste —
+  //   l'arithmétique, les codes, le verdict, le score, le rang — est
+  //   rigoureusement identique dans les deux (voir `sobrifierLesCornes`).
+  const cornes = registre === 'sobre'
+    ? sobrifierLesCornes(steps)
+    : reglerLesCornes(steps, langue);
 
   // ★ Le DÉCOR des tables se mutualise ici, et nulle part ailleurs : c'est le
   //   seul endroit qui voit la suite complète des étapes. Un opérateur ne
@@ -1542,6 +1611,12 @@ export function construireScenario(approche, ctx = {}) {
     tokens,
     steps,
   };
+  // ★ Le registre voyage AVEC le scénario. Le lecteur en a besoin — c'est lui
+  //   qui décide de l'orage et du son —, et le faire suivre par un canal
+  //   séparé donnerait deux sources de vérité pour une même décision : un
+  //   scénario dont les cornes ont été retirées pourrait alors se retrouver
+  //   compilé avec la scénographie, ce qui n'a aucun sens.
+  scenario.registre = registre;
   if (avertissements.length) scenario.avertissements = avertissements;
   // ★ Les jalons des cornes — mis à DISPOSITION du barème, jamais consommés
   //   ici. Voir `jalonsDesCornes`.

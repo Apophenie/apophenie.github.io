@@ -12,6 +12,10 @@
 // Le test `tests/etalonnage.test.js` mesure l'écart avec le tableau attendu.
 
 import { estDecret } from './titres.js';
+import {
+  bilanApproche, credit as creditDElegance, facteur as facteurDElegance,
+  note as noteDElegance, estPur,
+} from './elegance.js';
 
 // ══════════════════════════════════ RÉGLAGES — LE SEUL ENDROIT À MODIFIER
 
@@ -604,6 +608,33 @@ export function noter(approche, ctx) {
   // Le rendement du groupement — calculé, pas réglé. Voir le pavé ci-dessus.
   const rendement = rendementSix(approche);
   if (rendement !== null) score = Math.floor((score * racineEntiere(rendement * MILLE)) / MILLE);
+
+  // ── ★ L'ÉLÉGANCE DU CHEMIN — le neuvième malus, et le second qui se CALCULE.
+  //
+  // Les six critères, le rendement et les quatre malus constants se lisent tous
+  // sur l'ÉTAT FINAL. Ce que `elegance.js` mesure est d'une autre nature : ce
+  // qui se passe PENDANT le calcul — un 666 contigu qu'on défait, un 6 déjà
+  // écrit qu'on convertit en 12, une moyenne qui ne tombe pas juste, une lettre
+  // arrachée au milieu d'un mot. Voir l'en-tête de ce module-là.
+  //
+  // ★ Il s'applique en FACTEUR, et le facteur ne dépasse jamais 1 000 : une
+  // approche élégante n'est pas récompensée sur le score de conviction, elle est
+  // seulement épargnée. C'est la leçon mesurée de l'amendement « les trois rangs
+  // de conviction » — un bonus additif se paie sur la réserve et écrase toute
+  // l'échelle. Ce que l'élégance rapporte, elle le rapporte dans SON classement
+  // (`ordreElegance`), qui lit le crédit brut.
+  //
+  // ★ `ctx.elegance === false` DÉBRANCHE le facteur — sans débrancher la
+  //   mesure. Le bilan est calculé et publié quand même : c'est ce qui permet
+  //   au banc d'afficher le classement AVANT et APRÈS le barème sur une seule
+  //   exécution, et donc de comparer autre chose qu'un souvenir. Option
+  //   explicite, jamais un défaut silencieux — même doctrine que le filet
+  //   temporel de `bfs.js`.
+  const bilan = bilanApproche(approche, ctx);
+  const creditG = creditDElegance(bilan);
+  if (ctx.elegance !== false) {
+    score = Math.floor((score * facteurDElegance(creditG)) / MILLE);
+  }
   // Le décret vient EN DERNIER et se compose avec le joker : l'approche joker
   // est elle-même un décret (le même chemin, trois fois), elle cumule donc les
   // deux facteurs et reste en fond de liste, comme l'exige CONTRACTS §0.4.
@@ -616,7 +647,17 @@ export function noter(approche, ctx) {
   approche.decret = decret;
   approche.scoreBrut = score;
   approche.score = borner(score, 0, 10000);
-  approche.criteres = { H, N, U, C, A, E, brut, ...(rendement === null ? {} : { R: rendement }) };
+  // ★ L'élégance est publiée à part du score, parce qu'elle sert à part : c'est
+  // la clé du premier des trois classements (`ordreElegance`). `bilan` part
+  // avec, pour que le banc de mesure puisse dire POURQUOI une approche perd —
+  // un barème qu'on ne peut pas déboguer ne se règle pas.
+  approche.elegance = noteDElegance(creditG);
+  approche.bilan = bilan;
+  approche.pur = estPur(bilan);
+  approche.criteres = {
+    H, N, U, C, A, E, brut, G: approche.elegance,
+    ...(rendement === null ? {} : { R: rendement }),
+  };
   approche.L = L;
   approche.codes = chemins.map((c) => c.ops.map((o) => o.code).join('+')).join(',');
   return approche;
@@ -790,6 +831,134 @@ export function ordreTotal(a, b) {
   return a.codes < b.codes ? -1 : a.codes > b.codes ? 1 : 0;
 }
 
+/**
+ * ══════════════ ★ LES TROIS CLASSEMENTS — « ce n'est pas un tri unique » ══════
+ *
+ * « 1ʳᵉ suggestion — l'élégance. Mieux vaut une méthode élégante qui donne pile
+ *  666 qu'une méthode peu élégante qui donne davantage de 6. Mais si une
+ *  stratégie élégante — sans malus autre que d'exclure des blocs entiers séparés
+ *  par espace ou ponctuation et de moins de 3 lettres initialement — permet de
+ *  tomber juste sur plusieurs triptyques de 666, c'est encore mieux.
+ *  2ᵈ suggestion — le nombre de triptyques, au prix d'une élégance éventuellement
+ *  moindre, sans l'ignorer.
+ *  3ᵉ et suivantes — un mixte pondéré des deux, comme aujourd'hui. » — l'auteur.
+ *
+ * Trois questions, trois réponses, et elles ne se comparent pas entre elles :
+ * c'est une SÉLECTION À OBJECTIFS MULTIPLES, pas un tri de plus. `index.js`
+ * réserve la première place au champion de l'élégance, la seconde au champion des
+ * triptyques — quand il en offre réellement davantage —, et laisse le MMR (§4.8)
+ * garnir le reste par `ordreTotal`, qui est le mixte.
+ *
+ * ★ **Les trois gardent le RANG DE CONVICTION comme clé primaire.** L'auteur ne
+ * l'a pas remis en cause, et il dit autre chose que l'élégance : « le plus de
+ * séries sur caractères disjoints, puis les 666 ordinaires, puis ceux qui
+ * relisent trois fois les mêmes lettres ». Une convergence très élégante n'a pas
+ * à passer devant une moisson : elle répond à une question que l'auteur a déjà
+ * classée dernière.
+ */
+
+/**
+ * ★ 1ʳᵉ SUGGESTION — l'élégance.
+ *
+ * rang ASC → élégance DESC → séries DESC → pureté DESC → score DESC →
+ * L ASC → codes ASC.
+ *
+ * ★ **« Encore mieux » est ADDITIF, pas catégoriel — et c'est une MESURE qui
+ * l'impose.** « Si une stratégie élégante — sans malus autre que d'exclure des
+ * blocs entiers […] de moins de 3 lettres — permet de tomber juste sur
+ * plusieurs triptyques de 666, c'est encore mieux » (l'auteur). Une première
+ * version en faisait une CATÉGORIE : toute stratégie pure à deux séries ou plus
+ * passait devant, avant même de comparer les crédits.
+ *
+ * Mesuré, cette lecture-là casse un cas de référence. Sur
+ * `https://hope-hope-hope.fr/`, « on ne garde que les lettres, une par une, en
+ * quatorze segments » appliqué au motif `hope-hope-hope` est PUR au sens exact
+ * de la phrase — il n'écarte que la ponctuation, le protocole (gratuit) et le
+ * bloc `fr`, long de deux lettres — et il aligne quatre 666. Il passait donc
+ * devant la moisson à SIX séries, et la liste annonçait quatre séries là où six
+ * existaient. Or l'auteur demande six.
+ *
+ * La contradiction n'en est pas une, et sa phrase précédente le dit : « mieux
+ * vaut une méthode élégante […] qu'une méthode PEU élégante qui donne davantage
+ * de 6 ». La moisson à six séries n'est pas peu élégante — c'est le crédit le
+ * plus haut de sa liste (1 757). La règle ne s'appliquait donc pas ; c'est la
+ * catégorie qui la faisait s'appliquer de force.
+ *
+ * « Encore mieux » se paie désormais dans le CRÉDIT, où plusieurs triptyques
+ * rapportent (`TRIPTYQUE_CONTIGU`, `SIX_SURNUMERAIRE`,
+ * `SOLDE_MULTIPLE_DE_TROIS`) et où la pureté vaut par tout ce qu'elle ne perd
+ * pas. Deux mérites qui s'ajoutent, comparables l'un à l'autre — au lieu d'un
+ * mérite qui écrase l'autre sans le regarder.
+ *
+ * ★ **LE RANG DES SÉRIES ET LE RANG SIMPLE SONT MIS À ÉGALITÉ ICI — et
+ * seulement ici.** « Mieux vaut une méthode élégante qui donne pile 666 qu'une
+ * méthode peu élégante qui donne davantage de 6 » : cette phrase dit
+ * exactement que, dans CE classement-là, un 666 unique a le droit de passer
+ * devant une moisson. Les maintenir séparés rendait la première suggestion
+ * identique à la seconde partout où une moisson existe — mesuré : sur les
+ * trente-trois saisies du banc, la seconde suggestion ne se distinguait
+ * JAMAIS de la première, c'est-à-dire qu'elle était du code mort.
+ *
+ * ★ **La CONVERGENCE, elle, reste en dernier.** Elle répond à une question que
+ * l'auteur a classée dernière pour une raison que ce barème ne sait pas
+ * mesurer : « les mêmes caractères y servent trois fois ». Aucun compteur ne
+ * voit cela — le bilan lit un chemin à la fois, pas le recouvrement des
+ * portées —, et lui laisser prendre la tête au nom d'une élégance qui ignore
+ * précisément son défaut serait mesurer à côté. Le rang est donc replié en
+ * deux crans : « ce qui démontre sur des caractères qu'on n'a pas réemployés »,
+ * et « le reste ».
+ *
+ * ★ Et les SÉRIES tranchent avant le score, à élégance égale. Mesuré : sur
+ * `https://hope-hope-hope.fr/`, la moisson à six séries et celle à cinq ont
+ * exactement le même crédit (1 757) ; sans ce cran, c'est la moins fournie qui
+ * menait, parce qu'elle a un meilleur score de conviction.
+ */
+export function ordreElegance(a, b) {
+  // Le rang, replié : SÉRIES et SIMPLE à égalité, CONVERGENCE en dernier.
+  const ra = rangConviction(a) === RANG.CONVERGENCE ? 1 : 0;
+  const rb = rangConviction(b) === RANG.CONVERGENCE ? 1 : 0;
+  if (ra !== rb) return ra - rb;
+  const ea = a.elegance ?? 0;
+  const eb = b.elegance ?? 0;
+  if (ea !== eb) return eb - ea;
+  const sa = a.series || 1;
+  const sb = b.series || 1;
+  if (sa !== sb) return sb - sa;
+  // À crédit et à compte égaux, la stratégie sans reproche passe devant : c'est
+  // le dernier endroit où la phrase de l'auteur peut encore trancher, et elle y
+  // tranche sans pouvoir renverser une mesure.
+  const pa = Boolean(a.pur);
+  const pb = Boolean(b.pur);
+  if (pa !== pb) return pa ? -1 : 1;
+  if (a.score !== b.score) return b.score - a.score;
+  if (a.L !== b.L) return a.L - b.L;
+  return a.codes < b.codes ? -1 : a.codes > b.codes ? 1 : 0;
+}
+
+/**
+ * ★ 2ᵈ SUGGESTION — le nombre de triptyques, « sans ignorer » l'élégance.
+ *
+ * rang ASC → séries DESC → élégance DESC → score DESC → L ASC → codes ASC.
+ *
+ * L'élégance vient juste après le compte, et avant le score : c'est le « sans
+ * l'ignorer » de l'auteur. À nombre de séries égal, entre deux façons d'obtenir
+ * le même compte, on prend la plus élégante — pas la mieux notée.
+ */
+export function ordreTriptyques(a, b) {
+  const ra = rangConviction(a);
+  const rb = rangConviction(b);
+  if (ra !== rb) return ra - rb;
+  const sa = a.series || 1;
+  const sb = b.series || 1;
+  if (sa !== sb) return sb - sa;
+  const ea = a.elegance ?? 0;
+  const eb = b.elegance ?? 0;
+  if (ea !== eb) return eb - ea;
+  if (a.score !== b.score) return b.score - a.score;
+  if (a.L !== b.L) return a.L - b.L;
+  return a.codes < b.codes ? -1 : a.codes > b.codes ? 1 : 0;
+}
+
 // ══════════════════════════════════ N4 — diversité (MMR)
 
 /**
@@ -814,8 +983,22 @@ export function diversifier(approches, options = {}) {
   const limite = options.limite ?? REGLAGES.MAX_APPROCHES;
 
   const restants = approches.slice().sort(ordreTotal);
+  // ★ L'AMORCE — les approches déjà retenues AILLEURS, que la sélection doit
+  //   connaître sans les reprendre. Les deux premières places de la liste sont
+  //   réservées aux champions de l'élégance et des triptyques (voir les trois
+  //   classements ci-dessus) ; si le MMR les ignorait, il rechoisirait leur
+  //   mappeur et leur méthode, et la diversité qu'il existe pour produire
+  //   s'évaporerait sur les deux premières lignes. Elles entrent donc dans le
+  //   quota de mappeur ET dans la pénalité de redondance, sans figurer dans le
+  //   résultat : c'est le §4.8 appliqué à une liste dont on n'a pas choisi la
+  //   tête, et non une exception qu'on lui ferait.
+  const amorce = options.amorce || [];
   const choisis = [];
   const compteMappeur = new Map();
+  for (const a of amorce) {
+    const m = mappeurApproche(a);
+    if (m) compteMappeur.set(m, (compteMappeur.get(m) || 0) + 1);
+  }
 
   while (restants.length && choisis.length < limite) {
     let meilleur = -1;
@@ -826,6 +1009,10 @@ export function diversifier(approches, options = {}) {
       if (m && (compteMappeur.get(m) || 0) >= maxParMappeur) continue;
       let redondance = 0;
       for (const s of choisis) {
+        const h = similariteApproches(a, s);
+        if (h > redondance) redondance = h;
+      }
+      for (const s of amorce) {
         const h = similariteApproches(a, s);
         if (h > redondance) redondance = h;
       }

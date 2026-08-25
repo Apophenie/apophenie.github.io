@@ -194,6 +194,15 @@ export const PALETTE = Object.freeze({
   rubric: '#F0574B',
   gold: '#E3B341',
   phos: '#5BE3A6',
+  // ★ L'ORAGE DU VERDICT — registre scénique (CONTRACTS §3.1, amendement).
+  //   Ces quatre-là ne dépendent PAS du thème : au verdict la scène passe la
+  //   nuit, et une fois la nuit tombée le thème ne gouverne plus la scène. Un
+  //   seul fond, une seule encre, un seul contraste — mesuré une fois (7,4:1)
+  //   plutôt que deux fois à peu près. Voir `src/styles/tokens.css`.
+  nuit: '#0A0608',
+  rubricNuit: '#FF6F62',
+  eclair: '#DCE6F5',
+  brasier: '#FF7A2E',
 });
 
 /**

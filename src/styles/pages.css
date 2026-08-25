@@ -242,12 +242,45 @@
   padding-top: var(--e2);
   border-top: var(--rule) solid var(--line);
 }
-.voie__resultat {
-  font-family: var(--oracle);
-  font-size: var(--fs-lg);
-  color: var(--rubric);
-  letter-spacing: .12em;
+/* Le pied d'un panneau porte DEUX accès — la version sobre et la scénique —,
+   et c'est pour ça que le panneau n'est plus un lien : un `<a>` ne contient pas
+   d'`<a>`, et un panneau à deux destinations n'en a plus une. Les deux se
+   partagent la largeur à parts égales : aucun n'est le bouton principal, ce
+   sont deux mises en scène de la même voie et le choix appartient au lecteur.
+   Cible tactile de 48 px (design §5.1) portée par la hauteur minimale. */
+.voie__pied--double { align-items: stretch; }
+.voie__acces {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e1);
+  min-height: var(--touche);
+  padding: var(--e1) var(--e2);
+  border: var(--rule) solid var(--line);
+  color: var(--fg-2);
+  font-family: var(--machine);
+  font-size: var(--fs-xs);
+  text-decoration: none;
+  transition: border-color var(--t-court) ease, color var(--t-court) ease,
+              background var(--t-court) ease;
 }
+.voie__acces:hover,
+.voie__acces:focus-visible {
+  border-color: var(--line-ui);
+  background: var(--raised);
+  color: var(--fg);
+}
+/* La scénique se signale par sa couleur — la rubrique, celle de l'affirmation
+   (design §2.3) —, ce que la sobre ne fait justement pas. La différence de
+   traitement DIT laquelle est la version tapageuse, avant même qu'on la lise.
+   Elle ne porte pas l'information seule : les deux sont écrites en toutes
+   lettres, et leur nom accessible aussi. */
+.voie__acces--scenique { color: var(--rubric); border-color: color-mix(in srgb, var(--rubric) 35%, var(--line)); }
+.voie__acces--scenique:hover,
+.voie__acces--scenique:focus-visible { border-color: var(--rubric); color: var(--rubric-hi); }
+.voie__acces-nom { letter-spacing: .06em; }
+
 .voie__fleche { color: var(--fg-3); font-family: var(--machine); }
 
 .fragments { display: grid; gap: var(--e1); }

@@ -24,6 +24,23 @@
   --grain:      .05;
   --halo:      0 0 0 1px var(--line-ui), 0 0 24px -8px rgba(227, 179, 65, .55);
 
+  /* — L'ORAGE DU VERDICT (registre scénique) —
+     ★ Ces quatre jetons sont les MÊMES dans les deux thèmes, et ce n'est pas un
+     oubli : c'est le propos. Au verdict, la scène passe la nuit — en thème
+     clair c'est un basculement complet, en thème sombre un approfondissement —
+     et **une fois la nuit tombée, le thème ne gouverne plus la scène**. Un seul
+     fond, donc une seule encre, donc un seul contraste, mesurable une fois pour
+     toutes plutôt que deux fois à peu près.
+     Sans ça, la rubrique du thème clair (#A32218, un rouge sombre destiné au
+     parchemin) tomberait à 2,7:1 sur du noir, c'est-à-dire illisible à l'instant
+     exact où la démonstration livre sa chute.
+     Mesuré : --scene-rubric sur --scene-nuit = 7,4:1, au-dessus du 4,5:1 de
+     design §5.1. */
+  --scene-nuit:    #0A0608;   /* le fond lugubre du verdict */
+  --scene-rubric:  #FF6F62;   /* l'affirmation, lisible SUR la nuit */
+  --scene-eclair:  #DCE6F5;   /* la foudre — un blanc froid, jamais du blanc pur */
+  --scene-brasier: #FF7A2E;   /* l'embrasement autour de chaque 666 */
+
   /* — Typographie — */
   /* Deux familles pour tout le site, alignées sur le logo. `--oracle` et
      `--pedagogue` désignent la MÊME police : ce ne sont plus deux caractères

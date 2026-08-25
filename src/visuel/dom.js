@@ -25,8 +25,14 @@ import { glyphTransform } from './assets.js';
 
 export const SVGNS = 'http://www.w3.org/2000/svg';
 
-/** Couches de la scène, du fond vers l'avant. */
-export const LAYERS = ['back', 'mid', 'front'];
+/** Couches de la scène, du fond vers l'avant.
+ *
+ *  ★ `nuit` — la couche de l'ORAGE, sous tout le reste. Elle porte les deux
+ *  aplats pleine scène de la scénographie du verdict : le fond lugubre et le
+ *  flash de foudre. Ils doivent passer derrière ABSOLUMENT tout, y compris les
+ *  décors de `back` (réglettes, claviers, halos) — un fond qui passerait devant
+ *  un halo ne serait plus un fond. */
+export const LAYERS = ['nuit', 'back', 'mid', 'front'];
 
 const LAYER_OF = {
   camera: null, halo: 'back', keyboard: 'back', table: 'back', frame: 'back',
@@ -35,6 +41,11 @@ const LAYER_OF = {
   // Les cornes se posent PAR-DESSUS les chiffres qu'elles couronnent : elles
   // dépassent du haut des glyphes et ne doivent jamais passer derrière eux.
   horns: 'front',
+  // L'orage. Le fond et l'éclair tapissent la scène entière ; l'embrasement,
+  // lui, est un décor accroché à UN chiffre — il doit donc rester DERRIÈRE lui
+  // (`back`), sinon un halo orange passerait par-dessus le 6 qu'il entoure et
+  // le verdict deviendrait illisible à l'instant où il se lit.
+  nuit: 'nuit', eclair: 'nuit', brasier: 'back',
 };
 
 export function layerOf(role) {
@@ -323,6 +334,66 @@ export function createElementFor(node, env) {
     }
     case 'table': {
       element = buildTable(node, fs, palette);
+      break;
+    }
+    case 'nuit':
+    case 'eclair': {
+      // ★ L'ORAGE — deux aplats pleine scène, l'un sombre, l'autre clair.
+      //
+      // Ils sont volontairement TRÈS plus grands que le `viewBox` (`data.w`,
+      // `data.h`, posés par la primitive à trois fois ses dimensions) et
+      // centrés sur son centre. Raison : la couche vit à l'intérieur de
+      // `@pan`, donc à l'intérieur de `@camera`. Le verdict ne bouge ni l'un
+      // ni l'autre, mais un panoramique résiduel ou un recul de caméra
+      // découvrirait un bord du fond, et l'on verrait la page apparaître au
+      // milieu de la nuit. Trois fois la scène rend ce défaut impossible sans
+      // rien coûter : un rectangle uni ne se paie pas au pixel.
+      //
+      // ★ Aucun `stroke`, aucune transformation propre — seule l'OPACITÉ est
+      // animée, et elle l'est sur le maillon de contenu de la chaîne de
+      // position (CONTRACTS §3.2, règles 3 et 4). C'est très exactement la
+      // recette du défaut Firefox si on la posait ailleurs.
+      element = el('rect', {
+        x: -node.data.w / 2, y: -node.data.h / 2,
+        width: node.data.w, height: node.data.h,
+        class: node.role === 'nuit' ? 'nhl-nuit' : 'nhl-eclair',
+      });
+      break;
+    }
+    case 'brasier': {
+      // ★ L'EMBRASEMENT — un dégradé radial, PAS un flou.
+      //
+      // `feGaussianBlur` donnerait le même halo, mais il se recalcule à chaque
+      // image et à chaque échelle : au verdict, le décor grossit d'un facteur
+      // huit, et le filtre avec lui. Un dégradé est peint par le GPU comme
+      // n'importe quel aplat, il grossit sans se recalculer, et il se lit
+      // exactement pareil. Le rendu ne dépend donc pas de la puissance de la
+      // machine — ce qui est aussi ce qui permet au scrubbing de rester net.
+      //
+      // Le dégradé est déclaré DANS le nœud plutôt que dans un `<defs>` global :
+      // un `<defs>` partagé serait un état commun à des nœuds dont l'un peut
+      // être détruit par un `rebuild()`, et la référence pendante ne se verrait
+      // qu'à l'écran. Ici le dégradé naît et meurt avec son ellipse.
+      const gid = `nhl-brasier-${(node.id || '').replace(/[^\w-]/g, '_')}`;
+      const wrap = el('g');
+      const defs = el('defs');
+      const grad = el('radialGradient', { id: gid });
+      // Trois paliers : un cœur franc, une décroissance rapide, une extinction
+      // complète au bord. Sans le palier intermédiaire, un dégradé linéaire
+      // fait un disque net plutôt qu'une lueur.
+      for (const [offset, opacity] of [[0, 0.85], [0.45, 0.34], [1, 0]]) {
+        grad.appendChild(el('stop', {
+          offset, 'stop-color': node.data.couleur, 'stop-opacity': opacity,
+        }));
+      }
+      defs.appendChild(grad);
+      wrap.appendChild(defs);
+      wrap.appendChild(el('ellipse', {
+        cx: 0, cy: 0, rx: node.data.rx, ry: node.data.ry,
+        fill: `url(#${gid})`,
+        class: 'nhl-brasier',
+      }));
+      element = wrap;
       break;
     }
     case 'horns': {

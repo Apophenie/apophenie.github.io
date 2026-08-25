@@ -17,6 +17,15 @@
  *  ANIMATION — initialisée sur `prefers-reduced-motion` mais surchargeable dans
  *  les deux sens (design §4.6).
  *
+ *  SON — l'orage sonore du registre scénique. **Coupé par défaut**, et ce
+ *  défaut est un choix argumenté, pas une commodité : la démonstration
+ *  s'autojoue (CONTRACTS §3.4), donc un lien partagé lâcherait un drone
+ *  infernal à l'ouverture ; et les navigateurs bloquant le son avant tout
+ *  geste, un « activé par défaut » ne partirait qu'au hasard de ce que le
+ *  visiteur a cliqué avant. Le raisonnement complet est dans `src/app/sons.js`.
+ *  Comme le thème et la langue, le réglage SURVIT à la navigation : qui veut
+ *  du son le demande une fois.
+ *
  *  RÉPÉTITIONS — les démonstrations refont le même geste sur chaque fragment.
  *  La première fois enseigne, les suivantes confirment : par défaut les redites
  *  passent en accéléré. C'est une préférence de LECTURE, elle se règle donc
@@ -28,6 +37,7 @@ const CLE_THEME = 'nhlg.theme';
 const CLE_ANIM = 'nhlg.animation';
 const CLE_LOGO = 'nhlg.logo-vu';
 const CLE_REPET = 'nhlg.repetitions';
+const CLE_SON = 'nhlg.son';
 
 /** Les trois thèmes, dans l'ordre d'affichage du sélecteur : clair · auto · sombre. */
 export const THEMES = ['clair', 'auto', 'sombre'];
@@ -131,6 +141,30 @@ export function appliquerRepetitions() {
     'data-repetitions', repetitionsAccelerees() ? 'accelerees' : 'pleines');
 }
 
+/* ─────────────────────────────── Son ───────────────────────────────── */
+
+/** `true` quand l'orage sonore est autorisé.
+ *
+ *  ★ Symétrique EXACT des répétitions, mais dans l'autre sens : là, l'absence
+ *  de clé vaut « accéléré » parce que c'est l'expérience voulue par défaut et
+ *  que seul le refus se stocke. Ici, l'absence de clé vaut **coupé**, et c'est
+ *  l'acceptation qui se stocke. Deux défauts opposés, une même règle : la clé
+ *  n'existe que quand l'utilisateur s'est écarté du défaut. */
+export const sonActif = () => magasin.lire(CLE_SON) === 'actif';
+
+export function basculerSon() {
+  const suivant = !sonActif();
+  if (suivant) magasin.ecrire(CLE_SON, 'actif');
+  else magasin.effacer(CLE_SON);
+  appliquerSon();
+  prevenir();
+  return suivant;
+}
+
+export function appliquerSon() {
+  document.documentElement.setAttribute('data-son', sonActif() ? 'actif' : 'coupe');
+}
+
 /* ──────────────────────── Mémoire de la blague ─────────────────────── */
 
 export const logoDejaVu = () => magasin.lire(CLE_LOGO) === '1';
@@ -146,5 +180,6 @@ export function appliquerTout() {
   appliquerTheme();
   appliquerAnimation();
   appliquerRepetitions();
+  appliquerSon();
   appliquerLogoVu();
 }

@@ -9,30 +9,67 @@ import { boutonCopier } from '../partage.js';
 import * as pont from '../pont.js';
 import { interrupteurs } from '../entete.js';
 
+/**
+ * Un panneau de voie complète.
+ *
+ * ★ DEUX ACCÈS EN PIED, ET NON PLUS UN SEUL — et c'est pour ça que le panneau
+ * cesse d'être un lien.
+ *
+ * Le pied portait « 6·6·6 », qui répétait ce que le titre disait déjà (« cinq
+ * séries de 666 ») et n'était cliquable que parce que toute la carte l'était.
+ * Il porte désormais les deux MISES EN SCÈNE de la voie : la sobre, plus
+ * crédible, et la scénique, plus frappante. Même programme, même verdict, même
+ * rang — un marqueur d'URL les sépare (`src/recherche/url.js`).
+ *
+ * Une carte ne peut pas être un lien et contenir deux liens : un `<a>` dans un
+ * `<a>` est invalide, et un panneau qui a deux destinations n'en a plus une.
+ * La règle « la carte est cliquable en entier » ne s'applique donc plus — elle
+ * n'existait que parce qu'il n'y avait qu'un endroit où aller.
+ *
+ * ★ Chaque accès dit OÙ IL MÈNE, pas seulement comment. « Sobre » tout seul,
+ * répété douze fois dans la page, ne distingue rien pour qui parcourt la liste
+ * des liens au lecteur d'écran : le nom accessible porte donc le titre de la
+ * voie (`resultat.acces.sobreLabel`), là où le libellé visible reste court.
+ */
 function carteVoie(approche, i, { surChoix, lienDisponible }) {
   const rang = approche.rang ?? i + 1;
   const regle = regleApproche(approche);
-  const contenu = [
+  const titre = titreApproche(approche) || t('resultat.voieSansTitre', { rang: i + 1 });
+  const entete = [
     e('span.voie__numero', { texte: t('resultat.voieNumero', { rang }) }),
-    e('span.voie__titre', {
-      texte: titreApproche(approche) || t('resultat.voieSansTitre', { rang: i + 1 }),
-    }),
+    e('span.voie__titre', { texte: titre }),
     regle ? e('span.voie__resume', { texte: regle }) : null,
-    e('span.voie__pied', {}, [
-      e('span.voie__resultat', { texte: (approche.resultat || '666').split('').join('·') }),
-      e('span.voie__fleche', { texte: '▸', 'aria-hidden': 'true' }),
-    ]),
-    approche.joker ? e('span.legende', { texte: t('resultat.jokerNote') }) : null,
   ];
+  const note = approche.joker ? e('span.legende', { texte: t('resultat.jokerNote') }) : null;
 
-  // La carte est cliquable en entier, jamais seulement le titre.
-  if (lienDisponible && approche.url) {
-    return e('a.voie', { href: approche.url }, contenu);
+  // Le repli n'a pas d'URL du tout (`pont.js` : « un repli ne fabrique jamais
+  // d'URL de partage »). Il n'y a alors qu'une destination, donc rien à
+  // choisir : le panneau redevient un bouton cliquable en entier.
+  if (!lienDisponible || !(approche.urlSobre && approche.urlScenique)) {
+    return e('button.voie', {
+      type: 'button',
+      sur: { click: () => surChoix(approche, i) },
+    }, [...entete, e('span.voie__pied', {}, [
+      e('span.voie__fleche', { texte: '▸', 'aria-hidden': 'true' }),
+    ]), note]);
   }
-  return e('button.voie', {
-    type: 'button',
-    sur: { click: () => surChoix(approche, i) },
-  }, contenu);
+
+  const acces = (cle, url) => e(`a.voie__acces.voie__acces--${cle}`, {
+    href: url,
+    'aria-label': t(`resultat.acces.${cle}Label`, { titre }),
+  }, [
+    e('span.voie__acces-nom', { texte: t(`resultat.acces.${cle}`) }),
+    e('span.voie__fleche', { texte: '▸', 'aria-hidden': 'true' }),
+  ]);
+
+  return e('div.voie.voie--double', {}, [
+    ...entete,
+    e('span.voie__pied.voie__pied--double', {}, [
+      acces('sobre', approche.urlSobre),
+      acces('scenique', approche.urlScenique),
+    ]),
+    note,
+  ]);
 }
 
 /** Le libellé de méthode d'un fragment : celui qu'il porte, sinon un résumé
@@ -101,6 +138,11 @@ export function pageResultat({ saisie, resultat, surChoixSecours }) {
       e('dd', { texte: t('resultat.memo.resonanceTexte') }),
       e('dt', { texte: t('resultat.memo.portee') }),
       e('dd', { texte: t('resultat.memo.porteeTexte') }),
+      // Le registre de mise en scène fait partie de la grammaire (§4.2) : le
+      // mémo la documente en entier, sinon les deux boutons ci-dessus
+      // resteraient deux liens qu'on ne saurait pas écrire soi-même.
+      e('dt', { texte: t('resultat.memo.registre') }),
+      e('dd', { texte: t('resultat.memo.registreTexte') }),
     ]),
     e('div.panneau-terminal__actions', {}, [
       boutonCopier(t('resultat.memo.copier'), () =>

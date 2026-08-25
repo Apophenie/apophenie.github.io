@@ -68,6 +68,13 @@ export function preparer() {
       M.ecrire = url.ecrire;
       M.canoniser = url.canoniser;
       M.BANDEAUX = url.BANDEAUX;
+      // Le REGISTRE de mise en scène appartient à la grammaire d'URL, comme
+      // tout le reste : l'interface ne redéfinit ni ses noms, ni son défaut,
+      // ni sa bascule. Deux tables de registres divergentes, ce seraient des
+      // liens qui s'écrivent d'un côté et se relisent de travers de l'autre.
+      M.REGISTRES = url.REGISTRES;
+      M.REGISTRE_DEFAUT = url.REGISTRE_DEFAUT;
+      M.autreRegistre = url.autreRegistre;
       etat.url = 'branché';
     } else {
       etat.url = 'absent';
@@ -124,6 +131,13 @@ export function preparer() {
 
 export const LIMITE_SAISIE = () => M.LIMITE_SAISIE || 500;
 export const bandeaux = () => M.BANDEAUX || {};
+
+/* Le registre de mise en scene, relaye tel quel depuis `src/recherche/url.js`.
+   Les valeurs de repli ne servent que si la grammaire ne s'est pas chargee du
+   tout — auquel cas la page ne montre de toute facon aucune demonstration. */
+export const REGISTRE_DEFAUT = 'scenique';
+export const autreRegistre = (r) =>
+  (M.autreRegistre ? M.autreRegistre(r) : (r === 'sobre' ? 'scenique' : 'sobre'));
 
 /* ───────────────────────────── Grammaire d'URL ───────────────────────────── */
 
@@ -203,12 +217,16 @@ export function rejouer(lecture) {
 }
 
 /** @returns {{scenario:Object, source:'moteur'|'secours'}} */
-export function scenarioDe(approche, saisie) {
+export function scenarioDe(approche, saisie, options = {}) {
   if (M.moteur && typeof M.moteur.scenarioDe === 'function' && approche && approche.parts) {
     try {
       // La langue traverse jusqu'aux `steps()` du catalogue : sans elle, les
       // titres d'étape repartent en français quelle que soit l'interface.
-      const sc = M.moteur.scenarioDe(approche, { saisie, langue: langue() });
+      // Le registre traverse pour la même raison : c'est le SCÉNARIO qui perd
+      // ses cornes en sobre, pas le lecteur (`recherche/scenario.js`).
+      const sc = M.moteur.scenarioDe(approche, {
+        saisie, langue: langue(), registre: options.registre,
+      });
       if (sc && Array.isArray(sc.steps)) return { scenario: sc, source: 'moteur' };
     } catch (err) {
       console.error('[NumHeroLOLgeek] compilation du scénario impossible :', err);

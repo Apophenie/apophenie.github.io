@@ -18,7 +18,9 @@ import { genererFragments, zonesSignifiantes, tokeniser, motifsRepetes } from '.
 import {
   assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe,
 } from './assemblage.js';
-import { noter, diversifier, ordreTotal, REGLAGES } from './score.js';
+import {
+  noter, diversifier, ordreTotal, ordreElegance, ordreTriptyques, REGLAGES,
+} from './score.js';
 import { construireScenario } from './scenario.js';
 import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
 import { lire, ecrire, descripteursDe, BANDEAUX } from './url.js';
@@ -85,7 +87,15 @@ export async function chargerCatalogue(specificateur = '../moteur/catalogue.js')
 
 /**
  * @param {Object} catalogue
- * @param {{valider?:boolean, plageBassin?:Object, maintenant?:()=>number}} [options]
+ * @param {{valider?:boolean, plageBassin?:Object, maintenant?:()=>number,
+ *   filetTemporel?:boolean, elegance?:boolean}} [options]
+ *
+ * ★ `filetTemporel: false` débranche l'arrêt d'urgence à l'horloge — la
+ *   DERNIÈRE source d'entropie du moteur (`bfs.js`, en-tête). Deux usages, et
+ *   deux seulement : le banc de mesure et les tests qui comparent deux
+ *   classements. Sans lui, un barème avant/après se compare sur une base qui
+ *   bouge avec la charge de la machine, ce qui ne veut rien dire. C'est une
+ *   option EXPLICITE : l'appelant qui ne demande rien garde son filet.
  */
 export function creerMoteur(catalogue, options = {}) {
   if (options.valider !== false) {
@@ -108,6 +118,7 @@ export function creerMoteur(catalogue, options = {}) {
     maxNodes: options.maxNodes,
     maxTravail: options.maxTravail,
     budgetMs: options.budgetMs,
+    filetTemporel: options.filetTemporel,
   });
 
   /**
@@ -148,7 +159,9 @@ export function creerMoteur(catalogue, options = {}) {
     // jamais se déclencher dans les cas normaux, et quand il se déclenche le
     // résultat part marqué `tronque` plutôt que de varier en silence.
     const parFrag = new Map();
-    const debutRecherche = maintenant();
+    // ★ Débranché, le filet ne LIT même pas l'horloge (voir `bfs.js`).
+    const filetTemporel = options.filetTemporel !== false;
+    const debutRecherche = filetTemporel ? maintenant() : 0;
     const budgetTotal = options.budgetTotalMs ?? BUDGET_TOTAL_MS;
     const travailTotal = options.budgetTravailTotal ?? BUDGET_TRAVAIL_TOTAL;
     let cherches = 0;
@@ -164,7 +177,7 @@ export function creerMoteur(catalogue, options = {}) {
       // d'urgence, il doit pouvoir arrêter. Un seul fragment est cherché
       // inconditionnellement, faute de quoi `resoudre` pourrait rendre la main
       // sans avoir rien cherché du tout.
-      if (cherches >= 1 && maintenant() - debutRecherche > budgetTotal) {
+      if (filetTemporel && cherches >= 1 && maintenant() - debutRecherche > budgetTotal) {
         tronqueTemps = true;
         break;
       }
@@ -196,7 +209,13 @@ export function creerMoteur(catalogue, options = {}) {
       if (j) approches = [j];
     }
 
-    const ctxScore = { saisie, signifiants };
+    // ★ `elegance: false` débranche le BARÈME D'ÉLÉGANCE — le facteur sur le
+    //   score et la sélection à trois objectifs — sans débrancher la mesure :
+    //   `approche.bilan` et `approche.elegance` restent publiés. C'est ce qui
+    //   permet au banc de mesurer l'avant et l'après d'une seule exécution
+    //   (`.planning/banc/classement.mjs --avant`). Réservé à la mesure.
+    const barèmeDElegance = options.elegance !== false;
+    const ctxScore = { saisie, signifiants, elegance: barèmeDElegance };
     for (const a of approches) noter(a, ctxScore);
     approches.sort(ordreTotal);
 
@@ -208,7 +227,10 @@ export function creerMoteur(catalogue, options = {}) {
     // devant une approche qui produit réellement trois 6.
     const jokers = approches.filter((a) => a.mode === 'JOKER');
     const honnetes = approches.filter((a) => a.mode !== 'JOKER');
-    const retenues = diversifier(honnetes, { limite: REGLAGES.MAX_APPROCHES - (jokers.length ? 1 : 0) });
+    const place = REGLAGES.MAX_APPROCHES - (jokers.length ? 1 : 0);
+    const retenues = barèmeDElegance
+      ? selectionner(honnetes, place)
+      : diversifier(honnetes, { limite: place });
     if (jokers.length) retenues.push(jokers[0]);
     else if (!retenues.length) {
       const j = approcheJoker(saisie, ctxAssemblage);
@@ -223,7 +245,17 @@ export function creerMoteur(catalogue, options = {}) {
     nommer(retenues);
     retenues.forEach((a, i) => {
       a.rang = i + 1;
-      a.url = ecrire({ saisie, fragments: descripteursDe(a, { nbJetons: jetons.length }) });
+      // ★ DEUX liens par voie, pas un — le panneau de la liste en offre deux
+      //   boutons (« sobre » / « scénique »). Ce sont deux MISES EN SCÈNE de la
+      //   même voie : mêmes codes, même verdict, même score, même rang. Le
+      //   registre n'entre ni dans `descripteursDe`, ni dans la notation, ni
+      //   dans la déduplication — il n'appartient pas au programme (`url.js`).
+      const descripteurs = descripteursDe(a, { nbJetons: jetons.length });
+      a.urlSobre = ecrire({ saisie, fragments: descripteurs, registre: 'sobre' });
+      a.urlScenique = ecrire({ saisie, fragments: descripteurs, registre: 'scenique' });
+      // `url` reste le lien de référence de la voie — la version scénique,
+      // celle que le site montre par défaut (voir `url.js`, le registre).
+      a.url = a.urlScenique;
       a.joker = a.mode === 'JOKER';
     });
 
@@ -328,7 +360,12 @@ export function creerMoteur(catalogue, options = {}) {
     // `titres.js` compose à partir de la seule signature du chemin.
     approche.titre = titreBilingue(approche);
     approche.regle = regleBilingue(approche);
-    approche.url = ecrire({ saisie, fragments: lecture.fragments });
+    // Le registre du lien rejoué est celui qu'il porte : on ne le devine pas,
+    // on le relit (`lecture.registre`, résolu par `url.js`).
+    const registre = lecture.registre;
+    approche.urlSobre = ecrire({ saisie, fragments: lecture.fragments, registre: 'sobre' });
+    approche.urlScenique = ecrire({ saisie, fragments: lecture.fragments, registre: 'scenique' });
+    approche.url = ecrire({ saisie, fragments: lecture.fragments, registre });
     return { ok: true, approche };
   }
 
@@ -339,6 +376,11 @@ export function creerMoteur(catalogue, options = {}) {
     return construireScenario(approche, {
       saisie: ctx.saisie || approche.saisie,
       langue,
+      // Le REGISTRE traverse jusqu'ici parce qu'il change ce que le SCÉNARIO
+      // contient : en sobre, les cornes ne poussent pas (`url.js`, et
+      // `scenario.js › sobrifierLesCornes`). La scénographie du verdict, elle,
+      // ne change rien au scénario et se règle à la compilation visuelle.
+      registre: ctx.registre,
       methode: ctx.methode || {
         id: approche.rang ?? 1,
         label: titreApproche(approche, langue),
@@ -352,6 +394,65 @@ export function creerMoteur(catalogue, options = {}) {
   }
 
   return { resoudre, rejouer, scenarioDe, catalogue, bassin, cache, ops };
+}
+
+/**
+ * ★ LA SÉLECTION À OBJECTIFS MULTIPLES — « ce n'est pas un tri unique ».
+ *
+ * « 1ʳᵉ suggestion — l'élégance. 2ᵈ suggestion — le nombre de triptyques, au prix
+ *  d'une élégance éventuellement moindre, sans l'ignorer. 3ᵉ et suivantes — un
+ *  mixte pondéré des deux, comme aujourd'hui. » — l'auteur.
+ *
+ * Trois questions, donc trois réponses, et la liste les donne dans cet ordre.
+ * `score.js` fournit les trois comparateurs (`ordreElegance`, `ordreTriptyques`,
+ * `ordreTotal`) ; ici on ne fait que les interroger l'un après l'autre.
+ *
+ * ★ **La seconde suggestion n'est retenue que si elle a QUELQUE CHOSE À DIRE** —
+ * c'est-à-dire strictement plus de séries que la première. Sans ce garde-fou,
+ * « le champion des triptyques » désigne, neuf fois sur dix, une approche au
+ * même nombre de séries que la précédente : elle n'offrirait pas un autre
+ * arbitrage, elle prendrait juste la place d'une ligne mieux notée. Mesuré sur
+ * le corpus du banc : la seconde suggestion ne se distingue de la première que
+ * là où un compte supérieur existe réellement, et elle ne bouge alors qu'une
+ * ligne.
+ *
+ * ★ **Le MMR garde la main sur tout le reste**, et il connaît la tête qu'on lui
+ * a imposée (`amorce`) : le quota par mappeur et la pénalité de redondance
+ * s'appliquent comme si elle avait été piochée par lui. La diversité de §4.8
+ * n'est donc pas suspendue sur les deux premières lignes, elle en tient compte.
+ *
+ * Chaque approche repart avec la `suggestion` à laquelle elle doit sa place —
+ * l'interface peut le dire, comme elle dit déjà le nombre de séries.
+ *
+ * @param {Object[]} approches  déjà notées
+ * @param {number} limite
+ * @returns {Object[]}
+ */
+function selectionner(approches, limite) {
+  if (!approches.length || limite <= 0) return [];
+  const tete = [];
+  const prendre = (a, suggestion) => {
+    if (!a || tete.includes(a)) return;
+    a.suggestion = suggestion;
+    tete.push(a);
+  };
+
+  const elegante = approches.slice().sort(ordreElegance)[0];
+  prendre(elegante, 'elegance');
+
+  // La seconde suggestion ne prend sa place que si elle apporte réellement plus
+  // de triptyques que la première — sinon elle ne suggère rien de neuf.
+  const fournie = approches.slice().sort(ordreTriptyques)[0];
+  if (fournie && elegante && (fournie.series || 1) > (elegante.series || 1)) {
+    prendre(fournie, 'triptyques');
+  }
+
+  const reste = diversifier(
+    approches.filter((a) => !tete.includes(a)),
+    { limite: limite - tete.length, amorce: tete },
+  );
+  for (const a of reste) if (!a.suggestion) a.suggestion = 'mixte';
+  return [...tete, ...reste];
 }
 
 /**
@@ -447,8 +548,13 @@ function serialisable(resultat) {
     avertissement: resultat.avertissement,
     approches: (resultat.approches || []).map((a) => ({
       rang: a.rang, mode: a.mode, score: a.score, scoreAjuste: a.scoreAjuste,
+      // ★ L'élégance et la suggestion qui a valu sa place à la ligne : ce sont
+      //   des grandeurs d'affichage au même titre que le score, et elles se
+      //   recalculent depuis les parts, donc un lien rejoué les retrouve.
+      elegance: a.elegance, suggestion: a.suggestion,
       decret: a.decret, L: a.L, titre: a.titre,
-      regle: a.regle, url: a.url, joker: a.joker, criteres: a.criteres,
+      regle: a.regle, url: a.url, urlSobre: a.urlSobre, urlScenique: a.urlScenique,
+      joker: a.joker, criteres: a.criteres,
       codes: a.codes,
     })),
   };

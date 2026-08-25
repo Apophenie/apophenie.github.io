@@ -3,7 +3,8 @@
 // CONTRACTS.md §4.2, §4.3, §4.4.
 //
 //   url        := {chemin} '#' [approche] '#' b58(saisie)
-//   approche   := fragment (',' fragment)*
+//   approche   := [registre '!'] fragment (',' fragment)*
+//   registre   := 'sobre' | 'scenique'
 //   fragment   := [portee ':'] programme
 //   portee     := offset '.' longueur          // en jetons ; absent ⇒ saisie entière
 //   programme  := code ('+' code)*
@@ -11,6 +12,53 @@
 // `+` sépare les OPÉRATIONS d'un même fragment (arbitrage utilisateur).
 // `,` sépare les FRAGMENTS dont les 6 s'assemblent en 666.
 // `×3:programme` abrège la résonance (le même programme sur les 3 occurrences).
+// `sobre!` / `scenique!` préfixe l'approche entière — voir ci-dessous.
+//
+// ── LE REGISTRE, et pourquoi ce n'est PAS un opérateur ──────────────────────
+//
+// Le registre de codes d'opérateurs est FERMÉ (CONTRACTS §4.1) : aucun code ne
+// peut être alloué pour dire « sobre » ou « scénique ». Et ce serait de toute
+// façon une faute de modélisation : un opérateur TRANSFORME l'état — il a un
+// `from`, un `to`, un `apply()` —, alors que le registre ne touche à rien de ce
+// qui est calculé. Deux liens qui ne diffèrent que par lui portent le MÊME
+// programme, produisent le MÊME verdict et méritent le MÊME score : ils sont la
+// même voie, montrée de deux manières. C'est donc une extension de la
+// GRAMMAIRE (§4.2), au même titre que le préfixe de résonance `×3:` ou les
+// portées `0.1:` — qui, eux non plus, ne sont pas des opérateurs.
+//
+// Il préfixe l'APPROCHE ENTIÈRE et non chaque fragment : montrer un fragment
+// sobrement et le suivant en fanfare n'aurait aucun sens. Une seule mise en
+// scène par démonstration, donc un seul marqueur, en tête.
+//
+// ── L'ABSENCE DE MARQUEUR VAUT « SCÉNIQUE ». Voici pourquoi ────────────────
+//
+// Des liens écrits à la main circulent depuis la publication et n'ont pas de
+// marqueur. Il fallait trancher, et les deux lectures se défendaient :
+// « scénique » (les liens existants ne changent pas) ou « sobre » (le défaut
+// est la version crédible, la mise en scène s'opte).
+//
+// L'argument « ne rien changer » ne départage pas, contrairement aux
+// apparences : les deux options changent quelque chose. Sous « scénique », un
+// vieux lien garde ses cornes mais gagne l'orage ; sous « sobre », il reste
+// sans orage mais perd ses cornes. Ce qui départage, c'est la NATURE des deux
+// changements :
+//
+//  · **Les cornes sont un geste de la DÉMONSTRATION.** C'est une primitive du
+//    vocabulaire fermé (§3.1), émise par un opérateur que l'URL NOMME (`mz`),
+//    et le couronnement anticipé change le nombre d'étapes — 23 au lieu de 22
+//    sur la voie de référence. Un lien qui promettait 23 étapes en rendrait 22,
+//    avec une autre jauge, un autre badge et un autre Registre. C'est
+//    exactement ce que §4.3 interdit : « un lien ne renvoie jamais
+//    silencieusement vers une autre démonstration ».
+//  · **L'orage est du THÉÂTRE.** Mêmes étapes, même numérotation, même
+//    Registre, même verdict. L'ajouter à un vieux lien est du même ordre que
+//    d'améliorer le dessin d'une corne : le site évolue, la démonstration non.
+//
+// Un seul des deux défauts fait donc mentir un lien. Et le coût du choix est
+// borné dans le temps : `ecrire()` pose TOUJOURS le marqueur, `canoniser()`
+// réécrit la barre d'adresse (§4.3), si bien que tout lien produit à partir
+// d'aujourd'hui est explicite. Le défaut ne gouverne que les liens écrits
+// avant — c'est une règle de lecture héritée, pas un défaut de produit.
 //
 // Le principe de fond : **l'URL transporte le programme, pas un rang**. Un rang
 // est le résultat d'un calcul ; le publier revient à publier un pointeur vers
@@ -26,6 +74,24 @@ const RE_RESONANCE = /^[×xX*](\d+)$/;
 const RE_RANGS = /^\d+(\+\d+)*$/;
 
 /**
+ * Les deux registres de mise en scène, et le mot qui les écrit dans l'URL.
+ *
+ * Des mots entiers plutôt que des sigles : un lien se lit, se dicte et se
+ * recopie à la main (la page d'accueil en affiche deux), et « sobre » y dit ce
+ * qu'il fait là où un `s!` demanderait d'aller voir la documentation. Neuf
+ * caractères au pire, sur des URL qui en font déjà soixante.
+ *
+ * Sans accent, comme tout le reste de la grammaire : une URL accentuée
+ * s'échappe en `%C3%A9` dès qu'une messagerie la touche.
+ */
+export const REGISTRES = Object.freeze(['sobre', 'scenique']);
+
+/** Le registre appliqué à un lien qui n'en porte pas — voir l'en-tête. */
+export const REGISTRE_DEFAUT = 'scenique';
+
+const RE_REGISTRE = /^(sobre|scenique)!/;
+
+/**
  * @typedef {Object} FragmentUrl
  * @property {{offset:number,longueur:number}|null} portee
  * @property {number|null} resonance   nombre d'occurrences si abrégé `×3:`
@@ -35,6 +101,8 @@ const RE_RANGS = /^\d+(\+\d+)*$/;
  * @property {'canonique'|'heritee'|'resultats'|'invalide'} forme
  * @property {string|null} saisie
  * @property {FragmentUrl[]|null} fragments
+ * @property {'sobre'|'scenique'|null} registre  résolu ; `null` hors forme canonique
+ * @property {boolean} registreEcrit  le lien le portait-il en toutes lettres ?
  * @property {number[]|null} rangs
  * @property {string|null} bandeau     message à afficher (jamais silencieux)
  * @property {string|null} raison
@@ -50,7 +118,10 @@ const RE_RANGS = /^\d+(\+\d+)*$/;
  * @returns {LectureUrl}
  */
 export function lire(hash, options = {}) {
-  const vide = { forme: 'invalide', saisie: null, fragments: null, rangs: null, bandeau: null, raison: null };
+  const vide = {
+    forme: 'invalide', saisie: null, fragments: null,
+    registre: null, registreEcrit: false, rangs: null, bandeau: null, raison: null,
+  };
   if (typeof hash !== 'string') return { ...vide, raison: 'hash absent' };
 
   let brut = hash;
@@ -62,7 +133,20 @@ export function lire(hash, options = {}) {
   if (parts.length !== 2) {
     return { ...vide, raison: 'format inconnu', bandeau: BANDEAUX.formatInconnu };
   }
-  const [approche, b58] = parts;
+  let [approche, b58] = parts;
+
+  // ★ Le registre se détache AVANT tout le reste : il préfixe l'approche
+  //   entière, il n'appartient à aucun fragment. Absent, il vaut « scénique »
+  //   (voir l'en-tête : c'est une règle de lecture héritée, pas un défaut de
+  //   produit — tout lien écrit par le site le porte en toutes lettres).
+  let registre = REGISTRE_DEFAUT;
+  let registreEcrit = false;
+  const mReg = RE_REGISTRE.exec(approche);
+  if (mReg) {
+    registre = mReg[1];
+    registreEcrit = true;
+    approche = approche.slice(mReg[0].length);
+  }
 
   if (!estBase58(b58)) {
     return { ...vide, raison: 'saisie base58 invalide', bandeau: BANDEAUX.lienIllisible };
@@ -76,7 +160,16 @@ export function lire(hash, options = {}) {
   }
 
   if (approche === '') {
-    return { forme: 'resultats', saisie, fragments: null, rangs: null, bandeau: null, raison: null };
+    // `sobre!` tout seul ne désigne aucune démonstration : un marqueur de mise
+    // en scène sans programme à mettre en scène est un lien tronqué, pas une
+    // page de résultats. On le dit plutôt que de retomber en silence — §4.3.
+    if (registreEcrit) {
+      return { ...vide, saisie, raison: 'registre sans programme', bandeau: BANDEAUX.formatInconnu };
+    }
+    return {
+      forme: 'resultats', saisie, fragments: null,
+      registre: null, registreEcrit: false, rangs: null, bandeau: null, raison: null,
+    };
   }
 
   // Forme héritée du README : des rangs, pas un programme.
@@ -85,6 +178,11 @@ export function lire(hash, options = {}) {
       forme: 'heritee',
       saisie,
       fragments: null,
+      // Une forme héritée relance la recherche : elle n'aboutit pas à une
+      // démonstration mais à un rang du classement courant, et c'est ce rang
+      // qui apportera son propre lien canonique — registre compris.
+      registre: null,
+      registreEcrit: false,
       rangs: approche.split('+').map(Number),
       bandeau: BANDEAUX.recalculee,
       raison: null,
@@ -109,7 +207,10 @@ export function lire(hash, options = {}) {
     }
   }
 
-  return { forme: 'canonique', saisie, fragments, rangs: null, bandeau: null, raison: null };
+  return {
+    forme: 'canonique', saisie, fragments,
+    registre, registreEcrit, rangs: null, bandeau: null, raison: null,
+  };
 }
 
 function lireFragment(brut) {
@@ -156,14 +257,35 @@ export const BANDEAUX = {
 // ══════════════════════════════════ écriture canonique
 
 /**
- * @param {{saisie:string, fragments?:FragmentUrl[]}} demonstration
+ * ★ Le registre est écrit EN TOUTES LETTRES, même quand il vaut le défaut.
+ *
+ * Un lien qui se tait sur sa mise en scène dépend d'une règle de lecture, et
+ * une règle de lecture peut être discutée, oubliée, ou lue de travers dix ans
+ * plus tard. Les neuf caractères de `scenique!` achètent une chose : plus
+ * jamais de lien ambigu. Combinés à `canoniser()`, qui réécrit la barre
+ * d'adresse à chaque ouverture (§4.3), ils font que le défaut ne gouvernera
+ * jamais qu'un ensemble de liens FINI et FIGÉ — ceux écrits avant aujourd'hui.
+ *
+ * La page de RÉSULTATS, elle, n'en porte pas : elle ne montre aucune
+ * démonstration, il n'y a rien à mettre en scène.
+ *
+ * @param {{saisie:string, fragments?:FragmentUrl[], registre?:'sobre'|'scenique'}} demonstration
  * @returns {string} le fragment d'URL complet, `#…#…`
  */
-export function ecrire({ saisie, fragments }) {
+export function ecrire({ saisie, fragments, registre }) {
   const b58 = encoderTexte(saisie);
   if (!fragments || !fragments.length) return `##${b58}`;
-  return `#${ecrireApproche(fragments)}#${b58}`;
+  return `#${marqueur(registre)}${ecrireApproche(fragments)}#${b58}`;
 }
+
+/** Le préfixe de registre, normalisé. Une valeur inconnue retombe sur le défaut
+ *  plutôt que d'écrire un marqueur que `lire()` refuserait de relire. */
+function marqueur(registre) {
+  return `${REGISTRES.includes(registre) ? registre : REGISTRE_DEFAUT}!`;
+}
+
+/** Le registre OPPOSÉ — l'autre bouton du panneau de voie. */
+export const autreRegistre = (registre) => (registre === 'sobre' ? 'scenique' : 'sobre');
 
 export function ecrireApproche(fragments) {
   return fragments.map(ecrireFragment).join(',');

@@ -251,6 +251,19 @@ export function compile(scenario, options = {}) {
       if (prop === 'translate') {
         fail(`nœud « ${id} » : position inconnue au moment de l'animer — la primitive doit le placer (scene.place / reflow) avant d'animer « translate ».`);
       }
+      // ★ Une COULEUR n'a pas de valeur par défaut, et zéro n'en est pas une.
+      //
+      // Sans ce refus, un nœud créé sans `base.fill` voyait sa keyframe de
+      // départ valoir `0` ; le navigateur écrit « Invalid keyframe value for
+      // property fill: 0 » dans la console et **jette l'animation**. Le geste
+      // ne se produit tout simplement pas, et rien dans la compilation ne le
+      // dit — mesuré : quinze brasiers muets sur `hope-hope-hope.fr`, aucun
+      // test rouge. Le silence est le vrai défaut ; l'échec bruyant le corrige.
+      if (COULEURS.has(prop)) {
+        fail(`nœud « ${id} » : animation de « ${prop} » sans couleur de départ. `
+          + 'Une couleur n’a pas de valeur par défaut — déclarez-la dans '
+          + '`base` à la création du nœud.');
+      }
       return DEFAULT_BASE[prop] ?? 0;
     }
     return base;
@@ -315,6 +328,12 @@ export function compile(scenario, options = {}) {
         layoutOpts,
         palette,
         reduced,
+        // ★ La scénographie du verdict (CONTRACTS §3.1, amendement « l'orage »).
+        //   Elle n'est PAS dans le scénario — celui-ci est le même objet pur
+        //   dans les deux registres — mais dans les options de compilation, à
+        //   côté de `reduced` : c'est une décision de MISE EN SCÈNE, prise par
+        //   la page qui a lu le lien, pas par l'émetteur du scénario.
+        scenographie: !!options.scenographie,
         // Le cadrage en vigueur pendant ce step : le centre de la VUE n'est le
         // centre du viewBox que si la ligne ne défile pas (`ancreVue`).
         pan: panFocus,
@@ -620,6 +639,9 @@ export function compile(scenario, options = {}) {
 }
 
 const DEFAULT_BASE = { opacity: 1, rotate: 0, scale: 1, strokeDashoffset: 100, r: 0 };
+
+/** Les canaux dont la valeur est une COULEUR : aucun défaut n'y a de sens. */
+const COULEURS = new Set(['fill', 'stroke']);
 
 function defaultEase(prop) {
   if (prop === 'translate' || prop === 'scale' || prop === 'rotate') return EASE.move;

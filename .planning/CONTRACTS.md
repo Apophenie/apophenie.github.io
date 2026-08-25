@@ -200,7 +200,9 @@ src/
     bassin.js       bassin d'attraction de 6, précalculé
     fragments.js    tokenisation URL-aware, motifs répétés, périodicité
     assemblage.js   jointure sur signature de méthode
-    score.js        conviction (6 critères), entiers, ordre total
+    score.js        conviction (6 critères), entiers, ordre total,
+                    ★ les trois classements (élégance · triptyques · mixte)
+    elegance.js     ★ le barème du CHEMIN — ce qui se passe PENDANT le calcul
     scenario.js     ★ chemin → Scenario (§3) — le pont vers le visuel
     url.js          grammaire d'URL (§4), lecture tolérante
     base58.js       encodage vanilla
@@ -213,6 +215,8 @@ src/
     partage.js      copie de texte, navigator.share
   i18n/             fr.js, en.js, résolution, état
 .planning/          recherche, contrats, prototypes de mesure
+  banc/             ★ bancs de mesure du classement et de l'élégance
+                    (jamais servis au navigateur, jamais empaquetés)
 dist/               produit par `bun run build`, ouvrable en file://
 ```
 
@@ -1138,6 +1142,89 @@ ici**, puis l'émettre.
 > vérifie en outre que le tracé d'une corne est **identique** quel que soit
 > l'espacement des 6 : c'est la garantie qui rend le reste impossible à casser.
 
+> *Amendement — L'ORAGE DU VERDICT, et pourquoi il n'entre PAS dans le vocabulaire.*
+>
+> **La demande de l'auteur.** « Lors du verdict, en plus de grossir le/les 666 et
+> de leur mettre des cornes : en thème clair, le passage à un fond noir/lugubre ;
+> puis, quel que soit le thème, un flash d'éclair/foudre qui s'applique au fond ;
+> et un effet d'embrasement (ombres, dégradés, flou), animé autour de chaque 666
+> et chaque 666 à cornes. »
+>
+> ★ **Le vocabulaire reste à vingt-et-un.** Il nomme les GESTES DE LA
+> DÉMONSTRATION — ce qui est fait aux jetons, et dont Le Registre doit rendre
+> compte. La nuit, la foudre et le feu ne font rien à aucun jeton : ni une
+> valeur, ni un rang, ni un compte ne changent, et Le Registre n'a rien à en
+> dire. Ce sont des objets du MOTEUR, de la même famille que `@camera` et
+> `@pan`, qui ne sont pas non plus dans le vocabulaire. Les y faire entrer
+> aurait coûté un nom de plus à tenir en trois exemplaires (§3.1) et, surtout,
+> un scénario qui ne serait plus le même objet dans les deux registres — alors
+> que c'est précisément ce que le registre garantit.
+>
+> L'orage est donc piloté par **`ctx.scenographie`, une option de COMPILATION**,
+> posée par la page qui a lu le lien, exactement au même titre que `reduced` et
+> `repeatSpeed`. Il vit dans `visuel/primitives/reveal.js`, parce que le verdict
+> EST son signal.
+>
+> ★ **Une couche `nuit`, sous tout le reste.** `LAYERS` passe de trois à quatre
+> (`dom.js`) : les deux aplats pleine scène doivent passer derrière absolument
+> tout, y compris les décors de `back`. Ils sont taillés à **trois fois** le
+> `viewBox` — ils vivent dans `@pan`, donc dans `@camera`, et un panoramique
+> résiduel ne doit jamais découvrir la page au milieu de la nuit. Un rectangle
+> uni ne se paie pas au pixel.
+>
+> ★ **La nuit tombe dans les DEUX thèmes, et une fois tombée le thème ne
+> gouverne plus la scène.** L'auteur ne la demande qu'en thème clair, mais la
+> suite de sa phrase — « puisque maintenant la scène est sur fond sombre dans
+> tous les cas » — dit l'intention : que les trois effets partagent le même
+> fond. On l'obtient avec **une seule couleur de nuit** (`--scene-nuit`,
+> identique dans les deux thèmes) : basculement complet en clair,
+> approfondissement en sombre. Conséquence non négociable : **l'encre du verdict
+> change avec le fond.** La rubrique du thème clair est un rouge sombre fait
+> pour le parchemin (`#A32218`) ; sur la nuit elle tombe à **2,7:1**,
+> c'est-à-dire illisible à l'instant exact où la démonstration livre sa chute.
+> `--scene-rubric` y tient **7,4:1**, au-dessus du 4,5:1 de design §5.1. Quatre
+> jetons de thème naissent ainsi (`tokens.css`), tous quatre insensibles au
+> thème : la nuit n'a qu'une palette, donc un seul contraste à mesurer.
+>
+> ★ **L'éclair est une FONCTION DU TEMPS** (§4.4) : une enveloppe d'opacité
+> écrite à la main, en `values`/`offsets`. Un `Math.random()` aurait donné un
+> éclair différent à chaque lecture, donc un scrubbing qui ne retombe jamais sur
+> la même image. Elle compte **DEUX éclats, jamais trois** : WCAG 2.3.1 interdit
+> plus de trois éclats dans une seconde quelconque dès que la surface qui
+> clignote est grande, et ici elle occupe la scène entière. Ce n'est pas
+> seulement une case à cocher — deux éclats, c'est aussi ce que fait la foudre ;
+> un stroboscope ne ressemble pas à un orage. Le plafond à 0,55 d'opacité laisse
+> en outre la nuit transparaître : un blanc plein effacerait le 666 pendant
+> l'éclair, c'est-à-dire cacherait la chute au moment de la chute.
+>
+> ★ **L'embrasement est un décor ACCROCHÉ, un par 6.** Même leçon que les cornes
+> (§3.1, « UNE CORNE, UN NŒUD ») : une lueur qui couvrirait la série entière se
+> décrocherait au premier ré-espacement de la ligne. Chaque brasier suit son 6
+> (`data.suit`) et grandit avec lui par `animSolidaire`. Trois lueurs voisines
+> se fondent en une seule : c'est bien le 666 qui brûle. Il vacille en
+> **opacité** et jamais en échelle — ce canal appartient déjà à la solidarité —,
+> ce qui est de toute façon ce que fait le feu.
+> Techniquement, un **dégradé radial** et non un `feGaussianBlur` : un filtre se
+> recalcule à chaque image et à chaque échelle, or le décor grossit d'un facteur
+> huit au verdict. Le dégradé est peint comme un aplat, il grossit sans se
+> recalculer, et le rendu cesse de dépendre de la puissance de la machine.
+> ★ Et il ne déclare **pas** de `debord` : `reveal` s'en sert pour rétrécir le
+> verdict afin qu'une pointe ne sorte pas du cadre. Une lueur qui s'éteint en
+> dégradé n'a pas de pointe, et un feu qui déborde du cadre est même ce qu'on
+> veut voir. Le déclarer ferait payer au 666 une taille imméritée.
+>
+> ★ **Mouvement réduit** : l'éclair **n'existe pas du tout** — une enveloppe
+> compilée à 1 ms n'est plus un éclair, c'est une image blanche d'une frame,
+> très exactement ce que `prefers-reduced-motion` épargne. La nuit, elle, reste
+> (ce n'est pas un mouvement, c'est un état, et c'est elle qui rend le verdict
+> lisible en thème clair), et le feu devient une lueur fixe.
+>
+> **L'ordre des trois temps n'est pas décoratif** : la nuit tombe, la foudre
+> frappe, le feu prend. Dans cet ordre, c'est la foudre qui met le feu ; dans
+> l'autre, ce sont trois effets posés côte à côte. Onze tests le gèlent
+> (`visuel/tests/orage.test.js`), dont celui qui compte les éclats et celui qui
+> vérifie que la timeline SANS scénographie est rigoureusement celle d'avant.
+
 ### 3.2 Pièges figés en règles
 
 1. `fill: 'forwards'`, **jamais `'both'`** (une animation tardive rétro-remplirait sa
@@ -1490,6 +1577,102 @@ programme  := code ('+' code)*
 - `×3:programme` est une **abréviation de résonance** : le même programme appliqué aux
   trois occurrences d'un motif répété (cas `hope-hope-hope`).
 
+> *Amendement — le REGISTRE DE MISE EN SCÈNE, `sobre!` / `scenique!`.*
+>
+> **La demande de l'auteur.** « Depuis la page qui liste les voies, au lieu
+> d'avoir `6·6·6` en bas, deux boutons : l'un menant à la version sobre, l'autre
+> à la version scénique — avec un élément dans les codes de désignation des
+> transformations pour déterminer laquelle. Ainsi il sera possible, selon les
+> contextes, de partager facilement la version sobre — plus crédible — et la
+> version scénique — plus frappante et caricaturale. »
+>
+> La grammaire devient :
+>
+> ```
+> approche   := [registre '!'] fragment (',' fragment)*
+> registre   := 'sobre' | 'scenique'
+> ```
+>
+> ★ **Ce n'est PAS un opérateur, et le registre §4.1 reste fermé.** Un opérateur
+> transforme l'état — il a un `from`, un `to`, un `apply()`. Le marqueur ne
+> touche à rien de ce qui est calculé : deux liens qui n'en diffèrent que par
+> lui portent le même programme, produisent le même verdict et reçoivent le même
+> score et le même rang. C'est donc une extension de la GRAMMAIRE, au même titre
+> que `×3:` et que les portées `0.1:` — qui ne sont pas des opérateurs non plus.
+>
+> ★ Il préfixe l'**approche entière**, jamais un fragment : montrer un fragment
+> sobrement et le suivant en fanfare n'a pas de sens. Une démonstration, une
+> mise en scène, un marqueur.
+>
+> ★ **Des mots entiers plutôt qu'un sigle.** Un lien de ce site se lit, se dicte
+> et se recopie à la main — la page d'accueil en affiche deux. « sobre » y dit
+> ce qu'il fait là où un `s!` renverrait à une documentation. Neuf caractères au
+> pire, sur des URL qui en font déjà soixante. Sans accent, comme tout le reste
+> de la grammaire.
+>
+> **L'ABSENCE DE MARQUEUR VAUT « SCÉNIQUE ».** Décision d'arbitrage, et voici
+> pourquoi. Des liens sans marqueur circulent depuis la publication. Les deux
+> lectures se défendaient, et l'argument « ne rien changer » ne départage pas :
+> les deux options changent quelque chose. Sous « scénique », un vieux lien
+> garde ses cornes mais gagne l'orage ; sous « sobre », il reste sans orage mais
+> perd ses cornes. Ce qui départage est la NATURE des deux changements :
+>
+>  · **les cornes sont un geste de la DÉMONSTRATION** — une primitive du
+>    vocabulaire (§3.1), émise par un opérateur que l'URL NOMME (`mz`), et dont
+>    le couronnement anticipé change jusqu'au nombre d'étapes : 23 au lieu de 22
+>    sur la voie de référence. Un lien qui promettait 23 étapes en rendrait 22,
+>    avec une autre jauge, un autre badge, un autre Registre. C'est exactement
+>    ce que §4.3 interdit ;
+>  · **l'orage est du THÉÂTRE** — mêmes étapes, même numérotation, même
+>    Registre, même verdict, même score. L'ajouter à un vieux lien est du même
+>    ordre que d'améliorer le dessin d'une corne.
+>
+> Un seul des deux défauts fait donc mentir un lien. Et le coût est **borné dans
+> le temps** : `ecrire()` pose toujours le marqueur, même quand il vaut le
+> défaut, et `canoniser()` réécrit la barre d'adresse à l'ouverture (§4.3) — si
+> bien que tout lien produit à partir d'aujourd'hui est explicite. Le défaut ne
+> gouverne qu'un ensemble FINI et FIGÉ : les liens écrits avant. C'est une règle
+> de lecture héritée, pas un défaut de produit. **Vérifié** : les deux
+> puces-raccourcis de `src/i18n/fr.js › accueil.exemples` ne contiennent pas
+> `mz` — elles ne montraient donc aucune corne, et n'en montrent toujours pas.
+>
+> **Ce que « sobre » désactive exactement**, et ce qu'il ne désactive pas :
+>
+> | | sobre | scénique |
+> |---|---|---|
+> | le programme, le verdict, le score, le rang | identiques | identiques |
+> | l'opérateur `mz` | **exécuté** | exécuté |
+> | la primitive `horns` | remplacée par `highlight` + `drop` | émise |
+> | le couronnement anticipé, l'effacement différé | non | oui |
+> | l'orage du verdict (§3.1) | non | oui |
+> | le son (§6) | non chargé | disponible, coupé par défaut |
+>
+> ★ **« Désactiver les cornes » n'est PAS « désactiver `mz` ».** L'opérateur
+> TRONQUE le vecteur — `[6,6,6,7,3,6]` devient `[6,6,6]`. Retirer le geste sans
+> retirer l'opérateur donnerait une démonstration qui jette trois chiffres sans
+> dire pourquoi ; retirer l'opérateur donnerait un autre programme, donc une
+> autre URL, un autre score, un autre rang — alors que les deux boutons du
+> panneau doivent mener à LA MÊME VOIE. Ce qu'on retire est le DESSIN et le
+> RYTHME, pas le raisonnement : on désigne les trois 6 (`highlight`) et on
+> efface le reste sur place (`drop` en mode gomme, le même `effacerSurPlace`
+> qu'employait la primitive), à la place exacte où l'opérateur se trouve. La
+> légende ne bouge pas — `6 6 6 7 3 6 → 666`, émise par `mz` lui-même —, donc
+> Le Registre dit la même chose dans les deux registres.
+> `sobrifierLesCornes`, `src/recherche/scenario.js`.
+>
+> ★ Les trois verrous du contrôle croisé des cornes ne sont pas relâchés : ils
+> ont tous joué quand la réécriture s'exécute (l'op a déjà été validée sur la
+> ligne pleine). Ce qui disparaît est le troisième — `primitives/horns.js` —,
+> et il n'a plus rien à vérifier puisqu'il n'y a plus de couronne à mériter.
+>
+> ★ **Le panneau de voie cesse d'être un lien.** Un `<a>` ne contient pas
+> d'`<a>`, et un panneau à deux destinations n'en a plus une : la règle « la
+> carte est cliquable en entier » n'existait que parce qu'il n'y avait qu'un
+> endroit où aller. Le pied porte désormais deux accès à parts égales — aucun
+> n'est le bouton principal. Le `6·6·6` qui s'y trouvait disparaît : il répétait
+> ce que le titre dit déjà (« deux séries de 666 »).
+
+
 Exemples :
 
 ```
@@ -1521,7 +1704,14 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
 1. **Ordre total explicite** : `rang de conviction ASC → séries DESC (au rang 0)
    → score DESC → séries DESC → longueur ASC → suite des codes comparée
    lexicographiquement ASC`. Aucun ex æquo ne subsiste, donc la stabilité du tri natif
-   devient sans objet. (Le rang de conviction et le nombre de séries sont tous deux
+   devient sans objet.
+
+   > *Amendement — cet ordre est le MIXTE, et il n'est plus le seul.* Il reste
+   > l'ordre de la liste à partir de la troisième ligne ; les deux premières sont
+   > réservées aux champions de `ordreElegance` et de `ordreTriptyques` (§5,
+   > amendement « l'élégance se mesure sur le chemin »). Les trois comparateurs
+   > obéissent aux mêmes règles : entiers, aucun ex æquo, ordre total et strict —
+   > un test le vérifie pour chacun, sur toutes les paires d'une liste réelle. (Le rang de conviction et le nombre de séries sont tous deux
    **redéduits de la géométrie** par `deduireMode` — jamais transportés par l'URL —,
    donc un lien rejoué retrouve exactement sa place. Voir §5, amendement « la
    `MOISSON` et les trois rangs ».)
@@ -1531,6 +1721,41 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
    Jamais dépendre de l'ordre d'insertion d'une `Map` alimentée par un parcours de graphe.
 4. **Aucune source d'entropie** : ni `Math.random`, ni `Date.now`, ni `localeCompare`,
    ni `Intl`. Comparaisons de chaînes en unités de code.
+
+   > *Amendement — la dernière horloge se DÉBRANCHE, par une option explicite.*
+   >
+   > La borne primaire de la recherche est un budget de TRAVAIL, qui ne dépend
+   > que de la saisie (`bfs.js › BUDGET_TRAVAIL`). Il subsiste pourtant un arrêt
+   > d'urgence à l'horloge (`BUDGET_MS_FILET`, `BUDGET_TOTAL_MS`), réglé haut, et
+   > le commentaire qui l'entoure le dit lui-même : « ★ le filet de sécurité s'est
+   > déclenché : c'est un DÉFAUT ».
+   >
+   > ⚠️ **Mesuré : il mord.** Le test « déterminisme — deux exécutions donnent le
+   > même classement » échoue environ **une fois sur trois sous charge**, et il
+   > échouait déjà en v1.0.0 (deux échecs sur quatre en rejouant sur le tag).
+   > Hors charge, six exécutions d'affilée sont identiques. Le classement n'est
+   > donc pas stable sous charge — et tant qu'il ne l'est pas, **deux barèmes ne
+   > peuvent pas être comparés** : la base bouge sous la mesure.
+   >
+   > `creerMoteur(catalogue, { filetTemporel: false })` le retire. Il ne reste
+   > alors que des bornes déterministes (`BUDGET_TRAVAIL`, `MAX_NODES`,
+   > `D_MAX`) : la recherche termine toujours, sur une borne qui ne dépend que de
+   > l'entrée. Débranché, l'horloge n'est même pas **lue** — pas de
+   > `maintenant()`, pas de `t0`, pas de comparaison.
+   >
+   > ★ **Option EXPLICITE, jamais un contournement silencieux.** L'appelant qui
+   > ne demande rien garde son filet ; celui qui le retire l'a écrit noir sur
+   > blanc. Deux usages, et deux seulement : le banc de mesure (`.planning/banc/`)
+   > et les tests qui comparent deux classements. **L'application garde le
+   > sien** — un navigateur peut être arbitrairement lent, et un onglet qui ne
+   > rend jamais la main est pire qu'un classement écourté qui le dit (§4.3).
+   >
+   > Deux tests en héritent : « deux exécutions donnent le même classement » et
+   > « six exécutions SOUS CHARGE » travaillent désormais filet débranché, et
+   > l'exigence y devient ABSOLUE — le second tolérait qu'une exécution diffère
+   > « à condition de le dire », et cette tolérance était le trou par lequel
+   > l'entropie passait. Ce que le filet fait quand il mord se vérifie ailleurs,
+   > sur une horloge factice, donc sans dépendre de la charge.
 5. **Normalisation `NFC`** de la saisie avant toute chose.
 
 ---
@@ -1545,6 +1770,10 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
 - Score de conviction à 6 critères pondérés : homogénéité **0,25** · notoriété **0,20** ·
   couverture **0,18** · concision **0,15** · anti-ad-hoc **0,12** · élégance **0,10**,
   avec bonus/malus de `research/heuristique.md §4.7`.
+  ★ Ces six critères se lisent tous sur l'ÉTAT FINAL. Un neuvième malus, qui se
+  CALCULE et qui lit le CHEMIN, s'y ajoute en facteur — voir l'amendement
+  « l'élégance se mesure sur le chemin » en fin de §. Le critère `E` nommé ici
+  reste ce qu'il était : l'élégance des NOMBRES traversés, et rien de plus.
 - Anti-doublons à 4 niveaux, dont la déduplication **sur ce qui est montré** (trace des
   valeurs affichées) et un MMR de diversité (`λ = 0,35`, au plus 2 approches par mappeur).
 
@@ -1760,6 +1989,186 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   >   à l'intérieur d'un rang, jamais entre deux — sans quoi la sélection
   >   gloutonne épuisait le quota d'un mappeur avant d'avoir regardé le mode le
   >   mieux classé.
+
+  > *Amendement — ★ L'ÉLÉGANCE SE MESURE SUR LE CHEMIN, et le classement devient
+  > une SÉLECTION À TROIS OBJECTIFS.*
+  >
+  > « J'ai bien conscience qu'attribuer des scores aux étapes et au chemin en
+  > plus d'en attribuer au résultat final complexifie, mais c'est je pense ce qui
+  > va permettre de rendre mesurable l'élégance d'une solution par rapport à une
+  > autre. » — l'auteur.
+  >
+  > **Le constat.** Les six critères, le rendement et les quatre malus constants
+  > se lisent tous sur l'**état final** d'une approche : la méthode employée, la
+  > couverture de la saisie, la longueur rendue, les nombres traversés. Ce que
+  > l'auteur décrit est d'une autre nature — une comptabilité de ce qui se passe
+  > **pendant** le calcul. « Un 6 déjà apparu qu'on convertit en autre chose »,
+  > « casser un 666 contigu déjà trouvé », « une moyenne qui nécessite un
+  > arrondi », « une lettre arrachée au milieu d'un mot » : rien de tout cela
+  > n'est lisible sur le dernier état. Il fallait instrumenter les états
+  > **intermédiaires**, et c'est tout le travail de `src/recherche/elegance.js`.
+  >
+  > ### Ce qui est instrumenté
+  >
+  > `bilanChemin(chemin)` balaye `ops` et `etats` d'un chemin et en tire des
+  > compteurs **entiers** ; `bilanApproche(approche, ctx)` les additionne sur les
+  > parts et y ajoute ce qui ne se voit qu'à l'échelle de l'approche. En
+  > substance :
+  >
+  > | ce qu'on compte | comment on le lit |
+  > |---|---|
+  > | le triptyque CONTIGU, et sa CASSE | dès qu'un état porte trois 6 d'affilée, le chemin doit s'arrêter sur un aboutissement légitime — un vecteur qui les porte encore, ou le nombre 666. Tout le reste a défait ce qui était écrit |
+  > | la PRÉCOCITÉ du triptyque | le rang du dernier 6 du triptyque dans le vecteur final. Une conversion par table émet un aller-retour **par lettre** (§3.1) : ce rang dit à quelle conversion élémentaire le 666 est complet |
+  > | un 6 CONVERTI en autre chose | la perte de 6 sur une agrégation (`6 + 6 = 12`) ou un remplacement terme à terme. Faire un 6 ou un 666 **de** ses 6 est exempté : c'est le but |
+  > | des valeurs calculées puis JETÉES | le rétrécissement d'un vecteur (`mz`, `mu`) et le surplus que le verdict laisse tomber. Ce qu'une somme ABSORBE n'y entre pas — agréger n'est pas écarter |
+  > | la nature des transformations | additions de chiffres (`p1`, `p2`, `pa`, `mt`, et `c1` sur des chiffres) · additions de nombres (`c1` sur des nombres) · moyennes · min/max · chiffrements lettre → lettre |
+  > | l'AMPLITUDE d'un arrondi | `c.moyenne` calcule `round(somme / n)` : l'écart au nombre juste vaut `min(r, n − r) / n`, exact et entier |
+  > | les caractères ABANDONNÉS, en trois tas | lettre ou chiffre arraché au milieu d'un bloc dont on garde le reste · bloc entier écarté · bloc entier de **moins de trois lettres** · ponctuation |
+  >
+  > ★ **Les caractères abandonnés s'ALIGNENT, ils ne se comptent pas.** Un filtre
+  > rend une sous-suite de son entrée : l'alignement dit exactement **lesquels**
+  > tombent, et non seulement combien — c'est ce qui permet de distinguer « une
+  > lettre arrachée au milieu d'un mot » d'« un bloc entier laissé de côté », qui
+  > n'ont pas le même prix. Quand l'alignement échoue (une traduction change
+  > tout), on le **dit** (`opaque`) au lieu de deviner, et la portée est créditée
+  > entière : le compte devient un minorant déclaré, pas une invention.
+  >
+  > ★ **Le barème lit la GÉOMÉTRIE, jamais la présence d'un code.** `[6,6,6,4,4]`
+  > gagne son bonus de contiguïté qu'on ait employé `mz` ou non. Même raison que
+  > `deduireMode` : une URL rejouée doit retrouver exactement le score de la
+  > ligne dont elle est issue (§4.3), et tout ce qui précède se **recalcule**
+  > depuis les parts et leurs chemins. Un test le vérifie sur les quatre cas de
+  > référence, bilan compris, champ par champ.
+  >
+  > ### Comment le crédit redescend sur le score
+  >
+  > ★ **L'ÉLÉGANCE NE PEUT QUE RETIRER, JAMAIS AJOUTER.** Le crédit est appliqué
+  > en **facteur multiplicatif** borné à `[0,52 · 1,00]`. C'est la leçon, déjà
+  > mesurée, de l'amendement « les trois rangs de conviction » : un bonus additif
+  > se prélève sur la RÉSERVE (`PART_CRITERES`), et ouvrir 3 000 milli-unités de
+  > réserve écrase la part des critères de 0,83 à 0,55 — les sept méthodes du
+  > README tombent d'un tiers. Le facteur, lui, ne touche pas à l'échelle : il ne
+  > fait que descendre ceux qui le méritent, et **aucune approche ne peut monter**.
+  > Ce que l'élégance rapporte, elle le rapporte **ailleurs** — dans son propre
+  > classement, qui lit le crédit brut (`approche.elegance`, publié à part).
+  >
+  > ⚠️ **MESURE qui a imposé le réglage de la longueur.** Le malus par
+  > transformation valait d'abord 34 milli-unités. La méthode 6 du README —
+  > l'AZERTY et le retournement du 9, quinze étapes rendues — tombait alors de
+  > **60,6 à 40,1 sur 100**, c'est-à-dire **sous le plafond du joker** (45), que
+  > le test d'étalonnage refuse à juste titre. Le défaut n'était pas dans la règle
+  > mais dans le **doublon** : le critère de concision (`C = 0,88 ^ (L − 9)`,
+  > poids 0,150) punissait déjà les quinze étapes, et l'élégance les punissait une
+  > seconde fois. Ce que l'élégance ajoute à C n'est pas une seconde peine, c'est
+  > la NUANCE que C ne sait pas dire — qu'une addition de chiffres **qui reboucle**
+  > (`10 32 → 1 5 → 6`) ne compte presque pas. À 14, la méthode 6 revient à 59,2.
+  >
+  > **Les sept méthodes du README, avant et après** (sur `hope-hope-hope.fr`) :
+  > M1 71,6 → 71,6 · M2 75,5 → 75,5 · M3 75,5 → 75,5 · M5 79,3 → 79,3 ·
+  > M6 60,6 → **59,2** · M7 64,8 → 64,7. L'échelle du README est intacte.
+  >
+  > ### ★ Les TROIS classements — « ce n'est pas un tri unique »
+  >
+  > « 1ʳᵉ suggestion — l'élégance. 2ᵈ suggestion — le nombre de triptyques, au
+  > prix d'une élégance éventuellement moindre, sans l'ignorer. 3ᵉ et suivantes —
+  > un mixte pondéré des deux, comme aujourd'hui. » (l'auteur)
+  >
+  > C'est une **sélection à objectifs multiples**, pas un tri de plus. `index.js ›
+  > selectionner` réserve la première place au champion de `ordreElegance`, la
+  > seconde à celui de `ordreTriptyques`, et laisse le MMR (§4.8) garnir le reste
+  > par `ordreTotal`, qui est le mixte.
+  >
+  > ★ **La seconde suggestion n'est retenue que si elle a QUELQUE CHOSE À DIRE** —
+  > strictement plus de séries que la première. Sinon elle ne propose pas un autre
+  > arbitrage, elle prend la place d'une ligne mieux notée. Mesuré sur trente-trois
+  > saisies : elle ne se distingue de la première que cinq fois.
+  >
+  > ★ **Le MMR connaît la tête qu'on lui impose** (`amorce`) : les places
+  > réservées entrent dans le quota par mappeur ET dans la pénalité de redondance,
+  > sans figurer dans son résultat. La diversité de §4.8 n'est pas suspendue sur
+  > les deux premières lignes, elle en tient compte.
+  >
+  > ⚠️ **DEUX TENSIONS TRANCHÉES, ET LES MESURES QUI LES ONT TRANCHÉES.**
+  >
+  > · **« Encore mieux » est ADDITIF, pas catégoriel.** « Si une stratégie
+  >   élégante — sans malus autre que d'exclure des blocs entiers […] de moins de
+  >   3 lettres — permet de tomber juste sur plusieurs triptyques de 666, c'est
+  >   encore mieux. » Une première version en faisait une CATÉGORIE : toute
+  >   stratégie pure à deux séries ou plus passait devant, avant même de comparer
+  >   les crédits. **Mesuré, cette lecture casse un cas de référence.** Sur
+  >   `https://hope-hope-hope.fr/`, « on ne garde que les lettres, une par une, en
+  >   quatorze segments » appliqué au motif `hope-hope-hope` est pur au sens exact
+  >   de la phrase — il n'écarte que la ponctuation, le protocole (gratuit) et le
+  >   bloc `fr`, long de deux lettres — et il aligne **quatre** 666. Il passait
+  >   donc devant la moisson à **six** séries, et la liste annonçait quatre séries
+  >   là où six existaient. La phrase précédente de l'auteur dit pourtant que la
+  >   règle ne s'applique pas là : « mieux vaut une méthode élégante […] qu'une
+  >   méthode **peu élégante** qui donne davantage de 6 » — et cette moisson-là
+  >   n'est pas peu élégante, c'est le crédit le plus haut de sa liste (2 233).
+  >   « Encore mieux » se paie donc dans le CRÉDIT, où plusieurs triptyques
+  >   rapportent et où la pureté vaut par tout ce qu'elle ne perd pas.
+  >
+  > · **Le rang des SÉRIES et le rang SIMPLE sont mis à égalité — dans
+  >   `ordreElegance`, et seulement là.** « Mieux vaut une méthode élégante qui
+  >   donne pile 666 qu'une méthode peu élégante qui donne davantage de 6 » dit
+  >   exactement que, dans CE classement, un 666 unique a le droit de passer devant
+  >   une moisson. Les maintenir séparés rendait la première suggestion identique
+  >   à la seconde partout où une moisson existe — mesuré sur trente-trois
+  >   saisies : la seconde ne se distinguait **jamais**, c'est-à-dire qu'elle était
+  >   du code mort. **La CONVERGENCE, elle, reste en dernier** : elle est classée
+  >   dernière pour une raison que ce barème ne sait pas mesurer — « les mêmes
+  >   caractères y servent trois fois » —, et lui laisser la tête au nom d'une
+  >   élégance qui ignore précisément son défaut serait mesurer à côté.
+  >
+  > ### Ce que le barème NE SAIT PAS mesurer — et pourquoi
+  >
+  > Trois demandes de l'auteur n'ont **aucun opérateur à mesurer**, le registre
+  > étant FERMÉ (§4.1) :
+  >
+  > | la demande | ce qui manque |
+  > |---|---|
+  > | « ne garder artificiellement que les 6 en ignorant le reste » | *mesurée autrement* — c'est l'étape de tri du scénario, qui n'a pas de code ; elle se lit sur la géométrie, une valeur calculée puis écartée |
+  > | « le plus fréquent l'emporte » | aucun opérateur ne supprime les valeurs minoritaires d'un vecteur |
+  > | « garder un caractère sur deux » | aucun opérateur ne décime un vecteur |
+  > | « l'addition SÉLECTIVE de chiffres contigus » (`6, 5+1, 6, 8`) | `c.somme` additionne le vecteur **entier** ; rien n'additionne une sous-plage choisie |
+  >
+  > Les trois paliers correspondants sont **écrits dans le barème**, à leur place
+  > dans la hiérarchie que l'auteur a dictée, mais leurs compteurs valent toujours
+  > zéro. Ce n'est pas un oubli, c'est la place réservée : le jour où l'un de ces
+  > opérateurs serait alloué, le barème n'aura pas à être repensé. `BAREME_INACTIF`
+  > les énumère et **un test vérifie qu'ils sont bien inactifs** sur tout le
+  > corpus — sans quoi on croirait mesurer ce qu'on ne mesure pas. Un second test
+  > constate sur le catalogue lui-même qu'aucune addition ne porte sur une
+  > sous-plage.
+  >
+  > ### L'étalonnage, et son banc
+  >
+  > `.planning/banc/classement.mjs` affiche le classement d'un corpus, avec ou
+  > sans le barème (`--avant`), le détail des critères (`--detail`) ;
+  > `.planning/banc/elegance.mjs` affiche le crédit **poste par poste** d'une
+  > saisie. Les deux neutralisent le filet temporel (§4.4-4). Le total du crédit
+  > **EST** la somme de son détail (`detailDuCredit`), et un test le vérifie : une
+  > fonction qui calcule et une autre qui explique finiraient par diverger.
+  >
+  > **Mesuré sur dix-neuf saisies (171 lignes)** : **69 lignes déplacées, 3 têtes
+  > de liste changées sur 19**, deux entrantes et deux sortantes au total.
+  > Les **quatre cas de référence de l'auteur sont intacts** — `hope-hope-hope.fr`
+  > mène cinq séries, `https://hope-hope-hope.fr/` six, `Donald Trump` la moisson
+  > « Donald en quatorze segments + Trump en César puis quatorze segments »,
+  > `Macron` la voie César qui montre son 666 déjà écrit — et un test les gèle,
+  > en exigeant en outre que ce soit **l'élégance** qui les mette là.
+  > Les trois têtes qui changent : `https://www.example.com/path/to/page` (même
+  > compte de cinq séries, voie plus élégante), `reinfocovid` et `Marie Curie`
+  > (première suggestion à une série, seconde suggestion à deux, juste dessous).
+  >
+  > ★ **Ce que ce barème ne remplace pas.** Les six critères, le rendement, les
+  > quatre malus constants et les trois rangs de conviction sont **intacts**. Le
+  > barème d'élégance s'y ajoute, en dernier, et se débranche d'une option
+  > (`creerMoteur(catalogue, { elegance: false })`) **sans débrancher la mesure** :
+  > `approche.bilan` et `approche.elegance` restent publiés, ce qui permet au banc
+  > de comparer l'avant et l'après d'une seule exécution plutôt que de comparer un
+  > souvenir.
+
 - Sortie : `≤ 12` approches diversifiées, `≤ 24` fragments.
 
 **Les pondérations sont une prédiction, pas une mesure** (`research/heuristique.md §8.3`).
@@ -1792,6 +2201,11 @@ attendu sur les 7 méthodes du README sert de premier jeu de vérification.
 ## 7. Ce qui reste à valider après implémentation
 
 1. **Pondérations du score** — test à l'aveugle sur ~20 saisies.
+
+   > *Fait, pour le barème d'ÉLÉGANCE.* `.planning/banc/` mesure un corpus de
+   > dix-neuf saisies, avant et après, avec le détail poste par poste. Les six
+   > pondérations d'origine, elles, restent une prédiction : ce banc les affiche
+   > mais ne les a pas déplacées.
 2. **Tables hébraïque et grecque** — non recoupées sur sources externes
    (`research/moteur-arithmetique.md §9.8`). À vérifier avant publication : ce sont les
    méthodes les plus « sourçables », donc les plus exposées à la critique.
@@ -1839,6 +2253,27 @@ attendu sur les 7 méthodes du README sert de premier jeu de vérification.
    les deux tombant à R = 750. **La demande de l'auteur ne dépend donc pas de
    cet aveuglement** — seule la valeur du score en dépend. Le changement n'a pas
    été fait : c'est un arbitrage de score, et il appartient à l'auteur.
+
+   > *Amendement — la question reste ouverte, mais le DÉFAUT est désormais
+   > mesuré ailleurs.* Ce § oppose deux mérites : « tu n'as pas trié » — que les
+   > cornes gagnent, et qu'aucun critère ne mesurait — et « tu n'as pas
+   > gaspillé » — que le rendement mesure, et que les cornes ne gagnent pas.
+   >
+   > Le barème d'élégance (§5, amendement « l'élégance se mesure sur le chemin »)
+   > mesure **les deux**, et séparément : `TRIPTYQUE_CONTIGU` crédite le premier,
+   > `VALEUR_JETEE` débite le second, et le rétrécissement d'un vecteur par `mz`
+   > y compte pour ce qu'il est. Sur `Donald Trump`, le bilan de la voie de
+   > référence porte noir sur blanc « valeurs calculées puis jetées ×5 » : les
+   > trois valeurs que `Donald` écarte et les deux que `Trump` écarte. Le
+   > gaspillage est donc **vu**, et il est payé.
+   >
+   > **La mesure ci-dessus a été rejouée par-dessus le nouveau barème**, et elle
+   > donne les mêmes nombres, aux mêmes rangs : 6 475 → 4 778, 4 251 → 4 110,
+   > 3 736 → 3 645, aucun rang 1 déplacé. L'arbitrage n'a donc pas changé de
+   > nature — mais son enjeu a baissé : appliquer la lecture « vecteur le plus
+   > large » ferait désormais payer **deux fois** le même gaspillage, une fois
+   > dans `R` et une fois dans le crédit d'élégance. C'est la seule chose neuve à
+   > mettre dans la balance ; la décision reste celle de l'auteur.
 
 6. **Poids réel des polices** après sous-réglage (budget cible ≤ 260 Ko).
    Servi aujourd'hui : Jost\* 50 396 o + JetBrains Mono 15 064 o + DSEG7 948 o

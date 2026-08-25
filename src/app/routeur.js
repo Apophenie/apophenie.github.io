@@ -82,21 +82,33 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
     return;
   }
   const approche = rejeu.approche;
-  const { scenario, source } = pont.scenarioDe(approche, lecture.saisie);
-  const urlCanonique = pont.ecrireHash({ saisie: lecture.saisie, fragments: lecture.fragments });
+  // ★ Le REGISTRE de mise en scène vient du LIEN, et de nulle part ailleurs.
+  //   Il traverse jusqu'au scénario (les cornes) et jusqu'au lecteur (l'orage
+  //   et le son) — c'est `url.js` qui le résout, y compris pour un lien qui ne
+  //   le porte pas.
+  const registre = lecture.registre;
+  const { scenario, source } = pont.scenarioDe(approche, lecture.saisie, { registre });
+  const clef = { saisie: lecture.saisie, fragments: lecture.fragments, registre };
+  const urlCanonique = pont.ecrireHash(clef);
   const urlResultats = pont.ecrireHash({ saisie: lecture.saisie });
+  // L'autre mise en scène de la MÊME voie : le même programme, l'autre
+  // marqueur. C'est ce lien que la page de démonstration propose en bas.
+  const urlAutreRegistre = pont.ecrireHash({ ...clef, registre: pont.autreRegistre(registre) });
 
   // La barre d'adresse est toujours réécrite en forme canonique (§4.3) :
-  // qui copie l'URL copie un lien permanent sans avoir à le savoir.
-  pont.canoniser({ saisie: lecture.saisie, fragments: lecture.fragments });
+  // qui copie l'URL copie un lien permanent sans avoir à le savoir. Depuis le
+  // registre, elle devient explicite dès l'ouverture d'un vieux lien.
+  pont.canoniser(clef);
 
   const vue = pageDemonstration({
     saisie: lecture.saisie,
     approche,
     scenario,
     sourceScenario: source,
+    registre,
     urlCanonique,
     urlResultats,
+    urlAutreRegistre,
     bandeau,
     debug: new URLSearchParams(location.search).get('debug') === '1',
   });
@@ -109,14 +121,20 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
 
 /** Démonstration de secours : aucune URL n'est fabriquée, on ne touche pas au hash. */
 function montrerDemonstrationLocale(saisie, approche, resultat) {
-  const { scenario, source } = pont.scenarioDe(approche, saisie);
+  // Aucun lien n'a ete lu : on montre ce que le site montre par defaut,
+  // c'est-a-dire le registre par defaut (`url.js`).
+  const registre = pont.REGISTRE_DEFAUT;
+  const { scenario, source } = pont.scenarioDe(approche, saisie, { registre });
   const vue = pageDemonstration({
     saisie,
     approche,
     scenario,
     sourceScenario: source,
+    registre,
     urlCanonique: null,
     urlResultats: resultat.urlResultats || null,
+    // Un repli ne fabrique pas d'URL (`pont.js`) : pas de bascule non plus.
+    urlAutreRegistre: null,
     bandeau: null,
     debug: false,
   });

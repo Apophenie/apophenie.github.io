@@ -1,7 +1,7 @@
 {
   "name": "numherololgeek",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
   "description": "La vérité derrière n’importe quoi. Tout mène à 666.",
   "scripts": {
@@ -12,6 +12,7 @@
     "logo": "python3 src/gfx/logo-jost-trace.py src/gfx/_logo-test.html favicon.svg --site",
     "segments": "python3 src/gfx/dseg-segments.py && python3 src/gfx/jetbrains-six.py",
     "segments:check": "python3 src/gfx/dseg-segments.py --check && python3 src/gfx/jetbrains-six.py --check",
+    "sons": "python3 src/gfx/sons-base64.py",
     "check": "bun run test && bun run build"
   },
   "devDependencies": {

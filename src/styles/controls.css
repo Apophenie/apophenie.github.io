@@ -125,6 +125,17 @@
    le jour où les animations reviennent — mais il dit qu'il ne fait rien ici. */
 .transport__bouton--reglage[data-inoperant] { opacity: .5; }
 
+/* Le son suit la MÊME règle que les redites : l'état se dit par le picto —
+   haut-parleur barré, haut-parleur qui sonne —, jamais par la couleur seule.
+   Celle-ci ne fait qu'atténuer l'état de refus, ici « coupé ». */
+.transport__bouton--reglage[data-etat="actif"] { color: var(--fg); }
+.transport__bouton--reglage[data-etat="coupe"] { color: var(--fg-2); }
+/* ★ « Activé, mais le navigateur n'a pas encore laissé passer » — le picto
+   porte déjà un point d'exclamation à la place des ondes ; l'atténuation dit
+   en plus que ce n'est pas encore effectif. C'est le seul état où le bouton
+   annonce quelque chose qui ne s'entend pas, et il ne le cache pas. */
+.transport__bouton--reglage[data-etat="attente"] { color: var(--fg-2); opacity: .72; }
+
 /* Icônes : tracé de 2 px, terminaisons carrées, currentColor. Filet gravé,
    pas d'icône arrondie générique. */
 .ico-trait {

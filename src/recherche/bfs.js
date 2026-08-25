@@ -43,6 +43,28 @@ export const MAX_RESULTATS = 400; // borne de mémoire ; mesuré 24..404 chemins
  * `BUDGET_MS` (250 ms, CONTRACTS §5) reste le plafond par défaut d'un appel
  * direct à `chercherSix` — le contrat est tenu là où il a été écrit. Dans le
  * pipeline complet, `resoudre` lui substitue le filet.
+ *
+ * ★ **ET IL SE DÉBRANCHE, PAR UNE OPTION EXPLICITE** — `filetTemporel: false`.
+ *
+ * Le filet a beau être réglé haut, il reste la DERNIÈRE source d'entropie du
+ * moteur : quand la machine est chargée, il mord avant le budget de travail et
+ * le classement change. Mesuré sur ce dépôt : le test « déterminisme — deux
+ * exécutions donnent le même classement » échoue environ une fois sur trois
+ * sous charge, et il échouait déjà en v1.0.0 (deux échecs sur quatre en
+ * rejouant sur le tag). Tant qu'il est branché, deux barèmes ne peuvent pas
+ * être comparés — la base bouge sous la mesure.
+ *
+ * Débranché, il ne reste QUE des bornes déterministes (`BUDGET_TRAVAIL`,
+ * `MAX_NODES`, `D_MAX`) : la recherche termine toujours, simplement elle
+ * termine sur une borne qui ne dépend que de la saisie. C'est pour cela que le
+ * débranchement est sûr, et c'est pour cela qu'il est une OPTION EXPLICITE et
+ * jamais un contournement silencieux : un appelant qui ne demande rien garde le
+ * filet, et un appelant qui le retire l'a écrit noir sur blanc.
+ *
+ * Deux usages, et deux seulement : le banc de mesure (`.planning/banc/`) et les
+ * tests qui comparent deux classements. L'application, elle, garde son filet —
+ * un navigateur peut être arbitrairement lent, et un onglet qui ne rend jamais
+ * la main est pire qu'un classement écourté qui le dit.
  */
 export const BUDGET_MS_FILET = 1000;   // par fragment, dans le pipeline
 export const BUDGET_TOTAL_MS = 3000;   // phase de recherche entière
@@ -526,6 +548,8 @@ export function canonicaliser(chemins) {
  * @property {number} [dMax] @property {number} [pBeam]
  * @property {number} [maxNodes] @property {number} [budgetMs]
  * @property {() => number} [maintenant]
+ * @property {boolean} [filetTemporel] — `false` débranche le filet d'horloge
+ *   (voir l'en-tête « Filets de sécurité temporels »). Explicite, jamais deviné.
  */
 
 /**
@@ -625,14 +649,19 @@ function rechercheBrute(fragment, ctx) {
   const maxNodes = ctx.maxNodes ?? MAX_NODES;
   const maxTravail = ctx.maxTravail ?? BUDGET_TRAVAIL;
   const budgetMs = ctx.budgetMs ?? BUDGET_MS;
-  const maintenant = ctx.maintenant || (() => performance.now());
+  // ★ Le filet se débranche, et alors l'horloge n'est même pas LUE : pas de
+  // `maintenant()`, pas de `t0`, pas de comparaison. Un débranchement qui
+  // laisserait l'appel en place et se contenterait d'ignorer son résultat
+  // laisserait aussi la porte ouverte à ce qu'on l'y remette par distraction.
+  const filet = ctx.filetTemporel !== false;
+  const maintenant = filet ? (ctx.maintenant || (() => performance.now())) : null;
 
   const depart = etat('STR', normaliserFragment(fragment), ctx.traces || [[0, fragment.length]]);
   const etats = new Map();
   etats.set(cleEtat(depart), { etat: depart, chemins: [cheminVide(depart)] });
   let frontiere = [cleEtat(depart)];
   const resultats = [];
-  const t0 = maintenant();
+  const t0 = filet ? maintenant() : 0;
   let noeuds = 1;
   let travail = 0;      // applications pondérées — borne primaire, déterministe
   let tronque = false;
@@ -641,7 +670,7 @@ function rechercheBrute(fragment, ctx) {
   for (let d = 0; d < dMax; d++) {
     if (!frontiere.length) break;
     if (noeuds >= maxNodes || travail >= maxTravail) { tronque = true; break; }
-    if (maintenant() - t0 > budgetMs) { tronque = true; tronqueTemps = true; break; }
+    if (filet && maintenant() - t0 > budgetMs) { tronque = true; tronqueTemps = true; break; }
     const suivante = [];
     // ── Coupe du dernier niveau. Les états créés à la dernière extension ne
     // seront jamais étendus : seuls comptent ceux qui sont DÉJÀ un but, c'est-à-
@@ -658,7 +687,7 @@ function rechercheBrute(fragment, ctx) {
       // Le travail passe EN PREMIER : c'est lui qui doit trancher dans les cas
       // normaux, l'horloge ne devant jamais avoir l'occasion de le faire.
       if (travail >= maxTravail) { tronque = true; break; }
-      if (maintenant() - t0 > budgetMs) { tronque = true; tronqueTemps = true; break; }
+      if (filet && maintenant() - t0 > budgetMs) { tronque = true; tronqueTemps = true; break; }
       const src = etats.get(k);
       const cleSrc = cleEtat(src.etat);
       const cheminsSrc = src.chemins;

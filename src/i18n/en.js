@@ -111,6 +111,12 @@ export const en = {
     aucuneVoie: 'No path found. That is mathematically impossible; we are investigating.',
     voieNumero: 'no. {rang}',
     voieSansTitre: 'Approach no. {rang}',
+    acces: {
+      sobre: 'Plain',
+      sobreLabel: '{titre} — plain version, no staging',
+      scenique: 'Staged',
+      sceniqueLabel: '{titre} — staged version, with horns and storm',
+    },
     jokerNote: 'French wildcard: it only works in French, and that is an argument.',
     cheminUnique: '{n} path',
     cheminsPluriels: '{n} paths',
@@ -131,6 +137,8 @@ export const en = {
       resonanceTexte: 'resonance: the same program on all three occurrences of a repeated pattern.',
       portee: '#0.1:m1+c1,1.1:n2#…',
       porteeTexte: 'scope: offset and length, counted in tokens of the query.',
+      registre: '#sobre!…#…  ·  #scenique!…#…',
+      registreTexte: 'staging register, at the head of the approach. When absent it means “staged” — that is how older links read.',
       copier: 'Copy the link to this page',
     },
   },
@@ -144,6 +152,8 @@ export const en = {
     allerAuRegistre: 'Skip to the Ledger',
     revoir: 'Watch again',
     autreVoie: 'Another path',
+    voirSobre: 'See the plain version',
+    voirScenique: 'See the staged version',
     nouvelleRecherche: 'New search',
     debug: {
       etape: 'step',
@@ -196,6 +206,10 @@ export const en = {
     reditesAccelerer: 'Speed up repeated steps ({facteur}×)',
     reditesRalentir: 'Play repeated steps in full',
     reditesSansEffet: 'Speeding up repeats has no effect: animations are reduced',
+    sonCourt: 'Sound',
+    sonActiver: 'Turn sound on',
+    sonCouper: 'Turn sound off',
+    sonEnAttente: 'Sound is on — it will start on your first click in the page',
   },
 
   registre: {
@@ -238,6 +252,9 @@ export const en = {
       + '<em>DSEG7 Classic</em> (seven segments) and <em>DSEG14 Classic</em> '
       + '(fourteen segments). Four typefaces under the '
       + '<a href="fonts/OFL-Jost.txt">SIL OFL 1.1</a> licence, hosted right here.',
+    sons: 'The storm of the staged version — thunder, blaze, abyss, dread — is made of '
+      + 'four public-domain sounds under '
+      + '<a href="sons/CC0-sons.txt">CC0 1.0</a>, hosted right here too.',
     silence: 'No cookies, no analytics, no network call once the page is loaded.',
   },
 };

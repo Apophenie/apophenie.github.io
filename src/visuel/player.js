@@ -32,7 +32,7 @@ import * as nav from './nav.js';
  * @param {SVGSVGElement} svgRoot
  * @param {object} scenario
  * @param {{reducedMotion?:'auto'|'force'|'off', speed?:number, repeatSpeed?:number, autoplay?:boolean,
- *          glyphes?:object, palette?:object, viewBox?:object}} [options]
+ *          scenographie?:boolean, glyphes?:object, palette?:object, viewBox?:object}} [options]
  */
 export function createPlayer(svgRoot, scenario, options = {}) {
   return new Player(svgRoot, scenario, options);
@@ -52,6 +52,12 @@ class Player {
       // (voir `compile.js`, bloc « Répétitions »). 1 = aucune accélération.
       repeatSpeed: 1,
       autoplay: true,
+      // ★ La SCÉNOGRAPHIE du verdict — la nuit, l'éclair, l'embrasement. C'est
+      //   une option de COMPILATION, comme `reducedMotion` : la timeline reste
+      //   une fonction pure du temps, seul ce qu'elle contient change. Elle est
+      //   FAUSSE par défaut — le moteur visuel montre ce que le scénario dit,
+      //   et rien de plus, tant qu'on ne le lui demande pas.
+      scenographie: false,
       // Condition supplémentaire, fournie par l'appelant : voir `_tryAutoplay`.
       autoplayQuand: null,
       ...options,
@@ -233,6 +239,10 @@ class Player {
       fg: '--fg', fg2: '--fg-2', fg3: '--fg-3', rubric: '--rubric',
       gold: '--gold', phos: '--phos', line: '--line', lineUi: '--line-ui',
       raised: '--raised', surface: '--surface',
+      // La scénographie du verdict. Volontairement identiques d'un thème à
+      // l'autre (`tokens.css`) : la nuit n'a qu'une palette.
+      nuit: '--scene-nuit', rubricNuit: '--scene-rubric',
+      eclair: '--scene-eclair', brasier: '--scene-brasier',
     })) {
       const v = cs.getPropertyValue(cssVar).trim();
       if (v) palette[key] = v;
@@ -264,6 +274,7 @@ class Player {
       speed: this.options.speed,
       repeatSpeed: this.options.repeatSpeed,
       reduced,
+      scenographie: !!this.options.scenographie,
       metrics: this.metrics,
       layoutOpts: this._layoutOptions(),
       palette: this._readPalette(),

@@ -1,0 +1,84 @@
+LES QUATRE SONS DE NumHeroLOLgeek — provenance, auteur, licence
+════════════════════════════════════════════════════════════════════════════
+
+Les quatre sons servis par ce site sont dans le DOMAINE PUBLIC, sous
+Creative Commons CC0 1.0 Universal (CC0 1.0) Public Domain Dedication :
+
+    https://creativecommons.org/publicdomain/zero/1.0/deed.fr
+
+CC0 n'exige AUCUNE attribution. Ce fichier existe quand même, pour la même
+raison que `OFL-Jost.txt` est à côté de `jost-var.woff2` : ce site redistribue
+des œuvres de tiers, et il doit pouvoir dire lesquelles, d'où elles viennent
+et sous quel régime. On ne se contente pas d'être en règle, on le montre.
+
+Aucun des quatre n'est servi tel qu'il a été téléchargé : tous ont été
+recadrés, égalisés en niveau et réencodés (voir « Traitement » plus bas). CC0
+autorise expressément la modification.
+
+────────────────────────────────────────────────────────────────────────────
+1. tonnerre.ogg — le coup de foudre du verdict
+────────────────────────────────────────────────────────────────────────────
+   Œuvre     : « Thunder Clap »
+   Auteur    : roboroo
+   Source    : https://freesound.org/people/roboroo/sounds/436790/
+   Licence   : CC0 1.0 (« Creative Commons 0 » sur la page d'origine)
+   Original  : MP3 187 kb/s, 44,1 kHz stéréo, 4,206 s, 98 203 octets
+   Extrait   : 0,00 s → 3,20 s
+
+────────────────────────────────────────────────────────────────────────────
+2. brasier.ogg — l'embrasement autour des 666 (en boucle)
+────────────────────────────────────────────────────────────────────────────
+   Œuvre     : « Synthesized Fire Sound Effect »
+   Auteur    : Spring Spring
+   Source    : https://opengameart.org/content/synthesized-fire-sound-effect
+   Licence   : CC0 1.0 (mention « License(s): CC0 » sur la page d'origine)
+   Original  : MP3, 48 kHz stéréo, 7,704 s, 127 206 octets
+   Extrait   : 1,50 s → 4,50 s, bouclé sans couture (fondu croisé de 350 ms)
+
+────────────────────────────────────────────────────────────────────────────
+3. abime.ogg — l'ambiance lugubre (en boucle)
+────────────────────────────────────────────────────────────────────────────
+   Œuvre     : « Ambient horror »
+   Auteur    : techiew
+   Source    : https://opengameart.org/content/ambient-horror
+   Licence   : CC0 1.0 (mention « License(s): CC0 » sur la page d'origine)
+   Original  : Ogg Vorbis, 48 kHz stéréo, 22,187 s, 776 232 octets
+   Extrait   : 4,00 s → 12,00 s, bouclé sans couture (fondu croisé de 600 ms)
+   Note de l'auteur : « Free for all to use for any purpose, but I'd love to
+   know if you ever use this in your project. » — l'usage est ici.
+
+────────────────────────────────────────────────────────────────────────────
+4. effroi.ogg — les cornes qui poussent
+────────────────────────────────────────────────────────────────────────────
+   Œuvre     : « Horror Hit Soundpack 1 », piste « Very Bassy 4 »
+   Auteur    : psychhead_
+   Source    : https://opengameart.org/content/horror-hit-soundpack-1
+   Licence   : CC0 1.0 (mention « Public Domain - CC0 » de l'auteur)
+   Original  : MP3 128 kb/s, 44,1 kHz stéréo, 4,389 s, 70 469 octets
+   Extrait   : 0,00 s → 1,60 s (l'impact ; la longue queue de réverbération
+   est coupée — un sursaut doit être bref)
+
+────────────────────────────────────────────────────────────────────────────
+Traitement, identique pour les quatre
+────────────────────────────────────────────────────────────────────────────
+   ffmpeg → mono, 24 kHz d'échantillonnage à l'entrée, Opus dans un conteneur
+   Ogg, VBR, `application=audio`. Égalisation de niveau par `loudnorm`, crête
+   vraie à −1,5 dBTP :
+     · tonnerre −14 LUFS, 32 kb/s   · brasier  −20 LUFS, 24 kb/s
+     · effroi   −13 LUFS, 32 kb/s   · abîme    −22 LUFS, 24 kb/s
+   Les deux fonds sont plus bas de 6 à 8 LUFS que les deux impacts : ils
+   doivent se tenir SOUS eux, pas à côté.
+
+   Poids servi : 11 925 + 8 418 + 22 588 + 8 176 = 51 107 octets,
+   soit ~68 100 octets une fois inlinés en base64 par le build (voir
+   `vite.config.js`, `assetsInlineLimit`). À comparer aux 67 712 octets de
+   woff2 des quatre polices : les sons pèsent le même ordre de grandeur que
+   la typographie, et le budget de CONTRACTS §7.6 (≤ 260 Ko) reste tenu.
+
+   ★ Pourquoi Opus, et ce que ça coûte : c'est le seul codec largement servi
+   qui descende à 24 kb/s sans que du bruit de feu devienne du bruit de
+   friture, et le seul dont le conteneur porte le « pre-skip » nécessaire à
+   une boucle sans blanc — un MP3 boucle avec le silence de bourrage de son
+   encodeur, ce qui s'entend à chaque tour. Le prix est un repli : les
+   navigateurs qui ne lisent pas Ogg/Opus n'auront pas de son, et
+   `src/app/sons.js` le DIT au lieu d'afficher un bouton qui ne fait rien.

@@ -81,28 +81,36 @@ function protocoleFichier() {
 }
 
 /**
- * Les licences des polices, recopiées telles quelles.
+ * Les licences, recopiées telles quelles.
  *
  * Vite renomme les `.woff2` avec une empreinte — très bien, ce sont des octets.
  * Mais le pied de page pointe `fonts/OFL-Jost.txt` par un `<a href>`, que Vite
  * ne réécrit pas (et ne doit pas réécrire : c'est un lien, pas une ressource).
- * Les quatre licences sont donc recopiées à leur place d'origine. Elles ne sont
- * pas décoratives : les polices sont redistribuées ici même, sous OFL.
+ * Les licences sont donc recopiées à leur place d'origine. Elles ne sont pas
+ * décoratives : ce site redistribue des œuvres de tiers.
+ *
+ * ★ Les SONS s'y ajoutent, pour la même raison exactement. Leurs `.ogg` ne sont
+ * PAS copiés — ils ne sont jamais servis : ce sont des sources, comme
+ * `src/gfx/jost.ttf`, dont `src/sons/data.js` est la dérivée empaquetée. Seul
+ * `CC0-sons.txt` voyage, parce que le pied de page le pointe. CC0 n'exige
+ * aucune attribution, ce qui rend cette copie facultative — et c'est
+ * précisément pour ça qu'elle est faite.
  */
-function licencesDesPolices() {
+function licencesRedistribuees() {
+  const copier = (dossier, garder) => (options) => {
+    const source = resolve(racine, 'src', dossier);
+    const cible = resolve(options.dir ?? resolve(racine, 'dist'), dossier);
+    mkdirSync(cible, { recursive: true });
+    for (const nom of readdirSync(source)) {
+      if (garder(nom)) copyFileSync(resolve(source, nom), resolve(cible, nom));
+    }
+  };
+  const polices = copier('fonts', (n) => n.startsWith('OFL-') && n.endsWith('.txt'));
+  const sons = copier('sons', (n) => n.startsWith('CC0-') && n.endsWith('.txt'));
   return {
-    name: 'nhlg-licences-polices',
+    name: 'nhlg-licences-redistribuees',
     apply: 'build',
-    writeBundle(options) {
-      const source = resolve(racine, 'src', 'fonts');
-      const cible = resolve(options.dir ?? resolve(racine, 'dist'), 'fonts');
-      mkdirSync(cible, { recursive: true });
-      for (const nom of readdirSync(source)) {
-        if (nom.startsWith('OFL-') && nom.endsWith('.txt')) {
-          copyFileSync(resolve(source, nom), resolve(cible, nom));
-        }
-      }
-    },
+    writeBundle(options) { polices(options); sons(options); },
   };
 }
 
@@ -193,6 +201,19 @@ export default defineConfig({
     outDir: resolve(racine, 'dist'),
     emptyOutDir: true,
     target: 'es2022',
+    // ★ Les SONS aussi sont inlinés, et pour la même raison que les polices —
+    // même seuil, même arbitrage. Les quatre pèsent 51 107 octets d'Opus, soit
+    // ~68 100 une fois encodés : le même ordre de grandeur que les 67 712
+    // octets de woff2 des quatre polices. Un son EST plus lourd qu'une police
+    // — c'est vrai en général —, mais pas celui-ci : mono, 24 kHz, Opus à 24
+    // ou 32 kb/s, et douze secondes en tout (voir `src/sons/CC0-sons.txt`).
+    // Le budget de CONTRACTS §7.6, ≤ 260 Ko, reste tenu à moins de la moitié.
+    //
+    // Ce qui décide n'est d'ailleurs pas le poids mais la PROMESSE du pied de
+    // page : « aucun appel réseau après le chargement ». Un `.ogg` servi à
+    // part serait une requête de plus — et, en `file://`, une requête qu'on ne
+    // peut pas garantir. Inliné, le son est là ou n'est pas là, comme le reste.
+    //
     // ★ Les polices sont INLINÉES en base64 dans le CSS. C'est la réponse la
     // plus sûre pour un `dist/` destiné à `file://` : plus de requête séparée,
     // donc plus de question CORS ni de préchargement à réapparier, et surtout
@@ -226,5 +247,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [protocoleFichier(), licencesDesPolices(), faviconRacine(), iconeApple()],
+  plugins: [protocoleFichier(), licencesRedistribuees(), faviconRacine(), iconeApple()],
 });

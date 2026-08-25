@@ -25,7 +25,8 @@ import { t } from '../i18n/index.js';
 import { interpoler } from '../i18n/resolution.js';
 import { titreEtape } from './libelles.js';
 import {
-  repetitionsAccelerees, basculerRepetitions, animationEffective, onReglages,
+  repetitionsAccelerees, basculerRepetitions, animationEffective,
+  sonActif, basculerSon, onReglages,
 } from './reglages.js';
 
 const ico = (...enfants) =>
@@ -60,6 +61,27 @@ const ICONES = {
     s('path', { class: 'ico-trait', d: 'M13 6 L19 12 L13 18' })),
   pleines: () => ico(
     s('path', { class: 'ico-trait', d: 'M8 5 L15 12 L8 19' })),
+  // Le son : le haut-parleur, et ses ondes ou sa croix. Au TRAIT comme les
+  // redites — même famille de facture, parce que c'est le même genre de
+  // bouton : il règle, il ne déplace pas la tête de lecture.
+  //
+  // ★ Trois icônes et non deux, parce qu'il y a trois états RÉELS (voir
+  // `src/app/sons.js`) : coupé ; actif ; et « actif, mais le navigateur n'a pas
+  // encore laissé passer ». Le troisième porte un point d'exclamation plutôt
+  // que des ondes — dire « ça sonne » quand rien ne sort serait exactement le
+  // mensonge que ce bouton existe pour éviter.
+  sonCoupe: () => ico(
+    s('path', { class: 'ico-plein', d: 'M4 9 h3 L11 5 v14 L7 15 H4 Z' }),
+    s('path', { class: 'ico-trait', d: 'M15 9 L20 15' }),
+    s('path', { class: 'ico-trait', d: 'M20 9 L15 15' })),
+  sonActif: () => ico(
+    s('path', { class: 'ico-plein', d: 'M4 9 h3 L11 5 v14 L7 15 H4 Z' }),
+    s('path', { class: 'ico-trait', d: 'M14.5 9.5 A4 4 0 0 1 14.5 14.5' }),
+    s('path', { class: 'ico-trait', d: 'M17.5 6.5 A8 8 0 0 1 17.5 17.5' })),
+  sonAttente: () => ico(
+    s('path', { class: 'ico-plein', d: 'M4 9 h3 L11 5 v14 L7 15 H4 Z' }),
+    s('path', { class: 'ico-trait', d: 'M17 7 V13' }),
+    s('path', { class: 'ico-trait', d: 'M17 16 V17.5' })),
 };
 
 function boutonTransport(cle, libelle, nomAccessible, principal = false) {
@@ -137,10 +159,27 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     bRedites.dataset.role = 'redites';
   }
 
+  /* ── la coupure du son, SEPTIÈME contrôle, juste après les redites ──
+     Même nature que la bascule des redites, donc même place et même facture :
+     une préférence de lecture, à portée immédiate de ce qu'elle règle. Le
+     bouton n'existe QUE s'il y a quelque chose à couper — registre scénique
+     ET format lisible par ce navigateur (`options.sons`). Un bouton qui ne
+     peut rien faire est du bruit, et un bouton présent mais inerte serait
+     précisément le mensonge que ce réglage doit éviter. */
+  const sons = options.sons || null;
+  const bSon = sons && sons.disponible
+    ? boutonTransport('sonCoupe', tt('sonCourt'), tt('sonActiver'))
+    : null;
+  if (bSon) {
+    bSon.classList.add('transport__bouton--reglage');
+    bSon.dataset.role = 'son';
+  }
+
   const barre = e('div.transport', {
     role: 'group',
     'aria-label': tt('groupe'),
-  }, [bDebut, bPrec, bLect, bSuiv, bFin, ...(bRedites ? [bRedites] : [])]);
+  }, [bDebut, bPrec, bLect, bSuiv, bFin,
+    ...(bRedites ? [bRedites] : []), ...(bSon ? [bSon] : [])]);
 
   const element = e('div.transport-groupe', {}, [jauge, barre]);
 
@@ -162,6 +201,12 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
   // La bascule n'appelle rien sur le lecteur : elle écrit la préférence, et
   // `onReglages` fait recompiler la timeline chez qui l'a construite.
   if (bRedites) bRedites.addEventListener('click', basculerRepetitions);
+  // ★ Le clic sur ce bouton EST un geste utilisateur : c'est donc l'occasion
+  //   où le navigateur laissera passer le son. On bascule la préférence, et le
+  //   joueur en profite pour se déverrouiller (`sons.js › sonder`, branché sur
+  //   `pointerdown`). L'ordre n'a pas d'importance — la sonde a déjà eu lieu au
+  //   `pointerdown`, avant le `click`.
+  if (bSon) bSon.addEventListener('click', basculerSon);
 
   let dejaLance = false;
 
@@ -226,12 +271,40 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     bRedites._icone = neuve;
   }
 
-  // `rafraichir` suit le lecteur — donc chaque image de la lecture. La bascule
-  // des redites, elle, ne suit que les réglages : elle se repeint sur
-  // `onReglages`, pas soixante fois par seconde pour rien.
+  /* ★ Le bouton du son dit L'ÉTAT RÉEL, pas la préférence.
+     Trois états, pas deux (voir `src/app/sons.js`) : coupé ; actif ; et
+     « actif, mais le navigateur n'a pas encore laissé passer » — le cas d'un
+     visiteur qui revient avec sa préférence retrouvée, sur une page qui
+     s'autojoue et où rien ne sort encore. Afficher « son activé » à cet
+     instant serait un mensonge, et c'est exactement celui que ce bouton
+     existe pour éviter. Comme Lecture/Pause, le NOM ACCESSIBLE dit ce qu'un
+     clic FERA, jamais `aria-pressed`. */
+  function peindreSon() {
+    if (!bSon) return;
+    const actif = sonActif();
+    const attente = actif && !sons.debloque;
+    const etat = actif ? (attente ? 'attente' : 'actif') : 'coupe';
+    const nom = actif ? tt('sonCouper') : tt('sonActiver');
+    bSon.setAttribute('aria-label', nom);
+    bSon.setAttribute('title', attente ? tt('sonEnAttente') : nom);
+    bSon.dataset.etat = etat;
+    const neuve = ICONES[etat === 'coupe' ? 'sonCoupe' : (etat === 'attente' ? 'sonAttente' : 'sonActif')]();
+    bSon.replaceChild(neuve, bSon._icone);
+    bSon._icone = neuve;
+  }
+
+  // `rafraichir` suit le lecteur — donc chaque image de la lecture. Les deux
+  // bascules, elles, ne suivent que les réglages : elles se repeignent sur
+  // `onReglages`, pas soixante fois par seconde pour rien. Le bouton du son
+  // écoute EN PLUS le joueur, qui prévient quand le déblocage change — c'est
+  // un fait du navigateur, pas une préférence, et rien d'autre ne le sait.
   const desabonner = lecteur.on ? lecteur.on('change', rafraichir) : () => {};
-  const desabonnerReglages = bRedites ? onReglages(peindreRedites) : () => {};
+  const desabonnerReglages = (bRedites || bSon)
+    ? onReglages(() => { peindreRedites(); peindreSon(); })
+    : () => {};
+  const desabonnerSons = bSon ? sons.on(peindreSon) : () => {};
   peindreRedites();
+  peindreSon();
   rafraichir();
 
   return {
@@ -240,6 +313,7 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     detruire() {
       if (typeof desabonner === 'function') desabonner();
       desabonnerReglages();
+      desabonnerSons();
     },
   };
 }

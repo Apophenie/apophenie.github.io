@@ -8,6 +8,7 @@ import { titreApproche, regleApproche, titreEtape } from '../libelles.js';
 import { creerTransport, brancherClavier } from '../transport.js';
 import { creerRegistre } from '../registre.js';
 import { boutonPartage } from '../partage.js';
+import { creerSons, brancherSons } from '../sons.js';
 import { interrupteurs } from '../entete.js';
 import {
   animationEffective, themeEffectif, repetitionsAccelerees, onReglages,
@@ -72,6 +73,15 @@ export function pageDemonstration(ctx) {
   const { saisie, approche, scenario } = ctx;
   const nbEtapes = (scenario.steps || []).length;
 
+  /* ── le REGISTRE de mise en scène ────────────────────────────────────────
+     Il vient du LIEN (`src/recherche/url.js`) et se lit ici sur le SCÉNARIO,
+     qui le porte : le scénario sobre a déjà perdu ses cornes à la
+     construction, et il serait absurde de lui rendre l'orage du verdict. Une
+     seule source de vérité, plutôt que deux drapeaux qui pourraient se
+     contredire. `ctx.registre` n'est qu'un repli — un scénario de secours n'en
+     porte pas. */
+  const scenique = (scenario.registre || ctx.registre || 'scenique') !== 'sobre';
+
   /* ─────────────────────────── la scène ─────────────────────────── */
 
   // La scène SVG est aria-hidden : elle ne porte aucune information pour les
@@ -115,6 +125,12 @@ export function pageDemonstration(ctx) {
     reducedMotion: reglageMouvement(),
     speed: 1,
     repeatSpeed: facteurRedites(),
+    // ★ La SCÉNOGRAPHIE du verdict — fond lugubre, éclair, embrasement — est
+    //   une option de COMPILATION, au même titre que `reducedMotion` et
+    //   `repeatSpeed`. Elle ne change rien au scénario, qui reste le même objet
+    //   pur dans les deux registres : elle décide seulement de ce que le
+    //   compilateur ajoute autour du verdict (`visuel/primitives/reveal.js`).
+    scenographie: scenique,
     // ★ `autoplay: true` — et non un instantané des conditions.
     //
     // Cette ligne portait `autoplayAutorise()`, qui recopiait ici les quatre
@@ -141,7 +157,19 @@ export function pageDemonstration(ctx) {
       && !!transport && entierementVisible(transport.element),
   });
 
-  transport = creerTransport(lecteur, {}, { repetitions: pont.facteurRepetitions() });
+  /* ── l'orage sonore ──────────────────────────────────────────────────────
+     Créé APRÈS le lecteur et AVANT la barre : celle-ci a besoin de savoir s'il
+     y a quelque chose à couper avant de dessiner son bouton (`options.sons`).
+     En registre sobre — ou si le navigateur ne lit pas le format —, `creerSons`
+     rend un joueur inerte : rien n'est chargé, et la barre n'affiche pas de
+     bouton pour un réglage qui n'existerait pas. */
+  const sons = creerSons({ registre: scenique ? 'scenique' : 'sobre' });
+  const debrancherSons = brancherSons(lecteur, sons, { scenario });
+
+  transport = creerTransport(lecteur, {}, {
+    repetitions: pont.facteurRepetitions(),
+    sons,
+  });
   const registre = creerRegistre(lecteur, { resultat: scenario.result });
 
   const messages = [];
@@ -266,6 +294,16 @@ export function pageDemonstration(ctx) {
       texte: t('demo.revoir'),
       sur: { click: () => { lecteur.toStart(); lecteur.play(); transport.rafraichir(); } },
     }),
+    // ★ L'AUTRE MISE EN SCÈNE de la même voie. Ce n'est pas « une autre voie » :
+    //   c'est le même programme, le même verdict, le même rang, à un marqueur
+    //   d'URL près. Le bouton le dit — « voir en sobre » / « voir en scénique »
+    //   —, et il mène à un lien permanent qu'on peut partager tel quel.
+    ctx.urlAutreRegistre
+      ? e('a.bouton-secondaire', {
+        href: ctx.urlAutreRegistre,
+        texte: t(scenique ? 'demo.voirSobre' : 'demo.voirScenique'),
+      })
+      : null,
     ctx.urlResultats
       ? e('a.bouton-secondaire', { href: ctx.urlResultats, texte: t('demo.autreVoie') })
       : null,
@@ -348,6 +386,11 @@ export function pageDemonstration(ctx) {
       detacherClavier();
       if (typeof offChange === 'function') offChange();
       offTheme();
+      // Le son d'abord : une piste qui survivrait à sa page continuerait de
+      // jouer sous la suivante, et personne n'aurait plus de bouton pour
+      // l'arrêter.
+      debrancherSons();
+      sons.detruire();
       transport.detruire();
       registre.detruire();
       if (typeof lecteur.destroy === 'function') lecteur.destroy();
