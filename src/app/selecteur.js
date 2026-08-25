@@ -25,6 +25,7 @@ import { e } from './dom.js';
  *   label: string,                   nom accessible du groupe (« Thème », « Langue »)
  *   titre: (libelle:string)=>string, infobulle du déclencheur replié
  *   options: Array<{valeur:string, libelle:string, picto:()=>SVGElement}>,
+ *   pictoDeclencheur?: ()=>SVGElement,   // à défaut : le picto de l'option active
  *   valeur: ()=>string,              la valeur active, relue à chaque peinture
  *   surChoix: (valeur:string)=>void
  * }} config
@@ -123,7 +124,20 @@ export function creerSelecteur(config) {
     // « Thème » seul laisserait ignorer ce qui est en vigueur. Le panneau, lui,
     // garde le nom court (« Thème ») : la liste dit déjà l'état, option par option.
     const nom = config.titre(active ? active.libelle : '');
-    declencheur.replaceChildren(active ? active.picto() : null);
+    // ★ `pictoDeclencheur` — un déclencheur nomme le CONTRÔLE, une option nomme
+    // le CHOIX, et ce ne sont pas toujours les mêmes signes.
+    //
+    // Sur le thème, ils coïncident : le soleil ou le croissant disent à la fois
+    // « réglage de thème » et « celui-ci est en vigueur ». Sur la langue, non —
+    // les deux marques de citation distinguent parfaitement le français de
+    // l'anglais **une fois posées côte à côte**, mais seule sur un bouton, l'une
+    // d'elles ne dit pas de quoi il s'agit. Le déclencheur peut donc porter son
+    // propre picto ; à défaut, il garde celui de l'option active, et rien ne
+    // change pour les sélecteurs qui n'en demandent pas.
+    const picto = typeof config.pictoDeclencheur === 'function'
+      ? config.pictoDeclencheur
+      : (active ? active.picto : null);
+    declencheur.replaceChildren(picto ? picto() : null);
     declencheur.setAttribute('title', nom);
     declencheur.setAttribute('aria-label', nom);
 
