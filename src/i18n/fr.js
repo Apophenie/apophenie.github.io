@@ -81,7 +81,23 @@ export const fr = {
     erreurVide: 'Les arcanes ont besoin d’un peu de matière. Saisissez quelque chose.',
     erreurUrl: 'La grammaire d’URL n’est pas chargée : impossible de composer le lien.',
     exemplesTitre: 'Essayez donc :',
-    exemples: ['hope-hope-hope.fr', 'votre prénom', '666', 'wikipedia.org'],
+    // Une puce est soit un texte à recopier dans le champ, soit un raccourci
+    // qui MÈNE DIRECTEMENT à une démonstration choisie. Le raccourci n'est pas
+    // traduisible — c'est une URL —, mais il vit ici parce que c'est ici qu'on
+    // choisit ce qu'on met en vitrine.
+    exemples: [
+      'hope-hope-hope.fr',
+      'Donald Trump',
+      {
+        texte: 'https://reinfocovid.fr/',
+        // Trois morceaux d'URL, trois règles différentes, trois 6 : la
+        // chaldéenne sur « https » (5+4+4+8+3 = 24 → 6), les consonnes de
+        // « reinfocovid » comptées (6), et « fr » en sept segments (4+2).
+        hash: '#0.1:t1+m4+c1+p1,3.1:f9+n1,5.1:t1+md+c1#3A8evQZovd7BUyRUF65ToBwrHvW25EUn',
+        aide: 'Voir la démonstration pour « https://reinfocovid.fr/ »',
+      },
+      'Capitalisme',
+    ],
     mentionCalcul: 'Tout est calculé dans votre navigateur : rien n’est envoyé nulle part.',
     mentionParodie: 'Ceci est une parodie. La numérologie ne prédit rien. Le code, si.',
   },

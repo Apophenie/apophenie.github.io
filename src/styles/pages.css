@@ -152,6 +152,19 @@
 }
 .puce:hover { border-color: var(--line-ui); color: var(--fg); }
 
+/* ★ La puce qui EMMÈNE plutôt que de remplir le champ.
+   Deux gestes différents ne peuvent pas porter la même apparence : celle-ci
+   porte un chevron, la ponctuation universelle du « ça continue ailleurs ».
+   Le chevron est décoratif — ce qui l'annonce vraiment, c'est l'`aria-label`
+   posé par `accueil.js`, qui dit la destination en toutes lettres. */
+.puce--voie::after {
+  content: "›";
+  margin-left: var(--e1);
+  color: var(--fg-3);
+  font-family: var(--machine);
+}
+.puce--voie:hover::after { color: var(--fg); }
+
 .accueil__mentions { margin-top: var(--e7); text-align: center; }
 .accueil__mentions p { max-width: none; font-size: var(--fs-xs); color: var(--fg-3); }
 

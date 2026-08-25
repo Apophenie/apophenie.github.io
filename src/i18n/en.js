@@ -83,7 +83,16 @@ export const en = {
     erreurVide: 'The arcana need something to work with. Type anything.',
     erreurUrl: 'The URL grammar is not loaded: the link cannot be composed.',
     exemplesTitre: 'Why not try:',
-    exemples: ['hope-hope-hope.fr', 'your first name', '666', 'wikipedia.org'],
+    exemples: [
+      'hope-hope-hope.fr',
+      'Donald Trump',
+      {
+        texte: 'https://reinfocovid.fr/',
+        hash: '#0.1:t1+m4+c1+p1,3.1:f9+n1,5.1:t1+md+c1#3A8evQZovd7BUyRUF65ToBwrHvW25EUn',
+        aide: 'See the demonstration for “https://reinfocovid.fr/”',
+      },
+      'Capitalism',
+    ],
     mentionCalcul: 'Everything is computed in your browser: nothing is sent anywhere.',
     mentionParodie: 'This is a parody. Numerology predicts nothing. Code does.',
   },

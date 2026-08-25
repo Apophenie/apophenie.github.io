@@ -74,19 +74,35 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
     location.hash = hash;
   });
 
-  const exemples = e('div.exemples', {}, [
-    e('p.exemples__titre', { texte: t('accueil.exemplesTitre') }),
-    e('div.exemples__liste', {}, (v('accueil.exemples') || []).map((x) => e('button.puce', {
+  // ★ Deux sortes de puces, et le visiteur doit pouvoir les distinguer AVANT
+  // de cliquer. La plupart recopient leur texte dans le champ — on reste sur
+  // l'accueil, on peut encore modifier la saisie. Une puce à `hash`, elle,
+  // EMMÈNE : elle ouvre une démonstration précise, choisie pour sa beauté
+  // plutôt que trouvée par le moteur. Deux gestes différents sous la même
+  // apparence tromperaient ; elle le dit donc en toutes lettres, dans son
+  // `aria-label` et son `title`, et se marque d'une classe à part.
+  const puce = (x) => {
+    const texte = typeof x === 'string' ? x : x.texte;
+    const raccourci = typeof x === 'string' ? null : x.hash;
+    return e(raccourci ? 'button.puce.puce--voie' : 'button.puce', {
       type: 'button',
-      texte: x,
+      texte,
+      'aria-label': raccourci ? (x.aide || texte) : null,
+      title: raccourci ? (x.aide || texte) : null,
       sur: {
         click: () => {
-          champ.value = x;
+          if (raccourci) { location.hash = raccourci; return; }
+          champ.value = texte;
           majCompteur();
           champ.focus();
         },
       },
-    }))),
+    });
+  };
+
+  const exemples = e('div.exemples', {}, [
+    e('p.exemples__titre', { texte: t('accueil.exemplesTitre') }),
+    e('div.exemples__liste', {}, (v('accueil.exemples') || []).map(puce)),
   ]);
 
   return e('div.accueil', {}, [

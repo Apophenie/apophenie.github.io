@@ -80,8 +80,19 @@ test('resoudre se replie sur le français puis sur le chemin lui-même', () => {
 
 test('resoudreValeur rend les listes telles quelles', () => {
   assert.ok(Array.isArray(resoudreValeur(dictionnaires, 'en', 'accueil.exemples')));
-  assert.equal(resoudreValeur(dictionnaires, 'en', 'accueil.exemples')[1], 'your first name');
-  assert.equal(resoudreValeur(dictionnaires, 'fr', 'accueil.exemples')[1], 'votre prénom');
+  assert.equal(resoudreValeur(dictionnaires, 'en', 'accueil.exemples')[1], 'Donald Trump');
+  assert.equal(resoudreValeur(dictionnaires, 'fr', 'accueil.exemples')[3], 'Capitalisme');
+  // ★ Une puce peut être un RACCOURCI : un objet `{texte, hash}` qui mène droit
+  // à une démonstration choisie, au lieu de recopier son texte dans le champ.
+  for (const langue of ['fr', 'en']) {
+    const raccourci = resoudreValeur(dictionnaires, langue, 'accueil.exemples')
+      .find((x) => x && typeof x === 'object');
+    assert.ok(raccourci, `${langue} : plus aucune puce ne mène à une voie choisie`);
+    assert.match(raccourci.hash, /^#[^#]*#[1-9A-HJ-NP-Za-km-z]+$/,
+      `${langue} : le raccourci n’est pas une URL de démonstration`);
+    assert.ok(raccourci.aide && raccourci.aide.length > raccourci.texte.length,
+      `${langue} : le raccourci ne dit pas où il mène`);
+  }
 });
 
 /* ══════════ 2. Libellés {fr, en} produits par le catalogue ══════════ */

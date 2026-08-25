@@ -1,0 +1,96 @@
+# Publication du site sur GitHub Pages — https://apophenie.github.io
+#
+# Le dépôt ne contient PAS `dist/` : ce qui est publié est reconstruit ici, à
+# partir des sources, à chaque poussée sur `main`. C'est la seule façon de
+# garantir que le site en ligne correspond au code qu'on peut lire.
+#
+# `bun run check` enchaîne les tests (`node --test`, sans build préalable) puis
+# le build. Les deux comptent : le site doit être vert ET constructible. Un test
+# rouge n'est donc jamais publié.
+#
+# ⚠ Le miroir GitLab (`.gitlab-ci.yml`) fait exactement la même chose pour
+# Framagit. Les deux doivent rester d'accord sur la commande — `bun run check` —
+# pour qu'un site vert ici ne soit pas rouge là-bas.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Une seule publication à la fois. `cancel-in-progress: false` : on ne coupe pas
+# un déploiement en cours, on le laisse finir — un site à moitié publié serait
+# pire qu'un site en retard d'une minute.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Python sert aux deux vérifications de reproductibilité ci-dessous (le
+      # logo et la géométrie des segments), jamais au site lui-même : ce sont
+      # des outils de build, et rien de tout cela n'est servi au visiteur.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Tests puis build
+        run: bun run check
+
+      # Le logo, le favicon et le bloc CSS de `src/styles/` sont produits par un
+      # générateur Python versionné (`src/gfx/logo-jost-trace.py`). Ils sont
+      # commités : on ne les régénère pas ici, on vérifie qu'ils correspondent
+      # bien à leur source. Un tracé retouché à la main sans repasser par le
+      # générateur fait échouer cette étape — et c'est le but.
+      - name: Le logo est-il encore celui de son générateur ?
+        run: |
+          python3 -m pip install --quiet fonttools
+          cp src/index.html /tmp/index.avant
+          cp src/styles/base.css /tmp/base.avant
+          cp favicon.svg /tmp/favicon.avant
+          cp src/gfx/_logo-test.html /tmp/banc.avant
+          bun run logo
+          diff /tmp/index.avant src/index.html
+          diff /tmp/base.avant src/styles/base.css
+          diff /tmp/favicon.avant favicon.svg
+          diff /tmp/banc.avant src/gfx/_logo-test.html
+
+      # Même règle pour la géométrie des afficheurs à segments, DÉRIVÉE des
+      # polices DSEG7 / DSEG14 contour par contour : « ce qui est montré est ce
+      # qui est compté, depuis une source unique ».
+      - name: Les segments sont-ils encore ceux des polices ?
+        run: |
+          python3 -m pip install --quiet fonttools brotli
+          bun run segments:check
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v4

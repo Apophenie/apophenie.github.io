@@ -13,6 +13,8 @@ import {
 import { approcheJoker, normaliserChemin, compterMoisson, sixDuChemin, SERIE } from '../assemblage.js';
 import { estDecret, titreApproche } from '../titres.js';
 import { catalogue, source, horlogeFactice, demarrerCharge, arreterCharge } from './_catalogue.js';
+import { fr } from '../../i18n/fr.js';
+import { en } from '../../i18n/en.js';
 
 test(`catalogue de test employé : ${source}`, () => {
   assert.deepEqual(validerCatalogue(catalogue), [], 'le catalogue doit respecter CONTRACTS.md §2.2');
@@ -797,6 +799,36 @@ test('★ titres — jamais un code d’URL en guise de nom', () => {
     }
   }
   assert.ok(vus >= 40, `seulement ${vus} titres examinés`);
+});
+
+/**
+ * ★ Les puces de l'accueil qui MÈNENT quelque part doivent y mener vraiment.
+ *
+ * Une puce à `hash` ouvre une démonstration choisie à la main — celle qu'on
+ * trouve la plus élégante, pas celle que le moteur classe première. Un lien
+ * écrit à la main est un lien qui périme : il suffit qu'un code d'opérateur
+ * change de sens pour qu'il tombe en marche. Le registre est append-only
+ * précisément pour que ça n'arrive pas ; ce test le vérifie sur le seul lien
+ * qui soit affiché en vitrine.
+ */
+test('★ accueil — chaque puce-raccourci rejoue réellement', () => {
+  const m = creerMoteur(catalogue);
+  let vus = 0;
+  for (const [langue, dico] of [['fr', fr], ['en', en]]) {
+    for (const x of dico.accueil.exemples) {
+      if (!x || typeof x !== 'object') continue;
+      vus++;
+      const lu = lire(x.hash);
+      assert.equal(lu.forme, 'canonique', `${langue} : « ${x.hash} » n’est pas une URL canonique`);
+      assert.equal(lu.saisie, x.texte,
+        `${langue} : la puce dit « ${x.texte} » et le lien porte « ${lu.saisie} »`);
+      const r = m.rejouer(lu);
+      assert.ok(r.ok, `${langue} : le raccourci ne rejoue pas — ${r.raison}`);
+      const sc = m.scenarioDe(r.approche, { saisie: lu.saisie });
+      assert.equal(sc.result, '666', `${langue} : la voie choisie ne mène pas à 666 (${sc.result})`);
+    }
+  }
+  assert.ok(vus >= 2, `seulement ${vus} raccourcis examinés — un par langue est attendu`);
 });
 
 test('anti-doublons — aucune étape inopérante ne subsiste dans une approche', () => {
