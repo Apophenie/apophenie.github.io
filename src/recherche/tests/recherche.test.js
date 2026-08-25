@@ -113,8 +113,21 @@ const SAISIES_DETERMINISME = [
 ];
 
 test('déterminisme — deux exécutions donnent le MÊME classement', () => {
-  const a = creerMoteur(catalogue);
-  const b = creerMoteur(catalogue); // instance neuve : ni cache ni bassin partagés
+  // ★ LE FILET TEMPOREL EST DÉBRANCHÉ ICI, et c'est le sujet du test.
+  //
+  // Ce test comparait deux classements en laissant branché l'arrêt d'urgence à
+  // l'horloge (`BUDGET_MS_FILET`, `BUDGET_TOTAL_MS`). Sur une machine chargée,
+  // le filet mord sur l'une des deux exécutions et pas sur l'autre, et le test
+  // échoue — mesuré à environ une fois sur trois, et déjà en v1.0.0. Il ne
+  // mesurait donc pas ce qu'il annonce : le déterminisme du CLASSEMENT.
+  //
+  // Débranché, il ne reste que des bornes qui ne dépendent que de la saisie
+  // (`BUDGET_TRAVAIL`, `MAX_NODES`, `D_MAX`) : deux exécutions doivent alors
+  // coïncider absolument, charge ou pas. Le comportement du filet lui-même est
+  // vérifié séparément — « une horloge hostile écourte, mais ne ment jamais »,
+  // et « le filet temporel se débranche par une option explicite ».
+  const a = creerMoteur(catalogue, { filetTemporel: false });
+  const b = creerMoteur(catalogue, { filetTemporel: false }); // instance neuve : ni cache ni bassin partagés
   for (const s of SAISIES_DETERMINISME) {
     const ra = a.resoudre(s);
     const rb = b.resoudre(s);
@@ -191,30 +204,59 @@ test('déterminisme — six exécutions SOUS CHARGE donnent le MÊME classement'
   // rien : c’est précisément sous charge que l’ancienne borne temporelle rendait
   // deux classements distincts (mesuré : 3 classements sur 6 exécutions).
   // On fabrique donc la charge, avec des threads du cœur de Node, sans dépendance.
+  //
+  // ★ Le filet débranché, l’exigence devient ABSOLUE : les six exécutions
+  //   doivent coïncider, sans qu’aucune ait le droit de différer en s’en
+  //   excusant. C’est ce que le test tolérait auparavant (« une exécution
+  //   écourtée A LE DROIT de différer »), et cette tolérance était le trou par
+  //   lequel l’entropie passait. Ce que le filet fait quand il mord se vérifie
+  //   ailleurs, sur une horloge factice, donc sans dépendre de la charge.
   const parasites = demarrerCharge();
   try {
     // La saisie témoin du rapport de défaut : six exécutions sous charge en
     // rendaient trois classements distincts.
     for (const s of ['Le chat dort sur le tapis rouge']) {
       const runs = [];
-      for (let i = 0; i < 6; i++) runs.push(creerMoteur(catalogue).resoudre(s));
-
-      // Une exécution que le filet de sécurité a écourtée A LE DROIT de différer —
-      // mais elle doit le DIRE (§4.3 : jamais de divergence silencieuse).
-      const francs = runs.filter((r) => !r.tronqueTemps);
-      const empreintes = new Set(francs.map(empreinte));
-      assert.equal(empreintes.size, 1,
-        `${s} : ${empreintes.size} classements distincts parmi ${francs.length} exécutions non écourtées`);
-      for (const r of runs) {
-        if (r.tronqueTemps) assert.ok(r.avertissement, `${s} : une troncature temporelle sans avertissement`);
+      for (let i = 0; i < 6; i++) {
+        runs.push(creerMoteur(catalogue, { filetTemporel: false }).resoudre(s));
       }
-      // Le filet ne doit pas non plus devenir la norme : s’il mord sur la moitié
-      // des exécutions, c’est l’étalonnage du budget de travail qui est faux.
-      assert.ok(francs.length >= 4,
-        `${s} : ${6 - francs.length} exécutions sur 6 écourtées par le filet — étalonnage à revoir`);
+      for (const r of runs) {
+        assert.equal(r.tronqueTemps, false, `${s} : le filet débranché ne peut pas mordre`);
+      }
+      const empreintes = new Set(runs.map(empreinte));
+      assert.equal(empreintes.size, 1,
+        `${s} : ${empreintes.size} classements distincts en six exécutions sous charge`);
     }
   } finally {
     await arreterCharge(parasites);
+  }
+});
+
+test('déterminisme — le filet temporel se débranche par une option EXPLICITE', () => {
+  // Le filet est la dernière source d’entropie du moteur. Il reste branché par
+  // défaut — un navigateur peut être arbitrairement lent, et un onglet qui ne
+  // rend jamais la main est pire qu’un classement écourté qui le dit. Mais il
+  // DOIT pouvoir se retirer, sans quoi aucune mesure de barème n’est possible :
+  // on comparerait deux réglages sur une base qui bouge.
+  //
+  // L’horloge hostile (sept millisecondes par lecture) fait mordre le filet à
+  // coup sûr. Débranché, elle ne doit plus rien pouvoir changer — ni au
+  // classement, ni au drapeau de troncature.
+  const hostile = () => horlogeFactice(7);
+  for (const s of ['Le chat dort sur le tapis rouge', 'https://hope-hope-hope.fr/']) {
+    const reference = creerMoteur(catalogue, { filetTemporel: false }).resoudre(s);
+    const sousHorlogeHostile = creerMoteur(catalogue, {
+      filetTemporel: false, maintenant: hostile(),
+    }).resoudre(s);
+    assert.equal(empreinte(sousHorlogeHostile), empreinte(reference),
+      `${s} : filet débranché, l’horloge ne doit plus rien pouvoir changer`);
+    assert.equal(sousHorlogeHostile.tronqueTemps, false);
+
+    // …et le filet branché, la même horloge mord : le débranchement est bien
+    // ce qui fait la différence, pas un hasard de la saisie.
+    const avecFilet = creerMoteur(catalogue, { maintenant: hostile() }).resoudre(s);
+    assert.equal(avecFilet.tronqueTemps, true,
+      `${s} : le filet branché doit mordre sous une horloge hostile`);
   }
 });
 

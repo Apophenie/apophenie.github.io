@@ -85,7 +85,15 @@ export async function chargerCatalogue(specificateur = '../moteur/catalogue.js')
 
 /**
  * @param {Object} catalogue
- * @param {{valider?:boolean, plageBassin?:Object, maintenant?:()=>number}} [options]
+ * @param {{valider?:boolean, plageBassin?:Object, maintenant?:()=>number,
+ *   filetTemporel?:boolean}} [options]
+ *
+ * ★ `filetTemporel: false` débranche l'arrêt d'urgence à l'horloge — la
+ *   DERNIÈRE source d'entropie du moteur (`bfs.js`, en-tête). Deux usages, et
+ *   deux seulement : le banc de mesure et les tests qui comparent deux
+ *   classements. Sans lui, un barème avant/après se compare sur une base qui
+ *   bouge avec la charge de la machine, ce qui ne veut rien dire. C'est une
+ *   option EXPLICITE : l'appelant qui ne demande rien garde son filet.
  */
 export function creerMoteur(catalogue, options = {}) {
   if (options.valider !== false) {
@@ -108,6 +116,7 @@ export function creerMoteur(catalogue, options = {}) {
     maxNodes: options.maxNodes,
     maxTravail: options.maxTravail,
     budgetMs: options.budgetMs,
+    filetTemporel: options.filetTemporel,
   });
 
   /**
@@ -148,7 +157,9 @@ export function creerMoteur(catalogue, options = {}) {
     // jamais se déclencher dans les cas normaux, et quand il se déclenche le
     // résultat part marqué `tronque` plutôt que de varier en silence.
     const parFrag = new Map();
-    const debutRecherche = maintenant();
+    // ★ Débranché, le filet ne LIT même pas l'horloge (voir `bfs.js`).
+    const filetTemporel = options.filetTemporel !== false;
+    const debutRecherche = filetTemporel ? maintenant() : 0;
     const budgetTotal = options.budgetTotalMs ?? BUDGET_TOTAL_MS;
     const travailTotal = options.budgetTravailTotal ?? BUDGET_TRAVAIL_TOTAL;
     let cherches = 0;
@@ -164,7 +175,7 @@ export function creerMoteur(catalogue, options = {}) {
       // d'urgence, il doit pouvoir arrêter. Un seul fragment est cherché
       // inconditionnellement, faute de quoi `resoudre` pourrait rendre la main
       // sans avoir rien cherché du tout.
-      if (cherches >= 1 && maintenant() - debutRecherche > budgetTotal) {
+      if (filetTemporel && cherches >= 1 && maintenant() - debutRecherche > budgetTotal) {
         tronqueTemps = true;
         break;
       }

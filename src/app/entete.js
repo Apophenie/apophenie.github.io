@@ -10,10 +10,10 @@
  *  Aucun texte en dur : tout passe par `src/i18n/`. */
 
 import { e } from './dom.js';
-import { icoAnimation, PICTOS_THEME, PICTOS_LANGUE } from './pictos.js';
+import { PICTOS_THEME, PICTOS_LANGUE, icoLangue } from './pictos.js';
 import { creerSelecteur } from './selecteur.js';
 import {
-  THEMES, definirTheme, themePrefere, basculerAnimation, animationEffective, onReglages,
+  THEMES, definirTheme, themePrefere, onReglages,
 } from './reglages.js';
 import { t, langue, definirLangue, autonyme, LANGUES_OFFERTES } from '../i18n/index.js';
 
@@ -22,21 +22,14 @@ const ID_LANGUE = 'selecteur-langue';
 
 /* ───────────────────────────── L'animation ───────────────────────────── */
 
-function boutonAnimation() {
-  const bouton = e('button.interrupteur', { type: 'button' });
-
-  function peindre() {
-    const complete = animationEffective() === 'complete';
-    const nom = t(complete ? 'entete.animation.reduire' : 'entete.animation.retablir');
-    bouton.replaceChildren(icoAnimation(complete), e('span.visuellement-cachee', { texte: nom }));
-    bouton.setAttribute('aria-label', nom);
-    bouton.setAttribute('title', nom);
-  }
-
-  bouton.addEventListener('click', basculerAnimation);
-  peindre();
-  return { element: bouton, peindre };
-}
+/* ★ Le bouton « réduire les animations » a été RETIRÉ de la barre haute.
+ *
+ * « Il y a dans .transport de quoi naviguer au rythme où le veut l'utilisateur,
+ * donc pas besoin de cet élément en plus » (l'auteur). Le réglage lui-même
+ * survit — `prefers-reduced-motion` est toujours lu, et `basculerAnimation`
+ * reste exporté par `reglages.js` — mais il n'occupe plus une place dans une
+ * barre où chaque picto doit se justifier : qui veut ralentir dispose des
+ * commandes pas-à-pas, qui a réglé son système est servi sans rien cliquer. */
 
 /* ────────────────────────────── Le thème ────────────────────────────── */
 
@@ -70,6 +63,8 @@ function selecteurLangue() {
       libelle: autonyme(code),
       picto: PICTOS_LANGUE[code],
     })),
+    // Le bouton replié dit « langue » ; les options disent « laquelle ».
+    pictoDeclencheur: icoLangue,
     valeur: langue,
     surChoix: (code) => {
       definirLangue(code);
@@ -89,14 +84,13 @@ function selecteurLangue() {
 /** Le groupe de réglages, tel qu'il apparaît dans la barre haute et sur
  *  l'accueil. S'auto-repeint sur tout changement de réglage. */
 export function interrupteurs() {
-  const anim = boutonAnimation();
   const theme = selecteurTheme();
   const lang = selecteurLangue();
 
   const groupe = e('div.reglages', {
     role: 'group',
     'aria-label': t('entete.reglages'),
-  }, [anim.element, theme.element, lang.element]);
+  }, [theme.element, lang.element]);
 
   // Le routeur remplace la barre haute en bloc, sans prévenir personne : plutôt
   // qu'un observateur permanent, l'abonnement se coupe LUI-MÊME à la première
@@ -109,7 +103,6 @@ export function interrupteurs() {
       lang.detruire();
       return;
     }
-    anim.peindre();
     theme.peindre();
   });
 
