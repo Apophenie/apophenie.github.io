@@ -84,7 +84,11 @@ export const en = {
     erreurUrl: 'The URL grammar is not loaded: the link cannot be composed.',
     exemplesTitre: 'Why not try:',
     exemples: [
-      'hope-hope-hope.fr',
+      {
+        texte: 'hope-hope-hope.fr',
+        hash: '#0.1:t1+mw,1.1:t1+mv+c1,2.1:t1+mw,3.1:t1+mv+c1,4.1:t1+mw,6.1:t1+md+c1#yvQYkzhNVYJT8wM8jhvJxSM',
+        aide: 'See the demonstration for “hope-hope-hope.fr”',
+      },
       'Donald Trump',
       {
         texte: 'https://reinfocovid.fr/',

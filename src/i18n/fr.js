@@ -86,7 +86,15 @@ export const fr = {
     // traduisible — c'est une URL —, mais il vit ici parce que c'est ici qu'on
     // choisit ce qu'on met en vitrine.
     exemples: [
-      'hope-hope-hope.fr',
+      {
+        texte: 'hope-hope-hope.fr',
+        // Le cas d'école du README, mené jusqu'au bout : les quatre lettres de
+        // chaque « hope » en quatorze segments, les deux tirets par la touche
+        // du 6 de l'AZERTY, et « fr » en sept segments (4+2). Quinze 6, cinq
+        // séries, pas un caractère compté deux fois — et rien à jeter.
+        hash: '#0.1:t1+mw,1.1:t1+mv+c1,2.1:t1+mw,3.1:t1+mv+c1,4.1:t1+mw,6.1:t1+md+c1#yvQYkzhNVYJT8wM8jhvJxSM',
+        aide: 'Voir la démonstration pour « hope-hope-hope.fr »',
+      },
       'Donald Trump',
       {
         texte: 'https://reinfocovid.fr/',

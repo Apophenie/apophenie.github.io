@@ -825,7 +825,11 @@ test('★ accueil — chaque puce-raccourci rejoue réellement', () => {
       const r = m.rejouer(lu);
       assert.ok(r.ok, `${langue} : le raccourci ne rejoue pas — ${r.raison}`);
       const sc = m.scenarioDe(r.approche, { saisie: lu.saisie });
-      assert.equal(sc.result, '666', `${langue} : la voie choisie ne mène pas à 666 (${sc.result})`);
+      // Un raccourci peut mener à un 666 simple comme à une moisson entière —
+      // « 666 666 666 666 666 ». Ce qui compte, c'est qu'il aboutisse, et qu'il
+      // n'aboutisse qu'à des 666.
+      assert.match(sc.result, /^666( 666)*$/,
+        `${langue} : la voie choisie mène à « ${sc.result} »`);
     }
   }
   assert.ok(vus >= 2, `seulement ${vus} raccourcis examinés — un par langue est attendu`);
