@@ -124,6 +124,11 @@ const NOMS = {
   'm.toucheChiffre': b('L’astuce AZERTY', 'The AZERTY trick'),
   'm.reduireChaque': b('La réduction chiffre à chiffre', 'Digit-by-digit reduction'),
   'm.retirerZeros': b('Le retrait des zéros', 'Dropping the zeros'),
+  // Le pluriel distingue la vedette (un vecteur entier de 9 se retourne) du
+  // qualifiant de `p.retournement`, « et le retournement du 9 », qui ne parle
+  // que d'un nombre isolé. Deux méthodes, deux noms — sans quoi une liste
+  // pourrait porter deux fois la même ligne.
+  'm.retournerLesNeuf': b('Le retournement des 9', 'The flipping of the 9s'),
 
   // ── combinateurs qui, faute de mappeur, font la méthode à eux seuls
   'c.compteTokens': b('Le simple dénombrement', 'Plain counting'),

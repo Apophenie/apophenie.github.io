@@ -225,6 +225,68 @@ test('scénario — un opérateur qui fournit steps() est employé tel quel', ()
  * conversions sont trois appels distincts à `steps()` : seul l'assemblage peut
  * voir qu'elles montrent la même grille.
  */
+/**
+ * ★ « On ne garde que les 6 » : une fois, et juste avant le verdict.
+ *
+ * L'auteur : « cette étape ne devrait jamais être utilisée si ce n'est en étape
+ * quasi finale, et encore, ça devrait toujours être un malus de score que de
+ * l'employer. » La raison est de crédibilité : une démonstration qui trie
+ * quatre fois en cours de route montre quatre fois qu'elle savait d'avance ce
+ * qu'elle cherchait.
+ *
+ * Le GROUPEMENT triait déjà là — il n'a qu'un vecteur. La MOISSON en a un par
+ * portée et triait après chacune : mesuré sur `https://hope-hope-hope.fr/` en
+ * gématrie anglaise, quatre tris plus un appoint, sur 69 étapes.
+ */
+test('★ scénario — on ne trie qu’UNE fois, et juste avant le verdict', () => {
+  const m = creerMoteur(catalogue);
+  let vus = 0;
+  for (const s of SAISIES) {
+    const r = m.resoudre(s);
+    for (const a of r.approches) {
+      const sc = m.scenarioDe(a, { saisie: r.saisie });
+      const tris = sc.steps
+        .map((st, i) => (st.title === 'On ne garde que les 6' ? i : -1))
+        .filter((i) => i >= 0);
+      if (!tris.length) continue;
+      vus++;
+      assert.equal(tris.length, 1,
+        `« ${s} » rang ${a.rang} : ${tris.length} tris (${a.codes})`);
+      assert.equal(tris[0], sc.steps.length - 2,
+        `« ${s} » rang ${a.rang} : tri à l’étape ${tris[0] + 1} sur ${sc.steps.length} — `
+        + `il doit précéder immédiatement le verdict (${a.codes})`);
+    }
+  }
+  assert.ok(vus >= 5, `seulement ${vus} scénarios trieurs observés — le cas est-il vivant ?`);
+});
+
+/**
+ * ★ Et trier COÛTE. Le rendement (`score.js › rendementSix`) mesure la part de
+ * ce qu'on a calculé qui vaut vraiment 6, et s'applique en facteur multiplicatif
+ * sur le score. Une voie qui jette la moitié de sa récolte doit être punie plus
+ * fort qu'une voie qui ne jette rien — sans quoi « ne garder que les 6 » serait
+ * gratuit, et le tri deviendrait une méthode plutôt qu'un aveu.
+ */
+test('★ scénario — jeter coûte : le rendement suit ce qu’on garde', () => {
+  const m = creerMoteur(catalogue);
+  const app = m.resoudre('https://hope-hope-hope.fr/').approches
+    .filter((a) => a.criteres && typeof a.criteres.R === 'number');
+  assert.ok(app.length >= 2, 'pas assez de voies à rendement pour comparer');
+  for (const a of app) {
+    const sc = m.scenarioDe(a, { saisie: 'https://hope-hope-hope.fr/' });
+    const tri = sc.steps.find((st) => st.title === 'On ne garde que les 6');
+    const jetes = tri ? tri.ops.find((o) => o.op === 'drop').targets.length : 0;
+    const gardes = tri
+      ? tri.ops.find((o) => o.op === 'highlight').targets.length
+      : (a.series || 1) * 3;
+    // Le rendement EST ce rapport : c'est le contrôle croisé du malus.
+    const attendu = Math.floor((gardes * 1000) / (gardes + jetes));
+    assert.ok(Math.abs(a.criteres.R - attendu) <= 60,
+      `rang ${a.rang} : rendement ${a.criteres.R} pour ${gardes} gardés / ${jetes} jetés `
+      + `(≈ ${attendu}) — ${a.codes}`);
+  }
+});
+
 test('★ scénario — le décor d’une table reste monté sur les étapes d’affilée', () => {
   const m = creerMoteur(catalogue);
   const r = m.resoudre('https://hope-hope-hope.fr/');

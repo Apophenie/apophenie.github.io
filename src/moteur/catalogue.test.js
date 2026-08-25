@@ -104,6 +104,10 @@ const VECTEURS = [
   // afficheurs, deux dessins, un seul compte.
   ['mw', T(HOPE), [6, 6, 6, 6]],
   ['mx', T(HOPE), [3, 4, 4, 4]],
+  // ★ « On retourne les 9 » — le pendant vectoriel de `p9`. Les 9 deviennent
+  // des 6, tout le reste est laissé strictement en place, y compris le −9 :
+  // un demi-tour ne sait rien faire d'un signe.
+  ['my', N([3, 9, 6, -9]), [3, 6, 6, -9]],
   ['c1', N([8, 15, 16, 5]), 44],
   ['c2', N([8, 15, 16, 5]), -28],
   ['c3', N([8, 15, 16, 5]), 9600],

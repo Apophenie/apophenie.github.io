@@ -102,6 +102,7 @@ const estVoyelle = (c) => VOYELLES.includes(pli(c));
 const LIB_REDUIRE_CHAQUE = bilingue('On réduit chaque nombre à un chiffre', 'Reduce every number to a single digit');
 const LIB_ZEROS = bilingue('On retire les zéros', 'Drop the zeros');
 const REG_ZEROS = bilingue('Un zéro n’apporte rien à la somme', 'A zero brings nothing to the sum');
+const LIB_RETOURNER_9 = bilingue('On retourne les 9', 'Turn the 9s upside down');
 
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -702,7 +703,7 @@ const MAPPEURS_LETTRE = [
   },
   {
     id: 'm.englishX6', code: 'm5',
-    libelle: bilingue('Gématrie anglaise (× 6)', 'English gematria (× 6)'),
+    libelle: bilingue('Gématrie anglaise', 'English gematria'),
     regle: bilingue('Le rang multiplié par six : A=6, B=12, … Z=156',
       'The rank times six: A=6, B=12, … Z=156'),
     notoriete: 0.30, adHoc: 0.15,
@@ -1126,6 +1127,112 @@ const AUTRES_MAPPEURS = [
         + 'form this letter?'),
       geste: 'fourteenSeg', mode: 'fusion',
     }),
+  }),
+  // ★ « On retourne les 9 » — le pendant VECTORIEL de `p.retournement` (`p9`).
+  //
+  // Ce que le moteur faisait jusqu'ici des 9 qu'il produisait : il les
+  // additionnait. Deux 9 font 18, qui se réduit en 9, qu'on additionnait à un
+  // 3 pour faire 12, qui se réduit en 3 — et ce 3 finissait par rencontrer un
+  // autre 3 pour faire le 6 qu'on cherchait, au prix de trois étapes et de
+  // deux valeurs sacrifiées. Or le catalogue savait DÉJÀ qu'un 9 retourné est
+  // un 6 : il ne le savait que sur un nombre isolé (`p9`, `NUM → NUM`), après
+  // que tout eut été réduit à un seul. Sur un vecteur, chaque 9 vaut un 6
+  // gratuit — et c'est un 6 de plus par jeton, pas un 6 à la place de trois.
+  //
+  // Le gisement est réel et il est systématique. La gématrie anglaise (`m5` :
+  // A = 6, B = 12 … Z = 156) ne rend que des multiples de 6, donc de 3 ;
+  // la réduction chiffre à chiffre (`mt`) d'un multiple de 3 est un multiple
+  // de 3 à un chiffre, c'est-à-dire 3, 6 ou 9 et rien d'autre. Un vecteur
+  // `m5 + mt` est donc, littéralement, un tiers de 6, un tiers de 9 —
+  // et ce tiers-là était perdu.
+  //
+  // ★ Ce n'est PAS un filtre. Rien n'est jeté, rien n'est réordonné, la
+  // largeur du vecteur ne bouge pas d'un jeton : c'est ce qui la rend honnête
+  // (on ne choisit pas ses valeurs après coup), et c'est aussi ce qui la rend
+  // recevable par la MOISSON, qui exige une valeur par jeton reçu
+  // (`src/recherche/assemblage.js › uneValeurParJeton`). Un filtre « on ne
+  // garde que les 9 » aurait rapporté les mêmes 6 en trichant.
+  //
+  // Registre append-only (CONTRACTS §4.1) : `mx` était le dernier alloué,
+  // celui-ci prend `my`. `p9` n'est pas touché et garde son comportement mot
+  // pour mot — les deux coexistent, l'un sur un nombre, l'autre sur un vecteur.
+  def({
+    id: 'm.retournerLesNeuf', code: 'my', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_RETOURNER_9,
+    regle: bilingue('Un 9 retourné d’un demi-tour donne un 6',
+      'Give a 9 a half-turn and it becomes a 6'),
+    // ★ Mêmes chiffres que `p9`, et pour les mêmes raisons. La ficelle est
+    // connue de tout le monde sans être respectée de personne (notoriété 0,25),
+    // et elle est franchement ad hoc (0,35) : elle ne s'autorise que d'une
+    // coïncidence de dessin, pas d'une propriété du nombre. Le fait qu'elle
+    // rapporte davantage sur un vecteur ne change ni ce que le public en sait,
+    // ni ce qu'elle vaut : la déclarer moins ad hoc parce qu'elle est devenue
+    // rentable reviendrait à truquer le classement pour se donner raison.
+    notoriete: 0.25, adHoc: 0.35,
+    note: bilingue(
+      'On ne retourne que les 9. Retourner un 6 serait, disons, contre-productif.',
+      'Only the 9s get turned. Turning a 6 would be, shall we say, counter-productive.',
+    ),
+    apply: (valeur, traces) => {
+      // ★ L'`exige` de `p9` (« n === 9 »), transposé au vecteur : sans un seul
+      // 9, l'opérateur REFUSE au lieu de rendre son entrée. Un mappeur qui rend
+      // ce qu'il a reçu fabrique une étape que `scenario.js` saute
+      // silencieusement (« une transformation qui ne transforme RIEN À
+      // L'ÉCRAN ») — le chemin porterait alors dans son URL un code que la
+      // démonstration ne montre nulle part, et deux programmes distincts
+      // rejoueraient la même scène.
+      if (!valeur.some((n) => n === 9)) return null;
+      const out = valeur.map((n) => (n === 9 ? 6 : n));
+      return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
+    },
+    // Seuls les 9 reçoivent un identifiant neuf. Les autres gardent le leur :
+    // aucun step ne les touche, et un renommage sans geste ferait croire au
+    // pont qu'un jeton a été remplacé alors qu'il n'a pas bougé.
+    sortie: (avant, apres, ctx) => apres.valeur.map((v, i) => (v === avant.valeur[i]
+      ? ctx.ids[i] : nomToken(ctx, i))),
+    /**
+     * ★ Un seul step, et les 9 s'y retournent L'UN APRÈS L'AUTRE.
+     *
+     * `enchainer` donne à chaque `flip180` un `at` calculé sur la fin du
+     * précédent : le spectateur voit une vague traverser la ligne, pas un
+     * clignotement collectif. C'est la contrainte de lisibilité du projet — une
+     * accélération qui « efface tout puis remet tout d'un coup » a déjà été
+     * rejetée —, et c'est aussi une nécessité technique : `flip180` muni d'un
+     * `to` appelle `ctx.reflow()`, et deux reflow simultanés animeraient deux
+     * fois `translate` sur les mêmes jetons (voir `enchainer`, commun.js).
+     *
+     * Un step et non un par 9, contrairement à `table` ou `sevenSeg` : ceux-là
+     * doivent montrer QUELLE lettre a donné QUEL nombre, donc un aller-retour à
+     * la fois. Ici le 9 tourne SUR PLACE et devient un 6 à sa place : il n'y a
+     * aucune attribution à préserver, et douze steps portant le même titre
+     * noieraient Le Registre au lieu de l'instruire.
+     *
+     * ★ Contrôle croisé (CONTRACTS §0.3). La valeur d'arrivée n'est jamais
+     * écrite en dur : elle est LUE dans `apres.valeur[i]`, c'est-à-dire dans ce
+     * qu'`apply()` a calculé, et la comparaison avec `avant.valeur[i]` décide
+     * seule quels jetons bougent. Il n'existe donc pas de seconde copie qui
+     * puisse diverger. `src/visuel/primitives/flip180.js` recoupe une deuxième
+     * fois — il refuse de faire naître autre chose qu'un 6 d'autre chose qu'un
+     * 9 — et `src/recherche/scenario.js` une troisième, où l'on connaît encore
+     * la valeur du jeton de départ.
+     */
+    steps: (avant, apres, ctx) => {
+      const ops = [];
+      const neufs = [];
+      apres.valeur.forEach((v, i) => {
+        if (v === avant.valeur[i]) return; // ce jeton n'est pas un 9 : il ne bouge pas
+        const id = nomToken(ctx, i);
+        neufs.push(id);
+        ops.push({ op: 'flip180', target: ctx.ids[i], to: token(id, v, 'number') });
+      });
+      if (!ops.length) return [];
+      // Le `pulse` final vient APRÈS le dernier demi-tour, jamais pendant :
+      // pendant, le jeton d'arrivée voit déjà son `scale` animé par le
+      // crossfade de `flip180` (même raison que dans `posts.js`).
+      ops.push({ op: 'pulse', targets: neufs, stagger: 60 });
+      const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
+      return [etape(ctx, dire(LIB_RETOURNER_9, ctx.langue), legende, enchainer(ops))];
+    },
   }),
 ];
 

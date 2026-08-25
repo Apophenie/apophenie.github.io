@@ -750,14 +750,28 @@ function mutualiserDecor(steps) {
  * chiffres. On garde donc TOUS les 6, et c'est l'appelant qui, une fois toutes
  * les portées passées, rogne l'appoint qui ne fait pas trois.
  *
+ * ── Et le tri se fait EN UNE FOIS, juste avant le verdict. ────────────────
+ * « On ne garde que les 6 » ne devrait jamais servir ailleurs qu'en avant-
+ * dernière étape (l'auteur). La raison est de crédibilité, pas de rythme : une
+ * démonstration qui trie quatre fois en cours de route montre quatre fois
+ * qu'elle savait d'avance ce qu'elle cherchait. Le GROUPEMENT n'a qu'un vecteur
+ * et triait déjà là ; la MOISSON en a un par portée et triait après chacune.
+ * Elle DIFFÈRE donc : chaque portée dit ce qu'elle garde et ce qu'elle laisse,
+ * personne ne le montre encore, et un seul geste final ramasse les 6 de toutes
+ * les portées — l'appoint qui ne fait pas trois compris. Mesuré sur
+ * `https://hope-hope-hope.fr/` en gématrie anglaise : quatre étapes de tri plus
+ * une d'appoint deviennent **une**.
+ *
  * @param {{courants:Array<string[]>}} groupe
  * @param {Object} chemin
  * @param {Function} poser  `poserBloc`, pour émettre l'étape de tri
  * @param {'fr'|'en'} langue
  * @param {boolean} [tous]  garder tous les 6, et pas seulement un multiple de 3
+ * @param {string[]} [differe]  s'il est fourni : on n'émet RIEN, on y accumule
+ *   ce qui est à jeter, et l'appelant s'en charge d'un seul geste à la fin
  * @returns {string[]|null}
  */
-function recolterLesSix(groupe, chemin, poser, langue, tous = false) {
+function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = null) {
   const fin = chemin.etats[chemin.etats.length - 1];
   if (!fin) return null;
   // Une portée qui finit sur un nombre unique n'a rien à trier : son 6 est déjà
@@ -788,17 +802,21 @@ function recolterLesSix(groupe, chemin, poser, langue, tous = false) {
     if (id) aJeter.push(id);
   }
   if (aJeter.length) {
-    poser({
-      titre: MOTS.recolter[langue],
-      legende: tous
-        ? MOTS.recolteLegende(aGarder.length, aJeter.length, langue)
-        : MOTS.recolterLegende(serie.series, aJeter.length, langue),
-      ops: [
-        { op: 'highlight', targets: aGarder, mode: 'select' },
-        { op: 'drop', targets: aJeter, mode: 'fall', at: 350 },
-        { op: 'move', at: 700 },
-      ],
-    });
+    if (differe) differe.push(...aJeter);
+    else {
+      // `tous` (la moisson) passe toujours par `differe` : on n'arrive ici que
+      // pour un GROUPEMENT, dont la récolte est déjà la dernière étape avant le
+      // verdict — c'est-à-dire la seule place que l'auteur lui reconnaît.
+      poser({
+        titre: MOTS.recolter[langue],
+        legende: MOTS.recolterLegende(serie.series, aJeter.length, langue),
+        ops: [
+          { op: 'highlight', targets: aGarder, mode: 'select' },
+          { op: 'drop', targets: aJeter, mode: 'fall', at: 350 },
+          { op: 'move', at: 700 },
+        ],
+      });
+    }
   }
   groupe.courants = gardes.map((k) => groupe.courants[k]);
   return aGarder;
@@ -869,6 +887,9 @@ export function construireScenario(approche, ctx = {}) {
 
   const steps = [];
   const resultats = [];
+  // Ce que les portées d'une moisson écartent, en attendant le geste unique qui
+  // le montrera juste avant le verdict (voir `recolterLesSix`).
+  const rejets = [];
   let nStep = 0;
   let nCle = 0; // préfixe unique offert aux opérateurs pour nommer leurs tokens
   const nouvelleEtape = (titre, legende, ops, options) => {
@@ -1042,7 +1063,9 @@ export function construireScenario(approche, ctx = {}) {
       // Une moisson dont toutes les portées se lisent de la même façon passe
       // par ici — trois `hope` en quatorze segments, douze 6 d'un seul geste.
       // Sans récolte, la scène n'en révélait qu'un par groupe.
-      const recolte = moisson ? recolterLesSix(g, g.part.chemin, poserBloc, langue, true) : null;
+      const recolte = moisson
+        ? recolterLesSix(g, g.part.chemin, poserBloc, langue, true, rejets)
+        : null;
       if (recolte) { resultats.push(...recolte); continue; }
       const dernier = g.courants.flat()[0];
       if (dernier) resultats.push(dernier);
@@ -1089,7 +1112,7 @@ export function construireScenario(approche, ctx = {}) {
       //    ce qui reste s'assemble par trois. Sans cette récolte, le verdict
       //    révélait le premier nombre venu en annonçant « 666 » — c'est-à-dire
       //    qu'il décrétait, ce que ce mode existe précisément pour ne plus faire.
-      const recolte = recolterLesSix(g, chemin, poserBloc, langue, moisson);
+      const recolte = recolterLesSix(g, chemin, poserBloc, langue, moisson, moisson ? rejets : null);
       if (recolte) { resultats.push(...recolte); continue; }
       const dernier = g.courants.flat()[0];
       if (dernier) resultats.push(dernier);
@@ -1099,23 +1122,34 @@ export function construireScenario(approche, ctx = {}) {
   let finaux = resultats.filter(Boolean);
   if (!finaux.length) throw new ErreurRendu('aucun résultat à révéler', null);
 
-  // ── L'APPOINT de la moisson ────────────────────────────────────────────────
-  // Quinze 6 font cinq séries pile ; seize en feraient cinq et un 6 qui traîne.
-  // Ce qui dépasse le multiple de trois — ou le plafond `MAX_SERIES` — tombe
-  // ici, d'un geste montré, plutôt que de figurer dans un verdict qui ne le
-  // compte pas. Le nombre de chiffres révélés est ainsi TOUJOURS celui que le
-  // verdict annonce.
+  // ── LA RÉCOLTE de la moisson, en un seul geste et à la toute fin ──────────
+  //
+  // Deux choses tombent ici, et elles tombent ENSEMBLE :
+  //
+  //  · ce qu'aucune portée n'a retenu — les valeurs qui ne font pas 6. Chaque
+  //    portée l'a mis de côté sans le montrer (`rejets`), précisément pour
+  //    qu'on ne trie qu'une fois : trier quatre fois en cours de route montre
+  //    quatre fois qu'on savait d'avance ce qu'on cherchait ;
+  //  · l'APPOINT — ce qui dépasse le multiple de trois, ou le plafond
+  //    `MAX_SERIES`. Quinze 6 font cinq séries pile ; seize en feraient cinq et
+  //    un 6 qui traîne. (L'assemblage élague déjà les portées entièrement
+  //    surnuméraires ; ce qui subsiste ici est le surplus qui tombe À
+  //    L'INTÉRIEUR d'une portée par ailleurs indispensable.)
+  //
+  // Le nombre de chiffres révélés est ainsi TOUJOURS celui que le verdict
+  // annonce, et il l'est d'un seul geste, juste avant lui.
   if (moisson) {
     const garde = recolteTotale.series * SERIE;
-    if (finaux.length > garde) {
-      const surplus = finaux.slice(garde);
-      finaux = finaux.slice(0, garde);
+    const surplus = finaux.slice(garde);
+    finaux = finaux.slice(0, garde);
+    const aJeter = [...rejets, ...surplus];
+    if (aJeter.length) {
       poserBloc({
         titre: MOTS.recolter[langue],
-        legende: MOTS.appointLegende(recolteTotale.series, surplus.length, langue),
+        legende: MOTS.recolterLegende(recolteTotale.series, aJeter.length, langue),
         ops: [
           { op: 'highlight', targets: finaux, mode: 'select' },
-          { op: 'drop', targets: surplus, mode: 'fall', at: 350 },
+          { op: 'drop', targets: aJeter, mode: 'fall', at: 350 },
           { op: 'move', at: 700 },
         ],
       });
@@ -1341,6 +1375,20 @@ function validerArithmetiqueOp(o, ctxOp) {
       : nombres.reduce((a, b) => a + b, 0);
     if (String(attendu) !== String(o.to.text)) {
       return `« sum » afficherait ${attendu} alors que « to.text » annonce « ${o.to.text} »`;
+    }
+  }
+  if (o.op === 'flip180' && o.to) {
+    // ★ Le demi-tour ne vaut que du 9 vers le 6. `src/visuel/primitives/
+    // flip180.js` le refuse déjà, mais il ne le refuse qu'AU CLIC : on le
+    // rattrape ici, où l'on connaît encore la valeur du jeton de départ, et où
+    // un opérateur du catalogue qui se tromperait retombe sur le rendu
+    // générique avec un avertissement plutôt que de faire échouer la page.
+    const source = valeurDe(o.target);
+    if (source !== null && String(source) !== '9') {
+      return `« flip180 » retournerait « ${source} » : seul un 9 se retourne en 6`;
+    }
+    if (String(o.to.text) !== '6') {
+      return `« flip180 » afficherait « ${o.to.text} » : un 9 retourné donne 6, et rien d'autre`;
     }
   }
   if (o.op === 'table') {
@@ -1574,19 +1622,10 @@ const MOTS = Object.freeze({
       ? `${series} séries de trois — ${reste}`
       : `Trois, côte à côte — ${reste}`;
   },
-  // La récolte d'UNE portée de moisson : elle ne fait pas une série à elle
-  // seule, elle apporte sa part. On dit donc ce qu'on garde, pas des séries.
-  recolteLegende: (gardes, jetes, langue) => {
-    if (langue === 'en') {
-      return `${gardes} six${gardes > 1 ? 'es' : ''} kept — the other `
-        + `${jetes} value${jetes > 1 ? 's fall' : ' falls'} away`;
-    }
-    return `On en garde ${gardes} — ${jetes > 1 ? `les ${jetes} autres valeurs tombent` : 'l’autre valeur tombe'}`;
-  },
-  // Ce qui dépasse le dernier groupe de trois.
-  appointLegende: (series, surplus, langue) => (langue === 'en'
-    ? `${series} runs of three — ${surplus} six${surplus > 1 ? 'es' : ''} left over, and left out`
-    : `${series} séries de trois — ${surplus > 1 ? `les ${surplus} 6 en trop restent` : 'le 6 en trop reste'} sur le carreau`),
+  // ★ Deux légendes ont disparu avec le tri par portée : « On en garde N » (la
+  // récolte d'une portée) et « le 6 en trop reste sur le carreau » (l'appoint).
+  // Elles disaient chacune une moitié de ce que dit maintenant, en une fois,
+  // `recolterLegende` : combien de séries on garde, combien de valeurs tombent.
   verdict: { fr: 'Le verdict', en: 'The verdict' },
 });
 

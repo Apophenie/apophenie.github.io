@@ -824,6 +824,41 @@ ici**, puis l'émettre.
 > 666 seul ne se déplie pas — rassembler et grossir y sont le même geste, les
 > intercaler ferait un temps mort au moment de la chute.
 
+> *Amendement — « On ne garde que les 6 » : une fois, et juste avant le verdict.*
+>
+> **La règle, dictée par l'auteur.** « Cette étape ne devrait jamais être
+> utilisée si ce n'est en étape quasi finale — juste avant le verdict — et
+> encore : ça devrait toujours être un malus de score que de l'employer. »
+>
+> **Pourquoi ce n'est pas une question de rythme.** Une démonstration qui trie
+> quatre fois en cours de route montre quatre fois qu'elle **savait d'avance ce
+> qu'elle cherchait**. Le tri est un aveu : il dit que le calcul a produit autre
+> chose que des 6 et qu'on écarte le reste. Un aveu, on le fait une fois, à la
+> fin, en le montrant — pas à chaque portée, comme une méthode.
+>
+> **Ce qui change.** Le `GROUPEMENT` n'a qu'un vecteur et triait déjà à la bonne
+> place. La `MOISSON` en a un par portée et triait après chacune : mesuré sur
+> `https://hope-hope-hope.fr/` en gématrie anglaise, **quatre tris plus un
+> appoint** dispersés dans 69 étapes. Chaque portée met désormais de côté sans
+> rien montrer (`rejets`, `scenario.js`), et **un seul geste final** ramasse les
+> 6 de toutes les portées — l'appoint qui ne fait pas trois compris. 69 étapes
+> → **66**, un seul tri, en avant-dernière position.
+>
+> ★ Deux légendes disparaissent avec le tri par portée (« On en garde N », « le
+> 6 en trop reste sur le carreau ») : elles disaient chacune une moitié de ce
+> que dit maintenant `recolterLegende` en une fois — combien de séries on garde,
+> combien de valeurs tombent.
+>
+> **Le malus existe déjà, et il mord** : c'est le rendement (`score.js ›
+> rendementSix`), la part de ce qui a été calculé qui vaut réellement 6,
+> appliqué en facteur multiplicatif sur le score. Mesuré sur
+> `https://hope-hope-hope.fr/` : la voie « quatorze segments » garde 18 valeurs
+> sur 20 (R = 900), la voie « gématrie anglaise puis réduction » n'en garde que
+> 9 sur 23 (R = 391, soit ×0,63 après racine). Un test croise les deux : le
+> rendement d'une approche doit valoir le rapport gardés / (gardés + jetés) que
+> son étape de tri **montre** — si le malus disparaissait, l'écart sauterait aux
+> yeux.
+
 ### 3.2 Pièges figés en règles
 
 1. `fill: 'forwards'`, **jamais `'both'`** (une animation tardive rétro-remplirait sa
@@ -1018,7 +1053,17 @@ Exemples : `f1` retirer le protocole · `m1` A1Z26 · `c1` somme · `p1` racine 
 `p9` retournement du 9 (code réservé, par coquetterie) · `md`/`me` sept segments ·
 `mw`/`mx` **quatorze segments** (segments allumés, traits fusionnés) — codes neufs,
 alloués après `mv`, jamais recyclés ; `md` et `me` gardent leur comportement mot
-pour mot.
+pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx`.
+
+> *Amendement — le demi-tour a désormais deux codes, et c'est voulu.* `p9`
+> retourne UN nombre (`NUM → NUM`, « le 9 » du README, méthode 6) ; `my`
+> retourne CHAQUE 9 d'un vecteur (`NUMS → NUMS`) et laisse tout le reste en
+> place. La règle 2 (« changer le comportement d'un opérateur = allouer un
+> nouveau code ») n'y est pour rien : `p9` n'a pas bougé d'une virgule, et il
+> ne le pouvait pas — sa signature interdit le vecteur. Deux signatures, deux
+> familles, deux codes. Le vocabulaire visuel, lui, n'a pas eu à s'étendre :
+> les deux émettent la même primitive `flip180`, qui refuse depuis
+> bruyamment tout demi-tour autre que 9 → 6 (§0.3, contrôle croisé).
 
 **Trois règles inviolables :**
 1. Un code alloué l'est **à vie**. Retirer un opérateur pose une pierre tombale : son

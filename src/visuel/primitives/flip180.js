@@ -18,8 +18,24 @@
 
 import { tokenSpec, espacementDe } from './helpers.js';
 import { EASE } from '../constants.js';
+import { fail } from '../errors.js';
 
 export const name = 'flip180';
+
+/**
+ * ★ Le seul demi-tour que la typographie autorise (CONTRACTS §0.3 : « ce qui
+ * est montré est ce qui est compté »).
+ *
+ * `9 → 6`, et rien d'autre. Le crossfade de la ligne 90° est un escamotage
+ * assumé ; il le resterait tout autant si l'on faisait naître un 8 d'un 3, à
+ * ceci près que la scène affirmerait alors quelque chose de faux sous couvert
+ * de le montrer. La primitive refuse donc, bruyamment, plutôt que d'animer une
+ * rotation qui ne prouve rien — comme `table` refuse de faire redescendre une
+ * valeur absente de sa case et `keyboard` un chiffre que la touche ne porte pas.
+ *
+ * Le 6 ne se retourne pas : ce serait, disons, contre-productif.
+ */
+const DEMI_TOUR = Object.freeze({ 9: '6' });
 
 export function plan(ctx) {
   const src = ctx.scene.live(ctx.op.target, `${ctx.where}« target » : `);
@@ -30,6 +46,16 @@ export function plan(ctx) {
   if (ctx.op.to === undefined) return; // rotation pure, sans substitution
 
   const to = tokenSpec(ctx, ctx.op.to, 'to');
+  const attendu = DEMI_TOUR[String(src.text)];
+  if (attendu === undefined) {
+    fail(`${ctx.where}« target » porte « ${src.text} » : seul un 9 se retourne en 6. `
+      + 'Un demi-tour sur autre chose ne montrerait rien, il l’affirmerait.', { id: src.id });
+  }
+  if (String(to.text) !== attendu) {
+    fail(`${ctx.where}« to.text » annonce « ${to.text} », mais « ${src.text} » retourné donne `
+      + `${attendu}. La valeur d’arrivée doit venir du calcul, jamais d’une seconde copie.`,
+    { id: src.id });
+  }
   const idx = ctx.scene.flowIndex(src.id);
   ctx.scene.create({
     id: to.id, text: to.text, kind: to.kind || 'digit', group: to.group ?? src.group,

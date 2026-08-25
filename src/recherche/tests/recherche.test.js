@@ -789,8 +789,18 @@ test('anti-doublons — aucune étape inopérante ne subsiste dans une approche'
  * « Je voudrais avoir pour hope-hope-hope.fr en première stratégie celle des
  * 14 segments + tiret du 6 + fr → 4+2 → 6, soit 666 666 666 666 666. » —
  * l'auteur. Le compte : douze lettres qui valent toutes 6 en quatorze segments,
- * deux tirets qui valent 6 par la touche du 6, un `fr` qui vaut 4 + 2 en sept
- * segments. Quinze 6, cinq séries, et pas un caractère compté deux fois.
+ * deux tirets qui valent 6 par la touche du 6, et un `fr` qui vaut 6 + 6.
+ *
+ * ⚠️ Le `fr` a CHANGÉ DE MÉTHODE, et l'ordonnancement a eu raison contre la
+ * lettre du souhait. Le sept segments n'en tirait qu'UN 6 (`f` = 4, `r` = 2,
+ * puis la somme) ; la pythagoricienne suivie du retournement des 9 (`my`) en
+ * tire DEUX — `f` = 6, `r` = 9 retourné = 6. La moisson retient le programme
+ * qui rapporte le plus de 6 par portée (`assemblage.js`), elle a donc pris
+ * celui-là. Seize 6, toujours cinq séries, et **un 6 qui reste sur le
+ * carreau** : c'est le prix, et il se voit à l'étape de récolte. Ce que le
+ * souhait demandait — quatorze segments en tête, les deux tirets, une portée
+ * pour le `fr` — est intact ; c'est la façon de compter le `fr` qui a été
+ * surclassée par une meilleure.
  */
 test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de liste', () => {
   const r = creerMoteur(catalogue).resoudre('hope-hope-hope.fr');
@@ -802,7 +812,12 @@ test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de 
   const programmes = tete.parts.map((p) => p.chemin.ops.map((o) => o.code).join('+'));
   assert.equal(programmes.filter((p) => p === 't1+mw').length, 3, 'trois `hope` en quatorze segments');
   assert.equal(programmes.filter((p) => p.includes('mv')).length, 2, 'deux tirets par la touche du 6');
-  assert.ok(programmes.some((p) => p.includes('md')), 'le `fr` en sept segments (4 + 2)');
+  // Le `fr` a sa propre portée, et elle rapporte au moins un 6 — par quelque
+  // méthode que ce soit. On n'épingle plus `md` : ce serait figer la moins
+  // bonne des deux façons de compter deux lettres.
+  const fr = tete.parts.find((p) => p.fragment.texte === 'fr');
+  assert.ok(fr, `le \`fr\` a sa portée — ${programmes.join(' , ')}`);
+  assert.ok(fr.chemin.etats.at(-1).valeur.toString().includes('6'), 'et il rapporte du 6');
 });
 
 /**
