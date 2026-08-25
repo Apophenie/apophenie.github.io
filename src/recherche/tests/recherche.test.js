@@ -835,6 +835,44 @@ test('★ accueil — chaque puce-raccourci rejoue réellement', () => {
   assert.ok(vus >= 2, `seulement ${vus} raccourcis examinés — un par langue est attendu`);
 });
 
+/**
+ * ★ Le triptyque montré n'est pas une variante.
+ *
+ * L'auteur, sur `Macron` : « l'approche 1 et l'approche 3 sont identiques à la
+ * mise en avant du 666 en cours de route près. Évite de générer des doublons.
+ * C'est la même méthode, elle ne devrait pas exister avec et sans faire
+ * remarquer le 666 contigu. »
+ *
+ * Le chiffre de César puis le quatorze segments rendent `[4,6,6,6,7,7]`, et le
+ * groupement retient exactement les trois 6 du milieu — avec ou sans
+ * l'opérateur qui les nomme. Deux lignes, le même spectacle, et rien pour les
+ * distinguer aux yeux du lecteur.
+ */
+test('★ anti-doublons — pas de voie jumelle à l’opérateur « trois 6 d’affilée » près', () => {
+  const m = creerMoteur(catalogue);
+  const nu = (a) => [a.mode, a.series ?? 1, ...a.parts
+    .map((p) => p.fragment.texte + '\u0000'
+      + p.chemin.ops.filter((o) => o.code !== 'mz').map((o) => o.code).join('+'))
+    .sort()].join('|');
+  let vues = 0;
+  for (const s of [...SAISIES_LISTE, 'Macron', 'satan', 'Donald Trump', 'Millicent']) {
+    const app = m.resoudre(s).approches;
+    const cles = app.map(nu);
+    vues += app.length;
+    assert.equal(new Set(cles).size, cles.length,
+      `« ${s} » : deux voies ne diffèrent que par l’opérateur « mz » — `
+      + app.map((a) => a.codes).join(' | '));
+  }
+  assert.ok(vues >= 20, `seulement ${vues} approches examinées`);
+});
+
+test('★ Macron — le 666 déjà écrit est montré, et il l’est UNE fois', () => {
+  const app = creerMoteur(catalogue).resoudre('Macron').approches;
+  const cesar = app.filter((a) => a.codes.startsWith('fl+t1+mw'));
+  assert.equal(cesar.length, 1, `${cesar.length} voies « César + quatorze segments » : ${cesar.map((a) => a.codes).join(' | ')}`);
+  assert.ok(cesar[0].codes.endsWith('+mz'), `la voie retenue ne montre pas le triptyque : ${cesar[0].codes}`);
+});
+
 test('anti-doublons — aucune étape inopérante ne subsiste dans une approche', () => {
   const m = creerMoteur(catalogue);
   for (const s of SAISIES_LISTE) {

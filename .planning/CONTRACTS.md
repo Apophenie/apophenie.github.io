@@ -957,6 +957,87 @@ ici**, puis l'émettre.
 > vers le dehors, et un signe la retourne — deux tracés symétriques écrits à la
 > main finiraient par ne plus l'être.
 
+> *Amendement — les cornes ont DEUX moments, et le rang du haut seul.*
+>
+> **La demande de l'auteur, mot pour mot.** « Sur cette voie les cornes
+> devraient apparaître dès la fin de l'étape 5 pour marquer l'apparition rapide
+> du triptyque. C'est possible grâce au fait que le triptyque ne sera jamais
+> remanié ensuite : ces trois 6 seront encore là à la fin. […] En revanche
+> l'élimination des chiffres suivants, une fois la phase qui a fait apparaître
+> les 666 terminée, peut être remise à plus tard pour faire apparaître plus vite
+> d'autres 666. » Et, plus tôt : « quand il y a plusieurs séries de 666,
+> [les cornes] seulement sur les 666 de la ligne du haut ».
+>
+> **Le geste se scinde donc en deux, et les deux n'ont pas la même horloge.**
+>
+> · **Le couronnement** vient DÈS QUE les trois 6 contigus existent. Sur
+>   `Donald Trump` en quatorze segments, `D o n` valent 6, 6, 6 à la cinquième
+>   étape : le 666 est écrit là, et les conversions suivantes (`a l d` → 7, 3,
+>   6) se poursuivent **sous les cornes**, ce qui est exactement la vérité de ce
+>   qui se passe. L'apparition rapide du triptyque est ce qu'on marque ; la
+>   suite des lettres reste la suite logique.
+>
+> · **L'effacement** peut au contraire ATTENDRE, et il attend : tous les
+>   effacements se regroupent en **un seul geste**, juste avant le verdict.
+>   Résultat visé et obtenu : **les deux 666 sont couronnés avant que quoi que
+>   ce soit ne s'efface.**
+>
+> ★ **Ce report va DANS LE SENS de la doctrine, il n'y fait pas exception.**
+> « On ne garde que les 6 » ne se joue qu'une fois, juste avant le verdict,
+> parce qu'une démonstration qui écarte quatre fois en cours de route montre
+> quatre fois qu'elle savait d'avance ce qu'elle cherchait (amendement
+> précédent). Effacer ce qui entoure un 666 n'est toujours PAS trier — les trois
+> 6 sont contigus, on ne les a pas choisis, on les a lus —, mais c'est le même
+> mouvement de la main, et il gagne à se faire au même moment. La règle devient
+> **une** au lieu d'avoir une exception. Corollaire appliqué : **s'il existe
+> déjà une étape de tri, l'effacement la REJOINT** au lieu de se poser juste
+> à côté — sans quoi la scène montrerait un « 7 » pendant que l'étape voisine
+> annonce qu'on ne garde que les 6.
+>
+> **L'ordre des deux gestes ne s'inverse jamais.** Le contrôle croisé exige que
+> la contiguïté soit lue sur la ligne TELLE QU'ELLE EST, avant tout effacement
+> (`visuel/primitives/horns.js`). Ici l'effacement passe plus loin encore
+> qu'avant : le verrou est plus serré, pas plus lâche. La ligne que la primitive
+> lit est pleine.
+>
+> ★ **L'AVANCE SE VÉRIFIE, ELLE NE SE SUPPOSE PAS** (`placeDuCouronnement`,
+> `src/recherche/scenario.js`, fonction pure et exportée). Trois conditions :
+> 1. **les trois 6 existent** — la place visée est celle qui suit l'étape ayant
+>    fait naître le dernier d'entre eux ;
+> 2. **rien ne change l'ordre des rangs entre les deux places** — seules sont
+>    traversées les étapes inertes (`highlight`, `dim`, `pulse`, `annotate`,
+>    `wait`) et les remplacements **un pour un à la même place** (`table`,
+>    `keyboard`, `sevenSeg`, `fourteenSeg`, `countStrokes`, `flip180` avec un
+>    `to`). C'est ce qui permet de CONCLURE plutôt que de parier : la contiguïté
+>    établie à la place d'origine par le troisième verrou vaut alors aussi à la
+>    place avancée, puisqu'on la remonte le long d'opérations qui préservent
+>    l'ordre ;
+> 3. **ils survivent jusqu'au bout, et leur contiguïté avec** — aucune étape
+>    postérieure ne les efface, ne les remplace, ni ne rebat l'ordre de la ligne.
+>
+> Si l'une des trois manque, le couronnement **reste où l'opérateur l'a posé**.
+> Un couronnement posé sur un 666 qui se déferait ensuite serait un mensonge
+> visuel, exactement celui que le projet refuse partout ailleurs.
+>
+> ★ **Et le rang du haut seul.** Au-delà de trois séries, `reveal` répartit le
+> verdict sur deux rangs (amendement « `reveal` quand il y a plus qu'un 666 ») :
+> les cornes des séries du rang du bas s'effacent alors. Cinq paires de cornes
+> sur deux rangs, ce n'est plus une trouvaille qu'on souligne, c'est un motif de
+> papier peint. Sur un seul rang, tout ce qui est couronné le reste — il n'y a
+> rien à alléger. Les détrônées gardent leur `scale` : elles ne se désolidarisent
+> pas, elles deviennent invisibles.
+>
+> **Ce qui est mis À DISPOSITION du barème** (`scenario.cornes`, et
+> `jalonsDesCornes`, pure) : le nombre total d'étapes, le rang de chaque
+> couronnement et sa part du total, et de combien d'étapes il a gagné sur la
+> place d'origine. Le bonus lui-même appartient à `score.js` et n'est pas
+> calculé ici : ce module mesure et publie, il ne note pas.
+>
+> **Mesuré sur la voie de référence** (`Donald Trump`,
+> `0.1:t1+mw+mz,2.1:fl+t1+mw+mz`) : 22 étapes deviennent **23** — un
+> couronnement à la 6ᵉ (au lieu de la 9ᵉ), un second à la 19ᵉ (au lieu de la
+> 21ᵉ), un effacement unique à la 22ᵉ, le verdict à la 23ᵉ.
+
 ### 3.2 Pièges figés en règles
 
 1. `fill: 'forwards'`, **jamais `'both'`** (une animation tardive rétro-remplirait sa
@@ -997,6 +1078,64 @@ ici**, puis l'émettre.
    > de vide sur les côtés — conséquence assumée : aux deux extrémités du texte,
    > l'action est *dans* le cadre sans être *au* centre.
 9. Interdiction totale de `foreignObject` dans la scène (canvas *tainted* à l'export).
+10. **Un décor ACCROCHÉ partage tout ce qui bouge**, sur chaque canal : même
+    départ, même durée, **même courbe** que le jeton qu'il suit (`data.suit`,
+    `scene.satellitesDe`). Et il **naît avant** le premier déplacement — un
+    décor créé après est simplement posé à l'arrivée, sans animation, donc il
+    saute là où son jeton voyage.
+
+    > *Amendement — la déformation pendant le zoom, et sa cause exacte.*
+    >
+    > **Le constat de l'auteur** : « quand il y a zoom/déplacement, il faudrait
+    > ajuster les easing pour que texte et svg restent solidaires, actuellement
+    > il y a déformation durant la transition ».
+    >
+    > **La cause.** Le verdict grossit le groupe par DEUX canaux à la fois —
+    > `translate` écarte les chiffres, `scale` grossit les glyphes — alors que
+    > le décor accroché n'en a qu'un : son `scale`, qui porte à la fois sa
+    > taille et sa largeur. Tant que les deux canaux marchaient sur deux courbes
+    > (`EASE.move` pour les positions, `EASE.pop` pour les tailles), l'ensemble
+    > n'était une homothétie qu'aux **deux extrémités** du trajet. Mesuré au
+    > navigateur sur la voie de référence, en pilotant `currentTime` : le
+    > rapport « largeur des cornes / largeur du 666 » passait de **0,919** à
+    > **1,479** à mi-vol avant de revenir à 0,921 — les cornes débordaient de
+    > moitié le 666 qu'elles couronnent, et les chiffres eux-mêmes se
+    > chevauchaient, leur chasse ayant grandi plus vite que leurs écarts.
+    >
+    > **Le correctif, et il est exact et non approché.** Une seule courbe
+    > `u(t)` pour tous les canaux d'un même geste. Le layout amène chaque jeton
+    > de `p₀` à `p₁ = c + (p₀ − c)·G` autour du centre `c` ; sur une courbe
+    > unique, `p(t) = p₀ + (p₁ − p₀)·u = c + (p₀ − c)·(1 + (G − 1)·u)` tandis
+    > que l'échelle vaut `1 + (G − 1)·u`. **Le même facteur, au même instant** :
+    > homothétie exacte tout au long du trajet, dépassement compris. On garde
+    > donc `EASE.pop` — le coup de poing du verdict —, mais sur les DEUX canaux.
+    > Mesuré à nouveau : le rapport reste à **0,9186** à chaque instant, sur les
+    > deux séries.
+    >
+    > **La solidarité est écrite UNE fois** (`ctx.animSolidaire`,
+    > `visuel/compile.js`) et non recopiée par chaque primitive. C'est la
+    > recopie qui avait produit le défaut : `helpers.effacerSurPlace` faisait
+    > disparaître le halo en 0,7 fois la durée du jeton et sans courbe déclarée,
+    > `reveal` faisait de même pour les restes, et **aucun des deux ne
+    > transmettait le `scale`** — un décor restait à sa taille pendant que son
+    > jeton rapetissait. Les deux ne connaissaient d'ailleurs que le halo, par
+    > son nom (`@halo:<id>`) : des cornes accrochées à un jeton effacé ne
+    > seraient pas parties avec lui. `animSolidaire` refuse `translate`, dont la
+    > cible est propre à chaque nœud — c'est `reflow` / `place` qui la calcule,
+    > en appliquant la même règle avec ses propres valeurs.
+    >
+    > ★ **Et le décor naît avant le mouvement.** Le halo du verdict était créé
+    > dans la boucle qui l'allume, donc APRÈS le `reflow` qui rassemble les
+    > chiffres : il se posait d'un coup à l'arrivée pendant que son chiffre y
+    > voyageait. Il est désormais créé avant le regroupement. Un décor accroché
+    > partage aussi son **instant de naissance**.
+    >
+    > Deux tests gèlent la règle (`visuel/tests/solidarite.test.js`) : la
+    > coïncidence exacte `delay` / `duration` / `easing` entre un jeton suivi et
+    > ses satellites sur chaque canal qui déplace, et l'unicité de la courbe
+    > d'un même geste du verdict. Aucun des deux ne se retrouverait en relisant
+    > du code : le défaut n'existe que pendant la transition.
+
 > *Amendement — règles 3 et 4 : la chaîne de position.*
 >
 > **Le défaut.** Sous Firefox (154, y compris profil neuf et navigation privée),

@@ -34,6 +34,13 @@
  * (`effacerSurPlace`, `helpers.js`) : un par un, sur place, sans que rien
  * bouge.
  *
+ * ★ Et `efface` peut être VIDE, sans que rien ne change ici. L'assemblage a le
+ * droit de scinder le geste en deux moments — couronner dès que les trois 6
+ * existent, effacer une seule fois juste avant le verdict (`reglerLesCornes`,
+ * `recherche/scenario.js`, CONTRACTS §3.1). Ce qu'il ne peut pas faire, c'est
+ * effacer AVANT : la primitive lit alors une ligne pleine, et le contrôle
+ * croisé ci-dessous garde exactement la même valeur.
+ *
  * ## Les cornes se posent SUR les 6, pas sur la scène
  *
  * Le nœud est **accroché** au 6 du milieu (`data.suit`) : `scene.satellitesDe`

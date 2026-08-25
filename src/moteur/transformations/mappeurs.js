@@ -1354,8 +1354,8 @@ const AUTRES_MAPPEURS = [
       return d < 0 ? [] : [0, 1, 2].map((k) => ctx.ids[d + k]);
     },
     /**
-     * ★ UN SEUL geste, et il est indivisible : les cornes poussent sur les
-     * trois 6 pendant que le reste de la séquence s'efface.
+     * ★ UN SEUL geste ÉMIS ICI — les cornes poussent sur les trois 6 pendant
+     * que le reste de la séquence s'efface.
      *
      * Pourquoi une op et non deux (`drop` puis `horns`) : parce que le
      * contrôle croisé n'y survivrait pas. Si un `drop` effaçait le reste
@@ -1364,6 +1364,15 @@ const AUTRES_MAPPEURS = [
      * trois 6 qui, au départ, étaient dispersés. C'est exactement ce qu'elle
      * doit refuser. Elle efface donc elle-même, après avoir vérifié la
      * contiguïté sur la ligne telle qu'elle est.
+     *
+     * ★ **L'assemblage peut ensuite scinder le geste en deux moments** —
+     * couronner tôt, effacer tard (`reglerLesCornes`, `recherche/scenario.js`,
+     * et CONTRACTS §3.1). Il ne le fait qu'en séparant dans le BON sens : le
+     * couronnement avance, l'effacement recule, et l'ordre « on vérifie sur la
+     * ligne pleine, puis on efface » est donc encore plus strictement tenu
+     * qu'ici. Un opérateur ne voit que sa propre étape : il ne peut savoir ni
+     * quand ses trois 6 sont nés, ni ce que la suite leur fera. C'est pour ça
+     * que la décision n'est pas prise ici.
      *
      * ★ Contrôle croisé (CONTRACTS §0.3), trois verrous comme pour les tables :
      *  1. ici, `efface` et `targets` sont dérivés du MÊME index `d`, lui-même

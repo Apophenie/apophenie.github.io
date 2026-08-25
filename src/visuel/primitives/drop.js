@@ -54,11 +54,19 @@ export function plan(ctx) {
   ids.forEach((id, i) => {
     const at = i * ctx.stagger;
     const pos = ctx.scene.pos(id);
+    // La chute du jeton emporte ce qui lui est accroché — même départ, même
+    // durée, même courbe, sur chaque canal (voir `helpers.effacerSurPlace`).
+    // `translate` fait exception au raccourci `animSolidaire` : chaque nœud a
+    // sa propre position de départ, donc sa propre cible. C'est le MÊME
+    // déplacement (26 unités vers le bas) qui leur est appliqué, pas la même
+    // destination — sans quoi le décor viendrait se poser sur son jeton.
     ctx.anim({ id, prop: 'translate', to: { x: pos.x, y: pos.y + 26 }, at, dur: fall, ease: EASE.fade });
-    ctx.anim({ id, prop: 'scale', to: 0.6, at, dur: fall });
-    ctx.anim({ id, prop: 'opacity', to: 0, at, dur: fall });
-    const halo = `@halo:${id}`;
-    if (ctx.scene.has(halo)) ctx.anim({ id: halo, prop: 'opacity', to: 0, at, dur: fall * 0.6 });
+    for (const sid of ctx.scene.satellitesDe(id)) {
+      const q = ctx.scene.pos(sid);
+      if (q) ctx.anim({ id: sid, prop: 'translate', to: { x: q.x, y: q.y + 26 }, at, dur: fall, ease: EASE.fade });
+    }
+    ctx.animSolidaire({ id, prop: 'scale', to: 0.6, at, dur: fall });
+    ctx.animSolidaire({ id, prop: 'opacity', to: 0, at, dur: fall });
     ctx.scene.kill(id, ctx.where);
   });
 

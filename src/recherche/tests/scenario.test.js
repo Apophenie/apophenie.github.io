@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { creerMoteur } from '../index.js';
 import {
   construireScenario, validerScenario, VOCABULAIRE, DUREE_MIN, elementsDe, validerFormeOp,
+  placeDuCouronnement, jalonsDesCornes,
 } from '../scenario.js';
 import { etat } from '../bfs.js';
 import { approcheJoker } from '../assemblage.js';
@@ -471,4 +472,119 @@ test('scénario — une approche à passage unique se triple à la fin (joker, t
   const triplement = sub.find((o) => o.pairs.some((p) => Array.isArray(p.to) && p.to.length === 3));
   assert.ok(triplement, 'les trois 6 doivent apparaître');
   assert.deepEqual(triplement.pairs.find((p) => Array.isArray(p.to)).to.map((t) => t.text), ['6', '6', '6']);
+});
+
+
+// ═══════════════════════════ les deux moments des cornes
+
+/**
+ * ★ LE COURONNEMENT AU PLUS TÔT, L'EFFACEMENT AU PLUS TARD.
+ *
+ * « Sur cette voie les cornes devraient apparaître dès la fin de l'étape 5 pour
+ * marquer l'apparition rapide du triptyque. […] En revanche l'élimination des
+ * chiffres suivants […] peut être remise à plus tard pour faire apparaître plus
+ * vite d'autres 666. » (l'auteur)
+ *
+ * La voie de référence est `Donald Trump` en quatorze segments : `D o n` valent
+ * 6, 6, 6 dès la cinquième étape, et `T r u m p` en donne trois autres après le
+ * chiffre de César. Le résultat attendu se dit d'une phrase : **les deux 666
+ * sont couronnés avant que quoi que ce soit ne s'efface.**
+ */
+test('★ cornes — les deux 666 sont couronnés AVANT le moindre effacement', () => {
+  const m = creerMoteur(catalogue);
+  const r = m.resoudre('Donald Trump');
+  const a = r.approches.find((x) => x.codes === 't1+mw+mz,fl+t1+mw+mz');
+  assert.ok(a, 'la voie de référence doit être trouvée');
+  const sc = m.scenarioDe(a, { saisie: r.saisie });
+  assert.deepEqual(validerScenario(sc), []);
+
+  const rang = (predicat) => sc.steps.map((s, i) => (predicat(s) ? i : -1)).filter((i) => i >= 0);
+  const cornes = rang((s) => (s.ops || []).some((o) => o.op === 'horns'));
+  const gommes = rang((s) => (s.ops || []).some((o) => o.op === 'drop'));
+
+  assert.equal(cornes.length, 2, 'deux 666, deux couronnements');
+  assert.equal(gommes.length, 1, 'un seul effacement, et il les regroupe tous les deux');
+  assert.ok(Math.max(...cornes) < gommes[0],
+    `les couronnements (${cornes.map((i) => i + 1)}) doivent tous précéder l’effacement (${gommes[0] + 1})`);
+  assert.equal(gommes[0], sc.steps.length - 2, 'l’effacement précède immédiatement le verdict');
+
+  // Le premier couronnement suit immédiatement la conversion du troisième 6.
+  assert.equal(cornes[0], 5, 'les cornes de « Donald » paraissent à la fin de la cinquième étape');
+  // …et plus aucune corne n’efface : les deux gestes sont bien séparés.
+  for (const i of cornes) {
+    const o = sc.steps[i].ops.find((x) => x.op === 'horns');
+    assert.ok(!o.efface || !o.efface.length, 'un couronnement différé n’efface plus rien lui-même');
+  }
+  // Ce que l’effacement emporte, c’est tout ce qui n’est pas couronné.
+  const couronnes = new Set(cornes.flatMap((i) => sc.steps[i].ops.find((x) => x.op === 'horns').targets));
+  const efface = sc.steps[gommes[0]].ops.find((o) => o.op === 'drop').targets;
+  assert.equal(efface.length, 5, '7, 3 et 6 pour « Donald », 4 et 4 pour « Trump »');
+  assert.ok(efface.every((id) => !couronnes.has(id)), 'on n’efface jamais ce qu’on couronne');
+});
+
+/**
+ * ★ ET LA CONDITION QUI L'AUTORISE SE VÉRIFIE — elle ne se suppose pas.
+ *
+ * Le couronnement ne remonte que si les trois jetons survivent jusqu'au bout et
+ * leur contiguïté avec. Dès qu'une étape intermédiaire pourrait les déplacer,
+ * les remplacer ou en insérer entre eux, il reste où l'opérateur l'avait posé.
+ */
+test('★ cornes — l’avance est REFUSÉE dès qu’une étape pourrait défaire le triptyque', () => {
+  // Trois 6 nés à l'étape 0, couronnés à l'étape 3. L'étape 1 est le grain de
+  // sable qu'on fait varier ; l'étape 2 est un remplacement un pour un, qui,
+  // lui, ne change jamais l'ordre des rangs.
+  const scene = (intruse) => [
+    { id: 's0', title: 'A', ops: [{ op: 'substitute', pairs: [{ target: 'a', to: [{ id: 'u', text: '6' }, { id: 'v', text: '6' }, { id: 'w', text: '6' }] }] }] },
+    { id: 's1', title: 'B', ops: [intruse] },
+    { id: 's2', title: 'C', ops: [{ op: 'fourteenSeg', target: 'b', to: { id: 'z', text: '4' }, segments: ['a'], count: 1 }] },
+    { id: 's3', title: 'D', ops: [{ op: 'horns', targets: ['u', 'v', 'w'], efface: ['z'] }] },
+  ];
+  const place = (intruse) => placeDuCouronnement(scene(intruse), 3);
+
+  // Inerte : l'avance est accordée, jusqu'à l'étape qui suit la naissance.
+  assert.equal(place({ op: 'highlight', targets: ['b'], mode: 'select' }), 1, 'une désignation ne défait rien');
+  assert.equal(place({ op: 'dim', targets: ['b'] }), 1);
+  // Un pour un, à la même place dans la ligne : l'ordre des rangs est intact.
+  assert.equal(place({ op: 'table', target: 'b', to: { id: 'y', text: '3' }, entries: [{ char: 'B', value: 3 }] }), 1);
+  // Tout le reste peut faire ou défaire un voisinage : on ne bouge pas.
+  assert.equal(place({ op: 'drop', targets: ['b'], mode: 'erase' }), 3, 'un effacement peut créer une contiguïté');
+  assert.equal(place({ op: 'move', order: ['b', 'u', 'v', 'w'] }), 3, 'un réordonnancement peut la défaire');
+  assert.equal(place({ op: 'sum', targets: ['b'], to: { id: 'y', text: '3' } }), 3);
+  assert.equal(place({ op: 'substitute', pairs: [{ target: 'b', to: [{ id: 'y', text: '3' }, { id: 'y2', text: '4' }] }] }), 3);
+  // Et une étape POSTÉRIEURE qui toucherait au triptyque le fige aussi.
+  const apres = scene({ op: 'wait' });
+  apres.push({ id: 's4', title: 'E', ops: [{ op: 'drop', targets: ['v'], mode: 'fall' }] });
+  assert.equal(placeDuCouronnement(apres, 3), 3, 'un 666 qui se défait ensuite ne se couronne pas avant');
+});
+
+/**
+ * ★ CE QUI EST MIS À DISPOSITION DU BARÈME — et rien de plus.
+ *
+ * Le bonus de score qu'appelle l'auteur (« les amener à l'étape 5 plutôt qu'à
+ * l'étape 9 devrait apporter un bonus ») appartient à `score.js`. Ce module
+ * MESURE et publie : à quelle étape paraît chaque 666, sur combien d'étapes en
+ * tout, et combien d'étapes le couronnement a gagné.
+ */
+test('★ cornes — les jalons publiés pour le score sont exacts et purs', () => {
+  const m = creerMoteur(catalogue);
+  const r = m.resoudre('Donald Trump');
+  const a = r.approches.find((x) => x.codes === 't1+mw+mz,fl+t1+mw+mz');
+  const sc = m.scenarioDe(a, { saisie: r.saisie });
+
+  assert.ok(sc.cornes, 'le scénario publie ses jalons');
+  assert.equal(sc.cornes.total, sc.steps.length);
+  assert.equal(sc.cornes.couronnements.length, 2);
+  assert.equal(sc.cornes.premier, 6, 'le premier 666 est couronné à la sixième étape');
+  assert.equal(sc.cornes.couronnements[0].avance, 3, 'trois étapes gagnées sur la place d’origine');
+  assert.ok(sc.cornes.couronnements[0].part > 0 && sc.cornes.couronnements[0].part < 1);
+
+  // La fonction est PURE : relue sur le seul scénario, elle retrouve les mêmes
+  // rangs (l’avance, elle, n’est mesurable qu’au moment du réglage).
+  const relu = jalonsDesCornes(JSON.parse(JSON.stringify(sc)));
+  assert.equal(relu.total, sc.cornes.total);
+  assert.equal(relu.premier, sc.cornes.premier);
+  assert.deepEqual(relu.couronnements.map((c) => c.etape), sc.cornes.couronnements.map((c) => c.etape));
+
+  // Et le scénario reste sérialisable (invariant 8).
+  assert.deepEqual(validerScenario(sc), []);
 });

@@ -356,6 +356,38 @@ export function compile(scenario, options = {}) {
           extent = Math.max(extent, opAt + a + d);
         },
 
+        /**
+         * Émet une animation sur un jeton **ET sur tout ce qui lui est
+         * accroché**, à l'identique : même départ, même durée, même courbe.
+         *
+         * ★ Pourquoi ce raccourci existe, et pourquoi il n'est pas facultatif.
+         *
+         * Un décor accroché (`data.suit` — les cornes du 666, le halo) n'a pas
+         * de trajectoire propre : il n'a de sens que collé à ce qu'il désigne.
+         * Tant que chaque primitive recopiait l'animation à la main, les deux
+         * dérivaient : `effacerSurPlace` faisait disparaître le halo en 0,7 fois
+         * la durée du jeton et sans courbe déclarée, `reveal` faisait de même
+         * pour les restes, et **aucun des deux ne transmettait le `scale`** — un
+         * halo restait donc à sa taille pendant que son jeton rapetissait.
+         * Trois recopies, trois occasions de diverger : on n'en garde qu'une.
+         *
+         * ★ Ce raccourci ne vaut QUE pour les canaux dont la valeur est
+         * commune — `opacity`, `scale`, `rotate`, `fill`. `translate`, lui, a
+         * une cible par nœud : c'est `reflow`/`place` qui la calcule, et qui
+         * applique la même règle de solidarité avec ses propres valeurs.
+         */
+        animSolidaire(spec) {
+          if (spec.prop === 'translate') {
+            fail(`${where2}« animSolidaire » ne sait pas transporter « translate » : chaque nœud a `
+              + 'sa propre cible de position, c’est « reflow » ou « place » qui la calcule.');
+          }
+          ctx.anim(spec);
+          for (const sid of scene.satellitesDe(spec.id)) {
+            if (!scene.has(sid)) continue;
+            ctx.anim({ ...spec, id: sid });
+          }
+        },
+
         /** Émet un enregistrement du canal discret (texte, `d`, attribut). */
         discrete(spec) {
           const a = reduced ? 0 : (spec.at ?? 0);

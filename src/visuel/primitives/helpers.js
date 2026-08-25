@@ -257,10 +257,15 @@ export function effacerSurPlace(ctx, ids, spec = {}) {
   const fondu = Math.max(1, Math.min(total * 0.34, total - cadence * (n - 1)));
   ids.forEach((id, i) => {
     const t = at + i * cadence;
-    ctx.anim({ id, prop: 'opacity', to: 0, at: t, dur: fondu, ease: EASE.fade });
-    ctx.anim({ id, prop: 'scale', to: 0.82, at: t, dur: fondu, ease: EASE.fade });
-    const halo = `@halo:${id}`;
-    if (ctx.scene.has(halo)) ctx.anim({ id: halo, prop: 'opacity', to: 0, at: t, dur: fondu * 0.7 });
+    // ★ SOLIDARITÉ. Le jeton et ce qui lui est accroché s'en vont d'un seul
+    // mouvement : même départ, même durée, même courbe, sur les DEUX canaux.
+    // Auparavant le halo n'héritait que de l'opacité, en 0,7 fois la durée et
+    // sans courbe déclarée — il s'évanouissait donc avant son jeton, et il
+    // gardait sa taille pendant que celui-ci rapetissait. Un décor qui quitte
+    // la scène plus vite que ce qu'il désigne, c'est une désignation qui
+    // s'annule avant son objet.
+    ctx.animSolidaire({ id, prop: 'opacity', to: 0, at: t, dur: fondu, ease: EASE.fade });
+    ctx.animSolidaire({ id, prop: 'scale', to: 0.82, at: t, dur: fondu, ease: EASE.fade });
     ctx.scene.kill(id, ctx.where);
   });
   return at + cadence * (n - 1) + fondu;

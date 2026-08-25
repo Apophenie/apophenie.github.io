@@ -140,16 +140,25 @@ export function plan(ctx) {
   const cadenceRestes = restes.length > 1 ? (ctx.dur * 0.22) / (restes.length - 1) : 0;
   restes.forEach((id, i) => {
     const at = i * cadenceRestes;
-    ctx.anim({ id, prop: 'opacity', to: 0, at, dur: fonduRestes, ease: EASE.fade });
-    ctx.anim({ id, prop: 'scale', to: 0.8, at, dur: fonduRestes, ease: EASE.fade });
     // Un décor accroché s'en va avec ce qu'il désignait : le halo, comme toute
     // autre marque posée sur le jeton. Le laisser survivre à sa cible ferait
-    // flotter une désignation orpheline au milieu du verdict.
-    for (const sid of ctx.scene.satellitesDe(id)) {
-      ctx.anim({ id: sid, prop: 'opacity', to: 0, at, dur: fonduRestes * 0.7 });
-    }
+    // flotter une désignation orpheline au milieu du verdict — et le faire
+    // partir plus vite (c'était 0,7 fois la durée, sans courbe déclarée) fait
+    // s'annuler la désignation avant son objet. Même départ, même durée, même
+    // courbe, sur les deux canaux : `animSolidaire`.
+    ctx.animSolidaire({ id, prop: 'opacity', to: 0, at, dur: fonduRestes, ease: EASE.fade });
+    ctx.animSolidaire({ id, prop: 'scale', to: 0.8, at, dur: fonduRestes, ease: EASE.fade });
     ctx.scene.kill(id, ctx.where);
   });
+
+  // ★ Les halos naissent ICI, avant tout déplacement — pas dans la boucle qui
+  // les allume. Un décor accroché ne suit son jeton au reflow que s'il EXISTE
+  // au moment où celui-ci part : créé après, il était simplement posé à
+  // l'arrivée, sans animation, et sautait donc à sa place pendant que son
+  // chiffre, lui, y voyageait. Même famille de défaut que les courbes qui
+  // divergent, et même remède — le décor partage tout, y compris son instant
+  // de naissance.
+  const halos = withHalo ? ids.map((id) => ensureHalo(ctx, id, 'gold')) : [];
 
   // --- 2. le regroupement : quand le canal est libre, et pas avant ----------
   //
@@ -183,6 +192,29 @@ export function plan(ctx) {
   let tGrossir;
   let dGrossir;
 
+  // ★ UNE SEULE COURBE POUR TOUT L'AGRANDISSEMENT — c'est ce qui rend le geste
+  // SOLIDAIRE, et ce n'est pas un réglage d'esthète.
+  //
+  // Le verdict grossit le groupe par DEUX canaux à la fois : `translate`
+  // écarte les chiffres, `scale` grossit les glyphes. Le décor accroché, lui,
+  // n'en a qu'un — son `scale`, qui porte à la fois sa taille et sa largeur.
+  // Tant que les deux canaux marchaient sur deux courbes (`move` pour les
+  // positions, `pop` pour les tailles), l'ensemble n'était une homothétie
+  // qu'aux deux extrémités du trajet : au milieu, `pop` avait déjà dépassé sa
+  // valeur d'arrivée quand `move` n'était qu'à mi-chemin. Les cornes étaient
+  // donc trop larges pour l'écartement des 6 qu'elles couronnaient — la
+  // déformation signalée par l'auteur —, et les chiffres eux-mêmes se
+  // chevauchaient, leur chasse ayant grandi plus vite que leurs écarts.
+  //
+  // Avec une seule courbe `u(t)`, l'exactitude est ARITHMÉTIQUE et non
+  // approchée : le layout amène chaque jeton de `p₀` à `p₁ = c + (p₀ − c)·G`
+  // autour du centre `c`, donc `p(t) = p₀ + (p₁ − p₀)·u = c + (p₀ − c)·(1 +
+  // (G − 1)·u)`, tandis que son échelle vaut `1 + (G − 1)·u`. Les deux
+  // portent le même facteur à chaque instant : le groupe est une homothétie
+  // exacte tout au long du trajet, dépassement compris. On garde donc `pop`
+  // — le coup de poing du verdict —, mais sur les DEUX canaux.
+  const courbeVerdict = EASE.pop;
+
   if (!multi) {
     // Un seul 666 : rassembler et grossir sont le MÊME geste. Rien à découper,
     // rien à répartir, et l'intercaler ferait un temps mort au moment de la
@@ -191,7 +223,7 @@ export function plan(ctx) {
     dGrossir = Math.max(1, ctx.dur - depart);
     poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, lignes: 1 });
     centrerLeBloc();
-    ctx.reflow({ at: tGrossir, dur: dGrossir, ease: EASE.move });
+    ctx.reflow({ at: tGrossir, dur: dGrossir, ease: courbeVerdict });
   } else {
     const pas = Math.max(1, ctx.dur * 0.6);
 
@@ -208,7 +240,7 @@ export function plan(ctx) {
     dGrossir = Math.max(1, pas * 1.5);
     poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, lignes });
     centrerLeBloc();
-    ctx.reflow({ at: tGrossir, dur: dGrossir, ease: EASE.move });
+    ctx.reflow({ at: tGrossir, dur: dGrossir, ease: courbeVerdict });
   }
 
   // La hauteur réelle du verdict, pour que ce qui se pose « en dessous » (une
@@ -220,27 +252,48 @@ export function plan(ctx) {
   }
 
   // --- 3. ils paraissent, rougissent, et grandissent ------------------------
+  // ★ Au-delà de trois séries, les cornes ne couronnent QUE LE RANG DU HAUT.
+  //
+  // « Quand il y a plusieurs séries de 666, [les cornes] seulement sur les 666
+  // de la ligne du haut, pour éviter de surcharger en effet » (l'auteur). Cinq
+  // paires de cornes sur deux rangs, ce n'est plus une trouvaille qu'on
+  // souligne, c'est un motif de papier peint. Sur un seul rang, tous ceux qui
+  // sont couronnés le restent : il n'y a rien à alléger.
+  const rangDuBas = lignes > 1 ? Math.ceil(series.length / 2) : Infinity;
+  const detrones = new Set();
+  series.forEach((serie, s) => {
+    if (s < rangDuBas) return;
+    for (const id of serie) for (const sid of ctx.scene.accrochesA(id)) detrones.add(sid);
+  });
+
   ids.forEach((id, i) => {
     const at = i * cadence;
     ctx.anim({ id, prop: 'opacity', to: 1, at, dur: Math.max(1, ctx.dur * 0.3) });
     ctx.anim({ id, prop: 'fill', to: ctx.palette.rubric, at, dur: Math.max(1, ctx.dur * 0.45) });
-    ctx.anim({ id, prop: 'scale', to: grow, at: tGrossir, dur: dGrossir, ease: EASE.pop });
     // ★ Ce qui est POSÉ SUR un chiffre grandit avec lui — les cornes du 666.
     //
-    // Le verdict grossit les glyphes ET leurs écarts du même facteur : le
-    // groupe entier subit une homothétie autour de son centre, qui est l'ancre
-    // du décor. Un simple `scale` suffit donc, sans arithmétique de rattrapage.
-    // Sans lui, les cornes resteraient à leur taille au-dessus de chiffres huit
-    // fois plus hauts — c'est-à-dire quelque part au milieu d'eux.
-    for (const sid of ctx.scene.accrochesA(id)) {
-      ctx.anim({ id: sid, prop: 'scale', to: grow, at: tGrossir, dur: dGrossir, ease: EASE.pop });
-    }
-    if (withHalo) {
-      const halo = ensureHalo(ctx, id, 'gold');
-      ctx.anim({ id: halo, prop: 'scale', to: grow, at: tGrossir, dur: dGrossir, ease: EASE.pop });
-      ctx.anim({ id: halo, prop: 'opacity', to: 0.24, at, dur: Math.max(1, ctx.dur * 0.45) });
-    }
+    // Le verdict grossit les glyphes ET leurs écarts du même facteur, sur une
+    // seule et même courbe (voir `courbeVerdict`) : le groupe entier subit une
+    // homothétie autour de son centre, qui est l'ancre du décor. Un simple
+    // `scale` suffit donc, sans arithmétique de rattrapage. Sans lui, les
+    // cornes resteraient à leur taille au-dessus de chiffres huit fois plus
+    // hauts — c'est-à-dire quelque part au milieu d'eux.
+    //
+    // ★ Le halo, lui, n'a plus à être nommé : c'est un décor accroché
+    // (`@halo:<id>`, `scene.satellitesDe`), donc `animSolidaire` le fait
+    // grandir avec son chiffre. Ne reste que son allumage, qui n'appartient
+    // qu'à lui.
+    if (halos[i]) ctx.anim({ id: halos[i], prop: 'opacity', to: 0.24, at, dur: Math.max(1, ctx.dur * 0.45) });
+    ctx.animSolidaire({ id, prop: 'scale', to: grow, at: tGrossir, dur: dGrossir, ease: courbeVerdict });
   });
+
+  // Les cornes du rang du bas s'effacent — au moment où la coupure s'ouvre,
+  // c'est-à-dire quand le second rang naît. Elles gardent le `scale` que
+  // `animSolidaire` vient de leur donner : rien ne se désolidarise, elles
+  // deviennent seulement invisibles.
+  for (const sid of detrones) {
+    ctx.anim({ id: sid, prop: 'opacity', to: 0, at: tGrossir, dur: dGrossir * 0.5, ease: EASE.fade });
+  }
 }
 
 /**

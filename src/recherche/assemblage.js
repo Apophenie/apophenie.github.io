@@ -130,6 +130,9 @@ const MAX_CONVERGENCES = 3;         // trios de manières distinctes par fragmen
  */
 const MAX_JETONS_MOISSON = 24;      // portées atomiques soumises à l'énumération
 const MAX_CANDIDATS_PORTEE = 6;     // programmes retenus par portée
+
+/** L'opérateur « trois 6 d'affilée » — voir `prefererLeTriptyqueMontre`. */
+const ID_TRIPTYQUE = 'm.troisSixDAffilee';
 const MAX_MOISSONS = 4;             // variantes rendues (la maximale + les homogènes)
 
 /** Index d'un fragment : ses chemins rangés par signature de méthode. */
@@ -1405,7 +1408,47 @@ export function dedupliquerApproches(approches) {
       .join('|');
     if (!vus.has(cle)) vus.set(cle, a);
   }
-  return [...vus.values()];
+  return prefererLeTriptyqueMontre([...vus.values()]);
+}
+
+/**
+ * ★ « C'est la même méthode : elle ne devrait pas exister avec ET sans faire
+ * remarquer le 666 contigu. » (l'auteur)
+ *
+ * L'opérateur « trois 6 d'affilée » (`m.troisSixDAffilee`) est un opérateur
+ * comme un autre pour la recherche : elle explore donc les deux branches, avec
+ * et sans. Sur `Macron`, le chiffre de César suivi du quatorze segments rend
+ * `[4, 6, 6, 6, 7, 7]` — et le groupement, lui, retient exactement les trois 6
+ * du milieu, avec ou sans l'opérateur. Deux lignes du classement, le même
+ * spectacle : d'un côté « le 666 était déjà écrit », de l'autre le même 666
+ * ramassé sans le dire. Le lecteur n'a aucun moyen de comprendre ce qui les
+ * sépare, parce que rien ne les sépare.
+ *
+ * Le triptyque n'est pas une méthode, c'est un **fait** : quand il est là et
+ * qu'il tient jusqu'au bout, on le montre. Toujours.
+ *
+ * ★ Le garde-fou est dans la clé, et il compte : deux approches ne sont
+ * confondues que si elles ont le même mode ET **le même nombre de séries**.
+ * L'opérateur tronque à trois ; sur un vecteur qui porte six 6 contigus il
+ * ferait perdre une série entière, et cette variante-là n'est pas la même
+ * démonstration — elle reste. On ne fusionne que ce qui rend exactement le même
+ * verdict.
+ */
+function prefererLeTriptyqueMontre(approches) {
+  const groupes = new Map();
+  for (const a of approches) {
+    const nu = (p) => p.fragment.texte + '\u0000'
+      + p.chemin.ops.filter((o) => o.id !== ID_TRIPTYQUE).map((o) => o.code).join('+');
+    const cle = [a.mode ?? '', a.series ?? 1, ...a.parts.map(nu).sort()].join('|');
+    const montre = a.parts.reduce(
+      (n, p) => n + p.chemin.ops.filter((o) => o.id === ID_TRIPTYQUE).length, 0,
+    );
+    const tenant = groupes.get(cle);
+    // `Map.set` sur une clé existante GARDE sa place : remplacer le tenant ne
+    // réordonne pas la liste, et le classement en aval reste déterministe.
+    if (!tenant || montre > tenant.montre) groupes.set(cle, { a, montre });
+  }
+  return [...groupes.values()].map((x) => x.a);
 }
 
 // ══════════════════════════════════ garantie « jamais bredouille » (§5)
