@@ -769,6 +769,36 @@ test('titres — un nom de méthode, unique dans la liste, dans les deux langues
   }
 });
 
+/**
+ * ★ Un titre ne montre jamais la plomberie.
+ *
+ * Quand deux lignes portent le même nom de méthode, on les distingue par ce
+ * qu'elles ont en propre — et en dernier recours par leur suite de codes, qui
+ * est unique par construction mais n'apprend rien à personne. Ce dernier
+ * recours s'était mis à servir : sur `Millicent`, trois voies Atbash cohabitent
+ * (`fk+t1+m3+my`, `fk+t1+m8+my`, `fk+t1+m8`), et pour celle du milieu **aucun
+ * opérateur ne lui appartient en propre** — ni le clavier téléphonique ni le
+ * retournement des 9, seule leur RENCONTRE. Le visiteur lisait
+ * « Le chiffre Atbash — fk+t1+m8+my ».
+ */
+test('★ titres — jamais un code d’URL en guise de nom', () => {
+  const m = creerMoteur(catalogue);
+  // Un code est deux caractères alphanumériques ; deux codes joints par « + »
+  // ne peuvent pas être du texte français ou anglais.
+  const plomberie = /\b[a-z][0-9a-z]\+[a-z][0-9a-z]/;
+  let vus = 0;
+  for (const s of [...SAISIES_LISTE, 'Millicent', 'numherololgeek']) {
+    for (const a of m.resoudre(s).approches) {
+      for (const langue of ['fr', 'en']) {
+        vus++;
+        const t = titreApproche(a, langue);
+        assert.ok(!plomberie.test(t), `« ${s} » (${langue}) : ${t}`);
+      }
+    }
+  }
+  assert.ok(vus >= 40, `seulement ${vus} titres examinés`);
+});
+
 test('anti-doublons — aucune étape inopérante ne subsiste dans une approche', () => {
   const m = creerMoteur(catalogue);
   for (const s of SAISIES_LISTE) {
@@ -865,16 +895,50 @@ test('★ moisson — aucune portée n’est entièrement surnuméraire', () => 
   assert.ok(vues >= 3, `seulement ${vues} moissons observées`);
 });
 
-test('★ moisson — élaguer ne change jamais le verdict', () => {
-  // Le seul cas mesurable de bout en bout : `https://hope-hope-hope.fr/` au
-  // rang 2. Avant élagage : 5 portées, 16 six, cinq séries, et « fr » calculé
-  // puis rejeté. Après : 4 portées, 15 six, les mêmes cinq séries.
-  const r = creerMoteur(catalogue).resoudre('https://hope-hope-hope.fr/');
-  const cinq = r.approches.find((a) => a.mode === 'MOISSON' && a.series === 5);
-  assert.ok(cinq, 'la moisson à cinq séries a disparu du classement');
-  assert.deepEqual(cinq.parts.map((p) => p.fragment.texte), ['https', 'hope', 'hope', 'hope']);
-  const total = cinq.parts.reduce((n, p) => n + sixDuChemin(p.chemin).six, 0);
-  assert.equal(total, 15, 'quinze 6 récoltés pour quinze montrés : rien à jeter');
+/**
+ * ★ Une moisson ne récolte QUE ce qu'elle montre.
+ *
+ * Deux mécanismes s'y emploient, et ils sont complémentaires :
+ *
+ *  · `elaguerLaMoisson` retire les portées **entièrement** surnuméraires — on
+ *    ne calcule pas « fr » pour le jeter quatre étapes plus loin ;
+ *  · `reduireLeSurplus` échange, à nombre de séries égal, le programme d'une
+ *    portée contre un **moins fourni** quand le trop-plein ne fait pas une série
+ *    de plus. Sur `hope-hope-hope.fr`, « fr » rend deux 6 en pythagoricienne +
+ *    retournement des 9, mais un seul en sept segments (4 + 2) : le second donne
+ *    les mêmes cinq séries et ne laisse rien sur le carreau.
+ *
+ * Le rendement (`score.js`) ne voit pas ce second gaspillage — `[6, 6]` vaut
+ * 1 000 sur mille même quand l'un des deux finit par tomber. C'est donc ici que
+ * ça se joue, et pas dans le score : mieux vaut ne pas produire le déchet.
+ */
+test('★ moisson — on ne récolte que ce qu’on montre', () => {
+  const m = creerMoteur(catalogue);
+  let vues = 0;
+  for (const s of ['hope-hope-hope.fr', 'https://hope-hope-hope.fr/', 'jean-michel',
+    'Le chat dort sur le tapis rouge', 'https://www.example.com/path/to/page', 'numherololgeek']) {
+    for (const a of m.resoudre(s).approches.filter((x) => x.mode === 'MOISSON')) {
+      vues++;
+      const total = a.parts.reduce((n, p) => n + sixDuChemin(p.chemin).six, 0);
+      assert.equal(total, a.series * SERIE,
+        `« ${s} » : ${total} six récoltés pour ${a.series * SERIE} montrés — ${a.codes}`);
+    }
+  }
+  assert.ok(vues >= 5, `seulement ${vues} moissons observées`);
+});
+
+test('★ moisson — le « fr » reste en sept segments : 4 + 2, et rien à jeter', () => {
+  // L'auteur l'a demandé nommément : « hope-hope-hope.fr en première stratégie,
+  // celle des 14 segments + tiret du 6 plus fr → 4 + 2 → 6 ». Le retournement
+  // des 9 rendait « fr » plus fourni (f = 6, r = 9 retourné) et la
+  // programmation dynamique le préférait — pour un seizième 6 qui ne faisait pas
+  // une sixième série. `reduireLeSurplus` rend la main au sept segments.
+  const tete = creerMoteur(catalogue).resoudre('hope-hope-hope.fr').approches[0];
+  assert.equal(tete.series, 5, `${tete.series} séries — ${tete.codes}`);
+  const fr = tete.parts[tete.parts.length - 1];
+  assert.equal(fr.fragment.texte, 'fr');
+  assert.ok(fr.chemin.ops.some((o) => o.code === 'md'),
+    `le « fr » passe par ${fr.chemin.ops.map((o) => o.code).join('+')} — le sept segments est attendu`);
 });
 
 /**

@@ -85,11 +85,18 @@ const NOMS = {
   'n.lettresPlusConsonnes': b('Le compte des lettres et des consonnes', 'Counting letters and consonants'),
 
   // ── mappeurs (la table de conversion qui fait la méthode)
-  // Le nom affiché est « numérologie latine » : c'est l'alphabet latin qu'on
-  // numérote, et le lecteur qui n'a jamais lu « A1Z26 » comprend tout de
-  // même. L'identifiant `m.a1z26` et le code d'URL `m1`, eux, ne changent
-  // JAMAIS — registre append-only (CONTRACTS §4.1).
-  'm.a1z26': b('La numérologie latine', 'Latin numerology'),
+  // ★ « La gématrie simple » — et non « la numérologie latine », qui a servi un
+  // temps. Deux raisons. La première : une fois que `m.englishX6` s'appelle « la
+  // gématrie anglaise », les deux barèmes A=1…Z=26 et A=6…Z=156 se retrouvent
+  // côte à côte dans la liste sans rien qui les relie ; « simple » et
+  // « anglaise » disent d'un coup d'œil que c'est la même famille, l'une nue,
+  // l'autre multipliée — et c'est le nom que ce barème porte réellement chez
+  // ceux qui pratiquent. La seconde : dans « pythagoricienne, chaldéenne,
+  // latine », les deux premières nomment des TRADITIONS et la troisième un
+  // ALPHABET ; le lecteur croyait voir une troisième tradition là où il n'y a
+  // que le rang de la lettre. L'identifiant `m.a1z26` et le code d'URL `m1`, eux,
+  // ne changent JAMAIS — registre append-only (CONTRACTS §4.1).
+  'm.a1z26': b('La gématrie simple', 'Simple gematria'),
   'm.z26a1': b('L’alphabet à rebours', 'The alphabet backwards'),
   'm.pythagore': b('La numérologie pythagoricienne', 'Pythagorean numerology'),
   'm.chaldeen': b('La numérologie chaldéenne', 'Chaldean numerology'),
@@ -477,6 +484,37 @@ export function distinguerTitres(approches) {
         a.distinction = { fr: `sur « ${textes} »`, en: `on “${textes}”` };
         return;
       }
+      // ★ Ce qui distingue n'est pas toujours UN opérateur : c'est parfois une
+      // COMBINAISON. À trois lignes ou plus, chaque opérateur peut se retrouver
+      // ailleurs sans qu'aucune ligne se répète — `fk+t1+m8+my` face à
+      // `fk+t1+m3+my` et `fk+t1+m8` : ni le clavier téléphonique ni le
+      // retournement des 9 ne lui appartiennent, leur RENCONTRE si. On nomme
+      // alors tout ce qui varie dans le groupe, c'est-à-dire ce que cette ligne
+      // a en propre une fois retiré le fonds commun. C'est plus long qu'un nom,
+      // mais ça se lit — au contraire de « fk+t1+m8+my », qui n'apprend rien à
+      // personne et donne à voir la plomberie.
+      const commun = new Set(opsDe(groupe[0]).map((o) => o.id));
+      for (const x of groupe.slice(1)) {
+        const siens = new Set(opsDe(x).map((o) => o.id));
+        for (const id of [...commun]) if (!siens.has(id)) commun.delete(id);
+      }
+      const propres = [];
+      const vus = new Set();
+      for (const o of opsDe(a)) {
+        if (commun.has(o.id) || vus.has(o.id)) continue;
+        vus.add(o.id);
+        propres.push(o.libelle);
+      }
+      if (propres.length) {
+        a.distinction = {
+          fr: propres.map((l) => dire(l, 'fr')).filter(Boolean).join(', '),
+          en: propres.map((l) => dire(l, 'en')).filter(Boolean).join(', '),
+        };
+        if (a.distinction.fr) return;
+      }
+      // Dernier recours : la suite des codes, unique par construction. On n'y
+      // arrive que si deux lignes ont exactement les mêmes opérateurs sur les
+      // mêmes fragments — auquel cas il n'y a plus rien à dire d'elles.
       const codes = (a.parts || []).map((p) => p.chemin.ops.map((o) => o.code).join('+')).join(',');
       a.distinction = { fr: codes, en: codes };
     });

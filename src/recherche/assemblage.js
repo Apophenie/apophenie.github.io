@@ -652,7 +652,7 @@ function moissons(saisie, jetons, fragments, parFrag, ops) {
   for (const accepte of filtres) {
     const { choix } = meilleureMoisson(parDebut, n, accepte);
     if (choix.length < 2) continue;
-    const parts = elaguerLaMoisson(choix.map(({ portee, candidat }) => ({
+    const parts = elaguerLaMoisson(reduireLeSurplus(choix, accepte).map(({ portee, candidat }) => ({
       fragment: fragmentDeJetons(saisie, jetons, portee.debut, portee.longueur),
       chemin: candidat.chemin,
     })));
@@ -672,6 +672,56 @@ function moissons(saisie, jetons, fragments, parFrag, ops) {
     if (signatures.has(cle)) continue;
     signatures.add(cle);
     out.push(approche('MOISSON', parts));
+  }
+  return out;
+}
+
+/**
+ * ★ À NOMBRE DE SÉRIES ÉGAL, on prend le programme qui gaspille le moins.
+ *
+ * L'ordonnancement pondéré maximise les **6** ; le verdict en compte des séries
+ * de **trois**. Un 6 de plus qui ne fait pas une série de plus n'est pas un
+ * gain : c'est un 6 qu'il faudra montrer, puis écarter. Et l'écarter est
+ * précisément ce que l'auteur veut voir le moins possible — trier, c'est
+ * avouer qu'on savait d'avance ce qu'on cherchait.
+ *
+ * Le cas qui l'a révélé : sur `hope-hope-hope.fr`, la portée « fr » rend UN 6
+ * en sept segments (`f` = 4, `r` = 2, somme) et DEUX en pythagoricienne suivie
+ * du retournement des 9 (`f` = 6, `r` = 9 retourné). La programmation dynamique
+ * prenait le second — seize 6, cinq séries, et un 6 sur le carreau. Le premier
+ * donne quinze 6, les mêmes cinq séries, et rien à jeter.
+ *
+ * ★ Le rendement (`score.js`) ne voyait pas ce gaspillage-là : il mesure la part
+ * des valeurs CALCULÉES qui valent 6, et `[6, 6]` vaut 1 000 sur mille même
+ * quand l'un des deux finit par tomber. Le corriger ici plutôt que là est le bon
+ * ordre : mieux vaut ne pas produire le déchet que le pénaliser après coup.
+ *
+ * On descend de la dernière portée vers la première — le surplus est en queue —
+ * et pour chacune on prend le candidat le MOINS fourni qui laisse encore de quoi
+ * tenir le compte, jamais en dessous d'un 6 (une part sans 6 disqualifie
+ * l'approche entière). Les candidats sont déjà triés du plus fourni au moins, et
+ * à rendement égal du plus honnête au moins (`candidatsDePortee`) : prendre le
+ * premier d'un rang de six, c'est prendre le meilleur de ce rang.
+ */
+function reduireLeSurplus(choix, accepte) {
+  let total = choix.reduce((n, c) => n + c.candidat.six, 0);
+  const garde = Math.min(Math.floor(total / SERIE), MAX_SERIES) * SERIE;
+  if (total <= garde) return choix;
+
+  const out = choix.slice();
+  for (let i = out.length - 1; i >= 0 && total > garde; i--) {
+    const { portee, candidat } = out[i];
+    let mieux = candidat;
+    for (const c of portee.candidats) {
+      if (c.six < 1 || c.six >= mieux.six) continue;
+      if (!accepte(c)) continue;
+      if (total - candidat.six + c.six < garde) continue;
+      mieux = c;
+    }
+    if (mieux !== candidat) {
+      total = total - candidat.six + mieux.six;
+      out[i] = { portee, candidat: mieux };
+    }
   }
   return out;
 }

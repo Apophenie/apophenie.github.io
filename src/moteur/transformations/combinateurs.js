@@ -149,7 +149,7 @@ function etapeDecompte(spec) {
  */
 export const POIDS_RAMASSAGE = Object.freeze({
   accolade: 900, doubles: 800,
-  nivellement0: 260, nivellement1: 340,
+  nivellement0: 260, nivellement1: 520,
   effacement0: 380, effacement1: 90,
   vol0: 620, vol1: 260,
   remontee: 760,

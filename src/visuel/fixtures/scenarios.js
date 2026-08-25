@@ -11,11 +11,11 @@
  * vocabulaire suffit à les raconter.
  */
 
-/** Méthode 4 — la somme de « hope » en numérologie latine, réduite. */
+/** Méthode 4 — la somme de « hope » en gématrie simple, réduite. */
 export const methode4 = {
   version: 1,
   input: 'hope',
-  method: { id: 4, label: 'La somme des 3 répétitions en numérologie latine', rule: 'A=1, B=2 … Z=26, puis réduction théosophique' },
+  method: { id: 4, label: 'La somme des 3 répétitions en gématrie simple', rule: 'A=1, B=2 … Z=26, puis réduction théosophique' },
   result: '8',
   tokens: [
     { id: 'a0', text: 'h', kind: 'letter', group: 'w0' },

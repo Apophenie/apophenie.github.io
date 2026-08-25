@@ -689,7 +689,7 @@ const MAPPEURS_LETTRE = [
       'The traditional Chaldean table — it leaves out the 9'),
     notoriete: 0.55,
     // ★ Réglette simple, ordre alphabétique, deux rangées de treize — la MÊME
-    // forme que la numérologie latine, et c'est tout l'argument. La table
+    // forme que la gématrie simple, et c'est tout l'argument. La table
     // chaldéenne ne vient pas d'un calcul mais d'une tradition sonore : elle
     // n'est pas positionnelle, elle n'emploie jamais le 9, et rien ne s'y
     // répète cycliquement. Un retour à la ligne (`cycle`) y serait un MENSONGE

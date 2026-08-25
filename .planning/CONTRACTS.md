@@ -768,16 +768,28 @@ ici**, puis l'émettre.
 >
 > **Durées.** Elles ne sont plus fixes : un ramassage dure ce qu'il a à montrer.
 > `dureeRamassage` (moteur) et `poidsRamassage` (visuel) sont deux copies de la
-> même table de poids — accolade 900, doublons 800, nivellement 260 + 340 par
+> même table de poids — accolade 900, doublons 800, nivellement 260 + **520** par
 > transfert, effacement 380 + 90 par jeton, vol 620 + 260 par jeton, remontée
 > 760 —, pour la même raison que `DUREE_OP` : le moteur arithmétique ne dépend
 > pas du moteur visuel mais doit dimensionner l'étape. Un test croisé échoue si
 > elles divergent. Mesuré, `hold` de lecture compris : comptage des quatre
 > lettres de `hope`, **3,7 s** ; des six lettres de `hope.fr` (le point s'efface
 > sans compter), **4,7 s** ; « les lettres, plus les voyelles » sur `hope`,
-> **5,0 s** ; moyenne de `8 15 16 5` (neuf transferts), **7,1 s** ; de
-> `1 7 4 7 8 6 5 9 5` (sept transferts), **7,8 s** ; sélection du plus grand,
+> **5,0 s** ; moyenne de `8 15 16 5` (neuf transferts), **8,7 s** ; de
+> `1 7 4 7 8 6 5 9 5` (sept transferts), **9,1 s** ; sélection du plus grand,
 > **3,3 s**. Une somme reste à 4,0 s : son geste n'a pas changé.
+>
+> ★ **Le nivellement a été RALENTI** (340 → 520 ms par transfert, à la demande
+> de l'auteur) : « ralentis le mouvement des 1 qui migrent du max au min, ça
+> rendra le phénomène plus lisible ». C'est le seul geste du ramassage où l'on
+> suit **un objet du regard** d'un bout de la ligne à l'autre — les autres
+> phases allument, effacent ou font monter sur place. Un `1` voyage désormais
+> ~660 ms au lieu de ~430, la cadence passe de ~430 à ~530 ms, et le
+> recouvrement entre deux transferts reste le même quart (`dur = pas × 1,25`) :
+> on ralentit le trajet, on n'empile pas deux `1` en vol. Conséquence assumée :
+> neuf transferts coûtent 1,6 s de plus. C'est le prix affiché de la doctrine
+> — « la compréhension et la lisibilité priment, il y a de quoi faire avance
+> rapide si besoin ».
 
 > *Amendement — `reveal` quand il y a **plus qu'un** 666.*
 >
