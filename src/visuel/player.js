@@ -52,6 +52,8 @@ class Player {
       // (voir `compile.js`, bloc « Répétitions »). 1 = aucune accélération.
       repeatSpeed: 1,
       autoplay: true,
+      // Condition supplémentaire, fournie par l'appelant : voir `_tryAutoplay`.
+      autoplayQuand: null,
       ...options,
     };
     this.listeners = new Map();
@@ -473,8 +475,25 @@ class Player {
   }
 
   /**
-   * Autoplay — CONTRACTS §3.4. Quatre conditions, consommé **une seule fois**.
-   * `autoplayConsumed` passe à `true` AVANT de jouer : un seul autoplay, point.
+   * Autoplay — CONTRACTS §3.4. Consommé **une seule fois** :
+   * `autoplayConsumed` passe à `true` AVANT de jouer.
+   *
+   * ★ `options.autoplayQuand` — une condition que le MOTEUR ne peut pas
+   * connaître.
+   *
+   * L'auteur : « auto-play, mais seulement si la scène est visible ». Or ce
+   * qu'il faut voir en entier, ce n'est pas la scène seule : c'est elle ET les
+   * commandes, sans quoi la démonstration démarre sous les yeux de quelqu'un qui
+   * ne sait pas encore qu'il peut la mettre en pause. Ces deux zones sont des
+   * objets de l'INTERFACE (`app/pages/demonstration.js`), pas du moteur visuel :
+   * celui-ci ne connaît que son `<svg>`. Il reçoit donc un prédicat plutôt qu'un
+   * sélecteur — c'est l'appelant qui sait ce qu'il faut regarder, et le moteur
+   * reste ignorant du DOM qui l'entoure (CONTRACTS §3.2).
+   *
+   * ★ Un prédicat qui refuse ne CONSOMME pas. Le mouvement réduit, lui,
+   * consomme : c'est un choix de l'utilisateur, il ne changera pas d'avis en
+   * changeant d'onglet. Une zone hors écran, si — d'où la différence de
+   * traitement, qui n'est pas une inadvertance.
    */
   _tryAutoplay() {
     if (this.destroyed || this.autoplayConsumed || !this.options.autoplay) return;
@@ -485,6 +504,8 @@ class Player {
     if (doc.visibilityState !== 'visible') return;
     if (typeof doc.hasFocus === 'function' && !doc.hasFocus()) return;
     if (this.reduced) { this.autoplayConsumed = true; return; }
+    const quand = this.options.autoplayQuand;
+    if (typeof quand === 'function' && !quand()) return;
     this.autoplayConsumed = true;
     this.play();
   }

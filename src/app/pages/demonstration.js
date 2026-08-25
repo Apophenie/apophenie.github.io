@@ -27,12 +27,32 @@ import * as pont from '../pont.js';
  *  `@media`. Les deux doivent bouger ensemble. */
 export const SEUIL_DEUX_COLONNES = 1100;
 
-/** Les quatre conditions de l'autoplay (CONTRACTS §3.4), consommées une fois. */
-function autoplayAutorise() {
-  return document.readyState === 'complete'
-    && document.visibilityState === 'visible'
-    && document.hasFocus()
-    && animationEffective() !== 'reduite';
+/**
+ * ★ Un élément tient-il ENTIÈREMENT dans la fenêtre ?
+ *
+ * « Aucune des extrémités ne sort de la zone actuellement visible » (l'auteur).
+ * C'est bien l'inclusion complète qui est demandée, pas un recouvrement : un
+ * élément plus haut que la fenêtre ne peut donc jamais la satisfaire, et c'est
+ * voulu — si les commandes dépassent, le spectateur ne les a pas sous les yeux.
+ *
+ * On mesure sur `documentElement.clientHeight` et non `window.innerHeight` :
+ * le premier exclut les barres de défilement, donc il décrit la surface où
+ * quelque chose peut réellement être vu.
+ */
+export function tientDansLaVue(r, largeur, hauteur) {
+  if (!r || !(largeur > 0) || !(hauteur > 0)) return false;
+  if (!(r.width > 0) || !(r.height > 0)) return false;
+  return r.top >= 0 && r.left >= 0 && r.bottom <= hauteur && r.right <= largeur;
+}
+
+function entierementVisible(el) {
+  if (!el || !el.isConnected || typeof el.getBoundingClientRect !== 'function') return false;
+  const racine = document.documentElement;
+  return tientDansLaVue(
+    el.getBoundingClientRect(),
+    racine.clientWidth || window.innerWidth || 0,
+    racine.clientHeight || window.innerHeight || 0,
+  );
 }
 
 function reglageMouvement() {
@@ -82,14 +102,46 @@ export function pageDemonstration(ctx) {
   // compris sur `rebuild()`. Voir `visuel/compile.js` § Répétitions.
   const facteurRedites = () => (repetitionsAccelerees() ? pont.facteurRepetitions() : 1);
 
+  // ★ Déclaré AVANT le lecteur, et initialisé à `null`.
+  //
+  // La condition d'autoplay ci-dessous le lit dans une fermeture. Un `const`
+  // déclaré plus bas serait dans sa zone morte temporelle : le simple fait de
+  // le nommer lèverait une `ReferenceError` si le contrôle avait lieu pendant
+  // la création du lecteur — et un garde `transport && …` n'y changerait rien,
+  // puisque c'est la lecture qui échoue. `null` se teste ; une zone morte, non.
+  let transport = null;
+
   const { lecteur, source: sourceLecteur } = pont.creerLecteur(sceneSvg, scenario, {
     reducedMotion: reglageMouvement(),
     speed: 1,
     repeatSpeed: facteurRedites(),
-    autoplay: autoplayAutorise(),
+    // ★ `autoplay: true` — et non un instantané des conditions.
+    //
+    // Cette ligne portait `autoplayAutorise()`, qui recopiait ici les quatre
+    // conditions du §3.4 et les figeait AU MOMENT DE CONSTRUIRE LA PAGE. Or à
+    // cet instant `readyState` vaut « interactive » et l'onglet n'a pas
+    // forcément le focus : l'expression rendait donc faux presque toujours, et
+    // `options.autoplay` restant faux, la ré-évaluation que le lecteur fait sur
+    // « load », « focus » et « visibilitychange » ne pouvait plus rien
+    // rattraper. L'autoplay était éteint avant d'avoir eu sa chance.
+    //
+    // La page dit désormais ce qu'elle veut — « oui, cette page-là s'autojoue »
+    // — et les conditions restent où elles peuvent être RE-testées : dans le
+    // lecteur. Le mouvement réduit y est vérifié aussi (`this.reduced`), il n'a
+    // pas besoin d'être redit ici.
+    autoplay: true,
+    // ★ La scène ET les commandes, entièrement à l'écran — sinon la
+    // démonstration démarrerait sous les yeux de quelqu'un qui ne sait pas
+    // encore qu'il peut l'arrêter. `transport` n'existe pas encore quand cette
+    // ligne s'écrit : la fermeture le lira au moment du contrôle, c'est-à-dire
+    // après le montage. Tant qu'il manque, la condition est fausse — et une
+    // condition fausse ne CONSOMME pas l'autoplay (`player.js`), si bien que le
+    // premier contrôle utile est celui qui suit le chargement.
+    autoplayQuand: () => entierementVisible(cadre)
+      && !!transport && entierementVisible(transport.element),
   });
 
-  const transport = creerTransport(lecteur, {}, { repetitions: pont.facteurRepetitions() });
+  transport = creerTransport(lecteur, {}, { repetitions: pont.facteurRepetitions() });
   const registre = creerRegistre(lecteur, { resultat: scenario.result });
 
   const messages = [];

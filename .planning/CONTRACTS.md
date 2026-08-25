@@ -1345,11 +1345,50 @@ L'UI est un **pur reflet** de `player` : aucune logique propre.
 
 ### 3.4 Autoplay
 
-Quatre conditions, consommé **une seule fois** : `readyState === 'complete'`
-**et** `document.fonts.ready` **et** `visibilityState === 'visible'` **et**
-`document.hasFocus()` **et** pas de `prefers-reduced-motion`.
+Conditions, consommé **une seule fois** : `readyState === 'complete'` **et**
+`document.fonts.ready` **et** `visibilityState === 'visible'` **et**
+`document.hasFocus()` **et** pas de `prefers-reduced-motion` **et**
+`options.autoplayQuand()` si l'appelant en fournit un.
 `autoplayConsumed` passe à `true` **avant** de jouer. Jamais remis à `false` sauf
 changement de scénario via l'URL.
+
+> *Amendement — la scène ET les commandes doivent être à l'écran.*
+>
+> « Auto-play, mais seulement si la scène est visible : que la zone `.scene` et
+> la zone `.transport` soient entièrement à l'écran, aucune des extrémités ne
+> sortant de la zone actuellement visible. Et sans que ça interfère avec la
+> possibilité de faire pause. » (l'auteur)
+>
+> ★ **Les deux zones, pas seulement la scène.** Une démonstration qui démarre
+> alors que les commandes sont sous la ligne de flottaison démarre sous les yeux
+> de quelqu'un qui ne sait pas encore qu'il peut l'arrêter. C'est aussi ce que
+> demande WCAG 2.2.2 : un mouvement automatique de plus de cinq secondes doit
+> avoir son bouton de pause **à portée**.
+>
+> ★ **Inclusion complète, pas recouvrement.** Un élément plus haut que la
+> fenêtre ne peut donc jamais satisfaire la condition, et c'est voulu : sur une
+> petite fenêtre, on ne démarre pas.
+>
+> ★ **Le moteur reçoit un PRÉDICAT, pas un sélecteur** (§3.2 : le moteur visuel
+> ne connaît que son `<svg>`). `.transport` est un objet de l'interface ;
+> c'est la page qui sait ce qu'il faut regarder.
+>
+> ★ **Un prédicat qui refuse ne CONSOMME pas** l'autoplay — sinon revenir sur
+> l'onglet après avoir fait défiler ne le rejouerait jamais. Le mouvement
+> réduit, lui, consomme : c'est un choix de l'utilisateur, il ne changera pas
+> d'avis en changeant d'onglet.
+>
+> ⚠ **Le défaut que ce travail a mis au jour.** La page recopiait les quatre
+> conditions dans un `autoplayAutorise()` évalué **au moment de la construire** —
+> instant où `readyState` vaut « interactive » et où l'onglet n'a pas
+> nécessairement le focus. L'expression rendait donc faux presque toujours, et
+> `options.autoplay` restant faux, la ré-évaluation que le lecteur fait sur
+> `load`, `focus` et `visibilitychange` ne pouvait plus rien rattraper :
+> **l'autoplay était éteint avant d'avoir eu sa chance.** La page dit désormais
+> `autoplay: true` — « cette page-là s'autojoue » — et les conditions restent où
+> elles peuvent être re-testées. Vérifié dans le navigateur : hors champ, le
+> focus ne déclenche rien ; dans la vue, il déclenche ; après une pause, ni le
+> focus ni un changement de visibilité ne relancent quoi que ce soit.
 
 ---
 
