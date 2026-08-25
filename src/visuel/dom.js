@@ -32,6 +32,9 @@ const LAYER_OF = {
   camera: null, halo: 'back', keyboard: 'back', table: 'back', frame: 'back',
   text: 'mid',
   glyph: 'front', seg: 'front', bracket: 'front', label: 'front', marker: 'front',
+  // Les cornes se posent PAR-DESSUS les chiffres qu'elles couronnent : elles
+  // dépassent du haut des glyphes et ne doivent jamais passer derrière eux.
+  horns: 'front',
 };
 
 export function layerOf(role) {
@@ -320,6 +323,21 @@ export function createElementFor(node, env) {
     }
     case 'table': {
       element = buildTable(node, fs, palette);
+      break;
+    }
+    case 'horns': {
+      // Les deux cornes en UN seul tracé (deux sous-chemins fermés), rempli :
+      // une corne porte son épaisseur dans sa forme — elle est large au pied et
+      // fine à la pointe —, ce qu'un trait d'épaisseur constante ne sait pas
+      // dire. Le repère est celui de la scène, centré sur l'ancre du nœud, donc
+      // aucune mise à l'échelle statique n'est nécessaire : le canal `scale`
+      // reste libre pour la pousse, puis pour l'agrandissement du verdict.
+      element = el('path', {
+        d: node.data.d,
+        stroke: 'none',
+        'fill-rule': 'nonzero',
+        class: 'nhl-horns',
+      });
       break;
     }
     case 'marker': {

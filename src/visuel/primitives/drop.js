@@ -27,7 +27,7 @@
  * sinon un `seek()` en arrière ne pourrait pas le faire revenir.
  */
 
-import { targetsOf } from './helpers.js';
+import { targetsOf, effacerSurPlace } from './helpers.js';
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
 
@@ -69,27 +69,12 @@ export function plan(ctx) {
 /**
  * L'effacement : un par un, sur place, sans déplacement.
  *
- * Le stagger n'est pas décoratif — c'est LUI qui fait lire « on écarte ceci,
- * puis cela, puis cela ». Il occupe donc par défaut les deux tiers de la durée
- * de l'op, réparti entre les tokens à effacer : plus il y a de caractères à
- * gommer, plus chacun s'efface vite, mais l'ensemble garde le même tempo.
+ * Le geste lui-même vit dans `helpers.effacerSurPlace` — `horns` s'en sert
+ * aussi, et les deux gommes ne doivent pas diverger. Ne reste ici que ce qui
+ * appartient à `drop` : le rapprochement facultatif des survivants.
  */
 function planEffacement(ctx, ids, regroup) {
-  const n = ids.length;
-  const cadence = ctx.stagger || (n > 1 ? (ctx.dur * 0.66) / (n - 1) : 0);
-  const fondu = Math.max(1, Math.min(ctx.dur * 0.34, ctx.dur - cadence * (n - 1)));
-
-  ids.forEach((id, i) => {
-    const at = i * cadence;
-    // Ni translation ni fuite : la lettre pâlit là où elle est, et se retire.
-    // Un très léger rétrécissement dit « elle s'en va » sans la faire voyager.
-    ctx.anim({ id, prop: 'opacity', to: 0, at, dur: fondu, ease: EASE.fade });
-    ctx.anim({ id, prop: 'scale', to: 0.82, at, dur: fondu, ease: EASE.fade });
-    const halo = `@halo:${id}`;
-    if (ctx.scene.has(halo)) ctx.anim({ id: halo, prop: 'opacity', to: 0, at, dur: fondu * 0.7 });
-    ctx.scene.kill(id, ctx.where);
-  });
-
-  if (regroup) ctx.reflow({ at: cadence * (n - 1) + fondu, dur: ctx.dur * 0.4, ease: EASE.move });
-  else ctx.occupy(cadence * (n - 1) + fondu);
+  const fin = effacerSurPlace(ctx, ids, { at: 0, dur: ctx.dur });
+  if (regroup) ctx.reflow({ at: fin, dur: ctx.dur * 0.4, ease: EASE.move });
+  else ctx.occupy(fin);
 }

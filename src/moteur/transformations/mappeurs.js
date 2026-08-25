@@ -103,6 +103,33 @@ const LIB_REDUIRE_CHAQUE = bilingue('On réduit chaque nombre à un chiffre', 'R
 const LIB_ZEROS = bilingue('On retire les zéros', 'Drop the zeros');
 const REG_ZEROS = bilingue('Un zéro n’apporte rien à la somme', 'A zero brings nothing to the sum');
 const LIB_RETOURNER_9 = bilingue('On retourne les 9', 'Turn the 9s upside down');
+const LIB_TROUVAILLE = bilingue(
+  'Trois 6 d’affilée — le 666 était déjà écrit',
+  'Three 6s in a row — the 666 was already written',
+);
+
+/** Longueur de la suite cherchée. 666 fait trois 6, ni deux, ni quatre. */
+const SUITE = 3;
+
+/**
+ * L'index du premier 6 de la première suite de trois 6 CONTIGUS, ou −1.
+ *
+ * Source unique de `apply`, de `sortie` et de `steps` : les trois posent la
+ * même question au même vecteur, donc aucune ne peut désigner d'autres jetons
+ * que les deux autres (CONTRACTS §0.3, « ce qui est montré est ce qui est
+ * compté »).
+ *
+ * « Contigus » se lit sur les INDEX du vecteur, sans exception ni tolérance :
+ * `[6,6,7,6]` ne contient pas de 666, il contient trois 6 dont deux voisins.
+ */
+function debutDesTroisSix(valeur) {
+  let court = 0;
+  for (let i = 0; i < valeur.length; i++) {
+    court = valeur[i] === 6 ? court + 1 : 0;
+    if (court === SUITE) return i - (SUITE - 1);
+  }
+  return -1;
+}
 
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -1232,6 +1259,133 @@ const AUTRES_MAPPEURS = [
       ops.push({ op: 'pulse', targets: neufs, stagger: 60 });
       const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
       return [etape(ctx, dire(LIB_RETOURNER_9, ctx.langue), legende, enchainer(ops))];
+    },
+  }),
+  // ★ « Trois 6 d'affilée » — une TROUVAILLE, et surtout pas un tri.
+  //
+  // ── Ce que ce n'est PAS ────────────────────────────────────────────────────
+  // Ce n'est pas « On ne garde que les 6 » (`recolterLesSix`, `src/recherche/
+  // scenario.js`). Cette étape-là RASSEMBLE : elle va chercher des 6 dispersés
+  // dans le vecteur, écarte ce qui les sépare et les met bout à bout. C'est un
+  // aveu — elle dit que le calcul a produit autre chose que des 6 et qu'on
+  // choisit après coup —, et la doctrine de l'auteur la traite comme telle :
+  // une seule fois, en avant-dernière étape, et au prix d'un malus de score
+  // (CONTRACTS §3.1, amendement « On ne garde que les 6 »).
+  //
+  // Ici, rien n'est rassemblé. Les trois 6 sont DÉJÀ côte à côte dans le
+  // vecteur, dans cet ordre, sans rien entre eux : le 666 est écrit avant
+  // qu'on le regarde. On ne le fabrique pas, on le CONSTATE — et c'est
+  // exactement ce qui autorise à effacer le reste. Effacer ce qui n'appartient
+  // pas à une suite qu'on n'a pas choisie n'est pas du tri : c'est arrêter de
+  // lire quand la phrase est finie.
+  //
+  // ★ Le nom porte cette différence, et il doit continuer de la porter :
+  // « d'affilée » est le mot qui interdit l'assouplissement. La question
+  // « et si on acceptait trois 6 non contigus ? » a une réponse, c'est non —
+  // trois 6 non contigus, c'est précisément l'autre geste, celui qui coûte.
+  //
+  // ── Plusieurs suites, ou une suite plus longue ? ───────────────────────────
+  // On prend LA PREMIÈRE suite, et ses TROIS PREMIERS 6. Deux raisons, et
+  // aucune n'est une préférence esthétique :
+  //
+  //  · la première, parce que c'est celle qu'on rencontre en lisant de gauche
+  //    à droite. Prendre « la plus longue » ou « la mieux placée » demanderait
+  //    de COMPARER les suites, c'est-à-dire de choisir — et le jour où l'on
+  //    choisit, on est revenu au tri qu'on refuse. Lire n'est pas comparer ;
+  //  · trois, parce que 666 fait trois 6 et pas quatre. Un `[6,6,6,6]` gardé
+  //    entier obligerait le verdict à trancher lui-même où couper, et il s'y
+  //    refuse à juste titre (`primitives/reveal.js` : « y ouvrir un vide après
+  //    le troisième affirmerait un 666 + 6 que personne n'a démontré »).
+  //
+  // C'est déterministe (CONTRACTS §4.4) : une URL rejouée retrouve la même
+  // suite, sans dépendre d'un tri, d'un maximum, ni de l'ordre d'itération.
+  //
+  // Registre append-only (CONTRACTS §4.1, registre FERMÉ) : `my` était le
+  // dernier alloué, celui-ci prend `mz`. Aucun code existant n'est touché.
+  def({
+    id: 'm.troisSixDAffilee', code: 'mz', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_TROUVAILLE,
+    regle: bilingue(
+      'Une suite de trois 6 contigus, prise telle quelle. On ne rassemble rien, on la trouve.',
+      'A run of three adjacent 6s, taken as it stands. Nothing is gathered, it is found.',
+    ),
+    // ★ Notoriété 0,80. Personne n'a besoin qu'on lui explique que trois 6
+    // écrits côte à côte font 666 — c'est le seul endroit du catalogue où la
+    // règle est déjà connue du spectateur avant d'être énoncée. Ce n'est pas
+    // 1,00 pour autant : la moitié « et l'on s'arrête là » est une convention
+    // de la maison, pas un savoir partagé. La moitié qu'on reconnaît vaut le
+    // barème plein (heuristique §4.3, ligne « A1Z26 »), l'autre nettement
+    // moins ; 0,80 est le point honnête entre les deux.
+    //
+    // ★ AdHoc 0,20, et pas zéro. Cet opérateur n'existe que parce qu'on
+    // cherche 666 : c'est, au sens strict, une étape taillée pour la cible.
+    // Mais il ne FABRIQUE rien — pas de coïncidence de dessin comme le
+    // retournement du 9 (0,35), pas de valeur absolue de secours (0,25) —, et
+    // il ne choisit pas où s'arrêter : la contiguïté désigne un seul endroit
+    // possible. On pénalise donc, moitié moins que la pirouette, sans exclure
+    // (heuristique §4.5).
+    notoriete: 0.80, adHoc: 0.20,
+    note: bilingue(
+      'Contigus, vraiment. Trois 6 éparpillés dans le vecteur ne font pas un 666, ils font trois 6.',
+      'Adjacent, truly. Three 6s scattered through the vector are not a 666, they are three 6s.',
+    ),
+    apply: (valeur, traces) => {
+      const d = debutDesTroisSix(valeur);
+      if (d < 0) return null;
+      // ★ REFUS quand il n'y a rien à effacer, pour la raison qui a déjà fait
+      // refuser `my` sur un vecteur sans 9 : un mappeur qui rend son entrée
+      // fabrique une étape que `scenario.js` saute silencieusement (« une
+      // transformation qui ne transforme RIEN À L'ÉCRAN »), et le chemin
+      // porterait alors dans son URL un code que la démonstration ne montre
+      // nulle part. Un vecteur qui vaut déjà `[6,6,6]` n'a pas besoin qu'on
+      // lui dise qu'il vaut `[6,6,6]`.
+      if (valeur.length === SUITE) return null;
+      return {
+        valeur: [6, 6, 6],
+        traces: [0, 1, 2].map((k) => traces[d + k] || []),
+      };
+    },
+    // Les trois survivants GARDENT leur identifiant de jeton : ils n'ont pas
+    // bougé, ils n'ont pas changé de valeur, et rien ne les a remplacés. Leur
+    // donner un nom neuf ferait croire au pont qu'un jeton en a remplacé un
+    // autre, et l'animation raconterait un travail qui n'a pas eu lieu.
+    sortie: (avant, apres, ctx) => {
+      const d = debutDesTroisSix(avant.valeur);
+      return d < 0 ? [] : [0, 1, 2].map((k) => ctx.ids[d + k]);
+    },
+    /**
+     * ★ UN SEUL geste, et il est indivisible : les cornes poussent sur les
+     * trois 6 pendant que le reste de la séquence s'efface.
+     *
+     * Pourquoi une op et non deux (`drop` puis `horns`) : parce que le
+     * contrôle croisé n'y survivrait pas. Si un `drop` effaçait le reste
+     * d'abord, la primitive des cornes ne verrait plus que trois 6 seuls dans
+     * la ligne — donc trivialement contigus — et elle accepterait de couronner
+     * trois 6 qui, au départ, étaient dispersés. C'est exactement ce qu'elle
+     * doit refuser. Elle efface donc elle-même, après avoir vérifié la
+     * contiguïté sur la ligne telle qu'elle est.
+     *
+     * ★ Contrôle croisé (CONTRACTS §0.3), trois verrous comme pour les tables :
+     *  1. ici, `efface` et `targets` sont dérivés du MÊME index `d`, lui-même
+     *     relu sur `avant.valeur` — la valeur qu'`apply()` a examinée. Il
+     *     n'existe pas de seconde copie qui puisse diverger ;
+     *  2. `src/recherche/scenario.js` recoupe : les trois cibles doivent être
+     *     consécutives dans `ctx.ids` et porter toutes trois un « 6 » ;
+     *  3. `src/visuel/primitives/horns.js` recoupe une troisième fois, sur la
+     *     LIGNE : trois jetons vivants, trois « 6 », trois rangs consécutifs du
+     *     flux. Sinon la compilation échoue — porter des cornes sur autre
+     *     chose que trois 6 contigus serait affirmer là où l'on prétend
+     *     montrer.
+     */
+    steps: (avant, apres, ctx) => {
+      const d = debutDesTroisSix(avant.valeur);
+      if (d < 0) return [];
+      const cornus = [0, 1, 2].map((k) => ctx.ids[d + k]);
+      const efface = ctx.ids.filter((_, i) => i < d || i > d + 2);
+      const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join('')}`;
+      return [etape(ctx, dire(LIB_TROUVAILLE, ctx.langue), legende, [
+        { op: 'horns', targets: cornus, efface },
+      ])];
     },
   }),
 ];

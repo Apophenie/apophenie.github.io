@@ -1235,3 +1235,104 @@ test('les signes déclarés par l’émetteur s’en vont avec la somme', () => 
   assert.equal(tl.scene.flow.includes('s0'), false);
   assert.ok(animsDe(tl, 's0', 'opacity').some((a) => a.keyframes.at(-1).value === 0));
 });
+
+// ───────────────────────────── 8. les cornes du 666 déjà formé
+
+/**
+ * ★ `horns` — la chute du site, et son contrôle croisé.
+ *
+ * Le geste dit une chose et une seule : « ces trois 6 étaient déjà côte à côte,
+ * regardez ». Tout ce qui est vérifié ici sert à empêcher qu'il en dise une
+ * autre — des cornes posées sur un 666 qu'on aurait fabriqué en rassemblant des
+ * 6 épars seraient une affirmation, pas une démonstration (CONTRACTS §0.3).
+ */
+const suiteDeChiffres = (suite) => [...suite].map((c, i) => ({ id: `d${i}`, text: c, kind: 'digit' }));
+
+test('horns : le reste s’efface, puis les cornes poussent sur les trois 6', () => {
+  const tl = compile(sc([{
+    id: 'a', title: 'Trois 6 d’affilée',
+    ops: [{ op: 'horns', targets: ['d0', 'd1', 'd2'], efface: ['d3', 'd4', 'd5'] }],
+  }], suiteDeChiffres('666736')));
+
+  // Un seul nœud de cornes, et il est ACCROCHÉ au 6 du milieu — c'est ce qui le
+  // fera suivre au reflow et grandir au verdict.
+  const cornes = tl.nodes.filter((n) => n.role === 'horns');
+  assert.equal(cornes.length, 1, 'deux cornes, un seul tracé');
+  assert.equal(cornes[0].data.suit, 'd1', 'les cornes sont accrochées au 6 du milieu');
+  assert.equal(tl.scene.accrochesA('d1')[0], cornes[0].id);
+
+  // Elles poussent : de rien à leur taille, et elles paraissent.
+  const pousse = animsDe(tl, cornes[0].id, 'scale')[0];
+  assert.equal(pousse.keyframes[0].value, 0, 'elles partent de rien');
+  assert.equal(pousse.keyframes.at(-1).value, 1);
+
+  // Le reste s'efface AVANT — jamais après : on doit lire « il n'y avait que ça ».
+  for (const id of ['d3', 'd4', 'd5']) {
+    assert.equal(tl.scene.get(id).alive, false, `${id} devait s’effacer`);
+    assert.ok(animsDe(tl, id, 'opacity')[0].delay < pousse.delay,
+      'la gomme commence avant que les cornes ne poussent');
+  }
+  // Et les trois 6 restent : ni effacés, ni remplacés, ni déplacés.
+  for (const id of ['d0', 'd1', 'd2']) {
+    assert.ok(tl.scene.get(id).alive, `${id} porte les cornes, il ne s’efface pas`);
+    assert.equal(animsDe(tl, id, 'translate').length, 0,
+      'on ne rapproche rien : le 666 était déjà d’un seul tenant');
+  }
+});
+
+test('★ horns : le contrôle croisé refuse tout ce qui n’est pas trois 6 contigus', () => {
+  const essai = (op, tokens) => compile(sc([{ id: 'a', title: 'A', ops: [op] }], tokens));
+
+  // Trois 6 DISPERSÉS : c'est l'autre geste, celui qui rassemble et qui coûte.
+  assert.throws(
+    () => essai({ op: 'horns', targets: ['d0', 'd2', 'd4'] }, suiteDeChiffres('676869')),
+    /ne se touchent pas/,
+    'trois 6 non contigus ne sont pas un 666 trouvé',
+  );
+
+  // Deux 6 seulement — le troisième jeton n'en est pas un.
+  assert.throws(
+    () => essai({ op: 'horns', targets: ['d0', 'd1', 'd2'] }, suiteDeChiffres('664')),
+    /seuls trois 6 font un 666/,
+    'on ne couronne pas un 4',
+  );
+
+  // Pas trois cibles du tout.
+  assert.throws(
+    () => essai({ op: 'horns', targets: ['d0', 'd1'] }, suiteDeChiffres('66')),
+    /666 fait trois 6/,
+  );
+
+  // Et l'on n'efface pas ce qu'on couronne.
+  assert.throws(
+    () => essai({ op: 'horns', targets: ['d0', 'd1', 'd2'], efface: ['d1'] }, suiteDeChiffres('6666')),
+    /On n’efface pas ce qu’on couronne/,
+  );
+});
+
+test('★ horns : les cornes SUIVENT — au reflow comme au verdict', () => {
+  const tl = compile(sc([
+    {
+      id: 'a', title: 'Trois 6 d’affilée',
+      ops: [{ op: 'horns', targets: ['d1', 'd2', 'd3'], efface: ['d0'] }],
+    },
+    { id: 'b', title: 'On rapproche', ops: [{ op: 'move' }] },
+    { id: 'c', title: 'Verdict', ops: [{ op: 'reveal', targets: ['d1', 'd2', 'd3'] }] },
+  ], suiteDeChiffres('4666')));
+
+  const cornes = tl.nodes.find((n) => n.role === 'horns');
+  // Au reflow : le décor se déplace exactement comme le jeton qui le porte.
+  const bougeJeton = animsDe(tl, 'd2', 'translate');
+  const bougeCornes = animsDe(tl, cornes.id, 'translate');
+  assert.ok(bougeJeton.length && bougeCornes.length, 'jeton et cornes se déplacent');
+  const point = (a) => [a.keyframes.at(-1).value.x, a.keyframes.at(-1).value.y];
+  assert.deepEqual(point(bougeCornes.at(-1)), point(bougeJeton.at(-1)),
+    'les cornes atterrissent au même point que le 6 du milieu');
+
+  // Au verdict : elles grandissent du même facteur que les chiffres. Sans quoi
+  // elles resteraient à leur taille au milieu de glyphes huit fois plus hauts.
+  const zoomJeton = animsDe(tl, 'd2', 'scale').at(-1).keyframes.at(-1).value;
+  const zoomCornes = animsDe(tl, cornes.id, 'scale').at(-1).keyframes.at(-1).value;
+  assert.ok(zoomJeton > 1, 'le verdict grossit bien les chiffres');
+  assert.equal(zoomCornes, zoomJeton);
+});

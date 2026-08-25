@@ -29,7 +29,7 @@ test('les scénarios de démonstration compilent tous sans avertissement', () =>
   }
 });
 
-test('le parcours de vérification exerce les 20 primitives', () => {
+test('le parcours de vérification exerce les 21 primitives', () => {
   const used = new Set();
   for (const step of SCENARIOS.vocabulaire.steps) for (const op of step.ops) used.add(op.op);
   const manquantes = OP_NAMES.filter((n) => !used.has(n));

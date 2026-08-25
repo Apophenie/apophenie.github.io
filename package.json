@@ -1,6 +1,7 @@
 {
   "name": "numherololgeek",
   "private": true,
+  "version": "1.0.0",
   "type": "module",
   "description": "La vérité derrière n’importe quoi. Tout mène à 666.",
   "scripts": {

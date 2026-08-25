@@ -228,6 +228,44 @@ export function targetsOf(ctx, field = 'targets') {
   return ids;
 }
 
+/**
+ * L'EFFACEMENT SUR PLACE — le geste de la gomme, partagé.
+ *
+ * Les jetons pâlissent **un par un, là où ils sont**, avec un rétrécissement
+ * juste assez marqué pour dire « ils s'en vont » sans les faire voyager. Le
+ * `stagger` n'est pas décoratif : c'est LUI qui fait lire « on écarte ceci,
+ * puis cela, puis cela » plutôt qu'un clignotement collectif.
+ *
+ * Écrit ici parce que deux gestes s'en servent et qu'ils ne doivent pas
+ * diverger : `drop` en mode gomme (« on ne garde que les voyelles ») et
+ * `horns`, qui efface lui-même le reste de la séquence — voir `horns.js`, où
+ * ce n'est pas une commodité mais la condition du contrôle croisé.
+ *
+ * Ne resserre rien et n'occupe rien : c'est l'appelant qui décide de la suite.
+ *
+ * @returns {number} l'instant, relatif au début de l'op, où le dernier jeton a fini
+ */
+export function effacerSurPlace(ctx, ids, spec = {}) {
+  const n = ids.length;
+  if (!n) return spec.at ?? 0;
+  const at = spec.at ?? 0;
+  const total = Math.max(1, spec.dur ?? ctx.dur);
+  // `||` et non `??` : un `stagger` à zéro n'est pas un choix, c'est l'absence
+  // de choix (le compilateur pose 0 par défaut). Le retenir effacerait tous les
+  // jetons d'un bloc, là où le geste EST la succession.
+  const cadence = spec.stagger || ctx.stagger || (n > 1 ? (total * 0.66) / (n - 1) : 0);
+  const fondu = Math.max(1, Math.min(total * 0.34, total - cadence * (n - 1)));
+  ids.forEach((id, i) => {
+    const t = at + i * cadence;
+    ctx.anim({ id, prop: 'opacity', to: 0, at: t, dur: fondu, ease: EASE.fade });
+    ctx.anim({ id, prop: 'scale', to: 0.82, at: t, dur: fondu, ease: EASE.fade });
+    const halo = `@halo:${id}`;
+    if (ctx.scene.has(halo)) ctx.anim({ id: halo, prop: 'opacity', to: 0, at: t, dur: fondu * 0.7 });
+    ctx.scene.kill(id, ctx.where);
+  });
+  return at + cadence * (n - 1) + fondu;
+}
+
 /** Halo d'un token, créé à la demande et réutilisé ensuite. */
 export function ensureHalo(ctx, id, tone = 'gold') {
   const hid = `@halo:${id}`;

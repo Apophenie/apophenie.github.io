@@ -108,6 +108,10 @@ const VECTEURS = [
   // des 6, tout le reste est laissé strictement en place, y compris le −9 :
   // un demi-tour ne sait rien faire d'un signe.
   ['my', N([3, 9, 6, -9]), [3, 6, 6, -9]],
+  // ★ « Trois 6 d'affilée » — le 666 est DÉJÀ écrit dans le vecteur, contigu ;
+  // on le garde et l'on efface le reste. Ce n'est pas un tri : trois 6 dispersés
+  // ne conviennent pas (voir le test dédié plus bas).
+  ['mz', N([6, 6, 6, 7, 3, 6]), [6, 6, 6]],
   ['c1', N([8, 15, 16, 5]), 44],
   ['c2', N([8, 15, 16, 5]), -28],
   ['c3', N([8, 15, 16, 5]), 9600],
@@ -152,19 +156,21 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   mi: 'countStrokes', mj: 'countStrokes', mk: 'countStrokes',
   ml: 'keyboard', mm: 'keyboard', mn: 'keyboard', mo: 'keyboard',
   mv: 'keyboard',
+  mz: 'horns',
 });
 
 /**
- * Le vocabulaire fermé des ops — CONTRACTS §3.1, vingt primitives, pas une
- * de plus. Le socle de dix-sept, plus `partition` (découper en sous-groupes),
- * `table` (la table de correspondance affichée — réglette, grille ou pavé) et
- * `fourteenSeg` (l'afficheur quatorze segments), ajoutées selon la clause
- * d'extension du contrat.
+ * Le vocabulaire fermé des ops — CONTRACTS §3.1, vingt et une primitives, pas
+ * une de plus. Le socle de dix-sept, plus `partition` (découper en
+ * sous-groupes), `table` (la table de correspondance affichée — réglette,
+ * glissière ou pavé), `fourteenSeg` (l'afficheur quatorze segments) et `horns`
+ * (les cornes du 666 déjà formé), ajoutées selon la clause d'extension du
+ * contrat.
  */
 const OPS_AUTORISEES = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns',
 ]);
 
 test('grammaire, unicité et ordre croissant des codes (CONTRACTS §4.1)', () => {
@@ -188,6 +194,49 @@ test('le code p9 est réservé au retournement du 9', () => {
   assert.equal(op.id, 'p.retournement');
   assert.equal(appliquer(op, U(9)).valeur, 6);
   assert.equal(appliquer(op, U(6)), null, 'on ne retourne pas le 6');
+});
+
+/**
+ * ★ `mz` — « trois 6 d'affilée » est une TROUVAILLE, pas un tri.
+ *
+ * Toute la valeur de cet opérateur tient dans ce qu'il REFUSE. S'il acceptait
+ * des 6 non contigus, il cesserait d'être « le 666 était déjà écrit » pour
+ * devenir « on ne garde que les 6 » — une étape que la doctrine du projet
+ * réserve à l'avant-dernier rang et fait payer au score (CONTRACTS §3.1). Ces
+ * refus sont donc le cœur du contrat, pas des cas limites.
+ */
+test('★ le code mz ne trouve que trois 6 CONTIGUS, et refuse tout le reste', () => {
+  const op = PAR_CODE.get('mz');
+  assert.equal(op.id, 'm.troisSixDAffilee');
+  assert.equal(op.from, 'NUMS');
+  assert.equal(op.to, 'NUMS');
+
+  const sortie = (v) => { const r = appliquer(op, N(v)); return r && r.valeur; };
+
+  // Ce qu'il trouve : une suite de trois, où qu'elle commence.
+  assert.deepEqual(sortie([6, 6, 6, 7, 3, 6]), [6, 6, 6], 'Donald en quatorze segments');
+  assert.deepEqual(sortie([6, 6, 6, 4, 4]), [6, 6, 6], 'Trump en César puis quatorze segments');
+  assert.deepEqual(sortie([1, 6, 6, 6, 1]), [6, 6, 6], 'la suite peut être au milieu');
+
+  // Ce qu'il refuse, et c'est le point : des 6 SÉPARÉS, même nombreux.
+  assert.equal(sortie([6, 6, 7, 6]), null, 'trois 6 dont deux voisins ne font pas un 666');
+  assert.equal(sortie([6, 1, 6, 1, 6, 1, 6]), null, 'quatre 6 dispersés : toujours pas');
+  assert.equal(sortie([6, 6]), null, 'deux 6 ne font pas trois');
+  assert.equal(sortie([6, 6, 7, 6, 6]), null, 'deux paires ne font pas un triplet');
+
+  // Et il refuse aussi de ne rien faire : sans reste à effacer, l'étape
+  // n'aurait rien à montrer, et l'URL porterait un code invisible à l'écran.
+  assert.equal(sortie([6, 6, 6]), null, 'un vecteur déjà réduit n’a pas besoin de l’être');
+
+  // Déterminisme : plusieurs suites, on prend LA PREMIÈRE — lire, pas comparer.
+  // Les traces le prouvent mieux que les valeurs, qui sont identiques.
+  const r = appliquer(op, N([7, 6, 6, 6, 1, 6, 6, 6]));
+  assert.deepEqual(r.valeur, [6, 6, 6]);
+  assert.deepEqual(r.origines.map((t) => t[0][0]), [1, 2, 3], 'la première suite, pas la seconde');
+
+  // Une suite plus longue est ramenée à trois : 666 fait trois 6, pas quatre,
+  // et le verdict se refuse à décider lui-même où couper (`reveal.js`).
+  assert.deepEqual(sortie([6, 6, 6, 6]), [6, 6, 6]);
 });
 
 test('★ gel des codes publiés : chaque code rend exactement la même sortie', () => {
@@ -333,6 +382,27 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
         `${code} (${op.id}) : la primitive « ${attendue} » n'est pas émise — `
         + 'le comptage ne serait plus montré, seulement affirmé (CONTRACTS §0.3)');
       for (const o of emises) {
+        if (attendue === 'horns') {
+          // ★ Les cornes ne travaillent pas jeton par jeton : elles couronnent
+          // un GROUPE de trois, et c'est tout leur propos. Le contrôle croisé
+          // n'est ni `count` ni `to.text` mais la CONTIGUÏTÉ : trois jetons
+          // consécutifs de la ligne, tous trois porteurs d'un 6 — vérifié ici,
+          // puis par le pont, puis par la primitive.
+          assert.ok(Array.isArray(o.targets) && o.targets.length === 3,
+            `${code} : « targets » doit désigner les trois 6 du 666`);
+          const rangs = o.targets.map((id) => ctx.ids.indexOf(id));
+          assert.ok(rangs.every((r) => r >= 0), `${code} : une cible hors de la ligne`);
+          assert.deepEqual(rangs, [rangs[0], rangs[0] + 1, rangs[0] + 2],
+            `${code} : les trois 6 ne se touchent pas — ce serait un tri, pas une trouvaille`);
+          for (const r of rangs) {
+            assert.equal(String(entree.valeur[r]), '6',
+              `${code} : les cornes se poseraient sur autre chose qu'un 6`);
+          }
+          for (const id of o.efface || []) {
+            assert.ok(!o.targets.includes(id), `${code} : on n'efface pas ce qu'on couronne`);
+          }
+          continue;
+        }
         assert.equal(typeof o.target, 'string', `${code} : « ${attendue} » travaille jeton par jeton`);
         if (attendue === 'table') {
           // ★ L'aller-retour est INDIVIDUEL : une lettre monte, sa valeur

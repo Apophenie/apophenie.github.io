@@ -106,10 +106,11 @@ export const MALUS = {
  * pour la même raison que la couverture est élevée à la puissance 1,5 mais dans
  * l'autre sens : la peine doit être franche sans être capitale. Mesuré :
  *
- *   `hope` → `[6,6,6,6]`                    4/4  → ×1,00
- *   `hopehopehopefr` → quatorze segments   12/14 → ×0,92   (quatre 666)
- *   `hopehopehopefr` → pythagore            4/14 → ×0,53
- *   `wwwgooglecom` → pythagore              3/17 → ×0,42
+ *   `hope` → `[6,6,6]` (les trois 6 d'affilée)  3/3  → ×1,00
+ *   `hope` → `[6,6,6,6]`                        3/4  → ×0,87
+ *   `hopehopehopefr` → quatorze segments       12/14 → ×0,92   (quatre 666)
+ *   `hopehopehopefr` → pythagore                4/14 → ×0,53
+ *   `wwwgooglecom` → pythagore                  3/17 → ×0,42
  *
  * C'est exactement la lecture de l'auteur : le groupement vaut « quand tu
  * arrives à faire AUTANT de 6 », pas quand trois s'y trouvent par hasard.
@@ -119,6 +120,19 @@ export const MALUS = {
  *
  *   `hope-hope-hope.fr`         15/15 → ×1,00   (cinq 666)
  *   `https://hope-hope-hope.fr/` 18/20 → ×0,95   (six 666)
+ *
+ * ── Amendement : le NUMÉRATEUR est ce que le verdict garde ─────────────────
+ *
+ * `[6,6,6,6]` valait ×1,00 alors que le quatrième 6 tombe : le verdict compte
+ * des séries de trois, et la scène MONTRE le surplus tomber, du même `drop` que
+ * les valeurs qui ne font pas 6 (`scenario.js › recolterLesSix`). Un 6 de trop
+ * n'est donc pas un 6 gardé, et le porter au crédit du rendement flattait le
+ * score de ce qu'il est précisément chargé de punir — du calcul montré puis
+ * écarté. Le numérateur est désormais plafonné au compte annoncé.
+ * Le test `tests/scenario.test.js › jeter coûte` recoupe le rendement avec ce
+ * que l'étape de tri affiche à l'écran : c'est ce recoupement qui a révélé
+ * l'écart (`f9+t1+m5+mt` sur `https://hope-hope-hope.fr/` annonçait 384 pour
+ * une scène qui garde trois jetons et en jette dix, soit 230).
  */
 
 export const REGLAGES = {
@@ -137,6 +151,9 @@ export const REGLAGES = {
 // ══════════════════════════════════ arithmétique entière
 
 const MILLE = 1000;
+
+/** Longueur d'une série. Le 666 du titre, et rien d'autre (`assemblage.js`). */
+const SERIE = 3;
 
 const borner = (x, min, max) => (x < min ? min : x > max ? max : x);
 
@@ -647,7 +664,22 @@ function rendementSix(approche) {
   // Sans vecteur, il n'y a rien à récolter ni rien à jeter : le facteur serait
   // neutre, on n'en fabrique pas un.
   if (!unVecteur || six < 3 || !total) return null;
-  return borner(Math.floor((six * MILLE) / total), 0, MILLE);
+  // ★ UN 6 DE TROP N'EST PAS UN 6 GARDÉ.
+  //
+  // Le verdict compte des séries de trois : sur cinq 6 récoltés, deux tombent
+  // avec le reste, et la scène les MONTRE tomber — c'est le même `drop` que
+  // pour les valeurs qui ne font pas 6 (`scenario.js › recolterLesSix`). Les
+  // porter au crédit du rendement flattait donc le score d'exactement ce qu'il
+  // est censé punir : du calcul montré puis écarté. Mesuré sur
+  // `https://hope-hope-hope.fr/`, la voie `f9+t1+m5+mt` récolte cinq 6 sur
+  // treize valeurs — elle affichait 384 pour une scène qui garde trois jetons
+  // et en jette dix, c'est-à-dire 230.
+  //
+  // `series` vient de `deduireMode`, donc de la GÉOMÉTRIE de l'approche, et il
+  // est déjà plafonné par `MAX_SERIES` : le rendement reste redéduit, jamais
+  // transporté par l'URL (§4.3).
+  const gardes = approche.series ? Math.min(six, approche.series * SERIE) : six;
+  return borner(Math.floor((gardes * MILLE) / total), 0, MILLE);
 }
 
 function intervallesDe(fragment) {

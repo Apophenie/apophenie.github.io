@@ -43,7 +43,7 @@ export const LINE_HEIGHT = 78;   // unités viewBox
  * Vocabulaire FERMÉ des ops — CONTRACTS §3.1.
  *
  * Le contrat prévoit l'extension : « Ajouter une transformation arithmétique
- * sans rendu ⇒ ajouter d'abord la primitive ici, puis l'émettre. » Trois
+ * sans rendu ⇒ ajouter d'abord la primitive ici, puis l'émettre. » Quatre
  * primitives ont été ajoutées au socle de dix-sept :
  *
  *  · `partition` — découper la saisie en sous-groupes, pour appliquer ensuite
@@ -63,12 +63,23 @@ export const LINE_HEIGHT = 78;   // unités viewBox
  *    segments » un afficheur qui en allume quatorze aurait fait mentir le nom
  *    de l'op — c'est-à-dire la première chose qu'on lit d'un scénario.
  *    Sa durée est un peu plus longue : il y a jusqu'à dix traits à allumer un
- *    par un, contre cinq au plus en sept segments.
+ *    par un, contre cinq au plus en sept segments ;
+ *  · `horns` — LES CORNES. Trois 6 déjà côte à côte dans la ligne : deux
+ *    cornes leur poussent dessus pendant que le reste de la séquence
+ *    s'efface. C'est la chute du site, et c'est un geste que rien du
+ *    vocabulaire ne savait faire — ni `highlight` (qui désigne sans rien
+ *    dessiner), ni `drop` (qui efface sans rien couronner), ni `reveal` (qui
+ *    conclut, alors que les cornes se posent en cours de route et durent
+ *    jusqu'au verdict). Même argument que `fourteenSeg`, et il vaut d'autant
+ *    plus ici que le nom de l'op est ce qu'on lit en premier d'un scénario :
+ *    « on met les cornes » se lit, « highlight avec l'option cornes » ment sur
+ *    ce qui se passe. La primitive efface elle-même — voir `horns.js`, c'est
+ *    le contrôle croisé qui l'exige.
  */
 export const OP_NAMES = Object.freeze([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns',
 ]);
 
 /**
@@ -103,6 +114,10 @@ export const DEFAULT_DUR = Object.freeze({
   wait: 900,
   partition: 1800,
   table: 2600,
+  // Les cornes : le reste s'efface d'abord (un jeton après l'autre, comme un
+  // `drop` en mode gomme), et les cornes poussent par-dessus la fin de
+  // l'effacement. Deux gestes qui se recouvrent, donc un peu plus qu'un `drop`.
+  horns: 2200,
 });
 
 /** `kind` des tokens — vocabulaire fermé (recherche §2.2). */

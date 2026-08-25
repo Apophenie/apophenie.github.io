@@ -28,6 +28,12 @@
  * la largeur totale sont ramenées à une fraction de la scène, en gardant de
  * l'air autour. Le facteur est le plus contraignant des deux.
  *
+ * ★ Et le décor ACCROCHÉ aux chiffres compte dans cette hauteur. Les cornes du
+ * 666 dépassent bien plus haut qu'une capitale ; les ignorer les enverrait hors
+ * du cadre dès que le verdict grossit. Ce que l'on pose sur les chiffres leur
+ * prend donc de la taille — ce qui est le bon arbitrage : un 666 un peu plus
+ * petit se lit encore, un 666 dont les cornes sortent du cadre, non.
+ *
  * ## Quand il y a PLUS qu'un 666
  *
  * Une moisson rend « 666 666 666 666 666 ». Quinze chiffres jetés d'un bloc au
@@ -118,7 +124,7 @@ export function plan(ctx) {
   const lignes = series.length > 3 ? 2 : 1;
   const grow = typeof ctx.op.scale === 'number'
     ? ctx.op.scale
-    : zoomDuVerdict(ctx, series, lignes);
+    : zoomDuVerdict(ctx, ids, series, lignes);
 
   // Quinze chiffres à 150 ms d'écart, ce sont deux secondes rien que pour les
   // allumer. La cadence se resserre avec le nombre : c'est le même geste, il
@@ -136,8 +142,12 @@ export function plan(ctx) {
     const at = i * cadenceRestes;
     ctx.anim({ id, prop: 'opacity', to: 0, at, dur: fonduRestes, ease: EASE.fade });
     ctx.anim({ id, prop: 'scale', to: 0.8, at, dur: fonduRestes, ease: EASE.fade });
-    const halo = `@halo:${id}`;
-    if (ctx.scene.has(halo)) ctx.anim({ id: halo, prop: 'opacity', to: 0, at, dur: fonduRestes * 0.7 });
+    // Un décor accroché s'en va avec ce qu'il désignait : le halo, comme toute
+    // autre marque posée sur le jeton. Le laisser survivre à sa cible ferait
+    // flotter une désignation orpheline au milieu du verdict.
+    for (const sid of ctx.scene.satellitesDe(id)) {
+      ctx.anim({ id: sid, prop: 'opacity', to: 0, at, dur: fonduRestes * 0.7 });
+    }
     ctx.scene.kill(id, ctx.where);
   });
 
@@ -159,6 +169,17 @@ export function plan(ctx) {
   // donc levé, et il l'est pendant le geste qui rassemble.
   ctx.layoutOpts.decalage = 0;
 
+  // ★ Le décor accroché déborde VERS LE HAUT et rien ne le contrebalance en
+  // bas : le bloc « cornes + chiffres » n'a pas son milieu sur les chiffres. On
+  // descend donc la ligne de la moitié de ce débord, pour que ce soit le BLOC
+  // — ce qu'on regarde — qui soit centré, et non l'ancre des glyphes. Même
+  // raison que `layoutOpts.decalage` pour le découpage, et même signature : un
+  // report, pas un placement à la main. Zéro quand il n'y a pas de décor.
+  const report = Math.max(0, debordDuDecor(ctx, ids) - hauteurDeCapitale(ctx) / 2) * grow / 2;
+  const centrerLeBloc = () => {
+    ctx.layoutOpts.centerY = ctx.layoutOpts.viewBox.y + ctx.layoutOpts.viewBox.h / 2 + report;
+  };
+
   let tGrossir;
   let dGrossir;
 
@@ -169,6 +190,7 @@ export function plan(ctx) {
     tGrossir = depart;
     dGrossir = Math.max(1, ctx.dur - depart);
     poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, lignes: 1 });
+    centrerLeBloc();
     ctx.reflow({ at: tGrossir, dur: dGrossir, ease: EASE.move });
   } else {
     const pas = Math.max(1, ctx.dur * 0.6);
@@ -185,6 +207,7 @@ export function plan(ctx) {
     tGrossir = depart + 2 * pas;
     dGrossir = Math.max(1, pas * 1.5);
     poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, lignes });
+    centrerLeBloc();
     ctx.reflow({ at: tGrossir, dur: dGrossir, ease: EASE.move });
   }
 
@@ -202,6 +225,16 @@ export function plan(ctx) {
     ctx.anim({ id, prop: 'opacity', to: 1, at, dur: Math.max(1, ctx.dur * 0.3) });
     ctx.anim({ id, prop: 'fill', to: ctx.palette.rubric, at, dur: Math.max(1, ctx.dur * 0.45) });
     ctx.anim({ id, prop: 'scale', to: grow, at: tGrossir, dur: dGrossir, ease: EASE.pop });
+    // ★ Ce qui est POSÉ SUR un chiffre grandit avec lui — les cornes du 666.
+    //
+    // Le verdict grossit les glyphes ET leurs écarts du même facteur : le
+    // groupe entier subit une homothétie autour de son centre, qui est l'ancre
+    // du décor. Un simple `scale` suffit donc, sans arithmétique de rattrapage.
+    // Sans lui, les cornes resteraient à leur taille au-dessus de chiffres huit
+    // fois plus hauts — c'est-à-dire quelque part au milieu d'eux.
+    for (const sid of ctx.scene.accrochesA(id)) {
+      ctx.anim({ id: sid, prop: 'scale', to: grow, at: tGrossir, dur: dGrossir, ease: EASE.pop });
+    }
     if (withHalo) {
       const halo = ensureHalo(ctx, id, 'gold');
       ctx.anim({ id: halo, prop: 'scale', to: grow, at: tGrossir, dur: dGrossir, ease: EASE.pop });
@@ -273,15 +306,44 @@ function poserLeFlux(ctx, ids, series, { echelle, separation, lignes }) {
  * second rang existe : sur cinq séries, passer de un à deux rangs fait monter
  * l'agrandissement de ×1,7 à ×2,9.
  */
-function zoomDuVerdict(ctx, series, lignes) {
+function zoomDuVerdict(ctx, ids, series, lignes) {
   const capitale = hauteurDeCapitale(ctx);
   const largeur = plusLongRang(ctx, series, lignes);
+  // ★ POSER QUELQUE CHOSE AU-DESSUS DES CHIFFRES, C'EST LEUR PRENDRE DE LA
+  // HAUTEUR. Les cornes du 666 dépassent l'ancre du jeton de bien plus que la
+  // demi-capitale ; agrandir comme s'il n'y avait que des glyphes enverrait
+  // leurs pointes hors du cadre (mesuré : ×8,5 sur un 666 seul met la pointe
+  // 200 unités au-dessus du bord). Le verdict le paie donc en TAILLE, pas en
+  // débordement — c'est la même règle que pour la largeur, appliquée en haut.
+  const haut = Math.max(capitale / 2, debordDuDecor(ctx, ids));
+  const hauteurNominale = haut + capitale / 2;
   const bloc = lignes > 1
-    ? (ctx.layoutOpts.viewBox.h * AIR_VERTICAL_BLOC) / Math.max(1, capitale * (1 + (lignes - 1) * INTERLIGNE))
-    : (ctx.layoutOpts.viewBox.h * AIR_VERTICAL) / Math.max(1, capitale);
+    ? (ctx.layoutOpts.viewBox.h * AIR_VERTICAL_BLOC)
+      / Math.max(1, hauteurNominale + capitale * (lignes - 1) * INTERLIGNE)
+    : (ctx.layoutOpts.viewBox.h * AIR_VERTICAL) / Math.max(1, hauteurNominale);
   const parLaLargeur = (ctx.layoutOpts.maxWidth * AIR_HORIZONTAL) / Math.max(1, largeur);
   const z = Math.min(bloc, parLaLargeur, ZOOM_MAX);
   return Math.max(1, Math.round(z * 1000) / 1000);
+}
+
+/**
+ * De combien le décor accroché aux chiffres dépasse vers le haut, en unités
+ * NOMINALES (avant agrandissement) — 0 s'il n'y en a pas.
+ *
+ * La valeur est annoncée par la primitive qui a posé le décor (`data.debord`),
+ * jamais recalculée ici : le verdict ne connaît pas le dessin des cornes, et il
+ * n'a pas à le connaître — il lui suffit de savoir de combien il dépasse.
+ */
+function debordDuDecor(ctx, ids) {
+  let d = 0;
+  for (const id of ids) {
+    for (const sid of ctx.scene.accrochesA(id)) {
+      const n = ctx.scene.get(sid);
+      const v = n && n.data ? Number(n.data.debord) : 0;
+      if (Number.isFinite(v) && v > d) d = v;
+    }
+  }
+  return d;
 }
 
 /** Largeur nominale du rang le plus long, séparations comprises. */

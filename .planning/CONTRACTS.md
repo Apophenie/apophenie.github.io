@@ -332,7 +332,7 @@ Format normatif : `Scenario` / `Step` / `Op`, tel que spécifié dans
 
 `highlight` · `dim` · `drop` · `substitute` · `move` · `group` · `insertOperators` ·
 `sum` · `reduce` · `flip180` · `sevenSeg` · `fourteenSeg` · `countStrokes` · `keyboard` ·
-`annotate` · `pulse` · `reveal` · `wait` · `partition` · `table`
+`annotate` · `pulse` · `reveal` · `wait` · `partition` · `table` · `horns`
 
 Ajouter une transformation arithmétique sans rendu ⇒ **ajouter d'abord la primitive
 ici**, puis l'émettre.
@@ -871,6 +871,92 @@ ici**, puis l'émettre.
 > son étape de tri **montre** — si le malus disparaissait, l'écart sauterait aux
 > yeux.
 
+> *Amendement — `horns`, la vingt-et-unième primitive : LES CORNES.*
+>
+> **La demande de l'auteur, mot pour mot.** « S'il y a *naturellement* 3 “6”
+> d'affilée, mets des cornes dessus et efface le reste de la séquence. » C'est
+> le cas de `Donald` en quatorze segments (`[6,6,6,7,3,6]`) et de `Trump` en
+> chiffre de César puis quatorze segments (`[6,6,6,4,4]`) : deux 666 **déjà
+> formés, en tête, sans rien réarranger**.
+>
+> ★ **Ce n'est PAS « On ne garde que les 6 », et le nom doit l'empêcher.**
+> L'amendement précédent traite du TRI : aller chercher des 6 dispersés,
+> écarter ce qui les sépare, les mettre bout à bout. C'est un aveu — il dit que
+> le calcul a produit autre chose et qu'on choisit après coup —, il ne se fait
+> qu'une fois, en avant-dernière étape, et il coûte au score. Ici, rien n'est
+> rassemblé : les trois 6 sont **contigus dans le vecteur**, le 666 est écrit
+> avant qu'on le regarde. On ne le fabrique pas, on le **constate** — et c'est
+> exactement ce qui autorise à effacer le reste. Effacer ce qui n'appartient
+> pas à une suite qu'on n'a pas choisie n'est pas trier : c'est arrêter de lire
+> quand la phrase est finie.
+>
+> Le nom porte cette différence, et il doit continuer de la porter :
+> **« d'affilée » est le mot qui interdit l'assouplissement.** La question « et
+> si on acceptait trois 6 non contigus ? » a une réponse, et c'est non — trois
+> 6 non contigus, c'est précisément l'autre geste, celui qui coûte.
+>
+> **Une op de plus, et pourquoi pas une option d'une op existante.** Le
+> vocabulaire nomme des GESTES, et le nom de l'op est la première chose qu'on
+> lit d'un scénario (même argument que `fourteenSeg` face à `sevenSeg`). Aucun
+> geste existant ne dit celui-ci : `highlight` désigne sans rien dessiner,
+> `drop` efface sans rien couronner, `reveal` conclut — alors que les cornes se
+> posent **en cours de route** et durent jusqu'au verdict. « On met les
+> cornes » se lit ; « `highlight` avec l'option cornes » mentirait sur ce qui
+> se passe.
+>
+> ★ **La primitive EFFACE elle-même, et ce n'est pas une commodité.** Si un
+> `drop` effaçait le reste avant elle — même dans le même step —, elle ne
+> verrait plus que trois 6 seuls dans la ligne, donc trivialement contigus, et
+> elle couronnerait sans broncher trois 6 qui étaient dispersés. Le contrôle
+> croisé n'y survivrait pas. Elle vérifie donc la contiguïté sur la ligne
+> **telle qu'elle est**, puis efface. Corollaire de rythme, qui va dans le même
+> sens : le reste s'efface **avant** — et à la fin, pendant — que les cornes
+> poussent, jamais après. C'est ce qui fait lire « il n'y avait que ça » plutôt
+> que « on a enlevé ce qui gênait ».
+>
+> **Contrôle croisé, à trois verrous**, comme pour les tables :
+> 1. `transformations/mappeurs.js` dérive les cibles ET la liste à effacer du
+>    même index, relu sur la valeur qu'`apply()` a examinée — pas de seconde
+>    copie qui puisse diverger ;
+> 2. `recherche/scenario.js` recoupe là où il voit encore la valeur des jetons
+>    de départ et leur ordre : trois « 6 », trois rangs consécutifs. En cas
+>    d'écart, repli sur le rendu générique avec avertissement ;
+> 3. `visuel/primitives/horns.js` recoupe sur LA LIGNE — trois jetons vivants,
+>    trois « 6 », trois rangs consécutifs du flux — et **fait échouer la
+>    compilation** sinon.
+>
+> ★ **Les cornes se posent sur les 6, pas sur la scène.** Une accolade de
+> `partition` est posée à un ENDROIT et se retire à la fin de son step
+> précisément parce qu'elle ne suivrait pas. Les cornes, elles, doivent durer
+> jusqu'au verdict. Le nœud est donc **accroché** (`data.suit`) au 6 du milieu :
+> `scene.satellitesDe` le fait suivre à chaque reflow, et le verdict
+> l'agrandit avec les chiffres qu'il couronne. Un seul nœud pour les deux
+> cornes, ancré sur le jeton **médian** — trois jetons de même chasse séparés
+> d'écarts égaux ont pour centre le centre du jeton du milieu, et le verdict
+> grossit glyphes et écarts du même facteur : un `scale` suffit, sans
+> arithmétique de rattrapage.
+>
+> ★ **Poser quelque chose au-dessus des chiffres, c'est leur prendre de la
+> hauteur.** Le décor annonce son débord (`data.debord`, en unités nominales) et
+> `reveal` l'inclut dans le calcul de l'agrandissement : sans cela, un 666 seul
+> monte à ×8,5 et envoie les pointes 200 unités au-dessus du bord du cadre. Le
+> verdict paie donc en TAILLE, pas en débordement, et la ligne descend de la
+> moitié du débord pour que ce soit le BLOC — ce qu'on regarde — qui soit
+> centré, et non l'ancre des glyphes. Même signature que `layoutOpts.decalage`
+> pour le découpage : un report, jamais un placement à la main.
+>
+> **Le dessin.** Deux cornes, un seul tracé de deux sous-chemins fermés,
+> **rempli** — une corne porte son épaisseur dans sa forme, large au pied et
+> fine à la pointe, ce qu'un trait d'épaisseur constante ne sait pas dire. En
+> **rubrique**, la couleur de l'affirmation (design §2.3), celle que le verdict
+> donnera aux chiffres. Rien d'autre : ni halo, ni aura — « à l'instant où les
+> chiffres occupent l'essentiel de la scène, il n'y a plus rien d'autre à
+> regarder ». Les deux bords sont bombés vers l'extérieur, l'intérieur un peu
+> plus que l'extérieur : c'est ce galbe qui fait lire une corne et non un
+> aileron. Une corne est décrite **une fois**, dans un repère dont le `+x` va
+> vers le dehors, et un signe la retourne — deux tracés symétriques écrits à la
+> main finiraient par ne plus l'être.
+
 ### 3.2 Pièges figés en règles
 
 1. `fill: 'forwards'`, **jamais `'both'`** (une animation tardive rétro-remplirait sa
@@ -1077,7 +1163,8 @@ Exemples : `f1` retirer le protocole · `m1` A1Z26 · `c1` somme · `p1` racine 
 `p9` retournement du 9 (code réservé, par coquetterie) · `md`/`me` sept segments ·
 `mw`/`mx` **quatorze segments** (segments allumés, traits fusionnés) — codes neufs,
 alloués après `mv`, jamais recyclés ; `md` et `me` gardent leur comportement mot
-pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx`.
+pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
+`mz` **trois 6 d'affilée** (`NUMS → NUMS`), alloué après `my`.
 
 > *Amendement — le demi-tour a désormais deux codes, et c'est voulu.* `p9`
 > retourne UN nombre (`NUM → NUM`, « le 9 » du README, méthode 6) ; `my`
@@ -1088,6 +1175,14 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx`.
 > familles, deux codes. Le vocabulaire visuel, lui, n'a pas eu à s'étendre :
 > les deux émettent la même primitive `flip180`, qui refuse depuis
 > bruyamment tout demi-tour autre que 9 → 6 (§0.3, contrôle croisé).
+
+> *Amendement — `mz`, « trois 6 d'affilée », alloué le registre FERMÉ.* Le
+> registre l'est depuis le 25 août 2026 : aucun code n'a changé de sens, aucun
+> n'a été renommé, réattribué, ni repris à une pierre tombale. `my` était le
+> dernier alloué ; celui-ci prend **`mz`**, code neuf, et le catalogue passe de
+> 92 à 93 opérateurs. Il émet la primitive `horns` (§3.1), qui n'existait pas —
+> c'est la clause d'extension du vocabulaire appliquée dans l'ordre qu'elle
+> prescrit : la primitive d'abord, l'émission ensuite.
 
 **Trois règles inviolables :**
 1. Un code alloué l'est **à vie**. Retirer un opérateur pose une pierre tombale : son
@@ -1255,6 +1350,23 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   >   et le scénario porte alors `result: "666 666 666 666"` (plafond `MAX_SERIES`,
   >   pour que la scène reste lisible — porté à 6 par l'amendement « MOISSON »).
   >
+  >   ★ *Amendement — le NUMÉRATEUR du rendement est ce que le VERDICT garde.*
+  >   ⚠️ **Ceci modifie `score.js`, donc le classement.** `[6,6,6,6]` valait
+  >   ×1,00 alors que le quatrième 6 tombe : le verdict compte des séries de
+  >   trois, et la scène MONTRE ce surplus tomber, du même `drop` que les
+  >   valeurs qui ne font pas 6. Un 6 de trop n'est donc pas un 6 gardé, et le
+  >   porter au crédit du rendement flattait le score de ce qu'il est
+  >   précisément chargé de punir — du calcul montré puis écarté. Le numérateur
+  >   est plafonné au compte annoncé (`min(six, séries × 3)`, les séries venant
+  >   de `deduireMode`, donc de la géométrie : un lien rejoué retrouve son
+  >   score). Ce qui l'a révélé est le test qui recoupe le rendement avec ce que
+  >   l'étape de tri AFFICHE : `f9+t1+m5+mt` sur `https://hope-hope-hope.fr/`
+  >   annonçait 384 pour une scène qui garde trois jetons et en jette dix,
+  >   c'est-à-dire 230. Mesuré ailleurs : `hope` en quatorze segments passe de
+  >   ×1,00 à ×0,87 ; les moissons de `hope-hope-hope.fr` (15/15) et de
+  >   `https://hope-hope-hope.fr/` (18/20) ne bougent pas, leur récolte étant
+  >   déjà un multiple de trois.
+  >
   > · **`CONVERGENCE`** — la **même chaîne**, prise de **trois manières
   >   différentes**, qui tombent toutes trois sur 6. « Pour les saisies courtes,
   >   l'idée sera d'utiliser la séquence complète de trois manières différentes »
@@ -1325,6 +1437,33 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   >   ★ **Le rejeu d'une URL explicite n'élague pas** (§4.3 : une URL rejouée
   >   retrouve le compte exact de la liste dont elle est issue). Une portée
   >   nommée dans le lien a été demandée ; on l'honore, et l'appoint la montre.
+  >
+  >   ★ *Amendement — ce qu'on minimise est le DÉCHET, pas le compte des 6.*
+  >   `reduireLeSurplus` prenait, pour chaque portée en partant de la queue, le
+  >   candidat le **moins fourni en 6** qui laisse encore de quoi tenir le
+  >   compte. Le nombre de 6 y servait de mesure du gaspillage, et c'est un
+  >   mauvais indicateur : un programme peut rendre moins de 6 en calculant
+  >   beaucoup plus de valeurs. Mesuré sur `Donald Trump`, la portée `Trump`
+  >   disposait de `fl+t1+mw+mz` — **trois 6 sur trois valeurs, rien de jeté** —
+  >   et d'un `fk+t1+mw` qui rend **deux 6 sur cinq valeurs** ; il y avait un 6
+  >   de trop dans la récolte, et l'ancienne règle troquait le premier contre le
+  >   second — échangeant *un 6 en trop* contre *trois valeurs calculées puis
+  >   écartées*. Exactement le contraire de ce que ce point annonce.
+  >
+  >   Le déchet, c'est **tout ce qu'on montre puis qu'on écarte** : les valeurs
+  >   qui ne valent pas 6, et les 6 qui dépassent le compte. Les deux se lisent
+  >   d'un seul nombre — la somme des largeurs de vecteur moins le compte gardé
+  >   — et c'est lui qu'on minimise. Un balayage unique de droite à gauche ne
+  >   pouvait pas y arriver : réduire `Trump` fait retomber le compte, ce qui
+  >   INTERDIT ensuite de réduire `Donald`, alors que c'est `Donald` qu'il
+  >   fallait réduire. C'est donc une **recherche locale** — à chaque tour, le
+  >   remplacement d'UNE portée qui diminue le plus le déchet — bornée (le
+  >   déchet est un entier positif strictement décroissant), et déterministe :
+  >   ordres de balayage fixes, comparaisons strictes. À déchet égal, c'est la
+  >   portée la plus **tardive** qui cède — le surplus est en queue —, puis la
+  >   récolte la plus maigre. Le verdict reste intangible : un remplacement qui
+  >   changerait le nombre de séries est refusé, même à la hausse (même
+  >   doctrine qu'`elaguerLaMoisson`).
   >
   > · **Le rang de conviction** (`score.js › RANG`) devient la clé PRIMAIRE du
   >   classement, avant le score : `0` — au moins deux séries sur caractères
@@ -1398,7 +1537,32 @@ attendu sur les 7 méthodes du README sert de premier jeu de vérification.
    > **Safari reste à faire.**
 4. **Patrons ARIA du lecteur** — l'APG WAI-ARIA ne publie pas de patron « media player ».
    Test réel NVDA/VoiceOver recommandé.
-5. **Poids réel des polices** après sous-réglage (budget cible ≤ 260 Ko).
+5. **Le rendement doit-il regarder le vecteur LE PLUS LARGE du chemin, ou le
+   dernier ?** — *décision d'auteur, laissée ouverte.*
+
+   `rendementSix` lit l'état FINAL de chaque part. Tant qu'aucun opérateur ne
+   rétrécissait un vecteur, les deux lectures coïncidaient. `mz` (« trois 6
+   d'affilée ») en rétrécit un : `[6,6,6,7,3,6]` devient `[6,6,6]`, donc « trois
+   6 sur trois valeurs » alors que **six ont été calculées et que la scène en
+   montre trois s'effacer**. Le rendement, qui existe pour punir exactement
+   cela, ne le voit plus.
+
+   La contiguïté ne rachète pas ce point. Elle dit que le 666 n'a pas été
+   *assemblé* ; elle ne dit rien du 7, du 3 et du sixième 6, calculés puis
+   écartés. Ce sont deux mérites distincts : « tu n'as pas trié » — que les
+   cornes gagnent, et qu'aucun critère ne mesure — et « tu n'as pas gaspillé » —
+   que le rendement mesure, et que les cornes ne gagnent pas.
+
+   **Mesuré**, en faisant lire au rendement le vecteur le plus large :
+   `Donald Trump` garde le même rang 1 (`t1+mw+mz,fl+t1+mw+mz`, deux séries),
+   mais tombe de **6 475 à 4 778** (R : 1 000 → 545) ; `hope-hope-hope.fr`
+   passe de 4 251 à 4 110 (R : 1 000 → 937) ; `https://hope-hope-hope.fr/` de
+   3 736 à 3 645 ; `hope` reprend la tête avec `t1+mw` plutôt que `t1+mw+mz`,
+   les deux tombant à R = 750. **La demande de l'auteur ne dépend donc pas de
+   cet aveuglement** — seule la valeur du score en dépend. Le changement n'a pas
+   été fait : c'est un arbitrage de score, et il appartient à l'auteur.
+
+6. **Poids réel des polices** après sous-réglage (budget cible ≤ 260 Ko).
    Servi aujourd'hui : Jost\* 50 396 o + JetBrains Mono 15 064 o + DSEG7 948 o
    + DSEG14 1 304 o = **67 712 octets** de woff2, soit ~90 Ko une fois inlinés
    en base64 dans le CSS (le build les inline, voir §0.1). Les deux afficheurs

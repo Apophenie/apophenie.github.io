@@ -70,7 +70,7 @@ function dire(texte, langue = LANGUE_DEFAUT) {
 export const VOCABULAIRE = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns',
 ]);
 
 /**
@@ -507,6 +507,14 @@ function inventaire(o) {
       break;
     case 'partition':
       break; // découper ne crée ni ne supprime : ça regroupe
+    case 'horns':
+      // Les cornes ne créent aucun JETON — le nœud du dessin appartient au
+      // moteur visuel, qui le nomme « @… » comme un halo. Elles suppriment en
+      // revanche tout ce que « efface » désigne : c'est le geste même, et il
+      // doit se voir dans l'inventaire, faute de quoi le pont croirait que ces
+      // jetons vivent encore à l'étape suivante.
+      supprimes.push(...normaliserCibles(o.efface));
+      break;
     default:
       ajouter(o.to);
       break;
@@ -553,7 +561,10 @@ function signatureChemin(chemin) {
  * Une seule op géométrique par step : deux qui recalculent le flux animeraient
  * deux fois `translate` sur les mêmes tokens (recherche visuelle §2.4).
  */
-const SANS_LAYOUT = new Set(['highlight', 'dim', 'pulse', 'reveal', 'annotate', 'wait']);
+// `horns` en fait partie : il efface sur place et pose un décor accroché, sans
+// jamais appeler `reflow` — le 666 est déjà d'un seul tenant, il n'y a aucun
+// trou à refermer entre ses trois chiffres.
+const SANS_LAYOUT = new Set(['highlight', 'dim', 'pulse', 'reveal', 'annotate', 'wait', 'horns']);
 
 /** Ops dont la fusion consiste simplement à réunir les cibles. */
 const FUSION_PAR_CIBLES = new Set(['drop', 'highlight', 'dim', 'pulse', 'reveal']);
@@ -1320,6 +1331,18 @@ export function validerFormeOp(o) {
         if (o[k] !== undefined && typeof o[k] !== 'boolean') return `« ${k} » doit être un booléen`;
       }
       return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
+    case 'horns': {
+      // Trois cibles, pas deux, pas quatre : 666 fait trois 6. Et `efface` est
+      // une liste d'identifiants, éventuellement vide (rien à effacer autour
+      // d'un 666 qui occupe déjà toute la ligne).
+      if (!Array.isArray(o.targets) || o.targets.length !== 3 || !o.targets.every(chaine)) {
+        return '« targets » doit désigner exactement les trois 6 du 666';
+      }
+      if (o.efface !== undefined && !(Array.isArray(o.efface) && o.efface.every(chaine))) {
+        return '« efface » doit lister des identifiants de jetons';
+      }
+      return null;
+    }
     case 'flip180': case 'countStrokes':
       if (!chaine(o.target)) return '« target » manquant';
       return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
@@ -1389,6 +1412,28 @@ function validerArithmetiqueOp(o, ctxOp) {
     }
     if (String(o.to.text) !== '6') {
       return `« flip180 » afficherait « ${o.to.text} » : un 9 retourné donne 6, et rien d'autre`;
+    }
+  }
+  if (o.op === 'horns') {
+    // ★ Deuxième verrou du contrôle croisé des cornes (le premier est dans
+    // `transformations/mappeurs.js`, le troisième dans
+    // `src/visuel/primitives/horns.js`). Celui-ci est le seul à voir ENCORE la
+    // valeur des jetons de départ ET leur ordre dans la ligne : on vérifie donc
+    // ici les deux choses que la primitive vérifiera sur la scène — trois 6, et
+    // trois rangs consécutifs. Un opérateur qui se tromperait retombe alors sur
+    // le rendu générique avec un avertissement, plutôt que de faire échouer la
+    // page au clic de l'utilisateur.
+    const rangs = o.targets.map((id) => ctxOp.ids.indexOf(id));
+    if (rangs.some((r) => r < 0)) {
+      return '« horns » couronnerait un jeton absent de la ligne';
+    }
+    const textes = rangs.map((r) => String(ctxOp.elements[r]));
+    if (!textes.every((t) => t === '6')) {
+      return `« horns » couronnerait « ${textes.join(' ')} » : seuls trois 6 font un 666`;
+    }
+    if (rangs[1] !== rangs[0] + 1 || rangs[2] !== rangs[1] + 1) {
+      return `« horns » couronnerait les rangs ${rangs.join(', ')}, qui ne se touchent pas : `
+        + 'trois 6 dispersés ne sont pas un 666 trouvé';
     }
   }
   if (o.op === 'table') {

@@ -31,6 +31,7 @@ export class Scene {
     this.deadIds = new Set();
     this.autoSeq = 0;
     this.ancres = new Map();   // source → où son résultat doit paraître
+    this.suiveurs = new Map(); // jeton → nœuds de décor qui lui sont ACCROCHÉS
 
     // Nœud caméra : c'est lui qu'on zoome/déplace, jamais l'attribut viewBox.
     this.nodes.set(CAMERA_ID, makeNode({
@@ -127,6 +128,14 @@ export class Scene {
     this.nodes.set(id, node);
     this.order.push(id);
     this.everIds.add(id);
+    // ★ Un décor ACCROCHÉ à un jeton (`data.suit`) le suit partout — voir
+    // `satellitesDe`. On indexe à la création, une fois : `reflow` est appelé
+    // plusieurs fois par step et ne peut pas se permettre de balayer la scène.
+    if (spec.data && typeof spec.data.suit === 'string' && spec.data.suit) {
+      const liste = this.suiveurs.get(spec.data.suit);
+      if (liste) liste.push(id);
+      else this.suiveurs.set(spec.data.suit, [id]);
+    }
     if (node.inFlow) {
       const idx = spec.insertAt !== undefined ? spec.insertAt : this.flow.length;
       this.flow.splice(clampIndex(idx, this.flow.length), 0, id);
@@ -164,6 +173,43 @@ export class Scene {
 
   /** Index d'un id dans le flux (−1 s'il n'y est pas). */
   flowIndex(id) { return this.flow.indexOf(id); }
+
+  /**
+   * Les nœuds de décor ACCROCHÉS à un jeton — ceux qui doivent le suivre.
+   *
+   * ★ Pourquoi cette notion existe, alors que `partition` s'en passe. Une
+   * accolade de découpage est posée à un ENDROIT : elle embrasse ce qui s'y
+   * trouve à l'instant où on la trace, et elle se retire à la fin du step
+   * précisément parce qu'elle ne suivrait pas (`primitives/partition.js`). Les
+   * cornes, elles, sont posées SUR trois jetons et doivent durer jusqu'au
+   * verdict : si la ligne défile, si un reflow resserre, si le verdict grossit
+   * les chiffres, elles suivent — sans quoi la scène montrerait des cornes
+   * flottant à côté de ce qu'elles couronnent, c'est-à-dire exactement le
+   * contraire de « ce qui est montré est ce qui est compté ».
+   *
+   * Le halo y est joint sans avoir eu à changer de nom : il est, depuis
+   * toujours, le même genre d'objet — un décor à un seul jeton, nommé par
+   * convention `@halo:<id>`.
+   */
+  satellitesDe(id) {
+    const explicites = this.accrochesA(id);
+    const halo = `@halo:${id}`;
+    return this.nodes.has(halo) ? [...explicites, halo] : explicites;
+  }
+
+  /**
+   * Les décors accrochés DÉCLARÉS (`data.suit`), sans le halo.
+   *
+   * Le halo est un cas historique, nommé par convention et manipulé par une
+   * demi-douzaine de primitives qui le désignent par son nom ; les gestes qui
+   * doivent traiter les accrochages POUR EUX-MÊMES — le verdict, qui les
+   * agrandit avec ce qu'ils couronnent — passent par ici et ne risquent donc
+   * pas de faire au halo un sort qu'aucune de ces primitives n'attend.
+   */
+  accrochesA(id) {
+    const l = this.suiveurs.get(id);
+    return l ? l.slice() : [];
+  }
 
   /**
    * Publie l'ancre de résultat d'une accolade — le point, sous sa pointe et

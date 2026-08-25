@@ -222,14 +222,14 @@ export const methode6 = {
 };
 
 /**
- * Parcours de contrôle : les **20 primitives** du vocabulaire fermé, au moins
+ * Parcours de contrôle : les **21 primitives** du vocabulaire fermé, au moins
  * une fois chacune. Sert de test de non-régression du catalogue et de page de
  * vérification manuelle.
  */
 export const vocabulaire = {
   version: 1,
   input: 'HOPE-HOPE',
-  method: { id: 0, label: 'Parcours des 20 primitives', rule: 'vérification du vocabulaire fermé' },
+  method: { id: 0, label: 'Parcours des 21 primitives', rule: 'vérification du vocabulaire fermé' },
   result: '666',
   tokens: [
     { id: 'v0', text: 'H', kind: 'letter', group: 'w0' },
@@ -239,6 +239,10 @@ export const vocabulaire = {
     { id: 'vs', text: '-', kind: 'sep', group: 'sep' },
     { id: 'w0', text: 'f', kind: 'letter', group: 'w1' },
     { id: 'w1', text: 'r', kind: 'letter', group: 'w1' },
+    // Le figurant du dernier geste : une valeur qui ne vaut pas 6 et que les
+    // cornes effaceront. Sans elle, `horns` n'aurait rien à effacer, et le
+    // parcours n'exercerait que la moitié du geste.
+    { id: 'v4', text: '4', kind: 'digit' },
   ],
   steps: [
     {
@@ -373,6 +377,19 @@ export const vocabulaire = {
         { op: 'substitute', pairs: [{ target: 'six1', to: { id: 'nine', text: '9', kind: 'digit' } }] },
         { op: 'flip180', target: 'nine', to: { id: 'six2', text: '6', kind: 'digit' }, at: 1150 },
       ],
+    },
+    {
+      id: 'p11b',
+      title: 'horns',
+      caption: 'trois 6 d’affilée : le 666 était déjà écrit, le reste s’efface',
+      ops: [
+        // Les cornes exigent que les trois 6 se TOUCHENT dans la ligne — c'est
+        // tout leur propos. On remet donc l'ordre avant de les poser ; le `4`
+        // reste en queue, et c'est lui que le geste efface.
+        { op: 'move', order: ['kb6', 'six2', 'ab6', 'v4'] },
+        { op: 'horns', targets: ['kb6', 'six2', 'ab6'], efface: ['v4'], at: 950 },
+      ],
+      hold: 400,
     },
     {
       id: 'p12',

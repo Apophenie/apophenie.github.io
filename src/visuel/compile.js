@@ -381,16 +381,18 @@ export function compile(scenario, options = {}) {
               id: m.id, prop: 'translate', from: m.from, to: m.to,
               at: spec.at ?? 0, dur: spec.dur, ease: spec.ease || EASE.move,
             });
-            // Un halo suit toujours son token, sinon il se décroche au reflow.
-            const halo = `@halo:${m.id}`;
-            if (scene.has(halo) && scene.pos(halo)) {
-              const mv = scene.place(halo, { x: m.to.x, y: m.to.y });
-              if (mv) {
-                ctx.anim({
-                  id: halo, prop: 'translate', from: mv.from, to: mv.to,
-                  at: spec.at ?? 0, dur: spec.dur, ease: spec.ease || EASE.move,
-                });
-              }
+            // ★ Le décor ACCROCHÉ à un jeton le suit toujours, sinon il se
+            // décroche au reflow : le halo, comme les cornes du 666. Le
+            // déplacement est le MÊME (mêmes `at`, `dur` et courbe), sans quoi
+            // le décor arriverait après ce qu'il désigne.
+            for (const sid of scene.satellitesDe(m.id)) {
+              if (!scene.pos(sid)) continue;
+              const mv = scene.place(sid, { x: m.to.x, y: m.to.y });
+              if (!mv) continue;
+              ctx.anim({
+                id: sid, prop: 'translate', from: mv.from, to: mv.to,
+                at: spec.at ?? 0, dur: spec.dur, ease: spec.ease || EASE.move,
+              });
             }
           }
           return moved;

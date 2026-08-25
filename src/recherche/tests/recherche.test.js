@@ -939,14 +939,14 @@ test('★ moisson — aucune portée n’est entièrement surnuméraire', () => 
  *  · `elaguerLaMoisson` retire les portées **entièrement** surnuméraires — on
  *    ne calcule pas « fr » pour le jeter quatre étapes plus loin ;
  *  · `reduireLeSurplus` échange, à nombre de séries égal, le programme d'une
- *    portée contre un **moins fourni** quand le trop-plein ne fait pas une série
- *    de plus. Sur `hope-hope-hope.fr`, « fr » rend deux 6 en pythagoricienne +
- *    retournement des 9, mais un seul en sept segments (4 + 2) : le second donne
- *    les mêmes cinq séries et ne laisse rien sur le carreau.
+ *    portée contre un qui GASPILLE MOINS quand le trop-plein ne fait pas une
+ *    série de plus. Sur `hope-hope-hope.fr`, « fr » rend deux 6 en
+ *    pythagoricienne + retournement des 9, mais un seul en sept segments
+ *    (4 + 2) : le second donne les mêmes cinq séries et ne laisse rien sur le
+ *    carreau.
  *
- * Le rendement (`score.js`) ne voit pas ce second gaspillage — `[6, 6]` vaut
- * 1 000 sur mille même quand l'un des deux finit par tomber. C'est donc ici que
- * ça se joue, et pas dans le score : mieux vaut ne pas produire le déchet.
+ * Mieux vaut ne pas produire le déchet que le pénaliser après coup : c'est donc
+ * ici que ça se joue en premier, et dans le score seulement ensuite.
  */
 test('★ moisson — on ne récolte que ce qu’on montre', () => {
   const m = creerMoteur(catalogue);
@@ -975,6 +975,46 @@ test('★ moisson — le « fr » reste en sept segments : 4 + 2, et rien à jet
   assert.equal(fr.fragment.texte, 'fr');
   assert.ok(fr.chemin.ops.some((o) => o.code === 'md'),
     `le « fr » passe par ${fr.chemin.ops.map((o) => o.code).join('+')} — le sept segments est attendu`);
+});
+
+/**
+ * ★ « Donald Trump » — la trouvaille en tête de liste.
+ *
+ * Demande de l'auteur, mot pour mot : « Pour Donald Trump il faudrait une règle
+ * pour dire : s'il y a naturellement 3 “6” d'affilée, mets des cornes dessus et
+ * efface le reste de la séquence. C'est le cas pour Donald en 14 segments, et le
+ * cas pour Trump en César puis 14 segments. J'aimerais que le premier résultat
+ * suggéré soit la combinaison des deux. »
+ *
+ * Deux 666 formés d'eux-mêmes, sur deux portées disjointes, sans qu'aucune
+ * valeur soit calculée pour être ensuite écartée. C'est la meilleure moisson
+ * possible sur cette saisie, et elle doit se voir : rang 1, rendement plein.
+ */
+test('★ « Donald Trump » : deux 666 déjà formés, en tête de liste', () => {
+  const tete = creerMoteur(catalogue).resoudre('Donald Trump').approches[0];
+
+  assert.equal(tete.mode, 'MOISSON', `rang 1 : ${tete.mode} — ${tete.codes}`);
+  assert.equal(tete.series, 2, 'deux séries de 666');
+  assert.equal(tete.codes, 't1+mw+mz,fl+t1+mw+mz',
+    `la combinaison attendue est « Donald » en quatorze segments et « Trump » en `
+    + `César puis quatorze segments — obtenu : ${tete.codes}`);
+  assert.deepEqual(tete.parts.map((p) => p.fragment.texte), ['Donald', 'Trump']);
+
+  // Rien n'est jeté : six 6 récoltés sur six valeurs calculées. Le rendement
+  // est donc neutre — et il l'est parce que la démonstration est sans déchet,
+  // pas parce que l'opérateur le rendrait aveugle : les vecteurs d'entrée
+  // [6,6,6,7,3,6] et [6,6,6,4,4] portent leurs 666 SANS réarrangement.
+  assert.equal(tete.criteres.R, 1000, 'aucune valeur calculée pour être écartée');
+  const finaux = tete.parts.map((p) => p.chemin.etats[p.chemin.etats.length - 1].valeur);
+  assert.deepEqual(finaux, [[6, 6, 6], [6, 6, 6]]);
+
+  // Et la scène le MONTRE : un geste `horns` par portée, jamais d'étape de tri.
+  const m = creerMoteur(catalogue);
+  const sc = m.scenarioDe(tete, { saisie: 'Donald Trump' });
+  const cornes = sc.steps.flatMap((st) => st.ops).filter((o) => o.op === 'horns');
+  assert.equal(cornes.length, 2, 'deux 666 trouvés, deux paires de cornes');
+  assert.equal(sc.steps.some((st) => st.title === 'On ne garde que les 6'), false,
+    'rien n’est trié : les 666 étaient déjà là');
 });
 
 /**

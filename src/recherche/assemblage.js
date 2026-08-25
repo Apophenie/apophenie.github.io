@@ -691,37 +691,107 @@ function moissons(saisie, jetons, fragments, parFrag, ops) {
  * prenait le second — seize 6, cinq séries, et un 6 sur le carreau. Le premier
  * donne quinze 6, les mêmes cinq séries, et rien à jeter.
  *
- * ★ Le rendement (`score.js`) ne voyait pas ce gaspillage-là : il mesure la part
- * des valeurs CALCULÉES qui valent 6, et `[6, 6]` vaut 1 000 sur mille même
- * quand l'un des deux finit par tomber. Le corriger ici plutôt que là est le bon
- * ordre : mieux vaut ne pas produire le déchet que le pénaliser après coup.
+ * ★ Le rendement (`score.js`) plafonne bien son numérateur au compte annoncé,
+ * donc il VOIT ce 6 en trop — mais il ne le voit qu'après coup, comme un malus
+ * sur une démonstration qui l'aura tout de même montré puis écarté à l'écran.
+ * Le bon ordre est celui-ci : mieux vaut ne pas produire le déchet que le
+ * pénaliser une fois produit.
  *
- * On descend de la dernière portée vers la première — le surplus est en queue —
- * et pour chacune on prend le candidat le MOINS fourni qui laisse encore de quoi
- * tenir le compte, jamais en dessous d'un 6 (une part sans 6 disqualifie
- * l'approche entière). Les candidats sont déjà triés du plus fourni au moins, et
- * à rendement égal du plus honnête au moins (`candidatsDePortee`) : prendre le
- * premier d'un rang de six, c'est prendre le meilleur de ce rang.
+ * ── Ce qu'on minimise, et pourquoi le compte des 6 n'était qu'un PRÉTEXTE ───
+ *
+ * La première version descendait de la dernière portée vers la première et
+ * prenait, pour chacune, le candidat le MOINS FOURNI EN 6 qui laisse encore de
+ * quoi tenir le compte. Le nombre de 6 y servait de mesure du gaspillage — et
+ * c'est un mauvais indicateur, parce qu'un programme peut rendre moins de 6 en
+ * calculant BEAUCOUP PLUS de valeurs.
+ *
+ * Mesuré sur `Donald Trump`, où le défaut saute aux yeux. La portée `Trump`
+ * disposait de `fl+t1+mw+mz` — chiffre de César, quatorze segments, puis les
+ * trois 6 d'affilée : **trois 6 sur trois valeurs, rien de jeté** — et d'un
+ * `fk+t1+mw` qui rend **deux 6 sur cinq valeurs**. Il y avait un 6 de trop dans
+ * la récolte ; l'ancienne règle a donc troqué le premier contre le second,
+ * échangeant *un 6 en trop* contre *trois valeurs calculées puis écartées*.
+ * C'est exactement le contraire de ce que ce § annonce.
+ *
+ * Le déchet, c'est **tout ce qu'on montre puis qu'on écarte** : les valeurs qui
+ * ne valent pas 6, et les 6 qui dépassent le compte. Les deux se lisent d'un
+ * seul nombre — la somme des largeurs de vecteur, moins le compte gardé — et
+ * c'est ce nombre-là qu'on minimise désormais.
+ *
+ * ── Une recherche locale, parce qu'un balayage ne suffit pas ────────────────
+ *
+ * Le balayage unique de droite à gauche ne pouvait pas trouver la bonne
+ * réponse : réduire `Trump` fait retomber le compte, ce qui INTERDIT ensuite de
+ * réduire `Donald`, alors que c'est `Donald` qu'il fallait réduire. On procède
+ * donc par améliorations successives : à chaque tour, on cherche le
+ * remplacement d'UNE portée qui diminue le plus le déchet, et on le joue.
+ *
+ * Trois garde-fous, et ils sont tous les trois indispensables :
+ *  · une portée garde toujours au moins un 6 — une part qui n'apporte rien
+ *    disqualifie l'approche entière (`compterMoisson`) ;
+ *  · le VERDICT ne bouge pas. Le nombre de séries après remplacement doit être
+ *    exactement celui d'avant : on élague le gaspillage, on ne renégocie pas ce
+ *    qui est annoncé (même doctrine qu'`elaguerLaMoisson`) ;
+ *  · chaque tour fait strictement DÉCROÎTRE un entier positif, donc la boucle
+ *    s'arrête ; le plafond explicite n'est là que pour le dire.
+ *
+ * ── Les ex æquo, et pourquoi on balaie DE LA FIN VERS LE DÉBUT ─────────────
+ *
+ * Deux retouches différentes suppriment souvent le même déchet : sur
+ * `hope-hope-hope.fr`, la récolte a un 6 de trop, et on peut aussi bien le
+ * retirer du `fr` final que d'un `hope` du milieu. La règle de départage est
+ * celle qui valait déjà : **le surplus est en queue**. On balaie donc les
+ * portées de la dernière vers la première, et l'on ne retient qu'une
+ * amélioration STRICTE — à déchet égal, c'est la portée la plus tardive qui
+ * cède, celle dont le calcul serait de toute façon montré en dernier.
+ *
+ * À déchet égal encore, on préfère la récolte la plus MAIGRE : un 6 de plus qui
+ * ne fait pas une série de plus est un 6 qu'il faudra montrer puis écarter.
+ *
+ * Déterminisme (CONTRACTS §4.4) : ordres de balayage fixes, comparaisons
+ * strictes, aucune horloge.
  */
-function reduireLeSurplus(choix, accepte) {
-  let total = choix.reduce((n, c) => n + c.candidat.six, 0);
-  const garde = Math.min(Math.floor(total / SERIE), MAX_SERIES) * SERIE;
-  if (total <= garde) return choix;
 
+/** Plafond de tours de la recherche locale. Le déchet décroît strictement. */
+const MAX_RETOUCHES = 32;
+
+function reduireLeSurplus(choix, accepte) {
+  const seriesDe = (six) => Math.min(Math.floor(six / SERIE), MAX_SERIES);
   const out = choix.slice();
-  for (let i = out.length - 1; i >= 0 && total > garde; i--) {
-    const { portee, candidat } = out[i];
-    let mieux = candidat;
-    for (const c of portee.candidats) {
-      if (c.six < 1 || c.six >= mieux.six) continue;
-      if (!accepte(c)) continue;
-      if (total - candidat.six + c.six < garde) continue;
-      mieux = c;
+  let six = out.reduce((n, c) => n + c.candidat.six, 0);
+  let total = out.reduce((n, c) => n + c.candidat.total, 0);
+  const series = seriesDe(six);
+  const garde = series * SERIE;
+  // Le déchet : les valeurs calculées qui ne finiront pas dans le verdict.
+  let dechet = total - garde;
+
+  for (let tour = 0; tour < MAX_RETOUCHES && dechet > 0; tour++) {
+    let meilleurI = -1;
+    let meilleurC = null;
+    let meilleurDechet = dechet;
+    let meilleurSix = six;
+    for (let i = out.length - 1; i >= 0; i--) {
+      const { portee, candidat } = out[i];
+      for (const c of portee.candidats) {
+        if (c === candidat || c.six < 1 || !accepte(c)) continue;
+        const sixApres = six - candidat.six + c.six;
+        // Le verdict est intangible : ni une série de moins, ni une de plus.
+        if (seriesDe(sixApres) !== series) continue;
+        const d = (total - candidat.total + c.total) - garde;
+        if (d < meilleurDechet || (d === meilleurDechet && sixApres < meilleurSix)) {
+          meilleurDechet = d;
+          meilleurSix = sixApres;
+          meilleurI = i;
+          meilleurC = c;
+        }
+      }
     }
-    if (mieux !== candidat) {
-      total = total - candidat.six + mieux.six;
-      out[i] = { portee, candidat: mieux };
-    }
+    if (meilleurI < 0) break;
+    const { portee, candidat } = out[meilleurI];
+    six = meilleurSix;
+    total = total - candidat.total + meilleurC.total;
+    dechet = meilleurDechet;
+    out[meilleurI] = { portee, candidat: meilleurC };
   }
   return out;
 }
