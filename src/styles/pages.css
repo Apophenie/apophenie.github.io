@@ -2,12 +2,17 @@
 
 /* ═══════════════════════════════ 1. ACCUEIL ═══════════════════════════════ */
 
+/* ★ L'accueil respire MOINS par le haut, et les valeurs sont écrites ici.
+   « --e9 sur la page d'accueil, 80px ; --e8 plutôt 20px » (l'auteur). Ce sont
+   des LITTÉRAUX et non des jetons redéfinis : `--e8` et `--e9` valent 96 et 144
+   partout ailleurs, et les déplacer déplacerait le reste du site. Ici on ne
+   règle qu'une page, on l'écrit donc sur cette page. */
 .accueil {
   max-width: 34rem;
   margin: 0 auto;
-  padding: var(--e8) var(--e4) var(--e6);
+  padding: 20px var(--e4) var(--e6);
 }
-@media (min-width: 760px) { .accueil { padding-top: var(--e9); } }
+@media (min-width: 760px) { .accueil { padding-top: 80px; } }
 
 .accueil__reglages { display: flex; justify-content: flex-end; margin-bottom: var(--e4); }
 
@@ -160,7 +165,21 @@
 .message-erreur:empty { display: none; }
 .message-erreur::before { content: "△"; font-family: var(--machine); flex: none; }
 
-.exemples { margin-top: var(--e6); }
+/* ★ « Exemples troublants » remonte SOUS le lien, et reste aligné à gauche.
+   « Ça devrait être bien plus haut, sous Révéler » — puis, après essai :
+   « Garde "Exemples troublants" en dessous plutôt qu'à gauche, c'est plus
+   aéré » (l'auteur).
+
+   Ce qui l'éloignait, c'était `margin-top: var(--e6)` — 48 px, la respiration
+   entre deux SECTIONS. Or les exemples ne sont pas une section de plus : ils
+   prolongent le champ, ils en sont la suite immédiate. `--e3` les rapproche du
+   lien sans les y coller.
+
+   ⚠ Et c'est bien la marge des exemples qu'il fallait réduire, pas `--e6`
+   lui-même : « j'ai testé -30px et ça casse d'autres éléments d'interface sur
+   d'autres pages » (l'auteur). Ce jeton sert partout, et un espacement négatif
+   n'est jamais une correction locale. */
+.exemples { margin-top: var(--e3); }
 .exemples__titre { font-size: var(--fs-xs); color: var(--fg-3); margin-bottom: var(--e2); }
 .exemples__liste { display: flex; flex-wrap: wrap; gap: var(--e1); }
 .puce {
