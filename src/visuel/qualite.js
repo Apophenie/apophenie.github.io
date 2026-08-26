@@ -54,30 +54,62 @@ export const REGLAGES = {
    *  rend plus riche et plus lourd. */
   plancherIps: 15,
 
-  /** La marche de l'échelle, en fraction de l'ampleur visée. Une marche par
-   *  image, tant que la machine tient le double du plancher. */
+  /** La marche de l'échelle, en fraction de l'ampleur visée. */
   pas: 0.10,
 
   /** D'où l'on part. Bas : c'est ce qui rend les premières images bon marché
    *  sur toutes les machines, donc ce qui supprime le gel de l'allumage. */
   depart: 0.25,
 
-  /** En dessous du plancher, on ne descend pas d'une marche mais de trois :
-   *  une machine qui décroche doit être soulagée tout de suite, pas dans une
-   *  demi-seconde. */
+  /** Sous le plancher, on tombe de plusieurs marches d'un coup : une machine
+   *  qui décroche doit être soulagée tout de suite, pas dans une demi-seconde. */
   chuteBrusque: 3,
+
+  /** ★ LE REPOS APRÈS CHAQUE CHANGEMENT — et c'est LE correctif du
+   *  scintillement.
+   *
+   *  « Le feu semble s'embraser puis, par scintillement, sauter à plus petit
+   *  puis reprendre… bref, les ajustements selon les performances sont trop
+   *  brutaux » (l'auteur).
+   *
+   *  La cause était une boucle qui se mordait la queue : écrire l'ampleur force
+   *  un nouveau tramage des flous, donc l'image SUIVANTE est lente — non pas
+   *  parce que la machine peine, mais parce qu'on vient de lui demander de
+   *  retramer. Le régisseur lisait cette lenteur comme un décrochage et
+   *  retombait de trois marches ; l'image d'après redevenait rapide, il
+   *  remontait. D'où le battement.
+   *
+   *  On ignore donc les images qui suivent un changement : elles mesurent le
+   *  coût de la décision, pas celui du feu. */
+  repos: 6,
+
+  /** ★ LA CALIBRATION EST BORNÉE, PUIS L'AMPLEUR SE FIGE.
+   *
+   *  Un feu dont la taille suivrait indéfiniment l'humeur de la machine
+   *  respirerait au mauvais rythme — et ce battement-là, personne ne l'a
+   *  demandé. Le régisseur cherche donc son palier pendant la germination, où
+   *  ses marches se confondent avec la pousse des flammes, puis il se tait.
+   *
+   *  En millisecondes depuis l'embrasement. */
+  fenetreMs: 2200,
+
+  /** ★ LE GUET — après la calibration, le régisseur ne parle plus qu'en cas de
+   *  décrochage FRANC et DURABLE : autant d'images consécutives sous le
+   *  plancher. Une image lente est un accident ; quarante d'affilée sont un
+   *  aveu. Il descend alors d'une marche et se retait. */
+  gardeImages: 40,
 
   /** ★ L'ampleur à partir de laquelle on ose la pile RICHE — cinq couches au
    *  lieu de trois. « Trois couches si les performances le nécessitent, sinon
    *  tu peux rester à 5, c'est aussi à faire en fonction du régisseur »
-   *  (l'auteur). On n'y touche qu'une fois l'ampleur au sommet : une machine
-   *  qui peine sur trois couches n'a rien à gagner à en recevoir cinq. */
+   *  (l'auteur). Une machine qui peine sur trois couches n'a rien à gagner à en
+   *  recevoir cinq. */
   seuilRiche: 1,
 
   /** Et on ne redescend qu'en dessous de ce seuil-ci. L'écart entre les deux
    *  est l'HYSTÉRÉSIS : sans elle, une machine posée pile à la limite
    *  basculerait d'une pile à l'autre à chaque image, et chaque bascule coûte
-   *  un nouveau tramage — le remède serait pire que le mal. */
+   *  un tramage — le remède serait pire que le mal. */
   seuilSobre: 0.75,
 };
 
@@ -86,38 +118,72 @@ export const REGLAGES = {
  *  ferait osciller autour de lui, chaque montée provoquant la chute suivante. */
 export const MARGE_POUR_MONTER = 2;
 
+/** L'état de départ du régisseur. Pur, sérialisable, testable. */
+export function etatInitial(reglages = REGLAGES) {
+  return {
+    ampleur: reglages.depart,
+    /** Images de repos restantes — voir `REGLAGES.repos`. */
+    repos: reglages.repos,
+    /** Millisecondes écoulées depuis l'embrasement. */
+    ecoule: 0,
+    /** Vrai une fois la calibration close : l'ampleur ne bouge plus qu'au guet. */
+    fige: false,
+    /** Images consécutives sous le plancher, une fois figé. */
+    manquements: 0,
+    /** Vrai si le changement de cet appel mérite d'être écrit. */
+    change: false,
+  };
+}
+
 /**
- * Décide de l'ampleur suivante, à partir de la durée de la dernière image.
+ * Une image de plus : décide de l'ampleur suivante.
  *
- * Fonction PURE : c'est elle que les tests interrogent, sans navigateur et sans
+ * Fonction PURE — c'est elle que les tests interrogent, sans navigateur et sans
  * horloge. Le reste du module n'est qu'une boucle qui l'appelle.
  *
- * @param {number} ampleur   l'ampleur en cours, dans `[depart, 1]`
- * @param {number} msImage   la durée de la dernière image, en millisecondes
+ * @param {object} etat     l'état précédent (`etatInitial`)
+ * @param {number} msImage  la durée de la dernière image, en millisecondes
  * @param {object} [reglages]
- * @returns {number} l'ampleur pour l'image suivante
+ * @returns {object} le nouvel état
  */
-export function ampleurSuivante(ampleur, msImage, reglages = REGLAGES) {
-  const { plancherIps, pas, depart, chuteBrusque } = reglages;
-  // Une image de durée nulle ou absurde ne dit rien : on ne bouge pas.
-  if (!(msImage > 0) || !Number.isFinite(msImage)) return ampleur;
+export function reglerLeFeu(etat, msImage, reglages = REGLAGES) {
+  const suite = { ...etat, change: false };
+  if (!(msImage > 0) || !Number.isFinite(msImage)) return suite;
 
+  suite.ecoule = etat.ecoule + msImage;
   const ips = 1000 / msImage;
 
-  // ★ Sous le plancher : on tombe de plusieurs marches d'un coup. Descendre
-  //   d'une seule laisserait la machine ramer le temps de la descente — c'est
-  //   exactement « la pire image dégrade l'ensemble du rendu » que l'auteur
-  //   veut éviter.
-  if (ips < plancherIps) return Math.max(depart, ampleur - pas * chuteBrusque);
+  // ★ Repos : cette image mesure le coût de la décision précédente, pas celui
+  //   du feu. On la laisse passer sans rien en conclure.
+  if (etat.repos > 0) { suite.repos = etat.repos - 1; return suite; }
 
-  // ★ Au-dessus du double du plancher : une marche, et on retente à l'image
-  //   suivante. L'échelle s'arrête d'elle-même là où la machine cesse de
-  //   suivre — c'est ce qui rend le palier d'équilibre MESURÉ.
-  if (ips > plancherIps * MARGE_POUR_MONTER) return Math.min(1, ampleur + pas);
+  const bouger = (v) => {
+    if (v === etat.ampleur) return;
+    suite.ampleur = v;
+    suite.repos = reglages.repos;
+    suite.change = true;
+  };
 
-  // Entre les deux : la zone de repos. On ne touche à rien, sinon l'ampleur
-  // oscillerait sans jamais se poser.
-  return ampleur;
+  /* ── APRÈS LA CALIBRATION : le guet, et rien d'autre ──────────────────── */
+  if (etat.fige) {
+    if (ips >= reglages.plancherIps) { suite.manquements = 0; return suite; }
+    suite.manquements = etat.manquements + 1;
+    if (suite.manquements < reglages.gardeImages) return suite;
+    // Décrochage franc et durable : une marche, puis on se retait.
+    suite.manquements = 0;
+    bouger(Math.max(reglages.depart, etat.ampleur - reglages.pas));
+    return suite;
+  }
+
+  /* ── PENDANT LA CALIBRATION : on cherche le palier ────────────────────── */
+  if (suite.ecoule >= reglages.fenetreMs) suite.fige = true;
+
+  if (ips < reglages.plancherIps) {
+    bouger(Math.max(reglages.depart, etat.ampleur - reglages.pas * reglages.chuteBrusque));
+  } else if (ips > reglages.plancherIps * MARGE_POUR_MONTER) {
+    bouger(Math.min(1, etat.ampleur + reglages.pas));
+  }
+  return suite;
 }
 
 /**
@@ -133,7 +199,7 @@ export function ampleurSuivante(ampleur, msImage, reglages = REGLAGES) {
 export function brancherLeRegisseur(scene, reglages = REGLAGES) {
   if (!scene || typeof requestAnimationFrame !== 'function') return () => {};
 
-  let ampleur = reglages.depart;
+  let etat = etatInitial(reglages);
   let riche = false;
   let precedent = 0;
   let jeton = 0;
@@ -143,7 +209,7 @@ export function brancherLeRegisseur(scene, reglages = REGLAGES) {
      Chaque corps porte ses deux chaînes en attributs (`dom.js`) : basculer, ce
      n'est donc que choisir laquelle écrire. C'est une écriture par corps, et
      chacune force un nouveau tramage — d'où l'hystérésis, qui rend la bascule
-     rare. */
+     rare, et le repos qui suit, qui empêche d'en tirer une conclusion. */
   const habiller = (versRiche) => {
     if (versRiche === riche) return;
     riche = versRiche;
@@ -162,18 +228,22 @@ export function brancherLeRegisseur(scene, reglages = REGLAGES) {
     poser.dernier = arrondi;
     scene.style.setProperty('--nhl-feu-ampleur', String(arrondi));
   };
-  poser(ampleur);
+  poser(etat.ampleur);
 
   const battre = (t) => {
     if (!vivant) return;
     jeton = requestAnimationFrame(battre);
+    // ★ Tant que le feu n'a pas pris, il n'y a rien à régler — et surtout rien
+    //   à MESURER : les images d'avant l'embrasement ne disent rien du coût du
+    //   feu, et les prendre pour telles ferait partir le régisseur au sommet.
     if (!scene.hasAttribute('data-embrasement')) { precedent = t; return; }
     if (precedent) {
-      ampleur = ampleurSuivante(ampleur, t - precedent, reglages);
-      poser(ampleur);
-      // La richesse suit l'ampleur, avec son hystérésis.
-      if (!riche && ampleur >= reglages.seuilRiche) habiller(true);
-      else if (riche && ampleur < reglages.seuilSobre) habiller(false);
+      etat = reglerLeFeu(etat, t - precedent, reglages);
+      if (etat.change) {
+        poser(etat.ampleur);
+        if (!riche && etat.ampleur >= reglages.seuilRiche) habiller(true);
+        else if (riche && etat.ampleur < reglages.seuilSobre) habiller(false);
+      }
     }
     precedent = t;
   };
