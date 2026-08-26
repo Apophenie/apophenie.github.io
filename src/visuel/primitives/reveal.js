@@ -50,16 +50,18 @@
  *  2. **découper** — un vide s'ouvre tous les trois chiffres. Les séries se
  *     séparent d'elles-mêmes : `666 666 666 666 666`. C'est le moment où la
  *     suite cesse d'être un nombre pour devenir un compte.
- *  3. **grossir** — et là seulement. Au-delà de trois séries, elles se
- *     répartissent sur **deux lignes** : c'est la seule façon de les grossir
- *     davantage, puisque chaque ligne devient deux fois plus courte.
+ *  3. **grossir** — et là seulement. Au-delà de trois séries et demie par rang,
+ *     elles se répartissent sur **plusieurs lignes** : c'est la seule façon de
+ *     les grossir davantage, puisque chaque ligne devient d'autant plus courte.
+ *     Combien de rangs, et de quelle longueur : `repartirEnLignes`, qui tient
+ *     les dix cas dictés par l'auteur.
  *
- * Deux lignes ici ne contredisent pas la doctrine du « jamais deux lignes »
- * (`defilement.js`) : celle-ci défend une SÉQUENCE, qui se lit d'un bout à
- * l'autre et qu'une coupure au milieu trahirait. Le verdict n'est pas une
- * séquence, c'est un **compte** — cinq objets identiques dont l'ordre ne dit
- * rien. Les répartir sur deux rangs ne coupe aucune lecture, et la coupure ne
- * tombe jamais dans une série : toujours entre deux.
+ * Plusieurs lignes ici ne contredisent pas la doctrine du « jamais deux
+ * lignes » (`defilement.js`) : celle-ci défend une SÉQUENCE, qui se lit d'un
+ * bout à l'autre et qu'une coupure au milieu trahirait. Le verdict n'est pas
+ * une séquence, c'est un **compte** — des objets identiques dont l'ordre ne dit
+ * rien. Les répartir sur plusieurs rangs ne coupe aucune lecture, et la coupure
+ * ne tombe jamais dans une série : toujours entre deux.
  *
  * ## Ce qui a été retiré, et pourquoi
  *
@@ -135,10 +137,10 @@ function serieDe(op) {
 const AIR_VERTICAL = 0.62;
 
 /**
- * Idem, mais pour un verdict sur DEUX rangs : c'est la hauteur du bloc entier
- * qui est bornée, interligne compris. On peut y prendre plus de place — le
- * verdict est seul en scène, et deux rangs serrés se lisent moins bien que
- * deux rangs qui respirent.
+ * Idem, mais pour un verdict sur PLUSIEURS rangs : c'est la hauteur du bloc
+ * entier qui est bornée, interligne compris. On peut y prendre plus de place —
+ * le verdict est seul en scène, et des rangs serrés se lisent moins bien que
+ * des rangs qui respirent.
  */
 const AIR_VERTICAL_BLOC = 0.88;
 
@@ -147,6 +149,98 @@ const INTERLIGNE = 1.45;
 
 /** Part de la largeur utile occupée par le verdict. */
 const AIR_HORIZONTAL = 0.92;
+
+/**
+ * ★ L'AGENCEMENT DES TRIPTYQUES EN RANGS — combien de lignes, et de quelle
+ * longueur.
+ *
+ * L'auteur a dicté dix cas, et il les a dictés en toutes lettres :
+ *
+ * > « S'il y a 4 triptyques, 2 par lignes. Minimise la différence de nombre de
+ * > triptyques entre les lignes, et garde plus de triptyques par ligne que de
+ * > lignes. 1: 1 ligne de 1. 2: 1 ligne de 1. 3: 1 ligne de 1. 4: 2 lignes de
+ * > 2. 5: 1 ligne de 3 et 1 de 2. 6: 2 lignes de 3. 7: 1 ligne de 4 et une de
+ * > 3. 8: 2 lignes de 3 et 1 ligne de 2. 9: 3 lignes de 3. 10: 1 ligne de 4 et
+ * > 2 lignes de 3. … »
+ *
+ * ⚠ **La règle en prose et l'énumération ne coïncident pas, et c'est
+ * l'ÉNUMÉRATION qui fait foi.** « Minimise la différence » donnerait `4 + 4`
+ * pour huit triptyques (différence nulle) ; l'auteur écrit `3 + 3 + 2`
+ * (différence 1). Deux formulations d'un même auteur qui divergent, on garde
+ * celle qui est chiffrée : elle dit ce qu'il a VU et voulu, là où la phrase
+ * résume après coup. La table de vérité des dix cas est donc le contrat, et
+ * elle est vérifiée telle quelle (`tests/verdict-rangs.test.js`).
+ *
+ * ⚠ **Et le critère que l'auteur donne pour justifier `8 → 3+3+2` ne reproduit
+ * pas sa propre énumération sur 7.** Interrogé, il précise :
+ *
+ * > « 8: 4+4 ou 3+3+2 → on cherche à minimiser l'écart entre deux lignes, mais
+ * > aussi l'écart entre le nombre d'items par ligne et le nombre de lignes,
+ * > c'est pour ça que j'ai préféré 3+3+2. »
+ *
+ * Ce second écart — `|items par ligne − nombre de lignes|` — explique bien
+ * `8` : `4+4` le laisse à 2, `3+3+2` le ramène à 1. Mais appliqué à `7`, il
+ * dirait `3+2+2` (écart 0 ou 1) là où l'auteur écrit `4+3` (écart 2). Le
+ * critère verbal et la dictée se contredisent donc à leur tour, sur un autre
+ * cas. On ne lisse pas l'écart en silence : il est consigné ici pour qui
+ * reprendra, et la dictée reste l'arbitre.
+ *
+ * ★ **La formule qui rend ces dix-là, et la seule chose qu'elle dise.**
+ *
+ *     lignes = ⌈2n/7⌉,  puis la répartition la plus égale possible,
+ *                       les lignes les plus fournies en premier
+ *
+ * `⌈2n/7⌉`, c'est `⌈n / 3,5⌉` : **au plus trois triptyques et demi par ligne,
+ * en moyenne**. C'est ce seuil — et lui seul — qui sépare l'énumération de la
+ * prose : il laisse passer `7 → 4+3` (3,5 pile) et refuse `8 → 4+4` (4,0), ce
+ * qu'aucun plafond entier ne sait faire. Un plafond de 4 par ligne expliquerait
+ * `7` et `10` mais donnerait `4+4` sur `8` ; un plafond de 3 donnerait `3+3+1`
+ * sur `7`. Le demi-triptyque est le pivot, et il tombe juste sur les dix cas.
+ *
+ * Une fois le nombre de lignes connu, la répartition n'a plus de liberté : `q`
+ * par ligne et `r` lignes qui en prennent une de plus, les plus fournies en
+ * tête — c'est le seul agencement qui minimise l'écart ET fasse descendre la
+ * ligne, jamais monter.
+ *
+ * ⚠ **Au-delà de dix, ce sont des EXTRAPOLATIONS, pas des faits.** L'auteur
+ * s'est arrêté à dix ; la formule continue — `11 → 3+3+3+2`, `12 → 3+3+3+3`,
+ * `13 → 4+3+3+3`, `14 → 4+4+3+3` —, et rien ne dit qu'il les aurait écrits
+ * ainsi. C'est d'ailleurs là que sa dernière consigne cède : « garde plus de
+ * triptyques par ligne que de lignes » tient sur les dix cas dictés et tombe
+ * dès onze (trois par rang pour quatre rangs). Le jour où une moisson en
+ * rapportera plus de dix, la question se reposera à l'auteur plutôt qu'ici.
+ *
+ * ★ **Fonction PURE, exportée, et éprouvée sur les dix cas de l'auteur.** Ce
+ * n'est pas une commodité de test : le verdict lit ce découpage TROIS fois — la
+ * coupure du flux (`poserLeFlux`), la largeur du rang le plus long
+ * (`plusLongRang`) et le rang qui perd ses cornes (`detrones`). Trois lectures
+ * d'une même règle recopiée trois fois auraient fini par diverger ; ici il n'y
+ * a qu'une source.
+ *
+ * @param {number} n  nombre de triptyques à agencer
+ * @returns {number[]} la longueur de chaque rang, du haut vers le bas
+ */
+export function repartirEnLignes(n) {
+  if (!Number.isInteger(n) || n <= 0) return [];
+  const lignes = Math.ceil((2 * n) / 7);
+  const parLigne = Math.floor(n / lignes);
+  const fournies = n % lignes;      // les rangs qui en prennent un de plus
+  return Array.from({ length: lignes }, (_, i) => parLigne + (i < fournies ? 1 : 0));
+}
+
+/**
+ * Les rangs où s'ouvre une nouvelle ligne — l'index de la PREMIÈRE série de
+ * chaque rang, le premier excepté (rien ne s'ouvre avant lui).
+ *
+ * Dérivé de `repartirEnLignes`, jamais recalculé : c'est la même règle, lue
+ * sous l'angle dont le layout a besoin.
+ */
+function debutsDeRang(rangs) {
+  const out = new Set();
+  let acc = 0;
+  for (const long of rangs.slice(0, -1)) { acc += long; out.add(acc); }
+  return out;
+}
 
 /**
  * Le vide qui sépare deux séries — **exactement un blanc**.
@@ -250,7 +344,10 @@ export function plan(ctx) {
   // séries entières — sinon on n'invente pas des frontières qui n'existent pas.
   const series = decouperEnSeries(ids, serieDe(ctx.op));
   const multi = series.length > 1;
-  const lignes = series.length > 3 ? 2 : 1;
+  // L'agencement en rangs, calculé UNE fois et lu partout — voir
+  // `repartirEnLignes` pour la règle et pour ce qui l'a dictée.
+  const rangs = repartirEnLignes(series.length);
+  const lignes = rangs.length;
   // ★ Le regroupement est INUTILE quand les triptyques sont déjà là.
   //
   // « Quand le ou les triptyques sont déjà formés (et cornés), tu peux faire
@@ -329,10 +426,11 @@ export function plan(ctx) {
   // Deux animations de `scale` sur le même nœud se recouvriraient, et c'est
   // exactement ce que le compilateur signale comme concurrence.
   //
-  // ★ Le rang du bas, calculé UNE fois : la coupure tombe entre deux séries
-  // (5 → 3 puis 2), et c'est la même que celle de `poserLeFlux` et celle des
+  // ★ Le rang du bas, calculé UNE fois : tout ce qui vient après la dernière
+  // série du PREMIER rang y est. La longueur de ce rang vient de
+  // `repartirEnLignes`, comme la coupure de `poserLeFlux` et celle des
   // détrônées, plus bas. Trois lectures d'une seule règle.
-  const rangDuBas = lignes > 1 ? Math.ceil(series.length / 2) : Infinity;
+  const rangDuBas = lignes > 1 ? rangs[0] : Infinity;
   const cornesDuVerdict = [];
   series.forEach((serie, s) => {
     if (!ctx.scenographie || !multi || s >= rangDuBas) return;
@@ -348,7 +446,7 @@ export function plan(ctx) {
   //   ne sortiront pas du cadre — le verdict paie en TAILLE, pas en débordement.
   const grow = typeof ctx.op.scale === 'number'
     ? ctx.op.scale
-    : zoomDuVerdict(ctx, ids, series, lignes);
+    : zoomDuVerdict(ctx, ids, series, rangs);
 
   // Quinze chiffres à 150 ms d'écart, ce sont deux secondes rien que pour les
   // allumer. La cadence se resserre avec le nombre : c'est le même geste, il
@@ -456,24 +554,24 @@ export function plan(ctx) {
     // geste le plus direct, et c'est ce que l'auteur demande.
     tGrossir = depart;
     dGrossir = Math.max(1, ctx.dur - depart);
-    poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, lignes });
+    poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, rangs });
     centrerLeBloc();
     ctx.reflow({ at: tGrossir, dur: dGrossir, ease: courbeVerdict });
   } else {
     const pas = Math.max(1, ctx.dur * 0.6);
 
     // (a) rassembler — à leur taille. On voit qu'il ne reste qu'eux.
-    poserLeFlux(ctx, ids, series, { echelle: 1, separation: false, lignes: 1 });
+    poserLeFlux(ctx, ids, series, { echelle: 1, separation: false, rangs: [series.length] });
     ctx.reflow({ at: depart, dur: pas, ease: EASE.move });
 
     // (b) découper — le vide s'ouvre tous les trois chiffres.
-    poserLeFlux(ctx, ids, series, { echelle: 1, separation: true, lignes: 1 });
+    poserLeFlux(ctx, ids, series, { echelle: 1, separation: true, rangs: [series.length] });
     ctx.reflow({ at: depart + pas, dur: pas, ease: EASE.move });
 
     // (c) grossir — et se répartir sur deux rangs s'il y a de quoi.
     tGrossir = depart + 2 * pas;
     dGrossir = Math.max(1, pas * 1.5);
-    poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, lignes });
+    poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, rangs });
     centrerLeBloc();
     ctx.reflow({ at: tGrossir, dur: dGrossir, ease: courbeVerdict });
   }
@@ -804,18 +902,18 @@ function decouperEnSeries(ids, serie = SERIE) {
  * rejouer ne déplace rien, et une recompilation (`rebuild()` au
  * redimensionnement) repart des mêmes mesures nominales.
  */
-function poserLeFlux(ctx, ids, series, { echelle, separation, lignes }) {
+function poserLeFlux(ctx, ids, series, { echelle, separation, rangs }) {
   const gap = ctx.layoutOpts.gap * echelle;
   const vide = separation ? videDeSerie(ctx) * echelle : gap;
-  // La coupure tombe entre deux séries, jamais dedans : la moitié haute prend
-  // le rang du dessus (5 séries → 3 puis 2).
-  const coupure = lignes > 1 ? Math.ceil(series.length / 2) : -1;
+  // Les coupures tombent entre deux séries, jamais dedans — c'est
+  // `repartirEnLignes` qui dit lesquelles, et il n'y a pas d'autre source.
+  const coupures = debutsDeRang(rangs);
 
   series.forEach((serie, s) => {
     serie.forEach((id, k) => {
       const n = ctx.scene.get(id);
       n.w = mesureNominale(ctx, id) * echelle;
-      n.breakBefore = k === 0 && s === coupure;
+      n.breakBefore = k === 0 && coupures.has(s);
       if (s === 0 && k === 0) n.gapBefore = undefined;
       else n.gapBefore = k === 0 ? vide : gap;
     });
@@ -826,8 +924,8 @@ function poserLeFlux(ctx, ids, series, { echelle, separation, lignes }) {
   // `coupuresExplicites` n'ouvre PAS le repli automatique (`wrap`) : il rend
   // seulement effectives les coupures que la primitive a posées elle-même.
   // Une ligne qui déborde continue de défiler, elle ne se replie pas.
-  ctx.layoutOpts.coupuresExplicites = lignes > 1;
-  if (lignes > 1) {
+  ctx.layoutOpts.coupuresExplicites = rangs.length > 1;
+  if (rangs.length > 1) {
     ctx.layoutOpts.lineHeight = hauteurDeCapitale(ctx) * echelle * INTERLIGNE;
   }
 }
@@ -844,9 +942,10 @@ function poserLeFlux(ctx, ids, series, { echelle, separation, lignes }) {
  * second rang existe : sur cinq séries, passer de un à deux rangs fait monter
  * l'agrandissement de ×1,7 à ×2,9.
  */
-function zoomDuVerdict(ctx, ids, series, lignes) {
+function zoomDuVerdict(ctx, ids, series, rangs) {
+  const lignes = rangs.length;
   const capitale = hauteurDeCapitale(ctx);
-  const largeur = plusLongRang(ctx, series, lignes);
+  const largeur = plusLongRang(ctx, series, rangs);
   // ★ POSER QUELQUE CHOSE AU-DESSUS DES CHIFFRES, C'EST LEUR PRENDRE DE LA
   // HAUTEUR. Les cornes du 666 dépassent l'ancre du jeton de bien plus que la
   // demi-capitale ; agrandir comme s'il n'y avait que des glyphes enverrait
@@ -885,14 +984,14 @@ function debordDuDecor(ctx, ids) {
 }
 
 /** Largeur nominale du rang le plus long, séparations comprises. */
-function plusLongRang(ctx, series, lignes) {
+function plusLongRang(ctx, series, rangs) {
   const gap = ctx.layoutOpts.gap;
   const vide = series.length > 1 ? videDeSerie(ctx) : gap;
-  const coupure = lignes > 1 ? Math.ceil(series.length / 2) : -1;
+  const coupures = debutsDeRang(rangs);
   let max = 0;
   let courant = 0;
   series.forEach((serie, s) => {
-    if (s === coupure) { max = Math.max(max, courant); courant = 0; }
+    if (coupures.has(s)) { max = Math.max(max, courant); courant = 0; }
     if (courant > 0) courant += vide;
     serie.forEach((id, k) => {
       if (k > 0) courant += gap;
