@@ -122,6 +122,33 @@
 }
 .bouton-secondaire:hover { border-color: var(--fg-2); color: var(--fg); }
 
+/* ★ LE LIEN DISCRET — « tel un lien "mot de passe oublié" ».
+   « Pas plus gros ni plus petit » (l'auteur) : il prend donc la taille du texte
+   courant du formulaire, pas celle d'une légende. Ce qui le rend discret, c'est
+   sa couleur et son absence de cadre, pas sa petitesse — un lien qu'on doit
+   plisser les yeux pour lire n'est pas discret, il est caché.
+
+   C'est un `<button>` et non un `<a>` : sa destination dépend de ce qui est
+   dans le champ, qui change à chaque frappe. Il est donc rhabillé en lien —
+   et il garde une cible tactile de 44 px, que son apparence de texte ne
+   dispense pas d'offrir. */
+.champ-appoint { display: flex; justify-content: flex-end; }
+.lien-discret {
+  background: none;
+  border: 0;
+  padding: var(--e1) 0;
+  min-height: 44px;
+  color: var(--fg-3);
+  font-family: var(--pedagogue);
+  font-size: var(--fs-sm);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-ui);
+  cursor: pointer;
+}
+.lien-discret:hover,
+.lien-discret:focus-visible { color: var(--fg); text-decoration-color: currentColor; }
+
 .message-erreur {
   display: flex;
   gap: var(--e1);
@@ -517,8 +544,15 @@
 
 /* Une colonne : le Registre prend toute la largeur, comme la scène.
    « Sur mobile, très bien, sauf qu'il peut prendre toute la largeur comme la
-   scène dès lors qu'il ne loge plus convenablement à côté » (l'auteur). */
+   scène dès lors qu'il ne loge plus convenablement à côté » (l'auteur).
+
+   ⚠ Il faut LEVER `max-width: var(--mesure)`, sinon il s'arrête à 62 signes.
+   Entre 720 et 1100 px c'était visible : la scène allait d'un bord à l'autre et
+   le Registre s'arrêtait bien avant, sans que rien n'explique pourquoi. La
+   mesure de lecture garde tout son sens quand le Registre est une colonne
+   étroite à côté d'un texte ; elle n'en a plus quand il EST la colonne. */
 .registre-pleine-largeur { min-width: 0; }
+.registre-pleine-largeur > .registre { max-width: none; }
 
 .scene-cadre {
   position: relative;

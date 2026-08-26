@@ -3,6 +3,7 @@
 import { e, qs } from '../dom.js';
 import { logoTitre } from '../logo.js';
 import { t, v } from '../../i18n/index.js';
+import { montrerInfobulle } from '../infobulle.js';
 import * as pont from '../pont.js';
 import { interrupteurs } from '../entete.js';
 
@@ -19,22 +20,36 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
     spellcheck: 'false',
     maxlength: String(plafond),
     placeholder: t('accueil.placeholder'),
-    'aria-describedby': 'aide-saisie',
     value: saisieInitiale,
   });
 
   const compteur = e('span#compteur-saisie.compteur', { hidden: true, 'aria-hidden': 'true' });
   const erreur = e('p#erreur-saisie.message-erreur', { role: 'alert' });
-  const aide = e('p#aide-saisie.legende', { texte: t('accueil.aide', { plafond }) });
 
   const bouton = e('button.bouton-primaire', { type: 'submit', texte: t('accueil.reveler') });
+
+  /* ★ LE LIEN VERS LES VOIES — discret, à la place de la ligne d'aide.
+     « La page de liste des voies devrait être accessible à la place de
+     "Jusqu'à 500 signes. Tout est calculé dans votre navigateur." Avec le
+     libellé "Énumérer les voies occultes", pas plus gros ni plus petit, tel un
+     lien "mot de passe oublié". J'imagine plutôt aligné à droite »
+     (l'auteur).
+
+     Il n'a pas de `href` : la liste dépend de ce qui est DANS le champ, et le
+     champ change. Un lien mort tant que le champ est vide serait pire qu'un
+     bouton — celui-ci refuse comme le fait « Révéler », en le disant. */
+  const voies = e('button.lien-discret', {
+    type: 'button',
+    texte: t('accueil.voies'),
+    sur: { click: () => aller((saisie) => pont.ecrireHash({ saisie })) },
+  });
 
   const formulaire = e('form.champ-groupe', { novalidate: true }, [
     e('label', { for: 'saisie', texte: t('accueil.label') }),
     e('div.champ-boite', {}, [champ, compteur]),
     bouton,
+    e('div.champ-appoint', {}, [voies]),
     erreur,
-    aide,
   ]);
 
   function majCompteur() {
@@ -42,8 +57,21 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
     if (n < SEUIL_COMPTEUR) { compteur.hidden = true; return; }
     compteur.hidden = false;
     compteur.textContent = `${n}/${plafond}`;
-    compteur.classList.toggle('compteur--limite', n >= plafond);
+    const auPlafond = n >= plafond;
+    compteur.classList.toggle('compteur--limite', auPlafond);
+    /* ★ LE PLAFOND NE SE DIT QU'AU MOMENT OÙ IL SE HEURTE.
+       « La limite est à afficher en infobulle si on la dépasse dans le champ,
+       pas à mettre par défaut en encombrant pour rien l'UI » (l'auteur). Le
+       navigateur tronque en silence à `maxlength` : sans ce mot, quelqu'un qui
+       colle un texte long voit disparaître la fin sans savoir pourquoi. C'est
+       le seul instant où la limite est une information. */
+    if (auPlafond && !plafondDit) {
+      plafondDit = true;
+      montrerInfobulle(champ, t('accueil.plafondAtteint', { plafond }), { duree: 5000 });
+    }
+    if (!auPlafond) plafondDit = false;
   }
+  let plafondDit = false;
   champ.addEventListener('input', () => {
     majCompteur();
     if (erreur.textContent) {
@@ -53,18 +81,22 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
   });
   majCompteur();
 
-  formulaire.addEventListener('submit', (ev) => {
-    ev.preventDefault();
+  /**
+   * Le trajet commun aux deux commandes : on valide, on calcule, on part.
+   *
+   * @param {Function} destination  reçoit la saisie, rend le hash où aller.
+   */
+  function aller(destination) {
     const saisie = champ.value.trim();
     if (!saisie) {
       // Le bouton n'est jamais désactivé : une impasse silencieuse est pire.
       erreur.textContent = t('accueil.erreurVide');
       champ.setAttribute('aria-invalid', 'true');
-      champ.setAttribute('aria-describedby', 'erreur-saisie aide-saisie');
+      champ.setAttribute('aria-describedby', 'erreur-saisie');
       champ.focus();
       return;
     }
-    const hash = pont.ecrireHash({ saisie });
+    const hash = destination(saisie);
     if (!hash) {
       erreur.textContent = t('accueil.erreurUrl');
       return;
@@ -72,6 +104,38 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
     bouton.setAttribute('aria-busy', 'true');
     bouton.textContent = t('accueil.consultation');
     location.hash = hash;
+  }
+
+  /**
+   * ★ « RÉVÉLER » MÈNE DROIT À LA MÉTHODE 1 — plus à la liste.
+   *
+   * « Révéler devrait pointer directement vers la page d'animation de la
+   * méthode 1 pour la saisie fournie » (l'auteur). Le geste attendu après avoir
+   * tapé un mot est de VOIR la démonstration, pas de choisir entre plusieurs
+   * façons de la voir ; la liste reste à un clic, sous le champ.
+   *
+   * Il faut donc chercher ici. Ce n'est pas un travail en plus : c'est le même
+   * calcul que faisait la page de résultats une navigation plus loin, avancé
+   * d'un cran. On prend la première approche — celle que le classement met en
+   * tête — dans sa mise en scène par défaut.
+   *
+   * ★ On retombe sur la LISTE dès que le lien direct manque : moteur en repli
+   * (qui ne fabrique jamais d'URL), recherche en échec, ou approche sans URL.
+   * Mieux vaut une liste que rien, et c'est exactement ce que la page de
+   * résultats saura dire elle-même.
+   */
+  function urlPremiereVoie(saisie) {
+    let resultat = null;
+    try { resultat = pont.resoudre(saisie); } catch { resultat = null; }
+    const premiere = resultat && (resultat.approches || [])[0];
+    const direct = premiere
+      && (pont.REGISTRE_DEFAUT === 'sobre' ? premiere.urlSobre : premiere.urlScenique);
+    return direct || pont.ecrireHash({ saisie });
+  }
+
+  formulaire.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    aller(urlPremiereVoie);
   });
 
   // ★ Deux sortes de puces, et le visiteur doit pouvoir les distinguer AVANT
@@ -112,10 +176,13 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
     e('div.accueil__filet', { role: 'presentation' }),
     formulaire,
     exemples,
-    e('div.accueil__mentions', {}, [
-      e('p', { texte: t('accueil.mentionCalcul') }),
-      e('p', { texte: t('accueil.mentionParodie') }),
-    ]),
+    // ★ LES MENTIONS ONT DISPARU. « C'est vrai, mais si l'internaute ne s'en
+    // rend pas compte, c'est le README du projet qui le lui dira, pas la page
+    // d'accueil » (l'auteur). Elles disaient deux choses justes — tout est
+    // calculé dans le navigateur, ceci est une parodie — mais les dire ICI
+    // revenait à se justifier avant d'avoir montré quoi que ce soit. Les clés
+    // restent dans les deux langues : rien ne les lit, mais les retirer ferait
+    // diverger les catalogues, que `i18n.test.js` compare.
   ]);
 }
 

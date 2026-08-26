@@ -147,12 +147,18 @@ try {
       <div class="champ-boite">
         <input id="saisie" class="champ" type="text" name="saisie" autocomplete="off"
                autocapitalize="off" spellcheck="false" maxlength="500"
-               placeholder="un mot, une phrase, une adresse…" aria-describedby="aide-saisie">
+               placeholder="un mot, une phrase, une adresse…">
         <span class="compteur" id="compteur-saisie" hidden aria-hidden="true"></span>
       </div>
       <button class="bouton-primaire" type="submit">Révéler</button>
+      <!-- Le squelette est le PREMIER RENDU, avant que le JavaScript ne prenne la
+           main : ce bouton-ci n'a donc pas encore d'écouteur. Il est là pour que
+           la page ne saute pas au montage, et parce qu'un lien vers les voies
+           doit exister même une seconde avant l'hydratation. -->
+      <div class="champ-appoint">
+        <button class="lien-discret" type="button">Énumérer les voies occultes</button>
+      </div>
       <p class="message-erreur" id="erreur-saisie" role="alert"></p>
-      <p class="legende" id="aide-saisie">Jusqu’à 500 signes. Tout est calculé dans votre navigateur.</p>
     </form>
 
     <noscript>
@@ -163,10 +169,6 @@ try {
       </p>
     </noscript>
 
-    <div class="accueil__mentions">
-      <p>Tout est calculé dans votre navigateur : rien n’est envoyé nulle part.</p>
-      <p>Ceci est une parodie. La numérologie ne prédit rien. Le code, si.</p>
-    </div>
   </div>
 </main>
 

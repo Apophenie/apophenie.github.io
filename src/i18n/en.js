@@ -77,12 +77,13 @@ export const en = {
     baseline: 'The art of numerology, at last within everyone’s reach!',
     label: 'Whose arcana would you like revealed?',
     placeholder: 'a word, a sentence, an address…',
-    aide: 'Up to {plafond} characters. Everything is computed in your browser.',
+    plafondAtteint: 'That’s full: {plafond} characters, not one more.',
+    voies: 'List the occult paths',
     reveler: 'Reveal',
     consultation: 'Consulting the arcana…',
     erreurVide: 'The arcana need something to work with. Type anything.',
     erreurUrl: 'The URL grammar is not loaded: the link cannot be composed.',
-    exemplesTitre: 'Why not try:',
+    exemplesTitre: 'Unsettling examples:',
     exemples: [
       {
         texte: 'hope-hope-hope.fr',
@@ -191,9 +192,9 @@ export const en = {
 
   transport: {
     groupe: 'Demonstration controls',
-    jauge: 'Jump to a transformation',
-    jaugeCase: 'Jump to transformation {i} of {total}',
-    jaugeCaseTitree: 'Jump to transformation {i} of {total}: {titre}',
+    jauge: 'Jump to a step',
+    jaugeCase: 'Jump to step {i} of {total}',
+    jaugeCaseTitree: 'Jump to step {i} of {total}: {titre}',
     debutCourt: 'Start',
     precCourt: 'Prev.',
     lectureCourt: 'Play',

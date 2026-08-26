@@ -75,12 +75,15 @@ export const fr = {
     baseline: 'L’art de la numérologie, enfin accessible au plus grand nombre !',
     label: 'De quel contenu voulez-vous révéler les arcanes ?',
     placeholder: 'un mot, une phrase, une adresse…',
-    aide: 'Jusqu’à {plafond} signes. Tout est calculé dans votre navigateur.',
+    // La ligne d'aide permanente a disparu ; ce qu'elle disait ne vaut plus
+    // qu'à l'instant où le plafond se heurte, et sous forme d'infobulle.
+    plafondAtteint: 'C’est plein : {plafond} signes, pas un de plus.',
+    voies: 'Énumérer les voies occultes',
     reveler: 'Révéler',
     consultation: 'Consultation des arcanes…',
     erreurVide: 'Les arcanes ont besoin d’un peu de matière. Saisissez quelque chose.',
     erreurUrl: 'La grammaire d’URL n’est pas chargée : impossible de composer le lien.',
-    exemplesTitre: 'Essayez donc :',
+    exemplesTitre: 'Exemples troublants :',
     // Une puce est soit un texte à recopier dans le champ, soit un raccourci
     // qui MÈNE DIRECTEMENT à une démonstration choisie. Le raccourci n'est pas
     // traduisible — c'est une URL —, mais il vit ici parce que c'est ici qu'on
@@ -211,9 +214,9 @@ export const fr = {
 
   transport: {
     groupe: 'Contrôles de la démonstration',
-    jauge: 'Aller à une transformation',
-    jaugeCase: 'Aller à la transformation {i} sur {total}',
-    jaugeCaseTitree: 'Aller à la transformation {i} sur {total} : {titre}',
+    jauge: 'Aller à une étape',
+    jaugeCase: 'Aller à l’étape {i} sur {total}',
+    jaugeCaseTitree: 'Aller à l’étape {i} sur {total} : {titre}',
     debutCourt: 'Début',
     precCourt: 'Préc.',
     lectureCourt: 'Lecture',
