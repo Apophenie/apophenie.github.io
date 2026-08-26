@@ -110,6 +110,10 @@ export const en = {
     fragmentsTitre: 'The fragments worth 6',
     aucuneVoie: 'No path found. That is mathematically impossible; we are investigating.',
     voieNumero: 'no. {rang}',
+    /* Same information, two writings: the badge is a drawing, the sentence
+       is what a screen reader announces. Nothing at all when n is 1. */
+    voieSeriesBadge: '{n} × 6⋅6⋅6',
+    voieSeries: '{n} runs of 666',
     voieSansTitre: 'Approach no. {rang}',
     acces: {
       sobre: 'Plain',
@@ -148,7 +152,12 @@ export const en = {
     methode: 'Method {rang} — {titre}',
     sansTitre: 'untitled',
     demonstration: 'Demonstration',
+    etapeSur: 'Step {i} of {total}',
     sceneLabel: 'Demonstration stage',
+    /* The staged register's play button — see `pages/demonstration.js`. */
+    jouerLabel: 'Start the demonstration',
+    jouerAvecSon: 'Start, with sound',
+    jouerSansSon: 'Start, muted',
     allerAuRegistre: 'Skip to the Ledger',
     revoir: 'Watch again',
     autreVoie: 'Another path',
@@ -247,15 +256,8 @@ export const en = {
   },
 
   pied: {
-    polices: 'Set in <em>Jost*</em> — the very typeface the logo is drawn over — '
-      + 'and in <em>JetBrains Mono</em>; the displays are in '
-      + '<em>DSEG7 Classic</em> (seven segments) and <em>DSEG14 Classic</em> '
-      + '(fourteen segments). Four typefaces under the '
-      + '<a href="fonts/OFL-Jost.txt">SIL OFL 1.1</a> licence, hosted right here.',
-    sons: 'The storm of the staged version — thunder, blaze, abyss, dread — is made of '
-      + 'four public-domain sounds under '
-      + '<a href="sons/CC0-sons.txt">CC0 1.0</a>, hosted right here too.',
-    silence: 'No cookies, no analytics, no network call once the page is loaded.',
+    libre: 'Free software — <a href="https://framagit.org/1crea/numherololgeek">go to the source</a>.',
+    silence: 'No cookies, no analytics, no network call after the page has loaded.',
   },
 };
 

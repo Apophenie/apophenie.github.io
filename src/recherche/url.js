@@ -4,7 +4,7 @@
 //
 //   url        := {chemin} '#' [approche] '#' b58(saisie)
 //   approche   := [registre '!'] fragment (',' fragment)*
-//   registre   := 'sobre' | 'scenique'
+//   registre   := 'so' | 'sce'        (formes longues encore LUES, plus écrites)
 //   fragment   := [portee ':'] programme
 //   portee     := offset '.' longueur          // en jetons ; absent ⇒ saisie entière
 //   programme  := code ('+' code)*
@@ -12,7 +12,7 @@
 // `+` sépare les OPÉRATIONS d'un même fragment (arbitrage utilisateur).
 // `,` sépare les FRAGMENTS dont les 6 s'assemblent en 666.
 // `×3:programme` abrège la résonance (le même programme sur les 3 occurrences).
-// `sobre!` / `scenique!` préfixe l'approche entière — voir ci-dessous.
+// `so!` / `sce!` préfixe l'approche entière — voir ci-dessous.
 //
 // ── LE REGISTRE, et pourquoi ce n'est PAS un opérateur ──────────────────────
 //
@@ -76,20 +76,45 @@ const RE_RANGS = /^\d+(\+\d+)*$/;
 /**
  * Les deux registres de mise en scène, et le mot qui les écrit dans l'URL.
  *
- * Des mots entiers plutôt que des sigles : un lien se lit, se dicte et se
- * recopie à la main (la page d'accueil en affiche deux), et « sobre » y dit ce
- * qu'il fait là où un `s!` demanderait d'aller voir la documentation. Neuf
- * caractères au pire, sur des URL qui en font déjà soixante.
+ * ★ **`so!` et `sce!`, abrégés.** Le premier jet écrivait « sobre » et
+ * « scenique » en toutes lettres, au nom de la lisibilité. L'auteur a tranché
+ * dans l'autre sens, et son argument est meilleur que le mien : « l'URL reste
+ * essentiellement cryptique et ça participe à l'effet de surprise ». Le reste
+ * de la grammaire est déjà illisible — `0.1:fk+t1+mw` —, et un seul mot clair
+ * au milieu ne rendait pas le lien compréhensible : il annonçait juste, à qui
+ * reçoit le lien, qu'il y a quelque chose à voir. Trois lettres suffisent à
+ * distinguer les deux registres sans rien divulguer.
  *
  * Sans accent, comme tout le reste de la grammaire : une URL accentuée
  * s'échappe en `%C3%A9` dès qu'une messagerie la touche.
+ *
+ * ★ Les identifiants INTERNES (`'sobre'`, `'scenique'`) ne changent pas : c'est
+ * du code, il se lit. Seul le mot écrit dans l'URL est abrégé.
  */
 export const REGISTRES = Object.freeze(['sobre', 'scenique']);
+
+/** Le mot de chaque registre dans l'URL. */
+const MOT_URL = Object.freeze({ sobre: 'so', scenique: 'sce' });
 
 /** Le registre appliqué à un lien qui n'en porte pas — voir l'en-tête. */
 export const REGISTRE_DEFAUT = 'scenique';
 
-const RE_REGISTRE = /^(sobre|scenique)!/;
+/**
+ * ★ La forme longue est encore LUE, jamais écrite.
+ *
+ * Elle n'aura vécu qu'une version — la 1.2.0, publiée quelques heures —, mais
+ * les liens de cette fenêtre-là existent. Les relire coûte deux alternatives
+ * dans une expression rationnelle ; les casser coûterait un lien mort à qui
+ * s'en est servi. `ecrire()` ne produit plus que la forme brève, et
+ * `canoniser()` réécrit la barre d'adresse : un vieux lien se corrige tout seul
+ * dès qu'on l'ouvre.
+ */
+const RE_REGISTRE = /^(so|sce|sobre|scenique)!/;
+
+/** Le mot lu dans l'URL → l'identifiant interne. */
+const REGISTRE_DU_MOT = Object.freeze({
+  so: 'sobre', sce: 'scenique', sobre: 'sobre', scenique: 'scenique',
+});
 
 /**
  * @typedef {Object} FragmentUrl
@@ -143,7 +168,7 @@ export function lire(hash, options = {}) {
   let registreEcrit = false;
   const mReg = RE_REGISTRE.exec(approche);
   if (mReg) {
-    registre = mReg[1];
+    registre = REGISTRE_DU_MOT[mReg[1]];
     registreEcrit = true;
     approche = approche.slice(mReg[0].length);
   }
@@ -281,7 +306,7 @@ export function ecrire({ saisie, fragments, registre }) {
 /** Le préfixe de registre, normalisé. Une valeur inconnue retombe sur le défaut
  *  plutôt que d'écrire un marqueur que `lire()` refuserait de relire. */
 function marqueur(registre) {
-  return `${REGISTRES.includes(registre) ? registre : REGISTRE_DEFAUT}!`;
+  return `${MOT_URL[REGISTRES.includes(registre) ? registre : REGISTRE_DEFAUT]}!`;
 }
 
 /** Le registre OPPOSÉ — l'autre bouton du panneau de voie. */

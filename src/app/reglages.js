@@ -152,10 +152,51 @@ export function appliquerRepetitions() {
  *  n'existe que quand l'utilisateur s'est écarté du défaut. */
 export const sonActif = () => magasin.lire(CLE_SON) === 'actif';
 
+/**
+ * ★ L'UTILISATEUR S'EST-IL DÉJÀ PRONONCÉ SUR LE SON ?
+ *
+ * Trois valeurs possibles, là où il n'y en avait que deux : rien (jamais
+ * demandé), `actif`, `coupe`. Le troisième état est neuf, et il est nécessaire.
+ *
+ * **Pourquoi.** Le bouton de lecture du registre scénique doit partir « son
+ * activé par défaut » — c'est légitime, puisqu'on ne joue qu'après un CLIC, et
+ * qu'un clic est très exactement le geste que le navigateur attend pour
+ * autoriser le son. Mais il ne doit **jamais rallumer le son de quelqu'un qui
+ * l'a coupé**. « C'est activé par défaut, pas activé de force. »
+ *
+ * Or, tant que le refus s'écrivait en EFFAÇANT la clé, « n'a jamais demandé » et
+ * « a explicitement refusé » étaient le même état sur le disque, et la
+ * distinction était impossible. `basculerSon` écrit donc désormais `coupe` au
+ * lieu d'effacer. Le défaut ne change pas d'un iota — `sonActif()` teste
+ * toujours l'égalité à `actif`, donc l'absence de clé vaut toujours coupé, et
+ * le test qui gèle cette ligne (`src/app/sons.test.js`) reste vert.
+ */
+export const sonTranche = () => {
+  const v = magasin.lire(CLE_SON);
+  return v === 'actif' || v === 'coupe';
+};
+
+/**
+ * Active le son **si et seulement si** l'utilisateur ne s'est jamais prononcé.
+ *
+ * Appelé par le bouton de lecture du registre scénique (`pages/demonstration.js`).
+ * Rend l'état effectif, pour que l'appelant sache ce qu'il a obtenu.
+ */
+export function sonParDefautActif() {
+  if (!sonTranche()) {
+    magasin.ecrire(CLE_SON, 'actif');
+    appliquerSon();
+    prevenir();
+  }
+  return sonActif();
+}
+
 export function basculerSon() {
   const suivant = !sonActif();
-  if (suivant) magasin.ecrire(CLE_SON, 'actif');
-  else magasin.effacer(CLE_SON);
+  // ★ On écrit `coupe` plutôt que d'effacer : voir `sonTranche` ci-dessus. Un
+  //   refus effacé serait indiscernable d'une absence de choix, et le bouton de
+  //   lecture rallumerait le son de quelqu'un qui vient de le couper.
+  magasin.ecrire(CLE_SON, suivant ? 'actif' : 'coupe');
   appliquerSon();
   prevenir();
   return suivant;

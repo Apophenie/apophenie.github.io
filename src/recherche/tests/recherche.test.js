@@ -640,7 +640,7 @@ test('résonance — `hope-hope-hope` produit bien des approches en ×3', () => 
   const reso = r.approches.filter((a) => a.mode === 'RESONANCE');
   assert.ok(reso.length >= 1, 'le cas d’école du README doit être détecté');
   for (const a of reso) {
-    assert.match(a.url, /^#scenique!×3:/, 'l’URL doit employer l’abréviation de résonance');
+    assert.match(a.url, /^#sce!×3:/, 'l’URL doit employer l’abréviation de résonance');
     assert.equal(new Set(a.parts.map((p) => p.fragment.texte)).size, 1, 'les 3 fragments sont le même texte');
   }
 });
@@ -953,7 +953,20 @@ test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de 
   const tete = r.approches[0];
   assert.equal(tete.mode, 'MOISSON', `tête de liste : ${tete.mode} (${tete.codes})`);
   assert.equal(tete.series, 5, `${tete.series} séries — ${tete.codes}`);
-  assert.equal(tete.titre.fr, 'L’affichage à quatorze segments — cinq séries de 666');
+  // ⚠️ Cette assertion disait DEUX choses, et une seule survit. Elle vérifiait
+  // que la vedette du titre est bien le quatorze segments — c'est ce qui reste,
+  // et c'est ce qui compte : le titre doit nommer la méthode qui domine
+  // l'assemblage, pas la première venue. Elle vérifiait aussi que le titre
+  // ANNONÇAIT « cinq séries de 666 » ; ce compte est désormais interdit de
+  // titre (il divulgue la chute) et vit dans le listing seul. Il est déjà
+  // vérifié deux lignes plus haut, sur `tete.series`, là où il a du sens.
+  // On épingle la VEDETTE — « En quatorze segments » — et non la ligne entière : la
+  // précision qui la suit est calculée par rapport aux AUTRES voies de la liste
+  // (`distinguerTitres`), donc elle bouge dès qu'une voie entre ou sort du classement.
+  // Figer la ligne complète ferait échouer ce test pour une raison qui n'est pas la
+  // sienne.
+  assert.match(tete.titre.fr, /^En quatorze segments\b/, `titre : ${tete.titre.fr}`);
+  assert.ok(!/666|série/.test(tete.titre.fr), 'un titre ne divulgue jamais son résultat');
   // Les trois ingrédients demandés, et rien d'autre.
   const programmes = tete.parts.map((p) => p.chemin.ops.map((o) => o.code).join('+'));
   assert.equal(programmes.filter((p) => p === 't1+mw').length, 3, 'trois `hope` en quatorze segments');
@@ -977,7 +990,12 @@ test('★ moisson — `https://hope-hope-hope.fr/` atteint les six séries', () 
   const tete = r.approches[0];
   assert.equal(tete.mode, 'MOISSON');
   assert.equal(tete.series, 6, `${tete.series} séries — ${tete.codes}`);
-  assert.equal(tete.titre.fr, 'L’affichage à quatorze segments — six séries de 666');
+  // Même remarque qu'au test précédent : c'est la VEDETTE qu'on gèle ici, plus
+  // le compte de séries — que l'assertion `tete.series` ci-dessus tient déjà.
+  // Le titre est le même que sans le préfixe `https://`, et c'est normal : la
+  // méthode n'a pas changé, seule la récolte a grossi. C'est exactement ce que
+  // le titre ne doit plus dire.
+  assert.match(tete.titre.fr, /^En quatorze segments\b/, `titre : ${tete.titre.fr}`);
   // Le préfixe apporte bien trois 6 de plus, et sur SA propre portée.
   const sans = creerMoteur(catalogue).resoudre('hope-hope-hope.fr').approches[0];
   assert.equal(tete.series - sans.series, 1, 'une série de plus, exactement');

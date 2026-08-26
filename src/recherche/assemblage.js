@@ -9,6 +9,7 @@
 // hachage, O(nb de chemins), quasi gratuite.
 
 import { signature, comparerCodes, scorePartiel, maniere } from './score.js';
+import { FICELLES, nbTriptyques } from './elegance.js';
 import {
   appliquerOp, etat, normaliserCatalogue, operateursExplorables,
   cleEtat, cleTrace, rendreValeur, ordreCode,
@@ -365,19 +366,53 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   }
   // Plus de 6 d'abord ; à égalité, le vecteur le moins dilué (un `[6,6,6,6]`
   // vaut mieux qu'un `[6,6,6,5,7]`, qui laisse deux valeurs tomber) ; puis
-  // l'ordre déterministe du faisceau.
+  // l'ordre déterministe du faisceau. La dilution se lit sur le vecteur LE PLUS
+  // LARGE du chemin, jamais sur le dernier — voir `largeurMontree`.
   const six = (c) => compterSix(c.etats[c.etats.length - 1]);
-  const dilue = (c) => c.etats[c.etats.length - 1].valeur.length - six(c);
-  out.sort((a, b) => (six(b) - six(a)) || (dilue(a) - dilue(b)) || comparerChemins(a, b));
+  const dilue = (c) => largeurMontree(c, c.etats[c.etats.length - 1].valeur.length) - six(c);
+  out.sort((a, b) => (six(b) - six(a)) || (dilue(a) - dilue(b))
+    || (nbFicelles(a) - nbFicelles(b)) || comparerChemins(a, b));
 
   // N2/N3 puis N1, comme partout ailleurs : `fg+t1+mw` — passer en capitales
   // avant de compter les segments — montre le même vecteur que `t1+mw`, la
   // capitale n'y changeant rien. Sans normalisation, les deux occupaient deux
   // lignes de la liste, distinguées par leurs seuls codes. On en canonicalise
   // deux fois le plafond, pour que la déduplication ait de quoi puiser.
+  // ★ UNE FICELLE QUI N'APPORTE RIEN N'EST PAS PROPOSÉE.
+  //
+  // « De la triche à utiliser en DERNIER RECOURS si des méthodes plus élégantes
+  // ne parviennent pas à 666 » — l'auteur. Le barème d'élégance la punit, mais
+  // il ne la punit qu'à l'arrivée : entre-temps, la sélection par diversité
+  // (`score.js › diversifier`) VOIT une méthode de plus et lui fait de la place,
+  // parce que sa signature diffère. Mesuré sur `hope-hope-hope.fr` :
+  // `f6+t1+mw+m10` (élégance 1 539) évinçait `f6+t1+mw` (1 909) de la liste, les
+  // deux montrant exactement les mêmes douze 6.
+  //
+  // On coupe donc à la racine : une voie à ficelle est écartée dès qu'une voie
+  // SANS ficelle, sur la même portée, fait au moins aussi bien sur les trois
+  // choses que la ficelle prétend acheter — autant de 6, pas plus de gaspillage,
+  // autant de 666 écrits d'affilée. Elle n'a alors rien apporté du tout.
+  //
+  // ⚠️ Et elle n'est PAS écartée quand elle apporte quelque chose : sur
+  // `Macron`, `t1+m8` rend `[6,2,2,7,6,6]` — trois 6 dispersés, aucun 666 — et
+  // `t1+m8+m10` rend `[6,6,6]`. La ficelle reste, et c'est le barème qui la
+  // range où elle doit être.
+  const tete = out.slice(0, plafond);
+  const mesureDe = (c) => {
+    const fin = c.etats[c.etats.length - 1];
+    return { six: six(c), dilue: dilue(c), trip: nbTriptyques(fin.valeur) };
+  };
+  const honnetes = tete.filter((c) => !nbFicelles(c)).map(mesureDe);
+  const apporteQuelqueChose = (c) => {
+    if (!nbFicelles(c)) return true;
+    const m = mesureDe(c);
+    return !honnetes.some((h) => h.six >= m.six && h.dilue <= m.dilue && h.trip >= m.trip);
+  };
+
   const finaux = [];
   const vusCan = new Set();
-  for (const c of out.slice(0, plafond)) {
+  for (const c of tete) {
+    if (!apporteQuelqueChose(c)) continue;
     const n = normaliserChemin(c);
     const cle = cleTrace(n);
     if (vusCan.has(cle)) continue;
@@ -391,6 +426,60 @@ function compterSix(e) {
   if (!e || e.type !== 'NUMS') return 0;
   let n = 0;
   for (const x of e.valeur) if (x === 6) n++;
+  return n;
+}
+
+/**
+ * ★ LA LARGEUR RÉELLEMENT MONTRÉE PAR UN CHEMIN — le plus large de ses vecteurs.
+ *
+ * Deux tris départagent les candidats « à nombre de 6 égal » par la DILUTION :
+ * un `[6,6,6,6]` vaut mieux qu'un `[6,6,6,5,7]`, qui laisse deux valeurs
+ * tomber. Le critère est juste — mais il se lisait sur le DERNIER vecteur, et
+ * un opérateur qui rétrécit le vecteur AVANT la fin le blanchissait :
+ * `fk+t1+mw` finit sur `[x,6,6,y,6]` (dilution 2) là où `fk+t1+mw+m10` finit
+ * sur `[6,6,6]` (dilution 0), alors que les DEUX ont calculé et montré cinq
+ * valeurs. Le second n'a pas moins dilué : il a jeté plus tôt.
+ *
+ * ⚠️ MESURÉ. C'est par là que les trois ficelles (`m10`, `m11`, `m12`)
+ * évinçaient les voies de référence : sur `https://hope-hope-hope.fr/`, la
+ * moisson à six séries changeait de premier fragment, et la voie du contrat
+ * disparaissait de la liste — non parce qu'elle était moins élégante (2 233
+ * contre 2 219), mais parce qu'elle ne franchissait plus le tri des candidats.
+ *
+ * On lit donc la dilution sur le vecteur LE PLUS LARGE du chemin. C'est la
+ * lecture que CONTRACTS §7-5 laisse ouverte pour le critère de rendement `R` —
+ * et elle reste ouverte : ici, elle ne touche AUCUN score, seulement l'ordre
+ * dans lequel des candidats équivalents sont examinés.
+ */
+function largeurMontree(chemin, plancher = 0) {
+  let max = plancher;
+  for (const e of (chemin && chemin.etats) || []) {
+    if (e && e.type === 'NUMS' && e.valeur.length > max) max = e.valeur.length;
+  }
+  return max;
+}
+
+/**
+ * ★ Combien de FICELLES un chemin emploie — `m10`, `m11`, `m12`
+ * (`elegance.js › FICELLES`).
+ *
+ * ⚠️ MESURÉ, et c'est le second piège que ces trois opérateurs tendaient. Sur
+ * `hope-hope-hope.fr`, `f6+t1+mw` rend `[6,6,6,6,6,6,6,6,6,6,6,6,5,7]` et
+ * `f6+t1+mw+m10` rend les douze 6 tout seuls : MÊME récolte, MÊME lecture,
+ * MÊME gaspillage (les deux ont calculé quatorze valeurs). Rien ne les
+ * départageait, et c'est la ficelle qui passait — elle représentait alors la
+ * portée, et la voie honnête disparaissait de la liste.
+ *
+ * À récolte, lecture et gaspillage ÉGAUX, la ficelle n'a rien apporté : elle
+ * passe donc derrière. Ce n'est pas le barème d'élégance qui parle ici — il
+ * n'est calculé que bien plus tard, sur les approches assemblées —, c'est la
+ * même idée, appliquée là où le choix se fait réellement.
+ */
+function nbFicelles(chemin) {
+  let n = 0;
+  for (const o of (chemin && chemin.ops) || []) {
+    if (o && o.id && Object.prototype.hasOwnProperty.call(FICELLES, o.id)) n++;
+  }
   return n;
 }
 
@@ -519,6 +608,22 @@ function candidatsDePortee(texte, ops, chemins) {
   const vus = new Set();
   const out = [];
   const ajouter = (chemin) => {
+    // ★ AUCUNE FICELLE DANS UNE MOISSON. Le mode vaut par ce que chaque portée
+    //   SAIT donner — « chaque jeton donne ce qu'il sait donner, par le
+    //   programme qui lui convient ». Une ficelle ne prend pas ce qu'un jeton
+    //   donne : elle jette ce qu'il donne en trop, à l'intérieur de la portée,
+    //   et avant que la moisson ne compte. C'est le dernier endroit où le
+    //   blanchiment pouvait encore passer, et c'est le pire.
+    //
+    //   ⚠️ MESURÉ. Sur « La numérologie est un art taquin », `t1+mw+m10`
+    //   fabriquait une SIXIÈME série là où les voies honnêtes en font cinq :
+    //   la liste affichait alors 5 séries au rang 1 (championne d'élégance) et
+    //   6 au rang 2 (championne des triptyques), c'est-à-dire un compte qui
+    //   REMONTE — ce qu'un test de classement interdit depuis toujours.
+    //
+    //   Les ficelles restent pleinement disponibles au GROUPEMENT, qui est le
+    //   mode de tous les exemples de l'auteur : un vecteur, une ficelle, un 666.
+    if (nbFicelles(chemin)) return;
     const s = sixDuChemin(chemin);
     if (!s) return;
     const cle = chemin.ops.map((o) => o.code).join('+');
@@ -539,9 +644,14 @@ function candidatsDePortee(texte, ops, chemins) {
   // les distingue pas : elle compte les caractères de la PORTÉE, pas ceux que
   // le programme regarde. Ici, si.
   const lus = (c) => caracteresLus(c.chemin, texte);
+  // ★ La dilution se lit sur le vecteur LE PLUS LARGE du chemin (voir
+  //   `largeurMontree`) : `c.total` est celui du dernier état, et un opérateur
+  //   qui rétrécit avant la fin s'y ferait passer pour économe — `mz` le fait
+  //   déjà, honnêtement, et la mesure doit le voir.
+  const jetees = (c) => largeurMontree(c.chemin, c.total) - c.six;
   out.sort((a, b) => (b.six - a.six)
     || (lus(b) - lus(a))
-    || ((a.total - a.six) - (b.total - b.six))
+    || (jetees(a) - jetees(b))
     || comparerChemins(a.chemin, b.chemin));
   return out.slice(0, MAX_CANDIDATS_PORTEE);
 }

@@ -73,6 +73,16 @@ export function abreger(texte, max = 72) {
   return (espace > max * 0.6 ? coupe.slice(0, espace) : coupe) + '…';
 }
 
-/** Numéro de transformation : `T-03/07`. Notation machine, sans langue. */
+/**
+ * Numéro de transformation : `03/07`. Notation machine, sans langue.
+ *
+ * ★ Le préfixe `T-` a sauté : « "T-" est obscur, contente-toi de
+ * "{step}/{total}" » (l'auteur). Il ne voulait rien dire — ni « transformation »
+ * pour qui n'a pas lu le code, ni un compte à rebours, ce à quoi il ressemblait
+ * le plus. Deux nombres séparés d'une barre se lisent sans glossaire.
+ *
+ * Les zéros de tête restent : ils tiennent la largeur du cartouche constante,
+ * si bien qu'il ne sautille pas d'un chiffre à l'autre au fil de la lecture.
+ */
 export const badgeT = (i, total) =>
-  `T-${String(i + 1).padStart(2, '0')}/${String(total).padStart(2, '0')}`;
+  `${String(i + 1).padStart(2, '0')}/${String(total).padStart(2, '0')}`;

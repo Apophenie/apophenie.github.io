@@ -1,6 +1,13 @@
 /**
  * ★ L'ORAGE SONORE — la dérivation, la licence, et la politique du silence.
  *
+ * ★ Ils sont TROIS depuis que l'ambiance a été retirée (« l'ambiance continue
+ * n'est pas ce que je voulais : je voulais un son de surprise / effroi ponctuel
+ * au moment de faire apparaître les cornes », l'auteur). Le test « aucun
+ * fichier orphelin » ci-dessous est ce qui rend ce retrait PROPRE : un `.ogg`
+ * oublié dans le dossier serait servi sans être ni encodé, ni documenté, ni
+ * joué.
+ *
  * Trois choses sont vérifiées ici, et aucune ne se verrait en relisant du code :
  *
  *  1. **`src/sons/data.js` n'a pas dérivé des `.ogg`.** C'est une donnée
@@ -16,7 +23,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -24,7 +31,7 @@ import * as data from '../sons/data.js';
 
 const racine = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const dossier = resolve(racine, 'src/sons');
-const NOMS = ['abime', 'effroi', 'tonnerre', 'brasier'];
+const NOMS = ['effroi', 'tonnerre', 'brasier'];
 
 /* ═════════════════════ 1. LA DÉRIVATION ══════════════════════════════════ */
 
@@ -69,19 +76,45 @@ test('★ sons — chacun dit sa source, son auteur et sa licence', () => {
   // Quatre provenances distinctes, une par son : un lien qui servirait deux
   // fois serait le signe qu'une attribution a été recopiée sans être vérifiée.
   const sources = [...texte.matchAll(/^ {3}Source {4}: (\S+)$/gm)].map((m) => m[1]);
-  assert.equal(sources.length, 4, 'une ligne « Source » par son');
-  assert.equal(new Set(sources).size, 4, 'quatre provenances distinctes');
+  assert.equal(sources.length, NOMS.length, 'une ligne « Source » par son');
+  assert.equal(new Set(sources).size, NOMS.length, 'autant de provenances distinctes que de sons');
 });
 
-test('sons — le pied de page les cite, comme il cite les polices', () => {
-  const fr = readFileSync(resolve(racine, 'src/i18n/fr.js'), 'utf8');
-  const en = readFileSync(resolve(racine, 'src/i18n/en.js'), 'utf8');
-  for (const [langue, texte] of [['fr', fr], ['en', en]]) {
-    assert.match(texte, /sons\/CC0-sons\.txt/, `${langue} : le pied doit pointer la licence`);
-    assert.match(texte, /CC0 1\.0/, `${langue} : la licence doit être nommée`);
-  }
+/**
+ * ★ Le pied de page ne récite plus les licences — le README les porte.
+ *
+ * « Contente-toi de mettre "Projet libre, remonter aux sources" » (l'auteur).
+ * L'attribution ne disparaît pas pour autant : elle remonte d'un cran, là où
+ * quelqu'un qui veut vraiment savoir ira la chercher. Ce test suit donc la
+ * chaîne complète — le pied pointe le dépôt, le README nomme les licences, et
+ * les textes sont bien là où le README dit qu'ils sont.
+ */
+test('sons — la chaîne d’attribution tient : pied → README → texte de licence', () => {
   const html = readFileSync(resolve(racine, 'src/index.html'), 'utf8');
-  assert.match(html, /data-i18n-html="pied\.sons"/, 'le pied doit porter la ligne, pas seulement le dictionnaire');
+  assert.match(html, /data-i18n-html="pied\.libre"/, 'le pied ne pointe plus les sources');
+  assert.match(html, /framagit\.org/, 'le lien du pied ne mène nulle part');
+
+  for (const langue of ['fr', 'en']) {
+    const texte = readFileSync(resolve(racine, `src/i18n/${langue}.js`), 'utf8');
+    assert.match(texte, /pied: \{[\s\S]*?libre:/, `${langue} : le pied n’a plus sa ligne`);
+    assert.match(texte, /framagit\.org/, `${langue} : le pied ne pointe plus le dépôt`);
+  }
+
+  const readme = readFileSync(resolve(racine, 'README.md'), 'utf8');
+  assert.match(readme, /CC0 1\.0/, 'le README ne nomme plus la licence des sons');
+  assert.match(readme, /src\/sons\/CC0-sons\.txt/, 'le README ne dit plus où la lire');
+  assert.match(readme, /AGPL-3\.0/, 'le README ne nomme plus la licence du code');
+  assert.match(readme, /SIL OFL 1\.1/, 'le README ne nomme plus celle des polices');
+  // Les deux dépôts, comme demandé.
+  assert.match(readme, /framagit\.org\/1crea\/numherololgeek/, 'le dépôt de référence manque');
+  assert.match(readme, /github\.com\/Apophenie/, 'le miroir de publication manque');
+
+  // Et les fichiers annoncés existent vraiment : une table de licences qui
+  // pointe dans le vide est pire qu'une absence de table.
+  for (const f of ['LICENSE', 'src/sons/CC0-sons.txt', 'src/fonts/OFL-Jost.txt',
+    'src/fonts/OFL-JetBrainsMono.txt', 'src/fonts/OFL-DSEG.txt']) {
+    assert.ok(existsSync(resolve(racine, f)), `${f} est annoncé par le README mais absent`);
+  }
 });
 
 /* ═════════════════════ 3. LA POLITIQUE DU SILENCE ════════════════════════ */

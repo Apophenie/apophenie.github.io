@@ -71,3 +71,78 @@ test('★ autoplay — la page fournit la condition, le moteur la consulte', () 
   assert.ok(refus > 0 && consomme > refus,
     'la condition doit être évaluée AVANT que l’autoplay soit consommé');
 });
+
+/* ══════════════════ LE RIDEAU DU REGISTRE SCÉNIQUE ═════════════════════════
+   « En mode scénique, pour avoir le son activé par défaut, plutôt qu'un
+   autoplay, estompe la scène initiale (façon arrière-plan de lightbox) et mets
+   un gros bouton play devant, par-dessus la scène, pour que l'affordance soit
+   maximale. En mode sobre, laisse l'autoplay. » (l'auteur)
+
+   Ce qui se vérifie ici ne se voit pas en regardant la page : le TROC. On
+   renonce à l'autoplay en scénique parce que c'est la seule façon d'avoir du
+   son — le navigateur exige un geste —, et l'on garde l'autoplay en sobre
+   parce qu'il n'y a rien à débloquer. Un jour, quelqu'un « corrigera »
+   `autoplay: !scenique` en `autoplay: true` en croyant réparer un oubli. */
+
+test('★ rideau — pas d’autoplay en SCÉNIQUE, autoplay conservé en SOBRE', () => {
+  const page = lire('./pages/demonstration.js');
+  assert.match(page, /autoplay:\s*!scenique/,
+    'l’autoplay doit être refusé au seul registre scénique — c’est ce qui PERMET le son');
+  assert.match(page, /const rideau = scenique \? construireRideau\(\) : null/,
+    'le rideau doit être réservé au registre scénique');
+});
+
+test('★ rideau — le son part ACTIF, mais jamais contre un refus explicite', () => {
+  const page = lire('./pages/demonstration.js');
+  const reglages = lire('./reglages.js');
+
+  // Le clic demande l'activation PAR DÉFAUT, pas l'activation.
+  assert.match(page, /sonParDefautActif\(\)/, 'le clic sur lecture n’active plus le son');
+  assert.doesNotMatch(page, /basculerSon\(\)/,
+    'le rideau ne doit pas BASCULER le son : il le poserait à « coupé » chez qui l’avait actif');
+
+  // Et l'activation par défaut se refuse dès que l'utilisateur s'est prononcé.
+  assert.match(reglages, /export function sonParDefautActif\(\)\s*\{\s*if \(!sonTranche\(\)\)/,
+    'l’activation par défaut ne consulte plus le choix de l’utilisateur');
+
+  // ★ Le troisième état est ce qui rend la distinction possible : tant que le
+  //   refus s'écrivait en EFFAÇANT la clé, « jamais demandé » et « refusé »
+  //   étaient le même état sur le disque.
+  assert.match(reglages, /magasin\.ecrire\(CLE_SON, suivant \? 'actif' : 'coupe'\)/,
+    'le refus doit s’ÉCRIRE, sinon il est indiscernable d’une absence de choix');
+  assert.match(reglages, /export const sonActif = \(\) => magasin\.lire\(CLE_SON\) === 'actif'/,
+    'le défaut ne doit pas changer : l’absence de clé vaut toujours « coupé »');
+});
+
+test('★ rideau — un vrai bouton, un nom accessible, et RETIRÉ du DOM au clic', () => {
+  const page = lire('./pages/demonstration.js');
+  assert.match(page, /e\('button\.scene-jouer'/, 'le bouton de lecture doit être un vrai `<button>`');
+  assert.match(page, /'aria-label': t\(/, 'le bouton n’a pas de nom accessible');
+  // Masquer ne suffit pas : un voile caché reste un nœud que les technologies
+  // d'assistance peuvent rencontrer, et un piège potentiel pour le focus.
+  assert.match(page, /element\.remove\(\)/, 'le voile doit être RETIRÉ, pas masqué');
+  assert.match(page, /cadre\.focus\(\{ preventScroll: true \}\)/,
+    'le focus doit suivre ce qui disparaît, sinon il retombe sur `<body>`');
+  // Aucun piège de focus : rien qui intercepte Tab ni ne renvoie le focus.
+  assert.doesNotMatch(page, /keydown[\s\S]{0,200}Tab/,
+    'un piège de focus s’est glissé dans le rideau');
+});
+
+test('★ rideau — la scène est estompée, et l’estompe part avec le voile', () => {
+  const page = lire('./pages/demonstration.js');
+  const css = readFileSync(resolve(ici, '../styles/pages.css'), 'utf8');
+  assert.match(page, /classList\.add\('scene-cadre--rideau'\)/);
+  assert.match(page, /classList\.remove\('scene-cadre--rideau'\)/,
+    'l’estompe survivrait au voile : la démonstration se jouerait derrière un verre dépoli');
+  // ★ L'estompe est le VOILE, pas un `filter` sur la scène. Une première
+  //   rédaction assombrissait le `<svg>` PUIS le recouvrait : en thème clair,
+  //   un fond pâle assombri sous un voile pâle donnait un cadre blanc — on ne
+  //   « devinait » plus rien du tout. Un arrière-plan de lightbox est un voile,
+  //   et ce n'en est jamais autre chose.
+  assert.doesNotMatch(css, /\.scene-cadre--rideau \.scene \{ filter:/,
+    'l’estompe ne doit pas être un filtre sur la scène : elle l’efface au lieu de la voiler');
+  assert.match(css, /\.scene-cadre--rideau \.badge-transformation \{ opacity: 0; \}/,
+    'le badge d’étape doit se taire sous le rideau : il annonce une étape que personne ne regarde');
+  assert.match(css, /\.scene-voile \{[\s\S]*?position: absolute;[\s\S]*?inset: 0;/,
+    'le voile ne couvre plus la scène');
+});

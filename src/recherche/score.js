@@ -12,6 +12,8 @@
 // Le test `tests/etalonnage.test.js` mesure l'écart avec le tableau attendu.
 
 import { estDecret } from './titres.js';
+// ★ `elegance.js` n'importe RIEN : la dépendance est à sens unique, sans cycle.
+import { FICELLES } from './elegance.js';
 import {
   bilanApproche, credit as creditDElegance, facteur as facteurDElegance,
   note as noteDElegance, estPur,
@@ -683,6 +685,25 @@ export function noter(approche, ctx) {
  * neutre : elle n'a rien laissé tomber. Le calcul ne mord que là où il y a du
  * déchet, et c'est exactement ce qu'on lui demande.
  */
+/**
+ * La largeur à porter au dénominateur du rendement : celle du dernier vecteur,
+ * sauf si le chemin emploie une ficelle — auquel cas celle du PLUS LARGE.
+ * Voir le commentaire dans `rendementSix`.
+ */
+function largeurDuChemin(chemin, defaut) {
+  const ops = (chemin && chemin.ops) || [];
+  let ficelle = false;
+  for (const o of ops) {
+    if (o && o.id && Object.prototype.hasOwnProperty.call(FICELLES, o.id)) { ficelle = true; break; }
+  }
+  if (!ficelle) return defaut;
+  let max = defaut;
+  for (const e of (chemin && chemin.etats) || []) {
+    if (e && e.type === 'NUMS' && e.valeur.length > max) max = e.valeur.length;
+  }
+  return max;
+}
+
 function rendementSix(approche) {
   const parts = approche.parts;
   if (!parts || !parts.length) return null;
@@ -698,7 +719,27 @@ function rendementSix(approche) {
       if (fin.valeur === 6) six++;
     } else if (fin.type === 'NUMS' && fin.valeur.length) {
       unVecteur = true;
-      total += fin.valeur.length;
+      // ★ UNE FICELLE NE SE FAIT PAS NOTER SUR CE QU'ELLE A JETÉ.
+      //
+      // CONTRACTS §7-5 laisse ouverte la question « le rendement doit-il
+      // regarder le vecteur LE PLUS LARGE du chemin, ou le dernier ? », et le
+      // dernier l'emporte encore : c'est un arbitrage d'auteur, et `mz` en
+      // profite (il rétrécit honnêtement, après avoir CONSTATÉ un 666 déjà
+      // écrit).
+      //
+      // ⚠️ Mais pour les trois ficelles (`m10`, `m11`, `m12` —
+      // `elegance.js › FICELLES`), la question ne se pose pas : rétrécir EST
+      // leur raison d'être. Les noter sur ce qu'il reste leur donnait un
+      // rendement PARFAIT pour avoir jeté davantage. Mesuré sur « La
+      // numérologie est un art taquin » : `f6+t1+mw+m10` marquait 3 797 contre
+      // 2 715 à `f6+t1+mw`, qui montre exactement les mêmes 6 — la ficelle
+      // gagnait 1 082 points de conviction en effaçant ses propres déchets, et
+      // passait devant la voie honnête dans la liste.
+      //
+      // On lit donc, pour elles et pour elles seules, le vecteur le plus large
+      // du chemin. Ce n'est pas l'arbitrage de §7-5 tranché en douce : c'est le
+      // refus d'un rendement qui RÉCOMPENSE le gaspillage.
+      total += largeurDuChemin(p.chemin, fin.valeur.length);
       for (const x of fin.valeur) if (x === 6) six++;
     } else return null;
   }

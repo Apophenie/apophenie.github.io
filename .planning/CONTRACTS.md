@@ -157,6 +157,40 @@ vectorielle doit les reproduire, sommes de contrôle incluses
 | Carte OpenGraph | **Générique unique** + bouton « Partager » copiant un texte personnalisé. |
 | Web Worker | **Interface `postMessage` prévue dès maintenant**, exécution inline en v1. |
 
+> *Amendement — L'ORAGE SONORE passe de quatre sons à TROIS.*
+>
+> « Le bruit d'orage est parfait et l'effet de foudre aussi. **L'ambiance
+> continue n'est pas ce que je voulais** : je voulais un son de surprise /
+> effroi **ponctuel** au moment de faire apparaître les cornes, façon jumpscare
+> ou rire machiavélique. » (l'auteur)
+>
+> ★ **`abime` est retiré, et l'argument est plus général qu'un goût.** Un fond
+> continu ne peut souligner **aucun** instant, par définition : ce qui est
+> toujours là ne dit jamais « maintenant ». Il n'accompagnait donc pas la
+> démonstration, il l'occupait — et il couvrait le seul son qui, lui, désigne un
+> instant.
+>
+> ★ **Le sursaut existait déjà, et c'était le bon.** `effroi` était joué au
+> couronnement mais noyé sous le drone. Vérifié plutôt que supposé : son
+> enveloppe, relevée à `ffmpeg` crête à crête sur des fenêtres de 100 ms, monte
+> de −21 dB à **−2,2 dB en 400 ms** puis retombe en 1,2 s. C'est la forme d'un
+> « horror hit » — montée courte, impact, queue brève —, pas celle d'une nappe.
+> Il n'y avait rien à chercher ailleurs : il fallait retirer ce qui le couvrait.
+> Son niveau passe de 0,70 à 0,86 (il ne perce plus un fond, il tombe dans le
+> silence), et il part à l'ENTRÉE de l'étape : ses 400 ms de montée placent
+> l'impact à peu près quand les cornes jaillissent.
+>
+> ★ **Le poids.** `abime.ogg` pesait 22 588 octets, soit 30 120 octets de base64
+> dans `src/sons/data.js`. Le son servi passe de **51 107 à 28 519 octets**
+> (−44 %), et `data.js` de 70 083 à 39 798. Les sons pèsent désormais nettement
+> moins que la typographie (67 712 octets de woff2), et le budget de §7.6 est
+> tenu avec plus de marge qu'avant.
+>
+> ★ **Effet de bord sur WCAG 1.4.2** : plus aucun son ne démarre et ne dure plus
+> de trois secondes avant le verdict. Le brasier reste — c'est le seul son qui
+> décrive un ÉTAT de la scène (les 666 brûlent) et non un instant —, et il ne
+> s'allume qu'à la chute.
+
 ---
 
 ## 1. Arborescence et répartition
@@ -1225,6 +1259,181 @@ ici**, puis l'émettre.
 > (`visuel/tests/orage.test.js`), dont celui qui compte les éclats et celui qui
 > vérifie que la timeline SANS scénographie est rigoureusement celle d'avant.
 
+> *Amendement — LE FEU REFAIT, TROISIÈME ÉTAT : la pile d'ombres d'atnyman, en
+> `drop-shadow()`. Et il survit à la fin de la lecture.*
+>
+> **Les demandes de l'auteur, dans l'ordre où elles sont venues.**
+>
+> 1. « L'effet de feu est catastrophique. En voici qui sont bien plus
+>    satisfaisants » — six pages, **rapatriées dans le dépôt**
+>    (`.planning/inspirations/feu/`, une par dossier, sources complètes). Elles
+>    ne sont pas un décor documentaire : « c'est avant tout les liens que je t'ai
+>    fournis, les pistes à lui donner ».
+> 2. « L'effet de feu doit **perdurer et rester animé une fois le verdict
+>    terminé** », précisé : « l'idéal serait que le feu puisse germer juste après
+>    la foudre et perdurer après — et si on revient en arrière, disparaître quand
+>    on remonte avant la foudre ».
+> 3. « Ils sont **identiques**, **réguliers**, et **derrière chaque chiffre**. Je
+>    ne veux pas un feu derrière chaque chiffre, mais que **les chiffres
+>    eux-mêmes s'enflamment** (de même que les cornes). »
+> 4. « Ça ressemble plus à des **feuilles qui s'échappent des 6** qu'à des
+>    flammes. Peux-tu tenter ma version préférée ou me dire pourquoi tu
+>    l'écartes ? Sinon la première, en text-shadow, surtout si tu peux l'adapter
+>    pour pouvoir l'utiliser aussi bien pour du texte que pour des formes SVG. »
+>
+> ---
+>
+> ★ **TROIS MONTAGES ONT ÉTÉ ESSAYÉS. Les deux premiers sont morts, et leurs
+> cadavres disent quoi ne pas refaire.**
+>
+> | # | montage | ce qu'il a appris |
+> |---|---|---|
+> | 1 | un **foyer dessiné** derrière chaque chiffre | une flamme et un glyphe n'ont pas la même forme ; **aucun raffinement du dessin ne rattrape ça** |
+> | 2 | des **copies nettes** du glyphe, décalées et refroidies | la bonne idée, la mauvaise exécution : **sans flou, une copie se lit comme un objet** — une feuille, une découpe. Le feu n'a pas de bord |
+> | 3 | la **pile de `drop-shadow()`** d'atnyman | retenu |
+>
+> ---
+>
+> ★ **LA TECHNIQUE : `text-shadow` → `drop-shadow()`, et c'est l'adaptation
+> demandée.**
+>
+> `01-atnyman` empile **sept ombres colorées sur le glyphe lui-même**, décalées
+> vers le haut, du blanc-jaune au cœur jusqu'à la braise en tête, avec des flous
+> croissants. **Le feu EST le halo du glyphe** — c'est littéralement « que les
+> chiffres eux-mêmes s'enflamment ».
+>
+> `text-shadow` ne s'applique qu'au texte. **`filter: drop-shadow()` s'applique à
+> n'importe quel élément SVG** — un `<text>` comme un `<path>` —, si bien que la
+> même pile vaut pour **les chiffres ET pour les cornes**, par un seul chemin de
+> code (un test l'exige : deux chemins finiraient par diverger).
+>
+> ★ **Le corps qui brûle est peint COULEUR DE NUIT.** C'est le tour de main
+> d'atnyman : sa lettre est noire sur fond noir, on ne voit d'elle que ses
+> ombres. **Conséquence non recherchée et décisive : la lisibilité du verdict est
+> rendue par CONSTRUCTION.** `drop-shadow()` peint derrière l'élément qui la
+> porte ; la copie couleur de nuit couvre donc exactement l'empreinte du glyphe,
+> et le vrai chiffre — peint par-dessus, en rubrique — repose sur du fond pur,
+> avec ses **7,4:1**, partout, sans dérogation. Les deux montages précédents
+> devaient tous deux **acheter** leur lisibilité (l'un en pâlissant ses flammes,
+> l'autre par un dégradé de pied, au prix d'une dérogation nommée) ; celui-ci
+> n'achète rien.
+>
+> ★ **La corne brûle dans le MÊME nœud que son 6.** Elle lui est déjà accrochée
+> (`data.suit`) : les deux corps partagent le repère, l'échelle et l'instant de
+> naissance sans une ligne d'arithmétique. On relit son `d`, rien d'autre — le
+> nœud des cornes n'est ni déplacé ni redessiné, et le calage dérivé de la police
+> et vérifié en CI est intact.
+>
+> ---
+>
+> ★ **LE COÛT — la mesure a commandé le montage, pas l'inverse.**
+>
+> Une chaîne de `drop-shadow()` est une chaîne de passes de flou, et le décor du
+> verdict grossit ×8. Mesuré (`src/gfx/_feu-perf.html`, rendu **logiciel**, donc
+> pire cas) :
+>
+> | montage | 6 foyers ×4 | 15 foyers ×8 |
+> |---|---|---|
+> | filtre **animé** (atnyman transposé tel quel) | **> 100 %** d'un cœur | **> 100 %** |
+> | filtre **figé** | **0 %** | — |
+> | **deux filtres figés, opacité animée** (retenu) | **25 %** | **51 %** |
+>
+> ★ **Un filtre statique est tramé une fois et mis en cache ; un filtre animé est
+> refait à chaque image.** Toute la dépense est là — le nombre de couches, lui,
+> ne change presque rien (on en garde cinq des sept, redistribuées pour que la
+> pile MONTE aussi haut : sans quoi le flou étant isotrope, on obtient un halo
+> rond, joli et faux).
+>
+> Le feu est donc **deux corps superposés à chaînes figées**, dont l'un voit son
+> **opacité** aller et venir. `opacity` est un canal de composition : le moteur
+> mêle deux tramages déjà en cache. On garde la respiration d'atnyman sans payer
+> une passe de flou par image. ★ Et le corps de braise garde son opacité à un,
+> jamais animée : c'est lui qui SCELLE l'empreinte du glyphe. Deux corps qui se
+> fondraient l'un dans l'autre laisseraient à mi-fondu un trou par lequel les
+> halos remonteraient sous le chiffre.
+>
+> ---
+>
+> ★ **LA SURVIE APRÈS LA FIN — et où l'on sort de « tout est fonction du temps ».**
+>
+> C'est le point de doctrine, et il touche §3. On sépare deux choses :
+>
+> · **la PRÉSENCE du feu** — a-t-il pris ? C'est un ÉTAT de la démonstration. Il
+>   reste **fonction du temps de la timeline** : une seule montée d'opacité,
+>   `forwards`, qui part **juste après la foudre** ; `seek()` en arrière la
+>   ramène à zéro ;
+> · **le VACILLEMENT** — la forme des flammes à un instant donné. Ce n'est **pas**
+>   un état de la démonstration : aucune valeur, aucun rang, aucun compte n'en
+>   dépend, et **Le Registre n'a rigoureusement rien à en dire**. C'est
+>   exactement l'argument qui garde l'orage hors du vocabulaire, appliqué au
+>   temps plutôt qu'au lexique. N'étant pas fonction du temps de la timeline, il
+>   n'a aucune raison de s'arrêter avec elle — ce sont des `@keyframes` CSS
+>   autonomes.
+>
+> **C'est l'option 1 de l'auteur, la préférée, sans compromis** : le feu germe
+> dans la timeline juste après la foudre, survit indéfiniment à la fin de la
+> lecture, et s'éteint dès qu'on remonte avant son allumage. Ni minuterie de
+> trente secondes, ni effet déclenché hors timeline.
+>
+> ★ **Et rien ne tourne dans le vide.** Les animations sont `paused` par défaut ;
+> l'attribut `data-embrasement`, posé sur la racine de la scène par `player.js`
+> **en fonction de `currentTime`** et résolu dans le même `_render()` que le
+> canal discret — donc après chaque `seek()` comme à chaque image —, les met en
+> marche. L'instant d'allumage n'est pas déclaré mais **dérivé** de la timeline
+> (le départ du premier brasier) : une valeur en double pourrait se
+> désynchroniser du geste qu'elle décrit, celle-ci ne le peut pas.
+>
+> ---
+>
+> ★ **« IDENTIQUES » ET « RÉGULIERS » — et les deux défauts que les tests ont
+> attrapés, que l'œil n'aurait jamais vus.**
+>
+> · **Identiques** — une empreinte FNV-1a de l'identifiant du jeton donne à
+>   chaque foyer sa période, sa phase et son ampleur. ⚠ **Mais FNV-1a mélange mal
+>   ses bits de poids fort** : sur des identifiants qui ne diffèrent que par leur
+>   fin (`d0`, `d1`, `d2`…), les vingt-quatre bits de tête restaient presque les
+>   mêmes, et les quinze foyers d'une moisson tiraient **cinq** ampleurs
+>   distinctes au lieu de quinze, toutes entre 0,94 et 1,04. La variété réclamée
+>   n'avait lieu **qu'en apparence**. Un finaliseur `lowbias32` règle le compte ;
+>   un test compte les valeurs distinctes.
+> · **Réguliers** — chaque foyer tire sa période entre deux **nombres premiers**.
+>   ⚠ Une rédaction antérieure employait 1 130 / 1 490 / 1 870 ms — « différents »
+>   mais tous multiples de dix, donc de ppcm **168 secondes** : le feu se rejouait
+>   à l'identique toutes les deux minutes quarante-huit. Un `pgcd` en CI l'exige
+>   désormais, et un second test vérifie qu'aucune paire de foyers réels ne se
+>   remet en phase avant plusieurs minutes.
+>
+> ---
+>
+> ★ **CE QU'ON A REFUSÉ : le pen préféré de l'auteur (`06-pizza3`), et pourquoi.**
+>
+> La vendorisation est autorisée (« packager une dépendance en interne pour la
+> servir localement, c'est ok »), ce qui lève l'objection de réseau. Restent cinq
+> raisons, dont trois sont structurelles — le détail est dans
+> `.planning/inspirations/feu/README.md` :
+>
+> 1. **le poids** — `three.min.js` r120 pèse **642 741 octets** bruts (159 887
+>    gzippés) plus 20 860 de post-traitement, quand le bundle JS du site fait
+>    448 690 : on le **doublerait** pour un effet, contre un budget de 260 Ko (§7.6) ;
+> 2. ★ **le contexte de rendu est étranger** — un canvas WebGL dans la scène
+>    exigerait `foreignObject`, interdit par §3.2 règle 9 ; hors de la scène, il
+>    faudrait **dupliquer toute la chaîne de mise en page** dans un second
+>    système de coordonnées ;
+> 3. ★ **le feu cesserait d'être un décor accroché** (§3.2 règle 10) : il ne
+>    pourrait plus suivre chaque 6 au reflow ni grandir avec lui. C'est la classe
+>    de défauts que « UNE CORNE, UN NŒUD » a supprimée par construction ;
+> 4. **le shader peint une SPHÈRE** — une boule de feu, pas un feu qui épouse une
+>    silhouette ; et son bloom, qui fait toute sa beauté, s'applique à la passe
+>    entière et laverait le reste de la scène ;
+> 5. **déterminisme** — un `time` de shader tiré d'un `requestAnimationFrame`
+>    n'est pas une fonction du temps de la timeline (§3, §4.4).
+>
+> **Le renoncement porte sur l'implémentation, pas sur l'effet** : la hiérarchie
+> franche du sombre au clair et la matière qui monte se retrouvent dans la pile
+> d'ombres — cinq paliers nettement distincts, et des couleurs qui remontent la
+> rampe d'un cran entre les deux états. C'est d'ailleurs le vrai trait de génie
+> d'atnyman, et il ne saute pas aux yeux à la lecture de son CSS.
+
 ### 3.2 Pièges figés en règles
 
 1. `fill: 'forwards'`, **jamais `'both'`** (une animation tardive rétro-remplirait sa
@@ -1432,6 +1641,53 @@ L'UI est un **pur reflet** de `player` : aucune logique propre.
 
 ### 3.4 Autoplay
 
+> *Amendement — LE RIDEAU DU REGISTRE SCÉNIQUE : pas d'autoplay, un bouton, et
+> le son qui part actif.*
+>
+> « En mode scénique, pour avoir le son activé par défaut, plutôt qu'un
+> autoplay, **estompe la scène initiale** (façon arrière-plan de lightbox) et
+> **mets un gros bouton play devant**, par-dessus la scène, pour que
+> l'affordance soit maximale. **En mode sobre, laisse l'autoplay.** » (l'auteur)
+>
+> ★ **Pourquoi ce troc est gagnant, et ce n'est pas une question de goût.** Le
+> navigateur bloque le son tant qu'aucun geste n'a eu lieu. Une démonstration
+> qui s'autojoue ne peut donc **jamais** avoir de son — c'était la raison b) du
+> silence par défaut : « un réglage dont l'effet dépend de ce que l'utilisateur
+> a fait juste avant n'est pas un réglage, c'est une loterie ». Un **clic sur
+> lecture EST ce geste**. En renonçant à l'autoplay, on n'échange pas une
+> commodité contre une gêne : on échange une seconde d'attente contre la seule
+> mise en scène sonore qui puisse fonctionner de façon fiable.
+>
+> Et les trois autres raisons du silence par défaut tombent du même coup : plus
+> de drone lâché dans une pièce à l'ouverture d'un lien partagé, plus de son
+> automatique de plus de trois secondes à arrêter (WCAG 1.4.2), plus de surprise
+> contraire à ce que promet le pied de page.
+>
+> ★ **En SOBRE, l'autoplay reste tel quel**, avec ses six conditions. Il n'y a
+> là ni scénographie ni son : rien à débloquer, donc rien à échanger.
+>
+> ★ **« Activé par défaut », pas « activé de force ».** Il fallait pour cela un
+> **troisième état** du réglage de son, là où il n'y en avait que deux. Tant que
+> le refus s'écrivait en EFFAÇANT la clé, « n'a jamais demandé » et « a
+> explicitement refusé » étaient le même état sur le disque. `basculerSon` écrit
+> donc `coupe` au lieu d'effacer, et `sonParDefautActif()` ne touche à rien dès
+> que le visiteur s'est prononcé. **Le défaut ne change pas d'un iota** :
+> `sonActif()` teste toujours l'égalité à `actif`, l'absence de clé vaut
+> toujours coupé, et le test qui gèle cette ligne reste vert.
+>
+> ★ **L'estompe est le VOILE, et rien d'autre.** Une première rédaction
+> assombrissait le `<svg>` par un `filter` PUIS le recouvrait : en thème clair,
+> un fond pâle assombri sous un voile pâle donnait un cadre **blanc** — on ne
+> devinait plus rien du tout. Le voile est donc **sombre dans les deux thèmes**,
+> et c'est la couleur de la nuit du verdict : un arrière-plan de lightbox doit
+> assombrir, et celui-ci annonce ce qui va tomber sur la scène à la chute.
+>
+> ★ **Accessibilité.** Un vrai `<button>`, au nom accessible qui dit si le son
+> partira (« Lancer, avec le son » / « Lancer, sans le son » — ce que le dessin
+> ne peut pas dire) ; aucun piège de focus ; le voile est **retiré du DOM** au
+> clic et non masqué, si bien qu'il ne peut plus rien cacher à personne ; et le
+> focus suit ce qui disparaît, vers la scène.
+
 Conditions, consommé **une seule fois** : `readyState === 'complete'` **et**
 `document.fonts.ready` **et** `visibilityState === 'visible'` **et**
 `document.hasFocus()` **et** pas de `prefers-reduced-motion` **et**
@@ -1529,7 +1785,8 @@ Exemples : `f1` retirer le protocole · `m1` A1Z26 · `c1` somme · `p1` racine 
 `mw`/`mx` **quatorze segments** (segments allumés, traits fusionnés) — codes neufs,
 alloués après `mv`, jamais recyclés ; `md` et `me` gardent leur comportement mot
 pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
-`mz` **trois 6 d'affilée** (`NUMS → NUMS`), alloué après `my`.
+`mz` **trois 6 d'affilée** (`NUMS → NUMS`), alloué après `my` ·
+`m10`/`m11`/`m12` **les trois ficelles** (voir l'amendement en fin de §).
 
 > *Amendement — le demi-tour a désormais deux codes, et c'est voulu.* `p9`
 > retourne UN nombre (`NUM → NUM`, « le 9 » du README, méthode 6) ; `my`
@@ -1548,6 +1805,81 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 > 92 à 93 opérateurs. Il émet la primitive `horns` (§3.1), qui n'existait pas —
 > c'est la clause d'extension du vocabulaire appliquée dans l'ordre qu'elle
 > prescrit : la primitive d'abord, l'émission ensuite.
+
+> *Amendement — LES TROIS FICELLES, `m10` · `m11` · `m12`, registre FERMÉ.* Le
+> barème d'élégance portait depuis sa construction trois paliers de malus dont
+> les compteurs valaient **toujours zéro** : aucun opérateur du catalogue ne
+> faisait ces choses-là. L'auteur a tranché — « je me doute — ma demande c'est
+> **aussi de les ajouter au catalogue**, mais avec un score bas, mais moins bas
+> que la suppression arbitraire de ce qui n'est pas 6 ».
+>
+> | code | id | ce qu'il fait | palier |
+> |---|---|---|---|
+> | `m10` | `m.plusFrequent` | la valeur strictement la plus fréquente reste, les autres s'effacent | `MAJORITE` |
+> | `m11` | `m.unRangSurDeux` | une position sur deux — celle des deux parités qui porte le plus de 6 | `DECIMATION` |
+> | `m12` | `m.additionSelective` | chaque nombre s'écrit chiffre à chiffre, puis on n'additionne QUE les suites contiguës de somme 6 | `ADDITION_SELECTIVE` |
+>
+> ★ **Codes NEUFS, index en base36.** `mz` était le dernier alloué ; 36 s'écrit
+> « 10 » en base36, d'où `m10`, `m11`, `m12`. Aucun code existant n'est touché,
+> renommé ni réattribué, aucune pierre tombale n'est reprise, et `RE_CODE`
+> (`/^[ftnmcpj][0-9a-z]+$/`) admettait déjà les index à plusieurs signes. Le
+> catalogue passe de **93 à 96** opérateurs.
+>
+> ★ **Aucune primitive ajoutée** : le vocabulaire reste à vingt et une (§3.1).
+> `m10` et `m11` empruntent l'accolade des combinateurs (`group` + `label`) —
+> « indique sous l'accolade : *chiffre majoritaire : 6* et fais disparaître les
+> autres », dit l'auteur — puis `drop` et `highlight`. `m12` emprunte
+> `substitute` (l'éclatement `16` → `1` `6`), `insertOperators` et `sum` : « ne
+> pas la différencier des additions qui la précèdent ou la succèdent, c'est juste
+> une de plus (ou une de moins si on saute un 6 pour le conserver) ».
+>
+> ★ **`exige` — les trois refusent plutôt que de choisir.** §4.4 demande une
+> règle de départage explicite et stable ; ces trois-là n'en ont pas besoin,
+> parce qu'elles **refusent de s'appliquer** dès qu'il faudrait trancher :
+> deux valeurs aussi fréquentes l'une que l'autre, deux parités portant autant de
+> 6 — la règle ne s'applique pas. Aucun ordre de `Map`, aucun tri, aucune
+> préférence tacite pour le 6 ne peut s'y glisser. Elles refusent en outre quand
+> elles ne changent rien, et quand **le résultat n'écrit pas 666 d'affilée** :
+> une ficelle qui coûte sans rien acheter n'a pas lieu d'être jouée (même
+> discipline que `my` et `mz` — une étape inopérante est sautée en silence par
+> `scenario.js`, et l'URL porterait un code invisible).
+>
+> ★ **L'addition sélective et son espace de recherche.** Choisir quelles suites
+> de chiffres additionner, c'est choisir une composition : il y en a 2^(n−1). On
+> n'en cherche donc **aucune « meilleure »** — un balayage **glouton de gauche à
+> droite** en prend une, en O(n × 6) : à chaque rang, la **plus courte** suite qui
+> commence là et dont la somme fait **exactement 6**. Trois refus bornent le
+> reste : aucun terme déjà égal à 6 (l'additionner le détruirait), aucun terme
+> nul (`mu` existe pour ça) — d'où une fenêtre d'au plus **six** termes, bornée
+> par la CIBLE et non par un réglage —, et une largeur plafonnée à douze chiffres.
+>
+> ★ **Trois blanchiments démasqués et corrigés** (`assemblage.js`, `score.js`).
+> Ces opérateurs rétrécissent le vecteur, et trois mesures lisaient l'**état
+> final** là où elles auraient dû lire le chemin :
+> 1. la **dilution** des candidats (`vecteursDeSix`, `candidatsDePortee`) se lit
+>    désormais sur le vecteur **le plus large** du chemin (`largeurMontree`) —
+>    `fk+t1+mw+m10` ne « laisse pas moins tomber » que `fk+t1+mw`, il a jeté plus
+>    tôt ;
+> 2. le **rendement** (`score.js › rendementSix`) fait de même **pour les seules
+>    ficelles** : les noter sur ce qu'il reste leur donnait un rendement parfait
+>    pour avoir jeté davantage. Mesuré sur « La numérologie est un art taquin » :
+>    `f6+t1+mw+m10` marquait 3 797 contre 2 715 à `f6+t1+mw`, qui montre les mêmes
+>    6. ⚠️ Ce n'est **pas** l'arbitrage de §7-5 tranché en douce : il reste ouvert
+>    pour le cas général, `mz` compris ;
+> 3. une **ficelle qui n'apporte rien n'est plus proposée** : sur une même
+>    portée, une voie à ficelle est écartée dès qu'une voie **sans** ficelle fait
+>    au moins aussi bien sur les trois choses qu'elle prétend acheter — autant de
+>    6, pas plus de gaspillage, autant de 666 d'affilée.
+>
+> ★ **Et aucune ficelle dans une MOISSON.** Le mode vaut par ce que chaque portée
+> **sait** donner ; une ficelle jette ce qu'elle donne en trop, à l'intérieur de
+> la portée, avant que la moisson ne compte. Mesuré sur « La numérologie est un
+> art taquin » : `t1+mw+m10` fabriquait une **sixième** série là où les voies
+> honnêtes en font cinq, et la liste affichait alors cinq séries au rang 1 puis
+> six au rang 2 — un compte qui REMONTE, ce qu'un test de classement interdit
+> depuis toujours. Les ficelles restent pleinement disponibles au **GROUPEMENT**,
+> qui est le mode de tous les exemples de l'auteur : un vecteur, une ficelle, un
+> 666.
 
 **Trois règles inviolables :**
 1. Un code alloué l'est **à vie**. Retirer un opérateur pose une pierre tombale : son
@@ -2120,26 +2452,152 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   >   caractères y servent trois fois » —, et lui laisser la tête au nom d'une
   >   élégance qui ignore précisément son défaut serait mesurer à côté.
   >
-  > ### Ce que le barème NE SAIT PAS mesurer — et pourquoi
+  > ### Les trois paliers qui dormaient — et les trois FICELLES qui les réveillent
   >
-  > Trois demandes de l'auteur n'ont **aucun opérateur à mesurer**, le registre
-  > étant FERMÉ (§4.1) :
+  > Trois demandes de l'auteur n'avaient **aucun opérateur à mesurer** : leurs
+  > paliers étaient écrits, à leur place dans la hiérarchie, et leurs compteurs
+  > valaient toujours zéro. L'auteur a tranché : « je me doute — ma demande c'est
+  > **aussi de les ajouter au catalogue**, mais avec un score bas, mais moins bas
+  > que la suppression arbitraire de ce qui n'est pas 6. » Voir §4.1, amendement
+  > « les trois ficelles ».
   >
-  > | la demande | ce qui manque |
-  > |---|---|
-  > | « ne garder artificiellement que les 6 en ignorant le reste » | *mesurée autrement* — c'est l'étape de tri du scénario, qui n'a pas de code ; elle se lit sur la géométrie, une valeur calculée puis écartée |
-  > | « le plus fréquent l'emporte » | aucun opérateur ne supprime les valeurs minoritaires d'un vecteur |
-  > | « garder un caractère sur deux » | aucun opérateur ne décime un vecteur |
-  > | « l'addition SÉLECTIVE de chiffres contigus » (`6, 5+1, 6, 8`) | `c.somme` additionne le vecteur **entier** ; rien n'additionne une sous-plage choisie |
+  > | la demande | l'opérateur | le palier |
+  > |---|---|---|
+  > | « ne garder artificiellement que les 6 » | *aucun* — c'est l'étape de tri du scénario, sans code ; elle se lit sur la géométrie | `VALEUR_JETEE` |
+  > | « le plus fréquent l'emporte » | **`m10`** `m.plusFrequent` | `MAJORITE` |
+  > | « garder un caractère sur deux » | **`m11`** `m.unRangSurDeux` | `DECIMATION` |
+  > | « l'addition SÉLECTIVE de chiffres contigus » (`6, 5+1, 6, 8`) | **`m12`** `m.additionSelective` | `ADDITION_SELECTIVE` |
   >
-  > Les trois paliers correspondants sont **écrits dans le barème**, à leur place
-  > dans la hiérarchie que l'auteur a dictée, mais leurs compteurs valent toujours
-  > zéro. Ce n'est pas un oubli, c'est la place réservée : le jour où l'un de ces
-  > opérateurs serait alloué, le barème n'aura pas à être repensé. `BAREME_INACTIF`
-  > les énumère et **un test vérifie qu'ils sont bien inactifs** sur tout le
-  > corpus — sans quoi on croirait mesurer ce qu'on ne mesure pas. Un second test
-  > constate sur le catalogue lui-même qu'aucune addition ne porte sur une
-  > sous-plage.
+  > ★ **L'unité des trois paliers est celle de `VALEUR_JETEE`** : ce que le geste
+  > coûte **par valeur écartée** — par **chiffre absorbé** pour l'addition
+  > sélective, qui n'écarte rien. Et ce tarif **remplace** `VALEUR_JETEE` pour ces
+  > valeurs-là : il ne s'y ajoute pas. Les compter aux deux endroits punirait deux
+  > fois le même geste, exactement comme `SIX_DETRUIT` exclut déjà le
+  > rétrécissement d'un vecteur.
+  >
+  > ⚠️ **Le tarif est plus ÉLEVÉ que `VALEUR_JETEE`, et ce n'est pas une
+  > contradiction — c'est ce qui rend la consigne vraie.** « Moins bas que la
+  > suppression arbitraire » porte sur le **SCORE**, pas sur une ligne du barème :
+  > les deux gestes n'achètent pas la même chose. Le tri arbitraire laisse les 6
+  > dispersés et ne gagne rien ; la ficelle **rassemble**, et encaisse
+  > `TRIPTYQUE_CONTIGU` (260), le couronnement (≤ 150) et le solde multiple de
+  > trois (90). **Mesuré** : à 32 / 24 / 16 par valeur — c'est-à-dire *sous*
+  > `VALEUR_JETEE` —, `Macron` perdait sa voie de référence au profit de
+  > `t1+m8+m10` et `Donald Trump` perdait la sienne entièrement. **Trois des
+  > quatre cas de référence tombaient.** Les tarifs retenus (180 / 130 / 100)
+  > laissent le solde **juste positif** face au tri arbitraire et franchement
+  > négatif face à une voie qui atteint le même 666 sans ficelle. Deux tests le
+  > gèlent : l'un sur le solde, l'autre sur les quatre cas de référence.
+  >
+  > ★ **`adHoc` ne double pas le barème.** `critereAntiAdHoc` mesure une chose
+  > GÉNÉRIQUE — « cette méthode est-elle taillée pour la cible ? » — sur le score
+  > de conviction ; le barème d'élégance mesure une chose SPÉCIFIQUE — « qu'a-t-on
+  > fait, exactement, pendant le calcul ? » — sur le chemin. Les deux se
+  > composent, comme ils le font déjà pour `my` (adHoc 0,35, aucun palier) et pour
+  > `c.moyenne` (adHoc bas, palier `ARRONDI`).
+  >
+  > ### Le compte des triptyques — par 666, plus par portée
+  >
+  > ⚠️ **DÉFAUT MESURÉ.** `TRIPTYQUE_CONTIGU` se comptait **par portée** qui porte
+  > un triptyque, jamais par triptyque. Sur `hope-hope-hope.fr`, `f6+t1+mw` rend
+  > douze 6 d'affilée — **quatre 666** — et n'en touchait qu'un, comme une portée
+  > qui n'en écrit qu'un seul. « Plus tu produis de 6, mieux c'est » se trouvait
+  > démenti à l'endroit exact où le vecteur en produit le plus.
+  >
+  > Le compte est réparé (`nbTriptyques`, ⌊L/3⌋ par suite contiguë). Reste ce que
+  > vaut le deuxième :
+  >
+  > · le **premier** 666 d'une portée est une **trouvaille** — cette portion-là de
+  >   la saisie, lue de cette façon-là, écrit 666. Trois portées qui en écrivent
+  >   chacun un, ce sont trois trouvailles ;
+  > · les **suivants du même vecteur** sont la même trouvaille qui continue. Ils
+  >   ne coûtent rien de plus à obtenir, ne disent rien de plus de la saisie, et
+  >   leur abondance est **déjà payée** par `SIX_SURNUMERAIRE`.
+  >
+  > D'où `TRIPTYQUE_REPETE = 90`, un tiers du tarif plein. **Mesuré** : au tarif
+  > plein, `f6+t1+mw` passait de 1 576 à 2 419 et doublait la moisson à cinq
+  > séries (2 293) — `hope-hope-hope.fr` perdait sa voie de référence. Au tiers,
+  > elle passe à **1 846** : le compte juste se voit, et la moisson qui lit toute
+  > la saisie garde la tête. Le total crédité est en outre **plafonné au nombre de
+  > séries du verdict** : on ne crédite pas un 666 que personne ne verra.
+  >
+  > ### ⚠️ Le gaspillage n'a PAS été alourdi — le remède prescrit, et les trois mesures qui l'ont fait renoncer
+  >
+  > Le remède prévu pour le débordement ci-dessus était **d'alourdir
+  > `VALEUR_JETEE`** — l'échelle des abandons monte d'un facteur trois à chaque
+  > barreau (ponctuation 1 → bloc court 2 → bloc entier 8 → lettre arrachée 26)
+  > et `VALEUR_JETEE`, à 36, n'en respecte pas le pas ; la règle voudrait 78. Il
+  > a été implémenté, puis retiré. Voici pourquoi, en chiffres.
+  >
+  > ★ **D'abord, une lecture à rectifier.** Sur `hope-hope-hope.fr`, **deux
+  > approches distinctes portent les mêmes codes `f6+t1+mw`**, sur deux portées
+  > différentes — et le banc n'affiche que les codes :
+  >
+  > | portée | vecteur | bilan |
+  > |---|---|---|
+  > | la saisie **entière** | `[6×12, 5, 7]` | `valeursJetees = 2` |
+  > | le **motif répété** `hope-hope-hope` | `[6×12]` | **PURE**, `valeursJetees = 0` |
+  >
+  > Une fois le compte des triptyques réparé, c'est la **seconde** qui prend la
+  > tête (2 419) — celle qui ne jette rien. Le levier du gaspillage n'a donc
+  > **aucune prise sur le cas qui le motivait** : balayage `VALEUR_JETEE` porté à
+  > 78, 150, 300 puis **600**, la tête reste `f6+t1+mw` à 2 419 aux cinq valeurs,
+  > sans bouger d'une milli-unité.
+  >
+  > ★ **Ensuite, il écrase la MOISSON**, qui est le mode mis en tête. Une moisson
+  > récolte sur plusieurs portées et laisse donc, par construction, du surplus
+  > derrière elle (`jeteesAuTri`). Mesuré sur les dix-neuf saisies :
+  >
+  > | `VALEUR_JETEE` | têtes changées / 19 | dont perdant des séries |
+  > |---|---|---|
+  > | 45 | 2 | 1 (`Le chat dort…` 5×666 → 1×666) |
+  > | 55 | 3 | 2 (+ `Éléonore à Nîmes` 3 → 2) |
+  > | 78 | **5** | **4** (+ `example.com` 5 → 1, `jean-michel` 2 → 1) |
+  >
+  > ★ **Enfin — et c'est le retournement décisif — il promeut MÉCANIQUEMENT les
+  > ficelles.** `m10`, `m11` et `m12` ne paient pas ce poste : leur palier le
+  > remplace. Plus le gaspillage coûte cher, plus la ruse qui l'escamote devient
+  > rentable. Mesuré sur `Le chat dort sur le tapis rouge`, pour **neuf**
+  > milli-unités d'écart :
+  >
+  > ```
+  >   à 36 → 1. moisson 5×666 (1 129)   · la ficelle n'est pas dans les trois
+  >   à 45 → 1. fl+t1+mw+m10 1×666 (1 102) · la moisson tombe à 1 057
+  > ```
+  >
+  > Alourdir le gaspillage, c'est payer la ficelle pour cacher le gaspillage.
+  > Le réglage **reste à 36**, l'irrégularité de l'échelle est assumée, et
+  > `hope-hope-hope.fr` est arbitré par `TRIPTYQUE_REPETE`.
+  >
+  > ★ **Ce que l'alourdissement aurait réellement « payé ».** `facteur()` borne le
+  > crédit à [`FACTEUR_PLANCHER`, 1 000] : au-dessus de 1 000, l'élégance est
+  > **neutre** sur le score de conviction. Sur le corpus, 36 → 78 déplace **109
+  > crédits mais seulement 70 scores** — le tiers restant est absorbé par ce
+  > plafond. Le reste se **compose multiplicativement** avec `rendementSix`, qui
+  > mesure déjà la PROPORTION du vecteur valant 6 (`hopehopehopefr` en quatorze
+  > segments : 12/14 → ×0,92). Les deux mesures sont **complémentaires** — `R` en
+  > proportion sur le vecteur final, `VALEUR_JETEE` en valeur absolue, et voyant
+  > en plus les rétrécissements de milieu de chemin que `R` ne voit pas — mais
+  > elles se multiplient : doubler la seconde ne double pas la peine, elle la
+  > compose.
+  >
+  > ### L'arbitrage qui reste ouvert
+  >
+  > Ce qui sépare réellement les deux voies de `hope-hope-hope.fr` n'est pas le
+  > gaspillage : le groupement écrit **quatre** 666 tous contigus sur une seule
+  > portée ; la moisson en délivre **cinq**, dont trois seulement sont contigus —
+  > **les deux autres sont assemblés à partir de 6 pris sur des portées
+  > différentes, et le barème ne les crédite pas du tout**. Au tarif plein, la
+  > contiguïté l'emporte donc sur la quantité, et la liste annonce quatre séries
+  > là où cinq existent.
+  >
+  > Deux réglages referment cet écart. Le premier est retenu
+  > (`TRIPTYQUE_REPETE`). Le second — **créditer les séries ASSEMBLÉES**, au-delà
+  > de **64** milli-unités par série, la moisson repasse devant — serait plus
+  > fidèle à la règle de tête de l'auteur (« privilégie celle qui donne le plus de
+  > séries de 666 sans réutiliser les mêmes caractères »), mais c'est un bonus qui
+  > touche **toutes** les approches, y compris celles à une seule série, et il
+  > demande son propre étalonnage. Il n'a pas été pris de but en blanc.
   >
   > ### L'étalonnage, et son banc
   >
@@ -2195,6 +2653,71 @@ attendu sur les 7 méthodes du README sert de premier jeu de vérification.
 - `prefers-reduced-motion` traité **dans le compilateur de timeline**, pas seulement en
   CSS : les durées WAAPI sont fixées en JS et ignoreraient une règle CSS.
 - Sans JavaScript : accueil et registre restent lisibles ; seule l'animation est perdue.
+
+> *Amendement — LE TITRE NE DIT PAS LE RÉSULTAT, ET IL NE LE DIT NULLE PART DEUX FOIS.*
+>
+> **Le constat de l'auteur**, sur les titres de voies : « n'indique pas le résultat
+> dedans — pas de "les 6 groupés par trois" ni de "deux séries de 666" ». Et, sur la
+> description affichée en tête de la page d'animation : « cette description ne doit
+> être affichée que dans le listing de voies. Sur les pages d'animation d'une voie,
+> ce serait du spoiler ou de la redite ».
+>
+> Les deux reproches n'en font qu'un, et il porte sur le MOMENT de la lecture. Le
+> listing sert à CHOISIR : on n'y a encore rien vu, tout ce qui aide à trancher y a
+> sa place. La page d'animation sert à MONTRER : ce qu'on y annonce d'avance, la
+> démonstration ne peut plus le révéler. Une même information est donc précieuse dans
+> l'une et nuisible dans l'autre — la règle n'est pas « en dire moins », c'est **en
+> dire chaque chose là où elle se paie**.
+>
+> **Trois décisions, qui en découlent toutes les trois.**
+>
+> 1. **Le titre est une locution PRÉPOSITIONNELLE, sans mention d'assemblage.**
+>    « Par gématrie anglaise sur les consonnes », « En quatorze segments », « En
+>    spacialisation AZERTY ». Le nom de la vedette prend une préposition choisie par
+>    FAMILLE (« Par » un barème, « En » une écriture, « Sur » un support, « En
+>    comptant » pour les mesures, rien pour les découpes déjà adverbiales) ; la
+>    précision distinctive s'y soude par une ESPACE parce qu'elle complète la
+>    locution ; le qualifiant s'ajoute après une VIRGULE parce qu'il ouvre un second
+>    membre. Plus de tiret cadratin — il annonçait une glose, et une glose invite à
+>    énumérer. Tables et règle d'assemblage : `src/recherche/titres.js`.
+>
+> 2. **Le compte de séries remonte dans le LISTING, et n'en redescend jamais.**
+>    Il s'affiche en « n × 6⋅6⋅6 » à cheval sur le bord DROIT du panneau — le pendant
+>    exact du numéro de rang à gauche — et **seulement quand n > 1** : « 1 × 6⋅6⋅6 »
+>    n'apprend rien, puisque toute voie mène à 666. Le badge est un dessin
+>    (`aria-hidden`), doublé d'une phrase pleine dans un `.visuellement-cachee` —
+>    « cinq séries de 666 » — pour qui l'écoute. `src/app/pages/resultat.js`.
+>
+> 3. **La suite des règles ne s'affiche plus sur la page d'animation.**
+>    Elle reste dans le listing (`.voie__resume`), où elle sert à choisir sans ouvrir.
+>    Sur la page d'animation, elle était soit du spoiler — la scène montre chaque
+>    opération à son tour — soit de la redite du Registre, qui l'écrit étape par étape
+>    et AU MOMENT où elle se produit. La donnée, elle, continue de voyager : le
+>    scénario la porte dans `methode.rule`, et le `<title>` garde le titre.
+>    `.demo__regle` n'existe plus.
+>
+> **Ce que ça met sous tension, et qui est mesuré.** Les titres ayant raccourci, la
+> mention d'assemblage ne distingue plus gratuitement deux voies homonymes : c'est
+> `distinguerTitres` qui porte seul l'unicité, avec un palier de plus dans son échelle
+> de recours (la PORTÉE — sur combien de morceaux la méthode travaille, et à défaut
+> où ils commencent). Trois invariants sont gelés par `src/recherche/tests/titres.test.js` :
+> aucun titre ne contient le vocabulaire du verdict, aucun ne porte de tiret cadratin
+> ni d'article défini initial, et aucun ne retombe sur une suite de codes d'URL.
+> Les tables sont en outre vérifiées EXHAUSTIVES contre le catalogue : un opérateur
+> ajouté sans forme courte fait échouer la suite plutôt que d'entrer dans un titre
+> sous sa phrase de Registre.
+>
+> **Survol du listing.** Une carte porte DEUX accès (sobre / scénique) : l'éclairer en
+> entier au survol dit « ceci est un bouton », ce qui est faux depuis qu'elle a deux
+> destinations. Le survol fait donc courir un **balayage lumineux DANS les deux
+> boutons**, décalé de 180 ms de l'un à l'autre — technique reprise de `g1vote`
+> (`VotesListView.vue`, `shimmer-border` sur les votes en cours) : un dégradé bien plus
+> large que l'élément dont on anime la `background-position`, et non l'élément
+> lui-même. La lueur emprunte `currentColor`, donc elle suit les deux thèmes et la
+> distinction sobre/scénique sans qu'aucune valeur soit écrite deux fois. Sous
+> `prefers-reduced-motion`, les deux accès s'éclairent d'un coup, sans course :
+> l'information passe, le mouvement non. Seul le panneau de repli — une seule
+> destination — garde l'ancien survol de carte.
 
 ---
 

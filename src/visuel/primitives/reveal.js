@@ -173,26 +173,57 @@ const ECLAIR = Object.freeze({
 });
 
 /**
- * ★ L'EMBRASEMENT — une flamme respire, elle ne bat pas.
+ * ★ L'EMBRASEMENT — ce que la TIMELINE en dit, et ce qu'elle n'en dit plus.
  *
- * L'enveloppe joue sur l'OPACITÉ seule, jamais sur l'échelle : le canal
- * `scale` du brasier appartient déjà à la solidarité du décor accroché
- * (`animSolidaire`, CONTRACTS §3.2 règle 10), qui le fait grandir avec le 6
- * qu'il entoure. Deux animations sur ce canal se contrediraient — et
- * `tl.warnings` le dirait. Le feu vacille donc en intensité, ce qui est de
- * toute façon ce que fait le feu.
+ * L'enveloppe ne compte plus que **deux paliers** : éteint, puis pris. Elle ne
+ * fait plus vaciller le feu, et c'est le cœur du changement demandé par
+ * l'auteur — « l'effet de feu doit perdurer et rester animé une fois le verdict
+ * terminé ».
  *
- * Six paliers sur toute la durée du verdict : la cadence la plus rapide est de
- * l'ordre de 250 ms, très loin d'un clignotement.
+ * **Le raisonnement, parce qu'il touche à CONTRACTS §3.** Tant que le
+ * vacillement était une enveloppe d'opacité compilée, il finissait
+ * mécaniquement avec la timeline : le dernier palier atteint, plus rien ne
+ * bougeait. Un feu qui s'arrête net à la dernière image n'est pas un feu.
+ *
+ * On sépare donc deux choses que l'ancienne enveloppe confondait :
+ *
+ *  · **la PRÉSENCE du feu** — a-t-il pris, oui ou non ? C'est un état de la
+ *    démonstration, il reste **fonction du temps de la timeline** : une seule
+ *    montée d'opacité, `forwards`, que `seek()` en arrière ramène à zéro. Le
+ *    scrubbing est aussi exact qu'avant, et il l'est plus simplement ;
+ *  · **le VACILLEMENT** — la forme des flammes à un instant donné. Ce n'est
+ *    **pas** un état de la démonstration : aucune valeur, aucun rang, aucun
+ *    compte n'en dépend, et Le Registre n'a rigoureusement rien à en dire.
+ *    C'est très exactement l'argument qui garde l'orage hors du vocabulaire
+ *    (§3.1). Il n'a donc pas à être une fonction du temps de la timeline, et
+ *    **parce qu'il ne l'est pas, il survit à la fin de la lecture** : ce sont
+ *    des `@keyframes` CSS autonomes (`pages.css`, `primitives/feu.js`).
+ *
+ * Ce qu'il faut alors garantir — et qui l'est — c'est qu'**aucune boucle ne
+ * tourne dans le vide** : les animations CSS sont `paused` par défaut, et c'est
+ * l'attribut `data-embrasement` de la racine de la scène, posé par `player.js`
+ * en fonction de `currentTime`, qui les met en marche. Revenir avant le verdict
+ * le retire, et le feu s'immobilise au lieu de boucler sous une opacité nulle.
+ *
+ * L'opacité de crête ne monte pas au-delà de **0,78** : le feu est peint
+ * DERRIÈRE les chiffres (couche `back`), et un aplat opaque y ferait tomber le
+ * contraste de la rubrique de nuit — 7,4:1 par construction (`tokens.css`) —
+ * bien en dessous du 4,5:1 de design §5.1, à l'instant exact où le verdict se
+ * lit. La nuit doit transparaître à travers les flammes.
  */
 const BRASIER = Object.freeze({
-  offsets: [0, 0.18, 0.36, 0.55, 0.78, 1],
-  valeurs: [0, 0.98, 0.66, 0.92, 0.74, 0.86],
-  /** Demi-axes de la lueur, en largeurs de chasse et en corps de glyphe. */
-  rayonX: 2.6,
-  rayonY: 1.45,
-  /** Le feu prend par le bas : la lueur s'assied un peu sous l'ancre. */
-  assise: 0.10,
+  /**
+   * Opacité du feu une fois pris.
+   *
+   * ★ Elle monte à un — le feu n'est plus bridé par le contraste, et c'est une
+   * propriété de la technique et non un réglage : `drop-shadow()` peint
+   * DERRIÈRE l'élément qui la porte, et cet élément est une copie du glyphe
+   * remplie de la couleur de nuit. Le vrai chiffre repose donc sur du fond pur,
+   * où il tient ses 7,4:1 (`tokens.css`), quelle que soit l'ardeur du feu.
+   * Les deux tentatives précédentes devaient acheter leur lisibilité en pâlissant
+   * leurs flammes ; celle-ci n'a rien à acheter.
+   */
+  intensite: 1,
 });
 
 export function plan(ctx) {
@@ -485,51 +516,67 @@ function monterLOrage(ctx, ids) {
   //   nuit, elle, reste : ce n'est pas un mouvement, c'est un état.
   const eclair = ctx.reduced ? null : aplat('@eclair', 'eclair', ctx.palette.eclair);
 
-  const rx = ctx.metrics.advance * BRASIER.rayonX;
-  const ry = ctx.metrics.fontSize * BRASIER.rayonY;
+  const fs = ctx.metrics.fontSize;
+  const advance = ctx.metrics.advance;
   const brasiers = ids.map((id) => {
     const bid = `@brasier:${id}`;
     if (!ctx.scene.has(bid)) {
+      const jeton = ctx.scene.get(id);
+      // ★ LA CORNE BRÛLE AVEC SON 6. On relit son TRACÉ, et rien d'autre : le
+      //   nœud des cornes n'est ni déplacé, ni redessiné, ni même touché. Le
+      //   calage durement gagné — la corne pousse dans le prolongement exact du
+      //   flanc du 6, dérivé de la police, vérifié en CI (`cornes.test.js`) —
+      //   ne peut donc pas bouger. Les deux corps partagent en outre le même
+      //   repère et la même échelle, puisqu'ils suivent tous deux le même
+      //   chiffre (`data.suit`) : il n'y a aucune arithmétique de rattrapage.
+      const corne = ctx.scene.accrochesA(id)
+        .map((sid) => ctx.scene.get(sid))
+        .find((n) => n && n.role === 'horns');
       ctx.scene.create({
         id: bid,
         role: 'brasier',
         inFlow: false,
-        w: rx * 2,
-        // ★ `suit` fait du brasier un SATELLITE du chiffre : il le suit à
-        //   chaque reflow et grandit avec lui au verdict, exactement comme une
-        //   corne. C'est ce qui rend le calage incassable — la lueur ne peut
-        //   pas se décrocher de ce qu'elle entoure.
+        w: advance,
+        // ★ `suit` fait du feu un SATELLITE du chiffre : il le suit à chaque
+        //   reflow et grandit avec lui au verdict, exactement comme une corne.
+        //   C'est ce qui rend le calage incassable — un feu qui a la FORME du
+        //   chiffre ne peut pas se permettre de s'en décrocher d'un demi-pixel.
         //
         //   ★ Et pas de `debord` : `reveal` s'en sert pour RÉTRÉCIR le verdict
-        //   afin qu'un décor pointu ne sorte pas du cadre. Une lueur qui
-        //   s'éteint en dégradé n'a pas de pointe et n'a aucun bord à
-        //   respecter : au contraire, un feu qui déborde du cadre est ce qu'on
-        //   veut voir. Le déclarer ferait payer au 666 une taille qu'il n'a
-        //   aucune raison de perdre.
+        //   afin qu'un décor pointu ne sorte pas du cadre. Des flammes n'ont
+        //   pas de bord à respecter — un feu qui déborde du cadre est même ce
+        //   qu'on veut voir. Le déclarer ferait payer au 666 une taille qu'il
+        //   n'a aucune raison de perdre.
         data: {
-          suit: id, rx, ry, couleur: ctx.palette.brasier,
-          decalageY: ctx.metrics.fontSize * BRASIER.assise,
+          suit: id,
+          couleur: ctx.palette.brasier,
+          // ★ Le TEXTE du chiffre, pris en instantané. C'est lui que les échos
+          //   redessinent : le feu a la forme du glyphe parce qu'il EST le
+          //   glyphe (`primitives/feu.js`). Licite ici et nulle part ailleurs —
+          //   le feu ne naît qu'au verdict, où plus rien ne transforme les
+          //   chiffres : ils ne font que grossir.
+          texte: (jeton && jeton.text) || '',
+          fontSize: fs,
+          advance,
+          corne: corne ? corne.data.d : null,
         },
-        // ★ `fill` doit figurer dans la base, même si le dégradé le reprend.
-        //   Sans elle, `lastValue` (compile.js) retombe sur `DEFAULT_BASE`, qui
-        //   n'a pas de couleur, donc sur `0` : le navigateur refuse la keyframe
-        //   (« Invalid keyframe value for property fill: 0 ») et l'animation est
-        //   jetée EN SILENCE. Six brasiers muets sur « Donald Trump », quinze
-        //   sur `hope-hope-hope.fr`, sans qu'aucun test ne s'en aperçoive.
+        // ★ `fill` doit figurer dans la base, même si chaque écho porte la
+        //   sienne. Sans elle, `lastValue` (compile.js) retombe sur
+        //   `DEFAULT_BASE`, qui n'a pas de couleur, donc sur `0` : le navigateur
+        //   refuse la keyframe (« Invalid keyframe value for property fill: 0 »)
+        //   et l'animation est jetée EN SILENCE. Six brasiers muets sur
+        //   « Donald Trump », quinze sur `hope-hope-hope.fr`, sans qu'aucun test
+        //   ne s'en aperçoive.
         base: { opacity: 0, fill: ctx.palette.brasier },
       }, { where: ctx.where });
     }
     const p = ctx.scene.pos(id);
-    if (p) {
-      ctx.place(bid, {
-        x: p.x,
-        // Le feu prend par le bas — la lueur s'assied un peu sous l'ancre du
-        // glyphe. Le report suit l'échelle puisqu'il est posé avant le
-        // grossissement, comme tout le reste du décor accroché.
-        y: p.y + ctx.metrics.fontSize * BRASIER.assise,
-        w: rx * 2, h: ry * 2,
-      });
-    }
+    // ★ LE FEU EST POSÉ EXACTEMENT SUR SON CHIFFRE, sans le moindre report.
+    //   C'est le contraire de la version précédente, qui asseyait un foyer sous
+    //   la ligne d'écriture : ici les échos SONT le glyphe, donc ils doivent
+    //   partir de sa place au pixel près. Un décalage, même d'une unité, ferait
+    //   un liseré au lieu d'une flamme.
+    if (p) ctx.place(bid, { x: p.x, y: p.y, w: advance, h: fs });
     return bid;
   });
 
@@ -561,18 +608,26 @@ function allumerLOrage(ctx, { nuit, eclair, brasiers }) {
     });
   }
 
-  // 3. LE FEU — il prend là où la foudre a frappé, et il ne s'éteint plus. En
-  //    mouvement réduit, une lueur fixe : le feu est là, il ne vacille pas.
+  // 3. LE FEU — il prend là où la foudre a frappé, et il ne s'éteint plus.
+  //
+  //    ★ UNE SEULE MONTÉE, et c'est tout ce que la timeline en dit. Le feu
+  //    « prend » — c'est un état, il est fonction du temps et `seek()` en
+  //    arrière le ramène à zéro. Sa VIE, elle, est ailleurs : dans les
+  //    `@keyframes` autonomes de `pages.css`, gouvernées par l'attribut
+  //    `data-embrasement` (voir le long commentaire de `BRASIER` ci-dessus).
+  //    C'est ce partage qui fait que le feu continue de brûler quand la lecture
+  //    est terminée, sans qu'aucun état de la démonstration cesse d'être une
+  //    fonction du temps.
+  //
+  //    En mouvement réduit, rien ne change ICI — la timeline pose la même
+  //    valeur d'arrivée. C'est le CSS qui coupe le vacillement, parce que
+  //    `prefers-reduced-motion` est une préférence de l'utilisateur qui peut
+  //    basculer sans recompilation : un feu fixe, mais un feu.
   brasiers.forEach((bid, i) => {
     const at = d * 0.36 + i * (ctx.stagger ? Math.min(ctx.stagger, d * 0.04) : d * 0.02);
-    if (ctx.reduced) {
-      ctx.anim({ id: bid, prop: 'opacity', to: 0.86, at, dur: 1 });
-      return;
-    }
     ctx.anim({
-      id: bid, prop: 'opacity',
-      values: BRASIER.valeurs, offsets: BRASIER.offsets,
-      at, dur: Math.max(1, d - at), ease: EASE.linear,
+      id: bid, prop: 'opacity', to: BRASIER.intensite,
+      at, dur: Math.max(1, ctx.reduced ? 1 : d * 0.34), ease: EASE.fade,
     });
   });
 }

@@ -10,6 +10,45 @@ import * as pont from '../pont.js';
 import { interrupteurs } from '../entete.js';
 
 /**
+ * ★ LE COMPTEUR DE SÉRIES — « 5 × 6⋅6⋅6 », à cheval sur le bord DROIT du cadre.
+ *
+ * Le pendant du numéro de rang, qui chevauche le bord gauche : même hauteur,
+ * même fond opaque qui découpe le filet, même casse machine. Deux repères
+ * posés sur la même ligne d'horizon, l'un disant OÙ la voie se classe, l'autre
+ * CE QU'ELLE RAPPORTE.
+ *
+ * ★ Pourquoi ici, alors qu'on vient de le retirer des titres.
+ *
+ * Ce n'est pas une contradiction, c'est la même règle appliquée à deux moments
+ * de la lecture. Dans le LISTING, on choisit une voie : savoir que celle-ci
+ * donne cinq séries plutôt qu'une aide à choisir, et il n'y a encore rien à
+ * gâcher — on n'a rien vu. Sur la PAGE D'ANIMATION, on a choisi : l'annoncer
+ * d'avance retire à la démonstration sa seule surprise. Le titre, lui, voyage
+ * dans les deux pages ; c'est pour ça qu'il ne peut pas le porter, et que ce
+ * compteur, qui ne quitte jamais le listing, le peut (`src/recherche/titres.js`).
+ *
+ * ★ `n === 1` n'affiche RIEN. « 1 × 6⋅6⋅6 » n'apprend rien — toute voie mène à
+ * 666, c'est la promesse du site — et douze cartes portant toutes le même
+ * badge n'en distingueraient aucune. Le compteur ne paraît que là où il dit
+ * quelque chose : la majorité des cartes reste nue, et l'œil va droit aux
+ * quelques-unes qui portent la marque.
+ *
+ * ★ Deux écritures pour deux lectures. « 5 × 6⋅6⋅6 » est un dessin : les points
+ * médians séparent les trois 6 comme sur un cadran, et un lecteur d'écran en
+ * ferait une bouillie de symboles. Le badge est donc `aria-hidden`, doublé
+ * d'une phrase pleine — « cinq séries de 666 » — dans un `.visuellement-cachee`.
+ * Une seule information, deux formes, chacune adressée à qui sait la lire.
+ */
+function compteurSeries(approche) {
+  const n = (approche && approche.series) || 1;
+  if (n < 2) return null;
+  return e('span.voie__series', {}, [
+    e('span', { texte: t('resultat.voieSeriesBadge', { n }), 'aria-hidden': 'true' }),
+    e('span.visuellement-cachee', { texte: t('resultat.voieSeries', { n }) }),
+  ]);
+}
+
+/**
  * Un panneau de voie complète.
  *
  * ★ DEUX ACCÈS EN PIED, ET NON PLUS UN SEUL — et c'est pour ça que le panneau
@@ -37,6 +76,7 @@ function carteVoie(approche, i, { surChoix, lienDisponible }) {
   const titre = titreApproche(approche) || t('resultat.voieSansTitre', { rang: i + 1 });
   const entete = [
     e('span.voie__numero', { texte: t('resultat.voieNumero', { rang }) }),
+    compteurSeries(approche),
     e('span.voie__titre', { texte: titre }),
     regle ? e('span.voie__resume', { texte: regle }) : null,
   ];

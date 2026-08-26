@@ -1,0 +1,13 @@
+Pen        : https://codepen.io/pizza3/pen/MWyxYjw
+Auteur     : pizza3
+Titre      : Toon Fire Shader
+Rapatrié   : https://cdpn.io/pizza3/fullpage/MWyxYjw (le code du pen est dans l attribut « srcdoc » de
+             l iframe de résultat ; c est la seule voie qui passe —
+             codepen.io lui-meme rend 403, et l API oembed est
+             derriere un defi Cloudflare)
+Dependances chargees par CDN :
+  - https://cdnjs.cloudflare.com/ajax/libs/three.js/r120/three.min.js
+  - https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js
+  - https://unpkg.com/three@0.120.0/examples/jsm/postprocessing/EffectComposer.js
+  - https://unpkg.com/three@0.120.0/examples/jsm/postprocessing/RenderPass.js
+  - https://unpkg.com/three@0.120.0/examples/jsm/postprocessing/UnrealBloomPass.js

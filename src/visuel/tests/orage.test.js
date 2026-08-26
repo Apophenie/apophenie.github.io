@@ -190,6 +190,29 @@ test('orage — aucune animation concurrente : la scénographie ne dispute aucun
   }
 });
 
+test('★ orage — le feu GERME après la foudre, et la timeline ne l’éteint jamais', () => {
+  // « L'idéal serait que le feu puisse germer juste après la foudre et perdurer
+  // après (et si on revient en arrière, disparaître quand on remonte avant la
+  // foudre). » (l'auteur)
+  //
+  // La timeline ne dit plus qu'UNE chose du feu : il a pris. Une seule montée,
+  // monotone, `forwards` — donc l'état tient à la dernière image, donc le feu
+  // est encore là quand la lecture s'arrête. Sa VIE, elle, est en CSS
+  // (`styles/pages.css`), ce qui est la seule façon qu'elle survive à une
+  // timeline finie. Et `seek()` en arrière ramène l'opacité à zéro : le feu
+  // s'éteint proprement, sans qu'aucune boucle ne reste à tourner (l'attribut
+  // `data-embrasement` de `player.js` les met en pause).
+  const tl = bati({ scenographie: true });
+  const feux = animsDe(tl, '@brasier:d0', 'opacity');
+  assert.equal(feux.length, 1, 'une seule animation : le feu prend, il ne bat pas');
+  const [feu] = feux;
+  assert.equal(feu.keyframes.length, 2, 'de zéro à son intensité, et rien entre les deux');
+  assert.equal(Number(feu.keyframes[0].value), 0);
+  assert.ok(Number(feu.keyframes[1].value) > 0.5, 'un feu qui prend se voit');
+  assert.ok(feu.delay > animsDe(tl, '@eclair', 'opacity')[0].delay,
+    'le feu doit prendre APRÈS la foudre — c’est elle qui l’allume');
+});
+
 test('★ orage — la nuit tombe AVANT que la foudre ne frappe, et le feu APRÈS', () => {
   // L'ordre n'est pas décoratif : dans ce sens-là, c'est la foudre qui met le
   // feu, et l'orage raconte quelque chose. Dans l'autre, ce sont trois effets

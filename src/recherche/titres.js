@@ -1,5 +1,6 @@
 // src/recherche/titres.js
-// Le NOM d'une méthode — pas l'énumération de ses opérations.
+// Le NOM d'une méthode — pas l'énumération de ses opérations, et pas son
+// résultat non plus.
 //
 // Le README ne dit pas « On prend les lettres une par une, Numérologie
 // chaldéenne, On fait la moyenne ». Il dit « Méthode 1 — Le détour
@@ -8,6 +9,39 @@
 // permet de choisir une démonstration sans l'ouvrir. La liste des opérations,
 // elle, garde toute sa valeur — mais en sous-titre (`regleApproche`).
 //
+// ══════════════ ★ LA RÈGLE DE FORMATION, ET LES TROIS DÉCISIONS QUI LA FONDENT
+//
+// Un titre est une locution PRÉPOSITIONNELLE, sans dash, sans énumération,
+// sans résultat :
+//
+//     « Par gématrie anglaise sur les consonnes »
+//     « En quatorze segments »
+//     « En spacialisation AZERTY »
+//
+//   1. LA MENTION D'ASSEMBLAGE A DISPARU. Elle disait comment les trois 6
+//      étaient réunis — « les 6 groupés par trois », « deux séries de 666 »,
+//      « trois voies convergent ». C'est LE RÉSULTAT : l'annoncer au-dessus
+//      d'une démonstration qu'on n'a pas encore ouverte en divulgue la chute.
+//      L'information n'est pas perdue pour autant — elle est REMONTÉE dans le
+//      LISTING, où elle sert à choisir (le compteur « n × 6⋅6⋅6 » à cheval sur
+//      le bord droit du panneau, `src/app/pages/resultat.js`) et où elle ne
+//      gâche rien, puisqu'on n'a encore rien vu. Elle ne redescend jamais dans
+//      le titre, qui suit la voie jusque dans la page d'animation.
+//
+//   2. LA FORME EST PRÉPOSITIONNELLE, plus nominale. « La gématrie anglaise »
+//      était le nom d'une chose ; « Par gématrie anglaise » est le nom d'un
+//      CHEMIN — et c'est un chemin qu'on choisit dans cette liste. La
+//      préposition n'est pas la même pour tous : elle est choisie par FAMILLE,
+//      parce qu'une seule plaquée partout ferait entendre le gabarit au lieu de
+//      la méthode (voir la table `NOMS`, où chaque section porte la sienne).
+//
+//   3. LE QUALIFIANT EST FONDU DANS LA PHRASE. « — On ne garde que les
+//      consonnes » est une phrase complète greffée derrière un tiret ; « sur
+//      les consonnes » se lit d'un seul souffle. D'où la table `PRECISIONS` :
+//      chaque opérateur y a une forme COURTE et PRÉPOSITIONNELLE, distincte de
+//      son `libelle` de catalogue, qui reste une phrase parce qu'il s'affiche
+//      dans Le Registre où il doit se lire seul.
+//
 // Le titre est donc dérivé de la SIGNATURE du chemin, jamais de la
 // concaténation des libellés :
 //
@@ -15,13 +49,16 @@
 //      principal, à défaut la mesure, à défaut le dénombrement ; un filtre
 //      caractéristique (traduction, Atbash, César…) l'emporte sur tout, parce
 //      que c'est lui que le spectateur retiendra ;
-//   2. un QUALIFIANT — la pirouette qui distingue deux emplois de la même
-//      vedette (« par soustraction », « et le retournement du 9 ») ;
-//   3. une MENTION D'ASSEMBLAGE — comment les trois 6 sont obtenus. C'est là
-//      que le mode `TRIPLEMENT` est dit à voix haute : « le même 6, trois
-//      fois ». Un décret assumé reste montrable ; un décret déguisé, non.
+//   2. une PRÉCISION DISTINCTIVE — ce que cette voie a en propre dans la liste
+//      où elle figure (« sur les consonnes »), posée par `distinguerTitres` ;
+//   3. un QUALIFIANT — la pirouette qui distingue deux emplois de la même
+//      vedette (« par soustraction », « avec le 9 retourné »).
 //
 // Bilingue `{fr, en}` comme le reste du catalogue (`src/moteur/i18n.js`).
+// L'anglais subit la MÊME transformation que le français — préposition en tête,
+// fragment fondu — et non une traduction mot à mot : « By English gematria on
+// consonants », « In fourteen segments ».
+//
 // Aucune source d'entropie, aucun `Intl`, aucun `localeCompare` (CONTRACTS
 // §4.4 règle 4) : deux exécutions produisent le même titre au caractère près.
 
@@ -60,32 +97,68 @@ const PRIORITE = {
   finisseur: 8,
 };
 
-/** Deux mappeurs de service qui ne nomment rien : ils retouchent un résultat. */
-const MAPPEURS_DE_SERVICE = new Set(['m.reduireChaque', 'm.retirerZeros']);
+/**
+ * Les mappeurs de service, qui ne nomment rien : ils retouchent un résultat.
+ *
+ * ★ `m.troisSixDAffilee` (`mz`) les rejoint depuis que le titre ne dit plus le
+ * résultat. Il ne calcule rien — il SOULIGNE trois 6 déjà contigus. Laissé
+ * vedette, il aurait donné à toute une famille de voies un nom qui annonce
+ * exactement la chute qu'on vient de retirer des titres.
+ */
+const MAPPEURS_DE_SERVICE = new Set([
+  'm.reduireChaque', 'm.retirerZeros', 'm.troisSixDAffilee',
+]);
 
-/** Nom de méthode par opérateur vedette. */
-const NOMS = {
+/**
+ * Nom de méthode par opérateur vedette — une locution PRÉPOSITIONNELLE.
+ *
+ * ★ La préposition est choisie par FAMILLE, et pas une seule plaquée partout.
+ * Elle dit le RAPPORT entre la saisie et la méthode, et ce rapport n'est pas
+ * le même selon ce qu'on convoque :
+ *
+ *   · « Par … »  — un BARÈME, une tradition, un instrument de calcul qu'on
+ *                  applique : gématries, numérologies, chiffrements, ASCII,
+ *                  opérations arithmétiques. On passe PAR une table.
+ *   · « En … »   — une ÉCRITURE, une représentation dans laquelle on relit la
+ *                  lettre : segments, traits de crayon, boucles, morse,
+ *                  spacialisation clavier. On écrit la lettre EN autre chose.
+ *   · « Sur … »  — un SUPPORT physique ou une portion de la saisie qu'on
+ *                  désigne : les touches du téléphone, le motif qui revient.
+ *   · « En comptant … » — les MESURES. Le gérondif est la seule forme française
+ *                  qui reste prépositionnelle sans devenir un nom : « Par le
+ *                  compte des voyelles » réintroduit le nominal qu'on vient de
+ *                  quitter.
+ *   · sans préposition — les DÉCOUPES, déjà adverbiales par nature (« Lettre à
+ *                  lettre »). Leur ajouter « En lisant » n'apporterait qu'une
+ *                  syllabe.
+ *
+ * ★ Les paires capitale / bas de casse portent leur précision en APPOSITION
+ * après une virgule (« En traits de crayon, capitales ») plutôt qu'en seconde
+ * préposition (« …, en capitales ») : deux « en » d'affilée font bégayer la
+ * ligne, et l'apposition dit aussi bien de quoi il s'agit.
+ */
+export const NOMS = {
   // ── filtres caractéristiques
-  'f.traduitFR': b('Le détour linguistique', 'The linguistic detour'),
-  'f.traduitEN': b('Le détour linguistique', 'The linguistic detour'),
-  'f.atbash': b('Le chiffre Atbash', 'The Atbash cipher'),
-  'f.rot13': b('Le chiffre de César', 'The Caesar cipher'),
-  'f.leet': b('Le décodage leetspeak', 'The leetspeak decoding'),
-  'f.motRepete': b('Le motif qui revient', 'The pattern that recurs'),
-  'f.initiales': b('La règle des initiales', 'The rule of initials'),
+  'f.traduitFR': b('Par le détour linguistique', 'Through the linguistic detour'),
+  'f.traduitEN': b('Par le détour linguistique', 'Through the linguistic detour'),
+  'f.atbash': b('Par le chiffre Atbash', 'Through the Atbash cipher'),
+  'f.rot13': b('Par le chiffre de César', 'Through the Caesar cipher'),
+  'f.leet': b('En leetspeak', 'In leetspeak'),
+  'f.motRepete': b('Sur le motif qui revient', 'On the pattern that recurs'),
+  'f.initiales': b('Par les initiales', 'By the initials'),
 
-  // ── mesures (STR → NUM)
-  'n.longueur': b('Le compte des lettres', 'The letter count'),
-  'n.voyelles': b('Le compte des voyelles', 'The vowel count'),
-  'n.consonnes': b('Le compte des consonnes', 'The consonant count'),
-  'n.lettresDistinctes': b('Le compte des lettres distinctes', 'The distinct-letter count'),
-  'n.separateurs': b('Le compte des séparateurs', 'The separator count'),
-  'n.mots': b('Le compte des mots', 'The word count'),
-  'n.lettresPlusVoyelles': b('Le compte des lettres et des voyelles', 'Counting letters and vowels'),
-  'n.lettresPlusConsonnes': b('Le compte des lettres et des consonnes', 'Counting letters and consonants'),
+  // ── mesures (STR → NUM) : le gérondif, qui compte au lieu de nommer un compte
+  'n.longueur': b('En comptant les lettres', 'By counting the letters'),
+  'n.voyelles': b('En comptant les voyelles', 'By counting the vowels'),
+  'n.consonnes': b('En comptant les consonnes', 'By counting the consonants'),
+  'n.lettresDistinctes': b('En comptant les lettres distinctes', 'By counting the distinct letters'),
+  'n.separateurs': b('En comptant les séparateurs', 'By counting the separators'),
+  'n.mots': b('En comptant les mots', 'By counting the words'),
+  'n.lettresPlusVoyelles': b('En comptant lettres et voyelles', 'By counting letters and vowels'),
+  'n.lettresPlusConsonnes': b('En comptant lettres et consonnes', 'By counting letters and consonants'),
 
   // ── mappeurs (la table de conversion qui fait la méthode)
-  // ★ « La gématrie simple » — et non « la numérologie latine », qui a servi un
+  // ★ « gématrie simple » — et non « numérologie latine », qui a servi un
   // temps. Deux raisons. La première : une fois que `m.englishX6` s'appelle « la
   // gématrie anglaise », les deux barèmes A=1…Z=26 et A=6…Z=156 se retrouvent
   // côte à côte dans la liste sans rien qui les relie ; « simple » et
@@ -96,70 +169,88 @@ const NOMS = {
   // ALPHABET ; le lecteur croyait voir une troisième tradition là où il n'y a
   // que le rang de la lettre. L'identifiant `m.a1z26` et le code d'URL `m1`, eux,
   // ne changent JAMAIS — registre append-only (CONTRACTS §4.1).
-  'm.a1z26': b('La gématrie simple', 'Simple gematria'),
-  'm.z26a1': b('L’alphabet à rebours', 'The alphabet backwards'),
-  'm.pythagore': b('La numérologie pythagoricienne', 'Pythagorean numerology'),
-  'm.chaldeen': b('La numérologie chaldéenne', 'Chaldean numerology'),
-  'm.englishX6': b('La gématrie anglaise', 'English gematria'),
-  'm.scrabbleFR': b('Le compte du Scrabble français', 'The French Scrabble count'),
-  'm.scrabbleEN': b('Le compte du Scrabble anglais', 'The English Scrabble count'),
-  'm.t9': b('Les touches du téléphone', 'The phone keypad'),
-  'm.morseSignaux': b('Le morse', 'Morse code'),
-  'm.morseTraits': b('Les traits du morse', 'Morse dashes'),
-  'm.asciiMaj': b('Le code ASCII, en capitales', 'ASCII, in capitals'),
-  'm.asciiMin': b('Le code ASCII, en bas de casse', 'ASCII, in lower case'),
-  'm.seg7': b('L’affichage à sept segments', 'The seven-segment display'),
-  'm.seg7Fusion': b('L’affichage à sept segments, traits fusionnés',
-    'The seven-segment display, strokes merged'),
-  'm.seg14': b('L’affichage à quatorze segments', 'The fourteen-segment display'),
-  'm.seg14Fusion': b('L’affichage à quatorze segments, traits fusionnés',
-    'The fourteen-segment display, strokes merged'),
-  'm.traitsMaj': b('Les traits de crayon, en capitales', 'Pen strokes, in capitals'),
-  'm.traitsMin': b('Les traits de crayon, en bas de casse', 'Pen strokes, in lower case'),
-  'm.extremitesMaj': b('Les extrémités libres, en capitales', 'Free ends, in capitals'),
-  'm.extremitesMin': b('Les extrémités libres, en bas de casse', 'Free ends, in lower case'),
-  'm.bouclesMaj': b('Les boucles fermées, en capitales', 'Closed loops, in capitals'),
-  'm.bouclesMin': b('Les boucles fermées, en bas de casse', 'Closed loops, in lower case'),
-  'm.azertyColonne': b('La géographie de l’AZERTY', 'AZERTY geography'),
-  'm.azertyRangee': b('Les rangées de l’AZERTY', 'The AZERTY rows'),
-  'm.qwertyColonne': b('La géographie du QWERTY', 'QWERTY geography'),
-  'm.qwertyRangee': b('Les rangées du QWERTY', 'The QWERTY rows'),
-  'm.hebreu': b('La gématrie hébraïque', 'Hebrew gematria'),
-  'm.grec': b('L’isopséphie grecque', 'Greek isopsephy'),
-  'm.longueurNom': b('Le nom des lettres', 'The names of the letters'),
-  'm.longueurToken': b('La longueur des mots', 'The length of the words'),
-  'm.toucheChiffre': b('L’astuce AZERTY', 'The AZERTY trick'),
-  'm.reduireChaque': b('La réduction chiffre à chiffre', 'Digit-by-digit reduction'),
-  'm.retirerZeros': b('Le retrait des zéros', 'Dropping the zeros'),
+  'm.a1z26': b('Par gématrie simple', 'By simple gematria'),
+  'm.z26a1': b('Par l’alphabet à rebours', 'By the alphabet backwards'),
+  'm.pythagore': b('Par numérologie pythagoricienne', 'By Pythagorean numerology'),
+  'm.chaldeen': b('Par numérologie chaldéenne', 'By Chaldean numerology'),
+  'm.englishX6': b('Par gématrie anglaise', 'By English gematria'),
+  // Le Scrabble se joue : on y compte des points « au » Scrabble, comme on
+  // marque au tennis. « Par les points du Scrabble français » disait la même
+  // chose en trois mots de plus.
+  'm.scrabbleFR': b('Au Scrabble français', 'In French Scrabble'),
+  'm.scrabbleEN': b('Au Scrabble anglais', 'In English Scrabble'),
+  'm.t9': b('Sur les touches du téléphone', 'On the phone keypad'),
+  'm.morseSignaux': b('En morse', 'In Morse code'),
+  'm.morseTraits': b('En traits de morse', 'In Morse dashes'),
+  'm.asciiMaj': b('Par le code ASCII, capitales', 'By ASCII, capitals'),
+  'm.asciiMin': b('Par le code ASCII, bas de casse', 'By ASCII, lower case'),
+  'm.seg7': b('En sept segments', 'In seven segments'),
+  'm.seg7Fusion': b('En sept segments, traits fusionnés',
+    'In seven segments, strokes merged'),
+  'm.seg14': b('En quatorze segments', 'In fourteen segments'),
+  'm.seg14Fusion': b('En quatorze segments, traits fusionnés',
+    'In fourteen segments, strokes merged'),
+  'm.traitsMaj': b('En traits de crayon, capitales', 'In pen strokes, capitals'),
+  'm.traitsMin': b('En traits de crayon, bas de casse', 'In pen strokes, lower case'),
+  'm.extremitesMaj': b('En extrémités libres, capitales', 'In free ends, capitals'),
+  'm.extremitesMin': b('En extrémités libres, bas de casse', 'In free ends, lower case'),
+  'm.bouclesMaj': b('En boucles fermées, capitales', 'In closed loops, capitals'),
+  'm.bouclesMin': b('En boucles fermées, bas de casse', 'In closed loops, lower case'),
+  // ★ « spacialisation » et non « géographie » : c'est le mot de l'auteur, et il
+  // vaut mieux. Une géographie décrit un territoire donné ; la méthode, elle,
+  // PROJETTE la lettre sur une grille — elle la spacialise. Le mot dit le geste.
+  'm.azertyColonne': b('En spacialisation AZERTY', 'In AZERTY spatialisation'),
+  'm.azertyRangee': b('En rangées AZERTY', 'In AZERTY rows'),
+  'm.qwertyColonne': b('En spacialisation QWERTY', 'In QWERTY spatialisation'),
+  'm.qwertyRangee': b('En rangées QWERTY', 'In QWERTY rows'),
+  'm.hebreu': b('Par gématrie hébraïque', 'By Hebrew gematria'),
+  'm.grec': b('Par isopséphie grecque', 'By Greek isopsephy'),
+  'm.longueurNom': b('Par le nom des lettres', 'By the names of the letters'),
+  'm.longueurToken': b('Par la longueur des mots', 'By the length of the words'),
+  'm.toucheChiffre': b('Par l’astuce AZERTY', 'By the AZERTY trick'),
+  // ★ Trois règles de SÉLECTION, pas de conversion : elles ne remplacent pas la
+  // valeur d'un jeton, elles décident lesquels restent. D'où « Par la valeur… »
+  // et « Un rang sur deux », qui disent un tri, quand « En… » dirait une
+  // écriture. `m.unRangSurDeux` se passe de préposition comme les découpes :
+  // « un rang sur deux » est déjà une locution adverbiale complète.
+  'm.plusFrequent': b('Par la valeur la plus fréquente', 'By the most frequent value'),
+  'm.unRangSurDeux': b('Un rang sur deux', 'Every other rank'),
+  'm.additionSelective': b('Par addition sélective', 'By selective addition'),
+  'm.reduireChaque': b('Par réduction chiffre à chiffre', 'By digit-by-digit reduction'),
+  'm.retirerZeros': b('Sans les zéros', 'Without the zeros'),
   // Le pluriel distingue la vedette (un vecteur entier de 9 se retourne) du
-  // qualifiant de `p.retournement`, « et le retournement du 9 », qui ne parle
-  // que d'un nombre isolé. Deux méthodes, deux noms — sans quoi une liste
-  // pourrait porter deux fois la même ligne.
-  'm.retournerLesNeuf': b('Le retournement des 9', 'The flipping of the 9s'),
+  // qualifiant de `p.retournement`, « avec le 9 retourné », qui ne parle que
+  // d'un nombre isolé. Deux méthodes, deux noms — sans quoi une liste pourrait
+  // porter deux fois la même ligne.
+  'm.retournerLesNeuf': b('Par le retournement des 9', 'By flipping the 9s'),
+  // ★ `mz` ne nomme rien et ne DOIT rien nommer : il souligne un 666 déjà écrit,
+  // c'est-à-dire le résultat. Il est écarté des vedettes (`MAPPEURS_DE_SERVICE`)
+  // et son nom de repli reste muet sur ce qu'il montre.
+  'm.troisSixDAffilee': b('Avec le trio souligné', 'With the trio underlined'),
 
   // ── combinateurs qui, faute de mappeur, font la méthode à eux seuls
-  'c.compteTokens': b('Le simple dénombrement', 'Plain counting'),
-  'c.compteTokensDistincts': b('Le dénombrement des jetons distincts', 'Counting the distinct tokens'),
-  'c.somme': b('La simple addition', 'Plain addition'),
-  'c.soustraction': b('La soustraction', 'The subtraction'),
-  'c.produit': b('La multiplication', 'The multiplication'),
-  'c.alternee': b('L’alternance des signes', 'The alternating signs'),
-  'c.maxMoinsMin': b('L’écart des valeurs', 'The spread of the values'),
-  'c.moyenne': b('La moyenne', 'The average'),
-  'c.cardinal': b('Le nombre de valeurs', 'The number of values'),
-  'c.concat': b('Les chiffres collés', 'The digits glued together'),
-  'c.max': b('La plus grande valeur', 'The largest value'),
-  'c.min': b('La plus petite valeur', 'The smallest value'),
+  'c.compteTokens': b('Par simple dénombrement', 'By plain counting'),
+  'c.compteTokensDistincts': b('Par dénombrement des jetons distincts', 'By counting the distinct tokens'),
+  'c.somme': b('Par simple addition', 'By plain addition'),
+  'c.soustraction': b('Par soustraction', 'By subtraction'),
+  'c.produit': b('Par multiplication', 'By multiplication'),
+  'c.alternee': b('En alternant les signes', 'By alternating the signs'),
+  'c.maxMoinsMin': b('Par l’écart des valeurs', 'By the spread of the values'),
+  'c.moyenne': b('En moyenne', 'On average'),
+  'c.cardinal': b('Par le nombre de valeurs', 'By the number of values'),
+  'c.concat': b('En collant les chiffres', 'By gluing the digits together'),
+  'c.max': b('Par la plus grande valeur', 'By the largest value'),
+  'c.min': b('Par la plus petite valeur', 'By the smallest value'),
 
-  // ── découpes, faute de tout le reste
-  't.caracteres': b('La lecture lettre à lettre', 'Reading letter by letter'),
-  't.mots': b('La lecture mot à mot', 'Reading word by word'),
-  't.separateurs': b('La lecture des séparateurs', 'Reading the separators'),
-  't.syllabes': b('La lecture syllabe à syllabe', 'Reading syllable by syllable'),
-  't.chiffres': b('L’éclatement en chiffres', 'Breaking into digits'),
+  // ── découpes, faute de tout le reste : déjà adverbiales, on n'y ajoute rien
+  't.caracteres': b('Lettre à lettre', 'Letter by letter'),
+  't.mots': b('Mot à mot', 'Word by word'),
+  't.separateurs': b('Par les séparateurs', 'By the separators'),
+  't.syllabes': b('Syllabe à syllabe', 'Syllable by syllable'),
+  't.chiffres': b('Chiffre à chiffre', 'Digit by digit'),
 
   // ── le joker (CONTRACTS §0.4 : affiché et assumé)
-  'j.nomFrancais': b('Le joker français', 'The French joker'),
+  'j.nomFrancais': b('Par le joker français', 'By the French joker'),
 };
 
 // ══════════════════════════════════ 2. les qualifiants
@@ -169,54 +260,187 @@ const NOMS = {
  * retenu — celui de plus faible rang —, sinon le titre redevient l'énumération
  * qu'on cherchait justement à éviter.
  *
+ * ★ Ce sont des FRAGMENTS, pas des phrases : ils s'ajoutent au nom après une
+ * simple virgule (« En sept segments, en multipliant »), là où un tiret
+ * cadratin les tenait naguère à distance.
+ *
+ * ★ Aucun ne commence par « par » / « by ». La moitié des noms de vedette
+ * s'ouvre déjà sur cette préposition, et « Par gématrie simple par
+ * multiplication » bégaye. Les combinateurs passent donc au gérondif — « en
+ * multipliant », « multiplying » —, qui dit la même chose en disant en plus que
+ * c'est une action qu'on exécute pendant le calcul, et non un second barème.
+ *
  * Les réductions ordinaires (`p.racineNumerique`, `p.sommeChiffres`,
  * `p.racineMaitres`) n'y figurent pas : elles sont la grammaire commune de la
  * numérologie, elles ne distinguent rien.
  */
-const QUALIFIANTS = {
-  'p.retournement': [0, b('et le retournement du 9', 'and the flipping of the 9')],
+export const QUALIFIANTS = {
+  'p.retournement': [0, b('avec le 9 retourné', 'with the 9 flipped')],
   'p.miroir': [1, b('lu à l’envers', 'read backwards')],
-  'p.complement9': [1, b('par complément à neuf', 'by the nines complement')],
-  'p.ecartChiffres': [1, b('par l’écart des chiffres', 'by the gap between the digits')],
+  'p.complement9': [1, b('au complément à neuf', 'to the nines complement')],
+  'p.ecartChiffres': [1, b('en prenant l’écart des chiffres', 'taking the gap between the digits')],
   'p.modulo9': [2, b('modulo neuf', 'modulo nine')],
   'p.modulo10': [2, b('au dernier chiffre', 'down to the last digit')],
   'p.abs': [2, b('en valeur absolue', 'in absolute value')],
   'p.reductionSignee': [2, b('en gardant le signe', 'keeping the sign')],
-  'c.soustraction': [3, b('par soustraction', 'by subtraction')],
-  'c.produit': [3, b('par multiplication', 'by multiplication')],
+  'c.soustraction': [3, b('en soustrayant', 'subtracting')],
+  'c.produit': [3, b('en multipliant', 'multiplying')],
   'c.alternee': [3, b('en alternant les signes', 'alternating the signs')],
-  'c.maxMoinsMin': [3, b('par l’écart', 'by the spread')],
+  'c.maxMoinsMin': [3, b('en prenant l’écart', 'taking the spread')],
   'c.moyenne': [3, b('en moyenne', 'on average')],
   'c.concat': [3, b('chiffres collés', 'digits glued together')],
   'c.max': [3, b('au plus grand', 'at the largest')],
   'c.min': [3, b('au plus petit', 'at the smallest')],
-  'c.cardinal': [3, b('au nombre de valeurs', 'by the number of values')],
+  'c.cardinal': [3, b('au nombre de valeurs', 'at the number of values')],
 };
 
-// ══════════════════════════════════ 3. les mentions d'assemblage
+// ══════════════════════════════════ 3. les précisions distinctives
 
-const MENTIONS = {
-  // Le décret n'est plus PRODUIT (`assemblage.js`) ; la mention survit pour les
-  // liens partagés avant sa suppression, que `rejouer` continue d'ouvrir.
-  decret: b('le même 6, trois fois', 'the same 6, three times over'),
-  direct: b('666 d’un seul tenant', '666 in one go'),
-  groupement: b('les 6 groupés par trois', 'the 6s grouped in threes'),
-  // La convergence NOMME ce qui se passe au lieu d'énumérer : trois lectures
-  // indépendantes de la même chaîne qui tombent toutes sur 6.
-  convergence: b('trois voies convergent', 'three roads converge'),
-  sixOfferts: b('tirets du 6 compris', 'dash-key sixes included'),
-  uneAutre: b('et une autre règle', 'and one other rule'),
-  deuxAutres: b('et deux autres règles', 'and two other rules'),
+/**
+ * ★ LA FORME COURTE DE CHAQUE OPÉRATEUR — celle qui se FOND dans un titre.
+ *
+ * Le catalogue donne à chaque opérateur un `libelle` qui est une PHRASE
+ * COMPLÈTE — « On ne garde que les consonnes ». C'est le bon format là où il
+ * sert : Le Registre l'affiche seul, ligne à ligne, et une phrase s'y lit sans
+ * contexte. Greffée derrière un tiret cadratin dans un titre, en revanche, elle
+ * casse la locution en deux et fait de la ligne une énumération :
+ *
+ *     « La gématrie anglaise — On ne garde que les consonnes »   ← deux blocs
+ *     « Par gématrie anglaise sur les consonnes »                ← une phrase
+ *
+ * D'où cette seconde table. Elle n'est PAS une traduction du `libelle` : c'est
+ * un autre registre de langue pour le même opérateur — prépositionnel, minuscule
+ * initiale, soudable. Les deux coexistent parce qu'ils servent deux endroits
+ * différents ; les confondre reviendrait à choisir lequel des deux endroits on
+ * accepte de mal servir.
+ *
+ * ★ Elle est EXHAUSTIVE, et un test le vérifie (`titres — chaque opérateur du
+ * catalogue a sa forme courte`). Le repli sur `op.libelle` existe encore pour ne
+ * jamais rendre un titre vide, mais y tomber serait une régression visible : la
+ * ligne rattraperait sa phrase à rallonge.
+ */
+export const PRECISIONS = {
+  // ── filtres : ce sur quoi on travaille, ou ce qu'on écarte
+  'f.protocole': b('sans le protocole', 'without the protocol'),
+  'f.www': b('sans le « www. »', 'without the “www.”'),
+  'f.tld': b('sans l’extension', 'without the extension'),
+  'f.avantSlash': b('avant le « / »', 'before the “/”'),
+  'f.apresSlash': b('après le « / »', 'after the “/”'),
+  'f.lettres': b('sur les lettres seules', 'on the letters alone'),
+  'f.voyelles': b('sur les voyelles', 'on the vowels'),
+  'f.voyellesY': b('sur les voyelles, Y compris', 'on the vowels, Y included'),
+  'f.consonnes': b('sur les consonnes', 'on the consonants'),
+  'f.dedoublonne': b('sans les doublons', 'without the duplicates'),
+  'f.repetees': b('sur les lettres répétées', 'on the repeated letters'),
+  'f.initiales': b('sur les initiales', 'on the initials'),
+  'f.motRepete': b('sur le motif répété', 'on the repeated pattern'),
+  'f.traduitFR': b('traduit en français', 'translated into French'),
+  'f.traduitEN': b('traduit en anglais', 'translated into English'),
+  'f.majuscule': b('en capitales', 'in capitals'),
+  'f.minuscule': b('en bas de casse', 'in lower case'),
+  'f.sansAccents': b('sans les accents', 'without the accents'),
+  'f.leet': b('en leetspeak', 'in leetspeak'),
+  'f.atbash': b('après un Atbash', 'after an Atbash'),
+  'f.rot13': b('après le chiffre de César', 'after the Caesar cipher'),
+
+  // ── découpes : le grain de lecture
+  't.caracteres': b('lettre à lettre', 'letter by letter'),
+  't.mots': b('mot à mot', 'word by word'),
+  't.separateurs': b('sur les séparateurs', 'on the separators'),
+  't.syllabes': b('syllabe à syllabe', 'syllable by syllable'),
+  't.chiffres': b('chiffre à chiffre', 'digit by digit'),
+
+  // ── mesures : « au compte de… », qui reste nominal parce qu'il est en second
+  'n.longueur': b('au compte des lettres', 'by letter count'),
+  'n.voyelles': b('au compte des voyelles', 'by vowel count'),
+  'n.consonnes': b('au compte des consonnes', 'by consonant count'),
+  'n.lettresDistinctes': b('au compte des lettres distinctes', 'by distinct-letter count'),
+  'n.separateurs': b('au compte des séparateurs', 'by separator count'),
+  'n.mots': b('au compte des mots', 'by word count'),
+  'n.lettresPlusVoyelles': b('lettres et voyelles', 'letters and vowels'),
+  'n.lettresPlusConsonnes': b('lettres et consonnes', 'letters and consonants'),
+
+  // ── mappeurs : la même préposition que leur nom de vedette, en minuscule
+  'm.a1z26': b('par gématrie simple', 'by simple gematria'),
+  'm.z26a1': b('par l’alphabet à rebours', 'by the alphabet backwards'),
+  'm.pythagore': b('par la pythagoricienne', 'by the Pythagorean table'),
+  'm.chaldeen': b('par la chaldéenne', 'by the Chaldean table'),
+  'm.englishX6': b('par la gématrie anglaise', 'by English gematria'),
+  'm.scrabbleFR': b('au Scrabble français', 'in French Scrabble'),
+  'm.scrabbleEN': b('au Scrabble anglais', 'in English Scrabble'),
+  'm.t9': b('sur les touches du téléphone', 'on the phone keypad'),
+  'm.morseSignaux': b('en morse', 'in Morse code'),
+  'm.morseTraits': b('en traits de morse', 'in Morse dashes'),
+  'm.asciiMaj': b('en ASCII, capitales', 'in ASCII, capitals'),
+  'm.asciiMin': b('en ASCII, bas de casse', 'in ASCII, lower case'),
+  'm.seg7': b('en sept segments', 'in seven segments'),
+  'm.seg7Fusion': b('en sept segments fusionnés', 'in merged seven segments'),
+  'm.seg14': b('en quatorze segments', 'in fourteen segments'),
+  'm.seg14Fusion': b('en quatorze segments fusionnés', 'in merged fourteen segments'),
+  'm.traitsMaj': b('en traits de crayon, capitales', 'in pen strokes, capitals'),
+  'm.traitsMin': b('en traits de crayon, bas de casse', 'in pen strokes, lower case'),
+  'm.extremitesMaj': b('en extrémités libres, capitales', 'in free ends, capitals'),
+  'm.extremitesMin': b('en extrémités libres, bas de casse', 'in free ends, lower case'),
+  'm.bouclesMaj': b('en boucles fermées, capitales', 'in closed loops, capitals'),
+  'm.bouclesMin': b('en boucles fermées, bas de casse', 'in closed loops, lower case'),
+  'm.azertyColonne': b('en spacialisation AZERTY', 'in AZERTY spatialisation'),
+  'm.azertyRangee': b('en rangées AZERTY', 'in AZERTY rows'),
+  'm.qwertyColonne': b('en spacialisation QWERTY', 'in QWERTY spatialisation'),
+  'm.qwertyRangee': b('en rangées QWERTY', 'in QWERTY rows'),
+  'm.hebreu': b('par la gématrie hébraïque', 'by Hebrew gematria'),
+  'm.grec': b('par l’isopséphie grecque', 'by Greek isopsephy'),
+  'm.longueurNom': b('par le nom des lettres', 'by the names of the letters'),
+  'm.longueurToken': b('par la longueur des mots', 'by the length of the words'),
+  'm.toucheChiffre': b('par l’astuce AZERTY', 'by the AZERTY trick'),
+  'm.plusFrequent': b('au plus fréquent', 'at the most frequent'),
+  'm.unRangSurDeux': b('un rang sur deux', 'every other rank'),
+  'm.additionSelective': b('par addition sélective', 'by selective addition'),
+  'm.reduireChaque': b('réduit chiffre à chiffre', 'reduced digit by digit'),
+  'm.retirerZeros': b('sans les zéros', 'without the zeros'),
+  'm.retournerLesNeuf': b('les 9 retournés', 'with the 9s flipped'),
+  // ★ Muet sur ce qu'il souligne — voir `MAPPEURS_DE_SERVICE`. « 666 déjà
+  // écrit » serait exact et divulguerait la chute d'une ligne de la liste.
+  'm.troisSixDAffilee': b('avec le trio souligné', 'with the trio underlined'),
+
+  // ── combinateurs
+  'c.somme': b('par addition', 'by addition'),
+  'c.soustraction': b('par soustraction', 'by subtraction'),
+  'c.produit': b('par multiplication', 'by multiplication'),
+  'c.alternee': b('en alternant les signes', 'alternating the signs'),
+  'c.maxMoinsMin': b('par l’écart', 'by the spread'),
+  'c.moyenne': b('en moyenne', 'on average'),
+  'c.cardinal': b('au nombre de valeurs', 'by the number of values'),
+  'c.concat': b('chiffres collés', 'digits glued together'),
+  'c.max': b('au plus grand', 'at the largest'),
+  'c.min': b('au plus petit', 'at the smallest'),
+  'c.compteTokens': b('au nombre de jetons', 'by the number of tokens'),
+  'c.compteTokensDistincts': b('au nombre de jetons distincts', 'by the number of distinct tokens'),
+
+  // ── finisseurs
+  'p.racineNumerique': b('réduit à un chiffre', 'reduced to a single digit'),
+  'p.sommeChiffres': b('chiffres additionnés', 'digits added up'),
+  'p.abs': b('en valeur absolue', 'in absolute value'),
+  'p.reductionSignee': b('en gardant le signe', 'keeping the sign'),
+  'p.ecartChiffres': b('par l’écart des chiffres', 'by the gap between the digits'),
+  'p.miroir': b('lu à l’envers', 'read backwards'),
+  'p.complement9': b('par complément à neuf', 'by the nines complement'),
+  'p.modulo9': b('modulo neuf', 'modulo nine'),
+  'p.modulo10': b('au dernier chiffre', 'down to the last digit'),
+  'p.retournement': b('avec le 9 retourné', 'with the 9 flipped'),
+  'p.racineMaitres': b('hors nombres maîtres', 'master numbers apart'),
+
+  // ── joker
+  'j.nomFrancais': b('par le joker français', 'by the French joker'),
 };
 
-/** « deux séries de 666 » — quand le vecteur en porte de quoi faire plusieurs. */
-function mentionSeries(n) {
-  if (!n || n < 2) return MENTIONS.groupement;
-  const motsFr = ['', '', 'deux', 'trois', 'quatre', 'cinq', 'six'];
-  const motsEn = ['', '', 'two', 'three', 'four', 'five', 'six'];
-  const fr = motsFr[n] || String(n);
-  const en = motsEn[n] || String(n);
-  return b(`${fr} séries de 666`, `${en} runs of 666`);
+/**
+ * La forme courte d'un opérateur, à souder dans un titre.
+ * Repli sur le `libelle` de catalogue : jamais rien, quitte à être long.
+ * @param {{id:string, libelle:*}} op
+ */
+export function precisionDe(op) {
+  if (!op) return null;
+  return PRECISIONS[op.id] || op.libelle || null;
 }
 
 // ══════════════════════════════════ lecture d'un chemin
@@ -332,7 +556,28 @@ function porteTroisSix(chemin) {
 // ══════════════════════════════════ le titre
 
 /**
- * Le titre bilingue d'une approche : un nom de méthode, pas une énumération.
+ * Le titre bilingue d'une approche : un nom de méthode, pas une énumération —
+ * et pas non plus un résultat.
+ *
+ * ★ Trois morceaux au plus, et DEUX JOINTS DIFFÉRENTS — parce que les deux
+ * morceaux ajoutés ne font pas le même travail :
+ *
+ *     nom + ESPACE + précision distinctive + VIRGULE + qualifiant
+ *     « Par gématrie anglaise » + « sur les consonnes » + « en multipliant »
+ *     → « Par gématrie anglaise sur les consonnes, en multipliant »
+ *
+ * La PRÉCISION restreint le domaine de la méthode : elle complète la locution,
+ * elle en fait partie, et une virgule l'en détacherait — c'est la forme exacte
+ * que l'auteur a donnée en exemple, « Par gématrie anglaise sur les consonnes ».
+ * Le QUALIFIANT, lui, parle d'autre chose : de ce qui arrive aux nombres une
+ * fois la méthode appliquée. C'est un second membre, et il prend la virgule.
+ *
+ * ★ Aucune mention d'assemblage. Le nombre de séries de 666, le fait que trois
+ * lectures convergent, qu'un 6 soit recopié trois fois — c'est ce que la
+ * démonstration doit RÉVÉLER. Le listing le montre à part (« n × 6⋅6⋅6 » sur le
+ * bord droit du panneau) ; le titre, lui, voyage jusque dans la page
+ * d'animation, où le dire d'avance gâcherait la chute.
+ *
  * @param {Object} approche
  * @returns {{fr:string, en:string}}
  */
@@ -344,52 +589,42 @@ export function titreBilingue(approche) {
   const nom = (tete && NOMS[tete.id])
     || (tete && tete.libelle)
     || b('Démonstration', 'Demonstration');
-
-  const morceaux = [nom];
   const q = tete ? qualifiant(chemin, tete.id) : null;
-  if (q) morceaux.push(q);
-
-  // La distinction vient avant la mention d'assemblage : la mention est un aveu
-  // sur la façon dont les trois 6 sont réunis, elle se lit mieux en dernier.
-  if (approche.distinction) morceaux.push(approche.distinction);
-  const mention = mentionAssemblage(approche, chemin);
-  if (mention) morceaux.push(mention);
-
-  return assembler(morceaux);
-}
-
-function mentionAssemblage(approche, cheminPrincipal) {
-  if (approche.joker || (approche.mode === 'JOKER')) return null; // le nom le dit déjà
-  // La MOISSON annonce ses séries : c'est ce qui la fait passer devant, le
-  // lecteur doit donc pouvoir le lire sans ouvrir la démonstration.
-  if (approche.mode === 'MOISSON') return mentionSeries(approche.series);
-  if (atteint666(cheminPrincipal) && (approche.parts || []).length === 1) return MENTIONS.direct;
-  if (porteTroisSix(cheminPrincipal) && (approche.parts || []).length === 1) {
-    return mentionSeries(approche.series);
-  }
-  if (estDecret(approche)) return MENTIONS.decret;
-  if (approche.mode === 'CONVERGENCE') return MENTIONS.convergence;
-  const parts = approche.parts || [];
-  const signatures = new Set(parts.map((p) => signatureOps(p.chemin)));
-  if (approche.mode === 'SIX_OFFERT') return MENTIONS.sixOfferts;
-  if (signatures.size === 2) return MENTIONS.uneAutre;
-  if (signatures.size >= 3) return MENTIONS.deuxAutres;
-  return null;
+  return assembler(nom, approche.distinction, q);
 }
 
 /**
- * Assemble les morceaux d'un titre. Le premier séparateur est un tiret cadratin
- * — c'est la ponctuation du README (« Méthode 6 — L'astuce AZERTY ») —, les
- * suivants une virgule.
+ * Assemble les trois morceaux d'un titre, chacun à sa jointure.
+ *
+ * ★ Le doublon exact est écarté. La précision et le qualifiant sortent parfois
+ * du MÊME opérateur — `p.retournement` donne « avec le 9 retourné » des deux
+ * côtés —, et « … avec le 9 retourné, avec le 9 retourné » serait le seul
+ * bégaiement que ces tables puissent produire. On compare sur le français, qui
+ * fait foi : les deux langues sont posées ensemble dans un même `b()`, elles ne
+ * peuvent pas diverger sur la PRÉSENCE d'un morceau.
  */
-function assembler(morceaux) {
+function assembler(nom, precision, qualif) {
   const rendu = {};
+  const dejaFr = new Set();
+  const retenir = (m) => {
+    const cle = dire(m, 'fr');
+    if (!cle || !cle.length || dejaFr.has(cle)) return false;
+    dejaFr.add(cle);
+    return true;
+  };
+  const morceaux = [];
+  if (retenir(nom)) morceaux.push([' ', nom]);
+  if (retenir(precision)) morceaux.push([' ', precision]);
+  if (retenir(qualif)) morceaux.push([', ', qualif]);
+
   for (const langue of ['fr', 'en']) {
-    const parts = morceaux.map((m) => dire(m, langue)).filter((x) => x && x.length);
-    if (!parts.length) { rendu[langue] = langue === 'en' ? 'Demonstration' : 'Démonstration'; continue; }
-    rendu[langue] = parts.length === 1
-      ? parts[0]
-      : `${parts[0]} — ${parts.slice(1).join(', ')}`;
+    let texte = '';
+    for (const [joint, m] of morceaux) {
+      const mot = dire(m, langue);
+      if (!mot || !mot.length) continue;
+      texte = texte ? texte + joint + mot : mot;
+    }
+    rendu[langue] = texte || (langue === 'en' ? 'Demonstration' : 'Démonstration');
   }
   return rendu;
 }
@@ -431,10 +666,20 @@ export function regleBilingue(approche) {
  *
  * On ne numérote pas — « (2) » n'apprend rien. On cherche, pour chaque
  * homonyme, le PREMIER opérateur qui n'appartient qu'à lui dans le groupe, et
- * on le donne comme distinction. Faute d'opérateur propre (deux approches aux
- * mêmes opérateurs sur des fragments différents), on distingue par le texte des
+ * on le donne comme distinction — sous sa FORME COURTE (`PRECISIONS`), la seule
+ * qui se soude au nom. Faute d'opérateur propre (deux approches aux mêmes
+ * opérateurs sur des fragments différents), on distingue par le texte des
  * fragments. En dernier recours seulement, par la suite des codes — qui est
  * unique par construction.
+ *
+ * ★ CE MÉCANISME PORTE PLUS LOURD QU'AVANT. Les titres ont raccourci : la
+ * mention d'assemblage les distinguait gratuitement (« deux séries de 666 » vs
+ * « les 6 groupés par trois »), et elle a disparu. Deux voies qui ne
+ * différaient que par leur récolte se retrouvent donc homonymes et redescendent
+ * ici. C'est voulu — la distinction qu'on fabrique alors nomme une VRAIE
+ * différence de méthode, là où le compte de séries n'était qu'un résultat — mais
+ * ça met l'échelle des recours sous tension, d'où le palier supplémentaire
+ * ajouté avant le dernier (voir plus bas, « la portée »).
  *
  * La distinction est POSÉE SUR L'APPROCHE (`a.distinction`), jamais sur la
  * chaîne rendue : `titreApproche` reste une fonction pure de l'approche, si
@@ -464,16 +709,18 @@ export function distinguerTitres(approches) {
     });
     groupe.forEach((a, i) => {
       const propre = opsDe(a).find((o) => !ailleurs[i].has(o.id));
-      if (propre) { a.distinction = propre.libelle; return; }
+      if (propre) { a.distinction = precisionDe(propre); return; }
       // Rien en propre parce qu'on est le PLUS DÉPOUILLÉ du groupe : les autres
       // ajoutent un filtre, une pirouette, et nous non. C'est une différence
       // parfaitement nommable — « la règle seule » —, et il ne peut y en avoir
       // qu'un, puisqu'on exige d'être STRICTEMENT le plus court. Sans elle, la
-      // ligne se distinguait par sa suite de codes : « L'alphabet à rebours —
+      // ligne se distinguait par sa suite de codes : « Par l'alphabet à rebours
       // t1+m2+mt », qui n'apprend rien à personne.
+      // ★ « sans autre règle » et non « la règle seule » : le morceau se SOUDE
+      // au nom sans ponctuation d'attente, comme toutes les précisions.
       const taille = (x) => new Set(opsDe(x).map((o) => o.id)).size;
       if (groupe.every((x) => x === a || taille(x) > taille(a))) {
-        a.distinction = { fr: 'la règle seule', en: 'the rule on its own' };
+        a.distinction = { fr: 'sans autre règle', en: 'with no other rule' };
         return;
       }
       const textes = [...new Set((a.parts || []).map((p) => p.fragment.texte))].join(' · ');
@@ -503,7 +750,7 @@ export function distinguerTitres(approches) {
       for (const o of opsDe(a)) {
         if (commun.has(o.id) || vus.has(o.id)) continue;
         vus.add(o.id);
-        propres.push(o.libelle);
+        propres.push(precisionDe(o));
       }
       if (propres.length) {
         a.distinction = {
@@ -511,6 +758,39 @@ export function distinguerTitres(approches) {
           en: propres.map((l) => dire(l, 'en')).filter(Boolean).join(', '),
         };
         if (a.distinction.fr) return;
+      }
+      // ★ AVANT-DERNIER RECOURS : LA PORTÉE, c'est-à-dire OÙ la méthode
+      // s'applique. Deux voies peuvent partager tous leurs opérateurs et ne
+      // différer que par le NOMBRE de morceaux qu'elles moissonnent, ou par
+      // leur place dans la saisie ; le texte des fragments ne les sépare pas
+      // (branche précédente) parce qu'il est identique à l'ensemble près —
+      // « hope » deux fois contre « hope » trois fois donne la même liste
+      // dédoublonnée. On nomme alors ce qui varie vraiment : le compte de
+      // portées, et à défaut leur position.
+      //
+      // Ce palier n'existait pas tant que la mention d'assemblage tenait les
+      // homonymes à distance. Il dit une différence de MÉTHODE (sur combien de
+      // morceaux on travaille), jamais le résultat (combien de 666 en sortent) :
+      // trois portées peuvent rendre une série comme trois.
+      const portees = (a.parts || []).length;
+      const autresPortees = groupe.filter((x) => x !== a).map((x) => (x.parts || []).length);
+      if (portees && !autresPortees.includes(portees)) {
+        a.distinction = portees === 1
+          ? { fr: 'sur une seule portée', en: 'on a single stretch' }
+          : { fr: `sur ${portees} portées`, en: `on ${portees} stretches` };
+        return;
+      }
+      const offsets = (a.parts || []).map((p) => p.fragment.offset).join('-');
+      const autresOffsets = groupe
+        .filter((x) => x !== a)
+        .map((x) => (x.parts || []).map((p) => p.fragment.offset).join('-'));
+      if (offsets && !autresOffsets.includes(offsets)) {
+        const debut = (a.parts || [])[0];
+        a.distinction = {
+          fr: `à partir du caractère ${(debut && debut.fragment.offset) + 1}`,
+          en: `from character ${(debut && debut.fragment.offset) + 1}`,
+        };
+        return;
       }
       // Dernier recours : la suite des codes, unique par construction. On n'y
       // arrive que si deux lignes ont exactement les mêmes opérateurs sur les

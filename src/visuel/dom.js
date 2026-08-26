@@ -22,6 +22,7 @@
 
 import { FONT_FAMILY, PALETTE } from './constants.js';
 import { glyphTransform } from './assets.js';
+import { feuDe } from './primitives/feu.js';
 
 export const SVGNS = 'http://www.w3.org/2000/svg';
 
@@ -361,39 +362,7 @@ export function createElementFor(node, env) {
       break;
     }
     case 'brasier': {
-      // ★ L'EMBRASEMENT — un dégradé radial, PAS un flou.
-      //
-      // `feGaussianBlur` donnerait le même halo, mais il se recalcule à chaque
-      // image et à chaque échelle : au verdict, le décor grossit d'un facteur
-      // huit, et le filtre avec lui. Un dégradé est peint par le GPU comme
-      // n'importe quel aplat, il grossit sans se recalculer, et il se lit
-      // exactement pareil. Le rendu ne dépend donc pas de la puissance de la
-      // machine — ce qui est aussi ce qui permet au scrubbing de rester net.
-      //
-      // Le dégradé est déclaré DANS le nœud plutôt que dans un `<defs>` global :
-      // un `<defs>` partagé serait un état commun à des nœuds dont l'un peut
-      // être détruit par un `rebuild()`, et la référence pendante ne se verrait
-      // qu'à l'écran. Ici le dégradé naît et meurt avec son ellipse.
-      const gid = `nhl-brasier-${(node.id || '').replace(/[^\w-]/g, '_')}`;
-      const wrap = el('g');
-      const defs = el('defs');
-      const grad = el('radialGradient', { id: gid });
-      // Trois paliers : un cœur franc, une décroissance rapide, une extinction
-      // complète au bord. Sans le palier intermédiaire, un dégradé linéaire
-      // fait un disque net plutôt qu'une lueur.
-      for (const [offset, opacity] of [[0, 0.85], [0.45, 0.34], [1, 0]]) {
-        grad.appendChild(el('stop', {
-          offset, 'stop-color': node.data.couleur, 'stop-opacity': opacity,
-        }));
-      }
-      defs.appendChild(grad);
-      wrap.appendChild(defs);
-      wrap.appendChild(el('ellipse', {
-        cx: 0, cy: 0, rx: node.data.rx, ry: node.data.ry,
-        fill: `url(#${gid})`,
-        class: 'nhl-brasier',
-      }));
-      element = wrap;
+      element = construireBrasier(node, palette, metrics);
       break;
     }
     case 'horns': {
@@ -426,6 +395,120 @@ export function createElementFor(node, env) {
   const racine = enchainer(element).racine;
   racine.setAttribute('data-nhl-id', node.id);
   return racine;
+}
+
+/**
+ * ★ L'EMBRASEMENT — LE CHIFFRE LUI-MÊME EN FEU.
+ *
+ * Le POURQUOI est dans `primitives/feu.js` (pur, testable sans navigateur) et
+ * la provenance dans `.planning/inspirations/feu/`. Ce qui suit n'explique que
+ * la STRUCTURE.
+ *
+ * ```
+ * <g>                                        ← contenu du nœud : WAAPI y anime
+ *   <text class="nhl-feu" style="--a,--b">     `opacity` (l'allumage, fonction
+ *   <path class="nhl-feu" style="--a,--b">     du temps) et `scale` (la
+ * </g>                                         solidarité du décor accroché)
+ * ```
+ *
+ * Deux éléments, pas un de plus : la copie du chiffre, et celle de sa corne
+ * s'il y en a une. Tout le feu tient dans leur `filter`.
+ *
+ * ★ **Le corps est rempli de NUIT.** C'est le tour de main d'atnyman — sa lettre
+ * est noire sur fond noir, et l'on ne voit d'elle que ses ombres. La copie est
+ * donc invisible, et seuls ses halos brûlent. Le vrai chiffre, en rubrique, est
+ * peint par-dessus dans sa couche.
+ *
+ * ★ **Et c'est ce qui rend le verdict lisible par construction** :
+ * `drop-shadow()` peint derrière l'élément qui la porte, donc la copie couleur
+ * de nuit couvre exactement l'empreinte du glyphe et le vrai chiffre repose sur
+ * du fond pur — ses 7,4:1, partout, sans dérogation. Les deux tentatives
+ * précédentes devaient acheter leur lisibilité ; celle-ci n'en paie rien.
+ *
+ * ★ **La corne brûle avec son 6, dans le MÊME nœud.** Elle est déjà accrochée à
+ * lui (`data.suit`) : les deux corps partagent le repère, l'échelle et
+ * l'instant de naissance sans une ligne d'arithmétique. On relit son `d` — rien
+ * d'autre. Le nœud des cornes n'est ni déplacé, ni redessiné : le calage dérivé
+ * de la police et vérifié en CI est intact.
+ *
+ * ★ **Le mouvement est en CSS, pas dans la timeline.** Le vacillement d'une
+ * flamme n'est pas un ÉTAT de la démonstration : aucune valeur, aucun rang,
+ * aucun compte n'en dépend, et Le Registre n'a rien à en dire (même argument
+ * que celui qui garde l'orage hors du vocabulaire, §3.1). N'étant pas fonction
+ * du temps de la timeline, il n'a aucune raison de s'arrêter avec elle — et il
+ * ne s'arrête pas, ce que l'auteur demande. Ce qui reste fonction du temps,
+ * c'est la PRÉSENCE du feu : l'`opacity` du nœud, que `seek()` en arrière
+ * ramène à zéro. Et rien ne tourne dans le vide : les animations sont `paused`
+ * par défaut, `data-embrasement` (posé par `player.js`) les met en marche.
+ */
+function construireBrasier(node, palette = PALETTE, metrics) {
+  const d = node.data;
+  const fs = d.fontSize || (metrics && metrics.fontSize) || 48;
+  // La couleur du corps : invisible sur la nuit, et c'est tout son rôle.
+  const nuit = palette.nuit || d.couleur;
+  const wrap = el('g');
+
+  const corps = [
+    { part: '', dessine: () => glypheDeFeu(d, fs) },
+  ];
+  if (d.corne) {
+    corps.push({ part: 'corne', dessine: () => el('path', { d: d.corne, 'fill-rule': 'nonzero' }) });
+  }
+
+  for (const c of corps) {
+    const f = feuDe({ fontSize: fs, id: node.id, part: c.part, palette });
+
+    // ★ DEUX corps, et AUCUN filtre animé. Mesuré (`_feu-perf.html`) : un filtre
+    //   animé coûte plus d'un cœur, le même filtre figé coûte zéro — il est
+    //   tramé une fois et mis en cache. Le premier corps porte l'état A et ne
+    //   bouge jamais ; le second porte l'état B et c'est son OPACITÉ qui va et
+    //   vient, canal de composition, donc gratuit. On garde la respiration
+    //   d'atnyman sans payer une passe de flou par image.
+    //
+    // ★ Et l'opacité du corps A n'est JAMAIS animée : c'est lui qui scelle
+    //   l'empreinte du glyphe en couleur de nuit. Deux corps qui se fondraient
+    //   l'un dans l'autre laisseraient à mi-fondu un trou par lequel les halos
+    //   remonteraient sous le chiffre — et le contraste du verdict avec.
+    const braise = c.dessine();
+    braise.setAttribute('class', 'nhl-feu');
+    braise.setAttribute('fill', nuit);
+    braise.setAttribute('style', `filter:${f.a}`);
+    wrap.appendChild(braise);
+
+    const reprise = c.dessine();
+    reprise.setAttribute('class', 'nhl-feu nhl-feu--reprise');
+    reprise.setAttribute('fill', nuit);
+    reprise.setAttribute('style',
+      `filter:${f.b};--nhl-feu-periode:${f.periode}ms;--nhl-feu-retard:${f.retard}ms`);
+    wrap.appendChild(reprise);
+  }
+
+  return wrap;
+}
+
+/**
+ * La copie du glyphe qui brûle.
+ *
+ * ★ Le texte est un INSTANTANÉ, pris à la création du nœud (`reveal.js`), et
+ * non une lecture du canal discret. C'est licite ici et nulle part ailleurs :
+ * le feu ne naît qu'au verdict, où plus rien ne transforme les chiffres — ils
+ * ne font que grossir.
+ *
+ * Mêmes attributs de dessin que le rôle `text` : même police, même ancrage,
+ * même ligne de base. Une copie qui ne serait pas rigoureusement superposable
+ * au glyphe laisserait voir un liseré de nuit à côté du chiffre.
+ */
+function glypheDeFeu(data, fs) {
+  const t = el('text', {
+    x: 0, y: 0,
+    'text-anchor': 'middle',
+    'dominant-baseline': 'central',
+    'font-family': FONT_FAMILY,
+    'font-size': fs,
+    'font-variant-numeric': 'tabular-nums',
+  });
+  t.textContent = data.texte || '';
+  return t;
 }
 
 /**

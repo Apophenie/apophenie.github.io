@@ -4,7 +4,7 @@ import { e, svg as s } from '../dom.js';
 import { logoEntete } from '../logo.js';
 import { guillemets, abreger, badgeT } from '../typo.js';
 import { t, localiser } from '../../i18n/index.js';
-import { titreApproche, regleApproche, titreEtape } from '../libelles.js';
+import { titreApproche, titreEtape } from '../libelles.js';
 import { creerTransport, brancherClavier } from '../transport.js';
 import { creerRegistre } from '../registre.js';
 import { boutonPartage } from '../partage.js';
@@ -12,6 +12,7 @@ import { creerSons, brancherSons } from '../sons.js';
 import { interrupteurs } from '../entete.js';
 import {
   animationEffective, themeEffectif, repetitionsAccelerees, onReglages,
+  sonActif, sonTranche, sonParDefautActif,
 } from '../reglages.js';
 import * as pont from '../pont.js';
 
@@ -94,7 +95,19 @@ export function pageDemonstration(ctx) {
     preserveAspectRatio: 'xMidYMid meet',
   });
 
-  const badge = e('p.badge-transformation', { texte: badgeT(0, nbEtapes) });
+  // ★ Le cartouche est DÉCORATIF pour les technologies d'assistance.
+  //
+  // « {step}/{total}, qui peut avoir un alt contenant "Étape 11 sur 23" si
+  // besoin » (l'auteur). Le besoin n'existe pas : `#etape-courante` est une
+  // région `aria-live` qui annonce déjà « Étape 11 sur 23 — <titre> » à chaque
+  // changement. Nommer le cartouche en plus ferait entendre le même compte deux
+  // fois. Il porte donc un `title` — pour la souris, qui n'a pas la région
+  // vivante — et se retire de l'arbre d'accessibilité.
+  const badge = e('p.badge-transformation', {
+    texte: badgeT(0, nbEtapes),
+    'aria-hidden': 'true',
+    title: t('demo.etapeSur', { i: 1, total: nbEtapes }),
+  });
 
   const panneauDebug = e('dl.debug', { hidden: !ctx.debug });
 
@@ -104,6 +117,42 @@ export function pageDemonstration(ctx) {
     'aria-label': t('demo.sceneLabel'),
     'aria-describedby': 'etape-courante',
   }, [sceneSvg, badge, panneauDebug]);
+
+  /* ── LE RIDEAU DU REGISTRE SCÉNIQUE ──────────────────────────────────────
+
+     « En mode scénique, pour avoir le son activé par défaut, plutôt qu'un
+     autoplay, estompe la scène initiale (façon arrière-plan de lightbox) et
+     mets un gros bouton play devant, par-dessus la scène, pour que
+     l'affordance soit maximale. En mode sobre, laisse l'autoplay. » (l'auteur)
+
+     ★ **POURQUOI CE TROC EST GAGNANT, et ce n'est pas une question de goût.**
+
+     Le navigateur bloque le son tant qu'aucun geste n'a eu lieu. Une
+     démonstration qui s'autojoue ne peut donc JAMAIS avoir de son — c'était la
+     raison b) du silence par défaut (`src/app/sons.js`) : « un réglage dont
+     l'effet dépend de ce que l'utilisateur a fait juste avant n'est pas un
+     réglage, c'est une loterie ». Un **clic sur lecture EST ce geste**. En
+     renonçant à l'autoplay on ne perd donc pas une commodité : on échange une
+     seconde d'attente contre la seule mise en scène sonore qui puisse
+     fonctionner de façon fiable.
+
+     Et les trois autres raisons du silence par défaut tombent du même coup :
+     plus de drone lâché dans une pièce à l'ouverture d'un lien partagé (a),
+     plus de son automatique de plus de trois secondes à arrêter (c, WCAG
+     1.4.2), plus de surprise contraire à ce que promet le pied de page (d).
+
+     ★ **En sobre, l'autoplay reste**, tel quel. Il n'y a là ni scénographie ni
+     son : rien à débloquer, donc rien à échanger contre un clic.
+
+     ★ **ACCESSIBILITÉ.** Le voile est un vrai `<button>` avec un nom
+     accessible, il ne piège pas le focus (on peut en sortir au clavier comme
+     de n'importe quel bouton), et il est **retiré du DOM** au clic plutôt que
+     masqué : une fois parti, il ne peut plus cacher la scène à personne. */
+  const rideau = scenique ? construireRideau() : null;
+  if (rideau) {
+    cadre.classList.add('scene-cadre--rideau');
+    cadre.appendChild(rideau.element);
+  }
 
   /* ──────────────────────── lecteur et reflets ──────────────────── */
 
@@ -145,7 +194,10 @@ export function pageDemonstration(ctx) {
     // — et les conditions restent où elles peuvent être RE-testées : dans le
     // lecteur. Le mouvement réduit y est vérifié aussi (`this.reduced`), il n'a
     // pas besoin d'être redit ici.
-    autoplay: true,
+    // ★ En SCÉNIQUE, pas d'autoplay : c'est le clic sur le rideau qui lance,
+    //   et c'est ce clic qui autorise le son (voir `construireRideau`). En
+    //   SOBRE, l'autoplay reste exactement ce qu'il était.
+    autoplay: !scenique,
     // ★ La scène ET les commandes, entièrement à l'écran — sinon la
     // démonstration démarrerait sous les yeux de quelqu'un qui ne sait pas
     // encore qu'il peut l'arrêter. `transport` n'existe pas encore quand cette
@@ -190,6 +242,7 @@ export function pageDemonstration(ctx) {
   function majBadge() {
     const i = lecteur.stepIndex;
     badge.textContent = badgeT(i, nbEtapes);
+    badge.title = t('demo.etapeSur', { i: i + 1, total: nbEtapes });
     if (ctx.debug) {
       const etape = (lecteur.steps || [])[i] || {};
       panneauDebug.replaceChildren(
@@ -282,6 +335,25 @@ export function pageDemonstration(ctx) {
 
   /* ───────────────────────── les actions ────────────────────────── */
 
+  // ★ UN SEUL bouton en bas de page : partager.
+  //
+  // « Pour tout le reste il y a déjà ce qu'il faut en haut de page, et c'est
+  // très bien que l'accès aux autres pages du site reste discret pour favoriser
+  // l'immersion » (l'auteur). Ce qui est parti d'ici existe ailleurs, et mieux
+  // placé : « Revoir » est le bouton de relecture de la barre de transport, à
+  // dix centimètres de là ; « Une autre voie » est le lien « Toutes les voies »
+  // de la barre haute ; « Nouvelle recherche », c'est le logo, qui ramène à
+  // l'accueil depuis n'importe quelle page.
+  //
+  // ⚠ Une exception qui n'en est pas une, et qu'il faut savoir : « voir en
+  // sobre / en scénique » n'existe PAS en haut de page. En le retirant d'ici,
+  // on ne peut plus changer de registre depuis une démonstration — il faut
+  // repasser par la liste des voies, où les deux accès sont côte à côte. C'est
+  // conforme à la consigne, et c'est cohérent avec l'usage visé (on choisit son
+  // registre au moment de partager, donc depuis la liste), mais quelqu'un qui
+  // REÇOIT un lien scénique n'a plus de chemin direct vers le sobre. Signalé à
+  // l'auteur ; si le chemin doit exister, sa place est la barre haute, à côté
+  // de « Toutes les voies », et non le bas de cette page.
   const actions = e('div.actions-finales', {}, [
     boutonPartage({
       saisie,
@@ -289,25 +361,6 @@ export function pageDemonstration(ctx) {
       resultat: scenario.result,
       url: ctx.urlCanonique ? location.origin + location.pathname + ctx.urlCanonique : null,
     }),
-    e('button.bouton-secondaire', {
-      type: 'button',
-      texte: t('demo.revoir'),
-      sur: { click: () => { lecteur.toStart(); lecteur.play(); transport.rafraichir(); } },
-    }),
-    // ★ L'AUTRE MISE EN SCÈNE de la même voie. Ce n'est pas « une autre voie » :
-    //   c'est le même programme, le même verdict, le même rang, à un marqueur
-    //   d'URL près. Le bouton le dit — « voir en sobre » / « voir en scénique »
-    //   —, et il mène à un lien permanent qu'on peut partager tel quel.
-    ctx.urlAutreRegistre
-      ? e('a.bouton-secondaire', {
-        href: ctx.urlAutreRegistre,
-        texte: t(scenique ? 'demo.voirSobre' : 'demo.voirScenique'),
-      })
-      : null,
-    ctx.urlResultats
-      ? e('a.bouton-secondaire', { href: ctx.urlResultats, texte: t('demo.autreVoie') })
-      : null,
-    e('a.bouton-secondaire', { href: '#', texte: t('demo.nouvelleRecherche') }),
   ]);
 
   /* ───────────────────────── les raccourcis ─────────────────────── */
@@ -359,7 +412,23 @@ export function pageDemonstration(ctx) {
       }),
       e('p.surtitre', { texte: t('demo.surtitre') }),
       e('h1', {}, [e('span.saisie-citee', { texte: guillemets(abreger(saisie, 120)) })]),
-      regleApproche(approche) ? e('p.demo__regle', { texte: regleApproche(approche) }) : null,
+      // ★ PLUS DE DESCRIPTION ICI — et c'est le pendant exact de ce qui a été
+      // retiré des titres. La suite des règles (« On prend les lettres une par
+      // une · Numérologie chaldéenne · On fait la moyenne ») a toute sa valeur
+      // dans le LISTING, où elle aide à choisir une voie sans l'ouvrir. Sur
+      // cette page-ci, on vient précisément de l'ouvrir : l'annoncer en tête
+      // est soit du spoiler — la scène va montrer chaque opération à son tour,
+      // et la lire d'avance en retire la surprise —, soit de la redite, puisque
+      // Le Registre l'écrit étape par étape, et lui l'écrit AU MOMENT où elle
+      // se produit. `regleApproche` reste appelée ailleurs : le scénario la
+      // transporte dans `methode.rule` (`recherche/index.js`), qui alimente les
+      // métadonnées et Le Registre. C'est l'AFFICHAGE en tête de page qui
+      // disparaît, pas la donnée.
+      //
+      // Accessibilité : cette phrase ne nommait rien — le cadre de la scène
+      // tient son nom accessible de `demo.scene` et Le Registre du sien
+      // (`registre-titre`), aucun `aria-describedby` ne la visait. Il n'y a
+      // donc pas de trou à reboucher, et un `grep demo__regle` le vérifie.
     ]),
     e('div.demo__grille', {}, [colonneGauche, colonneRegistre]),
   ]);
@@ -378,9 +447,65 @@ export function pageDemonstration(ctx) {
   };
   section.addEventListener('keydown', surTouche);
 
+  /**
+   * Le rideau : un voile sur la scène, et un gros bouton de lecture devant.
+   *
+   * Il est construit AVANT le lecteur (la scène le contient dès le montage),
+   * mais il lit `lecteur`, `transport` et `sons` dans une fermeture au moment
+   * du clic — c'est-à-dire longtemps après leur création. Même dispositif que
+   * la condition d'autoplay, et pour la même raison : ce qui est déclaré plus
+   * bas ne se NOMME pas ici, il se lit plus tard.
+   */
+  function construireRideau() {
+    const bouton = e('button.scene-jouer', {
+      type: 'button',
+      // Le nom accessible dit ce qui va se passer, son inclus : c'est la seule
+      // chose que le voile ait à annoncer, et elle n'est pas devinable.
+      'aria-label': t(sonActif() || !sonTranche() ? 'demo.jouerAvecSon' : 'demo.jouerSansSon'),
+    }, [
+      // Le triangle est purement graphique — le nom accessible est sur le
+      // bouton. Un `<svg>` décoratif de plus dans l'arbre serait du bruit.
+      s('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', focusable: 'false' }, [
+        s('path', { d: 'M8 5.2v13.6L19 12z', fill: 'currentColor' }),
+      ]),
+      e('span.scene-jouer__mot', { texte: t('demo.jouerLabel') }),
+    ]);
+
+    const element = e('div.scene-voile', {}, [bouton]);
+
+    let parti = false;
+    const lever = () => {
+      if (parti) return;
+      parti = true;
+      // ★ LE SON PART ACTIF — sauf refus explicite. `sonParDefautActif` ne
+      //   touche à rien si le visiteur s'est déjà prononcé : c'est « activé par
+      //   défaut », pas « activé de force » (`reglages.js`, `sonTranche`).
+      sonParDefautActif();
+      cadre.classList.remove('scene-cadre--rideau');
+      // ★ RETIRÉ, pas masqué : un voile qui survit caché reste un nœud que les
+      //   technologies d'assistance peuvent rencontrer, et un piège potentiel
+      //   pour le focus. Ce qui n'a plus rien à faire là s'en va.
+      element.remove();
+      // Le focus suit ce qui vient de disparaître : sans ça, il retomberait sur
+      // `<body>` et le clavier repartirait du haut de la page.
+      cadre.focus({ preventScroll: true });
+      lecteur.play();
+      if (transport) transport.rafraichir();
+    };
+
+    bouton.addEventListener('click', lever);
+    return { element, lever };
+  }
+
   return {
     element: section,
-    monter() { cadre.focus({ preventScroll: true }); },
+    monter() {
+      // ★ En scénique, c'est le BOUTON qui reçoit le focus, pas la scène : il
+      //   est la seule action possible à cet instant, et l'y poser évite de
+      //   faire chercher au clavier ce qui saute aux yeux à la souris.
+      const cible = rideau ? rideau.element.querySelector('button') : cadre;
+      (cible || cadre).focus({ preventScroll: true });
+    },
     detruire() {
       section.removeEventListener('keydown', surTouche);
       detacherClavier();

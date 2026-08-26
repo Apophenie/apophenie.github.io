@@ -188,12 +188,27 @@ Inspiration :
 - **Règle** : Les mots sont séparé par des - c'est donc des soustraction et non des addition qu'il faut faire entre les lettres.
 - **Calcul** : HOPE = 8-15-16-5 = -28, -28 -> -2 et 8, donc 8 -2 -> 6
 
+## Où vit ce projet
 
+- **Dépôt de référence** — https://framagit.org/1crea/numherololgeek
+- **Miroir de publication** — https://github.com/Apophenie/apophenie.github.io
+- **Le site** — https://apophenie.github.io
 
-Instruction :
+Les deux dépôts portent le même historique. Framagit protège sa branche
+principale ; c'est de là que part la vérité, et GitHub sert la page.
 
-Un agent sur le design du site
-Un agent sur le moteur visuel pour montrer les transformations de manière visuelles
-Un agent sur le moteur arithmétique
-Un agent sur le moteur de tri/filtre heuristique parmis les transformations arithmétique disponible pour trouver les chemins les plus court qui mène au résultat.
+## Licences
 
+Ce site redistribue des œuvres de tiers, et il le dit — même quand la licence
+ne l'exige pas.
+
+| ce qui est couvert | licence | où la lire |
+|---|---|---|
+| **le code** de ce dépôt | AGPL-3.0-or-later | `LICENSE` |
+| **Jost\*** et **JetBrains Mono** (l'interface) | SIL OFL 1.1 | `src/fonts/OFL-Jost.txt`, `src/fonts/OFL-JetBrainsMono.txt` |
+| **DSEG7 Classic** et **DSEG14 Classic** (les afficheurs à segments) | SIL OFL 1.1 | `src/fonts/OFL-DSEG.txt` |
+| **les trois sons** de la version scénique — tonnerre, brasier, effroi | CC0 1.0 | `src/sons/CC0-sons.txt` |
+
+Le pied de page du site ne porte plus qu'une ligne — « Projet libre, remonter
+aux sources » — et pointe ici : un pied de page dit à qui appartient ce qu'on
+regarde, il n'a pas à réciter le contrat.

@@ -119,6 +119,13 @@ export const fr = {
     fragmentsTitre: 'Les fragments valant 6',
     aucuneVoie: 'Aucune voie trouvée. C’est mathématiquement impossible ; nous enquêtons.',
     voieNumero: 'n° {rang}',
+    /* Le compteur de séries, à cheval sur le bord DROIT du panneau — le
+       pendant du numéro de rang. Deux écritures d'une seule information :
+       le BADGE est un dessin (les points médians découpent les trois 6
+       comme sur un cadran), la PHRASE est ce qu'un lecteur d'écran annonce.
+       Rien n'est affiché quand n vaut 1 (`resultat.js › compteurSeries`). */
+    voieSeriesBadge: '{n} × 6⋅6⋅6',
+    voieSeries: '{n} séries de 666',
     voieSansTitre: 'Approche n° {rang}',
     /* Les deux accès d'un panneau de voie. Le libellé VISIBLE est court — il
        tient sur une demi-largeur de carte —, le nom ACCESSIBLE porte le titre
@@ -161,7 +168,16 @@ export const fr = {
     methode: 'Méthode {rang} — {titre}',
     sansTitre: 'sans titre',
     demonstration: 'Démonstration',
+    etapeSur: 'Étape {i} sur {total}',
     sceneLabel: 'Scène de démonstration',
+    /* ★ Le bouton de lecture du registre scénique — voir `pages/demonstration.js`.
+       « Avec le son » n'est pas une promesse en l'air : en scénique, un clic sur
+       ce bouton EST le geste que le navigateur attend pour autoriser le son, et
+       le réglage part donc actif — sauf si le visiteur l'a coupé, auquel cas son
+       choix tient et l'intitulé le dit. */
+    jouerLabel: 'Lancer la démonstration',
+    jouerAvecSon: 'Lancer, avec le son',
+    jouerSansSon: 'Lancer, sans le son',
     allerAuRegistre: 'Aller au registre',
     revoir: 'Revoir',
     autreVoie: 'Une autre voie',
@@ -266,18 +282,13 @@ export const fr = {
   },
 
   pied: {
-    polices: 'Composé en <em>Jost*</em> — celui-là même sur lequel le logo est tracé —'
-      + ' et en <em>JetBrains Mono</em> ; les afficheurs sont en '
-      + '<em>DSEG7 Classic</em> (sept segments) et <em>DSEG14 Classic</em> '
-      + '(quatorze segments). Quatre caractères sous licence '
-      + '<a href="fonts/OFL-Jost.txt">SIL OFL 1.1</a>, hébergés ici même.',
-    /* Les sons sont cités là où les polices le sont, et pour la même raison :
-       ce site redistribue des œuvres de tiers. CC0 n'exige aucune attribution,
-       ce qui rend cette ligne facultative — donc d'autant plus révélatrice de
-       ce que la maison considère comme normal. */
-    sons: 'L’orage de la version scénique — tonnerre, brasier, abîme, effroi — est fait '
-      + 'de quatre sons du domaine public sous '
-      + '<a href="sons/CC0-sons.txt">CC0 1.0</a>, hébergés ici même eux aussi.',
+    /* ★ Trois paragraphes de licences sont devenus une ligne.
+       « Contente-toi de mettre "Projet libre, remonter aux sources" » (l'auteur).
+       Le détail — AGPL-3.0 pour le code, OFL pour les polices, CC0 pour les
+       sons — ne disparaît pas : il remonte au README du dépôt, qui est sa place.
+       Un pied de page dit à qui appartient ce qu'on regarde ; il n'a pas à
+       réciter le contrat. */
+    libre: 'Projet libre, <a href="https://framagit.org/1crea/numherololgeek">remonter aux sources</a>.',
     silence: 'Aucun cookie, aucune mesure d’audience, aucun appel réseau après le chargement.',
   },
 };

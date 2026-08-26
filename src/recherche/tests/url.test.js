@@ -95,7 +95,7 @@ test('url — écriture canonique : aller-retour exact', () => {
   const s = ecrire({ saisie: 'hope', fragments: frags });
   // Le registre est TOUJOURS écrit, même quand il vaut le défaut : plus jamais
   // de lien ambigu (`url.js`, « écriture canonique »).
-  assert.equal(s, `#scenique!0.3:f1+m1+c1,n2#${B58_HOPE}`);
+  assert.equal(s, `#sce!0.3:f1+m1+c1,n2#${B58_HOPE}`);
   const r = lire(s);
   assert.equal(r.saisie, 'hope');
   assert.deepEqual(r.fragments, frags);
@@ -132,9 +132,9 @@ test('url — canoniser() réécrit la barre d’adresse par replaceState', () =
     history: { replaceState: (...a) => appels.push(a) },
   };
   const frag = canoniser({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['n4'] }] }, faux);
-  assert.equal(frag, `#scenique!n4#${B58_HOPE}`);
+  assert.equal(frag, `#sce!n4#${B58_HOPE}`);
   assert.equal(appels.length, 1);
-  assert.equal(appels[0][2], `/numherololgeek/#scenique!n4#${B58_HOPE}`);
+  assert.equal(appels[0][2], `/numherololgeek/#sce!n4#${B58_HOPE}`);
   // Idempotent : si le hash est déjà canonique, on n’empile rien.
   faux.location.hash = frag;
   canoniser({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['n4'] }] }, faux);
@@ -145,8 +145,8 @@ test('url — canoniser() réécrit la barre d’adresse par replaceState', () =
 
 test('registre — les deux marqueurs se lisent, et ne changent QUE la mise en scène', () => {
   for (const [hash, attendu] of [
-    [`#sobre!m1+c1+p1#${B58_HOPE}`, 'sobre'],
-    [`#scenique!m1+c1+p1#${B58_HOPE}`, 'scenique'],
+    [`#so!m1+c1+p1#${B58_HOPE}`, 'sobre'],
+    [`#sce!m1+c1+p1#${B58_HOPE}`, 'scenique'],
   ]) {
     const r = lire(hash);
     assert.equal(r.forme, 'canonique', hash);
@@ -182,7 +182,7 @@ test('★ registre — l’absence de marqueur vaut « scénique » (liens déj�
 });
 
 test('registre — un marqueur seul, sans programme, s’ANNONCE au lieu de se taire', () => {
-  const r = lire(`#sobre!#${B58_HOPE}`);
+  const r = lire(`#so!#${B58_HOPE}`);
   assert.equal(r.forme, 'invalide');
   assert.equal(r.bandeau, BANDEAUX.formatInconnu);
   assert.equal(r.saisie, 'hope', 'la saisie reste lisible : le repli sait où aller');
@@ -223,4 +223,25 @@ test('url — accents : la saisie survit à l’aller-retour dans l’URL', () =
   const saisie = 'Éléonore à Nîmes — 100 % vrai !';
   const s = ecrire({ saisie, fragments: [{ portee: null, resonance: null, codes: ['n1'] }] });
   assert.equal(lire(s).saisie, saisie);
+});
+
+/**
+ * ★ La forme longue est encore LUE, jamais écrite.
+ *
+ * « Dans l'URL, remplace "sobre" par "so" et "scenique" par "sce" » (l'auteur),
+ * avec sa raison : « l'URL reste essentiellement cryptique et ça participe à
+ * l'effet de surprise ». La forme longue n'aura vécu qu'une version — la 1.2.0,
+ * publiée quelques heures —, mais les liens de cette fenêtre-là existent. Les
+ * relire coûte deux alternatives ; les casser coûterait un lien mort.
+ */
+test('★ registre — la forme longue se relit, la forme brève s’écrit', () => {
+  for (const [long, bref, attendu] of [['sobre', 'so', 'sobre'], ['scenique', 'sce', 'scenique']]) {
+    assert.equal(lire(`#${long}!m1+c1+p1#${B58_HOPE}`).registre, attendu,
+      `« ${long}! » n’est plus compris : les liens de la 1.2.0 sont morts`);
+    assert.equal(lire(`#${bref}!m1+c1+p1#${B58_HOPE}`).registre, attendu);
+    // Et c'est la forme brève qui sort, quelle que soit celle qui est entrée.
+    const ecrit = ecrire({ saisie: 'hope', fragments: [{ codes: ['m1'] }], registre: attendu });
+    assert.ok(ecrit.startsWith(`#${bref}!`), `écrit « ${ecrit} », attendu le préfixe « ${bref}! »`);
+    assert.doesNotMatch(ecrit, new RegExp(`^#${long}!`), 'la forme longue est encore écrite');
+  }
 });

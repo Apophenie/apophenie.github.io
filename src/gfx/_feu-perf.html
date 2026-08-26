@@ -1,0 +1,74 @@
+<!doctype html>
+<meta charset=utf-8>
+<title>Banc de COÛT du feu — NumHeroLOLgeek</title>
+<!--
+  BANC DE COÛT — le jumeau de `_feu-test.html`, qui répond à l'autre question.
+
+  `_feu-test.html` demande « à quoi ça ressemble ». Celui-ci demande « combien
+  ça coûte », et il le demande dans le pire cas : `?n=15` (la moisson la plus
+  longue, cinq séries de 666) et `?zoom=8` (l'agrandissement du verdict).
+
+  ★ POURQUOI IL EXISTE. Le premier feu animait la mise à l'échelle de chaque
+  copie de glyphe. `translate` et `opacity` sont des canaux de COMPOSITION — le
+  moteur les applique à une couche déjà tramée ; `scale`, non : un texte mis à
+  l'échelle doit être RETRAMÉ à chaque image. Mesuré ici, en rendu logiciel :
+
+  ★ ET C'EST LUI QUI A FIXÉ LE NOMBRE DE COUCHES. Une chaîne de `drop-shadow()`
+  est une chaîne de PASSES DE FLOU, et le décor du verdict grossit ×8, donc les
+  rayons de flou aussi. C'est très exactement le coût que CONTRACTS §3.1
+  redoute. `primitives/feu.js` en garde cinq et non les sept d'atnyman parce que
+  ce banc l'a dit, pas parce que cinq faisait joli.
+
+  Comment mesurer : lancer un navigateur sans interface sur cette page, laisser
+  passer quelques secondes, puis sommer `utime + stime` de tous ses processus
+  sur une fenêtre de plusieurs secondes. Le compteur d'images affiché en bas ne
+  vaut RIEN en mode « temps virtuel » — le navigateur y fait avancer l'horloge
+  par bonds, et le nombre obtenu ne veut rien dire.
+-->
+<link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/pages.css">
+<style>body{margin:0;background:#0A0608}svg{width:100vw;height:90vh}</style>
+<svg class="scene" viewBox="0 0 1200 480" data-embrasement></svg>
+<pre id="out" style="color:#B9AF9B;font:12px monospace;margin:8px"></pre>
+<script type="module">
+import { createElementFor, enchainer, el } from '/visuel/dom.js';
+import { PALETTE } from '/visuel/constants.js';
+import { defaultMetrics } from '/visuel/layout.js';
+const metrics = defaultMetrics(), FS = metrics.fontSize, ADV = metrics.advance;
+const Q = new URLSearchParams(location.search);
+const N = Number(Q.get('n') || 15);
+const ZOOM = Number(Q.get('zoom') || 4);
+// `?couches=k` tronque la pile d'ombres, et `?fige=1` arrête la respiration :
+// c'est ce qui permet de séparer le coût du FILTRE de celui de son ANIMATION.
+const COUCHES = Number(Q.get('couches') || 0);
+const FIGE = Q.get('fige') === '1';
+const CORNE = 'M -9.5 -17.5 C -14 -25 -15.5 -33 -12 -41 C -8 -34 -3 -28 3 -24 C -2 -22 -6.5 -20 -9.5 -17.5 Z';
+const svg = document.querySelector('svg');
+const g = el('g', { transform: `translate(600 300) scale(${ZOOM})` });
+svg.appendChild(g);
+for (let i = 0; i < N; i++) {
+  const feu = createElementFor({ id: `@brasier:d${i}`, role: 'brasier',
+    data: { texte: '6', fontSize: FS, advance: ADV, corne: i % 3 !== 1 ? CORNE : null, couleur: PALETTE.brasier } },
+    { metrics, palette: PALETTE });
+  const ch = enchainer(feu);
+  ch.racine.style.transform = `translate(${(i - N / 2) * ADV * 1.4}px, 0px)`;
+  ch.racine.style.transformBox = 'view-box';
+  ch.racine.style.transformOrigin = '0 0';
+  g.appendChild(ch.racine);
+}
+if (COUCHES > 0) {
+  for (const e of document.querySelectorAll('.nhl-feu')) {
+    for (const v of ['--nhl-feu-a', '--nhl-feu-b']) {
+      const chaine = e.style.getPropertyValue(v).trim().split(') ').slice(0, COUCHES)
+        .map((x) => (x.endsWith(')') ? x : x + ')')).join(' ');
+      e.style.setProperty(v, chaine);
+    }
+  }
+}
+if (FIGE) for (const a of document.getAnimations()) a.pause();
+let frames = 0; const t0 = performance.now();
+(function boucle() { frames++; if (performance.now() - t0 < 3000) requestAnimationFrame(boucle);
+  else document.getElementById('out').textContent =
+    `${N} foyers · zoom ×${ZOOM} · ${document.querySelectorAll('.nhl-feu').length} corps en feu · `
+    + `${(frames / ((performance.now() - t0) / 1000)).toFixed(1)} images/s`; })();
+</script>

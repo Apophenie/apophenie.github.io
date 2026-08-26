@@ -202,7 +202,14 @@ export const PALETTE = Object.freeze({
   nuit: '#0A0608',
   rubricNuit: '#FF6F62',
   eclair: '#DCE6F5',
+  // ★ La rampe thermique du feu (`primitives/feu.js`, `RAMPE`). Quatre paliers
+  //   du plus froid au plus chaud : c'est leur EMBOÎTEMENT qui fait le dégradé,
+  //   sans qu'aucun dégradé ne soit calculé — voir `tokens.css`.
+  braise: '#B3300A',
   brasier: '#FF7A2E',
+  flamme: '#FFC24A',
+  coeur: '#FFF1C8',
+  fumee: '#451B0E',
 });
 
 /**

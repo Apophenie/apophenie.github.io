@@ -7,10 +7,12 @@
 //     `[6,4,6,3,6]`, `[4,6,4,6,4,6,4]`, `6, 5+1, 6, 8`. L'auteur les a écrits en
 //     toutes lettres, avec le verdict qu'il en attend ; ils sont ici, un par un,
 //     avec sa phrase en commentaire ;
-//  2. **ce que la mesure ne sait PAS faire**. Trois de ses demandes n'ont aucun
-//     opérateur à mesurer, le registre étant fermé (§4.1). Elles sont testées
-//     aussi — pour geler le fait qu'on ne mesure rien, plutôt que de laisser
-//     croire qu'on mesure.
+//  2. **les trois FICELLES**, désormais mesurées. Trois de ses demandes n'avaient
+//     aucun opérateur à mesurer ; il a tranché — « ma demande c'est aussi de les
+//     ajouter au catalogue, mais avec un score bas, mais moins bas que la
+//     suppression arbitraire de ce qui n'est pas 6 ». `m10`, `m11` et `m12`
+//     existent, et les tests ci-dessous gèlent leur PRIX, leur ORDRE et le fait
+//     qu'aucune ne passe devant une voie honnête.
 //
 // Les vecteurs de forme (`[6,6,6,4,4]`…) sont construits à la MAIN : la question
 // posée porte sur la GÉOMÉTRIE du vecteur, pas sur l'opérateur qui l'a produit,
@@ -21,9 +23,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  BAREME, BAREME_INACTIF, bilanChemin, bilanApproche, credit, detailDuCredit,
-  facteur, note, estPur, amplitudeArrondi, finDuTriptyque, classeDeTransformation,
-  survieDesCaracteres,
+  BAREME, FICELLES, bilanChemin, bilanApproche, credit, detailDuCredit,
+  facteur, note, estPur, amplitudeArrondi, finDuTriptyque, nbTriptyques,
+  classeDeTransformation, survieDesCaracteres,
 } from '../elegance.js';
 import { creerMoteur } from '../index.js';
 import { ordreElegance, ordreTriptyques, ordreTotal } from '../score.js';
@@ -155,67 +157,302 @@ test('★ barème — casser un 666 contigu est le plus gros malus du barème', 
 });
 
 /**
- * ★ CE QU'ON NE MESURE PAS, ET QU'ON DIT.
+ * ★ LES TROIS FICELLES SONT BRANCHÉES — et le barème les voit.
  *
- * Trois demandes de l'auteur n'ont aucun opérateur à mesurer, et le registre est
- * FERMÉ (§4.1) : « le plus fréquent l'emporte », « garder un caractère sur
- * deux », « l'addition sélective de chiffres contigus » (`6, 5+1, 6, 8`). Les
- * paliers existent dans le barème, à leur place dans la hiérarchie, mais leurs
- * compteurs valent toujours zéro.
- *
- * Ce test gèle ce fait. S'il tombe un jour, c'est qu'un opérateur nouveau les a
- * rendus mesurables — et il faudra alors le dire, ici et dans le contrat, au
- * lieu de découvrir un malus qui s'est mis à mordre tout seul.
+ * Ce test remplace celui qui gelait leur ABSENCE. Trois demandes de l'auteur
+ * n'avaient aucun opérateur à mesurer ; il a tranché — « ma demande c'est aussi
+ * de les ajouter au catalogue ». `m10`, `m11`, `m12` existent, et chacun
+ * alimente son palier. On le vérifie des DEUX côtés : l'identifiant inscrit
+ * dans `FICELLES` doit exister au catalogue, et le compteur doit bouger quand
+ * l'opérateur s'applique. Sans les deux, un palier pourrait se rendormir en
+ * silence et l'on croirait mesurer ce qu'on ne mesure plus.
  */
-test('★ mesure absente — les trois paliers réservés ne mordent sur AUCUNE saisie du corpus', () => {
-  const m = creerMoteur(catalogue, { filetTemporel: false });
-  const compteurs = { MAJORITE: 'majorite', DECIMATION: 'decimation', ADDITION_SELECTIVE: 'additionSelective' };
-  let vues = 0;
-  for (const s of ['hope-hope-hope.fr', 'https://hope-hope-hope.fr/', 'Donald Trump',
-    'Macron', 'Millicent', 'Le chat dort sur le tapis rouge']) {
-    for (const a of m.resoudre(s).approches) {
-      vues++;
-      for (const cle of BAREME_INACTIF) {
-        assert.equal(a.bilan[compteurs[cle]], 0,
-          `« ${s} » ${a.codes} : le palier ${cle} s’est mis à mordre — il n’a rien à mesurer`);
-      }
-    }
+test('★ les trois ficelles sont au catalogue, et chacune alimente SON palier', () => {
+  const attendu = {
+    'm.plusFrequent': ['m10', 'majorite', [6, 4, 6, 6, 6]],
+    'm.unRangSurDeux': ['m11', 'decimation', [6, 4, 6, 3, 6]],
+    'm.additionSelective': ['m12', 'additionSelective', [6, 5, 16, 8]],
+  };
+  assert.deepEqual(Object.keys(FICELLES).sort(), Object.keys(attendu).sort(),
+    'FICELLES et le catalogue doivent parler des mêmes opérateurs');
+
+  for (const [id, [code, compteur, entree]] of Object.entries(attendu)) {
+    assert.equal(FICELLES[id], compteur, `${id} doit alimenter « ${compteur} »`);
+    const op = operateur(id);
+    assert.equal(op.code, code, `${id} doit porter le code ${code} (registre append-only, §4.1)`);
+
+    const avant = etat('NUMS', entree);
+    const brut = op.apply(entree, entree.map(() => []));
+    assert.ok(brut, `${code} doit s’appliquer à ${JSON.stringify(entree)}`);
+    const apres = etat('NUMS', brut.valeur);
+    const b = bilanChemin({ ops: [op], etats: [avant, apres] });
+    assert.ok(b[compteur] > 0, `${code} doit faire monter « ${compteur} »`);
+    // ★ …et la peine n'est PAS comptée deux fois : ce que la ficelle écarte ne
+    //   repasse pas par `valeursJetees`.
+    assert.equal(b.valeursJetees, 0,
+      `${code} : son palier remplace « valeurs jetées », il ne s’y ajoute pas`);
   }
-  assert.ok(vues > 40, `seulement ${vues} approches observées`);
 });
 
 /**
- * ★ `6, 5, 16, 8` → `6, 5+1, 6, 8` — L'ADDITION SÉLECTIVE, ET POURQUOI ELLE
- * N'EST PAS MESURABLE.
+ * ★ `6, 5, 16, 8` → `6, 5+1, 6, 8` → `666, 8` — LE CAS ÉCRIT PAR L'AUTEUR.
  *
- * « Sur `6, 5, 16, 8`, la logique voudrait `6+5+1+6+8`, ou `6, 5, 1+6, 8` ;
- * faire `6, 5+1, 6, 8` pour obtenir `666, 8` est acceptable mais pénalisé —
- * c'est de la triche à utiliser en dernier recours. » (l'auteur)
+ * « La logique voudrait `6+5+1+6+8`, ou `6, 5, 1+6, 8` ; faire `6, 5+1, 6, 8`
+ * pour obtenir `666, 8` est acceptable mais pénalisé — c'est de la triche à
+ * utiliser en dernier recours. »
  *
- * Aucun opérateur du catalogue ne fait cela : `c.somme` additionne le vecteur
- * ENTIER, et rien n'additionne une sous-plage choisie. Le geste que l'auteur
- * décrit n'existe donc pas, et le registre étant fermé il ne peut pas être créé
- * pour l'occasion. Ce test le CONSTATE sur le catalogue — c'est la seule chose
- * honnête à en dire.
+ * Le balayage glouton de `m12` rend EXACTEMENT la découpe qu'il désigne, et pas
+ * l'une des deux qu'il écarte : à gauche, la plus courte, jamais un 6 déjà là.
  */
-test('★ addition sélective — aucun opérateur du catalogue ne sait additionner une SOUS-PLAGE', () => {
-  const ops = catalogue.operateurs || catalogue;
-  const sommes = ops.filter((o) => o.from === 'NUMS' && o.to === 'NUM' && o.id.includes('somme'));
-  assert.ok(sommes.length >= 1, 'il existe bien une addition de vecteur');
-  for (const o of sommes) {
-    const r = o.apply([6, 5, 16, 8], [[], [], [], []]);
-    const valeur = r && typeof r === 'object' && !Array.isArray(r) ? r.valeur : r;
-    assert.equal(valeur, 35, `${o.code} additionne tout le vecteur, jamais une sous-plage`);
+test('★ addition sélective — `6, 5, 16, 8` donne bien `666, 8`, et pas autre chose', () => {
+  const op = operateur('m.additionSelective');
+  const r = op.apply([6, 5, 16, 8], [[], [], [], []]);
+  assert.deepEqual(r.valeur, [6, 6, 6, 8],
+    'la découpe retenue est `6, 5+1, 6, 8` — celle que l’auteur nomme');
+
+  // Les deux autres lectures qu'il cite ne sont PAS ce que l'opérateur rend.
+  assert.notDeepEqual(r.valeur, [35], 'ce n’est pas `6+5+1+6+8`');
+  assert.notDeepEqual(r.valeur, [6, 5, 7, 8], 'ce n’est pas `6, 5, 1+6, 8`');
+
+  // ★ Un 6 déjà écrit n'est jamais absorbé : l'additionner le détruirait.
+  assert.equal(op.apply([1, 5, 6], [[], [], []]), null,
+    '`1+5` ferait un 6, mais le résultat `[6,6]` n’écrit pas 666 : on refuse');
+  assert.deepEqual(op.apply([1, 5, 6, 2, 4], [[], [], [], [], []]).valeur, [6, 6, 6],
+    '`1+5` puis `2+4` encadrent le 6 déjà là, qu’on ne touche pas');
+
+  // ★ Et un découpage en chiffres qui n'additionne RIEN est refusé : l'URL
+  //   porterait un code pour un geste que la scène ne montrerait pas.
+  assert.equal(op.apply([16, 8], [[], []]), null,
+    'découper `16` sans rien additionner n’est pas une addition sélective');
+});
+
+/**
+ * ★ LE DÉPARTAGE DES EX ÆQUO EST UN REFUS, PAS UNE PRÉFÉRENCE.
+ *
+ * §4.4 exige une règle explicite et stable partout où deux candidats pourraient
+ * s'égaler. Les deux ficelles qui COMPARENT — la majorité, la parité — ne
+ * tranchent pas : elles refusent de s'appliquer. C'est le seul départage qui
+ * n'invente rien, et il rend le résultat indépendant de l'ordre d'itération
+ * d'une `Map` ou de la stabilité d'un tri.
+ */
+test('★ ficelles — à égalité, la règle REFUSE au lieu de choisir', () => {
+  const m10 = operateur('m.plusFrequent');
+  const m11 = operateur('m.unRangSurDeux');
+  const t = (v) => v.map(() => []);
+
+  // Deux valeurs aussi fréquentes l'une que l'autre : aucun vainqueur.
+  assert.equal(m10.apply([6, 6, 6, 4, 4, 4], t([6, 6, 6, 4, 4, 4])), null,
+    'trois 6 et trois 4 : « le plus fréquent » n’a personne à désigner');
+  // …et l'ordre de lecture n'y change rien : le refus est symétrique.
+  assert.equal(m10.apply([4, 4, 4, 6, 6, 6], t([4, 4, 4, 6, 6, 6])), null,
+    'le même vecteur retourné donne le même refus');
+
+  // Les deux parités portent autant de 6 : aucune ne vaut mieux.
+  assert.equal(m11.apply([6, 6, 6, 6, 6, 6], t([6, 6, 6, 6, 6, 6])), null,
+    'trois 6 de chaque côté : la parité ne se départage pas');
+
+  // ★ Le vainqueur n'est JAMAIS truqué en faveur du 6 : quand le plus fréquent
+  //   n'est pas un 6, la ficelle ne rend pas les 6 — elle ne s’applique pas.
+  assert.equal(m10.apply([4, 4, 4, 4, 6, 3], t([4, 4, 4, 4, 6, 3])), null,
+    '« le plus fréquent » est le 4 : on ne lui substitue pas le 6, on renonce');
+});
+
+/**
+ * ★ UNE FICELLE NE S'APPLIQUE QUE SI ELLE ÉCRIT 666.
+ *
+ * `exige`, au sens de `my` et `mz` : un opérateur qui ne change rien, ou qui ne
+ * sert à rien, fabrique une étape que `scenario.js` saute EN SILENCE — et l'URL
+ * porte alors un code que la démonstration ne montre nulle part.
+ */
+test('★ ficelles — elles refusent quand elles n’achètent rien', () => {
+  const t = (v) => v.map(() => []);
+  for (const [code, id] of [['m10', 'm.plusFrequent'], ['m11', 'm.unRangSurDeux'],
+    ['m12', 'm.additionSelective']]) {
+    const op = operateur(id);
+    // Rien à écarter : le vecteur est déjà uniforme.
+    assert.equal(op.apply([6, 6, 6], t([6, 6, 6])), null,
+      `${code} : un vecteur qui vaut déjà 666 n’a besoin de personne`);
+    // Rien à en tirer : le résultat n'écrirait pas 666.
+    assert.equal(op.apply([1, 2, 3, 4], t([1, 2, 3, 4])), null,
+      `${code} : sans 666 au bout, la ficelle a coûté et n’a rien acheté`);
   }
-  // Et aucun opérateur `NUMS → NUMS` ne rend `[6, 6, 6, 8]` depuis `[6, 5, 16, 8]`.
-  const selectifs = ops.filter((o) => {
-    if (o.from !== 'NUMS' || o.to !== 'NUMS') return false;
-    const r = o.apply([6, 5, 16, 8], [[], [], [], []]);
-    const v = r && typeof r === 'object' && !Array.isArray(r) ? r.valeur : r;
-    return Array.isArray(v) && v.join(',') === '6,6,6,8';
-  });
-  assert.deepEqual(selectifs.map((o) => o.code), [],
-    'si un opérateur d’addition sélective apparaît, `BAREME.ADDITION_SELECTIVE` doit être branché');
+});
+
+/**
+ * ★ LE PRIX DES FICELLES — l'ordre de l'auteur, gelé.
+ *
+ * « Du plus laid au moins laid : ne garder artificiellement que les 6 ; le plus
+ * fréquent l'emporte ; garder un caractère sur deux ; l'addition sélective. »
+ *
+ * Les quatre paliers sont dans la MÊME unité — ce que le geste coûte PAR VALEUR
+ * écartée (par chiffre absorbé pour le dernier) —, ce qui est la seule façon de
+ * les comparer sans tricher.
+ */
+test('★ barème — l’ordre de laideur des trois ficelles est celui de l’auteur', () => {
+  // ⚠️ On ne compare PAS ces trois-là à `VALEUR_JETEE`, et c'est mesuré : elles
+  //    ACHÈTENT quelque chose que le tri arbitraire n'achète pas (le triptyque
+  //    contigu, son couronnement, le solde multiple de trois — un demi-millier
+  //    de milli-unités), si bien qu'un tarif aligné sur `VALEUR_JETEE` en
+  //    ferait une AFFAIRE. « Moins bas que la suppression arbitraire » est une
+  //    consigne sur le SCORE, pas sur le tarif, et c'est le test suivant qui la
+  //    vérifie — sur deux voies comparées à vecteur de départ égal.
+  assert.ok(BAREME.MAJORITE > BAREME.DECIMATION,
+    'l’astuce du caractère sur deux est moins laide que la majorité — l’auteur le dit');
+  assert.ok(BAREME.DECIMATION > BAREME.ADDITION_SELECTIVE,
+    'l’addition sélective est la moins laide des trois : elle n’écarte rien, elle absorbe');
+  assert.ok(BAREME.ADDITION_SELECTIVE > 0, 'aucune des trois n’est gratuite');
+});
+
+/**
+ * ★ « MOINS BAS QUE LA SUPPRESSION ARBITRAIRE DE CE QUI N'EST PAS 6 ».
+ *
+ * C'est un SOLDE, pas un tarif : l'auteur parle du SCORE que reçoit une
+ * approche, pas du prix d'une ligne du barème. On mesure donc les deux voies
+ * sur le MÊME vecteur de départ, `[6,4,6,3,6]` :
+ *
+ *  · sans ficelle, le verdict trie lui-même — trois 6 gardés, deux valeurs
+ *    jetées, et les 6 restent DISPERSÉS : aucun bonus de contiguïté ;
+ *  · avec `m11`, le vecteur devient `[6,6,6]` : le 666 est écrit d'affilée, et
+ *    les deux valeurs écartées se paient au tarif de la ficelle.
+ *
+ * La ficelle doit gagner — et gagner sans excès : une méthode qui atteint le
+ * même `[6,6,6]` SANS ficelle doit rester devant.
+ */
+test('★ ficelles — mieux que le tri arbitraire, moins bien qu’une voie honnête', () => {
+  const saisie = 'motfinal';
+  const ctx = ctxDe(saisie);
+  const parCredit = (ch) => credit(bilanApproche(approche(saisie, [0, 8], ch), ctx));
+
+  // 1. le tri arbitraire : on laisse le verdict écarter ce qui n'est pas 6
+  const tri = parCredit(vecteur([6, 4, 6, 3, 6]));
+  // 2. la ficelle : `m11` isole les rangs impairs et écrit 666
+  const ficelle = parCredit(chemin([
+    etat('STR', 'xxxxx'),
+    etat('TOKENS', ['x', 'x', 'x', 'x', 'x']),
+    etat('NUMS', [6, 4, 6, 3, 6]),
+    etat('NUMS', [6, 6, 6]),
+  ], ['t.caracteres', 'm.postiche', 'm.unRangSurDeux']));
+  // 3. la voie honnête : le même `[6,6,6]`, sans ficelle
+  const honnete = parCredit(vecteur([6, 6, 6]));
+
+  assert.ok(ficelle > tri,
+    `la ficelle (${ficelle}) doit valoir mieux que la suppression arbitraire (${tri})`);
+  assert.ok(honnete > ficelle,
+    `une voie qui écrit 666 sans ficelle (${honnete}) doit rester devant (${ficelle})`);
+});
+
+/**
+ * ★ ALOURDIR LE GASPILLAGE PROMEUT LES FICELLES — le piège, gelé.
+ *
+ * ⚠️ Ce test n'existe pas pour vérifier un réglage : il existe pour empêcher
+ * qu'on refasse une expérience déjà faite. `VALEUR_JETEE` est le seul barreau
+ * irrégulier de l'échelle des abandons (26 → 36, là où le pas est de trois), et
+ * l'alourdir est une idée qui revient. Elle a été essayée et mesurée : à 45
+ * déjà, `Le chat dort sur le tapis rouge` passe d'une moisson à cinq séries
+ * (crédit 1 129) à `fl+t1+mw+m10`, une ficelle à une seule série (1 102).
+ *
+ * La raison est STRUCTURELLE, et c'est elle qu'on gèle ici : les ficelles ne
+ * paient pas ce poste — leur palier le remplace. Tout milli-unité ajoutée à
+ * `VALEUR_JETEE` est donc une milli-unité d'avance offerte à la ruse qui
+ * escamote le gaspillage plutôt qu'à la voie qui l'assume.
+ */
+test('★ le gaspillage et les ficelles — alourdir l’un avantage mécaniquement l’autre', () => {
+  const saisie = 'motfinal';
+  const ctx = ctxDe(saisie);
+  const bilanDe = (ch) => bilanApproche(approche(saisie, [0, 8], ch), ctx);
+
+  // Deux voies sur le MÊME vecteur de départ : le tri du verdict, ou la ficelle.
+  const tri = bilanDe(vecteur([6, 4, 6, 3, 6]));
+  const ficelle = bilanDe(chemin([
+    etat('STR', 'xxxxx'),
+    etat('TOKENS', ['x', 'x', 'x', 'x', 'x']),
+    etat('NUMS', [6, 4, 6, 3, 6]),
+    etat('NUMS', [6, 6, 6]),
+  ], ['t.caracteres', 'm.postiche', 'm.unRangSurDeux']));
+
+  // Le tri paie `VALEUR_JETEE` ; la ficelle ne le paie PAS, elle paie son palier.
+  assert.ok(tri.valeursJetees > 0, 'le tri arbitraire jette, et il le paie');
+  assert.equal(ficelle.valeursJetees, 0, 'la ficelle ne paie jamais ce poste — son palier le remplace');
+  assert.ok(ficelle.decimation > 0, '…et elle paie le sien');
+
+  // Donc : alourdir `VALEUR_JETEE` creuse l'écart EN FAVEUR de la ficelle.
+  const ecart = (poids) => {
+    const memoire = BAREME.VALEUR_JETEE;
+    BAREME.VALEUR_JETEE = poids;
+    const d = credit(ficelle) - credit(tri);
+    BAREME.VALEUR_JETEE = memoire;
+    return d;
+  };
+  const a36 = ecart(36);
+  const a78 = ecart(78);
+  assert.ok(a78 > a36,
+    `alourdir le gaspillage (36 → 78) doit AVANTAGER la ficelle (${a36} → ${a78}), `
+    + 'et c’est exactement pour ça qu’on ne l’alourdit pas');
+  assert.equal(a78 - a36, (78 - 36) * tri.valeursJetees,
+    'l’avantage offert est exactement le gaspillage que la ficelle ne paie pas');
+});
+
+/**
+ * ★ ET LES FICELLES NE PASSENT JAMAIS DEVANT SUR LES CAS DE RÉFÉRENCE.
+ *
+ * « À utiliser en dernier recours si des méthodes plus élégantes ne parviennent
+ * pas à 666 » — la recette, mesurée là où elle compte : les quatre saisies dont
+ * l'auteur a fixé le résultat. Aucune ficelle ne doit figurer dans leur voie de
+ * tête.
+ */
+test('★ ficelles — aucune ne figure en tête des quatre cas de référence', () => {
+  const m = creerMoteur(catalogue, { filetTemporel: false });
+  const attendus = {
+    'hope-hope-hope.fr': 5,
+    'https://hope-hope-hope.fr/': 6,
+    'Donald Trump': 2,
+    Macron: 1,
+  };
+  for (const [saisie, series] of Object.entries(attendus)) {
+    const tete = m.resoudre(saisie).approches[0];
+    assert.equal(tete.series || 1, series,
+      `« ${saisie} » : ${series} séries attendues en tête, ${tete.series} trouvées`);
+    for (const code of ['m10', 'm11', 'm12']) {
+      assert.ok(!tete.codes.includes(code),
+        `« ${saisie} » : la voie de tête (${tete.codes}) emploie la ficelle ${code}`);
+    }
+  }
+});
+
+/**
+ * ★ LE COMPTE DES TRIPTYQUES — autant de bonus que de 666 écrits d'affilée.
+ *
+ * ⚠️ Le bonus se comptait PAR PORTÉE qui en porte un. `f6+t1+mw` sur
+ * `hope-hope-hope` rend douze 6 d'affilée — QUATRE 666 — et n'en touchait
+ * qu'un seul. Le compte est réparé ; le premier de chaque portée reste une
+ * trouvaille à plein tarif, les suivants du même vecteur valent moins.
+ */
+test('★ triptyques — on compte les 666, pas les portées qui en contiennent', () => {
+  assert.equal(nbTriptyques([6, 6, 6]), 1);
+  assert.equal(nbTriptyques([6, 6, 6, 6]), 1, 'quatre 6 ne font pas deux 666');
+  assert.equal(nbTriptyques([6, 6, 6, 6, 6, 6]), 2);
+  assert.equal(nbTriptyques(new Array(12).fill(6)), 4, 'douze 6 d’affilée font quatre 666');
+  assert.equal(nbTriptyques([6, 6, 6, 5, 6, 6, 6]), 2, 'la suite est CONTIGUË, ou elle n’est pas');
+  assert.equal(nbTriptyques([6, 6, 5, 6, 6]), 0);
+
+  // Sur une approche : douze 6 d'affilée, quatre séries au verdict.
+  const saisie = 'hopehopehope';
+  const b = bilanApproche(
+    approche(saisie, [0, 12], vecteur(new Array(12).fill(6)), { series: 4 }),
+    ctxDe(saisie),
+  );
+  assert.equal(b.triptyquesContigus, 1, 'une portée, une trouvaille');
+  assert.equal(b.triptyquesRepetes, 3, 'les trois autres 666 du même vecteur sont crédités à part');
+  assert.ok(BAREME.TRIPTYQUE_REPETE < BAREME.TRIPTYQUE_CONTIGU,
+    'le 666 qui continue vaut moins que celui qui se découvre');
+
+  // ★ Et jamais plus de triptyques que le verdict n'en montre.
+  const bornee = bilanApproche(
+    approche(saisie, [0, 12], vecteur(new Array(12).fill(6)), { series: 1 }),
+    ctxDe(saisie),
+  );
+  assert.equal(bornee.triptyquesContigus + bornee.triptyquesRepetes, 1,
+    'une seule série au verdict : un seul triptyque crédité');
 });
 
 // ══════════════════════════════════ les vecteurs que l'auteur a nommés

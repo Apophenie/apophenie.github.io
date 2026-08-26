@@ -1,0 +1,9 @@
+Pen        : https://codepen.io/firstwebdesigner/pen/vYQyyZY
+Auteur     : firstwebdesigner
+Titre      : Fire Animation Text Effect With CSS
+Rapatrié   : https://cdpn.io/firstwebdesigner/fullpage/vYQyyZY (le code du pen est dans l attribut « srcdoc » de
+             l iframe de résultat ; c est la seule voie qui passe —
+             codepen.io lui-meme rend 403, et l API oembed est
+             derriere un defi Cloudflare)
+Dependances chargees par CDN :
+  (aucune)

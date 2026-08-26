@@ -39,7 +39,24 @@
   --scene-nuit:    #0A0608;   /* le fond lugubre du verdict */
   --scene-rubric:  #FF6F62;   /* l'affirmation, lisible SUR la nuit */
   --scene-eclair:  #DCE6F5;   /* la foudre — un blanc froid, jamais du blanc pur */
-  --scene-brasier: #FF7A2E;   /* l'embrasement autour de chaque 666 */
+
+  /* ★ LA RAMPE THERMIQUE DU FEU — quatre paliers, et c'est ce qui manquait.
+     L'embrasement n'avait qu'UNE teinte (`--scene-brasier`) qui s'éteignait en
+     rond : d'où une tache orange, jamais du feu. Un feu n'a pas une couleur, il
+     a un GRADIENT DE TEMPÉRATURE — brun de braise, orange, jaune, presque blanc
+     au cœur — et ce gradient est orienté vers le haut, parce que c'est là que
+     la chaleur part. Les quatre valeurs viennent de la rampe de sept ombres du
+     codepen atnyman (`.planning/inspirations/feu/README.md`, n° 1), resserrée à ce que
+     quatre silhouettes emboîtées peuvent distinguer.
+     Elles ne dépendent pas du thème, pour la même raison que les quatre
+     ci-dessus : au verdict, la nuit est tombée.
+     `--scene-brasier` garde son nom et sa valeur — c'est le palier médian, et
+     le renommer aurait cassé la palette résolue par `visuel/player.js`. */
+  --scene-braise:  #B3300A;   /* le plus froid — la braise, l'enveloppe du foyer */
+  --scene-brasier: #FF7A2E;   /* le corps de la flamme, et les langues basses */
+  --scene-flamme:  #FFC24A;   /* le jaune — les langues hautes, celles qui montent */
+  --scene-coeur:   #FFF1C8;   /* le cœur, presque blanc : sans lui, le feu est en plastique */
+  --scene-fumee:   #451B0E;   /* la queue sombre au-dessus du chiffre — sans elle le feu s'arrête net */
 
   /* — Typographie — */
   /* Deux familles pour tout le site, alignées sur le logo. `--oracle` et

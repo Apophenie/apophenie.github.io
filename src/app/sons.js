@@ -1,12 +1,35 @@
-/** L'ORAGE SONORE — quatre sons, et beaucoup de précautions.
+/** L'ORAGE SONORE — trois sons, et beaucoup de précautions.
  *
- *  Quatre sons, tous CC0 (provenance, auteur et licence : `src/sons/
+ *  Trois sons, tous CC0 (provenance, auteur et licence : `src/sons/
  *  CC0-sons.txt`, et le pied de page les cite comme il cite les polices) :
  *
- *    · `abime`    — l'ambiance lugubre, en boucle, sous toute la lecture ;
- *    · `effroi`   — le sursaut, quand des cornes poussent ;
+ *    · `effroi`   — le SURSAUT, quand les cornes poussent ;
  *    · `tonnerre` — le coup de foudre, au verdict ;
  *    · `brasier`  — le feu qui crépite, en boucle, à partir du verdict.
+ *
+ *  ★ **L'AMBIANCE A ÉTÉ RETIRÉE, et c'est la demande de l'auteur.**
+ *
+ *  « Le bruit d'orage est parfait et l'effet de foudre aussi. L'ambiance
+ *  continue n'est pas ce que je voulais : je voulais un son de surprise /
+ *  effroi PONCTUEL au moment de faire apparaître les cornes, façon jumpscare ou
+ *  rire machiavélique. »
+ *
+ *  Le drone `abime` tournait sous toute la lecture. Il ne soulignait rien — un
+ *  fond continu ne peut souligner aucun instant, par définition : ce qui est
+ *  toujours là ne dit jamais « maintenant ». Il occupait, ce qui est le
+ *  contraire de ce qu'on veut d'une démonstration qu'on suit pas à pas.
+ *
+ *  Le retrait allège le servi de **30 214 octets** (`abime.ogg` pesait 22 588
+ *  octets, soit 30 120 de base64 dans `data.js`) : le poids des sons passe de
+ *  70 083 à 39 869 octets, −43 %.
+ *
+ *  ★ **Et le sursaut existait déjà.** `effroi` était joué au couronnement, mais
+ *  noyé sous le drone. C'est bien le bon son, et ça s'est VÉRIFIÉ plutôt que
+ *  supposé : son enveloppe, relevée par `ffmpeg` crête à crête sur des fenêtres
+ *  de 100 ms, monte de −21 dB à **−2,2 dB en 400 ms** puis retombe en 1,2 s.
+ *  C'est très exactement la forme d'un « horror hit » — une montée courte, un
+ *  impact, une queue brève — et non celle d'une nappe. Il n'y avait donc rien à
+ *  chercher ailleurs : il fallait retirer ce qui le couvrait.
  *
  *  ══ TROIS DÉCISIONS, ET ELLES SE TIENNENT ═════════════════════════════════
  *
@@ -76,7 +99,7 @@
 // expliqué en tête de `src/sons/data.js` ; en un mot : `bun run test` ne
 // construit rien (CONTRACTS §0.1), et un `import` de binaire ferait tomber la
 // suite entière, pas seulement le son.
-import { abime, effroi, tonnerre, brasier } from '../sons/data.js';
+import { effroi, tonnerre, brasier } from '../sons/data.js';
 
 import { sonActif, onReglages } from './reglages.js';
 
@@ -89,10 +112,13 @@ const TYPE = 'audio/ogg; codecs=opus';
  * de combien un fond doit se tenir sous un impact.
  */
 const SOURCES = Object.freeze({
-  abime: { url: abime, boucle: true, volume: 0.30 },
   brasier: { url: brasier, boucle: true, volume: 0.42 },
   tonnerre: { url: tonnerre, boucle: false, volume: 0.85 },
-  effroi: { url: effroi, boucle: false, volume: 0.70 },
+  // ★ Le sursaut monte de 0,70 à 0,86. Il ne se détache plus d'un fond — il n'y
+  //   a plus de fond —, il tombe dans le silence : à son ancien niveau, réglé
+  //   pour percer un drone, il passerait désormais pour une discrétion. Il
+  //   reste sous le tonnerre, qui est la chute.
+  effroi: { url: effroi, boucle: false, volume: 0.86 },
 });
 
 /** Le navigateur sait-il lire ce qu'on sert ? Mesuré, jamais supposé. */
@@ -278,11 +304,16 @@ function joueurInerte() {
  * en déclencherait dix de plus. On exige donc `lecteur.playing`, ce qui
  * distingue exactement le déroulé du parcours manuel.
  *
- * ★ **Et les fonds suivent la LECTURE, pas la page.** Mettre en pause coupe
- * l'ambiance : un drone qui continue sous une scène arrêtée n'accompagne plus
- * rien, il occupe. Le brasier, lui, ne s'allume qu'au verdict et ne s'éteint
- * qu'avec la lecture — c'est le seul son qui décrive un ÉTAT de la scène et
- * non un instant.
+ * ★ **Et le fond suit la LECTURE, pas la page.** Le brasier ne s'allume qu'au
+ * verdict et ne s'éteint qu'avec la lecture : c'est le seul son qui décrive un
+ * ÉTAT de la scène — les 666 brûlent — et non un instant. Mettre en pause le
+ * coupe, parce qu'un feu qui crépite sous une scène arrêtée n'accompagne plus
+ * rien.
+ *
+ * ★ **Il n'y a plus de son continu sous la lecture.** C'était `abime`, et
+ * l'auteur l'a retiré : voir l'en-tête de ce fichier. Conséquence directe et
+ * bienvenue sur WCAG 1.4.2 — plus aucun son ne démarre et ne dure plus de trois
+ * secondes tant que le verdict n'est pas atteint.
  *
  * @param {Object} lecteur
  * @param {Object} sons
@@ -301,7 +332,6 @@ export function brancherSons(lecteur, sons, ctx = {}) {
 
   const majFonds = () => {
     const enLecture = !!lecteur.playing;
-    sons.fond('abime', enLecture);
     // Le brasier commence au verdict et ne s'arrête plus : c'est un état de la
     // scène — les 666 brûlent —, pas un instant qui passe.
     sons.fond('brasier', enLecture && iVerdict >= 0 && lecteur.stepIndex >= iVerdict);
@@ -310,6 +340,13 @@ export function brancherSons(lecteur, sons, ctx = {}) {
   const offStep = lecteur.on('stepenter', ({ stepIndex }) => {
     majFonds();
     if (!lecteur.playing) return;
+    // ★ LE SURSAUT, au couronnement — le seul instant ponctuel de la lecture
+    //   avec la foudre. « Un son de surprise / effroi ponctuel au moment de
+    //   faire apparaître les cornes » (l'auteur). Il part à l'ENTRÉE de
+    //   l'étape : son enveloppe monte en 400 ms, si bien que son impact tombe
+    //   à peu près quand les cornes jaillissent (`horns.js` les fait pousser
+    //   après l'effacement du reste). Un son de sursaut déclenché À l'instant
+    //   du geste arrive toujours en retard — il faut le lancer avant.
     if (aPourOp(stepIndex, 'horns')) sons.coup('effroi');
     if (aPourOp(stepIndex, 'reveal')) sons.coup('tonnerre');
   });

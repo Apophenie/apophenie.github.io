@@ -112,6 +112,19 @@ const VECTEURS = [
   // on le garde et l'on efface le reste. Ce n'est pas un tri : trois 6 dispersés
   // ne conviennent pas (voir le test dédié plus bas).
   ['mz', N([6, 6, 6, 7, 3, 6]), [6, 6, 6]],
+  // ★ LES TROIS FICELLES ASSUMÉES — codes neufs, alloués le registre FERMÉ
+  // (CONTRACTS §4.1). `mz` était le dernier ; l'index est en base36, et 36 s'y
+  // écrit « 10 ». Les trois vecteurs sont EXACTEMENT les cas que l'auteur a
+  // nommés dans sa demande, et c'est délibéré : ce qui est gelé ici, c'est ce
+  // qu'il a demandé, pas ce que l'implémentation a trouvé commode.
+  //
+  // « Le plus fréquent l'emporte » : sur `[6,4,6,6,6]`, le 4 s'en va.
+  ['m10', N([6, 4, 6, 6, 6]), [6, 6, 6, 6]],
+  // « Garder un caractère sur deux » : sur `[4,6,4,6,4,6,4]`, c'est la parité
+  // des rangs PAIRS (2ᵉ, 4ᵉ, 6ᵉ) qui porte les trois 6, et c'est elle qui reste.
+  ['m11', N([4, 6, 4, 6, 4, 6, 4]), [6, 6, 6]],
+  // « L'addition sélective » : `6, 5, 16, 8` → `6, 5+1, 6, 8` → `666, 8`.
+  ['m12', N([6, 5, 16, 8]), [6, 6, 6, 8]],
   ['c1', N([8, 15, 16, 5]), 44],
   ['c2', N([8, 15, 16, 5]), -28],
   ['c3', N([8, 15, 16, 5]), 9600],
@@ -326,6 +339,91 @@ test('les couvertures désignent bien ce qui est consommé', () => {
   assert.deepEqual(PAR_CODE.get('f2').couverture('www.hope.fr'), [[0, 4]]);
   assert.deepEqual(PAR_CODE.get('f3').couverture('hope.fr'), [[4, 7]]);
   assert.deepEqual(PAR_CODE.get('fd').couverture('hope-hope-hope'), [[0, 4], [5, 9], [10, 14]]);
+});
+
+/**
+ * ★ LES TROIS FICELLES SE MONTRENT — `m10`, `m11`, `m12`.
+ *
+ * Ce sont des astuces assumées, et l'auteur a dit exactement comment elles
+ * doivent paraître. Une régression silencieuse vers le rendu générique
+ * (`scenario.js` retombe dessus sans rien casser) leur ferait AFFIRMER ce
+ * qu'elles doivent MONTRER — c'est la doctrine §0.3, et c'est ici qu'on la gèle.
+ *
+ *  · `m10` — « indique sous l'accolade : "chiffre majoritaire : 6" et fais
+ *    disparaître les autres » ; l'accolade embrasse la ligne ENTIÈRE, puisque
+ *    c'est sur elle entière qu'on a compté ;
+ *  · `m11` — « l'astuce est de nommer "position paire" ou "position impaire"
+ *    pour justifier de supprimer l'autre » : le nom est écrit, la parité aussi ;
+ *  · `m12` — « ne pas la différencier des additions qui la précèdent ou la
+ *    succèdent » : des `+` ordinaires, entre les seuls termes retenus, et un
+ *    `sum` qui recoupe la somme. Les 6 déjà là ne sont jamais des opérandes.
+ */
+test('★ les trois ficelles se MONTRENT — accolade nommée, additions ordinaires', () => {
+  const geste = (code, entree) => {
+    const op = PAR_CODE.get(code);
+    const apres = appliquer(op, entree);
+    assert.ok(apres, `${code} : l'opérateur doit s'appliquer au vecteur du gel`);
+    const ctx = { ids: entree.valeur.map((_, i) => `t${i}`), cle: 'e0' };
+    return { op, entree, apres, ctx, steps: etapes(op, entree, apres, ctx) };
+  };
+
+  // ── m10 : l'accolade dit le verdict, puis les minoritaires tombent
+  {
+    const { entree, ctx, steps } = geste('m10', N([6, 4, 6, 6, 6]));
+    const ops = steps.flatMap((s) => s.ops);
+    const acc = ops.find((o) => o.op === 'group');
+    assert.ok(acc, 'm10 : pas d’accolade — le verdict serait affirmé sans être posé');
+    assert.equal(acc.label, 'chiffre majoritaire : 6',
+      'm10 : l’accolade doit nommer le chiffre majoritaire, et le bon');
+    assert.deepEqual(acc.targets, ctx.ids,
+      'm10 : on a compté sur la ligne ENTIÈRE, l’accolade doit l’embrasser entière');
+    const chute = ops.find((o) => o.op === 'drop');
+    assert.deepEqual(chute.targets, ['t1'], 'm10 : seul le 4 minoritaire tombe');
+    assert.ok(steps[0].caption.includes('6 ×4'),
+      'm10 : le Registre doit porter le relevé, pour qu’on refasse le compte');
+    // ★ L'étiquette est DÉRIVÉE du vecteur, jamais écrite en dur : elle sort du
+    //   même relevé qu'`apply()`. Et quand le plus fréquent n'est pas un 6,
+    //   l'opérateur ne le remplace pas par un 6 — il REFUSE de s'appliquer
+    //   (`elegance.test.js`, « à égalité, la règle refuse au lieu de choisir »).
+    assert.equal(appliquer(PAR_CODE.get('m10'), N([4, 6, 4, 4, 4])), null,
+      'm10 : une majorité de 4 n’écrit pas 666 — on renonce, on ne truque pas');
+    assert.equal(entree.valeur.length, 5);
+  }
+
+  // ── m11 : la parité est NOMMÉE, franchement
+  {
+    const { ctx, steps } = geste('m11', N([4, 6, 4, 6, 4, 6, 4]));
+    const ops = steps.flatMap((s) => s.ops);
+    const acc = ops.find((o) => o.op === 'group');
+    assert.equal(acc.label, 'on ne garde que les positions paires',
+      'm11 : la parité retenue doit être nommée — c’est TOUTE l’astuce');
+    assert.deepEqual(ops.find((o) => o.op === 'drop').targets, ['t0', 't2', 't4', 't6'],
+      'm11 : les positions impaires tombent, et elles seules');
+    assert.deepEqual(ops.find((o) => o.op === 'highlight').targets, ['t1', 't3', 't5']);
+    assert.ok(steps[0].caption.includes('positions impaires : 0 six'),
+      'm11 : le Registre doit donner le relevé des DEUX parités');
+    assert.equal(ctx.ids.length, 7);
+  }
+
+  // ── m12 : des additions ordinaires, sur les seuls termes retenus
+  {
+    const { steps } = geste('m12', N([6, 5, 16, 8]));
+    const ops = steps.flatMap((s) => s.ops);
+    // 1. `16` s'écrit chiffre à chiffre, sinon « 5+1 » n'a pas de « 1 »
+    const eclat = ops.find((o) => o.op === 'substitute');
+    assert.ok(eclat, 'm12 : `16` doit être écrit chiffre à chiffre avant qu’on additionne');
+    assert.deepEqual(eclat.pairs[0].to.map((t) => t.text), ['1', '6']);
+    // 2. les `+` ne paraissent qu'entre les termes retenus
+    const signes = ops.filter((o) => o.op === 'insertOperators');
+    assert.equal(signes.length, 1, 'm12 : une seule addition sur ce vecteur');
+    assert.equal(signes[0].between.length, 2, 'm12 : `5+1` porte sur DEUX termes');
+    assert.equal(signes[0].glyph, '+');
+    // 3. la somme est recoupée par la primitive elle-même
+    const somme = ops.find((o) => o.op === 'sum');
+    assert.equal(somme.to.text, '6', 'm12 : ce qui descend sous la pointe est le 6 obtenu');
+    assert.deepEqual(somme.targets, signes[0].between,
+      'm12 : on additionne exactement les termes entre lesquels le + est paru');
+  }
 });
 
 test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émetteur', () => {

@@ -18,7 +18,7 @@
      navigateur en fabrique un OBLIQUE de synthèse — le romain cisaillé.
      L'auteur l'a regardé et le juge acceptable : on garde donc l'italique,
      qui dit « voix douce » plus directement qu'un jeu de graisse.
-     Voir aussi `.resultat__annonce` et `.demo__regle`. */
+     Voir aussi `.resultat__annonce`. */
   font-family: var(--pedagogue);
   font-style: italic;
   font-size: var(--fs-md);
@@ -210,7 +210,14 @@
   text-decoration: none;
   transition: border-color var(--t-court) ease, background var(--t-court) ease;
 }
-.voie:hover { border-color: var(--line-ui); background: var(--raised); }
+/* ★ SEUL LE PANNEAU CLIQUABLE EN ENTIER S'ÉCLAIRE AU SURVOL.
+   Éclairer la carte disait « ceci est un bouton ». C'était vrai tant qu'elle
+   n'avait qu'une destination ; depuis qu'elle en porte deux, c'est un mensonge
+   — le curseur passe sur la lueur, l'utilisateur clique, et rien ne se produit.
+   Le repli (`button.voie`, sans `--double`) n'a toujours qu'une destination :
+   il garde donc son survol, et lui seul. Ce que fait la carte à deux accès est
+   plus bas, « LE BALAYAGE ». */
+.voie:not(.voie--double):hover { border-color: var(--line-ui); background: var(--raised); }
 .voie__numero {
   position: absolute;
   top: calc(-1 * var(--fs-2xs));
@@ -222,6 +229,36 @@
   letter-spacing: .1em;
   color: var(--phos);
 }
+/* ★ LE COMPTEUR DE SÉRIES — le pendant DROIT du numéro de rang.
+   Même hauteur, même fond opaque qui découpe le filet, même casse machine :
+   deux repères sur la même ligne d'horizon, l'un disant où la voie se classe,
+   l'autre ce qu'elle rapporte. La couleur diffère — l'or de l'affirmation,
+   contre le phosphore de la numérotation : ce n'est pas un repère de liste,
+   c'est un fait sur la voie.
+   ★ `max-width` : sur une colonne étroite (le site descend à une colonne sous
+   1100 px, et la grille à 20rem sous 760), le rang à gauche et le compteur à
+   droite se rapprochent. Le compteur ne fait jamais plus de neuf signes
+   (« 5 × 6⋅6⋅6 »), mais on le borne quand même à la moitié de la carte, et il
+   passe DEVANT le rang (`z-index`) plutôt que sous lui, parce que c'est lui qui
+   porte l'information rare. Le titre, lui, commence sous la zone : il ne peut
+   pas être recouvert, `padding-top: var(--e4)` l'en écarte.
+   ★ Rien ne s'affiche quand n vaut 1 — le nœud n'est même pas créé
+   (`resultat.js › compteurSeries`). */
+.voie__series {
+  position: absolute;
+  top: calc(-1 * var(--fs-2xs));
+  right: var(--e2);
+  z-index: 1;
+  max-width: calc(50% - var(--e2));
+  padding: 0 var(--e1);
+  background: var(--canvas);
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  letter-spacing: .08em;
+  white-space: nowrap;
+  color: var(--gold);
+}
+
 /* Le titre d'une voie est une PHRASE, souvent longue : à 600 elle crie. Un
    cran en dessous des titres de section suffit à la poser. */
 .voie__titre { font-family: var(--oracle); font-size: var(--fs-lg); font-weight: 500; }
@@ -280,6 +317,69 @@
 .voie__acces--scenique:hover,
 .voie__acces--scenique:focus-visible { border-color: var(--rubric); color: var(--rubric-hi); }
 .voie__acces-nom { letter-spacing: .06em; }
+
+/* ═══════════════ ★ LE BALAYAGE — survoler la carte allume les BOUTONS ═══════
+   Le geste, repris de `g1vote` (`src/views/VotesListView.vue`, `shimmer-border`
+   sur les votes en cours) : un dégradé bien plus large que l'élément, dont on
+   ANIME LA POSITION plutôt que la position de l'élément. Une seule propriété
+   bouge, `background-position` ; rien n'est repeint hors de la boîte, aucun
+   nœud n'est ajouté au DOM, et l'effet ne peut pas déborder sur ses voisins.
+   Deux écarts assumés avec g1vote : là-bas la lueur tourne EN PERMANENCE parce
+   qu'elle signale un état (« ce vote est en cours ») ; ici elle ne s'allume
+   qu'au survol, parce qu'elle répond à un geste. Et elle passe DANS le bouton —
+   `::after` en surimpression — au lieu d'en border le cadre : ce qu'il faut
+   montrer, c'est que la lumière TRAVERSE ces deux-là, pas qu'elle les entoure.
+
+   ★ Le décalage entre les deux. La seconde lueur part 180 ms après la
+   première : l'œil suit une lumière qui court de gauche à droite et découvre
+   les deux accès l'un après l'autre, au lieu de voir deux boîtes clignoter
+   ensemble. C'est ce qui remplace, en information, l'éclairage de la carte
+   entière — « ces deux-ci, et voilà dans quel ordre les lire ».
+
+   ★ `currentColor`, et rien d'autre. La lueur emprunte la couleur du bouton
+   qu'elle traverse : grise sur la sobre, rubrique sur la scénique. Elle suit
+   donc les deux thèmes et la distinction sobre/scénique sans qu'aucune valeur
+   soit écrite deux fois — et sans jamais porter d'information à elle seule.
+   ★ `pointer-events: none` : une surimpression ne doit pas voler le clic. */
+.voie__acces { position: relative; overflow: hidden; }
+.voie__acces::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background-image: linear-gradient(105deg,
+    transparent 38%,
+    color-mix(in srgb, currentColor 26%, transparent) 50%,
+    transparent 62%);
+  background-size: 320% 100%;
+  background-position: 100% 0;
+}
+.voie--double:hover .voie__acces::after,
+.voie--double:focus-within .voie__acces::after {
+  animation: voie-balayage 1.15s ease-in-out infinite;
+}
+.voie--double:hover .voie__acces--scenique::after,
+.voie--double:focus-within .voie__acces--scenique::after { animation-delay: .18s; }
+@keyframes voie-balayage {
+  0%   { opacity: 0; background-position: 100% 0; }
+  15%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; background-position: 0 0; }
+}
+/* Le bouton directement survolé reste, lui, marqué en dur : la lueur dit « par
+   ici », le cadre dit « celui-ci ». La règle `.voie__acces:hover` ci-dessus s'en
+   charge — on ne fait ici qu'empêcher la lueur de tourner quand personne ne
+   peut la voir bouger. Mouvement réduit : la carte survolée éclaire ses deux
+   accès d'un coup, sans course. L'information passe, le mouvement non. */
+@media (prefers-reduced-motion: reduce) {
+  .voie--double:hover .voie__acces::after,
+  .voie--double:focus-within .voie__acces::after {
+    animation: none;
+    opacity: 1;
+    background-position: 50% 0;
+  }
+}
 
 .voie__fleche { color: var(--fg-3); font-family: var(--machine); }
 
@@ -348,12 +448,11 @@
   color: var(--phos);
   margin-bottom: var(--e3);
 }
-.demo__regle {
-  font-family: var(--pedagogue);
-  font-style: italic;                  /* la voix douce, cf. .accueil__baseline */
-  color: var(--fg-2);
-  margin-top: var(--e2);
-}
+/* `.demo__regle` a été RETIRÉ : la suite des règles ne s'affiche plus en tête
+   de la page d'animation. Elle y était soit du spoiler — la scène va montrer
+   chaque opération à son tour —, soit de la redite du Registre, qui l'écrit
+   étape par étape et au bon moment. Elle reste dans le listing, où elle sert à
+   choisir (`.voie__resume`). Voir `src/app/pages/demonstration.js`. */
 
 /* Deux colonnes SEULEMENT quand il y a de la place pour les deux.
    La charte (§2.4) faisait basculer la démonstration en deux colonnes dès
@@ -419,20 +518,41 @@
 .debug dt { color: var(--phos); float: left; margin-right: var(--e1); }
 .debug dd { margin: 0 0 2px; }
 
-.etape-courante {
-  margin-top: var(--e4);
-  min-height: 3.2em;
-  font-family: var(--pedagogue);
-  color: var(--fg-2);
-}
-.etape-courante strong { color: var(--fg); font-weight: 600; }
+/* `.etape-courante` a disparu : la ligne qui répétait l'étape sous le lecteur
+   n'est plus affichée (voir `registre.js`). Le nœud subsiste en
+   `.visuellement-cachee`, pour l'annonce vocale seule. */
 
 /* En une colonne la page peut faire 1 100 px de large : sans plafond, les
    lignes du Registre s'étireraient bien au-delà de la mesure de lecture
    (charte §2.4, 62ch). Dans la colonne latérale, 22rem est déjà sous la
    mesure : la règle n'y change rien. */
 .registre { margin-top: var(--e6); max-width: var(--mesure); }
-.registre__liste { counter-reset: etape; display: grid; gap: 2px; }
+
+/* ★ Le Registre a son propre défilement — et c'est un choix de MISE EN SCÈNE.
+ *
+ * « Le registre devrait avoir un espace avec son propre scroll afin de ne pas
+ * spoiler la fin d'entrée de jeu » (l'auteur). Déroulé en entier, il donne le
+ * verdict avant que la démonstration n'ait commencé : la dernière ligne dit
+ * « Le verdict — 666 666 ». Borné, il ne montre que là où l'on en est, et la
+ * suite se découvre en même temps qu'elle se joue.
+ *
+ * La borne est relative à la fenêtre, avec un plafond absolu : sur un grand
+ * écran, une liste de trente centimètres ne serait pas plus lisible, et sur un
+ * petit, `60vh` laisse voir la scène en même temps que le Registre.
+ *
+ * `scroll-behavior` n'est PAS posé ici : c'est `registre.js` qui décide, parce
+ * que lui seul sait si le mouvement est réduit — et un défilement automatique
+ * est exactement le genre de mouvement que `prefers-reduced-motion` vise. */
+.registre__liste {
+  counter-reset: etape;
+  display: grid;
+  gap: 2px;
+  max-height: min(60vh, 30rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* La barre de défilement mange la marge droite des lignes : on la rend. */
+  padding-right: var(--e1);
+}
 .registre__item { display: block; }
 .registre__lien {
   display: flex;
@@ -546,4 +666,174 @@
   min-height: var(--touche);
   display: flex;
   align-items: center;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   L'EMBRASEMENT DU VERDICT — la pile d'ombres d'atnyman, en `drop-shadow()`
+   ────────────────────────────────────────────────────────────────────────────
+   La technique et sa provenance sont dans `src/visuel/primitives/feu.js` et
+   `.planning/inspirations/feu/01-atnyman/`. En un mot : cinq ombres colorées
+   empilées sur le glyphe LUI-MÊME, décalées vers le haut, du blanc-jaune au
+   cœur jusqu'à la fumée en tête, qui respirent entre deux états. Le feu EST le
+   halo du chiffre — c'est ce que veut dire « que les chiffres eux-mêmes
+   s'enflamment ».
+
+   ★ POURQUOI CE MOUVEMENT EST EN CSS ET NON DANS LA TIMELINE.
+
+   L'auteur demande que « l'effet de feu perdure et reste animé une fois le
+   verdict terminé ». Or le lecteur est parcourable, et tout état y est fonction
+   du temps (CONTRACTS §3) : une animation compilée s'arrête donc mécaniquement
+   à la dernière image.
+
+   On sépare deux choses :
+
+     · la PRÉSENCE du feu — a-t-il pris ? C'est un état de la démonstration, il
+       reste dans la timeline (`opacity`, WAAPI, `forwards`, allumé juste après
+       la foudre), et `seek()` en arrière le ramène à zéro ;
+     · le VACILLEMENT — la forme des flammes à un instant donné. Ce n'est PAS un
+       état de la démonstration : aucune valeur, aucun rang, aucun compte n'en
+       dépend, et Le Registre n'a rien à en dire. C'est l'argument qui garde
+       l'orage hors du vocabulaire (§3.1), appliqué au temps plutôt qu'au
+       lexique. N'étant pas fonction du temps de la timeline, il n'a aucune
+       raison de s'arrêter avec elle — et il ne s'arrête pas.
+
+   ★ ET RIEN NE TOURNE DANS LE VIDE. Les animations sont `paused` par défaut ;
+   c'est `data-embrasement`, posé sur la racine de la scène par
+   `visuel/player.js` en fonction de `currentTime`, qui les met en marche.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ★ AUCUN FILTRE N'EST ANIMÉ, ET C'EST TOUT LE MONTAGE.
+   Mesuré au banc (`src/gfx/_feu-perf.html`, rendu logiciel) : la pile de cinq
+   `drop-shadow()` coûte **plus d'un cœur** si on l'anime, et **zéro** si on la
+   fige. Un filtre statique est tramé une fois et mis en cache ; un filtre animé
+   est refait à chaque image. Le nombre de couches, lui, ne change presque rien.
+
+   Le feu est donc DEUX corps superposés, chacun portant une chaîne figée :
+   celui de l'état A ne bouge jamais, celui de l'état B voit son OPACITÉ aller
+   et venir. `opacity` est un canal de composition — le moteur mêle deux
+   tramages déjà en cache. On garde la respiration d'atnyman (`alternate` : un
+   feu va et vient, il ne recommence pas) sans payer une passe de flou par
+   image.
+
+   ★ Un canal, un élément (CONTRACTS §3.2 règle 3) : le corps de reprise n'anime
+   que son opacité et ne porte aucune transformation — la recette du défaut
+   Firefox reste hors de portée (`tests/compositeur.test.js`). */
+.nhl-feu--reprise {
+  animation: nhl-feu-reprise var(--nhl-feu-periode, 900ms) ease-in-out
+             var(--nhl-feu-retard, 0ms) infinite alternate;
+}
+@keyframes nhl-feu-reprise {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── L'interrupteur : rien ne tourne tant que le feu n'a pas pris ─────────── */
+.nhl-feu--reprise { animation-play-state: paused; opacity: 0; }
+.scene[data-embrasement] .nhl-feu--reprise { animation-play-state: running; }
+
+/* ── Mouvement réduit : un feu FIXE, mais un feu ──────────────────────────
+   « `prefers-reduced-motion` doit donner un feu fixe. » Il reste donc là,
+   dessiné, coloré, autour des chiffres — seule sa respiration s'arrête, et il
+   se fige à la phase que son retard négatif lui donne, c'est-à-dire à un état
+   différent pour chaque foyer : l'image d'arrêt reste celle d'un feu.
+   Le réglage explicite (`data-animation`, posé par `src/app/reglages.js`) prime
+   DANS LES DEUX SENS, comme pour le logo : on peut vouloir l'animation malgré
+   un OS réglé en « réduit », et l'inverse. */
+@media (prefers-reduced-motion: reduce) {
+  .scene[data-embrasement] .nhl-feu--reprise { animation-play-state: paused; opacity: .5; }
+  html[data-animation="complete"] .scene[data-embrasement] .nhl-feu--reprise {
+    animation-play-state: running;
+  }
+}
+html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu--reprise {
+  animation-play-state: paused;
+  opacity: .5;
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LE RIDEAU DU REGISTRE SCÉNIQUE — la scène estompée, un bouton devant
+   ────────────────────────────────────────────────────────────────────────────
+   « En mode scénique, pour avoir le son activé par défaut, plutôt qu'un
+   autoplay, estompe la scène initiale (façon arrière-plan de lightbox) et mets
+   un gros bouton play devant, par-dessus la scène, pour que l'affordance soit
+   maximale. En mode sobre, laisse l'autoplay. » (l'auteur)
+
+   Le raisonnement — un clic est le geste que le navigateur attend pour
+   autoriser le son, donc renoncer à l'autoplay est ce qui PERMET le son — est
+   en tête de `src/app/pages/demonstration.js`.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ★ L'estompe est le VOILE, et rien d'autre : pas de `filter` sur la scène.
+   Une première rédaction ajoutait `saturate(.45) brightness(.55)` sur le
+   `<svg>`. Deux défauts, et le premier suffit : en thème clair, un fond pâle
+   assombri PUIS recouvert d'un voile pâle donnait une scène blanche — on ne
+   « devinait » plus rien du tout, on ne voyait qu'un cadre vide. Et un `filter`
+   sur la scène entière est du travail pour rien, quand un aplat translucide dit
+   exactement la même chose. Un arrière-plan de lightbox, c'est un voile ; ce
+   n'en est jamais autre chose.
+
+   La classe sur le CADRE garde un rôle, et un seul : faire taire le badge de
+   transformation. « T-01/23 » posé sur un rideau annonce une étape que
+   personne ne regarde encore — c'est du bruit avant le lever, et de
+   l'information après. Il revient avec la scène. */
+.scene-cadre--rideau .badge-transformation { opacity: 0; }
+
+.scene-voile {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  /* ★ Le voile est SOMBRE dans les deux thèmes, et c'est la couleur de la nuit
+     du verdict (`--scene-nuit`). Deux raisons : un arrière-plan de lightbox
+     doit assombrir — sur le parchemin, un voile clair ne voile rien et efface
+     le bouton au lieu de le faire ressortir —, et celui-ci annonce ce qui va
+     tomber sur la scène à la chute. Le rideau est déjà de la scénographie. */
+  background: color-mix(in srgb, var(--scene-nuit) 55%, transparent);
+  /* Il naît en fondu : la scène est déjà là quand il paraît, et l'on comprend
+     qu'on la voile plutôt que de croire qu'elle manque. */
+  animation: nhl-voile-entree var(--t-moyen, .32s) ease-out both;
+}
+@keyframes nhl-voile-entree { from { opacity: 0; } }
+
+/* ★ UN VRAI BOUTON, et gros : « pour que l'affordance soit maximale ». Il porte
+   son nom accessible en `aria-label` (il dit si le son partira ou non — ce que
+   le dessin ne peut pas dire) et son intitulé visible en clair à côté du
+   triangle : personne n'a à deviner ce que fait un triangle dans un rond. */
+.scene-jouer {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e3);
+  padding: var(--e3) var(--e5) var(--e3) var(--e4);
+  border: var(--rule-strong) solid var(--rubric);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--rubric);
+  cursor: pointer;
+  font-family: var(--oracle);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: .04em;
+  /* Cible tactile largement au-dessus du minimum de 48 px. */
+  min-height: calc(var(--touche) + var(--e3));
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--canvas) 55%, transparent);
+  transition: transform var(--t-court, .16s) ease-out,
+              background-color var(--t-court, .16s) ease-out,
+              color var(--t-court, .16s) ease-out;
+}
+.scene-jouer svg { width: 1.6em; height: 1.6em; flex: none; }
+.scene-jouer:hover,
+.scene-jouer:focus-visible { background: var(--rubric); color: var(--sur-rubric); }
+/* `transform` et non `scale` : une propriété individuelle de transformation
+   fait perdre la position au compositeur Firefox dès qu'une opacité est animée
+   sur le même élément (`src/visuel/tests/compositeur.test.js`). Ici il n'y a
+   pas d'opacité animée, mais une exception affaiblirait la règle. */
+.scene-jouer:hover { transform: scale(1.03); }
+.scene-jouer:active { transform: scale(.98); }
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-voile { animation-duration: 1ms; }
+  .scene-jouer { transition: none; }
+  .scene-jouer:hover, .scene-jouer:active { transform: none; }
 }

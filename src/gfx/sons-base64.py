@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Réimprime `src/sons/data.js` à partir des quatre .ogg — ou vérifie qu'il n'a pas dérivé.
+"""Réimprime `src/sons/data.js` à partir des .ogg — ou vérifie qu'il n'a pas dérivé.
 
 ★ POURQUOI CE DÉTOUR, plutôt qu'un simple `import son from './abime.ogg'`.
 
@@ -27,9 +27,13 @@ CIBLE = SONS / 'data.js'
 DEBUT = '// ══ DÉBUT SONS_BASE64 — engendré par src/gfx/sons-base64.py, ne pas éditer'
 FIN = '// ══ FIN SONS_BASE64'
 
-# L'ordre est celui du récit, pas l'alphabétique : le fond, le sursaut, la
-# foudre, le feu.
-NOMS = ['abime', 'effroi', 'tonnerre', 'brasier']
+# L'ordre est celui du récit, pas l'alphabétique : le sursaut, la foudre, le feu.
+#
+# ★ `abime` a été RETIRÉ. « L'ambiance continue n'est pas ce que je voulais : je
+#   voulais un son de surprise / effroi PONCTUEL au moment de faire apparaître
+#   les cornes » (l'auteur). Le drone de fond ne soulignait rien — il occupait.
+#   Voir `src/app/sons.js` et `src/sons/CC0-sons.txt`.
+NOMS = ['effroi', 'tonnerre', 'brasier']
 TYPE = 'audio/ogg'
 
 
@@ -62,7 +66,7 @@ if __name__ == '__main__':
         if rendu() != voulu:
             print('✘ src/sons/data.js a dérivé des .ogg. Relancez `bun run sons`.', file=sys.stderr)
             sys.exit(1)
-        print('✔ src/sons/data.js correspond aux quatre .ogg.')
+        print(f'✔ src/sons/data.js correspond aux {len(NOMS)} .ogg.')
     else:
         CIBLE.write_text(voulu, encoding='utf-8')
         print(f'✔ src/sons/data.js réimprimé ({len(voulu)} octets).')

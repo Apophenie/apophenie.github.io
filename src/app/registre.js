@@ -88,7 +88,19 @@ export function creerRegistre(lecteur, options = {}) {
     liste.appendChild(li);
   });
 
-  const region = e('p#etape-courante.etape-courante.region-live', {
+  // ★ Le rappel d'étape ne s'AFFICHE plus, il s'ANNONCE.
+  //
+  // « Ce scroll peut défiler au fur et à mesure de l'animation pour garder mise
+  // en avant l'étape en cours ; ça permet par la même occasion de supprimer la
+  // reprise des étapes juste en dessous du player » (l'auteur). Le Registre,
+  // qui suit désormais la lecture, montre l'étape en cours à sa place, dans son
+  // contexte — la ligne sous le lecteur redisait la même chose hors contexte.
+  //
+  // Elle reste dans le DOM, et c'est délibéré : c'est une région `aria-live`,
+  // le seul canal par lequel un lecteur d'écran apprend qu'on a changé d'étape,
+  // et le conteneur de la scène la désigne en `aria-describedby`. La retirer
+  // rendrait la démonstration muette pour qui ne la voit pas.
+  const region = e('p#etape-courante.visuellement-cachee.region-live', {
     'aria-live': 'polite',
     'aria-atomic': 'true',
   });
@@ -122,6 +134,67 @@ export function creerRegistre(lecteur, options = {}) {
       if (k === i) li.setAttribute('aria-current', 'step');
       else li.removeAttribute('aria-current');
     });
+    suivre(items[i]);
+  }
+
+  /**
+   * ★ Le Registre suit la lecture dans son propre défilement.
+   *
+   * La liste est bornée en hauteur (`pages.css`) pour ne pas divulguer le
+   * verdict avant qu'il n'arrive ; il faut donc l'amener à l'étape en cours,
+   * sinon la mise en avant se produirait hors du champ visible.
+   *
+   * ★ On calcule le décalage à la main plutôt que d'appeler `scrollIntoView` :
+   * celui-ci fait défiler TOUS les ancêtres scrollables, donc la page entière —
+   * la scène quitterait l'écran à chaque charnière. Ici seul le conteneur de la
+   * liste bouge, et il ne bouge que si l'étape est réellement sortie du cadre :
+   * un défilement à chaque étape, même de deux pixels, se remarque et fatigue.
+   *
+   * ★ `prefers-reduced-motion` coupe le glissement, pas le suivi. Quelqu'un qui
+   * a demandé moins de mouvement veut toujours voir où il en est — il saute à
+   * la bonne ligne au lieu d'y glisser.
+   */
+  let suiviEnAttente = null;
+
+  function suivre(li) {
+    if (!li || !liste || typeof liste.scrollTo !== 'function') return;
+    // ★ On mesure à la FRAME SUIVANTE, jamais dans la foulée du marquage.
+    //
+    // `marquer` est appelé depuis une charnière du lecteur, c'est-à-dire au
+    // milieu d'un cycle où le DOM vient de changer : mesuré, `clientHeight`
+    // valait alors 0 et le suivi renonçait en silence — le Registre restait
+    // planté sur sa première ligne pendant que la démonstration avançait.
+    // Une frame plus tard, la mise en page est faite et les nombres sont vrais.
+    //
+    // Les demandes se COALESCENT : pendant un scrubbing, dix charnières se
+    // succèdent en quelques images, et seule la dernière compte.
+    suiviEnAttente = li;
+    if (typeof requestAnimationFrame !== 'function') { placer(li); return; }
+    if (suivre.planifie) return;
+    suivre.planifie = true;
+    requestAnimationFrame(() => {
+      suivre.planifie = false;
+      const cible = suiviEnAttente;
+      suiviEnAttente = null;
+      if (cible) placer(cible);
+    });
+  }
+
+  function placer(li) {
+    if (!li || !li.isConnected) return;
+    const hauteurVue = liste.clientHeight;
+    // Une liste non bornée (mise en page étroite, `<details>` replié) n'a rien
+    // à faire défiler : `scrollHeight` y vaut `clientHeight`.
+    if (!hauteurVue || liste.scrollHeight <= hauteurVue + 1) return;
+    const haut = li.offsetTop - liste.offsetTop;
+    const bas = haut + li.offsetHeight;
+    let cible = null;
+    if (haut < liste.scrollTop) cible = haut;
+    else if (bas > liste.scrollTop + hauteurVue) cible = bas - hauteurVue;
+    if (cible === null) return;
+    const doux = typeof matchMedia === 'function'
+      && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    liste.scrollTo({ top: cible, behavior: doux ? 'smooth' : 'auto' });
   }
 
   /** Appelé aux charnières uniquement (évènement `stepenter`).

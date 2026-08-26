@@ -1,7 +1,7 @@
-LES QUATRE SONS DE NumHeroLOLgeek — provenance, auteur, licence
+LES TROIS SONS DE NumHeroLOLgeek — provenance, auteur, licence
 ════════════════════════════════════════════════════════════════════════════
 
-Les quatre sons servis par ce site sont dans le DOMAINE PUBLIC, sous
+Les trois sons servis par ce site sont dans le DOMAINE PUBLIC, sous
 Creative Commons CC0 1.0 Universal (CC0 1.0) Public Domain Dedication :
 
     https://creativecommons.org/publicdomain/zero/1.0/deed.fr
@@ -11,7 +11,7 @@ raison que `OFL-Jost.txt` est à côté de `jost-var.woff2` : ce site redistribu
 des œuvres de tiers, et il doit pouvoir dire lesquelles, d'où elles viennent
 et sous quel régime. On ne se contente pas d'être en règle, on le montre.
 
-Aucun des quatre n'est servi tel qu'il a été téléchargé : tous ont été
+Aucun des trois n'est servi tel qu'il a été téléchargé : tous ont été
 recadrés, égalisés en niveau et réencodés (voir « Traitement » plus bas). CC0
 autorise expressément la modification.
 
@@ -36,19 +36,7 @@ autorise expressément la modification.
    Extrait   : 1,50 s → 4,50 s, bouclé sans couture (fondu croisé de 350 ms)
 
 ────────────────────────────────────────────────────────────────────────────
-3. abime.ogg — l'ambiance lugubre (en boucle)
-────────────────────────────────────────────────────────────────────────────
-   Œuvre     : « Ambient horror »
-   Auteur    : techiew
-   Source    : https://opengameart.org/content/ambient-horror
-   Licence   : CC0 1.0 (mention « License(s): CC0 » sur la page d'origine)
-   Original  : Ogg Vorbis, 48 kHz stéréo, 22,187 s, 776 232 octets
-   Extrait   : 4,00 s → 12,00 s, bouclé sans couture (fondu croisé de 600 ms)
-   Note de l'auteur : « Free for all to use for any purpose, but I'd love to
-   know if you ever use this in your project. » — l'usage est ici.
-
-────────────────────────────────────────────────────────────────────────────
-4. effroi.ogg — les cornes qui poussent
+3. effroi.ogg — LE SURSAUT, quand les cornes poussent
 ────────────────────────────────────────────────────────────────────────────
    Œuvre     : « Horror Hit Soundpack 1 », piste « Very Bassy 4 »
    Auteur    : psychhead_
@@ -57,23 +45,43 @@ autorise expressément la modification.
    Original  : MP3 128 kb/s, 44,1 kHz stéréo, 4,389 s, 70 469 octets
    Extrait   : 0,00 s → 1,60 s (l'impact ; la longue queue de réverbération
    est coupée — un sursaut doit être bref)
+   Vérifié   : enveloppe relevée par ffmpeg, crête à crête sur des fenêtres de
+   100 ms — montée de −21 dB à −2,2 dB en 400 ms, puis retour à −22 dB en
+   1,2 s. C'est la forme d'un « horror hit » (montée courte, impact, queue
+   brève), pas celle d'une nappe : c'est bien le son que l'auteur demandait,
+   et il était déjà là — c'est le drone qui le couvrait.
 
 ────────────────────────────────────────────────────────────────────────────
-Traitement, identique pour les quatre
+LE SON RETIRÉ, et pourquoi
+────────────────────────────────────────────────────────────────────────────
+   `abime.ogg` — « Ambient horror » de techiew (opengameart.org, CC0 1.0) —
+   servait d'ambiance lugubre en boucle sous toute la lecture. Il a été RETIRÉ
+   à la demande de l'auteur : « L'ambiance continue n'est pas ce que je
+   voulais : je voulais un son de surprise / effroi ponctuel au moment de faire
+   apparaître les cornes. » Un fond continu ne peut souligner aucun instant —
+   ce qui est toujours là ne dit jamais « maintenant ».
+   Le fichier n'est plus dans le dépôt : ce qui n'est pas servi n'a pas à être
+   documenté ici, et une licence citée pour un fichier absent serait un
+   mensonge de plus qu'une précaution. Le gain : 22 588 octets d'Ogg, soit
+   30 120 octets de base64 en moins dans `src/sons/data.js`.
+
+────────────────────────────────────────────────────────────────────────────
+Traitement, identique pour les trois
 ────────────────────────────────────────────────────────────────────────────
    ffmpeg → mono, 24 kHz d'échantillonnage à l'entrée, Opus dans un conteneur
    Ogg, VBR, `application=audio`. Égalisation de niveau par `loudnorm`, crête
    vraie à −1,5 dBTP :
-     · tonnerre −14 LUFS, 32 kb/s   · brasier  −20 LUFS, 24 kb/s
-     · effroi   −13 LUFS, 32 kb/s   · abîme    −22 LUFS, 24 kb/s
-   Les deux fonds sont plus bas de 6 à 8 LUFS que les deux impacts : ils
-   doivent se tenir SOUS eux, pas à côté.
+     · tonnerre −14 LUFS, 32 kb/s   · brasier −20 LUFS, 24 kb/s
+     · effroi   −13 LUFS, 32 kb/s
+   Le brasier est plus bas de 6 LUFS que les deux impacts : un fond doit se
+   tenir SOUS eux, pas à côté.
 
-   Poids servi : 11 925 + 8 418 + 22 588 + 8 176 = 51 107 octets,
-   soit ~68 100 octets une fois inlinés en base64 par le build (voir
-   `vite.config.js`, `assetsInlineLimit`). À comparer aux 67 712 octets de
-   woff2 des quatre polices : les sons pèsent le même ordre de grandeur que
-   la typographie, et le budget de CONTRACTS §7.6 (≤ 260 Ko) reste tenu.
+   Poids servi : 11 925 + 8 418 + 8 176 = 28 519 octets, soit 39 798 octets une
+   fois inlinés en base64 (`src/sons/data.js`). C'était 51 107 et 70 083 avant
+   le retrait de l'ambiance : **−44 % de son servi**. À comparer aux 67 712
+   octets de woff2 des quatre polices — les sons pèsent désormais nettement
+   moins que la typographie, et le budget de CONTRACTS §7.6 (≤ 260 Ko) est tenu
+   avec plus de marge qu'avant.
 
    ★ Pourquoi Opus, et ce que ça coûte : c'est le seul codec largement servi
    qui descende à 24 kb/s sans que du bruit de feu devienne du bruit de

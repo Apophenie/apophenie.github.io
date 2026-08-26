@@ -47,26 +47,48 @@
 //   score, de la ligne dont elle est issue. C'est vérifié par un test.
 //
 // ══════════════════════════════════════════════════════════════════════════════
-// CE QUE LE BILAN NE SAIT PAS MESURER — dit ici, et pas ailleurs
+// ★ LES TROIS PALIERS QUI DORMAIENT — ET QUI MORDENT DÉSORMAIS
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Trois demandes de l'auteur ne trouvent RIEN à mesurer dans le catalogue, parce
-// que l'opérateur qu'elles pénalisent n'existe pas — et le registre est FERMÉ
-// (§4.1), donc il ne peut pas être créé pour l'occasion :
+// Trois demandes de l'auteur ne trouvaient RIEN à mesurer dans le catalogue,
+// parce que l'opérateur qu'elles pénalisent n'existait pas : « le plus fréquent
+// l'emporte », « garder un caractère sur deux », « l'addition SÉLECTIVE de
+// chiffres contigus » (`6, 5+1, 6, 8`). Leurs paliers étaient écrits, à leur
+// place dans la hiérarchie, mais leurs compteurs valaient toujours zéro.
 //
-//  · « le plus fréquent l'emporte » — aucun opérateur ne supprime les valeurs
-//    minoritaires d'un vecteur ;
-//  · « garder un caractère sur deux » — aucun opérateur ne décime un vecteur ;
-//  · « l'addition SÉLECTIVE de chiffres contigus » (`6, 5+1, 6, 8`) — `c.somme`
-//    additionne le vecteur ENTIER ; aucun opérateur n'additionne une
-//    sous-plage choisie.
+// L'auteur a tranché : « je me doute — ma demande c'est AUSSI de les ajouter au
+// catalogue, mais avec un score bas, mais moins bas que la suppression
+// arbitraire de ce qui n'est pas 6. » Trois opérateurs ont donc été alloués
+// (`m10` le plus fréquent, `m11` un rang sur deux, `m12` l'addition sélective —
+// `src/moteur/transformations/mappeurs.js`), et les trois compteurs sont
+// branchés dessus.
 //
-// Les trois paliers de laideur correspondants sont donc écrits dans le barème
-// ci-dessous, à leur place dans la hiérarchie, mais leurs compteurs valent
-// toujours zéro. Ce n'est pas un oubli : c'est la place réservée, pour que le
-// jour où l'un de ces opérateurs serait alloué, le barème n'ait pas à être
-// repensé. `BAREME_INACTIF` les énumère, et un test vérifie qu'ils sont bien
-// inactifs — sans quoi on croirait mesurer ce qu'on ne mesure pas.
+// ★ **L'UNITÉ DES TROIS PALIERS EST CELLE DE `VALEUR_JETEE` : ce que la ficelle
+// COÛTE PAR VALEUR.** C'est ce qui rend la phrase de l'auteur mesurable —
+// « moins bas que la suppression arbitraire de ce qui n'est pas 6 » compare deux
+// façons de se débarrasser d'une valeur, et elles doivent donc se comparer au
+// même prix unitaire. Se débarrasser d'un 4 parce que le 6 est majoritaire
+// (`MAJORITE`) coûte un peu moins cher que s'en débarrasser parce que ce n'est
+// pas un 6 (`VALEUR_JETEE`) ; un rang sur deux coûte moins encore ; et
+// l'addition sélective, qui ne jette rien mais ABSORBE, est la moins chère des
+// quatre — l'auteur le dit lui-même, se débarrasser de chiffres n'est
+// acceptable que « si ça évite de se débarrasser artificiellement de chiffres
+// qu'on peut absorber arithmétiquement ».
+//
+// ★ **ET LA PEINE N'EST COMPTÉE QU'UNE FOIS.** Ce que ces trois opérateurs
+// écartent n'entre PAS dans `valeursJetees` : leur palier EST le prix de
+// l'écartement, il ne s'y ajoute pas. Les compter aux deux endroits ferait de la
+// ficelle une chose PLUS chère que le tri arbitraire qu'elle est censée valoir
+// mieux que — c'est-à-dire l'inverse exact de la consigne. C'est la même
+// discipline que `SIX_DETRUIT`, qui exclut déjà le rétrécissement d'un vecteur
+// « sans quoi un même chiffre serait puni deux fois pour un seul geste ».
+//
+// ★ **`adHoc` ne double pas le barème non plus.** `critereAntiAdHoc`
+// (`score.js`) mesure une chose GÉNÉRIQUE — « cette méthode est-elle taillée
+// pour la cible ? » — sur le score de conviction ; le barème d'élégance mesure
+// une chose SPÉCIFIQUE — « qu'a-t-on fait, exactement, pendant le calcul ? » —
+// sur le chemin. Les deux se composent, comme ils se composent déjà pour `my`
+// (adHoc 0,35, aucun palier) et pour `c.moyenne` (adHoc bas, palier `ARRONDI`).
 
 /** Trois 6 font un 666 (`assemblage.js › SERIE`). */
 const SERIE = 3;
@@ -96,6 +118,18 @@ const fraction = (x, [num, den]) => Math.floor((x * num) / den);
  *
  *     ne garder que les 6  >  moyenne arrondie  >  min/max  >  lettre → lettre
  *
+ * …et une SECONDE chaîne, dictée dans les mêmes termes, qui part du même
+ * sommet :
+ *
+ *     ne garder que les 6  >  le plus fréquent  >  un rang sur deux
+ *                          >  addition sélective
+ *
+ * Les deux chaînes partagent leur premier maillon — « ne garder
+ * artificiellement que les 6 en ignorant le reste » est la pire des deux
+ * listes — et ne se croisent nulle part ailleurs : l'auteur n'a jamais comparé
+ * une moyenne arrondie à un rang sur deux, et le barème ne prétend donc rien
+ * en dire.
+ *
  * Un test le vérifie sur le barème lui-même : si un réglage inverse deux
  * paliers, il échoue. C'est le seul garde-fou possible contre un étalonnage qui
  * dériverait à force de petites retouches.
@@ -115,6 +149,74 @@ export const BAREME = {
    * présence d'un code : `[6,6,6,4,4]` le gagne, qu'on ait employé `mz` ou non.
    */
   TRIPTYQUE_CONTIGU: 260,
+
+  /**
+   * ★ Le 666 suivant du MÊME vecteur — un tiers du tarif plein (voir juste
+   * au-dessus pour la mesure qui l'impose et pour l'autre réglage possible).
+   *
+   * Mesuré : `f6+t1+mw` passe de 1 576 (compte faux) à **1 909** (compte juste,
+   * tarif dégressif) — elle y gagne franchement, et la moisson qui lit toute la
+   * saisie garde la tête à 2 293. Au tarif plein elle serait à 2 419 et
+   * passerait devant.
+   */
+  TRIPTYQUE_REPETE: 90,
+
+  /**
+   * ★ **AUTANT DE BONUS QUE DE 666 RÉELLEMENT ÉCRITS D'AFFILÉE — et le tarif du
+   * deuxième.**
+   *
+   * ⚠️ DÉFAUT MESURÉ. Le bonus se comptait PAR PORTÉE qui porte un triptyque,
+   * jamais par triptyque : sur `hope-hope-hope.fr`, `f6+t1+mw` appliqué au motif
+   * répété rend **douze 6 d'affilée, donc QUATRE 666**, et ne touchait qu'un
+   * seul bonus. « Plus tu produis de 6, mieux c'est » se trouvait démenti à
+   * l'endroit exact où le vecteur en produit le plus. Le compte est réparé
+   * (`nbTriptyques`, ⌊L/3⌋ par suite contiguë), et le total reste plafonné au
+   * nombre de séries du verdict : on ne crédite pas un 666 que personne ne
+   * verra.
+   *
+   * ⚠️ **MESURE — et elle contredit le remède qui avait été prescrit.** Le
+   * compte réparé au TARIF PLEIN porte `f6+t1+mw` (motif `hope-hope-hope`) à
+   * **2 419** et lui fait dépasser la moisson à cinq séries (**2 293**) :
+   * `hope-hope-hope.fr` perd sa voie de référence. Le remède prévu était
+   * d'alourdir `VALEUR_JETEE` — **il n'a aucune prise ici, et c'est mesuré** :
+   * la voie qui prend la tête est celle qui porte sur le MOTIF RÉPÉTÉ
+   * `hope-hope-hope`, donc `[6×12]`, **PURE, `valeursJetees = 0`**. (Une
+   * seconde voie porte les mêmes codes sur la saisie ENTIÈRE — `[6×12,5,7]`,
+   * deux valeurs jetées — et c'est elle qu'on lit dans le banc quand elle
+   * gagne le tri des candidats ; les deux existent, et la plus élégante des
+   * deux ne jette rien.) Balayage : `VALEUR_JETEE` porté de 36 à 78, 150, 300
+   * puis **600** ne déplace pas d'une milli-unité un bilan qui ne jette rien —
+   * la tête reste `f6+t1+mw` à 2 419 aux quatre valeurs.
+   *
+   * Ce qui sépare réellement les deux voies n'est donc pas le gaspillage :
+   *
+   *  · le groupement écrit **quatre** 666 tous contigus, sur une seule portée,
+   *    et laisse de côté le bloc `fr` (deux lettres — l'exception que l'auteur
+   *    autorise, −4) ;
+   *  · la moisson en délivre **cinq**, dont trois seulement sont contigus : les
+   *    deux autres sont assemblés à partir de 6 pris sur des portées
+   *    différentes, et le barème ne les crédite **pas du tout**.
+   *
+   * Au tarif plein, « contiguïté » l'emporte donc sur « quantité », et le
+   * verdict annonce quatre séries là où cinq existent. Deux réglages peuvent
+   * refermer cet écart ; c'est le premier qui est retenu, et le second est
+   * documenté au §5 du contrat pour que l'arbitrage reste ouvert :
+   *
+   *  1. **le deuxième 666 du même vecteur vaut moins** (ci-dessous) — le
+   *     premier d'une portée est une TROUVAILLE : cette portion-là de la
+   *     saisie, lue de cette façon-là, écrit 666. Les suivants du même vecteur
+   *     sont la même trouvaille qui continue : ils ne coûtent rien de plus à
+   *     obtenir, ne disent rien de plus de la saisie, et leur abondance est
+   *     **déjà payée** par `SIX_SURNUMERAIRE` ;
+   *  2. **créditer les séries ASSEMBLÉES** — un 666 fait de trois 6 pris sur
+   *     trois portées est un 666 que le verdict montre, et il ne rapporte
+   *     aujourd'hui rien. Mesuré : au-delà de **64** milli-unités par série
+   *     assemblée, la moisson repasse devant. Ce serait plus fidèle à la règle
+   *     de tête de l'auteur (« privilégie celle qui donne le plus de séries »),
+   *     mais c'est un bonus qui touche TOUTES les approches et demande son
+   *     propre étalonnage — il n'est pas pris ici de but en blanc.
+   */
+
 
   /**
    * ★ « Plus tôt, mieux c'est. » — mesuré en CONVERSIONS ÉLÉMENTAIRES, pas en
@@ -232,6 +334,61 @@ export const BAREME = {
    * débarrasser artificiellement de chiffres qu'on peut absorber
    * arithmétiquement ». Seul l'ÉCARTEMENT compte : le rétrécissement d'un
    * vecteur (`mz`, `mu`) et le surplus que le verdict laisse tomber.
+   *
+   * ★ **IL RESTE À 36 — et ce n'est pas un oubli, c'est une mesure.**
+   *
+   * L'échelle des abandons monte d'un facteur trois à chaque barreau :
+   *
+   *     ponctuation 1  →  bloc court 2  →  bloc entier 8  →  lettre arrachée 26
+   *
+   * `VALEUR_JETEE` en est le barreau suivant, et il n'en respecte pas le pas :
+   * 36, soit à peine 1,4 fois le barreau du dessous, là où la règle voudrait
+   * 26 × 3 = 78. L'alourdir jusque-là a été essayé, sur consigne, avec l'idée
+   * qu'une valeur calculée puis jetée est du travail fait pour rien — donc plus
+   * grave qu'un caractère qu'on n'a jamais lu. **Trois mesures l'ont fait
+   * renoncer**, et elles sont écrites ici pour qu'on ne recommence pas :
+   *
+   * ⚠️ **1. Le levier n'a aucune prise sur le cas qui le motivait.** Il
+   * s'agissait d'empêcher `f6+t1+mw` de passer devant la moisson à cinq séries
+   * une fois le compte des triptyques réparé. Or la voie qui prend la tête est
+   * celle qui porte sur le MOTIF RÉPÉTÉ `hope-hope-hope` : `[6×12]`, **PURE,
+   * `valeursJetees = 0`**. Balayage 36 → 78 → 150 → 300 → **600** : la tête
+   * reste `f6+t1+mw` à 2 419 aux cinq valeurs, sans bouger d'une milli-unité.
+   * On n'alourdit pas une peine que l'accusé ne paie pas.
+   *
+   * ⚠️ **2. Il écrase la MOISSON, qui est le mode que l'auteur met en tête.**
+   * Une moisson récolte sur plusieurs portées et laisse donc, par construction,
+   * du surplus derrière elle (`jeteesAuTri`). Mesuré sur le corpus de dix-neuf
+   * saisies : **à 45 déjà**, `Le chat dort sur le tapis rouge` tombe de cinq
+   * séries à une ; à 55, `Éléonore à Nîmes` passe de trois à deux ; à 78,
+   * **cinq têtes de liste changent, dont quatre PERDENT des séries** —
+   * `https://www.example.com/path/to/page` de cinq à une, `jean-michel` de deux
+   * à une. Le barème punirait l'ampleur, pas le gaspillage.
+   *
+   * ⚠️ **3. Et il promeut MÉCANIQUEMENT les ficelles.** C'est le retournement
+   * décisif : `m10`, `m11` et `m12` ne paient PAS ce poste — leur palier le
+   * remplace (voir l'en-tête). Plus le gaspillage coûte cher, plus la ruse qui
+   * l'escamote devient rentable. Mesuré sur `Le chat dort sur le tapis rouge`,
+   * pour neuf milli-unités d'écart :
+   *
+   *     à 36 → 1. moisson 5×666 (1 129) · la ficelle n'est pas dans les trois
+   *     à 45 → 1. `fl+t1+mw+m10` 1×666 (1 102) · la moisson tombe à 1 057
+   *
+   * Alourdir le gaspillage, c'est donc payer la ficelle pour cacher le
+   * gaspillage. Le réglage reste à 36, l'irrégularité de l'échelle est assumée,
+   * et ce qui devait arbitrer `hope-hope-hope.fr` l'arbitre ailleurs — au
+   * tarif du triptyque répété (`TRIPTYQUE_REPETE`).
+   *
+   * ★ **Et ce que l'alourdissement aurait « payé » est plus petit qu'il n'en a
+   * l'air.** `facteur()` borne le crédit à [`FACTEUR_PLANCHER`, 1 000] : au
+   * -dessus de 1 000, l'élégance est neutre sur le score de conviction. Sur le
+   * corpus, 36 → 78 déplace **109 crédits mais seulement 70 scores** — le tiers
+   * restant est absorbé par ce plafond, et le reste se compose
+   * multiplicativement avec `rendementSix` (`score.js`), qui mesure déjà la
+   * PROPORTION du vecteur qui vaut 6. Les deux mesures sont complémentaires
+   * (l'une en proportion sur le vecteur final, l'autre en valeur absolue et
+   * voyant en plus les rétrécissements de milieu de chemin), mais elles se
+   * multiplient : doubler la seconde ne double pas la peine, elle la compose.
    */
   VALEUR_JETEE: 36,
 
@@ -264,12 +421,73 @@ export const BAREME = {
    */
   LETTRE_VERS_LETTRE: 40,
 
-  // ── Les trois paliers RÉSERVÉS (voir l'en-tête : aucun opérateur ne les
-  //    déclenche aujourd'hui, le registre étant fermé). Ils sont écrits pour
-  //    tenir leur place dans la hiérarchie, pas pour agir.
-  MAJORITE: 200,        // « le plus frequent l'emporte » — peu élégant
-  DECIMATION: 140,      // « garder un caractère sur deux » — moins fort que la majorité
-  ADDITION_SELECTIVE: 110, // `6, 5+1, 6, 8` — « de la triche en dernier recours »
+  // ── ★ LES TROIS FICELLES, dans l'ordre de laideur de l'auteur.
+  //
+  // ★ **Unité : ce que la ficelle coûte PAR VALEUR ÉCARTÉE** (par chiffre
+  // absorbé pour la troisième), exactement comme `VALEUR_JETEE`. Le tarif
+  // REMPLACE `VALEUR_JETEE` pour ces valeurs-là ; il ne s'y ajoute pas (voir
+  // l'en-tête, « la peine n'est comptée qu'une fois »).
+  //
+  // ⚠️ **Et il est PLUS ÉLEVÉ que `VALEUR_JETEE`, ce qui n'est pas une
+  // contradiction avec la consigne — c'est ce qui la rend vraie.** L'auteur
+  // demande « un SCORE bas, mais moins bas que la suppression arbitraire de ce
+  // qui n'est pas 6 ». C'est un solde, pas un tarif : les deux gestes n'achètent
+  // pas la même chose. Le tri arbitraire laisse les 6 dispersés et ne gagne
+  // rien ; la ficelle, elle, RASSEMBLE — elle encaisse `TRIPTYQUE_CONTIGU`
+  // (260), le couronnement (jusqu'à 150) et le solde multiple de trois (90),
+  // soit un demi-millier de milli-unités que le tri ne touchera jamais. Un tarif
+  // aligné sur `VALEUR_JETEE` ferait donc de la ficelle une AFFAIRE, et elle
+  // passerait devant les méthodes élégantes — c'est ce que la première mesure a
+  // montré, noir sur blanc :
+  //
+  //   à 32 / 24 / 16 par valeur, `Macron` perdait sa voie de référence
+  //   (`fl+t1+mw+mz`, César + quatorze segments) au profit de `t1+m8+m10`, et
+  //   `Donald Trump` perdait la sienne (`t1+mw+mz,fl+t1+mw+mz`) entièrement.
+  //   Trois des quatre cas de référence tombaient.
+  //
+  // Les tarifs ci-dessous sont donc calibrés pour que le solde reste **juste
+  // positif** face au tri arbitraire, et franchement négatif face à une méthode
+  // qui atteint le même 666 sans ficelle. Deux tests le gèlent — l'un sur le
+  // solde (« la ficelle bat le tri arbitraire, de peu »), l'autre sur les quatre
+  // cas de référence.
+
+  /**
+   * 2. ★ « Le plus fréquent l'emporte » (`m10`) — par valeur écartée.
+   *
+   * La plus chère des trois : c'est la seule dont la règle REGARDE les valeurs
+   * avant de décider, donc la seule qui puisse être accusée d'avoir choisi son
+   * critère après avoir vu le résultat.
+   */
+  MAJORITE: 180,
+
+  /**
+   * 3. ★ « Garder un caractère sur deux » (`m11`) — par valeur écartée.
+   *
+   * « Ça peut être plus élégant que “le plus fréquent l'emporte” […] mais ça
+   * reste une astuce faible à considérer avec malus aussi, mais moindre que la
+   * majorité. » — l'auteur, mot pour mot. Plus élégant parce que la règle ne
+   * connaît que les RANGS : « un sur deux » s'énonce avant d'avoir vu le
+   * vecteur, là où « le plus fréquent » ne s'énonce qu'après l'avoir compté.
+   */
+  DECIMATION: 130,
+
+  /**
+   * 4. ★ L'addition sélective (`m12`) — par CHIFFRE ABSORBÉ.
+   *
+   * La moins chère des quatre, et l'auteur en donne lui-même la raison : elle
+   * ne JETTE rien. `5 + 1 = 6` garde les deux chiffres dans le résultat, là où
+   * les trois autres gestes en font disparaître. « Se débarrasser de chiffres
+   * est acceptable si ça évite de se débarrasser artificiellement de chiffres
+   * qu'on peut absorber arithmétiquement » : ici tout est absorbé, et il ne
+   * reste à punir que la SÉLECTION — le fait de n'additionner que ce qui
+   * arrange.
+   *
+   * ⚠️ Elle ne touche PAS le bonus `ADDITION_CHIFFRES` : `classeDeTransformation`
+   * la laisse en « autre » (voir `ADDITIONS_DE_CHIFFRES`). Le bonus récompense
+   * l'addition SYSTÉMATIQUE ; l'accorder ici reviendrait à payer la ficelle
+   * pour ce qui fait précisément d'elle une ficelle.
+   */
+  ADDITION_SELECTIVE: 100,
 
   // ── Comment le crédit redescend sur le score de conviction ─────────────────
 
@@ -291,8 +509,26 @@ export const BAREME = {
   FACTEUR_PLANCHER: 520,
 };
 
-/** Les paliers du barème qu'aucun opérateur ne peut déclencher (voir l'en-tête). */
-export const BAREME_INACTIF = Object.freeze(['MAJORITE', 'DECIMATION', 'ADDITION_SELECTIVE']);
+/**
+ * ★ LES TROIS FICELLES, par identifiant d'opérateur — et le compteur qu'elles
+ * alimentent.
+ *
+ * Par IDENTIFIANT, jamais par code, pour la raison qui vaut déjà pour
+ * `ADDITIONS_DE_CHIFFRES` et `MIN_MAX` : le code est une adresse d'URL (§4.1),
+ * l'identifiant est une intention.
+ *
+ * ★ Publié, parce que c'est ce qui permet à un test de vérifier que le barème
+ * et le catalogue ne peuvent pas se perdre de vue : si l'un de ces trois
+ * identifiants disparaissait du catalogue, ou si un quatrième opérateur du même
+ * genre apparaissait sans être inscrit ici, le palier correspondant se
+ * remettrait à dormir en silence — et l'on croirait mesurer ce qu'on ne
+ * mesurerait plus.
+ */
+export const FICELLES = Object.freeze({
+  'm.plusFrequent': 'majorite',
+  'm.unRangSurDeux': 'decimation',
+  'm.additionSelective': 'additionSelective',
+});
 
 // ══════════════════════════════════════════════════════════════════════════════
 // La classification des opérateurs — par identifiant, jamais par code
@@ -312,6 +548,12 @@ export const BAREME_INACTIF = Object.freeze(['MAJORITE', 'DECIMATION', 'ADDITION
  *  · `m.reduireChaque` — la même, sur chaque valeur d'un vecteur.
  * `c.somme` les rejoint quand ses opérandes tiennent tous en un chiffre : c'est
  * le critère `natureOperandes` de `combinateurs.js`, relu ici sur les VALEURS.
+ *
+ * ★ `m.additionSelective` (`m12`) n'y est PAS, et c'est délibéré. Elle
+ * additionne bien des chiffres — mais pas TOUS, et c'est précisément ce qui en
+ * fait une ficelle. Lui accorder le bonus des additions de chiffres reviendrait
+ * à la payer pour ce que le palier `ADDITION_SELECTIVE` lui reproche : elle
+ * reste donc « une transformation », sans plus.
  */
 const ADDITIONS_DE_CHIFFRES = new Set([
   'p.sommeChiffres', 'p.racineNumerique', 'p.racineMaitres', 'm.reduireChaque',
@@ -387,6 +629,32 @@ export function finDuTriptyque(valeurs) {
     if (suite >= SERIE) return i + 1;
   }
   return 0;
+}
+
+/**
+ * ★ COMBIEN de 666 contigus un vecteur écrit-il — pas « en écrit-il un ».
+ *
+ * ⚠️ DÉFAUT MESURÉ, et corrigé ici. Le bonus se comptait PAR PORTÉE qui porte
+ * un triptyque, jamais par triptyque : sur `hope-hope-hope.fr`, la voie
+ * `f6+t1+mw` (on ne garde que les lettres, puis quatorze segments) rend
+ * `[6,6,6,6,6,6,6,6,6,6,6,6,5,7]` — **douze 6 d'affilée, donc QUATRE 666** —
+ * et ne touchait qu'un seul bonus, comme une portée qui n'en écrit qu'un.
+ * « Plus tu produis de 6, mieux c'est » se trouvait démenti à l'endroit exact
+ * où le vecteur en produit le plus.
+ *
+ * Une suite de `L` six d'affilée vaut `⌊L/3⌋` triptyques : 666 fait trois 6, et
+ * l'on ne coupe pas un quatrième 6 en deux. C'est la même arithmétique que
+ * `serieDeSix` (`assemblage.js`), et pour la même raison.
+ */
+export function nbTriptyques(valeurs) {
+  if (!Array.isArray(valeurs)) return 0;
+  let total = 0;
+  let suite = 0;
+  for (const v of valeurs) {
+    if (v === 6) suite++;
+    else { total += Math.floor(suite / SERIE); suite = 0; }
+  }
+  return total + Math.floor(suite / SERIE);
 }
 
 /** Un état porte-t-il trois 6 d'affilée, ou vaut-il littéralement 666 ? */
@@ -494,12 +762,17 @@ export function bilanChemin(chemin) {
     lettreVersLettre: 0,
     sixDetruits: 0,
     valeursJetees: 0,
+    // ★ les trois ficelles — voir `FICELLES` et l'en-tête
+    majorite: 0,
+    decimation: 0,
+    additionSelective: 0,
     triptyqueVu: false,
     triptyqueTenu: false,
     casseTriptyque: false,
     six: 0,
     largeur: 0,
     finTriptyque: 0,
+    nbTriptyques: 0,
   };
 
   let classePrecedente = null;
@@ -547,9 +820,33 @@ export function bilanChemin(chemin) {
       if (perdus > 0 && !but) b.sixDetruits += perdus;
     }
 
+    // ── ★ LES TROIS FICELLES — comptées ICI, et NULLE PART AILLEURS.
+    //
+    // Chacune se paie à son propre tarif, et ce tarif REMPLACE `VALEUR_JETEE`
+    // au lieu de s'y ajouter : c'est ce qui rend vraie la consigne de l'auteur,
+    // « moins bas que la suppression arbitraire de ce qui n'est pas 6 ». Les
+    // compter aux deux endroits ferait de la ficelle une chose plus chère que
+    // le tri qu'elle est censée valoir mieux que.
+    const ficelle = op.id && Object.prototype.hasOwnProperty.call(FICELLES, op.id)
+      ? FICELLES[op.id] : null;
+    if (ficelle === 'majorite' || ficelle === 'decimation') {
+      // Ce que la ruse ÉCARTE, à son tarif. Même unité que `VALEUR_JETEE` :
+      // une valeur calculée, montrée, puis écartée.
+      b[ficelle] += Math.max(0, avant.valeur.length - apres.valeur.length);
+    } else if (ficelle === 'additionSelective') {
+      // Ce que la ruse ABSORBE : le nombre de CHIFFRES qui disparaissent dans
+      // une addition. `[6,5,16,8]` porte cinq chiffres et n'en rend que quatre
+      // termes : un chiffre a été absorbé, donc une sélection a été faite.
+      // Rien n'est jeté ici — d'où le tarif le plus bas des quatre.
+      let chiffres = 0;
+      for (const v of avant.valeur) chiffres += String(Math.abs(v)).length;
+      b.additionSelective += Math.max(0, chiffres - apres.valeur.length);
+    }
+
     // ── ★ Le rejet : un vecteur qui rétrécit, c'est des valeurs calculées puis
-    //    écartées, et la scène les MONTRE tomber.
-    if (avant.type === 'NUMS' && apres.type === 'NUMS'
+    //    écartées, et la scène les MONTRE tomber. Les ficelles en sont exclues :
+    //    elles viennent de payer, ci-dessus, ce même rétrécissement.
+    if (!ficelle && avant.type === 'NUMS' && apres.type === 'NUMS'
       && apres.valeur.length < avant.valeur.length) {
       b.valeursJetees += avant.valeur.length - apres.valeur.length;
     }
@@ -585,6 +882,7 @@ export function bilanChemin(chemin) {
     b.largeur = finales.length;
     for (const v of finales) if (v === 6) b.six++;
     b.finTriptyque = fin.type === 'NUM' ? (fin.valeur === 666 ? 1 : 0) : finDuTriptyque(finales);
+    b.nbTriptyques = fin.type === 'NUM' ? (fin.valeur === 666 ? 1 : 0) : nbTriptyques(finales);
   }
   return b;
 }
@@ -741,12 +1039,13 @@ export function bilanApproche(approche, ctx = {}) {
     sixDetruits: 0,
     valeursJetees: 0,
     triptyquesContigus: 0,
+    triptyquesRepetes: 0,
     casses: 0,
     six: 0,
     montrees: 0,
     couronnementTot: 0,   // en pour-mille, moyenné sur les triptyques contigus
     finirPar666: false,
-    // les trois paliers réservés — voir `BAREME_INACTIF`
+    // ★ les trois ficelles assumées — voir `FICELLES` et l'en-tête
     majorite: 0,
     decimation: 0,
     additionSelective: 0,
@@ -772,11 +1071,19 @@ export function bilanApproche(approche, ctx = {}) {
     b.lettreVersLettre += bc.lettreVersLettre;
     b.sixDetruits += bc.sixDetruits;
     b.valeursJetees += bc.valeursJetees;
+    b.majorite += bc.majorite;
+    b.decimation += bc.decimation;
+    b.additionSelective += bc.additionSelective;
     b.six += bc.six;
     b.montrees += bc.largeur;
     if (bc.casseTriptyque) b.casses++;
     if (bc.triptyqueTenu && bc.finTriptyque > 0) {
+      // ★ Le compte est JUSTE — autant de 666 que le vecteur en écrit d'affilée
+      //   —, et le premier de la portée vaut plein tarif quand les suivants du
+      //   même vecteur valent le tiers (voir `TRIPTYQUE_CONTIGU`). Le total est
+      //   plafonné plus bas par ce que le VERDICT montre.
       b.triptyquesContigus++;
+      b.triptyquesRepetes += Math.max(0, bc.nbTriptyques - 1);
       // ★ « Plus tôt, mieux c'est » — la part du vecteur qui RESTE après que le
       //   triptyque est complet. Sur un vecteur d'un seul tenant (`[6,6,6]`,
       //   `666`), il n'y a rien après : le triptyque est le vecteur, et le
@@ -816,6 +1123,13 @@ export function bilanApproche(approche, ctx = {}) {
   //    6 ». Le compte gardé est celui du verdict — `series × 3`, plafonné aux 6
   //    réellement récoltés —, exactement comme `score.js › rendementSix`, et il
   //    vient de `deduireMode`, donc de la géométrie (§4.3).
+  // ★ Le plafond des triptyques crédités : ce que le VERDICT montre. Une part
+  //   qui écrit quatre 666 dans une approche à une seule série en a montré un ;
+  //   les trois autres sont du surplus, et le surplus se paie plus bas
+  //   (`jeteesAuTri`), il ne se crédite pas. Les répétés cèdent la place les
+  //   premiers : une trouvaille vaut mieux que sa continuation.
+  b.triptyquesContigus = Math.min(b.triptyquesContigus, series);
+  b.triptyquesRepetes = Math.min(b.triptyquesRepetes, Math.max(0, series - b.triptyquesContigus));
   const gardees = Math.min(b.six, series * SERIE);
   b.jeteesAuTri = Math.max(0, b.montrees - gardees);
   b.valeursJetees += b.jeteesAuTri;
@@ -851,6 +1165,8 @@ export function detailDuCredit(b) {
     ['socle', 1, B.SOCLE],
     // ── ce qui se gagne
     ['triptyque contigu', b.triptyquesContigus, B.TRIPTYQUE_CONTIGU * b.triptyquesContigus],
+    ['triptyque répété (même vecteur)', b.triptyquesRepetes || 0,
+      B.TRIPTYQUE_REPETE * (b.triptyquesRepetes || 0)],
     [b.finirPar666 ? 'couronnement tôt (ou final)' : 'couronnement tôt',
       b.couronnementTot, fraction(B.COURONNEMENT_TOT, [b.couronnementTot, 1000])],
     ['6 surnuméraires', surplus, B.SIX_SURNUMERAIRE * surplus],
@@ -871,9 +1187,9 @@ export function detailDuCredit(b) {
     ['bloc entier écarté', a.bloc, -B.EFFACE_BLOC * a.bloc],
     ['bloc entier court écarté', a.blocCourt, -B.EFFACE_BLOC_COURT * a.blocCourt],
     ['ponctuation ignorée', a.ponctuation, -B.EFFACE_PONCTUATION * a.ponctuation],
-    // ── les trois paliers réservés (voir l'en-tête : toujours nuls)
+    // ── ★ les trois ficelles assumées, au tarif qui remplace `VALEUR_JETEE`
     ['le plus fréquent l’emporte', b.majorite, -B.MAJORITE * b.majorite],
-    ['un caractère sur deux', b.decimation, -B.DECIMATION * b.decimation],
+    ['un rang sur deux', b.decimation, -B.DECIMATION * b.decimation],
     ['addition sélective', b.additionSelective, -B.ADDITION_SELECTIVE * b.additionSelective],
   ];
   return lignes.map(([poste, quantite, points]) => ({ poste, quantite, points }));
@@ -946,6 +1262,11 @@ export function estPur(b) {
   return b.casses === 0
     && b.sixDetruits === 0
     && b.valeursJetees === 0
+    // ★ Aucune des trois ficelles ne peut figurer dans une stratégie « sans
+    //   malus » : ce sont, par construction, exactement des malus.
+    && b.majorite === 0
+    && b.decimation === 0
+    && b.additionSelective === 0
     && b.arrondi === 0
     && b.minMax === 0
     && b.lettreVersLettre === 0

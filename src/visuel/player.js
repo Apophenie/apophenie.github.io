@@ -69,6 +69,10 @@ class Player {
     this.destroyed = false;
     this._lastStep = -1;
     this._appliedDiscrete = new Set();
+    // L'interrupteur du feu — voir `_renderEmbrasement`. `undefined` = pas
+    // encore dérivé de la timeline ; `null` = pas de scénographie du tout.
+    this._embrasementA = undefined;
+    this._embrasementVif = false;
     this._disposers = [];
 
     this.viewBox = this.options.viewBox || VIEWBOX;
@@ -242,7 +246,11 @@ class Player {
       // La scénographie du verdict. Volontairement identiques d'un thème à
       // l'autre (`tokens.css`) : la nuit n'a qu'une palette.
       nuit: '--scene-nuit', rubricNuit: '--scene-rubric',
-      eclair: '--scene-eclair', brasier: '--scene-brasier',
+      eclair: '--scene-eclair',
+      // La rampe thermique du feu, du plus froid au plus chaud (`feu.js`).
+      braise: '--scene-braise', brasier: '--scene-brasier',
+      flamme: '--scene-flamme', coeur: '--scene-coeur',
+      fumee: '--scene-fumee',
     })) {
       const v = cs.getPropertyValue(cssVar).trim();
       if (v) palette[key] = v;
@@ -344,6 +352,13 @@ class Player {
   }
 
   _teardownScene() {
+    // Une recompilation change la timeline, donc l'instant d'embrasement : on
+    // le redérive plutôt que de le garder. Et l'attribut retombe, sinon un
+    // `rebuild()` fait pendant le verdict laisserait le feu vif sur une scène
+    // qui n'a pas encore repris.
+    this._embrasementA = undefined;
+    this._embrasementVif = false;
+    if (this.svg && this.svg.removeAttribute) this.svg.removeAttribute('data-embrasement');
     if (this._ticker) this._ticker.stop();
     if (this.engine) this.engine.destroy();
     if (this._root && this._root.parentNode) this._root.parentNode.removeChild(this._root);
@@ -368,12 +383,58 @@ class Player {
   _render() {
     const t = this.currentTime;
     this._renderDiscrete(t);
+    this._renderEmbrasement(t);
     const i = nav.stepIndexAt(this.bounds, t);
     if (i !== this._lastStep) {
       this._lastStep = i;
       this.emit('stepenter', { stepIndex: i, step: this.steps[i] || null });
     }
     this.emit('change', this.state);
+  }
+
+  /**
+   * ★ L'INTERRUPTEUR DU FEU — et le seul endroit du moteur où quelque chose
+   *   survit délibérément à la fin de la timeline.
+   *
+   * « L'effet de feu doit perdurer et rester animé une fois le verdict
+   * terminé » (l'auteur). Le vacillement des flammes est donc porté par des
+   * `@keyframes` CSS autonomes (`styles/pages.css`), et non par la timeline :
+   * il n'est pas un état de la démonstration — aucune valeur, aucun rang,
+   * aucun compte n'en dépend, et Le Registre n'a rien à en dire —, donc rien
+   * n'exige qu'il soit une fonction du temps du lecteur, et rien n'exige
+   * qu'il s'arrête avec lui.
+   *
+   * ★ Mais **la question que cela pose est réelle** : une boucle CSS infinie
+   * continuerait de tourner sous un feu invisible dès qu'on revient en
+   * arrière. La réponse est ici, et elle tient en une ligne : les animations
+   * sont `paused` par défaut, et cet attribut — LUI fonction du temps, résolu
+   * dans le même `_render()` que le canal discret, donc après chaque `seek()`
+   * comme à chaque image — décide de leur mise en marche.
+   *
+   * L'instant d'embrasement n'est pas déclaré : il est **dérivé** de la
+   * timeline (le départ du premier brasier). Une valeur déclarée en double
+   * pourrait se désynchroniser du geste qu'elle décrit ; celle-ci ne le peut
+   * pas. Elle vaut `null` quand il n'y a pas de scénographie, et l'attribut
+   * n'est alors jamais posé.
+   */
+  _renderEmbrasement(t) {
+    if (!this._root) return;
+    if (this._embrasementA === undefined) {
+      let debut = null;
+      for (const a of this.timeline.anims) {
+        if (!a.id.startsWith('@brasier:') || a.prop !== 'opacity') continue;
+        if (debut === null || a.delay < debut) debut = a.delay;
+      }
+      this._embrasementA = debut;
+    }
+    if (this._embrasementA === null) return;
+    // `EPS` parce que Firefox arrondit `currentTime` (CONTRACTS §3) : comparer
+    // par égalité stricte à une charnière est un bug garanti.
+    const vif = t >= this._embrasementA - EPS;
+    if (vif === this._embrasementVif) return;
+    this._embrasementVif = vif;
+    if (vif) this.svg.setAttribute('data-embrasement', '');
+    else this.svg.removeAttribute('data-embrasement');
   }
 
   /**

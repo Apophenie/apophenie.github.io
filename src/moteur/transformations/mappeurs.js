@@ -111,6 +111,9 @@ const LIB_TROUVAILLE = bilingue(
 /** Longueur de la suite cherchée. 666 fait trois 6, ni deux, ni quatre. */
 const SUITE = 3;
 
+/** Le nombre cherché, chiffre par chiffre. Il vaut 6, et il ne vaudra jamais rien d’autre. */
+const SIX = 6;
+
 /**
  * L'index du premier 6 de la première suite de trois 6 CONTIGUS, ou −1.
  *
@@ -130,6 +133,216 @@ function debutDesTroisSix(valeur) {
   }
   return -1;
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// ★ Les trois ficelles assumées — le relevé, la parité, la découpe
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Trois opérateurs (`m10`, `m11`, `m12`) branchent les trois paliers de malus
+// que `src/recherche/elegance.js` gardait en réserve. Tout ce qui DÉCIDE y est
+// calculé ici, une fois, et relu par `apply`, `sortie` et `steps` : une seule
+// source, donc aucun écart possible entre ce qui est compté et ce qui est
+// montré (CONTRACTS §0.3).
+
+const LIB_PLUS_FREQUENT = bilingue('Le plus fréquent l’emporte', 'The most frequent wins');
+const LIB_UN_SUR_DEUX = bilingue(
+  'On ne garde qu’une position sur deux',
+  'Keep only every other position',
+);
+// ★ Un titre ORDINAIRE, et c'est une consigne de l'auteur : « l'idée est de ne
+// pas la différencier des additions qui la précèdent ou la succèdent, c'est
+// juste une de plus (ou une de moins si on saute un 6 pour le conserver) ».
+// Rien n'est caché pour autant — la `regle` et la `note` de l'opérateur disent
+// la sélection en toutes lettres, et c'est le score d'élégance qui la nomme.
+const LIB_ADDITION_SELECTIVE = bilingue(
+  'On additionne des chiffres contigus',
+  'Add up adjacent digits',
+);
+const LIB_CHIFFRE_A_CHIFFRE = bilingue(
+  'On écrit chaque nombre chiffre à chiffre',
+  'Write every number out digit by digit',
+);
+
+/**
+ * ★ La valeur STRICTEMENT la plus fréquente d'un vecteur — ou `null`.
+ *
+ * Trois refus, et chacun ferme une porte que le déterminisme (§4.4) ne peut pas
+ * laisser ouverte :
+ *
+ *  · **ex æquo ⇒ refus.** Départager deux valeurs aussi fréquentes l'une que
+ *    l'autre demanderait une préférence — la première rencontrée, la plus
+ *    petite, celle qui vaut 6 — et chacune serait un choix déguisé en règle.
+ *    « Le plus fréquent l'emporte » n'a de sens que s'il y en a UN ; sinon la
+ *    règle ne s'applique pas, et c'est le seul départage qui n'invente rien.
+ *    Corollaire : le résultat ne dépend pas de l'ordre d'itération de la `Map`,
+ *    qui ne sert qu'à des comparaisons d'entiers ;
+ *  · **tout le vecteur ⇒ refus.** Un opérateur qui rend son entrée fabrique une
+ *    étape que `scenario.js` saute en silence (« une transformation qui ne
+ *    transforme RIEN À L'ÉCRAN »), et l'URL porterait alors un code que la
+ *    démonstration ne montre nulle part (même raison que `my` et `mz`) ;
+ *  · **pas de 666 au bout ⇒ refus** (`portePleinement`, ci-dessous). La ficelle
+ *    ne s'autorise que de ce qu'elle prétend servir — « se débarrasser du 4 si
+ *    besoin pour former un triptyque supplémentaire ». Si le résultat n'écrit
+ *    pas 666 d'affilée, elle a coûté quelque chose et n'a rien acheté.
+ *
+ * ★ **Ce dernier refus ne truque pas le vainqueur, il ferme la boutique.** La
+ * règle reste « le plus fréquent », quel qu'il soit : jamais l'opérateur ne
+ * choisit le 6 contre une autre valeur plus fréquente. Simplement, quand le
+ * vainqueur n'est pas un 6 — ou qu'il n'y en a pas trois —, la ficelle ne
+ * s'applique PAS, au lieu de rendre un `[4,4,4]` que personne n'a demandé et
+ * que la scène montrerait pour rien.
+ */
+function valeurDominante(valeur) {
+  const comptes = new Map();
+  for (const v of valeur) comptes.set(v, (comptes.get(v) || 0) + 1);
+  let meilleure = null;
+  let max = 0;
+  let exAequo = false;
+  for (const [v, n] of comptes) {
+    if (n > max) { max = n; meilleure = v; exAequo = false; }
+    else if (n === max) exAequo = true;
+  }
+  if (meilleure === null || exAequo) return null;
+  if (max === valeur.length) return null;
+  if (!portePleinement(Array.from({ length: max }, () => meilleure))) return null;
+  return { valeur: meilleure, compte: max };
+}
+
+/** Le vecteur écrit-il 666 d'affilée ? C'est le seul but que ces ficelles servent. */
+const portePleinement = (v) => debutDesTroisSix(v) >= 0;
+
+/** Le relevé écrit — `6 ×4 · 4 ×1` —, par ordre de PREMIÈRE apparition. */
+function releveEcrit(valeur) {
+  const comptes = new Map();
+  for (const v of valeur) comptes.set(v, (comptes.get(v) || 0) + 1);
+  return [...comptes].map(([v, n]) => `${v} ×${n}`).join(' · ');
+}
+
+/**
+ * ★ La parité de rang qui porte le plus de 6 — `0` (1ᵉʳ, 3ᵉ, 5ᵉ…), `1`
+ * (2ᵉ, 4ᵉ, 6ᵉ…), ou `−1` quand la règle refuse de s'appliquer.
+ *
+ * « Si sur l'ensemble des caractères, en garder 1 sur 2 permet d'isoler les 6 »
+ * — l'auteur. Le critère est donc les 6, dans ses propres termes, et il est
+ * annoncé à l'écran avant d'être appliqué : ce n'est pas un choix fait après
+ * coup, c'est le choix ANNONCÉ, chiffres à l'appui.
+ *
+ * ★ Et là encore, l'ex æquo est un REFUS et non un arbitrage : à nombre de 6
+ * égal, aucune des deux parités ne vaut mieux que l'autre, et prétendre le
+ * contraire serait remettre par la fenêtre l'arbitraire qu'on chasse par la
+ * porte. Il n'y a donc aucune règle de départage à retenir — il n'y a rien à
+ * départager.
+ *
+ * ★ Et le côté retenu doit ÉCRIRE 666 d'affilée, sinon la règle ne s'applique
+ * pas : décimer pour qu'il reste deux nombres, ou trois 6 encore dispersés,
+ * ce n'est pas isoler les 6, c'est en perdre. Même exigence que pour `m10`, et
+ * pour la même raison — une ficelle qui n'achète rien ne doit pas être jouée.
+ */
+function paritePorteuse(valeur) {
+  const six = [0, 0];
+  valeur.forEach((v, i) => { if (v === 6) six[i % 2]++; });
+  if (six[0] === six[1]) return -1;
+  const p = six[0] > six[1] ? 0 : 1;
+  const garde = valeur.filter((_, i) => i % 2 === p);
+  return portePleinement(garde) ? p : -1;
+}
+
+/** Le relevé des deux parités, écrit — c'est lui qui dit POURQUOI cette parité. */
+function releveDesParites(valeur, langue) {
+  const six = [0, 0];
+  valeur.forEach((v, i) => { if (v === 6) six[i % 2]++; });
+  return dire(bilingue(
+    `positions impaires : ${six[0]} six · positions paires : ${six[1]} six`,
+    `odd positions: ${six[0]} sixes · even positions: ${six[1]} sixes`,
+  ), langue);
+}
+
+/**
+ * ★ LA DÉCOUPE DE L'ADDITION SÉLECTIVE — et la borne d'exploration, dite.
+ *
+ * « Une conversion de lettres donne `6, 5, 16, 8`. La logique voudrait faire
+ * `6+5+1+6+8`, ou `6, 5, 1+6, 8`, mais faire `6, 5+1, 6, 8` pour obtenir
+ * `666, 8` est acceptable bien que pénalisé. » — l'auteur.
+ *
+ * ★ **Le nombre de découpes explose, et on ne l'explore pas.** Choisir quelles
+ * suites de chiffres additionner, c'est choisir une composition de la séquence :
+ * il y en a 2^(n−1). On n'en cherche donc AUCUNE « meilleure » — on en prend
+ * UNE, par un balayage glouton de gauche à droite qui coûte O(n × 6) et ne
+ * dépend d'aucun tri :
+ *
+ *  1. on écrit tous les nombres chiffre à chiffre, dans l'ordre ;
+ *  2. à chaque rang, on prend **la plus courte** suite qui commence là et dont
+ *     la somme fait **exactement 6** ; à défaut, le chiffre reste seul et l'on
+ *     avance d'un cran.
+ *
+ * Trois refus bornent le reste :
+ *
+ *  · **aucun terme déjà égal à 6.** Un 6 n'a pas besoin qu'on l'aide, et
+ *    l'additionner à un voisin le DÉTRUIRAIT — ce que le barème d'élégance
+ *    punit par ailleurs (`SIX_DETRUIT`). La ficelle ne se paie pas deux fois ;
+ *  · **aucun terme nul.** `6 + 0` n'est pas une addition, c'est un zéro qu'on
+ *    fait disparaître ; `mu` existe pour ça et le dit honnêtement. Corollaire
+ *    utile : des termes tous ≥ 1 et de somme 6 font **au plus six termes**, si
+ *    bien que la fenêtre est bornée par la CIBLE et non par un réglage ;
+ *  · **aucune addition ⇒ refus.** Sans quoi l'opérateur ne serait qu'un
+ *    découpage en chiffres qui n'a jamais été demandé, et il porterait dans
+ *    l'URL un code pour un geste qu'il ne fait pas ;
+ *  · **pas de 666 d'affilée au bout ⇒ refus** (voir `portePleinement`).
+ *
+ * La largeur est bornée elle aussi (`CHIFFRES_MAX`) : au-delà, on n'additionne
+ * plus, on bricole — et la scène deviendrait illisible.
+ */
+const CHIFFRES_MAX = 12;
+
+function planAdditionSelective(valeur) {
+  if (!valeur.length) return null;
+  if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
+  const chiffres = [];
+  valeur.forEach((v, i) => {
+    for (const c of String(v)) chiffres.push({ v: Number(c), src: i });
+  });
+  if (chiffres.length > CHIFFRES_MAX) return null;
+  const multi = new Set();
+  const parSource = new Map();
+  chiffres.forEach((c) => parSource.set(c.src, (parSource.get(c.src) || 0) + 1));
+  for (const [src, n] of parSource) if (n > 1) multi.add(src);
+
+  const sortie = [];
+  let i = 0;
+  let additions = 0;
+  while (i < chiffres.length) {
+    let pris = 0;
+    let somme = 0;
+    for (let L = 1; L <= SIX && i + L <= chiffres.length; L++) {
+      const c = chiffres[i + L - 1].v;
+      if (c === 0 || c === SIX) break;
+      somme += c;
+      if (somme > SIX) break;
+      if (L >= 2 && somme === SIX) { pris = L; break; }
+    }
+    if (pris) { sortie.push({ v: SIX, debut: i, fin: i + pris }); i += pris; additions++; }
+    else { sortie.push({ v: chiffres[i].v, debut: i, fin: i + 1 }); i++; }
+  }
+  if (!additions) return null;
+  // ★ Même exigence que les deux autres ficelles : le résultat doit ÉCRIRE 666
+  //   d'affilée. « Faire `6, 5+1, 6, 8` POUR OBTENIR `666, 8` » — c'est
+  //   l'auteur qui met le but dans la phrase, et sans ce but l'addition
+  //   sélective n'est plus qu'une addition qu'on a refusé de faire partout.
+  return portePleinement(sortie.map((x) => x.v)) ? { chiffres, sortie, multi } : null;
+}
+
+/**
+ * L'identifiant de scène du kᵉ chiffre. Un nombre d'un seul chiffre n'est pas
+ * découpé : son jeton ne bouge pas, il garde donc son identifiant. Le recréer
+ * ferait clignoter un jeton que rien n'a transformé (même raison que le tiret
+ * de `hope-hope-hope`, `sortieMuee` dans `filtres.js`).
+ */
+const idChiffre = (plan, ctx, k) => (plan.multi.has(plan.chiffres[k].src)
+  ? `${ctx.cle}c${k}` : ctx.ids[plan.chiffres[k].src]);
+
+/** L'identifiant de scène du jᵉ terme de sortie — neuf si, et seulement si, il naît d'une addition. */
+const idSortie = (plan, ctx, s, j) => (s.fin - s.debut < 2
+  ? idChiffre(plan, ctx, s.debut) : `${ctx.cle}s${j}`);
 
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -1395,6 +1608,301 @@ const AUTRES_MAPPEURS = [
       return [etape(ctx, dire(LIB_TROUVAILLE, ctx.langue), legende, [
         { op: 'horns', targets: cornus, efface },
       ])];
+    },
+  }),
+  // ══════════════════════════════════════════════════════════════════════════
+  // ★ LES TROIS FICELLES ASSUMÉES — `m10`, `m11`, `m12`
+  // ══════════════════════════════════════════════════════════════════════════
+  //
+  // « Ma demande c'est aussi de les ajouter au catalogue, mais avec un score
+  //  bas, mais moins bas que la suppression arbitraire de ce qui n'est pas 6. »
+  //  — l'auteur.
+  //
+  // Le barème d'élégance (`src/recherche/elegance.js`) portait depuis sa
+  // construction trois paliers de malus — `MAJORITE`, `DECIMATION`,
+  // `ADDITION_SELECTIVE` — dont les compteurs valaient TOUJOURS zéro : aucun
+  // opérateur ne faisait ces choses-là. Les voici. Ils sont écrits pour être
+  // pénalisés, et le barème les pénalise dans l'ordre que l'auteur dicte :
+  //
+  //     ne garder que les 6  >  le plus fréquent  >  un rang sur deux
+  //                          >  l'addition sélective
+  //
+  // ★ **Registre append-only, registre FERMÉ** (CONTRACTS §4.1). `mz` était le
+  // dernier code alloué ; ceux-ci prennent `m10`, `m11` et `m12` — l'index est
+  // en base36 et 36 s'y écrit « 10 ». Aucun code existant n'est touché, renommé
+  // ni réattribué, et aucune pierre tombale n'est reprise. Le catalogue passe
+  // de 93 à 96 opérateurs.
+  //
+  // ★ **Chacun doit se MONTRER** (CONTRACTS §0.3). C'est là que ces trois-là
+  // sont difficiles : ce sont des ficelles, et une ficelle qu'on cache est pire
+  // qu'une ficelle qu'on n'implémente pas. Aucune primitive n'a été ajoutée —
+  // le vocabulaire reste à vingt et une (§3.1) —, mais chacun montre CE QUI
+  // DÉCIDE avant de montrer ce qu'il fait : le décompte par valeur, le décompte
+  // par parité, les termes qui s'additionnent.
+  //
+  // ★ **Chacun refuse d'être arbitraire.** Là où la règle pourrait avoir à
+  // départager des ex æquo, elle ne tranche pas : elle REFUSE de s'appliquer.
+  // C'est le seul départage qui ne soit pas un choix déguisé, et il rend le
+  // déterminisme (§4.4) gratuit — aucun ordre de `Map`, aucun tri, aucune
+  // préférence tacite pour le 6 ne peut s'y glisser.
+
+  def({
+    id: 'm.plusFrequent', code: 'm10', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_PLUS_FREQUENT,
+    regle: bilingue(
+      'On compte chaque valeur ; la plus fréquente reste, les autres s’effacent. '
+      + 'À égalité, personne ne l’emporte et la règle ne s’applique pas.',
+      'Every value is tallied; the most frequent one stays, the rest are erased. '
+      + 'On a tie nobody wins and the rule does not apply.',
+    ),
+    // ★ Notoriété 0,15. Personne, nulle part, n'a jamais entendu dire qu'en
+    // numérologie « le chiffre majoritaire l'emporte » : c'est une règle de la
+    // maison, inventée pour se débarrasser d'un gêneur. On ne lui prête donc
+    // presque rien — juste ce que vaut l'idée de majorité, que tout le monde
+    // comprend même si personne ne l'attend ici.
+    //
+    // ★ AdHoc 0,45, juste sous le joker (0,50). C'est la plus ad hoc des trois :
+    // elle ne s'autorise d'aucune propriété du nombre, d'aucune coïncidence de
+    // dessin — seulement d'un décompte fait après coup sur le résultat qu'on
+    // vient d'obtenir. Elle n'est pas exclue pour autant (heuristique §4.5) :
+    // le barème d'élégance porte la peine SPÉCIFIQUE du geste, `adHoc` ne porte
+    // que la peine GÉNÉRIQUE — « taillé pour la cible ». Les deux ne mesurent
+    // pas la même chose et ne se doublent donc pas.
+    notoriete: 0.15, adHoc: 0.45,
+    note: bilingue(
+      'Le plus fréquent, quel qu’il soit — pas le 6. Faire gagner le 6 d’office, ce serait '
+      + 'le tri arbitraire, c’est-à-dire le geste que celui-ci prétend valoir mieux que.',
+      'The most frequent one, whichever it is — not the 6. Rigging it for the 6 would be '
+      + 'the arbitrary sort, that is, the very gesture this one claims to beat.',
+    ),
+    apply: (valeur, traces) => {
+      const dom = valeurDominante(valeur);
+      if (!dom) return null;
+      const gardes = [];
+      valeur.forEach((v, i) => { if (v === dom.valeur) gardes.push(i); });
+      return {
+        valeur: gardes.map((i) => valeur[i]),
+        traces: gardes.map((i) => traces[i] || []),
+      };
+    },
+    // Les survivants n'ont ni bougé ni changé de valeur : ils gardent leur
+    // identifiant de jeton. En inventer un neuf ferait croire au pont qu'un
+    // jeton en a remplacé un autre (même raison que `mu` et `mz`).
+    sortie: (avant, apres, ctx) => {
+      const dom = valeurDominante(avant.valeur);
+      return dom ? ctx.ids.filter((_, i) => avant.valeur[i] === dom.valeur) : [];
+    },
+    /**
+     * ★ L'ACCOLADE DIT LE VERDICT, PUIS LES AUTRES DISPARAISSENT.
+     *
+     * « Indique sous l'accolade : "chiffre majoritaire : 6" et fais disparaître
+     * les autres. » — l'auteur, mot pour mot. C'est le geste des combinateurs,
+     * repris tel quel : l'accolade embrasse la ligne ENTIÈRE — c'est bien sur
+     * elle entière qu'on a compté — et porte sous sa pointe la seule chose qui
+     * décide. Puis les minoritaires tombent, et `drop` resserre les survivants
+     * (un `move` de plus animerait « translate » une seconde fois sur les mêmes
+     * jetons — voir `mu`).
+     *
+     * ★ La légende du Registre porte en outre le RELEVÉ complet — `6 ×4 · 4 ×1`
+     * —, dérivé du même comptage qu'`apply()`. La scène dit qui gagne,
+     * l'équivalent accessible (CONTRACTS §6) dit de combien : ce qui est montré
+     * reste ce qui est compté, et l'on peut refaire l'addition soi-même.
+     */
+    steps: (avant, apres, ctx) => {
+      const dom = valeurDominante(avant.valeur);
+      if (!dom) return [];
+      const gardes = ctx.ids.filter((_, i) => avant.valeur[i] === dom.valeur);
+      const jetes = ctx.ids.filter((_, i) => avant.valeur[i] !== dom.valeur);
+      const verdict = dire(bilingue(
+        `chiffre majoritaire : ${dom.valeur}`,
+        `most frequent digit: ${dom.valeur}`,
+      ), ctx.langue);
+      const ops = retirerAccolade(enchainer([
+        { op: 'group', targets: ctx.ids, label: verdict, tighten: 0 },
+        { op: 'drop', targets: jetes, mode: 'fall', stagger: 40 },
+        { op: 'highlight', targets: gardes, mode: 'select' },
+      ]));
+      const legende = `${releveEcrit(avant.valeur)}  —  ${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
+      return [etape(ctx, dire(LIB_PLUS_FREQUENT, ctx.langue), legende, ops)];
+    },
+  }),
+  def({
+    id: 'm.unRangSurDeux', code: 'm11', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_UN_SUR_DEUX,
+    regle: bilingue(
+      'Une position sur deux — les impaires, ou les paires : celle des deux qui porte '
+      + 'le plus de 6. À égalité de 6, aucune ne vaut mieux et la règle ne s’applique pas.',
+      'Every other position — the odd ones or the even ones: whichever carries the most '
+      + '6s. On an equal count neither is better and the rule does not apply.',
+    ),
+    // ★ Notoriété 0,20, à peine plus que la majorité : décimer une liste est un
+    // geste que tout le monde sait faire, mais que personne n'attend d'une
+    // numérologie. ★ AdHoc 0,38 — moins que la majorité (0,45), plus que le
+    // retournement du 9 (0,35) : la parité est une propriété du RANG, pas une
+    // propriété inventée sur mesure, mais le choix de la parité, lui, regarde
+    // bien le résultat qu'on cherche. C'est l'ordre de laideur de l'auteur,
+    // reporté sur `adHoc`.
+    notoriete: 0.20, adHoc: 0.38,
+    note: bilingue(
+      'Oui, c’est biaisé : on nomme « position paire » ou « position impaire » pour se '
+      + 'donner le droit de supprimer l’autre. On le dit plutôt que de le maquiller.',
+      'Yes, it is rigged: naming it “even position” or “odd position” is what licenses '
+      + 'deleting the other half. We say so rather than dress it up.',
+    ),
+    apply: (valeur, traces) => {
+      const p = paritePorteuse(valeur);
+      if (p < 0) return null;
+      const gardes = [];
+      valeur.forEach((_, i) => { if (i % 2 === p) gardes.push(i); });
+      return {
+        valeur: gardes.map((i) => valeur[i]),
+        traces: gardes.map((i) => traces[i] || []),
+      };
+    },
+    sortie: (avant, apres, ctx) => {
+      const p = paritePorteuse(avant.valeur);
+      return p < 0 ? [] : ctx.ids.filter((_, i) => i % 2 === p);
+    },
+    /**
+     * ★ ON NOMME LA PARITÉ. ON NE LA JUSTIFIE PAS.
+     *
+     * « Oui, c'est de la triche décidée de manière biaisée. L'astuce est de
+     * nommer "position paire" ou "position impaire" pour justifier de supprimer
+     * l'autre. Le côté triche se traduit par un score d'élégance faible. » —
+     * l'auteur, et c'est l'exacte consigne suivie ici.
+     *
+     * Il n'y a donc AUCUNE mise en scène qui chercherait à rendre le choix
+     * légitime : l'accolade porte « on ne garde que les positions impaires »,
+     * et c'est tout. Le geste est celui de `m10`, au mot près — parce que c'est
+     * la même chose : une règle énoncée, et ce qui n'y répond pas qui tombe.
+     * Ce qui les sépare n'est pas le dessin, c'est le PRIX (`elegance.js` :
+     * `DECIMATION` < `MAJORITE`, « moindre que la majorité », dit l'auteur).
+     *
+     * ★ Le Registre, lui, donne le relevé des DEUX parités : c'est ce qui
+     * permet de vérifier que la règle de départage a été appliquée et non
+     * inventée — mais c'est de l'équivalent accessible, pas un plaidoyer.
+     */
+    steps: (avant, apres, ctx) => {
+      const p = paritePorteuse(avant.valeur);
+      if (p < 0) return [];
+      const gardes = ctx.ids.filter((_, i) => i % 2 === p);
+      const jetes = ctx.ids.filter((_, i) => i % 2 !== p);
+      const nomme = dire(p === 0
+        ? bilingue('on ne garde que les positions impaires', 'keeping only the odd positions')
+        : bilingue('on ne garde que les positions paires', 'keeping only the even positions'),
+      ctx.langue);
+      const ops = retirerAccolade(enchainer([
+        { op: 'group', targets: ctx.ids, label: nomme, tighten: 0 },
+        { op: 'drop', targets: jetes, mode: 'fall', stagger: 40 },
+        { op: 'highlight', targets: gardes, mode: 'select' },
+      ]));
+      const legende = `${releveDesParites(avant.valeur, ctx.langue)}  —  ${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
+      return [etape(ctx, dire(LIB_UN_SUR_DEUX, ctx.langue), legende, ops)];
+    },
+  }),
+  def({
+    id: 'm.additionSelective', code: 'm12', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_ADDITION_SELECTIVE,
+    regle: bilingue(
+      'Chaque nombre s’écrit chiffre à chiffre, puis on n’additionne QUE les suites '
+      + 'contiguës de chiffres dont la somme fait exactement 6 — jamais un 6 déjà là, '
+      + 'jamais un zéro, et toujours la plus courte, de gauche à droite.',
+      'Every number is written out digit by digit, then only the adjacent runs of digits '
+      + 'that add up to exactly 6 are summed — never a 6 already there, never a zero, and '
+      + 'always the shortest run, left to right.',
+    ),
+    // ★ Notoriété 0,30, la plus haute des trois : additionner des chiffres
+    // contigus est le geste le plus banal de toute la numérologie — c'est ce
+    // que fait la racine numérique. Ce qui est louche n'est pas l'addition,
+    // c'est le fait de ne pas les additionner TOUS.
+    //
+    // ★ AdHoc 0,30, la plus basse des trois, et c'est l'auteur qui l'ordonne :
+    // « c'est de la triche à utiliser en dernier recours », mais elle ne jette
+    // rien — elle ABSORBE arithmétiquement, ce que l'auteur préfère
+    // explicitement à « se débarrasser artificiellement de chiffres ».
+    notoriete: 0.30, adHoc: 0.30,
+    note: bilingue(
+      'Sélective, donc discutable : on additionne 5+1 pour faire un 6, et l’on saute '
+      + 'les 6 déjà là plutôt que de les détruire. Les signes + ne paraissent qu’entre '
+      + 'les termes retenus — la sélection est sous les yeux, c’est le score qui la juge.',
+      'Selective, hence arguable: 5+1 is added to make a 6, and the 6s already there are '
+      + 'skipped rather than destroyed. The plus signs appear only between the chosen '
+      + 'terms — the selection is in plain sight, and the score is what judges it.',
+    ),
+    apply: (valeur, traces) => {
+      const plan = planAdditionSelective(valeur);
+      if (!plan) return null;
+      return {
+        valeur: plan.sortie.map((s) => s.v),
+        traces: plan.sortie.map((s) => fusion(
+          ...plan.chiffres.slice(s.debut, s.fin).map((c) => traces[c.src] || []),
+        )),
+      };
+    },
+    sortie: (avant, apres, ctx) => {
+      const plan = planAdditionSelective(avant.valeur);
+      return plan ? plan.sortie.map((s, j) => idSortie(plan, ctx, s, j)) : [];
+    },
+    /**
+     * ★ DEUX STEPS, PARCE QUE CE SONT DEUX GESTES.
+     *
+     * 1. **On écrit chaque nombre chiffre à chiffre.** `16` devient `1` `6` :
+     *    sans cela, « 5+1 » est incompréhensible — le `1` n'est nulle part.
+     *    Le step n'est émis que s'il y a quelque chose à découper.
+     * 2. **On additionne les termes retenus, et EUX SEULS.** C'est là que la
+     *    triche se cache, et c'est donc là qu'il faut le plus la montrer : les
+     *    signes `+` paraissent (`insertOperators`) entre les termes d'une
+     *    suite retenue, et NULLE PART ailleurs. Un spectateur voit donc, d'un
+     *    seul coup d'œil, quels chiffres ont été additionnés et lesquels ont
+     *    été laissés côte à côte sans rien faire.
+     *
+     * ★ Contrôle croisé (CONTRACTS §0.3) : `apply`, `sortie` et `steps`
+     * appellent le MÊME `planAdditionSelective` sur le MÊME vecteur — il n'y a
+     * pas de seconde copie qui puisse diverger. `sum` recoupe une deuxième fois
+     * (la somme des opérandes affichés doit égaler `to.text`, sinon échec de
+     * compilation) et `recherche/scenario.js` une troisième, là où il connaît
+     * encore la valeur des jetons de départ.
+     */
+    steps: (avant, apres, ctx) => {
+      const plan = planAdditionSelective(avant.valeur);
+      if (!plan) return [];
+      const steps = [];
+      const idc = (k) => idChiffre(plan, ctx, k);
+
+      // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
+      const paires = [];
+      avant.valeur.forEach((v, i) => {
+        const ks = plan.chiffres
+          .map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
+        if (ks.length < 2) return;
+        paires.push({ target: ctx.ids[i], to: ks.map((k) => token(idc(k), plan.chiffres[k].v, 'digit')) });
+      });
+      if (paires.length) {
+        const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
+        steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
+          enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
+      }
+
+      // ── 2. les additions retenues, et elles seules
+      const ops = [];
+      plan.sortie.forEach((s, j) => {
+        if (s.fin - s.debut < 2) return;
+        const termes = [];
+        for (let k = s.debut; k < s.fin; k++) termes.push(idc(k));
+        const signes = termes.slice(1).map((_, t) => `${ctx.cle}p${j}x${t}`);
+        ops.push({ op: 'insertOperators', between: termes, ids: signes, glyph: '+' });
+        ops.push({
+          op: 'sum',
+          targets: termes,
+          consume: signes,
+          to: token(idSortie(plan, ctx, s, j), s.v, 'number'),
+          symbol: '+',
+        });
+      });
+      const vus = plan.chiffres.map((c) => c.v).join(' ');
+      steps.push(etape(ctx, dire(LIB_ADDITION_SELECTIVE, ctx.langue),
+        `${vus} → ${apres.valeur.join(' ')}`, enchainer(ops), { id: `s_${ctx.cle}_s` }));
+      return steps;
     },
   }),
 ];

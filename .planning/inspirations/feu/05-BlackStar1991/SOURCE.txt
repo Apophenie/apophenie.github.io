@@ -1,0 +1,9 @@
+Pen        : https://codepen.io/BlackStar1991/pen/xxVOdJb
+Auteur     : BlackStar1991
+Titre      : Fire Circle
+Rapatrié   : https://cdpn.io/BlackStar1991/fullpage/xxVOdJb (le code du pen est dans l attribut « srcdoc » de
+             l iframe de résultat ; c est la seule voie qui passe —
+             codepen.io lui-meme rend 403, et l API oembed est
+             derriere un defi Cloudflare)
+Dependances chargees par CDN :
+  (aucune)

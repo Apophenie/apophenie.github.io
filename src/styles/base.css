@@ -16,9 +16,11 @@
 
    Jost n'a PAS d'italique dans le fichier variable dont on dispose, et un
    oblique synthétique sur un géométrique aux o parfaitement ronds se voit :
-   l'italique a donc été retiré du site (voir `.accueil__baseline`,
-   `.resultat__annonce`, `.demo__regle` dans pages.css) au profit d'une autre
-   marque — graisse plus légère et lettres espacées.
+   l'italique a donc été retiré du site (voir `.accueil__baseline` et
+   `.resultat__annonce` dans pages.css) au profit d'une autre marque — graisse
+   plus légère et lettres espacées. Le troisième endroit qui le portait,
+   `.demo__regle`, n'existe plus du tout : la page d'animation n'affiche plus la
+   suite des règles.
 
    `jost.ttf` n'est pas ici mais dans `src/gfx/` : c'est la source du
    générateur de logo, un outil de build, jamais chargée par le navigateur.

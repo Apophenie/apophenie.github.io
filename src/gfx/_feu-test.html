@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<title>Banc du feu — NumHeroLOLgeek</title>
+<!--
+  BANC DU FEU — jumeau de `_logo-test.html`, et même statut.
+
+  Il n'est JAMAIS servi en production (le préfixe `_` et le dossier `gfx/` le
+  disent, comme pour le logo) : c'est un outil de mise au point. Il existe pour
+  une raison précise — juger un effet de feu demande de le voir ANIMÉ et GROSSI,
+  alors que la scène réelle met vingt-trois étapes à arriver au verdict.
+
+  ★ Il n'y a RIEN de recopié ici. Le banc appelle `createElementFor` de
+  `visuel/dom.js` avec un nœud de rôle « brasier », exactement comme le lecteur ;
+  il charge le vrai `pages.css` et les vrais jetons. Ce qu'il montre est donc,
+  par construction, ce que la scène montrera — un banc qui redessinerait le feu
+  à sa façon finirait par mentir, et c'est justement ce qu'on ne peut pas se
+  permettre sur un effet qu'on ne juge qu'à l'œil.
+-->
+<link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/pages.css">
+<style>
+  body { margin: 0; background: #0A0608; color: #B9AF9B; font: 13px/1.5 system-ui, sans-serif; }
+  svg.scene { display: block; width: 100vw; height: 84vh; background: #0A0608; }
+  p { margin: .5rem 1rem; }
+</style>
+<svg class="scene" viewBox="0 0 1200 480" data-embrasement></svg>
+<p id="note"></p>
+<script type="module">
+  import { createElementFor, enchainer, el } from '/visuel/dom.js';
+  import { PALETTE, FONT_FAMILY } from '/visuel/constants.js';
+  import { defaultMetrics } from '/visuel/layout.js';
+
+  const metrics = defaultMetrics();
+  const FS = metrics.fontSize;
+  const ADV = metrics.advance;
+
+  // La palette réelle, lue sur la page exactement comme le fait `player.js`.
+  const cs = getComputedStyle(document.documentElement);
+  const P = { ...PALETTE };
+  for (const [k, v] of Object.entries({
+    braise: '--scene-braise', brasier: '--scene-brasier',
+    flamme: '--scene-flamme', coeur: '--scene-coeur', fumee: '--scene-fumee',
+    nuit: '--scene-nuit', rubricNuit: '--scene-rubric',
+  })) { const x = cs.getPropertyValue(v).trim(); if (x) P[k] = x; }
+
+  // Le tracé d'une corne pour un 6 nominal, relevé sur la scène réelle.
+  const CORNE = 'M -9.5 -17.5 C -14 -25 -15.5 -33 -12 -41 C -8 -34 -3 -28 3 -24 '
+    + 'C -2 -22 -6.5 -20 -9.5 -17.5 Z';
+
+  const svg = document.querySelector('svg.scene');
+  // L'échelle du verdict sur « 666 666 », mesurée dans la scène réelle.
+  const ZOOM = Number(new URLSearchParams(location.search).get('zoom') || 3.2);
+  const racine = el('g', { transform: `translate(600 330) scale(${ZOOM})` });
+  svg.appendChild(racine);
+  const fond = el('g');
+  const avant = el('g');
+  racine.appendChild(fond);
+  racine.appendChild(avant);
+
+  // Deux séries de trois, comme « 666 666 » : les cornes sont sur les 6
+  // extérieurs de chaque série (`horns.js`, « UNE CORNE, UN NŒUD »).
+  const SERIES = [[-3.1, -1.9, -0.7], [0.7, 1.9, 3.1]];
+  SERIES.forEach((serie, s) => serie.forEach((k, j) => {
+    const x = k * ADV * 1.35;
+    const id = `d${s}${j}`;
+    const cornu = j === 0 || j === 2;
+
+    const feu = createElementFor({
+      id: `@brasier:${id}`,
+      role: 'brasier',
+      data: { texte: '6', fontSize: FS, advance: ADV, corne: cornu ? CORNE : null, couleur: P.brasier },
+    }, { metrics, palette: P });
+    const chaine = enchainer(feu);
+    chaine.racine.style.transform = `translate(${x}px, 0px)`;
+    chaine.racine.style.transformBox = 'view-box';
+    chaine.racine.style.transformOrigin = '0 0';
+    fond.appendChild(chaine.racine);
+
+    // Le glyphe NET, par-dessus tout — comme la couche `mid` de la scène.
+    const net = el('text', {
+      x, y: 0, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+      'font-family': FONT_FAMILY, 'font-size': FS, 'font-variant-numeric': 'tabular-nums',
+      fill: P.rubricNuit,
+    });
+    net.textContent = '6';
+    avant.appendChild(net);
+    if (cornu) {
+      avant.appendChild(el('path', { d: CORNE, transform: `translate(${x} 0)`, fill: P.rubricNuit }));
+    }
+  }));
+
+  // ★ `?t=<ms>` fige TOUTES les animations à un instant donné. Sans ça, un banc
+  //   ne se photographie pas : deux captures d'un feu vivant ne sont jamais
+  //   comparables, et l'on ne sait plus si l'on regarde un progrès ou un
+  //   battement. Avec, on compare deux réglages à la même image.
+  const fige = new URLSearchParams(location.search).get('t');
+  if (fige !== null) {
+    for (const a of document.getAnimations()) { a.currentTime = Number(fige); a.pause(); }
+  }
+
+  document.getElementById('note').textContent =
+    `${document.querySelectorAll('.nhl-feu').length} corps en feu · `
+    + `${document.getAnimations().length} animations CSS · zoom ×${ZOOM}`;
+</script>
+</html>

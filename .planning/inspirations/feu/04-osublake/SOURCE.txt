@@ -1,0 +1,9 @@
+Pen        : https://codepen.io/osublake/pen/pqNXoq
+Auteur     : osublake
+Titre      : Flame in the wind
+Rapatrié   : https://cdpn.io/osublake/fullpage/pqNXoq (le code du pen est dans l attribut « srcdoc » de
+             l iframe de résultat ; c est la seule voie qui passe —
+             codepen.io lui-meme rend 403, et l API oembed est
+             derriere un defi Cloudflare)
+Dependances chargees par CDN :
+  - https://cdnjs.cloudflare.com/ajax/libs/pixi.js/4.8.4/pixi.min.js

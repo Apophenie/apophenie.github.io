@@ -80,6 +80,6 @@ test('abreger ne coupe pas un mot en deux', () => {
 });
 
 test('le badge de transformation est de la notation machine, sans langue', () => {
-  assert.equal(badgeT(0, 7), 'T-01/07');
-  assert.equal(badgeT(11, 12), 'T-12/12');
+  assert.equal(badgeT(0, 7), '01/07');
+  assert.equal(badgeT(11, 12), '12/12');
 });

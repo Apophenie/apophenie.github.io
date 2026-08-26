@@ -127,11 +127,21 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     const etape = (lecteur.steps || [])[i] || {};
     // Le titre de l'étape vient du scénario : forme `{fr, en}` du catalogue.
     const titre = etape.title ? titreEtape(etape, i) : '';
+    const nom = titre
+      ? tt('jaugeCaseTitree', { i: i + 1, total: nbEtapes, titre })
+      : tt('jaugeCase', { i: i + 1, total: nbEtapes });
     const c = e('button.jauge__case', {
       type: 'button',
-      'aria-label': titre
-        ? tt('jaugeCaseTitree', { i: i + 1, total: nbEtapes, titre })
-        : tt('jaugeCase', { i: i + 1, total: nbEtapes }),
+      'aria-label': nom,
+      // ★ Le même texte en INFO-BULLE, pour la souris.
+      //
+      // « Chaque dalle d'étape pourrait avoir le titre de l'étape en info-bulle
+      // au survol ; tant pis pour les mobiles, ils ont le registre pour ça »
+      // (l'auteur). Le nom accessible existait déjà et disait exactement la
+      // bonne chose : un `title` le rend visible à qui n'a ni lecteur d'écran
+      // ni envie de lire tout le registre. On ne compose donc pas un second
+      // texte — deux formulations du même fait finissent toujours par diverger.
+      title: nom,
       sur: { click: () => lecteur.seekToStep(i) },
     });
     cases.push(c);
