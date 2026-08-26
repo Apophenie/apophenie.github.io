@@ -338,7 +338,6 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
       ? tt('reditesSansEffet')
       : (rapide ? tt('reditesRalentir') : tt('reditesAccelerer', { facteur: facteurRedites }));
     bRedites.setAttribute('aria-label', nom);
-    bRedites.setAttribute('title', nom);
     bRedites.dataset.etat = rapide ? 'accelerees' : 'pleines';
     if (sansEffet) bRedites.dataset.inoperant = '1';
     else delete bRedites.dataset.inoperant;
@@ -362,7 +361,6 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     const etat = actif ? (attente ? 'attente' : 'actif') : 'coupe';
     const nom = actif ? tt('sonCouper') : tt('sonActiver');
     bSon.setAttribute('aria-label', nom);
-    bSon.setAttribute('title', attente ? tt('sonEnAttente') : nom);
     bSon.dataset.etat = etat;
     const neuve = ICONES[etat === 'coupe' ? 'sonCoupe' : (etat === 'attente' ? 'sonAttente' : 'sonActif')]();
     bSon.replaceChild(neuve, bSon._icone);
@@ -398,6 +396,28 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     return plein.actif() ? tt('sortiePleinEcran') : tt('pleinEcran');
   }
   if (bPlein) detachements.push(infobuller(bPlein, libellePleinEcran));
+
+  /* ★ LES DEUX DERNIERS `title` NATIFS S'EN VONT.
+     Ils avaient survécu au passage des dalles d'étape à l'infobulle maison, et
+     c'était une incohérence : un `title` natif n'est pas stylable, paraît après
+     un délai qu'on ne choisit pas, s'efface au bout de quelques secondes alors
+     qu'on le lit, et ne sait pas aller à la ligne. Les raisons qui l'ont banni
+     ailleurs valaient ici aussi.
+
+     ⚠ Le libellé de ces deux boutons CHANGE d'état — accéléré ou plein, son
+     coupé, actif ou en attente. On passe donc une FONCTION, que l'infobulle
+     rappelle à chaque ouverture : un texte figé à la construction mentirait dès
+     la première bascule. Le son a en outre un mot de plus lorsqu'il attend un
+     geste du navigateur, que son nom accessible ne porte pas — c'est
+     précisément le genre de précision qu'une infobulle sait dire et qu'un nom
+     accessible n'a pas à répéter. */
+  if (bRedites) detachements.push(infobuller(bRedites, () => bRedites.getAttribute('aria-label')));
+  if (bSon) {
+    detachements.push(infobuller(bSon, () => {
+      const attente = sonActif() && !sons.debloque;
+      return attente ? tt('sonEnAttente') : bSon.getAttribute('aria-label');
+    }));
+  }
 
   // `rafraichir` suit le lecteur — donc chaque image de la lecture. Les deux
   // bascules, elles, ne suivent que les réglages : elles se repeignent sur
