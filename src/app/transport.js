@@ -24,6 +24,7 @@ import { e, svg as s } from './dom.js';
 import { t } from '../i18n/index.js';
 import { interpoler } from '../i18n/resolution.js';
 import { titreEtape } from './libelles.js';
+import { infobuller } from './infobulle.js';
 import {
   repetitionsAccelerees, basculerRepetitions, animationEffective,
   sonActif, basculerSon, onReglages,
@@ -119,6 +120,10 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
 
   /* ── la jauge : une case par transformation, en vrais boutons ── */
   const cases = [];
+  /* Les bulles de survol posent des écouteurs sur chaque dalle : on garde de
+     quoi les retirer, sinon `detruire()` laisserait derrière lui autant de
+     fermetures que d'étapes. */
+  const detachements = [];
   const jauge = e('div.jauge', {
     role: 'group',
     'aria-label': tt('jauge'),
@@ -133,17 +138,23 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     const c = e('button.jauge__case', {
       type: 'button',
       'aria-label': nom,
-      // ★ Le même texte en INFO-BULLE, pour la souris.
-      //
-      // « Chaque dalle d'étape pourrait avoir le titre de l'étape en info-bulle
-      // au survol ; tant pis pour les mobiles, ils ont le registre pour ça »
-      // (l'auteur). Le nom accessible existait déjà et disait exactement la
-      // bonne chose : un `title` le rend visible à qui n'a ni lecteur d'écran
-      // ni envie de lire tout le registre. On ne compose donc pas un second
-      // texte — deux formulations du même fait finissent toujours par diverger.
-      title: nom,
       sur: { click: () => lecteur.seekToStep(i) },
     });
+    // ★ Le même texte en INFO-BULLE, pour la souris.
+    //
+    // « Chaque dalle d'étape pourrait avoir le titre de l'étape en info-bulle
+    // au survol ; tant pis pour les mobiles, ils ont le registre pour ça »
+    // (l'auteur). Le nom accessible existait déjà et disait exactement la
+    // bonne chose : la bulle le rend visible à qui n'a ni lecteur d'écran ni
+    // envie de lire tout le registre. On ne compose donc pas un second texte —
+    // deux formulations du même fait finissent toujours par diverger.
+    //
+    // ★ NOTRE bulle, plus l'attribut `title`. « Même composant pour afficher
+    // les title que je t'ai fait ajouter aux étapes de l'animation »
+    // (l'auteur). Un `title` natif n'est pas stylable, paraît après un délai
+    // qu'on ne choisit pas, s'efface au bout de quelques secondes alors qu'on
+    // le lit, et ne sait pas aller à la ligne. Voir `src/app/infobulle.js`.
+    detachements.push(infobuller(c, nom));
     cases.push(c);
     jauge.appendChild(c);
   }
@@ -324,6 +335,7 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
       if (typeof desabonner === 'function') desabonner();
       desabonnerReglages();
       desabonnerSons();
+      detachements.forEach((off) => off());
     },
   };
 }

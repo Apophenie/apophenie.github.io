@@ -251,8 +251,9 @@ test('feu — le vacillement est PAUSÉ tant que le feu n’a pas pris', () => {
   // sous un feu invisible dès qu'on revient en arrière. C'est `data-embrasement`
   // — fonction du temps, posé par `player.js` — qui les met en marche.
   const css = lire('src/styles/pages.css');
-  assert.match(css, /\.nhl-feu--reprise \{ animation-play-state: paused;/);
-  assert.match(css, /\.scene\[data-embrasement\] \.nhl-feu--reprise \{ animation-play-state: running; \}/);
+  assert.match(css, /\.nhl-feu-souffle \{ animation-play-state: paused;/);
+  assert.match(css, /\.nhl-feu-germe \{ animation-play-state: paused; \}/);
+  assert.match(css, /\.scene\[data-embrasement\] \.nhl-feu-souffle,\s*\n\s*\.scene\[data-embrasement\] \.nhl-feu-germe \{ animation-play-state: running; \}/);
   const js = lire('src/visuel/player.js');
   assert.match(js, /_renderEmbrasement\(t\)/, 'le lecteur ne résout plus l’interrupteur du feu');
   assert.match(js, /setAttribute\('data-embrasement'/);
@@ -285,4 +286,95 @@ test('★ feu — le feu vaut pour du TEXTE comme pour une FORME : c’est la de
   // divergeraient.
   assert.equal((dom.match(/feuDe\(\{/g) || []).length, 1,
     'le feu doit être construit en UN endroit, pour le texte comme pour la forme');
+});
+
+/* ════════════ 7. LE FILTRE NE PORTE JAMAIS D'ANIMATION ═════════════════════
+
+   ★ La règle qui a coûté le plus cher à trouver, et la seule que l'œil ne
+   pouvait pas voir.
+
+   « L'animation du feu est très bien, mais elle semble entraver la fluidité
+   […] j'ai des freezes ou micro-saccades sur l'étape verdict, ou les flammes
+   qui mettent près d'une minute avant de finalement apparaître » (l'auteur).
+   Mesuré dans le navigateur, à l'arrêt sur le verdict : une expression d'UNE
+   LIGNE évaluée dans la page dépassait quinze secondes. Le fil principal était
+   saturé.
+
+   Le filtre n'était pas en cause — il est statique et se trame une fois. C'est
+   l'`opacity` animée POSÉE SUR L'ÉLÉMENT QUI LE PORTE qui l'était : un filtre
+   s'applique avant l'opacité, donc les deux sur le même élément obligent le
+   moteur à repasser les cinq flous à chaque image. Dix corps, cinquante passes
+   de flou par image, à l'échelle huit du verdict.
+
+   C'est la même famille de défaut que « jamais d'opacité animée sur un élément
+   portant une transformation individuelle » (`compositeur.test.js`), étendue au
+   `filter`. Rien dans une capture ne la montre : seul un test peut la tenir. */
+
+test('★★ feu — aucun élément ne porte à la fois un filtre et une animation', () => {
+  const dom = lire('src/visuel/dom.js');
+  const css = lire('src/styles/pages.css');
+
+  // 1. Dans le DOM : les éléments qui reçoivent `filter:` ne portent que la
+  //    classe `nhl-feu`, laquelle n'a aucune animation en CSS.
+  for (const [, variable] of dom.matchAll(/(\w+)\.setAttribute\('style', `filter:/g)) {
+    const classe = new RegExp(`${variable}\\.setAttribute\\('class', '([^']+)'\\)`);
+    const m = dom.match(classe);
+    assert.ok(m, `le corps filtré « ${variable} » doit déclarer sa classe`);
+    assert.equal(m[1], 'nhl-feu',
+      `« ${variable} » porte un filtre ET la classe « ${m[1]} » : si celle-ci est `
+      + 'animée, les flous seront re-tramés à chaque image');
+  }
+
+  // 2. En CSS : `.nhl-feu` — la classe des éléments filtrés — n'est jamais
+  //    animée, ni directement ni par un sélecteur qui la termine.
+  for (const [, corps] of css.matchAll(/\.nhl-feu\s*\{([^}]*)\}/g)) {
+    assert.doesNotMatch(corps, /animation/,
+      '`.nhl-feu` porte le filtre : lui donner une animation ramène le gel du verdict');
+  }
+
+  // 3. Les enveloppes existent, et elles sont DISTINCTES de l'élément filtré.
+  assert.match(dom, /souffle\.appendChild\(reprise\)/,
+    'l’opacité doit vivre sur une enveloppe, pas sur le corps filtré');
+  assert.match(dom, /germe\.appendChild\(braise\)[\s\S]*?germe\.appendChild\(souffle\)/,
+    'la germination doit envelopper les deux corps');
+});
+
+test('★ feu — la germination part petite et arrive à la taille pleine', () => {
+  // « Je voudrais qu'elles germent petit puis qu'elles grandissent
+  // progressivement jusqu'à atteindre leur taille actuelle » (l'auteur) : la
+  // taille d'ARRIVÉE ne change pas, c'est le départ qui devient petit.
+  const css = lire('src/styles/pages.css');
+  const bloc = css.match(/@keyframes nhl-feu-germe \{([\s\S]*?)\n\}/);
+  assert.ok(bloc, 'la germination doit exister');
+  const depart = bloc[1].match(/from \{ transform: scale\(([\d.]+)\); \}/);
+  const arrivee = bloc[1].match(/to\s+\{ transform: scale\(([\d.]+)\); \}/);
+  assert.ok(depart && arrivee, 'la germination doit déclarer ses deux bornes');
+  assert.ok(Number(depart[1]) < 0.5, 'une graine doit être petite');
+  assert.equal(Number(arrivee[1]), 1,
+    'l’arrivée doit valoir exactement la taille actuelle, pas une autre');
+  // Elle a lieu UNE fois : `both`, jamais `infinite`.
+  const regle = css.match(/\.nhl-feu-germe \{[\s\S]*?\n\}/)[0];
+  assert.match(regle, /both;/, 'la pousse doit persister à son dernier état');
+  assert.doesNotMatch(regle, /infinite/, 'une graine ne germe pas en boucle');
+  // Elle pousse depuis le PIED : un feu naît au sol.
+  assert.match(regle, /transform-origin: 50% 100%/);
+  assert.match(regle, /transform-box: fill-box/);
+});
+
+test('★ feu — les foyers ne germent pas tous au même instant', () => {
+  // Deux raisons, l'une visible et l'autre non : six feux qui prendraient
+  // ensemble seraient le retour de « ils sont identiques », ET leurs six
+  // tramages de filtre tomberaient sur la même image — c'est-à-dire un gel.
+  const palette = { coeur: '#1', flamme: '#2', brasier: '#3', braise: '#4', fumee: '#5' };
+  const semis = [];
+  const pousses = [];
+  for (let i = 0; i < 15; i++) {
+    const f = feuDe({ fontSize: 48, id: `d${i}`, palette });
+    semis.push(f.semis);
+    pousses.push(f.pousse);
+  }
+  assert.ok(new Set(semis).size >= 12, `les semis se répètent : ${semis.join(' ')}`);
+  assert.ok(new Set(pousses).size >= 12, `les pousses se répètent : ${pousses.join(' ')}`);
+  assert.ok(Math.max(...semis) - Math.min(...semis) > 300,
+    'l’échelonnement doit être assez large pour étaler les tramages');
 });

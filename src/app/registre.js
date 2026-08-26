@@ -61,7 +61,11 @@ function figureDe(etape) {
 
 /**
  * @param {Object} lecteur   l'API du lecteur (pur reflet)
- * @param {{titre?:string}} [options]
+ * @param {{titre?:string, resultat?:string}} [options]
+ *        `titre` : l'intitulé porté par le `<h2>`. La page de démonstration y
+ *        met le sien — « Méthode 1 — En quatorze segments » —, ce qui lui
+ *        permet de ne plus l'écrire au-dessus de la scène. Absent, on retombe
+ *        sur « Le Registre », qui reste le nom du composant partout ailleurs.
  */
 export function creerRegistre(lecteur, options = {}) {
   const etapes = lecteur.steps || [];
@@ -115,7 +119,7 @@ export function creerRegistre(lecteur, options = {}) {
   });
 
   const bloc = e('section.registre', { 'aria-labelledby': 'registre-titre' }, [
-    e('h2#registre-titre.h2-machine', { texte: t('registre.titre') }),
+    e('h2#registre-titre.h2-machine', { texte: options.titre || t('registre.titre') }),
     liste,
     regionFin,
   ]);

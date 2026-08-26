@@ -10,7 +10,7 @@ import * as pont from '../pont.js';
 import { interrupteurs } from '../entete.js';
 
 /**
- * ★ LE COMPTEUR DE SÉRIES — « 5 × 6⋅6⋅6 », à cheval sur le bord DROIT du cadre.
+ * ★ LE COMPTEUR DE SÉRIES — « 5 × 666 », à cheval sur le bord DROIT du cadre.
  *
  * Le pendant du numéro de rang, qui chevauche le bord gauche : même hauteur,
  * même fond opaque qui découpe le filet, même casse machine. Deux repères
@@ -27,17 +27,21 @@ import { interrupteurs } from '../entete.js';
  * dans les deux pages ; c'est pour ça qu'il ne peut pas le porter, et que ce
  * compteur, qui ne quitte jamais le listing, le peut (`src/recherche/titres.js`).
  *
- * ★ `n === 1` n'affiche RIEN. « 1 × 6⋅6⋅6 » n'apprend rien — toute voie mène à
+ * ★ `n === 1` n'affiche RIEN. « 1 × 666 » n'apprend rien — toute voie mène à
  * 666, c'est la promesse du site — et douze cartes portant toutes le même
  * badge n'en distingueraient aucune. Le compteur ne paraît que là où il dit
  * quelque chose : la majorité des cartes reste nue, et l'œil va droit aux
  * quelques-unes qui portent la marque.
  *
- * ★ Deux écritures pour deux lectures. « 5 × 6⋅6⋅6 » est un dessin : les points
- * médians séparent les trois 6 comme sur un cadran, et un lecteur d'écran en
- * ferait une bouillie de symboles. Le badge est donc `aria-hidden`, doublé
+ * ★ Deux écritures pour deux lectures. « 5 × 666 » est un raccourci de
+ * comptable : un lecteur d'écran en ferait « cinq fois six cent soixante-six »,
+ * ce qui n'est pas ce qu'on veut dire. Le badge est donc `aria-hidden`, doublé
  * d'une phrase pleine — « cinq séries de 666 » — dans un `.visuellement-cachee`.
  * Une seule information, deux formes, chacune adressée à qui sait la lire.
+ *
+ * ★ Les points médians ont disparu. « 5 × 6⋅6⋅6 » séparait les trois 6 comme
+ * sur un cadran ; l'auteur a tranché pour « 5 × 666 », qui est le nombre dont
+ * le site parle et non son épellation.
  */
 function compteurSeries(approche) {
   const n = (approche && approche.series) || 1;

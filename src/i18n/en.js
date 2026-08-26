@@ -112,7 +112,7 @@ export const en = {
     voieNumero: 'no. {rang}',
     /* Same information, two writings: the badge is a drawing, the sentence
        is what a screen reader announces. Nothing at all when n is 1. */
-    voieSeriesBadge: '{n} × 6⋅6⋅6',
+    voieSeriesBadge: '{n} × 666',
     voieSeries: '{n} runs of 666',
     voieSansTitre: 'Approach no. {rang}',
     acces: {
@@ -155,7 +155,7 @@ export const en = {
     etapeSur: 'Step {i} of {total}',
     sceneLabel: 'Demonstration stage',
     /* The staged register's play button — see `pages/demonstration.js`. */
-    jouerLabel: 'Start the demonstration',
+    jouerLabel: 'Step-by-step demonstration',
     jouerAvecSon: 'Start, with sound',
     jouerSansSon: 'Start, muted',
     allerAuRegistre: 'Skip to the Ledger',
@@ -230,6 +230,7 @@ export const en = {
 
   partage: {
     partager: 'Share',
+    bulleCopie: 'Link copied\nPaste it into your favourite feeds\nand let the truth out!',
     partage: 'Shared.',
     copie: 'Text copied to the clipboard.',
     copieEchouee: 'Copying failed: please select the link by hand.',

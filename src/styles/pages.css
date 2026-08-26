@@ -238,7 +238,7 @@
    ★ `max-width` : sur une colonne étroite (le site descend à une colonne sous
    1100 px, et la grille à 20rem sous 760), le rang à gauche et le compteur à
    droite se rapprochent. Le compteur ne fait jamais plus de neuf signes
-   (« 5 × 6⋅6⋅6 »), mais on le borne quand même à la moitié de la carte, et il
+   (« 5 × 666 »), mais on le borne quand même à la moitié de la carte, et il
    passe DEVANT le rang (`z-index`) plutôt que sous lui, parce que c'est lui qui
    porte l'information rare. Le titre, lui, commence sous la zone : il ne peut
    pas être recouvert, `padding-top: var(--e4)` l'en écarte.
@@ -440,19 +440,26 @@
 .demo { padding-top: var(--e5); }
 
 .demo__entete { margin-bottom: var(--e5); }
-.demo__methode {
-  font-family: var(--machine);
-  font-size: var(--fs-2xs);
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: var(--phos);
-  margin-bottom: var(--e3);
+
+/* ★ Le titre à gauche, le partage tout à droite.
+   « Le bouton partager […] au-dessus de la scène à droite (et donc tout à
+   droite du titre) » (l'auteur). `align-items: flex-end` pose le bouton sur la
+   ligne de base du bas du titre plutôt qu'en l'air au-dessus de lui ; sous
+   `--bp-etroit`, il repasse sous le titre au lieu de l'écraser. */
+.demo__titre {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--e3);
+  flex-wrap: wrap;
 }
-/* `.demo__regle` a été RETIRÉ : la suite des règles ne s'affiche plus en tête
-   de la page d'animation. Elle y était soit du spoiler — la scène va montrer
-   chaque opération à son tour —, soit de la redite du Registre, qui l'écrit
-   étape par étape et au bon moment. Elle reste dans le listing, où elle sert à
-   choisir (`.voie__resume`). Voir `src/app/pages/demonstration.js`. */
+.demo__titre > div { min-width: 0; }
+.partage { display: inline-flex; align-items: center; gap: var(--e1); }
+
+/* `.demo__methode` a été RETIRÉ : la ligne « Méthode 1 — En quatorze
+   segments » ne s'affiche plus au-dessus de la scène, elle est devenue le
+   TITRE du Registre (`src/app/registre.js`, option `titre`). Un seul endroit la
+   dit, et c'est celui où elle sert de titre à quelque chose. */
 
 /* Deux colonnes SEULEMENT quand il y a de la place pour les deux.
    La charte (§2.4) faisait basculer la démonstration en deux colonnes dès
@@ -470,9 +477,48 @@
    la colonne latérale et le <details> replié. */
 .demo__grille { display: grid; gap: var(--e6); }
 @media (min-width: 1100px) {
-  .demo__grille { grid-template-columns: minmax(0, 1fr) 22rem; align-items: start; }
-  .registre-colonne { position: sticky; top: var(--e3); }
+  /* ★ `stretch`, et non `start`. Le Registre doit aller « du haut de la scène
+     jusqu'au bas du contrôleur de lecture, ni plus, ni moins » (l'auteur) :
+     c'est exactement la hauteur de la rangée, à condition que la rangée ne
+     contienne QUE ces deux-là — ce dont se charge `demonstration.js`, qui a
+     sorti de la grille tout ce qui vivait sous les commandes.
+     `position: sticky` a disparu avec le besoin : une colonne qui fait
+     précisément la hauteur de son voisin n'a plus rien à suivre. */
+  .demo__grille { grid-template-columns: minmax(0, 1fr) 22rem; align-items: stretch; }
+
+  /* ⚠ `stretch` seul NE SUFFIT PAS, et c'est le piège de cette mise en page.
+     Une rangée de grille fait la hauteur du plus grand de ses contenus : le
+     Registre, avec ses vingt-trois lignes, mesurait 2 582 px et emportait la
+     rangée avec lui — la colonne allait bien du haut de la scène, mais elle
+     finissait deux mille pixels plus bas que les commandes.
+
+     Il faut donc qu'il ne COMPTE PAS dans la hauteur de sa rangée. On le sort
+     du flux (`position: absolute`) : la cellule qui le contient n'a plus de
+     contenu, donc plus de hauteur propre, la rangée est mesurée par la seule
+     colonne de gauche — scène plus commandes —, et `stretch` étire la cellule
+     jusque-là. Le Registre, calé sur ses quatre bords, la remplit exactement.
+     « Ni plus, ni moins » (l'auteur). */
+  .registre-colonne { position: relative; min-height: 0; }
+  .registre-colonne > .registre {
+    position: absolute;
+    inset: 0;
+    /* La chaîne d'étirement descend INTACTE jusqu'à la liste : chaque maillon
+       est un conteneur flex en colonne, et chaque `min-height: 0` défait la
+       taille minimale automatique qui, sinon, ferait déborder le contenu au
+       lieu de le faire défiler. */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  /* La liste prend tout ce qui reste sous le titre — plus de plafond en `vh` :
+     ici la hauteur ne vient plus de la fenêtre mais de la scène d'à côté. */
+  .registre-colonne .registre__liste { flex: 1; min-height: 0; max-height: none; }
 }
+
+/* Une colonne : le Registre prend toute la largeur, comme la scène.
+   « Sur mobile, très bien, sauf qu'il peut prendre toute la largeur comme la
+   scène dès lors qu'il ne loge plus convenablement à côté » (l'auteur). */
+.registre-pleine-largeur { min-width: 0; }
 
 .scene-cadre {
   position: relative;
@@ -629,14 +675,9 @@
 .registre__valeur { color: var(--phos); font-weight: 600; }
 
 
-
-.actions-finales {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--e1);
-  justify-content: center;
-  margin-top: var(--e6);
-}
+/* `.actions-finales` a été RETIRÉ avec le bloc qu'il habillait : le bas de la
+   page de démonstration ne portait plus que « Partager », désormais en tête à
+   droite du titre. */
 
 .raccourcis { margin-top: var(--e5); }
 .raccourcis summary {
@@ -660,13 +701,10 @@
   color: var(--fg);
 }
 
-/* Repli mobile : le registre dans un <details> ouvert */
-.registre-repli > summary {
-  cursor: pointer;
-  min-height: var(--touche);
-  display: flex;
-  align-items: center;
-}
+/* `.registre-repli` a été RETIRÉ : en une colonne le Registre n'est plus dans
+   un <details>, il prend simplement toute la largeur (`.registre-pleine-largeur`).
+   Le `<summary>` répétait le titre que le Registre porte maintenant lui-même, et
+   le repli n'apportait rien puisqu'il était ouvert par défaut. */
 
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -719,7 +757,12 @@
    ★ Un canal, un élément (CONTRACTS §3.2 règle 3) : le corps de reprise n'anime
    que son opacité et ne porte aucune transformation — la recette du défaut
    Firefox reste hors de portée (`tests/compositeur.test.js`). */
-.nhl-feu--reprise {
+/* ── LA RESPIRATION ────────────────────────────────────────────────────────
+   ⚠ L'opacité est sur l'ENVELOPPE (`.nhl-feu-souffle`), le filtre sur l'élément
+   à l'intérieur (`.nhl-feu`). Les mettre sur le même élément forçait le moteur
+   à repasser les cinq flous à chaque image — c'était le gel du verdict.
+   Le pourquoi complet est dans `src/visuel/dom.js › construireBrasier`. */
+.nhl-feu-souffle {
   animation: nhl-feu-reprise var(--nhl-feu-periode, 900ms) ease-in-out
              var(--nhl-feu-retard, 0ms) infinite alternate;
 }
@@ -728,27 +771,66 @@
   to   { opacity: 1; }
 }
 
+/* ── LA GERMINATION ───────────────────────────────────────────────────────
+   « Qu'elles germent petit puis qu'elles grandissent progressivement jusqu'à
+   atteindre leur taille actuelle » (l'auteur). La taille d'ARRIVÉE ne change
+   pas — c'est le `scale: 1` de la dernière image.
+
+   `transform-box: fill-box` fait porter l'origine sur la boîte de l'élément et
+   non sur le repère du `<svg>` entier ; `50% 100%` la pose au PIED du glyphe,
+   parce qu'un feu naît au sol et monte.
+
+   `transform` et non la propriété individuelle `scale` : une transformation
+   individuelle sur un élément dont un descendant anime l'opacité fait perdre la
+   position au compositeur Firefox (`src/visuel/tests/compositeur.test.js`).
+
+   `both` — pas `infinite` : elle a lieu UNE fois, et le dernier état persiste.
+   Le `--nhl-feu-semis` échelonne les départs : la variété d'abord, mais aussi
+   l'étalement des tramages de filtre, qui tomberaient sinon sur une seule
+   image. */
+.nhl-feu-germe {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: nhl-feu-germe var(--nhl-feu-pousse, 1400ms)
+             cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
+}
+@keyframes nhl-feu-germe {
+  from { transform: scale(.18); }
+  to   { transform: scale(1); }
+}
+
 /* ── L'interrupteur : rien ne tourne tant que le feu n'a pas pris ─────────── */
-.nhl-feu--reprise { animation-play-state: paused; opacity: 0; }
-.scene[data-embrasement] .nhl-feu--reprise { animation-play-state: running; }
+.nhl-feu-souffle { animation-play-state: paused; opacity: 0; }
+.nhl-feu-germe { animation-play-state: paused; }
+.scene[data-embrasement] .nhl-feu-souffle,
+.scene[data-embrasement] .nhl-feu-germe { animation-play-state: running; }
 
 /* ── Mouvement réduit : un feu FIXE, mais un feu ──────────────────────────
    « `prefers-reduced-motion` doit donner un feu fixe. » Il reste donc là,
-   dessiné, coloré, autour des chiffres — seule sa respiration s'arrête, et il
-   se fige à la phase que son retard négatif lui donne, c'est-à-dire à un état
-   différent pour chaque foyer : l'image d'arrêt reste celle d'un feu.
+   dessiné, coloré, autour des chiffres — seules sa respiration et sa pousse
+   s'arrêtent. La pousse, elle, se fige à sa DERNIÈRE image et non à la
+   première : un feu réduit est un feu adulte immobile, pas une graine qui ne
+   lèvera jamais.
    Le réglage explicite (`data-animation`, posé par `src/app/reglages.js`) prime
    DANS LES DEUX SENS, comme pour le logo : on peut vouloir l'animation malgré
    un OS réglé en « réduit », et l'inverse. */
 @media (prefers-reduced-motion: reduce) {
-  .scene[data-embrasement] .nhl-feu--reprise { animation-play-state: paused; opacity: .5; }
-  html[data-animation="complete"] .scene[data-embrasement] .nhl-feu--reprise {
+  .scene[data-embrasement] .nhl-feu-souffle { animation-play-state: paused; opacity: .5; }
+  .scene[data-embrasement] .nhl-feu-germe { animation: none; }
+  html[data-animation="complete"] .scene[data-embrasement] .nhl-feu-souffle {
     animation-play-state: running;
   }
+  html[data-animation="complete"] .scene[data-embrasement] .nhl-feu-germe {
+    animation: nhl-feu-germe var(--nhl-feu-pousse, 1400ms)
+               cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
+  }
 }
-html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu--reprise {
+html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu-souffle {
   animation-play-state: paused;
   opacity: .5;
+}
+html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu-germe {
+  animation: none;
 }
 
 
@@ -785,12 +867,15 @@ html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu--reprise {
   inset: 0;
   display: grid;
   place-items: center;
-  /* ★ Le voile est SOMBRE dans les deux thèmes, et c'est la couleur de la nuit
-     du verdict (`--scene-nuit`). Deux raisons : un arrière-plan de lightbox
-     doit assombrir — sur le parchemin, un voile clair ne voile rien et efface
-     le bouton au lieu de le faire ressortir —, et celui-ci annonce ce qui va
-     tomber sur la scène à la chute. Le rideau est déjà de la scénographie. */
-  background: color-mix(in srgb, var(--scene-nuit) 55%, transparent);
+  /* ★ Le voile est SOMBRE dans les deux thèmes — c'est la couleur de la nuit du
+     verdict (`--scene-nuit`), et il annonce donc ce qui va tomber sur la scène
+     à la chute. Mais il est À PEINE POSÉ : « évite ce gris opaque moche, tu
+     peux mettre juste un voile seulement légèrement opaque » (l'auteur). À 55 %
+     il effaçait la scène au lieu de l'estomper, et l'on ne devinait plus ce
+     qu'on s'apprêtait à regarder. À 20 %, la scène reste lisible dessous et le
+     bouton ressort quand même : il porte son propre halo (`box-shadow`), qui ne
+     dépend pas de l'opacité du voile. */
+  background: color-mix(in srgb, var(--scene-nuit) 20%, transparent);
   /* Il naît en fondu : la scène est déjà là quand il paraît, et l'on comprend
      qu'on la voile plutôt que de croire qu'elle manque. */
   animation: nhl-voile-entree var(--t-moyen, .32s) ease-out both;

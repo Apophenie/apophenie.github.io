@@ -12,7 +12,14 @@
 
 import { e } from './dom.js';
 import { guillemets } from './typo.js';
+import { montrerInfobulle } from './infobulle.js';
 import { t } from '../i18n/index.js';
+
+/** Combien de temps l'accusé de copie reste à l'écran, fondu compris.
+ *  « L'infobulle disparaît dès qu'on clique ailleurs, ou progressivement
+ *  durant la 5ᵉ seconde après le clic sur partager » (l'auteur) : quatre
+ *  secondes pleines, puis le fondu occupe la cinquième. */
+const DUREE_ACCUSE = 5000;
 
 /**
  * @param {{saisie:string, titreMethode?:string, resultat?:string, url:?string}} ctx
@@ -50,7 +57,6 @@ async function copier(texte) {
  * branché), le bouton est neutralisé et dit pourquoi — jamais de faux lien.
  */
 export function boutonPartage(ctx) {
-  const retour = e('span.copie-faite', { role: 'status', 'aria-live': 'polite' });
   const texte = texteDePartage(ctx);
 
   const bouton = e('button.bouton-secondaire', {
@@ -59,6 +65,22 @@ export function boutonPartage(ctx) {
     'aria-describedby': texte ? null : 'partage-indispo',
     texte: t('partage.partager'),
   });
+
+  /* ★ L'ACCUSÉ EST UNE INFOBULLE, PLUS UNE LIGNE DE TEXTE.
+     Le bouton a quitté le bas de page pour le haut, à droite du titre : une
+     phrase qui apparaît à côté de lui y déplacerait le titre à chaque copie.
+     La bulle flotte au-dessus de la mise en page et ne pousse rien.
+
+     ★ La région live SURVIT, et séparément. Une bulle en `aria-hidden` est
+     muette pour un lecteur d'écran — or c'est précisément la personne pour qui
+     « le lien est copié » n'est pas devinable. Le message vocal est le texte
+     court d'origine ; la bulle, elle, peut se permettre trois lignes. */
+  const retour = e('span.visuellement-cachee', { role: 'status', 'aria-live': 'polite' });
+
+  const dire = (cleVocale, cleBulle) => {
+    retour.textContent = t(cleVocale);
+    montrerInfobulle(bouton, t(cleBulle || cleVocale), { duree: DUREE_ACCUSE });
+  };
 
   bouton.addEventListener('click', async () => {
     if (!texte) return;
@@ -76,12 +98,11 @@ export function boutonPartage(ctx) {
         if (err && err.name === 'AbortError') return;   // l'utilisateur a renoncé
       }
     }
-    retour.textContent = (await copier(texte))
-      ? t('partage.copie')
-      : t('partage.copieEchouee');
+    if (await copier(texte)) dire('partage.copie', 'partage.bulleCopie');
+    else dire('partage.copieEchouee');
   });
 
-  return e('span', { style: { display: 'inline-flex', gap: '6px', alignItems: 'center' } }, [
+  return e('span.partage', {}, [
     bouton,
     retour,
     texte ? null : e('span#partage-indispo.legende', { texte: t('partage.indisponible') }),

@@ -458,29 +458,76 @@ function construireBrasier(node, palette = PALETTE, metrics) {
   for (const c of corps) {
     const f = feuDe({ fontSize: fs, id: node.id, part: c.part, palette });
 
-    // ★ DEUX corps, et AUCUN filtre animé. Mesuré (`_feu-perf.html`) : un filtre
-    //   animé coûte plus d'un cœur, le même filtre figé coûte zéro — il est
-    //   tramé une fois et mis en cache. Le premier corps porte l'état A et ne
-    //   bouge jamais ; le second porte l'état B et c'est son OPACITÉ qui va et
-    //   vient, canal de composition, donc gratuit. On garde la respiration
-    //   d'atnyman sans payer une passe de flou par image.
-    //
-    // ★ Et l'opacité du corps A n'est JAMAIS animée : c'est lui qui scelle
-    //   l'empreinte du glyphe en couleur de nuit. Deux corps qui se fondraient
-    //   l'un dans l'autre laisseraient à mi-fondu un trou par lequel les halos
-    //   remonteraient sous le chiffre — et le contraste du verdict avec.
+    /* ★ LE FILTRE NE PORTE PLUS RIEN D'ANIMÉ — ET C'EST UN CORRECTIF, PAS UN
+       RAFFINEMENT.
+
+       « L'animation du feu est très bien, mais elle semble entraver la fluidité
+       […] j'ai des freezes ou micro-saccades sur l'étape verdict, ou les
+       flammes qui mettent près d'une minute avant de finalement apparaître »
+       (l'auteur). Mesuré : à l'arrêt sur le verdict, une expression d'UNE LIGNE
+       évaluée dans la page dépassait quinze secondes. Le fil principal était
+       saturé.
+
+       La cause n'était pas le filtre, qui est statique et se trame une fois :
+       c'était l'`opacity` animée POSÉE SUR L'ÉLÉMENT QUI LE PORTE. Un filtre
+       s'applique avant l'opacité ; les deux sur le même élément forcent le
+       moteur à repasser les cinq flous à chaque image — dix corps, cinquante
+       passes de flou par image, à l'échelle huit du verdict.
+
+       Le remède est structurel et tient en un `<g>` : l'opacité va sur une
+       ENVELOPPE, le filtre reste sur l'élément à l'intérieur. La couche filtrée
+       est tramée une fois et mise en cache ; l'enveloppe ne fait plus varier
+       qu'un canal de composition.
+
+       ⚠ C'est la même famille de défaut que la règle « jamais d'opacité animée
+       sur un élément portant une transformation individuelle » que ce projet
+       applique déjà pour Firefox (`tests/compositeur.test.js`). La règle est
+       désormais étendue au `filter`, et un test l'exige (`tests/feu.test.js`).
+
+       ★ Reste la respiration d'atnyman, inchangée : deux chaînes STATIQUES —
+       l'état A qui ne bouge jamais, l'état B dont l'enveloppe va et vient. */
     const braise = c.dessine();
     braise.setAttribute('class', 'nhl-feu');
     braise.setAttribute('fill', nuit);
     braise.setAttribute('style', `filter:${f.a}`);
-    wrap.appendChild(braise);
 
     const reprise = c.dessine();
-    reprise.setAttribute('class', 'nhl-feu nhl-feu--reprise');
+    reprise.setAttribute('class', 'nhl-feu');
     reprise.setAttribute('fill', nuit);
-    reprise.setAttribute('style',
-      `filter:${f.b};--nhl-feu-periode:${f.periode}ms;--nhl-feu-retard:${f.retard}ms`);
-    wrap.appendChild(reprise);
+    reprise.setAttribute('style', `filter:${f.b}`);
+
+    // L'enveloppe qui respire : elle ne porte QUE l'opacité.
+    const souffle = el('g', { class: 'nhl-feu-souffle' });
+    souffle.setAttribute('style',
+      `--nhl-feu-periode:${f.periode}ms;--nhl-feu-retard:${f.retard}ms`);
+    souffle.appendChild(reprise);
+
+    /* ★ L'ENVELOPPE QUI GERME. « Je voudrais qu'elles germent petit puis
+       qu'elles grandissent progressivement jusqu'à atteindre leur taille
+       actuelle » (l'auteur).
+
+       Elle grandit en `transform: scale()` depuis le PIED du glyphe
+       (`transform-origin: 50% 100%`) : un feu naît au sol et monte, il
+       n'apparaît pas centré sur lui-même. Et c'est gratuit — le compositeur
+       ré-échantillonne une texture déjà tramée au lieu de refaire les flous. */
+    const germe = el('g', { class: 'nhl-feu-germe' });
+    germe.setAttribute('style',
+      `--nhl-feu-pousse:${f.pousse}ms;--nhl-feu-semis:${f.semis}ms`);
+    germe.appendChild(braise);
+    germe.appendChild(souffle);
+    wrap.appendChild(germe);
+
+    /* ★ LE SCEAU — une copie NON FILTRÉE, en couleur de nuit, toujours opaque.
+       Elle n'est pas un doublon : c'est elle, désormais, qui garantit que le
+       vrai chiffre repose sur du fond pur. Sans elle, les enveloppes qui
+       germent et qui respirent laisseraient, le temps de leur mouvement, un
+       trou par lequel les halos remonteraient sous le glyphe — et le contraste
+       du verdict avec (`primitives/feu.js`, `contrasteDuVerdict`).
+       Elle coûte un tracé sans filtre, c'est-à-dire à peu près rien. */
+    const sceau = c.dessine();
+    sceau.setAttribute('class', 'nhl-feu-sceau');
+    sceau.setAttribute('fill', nuit);
+    wrap.appendChild(sceau);
   }
 
   return wrap;

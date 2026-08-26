@@ -222,7 +222,46 @@ export function pageDemonstration(ctx) {
     repetitions: pont.facteurRepetitions(),
     sons,
   });
-  const registre = creerRegistre(lecteur, { resultat: scenario.result });
+  const titreMethode = t('demo.methode', {
+    rang: approche.rang ?? 1,
+    titre: titreApproche(approche) || t('demo.sansTitre'),
+  });
+  /* ★ LE RIDEAU SE LÈVE SUR N'IMPORTE QUELLE COMMANDE, PAS SEULEMENT SUR LUI.
+
+     « Quand je lance non pas en cliquant sur "Démonstration étape par étape"
+     mais sur Lecture, celui-ci reste devant » (l'auteur). Le voile n'écoutait
+     que son propre bouton : la barre de transport, elle, est SOUS le voile et
+     reste cliquable — on lançait donc la démonstration derrière un rideau
+     baissé, et rien ne le relevait.
+
+     On s'abonne à `change`, qui est émis à chaque mouvement de la tête de
+     lecture, quelle qu'en soit l'origine : lecture, étape suivante, saut au
+     résultat, clic sur une dalle de la jauge, clic sur une ligne du Registre,
+     raccourci clavier. Tous ces gestes ont ceci en commun qu'ils changent ce
+     qu'il y a sur la scène — donc tous méritent qu'on la découvre.
+
+     `lever()` est idempotent (`parti`), et le désabonnement a lieu au premier
+     lever : ce qui n'a plus rien à surveiller ne surveille plus. */
+  if (rideau) {
+    const offRideau = lecteur.on('change', () => {
+      if (!lecteur.playing && !(lecteur.stepIndex > 0) && !(lecteur.currentTime > 0)) return;
+      rideau.lever({ focus: false, jouer: false });
+      if (typeof offRideau === 'function') offRideau();
+    });
+  }
+
+  const registre = creerRegistre(lecteur, {
+    resultat: scenario.result,
+    // ★ LE REGISTRE PORTE DÉSORMAIS LE TITRE DE LA PAGE.
+    //
+    // « On va renommer \u00ab\u00a0Le registre\u00a0\u00bb en \u00ab\u00a0M\u00e9thode 1 \u2014 En quatorze segments\u00a0\u00bb
+    // (ou autre titre dynamique de la page), pour \u00e9purer encore davantage le
+    // texte au-dessus de la sc\u00e8ne » (l'auteur). Le mot n'a pas \u00e9t\u00e9 remplac\u00e9 par
+    // un autre mot : la ligne qui annon\u00e7ait la m\u00e9thode au-dessus de la sc\u00e8ne a
+    // \u00e9t\u00e9 D\u00c9PLAC\u00c9E ici. Un seul endroit la dit, et c'est celui o\u00f9 elle sert de
+    // titre \u00e0 quelque chose.
+    titre: titreMethode,
+  });
 
   const messages = [];
   if (ctx.bandeau) messages.push(localiser(ctx.bandeau));
@@ -333,35 +372,25 @@ export function pageDemonstration(ctx) {
   // L'annonce de fin subsiste pour les lecteurs d'écran seuls (`registre.js`).
   const majArrivee = () => {};
 
-  /* ───────────────────────── les actions ────────────────────────── */
+  /* ───────────────────────── le partage ────────────────────────── */
 
-  // ★ UN SEUL bouton en bas de page : partager.
+  // ★ EN TÊTE, À DROITE DU TITRE — plus en bas de page.
   //
-  // « Pour tout le reste il y a déjà ce qu'il faut en haut de page, et c'est
-  // très bien que l'accès aux autres pages du site reste discret pour favoriser
-  // l'immersion » (l'auteur). Ce qui est parti d'ici existe ailleurs, et mieux
-  // placé : « Revoir » est le bouton de relecture de la barre de transport, à
-  // dix centimètres de là ; « Une autre voie » est le lien « Toutes les voies »
-  // de la barre haute ; « Nouvelle recherche », c'est le logo, qui ramène à
-  // l'accueil depuis n'importe quelle page.
+  // « Le bouton partager, plutôt qu'en dessous du contrôleur de lecture, viens
+  // le mettre au-dessus de la scène à droite (et donc tout à droite du titre) »
+  // (l'auteur). Il y gagne deux choses : il est visible sans faire défiler, et
+  // il libère le bas de page, où il ne restait plus que lui.
   //
-  // ⚠ Une exception qui n'en est pas une, et qu'il faut savoir : « voir en
-  // sobre / en scénique » n'existe PAS en haut de page. En le retirant d'ici,
-  // on ne peut plus changer de registre depuis une démonstration — il faut
-  // repasser par la liste des voies, où les deux accès sont côte à côte. C'est
-  // conforme à la consigne, et c'est cohérent avec l'usage visé (on choisit son
-  // registre au moment de partager, donc depuis la liste), mais quelqu'un qui
-  // REÇOIT un lien scénique n'a plus de chemin direct vers le sobre. Signalé à
-  // l'auteur ; si le chemin doit exister, sa place est la barre haute, à côté
-  // de « Toutes les voies », et non le bas de cette page.
-  const actions = e('div.actions-finales', {}, [
-    boutonPartage({
-      saisie,
-      titreMethode: titreApproche(approche),
-      resultat: scenario.result,
-      url: ctx.urlCanonique ? location.origin + location.pathname + ctx.urlCanonique : null,
-    }),
-  ]);
+  // Son accusé de copie a suivi le déménagement : une ligne de texte qui
+  // apparaît à côté d'un bouton en bas de page ne dérange personne, mais en
+  // tête elle déplacerait le titre à chaque clic. C'est désormais une infobulle
+  // qui flotte au-dessus de la mise en page (`src/app/infobulle.js`).
+  const partage = boutonPartage({
+    saisie,
+    titreMethode: titreApproche(approche),
+    resultat: scenario.result,
+    url: ctx.urlCanonique ? location.origin + location.pathname + ctx.urlCanonique : null,
+  });
 
   /* ───────────────────────── les raccourcis ─────────────────────── */
 
@@ -384,34 +413,42 @@ export function pageDemonstration(ctx) {
 
   /* ───────────────────────── assemblage ─────────────────────────── */
 
-  const colonneGauche = e('div', {}, [
-    cadre,
-    transport.element,
-    registre.regionLive,
-    actions,
-    raccourcis,
-  ]);
+  /* ★ LA GRILLE NE PORTE PLUS QUE LA SCÈNE ET SES COMMANDES.
+     « Cale-le pour qu'il aille du haut de la scène jusqu'au bas du contrôleur
+     de lecture, ni plus, ni moins » (l'auteur). C'est une contrainte de
+     HAUTEUR, et CSS ne sait aligner deux colonnes que sur la hauteur de leur
+     RANGÉE : tant que la colonne de gauche portait aussi la région live, le
+     partage et les raccourcis, elle était plus haute que la scène, et une
+     colonne étirée dessus dépassait forcément le contrôleur.
+     Ce qui vit sous les commandes est donc sorti de la grille, et la rangée ne
+     mesure plus que ce qu'elle doit mesurer. `align-items: stretch` (pages.css)
+     fait le reste : le Registre reçoit exactement cette hauteur-là, et sa liste
+     l'occupe jusqu'au dernier pixel. */
+  const colonneGauche = e('div.demo__scene', {}, [cadre, transport.element]);
 
   const large = matchMedia(`(min-width: ${SEUIL_DEUX_COLONNES}px)`).matches;
   const colonneRegistre = large
     ? e('aside.registre-colonne', {}, [registre.element])
-    : e('details.registre-repli', { open: true }, [
-      e('summary.h2-machine', { texte: t('registre.titre') }),
-      registre.element,
-    ]);
+    // ★ En UNE colonne, plus de `<details>` : « sur mobile, très bien, sauf
+    //   qu'il peut prendre toute la largeur comme la scène dès lors qu'il ne
+    //   loge plus convenablement à côté » (l'auteur). Le `<summary>` répétait
+    //   le titre que le Registre porte désormais lui-même, et le repli
+    //   n'apportait rien : il était ouvert par défaut.
+    : e('div.registre-pleine-largeur', {}, [registre.element]);
 
   const section = e('div.page.demo', {}, [
     e('a.evitement', { href: '#registre-titre', texte: t('demo.allerAuRegistre') }),
     ...bandeaux,
     e('div.demo__entete', {}, [
-      e('p.demo__methode', {
-        texte: t('demo.methode', {
-          rang: approche.rang ?? 1,
-          titre: titreApproche(approche) || t('demo.sansTitre'),
-        }),
-      }),
-      e('p.surtitre', { texte: t('demo.surtitre') }),
-      e('h1', {}, [e('span.saisie-citee', { texte: guillemets(abreger(saisie, 120)) })]),
+      // ★ PLUS DE LIGNE « MÉTHODE 1 — … » ICI : elle est devenue le titre du
+      // Registre, à droite (`creerRegistre`, option `titre`).
+      e('div.demo__titre', {}, [
+        e('div', {}, [
+          e('p.surtitre', { texte: t('demo.surtitre') }),
+          e('h1', {}, [e('span.saisie-citee', { texte: guillemets(abreger(saisie, 120)) })]),
+        ]),
+        partage,
+      ]),
       // ★ PLUS DE DESCRIPTION ICI — et c'est le pendant exact de ce qui a été
       // retiré des titres. La suite des règles (« On prend les lettres une par
       // une · Numérologie chaldéenne · On fait la moyenne ») a toute sa valeur
@@ -420,17 +457,11 @@ export function pageDemonstration(ctx) {
       // est soit du spoiler — la scène va montrer chaque opération à son tour,
       // et la lire d'avance en retire la surprise —, soit de la redite, puisque
       // Le Registre l'écrit étape par étape, et lui l'écrit AU MOMENT où elle
-      // se produit. `regleApproche` reste appelée ailleurs : le scénario la
-      // transporte dans `methode.rule` (`recherche/index.js`), qui alimente les
-      // métadonnées et Le Registre. C'est l'AFFICHAGE en tête de page qui
-      // disparaît, pas la donnée.
-      //
-      // Accessibilité : cette phrase ne nommait rien — le cadre de la scène
-      // tient son nom accessible de `demo.scene` et Le Registre du sien
-      // (`registre-titre`), aucun `aria-describedby` ne la visait. Il n'y a
-      // donc pas de trou à reboucher, et un `grep demo__regle` le vérifie.
+      // se produit.
     ]),
     e('div.demo__grille', {}, [colonneGauche, colonneRegistre]),
+    registre.regionLive,
+    raccourcis,
   ]);
 
   const detacherClavier = brancherClavier(section, lecteur, {
@@ -474,9 +505,20 @@ export function pageDemonstration(ctx) {
     const element = e('div.scene-voile', {}, [bouton]);
 
     let parti = false;
-    const lever = () => {
+    /**
+     * @param {{focus?:boolean, jouer?:boolean}} [comment]
+     *   Les deux valent `true` quand c'est le bouton du voile qui lève : il
+     *   vient de disparaître sous le pointeur, donc le focus doit atterrir
+     *   quelque part, et rien n'a encore été lancé.
+     *   Ils valent `false` quand le lever est PROVOQUÉ par une commande de la
+     *   barre de transport : la lecture est déjà partie — la relancer
+     *   rembobinerait —, et déplacer le focus arracherait le clavier au bouton
+     *   sur lequel on vient d'appuyer, où l'on s'attend à retrouver Espace.
+     */
+    const lever = (comment = {}) => {
       if (parti) return;
       parti = true;
+      const { focus = true, jouer = true } = comment;
       // ★ LE SON PART ACTIF — sauf refus explicite. `sonParDefautActif` ne
       //   touche à rien si le visiteur s'est déjà prononcé : c'est « activé par
       //   défaut », pas « activé de force » (`reglages.js`, `sonTranche`).
@@ -488,8 +530,8 @@ export function pageDemonstration(ctx) {
       element.remove();
       // Le focus suit ce qui vient de disparaître : sans ça, il retomberait sur
       // `<body>` et le clavier repartirait du haut de la page.
-      cadre.focus({ preventScroll: true });
-      lecteur.play();
+      if (focus) cadre.focus({ preventScroll: true });
+      if (jouer) lecteur.play();
       if (transport) transport.rafraichir();
     };
 

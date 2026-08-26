@@ -163,3 +163,77 @@
    atteint le bouton, quelle que soit la forme dessinée. */
 .transport__bouton svg,
 .transport__bouton svg * { pointer-events: none; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   L'INFOBULLE — le dessin de g1migrator, transposé
+   ────────────────────────────────────────────────────────────────────────────
+   « Utilise le même style que dans g1migrator pour les clics sur une adresse
+   g1 : la mini infobulle, centrée avec un triangle qui pointe vers l'élément
+   qui "parle" » (l'auteur). Original : `.address-copied-tooltip`, dans
+   `g1migrator/src/style.css` — fond de la couleur du texte, texte de la
+   couleur du fond, triangle en `::after`, entrée en fondu qui monte.
+
+   Deux écarts, et tous deux imposés par l'emploi qu'on en fait ici :
+
+   ★ `position: fixed`, pas `absolute`. La bulle est montée sur `<body>`, donc
+     aucun ancêtre en `overflow` ne la coupe — les dalles de la jauge vivent
+     dans une rangée qui peut défiler, et une bulle rognée à mi-mot ne dit rien.
+     `top`/`left` sont écrits par `src/app/infobulle.js`.
+
+   ★ `white-space: normal` et plusieurs lignes. L'accusé de partage en compte
+     trois ; l'original n'en portait qu'une, d'où son `nowrap`.
+
+   La pointe du triangle est pilotée par `--pointe`, en pixels depuis le bord
+   gauche de la bulle : quand celle-ci s'est décalée pour ne pas sortir de la
+   fenêtre, le triangle, lui, reste sur le centre de ce qu'il désigne.
+   ⚠ Le `5px` de `border-width` ci-dessous est en double avec `TRIANGLE` dans
+   `src/app/infobulle.js`. Les deux doivent bouger ensemble. */
+.infobulle {
+  position: fixed;
+  z-index: 60;
+  max-width: min(22rem, calc(100vw - 16px));
+  padding: var(--e1) var(--e2);
+  background: var(--fg);
+  color: var(--canvas);
+  font-family: var(--pedagogue);
+  font-size: var(--fs-xs);
+  line-height: 1.35;
+  text-align: center;
+  border-radius: var(--r-champ);
+  box-shadow: 0 2px 8px rgb(0 0 0 / .25);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--t-court) ease-out, transform var(--t-court) ease-out;
+}
+.infobulle__ligne { display: block; }
+.infobulle__ligne:empty { display: none; }
+
+.infobulle--vue { opacity: 1; transform: translateY(0); }
+
+/* L'adieu : le fondu de la dernière seconde. Il n'écrase pas la transition
+   d'entrée, il la remplace — d'où la durée écrite ici. */
+.infobulle--adieu { opacity: 0; transition: opacity 1s linear; }
+
+.infobulle::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: var(--pointe, 50%);
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--fg);
+}
+/* Bulle passée SOUS sa cible faute de place au-dessus : le triangle se
+   retourne et repasse de l'autre côté. */
+.infobulle--dessous::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .infobulle { transition: none; transform: none; }
+  .infobulle--vue { transform: none; }
+  .infobulle--adieu { transition: none; }
+}

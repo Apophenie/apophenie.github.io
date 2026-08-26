@@ -2682,8 +2682,8 @@ attendu sur les 7 méthodes du README sert de premier jeu de vérification.
 >    énumérer. Tables et règle d'assemblage : `src/recherche/titres.js`.
 >
 > 2. **Le compte de séries remonte dans le LISTING, et n'en redescend jamais.**
->    Il s'affiche en « n × 6⋅6⋅6 » à cheval sur le bord DROIT du panneau — le pendant
->    exact du numéro de rang à gauche — et **seulement quand n > 1** : « 1 × 6⋅6⋅6 »
+>    Il s'affiche en « n × 666 » à cheval sur le bord DROIT du panneau — le pendant
+>    exact du numéro de rang à gauche — et **seulement quand n > 1** : « 1 × 666 »
 >    n'apprend rien, puisque toute voie mène à 666. Le badge est un dessin
 >    (`aria-hidden`), doublé d'une phrase pleine dans un `.visuellement-cachee` —
 >    « cinq séries de 666 » — pour qui l'écoute. `src/app/pages/resultat.js`.

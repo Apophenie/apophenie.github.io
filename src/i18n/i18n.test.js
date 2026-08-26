@@ -133,7 +133,7 @@ test('aucune valeur vide, aucune valeur restée identique par oubli de traductio
     'resultat.memo.resonance', 'resultat.memo.portee', 'resultat.memo.registre',
     'demo.raccourcis.d', 'demo.debug.url', 'demo.debug.source',
     'registre.transformation',   // « Transformation » s'écrit pareil dans les deux langues
-    // Le badge de séries du listing (« 5 × 6⋅6⋅6 ») est un DESSIN, pas une
+    // Le badge de séries du listing (« 5 × 666 ») est un DESSIN, pas une
     // phrase : un chiffre, un signe multiplié, trois 6 séparés de points
     // médians. Il n'a pas plus de langue qu'un cadran. La phrase que lit un
     // lecteur d'écran, elle, est traduite — c'est `resultat.voieSeries`.

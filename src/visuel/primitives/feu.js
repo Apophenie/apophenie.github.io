@@ -177,6 +177,28 @@ export const COUCHES = Object.freeze([
 export const PERIODES = Object.freeze({ min: 653, max: 1129 });
 
 /**
+ * ★ LA GERMINATION — de la graine à la flamme pleine.
+ *
+ * « Idéalement je voudrais qu'elles germent petit puis qu'elles grandissent
+ * progressivement jusqu'à atteindre leur taille actuelle » (l'auteur). La
+ * taille d'arrivée ne change donc PAS : ce qui change, c'est qu'on y arrive au
+ * lieu d'y être posé.
+ *
+ * ★ Elle est obtenue par un `transform: scale()` sur l'enveloppe du foyer, et
+ * jamais en animant le filtre. Un filtre animé coûte plus d'un cœur (mesuré,
+ * `_feu-perf.html`) parce qu'il faut re-tramer les cinq flous à chaque image ;
+ * une enveloppe qui grandit ne fait que ré-échantillonner une texture déjà
+ * tramée, ce que le compositeur sait faire sans le processeur.
+ *
+ * `duree` : la pousse d'un foyer, à ±20 % près.
+ * `echelonnement` : l'étalement des départs. Il a deux raisons, l'une visible
+ *   et l'autre non : un feu qui prendrait d'un seul coup sur les six chiffres
+ *   serait le retour du défaut « ils sont identiques », ET les six premiers
+ *   tramages de filtre tomberaient sur la même image — c'est-à-dire un gel.
+ */
+export const GERMINATION = Object.freeze({ duree: 1400, echelonnement: 900 });
+
+/**
  * Empreinte FNV-1a 32 bits d'une chaîne, ramenée à `[0,1[`.
  *
  * ★ C'est le remède à « ils sont identiques ». Sans elle, les six 6 d'un verdict
@@ -259,12 +281,26 @@ export function feuDe({ fontSize, id, part = '', palette }) {
   //   verdict d'un seul coup de jauge.
   const retard = -Math.round(periode * graine2(cle, 'phase'));
 
+  // ★ LA GERMINATION — « je voudrais qu'elles germent petit puis qu'elles
+  //   grandissent progressivement jusqu'à atteindre leur taille actuelle »
+  //   (l'auteur). Elle est propre au foyer, comme tout le reste : un feu qui
+  //   partirait au même instant sur les six chiffres serait le retour exact du
+  //   défaut « ils sont identiques ».
+  //
+  //   ★ ET ELLE SERT AUSSI LA MACHINE. Les six premières germinations sont
+  //   échelonnées, donc les six tramages de filtre ne tombent pas sur la même
+  //   image : au lieu d'un gel d'une seconde, le coût s'étale.
+  const pousse = Math.round(GERMINATION.duree * (0.8 + 0.4 * graine2(cle, 'pousse')));
+  const semis = Math.round(GERMINATION.echelonnement * graine2(cle, 'semis'));
+
   return {
     a: chaine(fontSize, ampleur, palette, 'A'),
     b: chaine(fontSize, ampleur, palette, 'B'),
     periode,
     retard,
     ampleur: arr(ampleur),
+    pousse,
+    semis,
   };
 }
 

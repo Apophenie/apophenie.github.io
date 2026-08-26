@@ -176,7 +176,13 @@ try {
        AGPL-3.0 pour le code, SIL OFL pour les polices, CC0 pour les sons —
        vivent dans le README du dépôt, qui est leur place. -->
   <p data-i18n-html="pied.libre">Projet libre, <a href="https://framagit.org/1crea/numherololgeek">remonter aux sources</a>.</p>
-  <p data-i18n="pied.silence">Aucun cookie, aucune mesure d’audience, aucun appel réseau après le chargement.</p>
+  <!-- ★ La ligne « aucun cookie, aucune mesure d’audience, aucun appel réseau »
+       a été RETIRÉE. « C’est vrai, mais n’en fais pas un argument marketing :
+       la page doit être très sobre, concentrée sur l’essentiel » (l’auteur).
+       Le fait ne disparaît pas — il est vérifiable dans le code et écrit dans
+       le README —, c’est sa mise en avant qui s’en va. Les clés `pied.silence`
+       restent dans les deux langues : rien d’autre ne les lit, mais les
+       supprimer ferait diverger les catalogues, que `i18n.test.js` compare. -->
 </footer>
 
 <script type="module" src="app/main.js"></script>

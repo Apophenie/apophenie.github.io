@@ -124,7 +124,7 @@ export const fr = {
        le BADGE est un dessin (les points médians découpent les trois 6
        comme sur un cadran), la PHRASE est ce qu'un lecteur d'écran annonce.
        Rien n'est affiché quand n vaut 1 (`resultat.js › compteurSeries`). */
-    voieSeriesBadge: '{n} × 6⋅6⋅6',
+    voieSeriesBadge: '{n} × 666',
     voieSeries: '{n} séries de 666',
     voieSansTitre: 'Approche n° {rang}',
     /* Les deux accès d'un panneau de voie. Le libellé VISIBLE est court — il
@@ -175,7 +175,7 @@ export const fr = {
        ce bouton EST le geste que le navigateur attend pour autoriser le son, et
        le réglage part donc actif — sauf si le visiteur l'a coupé, auquel cas son
        choix tient et l'intitulé le dit. */
-    jouerLabel: 'Lancer la démonstration',
+    jouerLabel: 'Démonstration étape par étape',
     jouerAvecSon: 'Lancer, avec le son',
     jouerSansSon: 'Lancer, sans le son',
     allerAuRegistre: 'Aller au registre',
@@ -254,6 +254,7 @@ export const fr = {
 
   partage: {
     partager: 'Partager',
+    bulleCopie: 'Lien copié\nCollez-le dans vos réseaux favoris\npour faire éclater la vérité !',
     partage: 'Partagé.',
     copie: 'Texte copié dans le presse-papier.',
     copieEchouee: 'Copie impossible : sélectionnez le lien à la main.',
