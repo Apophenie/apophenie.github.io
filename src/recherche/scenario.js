@@ -1228,11 +1228,31 @@ export function placeDuCouronnement(steps, iCornes) {
  * @param {'fr'|'en'} langue
  * @returns {number} le nombre de couronnements insérés
  */
-function couronnerLesTriptyques(steps, tokens, aReveler, langue) {
+function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_DEFAUT) {
+  /* ★ HORS DE 666, AUCUNE CORNE — et la longueur des séries suit la cible.
+     Point d'intégration entre deux chantiers menés en parallèle : celui des
+     cornes, qui couronne les triptyques que personne ne couronnait, et celui
+     des cibles, qui ouvre le verdict à une suite de chiffres quelconque.
+
+     Deux raisons de s'arrêter net quand la cible n'est pas 666, et la première
+     suffit : une corne de diable est l'emblème du 666, elle ne veut rien dire
+     au-dessus d'un 111 ou d'un 007. La seconde est de méthode — les emblèmes
+     propres aux autres cibles sont spécifiés mais pas encore dessinés
+     (`.planning/A-VENIR-cibles.md`) : poser des cornes en attendant serait
+     affirmer là où l'on prétend montrer.
+
+     ⚠ Et la longueur d'une série ne vaut plus trois : elle vaut celle de la
+     cible. Le `SERIE` en dur qui traînait ici venait d'un monde où le verdict
+     ne pouvait être qu'un multiple de trois. Il est remplacé par la mesure,
+     même si le garde-fou ci-dessus rend le cas inatteignable aujourd'hui — une
+     constante fausse qui dort est une constante qui mordra. */
+  if (!cible.defaut) return 0;
+  const serie = cible.texte.length;
+
   // Le verdict ne découpe en séries que ce qui est fait de séries ENTIÈRES
-  // (`decouperEnSeries`, `visuel/primitives/reveal.js`). Un verdict de quatre
-  // chiffres n'a pas de triptyque à couronner : il n'en montre aucun.
-  if (!aReveler.length || aReveler.length % SERIE !== 0) return 0;
+  // (`decouperEnSeries`, `visuel/primitives/reveal.js`). Un verdict qui n'est
+  // pas un multiple de la cible n'a pas de série à couronner.
+  if (!aReveler.length || aReveler.length % serie !== 0) return 0;
 
   // Ce que `mz` a déjà couronné, relevé sur les cibles elles-mêmes.
   const deja = new Set();
@@ -1244,8 +1264,8 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue) {
 
   const lignes = suivreLaLigne(tokens, steps);
   const poses = [];
-  for (let rang = 0; rang * SERIE < aReveler.length; rang++) {
-    const trio = aReveler.slice(rang * SERIE, rang * SERIE + SERIE);
+  for (let rang = 0; rang * serie < aReveler.length; rang++) {
+    const trio = aReveler.slice(rang * serie, rang * serie + serie);
     if (trio.some((id) => deja.has(id))) continue;
     // ★ L'INSTANT, et il n'y en a QU'UN : celui où le trio est au complet.
     //
@@ -1961,7 +1981,7 @@ export function construireScenario(approche, ctx = {}) {
   //   ne répondent pas à la même question. Celle-ci demande « où le 666 est-il
   //   écrit pour la première fois ? » ; celle-là, « peut-on le dire plus tôt
   //   que là où l'étape a été posée ? ». La seconde suppose la première.
-  couronnerLesTriptyques(steps, tokens, aReveler, langue);
+  couronnerLesTriptyques(steps, tokens, aReveler, langue, cible);
 
   const cornes = registre === 'sobre'
     ? sobrifierLesCornes(steps)
