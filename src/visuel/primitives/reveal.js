@@ -113,8 +113,22 @@ import { EASE } from '../constants.js';
 
 export const name = 'reveal';
 
-/** Longueur d'une série. Le 666 du titre, et rien d'autre. */
+/**
+ * Longueur d'une série — par DÉFAUT. Le 666 du titre, et rien d'autre.
+ *
+ * ★ Elle n'est plus une loi : l'op porte un champ `serie`, dérivé de la cible
+ * par l'émetteur (`recherche/scenario.js`). Un verdict qui vise `13` se découpe
+ * par deux, un `007` par trois. Le défaut reste trois — c'est la longueur de la
+ * seule cible que le site promette dans son titre, et c'est ce qu'un scénario
+ * écrit avant l'existence des cibles voulait dire.
+ */
 const SERIE = 3;
+
+/** La longueur de série demandée par l'op, bornée à ce qui a un sens. */
+function serieDe(op) {
+  const n = op && Number(op.serie);
+  return Number.isInteger(n) && n >= 1 && n <= 9 ? n : SERIE;
+}
 
 /** Part de la hauteur de scène occupée par la hauteur de capitale du verdict. */
 const AIR_VERTICAL = 0.62;
@@ -233,7 +247,7 @@ export function plan(ctx) {
 
   // Combien de 666 ? Un découpage n'a de sens que si la suite EST faite de
   // séries entières — sinon on n'invente pas des frontières qui n'existent pas.
-  const series = decouperEnSeries(ids);
+  const series = decouperEnSeries(ids, serieDe(ctx.op));
   const multi = series.length > 1;
   const lignes = series.length > 3 ? 2 : 1;
   // ★ Le regroupement est INUTILE quand les triptyques sont déjà là.
@@ -698,10 +712,10 @@ function allumerLOrage(ctx, { nuit, eclair, brasiers }, apresLeMouvement) {
  * quatre chiffres existe (les bancs d'essai en ont un) : y ouvrir un vide après
  * le troisième affirmerait un « 666 + 6 » que personne n'a démontré.
  */
-function decouperEnSeries(ids) {
-  if (ids.length <= SERIE || ids.length % SERIE !== 0) return [ids];
+function decouperEnSeries(ids, serie = SERIE) {
+  if (ids.length <= serie || ids.length % serie !== 0) return [ids];
   const out = [];
-  for (let i = 0; i < ids.length; i += SERIE) out.push(ids.slice(i, i + SERIE));
+  for (let i = 0; i < ids.length; i += serie) out.push(ids.slice(i, i + serie));
   return out;
 }
 
