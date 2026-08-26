@@ -257,6 +257,15 @@ export const fr = {
     sonActiver: 'Activer le son',
     sonCouper: 'Couper le son',
     sonEnAttente: 'Son activé — il partira au premier clic dans la page',
+    /* Le plein écran. Un seul bouton pour les deux sens, donc DEUX libellés,
+       et chacun dit ce qu'un clic FERA — jamais l'état où l'on se trouve.
+       Le libellé court ne redit pas « plein écran » : sous un picto qui montre
+       déjà un cadre, ce serait la troisième fois qu'on lit la même chose. Il
+       dit le GESTE, et les deux gestes s'opposent en un mot. */
+    pleinEcranCourt: 'Agrandir',
+    sortiePleinEcranCourt: 'Réduire',
+    pleinEcran: 'Passer la scène en plein écran',
+    sortiePleinEcran: 'Quitter le plein écran',
   },
 
   registre: {

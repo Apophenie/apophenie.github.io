@@ -14,13 +14,15 @@
  *  composants pour un même geste auraient fini par diverger : il n'y en a
  *  qu'un.
  *
- *  ★ POSITIONNÉE EN `fixed`, ET MONTÉE SUR `<body>`.
+ *  ★ POSITIONNÉE EN `fixed`, ET MONTÉE SUR `<body>` — sauf en plein écran.
  *
  *  Une bulle en `absolute` dans son hôte demande que chaque hôte soit
  *  positionné, et se fait couper par le premier ancêtre en `overflow` — or les
  *  dalles de la jauge vivent justement dans une rangée qui peut défiler. En
  *  `fixed` sur `<body>`, rien ne la coupe ; en échange elle doit se refermer au
  *  défilement, ce qu'elle fait.
+ *  L'unique exception est la scène en plein écran : `<body>` n'y est plus peint
+ *  du tout, et la bulle doit donc se monter dedans. Voir `hote()`.
  *
  *  ★ PUREMENT VISUELLE. Le nom accessible reste sur l'élément hôte
  *  (`aria-label`) : la bulle est en `aria-hidden`, sinon les technologies
@@ -32,6 +34,7 @@
  *  fuir) et persistante (elle ne se referme pas toute seule). */
 
 import { e } from './dom.js';
+import { apiPleinEcran } from './pleinecran.js';
 
 /** Distance entre la pointe du triangle et le bord de l'élément qui parle. */
 const ECART = 8;
@@ -44,6 +47,26 @@ const MARGE = 8;
 /** La bulle est UNIQUE : une seconde demande remplace la première plutôt que
  *  d'empiler deux bulles qui se recouvriraient. */
 let active = null;
+
+/** Où monter la bulle.
+ *
+ *  ★ `<body>` — SAUF quand une scène occupe l'écran.
+ *
+ *  Le navigateur ne rend que l'élément en plein écran et sa descendance : tout
+ *  le reste du document, `<body>` compris, cesse d'être peint. Une bulle montée
+ *  là serait donc parfaitement invisible pendant tout le plein écran — et c'est
+ *  précisément là qu'on en a besoin, puisque les dalles de la jauge et les
+ *  boutons de transport y sont, eux, bien visibles. On la monte donc DANS
+ *  l'élément plein écran.
+ *
+ *  Le `position: fixed` ne bouge pas pour autant : il se mesure sur la fenêtre
+ *  d'affichage, quel que soit le parent, et les coordonnées calculées par
+ *  `placer()` restent donc justes des deux côtés. */
+function hote() {
+  const api = apiPleinEcran(document);
+  const plein = api && api.element();
+  return (plein && typeof plein.appendChild === 'function') ? plein : document.body;
+}
 
 /** Ferme la bulle en cours, s'il y en a une. */
 export function fermerInfobulle() {
@@ -100,7 +123,7 @@ export function montrerInfobulle(cible, texte, options = {}) {
   if (!cible || !texte || typeof document === 'undefined') return { fermer() {} };
 
   const bulle = creerBulle(texte);
-  document.body.appendChild(bulle);
+  hote().appendChild(bulle);
   placer(bulle, cible);
   // Le fondu d'entrée démarre à la frame suivante : posée et classée dans le
   // même tic, la transition n'aurait pas d'état de départ à quitter.
@@ -165,16 +188,26 @@ export function montrerInfobulle(cible, texte, options = {}) {
  * droit), et ne s'en va qu'au départ du pointeur, à la perte du focus, ou sur
  * Échap.
  *
+ * ★ `texte` accepte une FONCTION, et c'est ce qui la rend utilisable sur un
+ * bouton à deux états. Le plein écran de la barre de transport dit « Passer la
+ * scène en plein écran » puis « Quitter le plein écran » : une chaîne capturée
+ * à l'attache serait restée sur le premier libellé, et la bulle aurait annoncé
+ * le contraire de ce que le bouton allait faire. La fonction est lue à
+ * L'OUVERTURE, donc elle dit toujours l'état du moment.
+ *
+ * @param {Element} element
+ * @param {string|Function} texte  le message, ou de quoi le composer à la volée
  * @returns {Function} de quoi la détacher
  */
 export function infobuller(element, texte) {
   if (!element || !texte) return () => {};
+  const dire = typeof texte === 'function' ? texte : () => texte;
   let mien = null;
   let surLaBulle = false;
 
   const ouvrir = () => {
     if (mien && active && active.bulle) return;
-    mien = montrerInfobulle(element, texte);
+    mien = montrerInfobulle(element, dire());
     // ★ « Survolable » (WCAG 1.4.13) : entrer dans la bulle ne doit pas la
     //   faire fuir — sinon un texte long devient impossible à lire en entier.
     const bulle = active && active.bulle;

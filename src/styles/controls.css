@@ -136,6 +136,13 @@
    annonce quelque chose qui ne s'entend pas, et il ne le cache pas. */
 .transport__bouton--reglage[data-etat="attente"] { color: var(--fg-2); opacity: .72; }
 
+/* Le plein écran, troisième de la même famille et même discipline : l'état se
+   lit sur le picto — quatre équerres qui poussent vers les bords, ou qui
+   rentrent vers le centre —, la couleur ne fait qu'atténuer l'état de repos.
+   Aucune pastille dorée : ce bouton ne signale rien, il propose. */
+.transport__bouton--reglage[data-etat="plein"] { color: var(--fg); }
+.transport__bouton--reglage[data-etat="fenetre"] { color: var(--fg-2); }
+
 /* Icônes : tracé de 2 px, terminaisons carrées, currentColor. Filet gravé,
    pas d'icône arrondie générique. */
 .ico-trait {
@@ -148,6 +155,89 @@
 .ico-plein { fill: currentColor; stroke: none; }
 
 .transport-groupe { margin-top: var(--e3); }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LE CONTRÔLEUR EN PLEIN ÉCRAN — il ne paraît que dans le quart inférieur
+   ────────────────────────────────────────────────────────────────────────────
+   « Le contrôleur de lecture n'apparaît alors qu'au survol (ou clic pour que
+   les mobiles puissent y accéder) dans le quart inférieur de l'image »
+   (l'auteur). La scène, elle, est dimensionnée dans `pages.css`.
+
+   ★ LA ZONE RÉVÉLATRICE EST L'ÉLÉMENT LUI-MÊME, pas une mesure de souris.
+   On aurait pu écouter `pointermove` sur la scène et comparer `clientY` au
+   quart de la hauteur. Ç'aurait été un calcul par image, refait à chaque
+   redimensionnement, et faux dès qu'un doigt remplace la souris. Le contrôleur
+   OCCUPE donc le quart inférieur — un rectangle de 25 % de haut, transparent au
+   regard mais pas au pointeur — et le survol devient ce qu'il est partout
+   ailleurs : `:hover` sur un élément. Le CSS n'a plus rien à calculer, et la
+   part vit dans `PART_REVELATRICE` (`src/app/pleinecran.js`), qu'un test
+   compare à ce `25%` pour qu'ils ne dérivent pas en silence.
+
+   ★ LE PLANCHER DE 108 px PASSE AVANT LE QUART, et l'arithmétique le dit : le
+   bouton principal mesure 56 px, la jauge 24, la gouttière qui les sépare 12,
+   plus 16 de respiration en bas — soit 108. Sur un téléphone couché de 360 px
+   de haut, le quart n'en ferait que 90 : le contrôleur déborderait de sa propre
+   zone de survol, et l'on découvrirait des boutons en dehors de l'endroit où
+   l'on doit passer pour les faire venir. Une cible tapable qu'on ne peut pas
+   faire apparaître ne vaut pas mieux qu'une cible trop petite.
+
+   ★ `opacity` SEULE, et rien qui bouge. Deux raisons, et aucune n'est
+   décorative :
+     · un contrôle qui glisse en arrivant est un contrôle qu'on rate — le
+       pointeur est déjà là où il va apparaître, et lui faire poursuivre sa
+       cible est le contraire du service rendu ;
+     · animer l'opacité d'un élément qui porte AUSSI une transformation
+       individuelle (`translate` / `rotate` / `scale`) ou un `filter` est la
+       recette du défaut de compositeur de Firefox (CONTRACTS §3.2, gardé par
+       `src/visuel/tests/compositeur.test.js`). Ne rien transformer du tout est
+       la façon la plus sûre de ne pas y retomber.
+
+   ★ ET SURTOUT : `opacity: 0`, PAS `visibility` NI `display`.
+   Un contrôle invisible reste focusable, donc le clavier peut l'atteindre —
+   et `:focus-within` le fait paraître à l'instant même où le focus y entre,
+   avant que le moindre écouteur JavaScript n'ait à intervenir. C'est la
+   condition pour que ce mode ne soit pas un cul-de-sac : un contrôleur qui
+   n'apparaît qu'à la souris est un contrôleur inaccessible, et `Échap` seul ne
+   suffit pas — encore faut-il savoir qu'il existe. Masqué autrement, le bouton
+   sortirait de l'ordre de tabulation, exactement le défaut que l'attribut
+   `disabled` nous fait éviter partout ailleurs dans ce fichier. */
+.demo__scene[data-plein-ecran] .transport-groupe {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 25%;
+  min-height: 108px;
+  margin: 0;
+  padding: var(--e2);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  /* Le contrôleur se pose SUR l'image : sans ce dégradé, un filet clair de la
+     scène passant sous un libellé clair le rendrait illisible. Le voile monte
+     de l'opaque au transparent, donc il n'assombrit que ce qu'il faut. */
+  background: linear-gradient(to top,
+    color-mix(in srgb, var(--canvas) 88%, transparent) 0%,
+    color-mix(in srgb, var(--canvas) 70%, transparent) 55%,
+    transparent 100%);
+  opacity: 0;
+  transition: opacity var(--t-court) ease;
+}
+.demo__scene[data-plein-ecran] .transport-groupe[data-commandes="vues"],
+.demo__scene[data-plein-ecran] .transport-groupe:hover,
+.demo__scene[data-plein-ecran] .transport-groupe:focus-within { opacity: 1; }
+
+/* La jauge ne se resserre pas en plein écran : elle garde ses cases tapables et
+   sa marge, mais elle cesse d'être ce qu'on lit en premier. */
+.demo__scene[data-plein-ecran] .jauge { margin-top: 0; margin-bottom: var(--e2); }
+/* Le fond du dégradé remplace celui de la barre : deux aplats superposés
+   feraient un rectangle plus sombre au milieu d'un voile dégradé. */
+.demo__scene[data-plein-ecran] .transport { margin-top: 0; background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Le fondu disparaît, la révélation reste : l'information passe, le
+     mouvement non. */
+  .demo__scene[data-plein-ecran] .transport-groupe { transition: none; }
+}
 
 .region-live { min-height: 1px; }
 

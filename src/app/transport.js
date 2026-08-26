@@ -83,6 +83,28 @@ const ICONES = {
     s('path', { class: 'ico-plein', d: 'M4 9 h3 L11 5 v14 L7 15 H4 Z' }),
     s('path', { class: 'ico-trait', d: 'M17 7 V13' }),
     s('path', { class: 'ico-trait', d: 'M17 16 V17.5' })),
+  // Le plein écran : quatre équerres, et RIEN d'autre dans le viewBox.
+  //
+  // Le picto ne dessine pas un écran, il dessine un CADRE qui s'ouvre ou se
+  // ferme — c'est l'idiome des lecteurs vidéo depuis toujours, et c'est le seul
+  // qui tienne à 24 px sans qu'on doive deviner ce qu'il y a dedans. Les deux
+  // états ne se distinguent pas par une couleur ni par une barre ajoutée, mais
+  // par la POSITION des coins : dehors, ils poussent vers les bords ; dedans,
+  // ils rentrent vers le centre. Le geste que le bouton fera se lit donc dans
+  // la direction du dessin, à l'exacte manière du chevron des redites.
+  //
+  // Au TRAIT comme les redites et le son, et pour la même raison : ce bouton
+  // règle l'affichage, il ne déplace pas la tête de lecture.
+  pleinEcran: () => ico(
+    s('path', { class: 'ico-trait', d: 'M4 9 V4 H9' }),
+    s('path', { class: 'ico-trait', d: 'M15 4 H20 V9' }),
+    s('path', { class: 'ico-trait', d: 'M20 15 V20 H15' }),
+    s('path', { class: 'ico-trait', d: 'M9 20 H4 V15' })),
+  sortiePleinEcran: () => ico(
+    s('path', { class: 'ico-trait', d: 'M9 4 V9 H4' }),
+    s('path', { class: 'ico-trait', d: 'M15 4 V9 H20' }),
+    s('path', { class: 'ico-trait', d: 'M20 15 H15 V20' }),
+    s('path', { class: 'ico-trait', d: 'M4 15 H9 V20' })),
 };
 
 function boutonTransport(cle, libelle, nomAccessible, principal = false) {
@@ -106,10 +128,14 @@ function boutonTransport(cle, libelle, nomAccessible, principal = false) {
  *   quatre étapes ne sont pas des « transformations » et dont le bouton de
  *   lecture ne « lance » pas une démonstration. Toute clé absente retombe sur
  *   le dictionnaire : la barre des démonstrations n'en passe aucune.
- * @param {{repetitions?:boolean|number}} [options] une valeur véridique ajoute
- *   la bascule « redites accélérées » ; un nombre donne en plus le facteur à
- *   annoncer dans le libellé. Réservé aux démonstrations : la révélation du
- *   logo ne répète aucun geste, le bouton n'y aurait rien à régler.
+ * @param {{repetitions?:boolean|number, sons?:Object, pleinEcran?:Object}} [options]
+ *   `repetitions` : une valeur véridique ajoute la bascule « redites
+ *   accélérées » ; un nombre donne en plus le facteur à annoncer dans le
+ *   libellé. Réservé aux démonstrations : la révélation du logo ne répète aucun
+ *   geste, le bouton n'y aurait rien à régler.
+ *   `pleinEcran` : le contrôleur de `src/app/pleinecran.js`. La barre ne sait ni
+ *   quel élément agrandir, ni comment — elle lui demande son état et lui envoie
+ *   les clics, exactement comme elle fait du lecteur.
  * @returns {{element:HTMLElement, rafraichir:Function, detruire:Function}}
  */
 export function creerTransport(lecteur, libelles = {}, options = {}) {
@@ -196,11 +222,32 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     bSon.dataset.role = 'son';
   }
 
+  /* ── le plein écran, HUITIÈME contrôle et dernier de la barre ────────────
+     Même famille que les deux précédents : il ne déplace pas la tête de
+     lecture, il règle la façon dont on regarde. Et même règle qu'eux — il
+     n'existe QUE s'il peut agir. Sur un iPhone, où `requestFullscreen` n'existe
+     pas sur les éléments, `disponible` est faux et il n'y a pas de bouton :
+     six commandes honnêtes valent mieux que sept dont une ment.
+
+     Il est le DERNIER, et pas par hasard : c'est le seul dont l'effet déborde
+     de la démonstration — il change ce qu'on voit de la page entière. Le lire
+     en bout de rangée, après ce qui règle le rythme puis le son, suit l'ordre
+     du plus local au plus général. */
+  const plein = options.pleinEcran || null;
+  const bPlein = plein && plein.disponible
+    ? boutonTransport('pleinEcran', tt('pleinEcranCourt'), tt('pleinEcran'))
+    : null;
+  if (bPlein) {
+    bPlein.classList.add('transport__bouton--reglage');
+    bPlein.dataset.role = 'pleinEcran';
+  }
+
   const barre = e('div.transport', {
     role: 'group',
     'aria-label': tt('groupe'),
   }, [bDebut, bPrec, bLect, bSuiv, bFin,
-    ...(bRedites ? [bRedites] : []), ...(bSon ? [bSon] : [])]);
+    ...(bRedites ? [bRedites] : []), ...(bSon ? [bSon] : []),
+    ...(bPlein ? [bPlein] : [])]);
 
   const element = e('div.transport-groupe', {}, [jauge, barre]);
 
@@ -228,6 +275,14 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
   //   `pointerdown`). L'ordre n'a pas d'importance — la sonde a déjà eu lieu au
   //   `pointerdown`, avant le `click`.
   if (bSon) bSon.addEventListener('click', basculerSon);
+  /* ★ SYNCHRONE, et sans `rafraichir()` derrière.
+     `requestFullscreen` exige une activation utilisateur : elle est consommée
+     par tout ce qui attend une promesse avant l'appel. On appelle donc droit,
+     dans le gestionnaire. Et on ne repeint RIEN ici — la demande peut être
+     refusée, différée, ou déjà annulée par l'utilisateur avant d'aboutir. Le
+     bouton se repeint sur `fullscreenchange`, qui est le seul évènement qui
+     dise ce qui s'est réellement passé. */
+  if (bPlein) bPlein.addEventListener('click', () => { plein.basculer(); });
 
   let dejaLance = false;
 
@@ -314,18 +369,52 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     bSon._icone = neuve;
   }
 
+  /* ★ LE PLEIN ÉCRAN DIT CE QU'UN CLIC FERA, comme Lecture/Pause et comme le
+     son : un seul bouton, un NOM ACCESSIBLE variable, jamais `aria-pressed`.
+     Les deux ensemble produiraient l'annonce contradictoire « Quitter le plein
+     écran, activé ».
+
+     ★ Et son état ne vient PAS d'ici. `plein.actif()` relit
+     `document.fullscreenElement` : `Échap`, le menu du navigateur ou un refus
+     de la demande changent l'état sans nous prévenir autrement que par
+     `fullscreenchange`. Un drapeau tenu dans cette fermeture mentirait dans les
+     trois cas, et il mentirait précisément sur le bouton qui sert à sortir. */
+  function peindrePleinEcran() {
+    if (!bPlein) return;
+    const dedans = plein.actif();
+    bPlein.setAttribute('aria-label', libellePleinEcran());
+    bPlein._libelle.textContent = dedans ? tt('sortiePleinEcranCourt') : tt('pleinEcranCourt');
+    bPlein.dataset.etat = dedans ? 'plein' : 'fenetre';
+    const neuve = dedans ? ICONES.sortiePleinEcran() : ICONES.pleinEcran();
+    bPlein.replaceChild(neuve, bPlein._icone);
+    bPlein._icone = neuve;
+  }
+  /* L'infobulle lit une FONCTION, pas une chaîne figée : le libellé de ce
+     bouton change d'état, et une bulle attachée une fois pour toutes
+     annoncerait « Passer en plein écran » alors qu'on en sort. C'est le même
+     texte que le nom accessible — deux formulations du même fait finiraient
+     par diverger (voir les dalles de la jauge, plus haut). */
+  function libellePleinEcran() {
+    return plein.actif() ? tt('sortiePleinEcran') : tt('pleinEcran');
+  }
+  if (bPlein) detachements.push(infobuller(bPlein, libellePleinEcran));
+
   // `rafraichir` suit le lecteur — donc chaque image de la lecture. Les deux
   // bascules, elles, ne suivent que les réglages : elles se repeignent sur
   // `onReglages`, pas soixante fois par seconde pour rien. Le bouton du son
   // écoute EN PLUS le joueur, qui prévient quand le déblocage change — c'est
   // un fait du navigateur, pas une préférence, et rien d'autre ne le sait.
+  // Le plein écran, lui, n'écoute QUE le navigateur : ce n'est ni un réglage
+  // persisté ni un état du lecteur.
   const desabonner = lecteur.on ? lecteur.on('change', rafraichir) : () => {};
   const desabonnerReglages = (bRedites || bSon)
     ? onReglages(() => { peindreRedites(); peindreSon(); })
     : () => {};
   const desabonnerSons = bSon ? sons.on(peindreSon) : () => {};
+  const desabonnerPlein = bPlein ? plein.on(peindrePleinEcran) : () => {};
   peindreRedites();
   peindreSon();
+  peindrePleinEcran();
   rafraichir();
 
   return {
@@ -335,6 +424,7 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
       if (typeof desabonner === 'function') desabonner();
       desabonnerReglages();
       desabonnerSons();
+      desabonnerPlein();
       detachements.forEach((off) => off());
     },
   };

@@ -7,6 +7,7 @@ import { t, localiser } from '../../i18n/index.js';
 import { titreApproche, titreEtape } from '../libelles.js';
 import { creerTransport, brancherClavier } from '../transport.js';
 import { creerRegistre } from '../registre.js';
+import { creerPleinEcran } from '../pleinecran.js';
 import { boutonPartage } from '../partage.js';
 import { creerSons, brancherSons } from '../sons.js';
 import { interrupteurs } from '../entete.js';
@@ -219,9 +220,32 @@ export function pageDemonstration(ctx) {
   const sons = creerSons({ registre: scenique ? 'scenique' : 'sobre' });
   const debrancherSons = brancherSons(lecteur, sons, { scenario });
 
+  /* ── le PLEIN ÉCRAN de la scène ─────────────────────────────────────────
+     Créé avant la barre, qui a besoin de savoir s'il y a quelque chose à
+     agrandir avant de dessiner son bouton — même règle que pour le son.
+
+     ★ Les deux nœuds sont désignés par des FONCTIONS, et il le faut : la
+     colonne `.demo__scene` n'existe pas encore ici (elle se construit plus
+     bas, autour de la barre qu'on est en train de créer), et la barre non
+     plus. Le contrôleur ne les lit qu'au moment d'agir, c'est-à-dire longtemps
+     après. C'est le même dispositif que la condition d'autoplay ci-dessus, et
+     pour la même raison : ce qui est déclaré plus bas ne se NOMME pas ici, il
+     se lit plus tard.
+
+     ★ Et c'est bien la COLONNE qu'on agrandit, pas le cadre de la scène :
+     le navigateur ne rend que l'élément plein écran et sa descendance, si bien
+     qu'agrandir `#scene` ferait disparaître la barre de transport — donc le
+     bouton qui permet d'en ressortir. Le raisonnement complet est en tête de
+     `src/app/pleinecran.js`. */
+  const pleinEcran = creerPleinEcran({
+    cible: () => colonneGauche,
+    zone: () => transport && transport.element,
+  });
+
   transport = creerTransport(lecteur, {}, {
     repetitions: pont.facteurRepetitions(),
     sons,
+    pleinEcran,
   });
   /* ★ LE RÉGISSEUR — il règle la richesse du feu sur ce que la machine tient.
      Il ne tourne qu'en scénique : sans feu, il n'y a rien à régler. Le pourquoi
@@ -567,6 +591,13 @@ export function pageDemonstration(ctx) {
       debrancherSons();
       sons.detruire();
       transport.detruire();
+      // Après la barre : c'est elle qui portait le bouton. Le contrôleur, lui,
+      // a encore deux choses à rendre — le plein écran, dont le navigateur
+      // sortirait de toute façon en voyant la cible quitter le DOM, et surtout
+      // le VERROU D'ORIENTATION, qui, lui, ne se rend pas tout seul : il
+      // survivrait sous la page suivante, qui n'aurait plus aucun bouton pour
+      // le lever.
+      pleinEcran.detruire();
       registre.detruire();
       if (typeof lecteur.destroy === 'function') lecteur.destroy();
     },

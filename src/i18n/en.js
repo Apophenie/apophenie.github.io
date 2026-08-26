@@ -221,6 +221,14 @@ export const en = {
     sonActiver: 'Turn sound on',
     sonCouper: 'Turn sound off',
     sonEnAttente: 'Sound is on — it will start on your first click in the page',
+    // Full screen. One button for both directions, so two labels, and each one
+    // says what a click WILL DO — never the state you are in. The short label
+    // names the gesture rather than the mode: under a picto that already draws
+    // a frame, repeating "full screen" would be the third time you read it.
+    pleinEcranCourt: 'Expand',
+    sortiePleinEcranCourt: 'Shrink',
+    pleinEcran: 'Show the scene full screen',
+    sortiePleinEcran: 'Leave full screen',
   },
 
   registre: {

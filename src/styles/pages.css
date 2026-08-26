@@ -588,6 +588,73 @@
 @media (min-width: 760px) { .scene { aspect-ratio: 16 / 9; } }
 .scene:focus-visible { outline-offset: -4px; }
 
+/* ════════════════════════════════════════════════════════════════════════════
+   LE PLEIN ÉCRAN — la scène prend toute la place, le reste s'efface
+   ────────────────────────────────────────────────────────────────────────────
+   « Passer la scène en plein écran » (l'auteur). Ce qui devient plein écran est
+   la COLONNE `.demo__scene`, c'est-à-dire la scène ET ses commandes : le
+   navigateur ne rend que l'élément plein écran et sa descendance, donc agrandir
+   le seul cadre ferait disparaître la barre de transport — et avec elle le
+   bouton qui permet d'en sortir. Le raisonnement complet est en tête de
+   `src/app/pleinecran.js` ; la révélation du contrôleur est dans
+   `src/styles/controls.css`.
+
+   ★ Le sélecteur est `[data-plein-ecran]`, PAS `:fullscreen`. Trois raisons,
+   dans cet ordre :
+     · `:fullscreen` demande encore `:-webkit-full-screen` et `:-moz-full-screen`
+       en parallèle, et un sélecteur inconnu invalide TOUTE la règle qui le
+       contient — il faudrait donc écrire trois fois le même bloc ;
+     · l'attribut est posé par `pleinecran.js` sur `fullscreenchange`, donc au
+       même instant et depuis la même source que l'état du bouton : le dessin et
+       le libellé ne peuvent pas se contredire ;
+     · il désigne NOTRE scène, là où `:fullscreen` s'allumerait aussi si un
+       ancêtre passait en plein écran pour une autre raison.
+
+   ★ Aucune dimension n'est écrite. Le cadre se cale sur les quatre bords de son
+   parent, dont c'est le navigateur qui décide de la taille : la scène occupe
+   exactement l'écran, quel que soit son rapport de forme, y compris après une
+   bascule en paysage. Le `preserveAspectRatio="xMidYMid meet"` du SVG fait le
+   reste — le dessin est mis à l'échelle sans jamais être déformé. */
+/* ★ La boîte est écrite EN TOUTES LETTRES, alors que le navigateur la donne.
+   La feuille de style de l'agent utilisateur pose déjà `position: fixed`,
+   `inset: 0`, `width: 100%` et `height: 100%` sur tout élément en plein écran,
+   et elle les pose en `!important` : les quatre déclarations ci-dessous sont
+   donc, en fonctionnement normal, écrasées par des valeurs identiques.
+   Elles ne sont pas pour autant du bruit — elles rendent la règle AUTONOME.
+   Sans elles, `[data-plein-ecran]` seul (dans un banc d'essai, ou si un
+   navigateur servait l'attribut sans le pseudo-classe) donne une colonne dont
+   tous les enfants sont sortis du flux, donc une hauteur nulle et une scène
+   invisible. Une mise en page qui ne tient que par la feuille de l'agent
+   utilisateur est une mise en page qu'on ne peut pas vérifier. */
+.demo__scene[data-plein-ecran] {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Sans ça, le fond serait le noir du `::backdrop` du navigateur, qui n'est
+     ni le thème clair ni le thème sombre du site. */
+  background: var(--canvas);
+}
+.demo__scene[data-plein-ecran] .scene-cadre {
+  position: absolute;
+  inset: 0;
+  /* Le filet et son double liseré encadraient une figure posée DANS une page.
+     Quand la figure EST la page, il ne reste rien à séparer d'elle : le cadre
+     ne dessinerait plus qu'une bordure autour de l'écran. */
+  border: 0;
+  box-shadow: none;
+}
+.demo__scene[data-plein-ecran] .scene {
+  width: 100%;
+  height: 100%;
+  /* Les deux garde-fous de la mise en page ordinaire deviennent des entraves :
+     le rapport de forme rognerait la scène en haut et en bas sur un écran plus
+     étroit que 16/9, et `55vh` lui interdirait la moitié basse de l'écran —
+     celle-là même où le contrôleur doit venir se poser. */
+  max-height: none;
+  aspect-ratio: auto;
+}
+
 .badge-transformation {
   position: absolute;
   top: 0; right: 0;
