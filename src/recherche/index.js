@@ -9,8 +9,9 @@
 
 import { LIMITE_SAISIE, encoderTexte } from './base58.js';
 import {
-  chercherSix, normaliserCatalogue, validerCatalogue, operateursExplorables,
-  appliquerOp, etat, N_FRAG_MAX, BUDGET_MS_FILET, BUDGET_TOTAL_MS, FRAGMENTS_GARANTIS,
+  chercherSix, normaliserCatalogue, validerCatalogue,
+  appliquerOp, etat, operateursPourCible,
+  N_FRAG_MAX, BUDGET_MS_FILET, BUDGET_TOTAL_MS, FRAGMENTS_GARANTIS,
   BUDGET_TRAVAIL, BUDGET_TRAVAIL_TOTAL, BUDGET_TRAVAIL_RESERVE,
 } from './bfs.js';
 import { construireBassin } from './bassin.js';
@@ -24,8 +25,10 @@ import {
 import { construireScenario } from './scenario.js';
 import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
 import { lire, ecrire, descripteursDe, BANDEAUX } from './url.js';
+import { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES } from './cible.js';
 
 export { LIMITE_SAISIE, BANDEAUX, REGLAGES };
+export { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES };
 
 /**
  * Réponses écrites à la main — CONTRACTS.md §0.4.
@@ -103,14 +106,37 @@ export function creerMoteur(catalogue, options = {}) {
     if (pbs.length) throw new Error('catalogue non conforme (CONTRACTS §2.2) :\n  - ' + pbs.join('\n  - '));
   }
   const ops = normaliserCatalogue(catalogue);
-  const bassin = construireBassin(catalogue, options.plageBassin);
   const cache = new Map();
   const maintenant = options.maintenant || (() => performance.now());
 
-  const contexteBase = () => ({
+  // ★ UN BASSIN PAR CHIFFRE VISÉ, construit à la demande et gardé.
+  //
+  //   Le bassin d'attraction est un précalcul sur `[-2000, 2000]` : il coûte,
+  //   et il ne dépend que du catalogue et du chiffre visé. Le construire par
+  //   chiffre plutôt que par recherche, c'est le payer une fois pour toutes les
+  //   saisies d'une même session. Celui de 6 est bâti tout de suite, parce que
+  //   c'est celui de la cible par défaut et que `moteur.bassin` le publie
+  //   depuis toujours.
+  const bassins = new Map();
+  const bassinPour = (chiffre) => {
+    let b = bassins.get(chiffre);
+    if (b === undefined) {
+      b = construireBassin(catalogue, options.plageBassin, chiffre);
+      bassins.set(chiffre, b);
+    }
+    return b;
+  };
+  const bassin = bassinPour(6);
+  // Les tables à consulter pour une cible donnée, dans l'ordre CROISSANT des
+  // chiffres (§4.4 règle 3 : l'ordre d'itération décide du classement).
+  const tablesDe = (cbl) => cbl.alphabet.map((but) => ({ but, table: bassinPour(but) }));
+
+  const contexteBase = (cbl) => ({
     catalogue,
-    operateurs: operateursExplorables(catalogue),
+    operateurs: operateursPourCible(catalogue, cbl),
     bassin,
+    bassins: tablesDe(cbl),
+    cible: cbl,
     cache,
     maintenant,
     dMax: options.dMax,
@@ -122,24 +148,34 @@ export function creerMoteur(catalogue, options = {}) {
   });
 
   /**
-   * Pipeline complet. Ne rend JAMAIS la main bredouille (§5).
+   * Pipeline complet. Ne rend JAMAIS la main bredouille (§5) — **quand la cible
+   * vaut 666**. Voir `assemblage.js › approcheJoker` : le dernier recours du
+   * site est une propriété du français, pas des chiffres.
+   *
    * @param {string} saisieBrute
+   * @param {{cible?:import('./cible.js').Cible|string}} [optionsResolution]
    */
-  function resoudre(saisieBrute) {
+  function resoudre(saisieBrute, optionsResolution = {}) {
+    const cbl = normaliserCible(optionsResolution.cible ?? options.cible);
     const saisie = String(saisieBrute ?? '').normalize('NFC'); // §4.4 règle 5
     if (!saisie.length) {
-      return { saisie, approches: [], fragments: [], dedie: null, vide: true };
+      return { saisie, cible: cbl, approches: [], fragments: [], dedie: null, vide: true };
     }
     if (saisie.length > LIMITE_SAISIE) {
       return {
-        saisie: saisie.slice(0, LIMITE_SAISIE),
+        saisie: saisie.slice(0, LIMITE_SAISIE), cible: cbl,
         approches: [], fragments: [], dedie: null, vide: false,
         avertissement: BANDEAUX.saisieTropLongue,
       };
     }
 
-    const dedie = REPONSES_DEDIEES.get(saisie.toLowerCase().trim()) || null;
-    const ctxRecherche = contexteBase();
+    // ★ Les réponses dédiées ne valent QUE pour la cible par défaut. « Nous
+    //   avons vérifié : 666 ne vaut pas 666 » n'a rien de drôle au-dessus d'une
+    //   liste qui vise 111, et « Six vaut six, il vous en manque deux » est
+    //   faux si l'on cherche `6`. Le gag est une propriété du couple
+    //   (saisie, cible), et la moitié de ce couple vient de changer.
+    const dedie = cbl.defaut ? (REPONSES_DEDIEES.get(saisie.toLowerCase().trim()) || null) : null;
+    const ctxRecherche = contexteBase(cbl);
     const signifiants = zonesSignifiantes(saisie);
     const jetons = tokeniser(saisie);
     const frags = genererFragments(saisie, { max: options.nFragMax ?? N_FRAG_MAX });
@@ -201,7 +237,7 @@ export function creerMoteur(catalogue, options = {}) {
     if (ctxRecherche.tronque && !ctxRecherche.tronqueTemps) tronqueTravail = true;
     if (ctxRecherche.tronqueTemps) tronqueTemps = true;
 
-    const ctxAssemblage = { saisie, jetons, signifiants, catalogue };
+    const ctxAssemblage = { saisie, jetons, signifiants, catalogue, cible: cbl };
     let approches = assembler(saisie, frags, parFrag, ctxAssemblage);
 
     if (!approches.length) {
@@ -215,7 +251,7 @@ export function creerMoteur(catalogue, options = {}) {
     //   permet au banc de mesurer l'avant et l'après d'une seule exécution
     //   (`.planning/banc/classement.mjs --avant`). Réservé à la mesure.
     const barèmeDElegance = options.elegance !== false;
-    const ctxScore = { saisie, signifiants, elegance: barèmeDElegance };
+    const ctxScore = { saisie, signifiants, elegance: barèmeDElegance, cible: cbl };
     for (const a of approches) noter(a, ctxScore);
     approches.sort(ordreTotal);
 
@@ -251,8 +287,8 @@ export function creerMoteur(catalogue, options = {}) {
       //   registre n'entre ni dans `descripteursDe`, ni dans la notation, ni
       //   dans la déduplication — il n'appartient pas au programme (`url.js`).
       const descripteurs = descripteursDe(a, { nbJetons: jetons.length });
-      a.urlSobre = ecrire({ saisie, fragments: descripteurs, registre: 'sobre' });
-      a.urlScenique = ecrire({ saisie, fragments: descripteurs, registre: 'scenique' });
+      a.urlSobre = ecrire({ saisie, fragments: descripteurs, registre: 'sobre', cible: cbl });
+      a.urlScenique = ecrire({ saisie, fragments: descripteurs, registre: 'scenique', cible: cbl });
       // `url` reste le lien de référence de la voie — la version scénique,
       // celle que le site montre par défaut (voir `url.js`, le registre).
       a.url = a.urlScenique;
@@ -274,8 +310,16 @@ export function creerMoteur(catalogue, options = {}) {
         longueur: f.longueur,
         famille: f.famille,
         nbChemins: chemins.length,
+        // ★ Le chiffre RÉELLEMENT atteint par le chemin proposé. Tant que la
+        //   cible valait 666, il valait 6 et la liste l'écrivait en dur ; sur
+        //   `007`, un fragment vaut 0 et le suivant 7, et afficher « 007 » dans
+        //   les deux pastilles serait exactement le genre d'à-peu-près que ce
+        //   projet refuse. Il est lu sur l'état final du chemin, pas déduit de
+        //   la cible : ce qui est montré est ce qui a été calculé.
+        valeur: valeurFinaleDe(chemins[0]),
         url: ecrire({
           saisie,
+          cible: cbl,
           fragments: [{
             portee: f.tokenDebut >= 0 && f.tokenLong > 0
               ? { offset: f.tokenDebut, longueur: f.tokenLong } : null,
@@ -296,11 +340,12 @@ export function creerMoteur(catalogue, options = {}) {
     const avertissement = tronqueTemps ? BANDEAUX.rechercheTronquee : undefined;
     return {
       saisie,
+      cible: cbl,
       dedie,
       vide: false,
       approches: retenues,
       fragments: listeFragments,
-      urlResultats: ecrire({ saisie }),
+      urlResultats: ecrire({ saisie, cible: cbl }),
       tronque: tronqueTravail || tronqueTemps,
       tronqueTemps,
       ...(avertissement ? { avertissement } : {}),
@@ -316,6 +361,9 @@ export function creerMoteur(catalogue, options = {}) {
       return { ok: false, raison: 'forme non canonique', bandeau: lecture && lecture.bandeau };
     }
     const saisie = lecture.saisie;
+    // La cible vient du LIEN, et de nulle part ailleurs — comme le registre.
+    // Un lien sans marqueur vise 666, c'est `url.js` qui le résout.
+    const cbl = normaliserCible(lecture.cible);
     const jetons = tokeniser(saisie);
     const parCode = new Map(ops.map((o) => [o.code, o]));
     const parts = [];
@@ -354,8 +402,8 @@ export function creerMoteur(catalogue, options = {}) {
     // Le mode n'est pas transporté par l'URL : on le redéduit de la géométrie
     // des fragments, exactement comme le fait `assembler`. C'est ce qui garantit
     // qu'un lien rejoué affiche le même score que la liste dont il est issu.
-    const approche = { parts, ...deduireMode(parts, { saisie, jetons }) };
-    noter(approche, { saisie, signifiants: zonesSignifiantes(saisie) });
+    const approche = { parts, ...deduireMode(parts, { saisie, jetons, cible: cbl }) };
+    noter(approche, { saisie, signifiants: zonesSignifiantes(saisie), cible: cbl });
     // Hors liste, il n'y a personne dont se distinguer : le titre est celui que
     // `titres.js` compose à partir de la seule signature du chemin.
     approche.titre = titreBilingue(approche);
@@ -363,9 +411,9 @@ export function creerMoteur(catalogue, options = {}) {
     // Le registre du lien rejoué est celui qu'il porte : on ne le devine pas,
     // on le relit (`lecture.registre`, résolu par `url.js`).
     const registre = lecture.registre;
-    approche.urlSobre = ecrire({ saisie, fragments: lecture.fragments, registre: 'sobre' });
-    approche.urlScenique = ecrire({ saisie, fragments: lecture.fragments, registre: 'scenique' });
-    approche.url = ecrire({ saisie, fragments: lecture.fragments, registre });
+    approche.urlSobre = ecrire({ saisie, fragments: lecture.fragments, registre: 'sobre', cible: cbl });
+    approche.urlScenique = ecrire({ saisie, fragments: lecture.fragments, registre: 'scenique', cible: cbl });
+    approche.url = ecrire({ saisie, fragments: lecture.fragments, registre, cible: cbl });
     return { ok: true, approche };
   }
 
@@ -381,6 +429,9 @@ export function creerMoteur(catalogue, options = {}) {
       // `scenario.js › sobrifierLesCornes`). La scénographie du verdict, elle,
       // ne change rien au scénario et se règle à la compilation visuelle.
       registre: ctx.registre,
+      // La CIBLE traverse jusqu'au scénario : c'est elle qui décide de la
+      // longueur d'une série au verdict, et des libellés qui nommaient « 6 ».
+      cible: ctx.cible || approche.cible,
       methode: ctx.methode || {
         id: approche.rang ?? 1,
         label: titreApproche(approche, langue),
@@ -474,6 +525,12 @@ function ordreDeRecherche(fragments) {
     .map((x) => x.f);
 }
 
+/** La valeur du dernier état d'un chemin, quand c'est un nombre. */
+function valeurFinaleDe(chemin) {
+  const fin = chemin && chemin.etats && chemin.etats[chemin.etats.length - 1];
+  return fin && fin.type === 'NUM' ? fin.valeur : null;
+}
+
 function fragmentDePortee(saisie, jetons, portee) {
   const { offset, longueur } = portee;
   if (offset < 0 || longueur <= 0 || offset + longueur > jetons.length) return null;
@@ -539,6 +596,7 @@ export function creerCanal(moteur, poster) {
 function serialisable(resultat) {
   return {
     saisie: resultat.saisie,
+    cible: resultat.cible ? resultat.cible.texte : undefined,
     dedie: resultat.dedie,
     vide: resultat.vide,
     urlResultats: resultat.urlResultats,
@@ -551,7 +609,7 @@ function serialisable(resultat) {
       // ★ L'élégance et la suggestion qui a valu sa place à la ligne : ce sont
       //   des grandeurs d'affichage au même titre que le score, et elles se
       //   recalculent depuis les parts, donc un lien rejoué les retrouve.
-      elegance: a.elegance, suggestion: a.suggestion,
+      elegance: a.elegance, suggestion: a.suggestion, series: a.series,
       decret: a.decret, L: a.L, titre: a.titre,
       regle: a.regle, url: a.url, urlSobre: a.urlSobre, urlScenique: a.urlScenique,
       joker: a.joker, criteres: a.criteres,

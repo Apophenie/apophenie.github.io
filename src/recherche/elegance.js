@@ -90,7 +90,21 @@
 // sur le chemin. Les deux se composent, comme ils se composent déjà pour `my`
 // (adHoc 0,35, aucun palier) et pour `c.moyenne` (adHoc bas, palier `ARRONDI`).
 
-/** Trois 6 font un 666 (`assemblage.js › SERIE`). */
+import { CIBLE_DEFAUT, normaliserCible, indexUtiles } from './cible.js';
+
+/**
+ * Trois 6 font un 666 (`assemblage.js › SERIE`) — pour la cible PAR DÉFAUT.
+ *
+ * ★ Le barème est désormais relatif à la cible : « trois 6 d'affilée » se lit
+ * « la cible écrite d'affilée », « le solde multiple de trois » se lit
+ * « multiple de la longueur d'une série ». Sur `666`, tout ce fichier calcule
+ * exactement les mêmes entiers qu'avant — c'est ce qu'un test vérifie, poste
+ * par poste, sur une liste réelle.
+ *
+ * La constante subsiste pour un seul usage qui, lui, ne dépend PAS de la
+ * cible : le seuil de « bloc court » d'`abandons`, qui mesure une longueur de
+ * MOT dans la saisie et n'a jamais parlé du nombre visé.
+ */
 const SERIE = 3;
 
 const borner = (x, min, max) => (x < min ? min : x > max ? max : x);
@@ -605,13 +619,11 @@ function valeursDe(e) {
   return null;
 }
 
-/** Combien de 6 porte un état ? */
-function nbSix(e) {
+/** Combien de chiffres de la CIBLE un état porte-t-il ? Sur `666`, ses 6. */
+function nbSix(e, cible = CIBLE_DEFAUT) {
   const vs = valeursDe(e);
   if (!vs) return 0;
-  let n = 0;
-  for (const v of vs) if (v === 6) n++;
-  return n;
+  return indexUtiles(vs, cible).length;
 }
 
 /**
@@ -621,12 +633,19 @@ function nbSix(e) {
  * amendement `horns`) : trois 6 non contigus, c'est l'autre geste, celui qui
  * coûte. On lit donc la contiguïté sur le vecteur, et rien d'autre.
  */
-export function finDuTriptyque(valeurs) {
+export function finDuTriptyque(valeurs, cible = CIBLE_DEFAUT) {
   if (!Array.isArray(valeurs)) return 0;
-  let suite = 0;
+  const c = normaliserCible(cible);
+  let rang = 0;
   for (let i = 0; i < valeurs.length; i++) {
-    suite = valeurs[i] === 6 ? suite + 1 : 0;
-    if (suite >= SERIE) return i + 1;
+    // « D'affilée » se lit sur les INDEX : dès qu'une valeur n'est pas celle
+    // qu'on attend, la suite repart de zéro — sauf si cette valeur est
+    // justement le premier chiffre de la cible, auquel cas elle amorce une
+    // nouvelle tentative. Sur `666`, cette nuance est invisible (un 6 continue
+    // toujours la suite) ; sur `007`, elle évite de rater `0 0 0 7`.
+    if (valeurs[i] === c.chiffres[rang]) rang++;
+    else rang = valeurs[i] === c.chiffres[0] ? 1 : 0;
+    if (rang >= c.longueur) return i + 1;
   }
   return 0;
 }
@@ -646,29 +665,30 @@ export function finDuTriptyque(valeurs) {
  * l'on ne coupe pas un quatrième 6 en deux. C'est la même arithmétique que
  * `serieDeSix` (`assemblage.js`), et pour la même raison.
  */
-export function nbTriptyques(valeurs) {
+export function nbTriptyques(valeurs, cible = CIBLE_DEFAUT) {
   if (!Array.isArray(valeurs)) return 0;
+  const c = normaliserCible(cible);
   let total = 0;
-  let suite = 0;
+  let rang = 0;
   for (const v of valeurs) {
-    if (v === 6) suite++;
-    else { total += Math.floor(suite / SERIE); suite = 0; }
+    if (v === c.chiffres[rang]) rang++;
+    else rang = v === c.chiffres[0] ? 1 : 0;
+    if (rang >= c.longueur) { total++; rang = 0; }
   }
-  return total + Math.floor(suite / SERIE);
+  return total;
 }
 
-/** Un état porte-t-il trois 6 d'affilée, ou vaut-il littéralement 666 ? */
-function porteUnTriptyque(e) {
+/** Un état écrit-il la cible d'affilée, ou vaut-il littéralement le nombre visé ? */
+function porteUnTriptyque(e, cible = CIBLE_DEFAUT) {
   if (!e) return false;
-  if (e.type === 'NUM') return e.valeur === 666;
-  return finDuTriptyque(valeursDe(e)) > 0;
+  const c = normaliserCible(cible);
+  if (e.type === 'NUM') return c.nombre !== null && e.valeur === c.nombre;
+  return finDuTriptyque(valeursDe(e), c) > 0;
 }
 
 /** L'état où le chemin s'arrête est-il un aboutissement légitime du triptyque ? */
-function aboutissementLegitime(e) {
-  if (!e) return false;
-  if (e.type === 'NUM') return e.valeur === 666;
-  return finDuTriptyque(valeursDe(e)) > 0;
+function aboutissementLegitime(e, cible = CIBLE_DEFAUT) {
+  return porteUnTriptyque(e, cible);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -749,7 +769,8 @@ function aligner(suite, texte) {
  * @param {Object} chemin  {ops, etats}
  * @returns {Object} le bilan, tous champs entiers
  */
-export function bilanChemin(chemin) {
+export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
+  const c = normaliserCible(cible);
   const ops = (chemin && chemin.ops) || [];
   const etats = (chemin && chemin.etats) || [];
   const b = {
@@ -813,10 +834,12 @@ export function bilanChemin(chemin) {
       || (apres.type === 'NUMS' && avant.type === 'NUMS'
         && apres.valeur.length === avant.valeur.length);
     if (conversion) {
-      const perdus = nbSix(avant) - nbSix(apres);
+      const perdus = nbSix(avant, c) - nbSix(apres, c);
       // …sauf quand ce qui en sort EST le but : faire un 6 ou un 666 de ses 6
       // n'est pas les convertir « en autre chose ».
-      const but = apres.type === 'NUM' && (apres.valeur === 6 || apres.valeur === 666);
+      const but = apres.type === 'NUM'
+        && (c.alphabet.includes(apres.valeur)
+          || (c.nombre !== null && apres.valeur === c.nombre));
       if (perdus > 0 && !but) b.sixDetruits += perdus;
     }
 
@@ -867,12 +890,12 @@ export function bilanChemin(chemin) {
   // Tout le reste a défait ce qui était écrit.
   const fin = etats[etats.length - 1];
   for (const e of etats) {
-    if (!porteUnTriptyque(e)) continue;
+    if (!porteUnTriptyque(e, c)) continue;
     b.triptyqueVu = true;
     break;
   }
   if (b.triptyqueVu) {
-    b.triptyqueTenu = aboutissementLegitime(fin);
+    b.triptyqueTenu = aboutissementLegitime(fin, c);
     b.casseTriptyque = !b.triptyqueTenu;
   }
 
@@ -880,9 +903,10 @@ export function bilanChemin(chemin) {
   const finales = valeursDe(fin);
   if (finales) {
     b.largeur = finales.length;
-    for (const v of finales) if (v === 6) b.six++;
-    b.finTriptyque = fin.type === 'NUM' ? (fin.valeur === 666 ? 1 : 0) : finDuTriptyque(finales);
-    b.nbTriptyques = fin.type === 'NUM' ? (fin.valeur === 666 ? 1 : 0) : nbTriptyques(finales);
+    b.six = nbSix(fin, c);
+    const direct = fin.type === 'NUM' && c.nombre !== null && fin.valeur === c.nombre ? 1 : 0;
+    b.finTriptyque = fin.type === 'NUM' ? direct : finDuTriptyque(finales, c);
+    b.nbTriptyques = fin.type === 'NUM' ? direct : nbTriptyques(finales, c);
   }
   return b;
 }
@@ -1027,6 +1051,10 @@ function intervallesDe(fragment) {
 export function bilanApproche(approche, ctx = {}) {
   const parts = (approche && approche.parts) || [];
   const series = approche && approche.series ? approche.series : 1;
+  // La cible du contexte prime ; à défaut, celle que l'approche porte
+  // (`deduireMode` l'y attache) ; à défaut encore, 666.
+  const cbl = normaliserCible((ctx && ctx.cible) || (approche && approche.cible));
+  const LSERIE = cbl.longueur;
 
   const b = {
     transformations: 0,
@@ -1061,7 +1089,7 @@ export function bilanApproche(approche, ctx = {}) {
   let sommeTot = 0;
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i];
-    const bc = bilanChemin(p.chemin);
+    const bc = bilanChemin(p.chemin, cbl);
     b.transformations += bc.transformations;
     b.additionsChiffres += bc.additionsChiffres;
     b.additionsNombres += bc.additionsNombres;
@@ -1089,7 +1117,7 @@ export function bilanApproche(approche, ctx = {}) {
       //   `666`), il n'y a rien après : le triptyque est le vecteur, et le
       //   bonus est plein.
       const reste = bc.largeur > 0 ? bc.largeur - bc.finTriptyque : 0;
-      let gain = bc.largeur > SERIE ? Math.floor((reste * 1000) / bc.largeur) : 1000;
+      let gain = bc.largeur > LSERIE ? Math.floor((reste * 1000) / bc.largeur) : 1000;
       // ★ « Si [4,4,6,6,6] apparaît sur le DERNIER mot, le bonus est ANNULÉ :
       //   finir par 666 est bien aussi. » — l'auteur.
       //
@@ -1105,8 +1133,8 @@ export function bilanApproche(approche, ctx = {}) {
       //   Un groupement sur le premier mot d'une phrase n'y a pas droit, même
       //   s'il est seul — il finit sa portée, pas la lecture.
       if (reste === 0 && i === parts.length - 1 && toucheLaFin(p.fragment, finSignifiante)) {
-        gain = bc.largeur > SERIE
-          ? Math.floor(((bc.largeur - SERIE) * 1000) / bc.largeur)
+        gain = bc.largeur > LSERIE
+          ? Math.floor(((bc.largeur - LSERIE) * 1000) / bc.largeur)
           : 1000;
         b.finirPar666 = true;
       }
@@ -1130,13 +1158,17 @@ export function bilanApproche(approche, ctx = {}) {
   //   premiers : une trouvaille vaut mieux que sa continuation.
   b.triptyquesContigus = Math.min(b.triptyquesContigus, series);
   b.triptyquesRepetes = Math.min(b.triptyquesRepetes, Math.max(0, series - b.triptyquesContigus));
-  const gardees = Math.min(b.six, series * SERIE);
+  const gardees = Math.min(b.six, series * LSERIE);
   b.jeteesAuTri = Math.max(0, b.montrees - gardees);
   b.valeursJetees += b.jeteesAuTri;
   b.gardees = gardees;
   b.series = series;
 
   b.abandons = abandons(approche, ctx);
+  // La cible voyage avec le bilan : `detailDuCredit` en a besoin, et elle doit
+  // y arriver par le bilan plutôt que par un second argument — deux chemins
+  // pour une même valeur, c'est deux occasions de diverger.
+  b.longueurSerie = LSERIE;
   return b;
 }
 
@@ -1158,7 +1190,8 @@ export function bilanApproche(approche, ctx = {}) {
 export function detailDuCredit(b) {
   const B = BAREME;
   const a = b.abandons || { alnum: 0, bloc: 0, blocCourt: 0, ponctuation: 0 };
-  const surplus = Math.min(Math.max(0, b.six - SERIE), B.SIX_SURNUMERAIRE_MAX);
+  const LSERIE = b.longueurSerie || SERIE;
+  const surplus = Math.min(Math.max(0, b.six - LSERIE), B.SIX_SURNUMERAIRE_MAX);
   const socle = B.SOCLE_TRANSFORMATIONS * Math.max(1, b.parts || 1);
   const enTrop = Math.max(0, b.transformations - socle);
   const lignes = [
@@ -1170,8 +1203,8 @@ export function detailDuCredit(b) {
     [b.finirPar666 ? 'couronnement tôt (ou final)' : 'couronnement tôt',
       b.couronnementTot, fraction(B.COURONNEMENT_TOT, [b.couronnementTot, 1000])],
     ['6 surnuméraires', surplus, B.SIX_SURNUMERAIRE * surplus],
-    ['solde multiple de 3', b.six > 0 && b.six % SERIE === 0 ? 1 : 0,
-      b.six > 0 && b.six % SERIE === 0 ? B.SOLDE_MULTIPLE_DE_TROIS : 0],
+    ['solde multiple de 3', b.six > 0 && b.six % LSERIE === 0 ? 1 : 0,
+      b.six > 0 && b.six % LSERIE === 0 ? B.SOLDE_MULTIPLE_DE_TROIS : 0],
     ['additions de chiffres', b.additionsChiffres, B.ADDITION_CHIFFRES * b.additionsChiffres],
     ['additions de nombres', b.additionsNombres, B.ADDITION_NOMBRES * b.additionsNombres],
     // ── ce qui se perd

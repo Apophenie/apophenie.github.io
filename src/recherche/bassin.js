@@ -1,6 +1,12 @@
 // src/recherche/bassin.js
-// Bassin d'attraction de 6 par les seuls opérateurs NUM→NUM.
+// Bassin d'attraction d'un CHIFFRE par les seuls opérateurs NUM→NUM.
 // CONTRACTS.md §5 · research/heuristique.md §2.4.
+//
+// ★ « d'un chiffre », et non plus « de 6 ». Le but est devenu un paramètre le
+// jour où la cible en est devenue un (`cible.js`) : viser `007`, c'est vouloir
+// des chemins qui atterrissent sur 0 ET des chemins qui atterrissent sur 7,
+// donc deux bassins. Le défaut vaut 6 et le calcul est mot pour mot celui
+// d'avant — une table construite pour 6 est bit pour bit celle d'hier.
 //
 // C'est le seul emprunt utile au meet-in-the-middle : les filtres et les
 // combinateurs ne sont pas inversibles, mais la couche NUM→NUM l'est, et elle
@@ -31,14 +37,15 @@ export const DISTANCE_MAX = 2;
  *
  * @param {Object} catalogue
  * @param {{min:number,max:number}} [plage]
+ * @param {number} [but]  le chiffre visé — 6 par défaut, et tout est identique
  * @returns {Map<number, EntreeBassin>}
  */
-export function construireBassin(catalogue, plage = PLAGE_BASSIN) {
+export function construireBassin(catalogue, plage = PLAGE_BASSIN, but = 6) {
   const numOps = normaliserCatalogue(catalogue).filter(
     (op) => op.from === 'NUM' && op.to === 'NUM' && !op.deprecated && !op.isJoker,
   );
   /** @type {Map<number, EntreeBassin>} */
-  const bassin = new Map([[6, { dist: 0, ops: [], codes: [] }]]);
+  const bassin = new Map([[but, { dist: 0, ops: [], codes: [] }]]);
 
   let change = true;
   let tour = 0;
@@ -93,7 +100,7 @@ export function statistiquesBassin(bassin, plage = PLAGE_BASSIN) {
   };
 }
 
-/** @returns {Object[]|null} la suite d'opérateurs NUM→NUM qui mène `n` à 6. */
+/** @returns {Object[]|null} la suite d'opérateurs NUM→NUM qui mène `n` au but du bassin. */
 export function cheminVers6(bassin, n) {
   const e = bassin.get(n);
   return e ? e.ops : null;
