@@ -484,38 +484,45 @@ function construireBrasier(node, palette = PALETTE, metrics) {
        applique déjà pour Firefox (`tests/compositeur.test.js`). La règle est
        désormais étendue au `filter`, et un test l'exige (`tests/feu.test.js`).
 
-       ★ Reste la respiration d'atnyman, inchangée : deux chaînes STATIQUES —
-       l'état A qui ne bouge jamais, l'état B dont l'enveloppe va et vient. */
-    const braise = c.dessine();
-    braise.setAttribute('class', 'nhl-feu');
-    braise.setAttribute('fill', nuit);
-    braise.setAttribute('style', `filter:${f.a}`);
+       ★ TROIS CORPS, ET AUCUN NE BOUGE JAMAIS.
 
-    const reprise = c.dessine();
-    reprise.setAttribute('class', 'nhl-feu');
-    reprise.setAttribute('fill', nuit);
-    reprise.setAttribute('style', `filter:${f.b}`);
+       C'est le second correctif, et il découle du premier. « La dernière
+       version fait apparaître en dessous des lettres leur clone enflammé
+       miniature puis les fait grossir. On n'est pas censé voir la plomberie
+       interne ! » (l'auteur). La germination était un `transform: scale()` sur
+       l'enveloppe — mais rétrécir le corps rétrécit la SILHOUETTE qui projette
+       les flammes, et l'on voyait donc un petit chiffre en feu à côté du grand.
 
-    // L'enveloppe qui respire : elle ne porte QUE l'opacité.
-    const souffle = el('g', { class: 'nhl-feu-souffle' });
-    souffle.setAttribute('style',
-      `--nhl-feu-periode:${f.periode}ms;--nhl-feu-retard:${f.retard}ms`);
-    souffle.appendChild(reprise);
+       Les corps restent désormais à leur taille, exactement superposés au vrai
+       chiffre, et ce sont les FLAMMES qui grandissent : trois chaînes statiques
+       — la graine, l'adulte, la reprise —, entre lesquelles on ne fait varier
+       que des opacités d'enveloppes.
 
-    /* ★ L'ENVELOPPE QUI GERME. « Je voudrais qu'elles germent petit puis
-       qu'elles grandissent progressivement jusqu'à atteindre leur taille
-       actuelle » (l'auteur).
+         · `germe`   : la graine, courte. Opacité 1 → 0 pendant la pousse.
+         · `eclos`   : l'état A, plein. Opacité 0 → 1 pendant la pousse.
+         · `souffle` : l'état B, qui respire — mais seulement une fois la
+                       pousse finie (`--nhl-feu-depart`).
 
-       Elle grandit en `transform: scale()` depuis le PIED du glyphe
-       (`transform-origin: 50% 100%`) : un feu naît au sol et monte, il
-       n'apparaît pas centré sur lui-même. Et c'est gratuit — le compositeur
-       ré-échantillonne une texture déjà tramée au lieu de refaire les flous. */
-    const germe = el('g', { class: 'nhl-feu-germe' });
-    germe.setAttribute('style',
-      `--nhl-feu-pousse:${f.pousse}ms;--nhl-feu-semis:${f.semis}ms`);
-    germe.appendChild(braise);
-    germe.appendChild(souffle);
-    wrap.appendChild(germe);
+       Le fondu croisé graine→adulte se lit comme une flamme qui monte, sans
+       qu'aucune géométrie ne bouge : il n'y a donc plus rien à voir de
+       l'échafaudage. */
+    const enveloppe = (classe, filtre, style = '') => {
+      const corpsFiltre = c.dessine();
+      corpsFiltre.setAttribute('class', 'nhl-feu');
+      corpsFiltre.setAttribute('fill', nuit);
+      corpsFiltre.setAttribute('style', `filter:${filtre}`);
+      const g = el('g', { class: classe });
+      if (style) g.setAttribute('style', style);
+      g.appendChild(corpsFiltre);
+      wrap.appendChild(g);
+      return g;
+    };
+
+    const cadence = `--nhl-feu-pousse:${f.pousse}ms;--nhl-feu-semis:${f.semis}ms`;
+    enveloppe('nhl-feu-germe', f.graine, cadence);
+    enveloppe('nhl-feu-eclos', f.a, cadence);
+    enveloppe('nhl-feu-souffle', f.b,
+      `${cadence};--nhl-feu-periode:${f.periode}ms;--nhl-feu-retard:${f.retard}ms`);
 
     /* ★ LE SCEAU — une copie NON FILTRÉE, en couleur de nuit, toujours opaque.
        Elle n'est pas un doublon : c'est elle, désormais, qui garantit que le

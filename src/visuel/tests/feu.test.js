@@ -151,16 +151,23 @@ test('★ feu — AUCUN FILTRE N’EST ANIMÉ, et c’est tout le montage', () =
   assert.match(css, /@keyframes nhl-feu-reprise \{[\s\S]*?opacity[\s\S]*?\n\}/);
 });
 
-test('★ feu — le corps de braise n’est jamais animé : c’est lui qui SCELLE', () => {
-  // Deux corps qui se fondraient l'un dans l'autre laisseraient à mi-fondu un
-  // trou d'opacité par lequel les halos remonteraient sous le chiffre — et le
-  // contraste du verdict avec.
+test('★ feu — le SCEAU n’est jamais animé : c’est lui qui garde le fond pur', () => {
+  // Les trois corps filtrés se fondent l'un dans l'autre — germination, puis
+  // respiration. À mi-fondu, leur somme n'atteint pas l'opacité pleine : sans
+  // un quatrième corps, non filtré et toujours opaque, les halos remonteraient
+  // sous le chiffre par ce trou, et le contraste du verdict avec.
   const css = lire('src/styles/pages.css');
   const dom = lire('src/visuel/dom.js');
-  assert.match(dom, /braise\.setAttribute\('class', 'nhl-feu'\)/,
-    'le corps de scellement doit exister et ne porter que `nhl-feu`');
+  assert.match(dom, /sceau\.setAttribute\('class', 'nhl-feu-sceau'\)/,
+    'le corps de scellement doit exister');
+  assert.doesNotMatch(dom, /sceau\.setAttribute\('style', `filter/,
+    'le sceau ne doit porter AUCUN filtre : c’est un aplat, pas un feu');
+  for (const [, corps] of css.matchAll(/\.nhl-feu-sceau\s*\{([^}]*)\}/g)) {
+    assert.doesNotMatch(corps, /animation|opacity/,
+      'le sceau ne doit ni s’animer ni changer d’opacité');
+  }
   assert.doesNotMatch(css, /^\.nhl-feu \{[\s\S]*?animation:/m,
-    '`.nhl-feu` ne doit porter aucune animation : seule la reprise en a une');
+    '`.nhl-feu` ne doit porter aucune animation : seules les enveloppes en ont');
 });
 
 test('feu — cinq couches, pas sept : la mesure a tranché', () => {
@@ -224,8 +231,10 @@ test('★ feu — la rubrique de nuit garde ses 7,4:1 : le feu ne passe PAS sous
   // ne vaut plus rien.
   const dom = lire('src/visuel/dom.js');
   assert.match(dom, /const nuit = palette\.nuit \|\| d\.couleur;/);
-  assert.match(dom, /braise\.setAttribute\('fill', nuit\)/);
-  assert.match(dom, /reprise\.setAttribute\('fill', nuit\)/);
+  assert.match(dom, /corpsFiltre\.setAttribute\('fill', nuit\)/,
+    'les corps qui projettent les flammes doivent être remplis de nuit');
+  assert.match(dom, /sceau\.setAttribute\('fill', nuit\)/,
+    'le sceau aussi : c’est lui qui couvre l’empreinte du glyphe');
 });
 
 test('★ feu — si l’on remplissait le corps d’une teinte du feu, le test rougirait', () => {
@@ -253,7 +262,8 @@ test('feu — le vacillement est PAUSÉ tant que le feu n’a pas pris', () => {
   const css = lire('src/styles/pages.css');
   assert.match(css, /\.nhl-feu-souffle \{ animation-play-state: paused;/);
   assert.match(css, /\.nhl-feu-germe \{ animation-play-state: paused; \}/);
-  assert.match(css, /\.scene\[data-embrasement\] \.nhl-feu-souffle,\s*\n\s*\.scene\[data-embrasement\] \.nhl-feu-germe \{ animation-play-state: running; \}/);
+  assert.match(css, /\.nhl-feu-eclos \{ animation-play-state: paused; \}/);
+  assert.match(css, /\.scene\[data-embrasement\] \.nhl-feu-eclos \{ animation-play-state: running; \}/);
   const js = lire('src/visuel/player.js');
   assert.match(js, /_renderEmbrasement\(t\)/, 'le lecteur ne résout plus l’interrupteur du feu');
   assert.match(js, /setAttribute\('data-embrasement'/);
@@ -332,33 +342,81 @@ test('★★ feu — aucun élément ne porte à la fois un filtre et une animat
       '`.nhl-feu` porte le filtre : lui donner une animation ramène le gel du verdict');
   }
 
-  // 3. Les enveloppes existent, et elles sont DISTINCTES de l'élément filtré.
-  assert.match(dom, /souffle\.appendChild\(reprise\)/,
+  // 3. L'enveloppe existe, et elle est DISTINCTE de l'élément filtré : c'est
+  //    elle qui porte la classe animée, lui qui porte le filtre.
+  assert.match(dom, /g\.appendChild\(corpsFiltre\)/,
     'l’opacité doit vivre sur une enveloppe, pas sur le corps filtré');
-  assert.match(dom, /germe\.appendChild\(braise\)[\s\S]*?germe\.appendChild\(souffle\)/,
-    'la germination doit envelopper les deux corps');
+  assert.match(dom, /const g = el\('g', \{ class: classe \}\)/,
+    'l’enveloppe doit être un <g> nu, sans filtre');
 });
 
-test('★ feu — la germination part petite et arrive à la taille pleine', () => {
-  // « Je voudrais qu'elles germent petit puis qu'elles grandissent
-  // progressivement jusqu'à atteindre leur taille actuelle » (l'auteur) : la
-  // taille d'ARRIVÉE ne change pas, c'est le départ qui devient petit.
+test('★★ feu — la germination ne fait grandir QUE les flammes', () => {
+  /* La règle née du défaut le plus visible de tous.
+
+     « La dernière version fait apparaître en dessous des lettres leur clone
+     enflammé miniature puis les fait grossir. On n'est pas censé voir la
+     plomberie interne ! » (l'auteur).
+
+     La germination était un `transform: scale()` sur l'enveloppe du foyer. Or
+     le corps qui porte les `drop-shadow()` est une COPIE DU GLYPHE : le
+     rétrécir rétrécit la silhouette qui projette les flammes. On voyait donc
+     un petit chiffre en feu grandir à côté du grand.
+
+     La géométrie du feu ne bouge donc plus JAMAIS. Ce qui grandit, ce sont les
+     flammes — deux chaînes de filtres, l'une courte et l'autre pleine, entre
+     lesquelles on fond. */
   const css = lire('src/styles/pages.css');
-  const bloc = css.match(/@keyframes nhl-feu-germe \{([\s\S]*?)\n\}/);
-  assert.ok(bloc, 'la germination doit exister');
-  const depart = bloc[1].match(/from \{ transform: scale\(([\d.]+)\); \}/);
-  const arrivee = bloc[1].match(/to\s+\{ transform: scale\(([\d.]+)\); \}/);
-  assert.ok(depart && arrivee, 'la germination doit déclarer ses deux bornes');
-  assert.ok(Number(depart[1]) < 0.5, 'une graine doit être petite');
-  assert.equal(Number(arrivee[1]), 1,
-    'l’arrivée doit valoir exactement la taille actuelle, pas une autre');
-  // Elle a lieu UNE fois : `both`, jamais `infinite`.
-  const regle = css.match(/\.nhl-feu-germe \{[\s\S]*?\n\}/)[0];
-  assert.match(regle, /both;/, 'la pousse doit persister à son dernier état');
-  assert.doesNotMatch(regle, /infinite/, 'une graine ne germe pas en boucle');
-  // Elle pousse depuis le PIED : un feu naît au sol.
-  assert.match(regle, /transform-origin: 50% 100%/);
-  assert.match(regle, /transform-box: fill-box/);
+  const dom = lire('src/visuel/dom.js');
+
+  // 1. Aucune @keyframes du feu ne touche à la géométrie.
+  for (const [, nom, corps] of css.matchAll(/@keyframes\s+(nhl-feu[\w-]*)\s*\{([\s\S]*?)\n\}/g)) {
+    assert.doesNotMatch(corps, /(?:^|[\s;{])(?:transform|scale|translate|rotate)\s*:/,
+      `@keyframes ${nom} déplace le feu : la plomberie redeviendrait visible`);
+  }
+  // 2. Ni les règles qui portent ces animations.
+  for (const classe of ['nhl-feu-germe', 'nhl-feu-eclos', 'nhl-feu-souffle', 'nhl-feu']) {
+    for (const [, corps] of css.matchAll(new RegExp(`\\.${classe}\\s*\\{([^}]*)\\}`, 'g'))) {
+      assert.doesNotMatch(corps, /transform/,
+        `« .${classe} » porte une transformation : le corps du feu doit rester `
+        + 'exactement superposé au chiffre, à sa taille, du début à la fin');
+    }
+  }
+  // 3. Le fondu croisé existe, et il va bien dans les deux sens.
+  assert.match(css, /@keyframes nhl-feu-fane \{ from \{ opacity: 1; \} to \{ opacity: 0; \} \}/);
+  assert.match(css, /@keyframes nhl-feu-eclot \{ from \{ opacity: 0; \} to \{ opacity: 1; \} \}/);
+  // 4. Et le DOM monte bien les trois corps, chacun avec SA chaîne.
+  assert.match(dom, /enveloppe\('nhl-feu-germe', f\.graine/);
+  assert.match(dom, /enveloppe\('nhl-feu-eclos', f\.a/);
+  assert.match(dom, /enveloppe\('nhl-feu-souffle', f\.b/);
+});
+
+test('★ feu — la graine est le MÊME feu, en plus court', () => {
+  // Pas un autre dessin : la même pile, les mêmes couleurs, des longueurs
+  // réduites. Un feu qui changerait de nature en grandissant se verrait.
+  const palette = { coeur: '#1', flamme: '#2', brasier: '#3', braise: '#4', fumee: '#5' };
+  const f = feuDe({ fontSize: 48, id: 'd0', palette });
+  const longueurs = (chaine) => [...chaine.matchAll(/drop-shadow\(([-\d.]+)px ([-\d.]+)px ([\d.]+)px/g)]
+    .map((m) => m.slice(1).map(Number));
+  const g = longueurs(f.graine);
+  const a = longueurs(f.a);
+  assert.equal(g.length, a.length, 'la graine doit avoir autant de couches que l’adulte');
+  assert.deepEqual(
+    [...f.graine.matchAll(/#\w+/g)].map(String),
+    [...f.a.matchAll(/#\w+/g)].map(String),
+    'la graine et l’adulte doivent partager exactement la même rampe de couleurs',
+  );
+  for (let i = 0; i < g.length; i++) {
+    for (let k = 0; k < 3; k++) {
+      assert.ok(Math.abs(g[i][k]) <= Math.abs(a[i][k]) + 1e-6,
+        `couche ${i}, valeur ${k} : la graine doit être plus courte que l’adulte`);
+    }
+  }
+  // Assez courte pour se lire comme une naissance, assez longue pour exister.
+  const hauteurG = Math.abs(g[g.length - 1][1]);
+  const hauteurA = Math.abs(a[a.length - 1][1]);
+  const rapport = hauteurG / hauteurA;
+  assert.ok(rapport > 0.15 && rapport < 0.5,
+    `la graine monte à ${(rapport * 100).toFixed(0)} % de l’adulte — hors de la fourchette utile`);
 });
 
 test('★ feu — les foyers ne germent pas tous au même instant', () => {

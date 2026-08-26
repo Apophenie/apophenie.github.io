@@ -196,7 +196,30 @@ export const PERIODES = Object.freeze({ min: 653, max: 1129 });
  *   serait le retour du défaut « ils sont identiques », ET les six premiers
  *   tramages de filtre tomberaient sur la même image — c'est-à-dire un gel.
  */
-export const GERMINATION = Object.freeze({ duree: 1400, echelonnement: 900 });
+export const GERMINATION = Object.freeze({
+  duree: 1400,
+  echelonnement: 900,
+  /**
+   * ★ L'ampleur de la GRAINE, en fraction de l'ampleur adulte.
+   *
+   * ⚠ C'est une ampleur, PAS une échelle — et la nuance est tout le correctif.
+   *
+   * La première rédaction faisait grandir le CORPS : un `transform: scale()`
+   * de 0,18 à 1 sur l'enveloppe du foyer. Le résultat était juste au sens
+   * arithmétique et faux à l'écran — « la dernière version fait apparaître en
+   * dessous des lettres leur clone enflammé miniature puis les fait grossir.
+   * On n'est pas censé voir la plomberie interne ! » (l'auteur). Rétrécir le
+   * corps rétrécit AUSSI la silhouette qui projette les flammes : on voyait
+   * donc un petit chiffre en feu à côté du grand, c'est-à-dire l'échafaudage.
+   *
+   * Le corps reste désormais à sa taille, TOUJOURS, exactement superposé au
+   * vrai chiffre. Ce qui germe, ce sont les FLAMMES : une seconde chaîne de
+   * filtres, identique mais aux décalages et aux flous réduits, qui s'efface
+   * pendant que la chaîne adulte paraît. Deux filtres statiques et un fondu
+   * croisé d'opacité — le compositeur suffit, rien n'est re-tramé.
+   */
+  depart: 0.32,
+});
 
 /**
  * Empreinte FNV-1a 32 bits d'une chaîne, ramenée à `[0,1[`.
@@ -294,6 +317,9 @@ export function feuDe({ fontSize, id, part = '', palette }) {
   const semis = Math.round(GERMINATION.echelonnement * graine2(cle, 'semis'));
 
   return {
+    // La graine : la MÊME pile, aux mêmes couleurs, mais courte. Ce n'est pas
+    // un autre feu, c'est le même qui n'a pas encore pris.
+    graine: chaine(fontSize, ampleur * GERMINATION.depart, palette, 'A'),
     a: chaine(fontSize, ampleur, palette, 'A'),
     b: chaine(fontSize, ampleur, palette, 'B'),
     periode,

@@ -813,71 +813,89 @@
    ★ Un canal, un élément (CONTRACTS §3.2 règle 3) : le corps de reprise n'anime
    que son opacité et ne porte aucune transformation — la recette du défaut
    Firefox reste hors de portée (`tests/compositeur.test.js`). */
+/* ── LA GERMINATION — ce sont les FLAMMES qui grandissent, pas le glyphe ────
+
+   « La dernière version fait apparaître en dessous des lettres leur clone
+   enflammé miniature puis les fait grossir. On n'est pas censé voir la
+   plomberie interne ! » (l'auteur).
+
+   La rédaction précédente animait un `transform: scale()` sur l'enveloppe du
+   foyer. Or le corps qui porte les `drop-shadow()` EST une copie du glyphe :
+   le rétrécir rétrécit la silhouette qui projette les flammes, et l'on voyait
+   donc un petit chiffre en feu grandir à côté du grand — l'échafaudage,
+   exactement.
+
+   ★ AUCUNE GÉOMÉTRIE NE BOUGE PLUS. Les trois corps restent superposés au vrai
+   chiffre, à sa taille, du début à la fin. Ce qui varie, ce sont les FILTRES
+   qu'on montre : la graine (pile courte) s'efface pendant que l'adulte (pile
+   pleine) paraît. Un fondu croisé entre deux couches déjà tramées se lit comme
+   une flamme qui monte, et ne coûte que de la composition.
+
+   ⚠ La règle qui en découle est tenue par un test : aucune `@keyframes` du feu
+   n'anime `transform`. Pas seulement pour Firefox — pour que la plomberie
+   reste invisible. */
+.nhl-feu-germe {
+  animation: nhl-feu-fane var(--nhl-feu-pousse, 1400ms)
+             cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
+}
+.nhl-feu-eclos {
+  animation: nhl-feu-eclot var(--nhl-feu-pousse, 1400ms)
+             cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
+}
+@keyframes nhl-feu-fane { from { opacity: 1; } to { opacity: 0; } }
+@keyframes nhl-feu-eclot { from { opacity: 0; } to { opacity: 1; } }
+
 /* ── LA RESPIRATION ────────────────────────────────────────────────────────
    ⚠ L'opacité est sur l'ENVELOPPE (`.nhl-feu-souffle`), le filtre sur l'élément
    à l'intérieur (`.nhl-feu`). Les mettre sur le même élément forçait le moteur
    à repasser les cinq flous à chaque image — c'était le gel du verdict.
-   Le pourquoi complet est dans `src/visuel/dom.js › construireBrasier`. */
+   Le pourquoi complet est dans `src/visuel/dom.js › construireBrasier`.
+
+   ★ Elle n'entre qu'APRÈS la pousse : semis + pousse la retiennent, et le
+   `--nhl-feu-retard` négatif (la phase propre au foyer) vient s'y soustraire,
+   de sorte qu'elle démarre déjà en cours de cycle. Une reprise qui battrait
+   pendant la germination ferait clignoter la graine. */
 .nhl-feu-souffle {
   animation: nhl-feu-reprise var(--nhl-feu-periode, 900ms) ease-in-out
-             var(--nhl-feu-retard, 0ms) infinite alternate;
+             calc(var(--nhl-feu-semis, 0ms) + var(--nhl-feu-pousse, 1400ms)
+                  + var(--nhl-feu-retard, 0ms))
+             infinite alternate;
 }
 @keyframes nhl-feu-reprise {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 
-/* ── LA GERMINATION ───────────────────────────────────────────────────────
-   « Qu'elles germent petit puis qu'elles grandissent progressivement jusqu'à
-   atteindre leur taille actuelle » (l'auteur). La taille d'ARRIVÉE ne change
-   pas — c'est le `scale: 1` de la dernière image.
-
-   `transform-box: fill-box` fait porter l'origine sur la boîte de l'élément et
-   non sur le repère du `<svg>` entier ; `50% 100%` la pose au PIED du glyphe,
-   parce qu'un feu naît au sol et monte.
-
-   `transform` et non la propriété individuelle `scale` : une transformation
-   individuelle sur un élément dont un descendant anime l'opacité fait perdre la
-   position au compositeur Firefox (`src/visuel/tests/compositeur.test.js`).
-
-   `both` — pas `infinite` : elle a lieu UNE fois, et le dernier état persiste.
-   Le `--nhl-feu-semis` échelonne les départs : la variété d'abord, mais aussi
-   l'étalement des tramages de filtre, qui tomberaient sinon sur une seule
-   image. */
-.nhl-feu-germe {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: nhl-feu-germe var(--nhl-feu-pousse, 1400ms)
-             cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
-}
-@keyframes nhl-feu-germe {
-  from { transform: scale(.18); }
-  to   { transform: scale(1); }
-}
-
 /* ── L'interrupteur : rien ne tourne tant que le feu n'a pas pris ─────────── */
 .nhl-feu-souffle { animation-play-state: paused; opacity: 0; }
 .nhl-feu-germe { animation-play-state: paused; }
+.nhl-feu-eclos { animation-play-state: paused; }
 .scene[data-embrasement] .nhl-feu-souffle,
-.scene[data-embrasement] .nhl-feu-germe { animation-play-state: running; }
+.scene[data-embrasement] .nhl-feu-germe,
+.scene[data-embrasement] .nhl-feu-eclos { animation-play-state: running; }
 
 /* ── Mouvement réduit : un feu FIXE, mais un feu ──────────────────────────
    « `prefers-reduced-motion` doit donner un feu fixe. » Il reste donc là,
    dessiné, coloré, autour des chiffres — seules sa respiration et sa pousse
-   s'arrêtent. La pousse, elle, se fige à sa DERNIÈRE image et non à la
-   première : un feu réduit est un feu adulte immobile, pas une graine qui ne
-   lèvera jamais.
+   s'arrêtent. Et il se fige ADULTE : la graine s'efface, l'adulte paraît, tout
+   de suite. Un feu réduit est un feu immobile, pas une graine qui ne lèvera
+   jamais.
    Le réglage explicite (`data-animation`, posé par `src/app/reglages.js`) prime
    DANS LES DEUX SENS, comme pour le logo : on peut vouloir l'animation malgré
    un OS réglé en « réduit », et l'inverse. */
 @media (prefers-reduced-motion: reduce) {
   .scene[data-embrasement] .nhl-feu-souffle { animation-play-state: paused; opacity: .5; }
-  .scene[data-embrasement] .nhl-feu-germe { animation: none; }
+  .scene[data-embrasement] .nhl-feu-germe { animation: none; opacity: 0; }
+  .scene[data-embrasement] .nhl-feu-eclos { animation: none; opacity: 1; }
   html[data-animation="complete"] .scene[data-embrasement] .nhl-feu-souffle {
     animation-play-state: running;
   }
   html[data-animation="complete"] .scene[data-embrasement] .nhl-feu-germe {
-    animation: nhl-feu-germe var(--nhl-feu-pousse, 1400ms)
+    animation: nhl-feu-fane var(--nhl-feu-pousse, 1400ms)
+               cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
+  }
+  html[data-animation="complete"] .scene[data-embrasement] .nhl-feu-eclos {
+    animation: nhl-feu-eclot var(--nhl-feu-pousse, 1400ms)
                cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
   }
 }
@@ -887,6 +905,11 @@ html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu-souffle {
 }
 html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu-germe {
   animation: none;
+  opacity: 0;
+}
+html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu-eclos {
+  animation: none;
+  opacity: 1;
 }
 
 
