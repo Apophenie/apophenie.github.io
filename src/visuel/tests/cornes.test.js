@@ -345,3 +345,55 @@ test('★ cornes : la couleur des cornes et celle du verdict se succèdent, jama
       `${id} : la couleur de départ doit être celle du jeton, pour que le retour arrière la rende`);
   }
 });
+
+/**
+ * ★ LE VERDICT COURONNE CE QUE LA DÉMONSTRATION N'A PAS PU COURONNER.
+ *
+ * « "e-h" n'aura ses cornes qu'à l'étape verdict puisque les 6 ne sont pas
+ * réunis avant » (l'auteur). Une série dont les trois 6 ne se touchent jamais
+ * en cours de route — parce qu'une ponctuation les sépare, parce qu'ils
+ * viennent de portées disjointes — ne peut pas être couronnée plus tôt : la
+ * démonstration ne couronne que ce qu'elle CONSTATE. Le verdict, lui, les
+ * réunit, et c'est là qu'il faut le dire.
+ *
+ * Quatre choses se vérifient ici, et ce sont les quatre restrictions écrites
+ * dans `reveal.js` : plusieurs séries, jamais deux couronnements sur un même
+ * chiffre, jamais le rang du bas, jamais autre chose que trois 6.
+ */
+test('★ cornes : le verdict couronne les séries nues du rang du haut', () => {
+  // Deux séries, aucune couronnée en chemin : les deux le sont au verdict.
+  const deux = verdict(6);
+  assert.equal(cornesDe(deux).length, 4, 'deux séries, deux cornes chacune');
+
+  // Le registre SOBRE n'en veut pas : ce qu'il a retiré de la démonstration ne
+  // doit pas revenir par le verdict.
+  const sobre = compile(sc([{
+    id: 'v', title: 'Le verdict', ops: [{ op: 'reveal', targets: ['d0', 'd1', 'd2', 'd3', 'd4', 'd5'] }],
+  }], chiffres('666666')));
+  assert.equal(cornesDe(sobre).length, 0, 'sans scénographie, aucune corne au verdict');
+
+  // Un 666 SEUL n'est pas couronné : il n'a personne dont il faille le
+  // distinguer, et il paierait la moitié de sa taille pour rien.
+  const seul = verdict(3);
+  assert.equal(cornesDe(seul).length, 0, 'un 666 seul reste nu — et reste grand');
+  const zoom = seul.anims.filter((a) => a.id === 'd0' && a.prop === 'scale').pop();
+  assert.ok(zoom.keyframes[1].value > 8, `un 666 seul prend la scène (× ${zoom.keyframes[1].value})`);
+
+  // Cinq séries : deux rangs (5 → 3 puis 2), et seul le rang du HAUT est
+  // couronné. On ne pose pas des cornes pour les retirer trois lignes plus bas.
+  const cinq = verdict(15);
+  assert.equal(cornesDe(cinq).length, 6,
+    'trois séries au rang du haut, deux cornes chacune — et rien au rang du bas');
+});
+
+/** Un verdict de `n` chiffres « 6 », sans aucune corne posée en chemin. */
+function verdict(n) {
+  const tokens = chiffres('6'.repeat(n));
+  // `scenographie` = le registre SCÉNIQUE : c'est lui qui autorise les cornes,
+  // au verdict comme ailleurs (voir `reveal.js`).
+  return compile(sc([{
+    id: 'v', title: 'Le verdict', ops: [{ op: 'reveal', targets: tokens.map((t) => t.id) }],
+  }], tokens), { scenographie: true });
+}
+
+const cornesDe = (tl) => tl.nodes.filter((n) => n.role === 'horns');

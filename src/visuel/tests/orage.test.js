@@ -200,7 +200,12 @@ test('orage — aucune animation concurrente : la scénographie ne dispute aucun
   for (const w of bati({ scenographie: true, reduced: true }).warnings) {
     const cle = w.split(' : ')[0];
     assert.ok(!/@nuit|@eclair/.test(cle), `un aplat de scène ne dispute rien : ${w}`);
-    const herite = cle.replace(/@brasier:/, '');
+    // ★ Les CORNES du verdict sont un satellite au même titre que le brasier
+    //   (`reveal.js` en pose sur les séries que la démonstration n'a pas pu
+    //   couronner). Elles suivent leur 6 au reflow : là où il se plaint, elles
+    //   se plaignent, et pour la même raison. Ce n'est donc pas davantage un
+    //   conflit propre à la scénographie.
+    const herite = cle.replace(/@(?:brasier|cornes):/, '');
     assert.ok(nu.has(cle) || nu.has(herite),
       `conflit propre à l’orage, donc à corriger : ${w}`);
   }

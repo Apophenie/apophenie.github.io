@@ -842,6 +842,184 @@ function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = n
   return aGarder;
 }
 
+// ══════════════════════════════════ LA LIGNE, rejouée pas à pas
+
+/**
+ * ★ LA LIGNE — la suite ORDONNÉE des jetons vivants, rejouée step par step.
+ *
+ * Pourquoi ce module existe, alors que `inventaire()` sait déjà dire ce qu'une
+ * op crée et ce qu'elle supprime : parce que la contiguïté est une question
+ * d'ORDRE, et qu'un inventaire ne la connaît pas. « Trois 6 qui se touchent »
+ * ne se lit pas dans un ensemble d'identifiants, il se lit dans une file.
+ *
+ * ★ **C'est un double du modèle de scène, et le double est ASSUMÉ — à une
+ * condition, qui est tenue ici.** Le vrai flux appartient au moteur visuel
+ * (`visuel/scene.js`), et ce module ne peut pas l'importer : `scenario.js`
+ * appartient au moteur de recherche, il ÉMET pour le visuel et ne s'exécute
+ * jamais dedans (CONTRACTS §1, règle de non-collision). La condition est donc
+ * celle-ci : **on ne rejoue que ce qu'on sait rejouer exactement, et on rend
+ * la main dès qu'on ne sait plus.** Une op hors de la table ci-dessous, un
+ * sélecteur déclaratif (`{group: …}`) dont les identifiants ne sont pas écrits,
+ * un jeton qu'on ne retrouve pas : la ligne devient `null` à partir de là, et
+ * tout ce qui s'appuie dessus renonce. Personne ne couronne « au jugé ».
+ *
+ * ★ **Et le double est MESURÉ** — `tests/integration-visuel.test.js` compile
+ * chaque scénario avec le compilateur RÉEL et compare, step par step, la ligne
+ * rejouée ici au `scene.flow` du moteur visuel. Une divergence est un test
+ * rouge, pas une surprise au clic de l'utilisateur.
+ *
+ * ★ **Et le troisième verrou reste le dernier mot.** Même juste, cette
+ * simulation ne dispense de rien : `visuel/primitives/horns.js` relit la
+ * contiguïté sur LA LIGNE au moment de compiler, et fait échouer la
+ * compilation si elle n'y est pas (CONTRACTS §3.1). Ce module sert à SAVOIR
+ * OÙ couronner, jamais à prouver qu'on en a le droit.
+ *
+ * @param {{id:string}[]} tokens — les jetons de départ, dans l'ordre de lecture
+ * @param {Object[]} steps
+ * @returns {Array<string[]|null>} `lignes[i]` = la ligne APRÈS le step `i`,
+ *   ou `null` dès que le rejeu a perdu le fil (et pour tous les steps suivants)
+ */
+export function suivreLaLigne(tokens, steps) {
+  let ligne = (tokens || []).map((t) => t.id);
+  let perdu = false;
+  // Les signes d'opération que le moteur visuel s'alloue lui-même quand
+  // `insertOperators` ne les nomme pas : ils occupent une place dans la ligne
+  // — c'est tout ce qu'on a besoin de savoir d'eux — et une somme les absorbe.
+  const signes = new Set();
+  let nSigne = 0;
+  const lignes = [];
+
+  /** Les identifiants explicitement écrits, ou `null` pour un sélecteur. */
+  const ids = (t) => {
+    if (t === undefined || t === null) return [];
+    if (typeof t === 'string') return [t];
+    if (Array.isArray(t) && t.every((x) => typeof x === 'string')) return t;
+    return null;
+  };
+  const remplacer = (cible, neufs) => {
+    const i = ligne.indexOf(cible);
+    if (i < 0) return false;
+    ligne.splice(i, 1, ...neufs);
+    return true;
+  };
+  const nes = (to) => (Array.isArray(to) ? to : [to])
+    .filter((t) => t && typeof t.id === 'string').map((t) => t.id);
+  /**
+   * Le geste d'`accumulate` (`visuel/primitives/helpers.js`), à la virgule
+   * près : on relève la place du PREMIER opérande, on consomme les opérandes,
+   * ce qui a été déclaré et les signes qui les séparent, puis le résultat entre
+   * dans le flux à la place relevée. C'est le même ordre là-bas, et il compte —
+   * relever la place après les suppressions donnerait un autre rang.
+   */
+  const accumuler = (operandes, consomme, to) => {
+    if (!operandes || !operandes.length || !to || typeof to.id !== 'string') return false;
+    const rangs = operandes.map((id) => ligne.indexOf(id));
+    if (rangs.some((r) => r < 0)) return false;
+    const lo = Math.min(...rangs);
+    const hi = Math.max(...rangs);
+    const absorbes = ligne.slice(lo + 1, hi).filter((id) => signes.has(id));
+    const morts = new Set([...operandes, ...(consomme || []), ...absorbes]);
+    const place = rangs[0];
+    ligne = ligne.filter((id) => !morts.has(id));
+    ligne.splice(Math.max(0, Math.min(place, ligne.length)), 0, to.id);
+    return true;
+  };
+
+  for (const st of steps) {
+    for (const o of (st && st.ops) || []) {
+      if (perdu) break;
+      switch (o.op) {
+        // Ces gestes ne touchent pas à la ligne : ils désignent, estompent,
+        // annotent, attendent, ou tracent une accolade autour de ce qui est là.
+        case 'highlight': case 'dim': case 'pulse': case 'annotate': case 'wait':
+        case 'partition':
+          break;
+        case 'move': {
+          if (Array.isArray(o.order)) {
+            const voulus = o.order.filter((id) => ligne.includes(id));
+            if (voulus.length !== o.order.length) { perdu = true; break; }
+            ligne = [...voulus, ...ligne.filter((id) => !voulus.includes(id))];
+          } else if (o.targets !== undefined) {
+            const cibles = ids(o.targets);
+            if (!cibles) { perdu = true; break; }
+            const reste = ligne.filter((id) => !cibles.includes(id));
+            ligne = (o.to || 'front') === 'back' ? [...reste, ...cibles] : [...cibles, ...reste];
+          }
+          break;                                   // sans `order` ni `targets` : un simple recalcul
+        }
+        case 'drop': {
+          const cibles = ids(o.targets);
+          if (!cibles) { perdu = true; break; }
+          const morts = new Set(cibles);
+          ligne = ligne.filter((id) => !morts.has(id));
+          break;
+        }
+        case 'horns': {
+          // Les cornes ne créent aucun jeton — le décor appartient au moteur
+          // visuel. Elles n'ôtent que ce qu'`efface` désigne, et cette liste
+          // est vide quand le couronnement a été séparé de l'effacement.
+          const morts = new Set(ids(o.efface) || []);
+          if (morts.size) ligne = ligne.filter((id) => !morts.has(id));
+          break;
+        }
+        case 'substitute': {
+          for (const p of o.pairs || []) {
+            const source = typeof p.target === 'string' ? p.target : (ids(p.targets) || [])[0];
+            const arrivee = nes(p.to);
+            if (!source || !arrivee.length || !remplacer(source, arrivee)) { perdu = true; break; }
+          }
+          break;
+        }
+        // Un jeton pour un jeton, exactement à sa place — et seulement quand un
+        // `to` est donné : sans lui, l'afficheur ou la table ne fait que MONTRER.
+        case 'table': case 'keyboard': case 'sevenSeg': case 'fourteenSeg':
+        case 'countStrokes': case 'flip180': case 'reduce': {
+          if (o.to === undefined) break;
+          const arrivee = nes(o.to);
+          if (typeof o.target !== 'string' || arrivee.length !== 1
+            || !remplacer(o.target, arrivee)) { perdu = true; }
+          break;
+        }
+        case 'sum': {
+          const operandes = ids(o.targets);
+          const consomme = ids(o.consume);
+          if (!operandes || !consomme || !accumuler(operandes, consomme, o.to)) perdu = true;
+          break;
+        }
+        case 'group': {
+          // L'accolade qui tient sa promesse elle-même (décompte, nivellement)
+          // consomme ce qu'elle embrasse et pose le résultat à sa place : c'est
+          // le geste d'une somme. Sans `to`, elle ne fait que l'entourer.
+          if (o.to === undefined) break;
+          const embrasses = ids(o.targets);
+          if (!embrasses || !accumuler(embrasses, [], o.to)) perdu = true;
+          break;
+        }
+        case 'insertOperators': {
+          const entre = ids(o.between);
+          if (!entre || entre.length < 2) { perdu = true; break; }
+          const nommes = ids(o.ids);
+          for (let i = 0; i < entre.length - 1; i++) {
+            const rang = ligne.indexOf(entre[i]);
+            if (rang < 0) { perdu = true; break; }
+            const id = nommes && nommes[i] ? nommes[i] : `@signe:${nSigne++}`;
+            signes.add(id);
+            ligne.splice(rang + 1, 0, id);
+          }
+          break;
+        }
+        // Le verdict RASSEMBLE : il efface tout ce qui n'est pas révélé et
+        // repose les séries. Après lui il n'y a rien, et ce module n'a donc
+        // aucune raison de savoir le rejouer.
+        case 'reveal': perdu = true; break;
+        default: perdu = true; break;
+      }
+    }
+    lignes.push(perdu ? null : ligne.slice());
+  }
+  return lignes;
+}
+
 // ══════════════════════════════════ les cornes : QUAND, et dans quel ordre
 
 /**
@@ -971,6 +1149,138 @@ export function placeDuCouronnement(steps, iCornes) {
     if (!(steps[k].ops || []).every((o) => transparentApres(o, trio))) return iCornes;
   }
   return vise;
+}
+
+/**
+ * ★ COURONNER SANS EFFACER — le geste que personne n'émettait.
+ *
+ * **Le manque, tel qu'il se constatait.** L'unique source de cornes du projet
+ * était l'opérateur `mz` (`m.troisSixDAffilee`), et il fait DEUX choses : il
+ * couronne trois 6 contigus **et il tronque le vecteur à ces trois-là**. C'est
+ * juste quand le vecteur ne rapporte qu'une série — sur `Donald Trump`, il n'y
+ * a rien à garder après le 666 —, et c'est ruineux dès qu'il en rapporte
+ * plusieurs : sur `hope-hope-hope.fr`, `mz` ne garderait que 3 des 15 six, une
+ * série au lieu de cinq, et le classement le rejette à juste titre. La voie
+ * mise en vitrine (`src/i18n/fr.js`) est donc, très légitimement, une voie
+ * SANS `mz` — et elle ne montrait aucune corne, faute d'émetteur.
+ *
+ * **Ce que l'auteur demande.** « Les 3 premiers 6 devraient pouvoir recevoir
+ * leur corne entre l'étape 5 et 6, puis entre 13 et 14 pour les 666 de "ope"
+ * du 2nd hope. » Autrement dit : **dès que trois 6 deviennent contigus au fil
+ * de la démonstration, on les couronne à cet instant-là, sans rien effacer.**
+ * C'est très exactement la moitié « couronnement » du geste de `mz`, détachée
+ * de sa moitié « effacement » — laquelle n'a aucune raison d'exister ici,
+ * puisqu'il n'y a rien à jeter : les autres 6 sont d'autres séries.
+ *
+ * ★ **Pourquoi ICI et pas dans le catalogue** (CONTRACTS §3.1, et le même
+ * argument que pour le décor mutualisé des tables). Un opérateur ne voit que sa
+ * propre étape : `mw` appliqué au « h » du deuxième `hope` ne peut savoir ni
+ * que le « e » du premier et le tiret qui suit portent déjà un 6, ni que les
+ * trois formeront une série au verdict. L'assemblage, lui, voit les deux choses
+ * qu'il faut voir ensemble — **la suite complète des étapes** et **la liste des
+ * jetons que le verdict révélera**, dans l'ordre. Il n'y a pas d'autre endroit
+ * d'où la question puisse seulement se poser.
+ *
+ * ★ **Et le registre de codes n'est pas touché** (CONTRACTS §4.1, registre
+ * CLOS). Aucun code neuf, aucun sens changé : ces couronnements ne sont pas une
+ * ÉTAPE DE CALCUL, ils ne transforment aucune valeur, ils ne figurent dans
+ * aucune URL. La même URL rend la même arithmétique qu'hier ; ce qui change,
+ * c'est qu'on montre enfin ce qu'elle a écrit.
+ *
+ * ★ **Les séries qui ne se réunissent qu'au verdict n'ont PAS de couronnement
+ * ici**, et c'est voulu : la contiguïté ne se constate pas encore. Sur
+ * `hope-hope-hope.fr`, la cinquième série — le « p » et le « e » du troisième
+ * `hope`, puis le 6 de `fr` — reste séparée par le point du nom de domaine
+ * jusqu'à ce que `reveal` l'efface. Elle appartient au rang du bas, dont
+ * `reveal` retire de toute façon les cornes (« seulement sur les 666 de la
+ * ligne du haut », l'auteur) : le silence d'ici et l'effacement de là-bas
+ * disent la même chose.
+ *
+ * ★ **Un couronnement DÉJÀ POSÉ n'est pas doublé.** Une moisson peut mêler des
+ * portées qui passent par `mz` et d'autres non ; on ne recouronne pas ce que
+ * l'opérateur a déjà couronné (un id de nœud de décor est dérivé du jeton, deux
+ * couronnements sur le même 6 se disputeraient le même nœud).
+ *
+ * @param {Object[]} steps — modifié en place
+ * @param {{id:string}[]} tokens
+ * @param {string[]} aReveler — les jetons du verdict, dans l'ordre de la ligne
+ * @param {'fr'|'en'} langue
+ * @returns {number} le nombre de couronnements insérés
+ */
+function couronnerLesTriptyques(steps, tokens, aReveler, langue) {
+  // Le verdict ne découpe en séries que ce qui est fait de séries ENTIÈRES
+  // (`decouperEnSeries`, `visuel/primitives/reveal.js`). Un verdict de quatre
+  // chiffres n'a pas de triptyque à couronner : il n'en montre aucun.
+  if (!aReveler.length || aReveler.length % SERIE !== 0) return 0;
+
+  // Ce que `mz` a déjà couronné, relevé sur les cibles elles-mêmes.
+  const deja = new Set();
+  for (const st of steps) {
+    for (const o of st.ops || []) {
+      if (o.op === 'horns') for (const id of o.targets || []) deja.add(id);
+    }
+  }
+
+  const lignes = suivreLaLigne(tokens, steps);
+  const poses = [];
+  for (let rang = 0; rang * SERIE < aReveler.length; rang++) {
+    const trio = aReveler.slice(rang * SERIE, rang * SERIE + SERIE);
+    if (trio.some((id) => deja.has(id))) continue;
+    // ★ L'INSTANT, et il n'y en a QU'UN : celui où le trio est au complet.
+    //
+    // Non pas « le premier step où les trois se touchent », mais « le step où
+    // le troisième arrive » — et l'on regarde alors s'il arrive CONTRE les deux
+    // autres. La nuance n'est pas de rythme, elle est de nature, et c'est
+    // exactement celle que le vocabulaire tient depuis le début
+    // (CONTRACTS §3.1, amendement `horns`) :
+    //
+    //  · trois 6 déjà côte à côte au moment où le dernier paraît, c'est un 666
+    //    qu'on CONSTATE — « on ne le fabrique pas, on le lit » ;
+    //  · trois 6 qui ne se touchent qu'après qu'on a ôté ce qui les séparait,
+    //    c'est un 666 qu'on RASSEMBLE — l'autre geste, celui qui s'avoue une
+    //    fois, juste avant le verdict, et qui coûte au score.
+    //
+    // Chercher « le premier step où ils se touchent » confondrait les deux : sur
+    // `https://hope-hope-hope.fr/`, une série ne devient contiguë qu'au moment
+    // où « On ne garde que les 6 » fait tomber ce qui l'encombrait. Y planter
+    // des cornes, ce serait couronner le tri en prétendant l'avoir trouvé —
+    // et, accessoirement, glisser une étape entre le tri et le verdict, que ce
+    // module s'interdit par ailleurs.
+    let complet = -1;
+    for (let k = 0; k < lignes.length; k++) {
+      // La ligne a perdu le fil : plus rien n'est démontrable au-delà, et l'on
+      // ne couronne jamais au jugé (voir `suivreLaLigne`).
+      if (!lignes[k]) break;
+      if (trio.every((id) => lignes[k].includes(id))) { complet = k; break; }
+    }
+    if (complet < 0) continue;
+    const r = trio.map((id) => lignes[complet].indexOf(id));
+    if (r[1] !== r[0] + 1 || r[2] !== r[1] + 1) continue;
+    poses.push({ rang, trio, apres: complet });
+  }
+  if (!poses.length) return 0;
+
+  // De la fin vers le début : insérer une étape en amont décalerait les places
+  // visées par les suivantes. À place égale, du dernier triptyque au premier,
+  // pour que l'ordre de lecture reste celui des séries.
+  for (const p of [...poses].sort((a, b) => b.apres - a.apres || b.rang - a.rang)) {
+    steps.splice(p.apres + 1, 0, {
+      id: `s${steps.length}`,
+      title: MOTS.couronner[langue],
+      caption: MOTS.couronnerLegende[langue],
+      // ★ Aucun `efface` : c'est tout le propos. `mz` couronnait ET tronquait ;
+      // ici il n'y a rien à jeter — ce qui entoure ce 666 est un autre 666, ou
+      // le sera. La primitive accepte la liste vide sans rien changer d'autre
+      // (`visuel/primitives/horns.js`), et `mutualiserDecor` sait déjà qu'un
+      // couronnement qui n'efface pas ne touche pas à la ligne.
+      ops: [{ op: 'horns', targets: [...p.trio] }],
+      hold: DUREE_CHARNIERE,
+    });
+  }
+  // Les identifiants suivent la lecture ; `reglerLesCornes` les repose de toute
+  // façon, mais un scénario ne doit à aucun moment porter deux fois le même.
+  steps.forEach((s, i) => { s.id = `s${i}`; });
+  return poses.length;
 }
 
 /**
@@ -1590,6 +1900,14 @@ export function construireScenario(approche, ctx = {}) {
   //   REGISTRE sobre se distingue du scénique côté scénario. Tout le reste —
   //   l'arithmétique, les codes, le verdict, le score, le rang — est
   //   rigoureusement identique dans les deux (voir `sobrifierLesCornes`).
+  // ★ Les triptyques que PERSONNE n'aurait couronnés le sont ici — voir
+  //   `couronnerLesTriptyques`. Avant `reglerLesCornes`, qui se charge ensuite
+  //   de les avancer plus tôt encore si la ligne le permet : les deux fonctions
+  //   ne répondent pas à la même question. Celle-ci demande « où le 666 est-il
+  //   écrit pour la première fois ? » ; celle-là, « peut-on le dire plus tôt
+  //   que là où l'étape a été posée ? ». La seconde suppose la première.
+  couronnerLesTriptyques(steps, tokens, aReveler, langue);
+
   const cornes = registre === 'sobre'
     ? sobrifierLesCornes(steps)
     : reglerLesCornes(steps, langue);
@@ -2098,6 +2416,19 @@ const MOTS = Object.freeze({
   // légende de `mz` disait les deux d'un coup (« 6 6 6 7 3 6 → 666 »).
   // Séparés, chacun a la sienne, et chacune ne dit que ce qui se passe sous
   // les yeux du spectateur à cet instant-là.
+  // ★ Le TITRE du couronnement, et pourquoi il est écrit ici aussi.
+  //
+  // `mz` a le sien (`LIB_TROUVAILLE`, `transformations/mappeurs.js`) : c'est
+  // le libellé de l'OPÉRATEUR, et il dit ce que l'opérateur fait. Les
+  // couronnements posés par l'assemblage (`couronnerLesTriptyques`) n'ont
+  // aucun opérateur derrière eux — ils ne transforment rien, ils constatent —,
+  // donc pas de libellé à emprunter. La phrase est volontairement LA MÊME :
+  // ce qui se passe à l'écran est le même geste, et deux formulations
+  // différentes pour un seul geste feraient croire à deux gestes.
+  couronner: {
+    fr: 'Trois 6 d’affilée — le 666 était déjà écrit',
+    en: 'Three 6s in a row — the 666 was already written',
+  },
   couronnerLegende: {
     fr: 'Trois 6 côte à côte — le 666 est écrit, et rien ne le défera plus',
     en: 'Three 6s side by side — the 666 is written, and nothing will undo it',

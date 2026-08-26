@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { creerMoteur } from '../index.js';
 import {
   construireScenario, validerScenario, VOCABULAIRE, DUREE_MIN, elementsDe, validerFormeOp,
-  placeDuCouronnement, jalonsDesCornes,
+  placeDuCouronnement, jalonsDesCornes, suivreLaLigne,
 } from '../scenario.js';
 import { etat } from '../bfs.js';
 import { approcheJoker } from '../assemblage.js';
@@ -587,4 +587,120 @@ test('★ cornes — les jalons publiés pour le score sont exacts et purs', () 
 
   // Et le scénario reste sérialisable (invariant 8).
   assert.deepEqual(validerScenario(sc), []);
+});
+
+/**
+ * ★ COURONNER SANS EFFACER — la voie de la vitrine, celle qui ne montrait rien.
+ *
+ * `hope-hope-hope.fr` mène cinq séries de 666, et sa voie de tête n'emploie pas
+ * `mz` — elle ne le peut pas : l'opérateur tronque le vecteur à trois 6, il en
+ * jetterait douze sur quinze. L'unique émetteur de cornes du projet étant `mz`,
+ * cette démonstration n'en montrait AUCUNE : cinq 666 se formaient sous les
+ * yeux du spectateur sans que rien ne le souligne.
+ *
+ * Ce test fige ce que l'auteur a demandé, étape par étape : « Les 3 premiers 6
+ * devraient pouvoir recevoir leur corne entre l'étape 5 et 6, puis […] pour les
+ * 666 de "ope" du 2nd hope. »
+ */
+test('★ cornes — la voie de la vitrine couronne ses triptyques, et n’efface rien', () => {
+  const m = creerMoteur(catalogue);
+  const r = m.resoudre('hope-hope-hope.fr');
+  const a = r.approches.find((x) => x.codes === 't1+mw,t1+mv+c1,t1+mw,t1+mv+c1,t1+mw,t1+md+c1');
+  assert.ok(a, 'la voie mise en vitrine dans src/i18n/fr.js doit être trouvée');
+  assert.ok(!a.codes.includes('mz'), 'et elle n’emploie pas « trois 6 d’affilée »');
+  const sc = m.scenarioDe(a, { saisie: r.saisie });
+  assert.deepEqual(validerScenario(sc), []);
+
+  const cornes = sc.steps
+    .map((s, i) => ({ i, o: (s.ops || []).find((x) => x.op === 'horns') }))
+    .filter((x) => x.o);
+  assert.equal(cornes.length, 4, 'quatre triptyques s’écrivent d’eux-mêmes au fil de la ligne');
+
+  // ★ RIEN ne s'efface. C'est tout le propos : `mz` couronnait ET tronquait ;
+  //   ici les voisins des trois 6 sont d'autres 6, il n'y a rien à jeter.
+  for (const { o } of cornes) {
+    assert.ok(!o.efface || !o.efface.length, 'un couronnement de la ligne n’efface jamais rien');
+  }
+  assert.equal(sc.steps.filter((s) => (s.ops || []).some((o) => o.op === 'drop')).length, 0,
+    'et aucune gomme n’apparaît dans la démonstration');
+
+  // ★ Chaque couronnement porte sur UNE SÉRIE DU VERDICT, dans l'ordre.
+  const verdict = sc.steps[sc.steps.length - 1].ops.find((o) => o.op === 'reveal').targets;
+  assert.equal(verdict.length, 15, 'cinq séries de trois');
+  const series = [0, 1, 2, 3, 4].map((k) => verdict.slice(k * 3, k * 3 + 3));
+  cornes.forEach(({ o }, k) => assert.deepEqual(o.targets, series[k],
+    `le ${k + 1}ᵉ couronnement doit porter sur la ${k + 1}ᵉ série du verdict`));
+
+  // ★ La CINQUIÈME série n'est pas couronnée, et c'est exact : le point du nom
+  //   de domaine reste entre le « e » du troisième « hope » et le 6 de « fr »
+  //   jusqu'à ce que le verdict l'efface. Les trois 6 ne se touchent jamais
+  //   avant, donc rien ne les couronne — « d'affilée » est le mot qui interdit
+  //   l'assouplissement (CONTRACTS §3.1).
+  //   Elle appartient d'ailleurs au rang du bas, dont `reveal` retire les
+  //   cornes : le silence d'ici et l'effacement de là-bas disent la même chose.
+
+  // ★ Et les rangs, tels que l'auteur les a dictés. Sur les 29 étapes de la
+  //   démonstration, le premier 666 est couronné à la sixième — c'est-à-dire
+  //   « entre l'étape 5 et 6 » du déroulé d'origine, qui en comptait 25.
+  assert.deepEqual(cornes.map((c) => c.i + 1), [6, 12, 16, 22]);
+  assert.equal(sc.cornes.premier, 6);
+  assert.equal(sc.cornes.total, sc.steps.length);
+});
+
+/**
+ * ★ ON COURONNE CE QU'ON CONSTATE, JAMAIS CE QU'ON A RASSEMBLÉ.
+ *
+ * La distinction est la même que celle du nom de l'opérateur — « trois 6
+ * D'AFFILÉE » —, et elle décide ici de l'instant regardé : celui où le
+ * troisième 6 paraît, et lui seul. S'il paraît contre les deux autres, le 666
+ * est écrit et on le couronne. S'il paraît ailleurs et que les trois ne se
+ * touchent qu'une fois retiré ce qui les séparait, c'est l'AUTRE geste — « On
+ * ne garde que les 6 » —, celui qui ne se joue qu'une fois, juste avant le
+ * verdict, et qui coûte au score.
+ */
+test('★ cornes — un triptyque que le TRI a rapproché n’est pas couronné', () => {
+  const m = creerMoteur(catalogue);
+  const r = m.resoudre('https://hope-hope-hope.fr/');
+  for (const a of r.approches) {
+    const sc = m.scenarioDe(a, { saisie: r.saisie });
+    const tri = sc.steps.findIndex((s) => s.recolte);
+    if (tri < 0) continue;
+    const cornes = sc.steps.map((s, i) => ((s.ops || []).some((o) => o.op === 'horns') ? i : -1))
+      .filter((i) => i >= 0);
+    for (const i of cornes) {
+      assert.ok(i < tri, `${a.codes} : cornes à l’étape ${i + 1}, après le tri de l’étape ${tri + 1} — `
+        + 'un 666 rapproché par le tri n’est pas un 666 trouvé');
+    }
+  }
+});
+
+/**
+ * ★ LE REJEU DE LA LIGNE DÉCLARE FORFAIT PLUTÔT QUE DE DEVINER.
+ *
+ * `suivreLaLigne` sert à savoir où trois 6 deviennent contigus. Une erreur de
+ * sa part ne serait pas une imprécision : elle ferait échouer la compilation au
+ * clic (`visuel/primitives/horns.js` refuse de couronner trois 6 qui ne se
+ * touchent pas). D'où la règle — dès qu'il ne sait plus, il rend `null`, et
+ * tout ce qui s'appuie dessus renonce. Le test l'exige sur les trois manières
+ * dont il peut ne plus savoir.
+ */
+test('★ cornes — la ligne rejouée rend « null » dès qu’elle ne sait plus', () => {
+  const tokens = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  const suite = (ops) => suivreLaLigne(tokens, [{ id: 's0', ops }, { id: 's1', ops: [{ op: 'wait' }] }]);
+
+  // Ce qu'il sait rejouer : un remplacement un pour un, à la même place.
+  assert.deepEqual(suite([{ op: 'table', target: 'b', to: { id: 'z', text: '6' } }])[0], ['a', 'z', 'c']);
+  // …une somme, qui pose son résultat à la place du premier opérande.
+  assert.deepEqual(suite([{ op: 'sum', targets: ['a', 'b'], to: { id: 'z', text: '6' } }])[0], ['z', 'c']);
+  // …et les signes que le moteur visuel s'alloue lui-même, qui OCCUPENT la ligne.
+  assert.equal(suite([{ op: 'insertOperators', between: ['a', 'b'], glyph: '+' }])[0].length, 4);
+
+  // Une op hors du vocabulaire qu'il modélise : forfait, et pour la suite aussi.
+  assert.deepEqual(suite([{ op: 'aucune' }]), [null, null]);
+  // Un SÉLECTEUR déclaratif : les identifiants ne sont pas écrits, on ne devine pas.
+  assert.deepEqual(suite([{ op: 'drop', targets: { group: 'p0' } }]), [null, null]);
+  // Un jeton qu'on ne retrouve pas dans la ligne : forfait plutôt qu'à-peu-près.
+  assert.deepEqual(suite([{ op: 'table', target: 'inconnu', to: { id: 'z', text: '6' } }]), [null, null]);
+  // Le verdict rassemble : après lui il n'y a rien, et rien à rejouer.
+  assert.deepEqual(suite([{ op: 'reveal', targets: ['a', 'b', 'c'] }]), [null, null]);
 });
