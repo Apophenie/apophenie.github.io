@@ -813,65 +813,68 @@
    ★ Un canal, un élément (CONTRACTS §3.2 règle 3) : le corps de reprise n'anime
    que son opacité et ne porte aucune transformation — la recette du défaut
    Firefox reste hors de portée (`tests/compositeur.test.js`). */
-/* ── LA GERMINATION — ce sont les FLAMMES qui grandissent, pas le glyphe ────
+/* ── LE FEU N'EXISTE QUE SOUS L'ATTRIBUT — animations comprises ────────────
 
-   « La dernière version fait apparaître en dessous des lettres leur clone
-   enflammé miniature puis les fait grossir. On n'est pas censé voir la
-   plomberie interne ! » (l'auteur).
+   ⚠ C'est la structure entière de ce bloc, et elle répare deux défauts d'un
+   coup. « Sur Chromium, le premier affichage est fluide, mais si je fais
+   précédent puis lecture et que je rejoue l'étape du verdict, alors la saccade
+   revient » (l'auteur).
 
-   La rédaction précédente animait un `transform: scale()` sur l'enveloppe du
-   foyer. Or le corps qui porte les `drop-shadow()` EST une copie du glyphe :
-   le rétrécir rétrécit la silhouette qui projette les flammes, et l'on voyait
-   donc un petit chiffre en feu grandir à côté du grand — l'échafaudage,
-   exactement.
+   Une rédaction précédente déclarait les animations TOUT LE TEMPS, simplement
+   `paused` hors embrasement. Deux conséquences, et aucune n'était voulue :
 
-   ★ AUCUNE GÉOMÉTRIE NE BOUGE PLUS. Les trois corps restent superposés au vrai
-   chiffre, à sa taille, du début à la fin. Ce qui varie, ce sont les FILTRES
-   qu'on montre : la graine (pile courte) s'efface pendant que l'adulte (pile
-   pleine) paraît. Un fondu croisé entre deux couches déjà tramées se lit comme
-   une flamme qui monte, et ne coûte que de la composition.
+     1. Une animation TERMINÉE garde sa dernière image (`fill-mode: both`), qui
+        dit `display: block`. Après un retour en arrière, l'attribut était bien
+        retiré — mesuré — mais les corps restaient PEINTS : le grossissement
+        rejoué les traînait de nouveau, et la saccade revenait.
+     2. Pour la même raison, la germination ne rejouait jamais : les animations
+        étaient déjà finies, elles ne repartaient pas de leur graine.
 
-   ⚠ La règle qui en découle est tenue par un test : aucune `@keyframes` du feu
-   n'anime `transform`. Pas seulement pour Firefox — pour que la plomberie
-   reste invisible. */
-.nhl-feu-germe {
+   En ne déclarant les animations QUE sous l'attribut, les deux tombent : sans
+   lui, il n'y a plus d'animation du tout, donc plus d'état final à conserver —
+   les règles de base reprennent la main et le feu redevient absent. Et quand
+   l'attribut revient, les animations sont NEUVES : elles repartent de leur
+   première image, délai compris. Un feu qui reprend doit germer à nouveau.
+
+   ★ `display: none` et non `opacity: 0` : un `filter` opère dans l'espace
+   utilisateur, donc un sous-arbre transparent reste un sous-arbre à re-tramer
+   quand son échelle change. `opacity: 0` cache sans dispenser de peindre.
+   ══════════════════════════════════════════════════════════════════════════ */
+.nhl-feu-germe,
+.nhl-feu-eclos,
+.nhl-feu-souffle,
+.nhl-feu-sceau { display: none; }
+
+.scene[data-embrasement] .nhl-feu-sceau { display: block; }
+
+/* La graine s'efface pendant que l'adulte paraît : le fondu croisé de deux
+   piles statiques se lit comme une flamme qui monte, sans qu'aucune géométrie
+   ne bouge. Le `--nhl-feu-semis` échelonne les foyers — la variété d'abord,
+   mais aussi l'étalement des tramages. */
+.scene[data-embrasement] .nhl-feu-germe {
+  display: block;
   animation: nhl-feu-fane var(--nhl-feu-pousse, 1400ms)
              cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
 }
-.nhl-feu-eclos {
+.scene[data-embrasement] .nhl-feu-eclos {
+  display: block;
   animation: nhl-feu-eclot var(--nhl-feu-pousse, 1400ms)
              cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
 }
-/* ★ Le `display` dans les images clés ÉCHELONNE les naissances.
-   Une fois le feu autorisé, les dix foyers paraîtraient ensemble — dix tramages
-   de filtre dans la même image, soit le pic de 487 ms mesuré. Chaque foyer
-   ayant son propre `--nhl-feu-semis`, un `display: none` sur sa première image
-   clé le retient jusqu'à son tour : les tramages se répartissent.
-   Là où `display` ne s'anime pas (avant Chrome 116, Firefox 129), la règle
-   d'attribut ci-dessus prend seule le relais : le feu paraît d'un bloc, comme
-   avant, mais le grossissement reste fluide. Le repli ne perd rien d'acquis. */
-@keyframes nhl-feu-fane {
-  from { display: none; opacity: 1; }
-  0.5% { display: block; opacity: 1; }
-  to   { display: block; opacity: 0; }
-}
-@keyframes nhl-feu-eclot {
-  from { display: none; opacity: 0; }
-  0.5% { display: block; opacity: 0; }
-  to   { display: block; opacity: 1; }
-}
+@keyframes nhl-feu-fane { from { opacity: 1; } to { opacity: 0; } }
+@keyframes nhl-feu-eclot { from { opacity: 0; } to { opacity: 1; } }
 
 /* ── LA RESPIRATION ────────────────────────────────────────────────────────
-   ⚠ L'opacité est sur l'ENVELOPPE (`.nhl-feu-souffle`), le filtre sur l'élément
-   à l'intérieur (`.nhl-feu`). Les mettre sur le même élément forçait le moteur
-   à repasser les cinq flous à chaque image — c'était le gel du verdict.
-   Le pourquoi complet est dans `src/visuel/dom.js › construireBrasier`.
+   ⚠ L'opacité est sur l'ENVELOPPE, le filtre sur l'élément à l'intérieur. Les
+   mettre sur le même élément forçait le moteur à repasser les flous à chaque
+   image — c'était le gel du verdict (`src/visuel/dom.js`).
 
    ★ Elle n'entre qu'APRÈS la pousse : semis + pousse la retiennent, et le
    `--nhl-feu-retard` négatif (la phase propre au foyer) vient s'y soustraire,
    de sorte qu'elle démarre déjà en cours de cycle. Une reprise qui battrait
    pendant la germination ferait clignoter la graine. */
-.nhl-feu-souffle {
+.scene[data-embrasement] .nhl-feu-souffle {
+  display: block;
   animation: nhl-feu-reprise var(--nhl-feu-periode, 900ms) ease-in-out
              calc(var(--nhl-feu-semis, 0ms) + var(--nhl-feu-pousse, 1400ms)
                   + var(--nhl-feu-retard, 0ms))
@@ -882,59 +885,17 @@
   to   { opacity: 1; }
 }
 
-/* ── L'interrupteur : le feu n'EXISTE PAS tant qu'il n'a pas pris ──────────
-   ⚠ `display: none`, et non `opacity: 0` — c'est un correctif de fluidité, et
-   la différence est tout entière là.
-
-   « Sur Chromium, le grossissement saccade — quatre ou cinq micro-freezes
-   pendant le zoom. Sur Firefox, un long freeze de deux ou trois secondes une
-   fois à la taille cible » (l'auteur).
-
-   Mesuré, même trajet, deux registres :
-
-     · sobre (aucun corps filtré)  : médiane 16,7 ms, pire image 31 ms ;
-     · scénique (trente corps)     : médiane 16,7 ms, pire image 487 ms,
-                                     et une dizaine d'images au-dessus de 100.
-
-   Le feu coûtait donc **alors même que son opacité valait zéro**. Un `filter`
-   opère dans l'espace utilisateur : quand le nœud grandit, sa chaîne de flous
-   doit être re-tramée à la nouvelle échelle — et un sous-arbre transparent est
-   toujours un sous-arbre à tramer. `opacity: 0` cache ; il ne dispense pas de
-   peindre. `display: none` dispense.
-
-   Ce qui n'existe pas ne peut pas ralentir le grossissement. */
-.nhl-feu-germe,
-.nhl-feu-eclos,
-.nhl-feu-souffle,
-.nhl-feu-sceau { display: none; }
-.scene[data-embrasement] .nhl-feu-germe,
-.scene[data-embrasement] .nhl-feu-eclos,
-.scene[data-embrasement] .nhl-feu-souffle,
-.scene[data-embrasement] .nhl-feu-sceau { display: block; }
-
-.nhl-feu-souffle { animation-play-state: paused; opacity: 0; }
-.nhl-feu-germe { animation-play-state: paused; }
-.nhl-feu-eclos { animation-play-state: paused; }
-.scene[data-embrasement] .nhl-feu-souffle,
-.scene[data-embrasement] .nhl-feu-germe,
-.scene[data-embrasement] .nhl-feu-eclos { animation-play-state: running; }
-
 /* ── Mouvement réduit : un feu FIXE, mais un feu ──────────────────────────
    « `prefers-reduced-motion` doit donner un feu fixe. » Il reste donc là,
    dessiné, coloré, autour des chiffres — seules sa respiration et sa pousse
-   s'arrêtent. Et il se fige ADULTE : la graine s'efface, l'adulte paraît, tout
-   de suite. Un feu réduit est un feu immobile, pas une graine qui ne lèvera
-   jamais.
+   s'arrêtent. Et il se fige ADULTE : un feu réduit est un feu immobile, pas une
+   graine qui ne lèvera jamais.
    Le réglage explicite (`data-animation`, posé par `src/app/reglages.js`) prime
-   DANS LES DEUX SENS, comme pour le logo : on peut vouloir l'animation malgré
-   un OS réglé en « réduit », et l'inverse. */
+   DANS LES DEUX SENS, comme pour le logo. */
 @media (prefers-reduced-motion: reduce) {
-  .scene[data-embrasement] .nhl-feu-souffle { animation-play-state: paused; opacity: .5; }
   .scene[data-embrasement] .nhl-feu-germe { animation: none; opacity: 0; }
   .scene[data-embrasement] .nhl-feu-eclos { animation: none; opacity: 1; }
-  html[data-animation="complete"] .scene[data-embrasement] .nhl-feu-souffle {
-    animation-play-state: running;
-  }
+  .scene[data-embrasement] .nhl-feu-souffle { animation: none; opacity: .5; }
   html[data-animation="complete"] .scene[data-embrasement] .nhl-feu-germe {
     animation: nhl-feu-fane var(--nhl-feu-pousse, 1400ms)
                cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
@@ -943,10 +904,12 @@
     animation: nhl-feu-eclot var(--nhl-feu-pousse, 1400ms)
                cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
   }
-}
-html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu-souffle {
-  animation-play-state: paused;
-  opacity: .5;
+  html[data-animation="complete"] .scene[data-embrasement] .nhl-feu-souffle {
+    animation: nhl-feu-reprise var(--nhl-feu-periode, 900ms) ease-in-out
+               calc(var(--nhl-feu-semis, 0ms) + var(--nhl-feu-pousse, 1400ms)
+                    + var(--nhl-feu-retard, 0ms))
+               infinite alternate;
+  }
 }
 html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu-germe {
   animation: none;
@@ -955,6 +918,10 @@ html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu-germe {
 html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu-eclos {
   animation: none;
   opacity: 1;
+}
+html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu-souffle {
+  animation: none;
+  opacity: .5;
 }
 
 

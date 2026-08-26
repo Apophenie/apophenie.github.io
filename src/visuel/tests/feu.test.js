@@ -288,10 +288,21 @@ test('feu — le vacillement est PAUSÉ tant que le feu n’a pas pris', () => {
   // sous un feu invisible dès qu'on revient en arrière. C'est `data-embrasement`
   // — fonction du temps, posé par `player.js` — qui les met en marche.
   const css = lire('src/styles/pages.css');
-  assert.match(css, /\.nhl-feu-souffle \{ animation-play-state: paused;/);
-  assert.match(css, /\.nhl-feu-germe \{ animation-play-state: paused; \}/);
-  assert.match(css, /\.nhl-feu-eclos \{ animation-play-state: paused; \}/);
-  assert.match(css, /\.scene\[data-embrasement\] \.nhl-feu-eclos \{ animation-play-state: running; \}/);
+  /* ★ L'interrupteur ne met plus les animations en PAUSE : il les fait ne pas
+     EXISTER. Une animation en pause reste une animation ; terminée, elle garde
+     sa dernière image — laquelle disait `display: block`. Après un retour en
+     arrière, les corps restaient donc peints et le grossissement rejoué les
+     traînait : « si je fais précédent puis lecture et que je rejoue l'étape du
+     verdict, alors la saccade revient » (l'auteur). */
+  assert.doesNotMatch(css, /animation-play-state/,
+    'une animation en pause garde son état final : le feu doit ne pas exister, pas dormir');
+  for (const classe of ['germe', 'eclos', 'souffle']) {
+    const regle = css.match(new RegExp(
+      `\\.scene\\[data-embrasement\\] \\.nhl-feu-${classe} \\{([^}]*)\\}`));
+    assert.ok(regle, `« .nhl-feu-${classe} » doit être déclaré sous l’attribut`);
+    assert.match(regle[1], /animation:/,
+      `l’animation de « ${classe} » doit vivre SOUS l’attribut, pour repartir neuve au rejeu`);
+  }
   const js = lire('src/visuel/player.js');
   assert.match(js, /_renderEmbrasement\(t\)/, 'le lecteur ne résout plus l’interrupteur du feu');
   assert.match(js, /setAttribute\('data-embrasement'/);
@@ -304,11 +315,13 @@ test('★ feu — mouvement réduit : un feu FIXE, mais un feu', () => {
   const bloc = css.slice(css.indexOf('Mouvement réduit : un feu FIXE'));
   assert.match(bloc, /@media \(prefers-reduced-motion: reduce\)/);
   // Figé à mi-course : ni braise seule, ni reprise pleine — un état de feu.
-  assert.match(bloc, /animation-play-state: paused; opacity: \.5;/,
+  assert.match(bloc, /\.nhl-feu-souffle \{ animation: none; opacity: \.5; \}/,
     'le feu réduit doit se figer à mi-respiration, pas s’éteindre ni s’emballer');
-  assert.match(bloc, /html\[data-animation="complete"\][\s\S]*?animation-play-state:\s*running/,
+  assert.match(bloc, /\.nhl-feu-eclos \{ animation: none; opacity: 1; \}/,
+    'et se figer ADULTE : un feu réduit est un feu immobile, pas une graine');
+  assert.match(bloc, /html\[data-animation="complete"\][\s\S]*?animation: nhl-feu-reprise/,
     'le réglage explicite « animation complète » ne rétablit plus rien');
-  assert.match(css, /html\[data-animation="reduite"\][\s\S]*?animation-play-state:\s*paused/,
+  assert.match(css, /html\[data-animation="reduite"\][\s\S]*?animation: none/,
     'le réglage explicite « animation réduite » n’est écouté par aucun sélecteur');
 });
 
@@ -413,10 +426,8 @@ test('★★ feu — la germination ne fait grandir QUE les flammes', () => {
   const fane = css.match(/@keyframes nhl-feu-fane \{([\s\S]*?)\n\}/);
   const eclot = css.match(/@keyframes nhl-feu-eclot \{([\s\S]*?)\n\}/);
   assert.ok(fane && eclot, 'la graine et l’adulte doivent avoir leurs images clés');
-  assert.match(fane[1], /from \{ display: none; opacity: 1; \}/);
-  assert.match(fane[1], /to\s+\{ display: block; opacity: 0; \}/);
-  assert.match(eclot[1], /from \{ display: none; opacity: 0; \}/);
-  assert.match(eclot[1], /to\s+\{ display: block; opacity: 1; \}/);
+  assert.match(fane[1], /from \{ opacity: 1; \} to \{ opacity: 0; \}/);
+  assert.match(eclot[1], /from \{ opacity: 0; \} to \{ opacity: 1; \}/);
   // 4. Et le DOM monte bien les trois corps, chacun avec SA chaîne.
   assert.match(dom, /enveloppe\('nhl-feu-germe', 'graine'/);
   assert.match(dom, /enveloppe\('nhl-feu-eclos', 'a'/);
