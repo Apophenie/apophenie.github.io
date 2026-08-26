@@ -3,7 +3,8 @@
 // CONTRACTS.md §4.2, §4.3, §4.4.
 //
 //   url        := {chemin} '#' [approche] '#' b58(saisie)
-//   approche   := [registre '!'] fragment (',' fragment)*
+//   approche   := marqueur* fragment (',' fragment)*
+//   marqueur   := registre '!' | 'c' chiffre+ '!'
 //   registre   := 'so' | 'sce'        (formes longues encore LUES, plus écrites)
 //   fragment   := [portee ':'] programme
 //   portee     := offset '.' longueur          // en jetons ; absent ⇒ saisie entière
@@ -14,6 +15,43 @@
 // `×3:programme` abrège la résonance (le même programme sur les 3 occurrences).
 // `so!` / `sce!` préfixe l'approche entière — voir ci-dessous.
 //
+// ── LA CIBLE, `c111!` — viser autre chose que 666 ──────────────────────────
+//
+// « Via la page de listing, pouvoir indiquer un autre objectif que 666, par
+// exemple 111 ou 777 ou 13 ou 000 ou 007, et relancer la recherche mais pour
+// produire ces résultats. » (l'auteur)
+//
+// Le marqueur suit le précédent du registre, point par point — même position
+// (en tête de l'approche entière, jamais dans un fragment), même séparateur
+// (`!`, qui n'apparaît nulle part ailleurs dans la grammaire), même brièveté :
+// « l'URL reste essentiellement cryptique et ça participe à l'effet de
+// surprise ». Une lettre, les chiffres visés, un point d'exclamation.
+//
+// ★ **Ce n'est pas un opérateur, et le registre §4.1 reste fermé.** Même
+// argument que pour `so!` / `sce!` : un opérateur transforme l'état, il a un
+// `from`, un `to`, un `apply()`. La cible ne transforme rien — elle dit ce
+// qu'on CHERCHE, donc ce que le moteur retiendra. C'est une extension de la
+// GRAMMAIRE, au même titre que `×3:` et que les portées `0.1:`.
+//
+// ★ **Aucune ambiguïté avec un code de combinateur.** `c1` est bien un code
+// d'opérateur (la somme), et `c111!` commence par les mêmes signes. Le `!` les
+// sépare sans reste : il est interdit dans un programme, et le marqueur ne se
+// lit qu'en TÊTE, avant le premier fragment. `#c1+m4#…` reste donc un
+// programme qui commence par la somme, et `#c111!c1+m4#…` la même somme visant
+// 111.
+//
+// ★ **L'ABSENCE DE MARQUEUR VAUT 666, ET LE MARQUEUR N'EST PAS ÉCRIT QUAND IL
+// VAUT 666.** C'est la seule différence avec le registre, et elle est
+// délibérée. `ecrire()` pose TOUJOURS `sce!` ou `so!`, même au défaut, parce
+// que ce défaut-là avait été tranché entre deux lectures également
+// défendables : il fallait qu'un lien cesse d'en dépendre. Ici, il n'y a rien
+// à trancher — 666 est la promesse du site, elle est écrite dans son titre, et
+// aucun lien existant n'a jamais voulu dire autre chose. Écrire `c666!` sur
+// chaque lien coûterait six signes à la totalité des URL pour lever une
+// ambiguïté qui n'existe pas, et — surtout — CHANGERAIT la forme canonique de
+// tous les liens déjà partagés, que `canoniser()` réécrit à chaque ouverture.
+// Le marqueur ne paraît donc que là où il dit quelque chose.
+
 // ── LE REGISTRE, et pourquoi ce n'est PAS un opérateur ──────────────────────
 //
 // Le registre de codes d'opérateurs est FERMÉ (CONTRACTS §4.1) : aucun code ne
@@ -30,35 +68,44 @@
 // sobrement et le suivant en fanfare n'aurait aucun sens. Une seule mise en
 // scène par démonstration, donc un seul marqueur, en tête.
 //
-// ── L'ABSENCE DE MARQUEUR VAUT « SCÉNIQUE ». Voici pourquoi ────────────────
+// ── L'ABSENCE DE MARQUEUR VAUT « SOBRE ». Voici pourquoi ──────────────────
 //
-// Des liens écrits à la main circulent depuis la publication et n'ont pas de
-// marqueur. Il fallait trancher, et les deux lectures se défendaient :
-// « scénique » (les liens existants ne changent pas) ou « sobre » (le défaut
-// est la version crédible, la mise en scène s'opte).
+// ★ **C'est un renversement, et il est assumé.** Le défaut a valu « scénique »
+// tant qu'on croyait devoir protéger des liens déjà partagés : sous cette
+// contrainte, seule la lecture qui ne changeait pas le nombre d'étapes d'un
+// vieux lien était tenable. L'auteur a confirmé qu'aucun lien n'a été diffusé
+// hors des scénarios de test de ce dépôt. La contrainte tombe, et avec elle le
+// seul argument qui tenait « scénique » debout.
 //
-// L'argument « ne rien changer » ne départage pas, contrairement aux
-// apparences : les deux options changent quelque chose. Sous « scénique », un
-// vieux lien garde ses cornes mais gagne l'orage ; sous « sobre », il reste
-// sans orage mais perd ses cornes. Ce qui départage, c'est la NATURE des deux
-// changements :
+// Ce qui reste est l'argument de fond, et il va dans l'autre sens : **la mise
+// en scène s'OPTE**. Un lien nu doit rendre la version la plus crédible — celle
+// qu'on peut montrer à quelqu'un sans qu'il voie d'abord des cornes de diable —
+// et le spectacle doit être demandé. « Sobre » est ce qu'on obtient quand on
+// n'a rien dit ; « scénique » est ce qu'on obtient quand on l'a écrit.
 //
-//  · **Les cornes sont un geste de la DÉMONSTRATION.** C'est une primitive du
-//    vocabulaire fermé (§3.1), émise par un opérateur que l'URL NOMME (`mz`),
-//    et le couronnement anticipé change le nombre d'étapes — 23 au lieu de 22
-//    sur la voie de référence. Un lien qui promettait 23 étapes en rendrait 22,
-//    avec une autre jauge, un autre badge et un autre Registre. C'est
-//    exactement ce que §4.3 interdit : « un lien ne renvoie jamais
-//    silencieusement vers une autre démonstration ».
-//  · **L'orage est du THÉÂTRE.** Mêmes étapes, même numérotation, même
-//    Registre, même verdict. L'ajouter à un vieux lien est du même ordre que
-//    d'améliorer le dessin d'une corne : le site évolue, la démonstration non.
+// ⚠️ Le registre de CODES D'OPÉRATEURS (§4.1) n'est pas concerné et reste
+// clos : ce qui vient d'être levé porte sur les LIENS, pas sur la grammaire.
+// Aucun code ne change de sens ici, aucun n'est réattribué.
 //
-// Un seul des deux défauts fait donc mentir un lien. Et le coût du choix est
-// borné dans le temps : `ecrire()` pose TOUJOURS le marqueur, `canoniser()`
-// réécrit la barre d'adresse (§4.3), si bien que tout lien produit à partir
-// d'aujourd'hui est explicite. Le défaut ne gouverne que les liens écrits
-// avant — c'est une règle de lecture héritée, pas un défaut de produit.
+// ── ET UN REGISTRE QU'ON NE SAIT PAS JOUER RETOMBE SUR « SOBRE » ──────────
+//
+// « Quand `bo!`, `ma!` ou `sce!` est utilisé dans un cas non supporté → repli
+// en sobre. » (l'auteur)
+//
+// La mise en scène du verdict est aujourd'hui celle du 666 : les cornes de
+// diable, et rien d'autre. Une cible qui n'a pas encore d'emblème — 111, 777,
+// 13, 007, 000 — n'a donc pas de version scénique à jouer. Trois conduites
+// étaient possibles, et deux sont mauvaises : ÉCHOUER (un lien mort pour une
+// décoration manquante) ou JOUER AUTRE CHOSE (des cornes au-dessus d'un 111,
+// c'est-à-dire un mensonge dessiné). La troisième est le repli sur le plus
+// neutre — on montre la démonstration, sans la costumer.
+//
+// ★ Le repli est fait à la LECTURE **et** à l'ÉCRITURE, sans quoi l'aller-retour
+// mentirait : `ecrire({registre:'scenique', cible:'111'})` rend `so!`, et
+// relire `so!` rend « sobre ». Une forme canonique, une seule lecture.
+// `lecture.registreDemande` conserve ce que le lien portait, pour qui voudrait
+// le dire à l'écran — mais le site ne l'affiche pas : ce n'est pas une erreur
+// du visiteur, c'est un décor que nous n'avons pas encore dessiné.
 //
 // Le principe de fond : **l'URL transporte le programme, pas un rang**. Un rang
 // est le résultat d'un calcul ; le publier revient à publier un pointeur vers
@@ -67,6 +114,7 @@
 
 import { encoderTexte, decoderTexte, estBase58, LIMITE_SAISIE } from './base58.js';
 import { normaliserCatalogue } from './bfs.js';
+import { lireCible, normaliserCible, CIBLE_DEFAUT, MAX_CHIFFRES } from './cible.js';
 
 export const RE_CODE = /^[ftnmcpj][0-9a-z]+$/;
 const RE_PORTEE = /^(\d+)\.(\d+)$/;
@@ -96,8 +144,41 @@ export const REGISTRES = Object.freeze(['sobre', 'scenique']);
 /** Le mot de chaque registre dans l'URL. */
 const MOT_URL = Object.freeze({ sobre: 'so', scenique: 'sce' });
 
-/** Le registre appliqué à un lien qui n'en porte pas — voir l'en-tête. */
-export const REGISTRE_DEFAUT = 'scenique';
+/**
+ * Le registre appliqué à un lien qui n'en porte pas — voir l'en-tête.
+ * ★ **`sobre`**, depuis que la mise en scène s'opte au lieu de se subir.
+ */
+export const REGISTRE_DEFAUT = 'sobre';
+
+/**
+ * ★ QUELLES CIBLES ONT UNE MISE EN SCÈNE — une seule, aujourd'hui.
+ *
+ * Le décor du verdict est celui du 666 : les cornes de diable, dérivées de la
+ * police et calées au flanc du 6 (`visuel/primitives/horns.js`), émises par
+ * l'opérateur `mz`. L'auteur a décrit un emblème par cible — une auréole pour
+ * 111, un jackpot pour 777, un fer à cheval ou une bouse pour 13, une référence
+ * à James Bond pour 007, un trou noir, une faux ou deux dés pour 000 — et a
+ * demandé de les REMETTRE À PLUS TARD (`.planning/A-VENIR-cibles.md`).
+ *
+ * Tant qu'ils ne sont pas dessinés, les autres cibles n'ont rien à mettre en
+ * scène, et le dire ici est ce qui permet au repli d'être une règle et non une
+ * suite de cas particuliers : le jour où l'auréole existe, une ligne change.
+ */
+export const miseEnSceneDisponible = (cible) => normaliserCible(cible).defaut;
+
+/**
+ * Le registre RÉELLEMENT joué pour une cible — le demandé, ou « sobre » quand
+ * ce qu'on demande n'existe pas encore pour cette cible.
+ */
+export function registreEffectif(registre, cible) {
+  const r = REGISTRES.includes(registre) ? registre : REGISTRE_DEFAUT;
+  if (r === 'sobre') return 'sobre';
+  return miseEnSceneDisponible(cible) ? r : 'sobre';
+}
+
+/** Les registres qu'une cible sait offrir — un seul bouton quand elle n'en a qu'un. */
+export const registresDisponibles = (cible) =>
+  (miseEnSceneDisponible(cible) ? REGISTRES : ['sobre']);
 
 /**
  * ★ La forme longue est encore LUE, jamais écrite.
@@ -110,6 +191,16 @@ export const REGISTRE_DEFAUT = 'scenique';
  * dès qu'on l'ouvre.
  */
 const RE_REGISTRE = /^(so|sce|sobre|scenique)!/;
+
+/**
+ * Le marqueur de CIBLE — `c111!`, `c007!`, `c13!`.
+ *
+ * Il n'est pas borné à `MAX_CHIFFRES` ici : une suite de dix chiffres est
+ * bien un marqueur de cible, simplement une cible ILLISIBLE, et il vaut mieux
+ * le dire (bandeau + repli sur la page de résultats, §4.3) que la laisser
+ * passer pour un fragment et échouer plus loin sur « code inconnu ».
+ */
+const RE_CIBLE = /^c([0-9]+)!/;
 
 /** Le mot lu dans l'URL → l'identifiant interne. */
 const REGISTRE_DU_MOT = Object.freeze({
@@ -128,6 +219,8 @@ const REGISTRE_DU_MOT = Object.freeze({
  * @property {FragmentUrl[]|null} fragments
  * @property {'sobre'|'scenique'|null} registre  résolu ; `null` hors forme canonique
  * @property {boolean} registreEcrit  le lien le portait-il en toutes lettres ?
+ * @property {import('./cible.js').Cible} cible  la suite visée ; `666` par défaut
+ * @property {boolean} cibleEcrite  le lien portait-il un marqueur `c…!` ?
  * @property {number[]|null} rangs
  * @property {string|null} bandeau     message à afficher (jamais silencieux)
  * @property {string|null} raison
@@ -145,7 +238,9 @@ const REGISTRE_DU_MOT = Object.freeze({
 export function lire(hash, options = {}) {
   const vide = {
     forme: 'invalide', saisie: null, fragments: null,
-    registre: null, registreEcrit: false, rangs: null, bandeau: null, raison: null,
+    registre: null, registreEcrit: false,
+    cible: CIBLE_DEFAUT, cibleEcrite: false, registreDemande: null,
+    rangs: null, bandeau: null, raison: null,
   };
   if (typeof hash !== 'string') return { ...vide, raison: 'hash absent' };
 
@@ -160,17 +255,49 @@ export function lire(hash, options = {}) {
   }
   let [approche, b58] = parts;
 
-  // ★ Le registre se détache AVANT tout le reste : il préfixe l'approche
-  //   entière, il n'appartient à aucun fragment. Absent, il vaut « scénique »
-  //   (voir l'en-tête : c'est une règle de lecture héritée, pas un défaut de
-  //   produit — tout lien écrit par le site le porte en toutes lettres).
+  // ★ Les MARQUEURS se détachent AVANT tout le reste : ils préfixent l'approche
+  //   entière, ils n'appartiennent à aucun fragment. Deux existent — le
+  //   registre de mise en scène et la cible —, et la boucle les accepte dans
+  //   L'UN OU L'AUTRE ORDRE.
+  //
+  //   ★ Pourquoi tolérer les deux ordres alors qu'on n'en écrit qu'un. Ce sont
+  //   deux marqueurs indépendants, portant sur deux choses sans rapport (ce
+  //   qu'on démontre, comment on le montre) : rien dans la grammaire ne fonde
+  //   une préséance, et un lien recopié à la main dans le mauvais ordre serait
+  //   refusé pour une raison que personne ne pourrait deviner. `ecrire()` en
+  //   fixe UN — registre puis cible —, et `canoniser()` réécrit la barre
+  //   d'adresse : la forme canonique reste unique, la lecture reste indulgente.
+  //   C'est exactement la doctrine de §4.3.
+  //
+  //   Le registre absent vaut « scénique » (règle de lecture héritée, voir
+  //   l'en-tête) ; la cible absente vaut 666 (la promesse du site).
   let registre = REGISTRE_DEFAUT;
   let registreEcrit = false;
-  const mReg = RE_REGISTRE.exec(approche);
-  if (mReg) {
-    registre = REGISTRE_DU_MOT[mReg[1]];
-    registreEcrit = true;
-    approche = approche.slice(mReg[0].length);
+  let cible = CIBLE_DEFAUT;
+  let cibleEcrite = false;
+  for (;;) {
+    const mReg = registreEcrit ? null : RE_REGISTRE.exec(approche);
+    if (mReg) {
+      registre = REGISTRE_DU_MOT[mReg[1]];
+      registreEcrit = true;
+      approche = approche.slice(mReg[0].length);
+      continue;
+    }
+    const mCib = cibleEcrite ? null : RE_CIBLE.exec(approche);
+    if (mCib) {
+      const lue = lireCible(mCib[1]);
+      // Une cible illisible — plus de `MAX_CHIFFRES` signes — n'est pas repliée
+      // en silence sur 666 : le lien promettait autre chose, et §4.3 interdit
+      // de renvoyer sans le dire vers une autre démonstration.
+      if (!lue) {
+        return { ...vide, raison: `cible illisible : ${mCib[1]}`, bandeau: BANDEAUX.cibleIllisible };
+      }
+      cible = lue;
+      cibleEcrite = true;
+      approche = approche.slice(mCib[0].length);
+      continue;
+    }
+    break;
   }
 
   if (!estBase58(b58)) {
@@ -191,9 +318,19 @@ export function lire(hash, options = {}) {
     if (registreEcrit) {
       return { ...vide, saisie, raison: 'registre sans programme', bandeau: BANDEAUX.formatInconnu };
     }
+    // ★ La CIBLE, elle, a parfaitement sa place sur une page de résultats — et
+    //   c'est même le lien que la page de listing doit savoir écrire quand on
+    //   lui demande de viser autre chose. `#c111!#…` est la liste des voies
+    //   menant à 111, exactement comme `##…` est celle des voies menant à 666.
+    //   La différence avec le registre n'est pas un caprice : le registre dit
+    //   comment MONTRER une démonstration, et une liste n'en montre aucune ;
+    //   la cible dit ce qu'on CHERCHE, et une liste est le résultat d'une
+    //   recherche.
     return {
       forme: 'resultats', saisie, fragments: null,
-      registre: null, registreEcrit: false, rangs: null, bandeau: null, raison: null,
+      registre: null, registreEcrit: false,
+      cible, cibleEcrite,
+      rangs: null, bandeau: null, raison: null,
     };
   }
 
@@ -208,6 +345,11 @@ export function lire(hash, options = {}) {
       // qui apportera son propre lien canonique — registre compris.
       registre: null,
       registreEcrit: false,
+      // La cible, elle, SURVIT au recalcul : elle dit ce qu'on cherche, pas
+      // quelle ligne du classement on voulait. `#c111!3#…` relance donc bien
+      // la recherche de 111 et va au troisième rang de CETTE liste.
+      cible,
+      cibleEcrite,
       rangs: approche.split('+').map(Number),
       bandeau: BANDEAUX.recalculee,
       raison: null,
@@ -234,7 +376,13 @@ export function lire(hash, options = {}) {
 
   return {
     forme: 'canonique', saisie, fragments,
-    registre, registreEcrit, rangs: null, bandeau: null, raison: null,
+    // ★ Le registre rendu est celui qu'on JOUERA, pas celui qu'on a lu : un
+    //   `sce!` sur une cible sans emblème retombe sur « sobre » (voir
+    //   l'en-tête). Ce qui était écrit reste lisible dans `registreDemande`.
+    registre: registreEffectif(registre, cible),
+    registreDemande: registre,
+    registreEcrit, cible, cibleEcrite,
+    rangs: null, bandeau: null, raison: null,
   };
 }
 
@@ -262,6 +410,7 @@ function lireFragment(brut) {
 export const BANDEAUX = {
   recalculee: 'Démonstration recalculée : ce lien désigne des rangs, pas une méthode.',
   codeInconnu: 'Ce lien emploie une règle que cette version ne connaît pas.',
+  cibleIllisible: `Ce lien vise une suite que le moteur ne sait pas viser : au plus ${MAX_CHIFFRES} chiffres.`,
   formatInconnu: 'Ce lien a été créé par une autre version du site.',
   lienIllisible: 'Ce lien est illisible : la saisie n’a pas pu être décodée.',
   // Seul bandeau du moteur : le filet de sécurité temporel a mordu. Le
@@ -286,31 +435,54 @@ export const BANDEAUX = {
  *
  * Un lien qui se tait sur sa mise en scène dépend d'une règle de lecture, et
  * une règle de lecture peut être discutée, oubliée, ou lue de travers dix ans
- * plus tard. Les neuf caractères de `scenique!` achètent une chose : plus
- * jamais de lien ambigu. Combinés à `canoniser()`, qui réécrit la barre
- * d'adresse à chaque ouverture (§4.3), ils font que le défaut ne gouvernera
- * jamais qu'un ensemble de liens FINI et FIGÉ — ceux écrits avant aujourd'hui.
+ * plus tard. Trois caractères achètent une chose : plus jamais de lien ambigu.
+ * Et le registre écrit est celui qu'on JOUERA — replié sur « sobre » si la
+ * cible n'a pas d'emblème —, de sorte que relire ce qu'on vient d'écrire rende
+ * exactement ce qu'on a écrit.
  *
  * La page de RÉSULTATS, elle, n'en porte pas : elle ne montre aucune
  * démonstration, il n'y a rien à mettre en scène.
  *
- * @param {{saisie:string, fragments?:FragmentUrl[], registre?:'sobre'|'scenique'}} demonstration
+ * ★ La CIBLE, elle, n'est écrite QUE si elle diffère de 666 — voir l'en-tête.
+ * Et elle est écrite même sans programme : `#c111!#…` désigne la LISTE des
+ * voies menant à 111, qui est précisément le lien que la page de listing doit
+ * pouvoir partager quand on lui a demandé de viser autre chose.
+ *
+ * @param {{saisie:string, fragments?:FragmentUrl[], registre?:'sobre'|'scenique',
+ *          cible?:import('./cible.js').Cible|string}} demonstration
  * @returns {string} le fragment d'URL complet, `#…#…`
  */
-export function ecrire({ saisie, fragments, registre }) {
+export function ecrire({ saisie, fragments, registre, cible }) {
   const b58 = encoderTexte(saisie);
-  if (!fragments || !fragments.length) return `##${b58}`;
-  return `#${marqueur(registre)}${ecrireApproche(fragments)}#${b58}`;
+  const c = marqueurCible(cible);
+  if (!fragments || !fragments.length) return `#${c}#${b58}`;
+  return `#${marqueur(registre, cible)}${c}${ecrireApproche(fragments)}#${b58}`;
 }
 
-/** Le préfixe de registre, normalisé. Une valeur inconnue retombe sur le défaut
- *  plutôt que d'écrire un marqueur que `lire()` refuserait de relire. */
-function marqueur(registre) {
-  return `${MOT_URL[REGISTRES.includes(registre) ? registre : REGISTRE_DEFAUT]}!`;
+/** Le préfixe de registre, normalisé — et REPLIÉ sur ce que la cible sait jouer,
+ *  faute de quoi l'aller-retour mentirait (voir l'en-tête). */
+function marqueur(registre, cible) {
+  return `${MOT_URL[registreEffectif(registre, cible)]}!`;
 }
 
-/** Le registre OPPOSÉ — l'autre bouton du panneau de voie. */
-export const autreRegistre = (registre) => (registre === 'sobre' ? 'scenique' : 'sobre');
+/** Le préfixe de cible — vide au défaut, `c111!` sinon. */
+function marqueurCible(cible) {
+  const c = normaliserCible(cible);
+  return c.defaut ? '' : `c${c.texte}!`;
+}
+
+/**
+ * Le registre OPPOSÉ — l'autre bouton du panneau de voie.
+ *
+ * ★ Sur une cible sans emblème, il n'y a pas d'autre registre : la bascule
+ * rendrait un lien identique à celui d'où l'on vient, donc un bouton qui ne
+ * fait rien. On rend alors `null`, et l'interface n'affiche pas le bouton
+ * (`registresDisponibles` dit la même chose sous l'autre forme).
+ */
+export function autreRegistre(registre, cible = CIBLE_DEFAUT) {
+  if (!miseEnSceneDisponible(cible)) return null;
+  return registre === 'sobre' ? 'scenique' : 'sobre';
+}
 
 export function ecrireApproche(fragments) {
   return fragments.map(ecrireFragment).join(',');

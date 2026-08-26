@@ -57,11 +57,19 @@ export function enLettres(n) {
 export const capitaliser = (s) =>
   (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
 
-/** « Sept approches mènent à 666. » / “Seven approaches lead to 666.” */
-export function phraseApproches(n) {
+/**
+ * « Sept approches mènent à 666. » / “Seven approaches lead to 666.”
+ *
+ * ★ La CIBLE est un argument, et son défaut est `'666'` — l'écriture, pas le
+ * nombre : sur une page calée sur `007`, la phrase doit dire « 007 » et non
+ * « 7 ». Le défaut n'est là que pour les appels qui n'ont pas de cible sous la
+ * main (le repli sans moteur) ; partout ailleurs, elle vient de
+ * `src/recherche/cible.js`.
+ */
+export function phraseApproches(n, cible = '666') {
   if (n === 0) return t('resultat.annonceAucune');
-  if (n === 1) return t('resultat.annonceUne');
-  return t('resultat.annoncePlusieurs', { n: capitaliser(enLettres(n)) });
+  if (n === 1) return t('resultat.annonceUne', { cible });
+  return t('resultat.annoncePlusieurs', { n: capitaliser(enLettres(n)), cible });
 }
 
 /** Tronque proprement une saisie pour un titre, sans couper un mot en deux. */

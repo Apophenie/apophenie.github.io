@@ -50,7 +50,8 @@ import { rendreValeur } from './bfs.js';
 // Le titre et la règle d'une approche vivent dans `titres.js` (voir la note en
 // fin de fichier) ; on les importe pour continuer à les ré-exporter d'ici.
 import { titreApproche, regleApproche } from './titres.js';
-import { serieDeSix, sixDuChemin, compterMoisson, SERIE } from './assemblage.js';
+import { serieDeSix, sixDuChemin, compterMoisson } from './assemblage.js';
+import { CIBLE_DEFAUT, normaliserCible, seriesDe } from './cible.js';
 
 /**
  * Une chaîne affichable du catalogue est un couple `{fr, en}` (voir
@@ -790,20 +791,22 @@ function mutualiserDecor(steps) {
  *   ce qui est à jeter, et l'appelant s'en charge d'un seul geste à la fin
  * @returns {string[]|null}
  */
-function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = null) {
+function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = null,
+  cible = CIBLE_DEFAUT) {
+  const cbl = normaliserCible(cible);
   const fin = chemin.etats[chemin.etats.length - 1];
   if (!fin) return null;
   // Une portée qui finit sur un nombre unique n'a rien à trier : son 6 est déjà
   // seul à l'écran. Le cas n'existe qu'en moisson (un tiret, un `fr`).
   if (fin.type === 'NUM') {
-    if (!tous || fin.valeur !== 6) return null;
+    if (!tous || !cbl.alphabet.includes(fin.valeur)) return null;
     const id = (groupe.courants[0] || [])[0] || null;
-    return id ? [id] : null;
+    return id ? { ids: [id], valeurs: [fin.valeur] } : null;
   }
   // Les 6 retenus sont ceux qu'a désignés `assemblage.js` : la scène ne
   // recalcule pas le découpage, elle le MONTRE. Deux comptes de séries qui
   // divergeraient donneraient un verdict « 666 666 » sur quatre jetons révélés.
-  const serie = tous ? sixDuChemin(chemin) : serieDeSix(chemin);
+  const serie = tous ? sixDuChemin(chemin, cbl) : serieDeSix(chemin, cbl);
   if (!serie) return null;
   const gardes = serie.indices;
   const premierDe = (k) => (groupe.courants[k] || [])[0] || null;
@@ -820,6 +823,7 @@ function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = n
     const id = premierDe(i);
     if (id) aJeter.push(id);
   }
+  const valeursGardees = gardes.map((i) => fin.valeur[i]);
   if (aJeter.length) {
     if (differe) differe.push(...aJeter);
     else {
@@ -839,7 +843,24 @@ function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = n
     }
   }
   groupe.courants = gardes.map((k) => groupe.courants[k]);
-  return aGarder;
+  // ★ Les VALEURS partent avec les identifiants. Tant que la cible valait 666,
+  //   savoir « combien de 6 » suffisait à tout — le verdict prenait les trois
+  //   premiers, puis les trois suivants. Sur `007`, les chiffres ne sont plus
+  //   interchangeables : c'est la SUITE qu'il faut relire pour savoir lesquels
+  //   écrivent la cible, et lesquels tombent. On ne peut pas la relire sans les
+  //   valeurs, et on ne peut pas les recalculer plus loin sans refaire une
+  //   seconde fois un découpage que ce module s'interdit précisément de
+  //   refaire (voir plus haut : « la scène ne recalcule pas, elle MONTRE »).
+  return { ids: aGarder, valeurs: valeursGardees };
+}
+
+/** La valeur du dernier état d'un chemin, quand c'est un nombre unique. */
+function valeurTerminale(chemin) {
+  const fin = chemin && chemin.etats && chemin.etats[chemin.etats.length - 1];
+  if (!fin) return null;
+  if (fin.type === 'NUM') return fin.valeur;
+  if (fin.type === 'NUMS' && fin.valeur.length) return fin.valeur[0];
+  return null;
 }
 
 // ══════════════════════════════════ LA LIGNE, rejouée pas à pas
@@ -1521,7 +1542,19 @@ export function construireScenario(approche, ctx = {}) {
   // UNE chose dans ce module — les cornes —, et rien d'autre : ni les codes,
   // ni les valeurs, ni le verdict, ni le nombre de jetons. Une valeur inconnue
   // vaut « scénique », comme dans la grammaire d'URL.
-  const registre = ctx.registre === 'sobre' ? 'sobre' : 'scenique';
+  // ★ La CIBLE — la suite de chiffres que la démonstration doit écrire. Elle
+  //   décide de ce qu'on récolte, de ce qu'on jette et de ce que le verdict
+  //   annonce. `666` par défaut, et tout ce module se replie alors exactement
+  //   sur ce qu'il faisait avant qu'elle existe.
+  const cible = normaliserCible(ctx.cible || approche.cible);
+  // ★ Et la mise en scène se REPLIE sur « sobre » dès que la cible n'a pas
+  //   d'emblème. Les cornes sont celles du 666 ; il n'y a rien à jouer au-dessus
+  //   d'un 111 tant que l'auréole n'est pas dessinée
+  //   (`.planning/A-VENIR-cibles.md`), et jouer des cornes serait pire que ne
+  //   rien jouer. `url.js › registreEffectif` applique la même règle à la
+  //   lecture d'un lien ; on la répète ici parce que `construireScenario` est
+  //   aussi appelé sans lien du tout (démonstration de secours).
+  const registre = ctx.registre === 'sobre' || !cible.defaut ? 'sobre' : 'scenique';
   const alloc = creerAllocateur();
   const avertissements = [];
 
@@ -1539,7 +1572,7 @@ export function construireScenario(approche, ctx = {}) {
   // rapportent ensemble au moins deux séries —, jamais au champ `mode` posé sur
   // l'approche : `scenarioDe` reçoit aussi bien une approche de la liste qu'une
   // approche rejouée depuis une URL, et les deux doivent montrer la même scène.
-  const recolteTotale = compterMoisson(approche.parts);
+  const recolteTotale = compterMoisson(approche.parts, cible);
   const moisson = Boolean(recolteTotale);
 
   const partsUniques = [];
@@ -1587,6 +1620,10 @@ export function construireScenario(approche, ctx = {}) {
   // Ce que les portées d'une moisson écartent, en attendant le geste unique qui
   // le montrera juste avant le verdict (voir `recolterLesSix`).
   const rejets = [];
+  // Les valeurs des jetons de `resultats`, dans le même ordre — voir
+  // `recolterLesSix` : sur une cible non homogène, le verdict doit relire la
+  // SUITE et non compter des occurrences.
+  const valeursFinales = [];
   let nStep = 0;
   let nCle = 0; // préfixe unique offert aux opérateurs pour nommer leurs tokens
   const nouvelleEtape = (titre, legende, ops, options) => {
@@ -1767,11 +1804,11 @@ export function construireScenario(approche, ctx = {}) {
       // par ici — trois `hope` en quatorze segments, douze 6 d'un seul geste.
       // Sans récolte, la scène n'en révélait qu'un par groupe.
       const recolte = moisson
-        ? recolterLesSix(g, g.part.chemin, poserBloc, langue, true, rejets)
+        ? recolterLesSix(g, g.part.chemin, poserBloc, langue, true, rejets, cible)
         : null;
-      if (recolte) { resultats.push(...recolte); continue; }
+      if (recolte) { resultats.push(...recolte.ids); valeursFinales.push(...recolte.valeurs); continue; }
       const dernier = g.courants.flat()[0];
-      if (dernier) resultats.push(dernier);
+      if (dernier) { resultats.push(dernier); valeursFinales.push(valeurTerminale(g.part.chemin)); }
     }
   } else {
     // ── L'un après l'autre : les méthodes diffèrent d'un morceau à l'autre ──
@@ -1815,10 +1852,12 @@ export function construireScenario(approche, ctx = {}) {
       //    ce qui reste s'assemble par trois. Sans cette récolte, le verdict
       //    révélait le premier nombre venu en annonçant « 666 » — c'est-à-dire
       //    qu'il décrétait, ce que ce mode existe précisément pour ne plus faire.
-      const recolte = recolterLesSix(g, chemin, poserBloc, langue, moisson, moisson ? rejets : null);
-      if (recolte) { resultats.push(...recolte); continue; }
+      const recolte = recolterLesSix(
+        g, chemin, poserBloc, langue, moisson, moisson ? rejets : null, cible,
+      );
+      if (recolte) { resultats.push(...recolte.ids); valeursFinales.push(...recolte.valeurs); continue; }
       const dernier = g.courants.flat()[0];
-      if (dernier) resultats.push(dernier);
+      if (dernier) { resultats.push(dernier); valeursFinales.push(valeurTerminale(chemin)); }
     }
   }
 
@@ -1842,9 +1881,15 @@ export function construireScenario(approche, ctx = {}) {
   // Le nombre de chiffres révélés est ainsi TOUJOURS celui que le verdict
   // annonce, et il l'est d'un seul geste, juste avant lui.
   if (moisson) {
-    const garde = recolteTotale.series * SERIE;
-    const surplus = finaux.slice(garde);
-    finaux = finaux.slice(0, garde);
+    // ★ Ce qu'on garde, ce sont les positions qui ÉCRIVENT la cible — pas les
+    //   `séries × 3` premières. Sur `666` les deux reviennent au même (tous les
+    //   jetons récoltés valent 6, on prend le préfixe) ; sur `007`, non : la
+    //   suite `0 7 0 0 7` n'écrit `007` qu'en sautant le deuxième jeton, et
+    //   couper au préfixe révélerait `0 7 0` sous un verdict qui annonce `007`.
+    const series = seriesDe(valeursFinales, cible, recolteTotale.series);
+    const garde = new Set(series.flat());
+    const surplus = finaux.filter((_, i) => !garde.has(i));
+    finaux = finaux.filter((_, i) => garde.has(i));
     const aJeter = [...rejets, ...surplus];
     if (aJeter.length) {
       poserBloc({
@@ -1866,7 +1911,11 @@ export function construireScenario(approche, ctx = {}) {
     // multiple recopie le résultat en trois tokens — les copies naissent au
     // même point et le layout les écarte.
     const source = finaux[0];
-    const copies = [0, 1, 2].map(() => ({ id: alloc.nouvel('x'), text: '6', kind: 'number' }));
+    // Autant de copies que la cible a de chiffres, et chacune porte LE SIEN.
+    // Sur `666`, trois copies écrivant « 6 » — mot pour mot l'ancien code.
+    const copies = cible.chiffres.map((d) => ({
+      id: alloc.nouvel('x'), text: String(d), kind: 'number',
+    }));
     nouvelleEtape(MOTS.resonance[langue], MOTS.resonanceLegende[langue],
       [{ op: 'substitute', pairs: [{ target: source, to: copies }], stagger: 140 }]);
     aReveler = copies.map((c) => c.id);
@@ -1880,13 +1929,19 @@ export function construireScenario(approche, ctx = {}) {
     // Le `hold` donne à la chute le temps d'exister : sans lui, le 666 atteint
     // sa taille pleine à la dernière milliseconde de la timeline, et le lecteur
     // s'arrête dessus au moment même où il finit de grandir.
-    nouvelleEtape(MOTS.verdict[langue], ctx.resultat || '666', [
-      { op: 'reveal', targets: aReveler, at: 250, stagger: 150 },
+    // ★ `serie` — la longueur d'une série, POUR CE VERDICT. La primitive
+    //   `reveal` découpait en groupes de trois, ce qui n'a aucun sens sur `13`
+    //   (deux chiffres) et se trompe de coupe sur toute cible qui n'en fait pas
+    //   trois. Le nombre est DÉRIVÉ de la cible et voyage dans l'op, plutôt que
+    //   d'être une constante recopiée dans le moteur visuel : c'était déjà la
+    //   quatrième copie de « 3 » dans ce dépôt.
+    nouvelleEtape(MOTS.verdict[langue], ctx.resultat || cible.texte, [
+      { op: 'reveal', targets: aReveler, at: 250, stagger: 150, serie: cible.longueur },
     ], { hold: 1200 });
   } else {
-    nouvelleEtape(MOTS.verdict[langue], ctx.resultat || '666', [
-      { op: 'reveal', targets: aReveler },
-      { op: 'annotate', anchor: aReveler, text: ctx.resultat || '666', place: 'below', at: 400 },
+    nouvelleEtape(MOTS.verdict[langue], ctx.resultat || cible.texte, [
+      { op: 'reveal', targets: aReveler, serie: cible.longueur },
+      { op: 'annotate', anchor: aReveler, text: ctx.resultat || cible.texte, place: 'below', at: 400 },
     ]);
   }
 
@@ -1925,7 +1980,7 @@ export function construireScenario(approche, ctx = {}) {
       label: (ctx.methode && ctx.methode.label) || titreApproche(approche, langue),
       rule: (ctx.methode && ctx.methode.rule) || regleApproche(approche, langue),
     },
-    result: ctx.resultat || '666',
+    result: ctx.resultat || cible.texte,
     tokens,
     steps,
   };

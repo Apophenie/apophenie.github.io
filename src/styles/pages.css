@@ -461,6 +461,42 @@
   font-variant-numeric: lining-nums;
 }
 
+/* ════════════ LA COMMANDE DE CIBLE — « trop diabolique pour vous ? » ══════
+   Cinq raccourcis, un champ libre, un bouton. Elle vient juste avant le mémo
+   d'URL, et elle en emprunte volontairement le registre visuel : ce sont deux
+   façons de demander la même chose, l'une par un geste, l'autre à la main.
+
+   ★ Les puces sont des BOUTONS SECONDAIRES, donc déjà hautes de `--touche`
+   (48 px). Elles ne redéfinissent que la chasse — un nombre à trois chiffres
+   dans une pastille étroite se lit mal — et la graisse : ce qu'on y désigne est
+   la cible elle-même, pas un intitulé. */
+.commande-cible { margin-top: var(--e7); }
+.commande-cible__appel { color: var(--fg-2); margin-bottom: var(--e2); }
+.commande-cible__raccourcis {
+  display: flex; flex-wrap: wrap; gap: var(--e2);
+  list-style: none; margin: 0 0 var(--e3); padding: 0;
+}
+.commande-cible__puce {
+  min-width: calc(var(--touche) + var(--e3));
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: .12em;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.commande-cible__ou { color: var(--fg-3); margin-bottom: var(--e2); }
+/* Le champ et son bouton sur une seule ligne tant qu'il y a la place, l'un
+   sous l'autre sinon : `flex-wrap` seul suffit, et le champ garde la priorité
+   de croissance parce que c'est lui qu'on remplit. */
+.commande-cible__forme { display: flex; flex-wrap: wrap; gap: var(--e2); align-items: stretch; }
+.champ--cible {
+  flex: 1 1 12rem;
+  min-width: 8rem;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: .12em;
+}
+.commande-cible__valider { flex: 0 0 auto; }
+.commande-cible .legende { margin-top: var(--e2); }
+
 .panneau-terminal {
   margin-top: var(--e7);
   padding: var(--e3);

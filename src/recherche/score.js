@@ -14,6 +14,7 @@
 import { estDecret } from './titres.js';
 // ★ `elegance.js` n'importe RIEN : la dépendance est à sens unique, sans cycle.
 import { FICELLES } from './elegance.js';
+import { normaliserCible, indexUtiles } from './cible.js';
 import {
   bilanApproche, credit as creditDElegance, facteur as facteurDElegance,
   note as noteDElegance, estPur,
@@ -157,9 +158,6 @@ export const REGLAGES = {
 // ══════════════════════════════════ arithmétique entière
 
 const MILLE = 1000;
-
-/** Longueur d'une série. Le 666 du titre, et rien d'autre (`assemblage.js`). */
-const SERIE = 3;
 
 const borner = (x, min, max) => (x < min ? min : x > max ? max : x);
 
@@ -707,6 +705,7 @@ function largeurDuChemin(chemin, defaut) {
 function rendementSix(approche) {
   const parts = approche.parts;
   if (!parts || !parts.length) return null;
+  const cbl = normaliserCible(approche.cible);
   let six = 0;
   let total = 0;
   let unVecteur = false;
@@ -716,7 +715,7 @@ function rendementSix(approche) {
     if (!fin) return null;
     if (fin.type === 'NUM') {
       total += 1;
-      if (fin.valeur === 6) six++;
+      if (cbl.alphabet.includes(fin.valeur)) six++;
     } else if (fin.type === 'NUMS' && fin.valeur.length) {
       unVecteur = true;
       // ★ UNE FICELLE NE SE FAIT PAS NOTER SUR CE QU'ELLE A JETÉ.
@@ -740,12 +739,12 @@ function rendementSix(approche) {
       // du chemin. Ce n'est pas l'arbitrage de §7-5 tranché en douce : c'est le
       // refus d'un rendement qui RÉCOMPENSE le gaspillage.
       total += largeurDuChemin(p.chemin, fin.valeur.length);
-      for (const x of fin.valeur) if (x === 6) six++;
+      six += indexUtiles(fin.valeur, cbl).length;
     } else return null;
   }
   // Sans vecteur, il n'y a rien à récolter ni rien à jeter : le facteur serait
   // neutre, on n'en fabrique pas un.
-  if (!unVecteur || six < 3 || !total) return null;
+  if (!unVecteur || six < cbl.longueur || !total) return null;
   // ★ UN 6 DE TROP N'EST PAS UN 6 GARDÉ.
   //
   // Le verdict compte des séries de trois : sur cinq 6 récoltés, deux tombent
@@ -760,7 +759,7 @@ function rendementSix(approche) {
   // `series` vient de `deduireMode`, donc de la GÉOMÉTRIE de l'approche, et il
   // est déjà plafonné par `MAX_SERIES` : le rendement reste redéduit, jamais
   // transporté par l'URL (§4.3).
-  const gardes = approche.series ? Math.min(six, approche.series * SERIE) : six;
+  const gardes = approche.series ? Math.min(six, approche.series * cbl.longueur) : six;
   return borner(Math.floor((gardes * MILLE) / total), 0, MILLE);
 }
 

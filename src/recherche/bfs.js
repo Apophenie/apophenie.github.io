@@ -323,6 +323,52 @@ export function operateursExplorables(catalogue) {
   return normaliserCatalogue(catalogue).filter((op) => !op.deprecated && !op.isJoker);
 }
 
+/**
+ * ★ LES QUATRE OPÉRATEURS ÉCRITS AUTOUR DU CHIFFRE 6 — et pourquoi ils sortent
+ *   de la recherche dès que la cible change.
+ *
+ * Le catalogue est, à quatre exceptions près, indifférent au nombre visé : A1Z26
+ * convertit des lettres, le quatorze segments compte des segments, la somme
+ * additionne. Quatre opérateurs, eux, DÉCIDENT en regardant le chiffre 6 :
+ *
+ *  · `mz` — « trois 6 d'affilée », qui repère un 666 déjà écrit et TRONQUE le
+ *    vecteur dessus. C'est lui qui émet la primitive `horns` : le laisser courir
+ *    sur une cible visant 111 ferait pousser des cornes de diable au-dessus de
+ *    trois 6 qui ne sont pas le verdict ;
+ *  · `m10`, `m11`, `m12` — les trois ficelles, dont chaque garde-fou
+ *    (`portePleinement`, `paritePorteuse`, la fenêtre de somme) est écrit en
+ *    « 6 » et en « 666 ». Elles refusent d'elles-mêmes de s'appliquer quand le
+ *    résultat n'écrit pas 666 d'affilée ; les explorer sur une autre cible
+ *    revient donc à dépenser du budget de recherche pour des `null`.
+ *
+ * On les RETIRE plutôt que de les généraliser, et c'est un choix de portée, pas
+ * de paresse : leur généraliser demanderait de faire voyager la cible jusque
+ * dans `apply()`, donc d'étendre la signature d'opérateur de CONTRACTS §2.2 —
+ * un contrat gelé, dont dépend le registre de codes clos §4.1. Ce chantier-là
+ * est noté à part (`.planning/A-VENIR-cibles.md`).
+ *
+ * ★ Conséquence assumée, et mesurable : viser autre chose que 666 donne accès à
+ * 92 opérateurs au lieu de 96. Aucun de ces quatre n'aurait rendu autre chose
+ * que `null` de toute façon, sauf `mz` — dont la seule contribution possible
+ * eût été de mentir.
+ */
+export const OPERATEURS_LIES_A_666 = Object.freeze([
+  'm.troisSixDAffilee', 'm.plusFrequent', 'm.unRangSurDeux', 'm.additionSelective',
+]);
+
+/**
+ * Les opérateurs explorables POUR UNE CIBLE. Sur la cible par défaut, c'est
+ * `operateursExplorables` mot pour mot — même tableau, même ordre.
+ *
+ * @param {Object} catalogue
+ * @param {{defaut:boolean}} cible
+ */
+export function operateursPourCible(catalogue, cible) {
+  const tous = operateursExplorables(catalogue);
+  if (!cible || cible.defaut !== false) return tous;
+  return tous.filter((op) => !OPERATEURS_LIES_A_666.includes(op.id));
+}
+
 // ─────────────────────────────────────────────────────────── chemins
 
 /**
@@ -564,7 +610,14 @@ export function chercherSix(fragment, ctx) {
   // sous deux plafonds différents n'est pas la même recherche, et servir l'un
   // pour l'autre rendrait le classement dépendant de l'ordre des saisies
   // précédentes — exactement l'entropie que le §4.4 interdit.
+  // ★ Les BUTS entrent dans la clé au même titre que les plafonds. Le même
+  //   fragment cherché pour 6 et cherché pour 0 n'est pas la même recherche, et
+  //   servir l'un pour l'autre rendrait la liste de 111 dépendante du fait
+  //   qu'on ait consulté 666 avant — exactement l'entropie que §4.4 interdit,
+  //   et exactement le piège dans lequel la mémoïsation était déjà tombée une
+  //   fois (voir la refacturation du coût, plus bas).
   const cle = normaliserFragment(fragment)
+    + '\u0000' + butsDe(ctx).map((b) => b.but).join('.')
     + '\u0000' + (ctx.maxTravail ?? BUDGET_TRAVAIL)
     + '\u0000' + (ctx.maxNodes ?? MAX_NODES);
   const memo = cache.get(cle);
@@ -640,10 +693,35 @@ function grouperParType(ctx, ops) {
   return par;
 }
 
+/**
+ * ★ LES BUTS D'UNE RECHERCHE — un par chiffre distinct de la cible.
+ *
+ * Le moteur cherchait « les chemins qui mènent à 6 » ; il cherche désormais
+ * « les chemins qui mènent à l'un des chiffres de la cible ». Pour `666`,
+ * `111` ou `000`, c'est UN but et le parcours est identique au précédent, à
+ * l'instruction près. Pour `13` ou `007`, ce sont deux buts, donc deux bassins
+ * consultés à chaque `NUM` produit — et deux fois plus de chemins rendus.
+ *
+ * ★ **L'ordre est CROISSANT et il compte** (§4.4 règle 3) : les résultats sont
+ * empilés dans cet ordre, et le tri qui suit n'est pas total sur les seules
+ * clés qu'il compare. Trier les buts, c'est refuser à l'ordre d'insertion d'une
+ * `Map` le droit de décider d'un classement.
+ *
+ * ★ **Compatibilité descendante assumée** : un contexte qui ne porte qu'un
+ * `bassin` (la forme d'avant, celle des tests et du banc) vaut « un seul but,
+ * 6 ». Rien n'a besoin d'être réécrit pour continuer de viser 666.
+ *
+ * @returns {Array<{but:number, table:Map}>}
+ */
+function butsDe(ctx) {
+  if (Array.isArray(ctx.bassins) && ctx.bassins.length) return ctx.bassins;
+  return ctx.bassin ? [{ but: 6, table: ctx.bassin }] : [];
+}
+
 function rechercheBrute(fragment, ctx) {
   const ops = ctx.operateurs || (ctx.operateurs = operateursExplorables(ctx.catalogue));
   const parTypeSource = grouperParType(ctx, ops);
-  const bassin = ctx.bassin || new Map();
+  const buts = butsDe(ctx);
   const dMax = ctx.dMax ?? D_MAX;
   const pBeam = ctx.pBeam ?? P_BEAM;
   const maxNodes = ctx.maxNodes ?? MAX_NODES;
@@ -709,8 +787,12 @@ function rechercheBrute(fragment, ctx) {
         const kc = cleEtat(cible);
         if (kc === cleSrc) continue; // N3 — opération neutre, invisible à l'écran
 
-        // But, élargi par le bassin d'attraction (test O(1), §2.4).
-        const b = cible.type === 'NUM' ? bassin.get(cible.valeur) : undefined;
+        // But, élargi par le bassin d'attraction (test O(1), §2.4). Il y a
+        // autant de tables que la cible a de chiffres distincts ; sur `666`,
+        // il y en a une, et `atteints` vaut soit la liste vide soit une seule
+        // entrée — c'est-à-dire exactement l'ancien `b`.
+        const atteints = cible.type === 'NUM' ? entreesDeBassin(buts, cible.valeur) : AUCUN;
+        const b = atteints.length ? atteints[0] : undefined;
 
         // Seuil d'entrée au faisceau : le score du pire préfixe déjà retenu,
         // quand le faisceau est plein. Coupe exacte (cf. `etendreSi`).
@@ -728,8 +810,9 @@ function rechercheBrute(fragment, ctx) {
           // c'est un RÉSULTAT, pas une étape.
           const noeud = etendreSi(p, op, cible, b ? -1 : seuil);
           if (noeud === null) continue;
-          if (b && resultats.length < MAX_RESULTATS) {
-            const complet = prolongerParBassin(noeud, b);
+          for (const e of atteints) {
+            if (resultats.length >= MAX_RESULTATS) break;
+            const complet = prolongerParBassin(noeud, e);
             if (complet) resultats.push(complet);
           }
           if (noeud._sp < seuil) continue;
@@ -780,7 +863,25 @@ function rechercheBrute(fragment, ctx) {
   return canoniques;
 }
 
-/** Ajoute les opérateurs NUM→NUM du bassin pour terminer sur 6. */
+/**
+ * Les entrées de bassin qui reçoivent `valeur` — une par chiffre de la cible
+ * qu'elle sait atteindre. Sur une cible homogène, zéro ou une.
+ *
+ * @param {Array<{but:number, table:Map}>} buts
+ * @returns {Array<{but:number, dist:number, ops:Object[]}>}
+ */
+function entreesDeBassin(buts, valeur) {
+  let out = null;
+  for (const b of buts) {          // ordre croissant des buts (§4.4 règle 3)
+    const e = b.table.get(valeur);
+    if (!e) continue;
+    if (out === null) out = [];
+    out.push({ but: b.but, dist: e.dist, ops: e.ops });
+  }
+  return out || AUCUN;
+}
+
+/** Ajoute les opérateurs NUM→NUM du bassin pour terminer sur le but visé. */
 function prolongerParBassin(prefixe, entree) {
   let courant = prefixe;
   for (const op of entree.ops) {
@@ -789,6 +890,6 @@ function prolongerParBassin(prefixe, entree) {
     if (traverse(courant, cleEtat(cible))) return null;
     courant = etendre(courant, op, cible);
   }
-  if (courant.etat.type !== 'NUM' || courant.etat.valeur !== 6) return null;
+  if (courant.etat.type !== 'NUM' || courant.etat.valeur !== entree.but) return null;
   return materialiser(courant);
 }

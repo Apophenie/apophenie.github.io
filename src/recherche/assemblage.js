@@ -2,6 +2,39 @@
 // Jointure sur signature de méthode : comment trois 6 deviennent un 666.
 // CONTRACTS.md §5 · research/heuristique.md §3.4.
 //
+// ── LA CIBLE, ET CE QU'ELLE CHANGE ICI ─────────────────────────────────────
+//
+// Ce module a été écrit pour un seul nombre. Il compte des 6, les groupe par
+// trois, et appelle « série » le résultat. Rien de tout cela n'était faux — mais
+// rien de tout cela n'était général, et l'auteur demande désormais de viser
+// `111`, `777`, `13`, `007` ou `000`.
+//
+// La généralisation tient en une reformulation, et une seule (`cible.js` :
+// `seriesDe`). L'ancienne question était « quels index portent un 6 ? », suivie
+// d'une division par trois. La nouvelle est « quelles positions, lues de gauche
+// à droite, ÉCRIVENT la cible ? ». Sur `666` les deux formulations rendent le
+// même résultat, index pour index : chercher « six, puis six, puis six » ne peut
+// prendre que des 6, dans l'ordre où ils viennent. C'est ce repli exact qui
+// autorise le remplacement, et c'est lui qu'un test tient.
+//
+// Trois conséquences, qu'on assume :
+//
+//  · **Les modes à plusieurs parts ont désormais `cible.longueur` parts**, pas
+//    trois. Une cible de deux chiffres se partitionne en deux morceaux, une de
+//    six en six. Et la part de rang `i` doit rendre le chiffre `cᵢ` : sur
+//    `007`, le premier morceau donne 0, le deuxième 0, le troisième 7. Sur une
+//    cible homogène, cette contrainte est vide — d'où la non-régression.
+//  · **La RÉSONANCE exige une cible homogène.** Elle repose sur « le même
+//    programme appliqué aux trois occurrences du même motif » ; un même
+//    programme sur un même texte rend un même chiffre, et ne peut donc pas
+//    écrire `007`. Ce n'est pas une limite d'implémentation, c'est ce que le
+//    mode SIGNIFIE.
+//  · **La garantie « jamais bredouille » (§5.3) reste une garantie sur 666.**
+//    Le joker français itère `n → nombre de lettres de son nom`, dont le cycle
+//    attracteur est 4 → 6 → 3 → 5 → 4 : il atteint 3, 4, 5 et 6, et rien
+//    d'autre. Viser `111` ou `007` peut donc légitimement ne rien rendre, et la
+//    page de résultats le dit au lieu de faire semblant.
+//
 // Le README insiste : « idéalement 3 d'affilée, idéalement selon la même
 // méthode ». Prendre le meilleur chemin de chaque fragment indépendamment
 // produit trois méthodes hétéroclites — peu convaincant. On joint donc les
@@ -11,7 +44,10 @@
 import { signature, comparerCodes, scorePartiel, maniere } from './score.js';
 import { FICELLES, nbTriptyques } from './elegance.js';
 import {
-  appliquerOp, etat, normaliserCatalogue, operateursExplorables,
+  CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecrit, verdict as ecrireVerdict,
+} from './cible.js';
+import {
+  appliquerOp, etat, normaliserCatalogue, operateursPourCible,
   cleEtat, cleTrace, rendreValeur, ordreCode,
 } from './bfs.js';
 
@@ -94,7 +130,15 @@ import {
  */
 export const MODES = ['MOISSON', 'RESONANCE', 'DIRECT', 'GROUPEMENT', 'CONVERGENCE', 'PARTITION', 'SIX_OFFERT', 'LIBRE', 'JOKER'];
 
-/** Trois 6 font un 666 — l'unité de regroupement. */
+/**
+ * Trois 6 font un 666 — l'unité de regroupement DE LA CIBLE PAR DÉFAUT.
+ *
+ * ★ Ce n'est plus une loi, c'est un défaut. La longueur d'une série est celle
+ * de la cible (`cible.longueur`) : deux pour `13`, trois pour `666` et `007`.
+ * La constante subsiste parce qu'elle est exportée, lue par `scenario.js` et
+ * gelée par un test — et parce qu'elle reste vraie de la seule cible que le
+ * site promette dans son titre.
+ */
 export const SERIE = 3;
 
 const K_PAR_FRAGMENT = 8;   // chemins retenus par fragment pour l'assemblage
@@ -136,10 +180,19 @@ const MAX_CANDIDATS_PORTEE = 6;     // programmes retenus par portée
 const ID_TRIPTYQUE = 'm.troisSixDAffilee';
 const MAX_MOISSONS = 4;             // variantes rendues (la maximale + les homogènes)
 
-/** Index d'un fragment : ses chemins rangés par signature de méthode. */
-function indexer(chemins) {
+/**
+ * Index d'un fragment : ses chemins rangés par signature de méthode.
+ *
+ * ★ `chiffre` filtre sur la valeur ATTEINTE. Les modes à plusieurs parts
+ * assignent un chiffre de la cible à chaque part — le premier morceau de `007`
+ * doit rendre 0, le dernier 7 — et la jointure sur signature ne doit apparier
+ * que des chemins qui remplissent leur case. Sur une cible homogène, ou quand
+ * `chiffre` vaut `null`, le filtre ne retire rien.
+ */
+function indexer(chemins, chiffre = null) {
   const parSig = new Map();
   for (const c of chemins) {
+    if (chiffre !== null && valeurFinale(c) !== chiffre) continue;
     const s = signature(c);
     if (!parSig.has(s)) parSig.set(s, []);
     parSig.get(s).push(c);
@@ -174,15 +227,20 @@ function approche(mode, parts, extra = {}) {
  * @param {Object} chemin
  * @returns {{indices:number[], series:number, disponibles:number}|null}
  */
-export function serieDeSix(chemin) {
+export function serieDeSix(chemin, cible = CIBLE_DEFAUT) {
   if (!chemin || !chemin.etats || !chemin.etats.length) return null;
   const fin = chemin.etats[chemin.etats.length - 1];
   if (!fin || fin.type !== 'NUMS') return null;
-  const indices = [];
-  for (let i = 0; i < fin.valeur.length; i++) if (fin.valeur[i] === 6) indices.push(i);
-  const series = Math.min(Math.floor(indices.length / SERIE), MAX_SERIES);
-  if (series < 1) return null;
-  return { indices: indices.slice(0, series * SERIE), series, disponibles: indices.length };
+  const c = normaliserCible(cible);
+  const series = seriesDe(fin.valeur, c, MAX_SERIES);
+  if (!series.length) return null;
+  return {
+    indices: series.flat(),
+    series: series.length,
+    // « Disponibles » = ce qui aurait PU servir, quel que soit son rang. Sur
+    // `666`, c'est le compte des 6, mot pour mot comme avant.
+    disponibles: indexUtiles(fin.valeur, c).length,
+  };
 }
 
 /**
@@ -201,17 +259,29 @@ export function serieDeSix(chemin) {
  * @param {Object} chemin
  * @returns {{indices:number[], six:number, total:number}|null}
  */
-export function sixDuChemin(chemin) {
+export function sixDuChemin(chemin, cible = CIBLE_DEFAUT) {
   if (!chemin || !chemin.etats || !chemin.etats.length) return null;
   const fin = chemin.etats[chemin.etats.length - 1];
   if (!fin) return null;
-  if (fin.type === 'NUM') return fin.valeur === 6 ? { indices: [0], six: 1, total: 1 } : null;
+  const c = normaliserCible(cible);
+  if (fin.type === 'NUM') {
+    return c.alphabet.includes(fin.valeur)
+      ? { indices: [0], six: 1, total: 1, chiffres: [fin.valeur] } : null;
+  }
   if (fin.type !== 'NUMS') return null;
-  const indices = [];
-  for (let i = 0; i < fin.valeur.length; i++) if (fin.valeur[i] === 6) indices.push(i);
+  const indices = indexUtiles(fin.valeur, c);
   if (!indices.length) return null;
   if (!uneValeurParJeton(chemin, fin)) return null;
-  return { indices, six: indices.length, total: fin.valeur.length };
+  // ★ `chiffres` — la SUITE que la portée apporte, dans l'ordre de lecture.
+  //   Compter ne suffit plus : sur `007`, deux portées qui rapportent chacune
+  //   « un chiffre utile » n'écrivent pas la même chose selon que ce chiffre
+  //   est un 0 ou un 7. La moisson concatène ces suites et lit le tout d'un
+  //   trait (`compterMoisson`). Sur `666`, toutes ces suites ne portent que des
+  //   6, et concaténer puis diviser par trois redonne l'ancien calcul.
+  return {
+    indices, six: indices.length, total: fin.valeur.length,
+    chiffres: indices.map((i) => fin.valeur[i]),
+  };
 }
 
 function uneValeurParJeton(chemin, fin) {
@@ -244,27 +314,41 @@ function porteesDisjointes(parts) {
  * @param {Array<{fragment:Object, chemin:Object}>} parts
  * @returns {{six:number, total:number, series:number}|null}
  */
-export function compterMoisson(parts) {
+export function compterMoisson(parts, cible = CIBLE_DEFAUT) {
   if (!parts || parts.length < 2) return null;
   if (!parts.every((p) => p.fragment && Array.isArray(p.fragment.intervalles))) return null;
   if (!porteesDisjointes(parts)) return null;
+  const c = normaliserCible(cible);
   let six = 0;
   let total = 0;
+  const suite = [];
   for (const p of parts) {
-    const s = sixDuChemin(p.chemin);
+    const s = sixDuChemin(p.chemin, c);
     if (!s) return null;
     six += s.six;
     total += s.total;
+    suite.push(...s.chiffres);
   }
-  const series = Math.min(Math.floor(six / SERIE), MAX_SERIES);
+  // Les portées sont lues DANS L'ORDRE où elles seront montrées, et la cible
+  // est cherchée sur la concaténation. Sur `666` cela vaut `six / 3` à
+  // l'entier près — c'est exactement l'ancien calcul.
+  const series = Math.min(seriesDe(suite, c, MAX_SERIES).length, MAX_SERIES);
   if (series < 2) return null; // une seule série, c'est un 666 ordinaire
   return { six, total, series };
 }
 
-/** Le verdict à afficher : `666`, ou `666 666` quand il y a de quoi. */
-export function verdictDe(approche) {
+/**
+ * Le verdict à afficher : `666`, ou `666 666` quand il y a de quoi — et `007`
+ * ou `007 007` quand c'est ce qu'on visait.
+ *
+ * ★ L'écriture vient de la CIBLE, pas d'un littéral, et c'est pour ça qu'une
+ * cible est une chaîne de chiffres et non un nombre : `Number('007')` vaut 7,
+ * et afficher « 7 » là où l'on a promis « 007 » serait exactement le genre de
+ * demi-mensonge que ce projet refuse.
+ */
+export function verdictDe(approche, cible = approche && approche.cible) {
   const n = approche && approche.series ? approche.series : 1;
-  return Array.from({ length: n }, () => '666').join(' ');
+  return ecrireVerdict(n, cible);
 }
 
 /**
@@ -296,7 +380,17 @@ export function verdictDe(approche) {
  * @param {number} [plafond] chemins canonicalisés puis rendus
  * @returns {Object[]} chemins finissant sur un `NUMS` à ≥ minSix six, les meilleurs d'abord
  */
-export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS_PAR_FRAGMENT * 2) {
+export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS_PAR_FRAGMENT * 2,
+  cible = CIBLE_DEFAUT) {
+  const cbl = normaliserCible(cible);
+  // ★ Deux exigences, et non deux seuils. Le GROUPEMENT veut de quoi ÉCRIRE la
+  //   cible à lui seul ; la MOISSON veut au moins un chiffre utile, parce
+  //   qu'elle additionne ce que chaque portée rapporte. Sur `666` avec
+  //   `minSix = 3`, « écrire 666 » et « porter trois 6 » sont la même chose :
+  //   le repli est exact. Sur `007`, ils cessent de l'être, et c'est bien
+  //   « écrire 007 » qu'il faut demander — trois chiffres utiles peuvent être
+  //   trois zéros.
+  const exigeSerie = minSix >= cbl.longueur;
   const filtres = [];
   const decoupes = [];
   const mappeurs = [];
@@ -341,7 +435,8 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   const vus = new Set();
   const retenir = (ops, etats) => {
     const fin = etats[etats.length - 1];
-    if (compterSix(fin) < minSix) return;
+    if (!fin || fin.type !== 'NUMS') return;
+    if (exigeSerie ? !ecrit(fin.valeur, cbl) : compterSix(fin, cbl) < minSix) return;
     const chemin = {
       ops,
       etats,
@@ -368,7 +463,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   // vaut mieux qu'un `[6,6,6,5,7]`, qui laisse deux valeurs tomber) ; puis
   // l'ordre déterministe du faisceau. La dilution se lit sur le vecteur LE PLUS
   // LARGE du chemin, jamais sur le dernier — voir `largeurMontree`.
-  const six = (c) => compterSix(c.etats[c.etats.length - 1]);
+  const six = (c) => compterSix(c.etats[c.etats.length - 1], cbl);
   const dilue = (c) => largeurMontree(c, c.etats[c.etats.length - 1].valeur.length) - six(c);
   out.sort((a, b) => (six(b) - six(a)) || (dilue(a) - dilue(b))
     || (nbFicelles(a) - nbFicelles(b)) || comparerChemins(a, b));
@@ -400,7 +495,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   const tete = out.slice(0, plafond);
   const mesureDe = (c) => {
     const fin = c.etats[c.etats.length - 1];
-    return { six: six(c), dilue: dilue(c), trip: nbTriptyques(fin.valeur) };
+    return { six: six(c), dilue: dilue(c), trip: nbTriptyques(fin.valeur, cbl) };
   };
   const honnetes = tete.filter((c) => !nbFicelles(c)).map(mesureDe);
   const apporteQuelqueChose = (c) => {
@@ -422,11 +517,16 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   return finaux;
 }
 
-function compterSix(e) {
+/** Combien de valeurs d'un vecteur APPARTIENNENT à la cible. Sur `666`, les 6. */
+function compterSix(e, cible = CIBLE_DEFAUT) {
   if (!e || e.type !== 'NUMS') return 0;
-  let n = 0;
-  for (const x of e.valeur) if (x === 6) n++;
-  return n;
+  return indexUtiles(e.valeur, cible).length;
+}
+
+/** La valeur finale d'un chemin, ou `null` si son état final n'est pas un `NUM`. */
+function valeurFinale(chemin) {
+  const e = chemin && chemin.etats && chemin.etats[chemin.etats.length - 1];
+  return e && e.type === 'NUM' ? e.valeur : null;
 }
 
 /**
@@ -541,41 +641,62 @@ function fragmentsAVecteur(fragments, ctx) {
  * @param {Object[]} bruts  chemins du fragment, triés, déjà dédoublonnés par trace
  * @returns {Object[][]} trios, les plus convaincants d'abord
  */
-function convergences(bruts) {
+function convergences(bruts, cible = CIBLE_DEFAUT) {
+  const c = normaliserCible(cible);
+  // Manière → chiffre atteint → chemins. Le second niveau est ce que la cible
+  // impose : sur `13`, la manière qui rend 1 et celle qui rend 3 ne sont pas
+  // interchangeables. Sur `666`, il n'y a qu'un chiffre, et cette `Map` de
+  // second niveau n'a jamais qu'une entrée — l'ancien code, à un déréférencement
+  // près.
   const parManiere = new Map();
-  for (const c of bruts) {
-    const m = maniere(c);
-    let liste = parManiere.get(m);
-    if (liste === undefined) { liste = []; parManiere.set(m, liste); }
-    if (liste.length < MAX_CONVERGENCES) liste.push(c);
+  for (const ch of bruts) {
+    const v = valeurFinale(ch);
+    if (v === null || !c.alphabet.includes(v)) continue;
+    const m = maniere(ch);
+    let parChiffre = parManiere.get(m);
+    if (parChiffre === undefined) { parChiffre = new Map(); parManiere.set(m, parChiffre); }
+    let liste = parChiffre.get(v);
+    if (liste === undefined) { liste = []; parChiffre.set(v, liste); }
+    if (liste.length < MAX_CONVERGENCES) liste.push(ch);
   }
   const manieres = [...parManiere.keys()];
-  if (manieres.length < SERIE) return [];
+  if (manieres.length < c.longueur) return [];
   // Canonicalisation des seuls élus, puis re-déduplication : deux chemins d'une
   // même manière peuvent s'effondrer l'un sur l'autre une fois le décor retiré.
   for (const m of manieres) {
-    const vus = new Set();
-    const propres = [];
-    for (const c of parManiere.get(m)) {
-      const n = normaliserChemin(c);
-      const cle = cleTrace(n);
-      if (vus.has(cle)) continue;
-      vus.add(cle);
-      propres.push(n);
+    const parChiffre = parManiere.get(m);
+    for (const [v, liste] of parChiffre) {
+      const vus = new Set();
+      const propres = [];
+      for (const ch of liste) {
+        const n = normaliserChemin(ch);
+        const cle = cleTrace(n);
+        if (vus.has(cle)) continue;
+        vus.add(cle);
+        propres.push(n);
+      }
+      parChiffre.set(v, propres);
     }
-    parManiere.set(m, propres);
   }
   const out = [];
   for (let tour = 0; tour < MAX_CONVERGENCES; tour++) {
-    const trio = [];
-    for (const m of manieres) {
-      const liste = parManiere.get(m);
-      if (liste.length <= tour) continue;
-      trio.push(liste[tour]);
-      if (trio.length === SERIE) break;
+    const suite = [];
+    const pris = new Set();
+    // Une manière par case, dans l'ordre de la cible : on cherche, pour le
+    // chiffre attendu, la première manière encore libre qui sache le rendre.
+    // Glouton et sans départage — donc déterministe (§4.4).
+    for (const chiffre of c.chiffres) {
+      const m = manieres.find((x) => {
+        if (pris.has(x)) return false;
+        const liste = parManiere.get(x).get(chiffre);
+        return liste !== undefined && liste.length > tour;
+      });
+      if (m === undefined) break;
+      pris.add(m);
+      suite.push(parManiere.get(m).get(chiffre)[tour]);
     }
-    if (trio.length < SERIE) break;
-    out.push(trio);
+    if (suite.length < c.longueur) break;
+    out.push(suite);
   }
   return out;
 }
@@ -604,7 +725,8 @@ function convergences(bruts) {
  * Les programmes qu'une portée peut rendre, du plus fourni en 6 au moins.
  * @returns {Array<{six:number, total:number, chemin:Object, maniere:string}>}
  */
-function candidatsDePortee(texte, ops, chemins) {
+function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT) {
+  const cbl = normaliserCible(cible);
   const vus = new Set();
   const out = [];
   const ajouter = (chemin) => {
@@ -624,14 +746,18 @@ function candidatsDePortee(texte, ops, chemins) {
     //   Les ficelles restent pleinement disponibles au GROUPEMENT, qui est le
     //   mode de tous les exemples de l'auteur : un vecteur, une ficelle, un 666.
     if (nbFicelles(chemin)) return;
-    const s = sixDuChemin(chemin);
+    const s = sixDuChemin(chemin, cbl);
     if (!s) return;
     const cle = chemin.ops.map((o) => o.code).join('+');
     if (vus.has(cle)) return;
     vus.add(cle);
-    out.push({ six: s.six, total: s.total, chemin, maniere: maniere(chemin) });
+    out.push({
+      six: s.six, total: s.total, chiffres: s.chiffres, chemin, maniere: maniere(chemin),
+    });
   };
-  if (ops && ops.length) for (const c of vecteursDeSix(texte, ops, 1, MAX_CANDIDATS_PORTEE * 2)) ajouter(c);
+  if (ops && ops.length) {
+    for (const c of vecteursDeSix(texte, ops, 1, MAX_CANDIDATS_PORTEE * 2, cbl)) ajouter(c);
+  }
   for (const c of chemins || []) ajouter(c);
   // Le plus de 6 d'abord ; à égalité, celui qui LIT le plus de la portée ; puis
   // celui qui laisse le moins de valeurs tomber ; puis l'ordre déterministe du
@@ -715,7 +841,8 @@ function meilleureMoisson(parDebut, n, accepte) {
  *
  * @returns {Object[]} approches non notées
  */
-function moissons(saisie, jetons, fragments, parFrag, ops) {
+function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT) {
+  const cbl = normaliserCible(cible);
   if (!jetons || jetons.length < 2) return [];
   const n = Math.min(jetons.length, MAX_JETONS_MOISSON);
   const cheminsDe = (texte) => parFrag.get(texte.normalize('NFC')) || [];
@@ -729,7 +856,8 @@ function moissons(saisie, jetons, fragments, parFrag, ops) {
     if (vues.has(cle)) return;
     vues.add(cle);
     const candidats = candidatsDePortee(
-      texte, avecVecteurs ? ops : null, normaliserChemins(cheminsDe(texte)).slice(0, K_PAR_FRAGMENT),
+      texte, avecVecteurs ? ops : null,
+      normaliserChemins(cheminsDe(texte)).slice(0, K_PAR_FRAGMENT), cbl,
     );
     if (!candidats.length) return;
     portees.push({ debut, longueur, texte, candidats });
@@ -765,11 +893,13 @@ function moissons(saisie, jetons, fragments, parFrag, ops) {
   for (const accepte of filtres) {
     const { choix } = meilleureMoisson(parDebut, n, accepte);
     if (choix.length < 2) continue;
-    const parts = elaguerLaMoisson(reduireLeSurplus(choix, accepte).map(({ portee, candidat }) => ({
-      fragment: fragmentDeJetons(saisie, jetons, portee.debut, portee.longueur),
-      chemin: candidat.chemin,
-    })));
-    if (!compterMoisson(parts)) continue;
+    const parts = elaguerLaMoisson(
+      reduireLeSurplus(choix, accepte, cbl).map(({ portee, candidat }) => ({
+        fragment: fragmentDeJetons(saisie, jetons, portee.debut, portee.longueur),
+        chemin: candidat.chemin,
+      })), cbl,
+    );
+    if (!compterMoisson(parts, cbl)) continue;
     const cout = parts.reduce((s, p) => s + p.chemin.ops.reduce((t, o) => t + (o.cout || 0), 0), 0);
     // ★ Une variante homogène qui récolte MOINS que la moisson maximale et
     // coûte DAVANTAGE n'apporte rien : elle demande plus de temps de scène pour
@@ -868,13 +998,20 @@ function moissons(saisie, jetons, fragments, parFrag, ops) {
 /** Plafond de tours de la recherche locale. Le déchet décroît strictement. */
 const MAX_RETOUCHES = 32;
 
-function reduireLeSurplus(choix, accepte) {
-  const seriesDe = (six) => Math.min(Math.floor(six / SERIE), MAX_SERIES);
+function reduireLeSurplus(choix, accepte, cible = CIBLE_DEFAUT) {
+  const cbl = normaliserCible(cible);
   const out = choix.slice();
+  // ★ Le compte des séries se lit sur la SUITE des chiffres rapportés, pas sur
+  //   leur nombre : deux portées qui rapportent chacune « un chiffre utile »
+  //   n'écrivent pas la même chose selon l'ordre, dès que la cible n'est pas
+  //   homogène. Sur `666`, `nbSeries` vaut exactement `⌊six / 3⌋`.
+  const nbSeries = (liste) => Math.min(
+    seriesDe(liste.flatMap((c) => c.candidat.chiffres), cbl, MAX_SERIES).length, MAX_SERIES,
+  );
   let six = out.reduce((n, c) => n + c.candidat.six, 0);
   let total = out.reduce((n, c) => n + c.candidat.total, 0);
-  const series = seriesDe(six);
-  const garde = series * SERIE;
+  const series = nbSeries(out);
+  const garde = series * cbl.longueur;
   // Le déchet : les valeurs calculées qui ne finiront pas dans le verdict.
   let dechet = total - garde;
 
@@ -889,7 +1026,9 @@ function reduireLeSurplus(choix, accepte) {
         if (c === candidat || c.six < 1 || !accepte(c)) continue;
         const sixApres = six - candidat.six + c.six;
         // Le verdict est intangible : ni une série de moins, ni une de plus.
-        if (seriesDe(sixApres) !== series) continue;
+        const essai = out.slice();
+        essai[i] = { portee, candidat: c };
+        if (nbSeries(essai) !== series) continue;
         const d = (total - candidat.total + c.total) - garde;
         if (d < meilleurDechet || (d === meilleurDechet && sixApres < meilleurSix)) {
           meilleurDechet = d;
@@ -933,14 +1072,15 @@ function reduireLeSurplus(choix, accepte) {
  * L'étape d'appoint subsiste pour ce qu'elle seule sait faire — le surplus qui
  * tombe *à l'intérieur* d'une portée, celle-ci restant indispensable.
  */
-function elaguerLaMoisson(parts) {
-  const compte = compterMoisson(parts);
+function elaguerLaMoisson(parts, cible = CIBLE_DEFAUT) {
+  const cbl = normaliserCible(cible);
+  const compte = compterMoisson(parts, cbl);
   if (!compte) return parts;
-  const garde = compte.series * SERIE;
+  const garde = compte.series * cbl.longueur;
   let cumul = 0;
   let k = 0;
   while (k < parts.length && cumul < garde) {
-    const s = sixDuChemin(parts[k].chemin);
+    const s = sixDuChemin(parts[k].chemin, cbl);
     cumul += s ? s.six : 0;
     k++;
   }
@@ -949,7 +1089,7 @@ function elaguerLaMoisson(parts) {
   // Élaguer ne doit RIEN changer au verdict : si le compte bouge, on n'y touche
   // pas. C'est le garde-fou qui rend l'élagage sûr sans avoir à raisonner sur
   // les plafonds (`MAX_SERIES`) ni sur les portées à zéro 6.
-  const apres = compterMoisson(court);
+  const apres = compterMoisson(court, cbl);
   return apres && apres.series === compte.series ? court : parts;
 }
 
@@ -1170,10 +1310,12 @@ export function normaliserChemins(chemins, plafond = K_CANONISABLES) {
  * @param {string} saisie
  * @param {import('./fragments.js').Fragment[]} fragments
  * @param {Map<string, Object[]>} parFrag  texte normalisé → chemins
- * @param {Object} ctx  {jetons, signifiants, catalogue}
+ * @param {Object} ctx  {jetons, signifiants, catalogue, cible}
  * @returns {Object[]} approches non notées
  */
 export function assembler(saisie, fragments, parFrag, ctx) {
+  const cbl = normaliserCible(ctx.cible);
+  const K = cbl.longueur;              // le nombre de parts d'une approche assemblée
   const approches = [];
   // Les chemins sont canonicalisés AVANT d'entrer dans un assemblage (N2/N3
   // ci-dessus) : c'est ce qui empêche « voyelles → compter » et « lettres →
@@ -1191,6 +1333,9 @@ export function assembler(saisie, fragments, parFrag, ctx) {
     return v;
   };
   const cheminsBruts = (f) => parFrag.get(f.texte.normalize('NFC')) || [];
+  // Les chemins d'un fragment qui atteignent UN chiffre donné. Sur une cible
+  // homogène, c'est la liste entière — le BFS n'a cherché que ce chiffre-là.
+  const cheminsPour = (f, chiffre) => cheminsDe(f).filter((c) => valeurFinale(c) === chiffre);
 
   // ── mode A : RÉSONANCE — les 3 fragments sont littéralement le même texte
   const parMotif = new Map();
@@ -1200,11 +1345,19 @@ export function assembler(saisie, fragments, parFrag, ctx) {
     if (!parMotif.has(cle)) parMotif.set(cle, []);
     parMotif.get(cle).push(f);
   }
-  for (const [, occ] of parMotif) {
-    if (occ.length < 3) continue;
-    const trois = occ.slice(0, 3);
-    for (const chemin of cheminsDe(trois[0])) {
-      approches.push(approche('RESONANCE', trois.map((f) => ({ fragment: f, chemin })), { resonance: true }));
+  // ★ La résonance EXIGE une cible homogène, et ce n'est pas une limite
+  //   d'implémentation. Le mode dit « le même programme, sur les trois
+  //   occurrences du même motif » — et un même programme sur un même texte rend
+  //   un même chiffre. Il ne peut donc pas écrire `007` : ce serait un autre
+  //   mode, portant un autre nom. Sur une cible homogène, le programme doit en
+  //   outre rendre CE chiffre-là, ce qui ne filtre rien quand il n'y en a qu'un.
+  if (cbl.homogene) {
+    for (const [, occ] of parMotif) {
+      if (occ.length < K) continue;
+      const groupe = occ.slice(0, K);
+      for (const chemin of cheminsPour(groupe[0], cbl.chiffres[0])) {
+        approches.push(approche('RESONANCE', groupe.map((f) => ({ fragment: f, chemin })), { resonance: true }));
+      }
     }
   }
 
@@ -1212,7 +1365,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   for (const f of fragments) {
     if (!f.entier && f.famille !== 'entier') continue;
     for (const c of cheminsDe(f)) {
-      const tronque = tronquerA666(c);
+      const tronque = tronquerA666(c, cbl);
       if (tronque) approches.push(approche('DIRECT', [{ fragment: f, chemin: tronque }], { direct666: true }));
     }
   }
@@ -1221,11 +1374,12 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    C'est ce qui remplace le décret sur une saisie courte, et c'est ce que
   //    demande l'auteur : « quand tu arrives à faire autant de 6, plutôt que de
   //    les réduire à trois, regroupe-les par trois ».
-  const opsExplorables = ctx.catalogue ? operateursExplorables(ctx.catalogue) : [];
+  const opsExplorables = ctx.catalogue ? operateursPourCible(ctx.catalogue, cbl) : [];
   const porteuses = fragmentsAVecteur(fragments, ctx);
   if (opsExplorables.length) {
     for (const f of porteuses) {
-      const vecteurs = vecteursDeSix(f.texte, opsExplorables).slice(0, MAX_VECTEURS_PAR_FRAGMENT);
+      const vecteurs = vecteursDeSix(f.texte, opsExplorables, K, MAX_VECTEURS_PAR_FRAGMENT * 2, cbl)
+        .slice(0, MAX_VECTEURS_PAR_FRAGMENT);
       for (const c of vecteurs) {
         approches.push(approche('GROUPEMENT', [{ fragment: f, chemin: c }]));
       }
@@ -1238,7 +1392,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    GROUPEMENT ne récolte que sous une seule méthode ; la moisson prend à
   //    chaque jeton ce qu'il sait donner, par le programme qui lui convient.
   if (opsExplorables.length) {
-    for (const a of moissons(saisie, ctx.jetons || [], fragments, parFrag, opsExplorables)) {
+    for (const a of moissons(saisie, ctx.jetons || [], fragments, parFrag, opsExplorables, cbl)) {
       approches.push(a);
     }
   }
@@ -1260,8 +1414,8 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    ce mode n'est pas universel.)
   for (const f of fragments) {
     if (!f.entier && f.famille !== 'entier') continue;
-    for (const trio of convergences(cheminsBruts(f))) {
-      approches.push(approche('CONVERGENCE', trio.map((c) => ({ fragment: f, chemin: c }))));
+    for (const suite of convergences(cheminsBruts(f), cbl)) {
+      approches.push(approche('CONVERGENCE', suite.map((c) => ({ fragment: f, chemin: c }))));
     }
   }
 
@@ -1288,35 +1442,42 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   // pour la résonance et 100 % pour le groupement. Le garde-fou est désormais
   // dans le score et nulle part ailleurs — c'est ce qui était demandé —, mais il
   // ne faut pas attendre de cette seule levée qu'elle fasse remonter le mixte.
-  const melange = (mode, trio) => {
-    const parts = trio.map((f) => ({ fragment: f, chemin: meilleur(cheminsDe(f)) }));
+  // ★ CHAQUE PART REND LE CHIFFRE DE SON RANG. Le premier morceau de `007` doit
+  //   rendre 0, le deuxième 0, le troisième 7 — c'est l'ordre de lecture qui
+  //   fait la démonstration, et il n'y a rien à permuter. Sur une cible
+  //   homogène, la contrainte est vide : toutes les parts veulent le même
+  //   chiffre, et le BFS n'a cherché que celui-là.
+  const melange = (mode, groupe) => {
+    const parts = groupe.map((f, i) => ({
+      fragment: f, chemin: meilleur(cheminsPour(f, cbl.chiffres[i])),
+    }));
     if (parts.every((p) => p.chemin)) approches.push(approche(mode, parts));
   };
+  const signaturesCommunes = (index) => {
+    if (!index.length) return [];
+    return [...index[0].keys()].filter((s) => index.every((idx) => idx.has(s))).sort();
+  };
 
-  // ── mode B : PARTITION contiguë couvrante en 3 parts, jointe sur signature
-  for (const trio of partitionsContigues(fragments, ctx)) {
-    const index = trio.map((f) => indexer(cheminsDe(f)));
-    const communes = [...index[0].keys()]
-      .filter((s) => index[1].has(s) && index[2].has(s))
-      .sort();
-    for (const s of communes) {
-      approches.push(approche('PARTITION', trio.map((f, i) => ({
+  // ── mode B : PARTITION contiguë couvrante, jointe sur signature
+  for (const groupe of partitionsContigues(fragments, ctx, K)) {
+    const index = groupe.map((f, i) => indexer(cheminsDe(f), cbl.chiffres[i]));
+    for (const s of signaturesCommunes(index)) {
+      approches.push(approche('PARTITION', groupe.map((f, i) => ({
         fragment: f, chemin: meilleur(index[i].get(s)),
       }))));
     }
-    melange('PARTITION', trio);
+    melange('PARTITION', groupe);
   }
 
-  // ── modes C et D : 3 fragments disjoints (avec ou sans « 6 offert »)
-  for (const trio of trioLibres(fragments, parFrag)) {
-    const index = trio.map((f) => indexer(cheminsDe(f)));
-    const communes = [...index[0].keys()].filter((s) => index[1].has(s) && index[2].has(s)).sort();
-    const offerts = trio.filter((f) => estSixOffert(f)).length;
+  // ── modes C et D : fragments disjoints (avec ou sans « 6 offert »)
+  for (const groupe of trioLibres(fragments, parFrag, K)) {
+    const index = groupe.map((f, i) => indexer(cheminsDe(f), cbl.chiffres[i]));
+    const offerts = groupe.filter((f) => estSixOffert(f, cbl)).length;
     const mode = offerts >= 2 ? 'SIX_OFFERT' : 'LIBRE';
-    for (const s of communes.slice(0, 3)) {
-      approches.push(approche(mode, trio.map((f, i) => ({ fragment: f, chemin: meilleur(index[i].get(s)) }))));
+    for (const s of signaturesCommunes(index).slice(0, 3)) {
+      approches.push(approche(mode, groupe.map((f, i) => ({ fragment: f, chemin: meilleur(index[i].get(s)) }))));
     }
-    melange(mode, trio);
+    melange(mode, groupe);
   }
 
   // Le mode est RECALCULÉ à partir de la géométrie des fragments, jamais laissé
@@ -1334,30 +1495,40 @@ export function assembler(saisie, fragments, parFrag, ctx) {
 
 /**
  * @param {Array<{fragment:Object, chemin:Object}>} parts
- * @param {{saisie:string, jetons?:Object[]}} ctx
- * @returns {{mode:string, resonance:boolean, series?:number}}
+ * ★ La CIBLE est rendue avec le mode, et voyage donc avec l'approche. C'est
+ * elle qui écrit le verdict (`verdictDe`) et qui décide de la longueur d'une
+ * série ; la porter ici garantit qu'une approche assemblée et une approche
+ * rejouée depuis une URL en portent une seule et même — celle du contexte, pas
+ * une reconstruction.
+ *
+ * @param {{saisie:string, jetons?:Object[], cible?:Object}} ctx
+ * @returns {{mode:string, resonance:boolean, series?:number, cible:Object}}
  */
 export function deduireMode(parts, ctx) {
-  if (parts.some((p) => p.chemin.ops.some((o) => o.isJoker))) return { mode: 'JOKER', resonance: false };
+  const cbl = normaliserCible(ctx && ctx.cible);
+  const avec = (r) => ({ ...r, cible: cbl });
+  if (parts.some((p) => p.chemin.ops.some((o) => o.isJoker))) return avec({ mode: 'JOKER', resonance: false });
   if (parts.length === 1) {
     const chemin = parts[0].chemin;
     const fin = chemin.etats[chemin.etats.length - 1];
-    if (fin.type === 'NUM' && fin.valeur === 666) return { mode: 'DIRECT', resonance: false };
-    const serie = serieDeSix(chemin);
-    if (serie) return { mode: 'GROUPEMENT', resonance: false, series: serie.series };
+    if (fin.type === 'NUM' && cbl.nombre !== null && fin.valeur === cbl.nombre) {
+      return avec({ mode: 'DIRECT', resonance: false });
+    }
+    const serie = serieDeSix(chemin, cbl);
+    if (serie) return avec({ mode: 'GROUPEMENT', resonance: false, series: serie.series });
     // Un seul fragment, un seul 6 : les deux autres seraient décrétés.
-    return { mode: 'DECRET', resonance: false };
+    return avec({ mode: 'DECRET', resonance: false });
   }
   // La MOISSON avant tout le reste : plusieurs portées DISJOINTES qui rapportent
   // ensemble au moins deux séries de trois 6. C'est structurel — le compte est
   // refait sur la géométrie et sur les états finaux, jamais lu dans l'URL —, si
   // bien qu'un lien rejoué retrouve le même nombre de séries et le même score.
-  const recolte = compterMoisson(parts);
+  const recolte = compterMoisson(parts, cbl);
   if (recolte) {
     const noms = parts.map((p) => p.fragment.texte.toLowerCase());
     const unSeulMotif = new Set(noms).size === 1
       && compterOccurrences(ctx.saisie, noms[0]) >= parts.length;
-    return { mode: 'MOISSON', resonance: unSeulMotif, series: recolte.series };
+    return avec({ mode: 'MOISSON', resonance: unSeulMotif, series: recolte.series });
   }
   // Même portée pour toutes les parts : ou bien c'est le même programme, et
   // deux des trois 6 sont décrétés ; ou bien ce sont trois manières différentes
@@ -1372,19 +1543,20 @@ export function deduireMode(parts, ctx) {
     // à refuser ce qui existe déjà.
     const programmes = parts.map((p) => p.chemin.ops.map((o) => o.code).join('+'));
     return new Set(programmes).size < parts.length
-      ? { mode: 'DECRET', resonance: false }
-      : { mode: 'CONVERGENCE', resonance: false };
+      ? avec({ mode: 'DECRET', resonance: false })
+      : avec({ mode: 'CONVERGENCE', resonance: false });
   }
 
   const textes = parts.map((p) => p.fragment.texte.toLowerCase());
   const memeTexte = new Set(textes).size === 1;
-  if (memeTexte && parts.length >= 3 && compterOccurrences(ctx.saisie, textes[0]) >= parts.length) {
-    return { mode: 'RESONANCE', resonance: true };
+  if (memeTexte && cbl.homogene && parts.length >= cbl.longueur
+    && compterOccurrences(ctx.saisie, textes[0]) >= parts.length) {
+    return avec({ mode: 'RESONANCE', resonance: true });
   }
-  if (parts.filter((p) => estSixOffert(p.fragment)).length >= 2) {
-    return { mode: 'SIX_OFFERT', resonance: false };
+  if (parts.filter((p) => estSixOffert(p.fragment, cbl)).length >= 2) {
+    return avec({ mode: 'SIX_OFFERT', resonance: false });
   }
-  return { mode: couvrante(parts, ctx) ? 'PARTITION' : 'LIBRE', resonance: false };
+  return avec({ mode: couvrante(parts, ctx) ? 'PARTITION' : 'LIBRE', resonance: false });
 }
 
 function compterOccurrences(saisie, motif) {
@@ -1411,45 +1583,78 @@ function couvrante(parts, ctx) {
   return trouAcceptable(ctx, curseur, fin);
 }
 
-/** Un fragment « 6 offert » : séparateur de la touche 6 en AZERTY, ou chiffre 6 littéral. */
-function estSixOffert(f) {
-  return f.famille === 'separateurs' || f.texte === '-' || f.texte === '6';
+/**
+ * Un fragment « 6 offert » : séparateur de la touche 6 en AZERTY, ou chiffre 6
+ * littéral.
+ *
+ * ★ Généralisé au chiffre de la CIBLE écrit tel quel — sur `007`, un `7` dans
+ * la saisie est offert au même titre qu'un `6` l'était. Le tiret, lui, reste
+ * conditionné à la présence du 6 dans la cible : il n'est offert que parce
+ * qu'il partage la touche du 6 sur un AZERTY, et cet argument-là ne se
+ * transporte pas. Sur `666`, les deux clauses valent exactement l'ancienne.
+ */
+function estSixOffert(f, cible = CIBLE_DEFAUT) {
+  const c = normaliserCible(cible);
+  if (f.famille === 'separateurs') return true;
+  if (c.alphabet.includes(6) && f.texte === '-') return true;
+  return /^[0-9]$/.test(f.texte) && c.alphabet.includes(Number(f.texte));
 }
 
-function tronquerA666(chemin) {
+/**
+ * Le chemin passe-t-il littéralement par le NOMBRE que la cible écrit ?
+ *
+ * ★ Et il faut que la cible en ait un. `007` n'a pas de nombre — `Number('007')`
+ * vaut 7, et un `NUM` valant 7 ne démontre pas `007` : il démontre 7. Le mode
+ * DIRECT est donc simplement indisponible pour les cibles à zéro de tête
+ * (`cible.js › nombre`), plutôt que d'afficher un verdict que l'arithmétique
+ * n'a pas produit.
+ */
+function tronquerA666(chemin, cible = CIBLE_DEFAUT) {
+  const but = normaliserCible(cible).nombre;
+  if (but === null) return null;
   for (let i = 1; i < chemin.etats.length; i++) {
     const e = chemin.etats[i];
-    if (e.type === 'NUM' && e.valeur === 666) {
-      return { ops: chemin.ops.slice(0, i), etats: chemin.etats.slice(0, i + 1), valeur: 666, cout: chemin.ops.slice(0, i).reduce((s, o) => s + (o.cout || 0), 0) };
+    if (e.type === 'NUM' && e.valeur === but) {
+      return { ops: chemin.ops.slice(0, i), etats: chemin.etats.slice(0, i + 1), valeur: but, cout: chemin.ops.slice(0, i).reduce((s, o) => s + (o.cout || 0), 0) };
     }
   }
   return null;
 }
 
-/** Partitions contiguës en 3 parts dont les 3 morceaux sont des fragments déjà cherchés. */
-function partitionsContigues(fragments, ctx) {
+/**
+ * Partitions contiguës en `n` parts dont les morceaux sont des fragments déjà
+ * cherchés — `n` étant la longueur de la cible.
+ *
+ * ★ Les trois boucles imbriquées sont devenues une descente en profondeur, à
+ * l'ordre d'énumération près : rien. Le parcours reste lexicographique sur les
+ * index, les mêmes prédicats élaguent les mêmes branches, et à `n = 3` la liste
+ * rendue est identique — élément pour élément, dans le même ordre. C'était la
+ * condition pour toucher à ce code.
+ */
+function partitionsContigues(fragments, ctx, n = SERIE) {
   const utiles = fragments
     .filter((f) => f.famille !== 'entier' && f.intervalles.length === 1)
     .sort((a, b) => a.offset - b.offset || a.longueur - b.longueur);
   const out = [];
   const fin = ctx.saisie ? ctx.saisie.length : 0;
-  for (let i = 0; i < utiles.length && out.length < MAX_PARTITIONS; i++) {
-    const a = utiles[i];
-    for (let j = 0; j < utiles.length && out.length < MAX_PARTITIONS; j++) {
-      const b = utiles[j];
-      if (b.offset < a.offset + a.longueur) continue;
-      for (let k = 0; k < utiles.length && out.length < MAX_PARTITIONS; k++) {
-        const c = utiles[k];
-        if (c.offset < b.offset + b.longueur) continue;
-        // Couvrante : les trous ne portent que du non-signifiant ou des séparateurs.
-        if (!trouAcceptable(ctx, 0, a.offset)) continue;
-        if (!trouAcceptable(ctx, a.offset + a.longueur, b.offset)) continue;
-        if (!trouAcceptable(ctx, b.offset + b.longueur, c.offset)) continue;
-        if (!trouAcceptable(ctx, c.offset + c.longueur, fin)) continue;
-        out.push([a, b, c]);
-      }
+  const pile = [];
+  const descendre = (curseur) => {
+    if (out.length >= MAX_PARTITIONS) return;
+    if (pile.length === n) {
+      // Couvrante : les trous ne portent que du non-signifiant ou des séparateurs.
+      if (trouAcceptable(ctx, curseur, fin)) out.push(pile.slice());
+      return;
     }
-  }
+    for (let i = 0; i < utiles.length && out.length < MAX_PARTITIONS; i++) {
+      const f = utiles[i];
+      if (f.offset < curseur) continue;
+      if (!trouAcceptable(ctx, curseur, f.offset)) continue;
+      pile.push(f);
+      descendre(f.offset + f.longueur);
+      pile.pop();
+    }
+  };
+  if (n >= 1) descendre(0);
   return out;
 }
 
@@ -1462,8 +1667,14 @@ function trouAcceptable(ctx, d, f) {
   return true;
 }
 
-/** Triplets de fragments disjoints parmi les meilleurs — bornés à C(12,3). */
-function trioLibres(fragments, parFrag) {
+/**
+ * Combinaisons de `n` fragments DISJOINTS parmi les meilleurs — bornées à
+ * C(12, n), soit 220 à trois parts et 924 au pire (six).
+ *
+ * ★ À `n = 3`, la descente rend exactement les mêmes triplets, dans le même
+ * ordre, que les trois boucles `i < j < k` qu'elle remplace.
+ */
+function trioLibres(fragments, parFrag, n = SERIE) {
   const notes = fragments
     .filter((f) => (parFrag.get(f.texte.normalize('NFC')) || []).length)
     .map((f) => ({ f, s: scorePartiel((parFrag.get(f.texte.normalize('NFC')) || [])[0]) }))
@@ -1472,15 +1683,17 @@ function trioLibres(fragments, parFrag) {
     .map((x) => x.f)
     .sort((a, b) => a.offset - b.offset || a.longueur - b.longueur);
   const out = [];
-  for (let i = 0; i < notes.length; i++) {
-    for (let j = i + 1; j < notes.length; j++) {
-      if (chevauche(notes[i], notes[j])) continue;
-      for (let k = j + 1; k < notes.length; k++) {
-        if (chevauche(notes[i], notes[k]) || chevauche(notes[j], notes[k])) continue;
-        out.push([notes[i], notes[j], notes[k]]);
-      }
+  const pile = [];
+  const descendre = (depart) => {
+    if (pile.length === n) { out.push(pile.slice()); return; }
+    for (let i = depart; i < notes.length; i++) {
+      if (pile.some((f) => chevauche(f, notes[i]))) continue;
+      pile.push(notes[i]);
+      descendre(i + 1);
+      pile.pop();
     }
-  }
+  };
+  if (n >= 1) descendre(0);
   return out;
 }
 
@@ -1564,16 +1777,26 @@ function prefererLeTriptyqueMontre(approches) {
 // ══════════════════════════════════ garantie « jamais bredouille » (§5)
 
 /**
- * Le joker français, appliqué TROIS FOIS (donc homogène, H = 1).
+ * Le joker français, appliqué une fois par chiffre de la cible (donc homogène,
+ * H = 1, quand la cible l'est).
  * « Remplacer un nombre par le nombre de lettres de son nom en français. »
  * L'itération admet le cycle attracteur 4 → 6 → 3 → 5 → 4, qui contient 6 ;
  * tout chiffre de 0 à 9 atteint 6 en au plus 3 étapes. C'est une propriété du
  * FRANÇAIS : en anglais `four` a 4 lettres, donc 4 est un point fixe et
  * l'itération converge vers 4 sans jamais passer par 6.
  *
+ * ★ **ET C'EST POUR CELA QUE LA GARANTIE « JAMAIS BREDOUILLE » EST UNE GARANTIE
+ * SUR 666.** Le cycle attracteur ne visite que 3, 4, 5 et 6 : le joker sait
+ * fabriquer ces quatre chiffres-là, et aucun autre. Viser `111`, `007` ou `000`
+ * peut donc légitimement ne rien rendre du tout — la page de résultats le DIT
+ * (`i18n › resultat.aucuneVoieCible`) au lieu de faire semblant. Le dernier
+ * recours du site est une propriété du français ; il n'a jamais promis d'être
+ * une propriété des chiffres.
+ *
  * @returns {Object|null} une approche, ou null si le catalogue n'a pas de joker
  */
 export function approcheJoker(saisie, ctx) {
+  const cbl = normaliserCible(ctx && ctx.cible);
   const ops = normaliserCatalogue(ctx.catalogue);
   const joker = ops.find((o) => o.isJoker && o.from === 'NUM' && o.to === 'NUM');
   if (!joker) return null;
@@ -1619,25 +1842,40 @@ export function approcheJoker(saisie, ctx) {
   if (!base) return null;
 
   // Réduction à un chiffre, puis itération française (≤ 3 étapes, prouvé).
-  let chemin = base;
-  for (let garde = 0; garde < 12 && Math.abs(dernier(chemin).valeur) > 9; garde++) {
-    const red = reducteurs.map((o) => ({ o, r: appliquerOp(o, dernier(chemin)) }))
-      .find((x) => x.r !== null && Math.abs(x.r.valeur) < Math.abs(dernier(chemin).valeur));
+  let reduit = base;
+  for (let garde = 0; garde < 12 && Math.abs(dernier(reduit).valeur) > 9; garde++) {
+    const red = reducteurs.map((o) => ({ o, r: appliquerOp(o, dernier(reduit)) }))
+      .find((x) => x.r !== null && Math.abs(x.r.valeur) < Math.abs(dernier(reduit).valeur));
     if (!red) break;
-    chemin = prolonger(chemin, red.o, red.r);
+    reduit = prolonger(reduit, red.o, red.r);
   }
-  for (let garde = 0; garde < 6 && dernier(chemin).valeur !== 6; garde++) {
-    const r = appliquerOp(joker, dernier(chemin));
-    if (r === null) break;
-    chemin = prolonger(chemin, joker, r);
+
+  // Un chemin par CHIFFRE distinct de la cible — mémoïsé, si bien que sur une
+  // cible homogène les parts partagent le même objet chemin, exactement comme
+  // avant.
+  const parChiffre = new Map();
+  const chemins = [];
+  for (const but of cbl.chiffres) {
+    let chemin = parChiffre.get(but);
+    if (chemin === undefined) {
+      chemin = reduit;
+      for (let garde = 0; garde < 6 && dernier(chemin).valeur !== but; garde++) {
+        const r = appliquerOp(joker, dernier(chemin));
+        if (r === null) break;
+        chemin = prolonger(chemin, joker, r);
+      }
+      if (dernier(chemin).valeur !== but) return null;
+      parChiffre.set(but, chemin);
+    }
+    chemins.push(chemin);
   }
-  if (dernier(chemin).valeur !== 6) return null;
 
   const fragment = {
     texte: s, offset: 0, longueur: s.length, intervalles: [[0, s.length]],
     tokenDebut: 0, tokenLong: -1, famille: 'entier', priorite: 5,
   };
-  return approche('JOKER', [0, 1, 2].map(() => ({ fragment, chemin })), { joker: true, resonance: false });
+  return approche('JOKER', chemins.map((chemin) => ({ fragment, chemin })),
+    { joker: true, resonance: false, cible: cbl });
 }
 
 const dernier = (c) => c.etats[c.etats.length - 1];

@@ -75,6 +75,8 @@ export function preparer() {
       M.REGISTRES = url.REGISTRES;
       M.REGISTRE_DEFAUT = url.REGISTRE_DEFAUT;
       M.autreRegistre = url.autreRegistre;
+      M.registresDisponibles = url.registresDisponibles;
+      M.miseEnSceneDisponible = url.miseEnSceneDisponible;
       etat.url = 'branché';
     } else {
       etat.url = 'absent';
@@ -100,6 +102,15 @@ export function preparer() {
     if (ok(rech) && typeof rech.creerMoteur === 'function') {
       M.REPONSES_DEDIEES = rech.REPONSES_DEDIEES || new Map();
       M.LIMITE_SAISIE = rech.LIMITE_SAISIE || 500;
+      // La CIBLE appartient au moteur de recherche, comme la grammaire d'URL :
+      // l'interface ne redéfinit ni son écriture, ni son plafond, ni son défaut.
+      // Deux lecteurs de cible divergents, ce seraient des liens qu'on écrit
+      // d'un côté et qu'on relit de travers de l'autre — la même faute que pour
+      // le base58, et pour la même raison.
+      M.lireCible = rech.lireCible;
+      M.normaliserCible = rech.normaliserCible;
+      M.CIBLE_DEFAUT = rech.CIBLE_DEFAUT;
+      M.MAX_CHIFFRES = rech.MAX_CHIFFRES;
       try {
         const catalogue = await rech.chargerCatalogue();
         M.moteur = rech.creerMoteur(catalogue);
@@ -132,12 +143,40 @@ export function preparer() {
 export const LIMITE_SAISIE = () => M.LIMITE_SAISIE || 500;
 export const bandeaux = () => M.BANDEAUX || {};
 
+/* ─────────────────────────────── La cible ───────────────────────────────── */
+
+/** Le plafond de longueur d'une cible, relayé depuis `src/recherche/cible.js`. */
+export const MAX_CHIFFRES = () => M.MAX_CHIFFRES || 6;
+
+/** Lecture d'une cible saisie : `null` si ce n'en est pas une. */
+export const lireCible = (texte) => (M.lireCible ? M.lireCible(texte) : null);
+
+/** La cible, normalisée — 666 quand elle manque ou qu'elle est illisible. */
+export const normaliserCible = (x) => (M.normaliserCible ? M.normaliserCible(x) : null);
+
+/** L'écriture d'une cible, quelle que soit la forme sous laquelle elle arrive.
+ *  Sans moteur chargé, on n'invente pas : la page affichera ce qu'elle a. */
+export function texteCible(x) {
+  if (x && typeof x === 'object' && typeof x.texte === 'string') return x.texte;
+  const c = normaliserCible(x);
+  return c ? c.texte : (typeof x === 'string' && x ? x : '666');
+}
+
 /* Le registre de mise en scene, relaye tel quel depuis `src/recherche/url.js`.
    Les valeurs de repli ne servent que si la grammaire ne s'est pas chargee du
-   tout — auquel cas la page ne montre de toute facon aucune demonstration. */
-export const REGISTRE_DEFAUT = 'scenique';
-export const autreRegistre = (r) =>
-  (M.autreRegistre ? M.autreRegistre(r) : (r === 'sobre' ? 'scenique' : 'sobre'));
+   tout — auquel cas la page ne montre de toute facon aucune demonstration.
+
+   ★ Le defaut vaut desormais SOBRE : la mise en scene s'opte (voir `url.js`).
+   `pages/accueil.js` lit cette constante pour decider vers quelle URL mene le
+   bouton « Reveler » — il ouvrira donc la version sobre, ce qui est la lecture
+   litterale de la nouvelle regle et ne demande aucune decision de plus. */
+export const REGISTRE_DEFAUT = 'sobre';
+export const autreRegistre = (r, cible) =>
+  (M.autreRegistre ? M.autreRegistre(r, cible) : null);
+/* Les registres qu'une cible sait offrir. Sans grammaire chargee, aucun
+   panneau n'est affiche de toute facon : le repli est le plus neutre. */
+export const registresDisponibles = (cible) =>
+  (M.registresDisponibles ? M.registresDisponibles(cible) : ['sobre']);
 
 /* ───────────────────────────── Grammaire d'URL ───────────────────────────── */
 
@@ -174,10 +213,10 @@ export const reponseDediee = (saisie) =>
  * @returns {{saisie:string, approches:Array, fragments:Array, dedie:?Object,
  *            urlResultats:?string, source:'moteur'|'secours'}}
  */
-export function resoudre(saisie) {
+export function resoudre(saisie, cible) {
   if (M.moteur) {
     try {
-      const r = M.moteur.resoudre(saisie);
+      const r = M.moteur.resoudre(saisie, { cible });
       return { ...r, approches: (r.approches || []).map(traduireApproche), source: 'moteur' };
     } catch (err) {
       console.error('[NumHeroLOLgeek] la recherche a échoué :', err);
@@ -225,7 +264,7 @@ export function scenarioDe(approche, saisie, options = {}) {
       // Le registre traverse pour la même raison : c'est le SCÉNARIO qui perd
       // ses cornes en sobre, pas le lecteur (`recherche/scenario.js`).
       const sc = M.moteur.scenarioDe(approche, {
-        saisie, langue: langue(), registre: options.registre,
+        saisie, langue: langue(), registre: options.registre, cible: options.cible,
       });
       if (sc && Array.isArray(sc.steps)) return { scenario: sc, source: 'moteur' };
     } catch (err) {

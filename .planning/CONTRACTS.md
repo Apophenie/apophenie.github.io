@@ -2138,6 +2138,138 @@ programme  := code ('+' code)*
 > ce que le titre dit déjà (« deux séries de 666 »).
 
 
+> *Amendement — LA CIBLE, `c111!`, et le DÉFAUT DU REGISTRE QUI SE RENVERSE.*
+>
+> **La demande de l'auteur.** « Via la page de listing, pouvoir indiquer un autre
+> objectif que 666, par exemple 111 ou 777 ou 13 ou 000 ou 007, et relancer la
+> recherche mais pour produire ces résultats. »
+>
+> La grammaire devient :
+>
+> ```
+> approche   := marqueur* fragment (',' fragment)*
+> marqueur   := registre '!' | 'c' chiffre+ '!'
+> registre   := 'so' | 'sce'
+> ```
+>
+> ★ **Ce n'est pas un opérateur, et le registre §4.1 reste clos.** Même argument
+> que pour `so!` / `sce!` : un opérateur transforme l'état, il a un `from`, un
+> `to`, un `apply()`. La cible ne transforme rien — elle dit ce qu'on CHERCHE.
+> C'est une extension de la GRAMMAIRE, au même titre que `×3:` et que `0.1:`.
+>
+> ★ **Aucune ambiguïté avec `c1`.** Le `!` est interdit dans un programme, et le
+> marqueur ne se lit qu'en TÊTE : `#c1+m4#…` reste la somme, `#c111!c1+m4#…` la
+> même somme visant 111.
+>
+> ★ **L'ABSENCE DE MARQUEUR VAUT 666, ET LE MARQUEUR N'EST PAS ÉCRIT AU DÉFAUT.**
+> C'est la seule différence de traitement avec le registre, et elle est
+> délibérée : le défaut du registre avait dû être tranché entre deux lectures
+> également défendables, ce qui imposait de le rendre explicite ; ici il n'y a
+> rien à trancher — 666 est la promesse du site, elle est dans son titre. Écrire
+> `c666!` partout coûterait six signes à la totalité des URL pour lever une
+> ambiguïté qui n'existe pas, et changerait la forme canonique de tous les liens
+> existants. **La forme canonique d'un lien qui vise 666 est donc inchangée, au
+> caractère près** — un test le gèle.
+>
+> ★ **Les deux marqueurs se lisent dans l'un ou l'autre ordre**, et s'écrivent
+> dans un seul (`registre` puis `cible`). Rien dans la grammaire ne fonde une
+> préséance entre « ce qu'on démontre » et « comment on le montre » ; refuser un
+> lien recopié à la main dans l'autre ordre serait une sévérité sans motif, et
+> `canoniser()` réécrit la barre d'adresse de toute façon (§4.3).
+>
+> ★ **`#c111!#…` est la page de RÉSULTATS pour 111** — là où `sobre!` seul est un
+> lien tronqué. La différence n'est pas un caprice : le registre dit comment
+> MONTRER une démonstration, et une liste n'en montre aucune ; la cible dit ce
+> qu'on CHERCHE, et une liste est le résultat d'une recherche.
+>
+> ★ **Une cible illisible s'ANNONCE** (plus de six chiffres, ou autre chose que
+> des chiffres) : bandeau et repli, jamais un repli muet sur 666 — §4.3.
+>
+> ── **LE DÉFAUT DU REGISTRE PASSE DE « SCÉNIQUE » À « SOBRE ».**
+>
+> ⚠️ Ceci **remplace** l'arbitrage de l'amendement précédent. Celui-ci reposait
+> tout entier sur une prémisse — « des liens écrits à la main circulent depuis la
+> publication » — que l'auteur a levée : « aucun lien diffusé (si ce n'est dans
+> nos scénarios de test), pas besoin de gérer la rétrocompatibilité, tu peux
+> mettre à jour les liens dans les tests du dépôt ». La contrainte tombe, et avec
+> elle le seul argument qui tenait « scénique » debout.
+>
+> Reste l'argument de fond, et il va dans l'autre sens : **la mise en scène
+> s'OPTE**. Un lien nu rend la version la plus crédible ; le spectacle se demande.
+> Corollaire immédiat, sans décision de plus : le bouton « Révéler » de l'accueil
+> lit `REGISTRE_DEFAUT` (`src/app/pages/accueil.js`) et ouvre donc désormais la
+> version sobre.
+>
+> ⚠️ La levée porte sur les LIENS, **pas** sur le registre de codes d'opérateurs
+> (§4.1), qui reste clos : aucun code ne change de sens, aucun n'est réattribué.
+> Les formes longues `sobre!` / `scenique!` restent LUES — deux alternatives dans
+> une expression rationnelle, et une lecture tolérante est une vertu (§4.3) —,
+> mais ce n'est plus une dette, c'est une commodité.
+>
+> ── **UN REGISTRE QU'ON NE SAIT PAS JOUER RETOMBE SUR « SOBRE ».**
+>
+> « Quand `bo!`, `ma!` ou `sce!` est utilisé dans un cas non supporté → repli en
+> sobre. » (l'auteur)
+>
+> La mise en scène du verdict est aujourd'hui celle du 666 : les cornes, et rien
+> d'autre. Une cible qui n'a pas encore d'emblème n'a pas de version scénique à
+> jouer — l'auteur en a décrit un par cible (auréole, jackpot, fer à cheval,
+> faux, trou noir, dés) et a remis leur dessin à plus tard
+> (`.planning/A-VENIR-cibles.md`). Des trois conduites possibles, deux sont
+> mauvaises : ÉCHOUER (un lien mort pour une décoration manquante) ou JOUER
+> AUTRE CHOSE (des cornes de diable au-dessus d'un 111, c'est-à-dire un mensonge
+> dessiné). Le repli sur le plus neutre est la troisième.
+>
+> Il est appliqué à la LECTURE **et** à l'ÉCRITURE (`registreEffectif`,
+> `src/recherche/url.js`), sans quoi l'aller-retour mentirait ; et
+> `lecture.registreDemande` conserve ce que le lien portait. La connaissance
+> « quelles cibles ont un emblème » tient en une ligne — `miseEnSceneDisponible`
+> — et c'est elle qui changera le jour où l'auréole existera.
+>
+> ── **CE QUE LA CIBLE CHANGE DANS LE MOTEUR**, et ce qu'elle ne change pas.
+>
+> ★ **La règle de conception, et le critère d'acceptation de tout ce chantier :
+> quand la cible vaut 666, RIEN ne change** — ni les approches trouvées, ni leur
+> classement, ni les URL, ni un libellé. Chaque généralisation se replie
+> exactement sur l'ancien code, et là où ce repli n'était pas exact, la
+> généralisation a été refusée. Les tests de `src/recherche/tests/cible.test.js`
+> marqués « repli exact » comparent l'ancien calcul, recopié en toutes lettres, au
+> nouveau, exhaustivement sur 4 096 vecteurs.
+>
+> ★ **La reformulation qui porte tout.** L'ancienne question était « quels index
+> portent un 6 ? », suivie d'une division par trois. La nouvelle est « quelles
+> positions, lues de gauche à droite, ÉCRIVENT la cible ? » (`cible.js ›
+> seriesDe`). Sur 666 les deux rendent le même résultat, index pour index.
+>
+> ★ **Une cible est une SUITE DE CHIFFRES, jamais un nombre.** `Number('007')`
+> vaut 7 ; le mode DIRECT est donc simplement indisponible pour les cibles à zéro
+> de tête, plutôt que d'afficher un verdict que l'arithmétique n'a pas produit.
+>
+> ★ **La longueur d'une série est celle de la cible.** Les modes à plusieurs
+> parts en ont `cible.longueur`, et la part de rang *i* doit rendre le chiffre
+> `cᵢ`. `reveal` reçoit un champ `serie` dérivé de la cible plutôt qu'une
+> quatrième copie de la constante 3.
+>
+> ★ **La RÉSONANCE exige une cible homogène** : elle repose sur « le même
+> programme sur les trois occurrences du même motif », et un même programme sur
+> un même texte rend un même chiffre. Ce n'est pas une limite d'implémentation,
+> c'est ce que le mode signifie.
+>
+> ★ **Quatre opérateurs sortent de la recherche hors de 666** — `mz`, `m10`,
+> `m11`, `m12` (`bfs.js › OPERATEURS_LIES_A_666`). Leurs garde-fous sont écrits
+> en « 6 » et en « 666 » : les trois ficelles refusent d'elles-mêmes de
+> s'appliquer, et `mz` est le seul qui pourrait encore agir — en couronnant de
+> cornes trois 6 qui ne sont pas le verdict. Les généraliser demanderait de faire
+> voyager la cible jusque dans `apply()`, donc d'étendre la signature §2.2 : c'est
+> un chantier à part, noté dans `.planning/A-VENIR-cibles.md`.
+>
+> ★ **LA GARANTIE « JAMAIS BREDOUILLE » (§5.3) EST UNE GARANTIE SUR 666.** Le
+> dernier recours du moteur est le joker français, dont le cycle attracteur
+> 4 → 6 → 3 → 5 → 4 ne visite que 3, 4, 5 et 6. Viser 111 ou 007 peut donc ne
+> rien rendre, et la page de résultats le DIT (`resultat.aucuneVoieCible`) au lieu
+> de plaisanter à côté. La promesse du site porte sur son titre, pas sur les
+> chiffres en général.
+
 Exemples :
 
 ```
@@ -2145,6 +2277,8 @@ Exemples :
 #×3:m1+c1+p1#4CWoMo83vssW                     résonance : trois fois la même méthode
 #0.1:m1+c1+p1,1.1:n2+p1,2.1:m4+c2#4CWoMo83    trois fragments, méthodes distinctes
 ##3fq9KJ                                       page de résultats (README)
+#c111!#3fq9KJ                                  page de résultats, mais pour 111
+#so!c007!0.1:t1+mj+c3,2.1:t1+mj+c3,6.1:t1+m9+c1#…   une voie qui écrit 007
 ```
 
 ### 4.3 Lecture tolérante, écriture canonique
@@ -2154,6 +2288,9 @@ Exemples :
 | Grammaire §4.2 | **Rejouée telle quelle, sans recherche.** |
 | `#3+7+2#…` (rangs hérités du README) | Recherche relancée, rangs 3/7/2 du classement courant, bandeau discret « démonstration recalculée ». |
 | `##…` | Page de résultats. |
+| `#c111!…#…` (marqueur de cible) | Rejouée sur la cible demandée. Absent ⇒ 666 (§4.2, amendement « LA CIBLE »). |
+| `#c1234567!…#…` (cible illisible) | Bandeau explicite : jamais un repli muet sur 666. |
+| `#sce!c111!…#…` (registre sans emblème) | **Replié sur `so!`**, à la lecture comme à l'écriture. Mêmes étapes, même verdict : ce qui manque est un DESSIN. |
 | Code inconnu / portée hors bornes / format inconnu | Bandeau explicite + repli sur la page de résultats. |
 
 **Un lien ne renvoie jamais silencieusement vers une autre démonstration :** soit il
