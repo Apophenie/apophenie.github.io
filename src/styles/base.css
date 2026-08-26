@@ -350,9 +350,19 @@ hr.filet-double {
   .barre-haute .logo-entete { width: auto; flex: 0 1 160px; }
 }
 
+/* ★ Le pied colle au site, il ne flotte plus loin derrière lui.
+   « Je souhaite que le footer soit bien plus proche du reste du site, toutes
+   pages confondues. Peut-être est-ce le passer en `margin: --e3 auto 0` plutôt
+   que `--e8`. Je verrai à l'œil si c'est trop peu » (l'auteur).
+
+   `--e8` valait 96 px, auxquels s'ajoutaient les 36 px de son propre
+   `padding-top` : 132 px de vide avant un filet et deux lignes grises. Sur les
+   pages courtes — l'accueil, surtout — le pied semblait appartenir à une autre
+   page. À `--e3` l'écart tombe à 18 + 36 = 54 px, et le filet redevient ce
+   qu'il est : la fin d'une page, pas le début d'un ailleurs. */
 .pied {
   max-width: 34rem;
-  margin: var(--e8) auto 0;
+  margin: var(--e3) auto 0;
   padding: var(--e5) var(--e4) var(--e6);
   border-top: var(--rule) solid var(--line);
   box-shadow: 0 -3px 0 -2px var(--line);
