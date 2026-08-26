@@ -56,11 +56,15 @@ function routeAccueil({ saisieInitiale = '', bandeau = null } = {}) {
   });
 }
 
-function routeResultat(saisie, { bandeau = null } = {}) {
-  const resultat = pont.resoudre(saisie);
+function routeResultat(saisie, { bandeau = null, cible = null } = {}) {
+  const resultat = pont.resoudre(saisie, cible);
   const contenu = pageResultat({
     saisie,
     resultat,
+    // La CIBLE affichée est celle que le moteur a réellement visée, pas celle
+    // qu'on lui a demandée : c'est lui qui a le dernier mot (une cible
+    // illisible retombe sur 666, `cible.js › normaliserCible`).
+    cible: resultat.cible || cible,
     surChoixSecours: (approche) => montrerDemonstrationLocale(saisie, approche, resultat),
   });
   if (bandeau) {
@@ -77,7 +81,7 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
   const rejeu = pont.rejouer(lecture);
   if (!rejeu.ok) {
     const raison = rejeu.bandeau || t('bandeaux.voieInconnue');
-    if (lecture.saisie) routeResultat(lecture.saisie, { bandeau: raison });
+    if (lecture.saisie) routeResultat(lecture.saisie, { bandeau: raison, cible: lecture.cible });
     else routeAccueil({ bandeau: raison });
     return;
   }
@@ -86,13 +90,19 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
   //   Il traverse jusqu'au scénario (les cornes) et jusqu'au lecteur (l'orage
   //   et le son) — c'est `url.js` qui le résout, y compris pour un lien qui ne
   //   le porte pas.
+  //   ★ Et il est déjà REPLIÉ : `url.js` rend le registre qu'on saura JOUER,
+  //   pas celui qui était écrit — une cible sans emblème n'a pas de version
+  //   scénique, et un lien qui en demande une retombe en sobre.
   const registre = lecture.registre;
-  const { scenario, source } = pont.scenarioDe(approche, lecture.saisie, { registre });
-  const clef = { saisie: lecture.saisie, fragments: lecture.fragments, registre };
+  const cible = lecture.cible;
+  const { scenario, source } = pont.scenarioDe(approche, lecture.saisie, { registre, cible });
+  const clef = { saisie: lecture.saisie, fragments: lecture.fragments, registre, cible };
   const urlCanonique = pont.ecrireHash(clef);
   // L'autre mise en scène de la MÊME voie : le même programme, l'autre
-  // marqueur. C'est ce lien que la page de démonstration propose en bas.
-  const urlAutreRegistre = pont.ecrireHash({ ...clef, registre: pont.autreRegistre(registre) });
+  // marqueur. C'est ce lien que la page de démonstration propose en bas — et il
+  // n'existe pas quand la cible n'offre qu'un seul registre.
+  const autre = pont.autreRegistre(registre, cible);
+  const urlAutreRegistre = autre ? pont.ecrireHash({ ...clef, registre: autre }) : null;
 
   // La barre d'adresse est toujours réécrite en forme canonique (§4.3) :
   // qui copie l'URL copie un lien permanent sans avoir à le savoir. Depuis le
@@ -159,7 +169,7 @@ export function router() {
   switch (lecture.forme) {
     case 'resultats':
       if (!lecture.saisie) routeAccueil();
-      else routeResultat(lecture.saisie);
+      else routeResultat(lecture.saisie, { cible: lecture.cible });
       break;
 
     case 'canonique':
@@ -168,12 +178,12 @@ export function router() {
 
     case 'heritee': {
       // Rangs hérités du README : la recherche est relancée, on l'annonce.
-      const resultat = pont.resoudre(lecture.saisie);
+      const resultat = pont.resoudre(lecture.saisie, lecture.cible);
       const rang = lecture.rangs[0];
       const approche = (resultat.approches || []).find((a) => a.rang === rang);
       if (!approche) {
         routeResultat(lecture.saisie, {
-          bandeau: t('bandeaux.rangAbsent', { rang }),
+          bandeau: t('bandeaux.rangAbsent', { rang }), cible: lecture.cible,
         });
         break;
       }
@@ -184,7 +194,7 @@ export function router() {
 
     default: {
       const message = lecture.bandeau || t('bandeaux.incantation');
-      if (lecture.saisie) routeResultat(lecture.saisie, { bandeau: message });
+      if (lecture.saisie) routeResultat(lecture.saisie, { bandeau: message, cible: lecture.cible });
       else routeAccueil({ bandeau: message });
     }
   }

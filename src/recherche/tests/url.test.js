@@ -95,11 +95,11 @@ test('url — écriture canonique : aller-retour exact', () => {
   const s = ecrire({ saisie: 'hope', fragments: frags });
   // Le registre est TOUJOURS écrit, même quand il vaut le défaut : plus jamais
   // de lien ambigu (`url.js`, « écriture canonique »).
-  assert.equal(s, `#sce!0.3:f1+m1+c1,n2#${B58_HOPE}`);
+  assert.equal(s, `#so!0.3:f1+m1+c1,n2#${B58_HOPE}`);
   const r = lire(s);
   assert.equal(r.saisie, 'hope');
   assert.deepEqual(r.fragments, frags);
-  assert.equal(r.registre, 'scenique');
+  assert.equal(r.registre, 'sobre');
   assert.equal(r.registreEcrit, true);
 });
 
@@ -132,9 +132,9 @@ test('url — canoniser() réécrit la barre d’adresse par replaceState', () =
     history: { replaceState: (...a) => appels.push(a) },
   };
   const frag = canoniser({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['n4'] }] }, faux);
-  assert.equal(frag, `#sce!n4#${B58_HOPE}`);
+  assert.equal(frag, `#so!n4#${B58_HOPE}`);
   assert.equal(appels.length, 1);
-  assert.equal(appels[0][2], `/numherololgeek/#sce!n4#${B58_HOPE}`);
+  assert.equal(appels[0][2], `/numherololgeek/#so!n4#${B58_HOPE}`);
   // Idempotent : si le hash est déjà canonique, on n’empile rien.
   faux.location.hash = frag;
   canoniser({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['n4'] }] }, faux);
@@ -158,15 +158,14 @@ test('registre — les deux marqueurs se lisent, et ne changent QUE la mise en s
   }
 });
 
-test('★ registre — l’absence de marqueur vaut « scénique » (liens déjà partagés)', () => {
-  // Décision d'arbitrage, justifiée en tête de `url.js` : les cornes sont un
-  // geste de la DÉMONSTRATION (une primitive, un opérateur nommé dans l'URL,
-  // un nombre d'étapes qui change), l'orage est du THÉÂTRE. Un vieux lien qui
-  // perdrait ses cornes renverrait vers une AUTRE démonstration, ce que §4.3
-  // interdit ; un vieux lien qui gagne un orage rejoue exactement la même.
+test('★ registre — l’absence de marqueur vaut « SOBRE » : la mise en scène s’opte', () => {
+  // ★ Renversement assumé, justifié en tête de `url.js`. Le défaut a valu
+  // « scénique » tant qu'il fallait protéger des liens déjà partagés ; l'auteur
+  // a confirmé qu'aucun n'a été diffusé. Reste l'argument de fond : un lien nu
+  // doit rendre la version CRÉDIBLE, et le spectacle doit être demandé.
   const r = lire(`#0.1:t1+mw+mz,2.1:fl+t1+mw+mz#2HuP1G8mNg3sJWhqR`);
   assert.equal(r.forme, 'canonique');
-  assert.equal(r.registre, 'scenique');
+  assert.equal(r.registre, 'sobre');
   assert.equal(r.registreEcrit, false, 'le lien ne le portait pas : on le SAIT');
 
   // Et les deux puces-raccourcis de la page d'accueil (`src/i18n/fr.js`,
@@ -177,7 +176,7 @@ test('★ registre — l’absence de marqueur vaut « scénique » (liens déj�
   ]) {
     const l = lire(hash);
     assert.equal(l.forme, 'canonique', hash);
-    assert.equal(l.registre, 'scenique');
+    assert.equal(l.registre, 'sobre');
   }
 });
 
