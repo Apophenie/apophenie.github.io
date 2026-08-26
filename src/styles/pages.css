@@ -842,8 +842,24 @@
   animation: nhl-feu-eclot var(--nhl-feu-pousse, 1400ms)
              cubic-bezier(.22, .61, .36, 1) var(--nhl-feu-semis, 0ms) both;
 }
-@keyframes nhl-feu-fane { from { opacity: 1; } to { opacity: 0; } }
-@keyframes nhl-feu-eclot { from { opacity: 0; } to { opacity: 1; } }
+/* ★ Le `display` dans les images clés ÉCHELONNE les naissances.
+   Une fois le feu autorisé, les dix foyers paraîtraient ensemble — dix tramages
+   de filtre dans la même image, soit le pic de 487 ms mesuré. Chaque foyer
+   ayant son propre `--nhl-feu-semis`, un `display: none` sur sa première image
+   clé le retient jusqu'à son tour : les tramages se répartissent.
+   Là où `display` ne s'anime pas (avant Chrome 116, Firefox 129), la règle
+   d'attribut ci-dessus prend seule le relais : le feu paraît d'un bloc, comme
+   avant, mais le grossissement reste fluide. Le repli ne perd rien d'acquis. */
+@keyframes nhl-feu-fane {
+  from { display: none; opacity: 1; }
+  0.5% { display: block; opacity: 1; }
+  to   { display: block; opacity: 0; }
+}
+@keyframes nhl-feu-eclot {
+  from { display: none; opacity: 0; }
+  0.5% { display: block; opacity: 0; }
+  to   { display: block; opacity: 1; }
+}
 
 /* ── LA RESPIRATION ────────────────────────────────────────────────────────
    ⚠ L'opacité est sur l'ENVELOPPE (`.nhl-feu-souffle`), le filtre sur l'élément
@@ -866,7 +882,36 @@
   to   { opacity: 1; }
 }
 
-/* ── L'interrupteur : rien ne tourne tant que le feu n'a pas pris ─────────── */
+/* ── L'interrupteur : le feu n'EXISTE PAS tant qu'il n'a pas pris ──────────
+   ⚠ `display: none`, et non `opacity: 0` — c'est un correctif de fluidité, et
+   la différence est tout entière là.
+
+   « Sur Chromium, le grossissement saccade — quatre ou cinq micro-freezes
+   pendant le zoom. Sur Firefox, un long freeze de deux ou trois secondes une
+   fois à la taille cible » (l'auteur).
+
+   Mesuré, même trajet, deux registres :
+
+     · sobre (aucun corps filtré)  : médiane 16,7 ms, pire image 31 ms ;
+     · scénique (trente corps)     : médiane 16,7 ms, pire image 487 ms,
+                                     et une dizaine d'images au-dessus de 100.
+
+   Le feu coûtait donc **alors même que son opacité valait zéro**. Un `filter`
+   opère dans l'espace utilisateur : quand le nœud grandit, sa chaîne de flous
+   doit être re-tramée à la nouvelle échelle — et un sous-arbre transparent est
+   toujours un sous-arbre à tramer. `opacity: 0` cache ; il ne dispense pas de
+   peindre. `display: none` dispense.
+
+   Ce qui n'existe pas ne peut pas ralentir le grossissement. */
+.nhl-feu-germe,
+.nhl-feu-eclos,
+.nhl-feu-souffle,
+.nhl-feu-sceau { display: none; }
+.scene[data-embrasement] .nhl-feu-germe,
+.scene[data-embrasement] .nhl-feu-eclos,
+.scene[data-embrasement] .nhl-feu-souffle,
+.scene[data-embrasement] .nhl-feu-sceau { display: block; }
+
 .nhl-feu-souffle { animation-play-state: paused; opacity: 0; }
 .nhl-feu-germe { animation-play-state: paused; }
 .nhl-feu-eclos { animation-play-state: paused; }

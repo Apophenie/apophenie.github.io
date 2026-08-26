@@ -382,8 +382,13 @@ test('★★ feu — la germination ne fait grandir QUE les flammes', () => {
     }
   }
   // 3. Le fondu croisé existe, et il va bien dans les deux sens.
-  assert.match(css, /@keyframes nhl-feu-fane \{ from \{ opacity: 1; \} to \{ opacity: 0; \} \}/);
-  assert.match(css, /@keyframes nhl-feu-eclot \{ from \{ opacity: 0; \} to \{ opacity: 1; \} \}/);
+  const fane = css.match(/@keyframes nhl-feu-fane \{([\s\S]*?)\n\}/);
+  const eclot = css.match(/@keyframes nhl-feu-eclot \{([\s\S]*?)\n\}/);
+  assert.ok(fane && eclot, 'la graine et l’adulte doivent avoir leurs images clés');
+  assert.match(fane[1], /from \{ display: none; opacity: 1; \}/);
+  assert.match(fane[1], /to\s+\{ display: block; opacity: 0; \}/);
+  assert.match(eclot[1], /from \{ display: none; opacity: 0; \}/);
+  assert.match(eclot[1], /to\s+\{ display: block; opacity: 1; \}/);
   // 4. Et le DOM monte bien les trois corps, chacun avec SA chaîne.
   assert.match(dom, /enveloppe\('nhl-feu-germe', f\.graine/);
   assert.match(dom, /enveloppe\('nhl-feu-eclos', f\.a/);
@@ -435,4 +440,40 @@ test('★ feu — les foyers ne germent pas tous au même instant', () => {
   assert.ok(new Set(pousses).size >= 12, `les pousses se répètent : ${pousses.join(' ')}`);
   assert.ok(Math.max(...semis) - Math.min(...semis) > 300,
     'l’échelonnement doit être assez large pour étaler les tramages');
+});
+
+test('★★ feu — rien de filtré n’est PEINT tant que la scène bouge', () => {
+  /* La règle la plus chère à trouver de toutes, et la seule que ni l'œil ni un
+     profil d'images ne désignaient du doigt.
+
+     « Sur Chromium : le grossissement saccade, quatre ou cinq micro-freezes
+     pendant le zoom. Sur Firefox : le grossissement se fait avec un effet de
+     flamme statique, puis une fois à la taille cible, un long freeze de deux ou
+     trois secondes » (l'auteur).
+
+     Mesuré, même trajet, deux registres — sobre : pire image 31 ms, zéro
+     au-dessus de 50 ; scénique : pire image 487 ms, onze au-dessus de 50.
+     Le feu coûtait donc alors même que son opacité valait ZÉRO : un `filter`
+     opère dans l'espace utilisateur, et un sous-arbre transparent reste un
+     sous-arbre à re-tramer quand son échelle change.
+
+     `opacity: 0` cache sans dispenser de peindre. `display: none` dispense. */
+  const css = lire('src/styles/pages.css');
+
+  // 1. Les quatre corps du feu sont absents par défaut.
+  const absents = css.match(/\.nhl-feu-germe,\n\.nhl-feu-eclos,\n\.nhl-feu-souffle,\n\.nhl-feu-sceau \{ display: none; \}/);
+  assert.ok(absents,
+    'les corps du feu doivent être en `display: none` hors embrasement : '
+    + '`opacity: 0` les laisserait peindre, et le grossissement saccaderait');
+
+  // 2. Et ils ne reviennent QUE sur l'attribut, qui est fonction du temps.
+  for (const classe of ['germe', 'eclos', 'souffle', 'sceau']) {
+    assert.match(css, new RegExp(`\\.scene\\[data-embrasement\\] \\.nhl-feu-${classe}`),
+      `« .nhl-feu-${classe} » ne serait jamais rendu visible`);
+  }
+
+  // 3. L'interrupteur reste bien fonction du temps, donc réversible.
+  const js = lire('src/visuel/player.js');
+  assert.match(js, /removeAttribute\('data-embrasement'/,
+    'un feu qui ne se retire pas survivrait à un retour en arrière');
 });

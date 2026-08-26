@@ -361,6 +361,10 @@ export function plan(ctx) {
   // — le coup de poing du verdict —, mais sur les DEUX canaux.
   const courbeVerdict = EASE.pop;
 
+  // Quelle part de la fin d'étape revient au MOUVEMENT ; le reste est à
+  // l'orage. Voir le resserrement plus bas.
+  const PART_DU_MOUVEMENT = 0.62;
+
   if (!multi || couronnes) {
     // Un seul 666 : rassembler et grossir sont le MÊME geste. Rien à découper,
     // rien à répartir, et l'intercaler ferait un temps mort au moment de la
@@ -393,6 +397,20 @@ export function plan(ctx) {
     centrerLeBloc();
     ctx.reflow({ at: tGrossir, dur: dGrossir, ease: courbeVerdict });
   }
+
+  /* ★ LE MOUVEMENT SE RESSERRE POUR LAISSER LA FIN À L'ORAGE.
+     Le feu ne doit rien peindre tant que la scène bouge — un `filter` se
+     re-trame à chaque changement d'échelle (voir `allumerLOrage`). Il lui faut
+     donc du temps APRÈS le grossissement, et la scénographie n'a pas le droit
+     d'allonger la démonstration : ce temps est pris SUR le mouvement.
+
+     ⚠ Le resserrement vaut dans LES DEUX registres, y compris le sobre qui n'a
+     pas de feu. Ce n'est pas une négligence : c'est la seule façon que les deux
+     timelines gardent exactement la même durée, ce qu'un test exige
+     (`tests/orage.test.js`). Le sobre y gagne d'ailleurs un temps d'arrêt sur
+     son verdict, qu'il n'avait pas. */
+  const dGrossirPlein = dGrossir;
+  dGrossir = Math.max(1, dGrossir * PART_DU_MOUVEMENT);
 
   // La hauteur réelle du verdict, pour que ce qui se pose « en dessous » (une
   // annotation) se pose bien en dessous et non au milieu des chiffres.
@@ -473,7 +491,30 @@ export function plan(ctx) {
     ctx.anim({ id: sid, prop: 'opacity', to: 0, at: tGrossir, dur: dGrossir * 0.5, ease: EASE.fade });
   }
 
-  if (orage) allumerLOrage(ctx, orage);
+  /* ★ L'ORAGE N'ÉCLATE QU'UNE FOIS LE MOUVEMENT FINI — et c'est un correctif
+     de FLUIDITÉ avant d'être une intention de mise en scène.
+
+     « Sur Chromium : l'animation du feu est là au moment attendu, mais le
+     grossissement saccade — quatre ou cinq micro-freezes pendant le zoom. Sur
+     Firefox : le grossissement se fait avec un effet de flamme statique, puis
+     une fois à la taille cible, un long freeze de deux ou trois secondes avant
+     que les flammes ne s'animent » (l'auteur).
+
+     Deux symptômes, une seule cause. Le feu prenait à 0,36·d tandis que le
+     grossissement courait de 0,34·d à 1,00·d : il brûlait donc PENDANT tout le
+     mouvement. Or un `filter` s'applique dans l'espace utilisateur : quand le
+     nœud grandit, sa chaîne de flous doit être re-tramée à la nouvelle échelle.
+     Chromium le fait honnêtement, à chaque palier — d'où les saccades.
+     Firefox garde l'image tramée et la met à l'échelle — d'où la flamme figée
+     pendant la montée — puis paie tout d'un coup à l'arrivée, d'où le gel.
+
+     Le remède ne touche ni au dessin ni au coût : il déplace le travail. Plus
+     rien n'est filtré tant que ça bouge, et le tramage a lieu une seule fois,
+     à la taille définitive, quand la scène est immobile.
+
+     Et la dramaturgie y gagne : le 666 se met en place, PUIS la foudre tombe
+     dessus, PUIS il s'embrase. C'est l'ordre qu'on attend d'une chute. */
+  if (orage) allumerLOrage(ctx, orage, tGrossir + dGrossir, tGrossir + dGrossirPlein);
 }
 
 /* ══════════════════════════════ L'ORAGE ═══════════════════════════════════ */
@@ -591,8 +632,17 @@ function monterLOrage(ctx, ids) {
  * met le feu, et l'orage raconte quelque chose. Dans l'autre, ce sont trois
  * effets posés côte à côte.
  */
-function allumerLOrage(ctx, { nuit, eclair, brasiers }) {
+/**
+ * @param {number} apresLeMouvement  l'instant où le grossissement s'achève.
+ *        La foudre et le feu s'y accrochent : rien de filtré ne doit paraître
+ *        tant que la scène bouge (voir le long commentaire de l'appelant).
+ */
+function allumerLOrage(ctx, { nuit, eclair, brasiers }, apresLeMouvement, finDEtape) {
   const d = ctx.dur;
+  const calme = Math.max(0, apresLeMouvement);
+  // Tout l'orage tient dans cette fenêtre : de la fin du mouvement à la fin
+  // que l'étape aurait eue sans lui. Il ne déborde donc jamais.
+  const fenetre = Math.max(1, finDEtape - calme);
 
   // 1. LA NUIT — d'abord, et vite : tout le reste se joue dessus. C'est le
   //    seul temps qui survit au mouvement réduit, parce que c'est un état.
@@ -601,10 +651,13 @@ function allumerLOrage(ctx, { nuit, eclair, brasiers }) {
   // 2. LA FOUDRE — juste après, sur un fond déjà sombre. L'enveloppe est
   //    écrite à la main (`ECLAIR`), donc fonction du temps et rien d'autre.
   if (eclair) {
+    // Elle mord un peu sur la fin du mouvement — l'éclair est un aplat sans
+    // filtre, il ne coûte rien à re-tramer — pour que la foudre ait FRAPPÉ
+    // quand le feu prend, et non l'inverse.
     ctx.anim({
       id: eclair, prop: 'opacity',
       values: ECLAIR.valeurs, offsets: ECLAIR.offsets,
-      at: d * 0.24, dur: Math.max(1, d * 0.62), ease: EASE.linear,
+      at: Math.max(0, calme - fenetre * 0.3), dur: Math.max(1, fenetre * 0.9), ease: EASE.linear,
     });
   }
 
@@ -623,11 +676,23 @@ function allumerLOrage(ctx, { nuit, eclair, brasiers }) {
   //    valeur d'arrivée. C'est le CSS qui coupe le vacillement, parce que
   //    `prefers-reduced-motion` est une préférence de l'utilisateur qui peut
   //    basculer sans recompilation : un feu fixe, mais un feu.
+  // La moitié de la fenêtre sert à échelonner les départs, l'autre à la montée
+  // du dernier : le feu est entièrement pris quand l'étape s'achève.
+  const ecart = brasiers.length > 1 ? (fenetre * 0.5) / (brasiers.length - 1) : 0;
+  const montee = Math.max(1, ctx.reduced ? 1 : fenetre * 0.5);
   brasiers.forEach((bid, i) => {
-    const at = d * 0.36 + i * (ctx.stagger ? Math.min(ctx.stagger, d * 0.04) : d * 0.02);
+    /* ★ L'ÉCHELONNEMENT EST LARGE, ET C'EST AUSSI UNE MESURE DE FLUIDITÉ.
+       Chaque foyer coûte un tramage de filtre à sa naissance — cinq flous, à
+       la taille du verdict. Dix foyers qui prendraient ensemble, ce sont dix
+       tramages dans la même image. Espacés d'un vingtième de l'étape, ils se
+       répartissent sur plus d'une demi-durée : le travail total ne change pas,
+       il cesse de tomber d'un bloc.
+       La variété y gagne aussi — un feu qui prend d'un seul coup partout,
+       c'est le défaut « ils sont identiques » sous une autre forme. */
+    const at = calme + i * (ctx.reduced ? 0 : ecart);
     ctx.anim({
       id: bid, prop: 'opacity', to: BRASIER.intensite,
-      at, dur: Math.max(1, ctx.reduced ? 1 : d * 0.34), ease: EASE.fade,
+      at, dur: montee, ease: EASE.fade,
     });
   });
 }
