@@ -133,6 +133,10 @@ export const RAMPE = Object.freeze(['coeur', 'flamme', 'brasier', 'braise', 'fum
  * d'atnyman — le dernier palier monte à 0,60 corps de glyphe, là où sa fumée
  * monte à 0,56 —, simplement répartie sur cinq marches au lieu de sept.
  *
+ * ★ **Ce n'est plus la seule table.** Là où la machine ne suit pas, le régisseur
+ * bascule sur `COUCHES_SOBRES`, qui n'en compte que trois. Voir juste en
+ * dessous, et `src/visuel/qualite.js`.
+ *
  * ★ **Sans cette redistribution, le feu ne MONTE pas.** Cinq couches à ses
  * décalages d'origine s'arrêtent à mi-course : le flou étant isotrope, on
  * obtient un halo rond autour du chiffre, joli et faux. C'est le décalage
@@ -160,6 +164,28 @@ export const COUCHES = Object.freeze([
 ]);
 
 /**
+ * ★ LA PILE APPAUVRIE — trois couches, pour les machines qui ne tiennent pas.
+ *
+ * « Trois couches si les performances le nécessitent, sinon tu peux rester à 5,
+ * c'est aussi à faire en fonction du régisseur » (l'auteur). Le nombre de
+ * passes est donc RÉGLÉ, comme l'ampleur, et non décidé une fois pour toutes.
+ *
+ * ★ Elle n'est pas la riche amputée de ses deux derniers paliers : elle est
+ * REDISTRIBUÉE. La portée verticale reste la même — le dernier palier monte à
+ * 0,60 corps de glyphe dans les deux tables —, et la rampe reste parcourue en
+ * entier par les deux états réunis : A prend un palier sur deux (cœur ·
+ * brasier · fumée), B prend les intercalaires (cœur · flamme · braise). La
+ * respiration fait donc toujours défiler la rampe complète, ce qui est le trait
+ * de génie du pen. Un spectateur voit un feu moins nuancé, jamais un feu
+ * tronqué.
+ */
+export const COUCHES_SOBRES = Object.freeze([
+  Object.freeze({ dxA: 0, dyA: -0.03, flouA: 0.11, teinteA: 'coeur', dxB: 0, dyB: -0.03, flouB: 0.12, teinteB: 'coeur' }),
+  Object.freeze({ dxA: -0.10, dyA: -0.26, flouA: 0.26, teinteA: 'brasier', dxB: -0.11, dyB: -0.28, flouB: 0.26, teinteB: 'flamme' }),
+  Object.freeze({ dxA: 0.11, dyA: -0.60, flouA: 0.44, teinteA: 'fumee', dxB: 0.13, dyB: -0.56, flouB: 0.39, teinteB: 'braise' }),
+]);
+
+/**
  * ★ LES DEUX PÉRIODES DE BASE, PREMIÈRES ENTRE ELLES.
  *
  * atnyman en emploie deux — 1 000 ms pour les lettres « fire », 650 ms pour les
@@ -174,6 +200,27 @@ export const COUCHES = Object.freeze([
  * entre elles ne se retrouvent en phase qu'au bout de leur produit.
  * `tests/feu.test.js` l'exige désormais par un `pgcd`.
  */
+/**
+ * ★ LE PLAFOND DE FLOU — en pixels RENDUS, et c'est tout le point.
+ *
+ * « Bloquer le flou en pixels écran » (l'auteur, parmi les leviers proposés).
+ *
+ * Un `filter` opère dans l'espace utilisateur : au verdict, le nœud est grossi
+ * huit fois, donc un flou de 20 unités devient un flou de 160 pixels à l'écran.
+ * Le coût d'un flou croît avec la surface qu'il touche, c'est-à-dire avec le
+ * CARRÉ de son rayon : c'est ce facteur-là qui met Firefox à genoux, pas le
+ * nombre de couches.
+ *
+ * Le plafond s'exprime donc dans l'unité où le coût se paie — le pixel rendu —
+ * et non dans celle où le dessin s'écrit. En dessous du verdict (si un jour un
+ * feu naissait à taille normale), il ne mord sur rien ; au verdict, il ramène
+ * le panache de 160 px à 52, soit un tiers de la surface.
+ *
+ * Ce que ça change à l'œil : les flammes serrent davantage les chiffres géants.
+ * Elles gardent leur forme, leur rampe et leur respiration.
+ */
+export const PLAFOND_FLOU_RENDU = 52;
+
 export const PERIODES = Object.freeze({ min: 653, max: 1129 });
 
 /**
@@ -281,10 +328,15 @@ const graine2 = (id, sel) => graine(`${sel} ${id}`);
  * foyer, qui partagent le repère et l'échelle mais ne doivent pas brûler à
  * l'unisson.
  *
- * @param {{fontSize:number, id:string, part?:string, palette:object}} corps
- * @returns {{a:string, b:string, periode:number, retard:number, ampleur:number}}
+ * @param {{fontSize:number, id:string, part?:string, palette:object,
+ *          echelle?:number}} corps
+ *        `echelle` : le grossissement que le nœud subira à l'écran (le `grow`
+ *        du verdict). Il ne change pas le dessin — il sert au PLAFOND, qui
+ *        s'exprime en pixels rendus (`PLAFOND_FLOU_RENDU`).
+ * @returns {{riche:{graine,a,b}, sobre:{graine,a,b}, periode:number,
+ *            retard:number, ampleur:number, pousse:number, semis:number}}
  */
-export function feuDe({ fontSize, id, part = '', palette }) {
+export function feuDe({ fontSize, id, part = '', palette, echelle = 1 }) {
   const cle = part ? `${id}#${part}` : id;
   const g = graine(cle);
 
@@ -293,6 +345,13 @@ export function feuDe({ fontSize, id, part = '', palette }) {
   //   reprochait autant que la synchronie. Elle multiplie décalages ET flous —
   //   un petit feu est petit en entier, il n'est pas un grand feu écrasé.
   const ampleur = 0.8 + 0.4 * graine2(cle, 'ampleur');
+
+  /** Les trois chaînes d'un même état de richesse. */
+  const pile = (couches, fs, amp, pal, ech) => ({
+    graine: chaine(couches, fs, amp * GERMINATION.depart, pal, 'A', ech),
+    a: chaine(couches, fs, amp, pal, 'A', ech),
+    b: chaine(couches, fs, amp, pal, 'B', ech),
+  });
 
   // La période est propre au foyer, dans l'intervalle borné par les deux
   // nombres premiers de `PERIODES`. Deux foyers ne battent donc jamais
@@ -319,9 +378,11 @@ export function feuDe({ fontSize, id, part = '', palette }) {
   return {
     // La graine : la MÊME pile, aux mêmes couleurs, mais courte. Ce n'est pas
     // un autre feu, c'est le même qui n'a pas encore pris.
-    graine: chaine(fontSize, ampleur * GERMINATION.depart, palette, 'A'),
-    a: chaine(fontSize, ampleur, palette, 'A'),
-    b: chaine(fontSize, ampleur, palette, 'B'),
+    // Les deux piles sont calculées d'avance : le régisseur bascule de l'une à
+    // l'autre en écrivant un `filter`, sans jamais rien recalculer en cours de
+    // route (`src/visuel/qualite.js`).
+    riche: pile(COUCHES, fontSize, ampleur, palette, echelle),
+    sobre: pile(COUCHES_SOBRES, fontSize, ampleur, palette, echelle),
     periode,
     retard,
     ampleur: arr(ampleur),
@@ -338,15 +399,35 @@ export function feuDe({ fontSize, id, part = '', palette }) {
  * dans l'espace utilisateur, donc l'unité est celle du `viewBox` et le feu
  * grandit avec son chiffre au verdict, sans une ligne d'arithmétique.
  */
-function chaine(fontSize, ampleur, palette, etat) {
-  const u = (v) => arr(v * fontSize * ampleur);
-  return COUCHES.map((c) => {
+function chaine(couches, fontSize, ampleur, palette, etat, echelle = 1) {
+  const base = fontSize * ampleur;
+  // Le plafond s'exprime en pixels rendus : on le ramène ici dans l'unité du
+  // repère local, en le divisant par le grossissement que le nœud subira.
+  const plafondLocal = PLAFOND_FLOU_RENDU / Math.max(1, echelle);
+
+  /* ★ CHAQUE LONGUEUR EST PILOTÉE PAR LE RÉGISSEUR.
+     `--nhl-feu-ampleur` est posée sur la scène (`src/visuel/qualite.js`) et
+     vaut entre 0,25 et 1 selon ce que la machine tient. Elle multiplie toute la
+     pile — décalages ET flous —, si bien qu'un feu appauvri est un petit feu
+     entier, jamais un grand feu mutilé.
+
+     ⚠ Le `calc()` est DANS la fonction `drop-shadow()`, ce qui est licite et
+     permet de tout changer en écrivant UNE propriété au lieu de réécrire les
+     filtres de trente éléments. Chaque écriture force un nouveau tramage : il
+     faut donc qu'elle soit unique et rare, pas multipliée par le nombre de
+     corps. Le repli `1` s'applique si la propriété n'est pas posée — un feu
+     plein, c'est-à-dire le comportement d'avant le régisseur. */
+  const u = (v) => `calc(var(--nhl-feu-ampleur, 1) * ${arr(v * base)}px)`;
+  const f = (v) => `calc(var(--nhl-feu-ampleur, 1) * ${arr(Math.min(v * base, plafondLocal))}px)`;
+
+  return couches.map((c) => {
     const [dx, dy, flou, teinte] = etat === 'A'
       ? [c.dxA, c.dyA, c.flouA, c.teinteA]
       : [c.dxB, c.dyB, c.flouB, c.teinteB];
-    return `drop-shadow(${u(dx)}px ${u(dy)}px ${u(flou)}px ${palette[teinte]})`;
+    return `drop-shadow(${u(dx)} ${u(dy)} ${f(flou)} ${palette[teinte]})`;
   }).join(' ');
 }
+
 
 /* ═══════════════════ LE CONTRÔLE DE LISIBILITÉ, EN CLAIR ══════════════════ */
 

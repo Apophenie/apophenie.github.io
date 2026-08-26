@@ -31,7 +31,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  COUCHES, PERIODES, RAMPE,
+  COUCHES, PERIODES, RAMPE, PLAFOND_FLOU_RENDU,
   graine, feuDe, fondSousLEncre, contraste, rvb,
 } from '../primitives/feu.js';
 import { PALETTE, FONT_SIZE } from '../constants.js';
@@ -202,15 +202,43 @@ test('★ feu — LA CHALEUR MONTE DANS LA PILE (le trait de génie du pen)', ()
 
 test('feu — les longueurs sont en CORPS DE GLYPHE, donc le feu grandit avec lui', () => {
   // Une constante en pixels ne suivrait pas l'agrandissement ×8 du verdict.
+  // On mesure SANS échelle : le plafond, qui s'exprime en pixels rendus, ne
+  // mord alors sur rien et la proportionnalité doit être exacte.
   const petit = feuDe({ fontSize: 10, id: 'x', palette: PALETTE });
   const grand = feuDe({ fontSize: 20, id: 'x', palette: PALETTE });
   const nombres = (s) => [...s.matchAll(/(-?[\d.]+)px/g)].map((m) => Number(m[1]));
-  const a = nombres(petit.a);
-  const b = nombres(grand.a);
+  const a = nombres(petit.riche.a);
+  const b = nombres(grand.riche.a);
   assert.equal(a.length, b.length);
   for (let i = 0; i < a.length; i++) {
     assert.ok(Math.abs(b[i] - 2 * a[i]) < 0.02, 'une longueur du feu ne suit pas le corps du glyphe');
   }
+});
+
+test('★★ feu — le PLAFOND s’exprime en pixels rendus, pas en unités locales', () => {
+  /* « Bloquer le flou en pixels écran » (l'auteur). C'est le levier le plus
+     fort : le coût d'un flou croît avec la surface qu'il touche, donc avec le
+     CARRÉ de son rayon. Au verdict, le nœud est grossi huit fois — un flou de
+     20 unités devient 160 pixels à l'écran, et c'est ce facteur-là qui mettait
+     Firefox à genoux, pas le nombre de couches. */
+  const nombres = (s) => [...s.matchAll(
+    /calc\([^*]+\* ([\d.]+)px\)\s+#/g)].map((m) => Number(m[1]));
+
+  // Sans grossissement, le plafond ne mord sur rien.
+  const nu = nombres(feuDe({ fontSize: 48, id: 'x', palette: PALETTE }).riche.a);
+  // À l'échelle huit, il ramène chaque flou sous le plafond RENDU.
+  const gros = nombres(feuDe({ fontSize: 48, id: 'x', palette: PALETTE, echelle: 8 }).riche.a);
+
+  assert.equal(nu.length, gros.length, 'le plafond ne doit pas retirer de couche');
+  let aMordu = false;
+  for (let i = 0; i < gros.length; i++) {
+    assert.ok(gros[i] <= nu[i] + 1e-6, 'le plafond ne doit jamais AGRANDIR un flou');
+    assert.ok(gros[i] * 8 <= PLAFOND_FLOU_RENDU + 1e-6,
+      `flou rendu de ${(gros[i] * 8).toFixed(1)} px : au-dessus du plafond de ${PLAFOND_FLOU_RENDU}`);
+    if (gros[i] < nu[i] - 1e-6) aMordu = true;
+  }
+  assert.ok(aMordu,
+    'à l’échelle huit le plafond doit mordre : sinon il ne sert à rien et Firefox reste à genoux');
 });
 
 /* ═══════════════ 5. LA LISIBILITÉ DU VERDICT, MESURÉE ════════════════════ */
@@ -390,9 +418,9 @@ test('★★ feu — la germination ne fait grandir QUE les flammes', () => {
   assert.match(eclot[1], /from \{ display: none; opacity: 0; \}/);
   assert.match(eclot[1], /to\s+\{ display: block; opacity: 1; \}/);
   // 4. Et le DOM monte bien les trois corps, chacun avec SA chaîne.
-  assert.match(dom, /enveloppe\('nhl-feu-germe', f\.graine/);
-  assert.match(dom, /enveloppe\('nhl-feu-eclos', f\.a/);
-  assert.match(dom, /enveloppe\('nhl-feu-souffle', f\.b/);
+  assert.match(dom, /enveloppe\('nhl-feu-germe', 'graine'/);
+  assert.match(dom, /enveloppe\('nhl-feu-eclos', 'a'/);
+  assert.match(dom, /enveloppe\('nhl-feu-souffle', 'b'/);
 });
 
 test('★ feu — la graine est le MÊME feu, en plus court', () => {
@@ -400,14 +428,17 @@ test('★ feu — la graine est le MÊME feu, en plus court', () => {
   // réduites. Un feu qui changerait de nature en grandissant se verrait.
   const palette = { coeur: '#1', flamme: '#2', brasier: '#3', braise: '#4', fumee: '#5' };
   const f = feuDe({ fontSize: 48, id: 'd0', palette });
-  const longueurs = (chaine) => [...chaine.matchAll(/drop-shadow\(([-\d.]+)px ([-\d.]+)px ([\d.]+)px/g)]
+  /* Les longueurs sont désormais pilotées par le régisseur : chaque valeur est
+     un `calc(var(--nhl-feu-ampleur, 1) * Npx)`. C'est le N qu'on lit. */
+  const longueurs = (chaine) => [...chaine.matchAll(
+    /drop-shadow\(calc\([^*]+\* ([-\d.]+)px\) calc\([^*]+\* ([-\d.]+)px\) calc\([^*]+\* ([\d.]+)px\)/g)]
     .map((m) => m.slice(1).map(Number));
-  const g = longueurs(f.graine);
-  const a = longueurs(f.a);
+  const g = longueurs(f.riche.graine);
+  const a = longueurs(f.riche.a);
   assert.equal(g.length, a.length, 'la graine doit avoir autant de couches que l’adulte');
   assert.deepEqual(
-    [...f.graine.matchAll(/#\w+/g)].map(String),
-    [...f.a.matchAll(/#\w+/g)].map(String),
+    [...f.riche.graine.matchAll(/#\w+/g)].map(String),
+    [...f.riche.a.matchAll(/#\w+/g)].map(String),
     'la graine et l’adulte doivent partager exactement la même rampe de couleurs',
   );
   for (let i = 0; i < g.length; i++) {

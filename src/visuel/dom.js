@@ -456,7 +456,8 @@ function construireBrasier(node, palette = PALETTE, metrics) {
   }
 
   for (const c of corps) {
-    const f = feuDe({ fontSize: fs, id: node.id, part: c.part, palette });
+    const f = feuDe({ fontSize: fs, id: node.id, part: c.part, palette,
+      echelle: d.echelle || 1 });
 
     /* ★ LE FILTRE NE PORTE PLUS RIEN D'ANIMÉ — ET C'EST UN CORRECTIF, PAS UN
        RAFFINEMENT.
@@ -506,11 +507,20 @@ function construireBrasier(node, palette = PALETTE, metrics) {
        Le fondu croisé graine→adulte se lit comme une flamme qui monte, sans
        qu'aucune géométrie ne bouge : il n'y a donc plus rien à voir de
        l'échafaudage. */
-    const enveloppe = (classe, filtre, style = '') => {
+    /* ★ CHAQUE CORPS PORTE SES DEUX PILES, et démarre sur la SOBRE.
+       Le régisseur (`src/visuel/qualite.js`) bascule de l'une à l'autre en
+       écrivant un `filter` ; les deux chaînes étant déjà calculées, il n'a rien
+       à faire d'autre que choisir. Et l'on part sobre : les premières images
+       sont donc bon marché sur toutes les machines, ce qui est exactement ce
+       qui manquait à Firefox — « près d'une minute entre la fin du
+       grossissement et l'allumage » (l'auteur). */
+    const enveloppe = (classe, cle, style = '') => {
       const corpsFiltre = c.dessine();
       corpsFiltre.setAttribute('class', 'nhl-feu');
       corpsFiltre.setAttribute('fill', nuit);
-      corpsFiltre.setAttribute('style', `filter:${filtre}`);
+      corpsFiltre.setAttribute('data-feu-riche', f.riche[cle]);
+      corpsFiltre.setAttribute('data-feu-sobre', f.sobre[cle]);
+      corpsFiltre.setAttribute('style', `filter:${f.sobre[cle]}`);
       const g = el('g', { class: classe });
       if (style) g.setAttribute('style', style);
       g.appendChild(corpsFiltre);
@@ -519,9 +529,9 @@ function construireBrasier(node, palette = PALETTE, metrics) {
     };
 
     const cadence = `--nhl-feu-pousse:${f.pousse}ms;--nhl-feu-semis:${f.semis}ms`;
-    enveloppe('nhl-feu-germe', f.graine, cadence);
-    enveloppe('nhl-feu-eclos', f.a, cadence);
-    enveloppe('nhl-feu-souffle', f.b,
+    enveloppe('nhl-feu-germe', 'graine', cadence);
+    enveloppe('nhl-feu-eclos', 'a', cadence);
+    enveloppe('nhl-feu-souffle', 'b',
       `${cadence};--nhl-feu-periode:${f.periode}ms;--nhl-feu-retard:${f.retard}ms`);
 
     /* ★ LE SCEAU — une copie NON FILTRÉE, en couleur de nuit, toujours opaque.

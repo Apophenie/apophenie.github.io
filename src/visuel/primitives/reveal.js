@@ -304,7 +304,7 @@ export function plan(ctx) {
   //   partage l'instant de naissance de ce qu'il suit (CONTRACTS §3.2 règle
   //   10). Un brasier créé après le regroupement serait posé d'un coup à
   //   l'arrivée pendant que son chiffre, lui, y voyagerait.
-  const orage = ctx.scenographie ? monterLOrage(ctx, ids) : null;
+  const orage = ctx.scenographie ? monterLOrage(ctx, ids, grow) : null;
 
   // --- 2. le regroupement : quand le canal est libre, et pas avant ----------
   //
@@ -512,7 +512,7 @@ export function plan(ctx) {
  *
  * @returns {{nuit:string, eclair:?string, brasiers:string[]}}
  */
-function monterLOrage(ctx, ids) {
+function monterLOrage(ctx, ids, grow = 1) {
   const vb = ctx.layoutOpts.viewBox;
   // Trois fois la scène : voir `dom.js`, rôle « nuit ». Un aplat uni ne se
   // paie pas au pixel, et l'on est certain qu'aucun bord ne se découvrira.
@@ -581,6 +581,11 @@ function monterLOrage(ctx, ids) {
           texte: (jeton && jeton.text) || '',
           fontSize: fs,
           advance,
+          // ★ Le grossissement que ce feu subira. Il ne change pas le dessin :
+          //   il sert au PLAFOND de flou, qui s'exprime en pixels rendus et
+          //   doit donc savoir de combien le repère local sera multiplié
+          //   (`primitives/feu.js`, `PLAFOND_FLOU_RENDU`).
+          echelle: grow,
           corne: corne ? corne.data.d : null,
         },
         // ★ `fill` doit figurer dans la base, même si chaque écho porte la

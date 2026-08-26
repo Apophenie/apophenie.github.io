@@ -14,6 +14,7 @@ import {
   animationEffective, themeEffectif, repetitionsAccelerees, onReglages,
   sonActif, sonTranche, sonParDefautActif,
 } from '../reglages.js';
+import { brancherLeRegisseur } from '../../visuel/qualite.js';
 import * as pont from '../pont.js';
 
 /** Largeur de fenêtre à partir de laquelle la démonstration tient sur deux
@@ -222,6 +223,12 @@ export function pageDemonstration(ctx) {
     repetitions: pont.facteurRepetitions(),
     sons,
   });
+  /* ★ LE RÉGISSEUR — il règle la richesse du feu sur ce que la machine tient.
+     Il ne tourne qu'en scénique : sans feu, il n'y a rien à régler. Le pourquoi
+     et le barème sont dans `src/visuel/qualite.js`, dont l'en-tête porte le
+     réglage de plancher (15 images/seconde par défaut). */
+  const debrancherRegisseur = scenique ? brancherLeRegisseur(sceneSvg) : () => {};
+
   const titreMethode = t('demo.methode', {
     rang: approche.rang ?? 1,
     titre: titreApproche(approche) || t('demo.sansTitre'),
@@ -556,6 +563,7 @@ export function pageDemonstration(ctx) {
       // Le son d'abord : une piste qui survivrait à sa page continuerait de
       // jouer sous la suivante, et personne n'aurait plus de bouton pour
       // l'arrêter.
+      debrancherRegisseur();
       debrancherSons();
       sons.detruire();
       transport.detruire();
