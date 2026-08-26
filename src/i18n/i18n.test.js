@@ -127,10 +127,11 @@ test('aucune valeur vide, aucune valeur restée identique par oubli de traductio
   const identiquesLegitimes = new Set([
     'code', 'autonyme',
     'global.titre', 'global.logoTexte', 'global.suffixeTitre',
-    // Ces trois-là sont des ÉCHANTILLONS DE GRAMMAIRE d'URL, pas des phrases :
-    // `sobre!` et `scenique!` s'écrivent pareil dans les deux langues, parce
+    // Ces quatre-là sont des ÉCHANTILLONS DE GRAMMAIRE d'URL, pas des phrases :
+    // `so!`, `sce!` et `c111!` s'écrivent pareil dans les deux langues, parce
     // que la grammaire n'a qu'une langue (`src/recherche/url.js`).
     'resultat.memo.resonance', 'resultat.memo.portee', 'resultat.memo.registre',
+    'resultat.memo.cible',
     'demo.raccourcis.d', 'demo.debug.url', 'demo.debug.source',
     'registre.transformation',   // « Transformation » s'écrit pareil dans les deux langues
     // Le badge de séries du listing (« 5 × 666 ») est un DESSIN, pas une
@@ -165,7 +166,7 @@ test('aucune valeur vide, aucune valeur restée identique par oubli de traductio
  *  sont pas des jetons d'interpolation mais la notation de la grammaire (§4.2). */
 const echantillonsDeGrammaire = new Set([
   'resultat.memo.grammaire', 'resultat.memo.resonance', 'resultat.memo.portee',
-  'resultat.memo.registre',
+  'resultat.memo.registre', 'resultat.memo.cible',
 ]);
 
 test('les jetons {nom} d’une clé sont les mêmes dans les deux langues', () => {

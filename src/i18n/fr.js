@@ -127,19 +127,35 @@ export const fr = {
   resultat: {
     surtitre: 'Les arcanes de',
     annonceAucune: 'Aucune voie n’a encore été tracée.',
-    annonceUne: 'Une approche mène à 666.',
-    annoncePlusieurs: '{n} approches mènent à 666.',
+    /* ★ La CIBLE traverse ces phrases. Elle vaut « 666 » neuf fois sur dix — et
+       ces neuf fois-là rendent exactement la chaîne d'avant, mot pour mot. Le
+       nombre n'est plus écrit en dur nulle part : il vient de l'unique endroit
+       qui le porte (`src/recherche/cible.js`). */
+    annonceUne: 'Une approche mène à {cible}.',
+    annoncePlusieurs: '{n} approches mènent à {cible}.',
     voiesTitre: 'Les voies complètes',
-    fragmentsTitre: 'Les fragments valant 6',
+    fragmentsTitre: 'Les fragments valant {chiffre}',
+    /* Quand la cible mêle plusieurs chiffres — « 007 », « 13 » —, un fragment
+       n'en vaut qu'UN : dire « les fragments valant 007 » serait faux sept fois
+       sur dix. La pastille de chaque rangée porte, elle, le chiffre réellement
+       atteint (`recherche/index.js`, `valeur`). */
+    fragmentsTitreMele: 'Les fragments valant un chiffre de {cible}',
     aucuneVoie: 'Aucune voie trouvée. C’est mathématiquement impossible ; nous enquêtons.',
+    /* ★ Et l'aveu, quand la cible n'est plus celle du titre. Le gag d'à côté
+       — « c'est mathématiquement impossible » — repose sur la promesse du site,
+       qui ne porte que sur 666 : le dernier recours du moteur est le joker
+       français, dont le cycle attracteur ne visite que 3, 4, 5 et 6
+       (`assemblage.js › approcheJoker`). Viser 111 peut donc échouer pour de
+       bon, et il vaut mieux le dire que plaisanter à côté. */
+    aucuneVoieCible: 'Aucune voie ne mène à {cible} pour cette saisie. La maison ne garantit que le 666 ; le reste se mérite.',
     voieNumero: 'n° {rang}',
     /* Le compteur de séries, à cheval sur le bord DROIT du panneau — le
        pendant du numéro de rang. Deux écritures d'une seule information :
        le BADGE est un dessin (les points médians découpent les trois 6
        comme sur un cadran), la PHRASE est ce qu'un lecteur d'écran annonce.
        Rien n'est affiché quand n vaut 1 (`resultat.js › compteurSeries`). */
-    voieSeriesBadge: '{n} × 666',
-    voieSeries: '{n} séries de 666',
+    voieSeriesBadge: '{n} × {cible}',
+    voieSeries: '{n} séries de {cible}',
     voieSansTitre: 'Approche n° {rang}',
     /* Les deux accès d'un panneau de voie. Le libellé VISIBLE est court — il
        tient sur une demi-largeur de carte —, le nom ACCESSIBLE porte le titre
@@ -171,9 +187,30 @@ export const fr = {
       resonanceTexte: 'résonance : le même programme sur les trois occurrences d’un motif répété.',
       portee: '#0.1:m1+c1,1.1:n2#…',
       porteeTexte: 'portée : offset et longueur en jetons de la saisie.',
-      registre: '#sobre!…#…  ·  #scenique!…#…',
-      registreTexte: 'registre de mise en scène, en tête de l’approche. Absent, il vaut « scénique » — c’est ainsi que se lisent les liens d’avant.',
+      registre: '#so!…#…  ·  #sce!…#…',
+      registreTexte: 'registre de mise en scène, en tête de l’approche. Absent, il vaut « sobre » : le spectacle se demande.',
+      cible: '#c111!…#…  ·  #c007!…#…',
+      cibleTexte: 'cible visée, en tête de l’approche. Absente, c’est 666 — la maison ne se renie pas.',
       copier: 'Copier le lien de cette page',
+    },
+    /* ★ LA COMMANDE DE CIBLE, en pied de listing. « Trop diabolique pour
+       vous ? demandez, demandez les calculs pour obtenir : [111] [777]
+       [000] [13] [007] ou la valeur de votre choix » (l'auteur).
+
+       Deux titres, et le choix se fait sur la cible EN COURS, jamais sur une
+       liste en dur de cibles « diaboliques » : « trop diabolique » ne veut
+       rien dire au-dessus d'une page calée sur 111. */
+    cible: {
+      titreDiabolique: 'Trop diabolique pour vous ?',
+      titreAutre: 'Trop prévisible ?',
+      appel: 'Demandez, demandez les calculs pour obtenir :',
+      raccourciLabel: 'Chercher les voies menant à {cible}',
+      ou: 'ou la valeur de votre choix',
+      champLabel: 'Suite de chiffres à viser',
+      champAide: 'Une suite de chiffres, {max} au plus. Les zéros de tête comptent : « 007 » n’est pas « 7 ».',
+      calculer: 'Calculer',
+      invalide: 'Une suite de chiffres, {max} au plus.',
+      courante: 'Cible actuelle : {cible}',
     },
   },
 

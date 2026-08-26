@@ -106,16 +106,26 @@ export const en = {
   resultat: {
     surtitre: 'The arcana of',
     annonceAucune: 'No path has been traced yet.',
-    annonceUne: 'One approach leads to 666.',
-    annoncePlusieurs: '{n} approaches lead to 666.',
+    /* The TARGET runs through these sentences. It is “666” nine times out of
+       ten, and those nine render exactly the former string. */
+    annonceUne: 'One approach leads to {cible}.',
+    annoncePlusieurs: '{n} approaches lead to {cible}.',
     voiesTitre: 'The complete paths',
-    fragmentsTitre: 'The fragments worth 6',
+    fragmentsTitre: 'The fragments worth {chiffre}',
+    /* When the target mixes digits — “007”, “13” — a fragment is worth just
+       ONE of them. Each row's chip carries the digit actually reached. */
+    fragmentsTitreMele: 'The fragments worth one digit of {cible}',
     aucuneVoie: 'No path found. That is mathematically impossible; we are investigating.',
+    /* And the admission, once the target is no longer the one in our title.
+       The joke next door rests on a promise this site only makes about 666:
+       the engine's last resort is the French wildcard, whose attractor cycle
+       visits 3, 4, 5 and 6 and nothing else. */
+    aucuneVoieCible: 'No path leads to {cible} for this query. The house only guarantees 666; the rest has to be earned.',
     voieNumero: 'no. {rang}',
     /* Same information, two writings: the badge is a drawing, the sentence
        is what a screen reader announces. Nothing at all when n is 1. */
-    voieSeriesBadge: '{n} × 666',
-    voieSeries: '{n} runs of 666',
+    voieSeriesBadge: '{n} × {cible}',
+    voieSeries: '{n} runs of {cible}',
     voieSansTitre: 'Approach no. {rang}',
     acces: {
       sobre: 'Plain',
@@ -143,9 +153,26 @@ export const en = {
       resonanceTexte: 'resonance: the same program on all three occurrences of a repeated pattern.',
       portee: '#0.1:m1+c1,1.1:n2#…',
       porteeTexte: 'scope: offset and length, counted in tokens of the query.',
-      registre: '#sobre!…#…  ·  #scenique!…#…',
-      registreTexte: 'staging register, at the head of the approach. When absent it means “staged” — that is how older links read.',
+      registre: '#so!…#…  ·  #sce!…#…',
+      registreTexte: 'staging register, at the head of the approach. When absent it means “plain”: the show has to be asked for.',
+      cible: '#c111!…#…  ·  #c007!…#…',
+      cibleTexte: 'target sequence, at the head of the approach. When absent it is 666 — the house does not disown itself.',
       copier: 'Copy the link to this page',
+    },
+    /* THE TARGET COMMAND, at the foot of the listing. Two headings, chosen on
+       the CURRENT target: “too diabolical” means nothing above a page tuned
+       to 111. */
+    cible: {
+      titreDiabolique: 'Too diabolical for you?',
+      titreAutre: 'Too predictable?',
+      appel: 'Step right up — have the arcana worked out for:',
+      raccourciLabel: 'Find the paths leading to {cible}',
+      ou: 'or any value you like',
+      champLabel: 'Digit sequence to aim for',
+      champAide: 'A sequence of digits, {max} at most. Leading zeros count: “007” is not “7”.',
+      calculer: 'Compute',
+      invalide: 'A sequence of digits, {max} at most.',
+      courante: 'Current target: {cible}',
     },
   },
 
