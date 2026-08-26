@@ -67,7 +67,7 @@ function reglageMouvement() {
 
 /**
  * @param {{saisie:string, approche:Object, scenario:Object, sourceScenario:string,
- *          urlCanonique:?string, urlResultats:?string, bandeau:?string, debug:boolean}} ctx
+ *          urlCanonique:?string, bandeau:?string, debug:boolean}} ctx
  * @returns {{element:HTMLElement, monter:Function, detruire:Function}}
  */
 export function pageDemonstration(ctx) {
@@ -565,12 +565,19 @@ export function pageDemonstration(ctx) {
   };
 }
 
-/** L'en-tête de la page de démonstration. */
-export function enteteDemonstration(urlResultats) {
+/** L'en-tête de la page de démonstration.
+ *
+ *  ★ Le retour mène à L'ACCUEIL, plus au listing — et il ne prend donc plus
+ *  d'URL de résultats. « Il ne reste que le lien d'énumération sur la page
+ *  d'accueil qui permet d'accéder au listing » (l'auteur) : le listing cesse
+ *  d'être une étape du parcours pour devenir une sortie de secours, à un seul
+ *  endroit et nommée pour ce qu'elle fait.
+ */
+export function enteteDemonstration() {
   return e('header.barre-haute', {}, [
-    e('a.lien-retour', { href: urlResultats || '#' }, [
+    e('a.lien-retour', { href: '#' }, [
       e('span', { texte: '◂', 'aria-hidden': 'true' }),
-      e('span', { texte: t('entete.toutesLesVoies') }),
+      e('span', { texte: t('entete.accueil') }),
     ]),
     logoEntete(),
     interrupteurs(),

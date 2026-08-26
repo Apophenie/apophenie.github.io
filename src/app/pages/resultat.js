@@ -224,7 +224,7 @@ export function enteteResultat() {
   return e('header.barre-haute', {}, [
     e('a.lien-retour', { href: '#' }, [
       e('span', { texte: '◂', 'aria-hidden': 'true' }),
-      e('span', { texte: t('entete.recommencer') }),
+      e('span', { texte: t('entete.accueil') }),
     ]),
     logoEntete(),
     interrupteurs(),

@@ -69,6 +69,7 @@ export const en = {
       reduire: 'Reduce animations',
       retablir: 'Restore full animations',
     },
+    accueil: 'Back to home',
     recommencer: 'Start over',
     toutesLesVoies: 'All the paths',
   },

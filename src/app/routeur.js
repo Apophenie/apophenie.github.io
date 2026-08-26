@@ -90,7 +90,6 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
   const { scenario, source } = pont.scenarioDe(approche, lecture.saisie, { registre });
   const clef = { saisie: lecture.saisie, fragments: lecture.fragments, registre };
   const urlCanonique = pont.ecrireHash(clef);
-  const urlResultats = pont.ecrireHash({ saisie: lecture.saisie });
   // L'autre mise en scène de la MÊME voie : le même programme, l'autre
   // marqueur. C'est ce lien que la page de démonstration propose en bas.
   const urlAutreRegistre = pont.ecrireHash({ ...clef, registre: pont.autreRegistre(registre) });
@@ -107,12 +106,11 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
     sourceScenario: source,
     registre,
     urlCanonique,
-    urlResultats,
     urlAutreRegistre,
     bandeau,
     debug: new URLSearchParams(location.search).get('debug') === '1',
   });
-  rendre(enteteDemonstration(urlResultats), vue.element, {
+  rendre(enteteDemonstration(), vue.element, {
     titre: `${titreApproche(approche)} — ${lecture.saisie}`,
     focaliser: vue.monter,
     vue,
@@ -132,13 +130,12 @@ function montrerDemonstrationLocale(saisie, approche, resultat) {
     sourceScenario: source,
     registre,
     urlCanonique: null,
-    urlResultats: resultat.urlResultats || null,
     // Un repli ne fabrique pas d'URL (`pont.js`) : pas de bascule non plus.
     urlAutreRegistre: null,
     bandeau: null,
     debug: false,
   });
-  rendre(enteteDemonstration(resultat.urlResultats), vue.element, {
+  rendre(enteteDemonstration(), vue.element, {
     titre: `${titreApproche(approche)} — ${saisie}`,
     focaliser: vue.monter,
     vue,

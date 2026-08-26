@@ -67,6 +67,17 @@ export const fr = {
       reduire: 'Réduire les animations',
       retablir: 'Rétablir les animations complètes',
     },
+    // ★ UN SEUL CHEMIN DE RETOUR, ET IL MÈNE À L'ACCUEIL.
+    //
+    // « Remplace les liens "Recommencer" et "Toutes les voies" par "Retour à
+    // l'accueil" (qui envoie directement à l'accueil et non au listing). Il ne
+    // reste donc que le lien d'énumération sur la page d'accueil qui permet
+    // d'accéder au listing » (l'auteur).
+    //
+    // Les deux clés d'avant restent : `recommencer` et `toutesLesVoies` ne
+    // sont plus lues, mais les retirer ferait diverger les catalogues, que
+    // `i18n.test.js` compare clé par clé.
+    accueil: 'Retour à l’accueil',
     recommencer: 'Recommencer',
     toutesLesVoies: 'Toutes les voies',
   },
