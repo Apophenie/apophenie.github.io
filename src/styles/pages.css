@@ -625,7 +625,10 @@
    lignes du Registre s'étireraient bien au-delà de la mesure de lecture
    (charte §2.4, 62ch). Dans la colonne latérale, 22rem est déjà sous la
    mesure : la règle n'y change rien. */
-.registre { margin-top: var(--e6); max-width: var(--mesure); }
+/* Pas de `margin-top` : en colonne latérale il doit partir du haut de la scène
+   au pixel près, et en une colonne la gouttière de `.demo__grille` fait déjà
+   l'écart. La marge qu'il portait s'ajoutait à l'un et à l'autre. */
+.registre { max-width: var(--mesure); }
 
 /* ★ Le Registre a son propre défilement — et c'est un choix de MISE EN SCÈNE.
  *
