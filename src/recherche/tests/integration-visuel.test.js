@@ -14,19 +14,51 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { creerMoteur } from '../index.js';
+import { suivreLaLigne } from '../scenario.js';
 import { catalogue } from './_catalogue.js';
 
 let compile = null;
 let REPEAT_SPEED = 5;
 let setGlyphes = null;
 let GLYPHES = null;
+let Scene = null;
 try {
   ({ compile, REPEAT_SPEED } = await import('../../visuel/compile.js'));
   ({ setGlyphes } = await import('../../visuel/glyphes.js'));
   ({ GLYPHES } = await import('../../moteur/tables/glyphes.js'));
+  ({ Scene } = await import('../../visuel/scene.js'));
   setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
 } catch {
   compile = null;
+}
+
+/**
+ * ★ L'INSTRUMENT — relever la LIGNE du moteur visuel, step par step.
+ *
+ * `compile()` ne rend pas la scène : elle rend une timeline. Or ce qu'on veut
+ * comparer ici est un état intermédiaire de la scène — le flux de layout à
+ * l'entrée de chaque step. On pose donc un mouchard sur le seul point qui soit
+ * appelé UNE fois par step, avant ses ops : `scene.oublierAncres()`
+ * (`visuel/compile.js`, « les promesses d'accolade ne valent que pour le geste
+ * en cours »).
+ *
+ * ★ C'est un instrument de MESURE, pas un double : il ne remplace aucun
+ * comportement, il observe le vrai. Et il est rendu au propre dans tous les
+ * cas — une prothèse de test qui survivrait au test contaminerait les suivants.
+ */
+function relever(sc, options) {
+  const releves = [];
+  const original = Scene.prototype.oublierAncres;
+  Scene.prototype.oublierAncres = function mouchard() {
+    releves.push(this.flow.slice());
+    return original.call(this);
+  };
+  try {
+    compile(sc, options);
+  } finally {
+    Scene.prototype.oublierAncres = original;
+  }
+  return releves;
 }
 
 const SAISIES = [
@@ -266,4 +298,46 @@ test('intégration — « hope-hope-hope » : les trois « hope » ne se lisent 
       `${Math.round(plein.total)} ms → ${Math.round(rapide.total)} ms : gain insuffisant`);
     console.log(`    hope-hope-hope : ${(plein.total / 1000).toFixed(1)} s → `
       + `${(rapide.total / 1000).toFixed(1)} s (${rapide.steps.length} étapes, ${redites.length} accélérées)`);
+  });
+
+/**
+ * ★ LA LIGNE REJOUÉE EST LA VRAIE LIGNE — mesuré, pas affirmé.
+ *
+ * `recherche/scenario.js › suivreLaLigne` rejoue la suite ordonnée des jetons
+ * vivants pour savoir OÙ trois 6 deviennent contigus, et donc où poser un
+ * couronnement (`couronnerLesTriptyques`). C'est un double du modèle de scène,
+ * et un double non mesuré est une bombe à retardement : le jour où il dérive,
+ * ce n'est pas un test qui casse, c'est la compilation qui échoue AU CLIC de
+ * l'utilisateur — `visuel/primitives/horns.js` refusant, à juste titre, de
+ * couronner trois 6 qui ne se touchent pas.
+ *
+ * Le contrat est donc énoncé ici et vérifié sur tout le jeu d'essai : tant que
+ * la ligne rejouée n'est pas `null`, elle est IDENTIQUE — mêmes identifiants,
+ * même ordre — au `scene.flow` du moteur visuel à l'entrée du step suivant.
+ * Et `null` reste permis : c'est la manière dont le rejeu déclare forfait, et
+ * ce forfait est un refus de couronner, jamais une supposition.
+ */
+test('intégration — la ligne rejouée par le moteur de recherche est celle du moteur visuel',
+  { skip: compile && Scene ? false : 'src/visuel/ absent' }, () => {
+    const m = creerMoteur(catalogue);
+    let comparees = 0;
+    let renoncements = 0;
+    for (const s of SAISIES) {
+      const r = m.resoudre(s);
+      for (const a of r.approches) {
+        let sc;
+        try { sc = m.scenarioDe(a, { saisie: r.saisie }); } catch { continue; }
+        const releves = relever(sc);
+        assert.equal(releves.length, sc.steps.length, `${s} #${a.rang} : relevé incomplet`);
+        const rejeu = suivreLaLigne(sc.tokens, sc.steps);
+        for (let i = 0; i + 1 < sc.steps.length; i++) {
+          if (rejeu[i] === null) { renoncements++; break; }
+          assert.deepEqual(rejeu[i], releves[i + 1],
+            `${s} #${a.rang} (${a.codes}) — ligne après l’étape ${i + 1} « ${sc.steps[i].title} »`);
+          comparees++;
+        }
+      }
+    }
+    assert.ok(comparees > 200, `seulement ${comparees} lignes comparées : la mesure ne mesure rien`);
+    console.log(`    ${comparees} lignes rejouées à l’identique, ${renoncements} renoncements`);
   });

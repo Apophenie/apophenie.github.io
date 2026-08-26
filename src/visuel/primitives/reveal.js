@@ -109,6 +109,7 @@
  */
 
 import { targetsOf, ensureHalo } from './helpers.js';
+import { poserLesCornes } from './horns.js';
 import { EASE } from '../constants.js';
 
 export const name = 'reveal';
@@ -262,6 +263,75 @@ export function plan(ctx) {
     (d) => { const n = ctx.scene.get(d); return n && n.role === 'horns'; },
   );
   const couronnes = multi && series.every((s) => s.some(porteDesCornes));
+
+  // ★ LES TRIPTYQUES QUE LA DÉMONSTRATION N'A PAS PU COURONNER LE SONT ICI.
+  //
+  // « "e-h" n'aura ses cornes qu'à l'étape verdict puisque les 6 ne sont pas
+  // réunis avant » (l'auteur). Un 666 dont les trois chiffres ne se touchent
+  // jamais en cours de route — parce qu'une ponctuation les sépare, parce
+  // qu'ils viennent de portées disjointes, parce que c'est le tri qui les
+  // rapproche — ne peut pas être couronné plus tôt : la démonstration ne
+  // couronne que ce qu'elle CONSTATE (`recherche/scenario.js ›
+  // couronnerLesTriptyques`). Le verdict, lui, les réunit — et c'est le moment
+  // où le 666 est enfin sous les yeux, donc le moment de le dire.
+  //
+  // ★ **Cinq restrictions, et chacune répond à une phrase de l'auteur.**
+  //
+  //  1. **Le registre SCÉNIQUE, jamais le sobre.** « Sous "sobre", il reste
+  //     sans orage mais perd ses cornes » (CONTRACTS §3.1). Le scénario sobre a
+  //     déjà vu ses couronnements réécrits en simple désignation
+  //     (`sobrifierLesCornes`, `recherche/scenario.js`) ; en remettre au verdict
+  //     rendrait par la fenêtre ce que le registre a sorti par la porte.
+  //     `ctx.scenographie` EST le registre — la page le pose depuis le même
+  //     booléen que l'orage et le son (`app/pages/demonstration.js`).
+  //  2. **PLUSIEURS séries, jamais un 666 seul.** La phrase de l'auteur commence
+  //     par « quand il y a plusieurs séries de 666 », et ce n'est pas un hasard
+  //     de formulation : les cornes servent alors à faire LIRE chaque triptyque
+  //     comme un 666 distinct — le même service que le découpage. Un 666 seul
+  //     n'a personne dont il faille le distinguer, et il paierait cher : poser
+  //     un décor au-dessus des chiffres, c'est leur prendre de la hauteur
+  //     (voir `zoomDuVerdict`), et un 666 seul tombe de ×8,5 à ×4,8. On ne
+  //     réduit pas la chute de moitié pour souligner ce que rien ne concurrence.
+  //     Un 666 seul QUE LA DÉMONSTRATION A COURONNÉ garde évidemment ses
+  //     cornes : elles ont été gagnées en chemin, et le zoom en tient compte
+  //     depuis toujours.
+  //  3. **Seulement ceux qui n'en portent pas.** On ne recouronne rien : un
+  //     nœud de cornes est nommé d'après le 6 qu'il couronne, deux couronnements
+  //     sur un même chiffre se disputeraient le même identifiant.
+  //  4. **Seulement le rang du HAUT.** « Quand il y a plusieurs séries de 666,
+  //     [les cornes] seulement sur les 666 de la ligne du haut. » Couronner le
+  //     rang du bas pour l'en dépouiller trois lignes plus loin (`detrones`)
+  //     serait faire puis défaire ; on ne le fait pas.
+  //  5. **Seulement trois « 6 ».** Le contrôle croisé n'est pas relâché parce
+  //     qu'on change d'endroit : `horns` refuse de couronner autre chose que
+  //     trois 6 (CONTRACTS §0.3), et ce refus vaut ici aussi. La contiguïté,
+  //     elle, n'a pas à être vérifiée — c'est le verdict LUI-MÊME qui pose ces
+  //     trois chiffres côte à côte, quelques lignes plus bas (`poserLeFlux`),
+  //     et une série est un triptyque par construction (`decouperEnSeries`).
+  //
+  // ★ Et le geste n'est pas tout à fait le même qu'en cours de route : là, la
+  // corne JAILLIT du chiffre (`scale` 0 → 1) ; ici elle PARAÎT à sa taille et
+  // grandit avec lui, portée par l'homothétie du verdict (`animSolidaire`).
+  // Deux animations de `scale` sur le même nœud se recouvriraient, et c'est
+  // exactement ce que le compilateur signale comme concurrence.
+  //
+  // ★ Le rang du bas, calculé UNE fois : la coupure tombe entre deux séries
+  // (5 → 3 puis 2), et c'est la même que celle de `poserLeFlux` et celle des
+  // détrônées, plus bas. Trois lectures d'une seule règle.
+  const rangDuBas = lignes > 1 ? Math.ceil(series.length / 2) : Infinity;
+  const cornesDuVerdict = [];
+  series.forEach((serie, s) => {
+    if (!ctx.scenographie || !multi || s >= rangDuBas) return;
+    if (serie.length !== SERIE) return;
+    if (serie.some(porteDesCornes)) return;
+    if (!serie.every((id) => String(ctx.scene.live(id, ctx.where).text) === '6')) return;
+    cornesDuVerdict.push(...poserLesCornes(ctx, serie, { echelle: 1 }));
+  });
+
+  // ★ Le zoom vient APRÈS, et il le faut : `debordDuDecor` mesure ce que le
+  //   décor prend en hauteur, et les cornes qu'on vient de poser en font partie.
+  //   Les compter après les avoir posées, c'est la garantie que leurs pointes
+  //   ne sortiront pas du cadre — le verdict paie en TAILLE, pas en débordement.
   const grow = typeof ctx.op.scale === 'number'
     ? ctx.op.scale
     : zoomDuVerdict(ctx, ids, series, lignes);
@@ -417,7 +487,6 @@ export function plan(ctx) {
   //   d'un dessin répété. Une lueur n'est pas un motif — trois lueurs voisines
   //   se fondent en une seule —, et un 666 qui brûlerait sur un rang mais pas
   //   sur l'autre dirait qu'il y en a deux sortes.
-  const rangDuBas = lignes > 1 ? Math.ceil(series.length / 2) : Infinity;
   const detrones = new Set();
   series.forEach((serie, s) => {
     if (s < rangDuBas) return;
@@ -471,6 +540,14 @@ export function plan(ctx) {
   // deviennent seulement invisibles.
   for (const sid of detrones) {
     ctx.anim({ id: sid, prop: 'opacity', to: 0, at: tGrossir, dur: dGrossir * 0.5, ease: EASE.fade });
+  }
+
+  // ★ Et celles que le verdict vient de poser PARAISSENT — au moment où les
+  //   chiffres grossissent, sur la même horloge. Elles n'ont pas de `scale` à
+  //   elles : `animSolidaire` (juste au-dessus) leur a déjà donné celui de leur
+  //   6, et c'est ce qui les tient calées. Il ne leur reste qu'à se montrer.
+  for (const sid of cornesDuVerdict) {
+    ctx.anim({ id: sid, prop: 'opacity', to: 1, at: tGrossir, dur: Math.max(1, dGrossir * 0.6) });
   }
 
   /* ★ L'ORAGE N'ÉCLATE QU'UNE FOIS LE MOUVEMENT FINI — et c'est un correctif

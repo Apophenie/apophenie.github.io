@@ -1176,6 +1176,104 @@ ici**, puis l'émettre.
 > vérifie en outre que le tracé d'une corne est **identique** quel que soit
 > l'espacement des 6 : c'est la garantie qui rend le reste impossible à casser.
 
+> *Amendement — COURONNER SANS EFFACER, et les cornes cessent d'appartenir à `mz`.*
+>
+> **Le constat de l'auteur.** « Les 3 premiers 6 devraient pouvoir recevoir leur
+> corne entre l'étape 5 et 6, puis entre 13 et 14 pour les 666 de "ope" du 2nd
+> hope. Les 2 derniers n'auront pas leur corne car ligne du dessous et "e-h"
+> n'aura ses cornes qu'à l'étape verdict puisque les 6 ne sont pas réunis
+> avant. » Il parle de `hope-hope-hope.fr`, la voie mise en vitrine
+> (`src/i18n/fr.js`), sur laquelle **aucune corne ne poussait**.
+>
+> **Ce n'était pas une régression, c'était un trou.** L'unique émetteur de la
+> primitive `horns` était l'opérateur `mz` (`transformations/mappeurs.js`), et
+> `mz` fait DEUX choses : il couronne trois 6 contigus **et il tronque le
+> vecteur à ces trois-là**. C'est juste quand la portée ne rapporte qu'une
+> série — sur `Donald Trump`, il n'y a rien à garder après le 666 —, et c'est
+> ruineux dès qu'elle en rapporte plusieurs : sur `hope-hope-hope.fr`, `mz` ne
+> garderait que 3 des 15 six, une série au lieu de cinq. Le classement le
+> rejette à juste titre, la voie de tête n'emploie donc pas `mz`, et rien
+> n'émettait plus de cornes. Vérifié plutôt que supposé : la voie classée
+> première est exactement celle du lien figé dans `fr.js`.
+>
+> ★ **Le couronnement se DÉTACHE de l'effacement, et il change de main.**
+> L'assemblage (`recherche/scenario.js › couronnerLesTriptyques`) pose désormais
+> un `horns` **sans `efface`** partout où la ligne écrit trois 6 côte à côte.
+> Pourquoi là et pas dans le catalogue : un opérateur ne voit que sa propre
+> étape — `mw` appliqué au « h » du deuxième `hope` ne peut savoir ni que le
+> « e » du premier et le tiret qui suit portent déjà un 6, ni que les trois
+> formeront une série au verdict. L'assemblage voit les deux choses qu'il faut
+> voir ensemble : **la suite complète des étapes** et **les jetons que le verdict
+> révélera**, dans l'ordre. Même argument que pour le décor mutualisé des tables.
+>
+> ★ **Le registre de codes n'est pas touché** (§4.1, registre CLOS). Aucun code
+> neuf, aucun sens changé : un couronnement n'est pas une étape de calcul, il ne
+> transforme aucune valeur et ne figure dans aucune URL. La même URL rend la
+> même arithmétique qu'avant, et le barème est inchangé — il « lit la GÉOMÉTRIE,
+> jamais la présence d'un code » (§5).
+>
+> ★ **ON COURONNE CE QU'ON CONSTATE, JAMAIS CE QU'ON A RASSEMBLÉ**, et l'instant
+> regardé le dit. Ce n'est pas « le premier step où les trois se touchent », mais
+> **le step où le troisième paraît** — et l'on regarde alors s'il paraît CONTRE
+> les deux autres. La nuance est de nature, pas de rythme : trois 6 déjà côte à
+> côte au moment où le dernier arrive, c'est un 666 qu'on lit ; trois 6 qui ne se
+> touchent qu'après qu'on a ôté ce qui les séparait, c'est l'autre geste — « On
+> ne garde que les 6 » —, celui qui s'avoue une fois, juste avant le verdict, et
+> qui coûte au score. Le critère laxiste aurait planté des cornes sur le TRI de
+> `https://hope-hope-hope.fr/`, et glissé une étape entre le tri et le verdict.
+>
+> ★ **La ligne est REJOUÉE, et le rejeu déclare forfait plutôt que de deviner**
+> (`suivreLaLigne`, pure et exportée). La contiguïté est une question d'ORDRE, et
+> `inventaire()` ne connaît que des ensembles. `scenario.js` appartient au moteur
+> de recherche et ne peut pas importer le modèle de scène : il rejoue donc la
+> ligne op par op, et rend `null` dès qu'il rencontre ce qu'il ne sait pas
+> rejouer exactement — une op hors table, un sélecteur déclaratif, un jeton
+> introuvable. Tout ce qui s'appuie dessus renonce alors à couronner.
+> **Et le double est MESURÉ** : `recherche/tests/integration-visuel.test.js`
+> compile chaque scénario avec le compilateur RÉEL et compare, step par step, la
+> ligne rejouée au `scene.flow` du moteur visuel — 1 142 lignes, zéro écart,
+> zéro renoncement sur le jeu d'essai. **Et le troisième verrou reste le dernier
+> mot** : `visuel/primitives/horns.js` relit la contiguïté sur la ligne au moment
+> de compiler, et fait échouer la compilation si elle n'y est pas.
+>
+> ★ **Le VERDICT couronne ce que la démonstration n'a pas pu couronner**, et
+> c'est la seconde moitié de la phrase de l'auteur. Une série dont les trois 6
+> ne se réunissent qu'au rassemblement final — le point de `.fr` reste entre le
+> « e » du troisième `hope` et le 6 de « fr » — reçoit ses cornes là
+> (`reveal.js`). Quatre restrictions, chacune tirée d'une phrase :
+>
+> | restriction | pourquoi |
+> |---|---|
+> | **plusieurs séries**, jamais un 666 seul | « quand il y a plusieurs séries de 666 » : les cornes font LIRE chaque triptyque comme distinct, service inutile quand il n'y en a qu'un — et un 666 seul le paierait de la moitié de sa taille (×8,5 → ×4,8), poser un décor au-dessus des chiffres leur prenant de la hauteur |
+> | seulement les **séries nues** | un nœud de cornes est nommé d'après le 6 qu'il couronne : deux couronnements sur un même chiffre se disputeraient le même identifiant |
+> | seulement le **rang du haut** | « seulement sur les 666 de la ligne du haut » : couronner le rang du bas pour l'en dépouiller aussitôt (`detrones`) serait faire puis défaire |
+> | seulement **trois « 6 »** | le contrôle croisé ne se relâche pas parce qu'on change d'endroit. La contiguïté, elle, n'a pas à être vérifiée : c'est le verdict lui-même qui pose ces trois chiffres côte à côte |
+> | seulement le registre **scénique** | « sous « sobre », il reste sans orage mais perd ses cornes ». Le scénario sobre a déjà vu ses couronnements réécrits en désignation ; en remettre au verdict rendrait par la fenêtre ce que le registre a sorti par la porte. `ctx.scenographie` EST le registre — la page le pose depuis le même booléen que l'orage et le son |
+>
+> Le geste diffère d'un cheveu : en cours de route la corne **jaillit** du
+> chiffre (`scale` 0 → 1) ; au verdict elle **paraît** à sa taille et grandit
+> avec lui, portée par l'homothétie. Deux animations de `scale` sur le même nœud
+> se recouvriraient, et c'est exactement ce que le compilateur signale comme
+> concurrence. Le TRACÉ, lui, est écrit une seule fois (`poserLesCornes`,
+> `primitives/horns.js`) : deux dessins de corne finiraient par ne plus être le
+> même.
+>
+> **Mesuré sur le jeu d'essai** : 17 paires de cornes deviennent **152** sur 169
+> approches, et 41 verdicts changent d'agrandissement — tous parce qu'un décor
+> qu'ils n'avaient pas leur prend désormais de la hauteur. Sur la voie de la
+> vitrine, quatre couronnements aux étapes 6, 12, 16 et 22 d'une démonstration
+> qui en compte 29 : le premier tombe « entre l'étape 5 et 6 » du déroulé
+> d'origine, exactement là où l'auteur l'attendait.
+>
+> ★ **Une divergence assumée avec la lettre de la demande.** L'auteur annonce
+> que « e-h » — la deuxième série, le « e » du premier `hope`, le tiret, le « h »
+> du second — n'aura ses cornes qu'au verdict, « puisque les 6 ne sont pas réunis
+> avant ». La ligne dit le contraire : à la fin de l'étape 10, elle porte six 6
+> d'affilée, et les rangs 3, 4 et 5 se touchent. Le couronnement tombe donc à
+> l'étape 12. La règle est appliquée telle qu'elle est écrite — dès que trois 6
+> sont contigus, on les couronne — plutôt que l'exception, qui n'a pas
+> d'appui dans ce que la scène montre.
+
 > *Amendement — L'ORAGE DU VERDICT, et pourquoi il n'entre PAS dans le vocabulaire.*
 >
 > **La demande de l'auteur.** « Lors du verdict, en plus de grossir le/les 666 et

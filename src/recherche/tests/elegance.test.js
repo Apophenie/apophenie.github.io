@@ -854,20 +854,39 @@ test('★ cornes — la scène couronne exactement les triptyques que le bilan a
   for (const s of ['Donald Trump', 'Macron', 'hope', 'https://hope-hope-hope.fr/',
     'Éléonore à Nîmes', 'Wikipedia']) {
     for (const a of m.resoudre(s).approches) {
-      // ★ Une paire de cornes se pose là — et seulement là — où l'opérateur
-      //   `mz` a CONSTATÉ le triptyque : c'est lui qui émet la primitive
-      //   (CONTRACTS §3.1, amendement `horns`). Le bilan, lui, compte la
-      //   contiguïté partout où elle EXISTE, `mz` ou pas : une portée qui rend
-      //   `[6,6,6,6]` porte un 666 contigu que la scène montrera autrement.
-      //   La bonne comparaison est donc avec les parts qui emploient `mz`.
+      // ★ `mz` n'est plus le seul à couronner — et c'est le sens de
+      //   l'amendement « couronner sans effacer » (CONTRACTS §3.1).
+      //
+      //   Tant que l'opérateur était le seul émetteur, les deux comptes étaient
+      //   égaux par construction. L'assemblage couronne désormais TOUT
+      //   triptyque que la ligne écrit d'elle-même, `mz` ou pas — c'est très
+      //   exactement ce que la note ci-dessous annonçait (« une portée qui rend
+      //   `[6,6,6,6]` porte un 666 contigu que la scène montrera autrement »),
+      //   et la scène a fini par le montrer.
+      //
+      //   Les deux comptes ne peuvent donc plus être égaux, et ils ne peuvent
+      //   pas non plus s'ordonner dans l'autre sens : ce que `mz` constate, la
+      //   scène le couronne toujours. Reste l'inégalité, qui est la vraie
+      //   propriété — et le fait que les deux mesures se recoupent sur les
+      //   MÊMES triptyques, vérifié juste après.
       const constates = a.parts.filter((p) => p.chemin.ops.some((o) => o.id === 'm.troisSixDAffilee'));
       if (!constates.length) continue;
       vues++;
       const sc = m.scenarioDe(a, { saisie: s });
       const jalons = sc.cornes || jalonsDesCornes(sc);
-      assert.equal(jalons.couronnements.length, constates.length,
+      assert.ok(jalons.couronnements.length >= constates.length,
         `« ${s} » ${a.codes} : ${jalons.couronnements.length} couronnements à l’écran `
         + `pour ${constates.length} portées qui constatent un triptyque`);
+      // ★ Aucun jeton ne porte DEUX couronnements. Les deux émetteurs — `mz`
+      //   d'un côté, l'assemblage de l'autre — travaillent sur la même ligne
+      //   sans se voir ; le nœud de décor étant nommé d'après le 6 qu'il
+      //   couronne (`@cornes:<id>`, `visuel/primitives/horns.js`), deux cornes
+      //   sur un même 6 se disputeraient le même identifiant et la compilation
+      //   échouerait. Ce n'est donc pas un détail d'hygiène, c'est la garantie
+      //   qui rend la cohabitation possible.
+      const portes = jalons.couronnements.flatMap((c) => c.jetons);
+      assert.equal(new Set(portes).size, portes.length,
+        `« ${s} » ${a.codes} : un jeton couronné deux fois`);
       // …et chacune de ces portées porte bien un triptyque contigu QUI TIENT :
       // c'est le pont entre les deux mesures, et il ne peut pas se défaire.
       for (const p of constates) {

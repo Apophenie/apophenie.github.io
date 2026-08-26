@@ -238,39 +238,15 @@ export function plan(ctx) {
 
   // ── 2. les cornes poussent, sur la fin de l'effacement ───────────────────
   //
-  // Une par 6 EXTÉRIEUR : un diable n'a pas de corne frontale, et le 6 du
-  // milieu n'en porte donc aucune. Chacune est un décor accroché à SON chiffre
-  // — voir l'en-tête, « UNE CORNE, UN NŒUD ».
-  const m = mesuresCorne(ctx);
-  const largeur = largeurDeCorne(m);
   // Elles commencent à pousser AVANT que la gomme ait fini : le recouvrement
   // est ce qui empêche de lire deux gestes successifs là où il n'y en a qu'un.
   const depart = Math.max(0, Math.min(finGomme * 0.7, ctx.dur * 0.5));
   const pousse = Math.max(1, ctx.dur - depart);
 
-  for (const s of [-1, 1]) {
-    const porteur = cornus[s < 0 ? 0 : 2];
-    const ou = ctx.scene.pos(porteur);
-    if (!ou) {
-      fail(`${ctx.where}le 6 « ${porteur} » n’a pas de position : sa corne ne saurait pas où `
-        + 'pousser.', { id: porteur });
-    }
-    const id = `@cornes:${porteur}`;
-    ctx.scene.create({
-      id,
-      role: 'horns',
-      inFlow: false,
-      w: largeur,
-      // `suit` accroche le décor à SON 6 : il le suivra à chaque reflow
-      // (`compile.js`) et grandira avec lui au verdict (`reveal.js`).
-      // `debord` dit de combien il DÉPASSE vers le haut, en unités nominales :
-      // c'est ce que le verdict doit connaître pour ne pas envoyer les pointes
-      // hors du cadre en grossissant les chiffres (voir `reveal.js`).
-      data: { d: corneD(s, 0, m), suit: porteur, debord: m.debord },
-      base: { opacity: 0, scale: 0, fill: ctx.palette.rubric },
-    }, { where: ctx.where });
-    ctx.place(id, { x: ou.x, y: ou.y, w: largeur });
+  for (const id of poserLesCornes(ctx, cornus, { echelle: 0 })) {
     ctx.anim({ id, prop: 'opacity', to: 1, at: depart, dur: pousse * 0.4 });
+    // ★ Elle JAILLIT — de zéro à sa taille pleine, sur le 6 qu'elle couronne.
+    //   Ce n'est pas la même chose que paraître : une corne pousse.
     ctx.anim({ id, prop: 'scale', to: 1, at: depart, dur: pousse, ease: EASE.pop });
   }
 
@@ -294,6 +270,70 @@ export function plan(ctx) {
   for (const cid of cornus) {
     ctx.animSolidaire({ id: cid, prop: 'fill', to: ctx.palette.rubric, at: depart, dur: pousse * 0.6 });
   }
+}
+
+/**
+ * ★ POSER LES DEUX CORNES — le DESSIN du geste, séparé de son RÉCIT.
+ *
+ * Une par 6 EXTÉRIEUR : un diable n'a pas de corne frontale, et le 6 du milieu
+ * n'en porte donc aucune. Chacune est un décor accroché à SON chiffre — voir
+ * l'en-tête, « UNE CORNE, UN NŒUD ».
+ *
+ * ★ **Pourquoi cette fonction est exportée, et ce que cela ne change pas.**
+ * Deux moments posent des cornes, et il ne peut pas y avoir deux dessins :
+ *
+ *  · ICI, en cours de démonstration, quand la ligne écrit trois 6 côte à côte
+ *    — soit que l'opérateur `mz` les ait constatés, soit que l'assemblage l'ait
+ *    fait (`recherche/scenario.js › couronnerLesTriptyques`). Le contrôle
+ *    croisé ci-dessus a alors joué, sur la ligne telle qu'elle est ;
+ *  · au VERDICT (`reveal.js`), pour les triptyques que la démonstration n'a pas
+ *    pu couronner — ceux dont les trois 6 ne se réunissent qu'au moment où le
+ *    verdict rassemble. « "e-h" n'aura ses cornes qu'à l'étape verdict puisque
+ *    les 6 ne sont pas réunis avant » (l'auteur).
+ *
+ * Ce qui voyage est le TRACÉ, le calage sur le glyphe, le débord annoncé et
+ * l'accrochage — c'est-à-dire tout ce qu'un test de géométrie mesure
+ * (`tests/cornes.test.js`). Ce qui NE voyage pas est le contrôle croisé : il
+ * appartient à `plan()`, parce qu'il porte sur la ligne du moment. Le verdict a
+ * le sien, et il n'est pas le même — il vérifie ce qu'il RASSEMBLE.
+ *
+ * @param {object} ctx
+ * @param {string[]} cornus — les trois 6, dans l'ordre de la ligne
+ * @param {{echelle?:number}} [spec] — l'échelle de DÉPART du nœud : 0 quand la
+ *   corne doit jaillir, 1 quand elle doit seulement paraître puis suivre
+ *   l'agrandissement du chiffre.
+ * @returns {string[]} les deux nœuds créés, gauche puis droite
+ */
+export function poserLesCornes(ctx, cornus, spec = {}) {
+  const m = mesuresCorne(ctx);
+  const largeur = largeurDeCorne(m);
+  const echelle = spec.echelle === undefined ? 0 : spec.echelle;
+  const poses = [];
+  for (const s of [-1, 1]) {
+    const porteur = cornus[s < 0 ? 0 : 2];
+    const ou = ctx.scene.pos(porteur);
+    if (!ou) {
+      fail(`${ctx.where}le 6 « ${porteur} » n’a pas de position : sa corne ne saurait pas où `
+        + 'pousser.', { id: porteur });
+    }
+    const id = `@cornes:${porteur}`;
+    ctx.scene.create({
+      id,
+      role: 'horns',
+      inFlow: false,
+      w: largeur,
+      // `suit` accroche le décor à SON 6 : il le suivra à chaque reflow
+      // (`compile.js`) et grandira avec lui au verdict (`reveal.js`).
+      // `debord` dit de combien il DÉPASSE vers le haut, en unités nominales :
+      // c'est ce que le verdict doit connaître pour ne pas envoyer les pointes
+      // hors du cadre en grossissant les chiffres (voir `reveal.js`).
+      data: { d: corneD(s, 0, m), suit: porteur, debord: m.debord },
+      base: { opacity: 0, scale: echelle, fill: ctx.palette.rubric },
+    }, { where: ctx.where });
+    ctx.place(id, { x: ou.x, y: ou.y, w: largeur });
+    poses.push(id);
+  }
+  return poses;
 }
 
 /**
