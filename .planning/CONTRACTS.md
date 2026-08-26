@@ -1259,6 +1259,41 @@ ici**, puis l'émettre.
 > (`visuel/tests/orage.test.js`), dont celui qui compte les éclats et celui qui
 > vérifie que la timeline SANS scénographie est rigoureusement celle d'avant.
 
+> *Amendement — L'ORAGE ÉCLATE APRÈS LE MOUVEMENT, ET IL A LE DROIT D'ALLONGER
+> LA CHUTE.*
+>
+> Deux règles de cette section sont amendées, et la seconde est **levée par
+> l'auteur**.
+>
+> 1. **Le feu ne prend qu'une fois le 666 posé**, plus au milieu de son
+>    grossissement. Ce n'est pas d'abord une intention : c'est une contrainte de
+>    rendu. Un `filter` opère dans l'espace utilisateur, donc quand le nœud
+>    grandit, sa chaîne de flous doit être **re-tramée à chaque échelle**.
+>    Mesuré, même trajet, deux registres — sobre : pire image 31 ms, zéro
+>    au-dessus de 50 ; scénique : pire image 487 ms, onze au-dessus de 50.
+>    Chromium re-trame à chaque palier (« quatre ou cinq micro-freezes pendant
+>    le zoom »), Firefox met à l'échelle une image figée puis paie tout à
+>    l'arrivée (« un long freeze de deux ou trois secondes »).
+>
+>    Corollaire, et c'est la découverte : **`opacity: 0` ne dispense pas de
+>    peindre.** Le feu coûtait alors même qu'il était invisible. Les corps
+>    filtrés sont donc en `display: none` hors embrasement — ce qui n'existe pas
+>    ne peut pas ralentir un grossissement.
+>
+> 2. **« Le théâtre ne rallonge pas la démonstration » : LEVÉ.** « Je lève la
+>    contrainte "la scénographie n'allonge jamais la démonstration" ; la vitesse
+>    du grossissement était très bien, ne l'accélère pas » (l'auteur).
+>
+>    La règle avait un coût caché qu'on ne voyait qu'en la tenant : pour laisser
+>    au feu du temps après le mouvement sans allonger l'étape, il fallait prendre
+>    ce temps SUR le grossissement — **y compris en sobre, qui n'a pourtant pas
+>    de feu**. Le registre sans théâtre payait pour celui qui en a.
+>
+>    Ce qui reste exigé, et qu'un test tient : le scénique n'ABRÈGE jamais rien
+>    (`total >= nu.total`), et il n'ajoute pas plus de moitié
+>    (`total <= nu.total * 1.6`). Il ajoute une chute à la fin ; il ne comprime
+>    pas ce qui précède, et il ne double pas la démonstration.
+
 > *Amendement — LE FEU REFAIT, TROISIÈME ÉTAT : la pile d'ombres d'atnyman, en
 > `drop-shadow()`. Et il survit à la fin de la lecture.*
 >

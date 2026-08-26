@@ -67,7 +67,23 @@ test('★ orage — la scénographie n’ajoute QUE du décor, jamais un jeton',
   const jetons = (tl) => tl.nodes.filter((n) => n.role === 'text').map((n) => n.id).sort();
   // Le point de tout le registre : sobre et scénique montrent le même calcul.
   assert.deepEqual(jetons(orageux), jetons(nu));
-  assert.equal(orageux.total, nu.total, 'même durée : le théâtre ne rallonge pas la démonstration');
+  /* ★ LA DURÉE, ELLE, PEUT DIFFÉRER — et c'est un arbitrage de l'auteur.
+     Ce test exigeait l'égalité : « le théâtre ne rallonge pas la démonstration ».
+     La règle a été levée. « Je lève la contrainte "la scénographie n'allonge
+     jamais la démonstration" ; la vitesse du grossissement était très bien, ne
+     l'accélère pas » (l'auteur).
+     La raison est technique : le feu ne doit rien peindre tant que la scène
+     bouge — un `filter` se re-trame à chaque changement d'échelle —, il lui
+     faut donc du temps APRÈS le grossissement. Tant que la règle tenait, ce
+     temps était pris SUR le mouvement, y compris en sobre qui n'a pourtant pas
+     de feu : le sobre payait pour le scénique.
+     Ce qui reste exigé, c'est que le scénique n'ABRÈGE jamais : il ajoute sa
+     chute à la fin, il ne comprime rien de ce qui précède. */
+  assert.ok(orageux.total >= nu.total,
+    'le scénique ne doit jamais être plus court : il ajoute une chute, il n’abrège rien');
+  assert.ok(orageux.total <= nu.total * 1.6,
+    `le scénique dure ${Math.round((orageux.total / nu.total - 1) * 100)} % de plus : `
+    + 'une chute s’ajoute, elle ne double pas la démonstration');
 });
 
 test('orage — nuit, éclair, et UN brasier par chiffre du verdict', () => {

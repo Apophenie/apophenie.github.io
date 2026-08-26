@@ -361,10 +361,6 @@ export function plan(ctx) {
   // — le coup de poing du verdict —, mais sur les DEUX canaux.
   const courbeVerdict = EASE.pop;
 
-  // Quelle part de la fin d'étape revient au MOUVEMENT ; le reste est à
-  // l'orage. Voir le resserrement plus bas.
-  const PART_DU_MOUVEMENT = 0.62;
-
   if (!multi || couronnes) {
     // Un seul 666 : rassembler et grossir sont le MÊME geste. Rien à découper,
     // rien à répartir, et l'intercaler ferait un temps mort au moment de la
@@ -397,20 +393,6 @@ export function plan(ctx) {
     centrerLeBloc();
     ctx.reflow({ at: tGrossir, dur: dGrossir, ease: courbeVerdict });
   }
-
-  /* ★ LE MOUVEMENT SE RESSERRE POUR LAISSER LA FIN À L'ORAGE.
-     Le feu ne doit rien peindre tant que la scène bouge — un `filter` se
-     re-trame à chaque changement d'échelle (voir `allumerLOrage`). Il lui faut
-     donc du temps APRÈS le grossissement, et la scénographie n'a pas le droit
-     d'allonger la démonstration : ce temps est pris SUR le mouvement.
-
-     ⚠ Le resserrement vaut dans LES DEUX registres, y compris le sobre qui n'a
-     pas de feu. Ce n'est pas une négligence : c'est la seule façon que les deux
-     timelines gardent exactement la même durée, ce qu'un test exige
-     (`tests/orage.test.js`). Le sobre y gagne d'ailleurs un temps d'arrêt sur
-     son verdict, qu'il n'avait pas. */
-  const dGrossirPlein = dGrossir;
-  dGrossir = Math.max(1, dGrossir * PART_DU_MOUVEMENT);
 
   // La hauteur réelle du verdict, pour que ce qui se pose « en dessous » (une
   // annotation) se pose bien en dessous et non au milieu des chiffres.
@@ -514,7 +496,7 @@ export function plan(ctx) {
 
      Et la dramaturgie y gagne : le 666 se met en place, PUIS la foudre tombe
      dessus, PUIS il s'embrase. C'est l'ordre qu'on attend d'une chute. */
-  if (orage) allumerLOrage(ctx, orage, tGrossir + dGrossir, tGrossir + dGrossirPlein);
+  if (orage) allumerLOrage(ctx, orage, tGrossir + dGrossir);
 }
 
 /* ══════════════════════════════ L'ORAGE ═══════════════════════════════════ */
@@ -637,12 +619,18 @@ function monterLOrage(ctx, ids) {
  *        La foudre et le feu s'y accrochent : rien de filtré ne doit paraître
  *        tant que la scène bouge (voir le long commentaire de l'appelant).
  */
-function allumerLOrage(ctx, { nuit, eclair, brasiers }, apresLeMouvement, finDEtape) {
+function allumerLOrage(ctx, { nuit, eclair, brasiers }, apresLeMouvement) {
   const d = ctx.dur;
   const calme = Math.max(0, apresLeMouvement);
-  // Tout l'orage tient dans cette fenêtre : de la fin du mouvement à la fin
-  // que l'étape aurait eue sans lui. Il ne déborde donc jamais.
-  const fenetre = Math.max(1, finDEtape - calme);
+  /* ★ L'ORAGE S'AJOUTE AU MOUVEMENT — il ne se glisse plus dedans.
+     Une première rédaction lui prenait sa place SUR le grossissement, pour que
+     sobre et scénique gardent la même durée. L'auteur a tranché : « je lève la
+     contrainte "la scénographie n'allonge jamais la démonstration" ; la vitesse
+     du grossissement était très bien, ne l'accélère pas. »
+     Le 666 se pose donc à son rythme, PUIS l'orage éclate, et le registre
+     scénique dure plus longtemps que le sobre. C'est le prix d'une chute, et il
+     est assumé (CONTRACTS §3.1). */
+  const fenetre = Math.max(1, d * 0.55);
 
   // 1. LA NUIT — d'abord, et vite : tout le reste se joue dessus. C'est le
   //    seul temps qui survit au mouvement réduit, parce que c'est un état.
