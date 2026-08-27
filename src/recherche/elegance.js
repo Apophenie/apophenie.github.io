@@ -461,6 +461,62 @@ export const BAREME = {
    */
   LETTRE_VERS_LETTRE: 40,
 
+  // ── ★ LA DOUBLE PEINE DES TRICHES — MESURÉE, ET CONSERVÉE DE JUSTESSE ──────
+  //
+  // > « Je ne suis pas sûr que les triches nécessitent une pénalité en plus de
+  // >  leur faible notoriété qui a déjà cet effet, comme les approches qui ne
+  // >  trichent pas vraiment mais qui sont très artificielles/inélégantes. »
+  // >  — l'auteur.
+  //
+  // Le doute est fondé, et il porte sur un fait exact : les quatre opérateurs
+  // tricheurs sont punis DEUX FOIS. Une première dans le score de conviction —
+  // notoriété basse, `adHoc` haut, donc un critère N et un critère A qui
+  // s'effondrent — et une seconde ici, par les quatre paliers ci-dessous.
+  //
+  // La question se tranche par la mesure, et par elle seule. Le banc porte donc
+  // un drapeau qui met les quatre paliers à zéro sans rien toucher d'autre :
+  // `node .planning/banc/classement.mjs --sans-triches`. Ce qui suit est ce
+  // qu'il rend, sur les dix-neuf saisies témoins, à deux moments différents.
+  //
+  // ⚠️ **AVANT que la quantité soit ramenée à 1 % dans le classement d'élégance**
+  // (`score.js › POIDS_DES_REGIMES`), la seconde peine était ce qui tenait la
+  // tête de liste. Sans elle, QUATRE têtes changeaient, et les quatre au profit
+  // d'une triche :
+  //
+  //   · `Éléonore à Nîmes` — `t1+mw+m10`, « le plus fréquent l'emporte », DEUX
+  //     séries, prenait la tête à une moisson honnête qui en aligne TROIS ;
+  //   · `https://www.example.com/path/to/page` — `f6+t1+mw+m10`, QUATRE séries,
+  //     prenait la tête à une moisson honnête qui en aligne CINQ ;
+  //   · `Le chat dort sur le tapis rouge` et `Emmanuel Macron` — `m16`, le
+  //     redécoupage que l'auteur nomme lui-même « tricher », prenait la tête.
+  //
+  //   Le compte des triches figurant dans les DEUX premières lignes passait de
+  //   cinq à huit, dont cinq en première ligne au lieu d'une.
+  //
+  // ⚠️ **APRÈS**, la mesure change du tout au tout, et c'est la découverte : la
+  // repondération de la quantité fait à elle seule le travail que la double
+  // peine faisait. Une triche gagne en produisant PLUS de motifs ; à 1 % de
+  // quantité, ce gain s'évapore. Résultat, `--sans-triches` ne déplace plus
+  // **AUCUNE tête de liste sur les dix-neuf saisies**, et les deux premières
+  // lignes restent vierges de toute triche dans les deux cas.
+  //
+  // ★ **Ce qui reste, et qui a suffi à la conserver.** La seconde peine continue
+  // de travailler au MILIEU de la liste, et l'exemple est net — sur
+  // `https://www.google.com` comme sur `Nombre de la bête`, la retirer fait
+  // ENTRER `f6+t1+mw+m10` dans les douze et en fait SORTIR `f6+t1+mw`. Ce sont
+  // les mêmes codes, à la triche près, et elles alignent le même compte : deux
+  // séries. La seule chose que `m10` ajoute est de jeter ce qui n'est pas
+  // majoritaire — et sans les paliers, ce geste-là est RÉCOMPENSÉ (crédit 1 452
+  // contre 1 011) au point d'évincer la voie qui ne jette rien. C'est
+  // exactement ce que le barème existe pour empêcher.
+  //
+  // ★ **L'arbitrage reste donc ouvert, et il est désormais bon marché.** Ce que
+  // la double peine coûte est une complication du barème ; ce qu'elle achète
+  // n'est plus une tête de liste mais deux ou trois rangs au milieu, sur deux
+  // saisies sur dix-neuf. Qui voudra la retirer n'aura plus à craindre pour la
+  // vitrine — seulement à accepter qu'une voie tricheuse passe devant son
+  // équivalente honnête, à compte égal, quelque part entre le 4ᵉ et le 7ᵉ rang.
+
   // ── ★ LES TROIS FICELLES, dans l'ordre de laideur de l'auteur.
   //
   // ★ **Unité : ce que la ficelle coûte PAR VALEUR ÉCARTÉE** (par chiffre
@@ -676,6 +732,137 @@ export const BAREME = {
    * élégance (`ordreElegance`), qui lit le crédit brut et non le facteur.
    */
   FACTEUR_PLANCHER: 520,
+};
+
+/**
+ * ══════════ ★ LE SIGNE ET LA FAMILLE DE CHAQUE POSTE — DÉCLARÉS, PAS DÉDUITS ══
+ *
+ * ★ **Pourquoi cette table existe.** Jusqu'ici, tous les postes de `BAREME`
+ * étaient des nombres POSITIFS, et le signe d'un palier ne se lisait nulle part
+ * dans sa déclaration : il n'apparaissait qu'à l'endroit où le poste était
+ * consommé, sous la forme d'un `-` devant la multiplication, au milieu de
+ * `detailDuCredit`. Autrement dit, la seule façon de savoir si
+ * `LETTRE_VERS_LETTRE: 40` récompense ou punit était de retrouver sa ligne
+ * d'usage et d'y regarder un caractère.
+ *
+ * C'est un défaut de LISIBILITÉ du barème, et c'en est un de PORTABILITÉ : rien
+ * de ce qui lit `BAREME` de l'extérieur — la page de récapitulation du barème,
+ * un banc de mesure, un test — ne peut distinguer un bonus d'un malus sans
+ * réimplémenter le calcul. Le signe est désormais DIT ici, une fois, et
+ * `detailDuCredit` ne fait plus que l'appliquer.
+ *
+ * ★ **Et la FAMILLE, tant qu'on y est — parce que le classement en a besoin.**
+ * L'auteur demande trois régimes de classement (voir `score.js › LES TROIS
+ * CLASSEMENTS`), dont deux repondèrent le crédit : la première place ramène à
+ * 1 % ce que la QUANTITÉ de motifs rapporte, la seconde ramène à 33 % ce que
+ * l'ÉLÉGANCE proprement dite pèse. Pour faire cela, il faut savoir, poste par
+ * poste, lequel des deux mérites il mesure. C'était jusqu'ici une connaissance
+ * implicite, répartie entre trois commentaires ; elle est ici, en clair.
+ *
+ * Trois familles, et trois seulement :
+ *
+ *  · `'socle'`    — le point de départ. Ni gagné ni perdu, jamais repondéré :
+ *                   repondérer le socle reviendrait à changer l'unité du crédit
+ *                   d'un régime à l'autre, et les trois classements ne seraient
+ *                   plus lisibles dans la même échelle.
+ *  · `'quantite'` — ce qui rapporte PARCE QU'ON A TROUVÉ LE MOTIF, une fois ou
+ *                   plusieurs. Trois postes, et trois seulement : le triptyque
+ *                   contigu, le triptyque répété du même vecteur, et les 6
+ *                   surnuméraires. Ce sont exactement les trois que l'auteur
+ *                   vise — « le fait de trouver 1 fois ou plusieurs fois le
+ *                   motif ne devrait pas apporter de bonus ».
+ *  · `'elegance'` — tout le reste : la manière. Ce qui se gagne à arriver tôt,
+ *                   à tomber juste, à n'additionner que des chiffres ; ce qui se
+ *                   perd à casser, à jeter, à arrondir, à effacer, à tricher.
+ *
+ * ⚠️ **`SOLDE_MULTIPLE_DE_TROIS` est de la famille `'elegance'`, et c'est un
+ * arbitrage qu'il faut assumer.** Il se déclenche au vu d'un COMPTE (le nombre
+ * de 6 est un multiple de la longueur de série), ce qui le fait ressembler à un
+ * poste de quantité. Il n'en mesure pourtant pas la quantité : il vaut 90
+ * qu'on ait un 666 ou quatre, et ce qu'il récompense est de ne RIEN LAISSER
+ * TRAÎNER — un solde qui tombe juste, pas un solde qui abonde. C'est la même
+ * chose que `COURONNEMENT_TOT` mesure dans le temps, mesurée dans le compte.
+ *
+ * ⚠️ **`CASSE_TRIPTYQUE` et `SIX_DETRUIT` sont eux aussi de la famille
+ * `'elegance'`**, bien qu'ils parlent de motifs. Ils ne comptent pas ce qu'on a
+ * trouvé, ils comptent ce qu'on a DÉFAIT — c'est un geste, pas une récolte.
+ * Les mettre en `'quantite'` reviendrait à les diviser par cent au moment
+ * précis où le classement prétend juger la manière.
+ *
+ * ★ Les trois `'reglage'` ne produisent aucune ligne de crédit : ce sont un
+ * plafond, un seuil et un plancher. Ils figurent ici pour que la table soit
+ * EXHAUSTIVE — un test le vérifie —, faute de quoi un poste ajouté demain
+ * pourrait n'être ni signé ni classé sans que rien ne le signale.
+ */
+export const NATURE = Object.freeze({
+  SOCLE: { sens: +1, famille: 'socle' },
+
+  // ── ce qui se gagne parce qu'on a TROUVÉ le motif
+  TRIPTYQUE_CONTIGU: { sens: +1, famille: 'quantite' },
+  TRIPTYQUE_REPETE: { sens: +1, famille: 'quantite' },
+  SIX_SURNUMERAIRE: { sens: +1, famille: 'quantite' },
+
+  // ── ce qui se gagne par la MANIÈRE
+  COURONNEMENT_TOT: { sens: +1, famille: 'elegance' },
+  SOLDE_MULTIPLE_DE_TROIS: { sens: +1, famille: 'elegance' },
+  ADDITION_CHIFFRES: { sens: +1, famille: 'elegance' },
+  ADDITION_NOMBRES: { sens: +1, famille: 'elegance' },
+
+  // ── ce qui se perd par la MANIÈRE
+  CASSE_TRIPTYQUE: { sens: -1, famille: 'elegance' },
+  SIX_DETRUIT: { sens: -1, famille: 'elegance' },
+  TRANSFORMATION: { sens: -1, famille: 'elegance' },
+  ADDITION_EN_CHAINE: { sens: -1, famille: 'elegance' },
+  VALEUR_JETEE: { sens: -1, famille: 'elegance' },
+  ARRONDI: { sens: -1, famille: 'elegance' },
+  MIN_MAX: { sens: -1, famille: 'elegance' },
+  LETTRE_VERS_LETTRE: { sens: -1, famille: 'elegance' },
+  EFFACE_ALNUM: { sens: -1, famille: 'elegance' },
+  EFFACE_BLOC: { sens: -1, famille: 'elegance' },
+  EFFACE_BLOC_COURT: { sens: -1, famille: 'elegance' },
+  EFFACE_PONCTUATION: { sens: -1, famille: 'elegance' },
+
+  // ── ce qui se perd par une TRICHE assumée
+  EFFACEMENT_SANS_MOTIF: { sens: -1, famille: 'elegance' },
+  MAJORITE: { sens: -1, famille: 'elegance' },
+  DECIMATION: { sens: -1, famille: 'elegance' },
+  ADDITION_SELECTIVE: { sens: -1, famille: 'elegance' },
+  REDECOUPAGE: { sens: -1, famille: 'elegance' },
+  REARRANGEMENT: { sens: -1, famille: 'elegance' },
+
+  // ── ni bonus ni malus : des bornes, qui ne produisent aucune ligne
+  SIX_SURNUMERAIRE_MAX: { sens: 0, famille: 'reglage' },
+  SOCLE_TRANSFORMATIONS: { sens: 0, famille: 'reglage' },
+  FACTEUR_PLANCHER: { sens: 0, famille: 'reglage' },
+});
+
+/**
+ * ★ LE POIDS PLEIN — le crédit tel qu'il a toujours été calculé.
+ *
+ * Les deux familles à 1 000 ‰ : c'est le régime du classement MIXTE (`score.js ›
+ * ordreTotal`), celui de la 3ᵉ ligne et des suivantes, et c'est aussi celui du
+ * facteur qui redescend sur le score de conviction. Un régime repondéré ne sert
+ * qu'à CLASSER ; il ne touche jamais au score.
+ */
+export const POIDS_PLEIN = Object.freeze({ quantite: 1000, elegance: 1000 });
+
+/**
+ * La repondération d'une ampleur de ligne, en pour-mille de son poids plein.
+ *
+ * ★ **Troncature VERS ZÉRO** (`Math.trunc`), et pas `Math.floor` : l'ampleur est
+ * toujours positive ici — le signe vient de `NATURE` —, donc les deux coïncident
+ * aujourd'hui. Le choix est écrit quand même, parce qu'il dit l'intention : un
+ * poids réduit ATTÉNUE, dans les deux sens ; il ne doit jamais rendre un malus
+ * plus lourd que son poids plein par un effet d'arrondi.
+ *
+ * Le socle n'est jamais repondéré (voir `NATURE`), et un poids de 1 000 ‰ sort
+ * sans passer par la division : le crédit plein reste bit à bit celui d'avant.
+ */
+const pondererAmpleur = (ampleur, famille, poids) => {
+  if (!poids || famille === 'socle' || famille === 'reglage') return ampleur;
+  const p = poids[famille];
+  if (p === undefined || p === 1000) return ampleur;
+  return Math.trunc((ampleur * p) / 1000);
 };
 
 /**
@@ -1561,10 +1748,26 @@ export function bilanApproche(approche, ctx = {}) {
  * l'autre qui explique — finissent toujours par diverger. Le banc de mesure
  * (`.planning/banc/elegance.mjs`) affiche ce tableau tel quel.
  *
- * @param {Object} b  un bilan de `bilanApproche`
- * @returns {Array<{poste:string, quantite:number, points:number}>}
+ * ★ **Chaque ligne porte désormais son SENS et sa FAMILLE**, lus dans `NATURE`
+ * et non plus écrits à la main dans le calcul. Une ligne se lit donc seule :
+ * « quel poste, combien de fois, bonus ou malus, quel mérite ». C'est ce qu'il
+ * faut à une page de débogage pour distinguer ce qui monte de ce qui descend
+ * sans réimplémenter le barème, et c'est ce qu'il faut aux régimes de classement
+ * pour repondérer une famille sans repondérer l'autre.
+ *
+ * ★ **L'AMPLEUR et les POINTS sont deux choses.** `ampleur` est la valeur
+ * absolue de ce que le poste pèse, `points` est ce qu'il ajoute au crédit —
+ * `sens × ampleur`, une fois la repondération faite. Séparer les deux évite
+ * l'ambiguïté d'un nombre négatif qu'on ne sait pas lire : −430, est-ce un malus
+ * de 430 ou un bonus de −430 ?
+ *
+ * @param {Object} b      un bilan de `bilanApproche`
+ * @param {Object} [poids] pondération par famille, en pour-mille — `POIDS_PLEIN`
+ *                         par défaut. Voir `score.js › POIDS_DES_REGIMES`.
+ * @returns {Array<{poste:string, cle:string, quantite:number, sens:number,
+ *                  famille:string, ampleur:number, points:number}>}
  */
-export function detailDuCredit(b) {
+export function detailDuCredit(b, poids) {
   const B = BAREME;
   const a = b.abandons || { alnum: 0, bloc: 0, blocCourt: 0, ponctuation: 0 };
   const LSERIE = b.longueurSerie || SERIE;
@@ -1572,46 +1775,59 @@ export function detailDuCredit(b) {
   const socle = B.SOCLE_TRANSFORMATIONS * Math.max(1, b.parts || 1);
   const enTrop = Math.max(0, b.transformations - socle);
   const lignes = [
-    ['socle', 1, B.SOCLE],
+    ['socle', 'SOCLE', 1, B.SOCLE],
     // ── ce qui se gagne
-    ['triptyque contigu', b.triptyquesContigus, B.TRIPTYQUE_CONTIGU * b.triptyquesContigus],
-    ['triptyque répété (même vecteur)', b.triptyquesRepetes || 0,
+    ['triptyque contigu', 'TRIPTYQUE_CONTIGU', b.triptyquesContigus,
+      B.TRIPTYQUE_CONTIGU * b.triptyquesContigus],
+    ['triptyque répété (même vecteur)', 'TRIPTYQUE_REPETE', b.triptyquesRepetes || 0,
       B.TRIPTYQUE_REPETE * (b.triptyquesRepetes || 0)],
-    [b.finirPar666 ? 'couronnement tôt (ou final)' : 'couronnement tôt',
+    [b.finirPar666 ? 'couronnement tôt (ou final)' : 'couronnement tôt', 'COURONNEMENT_TOT',
       b.couronnementTot, fraction(B.COURONNEMENT_TOT, [b.couronnementTot, 1000])],
-    ['6 surnuméraires', surplus, B.SIX_SURNUMERAIRE * surplus],
-    ['solde multiple de 3', b.six > 0 && b.six % LSERIE === 0 ? 1 : 0,
+    ['6 surnuméraires', 'SIX_SURNUMERAIRE', surplus, B.SIX_SURNUMERAIRE * surplus],
+    ['solde multiple de 3', 'SOLDE_MULTIPLE_DE_TROIS', b.six > 0 && b.six % LSERIE === 0 ? 1 : 0,
       b.six > 0 && b.six % LSERIE === 0 ? B.SOLDE_MULTIPLE_DE_TROIS : 0],
-    ['additions de chiffres', b.additionsChiffres, B.ADDITION_CHIFFRES * b.additionsChiffres],
-    ['additions de nombres', b.additionsNombres, B.ADDITION_NOMBRES * b.additionsNombres],
+    ['additions de chiffres', 'ADDITION_CHIFFRES', b.additionsChiffres,
+      B.ADDITION_CHIFFRES * b.additionsChiffres],
+    ['additions de nombres', 'ADDITION_NOMBRES', b.additionsNombres,
+      B.ADDITION_NOMBRES * b.additionsNombres],
     // ── ce qui se perd
-    ['★ triptyque cassé', b.casses, -B.CASSE_TRIPTYQUE * b.casses],
-    ['6 converti en autre chose', b.sixDetruits, -B.SIX_DETRUIT * b.sixDetruits],
-    ['transformations en trop', enTrop, -B.TRANSFORMATION * enTrop],
-    ['additions en chaîne', b.additionsEnChaine, -B.ADDITION_EN_CHAINE * b.additionsEnChaine],
-    ['valeurs calculées puis jetées', b.valeursJetees, -B.VALEUR_JETEE * b.valeursJetees],
-    ['arrondi de moyenne', b.arrondi, -fraction(B.ARRONDI, [b.arrondi, 1000])],
-    ['min / max', b.minMax, -B.MIN_MAX * b.minMax],
-    ['lettre → lettre', b.lettreVersLettre, -B.LETTRE_VERS_LETTRE * b.lettreVersLettre],
-    ['lettre ou chiffre arraché', a.alnum, -B.EFFACE_ALNUM * a.alnum],
-    ['bloc entier écarté', a.bloc, -B.EFFACE_BLOC * a.bloc],
-    ['bloc entier court écarté', a.blocCourt, -B.EFFACE_BLOC_COURT * a.blocCourt],
-    ['ponctuation ignorée', a.ponctuation, -B.EFFACE_PONCTUATION * a.ponctuation],
+    ['★ triptyque cassé', 'CASSE_TRIPTYQUE', b.casses, B.CASSE_TRIPTYQUE * b.casses],
+    ['6 converti en autre chose', 'SIX_DETRUIT', b.sixDetruits, B.SIX_DETRUIT * b.sixDetruits],
+    ['transformations en trop', 'TRANSFORMATION', enTrop, B.TRANSFORMATION * enTrop],
+    ['additions en chaîne', 'ADDITION_EN_CHAINE', b.additionsEnChaine,
+      B.ADDITION_EN_CHAINE * b.additionsEnChaine],
+    ['valeurs calculées puis jetées', 'VALEUR_JETEE', b.valeursJetees,
+      B.VALEUR_JETEE * b.valeursJetees],
+    ['arrondi de moyenne', 'ARRONDI', b.arrondi, fraction(B.ARRONDI, [b.arrondi, 1000])],
+    ['min / max', 'MIN_MAX', b.minMax, B.MIN_MAX * b.minMax],
+    ['lettre → lettre', 'LETTRE_VERS_LETTRE', b.lettreVersLettre,
+      B.LETTRE_VERS_LETTRE * b.lettreVersLettre],
+    ['lettre ou chiffre arraché', 'EFFACE_ALNUM', a.alnum, B.EFFACE_ALNUM * a.alnum],
+    ['bloc entier écarté', 'EFFACE_BLOC', a.bloc, B.EFFACE_BLOC * a.bloc],
+    ['bloc entier court écarté', 'EFFACE_BLOC_COURT', a.blocCourt,
+      B.EFFACE_BLOC_COURT * a.blocCourt],
+    ['ponctuation ignorée', 'EFFACE_PONCTUATION', a.ponctuation,
+      B.EFFACE_PONCTUATION * a.ponctuation],
     // ── ★ les ficelles assumées, au tarif qui remplace `VALEUR_JETEE`
-    ['★ effacement sans motif', b.effacementSansMotif || 0,
-      -B.EFFACEMENT_SANS_MOTIF * (b.effacementSansMotif || 0)],
-    ['le plus fréquent l’emporte', b.majorite, -B.MAJORITE * b.majorite],
+    ['★ effacement sans motif', 'EFFACEMENT_SANS_MOTIF', b.effacementSansMotif || 0,
+      B.EFFACEMENT_SANS_MOTIF * (b.effacementSansMotif || 0)],
+    ['le plus fréquent l’emporte', 'MAJORITE', b.majorite, B.MAJORITE * b.majorite],
     // ★ Ces deux-là sont comptés en MILLIÈMES d'un chiffre absorbé — leur peine
     //   est diluée par le nombre d'additions qui se suivent (`dilution`), et
     //   elle ne descend jamais à zéro tant que le compteur bouge (`peine`).
-    ['redécoupage choisi (millièmes)', b.redecoupage || 0,
-      -peine(B.REDECOUPAGE, b.redecoupage || 0)],
-    ['un rang sur deux', b.decimation, -B.DECIMATION * b.decimation],
-    ['addition sélective (millièmes)', b.additionSelective,
-      -peine(B.ADDITION_SELECTIVE, b.additionSelective)],
-    ['réarrangement', b.rearrangement || 0, -B.REARRANGEMENT * (b.rearrangement || 0)],
+    ['redécoupage choisi (millièmes)', 'REDECOUPAGE', b.redecoupage || 0,
+      peine(B.REDECOUPAGE, b.redecoupage || 0)],
+    ['un rang sur deux', 'DECIMATION', b.decimation, B.DECIMATION * b.decimation],
+    ['addition sélective (millièmes)', 'ADDITION_SELECTIVE', b.additionSelective,
+      peine(B.ADDITION_SELECTIVE, b.additionSelective)],
+    ['réarrangement', 'REARRANGEMENT', b.rearrangement || 0,
+      B.REARRANGEMENT * (b.rearrangement || 0)],
   ];
-  return lignes.map(([poste, quantite, points]) => ({ poste, quantite, points }));
+  return lignes.map(([poste, cle, quantite, brut]) => {
+    const { sens, famille } = NATURE[cle];
+    const ampleur = pondererAmpleur(brut, famille, poids);
+    return { poste, cle, quantite, sens, famille, ampleur, points: sens * ampleur };
+  });
 }
 
 /**
@@ -1619,12 +1835,17 @@ export function detailDuCredit(b) {
  * (c'est ce qui fait le classement par élégance) et peut descendre sous zéro
  * (c'est ce que le plancher du facteur rattrape).
  *
- * @param {Object} b  un bilan de `bilanApproche`
+ * ★ `poids` repondère une famille sans toucher à l'autre — c'est ce que les
+ * trois régimes de classement demandent (`score.js › POIDS_DES_REGIMES`). Sans
+ * argument, c'est le poids plein : le crédit d'avant, à la milli-unité près.
+ *
+ * @param {Object} b       un bilan de `bilanApproche`
+ * @param {Object} [poids] pondération par famille, en pour-mille
  * @returns {number} entier, non borné
  */
-export function credit(b) {
+export function credit(b, poids) {
   let c = 0;
-  for (const ligne of detailDuCredit(b)) c += ligne.points;
+  for (const ligne of detailDuCredit(b, poids)) c += ligne.points;
   return c;
 }
 

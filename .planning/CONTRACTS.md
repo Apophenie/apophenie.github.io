@@ -2601,6 +2601,46 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
    **redéduits de la géométrie** par `deduireMode` — jamais transportés par l'URL —,
    donc un lien rejoué retrouve exactement sa place. Voir §5, amendement « la
    `MOISSON` et les trois rangs ».)
+
+   > *Amendement — LES TROIS CLASSEMENTS LISENT TROIS CRÉDITS, et le compte a le
+   > droit de remonter d'une ligne.*
+   >
+   > Les trois comparateurs comparaient tous le MÊME crédit d'élégance, et ce
+   > crédit paie la quantité — 260 milli-unités par 666 contigu, 90 par 666
+   > répété, 22 par 6 surnuméraire. « Le champion de l'élégance » désignait donc
+   > pour une bonne part le champion du COMPTE, et la 1ʳᵉ ligne ne répondait pas
+   > à la question qu'elle annonce. L'auteur a tranché :
+   >
+   > > « Si l'élégance prime, alors le fait de trouver 1 fois ou plusieurs fois
+   > >  le motif ne devrait pas apporter de bonus (ou infime : 1 % du poids
+   > >  habituel) […]. Pour le 2ⁿᵈ résultat, c'est la quantité qui prévaut,
+   > >  l'élégance n'est pas négligeable, mais elle pèse 33 % de son poids
+   > >  habituel. À partir du 3ᵉ résultat l'hybride actuel me semble bien. »
+   >
+   > Chaque poste du barème déclare désormais sa FAMILLE — quantité ou élégance —
+   > en même temps que son SIGNE (`elegance.js › NATURE`), et chaque régime
+   > repondère une famille sans toucher à l'autre
+   > (`score.js › POIDS_DES_REGIMES`). Le socle n'est jamais repondéré, et le
+   > FACTEUR qui redescend sur le score de conviction continue de lire le crédit
+   > PLEIN : un régime ne sert qu'à classer, jamais à noter.
+   >
+   > ⚠️ **Conséquence normative : le nombre de séries PEUT remonter entre la 1ʳᵉ
+   > et la 2ᵈ ligne**, et c'est ce qui met la 2ᵈ là. L'invariant « le compte ne
+   > remonte jamais » ne vaut donc plus qu'à partir de la première ligne du
+   > mixte ; il n'a pas été affaibli ailleurs. ⚠️ **Et les quatre cas de
+   > référence de l'auteur ont changé de LIGNE, pas de contenu** : la voie qu'il
+   > a nommée sur `hope-hope-hope.fr`, sur `https://hope-hope-hope.fr/` et sur
+   > `Donald Trump` occupe la 2ᵈ ligne — celle de la quantité, qui est la
+   > question à laquelle elle répond ; `Macron` garde la 1ʳᵉ.
+   >
+   > ⚠️ MESURÉ au banc sur les dix-neuf saisies témoins : douze têtes de liste
+   > changent, la 2ᵈ place passe de 4 à 13 attributions, et **aucune des six
+   > places restées vides ne l'est par timidité** — sur cinq d'entre elles la
+   > recherche ne trouve aucune voie à plus d'une série, sur la sixième
+   > (`reinfocovid`) le champion de l'élégance est déjà le plus fourni. La règle
+   > ne rend donc pas le créneau vide impossible ; elle le rend rare et
+   > explicable.
+
 2. **Score entier**, en milli-unités. Deux flottants à 10⁻¹⁶ près qui s'inversent
    suffisent à permuter deux lignes.
 3. **Ordre d'itération maîtrisé** : toujours parcourir le catalogue par codes croissants.

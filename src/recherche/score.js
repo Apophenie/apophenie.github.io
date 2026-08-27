@@ -652,6 +652,17 @@ export function noter(approche, ctx) {
   // avec, pour que le banc de mesure puisse dire POURQUOI une approche perd —
   // un barème qu'on ne peut pas déboguer ne se règle pas.
   approche.elegance = noteDElegance(creditG);
+  // ★ Les DEUX AUTRES LECTURES du même bilan — celles des deux premières places
+  //   de la liste (voir `POIDS_DES_REGIMES`). Elles sont calculées ICI, une fois
+  //   par approche, et non dans les comparateurs : `diversifier` compare toutes
+  //   les paires (MMR, §4.8), et un crédit recalculé à chaque comparaison
+  //   coûterait un facteur n² sur un barème qui parcourt vingt-six postes.
+  //   Même raison que la mémoïsation des signatures de méthode, plus haut.
+  approche.elegances = {
+    mixte: approche.elegance,
+    elegance: noteDElegance(creditDElegance(bilan, POIDS_DES_REGIMES.elegance)),
+    triptyques: noteDElegance(creditDElegance(bilan, POIDS_DES_REGIMES.triptyques)),
+  };
   approche.bilan = bilan;
   approche.pur = estPur(bilan);
   approche.criteres = {
@@ -874,6 +885,82 @@ export function ordreTotal(a, b) {
 }
 
 /**
+ * ══════════ ★ LES TROIS RÉGIMES DE PONDÉRATION — « ce n'est pas un tri unique,
+ *                et ce n'est pas non plus un crédit unique » ═══════════════════
+ *
+ * L'auteur constate une incohérence de fond, et il a raison :
+ *
+ * > « Lors de l'affichage dans la page d'énumération des voies, le premier
+ * >  résultat où l'élégance prime […] si l'élégance prime, alors le fait de
+ * >  trouver 1 fois ou plusieurs fois le motif ne devrait pas apporter de bonus
+ * >  (ou infime : 1 % du poids habituel), c'est vraiment l'élégance qui prévaut
+ * >  (dès lors que le motif est trouvé au moins une fois).
+ * >  Pour le 2ⁿᵈ résultat, c'est la quantité qui prévaut, l'élégance n'est pas
+ * >  négligeable, mais elle pèse 33 % de son poids habituel.
+ * >  À partir du 3ᵉ résultat l'hybride actuel me semble bien. »
+ *
+ * ★ **Le défaut, précisément.** `ordreElegance` compare bien le crédit
+ * d'élégance AVANT tout le reste — mais le crédit lui-même paie la QUANTITÉ :
+ * `TRIPTYQUE_CONTIGU` (260 par 666 contigu), `TRIPTYQUE_REPETE` (90 par 666
+ * suivant du même vecteur) et `SIX_SURNUMERAIRE` (22 par 6 en trop) sont autant
+ * de milli-unités qu'une voie encaisse pour avoir trouvé le motif SOUVENT, pas
+ * pour l'avoir trouvé BIEN. Une voie qui aligne quatre 666 part donc avec
+ * jusqu'à 1 000 milli-unités d'avance sur une voie qui n'en aligne qu'un — et
+ * la « première place de l'élégance » se décidait en bonne partie au compte.
+ * C'est exactement ce que l'auteur décrit : « une voie plus élégante se fait
+ * doubler par une voie qui trouve le motif plus souvent ».
+ *
+ * ★ **Le remède : repondérer le CRÉDIT, pas réordonner les CRANS.** Le crédit
+ * sait désormais dire, poste par poste, s'il mesure la quantité ou la manière
+ * (`elegance.js › NATURE`). Chaque régime en demande donc sa propre lecture :
+ *
+ *  · `elegance`   — quantité à **1 %**, élégance à 100 %. C'est le « ou infime :
+ *                   1 % du poids habituel » de l'auteur, pris au mot. Le motif
+ *                   trouvé quatre fois rapporte encore 10 milli-unités là où il
+ *                   en rapportait 1 040 : de quoi départager deux voies
+ *                   par ailleurs identiques, jamais de quoi en renverser une.
+ *  · `triptyques` — quantité à 100 %, élégance à **33 %**. « L'élégance n'est
+ *                   pas négligeable, mais elle pèse 33 % de son poids
+ *                   habituel » : elle continue de trancher entre deux voies au
+ *                   même compte, avec le tiers de sa force.
+ *  · le mixte     — les deux à 100 %, c'est-à-dire le crédit tel quel. « À
+ *                   partir du 3ᵉ résultat l'hybride actuel me semble bien. »
+ *
+ * ★ **« Dès lors que le motif est trouvé au moins une fois » est une condition
+ * STRUCTURELLE, pas un `if`.** Une approche qui n'atteint pas la cible n'entre
+ * pas dans la liste : `assembler` ne la fabrique pas, et `series` vaut au
+ * minimum 1 partout (`rangConviction` le lit d'ailleurs avec `|| 1`). Écrire
+ * ici une branche « si le motif n'est pas trouvé, poids plein » serait du code
+ * mort qu'aucune mesure ne pourrait jamais atteindre. La condition est donc
+ * dite, et non codée.
+ *
+ * ★ **Ce que les régimes ne touchent PAS : le score de conviction.** Le facteur
+ * `facteurDElegance` continue de lire le crédit PLEIN — c'est lui qui redescend
+ * sur le score, et le score doit rester le même quel que soit le cran où la
+ * ligne finit par s'afficher. Un régime ne sert qu'à CLASSER.
+ */
+export const POIDS_DES_REGIMES = Object.freeze({
+  /** 1ʳᵉ place — l'élégance prime ; la quantité ne pèse que 1 % (10 ‰ de 1 000). */
+  elegance: Object.freeze({ quantite: 10, elegance: 1000 }),
+  /** 2ᵈ place — la quantité prime ; l'élégance pèse 33 % (330 ‰ de 1 000). */
+  triptyques: Object.freeze({ quantite: 1000, elegance: 330 }),
+});
+
+/**
+ * La note d'élégance à lire pour un régime donné.
+ *
+ * Le repli sur `a.elegance` n'est pas de la prudence gratuite : `ordreElegance`
+ * et `ordreTriptyques` sont exportés, et des tests les appellent sur des
+ * approches montées à la main. Une approche sans régimes se compare alors comme
+ * avant, ce qui est le comportement le moins surprenant.
+ */
+const eleganceSelon = (a, regime) => {
+  const r = a && a.elegances;
+  const v = r && r[regime];
+  return v === undefined || v === null ? ((a && a.elegance) ?? 0) : v;
+};
+
+/**
  * ══════════════ ★ LES TROIS CLASSEMENTS — « ce n'est pas un tri unique » ══════
  *
  * « 1ʳᵉ suggestion — l'élégance. Mieux vaut une méthode élégante qui donne pile
@@ -960,11 +1047,22 @@ export function ordreElegance(a, b) {
   const ra = rangConviction(a) === RANG.CONVERGENCE ? 1 : 0;
   const rb = rangConviction(b) === RANG.CONVERGENCE ? 1 : 0;
   if (ra !== rb) return ra - rb;
-  const ea = a.elegance ?? 0;
-  const eb = b.elegance ?? 0;
+  // ★ Le crédit lu au régime de la PREMIÈRE PLACE : la quantité y pèse 1 % de
+  //   son poids habituel (`POIDS_DES_REGIMES.elegance`). Sans cette lecture-là,
+  //   « le champion de l'élégance » désignait pour une bonne part le champion du
+  //   COMPTE, puisque le crédit paie chaque 666 contigu 260 milli-unités.
+  const ea = eleganceSelon(a, 'elegance');
+  const eb = eleganceSelon(b, 'elegance');
   if (ea !== eb) return eb - ea;
   const sa = a.series || 1;
   const sb = b.series || 1;
+  // ★ Le compte reste un cran, et il ne l'est plus que d'une façon INFIME — au
+  //   sens exact du mot chez l'auteur : il ne départage plus que deux voies dont
+  //   les crédits repondérés tombent à la milli-unité près. Il ne peut donc plus
+  //   renverser une différence d'élégance, si petite soit-elle. Le supprimer
+  //   tout à fait rendrait la comparaison muette là où elle a déjà été mesurée
+  //   utile — sur `https://hope-hope-hope.fr/`, deux moissons de crédit
+  //   rigoureusement égal, l'une à six séries, l'autre à cinq.
   if (sa !== sb) return sb - sa;
   // À crédit et à compte égaux, la stratégie sans reproche passe devant : c'est
   // le dernier endroit où la phrase de l'auteur peut encore trancher, et elle y
@@ -993,8 +1091,20 @@ export function ordreTriptyques(a, b) {
   const sa = a.series || 1;
   const sb = b.series || 1;
   if (sa !== sb) return sb - sa;
-  const ea = a.elegance ?? 0;
-  const eb = b.elegance ?? 0;
+  // ★ Le crédit lu au régime de la SECONDE PLACE : l'élégance y pèse 33 % de
+  //   son poids habituel (`POIDS_DES_REGIMES.triptyques`), la quantité reste au
+  //   plein tarif. Concrètement, deux effets, et les deux sont voulus :
+  //    · les écarts d'élégance se resserrent au tiers, donc l'élégance tranche
+  //      moins souvent et le SCORE de conviction décide plus souvent — « elle
+  //      n'est pas négligeable », pas « elle décide » ;
+  //    · les malus de manière se resserrent au tiers eux aussi. C'est la
+  //      contrepartie assumée du « au prix d'une élégance éventuellement
+  //      moindre » : cette place-là accepte de payer en manière ce qu'elle
+  //      gagne en compte. Ce qu'elle n'accepte pas, ce sont les FICELLES, et
+  //      c'est `index.js › selectionner` qui les en écarte — au vu des
+  //      compteurs, pas du crédit, donc sans que la repondération y puisse rien.
+  const ea = eleganceSelon(a, 'triptyques');
+  const eb = eleganceSelon(b, 'triptyques');
   if (ea !== eb) return eb - ea;
   if (a.score !== b.score) return b.score - a.score;
   if (a.L !== b.L) return a.L - b.L;
