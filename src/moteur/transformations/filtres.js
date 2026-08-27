@@ -515,7 +515,7 @@ const brut = [
     libelle: bilingue('On applique l’Atbash', 'Apply the Atbash cipher'),
     regle: bilingue('A devient Z, B devient Y… le miroir de l’alphabet',
       'A becomes Z, B becomes Y… the alphabet held up to a mirror'),
-    notoriete: 0.30, adHoc: 0.2,
+    notoriete: 0.25, adHoc: 0.2,
     apply: (valeur, traces) => muer(valeur, traces, atbash),
     remplace: true,
     // ★ La règle EST une symétrie : elle se montre par deux alphabets alignés,

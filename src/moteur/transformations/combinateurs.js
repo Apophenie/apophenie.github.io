@@ -477,7 +477,7 @@ const denombrements = [
     symbole: '#',
     libelle: bilingue('On compte les jetons', 'Count the tokens'),
     regle: bilingue('Combien de morceaux', 'How many pieces there are'),
-    notoriete: 0.85,
+    notoriete: 0.4,
     calcul: (toks) => toks.length,
     geste: 'comptage',
   },

@@ -1157,7 +1157,7 @@ const MESURES = [
     id: 'n.longueur', code: 'n1',
     libelle: bilingue('On compte les lettres', 'Count the letters'),
     regle: bilingue('Le nombre de lettres du mot', 'How many letters the word has'),
-    notoriete: 1.00,
+    notoriete: 0.60,
     compte: (s) => lettres(s).length || null,
     cibles: rangsLettres,
   },
@@ -1217,7 +1217,7 @@ const MESURES = [
     id: 'n.lettresPlusVoyelles', code: 'n7',
     libelle: bilingue('Les lettres, plus les voyelles', 'The letters, plus the vowels'),
     regle: bilingue('Nombre de lettres + nombre de voyelles', 'Letter count + vowel count'),
-    notoriete: 0.60, adHoc: 0.1,
+    notoriete: 0.40, adHoc: 0.1,
     compte: (s) => {
       const l = lettres(s);
       return l.length ? l.length + l.filter(estVoyelle).length : null;
@@ -1230,7 +1230,7 @@ const MESURES = [
     id: 'n.lettresPlusConsonnes', code: 'n8',
     libelle: bilingue('Les lettres, plus les consonnes', 'The letters, plus the consonants'),
     regle: bilingue('Nombre de lettres + nombre de consonnes', 'Letter count + consonant count'),
-    notoriete: 0.60, adHoc: 0.1,
+    notoriete: 0.40, adHoc: 0.1,
     note: bilingue(
       'Cousine de la précédente : sur un mot dont voyelles et consonnes '
       + 's’équilibrent, les deux tombent juste en même temps.',
@@ -1253,7 +1253,7 @@ const MAPPEURS_LETTRE = [
     libelle: bilingue('Chaque lettre vaut son rang dans l’alphabet',
       'Each letter is worth its alphabetical rank'),
     regle: bilingue('A=1, B=2, … Z=26', 'A=1, B=2, … Z=26'),
-    notoriete: 1.00,
+    notoriete: 0.90,
     geste: 'table', forme: 'reglette', ordre: 'a1z26',
     fn: (c) => valeurTable(A1Z26, pli(c)),
   },
@@ -1898,7 +1898,7 @@ const AUTRES_MAPPEURS = [
     // il ne choisit pas où s'arrêter : la contiguïté désigne un seul endroit
     // possible. On pénalise donc, moitié moins que la pirouette, sans exclure
     // (heuristique §4.5).
-    notoriete: 0.80, adHoc: 0.20,
+    notoriete: 0.30, adHoc: 0.20,
     note: bilingue(
       'Contigus, vraiment. Trois 6 éparpillés dans le vecteur ne font pas un 666, ils font trois 6.',
       'Adjacent, truly. Three 6s scattered through the vector are not a 666, they are three 6s.',
