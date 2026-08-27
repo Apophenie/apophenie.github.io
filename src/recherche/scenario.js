@@ -1034,7 +1034,22 @@ export function suivreLaLigne(tokens, steps) {
           if (Array.isArray(o.order)) {
             const voulus = o.order.filter((id) => ligne.includes(id));
             if (voulus.length !== o.order.length) { perdu = true; break; }
-            ligne = [...voulus, ...ligne.filter((id) => !voulus.includes(id))];
+            // ★ RÉARRANGEMENT SUR PLACE — voir `visuel/primitives/move.js`, qui
+            //   dit la même chose et pour la même raison. Les jetons rangés
+            //   reprennent les places qu'ils occupaient déjà ; ils ne remontent
+            //   PAS en tête du flux.
+            //
+            //   ⚠️ C'est le second exemplaire de la même sémantique, et c'est ce
+            //   test d'intégration qui existe pour les tenir d'accord : corriger
+            //   la primitive sans corriger ce modèle a fait rougir « ligne après
+            //   l'étape 35 » sur `https://www.example.com/path/to/page`, où le
+            //   septième fragment se range. Les deux se lisent l'un l'autre.
+            const aRanger = new Set(voulus);
+            const places = [];
+            ligne.forEach((id, k) => { if (aRanger.has(id)) places.push(k); });
+            const suite = ligne.slice();
+            voulus.forEach((id, k) => { suite[places[k]] = id; });
+            ligne = suite;
           } else if (o.targets !== undefined) {
             const cibles = ids(o.targets);
             if (!cibles) { perdu = true; break; }
