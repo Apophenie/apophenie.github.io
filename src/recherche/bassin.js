@@ -20,6 +20,23 @@
 import { appliquerOp, etat, normaliserCatalogue } from './bfs.js';
 import { comparerCodes } from './score.js';
 
+/** Notoriété cumulée d'une suite d'opérateurs, en millièmes entiers. */
+function notoriete(ops) {
+  let t = 0;
+  for (const op of ops) t += Math.round((op.notoriete ?? 0) * 1000);
+  return t;
+}
+
+/**
+ * Ordre entre deux routes de secours : la plus courte, puis la plus notoire,
+ * puis l'ordre des codes. Négatif si `a` doit l'emporter.
+ */
+function comparerRoutes(a, b) {
+  return (a.dist - b.dist)
+    || (notoriete(b.ops) - notoriete(a.ops))
+    || comparerCodes(a.codes, b.codes);
+}
+
 export const PLAGE_BASSIN = { min: -2000, max: 2000 };
 // « + 2 niveaux gratuits » (CONTRACTS.md §5) : le bassin ne remonte pas au-delà
 // de 2 opérateurs. Au-delà, ce ne sont plus des raccourcis mais des acrobaties,
@@ -31,9 +48,23 @@ export const DISTANCE_MAX = 2;
  */
 
 /**
- * Précalcul statique. Déterministe : les opérateurs sont parcourus dans l'ordre
- * du catalogue (= codes croissants) et, à distance égale, la suite de codes
- * lexicographiquement la plus petite gagne.
+ * ★ À DISTANCE ÉGALE, C'EST LA NOTORIÉTÉ QUI TRANCHE — pas l'orthographe du code.
+ *
+ * Le bassin ne retient qu'UNE route de secours par entier. Elle départageait
+ * jadis les ex æquo sur la suite de codes la plus petite, ce qui revenait à
+ * laisser l'alphabet arbitrer une question de fond : `p.racineNumerique` (0,85)
+ * et `p.modulo9` (0,4) ramènent tous deux 15 sur 6 en un pas, et seule leur
+ * épellation les séparait. Tant que les codes s'appelaient `p1` et `p8`, la
+ * réduction numérique — la plus notoire — l'emportait par chance ; renommés
+ * `prn` et `pm9`, la chance a tourné et `hope-hope-hope.fr` a perdu sa plus
+ * belle résonance (élégance 1 359 → 1 164) sans qu'aucune règle n'ait changé.
+ *
+ * On fait donc dire à ce choix ce qu'il prétendait dire : la route la plus
+ * courte d'abord, la plus notoire ensuite, et l'ordre des codes en tout dernier
+ * — là, uniquement pour que deux exécutions donnent le même résultat.
+ *
+ * La notoriété est comparée en millièmes entiers : les flottants du catalogue
+ * ne servent qu'à écrire la table, jamais à décider (CONTRACTS.md §4.4).
  *
  * @param {Object} catalogue
  * @param {{min:number,max:number}} [plage]
@@ -67,19 +98,11 @@ export function construireBassin(catalogue, plage = PLAGE_BASSIN, but = 6) {
           codes: [op.code].concat(suite.codes),
         };
         if (candidat.dist > DISTANCE_MAX) continue;
-        if (!meilleur
-          || candidat.dist < meilleur.dist
-          || (candidat.dist === meilleur.dist && comparerCodes(candidat.codes, meilleur.codes) < 0)) {
-          meilleur = candidat;
-        }
+        if (!meilleur || comparerRoutes(candidat, meilleur) < 0) meilleur = candidat;
       }
-      if (meilleur && meilleur !== courant) {
-        const avant = courant ? courant.codes.join('+') : null;
-        if (avant === null || meilleur.dist < courant.dist
-          || comparerCodes(meilleur.codes, courant.codes) < 0) {
-          bassin.set(n, meilleur);
-          change = true;
-        }
+      if (meilleur && meilleur !== courant && (!courant || comparerRoutes(meilleur, courant) < 0)) {
+        bassin.set(n, meilleur);
+        change = true;
       }
     }
   }

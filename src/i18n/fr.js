@@ -106,7 +106,7 @@ export const fr = {
         // chaque « hope » en quatorze segments, les deux tirets par la touche
         // du 6 de l'AZERTY, et « fr » en sept segments (4+2). Quinze 6, cinq
         // séries, pas un caractère compté deux fois — et rien à jeter.
-        hash: '#0.1:t1+mw,1.1:t1+mv+c1,2.1:t1+mw,3.1:t1+mv+c1,4.1:t1+mw,6.1:t1+md+c1#yvQYkzhNVYJT8wM8jhvJxSM',
+        hash: '#0.1:tca+m14,1.1:tca+mtc+cs,2.1:tca+m14,3.1:tca+mtc+cs,4.1:tca+m14,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
         aide: 'Voir la démonstration pour « hope-hope-hope.fr »',
       },
       'Donald Trump',
@@ -115,7 +115,7 @@ export const fr = {
         // Trois morceaux d'URL, trois règles différentes, trois 6 : la
         // chaldéenne sur « https » (5+4+4+8+3 = 24 → 6), les consonnes de
         // « reinfocovid » comptées (6), et « fr » en sept segments (4+2).
-        hash: '#0.1:t1+m4+c1+p1,3.1:f9+n1,5.1:t1+md+c1#3A8evQZovd7BUyRUF65ToBwrHvW25EUn',
+        hash: '#0.1:tca+mch+cs+prn,3.1:fc+nl,5.1:tca+m7+cs#3A8evQZovd7BUyRUF65ToBwrHvW25EUn',
         aide: 'Voir la démonstration pour « https://reinfocovid.fr/ »',
       },
       'Capitalisme',
@@ -183,9 +183,9 @@ export const fr = {
       titre: 'Assembler vos propres arcanes',
       grammaire: '#{programme}#{saisie en base58}',
       grammaireTexte: '« + » entre les opérations, « , » entre les fragments.',
-      resonance: '#×3:m1+c1+p1#…',
+      resonance: '#×3:ma1+cs+prn#…',
       resonanceTexte: 'résonance : le même programme sur les trois occurrences d’un motif répété.',
-      portee: '#0.1:m1+c1,1.1:n2#…',
+      portee: '#0.1:ma1+cs,1.1:nv#…',
       porteeTexte: 'portée : offset et longueur en jetons de la saisie.',
       registre: '#so!…#…  ·  #sce!…#…',
       registreTexte: 'registre de mise en scène, en tête de l’approche. Absent, il vaut « sobre » : le spectacle se demande.',

@@ -124,7 +124,7 @@ vocabulaire fermé §3.1, ou l'extension d'une existante), et le **revolver** du
   leur émission et leur test. Elles sont l'emblème d'une cible parmi d'autres,
   pas un cas particulier à refondre.
 - ⚠️ L'**émission** des cornes — `reglerLesCornes` dans
-  `src/recherche/scenario.js` et l'opérateur `mz` — décide QUAND un décor
+  `src/recherche/scenario.js` et l'opérateur `m36` — décide QUAND un décor
   apparaît au fil de la démonstration. C'est un sujet distinct de « QUEL décor
   pour QUELLE cible », et il était en cours de refonte par un autre agent au
   moment où ce document a été écrit.

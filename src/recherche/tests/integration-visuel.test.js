@@ -15,6 +15,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { creerMoteur } from '../index.js';
 import { suivreLaLigne } from '../scenario.js';
+import { lire as lireUrl } from '../url.js';
+import { encoderTexte } from '../base58.js';
 import { catalogue } from './_catalogue.js';
 import { PAR_CODE, appliquer } from '../../moteur/catalogue.js';
 import { depuisSaisie, nums } from '../../moteur/etat.js';
@@ -140,8 +142,8 @@ test('★ intégration — la figure du Registre traverse le compilateur intacte
     // vérifie le passage de la FIGURE par le compilateur ; il n'a jamais eu à
     // dire sur quelle saisie une méthode donnée devait être proposée.
     const r = m.resoudre('https://hope-hope-hope.fr/');
-    const a = r.approches.find((x) => x.codes && x.codes.includes('me'))
-      || r.approches.find((x) => x.codes && x.codes.includes('md'));
+    const a = r.approches.find((x) => x.codes && x.codes.includes('m7F'))
+      || r.approches.find((x) => x.codes && x.codes.includes('m7'));
     assert.ok(a, 'aucune approche sept segments dans les résultats de « hope-hope-hope »');
     const sc = m.scenarioDe(a, { saisie: r.saisie });
     const avecFigure = sc.steps.filter((st) => st.figure);
@@ -207,7 +209,7 @@ test('★ intégration — la figure quatorze segments traverse elle aussi le co
   { skip: compile ? false : 'src/visuel/ absent' }, () => {
     const m = creerMoteur(catalogue);
     const r = m.resoudre('hope');
-    const a = r.approches.find((x) => x.codes && (x.codes.includes('mw') || x.codes.includes('mx')));
+    const a = r.approches.find((x) => x.codes && (x.codes.includes('m14') || x.codes.includes('m14F')));
     assert.ok(a, 'aucune approche quatorze segments dans les résultats de « hope »');
     const sc = m.scenarioDe(a, { saisie: r.saisie });
     const avecFigure = sc.steps.filter((st) => st.figure && st.figure.type === 'seg14');
@@ -289,16 +291,24 @@ test('intégration — l’accélération des redites ne change QUE les durées'
 test('intégration — « hope-hope-hope » : les trois « hope » ne se lisent qu’une fois en entier',
   { skip: compile ? false : 'src/visuel/ absent' }, () => {
     const m = creerMoteur(catalogue);
-    const r = m.resoudre('https://hope-hope-hope.fr/');
     // Ce que ce test mesure est la détection des REDITES : « le même geste, trois
     // fois de suite, ne se lit qu'une fois en entier ». Il lui faut donc une
-    // approche qui répète — c'est-à-dire une RÉSONANCE, les trois « hope » traités
-    // de la même façon. Elle n'est plus forcément en tête depuis que le
-    // GROUPEMENT existe : celui-ci fait ses trois 6 d'un seul geste, il n'a
-    // justement rien à redire. On le nomme au lieu de prendre le premier venu.
-    const resonante = r.approches.find((a) => a.mode === 'RESONANCE');
-    assert.ok(resonante, 'le cas d’école du README doit offrir au moins une résonance');
-    const sc = m.scenarioDe(resonante, { saisie: r.saisie });
+    // approche qui RÉPÈTE, et une qui répète LONGUEMENT — une résonance de deux
+    // étapes n'a que deux redites à trouver, et le test passerait pour de
+    // mauvaises raisons.
+    //
+    // ⚠ Elle est donc REJOUÉE depuis un lien, plus cherchée dans le classement.
+    // « La première résonance venue » a changé trois fois : à l'arrivée du
+    // GROUPEMENT (qui fait ses trois 6 d'un seul geste et n'a rien à redire),
+    // puis au renommage des codes en codes parlants — le classement départage
+    // ses ex æquo sur la suite des codes (CONTRACTS §4.4-1), et rebaptiser les
+    // opérateurs rebat donc les égalités. Le lien, lui, ne dépend d'aucun
+    // classement : c'est la méthode 5 du README, sept segments à traits
+    // fusionnés sur chacun des trois « hope ».
+    const rejeu = m.rejouer(lireUrl(`#×3:tca+m7F+cs+prn#${encoderTexte('hope-hope-hope.fr')}`));
+    assert.ok(rejeu.ok, 'la méthode 5 du README se rejoue sur le cas d’école');
+    assert.equal(rejeu.approche.mode, 'RESONANCE');
+    const sc = m.scenarioDe(rejeu.approche, { saisie: 'hope-hope-hope.fr' });
     const plein = compile(sc, { repeatSpeed: 1 });
     const rapide = compile(sc, { repeatSpeed: REPEAT_SPEED });
     const redites = rapide.steps.filter((st) => st.accelerated);
@@ -384,7 +394,7 @@ test('intégration — la ligne rejouée par le moteur de recherche est celle du
  *    le redécoupage.
  *
  * ★ Deux des quatre sont joués par URL plutôt que cherchés. Ce n'est pas une
- * facilité : `m14` demande trois 9 CONTIGUS et `m15` une ligne condensable,
+ * facilité : `mr39` demande trois 9 CONTIGUS et `mcc` une ligne condensable,
  * deux géométries que le classement ne met pas spontanément en tête sur le
  * corpus. Les rejouer par leur programme est exactement ce que fait un lien
  * partagé (§4.3), et c'est donc le chemin qu'il faut éprouver.
@@ -399,10 +409,10 @@ test('★ intégration — les quatre transformations du 27 août se MONTRENT',
       // Le rangement et le redécoupage se trouvent tout seuls ; on les rejoue
       // quand même par leur programme, pour que le test ne dépende pas d'un
       // classement qui peut légitimement bouger.
-      ['Le chat dort sur le tapis rouge', 'f6+t1+mw+m13', 'm13', 'move'],
-      ['Le chat dort sur le tapis rouge', 'f6+t1+m5+mt+m14', 'm14', 'flip180'],
-      ['Le chat dort sur le tapis rouge', 'f6+t1+mw+m13+m15', 'm15', 'substitute'],
-      ['Le chat dort sur le tapis rouge', 'f6+t1+mw+m16', 'm16', 'partition'],
+      ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mtri', 'mtri', 'move'],
+      ['Le chat dort sur le tapis rouge', 'fl+tca+mx6+mrn+mr39', 'mr39', 'flip180'],
+      ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mtri+mcc', 'mcc', 'substitute'],
+      ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mrd', 'mrd', 'partition'],
     ];
 
     for (const [saisie, codes, code, primitive] of cas) {
@@ -429,7 +439,7 @@ test('★ intégration — les quatre transformations du 27 août se MONTRENT',
  * retourne les 666 qui se cachent" (retourne les 999 trois par trois). »
  *
  * Les trente-deux chiffres ne sont pas recopiés à la main : ils SORTENT de
- * `f9+t1+m5` sur `https://reinfocovid.fr/`, c'est-à-dire du programme que
+ * `fc+tca+mx6` sur `https://reinfocovid.fr/`, c'est-à-dire du programme que
  * l'auteur donne lui-même en tête de sa section. C'est ce qui fait de ce test
  * une vérification et non une paraphrase.
  */
@@ -444,13 +454,13 @@ test('★ la chaîne du 27 août se rejoue sur les chiffres de l’auteur', () =
 
   // 1. les trente-deux chiffres, tels que l'auteur les écrit — et ils viennent
   //    du programme qu'il cite, pas d'une recopie.
-  const avant = chaine(depuisSaisie('https://reinfocovid.fr/'), 'f9+t1+m5');
+  const avant = chaine(depuisSaisie('https://reinfocovid.fr/'), 'fc+tca+mx6');
   assert.equal(avant.valeur.join(''), '48120120961141088436181322436108',
     'les 32 chiffres de la section 7.4');
 
   // 2. le redécoupage : sa découpe à la main rend six 6 sur douze paquets ;
   //    l'optimisation en rend huit sur onze, dont six d'affilée.
-  const redec = chaine(avant, 'm16');
+  const redec = chaine(avant, 'mrd');
   assert.deepEqual(redec.valeur, [6, 3, 6, 6, 6, 6, 6, 6, 3, 6, 9]);
   assert.equal(redec.valeur.filter((v) => v === 6).length, 8,
     'huit 6, contre six à la découpe manuelle');
@@ -458,10 +468,10 @@ test('★ la chaîne du 27 août se rejoue sur les chiffres de l’auteur', () =
   // 3. …et sur SON vecteur à lui (`996696696969`), le tri puis les trios font
   //    exactement ce qu'il annonce, dans cet ordre.
   const sien = N([9, 9, 6, 6, 9, 6, 6, 9, 6, 9, 6, 9]);
-  const range = chaine(sien, 'm13');
+  const range = chaine(sien, 'mtri');
   assert.deepEqual(range.valeur, [6, 6, 6, 6, 6, 6, 9, 9, 9, 9, 9, 9],
     '« tri croissant 996696696969 → 666666999999 »');
-  const retourne = chaine(range, 'm14');
+  const retourne = chaine(range, 'mr39');
   assert.deepEqual(retourne.valeur, new Array(12).fill(6),
     '« retourne les 999 trois par trois » — deux trios, douze 6');
 });

@@ -265,23 +265,44 @@ export function normaliserCatalogue(catalogue) {
   return liste;
 }
 
-const RE_CODE = /^[ftnmcpj][0-9a-z]+$/;
+// Recopie de la grammaire du moteur (CONTRACTS §4.1) : voir `url.js`, même
+// raison — `src/recherche` ne connaît le catalogue que par injection.
+const RE_CODE = /^[ftnmcpj][0-9a-z]+[A-Z]?$/;
 const RANG_FAMILLE = { f: 0, t: 1, n: 2, m: 3, c: 4, p: 5, j: 6 };
 
 /**
- * Ordre d'un code : (rang de famille, index base36). Il ne faut PAS comparer les
- * codes comme des chaînes ici : `f10` précéderait `f9`, alors que l'index base36
- * dit l'inverse. (La comparaison lexicographique du §4.4-1 reste, elle, un simple
- * départage d'ex æquo : n'importe quel ordre total y convient.)
+ * Ordre d'un code pour la **canonicalisation N2** — ranger une suite
+ * d'opérateurs commutants pour que `fl+fac` et `fac+fl` s'écrivent pareil.
+ *
+ * ★ (rang de famille, chaîne comparée en unités de code). Le second membre
+ * était jadis un index base36, parce qu'un code était un index : il fallait
+ * bien que `fc` précède `f10`. Depuis les codes parlants, le corps d'un code
+ * n'est plus un nombre — `m14F` ne se lit même pas en base36, et `mrd` encore
+ * moins —, donc la seule comparaison qui garde un sens est celle des
+ * caractères, que §4.4 règle 4 impose déjà partout ailleurs.
+ *
+ * ★ Le rang de famille reste devant la chaîne, et il n'est pas décoratif :
+ * l'ordre des familles est `f t n m c p j`, qui n'est PAS l'ordre
+ * alphabétique. Un bloc commutant qui mêlerait un filtre et un mappeur se
+ * rangerait à l'envers sans lui.
+ *
+ * ★ **Cet ordre est celui de l'URL, pas celui du catalogue.** Le catalogue,
+ * lui, suit son registre (`moteur/catalogue.js › ORDRE_CANONIQUE`), qui porte
+ * l'ordre d'allocation et l'intention qui va avec. Les deux ne coïncident plus
+ * depuis les codes parlants, et c'est assumé : l'un doit être rejouable par qui
+ * lit un lien sans catalogue sous la main, l'autre doit rester stable quand un
+ * code neuf arrive.
  */
 export function ordreCode(code) {
-  return [RANG_FAMILLE[code[0]] ?? 99, parseInt(code.slice(1), 36)];
+  return [RANG_FAMILLE[code[0]] ?? 99, code];
 }
 
-function codeAvant(a, b) {
+/** Comparateur N2 sur deux codes — l'expression réutilisable de `ordreCode`. */
+export function codeAvant(a, b) {
   const [fa, ia] = ordreCode(a);
   const [fb, ib] = ordreCode(b);
-  return fa !== fb ? fa - fb : ia - ib;
+  if (fa !== fb) return fa - fb;
+  return ia < ib ? -1 : ia > ib ? 1 : 0;
 }
 
 /**
@@ -303,8 +324,15 @@ export function validerCatalogue(catalogue) {
     else {
       if (codes.has(op.code)) pbs.push(`${ou}: code dupliqué`);
       codes.add(op.code);
-      if (precedent && codeAvant(precedent, op.code) > 0) {
-        pbs.push(`${ou}: ordre de déclaration ≠ ordre des codes croissants (après ${precedent})`);
+      // ⚠ Ce qui se vérifie ici, c'est le GROUPEMENT des familles, plus l'ordre
+      // des codes à l'intérieur. Depuis les codes parlants, l'ordre du
+      // catalogue est celui de son registre (§4.1) et ce registre vit dans le
+      // moteur ; `src/recherche` ne le connaît pas, puisqu'on lui injecte un
+      // catalogue quelconque. Ce qui reste vérifiable sans le registre, c'est
+      // que les familles se suivent dans l'ordre des préfixes — ce dont
+      // `operateursDepuis` et la lecture d'un lien dépendent tous les deux.
+      if (precedent && RANG_FAMILLE[op.code[0]] < RANG_FAMILLE[precedent[0]]) {
+        pbs.push(`${ou}: familles non groupées dans l'ordre f t n m c p j (après ${precedent})`);
       }
       precedent = op.code;
     }
@@ -331,28 +359,28 @@ export function operateursExplorables(catalogue) {
  * convertit des lettres, le quatorze segments compte des segments, la somme
  * additionne. Quatre opérateurs, eux, DÉCIDENT en regardant le chiffre 6 :
  *
- *  · `mz` — « trois 6 d'affilée », qui repère un 666 déjà écrit et TRONQUE le
+ *  · `m36` — « trois 6 d'affilée », qui repère un 666 déjà écrit et TRONQUE le
  *    vecteur dessus. C'est lui qui émet la primitive `horns` : le laisser courir
  *    sur une cible visant 111 ferait pousser des cornes de diable au-dessus de
  *    trois 6 qui ne sont pas le verdict ;
- *  · `m10`, `m11`, `m12` — les trois ficelles, dont chaque garde-fou
+ *  · `mpf`, `m1s2`, `mad` — les trois ficelles, dont chaque garde-fou
  *    (`portePleinement`, `paritePorteuse`, la fenêtre de somme) est écrit en
  *    « 6 » et en « 666 ». Elles refusent d'elles-mêmes de s'appliquer quand le
  *    résultat n'écrit pas 666 d'affilée ; les explorer sur une autre cible
  *    revient donc à dépenser du budget de recherche pour des `null` ;
- *  · `m16` — le redécoupage tricheur, dont la programmation dynamique MAXIMISE
+ *  · `mrd` — le redécoupage tricheur, dont la programmation dynamique MAXIMISE
  *    le nombre de paquets valant 6 et qui refuse de s'appliquer s'il n'en gagne
  *    pas. Tout, chez lui, est écrit en « 6 » : l'objectif, le départage, le
  *    refus. Le lâcher sur une cible visant 111 lui ferait fabriquer des 6 que
  *    personne ne cherche, et payer une triche pour rien.
  *
  * ★ **Et les trois autres transformations du 27 août n'y sont PAS** — c'est
- * délibéré, et c'est ce qui les distingue de `m16`. Le tri croissant (`m13`)
- * range, le décompte des chiffres (`m15`) compte, et ni l'un ni l'autre ne
+ * délibéré, et c'est ce qui les distingue de `mrd`. Le tri croissant (`mtri`)
+ * range, le décompte des chiffres (`mcc`) compte, et ni l'un ni l'autre ne
  * regarde ce qu'on cherche : ils rendraient le même résultat en visant 007. Ils
  * servent même MIEUX les autres cibles que le 666 — trier rapproche les 1 d'un
- * `111` aussi bien que les 6. Quant aux trios de 9 (`m14`), ils font ce que
- * `my` fait déjà, en trio plutôt qu'un par un : ils produisent des 6 sans
+ * `111` aussi bien que les 6. Quant aux trios de 9 (`mr39`), ils font ce que
+ * `mr9` fait déjà, en trio plutôt qu'un par un : ils produisent des 6 sans
  * jamais rien affirmer, et ils n'émettent aucune corne (c'est
  * `couronnerLesTriptyques` qui couronne, et lui suit la cible).
  *
@@ -364,7 +392,7 @@ export function operateursExplorables(catalogue) {
  *
  * ★ Conséquence assumée, et mesurable : viser autre chose que 666 donne accès à
  * 95 opérateurs au lieu de 100. Aucun de ces cinq n'aurait rendu autre chose
- * que `null` de toute façon, sauf `mz` — dont la seule contribution possible
+ * que `null` de toute façon, sauf `m36` — dont la seule contribution possible
  * eût été de mentir.
  */
 export const OPERATEURS_LIES_A_666 = Object.freeze([
@@ -537,11 +565,11 @@ export function codesCanoniques(chemin) {
   for (const op of chemin.ops) {
     if (op.commute) bloc.push(op.code);
     else {
-      if (bloc.length) { bloc.sort(); out.push(...bloc); bloc = []; }
+      if (bloc.length) { bloc.sort(codeAvant); out.push(...bloc); bloc = []; }
       out.push(op.code);
     }
   }
-  if (bloc.length) { bloc.sort(); out.push(...bloc); }
+  if (bloc.length) { bloc.sort(codeAvant); out.push(...bloc); }
   return out;
 }
 

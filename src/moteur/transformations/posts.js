@@ -1,7 +1,7 @@
 /**
- * Post-traitements — `NUM → NUM`. Codes `p…`, plus le joker `j1`.
+ * Post-traitements — `NUM → NUM`. Codes `p…`, plus le joker `jnf`.
  *
- * `p9` est **réservé au retournement du 9** (CONTRACTS §4.1, « par coquetterie »).
+ * `pr9` est **réservé au retournement du 9** (CONTRACTS §4.1, « par coquetterie »).
  *
  * Deux règles de rendu :
  * - les réductions chiffre à chiffre émettent **un `reduce` par palier**, chacun
@@ -108,7 +108,7 @@ function etapeSubstitution(spec) {
 
 const brut = [
   {
-    id: 'p.racineNumerique', code: 'p1',
+    id: 'p.racineNumerique', code: 'prn',
     libelle: bilingue('On réduit à un seul chiffre', 'Reduce to a single digit'),
     regle: bilingue('On additionne les chiffres, encore et encore, jusqu’à n’en garder qu’un',
       'Add the digits, again and again, until only one is left'),
@@ -117,7 +117,7 @@ const brut = [
     reduction: (n) => sommeChiffres(n),
   },
   {
-    id: 'p.sommeChiffres', code: 'p2',
+    id: 'p.sommeChiffres', code: 'psc',
     libelle: bilingue('On additionne les chiffres', 'Add the digits'),
     regle: bilingue('Une seule passe : 44 donne 8', 'One pass only: 44 gives 8'),
     notoriete: 0.85,
@@ -126,7 +126,7 @@ const brut = [
     reductionUnique: true,
   },
   {
-    id: 'p.abs', code: 'p3',
+    id: 'p.abs', code: 'pabs',
     libelle: bilingue('On prend la valeur absolue', 'Take the absolute value'),
     regle: bilingue('Un nombre négatif se lit sans son signe', 'A negative number is read without its sign'),
     notoriete: 0.70, adHoc: 0.25,
@@ -134,7 +134,7 @@ const brut = [
     exige: (n) => n < 0,
   },
   {
-    id: 'p.reductionSignee', code: 'p4',
+    id: 'p.reductionSignee', code: 'prs',
     libelle: bilingue('On réduit en gardant le signe', 'Reduce, keeping the sign'),
     regle: bilingue('Le signe porte sur le premier chiffre : −28 donne (−2) + 8 = 6',
       'The sign sticks to the first digit only: −28 gives (−2) + 8 = 6'),
@@ -149,7 +149,7 @@ const brut = [
     exige: (n) => Math.abs(n) > 9,
   },
   {
-    id: 'p.ecartChiffres', code: 'p5',
+    id: 'p.ecartChiffres', code: 'pec',
     libelle: bilingue('On prend l’écart des deux chiffres', 'Take the gap between the two digits'),
     regle: bilingue('|d₁ − d₂|, pour un nombre à deux chiffres', '|d₁ − d₂|, for a two-digit number'),
     notoriete: 0.20, adHoc: 0.3,
@@ -157,7 +157,7 @@ const brut = [
     exige: (n) => chiffres(n).length === 2,
   },
   {
-    id: 'p.miroir', code: 'p6',
+    id: 'p.miroir', code: 'pmr',
     libelle: bilingue('On lit le nombre à l’envers', 'Read the number backwards'),
     regle: bilingue('28 se lit 82', '28 reads as 82'),
     notoriete: 0.20, adHoc: 0.3,
@@ -165,7 +165,7 @@ const brut = [
     exige: (n) => Math.abs(n) > 9 && chiffres(n).join('') !== chiffres(n).reverse().join(''),
   },
   {
-    id: 'p.complement9', code: 'p7',
+    id: 'p.complement9', code: 'pc9',
     libelle: bilingue('On prend le complément à neuf', 'Take the nines complement'),
     regle: bilingue('La preuve par neuf : 9 − n', 'Casting out nines: 9 − n'),
     notoriete: 0.35, adHoc: 0.25,
@@ -173,7 +173,7 @@ const brut = [
     exige: (n) => n >= 0 && n <= 9,
   },
   {
-    id: 'p.modulo9', code: 'p8',
+    id: 'p.modulo9', code: 'pm9',
     libelle: bilingue('On prend le reste par neuf', 'Take the remainder modulo nine'),
     regle: bilingue('Le reste de la division par 9', 'What is left over after dividing by 9'),
     notoriete: 0.40, adHoc: 0.2,
@@ -181,7 +181,7 @@ const brut = [
     exige: (n) => Math.abs(n) > 9,
   },
   {
-    id: 'p.retournement', code: 'p9',
+    id: 'p.retournement', code: 'pr9',
     libelle: bilingue('On retourne le 9', 'Turn the 9 upside down'),
     regle: bilingue('Un 9 retourné d’un demi-tour donne un 6', 'Give a 9 a half-turn and it becomes a 6'),
     notoriete: 0.25, adHoc: 0.35,
@@ -194,7 +194,7 @@ const brut = [
     geste: 'flip180',
   },
   {
-    id: 'p.racineMaitres', code: 'pa',
+    id: 'p.racineMaitres', code: 'prm',
     libelle: bilingue('On réduit, sauf sur un nombre maître', 'Reduce, unless it is a master number'),
     regle: bilingue('La réduction s’arrête sur 11, 22 ou 33', 'The reduction stops at 11, 22 or 33'),
     notoriete: 0.45, adHoc: 0.15,
@@ -209,7 +209,7 @@ const brut = [
     exige: (n) => Math.abs(n) > 9,
   },
   {
-    id: 'p.modulo10', code: 'pb',
+    id: 'p.modulo10', code: 'pm10',
     libelle: bilingue('On garde le dernier chiffre', 'Keep the last digit'),
     regle: bilingue('Le reste de la division par 10', 'What is left over after dividing by 10'),
     notoriete: 0.35, adHoc: 0.25,
@@ -273,7 +273,7 @@ const brut = [
  * assumé, en bas de liste.
  */
 const JOKER = def({
-  id: 'j.nomFrancais', code: 'j1', famille: 'joker', from: 'NUM', to: 'NUM',
+  id: 'j.nomFrancais', code: 'jnf', famille: 'joker', from: 'NUM', to: 'NUM',
   libelle: bilingue(
     'On compte les lettres du nom du chiffre',
     'Count the letters in the French name of the digit',

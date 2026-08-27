@@ -10,7 +10,7 @@
 //  2. **les trois FICELLES**, désormais mesurées. Trois de ses demandes n'avaient
 //     aucun opérateur à mesurer ; il a tranché — « ma demande c'est aussi de les
 //     ajouter au catalogue, mais avec un score bas, mais moins bas que la
-//     suppression arbitraire de ce qui n'est pas 6 ». `m10`, `m11` et `m12`
+//     suppression arbitraire de ce qui n'est pas 6 ». `mpf`, `m1s2` et `mad`
 //     existent, et les tests ci-dessous gèlent leur PRIX, leur ORDRE et le fait
 //     qu'aucune ne passe devant une voie honnête.
 //
@@ -162,7 +162,7 @@ test('★ barème — casser un 666 contigu est le plus gros malus du barème', 
  *
  * Ce test remplace celui qui gelait leur ABSENCE. Trois demandes de l'auteur
  * n'avaient aucun opérateur à mesurer ; il a tranché — « ma demande c'est aussi
- * de les ajouter au catalogue ». `m10`, `m11`, `m12` existent, et chacun
+ * de les ajouter au catalogue ». `mpf`, `m1s2`, `mad` existent, et chacun
  * alimente son palier. On le vérifie des DEUX côtés : l'identifiant inscrit
  * dans `FICELLES` doit exister au catalogue, et le compteur doit bouger quand
  * l'opérateur s'applique. Sans les deux, un palier pourrait se rendormir en
@@ -170,14 +170,14 @@ test('★ barème — casser un 666 contigu est le plus gros malus du barème', 
  */
 test('★ les trois ficelles sont au catalogue, et chacune alimente SON palier', () => {
   const attendu = {
-    'm.plusFrequent': ['m10', 'majorite', [6, 4, 6, 6, 6]],
-    'm.unRangSurDeux': ['m11', 'decimation', [6, 4, 6, 3, 6]],
-    'm.additionSelective': ['m12', 'additionSelective', [6, 5, 16, 8]],
+    'm.plusFrequent': ['mpf', 'majorite', [6, 4, 6, 6, 6]],
+    'm.unRangSurDeux': ['m1s2', 'decimation', [6, 4, 6, 3, 6]],
+    'm.additionSelective': ['mad', 'additionSelective', [6, 5, 16, 8]],
     // ★ La quatrième, allouée le 27 août : le redécoupage tricheur. Son vecteur
     //   est celui de l'auteur — trente-deux chiffres —, parce que l'opérateur
     //   refuse en deçà de dix-neuf : c'est un DERNIER RECOURS sur une ligne
     //   trop longue pour tenir dans un verdict, pas une astuce de poche.
-    'm.redecoupageChoisi': ['m16', 'redecoupage',
+    'm.redecoupageChoisi': ['mrd', 'redecoupage',
       [4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
         1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8]],
   };
@@ -209,7 +209,7 @@ test('★ les trois ficelles sont au catalogue, et chacune alimente SON palier',
  * pour obtenir `666, 8` est acceptable mais pénalisé — c'est de la triche à
  * utiliser en dernier recours. »
  *
- * Le balayage glouton de `m12` rend EXACTEMENT la découpe qu'il désigne, et pas
+ * Le balayage glouton de `mad` rend EXACTEMENT la découpe qu'il désigne, et pas
  * l'une des deux qu'il écarte : à gauche, la plus courte, jamais un 6 déjà là.
  */
 test('★ addition sélective — `6, 5, 16, 8` donne bien `666, 8`, et pas autre chose', () => {
@@ -268,14 +268,14 @@ test('★ ficelles — à égalité, la règle REFUSE au lieu de choisir', () =>
 /**
  * ★ UNE FICELLE NE S'APPLIQUE QUE SI ELLE ÉCRIT 666.
  *
- * `exige`, au sens de `my` et `mz` : un opérateur qui ne change rien, ou qui ne
+ * `exige`, au sens de `mr9` et `m36` : un opérateur qui ne change rien, ou qui ne
  * sert à rien, fabrique une étape que `scenario.js` saute EN SILENCE — et l'URL
  * porte alors un code que la démonstration ne montre nulle part.
  */
 test('★ ficelles — elles refusent quand elles n’achètent rien', () => {
   const t = (v) => v.map(() => []);
-  for (const [code, id] of [['m10', 'm.plusFrequent'], ['m11', 'm.unRangSurDeux'],
-    ['m12', 'm.additionSelective']]) {
+  for (const [code, id] of [['mpf', 'm.plusFrequent'], ['m1s2', 'm.unRangSurDeux'],
+    ['mad', 'm.additionSelective']]) {
     const op = operateur(id);
     // Rien à écarter : le vecteur est déjà uniforme.
     assert.equal(op.apply([6, 6, 6], t([6, 6, 6])), null,
@@ -320,7 +320,7 @@ test('★ barème — l’ordre de laideur des trois ficelles est celui de l’a
  *
  *  · sans ficelle, le verdict trie lui-même — trois 6 gardés, deux valeurs
  *    jetées, et les 6 restent DISPERSÉS : aucun bonus de contiguïté ;
- *  · avec `m11`, le vecteur devient `[6,6,6]` : le 666 est écrit d'affilée, et
+ *  · avec `m1s2`, le vecteur devient `[6,6,6]` : le 666 est écrit d'affilée, et
  *    les deux valeurs écartées se paient au tarif de la ficelle.
  *
  * La ficelle doit gagner — et gagner sans excès : une méthode qui atteint le
@@ -436,7 +436,7 @@ test('★ barème — les deux paliers neufs prennent leur rang, et il est écri
  *
  * `effacementSansMotif` est écrit, chiffré, branché dans le détail du crédit —
  * et son compteur vaut zéro, parce qu'aucun opérateur du catalogue n'efface
- * sans savoir dire pourquoi. Il attend la scission du geste de `mz`, qui
+ * sans savoir dire pourquoi. Il attend la scission du geste de `m36`, qui
  * couronne ET tronque en un seul mouvement indivisible.
  *
  * Ce test gèle les deux moitiés de la promesse : le palier EXISTE (une ligne de
@@ -471,7 +471,7 @@ test('★ barème — le palier « effacement sans motif » existe et dort encor
  *
  *  · **le tri croissant** ne jette rien et ne convertit rien — aucun poste
  *    ordinaire ne le voyait passer. Il alimente `rearrangement`, et lui seul ;
- *  · **le retournement par trios** est un demi-tour comme celui de `my` : le
+ *  · **le retournement par trios** est un demi-tour comme celui de `mr9` : le
  *    vecteur garde sa largeur, rien n'est jeté, rien n'est puni ;
  *  · **le décompte des chiffres** RÉTRÉCIT la ligne sans rien écarter — trois 6
  *    entrent ENTIÈREMENT dans le « 3 ». Il ne paie donc pas `valeursJetees`,
@@ -542,7 +542,7 @@ test('★ ficelles — mieux que le tri arbitraire, moins bien qu’une voie hon
 
   // 1. le tri arbitraire : on laisse le verdict écarter ce qui n'est pas 6
   const tri = parCredit(vecteur([6, 4, 6, 3, 6]));
-  // 2. la ficelle : `m11` isole les rangs impairs et écrit 666
+  // 2. la ficelle : `m1s2` isole les rangs impairs et écrit 666
   const ficelle = parCredit(chemin([
     etat('STR', 'xxxxx'),
     etat('TOKENS', ['x', 'x', 'x', 'x', 'x']),
@@ -566,7 +566,7 @@ test('★ ficelles — mieux que le tri arbitraire, moins bien qu’une voie hon
  * irrégulier de l'échelle des abandons (26 → 36, là où le pas est de trois), et
  * l'alourdir est une idée qui revient. Elle a été essayée et mesurée : à 45
  * déjà, `Le chat dort sur le tapis rouge` passe d'une moisson à cinq séries
- * (crédit 1 129) à `fl+t1+mw+m10`, une ficelle à une seule série (1 102).
+ * (crédit 1 129) à `fr13+tca+m14+mpf`, une ficelle à une seule série (1 102).
  *
  * La raison est STRUCTURELLE, et c'est elle qu'on gèle ici : les ficelles ne
  * paient pas ce poste — leur palier le remplace. Tout milli-unité ajoutée à
@@ -637,7 +637,9 @@ test('★ ficelles — aucune ne figure en tête des quatre cas de référence',
     assert.equal(fournie.series || 1, series,
       `« ${saisie} » : ${series} séries attendues en tête, ${fournie.series} trouvées`);
     for (const a of tete) {
-      for (const code of ['m10', 'm11', 'm12']) {
+      // Codes parlants depuis le recodage du catalogue : `mpf` le plus fréquent,
+      // `m1s2` un rang sur deux, `mad` l'addition sélective.
+      for (const code of ['mpf', 'm1s2', 'mad']) {
         assert.ok(!a.codes.includes(code),
           `« ${saisie} » : la voie de tête (${a.codes}) emploie la ficelle ${code}`);
       }
@@ -648,7 +650,7 @@ test('★ ficelles — aucune ne figure en tête des quatre cas de référence',
 /**
  * ★ LE COMPTE DES TRIPTYQUES — autant de bonus que de 666 écrits d'affilée.
  *
- * ⚠️ Le bonus se comptait PAR PORTÉE qui en porte un. `f6+t1+mw` sur
+ * ⚠️ Le bonus se comptait PAR PORTÉE qui en porte un. `fl+tca+m14` sur
  * `hope-hope-hope` rend douze 6 d'affilée — QUATRE 666 — et n'en touchait
  * qu'un seul. Le compte est réparé ; le premier de chaque portée reste une
  * trouvaille à plein tarif, les suivants du même vecteur valent moins.
@@ -1080,18 +1082,18 @@ test('★ cornes — la scène couronne exactement les triptyques que le bilan a
   for (const s of ['Donald Trump', 'Macron', 'hope', 'https://hope-hope-hope.fr/',
     'Éléonore à Nîmes', 'Wikipedia']) {
     for (const a of m.resoudre(s).approches) {
-      // ★ `mz` n'est plus le seul à couronner — et c'est le sens de
+      // ★ `m36` n'est plus le seul à couronner — et c'est le sens de
       //   l'amendement « couronner sans effacer » (CONTRACTS §3.1).
       //
       //   Tant que l'opérateur était le seul émetteur, les deux comptes étaient
       //   égaux par construction. L'assemblage couronne désormais TOUT
-      //   triptyque que la ligne écrit d'elle-même, `mz` ou pas — c'est très
+      //   triptyque que la ligne écrit d'elle-même, `m36` ou pas — c'est très
       //   exactement ce que la note ci-dessous annonçait (« une portée qui rend
       //   `[6,6,6,6]` porte un 666 contigu que la scène montrera autrement »),
       //   et la scène a fini par le montrer.
       //
       //   Les deux comptes ne peuvent donc plus être égaux, et ils ne peuvent
-      //   pas non plus s'ordonner dans l'autre sens : ce que `mz` constate, la
+      //   pas non plus s'ordonner dans l'autre sens : ce que `m36` constate, la
       //   scène le couronne toujours. Reste l'inégalité, qui est la vraie
       //   propriété — et le fait que les deux mesures se recoupent sur les
       //   MÊMES triptyques, vérifié juste après.
@@ -1103,7 +1105,7 @@ test('★ cornes — la scène couronne exactement les triptyques que le bilan a
       assert.ok(jalons.couronnements.length >= constates.length,
         `« ${s} » ${a.codes} : ${jalons.couronnements.length} couronnements à l’écran `
         + `pour ${constates.length} portées qui constatent un triptyque`);
-      // ★ Aucun jeton ne porte DEUX couronnements. Les deux émetteurs — `mz`
+      // ★ Aucun jeton ne porte DEUX couronnements. Les deux émetteurs — `m36`
       //   d'un côté, l'assemblage de l'autre — travaillent sur la même ligne
       //   sans se voir ; le nœud de décor étant nommé d'après le 6 qu'il
       //   couronne (`@cornes:<id>`, `visuel/primitives/horns.js`), deux cornes
@@ -1160,8 +1162,8 @@ test('★ étalonnage — les quatre cas de référence gardent leur tête de li
   const attendu = [
     ['hope-hope-hope.fr', 'MOISSON', 5, null],
     ['https://hope-hope-hope.fr/', 'MOISSON', 6, null],
-    ['Donald Trump', 'MOISSON', 2, 't1+mw+mz,fl+t1+mw+mz'],
-    ['Macron', 'GROUPEMENT', 1, 'fl+t1+mw+mz'],
+    ['Donald Trump', 'MOISSON', 2, 'tca+m14+m36,fr13+tca+m14+m36'],
+    ['Macron', 'GROUPEMENT', 1, 'fr13+tca+m14+m36'],
   ];
   for (const [saisie, mode, series, codes] of attendu) {
     // ★ AMENDEMENT — « la tête de liste » est devenue DEUX lignes, parce que
@@ -1238,9 +1240,9 @@ test('★ le facteur d’élégance est borné : il retire, il n’ajoute jamais
 });
 
 /** L'opérateur qui incarne le triptyque constaté existe, et il est bien celui-là. */
-test('★ `mz` — « trois 6 d’affilée » est bien l’opérateur qui CONSTATE le triptyque', () => {
+test('★ `m36` — « trois 6 d’affilée » est bien l’opérateur qui CONSTATE le triptyque', () => {
   const op = operateur('m.troisSixDAffilee');
-  assert.equal(op.code, 'mz');
+  assert.equal(op.code, 'm36');
   const r = op.apply([6, 6, 6, 7, 3, 6], [[], [], [], [], [], []]);
   const v = r && typeof r === 'object' && !Array.isArray(r) ? r.valeur : r;
   assert.deepEqual(v, [6, 6, 6]);

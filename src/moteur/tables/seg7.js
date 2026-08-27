@@ -59,7 +59,7 @@ export const SEG7_APPROXIMATIONS = Object.freeze({
  * cette table. Les deux ne s'accordent pas partout : DSEG7 dessine sa propre
  * approximation, et elle diffère de la nôtre sur **12 des 36 signes**.
  *
- * | signe | table (`SEG7`) | DSEG7 Classic | segments (`md`) | traits fusionnés (`me`) |
+ * | signe | table (`SEG7`) | DSEG7 Classic | segments (`m7`) | traits fusionnés (`m7F`) |
  * |---|---|---|---|---|
  * | 7 | `abc`     | `abcf`    | 3 vs 4 | 2 vs 3 ✗ |
  * | C | `adef`    | `deg`     | 4 vs 3 | 3 vs 3 |
@@ -76,12 +76,12 @@ export const SEG7_APPROXIMATIONS = Object.freeze({
  *
  * Ce que ça implique, méthode par méthode :
  *
- * · **`me` — traits fusionnés** (la méthode de référence) : le COMPTE tient
+ * · **`m7F` — traits fusionnés** (la méthode de référence) : le COMPTE tient
  *   partout sauf sur 7, J, K, M, S, W et Z. Sur `hope` et `fr` — et sur tout
  *   mot qui les évite — le Registre et la scène annoncent le même nombre.
  *   Le DESSIN, lui, diffère quand même : DSEG forme un `h` et un `o` de bas
  *   de casse là où la table allume un `H` et un `O` de capitale.
- * · **`md` — segments allumés** : les comptes divergent dès C, H, I, O, S, U…
+ * · **`m7` — segments allumés** : les comptes divergent dès C, H, I, O, S, U…
  *   Le Registre y montre donc un glyphe dont on peut compter les segments sans
  *   retomber sur le nombre annoncé juste à côté. **C'est le point à trancher**
  *   — voir la note de l'auteur.

@@ -11,7 +11,7 @@
  * rang, ni un compte, donc elles n'ont rien à faire dans un programme ni dans
  * une URL. L'assemblage les pose sur la LIGNE, selon le REGISTRE, et sans rien
  * effacer (`recherche/scenario.js › couronnerLesTriptyques`) ; l'effacement,
- * lui, est resté chez `mz`, dans une étape à part qui porte son propre motif.
+ * lui, est resté chez `m36`, dans une étape à part qui porte son propre motif.
  * Le paramètre est conservé — la primitive sait le faire, un scénario relu
  * d'ailleurs peut en porter un, et les deux sections qui suivent expliquent
  * pourquoi il ne pourrait pas être remplacé par un `drop` voisin.
@@ -47,7 +47,7 @@
  *
  * ★ Et `efface` peut être VIDE, sans que rien ne change ici — c'est même le
  * seul cas que le projet produise encore. Les deux gestes ont été séparés à la
- * source : l'assemblage couronne dès que les trois 6 s'écrivent, `mz` efface à
+ * source : l'assemblage couronne dès que les trois 6 s'écrivent, `m36` efface à
  * sa propre étape. Ce que personne ne peut faire, c'est effacer AVANT le
  * couronnement : la primitive lit alors une ligne pleine, et le contrôle croisé
  * ci-dessous garde exactement la même valeur. L'ordre est structurellement tenu
@@ -296,7 +296,7 @@ export function plan(ctx) {
  * Deux moments posent des cornes, et il ne peut pas y avoir deux dessins :
  *
  *  · ICI, en cours de démonstration, quand la ligne écrit trois 6 côte à côte
- *    — soit que l'opérateur `mz` les ait constatés, soit que l'assemblage l'ait
+ *    — soit que l'opérateur `m36` les ait constatés, soit que l'assemblage l'ait
  *    fait (`recherche/scenario.js › couronnerLesTriptyques`). Le contrôle
  *    croisé ci-dessus a alors joué, sur la ligne telle qu'elle est ;
  *  · au VERDICT (`reveal.js`), pour les triptyques que la démonstration n'a pas

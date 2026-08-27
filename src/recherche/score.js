@@ -138,7 +138,7 @@ export const MALUS = {
  * écarté. Le numérateur est désormais plafonné au compte annoncé.
  * Le test `tests/scenario.test.js › jeter coûte` recoupe le rendement avec ce
  * que l'étape de tri affiche à l'écran : c'est ce recoupement qui a révélé
- * l'écart (`f9+t1+m5+mt` sur `https://hope-hope-hope.fr/` annonçait 384 pour
+ * l'écart (`fc+tca+mx6+mrn` sur `https://hope-hope-hope.fr/` annonçait 384 pour
  * une scène qui garde trois jetons et en jette dix, soit 230).
  */
 
@@ -306,12 +306,12 @@ const COMBINATEURS_AVEUGLES = new Set(['c.cardinal', 'c.compteTokens', 'c.compte
  */
 export function maniere(chemin) {
   // ★ Le mappeur AVEUGLE. `c.cardinal` — « au nombre de valeurs » — rend la
-  // taille du vecteur, pas son contenu : `t1+m3+c7` et `t1+m7+c7` annoncent la
+  // taille du vecteur, pas son contenu : `tca+mpy+cnv` et `tca+msen+cnv` annoncent la
   // numérologie pythagoricienne et le Scrabble anglais, et comptent tous deux
   // les lettres. Trois « manières » ainsi bâties n'en font qu'une, et c'est
   // exactement le genre de fausse diversité que la convergence doit refuser.
-  // Le typage empêche N3 de retirer le mappeur inerte (`m3` est TOKENS→NUMS,
-  // `c7` est NUMS→NUM) : c'est donc ici qu'on le débusque.
+  // Le typage empêche N3 de retirer le mappeur inerte (`mpy` est TOKENS→NUMS,
+  // `cnv` est NUMS→NUM) : c'est donc ici qu'on le débusque.
   for (const o of chemin.ops) if (COMBINATEURS_AVEUGLES.has(o.id)) return 'comptage';
   const m = mappeurPrincipal(chemin);
   if (m) return MANIERES.get(m) || m;
@@ -733,18 +733,18 @@ function rendementSix(approche) {
       //
       // CONTRACTS §7-5 laisse ouverte la question « le rendement doit-il
       // regarder le vecteur LE PLUS LARGE du chemin, ou le dernier ? », et le
-      // dernier l'emporte encore : c'est un arbitrage d'auteur, et `mz` en
+      // dernier l'emporte encore : c'est un arbitrage d'auteur, et `m36` en
       // profite (il rétrécit honnêtement, après avoir CONSTATÉ un 666 déjà
       // écrit).
       //
-      // ⚠️ Mais pour les ficelles qui ÉCARTENT (`m10`, `m11` —
+      // ⚠️ Mais pour les ficelles qui ÉCARTENT (`mpf`, `m1s2` —
       // `elegance.js › FICELLES_QUI_ECARTENT`), la question ne se pose pas :
-      // rétrécir EST leur raison d'être. Celles qui ABSORBENT (`m12`, `m16`)
+      // rétrécir EST leur raison d'être. Celles qui ABSORBENT (`mad`, `mrd`)
       // en sont exclues : elles ne jettent rien, et leur ligne de chiffres
       // momentanément élargie est le calcul MONTRÉ, pas du déchet. Les noter sur ce qu'il reste leur donnait un
       // rendement PARFAIT pour avoir jeté davantage. Mesuré sur « La
-      // numérologie est un art taquin » : `f6+t1+mw+m10` marquait 3 797 contre
-      // 2 715 à `f6+t1+mw`, qui montre exactement les mêmes 6 — la ficelle
+      // numérologie est un art taquin » : `fl+tca+m14+mpf` marquait 3 797 contre
+      // 2 715 à `fl+tca+m14`, qui montre exactement les mêmes 6 — la ficelle
       // gagnait 1 082 points de conviction en effaçant ses propres déchets, et
       // passait devant la voie honnête dans la liste.
       //
@@ -765,7 +765,7 @@ function rendementSix(approche) {
   // pour les valeurs qui ne font pas 6 (`scenario.js › recolterLesSix`). Les
   // porter au crédit du rendement flattait donc le score d'exactement ce qu'il
   // est censé punir : du calcul montré puis écarté. Mesuré sur
-  // `https://hope-hope-hope.fr/`, la voie `f9+t1+m5+mt` récolte cinq 6 sur
+  // `https://hope-hope-hope.fr/`, la voie `fc+tca+mx6+mrn` récolte cinq 6 sur
   // treize valeurs — elle affichait 384 pour une scène qui garde trois jetons
   // et en jette dix, c'est-à-dire 230.
   //

@@ -62,7 +62,7 @@ const etatNum = (v) => ({ type: 'NUM', valeur: v, traces: [[0, 1]] });
 
 test('« on garde le plus grand » efface les perdants et garde le gagnant EN PLACE', () => {
   const avant = etatNums([8, 15, 16, 5]);
-  const [step] = stepsDe('c9', avant, etatNum(16), ['t0', 't1', 't2', 't3']);
+  const [step] = stepsDe('cmx', avant, etatNum(16), ['t0', 't1', 't2', 't3']);
   const ops = step.ops.map((o) => o.op);
   assert.deepEqual(ops, ['highlight', 'drop', 'move'], 'désigner, effacer, resserrer — rien d’autre');
   assert.ok(!ops.includes('substitute'), 'le gagnant n’est jamais remplacé par lui-même');
@@ -74,18 +74,18 @@ test('« on garde le plus grand » efface les perdants et garde le gagnant EN PL
 
 test('le jeton qui SURVIT à une sélection est le gagnant, pas un jeton neuf', () => {
   const ctx = { ids: ['t0', 't1', 't2', 't3'], cle: 'x0', langue: 'fr' };
-  assert.deepEqual(op('c9').sortie(etatNums([8, 15, 16, 5]), etatNum(16), ctx), ['t2']);
-  assert.deepEqual(op('ca').sortie(etatNums([8, 15, 16, 5]), etatNum(5), ctx), ['t3']);
+  assert.deepEqual(op('cmx').sortie(etatNums([8, 15, 16, 5]), etatNum(16), ctx), ['t2']);
+  assert.deepEqual(op('cmn').sortie(etatNums([8, 15, 16, 5]), etatNum(5), ctx), ['t3']);
 });
 
 test('« le plus petit » suit exactement le même geste', () => {
-  const [step] = stepsDe('ca', etatNums([8, 15, 16, 5]), etatNum(5), ['t0', 't1', 't2', 't3']);
+  const [step] = stepsDe('cmn', etatNums([8, 15, 16, 5]), etatNum(5), ['t0', 't1', 't2', 't3']);
   assert.deepEqual(step.ops.map((o) => o.op), ['highlight', 'drop', 'move']);
   assert.deepEqual(step.ops[0].targets, ['t3']);
 });
 
 test('à l’écran : les perdants s’effacent, le gagnant ne bouge pas de sa valeur', () => {
-  const [step] = stepsDe('c9', etatNums([8, 15, 16, 5]), etatNum(16), ['t0', 't1', 't2', 't3']);
+  const [step] = stepsDe('cmx', etatNums([8, 15, 16, 5]), etatNum(16), ['t0', 't1', 't2', 't3']);
   const tl = compile(sc([{ ...step, id: 'a' }], nums([8, 15, 16, 5])));
   assert.equal(tl.scene.get('t2').alive, true, 'le maximum est encore là');
   assert.equal(tl.scene.get('t2').text, '16', 'et il porte toujours 16 : rien ne l’a remplacé');
@@ -137,7 +137,7 @@ test('★ les deux copies des poids de ramassage ne divergent pas non plus', () 
 
 test('la moyenne se joue en nivellement : des « 1 » voyagent, les autres s’effacent', () => {
   const vs = [8, 15, 16, 5];
-  const [step] = stepsDe('c6', etatNums(vs), etatNum(11), ['t0', 't1', 't2', 't3']);
+  const [step] = stepsDe('cmo', etatNums(vs), etatNum(11), ['t0', 't1', 't2', 't3']);
   const g = step.ops[0];
   assert.equal(g.op, 'group');
   assert.equal(g.niveler, true);
@@ -176,7 +176,7 @@ test('la moyenne refuse d’afficher un résultat qui n’est pas la sienne', ()
 
 test('les nombres égaux à la moyenne fusionnent, les autres — l’arrondi — s’effacent', () => {
   const vs = [1, 7, 4, 7, 8, 6, 5, 9, 5];  // somme 52, moyenne 6, nivelé : sept 6 et deux 5
-  const [step] = stepsDe('c6', etatNums(vs), etatNum(6), vs.map((_, i) => `t${i}`));
+  const [step] = stepsDe('cmo', etatNums(vs), etatNum(6), vs.map((_, i) => `t${i}`));
   const tl = compile(sc([{ ...step, id: 'a' }], nums(vs)));
   const ids = vs.map((_, i) => `t${i}`);
   assert.equal(ids.filter((id) => vole(tl, id)).length, 7,
@@ -266,10 +266,10 @@ test('un doublon est une COPIE : il ne transforme rien', () => {
 
 test('les mesures du catalogue comptent ce qu’elles montrent', () => {
   const cas = [
-    ['n1', 'hope.fr', 6],   // les lettres, pas le point
-    ['n2', 'hope', 2],      // o, e
-    ['n7', 'hope', 6],      // 4 lettres + 2 voyelles, les voyelles en doublon
-    ['n4', 'hope-hope', 4], // une lettre répétée ne compte qu'une fois
+    ['nl', 'hope.fr', 6],   // les lettres, pas le point
+    ['nv', 'hope', 2],      // o, e
+    ['nlv', 'hope', 6],      // 4 lettres + 2 voyelles, les voyelles en doublon
+    ['nd', 'hope-hope', 4], // une lettre répétée ne compte qu'une fois
   ];
   for (const [code, mot, total] of cas) {
     const o = op(code);
@@ -358,7 +358,7 @@ test('le soulignement suit son nombre, et s’en va avec lui', () => {
 });
 
 test('accumulation — le TOTAL s’affiche avant la fin, jamais seulement à x = 1', () => {
-  // Défaut réel, vu sur `#1.1:t1+mv+c1,3.1:t1+mv+c1,6.1:t1+md+c1#…` : le canal
+  // Défaut réel, vu sur `#1.1:tca+mtc+cs,3.1:tca+mtc+cs,6.1:tca+m7+cs#…` : le canal
   // du compteur s'arrêtait au dernier atterrissage, si bien que le total
   // n'existait qu'à `x === 1` au millième près. Toute évaluation à 0,999
   // rendait l'avant-dernier partiel — sur « 4 + 2 », la démonstration finissait

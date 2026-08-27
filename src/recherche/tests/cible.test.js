@@ -183,40 +183,40 @@ test('url — le marqueur de cible se lit, et il n’est pas écrit au défaut',
   // ★ NON-RÉGRESSION : un lien sans marqueur vise 666, et un lien qui vise 666
   //   n'en porte pas. C'est ce qui garantit que la forme canonique de tous les
   //   liens existants est inchangée, au caractère près.
-  const nu = ecrire({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['n4'] }] });
-  assert.equal(nu, `#so!n4#${B58}`, 'aucun `c666!` dans une URL ordinaire');
+  const nu = ecrire({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['nd'] }] });
+  assert.equal(nu, `#so!nd#${B58}`, 'aucun `c666!` dans une URL ordinaire');
   assert.equal(lire(nu).cible.texte, '666');
   assert.equal(lire(nu).cibleEcrite, false);
 
   const vise = ecrire({
     saisie: 'hope', cible: '111',
-    fragments: [{ portee: null, resonance: null, codes: ['n4'] }],
+    fragments: [{ portee: null, resonance: null, codes: ['nd'] }],
   });
-  assert.equal(vise, `#so!c111!n4#${B58}`);
+  assert.equal(vise, `#so!c111!nd#${B58}`);
   const l = lire(vise);
   assert.equal(l.forme, 'canonique');
   assert.equal(l.cible.texte, '111');
   assert.equal(l.cibleEcrite, true);
-  assert.deepEqual(l.fragments, [{ portee: null, resonance: null, codes: ['n4'] }]);
+  assert.deepEqual(l.fragments, [{ portee: null, resonance: null, codes: ['nd'] }]);
 });
 
 test('url — les deux marqueurs se lisent dans l’un OU l’autre ordre', () => {
-  const a = lire(`#sce!c111!n4#${B58}`);
-  const b = lire(`#c111!sce!n4#${B58}`);
+  const a = lire(`#sce!c111!nd#${B58}`);
+  const b = lire(`#c111!sce!nd#${B58}`);
   assert.equal(a.cible.texte, '111');
   assert.equal(b.cible.texte, '111');
   assert.deepEqual(a.fragments, b.fragments);
 });
 
-test('url — `c1+m4` reste un programme, `c111!` reste un marqueur', () => {
-  const prog = lire(`#c1+m4#${B58}`, { catalogue });
+test('url — `cs+mch` reste un programme, `c111!` reste un marqueur', () => {
+  const prog = lire(`#cs+mch#${B58}`, { catalogue });
   assert.equal(prog.forme, 'canonique');
   assert.equal(prog.cible.texte, '666', 'aucun marqueur : la cible par défaut');
-  assert.deepEqual(prog.fragments, [{ portee: null, resonance: null, codes: ['c1', 'm4'] }]);
+  assert.deepEqual(prog.fragments, [{ portee: null, resonance: null, codes: ['cs', 'mch'] }]);
 
-  const avecCible = lire(`#c111!c1+m4#${B58}`, { catalogue });
+  const avecCible = lire(`#c111!cs+mch#${B58}`, { catalogue });
   assert.equal(avecCible.cible.texte, '111');
-  assert.deepEqual(avecCible.fragments, [{ portee: null, resonance: null, codes: ['c1', 'm4'] }]);
+  assert.deepEqual(avecCible.fragments, [{ portee: null, resonance: null, codes: ['cs', 'mch'] }]);
 });
 
 test('url — `#c111!#…` est la PAGE DE RÉSULTATS pour 111', () => {
@@ -230,7 +230,7 @@ test('url — `#c111!#…` est la PAGE DE RÉSULTATS pour 111', () => {
 });
 
 test('url — une cible illisible s’ANNONCE au lieu de retomber en silence sur 666', () => {
-  const r = lire(`#c1234567!n4#${B58}`);
+  const r = lire(`#c1234567!nd#${B58}`);
   assert.equal(r.forme, 'invalide');
   assert.ok(r.bandeau, 'un lien ne renvoie jamais silencieusement ailleurs (§4.3)');
 });
@@ -246,7 +246,7 @@ test('url — la cible survit à la forme héritée (des rangs, pas un programme
 
 test('★ registre — le défaut est SOBRE : la mise en scène s’opte', () => {
   assert.equal(REGISTRE_DEFAUT, 'sobre');
-  assert.equal(lire(`#n4#${B58}`).registre, 'sobre');
+  assert.equal(lire(`#nd#${B58}`).registre, 'sobre');
 });
 
 test('★ registre — une cible sans emblème replie « scénique » sur « sobre »', () => {
@@ -259,16 +259,16 @@ test('★ registre — une cible sans emblème replie « scénique » sur « sob
   assert.equal(registreEffectif('sobre', '666'), 'sobre');
 
   // À la LECTURE…
-  const lu = lire(`#sce!c111!n4#${B58}`);
+  const lu = lire(`#sce!c111!nd#${B58}`);
   assert.equal(lu.registre, 'sobre', 'ce qu’on jouera');
   assert.equal(lu.registreDemande, 'scenique', 'ce que le lien portait');
 
   // …et à l'ÉCRITURE, sans quoi l'aller-retour mentirait.
   const ecrit111 = ecrire({
     saisie: 'hope', cible: '111', registre: 'scenique',
-    fragments: [{ portee: null, resonance: null, codes: ['n4'] }],
+    fragments: [{ portee: null, resonance: null, codes: ['nd'] }],
   });
-  assert.equal(ecrit111, `#so!c111!n4#${B58}`);
+  assert.equal(ecrit111, `#so!c111!nd#${B58}`);
   assert.equal(lire(ecrit111).registre, 'sobre');
 });
 
@@ -396,7 +396,7 @@ test('★ le scénario découpe le verdict à la longueur de la CIBLE', () => {
  * ★ LE TRI FINAL NE DIT PLUS « les 6 » QUAND CE SONT DES 7.
  *
  * « "On ne garde que les 6", or ce sont les 7 que tu gardes » — l'auteur, sur
- * `#so!c777!t1+mc+mt#Hi75aotg77MXEgC`. Le libellé était une constante recopiée
+ * `#so!c777!tca+masb+mrn#Hi75aotg77MXEgC`. Le libellé était une constante recopiée
  * de plus (`cible.js`, en-tête) : il survivait au changement de cible sans que
  * rien ne le contredise.
  *
@@ -448,7 +448,7 @@ test('★ le tri final nomme la CIBLE, jamais un 6 en dur', () => {
  * ★ « LES 6 SONT MAJORITAIRES » NE SE DIT QUE LORSQUE C'EST VRAI.
  *
  * La formulation demandée par l'auteur pour l'étape 14 de
- * `#sce!3.1:t1+m3+my#3A8ev…` ARGUMENTE au lieu de désigner — et une rhétorique
+ * `#sce!3.1:tca+mpy+mr9#3A8ev…` ARGUMENTE au lieu de désigner — et une rhétorique
  * qui s'appuie sur un fait faux n'est plus une rhétorique, c'est une erreur de
  * Registre. Le drapeau `recolte.majoritaire` est donc recoupé ici contre ce que
  * la scène montre : ce qu'on surligne, ce qu'on fait tomber.

@@ -9,7 +9,7 @@
  * Deux nuances de fond sont vérifiées ici, parce qu'elles ne sont PAS des
  * détails de traduction (voir `i18n.js`) :
  *   · le « tiret du 6 » est une particularité du clavier français ;
- *   · le joker `j1` ne fonctionne qu'en français, et l'anglais l'assume.
+ *   · le joker `jnf` ne fonctionne qu'en français, et l'anglais l'assume.
  */
 
 import test from 'node:test';
@@ -37,7 +37,7 @@ const CHAMPS_AFFICHES = ['libelle', 'regle', 'note', 'gabarit'];
  * notation, pas de la prose. Toute autre égalité fr/en est une traduction
  * oubliée.
  */
-const NOTATIONS = new Set(['fj:regle', 'n2:regle', 'm1:regle', 'm2:regle', 'mb:regle', 'mc:regle']);
+const NOTATIONS = new Set(['flt:regle', 'nv:regle', 'ma1:regle', 'mz26:regle', 'masc:regle', 'masb:regle']);
 
 test('★ toute chaîne affichable du catalogue porte ses deux langues', () => {
   assert.equal(CATALOGUE.length, 100, 'le catalogue publié compte 100 opérateurs');
@@ -92,13 +92,13 @@ test('★ le « tiret du 6 » est annoncé comme une spécificité française, e
   assert.match(NOTE_AFNOR.en, /AZERTY/);
   assert.match(NOTE_AFNOR.fr, /circonflexe/);
   // Les deux opérateurs de clavier AZERTY portent bien la note.
-  for (const code of ['ml', 'mm']) {
+  for (const code of ['mazc', 'mazr']) {
     assert.equal(PAR_CODE.get(code).note, NOTE_AFNOR, `${code} : note AFNOR absente`);
   }
 });
 
 test('★ le joker j1 est présenté en anglais comme une curiosité française', () => {
-  const joker = PAR_CODE.get('j1');
+  const joker = PAR_CODE.get('jnf');
   assert.equal(joker.isJoker, true);
   // La version anglaise NOMME l'obstacle plutôt que d'inventer un équivalent :
   // « four » a quatre lettres, donc 4 est un point fixe et 6 est hors d'atteinte.
@@ -113,21 +113,21 @@ test('★ le joker j1 est présenté en anglais comme une curiosité française'
 });
 
 test('la méthode « longueur du nom de la lettre » dit qu’elle épelle en français', () => {
-  const op = PAR_CODE.get('mr');
+  const op = PAR_CODE.get('mln');
   assert.match(op.libelle.en, /French/);
   assert.ok(op.note && /French/.test(op.note.en), 'mr : la note anglaise doit nommer la langue');
 });
 
 test('les steps() sont émis dans la langue demandée, titres et légendes compris', () => {
   const cas = [
-    ['f7', depuisSaisie('hope')],
-    ['t1', depuisSaisie('hope')],
-    ['n1', depuisSaisie('hope')],
-    ['m1', tokens(['h', 'o', 'p', 'e'], [[[0, 1]], [[1, 2]], [[2, 3]], [[3, 4]]])],
-    ['c1', { type: 'NUMS', valeur: [8, 15, 16, 5], traces: [[0, 4]], origines: null }],
-    ['p1', num(44, [[0, 4]])],
-    ['p9', num(9, [[0, 1]])],
-    ['j1', num(4, [[0, 1]])],
+    ['fv', depuisSaisie('hope')],
+    ['tca', depuisSaisie('hope')],
+    ['nl', depuisSaisie('hope')],
+    ['ma1', tokens(['h', 'o', 'p', 'e'], [[[0, 1]], [[1, 2]], [[2, 3]], [[3, 4]]])],
+    ['cs', { type: 'NUMS', valeur: [8, 15, 16, 5], traces: [[0, 4]], origines: null }],
+    ['prn', num(44, [[0, 4]])],
+    ['pr9', num(9, [[0, 1]])],
+    ['jnf', num(4, [[0, 1]])],
   ];
   for (const [code, entree] of cas) {
     const op = PAR_CODE.get(code);
@@ -194,7 +194,7 @@ test('★ « les chiffres » ou « les nombres » : le titre s’accorde aux op�
     fr: { chiffres: 'On additionne les chiffres', nombres: 'On additionne les nombres' },
     en: { chiffres: 'Add up the digits', nombres: 'Add up the numbers' },
   };
-  const c1 = PAR_CODE.get('c1');
+  const c1 = PAR_CODE.get('cs');
   for (const langue of LANGUES) {
     for (const [cle, valeurs] of [['chiffres', [3, 4, 4, 4]], ['nombres', [8, 15, 16, 5]]]) {
       const entree = { type: 'NUMS', valeur: valeurs, traces: [[0, valeurs.length]], origines: null };
@@ -210,7 +210,7 @@ test('★ la figure sept segments du Registre : du texte, pas un dessin', () => 
   // La scène est `aria-hidden` (CONTRACTS §6). Le Registre montre la lettre en
   // POLICE sept segments : le DOM porte « H », donc rien à décrire à la main.
   // Ce que le scénario transporte, ce n'est pas un rendu — c'est de quoi rendre.
-  const op = PAR_CODE.get('me');
+  const op = PAR_CODE.get('m7F');
   const entree = tokens(['h', 'o', 'p', 'e'], [[[0, 1]], [[1, 2]], [[2, 3]], [[3, 4]]]);
   const apres = appliquer(op, entree);
   const ids = ['t0', 't1', 't2', 't3'];
@@ -238,7 +238,7 @@ test('★ la figure quatorze segments : même contrat, et la police enfin d’ac
   // est DÉRIVÉE de la police du Registre (`tables/seg14.js`) : le glyphe montré
   // et les segments allumés sont le même dessin, il n'y a pas d'écart à
   // consigner.
-  for (const code of ['mw', 'mx']) {
+  for (const code of ['m14', 'm14F']) {
     const op = PAR_CODE.get(code);
     const entree = tokens(['h', 'o', 'p', 'e'], [[[0, 1]], [[1, 2]], [[2, 3]], [[3, 4]]]);
     const apres = appliquer(op, entree);
@@ -253,7 +253,7 @@ test('★ la figure quatorze segments : même contrat, et la police enfin d’ac
         assert.equal(f.glyphe, 'HOPE'[i]);
         assert.equal(f.valeur, apres.valeur[i]);
         assert.deepEqual(f.segments, [...segments14De(f.glyphe)]);
-        assert.equal(f.fusion, code === 'mx');
+        assert.equal(f.fusion, code === 'm14F');
         assert.equal(f.texte, `${f.glyphe} \u2192 ${f.valeur}`);
         assert.ok(!/[a-z]/.test(f.texte), 'l’équivalent textuel ne contient pas de prose');
       });

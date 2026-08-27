@@ -497,8 +497,8 @@ function selectionner(approches, limite) {
   //
   // ★ **Et jamais une FICELLE.** Cette place-là ne récompense qu'une chose : le
   //   NOMBRE de séries qu'une méthode sait donner. Une ficelle n'en donne pas
-  //   davantage, elle en FABRIQUE — en effaçant ce qui gêne (`m10`, `m11`) ou
-  //   en relisant la ligne jusqu'à ce qu'elle tombe juste (`m12`, `m16`). La
+  //   davantage, elle en FABRIQUE — en effaçant ce qui gêne (`mpf`, `m1s2`) ou
+  //   en relisant la ligne jusqu'à ce qu'elle tombe juste (`mad`, `mrd`). La
   //   promouvoir ici afficherait « celle-ci en aligne une de plus » au-dessus
   //   d'une voie honnête, c'est-à-dire exactement l'inverse de ce que le barème
   //   vient de décider.
@@ -511,8 +511,8 @@ function selectionner(approches, limite) {
   //   sur le solde, ce qu'elles doivent.
   //
   //   ⚠️ MESURÉ, et c'est ce qui a imposé la règle : sur « Millicent »,
-  //   `fl+t1+m5+m16` (trois séries, élégance 1 278) prenait la seconde place
-  //   au-dessus de `fl+t1+m5+mt` (deux séries, élégance 1 310) — et la liste
+  //   `fr13+tca+mx6+mrd` (trois séries, élégance 1 278) prenait la seconde place
+  //   au-dessus de `fr13+tca+mx6+mrn` (deux séries, élégance 1 310) — et la liste
   //   affichait deux séries au rang 1 puis trois au rang 2, un compte qui
   //   REMONTE, ce qu'un test de classement interdit depuis toujours
   //   (`recherche.test.js`).

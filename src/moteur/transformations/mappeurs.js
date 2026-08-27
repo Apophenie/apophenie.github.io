@@ -9,8 +9,8 @@
  *
  * ## Gestes dédiés du vocabulaire fermé (CONTRACTS §3.1)
  *
- * - **`sevenSeg`** (`md`, `me`), **`fourteenSeg`** (`mw`, `mx`) et
- *   **`countStrokes`** (`mf`…`mk` — traits,
+ * - **`sevenSeg`** (`m7`, `m7F`), **`fourteenSeg`** (`m14`, `m14F`) et
+ *   **`countStrokes`** (`mtrc`…`mbob` — traits,
  *   extrémités, boucles) partagent une seule grammaire (`src/visuel/primitives/
  *   encart.js`), et l'émission est la même : **un step par jeton**. La lettre
  *   monte dans un encart, y change de police (l'afficheur sept segments, ou son
@@ -22,7 +22,7 @@
  *   (`tables/derivees.js`) et le tracé animé sortent du même
  *   `tables/glyphes.js`, et `count` fait échouer la compilation s'ils
  *   divergeaient.
- * - **`table`** (`m1`…`m9`, `ma`…`mc`, `mp`, `mq`, `mr`) : **la table de
+ * - **`table`** (`ma1`…`mms`, `mmt`…`masb`, `mhe`, `mgr`, `mln`) : **la table de
  *   correspondance, MONTRÉE**. Une conversion par table n'est vérifiable que si
  *   la table est sous les yeux — « P = 7 » est une affirmation tant qu'on n'a
  *   pas vu la colonne du 7. La table paraît sous la ligne, la case s'allume, la
@@ -58,7 +58,7 @@
  *   première, `retire` sur la dernière, et la table reste montée entre les
  *   deux (l'assemblage l'étend même aux transformations d'affilée qui
  *   emploient la même table — `src/recherche/scenario.js`).
- * - **`keyboard`** (`ml`…`mo`, `mv`) : le clavier monte, la touche — ou la
+ * - **`keyboard`** (`mazc`…`mqwr`, `mtc`) : le clavier monte, la touche — ou la
  *   colonne, ou la rangée — s'illumine, le caractère y vole, et le nombre en
  *   redescend. Trois mesures : `'touche'` (le « tiret du 6 » : le chiffre qui
  *   partage la touche), `'colonne'` et `'rangee'`. Pour la colonne, c'est
@@ -109,7 +109,7 @@ const LIB_TROUVAILLE = bilingue(
 );
 
 /**
- * Le titre de L'ÉTAPE de `mz`, distinct de son libellé d'opérateur.
+ * Le titre de L'ÉTAPE de `m36`, distinct de son libellé d'opérateur.
  *
  * ★ Les deux disaient la même phrase, et c'était juste tant que l'opérateur
  * faisait les deux choses à la fois : couronner et tronquer. Il ne couronne
@@ -156,7 +156,7 @@ function debutDesTroisSix(valeur) {
 // ★ Les trois ficelles assumées — le relevé, la parité, la découpe
 // ───────────────────────────────────────────────────────────────────────────
 //
-// Trois opérateurs (`m10`, `m11`, `m12`) branchent les trois paliers de malus
+// Trois opérateurs (`mpf`, `m1s2`, `mad`) branchent les trois paliers de malus
 // que `src/recherche/elegance.js` gardait en réserve. Tout ce qui DÉCIDE y est
 // calculé ici, une fois, et relu par `apply`, `sortie` et `steps` : une seule
 // source, donc aucun écart possible entre ce qui est compté et ce qui est
@@ -197,7 +197,7 @@ const LIB_CHIFFRE_A_CHIFFRE = bilingue(
  *  · **tout le vecteur ⇒ refus.** Un opérateur qui rend son entrée fabrique une
  *    étape que `scenario.js` saute en silence (« une transformation qui ne
  *    transforme RIEN À L'ÉCRAN »), et l'URL porterait alors un code que la
- *    démonstration ne montre nulle part (même raison que `my` et `mz`) ;
+ *    démonstration ne montre nulle part (même raison que `mr9` et `m36`) ;
  *  · **pas de 666 au bout ⇒ refus** (`portePleinement`, ci-dessous). La ficelle
  *    ne s'autorise que de ce qu'elle prétend servir — « se débarrasser du 4 si
  *    besoin pour former un triptyque supplémentaire ». Si le résultat n'écrit
@@ -253,7 +253,7 @@ function releveEcrit(valeur) {
  *
  * ★ Et le côté retenu doit ÉCRIRE 666 d'affilée, sinon la règle ne s'applique
  * pas : décimer pour qu'il reste deux nombres, ou trois 6 encore dispersés,
- * ce n'est pas isoler les 6, c'est en perdre. Même exigence que pour `m10`, et
+ * ce n'est pas isoler les 6, c'est en perdre. Même exigence que pour `mpf`, et
  * pour la même raison — une ficelle qui n'achète rien ne doit pas être jouée.
  */
 function paritePorteuse(valeur) {
@@ -299,7 +299,7 @@ function releveDesParites(valeur, langue) {
  *    l'additionner à un voisin le DÉTRUIRAIT — ce que le barème d'élégance
  *    punit par ailleurs (`SIX_DETRUIT`). La ficelle ne se paie pas deux fois ;
  *  · **aucun terme nul.** `6 + 0` n'est pas une addition, c'est un zéro qu'on
- *    fait disparaître ; `mu` existe pour ça et le dit honnêtement. Corollaire
+ *    fait disparaître ; `m0` existe pour ça et le dit honnêtement. Corollaire
  *    utile : des termes tous ≥ 1 et de somme 6 font **au plus six termes**, si
  *    bien que la fenêtre est bornée par la CIBLE et non par un réglage ;
  *  · **aucune addition ⇒ refus.** Sans quoi l'opérateur ne serait qu'un
@@ -385,7 +385,7 @@ const LIB_TRI_CROISSANT = bilingue(
 );
 // ★ Le titre est celui de l'auteur, mot pour mot : « On retourne les 666 qui se
 //   cachent ». Il dit ce que le geste TROUVE (un 666), pas ce qu'il manipule
-//   (des 9) — et c'est justement la différence avec `my`, qui retourne les 9 un
+//   (des 9) — et c'est justement la différence avec `mr9`, qui retourne les 9 un
 //   par un sans savoir ce qu'il en sortira.
 const LIB_TRIOS_DE_NEUF = bilingue(
   'On retourne les 666 qui se cachent',
@@ -428,7 +428,7 @@ function ordreCroissant(valeur) {
  *
  *  · **il doit déplacer quelque chose**, sinon l'étape ne montrerait rien et
  *    `scenario.js` la sauterait en silence — l'URL porterait alors un code
- *    invisible à l'écran (même refus que `my`, `mz` et les trois ficelles) ;
+ *    invisible à l'écran (même refus que `mr9`, `m36` et les trois ficelles) ;
  *  · **il doit RASSEMBLER**, c'est-à-dire laisser STRICTEMENT MOINS de plages
  *    qu'il n'en a trouvé. C'est le propos que l'auteur lui donne — « qui permet
  *    de faire apparaître 666 contigu » —, et c'est tout ce qu'un rangement
@@ -439,7 +439,7 @@ function ordreCroissant(valeur) {
  * `111`, pour `777`, et même pour `13` — `[3,1,3,1]` rangé donne `[1,1,3,3]`,
  * deux plages au lieu de quatre, et deux fois la cible écrite. C'est pour ça
  * que cet opérateur reste explorable quelle que soit la cible, là où le
- * redécoupage (`m16`), lui, en sort (`src/recherche/bfs.js`).
+ * redécoupage (`mrd`), lui, en sort (`src/recherche/bfs.js`).
  */
 function triRassemble(valeur) {
   const ordre = ordreCroissant(valeur);
@@ -520,9 +520,9 @@ function plagesDe(valeur) {
  * (`REDECOUPAGE`, `src/recherche/elegance.js`), au même titre que les trois
  * ficelles.
  *
- * ── Ce qui le sépare de l'addition sélective (`m12`) ────────────────────────
+ * ── Ce qui le sépare de l'addition sélective (`mad`) ────────────────────────
  *
- * `m12` n'additionne QUE les suites qui font exactement 6 et laisse tout le
+ * `mad` n'additionne QUE les suites qui font exactement 6 et laisse tout le
  * reste tel quel : c'est une sélection, mais une sélection qui ne touche
  * presque à rien. Celui-ci redécoupe la LIGNE ENTIÈRE, chaque chiffre tombant
  * dans un paquet, et il réduit chaque paquet par racine numérique — donc
@@ -555,12 +555,12 @@ function plagesDe(valeur) {
  *
  *  · **aucun 6 déjà là n'est absorbé.** Un 6 est un acquis ; l'additionner à un
  *    voisin le détruirait, ce que le barème punit par ailleurs
- *    (`SIX_DETRUIT`). C'est la doctrine de `m12`, reprise telle quelle — et
+ *    (`SIX_DETRUIT`). C'est la doctrine de `mad`, reprise telle quelle — et
  *    c'est aussi ce que fait l'auteur dans son propre calcul, où les 6 du
  *    vecteur de départ restent seuls dans leur paquet ;
  *  · **le résultat doit porter STRICTEMENT PLUS de 6 que la ligne de chiffres
  *    dont il sort.** Une triche qui coûte sans rien acheter n'a pas lieu d'être
- *    jouée (même discipline que `m10`, `m11`, `m12`) ;
+ *    jouée (même discipline que `mpf`, `m1s2`, `mad`) ;
  *  · **au moins un paquet de plusieurs chiffres**, sans quoi l'opérateur n'a
  *    fait qu'écrire les nombres chiffre à chiffre — un geste que personne ne
  *    lui a demandé, et qui porterait dans l'URL un code pour rien.
@@ -581,7 +581,7 @@ const CHIFFRES_REDECOUPE_MAX = 36;
  * longue pour être lue, pas une poignée de nombres qu'on saurait traiter
  * autrement.
  *
- * ★ **Le seuil est DEUX FOIS la portée de `m12`, plus un — vingt-cinq.**
+ * ★ **Le seuil est DEUX FOIS la portée de `mad`, plus un — vingt-cinq.**
  * L'addition sélective renonce au-delà de douze chiffres (« on n'additionne
  * plus, on bricole », `CHIFFRES_MAX`). Le redécoupage ne commence que là où
  * même DEUX fois cette portée ne suffirait pas : une ligne qu'on ne pourrait
@@ -594,19 +594,19 @@ const CHIFFRES_REDECOUPE_MAX = 36;
  * ⚠️ MESURÉ, et le chiffre vient de la mesure autant que de l'analogie. Deux
  * dégâts distincts, tous deux sur des saisies témoins, et deux paliers :
  *
- *  1. **sans aucun seuil**, `m16` s'appliquait à presque tous les vecteurs et
+ *  1. **sans aucun seuil**, `mrd` s'appliquait à presque tous les vecteurs et
  *     saturait les listes de candidats — non pas en battant les voies
  *     honnêtes, mais en les évinçant AVANT le classement (le moteur ne
  *     canonicalise que les premiers chemins de chaque fragment,
  *     `assemblage.js › K_CANONISABLES`). « Donald Trump » perdait alors
- *     `t1+mw+mz,fl+t1+mw+mz` (score 6 475) au profit de `fk+t1+m8+my,n7`
- *     (4 278) — une voie qui n'emploie même pas `m16` —, et « Wikipedia »
- *     perdait `fb+t1+mc+mt` (8 296) pour `fl+t1+mp+mt` (4 361). Aucun réglage
+ *     `tca+m14+m36,fr13+tca+m14+m36` (score 6 475) au profit de `fatb+tca+mt9+mr9,n7`
+ *     (4 278) — une voie qui n'emploie même pas `mrd` —, et « Wikipedia »
+ *     perdait `fr+tca+masb+mrn` (8 296) pour `fr13+tca+mhe+mrn` (4 361). Aucun réglage
  *     du barème n'y pouvait rien : ce qui tombait n'était pas classé plus bas,
  *     il n'était plus là. Un seuil à dix-neuf les ramène tous les deux ;
  *  2. **à dix-neuf et à vingt-deux**, il restait « Millicent », où
- *     `fl+t1+m5+m16` (trois séries) se glissait au rang 2 derrière
- *     `fl+t1+m5+mt` (deux séries) : la liste affichait un compte de séries qui
+ *     `fr13+tca+mx6+mrd` (trois séries) se glissait au rang 2 derrière
+ *     `fr13+tca+mx6+mrn` (deux séries) : la liste affichait un compte de séries qui
  *     REMONTE, ce qu'un test de classement interdit depuis toujours. Et aucun
  *     tarif ne pouvait le corriger — au rang des séries, c'est leur NOMBRE qui
  *     commande, avant le score (`score.js › ordreTotal`). À vingt-cinq, la voie
@@ -625,7 +625,7 @@ const CHIFFRES_REDECOUPE_MIN = 2 * CHIFFRES_MAX + 1;
  * une somme de 6, 15, 24, 33… donc, en principe, avec autant de chiffres qu'on
  * veut. Au-delà de six termes sous une même accolade, la scène ne se lit plus
  * et l'addition cesse d'être vérifiable d'un coup d'œil — c'est le même seuil
- * que `m12`, pour la même raison de mise en scène.
+ * que `mad`, pour la même raison de mise en scène.
  */
 const PAQUET_MAX = 6;
 
@@ -697,7 +697,7 @@ function planRedecoupage(valeur) {
   return apres > avant ? { chiffres, multi, paquets } : null;
 }
 
-/** L'identifiant de scène du kᵉ chiffre — même règle que pour `m12`. */
+/** L'identifiant de scène du kᵉ chiffre — même règle que pour `mad`. */
 const idChiffreRedecoupe = (plan, ctx, k) => (plan.multi.has(plan.chiffres[k].src)
   ? `${ctx.cle}c${k}` : ctx.ids[plan.chiffres[k].src]);
 
@@ -1154,7 +1154,7 @@ const MOT_CONSONNE = bilingue('consonne', 'consonant');
 
 const MESURES = [
   {
-    id: 'n.longueur', code: 'n1',
+    id: 'n.longueur', code: 'nl',
     libelle: bilingue('On compte les lettres', 'Count the letters'),
     regle: bilingue('Le nombre de lettres du mot', 'How many letters the word has'),
     notoriete: 0.60,
@@ -1162,7 +1162,7 @@ const MESURES = [
     cibles: rangsLettres,
   },
   {
-    id: 'n.voyelles', code: 'n2',
+    id: 'n.voyelles', code: 'nv',
     libelle: bilingue('On compte les voyelles', 'Count the vowels'),
     regle: bilingue('A, E, I, O, U', 'A, E, I, O, U'),
     notoriete: 0.85,
@@ -1170,7 +1170,7 @@ const MESURES = [
     cibles: rangsVoyelles,
   },
   {
-    id: 'n.consonnes', code: 'n3',
+    id: 'n.consonnes', code: 'nc',
     libelle: bilingue('On compte les consonnes', 'Count the consonants'),
     regle: bilingue('Toutes les lettres sauf A, E, I, O, U', 'Every letter but A, E, I, O, U'),
     notoriete: 0.85,
@@ -1178,7 +1178,7 @@ const MESURES = [
     cibles: rangsConsonnes,
   },
   {
-    id: 'n.lettresDistinctes', code: 'n4',
+    id: 'n.lettresDistinctes', code: 'nd',
     libelle: bilingue('On compte les lettres distinctes', 'Count the distinct letters'),
     regle: bilingue('Une lettre répétée ne compte qu’une fois', 'A repeated letter counts only once'),
     notoriete: 0.70,
@@ -1195,7 +1195,7 @@ const MESURES = [
     },
   },
   {
-    id: 'n.separateurs', code: 'n5',
+    id: 'n.separateurs', code: 'nsp',
     libelle: bilingue('On compte les séparateurs', 'Count the separators'),
     regle: bilingue('Les tirets, points et barres', 'Dashes, dots and slashes'),
     notoriete: 0.65,
@@ -1203,7 +1203,7 @@ const MESURES = [
     cibles: (s) => rangs(s, (c) => /[-._/]/.test(c)),
   },
   {
-    id: 'n.mots', code: 'n6',
+    id: 'n.mots', code: 'nm',
     libelle: bilingue('On compte les mots', 'Count the words'),
     regle: bilingue('Ce que séparent les tirets, points et barres',
       'Whatever the dashes, dots and slashes set apart'),
@@ -1214,7 +1214,7 @@ const MESURES = [
     cibles: (s) => decouperMots(s).map((m) => m.debut),
   },
   {
-    id: 'n.lettresPlusVoyelles', code: 'n7',
+    id: 'n.lettresPlusVoyelles', code: 'nlv',
     libelle: bilingue('Les lettres, plus les voyelles', 'The letters, plus the vowels'),
     regle: bilingue('Nombre de lettres + nombre de voyelles', 'Letter count + vowel count'),
     notoriete: 0.40, adHoc: 0.1,
@@ -1227,7 +1227,7 @@ const MESURES = [
     motDouble: MOT_VOYELLE,
   },
   {
-    id: 'n.lettresPlusConsonnes', code: 'n8',
+    id: 'n.lettresPlusConsonnes', code: 'nlc',
     libelle: bilingue('Les lettres, plus les consonnes', 'The letters, plus the consonants'),
     regle: bilingue('Nombre de lettres + nombre de consonnes', 'Letter count + consonant count'),
     notoriete: 0.40, adHoc: 0.1,
@@ -1249,7 +1249,7 @@ const MESURES = [
 
 const MAPPEURS_LETTRE = [
   {
-    id: 'm.a1z26', code: 'm1',
+    id: 'm.a1z26', code: 'ma1',
     libelle: bilingue('Chaque lettre vaut son rang dans l’alphabet',
       'Each letter is worth its alphabetical rank'),
     regle: bilingue('A=1, B=2, … Z=26', 'A=1, B=2, … Z=26'),
@@ -1258,7 +1258,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => valeurTable(A1Z26, pli(c)),
   },
   {
-    id: 'm.z26a1', code: 'm2',
+    id: 'm.z26a1', code: 'mz26',
     libelle: bilingue('Chaque lettre vaut son rang inversé',
       'Each letter is worth its reversed alphabetical rank'),
     regle: bilingue('A=26, B=25, … Z=1', 'A=26, B=25, … Z=1'),
@@ -1267,7 +1267,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => valeurTable(Z26A1, pli(c)),
   },
   {
-    id: 'm.pythagore', code: 'm3',
+    id: 'm.pythagore', code: 'mpy',
     libelle: bilingue('Numérologie pythagoricienne', 'Pythagorean numerology'),
     regle: bilingue('Le rang réduit à un chiffre : 1 à 9, cycliquement',
       'The rank cut down to one digit: 1 to 9, over and over'),
@@ -1284,7 +1284,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => valeurTable(PYTHAGORE, pli(c)),
   },
   {
-    id: 'm.chaldeen', code: 'm4',
+    id: 'm.chaldeen', code: 'mch',
     libelle: bilingue('Numérologie chaldéenne', 'Chaldean numerology'),
     regle: bilingue('Table chaldéenne traditionnelle — elle ignore le 9',
       'The traditional Chaldean table — it leaves out the 9'),
@@ -1303,7 +1303,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => valeurTable(CHALDEEN, pli(c)),
   },
   {
-    id: 'm.englishX6', code: 'm5',
+    id: 'm.englishX6', code: 'mx6',
     libelle: bilingue('Gématrie anglaise', 'English gematria'),
     regle: bilingue('Le rang multiplié par six : A=6, B=12, … Z=156',
       'The rank times six: A=6, B=12, … Z=156'),
@@ -1312,7 +1312,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => valeurTable(ENGLISH_X6, pli(c)),
   },
   {
-    id: 'm.scrabbleFR', code: 'm6',
+    id: 'm.scrabbleFR', code: 'msfr',
     libelle: bilingue('Points du Scrabble français', 'French Scrabble points'),
     regle: bilingue('La valeur des jetons du jeu, édition française',
       'The tile values of the game, French edition'),
@@ -1326,7 +1326,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => valeurTable(SCRABBLE_FR, pli(c)),
   },
   {
-    id: 'm.scrabbleEN', code: 'm7',
+    id: 'm.scrabbleEN', code: 'msen',
     libelle: bilingue('Points du Scrabble anglais', 'English Scrabble points'),
     regle: bilingue('La valeur des jetons du jeu, édition anglaise',
       'The tile values of the game, English edition'),
@@ -1335,7 +1335,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => valeurTable(SCRABBLE_EN, pli(c)),
   },
   {
-    id: 'm.t9', code: 'm8',
+    id: 'm.t9', code: 'mt9',
     libelle: bilingue('Touche du clavier téléphonique', 'Phone keypad key'),
     regle: bilingue('ABC=2, DEF=3, … WXYZ=9 (norme ITU E.161)',
       'ABC=2, DEF=3, … WXYZ=9 (ITU E.161 standard)'),
@@ -1350,7 +1350,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => valeurTable(T9, pli(c)),
   },
   {
-    id: 'm.morseSignaux', code: 'm9',
+    id: 'm.morseSignaux', code: 'mms',
     libelle: bilingue('Signaux du morse', 'Morse signals'),
     regle: bilingue('Le nombre de points et de traits de la lettre',
       'How many dots and dashes the letter takes'),
@@ -1361,7 +1361,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => morseSignaux(pli(c)),
   },
   {
-    id: 'm.morseTraits', code: 'ma',
+    id: 'm.morseTraits', code: 'mmt',
     libelle: bilingue('Traits du morse', 'Morse dashes'),
     regle: bilingue('Les traits seuls, sans les points', 'The dashes alone, dots not counted'),
     notoriete: 0.35, adHoc: 0.15,
@@ -1369,7 +1369,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => morseTraits(pli(c)),
   },
   {
-    id: 'm.asciiMaj', code: 'mb',
+    id: 'm.asciiMaj', code: 'masc',
     libelle: bilingue('Code ASCII de la capitale', 'ASCII code of the capital'),
     regle: bilingue('A=65, B=66, … Z=90', 'A=65, B=66, … Z=90'),
     notoriete: 0.45,
@@ -1377,7 +1377,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => (estLettre(pli(c)) ? pli(c).charCodeAt(0) : null),
   },
   {
-    id: 'm.asciiMin', code: 'mc',
+    id: 'm.asciiMin', code: 'masb',
     libelle: bilingue('Code ASCII du bas de casse', 'ASCII code of the lower-case letter'),
     regle: bilingue('a=97, b=98, … z=122', 'a=97, b=98, … z=122'),
     notoriete: 0.45,
@@ -1387,7 +1387,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => (estLettre(pli(c)) ? pli(c).toLowerCase().charCodeAt(0) : null),
   },
   {
-    id: 'm.seg7', code: 'md',
+    id: 'm.seg7', code: 'm7',
     libelle: bilingue('Lettre vers nombre de segments', 'Letter to number of segments'),
     regle: bilingue('Sur afficheur 7 segments (calculette par exemple), combien faut-il '
       + 'allumer de segments pour former cette lettre ?',
@@ -1398,7 +1398,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => compteSegments(pli(c)),
   },
   {
-    id: 'm.seg7Fusion', code: 'me',
+    id: 'm.seg7Fusion', code: 'm7F',
     // ★ « TRAITS », pas « lignes ». Le mot « ligne » est RÉSERVÉ à un comptage
     // distinct, à venir : celui des seules HORIZONTALES de l'afficheur — les
     // segments a, d et g, trois horizontales disjointes (voir
@@ -1414,7 +1414,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => compteTraitsFusionnes(pli(c)),
   },
   {
-    id: 'm.traitsMaj', code: 'mf',
+    id: 'm.traitsMaj', code: 'mtrc',
     libelle: bilingue('Traits de crayon, en capitale', 'Pen strokes, in capitals'),
     regle: bilingue('Le nombre de levées de stylo pour tracer la capitale',
       'How many times the pen goes down to draw the capital'),
@@ -1423,7 +1423,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => mesureGlyphe('traits', 'maj', pli(c)),
   },
   {
-    id: 'm.traitsMin', code: 'mg',
+    id: 'm.traitsMin', code: 'mtrb',
     libelle: bilingue('Traits de crayon, en bas de casse', 'Pen strokes, in lower case'),
     regle: bilingue('Le nombre de levées de stylo pour tracer la minuscule',
       'How many times the pen goes down to draw the small letter'),
@@ -1432,7 +1432,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => mesureGlyphe('traits', 'min', pli(c).toLowerCase()),
   },
   {
-    id: 'm.extremitesMaj', code: 'mh',
+    id: 'm.extremitesMaj', code: 'mexc',
     libelle: bilingue('Extrémités libres, en capitale', 'Free ends, in capitals'),
     regle: bilingue('Les bouts de trait qui ne rejoignent rien', 'The stroke ends that meet nothing'),
     notoriete: 0.40,
@@ -1440,7 +1440,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => mesureGlyphe('extremites', 'maj', pli(c)),
   },
   {
-    id: 'm.extremitesMin', code: 'mi',
+    id: 'm.extremitesMin', code: 'mexb',
     libelle: bilingue('Extrémités libres, en bas de casse', 'Free ends, in lower case'),
     regle: bilingue('Les bouts de trait qui ne rejoignent rien', 'The stroke ends that meet nothing'),
     notoriete: 0.40,
@@ -1448,7 +1448,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => mesureGlyphe('extremites', 'min', pli(c).toLowerCase()),
   },
   {
-    id: 'm.bouclesMaj', code: 'mj',
+    id: 'm.bouclesMaj', code: 'mboc',
     libelle: bilingue('Boucles fermées, en capitale', 'Closed loops, in capitals'),
     regle: bilingue('Les trous du glyphe', 'The holes in the glyph'),
     notoriete: 0.50,
@@ -1456,7 +1456,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => mesureGlyphe('boucles', 'maj', pli(c)),
   },
   {
-    id: 'm.bouclesMin', code: 'mk',
+    id: 'm.bouclesMin', code: 'mbob',
     libelle: bilingue('Boucles fermées, en bas de casse', 'Closed loops, in lower case'),
     regle: bilingue('a, b, d, e, g, o, p, q valent 1, les autres 0',
       'a, b, d, e, g, o, p, q are worth 1, the rest 0'),
@@ -1465,7 +1465,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => mesureGlyphe('boucles', 'min', pli(c).toLowerCase()),
   },
   {
-    id: 'm.azertyColonne', code: 'ml',
+    id: 'm.azertyColonne', code: 'mazc',
     libelle: bilingue('Colonne de la touche, en AZERTY', 'Key column, on a French AZERTY'),
     regle: bilingue('Le rang de la touche dans sa rangée — donc le chiffre juste au-dessus',
       'Where the key sits in its row — hence the digit right above it'),
@@ -1473,7 +1473,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => colonne(pli(c), AZERTY),
   },
   {
-    id: 'm.azertyRangee', code: 'mm',
+    id: 'm.azertyRangee', code: 'mazr',
     libelle: bilingue('Rangée de la touche, en AZERTY', 'Key row, on a French AZERTY'),
     regle: bilingue('1 en haut, 2 au milieu, 3 en bas', '1 at the top, 2 in the middle, 3 at the bottom'),
     notoriete: 0.20, adHoc: 0.2,
@@ -1481,7 +1481,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => rangee(pli(c), AZERTY),
   },
   {
-    id: 'm.qwertyColonne', code: 'mn',
+    id: 'm.qwertyColonne', code: 'mqwc',
     libelle: bilingue('Colonne de la touche, en QWERTY', 'Key column, on a US QWERTY'),
     regle: bilingue('Le rang de la touche dans sa rangée, sur un clavier américain',
       'Where the key sits in its row, on a US keyboard'),
@@ -1489,7 +1489,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => colonne(pli(c), QWERTY),
   },
   {
-    id: 'm.qwertyRangee', code: 'mo',
+    id: 'm.qwertyRangee', code: 'mqwr',
     libelle: bilingue('Rangée de la touche, en QWERTY', 'Key row, on a US QWERTY'),
     regle: bilingue('1 en haut, 2 au milieu, 3 en bas', '1 at the top, 2 in the middle, 3 at the bottom'),
     notoriete: 0.20, adHoc: 0.2,
@@ -1497,7 +1497,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => rangee(pli(c), QWERTY),
   },
   {
-    id: 'm.hebreu', code: 'mp',
+    id: 'm.hebreu', code: 'mhe',
     libelle: bilingue('Gématrie hébraïque', 'Hebrew gematria'),
     regle: bilingue('On translittère en hébreu, puis on lit la valeur des lettres',
       'Transliterate into Hebrew, then read off the value of each letter'),
@@ -1510,7 +1510,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => valeurHebreu(pli(c)),
   },
   {
-    id: 'm.grec', code: 'mq',
+    id: 'm.grec', code: 'mgr',
     libelle: bilingue('Isopséphie grecque', 'Greek isopsephy'),
     regle: bilingue('On translittère en grec, puis on lit la valeur des lettres',
       'Transliterate into Greek, then read off the value of each letter'),
@@ -1520,7 +1520,7 @@ const MAPPEURS_LETTRE = [
     fn: (c) => valeurGrec(pli(c)),
   },
   {
-    id: 'm.longueurNom', code: 'mr',
+    id: 'm.longueurNom', code: 'mln',
     libelle: bilingue('Longueur du nom de la lettre', 'Length of the letter’s French name'),
     regle: bilingue('On épelle : « effe » vaut 4, « double vé » vaut 8',
       'Spell it out in French: "effe" is 4 letters, "double vé" is 8'),
@@ -1567,7 +1567,7 @@ const MAPPEURS_LETTRE = [
 
 const AUTRES_MAPPEURS = [
   def({
-    id: 'm.longueurToken', code: 'ms', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    id: 'm.longueurToken', code: 'mlm', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
     libelle: bilingue('Chaque mot vaut son nombre de lettres', 'Each word is worth its letter count'),
     regle: bilingue('On compte les lettres de chaque jeton', 'Count the letters of every token'),
     notoriete: 0.90,
@@ -1582,7 +1582,7 @@ const AUTRES_MAPPEURS = [
     }),
   }),
   def({
-    id: 'm.reduireChaque', code: 'mt', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    id: 'm.reduireChaque', code: 'mrn', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: bilingue('On réduit chaque nombre à un chiffre', 'Reduce every number to a single digit'),
     regle: bilingue('Réduction théosophique, nombre par nombre',
       'Theosophical reduction, one number at a time'),
@@ -1627,7 +1627,7 @@ const AUTRES_MAPPEURS = [
     },
   }),
   def({
-    id: 'm.retirerZeros', code: 'mu', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    id: 'm.retirerZeros', code: 'm0', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: bilingue('On retire les zéros', 'Drop the zeros'),
     regle: bilingue('Un zéro n’apporte rien à la somme', 'A zero brings nothing to the sum'),
     notoriete: 0.35, adHoc: 0.2, commute: true,
@@ -1647,13 +1647,13 @@ const AUTRES_MAPPEURS = [
   }),
   // ★ « Le tiret du 6 » — méthode 6 du README, enfin atteignable.
   //
-  // Le registre des codes est append-only (CONTRACTS §4.1) : `mu` était le
-  // dernier alloué, celui-ci prend `mv`. Il n'existait AUCUN opérateur capable
+  // Le registre des codes est append-only (CONTRACTS §4.1) : `m0` était le
+  // dernier alloué, celui-ci prend `mtc`. Il n'existait AUCUN opérateur capable
   // de rendre 6 sur les deux tirets de `hope-hope-hope` — la table
   // `TIRET_DU_SIX` existait, mais personne ne l'exploitait, et `m.azertyColonne`
   // cherche dans les rangées de LETTRES : la colonne d'un « - » y vaut `null`.
   def({
-    id: 'm.toucheChiffre', code: 'mv', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    id: 'm.toucheChiffre', code: 'mtc', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
     libelle: bilingue('Le chiffre qui partage la touche',
       'The digit that shares the same key'),
     regle: bilingue(
@@ -1674,8 +1674,8 @@ const AUTRES_MAPPEURS = [
     }),
   }),
   // ★ L'afficheur QUATORZE segments — deux méthodes de plus, et deux codes
-  // neufs. Le registre est append-only (CONTRACTS §4.1) : `mv` était le dernier
-  // alloué, ceux-ci prennent `mw` et `mx`. Rien n'est recyclé, `md` et `me`
+  // neufs. Le registre est append-only (CONTRACTS §4.1) : `mtc` était le dernier
+  // alloué, ceux-ci prennent `m14` et `m14F`. Rien n'est recyclé, `m7` et `m7F`
   // gardent leur comportement mot pour mot.
   //
   // Ce que le quatorze segments apporte au CALCUL — c'est la question posée :
@@ -1684,7 +1684,7 @@ const AUTRES_MAPPEURS = [
   // et la borne des traits fusionnés passe de 5 à 10, ce qui ouvre des sommes
   // que le sept segments ne savait pas produire.
   def({
-    id: 'm.seg14', code: 'mw', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    id: 'm.seg14', code: 'm14', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
     libelle: bilingue('Lettre vers nombre de segments, en 14 segments',
       'Letter to number of segments, on a fourteen-segment display'),
     regle: bilingue('Sur afficheur 14 segments (celui des autoradios et des tableaux '
@@ -1705,8 +1705,8 @@ const AUTRES_MAPPEURS = [
     }),
   }),
   def({
-    id: 'm.seg14Fusion', code: 'mx', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
-    // ★ « TRAITS », pas « lignes » — même réserve qu'en sept segments (`me`) :
+    id: 'm.seg14Fusion', code: 'm14F', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    // ★ « TRAITS », pas « lignes » — même réserve qu'en sept segments (`m7F`) :
     // le mot « ligne » reste réservé au comptage des seules HORIZONTALES.
     // Le quatorze segments en compte trois (`a`, `d`, et la médiane `g1`+`g2`
     // qui n'en fait qu'une), ce qui rendrait la confusion d'autant plus facile.
@@ -1729,20 +1729,20 @@ const AUTRES_MAPPEURS = [
       geste: 'fourteenSeg', mode: 'fusion',
     }),
   }),
-  // ★ « On retourne les 9 » — le pendant VECTORIEL de `p.retournement` (`p9`).
+  // ★ « On retourne les 9 » — le pendant VECTORIEL de `p.retournement` (`pr9`).
   //
   // Ce que le moteur faisait jusqu'ici des 9 qu'il produisait : il les
   // additionnait. Deux 9 font 18, qui se réduit en 9, qu'on additionnait à un
   // 3 pour faire 12, qui se réduit en 3 — et ce 3 finissait par rencontrer un
   // autre 3 pour faire le 6 qu'on cherchait, au prix de trois étapes et de
   // deux valeurs sacrifiées. Or le catalogue savait DÉJÀ qu'un 9 retourné est
-  // un 6 : il ne le savait que sur un nombre isolé (`p9`, `NUM → NUM`), après
+  // un 6 : il ne le savait que sur un nombre isolé (`pr9`, `NUM → NUM`), après
   // que tout eut été réduit à un seul. Sur un vecteur, chaque 9 vaut un 6
   // gratuit — et c'est un 6 de plus par jeton, pas un 6 à la place de trois.
   //
-  // Le gisement est réel et il est systématique. La gématrie anglaise (`m5` :
+  // Le gisement est réel et il est systématique. La gématrie anglaise (`mx6` :
   // A = 6, B = 12 … Z = 156) ne rend que des multiples de 6, donc de 3 ;
-  // la réduction chiffre à chiffre (`mt`) d'un multiple de 3 est un multiple
+  // la réduction chiffre à chiffre (`mrn`) d'un multiple de 3 est un multiple
   // de 3 à un chiffre, c'est-à-dire 3, 6 ou 9 et rien d'autre. Un vecteur
   // `m5 + mt` est donc, littéralement, un tiers de 6, un tiers de 9 —
   // et ce tiers-là était perdu.
@@ -1754,15 +1754,15 @@ const AUTRES_MAPPEURS = [
   // (`src/recherche/assemblage.js › uneValeurParJeton`). Un filtre « on ne
   // garde que les 9 » aurait rapporté les mêmes 6 en trichant.
   //
-  // Registre append-only (CONTRACTS §4.1) : `mx` était le dernier alloué,
-  // celui-ci prend `my`. `p9` n'est pas touché et garde son comportement mot
+  // Registre append-only (CONTRACTS §4.1) : `m14F` était le dernier alloué,
+  // celui-ci prend `mr9`. `pr9` n'est pas touché et garde son comportement mot
   // pour mot — les deux coexistent, l'un sur un nombre, l'autre sur un vecteur.
   def({
-    id: 'm.retournerLesNeuf', code: 'my', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    id: 'm.retournerLesNeuf', code: 'mr9', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_RETOURNER_9,
     regle: bilingue('Un 9 retourné d’un demi-tour donne un 6',
       'Give a 9 a half-turn and it becomes a 6'),
-    // ★ Mêmes chiffres que `p9`, et pour les mêmes raisons. La ficelle est
+    // ★ Mêmes chiffres que `pr9`, et pour les mêmes raisons. La ficelle est
     // connue de tout le monde sans être respectée de personne (notoriété 0,25),
     // et elle est franchement ad hoc (0,35) : elle ne s'autorise que d'une
     // coïncidence de dessin, pas d'une propriété du nombre. Le fait qu'elle
@@ -1775,7 +1775,7 @@ const AUTRES_MAPPEURS = [
       'Only the 9s get turned. Turning a 6 would be, shall we say, counter-productive.',
     ),
     apply: (valeur, traces) => {
-      // ★ L'`exige` de `p9` (« n === 9 »), transposé au vecteur : sans un seul
+      // ★ L'`exige` de `pr9` (« n === 9 »), transposé au vecteur : sans un seul
       // 9, l'opérateur REFUSE au lieu de rendre son entrée. Un mappeur qui rend
       // ce qu'il a reçu fabrique une étape que `scenario.js` saute
       // silencieusement (« une transformation qui ne transforme RIEN À
@@ -1874,10 +1874,10 @@ const AUTRES_MAPPEURS = [
   // C'est déterministe (CONTRACTS §4.4) : une URL rejouée retrouve la même
   // suite, sans dépendre d'un tri, d'un maximum, ni de l'ordre d'itération.
   //
-  // Registre append-only (CONTRACTS §4.1, registre FERMÉ) : `my` était le
-  // dernier alloué, celui-ci prend `mz`. Aucun code existant n'est touché.
+  // Registre append-only (CONTRACTS §4.1, registre FERMÉ) : `mr9` était le
+  // dernier alloué, celui-ci prend `m36`. Aucun code existant n'est touché.
   def({
-    id: 'm.troisSixDAffilee', code: 'mz', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    id: 'm.troisSixDAffilee', code: 'm36', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_TROUVAILLE,
     regle: bilingue(
       'Une suite de trois 6 contigus, prise telle quelle. On ne rassemble rien, on la trouve.',
@@ -1907,7 +1907,7 @@ const AUTRES_MAPPEURS = [
       const d = debutDesTroisSix(valeur);
       if (d < 0) return null;
       // ★ REFUS quand il n'y a rien à effacer, pour la raison qui a déjà fait
-      // refuser `my` sur un vecteur sans 9 : un mappeur qui rend son entrée
+      // refuser `mr9` sur un vecteur sans 9 : un mappeur qui rend son entrée
       // fabrique une étape que `scenario.js` saute silencieusement (« une
       // transformation qui ne transforme RIEN À L'ÉCRAN »), et le chemin
       // porterait alors dans son URL un code que la démonstration ne montre
@@ -1939,7 +1939,7 @@ const AUTRES_MAPPEURS = [
      * > cornes parce qu'ils ont été créés avant. »
      *
      * Un couronnement qui dépend d'un CODE dépend de l'URL : un lien écrit
-     * avant l'existence de `mz` ne montrait aucune corne, et un lien qui le
+     * avant l'existence de `m36` ne montrait aucune corne, et un lien qui le
      * porte en montrait là où un autre, arithmétiquement identique, n'en
      * montrait pas. Or les cornes ne sont pas une étape de calcul — elles ne
      * changent ni une valeur, ni un rang, ni un compte. Elles n'ont donc rien
@@ -1991,7 +1991,7 @@ const AUTRES_MAPPEURS = [
     },
   }),
   // ══════════════════════════════════════════════════════════════════════════
-  // ★ LES TROIS FICELLES ASSUMÉES — `m10`, `m11`, `m12`
+  // ★ LES TROIS FICELLES ASSUMÉES — `mpf`, `m1s2`, `mad`
   // ══════════════════════════════════════════════════════════════════════════
   //
   // « Ma demande c'est aussi de les ajouter au catalogue, mais avec un score
@@ -2007,11 +2007,13 @@ const AUTRES_MAPPEURS = [
   //     ne garder que les 6  >  le plus fréquent  >  un rang sur deux
   //                          >  l'addition sélective
   //
-  // ★ **Registre append-only, registre FERMÉ** (CONTRACTS §4.1). `mz` était le
-  // dernier code alloué ; ceux-ci prennent `m10`, `m11` et `m12` — l'index est
-  // en base36 et 36 s'y écrit « 10 ». Aucun code existant n'est touché, renommé
-  // ni réattribué, et aucune pierre tombale n'est reprise. Le catalogue passe
-  // de 93 à 96 opérateurs.
+  // ★ **Registre append-only, registre FERMÉ** (CONTRACTS §4.1). `m36` était le
+  // dernier code alloué ; ceux-ci prennent les trois rangs suivants. Aucun code
+  // existant n'est touché, renommé ni réattribué, et aucune pierre tombale
+  // n'est reprise. Le catalogue passe de 93 à 96 opérateurs. *(Ils se sont
+  // d'abord écrits `mpf`, `m1s2`, `mad` : un code était alors un index base36,
+  // et 36 s'y écrit « 10 ». Le renommage en codes parlants leur a donné `mpf`,
+  // `m1s2` et `mad` ; leur rang au registre, lui, n'a pas bougé.)*
   //
   // ★ **Chacun doit se MONTRER** (CONTRACTS §0.3). C'est là que ces trois-là
   // sont difficiles : ce sont des ficelles, et une ficelle qu'on cache est pire
@@ -2027,7 +2029,7 @@ const AUTRES_MAPPEURS = [
   // préférence tacite pour le 6 ne peut s'y glisser.
 
   def({
-    id: 'm.plusFrequent', code: 'm10', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    id: 'm.plusFrequent', code: 'mpf', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_PLUS_FREQUENT,
     regle: bilingue(
       'On compte chaque valeur ; la plus fréquente reste, les autres s’effacent. '
@@ -2067,7 +2069,7 @@ const AUTRES_MAPPEURS = [
     },
     // Les survivants n'ont ni bougé ni changé de valeur : ils gardent leur
     // identifiant de jeton. En inventer un neuf ferait croire au pont qu'un
-    // jeton en a remplacé un autre (même raison que `mu` et `mz`).
+    // jeton en a remplacé un autre (même raison que `m0` et `m36`).
     sortie: (avant, apres, ctx) => {
       const dom = valeurDominante(avant.valeur);
       return dom ? ctx.ids.filter((_, i) => avant.valeur[i] === dom.valeur) : [];
@@ -2081,7 +2083,7 @@ const AUTRES_MAPPEURS = [
      * elle entière qu'on a compté — et porte sous sa pointe la seule chose qui
      * décide. Puis les minoritaires tombent, et `drop` resserre les survivants
      * (un `move` de plus animerait « translate » une seconde fois sur les mêmes
-     * jetons — voir `mu`).
+     * jetons — voir `m0`).
      *
      * ★ La légende du Registre porte en outre le RELEVÉ complet — `6 ×4 · 4 ×1`
      * —, dérivé du même comptage qu'`apply()`. La scène dit qui gagne,
@@ -2107,7 +2109,7 @@ const AUTRES_MAPPEURS = [
     },
   }),
   def({
-    id: 'm.unRangSurDeux', code: 'm11', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    id: 'm.unRangSurDeux', code: 'm1s2', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_UN_SUR_DEUX,
     regle: bilingue(
       'Une position sur deux — les impaires, ou les paires : celle des deux qui porte '
@@ -2153,7 +2155,7 @@ const AUTRES_MAPPEURS = [
      *
      * Il n'y a donc AUCUNE mise en scène qui chercherait à rendre le choix
      * légitime : l'accolade porte « on ne garde que les positions impaires »,
-     * et c'est tout. Le geste est celui de `m10`, au mot près — parce que c'est
+     * et c'est tout. Le geste est celui de `mpf`, au mot près — parce que c'est
      * la même chose : une règle énoncée, et ce qui n'y répond pas qui tombe.
      * Ce qui les sépare n'est pas le dessin, c'est le PRIX (`elegance.js` :
      * `DECIMATION` < `MAJORITE`, « moindre que la majorité », dit l'auteur).
@@ -2181,7 +2183,7 @@ const AUTRES_MAPPEURS = [
     },
   }),
   def({
-    id: 'm.additionSelective', code: 'm12', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    id: 'm.additionSelective', code: 'mad', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_ADDITION_SELECTIVE,
     regle: bilingue(
       'Chaque nombre s’écrit chiffre à chiffre, puis on n’additionne QUE les suites '
@@ -2293,7 +2295,7 @@ const AUTRES_MAPPEURS = [
   }),
 
   // ══════════════════════════════════════════════════════════════════════════
-  // ★ LES QUATRE TRANSFORMATIONS DU 27 AOÛT — `m13`, `m14`, `m15`, `m16`
+  // ★ LES QUATRE TRANSFORMATIONS DU 27 AOÛT — `mtri`, `mr39`, `mcc`, `mrd`
   // ══════════════════════════════════════════════════════════════════════════
   //
   // ★ **Registre append-only, clôture LEVÉE** (CONTRACTS §4.1, amendement du
@@ -2301,17 +2303,18 @@ const AUTRES_MAPPEURS = [
   // à la main circulaient ; l'auteur a confirmé qu'aucun lien n'avait été
   // diffusé, et la clôture est levée. Ce qui ne bouge pas d'un pouce : un code
   // reste unique, un code ne change jamais de sens, et l'ordre de déclaration
-  // reste l'ordre des codes croissants. Ces quatre-là prennent donc `m13` à
-  // `m16` — index base36, à la suite de `m12` —, aucun code existant n'est
-  // touché, renommé ni réattribué, et le catalogue passe de 96 à 100
-  // opérateurs.
+  // reste celui du registre. Ces quatre-là prennent donc les quatre rangs qui
+  // suivent `mad`, aucun code existant n'est touché, renommé ni réattribué, et
+  // le catalogue passe de 96 à 100 opérateurs. *(Ils se sont d'abord écrits
+  // `mtri` à `mrd`, index base36 ; le renommage en codes parlants leur a donné
+  // `mtri`, `mr39`, `mcc` et `mrd`.)*
   //
   // ★ **Aucune primitive ajoutée** : le vocabulaire reste à vingt et une
   // (§3.1). Le tri emprunte `move` (la primitive du réarrangement, celle-là
   // même que la recopie de `hope-hope-hope` emploie), le décompte emprunte
   // `partition` + `substitute` + `drop`, le redécoupage emprunte `substitute`,
   // `partition`, `insertOperators`, `sum` et `reduce`, et les trios de 9
-  // reprennent le `flip180` de `my` et de `p9`.
+  // reprennent le `flip180` de `mr9` et de `pr9`.
   //
   // ★ **Et aucune corne n'est émise ici.** L'auteur écrit, pour les trios :
   // « en leur ajoutant les cornes une fois retournés ». C'est exactement ce que
@@ -2324,7 +2327,7 @@ const AUTRES_MAPPEURS = [
   // (`src/recherche/cible.js`). L'assemblage, lui, sait les deux.
 
   def({
-    id: 'm.triCroissant', code: 'm13', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    id: 'm.triCroissant', code: 'mtri', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_TRI_CROISSANT,
     regle: bilingue(
       'Les nombres sont rangés du plus petit au plus grand ; à valeur égale, ils gardent '
@@ -2337,7 +2340,7 @@ const AUTRES_MAPPEURS = [
     // explique — c'est le point commun avec « trois 6 d'affilée » (0,80). Ce
     // n'est pas davantage parce que PERSONNE n'attend d'une numérologie qu'elle
     // range ses nombres : la moitié « on a le droit » est une convention de la
-    // maison, comme pour `mz`.
+    // maison, comme pour `m36`.
     //
     // ★ AdHoc 0,20. `adHoc` mesure une chose et une seule : « cette méthode
     // est-elle taillée pour la cible ? » (heuristique §4.5). Le tri croissant
@@ -2359,7 +2362,7 @@ const AUTRES_MAPPEURS = [
     ),
     apply: (valeur, traces) => {
       // ★ REFUS quand le tri ne déplace rien, pour la raison qui a déjà fait
-      // refuser `my`, `mz` et les trois ficelles : un mappeur qui rend son
+      // refuser `mr9`, `m36` et les trois ficelles : un mappeur qui rend son
       // entrée fabrique une étape que `scenario.js` saute silencieusement, et
       // l'URL porterait alors un code que la démonstration ne montre nulle
       // part.
@@ -2400,21 +2403,21 @@ const AUTRES_MAPPEURS = [
   }),
 
   def({
-    id: 'm.retournerLesTrios', code: 'm14', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    id: 'm.retournerLesTrios', code: 'mr39', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_TRIOS_DE_NEUF,
     regle: bilingue(
       'Trois 9 côte à côte se retournent ensemble et donnent 666. Un 9 esseulé reste un 9.',
       'Three 9s side by side turn over together and give 666. A lone 9 stays a 9.',
     ),
-    // ★ Notoriété 0,30, un peu au-dessus de `my` (0,25). C'est le MÊME
+    // ★ Notoriété 0,30, un peu au-dessus de `mr9` (0,25). C'est le MÊME
     // demi-tour, et il n'est pas mieux connu pour être fait par trois ; mais
     // « 999 retourné donne 666 » est une image que le public reconnaît d'un
     // coup, là où « chaque 9 vaut un 6 » demande qu'on y pense.
     //
-    // ★ AdHoc 0,20 contre 0,35 à `my`, et c'est l'auteur qui l'ordonne :
+    // ★ AdHoc 0,20 contre 0,35 à `mr9`, et c'est l'auteur qui l'ordonne :
     // « retourner les neufs non pas individuellement mais en trio contigu
-    // (PLUS ÉLÉGANT) ». La raison tient en une phrase, et c'est celle de `mz` :
-    // celui-ci ne CHOISIT pas où frapper. `my` retourne chaque 9 partout où il
+    // (PLUS ÉLÉGANT) ». La raison tient en une phrase, et c'est celle de `m36` :
+    // celui-ci ne CHOISIT pas où frapper. `mr9` retourne chaque 9 partout où il
     // en traîne un, parce que ça rapporte ; celui-ci n'agit que là où la ligne
     // écrit déjà `999` d'affilée — la contiguïté désigne un seul endroit
     // possible, et le geste est déclenché par la géométrie, pas par
@@ -2434,7 +2437,7 @@ const AUTRES_MAPPEURS = [
       return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
     },
     // Seuls les 9 retournés reçoivent un identifiant neuf — même règle que
-    // `my` : les autres n'ont pas bougé, et un renommage sans geste ferait
+    // `mr9` : les autres n'ont pas bougé, et un renommage sans geste ferait
     // croire au pont qu'un jeton a été remplacé.
     sortie: (avant, apres, ctx) => apres.valeur.map((v, i) => (v === avant.valeur[i]
       ? ctx.ids[i] : nomToken(ctx, i))),
@@ -2453,7 +2456,7 @@ const AUTRES_MAPPEURS = [
      * exactement ce que `couronnerLesTriptyques` viendra couronner à l'étape
      * suivante si le verdict les retient.
      *
-     * ★ Contrôle croisé (CONTRACTS §0.3), trois verrous, les mêmes que `my` :
+     * ★ Contrôle croisé (CONTRACTS §0.3), trois verrous, les mêmes que `mr9` :
      *  1. ici, la valeur d'arrivée est LUE dans `apres.valeur[i]`, jamais
      *     écrite en dur, et c'est la comparaison avec `avant.valeur[i]` qui
      *     décide seule quels jetons bougent ;
@@ -2474,7 +2477,7 @@ const AUTRES_MAPPEURS = [
       });
       // Le `pulse` vient APRÈS le dernier demi-tour, jamais pendant : pendant,
       // le jeton d'arrivée voit déjà son `scale` animé par le crossfade de
-      // `flip180` (même raison que dans `posts.js` et dans `my`).
+      // `flip180` (même raison que dans `posts.js` et dans `mr9`).
       ops.push({ op: 'pulse', targets: neufs, stagger: 60 });
       const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
       return [etape(ctx, dire(LIB_TRIOS_DE_NEUF, ctx.langue), legende, enchainer(ops))];
@@ -2482,7 +2485,7 @@ const AUTRES_MAPPEURS = [
   }),
 
   def({
-    id: 'm.compterLesChiffres', code: 'm15', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    id: 'm.compterLesChiffres', code: 'mcc', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_COMPTER_LES_CHIFFRES,
     regle: bilingue(
       'Chaque plage de nombres identiques est remplacée par son décompte suivi de sa '
@@ -2586,7 +2589,7 @@ const AUTRES_MAPPEURS = [
   }),
 
   def({
-    id: 'm.redecoupageChoisi', code: 'm16', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    id: 'm.redecoupageChoisi', code: 'mrd', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_REDECOUPAGE,
     regle: bilingue(
       'Chaque nombre s’écrit chiffre à chiffre, puis on redécoupe la ligne en paquets '
@@ -2605,7 +2608,7 @@ const AUTRES_MAPPEURS = [
     //
     // ★ AdHoc 0,48, juste sous le joker (0,50) et au-dessus de « le plus
     // fréquent l'emporte » (0,45) : c'est l'opérateur le plus taillé pour la
-    // cible de tout le catalogue. `m10` décide en regardant le vecteur qu'il
+    // cible de tout le catalogue. `mpf` décide en regardant le vecteur qu'il
     // vient d'obtenir ; celui-ci décide en regardant le CHIFFRE QU'ON CHERCHE,
     // et il essaie toutes les découpes jusqu'à trouver celle qui en donne le
     // plus. On ne peut pas être plus explicitement au service du 6.

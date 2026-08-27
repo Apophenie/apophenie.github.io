@@ -100,7 +100,7 @@ const PRIORITE = {
 /**
  * Les mappeurs de service, qui ne nomment rien : ils retouchent un résultat.
  *
- * ★ `m.troisSixDAffilee` (`mz`) les rejoint depuis que le titre ne dit plus le
+ * ★ `m.troisSixDAffilee` (`m36`) les rejoint depuis que le titre ne dit plus le
  * résultat. Il ne calcule rien — il SOULIGNE trois 6 déjà contigus. Laissé
  * vedette, il aurait donné à toute une famille de voies un nom qui annonce
  * exactement la chute qu'on vient de retirer des titres.
@@ -176,7 +176,7 @@ export const NOMS = {
   // ceux qui pratiquent. La seconde : dans « pythagoricienne, chaldéenne,
   // latine », les deux premières nomment des TRADITIONS et la troisième un
   // ALPHABET ; le lecteur croyait voir une troisième tradition là où il n'y a
-  // que le rang de la lettre. L'identifiant `m.a1z26` et le code d'URL `m1`, eux,
+  // que le rang de la lettre. L'identifiant `m.a1z26` et le code d'URL `ma1`, eux,
   // ne changent JAMAIS — registre append-only (CONTRACTS §4.1).
   'm.a1z26': b('Par gématrie simple', 'By simple gematria'),
   'm.z26a1': b('Par l’alphabet à rebours', 'By the alphabet backwards'),
@@ -238,7 +238,7 @@ export const NOMS = {
   //   toutes portent un nom : un opérateur sans nom retomberait sur son
   //   `libelle`, c'est-à-dire sur une phrase entière au milieu d'une locution.
   //
-  // ⚠️ Le libellé de `m14` est celui de l'auteur — « On retourne les 666 qui se
+  // ⚠️ Le libellé de `mr39` est celui de l'auteur — « On retourne les 666 qui se
   //   cachent » — et il DIVULGUE la chute. C'est parfait dans Le Registre, où
   //   l'on regarde le geste se faire ; c'est interdit dans un titre de liste,
   //   où l'on n'a encore rien vu (test « jamais le résultat dans le nom de la
@@ -247,7 +247,7 @@ export const NOMS = {
   'm.retournerLesTrios': b('Par le retournement des trios', 'By flipping the trios'),
   'm.compterLesChiffres': b('Par le décompte des chiffres', 'By tallying the digits'),
   'm.redecoupageChoisi': b('Par redécoupage choisi', 'By chosen recutting'),
-  // ★ `mz` ne nomme rien et ne DOIT rien nommer : il souligne un 666 déjà écrit,
+  // ★ `m36` ne nomme rien et ne DOIT rien nommer : il souligne un 666 déjà écrit,
   // c'est-à-dire le résultat. Il est écarté des vedettes (`MAPPEURS_DE_SERVICE`)
   // et son nom de repli reste muet sur ce qu'il montre.
   'm.troisSixDAffilee': b('Avec le trio souligné', 'With the trio underlined'),
@@ -745,7 +745,7 @@ export function distinguerTitres(approches) {
       // parfaitement nommable — « la règle seule » —, et il ne peut y en avoir
       // qu'un, puisqu'on exige d'être STRICTEMENT le plus court. Sans elle, la
       // ligne se distinguait par sa suite de codes : « Par l'alphabet à rebours
-      // t1+m2+mt », qui n'apprend rien à personne.
+      // tca+mz26+mrn », qui n'apprend rien à personne.
       // ★ « sans autre règle » et non « la règle seule » : le morceau se SOUDE
       // au nom sans ponctuation d'attente, comme toutes les précisions.
       const taille = (x) => new Set(opsDe(x).map((o) => o.id)).size;
@@ -763,12 +763,12 @@ export function distinguerTitres(approches) {
       }
       // ★ Ce qui distingue n'est pas toujours UN opérateur : c'est parfois une
       // COMBINAISON. À trois lignes ou plus, chaque opérateur peut se retrouver
-      // ailleurs sans qu'aucune ligne se répète — `fk+t1+m8+my` face à
-      // `fk+t1+m3+my` et `fk+t1+m8` : ni le clavier téléphonique ni le
+      // ailleurs sans qu'aucune ligne se répète — `fatb+tca+mt9+mr9` face à
+      // `fatb+tca+mpy+mr9` et `fatb+tca+mt9` : ni le clavier téléphonique ni le
       // retournement des 9 ne lui appartiennent, leur RENCONTRE si. On nomme
       // alors tout ce qui varie dans le groupe, c'est-à-dire ce que cette ligne
       // a en propre une fois retiré le fonds commun. C'est plus long qu'un nom,
-      // mais ça se lit — au contraire de « fk+t1+m8+my », qui n'apprend rien à
+      // mais ça se lit — au contraire de « fatb+tca+mt9+mr9 », qui n'apprend rien à
       // personne et donne à voir la plomberie.
       const commun = new Set(opsDe(groupe[0]).map((o) => o.id));
       for (const x of groupe.slice(1)) {

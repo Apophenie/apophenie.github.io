@@ -48,7 +48,7 @@ import {
 } from './cible.js';
 import {
   appliquerOp, etat, normaliserCatalogue, operateursPourCible,
-  cleEtat, cleTrace, rendreValeur, ordreCode,
+  cleEtat, cleTrace, rendreValeur, codeAvant,
 } from './bfs.js';
 
 /**
@@ -364,7 +364,7 @@ export function verdictDe(approche, cible = approche && approche.cible) {
  * C'est exhaustif sur cette forme, borné par le catalogue, et sans horloge : le
  * résultat ne dépend ni de la machine ni de ce qui a été cherché avant
  * (CONTRACTS §4.4). Les états `TOKENS` sont dédoublonnés par clé avant l'étage
- * des mappeurs — c'est ce qui empêche `fg+t1+mw` de doubler `t1+mw` quand le
+ * des mappeurs — c'est ce qui empêche `fmaj+tca+m14` de doubler `tca+m14` quand le
  * filtre ne change rien aux jetons, et divise par quatre le coût de l'étage le
  * plus large.
  *
@@ -468,8 +468,8 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   out.sort((a, b) => (six(b) - six(a)) || (dilue(a) - dilue(b))
     || (nbFicelles(a) - nbFicelles(b)) || comparerChemins(a, b));
 
-  // N2/N3 puis N1, comme partout ailleurs : `fg+t1+mw` — passer en capitales
-  // avant de compter les segments — montre le même vecteur que `t1+mw`, la
+  // N2/N3 puis N1, comme partout ailleurs : `fmaj+tca+m14` — passer en capitales
+  // avant de compter les segments — montre le même vecteur que `tca+m14`, la
   // capitale n'y changeant rien. Sans normalisation, les deux occupaient deux
   // lignes de la liste, distinguées par leurs seuls codes. On en canonicalise
   // deux fois le plafond, pour que la déduplication ait de quoi puiser.
@@ -480,7 +480,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   // il ne la punit qu'à l'arrivée : entre-temps, la sélection par diversité
   // (`score.js › diversifier`) VOIT une méthode de plus et lui fait de la place,
   // parce que sa signature diffère. Mesuré sur `hope-hope-hope.fr` :
-  // `f6+t1+mw+m10` (élégance 1 539) évinçait `f6+t1+mw` (1 909) de la liste, les
+  // `fl+tca+m14+mpf` (élégance 1 539) évinçait `fl+tca+m14` (1 909) de la liste, les
   // deux montrant exactement les mêmes douze 6.
   //
   // On coupe donc à la racine : une voie à ficelle est écartée dès qu'une voie
@@ -489,8 +489,8 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   // autant de 666 écrits d'affilée. Elle n'a alors rien apporté du tout.
   //
   // ⚠️ Et elle n'est PAS écartée quand elle apporte quelque chose : sur
-  // `Macron`, `t1+m8` rend `[6,2,2,7,6,6]` — trois 6 dispersés, aucun 666 — et
-  // `t1+m8+m10` rend `[6,6,6]`. La ficelle reste, et c'est le barème qui la
+  // `Macron`, `tca+mt9` rend `[6,2,2,7,6,6]` — trois 6 dispersés, aucun 666 — et
+  // `tca+mt9+mpf` rend `[6,6,6]`. La ficelle reste, et c'est le barème qui la
   // range où elle doit être.
   const tete = out.slice(0, plafond);
   const mesureDe = (c) => {
@@ -536,11 +536,11 @@ function valeurFinale(chemin) {
  * un `[6,6,6,6]` vaut mieux qu'un `[6,6,6,5,7]`, qui laisse deux valeurs
  * tomber. Le critère est juste — mais il se lisait sur le DERNIER vecteur, et
  * un opérateur qui rétrécit le vecteur AVANT la fin le blanchissait :
- * `fk+t1+mw` finit sur `[x,6,6,y,6]` (dilution 2) là où `fk+t1+mw+m10` finit
+ * `fatb+tca+m14` finit sur `[x,6,6,y,6]` (dilution 2) là où `fatb+tca+m14+mpf` finit
  * sur `[6,6,6]` (dilution 0), alors que les DEUX ont calculé et montré cinq
  * valeurs. Le second n'a pas moins dilué : il a jeté plus tôt.
  *
- * ⚠️ MESURÉ. C'est par là que les trois ficelles (`m10`, `m11`, `m12`)
+ * ⚠️ MESURÉ. C'est par là que les trois ficelles (`mpf`, `m1s2`, `mad`)
  * évinçaient les voies de référence : sur `https://hope-hope-hope.fr/`, la
  * moisson à six séries changeait de premier fragment, et la voie du contrat
  * disparaissait de la liste — non parce qu'elle était moins élégante (2 233
@@ -560,12 +560,12 @@ function largeurMontree(chemin, plancher = 0) {
 }
 
 /**
- * ★ Combien de FICELLES un chemin emploie — `m10`, `m11`, `m12`, `m16`
+ * ★ Combien de FICELLES un chemin emploie — `mpf`, `m1s2`, `mad`, `mrd`
  * (`elegance.js › FICELLES`).
  *
  * ⚠️ MESURÉ, et c'est le second piège que ces trois opérateurs tendaient. Sur
- * `hope-hope-hope.fr`, `f6+t1+mw` rend `[6,6,6,6,6,6,6,6,6,6,6,6,5,7]` et
- * `f6+t1+mw+m10` rend les douze 6 tout seuls : MÊME récolte, MÊME lecture,
+ * `hope-hope-hope.fr`, `fl+tca+m14` rend `[6,6,6,6,6,6,6,6,6,6,6,6,5,7]` et
+ * `fl+tca+m14+mpf` rend les douze 6 tout seuls : MÊME récolte, MÊME lecture,
  * MÊME gaspillage (les deux ont calculé quatorze valeurs). Rien ne les
  * départageait, et c'est la ficelle qui passait — elle représentait alors la
  * portée, et la voie honnête disparaissait de la liste.
@@ -737,7 +737,7 @@ function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT) {
     //   et avant que la moisson ne compte. C'est le dernier endroit où le
     //   blanchiment pouvait encore passer, et c'est le pire.
     //
-    //   ⚠️ MESURÉ. Sur « La numérologie est un art taquin », `t1+mw+m10`
+    //   ⚠️ MESURÉ. Sur « La numérologie est un art taquin », `tca+m14+mpf`
     //   fabriquait une SIXIÈME série là où les voies honnêtes en font cinq :
     //   la liste affichait alors 5 séries au rang 1 (championne d'élégance) et
     //   6 au rang 2 (championne des triptyques), c'est-à-dire un compte qui
@@ -764,15 +764,15 @@ function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT) {
   // faisceau.
   //
   // ★ Le second critère n'est pas cosmétique. Sur la portée `fr`, deux
-  // programmes donnent un 6 sur une seule valeur : `fc+t1+m1` — la règle des
+  // programmes donnent un 6 sur une seule valeur : `fi+tca+ma1` — la règle des
   // initiales, qui garde le `f` (sixième lettre) et JETTE le `r` — et
-  // `t1+md+c1` — le sept segments, 4 + 2, qui lit les deux. La couverture ne
+  // `tca+m7+cs` — le sept segments, 4 + 2, qui lit les deux. La couverture ne
   // les distingue pas : elle compte les caractères de la PORTÉE, pas ceux que
   // le programme regarde. Ici, si.
   const lus = (c) => caracteresLus(c.chemin, texte);
   // ★ La dilution se lit sur le vecteur LE PLUS LARGE du chemin (voir
   //   `largeurMontree`) : `c.total` est celui du dernier état, et un opérateur
-  //   qui rétrécit avant la fin s'y ferait passer pour économe — `mz` le fait
+  //   qui rétrécit avant la fin s'y ferait passer pour économe — `m36` le fait
   //   déjà, honnêtement, et la mesure doit le voir.
   const jetees = (c) => largeurMontree(c.chemin, c.total) - c.six;
   out.sort((a, b) => (b.six - a.six)
@@ -949,9 +949,9 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT)
  * calculant BEAUCOUP PLUS de valeurs.
  *
  * Mesuré sur `Donald Trump`, où le défaut saute aux yeux. La portée `Trump`
- * disposait de `fl+t1+mw+mz` — chiffre de César, quatorze segments, puis les
+ * disposait de `fr13+tca+m14+m36` — chiffre de César, quatorze segments, puis les
  * trois 6 d'affilée : **trois 6 sur trois valeurs, rien de jeté** — et d'un
- * `fk+t1+mw` qui rend **deux 6 sur cinq valeurs**. Il y avait un 6 de trop dans
+ * `fatb+tca+m14` qui rend **deux 6 sur cinq valeurs**. Il y avait un 6 de trop dans
  * la récolte ; l'ancienne règle a donc troqué le premier contre le second,
  * échangeant *un 6 en trop* contre *trois valeurs calculées puis écartées*.
  * C'est exactement le contraire de ce que ce § annonce.
@@ -1133,7 +1133,7 @@ function nbSignifiants(fragment, ctx) {
 //    `hope-hope-hope.fr`, `f.lettres` change l'état courant — il donne
 //    « hopehopehopefr » — et pourtant il ne change RIEN À LA SUITE : le filtre
 //    des voyelles qui vient après aboutit à « oeoeoe » dans les deux cas. Le
-//    chemin `f6+f7+n1` est donc `f7+n1` avec une étape de décor, et les deux
+//    chemin `fl+fv+nl` est donc `fv+nl` avec une étape de décor, et les deux
 //    apparaissaient côte à côte dans la liste (défauts 3 et 4). La neutralité
 //    n'est ici vraie que SUR CETTE SAISIE — c'est suffisant, puisque la
 //    démonstration ne porte que sur elle.
@@ -1141,7 +1141,7 @@ function nbSignifiants(fragment, ctx) {
 //  · N2 — « normalisation des filtres commutatifs ». Le prototype trie les
 //    codes pour la CLÉ, mais laisse le chemin dans son ordre d'origine ; comme
 //    la clé porte aussi la trace des valeurs, et que la trace diffère,
-//    `f1+f3+n3` et `f3+f1+n3` survivaient tous les deux. §4.8 demande de trier
+//    `fp+ftld+nc` et `ftld+fp+nc` survivaient tous les deux. §4.8 demande de trier
 //    la suite commutante AVANT de calculer N1 : c'est le chemin qu'on
 //    réordonne, pas seulement sa clé.
 //
@@ -1176,7 +1176,7 @@ function rejouerOps(source, ops) {
  * inviolable de toute simplification : on a le droit d'enlever du décor, jamais
  * de changer le résultat. Sans ce garde-fou, retirer la DERNIÈRE étape passait
  * toujours le test de trace (la trace attendue perd justement le dernier état),
- * et `f7+n1` se « simplifiait » en `f7` — un chemin qui n'arrive nulle part.
+ * et `fv+nl` se « simplifiait » en `fv` — un chemin qui n'arrive nulle part.
  */
 function memeAboutissement(a, b) {
   const fa = a.etats[a.etats.length - 1];
@@ -1190,14 +1190,14 @@ function memeAboutissement(a, b) {
  *
  * Le critère est le RÉSULTAT, pas l'image intermédiaire. C'est délibéré, et
  * c'est ce qui fait la différence entre attraper le doublon et le laisser
- * passer : sur `https://www.google.com`, `f1+f3+f7+n7` et `f3+f7+n7` montrent
+ * passer : sur `https://www.google.com`, `fp+ftld+fv+nlv` et `ftld+fv+nlv` montrent
  * deux images intermédiaires différentes — « www.google » contre
  * « https://www.google » — mais le filtre des voyelles les ramène toutes deux à
  * « ooe ». Le premier filtre n'a rien fait ; exiger l'égalité des images
  * intermédiaires l'aurait déclaré indispensable.
  *
  * Le typage des opérateurs protège le cœur de la méthode : on ne peut pas
- * retirer `t.caracteres` d'un `t1+m1+c1`, parce que `m1` n'accepte pas un `STR`.
+ * retirer `t.caracteres` d'un `tca+ma1+cs`, parce que `ma1` n'accepte pas un `STR`.
  * Ce qui saute est ce qui peut sauter : du décor.
  */
 function retirerUneEtapeInoperante(chemin, source) {
@@ -1218,11 +1218,7 @@ function reordonnerCommutants(chemin, source) {
   let bloc = [];
   const vider = () => {
     if (!bloc.length) return;
-    bloc.sort((a, x) => {
-      const [fa, ia] = ordreCode(a.code);
-      const [fx, ix] = ordreCode(x.code);
-      return fa !== fx ? fa - fx : ia - ix;
-    });
+    bloc.sort((a, x) => codeAvant(a.code, x.code));
     trie.push(...bloc);
     bloc = [];
   };
@@ -1292,8 +1288,8 @@ const K_CANONISABLES = K_PAR_FRAGMENT * 3;
 
 /**
  * Canonicalise puis re-déduplique une liste de chemins. C'est ici que
- * disparaissent les quasi-doublons — `f6+f7+n1` s'effondre sur `f7+n1`,
- * `f3+f1+n3` sur `f1+f3+n3`.
+ * disparaissent les quasi-doublons — `fl+fv+nl` s'effondre sur `fv+nl`,
+ * `ftld+fp+nc` sur `fp+ftld+nc`.
  */
 export function normaliserChemins(chemins, plafond = K_CANONISABLES) {
   const vus = new Map();
