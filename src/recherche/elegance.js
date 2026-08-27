@@ -229,6 +229,32 @@ export const BAREME = {
    *     de tête de l'auteur (« privilégie celle qui donne le plus de séries »),
    *     mais c'est un bonus qui touche TOUTES les approches et demande son
    *     propre étalonnage — il n'est pas pris ici de but en blanc.
+   *
+   * ⚠️ **MESURE — le réglage 2 ne fait PAS ce qu'on attendait de lui, et il faut
+   * l'écrire avant que quelqu'un le rouvre.** L'auteur signale une PARTITION
+   * qu'il juge très élégante et qu'il ne retrouve plus :
+   * `#so!0.1:t1+m4+c1+p1,3.1:f9+n1,5.1:t1+md+c1#3A8ev…` sur
+   * `https://reinfocovid.fr/` — trois morceaux d'URL, trois méthodes
+   * différentes, un 6 chacun, et RIEN de calculé qui ne serve
+   * (`valeursJetees = 0`). Elle est deuxième à l'élégance (**1 092**) derrière
+   * une moisson à trois séries (**1 151**), donc cinquième au classement, parce
+   * que la première place est la seule que le rang de conviction n'écrase pas.
+   *
+   * Balayage d'un poste « série assemblée » à 0 / 60 / 130 / 260 / 420
+   * milli-unités : **son rang ne bouge pas d'un cran**, et l'écart d'élégance
+   * se CREUSE — la moisson assemble deux à trois séries là où la partition n'en
+   * assemble qu'une, si bien que le bonus la sert deux à trois fois mieux. Même
+   * chose par l'autre bout : `EFFACE_ALNUM` (le poste qui coûte le plus cher à
+   * cette voie — cinq voyelles arrachées, −130) balayé de 26 à 0 ne la fait pas
+   * remonter non plus, la moisson en arrachant SIX.
+   *
+   * Ce qui sépare ces deux voies n'est donc pas un poids mal réglé : sur la
+   * même saisie, la moisson fait davantage de tout ce que le barème récompense.
+   * Le seul levier qui déplacerait cette voie n'est pas dans le barème, il est
+   * dans la SÉLECTION (`index.js › selectionner`), qui ne réserve QU'UNE place
+   * au champion de l'élégance — le second, si élégant soit-il, retombe dans le
+   * mixte où le nombre de séries commande. C'est un arbitrage de l'auteur, pas
+   * un défaut de mesure, et le barème n'a pas à être tordu pour le trancher.
    */
 
 
