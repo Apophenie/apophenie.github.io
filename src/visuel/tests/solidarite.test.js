@@ -174,10 +174,18 @@ test('★ le verdict grossit sur UNE SEULE courbe : position et taille ne peuven
  * ★ « Quand il y a plusieurs séries de 666, [les cornes] seulement sur les 666
  * de la ligne du haut, pour éviter de surcharger en effet » (l'auteur).
  *
- * Le verdict ne passe à deux rangs qu'au-delà de trois séries. Sur un seul
- * rang, tout ce qui est couronné le reste : il n'y a rien à alléger.
+ * Le verdict ne passe à plusieurs rangs qu'au-delà de trois séries et demie par
+ * rang (`repartirEnLignes`). Sur un seul rang, tout ce qui est couronné le
+ * reste : il n'y a rien à alléger.
+ *
+ * ★ Et elles ne s'éteignent plus, elles S'EFFRITENT — « au moment de
+ * l'agencement, fais s'effriter/disparaître progressivement les cornes des
+ * triptyques qui vont en 2ⁿᵈ ligne » (l'auteur). Le geste passe par le TRACÉ,
+ * canal discret et fonction pure du temps : on l'interroge donc là où il vit,
+ * en demandant à la fonction de rendu ce qu'elle dessine à la fin. Rien, c'est
+ * la bonne réponse.
  */
-test('★ à deux rangs, seules les cornes du rang du haut restent', () => {
+test('★ à plusieurs rangs, seules les cornes du rang du haut restent', () => {
   const couronner = (n) => {
     const steps = [];
     for (let s = 0; s < n; s++) {
@@ -191,30 +199,39 @@ test('★ à deux rangs, seules les cornes du rang du haut restent', () => {
     return compile(sc(steps, chiffres('6'.repeat(n * 3))));
   };
   /**
-   * Les séries dont les cornes finissent invisibles.
+   * Les séries dont les cornes se rongent jusqu'à ne plus rien laisser.
    *
    * Une série en porte DEUX, une par 6 extérieur (`horns.js`, « UNE CORNE, UN
-   * NŒUD ») : on exige que les deux s'éteignent, pas l'une des deux — un rang
+   * NŒUD ») : on exige que les deux s'effritent, pas l'une des deux — un rang
    * détrôné à moitié serait pire que pas détrôné du tout.
    */
-  const eteintes = (tl, n) => {
+  const effritees = (tl, n) => {
     const out = [];
     for (let s = 0; s < n; s++) {
       const ids = [`@cornes:d${s * 3}`, `@cornes:d${s * 3 + 2}`];
-      const eteinte = (id) => {
-        const derniere = tl.anims.filter((a) => a.id === id && a.prop === 'opacity').at(-1);
-        return !!derniere && derniere.keyframes.at(-1).value === 0;
+      const rongee = (id) => {
+        const e = tl.discrete.filter((x) => x.id === id && x.channel === 'd').at(-1);
+        if (!e) return false;
+        // Intacte au début, ébréchée au milieu, disparue à la fin. Les trois
+        // ensemble : une corne qui saute directement à rien ne s'effrite pas.
+        assert.ok(e.render(0).length > 0, `${id} : le tracé de départ doit être la corne entière`);
+        const milieu = e.render(0.5);
+        assert.ok(milieu.length > 0 && milieu !== e.render(0),
+          `${id} : à mi-chemin, la corne doit être ébréchée, ni intacte ni partie`);
+        return e.render(1) === '';
       };
-      const combien = ids.filter(eteinte).length;
-      assert.notEqual(combien, 1, `série ${s} : une corne éteinte sur deux`);
+      const combien = ids.filter(rongee).length;
+      assert.notEqual(combien, 1, `série ${s} : une corne effritée sur deux`);
       if (combien === 2) out.push(s);
     }
     return out;
   };
 
   // Trois séries ou moins : un seul rang, personne n'est détrôné.
-  for (const n of [1, 2, 3]) assert.deepEqual(eteintes(couronner(n), n), [], `${n} série(s) sur un rang`);
-  // Cinq séries : deux rangs, la coupure tombe après la troisième (5 → 3 puis 2).
-  assert.deepEqual(eteintes(couronner(5), 5), [3, 4], 'les deux séries du rang du bas perdent leurs cornes');
-  assert.deepEqual(eteintes(couronner(4), 4), [2, 3], 'quatre séries : deux rangs de deux');
+  for (const n of [1, 2, 3]) assert.deepEqual(effritees(couronner(n), n), [], `${n} série(s) sur un rang`);
+  // Les agencements dictés par l'auteur, lus du point de vue des cornes : tout
+  // ce qui n'est pas dans le PREMIER rang s'effrite.
+  assert.deepEqual(effritees(couronner(4), 4), [2, 3], 'quatre séries : deux rangs de deux');
+  assert.deepEqual(effritees(couronner(5), 5), [3, 4], '5 → 3 puis 2 : les deux du bas s’effritent');
+  assert.deepEqual(effritees(couronner(8), 8), [3, 4, 5, 6, 7], '8 → 3 + 3 + 2 : deux rangs sous le premier');
 });

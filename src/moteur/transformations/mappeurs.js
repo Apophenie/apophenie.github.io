@@ -108,6 +108,24 @@ const LIB_TROUVAILLE = bilingue(
   'Three 6s in a row — the 666 was already written',
 );
 
+/**
+ * Le titre de L'ÉTAPE de `mz`, distinct de son libellé d'opérateur.
+ *
+ * ★ Les deux disaient la même phrase, et c'était juste tant que l'opérateur
+ * faisait les deux choses à la fois : couronner et tronquer. Il ne couronne
+ * plus (voir `steps`), et l'assemblage pose le couronnement à part, sous le
+ * titre de la trouvaille. Deux étapes voisines portant la même phrase se
+ * liraient comme une redite ; celle-ci dit ce qu'elle fait, et elle seule —
+ * on s'arrête de lire, le reste s'efface.
+ *
+ * Le LIBELLÉ de l'opérateur, lui, ne bouge pas : il nomme la méthode dans le
+ * titre de la voie, et la méthode est bien la trouvaille.
+ */
+const LIB_ARRET = bilingue(
+  'On s’arrête aux trois 6 d’affilée — le reste s’efface',
+  'Stop at the three 6s in a row — the rest is erased',
+);
+
 /** Longueur de la suite cherchée. 666 fait trois 6, ni deux, ni quatre. */
 const SUITE = 3;
 
@@ -1910,46 +1928,65 @@ const AUTRES_MAPPEURS = [
       return d < 0 ? [] : [0, 1, 2].map((k) => ctx.ids[d + k]);
     },
     /**
-     * ★ UN SEUL geste ÉMIS ICI — les cornes poussent sur les trois 6 pendant
-     * que le reste de la séquence s'efface.
+     * ★ CET OPÉRATEUR NE COURONNE PLUS — il DÉSIGNE et il EFFACE.
      *
-     * Pourquoi une op et non deux (`drop` puis `horns`) : parce que le
-     * contrôle croisé n'y survivrait pas. Si un `drop` effaçait le reste
-     * d'abord, la primitive des cornes ne verrait plus que trois 6 seuls dans
-     * la ligne — donc trivialement contigus — et elle accepterait de couronner
-     * trois 6 qui, au départ, étaient dispersés. C'est exactement ce qu'elle
-     * doit refuser. Elle efface donc elle-même, après avoir vérifié la
-     * contiguïté sur la ligne telle qu'elle est.
+     * **Ce qui a changé, et pourquoi.** Il émettait `horns` : les cornes
+     * poussaient sur les trois 6 pendant que le reste de la séquence
+     * s'effaçait, en un seul geste indivisible. L'auteur a tranché :
      *
-     * ★ **L'assemblage peut ensuite scinder le geste en deux moments** —
-     * couronner tôt, effacer tard (`reglerLesCornes`, `recherche/scenario.js`,
-     * et CONTRACTS §3.1). Il ne le fait qu'en séparant dans le BON sens : le
-     * couronnement avance, l'effacement recule, et l'ordre « on vérifie sur la
-     * ligne pleine, puis on efface » est donc encore plus strictement tenu
-     * qu'ici. Un opérateur ne voit que sa propre étape : il ne peut savoir ni
-     * quand ses trois 6 sont nés, ni ce que la suite leur fera. C'est pour ça
-     * que la décision n'est pas prise ici.
+     * > « L'ajout des cornes ne devrait pas modifier l'url mais être fait à la
+     * > volée en mode `sce!` — ça éviterait d'avoir des liens `sce!` sans
+     * > cornes parce qu'ils ont été créés avant. »
      *
-     * ★ Contrôle croisé (CONTRACTS §0.3), trois verrous comme pour les tables :
-     *  1. ici, `efface` et `targets` sont dérivés du MÊME index `d`, lui-même
-     *     relu sur `avant.valeur` — la valeur qu'`apply()` a examinée. Il
-     *     n'existe pas de seconde copie qui puisse diverger ;
-     *  2. `src/recherche/scenario.js` recoupe : les trois cibles doivent être
-     *     consécutives dans `ctx.ids` et porter toutes trois un « 6 » ;
-     *  3. `src/visuel/primitives/horns.js` recoupe une troisième fois, sur la
-     *     LIGNE : trois jetons vivants, trois « 6 », trois rangs consécutifs du
-     *     flux. Sinon la compilation échoue — porter des cornes sur autre
-     *     chose que trois 6 contigus serait affirmer là où l'on prétend
-     *     montrer.
+     * Un couronnement qui dépend d'un CODE dépend de l'URL : un lien écrit
+     * avant l'existence de `mz` ne montrait aucune corne, et un lien qui le
+     * porte en montrait là où un autre, arithmétiquement identique, n'en
+     * montrait pas. Or les cornes ne sont pas une étape de calcul — elles ne
+     * changent ni une valeur, ni un rang, ni un compte. Elles n'ont donc rien
+     * à faire dans un programme. Le couronnement appartient désormais à
+     * l'assemblage, qui le décide sur la LIGNE et sur le REGISTRE, jamais sur
+     * un code (`recherche/scenario.js › couronnerLesTriptyques`).
+     *
+     * **Et l'effacement, alors ?** Il reste ici, et il devient une étape à part
+     * entière. C'est le seul des deux gestes qui soit de l'arithmétique : le
+     * vecteur passe de `[6,6,6,7,3,6]` à `[6,6,6]`, la valeur change, le
+     * programme doit donc en rendre compte et l'URL le nommer. Le couronnement,
+     * lui, ne constate qu'une chose qui était déjà écrite.
+     *
+     * > « L'effacement est une étape à part, et si elle n'a pas de motif
+     * > (chiffre minoritaire, pair/impair) c'est probablement la pire des
+     * > triches, à pénaliser en conséquence. » (l'auteur)
+     *
+     * Le motif est ici MONTRÉ avant d'être exercé : le `highlight` désigne les
+     * trois 6 contigus — c'est-à-dire la raison de garder ceux-là et pas
+     * d'autres — et la gomme n'emporte que le reste. Ce que le barème
+     * (`recherche/elegance.js`) fait de ce motif ne se décide pas ici.
+     *
+     * ★ **Le contrôle croisé n'y perd rien, et il y gagne un cran.** Le
+     * troisième verrou (`visuel/primitives/horns.js`, la contiguïté relue sur
+     * la ligne pleine) redoutait qu'un `drop` efface AVANT lui, le laissant
+     * couronner trois 6 seuls donc trivialement voisins. C'est structurellement
+     * impossible maintenant : l'assemblage ne couronne qu'à l'instant où le
+     * troisième 6 PARAÎT, c'est-à-dire nécessairement avant cette étape-ci, et
+     * il exige de surcroît que la contiguïté tienne jusqu'au verdict.
+     *
+     * ★ Restent les deux verrous d'ici, inchangés : `efface` et les désignés
+     * sont dérivés du MÊME index `d`, relu sur `avant.valeur` — la valeur
+     * qu'`apply()` a examinée —, et `recherche/scenario.js` recoupe.
      */
     steps: (avant, apres, ctx) => {
       const d = debutDesTroisSix(avant.valeur);
       if (d < 0) return [];
-      const cornus = [0, 1, 2].map((k) => ctx.ids[d + k]);
+      const gardes = [0, 1, 2].map((k) => ctx.ids[d + k]);
       const efface = ctx.ids.filter((_, i) => i < d || i > d + 2);
       const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join('')}`;
-      return [etape(ctx, dire(LIB_TROUVAILLE, ctx.langue), legende, [
-        { op: 'horns', targets: cornus, efface },
+      // La gomme de `drop` en mode `erase`, sans regroupement : un par un, sur
+      // place, sans que rien ne bouge. Les trois 6 sont déjà d'un seul tenant,
+      // il n'y a aucun trou à refermer entre eux — et un resserrement ferait
+      // croire qu'on a fabriqué le 666 en rapprochant des chiffres épars.
+      return [etape(ctx, dire(LIB_ARRET, ctx.langue), legende, [
+        { op: 'highlight', targets: gardes, mode: 'select' },
+        { op: 'drop', targets: efface, mode: 'erase', regroup: false, at: 300 },
       ])];
     },
   }),

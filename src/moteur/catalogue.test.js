@@ -191,7 +191,14 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   mi: 'countStrokes', mj: 'countStrokes', mk: 'countStrokes',
   ml: 'keyboard', mm: 'keyboard', mn: 'keyboard', mo: 'keyboard',
   mv: 'keyboard',
-  mz: 'horns',
+  // ★ `mz` n'émet plus `horns`. Les cornes ne sont plus le geste d'un
+  //   OPÉRATEUR — elles ne changent aucune valeur, elles n'ont donc rien à
+  //   faire dans un programme ni dans une URL —, et l'assemblage les pose
+  //   désormais sur la ligne, en registre scénique
+  //   (`recherche/scenario.js › couronnerLesTriptyques`). Ce qui reste ici est
+  //   la seule moitié qui soit de l'arithmétique : la gomme qui tronque le
+  //   vecteur à ses trois 6 contigus.
+  mz: 'drop',
   // ★ Le tri croissant ne substitue rien et n'efface rien : il DÉPLACE. Le
   //   geste dédié est donc `move`, la primitive du réarrangement — sans elle,
   //   le rangement serait affirmé par une légende au lieu d'être montré.
@@ -591,25 +598,31 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
         `${code} (${op.id}) : la primitive « ${attendue} » n'est pas émise — `
         + 'le comptage ne serait plus montré, seulement affirmé (CONTRACTS §0.3)');
       for (const o of emises) {
-        if (attendue === 'horns') {
-          // ★ Les cornes ne travaillent pas jeton par jeton : elles couronnent
-          // un GROUPE de trois, et c'est tout leur propos. Le contrôle croisé
-          // n'est ni `count` ni `to.text` mais la CONTIGUÏTÉ : trois jetons
-          // consécutifs de la ligne, tous trois porteurs d'un 6 — vérifié ici,
-          // puis par le pont, puis par la primitive.
-          assert.ok(Array.isArray(o.targets) && o.targets.length === 3,
-            `${code} : « targets » doit désigner les trois 6 du 666`);
-          const rangs = o.targets.map((id) => ctx.ids.indexOf(id));
-          assert.ok(rangs.every((r) => r >= 0), `${code} : une cible hors de la ligne`);
+        if (code === 'mz') {
+          // ★ L'EFFACEMENT NE TRAVAILLE PAS JETON PAR JETON, et son contrôle
+          // croisé n'est ni `count` ni `to.text` : c'est le MOTIF. « Si elle
+          // n'a pas de motif, c'est probablement la pire des triches »
+          // (l'auteur). Ici le motif est la CONTIGUÏTÉ, et il est montré avant
+          // d'être exercé — un `highlight` désigne les trois 6 qu'on garde,
+          // puis la gomme n'emporte que le reste. On vérifie donc les deux
+          // ensemble : que les désignés sont bien trois 6 consécutifs de la
+          // ligne, et que ce qui tombe est exactement leur complément.
+          const designe = steps.flatMap((st) => st.ops)
+            .find((x) => x.op === 'highlight' && Array.isArray(x.targets));
+          assert.ok(designe, `${code} : rien ne DÉSIGNE ce qu'on garde — l'effacement serait sans motif`);
+          assert.equal(designe.targets.length, 3, `${code} : on garde les trois 6 du 666, ni deux ni quatre`);
+          const rangs = designe.targets.map((id) => ctx.ids.indexOf(id));
+          assert.ok(rangs.every((r) => r >= 0), `${code} : un jeton désigné hors de la ligne`);
           assert.deepEqual(rangs, [rangs[0], rangs[0] + 1, rangs[0] + 2],
             `${code} : les trois 6 ne se touchent pas — ce serait un tri, pas une trouvaille`);
           for (const r of rangs) {
             assert.equal(String(entree.valeur[r]), '6',
-              `${code} : les cornes se poseraient sur autre chose qu'un 6`);
+              `${code} : on garderait autre chose qu'un 6`);
           }
-          for (const id of o.efface || []) {
-            assert.ok(!o.targets.includes(id), `${code} : on n'efface pas ce qu'on couronne`);
-          }
+          assert.equal(o.mode, 'erase', `${code} : la gomme efface sur place, elle ne fait pas tomber`);
+          assert.equal(o.regroup, false, `${code} : rien ne se resserre — le 666 est déjà d'un seul tenant`);
+          assert.deepEqual([...o.targets].sort(), ctx.ids.filter((id) => !designe.targets.includes(id)).sort(),
+            `${code} : ce qui tombe doit être EXACTEMENT le complément de ce qu'on garde`);
           continue;
         }
         if (attendue === 'move') {

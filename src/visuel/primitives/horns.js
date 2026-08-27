@@ -2,8 +2,19 @@
  * `horns` — LES CORNES. La chute du site.
  *
  * Trois 6 sont déjà côte à côte dans la ligne, dans cet ordre, sans rien entre
- * eux : le 666 est écrit avant qu'on le regarde. On lui met des cornes, et le
- * reste de la séquence s'efface.
+ * eux : le 666 est écrit avant qu'on le regarde. On lui met des cornes — et,
+ * si `efface` en désigne, le reste de la séquence s'efface avec.
+ *
+ * ★ **Aucun émetteur ne remplit plus `efface`**, et c'est le sens du dernier
+ * amendement (CONTRACTS §3.1, « LES CORNES SORTENT DE L'URL »). Les cornes ne
+ * sont plus le geste d'un opérateur : elles ne changent ni une valeur, ni un
+ * rang, ni un compte, donc elles n'ont rien à faire dans un programme ni dans
+ * une URL. L'assemblage les pose sur la LIGNE, selon le REGISTRE, et sans rien
+ * effacer (`recherche/scenario.js › couronnerLesTriptyques`) ; l'effacement,
+ * lui, est resté chez `mz`, dans une étape à part qui porte son propre motif.
+ * Le paramètre est conservé — la primitive sait le faire, un scénario relu
+ * d'ailleurs peut en porter un, et les deux sections qui suivent expliquent
+ * pourquoi il ne pourrait pas être remplacé par un `drop` voisin.
  *
  * ## Pourquoi une op à part, et pas une option de `highlight` ou de `drop`
  *
@@ -34,12 +45,14 @@
  * (`effacerSurPlace`, `helpers.js`) : un par un, sur place, sans que rien
  * bouge.
  *
- * ★ Et `efface` peut être VIDE, sans que rien ne change ici. L'assemblage a le
- * droit de scinder le geste en deux moments — couronner dès que les trois 6
- * existent, effacer une seule fois juste avant le verdict (`reglerLesCornes`,
- * `recherche/scenario.js`, CONTRACTS §3.1). Ce qu'il ne peut pas faire, c'est
- * effacer AVANT : la primitive lit alors une ligne pleine, et le contrôle
- * croisé ci-dessous garde exactement la même valeur.
+ * ★ Et `efface` peut être VIDE, sans que rien ne change ici — c'est même le
+ * seul cas que le projet produise encore. Les deux gestes ont été séparés à la
+ * source : l'assemblage couronne dès que les trois 6 s'écrivent, `mz` efface à
+ * sa propre étape. Ce que personne ne peut faire, c'est effacer AVANT le
+ * couronnement : la primitive lit alors une ligne pleine, et le contrôle croisé
+ * ci-dessous garde exactement la même valeur. L'ordre est structurellement tenu
+ * — on ne couronne qu'à l'instant où le troisième 6 paraît, donc toujours avant
+ * l'étape qui efface.
  *
  * ## Les cornes se posent SUR les 6, pas sur la scène
  *
@@ -327,7 +340,10 @@ export function poserLesCornes(ctx, cornus, spec = {}) {
       // `debord` dit de combien il DÉPASSE vers le haut, en unités nominales :
       // c'est ce que le verdict doit connaître pour ne pas envoyer les pointes
       // hors du cadre en grossissant les chiffres (voir `reveal.js`).
-      data: { d: corneD(s, 0, m), suit: porteur, debord: m.debord },
+      // `cote` : de quel côté la corne pousse (−1 à gauche, +1 à droite). Le
+      // tracé en dépend, et l'effritement doit pouvoir le redessiner sans
+      // deviner — voir `effriterLesCornes`.
+      data: { d: corneD(s, 0, m), suit: porteur, debord: m.debord, cote: s },
       base: { opacity: 0, scale: echelle, fill: ctx.palette.rubric },
     }, { where: ctx.where });
     ctx.place(id, { x: ou.x, y: ou.y, w: largeur });
@@ -419,23 +435,176 @@ function largeurDeCorne(m) {
  * prolongement du flanc, ce que `m.galbeExterne` encode (voir `mesuresCorne`).
  */
 function corneD(s, cx, m) {
-  const p = (u) => `${r(cx + s * u[0])} ${r(m.y0 + u[1])}`;
+  const p = pointeur(s, cx, m);
+  const { externe, interne } = bordsDeLaCorne(m);
+  return [
+    `M ${p(externe[0])}`,
+    // bord externe : du talon à la pointe, bombé vers le dehors
+    `C ${p(externe[1])} ${p(externe[2])} ${p(externe[3])}`,
+    // bord interne : de la pointe au pied, bombé davantage — c'est lui qui affine
+    `C ${p(interne[1])} ${p(interne[2])} ${p(interne[3])}`,
+    'Z',
+  ].join(' ');
+}
+
+/**
+ * Les deux bords de la corne, en points de contrôle — source unique du tracé
+ * intact ET du tracé effrité.
+ *
+ * Le repère est celui de `corneD` : `+x` vers l'EXTÉRIEUR, `y` compté depuis la
+ * ligne de crâne. Trois points suffisent à décrire la corne — les deux pieds et
+ * la pointe —, et chaque bord est une cubique dont les poignées partent de la
+ * corde et sont poussées vers le dehors (le `galbe`).
+ */
+function bordsDeLaCorne(m) {
   // Les deux pieds reposent sur le sommet de la barre du 6 couronné : celui du
   // dedans à `−e/2`, celui du dehors à `+e/2`, et `e = 2·(débord de la barre)`.
   const pied = [-m.e / 2, 0];        // vers l'intérieur du groupe
   const talon = [m.e / 2, 0];        // vers l'extérieur
   const pointe = [m.ouv, -m.h];
   const sur = (a, b, t, galbe) => [a[0] + (b[0] - a[0]) * t + galbe, a[1] + (b[1] - a[1]) * t];
+  return {
+    externe: [talon,
+      sur(talon, pointe, 1 / 3, m.galbeExterne), sur(talon, pointe, 2 / 3, m.galbeExterne), pointe],
+    interne: [pointe,
+      sur(pointe, pied, 1 / 3, m.galbeInterne), sur(pointe, pied, 2 / 3, m.galbeInterne), pied],
+  };
+}
+
+/** Un point du repère local, écrit dans celui de la scène. */
+function pointeur(s, cx, m) {
+  return (u) => `${r(cx + s * u[0])} ${r(m.y0 + u[1])}`;
+}
+
+/**
+ * De Casteljau : la cubique coupée en `t`, et le point de coupe.
+ *
+ * C'est la seule façon de tronquer une cubique SANS la déformer — on ne peut
+ * pas simplement rapprocher le dernier point de contrôle, la courbe ne
+ * passerait plus par où elle passait. La subdivision, elle, rend deux cubiques
+ * dont la réunion est exactement l'originale.
+ */
+function casteljau(P, t) {
+  const lerp = (a, b) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  const a = lerp(P[0], P[1]);
+  const b = lerp(P[1], P[2]);
+  const c = lerp(P[2], P[3]);
+  const d = lerp(a, b);
+  const e = lerp(b, c);
+  const f = lerp(d, e);
+  return { avant: [P[0], a, d, f], apres: [f, e, c, P[3]], point: f };
+}
+
+/**
+ * ★ LE FRONT D'ÉROSION — la dentelure, écrite à la main et JAMAIS tirée au sort.
+ *
+ * Une corne qui s'effrite ne perd pas sa pointe à l'horizontale : elle
+ * s'ébrèche. Ces cinq valeurs disent de combien le front monte ou descend, en
+ * fractions de la hauteur qui reste, aux cinq sixièmes de la largeur. Elles sont
+ * écrites, comme l'enveloppe de l'éclair (`reveal.js`) : un `Math.random()`
+ * aurait donné une brèche différente à chaque lecture, donc un scrubbing qui ne
+ * retomberait jamais sur la même image (CONTRACTS §4.4).
+ */
+const DENTS = Object.freeze([-0.34, 0.27, -0.16, 0.31, -0.23]);
+
+/** De combien le front s'écarte de l'horizontale, en fraction de ce qui reste. */
+const MORSURE = 0.34;
+
+/**
+ * ★ LA CORNE ÉBRÉCHÉE — le même tracé, rongé depuis la pointe.
+ *
+ * `u` va de 0 (intacte) à 1 (plus rien). Ce qui reste est la corne dont on a
+ * ôté le haut : le bord externe est tronqué à la hauteur `1 − u`, le bord
+ * interne repris à la même hauteur, et les deux sont réunis par un front
+ * DENTELÉ. À mesure que `u` monte, le front descend et la corne se mange
+ * elle-même jusqu'au pied.
+ *
+ * ★ **Pourquoi le tracé et pas l'opacité.** Une opacité qui tombe fait
+ * disparaître une corne ENTIÈRE, de plus en plus pâle : ce n'est pas un
+ * effritement, c'est un fondu. Et elle coûte cher ailleurs — le nœud porte déjà
+ * l'échelle du verdict, et une opacité animée sur un élément qui porte une
+ * transformation est très exactement la recette du défaut de composition
+ * Firefox (`tests/compositeur.test.js`). Le `filter` aurait le même défaut, en
+ * pire : il se retrame à chaque palier d'échelle, ce qui est la cause mesurée
+ * des saccades du feu (`reveal.js`). Le tracé, lui, ne coûte qu'un attribut, et
+ * il est une fonction PURE du temps de la timeline — donc rejouable en arrière.
+ *
+ * @param {number} s   −1 (corne de gauche) ou +1 (celle de droite)
+ * @param {number} cx  le centre du 6 couronné, dans le repère du nœud
+ * @param {object} m   les mesures de `mesuresCorne`
+ * @param {number} u   l'avancement de l'effritement, de 0 à 1
+ */
+function corneEffritee(s, cx, m, u) {
+  if (!(u > 0)) return corneD(s, cx, m);
+  if (u >= 1) return '';                      // plus rien : un tracé vide ne peint rien
+  const reste = 1 - u;
+  const p = pointeur(s, cx, m);
+  const { externe, interne } = bordsDeLaCorne(m);
+  const bas = casteljau(externe, reste).avant;      // du talon jusqu'au front
+  const haut = casteljau(interne, 1 - reste).apres; // du front jusqu'au pied
+
+  // La coupe à une hauteur donnée : le segment qui joint le bord externe au bord
+  // interne. `f` va de 0 (dehors) à 1 (dedans).
+  const surLaCoupe = (f, h) => {
+    const a = casteljau(externe, h).point;
+    const b = casteljau(interne, 1 - h).point;
+    return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+  };
+  const crete = DENTS.map((dent, k) => {
+    const h = Math.max(0, Math.min(1, reste * (1 + MORSURE * dent)));
+    return `L ${p(surLaCoupe((k + 1) / (DENTS.length + 1), h))}`;
+  });
+
   return [
-    `M ${p(talon)}`,
-    // bord externe : du talon à la pointe, bombé vers le dehors
-    `C ${p(sur(talon, pointe, 1 / 3, m.galbeExterne))} `
-      + `${p(sur(talon, pointe, 2 / 3, m.galbeExterne))} ${p(pointe)}`,
-    // bord interne : de la pointe au pied, bombé davantage — c'est lui qui affine
-    `C ${p(sur(pointe, pied, 1 / 3, m.galbeInterne))} `
-      + `${p(sur(pointe, pied, 2 / 3, m.galbeInterne))} ${p(pied)}`,
+    `M ${p(bas[0])}`,
+    `C ${p(bas[1])} ${p(bas[2])} ${p(bas[3])}`,
+    ...crete,
+    `L ${p(haut[0])}`,
+    `C ${p(haut[1])} ${p(haut[2])} ${p(haut[3])}`,
     'Z',
   ].join(' ');
+}
+
+/**
+ * ★ LES CORNES S'EFFRITENT — le geste que le verdict demande pour les
+ * triptyques qu'il relègue au rang du bas.
+ *
+ * « Au verdict, au moment de l'agencement, fais s'effriter/disparaître
+ * progressivement les cornes des triptyques qui vont en 2ⁿᵈ ligne. » (l'auteur)
+ *
+ * Elles s'en allaient d'un fondu, toutes ensemble : une paire de cornes pâlit
+ * et n'est plus là. Elles se rongent maintenant depuis la pointe, chacune sur
+ * son horloge, pendant que le rang du bas se met en place — voir
+ * `corneEffritee` pour le tracé, et pour ce que l'opacité aurait coûté.
+ *
+ * ★ Le décalage entre les deux cornes d'un même 666 n'est pas un ornement : deux
+ * cornes qui s'effritent au même instant refont un geste unique, donc un
+ * effacement. Décalées, on lit deux objets qui se défont — ce qui est ce qui se
+ * passe.
+ *
+ * @param {object} ctx
+ * @param {string[]} ids — les nœuds de cornes à effriter, dans l'ordre de lecture
+ * @param {{at:number, dur:number}} quand
+ */
+export function effriterLesCornes(ctx, ids, quand) {
+  const m = mesuresCorne(ctx);
+  const at = quand.at ?? 0;
+  const dur = Math.max(1, quand.dur ?? ctx.dur);
+  // Le décalage mange au plus un cinquième du geste : au-delà, la dernière
+  // corne s'effriterait après que la scène s'est immobilisée.
+  const cadence = ids.length > 1 ? (dur * 0.2) / (ids.length - 1) : 0;
+  const propre = Math.max(1, dur - cadence * (ids.length - 1));
+  ids.forEach((id, k) => {
+    const n = ctx.scene.get(id);
+    const cote = n && n.data && n.data.cote === -1 ? -1 : 1;
+    ctx.discrete({
+      id,
+      channel: 'd',
+      at: at + k * cadence,
+      dur: propre,
+      render: (u) => corneEffritee(cote, 0, m, u),
+    });
+  });
 }
 
 function r(v) {
