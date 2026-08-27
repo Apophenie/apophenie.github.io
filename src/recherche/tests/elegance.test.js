@@ -23,13 +23,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  BAREME, FICELLES, FICELLES_QUI_ECARTENT, bilanChemin, bilanApproche, credit,
+  BAREME, NATURE, FICELLES, FICELLES_QUI_ECARTENT, bilanChemin, bilanApproche, credit,
   detailDuCredit, dilution, emploieUneFicelle,
   facteur, note, estPur, amplitudeArrondi, finDuTriptyque, nbTriptyques,
   classeDeTransformation, survieDesCaracteres,
 } from '../elegance.js';
 import { creerMoteur } from '../index.js';
-import { ordreElegance, ordreTriptyques, ordreTotal } from '../score.js';
+import { ordreElegance, ordreTriptyques, ordreTotal, POIDS_DES_REGIMES } from '../score.js';
 import { zonesSignifiantes } from '../fragments.js';
 import { jalonsDesCornes } from '../scenario.js';
 import { lire } from '../url.js';
@@ -626,12 +626,21 @@ test('★ ficelles — aucune ne figure en tête des quatre cas de référence',
     Macron: 1,
   };
   for (const [saisie, series] of Object.entries(attendus)) {
-    const tete = m.resoudre(saisie).approches[0];
-    assert.equal(tete.series || 1, series,
-      `« ${saisie} » : ${series} séries attendues en tête, ${tete.series} trouvées`);
-    for (const code of ['m10', 'm11', 'm12']) {
-      assert.ok(!tete.codes.includes(code),
-        `« ${saisie} » : la voie de tête (${tete.codes}) emploie la ficelle ${code}`);
+    // ★ AMENDEMENT — « la tête » est désormais les DEUX premières lignes.
+    //   La 1ʳᵉ répond à « la plus belle », la 2ᵈ à « la plus fournie » (voir
+    //   `score.js › POIDS_DES_REGIMES`). Le compte que l'auteur a nommé est donc
+    //   à chercher sur celle des deux qui en aligne le plus, et l'interdiction
+    //   de ficelle, elle, PORTE SUR LES DEUX — c'est un renforcement, pas un
+    //   relâchement : ce qui était interdit à une ligne l'est maintenant à deux.
+    const tete = m.resoudre(saisie).approches.slice(0, 2);
+    const fournie = tete.reduce((a, b) => ((b.series || 1) > (a.series || 1) ? b : a));
+    assert.equal(fournie.series || 1, series,
+      `« ${saisie} » : ${series} séries attendues en tête, ${fournie.series} trouvées`);
+    for (const a of tete) {
+      for (const code of ['m10', 'm11', 'm12']) {
+        assert.ok(!a.codes.includes(code),
+          `« ${saisie} » : la voie de tête (${a.codes}) emploie la ficelle ${code}`);
+      }
     }
   }
 });
@@ -1155,12 +1164,24 @@ test('★ étalonnage — les quatre cas de référence gardent leur tête de li
     ['Macron', 'GROUPEMENT', 1, 'fl+t1+mw+mz'],
   ];
   for (const [saisie, mode, series, codes] of attendu) {
-    const tete = m.resoudre(saisie).approches[0];
-    assert.equal(tete.mode, mode, `« ${saisie} » : ${tete.mode} — ${tete.codes}`);
-    assert.equal(tete.series || 1, series, `« ${saisie} » : ${tete.series} séries — ${tete.codes}`);
-    if (codes) assert.equal(tete.codes, codes, `« ${saisie} »`);
-    // …et c'est bien l'ÉLÉGANCE qui les met là : la première suggestion.
-    assert.equal(tete.suggestion, 'elegance', `« ${saisie} » : place due à « ${tete.suggestion} »`);
+    // ★ AMENDEMENT — « la tête de liste » est devenue DEUX lignes, parce que
+    //   l'auteur y a mis DEUX questions : « la plus belle » et « la plus
+    //   fournie ». Voir `score.js › POIDS_DES_REGIMES` pour la règle et pour la
+    //   mesure. Les quatre voies nommées ci-dessus sont, par construction, des
+    //   réponses à la seconde — elles sont nommées pour ce qu'elles ALIGNENT.
+    //
+    //   Ce que ce test gèle est donc : la voie de l'auteur figure sur l'une des
+    //   deux premières lignes, avec exactement le mode, le compte et les codes
+    //   attendus, et elle y est parce que la liste la met en avant — pas parce
+    //   qu'elle serait tombée là par le mixte, qui ne réserve rien à personne.
+    const tete = m.resoudre(saisie).approches.slice(0, 2);
+    const vedette = tete.reduce((a, b) => ((b.series || 1) > (a.series || 1) ? b : a));
+    assert.equal(vedette.mode, mode, `« ${saisie} » : ${vedette.mode} — ${vedette.codes}`);
+    assert.equal(vedette.series || 1, series,
+      `« ${saisie} » : ${vedette.series} séries — ${vedette.codes}`);
+    if (codes) assert.equal(vedette.codes, codes, `« ${saisie} »`);
+    assert.ok(['elegance', 'triptyques'].includes(vedette.suggestion),
+      `« ${saisie} » : place due à « ${vedette.suggestion} », donc au mixte`);
   }
 });
 
@@ -1235,4 +1256,142 @@ test('★ `mz` — « trois 6 d’affilée » est bien l’opérateur qui CONSTA
   assert.equal(b.valeursJetees, 3, 'le 7, le 3 et le sixième 6 sont calculés puis effacés');
   assert.equal(b.triptyqueTenu, true, '…mais le 666 était écrit, et il tient');
   assert.equal(b.sixDetruits, 0, 'effacer n’est pas convertir : le 6 en trop se compte ailleurs');
+});
+
+// ══════════════════════════════════ le signe et la famille, DÉCLARÉS
+
+/**
+ * ★ LA TABLE `NATURE` EST EXHAUSTIVE — un poste ajouté sans être signé se voit.
+ *
+ * C'est le seul garde-fou possible contre le défaut que `NATURE` répare : tant
+ * que le signe d'un palier vivait dans son usage, un poste ajouté au barème et
+ * oublié dans le calcul ne se signalait par rien. Il se signale maintenant ici.
+ */
+test('★ nature — chaque poste du barème déclare son signe et sa famille', () => {
+  const postes = Object.keys(BAREME).sort();
+  const declares = Object.keys(NATURE).sort();
+  assert.deepEqual(declares, postes,
+    'un poste du barème n’est pas déclaré dans NATURE, ou l’inverse');
+  for (const [cle, n] of Object.entries(NATURE)) {
+    assert.ok([-1, 0, 1].includes(n.sens), `${cle} : sens ${n.sens}`);
+    assert.ok(['socle', 'quantite', 'elegance', 'reglage'].includes(n.famille),
+      `${cle} : famille ${n.famille}`);
+    // Un réglage n'est ni bonus ni malus, et réciproquement : les deux
+    // propriétés se tiennent, et les confondre rendrait la table illisible.
+    assert.equal(n.sens === 0, n.famille === 'reglage', `${cle}`);
+  }
+});
+
+/**
+ * ★ LE SIGNE DÉCLARÉ EST CELUI QUE LE CRÉDIT APPLIQUE.
+ *
+ * Une déclaration que le calcul contredirait serait pire que pas de déclaration
+ * du tout : une page de débogage y lirait un bonus là où le total perd des
+ * points. Le test recoupe donc les deux, sur des bilans RÉELS — un bilan monté à
+ * la main ne déclenche pas assez de postes pour prouver quoi que ce soit.
+ */
+test('★ nature — le signe déclaré est celui que le crédit applique', () => {
+  const m = creerMoteur(catalogue, { filetTemporel: false });
+  let vues = 0;
+  const familles = new Set();
+  for (const s of ['hope-hope-hope.fr', 'Le chat dort sur le tapis rouge', 'Millicent']) {
+    for (const a of m.resoudre(s).approches) {
+      const lignes = detailDuCredit(a.bilan);
+      for (const l of lignes) {
+        assert.ok(NATURE[l.cle], `${l.poste} : poste inconnu de NATURE`);
+        assert.equal(l.sens, NATURE[l.cle].sens, `${l.poste} : signe divergent`);
+        assert.ok(l.ampleur >= 0, `${l.poste} : l’ampleur est une valeur absolue`);
+        assert.equal(l.points, l.sens * l.ampleur, `${l.poste}`);
+        if (l.sens < 0) assert.ok(l.points <= 0, `${l.poste} : un malus ne peut pas rapporter`);
+        if (l.sens > 0) assert.ok(l.points >= 0, `${l.poste} : un bonus ne peut pas coûter`);
+        if (l.quantite > 0) familles.add(l.famille);
+        vues++;
+      }
+      assert.equal(credit(a.bilan), lignes.reduce((t, l) => t + l.points, 0),
+        'le crédit est la somme de son détail, et rien d’autre');
+    }
+  }
+  assert.ok(vues > 100, `seulement ${vues} lignes observées`);
+  // …et les deux familles qui se repondèrent sont bien toutes deux ALIMENTÉES :
+  // repondérer une famille que rien ne déclenche ne prouverait rien.
+  assert.ok(familles.has('quantite') && familles.has('elegance'),
+    `familles observées : ${[...familles].join(', ')}`);
+});
+
+// ══════════════════════════════════ les trois régimes de pondération
+
+/**
+ * ★ LES DEUX RÉGIMES REPONDÈRENT CE QU'ILS ANNONCENT, ET RIEN D'AUTRE.
+ *
+ * « Si l'élégance prime, alors le fait de trouver 1 fois ou plusieurs fois le
+ * motif ne devrait pas apporter de bonus (ou infime : 1 % du poids habituel). […]
+ * Pour le 2ⁿᵈ résultat, c'est la quantité qui prévaut, l'élégance n'est pas
+ * négligeable, mais elle pèse 33 % de son poids habituel. » — l'auteur.
+ *
+ * Le test recompose les deux crédits poste par poste depuis le détail au poids
+ * plein : si un régime touchait une famille qu'il ne doit pas toucher, ou s'il
+ * touchait le socle, la recomposition ne tomberait plus juste.
+ */
+test('★ régimes — 1 % de quantité à la 1ʳᵉ place, 33 % d’élégance à la 2ᵈ', () => {
+  assert.equal(POIDS_DES_REGIMES.elegance.quantite, 10, '1 % de 1 000 ‰');
+  assert.equal(POIDS_DES_REGIMES.elegance.elegance, 1000);
+  assert.equal(POIDS_DES_REGIMES.triptyques.quantite, 1000);
+  assert.equal(POIDS_DES_REGIMES.triptyques.elegance, 330, '33 % de 1 000 ‰');
+
+  const m = creerMoteur(catalogue, { filetTemporel: false });
+  let repondere = 0;
+  for (const s of ['hope-hope-hope.fr', 'https://hope-hope-hope.fr/', 'Nombre de la bête']) {
+    for (const a of m.resoudre(s).approches) {
+      for (const [regime, poids] of Object.entries(POIDS_DES_REGIMES)) {
+        const attendu = detailDuCredit(a.bilan).reduce((t, l) => {
+          const p = l.famille === 'socle' || l.famille === 'reglage'
+            ? 1000 : poids[l.famille];
+          return t + l.sens * Math.trunc((l.ampleur * p) / 1000);
+        }, 0);
+        assert.equal(credit(a.bilan, poids), attendu, `« ${s} » ${a.codes} · ${regime}`);
+      }
+      // Le socle n'est jamais repondéré : une approche sans aucun poste actif
+      // vaut le socle dans les trois régimes.
+      if (credit(a.bilan) !== credit(a.bilan, POIDS_DES_REGIMES.elegance)) repondere++;
+    }
+  }
+  assert.ok(repondere >= 3,
+    `${repondere} approches seulement voient leur crédit bouger — le régime ne mordrait pas`);
+});
+
+/**
+ * ★ ET LE RÉGIME CHANGE BIEN LE CLASSEMENT — sinon il ne sert à rien.
+ *
+ * ⚠️ MESURÉ au banc (`.planning/banc/classement.mjs`) sur les dix-neuf saisies
+ * témoins : douze têtes de liste changent, et la 2ᵈ place — jusque-là attribuée
+ * sur 4 saisies seulement, faute de champion des triptyques distinct du champion
+ * de l'élégance — l'est désormais sur 13. C'est le signe que les deux questions
+ * de l'auteur ont enfin deux réponses différentes.
+ *
+ * Le cas gelé ici est celui de `hope-hope-hope.fr`, où le renversement se lit à
+ * l'œil nu : la moisson à cinq séries mène au crédit plein (2 293 contre 1 359),
+ * et la résonance — trois « hope » lus de la même façon, rien de jeté — passe
+ * devant dès que la quantité est ramenée à 1 % (1 359 contre 1 258).
+ */
+test('★ régimes — l’élégance pure renverse le champion de la quantité', () => {
+  const m = creerMoteur(catalogue, { filetTemporel: false });
+  const app = m.resoudre('hope-hope-hope.fr').approches;
+  const moisson = app.find((a) => a.mode === 'MOISSON' && (a.series || 1) === 5);
+  const resonance = app.find((a) => a.mode === 'RESONANCE');
+  assert.ok(moisson && resonance, 'les deux voies de la mesure doivent exister');
+
+  assert.ok(moisson.elegance > resonance.elegance,
+    `au crédit plein la moisson mène (${moisson.elegance} contre ${resonance.elegance})`);
+  assert.ok(resonance.elegances.elegance > moisson.elegances.elegance,
+    `à 1 % de quantité la résonance passe devant `
+    + `(${resonance.elegances.elegance} contre ${moisson.elegances.elegance})`);
+  assert.ok(ordreElegance(resonance, moisson) < 0, 'et le comparateur le dit');
+  assert.ok(ordreTriptyques(moisson, resonance) < 0, '…tandis que la quantité garde la sienne');
+
+  // Les deux places sont bien attribuées, et dans cet ordre : la belle, puis la
+  // fournie. C'est tout le propos de la règle.
+  assert.equal(app[0].suggestion, 'elegance');
+  assert.equal(app[1].suggestion, 'triptyques');
+  assert.ok((app[1].series || 1) > (app[0].series || 1),
+    'la 2ᵈ ligne aligne plus de 666 que la 1ʳᵉ — c’est ce qui la met là');
 });

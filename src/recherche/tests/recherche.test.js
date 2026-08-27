@@ -772,12 +772,35 @@ test('★ un lien de décret d’avant la suppression se rejoue encore', () => {
  *  · les RANGS ne remontent jamais ;
  *  · à l'intérieur d'un rang, les scores décroissent ;
  *  · au rang des séries, le nombre de 666 décroît.
+ *
+ * ── ★ AMENDEMENT — L'INVARIANT COMMENCE APRÈS LES DEUX PLACES RÉSERVÉES ──────
+ *
+ * Il ne peut pas commencer avant, et ce n'est pas un aveu : c'est la définition
+ * même de ce que l'auteur a demandé. La 1ʳᵉ ligne répond à « la plus belle », la
+ * 2ᵈ à « la plus fournie » ; dire que la 2ᵈ aligne PLUS de 666 que la 1ʳᵉ, c'est
+ * dire ce qui la met là. Exiger en même temps que le compte ne remonte jamais
+ * reviendrait à interdire à la seconde question d'avoir une autre réponse que la
+ * première — c'est-à-dire à supprimer la seconde question.
+ *
+ * ⚠️ Mesuré : le compte remonte entre la 1ʳᵉ et la 2ᵈ ligne sur 13 des 19
+ * saisies du banc, contre 4 avant que la quantité soit ramenée à 1 % de son
+ * poids dans le classement d'élégance (`score.js › POIDS_DES_REGIMES`).
+ *
+ * ★ L'invariant lui-même n'a PAS été affaibli : il s'applique toujours à toute
+ * la queue de liste, celle que le mixte garnit, et c'est là qu'il servait — le
+ * défaut d'origine (« une suite de scores 9 012, 8 970, 7 930, … puis 8 992 au
+ * huitième rang ») était un défaut du MMR, pas des places réservées. Le point de
+ * départ est calculé, jamais posé en dur : on part de la première ligne que le
+ * mixte a garnie, quelle que soit la taille de la tête.
  */
 test('classement — rangs croissants, scores décroissants dans chaque rang', () => {
   const m = creerMoteur(catalogue);
   for (const s of [...SAISIES_LISTE, 'https://hope-hope-hope.fr/']) {
     const app = m.resoudre(s).approches;
-    for (let i = 1; i < app.length; i++) {
+    // La première ligne du MIXTE : les précédentes sont les places réservées aux
+    // deux suggestions, et elles répondent chacune à une autre question.
+    const debut = Math.max(1, app.findIndex((a) => a.suggestion === 'mixte'));
+    for (let i = debut + 1; i < app.length; i++) {
       const [avant, apres] = [app[i - 1], app[i]];
       const [ra, rb] = [rangConviction(avant), rangConviction(apres)];
       assert.ok(rb >= ra, `« ${s} » : rang ${ra} puis rang ${rb} au rang ${i + 1}`);
@@ -930,6 +953,41 @@ test('anti-doublons — aucune étape inopérante ne subsiste dans une approche'
 // ══════════════════════════════════ ★ la MOISSON et les trois rangs
 
 /**
+ * ══════ ★ AMENDEMENT — « LA TÊTE DE LISTE » A CESSÉ D'ÊTRE UNE SEULE LIGNE ═══
+ *
+ * Les quatre cas de référence de l'auteur épinglaient `approches[0]`. Ils ne le
+ * peuvent plus, et ce n'est pas une régression : c'est l'auteur lui-même qui a
+ * changé ce que la première ligne veut dire.
+ *
+ * > « Lors de l'affichage dans la page d'énumération des voies, le premier
+ * >  résultat où l'élégance prime […] si l'élégance prime, alors le fait de
+ * >  trouver 1 fois ou plusieurs fois le motif ne devrait pas apporter de bonus
+ * >  (ou infime : 1 % du poids habituel), c'est vraiment l'élégance qui prévaut.
+ * >  Pour le 2ⁿᵈ résultat, c'est la quantité qui prévaut […]. »
+ *
+ * Autrement dit : la **1ʳᵉ** ligne répond à « la plus belle », la **2ᵈ** à « la
+ * plus fournie ». Tant que le crédit d'élégance payait la quantité — 260
+ * milli-unités par 666 contigu —, les deux questions avaient presque toujours la
+ * même réponse et l'amalgame ne se voyait pas. La quantité ramenée à 1 % de son
+ * poids (`score.js › POIDS_DES_REGIMES`), elles se séparent : mesuré au banc sur
+ * les dix-neuf saisies témoins, la 2ᵈ ligne passe de 4 à 13 attributions.
+ *
+ * Ce que ces tests doivent donc geler n'a pas changé de NATURE — « la voie que
+ * l'auteur a nommée est celle que la liste met en avant » —, seulement de
+ * TAILLE : elle est en avant sur l'une des DEUX premières lignes, à la place que
+ * la question à laquelle elle répond lui donne. Ce qui reste strictement
+ * interdit, et qui est vérifié ailleurs, c'est qu'elle tombe plus bas.
+ *
+ * @param {Object} r  le résultat de `resoudre`
+ * @returns {Object} la plus fournie des deux premières lignes
+ */
+function vedetteDesSeries(r) {
+  const deuxPremieres = r.approches.slice(0, 2);
+  assert.ok(deuxPremieres.length, 'une liste vide n’a pas de vedette');
+  return deuxPremieres.reduce((a, b) => ((b.series || 1) > (a.series || 1) ? b : a));
+}
+
+/**
  * ★ Le cas d'école du README, poussé jusqu'au bout.
  *
  * « Je voudrais avoir pour hope-hope-hope.fr en première stratégie celle des
@@ -950,7 +1008,13 @@ test('anti-doublons — aucune étape inopérante ne subsiste dans une approche'
  */
 test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de liste', () => {
   const r = creerMoteur(catalogue).resoudre('hope-hope-hope.fr');
-  const tete = r.approches[0];
+  // ★ Sur cette saisie, la 1ʳᵉ ligne revient désormais à une RÉSONANCE — les
+  //   trois « hope » lus de la même façon, un 6 chacun, rien de jeté, crédit
+  //   d'élégance 1 359 contre 1 258 à la moisson une fois la quantité ramenée
+  //   à 1 %. La moisson garde la 2ᵈ, au titre de la quantité, et c'est elle
+  //   que ce test suit : le souhait de l'auteur porte sur SA composition,
+  //   pas sur le numéro de la ligne où elle s'affiche.
+  const tete = vedetteDesSeries(r);
   assert.equal(tete.mode, 'MOISSON', `tête de liste : ${tete.mode} (${tete.codes})`);
   assert.equal(tete.series, 5, `${tete.series} séries — ${tete.codes}`);
   // ⚠️ Cette assertion disait DEUX choses, et une seule survit. Elle vérifiait
@@ -987,7 +1051,9 @@ test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de 
  */
 test('★ moisson — `https://hope-hope-hope.fr/` atteint les six séries', () => {
   const r = creerMoteur(catalogue).resoudre('https://hope-hope-hope.fr/');
-  const tete = r.approches[0];
+  // Même amendement qu'au test précédent : la 2ᵈ ligne est celle de la
+  // quantité, et c'est là que l'apothéose à six séries s'affiche.
+  const tete = vedetteDesSeries(r);
   assert.equal(tete.mode, 'MOISSON');
   assert.equal(tete.series, 6, `${tete.series} séries — ${tete.codes}`);
   // Même remarque qu'au test précédent : c'est la VEDETTE qu'on gèle ici, plus
@@ -997,7 +1063,7 @@ test('★ moisson — `https://hope-hope-hope.fr/` atteint les six séries', () 
   // le titre ne doit plus dire.
   assert.match(tete.titre.fr, /^En quatorze segments\b/, `titre : ${tete.titre.fr}`);
   // Le préfixe apporte bien trois 6 de plus, et sur SA propre portée.
-  const sans = creerMoteur(catalogue).resoudre('hope-hope-hope.fr').approches[0];
+  const sans = vedetteDesSeries(creerMoteur(catalogue).resoudre('hope-hope-hope.fr'));
   assert.equal(tete.series - sans.series, 1, 'une série de plus, exactement');
 });
 
@@ -1067,7 +1133,7 @@ test('★ moisson — le « fr » reste en sept segments : 4 + 2, et rien à jet
   // des 9 rendait « fr » plus fourni (f = 6, r = 9 retourné) et la
   // programmation dynamique le préférait — pour un seizième 6 qui ne faisait pas
   // une sixième série. `reduireLeSurplus` rend la main au sept segments.
-  const tete = creerMoteur(catalogue).resoudre('hope-hope-hope.fr').approches[0];
+  const tete = vedetteDesSeries(creerMoteur(catalogue).resoudre('hope-hope-hope.fr'));
   assert.equal(tete.series, 5, `${tete.series} séries — ${tete.codes}`);
   const fr = tete.parts[tete.parts.length - 1];
   assert.equal(fr.fragment.texte, 'fr');
@@ -1089,7 +1155,12 @@ test('★ moisson — le « fr » reste en sept segments : 4 + 2, et rien à jet
  * possible sur cette saisie, et elle doit se voir : rang 1, rendement plein.
  */
 test('★ « Donald Trump » : deux 666 déjà formés, en tête de liste', () => {
-  const tete = creerMoteur(catalogue).resoudre('Donald Trump').approches[0];
+  // ★ La 1ʳᵉ ligne revient à `t1+mw+mz` seul — « Donald » en quatorze segments,
+  //   un 666 déjà formé, sans rien d'autre —, qui est plus élégant que la
+  //   moisson à deux portées dès lors que le second 666 ne rapporte plus que
+  //   1 % de son poids. La combinaison des deux que l'auteur demande occupe la
+  //   2ᵈ ligne, celle de la quantité, et c'est elle qu'on gèle ici.
+  const tete = vedetteDesSeries(creerMoteur(catalogue).resoudre('Donald Trump'));
 
   assert.equal(tete.mode, 'MOISSON', `rang 1 : ${tete.mode} — ${tete.codes}`);
   assert.equal(tete.series, 2, 'deux séries de 666');
