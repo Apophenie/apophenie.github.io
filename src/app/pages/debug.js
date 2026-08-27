@@ -43,6 +43,13 @@
  *  lightbox le DIT — « aucun exemple trouvé » est une information, un faux
  *  exemple serait un mensonge.
  *
+ *  ★ 1 bis. ET LE PLUS COURT NE SUFFIT PAS. « Les démos dans les lightbox sont
+ *  trop alambiquées, elles ne montrent pas l'élément et rien que lui »
+ *  (l'auteur). À profondeur égale, l'exemple retenu est donc celui qui SÉPARE
+ *  le mieux l'opérateur de ses semblables, et, à égalité, le plus lisible —
+ *  trois termes distincts plutôt qu'un ou vingt-deux. Voir la section
+ *  « l'élément, et rien que lui ».
+ *
  *  ★ 2. LE SENS DES PALIERS DU BARÈME. « Dans la partie élégance, j'ai
  *  l'impression qu'il y a des bonus et des malus dans ce que tu décris, mais ça
  *  ne se voit pas » (l'auteur). `BAREME` est une liste de nombres tous
@@ -304,9 +311,100 @@ function deplierJusqua(niveau) {
   }
 }
 
+/* ─────────────────── « l'élément, et rien que lui » ──────────────────────
+   ★ LE PLUS COURT NE SUFFIT PAS : ENCORE FAUT-IL QUE ÇA SE VOIE.
+
+   « Les démos dans les lightbox sont trop alambiquées, elles ne montrent pas
+   l'élément et rien que lui. […] c.maxMoinsMin, il te faudra au moins trois
+   nombres différents, pour qu'on comprenne la différence avec une
+   soustraction » (l'auteur).
+
+   Le diagnostic était exact, et mesurable. Le premier état venu à la bonne
+   profondeur était `[4,4,4,2]` — les longueurs des mots de
+   `hope-hope-hope.fr` —, et sur ces quatre nombres-là DIX combinateurs n'en
+   montrent que six résultats distincts : `c.min`, `c.alternee` et
+   `c.maxMoinsMin` rendent tous 2, `c.max`, `c.moyenne` et `c.cardinal` rendent
+   tous 4. Une démonstration qui ne sépare pas l'opérateur de ses voisins ne
+   démontre rien.
+
+   On garde donc le plus court — c'est ce qui évite l'approche interminable —
+   mais, À PROFONDEUR ÉGALE, on prend l'état sur lequel l'opérateur se
+   DISTINGUE le plus de ses semblables. « Semblables » n'est pas une liste
+   écrite ici : ce sont les opérateurs actifs de même signature (`from` → `to`),
+   lus du catalogue. Un opérateur ajouté demain entre tout seul dans la
+   comparaison, et un exemple cesse tout seul d'être bon le jour où un voisin
+   se met à lui ressembler.
+
+   À discrimination égale, le plus lisible gagne : peu de termes, petits
+   nombres, texte court. Et à lisibilité égale, l'ordre du parcours tranche,
+   pour que deux ouvertures de la lightbox montrent la même chose.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/** Combien d'états d'un même niveau on met en concurrence. Au-delà, le gain de
+ *  discrimination est nul et la page s'alourdit pour rien. */
+export const CANDIDATS_EXEMPLE = 60;
+
+/** Les opérateurs actifs de même signature que `op`, lui excepté. */
+function semblables(op) {
+  return (amontParType().get(op.from) || [])
+    .filter((autre) => autre.code !== op.code && autre.to === op.to);
+}
+
 /**
- * Le plus court programme, depuis l'une des saisies témoins, dont la DERNIÈRE
- * transformation est `op`.
+ * Combien de semblables l'état `etat` sépare de `op` : un semblable qui rend
+ * autre chose — ou qui ne s'applique pas du tout — est un semblable écarté.
+ */
+function discrimination(op, etat, resultat) {
+  const mien = signature(resultat);
+  let n = 0;
+  for (const autre of semblables(op)) {
+    const sien = appliquer(autre, etat);
+    if (sien === null || signature(sien) !== mien) n++;
+  }
+  return n;
+}
+
+/**
+ * ★ COMBIEN DE TERMES DIFFÉRENTS IL FAUT POUR QUE ÇA SE VOIE. Trois.
+ *
+ * « c.maxMoinsMin, il te faudra au moins trois nombres différents, pour qu'on
+ * comprenne la différence avec une soustraction » (l'auteur). Le chiffre vient
+ * de là, et il se généralise sans qu'on ait à le redire opérateur par
+ * opérateur : à deux termes, `max − min` et la soustraction ne diffèrent que
+ * par un signe, et une addition à UN terme (`[11] → 11`) ne montre aucune
+ * addition du tout. Trois termes distincts, c'est le minimum pour qu'un geste
+ * sur une liste ait l'air d'un geste sur une liste.
+ *
+ * Ce n'est pas un plancher mais une CIBLE : on s'en écarte aussi peu que
+ * possible, par en dessous comme par au-dessus. Vingt-deux nombres alignés ne
+ * démontrent pas mieux que trois, ils fatiguent.
+ */
+export const TERMES_IDEAUX = 3;
+
+/**
+ * Le poids visuel d'un état : ce qu'il en coûte à l'œil de le lire.
+ *
+ * L'écart à la cible d'abord — c'est lui qui écarte `[11]` et
+ * `[99,97,112,105,116,97,108,105,115,109,101]` du même mouvement —, puis
+ * l'ampleur des nombres : `[9,6,2]` se lit d'un coup, `[1836,4,912]` non.
+ *
+ * ⚠️ Ce critère ne passe QU'APRÈS la discrimination. Les opérateurs qui ont
+ * réellement besoin de matière — `m.plusFrequent` veut une fréquence,
+ * `m.troisSixDAffilee` veut trois 6 d'affilée — ne se distinguent de leurs
+ * semblables que sur une longue liste, et gardent donc la leur : c'est la
+ * discrimination qui le décide, pas cette fonction.
+ */
+function encombrement(etat) {
+  const v = etat.valeur;
+  if (!Array.isArray(v)) return String(v).length;
+  const distincts = new Set(v.map((x) => String(x))).size;
+  const ecart = Math.abs(distincts - TERMES_IDEAUX);
+  return ecart * 1000 + v.length * 10 + v.reduce((t, x) => t + String(x).length, 0);
+}
+
+/**
+ * Le programme qui montre `op` le mieux : le plus court d'abord, puis le plus
+ * démonstratif, puis le plus lisible.
  *
  * Le parcours va NIVEAU par niveau, toutes saisies confondues — et non saisie
  * par saisie : c'est ce qui garantit le plus court programme toutes saisies
@@ -315,22 +413,47 @@ function deplierJusqua(niveau) {
  * passait en premier.
  *
  * @param {Object} op un opérateur du catalogue
- * @returns {{saisie:string, codes:string[]}|null} `null` = aucun exemple trouvé
+ * @returns {{saisie:string, codes:string[], distingue:number, semblables:number}|null}
+ *   `null` = aucun exemple trouvé
  */
 export function programmePour(op) {
   if (!op || !op.code) return null;
   const pistes = exploration();
+  const rivaux = semblables(op).length;
   for (let niveau = 0; niveau <= PROFONDEUR_EXEMPLE; niveau++) {
     deplierJusqua(niveau);
+    let meilleur = null;
+    let examines = 0;
     for (const p of pistes) {
       for (const noeud of p.niveaux[niveau] || []) {
         // Le type se compare avant de tenter : `appliquer` le referait, mais
         // après avoir construit un contexte pour rien.
         if (noeud.etat.type !== op.from) continue;
-        if (appliquer(op, noeud.etat) !== null) {
-          return { saisie: p.saisie, codes: [...noeud.codes, op.code] };
+        const resultat = appliquer(op, noeud.etat);
+        if (resultat === null) continue;
+        const candidat = {
+          saisie: p.saisie,
+          codes: [...noeud.codes, op.code],
+          distingue: discrimination(op, noeud.etat, resultat),
+          semblables: rivaux,
+          poids: encombrement(noeud.etat),
+        };
+        if (!meilleur
+          || candidat.distingue > meilleur.distingue
+          || (candidat.distingue === meilleur.distingue && candidat.poids < meilleur.poids)) {
+          meilleur = candidat;
         }
+        // ⚠️ On NE s'arrête PAS au premier état qui écarte tous les semblables :
+        // il en existe souvent plusieurs, et c'est justement entre eux que la
+        // lisibilité départage. S'arrêter là rendait `m.redecoupageChoisi` sur
+        // onze points de code — parfaitement discriminant, illisible.
+        if (++examines >= CANDIDATS_EXEMPLE) break;
       }
+      if (examines >= CANDIDATS_EXEMPLE) break;
+    }
+    if (meilleur) {
+      delete meilleur.poids;
+      return meilleur;
     }
   }
   return null;

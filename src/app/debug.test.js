@@ -31,9 +31,10 @@ import { fileURLToPath } from 'node:url';
 
 import {
   programmePour, sensDesPaliers, mesurerLesPaliers, saisiesTemoins, PROFONDEUR_EXEMPLE,
+  TERMES_IDEAUX,
 } from './pages/debug.js';
 import { CATALOGUE, appliquer, PAR_CODE } from '../moteur/catalogue.js';
-import { depuisSaisie } from '../moteur/etat.js';
+import { depuisSaisie, signature } from '../moteur/etat.js';
 import { creerMoteur } from '../recherche/index.js';
 import { BAREME, NATURE, FICELLES, detailDuCredit } from '../recherche/elegance.js';
 
@@ -110,6 +111,89 @@ test('chaque opérateur a un exemple, et cet exemple l’emploie réellement', (
   }
   assert.deepEqual(orphelins, [],
     'ces opérateurs ne sont jouables sur aucune saisie témoin : il en faut une de plus');
+});
+
+/**
+ * ★ « ELLE NE MONTRE PAS L'ÉLÉMENT ET RIEN QUE LUI » — le grief, transformé en
+ * mesure.
+ *
+ * Un exemple qui rend la même chose qu'un opérateur voisin ne démontre rien :
+ * le spectateur ne peut pas savoir lequel des deux il regarde. On exige donc
+ * que l'exemple SÉPARE l'opérateur de ses semblables — les opérateurs actifs de
+ * même signature —, et on l'exige en masse, pas au cas par cas.
+ *
+ * ⚠️ MESURÉ des deux côtés du changement : la règle « le premier état venu à la
+ * bonne profondeur » séparait tous les semblables pour 80 opérateurs sur 99
+ * (95,9 % de couverture moyenne) ; la règle « le plus discriminant, puis le
+ * plus lisible » en sépare 91 (99,1 %). Le seuil est posé sous la mesure, pas
+ * dessus : il attrape la régression, il ne fige pas le chiffre.
+ */
+test('★ l’exemple SÉPARE l’opérateur de ses semblables', () => {
+  const actifs = CATALOGUE.filter((op) => !op.deprecated && !op.isJoker);
+  const confondus = [];
+  let total = 0;
+  let couverture = 0;
+  for (const op of actifs) {
+    const prog = programmePour(op);
+    if (!prog) continue;
+    // On rejoue l'approche pour retrouver l'état d'entrée de l'opérateur.
+    let etat = depuisSaisie(prog.saisie);
+    for (const code of prog.codes.slice(0, -1)) etat = appliquer(PAR_CODE.get(code), etat);
+    const mien = signature(appliquer(op, etat));
+    const rivaux = actifs.filter((a) => a.from === op.from && a.to === op.to && a.code !== op.code);
+    const separes = rivaux.filter((a) => {
+      const sien = appliquer(a, etat);
+      return sien === null || signature(sien) !== mien;
+    }).length;
+
+    // Le compte annoncé par la page est celui qu'on retrouve à la main.
+    assert.equal(prog.distingue, separes, `${op.code} : le compte annoncé ne se retrouve pas`);
+    assert.equal(prog.semblables, rivaux.length, `${op.code} : le nombre de semblables ne colle pas`);
+
+    total++;
+    couverture += rivaux.length ? separes / rivaux.length : 1;
+    if (rivaux.length && separes < rivaux.length) confondus.push(`${op.code} ${separes}/${rivaux.length}`);
+  }
+  assert.ok(total - confondus.length >= 88,
+    `${total - confondus.length} exemples seulement séparent TOUS les semblables `
+    + `(88 attendus au moins) — restent : ${confondus.join(', ')}`);
+  assert.ok(couverture / total >= 0.98,
+    `couverture moyenne ${(100 * couverture / total).toFixed(1)} %, 98 % attendus`);
+});
+
+/**
+ * ★ ET IL EN MONTRE ASSEZ POUR QUE ÇA SE VOIE.
+ *
+ * « c.maxMoinsMin, il te faudra au moins trois nombres différents, pour qu'on
+ * comprenne la différence avec une soustraction » (l'auteur). La règle vaut
+ * pour tous les opérateurs qui consomment une liste : à un terme, une addition
+ * ne s'additionne pas ; à deux, `max − min` et la soustraction ne diffèrent que
+ * par un signe.
+ *
+ * On ne l'exige que là où la discrimination ne réclame PAS davantage de
+ * matière : `m.plusFrequent` veut une fréquence, `m.troisSixDAffilee` veut
+ * trois 6 d'affilée, et leurs exemples sont légitimement plus longs. Le test
+ * porte donc sur les opérateurs qui rendent un seul nombre depuis une liste —
+ * ceux-là, précisément, que l'auteur a nommés.
+ */
+test('★ un opérateur qui réduit une liste la reçoit avec assez de termes', () => {
+  // La famille se lit sur les signatures, pas sur une liste de codes : ce sont
+  // les opérateurs qui prennent PLUSIEURS nombres et n'en rendent qu'un.
+  const pluriel = CATALOGUE.find((op) => op.code === 'cs');
+  assert.ok(pluriel, 'l’addition doit exister pour donner sa signature à la famille');
+  const reducteurs = CATALOGUE.filter((op) => !op.deprecated && !op.isJoker
+    && op.from === pluriel.from && op.to === pluriel.to);
+  assert.ok(reducteurs.length >= 8, 'la famille visée par l’auteur doit être peuplée');
+  for (const op of reducteurs) {
+    const prog = programmePour(op);
+    assert.ok(prog, `${op.code} : aucun exemple`);
+    let etat = depuisSaisie(prog.saisie);
+    for (const code of prog.codes.slice(0, -1)) etat = appliquer(PAR_CODE.get(code), etat);
+    const distincts = new Set(etat.valeur.map((x) => String(x))).size;
+    assert.ok(distincts >= TERMES_IDEAUX,
+      `${op.code} : l’exemple ne montre que ${distincts} terme(s) distinct(s) `
+      + `(${JSON.stringify(etat.valeur)}) — ${TERMES_IDEAUX} attendus au moins`);
+  }
 });
 
 test('★ le signe affiché est celui que le barème DÉCLARE, pour chaque palier', () => {
