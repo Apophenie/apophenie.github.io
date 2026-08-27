@@ -13,7 +13,7 @@
 
 import { estDecret } from './titres.js';
 // ★ `elegance.js` n'importe RIEN : la dépendance est à sens unique, sans cycle.
-import { FICELLES } from './elegance.js';
+import { FICELLES_QUI_ECARTENT } from './elegance.js';
 import { normaliserCible, indexUtiles } from './cible.js';
 import {
   bilanApproche, credit as creditDElegance, facteur as facteurDElegance,
@@ -692,7 +692,7 @@ function largeurDuChemin(chemin, defaut) {
   const ops = (chemin && chemin.ops) || [];
   let ficelle = false;
   for (const o of ops) {
-    if (o && o.id && Object.prototype.hasOwnProperty.call(FICELLES, o.id)) { ficelle = true; break; }
+    if (o && o.id && FICELLES_QUI_ECARTENT.has(o.id)) { ficelle = true; break; }
   }
   if (!ficelle) return defaut;
   let max = defaut;
@@ -726,9 +726,11 @@ function rendementSix(approche) {
       // profite (il rétrécit honnêtement, après avoir CONSTATÉ un 666 déjà
       // écrit).
       //
-      // ⚠️ Mais pour les trois ficelles (`m10`, `m11`, `m12` —
-      // `elegance.js › FICELLES`), la question ne se pose pas : rétrécir EST
-      // leur raison d'être. Les noter sur ce qu'il reste leur donnait un
+      // ⚠️ Mais pour les ficelles qui ÉCARTENT (`m10`, `m11` —
+      // `elegance.js › FICELLES_QUI_ECARTENT`), la question ne se pose pas :
+      // rétrécir EST leur raison d'être. Celles qui ABSORBENT (`m12`, `m16`)
+      // en sont exclues : elles ne jettent rien, et leur ligne de chiffres
+      // momentanément élargie est le calcul MONTRÉ, pas du déchet. Les noter sur ce qu'il reste leur donnait un
       // rendement PARFAIT pour avoir jeté davantage. Mesuré sur « La
       // numérologie est un art taquin » : `f6+t1+mw+m10` marquait 3 797 contre
       // 2 715 à `f6+t1+mw`, qui montre exactement les mêmes 6 — la ficelle

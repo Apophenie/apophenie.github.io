@@ -560,7 +560,7 @@ function largeurMontree(chemin, plancher = 0) {
 }
 
 /**
- * ★ Combien de FICELLES un chemin emploie — `m10`, `m11`, `m12`
+ * ★ Combien de FICELLES un chemin emploie — `m10`, `m11`, `m12`, `m16`
  * (`elegance.js › FICELLES`).
  *
  * ⚠️ MESURÉ, et c'est le second piège que ces trois opérateurs tendaient. Sur

@@ -22,6 +22,7 @@ import {
 import {
   noter, diversifier, ordreTotal, ordreElegance, ordreTriptyques, REGLAGES,
 } from './score.js';
+import { emploieUneFicelle } from './elegance.js';
 import { construireScenario } from './scenario.js';
 import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
 import { lire, ecrire, descripteursDe, BANDEAUX } from './url.js';
@@ -493,7 +494,31 @@ function selectionner(approches, limite) {
 
   // La seconde suggestion ne prend sa place que si elle apporte réellement plus
   // de triptyques que la première — sinon elle ne suggère rien de neuf.
-  const fournie = approches.slice().sort(ordreTriptyques)[0];
+  //
+  // ★ **Et jamais une FICELLE.** Cette place-là ne récompense qu'une chose : le
+  //   NOMBRE de séries qu'une méthode sait donner. Une ficelle n'en donne pas
+  //   davantage, elle en FABRIQUE — en effaçant ce qui gêne (`m10`, `m11`) ou
+  //   en relisant la ligne jusqu'à ce qu'elle tombe juste (`m12`, `m16`). La
+  //   promouvoir ici afficherait « celle-ci en aligne une de plus » au-dessus
+  //   d'une voie honnête, c'est-à-dire exactement l'inverse de ce que le barème
+  //   vient de décider.
+  //
+  //   C'est la même règle que CONTRACTS §4.1 pose déjà pour la MOISSON —
+  //   « aucune ficelle dans une moisson ; le mode vaut par ce que chaque portée
+  //   SAIT donner » —, appliquée à l'autre endroit où la quantité est mise en
+  //   avant pour elle-même. Les ficelles restent pleinement éligibles à la
+  //   première place (l'élégance) et au mixte : c'est là qu'elles se font juger
+  //   sur le solde, ce qu'elles doivent.
+  //
+  //   ⚠️ MESURÉ, et c'est ce qui a imposé la règle : sur « Millicent »,
+  //   `fl+t1+m5+m16` (trois séries, élégance 1 278) prenait la seconde place
+  //   au-dessus de `fl+t1+m5+mt` (deux séries, élégance 1 310) — et la liste
+  //   affichait deux séries au rang 1 puis trois au rang 2, un compte qui
+  //   REMONTE, ce qu'un test de classement interdit depuis toujours
+  //   (`recherche.test.js`).
+  const fournie = approches.slice()
+    .filter((a) => !emploieUneFicelle(a.bilan))
+    .sort(ordreTriptyques)[0];
   if (fournie && elegante && (fournie.series || 1) > (elegante.series || 1)) {
     prendre(fournie, 'triptyques');
   }

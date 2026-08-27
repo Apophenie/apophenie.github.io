@@ -125,6 +125,28 @@ const VECTEURS = [
   ['m11', N([4, 6, 4, 6, 4, 6, 4]), [6, 6, 6]],
   // « L'addition sélective » : `6, 5, 16, 8` → `6, 5+1, 6, 8` → `666, 8`.
   ['m12', N([6, 5, 16, 8]), [6, 6, 6, 8]],
+  // ★ LES QUATRE TRANSFORMATIONS DU 27 AOÛT — codes neufs, alloués la clôture
+  // du registre LEVÉE (CONTRACTS §4.1, amendement du 27 août 2026 : aucun lien
+  // n'avait été diffusé). `m12` était le dernier ; l'index reste en base36.
+  // Les vecteurs sont, mot pour mot, les exemples chiffrés de l'auteur.
+  //
+  // « Tri croissant » : `95956636494` → `34455666999` — trois 6 qui étaient
+  // dispersés deviennent contigus, sans que rien ne soit écarté.
+  ['m13', N([9, 5, 9, 5, 6, 6, 3, 6, 4, 9, 4]), [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]],
+  // « On retourne les 666 qui se cachent » : par TRIO contigu, jamais un par
+  // un. Quatre 9 d'affilée n'en donnent que trois ; les 9 isolés ne bougent pas.
+  ['m14', N([9, 9, 9, 9, 3, 9]), [6, 6, 6, 9, 3, 9]],
+  // « On compte les chiffres » : `34455666999` → `1324253639` — un 3, deux 4,
+  // deux 5, trois 6, trois 9.
+  ['m15', N([3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]), [1, 3, 2, 4, 2, 5, 3, 6, 3, 9]],
+  // « Le redécoupage tricheur » : LES TRENTE-DEUX CHIFFRES DE L'AUTEUR, pris
+  // tels qu'il les écrit. Sa découpe à la main rend six 6 sur douze paquets ;
+  // la programmation dynamique en rend HUIT sur onze, dont six d'affilée —
+  // deux 666 avant même le tri croissant. Le vecteur gèle donc à la fois le
+  // résultat et la promesse : « tomber sur 6 le plus souvent possible ».
+  // (Et il gèle la borne basse : `m16` refuse en deçà de dix-neuf chiffres.)
+  ['m16', N([4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
+    1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8]), [6, 3, 6, 6, 6, 6, 6, 6, 3, 6, 9]],
   ['c1', N([8, 15, 16, 5]), 44],
   ['c2', N([8, 15, 16, 5]), -28],
   ['c3', N([8, 15, 16, 5]), 9600],
@@ -170,6 +192,15 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   ml: 'keyboard', mm: 'keyboard', mn: 'keyboard', mo: 'keyboard',
   mv: 'keyboard',
   mz: 'horns',
+  // ★ Le tri croissant ne substitue rien et n'efface rien : il DÉPLACE. Le
+  //   geste dédié est donc `move`, la primitive du réarrangement — sans elle,
+  //   le rangement serait affirmé par une légende au lieu d'être montré.
+  m13: 'move',
+  //   Le redécoupage tricheur doit montrer sa DÉCISION, c'est-à-dire la
+  //   découpe : `partition` trace une accolade par paquet avant que la moindre
+  //   addition ne soit faite. Une triche qu'on cache est pire qu'une triche
+  //   qu'on n'implémente pas (CONTRACTS §4.1, amendement des trois ficelles).
+  m16: 'partition',
 });
 
 /**
@@ -250,6 +281,86 @@ test('★ le code mz ne trouve que trois 6 CONTIGUS, et refuse tout le reste', (
   // Une suite plus longue est ramenée à trois : 666 fait trois 6, pas quatre,
   // et le verdict se refuse à décider lui-même où couper (`reveal.js`).
   assert.deepEqual(sortie([6, 6, 6, 6]), [6, 6, 6]);
+});
+
+/**
+ * ★ LES QUATRE TRANSFORMATIONS DU 27 AOÛT — et ce que chacune REFUSE.
+ *
+ * Comme pour `mz`, la valeur de ces opérateurs tient d'abord dans leurs refus :
+ * un mappeur qui rend son entrée, ou qui s'applique sans rien acheter, fabrique
+ * une étape que `scenario.js` saute EN SILENCE — et l'URL porte alors un code
+ * que la démonstration ne montre nulle part. Chaque refus ci-dessous ferme une
+ * de ces portes, et les exemples chiffrés sont ceux de l'auteur.
+ */
+test('★ les quatre transformations du 27 août — ce qu’elles font, et ce qu’elles refusent', () => {
+  const sortie = (code, v) => {
+    const r = appliquer(PAR_CODE.get(code), N(v));
+    return r && r.valeur;
+  };
+
+  // ── m13, « Tri croissant » ────────────────────────────────────────────────
+  // L'exemple de l'auteur, mot pour mot : trois 6 dispersés deviennent contigus.
+  assert.deepEqual(sortie('m13', [9, 5, 9, 5, 6, 6, 3, 6, 4, 9, 4]),
+    [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9], 'l’exemple de l’auteur');
+  // Un vecteur déjà rangé n'a rien à montrer.
+  assert.equal(sortie('m13', [1, 2, 3]), null, 'déjà croissant : rien à déplacer');
+  // ★ Et surtout : le tri doit RASSEMBLER. Il ne se joue pas pour promener des
+  //   valeurs qui ne se rejoignent pas — c'est ce que l'auteur lui demande,
+  //   « faire apparaître 666 contigu », et rien d'autre.
+  assert.equal(sortie('m13', [3, 1, 2]), null,
+    'trois valeurs distinctes : ranger ne réunit personne');
+  assert.equal(sortie('m13', [6, 6, 6, 4, 1]), null,
+    'la plage de trois existe DÉJÀ : c’est le travail de mz, pas celui du tri');
+  assert.deepEqual(sortie('m13', [6, 4, 6, 1, 6]), [1, 4, 6, 6, 6],
+    'trois 6 dispersés, réunis — et le départage à valeur égale suit l’ordre de lecture');
+
+  // ── m14, « On retourne les 666 qui se cachent » ───────────────────────────
+  // Par TRIO contigu, jamais un par un : c'est ce qui le sépare de `my`.
+  assert.deepEqual(sortie('m14', [9, 9, 9, 9, 3, 9]), [6, 6, 6, 9, 3, 9],
+    'trois d’un bloc ; le quatrième et l’esseulé ne bougent pas');
+  assert.deepEqual(sortie('m14', [9, 9, 9, 9, 9, 9]), [6, 6, 6, 6, 6, 6],
+    'six 9 d’affilée font deux trios');
+  assert.equal(sortie('m14', [9, 3, 9, 3, 9]), null,
+    'trois 9 dispersés ne sont pas un 999 : c’est `my` qui les prendrait, pas celui-ci');
+  assert.equal(sortie('m14', [9, 9]), null, 'deux 9 ne font pas un trio');
+  // ★ Aucune corne n'est émise ici : c'est `couronnerLesTriptyques`
+  //   (`src/recherche/scenario.js`) qui couronne, parce que lui seul sait si le
+  //   trio arrivera au verdict — et si la cible est bien 666.
+  const stepsTrio = etapes(PAR_CODE.get('m14'), N([9, 9, 9]), N([6, 6, 6]),
+    { ids: ['a', 'b', 'c'], cle: 'e1', langue: 'fr' });
+  assert.ok(!stepsTrio.flatMap((s) => s.ops).some((o) => o.op === 'horns'),
+    'un opérateur ne couronne pas à l’aveugle : il ne sait pas ce que la suite fera de ses 6');
+
+  // ── m15, « On compte les chiffres » ───────────────────────────────────────
+  // L'exemple de l'auteur : un 3, deux 4, deux 5, trois 6, trois 9.
+  assert.deepEqual(sortie('m15', [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]),
+    [1, 3, 2, 4, 2, 5, 3, 6, 3, 9], 'l’exemple de l’auteur');
+  // ★ Des PLAGES CONTIGUËS, pas un relevé par valeur : `6 4 6` fait trois
+  //   plages, pas deux valeurs. Ici, le décompte n'y gagne rien — il est refusé.
+  assert.equal(sortie('m15', [6, 4, 6]), null,
+    'trois plages d’un signe : compter écrirait six signes pour trois, ce n’est pas compter');
+  assert.deepEqual(sortie('m15', [6, 6, 6, 6]), [4, 6], 'une plage de quatre se dit « 4 6 »');
+  assert.equal(sortie('m15', [1, 2, 3]), null, 'rien à condenser');
+
+  // ── m16, « Le redécoupage tricheur » ──────────────────────────────────────
+  // Un DERNIER RECOURS : il refuse tant que la ligne n'est pas devenue longue.
+  assert.equal(sortie('m16', [1, 2, 3, 6, 4, 2]), null,
+    'six chiffres : la ligne se lit encore, il n’y a rien à redécouper');
+  const longue = [4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
+    1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8];
+  const paquets = sortie('m16', longue);
+  assert.deepEqual(paquets, [6, 3, 6, 6, 6, 6, 6, 6, 3, 6, 9], 'les 32 chiffres de l’auteur');
+  // ★ Il ACHÈTE des 6, sinon il ne se joue pas : huit contre trois au départ.
+  assert.equal(longue.filter((v) => v === 6).length, 3);
+  assert.equal(paquets.filter((v) => v === 6).length, 8);
+  // ★ Et les 6 déjà écrits ne sont jamais absorbés : ils restent seuls dans leur
+  //   paquet, exactement comme dans le calcul à la main de l’auteur.
+  const tailles = PAR_CODE.get('m16').additions(longue);
+  assert.ok(tailles.length > 0 && tailles.every((t) => t >= 2),
+    'les additions déclarées portent toutes au moins deux termes');
+  // Rien à acheter : une ligne longue mais qui ne gagne aucun 6 est refusée.
+  assert.equal(sortie('m16', new Array(30).fill(6)), null,
+    'trente 6 : chacun reste seul, rien n’est gagné, la triche ne se joue pas');
 });
 
 test('★ gel des codes publiés : chaque code rend exactement la même sortie', () => {
@@ -498,6 +609,42 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
           }
           for (const id of o.efface || []) {
             assert.ok(!o.targets.includes(id), `${code} : on n'efface pas ce qu'on couronne`);
+          }
+          continue;
+        }
+        if (attendue === 'move') {
+          // ★ Un rangement ne travaille pas jeton par jeton : il rend un ORDRE.
+          //   Le contrôle croisé est donc que cet ordre soit UNE PERMUTATION de
+          //   la ligne — pas un jeton oublié, pas un jeton compté deux fois —
+          //   et que les valeurs qu'il désigne soient effectivement croissantes.
+          //   Le moteur visuel ne peut pas le vérifier : il ne connaît pas les
+          //   valeurs. Ici, on les a encore sous la main.
+          assert.ok(Array.isArray(o.order) && o.order.length === ctx.ids.length,
+            `${code} : « order » doit renommer toute la ligne, dans son nouvel ordre`);
+          assert.equal(new Set(o.order).size, o.order.length,
+            `${code} : un jeton figure deux fois dans « order »`);
+          const rangs = o.order.map((id) => ctx.ids.indexOf(id));
+          assert.ok(rangs.every((r) => r >= 0), `${code} : « order » désigne un jeton hors ligne`);
+          const rangees = rangs.map((r) => entree.valeur[r]);
+          assert.deepEqual(rangees, [...rangees].sort((x, y) => x - y),
+            `${code} : l'ordre envoyé à la scène n'est pas croissant`);
+          continue;
+        }
+        if (attendue === 'partition') {
+          // ★ Découper, c'est PARTITIONNER : au moins deux morceaux, aucun
+          //   vide, aucun jeton dans deux morceaux à la fois. La primitive
+          //   refuse déjà les trois cas (`visuel/primitives/partition.js`) ;
+          //   on le rattrape ici plutôt qu'au clic de l'utilisateur.
+          assert.ok(Array.isArray(o.groups) && o.groups.length >= 2,
+            `${code} : découper en un seul morceau ne découpe rien`);
+          const vus = new Set();
+          for (const g of o.groups) {
+            assert.ok(Array.isArray(g.targets) && g.targets.length,
+              `${code} : un groupe sans jeton`);
+            for (const id of g.targets) {
+              assert.ok(!vus.has(id), `${code} : le jeton « ${id} » est dans deux groupes`);
+              vus.add(id);
+            }
           }
           continue;
         }

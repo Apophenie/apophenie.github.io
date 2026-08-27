@@ -107,6 +107,15 @@ const PRIORITE = {
  */
 const MAPPEURS_DE_SERVICE = new Set([
   'm.reduireChaque', 'm.retirerZeros', 'm.troisSixDAffilee',
+  // ★ Le rangement croissant et le redécoupage les rejoignent, pour la même
+  //   raison exactement : ils ne CONVERTISSENT rien. Le premier remet dans
+  //   l'ordre ce qu'une autre méthode a calculé, le second relit ce qu'elle a
+  //   écrit. Aucun des deux ne dit par quel chemin on est passé de la saisie
+  //   aux nombres — c'est-à-dire la seule chose qu'un nom de voie doive dire.
+  //   Laissés vedettes, ils auraient nommé des dizaines de voies d'après leur
+  //   dernière retouche, et le redécoupage aurait en outre intitulé une voie
+  //   entière du nom de sa triche.
+  'm.triCroissant', 'm.redecoupageChoisi',
 ]);
 
 /**
@@ -223,6 +232,21 @@ export const NOMS = {
   // d'un nombre isolé. Deux méthodes, deux noms — sans quoi une liste pourrait
   // porter deux fois la même ligne.
   'm.retournerLesNeuf': b('Par le retournement des 9', 'By flipping the 9s'),
+  // ★ Les quatre du 27 août. Deux sont des vedettes possibles — le retournement
+  //   par trios et le décompte des chiffres transforment vraiment ce qu'ils
+  //   touchent — et deux sont de service (voir `MAPPEURS_DE_SERVICE`), mais
+  //   toutes portent un nom : un opérateur sans nom retomberait sur son
+  //   `libelle`, c'est-à-dire sur une phrase entière au milieu d'une locution.
+  //
+  // ⚠️ Le libellé de `m14` est celui de l'auteur — « On retourne les 666 qui se
+  //   cachent » — et il DIVULGUE la chute. C'est parfait dans Le Registre, où
+  //   l'on regarde le geste se faire ; c'est interdit dans un titre de liste,
+  //   où l'on n'a encore rien vu (test « jamais le résultat dans le nom de la
+  //   voie »). Le nom de vedette dit donc le geste et tait ce qu'il produit.
+  'm.triCroissant': b('Par rangement croissant', 'By ascending order'),
+  'm.retournerLesTrios': b('Par le retournement des trios', 'By flipping the trios'),
+  'm.compterLesChiffres': b('Par le décompte des chiffres', 'By tallying the digits'),
+  'm.redecoupageChoisi': b('Par redécoupage choisi', 'By chosen recutting'),
   // ★ `mz` ne nomme rien et ne DOIT rien nommer : il souligne un 666 déjà écrit,
   // c'est-à-dire le résultat. Il est écarté des vedettes (`MAPPEURS_DE_SERVICE`)
   // et son nom de repli reste muet sur ce qu'il montre.
@@ -398,6 +422,12 @@ export const PRECISIONS = {
   'm.reduireChaque': b('réduit chiffre à chiffre', 'reduced digit by digit'),
   'm.retirerZeros': b('sans les zéros', 'without the zeros'),
   'm.retournerLesNeuf': b('les 9 retournés', 'with the 9s flipped'),
+  // ★ Les quatre du 27 août — mêmes précautions que pour les noms de vedette :
+  //   le geste, jamais ce qu'il produit.
+  'm.triCroissant': b('rangé par ordre croissant', 'sorted in ascending order'),
+  'm.retournerLesTrios': b('les trios retournés', 'with the trios flipped'),
+  'm.compterLesChiffres': b('les chiffres comptés', 'with the digits tallied'),
+  'm.redecoupageChoisi': b('redécoupé en paquets', 'recut into packets'),
   // ★ Muet sur ce qu'il souligne — voir `MAPPEURS_DE_SERVICE`. « 666 déjà
   // écrit » serait exact et divulguerait la chute d'une ligne de la liste.
   'm.troisSixDAffilee': b('avec le trio souligné', 'with the trio underlined'),
