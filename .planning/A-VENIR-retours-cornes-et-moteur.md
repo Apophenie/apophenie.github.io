@@ -14,7 +14,7 @@ ce fichier est la source, les issues qu'on en tirera sont des dérivés.
 > ajouté des cornes à la 4ᵉ série de 666 alors qu'elle se retrouve en 2ᵉ ligne. »
 
 URL témoin :
-`#sce!0.1:t1+mw,1.1:t1+mv+c1,2.1:t1+mw,3.1:t1+mv+c1,4.1:t1+mw,6.1:t1+md+c1#yvQYkzhNVYJT8wM8jhvJxSM`
+`#sce!0.1:tca+m14,1.1:tca+mtc+cs,2.1:tca+m14,3.1:tca+mtc+cs,4.1:tca+m14,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM`
 
 **Puis, plus loin, l'auteur affine — et cette seconde formulation prime :**
 
@@ -55,7 +55,7 @@ d'implémenter.
 
 ## 4. Une voie élégante a disparu du classement
 
-> « Sur `#so!0.1:t1+m4+c1+p1,3.1:f9+n1,5.1:t1+md+c1#3A8evQZovd7BUyRUF65ToBwrHvW25EUn`
+> « Sur `#so!0.1:tca+mch+cs+prn,3.1:fc+nl,5.1:tca+m7+cs#3A8evQZovd7BUyRUF65ToBwrHvW25EUn`
 > il n'y a pas de cornes (logique, on est en version sobre) mais si je passe en
 > `sce!` pas plus de cornes, et si je mets `https://reinfocovid.fr/` dans la
 > saisie puis énumérer les voies, impossible de retrouver celle-ci, elle a dû
@@ -66,7 +66,7 @@ la perte de rang.
 
 ## 5. Un libellé faux
 
-Sur `#sce!3.1:t1+m3+my#3A8evQZovd7BUyRUF65ToBwrHvW25EUn`, l'étape 14 devrait
+Sur `#sce!3.1:tca+mpy+mr9#3A8evQZovd7BUyRUF65ToBwrHvW25EUn`, l'étape 14 devrait
 dire :
 
 > « Les 6 sont majoritaires, on les garde
@@ -74,7 +74,7 @@ dire :
 
 ## 6. Un libellé faux ET un opérateur à remplacer
 
-Sur `#so!c777!t1+mc+mt#Hi75aotg77MXEgC`, étape 27 :
+Sur `#so!c777!tca+masb+mrn#Hi75aotg77MXEgC`, étape 27 :
 
 > « "On ne garde que les 6", or ce sont les 7 que tu gardes. Le titre est à
 > rendre dynamique (mais ça reste peu élégant, surtout avec les astuces pour le
@@ -93,7 +93,7 @@ Sur `#so!c777!t1+mc+mt#Hi75aotg77MXEgC`, étape 27 :
 > « Puis de retourner les neufs non pas individuellement mais en trio contigu
 > (plus élégant) pour faire apparaître directement 666. »
 
-À rapprocher de l'opérateur `my` existant (rotation 9→6), qui opère
+À rapprocher de l'opérateur `mr9` existant (rotation 9→6), qui opère
 individuellement.
 
 ### 7.3 On compte les chiffres
@@ -105,7 +105,7 @@ individuellement.
 
 ### 7.4 Redécoupage tricheur pour tomber sur 6
 
-Sur `#sce!f9+t1+m5+mt#3A8evQZovd7BUyRUF65ToBwrHvW25EUn` :
+Sur `#sce!fc+tca+mx6+mrn#3A8evQZovd7BUyRUF65ToBwrHvW25EUn` :
 
 > « Après l'étape 15, il y a 32 chiffres. C'est le moment de tricher pour
 > réduire chaque nombre à un chiffre en redécoupant de manière à ce que ça tombe

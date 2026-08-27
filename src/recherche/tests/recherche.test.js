@@ -319,9 +319,9 @@ test('déterminisme — ordre total : aucun ex æquo ne subsiste', () => {
 });
 
 test('déterminisme — ordreTotal est un ordre total strict', () => {
-  const a = { score: 900, L: 9, codes: 'm1+c1' };
-  const b = { score: 900, L: 9, codes: 'm2+c1' };
-  const c = { score: 900, L: 8, codes: 'm9+c1' };
+  const a = { score: 900, L: 9, codes: 'ma1+cs' };
+  const b = { score: 900, L: 9, codes: 'mz26+cs' };
+  const c = { score: 900, L: 8, codes: 'mms+cs' };
   const d = { score: 950, L: 30, codes: 'zz' };
   assert.ok(ordreTotal(a, b) < 0, 'départage par les codes');
   assert.ok(ordreTotal(c, a) < 0, 'départage par la longueur avant les codes');
@@ -338,9 +338,9 @@ test('déterminisme — score entier, aucune virgule flottante', () => {
 });
 
 test('déterminisme — comparaisons de chaînes en unités de code, sans Intl', () => {
-  assert.ok(comparerCodes(['m1'], ['m2']) < 0);
-  assert.ok(comparerCodes(['m1'], ['m1', 'c1']) < 0);
-  assert.equal(comparerCodes(['f1', 'm1'], ['f1', 'm1']), 0);
+  assert.ok(comparerCodes(['ma1'], ['mz26']) < 0);
+  assert.ok(comparerCodes(['ma1'], ['ma1', 'cs']) < 0);
+  assert.equal(comparerCodes(['fp', 'ma1'], ['fp', 'ma1']), 0);
   // « Z » < « a » en unités de code : c'est le comportement voulu, pas localeCompare.
   assert.ok(comparerCodes(['Z'], ['a']) < 0);
 });
@@ -661,7 +661,7 @@ test('rejeu — une URL canonique est rejouée SANS relancer la recherche', () =
 
 test('rejeu — portée hors bornes : refus explicite, jamais une autre démonstration', () => {
   const m = creerMoteur(catalogue);
-  const lecture = lire(`#99.3:n1#${encoderTexte('hope')}`);
+  const lecture = lire(`#99.3:nl#${encoderTexte('hope')}`);
   const r = m.rejouer(lecture);
   assert.equal(r.ok, false);
   assert.ok(r.bandeau);
@@ -749,7 +749,7 @@ test('★ classement — aucun décret ne figure dans une liste', () => {
 test('★ un lien de décret d’avant la suppression se rejoue encore', () => {
   const m = creerMoteur(catalogue);
   const b58 = encoderTexte('macron');
-  const lecture = lire(`#n1,n1,n1#${b58}`, { catalogue });
+  const lecture = lire(`#nl,nl,nl#${b58}`, { catalogue });
   assert.equal(lecture.forme, 'canonique');
   const rejoue = m.rejouer(lecture);
   assert.ok(rejoue.ok, rejoue.raison);
@@ -820,10 +820,10 @@ test('titres — un nom de méthode, unique dans la liste, dans les deux langues
  * qu'elles ont en propre — et en dernier recours par leur suite de codes, qui
  * est unique par construction mais n'apprend rien à personne. Ce dernier
  * recours s'était mis à servir : sur `Millicent`, trois voies Atbash cohabitent
- * (`fk+t1+m3+my`, `fk+t1+m8+my`, `fk+t1+m8`), et pour celle du milieu **aucun
+ * (`fatb+tca+mpy+mr9`, `fatb+tca+mt9+mr9`, `fatb+tca+mt9`), et pour celle du milieu **aucun
  * opérateur ne lui appartient en propre** — ni le clavier téléphonique ni le
  * retournement des 9, seule leur RENCONTRE. Le visiteur lisait
- * « Le chiffre Atbash — fk+t1+m8+my ».
+ * « Le chiffre Atbash — fatb+tca+mt9+mr9 ».
  */
 test('★ titres — jamais un code d’URL en guise de nom', () => {
   const m = creerMoteur(catalogue);
@@ -894,7 +894,7 @@ test('★ anti-doublons — pas de voie jumelle à l’opérateur « trois 6 d�
   const m = creerMoteur(catalogue);
   const nu = (a) => [a.mode, a.series ?? 1, ...a.parts
     .map((p) => p.fragment.texte + '\u0000'
-      + p.chemin.ops.filter((o) => o.code !== 'mz').map((o) => o.code).join('+'))
+      + p.chemin.ops.filter((o) => o.code !== 'm36').map((o) => o.code).join('+'))
     .sort()].join('|');
   let vues = 0;
   for (const s of [...SAISIES_LISTE, 'Macron', 'satan', 'Donald Trump', 'Millicent']) {
@@ -910,9 +910,9 @@ test('★ anti-doublons — pas de voie jumelle à l’opérateur « trois 6 d�
 
 test('★ Macron — le 666 déjà écrit est montré, et il l’est UNE fois', () => {
   const app = creerMoteur(catalogue).resoudre('Macron').approches;
-  const cesar = app.filter((a) => a.codes.startsWith('fl+t1+mw'));
+  const cesar = app.filter((a) => a.codes.startsWith('fr13+tca+m14'));
   assert.equal(cesar.length, 1, `${cesar.length} voies « César + quatorze segments » : ${cesar.map((a) => a.codes).join(' | ')}`);
-  assert.ok(cesar[0].codes.endsWith('+mz'), `la voie retenue ne montre pas le triptyque : ${cesar[0].codes}`);
+  assert.ok(cesar[0].codes.endsWith('+m36'), `la voie retenue ne montre pas le triptyque : ${cesar[0].codes}`);
 });
 
 test('anti-doublons — aucune étape inopérante ne subsiste dans une approche', () => {
@@ -939,7 +939,7 @@ test('anti-doublons — aucune étape inopérante ne subsiste dans une approche'
  *
  * ⚠️ Le `fr` a CHANGÉ DE MÉTHODE, et l'ordonnancement a eu raison contre la
  * lettre du souhait. Le sept segments n'en tirait qu'UN 6 (`f` = 4, `r` = 2,
- * puis la somme) ; la pythagoricienne suivie du retournement des 9 (`my`) en
+ * puis la somme) ; la pythagoricienne suivie du retournement des 9 (`mr9`) en
  * tire DEUX — `f` = 6, `r` = 9 retourné = 6. La moisson retient le programme
  * qui rapporte le plus de 6 par portée (`assemblage.js`), elle a donc pris
  * celui-là. Seize 6, toujours cinq séries, et **un 6 qui reste sur le
@@ -969,10 +969,10 @@ test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de 
   assert.ok(!/666|série/.test(tete.titre.fr), 'un titre ne divulgue jamais son résultat');
   // Les trois ingrédients demandés, et rien d'autre.
   const programmes = tete.parts.map((p) => p.chemin.ops.map((o) => o.code).join('+'));
-  assert.equal(programmes.filter((p) => p === 't1+mw').length, 3, 'trois `hope` en quatorze segments');
-  assert.equal(programmes.filter((p) => p.includes('mv')).length, 2, 'deux tirets par la touche du 6');
+  assert.equal(programmes.filter((p) => p === 'tca+m14').length, 3, 'trois `hope` en quatorze segments');
+  assert.equal(programmes.filter((p) => p.includes('mtc')).length, 2, 'deux tirets par la touche du 6');
   // Le `fr` a sa propre portée, et elle rapporte au moins un 6 — par quelque
-  // méthode que ce soit. On n'épingle plus `md` : ce serait figer la moins
+  // méthode que ce soit. On n'épingle plus `m7` : ce serait figer la moins
   // bonne des deux façons de compter deux lettres.
   const fr = tete.parts.find((p) => p.fragment.texte === 'fr');
   assert.ok(fr, `le \`fr\` a sa portée — ${programmes.join(' , ')}`);
@@ -1071,7 +1071,7 @@ test('★ moisson — le « fr » reste en sept segments : 4 + 2, et rien à jet
   assert.equal(tete.series, 5, `${tete.series} séries — ${tete.codes}`);
   const fr = tete.parts[tete.parts.length - 1];
   assert.equal(fr.fragment.texte, 'fr');
-  assert.ok(fr.chemin.ops.some((o) => o.code === 'md'),
+  assert.ok(fr.chemin.ops.some((o) => o.code === 'm7'),
     `le « fr » passe par ${fr.chemin.ops.map((o) => o.code).join('+')} — le sept segments est attendu`);
 });
 
@@ -1093,7 +1093,7 @@ test('★ « Donald Trump » : deux 666 déjà formés, en tête de liste', () =
 
   assert.equal(tete.mode, 'MOISSON', `rang 1 : ${tete.mode} — ${tete.codes}`);
   assert.equal(tete.series, 2, 'deux séries de 666');
-  assert.equal(tete.codes, 't1+mw+mz,fl+t1+mw+mz',
+  assert.equal(tete.codes, 'tca+m14+m36,fr13+tca+m14+m36',
     `la combinaison attendue est « Donald » en quatorze segments et « Trump » en `
     + `César puis quatorze segments — obtenu : ${tete.codes}`);
   assert.deepEqual(tete.parts.map((p) => p.fragment.texte), ['Donald', 'Trump']);

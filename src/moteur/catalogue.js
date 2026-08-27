@@ -5,11 +5,11 @@
  * bruyant, jamais de dégradation silencieuse) :
  *
  * 1. métadonnées de classement présentes et dans `[0,1]` ;
- * 2. `code` unique et conforme à la grammaire §4.1 (préfixe de famille + index
- *    base36), cohérent avec la famille ;
- * 3. **ordre de déclaration = ordre des codes croissants** — c'est aussi l'ordre
- *    d'itération du moteur de recherche et l'ordre de tri de la
- *    canonicalisation (§4.4 règle 3) ;
+ * 2. `code` unique, conforme à la grammaire §4.1 (lettre de famille + corps
+ *    parlant + majuscule de variante facultative), cohérent avec la famille, et
+ *    **inscrit au registre** `ORDRE_CANONIQUE` ;
+ * 3. **ordre de déclaration = ordre du registre** — c'est aussi l'ordre
+ *    d'itération du moteur de recherche (§4.4 règle 3) ;
  * 4. typage `from`/`to` dans les quatre types d'état ;
  * 5. `apply` et `steps` présents et exécutables.
  *
@@ -24,7 +24,9 @@ import { TOKENISEURS } from './transformations/tokeniseurs.js';
 import { MESURES_STR, MAPPEURS } from './transformations/mappeurs.js';
 import { COMBINATEURS } from './transformations/combinateurs.js';
 import { POSTS, JOKERS } from './transformations/posts.js';
-import { ORDRE_PREFIXES, PREFIXE, FAMILLES, tracesDe } from './transformations/commun.js';
+import {
+  ORDRE_PREFIXES, PREFIXE, FAMILLES, RE_CODE, tracesDe,
+} from './transformations/commun.js';
 import { estBilingue, langueValide, LANGUES, LANGUE_DEFAUT, dire } from './i18n.js';
 import {
   TYPES, str, tokens, nums, num, estEtat, estType, taille,
@@ -41,18 +43,79 @@ export class ErreurCatalogue extends Error {
 
 const echec = (msg, d) => { throw new ErreurCatalogue(msg, d); };
 
-/** Rang d'un code, pour l'ordre total : (famille, index base36). */
+/**
+ * **Le registre** — les cent codes dans l'ordre canonique du catalogue.
+ *
+ * ★ Pourquoi cette liste existe, alors qu'elle n'existait pas avant. Un code
+ * était jadis « préfixe de famille + index base36 » : l'ordre du catalogue se
+ * LISAIT dans le code (`m1` avant `m2` avant `ma`, en base36), et `rangCode` n'avait qu'à
+ * décoder l'index. Depuis les codes parlants (`tca`, `pm9`, `m14F`…), le code
+ * ne dit plus son rang — il dit ce que l'opérateur FAIT, ce qui est tout
+ * l'objet du changement. L'ordre doit donc être écrit quelque part, et le
+ * moins pire des endroits est ici : une liste unique, relue à chaque
+ * chargement contre l'ordre de déclaration des cinq familles.
+ *
+ * ★ Pourquoi PAS un simple tri alphabétique des codes. Parce que l'ordre du
+ * catalogue n'est pas décoratif : c'est l'ordre d'exploration du moteur de
+ * recherche (§4.4 règle 3), et il est CURÉ — les mappeurs de lettres notoires
+ * d'abord, les triches numériques ensuite. Trier « m0, m14, m14F, m1s2, m36,
+ * m7… » mettrait les triches en tête par pur hasard alphabétique. La liste
+ * conserve l'ordre historique d'allocation, qui portait cette intention.
+ *
+ * ★ Pourquoi PAS non plus « l'ordre de déclaration fait foi, point ». Parce
+ * qu'alors plus rien ne se vérifie : deux sources qui se contrôlent l'une
+ * l'autre valent mieux qu'une seule qu'on croit sur parole. Déplacer un
+ * opérateur dans son fichier sans toucher au registre fait échouer le
+ * chargement, bruyamment, comme le veut §2.2.
+ *
+ * ★ **Append-only** (§4.1) : un code neuf s'ajoute EN FIN de liste, jamais au
+ * milieu — insérer, c'est décaler les rangs suivants, donc changer l'ordre
+ * d'exploration de tout ce qui suit et le classement avec.
+ */
+export const ORDRE_CANONIQUE = Object.freeze([
+  'fp', 'fw', 'ftld', 'fav', 'fap', 'fl', 'fv', 'fvy', 'fc', 'fd', 'fr',
+  'fi', 'fmr', 'ffr', 'fen', 'fmaj', 'fmin', 'fac', 'flt', 'fatb', 'fr13',
+  'tca', 'tm', 'tsp', 'tsy', 'tch', 'nl', 'nv', 'nc', 'nd', 'nsp', 'nm',
+  'nlv', 'nlc', 'ma1', 'mz26', 'mpy', 'mch', 'mx6', 'msfr', 'msen', 'mt9',
+  'mms', 'mmt', 'masc', 'masb', 'm7', 'm7F', 'mtrc', 'mtrb', 'mexc', 'mexb',
+  'mboc', 'mbob', 'mazc', 'mazr', 'mqwc', 'mqwr', 'mhe', 'mgr', 'mln',
+  'mlm', 'mrn', 'm0', 'mtc', 'm14', 'm14F', 'mr9', 'm36', 'mpf', 'm1s2',
+  'mad', 'mtri', 'mr39', 'mcc', 'mrd', 'cs', 'cst', 'cp', 'cal', 'cmm',
+  'cmo', 'cnv', 'ccat', 'cmx', 'cmn', 'cnj', 'cnjd', 'prn', 'psc', 'pabs',
+  'prs', 'pec', 'pmr', 'pc9', 'pm9', 'pr9', 'prm', 'pm10', 'jnf',
+]);
+
+const RANG_AU_REGISTRE = new Map(ORDRE_CANONIQUE.map((c, i) => [c, i + 1]));
+
+/**
+ * Rang d'un code au registre — l'ordre total du catalogue (§4.1 règle 3).
+ *
+ * Rend `null` pour tout ce qui n'est pas un code alloué : chaîne hors grammaire
+ * (§4.1), ou code grammaticalement valide mais jamais alloué. Les deux cas se
+ * traitent pareil — il n'y a pas de rang pour ce qui n'existe pas —, et c'est
+ * ce `null` que `verifier` transforme en échec de chargement.
+ */
 export function rangCode(code) {
-  if (typeof code !== 'string' || code.length < 2) return null;
-  const f = ORDRE_PREFIXES.indexOf(code[0]);
-  const i = parseInt(code.slice(1), 36);
-  if (f < 0 || !Number.isInteger(i) || i < 1) return null;
-  if (code.slice(1) !== i.toString(36)) return null;
-  return f * 1e6 + i;
+  if (typeof code !== 'string' || !RE_CODE.test(code)) return null;
+  return RANG_AU_REGISTRE.get(code) ?? null;
 }
 
-/** Comparateur d'opérateurs par code croissant (§4.1 règle 3). */
+/** Comparateur d'opérateurs par rang de registre croissant (§4.1 règle 3). */
 export const parCode = (a, b) => rangCode(a.code) - rangCode(b.code);
+
+/**
+ * Comparateur de CODES pour la canonicalisation N2 — l'ordre d'écriture dans
+ * une URL, qui n'est pas celui du registre.
+ *
+ * ★ Deux ordres, et c'est voulu. Le registre ordonne le CATALOGUE : il porte
+ * une intention (les notoires d'abord) et il doit rester stable même quand un
+ * code neuf arrive. N2, lui, range une suite d'opérateurs **commutants** à
+ * l'intérieur d'une URL, pour que `fl+fac` et `fac+fl` s'écrivent pareil ; il
+ * lui faut un ordre que le lecteur d'un lien puisse REFAIRE sans le catalogue,
+ * donc un ordre lisible sur la chaîne seule. C'est l'ordre des unités de code
+ * (§4.4 règle 4), déjà appliqué tel quel par `bfs.js › codesCanoniques`.
+ */
+export const comparerCodes = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
 const TOUS = [
   ...FILTRES, ...TOKENISEURS, ...MESURES_STR, ...MAPPEURS,
@@ -66,9 +129,14 @@ function verifier(liste) {
     const ou = `opérateur « ${op.id || '?'} » (code ${op.code})`;
     if (typeof op.id !== 'string' || !op.id) echec(`${ou} : identifiant manquant.`);
     if (!FAMILLES.includes(op.famille)) echec(`${ou} : famille inconnue.`);
+    if (typeof op.code !== 'string' || !RE_CODE.test(op.code)) {
+      echec(`${ou} : code hors grammaire §4.1 (lettre de famille, corps parlant en `
+        + 'minuscules et chiffres, majuscule de variante facultative).');
+    }
     const rang = rangCode(op.code);
     if (rang === null) {
-      echec(`${ou} : code hors grammaire §4.1 (préfixe de famille + index base36 sans zéro de tête).`);
+      echec(`${ou} : code absent du registre — tout code alloué s'inscrit dans `
+        + '`ORDRE_CANONIQUE`, sinon le catalogue n\'a plus d\'ordre (§4.1 règle 3).');
     }
     if (op.code[0] !== PREFIXE[op.famille]) {
       echec(`${ou} : préfixe « ${op.code[0]} » incohérent avec la famille ${op.famille}.`);
@@ -76,7 +144,7 @@ function verifier(liste) {
     if (vus.has(op.code)) echec(`${ou} : code déjà pris par « ${vus.get(op.code)} » — un code est alloué à vie (§4.1).`);
     vus.set(op.code, op.id);
     if (rang <= precedent) {
-      echec(`${ou} : ordre de déclaration ≠ ordre des codes croissants (§4.1 règle 3).`);
+      echec(`${ou} : ordre de déclaration ≠ ordre du registre (§4.1 règle 3).`);
     }
     precedent = rang;
     if (!TYPES.includes(op.from) || !TYPES.includes(op.to)) echec(`${ou} : typage from/to invalide.`);
@@ -97,10 +165,26 @@ function verifier(liste) {
     }
     if (op.isJoker && op.famille !== 'joker') echec(`${ou} : isJoker réservé à la famille joker.`);
   }
+  // Le registre ne contient pas de rang fantôme : un code inscrit sans
+  // opérateur derrière creuserait un trou dans l'ordre, et surtout laisserait
+  // croire qu'une pierre tombale est encore vivante. Retirer un opérateur, ce
+  // n'est pas le rayer du registre — c'est le déclarer `deprecated` (§4.1).
+  const orphelins = ORDRE_CANONIQUE.filter((c) => !vus.has(c));
+  if (orphelins.length) {
+    echec(`registre : ${orphelins.length} code(s) inscrits sans opérateur — ${orphelins.join(', ')}.`);
+  }
+  // Les familles restent groupées, et dans l'ordre des préfixes : c'est ce qui
+  // rend `operateursDepuis` lisible, et ce qui permet à un lecteur d'URL de
+  // deviner la famille d'un code sans consulter le catalogue (§4.1).
+  const familles = [...new Set(ORDRE_CANONIQUE.map((c) => c[0]))];
+  const attendu = ORDRE_PREFIXES.filter((p) => familles.includes(p));
+  if (familles.join('') !== attendu.join('')) {
+    echec(`registre : familles dans l'ordre « ${familles.join('')} » au lieu de « ${attendu.join('')} » (§4.1).`);
+  }
   return liste;
 }
 
-/** Le catalogue complet, gelé, dans l'ordre des codes croissants. */
+/** Le catalogue complet, gelé, dans l'ordre du registre. */
 export const CATALOGUE = Object.freeze(verifier(TOUS));
 
 /** Index par code. */

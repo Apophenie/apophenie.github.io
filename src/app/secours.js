@@ -26,7 +26,7 @@ export const APPROCHES_ESSAI = [
     { fr: 'On traduit le mot anglais en français.',
       en: 'The English word is translated into French.' },
     { fr: 'hope → espoir → 6 lettres, ×3', en: 'hope → espoir → 6 letters, ×3' },
-    '×3:f1+m7+c1',
+    '×3:fp+msen+cs',
     [
       { titre: { fr: 'On écarte ce qui n’est pas « hope ».',
                  en: 'Everything that is not "hope" is set aside.' },
@@ -46,7 +46,7 @@ export const APPROCHES_ESSAI = [
     { fr: 'On comptabilise le nombre total de lettres, puis on ajoute le nombre de voyelles.',
       en: 'The total number of letters is counted, then the number of vowels is added.' },
     { fr: '4 lettres + 2 voyelles = 6, ×3', en: '4 letters + 2 vowels = 6, ×3' },
-    '×3:f1+n1+n3+c1',
+    '×3:fp+nl+nc+cs',
     [
       { titre: { fr: 'On isole les trois occurrences.', en: 'The three occurrences are isolated.' },
         calcul: 'hope · hope · hope' },
@@ -64,7 +64,7 @@ export const APPROCHES_ESSAI = [
     { fr: 'On comptabilise le nombre total de lettres, puis on ajoute le nombre de consonnes.',
       en: 'The total number of letters is counted, then the number of consonants is added.' },
     { fr: '4 lettres + 2 consonnes = 6, ×3', en: '4 letters + 2 consonants = 6, ×3' },
-    '×3:f1+n1+n4+c1',
+    '×3:fp+nl+nd+cs',
     [
       { titre: { fr: 'On isole les trois occurrences.', en: 'The three occurrences are isolated.' },
         calcul: 'hope · hope · hope' },
@@ -83,7 +83,7 @@ export const APPROCHES_ESSAI = [
     { fr: 'A = 1, B = 2 … Z = 26, puis réduction théosophique.',
       en: 'A = 1, B = 2 … Z = 26, then theosophical reduction.' },
     '8+15+16+5 = 44 → 8 ; 8+8+8 = 24 → 6',
-    'm1+c1+p1',
+    'ma1+cs+prn',
     [
       { titre: { fr: 'Chaque lettre vaut son rang dans l’alphabet.',
                  en: 'Each letter is worth its rank in the alphabet.' },
@@ -105,7 +105,7 @@ export const APPROCHES_ESSAI = [
     { fr: 'On compte les traits géométriques continus, segments alignés fusionnés.',
       en: 'Continuous geometric strokes are counted, collinear segments merged.' },
     { fr: '3+4+4+4 = 15 → 6, ×3', en: '3+4+4+4 = 15 → 6, ×3' },
-    '×3:f1+m5+c1+p1',
+    '×3:fp+mx6+cs+prn',
     [
       { titre: { fr: 'On écrit HOPE en capitales sur un afficheur.',
                  en: 'HOPE is written in capitals on a display.' },
@@ -127,7 +127,7 @@ export const APPROCHES_ESSAI = [
       en: 'The French keyboard is used, then a double arithmetical pirouette.' },
     { fr: 'les deux tirets sont sur la touche du 6 ; 36 → 9 → 6',
       en: 'both dashes sit on the 6 key; 36 → 9 → 6' },
-    'm3+c1+p1+p9',
+    'mpy+cs+prn+pr9',
     [
       { titre: { fr: 'On isole les séparateurs.', en: 'The separators are isolated.' },
         calcul: 'hope - hope - hope' },
@@ -153,7 +153,7 @@ export const APPROCHES_ESSAI = [
     { fr: 'Les mots sont séparés par des tirets : ce sont donc des soustractions.',
       en: 'The words are separated by dashes: they are therefore subtractions.' },
     '8−15−16−5 = −28 → 8 − 2 = 6',
-    'm1+c2+p1',
+    'ma1+cst+prn',
     [
       { titre: { fr: 'Les tirets deviennent des opérateurs.',
                  en: 'The dashes become operators.' },
@@ -170,17 +170,17 @@ export const APPROCHES_ESSAI = [
 
 export const FRAGMENTS_ESSAI = [
   { texte: 'hope', methode: { fr: 'lettres + voyelles', en: 'letters + vowels' },
-    valeur: 6, programme: 'n1+n3+c1' },
+    valeur: 6, programme: 'nl+nc+cs' },
   { texte: 'hope', methode: { fr: 'lettres + consonnes', en: 'letters + consonants' },
-    valeur: 6, programme: 'n1+n4+c1' },
+    valeur: 6, programme: 'nl+nd+cs' },
   { texte: '-', methode: { fr: 'touche du 6 en AZERTY', en: 'the 6 key on AZERTY' },
-    valeur: 6, programme: 'm3' },
+    valeur: 6, programme: 'mpy' },
   { texte: 'hope', methode: { fr: 'sept segments fusionnés', en: 'seven segments merged' },
-    valeur: 6, programme: 'm5+c1+p1' },
+    valeur: 6, programme: 'mx6+cs+prn' },
   { texte: 'fr', methode: { fr: 'gématrie simple puis racine numérique', en: 'Simple gematria then digital root' },
-    valeur: 6, programme: 'm1+c1+p1' },
+    valeur: 6, programme: 'ma1+cs+prn' },
   { texte: 'espoir', methode: { fr: 'compte des lettres', en: 'letter count' },
-    valeur: 6, programme: 'm7+n1' },
+    valeur: 6, programme: 'msen+nl' },
 ];
 
 /** Fabrique un Scenario minimal (CONTRACTS §3) à partir d'une approche d'essai. */

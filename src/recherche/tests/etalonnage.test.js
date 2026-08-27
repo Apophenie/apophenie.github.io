@@ -89,7 +89,7 @@ const METHODES = [
     //
     // Elle l'est redevenue : l'ancienne version d'ici appliquait le même calcul
     // trois fois à la saisie entière, faute d'opérateur capable de mapper un
-    // « - ». Le catalogue en a un depuis (`m.toucheChiffre`, code `mv`), et la
+    // « - ». Le catalogue en a un depuis (`m.toucheChiffre`, code `mtc`), et la
     // modélisation de secours avait un défaut de fond — elle faisait de M4 un
     // TRIPLEMENT, c'est-à-dire un seul 6 recopié trois fois, précisément ce que
     // `MALUS.decret` sanctionne et que le README ne demande nulle part.

@@ -109,14 +109,14 @@ function creations(o) {
  * PONT plutôt que du catalogue. Ces méthodes comptent quelque chose de VISIBLE.
  */
 const GESTE_ATTENDU = {
-  m1: 'table', m2: 'table', m3: 'table', m4: 'table', m5: 'table',
-  m6: 'table', m7: 'table', m8: 'table', m9: 'table', ma: 'table',
-  mb: 'table', mc: 'table', mp: 'table', mq: 'table', mr: 'table',
-  md: 'sevenSeg', me: 'sevenSeg',
-  mw: 'fourteenSeg', mx: 'fourteenSeg',
-  mf: 'countStrokes', mg: 'countStrokes', mh: 'countStrokes',
-  mi: 'countStrokes', mj: 'countStrokes', mk: 'countStrokes',
-  ml: 'keyboard', mm: 'keyboard', mn: 'keyboard', mo: 'keyboard',
+  ma1: 'table', mz26: 'table', mpy: 'table', mch: 'table', mx6: 'table',
+  msfr: 'table', msen: 'table', mt9: 'table', mms: 'table', mmt: 'table',
+  masc: 'table', masb: 'table', mhe: 'table', mgr: 'table', mln: 'table',
+  m7: 'sevenSeg', m7F: 'sevenSeg',
+  m14: 'fourteenSeg', m14F: 'fourteenSeg',
+  mtrc: 'countStrokes', mtrb: 'countStrokes', mexc: 'countStrokes',
+  mexb: 'countStrokes', mboc: 'countStrokes', mbob: 'countStrokes',
+  mazc: 'keyboard', mazr: 'keyboard', mqwc: 'keyboard', mqwr: 'keyboard',
 };
 
 test('★ scénario — aucun geste dédié ne retombe en silence sur le rendu générique', () => {
@@ -295,10 +295,17 @@ test('★ scénario — jeter coûte : le rendement suit ce qu’on garde', () =
 
 test('★ scénario — le décor d’une table reste monté sur les étapes d’affilée', () => {
   const m = creerMoteur(catalogue);
-  const r = m.resoudre('https://hope-hope-hope.fr/');
-  const a = r.approches.find((x) => /^t1\+m1\+/.test(x.codes));
-  assert.ok(a, 'la voie A1Z26 existe sur ce cas');
-  const sc = m.scenarioDe(a, { saisie: r.saisie });
+  // ⚠ REJOUÉE depuis un lien, plus cherchée dans le classement. La voie A1Z26
+  // y figurait tant que le départage des ex æquo comparait `t1+m1+…` ; depuis
+  // que les codes sont parlants, la même égalité se tranche autrement
+  // (CONTRACTS §4.4-1) et c'est une autre voie, tout aussi bien notée, qui
+  // occupe la place. Ce que ce test vérifie n'a rien à voir avec le classement :
+  // c'est le DÉCOR d'une table, qui doit monter une fois et redescendre une
+  // fois par-dessus douze conversions d'affilée.
+  const lecture = lireUrl(`#×3:tca+ma1+cp+prn#${encoderTexte('hope-hope-hope.fr')}`);
+  const rejeu = m.rejouer(lecture);
+  assert.ok(rejeu.ok, 'la voie A1Z26 se rejoue sur ce cas');
+  const sc = m.scenarioDe(rejeu.approche, { saisie: 'hope-hope-hope.fr' });
 
   const tables = sc.steps.flatMap((s) => s.ops).filter((o) => o.op === 'table');
   assert.equal(tables.length, 12, 'douze lettres, douze allers-retours');
@@ -323,7 +330,7 @@ test('★ scénario — le décor d’une table reste monté sur les étapes d�
  */
 test('★ scénario — le clavier reste monté par-dessus une étape inerte', () => {
   const m = creerMoteur(catalogue);
-  const lecture = lireUrl('#0.1:t1+m4+c6,1.1:t1+mv+c1,3.1:t1+mv+c1#' + encoderTexte('hope-hope-hope.fr'));
+  const lecture = lireUrl('#0.1:tca+mch+cmo,1.1:tca+mtc+cs,3.1:tca+mtc+cs#' + encoderTexte('hope-hope-hope.fr'));
   const rejeu = m.rejouer(lecture);
   assert.ok(rejeu.ok, 'ce chemin — chaldéenne puis deux tirets du 6 — est rejouable');
   const sc = m.scenarioDe(rejeu.approche, { saisie: 'hope-hope-hope.fr' });
@@ -495,7 +502,7 @@ test('scénario — une approche à passage unique se triple à la fin (joker, t
  * après, dans une étape à part.**
  *
  * ★ **DEUX gommes, et non plus une seule** — c'est le changement, et il est
- * voulu. Tant que les cornes appartenaient à `mz`, l'assemblage repoussait tous
+ * voulu. Tant que les cornes appartenaient à `m36`, l'assemblage repoussait tous
  * les effacements devant le verdict pour n'en faire qu'un : deux gommes
  * séparées par un couronnement auraient dit qu'on écartait deux fois. Elles ne
  * disent plus cela. L'effacement est devenu ce que l'auteur en dit — « une
@@ -508,7 +515,7 @@ test('scénario — une approche à passage unique se triple à la fin (joker, t
 test('★ cornes — chaque 666 est couronné avant que son reste ne s’efface', () => {
   const m = creerMoteur(catalogue);
   const r = m.resoudre('Donald Trump');
-  const a = r.approches.find((x) => x.codes === 't1+mw+mz,fl+t1+mw+mz');
+  const a = r.approches.find((x) => x.codes === 'tca+m14+m36,fr13+tca+m14+m36');
   assert.ok(a, 'la voie de référence doit être trouvée');
   const sc = m.scenarioDe(a, { saisie: r.saisie });
   assert.deepEqual(validerScenario(sc), []);
@@ -596,7 +603,7 @@ test('★ cornes — l’avance est REFUSÉE dès qu’une étape pourrait défa
 test('★ cornes — les jalons publiés pour le score sont exacts et purs', () => {
   const m = creerMoteur(catalogue);
   const r = m.resoudre('Donald Trump');
-  const a = r.approches.find((x) => x.codes === 't1+mw+mz,fl+t1+mw+mz');
+  const a = r.approches.find((x) => x.codes === 'tca+m14+m36,fr13+tca+m14+m36');
   const sc = m.scenarioDe(a, { saisie: r.saisie });
 
   assert.ok(sc.cornes, 'le scénario publie ses jalons');
@@ -606,7 +613,7 @@ test('★ cornes — les jalons publiés pour le score sont exacts et purs', () 
   // ★ Zéro étape gagnée, et c'est le signe que tout va bien : l'assemblage pose
   //   désormais le couronnement À L'INSTANT où le triptyque s'écrit
   //   (`couronnerLesTriptyques`), il n'y a donc plus rien à remonter. L'avance
-  //   ne se mesurait que du temps où `mz` posait ses cornes à sa propre place,
+  //   ne se mesurait que du temps où `m36` posait ses cornes à sa propre place,
   //   trois étapes plus loin. Elle reste publiée : un couronnement peut encore
   //   gagner une étape quand les trois 6 sont là dès la première image.
   assert.equal(sc.cornes.couronnements[0].avance, 0, 'rien à remonter : il est déjà au plus tôt');
@@ -627,8 +634,8 @@ test('★ cornes — les jalons publiés pour le score sont exacts et purs', () 
  * ★ COURONNER SANS EFFACER — la voie de la vitrine, celle qui ne montrait rien.
  *
  * `hope-hope-hope.fr` mène cinq séries de 666, et sa voie de tête n'emploie pas
- * `mz` — elle ne le peut pas : l'opérateur tronque le vecteur à trois 6, il en
- * jetterait douze sur quinze. L'unique émetteur de cornes du projet étant `mz`,
+ * `m36` — elle ne le peut pas : l'opérateur tronque le vecteur à trois 6, il en
+ * jetterait douze sur quinze. L'unique émetteur de cornes du projet étant `m36`,
  * cette démonstration n'en montrait AUCUNE : cinq 666 se formaient sous les
  * yeux du spectateur sans que rien ne le souligne.
  *
@@ -639,9 +646,9 @@ test('★ cornes — les jalons publiés pour le score sont exacts et purs', () 
 test('★ cornes — la voie de la vitrine couronne ses triptyques, et n’efface rien', () => {
   const m = creerMoteur(catalogue);
   const r = m.resoudre('hope-hope-hope.fr');
-  const a = r.approches.find((x) => x.codes === 't1+mw,t1+mv+c1,t1+mw,t1+mv+c1,t1+mw,t1+md+c1');
+  const a = r.approches.find((x) => x.codes === 'tca+m14,tca+mtc+cs,tca+m14,tca+mtc+cs,tca+m14,tca+m7+cs');
   assert.ok(a, 'la voie mise en vitrine dans src/i18n/fr.js doit être trouvée');
-  assert.ok(!a.codes.includes('mz'), 'et elle n’emploie pas « trois 6 d’affilée »');
+  assert.ok(!a.codes.includes('m36'), 'et elle n’emploie pas « trois 6 d’affilée »');
   const sc = m.scenarioDe(a, { saisie: r.saisie });
   assert.deepEqual(validerScenario(sc), []);
 
@@ -656,7 +663,7 @@ test('★ cornes — la voie de la vitrine couronne ses triptyques, et n’effac
   //   en enjambe deux. Ce qui se lit alors n'est pas un 666.
   assert.equal(cornes.length, 2, 'deux triptyques s’écrivent d’un seul tenant au fil de la ligne');
 
-  // ★ RIEN ne s'efface. C'est tout le propos : `mz` couronnait ET tronquait ;
+  // ★ RIEN ne s'efface. C'est tout le propos : `m36` couronnait ET tronquait ;
   //   ici les voisins des trois 6 sont d'autres 6, il n'y a rien à jeter.
   for (const { o } of cornes) {
     assert.ok(!o.efface || !o.efface.length, 'un couronnement de la ligne n’efface jamais rien');

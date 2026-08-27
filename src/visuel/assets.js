@@ -166,11 +166,11 @@ export function fusedStrokes14(segments) {
 //
 // ★ Deux géométries, deux régimes de lecture, et ce n'est pas une redondance.
 //
-// · **Fusion** (`me`, `mx`) : on montre que `b` et `c` n'en font qu'un. Les
+// · **Fusion** (`m7F`, `m14F`) : on montre que `b` et `c` n'en font qu'un. Les
 //   segments sont donc des traits d'AXE, colinéaires et jointifs, et on les
 //   voit se souder. C'est ce que portent `SEGMENTS` et `SEGMENTS14` ci-dessus.
 //
-// · **Comptage individuel** (`md`, `mw`) : on les compte un par un. Deux
+// · **Comptage individuel** (`m7`, `m14`) : on les compte un par un. Deux
 //   segments qui se recouvrent seraient deux choses comptées pour une seule
 //   vue ; ils doivent être DISJOINTS. Et tant qu'à les montrer séparément,
 //   autant montrer ceux de la police que Le Registre affiche vraiment.
@@ -189,7 +189,7 @@ export function fusedStrokes14(segments) {
  * fermé des polices DSEG et le transpose par une similitude. Relancez le
  * script pour vérifier que ce bloc n’a pas dérivé — la CI le fait.
  *
- * Ces tracés servent au COMPTAGE INDIVIDUEL (`md`, `mw`), où deux segments
+ * Ces tracés servent au COMPTAGE INDIVIDUEL (`m7`, `m14`), où deux segments
  * qui se recouvrent seraient deux choses comptées pour une seule vue. Le
  * régime de FUSION garde les traits d’axe de `SEGMENTS` / `SEGMENTS14` : là,
  * il FAUT que les colinéaires se soudent.

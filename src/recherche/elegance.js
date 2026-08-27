@@ -59,7 +59,7 @@
 // L'auteur a tranché : « je me doute — ma demande c'est AUSSI de les ajouter au
 // catalogue, mais avec un score bas, mais moins bas que la suppression
 // arbitraire de ce qui n'est pas 6. » Trois opérateurs ont donc été alloués
-// (`m10` le plus fréquent, `m11` un rang sur deux, `m12` l'addition sélective —
+// (`mpf` le plus fréquent, `m1s2` un rang sur deux, `mad` l'addition sélective —
 // `src/moteur/transformations/mappeurs.js`), et les trois compteurs sont
 // branchés dessus.
 //
@@ -87,7 +87,7 @@
 // (`score.js`) mesure une chose GÉNÉRIQUE — « cette méthode est-elle taillée
 // pour la cible ? » — sur le score de conviction ; le barème d'élégance mesure
 // une chose SPÉCIFIQUE — « qu'a-t-on fait, exactement, pendant le calcul ? » —
-// sur le chemin. Les deux se composent, comme ils se composent déjà pour `my`
+// sur le chemin. Les deux se composent, comme ils se composent déjà pour `mr9`
 // (adHoc 0,35, aucun palier) et pour `c.moyenne` (adHoc bas, palier `ARRONDI`).
 
 import { CIBLE_DEFAUT, normaliserCible, indexUtiles } from './cible.js';
@@ -157,10 +157,10 @@ export const BAREME = {
   /**
    * ★ « Plus des séquences de 6 se forment sans supprimer des nombres au
    * milieu, mieux c'est. » — un 666 qui s'écrit tout seul, dans l'ordre, sans
-   * qu'on ait rien réarrangé. C'est ce que `mz` constate et que les cornes
+   * qu'on ait rien réarrangé. C'est ce que `m36` constate et que les cornes
    * montrent ; c'est aussi ce qu'un vecteur peut porter sans qu'aucun opérateur
    * ne le nomme. Le bonus se gagne sur la GÉOMÉTRIE du vecteur, jamais sur la
-   * présence d'un code : `[6,6,6,4,4]` le gagne, qu'on ait employé `mz` ou non.
+   * présence d'un code : `[6,6,6,4,4]` le gagne, qu'on ait employé `m36` ou non.
    */
   TRIPTYQUE_CONTIGU: 260,
 
@@ -168,7 +168,7 @@ export const BAREME = {
    * ★ Le 666 suivant du MÊME vecteur — un tiers du tarif plein (voir juste
    * au-dessus pour la mesure qui l'impose et pour l'autre réglage possible).
    *
-   * Mesuré : `f6+t1+mw` passe de 1 576 (compte faux) à **1 909** (compte juste,
+   * Mesuré : `fl+tca+m14` passe de 1 576 (compte faux) à **1 909** (compte juste,
    * tarif dégressif) — elle y gagne franchement, et la moisson qui lit toute la
    * saisie garde la tête à 2 293. Au tarif plein elle serait à 2 419 et
    * passerait devant.
@@ -180,7 +180,7 @@ export const BAREME = {
    * deuxième.**
    *
    * ⚠️ DÉFAUT MESURÉ. Le bonus se comptait PAR PORTÉE qui porte un triptyque,
-   * jamais par triptyque : sur `hope-hope-hope.fr`, `f6+t1+mw` appliqué au motif
+   * jamais par triptyque : sur `hope-hope-hope.fr`, `fl+tca+m14` appliqué au motif
    * répété rend **douze 6 d'affilée, donc QUATRE 666**, et ne touchait qu'un
    * seul bonus. « Plus tu produis de 6, mieux c'est » se trouvait démenti à
    * l'endroit exact où le vecteur en produit le plus. Le compte est réparé
@@ -189,7 +189,7 @@ export const BAREME = {
    * verra.
    *
    * ⚠️ **MESURE — et elle contredit le remède qui avait été prescrit.** Le
-   * compte réparé au TARIF PLEIN porte `f6+t1+mw` (motif `hope-hope-hope`) à
+   * compte réparé au TARIF PLEIN porte `fl+tca+m14` (motif `hope-hope-hope`) à
    * **2 419** et lui fait dépasser la moisson à cinq séries (**2 293**) :
    * `hope-hope-hope.fr` perd sa voie de référence. Le remède prévu était
    * d'alourdir `VALEUR_JETEE` — **il n'a aucune prise ici, et c'est mesuré** :
@@ -200,7 +200,7 @@ export const BAREME = {
    * gagne le tri des candidats ; les deux existent, et la plus élégante des
    * deux ne jette rien.) Balayage : `VALEUR_JETEE` porté de 36 à 78, 150, 300
    * puis **600** ne déplace pas d'une milli-unité un bilan qui ne jette rien —
-   * la tête reste `f6+t1+mw` à 2 419 aux quatre valeurs.
+   * la tête reste `fl+tca+m14` à 2 419 aux quatre valeurs.
    *
    * Ce qui sépare réellement les deux voies n'est donc pas le gaspillage :
    *
@@ -233,7 +233,7 @@ export const BAREME = {
    * ⚠️ **MESURE — le réglage 2 ne fait PAS ce qu'on attendait de lui, et il faut
    * l'écrire avant que quelqu'un le rouvre.** L'auteur signale une PARTITION
    * qu'il juge très élégante et qu'il ne retrouve plus :
-   * `#so!0.1:t1+m4+c1+p1,3.1:f9+n1,5.1:t1+md+c1#3A8ev…` sur
+   * `#so!0.1:tca+mch+cs+prn,3.1:fc+nl,5.1:tca+m7+cs#3A8ev…` sur
    * `https://reinfocovid.fr/` — trois morceaux d'URL, trois méthodes
    * différentes, un 6 chacun, et RIEN de calculé qui ne serve
    * (`valeursJetees = 0`). Elle est deuxième à l'élégance (**1 092**) derrière
@@ -373,7 +373,7 @@ export const BAREME = {
    * lui-même — se débarrasser de chiffres est acceptable « si ça évite de se
    * débarrasser artificiellement de chiffres qu'on peut absorber
    * arithmétiquement ». Seul l'ÉCARTEMENT compte : le rétrécissement d'un
-   * vecteur (`mz`, `mu`) et le surplus que le verdict laisse tomber.
+   * vecteur (`m36`, `m0`) et le surplus que le verdict laisse tomber.
    *
    * ★ **IL RESTE À 36 — et ce n'est pas un oubli, c'est une mesure.**
    *
@@ -389,11 +389,11 @@ export const BAREME = {
    * renoncer**, et elles sont écrites ici pour qu'on ne recommence pas :
    *
    * ⚠️ **1. Le levier n'a aucune prise sur le cas qui le motivait.** Il
-   * s'agissait d'empêcher `f6+t1+mw` de passer devant la moisson à cinq séries
+   * s'agissait d'empêcher `fl+tca+m14` de passer devant la moisson à cinq séries
    * une fois le compte des triptyques réparé. Or la voie qui prend la tête est
    * celle qui porte sur le MOTIF RÉPÉTÉ `hope-hope-hope` : `[6×12]`, **PURE,
    * `valeursJetees = 0`**. Balayage 36 → 78 → 150 → 300 → **600** : la tête
-   * reste `f6+t1+mw` à 2 419 aux cinq valeurs, sans bouger d'une milli-unité.
+   * reste `fl+tca+m14` à 2 419 aux cinq valeurs, sans bouger d'une milli-unité.
    * On n'alourdit pas une peine que l'accusé ne paie pas.
    *
    * ⚠️ **2. Il écrase la MOISSON, qui est le mode que l'auteur met en tête.**
@@ -406,13 +406,13 @@ export const BAREME = {
    * à une. Le barème punirait l'ampleur, pas le gaspillage.
    *
    * ⚠️ **3. Et il promeut MÉCANIQUEMENT les ficelles.** C'est le retournement
-   * décisif : `m10`, `m11` et `m12` ne paient PAS ce poste — leur palier le
+   * décisif : `mpf`, `m1s2` et `mad` ne paient PAS ce poste — leur palier le
    * remplace (voir l'en-tête). Plus le gaspillage coûte cher, plus la ruse qui
    * l'escamote devient rentable. Mesuré sur `Le chat dort sur le tapis rouge`,
    * pour neuf milli-unités d'écart :
    *
    *     à 36 → 1. moisson 5×666 (1 129) · la ficelle n'est pas dans les trois
-   *     à 45 → 1. `fl+t1+mw+m10` 1×666 (1 102) · la moisson tombe à 1 057
+   *     à 45 → 1. `fr13+tca+m14+mpf` 1×666 (1 102) · la moisson tombe à 1 057
    *
    * Alourdir le gaspillage, c'est donc payer la ficelle pour cacher le
    * gaspillage. Le réglage reste à 36, l'irrégularité de l'échelle est assumée,
@@ -481,8 +481,8 @@ export const BAREME = {
   // montré, noir sur blanc :
   //
   //   à 32 / 24 / 16 par valeur, `Macron` perdait sa voie de référence
-  //   (`fl+t1+mw+mz`, César + quatorze segments) au profit de `t1+m8+m10`, et
-  //   `Donald Trump` perdait la sienne (`t1+mw+mz,fl+t1+mw+mz`) entièrement.
+  //   (`fr13+tca+m14+m36`, César + quatorze segments) au profit de `tca+mt9+mpf`, et
+  //   `Donald Trump` perdait la sienne (`tca+m14+m36,fr13+tca+m14+m36`) entièrement.
   //   Trois des quatre cas de référence tombaient.
   //
   // Les tarifs ci-dessous sont donc calibrés pour que le solde reste **juste
@@ -492,7 +492,7 @@ export const BAREME = {
   // cas de référence.
 
   /**
-   * 2. ★ « Le plus fréquent l'emporte » (`m10`) — par valeur écartée.
+   * 2. ★ « Le plus fréquent l'emporte » (`mpf`) — par valeur écartée.
    *
    * La plus chère des trois : c'est la seule dont la règle REGARDE les valeurs
    * avant de décider, donc la seule qui puisse être accusée d'avoir choisi son
@@ -501,7 +501,7 @@ export const BAREME = {
   MAJORITE: 180,
 
   /**
-   * 3. ★ « Garder un caractère sur deux » (`m11`) — par valeur écartée.
+   * 3. ★ « Garder un caractère sur deux » (`m1s2`) — par valeur écartée.
    *
    * « Ça peut être plus élégant que “le plus fréquent l'emporte” […] mais ça
    * reste une astuce faible à considérer avec malus aussi, mais moindre que la
@@ -512,7 +512,7 @@ export const BAREME = {
   DECIMATION: 130,
 
   /**
-   * 4. ★ L'addition sélective (`m12`) — par CHIFFRE ABSORBÉ.
+   * 4. ★ L'addition sélective (`mad`) — par CHIFFRE ABSORBÉ.
    *
    * La moins chère des quatre, et l'auteur en donne lui-même la raison : elle
    * ne JETTE rien. `5 + 1 = 6` garde les deux chiffres dans le résultat, là où
@@ -530,7 +530,7 @@ export const BAREME = {
   ADDITION_SELECTIVE: 100,
 
   /**
-   * 3 bis. ★ Le redécoupage tricheur (`m16`) — par CHIFFRE ABSORBÉ, dilué.
+   * 3 bis. ★ Le redécoupage tricheur (`mrd`) — par CHIFFRE ABSORBÉ, dilué.
    *
    * « C'est le moment de TRICHER pour réduire chaque nombre à un chiffre en
    * redécoupant de manière à ce que ça tombe sur 6 le plus souvent possible. »
@@ -547,7 +547,7 @@ export const BAREME = {
    *    le faire aussi ouvertement. « Un rang sur deux » s'énonce avant d'avoir
    *    vu le vecteur ; « le plus fréquent » se compte après, mais sans préférer
    *    personne. Ce redécoupage-ci essaie toutes les découpes et retient celle
-   *    qui donne le plus de 6 : c'est la faute de `m10` (choisir après avoir vu)
+   *    qui donne le plus de 6 : c'est la faute de `mpf` (choisir après avoir vu)
    *    sans en avoir l'excuse (une règle qu'on peut énoncer d'avance) ;
    *  · **il n'ÉCARTE pourtant rien** — tout chiffre entre dans un paquet et
    *    ressort dans une somme. C'est ce qui le maintient sous l'effacement sans
@@ -561,16 +561,16 @@ export const BAREME = {
    *
    * ⚠️ MESURÉ, sur le corpus de dix-neuf saisies, tarif par tarif :
    *
-   *     150 · `Millicent` bascule sur `fl+t1+m5+m16` (3×666, élégance 1 475)
-   *           et évince `fl+t1+m5+mt` (2×666, 1 310) : la triche paie 98
+   *     150 · `Millicent` bascule sur `fr13+tca+mx6+mrd` (3×666, élégance 1 475)
+   *           et évince `fr13+tca+mx6+mrn` (2×666, 1 310) : la triche paie 98
    *           milli-unités et en encaisse 482. Inacceptable.
    *     300 · idem, `Millicent` tombe toujours.
    *     450 · `Millicent` revient à la voie honnête, et **plus aucune tête de
-   *           liste du corpus ne change du fait de `m16`**.
+   *           liste du corpus ne change du fait de `mrd`**.
    *     600 et au-delà · rien ne bouge plus : le corpus est déjà stable, on
    *           n'achète que de la sévérité gratuite.
    *
-   * (Le seuil de largeur de `m16` a été réglé dans le même mouvement, et c'est
+   * (Le seuil de largeur de `mrd` a été réglé dans le même mouvement, et c'est
    * lui qui a fait le gros du travail — un tarif ne peut rien contre une voie
    * qui est évincée AVANT le classement. Voir `CHIFFRES_REDECOUPE_MIN`,
    * `transformations/mappeurs.js`.)
@@ -585,7 +585,7 @@ export const BAREME = {
   REDECOUPAGE: 450,
 
   /**
-   * 5. ★ Le RÉARRANGEMENT — le tri croissant (`m13`), par valeur déplacée.
+   * 5. ★ Le RÉARRANGEMENT — le tri croissant (`mtri`), par valeur déplacée.
    *
    * ★ **Le moins cher du barème, et l'auteur ne l'appelle pas une triche.** Il
    * l'écrit sans réserve : « Coté transformation il y a aussi "Tri croissant"
@@ -620,8 +620,8 @@ export const BAREME = {
    * pénaliser en conséquence. » — l'auteur, mot pour mot.
    *
    * ★ **Un MOTIF, c'est ce qui permet de dire pourquoi ceux-là et pas les
-   * autres.** Être minoritaire (`m10`), occuper un rang pair ou impair
-   * (`m11`) : ce sont des règles qu'on énonce, qu'on affiche sous l'accolade,
+   * autres.** Être minoritaire (`mpf`), occuper un rang pair ou impair
+   * (`m1s2`) : ce sont des règles qu'on énonce, qu'on affiche sous l'accolade,
    * et que le spectateur peut vérifier. Effacer parce que ça arrange, sans rien
    * pouvoir en dire, c'est exactement ce que tout le site prétend ne pas
    * faire — d'où le tarif le plus élevé de la liste des triches, **au-dessus de
@@ -643,7 +643,7 @@ export const BAREME = {
    *
    * ⚠️ **Le compteur `effacementSansMotif` existe et vaut zéro aujourd'hui** :
    * aucun opérateur du catalogue n'efface sans motif. Il attend la scission du
-   * geste de `mz` — qui couronne ET tronque en un seul mouvement indivisible —
+   * geste de `m36` — qui couronne ET tronque en un seul mouvement indivisible —
    * en cours dans un autre chantier. Pour le brancher, il suffit d'inscrire
    * l'identifiant de l'opérateur dans `FICELLES` en face de
    * `'effacementSansMotif'` : le décompte, la ligne de crédit et l'exemption de
@@ -699,7 +699,7 @@ export const FICELLES = Object.freeze({
   'm.additionSelective': 'additionSelective',
   'm.redecoupageChoisi': 'redecoupage',
   // ⚠️ `effacementSansMotif` n'a pas encore d'opérateur : la scission du geste
-  //    de `mz` (couronner / effacer) est en cours ailleurs. Inscrire ici
+  //    de `m36` (couronner / effacer) est en cours ailleurs. Inscrire ici
   //    l'identifiant de la moitié « effacer » suffira à brancher le palier.
 });
 
@@ -728,13 +728,13 @@ const ABSORPTIONS_ADDITIVES = new Set(['additionSelective', 'redecoupage']);
  * Le rendement (`score.js › rendementSix`) lit, POUR CELLES-LÀ SEULEMENT, le
  * vecteur le plus large du chemin plutôt que le dernier : les noter sur ce
  * qu'il reste les récompenserait d'avoir jeté davantage. Le raisonnement
- * s'arrête là où l'écartement s'arrête — une ficelle qui ABSORBE (`m12`,
- * `m16`) ne jette rien, et sa ligne de chiffres momentanément élargie n'est pas
+ * s'arrête là où l'écartement s'arrête — une ficelle qui ABSORBE (`mad`,
+ * `mrd`) ne jette rien, et sa ligne de chiffres momentanément élargie n'est pas
  * du gaspillage : c'est le même nombre, écrit autrement, le temps d'une
  * addition. La lui compter au dénominateur lui reprocherait précisément d'avoir
  * MONTRÉ son calcul.
  *
- * ⚠️ MESURÉ : sans cette distinction, `f6+t1+mw+m16` affichait un rendement de
+ * ⚠️ MESURÉ : sans cette distinction, `fl+tca+m14+mrd` affichait un rendement de
  * 789 pour une scène qui garde quinze jetons et n'en jette que deux (≈ 882) —
  * l'écart venait des dix-neuf chiffres traversés pendant les additions, que
  * personne n'a jetés.
@@ -892,7 +892,7 @@ const peine = (tarif, millemes) => (millemes > 0
  * `c.somme` les rejoint quand ses opérandes tiennent tous en un chiffre : c'est
  * le critère `natureOperandes` de `combinateurs.js`, relu ici sur les VALEURS.
  *
- * ★ `m.additionSelective` (`m12`) n'y est PAS, et c'est délibéré. Elle
+ * ★ `m.additionSelective` (`mad`) n'y est PAS, et c'est délibéré. Elle
  * additionne bien des chiffres — mais pas TOUS, et c'est précisément ce qui en
  * fait une ficelle. Lui accorder le bonus des additions de chiffres reviendrait
  * à la payer pour ce que le palier `ADDITION_SELECTIVE` lui reproche : elle
@@ -984,7 +984,7 @@ export function finDuTriptyque(valeurs, cible = CIBLE_DEFAUT) {
  *
  * ⚠️ DÉFAUT MESURÉ, et corrigé ici. Le bonus se comptait PAR PORTÉE qui porte
  * un triptyque, jamais par triptyque : sur `hope-hope-hope.fr`, la voie
- * `f6+t1+mw` (on ne garde que les lettres, puis quatorze segments) rend
+ * `fl+tca+m14` (on ne garde que les lettres, puis quatorze segments) rend
  * `[6,6,6,6,6,6,6,6,6,6,6,6,5,7]` — **douze 6 d'affilée, donc QUATRE 666** —
  * et ne touchait qu'un seul bonus, comme une portée qui n'en écrit qu'un.
  * « Plus tu produis de 6, mieux c'est » se trouvait démenti à l'endroit exact
@@ -1163,7 +1163,7 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     // Deux formes seulement, et l'ÉCARTEMENT n'en fait pas partie : l'agrégation
     // d'un vecteur en un nombre (`6 + 6 = 12`) et le remplacement terme à terme
     // (un 6 qui devient autre chose à sa place). Le rétrécissement d'un vecteur
-    // — `mz`, `mu` — n'est pas une conversion, c'est un rejet, et il se compte
+    // — `m36`, `m0` — n'est pas une conversion, c'est un rejet, et il se compte
     // plus bas avec les autres rejets. Sans cette séparation, un même chiffre
     // serait puni deux fois pour un seul geste.
     const conversion = apres.type === 'NUM'

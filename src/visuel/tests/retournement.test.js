@@ -1,8 +1,8 @@
 /**
- * « On retourne les 9 » (`m.retournerLesNeuf`, code `my`) — le demi-tour, sur
+ * « On retourne les 9 » (`m.retournerLesNeuf`, code `mr9`) — le demi-tour, sur
  * un VECTEUR.
  *
- * `p.retournement` (`p9`) savait déjà retourner un 9, mais un seul, et une fois
+ * `p.retournement` (`pr9`) savait déjà retourner un 9, mais un seul, et une fois
  * tout réduit à un nombre unique. Le moteur, lui, produit des vecteurs pleins
  * de 9 : la gématrie anglaise suivie de la réduction chiffre à chiffre ne peut
  * rendre que des multiples de 3, donc 3, 6 ou 9. Ce test vérifie les quatre
@@ -82,7 +82,7 @@ test('★ chaque 9 devient un 6, et TOUT le reste est laissé intact', () => {
   }
 });
 
-test('la valeur d’arrivée est la même que celle du finisseur `p9`', () => {
+test('la valeur d’arrivée est la même que celle du finisseur `pr9`', () => {
   // Deux opérateurs, une seule règle. Si l'un des deux dérivait, c'est ici que
   // ça se verrait — et le registre append-only interdit de les réconcilier
   // après coup (CONTRACTS §4.1).

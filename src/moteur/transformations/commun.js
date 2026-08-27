@@ -25,7 +25,7 @@
  *
  * Rend, dans l'ordre de lecture, **le nombre de TERMES de chaque addition**
  * que l'opérateur ferait sur ce vecteur — `[]` s'il n'en fait aucune. Deux
- * opérateurs le portent aujourd'hui : `m12` (l'addition sélective) et `m16`
+ * opérateurs le portent aujourd'hui : `mad` (l'addition sélective) et `mrd`
  * (le redécoupage tricheur).
  *
  * ★ **Pourquoi il existe.** L'auteur a tranché que le malus d'une triche
@@ -71,6 +71,29 @@ export const PREFIXE = Object.freeze({
 
 /** Ordre des familles dans le catalogue = ordre des préfixes. */
 export const ORDRE_PREFIXES = Object.freeze(['f', 't', 'n', 'm', 'c', 'p', 'j']);
+
+/**
+ * Grammaire d'un code d'opérateur (CONTRACTS §4.1) : **une lettre de famille**,
+ * puis un **corps parlant** en minuscules et chiffres, puis — facultative — une
+ * **majuscule de variante**.
+ *
+ * ★ Pourquoi la majuscule finale, et pourquoi elle seule. Depuis le passage aux
+ * codes parlants, deux opérateurs peuvent être le MÊME geste à un détail près :
+ * `mr39` compte les segments allumés, `m14F` compte les mêmes segments une fois
+ * les traits Fusionnés ; `msen`/`m7F` disent la même chose en sept segments. La
+ * majuscule marque ce détail, et elle le marque à l'œil : on lit « quatorze
+ * segments, variante F » sans avoir à consulter le registre. Elle est limitée à
+ * UN caractère en fin de code pour que deux codes ne puissent jamais différer
+ * par la seule casse d'un caractère interne — `m14f` et `m14F` seraient un
+ * piège à relecture, et un piège à lecture tolérante d'URL.
+ *
+ * ★ Le corps admet les chiffres partout, y compris en tête (`m0` retire les
+ * zéros, `m36` cherche trois 6). L'ancienne interdiction du zéro de tête n'avait
+ * de sens que tant que le corps était un index base36 : un index `01` et un
+ * index `1` auraient désigné le même rang sous deux écritures. Un corps parlant
+ * n'est plus un nombre, la question ne se pose plus.
+ */
+export const RE_CODE = /^[ftnmcpj][0-9a-z]+[A-Z]?$/;
 
 // ───────────────────────────────────────────────────────────────────────────
 // Traces

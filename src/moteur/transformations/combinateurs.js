@@ -32,7 +32,7 @@ const borne = (n) => (Number.isFinite(n) && Number.isInteger(n) && n >= NUM_MIN 
  * dès qu'un seul en demande deux → « nombres ». C'est la même discipline que
  * le contrôle croisé de CONTRACTS §0.3 : on ne dit que ce qu'on montre.
  *
- * Conséquence assumée : le même opérateur `c1` intitule son étape « on
+ * Conséquence assumée : le même opérateur `cs` intitule son étape « on
  * additionne les chiffres » sur `3 + 4 + 4 + 4` et « on additionne les
  * nombres » sur `8 + 15 + 16 + 5`. C'est voulu — le libellé statique de
  * l'opérateur (`libelle`, celui de la liste des méthodes) reste, lui,
@@ -343,7 +343,7 @@ const partielsSomme = (vs) => vs.reduce((acc, v) => [...acc, (acc[acc.length - 1
 
 const agregations = [
   {
-    id: 'c.somme', code: 'c1',
+    id: 'c.somme', code: 'cs',
     symbole: 'Σ',
     libelle: bilingue('On additionne', 'Add them up'),
     gabarit: bilingue('On additionne les %s', 'Add up the %s'),
@@ -353,7 +353,7 @@ const agregations = [
     partiels: partielsSomme,
   },
   {
-    id: 'c.soustraction', code: 'c2',
+    id: 'c.soustraction', code: 'cst',
     symbole: '−',
     libelle: bilingue('On soustrait à la chaîne', 'Subtract along the chain'),
     gabarit: bilingue('On soustrait les %s à la chaîne', 'Subtract the %s along the chain'),
@@ -365,7 +365,7 @@ const agregations = [
     minimum: 2,
   },
   {
-    id: 'c.produit', code: 'c3',
+    id: 'c.produit', code: 'cp',
     symbole: '∏',
     libelle: bilingue('On multiplie', 'Multiply them'),
     gabarit: bilingue('On multiplie les %s', 'Multiply the %s'),
@@ -376,7 +376,7 @@ const agregations = [
     minimum: 2,
   },
   {
-    id: 'c.alternee', code: 'c4',
+    id: 'c.alternee', code: 'cal',
     symbole: '∓',
     libelle: bilingue('On alterne plus et moins', 'Alternate plus and minus'),
     regle: bilingue('v₀ − v₁ + v₂ − v₃… comme un critère de divisibilité',
@@ -389,7 +389,7 @@ const agregations = [
     minimum: 2,
   },
   {
-    id: 'c.maxMoinsMin', code: 'c5',
+    id: 'c.maxMoinsMin', code: 'cmm',
     symbole: 'Δ',
     libelle: bilingue('On prend l’écart', 'Take the spread'),
     gabarit: bilingue('On prend l’écart entre les %s', 'Take the spread between the %s'),
@@ -399,7 +399,7 @@ const agregations = [
     geste: 'decompte', minimum: 2,
   },
   {
-    id: 'c.moyenne', code: 'c6',
+    id: 'c.moyenne', code: 'cmo',
     symbole: 'moy.',
     libelle: bilingue('On fait la moyenne', 'Take the average'),
     gabarit: bilingue('On fait la moyenne des %s', 'Take the average of the %s'),
@@ -410,7 +410,7 @@ const agregations = [
     geste: 'moyenne', minimum: 2,
   },
   {
-    id: 'c.cardinal', code: 'c7',
+    id: 'c.cardinal', code: 'cnv',
     symbole: '#',
     libelle: bilingue('On compte les valeurs', 'Count the values'),
     gabarit: bilingue('On compte les %s', 'Count the %s'),
@@ -420,7 +420,7 @@ const agregations = [
     geste: 'comptage',
   },
   {
-    id: 'c.concat', code: 'c8',
+    id: 'c.concat', code: 'ccat',
     symbole: '⁀',
     libelle: bilingue('On colle les chiffres', 'Glue the digits together'),
     gabarit: bilingue('On colle les %s bout à bout', 'Glue the %s end to end'),
@@ -431,7 +431,7 @@ const agregations = [
     geste: 'decompte', minimum: 2,
   },
   {
-    id: 'c.max', code: 'c9',
+    id: 'c.max', code: 'cmx',
     symbole: 'max',
     libelle: bilingue('On garde le plus grand', 'Keep the largest'),
     gabarit: bilingue('On garde le plus grand des %s', 'Keep the largest of the %s'),
@@ -441,7 +441,7 @@ const agregations = [
     geste: 'selection', minimum: 2,
   },
   {
-    id: 'c.min', code: 'ca',
+    id: 'c.min', code: 'cmn',
     symbole: 'min',
     libelle: bilingue('On garde le plus petit', 'Keep the smallest'),
     gabarit: bilingue('On garde le plus petit des %s', 'Keep the smallest of the %s'),
@@ -473,7 +473,7 @@ const agregations = [
 
 const denombrements = [
   {
-    id: 'c.compteTokens', code: 'cb',
+    id: 'c.compteTokens', code: 'cnj',
     symbole: '#',
     libelle: bilingue('On compte les jetons', 'Count the tokens'),
     regle: bilingue('Combien de morceaux', 'How many pieces there are'),
@@ -482,7 +482,7 @@ const denombrements = [
     geste: 'comptage',
   },
   {
-    id: 'c.compteTokensDistincts', code: 'cc',
+    id: 'c.compteTokensDistincts', code: 'cnjd',
     symbole: '#',
     libelle: bilingue('On compte les jetons distincts', 'Count the distinct tokens'),
     regle: bilingue('Combien de morceaux différents', 'How many different pieces there are'),

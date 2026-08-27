@@ -13,7 +13,7 @@
  *    américain, la touche 6 porte `^`, pas un tiret. La version anglaise le
  *    DIT — masquer la nuance rendrait la méthode incompréhensible hors de
  *    France (voir `tables/claviers.js`).
- * 2. **Le joker `j1` ne fonctionne qu'en français.** `quatre` → 6 enclenche le
+ * 2. **Le joker `jnf` ne fonctionne qu'en français.** `quatre` → 6 enclenche le
  *    cycle 4, 6, 3, 5 ; `four` a exactement quatre lettres, donc l'anglais est
  *    un point fixe et n'atteint jamais 6. La version anglaise l'assume comme
  *    une curiosité française, elle n'invente pas d'équivalent — il n'y en a

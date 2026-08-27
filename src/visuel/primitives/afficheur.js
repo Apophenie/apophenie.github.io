@@ -22,11 +22,11 @@
  * ★ Le régime décide de la GÉOMÉTRIE, parce qu'ils ne montrent pas la même
  * chose (assets.js, bloc « dseg ») :
  *
- * · **fusion** (`me`, `mx`) — on montre que `b` et `c` n'en font qu'un. Les
+ * · **fusion** (`m7F`, `m14F`) — on montre que `b` et `c` n'en font qu'un. Les
  *   segments sont des traits d'AXE colinéaires et jointifs, et on les voit se
  *   souder. C'est `SEGMENTS` / `SEGMENTS14`, inchangé.
  *
- * · **comptage individuel** (`md`, `mw`) — on les compte un par un. Deux
+ * · **comptage individuel** (`m7`, `m14`) — on les compte un par un. Deux
  *   segments qui se recouvrent seraient deux choses comptées pour une seule
  *   vue : ils sont donc DISJOINTS, et ce sont ceux de la police elle-même
  *   (`SEGMENTS_DSEG7` / `SEGMENTS_DSEG14`, dérivés de DSEG par

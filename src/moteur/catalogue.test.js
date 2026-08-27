@@ -13,8 +13,9 @@ import assert from 'node:assert/strict';
 
 import {
   CATALOGUE, PAR_CODE, PAR_ID, appliquer, etapes, idsApres, derouler,
-  rangCode, operateursActifs, operateursDepuis, JOKER, LANGUES,
+  rangCode, ORDRE_CANONIQUE, operateursActifs, operateursDepuis, JOKER, LANGUES,
 } from './catalogue.js';
+import { RE_CODE } from './transformations/commun.js';
 import {
   depuisSaisie, tokens, nums, num, NUM_MIN, NUM_MAX, estEtat,
 } from './etat.js';
@@ -28,149 +29,149 @@ const HOPE = ['h', 'o', 'p', 'e'];
 /**
  * ★ Registre gelé — `code`, état d'entrée, valeur de sortie attendue.
  * Les valeurs des mappeurs sont celles de `research §2.3` / `§3.1`, à une
- * exception documentée près : `mi` (extrémités bas de casse) rend `3` pour le
+ * exception documentée près : `mexb` (extrémités bas de casse) rend `3` pour le
  * `h`, conformément à l'écart assumé de `tables/derivees.js`.
  */
 const VECTEURS = [
-  ['f1', S('https://hope.fr'), 'hope.fr'],
-  ['f2', S('www.hope.fr'), 'hope.fr'],
-  ['f3', S('hope.fr'), 'hope'],
-  ['f4', S('hope.fr/a/b'), 'hope.fr'],
-  ['f5', S('hope.fr/a/b'), 'a/b'],
-  ['f6', S('h0pe-2'), 'hpe'],
-  ['f7', S('hope'), 'oe'],
-  ['f8', S('hopey'), 'oey'],
-  ['f9', S('hope'), 'hp'],
-  ['fa', S('hello'), 'helo'],
-  ['fb', S('hello'), 'll'],
-  ['fc', S('le chat dort'), 'lcd'],
-  ['fd', S('hope-hope-hope'), 'hope'],
-  ['fe', S('hope'), 'espoir'],
-  ['ff', S('espoir'), 'hope'],
-  ['fg', S('hope'), 'HOPE'],
-  ['fh', S('HOPE'), 'hope'],
-  ['fi', S('créé'), 'cree'],
-  ['fj', S('h0p3'), 'hope'],
-  ['fk', S('hope'), 'slkv'],
-  ['fl', S('hope'), 'ubcr'],
-  ['t1', S('hope'), ['h', 'o', 'p', 'e']],
-  ['t2', S('a-b.c'), ['a', 'b', 'c']],
-  ['t3', S('a-b.c'), ['-', '.']],
-  ['t4', S('espoir'), ['es', 'poir']],
-  ['t5', U(44), [4, 4]],
-  ['n1', S('hope'), 4],
-  ['n2', S('hope'), 2],
-  ['n3', S('hope'), 2],
-  ['n4', S('hello'), 4],
-  ['n5', S('a-b.c'), 2],
-  ['n6', S('a-b.c'), 3],
-  ['n7', S('hope'), 6],
-  ['n8', S('hope'), 6],
-  ['m1', T(HOPE), [8, 15, 16, 5]],
-  ['m2', T(HOPE), [19, 12, 11, 22]],
-  ['m3', T(HOPE), [8, 6, 7, 5]],
-  ['m4', T(HOPE), [5, 7, 8, 5]],
-  ['m5', T(HOPE), [48, 90, 96, 30]],
-  ['m6', T(HOPE), [4, 1, 3, 1]],
-  ['m7', T(HOPE), [4, 1, 3, 1]],
-  ['m8', T(HOPE), [4, 6, 7, 3]],
-  ['m9', T(HOPE), [4, 3, 4, 1]],
-  ['ma', T(HOPE), [0, 3, 2, 0]],
-  ['mb', T(HOPE), [72, 79, 80, 69]],
-  ['mc', T(HOPE), [104, 111, 112, 101]],
-  ['md', T(HOPE), [5, 6, 5, 5]],
-  ['me', T(HOPE), [3, 4, 4, 4]],
-  ['mf', T(HOPE), [3, 1, 2, 4]],
-  ['mg', T(HOPE), [2, 1, 2, 2]],
-  ['mh', T(HOPE), [4, 0, 1, 3]],
-  ['mi', T(HOPE), [3, 0, 1, 1]],
-  ['mj', T(HOPE), [0, 1, 1, 0]],
-  ['mk', T(HOPE), [0, 1, 1, 1]],
-  ['ml', T(HOPE), [6, 9, 10, 3]],
-  ['mm', T(HOPE), [2, 1, 1, 1]],
-  ['mn', T(HOPE), [6, 9, 10, 3]],
-  ['mo', T(HOPE), [2, 1, 1, 1]],
-  ['mp', T(HOPE), [8, 70, 80, 5]],
-  ['mq', T(HOPE), [8, 70, 80, 5]],
-  ['mr', T(HOPE), [5, 1, 2, 1]],
-  ['ms', T(['hope', 'fr']), [4, 2]],
-  ['mt', N([44, 15]), [8, 6]],
-  ['mu', N([8, 0, 15]), [8, 15]],
+  ['fp', S('https://hope.fr'), 'hope.fr'],
+  ['fw', S('www.hope.fr'), 'hope.fr'],
+  ['ftld', S('hope.fr'), 'hope'],
+  ['fav', S('hope.fr/a/b'), 'hope.fr'],
+  ['fap', S('hope.fr/a/b'), 'a/b'],
+  ['fl', S('h0pe-2'), 'hpe'],
+  ['fv', S('hope'), 'oe'],
+  ['fvy', S('hopey'), 'oey'],
+  ['fc', S('hope'), 'hp'],
+  ['fd', S('hello'), 'helo'],
+  ['fr', S('hello'), 'll'],
+  ['fi', S('le chat dort'), 'lcd'],
+  ['fmr', S('hope-hope-hope'), 'hope'],
+  ['ffr', S('hope'), 'espoir'],
+  ['fen', S('espoir'), 'hope'],
+  ['fmaj', S('hope'), 'HOPE'],
+  ['fmin', S('HOPE'), 'hope'],
+  ['fac', S('créé'), 'cree'],
+  ['flt', S('h0p3'), 'hope'],
+  ['fatb', S('hope'), 'slkv'],
+  ['fr13', S('hope'), 'ubcr'],
+  ['tca', S('hope'), ['h', 'o', 'p', 'e']],
+  ['tm', S('a-b.c'), ['a', 'b', 'c']],
+  ['tsp', S('a-b.c'), ['-', '.']],
+  ['tsy', S('espoir'), ['es', 'poir']],
+  ['tch', U(44), [4, 4]],
+  ['nl', S('hope'), 4],
+  ['nv', S('hope'), 2],
+  ['nc', S('hope'), 2],
+  ['nd', S('hello'), 4],
+  ['nsp', S('a-b.c'), 2],
+  ['nm', S('a-b.c'), 3],
+  ['nlv', S('hope'), 6],
+  ['nlc', S('hope'), 6],
+  ['ma1', T(HOPE), [8, 15, 16, 5]],
+  ['mz26', T(HOPE), [19, 12, 11, 22]],
+  ['mpy', T(HOPE), [8, 6, 7, 5]],
+  ['mch', T(HOPE), [5, 7, 8, 5]],
+  ['mx6', T(HOPE), [48, 90, 96, 30]],
+  ['msfr', T(HOPE), [4, 1, 3, 1]],
+  ['msen', T(HOPE), [4, 1, 3, 1]],
+  ['mt9', T(HOPE), [4, 6, 7, 3]],
+  ['mms', T(HOPE), [4, 3, 4, 1]],
+  ['mmt', T(HOPE), [0, 3, 2, 0]],
+  ['masc', T(HOPE), [72, 79, 80, 69]],
+  ['masb', T(HOPE), [104, 111, 112, 101]],
+  ['m7', T(HOPE), [5, 6, 5, 5]],
+  ['m7F', T(HOPE), [3, 4, 4, 4]],
+  ['mtrc', T(HOPE), [3, 1, 2, 4]],
+  ['mtrb', T(HOPE), [2, 1, 2, 2]],
+  ['mexc', T(HOPE), [4, 0, 1, 3]],
+  ['mexb', T(HOPE), [3, 0, 1, 1]],
+  ['mboc', T(HOPE), [0, 1, 1, 0]],
+  ['mbob', T(HOPE), [0, 1, 1, 1]],
+  ['mazc', T(HOPE), [6, 9, 10, 3]],
+  ['mazr', T(HOPE), [2, 1, 1, 1]],
+  ['mqwc', T(HOPE), [6, 9, 10, 3]],
+  ['mqwr', T(HOPE), [2, 1, 1, 1]],
+  ['mhe', T(HOPE), [8, 70, 80, 5]],
+  ['mgr', T(HOPE), [8, 70, 80, 5]],
+  ['mln', T(HOPE), [5, 1, 2, 1]],
+  ['mlm', T(['hope', 'fr']), [4, 2]],
+  ['mrn', N([44, 15]), [8, 6]],
+  ['m0', N([8, 0, 15]), [8, 15]],
   // ★ « le tiret du 6 » : les deux séparateurs de hope-hope-hope valent 6 et 6.
-  ['mv', T(['-', '-']), [6, 6]],
+  ['mtc', T(['-', '-']), [6, 6]],
   // ★ Quatorze segments. `HOPE` y vaut 6·6·6·6 — sept lettres valent 6 segments
   // (`D E G H N O P`) contre deux en sept segments. Les traits fusionnés, eux,
   // retombent sur 3·4·4·4, le vecteur même de la méthode 5 du README : deux
   // afficheurs, deux dessins, un seul compte.
-  ['mw', T(HOPE), [6, 6, 6, 6]],
-  ['mx', T(HOPE), [3, 4, 4, 4]],
-  // ★ « On retourne les 9 » — le pendant vectoriel de `p9`. Les 9 deviennent
+  ['m14', T(HOPE), [6, 6, 6, 6]],
+  ['m14F', T(HOPE), [3, 4, 4, 4]],
+  // ★ « On retourne les 9 » — le pendant vectoriel de `pr9`. Les 9 deviennent
   // des 6, tout le reste est laissé strictement en place, y compris le −9 :
   // un demi-tour ne sait rien faire d'un signe.
-  ['my', N([3, 9, 6, -9]), [3, 6, 6, -9]],
+  ['mr9', N([3, 9, 6, -9]), [3, 6, 6, -9]],
   // ★ « Trois 6 d'affilée » — le 666 est DÉJÀ écrit dans le vecteur, contigu ;
   // on le garde et l'on efface le reste. Ce n'est pas un tri : trois 6 dispersés
   // ne conviennent pas (voir le test dédié plus bas).
-  ['mz', N([6, 6, 6, 7, 3, 6]), [6, 6, 6]],
+  ['m36', N([6, 6, 6, 7, 3, 6]), [6, 6, 6]],
   // ★ LES TROIS FICELLES ASSUMÉES — codes neufs, alloués le registre FERMÉ
-  // (CONTRACTS §4.1). `mz` était le dernier ; l'index est en base36, et 36 s'y
-  // écrit « 10 ». Les trois vecteurs sont EXACTEMENT les cas que l'auteur a
+  // (CONTRACTS §4.1), aux trois rangs qui suivent `m36`. Les trois vecteurs
+  // sont EXACTEMENT les cas que l'auteur a
   // nommés dans sa demande, et c'est délibéré : ce qui est gelé ici, c'est ce
   // qu'il a demandé, pas ce que l'implémentation a trouvé commode.
   //
   // « Le plus fréquent l'emporte » : sur `[6,4,6,6,6]`, le 4 s'en va.
-  ['m10', N([6, 4, 6, 6, 6]), [6, 6, 6, 6]],
+  ['mpf', N([6, 4, 6, 6, 6]), [6, 6, 6, 6]],
   // « Garder un caractère sur deux » : sur `[4,6,4,6,4,6,4]`, c'est la parité
   // des rangs PAIRS (2ᵉ, 4ᵉ, 6ᵉ) qui porte les trois 6, et c'est elle qui reste.
-  ['m11', N([4, 6, 4, 6, 4, 6, 4]), [6, 6, 6]],
+  ['m1s2', N([4, 6, 4, 6, 4, 6, 4]), [6, 6, 6]],
   // « L'addition sélective » : `6, 5, 16, 8` → `6, 5+1, 6, 8` → `666, 8`.
-  ['m12', N([6, 5, 16, 8]), [6, 6, 6, 8]],
+  ['mad', N([6, 5, 16, 8]), [6, 6, 6, 8]],
   // ★ LES QUATRE TRANSFORMATIONS DU 27 AOÛT — codes neufs, alloués la clôture
   // du registre LEVÉE (CONTRACTS §4.1, amendement du 27 août 2026 : aucun lien
-  // n'avait été diffusé). `m12` était le dernier ; l'index reste en base36.
+  // n'avait été diffusé), aux quatre rangs qui suivent `mad`.
   // Les vecteurs sont, mot pour mot, les exemples chiffrés de l'auteur.
   //
   // « Tri croissant » : `95956636494` → `34455666999` — trois 6 qui étaient
   // dispersés deviennent contigus, sans que rien ne soit écarté.
-  ['m13', N([9, 5, 9, 5, 6, 6, 3, 6, 4, 9, 4]), [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]],
+  ['mtri', N([9, 5, 9, 5, 6, 6, 3, 6, 4, 9, 4]), [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]],
   // « On retourne les 666 qui se cachent » : par TRIO contigu, jamais un par
   // un. Quatre 9 d'affilée n'en donnent que trois ; les 9 isolés ne bougent pas.
-  ['m14', N([9, 9, 9, 9, 3, 9]), [6, 6, 6, 9, 3, 9]],
+  ['mr39', N([9, 9, 9, 9, 3, 9]), [6, 6, 6, 9, 3, 9]],
   // « On compte les chiffres » : `34455666999` → `1324253639` — un 3, deux 4,
   // deux 5, trois 6, trois 9.
-  ['m15', N([3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]), [1, 3, 2, 4, 2, 5, 3, 6, 3, 9]],
+  ['mcc', N([3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]), [1, 3, 2, 4, 2, 5, 3, 6, 3, 9]],
   // « Le redécoupage tricheur » : LES TRENTE-DEUX CHIFFRES DE L'AUTEUR, pris
   // tels qu'il les écrit. Sa découpe à la main rend six 6 sur douze paquets ;
   // la programmation dynamique en rend HUIT sur onze, dont six d'affilée —
   // deux 666 avant même le tri croissant. Le vecteur gèle donc à la fois le
   // résultat et la promesse : « tomber sur 6 le plus souvent possible ».
-  // (Et il gèle la borne basse : `m16` refuse en deçà de dix-neuf chiffres.)
-  ['m16', N([4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
+  // (Et il gèle la borne basse : `mrd` refuse en deçà de dix-neuf chiffres.)
+  ['mrd', N([4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
     1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8]), [6, 3, 6, 6, 6, 6, 6, 6, 3, 6, 9]],
-  ['c1', N([8, 15, 16, 5]), 44],
-  ['c2', N([8, 15, 16, 5]), -28],
-  ['c3', N([8, 15, 16, 5]), 9600],
-  ['c4', N([8, 15, 16, 5]), 4],
-  ['c5', N([8, 15, 16, 5]), 11],
-  ['c6', N([8, 15, 16, 5]), 11],
-  ['c7', N([8, 15, 16, 5]), 4],
-  ['c8', N([8, 15, 16, 5]), 815165],
-  ['c9', N([8, 15, 16, 5]), 16],
-  ['ca', N([8, 15, 16, 5]), 5],
-  ['cb', T(HOPE), 4],
-  ['cc', T(['a', 'a', 'b']), 2],
-  ['p1', U(44), 8],
-  ['p2', U(44), 8],
-  ['p3', U(-28), 28],
-  ['p4', U(-28), 6],
-  ['p5', U(28), 6],
-  ['p6', U(28), 82],
-  ['p7', U(3), 6],
-  ['p8', U(44), 8],
-  ['p9', U(9), 6],
-  ['pa', U(29), 11],
-  ['pb', U(44), 4],
-  ['j1', U(4), 6],
+  ['cs', N([8, 15, 16, 5]), 44],
+  ['cst', N([8, 15, 16, 5]), -28],
+  ['cp', N([8, 15, 16, 5]), 9600],
+  ['cal', N([8, 15, 16, 5]), 4],
+  ['cmm', N([8, 15, 16, 5]), 11],
+  ['cmo', N([8, 15, 16, 5]), 11],
+  ['cnv', N([8, 15, 16, 5]), 4],
+  ['ccat', N([8, 15, 16, 5]), 815165],
+  ['cmx', N([8, 15, 16, 5]), 16],
+  ['cmn', N([8, 15, 16, 5]), 5],
+  ['cnj', T(HOPE), 4],
+  ['cnjd', T(['a', 'a', 'b']), 2],
+  ['prn', U(44), 8],
+  ['psc', U(44), 8],
+  ['pabs', U(-28), 28],
+  ['prs', U(-28), 6],
+  ['pec', U(28), 6],
+  ['pmr', U(28), 82],
+  ['pc9', U(3), 6],
+  ['pm9', U(44), 8],
+  ['pr9', U(9), 6],
+  ['prm', U(29), 11],
+  ['pm10', U(44), 4],
+  ['jnf', U(4), 6],
 ];
 
 /**
@@ -182,32 +183,32 @@ const VECTEURS = [
  * démonstration continuerait de « marcher », mais elle cesserait de prouver.
  */
 const PRIMITIVE_ATTENDUE = Object.freeze({
-  m1: 'table', m2: 'table', m3: 'table', m4: 'table', m5: 'table',
-  m6: 'table', m7: 'table', m8: 'table', m9: 'table', ma: 'table',
-  mb: 'table', mc: 'table', mp: 'table', mq: 'table', mr: 'table',
-  md: 'sevenSeg', me: 'sevenSeg',
-  mw: 'fourteenSeg', mx: 'fourteenSeg',
-  mf: 'countStrokes', mg: 'countStrokes', mh: 'countStrokes',
-  mi: 'countStrokes', mj: 'countStrokes', mk: 'countStrokes',
-  ml: 'keyboard', mm: 'keyboard', mn: 'keyboard', mo: 'keyboard',
-  mv: 'keyboard',
-  // ★ `mz` n'émet plus `horns`. Les cornes ne sont plus le geste d'un
+  ma1: 'table', mz26: 'table', mpy: 'table', mch: 'table', mx6: 'table',
+  msfr: 'table', msen: 'table', mt9: 'table', mms: 'table', mmt: 'table',
+  masc: 'table', masb: 'table', mhe: 'table', mgr: 'table', mln: 'table',
+  m7: 'sevenSeg', m7F: 'sevenSeg',
+  m14: 'fourteenSeg', m14F: 'fourteenSeg',
+  mtrc: 'countStrokes', mtrb: 'countStrokes', mexc: 'countStrokes',
+  mexb: 'countStrokes', mboc: 'countStrokes', mbob: 'countStrokes',
+  mazc: 'keyboard', mazr: 'keyboard', mqwc: 'keyboard', mqwr: 'keyboard',
+  mtc: 'keyboard',
+  // ★ `m36` n'émet plus `horns`. Les cornes ne sont plus le geste d'un
   //   OPÉRATEUR — elles ne changent aucune valeur, elles n'ont donc rien à
   //   faire dans un programme ni dans une URL —, et l'assemblage les pose
   //   désormais sur la ligne, en registre scénique
   //   (`recherche/scenario.js › couronnerLesTriptyques`). Ce qui reste ici est
   //   la seule moitié qui soit de l'arithmétique : la gomme qui tronque le
   //   vecteur à ses trois 6 contigus.
-  mz: 'drop',
+  m36: 'drop',
   // ★ Le tri croissant ne substitue rien et n'efface rien : il DÉPLACE. Le
   //   geste dédié est donc `move`, la primitive du réarrangement — sans elle,
   //   le rangement serait affirmé par une légende au lieu d'être montré.
-  m13: 'move',
+  mtri: 'move',
   //   Le redécoupage tricheur doit montrer sa DÉCISION, c'est-à-dire la
   //   découpe : `partition` trace une accolade par paquet avant que la moindre
   //   addition ne soit faite. Une triche qu'on cache est pire qu'une triche
   //   qu'on n'implémente pas (CONTRACTS §4.1, amendement des trois ficelles).
-  m16: 'partition',
+  mrd: 'partition',
 });
 
 /**
@@ -224,31 +225,60 @@ const OPS_AUTORISEES = new Set([
   'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns',
 ]);
 
-test('grammaire, unicité et ordre croissant des codes (CONTRACTS §4.1)', () => {
+test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
   const vus = new Set();
   let precedent = 0;
   for (const op of CATALOGUE) {
-    assert.match(op.code, /^[ftnmcpj][0-9a-z]+$/, `code hors grammaire : ${op.code}`);
+    assert.match(op.code, RE_CODE, `code hors grammaire : ${op.code}`);
     assert.ok(!vus.has(op.code), `code dupliqué : ${op.code}`);
     vus.add(op.code);
     const r = rangCode(op.code);
     assert.ok(r !== null && r > precedent, `ordre de déclaration rompu en ${op.code}`);
     precedent = r;
   }
-  assert.equal(rangCode('m0'), null, 'un index base36 commence à 1');
+  assert.equal(vus.size, CATALOGUE.length, 'cent codes, cent opérateurs');
   assert.equal(rangCode('z1'), null, 'préfixe de famille inconnu');
-  assert.equal(rangCode('f01'), null, 'pas de zéro de tête');
+  assert.equal(rangCode('mzz'), null, 'code de bonne grammaire mais jamais alloué');
+  assert.equal(rangCode('m14f'), null, 'la casse compte : « m14f » n’est pas « m14F »');
+  assert.equal(rangCode('M14F'), null, 'la lettre de famille est en bas de casse');
+  assert.equal(rangCode('m14FF'), null, 'une seule majuscule de variante, et en fin de code');
+});
+
+/**
+ * ★ **L'unicité des codes est EXIGÉE, pas relue.** Le test ci-dessus la vérifie
+ * sur le catalogue tel qu'il est ; celui-ci la vérifie sur le REGISTRE, qui est
+ * la liste où un code neuf s'écrit. Les deux sont nécessaires : un doublon
+ * inscrit au registre sans opérateur derrière ne se verrait nulle part ailleurs,
+ * et c'est précisément la faute qu'un renommage de masse peut commettre.
+ *
+ * ★ Et il vérifie la longueur, parce que c'est une consigne de l'auteur et non
+ * un goût : « 2, 3 ou 4 caractères, évite d'aller au-delà ». Un code plus long
+ * qu'une portée (`0.1:`) cesse d'être une abréviation.
+ */
+test('le registre : cent codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
+  assert.equal(ORDRE_CANONIQUE.length, 100);
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 100, 'aucun code alloué deux fois');
+  assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
+    'le registre et l’ordre de déclaration disent la même chose');
+  for (const code of ORDRE_CANONIQUE) {
+    assert.match(code, RE_CODE, `code hors grammaire : ${code}`);
+    assert.ok(code.length >= 2 && code.length <= 4, `${code} : ${code.length} signes, hors de [2,4]`);
+  }
+  // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
+  // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
+  const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
+  assert.equal(new Set(replies).size, 100, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
-  const op = PAR_CODE.get('p9');
+  const op = PAR_CODE.get('pr9');
   assert.equal(op.id, 'p.retournement');
   assert.equal(appliquer(op, U(9)).valeur, 6);
   assert.equal(appliquer(op, U(6)), null, 'on ne retourne pas le 6');
 });
 
 /**
- * ★ `mz` — « trois 6 d'affilée » est une TROUVAILLE, pas un tri.
+ * ★ `m36` — « trois 6 d'affilée » est une TROUVAILLE, pas un tri.
  *
  * Toute la valeur de cet opérateur tient dans ce qu'il REFUSE. S'il acceptait
  * des 6 non contigus, il cesserait d'être « le 666 était déjà écrit » pour
@@ -257,7 +287,7 @@ test('le code p9 est réservé au retournement du 9', () => {
  * refus sont donc le cœur du contrat, pas des cas limites.
  */
 test('★ le code mz ne trouve que trois 6 CONTIGUS, et refuse tout le reste', () => {
-  const op = PAR_CODE.get('mz');
+  const op = PAR_CODE.get('m36');
   assert.equal(op.id, 'm.troisSixDAffilee');
   assert.equal(op.from, 'NUMS');
   assert.equal(op.to, 'NUMS');
@@ -293,7 +323,7 @@ test('★ le code mz ne trouve que trois 6 CONTIGUS, et refuse tout le reste', (
 /**
  * ★ LES QUATRE TRANSFORMATIONS DU 27 AOÛT — et ce que chacune REFUSE.
  *
- * Comme pour `mz`, la valeur de ces opérateurs tient d'abord dans leurs refus :
+ * Comme pour `m36`, la valeur de ces opérateurs tient d'abord dans leurs refus :
  * un mappeur qui rend son entrée, ou qui s'applique sans rien acheter, fabrique
  * une étape que `scenario.js` saute EN SILENCE — et l'URL porte alors un code
  * que la démonstration ne montre nulle part. Chaque refus ci-dessous ferme une
@@ -307,66 +337,66 @@ test('★ les quatre transformations du 27 août — ce qu’elles font, et ce q
 
   // ── m13, « Tri croissant » ────────────────────────────────────────────────
   // L'exemple de l'auteur, mot pour mot : trois 6 dispersés deviennent contigus.
-  assert.deepEqual(sortie('m13', [9, 5, 9, 5, 6, 6, 3, 6, 4, 9, 4]),
+  assert.deepEqual(sortie('mtri', [9, 5, 9, 5, 6, 6, 3, 6, 4, 9, 4]),
     [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9], 'l’exemple de l’auteur');
   // Un vecteur déjà rangé n'a rien à montrer.
-  assert.equal(sortie('m13', [1, 2, 3]), null, 'déjà croissant : rien à déplacer');
+  assert.equal(sortie('mtri', [1, 2, 3]), null, 'déjà croissant : rien à déplacer');
   // ★ Et surtout : le tri doit RASSEMBLER. Il ne se joue pas pour promener des
   //   valeurs qui ne se rejoignent pas — c'est ce que l'auteur lui demande,
   //   « faire apparaître 666 contigu », et rien d'autre.
-  assert.equal(sortie('m13', [3, 1, 2]), null,
+  assert.equal(sortie('mtri', [3, 1, 2]), null,
     'trois valeurs distinctes : ranger ne réunit personne');
-  assert.equal(sortie('m13', [6, 6, 6, 4, 1]), null,
+  assert.equal(sortie('mtri', [6, 6, 6, 4, 1]), null,
     'la plage de trois existe DÉJÀ : c’est le travail de mz, pas celui du tri');
-  assert.deepEqual(sortie('m13', [6, 4, 6, 1, 6]), [1, 4, 6, 6, 6],
+  assert.deepEqual(sortie('mtri', [6, 4, 6, 1, 6]), [1, 4, 6, 6, 6],
     'trois 6 dispersés, réunis — et le départage à valeur égale suit l’ordre de lecture');
 
   // ── m14, « On retourne les 666 qui se cachent » ───────────────────────────
-  // Par TRIO contigu, jamais un par un : c'est ce qui le sépare de `my`.
-  assert.deepEqual(sortie('m14', [9, 9, 9, 9, 3, 9]), [6, 6, 6, 9, 3, 9],
+  // Par TRIO contigu, jamais un par un : c'est ce qui le sépare de `mr9`.
+  assert.deepEqual(sortie('mr39', [9, 9, 9, 9, 3, 9]), [6, 6, 6, 9, 3, 9],
     'trois d’un bloc ; le quatrième et l’esseulé ne bougent pas');
-  assert.deepEqual(sortie('m14', [9, 9, 9, 9, 9, 9]), [6, 6, 6, 6, 6, 6],
+  assert.deepEqual(sortie('mr39', [9, 9, 9, 9, 9, 9]), [6, 6, 6, 6, 6, 6],
     'six 9 d’affilée font deux trios');
-  assert.equal(sortie('m14', [9, 3, 9, 3, 9]), null,
-    'trois 9 dispersés ne sont pas un 999 : c’est `my` qui les prendrait, pas celui-ci');
-  assert.equal(sortie('m14', [9, 9]), null, 'deux 9 ne font pas un trio');
+  assert.equal(sortie('mr39', [9, 3, 9, 3, 9]), null,
+    'trois 9 dispersés ne sont pas un 999 : c’est `mr9` qui les prendrait, pas celui-ci');
+  assert.equal(sortie('mr39', [9, 9]), null, 'deux 9 ne font pas un trio');
   // ★ Aucune corne n'est émise ici : c'est `couronnerLesTriptyques`
   //   (`src/recherche/scenario.js`) qui couronne, parce que lui seul sait si le
   //   trio arrivera au verdict — et si la cible est bien 666.
-  const stepsTrio = etapes(PAR_CODE.get('m14'), N([9, 9, 9]), N([6, 6, 6]),
+  const stepsTrio = etapes(PAR_CODE.get('mr39'), N([9, 9, 9]), N([6, 6, 6]),
     { ids: ['a', 'b', 'c'], cle: 'e1', langue: 'fr' });
   assert.ok(!stepsTrio.flatMap((s) => s.ops).some((o) => o.op === 'horns'),
     'un opérateur ne couronne pas à l’aveugle : il ne sait pas ce que la suite fera de ses 6');
 
   // ── m15, « On compte les chiffres » ───────────────────────────────────────
   // L'exemple de l'auteur : un 3, deux 4, deux 5, trois 6, trois 9.
-  assert.deepEqual(sortie('m15', [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]),
+  assert.deepEqual(sortie('mcc', [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]),
     [1, 3, 2, 4, 2, 5, 3, 6, 3, 9], 'l’exemple de l’auteur');
   // ★ Des PLAGES CONTIGUËS, pas un relevé par valeur : `6 4 6` fait trois
   //   plages, pas deux valeurs. Ici, le décompte n'y gagne rien — il est refusé.
-  assert.equal(sortie('m15', [6, 4, 6]), null,
+  assert.equal(sortie('mcc', [6, 4, 6]), null,
     'trois plages d’un signe : compter écrirait six signes pour trois, ce n’est pas compter');
-  assert.deepEqual(sortie('m15', [6, 6, 6, 6]), [4, 6], 'une plage de quatre se dit « 4 6 »');
-  assert.equal(sortie('m15', [1, 2, 3]), null, 'rien à condenser');
+  assert.deepEqual(sortie('mcc', [6, 6, 6, 6]), [4, 6], 'une plage de quatre se dit « 4 6 »');
+  assert.equal(sortie('mcc', [1, 2, 3]), null, 'rien à condenser');
 
   // ── m16, « Le redécoupage tricheur » ──────────────────────────────────────
   // Un DERNIER RECOURS : il refuse tant que la ligne n'est pas devenue longue.
-  assert.equal(sortie('m16', [1, 2, 3, 6, 4, 2]), null,
+  assert.equal(sortie('mrd', [1, 2, 3, 6, 4, 2]), null,
     'six chiffres : la ligne se lit encore, il n’y a rien à redécouper');
   const longue = [4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
     1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8];
-  const paquets = sortie('m16', longue);
+  const paquets = sortie('mrd', longue);
   assert.deepEqual(paquets, [6, 3, 6, 6, 6, 6, 6, 6, 3, 6, 9], 'les 32 chiffres de l’auteur');
   // ★ Il ACHÈTE des 6, sinon il ne se joue pas : huit contre trois au départ.
   assert.equal(longue.filter((v) => v === 6).length, 3);
   assert.equal(paquets.filter((v) => v === 6).length, 8);
   // ★ Et les 6 déjà écrits ne sont jamais absorbés : ils restent seuls dans leur
   //   paquet, exactement comme dans le calcul à la main de l’auteur.
-  const tailles = PAR_CODE.get('m16').additions(longue);
+  const tailles = PAR_CODE.get('mrd').additions(longue);
   assert.ok(tailles.length > 0 && tailles.every((t) => t >= 2),
     'les additions déclarées portent toutes au moins deux termes');
   // Rien à acheter : une ligne longue mais qui ne gagne aucun 6 est refusée.
-  assert.equal(sortie('m16', new Array(30).fill(6)), null,
+  assert.equal(sortie('mrd', new Array(30).fill(6)), null,
     'trente 6 : chacun reste seul, rien n’est gagné, la triche ne se joue pas');
 });
 
@@ -433,15 +463,15 @@ test('aucune exception, jamais : « null » est le seul signal d’échec', () =
 
 test('bornes : un NUM hors de [-10⁶, 10⁶] fait retourner null', () => {
   const grand = nums([999999, 999999], [[[0, 1]], [[1, 2]]]);
-  assert.equal(appliquer(PAR_CODE.get('c1'), grand), null, 'somme hors bornes');
-  assert.equal(appliquer(PAR_CODE.get('c3'), grand), null, 'produit hors bornes');
+  assert.equal(appliquer(PAR_CODE.get('cs'), grand), null, 'somme hors bornes');
+  assert.equal(appliquer(PAR_CODE.get('cp'), grand), null, 'produit hors bornes');
   assert.equal(num(1e6 + 1), null);
   assert.equal(num(-1e6 - 1), null);
   assert.equal(num(1e6).valeur, 1e6);
 });
 
 test('les traces remontent jusqu’à la saisie d’origine', () => {
-  const r = derouler(['f3', 'fd', 't1', 'm1', 'c1', 'p1'], S('hope-hope-hope.fr'));
+  const r = derouler(['ftld', 'fmr', 'tca', 'ma1', 'cs', 'prn'], S('hope-hope-hope.fr'));
   assert.ok(r);
   assert.equal(r.etat.valeur, 8);
   assert.deepEqual(r.etat.traces, [[0, 4]], 'le 8 vient des quatre premiers caractères');
@@ -453,26 +483,26 @@ test('les traces remontent jusqu’à la saisie d’origine', () => {
 });
 
 test('les couvertures désignent bien ce qui est consommé', () => {
-  assert.deepEqual(PAR_CODE.get('f1').couverture('https://hope.fr'), [[0, 8]]);
-  assert.deepEqual(PAR_CODE.get('f2').couverture('www.hope.fr'), [[0, 4]]);
-  assert.deepEqual(PAR_CODE.get('f3').couverture('hope.fr'), [[4, 7]]);
-  assert.deepEqual(PAR_CODE.get('fd').couverture('hope-hope-hope'), [[0, 4], [5, 9], [10, 14]]);
+  assert.deepEqual(PAR_CODE.get('fp').couverture('https://hope.fr'), [[0, 8]]);
+  assert.deepEqual(PAR_CODE.get('fw').couverture('www.hope.fr'), [[0, 4]]);
+  assert.deepEqual(PAR_CODE.get('ftld').couverture('hope.fr'), [[4, 7]]);
+  assert.deepEqual(PAR_CODE.get('fmr').couverture('hope-hope-hope'), [[0, 4], [5, 9], [10, 14]]);
 });
 
 /**
- * ★ LES TROIS FICELLES SE MONTRENT — `m10`, `m11`, `m12`.
+ * ★ LES TROIS FICELLES SE MONTRENT — `mpf`, `m1s2`, `mad`.
  *
  * Ce sont des astuces assumées, et l'auteur a dit exactement comment elles
  * doivent paraître. Une régression silencieuse vers le rendu générique
  * (`scenario.js` retombe dessus sans rien casser) leur ferait AFFIRMER ce
  * qu'elles doivent MONTRER — c'est la doctrine §0.3, et c'est ici qu'on la gèle.
  *
- *  · `m10` — « indique sous l'accolade : "chiffre majoritaire : 6" et fais
+ *  · `mpf` — « indique sous l'accolade : "chiffre majoritaire : 6" et fais
  *    disparaître les autres » ; l'accolade embrasse la ligne ENTIÈRE, puisque
  *    c'est sur elle entière qu'on a compté ;
- *  · `m11` — « l'astuce est de nommer "position paire" ou "position impaire"
+ *  · `m1s2` — « l'astuce est de nommer "position paire" ou "position impaire"
  *    pour justifier de supprimer l'autre » : le nom est écrit, la parité aussi ;
- *  · `m12` — « ne pas la différencier des additions qui la précèdent ou la
+ *  · `mad` — « ne pas la différencier des additions qui la précèdent ou la
  *    succèdent » : des `+` ordinaires, entre les seuls termes retenus, et un
  *    `sum` qui recoupe la somme. Les 6 déjà là ne sont jamais des opérandes.
  */
@@ -487,7 +517,7 @@ test('★ les trois ficelles se MONTRENT — accolade nommée, additions ordinai
 
   // ── m10 : l'accolade dit le verdict, puis les minoritaires tombent
   {
-    const { entree, ctx, steps } = geste('m10', N([6, 4, 6, 6, 6]));
+    const { entree, ctx, steps } = geste('mpf', N([6, 4, 6, 6, 6]));
     const ops = steps.flatMap((s) => s.ops);
     const acc = ops.find((o) => o.op === 'group');
     assert.ok(acc, 'm10 : pas d’accolade — le verdict serait affirmé sans être posé');
@@ -503,14 +533,14 @@ test('★ les trois ficelles se MONTRENT — accolade nommée, additions ordinai
     //   même relevé qu'`apply()`. Et quand le plus fréquent n'est pas un 6,
     //   l'opérateur ne le remplace pas par un 6 — il REFUSE de s'appliquer
     //   (`elegance.test.js`, « à égalité, la règle refuse au lieu de choisir »).
-    assert.equal(appliquer(PAR_CODE.get('m10'), N([4, 6, 4, 4, 4])), null,
+    assert.equal(appliquer(PAR_CODE.get('mpf'), N([4, 6, 4, 4, 4])), null,
       'm10 : une majorité de 4 n’écrit pas 666 — on renonce, on ne truque pas');
     assert.equal(entree.valeur.length, 5);
   }
 
   // ── m11 : la parité est NOMMÉE, franchement
   {
-    const { ctx, steps } = geste('m11', N([4, 6, 4, 6, 4, 6, 4]));
+    const { ctx, steps } = geste('m1s2', N([4, 6, 4, 6, 4, 6, 4]));
     const ops = steps.flatMap((s) => s.ops);
     const acc = ops.find((o) => o.op === 'group');
     assert.equal(acc.label, 'on ne garde que les positions paires',
@@ -525,7 +555,7 @@ test('★ les trois ficelles se MONTRENT — accolade nommée, additions ordinai
 
   // ── m12 : des additions ordinaires, sur les seuls termes retenus
   {
-    const { steps } = geste('m12', N([6, 5, 16, 8]));
+    const { steps } = geste('mad', N([6, 5, 16, 8]));
     const ops = steps.flatMap((s) => s.ops);
     // 1. `16` s'écrit chiffre à chiffre, sinon « 5+1 » n'a pas de « 1 »
     const eclat = ops.find((o) => o.op === 'substitute');
@@ -598,7 +628,7 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
         `${code} (${op.id}) : la primitive « ${attendue} » n'est pas émise — `
         + 'le comptage ne serait plus montré, seulement affirmé (CONTRACTS §0.3)');
       for (const o of emises) {
-        if (code === 'mz') {
+        if (code === 'm36') {
           // ★ L'EFFACEMENT NE TRAVAILLE PAS JETON PAR JETON, et son contrôle
           // croisé n'est ni `count` ni `to.text` : c'est le MOTIF. « Si elle
           // n'a pas de motif, c'est probablement la pire des triches »

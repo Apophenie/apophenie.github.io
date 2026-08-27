@@ -34,46 +34,46 @@ function valeur(codes, saisie = SAISIE) {
 
 test('Méthode 1 — le détour linguistique : hope → espoir → 6 lettres', () => {
   // .fr ignoré, motif répété isolé, traduction, comptage
-  assert.equal(valeur(['f3', 'fd', 'fe', 'n1']), 6);
+  assert.equal(valeur(['ftld', 'fmr', 'ffr', 'nl']), 6);
   // les trois occurrences sont bien vues comme le même mot
-  assert.deepEqual(PAR_CODE.get('fd').couverture('hope-hope-hope'), [[0, 4], [5, 9], [10, 14]]);
+  assert.deepEqual(PAR_CODE.get('fmr').couverture('hope-hope-hope'), [[0, 4], [5, 9], [10, 14]]);
 });
 
 test('Méthode 2 — 4 lettres + 2 voyelles = 6', () => {
-  assert.equal(valeur(['f3', 'fd', 'n7']), 6);
-  assert.equal(valeur(['n1'], 'hope'), 4);
-  assert.equal(valeur(['n2'], 'hope'), 2);
+  assert.equal(valeur(['ftld', 'fmr', 'nlv']), 6);
+  assert.equal(valeur(['nl'], 'hope'), 4);
+  assert.equal(valeur(['nv'], 'hope'), 2);
 });
 
 test('Méthode 3 — 4 lettres + 2 consonnes = 6', () => {
-  assert.equal(valeur(['f3', 'fd', 'n8']), 6);
-  assert.equal(valeur(['n3'], 'hope'), 2);
+  assert.equal(valeur(['ftld', 'fmr', 'nlc']), 6);
+  assert.equal(valeur(['nc'], 'hope'), 2);
 });
 
 test('Méthodes 2 et 3 sont corrélées, pas indépendantes (research §5)', () => {
   // Elles tombent juste ensemble dès que voyelles et consonnes s'équilibrent.
   for (const mot of ['hope', 'nova', 'lego']) {
-    assert.equal(valeur(['n7'], mot), valeur(['n8'], mot), mot);
+    assert.equal(valeur(['nlv'], mot), valeur(['nlc'], mot), mot);
   }
-  assert.notEqual(valeur(['n7'], 'strong'), valeur(['n8'], 'strong'));
-  assert.match(PAR_CODE.get('n8').note.fr, /Cousine/);
-  assert.match(PAR_CODE.get('n8').note.en, /cousin/);
+  assert.notEqual(valeur(['nlv'], 'strong'), valeur(['nlc'], 'strong'));
+  assert.match(PAR_CODE.get('nlc').note.fr, /Cousine/);
+  assert.match(PAR_CODE.get('nlc').note.en, /cousin/);
 });
 
 test('Méthode 4 — A1Z26 : 8+15+16+5 = 44 → 8, puis 8+8+8 = 24 → 6', () => {
-  assert.deepEqual(valeur(['f3', 'fd', 't1', 'm1']), [8, 15, 16, 5]);
-  assert.equal(valeur(['f3', 'fd', 't1', 'm1', 'c1']), 44);
-  const parMot = valeur(['f3', 'fd', 't1', 'm1', 'c1', 'p1']);
+  assert.deepEqual(valeur(['ftld', 'fmr', 'tca', 'ma1']), [8, 15, 16, 5]);
+  assert.equal(valeur(['ftld', 'fmr', 'tca', 'ma1', 'cs']), 44);
+  const parMot = valeur(['ftld', 'fmr', 'tca', 'ma1', 'cs', 'prn']);
   assert.equal(parMot, 8);
   // les trois « hope » assemblés
-  const triplet = appliquerProgramme(['c1', 'p1'], N([parMot, parMot, parMot]));
+  const triplet = appliquerProgramme(['cs', 'prn'], N([parMot, parMot, parMot]));
   assert.equal(triplet.valeur, 6);
 });
 
 test('Méthode 5 — traits continus fusionnés : 3+4+4+4 = 15 → 6', () => {
-  assert.deepEqual(valeur(['f3', 'fd', 'fg', 't1', 'me']), [3, 4, 4, 4]);
-  assert.equal(valeur(['f3', 'fd', 'fg', 't1', 'me', 'c1']), 15);
-  assert.equal(valeur(['f3', 'fd', 'fg', 't1', 'me', 'c1', 'p1']), 6);
+  assert.deepEqual(valeur(['ftld', 'fmr', 'fmaj', 'tca', 'm7F']), [3, 4, 4, 4]);
+  assert.equal(valeur(['ftld', 'fmr', 'fmaj', 'tca', 'm7F', 'cs']), 15);
+  assert.equal(valeur(['ftld', 'fmr', 'fmaj', 'tca', 'm7F', 'cs', 'prn']), 6);
 });
 
 test('Méthode 6 — le tiret du 6, puis 36 → 9 retourné en 6', () => {
@@ -84,34 +84,34 @@ test('Méthode 6 — le tiret du 6, puis 36 → 9 retourné en 6', () => {
   // (a bis) ★ et un OPÉRATEUR l'exploite : la table ne suffisait pas. Le trou
   // du catalogue était exactement là — aucun des 88 opérateurs ne rendait 6 sur
   // des TOKENS ['-','-'], et le test ne vérifiait que la table.
-  assert.deepEqual(valeur(['f3', 't3', 'mv']), [6, 6]);
-  assert.equal(PAR_CODE.get('mv').id, 'm.toucheChiffre');
+  assert.deepEqual(valeur(['ftld', 'tsp', 'mtc']), [6, 6]);
+  assert.equal(PAR_CODE.get('mtc').id, 'm.toucheChiffre');
   // les dix touches de la rangée du haut, pas seulement le tiret
   assert.deepEqual(
-    appliquer(PAR_CODE.get('mv'), T(['&', 'é', '"', "'", '(', '-', 'è', '_', 'ç', 'à'])).valeur,
+    appliquer(PAR_CODE.get('mtc'), T(['&', 'é', '"', "'", '(', '-', 'è', '_', 'ç', 'à'])).valeur,
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 0],
   );
   assert.equal(Object.keys(CHIFFRE_DE_TOUCHE).length, 10);
   // (b) 8 + 6 + 8 + 6 + 8 = 36 → 9 → retourné → 6
-  const somme = appliquer(PAR_CODE.get('c1'), N([8, 6, 8, 6, 8]));
+  const somme = appliquer(PAR_CODE.get('cs'), N([8, 6, 8, 6, 8]));
   assert.equal(somme.valeur, 36);
-  const neuf = appliquer(PAR_CODE.get('p1'), somme);
+  const neuf = appliquer(PAR_CODE.get('prn'), somme);
   assert.equal(neuf.valeur, 9);
-  assert.equal(appliquer(PAR_CODE.get('p9'), neuf).valeur, 6);
+  assert.equal(appliquer(PAR_CODE.get('pr9'), neuf).valeur, 6);
   // la nuance AFNOR est portée en note de bas de page des opérateurs clavier
-  assert.equal(PAR_CODE.get('ml').note, NOTE_AFNOR);
-  assert.equal(PAR_CODE.get('mv').note, NOTE_AFNOR);
+  assert.equal(PAR_CODE.get('mazc').note, NOTE_AFNOR);
+  assert.equal(PAR_CODE.get('mtc').note, NOTE_AFNOR);
 });
 
 test('Méthode 7 — la soustraction : 8−15−16−5 = −28 → 6', () => {
-  assert.equal(valeur(['f3', 'fd', 't1', 'm1', 'c2']), -28);
+  assert.equal(valeur(['ftld', 'fmr', 'tca', 'ma1', 'cst']), -28);
   // formulation rigoureuse retenue : le signe porte sur le premier chiffre
-  assert.equal(valeur(['f3', 'fd', 't1', 'm1', 'c2', 'p4']), 6);
+  assert.equal(valeur(['ftld', 'fmr', 'tca', 'ma1', 'cst', 'prs']), 6);
   // variante « écart des chiffres », qui ne vaut que pour deux chiffres
-  assert.equal(valeur(['f3', 'fd', 't1', 'm1', 'c2', 'p3', 'p5']), 6);
+  assert.equal(valeur(['ftld', 'fmr', 'tca', 'ma1', 'cst', 'pabs', 'pec']), 6);
   // et la réduction standard, elle, ne donne PAS 6 — la formulation du README
   // était bien ambiguë (research §5)
-  assert.equal(valeur(['f3', 'fd', 't1', 'm1', 'c2', 'p3', 'p1']), 1);
+  assert.equal(valeur(['ftld', 'fmr', 'tca', 'ma1', 'cst', 'pabs', 'prn']), 1);
 });
 
 /**
@@ -174,35 +174,35 @@ const METHODES = [
   {
     n: 1,
     titre: 'Le détour linguistique — hope → espoir → 6 lettres',
-    fragments: [{ codes: ['f3', 'fd', 'fe', 'n1'], attendu: 6, resonance: 3 }],
+    fragments: [{ codes: ['ftld', 'fmr', 'ffr', 'nl'], attendu: 6, resonance: 3 }],
     six: [6, 6, 6],
   },
   {
     n: 2,
     titre: 'Les lettres + les voyelles — 4 + 2 = 6',
-    fragments: [{ codes: ['f3', 'fd', 'n7'], attendu: 6, resonance: 3 }],
+    fragments: [{ codes: ['ftld', 'fmr', 'nlv'], attendu: 6, resonance: 3 }],
     six: [6, 6, 6],
   },
   {
     n: 3,
     titre: 'Les lettres + les consonnes — 4 + 2 = 6',
-    fragments: [{ codes: ['f3', 'fd', 'n8'], attendu: 6, resonance: 3 }],
+    fragments: [{ codes: ['ftld', 'fmr', 'nlc'], attendu: 6, resonance: 3 }],
     six: [6, 6, 6],
   },
   {
     n: 4,
     titre: 'A1Z26 — 44 → 8, puis 8+8+8 = 24 → 6, et deux tirets du 6',
     fragments: [
-      { codes: ['f3', 'fd', 't1', 'm1', 'c1', 'p1'], attendu: 8 },
-      { codes: ['c1', 'p1'], depuis: () => N([8, 8, 8]), attendu: 6 },
-      { codes: ['f3', 't3', 'mv'], attendu: [6, 6] },
+      { codes: ['ftld', 'fmr', 'tca', 'ma1', 'cs', 'prn'], attendu: 8 },
+      { codes: ['cs', 'prn'], depuis: () => N([8, 8, 8]), attendu: 6 },
+      { codes: ['ftld', 'tsp', 'mtc'], attendu: [6, 6] },
     ],
     six: [6, 6, 6],
   },
   {
     n: 5,
     titre: 'Sept segments fusionnés — 3+4+4+4 = 15 → 6',
-    fragments: [{ codes: ['f3', 'fd', 'fg', 't1', 'me', 'c1', 'p1'], attendu: 6, resonance: 3 }],
+    fragments: [{ codes: ['ftld', 'fmr', 'fmaj', 'tca', 'm7F', 'cs', 'prn'], attendu: 6, resonance: 3 }],
     six: [6, 6, 6],
   },
   {
@@ -210,18 +210,18 @@ const METHODES = [
     titre: 'Le tiret du 6, et 8+6+8+6+8 = 36 → 9 retourné en 6',
     fragments: [
       // ★ les deux 6 des séparateurs — c'est CE fragment qui n'existait pas
-      { codes: ['f3', 't3', 'mv'], attendu: [6, 6] },
+      { codes: ['ftld', 'tsp', 'mtc'], attendu: [6, 6] },
       // le 8 de chaque « hope »
-      { codes: ['f3', 'fd', 't1', 'm1', 'c1', 'p1'], attendu: 8 },
+      { codes: ['ftld', 'fmr', 'tca', 'ma1', 'cs', 'prn'], attendu: 8 },
       // et le troisième 6, en incluant les deux tirets dans la somme
-      { codes: ['c1', 'p1', 'p9'], depuis: () => N([8, 6, 8, 6, 8]), attendu: 6 },
+      { codes: ['cs', 'prn', 'pr9'], depuis: () => N([8, 6, 8, 6, 8]), attendu: 6 },
     ],
     six: [6, 6, 6],
   },
   {
     n: 7,
     titre: 'La soustraction — 8−15−16−5 = −28 → 6',
-    fragments: [{ codes: ['f3', 'fd', 't1', 'm1', 'c2', 'p4'], attendu: 6, resonance: 3 }],
+    fragments: [{ codes: ['ftld', 'fmr', 'tca', 'ma1', 'cst', 'prs'], attendu: 6, resonance: 3 }],
     six: [6, 6, 6],
   },
 ];
@@ -256,9 +256,9 @@ test('★ le clavier montre bien ce que l’arithmétique annonce (contrôle cro
   // scénario : c'est ce qui empêche `tables/claviers.js` et la géométrie de
   // `src/visuel/assets.js` de diverger en silence. On le vérifie sur les quatre
   // mappeurs clavier ET sur le tiret du 6.
-  for (const code of ['ml', 'mm', 'mn', 'mo', 'mv']) {
+  for (const code of ['mazc', 'mazr', 'mqwc', 'mqwr', 'mtc']) {
     const op = PAR_CODE.get(code);
-    const entree = code === 'mv' ? T(['-', '_', 'ç']) : T(['h', 'o', 'p', 'e']);
+    const entree = code === 'mtc' ? T(['-', '_', 'ç']) : T(['h', 'o', 'p', 'e']);
     const apres = appliquer(op, entree);
     assert.ok(apres, `${code} : inapplicable`);
     const ctx = { ids: entree.valeur.map((_, i) => `t${i}`), cle: 'e0' };
@@ -275,7 +275,7 @@ test('★ le clavier montre bien ce que l’arithmétique annonce (contrôle cro
   }
   // ★ le piège de la colonne : « p » est en colonne 10, la touche du dessus
   // porte « 0 ». C'est 10 qui doit descendre.
-  const ml = PAR_CODE.get('ml');
+  const ml = PAR_CODE.get('mazc');
   const p = T(['p']);
   const stepsP = ml.steps(p, appliquer(ml, p), { ids: ['t0'], cle: 'e0' });
   assert.equal(stepsP[0].ops[0].to.text, '10');
@@ -320,12 +320,12 @@ test('la garantie « jamais bredouille » tient sur les entrées dégénérées'
   for (const saisie of ['a', '42', '666', '2026', '!!!', '01/01/2000', 'ok']) {
     // « toute saisie non vide possède au moins une longueur » : le comptage de
     // lettres quand il y en a, la longueur brute sinon.
-    let etat = appliquerProgramme(['n1'], depuisSaisie(saisie))
+    let etat = appliquerProgramme(['nl'], depuisSaisie(saisie))
       || num([...saisie].length, [[0, [...saisie].length]]);
-    if (etat.valeur > 9) etat = appliquer(PAR_CODE.get('p1'), etat);
+    if (etat.valeur > 9) etat = appliquer(PAR_CODE.get('prn'), etat);
     let pas = 0;
     while (etat.valeur !== 6 && pas < 5) {
-      etat = appliquer(PAR_CODE.get('j1'), etat);
+      etat = appliquer(PAR_CODE.get('jnf'), etat);
       assert.ok(etat, `${saisie} : le joker a rendu null`);
       pas++;
     }
@@ -335,8 +335,8 @@ test('la garantie « jamais bredouille » tient sur les entrées dégénérées'
 });
 
 test('le 666 lui-même échoue à se démontrer — le cadeau comique est intact', () => {
-  const direct = appliquerProgramme(['t1', 'm1', 'c1', 'p1'], depuisSaisie('666'));
+  const direct = appliquerProgramme(['tca', 'ma1', 'cs', 'prn'], depuisSaisie('666'));
   assert.equal(direct, null, 'les chiffres ne sont pas des lettres');
   // seul le joker s'en sort : 3 lettres → 5 → 4 → 6
-  assert.equal(valeur(['n5'], '666'), null);
+  assert.equal(valeur(['nsp'], '666'), null);
 });

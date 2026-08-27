@@ -88,13 +88,13 @@ export const en = {
     exemples: [
       {
         texte: 'hope-hope-hope.fr',
-        hash: '#0.1:t1+mw,1.1:t1+mv+c1,2.1:t1+mw,3.1:t1+mv+c1,4.1:t1+mw,6.1:t1+md+c1#yvQYkzhNVYJT8wM8jhvJxSM',
+        hash: '#0.1:tca+m14,1.1:tca+mtc+cs,2.1:tca+m14,3.1:tca+mtc+cs,4.1:tca+m14,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
         aide: 'See the demonstration for “hope-hope-hope.fr”',
       },
       'Donald Trump',
       {
         texte: 'https://reinfocovid.fr/',
-        hash: '#0.1:t1+m4+c1+p1,3.1:f9+n1,5.1:t1+md+c1#3A8evQZovd7BUyRUF65ToBwrHvW25EUn',
+        hash: '#0.1:tca+mch+cs+prn,3.1:fc+nl,5.1:tca+m7+cs#3A8evQZovd7BUyRUF65ToBwrHvW25EUn',
         aide: 'See the demonstration for “https://reinfocovid.fr/”',
       },
       'Capitalism',
@@ -149,9 +149,9 @@ export const en = {
       titre: 'Assemble your own arcana',
       grammaire: '#{program}#{query in base58}',
       grammaireTexte: '"+" between operations, "," between fragments.',
-      resonance: '#×3:m1+c1+p1#…',
+      resonance: '#×3:ma1+cs+prn#…',
       resonanceTexte: 'resonance: the same program on all three occurrences of a repeated pattern.',
-      portee: '#0.1:m1+c1,1.1:n2#…',
+      portee: '#0.1:ma1+cs,1.1:nv#…',
       porteeTexte: 'scope: offset and length, counted in tokens of the query.',
       registre: '#so!…#…  ·  #sce!…#…',
       registreTexte: 'staging register, at the head of the approach. When absent it means “plain”: the show has to be asked for.',

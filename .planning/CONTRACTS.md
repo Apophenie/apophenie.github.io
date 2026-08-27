@@ -75,7 +75,7 @@ Trois usages, trois traitements, qui ne se marchent jamais dessus :
    > pas à un arbitrage esthétique.
    >
    > **Où elle sert, et pourquoi là.** Uniquement dans **Le Registre**, sur les
-   > méthodes `md` et `me`. Le Registre est l'équivalent accessible obligatoire de la
+   > méthodes `m7` et `m7F`. Le Registre est l'équivalent accessible obligatoire de la
    > scène (§6) ; la question posée par ces méthodes — « combien faut-il de lignes
    > droites pour former cette lettre ? » — n'a aucun sens devant un `H` de Jost\*.
    >
@@ -91,9 +91,9 @@ Trois usages, trois traitements, qui ne se marchent jamais dessus :
    > **Réserve, mesurée et assumée.** La police dessine **sa** version des lettres, qui
    > diffère de `tables/seg7.js` sur **12 des 36 signes** (table complète et
    > conséquences : `src/moteur/tables/seg7.js`, `ECARTS_POLICE_SEG7`, gelée par un
-   > test). Sur `me` — traits fusionnés, la méthode de référence — le **compte** tient
+   > test). Sur `m7F` — traits fusionnés, la méthode de référence — le **compte** tient
    > partout sauf sur 7, J, K, M, S, W et Z ; le **dessin**, lui, montre un `h` et un
-   > `o` de bas de casse là où la scène allume un `H` et un `O` de capitale. Sur `md`
+   > `o` de bas de casse là où la scène allume un `H` et un `O` de capitale. Sur `m7`
    > — segments allumés — les comptes eux-mêmes divergent (C, H, I, O, S, U…), si bien
    > que le Registre peut y montrer un glyphe dont on ne retrouve pas, en le comptant,
    > le nombre annoncé juste à côté. **Le contrôle croisé du présent § n'est pas
@@ -130,7 +130,7 @@ Trois usages, trois traitements, qui ne se marchent jamais dessus :
    > glyphe quatorze segments à côté d'un nombre obtenu en comptant des segments
    > *sept* romprait la règle d'or du présent §. Le quatorze segments est une
    > **méthode entière** — on compte ET on montre en quatorze —, avec ses
-   > propres codes (`mw`, `mx`) et sa propre primitive (`fourteenSeg`).
+   > propres codes (`m14`, `m14F`) et sa propre primitive (`fourteenSeg`).
 
 **Règle structurelle qui élimine le risque par construction :** les tables `traits`,
 `extremites` et `boucles` ne sont **pas saisies à la main**. Elles sont **calculées**
@@ -281,7 +281,7 @@ surlignage dans la scène. Non optionnel.
 ```js
 export const op = {
   id:         'a1z26',       // slug stable, unique, lisible
-  code:       'm1',          // ★ code d'URL, alloué à vie, jamais réutilisé (§4.1)
+  code:       'ma1',         // ★ code d'URL parlant, inscrit au registre (§4.1)
   deprecated: false,         // exclu des recherches, TOUJOURS exécutable
 
   from:       'TOKENS',      // typage — première coupe du moteur de recherche
@@ -304,7 +304,7 @@ export const op = {
   // ★ Émission de la démonstration — voir §3
   steps(avant, apres, ctx) { return [ /* Step[] */ ] },
 
-  // ★ OPTIONNEL, et seulement pour les triches d'ADDITION (`m12`, `m16`) :
+  // ★ OPTIONNEL, et seulement pour les triches d'ADDITION (`mad`, `mrd`) :
   //   le nombre de TERMES de chaque addition que l'opérateur ferait sur ce
   //   vecteur, dans l'ordre de lecture. Pur et déterministe comme `apply`,
   //   dont il relit le plan. Le barème d'élégance en a besoin pour diluer la
@@ -469,12 +469,12 @@ ici**, puis l'émettre.
 > Les deux régimes ne montrent pas la même chose, et un seul dessin ne peut donc
 > pas servir aux deux :
 >
-> · **Fusion** (`me`, `mx`) — il FAUT que `b` et `c` se soudent : c'est là toute
+> · **Fusion** (`m7F`, `m14F`) — il FAUT que `b` et `c` se soudent : c'est là toute
 >   la démonstration. Les segments restent des **traits d'axe** colinéaires et
 >   jointifs (`SEGMENTS`, `SEGMENTS14`), inchangés, et c'est leur géométrie qui
 >   porte la règle de fusion (ci-dessus).
 >
-> · **Comptage individuel** (`md`, `mw`) — deux segments qui se recouvrent, ce
+> · **Comptage individuel** (`m7`, `m14`) — deux segments qui se recouvrent, ce
 >   sont deux choses comptées et une seule vue. Ils doivent être **disjoints**,
 >   et tant qu'à les montrer séparément, ce sont **ceux de la police** que Le
 >   Registre affiche à côté : un polygone plein par segment, dérivé de DSEG7 et
@@ -516,9 +516,9 @@ ici**, puis l'émettre.
 >
 > | `disposition` | une case porte | méthodes |
 > |---|---|---|
-> | `reglette` | **une lettre** et sa valeur, ordre alphabétique | toutes sauf `m8` ; `fj` |
-> | `glissiere` | **une lettre**, sur deux réglettes alignées | `fk`, `fl` |
-> | `pave` | **les lettres d'une touche**, à leur place sur le téléphone | `m8` |
+> | `reglette` | **une lettre** et sa valeur, ordre alphabétique | toutes sauf `mt9` ; `flt` |
+> | `glissiere` | **une lettre**, sur deux réglettes alignées | `fatb`, `fr13` |
+> | `pave` | **les lettres d'une touche**, à leur place sur le téléphone | `mt9` |
 >
 > ★ **Seul le clavier téléphonique a plusieurs lettres pour un chiffre.** La
 > mise en page « une colonne par valeur, les lettres dessous » a été retirée du
@@ -531,19 +531,19 @@ ici**, puis l'émettre.
 > **Deux options de réglette, qui DÉMONTRENT au lieu de décorer.**
 >
 > · `cycle` — retour à la ligne **là où la table recommence** (la valeur cesse
-> de croître). La pythagoricienne (`m3`) réduit le rang modulo 9 : en cassant
+> de croître). La pythagoricienne (`mpy`) réduit le rang modulo 9 : en cassant
 > la ligne à chaque retour au 1, les trois rangées s'alignent colonne par
 > colonne — `A J S` valent 1, `B K T` valent 2 — et la règle **se voit** au
 > lieu d'être affirmée. Le découpage est DÉRIVÉ des valeurs, jamais donné, et
 > la primitive **refuse** la mise en page si les colonnes ne se répondent pas :
 > une table non cyclique ne peut donc pas emprunter ce dessin pour se faire
-> passer pour régulière. C'est ce refus qui protège la chaldéenne (`m4`), dont
+> passer pour régulière. C'est ce refus qui protège la chaldéenne (`mch`), dont
 > les valeurs viennent d'une tradition sonore, n'emploient jamais le 9 et ne se
 > répètent pas — elle reste en réglette simple, deux rangées de treize, et
 > l'absence de 9 s'y constate case par case.
 >
 > · `teinte: 'valeur'` — fond de case d'autant plus contrasté que la valeur est
-> grande (`m6`, `m7` : le Scrabble). La direction est portée par les JETONS —
+> grande (`msfr`, `msen` : le Scrabble). La direction est portée par les JETONS —
 > `--raised` mêlé de `--line-ui` — donc plus foncée en thème clair et plus
 > claire en thème sombre, sans que le dessin ait à deviner le thème. Amplitude
 > plafonnée **par le contraste**, pas par le goût : au pire palier, 5,05:1 en
@@ -565,7 +565,7 @@ ici**, puis l'émettre.
 >
 > *Amendement — `glissiere`, et les chiffrements par substitution.*
 >
-> **Le constat, à nouveau.** L'Atbash (`fk`) et le chiffre de César (`fl`)
+> **Le constat, à nouveau.** L'Atbash (`fatb`) et le chiffre de César (`fr13`)
 > convertissent lettre par lettre, eux aussi — mais lettre → **lettre**. Ils
 > n'avaient aucune mise en scène : `h → s` sans qu'on voie jamais pourquoi. Or
 > l'Atbash décide désormais de la sixième série de 666 sur
@@ -597,7 +597,7 @@ ici**, puis l'émettre.
 > valeurs ne parcourent pas l'alphabet d'un pas constant de ±1, la réglette du
 > bas n'est PAS celle du haut déplacée, et deux alphabets alignés affirmeraient
 > une règle inexistante : la compilation échoue (`pasDeGlissiere`,
-> `visuel/assets.js`). C'est ce refus qui laisse le leet speak (`fj`) en
+> `visuel/assets.js`). C'est ce refus qui laisse le leet speak (`flt`) en
 > réglette ordinaire — six correspondances arbitraires, montrées mais non
 > démontrées.
 >
@@ -769,7 +769,7 @@ ici**, puis l'émettre.
 > efface les perdants **sur place**, `move` resserre. Le gagnant **ne bouge
 > pas, ne change pas, et garde son identité de jeton** — `op.sortie` rend son
 > id, pas celui d'un jeton neuf, parce que c'est le même nombre avant et après.
-> Vaut pour `c9` (max) et `ca` (min) ; tout combinateur qui SÉLECTIONNE au lieu
+> Vaut pour `cmx` (max) et `cmn` (min) ; tout combinateur qui SÉLECTIONNE au lieu
 > de calculer déclare `geste: 'selection'`.
 >
 > **2. Une moyenne se nivelle.** « La somme divisée par le nombre de valeurs »
@@ -796,9 +796,9 @@ ici**, puis l'émettre.
 > voyelles » cesse d'être une formule, les voyelles montent d'un cran sous le
 > mot « voyelle » et l'on voit chacune passer deux fois dans l'accolade.
 > Contrôle croisé : le nombre de jetons qui entrent réellement, doublons
-> compris, doit égaler `to.text`. Vaut pour les mesures `n1`…`n8`
-> (`mappeurs.js`, chacune déclarant `cibles` et, pour `n7`/`n8`, `doubles`) et
-> pour les dénombrements `c7`, `cb`, `cc`.
+> compris, doit égaler `to.text`. Vaut pour les mesures `nl`…`nlc`
+> (`mappeurs.js`, chacune déclarant `cibles` et, pour `nlv`/`nlc`, `doubles`) et
+> pour les dénombrements `cnv`, `cnj`, `cnjd`.
 >
 > **4. Les nombres ne sont pas des chiffres.** Le critère existait déjà pour les
 > **titres** (`natureOperandes`, `combinateurs.js`) ; il sert désormais aussi au
@@ -1094,7 +1094,7 @@ ici**, puis l'émettre.
 > calculé ici : ce module mesure et publie, il ne note pas.
 >
 > **Mesuré sur la voie de référence** (`Donald Trump`,
-> `0.1:t1+mw+mz,2.1:fl+t1+mw+mz`) : 22 étapes deviennent **23** — un
+> `0.1:tca+m14+m36,2.1:fr13+tca+m14+m36`) : 22 étapes deviennent **23** — un
 > couronnement à la 6ᵉ (au lieu de la 9ᵉ), un second à la 19ᵉ (au lieu de la
 > 21ᵉ), un effacement unique à la 22ᵉ, le verdict à la 23ᵉ.
 
@@ -1185,7 +1185,7 @@ ici**, puis l'émettre.
 > vérifie en outre que le tracé d'une corne est **identique** quel que soit
 > l'espacement des 6 : c'est la garantie qui rend le reste impossible à casser.
 
-> *Amendement — COURONNER SANS EFFACER, et les cornes cessent d'appartenir à `mz`.*
+> *Amendement — COURONNER SANS EFFACER, et les cornes cessent d'appartenir à `m36`.*
 >
 > **Le constat de l'auteur.** « Les 3 premiers 6 devraient pouvoir recevoir leur
 > corne entre l'étape 5 et 6, puis entre 13 et 14 pour les 666 de "ope" du 2nd
@@ -1195,13 +1195,13 @@ ici**, puis l'émettre.
 > (`src/i18n/fr.js`), sur laquelle **aucune corne ne poussait**.
 >
 > **Ce n'était pas une régression, c'était un trou.** L'unique émetteur de la
-> primitive `horns` était l'opérateur `mz` (`transformations/mappeurs.js`), et
-> `mz` fait DEUX choses : il couronne trois 6 contigus **et il tronque le
+> primitive `horns` était l'opérateur `m36` (`transformations/mappeurs.js`), et
+> `m36` fait DEUX choses : il couronne trois 6 contigus **et il tronque le
 > vecteur à ces trois-là**. C'est juste quand la portée ne rapporte qu'une
 > série — sur `Donald Trump`, il n'y a rien à garder après le 666 —, et c'est
-> ruineux dès qu'elle en rapporte plusieurs : sur `hope-hope-hope.fr`, `mz` ne
+> ruineux dès qu'elle en rapporte plusieurs : sur `hope-hope-hope.fr`, `m36` ne
 > garderait que 3 des 15 six, une série au lieu de cinq. Le classement le
-> rejette à juste titre, la voie de tête n'emploie donc pas `mz`, et rien
+> rejette à juste titre, la voie de tête n'emploie donc pas `m36`, et rien
 > n'émettait plus de cornes. Vérifié plutôt que supposé : la voie classée
 > première est exactement celle du lien figé dans `fr.js`.
 >
@@ -1209,7 +1209,7 @@ ici**, puis l'émettre.
 > L'assemblage (`recherche/scenario.js › couronnerLesTriptyques`) pose désormais
 > un `horns` **sans `efface`** partout où la ligne écrit trois 6 côte à côte.
 > Pourquoi là et pas dans le catalogue : un opérateur ne voit que sa propre
-> étape — `mw` appliqué au « h » du deuxième `hope` ne peut savoir ni que le
+> étape — `m14` appliqué au « h » du deuxième `hope` ne peut savoir ni que le
 > « e » du premier et le tiret qui suit portent déjà un 6, ni que les trois
 > formeront une série au verdict. L'assemblage voit les deux choses qu'il faut
 > voir ensemble : **la suite complète des étapes** et **les jetons que le verdict
@@ -1336,7 +1336,7 @@ ici**, puis l'émettre.
 > > en mode `sce!` — ça éviterait d'avoir des liens `sce!` sans cornes parce
 > > qu'ils ont été créés avant. » (l'auteur)
 >
-> `mz` (`m.troisSixDAffilee`) était le dernier émetteur de `horns` du catalogue,
+> `m36` (`m.troisSixDAffilee`) était le dernier émetteur de `horns` du catalogue,
 > et il faisait DEUX choses d'un seul geste : couronner et tronquer le vecteur.
 > Un couronnement qui dépend d'un code dépend de l'URL — deux liens
 > arithmétiquement identiques montraient l'un des cornes, l'autre pas. Or les
@@ -1344,7 +1344,7 @@ ici**, puis l'émettre.
 > à faire dans un programme.** La présence de cornes découle désormais de la
 > LIGNE et du REGISTRE, et de rien d'autre.
 >
-> **Et l'effacement, lui, reste chez `mz`** — c'est la seule moitié qui soit de
+> **Et l'effacement, lui, reste chez `m36`** — c'est la seule moitié qui soit de
 > l'arithmétique (le vecteur passe de six valeurs à trois), l'URL la nomme, elle
 > doit donc se jouer là où le code la nomme. Elle devient une **étape à part
 > entière**, avec son propre titre, et son motif est MONTRÉ avant d'être exercé :
@@ -1367,7 +1367,7 @@ ici**, puis l'émettre.
 > (`visuel/primitives/horns.js`) redoutait qu'un `drop` efface AVANT lui, le
 > laissant couronner trois 6 seuls donc trivialement voisins. C'est désormais
 > structurellement impossible : l'assemblage ne couronne qu'à l'instant où le
-> troisième 6 PARAÎT — nécessairement avant l'étape de `mz` —, et il exige de
+> troisième 6 PARAÎT — nécessairement avant l'étape de `m36` —, et il exige de
 > surcroît que la contiguïté tienne jusqu'au verdict.
 >
 > ★ **3. Au verdict, les cornes du second rang S'EFFRITENT.**
@@ -2041,18 +2041,21 @@ changement de scénario via l'URL.
 > ⚠️ **Ce qui reste vrai, et qui n'a jamais dépendu de la publication :**
 >
 >  1. **deux codes différents ne désignent jamais la même chose**, et
->  2. **un code ne change jamais de sens.** Un code alloué l'est à vie ; retirer
->     un opérateur pose une pierre tombale, et cette pierre n'est pas reprise ;
->  3. l'ordre de déclaration reste l'ordre des codes croissants (§4.4 règle 3 en
->     dépend pour le déterminisme) ;
+>  2. **un code ne change de sens que tant qu'aucun lien n'est dehors.** Cette
+>     clause-là, et elle seule, dépend bien de la publication : c'est un lien
+>     déjà partagé qu'elle protège, pas une idée de la propreté ;
+>  3. l'ordre de déclaration reste celui du **registre** (§4.4 règle 3 en dépend
+>     pour le déterminisme) ;
 >  4. le test de gel (`src/moteur/catalogue.test.js`) se met à jour EN MÊME
 >     TEMPS que le code — il vaut comme non-régression du comportement.
 >
-> ★ **Et en pratique, rien n'a été touché.** Les quatre codes alloués ce jour-là
-> — `m13` à `m16`, les transformations du 27 août — sont des codes NEUFS, à la
-> suite de `m12` : aucun code existant n'est renommé, réattribué ni repris, et
-> aucun lien existant ne change de sens. La levée de la clôture n'a servi qu'à
-> ne plus avoir à l'invoquer.
+> ★ **Et le jour même, la clôture a servi.** Ce bandeau a d'abord été écrit pour
+> quatre codes NEUFS qui n'avaient besoin de rien (`mtri` à `mrd`) ; quelques
+> heures plus tard, **les cent codes ont été renommés en codes parlants** —
+> `t1 → tca`, `p8 → pm9`, `mw → m14`… La levée n'était donc pas une formalité :
+> c'est elle qui a rendu ce chantier possible. Voir l'amendement « LES CENT
+> CODES DEVIENNENT PARLANTS » plus bas, qui porte la table de correspondance
+> complète.
 >
 > Le bandeau et le raisonnement qui suivent sont conservés tels quels : ils
 > disent ce que la règle protège, et cela reste juste — c'est seulement le fait
@@ -2062,7 +2065,7 @@ changement de scénario via l'URL.
 >
 > Le site est en ligne — **https://apophenie.github.io** —, et la page d'accueil
 > affiche elle-même un lien écrit à la main
-> (`#0.1:t1+m4+c1+p1,3.1:f9+n1,5.1:t1+md+c1#…`, la puce « reinfocovid »). Des
+> (`#0.1:tca+mch+cs+prn,3.1:fc+nl,5.1:tca+m7+cs#…`, la puce « reinfocovid »). Des
 > liens existent donc, et la clause ci-dessous a produit son effet : **plus aucun
 > code ne peut changer de sens, être renommé, réattribué, ni repris à une pierre
 > tombale.** Une correction coûte désormais un code neuf et une dépréciation.
@@ -2087,7 +2090,10 @@ changement de scénario via l'URL.
 > le dernier moment pour ranger le registre — après, chaque correction coûte un
 > code neuf et une dépréciation.
 
-`code` = **préfixe de famille** (1 lettre) + **index base36** alloué à vie.
+`code` = **lettre de famille** + **corps parlant** + **majuscule de variante**
+facultative. Régie par `RE_CODE` = `/^[ftnmcpj][0-9a-z]+[A-Z]?$/`, écrite une
+fois dans `src/moteur/transformations/commun.js` et recopiée — sous test — dans
+`src/recherche/url.js` et `src/recherche/bfs.js`.
 
 | Préfixe | Famille |
 |---|---|
@@ -2099,13 +2105,169 @@ changement de scénario via l'URL.
 | `p` | post-traitement / finisseur |
 | `j` | joker |
 
-Exemples : `f1` retirer le protocole · `m1` A1Z26 · `c1` somme · `p1` racine numérique ·
-`p9` retournement du 9 (code réservé, par coquetterie) · `md`/`me` sept segments ·
-`mw`/`mx` **quatorze segments** (segments allumés, traits fusionnés) — codes neufs,
-alloués après `mv`, jamais recyclés ; `md` et `me` gardent leur comportement mot
-pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
-`mz` **trois 6 d'affilée** (`NUMS → NUMS`), alloué après `my` ·
-`m10`/`m11`/`m12` **les trois ficelles** (voir l'amendement en fin de §).
+Exemples : `fp` retirer le protocole · `ma1` A1Z26 · `cs` somme · `prn` racine numérique ·
+`pr9` retournement du 9 · `m7`/`m7F` sept segments (segments allumés, traits
+fusionnés) · `m14`/`m14F` **quatorze segments**, mêmes deux lectures ·
+`mr9` **on retourne les 9** (`NUMS → NUMS`) · `mr39` le même geste **par trio** ·
+`m36` **trois 6 d'affilée** (`NUMS → NUMS`) ·
+`mpf`/`m1s2`/`mad` **les trois ficelles** (voir l'amendement en fin de §).
+
+> *Amendement — **LES CENT CODES DEVIENNENT PARLANTS**.* — 27 août 2026.
+>
+> « Renomme aussi les autres sur le même principe que ce que j'ai donné en
+> exemple. 2, 3 ou 4 caractères, évite d'aller au-delà. Plus court c'est mieux
+> tant qu'il n'y a pas de collision. Utilise le ou les caractères les plus
+> efficaces/spécifiques pour différencier (acronyme, premières lettres,
+> premières consonnes…). » (l'auteur)
+>
+> ★ **La clôture est levée, et cette fois elle est levée POUR DE BON.** Le
+> bandeau du 25 août fermait le registre au motif qu'un lien écrit à la main
+> circulait ; l'auteur a confirmé qu'**aucun lien n'a été diffusé**. La prémisse
+> est fausse, donc la conclusion aussi. Les cent codes sont réattribués, et les
+> liens figés — `src/i18n/fr.js`, `src/i18n/en.js`, les tests, les documents de
+> `.planning/` — sont réécrits dans le même commit. Il n'existe, à cette date,
+> aucun lien dehors qu'un renommage pourrait faire mentir.
+>
+> ★ **La règle de fabrication, telle qu'appliquée.** La lettre de famille ne
+> bouge jamais : c'est elle qui rend une URL lisible d'un coup d'œil, et
+> l'auteur l'a conservée dans tous ses exemples. Le corps est le plus court
+> groupe de signes qui distingue l'opérateur **de ses frères de famille** —
+> `tm` suffit pour « mots », mais « séparateurs » et « syllabes » se disputent
+> `ts`, d'où `tsp` et `tsy`. Quand un mot a une abréviation reçue, c'est elle
+> qu'on prend entière (`ftld`, `fmaj`/`fmin`, `pabs`, `mt9`, `fr13`). Quand
+> deux opérateurs sont **le même geste à un détail près**, le détail est écrit
+> et le reste est commun : `m7`/`m7F` et `m14`/`m14F` (fusion des traits),
+> `mr9`/`mr39` (par valeur, par trio), `masc`/`masb`, `mtrc`/`mtrb`,
+> `mexc`/`mexb`, `mboc`/`mbob` (**c**apitale / **b**as de casse, les deux mots
+> que les libellés emploient), `mazc`/`mazr` et `mqwc`/`mqwr` (colonne /
+> rangée), `nl`/`nlv`/`nlc` (les lettres, plus les voyelles, plus les
+> consonnes), `prn`/`mrn` (la racine numérique, du total ou de chaque nombre).
+>
+> ★ **La table de correspondance.** Elle existe pour un seul usage : comprendre
+> un vieux lien traîné dans un carnet. Elle n'autorise rien — les codes de
+> gauche ne sont plus lus par personne.
+>
+> | ancien | neuf | opérateur | | ancien | neuf | opérateur |
+> |---|---|---|---|---|---|---|
+> | `f1` | `fp` | protocole | | `mb` | `masc` | ASCII capitale |
+> | `f2` | `fw` | www | | `mc` | `masb` | ASCII bas de casse |
+> | `f3` | `ftld` | extension | | `md` | `m7` | sept segments |
+> | `f4` | `fav` | avant le `/` | | `me` | `m7F` | sept segments, fusion |
+> | `f5` | `fap` | après le `/` | | `mf` | `mtrc` | traits, capitale |
+> | `f6` | `fl` | lettres | | `mg` | `mtrb` | traits, bas de casse |
+> | `f7` | `fv` | voyelles | | `mh` | `mexc` | extrémités, capitale |
+> | `f8` | `fvy` | voyelles, Y compris | | `mi` | `mexb` | extrémités, bas de casse |
+> | `f9` | `fc` | consonnes | | `mj` | `mboc` | boucles, capitale |
+> | `fa` | `fd` | doublons ôtés | | `mk` | `mbob` | boucles, bas de casse |
+> | `fb` | `fr` | lettres répétées | | `ml` | `mazc` | AZERTY, colonne |
+> | `fc` | `fi` | initiales | | `mm` | `mazr` | AZERTY, rangée |
+> | `fd` | `fmr` | motif répété | | `mn` | `mqwc` | QWERTY, colonne |
+> | `fe` | `ffr` | traduit en français | | `mo` | `mqwr` | QWERTY, rangée |
+> | `ff` | `fen` | traduit en anglais | | `mp` | `mhe` | gématrie hébraïque |
+> | `fg` | `fmaj` | capitales | | `mq` | `mgr` | isopséphie grecque |
+> | `fh` | `fmin` | bas de casse | | `mr` | `mln` | longueur du nom |
+> | `fi` | `fac` | accents ôtés | | `ms` | `mlm` | longueur du mot |
+> | `fj` | `flt` | leetspeak | | `mt` | `mrn` | racine de chaque |
+> | `fk` | `fatb` | Atbash | | `mu` | `m0` | zéros ôtés |
+> | `fl` | `fr13` | ROT13 | | `mv` | `mtc` | le chiffre de la touche |
+> | `t1` | `tca` | caractères | | `mw` | `m14` | quatorze segments |
+> | `t2` | `tm` | mots | | `mx` | `m14F` | quatorze segments, fusion |
+> | `t3` | `tsp` | séparateurs | | `my` | `mr9` | on retourne les 9 |
+> | `t4` | `tsy` | syllabes | | `mz` | `m36` | trois 6 d'affilée |
+> | `t5` | `tch` | chiffres | | `m10` | `mpf` | le plus fréquent |
+> | `n1` | `nl` | compte des lettres | | `m11` | `m1s2` | un rang sur deux |
+> | `n2` | `nv` | compte des voyelles | | `m12` | `mad` | addition sélective |
+> | `n3` | `nc` | compte des consonnes | | `m13` | `mtri` | tri croissant |
+> | `n4` | `nd` | lettres distinctes | | `m14` | `mr39` | retourner les trios de 9 |
+> | `n5` | `nsp` | compte des séparateurs | | `m15` | `mcc` | compter les chiffres |
+> | `n6` | `nm` | compte des mots | | `m16` | `mrd` | redécoupage choisi |
+> | `n7` | `nlv` | lettres + voyelles | | `c1` | `cs` | somme |
+> | `n8` | `nlc` | lettres + consonnes | | `c2` | `cst` | soustraction |
+> | `m1` | `ma1` | A1Z26 | | `c3` | `cp` | produit |
+> | `m2` | `mz26` | Z26A1 | | `c4` | `cal` | somme alternée |
+> | `m3` | `mpy` | pythagoricienne | | `c5` | `cmm` | max moins min |
+> | `m4` | `mch` | chaldéenne | | `c6` | `cmo` | moyenne |
+> | `m5` | `mx6` | gématrie anglaise (×6) | | `c7` | `cnv` | nombre de valeurs |
+> | `m6` | `msfr` | Scrabble français | | `c8` | `ccat` | concaténation |
+> | `m7` | `msen` | Scrabble anglais | | `c9` | `cmx` | maximum |
+> | `m8` | `mt9` | touche T9 | | `ca` | `cmn` | minimum |
+> | `m9` | `mms` | signaux du morse | | `cb` | `cnj` | nombre de jetons |
+> | `ma` | `mmt` | traits du morse | | `cc` | `cnjd` | jetons distincts |
+> | `p1` | `prn` | racine numérique | | `p7` | `pc9` | complément à 9 |
+> | `p2` | `psc` | somme des chiffres | | `p8` | `pm9` | modulo 9 |
+> | `p3` | `pabs` | valeur absolue | | `p9` | `pr9` | retournement du 9 |
+> | `p4` | `prs` | réduction signée | | `pa` | `prm` | racine, nombres maîtres |
+> | `p5` | `pec` | écart des chiffres | | `pb` | `pm10` | modulo 10 |
+> | `p6` | `pmr` | miroir | | `j1` | `jnf` | nom français du chiffre |
+>
+> ★ **⚠ DEUX RÉATTRIBUTIONS À CONNAÎTRE**, et elles sont voulues par l'auteur
+> lui-même : `m7` désignait le Scrabble anglais et désigne désormais le sept
+> segments ; `m14` désignait « retourner les trios de 9 » et désigne désormais
+> les quatorze segments. C'est l'auteur qui a dicté `mw → m14`, et qui a
+> tranché la collision qui s'ensuit — « `m.retournerLesTrios` devient `mr39` ».
+> Ce sont les deux seuls cas où un code ancien reste un code valide en
+> désignant autre chose : un vieux lien qui les porte **rejoue une autre
+> démonstration au lieu d'échouer**. Sans lien diffusé, le risque est nul
+> aujourd'hui ; il est écrit ici pour qu'on ne le redécouvre pas.
+>
+> ★ **La majuscule de variante, et pourquoi elle est limitée à une.** `m14F`
+> vient de l'auteur, tel quel. La grammaire l'accueille donc — un unique signe
+> majuscule, en FIN de code. Deux codes ne peuvent ainsi jamais différer par la
+> seule casse d'un signe intérieur (`m14f` contre `m14F` serait un piège à
+> relecture, et un piège pour toute lecture d'URL un jour rendue tolérante à la
+> casse). Un test l'exige (`catalogue.test.js`).
+>
+> ★ **`rangCode` ne décode plus rien : il CONSULTE.** Un code portait un index
+> base36, et l'ordre du catalogue se lisait dans le code. Un code parlant ne dit
+> plus son rang — c'est tout l'objet du changement. L'ordre est donc écrit, une
+> fois, dans `src/moteur/catalogue.js › ORDRE_CANONIQUE` : la liste des cent
+> codes, dans l'ordre d'allocation, relue à chaque chargement contre l'ordre de
+> déclaration des cinq familles. Deux sources qui se contrôlent l'une l'autre,
+> comme avant ; simplement, l'une des deux a cessé d'être devinable.
+>
+> ★ **Pourquoi PAS un tri alphabétique des codes.** L'ordre du catalogue est
+> l'ordre d'EXPLORATION du moteur (§4.4 règle 3), et il est curé : les mappeurs
+> de lettres notoires d'abord, les triches numériques ensuite. Trier « m0, m14,
+> m14F, m1s2, m36, m7… » mettrait les triches en tête par pur hasard
+> alphabétique. Le registre conserve l'ordre historique, qui portait cette
+> intention.
+>
+> ★ **L'ordre de N2, lui, reste lisible sur la chaîne seule** — et il a changé
+> de définition. Ranger une suite d'opérateurs commutants pour que `fl+fac` et
+> `fac+fl` s'écrivent pareil doit pouvoir se refaire **sans le catalogue**, par
+> qui lit un lien. C'est donc (rang de famille, chaîne comparée en unités de
+> code), ce que §4.4 règle 4 impose déjà partout ailleurs, à la place de
+> l'ancien index base36 qui n'a plus de sens. Effet secondaire heureux : les
+> deux expressions de N2 — `bfs.js › codesCanoniques` et `assemblage.js ›
+> reordonnerCommutants` — utilisent enfin le MÊME comparateur ; elles
+> divergeaient depuis toujours sur les blocs mêlant deux familles.
+>
+> ⚠️ **CE QUE LE RENOMMAGE CHANGE AU CLASSEMENT — mesuré, pas supposé.** §4.4
+> règle 1 départage les ex æquo sur « la suite des codes comparée
+> lexicographiquement » ; `assemblage.js › comparerChemins` et `bassin.js`
+> s'appuient sur la même comparaison pour choisir le REPRÉSENTANT d'une classe
+> de chemins. Rebaptiser les opérateurs rebat donc toutes ces égalités, et le
+> classement de `https://hope-hope-hope.fr/` en sort **permuté** : la méthode 5
+> du README (`tca+m7F+cs+prn`, ex-`t1+me+c1+p1`) passe du rang 1 au rang 9, et
+> deux voies entrent dans les douze premières à la place de deux autres.
+>
+> ★ **Aucune voie n'a été jugée moins bonne pour autant** : la comparaison des
+> codes n'intervient qu'à score STRICTEMENT ÉGAL — sur le score, sur le nombre
+> de séries, sur la longueur. Ce qui change est le choix entre des voies que le
+> barème déclare équivalentes, et le commentaire de `bfs.js › ordreCode` le
+> disait déjà : « n'importe quel ordre total y convient ». Deux tests qui
+> allaient chercher une voie précise DANS LE CLASSEMENT la rejouent désormais
+> depuis un lien (`scenario.test.js`, `integration-visuel.test.js`) : ce
+> qu'ils vérifient — le décor d'une table, la détection des redites — n'a
+> jamais eu de rapport avec le rang.
+>
+> ★ **Si un jour cette permutation dérange**, le remède est connu et n'est pas
+> pris ici : départager les ex æquo sur le **rang au registre** plutôt que sur
+> l'orthographe du code. Ce serait stable à tout renommage futur, et
+> corrélé à la notoriété (les opérateurs notoires ont été alloués les premiers).
+> Le prix est de faire descendre le registre — qui vit dans `src/moteur/` —
+> jusqu'à `src/recherche/`, qui ne connaît son catalogue que par injection.
+> C'est un chantier d'architecture, pas un renommage.
 
 > *Amendement — LA CLÔTURE DU REGISTRE PERD SON FONDEMENT, sans qu'aucun code
 > ne bouge.* — 27 août 2026.
@@ -2120,7 +2282,7 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 >
 > ★ **Et pourtant : rien n'a bougé.** Le chantier qui a obtenu cette confirmation
 > — « les cornes sortent de l'URL » (§3.1) — n'avait finalement besoin d'aucune
-> réattribution : `mz` garde son code, son arithmétique et son rang, et tous les
+> réattribution : `m36` garde son code, son arithmétique et son rang, et tous les
 > liens figés dans `src/i18n/*.js` et dans les tests rendent la même
 > démonstration qu'avant. L'amendement est écrit **quand même**, parce que le
 > prochain chantier ne doit pas avoir à supposer ce que celui-ci a demandé.
@@ -2143,25 +2305,25 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 > ligne. Le bandeau ci-dessus est conservé tel quel : c'est le raisonnement qui a
 > fixé la règle, et il redeviendra valable le jour où sa prémisse le sera.
 
-> *Amendement — le demi-tour a désormais deux codes, et c'est voulu.* `p9`
-> retourne UN nombre (`NUM → NUM`, « le 9 » du README, méthode 6) ; `my`
+> *Amendement — le demi-tour a désormais deux codes, et c'est voulu.* `pr9`
+> retourne UN nombre (`NUM → NUM`, « le 9 » du README, méthode 6) ; `mr9`
 > retourne CHAQUE 9 d'un vecteur (`NUMS → NUMS`) et laisse tout le reste en
 > place. La règle 2 (« changer le comportement d'un opérateur = allouer un
-> nouveau code ») n'y est pour rien : `p9` n'a pas bougé d'une virgule, et il
+> nouveau code ») n'y est pour rien : `pr9` n'a pas bougé d'une virgule, et il
 > ne le pouvait pas — sa signature interdit le vecteur. Deux signatures, deux
 > familles, deux codes. Le vocabulaire visuel, lui, n'a pas eu à s'étendre :
 > les deux émettent la même primitive `flip180`, qui refuse depuis
 > bruyamment tout demi-tour autre que 9 → 6 (§0.3, contrôle croisé).
 
-> *Amendement — `mz`, « trois 6 d'affilée », alloué le registre FERMÉ.* Le
+> *Amendement — `m36`, « trois 6 d'affilée », alloué le registre FERMÉ.* Le
 > registre l'est depuis le 25 août 2026 : aucun code n'a changé de sens, aucun
-> n'a été renommé, réattribué, ni repris à une pierre tombale. `my` était le
-> dernier alloué ; celui-ci prend **`mz`**, code neuf, et le catalogue passe de
+> n'a été renommé, réattribué, ni repris à une pierre tombale. `mr9` était le
+> dernier alloué ; celui-ci prend **`m36`**, code neuf, et le catalogue passe de
 > 92 à 93 opérateurs. Il émet la primitive `horns` (§3.1), qui n'existait pas —
 > c'est la clause d'extension du vocabulaire appliquée dans l'ordre qu'elle
 > prescrit : la primitive d'abord, l'émission ensuite.
 >
-> ⚠️ **PÉRIMÉ sur ce dernier point depuis le 27 août 2026** : `mz` n'émet plus
+> ⚠️ **PÉRIMÉ sur ce dernier point depuis le 27 août 2026** : `m36` n'émet plus
 > `horns`. Les cornes ne sont plus le geste d'un opérateur — elles ne changent
 > aucune valeur, donc elles n'ont rien à faire dans un programme ni dans une URL
 > —, et l'assemblage les pose sur la LIGNE selon le REGISTRE. Ce qui reste ici
@@ -2169,7 +2331,7 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 > vecteur à ses trois 6 contigus. Le code, lui, ne bouge pas d'un iota. Voir
 > §3.1, amendement « LES CORNES SORTENT DE L'URL ».
 
-> *Amendement — LES TROIS FICELLES, `m10` · `m11` · `m12`, registre FERMÉ.* Le
+> *Amendement — LES TROIS FICELLES, `mpf` · `m1s2` · `mad`, registre FERMÉ.* Le
 > barème d'élégance portait depuis sa construction trois paliers de malus dont
 > les compteurs valaient **toujours zéro** : aucun opérateur du catalogue ne
 > faisait ces choses-là. L'auteur a tranché — « je me doute — ma demande c'est
@@ -2178,20 +2340,21 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 >
 > | code | id | ce qu'il fait | palier |
 > |---|---|---|---|
-> | `m10` | `m.plusFrequent` | la valeur strictement la plus fréquente reste, les autres s'effacent | `MAJORITE` |
-> | `m11` | `m.unRangSurDeux` | une position sur deux — celle des deux parités qui porte le plus de 6 | `DECIMATION` |
-> | `m12` | `m.additionSelective` | chaque nombre s'écrit chiffre à chiffre, puis on n'additionne QUE les suites contiguës de somme 6 | `ADDITION_SELECTIVE` |
+> | `mpf` | `m.plusFrequent` | la valeur strictement la plus fréquente reste, les autres s'effacent | `MAJORITE` |
+> | `m1s2` | `m.unRangSurDeux` | une position sur deux — celle des deux parités qui porte le plus de 6 | `DECIMATION` |
+> | `mad` | `m.additionSelective` | chaque nombre s'écrit chiffre à chiffre, puis on n'additionne QUE les suites contiguës de somme 6 | `ADDITION_SELECTIVE` |
 >
-> ★ **Codes NEUFS, index en base36.** `mz` était le dernier alloué ; 36 s'écrit
-> « 10 » en base36, d'où `m10`, `m11`, `m12`. Aucun code existant n'est touché,
-> renommé ni réattribué, aucune pierre tombale n'est reprise, et `RE_CODE`
-> (`/^[ftnmcpj][0-9a-z]+$/`) admettait déjà les index à plusieurs signes. Le
-> catalogue passe de **93 à 96** opérateurs.
+> ★ **Codes NEUFS, à la suite de `m36`.** Aucun code existant n'est touché,
+> renommé ni réattribué, aucune pierre tombale n'est reprise. Le catalogue passe
+> de **93 à 96** opérateurs. *(Ces trois-là s'écrivaient `m10`, `m11`, `m12` : à
+> l'époque un code était un index base36, et 36 s'y écrit « 10 ». Le raisonnement
+> a disparu avec les codes parlants ; le fait qu'ils viennent après `m36` dans le
+> registre, lui, tient toujours.)*
 >
 > ★ **Aucune primitive ajoutée** : le vocabulaire reste à vingt et une (§3.1).
-> `m10` et `m11` empruntent l'accolade des combinateurs (`group` + `label`) —
+> `mpf` et `m1s2` empruntent l'accolade des combinateurs (`group` + `label`) —
 > « indique sous l'accolade : *chiffre majoritaire : 6* et fais disparaître les
-> autres », dit l'auteur — puis `drop` et `highlight`. `m12` emprunte
+> autres », dit l'auteur — puis `drop` et `highlight`. `mad` emprunte
 > `substitute` (l'éclatement `16` → `1` `6`), `insertOperators` et `sum` : « ne
 > pas la différencier des additions qui la précèdent ou la succèdent, c'est juste
 > une de plus (ou une de moins si on saute un 6 pour le conserver) ».
@@ -2204,7 +2367,7 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 > préférence tacite pour le 6 ne peut s'y glisser. Elles refusent en outre quand
 > elles ne changent rien, et quand **le résultat n'écrit pas 666 d'affilée** :
 > une ficelle qui coûte sans rien acheter n'a pas lieu d'être jouée (même
-> discipline que `my` et `mz` — une étape inopérante est sautée en silence par
+> discipline que `mr9` et `m36` — une étape inopérante est sautée en silence par
 > `scenario.js`, et l'URL porterait un code invisible).
 >
 > ★ **L'addition sélective et son espace de recherche.** Choisir quelles suites
@@ -2213,7 +2376,7 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 > droite** en prend une, en O(n × 6) : à chaque rang, la **plus courte** suite qui
 > commence là et dont la somme fait **exactement 6**. Trois refus bornent le
 > reste : aucun terme déjà égal à 6 (l'additionner le détruirait), aucun terme
-> nul (`mu` existe pour ça) — d'où une fenêtre d'au plus **six** termes, bornée
+> nul (`m0` existe pour ça) — d'où une fenêtre d'au plus **six** termes, bornée
 > par la CIBLE et non par un réglage —, et une largeur plafonnée à douze chiffres.
 >
 > ★ **Trois blanchiments démasqués et corrigés** (`assemblage.js`, `score.js`).
@@ -2221,14 +2384,14 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 > final** là où elles auraient dû lire le chemin :
 > 1. la **dilution** des candidats (`vecteursDeSix`, `candidatsDePortee`) se lit
 >    désormais sur le vecteur **le plus large** du chemin (`largeurMontree`) —
->    `fk+t1+mw+m10` ne « laisse pas moins tomber » que `fk+t1+mw`, il a jeté plus
+>    `fatb+tca+m14+mpf` ne « laisse pas moins tomber » que `fatb+tca+m14`, il a jeté plus
 >    tôt ;
 > 2. le **rendement** (`score.js › rendementSix`) fait de même **pour les seules
 >    ficelles** : les noter sur ce qu'il reste leur donnait un rendement parfait
 >    pour avoir jeté davantage. Mesuré sur « La numérologie est un art taquin » :
->    `f6+t1+mw+m10` marquait 3 797 contre 2 715 à `f6+t1+mw`, qui montre les mêmes
+>    `fl+tca+m14+mpf` marquait 3 797 contre 2 715 à `fl+tca+m14`, qui montre les mêmes
 >    6. ⚠️ Ce n'est **pas** l'arbitrage de §7-5 tranché en douce : il reste ouvert
->    pour le cas général, `mz` compris ;
+>    pour le cas général, `m36` compris ;
 > 3. une **ficelle qui n'apporte rien n'est plus proposée** : sur une même
 >    portée, une voie à ficelle est écartée dès qu'une voie **sans** ficelle fait
 >    au moins aussi bien sur les trois choses qu'elle prétend acheter — autant de
@@ -2237,36 +2400,37 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 > ★ **Et aucune ficelle dans une MOISSON.** Le mode vaut par ce que chaque portée
 > **sait** donner ; une ficelle jette ce qu'elle donne en trop, à l'intérieur de
 > la portée, avant que la moisson ne compte. Mesuré sur « La numérologie est un
-> art taquin » : `t1+mw+m10` fabriquait une **sixième** série là où les voies
+> art taquin » : `tca+m14+mpf` fabriquait une **sixième** série là où les voies
 > honnêtes en font cinq, et la liste affichait alors cinq séries au rang 1 puis
 > six au rang 2 — un compte qui REMONTE, ce qu'un test de classement interdit
 > depuis toujours. Les ficelles restent pleinement disponibles au **GROUPEMENT**,
 > qui est le mode de tous les exemples de l'auteur : un vecteur, une ficelle, un
 > 666.
 
-> *Amendement — LES QUATRE TRANSFORMATIONS DU 27 AOÛT, `m13` · `m14` · `m15` ·
-> `m16`, clôture LEVÉE.* L'auteur a proposé quatre transformations neuves
+> *Amendement — LES QUATRE TRANSFORMATIONS DU 27 AOÛT, `mtri` · `mr39` · `mcc` ·
+> `mrd`, clôture LEVÉE.* L'auteur a proposé quatre transformations neuves
 > (`.planning/A-VENIR-retours-cornes-et-moteur.md` §7). Elles forment, dans son
 > exemple, une seule démonstration : **redécouper**, **ranger**, **couronner**,
 > **retourner les 999**.
 >
 > | code | id | ce qu'il fait | palier d'élégance |
 > |---|---|---|---|
-> | `m13` | `m.triCroissant` | les nombres se rangent du plus petit au plus grand | `REARRANGEMENT` |
-> | `m14` | `m.retournerLesTrios` | trois 9 côte à côte se retournent ensemble et donnent 666 | — |
-> | `m15` | `m.compterLesChiffres` | chaque plage de valeurs identiques devient « décompte valeur » | — |
-> | `m16` | `m.redecoupageChoisi` | la ligne se redécoupe en paquets choisis pour tomber sur 6 | `REDECOUPAGE` |
+> | `mtri` | `m.triCroissant` | les nombres se rangent du plus petit au plus grand | `REARRANGEMENT` |
+> | `mr39` | `m.retournerLesTrios` | trois 9 côte à côte se retournent ensemble et donnent 666 | — |
+> | `mcc` | `m.compterLesChiffres` | chaque plage de valeurs identiques devient « décompte valeur » | — |
+> | `mrd` | `m.redecoupageChoisi` | la ligne se redécoupe en paquets choisis pour tomber sur 6 | `REDECOUPAGE` |
 >
-> ★ **Codes NEUFS, index base36, à la suite de `m12`.** Le catalogue passe de
-> **96 à 100** opérateurs. Aucun code existant n'est touché.
+> ★ **Codes NEUFS, à la suite de `mad`.** Le catalogue passe de **96 à 100**
+> opérateurs. Aucun code existant n'est touché. *(Ils s'écrivaient alors `m13` à
+> `m16`, index base36 — voir l'amendement des codes parlants.)*
 >
 > ★ **Aucune primitive ajoutée** : le vocabulaire reste à vingt et une (§3.1).
-> `m13` emploie `move` (l'ORDRE dans le flux, jamais des coordonnées — §7.3),
-> `m15` emploie `partition` + `substitute` + `drop`, `m16` emploie `substitute`,
-> `partition`, `insertOperators`, `sum` et `reduce`, et `m14` reprend le
-> `flip180` de `my` et de `p9`.
+> `mtri` emploie `move` (l'ORDRE dans le flux, jamais des coordonnées — §7.3),
+> `mcc` emploie `partition` + `substitute` + `drop`, `mrd` emploie `substitute`,
+> `partition`, `insertOperators`, `sum` et `reduce`, et `mr39` reprend le
+> `flip180` de `mr9` et de `pr9`.
 >
-> ★ **Et `m14` n'émet AUCUNE corne**, alors que l'auteur écrit « en leur
+> ★ **Et `mr39` n'émet AUCUNE corne**, alors que l'auteur écrit « en leur
 > ajoutant les cornes une fois retournés ». Ce n'est pas un oubli : c'est
 > `couronnerLesTriptyques` (`src/recherche/scenario.js`) qui pose les cornes
 > depuis le chantier des cornes, et lui seul peut le faire — un opérateur ne
@@ -2275,7 +2439,7 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 > couronner à l'aveugle, et faire pousser des cornes de diable au-dessus d'un
 > `111`.
 >
-> ★ **`m16` rejoint les quatre opérateurs écrits autour du 6** et sort de la
+> ★ **`mrd` rejoint les quatre opérateurs écrits autour du 6** et sort de la
 > recherche dès que la cible change (`bfs.js › OPERATEURS_LIES_A_666`) : son
 > objectif, son départage et son refus sont tous écrits en « 6 ». Ils sont donc
 > **cinq**, et viser autre chose que 666 donne accès à 95 opérateurs sur 100.
@@ -2283,19 +2447,19 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 > cibles : ranger rapproche les 1 d'un `111` exactement comme les 6.
 >
 > ★ **`exige` — les quatre refusent plutôt que de se jouer pour rien**, même
-> discipline que `my`, `mz` et les trois ficelles. `m13` refuse s'il ne
+> discipline que `mr9`, `m36` et les trois ficelles. `mtri` refuse s'il ne
 > RASSEMBLE pas (il doit faire apparaître une plage de trois qui n'existait
-> pas) ; `m14` refuse sans trio de 9 contigus ; `m15` refuse quand le décompte
-> ne condense pas la ligne ; `m16` refuse en deçà de vingt-cinq chiffres — deux
-> fois la portée de `m12`, plus un — et refuse aussi s'il ne gagne pas
+> pas) ; `mr39` refuse sans trio de 9 contigus ; `mcc` refuse quand le décompte
+> ne condense pas la ligne ; `mrd` refuse en deçà de vingt-cinq chiffres — deux
+> fois la portée de `mad`, plus un — et refuse aussi s'il ne gagne pas
 > strictement plus de 6 qu'il n'en trouve.
 >
-> ⚠️ **Le seuil de `m16` est une MESURE, pas un goût.** Sans lui, cette triche
+> ⚠️ **Le seuil de `mrd` est une MESURE, pas un goût.** Sans lui, cette triche
 > s'appliquait à presque tous les vecteurs et évinçait des voies honnêtes
 > **avant** le classement — le moteur ne canonicalise que les premiers chemins
 > de chaque fragment. « Donald Trump » perdait alors la voie de référence de
 > l'auteur, et « Wikipedia » sa tête de liste, au profit de voies qui
-> n'employaient même pas `m16`. Aucun réglage du barème ne pouvait y remédier :
+> n'employaient même pas `mrd`. Aucun réglage du barème ne pouvait y remédier :
 > ce qui tombait n'était pas classé plus bas, il n'était plus là.
 
 **Trois règles inviolables :**
@@ -2304,10 +2468,24 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 2. **Changer le comportement d'un opérateur = allouer un nouveau code**, et déprécier
    l'ancien *en conservant son comportement d'origine*. Le registre est un journal,
    pas un état.
-3. L'ordre de déclaration du catalogue est l'ordre des codes croissants — c'est aussi
-   l'ordre d'itération du moteur et l'ordre de tri de la canonicalisation N2.
+3. L'ordre de déclaration du catalogue est l'ordre du **registre**
+   (`src/moteur/catalogue.js › ORDRE_CANONIQUE`) — c'est aussi l'ordre d'itération
+   du moteur (§4.4 règle 3). Un code neuf s'inscrit **en fin de registre**, jamais
+   au milieu : insérer, c'est décaler tous les rangs suivants, donc changer
+   l'ordre d'exploration de tout ce qui suit et le classement avec.
 
-Un test de non-régression **gèle les codes publiés** (vecteurs `code → entrée → sortie`).
+   > ⚠ **Ce n'est plus l'ordre de tri de la canonicalisation N2.** Les deux
+   > coïncidaient tant qu'un code portait son index ; depuis les codes parlants,
+   > ils divergent et c'est assumé. N2 range une suite d'opérateurs commutants
+   > **dans une URL** : il lui faut un ordre que le lecteur d'un lien puisse
+   > refaire sans catalogue, donc (rang de famille, chaîne comparée en unités de
+   > code). Le registre, lui, ordonne le CATALOGUE : il porte une intention et
+   > doit rester stable quand un code neuf arrive.
+
+Un test de non-régression **gèle le comportement des codes** (vecteurs
+`code → entrée → sortie`), et un autre **gèle le registre** : cent codes
+distincts, de deux à quatre signes, dont jamais deux ne diffèrent par la seule
+casse, et dans le même ordre que la déclaration.
 
 ### 4.2 Grammaire
 
@@ -2367,7 +2545,7 @@ programme  := code ('+' code)*
 > perd ses cornes. Ce qui départage est la NATURE des deux changements :
 >
 >  · **les cornes sont un geste de la DÉMONSTRATION** — une primitive du
->    vocabulaire (§3.1), émise par un opérateur que l'URL NOMME (`mz`), et dont
+>    vocabulaire (§3.1), émise par un opérateur que l'URL NOMME (`m36`), et dont
 >    le couronnement anticipé change jusqu'au nombre d'étapes : 23 au lieu de 22
 >    sur la voie de référence. Un lien qui promettait 23 étapes en rendrait 22,
 >    avec une autre jauge, un autre badge, un autre Registre. C'est exactement
@@ -2383,20 +2561,20 @@ programme  := code ('+' code)*
 > gouverne qu'un ensemble FINI et FIGÉ : les liens écrits avant. C'est une règle
 > de lecture héritée, pas un défaut de produit. **Vérifié** : les deux
 > puces-raccourcis de `src/i18n/fr.js › accueil.exemples` ne contiennent pas
-> `mz` — elles ne montraient donc aucune corne, et n'en montrent toujours pas.
+> `m36` — elles ne montraient donc aucune corne, et n'en montrent toujours pas.
 >
 > **Ce que « sobre » désactive exactement**, et ce qu'il ne désactive pas :
 >
 > | | sobre | scénique |
 > |---|---|---|
 > | le programme, le verdict, le score, le rang | identiques | identiques |
-> | l'opérateur `mz` | **exécuté** | exécuté |
+> | l'opérateur `m36` | **exécuté** | exécuté |
 > | la primitive `horns` | remplacée par `highlight` + `drop` | émise |
 > | le couronnement anticipé, l'effacement différé | non | oui |
 > | l'orage du verdict (§3.1) | non | oui |
 > | le son (§6) | non chargé | disponible, coupé par défaut |
 >
-> ★ **« Désactiver les cornes » n'est PAS « désactiver `mz` ».** L'opérateur
+> ★ **« Désactiver les cornes » n'est PAS « désactiver `m36` ».** L'opérateur
 > TRONQUE le vecteur — `[6,6,6,7,3,6]` devient `[6,6,6]`. Retirer le geste sans
 > retirer l'opérateur donnerait une démonstration qui jette trois chiffres sans
 > dire pourquoi ; retirer l'opérateur donnerait un autre programme, donc une
@@ -2405,7 +2583,7 @@ programme  := code ('+' code)*
 > RYTHME, pas le raisonnement : on désigne les trois 6 (`highlight`) et on
 > efface le reste sur place (`drop` en mode gomme, le même `effacerSurPlace`
 > qu'employait la primitive), à la place exacte où l'opérateur se trouve. La
-> légende ne bouge pas — `6 6 6 7 3 6 → 666`, émise par `mz` lui-même —, donc
+> légende ne bouge pas — `6 6 6 7 3 6 → 666`, émise par `m36` lui-même —, donc
 > Le Registre dit la même chose dans les deux registres.
 > `sobrifierLesCornes`, `src/recherche/scenario.js`.
 >
@@ -2441,8 +2619,8 @@ programme  := code ('+' code)*
 > `to`, un `apply()`. La cible ne transforme rien — elle dit ce qu'on CHERCHE.
 > C'est une extension de la GRAMMAIRE, au même titre que `×3:` et que `0.1:`.
 >
-> ★ **Aucune ambiguïté avec `c1`.** Le `!` est interdit dans un programme, et le
-> marqueur ne se lit qu'en TÊTE : `#c1+m4#…` reste la somme, `#c111!c1+m4#…` la
+> ★ **Aucune ambiguïté avec `cs`.** Le `!` est interdit dans un programme, et le
+> marqueur ne se lit qu'en TÊTE : `#cs+mch#…` reste la somme, `#c111!cs+mch#…` la
 > même somme visant 111.
 >
 > ★ **L'ABSENCE DE MARQUEUR VAUT 666, ET LE MARQUEUR N'EST PAS ÉCRIT AU DÉFAUT.**
@@ -2539,10 +2717,10 @@ programme  := code ('+' code)*
 > un même texte rend un même chiffre. Ce n'est pas une limite d'implémentation,
 > c'est ce que le mode signifie.
 >
-> ★ **Quatre opérateurs sortent de la recherche hors de 666** — `mz`, `m10`,
-> `m11`, `m12` (`bfs.js › OPERATEURS_LIES_A_666`). Leurs garde-fous sont écrits
+> ★ **Quatre opérateurs sortent de la recherche hors de 666** — `m36`, `mpf`,
+> `m1s2`, `mad` (`bfs.js › OPERATEURS_LIES_A_666`). Leurs garde-fous sont écrits
 > en « 6 » et en « 666 » : les trois ficelles refusent d'elles-mêmes de
-> s'appliquer, et `mz` est le seul qui pourrait encore agir — en couronnant de
+> s'appliquer, et `m36` est le seul qui pourrait encore agir — en couronnant de
 > cornes trois 6 qui ne sont pas le verdict. Les généraliser demanderait de faire
 > voyager la cible jusque dans `apply()`, donc d'étendre la signature §2.2 : c'est
 > un chantier à part, noté dans `.planning/A-VENIR-cibles.md`.
@@ -2557,12 +2735,12 @@ programme  := code ('+' code)*
 Exemples :
 
 ```
-#f1+t1+m1+c1+p1#3fq9KJ                        une seule voie, saisie entière
-#×3:m1+c1+p1#4CWoMo83vssW                     résonance : trois fois la même méthode
-#0.1:m1+c1+p1,1.1:n2+p1,2.1:m4+c2#4CWoMo83    trois fragments, méthodes distinctes
+#fp+tca+ma1+cs+prn#3fq9KJ                        une seule voie, saisie entière
+#×3:ma1+cs+prn#4CWoMo83vssW                     résonance : trois fois la même méthode
+#0.1:ma1+cs+prn,1.1:nv+prn,2.1:mch+cst#4CWoMo83    trois fragments, méthodes distinctes
 ##3fq9KJ                                       page de résultats (README)
 #c111!#3fq9KJ                                  page de résultats, mais pour 111
-#so!c007!0.1:t1+mj+c3,2.1:t1+mj+c3,6.1:t1+m9+c1#…   une voie qui écrit 007
+#so!c007!0.1:tca+mboc+cp,2.1:tca+mboc+cp,6.1:tca+mms+cs#…   une voie qui écrit 007
 ```
 
 ### 4.3 Lecture tolérante, écriture canonique
@@ -2592,6 +2770,15 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
    lexicographiquement ASC`. Aucun ex æquo ne subsiste, donc la stabilité du tri natif
    devient sans objet.
 
+   > ⚠️ **Le dernier départage dépend de l'ORTHOGRAPHE des codes**, et donc
+   > renommer un opérateur permute des voies parfaitement à égalité. C'est
+   > mesuré, assumé, et documenté en §4.1 (amendement « les cent codes
+   > deviennent parlants ») : la même comparaison sert aussi à choisir le
+   > représentant d'une classe de chemins (`assemblage.js › comparerChemins`,
+   > `bassin.js`), et le classement de `hope-hope-hope.fr` en est sorti permuté.
+   > Un test qui va chercher une voie PRÉCISE dans le classement est donc à
+   > écrire autrement : on rejoue un lien.
+
    > *Amendement — cet ordre est le MIXTE, et il n'est plus le seul.* Il reste
    > l'ordre de la liste à partir de la troisième ligne ; les deux premières sont
    > réservées aux champions de `ordreElegance` et de `ordreTriptyques` (§5,
@@ -2603,7 +2790,8 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
    `MOISSON` et les trois rangs ».)
 2. **Score entier**, en milli-unités. Deux flottants à 10⁻¹⁶ près qui s'inversent
    suffisent à permuter deux lignes.
-3. **Ordre d'itération maîtrisé** : toujours parcourir le catalogue par codes croissants.
+3. **Ordre d'itération maîtrisé** : toujours parcourir le catalogue dans l'ordre de
+   son registre (§4.1 règle 3), qui est aussi son ordre de déclaration.
    Jamais dépendre de l'ordre d'insertion d'une `Map` alimentée par un parcours de graphe.
 4. **Aucune source d'entropie** : ni `Math.random`, ni `Date.now`, ni `localeCompare`,
    ni `Intl`. Comparaisons de chaînes en unités de code.
@@ -2666,13 +2854,13 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   > *Amendement — N2 et N3 portent sur le chemin, pas sur l'étape.* N3 était
   > appliqué localement (« l'opérateur ne change pas l'état courant »), ce qui
   > laissait passer les étapes **inopérantes** : sur `hope-hope-hope.fr`,
-  > `f6+f7+n1` et `f7+n1` cohabitaient alors que filtrer les lettres avant les
+  > `fl+fv+nl` et `fv+nl` cohabitaient alors que filtrer les lettres avant les
   > voyelles ne change rien au résultat. Le critère retenu est désormais le
   > RÉSULTAT : une étape dont le retrait laisse le chemin aboutir au même état
   > est retirée, même si elle changeait une image intermédiaire. De même, N2
   > trie les suites commutantes **dans le chemin** avant de calculer N1 — comme
   > le §4.8 le demande — et non plus seulement dans la clé, où la trace des
-  > valeurs suffisait à faire survivre `f3+f1+n3` à côté de `f1+f3+n3`.
+  > valeurs suffisait à faire survivre `ftld+fp+nc` à côté de `fp+ftld+nc`.
   >
   > *Amendement — N1 déduplique enfin sur ce qui est montré.* La clé de
   > `canonicaliser` valait `trace des valeurs affichées` **+ suite des codes**.
@@ -2753,7 +2941,7 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   >   est plafonné au compte annoncé (`min(six, séries × 3)`, les séries venant
   >   de `deduireMode`, donc de la géométrie : un lien rejoué retrouve son
   >   score). Ce qui l'a révélé est le test qui recoupe le rendement avec ce que
-  >   l'étape de tri AFFICHE : `f9+t1+m5+mt` sur `https://hope-hope-hope.fr/`
+  >   l'étape de tri AFFICHE : `fc+tca+mx6+mrn` sur `https://hope-hope-hope.fr/`
   >   annonçait 384 pour une scène qui garde trois jetons et en jette dix,
   >   c'est-à-dire 230. Mesuré ailleurs : `hope` en quatorze segments passe de
   >   ×1,00 à ×0,87 ; les moissons de `hope-hope-hope.fr` (15/15) et de
@@ -2769,8 +2957,8 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   >   attribut `genre` que le catalogue ne porte sur **aucun** de ses quarante
   >   mappeurs —, si bien que `score.js › maniere` fournit la taxonomie manquante
   >   (géométrie · alphabet · jeu · clavier · code · comptage). Un combinateur
-  >   **aveugle** (`c.cardinal`) ramène la manière à « comptage » : `t1+m3+c7` et
-  >   `t1+m7+c7` annoncent deux numérologies et comptent tous deux les lettres.
+  >   **aveugle** (`c.cardinal`) ramène la manière à « comptage » : `tca+mpy+cnv` et
+  >   `tca+msen+cnv` annoncent deux numérologies et comptent tous deux les lettres.
   >
   > *Amendement — l'ordre total gagne un cran.* §4.4-1 devient : score DESC →
   > **séries DESC** → `L` ASC → codes ASC. Deux groupements qui produisent l'un
@@ -2797,7 +2985,7 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   >   trois 6 existent pourtant ailleurs — le tiret est sur la touche du 6, `fr`
   >   vaut 4 + 2 en sept segments. Rien n'oblige à les tirer d'un seul programme :
   >   les jetons sont naturellement disjoints et la grammaire §4.2 écrit déjà une
-  >   portée par fragment (`0.1:t1+mw,1.1:t1+mv+c1,…`). **Quinze 6, cinq séries,
+  >   portée par fragment (`0.1:tca+m14,1.1:tca+mtc+cs,…`). **Quinze 6, cinq séries,
   >   pas un caractère compté deux fois** ; avec `https://` devant, dix-huit 6 et
   >   six séries. Le choix des portées est un **ordonnancement pondéré
   >   d'intervalles**, résolu exactement par programmation dynamique sur les
@@ -2837,8 +3025,8 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   >   compte. Le nombre de 6 y servait de mesure du gaspillage, et c'est un
   >   mauvais indicateur : un programme peut rendre moins de 6 en calculant
   >   beaucoup plus de valeurs. Mesuré sur `Donald Trump`, la portée `Trump`
-  >   disposait de `fl+t1+mw+mz` — **trois 6 sur trois valeurs, rien de jeté** —
-  >   et d'un `fk+t1+mw` qui rend **deux 6 sur cinq valeurs** ; il y avait un 6
+  >   disposait de `fr13+tca+m14+m36` — **trois 6 sur trois valeurs, rien de jeté** —
+  >   et d'un `fatb+tca+m14` qui rend **deux 6 sur cinq valeurs** ; il y avait un 6
   >   de trop dans la récolte, et l'ancienne règle troquait le premier contre le
   >   second — échangeant *un 6 en trop* contre *trois valeurs calculées puis
   >   écartées*. Exactement le contraire de ce que ce point annonce.
@@ -2906,8 +3094,8 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   > | le triptyque CONTIGU, et sa CASSE | dès qu'un état porte trois 6 d'affilée, le chemin doit s'arrêter sur un aboutissement légitime — un vecteur qui les porte encore, ou le nombre 666. Tout le reste a défait ce qui était écrit |
   > | la PRÉCOCITÉ du triptyque | le rang du dernier 6 du triptyque dans le vecteur final. Une conversion par table émet un aller-retour **par lettre** (§3.1) : ce rang dit à quelle conversion élémentaire le 666 est complet |
   > | un 6 CONVERTI en autre chose | la perte de 6 sur une agrégation (`6 + 6 = 12`) ou un remplacement terme à terme. Faire un 6 ou un 666 **de** ses 6 est exempté : c'est le but |
-  > | des valeurs calculées puis JETÉES | le rétrécissement d'un vecteur (`mz`, `mu`) et le surplus que le verdict laisse tomber. Ce qu'une somme ABSORBE n'y entre pas — agréger n'est pas écarter |
-  > | la nature des transformations | additions de chiffres (`p1`, `p2`, `pa`, `mt`, et `c1` sur des chiffres) · additions de nombres (`c1` sur des nombres) · moyennes · min/max · chiffrements lettre → lettre |
+  > | des valeurs calculées puis JETÉES | le rétrécissement d'un vecteur (`m36`, `m0`) et le surplus que le verdict laisse tomber. Ce qu'une somme ABSORBE n'y entre pas — agréger n'est pas écarter |
+  > | la nature des transformations | additions de chiffres (`prn`, `psc`, `prm`, `mrn`, et `cs` sur des chiffres) · additions de nombres (`cs` sur des nombres) · moyennes · min/max · chiffrements lettre → lettre |
   > | l'AMPLITUDE d'un arrondi | `c.moyenne` calcule `round(somme / n)` : l'écart au nombre juste vaut `min(r, n − r) / n`, exact et entier |
   > | les caractères ABANDONNÉS, en trois tas | lettre ou chiffre arraché au milieu d'un bloc dont on garde le reste · bloc entier écarté · bloc entier de **moins de trois lettres** · ponctuation |
   >
@@ -2920,7 +3108,7 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   > entière : le compte devient un minorant déclaré, pas une invention.
   >
   > ★ **Le barème lit la GÉOMÉTRIE, jamais la présence d'un code.** `[6,6,6,4,4]`
-  > gagne son bonus de contiguïté qu'on ait employé `mz` ou non. Même raison que
+  > gagne son bonus de contiguïté qu'on ait employé `m36` ou non. Même raison que
   > `deduireMode` : une URL rejouée doit retrouver exactement le score de la
   > ligne dont elle est issue (§4.3), et tout ce qui précède se **recalcule**
   > depuis les parts et leurs chemins. Un test le vérifie sur les quatre cas de
@@ -3018,9 +3206,9 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   > | la demande | l'opérateur | le palier |
   > |---|---|---|
   > | « ne garder artificiellement que les 6 » | *aucun* — c'est l'étape de tri du scénario, sans code ; elle se lit sur la géométrie | `VALEUR_JETEE` |
-  > | « le plus fréquent l'emporte » | **`m10`** `m.plusFrequent` | `MAJORITE` |
-  > | « garder un caractère sur deux » | **`m11`** `m.unRangSurDeux` | `DECIMATION` |
-  > | « l'addition SÉLECTIVE de chiffres contigus » (`6, 5+1, 6, 8`) | **`m12`** `m.additionSelective` | `ADDITION_SELECTIVE` |
+  > | « le plus fréquent l'emporte » | **`mpf`** `m.plusFrequent` | `MAJORITE` |
+  > | « garder un caractère sur deux » | **`m1s2`** `m.unRangSurDeux` | `DECIMATION` |
+  > | « l'addition SÉLECTIVE de chiffres contigus » (`6, 5+1, 6, 8`) | **`mad`** `m.additionSelective` | `ADDITION_SELECTIVE` |
   >
   > ★ **L'unité des trois paliers est celle de `VALEUR_JETEE`** : ce que le geste
   > coûte **par valeur écartée** — par **chiffre absorbé** pour l'addition
@@ -3037,7 +3225,7 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   > `TRIPTYQUE_CONTIGU` (260), le couronnement (≤ 150) et le solde multiple de
   > trois (90). **Mesuré** : à 32 / 24 / 16 par valeur — c'est-à-dire *sous*
   > `VALEUR_JETEE` —, `Macron` perdait sa voie de référence au profit de
-  > `t1+m8+m10` et `Donald Trump` perdait la sienne entièrement. **Trois des
+  > `tca+mt9+mpf` et `Donald Trump` perdait la sienne entièrement. **Trois des
   > quatre cas de référence tombaient.** Les tarifs retenus (180 / 130 / 100)
   > laissent le solde **juste positif** face au tri arbitraire et franchement
   > négatif face à une voie qui atteint le même 666 sans ficelle. Deux tests le
@@ -3047,13 +3235,13 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   > GÉNÉRIQUE — « cette méthode est-elle taillée pour la cible ? » — sur le score
   > de conviction ; le barème d'élégance mesure une chose SPÉCIFIQUE — « qu'a-t-on
   > fait, exactement, pendant le calcul ? » — sur le chemin. Les deux se
-  > composent, comme ils le font déjà pour `my` (adHoc 0,35, aucun palier) et pour
+  > composent, comme ils le font déjà pour `mr9` (adHoc 0,35, aucun palier) et pour
   > `c.moyenne` (adHoc bas, palier `ARRONDI`).
   >
   > ### Le compte des triptyques — par 666, plus par portée
   >
   > ⚠️ **DÉFAUT MESURÉ.** `TRIPTYQUE_CONTIGU` se comptait **par portée** qui porte
-  > un triptyque, jamais par triptyque. Sur `hope-hope-hope.fr`, `f6+t1+mw` rend
+  > un triptyque, jamais par triptyque. Sur `hope-hope-hope.fr`, `fl+tca+m14` rend
   > douze 6 d'affilée — **quatre 666** — et n'en touchait qu'un, comme une portée
   > qui n'en écrit qu'un seul. « Plus tu produis de 6, mieux c'est » se trouvait
   > démenti à l'endroit exact où le vecteur en produit le plus.
@@ -3069,7 +3257,7 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   >   leur abondance est **déjà payée** par `SIX_SURNUMERAIRE`.
   >
   > D'où `TRIPTYQUE_REPETE = 90`, un tiers du tarif plein. **Mesuré** : au tarif
-  > plein, `f6+t1+mw` passait de 1 576 à 2 419 et doublait la moisson à cinq
+  > plein, `fl+tca+m14` passait de 1 576 à 2 419 et doublait la moisson à cinq
   > séries (2 293) — `hope-hope-hope.fr` perdait sa voie de référence. Au tiers,
   > elle passe à **1 846** : le compte juste se voit, et la moisson qui lit toute
   > la saisie garde la tête. Le total crédité est en outre **plafonné au nombre de
@@ -3084,7 +3272,7 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   > a été implémenté, puis retiré. Voici pourquoi, en chiffres.
   >
   > ★ **D'abord, une lecture à rectifier.** Sur `hope-hope-hope.fr`, **deux
-  > approches distinctes portent les mêmes codes `f6+t1+mw`**, sur deux portées
+  > approches distinctes portent les mêmes codes `fl+tca+m14`**, sur deux portées
   > différentes — et le banc n'affiche que les codes :
   >
   > | portée | vecteur | bilan |
@@ -3095,7 +3283,7 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   > Une fois le compte des triptyques réparé, c'est la **seconde** qui prend la
   > tête (2 419) — celle qui ne jette rien. Le levier du gaspillage n'a donc
   > **aucune prise sur le cas qui le motivait** : balayage `VALEUR_JETEE` porté à
-  > 78, 150, 300 puis **600**, la tête reste `f6+t1+mw` à 2 419 aux cinq valeurs,
+  > 78, 150, 300 puis **600**, la tête reste `fl+tca+m14` à 2 419 aux cinq valeurs,
   > sans bouger d'une milli-unité.
   >
   > ★ **Ensuite, il écrase la MOISSON**, qui est le mode mis en tête. Une moisson
@@ -3109,14 +3297,14 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   > | 78 | **5** | **4** (+ `example.com` 5 → 1, `jean-michel` 2 → 1) |
   >
   > ★ **Enfin — et c'est le retournement décisif — il promeut MÉCANIQUEMENT les
-  > ficelles.** `m10`, `m11` et `m12` ne paient pas ce poste : leur palier le
+  > ficelles.** `mpf`, `m1s2` et `mad` ne paient pas ce poste : leur palier le
   > remplace. Plus le gaspillage coûte cher, plus la ruse qui l'escamote devient
   > rentable. Mesuré sur `Le chat dort sur le tapis rouge`, pour **neuf**
   > milli-unités d'écart :
   >
   > ```
   >   à 36 → 1. moisson 5×666 (1 129)   · la ficelle n'est pas dans les trois
-  >   à 45 → 1. fl+t1+mw+m10 1×666 (1 102) · la moisson tombe à 1 057
+  >   à 45 → 1. fr13+tca+m14+mpf 1×666 (1 102) · la moisson tombe à 1 057
   > ```
   >
   > Alourdir le gaspillage, c'est payer la ficelle pour cacher le gaspillage.
@@ -3240,14 +3428,14 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   > > pénaliser en conséquence. »
   >
   > Un MOTIF, c'est ce qui permet de dire pourquoi ceux-là et pas les autres :
-  > être minoritaire (`m10`), occuper un rang pair ou impair (`m11`). Ce sont des
+  > être minoritaire (`mpf`), occuper un rang pair ou impair (`m1s2`). Ce sont des
   > règles qu'on énonce, qu'on affiche sous l'accolade, et que le spectateur peut
   > vérifier. Effacer parce que ça arrange, sans rien pouvoir en dire, est le
   > sommet de l'échelle : `EFFACEMENT_SANS_MOTIF`, **au-dessus de tous les autres
   > paliers de triche**.
   >
   > ⚠️ **Le compteur existe et vaut zéro** : aucun opérateur du catalogue
-  > n'efface sans motif. Il attend la scission du geste de `mz`, qui couronne ET
+  > n'efface sans motif. Il attend la scission du geste de `m36`, qui couronne ET
   > tronque en un seul mouvement. Pour le brancher, il suffit d'inscrire
   > l'identifiant de l'opérateur en face de `'effacementSansMotif'` dans
   > `FICELLES` : le décompte, la ligne de crédit, l'exemption de `valeursJetees`
@@ -3268,15 +3456,15 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   >   qu'il reste les récompenserait d'avoir jeté davantage), et faux pour celles
   >   qui absorbent — leur ligne de chiffres momentanément élargie est le calcul
   >   MONTRÉ, pas du déchet. D'où `elegance.js › FICELLES_QUI_ECARTENT`. Mesuré :
-  >   `f6+t1+mw+m16` affichait un rendement de 789 pour une scène qui garde
+  >   `fl+tca+m14+mrd` affichait un rendement de 789 pour une scène qui garde
   >   quinze jetons et n'en jette que deux (≈ 882).
   >
   > · **Aucune ficelle en 2ᵈ SUGGESTION.** Cette place-là ne récompense qu'une
   >   chose, le NOMBRE de séries. Une ficelle n'en donne pas davantage, elle en
   >   FABRIQUE. C'est la même règle que §4.1 pose déjà pour la MOISSON, appliquée
   >   à l'autre endroit où la quantité est mise en avant pour elle-même. Mesuré
-  >   sur « Millicent » : `fl+t1+m5+m16` (trois séries, élégance 1 278) prenait la
-  >   seconde place au-dessus de `fl+t1+m5+mt` (deux séries, élégance 1 310), et
+  >   sur « Millicent » : `fr13+tca+mx6+mrd` (trois séries, élégance 1 278) prenait la
+  >   seconde place au-dessus de `fr13+tca+mx6+mrn` (deux séries, élégance 1 310), et
   >   la liste affichait un compte de séries qui REMONTE — ce qu'un test de
   >   classement interdit depuis toujours.
   >
@@ -3415,7 +3603,7 @@ attendu sur les 7 méthodes du README sert de premier jeu de vérification.
    dernier ?** — *décision d'auteur, laissée ouverte.*
 
    `rendementSix` lit l'état FINAL de chaque part. Tant qu'aucun opérateur ne
-   rétrécissait un vecteur, les deux lectures coïncidaient. `mz` (« trois 6
+   rétrécissait un vecteur, les deux lectures coïncidaient. `m36` (« trois 6
    d'affilée ») en rétrécit un : `[6,6,6,7,3,6]` devient `[6,6,6]`, donc « trois
    6 sur trois valeurs » alors que **six ont été calculées et que la scène en
    montre trois s'effacer**. Le rendement, qui existe pour punir exactement
@@ -3428,10 +3616,10 @@ attendu sur les 7 méthodes du README sert de premier jeu de vérification.
    que le rendement mesure, et que les cornes ne gagnent pas.
 
    **Mesuré**, en faisant lire au rendement le vecteur le plus large :
-   `Donald Trump` garde le même rang 1 (`t1+mw+mz,fl+t1+mw+mz`, deux séries),
+   `Donald Trump` garde le même rang 1 (`tca+m14+m36,fr13+tca+m14+m36`, deux séries),
    mais tombe de **6 475 à 4 778** (R : 1 000 → 545) ; `hope-hope-hope.fr`
    passe de 4 251 à 4 110 (R : 1 000 → 937) ; `https://hope-hope-hope.fr/` de
-   3 736 à 3 645 ; `hope` reprend la tête avec `t1+mw` plutôt que `t1+mw+mz`,
+   3 736 à 3 645 ; `hope` reprend la tête avec `tca+m14` plutôt que `tca+m14+m36`,
    les deux tombant à R = 750. **La demande de l'auteur ne dépend donc pas de
    cet aveuglement** — seule la valeur du score en dépend. Le changement n'a pas
    été fait : c'est un arbitrage de score, et il appartient à l'auteur.
@@ -3443,7 +3631,7 @@ attendu sur les 7 méthodes du README sert de premier jeu de vérification.
    >
    > Le barème d'élégance (§5, amendement « l'élégance se mesure sur le chemin »)
    > mesure **les deux**, et séparément : `TRIPTYQUE_CONTIGU` crédite le premier,
-   > `VALEUR_JETEE` débite le second, et le rétrécissement d'un vecteur par `mz`
+   > `VALEUR_JETEE` débite le second, et le rétrécissement d'un vecteur par `m36`
    > y compte pour ce qu'il est. Sur `Donald Trump`, le bilan de la voie de
    > référence porte noir sur blanc « valeurs calculées puis jetées ×5 » : les
    > trois valeurs que `Donald` écarte et les deux que `Trump` écarte. Le

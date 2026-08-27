@@ -129,7 +129,7 @@ function groupesSyllabes(valeur) {
 
 const brut = [
   {
-    id: 't.caracteres', code: 't1', famille: 'decoupe', from: 'STR', to: 'TOKENS',
+    id: 't.caracteres', code: 'tca', famille: 'decoupe', from: 'STR', to: 'TOKENS',
     libelle: bilingue('On prend les lettres une par une', 'Take the letters one by one'),
     regle: bilingue('Un caractère, un jeton', 'One character, one token'),
     notoriete: 0.95, cout: 1,
@@ -146,7 +146,7 @@ const brut = [
     ]))],
   },
   {
-    id: 't.mots', code: 't2', famille: 'decoupe', from: 'STR', to: 'TOKENS',
+    id: 't.mots', code: 'tm', famille: 'decoupe', from: 'STR', to: 'TOKENS',
     libelle: bilingue('On découpe en mots', 'Split into words'),
     regle: bilingue('Les séparateurs - . _ / marquent les mots', 'The separators - . _ / mark out the words'),
     notoriete: 0.90,
@@ -157,7 +157,7 @@ const brut = [
     groupes: groupesMots,
   },
   {
-    id: 't.separateurs', code: 't3', famille: 'decoupe', from: 'STR', to: 'TOKENS',
+    id: 't.separateurs', code: 'tsp', famille: 'decoupe', from: 'STR', to: 'TOKENS',
     libelle: bilingue('On ne garde que les séparateurs', 'Keep the separators only'),
     regle: bilingue('Les tirets, points et barres comptent aussi', 'Dashes, dots and slashes count too'),
     notoriete: 0.55,
@@ -177,7 +177,7 @@ const brut = [
     },
   },
   {
-    id: 't.syllabes', code: 't4', famille: 'decoupe', from: 'STR', to: 'TOKENS',
+    id: 't.syllabes', code: 'tsy', famille: 'decoupe', from: 'STR', to: 'TOKENS',
     libelle: bilingue('On découpe en syllabes', 'Split into syllables'),
     regle: bilingue('Une voyelle, une consonne, une voyelle : on coupe entre',
       'Vowel, consonant, vowel: the cut goes in between'),
@@ -189,7 +189,7 @@ const brut = [
     groupes: groupesSyllabes,
   },
   {
-    id: 't.chiffres', code: 't5', famille: 'decoupe', from: 'NUM', to: 'NUMS',
+    id: 't.chiffres', code: 'tch', famille: 'decoupe', from: 'NUM', to: 'NUMS',
     libelle: bilingue('On éclate le nombre en chiffres', 'Break the number into digits'),
     regle: bilingue('44 devient 4 et 4', '44 becomes 4 and 4'),
     notoriete: 0.90,

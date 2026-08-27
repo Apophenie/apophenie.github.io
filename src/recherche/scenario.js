@@ -120,11 +120,11 @@ function genreEtat(type) {
  * Le critère est la suite des ÉLÉMENTS, c'est-à-dire les unités que le
  * spectateur distingue — pas le type de l'état, ni la chaîne rendue.
  *
- *  · `t1` « on prend les lettres une par une » fait passer `STR 'hope'` à
+ *  · `tca` « on prend les lettres une par une » fait passer `STR 'hope'` à
  *    `TOKENS ['h','o','p','e']` : le type change, les quatre glyphes de la
  *    ligne sont exactement les mêmes. Rien à montrer.
- *    N3 (`research/heuristique.md §4.8`) ne peut PAS l'attraper : retirer `t1`
- *    du chemin le rend mal typé (`me` part de `TOKENS`), donc le chemin
+ *    N3 (`research/heuristique.md §4.8`) ne peut PAS l'attraper : retirer `tca`
+ *    du chemin le rend mal typé (`m7F` part de `TOKENS`), donc le chemin
  *    n'aboutit plus du tout. C'est bien une question de rendu, pas de
  *    recherche — d'où ce filtre ici.
  *  · À l'inverse, `STR 'hope'` → `TOKENS ['hope']` (découpe en mots d'un mot
@@ -1290,21 +1290,21 @@ function dUnSeulTenant(ligne, trio) {
  * OPÉRATEUR NE COURONNE PLUS », et CONTRACTS §3.1.
  *
  * **Le manque, tel qu'il se constatait.** L'unique source de cornes du projet
- * était alors l'opérateur `mz` (`m.troisSixDAffilee`), et il faisait DEUX
+ * était alors l'opérateur `m36` (`m.troisSixDAffilee`), et il faisait DEUX
  * choses : il couronnait trois 6 contigus **et il tronquait le vecteur à ces
  * trois-là**. C'est
  * juste quand le vecteur ne rapporte qu'une série — sur `Donald Trump`, il n'y
  * a rien à garder après le 666 —, et c'est ruineux dès qu'il en rapporte
- * plusieurs : sur `hope-hope-hope.fr`, `mz` ne garderait que 3 des 15 six, une
+ * plusieurs : sur `hope-hope-hope.fr`, `m36` ne garderait que 3 des 15 six, une
  * série au lieu de cinq, et le classement le rejette à juste titre. La voie
  * mise en vitrine (`src/i18n/fr.js`) est donc, très légitimement, une voie
- * SANS `mz` — et elle ne montrait aucune corne, faute d'émetteur.
+ * SANS `m36` — et elle ne montrait aucune corne, faute d'émetteur.
  *
  * **Ce que l'auteur demande.** « Les 3 premiers 6 devraient pouvoir recevoir
  * leur corne entre l'étape 5 et 6, puis entre 13 et 14 pour les 666 de "ope"
  * du 2nd hope. » Autrement dit : **dès que trois 6 deviennent contigus au fil
  * de la démonstration, on les couronne à cet instant-là, sans rien effacer.**
- * C'est très exactement la moitié « couronnement » du geste de `mz`, détachée
+ * C'est très exactement la moitié « couronnement » du geste de `m36`, détachée
  * de sa moitié « effacement » — laquelle n'a aucune raison d'exister ici,
  * puisqu'il n'y a rien à jeter : les autres 6 sont d'autres séries.
  *
@@ -1332,7 +1332,7 @@ function dUnSeulTenant(ligne, trio) {
  *
  * ★ **Pourquoi ICI et pas dans le catalogue** (CONTRACTS §3.1, et le même
  * argument que pour le décor mutualisé des tables). Un opérateur ne voit que sa
- * propre étape : `mw` appliqué au « h » du deuxième `hope` ne peut savoir ni
+ * propre étape : `m14` appliqué au « h » du deuxième `hope` ne peut savoir ni
  * que le « e » du premier et le tiret qui suit portent déjà un 6, ni que les
  * trois formeront une série au verdict. L'assemblage, lui, voit les deux choses
  * qu'il faut voir ensemble — **la suite complète des étapes** et **la liste des
@@ -1355,7 +1355,7 @@ function dUnSeulTenant(ligne, trio) {
  * disent la même chose.
  *
  * ★ **Un couronnement DÉJÀ POSÉ n'est pas doublé.** Une moisson peut mêler des
- * portées qui passent par `mz` et d'autres non ; on ne recouronne pas ce que
+ * portées qui passent par `m36` et d'autres non ; on ne recouronne pas ce que
  * l'opérateur a déjà couronné (un id de nœud de décor est dérivé du jeton, deux
  * couronnements sur le même 6 se disputeraient le même nœud).
  *
@@ -1483,7 +1483,7 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
       id: `s${steps.length}`,
       title: MOTS.couronner[langue],
       caption: MOTS.couronnerLegende[langue],
-      // ★ Aucun `efface` : c'est tout le propos. `mz` couronnait ET tronquait ;
+      // ★ Aucun `efface` : c'est tout le propos. `m36` couronnait ET tronquait ;
       // ici il n'y a rien à jeter — ce qui entoure ce 666 est un autre 666, ou
       // le sera. La primitive accepte la liste vide sans rien changer d'autre
       // (`visuel/primitives/horns.js`), et `mutualiserDecor` sait déjà qu'un
@@ -1502,7 +1502,7 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
  * ★ LE COURONNEMENT AU PLUS TÔT — et il n'y a plus que ce moment-là à régler.
  *
  * **Ce que cette fonction faisait, et ne fait plus.** Elle réglait DEUX
- * horloges. `mz` émettait un geste unique — les cornes poussaient pendant que
+ * horloges. `m36` émettait un geste unique — les cornes poussaient pendant que
  * le reste de la séquence s'effaçait — et il fallait le scinder : avancer le
  * couronnement dès que les trois 6 contigus existaient, repousser l'effacement
  * jusqu'au seul geste d'écartement que la démonstration s'autorise, juste avant
@@ -1512,7 +1512,7 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
  * n'appartient plus à aucun opérateur : il est posé par l'assemblage, sur la
  * LIGNE et selon le REGISTRE (`couronnerLesTriptyques`), et il est posé
  * d'emblée à l'instant où le triptyque s'écrit. L'effacement, lui, reste chez
- * `mz` — c'est sa part d'arithmétique, celle que l'URL nomme —, et il y est
+ * `m36` — c'est sa part d'arithmétique, celle que l'URL nomme —, et il y est
  * devenu une étape à part entière, avec son motif montré avant d'être exercé
  * (`transformations/mappeurs.js`). Il n'y a donc plus rien à différer : ce qui
  * s'efface s'efface là où le code le dit.
@@ -1562,15 +1562,15 @@ function reglerLesCornes(steps) {
 
   /* ★ LE REPORT DE L'EFFACEMENT A DISPARU — et avec lui une garde de libellé.
 
-     Tant que `mz` faisait un seul geste indivisible — couronner ET effacer —,
+     Tant que `m36` faisait un seul geste indivisible — couronner ET effacer —,
      l'assemblage pouvait avancer le couronnement et repousser l'effacement
      jusque devant le verdict, où il rejoignait le tri. D'où une précaution :
      ce tri s'était dit « majoritaire » sur la ligne qu'il avait alors sous les
      yeux, et lui joindre des valeurs qu'il n'avait pas comptées pouvait rendre
-     cette affirmation fausse — `mz` tronquant à trois chiffres d'affilée,
+     cette affirmation fausse — `m36` tronquant à trois chiffres d'affilée,
      `[6,6,6,6]` y perdait son quatrième. On retirait donc l'affirmation.
 
-     `mz` n'émet plus de cornes : il ne lui reste que sa gomme, qui se joue à
+     `m36` n'émet plus de cornes : il ne lui reste que sa gomme, qui se joue à
      SON étape, avec son motif montré avant d'être exercé. Il n'y a donc plus
      rien à reporter, plus rien à joindre au tri, et plus rien à retirer. La
      garde n'est pas supprimée parce qu'elle gênait : elle est supprimée parce
@@ -1607,9 +1607,9 @@ function reglerLesCornes(steps) {
  * deux mises en scène.
  *
  * ★ **Et `efface` n'existe plus ici.** Le geste des cornes ne portait un
- * effacement que du temps où `mz` les émettait, couronnement et troncature
+ * effacement que du temps où `m36` les émettait, couronnement et troncature
  * d'un seul tenant. Les deux ont été séparés à la source : l'effacement est
- * resté chez `mz`, sous forme d'étape à part entière, identique dans les deux
+ * resté chez `m36`, sous forme d'étape à part entière, identique dans les deux
  * registres (`transformations/mappeurs.js`). On garde néanmoins la branche —
  * la primitive accepte toujours un `efface`, et un scénario relu d'ailleurs
  * pourrait en porter un.
@@ -2117,7 +2117,7 @@ export function construireScenario(approche, ctx = {}) {
   }
 
   // ★ Les CORNES sont remises à l'heure ici, et nulle part ailleurs — même
-  //   raison que pour le décor des tables : `mz` ne voit que sa propre étape,
+  //   raison que pour le décor des tables : `m36` ne voit que sa propre étape,
   //   et ne peut donc savoir ni quand ses trois 6 sont nés, ni ce que la suite
   //   leur fera. Avant `mutualiserDecor`, parce que déplacer une étape change
   //   les séries qu'une table traverse.
@@ -2592,7 +2592,7 @@ const majuscule = (mot) => (mot ? mot[0].toUpperCase() + mot.slice(1) : mot);
  *
  * « Les 6 sont majoritaires, on les garde / Les chiffres minoritaires ne sont
  * pas significatifs, on les retire » — l'auteur, sur l'étape 14 de
- * `#sce!3.1:t1+m3+my#3A8ev…`. La phrase est belle parce qu'elle donne une
+ * `#sce!3.1:tca+mpy+mr9#3A8ev…`. La phrase est belle parce qu'elle donne une
  * RAISON là où l'ancienne se contentait de désigner ; elle n'est belle que
  * tant qu'elle est vraie.
  *
@@ -2682,7 +2682,7 @@ const MOTS = Object.freeze({
    * ★ LE TRI FINAL — trois façons de le dire, et c'est la MESURE qui choisit.
    *
    * « "On ne garde que les 6", or ce sont les 7 que tu gardes. Le titre est à
-   * rendre dynamique » — l'auteur, sur `#so!c777!t1+mc+mt#Hi75aotg77MXEgC`. Le
+   * rendre dynamique » — l'auteur, sur `#so!c777!tca+masb+mrn#Hi75aotg77MXEgC`. Le
    * « 6 » en dur datait d'un monde où le verdict ne pouvait rien écrire d'autre ;
    * depuis `cible.js`, il ment dès qu'on vise autre chose, et il mentait déjà à
    * l'oreille sur `13` (« séries de trois » pour des séries de deux).
@@ -2695,7 +2695,7 @@ const MOTS = Object.freeze({
    * ── Les trois formulations ────────────────────────────────────────────────
    *
    *  1. **« Les 6 sont majoritaires, on les garde »** — la formulation demandée
-   *     par l'auteur pour `#sce!3.1:t1+m3+my#3A8ev…` (étape 14). C'est la seule
+   *     par l'auteur pour `#sce!3.1:tca+mpy+mr9#3A8ev…` (étape 14). C'est la seule
    *     qui ARGUMENTE : elle ne dit plus « on garde ce qu'on cherchait », elle
    *     invoque la majorité, c'est-à-dire une propriété de la ligne qu'on a sous
    *     les yeux. C'est de la rhétorique numérologique, et c'est le propos du
@@ -2781,7 +2781,7 @@ const MOTS = Object.freeze({
   // ── Les deux moments des cornes (voir `reglerLesCornes`) ────────────────
   //
   // Tant que le couronnement et l'effacement ne faisaient qu'un geste, la
-  // légende de `mz` disait les deux d'un coup (« 6 6 6 7 3 6 → 666 »).
+  // légende de `m36` disait les deux d'un coup (« 6 6 6 7 3 6 → 666 »).
   // Séparés, chacun a la sienne, et chacune ne dit que ce qui se passe sous
   // les yeux du spectateur à cet instant-là.
   // ★ Le TITRE du couronnement, et pourquoi il est écrit ici aussi.
@@ -2790,7 +2790,7 @@ const MOTS = Object.freeze({
   // aucun opérateur derrière eux — ils ne transforment rien, ils constatent —,
   // donc pas de libellé à emprunter. La phrase reste celle de la trouvaille,
   // parce que c'est ce que le spectateur voit : le 666 était déjà écrit.
-  // ★ `mz`, lui, ne porte plus ce titre : il ne couronne plus, il s'ARRÊTE aux
+  // ★ `m36`, lui, ne porte plus ce titre : il ne couronne plus, il s'ARRÊTE aux
   // trois 6 et efface le reste, et son étape le dit maintenant en propre
   // (`LIB_ARRET`, `transformations/mappeurs.js`). Deux gestes distincts, deux
   // phrases distinctes — les confondre ferait lire deux fois le même.
@@ -2804,7 +2804,7 @@ const MOTS = Object.freeze({
   },
   // ★ Deux libellés ont disparu avec la séparation des deux gestes : « On
   // efface le reste » et sa légende. Ils nommaient l'étape que `reglerLesCornes`
-  // fabriquait en repoussant l'effacement de `mz` devant le verdict. Il n'y a
+  // fabriquait en repoussant l'effacement de `m36` devant le verdict. Il n'y a
   // plus rien à repousser : l'effacement est resté chez son opérateur, où il
   // est devenu une étape à part entière portant SON motif
   // (`transformations/mappeurs.js`, « CET OPÉRATEUR NE COURONNE PLUS »).

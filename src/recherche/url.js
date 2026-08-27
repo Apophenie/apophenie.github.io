@@ -33,11 +33,16 @@
 // qu'on CHERCHE, donc ce que le moteur retiendra. C'est une extension de la
 // GRAMMAIRE, au même titre que `×3:` et que les portées `0.1:`.
 //
-// ★ **Aucune ambiguïté avec un code de combinateur.** `c1` est bien un code
-// d'opérateur (la somme), et `c111!` commence par les mêmes signes. Le `!` les
-// sépare sans reste : il est interdit dans un programme, et le marqueur ne se
-// lit qu'en TÊTE, avant le premier fragment. `#c1+m4#…` reste donc un
-// programme qui commence par la somme, et `#c111!c1+m4#…` la même somme visant
+// ★ **Aucune ambiguïté avec un code de combinateur.** Quand la cible a été
+// écrite, `cs` était le code de la somme et `c111!` commençait par les mêmes
+// signes ; c'est le `!` qui les séparait sans reste — il est interdit dans un
+// programme, et le marqueur ne se lit qu'en TÊTE, avant le premier fragment.
+// Depuis le passage aux codes parlants, la coïncidence n'existe même plus :
+// aucun combinateur ne s'écrit avec un chiffre au deuxième signe (`cs`, `cst`,
+// `cp`, `cal`, `cmm`, `cmo`, `cnv`, `ccat`, `cmx`, `cmn`, `cnj`, `cnjd`). Le
+// `!` reste néanmoins la séparation qui fait foi, parce qu'un code neuf de la
+// famille `c` pourrait un jour porter un chiffre. `#cs+mch#…` est donc un
+// programme qui commence par la somme, et `#c111!cs+mch#…` la même somme visant
 // 111.
 //
 // ★ **L'ABSENCE DE MARQUEUR VAUT 666, ET LE MARQUEUR N'EST PAS ÉCRIT QUAND IL
@@ -116,7 +121,18 @@ import { encoderTexte, decoderTexte, estBase58, LIMITE_SAISIE } from './base58.j
 import { normaliserCatalogue } from './bfs.js';
 import { lireCible, normaliserCible, CIBLE_DEFAUT, MAX_CHIFFRES } from './cible.js';
 
-export const RE_CODE = /^[ftnmcpj][0-9a-z]+$/;
+/**
+ * La grammaire d'un code (CONTRACTS §4.1) : lettre de famille, corps parlant en
+ * minuscules et chiffres, majuscule de variante facultative (`m14F`).
+ *
+ * ⚠ Recopiée depuis `moteur/transformations/commun.js`, et **pas importée** :
+ * `src/recherche` ne connaît le catalogue que par injection, c'est ce qui lui
+ * permet d'être testé sur un catalogue de fantaisie. Le prix de ce découpage
+ * est cette copie ; il est payé par un test qui exige les trois écritures
+ * identiques (`url.test.js`), plutôt que par une dépendance qui les
+ * réconcilierait en cassant l'injection.
+ */
+export const RE_CODE = /^[ftnmcpj][0-9a-z]+[A-Z]?$/;
 const RE_PORTEE = /^(\d+)\.(\d+)$/;
 const RE_RESONANCE = /^[×xX*](\d+)$/;
 const RE_RANGS = /^\d+(\+\d+)*$/;
@@ -128,7 +144,7 @@ const RE_RANGS = /^\d+(\+\d+)*$/;
  * « scenique » en toutes lettres, au nom de la lisibilité. L'auteur a tranché
  * dans l'autre sens, et son argument est meilleur que le mien : « l'URL reste
  * essentiellement cryptique et ça participe à l'effet de surprise ». Le reste
- * de la grammaire est déjà illisible — `0.1:fk+t1+mw` —, et un seul mot clair
+ * de la grammaire est déjà illisible — `0.1:fatb+tca+m14` —, et un seul mot clair
  * au milieu ne rendait pas le lien compréhensible : il annonçait juste, à qui
  * reçoit le lien, qu'il y a quelque chose à voir. Trois lettres suffisent à
  * distinguer les deux registres sans rien divulguer.
@@ -155,7 +171,7 @@ export const REGISTRE_DEFAUT = 'sobre';
  *
  * Le décor du verdict est celui du 666 : les cornes de diable, dérivées de la
  * police et calées au flanc du 6 (`visuel/primitives/horns.js`), émises par
- * l'opérateur `mz`. L'auteur a décrit un emblème par cible — une auréole pour
+ * l'opérateur `m36`. L'auteur a décrit un emblème par cible — une auréole pour
  * 111, un jackpot pour 777, un fer à cheval ou une bouse pour 13, une référence
  * à James Bond pour 007, un trou noir, une faux ou deux dés pour 000 — et a
  * demandé de les REMETTRE À PLUS TARD (`.planning/A-VENIR-cibles.md`).

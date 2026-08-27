@@ -44,7 +44,7 @@
 //
 // ── Ce que le zéro coûte, et pourquoi on l'accepte quand même ───────────────
 //
-// Le catalogue contient un opérateur « on retire les zéros » (`mu`), et le
+// Le catalogue contient un opérateur « on retire les zéros » (`m0`), et le
 // barème d'élégance récompense la concision : viser `000` demande au moteur de
 // produire ce que le reste du site s'emploie à faire disparaître. On l'accepte
 // tel quel — la cible ne modifie NI le catalogue NI le barème, elle change

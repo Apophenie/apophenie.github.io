@@ -292,7 +292,7 @@ const deleet = (s) => s.replace(/[431057]/g, (c) => LEET[c] ?? c);
 
 const brut = [
   {
-    id: 'f.protocole', code: 'f1', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.protocole', code: 'fp', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ignore le protocole', 'Ignore the protocol'),
     regle: bilingue('https:// , http:// , ftp:// ne disent rien de l’adresse',
       'https://, http://, ftp:// say nothing about the address'),
@@ -308,7 +308,7 @@ const brut = [
     },
   },
   {
-    id: 'f.www', code: 'f2', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.www', code: 'fw', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ignore le « www. »', 'Ignore the "www."'),
     regle: bilingue('Le sous-domaine www n’appartient pas au nom',
       'The www subdomain is no part of the name'),
@@ -320,7 +320,7 @@ const brut = [
     couverture: (valeur) => (/^www\./i.test(valeur) ? [[0, 4]] : []),
   },
   {
-    id: 'f.tld', code: 'f3', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.tld', code: 'ftld', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ignore l’extension', 'Ignore the extension'),
     regle: bilingue('.fr, .com, .org… ne sont qu’un rayon de bibliothèque',
       '.fr, .com, .org… are only a shelf in the library'),
@@ -337,7 +337,7 @@ const brut = [
     },
   },
   {
-    id: 'f.avantSlash', code: 'f4', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.avantSlash', code: 'fav', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On garde ce qui précède le « / »', 'Keep what comes before the "/"'),
     regle: bilingue('Le domaine, pas le chemin', 'The domain, not the path'),
     notoriete: 0.70,
@@ -348,7 +348,7 @@ const brut = [
     },
   },
   {
-    id: 'f.apresSlash', code: 'f5', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.apresSlash', code: 'fap', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On garde ce qui suit le « / »', 'Keep what comes after the "/"'),
     regle: bilingue('Le chemin, pas le domaine', 'The path, not the domain'),
     notoriete: 0.60,
@@ -359,21 +359,21 @@ const brut = [
     },
   },
   {
-    id: 'f.lettres', code: 'f6', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.lettres', code: 'fl', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les lettres', 'Keep the letters only'),
     regle: bilingue('Chiffres et ponctuation sont du décor', 'Digits and punctuation are mere scenery'),
     notoriete: 0.85, commute: true,
     apply: (valeur, traces) => garder(valeur, traces, estLettreLarge),
   },
   {
-    id: 'f.voyelles', code: 'f7', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.voyelles', code: 'fv', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les voyelles', 'Keep the vowels only'),
     regle: bilingue('A, E, I, O, U — le souffle du mot', 'A, E, I, O, U — the breath of the word'),
     notoriete: 0.85, commute: true,
     apply: (valeur, traces) => garder(valeur, traces, (c) => estVoyelle(c, false)),
   },
   {
-    id: 'f.voyellesY', code: 'f8', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.voyellesY', code: 'fvy', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les voyelles, Y compris', 'Keep the vowels only, Y included'),
     regle: bilingue('A, E, I, O, U et Y', 'A, E, I, O, U and Y'),
     notoriete: 0.75, commute: true,
@@ -384,7 +384,7 @@ const brut = [
     apply: (valeur, traces) => garder(valeur, traces, (c) => estVoyelle(c, true)),
   },
   {
-    id: 'f.consonnes', code: 'f9', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.consonnes', code: 'fc', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les consonnes', 'Keep the consonants only'),
     regle: bilingue('Toutes les lettres sauf A, E, I, O, U', 'Every letter but A, E, I, O, U'),
     notoriete: 0.85, commute: true,
@@ -392,7 +392,7 @@ const brut = [
       (c) => estLettreLarge(c) && !estVoyelle(c, false)),
   },
   {
-    id: 'f.dedoublonne', code: 'fa', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.dedoublonne', code: 'fd', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On supprime les doublons', 'Drop the duplicates'),
     regle: bilingue('Une lettre déjà vue ne compte pas deux fois', 'A letter already seen does not count twice'),
     notoriete: 0.55, commute: true,
@@ -407,7 +407,7 @@ const brut = [
     },
   },
   {
-    id: 'f.repetees', code: 'fb', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.repetees', code: 'fr', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les lettres répétées', 'Keep the repeated letters only'),
     regle: bilingue('Ce qui revient au moins deux fois', 'Whatever comes back at least twice'),
     notoriete: 0.50, commute: true,
@@ -418,7 +418,7 @@ const brut = [
     },
   },
   {
-    id: 'f.initiales', code: 'fc', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.initiales', code: 'fi', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les initiales', 'Keep the initials only'),
     regle: bilingue('La première lettre de chaque mot', 'The first letter of every word'),
     notoriete: 0.65,
@@ -434,7 +434,7 @@ const brut = [
     },
   },
   {
-    id: 'f.motRepete', code: 'fd', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.motRepete', code: 'fmr', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On isole le motif répété', 'Isolate the repeated pattern'),
     regle: bilingue('X-X-X : trois fois la même chose, donc une seule',
       'X-X-X: the same thing three times over, so just the once'),
@@ -454,7 +454,7 @@ const brut = [
     },
   },
   {
-    id: 'f.traduitFR', code: 'fe', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.traduitFR', code: 'ffr', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On traduit en français', 'Translate into French'),
     regle: bilingue('Le sens ne dépend pas de la langue', 'Meaning does not depend on the language'),
     notoriete: 0.15, adHoc: 0.1,
@@ -462,7 +462,7 @@ const brut = [
     remplace: true,
   },
   {
-    id: 'f.traduitEN', code: 'ff', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.traduitEN', code: 'fen', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On traduit en anglais', 'Translate into English'),
     regle: bilingue('Le sens ne dépend pas de la langue', 'Meaning does not depend on the language'),
     notoriete: 0.15, adHoc: 0.1,
@@ -470,7 +470,7 @@ const brut = [
     remplace: true,
   },
   {
-    id: 'f.majuscule', code: 'fg', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.majuscule', code: 'fmaj', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On passe en capitales', 'Switch to capitals'),
     regle: bilingue('La capitale n’a pas le même tracé que le bas de casse',
       'A capital is not drawn like a lower-case letter'),
@@ -479,7 +479,7 @@ const brut = [
     remplace: true,
   },
   {
-    id: 'f.minuscule', code: 'fh', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.minuscule', code: 'fmin', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On passe en bas de casse', 'Switch to lower case'),
     regle: bilingue('Le bas de casse n’a pas le même tracé que la capitale',
       'A lower-case letter is not drawn like a capital'),
@@ -488,7 +488,7 @@ const brut = [
     remplace: true,
   },
   {
-    id: 'f.sansAccents', code: 'fi', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.sansAccents', code: 'fac', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On retire les accents', 'Strip the accents'),
     regle: bilingue('é devient e, ç devient c', 'é becomes e, ç becomes c'),
     notoriete: 0.85, commute: true,
@@ -496,7 +496,7 @@ const brut = [
     remplace: true,
   },
   {
-    id: 'f.leet', code: 'fj', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.leet', code: 'flt', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On décode le leetspeak', 'Decode the leetspeak'),
     regle: bilingue('4→a, 3→e, 1→i, 0→o, 5→s, 7→t', '4→a, 3→e, 1→i, 0→o, 5→s, 7→t'),
     notoriete: 0.30, adHoc: 0.15,
@@ -511,7 +511,7 @@ const brut = [
     table: regletteDe(Object.keys(LEET).sort(), deleet),
   },
   {
-    id: 'f.atbash', code: 'fk', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.atbash', code: 'fatb', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On applique l’Atbash', 'Apply the Atbash cipher'),
     regle: bilingue('A devient Z, B devient Y… le miroir de l’alphabet',
       'A becomes Z, B becomes Y… the alphabet held up to a mirror'),
@@ -527,7 +527,7 @@ const brut = [
     table: regletteDe(LETTRES, atbash),
   },
   {
-    id: 'f.rot13', code: 'fl', famille: 'filtre', from: 'STR', to: 'STR',
+    id: 'f.rot13', code: 'fr13', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On applique le chiffre de César (13)', 'Apply the Caesar cipher (13)'),
     regle: bilingue('Chaque lettre avance de 13 rangs', 'Every letter moves thirteen places along'),
     notoriete: 0.25, adHoc: 0.25,
