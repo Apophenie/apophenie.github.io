@@ -1274,6 +1274,155 @@ ici**, puis l'émettre.
 > sont contigus, on les couronne — plutôt que l'exception, qui n'a pas
 > d'appui dans ce que la scène montre.
 
+> *Amendement — LES CORNES SORTENT DE L'URL, elles s'effritent au second rang,
+> et l'agencement des rangs suit une règle.* — 27 août 2026.
+>
+> Cet amendement **corrige** le précédent (« COURONNER SANS EFFACER ») sur trois
+> points, et l'auteur les a demandés dans la même passe de retours.
+>
+> ★ **1. « Contigus » ne suffisait pas : il faut D'UN SEUL TENANT.**
+>
+> > « Il y a eu 2 ajouts de cornes anticipées, l'un sur `6 6 6`, l'autre sur
+> > `6 66`. Seuls les 666 non séparés reçoivent des cornes anticipées, et encore,
+> > seulement s'ils sont censés les avoir jusqu'à la fin. » (l'auteur)
+>
+> Les deux couronnements fautifs portaient bel et bien sur trois rangs
+> **consécutifs** de la ligne — le rejeu le disait, et le troisième verrou l'a
+> confirmé. Ce que ni l'un ni l'autre ne voyait, c'est l'ÉCART : un découpage
+> (`partition`) laisse devant le premier jeton de chaque groupe un `gapBefore` de
+> **4,5 fois** l'écart ordinaire, et cet écart survit aux substitutions par
+> héritage (`helpers.espacementDe`). Trois chiffres séparés par ça ne se lisent
+> pas `666`, ils s'énumèrent.
+>
+> `suivreLaLigne` (`recherche/scenario.js`) suit donc désormais, en plus de
+> l'ordre, **les frontières de groupe** — la pose par `partition`, l'héritage par
+> le jeton qui prend la place, et rien d'autre. C'est mesuré à l'identique contre
+> le `gapBefore` du moteur visuel sur toutes les lignes du jeu d'essai
+> (`tests/integration-visuel.test.js`) : le jour où une primitive écartera la
+> ligne pour une autre raison — `marquerLesNombres` élargit à 2,2 fois quand une
+> ligne porte des nombres à plusieurs chiffres, cas qu'aucune saisie du jeu
+> d'essai ne produit encore —, le test rougit là plutôt qu'une corne ne s'égare
+> ici.
+>
+> La règle finale du couronnement anticipé tient en **trois conditions
+> cumulatives** :
+>
+> | condition | ce qu'elle refuse |
+> |---|---|
+> | **contigus, sans frontière entre eux** | `6 6 6` et `6 66` — trois rangs qui se suivent mais qu'un découpage écarte |
+> | **et ils le restent jusqu'au verdict** | un triptyque que la suite disperserait ou qu'un découpage rebattrait. Exigé sur CHAQUE ligne connue, de l'instant du couronnement à la dernière étape avant le verdict ; si le rejeu rend la main avant, on renonce — ne pas savoir n'est pas savoir que oui |
+> | **la ligne d'arrivée n'entre pas en compte** | rien : c'est une AUTORISATION. « Ajoute-leur les cornes tout de suite en mode scène, même s'ils arrivent en 2ⁿᵈ ligne au verdict » |
+>
+> ⚠️ **La « divergence assumée » du précédent amendement est donc close, et dans
+> l'autre sens.** La deuxième série de `hope-hope-hope.fr` — « e », le tiret,
+> « h » — était couronnée à l'étape 12 au nom de « la règle telle qu'elle est
+> écrite ». C'est l'une des deux cornes que l'auteur a signalées comme fautives.
+> Sur la voie de la vitrine, quatre couronnements deviennent **deux**, aux étapes
+> 6 et 15 : les deux seuls triptyques dont les trois 6 tiennent dans un même
+> morceau.
+>
+> ★ **2. Aucun OPÉRATEUR ne pose plus de cornes.**
+>
+> > « L'ajout des cornes ne devrait pas modifier l'url mais être fait à la volée
+> > en mode `sce!` — ça éviterait d'avoir des liens `sce!` sans cornes parce
+> > qu'ils ont été créés avant. » (l'auteur)
+>
+> `mz` (`m.troisSixDAffilee`) était le dernier émetteur de `horns` du catalogue,
+> et il faisait DEUX choses d'un seul geste : couronner et tronquer le vecteur.
+> Un couronnement qui dépend d'un code dépend de l'URL — deux liens
+> arithmétiquement identiques montraient l'un des cornes, l'autre pas. Or les
+> cornes ne changent ni une valeur, ni un rang, ni un compte : **elles n'ont rien
+> à faire dans un programme.** La présence de cornes découle désormais de la
+> LIGNE et du REGISTRE, et de rien d'autre.
+>
+> **Et l'effacement, lui, reste chez `mz`** — c'est la seule moitié qui soit de
+> l'arithmétique (le vecteur passe de six valeurs à trois), l'URL la nomme, elle
+> doit donc se jouer là où le code la nomme. Elle devient une **étape à part
+> entière**, avec son propre titre, et son motif est MONTRÉ avant d'être exercé :
+> un `highlight` désigne les trois 6 contigus — la raison de garder ceux-là et
+> pas d'autres — puis la gomme n'emporte que le reste.
+>
+> > « L'effacement est une étape à part, et si elle n'a pas de motif (chiffre
+> > minoritaire, pair/impair) c'est probablement la pire des triches, à pénaliser
+> > en conséquence. » (l'auteur)
+>
+> ⚠️ **Conséquence assumée : deux morceaux, deux gommes.** L'assemblage
+> repoussait tous les effacements devant le verdict pour n'en faire qu'un — deux
+> gommes séparées par un couronnement auraient dit qu'on écartait deux fois. Ce
+> report n'a plus d'objet et il a disparu (`reglerLesCornes`, allégé de sa moitié
+> « effacement » et de ses deux libellés). Les rassembler détacherait chaque
+> gomme de son motif, et déplacerait de surcroît une étape que l'URL nomme loin
+> du code qui la nomme.
+>
+> ★ **Le contrôle croisé n'y perd rien, et gagne un cran.** Le troisième verrou
+> (`visuel/primitives/horns.js`) redoutait qu'un `drop` efface AVANT lui, le
+> laissant couronner trois 6 seuls donc trivialement voisins. C'est désormais
+> structurellement impossible : l'assemblage ne couronne qu'à l'instant où le
+> troisième 6 PARAÎT — nécessairement avant l'étape de `mz` —, et il exige de
+> surcroît que la contiguïté tienne jusqu'au verdict.
+>
+> ★ **3. Au verdict, les cornes du second rang S'EFFRITENT.**
+>
+> > « Au verdict, au moment de l'agencement, fais s'effriter/disparaître
+> > progressivement les cornes des triptyques qui vont en 2ⁿᵈ ligne. » (l'auteur)
+>
+> Elles s'en allaient d'un fondu d'opacité, toutes ensemble. Elles se rongent
+> maintenant **depuis la pointe** : le bord externe est tronqué à hauteur
+> décroissante (subdivision de Casteljau — la seule troncature qui ne déforme pas
+> la courbe), le bord interne repris à la même hauteur, et les deux réunis par un
+> front **dentelé** qui descend. La dentelure est écrite à la main, comme
+> l'enveloppe de l'éclair : aucun tirage au sort (§4.4), donc un scrubbing qui
+> retombe toujours sur la même image. Chaque corne part sur son horloge — deux
+> cornes qui s'effritent au même instant refont un geste unique, donc un
+> effacement.
+>
+> ★ **Par le TRACÉ, jamais par l'opacité ni par un filtre**, et ce n'est pas un
+> détail de mise en œuvre. Le nœud porte déjà l'échelle du verdict ; une opacité
+> animée sur un élément transformé est la recette même du défaut de composition
+> Firefox (§3.2, règles 3 et 4), et un `filter` y ajoute le retramage à chaque
+> palier d'échelle — la cause mesurée des saccades du feu. **Le garde-fou du
+> compositeur est donc étendu au `filter`** (`visuel/tests/compositeur.test.js`).
+> L'effritement passe par le **canal discret** `d`, fonction pure du temps de la
+> timeline, qui apprend au passage à revenir en arrière : un canal `d` qui n'a pas
+> encore commencé rend au nœud son tracé d'origine (`node.data.d`), sans quoi une
+> corne effritée puis ramenée avant son effritement restait un moignon.
+>
+> ★ **4. L'AGENCEMENT DES TRIPTYQUES EN RANGS — une règle, en une phrase.**
+>
+> Le verdict n'avait que deux régimes : un rang, ou deux dès la quatrième série,
+> coupés en `⌈n/2⌉`. L'auteur en a dicté dix cas, puis le critère qui les
+> gouverne — « minimiser l'écart entre deux lignes, mais aussi l'écart entre le
+> nombre d'items par ligne et le nombre de lignes ». Les deux ne coïncidaient pas
+> sur sept ; interrogé, il a tranché en faveur du critère et **corrigé son propre
+> exemple** : « OK pour passer 7 en 3+2+2, c'est mieux en effet. »
+>
+> **La règle : le moins de lignes possible, à condition qu'une ligne porte en
+> moyenne MOINS de trois triptyques et demi ; puis la répartition la plus égale
+> possible, les lignes les plus fournies en tête.** Table de vérité :
+>
+> | n | rangs | n | rangs |
+> |---|---|---|---|
+> | 1 | `[1]` | 6 | `[3,3]` |
+> | 2 | `[2]` | 7 | `[3,2,2]` |
+> | 3 | `[3]` | 8 | `[3,3,2]` |
+> | 4 | `[2,2]` | 9 | `[3,3,3]` |
+> | 5 | `[3,2]` | 10 | `[4,3,3]` |
+>
+> Le seuil n'est pas choisi, il est **encadré** : `10 → [4,3,3]` fait tenir 3⅓
+> triptyques par ligne (le seuil doit le dépasser), `7 → [3,2,2]` refuse une
+> moyenne de 3½ (le seuil ne doit pas aller au-delà). Il vit dans `]3⅓ ; 3½]`, et
+> 3½ en est la valeur ronde. La comparaison est **stricte**, et c'est exactement
+> ce qui décide de sept : accepter l'égalité donnerait `[4,3]`. Écrite en
+> entiers, la règle est `lignes = ⌊2n/7⌋ + 1`.
+>
+> `repartirEnLignes` (`visuel/primitives/reveal.js`) est la source unique de cet
+> agencement — fonction pure, exportée, éprouvée sur les dix cas
+> (`visuel/tests/verdict-rangs.test.js`). Le verdict la lit trois fois : la
+> coupure du flux, la largeur du rang le plus long, et le rang qui garde ses
+> cornes. ⚠️ **Au-delà de dix, tout est extrapolation** — l'auteur s'est arrêté
+> là, et sa consigne « garde plus de triptyques par ligne que de lignes » cède
+> dès onze.
+
 > *Amendement — L'ORAGE DU VERDICT, et pourquoi il n'entre PAS dans le vocabulaire.*
 >
 > **La demande de l'auteur.** « Lors du verdict, en plus de grossir le/les 666 et
@@ -1921,6 +2070,42 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 `mz` **trois 6 d'affilée** (`NUMS → NUMS`), alloué après `my` ·
 `m10`/`m11`/`m12` **les trois ficelles** (voir l'amendement en fin de §).
 
+> *Amendement — LA CLÔTURE DU REGISTRE PERD SON FONDEMENT, sans qu'aucun code
+> ne bouge.* — 27 août 2026.
+>
+> Le bandeau ci-dessus ferme le registre au motif que **des liens existent** :
+> « le site est en ligne […] et la page d'accueil affiche elle-même un lien écrit
+> à la main ». Interrogé, l'auteur a confirmé qu'**aucun lien n'a été diffusé**.
+> La prémisse est donc fausse, et avec elle la conclusion : il n'y a rien à
+> protéger, et le régime d'avant-publication redevient celui qui s'applique — les
+> codes peuvent être réorganisés, renommés, réattribués, et une pierre tombale
+> peut être reprise.
+>
+> ★ **Et pourtant : rien n'a bougé.** Le chantier qui a obtenu cette confirmation
+> — « les cornes sortent de l'URL » (§3.1) — n'avait finalement besoin d'aucune
+> réattribution : `mz` garde son code, son arithmétique et son rang, et tous les
+> liens figés dans `src/i18n/*.js` et dans les tests rendent la même
+> démonstration qu'avant. L'amendement est écrit **quand même**, parce que le
+> prochain chantier ne doit pas avoir à supposer ce que celui-ci a demandé.
+>
+> ★ **Ce qui reste vrai, publication ou pas**, et qui n'a jamais dépendu de la
+> clôture : un code est unique dans le catalogue ; l'ordre de déclaration est
+> l'ordre des codes croissants (§4.4 règle 3 en dépend pour le déterminisme) ; et
+> le test de gel se met à jour dans le MÊME commit que le code — il vaut alors
+> comme non-régression du comportement, pas comme serment de permanence.
+>
+> ★ **Ce qu'une réattribution coûtera désormais**, si quelqu'un s'en sert : les
+> liens écrits à la main dans `src/i18n/fr.js` et `src/i18n/en.js`, ceux des
+> tests (`recherche/tests/url.test.js` en particulier) et ceux des documents de
+> `.planning/` sont à reprendre dans le même commit. Ce ne sont plus des liens
+> partagés, ce sont des **exemples** — mais un exemple faux dans un dépôt qui
+> passe son temps à vérifier ce qu'il affirme serait pire qu'un code mal rangé.
+>
+> ⚠️ **La clôture se refermera au premier lien réellement diffusé**, et cette
+> fois sur un fait vérifiable plutôt que sur une inférence tirée de la mise en
+> ligne. Le bandeau ci-dessus est conservé tel quel : c'est le raisonnement qui a
+> fixé la règle, et il redeviendra valable le jour où sa prémisse le sera.
+
 > *Amendement — le demi-tour a désormais deux codes, et c'est voulu.* `p9`
 > retourne UN nombre (`NUM → NUM`, « le 9 » du README, méthode 6) ; `my`
 > retourne CHAQUE 9 d'un vecteur (`NUMS → NUMS`) et laisse tout le reste en
@@ -1938,6 +2123,14 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 > 92 à 93 opérateurs. Il émet la primitive `horns` (§3.1), qui n'existait pas —
 > c'est la clause d'extension du vocabulaire appliquée dans l'ordre qu'elle
 > prescrit : la primitive d'abord, l'émission ensuite.
+>
+> ⚠️ **PÉRIMÉ sur ce dernier point depuis le 27 août 2026** : `mz` n'émet plus
+> `horns`. Les cornes ne sont plus le geste d'un opérateur — elles ne changent
+> aucune valeur, donc elles n'ont rien à faire dans un programme ni dans une URL
+> —, et l'assemblage les pose sur la LIGNE selon le REGISTRE. Ce qui reste ici
+> est la seule moitié qui soit de l'arithmétique : la gomme qui tronque le
+> vecteur à ses trois 6 contigus. Le code, lui, ne bouge pas d'un iota. Voir
+> §3.1, amendement « LES CORNES SORTENT DE L'URL ».
 
 > *Amendement — LES TROIS FICELLES, `m10` · `m11` · `m12`, registre FERMÉ.* Le
 > barème d'élégance portait depuis sa construction trois paliers de malus dont
