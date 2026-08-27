@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   lire, ecrire, ecrireApproche, descripteursDe, canoniser, autreRegistre, BANDEAUX, RE_CODE,
 } from '../url.js';
-import { encoderTexte } from '../base58.js';
+import { encoderTexte, LIMITE_SAISIE } from '../base58.js';
 import { catalogue } from './_catalogue.js';
 
 const B58_HOPE = encoderTexte('hope');                       // 3fq9KJ
@@ -66,8 +66,12 @@ test('url — un lien ne renvoie JAMAIS silencieusement ailleurs', () => {
   const cas = [
     [`#zz9#${B58_HOPE}`, 'code hors grammaire'],
     [`#ma1+#${B58_HOPE}`, 'programme incomplet'],
-    [`#ma1#pas du base58`, 'saisie illisible'],
+    // ⚠️ `#ma1#pas du base58` a QUITTÉ cette liste : ce n'est plus un lien
+    // illisible mais un programme joué sur la saisie « pas du base58 » (voir
+    // la section « la saisie en clair », plus bas). Ce qui reste invalide,
+    // c'est un lien qui ne porte AUCUNE saisie — ni base58, ni texte.
     ['#ma1#', 'saisie vide'],
+    ['#ma1#   ', 'saisie faite de blancs'],
     [`#ma1#${B58_HOPE}#trop`, 'trois segments'],
     [`#0.:ma1#${B58_HOPE}`, 'portée incomplète'],
   ];
@@ -180,11 +184,26 @@ test('★ registre — l’absence de marqueur vaut « SOBRE » : la mise en sc�
   }
 });
 
-test('registre — un marqueur seul, sans programme, s’ANNONCE au lieu de se taire', () => {
+/**
+ * ★ RENVERSEMENT ASSUMÉ : un marqueur seul ne s'annonce plus, il CHERCHE.
+ *
+ * Ce test disait l'inverse, et son argument était bon tant qu'il tenait :
+ * « un marqueur de mise en scène sans programme à mettre en scène est un lien
+ * tronqué ». Ce qui a changé n'est pas l'argument mais ce qu'on sait en faire —
+ * demander une mise en scène, c'est demander une DÉMONSTRATION, et nous savons
+ * désormais laquelle montrer quand le lien ne la nomme pas : la première du
+ * classement, exactement comme le bouton « Révéler ». Un lien qui a un sens
+ * utile vaut mieux qu'un bandeau d'erreur, et §4.3 est respecté — on ne renvoie
+ * pas ailleurs en silence, on fait ce que le lien demande.
+ */
+test('★ registre — un marqueur seul vaut « cherche, puis montre la 1ʳᵉ voie »', () => {
   const r = lire(`#so!#${B58_HOPE}`);
-  assert.equal(r.forme, 'invalide');
-  assert.equal(r.bandeau, BANDEAUX.formatInconnu);
-  assert.equal(r.saisie, 'hope', 'la saisie reste lisible : le repli sait où aller');
+  assert.equal(r.forme, 'premiere');
+  assert.equal(r.saisie, 'hope');
+  assert.equal(r.registre, 'sobre');
+  assert.equal(r.registreEcrit, true);
+  assert.equal(r.bandeau, null, 'rien à annoncer : le lien est honoré');
+  assert.equal(lire(`#sce!#${B58_HOPE}`).registre, 'scenique');
 });
 
 test('registre — la page de résultats n’en porte pas : rien à mettre en scène', () => {
@@ -280,4 +299,194 @@ test('★ grammaire des codes — les trois écritures sont identiques (CONTRACT
     assert.doesNotMatch(faux, RE_CODE, `« ${faux} » ne devrait pas être un code`);
     assert.doesNotMatch(faux, DU_MOTEUR, `« ${faux} » ne devrait pas être un code`);
   }
+});
+
+/* ══════════ LA SAISIE EN CLAIR — la tolérance est en LECTURE seule ═══════ */
+
+/**
+ * ★ « Si après le 2nd # une séquence non b58 est présente, plutôt que
+ * d'échouer, considère la chaîne comme étant la saisie brute » (l'auteur).
+ *
+ * Les quatre formes sont recopiées de sa demande, avec ses exemples : ce test
+ * est le contrat, pas une illustration. Ce qui les sépare est le NOMBRE DE `#`
+ * et la présence d'un programme — jamais la nature de la saisie, qui se lit de
+ * la même façon dans les quatre.
+ */
+test('★ saisie en clair — les quatre formes demandées par l’auteur', () => {
+  // 1. « #Donald Trump » → recherche, puis animation de la 1ʳᵉ voie.
+  const une = lire('#Donald Trump');
+  assert.equal(une.forme, 'premiere');
+  assert.equal(une.saisie, 'Donald Trump');
+  assert.equal(une.saisieBrute, true);
+  assert.equal(une.registre, 'sobre', 'le geste de « Révéler », donc le défaut');
+  assert.equal(une.cible.texte, '666');
+
+  // 2. « ##Donald Trump » → l'énumération des voies.
+  const deux = lire('##Donald Trump');
+  assert.equal(deux.forme, 'resultats');
+  assert.equal(deux.saisie, 'Donald Trump');
+
+  // 3. « #c111!sce!#Donald Trump » → recherche visant 111, puis animation.
+  const trois = lire('#c111!sce!#Donald Trump');
+  assert.equal(trois.forme, 'premiere');
+  assert.equal(trois.saisie, 'Donald Trump');
+  assert.equal(trois.cible.texte, '111');
+  // ⚠️ Et le registre RETOMBE sur sobre, parce que 111 n'a pas d'emblème
+  // dessiné — c'est la règle de repli qui existait déjà, pas une nouveauté.
+  assert.equal(trois.registre, 'sobre');
+  assert.equal(trois.registreDemande, 'scenique');
+  // L'ordre des marqueurs reste indifférent, comme partout ailleurs.
+  assert.equal(lire('#sce!c111!#Donald Trump').forme, 'premiere');
+
+  // 4. « #so!tca+m36#Donald Trump » → aucune recherche, ce programme-là.
+  const quatre = lire('#so!tca+m36#Donald Trump');
+  assert.equal(quatre.forme, 'canonique');
+  assert.equal(quatre.saisie, 'Donald Trump');
+  assert.deepEqual(quatre.fragments, [{ portee: null, resonance: null, codes: ['tca', 'm36'] }]);
+  // Sans marqueur non plus : c'est la saisie qui est tolérée, pas la grammaire.
+  assert.equal(lire('#0.1:tca+m36,1.1:tca+m36#Donald Trump').fragments.length, 2);
+});
+
+/**
+ * ★ LA DÉSAMBIGUÏSATION, et les mots qu'elle rate — mesurés, pas devinés.
+ *
+ * L'alphabet base58 est fait de lettres et de chiffres : 39 % des mots de
+ * `/usr/share/dict/french` n'emploient que ses 58 signes, « Macron » compris. Ce
+ * qui tranche n'est donc pas l'alphabet mais le DÉCODAGE, et il reste 435 mots
+ * sur 346 244 qui passent quand même — la mesure complète est en tête de
+ * `url.js`. Ce test fixe les deux bords de cette frontière.
+ */
+test('★ saisie en clair — le base58 gagne, et les mots qu’il gagne à tort', () => {
+  // Le lien que le site PRODUIT se relit comme du base58, toujours.
+  assert.equal(lire(`##${encoderTexte('Macron')}`).saisie, 'Macron');
+  assert.equal(lire(`##${encoderTexte('Macron')}`).saisieBrute, false);
+
+  // Et « Macron » tapé en clair reste « Macron », bien qu'il n'emploie que des
+  // signes de l'alphabet : les octets qu'il désigne ne font pas de l'UTF-8.
+  const clair = lire('##Macron');
+  assert.equal(clair.saisie, 'Macron');
+  assert.equal(clair.saisieBrute, true);
+
+  // ⚠️ L'ANGLE MORT, assumé, mesuré et BRUYANT. Ces trois-là décodent en texte
+  // parfaitement valide : ils restent donc lus comme des jetons. Le visiteur le
+  // voit du premier coup d'œil — la page cite en titre la saisie comprise —, et
+  // c'est ce qui rend le reliquat tenable : §4.3 interdit les replis MUETS.
+  for (const [mot, decode] of [['a', '!'], ['aide', 'db9'], ['abattent', 'Cwd!9a']]) {
+    const r = lire(`##${mot}`);
+    assert.equal(r.saisie, decode, `« ${mot} » n’est plus lu comme du base58`);
+    assert.equal(r.saisieBrute, false);
+  }
+
+  // La troisième condition — ni caractère de commande, ni chaîne de blancs —
+  // rattrape tout le reste : « Z » décode en une espace, « cat » en U+0001 ә.
+  for (const mot of ['Z', 'cat', 'bug', 'amour', 'num', '12345', 'chat', 'Wikipedia']) {
+    const r = lire(`##${mot}`);
+    assert.equal(r.saisie, mot, `« ${mot} » a été pris pour du base58`);
+    assert.equal(r.saisieBrute, true);
+  }
+
+  // ★ Et la borne qui interdit une quatrième condition : « 666 » s'encode en
+  //   quatre signes. Un seuil de longueur qui rattraperait « aide » tuerait ce
+  //   lien-là, qui est légitime — le site l'écrit.
+  assert.equal(encoderTexte('666'), 'KD8Z');
+  assert.equal(lire('##KD8Z').saisie, '666');
+});
+
+test('saisie en clair — l’espace passe littéral ou en %20, et le % survit', () => {
+  assert.equal(lire('#Donald%20Trump').saisie, 'Donald Trump');
+  assert.equal(lire('##Donald%20Trump').saisie, 'Donald Trump');
+  assert.equal(lire('#so!tca+m36#Donald%20Trump').saisie, 'Donald Trump');
+  // Un `%` que personne n'a songé à échapper ne doit pas tuer le lien.
+  assert.equal(lire('##100% vrai').saisie, '100% vrai');
+  // Les blancs de bord sont coupés, comme le fait le champ d'accueil.
+  assert.equal(lire('##  Donald Trump  ').saisie, 'Donald Trump');
+  // Un `#` DANS la saisie survit s'il est échappé : c'est ce qu'apporte le
+  // décodage par segment (`depourcenter`), et un mot-dièse est une saisie
+  // plausible sur ce site-là.
+  assert.equal(lire('##%23JeSuis666').saisie, '#JeSuis666');
+});
+
+test('saisie en clair — le plafond de saisie vaut aussi pour le texte brut', () => {
+  const r = lire(`##${'a'.repeat(LIMITE_SAISIE + 1)}`);
+  assert.equal(r.forme, 'invalide');
+  assert.equal(r.bandeau, BANDEAUX.saisieTropLongue);
+  assert.equal(lire(`##${'a'.repeat(LIMITE_SAISIE)}`).forme, 'resultats', 'la borne est inclusive');
+});
+
+/**
+ * ★ L'ÉCRITURE NE BOUGE PAS D'UN SIGNE, et c'est tout l'intérêt.
+ *
+ * « La version b58 est bien sûr toujours supportée et à conserver par défaut
+ * quand on passe par l'interface du site » (l'auteur). La tolérance est en
+ * lecture ; `canoniser()` fait le reste, et un lien tapé à la main se change
+ * tout seul en lien partageable dès qu'on l'ouvre — exactement le mécanisme qui
+ * abrège `sobre!` en `so!`.
+ */
+test('★ saisie en clair — l’écriture reste en base58, la barre d’adresse se corrige', () => {
+  const frags = [{ portee: null, resonance: null, codes: ['tca', 'm36'] }];
+  assert.equal(ecrire({ saisie: 'Macron', fragments: frags }), `#so!tca+m36#${encoderTexte('Macron')}`);
+  assert.equal(ecrire({ saisie: 'Donald Trump' }), `##${encoderTexte('Donald Trump')}`);
+
+  const appels = [];
+  const faux = {
+    location: { pathname: '/numherololgeek/', search: '', hash: '#so!tca+m36#Macron' },
+    history: { replaceState: (...a) => appels.push(a) },
+  };
+  const lu = lire(faux.location.hash);
+  canoniser({ saisie: lu.saisie, fragments: lu.fragments, registre: lu.registre }, faux);
+  assert.equal(appels.length, 1, 'un lien tapé à la main n’est pas laissé en l’état');
+  assert.equal(appels[0][2], `/numherololgeek/#so!tca+m36#${encoderTexte('Macron')}`);
+});
+
+/**
+ * NON-RÉGRESSION. Les liens que le site a produits doivent se relire au signe
+ * près, saisie comprise : c'est la seule chose que la tolérance pouvait casser.
+ */
+test('saisie en clair — les liens base58 existants se relisent à l’identique', () => {
+  const temoins = [
+    'Macron', 'Donald Trump', 'hope', 'https://hope-hope-hope.fr/', '666',
+    'Éléonore à Nîmes — 100 % vrai !', 'jean-michel', 'Wikipédia', 'a', 'Z',
+  ];
+  const frags = [{ portee: null, resonance: null, codes: ['tca', 'm36'] }];
+  for (const saisie of temoins) {
+    for (const demonstration of [{ saisie }, { saisie, fragments: frags }]) {
+      const lien = ecrire(demonstration);
+      const r = lire(lien);
+      assert.equal(r.saisie, saisie, `« ${saisie} » ne se relit pas : ${lien}`);
+      assert.equal(r.saisieBrute, false, `« ${saisie} » n’a pas été relu comme du base58`);
+      assert.notEqual(r.forme, 'invalide');
+    }
+  }
+  // Et les liens figés des puces de l'accueil (`src/i18n/fr.js`) restent
+  // canoniques — ce sont les seuls liens de ce dépôt qui vivent hors des tests.
+  for (const hash of [
+    '#0.1:tca+m14,1.1:tca+mtc+cs,2.1:tca+m14,3.1:tca+mtc+cs,4.1:tca+m14,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
+    '#0.1:tca+mch+cs+prn,3.1:fc+nl,5.1:tca+m7+cs#3A8evQZovd7BUyRUF65ToBwrHvW25EUn',
+    '#0.1:tca+m14+m36,2.1:fr13+tca+m14+m36#2HuP1G8mNg3sJWhqR',
+  ]) {
+    const r = lire(hash);
+    assert.equal(r.forme, 'canonique', hash);
+    assert.equal(r.saisieBrute, false, hash);
+  }
+});
+
+/**
+ * ★ L'EXCEPTION, et pourquoi elle n'est pas un caprice.
+ *
+ * La lecture littérale de la règle de l'auteur ferait de `#c111!#…` une
+ * animation. C'est pourtant la forme que `ecrire({saisie, cible})` PRODUIT — le
+ * lien de partage de la page de listing —, et l'écriture ne change pas. Sans
+ * cette exception, l'énumération deviendrait indemandable pour toute cible
+ * autre que 666. Le registre, lui, n'est jamais écrit sans programme : il n'a
+ * aucun lien existant à protéger, et il bascule.
+ */
+test('★ saisie en clair — `#c111!#…` reste la LISTE, `#c111!sce!#…` est l’animation', () => {
+  assert.equal(lire(`#c111!#${B58_HOPE}`).forme, 'resultats');
+  assert.equal(lire('#c111!#Donald Trump').forme, 'resultats');
+  assert.equal(lire('#c111!#Donald Trump').cible.texte, '111');
+  assert.equal(lire('#c111!sce!#Donald Trump').forme, 'premiere');
+  // Ce que le site écrit se relit comme le site l'entend : aller-retour.
+  const lien = ecrire({ saisie: 'Donald Trump', cible: '111' });
+  assert.equal(lire(lien).forme, 'resultats');
+  assert.equal(lire(lien).cible.texte, '111');
 });

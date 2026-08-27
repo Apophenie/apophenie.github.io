@@ -127,6 +127,34 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
   });
 }
 
+/**
+ * ★ CHERCHER, PUIS MONTRER — le geste de « Révéler », déclenché par un lien.
+ *
+ * `#Donald Trump` et `#c111!sce!#Donald Trump` ne nomment aucune voie : ils
+ * nomment une SAISIE et, éventuellement, des réglages. On cherche donc, et on
+ * ouvre la première voie du classement — c'est mot pour mot ce que fait le
+ * bouton de l'accueil (`pages/accueil.js › urlPremiereVoie`), et c'est ce que
+ * l'auteur demande : « recherche et affiche l'animation du premier résultat ».
+ *
+ * On ne rend PAS la démonstration ici, on va à son URL : la voie trouvée porte
+ * son propre lien canonique, et y aller d'un `replace()` fait trois choses
+ * d'un coup — la barre d'adresse devient partageable, un rechargement rejoue
+ * sans rechercher, et le retour arrière ne repasse pas par une recherche. Même
+ * conduite que la forme héritée juste en dessous, pour la même raison.
+ */
+function routePremiereVoie(lecture) {
+  const resultat = pont.resoudre(lecture.saisie, lecture.cible);
+  const premiere = (resultat.approches || [])[0];
+  // Aucune voie : la page de résultats sait le dire (réponse dédiée, saisie
+  // vide, cible hors de portée). Pas de bandeau — il n'y a pas d'échec à
+  // annoncer, juste une liste qui se trouve être vide.
+  if (!premiere) { routeResultat(lecture.saisie, { cible: lecture.cible }); return; }
+  const direct = lecture.registre === 'scenique' ? premiere.urlScenique : premiere.urlSobre;
+  if (direct) { location.replace(location.pathname + location.search + direct); return; }
+  // Moteur en repli : il ne fabrique jamais d'URL. On montre sur place.
+  montrerDemonstrationLocale(lecture.saisie, premiere, resultat);
+}
+
 /** Démonstration de secours : aucune URL n'est fabriquée, on ne touche pas au hash. */
 function montrerDemonstrationLocale(saisie, approche, resultat) {
   // Aucun lien n'a ete lu : on montre ce que le site montre par defaut,
@@ -163,6 +191,22 @@ export function router() {
     return;
   }
 
+  // ★ UN FRAGMENT QUI DÉSIGNE UN ÉLÉMENT DE LA PAGE EST UNE ANCRE, PAS UNE
+  //   SAISIE. C'est le sens que HTML donne au fragment depuis toujours, et le
+  //   site s'en sert : le lien d'évitement « Aller au Registre » de la page de
+  //   démonstration pointe sur `#registre-titre`. Tant qu'un `#` unique était
+  //   un lien mort, l'ancre menait à l'accueil avec un bandeau d'erreur — un
+  //   défaut qui ne se voyait qu'au clavier. Depuis que `#texte` vaut une
+  //   recherche, elle mènerait à une démonstration sur « registre-titre », ce
+  //   qui est pire : plausible, donc silencieux. On ne fait donc rien, et le
+  //   navigateur fait ce qu'il a toujours fait — il défile jusqu'à l'élément.
+  //
+  //   ⚠️ Le test porte sur la page COURANTE : au chargement, rien n'est encore
+  //   monté, et un `#registre-titre` collé dans une barre d'adresse vierge
+  //   redevient une saisie. C'est le prix d'un test qui ne suppose l'existence
+  //   d'aucune liste d'ancres, et il se paie une fois sur mille.
+  if (hash.length > 1 && document.getElementById(hash.slice(1))) return;
+
   const lecture = pont.lireHash(hash);
   if (!lecture) { routeAccueil({ bandeau: t('bandeaux.lienIllisible') }); return; }
 
@@ -174,6 +218,12 @@ export function router() {
 
     case 'canonique':
       routeDemonstration(lecture);
+      break;
+
+    // Un lien qui nomme une saisie sans nommer de voie : on cherche, et on
+    // ouvre la première. Voir `routePremiereVoie` et `recherche/url.js`.
+    case 'premiere':
+      routePremiereVoie(lecture);
       break;
 
     case 'heritee': {

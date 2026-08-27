@@ -75,3 +75,32 @@ test('amorçage — chaque module de src/app importe des symboles existants', as
     }
   }
 });
+
+/**
+ * ★ TOUTE FORME LUE DOIT ÊTRE UNE FORME ROUTÉE.
+ *
+ * `lire()` classe un lien dans l'une de ses formes ; `routeur.js` en fait une
+ * page. Rien n'oblige les deux listes à coïncider, et le symptôme d'un oubli
+ * est le plus discret qui soit : la forme neuve tombe dans le `default`, qui
+ * affiche « Cette incantation est corrompue » sur un lien parfaitement valide.
+ * C'est exactement ce que §4.3 interdit — un repli muet.
+ *
+ * Le test est textuel, comme le reste de ce fichier : il lit la liste des
+ * formes là où elle est ÉCRITE (le typedef de `LectureUrl`) et exige un `case`
+ * pour chacune. `invalide` est la seule dispensée, parce que c'est précisément
+ * ce que le `default` traite.
+ */
+test('routeur — chaque forme rendue par `lire()` a sa route', () => {
+  const grammaire = lire('../recherche/url.js');
+  const m = /@property \{([^}]*)\} forme/.exec(grammaire);
+  assert.ok(m, 'le typedef `LectureUrl` ne déclare plus ses formes');
+  const formes = m[1].split('|').map((f) => f.trim().replace(/^'|'$/g, ''));
+  assert.ok(formes.includes('canonique'), `formes mal relues : ${formes.join(', ')}`);
+
+  const routeur = lire('./routeur.js');
+  for (const forme of formes) {
+    if (forme === 'invalide') continue;
+    assert.match(routeur, new RegExp(`case '${forme}':`),
+      `le routeur ne traite pas la forme « ${forme} » : elle tomberait dans le default`);
+  }
+});
