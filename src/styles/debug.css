@@ -1,0 +1,92 @@
+/* La page de récapitulation du barème (`debug.html`).
+ *
+ *  Volontairement AUSTÈRE, et ce n'est pas de la paresse : cette page n'est pas
+ *  une page du site. Elle emprunte ses jetons de couleur et ses polices pour ne
+ *  pas dépayser, mais elle ne cherche ni à séduire ni à raconter. On y vient
+ *  pour lire des nombres, et tout ce qui n'y aide pas la dessert.
+ *
+ *  Les tableaux sont en `--machine` — chasse fixe — parce qu'on y compare des
+ *  colonnes de chiffres, et qu'une chasse proportionnelle rend cette comparaison
+ *  pénible. C'est la même raison qui fait de `--machine` la police du moteur
+ *  visuel.
+ */
+
+.dbg {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--e5) var(--e4) var(--e8);
+}
+
+.dbg h1 { margin-bottom: var(--e3); }
+
+.dbg__avertissement {
+  max-width: var(--mesure);
+  color: var(--fg-2);
+  font-size: var(--fs-sm);
+  border-left: 3px solid var(--phos);
+  padding-left: var(--e3);
+  margin-bottom: var(--e6);
+}
+
+.dbg__section { margin-top: var(--e7); }
+.dbg__section > h2 { margin-bottom: var(--e1); }
+
+/* D'où vient ce qu'on lit. Le POURQUOI est en commentaire dans les sources, et
+   le JavaScript n'y a pas accès à l'exécution : cette ligne est le seul pont. */
+.dbg__source {
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  color: var(--fg-3);
+  margin-bottom: var(--e3);
+}
+
+.dbg__note {
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  color: var(--fg-2);
+  margin-bottom: var(--e2);
+}
+
+.dbg__table {
+  border-collapse: collapse;
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-mono);
+}
+/* Le catalogue déborde en largeur sur un téléphone : il défile, plutôt que de
+   se replier en colonnes illisibles. Un tableau de comparaison qui se replie
+   cesse d'être un tableau de comparaison. */
+.dbg__table--large { display: block; overflow-x: auto; white-space: nowrap; max-width: 100%; }
+
+.dbg__table th,
+.dbg__table td {
+  border: var(--rule) solid var(--line);
+  padding: 2px var(--e2);
+  text-align: left;
+  vertical-align: top;
+  color: var(--fg-2);
+}
+.dbg__table thead th {
+  color: var(--phos);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  position: sticky;
+  top: 0;
+  background: var(--canvas);
+}
+.dbg__cle { color: var(--fg); }
+.dbg__val { color: var(--phos); font-variant-numeric: tabular-nums lining-nums; }
+.dbg__code { color: var(--gold, var(--phos)); }
+
+.dbg__table--imbriquee { margin: 0; border: 0; }
+.dbg__table--imbriquee td { border-color: transparent; padding: 0 var(--e2) 0 0; }
+
+/* Une ficelle assumée : elle se signale, comme dans le barème. */
+.dbg__ficelle td, .dbg__ficelle th { background: color-mix(in srgb, var(--rubric) 12%, transparent); }
+
+/* Un palier que personne n'alimente : son tarif est une prédiction, pas une
+   mesure. C'est le recoupement que cette page existe pour faire. */
+.dbg__dort td { background: color-mix(in srgb, var(--gold, var(--phos)) 14%, transparent); }
+
+.dbg__alerte { color: var(--rubric); font-family: var(--machine); font-size: var(--fs-2xs); margin-top: var(--e2); }
+.dbg__ok { color: var(--fg-3); font-family: var(--machine); font-size: var(--fs-2xs); margin-top: var(--e2); }
