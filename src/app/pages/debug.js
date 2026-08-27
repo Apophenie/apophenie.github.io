@@ -62,7 +62,7 @@ import {
 } from '../../moteur/catalogue.js';
 import { depuisSaisie, signature } from '../../moteur/etat.js';
 import {
-  BAREME, FICELLES, NOTE_MAX, bilanApproche, credit, facteur,
+  BAREME, NATURE, FICELLES, NOTE_MAX, bilanApproche, credit, facteur,
 } from '../../recherche/elegance.js';
 import {
   POIDS, BONUS, MALUS, PART_CRITERES, REGLAGES,
@@ -531,9 +531,40 @@ export function mesurerLesPaliers() {
 
 let sensMemo = null;
 
-/** La même mesure, faite une seule fois par chargement de page. */
+/**
+ * ★ LE SIGNE VIENT MAINTENANT DE LA DÉCLARATION, ET LA MESURE DEVIENT UN
+ *   CONTRÔLE CROISÉ — c'est un raccord entre deux chantiers menés en parallèle.
+ *
+ * Quand cette page a été écrite, `BAREME` était une liste de nombres tous
+ * positifs et rien, de l'extérieur, ne permettait de distinguer un bonus d'un
+ * malus sans réimplémenter le calcul. D'où la mesure ci-dessus : pousser chaque
+ * palier et regarder où va le crédit. C'était la seule voie honnête.
+ *
+ * Entre-temps, `elegance.js` a gagné `NATURE`, qui DÉCLARE pour chaque poste son
+ * signe et sa famille — et `elegance.test.js` recoupe cette déclaration avec ce
+ * que le crédit applique réellement, sur des bilans réels. Le contrôle croisé
+ * existe donc déjà, à l'endroit où il doit être : dans les tests du barème.
+ *
+ * La page lit désormais la déclaration. Elle y gagne deux choses :
+ *   · elle ne fait plus tourner le moteur de recherche au chargement — la mesure
+ *     coûtait plus d'une seconde de processeur, et l'a rendue coûteuse à tester ;
+ *   · elle dit la même chose que le barème PAR CONSTRUCTION, au lieu de le
+ *     redécouvrir par l'expérience et de risquer d'en différer.
+ *
+ * ⚠ Ce n'est pas un retour à la table recopiée que l'auteur interdit : `NATURE`
+ * est lue, jamais dupliquée, et un poste ajouté sans y être déclaré fait rougir
+ * `elegance.test.js`. `mesurerLesPaliers` reste exportée : c'est l'instrument du
+ * contrôle croisé, et le jour où l'on doutera de `NATURE`, il est là.
+ */
 export function sensDesPaliers() {
-  if (!sensMemo) sensMemo = mesurerLesPaliers();
+  if (sensMemo) return sensMemo;
+  const paliers = new Map();
+  const SIGNE = { 1: '+', '-1': '−', 0: '·' };
+  for (const cle of Object.keys(BAREME)) {
+    const n = NATURE[cle];
+    paliers.set(cle, n ? { sens: SIGNE[n.sens], famille: n.famille, declare: true } : null);
+  }
+  sensMemo = { mesurable: true, raison: null, temoins: 0, declare: true, paliers };
   return sensMemo;
 }
 

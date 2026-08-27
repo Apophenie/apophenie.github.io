@@ -34,7 +34,8 @@ import {
 } from './pages/debug.js';
 import { CATALOGUE, appliquer, PAR_CODE } from '../moteur/catalogue.js';
 import { depuisSaisie } from '../moteur/etat.js';
-import { BAREME, FICELLES } from '../recherche/elegance.js';
+import { creerMoteur } from '../recherche/index.js';
+import { BAREME, NATURE, FICELLES, detailDuCredit } from '../recherche/elegance.js';
 
 const ici = dirname(fileURLToPath(import.meta.url));
 const lire = (p) => readFileSync(resolve(ici, p), 'utf8');
@@ -111,25 +112,65 @@ test('chaque opérateur a un exemple, et cet exemple l’emploie réellement', (
     'ces opérateurs ne sont jouables sur aucune saisie témoin : il en faut une de plus');
 });
 
-test('le signe de chaque palier du barème est mesuré, pas deviné', () => {
-  const mesure = sensDesPaliers();
+test('★ le signe affiché est celui que le barème DÉCLARE, pour chaque palier', () => {
+  /* La page lisait autrefois le signe en MESURANT — pousser un palier, regarder
+     où va le crédit —, parce que rien dans `BAREME` ne le disait. `NATURE` le
+     déclare maintenant, et `elegance.test.js` recoupe cette déclaration avec ce
+     que le crédit applique. La page se contente donc de lire.
+
+     Ce test garde la seule chose qui compte ici : qu'elle lise VRAIMENT, poste
+     par poste, sans en oublier ni en inventer. */
+  const vue = sensDesPaliers();
+  assert.equal(vue.mesurable, true, vue.raison || '');
+  const SIGNE = { 1: '+', '-1': '−', 0: '·' };
+  for (const cle of Object.keys(BAREME)) {
+    const lu = vue.paliers.get(cle);
+    assert.ok(lu, `${cle} : aucun signe rendu`);
+    assert.equal(lu.sens, SIGNE[NATURE[cle].sens],
+      `${cle} : la page affiche « ${lu.sens} » là où le barème déclare ${NATURE[cle].sens}`);
+    assert.equal(lu.famille, NATURE[cle].famille, `${cle} : famille divergente`);
+  }
+  assert.equal(vue.paliers.size, Object.keys(BAREME).length,
+    'la page rend plus ou moins de paliers que le barème n’en porte');
+});
+
+test('★★ l’instrument de mesure survit, et confirme la déclaration', () => {
+  /* ★ LE CONTRÔLE CROISÉ, ET POURQUOI IL RESTE ALORS QU'IL NE SERT PLUS AU RENDU.
+
+     `NATURE` est une DÉCLARATION : quelqu'un l'a écrite à la main, et une
+     déclaration peut mentir. `mesurerLesPaliers` ne lit aucun nom — elle pousse
+     chaque palier sur des bilans réels et observe où va le crédit. C'est le seul
+     juge qui ne puisse pas se tromper de la même façon que la déclaration.
+
+     Il a quitté le chemin de rendu parce qu'il coûtait plus d'une seconde de
+     processeur au chargement de la page. Il n'a pas quitté les tests, où son
+     coût est acceptable et son verdict irremplaçable. */
+  const mesure = mesurerLesPaliers();
   assert.equal(mesure.mesurable, true, mesure.raison || '');
   assert.ok(mesure.temoins > 1, 'un seul bilan témoin ne prouverait rien');
-  const muets = [];
+
+  let recoupes = 0;
   for (const [cle, m] of mesure.paliers) {
-    assert.ok(m, cle);
-    // Un palier peut légitimement n'entrer ni dans le crédit — c'est le cas du
-    // plancher du facteur. La mesure doit alors le DIRE, pas conclure au hasard.
-    if (!m.sens) { muets.push(cle); continue; }
-    assert.ok(['+', '−', '±'].includes(m.sens), `${cle} : sens ${m.sens}`);
-    assert.equal(m.hausses && m.baisses ? '±' : (m.hausses ? '+' : '−'), m.sens, cle);
+    if (!m || !m.sens || m.sens === '±') continue;   // non observable sur ces témoins
+    /* ★ LES RÉGLAGES SONT HORS DU RECOUPEMENT, ET LA RAISON MÉRITE D'ÊTRE SUE.
+
+       L'instrument pousse un palier et regarde où va le crédit. Il ne sait donc
+       pas distinguer un BONUS d'un PLAFOND SUR UN BONUS : relever
+       `SIX_SURNUMERAIRE_MAX` laisse compter davantage de 6 surnuméraires, donc
+       le crédit monte — l'instrument lit « + » là où la déclaration dit « ni
+       bonus ni malus, c'est une borne », et les deux ont raison.
+
+       Ce n'est pas une déclaration qui ment, c'est une question que la mesure ne
+       sait pas poser. On ne recoupe donc que ce qu'elle sait juger : les postes
+       qui ajoutent ou retranchent des points. */
+    if (NATURE[cle].sens === 0) continue;
+    const attendu = NATURE[cle].sens === 1 ? '+' : '−';
+    assert.equal(m.sens, attendu,
+      `${cle} : mesuré « ${m.sens} », déclaré « ${attendu} » — la déclaration ment`);
+    recoupes++;
   }
-  // Ce qui n'entre pas dans le crédit doit au moins agir sur le facteur, sinon
-  // c'est un palier mort et il faut le savoir.
-  for (const cle of muets) {
-    const m = mesure.paliers.get(cle);
-    assert.ok(m.surFacteur, `${cle} : aucune seconde mesure`);
-  }
+  assert.ok(recoupes >= 8,
+    `seuls ${recoupes} paliers ont pu être recoupés : les témoins n’en déclenchent pas assez`);
 });
 
 test('la mesure REND le barème intact — elle ne le déforme pas en passant', () => {
@@ -170,18 +211,25 @@ test('le sens ne se déduit pas du nom : renommer un palier change la mesure', (
   assert.deepEqual({ ...BAREME }, original);
 });
 
-test('le sens mesuré est cohérent avec le détail du crédit', () => {
-  // ★ Le seul recoupement possible sans écrire de table : `detailDuCredit`
-  //   compose ses lignes en multipliant chaque palier par un compteur, avec un
-  //   signe explicite dans le code. Le nombre de postes qui RETIRENT doit donc
-  //   correspondre au nombre de paliers mesurés « − ». On compare deux comptes,
-  //   pas deux listes de noms.
-  const mesure = sensDesPaliers();
-  const negatifs = [...mesure.paliers.values()].filter((m) => m && m.sens === '−').length;
-  const positifs = [...mesure.paliers.values()].filter((m) => m && m.sens === '+').length;
-  assert.ok(negatifs > 0 && positifs > 0,
-    'un barème sans bonus ou sans malus signalerait une mesure cassée');
-  assert.equal(negatifs + positifs
-    + [...mesure.paliers.values()].filter((m) => m && (m.sens === '±' || !m.sens)).length,
-  Object.keys(BAREME).length);
+test('★ chaque ligne du détail du crédit porte le signe que NATURE déclare', () => {
+  /* Le recoupement le plus direct qui soit : `detailDuCredit` compose les lignes
+     réellement portées au crédit, chacune avec ses points SIGNÉS. Si une ligne
+     retirait des points là où `NATURE` annonce un bonus, la page mentirait à qui
+     vient précisément y chercher la vérité.
+
+     ⚠ On ne compte pas des postes, on compare ligne à ligne : un décompte
+     global se satisferait de deux erreurs qui se compensent. */
+  const m = creerMoteur(CATALOGUE, { filetTemporel: false });
+  let vues = 0;
+  for (const a of m.resoudre('hope-hope-hope.fr').approches.slice(0, 6)) {
+    for (const l of detailDuCredit(a.bilan)) {
+      const n = NATURE[l.cle];
+      assert.ok(n, `${l.cle} : ligne portée au crédit sans être déclarée dans NATURE`);
+      if (l.points === 0) continue;
+      assert.equal(Math.sign(l.points), n.sens,
+        `${l.cle} : ${l.points} points portés, ${n.sens} déclaré`);
+      vues++;
+    }
+  }
+  assert.ok(vues >= 10, `seules ${vues} lignes signées observées : le témoin est trop pauvre`);
 });
