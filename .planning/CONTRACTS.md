@@ -302,7 +302,16 @@ export const op = {
   note:       null,          // note de bas de page optionnelle (ex. nuance AFNOR)
 
   // ★ Émission de la démonstration — voir §3
-  steps(avant, apres, ctx) { return [ /* Step[] */ ] }
+  steps(avant, apres, ctx) { return [ /* Step[] */ ] },
+
+  // ★ OPTIONNEL, et seulement pour les triches d'ADDITION (`m12`, `m16`) :
+  //   le nombre de TERMES de chaque addition que l'opérateur ferait sur ce
+  //   vecteur, dans l'ordre de lecture. Pur et déterministe comme `apply`,
+  //   dont il relit le plan. Le barème d'élégance en a besoin pour diluer la
+  //   peine (§5, amendement du 27 août) : les états ne disent jamais en
+  //   combien de GESTES les chiffres ont disparu. Un opérateur qui ne le
+  //   porte pas paie la peine pleine.
+  additions(valeur) { return [ /* number[] */ ]; }
 };
 ```
 
@@ -1872,7 +1881,35 @@ changement de scénario via l'URL.
 
 ### 4.1 Codes d'opérateurs — registre append-only
 
-> ## ⛔ LE REGISTRE EST FERMÉ DEPUIS LE 25 AOÛT 2026
+> ## ✅ AMENDEMENT DU 27 AOÛT 2026 — LA CLÔTURE EST LEVÉE
+>
+> Le bandeau ci-dessous fermait le registre au motif qu'un lien écrit à la main
+> circulait sur la page d'accueil. **L'auteur a depuis confirmé qu'aucun lien
+> n'a été diffusé** ; le motif tombe, et la clôture avec lui. On peut donc de
+> nouveau allouer des codes neufs sans cérémonie, et les liens figés dans les
+> tests et dans `src/i18n/*.js` peuvent être réécrits si un jour c'est utile.
+>
+> ⚠️ **Ce qui reste vrai, et qui n'a jamais dépendu de la publication :**
+>
+>  1. **deux codes différents ne désignent jamais la même chose**, et
+>  2. **un code ne change jamais de sens.** Un code alloué l'est à vie ; retirer
+>     un opérateur pose une pierre tombale, et cette pierre n'est pas reprise ;
+>  3. l'ordre de déclaration reste l'ordre des codes croissants (§4.4 règle 3 en
+>     dépend pour le déterminisme) ;
+>  4. le test de gel (`src/moteur/catalogue.test.js`) se met à jour EN MÊME
+>     TEMPS que le code — il vaut comme non-régression du comportement.
+>
+> ★ **Et en pratique, rien n'a été touché.** Les quatre codes alloués ce jour-là
+> — `m13` à `m16`, les transformations du 27 août — sont des codes NEUFS, à la
+> suite de `m12` : aucun code existant n'est renommé, réattribué ni repris, et
+> aucun lien existant ne change de sens. La levée de la clôture n'a servi qu'à
+> ne plus avoir à l'invoquer.
+>
+> Le bandeau et le raisonnement qui suivent sont conservés tels quels : ils
+> disent ce que la règle protège, et cela reste juste — c'est seulement le fait
+> qu'il y ait quelque chose à protéger qui était faux.
+
+> ## ⛔ ~~LE REGISTRE EST FERMÉ DEPUIS LE 25 AOÛT 2026~~ (clôture levée, voir ci-dessus)
 >
 > Le site est en ligne — **https://apophenie.github.io** —, et la page d'accueil
 > affiche elle-même un lien écrit à la main
@@ -2013,6 +2050,60 @@ pour mot · `my` **on retourne les 9** (`NUMS → NUMS`), alloué après `mx` ·
 > depuis toujours. Les ficelles restent pleinement disponibles au **GROUPEMENT**,
 > qui est le mode de tous les exemples de l'auteur : un vecteur, une ficelle, un
 > 666.
+
+> *Amendement — LES QUATRE TRANSFORMATIONS DU 27 AOÛT, `m13` · `m14` · `m15` ·
+> `m16`, clôture LEVÉE.* L'auteur a proposé quatre transformations neuves
+> (`.planning/A-VENIR-retours-cornes-et-moteur.md` §7). Elles forment, dans son
+> exemple, une seule démonstration : **redécouper**, **ranger**, **couronner**,
+> **retourner les 999**.
+>
+> | code | id | ce qu'il fait | palier d'élégance |
+> |---|---|---|---|
+> | `m13` | `m.triCroissant` | les nombres se rangent du plus petit au plus grand | `REARRANGEMENT` |
+> | `m14` | `m.retournerLesTrios` | trois 9 côte à côte se retournent ensemble et donnent 666 | — |
+> | `m15` | `m.compterLesChiffres` | chaque plage de valeurs identiques devient « décompte valeur » | — |
+> | `m16` | `m.redecoupageChoisi` | la ligne se redécoupe en paquets choisis pour tomber sur 6 | `REDECOUPAGE` |
+>
+> ★ **Codes NEUFS, index base36, à la suite de `m12`.** Le catalogue passe de
+> **96 à 100** opérateurs. Aucun code existant n'est touché.
+>
+> ★ **Aucune primitive ajoutée** : le vocabulaire reste à vingt et une (§3.1).
+> `m13` emploie `move` (l'ORDRE dans le flux, jamais des coordonnées — §7.3),
+> `m15` emploie `partition` + `substitute` + `drop`, `m16` emploie `substitute`,
+> `partition`, `insertOperators`, `sum` et `reduce`, et `m14` reprend le
+> `flip180` de `my` et de `p9`.
+>
+> ★ **Et `m14` n'émet AUCUNE corne**, alors que l'auteur écrit « en leur
+> ajoutant les cornes une fois retournés ». Ce n'est pas un oubli : c'est
+> `couronnerLesTriptyques` (`src/recherche/scenario.js`) qui pose les cornes
+> depuis le chantier des cornes, et lui seul peut le faire — un opérateur ne
+> voit que sa propre étape, il ignore si ses trois 6 arriveront au verdict, et
+> il ignore même quelle est la CIBLE (§4.2, `c…!`). L'émettre ici, ce serait
+> couronner à l'aveugle, et faire pousser des cornes de diable au-dessus d'un
+> `111`.
+>
+> ★ **`m16` rejoint les quatre opérateurs écrits autour du 6** et sort de la
+> recherche dès que la cible change (`bfs.js › OPERATEURS_LIES_A_666`) : son
+> objectif, son départage et son refus sont tous écrits en « 6 ». Ils sont donc
+> **cinq**, et viser autre chose que 666 donne accès à 95 opérateurs sur 100.
+> Les trois autres restent explorables partout, et servent même MIEUX les autres
+> cibles : ranger rapproche les 1 d'un `111` exactement comme les 6.
+>
+> ★ **`exige` — les quatre refusent plutôt que de se jouer pour rien**, même
+> discipline que `my`, `mz` et les trois ficelles. `m13` refuse s'il ne
+> RASSEMBLE pas (il doit faire apparaître une plage de trois qui n'existait
+> pas) ; `m14` refuse sans trio de 9 contigus ; `m15` refuse quand le décompte
+> ne condense pas la ligne ; `m16` refuse en deçà de vingt-cinq chiffres — deux
+> fois la portée de `m12`, plus un — et refuse aussi s'il ne gagne pas
+> strictement plus de 6 qu'il n'en trouve.
+>
+> ⚠️ **Le seuil de `m16` est une MESURE, pas un goût.** Sans lui, cette triche
+> s'appliquait à presque tous les vecteurs et évinçait des voies honnêtes
+> **avant** le classement — le moteur ne canonicalise que les premiers chemins
+> de chaque fragment. « Donald Trump » perdait alors la voie de référence de
+> l'auteur, et « Wikipedia » sa tête de liste, au profit de voies qui
+> n'employaient même pas `m16`. Aucun réglage du barème ne pouvait y remédier :
+> ce qui tombait n'était pas classé plus bas, il n'était plus là.
 
 **Trois règles inviolables :**
 1. Un code alloué l'est **à vie**. Retirer un opérateur pose une pierre tombale : son
@@ -2896,6 +2987,111 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   > `approche.bilan` et `approche.elegance` restent publiés, ce qui permet au banc
   > de comparer l'avant et l'après d'une seule exécution plutôt que de comparer un
   > souvenir.
+
+  > *Amendement du 27 août 2026 — LA DILUTION DES TRICHES D'ADDITION, et le
+  > sommet de l'échelle.* Deux précisions de l'auteur, deux paliers, une
+  > formule.
+  >
+  > **1. « Le malus de triche se dilue avec le nombre d'additions d'affilée. »**
+  >
+  > > « Pour les additions sélectives comme triche : le malus de triche devrait
+  > > être dilué avec le nombre d'additions d'affilée. Plus il y en a, moins la
+  > > triche se verra, et plus la triche est éloignée de la première et de la
+  > > dernière addition d'affilée, plus le fait d'en ajouter une ou d'en retirer
+  > > une, ou de découper les chiffres des nombres différemment, passera
+  > > inaperçu et donc avec une bien moindre pénalité (qui devient presque
+  > > négligeable pour l'exemple que je t'ai donné, vu le nombre d'additions). »
+  >
+  > C'est une règle de MESURE, et elle est juste : **une triche se paie à
+  > hauteur de ce qu'elle se voit.** La forme retenue (`elegance.js › dilution`),
+  > pour `N` additions jouées à la suite et l'addition de rang `j` :
+  >
+  > ```
+  > bord(j) = min(j, N − 1 − j)
+  > poids(j) = max(1, ⌊ 1000 × chiffres absorbés(j) ÷ (N × (1 + 2 × bord(j))) ⌋)
+  > ```
+  >
+  > exprimé en **millièmes d'un chiffre absorbé**, arithmétique entière de bout
+  > en bout (§4.4). Pour des additions absorbant chacune un chiffre : `N = 1` →
+  > 1 000 (la peine PLEINE, donc non-régression exacte sur `6, 5+1, 6, 8`) ·
+  > `N = 3` → 777 · `N = 5` → 572 · `N = 8` → 416. La série ENTIÈRE coûte au pire
+  > ce que coûterait une triche isolée, et de moins en moins ensuite.
+  >
+  > ★ **Jamais nul** — `max(1, …)` par addition, et la ligne de crédit plancher à
+  > une milli-unité dès que le compteur bouge. Une triche diluée reste une
+  > triche : sans ce plancher, un chemin assez long deviendrait gratuitement
+  > malhonnête.
+  >
+  > ★ **« D'affilée » se lit sur le GESTE.** Dans l'exemple de l'auteur, les
+  > paquets alternent additions et chiffres laissés seuls (`… 9 · 6 · 1+1+4 …`),
+  > et il les compte pourtant comme une seule série (« vu le nombre
+  > d'additions ») : elles sont jouées l'une après l'autre dans le même
+  > mouvement, sous les mêmes accolades.
+  >
+  > ★ **Ce sont les OPÉRATEURS qui déclarent leurs additions**, par un champ
+  > optionnel `additions(valeur)` du descripteur (§2.2) : les états d'entrée et
+  > de sortie disent combien de chiffres ont disparu, jamais en combien de
+  > gestes. Un opérateur qui ne le porte pas retombe sur le compte brut, c'est-à-
+  > dire sur la peine pleine — l'absence d'information coûte cher, elle ne
+  > blanchit rien.
+  >
+  > **Mesuré**, sur l'exemple de l'auteur (32 chiffres, sept additions) : la
+  > dilution ramène le poids de 21 000 millièmes à **1 223**, soit 550
+  > milli-unités au tarif retenu (`REDECOUPAGE = 450`) — un dix-huitième du prix
+  > plein, pour une triche qui rapporte deux 666.
+  >
+  > **2. « L'effacement sans motif est probablement la pire des triches. »**
+  >
+  > > « L'effacement est une étape à part, et s'il n'a pas de motif (chiffre
+  > > minoritaire, pair/impair) c'est probablement la pire des triches, à
+  > > pénaliser en conséquence. »
+  >
+  > Un MOTIF, c'est ce qui permet de dire pourquoi ceux-là et pas les autres :
+  > être minoritaire (`m10`), occuper un rang pair ou impair (`m11`). Ce sont des
+  > règles qu'on énonce, qu'on affiche sous l'accolade, et que le spectateur peut
+  > vérifier. Effacer parce que ça arrange, sans rien pouvoir en dire, est le
+  > sommet de l'échelle : `EFFACEMENT_SANS_MOTIF`, **au-dessus de tous les autres
+  > paliers de triche**.
+  >
+  > ⚠️ **Le compteur existe et vaut zéro** : aucun opérateur du catalogue
+  > n'efface sans motif. Il attend la scission du geste de `mz`, qui couronne ET
+  > tronque en un seul mouvement. Pour le brancher, il suffit d'inscrire
+  > l'identifiant de l'opérateur en face de `'effacementSansMotif'` dans
+  > `FICELLES` : le décompte, la ligne de crédit, l'exemption de `valeursJetees`
+  > et la lecture du vecteur le plus large par le rendement suivent d'eux-mêmes.
+  > Son tarif est, jusque-là, une **prédiction non mesurée** — il ne PEUT pas
+  > l'être tant qu'aucun classement ne bouge quand on le fait varier.
+  >
+  > ⚠️ **`VALEUR_JETEE` (36) n'est pas touché**, et ce n'est pas un oubli : ce
+  > poste-là mesure le tri du VERDICT, qui n'est pas un opérateur, ne figure dans
+  > aucune URL, et dont trois mesures écrites dans `elegance.js` expliquent
+  > pourquoi l'alourdir écrase la moisson et promeut les ficelles.
+  >
+  > **3. Deux effets de bord, réglés dans le même mouvement.**
+  >
+  > · **Le rendement ne compte plus au dénominateur ce qu'une triche ABSORBE.**
+  >   `score.js › rendementSix` lisait le vecteur le plus large du chemin pour
+  >   toute ficelle ; c'est juste pour celles qui ÉCARTENT (les noter sur ce
+  >   qu'il reste les récompenserait d'avoir jeté davantage), et faux pour celles
+  >   qui absorbent — leur ligne de chiffres momentanément élargie est le calcul
+  >   MONTRÉ, pas du déchet. D'où `elegance.js › FICELLES_QUI_ECARTENT`. Mesuré :
+  >   `f6+t1+mw+m16` affichait un rendement de 789 pour une scène qui garde
+  >   quinze jetons et n'en jette que deux (≈ 882).
+  >
+  > · **Aucune ficelle en 2ᵈ SUGGESTION.** Cette place-là ne récompense qu'une
+  >   chose, le NOMBRE de séries. Une ficelle n'en donne pas davantage, elle en
+  >   FABRIQUE. C'est la même règle que §4.1 pose déjà pour la MOISSON, appliquée
+  >   à l'autre endroit où la quantité est mise en avant pour elle-même. Mesuré
+  >   sur « Millicent » : `fl+t1+m5+m16` (trois séries, élégance 1 278) prenait la
+  >   seconde place au-dessus de `fl+t1+m5+mt` (deux séries, élégance 1 310), et
+  >   la liste affichait un compte de séries qui REMONTE — ce qu'un test de
+  >   classement interdit depuis toujours.
+  >
+  > **Mesuré sur le corpus de dix-neuf saisies**, quatre opérateurs neufs et deux
+  > paliers compris : **une seule tête de liste change**
+  > (`https://www.example.com/path/to/page` — même compte de cinq séries, voie
+  > plus élégante : 1 516 contre 1 390), et les **quatre cas de référence de
+  > l'auteur sont intacts**.
 
 - Sortie : `≤ 12` approches diversifiées, `≤ 24` fragments.
 

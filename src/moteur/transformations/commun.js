@@ -21,6 +21,27 @@
  *
  * `appliquer(op, etat)` (voir `catalogue.js`) emballe le tout dans un `Etat`.
  *
+ * ## `additions(valeur)` — champ OPTIONNEL, pour les seules triches d'addition
+ *
+ * Rend, dans l'ordre de lecture, **le nombre de TERMES de chaque addition**
+ * que l'opérateur ferait sur ce vecteur — `[]` s'il n'en fait aucune. Deux
+ * opérateurs le portent aujourd'hui : `m12` (l'addition sélective) et `m16`
+ * (le redécoupage tricheur).
+ *
+ * ★ **Pourquoi il existe.** L'auteur a tranché que le malus d'une triche
+ * d'addition se DILUE avec le nombre d'additions qui se suivent : « plus il y
+ * en a, moins la triche se verra ». Or cette information n'est PAS lisible sur
+ * les états d'entrée et de sortie — `[6,5,16,8] → [6,6,6,8]` dit qu'un chiffre
+ * a été absorbé, jamais en combien de gestes. Seul l'opérateur, qui tient son
+ * plan de découpe, le sait. Il le dit donc, plutôt que de laisser le barème le
+ * deviner : une seule source, comme partout ailleurs (CONTRACTS §0.3).
+ *
+ * ★ **Pur, déterministe, sans exception**, comme `apply` — c'est le même plan,
+ * relu. Un opérateur qui ne le porte pas n'est pas fautif : le barème retombe
+ * alors sur le compte brut des chiffres absorbés, c'est-à-dire sur la peine
+ * pleine (`src/recherche/elegance.js`). L'absence coûte cher, elle ne
+ * blanchit rien.
+ *
  * ## Émission de la démonstration — `steps(avant, apres, ctx)`
  *
  * `ctx` vaut `{ ids, cle }` :

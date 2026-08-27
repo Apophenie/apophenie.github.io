@@ -324,7 +324,7 @@ export function operateursExplorables(catalogue) {
 }
 
 /**
- * ★ LES QUATRE OPÉRATEURS ÉCRITS AUTOUR DU CHIFFRE 6 — et pourquoi ils sortent
+ * ★ LES CINQ OPÉRATEURS ÉCRITS AUTOUR DU CHIFFRE 6 — et pourquoi ils sortent
  *   de la recherche dès que la cible change.
  *
  * Le catalogue est, à quatre exceptions près, indifférent au nombre visé : A1Z26
@@ -339,7 +339,22 @@ export function operateursExplorables(catalogue) {
  *    (`portePleinement`, `paritePorteuse`, la fenêtre de somme) est écrit en
  *    « 6 » et en « 666 ». Elles refusent d'elles-mêmes de s'appliquer quand le
  *    résultat n'écrit pas 666 d'affilée ; les explorer sur une autre cible
- *    revient donc à dépenser du budget de recherche pour des `null`.
+ *    revient donc à dépenser du budget de recherche pour des `null` ;
+ *  · `m16` — le redécoupage tricheur, dont la programmation dynamique MAXIMISE
+ *    le nombre de paquets valant 6 et qui refuse de s'appliquer s'il n'en gagne
+ *    pas. Tout, chez lui, est écrit en « 6 » : l'objectif, le départage, le
+ *    refus. Le lâcher sur une cible visant 111 lui ferait fabriquer des 6 que
+ *    personne ne cherche, et payer une triche pour rien.
+ *
+ * ★ **Et les trois autres transformations du 27 août n'y sont PAS** — c'est
+ * délibéré, et c'est ce qui les distingue de `m16`. Le tri croissant (`m13`)
+ * range, le décompte des chiffres (`m15`) compte, et ni l'un ni l'autre ne
+ * regarde ce qu'on cherche : ils rendraient le même résultat en visant 007. Ils
+ * servent même MIEUX les autres cibles que le 666 — trier rapproche les 1 d'un
+ * `111` aussi bien que les 6. Quant aux trios de 9 (`m14`), ils font ce que
+ * `my` fait déjà, en trio plutôt qu'un par un : ils produisent des 6 sans
+ * jamais rien affirmer, et ils n'émettent aucune corne (c'est
+ * `couronnerLesTriptyques` qui couronne, et lui suit la cible).
  *
  * On les RETIRE plutôt que de les généraliser, et c'est un choix de portée, pas
  * de paresse : leur généraliser demanderait de faire voyager la cible jusque
@@ -348,12 +363,13 @@ export function operateursExplorables(catalogue) {
  * est noté à part (`.planning/A-VENIR-cibles.md`).
  *
  * ★ Conséquence assumée, et mesurable : viser autre chose que 666 donne accès à
- * 92 opérateurs au lieu de 96. Aucun de ces quatre n'aurait rendu autre chose
+ * 95 opérateurs au lieu de 100. Aucun de ces cinq n'aurait rendu autre chose
  * que `null` de toute façon, sauf `mz` — dont la seule contribution possible
  * eût été de mentir.
  */
 export const OPERATEURS_LIES_A_666 = Object.freeze([
   'm.troisSixDAffilee', 'm.plusFrequent', 'm.unRangSurDeux', 'm.additionSelective',
+  'm.redecoupageChoisi',
 ]);
 
 /**

@@ -529,6 +529,135 @@ export const BAREME = {
    */
   ADDITION_SELECTIVE: 100,
 
+  /**
+   * 3 bis. ★ Le redécoupage tricheur (`m16`) — par CHIFFRE ABSORBÉ, dilué.
+   *
+   * « C'est le moment de TRICHER pour réduire chaque nombre à un chiffre en
+   * redécoupant de manière à ce que ça tombe sur 6 le plus souvent possible. »
+   * — l'auteur, et le mot est de lui.
+   *
+   * ★ **Le TARIF le plus élevé des triches d'opérateur — et il n'est comparable
+   * à aucun autre, parce qu'il est le seul (avec l'addition sélective) à être
+   * DIVISÉ avant d'être facturé.** L'auteur n'a jamais comparé celui-ci aux
+   * trois ficelles ; on ne lui prête donc aucun rang qu'il n'ait dicté, et sa
+   * chaîne (« majorité > un rang sur deux > addition sélective ») reste gelée
+   * telle quelle par son test. Ce qui suit est un arbitrage, écrit comme tel :
+   *
+   *  · **il décide en regardant LE CHIFFRE QU'ON CHERCHE**, seul du catalogue à
+   *    le faire aussi ouvertement. « Un rang sur deux » s'énonce avant d'avoir
+   *    vu le vecteur ; « le plus fréquent » se compte après, mais sans préférer
+   *    personne. Ce redécoupage-ci essaie toutes les découpes et retient celle
+   *    qui donne le plus de 6 : c'est la faute de `m10` (choisir après avoir vu)
+   *    sans en avoir l'excuse (une règle qu'on peut énoncer d'avance) ;
+   *  · **il n'ÉCARTE pourtant rien** — tout chiffre entre dans un paquet et
+   *    ressort dans une somme. C'est ce qui le maintient sous l'effacement sans
+   *    motif, et ce qui lui vaut la dilution ;
+   *  · **et il DILUE**, contrairement aux deux autres (voir `dilution`). C'est
+   *    ce qui explique le TARIF, et c'est la seule chose qui rende les deux
+   *    lectures compatibles : l'auteur demande à la fois qu'il soit
+   *    « fortement pénalisé » et que la peine devienne « presque négligeable »
+   *    sur son exemple aux seize paquets. Un tarif comparable à celui des trois
+   *    ficelles satisferait la seconde demande et pas la première.
+   *
+   * ⚠️ MESURÉ, sur le corpus de dix-neuf saisies, tarif par tarif :
+   *
+   *     150 · `Millicent` bascule sur `fl+t1+m5+m16` (3×666, élégance 1 475)
+   *           et évince `fl+t1+m5+mt` (2×666, 1 310) : la triche paie 98
+   *           milli-unités et en encaisse 482. Inacceptable.
+   *     300 · idem, `Millicent` tombe toujours.
+   *     450 · `Millicent` revient à la voie honnête, et **plus aucune tête de
+   *           liste du corpus ne change du fait de `m16`**.
+   *     600 et au-delà · rien ne bouge plus : le corpus est déjà stable, on
+   *           n'achète que de la sévérité gratuite.
+   *
+   * (Le seuil de largeur de `m16` a été réglé dans le même mouvement, et c'est
+   * lui qui a fait le gros du travail — un tarif ne peut rien contre une voie
+   * qui est évincée AVANT le classement. Voir `CHIFFRES_REDECOUPE_MIN`,
+   * `transformations/mappeurs.js`.)
+   *
+   * ★ Et sur l'exemple de l'auteur — ses 32 chiffres, sept additions —, la
+   * dilution ramène le poids de **21 000** millièmes (le compte brut des
+   * chiffres absorbés) à **1 223**, soit **550 milli-unités** au tarif retenu :
+   * un dix-huitième du prix plein, pour une triche qui rapporte deux 666.
+   * « Presque négligeable, vu le nombre d'additions » — ce sont ses mots, et
+   * c'est ce que la mesure rend.
+   */
+  REDECOUPAGE: 450,
+
+  /**
+   * 5. ★ Le RÉARRANGEMENT — le tri croissant (`m13`), par valeur déplacée.
+   *
+   * ★ **Le moins cher du barème, et l'auteur ne l'appelle pas une triche.** Il
+   * l'écrit sans réserve : « Coté transformation il y a aussi "Tri croissant"
+   * `95956636494` → `34455666999`, qui permet de faire apparaître 666
+   * contigu. » Le mot « tricher », il le réserve explicitement au redécoupage
+   * (§7.4 de ses retours). On ne lui fait donc pas dire le contraire, et ce
+   * palier n'entre dans AUCUNE des deux chaînes de laideur qu'il a dictées.
+   *
+   * ★ **Mais il ne peut pas être gratuit, et c'est le barème lui-même qui
+   * l'impose.** `TRIPTYQUE_CONTIGU` récompense un 666 « qui se forme sans
+   * supprimer des nombres au milieu », c'est-à-dire « sans qu'on ait rien
+   * réarrangé » — ce sont les mots du poste. Un tri qui rapproche les 6
+   * encaisse donc un bonus de 260 pour n'avoir pas fait ce qu'il vient
+   * précisément de faire. Le palier ferme ce trou, et rien de plus.
+   *
+   * ★ **Unité : la valeur DÉPLACÉE**, c'est-à-dire un rang dont la valeur
+   * change après rangement. Un tri qui ne bouge presque rien ne coûte presque
+   * rien — et l'opérateur refuse de s'appliquer quand il ne bouge rien du tout.
+   *
+   * ⚠️ MESURÉ au banc : à 20, aucune tête de liste du corpus de dix-neuf
+   * saisies ne change, et les quatre cas de référence de l'auteur gardent leur
+   * rang.
+   */
+  REARRANGEMENT: 20,
+
+  /**
+   * 0. ★ **L'EFFACEMENT SANS MOTIF — le sommet de l'échelle**, par valeur
+   * effacée.
+   *
+   * « L'effacement est une étape à part, et s'il n'a pas de motif (chiffre
+   * minoritaire, pair/impair) c'est probablement la pire des triches, à
+   * pénaliser en conséquence. » — l'auteur, mot pour mot.
+   *
+   * ★ **Un MOTIF, c'est ce qui permet de dire pourquoi ceux-là et pas les
+   * autres.** Être minoritaire (`m10`), occuper un rang pair ou impair
+   * (`m11`) : ce sont des règles qu'on énonce, qu'on affiche sous l'accolade,
+   * et que le spectateur peut vérifier. Effacer parce que ça arrange, sans rien
+   * pouvoir en dire, c'est exactement ce que tout le site prétend ne pas
+   * faire — d'où le tarif le plus élevé de la liste des triches, **au-dessus de
+   * la majorité**.
+   *
+   * ★ **Et il coûte, par valeur, plus cher que casser un 666** (430) : UNE
+   * valeur effacée sans motif dépasse déjà le plus gros malus de l'autre
+   * échelle. Ce n'est pas une contradiction — les deux ne mesurent pas la même
+   * chose et ne s'expriment pas dans la même unité : `CASSE_TRIPTYQUE` est un
+   * forfait par triptyque défait, celui-ci un tarif par valeur escamotée. La
+   * hiérarchie des GESTES est intacte ; c'est celle des tarifs qui n'a jamais
+   * été un classement (voir la note des trois ficelles, plus haut).
+   *
+   * ⚠️ **Ce chiffre est une PRÉDICTION, et il n'a pas encore été mesuré** —
+   * comme l'étaient toutes les valeurs de ce barème avant leur banc. Il ne peut
+   * pas l'être : aucun opérateur ne l'alimente, donc aucun classement ne bouge
+   * quand on le fait varier. Celui qui branchera le compteur devra le passer au
+   * banc (`.planning/banc/classement.mjs`) avant de le considérer comme réglé.
+   *
+   * ⚠️ **Le compteur `effacementSansMotif` existe et vaut zéro aujourd'hui** :
+   * aucun opérateur du catalogue n'efface sans motif. Il attend la scission du
+   * geste de `mz` — qui couronne ET tronque en un seul mouvement indivisible —
+   * en cours dans un autre chantier. Pour le brancher, il suffit d'inscrire
+   * l'identifiant de l'opérateur dans `FICELLES` en face de
+   * `'effacementSansMotif'` : le décompte, la ligne de crédit et l'exemption de
+   * `valeursJetees` suivent d'eux-mêmes (voir `ECARTEMENTS`).
+   *
+   * ⚠️ **`VALEUR_JETEE` (36) n'est PAS touché**, et ce n'est pas un oubli. Ce
+   * poste-là mesure le tri du VERDICT, qui n'est pas un opérateur, qui ne
+   * figure dans aucune URL, et dont trois mesures écrites plus haut expliquent
+   * pourquoi l'alourdir écrase la moisson et promeut les ficelles. Ce que
+   * l'auteur nomme ici, c'est un GESTE DU CATALOGUE qui efface sans savoir
+   * dire quoi ni pourquoi — pas la troncature finale que le verdict assume.
+   */
+  EFFACEMENT_SANS_MOTIF: 520,
+
   // ── Comment le crédit redescend sur le score de conviction ─────────────────
 
   /**
@@ -568,7 +697,181 @@ export const FICELLES = Object.freeze({
   'm.plusFrequent': 'majorite',
   'm.unRangSurDeux': 'decimation',
   'm.additionSelective': 'additionSelective',
+  'm.redecoupageChoisi': 'redecoupage',
+  // ⚠️ `effacementSansMotif` n'a pas encore d'opérateur : la scission du geste
+  //    de `mz` (couronner / effacer) est en cours ailleurs. Inscrire ici
+  //    l'identifiant de la moitié « effacer » suffira à brancher le palier.
 });
+
+/**
+ * ★ Les ficelles qui ÉCARTENT — leur peine se compte par valeur disparue.
+ *
+ * C'est l'unité de `VALEUR_JETEE`, et c'est ce qui rend les deux comparables :
+ * on parle des mêmes objets — une valeur calculée, montrée, puis retirée de la
+ * ligne.
+ */
+const ECARTEMENTS = new Set(['majorite', 'decimation', 'effacementSansMotif']);
+
+/**
+ * ★ Les ficelles qui ABSORBENT par ADDITION — leur peine se dilue.
+ *
+ * Ce sont les deux seules dont l'auteur ait dit que le malus devait fondre avec
+ * le nombre d'additions (voir `dilution`). Elles ne jettent rien : chaque
+ * chiffre entre dans une somme et ressort dedans.
+ */
+const ABSORPTIONS_ADDITIVES = new Set(['additionSelective', 'redecoupage']);
+
+/**
+ * ★ Les ficelles qui ÉCARTENT, par identifiant d'opérateur — publié pour
+ *   `score.js`, qui en a besoin et ne doit pas en tenir une seconde liste.
+ *
+ * Le rendement (`score.js › rendementSix`) lit, POUR CELLES-LÀ SEULEMENT, le
+ * vecteur le plus large du chemin plutôt que le dernier : les noter sur ce
+ * qu'il reste les récompenserait d'avoir jeté davantage. Le raisonnement
+ * s'arrête là où l'écartement s'arrête — une ficelle qui ABSORBE (`m12`,
+ * `m16`) ne jette rien, et sa ligne de chiffres momentanément élargie n'est pas
+ * du gaspillage : c'est le même nombre, écrit autrement, le temps d'une
+ * addition. La lui compter au dénominateur lui reprocherait précisément d'avoir
+ * MONTRÉ son calcul.
+ *
+ * ⚠️ MESURÉ : sans cette distinction, `f6+t1+mw+m16` affichait un rendement de
+ * 789 pour une scène qui garde quinze jetons et n'en jette que deux (≈ 882) —
+ * l'écart venait des dix-neuf chiffres traversés pendant les additions, que
+ * personne n'a jetés.
+ */
+/**
+ * ★ Ce bilan emploie-t-il une FICELLE ? — lu sur les compteurs, jamais sur les
+ *   codes.
+ *
+ * Les compteurs sont la trace de ce que le chemin a FAIT ; les codes ne sont
+ * qu'une adresse d'URL (§4.1). C'est la même doctrine que partout ailleurs dans
+ * ce module, et elle a ici une conséquence utile : un bilan recalculé depuis une
+ * URL rejouée répond la même chose que celui de la liste dont il sort.
+ */
+export function emploieUneFicelle(bilan) {
+  if (!bilan) return false;
+  for (const compteur of new Set(Object.values(FICELLES))) {
+    if ((bilan[compteur] || 0) > 0) return true;
+  }
+  return false;
+}
+
+export const FICELLES_QUI_ECARTENT = Object.freeze(new Set(
+  Object.keys(FICELLES).filter((id) => ECARTEMENTS.has(FICELLES[id])),
+));
+
+/**
+ * ★ Les opérateurs qui RÉARRANGENT sans rien retirer — le tri croissant.
+ *
+ * Un vecteur trié a la même largeur, les mêmes valeurs, la même somme : aucun
+ * poste du barème ne le voyait passer. Il gagnait pourtant `TRIPTYQUE_CONTIGU`
+ * pour une contiguïté qu'il venait de fabriquer. `REARRANGEMENT` ferme ce trou.
+ */
+const REARRANGEMENTS = new Set(['m.triCroissant']);
+
+/**
+ * ★ Les opérateurs qui RÉTRÉCISSENT en agrégeant, sans rien écarter.
+ *
+ * « On compte les chiffres » remplace `6 6 6` par « 3 6 » : la ligne raccourcit
+ * d'une unité, mais rien n'a été jeté — les trois 6 sont ENTIÈREMENT dans le
+ * « 3 ». Les compter en `valeursJetees` reviendrait à facturer une addition
+ * comme une suppression, ce que l'en-tête interdit explicitement (« additionner
+ * quatre nombres pour en faire un n'écarte rien, cela agrège »).
+ *
+ * ★ En revanche, ce qu'une agrégation fait perdre de la CIBLE se paie : trois 6
+ * qui deviennent « 3 6 », ce sont deux 6 convertis en autre chose, et
+ * `SIX_DETRUIT` est fait pour ça. Le poste ordinaire ne les voit pas — il
+ * n'examine que les transformations à largeur constante —, on les lui donne
+ * donc ici.
+ */
+const AGREGATIONS = new Set(['m.compterLesChiffres']);
+
+/**
+ * ★ LA DILUTION D'UNE TRICHE D'ADDITION — « le malus se dilue avec le nombre
+ *   d'additions d'affilée ».
+ *
+ * > « Pour les additions sélectives comme triche : le malus de triche devrait
+ * > être dilué avec le nombre d'additions d'affilée. Plus il y en a, moins la
+ * > triche se verra, et plus la triche est éloignée de la première et de la
+ * > dernière addition d'affilée, plus le fait d'en ajouter une ou d'en retirer
+ * > une, ou de découper les chiffres des nombres différemment, passera inaperçu
+ * > et donc avec une bien moindre pénalité (qui devient presque négligeable
+ * > pour l'exemple que je t'ai donné, vu le nombre d'additions). » — l'auteur.
+ *
+ * Le principe est une règle de MESURE, et elle est juste : **une triche se paie
+ * à hauteur de ce qu'elle se voit.** Une addition tordue au milieu de vingt
+ * autres est indétectable ; la même, seule sur la ligne, saute aux yeux.
+ *
+ * ── La forme ────────────────────────────────────────────────────────────────
+ *
+ * Soit `N` additions jouées à la suite et `j` le rang de l'une d'elles
+ * (0 fondé). Deux facteurs, ceux que l'auteur nomme, et rien d'autre :
+ *
+ *  · **la longueur de la série** — on divise par `N` ;
+ *  · **la distance aux extrémités** — `bord = min(j, N−1−j)`, nulle aux deux
+ *    bouts, maximale au milieu ; on divise par `1 + 2 × bord`.
+ *
+ *     poids(j) = ⌊ 1000 × chiffres absorbés par l'addition j
+ *                  ÷ (N × (1 + 2 × bord(j))) ⌋
+ *
+ * exprimé en **millièmes d'un chiffre absorbé**, pour que l'arithmétique reste
+ * entière de bout en bout (§4.4) — pas un flottant, pas un arrondi de quotient.
+ *
+ * ── Ce que ça donne, et pourquoi la forme est celle-là ──────────────────────
+ *
+ * Pour des additions absorbant chacune un chiffre :
+ *
+ *     N = 1  → 1000            (la peine PLEINE — non-régression exacte :
+ *                               `[6,5,16,8]` coûte exactement ce qu'il coûtait)
+ *     N = 2  →  500 + 500      = 1000
+ *     N = 3  →  333 + 111 + 333 =  777
+ *     N = 5  →  200 + 66 + 40 + 66 + 200 = 572
+ *     N = 8  →  125 + 41 + 25 + 17 + 17 + 25 + 41 + 125 = 416
+ *
+ * La série entière coûte donc, au pire, ce que coûterait UNE triche isolée, et
+ * de moins en moins ensuite. C'est exactement la lecture de l'auteur : ce n'est
+ * pas le nombre de tricheries qui se paie, c'est leur VISIBILITÉ, et elle
+ * s'effondre quand la série s'allonge.
+ *
+ * ── Les deux garde-fous ─────────────────────────────────────────────────────
+ *
+ *  · **entier**, on l'a dit ;
+ *  · **jamais nul.** `Math.max(1, …)` par addition, et la ligne de crédit
+ *    plancher à une milli-unité dès que le compteur bouge (`peine`). Une triche
+ *    diluée reste une triche : elle coûte peu, elle ne coûte pas rien — sans
+ *    quoi un chemin assez long deviendrait gratuitement malhonnête, ce que le
+ *    barème existe précisément pour empêcher.
+ *
+ * ★ **« D'affilée » se lit sur le GESTE, pas sur les rangs de la ligne.** Dans
+ * l'exemple de l'auteur, les seize paquets alternent additions et chiffres
+ * laissés seuls (`… 9 · 6 · 1+1+4 · 1+0+8 …`) — et il les compte pourtant tous
+ * comme une seule série (« vu le nombre d'additions »). C'est juste : elles sont
+ * jouées l'une après l'autre dans le même mouvement, sous les mêmes accolades,
+ * et c'est ce mouvement-là que le spectateur voit d'un bloc.
+ *
+ * @param {number[]} tailles  le nombre de TERMES de chaque addition, en ordre
+ * @returns {number} le poids, en millièmes d'un chiffre absorbé
+ */
+export function dilution(tailles) {
+  const N = Array.isArray(tailles) ? tailles.length : 0;
+  if (!N) return 0;
+  let poids = 0;
+  for (let j = 0; j < N; j++) {
+    const absorbes = Math.max(0, (tailles[j] | 0) - 1);
+    if (!absorbes) continue;
+    const bord = Math.min(j, N - 1 - j);
+    poids += Math.max(1, Math.floor((1000 * absorbes) / (N * (1 + 2 * bord))));
+  }
+  return poids;
+}
+
+/**
+ * La peine d'un poste dilué, en milli-unités : le tarif appliqué à un poids
+ * exprimé en millièmes, **avec un plancher à une milli-unité** dès que le
+ * compteur n'est pas nul (voir `dilution`, second garde-fou).
+ */
+const peine = (tarif, millemes) => (millemes > 0
+  ? Math.max(1, fraction(tarif, [millemes, 1000])) : 0);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // La classification des opérateurs — par identifiant, jamais par code
@@ -809,10 +1112,17 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     lettreVersLettre: 0,
     sixDetruits: 0,
     valeursJetees: 0,
-    // ★ les trois ficelles — voir `FICELLES` et l'en-tête
+    // ★ les ficelles — voir `FICELLES` et l'en-tête
     majorite: 0,
     decimation: 0,
+    // ★ ces deux-là se comptent en MILLIÈMES d'un chiffre absorbé : leur peine
+    //   est diluée par le nombre d'additions qui se suivent (`dilution`).
     additionSelective: 0,
+    redecoupage: 0,
+    // ★ le sommet de l'échelle, en attente d'un opérateur (voir le barème).
+    effacementSansMotif: 0,
+    // ★ ce qu'un tri croissant déplace, valeur par valeur.
+    rearrangement: 0,
     triptyqueVu: false,
     triptyqueTenu: false,
     casseTriptyque: false,
@@ -878,24 +1188,56 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     // le tri qu'elle est censée valoir mieux que.
     const ficelle = op.id && Object.prototype.hasOwnProperty.call(FICELLES, op.id)
       ? FICELLES[op.id] : null;
-    if (ficelle === 'majorite' || ficelle === 'decimation') {
+    if (ECARTEMENTS.has(ficelle)) {
       // Ce que la ruse ÉCARTE, à son tarif. Même unité que `VALEUR_JETEE` :
       // une valeur calculée, montrée, puis écartée.
       b[ficelle] += Math.max(0, avant.valeur.length - apres.valeur.length);
-    } else if (ficelle === 'additionSelective') {
+    } else if (ABSORPTIONS_ADDITIVES.has(ficelle)) {
       // Ce que la ruse ABSORBE : le nombre de CHIFFRES qui disparaissent dans
       // une addition. `[6,5,16,8]` porte cinq chiffres et n'en rend que quatre
       // termes : un chiffre a été absorbé, donc une sélection a été faite.
-      // Rien n'est jeté ici — d'où le tarif le plus bas des quatre.
+      // Rien n'est jeté ici — d'où les tarifs les plus bas de la liste.
+      //
+      // ★ Et la peine est DILUÉE par le nombre d'additions qui se suivent
+      //   (`dilution`) : c'est l'opérateur qui dit combien il en fait et de
+      //   quelle taille, parce que les états ne le disent pas. Sans ce champ —
+      //   un opérateur qui ne le porterait pas —, on retombe sur le compte brut
+      //   des chiffres absorbés, c'est-à-dire sur la peine PLEINE : l'absence
+      //   d'information coûte cher, elle ne blanchit rien.
       let chiffres = 0;
       for (const v of avant.valeur) chiffres += String(Math.abs(v)).length;
-      b.additionSelective += Math.max(0, chiffres - apres.valeur.length);
+      const absorbes = Math.max(0, chiffres - apres.valeur.length);
+      b[ficelle] += typeof op.additions === 'function'
+        ? dilution(op.additions(avant.valeur)) : absorbes * 1000;
+    }
+
+    // ── ★ Le RÉARRANGEMENT : rien n'est jeté, rien n'est converti, mais
+    //    l'ordre de lecture ne survit pas. On compte les rangs dont la valeur
+    //    change — c'est ce que le spectateur voit se déplacer.
+    if (REARRANGEMENTS.has(op.id) && Array.isArray(avant.valeur) && Array.isArray(apres.valeur)) {
+      let bouges = 0;
+      for (let k = 0; k < avant.valeur.length; k++) {
+        if (avant.valeur[k] !== apres.valeur[k]) bouges++;
+      }
+      b.rearrangement += bouges;
+    }
+
+    // ── ★ L'AGRÉGATION : la ligne raccourcit sans que rien ne soit jeté.
+    //    Ce qu'elle fait perdre de la cible se paie quand même — trois 6 qui
+    //    deviennent « 3 6 », ce sont deux 6 convertis en autre chose, et le
+    //    poste ordinaire ne les voit pas (il n'examine que les transformations
+    //    à largeur constante).
+    const agrege = AGREGATIONS.has(op.id);
+    if (agrege) {
+      const perdus = nbSix(avant, c) - nbSix(apres, c);
+      if (perdus > 0) b.sixDetruits += perdus;
     }
 
     // ── ★ Le rejet : un vecteur qui rétrécit, c'est des valeurs calculées puis
     //    écartées, et la scène les MONTRE tomber. Les ficelles en sont exclues :
-    //    elles viennent de payer, ci-dessus, ce même rétrécissement.
-    if (!ficelle && avant.type === 'NUMS' && apres.type === 'NUMS'
+    //    elles viennent de payer, ci-dessus, ce même rétrécissement. Les
+    //    agrégations aussi : elles n'écartent rien, elles absorbent.
+    if (!ficelle && !agrege && avant.type === 'NUMS' && apres.type === 'NUMS'
       && apres.valeur.length < avant.valeur.length) {
       b.valeursJetees += avant.valeur.length - apres.valeur.length;
     }
@@ -1099,10 +1441,16 @@ export function bilanApproche(approche, ctx = {}) {
     montrees: 0,
     couronnementTot: 0,   // en pour-mille, moyenné sur les triptyques contigus
     finirPar666: false,
-    // ★ les trois ficelles assumées — voir `FICELLES` et l'en-tête
+    // ★ les ficelles assumées — voir `FICELLES` et l'en-tête
     majorite: 0,
     decimation: 0,
+    // ★ en MILLIÈMES d'un chiffre absorbé : la peine est diluée (`dilution`).
     additionSelective: 0,
+    redecoupage: 0,
+    // ★ le sommet de l'échelle, en attente d'un opérateur (voir le barème).
+    effacementSansMotif: 0,
+    // ★ ce qu'un tri croissant déplace, valeur par valeur.
+    rearrangement: 0,
   };
 
   // ★ Où s'arrête la matière signifiante de la saisie — c'est ce qui définit
@@ -1128,6 +1476,9 @@ export function bilanApproche(approche, ctx = {}) {
     b.majorite += bc.majorite;
     b.decimation += bc.decimation;
     b.additionSelective += bc.additionSelective;
+    b.redecoupage += bc.redecoupage;
+    b.effacementSansMotif += bc.effacementSansMotif;
+    b.rearrangement += bc.rearrangement;
     b.six += bc.six;
     b.montrees += bc.largeur;
     if (bc.casseTriptyque) b.casses++;
@@ -1246,10 +1597,19 @@ export function detailDuCredit(b) {
     ['bloc entier écarté', a.bloc, -B.EFFACE_BLOC * a.bloc],
     ['bloc entier court écarté', a.blocCourt, -B.EFFACE_BLOC_COURT * a.blocCourt],
     ['ponctuation ignorée', a.ponctuation, -B.EFFACE_PONCTUATION * a.ponctuation],
-    // ── ★ les trois ficelles assumées, au tarif qui remplace `VALEUR_JETEE`
+    // ── ★ les ficelles assumées, au tarif qui remplace `VALEUR_JETEE`
+    ['★ effacement sans motif', b.effacementSansMotif || 0,
+      -B.EFFACEMENT_SANS_MOTIF * (b.effacementSansMotif || 0)],
     ['le plus fréquent l’emporte', b.majorite, -B.MAJORITE * b.majorite],
+    // ★ Ces deux-là sont comptés en MILLIÈMES d'un chiffre absorbé — leur peine
+    //   est diluée par le nombre d'additions qui se suivent (`dilution`), et
+    //   elle ne descend jamais à zéro tant que le compteur bouge (`peine`).
+    ['redécoupage choisi (millièmes)', b.redecoupage || 0,
+      -peine(B.REDECOUPAGE, b.redecoupage || 0)],
     ['un rang sur deux', b.decimation, -B.DECIMATION * b.decimation],
-    ['addition sélective', b.additionSelective, -B.ADDITION_SELECTIVE * b.additionSelective],
+    ['addition sélective (millièmes)', b.additionSelective,
+      -peine(B.ADDITION_SELECTIVE, b.additionSelective)],
+    ['réarrangement', b.rearrangement || 0, -B.REARRANGEMENT * (b.rearrangement || 0)],
   ];
   return lignes.map(([poste, quantite, points]) => ({ poste, quantite, points }));
 }
@@ -1321,11 +1681,16 @@ export function estPur(b) {
   return b.casses === 0
     && b.sixDetruits === 0
     && b.valeursJetees === 0
-    // ★ Aucune des trois ficelles ne peut figurer dans une stratégie « sans
-    //   malus » : ce sont, par construction, exactement des malus.
+    // ★ Aucune ficelle ne peut figurer dans une stratégie « sans malus » : ce
+    //   sont, par construction, exactement des malus. Le réarrangement non
+    //   plus — il ne jette rien, mais il défait l'ordre de lecture, et « sans
+    //   malus » ne souffre pas d'exception.
     && b.majorite === 0
     && b.decimation === 0
     && b.additionSelective === 0
+    && (b.redecoupage || 0) === 0
+    && (b.effacementSansMotif || 0) === 0
+    && (b.rearrangement || 0) === 0
     && b.arrondi === 0
     && b.minMax === 0
     && b.lettreVersLettre === 0

@@ -311,13 +311,13 @@ test('★ NON-RÉGRESSION — aucune URL de la cible par défaut ne porte de mar
   }
 });
 
-test('★ NON-RÉGRESSION — les 96 opérateurs restent explorables pour 666', () => {
+test('★ NON-RÉGRESSION — les 100 opérateurs restent explorables pour 666', () => {
   const tous = operateursExplorables(catalogue);
   assert.deepEqual(
     operateursPourCible(catalogue, normaliserCible('666')).map((o) => o.code),
     tous.map((o) => o.code),
   );
-  // …et les quatre opérateurs écrits autour du 6 sortent dès qu'on vise ailleurs.
+  // …et les cinq opérateurs écrits autour du 6 sortent dès qu'on vise ailleurs.
   const autres = operateursPourCible(catalogue, normaliserCible('111')).map((o) => o.id);
   for (const id of OPERATEURS_LIES_A_666) {
     assert.ok(tous.some((o) => o.id === id), `${id} existe au catalogue`);

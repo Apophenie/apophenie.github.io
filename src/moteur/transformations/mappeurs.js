@@ -346,6 +346,349 @@ const idSortie = (plan, ctx, s, j) => (s.fin - s.debut < 2
 
 
 // ───────────────────────────────────────────────────────────────────────────
+// ★ LES QUATRE TRANSFORMATIONS DEMANDÉES LE 27 AOÛT — le tri, les trios,
+//   le décompte, le redécoupage
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Elles viennent d'un retour d'auteur consigné mot pour mot
+// (`.planning/A-VENIR-retours-cornes-et-moteur.md`, §7) et forment une seule
+// démonstration, dans cet ordre :
+//
+//     redécoupage → tri croissant → cornes → « on retourne les 666 qui se
+//     cachent »
+//
+// Comme pour les trois ficelles, tout ce qui DÉCIDE est calculé ici, une fois,
+// et relu par `apply`, `sortie` et `steps` : une seule source, donc aucun écart
+// possible entre ce qui est compté et ce qui est montré (CONTRACTS §0.3).
+
+const LIB_TRI_CROISSANT = bilingue(
+  'On range les nombres par ordre croissant',
+  'Sort the numbers in ascending order',
+);
+// ★ Le titre est celui de l'auteur, mot pour mot : « On retourne les 666 qui se
+//   cachent ». Il dit ce que le geste TROUVE (un 666), pas ce qu'il manipule
+//   (des 9) — et c'est justement la différence avec `my`, qui retourne les 9 un
+//   par un sans savoir ce qu'il en sortira.
+const LIB_TRIOS_DE_NEUF = bilingue(
+  'On retourne les 666 qui se cachent',
+  'Turn over the 666s in hiding',
+);
+const LIB_COMPTER_LES_CHIFFRES = bilingue(
+  'On compte les chiffres',
+  'Count the digits',
+);
+const LIB_REDECOUPAGE = bilingue(
+  'On redécoupe en paquets qui tombent sur 6',
+  'Recut into packets that land on 6',
+);
+
+/**
+ * ★ L'ORDRE CROISSANT — la permutation, pas le tableau trié.
+ *
+ * On rend les INDEX dans leur nouvel ordre plutôt que les valeurs, parce que
+ * `steps()` en a besoin pour nommer les jetons qui se déplacent : un tri, à
+ * l'écran, n'est ni une substitution ni un effacement, c'est un `move` — les
+ * mêmes jetons, dans un autre ordre.
+ *
+ * ★ **Le départage est ÉCRIT, il n'est pas hérité du moteur.** `Array.sort`
+ * est stable depuis ES2019, mais s'appuyer là-dessus reviendrait à faire
+ * dépendre une URL rejouable (§4.3) d'une garantie de plateforme. À valeurs
+ * égales, c'est donc l'index de départ qui départage, explicitement : deux 6
+ * restent dans l'ordre où on les a lus, et le déterminisme (§4.4) ne doit rien
+ * à personne.
+ */
+function ordreCroissant(valeur) {
+  return valeur.map((_, i) => i).sort((a, b) => valeur[a] - valeur[b] || a - b);
+}
+
+/**
+ * ★ LE TRI RASSEMBLE-T-IL VRAIMENT ? — la seule condition, et elle ne regarde
+ *   pas la cible.
+ *
+ * Deux exigences en une seule mesure, le nombre de PLAGES de valeurs identiques
+ * (`plagesDe`) :
+ *
+ *  · **il doit déplacer quelque chose**, sinon l'étape ne montrerait rien et
+ *    `scenario.js` la sauterait en silence — l'URL porterait alors un code
+ *    invisible à l'écran (même refus que `my`, `mz` et les trois ficelles) ;
+ *  · **il doit RASSEMBLER**, c'est-à-dire laisser STRICTEMENT MOINS de plages
+ *    qu'il n'en a trouvé. C'est le propos que l'auteur lui donne — « qui permet
+ *    de faire apparaître 666 contigu » —, et c'est tout ce qu'un rangement
+ *    achète : mettre côte à côte ce qui était dispersé. Un tri qui promène les
+ *    valeurs sans en réunir deux a défait l'ordre de lecture pour rien.
+ *
+ * ★ Et cette condition ne dit pas un mot du 6. Elle vaut telle quelle pour
+ * `111`, pour `777`, et même pour `13` — `[3,1,3,1]` rangé donne `[1,1,3,3]`,
+ * deux plages au lieu de quatre, et deux fois la cible écrite. C'est pour ça
+ * que cet opérateur reste explorable quelle que soit la cible, là où le
+ * redécoupage (`m16`), lui, en sort (`src/recherche/bfs.js`).
+ */
+function triRassemble(valeur) {
+  const ordre = ordreCroissant(valeur);
+  if (!ordre.some((src, i) => valeur[src] !== valeur[i])) return false;
+  const plusLongue = (v) => plagesDe(v).reduce((m, p) => Math.max(m, p.compte), 0);
+  return plusLongue(valeur) < SUITE && plusLongue(ordre.map((i) => valeur[i])) >= SUITE;
+}
+
+/**
+ * ★ LES 9 QUI FORMENT UN TRIO CONTIGU — et eux seuls.
+ *
+ * « Puis de retourner les neufs non pas individuellement mais en trio contigu
+ * (plus élégant) pour faire apparaître directement 666. » — l'auteur.
+ *
+ * On balaie les suites maximales de 9 et l'on ne retourne, dans chacune, que
+ * les `3 × ⌊L/3⌋` premiers : un trio se retourne d'un bloc, un 9 esseulé reste
+ * un 9. Sur une suite de quatre, le quatrième ne bouge pas — le couper en deux
+ * n'aurait pas de sens, et prendre les trois DERNIERS demanderait de choisir
+ * là où la lecture de gauche à droite désigne déjà (même argument que
+ * `debutDesTroisSix`).
+ *
+ * @returns {number[]} les index à retourner, croissants
+ */
+function triosDeNeuf(valeur) {
+  const out = [];
+  let i = 0;
+  while (i < valeur.length) {
+    if (valeur[i] !== 9) { i++; continue; }
+    let j = i;
+    while (j < valeur.length && valeur[j] === 9) j++;
+    const complets = Math.floor((j - i) / SUITE) * SUITE;
+    for (let k = 0; k < complets; k++) out.push(i + k);
+    i = j;
+  }
+  return out;
+}
+
+/**
+ * ★ LES PLAGES DE VALEURS IDENTIQUES — la lecture de « on compte les chiffres ».
+ *
+ * « `34455666999` → `1324253639` » — un 3, deux 4, deux 5, trois 6, trois 9.
+ *
+ * ★ **Ce sont des PLAGES CONTIGUËS, pas un relevé par valeur**, et la
+ * différence compte même si l'exemple de l'auteur ne la montre pas (il porte
+ * sur un vecteur déjà trié, où les deux lectures coïncident). Trois raisons,
+ * dans cet ordre :
+ *
+ *  · un relevé par valeur devrait DÉCIDER de l'ordre de sortie — croissant ?
+ *    par première apparition ? — et chacun serait un choix déguisé en règle,
+ *    exactement ce que les ficelles refusent de faire (`valeurDominante`) ;
+ *  · la plage contiguë se lit de gauche à droite, sans rien comparer : c'est
+ *    l'ordre de la ligne, celui que la démonstration doit garder ;
+ *  · c'est la suite de Conway, « look and say », que le public a déjà
+ *    rencontrée — le décompte par valeur, lui, n'a de nom nulle part.
+ *
+ * Et c'est ce qui fait du couple `tri croissant` + `on compte les chiffres` une
+ * suite qui a du sens : trier RASSEMBLE les plages, compter les nomme.
+ */
+function plagesDe(valeur) {
+  const out = [];
+  let i = 0;
+  while (i < valeur.length) {
+    let j = i;
+    while (j < valeur.length && valeur[j] === valeur[i]) j++;
+    out.push({ debut: i, fin: j, valeur: valeur[i], compte: j - i });
+    i = j;
+  }
+  return out;
+}
+
+/**
+ * ★ LE REDÉCOUPAGE TRICHEUR — et il est assumé comme tel.
+ *
+ * « Après l'étape 15, il y a 32 chiffres. C'est le moment de TRICHER pour
+ * réduire chaque nombre à un chiffre en redécoupant de manière à ce que ça
+ * tombe sur 6 le plus souvent possible. » — l'auteur, et le mot « tricher »
+ * est de lui. Le barème d'élégance le pénalise en conséquence
+ * (`REDECOUPAGE`, `src/recherche/elegance.js`), au même titre que les trois
+ * ficelles.
+ *
+ * ── Ce qui le sépare de l'addition sélective (`m12`) ────────────────────────
+ *
+ * `m12` n'additionne QUE les suites qui font exactement 6 et laisse tout le
+ * reste tel quel : c'est une sélection, mais une sélection qui ne touche
+ * presque à rien. Celui-ci redécoupe la LIGNE ENTIÈRE, chaque chiffre tombant
+ * dans un paquet, et il réduit chaque paquet par racine numérique — donc
+ * `4+8 = 12 → 3`. Il ne se contente pas de saisir une occasion : il refait la
+ * lecture du nombre pour que le résultat lui convienne.
+ *
+ * ── « Le plus souvent possible » est une OPTIMISATION, pas une occasion ─────
+ *
+ * L'auteur dit « de manière à ce que ça tombe sur 6 le plus souvent possible ».
+ * Ce n'est pas ce que fait un balayage glouton — c'est une programmation
+ * dynamique, et elle tient en `O(n × 6)` :
+ *
+ *  1. **maximiser le nombre de paquets valant 6.** C'est la consigne, mot pour
+ *     mot ;
+ *  2. **à égalité, minimiser le nombre de paquets.** Ce qui ne tombe pas sur 6
+ *     est absorbé plutôt que laissé à traîner : un redécoupage qui sème des
+ *     zéros et des 1 derrière lui n'a pas redécoupé, il a émietté ;
+ *  3. **à égalité encore, la coupe la plus courte d'abord** — l'ordre de
+ *     lecture, et le seul départage qui n'invente rien (§4.4).
+ *
+ * ⚠️ MESURE, sur l'exemple même de l'auteur. Ses 32 chiffres
+ * (`48120120961141088436181322436108`) portent trois 6 ; sa découpe à la main
+ * en rend six sur douze, celle-ci en rend **huit sur onze**
+ * (`63666666369`), et le tri croissant qui suit y écrit `33666666669` —
+ * **deux 666 d'affilée** là où la sienne en donne deux également, mais après
+ * un second geste (le retournement des 999). L'optimisation ne trahit donc pas
+ * l'exemple : elle le remplit mieux que la main.
+ *
+ * ── Trois refus, et ils bornent tout le reste ───────────────────────────────
+ *
+ *  · **aucun 6 déjà là n'est absorbé.** Un 6 est un acquis ; l'additionner à un
+ *    voisin le détruirait, ce que le barème punit par ailleurs
+ *    (`SIX_DETRUIT`). C'est la doctrine de `m12`, reprise telle quelle — et
+ *    c'est aussi ce que fait l'auteur dans son propre calcul, où les 6 du
+ *    vecteur de départ restent seuls dans leur paquet ;
+ *  · **le résultat doit porter STRICTEMENT PLUS de 6 que la ligne de chiffres
+ *    dont il sort.** Une triche qui coûte sans rien acheter n'a pas lieu d'être
+ *    jouée (même discipline que `m10`, `m11`, `m12`) ;
+ *  · **au moins un paquet de plusieurs chiffres**, sans quoi l'opérateur n'a
+ *    fait qu'écrire les nombres chiffre à chiffre — un geste que personne ne
+ *    lui a demandé, et qui porterait dans l'URL un code pour rien.
+ *
+ * ── Ce que le plan rend ─────────────────────────────────────────────────────
+ *
+ * `{ chiffres, multi, paquets }`, où `chiffres` est la ligne éclatée
+ * (`{v, src}`), `multi` l'ensemble des nombres qui ont vraiment été éclatés, et
+ * `paquets` la découpe retenue (`{debut, fin, somme, v}`).
+ */
+const CHIFFRES_REDECOUPE_MAX = 36;
+
+/**
+ * ★ Et une largeur MINIMALE, parce que c'est un DERNIER RECOURS.
+ *
+ * « Après l'étape 15, il y a 32 chiffres. C'est le moment de tricher » —
+ * l'auteur situe lui-même le geste : on redécoupe une ligne devenue trop
+ * longue pour être lue, pas une poignée de nombres qu'on saurait traiter
+ * autrement.
+ *
+ * ★ **Le seuil est DEUX FOIS la portée de `m12`, plus un — vingt-cinq.**
+ * L'addition sélective renonce au-delà de douze chiffres (« on n'additionne
+ * plus, on bricole », `CHIFFRES_MAX`). Le redécoupage ne commence que là où
+ * même DEUX fois cette portée ne suffirait pas : une ligne qu'on ne pourrait
+ * pas sauver en additionnant deux fois plus loin que la première triche ne
+ * l'ose. Les deux ne se recouvrent donc jamais, et il reste entre elles une
+ * plage — de treize à vingt-quatre chiffres — où AUCUNE des deux ne s'applique,
+ * ce qui est le comportement voulu : ni assez court pour la retouche, ni assez
+ * long pour la refonte.
+ *
+ * ⚠️ MESURÉ, et le chiffre vient de la mesure autant que de l'analogie. Deux
+ * dégâts distincts, tous deux sur des saisies témoins, et deux paliers :
+ *
+ *  1. **sans aucun seuil**, `m16` s'appliquait à presque tous les vecteurs et
+ *     saturait les listes de candidats — non pas en battant les voies
+ *     honnêtes, mais en les évinçant AVANT le classement (le moteur ne
+ *     canonicalise que les premiers chemins de chaque fragment,
+ *     `assemblage.js › K_CANONISABLES`). « Donald Trump » perdait alors
+ *     `t1+mw+mz,fl+t1+mw+mz` (score 6 475) au profit de `fk+t1+m8+my,n7`
+ *     (4 278) — une voie qui n'emploie même pas `m16` —, et « Wikipedia »
+ *     perdait `fb+t1+mc+mt` (8 296) pour `fl+t1+mp+mt` (4 361). Aucun réglage
+ *     du barème n'y pouvait rien : ce qui tombait n'était pas classé plus bas,
+ *     il n'était plus là. Un seuil à dix-neuf les ramène tous les deux ;
+ *  2. **à dix-neuf et à vingt-deux**, il restait « Millicent », où
+ *     `fl+t1+m5+m16` (trois séries) se glissait au rang 2 derrière
+ *     `fl+t1+m5+mt` (deux séries) : la liste affichait un compte de séries qui
+ *     REMONTE, ce qu'un test de classement interdit depuis toujours. Et aucun
+ *     tarif ne pouvait le corriger — au rang des séries, c'est leur NOMBRE qui
+ *     commande, avant le score (`score.js › ordreTotal`). À vingt-cinq, la voie
+ *     ne se propose plus, et le corpus entier des dix-neuf saisies témoins est
+ *     stable.
+ *
+ * L'exemple de l'auteur — trente-deux chiffres — reste au-dessus du seuil,
+ * lequel n'a jamais été autre chose que ce qu'il décrit : « après l'étape 15,
+ * il y a 32 chiffres. C'est le moment de tricher ».
+ */
+const CHIFFRES_REDECOUPE_MIN = 2 * CHIFFRES_MAX + 1;
+
+/**
+ * Largeur maximale d'un paquet. Six chiffres, et c'est un CHOIX de lisibilité
+ * plutôt qu'une borne arithmétique : une racine numérique de 6 s'obtient avec
+ * une somme de 6, 15, 24, 33… donc, en principe, avec autant de chiffres qu'on
+ * veut. Au-delà de six termes sous une même accolade, la scène ne se lit plus
+ * et l'addition cesse d'être vérifiable d'un coup d'œil — c'est le même seuil
+ * que `m12`, pour la même raison de mise en scène.
+ */
+const PAQUET_MAX = 6;
+
+/** La racine numérique — « somme, répétée si besoin », dans les mots de l'auteur. */
+function racineNumerique(n) {
+  let x = n;
+  while (x > 9) {
+    let s = 0;
+    for (const c of String(x)) s += Number(c);
+    x = s;
+  }
+  return x;
+}
+
+function planRedecoupage(valeur) {
+  if (!valeur.length) return null;
+  if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
+  const chiffres = [];
+  valeur.forEach((v, i) => {
+    for (const c of String(v)) chiffres.push({ v: Number(c), src: i });
+  });
+  const n = chiffres.length;
+  if (n < CHIFFRES_REDECOUPE_MIN || n > CHIFFRES_REDECOUPE_MAX) return null;
+
+  // ── la programmation dynamique, de la fin vers le début
+  const meilleur = Array.from({ length: n + 1 }, () => null);
+  meilleur[n] = { six: 0, paquets: 0, coupe: 0, somme: 0, v: 0 };
+  for (let i = n - 1; i >= 0; i--) {
+    // Un 6 déjà écrit reste seul dans son paquet : on ne l'absorbe jamais.
+    const large = chiffres[i].v === SIX ? 1 : PAQUET_MAX;
+    let somme = 0;
+    for (let L = 1; L <= large && i + L <= n; L++) {
+      // …et l'on ne va pas non plus le chercher plus loin dans le paquet.
+      if (L > 1 && chiffres[i + L - 1].v === SIX) break;
+      somme += chiffres[i + L - 1].v;
+      const suite = meilleur[i + L];
+      if (!suite) continue;
+      const v = racineNumerique(somme);
+      const six = suite.six + (v === SIX ? 1 : 0);
+      const paquets = suite.paquets + 1;
+      const cur = meilleur[i];
+      // Départage explicite, dans l'ordre dicté : plus de 6, puis moins de
+      // paquets, puis la coupe la plus courte — c'est-à-dire la première
+      // rencontrée, `L` étant croissant.
+      if (!cur || six > cur.six || (six === cur.six && paquets < cur.paquets)) {
+        meilleur[i] = { six, paquets, coupe: L, somme, v };
+      }
+    }
+  }
+
+  const paquets = [];
+  const multi = new Set();
+  const parSource = new Map();
+  chiffres.forEach((c) => parSource.set(c.src, (parSource.get(c.src) || 0) + 1));
+  for (const [src, k] of parSource) if (k > 1) multi.add(src);
+
+  let i = 0;
+  let groupes = 0;
+  while (i < n) {
+    const b = meilleur[i];
+    if (!b || !b.coupe) return null;
+    paquets.push({ debut: i, fin: i + b.coupe, somme: b.somme, v: b.v });
+    if (b.coupe > 1) groupes++;
+    i += b.coupe;
+  }
+  if (!groupes) return null;
+  const avant = chiffres.filter((c) => c.v === SIX).length;
+  const apres = paquets.filter((p) => p.v === SIX).length;
+  return apres > avant ? { chiffres, multi, paquets } : null;
+}
+
+/** L'identifiant de scène du kᵉ chiffre — même règle que pour `m12`. */
+const idChiffreRedecoupe = (plan, ctx, k) => (plan.multi.has(plan.chiffres[k].src)
+  ? `${ctx.cle}c${k}` : ctx.ids[plan.chiffres[k].src]);
+
+/** L'identifiant du jᵉ paquet — neuf si, et seulement si, il naît d'une addition. */
+const idPaquet = (plan, ctx, p, j) => (p.fin - p.debut < 2
+  ? idChiffreRedecoupe(plan, ctx, p.debut) : `${ctx.cle}s${j}`);
+
+
+// ───────────────────────────────────────────────────────────────────────────
 // La figure « sept segments » du Registre
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -1839,6 +2182,12 @@ const AUTRES_MAPPEURS = [
         )),
       };
     },
+    // ★ Ce que la triche fait VOIR — voir `additions` dans `commun.js`.
+    additions: (valeur) => {
+      const plan = planAdditionSelective(valeur);
+      return plan ? plan.sortie.filter((s) => s.fin - s.debut >= 2)
+        .map((s) => s.fin - s.debut) : [];
+    },
     sortie: (avant, apres, ctx) => {
       const plan = planAdditionSelective(avant.valeur);
       return plan ? plan.sortie.map((s, j) => idSortie(plan, ctx, s, j)) : [];
@@ -1902,6 +2251,447 @@ const AUTRES_MAPPEURS = [
       const vus = plan.chiffres.map((c) => c.v).join(' ');
       steps.push(etape(ctx, dire(LIB_ADDITION_SELECTIVE, ctx.langue),
         `${vus} → ${apres.valeur.join(' ')}`, enchainer(ops), { id: `s_${ctx.cle}_s` }));
+      return steps;
+    },
+  }),
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ★ LES QUATRE TRANSFORMATIONS DU 27 AOÛT — `m13`, `m14`, `m15`, `m16`
+  // ══════════════════════════════════════════════════════════════════════════
+  //
+  // ★ **Registre append-only, clôture LEVÉE** (CONTRACTS §4.1, amendement du
+  // 27 août 2026). Le registre était déclaré CLOS au motif que des liens écrits
+  // à la main circulaient ; l'auteur a confirmé qu'aucun lien n'avait été
+  // diffusé, et la clôture est levée. Ce qui ne bouge pas d'un pouce : un code
+  // reste unique, un code ne change jamais de sens, et l'ordre de déclaration
+  // reste l'ordre des codes croissants. Ces quatre-là prennent donc `m13` à
+  // `m16` — index base36, à la suite de `m12` —, aucun code existant n'est
+  // touché, renommé ni réattribué, et le catalogue passe de 96 à 100
+  // opérateurs.
+  //
+  // ★ **Aucune primitive ajoutée** : le vocabulaire reste à vingt et une
+  // (§3.1). Le tri emprunte `move` (la primitive du réarrangement, celle-là
+  // même que la recopie de `hope-hope-hope` emploie), le décompte emprunte
+  // `partition` + `substitute` + `drop`, le redécoupage emprunte `substitute`,
+  // `partition`, `insertOperators`, `sum` et `reduce`, et les trios de 9
+  // reprennent le `flip180` de `my` et de `p9`.
+  //
+  // ★ **Et aucune corne n'est émise ici.** L'auteur écrit, pour les trios :
+  // « en leur ajoutant les cornes une fois retournés ». C'est exactement ce que
+  // fait déjà `couronnerLesTriptyques` (`src/recherche/scenario.js`) — il
+  // couronne, au fil de la démonstration, tout triptyque qui devient contigu et
+  // le reste jusqu'au verdict, y compris quand aucun opérateur ne l'a demandé.
+  // L'émettre ici serait le faire deux fois, et surtout ce serait le faire à
+  // l'aveugle : un opérateur ne voit que sa propre étape, il ne sait pas si ses
+  // trois 6 arriveront au verdict — ni même si la cible est 666
+  // (`src/recherche/cible.js`). L'assemblage, lui, sait les deux.
+
+  def({
+    id: 'm.triCroissant', code: 'm13', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_TRI_CROISSANT,
+    regle: bilingue(
+      'Les nombres sont rangés du plus petit au plus grand ; à valeur égale, ils gardent '
+      + 'l’ordre où on les a lus.',
+      'The numbers are lined up from smallest to largest; equal values keep the order they '
+      + 'were read in.',
+    ),
+    // ★ Notoriété 0,65. Ranger des nombres du plus petit au plus grand est un
+    // geste que tout le monde sait faire et que personne n'a besoin qu'on lui
+    // explique — c'est le point commun avec « trois 6 d'affilée » (0,80). Ce
+    // n'est pas davantage parce que PERSONNE n'attend d'une numérologie qu'elle
+    // range ses nombres : la moitié « on a le droit » est une convention de la
+    // maison, comme pour `mz`.
+    //
+    // ★ AdHoc 0,20. `adHoc` mesure une chose et une seule : « cette méthode
+    // est-elle taillée pour la cible ? » (heuristique §4.5). Le tri croissant
+    // ne regarde ni le 6, ni 666, ni rien de ce qu'on cherche — il range, et il
+    // rangerait de la même façon si l'on visait 111 ou 007. C'est donc bas, et
+    // ce n'est pas zéro : on ne le joue jamais pour ranger, on le joue pour
+    // rapprocher ce qui doit se toucher.
+    //
+    // ⚠️ **Ce n'est pas ici que le tri se paie.** Il se paie au barème
+    // d'élégance, par valeur DÉPLACÉE (`REARRANGEMENT`, `elegance.js`) : rendre
+    // contigu ce qui ne l'était pas est précisément ce que `TRIPTYQUE_CONTIGU`
+    // récompense de n'avoir pas eu à faire.
+    notoriete: 0.65, adHoc: 0.20,
+    note: bilingue(
+      'Ranger n’est pas trier au sens du site : rien n’est écarté, rien n’est choisi. '
+      + 'Mais l’ordre de lecture, lui, ne survit pas — et c’est ce que le score facture.',
+      'Lining up is not the site’s kind of sorting: nothing is discarded, nothing is picked. '
+      + 'But the reading order does not survive it — and that is what the score charges for.',
+    ),
+    apply: (valeur, traces) => {
+      // ★ REFUS quand le tri ne déplace rien, pour la raison qui a déjà fait
+      // refuser `my`, `mz` et les trois ficelles : un mappeur qui rend son
+      // entrée fabrique une étape que `scenario.js` saute silencieusement, et
+      // l'URL porterait alors un code que la démonstration ne montre nulle
+      // part.
+      if (!triRassemble(valeur)) return null;
+      const ordre = ordreCroissant(valeur);
+      return {
+        valeur: ordre.map((i) => valeur[i]),
+        traces: ordre.map((i) => traces[i] || []),
+      };
+    },
+    // Les jetons ne changent ni de valeur ni de nature : ils changent de PLACE.
+    // Ils gardent donc leur identifiant — en inventer un neuf ferait croire au
+    // pont qu'un jeton en a remplacé un autre, et l'animation raconterait une
+    // substitution qui n'a pas eu lieu.
+    sortie: (avant, apres, ctx) => ordreCroissant(avant.valeur).map((i) => ctx.ids[i]),
+    /**
+     * ★ UN SEUL GESTE, ET C'EST `move` — la primitive du réarrangement.
+     *
+     * Le moteur arithmétique n'envoie jamais de coordonnées (CONTRACTS §7.3) :
+     * `move` décrit un ORDRE dans le flux, et le moteur visuel calcule les
+     * positions. Les jetons glissent donc les uns devant les autres jusqu'à
+     * leur nouvelle place, et le spectateur voit le rangement se faire au lieu
+     * de le trouver fait.
+     *
+     * ★ Contrôle croisé (CONTRACTS §0.3) : l'ordre envoyé à la scène et la
+     * valeur calculée par `apply()` sortent du MÊME `ordreCroissant`, appelé
+     * sur le MÊME vecteur. Il n'existe pas de seconde copie qui puisse diverger,
+     * et la légende du Registre écrit les deux suites côte à côte — on peut
+     * refaire le rangement soi-même.
+     */
+    steps: (avant, apres, ctx) => {
+      const ordre = ordreCroissant(avant.valeur);
+      const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
+      return [etape(ctx, dire(LIB_TRI_CROISSANT, ctx.langue), legende, enchainer([
+        { op: 'move', order: ordre.map((i) => ctx.ids[i]) },
+      ]))];
+    },
+  }),
+
+  def({
+    id: 'm.retournerLesTrios', code: 'm14', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_TRIOS_DE_NEUF,
+    regle: bilingue(
+      'Trois 9 côte à côte se retournent ensemble et donnent 666. Un 9 esseulé reste un 9.',
+      'Three 9s side by side turn over together and give 666. A lone 9 stays a 9.',
+    ),
+    // ★ Notoriété 0,30, un peu au-dessus de `my` (0,25). C'est le MÊME
+    // demi-tour, et il n'est pas mieux connu pour être fait par trois ; mais
+    // « 999 retourné donne 666 » est une image que le public reconnaît d'un
+    // coup, là où « chaque 9 vaut un 6 » demande qu'on y pense.
+    //
+    // ★ AdHoc 0,20 contre 0,35 à `my`, et c'est l'auteur qui l'ordonne :
+    // « retourner les neufs non pas individuellement mais en trio contigu
+    // (PLUS ÉLÉGANT) ». La raison tient en une phrase, et c'est celle de `mz` :
+    // celui-ci ne CHOISIT pas où frapper. `my` retourne chaque 9 partout où il
+    // en traîne un, parce que ça rapporte ; celui-ci n'agit que là où la ligne
+    // écrit déjà `999` d'affilée — la contiguïté désigne un seul endroit
+    // possible, et le geste est déclenché par la géométrie, pas par
+    // l'opportunité.
+    notoriete: 0.30, adHoc: 0.20,
+    note: bilingue(
+      'Par trois, et par trois seulement : sur quatre 9 d’affilée, le quatrième ne bouge pas. '
+      + 'Un demi-666 ne se retourne pas.',
+      'By threes, and only by threes: on four 9s in a row, the fourth stays put. '
+      + 'You cannot turn over half a 666.',
+    ),
+    apply: (valeur, traces) => {
+      const trios = triosDeNeuf(valeur);
+      if (!trios.length) return null;
+      const bouge = new Set(trios);
+      const out = valeur.map((n, i) => (bouge.has(i) ? SIX : n));
+      return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
+    },
+    // Seuls les 9 retournés reçoivent un identifiant neuf — même règle que
+    // `my` : les autres n'ont pas bougé, et un renommage sans geste ferait
+    // croire au pont qu'un jeton a été remplacé.
+    sortie: (avant, apres, ctx) => apres.valeur.map((v, i) => (v === avant.valeur[i]
+      ? ctx.ids[i] : nomToken(ctx, i))),
+    /**
+     * ★ UN SEUL STEP, ET LES TRIOS SE RETOURNENT L'UN APRÈS L'AUTRE.
+     *
+     * `enchainer` donne à chaque `flip180` un `at` calculé sur la fin du
+     * précédent : le spectateur voit la vague traverser le trio, pas un
+     * clignotement collectif. C'est la contrainte de lisibilité du projet, et
+     * c'est aussi une nécessité technique — `flip180` muni d'un `to` appelle
+     * `ctx.reflow()`, et deux reflow simultanés animeraient deux fois
+     * `translate` sur les mêmes jetons (voir `enchainer`, `commun.js`).
+     *
+     * ★ Le `pulse` final ne porte QUE le dernier trio couché sur la ligne au
+     * moment où il s'achève : trois 6 neufs et contigus, c'est-à-dire
+     * exactement ce que `couronnerLesTriptyques` viendra couronner à l'étape
+     * suivante si le verdict les retient.
+     *
+     * ★ Contrôle croisé (CONTRACTS §0.3), trois verrous, les mêmes que `my` :
+     *  1. ici, la valeur d'arrivée est LUE dans `apres.valeur[i]`, jamais
+     *     écrite en dur, et c'est la comparaison avec `avant.valeur[i]` qui
+     *     décide seule quels jetons bougent ;
+     *  2. `src/recherche/scenario.js` refuse tout demi-tour qui ne parte pas
+     *     d'un 9 pour arriver sur un 6, là où il connaît encore la valeur du
+     *     jeton de départ ;
+     *  3. `src/visuel/primitives/flip180.js` recoupe une troisième fois, sur la
+     *     scène.
+     */
+    steps: (avant, apres, ctx) => {
+      const trios = triosDeNeuf(avant.valeur);
+      if (!trios.length) return [];
+      const neufs = [];
+      const ops = trios.map((i) => {
+        const id = nomToken(ctx, i);
+        neufs.push(id);
+        return { op: 'flip180', target: ctx.ids[i], to: token(id, apres.valeur[i], 'number') };
+      });
+      // Le `pulse` vient APRÈS le dernier demi-tour, jamais pendant : pendant,
+      // le jeton d'arrivée voit déjà son `scale` animé par le crossfade de
+      // `flip180` (même raison que dans `posts.js` et dans `my`).
+      ops.push({ op: 'pulse', targets: neufs, stagger: 60 });
+      const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
+      return [etape(ctx, dire(LIB_TRIOS_DE_NEUF, ctx.langue), legende, enchainer(ops))];
+    },
+  }),
+
+  def({
+    id: 'm.compterLesChiffres', code: 'm15', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_COMPTER_LES_CHIFFRES,
+    regle: bilingue(
+      'Chaque plage de nombres identiques est remplacée par son décompte suivi de sa '
+      + 'valeur : trois 6 s’écrivent « 3 6 ».',
+      'Every run of identical numbers is replaced by its tally then its value: three 6s '
+      + 'are written “3 6”.',
+    ),
+    // ★ Notoriété 0,55. C'est la suite de Conway — « look and say », `1211`,
+    // `111221` —, qu'une bonne part du public a déjà croisée sans forcément
+    // savoir la nommer. Nettement plus qu'une astuce de la maison, nettement
+    // moins qu'A1Z26.
+    //
+    // ★ AdHoc 0,05, le plus bas du catalogue avec la somme. Compter les
+    // chiffres ne regarde pas ce qu'on cherche : c'est une lecture de la suite,
+    // et elle rendrait le même résultat en visant 111 ou 007. L'auteur le dit
+    // d'ailleurs lui-même — « ce n'est pas arrangeant/utile ici, mais il y a
+    // aussi la transformation ». On ne l'a pas taillée pour la cible ; on l'a
+    // mise au catalogue parce qu'elle existe.
+    notoriete: 0.55, adHoc: 0.05,
+    note: bilingue(
+      'Des plages CONTIGUËS, pas un relevé par valeur : `6 4 6` donne « 1 6 1 4 1 6 », '
+      + 'et non « 2 6 1 4 ». Compter suppose de lire dans l’ordre.',
+      'Adjacent runs, not a tally by value: `6 4 6` gives “1 6 1 4 1 6”, not “2 6 1 4”. '
+      + 'Counting means reading in order.',
+    ),
+    apply: (valeur, traces) => {
+      const plages = plagesDe(valeur);
+      if (!plages.length) return null;
+      // ★ REFUS quand le décompte ne CONDENSE pas. Une plage d'un seul élément
+      //   rend « 1 v » : deux signes pour un. Si le total n'y gagne rien, le
+      //   décompte n'a rien compté, il a commenté — et la scène montrerait une
+      //   ligne qui s'allonge en promettant de la résumer. C'est aussi ce qui
+      //   borne la recherche : la largeur ne peut que décroître, donc la
+      //   transformation ne peut pas s'enchaîner indéfiniment sur elle-même.
+      if (plages.length * 2 >= valeur.length) return null;
+      const out = [];
+      const org = [];
+      for (const p of plages) {
+        const t = fusion(...valeur.slice(p.debut, p.fin).map((_, k) => traces[p.debut + k] || []));
+        out.push(p.compte, p.valeur);
+        org.push(t, t);
+      }
+      return { valeur: out, traces: org };
+    },
+    // Toute la ligne est réécrite : une plage n'est pas « ses jetons moins
+    // quelques-uns », c'est une DESCRIPTION de ces jetons. Les deux signes qui
+    // en sortent sont donc neufs tous les deux, et le pont n'a rien à faire
+    // suivre.
+    sortie: (avant, apres, ctx) => plagesDe(avant.valeur)
+      .flatMap((_, j) => [`${ctx.cle}n${j}`, `${ctx.cle}v${j}`]),
+    /**
+     * ★ ON MONTRE LES PLAGES AVANT DE LES COMPTER.
+     *
+     * Trois gestes, dans cet ordre, et chacun dit une moitié de la règle :
+     *
+     *  1. `partition` — les plages s'écartent les unes des autres et chacune
+     *     reçoit son accolade, qui porte son décompte (`×3`). C'est là que la
+     *     lecture se voit : trois 6 d'affilée forment UNE plage, trois 6
+     *     dispersés en forment trois. Sur une ligne d'une seule plage,
+     *     `partition` refuserait de découper (« découper en un seul morceau ne
+     *     découpe rien ») : c'est l'accolade simple du `group` qui prend le
+     *     relais ;
+     *  2. `substitute` — le premier signe de chaque plage devient le couple
+     *     « décompte valeur » ;
+     *  3. `drop` — le reste de la plage tombe, puisqu'il vient d'être compté.
+     *
+     * ★ Contrôle croisé (CONTRACTS §0.3) : `apply`, `sortie` et `steps`
+     * appellent le MÊME `plagesDe` sur le MÊME vecteur ; les accolades, les
+     * couples substitués et les valeurs calculées sortent tous de cette unique
+     * lecture, et il n'existe pas de seconde copie qui puisse diverger.
+     */
+    steps: (avant, apres, ctx) => {
+      const plages = plagesDe(avant.valeur);
+      if (!plages.length) return [];
+      const ops = [];
+      const groupes = plages.map((p, j) => ({
+        targets: ctx.ids.slice(p.debut, p.fin),
+        tag: `${ctx.cle}g${j}`,
+        label: `×${p.compte}`,
+      }));
+      if (groupes.length >= 2) ops.push({ op: 'partition', groups: groupes });
+      else ops.push({ op: 'group', targets: ctx.ids, label: `×${plages[0].compte}`, tighten: 0 });
+      ops.push({
+        op: 'substitute',
+        pairs: plages.map((p, j) => ({
+          target: ctx.ids[p.debut],
+          to: [
+            token(`${ctx.cle}n${j}`, p.compte, 'number'),
+            token(`${ctx.cle}v${j}`, p.valeur, 'number'),
+          ],
+        })),
+        stagger: 60,
+      });
+      const comptes = [];
+      for (const p of plages) for (let k = p.debut + 1; k < p.fin; k++) comptes.push(ctx.ids[k]);
+      if (comptes.length) ops.push({ op: 'drop', targets: comptes, mode: 'fall', stagger: 40 });
+      const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
+      return [etape(ctx, dire(LIB_COMPTER_LES_CHIFFRES, ctx.langue), legende,
+        retirerAccolade(enchainer(ops)))];
+    },
+  }),
+
+  def({
+    id: 'm.redecoupageChoisi', code: 'm16', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_REDECOUPAGE,
+    regle: bilingue(
+      'Chaque nombre s’écrit chiffre à chiffre, puis on redécoupe la ligne en paquets '
+      + 'choisis pour tomber sur 6 le plus souvent possible ; chaque paquet est réduit à un '
+      + 'chiffre par addition, répétée si besoin. Un 6 déjà là reste seul.',
+      'Every number is written out digit by digit, then the line is recut into packets '
+      + 'chosen to land on 6 as often as possible; each packet is reduced to a single digit '
+      + 'by addition, repeated if need be. A 6 already there is left alone.',
+    ),
+    // ★ Notoriété 0,10, la plus basse du catalogue hors joker. Réduire un
+    // nombre par addition de ses chiffres est banal (c'est la racine
+    // numérique) ; REDÉCOUPER la ligne pour choisir quels chiffres s'additionnent
+    // ne se fait nulle part, ne s'enseigne nulle part, et ne s'attend nulle
+    // part. Ce qui est connu ici, c'est l'addition ; ce qui ne l'est pas, c'est
+    // la découpe — et c'est la découpe qui fait tout le travail.
+    //
+    // ★ AdHoc 0,48, juste sous le joker (0,50) et au-dessus de « le plus
+    // fréquent l'emporte » (0,45) : c'est l'opérateur le plus taillé pour la
+    // cible de tout le catalogue. `m10` décide en regardant le vecteur qu'il
+    // vient d'obtenir ; celui-ci décide en regardant le CHIFFRE QU'ON CHERCHE,
+    // et il essaie toutes les découpes jusqu'à trouver celle qui en donne le
+    // plus. On ne peut pas être plus explicitement au service du 6.
+    notoriete: 0.10, adHoc: 0.48,
+    note: bilingue(
+      'Oui, c’est de la triche, et l’auteur l’écrit ainsi : « c’est le moment de tricher ». '
+      + 'On le montre plutôt que de le maquiller — les accolades disent où l’on a coupé, '
+      + 'les signes + disent ce qu’on a additionné, et le score dit ce que ça coûte.',
+      'Yes, this is cheating, and the author says so: “time to cheat”. We show it rather '
+      + 'than dress it up — the braces say where the cuts were made, the plus signs say what '
+      + 'was added, and the score says what it costs.',
+    ),
+    apply: (valeur, traces) => {
+      const plan = planRedecoupage(valeur);
+      if (!plan) return null;
+      return {
+        valeur: plan.paquets.map((p) => p.v),
+        traces: plan.paquets.map((p) => fusion(
+          ...plan.chiffres.slice(p.debut, p.fin).map((c) => traces[c.src] || []),
+        )),
+      };
+    },
+    // ★ Ce que la triche fait VOIR — voir `additions` dans `commun.js`. C'est
+    //   par là que le barème apprend combien d'additions se suivent, donc à
+    //   quel point chacune passe inaperçue.
+    additions: (valeur) => {
+      const plan = planRedecoupage(valeur);
+      return plan ? plan.paquets.filter((p) => p.fin - p.debut >= 2)
+        .map((p) => p.fin - p.debut) : [];
+    },
+    sortie: (avant, apres, ctx) => {
+      const plan = planRedecoupage(avant.valeur);
+      return plan ? plan.paquets.map((p, j) => idPaquet(plan, ctx, p, j)) : [];
+    },
+    /**
+     * ★ DEUX STEPS, ET LE SECOND MONTRE LA TRICHE EN FACE.
+     *
+     * 1. **On écrit chaque nombre chiffre à chiffre.** `12` devient `1` `2` :
+     *    sans cela, « 1+2+3 » est incompréhensible. Le step n'est émis que s'il
+     *    y a quelque chose à éclater.
+     * 2. **On redécoupe, puis on additionne.** Les accolades de `partition`
+     *    tombent d'abord — c'est la DÉCISION, et c'est elle qu'il faut montrer
+     *    avant tout, parce que c'est elle qui triche : le choix des coupes.
+     *    Puis, dans chaque paquet de plus d'un chiffre, les signes `+`
+     *    paraissent et la somme se fait ; si elle dépasse neuf, un `reduce`
+     *    la ramène à un chiffre, autant de fois qu'il le faut.
+     *
+     * ★ Contrôle croisé (CONTRACTS §0.3) : `apply`, `sortie` et `steps`
+     * appellent le MÊME `planRedecoupage` sur le MÊME vecteur — pas de seconde
+     * copie possible. `sum` recoupe une deuxième fois (la somme des opérandes
+     * affichés doit égaler `to.text`, sinon échec de compilation), `reduce` une
+     * troisième (les chiffres montrés doivent reconstituer le nombre ET leur
+     * somme doit égaler ce qui en sort), et `recherche/scenario.js` une
+     * quatrième, là où il connaît encore la valeur des jetons de départ.
+     */
+    steps: (avant, apres, ctx) => {
+      const plan = planRedecoupage(avant.valeur);
+      if (!plan) return [];
+      const steps = [];
+      const idc = (k) => idChiffreRedecoupe(plan, ctx, k);
+
+      // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
+      const paires = [];
+      avant.valeur.forEach((v, i) => {
+        const ks = plan.chiffres
+          .map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
+        if (ks.length < 2) return;
+        paires.push({
+          target: ctx.ids[i],
+          to: ks.map((k) => token(idc(k), plan.chiffres[k].v, 'digit')),
+        });
+      });
+      if (paires.length) {
+        const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
+        steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
+          enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
+      }
+
+      // ── 2. la découpe, puis les additions
+      const ops = [];
+      const groupes = plan.paquets.map((p, j) => ({
+        targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
+        tag: `${ctx.cle}q${j}`,
+      }));
+      if (groupes.length >= 2) ops.push({ op: 'partition', groups: groupes });
+      plan.paquets.forEach((p, j) => {
+        if (p.fin - p.debut < 2) return;
+        const termes = [];
+        for (let k = p.debut; k < p.fin; k++) termes.push(idc(k));
+        const signes = termes.slice(1).map((_, t) => `${ctx.cle}p${j}x${t}`);
+        ops.push({ op: 'insertOperators', between: termes, ids: signes, glyph: '+' });
+        // La somme d'abord, telle qu'elle tombe — puis, si elle dépasse neuf,
+        // autant de réductions qu'il en faut pour n'avoir plus qu'un chiffre.
+        // Les paliers sont CALCULÉS, jamais devinés : `reduce` refuse d'afficher
+        // une addition dont le total ne correspond pas aux chiffres montrés.
+        const paliers = [p.somme];
+        while (paliers[paliers.length - 1] > 9) {
+          let s = 0;
+          for (const c of String(paliers[paliers.length - 1])) s += Number(c);
+          paliers.push(s);
+        }
+        const nom = (t) => (t === paliers.length - 1
+          ? idPaquet(plan, ctx, p, j) : `${ctx.cle}t${j}x${t}`);
+        ops.push({
+          op: 'sum',
+          targets: termes,
+          consume: signes,
+          to: token(nom(0), paliers[0], 'number'),
+          symbol: '+',
+        });
+        for (let t = 1; t < paliers.length; t++) {
+          ops.push({
+            op: 'reduce',
+            target: nom(t - 1),
+            digits: [...String(paliers[t - 1])]
+              .map((d, k) => token(`${ctx.cle}d${j}x${t}x${k}`, d, 'digit')),
+            to: token(nom(t), paliers[t], 'number'),
+          });
+        }
+      });
+      const vus = plan.chiffres.map((c) => c.v).join(' ');
+      steps.push(etape(ctx, dire(LIB_REDECOUPAGE, ctx.langue),
+        `${vus} → ${apres.valeur.join(' ')}`, enchainer(ops), { id: `s_${ctx.cle}_d` }));
       return steps;
     },
   }),

@@ -23,7 +23,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  BAREME, FICELLES, bilanChemin, bilanApproche, credit, detailDuCredit,
+  BAREME, FICELLES, FICELLES_QUI_ECARTENT, bilanChemin, bilanApproche, credit,
+  detailDuCredit, dilution, emploieUneFicelle,
   facteur, note, estPur, amplitudeArrondi, finDuTriptyque, nbTriptyques,
   classeDeTransformation, survieDesCaracteres,
 } from '../elegance.js';
@@ -172,6 +173,13 @@ test('★ les trois ficelles sont au catalogue, et chacune alimente SON palier',
     'm.plusFrequent': ['m10', 'majorite', [6, 4, 6, 6, 6]],
     'm.unRangSurDeux': ['m11', 'decimation', [6, 4, 6, 3, 6]],
     'm.additionSelective': ['m12', 'additionSelective', [6, 5, 16, 8]],
+    // ★ La quatrième, allouée le 27 août : le redécoupage tricheur. Son vecteur
+    //   est celui de l'auteur — trente-deux chiffres —, parce que l'opérateur
+    //   refuse en deçà de dix-neuf : c'est un DERNIER RECOURS sur une ligne
+    //   trop longue pour tenir dans un verdict, pas une astuce de poche.
+    'm.redecoupageChoisi': ['m16', 'redecoupage',
+      [4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
+        1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8]],
   };
   assert.deepEqual(Object.keys(FICELLES).sort(), Object.keys(attendu).sort(),
     'FICELLES et le catalogue doivent parler des mêmes opérateurs');
@@ -318,6 +326,215 @@ test('★ barème — l’ordre de laideur des trois ficelles est celui de l’a
  * La ficelle doit gagner — et gagner sans excès : une méthode qui atteint le
  * même `[6,6,6]` SANS ficelle doit rester devant.
  */
+/**
+ * ★ LA DILUTION — « le malus de triche se dilue avec le nombre d'additions ».
+ *
+ * > « Pour les additions sélectives comme triche : le malus de triche devrait
+ * > être dilué avec le nombre d'additions d'affilée. Plus il y en a, moins la
+ * > triche se verra, et plus la triche est éloignée de la première et de la
+ * > dernière addition d'affilée, plus le fait d'en ajouter une ou d'en retirer
+ * > une […] passera inaperçu et donc avec une bien moindre pénalité (qui
+ * > devient presque négligeable pour l'exemple que je t'ai donné, vu le nombre
+ * > d'additions). » — l'auteur.
+ *
+ * Trois choses à geler, et ce sont exactement les trois qu'il énonce : la
+ * décroissance avec la LONGUEUR de la série, la décroissance avec la DISTANCE
+ * aux extrémités, et le fait que ça ne tombe jamais à zéro.
+ */
+test('★ dilution — une triche noyée dans les additions coûte de moins en moins', () => {
+  const serie = (n) => Array.from({ length: n }, () => 2); // n additions de 2 termes
+  const courte = dilution(serie(1));
+  const moyenne = dilution(serie(5));
+  const longue = dilution(serie(16));
+
+  // ★ Non-régression EXACTE : une triche SEULE paie exactement le prix plein.
+  //   C'est ce qui garantit que le cas de l'auteur — `6, 5+1, 6, 8`, une seule
+  //   addition — coûte aujourd'hui ce qu'il coûtait avant la dilution.
+  assert.equal(courte, 1000, 'une addition isolée n’est pas diluée du tout');
+
+  assert.ok(moyenne < courte, `${moyenne} doit être sous ${courte}`);
+  assert.ok(longue < moyenne, `${longue} doit être sous ${moyenne}`);
+  // « Presque négligeable » : à seize additions, la série ENTIÈRE coûte moins du
+  // quart de ce que coûte UNE triche isolée.
+  assert.ok(longue * 4 < courte,
+    `à seize additions, la série entière (${longue}) doit valoir moins du quart d’une seule (${courte})`);
+
+  // ★ Et jamais zéro : une triche diluée reste une triche.
+  assert.ok(dilution(serie(200)) > 0, 'une série très longue ne devient pas gratuite');
+  assert.ok(BAREME.REDECOUPAGE > 0 && BAREME.ADDITION_SELECTIVE > 0);
+
+  // ★ Tout est ENTIER — §4.4, pas un flottant nulle part.
+  for (const n of [1, 2, 3, 5, 8, 13, 21, 34]) {
+    assert.ok(Number.isInteger(dilution(serie(n))), `dilution(${n}) n’est pas entier`);
+  }
+  assert.equal(dilution([]), 0, 'aucune addition, aucune peine');
+  assert.equal(dilution([1, 1, 1]), 0, 'des « additions » à un seul terme n’absorbent rien');
+});
+
+/**
+ * ★ …et la DISTANCE AUX EXTRÉMITÉS, isolée de la longueur.
+ *
+ * « Plus la triche est éloignée de la première et de la dernière addition
+ * d'affilée, […] plus elle passera inaperçu. » On compare donc, à série de
+ * longueur ÉGALE, ce que coûte la même addition selon qu'elle est au bord ou au
+ * milieu : une seule addition absorbe, les autres ne pèsent rien, si bien que
+ * la seule chose qui varie est sa PLACE.
+ */
+test('★ dilution — au milieu de la série, la même triche coûte moins qu’au bord', () => {
+  const N = 7;
+  const placer = (j) => dilution(Array.from({ length: N }, (_, k) => (k === j ? 4 : 1)));
+  assert.ok(placer(3) < placer(0), `au milieu (${placer(3)}) doit coûter moins qu’au bord (${placer(0)})`);
+  assert.equal(placer(0), placer(N - 1), 'les deux bords se valent — la série n’a pas de sens');
+  assert.ok(placer(1) < placer(0) && placer(2) < placer(1),
+    'la peine décroît à mesure qu’on s’enfonce dans la série');
+  assert.ok(placer(3) >= 1, 'jamais zéro, même au cœur de la série');
+});
+
+/**
+ * ★ L'ORDRE DES PALIERS DE TRICHE, DEUX AJOUTS COMPRIS.
+ *
+ * Deux paliers neufs, et il faut dire d'où ils tiennent leur rang :
+ *
+ *  · `EFFACEMENT_SANS_MOTIF` est au SOMMET, et c'est l'auteur mot pour mot :
+ *    « l'effacement est une étape à part, et s'il n'a pas de motif (chiffre
+ *    minoritaire, pair/impair) c'est probablement la pire des triches, à
+ *    pénaliser en conséquence » ;
+ *  · `REDECOUPAGE` s'insère entre la majorité et la décimation, et l'auteur n'a
+ *    JAMAIS comparé celui-là aux autres : c'est un arbitrage, écrit comme tel
+ *    dans le barème, et ce test ne fait que l'empêcher de dériver.
+ *
+ * `REARRANGEMENT` n'entre dans aucune des deux chaînes — l'auteur ne traite pas
+ * le tri croissant de triche —, mais il ne peut pas être gratuit : sans lui, un
+ * rangement encaisserait `TRIPTYQUE_CONTIGU` pour une contiguïté qu'il vient de
+ * fabriquer.
+ */
+test('★ barème — les deux paliers neufs prennent leur rang, et il est écrit', () => {
+  assert.ok(BAREME.EFFACEMENT_SANS_MOTIF > BAREME.REDECOUPAGE,
+    'effacer sans motif est la pire des triches — l’auteur le dit');
+  assert.ok(BAREME.EFFACEMENT_SANS_MOTIF > BAREME.MAJORITE,
+    '…y compris devant la majorité, qui efface mais SAIT dire pourquoi');
+  // ★ Le redécoupage passe devant les trois ficelles au TARIF, et c'est
+  //   précisément parce qu'il est le seul à être divisé avant d'être facturé :
+  //   au-delà d'une addition isolée, ce qu'il paie réellement fond (voir
+  //   `dilution`). Comparer son tarif à ceux qui ne diluent pas n'aurait pas de
+  //   sens ; ce qu'on gèle ici, c'est qu'il ne redescende pas à leur niveau —
+  //   il y deviendrait gratuit là où on l'emploie, sur les longues lignes.
+  assert.ok(BAREME.REDECOUPAGE > BAREME.MAJORITE,
+    'le redécoupage dilue : son tarif doit dominer ceux qui ne diluent pas');
+  assert.ok(BAREME.REDECOUPAGE > BAREME.ADDITION_SELECTIVE,
+    'des deux triches qui absorbent, c’est lui qui choisit ses coupes — donc lui le plus laid');
+  assert.ok(BAREME.ADDITION_SELECTIVE > BAREME.REARRANGEMENT,
+    'ranger n’est pas tricher : c’est le palier le plus léger du barème');
+  assert.ok(BAREME.REARRANGEMENT > 0, '…et il n’est pas gratuit pour autant');
+  // La chaîne de l'auteur, elle, n'a pas bougé d'un cran (test dédié plus haut).
+  assert.ok(BAREME.MAJORITE > BAREME.DECIMATION
+    && BAREME.DECIMATION > BAREME.ADDITION_SELECTIVE);
+});
+
+/**
+ * ★ LE PALIER QUI ATTEND SON OPÉRATEUR.
+ *
+ * `effacementSansMotif` est écrit, chiffré, branché dans le détail du crédit —
+ * et son compteur vaut zéro, parce qu'aucun opérateur du catalogue n'efface
+ * sans savoir dire pourquoi. Il attend la scission du geste de `mz`, qui
+ * couronne ET tronque en un seul mouvement indivisible.
+ *
+ * Ce test gèle les deux moitiés de la promesse : le palier EXISTE (une ligne de
+ * crédit, pas une constante morte) et il DORT (aucun identifiant du catalogue ne
+ * l'alimente aujourd'hui). Le jour où l'on inscrira un opérateur en face de
+ * `'effacementSansMotif'` dans `FICELLES`, la seconde moitié tombera — et c'est
+ * très bien : elle aura fait son travail de garde-fou jusque-là.
+ */
+test('★ barème — le palier « effacement sans motif » existe et dort encore', () => {
+  const postes = detailDuCredit(bilanApproche({ parts: [] }, ctxDe('x')));
+  const ligne = postes.find((l) => l.poste.includes('effacement sans motif'));
+  assert.ok(ligne, 'le palier doit avoir sa ligne dans le détail du crédit');
+  assert.equal(ligne.quantite, 0, 'aucun opérateur ne l’alimente encore');
+  assert.ok(ligne.points === 0, 'et il ne retire donc rien');
+  assert.ok(!Object.values(FICELLES).includes('effacementSansMotif'),
+    'aucun opérateur n’est encore inscrit en face du compteur');
+  // Et il est bien classé du côté des ficelles qui ÉCARTENT : c'est ce qui lui
+  // vaudra, le jour venu, l'exemption de « valeurs jetées » et la lecture du
+  // vecteur le plus large par le rendement (`score.js`).
+  assert.ok(FICELLES_QUI_ECARTENT instanceof Set);
+  for (const id of FICELLES_QUI_ECARTENT) {
+    assert.ok(['majorite', 'decimation', 'effacementSansMotif'].includes(FICELLES[id]),
+      `${id} n’écarte pas`);
+  }
+});
+
+/**
+ * ★ LES QUATRE TRANSFORMATIONS DU 27 AOÛT, VUES PAR LE BARÈME.
+ *
+ * Chacune pose une question différente au bilan, et les quatre réponses sont
+ * des décisions, pas des effets de bord :
+ *
+ *  · **le tri croissant** ne jette rien et ne convertit rien — aucun poste
+ *    ordinaire ne le voyait passer. Il alimente `rearrangement`, et lui seul ;
+ *  · **le retournement par trios** est un demi-tour comme celui de `my` : le
+ *    vecteur garde sa largeur, rien n'est jeté, rien n'est puni ;
+ *  · **le décompte des chiffres** RÉTRÉCIT la ligne sans rien écarter — trois 6
+ *    entrent ENTIÈREMENT dans le « 3 ». Il ne paie donc pas `valeursJetees`,
+ *    mais il paie les 6 qu'il fait disparaître (`sixDetruits`) ;
+ *  · **le redécoupage** est une ficelle, et il alimente son palier DILUÉ.
+ */
+test('★ les quatre transformations du 27 août alimentent le bon poste', () => {
+  const bilan = (id, entree) => {
+    const op = operateur(id);
+    const brut = op.apply(entree, entree.map(() => []));
+    assert.ok(brut, `${id} doit s’appliquer à ${JSON.stringify(entree)}`);
+    return bilanChemin({ ops: [op], etats: [etat('NUMS', entree), etat('NUMS', brut.valeur)] });
+  };
+
+  // ── le tri croissant : l'exemple de l'auteur, `95956636494 → 34455666999`
+  const tri = bilan('m.triCroissant', [9, 5, 9, 5, 6, 6, 3, 6, 4, 9, 4]);
+  assert.ok(tri.rearrangement > 0, 'un tri qui déplace doit payer le réarrangement');
+  assert.equal(tri.valeursJetees, 0, 'un tri ne jette rien');
+  assert.equal(tri.sixDetruits, 0, 'un tri ne convertit rien');
+
+  // ── les trios de 9 : même largeur, aucun malus
+  const trios = bilan('m.retournerLesTrios', [9, 9, 9, 9, 3, 9]);
+  assert.equal(trios.rearrangement, 0);
+  assert.equal(trios.valeursJetees, 0);
+  assert.equal(trios.sixDetruits, 0, 'on ne détruit pas des 6, on en fabrique');
+
+  // ── le décompte : il absorbe, il ne jette pas — mais il perd des 6
+  const compte = bilan('m.compterLesChiffres', [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]);
+  assert.equal(compte.valeursJetees, 0,
+    'compter n’écarte rien : les trois 6 sont ENTIÈREMENT dans le « 3 »');
+  assert.equal(compte.sixDetruits, 2,
+    'trois 6 qui deviennent « 3 6 », ce sont deux 6 convertis en autre chose');
+
+  // ── le redécoupage : une ficelle, à son palier, et DILUÉE
+  const chiffres = [4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
+    1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8];
+  const redec = bilan('m.redecoupageChoisi', chiffres);
+  assert.ok(redec.redecoupage > 0, 'le redécoupage doit alimenter son palier');
+  assert.equal(redec.valeursJetees, 0, 'son palier REMPLACE « valeurs jetées »');
+  // ★ Et la dilution mord : vingt et un chiffres sont absorbés, le compteur en
+  //   pèse une fraction — « presque négligeable, vu le nombre d'additions ».
+  const sortie = operateur('m.redecoupageChoisi').apply(chiffres, chiffres.map(() => []));
+  const absorbes = chiffres.length - sortie.valeur.length;
+  assert.ok(redec.redecoupage * 10 < absorbes * 1000,
+    `${redec.redecoupage} millièmes pour ${absorbes} chiffres absorbés : la dilution doit mordre`);
+});
+
+/**
+ * ★ `emploieUneFicelle` se lit sur les COMPTEURS, jamais sur les codes.
+ *
+ * C'est ce qui permet à `index.js` d'écarter les ficelles de la 2ᵈ suggestion —
+ * la place qui récompense le NOMBRE de séries — sans tenir une seconde liste
+ * d'identifiants qui se désynchroniserait du barème.
+ */
+test('★ une ficelle se reconnaît à son compteur, pas à son code', () => {
+  assert.equal(emploieUneFicelle(null), false);
+  assert.equal(emploieUneFicelle({}), false);
+  for (const compteur of new Set(Object.values(FICELLES))) {
+    assert.equal(emploieUneFicelle({ [compteur]: 1 }), true, compteur);
+    assert.equal(emploieUneFicelle({ [compteur]: 0 }), false, compteur);
+  }
+});
+
 test('★ ficelles — mieux que le tri arbitraire, moins bien qu’une voie honnête', () => {
   const saisie = 'motfinal';
   const ctx = ctxDe(saisie);

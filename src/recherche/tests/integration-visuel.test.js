@@ -16,6 +16,8 @@ import assert from 'node:assert/strict';
 import { creerMoteur } from '../index.js';
 import { suivreLaLigne } from '../scenario.js';
 import { catalogue } from './_catalogue.js';
+import { PAR_CODE, appliquer } from '../../moteur/catalogue.js';
+import { depuisSaisie, nums } from '../../moteur/etat.js';
 
 let compile = null;
 let REPEAT_SPEED = 5;
@@ -341,3 +343,103 @@ test('intégration — la ligne rejouée par le moteur de recherche est celle du
     assert.ok(comparees > 200, `seulement ${comparees} lignes comparées : la mesure ne mesure rien`);
     console.log(`    ${comparees} lignes rejouées à l’identique, ${renoncements} renoncements`);
   });
+
+/**
+ * ★ LES QUATRE TRANSFORMATIONS DU 27 AOÛT SE MONTRENT — et la chaîne de
+ *   l'auteur se rejoue d'un bout à l'autre.
+ *
+ * Le piège que ce test ferme est le piège classique du dépôt : une op hors
+ * vocabulaire, ou mal formée, fait retomber `scenario.js` sur le rendu
+ * générique **en silence**. L'opérateur « marche » encore, mais il ne démontre
+ * plus rien — il annonce. On exige donc trois choses de chacun des quatre :
+ *
+ *  1. son scénario compile dans le moteur visuel RÉEL, sans un avertissement ;
+ *  2. ni `scenario.js` ni le compilateur n'ont eu à se rabattre sur du
+ *    générique — `avertissements` est vide des deux côtés ;
+ *  3. la primitive qui porte le geste est bien là : `move` pour le rangement,
+ *    `flip180` pour les trios, `substitute` pour le décompte, `partition` pour
+ *    le redécoupage.
+ *
+ * ★ Deux des quatre sont joués par URL plutôt que cherchés. Ce n'est pas une
+ * facilité : `m14` demande trois 9 CONTIGUS et `m15` une ligne condensable,
+ * deux géométries que le classement ne met pas spontanément en tête sur le
+ * corpus. Les rejouer par leur programme est exactement ce que fait un lien
+ * partagé (§4.3), et c'est donc le chemin qu'il faut éprouver.
+ */
+test('★ intégration — les quatre transformations du 27 août se MONTRENT',
+  { skip: compile ? false : 'src/visuel/ absent' }, async () => {
+    const { lire } = await import('../url.js');
+    const { encoderTexte } = await import('../base58.js');
+    const m = creerMoteur(catalogue);
+
+    const cas = [
+      // Le rangement et le redécoupage se trouvent tout seuls ; on les rejoue
+      // quand même par leur programme, pour que le test ne dépende pas d'un
+      // classement qui peut légitimement bouger.
+      ['Le chat dort sur le tapis rouge', 'f6+t1+mw+m13', 'm13', 'move'],
+      ['Le chat dort sur le tapis rouge', 'f6+t1+m5+mt+m14', 'm14', 'flip180'],
+      ['Le chat dort sur le tapis rouge', 'f6+t1+mw+m13+m15', 'm15', 'substitute'],
+      ['Le chat dort sur le tapis rouge', 'f6+t1+mw+m16', 'm16', 'partition'],
+    ];
+
+    for (const [saisie, codes, code, primitive] of cas) {
+      const r = m.rejouer(lire(`#${codes}#${encoderTexte(saisie)}`));
+      assert.ok(r.ok, `${codes} : ${r.raison || 'rejeu impossible'}`);
+      const sc = m.scenarioDe(r.approche, { saisie });
+      assert.deepEqual(sc.avertissements || [], [],
+        `${code} : le scénario est retombé sur le rendu générique — `
+        + 'l’opérateur annoncerait au lieu de montrer');
+      const tl = compile(sc);
+      assert.deepEqual(tl.warnings, [], `${code} : avertissement de compilation`);
+      assert.ok(tl.total > 0, `${code} : durée totale nulle`);
+      const ops = sc.steps.flatMap((st) => st.ops.map((o) => o.op));
+      assert.ok(ops.includes(primitive),
+        `${code} : la primitive « ${primitive} » n’est pas émise`);
+    }
+  });
+
+/**
+ * ★ LA CHAÎNE DE L'AUTEUR, REJOUÉE SUR SES PROPRES CHIFFRES.
+ *
+ * « `48120120961141088436181322436108` […] ⇒ `996696696969` · transformation
+ * suivante : tri croissant `996696696969` → `666666999999` · […] puis "On
+ * retourne les 666 qui se cachent" (retourne les 999 trois par trois). »
+ *
+ * Les trente-deux chiffres ne sont pas recopiés à la main : ils SORTENT de
+ * `f9+t1+m5` sur `https://reinfocovid.fr/`, c'est-à-dire du programme que
+ * l'auteur donne lui-même en tête de sa section. C'est ce qui fait de ce test
+ * une vérification et non une paraphrase.
+ */
+test('★ la chaîne du 27 août se rejoue sur les chiffres de l’auteur', () => {
+  const N = (v) => nums(v, v.map((_, i) => [[i, i + 1]]));
+  const chaine = (etat0, codes) => codes.split('+').reduce((e, c) => {
+    assert.ok(e, `${c} : l’état précédent était null`);
+    const r = appliquer(PAR_CODE.get(c), e);
+    assert.ok(r, `${c} a rendu null`);
+    return r;
+  }, etat0);
+
+  // 1. les trente-deux chiffres, tels que l'auteur les écrit — et ils viennent
+  //    du programme qu'il cite, pas d'une recopie.
+  const avant = chaine(depuisSaisie('https://reinfocovid.fr/'), 'f9+t1+m5');
+  assert.equal(avant.valeur.join(''), '48120120961141088436181322436108',
+    'les 32 chiffres de la section 7.4');
+
+  // 2. le redécoupage : sa découpe à la main rend six 6 sur douze paquets ;
+  //    l'optimisation en rend huit sur onze, dont six d'affilée.
+  const redec = chaine(avant, 'm16');
+  assert.deepEqual(redec.valeur, [6, 3, 6, 6, 6, 6, 6, 6, 3, 6, 9]);
+  assert.equal(redec.valeur.filter((v) => v === 6).length, 8,
+    'huit 6, contre six à la découpe manuelle');
+
+  // 3. …et sur SON vecteur à lui (`996696696969`), le tri puis les trios font
+  //    exactement ce qu'il annonce, dans cet ordre.
+  const sien = N([9, 9, 6, 6, 9, 6, 6, 9, 6, 9, 6, 9]);
+  const range = chaine(sien, 'm13');
+  assert.deepEqual(range.valeur, [6, 6, 6, 6, 6, 6, 9, 9, 9, 9, 9, 9],
+    '« tri croissant 996696696969 → 666666999999 »');
+  const retourne = chaine(range, 'm14');
+  assert.deepEqual(retourne.valeur, new Array(12).fill(6),
+    '« retourne les 999 trois par trois » — deux trios, douze 6');
+});
+
