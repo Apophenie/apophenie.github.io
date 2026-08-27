@@ -311,7 +311,7 @@ test('★ NON-RÉGRESSION — aucune URL de la cible par défaut ne porte de mar
   }
 });
 
-test('★ NON-RÉGRESSION — les 100 opérateurs restent explorables pour 666', () => {
+test('★ NON-RÉGRESSION — les 101 opérateurs restent explorables pour 666', () => {
   const tous = operateursExplorables(catalogue);
   assert.deepEqual(
     operateursPourCible(catalogue, normaliserCible('666')).map((o) => o.code),

@@ -116,6 +116,8 @@ const MAPPEURS_DE_SERVICE = new Set([
   //   dernière retouche, et le redécoupage aurait en outre intitulé une voie
   //   entière du nom de sa triche.
   'm.triCroissant', 'm.redecoupageChoisi',
+  // ★ Le tri alphabétique est du même bois : il RANGE, il ne conclut pas.
+  'm.triAlphabetique',
 ]);
 
 /**
@@ -244,6 +246,7 @@ export const NOMS = {
   //   où l'on n'a encore rien vu (test « jamais le résultat dans le nom de la
   //   voie »). Le nom de vedette dit donc le geste et tait ce qu'il produit.
   'm.triCroissant': b('Par rangement croissant', 'By ascending order'),
+  'm.triAlphabetique': b('Par rangement alphabétique', 'By alphabetical order'),
   'm.retournerLesTrios': b('Par le retournement des trios', 'By flipping the trios'),
   'm.compterLesChiffres': b('Par le décompte des chiffres', 'By tallying the digits'),
   'm.redecoupageChoisi': b('Par redécoupage choisi', 'By chosen recutting'),
@@ -425,6 +428,7 @@ export const PRECISIONS = {
   // ★ Les quatre du 27 août — mêmes précautions que pour les noms de vedette :
   //   le geste, jamais ce qu'il produit.
   'm.triCroissant': b('rangé par ordre croissant', 'sorted in ascending order'),
+  'm.triAlphabetique': b('les lettres rangées dans l’ordre', 'with the letters put in order'),
   'm.retournerLesTrios': b('les trios retournés', 'with the trios flipped'),
   'm.compterLesChiffres': b('les chiffres comptés', 'with the digits tallied'),
   'm.redecoupageChoisi': b('redécoupé en paquets', 'recut into packets'),

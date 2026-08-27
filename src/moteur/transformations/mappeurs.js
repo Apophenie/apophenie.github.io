@@ -129,8 +129,28 @@ const LIB_ARRET = bilingue(
 /** Longueur de la suite cherchée. 666 fait trois 6, ni deux, ni quatre. */
 const SUITE = 3;
 
-/** Le nombre cherché, chiffre par chiffre. Il vaut 6, et il ne vaudra jamais rien d’autre. */
-const SIX = 6;
+/**
+ * ★ **LE CHIFFRE VISÉ PAR LES QUATRE OPÉRATEURS QUI REGARDENT LA CIBLE.**
+ *
+ * Il vaut 6 aujourd'hui, et ce n'est plus une fatalité : c'est une valeur
+ * NOMMÉE, relue partout, que le jour où la recherche saura la leur passer il
+ * suffira de faire descendre. Tant qu'elle est figée ici, `bfs.js` retire ces
+ * quatre opérateurs de l'exploration dès que la cible change (voir
+ * `operateursExplorables`) — ils ne mentiraient pas, ils ne serviraient à rien.
+ *
+ * ⚠️ **ET LE 0 NE S'ATTEINDRA JAMAIS PAR CETTE PORTE.** « Quand on veut 777 la
+ * cible ne sera pas la même ; quand on veut des 0 il faudra faire des 10, des
+ * 100, des 1000 — et donc les opérateurs manquants sont peut-être soustraction
+ * sélective et multiplication sélective » (l'auteur). C'est exact et c'est
+ * arithmétique : une somme de chiffres strictement positifs ne vaut jamais 0, et
+ * l'addition sélective refuse par construction d'absorber un 0 (voir
+ * `INTERDITS_A_LA_SOMME`). Viser `000` demandera donc soit une soustraction qui
+ * annule deux valeurs égales, soit une multiplication qui absorbe par le 0 —
+ * deux opérateurs qui n'existent pas encore.
+ */
+const CIBLE_CHIFFRE = 6;
+/** Alias historique, conservé le temps que tous les appels soient nommés. */
+const SIX = CIBLE_CHIFFRE;
 
 /**
  * L'index du premier 6 de la première suite de trois 6 CONTIGUS, ou −1.
@@ -226,6 +246,41 @@ function valeurDominante(valeur) {
   return { valeur: meilleure, compte: max };
 }
 
+/**
+ * ★ **DANS QUEL ORDRE LES MINORITAIRES TOMBENT** — une vague par valeur, du plus
+ *   rare au moins rare.
+ *
+ * « Elle doit supprimer non pas en une fois, mais les chiffres présents en un
+ * seul exemplaire, chiffre par chiffre, puis ceux en deux exemplaires — par
+ * chiffre unique, mais s'il y a `6634346`, les deux 3 sont à supprimer en même
+ * temps, puis les deux 4 » (l'auteur).
+ *
+ * Les deux consignes n'en font qu'une : **une vague par VALEUR distincte,
+ * rangées par effectif croissant.** Un chiffre présent une seule fois forme à
+ * lui seul sa vague — « chiffre par chiffre » —, et deux exemplaires de la même
+ * valeur tombent ensemble parce qu'ils sont un seul argument, pas deux.
+ *
+ * Ce que le spectateur voit alors n'est plus une disparition mais un
+ * DÉPOUILLEMENT : on retire d'abord ce qui ne pesait rien, et le plus fréquent
+ * reste debout en dernier. L'argument se joue au lieu de s'annoncer.
+ *
+ * À effectif égal, l'ordre est celui de la PREMIÈRE APPARITION dans le vecteur —
+ * déterministe, et c'est celui que l'œil suit (§4.4).
+ *
+ * @returns {Array<{valeur:number, indices:number[]}>} les vagues, dans l'ordre
+ */
+function vaguesDEffacement(valeur, gardee) {
+  const parValeur = new Map();
+  valeur.forEach((v, i) => {
+    if (v === gardee) return;
+    if (!parValeur.has(v)) parValeur.set(v, []);
+    parValeur.get(v).push(i);
+  });
+  return [...parValeur.entries()]
+    .map(([v, indices]) => ({ valeur: v, indices }))
+    .sort((a, b) => (a.indices.length - b.indices.length) || (a.indices[0] - b.indices[0]));
+}
+
 /** Le vecteur écrit-il 666 d'affilée ? C'est le seul but que ces ficelles servent. */
 const portePleinement = (v) => debutDesTroisSix(v) >= 0;
 
@@ -312,9 +367,38 @@ function releveDesParites(valeur, langue) {
  */
 const CHIFFRES_MAX = 12;
 
-function planAdditionSelective(valeur) {
+/**
+ * ★ **LES CHIFFRES QU'UNE SOMME SÉLECTIVE NE CONSOMME JAMAIS**, et pourquoi
+ *   chacun.
+ *
+ * Ils étaient écrits en dur dans la boucle (`if (c === 0 || c === SIX) break`),
+ * ce qui donnait à lire deux nombres magiques là où il y a deux raisons
+ * distinctes — et rendait invisible le fait qu'elles ne se transposent pas de
+ * la même façon à une autre cible :
+ *
+ *  · **le 0 est l'ÉLÉMENT NEUTRE de l'addition.** L'absorber n'ajoute rien à la
+ *    somme : la scène montrerait une addition qui ne change pas le résultat,
+ *    c'est-à-dire une étape pour rien. Cette raison-là ne dépend pas de la
+ *    cible — elle vaudra encore pour 777 ou pour 13.
+ *
+ *  · **la cible elle-même est DÉJÀ ACQUISE.** Consommer un 6 pour en refaire un
+ *    à partir d'autres chiffres, c'est défaire pour refaire ; et si on le fond
+ *    dans une somme qui vaut autre chose, c'est détruire ce qu'on cherchait
+ *    (`SIX_DETRUIT`, au barème). Cette raison-là suit la cible : viser 777
+ *    interdirait le 7, pas le 6.
+ *
+ * @param {number} cible le chiffre cherché
+ */
+const INTERDITS_A_LA_SOMME = (cible) => new Set([0, cible]);
+
+/**
+ * @param {number[]} valeur
+ * @param {number} [cible] le chiffre à fabriquer — nommé, plus jamais deviné
+ */
+function planAdditionSelective(valeur, cible = CIBLE_CHIFFRE) {
   if (!valeur.length) return null;
   if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
+  const interdits = INTERDITS_A_LA_SOMME(cible);
   const chiffres = [];
   valeur.forEach((v, i) => {
     for (const c of String(v)) chiffres.push({ v: Number(c), src: i });
@@ -331,14 +415,14 @@ function planAdditionSelective(valeur) {
   while (i < chiffres.length) {
     let pris = 0;
     let somme = 0;
-    for (let L = 1; L <= SIX && i + L <= chiffres.length; L++) {
+    for (let L = 1; L <= cible && i + L <= chiffres.length; L++) {
       const c = chiffres[i + L - 1].v;
-      if (c === 0 || c === SIX) break;
+      if (interdits.has(c)) break;
       somme += c;
-      if (somme > SIX) break;
-      if (L >= 2 && somme === SIX) { pris = L; break; }
+      if (somme > cible) break;
+      if (L >= 2 && somme === cible) { pris = L; break; }
     }
-    if (pris) { sortie.push({ v: SIX, debut: i, fin: i + pris }); i += pris; additions++; }
+    if (pris) { sortie.push({ v: cible, debut: i, fin: i + pris }); i += pris; additions++; }
     else { sortie.push({ v: chiffres[i].v, debut: i, fin: i + 1 }); i++; }
   }
   if (!additions) return null;
@@ -379,6 +463,10 @@ const idSortie = (plan, ctx, s, j) => (s.fin - s.debut < 2
 // et relu par `apply`, `sortie` et `steps` : une seule source, donc aucun écart
 // possible entre ce qui est compté et ce qui est montré (CONTRACTS §0.3).
 
+const LIB_TRI_ALPHABETIQUE = bilingue(
+  'On range les lettres par ordre alphabétique',
+  'Sort the letters in alphabetical order',
+);
 const LIB_TRI_CROISSANT = bilingue(
   'On range les nombres par ordre croissant',
   'Sort the numbers in ascending order',
@@ -446,6 +534,68 @@ function triRassemble(valeur) {
   if (!ordre.some((src, i) => valeur[src] !== valeur[i])) return false;
   const plusLongue = (v) => plagesDe(v).reduce((m, p) => Math.max(m, p.compte), 0);
   return plusLongue(valeur) < SUITE && plusLongue(ordre.map((i) => valeur[i])) >= SUITE;
+}
+
+/**
+ * ★ LA CLÉ DE RANGEMENT D'UN JETON — sans `localeCompare`.
+ *
+ * `Intl` et `localeCompare` sont bannis (CONTRACTS §4.4) : leur ordre dépend de
+ * la machine, et deux visiteurs verraient deux démonstrations. On range donc sur
+ * une clé qu'on fabrique — accents retirés, casse pliée —, et l'ordre est celui
+ * des points de code, qui est le même partout. `é` se range avec `e`, `Ç` avec
+ * `c`, exactement là où un lecteur francophone les cherche.
+ */
+function cleAlphabetique(jeton) {
+  return String(jeton).normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase();
+}
+
+/** L'ordre alphabétique des jetons, stable à clé égale. */
+function ordreAlphabetique(jetons) {
+  const cles = jetons.map(cleAlphabetique);
+  return jetons.map((_, i) => i).sort((a, b) => (
+    cles[a] < cles[b] ? -1 : cles[a] > cles[b] ? 1 : a - b));
+}
+
+/**
+ * ★ MÊME EXIGENCE QUE `triRassemble`, UN CRAN PLUS TÔT DANS LA CHAÎNE.
+ *
+ * « S'il devrait y avoir un tri, il faudrait le faire en premier : classer les
+ * lettres par ordre alphabétique en une étape, pour faire apparaître ensuite le
+ * 666 naturellement — puisque le t9 est alphabétique, ça devrait marcher très
+ * bien dans pas mal de scénarios » (l'auteur).
+ *
+ * C'est exact, et c'est mesurable : les tables alphabétiques (`mt9`, `ma1`,
+ * `mpy`, `mz26`) donnent la MÊME valeur à des lettres voisines de l'alphabet.
+ * Ranger les lettres AVANT de les convertir rassemble donc les valeurs égales
+ * sans qu'on ait rien à choisir — là où `mtri`, qui range APRÈS, arrive une fois
+ * les nombres écrits et se voit reprocher de défaire l'ordre de lecture pour
+ * corriger le tir.
+ *
+ * ⚠️ **LA CONDITION N'EST PAS CELLE DE `mtri`, ET C'EST MESURÉ.** On a d'abord
+ * exigé, comme pour les nombres, que le rangement RASSEMBLE — qu'il laisse moins
+ * de plages qu'il n'en a trouvé. Sur les jetons, cette mesure compte des plages
+ * de LETTRES IDENTIQUES, et elle refusait `Macron` : `M a c r o n` rangé donne
+ * `a c M n o r`, six lettres toutes différentes, aucune plage réunie. Or c'est
+ * précisément le cas que l'auteur cite, et il a raison — `a c M n o r` passé au
+ * clavier téléphonique donne `2 2 6 6 6 7`, **666 d'affilée**, parce que la
+ * table assigne la même touche à des lettres VOISINES et non identiques.
+ *
+ * Mesurer les lettres pour prédire les nombres était donc une erreur de niveau.
+ * Et la garantie qu'on cherchait est structurelle : après un rangement
+ * alphabétique, la suite des lettres est croissante, donc TOUTE table qui
+ * assigne ses valeurs par tranches d'alphabet (`mt9`, `ma1`, `mpy`, `mz26`,
+ * `mx6`) rend une suite où les valeurs égales sont forcément côte à côte. Il n'y
+ * a rien à vérifier : c'est vrai par construction.
+ *
+ * Il ne reste donc que l'exigence commune à tous les mappeurs — **déplacer
+ * quelque chose** —, sans quoi l'étape ne montrerait rien et `scenario.js` la
+ * sauterait en silence, laissant dans l'URL un code invisible à l'écran. Ce que
+ * le rangement coûte, lui, se paie ailleurs : par jeton DÉPLACÉ, au barème
+ * d'élégance (`REARRANGEMENT`), comme pour `mtri`.
+ */
+function rangementUtile(jetons) {
+  const ordre = ordreAlphabetique(jetons);
+  return ordre.some((src, i) => cleAlphabetique(jetons[src]) !== cleAlphabetique(jetons[i]));
 }
 
 /**
@@ -2037,11 +2187,26 @@ const AUTRES_MAPPEURS = [
       'Every value is tallied; the most frequent one stays, the rest are erased. '
       + 'On a tie nobody wins and the rule does not apply.',
     ),
-    // ★ Notoriété 0,15. Personne, nulle part, n'a jamais entendu dire qu'en
-    // numérologie « le chiffre majoritaire l'emporte » : c'est une règle de la
-    // maison, inventée pour se débarrasser d'un gêneur. On ne lui prête donc
-    // presque rien — juste ce que vaut l'idée de majorité, que tout le monde
-    // comprend même si personne ne l'attend ici.
+    // ★ Notoriété 0,35 — RÉHABILITÉE, et c'est l'auteur qui le demande : « mpf
+    // est à réhabiliter ; ce n'est pas très qualitatif, mais ça reste ok ».
+    //
+    // Elle valait 0,15, au motif que personne, nulle part, n'a jamais entendu
+    // dire qu'en numérologie « le chiffre majoritaire l'emporte » — une règle de
+    // la maison, inventée pour se débarrasser d'un gêneur. Le motif tenait tant
+    // que l'alternative honnête était gratuite. Elle ne l'est plus : depuis que
+    // laisser un chiffre étranger au bord du verdict se paie
+    // (`RELIQUAT_HORS_CIBLE`), « je garde le plus nombreux » est devenu un
+    // ARGUMENT face à « je laisse le verdict trancher en silence », et un
+    // argument qu'on peut vérifier en comptant. On ne lui prête pas beaucoup
+    // pour autant : 0,35, sous le tri croissant (0,65), très loin d'A1Z26.
+    //
+    // ⚠️ **MESURÉ : ce réglage ne déplace aucun classement sur les dix-neuf
+    // saisies témoins.** Balayage de la notoriété (0,15 → 0,25 → 0,35 → 0,45) et
+    // du palier d'élégance (`MAJORITE`, 180 → 80) : `mpf` figure dans deux
+    // listes sur dix-neuf, et dans aucune tête, à TOUTES les valeurs. Ce n'est
+    // donc pas son prix qui la retenait — c'est qu'elle s'applique rarement
+    // (il lui faut une pluralité STRICTE dont le vainqueur écrit 666 d'affilée).
+    // Ce chiffre énonce une doctrine ; il ne truque pas un résultat.
     //
     // ★ AdHoc 0,45, juste sous le joker (0,50). C'est la plus ad hoc des trois :
     // elle ne s'autorise d'aucune propriété du nombre, d'aucune coïncidence de
@@ -2050,7 +2215,7 @@ const AUTRES_MAPPEURS = [
     // le barème d'élégance porte la peine SPÉCIFIQUE du geste, `adHoc` ne porte
     // que la peine GÉNÉRIQUE — « taillé pour la cible ». Les deux ne mesurent
     // pas la même chose et ne se doublent donc pas.
-    notoriete: 0.15, adHoc: 0.45,
+    notoriete: 0.35, adHoc: 0.40,
     note: bilingue(
       'Le plus fréquent, quel qu’il soit — pas le 6. Faire gagner le 6 d’office, ce serait '
       + 'le tri arbitraire, c’est-à-dire le geste que celui-ci prétend valoir mieux que.',
@@ -2099,9 +2264,17 @@ const AUTRES_MAPPEURS = [
         `chiffre majoritaire : ${dom.valeur}`,
         `most frequent digit: ${dom.valeur}`,
       ), ctx.langue);
+      // ★ Une vague par valeur, du plus rare au moins rare (voir
+      //   `vaguesDEffacement`). Les jetons d'une même vague tombent ENSEMBLE —
+      //   `stagger: 0` — parce qu'ils sont un seul argument ; c'est entre les
+      //   vagues que le temps passe, et c'est là que l'argument se lit.
+      const vagues = vaguesDEffacement(avant.valeur, dom.valeur);
+      const chutes = vagues.map((v) => ({
+        op: 'drop', targets: v.indices.map((i) => ctx.ids[i]), mode: 'fall', stagger: 0,
+      }));
       const ops = retirerAccolade(enchainer([
         { op: 'group', targets: ctx.ids, label: verdict, tighten: 0 },
-        { op: 'drop', targets: jetes, mode: 'fall', stagger: 40 },
+        ...chutes,
         { op: 'highlight', targets: gardes, mode: 'select' },
       ]));
       const legende = `${releveEcrit(avant.valeur)}  —  ${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
@@ -2397,6 +2570,55 @@ const AUTRES_MAPPEURS = [
       const ordre = ordreCroissant(avant.valeur);
       const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
       return [etape(ctx, dire(LIB_TRI_CROISSANT, ctx.langue), legende, enchainer([
+        { op: 'move', order: ordre.map((i) => ctx.ids[i]) },
+      ]))];
+    },
+  }),
+
+  def({
+    id: 'm.triAlphabetique', code: 'mtal', famille: 'mappeur', from: 'TOKENS', to: 'TOKENS',
+    libelle: LIB_TRI_ALPHABETIQUE,
+    regle: bilingue(
+      'Les lettres sont rangées dans l’ordre de l’alphabet ; les accents se rangent avec '
+      + 'la lettre nue, et deux lettres identiques gardent l’ordre où on les a lues.',
+      'The letters are lined up in alphabetical order; accented letters sort with the bare '
+      + 'letter, and identical letters keep the order they were read in.',
+    ),
+    // ★ Notoriété 0,70, un cran au-dessus du tri croissant (0,65). Ranger des
+    // lettres par ordre alphabétique est le seul rangement que TOUT LE MONDE a
+    // appris à l'école et sait refaire de tête ; ranger des nombres se sait
+    // aussi, mais personne ne le fait spontanément à une liste qu'on lui donne.
+    //
+    // ★ AdHoc 0,15, sous les 0,20 du tri croissant, et pour une raison mesurable
+    // plutôt qu'esthétique : celui-ci s'applique AVANT toute conversion. Il ne
+    // peut pas savoir quels nombres il rapproche, donc il ne peut pas être
+    // taillé pour la cible — il rangerait « Macron » de la même façon qu'on
+    // vise 666, 111 ou 007. Le tri des nombres, lui, voit ce qu'il déplace.
+    notoriete: 0.70, adHoc: 0.15,
+    note: bilingue(
+      'Les tables alphabétiques donnent la même valeur à des lettres voisines : ranger les '
+      + 'lettres d’abord fait apparaître les répétitions sans qu’on ait rien choisi.',
+      'Alphabetical tables give neighbouring letters the same value: sorting the letters '
+      + 'first makes repetitions appear without anything being picked.',
+    ),
+    apply: (valeur, traces) => {
+      // ★ MÊME REFUS que `mtri` : un rangement qui ne rassemble rien fabrique
+      // une étape que `scenario.js` saute, et l'URL porterait un code que la
+      // démonstration ne montre nulle part.
+      if (!rangementUtile(valeur)) return null;
+      const ordre = ordreAlphabetique(valeur);
+      return {
+        valeur: ordre.map((i) => valeur[i]),
+        traces: ordre.map((i) => traces[i] || []),
+      };
+    },
+    // Les jetons changent de PLACE, pas de nature : ils gardent leur identifiant
+    // (même raison que `mtri`).
+    sortie: (avant, apres, ctx) => ordreAlphabetique(avant.valeur).map((i) => ctx.ids[i]),
+    steps: (avant, apres, ctx) => {
+      const ordre = ordreAlphabetique(avant.valeur);
+      const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
+      return [etape(ctx, dire(LIB_TRI_ALPHABETIQUE, ctx.langue), legende, enchainer([
         { op: 'move', order: ordre.map((i) => ctx.ids[i]) },
       ]))];
     },

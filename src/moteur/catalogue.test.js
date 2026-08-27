@@ -133,6 +133,7 @@ const VECTEURS = [
   //
   // « Tri croissant » : `95956636494` → `34455666999` — trois 6 qui étaient
   // dispersés deviennent contigus, sans que rien ne soit écarté.
+  ['mtal', T(['M', 'a', 'c', 'r', 'o', 'n']), ['a', 'c', 'M', 'n', 'o', 'r']],
   ['mtri', N([9, 5, 9, 5, 6, 6, 3, 6, 4, 9, 4]), [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]],
   // « On retourne les 666 qui se cachent » : par TRIO contigu, jamais un par
   // un. Quatre 9 d'affilée n'en donnent que trois ; les 9 isolés ne bougent pas.
@@ -256,8 +257,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
  * qu'une portée (`0.1:`) cesse d'être une abréviation.
  */
 test('le registre : cent codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 100);
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 100, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 101);
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 101, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -267,7 +268,7 @@ test('le registre : cent codes distincts, de deux à quatre signes (CONTRACTS §
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 100, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 101, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

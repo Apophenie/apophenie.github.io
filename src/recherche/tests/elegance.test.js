@@ -134,9 +134,14 @@ test('★ barème — additions de chiffres > additions de nombres > le reste', 
  * coup, en exigeant un ordre de grandeur d'écart.
  */
 test('★ barème — une addition de chiffres qui reboucle coûte bien moins qu’une transformation', () => {
-  assert.ok(BAREME.ADDITION_EN_CHAINE > 0, 'ce n’est pas gratuit — arriver plus tôt reste mieux');
-  assert.ok(BAREME.ADDITION_EN_CHAINE * 3 < BAREME.TRANSFORMATION,
-    `${BAREME.ADDITION_EN_CHAINE} contre ${BAREME.TRANSFORMATION} : l’écart doit rester net`);
+  // ★ La chaîne paie le prix plein d'une transformation et reçoit une REMISE :
+  //   ce qu'elle coûte NET est la différence, et c'est elle qui doit rester
+  //   basse. Écrire la remise en dur ici la ferait diverger du barème ; on la
+  //   déduit, comme la page de récapitulatif le fait.
+  const net = BAREME.TRANSFORMATION - BAREME.REMISE_ADDITION_EN_CHAINE;
+  assert.ok(net > 0, 'ce n’est pas gratuit — arriver plus tôt reste mieux');
+  assert.ok(net * 3 < BAREME.TRANSFORMATION,
+    `${net} net contre ${BAREME.TRANSFORMATION} : l’écart doit rester net`);
 });
 
 /** ★ « Moindre si c'est un bloc entier », « malus faible pour la ponctuation ». */
@@ -549,8 +554,13 @@ test('★ ficelles — mieux que le tri arbitraire, moins bien qu’une voie hon
     etat('NUMS', [6, 4, 6, 3, 6]),
     etat('NUMS', [6, 6, 6]),
   ], ['t.caracteres', 'm.postiche', 'm.unRangSurDeux']));
-  // 3. la voie honnête : le même `[6,6,6]`, sans ficelle
-  const honnete = parCredit(vecteur([6, 6, 6]));
+  // 3. la voie honnête : elle écrit 666 sans ficelle — et elle lit AUTANT que
+  //    les deux autres. ⚠️ C'est une correction, pas une coquetterie : depuis
+  //    `PORTEE_IGNOREE`, une voie qui ne regarde que trois caractères là où sa
+  //    rivale en regarde cinq paie la différence, et la comparaison ne portait
+  //    plus sur la ficelle mais sur la couverture. Les trois fixtures partent
+  //    donc des mêmes cinq jetons.
+  const honnete = parCredit(vecteur([6, 6, 6, 6, 6]));
 
   assert.ok(ficelle > tri,
     `la ficelle (${ficelle}) doit valoir mieux que la suppression arbitraire (${tri})`);
@@ -587,26 +597,48 @@ test('★ le gaspillage et les ficelles — alourdir l’un avantage mécaniquem
     etat('NUMS', [6, 6, 6]),
   ], ['t.caracteres', 'm.postiche', 'm.unRangSurDeux']));
 
-  // Le tri paie `VALEUR_JETEE` ; la ficelle ne le paie PAS, elle paie son palier.
-  assert.ok(tri.valeursJetees > 0, 'le tri arbitraire jette, et il le paie');
-  assert.equal(ficelle.valeursJetees, 0, 'la ficelle ne paie jamais ce poste — son palier le remplace');
+  // Le tri paie le RELIQUAT du verdict ; la ficelle ne le paie PAS, elle paie
+  // son palier. (Depuis le partage en trois, ce que le verdict laisse au bord
+  // ne se confond plus avec ce qu'on efface en chemin — voir `VALEUR_JETEE`.)
+  assert.ok(tri.jeteesAuTri > 0, 'le tri arbitraire laisse du monde au bord, et il le paie');
+  assert.equal(ficelle.jeteesAuTri, 0, 'la ficelle ne paie jamais ce poste — son palier le remplace');
+  assert.equal(ficelle.valeursJetees, 0, '…et elle n’efface rien en chemin non plus');
   assert.ok(ficelle.decimation > 0, '…et elle paie le sien');
 
-  // Donc : alourdir `VALEUR_JETEE` creuse l'écart EN FAVEUR de la ficelle.
+  // Donc : alourdir le palier que le TRI paie creuse l'écart EN FAVEUR de la
+  // ficelle, et l'avantage offert est exactement ce que la ficelle ne paie pas.
   const ecart = (poids) => {
+    const memoire = BAREME.RELIQUAT_HORS_CIBLE;
+    BAREME.RELIQUAT_HORS_CIBLE = poids;
+    const d = credit(ficelle) - credit(tri);
+    BAREME.RELIQUAT_HORS_CIBLE = memoire;
+    return d;
+  };
+  const a50 = ecart(50);
+  const a100 = ecart(100);
+  assert.ok(a100 > a50,
+    `alourdir le reliquat (50 → 100) doit AVANTAGER la ficelle (${a50} → ${a100})`);
+  assert.equal(a100 - a50, (100 - 50) * tri.reliquatHorsCible,
+    'l’avantage offert est exactement le reliquat que la ficelle ne paie pas');
+
+  // ★ **ET C'EST PRÉCISÉMENT CE QUI A RENDU LE PARTAGE EN TROIS NÉCESSAIRE.**
+  //
+  // Tant qu'un seul palier facturait les deux gestes, la consigne « jeter une
+  // valeur en cours de route, c'est vraiment à éviter » ne pouvait pas être
+  // appliquée : la monter payait mécaniquement la ficelle, puisque le tri du
+  // verdict — son concurrent honnête — payait le même palier. Séparés, le
+  // gaspillage EN ROUTE peut monter à 300 sans rien offrir à la ficelle, parce
+  // que le tri, lui, ne le paie plus du tout.
+  assert.equal(tri.valeursJetees, 0, 'le tri du verdict n’efface rien en chemin');
+  const large = (poids) => {
     const memoire = BAREME.VALEUR_JETEE;
     BAREME.VALEUR_JETEE = poids;
     const d = credit(ficelle) - credit(tri);
     BAREME.VALEUR_JETEE = memoire;
     return d;
   };
-  const a36 = ecart(36);
-  const a78 = ecart(78);
-  assert.ok(a78 > a36,
-    `alourdir le gaspillage (36 → 78) doit AVANTAGER la ficelle (${a36} → ${a78}), `
-    + 'et c’est exactement pour ça qu’on ne l’alourdit pas');
-  assert.equal(a78 - a36, (78 - 36) * tri.valeursJetees,
-    'l’avantage offert est exactement le gaspillage que la ficelle ne paie pas');
+  assert.equal(large(36), large(300),
+    'alourdir le gaspillage en route n’offre plus rien à la ficelle');
 });
 
 /**
@@ -737,12 +769,28 @@ test('★ [6,4,6,6,6] — un 6 de plus, mais un 4 dont il faut se débarrasser',
   const lignes = new Map(detailDuCredit(b).map((l) => [l.poste, l]));
   assert.equal(lignes.get('6 surnuméraires').quantite, 1);
   assert.ok(lignes.get('6 surnuméraires').points > 0);
-  // …et le malus de ce qu'il faut jeter aussi : cinq valeurs montrées, trois
-  // gardées par le verdict — le 4 et le 6 en trop tombent.
+  // …et le malus de ce qu'il faut laisser aussi : cinq valeurs montrées, trois
+  // gardées par le verdict — le 4 et le 6 en trop restent au bord.
+  //
+  // ★ Les deux ne se paient PAS au même tarif, et c'est tout l'objet du partage
+  //   en trois : le 6 était ce qu'on cherchait et qu'on avait
+  //   (`RELIQUAT_DE_CIBLE`), le 4 n'était qu'un reste (`RELIQUAT_HORS_CIBLE`).
+  //   Ni l'un ni l'autre n'est du travail jeté EN ROUTE : `valeursJetees` reste
+  //   à zéro, et c'est ce qui empêche le barème de punir l'abondance.
   assert.equal(b.montrees, 5);
   assert.equal(b.gardees, 3);
-  assert.equal(b.valeursJetees, 2, 'le 4 et le 6 surnuméraire sont calculés puis écartés');
-  assert.ok(lignes.get('valeurs calculées puis jetées').points < 0);
+  assert.equal(b.valeursJetees, 0, 'rien n’a été calculé puis effacé en chemin');
+  assert.equal(b.reliquatDeCible, 1, 'le 6 surnuméraire est un 6 qu’on avait et qu’on ne montre pas');
+  assert.equal(b.reliquatHorsCible, 1, 'le 4 n’est qu’un reste du vecteur');
+  assert.ok(lignes.get('6 produits que le verdict ne montre pas').points < 0);
+  assert.ok(lignes.get('reste du vecteur, à la fin').points < 0);
+  // ★ ET C'EST LE CHIFFRE ÉTRANGER QUI COÛTE LE PLUS CHER, pas le 6. « Mieux
+  //   vaut supprimer des 6 silencieusement au verdict que de supprimer autre
+  //   chose silencieusement » (l'auteur) : un 6 en trop, on l'avait pour de
+  //   bon ; un 4 qu'on laisse au bord, on aurait dû le fondre plus tôt.
+  assert.ok(Math.abs(lignes.get('reste du vecteur, à la fin').points)
+    > Math.abs(lignes.get('6 produits que le verdict ne montre pas').points),
+    'laisser un chiffre étranger coûte plus cher que laisser un 6');
 });
 
 /**
@@ -1176,13 +1224,30 @@ test('★ étalonnage — les quatre cas de référence gardent leur tête de li
     //   deux premières lignes, avec exactement le mode, le compte et les codes
     //   attendus, et elle y est parce que la liste la met en avant — pas parce
     //   qu'elle serait tombée là par le mixte, qui ne réserve rien à personne.
+    //   ★ AMENDEMENT 2 — c'est bien « FIGURE SUR L'UNE DES DEUX LIGNES » qu'on
+    //   gèle, et non « occupe celle des deux qui aligne le plus ». La nuance
+    //   n'existait pas tant qu'une seule des deux pouvait porter la voie
+    //   nommée ; depuis `PORTEE_IGNOREE`, `Macron` a une voie PLUS COURTE et
+    //   qui lit tout (`tca+mt9`, jugée « nettement mieux » par l'auteur) en 1ʳᵉ
+    //   ligne, et la voie nommée en 2ᵈ. Exiger la 1ʳᵉ reviendrait à interdire au
+    //   barème de trouver mieux — ce qui est précisément ce qu'on lui demande.
     const tete = m.resoudre(saisie).approches.slice(0, 2);
-    const vedette = tete.reduce((a, b) => ((b.series || 1) > (a.series || 1) ? b : a));
+    const vedette = codes
+      ? (tete.find((a) => a.codes === codes)
+        || tete.reduce((a, b) => ((b.series || 1) > (a.series || 1) ? b : a)))
+      : tete.reduce((a, b) => ((b.series || 1) > (a.series || 1) ? b : a));
     assert.equal(vedette.mode, mode, `« ${saisie} » : ${vedette.mode} — ${vedette.codes}`);
     assert.equal(vedette.series || 1, series,
       `« ${saisie} » : ${vedette.series} séries — ${vedette.codes}`);
     if (codes) assert.equal(vedette.codes, codes, `« ${saisie} »`);
-    assert.ok(['elegance', 'triptyques'].includes(vedette.suggestion),
+    // ★ La 2ᵈ ligne ne revient aux triptyques QUE s'il y a plus fourni que la
+    //   1ʳᵉ — « la seconde suggestion ne prend sa place que si elle a quelque
+    //   chose à dire ». Sur `Macron`, aucune voie n'aligne plus d'un 666 : la
+    //   place échoit alors au mixte, et le reprocher reviendrait à exiger une
+    //   quantité qui n'existe pas.
+    const app = m.resoudre(saisie).approches;
+    const plusFourni = app.some((a) => (a.series || 1) > (app[0].series || 1));
+    assert.ok(['elegance', 'triptyques'].includes(vedette.suggestion) || !plusFourni,
       `« ${saisie} » : place due à « ${vedette.suggestion} », donc au mixte`);
   }
 });
@@ -1255,7 +1320,12 @@ test('★ `m36` — « trois 6 d’affilée » est bien l’opérateur qui CONST
     etat('NUMS', [6, 6, 6]),
   ], ['t.caracteres', 'm.seg14', 'm.troisSixDAffilee']);
   const b = bilanChemin(ch);
-  assert.equal(b.valeursJetees, 3, 'le 7, le 3 et le sixième 6 sont calculés puis effacés');
+  // ★ Trois valeurs écartées — mais avec une EXCUSE : sur `[6,6,6,7,3,6]` les 6
+  //   sont quatre contre un 7 et un 3, donc « la majorité l'emporte » s'énonce
+  //   sans mentir, et le rejet se paie à ce tarif-là (voir `majoriteTacite`).
+  //   Le compte est le même ; c'est le prix qui change.
+  assert.equal(b.valeursJetees, 0, 'le rejet n’est pas gratuit, mais il n’est pas du gaspillage');
+  assert.equal(b.majoriteTacite, 3, 'le 7, le 3 et le sixième 6 sont écartés au nom du nombre');
   assert.equal(b.triptyqueTenu, true, '…mais le 666 était écrit, et il tient');
   assert.equal(b.sixDetruits, 0, 'effacer n’est pas convertir : le 6 en trop se compte ailleurs');
 });

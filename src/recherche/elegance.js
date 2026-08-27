@@ -340,8 +340,92 @@ export const BAREME = {
    * addition de chiffres en boucle. » — `10 32 → 1+0, 3+2 → 1 5 → 1+5 → 6`.
    * La PREMIÈRE addition d'une chaîne coûte le prix plein ; les suivantes,
    * celui-ci.
+   *
+   * ★ **C'EST UNE REMISE, ET ELLE S'AFFICHE COMME TELLE.** « ADDITION_EN_CHAINE
+   * −4 devrait être +10, car TRANSFORMATION est −14 : si on veut laisser 4 de
+   * coût, c'est un bonus de 10 qu'on applique. Fais que ce qui est un bonus
+   * apparaisse en tant que bonus et pas en tant que pénalité » (l'auteur).
+   *
+   * Le poste ne facturait pas 4 : il facturait 14 en moins 10. Écrit en malus
+   * de 4, il donnait à lire une peine là où il y a une faveur, et le
+   * récapitulatif le rangeait parmi « ce qui se perd ». La chaîne paie donc
+   * désormais le prix plein d'une transformation, comme tout le monde, et
+   * REÇOIT cette remise. **Le solde est identique au centième près — 14 − 10 =
+   * 4 —, et c'est vérifié par un test** : ce changement est de présentation,
+   * pas de barème.
+   *
+   * ⚠️ La remise se compte dans `detailDuCredit`, PAS dans `bilanApproche` :
+   * `enTrop` est borné à zéro par le bas (`max(0, transformations − socle)`), et
+   * verser les chaînes dans `b.transformations` ferait franchir ce plancher à
+   * certaines approches — le solde changerait. On ajoute donc les chaînes à la
+   * LIGNE des transformations en trop, sans toucher au compteur.
    */
-  ADDITION_EN_CHAINE: 4,
+  REMISE_ADDITION_EN_CHAINE: 10,
+
+  /**
+   * ★ **CE QU'ON N'A JAMAIS REGARDÉ, EN PROPORTION.**
+   *
+   * « Ce qui manque cruellement d'élégance, ce n'est pas le fait d'avoir un seul
+   * 666 — on a dit que la pondération quantitative ne pesait que 1 % pour le
+   * résultat focus élégance. En revanche, le nombre ou la proportion de texte
+   * ignoré d'entrée de jeu manque catastrophiquement d'élégance. Ignorer
+   * presque la moitié de la saisie utilisateur devrait faire s'effondrer
+   * l'élégance drastiquement » (l'auteur).
+   *
+   * Les quatre barreaux ci-dessous comptent des CARACTÈRES ; celui-ci compte une
+   * PART. C'est ce qui manquait : sur `Donald Trump`, la voie de tête ne lisait
+   * que « Donal » — **cinq caractères sur douze** — et l'abandon de « d Trump »
+   * ne lui coûtait que 5 × 8 + 26 + 1 = **67 milli-unités**, un dixième de ce
+   * qu'un seul rétrécissement de vecteur coûte. Une démonstration qui répond à
+   * la moitié de la question passait pour élégante.
+   *
+   * Le tarif est prélevé au prorata : ignorer la moitié de la matière coûte la
+   * moitié du palier. Il s'ajoute aux quatre barreaux — ceux-ci disent QUOI on
+   * a laissé (une virgule, un bloc entier, une lettre arrachée), celui-ci dit
+   * COMBIEN de la question on n'a pas lue. Les deux sont vrais en même temps.
+   *
+   * ⚠️ **1 600, ET LE CHIFFRE EST TENU PAR L'AUTRE BOUT DE LA CHAÎNE.** Il a
+   * d'abord valu 900, ce qui suffisait tant que le reliquat du verdict coûtait
+   * 50 par valeur. Le jour où celui-ci est passé à 90 (voir
+   * `RELIQUAT_HORS_CIBLE`), le rapport s'est inversé : laisser huit valeurs
+   * étrangères au bord coûtait 8 × 90 + le prorata, soit près de 1 200, quand
+   * ignorer la moitié de la saisie n'en coûtait que 495 — et le barème s'est
+   * remis à préférer ne pas lire. Mesuré sur les dix-neuf saisies : la part de
+   * la question lue par la voie de tête retombait de 97 % à 90 %.
+   *
+   * Balayage 900 → 1 200 → 1 600 → 2 000 → 2 600 : la couverture remonte à
+   * 93 %, puis 97 %, puis ne bouge plus. On s'arrête au premier palier qui
+   * atteint le plateau — au-delà, on paierait une sévérité qui ne change rien.
+   *
+   * ⚠️ Les blocs de moins de trois lettres n'entrent PAS au numérateur : c'est
+   * l'exception que l'auteur accorde explicitement (« exclure des blocs entiers
+   * séparés par espace ou ponctuation et de moins de 3 lettres »), et le `.fr`
+   * de `hope-hope-hope.fr` en vit. La ponctuation n'entre nulle part : personne
+   * ne reproche à une méthode d'ignorer un point.
+   */
+  PORTEE_IGNOREE: 1600,
+
+  /**
+   * ★ **UN FILTRE QU'ON N'APPLIQUE QU'À UN MOT EST UN FILTRE SÉLECTIF.**
+   *
+   * « Si ce n'est pas une suppression arbitraire mais via un filtre voyelle ou
+   * consonne, pas de problème. Si le filtre est appliqué à un des mots et pas à
+   * l'ensemble, c'est moins élégant — un peu comme une addition sélective,
+   * c'est un filtre sélectif. Ça reste valable, mais moins élégant que si on
+   * peut appliquer la même méthode à l'ensemble » (l'auteur).
+   *
+   * Le grief est exactement celui des ficelles, et il porte le même nom : ce qui
+   * se paie n'est pas le geste, c'est le CHOIX de l'endroit où le faire. Sur
+   * `jean-michel`, la voie de tête garde les voyelles de `jean` et laisse
+   * `michel` entier — une méthode par morceau, présentée comme une méthode.
+   *
+   * ⚠️ Le tarif est celui de l'addition sélective (100), parce que c'est
+   * l'analogie que l'auteur pose lui-même, et il se compte PAR PART qui
+   * s'écarte du filtrage commun — pas par caractère. Une approche dont toutes
+   * les parts subissent les mêmes filtres ne paie rien, y compris quand aucune
+   * n'en subit.
+   */
+  FILTRE_SELECTIF: 100,
 
   /**
    * ★ « Tout chiffre ou lettre effacé/ignoré » — le malus plein, quand c'est un
@@ -430,7 +514,74 @@ export const BAREME = {
    * voyant en plus les rétrécissements de milieu de chemin), mais elles se
    * multiplient : doubler la seconde ne double pas la peine, elle la compose.
    */
-  VALEUR_JETEE: 36,
+  VALEUR_JETEE: 300,
+
+  /**
+   * ★ **CE QU'ON LAISSE À LA FIN N'EST PAS CE QU'ON JETTE EN ROUTE.** Le palier
+   * unique facturait deux gestes que rien ne rapproche, et l'alourdir sur
+   * consigne l'a rendu visible d'un coup : à 360 pour les deux, `[6,6,6,6,6]`
+   * tombait à 611 de crédit quand `[6,6]` montait à 875 — **produire cinq 6
+   * devenait une faute face à en produire deux**, parce que les deux 6 que le
+   * verdict ne groupe pas étaient facturés comme du travail jeté. « `[6,6,6,6,6]`
+   * ne doit pas être inférieur à `[6,6]` » (l'auteur), et il avait raison.
+   *
+   * Les trois tarifs sont ceux qu'il a fixés :
+   *
+   *   · en cours de route ................................ 300
+   *   · laissé à la fin, et ce n'était pas ce qu'on cherche  90
+   *   · laissé à la fin, et c'était ce qu'on cherche ......  50
+   *
+   * L'ordre dit la doctrine. Jeter en route est du **travail fait pour rien** —
+   * on a calculé une valeur, puis on l'a effacée. Laisser un reliquat à la fin
+   * est un **reste**, pas un gâchis : la démonstration ne l'a pas produit exprès,
+   * elle n'a simplement pas pu le grouper.
+   *
+   * ★ **ET LES DEUX DERNIERS SONT DANS CET ORDRE-LÀ, PAS DANS L'AUTRE.** Ils ont
+   * d'abord été posés à 50 / 90 — un 6 qu'on avait valant plus cher qu'un
+   * chiffre étranger. La mesure a montré le contraire : à ce réglage, une
+   * ficelle qui rogne `[6,4,6,3,6] → [6,6,6]` marquait **811** contre **769**
+   * pour une voie honnête `[6,6,6,6,6]`, parce qu'un 6 produit et non montré
+   * valait 22 − 90 = **−68 net** — ce qui contredit frontalement « plus tu
+   * produis de 6, mieux c'est ».
+   *
+   * « C'est moins grave de supprimer à la fin des 6 surnuméraires que de
+   * supprimer autre chose : mieux vaut supprimer des 6 silencieusement au
+   * verdict que de supprimer autre chose silencieusement. Ce qui veut dire que
+   * le reste est à supprimer plus tôt, d'une manière qui n'est pas considérée
+   * comme une suppression mais comme une fusion » (l'auteur). Les deux tarifs
+   * sont donc échangés, et un 6 en trop vaut désormais 22 − 50 = −28 net.
+   */
+  RELIQUAT_HORS_CIBLE: 90,
+  RELIQUAT_DE_CIBLE: 50,
+
+  /**
+   * ★ **ET LA PART DU VECTEUR QUE LE VERDICT NE MONTRE PAS.**
+   *
+   * « Le nombre de caractères supprimés pour ne garder que 666 est bien trop
+   * important pour considérer la solution comme élégante. Cette suppression doit
+   * être lourdement pénalisée. Le malus est-il appliqué une seule fois ou pour
+   * chaque caractère supprimé ? C'est cette option qui devrait être appliquée,
+   * car il est plus grave de supprimer 7 caractères que 1 ou 2, et c'est
+   * d'autant plus important qu'on n'en garde que 3. Il faudrait donc un malus
+   * quantitatif ET un malus proportionnel » (l'auteur).
+   *
+   * Les deux tarifs ci-dessus sont le malus QUANTITATIF : ils comptent les
+   * valeurs, une par une. Celui-ci est le PROPORTIONNEL, et il dit ce que le
+   * compte ne sait pas dire — laisser huit valeurs sur onze n'est pas huit fois
+   * laisser une valeur, c'est ne montrer qu'un quart de son travail.
+   *
+   * ⚠️ Il ne compte QUE le reliquat HORS CIBLE, jamais les 6 surnuméraires. Un 6
+ * de plus que le verdict n'en montre n'est pas « une part de la réponse qu'on
+ * cache » : c'est de la réponse en trop, et l'auteur veut qu'on en produise
+ * beaucoup. Le compter ici punirait l'abondance une seconde fois — mesuré :
+ * `[6,6,6,6,6]` tombait à 609 contre 811 pour une ficelle qui rogne.
+ *
+ * C'est le pendant exact de `PORTEE_IGNOREE`, à l'autre bout de la chaîne :
+   * l'un mesure la part de la QUESTION qu'on n'a pas lue, l'autre la part de la
+   * RÉPONSE qu'on ne montre pas. Les deux gestes se ressemblent — on écarte sans
+   * le dire — et ils se paient au même barème.
+   */
+  RELIQUAT_PROPORTIONNEL: 600,
 
   /**
    * 2. ★ « Les moyennes qui nécessitent un arrondi — malus selon l'amplitude de
@@ -812,8 +963,13 @@ export const NATURE = Object.freeze({
   CASSE_TRIPTYQUE: { sens: -1, famille: 'elegance' },
   SIX_DETRUIT: { sens: -1, famille: 'elegance' },
   TRANSFORMATION: { sens: -1, famille: 'elegance' },
-  ADDITION_EN_CHAINE: { sens: -1, famille: 'elegance' },
+  REMISE_ADDITION_EN_CHAINE: { sens: +1, famille: 'elegance' },
+  PORTEE_IGNOREE: { sens: -1, famille: 'elegance' },
+  FILTRE_SELECTIF: { sens: -1, famille: 'elegance' },
   VALEUR_JETEE: { sens: -1, famille: 'elegance' },
+  RELIQUAT_HORS_CIBLE: { sens: -1, famille: 'elegance' },
+  RELIQUAT_DE_CIBLE: { sens: -1, famille: 'elegance' },
+  RELIQUAT_PROPORTIONNEL: { sens: -1, famille: 'elegance' },
   ARRONDI: { sens: -1, famille: 'elegance' },
   MIN_MAX: { sens: -1, famille: 'elegance' },
   LETTRE_VERS_LETTRE: { sens: -1, famille: 'elegance' },
@@ -972,6 +1128,32 @@ const REARRANGEMENTS = new Set(['m.triCroissant']);
  * donc ici.
  */
 const AGREGATIONS = new Set(['m.compterLesChiffres']);
+
+/**
+ * ★ CE QUI RESTE ÉTAIT-IL LA MAJORITÉ DE CE QU'ON AVAIT ?
+ *
+ * Vrai quand le vecteur d'arrivée ne contient qu'une seule valeur distincte et
+ * que cette valeur était **strictement la plus fréquente** du vecteur de départ.
+ * `[6,6,6,7,3,6] → [6,6,6]` : oui, quatre 6 contre un 7 et un 3. `[6,4,6,3,6] →
+ * [6,6,6]` : oui également, trois 6 contre un 4 et un 3. `[6,6,4,4] → [6,6]` :
+ * non — il y a autant de 4 que de 6, et « la majorité » ne veut plus rien dire.
+ *
+ * ⚠️ On ne demande PAS que la valeur gardée soit la cible. La règle que l'auteur
+ * autorise est « la majorité l'emporte », pas « les 6 l'emportent » : elle vaut
+ * pour n'importe quelle valeur, sans quoi ce serait la conclusion qui
+ * justifierait la prémisse.
+ */
+function majoriteTacite(avant, apres) {
+  if (!Array.isArray(apres.valeur) || apres.valeur.length === 0) return false;
+  const garde = apres.valeur[0];
+  for (const v of apres.valeur) if (v !== garde) return false;
+  const compte = new Map();
+  for (const v of avant.valeur) compte.set(v, (compte.get(v) || 0) + 1);
+  const mien = compte.get(garde) || 0;
+  if (mien === 0) return false;
+  for (const [v, n] of compte) if (v !== garde && n >= mien) return false;
+  return true;
+}
 
 /**
  * ★ LA DILUTION D'UNE TRICHE D'ADDITION — « le malus se dilue avec le nombre
@@ -1298,6 +1480,7 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     minMax: 0,
     lettreVersLettre: 0,
     sixDetruits: 0,
+    majoriteTacite: 0,
     valeursJetees: 0,
     // ★ les ficelles — voir `FICELLES` et l'en-tête
     majorite: 0,
@@ -1426,7 +1609,29 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     //    agrégations aussi : elles n'écartent rien, elles absorbent.
     if (!ficelle && !agrege && avant.type === 'NUMS' && apres.type === 'NUMS'
       && apres.valeur.length < avant.valeur.length) {
-      b.valeursJetees += avant.valeur.length - apres.valeur.length;
+      const jetees = avant.valeur.length - apres.valeur.length;
+      // ★ **MAIS TOUT REJET N'A PAS LA MÊME EXCUSE.**
+      //
+      // « `m36` semble privilégié à effacer le reste sous couvert de "majorité
+      // signifiante, minorité négligeable", plutôt que juste au prétexte que le
+      // motif est présent. Ajuste les pondérations : 3×6, 2×7, 1×4 — les 6 sont
+      // majoritaires, donc cette règle est utilisable » (l'auteur).
+      //
+      // Le geste est le même — on ne garde qu'une partie du vecteur —, mais ce
+      // qu'on peut en DIRE ne l'est pas. « Je garde les 6 parce qu'ils sont les
+      // plus nombreux » est un argument ; « je garde les 6 parce que j'en vois
+      // trois d'affilée » n'en est pas un, c'est la conclusion prise pour
+      // prémisse. Quand ce qui reste est la valeur la plus fréquente de ce qu'on
+      // avait, le rejet se paie donc au tarif de la majorité (`MAJORITE`) et non
+      // à celui du gaspillage (`VALEUR_JETEE`).
+      //
+      // ⚠️ Le tarif reste PLUS CHER que celui de `m.plusFrequent`, qui, lui,
+      //    ÉNONCE la règle au lieu de s'en servir en sous-main : c'est la
+      //    dilution des ficelles (`dilution`) qui l'allège, et un rejet tacite
+      //    n'y a pas droit. « La majorité l'emporte, c'est mieux qu'un `m36` »
+      //    (l'auteur) reste donc vrai, et se lit dans les chiffres.
+      if (majoriteTacite(avant, apres)) b.majoriteTacite += jetees;
+      else b.valeursJetees += jetees;
     }
     // …et un mappeur qui ne sait pas convertir tous ses jetons en laisse tomber
     //    aussi (le quatorze segments cale sur un tiret).
@@ -1542,7 +1747,10 @@ export function abandons(approche, ctx) {
     else if (!alnum && debut >= 0) { blocs.push([debut, i]); debut = -1; }
   }
 
-  const a = { alnum: 0, bloc: 0, blocCourt: 0, ponctuation: 0, opaque };
+  // ★ `signifiants` / `lus` : la PROPORTION, et pas seulement le compte. Voir
+  //   `PORTEE_IGNOREE` — ignorer six lettres sur douze n'est pas le même geste
+  //   qu'en ignorer six sur deux cents.
+  const a = { alnum: 0, bloc: 0, blocCourt: 0, ponctuation: 0, signifiants: 0, lus: 0, opaque };
   const dansUnBlocEntier = new Uint8Array(caracteres.length);
   for (const [d, f] of blocs) {
     let unVu = false;
@@ -1557,9 +1765,13 @@ export function abandons(approche, ctx) {
   }
 
   for (let i = 0; i < caracteres.length; i++) {
-    if (vus[i]) continue;
     if (masque && !masque[i]) continue; // gratuit : ni compté ni reproché
-    if (!estAlnum(caracteres[i])) { a.ponctuation++; continue; }
+    if (!estAlnum(caracteres[i])) { if (!vus[i]) a.ponctuation++; continue; }
+    // ★ Le dénominateur de la proportion : la matière que l'auteur a tapée et
+    //   que la démonstration AURAIT PU lire. La ponctuation n'en fait pas
+    //   partie — personne ne reproche à une méthode d'ignorer un point.
+    a.signifiants++;
+    if (vus[i]) { a.lus++; continue; }
     if (dansUnBlocEntier[i] === 2) a.blocCourt++;
     else if (dansUnBlocEntier[i] === 1) a.bloc++;
     else a.alnum++;
@@ -1620,7 +1832,9 @@ export function bilanApproche(approche, ctx = {}) {
     minMax: 0,
     lettreVersLettre: 0,
     sixDetruits: 0,
+    majoriteTacite: 0,
     valeursJetees: 0,
+    filtresSelectifs: 0,
     triptyquesContigus: 0,
     triptyquesRepetes: 0,
     casses: 0,
@@ -1646,6 +1860,21 @@ export function bilanApproche(approche, ctx = {}) {
   //   refusé au motif qu'une barre oblique traîne derrière.
   const finSignifiante = finDesSignifiants(ctx);
 
+  // ★ LE FILTRAGE EST-IL LE MÊME PARTOUT ? — voir `FILTRE_SELECTIF`.
+  //   La signature d'une part est la suite de ses filtres, dans l'ordre. On
+  //   compte les parts qui s'écartent de la signature MAJORITAIRE : c'est
+  //   « appliquer la même méthode à l'ensemble » qui est gratuit, et s'en
+  //   écarter qui se paie — pas l'inverse.
+  const signatures = parts.map((p) => (p.chemin && p.chemin.ops ? p.chemin.ops : [])
+    .filter((op) => op.famille === 'filtre').map((op) => op.code).join('+'));
+  if (signatures.length > 1) {
+    const compte = new Map();
+    for (const sig of signatures) compte.set(sig, (compte.get(sig) || 0) + 1);
+    let dominante = 0;
+    for (const [, n] of compte) if (n > dominante) dominante = n;
+    b.filtresSelectifs = signatures.length - dominante;
+  }
+
   let poidsTot = 0;
   let sommeTot = 0;
   for (let i = 0; i < parts.length; i++) {
@@ -1659,6 +1888,7 @@ export function bilanApproche(approche, ctx = {}) {
     b.minMax += bc.minMax;
     b.lettreVersLettre += bc.lettreVersLettre;
     b.sixDetruits += bc.sixDetruits;
+    b.majoriteTacite += bc.majoriteTacite;
     b.valeursJetees += bc.valeursJetees;
     b.majorite += bc.majorite;
     b.decimation += bc.decimation;
@@ -1723,8 +1953,12 @@ export function bilanApproche(approche, ctx = {}) {
   b.triptyquesContigus = Math.min(b.triptyquesContigus, series);
   b.triptyquesRepetes = Math.min(b.triptyquesRepetes, Math.max(0, series - b.triptyquesContigus));
   const gardees = Math.min(b.six, series * LSERIE);
-  b.jeteesAuTri = Math.max(0, b.montrees - gardees);
-  b.valeursJetees += b.jeteesAuTri;
+  // ★ Le reliquat du verdict est compté À PART de ce qu'on jette en route, et
+  //   séparé en deux : les cibles qu'on avait et qu'on ne montre pas, et le
+  //   reste du vecteur. Les deux ont leur tarif (voir `RELIQUAT_DE_CIBLE`).
+  b.reliquatDeCible = Math.max(0, b.six - gardees);
+  b.reliquatHorsCible = Math.max(0, b.montrees - b.six);
+  b.jeteesAuTri = b.reliquatDeCible + b.reliquatHorsCible;
   b.gardees = gardees;
   b.series = series;
 
@@ -1770,10 +2004,15 @@ export function bilanApproche(approche, ctx = {}) {
 export function detailDuCredit(b, poids) {
   const B = BAREME;
   const a = b.abandons || { alnum: 0, bloc: 0, blocCourt: 0, ponctuation: 0 };
+  // ★ Ce qu'on n'a pas lu, hors l'exception des blocs courts (voir le palier).
+  const ignores = (a.alnum || 0) + (a.bloc || 0);
   const LSERIE = b.longueurSerie || SERIE;
   const surplus = Math.min(Math.max(0, b.six - LSERIE), B.SIX_SURNUMERAIRE_MAX);
   const socle = B.SOCLE_TRANSFORMATIONS * Math.max(1, b.parts || 1);
-  const enTrop = Math.max(0, b.transformations - socle);
+  // ★ Les additions en chaîne paient le prix plein d'une transformation ICI —
+  //   `b.transformations` ne les compte pas, pour ne pas franchir le plancher
+  //   à zéro — et la remise leur est rendue plus bas, dans « ce qui se gagne ».
+  const enTrop = Math.max(0, b.transformations - socle) + (b.additionsEnChaine || 0);
   const lignes = [
     ['socle', 'SOCLE', 1, B.SOCLE],
     // ── ce qui se gagne
@@ -1790,18 +2029,30 @@ export function detailDuCredit(b, poids) {
       B.ADDITION_CHIFFRES * b.additionsChiffres],
     ['additions de nombres', 'ADDITION_NOMBRES', b.additionsNombres,
       B.ADDITION_NOMBRES * b.additionsNombres],
+    ['remise sur addition en chaîne', 'REMISE_ADDITION_EN_CHAINE', b.additionsEnChaine || 0,
+      B.REMISE_ADDITION_EN_CHAINE * (b.additionsEnChaine || 0)],
     // ── ce qui se perd
     ['★ triptyque cassé', 'CASSE_TRIPTYQUE', b.casses, B.CASSE_TRIPTYQUE * b.casses],
     ['6 converti en autre chose', 'SIX_DETRUIT', b.sixDetruits, B.SIX_DETRUIT * b.sixDetruits],
     ['transformations en trop', 'TRANSFORMATION', enTrop, B.TRANSFORMATION * enTrop],
-    ['additions en chaîne', 'ADDITION_EN_CHAINE', b.additionsEnChaine,
-      B.ADDITION_EN_CHAINE * b.additionsEnChaine],
-    ['valeurs calculées puis jetées', 'VALEUR_JETEE', b.valeursJetees,
+    ['valeurs calculées puis jetées en route', 'VALEUR_JETEE', b.valeursJetees,
       B.VALEUR_JETEE * b.valeursJetees],
+    ['rejet tacite d’une minorité', 'MAJORITE', b.majoriteTacite || 0,
+      B.MAJORITE * (b.majoriteTacite || 0)],
+    ['reste du vecteur, à la fin', 'RELIQUAT_HORS_CIBLE', b.reliquatHorsCible || 0,
+      B.RELIQUAT_HORS_CIBLE * (b.reliquatHorsCible || 0)],
+    ['6 produits que le verdict ne montre pas', 'RELIQUAT_DE_CIBLE', b.reliquatDeCible || 0,
+      B.RELIQUAT_DE_CIBLE * (b.reliquatDeCible || 0)],
+    ['part du vecteur écartée en silence', 'RELIQUAT_PROPORTIONNEL', b.reliquatHorsCible || 0,
+      b.montrees ? fraction(B.RELIQUAT_PROPORTIONNEL, [b.reliquatHorsCible || 0, b.montrees]) : 0],
     ['arrondi de moyenne', 'ARRONDI', b.arrondi, fraction(B.ARRONDI, [b.arrondi, 1000])],
     ['min / max', 'MIN_MAX', b.minMax, B.MIN_MAX * b.minMax],
     ['lettre → lettre', 'LETTRE_VERS_LETTRE', b.lettreVersLettre,
       B.LETTRE_VERS_LETTRE * b.lettreVersLettre],
+    ['filtre appliqué à une part seulement', 'FILTRE_SELECTIF', b.filtresSelectifs || 0,
+      B.FILTRE_SELECTIF * (b.filtresSelectifs || 0)],
+    ['part de la saisie jamais lue', 'PORTEE_IGNOREE', ignores,
+      a.signifiants ? fraction(B.PORTEE_IGNOREE, [ignores, a.signifiants]) : 0],
     ['lettre ou chiffre arraché', 'EFFACE_ALNUM', a.alnum, B.EFFACE_ALNUM * a.alnum],
     ['bloc entier écarté', 'EFFACE_BLOC', a.bloc, B.EFFACE_BLOC * a.bloc],
     ['bloc entier court écarté', 'EFFACE_BLOC_COURT', a.blocCourt,
@@ -1902,6 +2153,8 @@ export function estPur(b) {
   return b.casses === 0
     && b.sixDetruits === 0
     && b.valeursJetees === 0
+    && (b.majoriteTacite || 0) === 0
+    && (b.jeteesAuTri || 0) === 0
     // ★ Aucune ficelle ne peut figurer dans une stratégie « sans malus » : ce
     //   sont, par construction, exactement des malus. Le réarrangement non
     //   plus — il ne jette rien, mais il défait l'ordre de lecture, et « sans

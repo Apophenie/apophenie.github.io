@@ -14,7 +14,8 @@ redondance : ce sont deux régimes de lecture.
   traits d'axe (`SEGMENTS`, `SEGMENTS14`), colinéaires et jointifs. Un dessin de
   police, aux segments séparés par une fente, dirait exactement le contraire.
 
-· **Comptage individuel** (`md`, `mw`) : on compte les segments un par un. Ils
+· **Comptage individuel** (`m.seg7`, `m.seg14`) : on compte les segments un par
+  un. Ils
   doivent alors être DISJOINTS — deux segments qui se recouvrent, ce sont deux
   choses comptées et une seule vue — et, tant qu'à les montrer un par un, autant
   qu'ils soient ceux de la police que Le Registre affiche vraiment.
@@ -183,7 +184,13 @@ def bloc(formes7, source7, formes14, source14):
     lignes.append(' * fermé des polices DSEG et le transpose par une similitude. Relancez le')
     lignes.append(' * script pour vérifier que ce bloc n’a pas dérivé — la CI le fait.')
     lignes.append(' *')
-    lignes.append(' * Ces tracés servent au COMPTAGE INDIVIDUEL (`md`, `mw`), où deux segments')
+    # ★ Les opérateurs sont nommés par leur IDENTIFIANT, pas par leur code.
+    #   Les codes sont courts et destinés à l'URL ; ils ont déjà été renommés une
+    #   fois en bloc, et ce commentaire généré citait encore `md` et `mw` quand
+    #   le catalogue disait `m7` et `m14` — la CI l'a vu, et elle avait raison.
+    #   Les identifiants, eux, ne bougent pas.
+    lignes.append(' * Ces tracés servent au COMPTAGE INDIVIDUEL (`m.seg7`, `m.seg14`), où deux')
+    lignes.append(' * segments')
     lignes.append(' * qui se recouvrent seraient deux choses comptées pour une seule vue. Le')
     lignes.append(' * régime de FUSION garde les traits d’axe de `SEGMENTS` / `SEGMENTS14` : là,')
     lignes.append(' * il FAUT que les colinéaires se soudent.')

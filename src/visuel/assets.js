@@ -189,7 +189,8 @@ export function fusedStrokes14(segments) {
  * fermé des polices DSEG et le transpose par une similitude. Relancez le
  * script pour vérifier que ce bloc n’a pas dérivé — la CI le fait.
  *
- * Ces tracés servent au COMPTAGE INDIVIDUEL (`m7`, `m14`), où deux segments
+ * Ces tracés servent au COMPTAGE INDIVIDUEL (`m.seg7`, `m.seg14`), où deux
+ * segments
  * qui se recouvrent seraient deux choses comptées pour une seule vue. Le
  * régime de FUSION garde les traits d’axe de `SEGMENTS` / `SEGMENTS14` : là,
  * il FAUT que les colinéaires se soudent.
