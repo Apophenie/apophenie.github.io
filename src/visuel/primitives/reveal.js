@@ -50,11 +50,11 @@
  *  2. **découper** — un vide s'ouvre tous les trois chiffres. Les séries se
  *     séparent d'elles-mêmes : `666 666 666 666 666`. C'est le moment où la
  *     suite cesse d'être un nombre pour devenir un compte.
- *  3. **grossir** — et là seulement. Au-delà de trois séries et demie par rang,
- *     elles se répartissent sur **plusieurs lignes** : c'est la seule façon de
- *     les grossir davantage, puisque chaque ligne devient d'autant plus courte.
- *     Combien de rangs, et de quelle longueur : `repartirEnLignes`, qui tient
- *     les dix cas dictés par l'auteur.
+ *  3. **grossir** — et là seulement. Dès qu'un rang porterait trois séries et
+ *     demie, elles se répartissent sur **plusieurs lignes** : c'est la seule
+ *     façon de les grossir davantage, puisque chaque ligne devient d'autant
+ *     plus courte. Combien de rangs, et de quelle longueur :
+ *     `repartirEnLignes`, qui tient les dix cas dictés par l'auteur.
  *
  * Plusieurs lignes ici ne contredisent pas la doctrine du « jamais deux
  * lignes » (`defilement.js`) : celle-ci défend une SÉQUENCE, qui se lit d'un
@@ -111,7 +111,7 @@
  */
 
 import { targetsOf, ensureHalo } from './helpers.js';
-import { poserLesCornes } from './horns.js';
+import { poserLesCornes, effriterLesCornes } from './horns.js';
 import { EASE } from '../constants.js';
 
 export const name = 'reveal';
@@ -154,57 +154,58 @@ const AIR_HORIZONTAL = 0.92;
  * ★ L'AGENCEMENT DES TRIPTYQUES EN RANGS — combien de lignes, et de quelle
  * longueur.
  *
- * L'auteur a dicté dix cas, et il les a dictés en toutes lettres :
+ * **La règle, en une phrase :** *le moins de lignes possible, à condition
+ * qu'une ligne porte en moyenne **moins de trois triptyques et demi** ; puis la
+ * répartition la plus égale possible, les lignes les plus fournies en tête.*
  *
- * > « S'il y a 4 triptyques, 2 par lignes. Minimise la différence de nombre de
- * > triptyques entre les lignes, et garde plus de triptyques par ligne que de
- * > lignes. 1: 1 ligne de 1. 2: 1 ligne de 1. 3: 1 ligne de 1. 4: 2 lignes de
- * > 2. 5: 1 ligne de 3 et 1 de 2. 6: 2 lignes de 3. 7: 1 ligne de 4 et une de
- * > 3. 8: 2 lignes de 3 et 1 ligne de 2. 9: 3 lignes de 3. 10: 1 ligne de 4 et
- * > 2 lignes de 3. … »
+ * ── Ce que l'auteur a dicté, et ce qu'il a corrigé ────────────────────────
  *
- * ⚠ **La règle en prose et l'énumération ne coïncident pas, et c'est
- * l'ÉNUMÉRATION qui fait foi.** « Minimise la différence » donnerait `4 + 4`
- * pour huit triptyques (différence nulle) ; l'auteur écrit `3 + 3 + 2`
- * (différence 1). Deux formulations d'un même auteur qui divergent, on garde
- * celle qui est chiffrée : elle dit ce qu'il a VU et voulu, là où la phrase
- * résume après coup. La table de vérité des dix cas est donc le contrat, et
- * elle est vérifiée telle quelle (`tests/verdict-rangs.test.js`).
+ * Il a d'abord donné dix cas ET la règle qui les gouverne, et les deux ne
+ * coïncidaient pas sur sept :
  *
- * ⚠ **Et le critère que l'auteur donne pour justifier `8 → 3+3+2` ne reproduit
- * pas sa propre énumération sur 7.** Interrogé, il précise :
+ * > « Minimise la différence de nombre de triptyques entre les lignes, et garde
+ * > plus de triptyques par ligne que de lignes. […] 7: 1 ligne de 4 et une de
+ * > 3. 8: 2 lignes de 3 et 1 ligne de 2. »
  *
- * > « 8: 4+4 ou 3+3+2 → on cherche à minimiser l'écart entre deux lignes, mais
- * > aussi l'écart entre le nombre d'items par ligne et le nombre de lignes,
- * > c'est pour ça que j'ai préféré 3+3+2. »
+ * Puis il a précisé le critère — « on cherche à minimiser l'écart entre deux
+ * lignes, mais aussi l'écart entre le nombre d'items par ligne et le nombre de
+ * lignes » —, et ce critère-là dit `3+2+2` pour sept. Interrogé sur la
+ * contradiction, il a tranché en faveur de la RÈGLE et corrigé son propre
+ * exemple : « OK pour passer 7 en 3+2+2, c'est mieux en effet. » Les dix cas,
+ * dans leur version corrigée :
  *
- * Ce second écart — `|items par ligne − nombre de lignes|` — explique bien
- * `8` : `4+4` le laisse à 2, `3+3+2` le ramène à 1. Mais appliqué à `7`, il
- * dirait `3+2+2` (écart 0 ou 1) là où l'auteur écrit `4+3` (écart 2). Le
- * critère verbal et la dictée se contredisent donc à leur tour, sur un autre
- * cas. On ne lisse pas l'écart en silence : il est consigné ici pour qui
- * reprendra, et la dictée reste l'arbitre.
+ *     1 → [1]        6 → [3,3]
+ *     2 → [2]        7 → [3,2,2]
+ *     3 → [3]        8 → [3,3,2]
+ *     4 → [2,2]      9 → [3,3,3]
+ *     5 → [3,2]     10 → [4,3,3]
  *
- * ★ **La formule qui rend ces dix-là, et la seule chose qu'elle dise.**
+ * Ils sont la table de vérité, et ils sont vérifiés tels quels
+ * (`tests/verdict-rangs.test.js`).
  *
- *     lignes = ⌈2n/7⌉,  puis la répartition la plus égale possible,
- *                       les lignes les plus fournies en premier
+ * ── Pourquoi « moins de trois et demi », et pourquoi « MOINS » ────────────
  *
- * `⌈2n/7⌉`, c'est `⌈n / 3,5⌉` : **au plus trois triptyques et demi par ligne,
- * en moyenne**. C'est ce seuil — et lui seul — qui sépare l'énumération de la
- * prose : il laisse passer `7 → 4+3` (3,5 pile) et refuse `8 → 4+4` (4,0), ce
- * qu'aucun plafond entier ne sait faire. Un plafond de 4 par ligne expliquerait
- * `7` et `10` mais donnerait `4+4` sur `8` ; un plafond de 3 donnerait `3+3+1`
- * sur `7`. Le demi-triptyque est le pivot, et il tombe juste sur les dix cas.
+ * Le seuil n'est pas choisi, il est ENCADRÉ par les dix cas : `10 → [4,3,3]`
+ * fait tenir trois virgule trois triptyques par ligne, il faut donc que le
+ * seuil dépasse 3⅓ ; `7 → [3,2,2]` refuse deux lignes de trois et demi en
+ * moyenne, il faut donc qu'il n'aille pas au-delà de 3½. Le seuil vit dans
+ * `]3⅓ ; 3½]`, et 3½ en est la valeur ronde.
  *
- * Une fois le nombre de lignes connu, la répartition n'a plus de liberté : `q`
- * par ligne et `r` lignes qui en prennent une de plus, les plus fournies en
- * tête — c'est le seul agencement qui minimise l'écart ET fasse descendre la
- * ligne, jamais monter.
+ * ★ **Et la comparaison est STRICTE, ce qui n'est pas un détail : c'est
+ * exactement ce qui décide de sept.** Trois triptyques et demi par ligne, c'est
+ * la moyenne de `[4,3]` ; accepter l'égalité donne `7 → [4,3]`, la refuser
+ * donne `7 → [3,2,2]`. L'auteur a corrigé dans le sens du refus. Écrite en
+ * entiers, la règle est donc `lignes = ⌊2n/7⌋ + 1` — soit `⌈2n/7⌉` partout SAUF
+ * aux multiples de sept, les seuls où la moyenne tombe pile sur trois et demi.
+ *
+ * ★ Une fois le nombre de lignes connu, la répartition n'a plus de liberté :
+ * `q` par ligne et `r` lignes qui en prennent une de plus, les plus fournies en
+ * tête — c'est le seul agencement qui minimise l'écart entre lignes ET fasse
+ * descendre la ligne, jamais monter.
  *
  * ⚠ **Au-delà de dix, ce sont des EXTRAPOLATIONS, pas des faits.** L'auteur
- * s'est arrêté à dix ; la formule continue — `11 → 3+3+3+2`, `12 → 3+3+3+3`,
- * `13 → 4+3+3+3`, `14 → 4+4+3+3` —, et rien ne dit qu'il les aurait écrits
+ * s'est arrêté à dix ; la règle continue — `11 → 3+3+3+2`, `12 → 3+3+3+3`,
+ * `13 → 4+3+3+3`, `14 → 3+3+3+3+2` —, et rien ne dit qu'il les aurait écrits
  * ainsi. C'est d'ailleurs là que sa dernière consigne cède : « garde plus de
  * triptyques par ligne que de lignes » tient sur les dix cas dictés et tombe
  * dès onze (trois par rang pour quatre rangs). Le jour où une moisson en
@@ -222,11 +223,25 @@ const AIR_HORIZONTAL = 0.92;
  */
 export function repartirEnLignes(n) {
   if (!Number.isInteger(n) || n <= 0) return [];
-  const lignes = Math.ceil((2 * n) / 7);
+  // On ajoute des lignes tant qu'une ligne en porterait trois et demi ou plus.
+  // Comparaison STRICTE : trois et demi pile, c'est déjà trop (voir l'en-tête).
+  let lignes = 1;
+  while (n / lignes >= PAR_LIGNE_MAX) lignes++;
   const parLigne = Math.floor(n / lignes);
   const fournies = n % lignes;      // les rangs qui en prennent un de plus
   return Array.from({ length: lignes }, (_, i) => parLigne + (i < fournies ? 1 : 0));
 }
+
+/**
+ * Le nombre moyen de triptyques qu'une ligne ne doit pas ATTEINDRE.
+ *
+ * Il n'est pas choisi, il est ENCADRÉ par les dix cas de l'auteur : il lui faut
+ * dépasser 3⅓ (`10 → 4+3+3` fait tenir trois virgule trois par ligne) sans
+ * dépasser 3½ (`7 → 3+2+2` refuse deux lignes de trois et demi en moyenne).
+ * L'intervalle est `]3⅓ ; 3½]`, et 3½ en est la valeur ronde. Voir
+ * `repartirEnLignes`.
+ */
+const PAR_LIGNE_MAX = 3.5;
 
 /**
  * Les rangs où s'ouvre une nouvelle ligne — l'index de la PREMIÈRE série de
@@ -599,13 +614,20 @@ export function plan(ctx) {
   //   d'un dessin répété. Une lueur n'est pas un motif — trois lueurs voisines
   //   se fondent en une seule —, et un 666 qui brûlerait sur un rang mais pas
   //   sur l'autre dirait qu'il y en a deux sortes.
-  const detrones = new Set();
+  //
+  // ★ Et elles ne s'ÉTEIGNENT pas, elles s'EFFRITENT — « au verdict, au moment
+  //   de l'agencement, fais s'effriter/disparaître progressivement les cornes
+  //   des triptyques qui vont en 2ⁿᵈ ligne » (l'auteur). Voir
+  //   `horns.js › effriterLesCornes`. L'ordre de la liste est celui de la
+  //   lecture : c'est lui qui décale les effritements les uns par rapport aux
+  //   autres.
+  const detrones = [];
   series.forEach((serie, s) => {
     if (s < rangDuBas) return;
     for (const id of serie) {
       for (const sid of ctx.scene.accrochesA(id)) {
         const n = ctx.scene.get(sid);
-        if (n && n.role === 'horns') detrones.add(sid);
+        if (n && n.role === 'horns' && !detrones.includes(sid)) detrones.push(sid);
       }
     }
   });
@@ -646,12 +668,22 @@ export function plan(ctx) {
     ctx.animSolidaire({ id, prop: 'scale', to: grow, at: tGrossir, dur: dGrossir, ease: courbeVerdict });
   });
 
-  // Les cornes du rang du bas s'effacent — au moment où la coupure s'ouvre,
-  // c'est-à-dire quand le second rang naît. Elles gardent le `scale` que
-  // `animSolidaire` vient de leur donner : rien ne se désolidarise, elles
-  // deviennent seulement invisibles.
-  for (const sid of detrones) {
-    ctx.anim({ id: sid, prop: 'opacity', to: 0, at: tGrossir, dur: dGrossir * 0.5, ease: EASE.fade });
+  // ★ Les cornes des rangs du bas S'EFFRITENT — pendant l'agencement, et pas une
+  //   milliseconde avant ni après : elles se rongent depuis la pointe tandis que
+  //   leur 666 descend et grossit, et il ne reste rien d'elles quand la scène
+  //   s'immobilise. Elles gardent jusqu'au bout le `scale` que `animSolidaire`
+  //   vient de leur donner — rien ne se désolidarise, il n'y a bientôt plus rien
+  //   à tenir.
+  //
+  //   Le geste passe par le TRACÉ (canal discret, fonction pure du temps de la
+  //   timeline) et non par l'opacité : le nœud porte l'échelle du verdict, et
+  //   une opacité — ou un `filter` — animée sur un élément transformé est la
+  //   recette même du défaut de composition (`tests/compositeur.test.js`, et
+  //   les saccades mesurées du feu plus bas). Voir `horns.js › corneEffritee`.
+  //   Le geste s'achève un peu avant la fin du mouvement : une corne qui finit
+  //   de s'émietter après l'arrêt de la scène se lit comme un oubli.
+  if (detrones.length) {
+    effriterLesCornes(ctx, detrones, { at: tGrossir, dur: Math.max(1, dGrossir * 0.85) });
   }
 
   // ★ Et celles que le verdict vient de poser PARAISSENT — au moment où les

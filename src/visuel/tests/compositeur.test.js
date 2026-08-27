@@ -52,22 +52,38 @@ function fichiers(depuis, garder) {
   return out;
 }
 
-test('compositeur — aucune @keyframes n’anime l’opacité ET une transformation individuelle', () => {
+/**
+ * ★ ET LA RÈGLE VAUT AUSSI POUR `filter`, pour une raison MESURÉE.
+ *
+ * L'opacité promeut le nœud en couche de composition ; `filter` fait exactement
+ * la même chose, et paie de surcroît un retramage à chaque palier d'échelle.
+ * C'est la cause relevée par l'auteur sur le feu du verdict — « sur Chromium le
+ * grossissement saccade, quatre ou cinq micro-freezes ; sur Firefox une flamme
+ * statique puis un gel de deux ou trois secondes » —, et le remède fut de ne
+ * plus rien filtrer tant que ça bouge (`primitives/reveal.js`). Un `filter`
+ * animé sur un élément qui porte une transformation individuelle cumule les
+ * deux défauts : on l'interdit au même titre.
+ */
+const PROMEUT = 'opacity|filter';
+
+test('compositeur — aucune @keyframes n’anime l’opacité ou un filtre ET une transformation individuelle', () => {
   const fautives = [];
+  const promotion = new RegExp(`(?:^|[\\s;{])(${PROMEUT})\\s*:`);
   for (const f of fichiers(resolve(racine, 'src'), (n) => n.endsWith('.css'))) {
     const css = readFileSync(f, 'utf8');
     for (const m of css.matchAll(/@keyframes\s+([\w-]+)\s*\{([\s\S]*?)\n\}/g)) {
       const [, nom, corps] = m;
       const geo = corps.match(/(?:^|[\s;{])(translate|rotate|scale)\s*:/);
-      if (/(?:^|[\s;{])opacity\s*:/.test(corps) && geo) {
-        fautives.push(`${relative(racine, f)} → @keyframes ${nom} (opacity + ${geo[1]})`);
+      const promue = corps.match(promotion);
+      if (promue && geo) {
+        fautives.push(`${relative(racine, f)} → @keyframes ${nom} (${promue[1]} + ${geo[1]})`);
       }
     }
   }
   assert.deepEqual(fautives, [],
-    'Recette du défaut Firefox : sur un même élément, une opacité animée fait perdre les '
-    + 'propriétés individuelles de transformation. Porte la position sur un parent non animé '
-    + '(CONTRACTS §3.2, règles 3 et 4).\n  - ' + fautives.join('\n  - '));
+    'Recette du défaut Firefox : sur un même élément, une opacité — ou un filtre — animée fait '
+    + 'perdre les propriétés individuelles de transformation. Porte la position sur un parent non '
+    + 'animé (CONTRACTS §3.2, règles 3 et 4).\n  - ' + fautives.join('\n  - '));
 });
 
 test('compositeur — le moteur visuel n’écrit jamais de propriété individuelle', () => {

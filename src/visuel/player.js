@@ -449,7 +449,17 @@ class Player {
       const [id, channel] = key.split('::');
       const element = this.elements.get(id);
       const node = this.timeline.scene.get(id);
-      if (element && node && channel === 'text') applyDiscrete(element, channel, node.text);
+      if (!element || !node) continue;
+      // ★ REVENIR EN ARRIÈRE, C'EST RENDRE AU NŒUD CE QU'IL ÉTAIT. Un canal
+      //   discret qui n'a pas encore commencé doit laisser voir la valeur de
+      //   BASE, pas la dernière qu'il a écrite. Deux canaux sont concernés, et
+      //   ils ont chacun leur source : le texte du nœud pour `text`, son tracé
+      //   d'origine (`data.d`) pour `d`. Sans cela, une corne effritée puis
+      //   ramenée avant son effritement restait un moignon — un `seek()` en
+      //   arrière ne rendait plus la même image que la lecture directe
+      //   (recherche §1.4).
+      if (channel === 'text') applyDiscrete(element, channel, node.text);
+      else if (channel === 'd' && node.data && node.data.d) applyDiscrete(element, channel, node.data.d);
     }
     for (const [key, { entry, value }] of resolved) {
       const element = this.elements.get(entry.id);
