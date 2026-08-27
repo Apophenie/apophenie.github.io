@@ -1378,7 +1378,18 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
   // pas un multiple de la cible n'a pas de série à couronner.
   if (!aReveler.length || aReveler.length % serie !== 0) return 0;
 
-  // Ce que `mz` a déjà couronné, relevé sur les cibles elles-mêmes.
+  // ★ ON NE RECOURONNE JAMAIS UN 6 DÉJÀ COURONNÉ. Le nœud de décor est nommé
+  //   d'après le jeton qu'il couronne (`@cornes:<id>`, `visuel/primitives/
+  //   horns.js`) : deux couronnements sur un même chiffre se disputeraient le
+  //   même identifiant, et la compilation échouerait au clic.
+  //
+  //   Depuis que les cornes ont quitté l'URL, cette fonction est le SEUL
+  //   émetteur de `horns` du projet — plus aucun opérateur n'en pose (voir
+  //   `transformations/mappeurs.js`, « CET OPÉRATEUR NE COURONNE PLUS »), et
+  //   les séries d'un même verdict sont disjointes par construction. Le relevé
+  //   ne devrait donc jamais rien trouver. On le garde quand même : c'est une
+  //   garde de cohérence, pas une optimisation, et elle vaut exactement le peu
+  //   qu'elle coûte le jour où un scénario relu d'ailleurs en portera.
   const deja = new Set();
   for (const st of steps) {
     for (const o of st.ops || []) {
@@ -1475,46 +1486,42 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
 }
 
 /**
- * Les cornes, remises à l'heure — le couronnement au plus tôt, l'effacement au
- * plus tard.
+ * ★ LE COURONNEMENT AU PLUS TÔT — et il n'y a plus que ce moment-là à régler.
  *
- * ★ **Deux moments, et non plus un seul.** L'opérateur `mz` émet un geste
- * unique : les cornes poussent pendant que le reste de la séquence s'efface.
- * C'est juste tant que les deux choses arrivent en même temps — mais elles
- * n'ont pas la même horloge.
+ * **Ce que cette fonction faisait, et ne fait plus.** Elle réglait DEUX
+ * horloges. `mz` émettait un geste unique — les cornes poussaient pendant que
+ * le reste de la séquence s'effaçait — et il fallait le scinder : avancer le
+ * couronnement dès que les trois 6 contigus existaient, repousser l'effacement
+ * jusqu'au seul geste d'écartement que la démonstration s'autorise, juste avant
+ * le verdict.
  *
- *  · **Le couronnement** peut venir DÈS QUE les trois 6 contigus existent.
- *    Sur « Donald Trump », `D o n` valent 6, 6, 6 après la cinquième étape :
- *    le 666 est écrit là, et les conversions suivantes (`a l d` → 7, 3, 6) se
- *    poursuivent sous les cornes, ce qui est exactement la vérité de ce qui se
- *    passe. Marquer l'apparition rapide du triptyque est le propos ; les
- *    lettres qui suivent restent la suite logique.
+ * Les deux moitiés ont depuis été séparées à la source. Le couronnement
+ * n'appartient plus à aucun opérateur : il est posé par l'assemblage, sur la
+ * LIGNE et selon le REGISTRE (`couronnerLesTriptyques`), et il est posé
+ * d'emblée à l'instant où le triptyque s'écrit. L'effacement, lui, reste chez
+ * `mz` — c'est sa part d'arithmétique, celle que l'URL nomme —, et il y est
+ * devenu une étape à part entière, avec son motif montré avant d'être exercé
+ * (`transformations/mappeurs.js`). Il n'y a donc plus rien à différer : ce qui
+ * s'efface s'efface là où le code le dit.
  *
- *  · **L'effacement** peut au contraire ATTENDRE. Le repousser laisse venir le
- *    666 du morceau suivant plus vite, et surtout : il regroupe en un seul
- *    geste, juste avant le verdict, tout ce qui ne fait pas 6.
- *
- * ★ **Et ce report va DANS LE SENS de la doctrine, il n'y fait pas exception.**
- * « On ne garde que les 6 » ne se joue qu'une fois, juste avant le verdict,
- * parce qu'une démonstration qui écarte quatre fois en cours de route montre
- * quatre fois qu'elle savait d'avance ce qu'elle cherchait (CONTRACTS §3.1,
- * amendement). Effacer ce qui entoure un 666 n'est pas trier — les trois 6
- * sont contigus, on ne les a pas choisis, on les a lus —, mais c'est le même
- * mouvement de la main, et il gagne à se faire au même moment : une fois, à la
- * fin, quand tous les 666 sont déjà couronnés. La règle devient une, au lieu
- * d'avoir une exception.
+ * **Ce qu'il reste à faire ici, et pourquoi ce n'est pas rien.** Un
+ * couronnement peut encore GAGNER une étape sur la place où l'assemblage l'a
+ * posé — quand les trois 6 sont là depuis le départ, par exemple sur la saisie
+ * `666`, où aucune étape ne les a fait naître. `placeDuCouronnement` mesure ce
+ * gain, en vérifiant qu'aucune étape traversée ne change l'ordre des rangs ;
+ * `jalonsDesCornes` le publie pour le barème. C'est le seul geste qui reste, et
+ * il ne se joue que là où il est prouvé.
  *
  * ★ **L'ordre des deux gestes ne s'inverse jamais.** Le contrôle croisé des
  * cornes exige que la contiguïté soit vérifiée sur la ligne TELLE QU'ELLE EST,
- * avant tout effacement (`visuel/primitives/horns.js`). Ici l'effacement passe
- * APRÈS, plus loin encore qu'avant : le verrou est donc plus serré, pas plus
+ * avant tout effacement (`visuel/primitives/horns.js`). Le couronnement ne fait
+ * que remonter, jamais descendre : le verrou est donc plus serré, pas plus
  * lâche. La primitive continue de lire une ligne pleine.
  *
  * @param {Array} steps — modifié en place
- * @param {'fr'|'en'} langue
  * @returns {Object|null} les jalons, pour le score (voir `jalonsDesCornes`)
  */
-function reglerLesCornes(steps, langue) {
+function reglerLesCornes(steps) {
   const couronnements = [];
   for (let i = 0; i < steps.length; i++) {
     const ops = steps[i].ops || [];
@@ -1523,36 +1530,13 @@ function reglerLesCornes(steps, langue) {
   }
   if (!couronnements.length) return null;
 
-  // Le verdict : c'est devant lui que se rassemble tout ce qui s'efface.
-  const iVerdict = steps.findIndex((s) => (s.ops || []).some((o) => o.op === 'reveal'));
-
   // ── 1. jusqu'où chaque couronnement peut-il remonter ? ───────────────────
   for (const c of couronnements) {
     c.origine = c.index;
     c.cible = placeDuCouronnement(steps, c.index);
   }
 
-  // ── 2. l'effacement, différé et regroupé ─────────────────────────────────
-  //
-  // Tout ou rien : dès qu'un effacement est repoussé, ils le sont tous et ils
-  // n'en font plus qu'un. Deux gommes séparées par un couronnement diraient
-  // qu'on a écarté deux fois, ce qui est précisément ce qu'on veut cesser de
-  // dire (voir l'en-tête).
-  const aEffacer = [];
-  const differe = iVerdict > 0
-    && couronnements.some((c) => c.cible < c.origine || c.origine < iVerdict - 1)
-    && couronnements.every((c) => c.origine < iVerdict);
-  if (differe) {
-    for (const c of couronnements) {
-      aEffacer.push(...(c.op.efface || []));
-      delete c.op.efface;
-      // La légende disait le vecteur qu'on efface (« 6 6 6 7 3 6 → 666 ») :
-      // elle décrivait les DEUX gestes. Séparés, chacun dit le sien.
-      steps[c.origine].caption = MOTS.couronnerLegende[langue];
-    }
-  }
-
-  // ── 3. on déplace, du plus tardif au plus précoce ────────────────────────
+  // ── 2. on déplace, du plus tardif au plus précoce ────────────────────────
   //
   // De la fin vers le début : déplacer un step antérieur décalerait les index
   // des suivants, et c'est le genre de bug qu'on ne voit qu'à la troisième
@@ -1561,36 +1545,6 @@ function reglerLesCornes(steps, langue) {
     if (c.cible === c.origine) continue;
     const [st] = steps.splice(c.origine, 1);
     steps.splice(c.cible, 0, st);
-  }
-
-  if (aEffacer.length) {
-    const iRev = steps.findIndex((s) => (s.ops || []).some((o) => o.op === 'reveal'));
-    // ★ S'IL Y A DÉJÀ UN TRI, L'EFFACEMENT LE REJOINT — il ne se pose pas à
-    // côté. « On ne garde que les 6 » est le geste d'écartement du scénario, et
-    // il ne s'en joue qu'un, juste avant le verdict (CONTRACTS §3.1,
-    // amendement). Une gomme posée juste avant lui en ferait DEUX à la suite,
-    // et pire : elle laisserait un « 7 » à l'écran pendant que l'étape d'à
-    // côté annonce qu'on ne garde que les 6. Les valeurs écartées tombent donc
-    // ensemble, dans le seul geste qui a le droit de les écarter.
-    const tri = iRev > 0 && steps[iRev - 1].recolte ? steps[iRev - 1] : null;
-    if (tri) {
-      const chute = tri.ops.find((o) => o.op === 'drop');
-      chute.targets = [...chute.targets, ...aEffacer];
-      tri.recolte = { series: tri.recolte.series, jetes: chute.targets.length };
-      tri.caption = MOTS.recolterLegende(tri.recolte.series, chute.targets.length, langue);
-    } else {
-      steps.splice(iRev < 0 ? steps.length : iRev, 0, {
-        id: `s${steps.length}`,
-        title: MOTS.effacerLeReste[langue],
-        caption: MOTS.effacerLeResteLegende(aEffacer.length, couronnements.length, langue),
-        // Le geste EST celui des cornes — `drop` en mode gomme sans
-        // regroupement appelle le même `helpers.effacerSurPlace`. Rien ne se
-        // resserre : les 666 sont déjà d'un seul tenant, et c'est le verdict
-        // qui les rassemblera.
-        ops: [{ op: 'drop', targets: aEffacer, mode: 'erase', regroup: false }],
-        hold: DUREE_CHARNIERE,
-      });
-    }
   }
 
   // Les identifiants suivent la lecture : `s0`, `s1`… dans l'ordre où les
@@ -1605,36 +1559,31 @@ function reglerLesCornes(steps, langue) {
  * LE REGISTRE SOBRE — les cornes ne poussent pas, et la trouvaille se dit
  * quand même.
  *
- * ★ **« Désactiver les cornes » n'est PAS « désactiver `mz` ».** L'opérateur
- * TRONQUE le vecteur : `[6,6,6,7,3,6]` devient `[6,6,6]`. Retirer le geste
- * sans retirer l'opérateur donnerait une démonstration qui jette trois
- * chiffres sans dire pourquoi — exactement ce que ce projet refuse partout
- * ailleurs. Et retirer l'opérateur donnerait autre chose encore : un autre
- * programme, donc une autre URL, un autre score, un autre rang. Or les deux
- * boutons du panneau doivent mener à LA MÊME VOIE, à un marqueur près.
+ * ★ **Ce qu'on retire, c'est le DESSIN, et rien d'autre.** Un couronnement ne
+ * transforme aucune valeur : il constate que trois 6 sont écrits côte à côte
+ * (`couronnerLesTriptyques`). Le registre sobre ne peut donc pas le supprimer
+ * sans supprimer un constat — il le RÉÉCRIT dans ce que le vocabulaire sait
+ * dire de plus sobre : on DÉSIGNE les trois 6 (`highlight`), sans rien poser
+ * dessus.
  *
- * Ce qu'on retire, c'est donc le DESSIN et le RYTHME, pas le raisonnement :
+ * La LÉGENDE ne bouge pas, le titre non plus, le nombre d'étapes non plus. Le
+ * spectateur lit la même démonstration, avec la même justification écrite dans
+ * Le Registre ; seule la mise en scène a changé, ce qui est très exactement la
+ * promesse du registre — même programme, même verdict, même score, même rang,
+ * deux mises en scène.
  *
- *  · plus de cornes — le geste redevient ce que le vocabulaire sait dire de
- *    plus sobre : on DÉSIGNE les trois 6 (`highlight`), et on EFFACE le reste
- *    sur place (`drop` en mode gomme, sans regroupement, le même
- *    `helpers.effacerSurPlace` que la primitive employait) ;
- *  · plus de couronnement anticipé, plus d'effacement différé — le geste
- *    reste là où l'opérateur l'a posé. Les deux moments (`reglerLesCornes`)
- *    n'existent que parce que les cornes DURENT jusqu'au verdict ; un
- *    surlignage qu'aucun décor ne prolonge n'a rien à gagner à venir plus tôt.
+ * ★ **Et `efface` n'existe plus ici.** Le geste des cornes ne portait un
+ * effacement que du temps où `mz` les émettait, couronnement et troncature
+ * d'un seul tenant. Les deux ont été séparés à la source : l'effacement est
+ * resté chez `mz`, sous forme d'étape à part entière, identique dans les deux
+ * registres (`transformations/mappeurs.js`). On garde néanmoins la branche —
+ * la primitive accepte toujours un `efface`, et un scénario relu d'ailleurs
+ * pourrait en porter un.
  *
- * La LÉGENDE ne bouge pas — `6 6 6 7 3 6 → 666`, émise par `mz` lui-même. Le
- * spectateur voit donc les mêmes valeurs entrer et les mêmes sortir, avec la
- * même justification écrite dans Le Registre. Seule la mise en scène a changé,
- * ce qui est très exactement la promesse du registre.
- *
- * ★ **Les trois verrous du contrôle croisé ne sont pas relâchés.** Ils ont
- * déjà tous joué quand cette fonction s'exécute : `mappeurs.js` a dérivé
- * cibles et effacement du même index, et `validerArithmetiqueOp` a vérifié sur
- * la ligne — encore pleine — que les trois cibles portent un « 6 » et occupent
- * trois rangs consécutifs. La réécriture n'a lieu qu'après, sur une op déjà
- * validée ; ce qu'elle fait disparaître, c'est le troisième verrou
+ * ★ **Les verrous du contrôle croisé ne sont pas relâchés.** Ils ont déjà joué
+ * quand cette fonction s'exécute : l'assemblage n'a couronné qu'un triptyque
+ * d'un seul tenant, vérifié sur la ligne rejouée et jusqu'au verdict. Ce que la
+ * réécriture fait disparaître, c'est le troisième verrou
  * (`primitives/horns.js`), et il n'a plus rien à vérifier puisqu'il n'y a plus
  * de couronne à mériter.
  *
@@ -2135,7 +2084,7 @@ export function construireScenario(approche, ctx = {}) {
 
   const cornes = registre === 'sobre'
     ? sobrifierLesCornes(steps)
-    : reglerLesCornes(steps, langue);
+    : reglerLesCornes(steps);
 
   // ★ Le DÉCOR des tables se mutualise ici, et nulle part ailleurs : c'est le
   //   seul endroit qui voit la suite complète des étapes. Un opérateur ne
@@ -2643,13 +2592,14 @@ const MOTS = Object.freeze({
   // les yeux du spectateur à cet instant-là.
   // ★ Le TITRE du couronnement, et pourquoi il est écrit ici aussi.
   //
-  // `mz` a le sien (`LIB_TROUVAILLE`, `transformations/mappeurs.js`) : c'est
-  // le libellé de l'OPÉRATEUR, et il dit ce que l'opérateur fait. Les
-  // couronnements posés par l'assemblage (`couronnerLesTriptyques`) n'ont
+  // Les couronnements posés par l'assemblage (`couronnerLesTriptyques`) n'ont
   // aucun opérateur derrière eux — ils ne transforment rien, ils constatent —,
-  // donc pas de libellé à emprunter. La phrase est volontairement LA MÊME :
-  // ce qui se passe à l'écran est le même geste, et deux formulations
-  // différentes pour un seul geste feraient croire à deux gestes.
+  // donc pas de libellé à emprunter. La phrase reste celle de la trouvaille,
+  // parce que c'est ce que le spectateur voit : le 666 était déjà écrit.
+  // ★ `mz`, lui, ne porte plus ce titre : il ne couronne plus, il s'ARRÊTE aux
+  // trois 6 et efface le reste, et son étape le dit maintenant en propre
+  // (`LIB_ARRET`, `transformations/mappeurs.js`). Deux gestes distincts, deux
+  // phrases distinctes — les confondre ferait lire deux fois le même.
   couronner: {
     fr: 'Trois 6 d’affilée — le 666 était déjà écrit',
     en: 'Three 6s in a row — the 666 was already written',
@@ -2658,18 +2608,12 @@ const MOTS = Object.freeze({
     fr: 'Trois 6 côte à côte — le 666 est écrit, et rien ne le défera plus',
     en: 'Three 6s side by side — the 666 is written, and nothing will undo it',
   },
-  effacerLeReste: { fr: 'On efface le reste', en: 'Erase the rest' },
-  effacerLeResteLegende: (jetes, series, langue) => {
-    if (langue === 'en') {
-      return series > 1
-        ? `The ${series} crowned runs stay — the other ${jetes} value${jetes > 1 ? 's go' : ' goes'}`
-        : `The crowned run stays — the other ${jetes} value${jetes > 1 ? 's go' : ' goes'}`;
-    }
-    const reste = jetes > 1 ? `les ${jetes} autres valeurs s’effacent` : 'l’autre valeur s’efface';
-    return series > 1
-      ? `Les ${series} séries couronnées restent — ${reste}`
-      : `La série couronnée reste — ${reste}`;
-  },
+  // ★ Deux libellés ont disparu avec la séparation des deux gestes : « On
+  // efface le reste » et sa légende. Ils nommaient l'étape que `reglerLesCornes`
+  // fabriquait en repoussant l'effacement de `mz` devant le verdict. Il n'y a
+  // plus rien à repousser : l'effacement est resté chez son opérateur, où il
+  // est devenu une étape à part entière portant SON motif
+  // (`transformations/mappeurs.js`, « CET OPÉRATEUR NE COURONNE PLUS »).
 });
 
 // Le titre et la règle d'une approche vivent désormais dans `titres.js` : un

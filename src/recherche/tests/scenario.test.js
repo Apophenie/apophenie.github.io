@@ -478,19 +478,29 @@ test('scénario — une approche à passage unique se triple à la fin (joker, t
 // ═══════════════════════════ les deux moments des cornes
 
 /**
- * ★ LE COURONNEMENT AU PLUS TÔT, L'EFFACEMENT AU PLUS TARD.
+ * ★ CHAQUE 666 EST COURONNÉ AVANT QUE SON RESTE NE S'EFFACE.
  *
  * « Sur cette voie les cornes devraient apparaître dès la fin de l'étape 5 pour
- * marquer l'apparition rapide du triptyque. […] En revanche l'élimination des
- * chiffres suivants […] peut être remise à plus tard pour faire apparaître plus
- * vite d'autres 666. » (l'auteur)
+ * marquer l'apparition rapide du triptyque. » (l'auteur)
  *
  * La voie de référence est `Donald Trump` en quatorze segments : `D o n` valent
  * 6, 6, 6 dès la cinquième étape, et `T r u m p` en donne trois autres après le
- * chiffre de César. Le résultat attendu se dit d'une phrase : **les deux 666
- * sont couronnés avant que quoi que ce soit ne s'efface.**
+ * chiffre de César. Le résultat attendu se dit d'une phrase : **chaque 666 est
+ * couronné à l'instant où il s'écrit, et l'effacement de ce qui l'entoure vient
+ * après, dans une étape à part.**
+ *
+ * ★ **DEUX gommes, et non plus une seule** — c'est le changement, et il est
+ * voulu. Tant que les cornes appartenaient à `mz`, l'assemblage repoussait tous
+ * les effacements devant le verdict pour n'en faire qu'un : deux gommes
+ * séparées par un couronnement auraient dit qu'on écartait deux fois. Elles ne
+ * disent plus cela. L'effacement est devenu ce que l'auteur en dit — « une
+ * étape à part, et si elle n'a pas de motif c'est probablement la pire des
+ * triches » —, et son motif est justement CE QUI LE LOCALISE : les trois 6
+ * contigus de CE morceau-là, désignés juste avant que le reste ne tombe.
+ * Rassembler les deux gommes détacherait chacune de son motif, et déplacerait
+ * de surcroît une étape que l'URL nomme, loin du code qui la nomme.
  */
-test('★ cornes — les deux 666 sont couronnés AVANT le moindre effacement', () => {
+test('★ cornes — chaque 666 est couronné avant que son reste ne s’efface', () => {
   const m = creerMoteur(catalogue);
   const r = m.resoudre('Donald Trump');
   const a = r.approches.find((x) => x.codes === 't1+mw+mz,fl+t1+mw+mz');
@@ -503,23 +513,36 @@ test('★ cornes — les deux 666 sont couronnés AVANT le moindre effacement', 
   const gommes = rang((s) => (s.ops || []).some((o) => o.op === 'drop'));
 
   assert.equal(cornes.length, 2, 'deux 666, deux couronnements');
-  assert.equal(gommes.length, 1, 'un seul effacement, et il les regroupe tous les deux');
-  assert.ok(Math.max(...cornes) < gommes[0],
-    `les couronnements (${cornes.map((i) => i + 1)}) doivent tous précéder l’effacement (${gommes[0] + 1})`);
-  assert.equal(gommes[0], sc.steps.length - 2, 'l’effacement précède immédiatement le verdict');
+  assert.equal(gommes.length, 2, 'deux morceaux, deux effacements — chacun avec son motif');
+  // Chaque couronnement précède la gomme de SON morceau.
+  assert.ok(cornes[0] < gommes[0] && cornes[1] < gommes[1],
+    `couronnements (${cornes.map((i) => i + 1)}) et gommes (${gommes.map((i) => i + 1)}) : `
+    + 'on couronne ce qui est écrit, PUIS on cesse de lire');
 
   // Le premier couronnement suit immédiatement la conversion du troisième 6.
   assert.equal(cornes[0], 5, 'les cornes de « Donald » paraissent à la fin de la cinquième étape');
-  // …et plus aucune corne n’efface : les deux gestes sont bien séparés.
+  // …et aucune corne n’efface : les deux gestes sont séparés à la source.
   for (const i of cornes) {
     const o = sc.steps[i].ops.find((x) => x.op === 'horns');
-    assert.ok(!o.efface || !o.efface.length, 'un couronnement différé n’efface plus rien lui-même');
+    assert.ok(!o.efface || !o.efface.length, 'un couronnement n’efface jamais rien lui-même');
   }
-  // Ce que l’effacement emporte, c’est tout ce qui n’est pas couronné.
+
+  // ★ Chaque gomme porte SON MOTIF : le `highlight` qui désigne, dans la même
+  //   étape, les trois 6 qu'on garde. Un effacement sans motif est la pire des
+  //   triches (l'auteur) ; celui-ci en a un, et il le montre avant de l'exercer.
   const couronnes = new Set(cornes.flatMap((i) => sc.steps[i].ops.find((x) => x.op === 'horns').targets));
-  const efface = sc.steps[gommes[0]].ops.find((o) => o.op === 'drop').targets;
-  assert.equal(efface.length, 5, '7, 3 et 6 pour « Donald », 4 et 4 pour « Trump »');
-  assert.ok(efface.every((id) => !couronnes.has(id)), 'on n’efface jamais ce qu’on couronne');
+  let jetes = 0;
+  for (const i of gommes) {
+    const designe = sc.steps[i].ops.find((o) => o.op === 'highlight');
+    assert.ok(designe, `étape ${i + 1} : la gomme doit être précédée de ce qui la motive`);
+    assert.equal(designe.targets.length, 3, 'on garde trois 6, ni deux ni quatre');
+    assert.ok(designe.targets.every((id) => couronnes.has(id)),
+      'et ce sont exactement les trois 6 que la démonstration a couronnés');
+    const chute = sc.steps[i].ops.find((o) => o.op === 'drop');
+    assert.ok(chute.targets.every((id) => !couronnes.has(id)), 'on n’efface jamais ce qu’on couronne');
+    jetes += chute.targets.length;
+  }
+  assert.equal(jetes, 5, '7, 3 et 6 pour « Donald », 4 et 4 pour « Trump »');
 });
 
 /**
@@ -575,7 +598,13 @@ test('★ cornes — les jalons publiés pour le score sont exacts et purs', () 
   assert.equal(sc.cornes.total, sc.steps.length);
   assert.equal(sc.cornes.couronnements.length, 2);
   assert.equal(sc.cornes.premier, 6, 'le premier 666 est couronné à la sixième étape');
-  assert.equal(sc.cornes.couronnements[0].avance, 3, 'trois étapes gagnées sur la place d’origine');
+  // ★ Zéro étape gagnée, et c'est le signe que tout va bien : l'assemblage pose
+  //   désormais le couronnement À L'INSTANT où le triptyque s'écrit
+  //   (`couronnerLesTriptyques`), il n'y a donc plus rien à remonter. L'avance
+  //   ne se mesurait que du temps où `mz` posait ses cornes à sa propre place,
+  //   trois étapes plus loin. Elle reste publiée : un couronnement peut encore
+  //   gagner une étape quand les trois 6 sont là dès la première image.
+  assert.equal(sc.cornes.couronnements[0].avance, 0, 'rien à remonter : il est déjà au plus tôt');
   assert.ok(sc.cornes.couronnements[0].part > 0 && sc.cornes.couronnements[0].part < 1);
 
   // La fonction est PURE : relue sur le seul scénario, elle retrouve les mêmes
