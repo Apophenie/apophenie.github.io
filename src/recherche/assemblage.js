@@ -174,7 +174,27 @@ const MAX_CONVERGENCES = 3;         // trios de manières distinctes par fragmen
  * jetons, pas à leur longueur : c'est le seul paramètre qui puisse s'emballer.
  */
 const MAX_JETONS_MOISSON = 24;      // portées atomiques soumises à l'énumération
-const MAX_CANDIDATS_PORTEE = 6;     // programmes retenus par portée
+/**
+ * ★ Programmes retenus par portée. **Passé de 6 à 10 le jour où le catalogue a
+ * gagné une FORME de programme**, et c'est la raison, pas un ajustement.
+ *
+ * Cette fenêtre ne borne pas un nombre de résultats mais une DIVERSITÉ : elle
+ * doit tenir les façons distinctes d'attaquer une même portée. Tant qu'il y en
+ * avait quatre — filtre, découpe, mappeur, raffinage —, six places suffisaient
+ * avec de la marge. L'étage de rangement (TOKENS → TOKENS) en ajoute une
+ * cinquième, et chaque programme existant a désormais un jumeau rangé : à six
+ * places, les jumeaux occupaient la fenêtre et **évinçaient leurs aînés**.
+ *
+ * ⚠️ MESURÉ sur `Donald Trump` : à 6, la voie de référence de l'auteur
+ * (`tca+m14+m36,fr13+tca+m14+m36`) DISPARAISSAIT de la liste au profit de
+ * `tca+mtal+m14,tca+mtal+mx6+mrn` — laquelle aligne plus de 6, donc gagne le
+ * tri, mais tombe à 446 d'élégance contre 743. À 8 elle revient en 2ᵉ, à 10 elle
+ * reprend la tête. Au-delà (12), une troisième voie passe devant : on s'arrête
+ * donc au premier palier qui rend la place, pas au plus large.
+ *
+ * Coût mesuré : 828 ms CPU sur la saisie la plus lourde du banc, budget 1 000.
+ */
+const MAX_CANDIDATS_PORTEE = 10;
 
 /** L'opérateur « trois 6 d'affilée » — voir `prefererLeTriptyqueMontre`. */
 const ID_TRIPTYQUE = 'm.troisSixDAffilee';
@@ -391,16 +411,35 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   //   « écrire 007 » qu'il faut demander — trois chiffres utiles peuvent être
   //   trois zéros.
   const exigeSerie = minSix >= cbl.longueur;
+  // ★ **CINQ ÉTAGES, ET LE CINQUIÈME A COÛTÉ CHER À DÉCOUVRIR.**
+  //
+  // Cette fonction n'explore pas : elle DÉROULE une forme de programme connue —
+  // filtre, découpe, mappeur, raffinage. Tant que le catalogue ne contenait que
+  // ces quatre signatures, la boucle ci-dessous les rangeait toutes. Le jour où
+  // `m.triAlphabetique` (TOKENS → TOKENS) est arrivé, elle l'a laissé tomber
+  // **en silence** : aucun `else` ne le recevait, et le groupement ne pouvait
+  // plus jamais le jouer. L'opérateur existait, la recherche le trouvait, le
+  // barème le notait — et il n'apparaissait nulle part.
+  //
+  // ⚠️ Le silence est le vrai défaut, pas l'oubli. Un opérateur d'une signature
+  // non prévue doit se voir, et c'est ce que `nonRanges` sert à dire : la
+  // fonction rend maintenant la liste de ce qu'elle n'a pas su ranger, et un
+  // test la garde à vide. Le prochain ajout se signalera tout seul.
   const filtres = [];
   const decoupes = [];
+  const rangements = [];
   const mappeurs = [];
   const raffineurs = [];
+  const nonRanges = [];
   for (const o of ops) {
     if (o.from === 'STR' && o.to === 'STR') filtres.push(o);
     else if (o.from === 'STR' && o.to === 'TOKENS') decoupes.push(o);
+    else if (o.from === 'TOKENS' && o.to === 'TOKENS') rangements.push(o);
     else if (o.from === 'TOKENS' && o.to === 'NUMS') mappeurs.push(o);
     else if (o.from === 'NUMS' && o.to === 'NUMS') raffineurs.push(o);
+    else if (o.to !== 'NUM') nonRanges.push(o.code);
   }
+  vecteursDeSix.nonRanges = nonRanges;
   const depart = etat('STR', String(texte).normalize('NFC'), [[0, texte.length]]);
 
   // Étage 1 — la saisie nue, puis chaque filtre. L'ordre du catalogue est
@@ -420,6 +459,43 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
       if (t === null) continue;
       const k = cleEtat(t);
       if (!jetons.has(k)) jetons.set(k, { ops: b.ops.concat(d), etats: b.etats.concat([t]), etat: t });
+    }
+  }
+
+  // Étage 2 bis — les rangements de jetons (TOKENS → TOKENS).
+  //
+  // « S'il devrait y avoir un tri, il faudrait le faire en premier : classer les
+  // lettres par ordre alphabétique en une étape, pour faire apparaître ensuite
+  // le 666 naturellement, puisque le t9 est alphabétique » (l'auteur). C'est
+  // ici que ce « en premier » prend corps : le rangement s'insère AVANT le
+  // mappeur, et le vecteur sort déjà groupé au lieu d'être trié après coup.
+  //
+  // Les états rangés s'ajoutent à `jetons` sans remplacer les autres : les deux
+  // ordres restent jouables, et c'est le barème qui tranche. La déduplication
+  // par `cleEtat` fait le reste — un rangement qui ne range rien retombe sur son
+  // entrée et n'ajoute pas de ligne.
+  // ⚠️ **ET SEULEMENT SUR LES JETONS NON FILTRÉS** — « quand il y en a besoin »
+  //    (l'auteur), pas partout. Ranger APRÈS avoir filtré, ce serait deux
+  //    sélections superposées : d'abord on choisit les lettres qu'on regarde,
+  //    ensuite on choisit l'ordre où on les lit. L'auteur vient de dire que la
+  //    première est déjà « moins élégante » quand elle ne porte pas sur tout
+  //    (`FILTRE_SELECTIF`) ; les cumuler n'achèterait qu'une ligne de plus.
+  //
+  //    ⚠️ MESURÉ, et c'est aussi ce qui rend l'étage payable : appliqué à TOUS
+  //    les jetons, il double l'étage 3 — 31 mappeurs × 12 raffinages sur deux
+  //    fois plus d'états — et le pipeline passait de 974 à **1 080 ms CPU**,
+  //    au-dessus du budget d'une seconde. Restreint aux jetons nus, il coûte
+  //    une poignée d'états et garde ce qui l'intéresse : sur `Macron`,
+  //    `tca+mtal+mt9` sort en deuxième ligne.
+  for (const j of [...jetons.values()]) {
+    if (j.ops.length > 1) continue; // un filtre est déjà passé : on n'empile pas
+    for (const r of rangements) {
+      const t = appliquerOp(r, j.etat);
+      if (t === null) continue;
+      const k = cleEtat(t);
+      if (!jetons.has(k)) {
+        jetons.set(k, { ops: j.ops.concat(r), etats: j.etats.concat([t]), etat: t });
+      }
     }
   }
 

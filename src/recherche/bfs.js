@@ -20,7 +20,30 @@ export const P_BEAM = 12;      // chemins conservés par état canonique
 export const MAX_NODES = 20000;
 export const BUDGET_MS = 250;  // par fragment
 export const N_FRAG_MAX = 64;
-export const MAX_RESULTATS = 400; // borne de mémoire ; mesuré 24..404 chemins/saisie
+/**
+ * ★ **BORNE DE MÉMOIRE — ET ELLE GARDE LES MEILLEURS, PLUS LES PREMIERS ARRIVÉS.**
+ *
+ * Mesuré 24..404 chemins par saisie ; la borne n'est donc atteinte que sur les
+ * saisies les plus riches. Elle l'était en coupant net : `if (resultats.length
+ * >= MAX_RESULTATS) break`, c'est-à-dire **au premier arrivé, dans l'ordre du
+ * catalogue**.
+ *
+ * ⚠️ **CE N'ÉTAIT PAS UNE BORNE, C'ÉTAIT UN CLASSEMENT PAR ORDRE ALPHABÉTIQUE
+ * DES CODES**, et il a fallu ajouter un opérateur pour le voir. Le tri
+ * alphabétique (`mtal`) atteignait le but 21 fois sur `Macron` — mesuré, sonde à
+ * l'appui — et aucune de ces 21 réussites n'entrait dans la liste : les 400
+ * places étaient prises avant qu'on y arrive. Un opérateur inscrit tard au
+ * registre était donc invisible sur toutes les saisies qui saturent, et personne
+ * ne pouvait le savoir : rien ne le signalait.
+ *
+ * On garde donc les MEILLEURS. Le tableau grossit jusqu'au double, puis se
+ * compacte par `comparerPrefixes` — score décroissant, coût croissant, codes
+ * croissants, l'ordre déjà utilisé partout ailleurs. Le compactage est amorti
+ * (une fois par lot de 400) et l'ordre reste strictement déterministe.
+ */
+export const MAX_RESULTATS = 400;
+/** Où le tableau se compacte : le double, pour n'amortir qu'un tri par lot. */
+const MARGE_RESULTATS = 2;
 
 /**
  * ══════════════ Filets de sécurité temporels — et rien de plus ══════════════
@@ -855,9 +878,16 @@ function rechercheBrute(fragment, ctx) {
           const noeud = etendreSi(p, op, cible, b ? -1 : seuil);
           if (noeud === null) continue;
           for (const e of atteints) {
-            if (resultats.length >= MAX_RESULTATS) break;
             const complet = prolongerParBassin(noeud, e);
-            if (complet) resultats.push(complet);
+            if (!complet) continue;
+            resultats.push(complet);
+            // ★ On ne refuse plus le nouveau venu : on retire le plus faible.
+            //   Voir `MAX_RESULTATS` — refuser à l'arrivée revenait à classer
+            //   les opérateurs par l'ordre de leur code.
+            if (resultats.length >= MAX_RESULTATS * MARGE_RESULTATS) {
+              resultats.sort(comparerPrefixes);
+              resultats.length = MAX_RESULTATS;
+            }
           }
           if (noeud._sp < seuil) continue;
           if (nouveaux === null) nouveaux = [];
@@ -895,6 +925,11 @@ function rechercheBrute(fragment, ctx) {
   const cout = { travail, noeuds, tronque, tronqueTemps };
   comptabiliser(ctx, cout);
 
+  // Dernier compactage : le tableau peut porter jusqu'au double de la borne.
+  if (resultats.length > MAX_RESULTATS) {
+    resultats.sort(comparerPrefixes);
+    resultats.length = MAX_RESULTATS;
+  }
   const canoniques = canonicaliser(resultats);
   canoniques.sort(comparerPrefixes);
   if (tronque) {
