@@ -13,12 +13,15 @@
 import {
   scorePartiel, scoreDeAcc, accumulateurInitial, accumuler,
 } from './score.js';
+// ★ Les bornes de TEMPS vivent dans `src/config.js` — voir l'en-tête de ce
+//   fichier-là pour la condition qui permettrait de les relever.
+import { BUDGET_MS, BUDGET_MS_FILET, BUDGET_TOTAL_MS } from '../config.js';
 
 /** Constantes de garde-fou — CONTRACTS.md §5. */
 export const D_MAX = 4;        // + 2 niveaux gratuits par le bassin → profondeur effective 6
 export const P_BEAM = 12;      // chemins conservés par état canonique
 export const MAX_NODES = 20000;
-export const BUDGET_MS = 250;  // par fragment
+export { BUDGET_MS };          // par fragment
 export const N_FRAG_MAX = 64;
 /**
  * ★ **BORNE DE MÉMOIRE — ET ELLE GARDE LES MEILLEURS, PLUS LES PREMIERS ARRIVÉS.**
@@ -89,8 +92,11 @@ const MARGE_RESULTATS = 2;
  * un navigateur peut être arbitrairement lent, et un onglet qui ne rend jamais
  * la main est pire qu'un classement écourté qui le dit.
  */
-export const BUDGET_MS_FILET = 1000;   // par fragment, dans le pipeline
-export const BUDGET_TOTAL_MS = 3000;   // phase de recherche entière
+// ★ Les bornes de TEMPS sont sorties d'ici : elles sont les seules qu'on vienne
+//   changer sans lire ce fichier, et elles vivent donc dans `src/config.js`, où
+//   la condition posée par l'auteur pour les relever est écrite noir sur blanc.
+//   Elles restent réexportées : c'est ici qu'on les cherche depuis le moteur.
+export { BUDGET_MS_FILET, BUDGET_TOTAL_MS };
 
 /**
  * Les fragments étant parcourus par priorité décroissante (§3.3), ce sont les

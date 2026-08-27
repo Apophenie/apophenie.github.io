@@ -185,14 +185,32 @@ const MAX_JETONS_MOISSON = 24;      // portées atomiques soumises à l'énumér
  * cinquième, et chaque programme existant a désormais un jumeau rangé : à six
  * places, les jumeaux occupaient la fenêtre et **évinçaient leurs aînés**.
  *
- * ⚠️ MESURÉ sur `Donald Trump` : à 6, la voie de référence de l'auteur
- * (`tca+m14+m36,fr13+tca+m14+m36`) DISPARAISSAIT de la liste au profit de
- * `tca+mtal+m14,tca+mtal+mx6+mrn` — laquelle aligne plus de 6, donc gagne le
- * tri, mais tombe à 446 d'élégance contre 743. À 8 elle revient en 2ᵉ, à 10 elle
- * reprend la tête. Au-delà (12), une troisième voie passe devant : on s'arrête
- * donc au premier palier qui rend la place, pas au plus large.
+ * ⚠️ BALAYAGE COMPLET sur `Donald Trump` — 6, 8, 10, 12, 15, 20. Trois régimes,
+ * et pas une pente :
  *
- * Coût mesuré : 828 ms CPU sur la saisie la plus lourde du banc, budget 1 000.
+ *   · **6 et 8** — le jumeau rangé `tca+mtal+m14,tca+mtal+mx6+mrn` prend la
+ *     tête : il aligne plus de 6, donc il gagne le tri, mais il tombe à **446**
+ *     d'élégance. La voie de référence de l'auteur DISPARAÎT à 6, revient en 2ᵉ
+ *     à 8.
+ *   · **10** — la voie de référence (`tca+m14+m36,fr13+tca+m14+m36`, **743**)
+ *     reprend la tête.
+ *   · **12, 15, 20** — classement identique aux trois valeurs, et une voie que
+ *     les fenêtres étroites CACHAIENT prend la tête :
+ *     `fatb+tca+mt9+mr9,tca+msfr+cp`, **1 082** d'élégance et **4 862** de score
+ *     — meilleure que la référence sur les DEUX tableaux (743 / 4 722), qui
+ *     reste alors en 2ᵉ ligne.
+ *
+ * `Macron` ne bouge à aucune des six valeurs.
+ *
+ * ★ **ET LA FENÊTRE NE COÛTE RIEN** — elle découpe une liste déjà calculée. Pire
+ * temps CPU, JIT chaud, sur les trois saisies les plus lourdes du banc : 250 ms
+ * à 10, 307 à 12, 253 à 15, 242 à 20. Aucune tendance. Le seul coût visible est
+ * celui du DÉMARRAGE À FROID, que le test de budget mesure en même temps que le
+ * calcul : à 12, ce premier appel franchit la seconde alors que le calcul chaud
+ * n'a pas bougé.
+ *
+ * Reste donc 10, en attendant l'arbitrage : c'est un choix de VITRINE — laisser
+ * la voie nommée par l'auteur en tête, ou laisser sortir celle qui la bat.
  */
 const MAX_CANDIDATS_PORTEE = 10;
 
