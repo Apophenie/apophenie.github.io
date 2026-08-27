@@ -895,14 +895,46 @@ function valeurTerminale(chemin) {
  * compilation si elle n'y est pas (CONTRACTS §3.1). Ce module sert à SAVOIR
  * OÙ couronner, jamais à prouver qu'on en a le droit.
  *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ★ LES FRONTIÈRES DE GROUPE — pourquoi la file d'identifiants ne suffit pas
+ *
+ * « Il y a eu 2 ajouts de cornes anticipées, l'un sur `6 6 6`, l'autre sur
+ * `6 66` » (l'auteur). Les trois 6 y occupaient bel et bien trois rangs
+ * consécutifs — le rejeu le disait, le troisième verrou l'a confirmé — et
+ * pourtant ils ne se lisaient pas `666` : un DÉCOUPAGE était passé par là, et
+ * l'écart de frontière qu'il laisse derrière lui est quatre fois et demie
+ * l'écart ordinaire. Trois chiffres séparés par ça ne sont pas côte à côte,
+ * ce sont trois chiffres qu'on lit un par un.
+ *
+ * Le rejeu suit donc, en plus de l'ordre, **ce qui se voit entre deux voisins**.
+ * `partition` pose un écart large devant le premier jeton de chaque groupe et
+ * un écart serré devant les autres (`visuel/primitives/partition.js`), et cet
+ * écart SURVIT aux substitutions : le jeton qui en remplace un autre hérite de
+ * son espacement (`helpers.espacementDe`), sans quoi le découpage disparaîtrait
+ * à la première conversion. On modélise exactement ces deux gestes — la pose et
+ * l'héritage —, et rien d'autre.
+ *
+ * ★ **Et c'est MESURÉ, à l'identique** (`tests/integration-visuel.test.js`) :
+ * l'ensemble des frontières rejouées ici doit coïncider, jeton pour jeton, avec
+ * l'ensemble des jetons dont le `gapBefore` réel dépasse l'écart ordinaire. Le
+ * jour où une primitive écartera la ligne pour une autre raison — `helpers.
+ * marquerLesNombres` élargit à 2,2 fois quand une ligne porte des nombres à
+ * plusieurs chiffres, et ce cas ne se produit encore nulle part dans le jeu
+ * d'essai —, le test rougit ici plutôt qu'une corne ne s'égare là-bas.
+ *
  * @param {{id:string}[]} tokens — les jetons de départ, dans l'ordre de lecture
  * @param {Object[]} steps
- * @returns {Array<string[]|null>} `lignes[i]` = la ligne APRÈS le step `i`,
- *   ou `null` dès que le rejeu a perdu le fil (et pour tous les steps suivants)
+ * @returns {Array<{ids:string[], frontieres:Set<string>}|null>} `lignes[i]` =
+ *   l'état APRÈS le step `i` — la file des jetons vivants et, parmi eux, ceux
+ *   devant lesquels s'ouvre une frontière de groupe. `null` dès que le rejeu a
+ *   perdu le fil (et pour tous les steps suivants).
  */
 export function suivreLaLigne(tokens, steps) {
   let ligne = (tokens || []).map((t) => t.id);
   let perdu = false;
+  // Les jetons devant lesquels s'ouvre une frontière de groupe. Vide au
+  // départ : une saisie non découpée est d'un seul tenant.
+  const frontieres = new Set();
   // Les signes d'opération que le moteur visuel s'alloue lui-même quand
   // `insertOperators` ne les nomme pas : ils occupent une place dans la ligne
   // — c'est tout ce qu'on a besoin de savoir d'eux — et une somme les absorbe.
@@ -917,9 +949,25 @@ export function suivreLaLigne(tokens, steps) {
     if (Array.isArray(t) && t.every((x) => typeof x === 'string')) return t;
     return null;
   };
+  /**
+   * L'ESPACEMENT SUIT LE JETON QUI PREND LA PLACE — et lui seul.
+   *
+   * `helpers.espacementDe` recopie le `gapBefore` du jeton remplacé sur le
+   * PREMIER de ceux qui le remplacent (`substitute`, `reduce`, `flip180`…), et
+   * sur lui seul : les suivants naissent avec l'écart ordinaire, puisqu'ils
+   * s'insèrent DANS la place de leur source, pas devant elle.
+   */
+  const heriterEcart = (source, neufs) => {
+    const ouvre = frontieres.delete(source);
+    neufs.forEach((id, k) => {
+      if (k === 0 && ouvre) frontieres.add(id);
+      else frontieres.delete(id);
+    });
+  };
   const remplacer = (cible, neufs) => {
     const i = ligne.indexOf(cible);
     if (i < 0) return false;
+    heriterEcart(cible, neufs);
     ligne.splice(i, 1, ...neufs);
     return true;
   };
@@ -941,6 +989,11 @@ export function suivreLaLigne(tokens, steps) {
     const absorbes = ligne.slice(lo + 1, hi).filter((id) => signes.has(id));
     const morts = new Set([...operandes, ...(consomme || []), ...absorbes]);
     const place = rangs[0];
+    // Le résultat prend l'espacement du PREMIER opérande — c'est sa place qu'il
+    // occupe, et c'est ce que fait `helpers.accumulate` (`espacementDe(ctx,
+    // operands[0])`). Les autres opérandes disparaissent avec leur écart.
+    heriterEcart(operandes[0], [to.id]);
+    for (const id of morts) frontieres.delete(id);
     ligne = ligne.filter((id) => !morts.has(id));
     ligne.splice(Math.max(0, Math.min(place, ligne.length)), 0, to.id);
     return true;
@@ -953,8 +1006,24 @@ export function suivreLaLigne(tokens, steps) {
         // Ces gestes ne touchent pas à la ligne : ils désignent, estompent,
         // annotent, attendent, ou tracent une accolade autour de ce qui est là.
         case 'highlight': case 'dim': case 'pulse': case 'annotate': case 'wait':
-        case 'partition':
           break;
+        case 'partition': {
+          // Le découpage ne change ni l'ordre ni la composition de la ligne —
+          // il ÉCARTE. Écart large devant le premier jeton de chaque groupe,
+          // serré devant les autres (`visuel/primitives/partition.js`), et rien
+          // pour ce qui n'appartient à aucun groupe. La frontière du tout
+          // premier jeton de la ligne est remise à zéro là-bas : elle
+          // n'espacerait rien, elle décentrerait tout.
+          for (const g of o.groups || []) {
+            const cibles = ids(g && g.targets);
+            if (!cibles || !cibles.length) { perdu = true; break; }
+            cibles.forEach((id, k) => {
+              if (k === 0 && ligne.indexOf(id) > 0) frontieres.add(id);
+              else frontieres.delete(id);
+            });
+          }
+          break;
+        }
         case 'move': {
           if (Array.isArray(o.order)) {
             const voulus = o.order.filter((id) => ligne.includes(id));
@@ -972,6 +1041,7 @@ export function suivreLaLigne(tokens, steps) {
           const cibles = ids(o.targets);
           if (!cibles) { perdu = true; break; }
           const morts = new Set(cibles);
+          for (const id of morts) frontieres.delete(id);
           ligne = ligne.filter((id) => !morts.has(id));
           break;
         }
@@ -980,7 +1050,10 @@ export function suivreLaLigne(tokens, steps) {
           // visuel. Elles n'ôtent que ce qu'`efface` désigne, et cette liste
           // est vide quand le couronnement a été séparé de l'effacement.
           const morts = new Set(ids(o.efface) || []);
-          if (morts.size) ligne = ligne.filter((id) => !morts.has(id));
+          if (morts.size) {
+            for (const id of morts) frontieres.delete(id);
+            ligne = ligne.filter((id) => !morts.has(id));
+          }
           break;
         }
         case 'substitute': {
@@ -1036,7 +1109,7 @@ export function suivreLaLigne(tokens, steps) {
         default: perdu = true; break;
       }
     }
-    lignes.push(perdu ? null : ligne.slice());
+    lignes.push(perdu ? null : { ids: ligne.slice(), frontieres: new Set(frontieres) });
   }
   return lignes;
 }
@@ -1173,6 +1246,35 @@ export function placeDuCouronnement(steps, iCornes) {
 }
 
 /**
+ * ★ « CONTIGUS », AU SENS OÙ ÇA SE LIT — trois rangs qui se suivent ET rien
+ * qui s'ouvre entre eux.
+ *
+ * Deux conditions, et la première seule ne suffisait pas. L'auteur a relevé
+ * deux couronnements fautifs, l'un sur « 6 6 6 », l'autre sur « 6 66 » : dans
+ * les deux cas les trois jetons occupaient bel et bien trois rangs consécutifs
+ * de la ligne, et dans les deux cas un DÉCOUPAGE avait laissé entre eux
+ * l'écart de frontière — quatre fois et demie l'écart ordinaire. Ce qui se lit
+ * alors n'est pas un 666, ce sont trois 6 qu'on énumère.
+ *
+ * La frontière est celle que suit `suivreLaLigne` (voir « LES FRONTIÈRES DE
+ * GROUPE »). Elle ne compte que DEVANT le deuxième et le troisième jeton :
+ * celle qui précède le premier ne sépare rien du triptyque, elle le détache de
+ * ce qui vient avant — et c'est même ce qui le fait ressortir.
+ *
+ * @param {{ids:string[], frontieres:Set<string>}} ligne
+ * @param {string[]} trio
+ */
+function dUnSeulTenant(ligne, trio) {
+  const r = trio.map((id) => ligne.ids.indexOf(id));
+  if (r.some((x) => x < 0)) return false;
+  for (let k = 1; k < r.length; k++) {
+    if (r[k] !== r[k - 1] + 1) return false;
+    if (ligne.frontieres.has(trio[k])) return false;
+  }
+  return true;
+}
+
+/**
  * ★ COURONNER SANS EFFACER — le geste que personne n'émettait.
  *
  * **Le manque, tel qu'il se constatait.** L'unique source de cornes du projet
@@ -1192,6 +1294,28 @@ export function placeDuCouronnement(steps, iCornes) {
  * C'est très exactement la moitié « couronnement » du geste de `mz`, détachée
  * de sa moitié « effacement » — laquelle n'a aucune raison d'exister ici,
  * puisqu'il n'y a rien à jeter : les autres 6 sont d'autres séries.
+ *
+ * ★ **TROIS CONDITIONS CUMULATIVES, et l'auteur les a resserrées lui-même.**
+ * Le premier jet couronnait dès que trois 6 occupaient trois rangs consécutifs,
+ * et il a couronné deux fois de trop — « il y a eu 2 ajouts de cornes
+ * anticipées, l'un sur `6 6 6`, l'autre sur `6 66` ». Sa règle finale :
+ *
+ *  1. **contigus** — trois rangs qui se suivent ET rien qui s'ouvre entre eux.
+ *     Une frontière de découpage laisse un écart quatre fois et demie
+ *     l'ordinaire ; trois chiffres séparés par ça s'énumèrent, ils ne se lisent
+ *     pas `666`. Voir `dUnSeulTenant`, et `suivreLaLigne › LES FRONTIÈRES DE
+ *     GROUPE` pour ce qui les suit ;
+ *  2. **et ils le RESTENT jusqu'à la fin** — « seulement s'ils sont censés les
+ *     avoir jusqu'à la fin ». La contiguïté est donc exigée sur chaque ligne
+ *     connue, de l'instant du couronnement à la dernière étape avant le
+ *     verdict. Si le rejeu rend la main avant, on renonce : ne pas savoir n'est
+ *     pas savoir que oui ;
+ *  3. **et la ligne d'arrivée au verdict N'ENTRE PAS EN COMPTE.** « Quand les
+ *     666 sont déjà contigus et resteront assemblés de cette manière à la fin,
+ *     ajoute-leur les cornes tout de suite en mode scène, même s'ils arrivent
+ *     en 2ⁿᵈ ligne au verdict. » Ce module ignore donc superbement l'agencement
+ *     final ; c'est `visuel/primitives/reveal.js` qui, au moment de l'agencer,
+ *     fait s'effriter les cornes des triptyques relégués.
  *
  * ★ **Pourquoi ICI et pas dans le catalogue** (CONTRACTS §3.1, et le même
  * argument que pour le décor mutualisé des tables). Un opérateur ne voit que sa
@@ -1263,6 +1387,11 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
   }
 
   const lignes = suivreLaLigne(tokens, steps);
+  // Jusqu'où la preuve doit porter : la dernière étape AVANT le verdict.
+  // `reveal` rassemble et repose les séries — sa ligne n'existe pas dans le
+  // rejeu, et elle n'aurait rien à dire de la contiguïté d'avant.
+  const iVerdict = steps.findIndex((st) => (st.ops || []).some((o) => o.op === 'reveal'));
+  const finDeLaPreuve = iVerdict < 0 ? steps.length : iVerdict;
   const poses = [];
   for (let rang = 0; rang * serie < aReveler.length; rang++) {
     const trio = aReveler.slice(rang * serie, rang * serie + serie);
@@ -1292,11 +1421,32 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
       // La ligne a perdu le fil : plus rien n'est démontrable au-delà, et l'on
       // ne couronne jamais au jugé (voir `suivreLaLigne`).
       if (!lignes[k]) break;
-      if (trio.every((id) => lignes[k].includes(id))) { complet = k; break; }
+      if (trio.every((id) => lignes[k].ids.includes(id))) { complet = k; break; }
     }
     if (complet < 0) continue;
-    const r = trio.map((id) => lignes[complet].indexOf(id));
-    if (r[1] !== r[0] + 1 || r[2] !== r[1] + 1) continue;
+    // ★ DEUXIÈME CONDITION : d'un seul tenant, et pas seulement à la suite.
+    //   Trois rangs consécutifs ne font pas un 666 si une frontière de groupe
+    //   passe entre deux d'entre eux — voir `suivreLaLigne`, « LES FRONTIÈRES
+    //   DE GROUPE », et les deux cornes fautives que l'auteur a relevées.
+    if (!dUnSeulTenant(lignes[complet], trio)) continue;
+    // ★ TROISIÈME CONDITION : et ça TIENT jusqu'au bout.
+    //
+    //   « Seuls les 666 non séparés reçoivent des cornes anticipées, et encore,
+    //   seulement s'ils sont censés les avoir jusqu'à la fin » (l'auteur). Un
+    //   triptyque que la suite disperserait, ou qu'un découpage écarterait,
+    //   serait couronné sur une promesse que la démonstration ne tient pas —
+    //   c'est le mensonge visuel que ce projet refuse partout ailleurs.
+    //
+    //   On l'exige donc sur CHAQUE ligne connue, jusqu'à la dernière avant le
+    //   verdict. Et si le rejeu a rendu la main plus tôt, on renonce : ne pas
+    //   savoir n'est pas savoir que oui. La seule ligne dont on se passe est
+    //   celle du verdict lui-même, qui n'existe pas — `reveal` RASSEMBLE, il
+    //   repose les séries côte à côte, et c'est justement ce qu'il montre.
+    let tient = true;
+    for (let k = complet + 1; k < finDeLaPreuve; k++) {
+      if (!lignes[k] || !dUnSeulTenant(lignes[k], trio)) { tient = false; break; }
+    }
+    if (!tient) continue;
     poses.push({ rang, trio, apres: complet });
   }
   if (!poses.length) return 0;

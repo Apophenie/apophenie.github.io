@@ -614,7 +614,13 @@ test('★ cornes — la voie de la vitrine couronne ses triptyques, et n’effac
   const cornes = sc.steps
     .map((s, i) => ({ i, o: (s.ops || []).find((x) => x.op === 'horns') }))
     .filter((x) => x.o);
-  assert.equal(cornes.length, 4, 'quatre triptyques s’écrivent d’eux-mêmes au fil de la ligne');
+  // ★ DEUX, et non plus quatre. Les deux qui tombent sont ceux que l'auteur a
+  //   relevés : « il y a eu 2 ajouts de cornes anticipées, l'un sur 6 6 6,
+  //   l'autre sur 6 66 ». Leurs trois jetons occupaient bien trois rangs
+  //   consécutifs, mais une frontière de découpage passait entre eux —
+  //   la 2ᵉ série enjambe trois morceaux (« hope », « - », « hope »), la 4ᵉ
+  //   en enjambe deux. Ce qui se lit alors n'est pas un 666.
+  assert.equal(cornes.length, 2, 'deux triptyques s’écrivent d’un seul tenant au fil de la ligne');
 
   // ★ RIEN ne s'efface. C'est tout le propos : `mz` couronnait ET tronquait ;
   //   ici les voisins des trois 6 sont d'autres 6, il n'y a rien à jeter.
@@ -624,25 +630,26 @@ test('★ cornes — la voie de la vitrine couronne ses triptyques, et n’effac
   assert.equal(sc.steps.filter((s) => (s.ops || []).some((o) => o.op === 'drop')).length, 0,
     'et aucune gomme n’apparaît dans la démonstration');
 
-  // ★ Chaque couronnement porte sur UNE SÉRIE DU VERDICT, dans l'ordre.
+  // ★ Chaque couronnement porte sur UNE SÉRIE DU VERDICT — la 1ʳᵉ et la 3ᵉ,
+  //   les seules dont les trois 6 tiennent dans un même morceau.
   const verdict = sc.steps[sc.steps.length - 1].ops.find((o) => o.op === 'reveal').targets;
   assert.equal(verdict.length, 15, 'cinq séries de trois');
   const series = [0, 1, 2, 3, 4].map((k) => verdict.slice(k * 3, k * 3 + 3));
-  cornes.forEach(({ o }, k) => assert.deepEqual(o.targets, series[k],
-    `le ${k + 1}ᵉ couronnement doit porter sur la ${k + 1}ᵉ série du verdict`));
+  assert.deepEqual(cornes[0].o.targets, series[0], 'le 1ᵉʳ couronnement porte sur la 1ʳᵉ série');
+  assert.deepEqual(cornes[1].o.targets, series[2], 'le 2ᵉ couronnement porte sur la 3ᵉ série');
 
-  // ★ La CINQUIÈME série n'est pas couronnée, et c'est exact : le point du nom
-  //   de domaine reste entre le « e » du troisième « hope » et le 6 de « fr »
-  //   jusqu'à ce que le verdict l'efface. Les trois 6 ne se touchent jamais
-  //   avant, donc rien ne les couronne — « d'affilée » est le mot qui interdit
-  //   l'assouplissement (CONTRACTS §3.1).
+  // ★ La CINQUIÈME série n'est pas couronnée non plus, et pour une autre
+  //   raison : le point du nom de domaine reste entre le « e » du troisième
+  //   « hope » et le 6 de « fr » jusqu'à ce que le verdict l'efface. Les trois
+  //   6 ne se touchent jamais avant, donc rien ne les couronne — « d'affilée »
+  //   est le mot qui interdit l'assouplissement (CONTRACTS §3.1).
   //   Elle appartient d'ailleurs au rang du bas, dont `reveal` retire les
-  //   cornes : le silence d'ici et l'effacement de là-bas disent la même chose.
+  //   cornes : le silence d'ici et l'effritement de là-bas disent la même chose.
 
-  // ★ Et les rangs, tels que l'auteur les a dictés. Sur les 29 étapes de la
+  // ★ Et les rangs, tels que l'auteur les a dictés. Sur les 27 étapes de la
   //   démonstration, le premier 666 est couronné à la sixième — c'est-à-dire
   //   « entre l'étape 5 et 6 » du déroulé d'origine, qui en comptait 25.
-  assert.deepEqual(cornes.map((c) => c.i + 1), [6, 12, 16, 22]);
+  assert.deepEqual(cornes.map((c) => c.i + 1), [6, 15]);
   assert.equal(sc.cornes.premier, 6);
   assert.equal(sc.cornes.total, sc.steps.length);
 });
@@ -686,7 +693,8 @@ test('★ cornes — un triptyque que le TRI a rapproché n’est pas couronné'
  */
 test('★ cornes — la ligne rejouée rend « null » dès qu’elle ne sait plus', () => {
   const tokens = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
-  const suite = (ops) => suivreLaLigne(tokens, [{ id: 's0', ops }, { id: 's1', ops: [{ op: 'wait' }] }]);
+  const rejeu = (ops) => suivreLaLigne(tokens, [{ id: 's0', ops }, { id: 's1', ops: [{ op: 'wait' }] }]);
+  const suite = (ops) => rejeu(ops).map((l) => (l ? l.ids : null));
 
   // Ce qu'il sait rejouer : un remplacement un pour un, à la même place.
   assert.deepEqual(suite([{ op: 'table', target: 'b', to: { id: 'z', text: '6' } }])[0], ['a', 'z', 'c']);
@@ -703,4 +711,50 @@ test('★ cornes — la ligne rejouée rend « null » dès qu’elle ne sait pl
   assert.deepEqual(suite([{ op: 'table', target: 'inconnu', to: { id: 'z', text: '6' } }]), [null, null]);
   // Le verdict rassemble : après lui il n'y a rien, et rien à rejouer.
   assert.deepEqual(suite([{ op: 'reveal', targets: ['a', 'b', 'c'] }]), [null, null]);
+});
+
+/**
+ * ★ LES FRONTIÈRES DE GROUPE, REJOUÉES — ce que la file d'identifiants ne dit
+ * pas.
+ *
+ * Le découpage ÉCARTE : écart large devant le premier jeton de chaque groupe,
+ * serré devant les autres (`visuel/primitives/partition.js`). C'est cet écart
+ * — et lui seul — qui distingue « 666 » de « 6 6 6 » quand les trois jetons
+ * occupent les mêmes trois rangs. Le rejeu doit donc le suivre, et le suivre à
+ * travers les substitutions : sans cela, le découpage s'évanouirait à la
+ * première conversion et les deux cornes fautives relevées par l'auteur
+ * repousseraient.
+ */
+test('★ cornes — le rejeu suit les frontières de groupe, et leur héritage', () => {
+  const tokens = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+  const decoupe = {
+    op: 'partition',
+    groups: [
+      { targets: ['a', 'b'], tag: 'p0' },
+      { targets: ['c', 'd'], tag: 'p1' },
+    ],
+  };
+
+  const apresDecoupe = suivreLaLigne(tokens, [{ id: 's0', ops: [decoupe] }])[0];
+  // Le premier jeton de la ligne n'ouvre RIEN : son écart n'espacerait pas, il
+  // décentrerait (même remise à zéro que dans la primitive).
+  assert.deepEqual([...apresDecoupe.frontieres], ['c'],
+    'seul le premier jeton du second groupe ouvre une frontière');
+
+  // L'héritage : « c » est remplacé, et son successeur reprend sa frontière.
+  const herite = suivreLaLigne(tokens, [
+    { id: 's0', ops: [decoupe] },
+    { id: 's1', ops: [{ op: 'table', target: 'c', to: { id: 'z', text: '6' } }] },
+  ])[1];
+  assert.deepEqual(herite.ids, ['a', 'b', 'z', 'd']);
+  assert.deepEqual([...herite.frontieres], ['z'], 'la frontière suit le jeton qui prend la place');
+
+  // Un ÉCLATEMENT : seul le premier des nouveaux jetons hérite de l'écart —
+  // les suivants s'insèrent dans la place de leur source, pas devant elle.
+  const eclate = suivreLaLigne(tokens, [
+    { id: 's0', ops: [decoupe] },
+    { id: 's1', ops: [{ op: 'substitute', pairs: [{ target: 'c', to: [{ id: 'z1', text: '1' }, { id: 'z2', text: '5' }] }] }] },
+  ])[1];
+  assert.deepEqual(eclate.ids, ['a', 'b', 'z1', 'z2', 'd']);
+  assert.deepEqual([...eclate.frontieres], ['z1']);
 });

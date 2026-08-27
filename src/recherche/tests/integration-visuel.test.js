@@ -18,6 +18,7 @@ import { suivreLaLigne } from '../scenario.js';
 import { catalogue } from './_catalogue.js';
 
 let compile = null;
+let TOKEN_GAP = 6;
 let REPEAT_SPEED = 5;
 let setGlyphes = null;
 let GLYPHES = null;
@@ -27,6 +28,7 @@ try {
   ({ setGlyphes } = await import('../../visuel/glyphes.js'));
   ({ GLYPHES } = await import('../../moteur/tables/glyphes.js'));
   ({ Scene } = await import('../../visuel/scene.js'));
+  ({ TOKEN_GAP } = await import('../../visuel/constants.js'));
   setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
 } catch {
   compile = null;
@@ -50,7 +52,17 @@ function relever(sc, options) {
   const releves = [];
   const original = Scene.prototype.oublierAncres;
   Scene.prototype.oublierAncres = function mouchard() {
-    releves.push(this.flow.slice());
+    // La file des jetons vivants, ET l'écart qui précède chacun : c'est le
+    // second qui distingue « 666 » de « 6 6 6 » quand la première est
+    // identique. `TOKEN_GAP` est l'écart ordinaire ; au-delà, quelque chose
+    // s'ouvre — c'est ce que `suivreLaLigne` appelle une frontière.
+    releves.push({
+      ids: this.flow.slice(),
+      frontieres: new Set(this.flow.filter((id) => {
+        const g = this.get(id).gapBefore;
+        return g !== undefined && g > TOKEN_GAP;
+      })),
+    });
     return original.call(this);
   };
   try {
@@ -332,8 +344,19 @@ test('intégration — la ligne rejouée par le moteur de recherche est celle du
         const rejeu = suivreLaLigne(sc.tokens, sc.steps);
         for (let i = 0; i + 1 < sc.steps.length; i++) {
           if (rejeu[i] === null) { renoncements++; break; }
-          assert.deepEqual(rejeu[i], releves[i + 1],
+          assert.deepEqual(rejeu[i].ids, releves[i + 1].ids,
             `${s} #${a.rang} (${a.codes}) — ligne après l’étape ${i + 1} « ${sc.steps[i].title} »`);
+          // ★ Et les FRONTIÈRES avec, à l'identique. Le rejeu ne modélise que
+          //   deux gestes — le découpage qui écarte, la substitution qui
+          //   hérite —, et il doit les modéliser EXACTEMENT : sur-déclarer
+          //   ferait taire des cornes légitimes, sous-déclarer les ferait
+          //   pousser sur un « 6 6 6 ». Le jour où une primitive écartera la
+          //   ligne pour une autre raison (`helpers.marquerLesNombres` élargit
+          //   quand une ligne porte des nombres à plusieurs chiffres, cas
+          //   qu'aucune saisie du jeu d'essai ne produit encore), c'est ici que
+          //   ça rougira.
+          assert.deepEqual([...rejeu[i].frontieres].sort(), [...releves[i + 1].frontieres].sort(),
+            `${s} #${a.rang} (${a.codes}) — frontières après l’étape ${i + 1} « ${sc.steps[i].title} »`);
           comparees++;
         }
       }
