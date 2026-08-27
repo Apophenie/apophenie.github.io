@@ -392,6 +392,90 @@ test('★ le scénario découpe le verdict à la longueur de la CIBLE', () => {
   }
 });
 
+/**
+ * ★ LE TRI FINAL NE DIT PLUS « les 6 » QUAND CE SONT DES 7.
+ *
+ * « "On ne garde que les 6", or ce sont les 7 que tu gardes » — l'auteur, sur
+ * `#so!c777!t1+mc+mt#Hi75aotg77MXEgC`. Le libellé était une constante recopiée
+ * de plus (`cible.js`, en-tête) : il survivait au changement de cible sans que
+ * rien ne le contredise.
+ *
+ * Trois choses sont gelées ici, et la première suffirait à faire échouer
+ * l'ancien code :
+ *
+ *  1. **le titre ne nomme jamais un chiffre étranger à la cible** — sur `777`
+ *     il ne peut pas contenir « 6 », sur `111` pas davantage ;
+ *  2. **la longueur de série suit la cible** — « séries de deux » sur `13`, et
+ *     non « séries de trois », second `trois` en dur qui s'entendait moins ;
+ *  3. **les deux langues répondent**, et aucune ne retombe sur l'autre : un
+ *     libellé français dans un Registre anglais serait la divergence que le
+ *     bilinguisme interdit (`src/moteur/i18n.js`).
+ */
+test('★ le tri final nomme la CIBLE, jamais un 6 en dur', () => {
+  for (const texte of ['666', '777', '111', '13']) {
+    const c = lireCible(texte);
+    const r = moteur.resoudre('hope-hope-hope.fr', { cible: texte });
+    let vus = 0;
+    for (const a of r.approches) {
+      for (const langue of ['fr', 'en']) {
+        const sc = moteur.scenarioDe(a, { saisie: 'hope-hope-hope.fr', cible: c, langue });
+        const tri = sc.steps.find((s) => s.recolte);
+        if (!tri) continue;
+        vus++;
+        assert.equal(tri.recolte.cible, texte, `${texte}/${langue} : la récolte porte sa cible`);
+        assert.ok(tri.title && tri.caption, `${texte}/${langue} : ${a.codes} — titre et légende`);
+        // Aucun chiffre hors de la cible ne peut être nommé : c'est le défaut
+        // rapporté, réduit à une assertion.
+        for (const d of '0123456789') {
+          if (c.texte.includes(d)) continue;
+          assert.ok(!tri.title.includes(d),
+            `${texte}/${langue} : « ${tri.title} » nomme un ${d} étranger à la cible`);
+        }
+        if (!tri.recolte.majoritaire && c.longueur > 1) {
+          const mot = langue === 'en'
+            ? ['', 'one', 'two', 'three', 'four', 'five', 'six'][c.longueur]
+            : ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six'][c.longueur];
+          assert.ok(tri.caption.toLowerCase().includes(mot),
+            `${texte}/${langue} : « ${tri.caption} » doit dire des séries de ${mot}`);
+        }
+      }
+    }
+    if (texte === '666') assert.ok(vus > 0, 'le cas de référence doit trier quelque part');
+  }
+});
+
+/**
+ * ★ « LES 6 SONT MAJORITAIRES » NE SE DIT QUE LORSQUE C'EST VRAI.
+ *
+ * La formulation demandée par l'auteur pour l'étape 14 de
+ * `#sce!3.1:t1+m3+my#3A8ev…` ARGUMENTE au lieu de désigner — et une rhétorique
+ * qui s'appuie sur un fait faux n'est plus une rhétorique, c'est une erreur de
+ * Registre. Le drapeau `recolte.majoritaire` est donc recoupé ici contre ce que
+ * la scène montre : ce qu'on surligne, ce qu'on fait tomber.
+ */
+test('★ la majorité annoncée est celle qu’on voit tomber', () => {
+  for (const texte of ['666', '777', '111', '13']) {
+    const c = lireCible(texte);
+    const r = moteur.resoudre('hope-hope-hope.fr', { cible: texte });
+    for (const a of r.approches) {
+      const sc = moteur.scenarioDe(a, { saisie: 'hope-hope-hope.fr', cible: c });
+      const tri = sc.steps.find((s) => s.recolte);
+      if (!tri) continue;
+      const gardes = tri.ops.find((o) => o.op === 'highlight').targets.length;
+      const jetes = tri.ops.find((o) => o.op === 'drop').targets.length;
+      if (tri.recolte.majoritaire) {
+        assert.ok(c.homogene, `${texte} : une cible hétérogène n’a pas de chiffre majoritaire`);
+        assert.ok(gardes * 2 > gardes + jetes,
+          `${texte} : ${a.codes} annonce une majorité sur ${gardes}/${gardes + jetes}`);
+        assert.ok(tri.title.includes('majoritaires'), `${texte} : ${tri.title}`);
+      } else {
+        assert.ok(!tri.title.includes('majoritaires'),
+          `${texte} : ${a.codes} dit la majorité sans la porter`);
+      }
+    }
+  }
+});
+
 test('★ hors de 666, aucune corne ne pousse', () => {
   // Les cornes sont l'emblème du 666, et le contrôle croisé du moteur visuel
   // n'accepte que trois 6 (`visuel/scenario.js`). Une cible sans emblème passe

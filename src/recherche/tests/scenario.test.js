@@ -247,7 +247,12 @@ test('★ scénario — on ne trie qu’UNE fois, et juste avant le verdict', ()
     for (const a of r.approches) {
       const sc = m.scenarioDe(a, { saisie: r.saisie });
       const tris = sc.steps
-        .map((st, i) => (st.title === 'On ne garde que les 6' ? i : -1))
+        // ★ On reconnaît le tri à sa MARQUE (`recolte`), pas à son titre. Le
+        //   titre est désormais dérivé de la cible et de la ligne — « Les 6
+        //   sont majoritaires, on les garde », « On ne garde que les 7 », « On
+        //   ne garde que ce qui écrit 13 » —, et un test qui l'épelle ne
+        //   vérifie plus que sa propre copie du libellé.
+        .map((st, i) => (st.recolte ? i : -1))
         .filter((i) => i >= 0);
       if (!tris.length) continue;
       vus++;
@@ -275,7 +280,7 @@ test('★ scénario — jeter coûte : le rendement suit ce qu’on garde', () =
   assert.ok(app.length >= 2, 'pas assez de voies à rendement pour comparer');
   for (const a of app) {
     const sc = m.scenarioDe(a, { saisie: 'https://hope-hope-hope.fr/' });
-    const tri = sc.steps.find((st) => st.title === 'On ne garde que les 6');
+    const tri = sc.steps.find((st) => st.recolte);
     const jetes = tri ? tri.ops.find((o) => o.op === 'drop').targets.length : 0;
     const gardes = tri
       ? tri.ops.find((o) => o.op === 'highlight').targets.length

@@ -818,22 +818,28 @@ function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = n
 
   const set = new Set(gardes);
   const aJeter = [];
+  // Les VALEURS de ce qui tombe, dans le même ordre que `aJeter` : c'est la
+  // seconde moitié de la ligne, et sans elle on ne peut pas dire si ce qu'on
+  // garde est majoritaire (`recolteMajoritaire`). Une portée de moisson les
+  // fait suivre à l'appelant, qui trie tout d'un seul geste à la fin.
+  const valeursJetees = [];
   for (let i = 0; i < groupe.courants.length; i++) {
     if (set.has(i)) continue;
     const id = premierDe(i);
-    if (id) aJeter.push(id);
+    if (id) { aJeter.push(id); valeursJetees.push(fin.valeur[i]); }
   }
   const valeursGardees = gardes.map((i) => fin.valeur[i]);
   if (aJeter.length) {
-    if (differe) differe.push(...aJeter);
+    if (differe) { differe.ids.push(...aJeter); differe.valeurs.push(...valeursJetees); }
     else {
       // `tous` (la moisson) passe toujours par `differe` : on n'arrive ici que
       // pour un GROUPEMENT, dont la récolte est déjà la dernière étape avant le
       // verdict — c'est-à-dire la seule place que l'auteur lui reconnaît.
+      const majoritaire = recolteMajoritaire(valeursGardees, valeursJetees, cbl);
       poser({
-        titre: MOTS.recolter[langue],
-        legende: MOTS.recolterLegende(serie.series, aJeter.length, langue),
-        recolte: { series: serie.series, jetes: aJeter.length },
+        titre: MOTS.recolter(cbl, majoritaire, langue),
+        legende: MOTS.recolterLegende(serie.series, aJeter.length, cbl, majoritaire, langue),
+        recolte: { series: serie.series, jetes: aJeter.length, cible: cbl.texte, majoritaire },
         ops: [
           { op: 'highlight', targets: aGarder, mode: 'select' },
           { op: 'drop', targets: aJeter, mode: 'fall', at: 350 },
@@ -1426,8 +1432,29 @@ function reglerLesCornes(steps, langue) {
     if (tri) {
       const chute = tri.ops.find((o) => o.op === 'drop');
       chute.targets = [...chute.targets, ...aEffacer];
-      tri.recolte = { series: tri.recolte.series, jetes: chute.targets.length };
-      tri.caption = MOTS.recolterLegende(tri.recolte.series, chute.targets.length, langue);
+      /* ★ LA MAJORITÉ NE SURVIT PAS À LA FUSION — et c'est un refus, pas un oubli.
+         Le tri s'était dit « majoritaire » sur la ligne qu'il avait alors sous
+         les yeux (`recolteMajoritaire`). En lui joignant l'effacement des
+         cornes, on fait tomber dans le MÊME geste des valeurs qu'il n'avait pas
+         comptées — et `mz` peut fort bien en effacer un 6 : il tronque à trois
+         chiffres d'affilée, `[6,6,6,6]` y perd son quatrième. « Les 6 sont
+         majoritaires, on les garde » deviendrait alors faux sous les yeux mêmes
+         du spectateur qui en voit un tomber.
+         Les valeurs effacées, elles, ne voyagent pas jusqu'ici : l'op `horns`
+         ne porte que des identifiants, et le vocabulaire visuel est CLOS
+         (CONTRACTS §3.1) — on ne lui ajoute pas un champ pour un libellé. Faute
+         de pouvoir refaire le compte, on ne l'affirme plus : le titre retombe
+         sur la désignation, qui reste vraie quoi qu'il tombe. */
+      tri.recolte = {
+        series: tri.recolte.series,
+        jetes: chute.targets.length,
+        cible: tri.recolte.cible,
+        majoritaire: false,
+      };
+      tri.title = MOTS.recolter(tri.recolte.cible, false, langue);
+      tri.caption = MOTS.recolterLegende(
+        tri.recolte.series, chute.targets.length, tri.recolte.cible, false, langue,
+      );
     } else {
       steps.splice(iRev < 0 ? steps.length : iRev, 0, {
         id: `s${steps.length}`,
@@ -1638,8 +1665,11 @@ export function construireScenario(approche, ctx = {}) {
   const steps = [];
   const resultats = [];
   // Ce que les portées d'une moisson écartent, en attendant le geste unique qui
-  // le montrera juste avant le verdict (voir `recolterLesSix`).
-  const rejets = [];
+  // le montrera juste avant le verdict (voir `recolterLesSix`). Les VALEURS
+  // voyagent avec les identifiants : le tri final doit pouvoir dire si ce qu'il
+  // garde est majoritaire sur la ligne, et une ligne ne se compte pas sur des
+  // identifiants.
+  const rejets = { ids: [], valeurs: [] };
   // Les valeurs des jetons de `resultats`, dans le même ordre — voir
   // `recolterLesSix` : sur une cible non homogène, le verdict doit relire la
   // SUITE et non compter des occurrences.
@@ -1909,13 +1939,28 @@ export function construireScenario(approche, ctx = {}) {
     const series = seriesDe(valeursFinales, cible, recolteTotale.series);
     const garde = new Set(series.flat());
     const surplus = finaux.filter((_, i) => !garde.has(i));
+    // Les valeurs suivent la même coupe que les jetons — c'est ce qui permet de
+    // compter la ligne, gardés et tombés ensemble (`recolteMajoritaire`).
+    const valeursGardees = valeursFinales.filter((_, i) => garde.has(i));
+    const surplusValeurs = valeursFinales.filter((_, i) => !garde.has(i));
     finaux = finaux.filter((_, i) => garde.has(i));
-    const aJeter = [...rejets, ...surplus];
+    const aJeter = [...rejets.ids, ...surplus];
+    const valeursJetees = [...rejets.valeurs, ...surplusValeurs];
     if (aJeter.length) {
+      const majoritaire = recolteMajoritaire(valeursGardees, valeursJetees, cible);
       poserBloc({
-        titre: MOTS.recolter[langue],
-        legende: MOTS.recolterLegende(recolteTotale.series, aJeter.length, langue),
-        recolte: { series: recolteTotale.series, jetes: aJeter.length },
+        titre: MOTS.recolter(cible, majoritaire, langue),
+        legende: MOTS.recolterLegende(
+          recolteTotale.series, aJeter.length, cible, majoritaire, langue,
+        ),
+        recolte: {
+          series: recolteTotale.series,
+          jetes: aJeter.length,
+          // L'écriture, pas l'objet : un step reste du JSON pur (CONTRACTS §3),
+          // et `normaliserCible` relit une chaîne aussi bien qu'une cible.
+          cible: cible.texte,
+          majoritaire,
+        },
         ops: [
           { op: 'highlight', targets: finaux, mode: 'select' },
           { op: 'drop', targets: aJeter, mode: 'fall', at: 350 },
@@ -2420,6 +2465,65 @@ function citer(texte, langue) {
 }
 
 /**
+ * Les longueurs de série écrites en toutes lettres — « séries de trois ».
+ *
+ * ★ La table s'arrête à six, et ce n'est pas une paresse : `cible.js ›
+ * MAX_CHIFFRES` plafonne une cible à six chiffres, donc une série ne peut pas
+ * être plus longue. Au-delà, `recolterLegende` retombe sur le chiffre, ce qui
+ * ne peut arriver que si ce plafond bouge — et l'on préfère « séries de 7 » à
+ * un `undefined` dans le Registre.
+ */
+const EN_LETTRES = Object.freeze({
+  fr: ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six'],
+  en: ['', 'one', 'two', 'three', 'four', 'five', 'six'],
+});
+
+/** Capitale initiale, sans `toLocaleUpperCase` (§4.4 : pas d'`Intl`). */
+const majuscule = (mot) => (mot ? mot[0].toUpperCase() + mot.slice(1) : mot);
+
+/**
+ * ★ LA MAJORITÉ EST UNE MESURE, PAS UNE FIGURE DE STYLE.
+ *
+ * « Les 6 sont majoritaires, on les garde / Les chiffres minoritaires ne sont
+ * pas significatifs, on les retire » — l'auteur, sur l'étape 14 de
+ * `#sce!3.1:t1+m3+my#3A8ev…`. La phrase est belle parce qu'elle donne une
+ * RAISON là où l'ancienne se contentait de désigner ; elle n'est belle que
+ * tant qu'elle est vraie.
+ *
+ * Trois conditions, et chacune ferme un mensonge possible :
+ *
+ *  1. **cible homogène.** « Les 6 » nomme un chiffre ; sur `13` ou `007` il n'y
+ *     en a pas un seul à nommer, ce sont des positions qu'on retient.
+ *  2. **aucun exemplaire du chiffre ne tombe.** Un vecteur à sept 6 dont le
+ *     verdict n'aligne que deux séries en laisse un sur le carreau : « on les
+ *     garde » serait faux pour celui-là. On exige donc que les gardés soient
+ *     TOUS les porteurs de la valeur visée.
+ *  3. **majorité STRICTE de la ligne.** Plus de la moitié des valeurs à
+ *     l'écran, pas seulement la valeur la plus fréquente. « Majoritaire » se
+ *     dit des deux en français, et l'on prend le sens qui ne se discute pas :
+ *     sur le témoin `c777!`, trois 7 sur onze valeurs ne sont majoritaires dans
+ *     aucun sens du mot, et c'est exactement le cas que l'auteur nous reproche
+ *     d'avoir mal nommé.
+ *
+ * ★ On ne compte PAS ce que le vecteur contenait à une étape antérieure : la
+ * ligne dont on parle est celle que le spectateur a sous les yeux au moment du
+ * tri — les valeurs gardées plus les valeurs qui tombent. Ce qui est dit reste
+ * ce qui est montré (CONTRACTS §0.3).
+ *
+ * @param {number[]} gardees   les valeurs retenues
+ * @param {number[]} jetees    les valeurs qui tombent
+ * @param {import('./cible.js').Cible} cible
+ */
+function recolteMajoritaire(gardees, jetees, cible) {
+  const cbl = normaliserCible(cible);
+  if (!cbl.homogene) return false;
+  const chiffre = cbl.chiffres[0];
+  if (!gardees.length || !gardees.every((v) => v === chiffre)) return false;
+  if (jetees.some((v) => v === chiffre)) return false;
+  return gardees.length * 2 > gardees.length + jetees.length;
+}
+
+/**
  * Les quelques phrases que `scenario.js` écrit lui-même — celles qui n'ont pas
  * d'opérateur derrière elles. Même règle que le catalogue : les deux langues,
  * ou rien (`src/moteur/i18n.js`).
@@ -2468,17 +2572,100 @@ const MOTS = Object.freeze({
   lecture: (n, langue) => (langue === 'en'
     ? `${ordinalEn(n)} reading`
     : `${n === 1 ? 'Première' : n === 2 ? 'Deuxième' : n === 3 ? 'Troisième' : `${n}ᵉ`} lecture`),
-  recolter: { fr: 'On ne garde que les 6', en: 'Keep the 6s, and only those' },
-  recolterLegende: (series, jetes, langue) => {
-    if (langue === 'en') {
-      return series > 1
-        ? `${series} runs of three — the other ${jetes} value${jetes > 1 ? 's fall' : ' falls'} away`
-        : `Three of them, side by side — the other ${jetes} value${jetes > 1 ? 's fall' : ' falls'} away`;
+  /**
+   * ★ LE TRI FINAL — trois façons de le dire, et c'est la MESURE qui choisit.
+   *
+   * « "On ne garde que les 6", or ce sont les 7 que tu gardes. Le titre est à
+   * rendre dynamique » — l'auteur, sur `#so!c777!t1+mc+mt#Hi75aotg77MXEgC`. Le
+   * « 6 » en dur datait d'un monde où le verdict ne pouvait rien écrire d'autre ;
+   * depuis `cible.js`, il ment dès qu'on vise autre chose, et il mentait déjà à
+   * l'oreille sur `13` (« séries de trois » pour des séries de deux).
+   *
+   * ⚠ **Le chiffre n'est PAS recopié ici : il est lu sur la cible**, qui est le
+   * seul endroit qui la porte. Ce dépôt a déjà payé le prix des constantes
+   * recopiées (`cible.js`, en-tête) ; on ne rouvre pas l'ardoise pour un
+   * libellé.
+   *
+   * ── Les trois formulations ────────────────────────────────────────────────
+   *
+   *  1. **« Les 6 sont majoritaires, on les garde »** — la formulation demandée
+   *     par l'auteur pour `#sce!3.1:t1+m3+my#3A8ev…` (étape 14). C'est la seule
+   *     qui ARGUMENTE : elle ne dit plus « on garde ce qu'on cherchait », elle
+   *     invoque la majorité, c'est-à-dire une propriété de la ligne qu'on a sous
+   *     les yeux. C'est de la rhétorique numérologique, et c'est le propos du
+   *     site — mais une rhétorique qui s'appuie sur un fait FAUX ne serait plus
+   *     de la rhétorique, ce serait une erreur de Registre. Elle n'est donc
+   *     employée que lorsque `recolteMajoritaire` l'établit (voir là-bas).
+   *  2. **« On ne garde que les 7 »** — l'ancienne phrase, le chiffre en moins.
+   *     C'est le repli quand la cible est homogène mais que la majorité n'est
+   *     pas au rendez-vous : sur le témoin `c777!`, les 7 gardés sont trois sur
+   *     onze, et les dire majoritaires serait le second mensonge après le
+   *     premier.
+   *  3. **« On ne garde que ce qui écrit 007 »** — hors cible homogène, il n'y a
+   *     aucun chiffre unique à nommer : ce sont des POSITIONS qu'on garde, dans
+   *     l'ordre, et la phrase le dit (`seriesDe`, `cible.js`).
+   *
+   * ★ Sur `666`, le cas 1 ou le cas 2 s'appliquent selon la ligne, et le cas 2
+   * rend MOT POUR MOT l'ancienne chaîne : le repli exigé par `cible.js` est
+   * exact partout où la majorité n'est pas acquise.
+   */
+  recolter: (cible, majoritaire, langue) => {
+    const cbl = normaliserCible(cible);
+    if (majoritaire) {
+      return langue === 'en'
+        ? `The ${cbl.chiffres[0]}s are in the majority, so they stay`
+        : `Les ${cbl.chiffres[0]} sont majoritaires, on les garde`;
     }
-    const reste = jetes > 1 ? `les ${jetes} autres valeurs tombent` : 'l’autre valeur tombe';
-    return series > 1
-      ? `${series} séries de trois — ${reste}`
-      : `Trois, côte à côte — ${reste}`;
+    if (cbl.homogene) {
+      return langue === 'en'
+        ? `Keep the ${cbl.chiffres[0]}s, and only those`
+        : `On ne garde que les ${cbl.chiffres[0]}`;
+    }
+    return langue === 'en'
+      ? `Keep only what spells out ${cbl.texte}`
+      : `On ne garde que ce qui écrit ${cbl.texte}`;
+  },
+  /**
+   * La légende du tri — ce qu'on garde, et ce qui tombe.
+   *
+   * ★ **Quand la majorité est acquise, la légende ARGUMENTE elle aussi**, et
+   * c'est la seconde ligne demandée par l'auteur : « Les chiffres minoritaires
+   * ne sont pas significatifs, on les retire. » Le relevé chiffré cède la place
+   * — il disait « 2 séries de trois », que l'étape suivante (« Le verdict :
+   * 666 666 ») écrit de toute façon en toutes lettres, et le nombre de valeurs
+   * tombées se lit sur la ligne qu'on vient de montrer.
+   *
+   * ★ Hors de ce cas, le relevé reste — et sa longueur de série suit la cible :
+   * « séries de trois » pour `666`, « séries de deux » pour `13`. C'était le
+   * second « trois » en dur, et il se voyait moins que le premier.
+   */
+  recolterLegende: (series, jetes, cible, majoritaire, langue) => {
+    const en = langue === 'en';
+    if (majoritaire) {
+      return en
+        ? 'Minority digits are not significant, so out they go.'
+        : 'Les chiffres minoritaires ne sont pas significatifs, on les retire.';
+    }
+    const cbl = normaliserCible(cible);
+    const reste = en
+      ? `the other ${jetes} value${jetes > 1 ? 's fall' : ' falls'} away`
+      : (jetes > 1 ? `les ${jetes} autres valeurs tombent` : 'l’autre valeur tombe');
+    // ★ Une série d'UN chiffre ne se met pas « côte à côte » avec elle-même :
+    //   la phrase des séries longues n'a simplement pas de sens ici, et une
+    //   cible d'un signe est parfaitement légale (`cible.js`).
+    if (cbl.longueur === 1) {
+      return en
+        ? `${series > 1 ? `${series} of them` : 'Just the one'} — ${reste}`
+        : `${series > 1 ? `${series} fois le ${cbl.texte}` : `Un seul ${cbl.texte}`} — ${reste}`;
+    }
+    const bloc = EN_LETTRES[en ? 'en' : 'fr'][cbl.longueur] || String(cbl.longueur);
+    return en
+      ? (series > 1
+        ? `${series} runs of ${bloc} — ${reste}`
+        : `${majuscule(bloc)} of them, side by side — ${reste}`)
+      : (series > 1
+        ? `${series} séries de ${bloc} — ${reste}`
+        : `${majuscule(bloc)}, côte à côte — ${reste}`);
   },
   // ★ Deux légendes ont disparu avec le tri par portée : « On en garde N » (la
   // récolte d'une portée) et « le 6 en trop reste sur le carreau » (l'appoint).

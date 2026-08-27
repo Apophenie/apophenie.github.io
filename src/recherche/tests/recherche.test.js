@@ -1111,7 +1111,9 @@ test('★ « Donald Trump » : deux 666 déjà formés, en tête de liste', () =
   const sc = m.scenarioDe(tete, { saisie: 'Donald Trump' });
   const cornes = sc.steps.flatMap((st) => st.ops).filter((o) => o.op === 'horns');
   assert.equal(cornes.length, 2, 'deux 666 trouvés, deux paires de cornes');
-  assert.equal(sc.steps.some((st) => st.title === 'On ne garde que les 6'), false,
+  // Le tri se reconnaît à sa marque `recolte` et non à son titre : celui-ci
+  // suit désormais la cible et la ligne (`scenario.js › MOTS.recolter`).
+  assert.equal(sc.steps.some((st) => st.recolte), false,
     'rien n’est trié : les 666 étaient déjà là');
 });
 
