@@ -21,6 +21,17 @@
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles/tokens.css">
 <link rel="stylesheet" href="styles/base.css">
+<!-- ★ LES FEUILLES DU SITE, ET C'EST DÉLIBÉRÉ.
+
+     La lightbox de chaque opérateur monte la VRAIE scène, la VRAIE barre de
+     transport et le VRAI Registre — pas des imitations. Ces composants ont
+     leur habillage dans `pages.css` et `controls.css` ; les priver de leur
+     feuille produirait une scène nue, donc une page qui montrerait autre chose
+     que ce qu'un visiteur voit. Or c'est précisément ce qu'on vient vérifier
+     ici. Ces deux feuilles ne portent que des sélecteurs de classe : elles ne
+     touchent à rien de l'austérité voulue du récapitulatif. -->
+<link rel="stylesheet" href="styles/pages.css">
+<link rel="stylesheet" href="styles/controls.css">
 <link rel="stylesheet" href="styles/debug.css">
 </head>
 <body>

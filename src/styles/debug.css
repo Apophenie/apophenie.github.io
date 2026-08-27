@@ -90,3 +90,144 @@
 
 .dbg__alerte { color: var(--rubric); font-family: var(--machine); font-size: var(--fs-2xs); margin-top: var(--e2); }
 .dbg__ok { color: var(--fg-3); font-family: var(--machine); font-size: var(--fs-2xs); margin-top: var(--e2); }
+
+/* ══════════════ LE BOUTON « JOUER » ET SA LIGHTBOX ══════════════════════════
+
+   « Associe à chaque méthode un bouton play qui joue l'exemple dans une scène
+   en lightbox » (l'auteur). Le bouton vit dans un tableau très dense — deux
+   pixels de marge par cellule — mais reste une CIBLE TACTILE PLEINE : `--touche`
+   (48 px), sans exception. Un tableau serré n'est pas une raison pour rendre un
+   bouton inatteignable au doigt ; c'est au contraire là qu'on rate le voisin.
+
+   ★ RIEN N'ANIME `opacity` ICI. Le voile et le panneau paraissent d'un coup :
+   un fondu sur un élément qui porte aussi une transformation ou un `filter`
+   déclenche un défaut de compositeur (`src/visuel/tests/compositeur.test.js`),
+   et une page de débogage n'a rien à gagner à un effet. */
+
+.dbg__jouer-cellule { padding: 0 !important; text-align: center; }
+
+.dbg__jouer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touche);
+  height: var(--touche);
+  min-width: var(--touche);
+  min-height: var(--touche);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--phos);
+  cursor: pointer;
+}
+.dbg__jouer svg { width: 18px; height: 18px; }
+.dbg__jouer .ico-plein { fill: currentColor; }
+.dbg__jouer:hover { color: var(--gold, var(--phos)); }
+.dbg__jouer:focus-visible { outline: 2px solid var(--phos); outline-offset: -6px; }
+
+/* Le voile : il occulte la page, et il est lui-même le bouton « fermer » de
+   dernier recours — un clic à côté du panneau referme (`ouvrirLaScene`). */
+.dbg__voile {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: auto;
+  padding: var(--e3);
+  background: color-mix(in srgb, var(--canvas) 86%, black);
+}
+
+.dbg__modale {
+  position: relative;
+  width: min(64rem, 100%);
+  margin: auto;
+  padding: var(--e4);
+  background: var(--canvas);
+  border: var(--rule) solid var(--line);
+  box-shadow: 0 0 0 3px var(--canvas), 0 0 0 4px var(--line);
+}
+.dbg__modale > h2 { margin: 0 var(--touche) var(--e2) 0; }
+
+.dbg__fermer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--touche);
+  height: var(--touche);
+  min-width: var(--touche);
+  min-height: var(--touche);
+  border: 0;
+  background: none;
+  color: var(--fg-2);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+.dbg__fermer:hover { color: var(--rubric); }
+.dbg__fermer:focus-visible { outline: 2px solid var(--phos); outline-offset: -6px; }
+
+.dbg__regle {
+  font-family: var(--pedagogue);
+  font-style: italic;
+  color: var(--fg-2);
+  margin: 0 0 var(--e3);
+  max-width: var(--mesure);
+}
+
+.dbg__scene { margin-bottom: var(--e3); }
+
+/* Le Registre est ici en pleine largeur : la lightbox n'a pas de colonne
+   latérale, et sa liste doit rester bornée pour que la scène tienne à l'écran. */
+.dbg__demo .registre { max-width: none; }
+
+/* D'où vient l'exemple : la saisie témoin, le programme trouvé, le lien. C'est
+   ce qui permet de rejouer la démonstration ailleurs — donc de vérifier que la
+   page ne s'est rien inventé. */
+.dbg__fiche {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px var(--e2);
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  margin: var(--e3) 0 0;
+}
+.dbg__fiche dt { color: var(--fg-3); }
+.dbg__fiche dd { margin: 0; color: var(--phos); overflow-wrap: anywhere; }
+
+/* ══════════════ LE SENS DES PALIERS DU BARÈME ══════════════════════════════
+
+   « J'ai l'impression qu'il y a des bonus et des malus, mais ça ne se voit
+   pas » (l'auteur). La marque `+` ou `−` n'est PAS déduite du nom du palier :
+   elle est mesurée en poussant le palier et en regardant où va le crédit. La
+   couleur ne fait que redire ce que le signe dit déjà — elle n'est jamais le
+   seul porteur de l'information (WCAG 1.4.1). */
+
+.dbg__groupe-barème { margin-top: var(--e4); }
+.dbg__groupe-titre {
+  font-family: var(--machine);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: var(--e1);
+}
+.dbg__gain > .dbg__groupe-titre { color: var(--phos); }
+.dbg__perte > .dbg__groupe-titre { color: var(--rubric); }
+.dbg__mixte > .dbg__groupe-titre,
+.dbg__neutre > .dbg__groupe-titre { color: var(--fg-3); }
+
+.dbg__sens {
+  width: 2ch;
+  text-align: center;
+  font-weight: 700;
+  cursor: help;
+}
+.dbg__gain .dbg__sens { color: var(--phos); }
+.dbg__perte .dbg__sens { color: var(--rubric); }
+.dbg__mixte .dbg__sens, .dbg__neutre .dbg__sens { color: var(--fg-3); }
+
+/* Le même signe, hors du barème rangé — sans groupe pour le colorer. Il reste
+   parfaitement lisible : le glyphe a toujours été le porteur de l'information,
+   la couleur ne faisait que la redire (WCAG 1.4.1). */
+.dbg__sens--seul { color: var(--fg-2); }
