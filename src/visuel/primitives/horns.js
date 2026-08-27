@@ -2,8 +2,19 @@
  * `horns` — LES CORNES. La chute du site.
  *
  * Trois 6 sont déjà côte à côte dans la ligne, dans cet ordre, sans rien entre
- * eux : le 666 est écrit avant qu'on le regarde. On lui met des cornes, et le
- * reste de la séquence s'efface.
+ * eux : le 666 est écrit avant qu'on le regarde. On lui met des cornes — et,
+ * si `efface` en désigne, le reste de la séquence s'efface avec.
+ *
+ * ★ **Aucun émetteur ne remplit plus `efface`**, et c'est le sens du dernier
+ * amendement (CONTRACTS §3.1, « LES CORNES SORTENT DE L'URL »). Les cornes ne
+ * sont plus le geste d'un opérateur : elles ne changent ni une valeur, ni un
+ * rang, ni un compte, donc elles n'ont rien à faire dans un programme ni dans
+ * une URL. L'assemblage les pose sur la LIGNE, selon le REGISTRE, et sans rien
+ * effacer (`recherche/scenario.js › couronnerLesTriptyques`) ; l'effacement,
+ * lui, est resté chez `mz`, dans une étape à part qui porte son propre motif.
+ * Le paramètre est conservé — la primitive sait le faire, un scénario relu
+ * d'ailleurs peut en porter un, et les deux sections qui suivent expliquent
+ * pourquoi il ne pourrait pas être remplacé par un `drop` voisin.
  *
  * ## Pourquoi une op à part, et pas une option de `highlight` ou de `drop`
  *
@@ -34,12 +45,14 @@
  * (`effacerSurPlace`, `helpers.js`) : un par un, sur place, sans que rien
  * bouge.
  *
- * ★ Et `efface` peut être VIDE, sans que rien ne change ici. L'assemblage a le
- * droit de scinder le geste en deux moments — couronner dès que les trois 6
- * existent, effacer une seule fois juste avant le verdict (`reglerLesCornes`,
- * `recherche/scenario.js`, CONTRACTS §3.1). Ce qu'il ne peut pas faire, c'est
- * effacer AVANT : la primitive lit alors une ligne pleine, et le contrôle
- * croisé ci-dessous garde exactement la même valeur.
+ * ★ Et `efface` peut être VIDE, sans que rien ne change ici — c'est même le
+ * seul cas que le projet produise encore. Les deux gestes ont été séparés à la
+ * source : l'assemblage couronne dès que les trois 6 s'écrivent, `mz` efface à
+ * sa propre étape. Ce que personne ne peut faire, c'est effacer AVANT le
+ * couronnement : la primitive lit alors une ligne pleine, et le contrôle croisé
+ * ci-dessous garde exactement la même valeur. L'ordre est structurellement tenu
+ * — on ne couronne qu'à l'instant où le troisième 6 paraît, donc toujours avant
+ * l'étape qui efface.
  *
  * ## Les cornes se posent SUR les 6, pas sur la scène
  *

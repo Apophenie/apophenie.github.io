@@ -1277,9 +1277,16 @@ function dUnSeulTenant(ligne, trio) {
 /**
  * ★ COURONNER SANS EFFACER — le geste que personne n'émettait.
  *
+ * ★ **Et c'est aujourd'hui LE SEUL émetteur de cornes du projet.** Aucun
+ * opérateur n'en pose plus : un couronnement qui dépendrait d'un code
+ * dépendrait de l'URL, et deux liens arithmétiquement identiques montreraient
+ * l'un des cornes et l'autre pas. Voir `transformations/mappeurs.js`, « CET
+ * OPÉRATEUR NE COURONNE PLUS », et CONTRACTS §3.1.
+ *
  * **Le manque, tel qu'il se constatait.** L'unique source de cornes du projet
- * était l'opérateur `mz` (`m.troisSixDAffilee`), et il fait DEUX choses : il
- * couronne trois 6 contigus **et il tronque le vecteur à ces trois-là**. C'est
+ * était alors l'opérateur `mz` (`m.troisSixDAffilee`), et il faisait DEUX
+ * choses : il couronnait trois 6 contigus **et il tronquait le vecteur à ces
+ * trois-là**. C'est
  * juste quand le vecteur ne rapporte qu'une série — sur `Donald Trump`, il n'y
  * a rien à garder après le 666 —, et c'est ruineux dès qu'il en rapporte
  * plusieurs : sur `hope-hope-hope.fr`, `mz` ne garderait que 3 des 15 six, une
