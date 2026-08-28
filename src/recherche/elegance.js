@@ -418,6 +418,40 @@ export const BAREME = {
   PORTEE_IGNOREE: 1600,
 
   /**
+   * ★ **ON NE REVIENT PAS SUR UNE ÉTAPE APRÈS ÊTRE PASSÉ À AUTRE CHOSE.**
+   *
+   * « C'est plus élégant de faire la même étape partout où elle peut avoir lieu
+   * plutôt que d'y revenir plusieurs fois, entrecoupé avec d'autres choses »
+   * (l'auteur), et « trouver un ordre qui permet de factoriser les étapes pour
+   * les appliquer le plus largement possible est préférable ».
+   *
+   * ⚠️ **MESURÉ : le barème ne voyait RIEN de cet ordre.** Les deux écritures
+   * d'une même démonstration sur `hope-hope-hope.fr` —
+   * `0.1:P,1.1:Q,2.1:P,3.1:Q,4.1:P,6.1:R` et `0.1:P,2.1:P,4.1:P,1.1:Q,3.1:Q,6.1:R`
+   * — notaient **2 120 / 3 771 l'une comme l'autre, au point près**. Rien ne
+   * distinguait la démonstration qui fait trois fois la même chose d'affilée de
+   * celle qui fait ces trois choses en alternance.
+   *
+   * ★ **CE QUI SE PAIE EST LE RETOUR, PAS LA RÉPÉTITION.** Répéter un programme
+   * sur plusieurs portées n'est pas un défaut — c'est même ce que l'auteur
+   * demande d'encourager, et la résonance le récompense déjà (`score.js ›
+   * BONUS.resonance`). Ce qui coûte, c'est de le QUITTER puis d'y REVENIR : le
+   * spectateur doit alors rouvrir un raisonnement qu'il avait refermé.
+   *
+   * On compte donc les changements de programme le long des parts, et on en
+   * retranche le minimum incompressible — il en faut toujours `distincts − 1`
+   * pour passer d'un programme au suivant. Ce qui dépasse est un retour, et
+   * chaque retour se paie. Un ordre parfaitement groupé ne paie rien, quel que
+   * soit le nombre de programmes ; l'alternance maximale paie le plus.
+   *
+   * ⚠️ Aucun double comptage avec la résonance : celle-ci récompense trois parts
+   * qui portent LE MÊME TEXTE, ce poste facture un ORDRE. Une résonance a un
+   * seul programme, donc zéro retour possible — les deux ne se rencontrent
+   * jamais sur la même approche.
+   */
+  RETOUR_SUR_UNE_ETAPE: 60,
+
+  /**
    * ★ **UN FILTRE QU'ON N'APPLIQUE QU'À UN MOT EST UN FILTRE SÉLECTIF.**
    *
    * « Si ce n'est pas une suppression arbitraire mais via un filtre voyelle ou
@@ -1041,6 +1075,7 @@ export const NATURE = Object.freeze({
   TRANSFORMATION: { sens: -1, famille: 'elegance' },
   REMISE_ADDITION_EN_CHAINE: { sens: +1, famille: 'elegance' },
   PORTEE_IGNOREE: { sens: -1, famille: 'elegance' },
+  RETOUR_SUR_UNE_ETAPE: { sens: -1, famille: 'elegance' },
   FILTRE_SELECTIF: { sens: -1, famille: 'elegance' },
   VALEUR_JETEE: { sens: -1, famille: 'elegance' },
   RELIQUAT_HORS_CIBLE: { sens: -1, famille: 'elegance' },
@@ -1985,6 +2020,7 @@ export function bilanApproche(approche, ctx = {}) {
     majoriteTacite: 0,
     valeursJetees: 0,
     filtresSelectifs: 0,
+    retours: 0,
     triptyquesContigus: 0,
     triptyquesRepetes: 0,
     casses: 0,
@@ -2015,6 +2051,18 @@ export function bilanApproche(approche, ctx = {}) {
   //   compte les parts qui s'écartent de la signature MAJORITAIRE : c'est
   //   « appliquer la même méthode à l'ensemble » qui est gratuit, et s'en
   //   écarter qui se paie — pas l'inverse.
+  // ★ LES RETOURS — voir `RETOUR_SUR_UNE_ETAPE`. On lit les programmes ENTIERS
+  //   des parts, dans l'ordre où l'approche les nomme, et l'on compte ce que les
+  //   changements ont de superflu.
+  const programmes = parts.map((p) => (p.chemin && p.chemin.ops ? p.chemin.ops : [])
+    .map((op) => op.code).join('+'));
+  if (programmes.length > 1) {
+    let changements = 0;
+    for (let i = 1; i < programmes.length; i++) if (programmes[i] !== programmes[i - 1]) changements++;
+    const distincts = new Set(programmes).size;
+    b.retours = Math.max(0, changements - (distincts - 1));
+  }
+
   const signatures = parts.map((p) => (p.chemin && p.chemin.ops ? p.chemin.ops : [])
     .filter((op) => op.famille === 'filtre').map((op) => op.code).join('+'));
   if (signatures.length > 1) {
@@ -2199,6 +2247,8 @@ export function detailDuCredit(b, poids) {
     ['min / max', 'MIN_MAX', b.minMax, B.MIN_MAX * b.minMax],
     ['lettre → lettre', 'LETTRE_VERS_LETTRE', b.lettreVersLettre,
       B.LETTRE_VERS_LETTRE * b.lettreVersLettre],
+    ['retour sur une étape déjà quittée', 'RETOUR_SUR_UNE_ETAPE', b.retours || 0,
+      B.RETOUR_SUR_UNE_ETAPE * (b.retours || 0)],
     ['filtre appliqué à une part seulement', 'FILTRE_SELECTIF', b.filtresSelectifs || 0,
       B.FILTRE_SELECTIF * (b.filtresSelectifs || 0)],
     ['part de la saisie jamais lue', 'PORTEE_IGNOREE', ignores,

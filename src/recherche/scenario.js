@@ -2265,6 +2265,44 @@ export function construireScenario(approche, ctx = {}) {
     aReveler = copies.map((c) => c.id);
   }
 
+  // ★ **LE VERDICT RASSEMBLE DANS L'ORDRE DE LA LIGNE, PAS DANS CELUI DES
+  //   PORTÉES.**
+  //
+  // « Au verdict, tous les 6, peu importe l'ordre dans lequel ils ont été
+  // convertis, doivent être rassemblés puis redécoupés par trio » (l'auteur).
+  //
+  // `aReveler` était construit en parcourant les PARTS, donc dans l'ordre où
+  // l'approche les nomme — qui n'est pas l'ordre où elles s'affichent. Tant que
+  // les deux coïncidaient, personne ne pouvait voir la différence. Ils cessent
+  // de coïncider dès qu'une approche range ses portées autrement, ce que la
+  // notation groupée encourage : `0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,…`
+  // nomme ses places 0, 2, 4, 1, 3, 6 pour que les jumelles se touchent.
+  //
+  // `reveal` découpe alors des trios dont les jetons sont DISPERSÉS dans la
+  // ligne — et l'auteur l'a vu : « les 6 n'étaient pas affichés/groupés
+  // correctement lors du verdict ». Le moteur visuel n'y est pour rien : sa
+  // primitive respecte l'ordre du tableau qu'on lui donne (`scene.resolve`), ce
+  // qui est la bonne règle. C'est le tableau qui était dans le désordre.
+  //
+  // ⚠️ On trie donc sur la LIGNE MODÉLISÉE, celle que `suivreLaLigne` rejoue —
+  //    la même source que le couronnement des cornes, qui découpe `aReveler` en
+  //    trios lui aussi. Deux tris différents ici et là feraient couronner un
+  //    triptyque que le verdict n'assemble pas, et le test d'accord entre les
+  //    deux mesures rougirait — à raison.
+  const ligneFinale = (() => {
+    const suivies = suivreLaLigne(tokens, steps);
+    for (let k = suivies.length - 1; k >= 0; k--) if (suivies[k]) return suivies[k].ids;
+    return null;
+  })();
+  if (ligneFinale && aReveler.length > 1) {
+    const rang = new Map(ligneFinale.map((id, i) => [id, i]));
+    // Un jeton que le rejeu n'a pas su suivre garde sa place : on ne réordonne
+    // que ce dont on est sûr, et jamais au jugé.
+    if (aReveler.every((id) => rang.has(id))) {
+      aReveler = [...aReveler].sort((a, b) => rang.get(a) - rang.get(b));
+    }
+  }
+
   if (aReveler.length > 1) {
     // Pas de `move` ici : `reveal` efface lui-même les jetons écartés et laisse
     // le layout recentrer ce qui reste. Un `move ... to: 'front'` ne ferait plus
