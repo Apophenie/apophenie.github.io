@@ -2211,13 +2211,6 @@ export class ErreurRendu extends Error {
 }
 
 /**
- * Formes de paramètres exigées par les primitives de `src/visuel/primitives/`.
- * Le vocabulaire est fermé, mais chaque primitive a ses paramètres : un `op`
- * bien nommé mais mal paramétré échouerait à la compilation, côté visuel, au
- * moment où l'utilisateur clique. On le rattrape ici.
- * @returns {string|null} le grief, ou null si la forme est conforme
- */
-/**
  * Ce qu'un décor mutualisé ajoute à la forme d'une op : son nom d'outil et les
  * deux drapeaux de son cycle de vie. Écrit une fois — les afficheurs à segments
  * partagent mot pour mot ce que la table et le clavier exigent déjà.
@@ -2231,6 +2224,13 @@ function formeDeDecor(o) {
   return null;
 }
 
+/**
+ * Formes de paramètres exigées par les primitives de `src/visuel/primitives/`.
+ * Le vocabulaire est fermé, mais chaque primitive a ses paramètres : un `op`
+ * bien nommé mais mal paramétré échouerait à la compilation, côté visuel, au
+ * moment où l'utilisateur clique. On le rattrape ici.
+ * @returns {string|null} le grief, ou null si la forme est conforme
+ */
 export function validerFormeOp(o) {
   const chaine = (x) => typeof x === 'string' && x.length > 0;
   const cibles = (x) => chaine(x) || (Array.isArray(x) && x.length && x.every(chaine))
@@ -2278,12 +2278,10 @@ export function validerFormeOp(o) {
       if (o.teinte !== undefined && o.teinte !== 'valeur') return '« teinte » doit valoir valeur';
       if (o.cycle !== undefined && typeof o.cycle !== 'boolean') return '« cycle » doit être un booléen';
       if (!chaine(o.target)) return '« target » manquant';
-      if (o.titre !== undefined && !chaine(o.titre)) return '« titre » doit être le nom de l’outil, non vide';
-      // Le décor se mutualise d'une étape à l'autre : deux drapeaux, deux
-      // booléens, rien de plus.
-      for (const k of ['montre', 'retire']) {
-        if (o[k] !== undefined && typeof o[k] !== 'boolean') return `« ${k} » doit être un booléen`;
-      }
+      // Le décor se mutualise d'une étape à l'autre, et il porte le nom de
+      // l'outil : un titre, deux drapeaux, rien de plus (`formeDeDecor`).
+      const decor = formeDeDecor(o);
+      if (decor) return decor;
       return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
     }
     case 'substitute': {
@@ -2314,15 +2312,13 @@ export function validerFormeOp(o) {
       return Array.isArray(o.ids) && o.ids.length === n && o.ids.every(chaine)
         ? null : `« ids », s'il est fourni, doit contenir exactement ${n} identifiant(s)`;
     }
-    case 'keyboard':
+    case 'keyboard': {
       if (!chaine(o.target)) return '« target » manquant';
-      if (o.titre !== undefined && !chaine(o.titre)) return '« titre » doit être le nom de l’outil, non vide';
-      // Le décor se mutualise d'une étape à l'autre, comme celui de la table :
-      // deux drapeaux, deux booléens, rien de plus.
-      for (const k of ['montre', 'retire']) {
-        if (o[k] !== undefined && typeof o[k] !== 'boolean') return `« ${k} » doit être un booléen`;
-      }
+      // Même décor mutualisé, même contrôle que la table (`formeDeDecor`).
+      const decor = formeDeDecor(o);
+      if (decor) return decor;
       return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
+    }
     case 'horns': {
       // Trois cibles, pas deux, pas quatre : 666 fait trois 6. Et `efface` est
       // une liste d'identifiants, éventuellement vide (rien à effacer autour
