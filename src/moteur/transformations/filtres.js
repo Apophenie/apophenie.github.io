@@ -50,6 +50,53 @@ export const outilCesar = (decalage) => bilingue(
     : `Caesar cipher (${decalage})`,
 );
 
+/**
+ * ★ LE DÉCALAGE, LU SUR LA TABLE — et donc sur la fonction qui chiffre.
+ *
+ * Un chiffre de César n'a pas à DÉCLARER son décalage : sa réglette le dit. On
+ * la lit comme le moteur visuel la lira pour animer le coulissement — la
+ * question est la même (« de combien de rangs l'alphabet a-t-il glissé ? ») et
+ * la réponse doit venir de la même source, sinon le titre et le mouvement
+ * pourraient se contredire.
+ *
+ * Est un glissement, et rien d'autre : les vingt-six lettres, dans l'ordre, et
+ * une valeur qui les suit d'un pas de +1 constant modulo 26. Le miroir de
+ * l'Atbash (pas de −1) n'en est pas un — il n'est pas *un* César, il est le
+ * sien propre, et il porte donc son nom en propre.
+ *
+ * @param {ReadonlyArray<{char:string,value:string}>} table
+ * @returns {number|null} le décalage, ou `null` si ce n'est pas un glissement
+ */
+function decalageDe(table) {
+  if (!Array.isArray(table) || table.length !== LETTRES.length) return null;
+  const rang = (c) => LETTRES.indexOf(String(c).toUpperCase());
+  const pas = [];
+  for (let i = 0; i < table.length; i++) {
+    const e = table[i];
+    if (!e || rang(e.char) !== i || String(e.value).length !== 1) return null;
+    const v = rang(e.value);
+    if (v < 0) return null;
+    pas.push((v - i + 26) % 26);
+  }
+  // Un décalage, c'est le MÊME écart partout ; et zéro n'est pas un chiffrement.
+  if (!pas[0] || pas.some((p) => p !== pas[0])) return null;
+  return pas[0];
+}
+
+/**
+ * Le nom de l'outil qu'un chiffrement montre, quand il se déduit de sa table.
+ *
+ * ★ C'est le pendant exact d'`outilDuGeste` chez les mappeurs, et il existe
+ * pour la même raison : ajouter `fr7` ne doit demander AUCUNE chaîne de plus.
+ * L'opérateur donne sa fonction, la fonction donne la réglette, la réglette
+ * donne le décalage, et le décalage donne le nom — « Chiffre de César (7) »,
+ * sous la table, sans que rien n'ait été recopié nulle part.
+ */
+const outilDuChiffrement = (spec) => {
+  const n = decalageDe(spec.table);
+  return n === null ? null : outilCesar(n);
+};
+
 // Libellés dont `steps()` a besoin avant que `def()` ait figé l'opérateur.
 const LIB_RAPPROCHER = bilingue('On rapproche ce qui reste', 'Close the gaps');
 const REG_RAPPROCHER = bilingue('Les lettres retenues se remettent côte à côte',
@@ -574,10 +621,11 @@ const brut = [
     id: 'f.rot13', code: 'fr13', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue(`On applique le chiffre de César (${CESAR_CLASSIQUE})`,
       `Apply the Caesar cipher (${CESAR_CLASSIQUE})`),
-    // Le nom de l'outil se DÉDUIT du décalage (`outilCesar`) : le jour où le
-    // catalogue accueillera les autres décalages, chacun s'annoncera
-    // « Chiffre de César (7) » sans qu'aucune scène ait à changer.
-    outil: outilCesar(CESAR_CLASSIQUE),
+    // ★ Pas d'`outil` déclaré, et c'est délibéré : il se DÉDUIT de la réglette
+    //   (`outilDuChiffrement`), qui se déduit elle-même de `cesar`. Le jour où
+    //   le catalogue accueillera les autres décalages, chacun s'annoncera
+    //   « Chiffre de César (7) » sans une ligne de plus — et sans qu'aucun
+    //   d'eux ne puisse annoncer un décalage qu'il n'applique pas.
     regle: bilingue('Chaque lettre avance de 13 rangs', 'Every letter moves thirteen places along'),
     notoriete: 0.25, adHoc: 0.25,
     apply: (valeur, traces) => muer(valeur, traces, (s) => cesar(s, CESAR_CLASSIQUE)),
@@ -638,10 +686,12 @@ export const FILTRES = Object.freeze(brut.map((spec) => {
   const parTable = remplace && Array.isArray(spec.table) && spec.table.length > 0;
   const base = {
     ...reste,
-    // Le même repli que `def` (le libellé à défaut d'un nom d'outil), appliqué
-    // AVANT que `steps()` ne se referme dessus : la scène et le catalogue
-    // doivent lire la même chaîne, pas deux replis qui se ressemblent.
-    outil: reste.outil || reste.libelle,
+    // Le nom AFFICHÉ DANS LA SCÈNE : celui que l'opérateur déclare, sinon celui
+    // que sa table dicte (un chiffre de César se nomme par son décalage), sinon
+    // son libellé. Calculé ici, une fois, AVANT que `steps()` ne se referme
+    // dessus : la scène et le catalogue doivent lire la MÊME chaîne, pas deux
+    // replis qui se ressemblent.
+    outil: reste.outil || outilDuChiffrement(reste) || reste.libelle,
     sortie: parTable ? sortieMuee : (remplace ? sortieCreee : sortieConservee),
   };
   const steps = parTable ? etapeTable(base)

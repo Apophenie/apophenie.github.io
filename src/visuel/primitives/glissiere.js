@@ -69,7 +69,14 @@ export const ROLE_CASE = 'case';
  * `REPOS` n'est pas du remplissage : la bande arrivée doit être LUE avant que
  * la première lettre ne s'envole, sinon le mouvement n'aura servi à rien.
  */
-const TEMPS = Object.freeze({ ATTENTE: 0.05, COURSE: 0.45, REPOS: 0.08 });
+const TEMPS = Object.freeze({
+  /** Le fondu d'apparition de la bande — celui du décor, à l'identique. */
+  PARAIT: 0.16,
+  /** Le temps d'arrêt, une fois la bande là, AVANT qu'elle ne bouge. */
+  ATTENTE: 0.08,
+  COURSE: 0.45,
+  REPOS: 0.08,
+});
 
 /** Points d'échantillonnage d'une ellipse — assez pour que l'arc soit un arc. */
 const ECHANTILLONS = 12;
@@ -86,7 +93,20 @@ const ECHANTILLONS = 12;
  * Ce qui compte est préservé : les demi-axes verticaux restent proportionnels
  * aux horizontaux, donc l'alignement tient à chaque instant.
  */
-const APLATISSEMENT = 0.13;
+const APLATISSEMENT = 0.22;
+
+/**
+ * ★ Ce que les cases perdent en taille pendant le retournement.
+ *
+ * Un miroir a ceci de particulier que TOUTES ses cases se croisent au même
+ * point au même instant : leur milieu commun est le milieu de la bande. À
+ * mi-parcours, les vingt-six se retrouvent donc empilées sur une même verticale
+ * — c'est de la géométrie, pas un défaut d'animation, et aucun réglage
+ * d'ellipse ne l'évite. On les rétrécit à l'approche du croisement pour que la
+ * pile s'éclaircisse, et on les rend à leur taille en arrivant : le mouvement
+ * se lit alors comme une bande qui se met de chant, puis se repose retournée.
+ */
+const RETRECISSEMENT = 0.55;
 
 /** Fenêtre de fondu d'une case qui franchit un bord, en fraction de la course. */
 const FONDU_BORD = 0.07;
@@ -139,6 +159,13 @@ export function poserBande(ctx, spec) {
   }
 
   // ── 3. le déploiement : la bande paraît ALIGNÉE, puis se déplace ───────
+  //
+  // ★ Deux temps, et l'ordre fait tout le propos. La bande paraît AVEC le
+  // décor, alignée sur la réglette du haut — deux fois l'alphabet, ce qui
+  // n'affirme rien —, et elle ne bouge qu'une fois posée et lue. Si elle
+  // partait pendant son propre fondu, on ne verrait jamais l'état de départ,
+  // c'est-à-dire précisément ce qu'il fallait montrer avant le déplacement.
+  const parait = T * TEMPS.PARAIT;
   const debut = t0 + T * TEMPS.ATTENTE;
   const course = T * TEMPS.COURSE;
 
@@ -159,16 +186,19 @@ export function poserBande(ctx, spec) {
     // chevauchent sont un avertissement de compilation — et surtout un état
     // ambigu au scrubbing (`compile.js`, « conflits d'animation »).
     if (c.bord === null) {
-      ctx.anim({ id: c.id, prop: 'opacity', to: 1, at: t0, dur: T * 0.12 });
+      ctx.anim({ id: c.id, prop: 'opacity', to: 1, at: 0, dur: parait });
     } else if (c.fantome) {
-      const total = T * (TEMPS.ATTENTE + TEMPS.COURSE);
-      const f = (T * TEMPS.ATTENTE) / total;
+      // Le fantôme paraît avec les autres et s'en va au bord : une seule
+      // animation, du fondu d'entrée jusqu'à la sortie, parce que deux
+      // animations d'un même canal qui se chevauchent laisseraient l'état
+      // ambigu au scrubbing (`compile.js`, « conflits d'animation »).
+      const total = debut + course;
       const [a, b] = fenetre(c.bord);
       ctx.anim({
         id: c.id, prop: 'opacity',
         values: [0, 1, 1, 0, 0],
-        offsets: [0, f, f + (1 - f) * a, f + (1 - f) * b, 1],
-        at: t0, dur: total, ease: EASE.fade,
+        offsets: [0, parait / total, (debut + a * course) / total, (debut + b * course) / total, 1],
+        at: 0, dur: total, ease: EASE.fade,
       });
     }
     if (c.trajet.length > 2) {
@@ -184,6 +214,14 @@ export function poserBande(ctx, spec) {
     } else {
       ctx.anim({
         id: c.id, prop: 'translate', from: scene(c.depart), to: scene(c.arrivee),
+        at: debut, dur: course, ease: EASE.move,
+      });
+    }
+    if (c.tailles) {
+      ctx.anim({
+        id: c.id, prop: 'scale',
+        values: c.tailles,
+        offsets: c.tailles.map((_, i) => i / (c.tailles.length - 1)),
         at: debut, dur: course, ease: EASE.move,
       });
     }
@@ -251,6 +289,17 @@ function trajectoires(geo, board) {
     const signe = versLaDroite ? 1 : -1;
     // Δ se MESURE sur une case qui ne franchit aucun bord : elle seule parcourt
     // le déplacement en entier, couture comprise.
+    //
+    // ★ Une réserve, et elle est assumée. La COUTURE — le vide que le dessin
+    // ménage là où la réglette du bas repasse par le bout de l'alphabet — n'est
+    // pas franchie par toutes les cases : celles qui restent du même côté
+    // parcourent douze unités de moins que les autres. La bande n'est donc
+    // parfaitement rigide que lorsque la couture tombe entre les deux moitiés,
+    // ce qui est le cas du César classique. Ailleurs, l'écart vaut une couture
+    // sur plusieurs centaines d'unités — invisible —, et il tombe exactement là
+    // où le dessin dit qu'il se passe quelque chose. On préfère cette
+    // approximation à un déplacement qui poserait les cases ailleurs qu'à leur
+    // place : ce sont les positions d'arrivée qui doivent être justes.
     const modele = basses.find((bas, col) => {
       const dep = colonneDe.get(String(bas.labels[0].text).toUpperCase());
       return col === dep + signe * crans;
@@ -298,14 +347,20 @@ function trajectoires(geo, board) {
     const cx = (bas.cx + haut.cx) / 2;
     const b = a * APLATISSEMENT;
     const trajet = [];
+    const tailles = [];
     for (let k = 0; k <= ECHANTILLONS; k++) {
       const theta = (Math.PI * k) / ECHANTILLONS;
       trajet.push({ x: cx - a * Math.cos(theta), y: bas.cy + b * Math.sin(theta) });
+      // La case s'amincit à mesure qu'elle approche du croisement, et se
+      // retrouve entière une fois posée. Le facteur suit le sinus, comme la
+      // bosse : les deux disent la même chose du même mouvement.
+      tailles.push(1 - RETRECISSEMENT * Math.sin(theta));
     }
     cases.push({
       ...gabarit(bas, col, board),
       depart: { x: haut.cx, y: bas.cy },
       trajet,
+      tailles,
       bord: null,
     });
   }
@@ -332,6 +387,7 @@ function gabarit(bas, col, board, fantome = false) {
     h: bas.h,
     arrivee: { x: bas.cx, y: bas.cy },
     trajet: [],
+    tailles: null,
   };
 }
 
