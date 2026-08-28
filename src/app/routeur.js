@@ -96,7 +96,17 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
   const registre = lecture.registre;
   const cible = lecture.cible;
   const { scenario, source } = pont.scenarioDe(approche, lecture.saisie, { registre, cible });
-  const clef = { saisie: lecture.saisie, fragments: lecture.fragments, registre, cible };
+  // ★ Les RETOUCHES font partie de la clef, au même titre que les fragments :
+  //   sans elles, `canoniser()` réécrirait la barre d'adresse en OUBLIANT
+  //   l'étage amont, et le lien recopié par le visiteur ne rejouerait pas ce
+  //   qu'il a sous les yeux (§4.3, `url.js`).
+  const clef = {
+    saisie: lecture.saisie,
+    retouches: lecture.retouches,
+    fragments: lecture.fragments,
+    registre,
+    cible,
+  };
   const urlCanonique = pont.ecrireHash(clef);
   // L'autre mise en scène de la MÊME voie : le même programme, l'autre
   // marqueur. C'est ce lien que la page de démonstration propose en bas — et il

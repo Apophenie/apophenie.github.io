@@ -1210,6 +1210,92 @@ test('★ « Donald Trump » : deux 666 déjà formés, en tête de liste', () =
 });
 
 /**
+ * ★ L'ÉTAGE DES RETOUCHES DANS LA RECHERCHE — branché, éprouvé, DÉBRANCHÉ.
+ *
+ * « On fait la conversion fr13 sur le 2ᵈ mot, puis on trie l'ensemble, on
+ * applique m14 à l'ensemble » (l'auteur). La grammaire sait l'écrire (`url.js`,
+ * le `;`), le moteur sait le rejouer, la scène sait le montrer — et
+ * `assemblage.js › groupementsRetouches` sait le TROUVER.
+ *
+ * ⚠️ **Il reste débranché, et ce test gèle les deux moitiés de cette décision.**
+ * Le générateur marche : sur « Donald Trump », il retrouve tout seul la
+ * démonstration que l'auteur avait décrite à la main. Mais les opérations d'une
+ * retouche ne sont vues ni par `score.js` ni par `elegance.js` — elles voyagent
+ * à côté des parts —, si bien qu'une voie retouchée est notée comme si son
+ * étage amont était gratuit. Branché, il détrône la voie que l'auteur a nommée
+ * lui-même sur cette saisie-là (le test ci-dessus), ce qui n'est pas un
+ * arbitrage de moteur. Voir `.planning/A-VENIR-retouches.md`.
+ */
+/**
+ * ⚠️ **Le moteur à retouches est construit UNE fois, à la demande, et les
+ * saisies sont comptées.** Le budget du pipeline est mesuré dans ce même
+ * fichier, à 1 000 ms, et la saisie la plus lourde du banc en consomme 96 % —
+ * ajouter du travail ici, c'est rapprocher ce test-là de son plafond par la
+ * bande. `creerMoteur` construit un bassin d'attraction complet : un seul
+ * suffit pour les deux tests, et il ne se construit que si on y arrive.
+ */
+let moteurRetouches = null;
+const AVEC_RETOUCHES = () => (moteurRetouches
+  ||= creerMoteur(catalogue, { filetTemporel: false, retouches: true }));
+
+test('★ retouches — DÉBRANCHÉES par défaut : aucune voie n’en porte', () => {
+  const m = creerMoteur(catalogue, { filetTemporel: false });
+  for (const s of ['Donald Trump', 'Marie Curie']) {
+    for (const a of m.resoudre(s).approches) {
+      assert.equal(a.retouches, undefined, `« ${s} » : ${a.codes} porte une retouche`);
+      assert.ok(!a.url.includes(';'), `« ${s} » : ${a.url} porte un « ; »`);
+    }
+  }
+});
+
+test('★ retouches — branchées, la recherche RETROUVE la voie décrite par l’auteur', () => {
+  const r = AVEC_RETOUCHES().resoudre('Donald Trump');
+  const avec = r.approches.filter((a) => a.retouches && a.retouches.length);
+  assert.ok(avec.length, 'aucune voie retouchée trouvée sur « Donald Trump »');
+
+  const voie = avec[0];
+  // Le mot réécrit est bien le SECOND, et le chiffre est celui que l'auteur
+  // nomme — la recherche les a choisis, ils ne sont pas écrits ici.
+  assert.equal(voie.retouches[0].fragment.texte, 'Trump');
+  assert.deepEqual(voie.retouches[0].chemin.ops.map((o) => o.code), ['fr13']);
+  assert.equal(voie.saisieRetouchee, 'Donald Gehzc');
+  assert.equal(voie.series, 2);
+
+  // Les CODES nomment l'étage amont, exactement comme le lien l'écrit : sans
+  // quoi deux voies qui ne diffèrent que par leur retouche seraient
+  // indiscernables et l'ordre total cesserait d'être total (§4.4-1).
+  assert.match(voie.codes, /^2\.1:fr13;/);
+
+  // Et le lien rejoue EXACTEMENT ce que la liste affiche (§4.3).
+  const rejeu = AVEC_RETOUCHES().rejouer(lire(voie.url, { catalogue }));
+  assert.ok(rejeu.ok, rejeu.raison);
+  assert.equal(rejeu.approche.url, voie.url);
+  assert.equal(rejeu.approche.score, voie.score);
+  assert.equal(rejeu.approche.series, voie.series);
+});
+
+test('★ retouches — une retouche qui n’apporte pas de série de plus n’est pas proposée', () => {
+  // Le seuil est STRICT : c'est le seul garde-fou contre un étage amont gratuit
+  // (voir `assemblage.js › groupementsRetouches`). On le vérifie en rejouant le
+  // même programme SANS la retouche : il doit aligner moins de séries.
+  // Deux saisies suffisent — elles portent à elles seules quatre voies
+  // retouchées, et le corpus complet est passé au banc, pas ici.
+  let vues = 0;
+  for (const s of ['Donald Trump', 'Emmanuel Macron']) {
+    for (const a of AVEC_RETOUCHES().resoudre(s).approches) {
+      if (!a.retouches || !a.retouches.length) continue;
+      vues++;
+      const codes = a.parts[0].chemin.ops.map((o) => o.code).join('+');
+      const nu = AVEC_RETOUCHES().rejouer(lire(`#${codes}#${encoderTexte(s)}`, { catalogue }));
+      const avant = nu.ok ? (nu.approche.series || 1) : 0;
+      assert.ok(a.series > avant,
+        `« ${s} » : ${a.codes} aligne ${a.series} séries, ${codes} seul en aligne déjà ${avant}`);
+    }
+  }
+  assert.ok(vues >= 3, `seulement ${vues} voies retouchées observées`);
+});
+
+/**
  * ★ Le garde-fou du mode : aucun 6 offert, aucun caractère compté deux fois.
  * Chaque part est démontrée, les portées ne se recouvrent pas, et le nombre de
  * chiffres révélés à l'écran est exactement celui que le verdict annonce.

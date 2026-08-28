@@ -679,7 +679,13 @@ export function titreApproche(approche, langue = LANGUE_DEFAUT) {
  */
 export function regleApproche(approche, langue = LANGUE_DEFAUT) {
   const regles = [];
-  for (const p of (approche.parts || [])) {
+  // ★ Les RETOUCHES d'abord, et dans l'ordre où elles ont été jouées. Le
+  //   sous-titre énumère ce qu'on fait à la saisie ; taire l'étage qui la
+  //   RÉÉCRIT ferait annoncer une règle qui ne mène pas au résultat montré —
+  //   sur « Donald Trump », « on trie, on compte les segments » sans dire qu'on
+  //   a d'abord chiffré le second mot. Le TITRE, lui, ne bouge pas : il nomme
+  //   la méthode par sa vedette, et une préparation n'est pas la méthode.
+  for (const p of [...(approche.retouches || []), ...(approche.parts || [])]) {
     for (const o of p.chemin.ops) {
       const r = dire(o.regle, langue);
       if (r && !regles.includes(r)) regles.push(r);
