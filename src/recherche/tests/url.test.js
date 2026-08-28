@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  lire, ecrire, ecrireApproche, descripteursDe, canoniser, autreRegistre, BANDEAUX, RE_CODE,
+  lire, ecrire, ecrireApproche, descripteursDe, retouchesDe, canoniser, autreRegistre,
+  BANDEAUX, RE_CODE,
 } from '../url.js';
 import { encoderTexte, LIMITE_SAISIE } from '../base58.js';
 import { catalogue } from './_catalogue.js';
@@ -105,6 +106,114 @@ test('url — écriture canonique : aller-retour exact', () => {
   assert.deepEqual(r.fragments, frags);
   assert.equal(r.registre, 'sobre');
   assert.equal(r.registreEcrit, true);
+});
+
+/**
+ * ★ LA RETOUCHE — un étage AMONT qui réécrit la saisie, puis tout le monde lit.
+ *
+ * La demande de l'auteur, mot pour mot : « on fait la conversion fr13 sur le
+ * 2ᵈ mot, puis on trie l'ensemble, on applique m14 à l'ensemble ». La grammaire
+ * ne savait l'écrire d'aucune façon : un fragment porte son programme de bout
+ * en bout, et deux fragments ne se recombinent qu'au verdict.
+ *
+ * Ces tests tiennent les trois choses qui font qu'un `;` n'est pas une virgule
+ * de plus : ce qui est AVANT prépare, ce qui est APRÈS lit, et une
+ * démonstration sans retouche s'écrit exactement comme avant.
+ */
+test('★ url — `;` sépare les étages : ce qui réécrit, puis ce qui lit', () => {
+  const r = lire(`#so!2.1:fr13;fl+tca+m14#${encoderTexte('Donald Trump')}`);
+  assert.equal(r.forme, 'canonique');
+  assert.equal(r.retouches.length, 1);
+  assert.deepEqual(r.retouches[0], {
+    portee: { offset: 2, longueur: 1 }, resonance: null, codes: ['fr13'],
+  });
+  // Ce qui suit le `;` est l'approche ordinaire, virgules comprises.
+  assert.equal(r.fragments.length, 1);
+  assert.deepEqual(r.fragments[0].codes, ['fl', 'tca', 'm14']);
+  assert.equal(r.fragments[0].portee, null);
+});
+
+test('★ url — plusieurs retouches s’enchaînent, dans l’ordre écrit', () => {
+  const r = lire(`#so!0.1:fmaj;2.1:fr13;tca+m14,nd#${encoderTexte('Donald Trump')}`);
+  assert.equal(r.forme, 'canonique');
+  assert.deepEqual(r.retouches.map((x) => x.codes), [['fmaj'], ['fr13']]);
+  assert.deepEqual(r.retouches.map((x) => x.portee),
+    [{ offset: 0, longueur: 1 }, { offset: 2, longueur: 1 }]);
+  assert.equal(r.fragments.length, 2, 'la virgule sépare encore les fragments');
+});
+
+test('★ url — une retouche sans portée porte sur la saisie entière', () => {
+  const r = lire(`#so!fr13;tca+m14#${B58_HOPE}`);
+  assert.equal(r.forme, 'canonique');
+  assert.deepEqual(r.retouches, [{ portee: null, resonance: null, codes: ['fr13'] }]);
+});
+
+test('★ url — aller-retour d’une retouche, au caractère près', () => {
+  const lien = `#so!2.1:fr13;fl+tca+mtal+m14+mpf#${encoderTexte('Donald Trump')}`;
+  const r = lire(lien);
+  assert.equal(ecrire({
+    saisie: r.saisie, retouches: r.retouches, fragments: r.fragments, registre: r.registre,
+  }), lien);
+});
+
+/**
+ * ★ LA NON-RÉGRESSION QUI COMPTE LE PLUS : le `;` ne paraît QUE là où il dit
+ * quelque chose. Tous les liens déjà écrits — et il n'y en a qu'un genre : ceux
+ * sans retouche — gardent leur forme canonique au caractère près.
+ */
+test('★ url — sans retouche, l’écriture est INCHANGÉE au caractère près', () => {
+  const frags = [{ portee: null, resonance: null, codes: ['tca', 'm14', 'm36'] }];
+  const attendu = `#so!tca+m14+m36#${B58_HOPE}`;
+  assert.equal(ecrire({ saisie: 'hope', fragments: frags, registre: 'sobre' }), attendu);
+  assert.equal(ecrire({ saisie: 'hope', fragments: frags, registre: 'sobre', retouches: [] }), attendu);
+  assert.ok(!attendu.includes(';'));
+});
+
+test('★ url — une retouche seule ne désigne aucune démonstration', () => {
+  // À la lecture : il manque l'étage qui lit.
+  assert.equal(lire(`#so!2.1:fr13;#${B58_HOPE}`).forme, 'invalide');
+  // À l'écriture : une page de résultats n'a rien à préparer.
+  assert.equal(ecrire({
+    saisie: 'hope', retouches: [{ portee: null, resonance: null, codes: ['fr13'] }],
+  }), `##${B58_HOPE}`);
+});
+
+test('★ url — pas d’abréviation de résonance dans une retouche', () => {
+  const r = lire(`#so!×3:fr13;tca+m14#${B58_URL}`);
+  assert.equal(r.forme, 'invalide');
+  assert.match(r.raison, /résonance/);
+  assert.equal(r.bandeau, BANDEAUX.formatInconnu);
+  // …mais elle reste parfaitement licite dans un FRAGMENT.
+  assert.equal(lire(`#so!fr13;×3:tca+m14#${B58_URL}`).fragments[0].resonance, 3);
+});
+
+test('★ url — un code inconnu dans une retouche est refusé comme ailleurs', () => {
+  // `mzzz` a la FORME d'un code (§4.1) mais n'est pas au catalogue : c'est bien
+  // « une règle que cette version ne connaît pas », pas un lien mal formé.
+  const r = lire(`#so!2.1:mzzz;tca+m14#${B58_URL}`, { catalogue });
+  assert.equal(r.forme, 'invalide');
+  assert.equal(r.bandeau, BANDEAUX.codeInconnu);
+  assert.match(r.raison, /mzzz/);
+});
+
+test('★ url — retouchesDe traduit l’étage amont d’une approche', () => {
+  const op = (code) => ({ code });
+  const approche = {
+    retouches: [{
+      chemin: { ops: [op('fr13')] },
+      fragment: { offset: 7, longueur: 5, tokenDebut: 2, tokenLong: 1, famille: 'portee' },
+    }],
+    parts: [],
+  };
+  assert.deepEqual(retouchesDe(approche), [
+    { portee: { offset: 2, longueur: 1 }, resonance: null, codes: ['fr13'] },
+  ]);
+  // Une retouche qui couvre TOUT n'écrit pas sa portée — même règle que pour un
+  // fragment, et c'est la FAMILLE qui le dit (voir `url.js › retouchesDe`).
+  approche.retouches[0].fragment = {
+    offset: 0, longueur: 12, tokenDebut: 0, tokenLong: 3, famille: 'entier',
+  };
+  assert.equal(retouchesDe(approche)[0].portee, null);
 });
 
 test('url — écriture sans approche = page de résultats', () => {

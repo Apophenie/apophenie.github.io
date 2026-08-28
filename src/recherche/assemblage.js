@@ -50,6 +50,10 @@ import {
   appliquerOp, etat, normaliserCatalogue, operateursPourCible,
   cleEtat, cleTrace, rendreValeur, codeAvant,
 } from './bfs.js';
+// L'étage des RETOUCHES réécrit la saisie, donc il la re-tokenise : une portée
+// d'URL se compte en jetons (§4.2), et ceux du texte réécrit ne sont pas ceux
+// du texte tapé. `fragments.js` ne dépend que de `bfs.js` — aucun cycle.
+import { tokeniser } from './fragments.js';
 
 /**
  * Modes d'assemblage, du plus convaincant au moins :
@@ -213,6 +217,21 @@ const MAX_JETONS_MOISSON = 24;      // portées atomiques soumises à l'énumér
  * la voie nommée par l'auteur en tête, ou laisser sortir celle qui la bat.
  */
 const MAX_CANDIDATS_PORTEE = 10;
+
+/**
+ * Bornes de l'étage des RETOUCHES (voir `groupementsRetouches`).
+ *
+ * Elles bornent un PRODUIT — mots × filtres × vecteurs — et non trois listes
+ * indépendantes : c'est le produit qui décide du coût, et le catalogue fournit
+ * déjà les vingt et un filtres `STR → STR` sans qu'on ait rien à dire.
+ *
+ * Six mots et quatre vecteurs, donc au plus 504 programmes rejoués. Le budget du
+ * pipeline complet est d'une seconde, et la saisie la plus lourde du banc en
+ * consomme déjà l'essentiel — d'où des bornes serrées plutôt que généreuses. Ce
+ * qu'elles coûtent malgré tout est mesuré dans `.planning/A-VENIR-retouches.md`.
+ */
+const MAX_JETONS_RETOUCHE = 6;
+const MAX_VECTEURS_RETOUCHES = 4;
 
 /** L'opérateur « trois 6 d'affilée » — voir `prefererLeTriptyqueMontre`. */
 const ID_TRIPTYQUE = 'm.troisSixDAffilee';
@@ -609,6 +628,111 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     finaux.push(n);
   }
   return finaux;
+}
+
+/**
+ * ★ LE GROUPEMENT SOUS RETOUCHE — « on fait la conversion fr13 sur le 2ᵈ mot,
+ *   puis on trie l'ensemble, on applique m14 à l'ensemble » (l'auteur).
+ *
+ * La grammaire sait désormais l'écrire (`url.js`, le `;`) et le moteur sait le
+ * rejouer (`index.js`). Reste à le TROUVER, et c'est ici.
+ *
+ * ★ **On n'explore pas un espace de plus, on RETESTE ce qu'on a déjà trouvé.**
+ * L'étage prend les vecteurs que `vecteursDeSix` vient de rendre sur la saisie
+ * entière et les rejoue à l'identique sur une saisie dont UN mot a été réécrit.
+ * C'est exactement la question de l'auteur — « la même méthode, si l'on chiffre
+ * ce mot-là, donne-t-elle davantage ? » — et c'est ce qui rend l'étage abordable :
+ * aucune énumération neuve, seulement des programmes connus rejoués.
+ *
+ * ★ **Et la réponse ne compte que si elle est OUI.** Une retouche qui laisse le
+ * compte de séries inchangé n'est pas une variante, c'est un détour : la même
+ * démonstration, une opération de plus, et rien de plus à montrer. On exige
+ * donc STRICTEMENT plus de séries qu'avant retouche.
+ *
+ * ⚠️ **Ce garde-fou tient lieu de barème, et c'est un pis-aller assumé.** Les
+ * opérations d'une retouche ne sont PAS vues par `score.js` ni par
+ * `elegance.js` : elles voyagent à côté des parts, jamais dedans (voir
+ * `index.js › rejouer`, et le pavé qui explique pourquoi les mettre dedans
+ * fabriquerait un mode faux). Une voie retouchée est donc notée comme si son
+ * étage amont était gratuit. Exiger une série de plus borne le dégât — elle ne
+ * peut pas gagner sa place sans rien apporter — mais ne le supprime pas.
+ * L'arbitrage revient à l'auteur : `.planning/A-VENIR-retouches.md`.
+ *
+ * ★ **Trois bornes, et elles sont là pour le budget, pas pour la doctrine.** Le
+ * pipeline complet tient sous la seconde (`recherche.test.js`) et la saisie la
+ * plus lourde du banc en consomme déjà 96 %. Le produit `mots × filtres ×
+ * vecteurs` est ce qui pourrait s'emballer : on le borne aux premiers mots, aux
+ * vecteurs de tête, et à la saisie entière — jamais aux sous-fragments, dont la
+ * recombinaison n'apporterait qu'une explosion.
+ *
+ * ⚠️ Et même ainsi bornées, elles coûtent **+64 ms** sur cette saisie-là (mesuré,
+ * JIT chaud). C'est la seconde raison — après l'arbitrage du barème — pour
+ * laquelle l'étage reste débranché : il faudra balayer ces trois bornes avant de
+ * le brancher, aucune n'ayant encore été mesurée contre les autres.
+ *
+ * @param {string} saisie
+ * @param {Object[]} jetons        la tokenisation de la saisie (§4.2)
+ * @param {Object[]} vecteurs      les chemins-vecteurs déjà trouvés sur la saisie entière
+ * @param {Object[]} ops           opérateurs explorables
+ * @returns {Object[]} approches GROUPEMENT portant `retouches` et `saisieRetouchee`
+ */
+function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAUT) {
+  const cbl = normaliserCible(cible);
+  const mots = jetons.filter((j) => j.genre === 'W').slice(0, MAX_JETONS_RETOUCHE);
+  if (!mots.length) return [];
+  const retoucheurs = ops.filter((o) => o.from === 'STR' && o.to === 'STR');
+  const tete = vecteurs.slice(0, MAX_VECTEURS_RETOUCHES);
+  // Le compte de séries AVANT retouche, mesuré une fois par vecteur : c'est le
+  // seuil que la retouche doit battre.
+  const avant = tete.map((c) => { const s = serieDeSix(c, cbl); return s ? s.series : 0; });
+
+  const out = [];
+  const vus = new Set();
+  for (const j of mots) {
+    const iJeton = jetons.indexOf(j);
+    const depart = etat('STR', j.texte, [[0, j.texte.length]]);
+    for (const f of retoucheurs) {
+      const apres = appliquerOp(f, depart);
+      // Une retouche qui ne change rien au mot n'est pas une retouche : elle
+      // ajouterait une étape à la scène pour montrer que rien ne bouge.
+      if (apres === null || apres.type !== 'STR' || !apres.valeur.length
+        || apres.valeur === j.texte) continue;
+      const texte = saisie.slice(0, j.offset) + apres.valeur + saisie.slice(j.offset + j.longueur);
+      tete.forEach((c, i) => {
+        const rejoue = rejouerOps(texte, c.ops);
+        if (!rejoue) return;
+        const s = serieDeSix(rejoue, cbl);
+        if (!s || s.series <= avant[i]) return;
+        // Deux retouches différentes peuvent rendre le même texte (`fmaj` et
+        // `fmin` sur un mot déjà en capitales, par exemple) : le spectacle
+        // serait le même, et la déduplication d'aval ne les verrait pas passer
+        // — elle compare les parts, et les parts sont ici identiques.
+        const cle = texte + ' ' + cleTrace(rejoue);
+        if (vus.has(cle)) return;
+        vus.add(cle);
+        out.push(approche('GROUPEMENT', [{
+          fragment: {
+            texte, offset: 0, longueur: texte.length,
+            intervalles: [[0, texte.length]], tokenDebut: 0, tokenLong: tokeniser(texte).length,
+            famille: 'entier', priorite: 5, entier: true,
+          },
+          chemin: rejoue,
+        }], {
+          retouches: [{
+            fragment: {
+              texte: j.texte, offset: j.offset, longueur: j.longueur,
+              intervalles: [[j.offset, j.offset + j.longueur]],
+              tokenDebut: iJeton, tokenLong: 1, famille: 'portee', priorite: 2,
+            },
+            chemin: { ops: [f], etats: [depart, apres], valeur: null, cout: f.cout || 0 },
+          }],
+          saisie,
+          saisieRetouchee: texte,
+        }));
+      });
+    }
+  }
+  return out;
 }
 
 /** Combien de valeurs d'un vecteur APPARTIENNENT à la cible. Sur `666`, les 6. */
@@ -1466,13 +1590,32 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    les réduire à trois, regroupe-les par trois ».
   const opsExplorables = ctx.catalogue ? operateursPourCible(ctx.catalogue, cbl) : [];
   const porteuses = fragmentsAVecteur(fragments, ctx);
+  // Les vecteurs du fragment qui couvre TOUT, gardés pour l'étage des retouches
+  // ci-dessous : on ne les recalcule pas, on les rejoue sur un texte réécrit.
+  let vecteursEntiers = null;
   if (opsExplorables.length) {
     for (const f of porteuses) {
       const vecteurs = vecteursDeSix(f.texte, opsExplorables, K, MAX_VECTEURS_PAR_FRAGMENT * 2, cbl)
         .slice(0, MAX_VECTEURS_PAR_FRAGMENT);
+      if (f.entier || f.famille === 'entier') vecteursEntiers = vecteurs;
       for (const c of vecteurs) {
         approches.push(approche('GROUPEMENT', [{ fragment: f, chemin: c }]));
       }
+    }
+  }
+
+  // ── mode G bis : le GROUPEMENT SOUS RETOUCHE — un mot réécrit, puis tout lu.
+  //
+  // ⚠️ **DÉBRANCHÉ PAR DÉFAUT, et ce n'est pas de la prudence : c'est un
+  //    arbitrage qui n'appartient pas au moteur.** Voir `groupementsRetouches`
+  //    et `.planning/A-VENIR-retouches.md`. Le générateur est complet, mesuré et
+  //    éprouvé ; ce qui manque est que le barème CHARGE l'étage amont. Tant
+  //    qu'il ne le charge pas, brancher l'étage détrône sur « Donald Trump » la
+  //    voie que l'auteur a nommée lui-même, au profit d'une voie qui doit son
+  //    avantage à une opération que personne n'a payée.
+  if (ctx.retouches && vecteursEntiers && vecteursEntiers.length) {
+    for (const a of groupementsRetouches(saisie, ctx.jetons || [], vecteursEntiers, opsExplorables, cbl)) {
+      approches.push(a);
     }
   }
 

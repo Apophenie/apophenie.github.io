@@ -1773,26 +1773,48 @@ export function construireScenario(approche, ctx = {}) {
   const convergente = partsUniques.length > 1
     && new Set(partsUniques.map(porteeDe)).size === 1;
 
+  // ★ LES RETOUCHES — l'étage qui RÉÉCRIT la saisie avant qu'on la lise
+  //   (`url.js`, la notation `2.1:fr13;…`). La scène part donc du texte TAPÉ,
+  //   pas du texte retouché : c'est justement la réécriture qu'il faut montrer,
+  //   sans quoi le spectateur verrait « Gehzc » apparaître sans savoir d'où il
+  //   sort. Les portées des fragments, elles, se rapportent au texte RETOUCHÉ —
+  //   c'est celui qui existe quand ils entrent en scène.
+  const retouches = approche.retouches || [];
+  const saisieLue = retouches.length
+    ? String(approche.saisieRetouchee ?? saisie).normalize('NFC')
+    : saisie;
+
   // Chaque caractère de la saisie est un token, étiqueté du groupe de la part
   // qui l'exploite. Le groupe permet d'atténuer le hors-fragment par sélecteur
   // `{groupNot}` — qui ne retient que les tokens VIVANTS, contrairement à une
   // liste d'ids figée qui pointerait des tokens déjà consommés.
-  const groupeDe = new Array(saisie.length).fill(null);
+  const groupeDe = new Array(saisieLue.length).fill(null);
   partsUniques.forEach((part, i) => {
     // Sur une convergence, les trois parts couvrent les mêmes positions : le
     // tag de groupe irait au dernier arrivé et les sélecteurs `{group}` se
     // tromperaient de cible. Les copies porteront leurs ids en clair.
     if (convergente && i > 0) return;
-    for (const pos of positionsDe(part.fragment, saisie.length)) groupeDe[pos] = `p${i}`;
+    for (const pos of positionsDe(part.fragment, saisieLue.length)) groupeDe[pos] = `p${i}`;
   });
+  // ★ **Sous retouche, AUCUN tag de groupe.** L'étiquette est posée à la
+  //   déclaration du token, une fois pour toutes ; or les jetons que la
+  //   retouche fait naître n'existent pas encore ici, et une retouche peut
+  //   allonger ou raccourcir ce qu'elle touche — les positions du texte lu ne
+  //   sont alors plus celles du texte tapé. Étiqueter d'après `saisieLue`
+  //   désignerait les mauvais caractères. On désigne donc les jetons EN CLAIR
+  //   (`cibleGroupe` ci-dessous), ce qui est licite ici parce que la retouche
+  //   passe AVANT tout le monde : les ids qu'on nomme sont vivants.
+  const marquerLesGroupes = retouches.length === 0;
   const tokens = [...saisie].map((c, i) => {
     const id = `t${i}`;
     alloc.reserver(id);
     const t = { id, text: c, kind: genreDe(c) };
-    if (groupeDe[i]) t.group = groupeDe[i];
+    if (marquerLesGroupes && groupeDe[i]) t.group = groupeDe[i];
     return t;
   });
-  const idsParPosition = tokens.map((t) => t.id);
+  // La ligne des identifiants, POSITION PAR POSITION dans le texte courant. Elle
+  // suit les retouches : ce qui remplace « Trump » prend la place de « Trump ».
+  let idsParPosition = tokens.map((t) => t.id);
 
   const steps = [];
   const resultats = [];
@@ -1873,6 +1895,69 @@ export function construireScenario(approche, ctx = {}) {
     return st;
   };
 
+  // ── L'ÉTAGE DES RETOUCHES, joué EN PREMIER ────────────────────────────────
+  //
+  // Une retouche réécrit une portée de la saisie, et ce qui suit lit le
+  // résultat (`url.js`, la notation `2.1:fr13;…`). À l'écran c'est un geste
+  // ordinaire — on désigne un passage, on le transforme —, à ceci près que ce
+  // qui en sort ne quitte pas la ligne : il y reprend exactement la place de ce
+  // qu'il remplace, et la démonstration continue sur le mot voisin comme si de
+  // rien n'était. C'est toute la différence avec un fragment : un fragment
+  // EXTRAIT et rend un chiffre, une retouche RÉÉCRIT et rend du texte.
+  //
+  // ★ Il fallait que ce soit montré, et pas seulement calculé. Le moteur, lui,
+  //   pourrait très bien partir du texte retouché : `rejouer` le construit
+  //   d'avance. Mais la scène qui commencerait là afficherait « Donald Gehzc »
+  //   au lever de rideau, c'est-à-dire une saisie que personne n'a tapée —
+  //   exactement le genre d'escamotage que le décret a valu à ce projet.
+  let texteCourant = saisie;
+  for (const r of retouches) {
+    const positions = positionsDe(r.fragment, texteCourant.length);
+    if (!positions.length) continue;
+    const vises = positions.map((k) => idsParPosition[k]);
+    const autres = idsParPosition.filter((_, k) => !positions.includes(k));
+    if (autres.length) {
+      poserBloc({
+        titre: MOTS.retoucher[langue],
+        legende: citer(r.fragment.texte, langue),
+        ops: [
+          { op: 'highlight', targets: vises, mode: 'select' },
+          { op: 'dim', targets: autres, at: 200 },
+        ],
+      });
+    }
+    let courants = positions.map((k) => [idsParPosition[k]]);
+    for (let i = 0; i < r.chemin.ops.length; i++) {
+      const avant = r.chemin.etats[i];
+      const apres = r.chemin.etats[i + 1];
+      if (rienAMontrer(avant, apres)) continue;
+      const rendu = produire(r.chemin.ops[i], avant, apres, courants);
+      for (const b of rendu.blocs) poserBloc(b);
+      courants = rendu.courants;
+    }
+    const fin = r.chemin.etats[r.chemin.etats.length - 1];
+    const remplacants = courants.flat();
+    // ★ Le contrôle qui vaut mieux qu'une scène fausse. Les portées qui suivent
+    //   comptent en POSITIONS du texte retouché ; si la ligne ne porte pas
+    //   autant de jetons que ce texte a de signes, tout ce qui vient après
+    //   désignerait à côté. On préfère le dire — la page sait afficher un échec
+    //   de rendu — plutôt que de montrer une démonstration décalée d'un cran.
+    if (remplacants.length !== [...String(fin.valeur)].length) {
+      throw new ErreurRendu(
+        `retouche « ${r.chemin.ops.map((o) => o.code).join('+')} » : `
+        + `${remplacants.length} jeton(s) à l'écran pour ${String(fin.valeur).length} signe(s) réécrit(s)`,
+        r.chemin.ops[r.chemin.ops.length - 1],
+      );
+    }
+    idsParPosition = [
+      ...idsParPosition.slice(0, positions[0]),
+      ...remplacants,
+      ...idsParPosition.slice(positions[positions.length - 1] + 1),
+    ];
+    texteCourant = texteCourant.slice(0, r.fragment.offset) + String(fin.valeur)
+      + texteCourant.slice(r.fragment.offset + r.fragment.longueur);
+  }
+
   // ── Le découpage en sous-groupes ──────────────────────────────────────────
   // Quand la saisie porte plusieurs morceaux — `hope-hope-hope`, typiquement —
   // le tout premier geste est de MONTRER le découpage : trois accolades
@@ -1882,10 +1967,23 @@ export function construireScenario(approche, ctx = {}) {
   const groupes = partsUniques.map((part, i) => ({
     part,
     tag: `p${i}`,
-    positions: positionsDe(part.fragment, saisie.length),
-    courants: positionsDe(part.fragment, saisie.length).map((k) => [idsParPosition[k]]),
+    positions: positionsDe(part.fragment, saisieLue.length),
+    courants: positionsDe(part.fragment, saisieLue.length).map((k) => [idsParPosition[k]]),
   }));
   const horsGroupe = idsParPosition.filter((_, i) => groupeDe[i] === null);
+  /**
+   * Désigner un groupe : par son TAG quand les jetons le portent, par leurs
+   * IDENTIFIANTS sinon. Les deux écritures disent la même chose au moment où
+   * elles sont posées ; le tag a le mérite de ne retenir que les jetons encore
+   * vivants, ce qui n'a d'importance qu'après la naissance du groupe — et sous
+   * retouche il n'y a pas de tag du tout (voir plus haut).
+   */
+  const cibleGroupe = (g) => (marquerLesGroupes
+    ? { group: g.tag }
+    : g.positions.map((k) => idsParPosition[k]));
+  const cibleHorsGroupe = (g) => (marquerLesGroupes
+    ? { groupNot: g.tag }
+    : idsParPosition.filter((_, k) => !g.positions.includes(k)));
 
   // ── La RECOPIE de la convergence ──────────────────────────────────────────
   //
@@ -1998,19 +2096,19 @@ export function construireScenario(approche, ctx = {}) {
       const indexPart = groupes.indexOf(g);
       // Isolation du fragment (inutile s'il couvre déjà toute la saisie, et
       // inutile aussi si le découpage vient de la montrer).
-      if (groupes.length === 1 && g.positions.length && g.positions.length < saisie.length) {
+      if (groupes.length === 1 && g.positions.length && g.positions.length < saisieLue.length) {
         poserBloc({
           titre: MOTS.isolerPassage[langue],
           legende: g.part.fragment ? citer(g.part.fragment.texte, langue) : null,
           ops: [
-            { op: 'highlight', targets: { group: g.tag }, mode: 'select' },
-            { op: 'dim', targets: { groupNot: g.tag }, at: 200 },
+            { op: 'highlight', targets: cibleGroupe(g), mode: 'select' },
+            { op: 'dim', targets: cibleHorsGroupe(g), at: 200 },
           ],
         });
       } else if (groupes.length > 1) {
         // Sur une convergence, les copies n'ont pas de tag de groupe (elles
         // naissent en cours de scène) : on désigne leurs ids en clair.
-        const cibles = convergente ? g.courants.flat() : { group: g.tag };
+        const cibles = convergente ? g.courants.flat() : cibleGroupe(g);
         poserBloc({
           titre: convergente
             ? MOTS.lecture(indexPart + 1, langue)
@@ -2685,6 +2783,13 @@ const MOTS = Object.freeze({
   groupe: (n, langue) => (langue === 'en' ? `group ${n}` : `groupe ${n}`),
   suffixeGroupe: (n, langue) => (langue === 'en' ? ` — group ${n}` : ` — groupe ${n}`),
   isolerPassage: { fr: 'On isole le passage utile', en: 'Single out the part that matters' },
+  // ★ « On retouche » et non « On isole ». Ce titre-ci ouvre une RETOUCHE
+  //   (`url.js`, `2.1:fr13;…`), et la nuance est tout ce qui la distingue d'un
+  //   fragment : `isolerPassage` annonce qu'on va lire un morceau et laisser le
+  //   reste de côté ; ici on ne laisse rien de côté — on réécrit un passage, et
+  //   tout le monde lira la suite. Le dire d'entrée évite au spectateur de
+  //   croire que « Donald » vient d'être abandonné.
+  retoucher: { fr: 'On retouche d’abord un passage', en: 'First, rework one passage' },
   // ★ « On s'occupe du » et non « On isole ».
   //
   // Ce titre ne sert QUE derrière un découpage (`groupes.length > 1`), et le

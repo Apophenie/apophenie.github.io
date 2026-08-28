@@ -2812,6 +2812,69 @@ programme  := code ('+' code)*
 > une démonstration sur « registre-titre ». C'était déjà un défaut avant cet
 > amendement (il menait à l'accueil avec un bandeau) ; il devenait invisible.
 
+> *Amendement — LA RETOUCHE, `2.1:fr13;…` : un mot réécrit, puis tout le monde lit.*
+>
+> **La demande de l'auteur.** « Pour "Donald Trump" ce que je voudrais, et qui
+> n'est pas encore géré : `#so!2.1:fr13,tca+mtal+m14+mpf#…`. En gros, on fait la
+> conversion fr13 sur le 2ⁿᵈ mot, puis on trie l'ensemble, on applique m14 à
+> l'ensemble, on enlève les chiffres minoritaires. […] Si le programme entre ##
+> s'écrit différemment, ça me va du moment que ça produit l'effet que je décris. »
+>
+> La grammaire ne savait l'écrire d'AUCUNE façon : un fragment porte son
+> programme de bout en bout, et deux fragments ne se recombinent qu'au verdict.
+> Il manquait un étage AMONT. Elle devient :
+>
+> ```
+> approche   := marqueur* (retouche ';')* fragment (',' fragment)*
+> retouche   := [portee ':'] programme        // STR → STR : réécrit la saisie
+> ```
+>
+> ★ **`;` ET NON LA VIRGULE, ET CE N'EST PAS UN GOÛT.** La virgule dit déjà
+> « ces deux morceaux donnent chacun leur chiffre, et les chiffres s'assemblent ».
+> Lui faire dire aussi « ce morceau nourrit le suivant » laisserait `a,b`
+> indécidable — et surtout indécidable **dans `url.js`, qui lit la grammaire SANS
+> catalogue**, précisément pour que `src/recherche` reste testable sur un
+> catalogue de fantaisie. Il ne peut donc pas trancher en regardant si `fr13`
+> rend du texte ou un chiffre. Le sens devait être écrit, pas déduit.
+>
+> Le choix de `;` tient à trois raisons, dans cet ordre : il est légal tel quel
+> dans un fragment d'URL (`sub-delims`, RFC 3986 §3.4), là où `>` et `|` — qui se
+> lisaient pourtant mieux — deviennent `%3E` et `%7C` dès qu'une messagerie les
+> touche ; il dit « puis » partout où on l'a déjà vu ; et il est à UN caractère de
+> ce que l'auteur avait écrit.
+>
+> ★ **Une retouche rend du TEXTE, et c'est le MOTEUR qui le vérifie**
+> (`index.js › rejouer`), pas la grammaire — voir ci-dessus, elle n'a pas le
+> catalogue. Un programme qui finirait sur un nombre ne saurait pas se reposer
+> dans la saisie : le lien est refusé avec son bandeau (§4.3), jamais joué
+> autrement.
+>
+> ★ **Les portées qui suivent comptent sur le texte RÉÉCRIT.** `a;b` se lit
+> « d'abord a, puis b sur le résultat », et une retouche peut allonger ou
+> raccourcir ce qu'elle touche : les jetons sont donc recomptés à chaque étage.
+> C'est la seule lecture qui se relise sans ambiguïté.
+>
+> ★ **Pas d'abréviation de résonance dans une retouche.** `×3:` nomme trois
+> occurrences d'un motif COMME TROIS PARTS qui s'assemblent ; une retouche ne
+> s'assemble avec rien, elle réécrit une place. Trois places se réécrivent avec
+> trois retouches, dont l'ordre est alors écrit noir sur blanc.
+>
+> ★ **Sans retouche, une URL s'écrit au caractère près comme avant** : le `;`
+> n'apparaît que là où il y a deux étages à séparer. Un test le gèle.
+>
+> ⚠️ **CE QUE LE BARÈME NE VOIT PAS, et c'est un arbitrage EN ATTENTE.** Les
+> opérations d'une retouche voyagent dans `approche.retouches`, **à côté** de
+> `approche.parts` et jamais dedans — `parts` signifie « un morceau qui rend un
+> chiffre », et c'est sur lui que se lisent le mode, la moisson, le verdict et la
+> géométrie des portées disjointes ; y verser une retouche ferait déduire une
+> PARTITION là où il n'y a qu'une préparation. Conséquence : ni `score.js` ni
+> `elegance.js` ne les voient, et une voie retouchée est notée comme si son étage
+> amont était gratuit. **Le générateur de recherche existe, il est mesuré et
+> testé, mais il reste DÉBRANCHÉ** (`creerMoteur(…, { retouches: true })`) :
+> branché, il détrône sur « Donald Trump » la voie que l'auteur a nommée
+> lui-même. Les mesures et le chemin en trois étapes sont dans
+> `.planning/A-VENIR-retouches.md`.
+
 Exemples :
 
 ```
@@ -2824,6 +2887,7 @@ Exemples :
 #c111!sce!#Donald Trump                        idem, avec les réglages du lien
 #so!tca+m36#Donald Trump                       ce programme, sur cette saisie en clair
 #so!c007!0.1:tca+mboc+cp,2.1:tca+mboc+cp,6.1:tca+mms+cs#…   une voie qui écrit 007
+#so!2.1:fr13;fl+tca+mtal+m14+mpf#2HuP1G8mNg3sJWhqR   on chiffre « Trump », puis on lit tout
 ```
 
 ### 4.3 Lecture tolérante, écriture canonique

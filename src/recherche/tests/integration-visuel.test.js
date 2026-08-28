@@ -476,3 +476,140 @@ test('★ la chaîne du 27 août se rejoue sur les chiffres de l’auteur', () =
     '« retourne les 999 trois par trois » — deux trios, douze 6');
 });
 
+/**
+ * ★ LA RETOUCHE, DE BOUT EN BOUT : le lien de l'auteur sur « Donald Trump ».
+ *
+ * « Pour "Donald Trump" ce que je voudrais, et qui n'est pas encore géré :
+ * `#so!2.1:fr13,tca+mtal+m14+mpf#…`. En gros, on fait la conversion fr13 sur le
+ * 2ᵈ mot, puis on trie l'ensemble, on applique m14 à l'ensemble, on enlève les
+ * chiffres minoritaires. » (l'auteur)
+ *
+ * Deux écarts avec ce qu'il avait écrit, et ils sont là parce qu'ils sont vrais :
+ *
+ *  · **la virgule devient `;`** — voir `url.js` : la virgule dit déjà « ces deux
+ *    morceaux donnent chacun leur chiffre », et la grammaire se lit SANS
+ *    catalogue, donc elle ne peut pas deviner que `fr13` rend du texte ;
+ *  · **`fl` s'ajoute en tête du second étage** — MESURÉ, et ce n'est pas un
+ *    ornement : `tca` fait un jeton de l'espace entre les deux mots, et `m14`
+ *    n'a pas de segment pour une espace. Sans `fl`, le programme n'est pas
+ *    applicable et le lien est refusé (c'est le cas éprouvé plus bas).
+ *
+ * Ce que le test tient, et qu'aucun autre ne tiendrait : la scène part du texte
+ * TAPÉ, la retouche s'y voit, et la ligne rejouée par `suivreLaLigne` est celle
+ * que le moteur visuel RÉEL fabrique — le double modèle de scène ne diverge pas
+ * sur ce geste-là non plus.
+ */
+test('★ retouche — « Donald Trump » : on chiffre un mot, puis on lit le tout',
+  { skip: compile && Scene ? false : 'src/visuel/ absent' }, () => {
+    const m = creerMoteur(catalogue);
+    const b58 = encoderTexte('Donald Trump');
+    const lien = `#so!2.1:fr13;fl+tca+mtal+m14+mpf#${b58}`;
+
+    const lu = lireUrl(lien, { catalogue });
+    assert.equal(lu.forme, 'canonique');
+    assert.deepEqual(lu.retouches.map((r) => r.codes), [['fr13']]);
+
+    const r = m.rejouer(lu);
+    assert.ok(r.ok, r.raison || 'rejeu impossible');
+    const a = r.approche;
+
+    // 1. Ce que la retouche a fait à la saisie — « Trump » chiffré, le reste
+    //    intact, et la saisie d'origine préservée pour l'affichage.
+    assert.equal(a.saisie, 'Donald Trump');
+    assert.equal(a.saisieRetouchee, 'Donald Gehzc');
+    assert.equal(a.retouches.length, 1);
+    assert.equal(a.retouches[0].fragment.texte, 'Trump');
+
+    // 2. Ce que l'arithmétique produit, et que l'auteur avait prévu : sept 6,
+    //    donc deux séries et « un 6 de trop » que la récolte laisse tomber.
+    const fin = a.parts[0].chemin.etats[a.parts[0].chemin.etats.length - 1];
+    assert.deepEqual(fin.valeur, [6, 6, 6, 6, 6, 6, 6], 'sept 6, dont un surnuméraire');
+    assert.equal(a.mode, 'GROUPEMENT');
+    assert.equal(a.series, 2);
+
+    // 3. Le lien se réécrit à l'identique — c'est ce que `canoniser()` posera
+    //    dans la barre d'adresse (§4.3).
+    assert.equal(a.url, lien);
+
+    // 4. La règle affichée NOMME l'étage amont : taire le chiffrement
+    //    annoncerait une méthode qui ne mène pas au résultat montré.
+    assert.match(a.regle.fr, /13 rangs/);
+
+    // 5. La scène part du texte TAPÉ, montre la retouche, et finit sur 666 666.
+    const sc = m.scenarioDe(a, { saisie: 'Donald Trump', registre: 'sobre' });
+    assert.equal(sc.tokens.map((t) => t.text).join(''), 'Donald Trump',
+      'le rideau se lève sur une saisie que personne n’a tapée');
+    assert.match(sc.steps[0].title, /retouche/i);
+    assert.equal(sc.steps[0].caption, '« Trump »');
+    assert.equal(sc.result, '666 666');
+    assert.deepEqual(sc.avertissements || [], [],
+      'le scénario est retombé sur le rendu générique');
+
+    // 6. …et le moteur visuel réel la compile, sans un avertissement.
+    const tl = compile(sc);
+    assert.deepEqual(tl.warnings, []);
+    assert.ok(tl.total > 0);
+
+    // 7. Le contrôle croisé des deux modèles de scène, sur ce geste neuf.
+    const releves = relever(sc);
+    const rejeu = suivreLaLigne(sc.tokens, sc.steps);
+    let comparees = 0;
+    for (let i = 0; i + 1 < sc.steps.length; i++) {
+      if (rejeu[i] === null) break;
+      assert.deepEqual(rejeu[i].ids, releves[i + 1].ids,
+        `ligne après l’étape ${i + 1} « ${sc.steps[i].title} »`);
+      comparees++;
+    }
+    assert.ok(comparees >= 20, `seulement ${comparees} lignes comparées`);
+  });
+
+/**
+ * ★ UNE RETOUCHE QUI RACCOURCIT — le cas où tout pouvait se décaler d'un cran.
+ *
+ * `fr13` rend autant de lettres qu'il en prend, si bien que le test ci-dessus
+ * ne prouve rien sur les portées : elles tombaient juste par accident de
+ * longueur. `fv` (« on ne garde que les voyelles ») réduit `Donald` à `oa`, et
+ * la question devient vraie : **la portée `2.1:` désigne-t-elle le deuxième
+ * jeton du texte RETOUCHÉ, ou de celui qu'on a tapé ?** La réponse est la
+ * première — c'est la seule qui rende `a;b` lisible comme « d'abord a, puis b
+ * sur le résultat » — et voici ce qui la tient.
+ */
+test('★ retouche — une portée qui suit compte sur le texte RÉÉCRIT',
+  { skip: compile && Scene ? false : 'src/visuel/ absent' }, () => {
+    const m = creerMoteur(catalogue);
+    const b58 = encoderTexte('Donald Trump');
+    const r = m.rejouer(lireUrl(`#so!0.1:fv;2.1:tca+m14#${b58}`, { catalogue }));
+    assert.ok(r.ok, r.raison || 'rejeu impossible');
+    assert.equal(r.approche.saisieRetouchee, 'oa Trump');
+    // `oa Trump` se jette en trois jetons — `oa`, l'espace, `Trump` — donc le
+    // deuxième est `Trump`. Sur le texte tapé, ce même `2.1` aurait aussi donné
+    // `Trump` par coïncidence : c'est l'OFFSET qui distingue les deux lectures.
+    assert.equal(r.approche.parts[0].fragment.texte, 'Trump');
+    assert.equal(r.approche.parts[0].fragment.offset, 3, 'offset dans le texte réécrit');
+
+    const sc = m.scenarioDe(r.approche, { saisie: 'Donald Trump', registre: 'sobre' });
+    assert.equal(sc.tokens.map((t) => t.text).join(''), 'Donald Trump');
+    assert.deepEqual(compile(sc).warnings, []);
+    const releves = relever(sc);
+    const rejeu = suivreLaLigne(sc.tokens, sc.steps);
+    for (let i = 0; i + 1 < sc.steps.length; i++) {
+      if (rejeu[i] === null) break;
+      assert.deepEqual(rejeu[i].ids, releves[i + 1].ids,
+        `ligne après l’étape ${i + 1} « ${sc.steps[i].title} »`);
+    }
+  });
+
+test('★ retouche — un programme qui ne rend PAS du texte est refusé, en le disant', () => {
+  const m = creerMoteur(catalogue);
+  const b58 = encoderTexte('Donald Trump');
+  // `tca+m14` finit sur un vecteur de nombres : rien à reposer dans la saisie.
+  const nombres = m.rejouer(lireUrl(`#so!2.1:tca+m14;tca+m7#${b58}`, { catalogue }));
+  assert.equal(nombres.ok, false);
+  assert.equal(nombres.raison, 'retouche non textuelle');
+  // Et le programme EXACT de l'auteur, sans `fl` : `m14` n'a pas de segment
+  // pour l'espace que `tca` a fait naître entre les deux mots.
+  const sansFiltre = m.rejouer(lireUrl(`#so!2.1:fr13;tca+mtal+m14+mpf#${b58}`, { catalogue }));
+  assert.equal(sansFiltre.ok, false);
+  assert.equal(sansFiltre.raison, 'programme inapplicable');
+});
+

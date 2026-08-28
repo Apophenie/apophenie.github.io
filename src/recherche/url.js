@@ -4,9 +4,10 @@
 //
 //   url        := {chemin} '#' [approche] '#' saisie
 //              |  {chemin} '#' saisie                 // un seul `#`, voir plus bas
-//   approche   := marqueur* fragment (',' fragment)*
+//   approche   := marqueur* (retouche ';')* fragment (',' fragment)*
 //   marqueur   := registre '!' | 'c' chiffre+ '!'
 //   registre   := 'so' | 'sce'        (formes longues encore LUES, plus écrites)
+//   retouche   := [portee ':'] programme       // STR → STR : réécrit la saisie
 //   fragment   := [portee ':'] programme
 //   portee     := offset '.' longueur          // en jetons ; absent ⇒ saisie entière
 //   programme  := code ('+' code)*
@@ -14,6 +15,7 @@
 //
 // `+` sépare les OPÉRATIONS d'un même fragment (arbitrage utilisateur).
 // `,` sépare les FRAGMENTS dont les 6 s'assemblent en 666.
+// `;` sépare les ÉTAGES : ce qui réécrit la saisie, puis ce qui la lit.
 // `×3:programme` abrège la résonance (le même programme sur les 3 occurrences).
 // `so!` / `sce!` préfixe l'approche entière — voir ci-dessous.
 //
@@ -100,6 +102,52 @@
 // celui-là : une saisie qui contiendrait vraiment un caractère de commande
 // serait relue en clair au lieu d'être décodée. Aucun chemin de l'interface ne
 // peut en produire une.
+//
+// ── LA RETOUCHE, `2.1:fr13;…` — transformer UN mot, puis lire LE TOUT ───────
+//
+// « Pour "Donald Trump" ce que je voudrais, et qui n'est pas encore géré : on
+// fait la conversion fr13 sur le 2ᵉ mot, puis on trie l'ensemble, on applique
+// m14 à l'ensemble, on enlève les chiffres minoritaires. » (l'auteur)
+//
+// La grammaire ne savait pas l'écrire. Un fragment porte son programme de bout
+// en bout et les fragments ne se recombinent qu'au verdict ; il manquait un
+// étage AMONT — une transformation locale dont le résultat est ensuite lu par
+// tout le monde. C'est une RETOUCHE : elle prend une portée, lui applique un
+// programme qui rend du TEXTE, et repose ce texte à sa place dans la saisie.
+// Ce qui suit le `;` travaille sur la saisie ainsi réécrite.
+//
+// ★ **Pourquoi un signe NEUF, et pas la virgule que l'auteur avait écrite.**
+// L'auteur proposait `2.1:fr13,tca+mtal+m14+mpf`, et a laissé la notation
+// ouverte (« si le programme entre ## s'écrit différemment, ça me va du moment
+// que ça produit l'effet que je décris »). La virgule ne pouvait pas : elle dit
+// déjà « ces deux morceaux donnent chacun leur chiffre, et les chiffres
+// s'assemblent ». Lui faire dire aussi « ce morceau nourrit le suivant »
+// laisserait `a,b` indécidable — et surtout indécidable ICI : **ce module lit la
+// grammaire sans catalogue** (les codes ne sont vérifiés que si l'appelant en
+// fournit un, précisément pour que `src/recherche` reste testable sur un
+// catalogue de fantaisie). Il ne peut donc PAS trancher en regardant si `fr13`
+// rend du texte ou un chiffre. Le sens doit être écrit, pas déduit.
+//
+// ★ **Pourquoi `;`.** Trois raisons, dans cet ordre.
+//   1. Il est légal tel quel dans un fragment d'URL (`sub-delims`, RFC 3986
+//      §3.4) : aucune messagerie ne le transformera en `%3B`, contrairement à
+//      `>` ou `|`, qui se lisaient pourtant mieux.
+//   2. Il dit « puis » partout où on l'a déjà vu — shell, CSS, C. La grammaire
+//      avait besoin d'un ET PUIS ; c'est son signe.
+//   3. Il est à UN caractère de ce que l'auteur avait écrit : son lien se
+//      transpose sans se relire.
+//
+// ★ **Une retouche rend du TEXTE, et c'est le moteur qui le vérifie** (§4.3,
+// `index.js › rejouer`) : un programme qui finirait sur un nombre ne saurait pas
+// se reposer dans la saisie, et le lien est refusé avec son bandeau plutôt que
+// de jouer autre chose. La grammaire, elle, n'a pas à le savoir — voir plus
+// haut, elle n'a pas le catalogue.
+//
+// ★ **Pas d'abréviation de résonance dans une retouche.** `×3:` nomme les trois
+// occurrences d'un motif COMME TROIS PARTS qui s'assemblent ; une retouche ne
+// s'assemble avec rien, elle réécrit une place. Trois places se réécrivent avec
+// trois retouches, dont l'ordre est alors écrit noir sur blanc — ce qui vaut
+// mieux qu'une abréviation qui tairait dans quel sens les offsets se décalent.
 //
 // ── LA CIBLE, `c111!` — viser autre chose que 666 ──────────────────────────
 //
@@ -319,6 +367,7 @@ const REGISTRE_DU_MOT = Object.freeze({
  * @property {'canonique'|'premiere'|'heritee'|'resultats'|'invalide'} forme
  * @property {string|null} saisie
  * @property {boolean} saisieBrute  lue en clair faute de base58 valide ?
+ * @property {FragmentUrl[]} retouches  les étages qui RÉÉCRIVENT la saisie, dans l'ordre
  * @property {FragmentUrl[]|null} fragments
  * @property {'sobre'|'scenique'|null} registre  résolu ; `null` hors forme canonique
  * @property {boolean} registreEcrit  le lien le portait-il en toutes lettres ?
@@ -340,7 +389,7 @@ const REGISTRE_DU_MOT = Object.freeze({
  */
 export function lire(hash, options = {}) {
   const vide = {
-    forme: 'invalide', saisie: null, saisieBrute: false, fragments: null,
+    forme: 'invalide', saisie: null, saisieBrute: false, fragments: null, retouches: [],
     registre: null, registreEcrit: false,
     cible: CIBLE_DEFAUT, cibleEcrite: false, registreDemande: null,
     rangs: null, bandeau: null, raison: null,
@@ -472,7 +521,7 @@ export function lire(hash, options = {}) {
     //   listing une autre façon d'écrire « la liste, pour cette cible-là ».
     if (parts.length === 1 || registreEcrit || (cibleEcrite && saisieBrute)) {
       return {
-        forme: 'premiere', saisie, saisieBrute, fragments: null,
+        forme: 'premiere', saisie, saisieBrute, fragments: null, retouches: [],
         // Même résolution que la forme canonique : le registre rendu est celui
         // qu'on saura JOUER sur cette cible, pas celui qui était écrit.
         registre: registreEffectif(registre, cible),
@@ -494,7 +543,7 @@ export function lire(hash, options = {}) {
     //   marqueurs seuls ⇒ la première voie » : voir l'en-tête, et le fait que
     //   `ecrire()` produit exactement cette forme.
     return {
-      forme: 'resultats', saisie, saisieBrute, fragments: null,
+      forme: 'resultats', saisie, saisieBrute, fragments: null, retouches: [],
       registre: null, registreEcrit: false,
       cible, cibleEcrite,
       rangs: null, bandeau: null, raison: null,
@@ -508,6 +557,7 @@ export function lire(hash, options = {}) {
       saisie,
       saisieBrute,
       fragments: null,
+      retouches: [],
       // Une forme héritée relance la recherche : elle n'aboutit pas à une
       // démonstration mais à un rang du classement courant, et c'est ce rang
       // qui apportera son propre lien canonique — registre compris.
@@ -524,8 +574,32 @@ export function lire(hash, options = {}) {
     };
   }
 
+  // ★ LES ÉTAGES, séparés par `;`. Le DERNIER est l'approche proprement dite —
+  //   les fragments dont les chiffres s'assemblent. Tous ceux d'avant sont des
+  //   RETOUCHES : elles réécrivent la saisie que le suivant lira (voir
+  //   l'en-tête). Découper par la droite plutôt que par la gauche n'est pas un
+  //   détail de style : ça fait de « aucun `;` » exactement l'ancienne
+  //   grammaire, un étage unique et aucune retouche, sans qu'aucun cas
+  //   particulier n'ait à le dire.
+  const etages = approche.split(';');
+  const brutFragments = etages.pop();
+  const retouches = [];
+  for (const brutRet of etages) {
+    const r = lireFragment(brutRet);
+    if (!r) return { ...vide, saisie, saisieBrute, raison: `retouche illisible : ${brutRet}`, bandeau: BANDEAUX.formatInconnu };
+    // Voir l'en-tête : `×3:` nomme trois parts qui s'assemblent, une retouche
+    // ne s'assemble avec rien. On le refuse plutôt que de lui inventer un sens.
+    if (r.resonance) {
+      return {
+        ...vide, saisie, saisieBrute,
+        raison: `résonance dans une retouche : ${brutRet}`, bandeau: BANDEAUX.formatInconnu,
+      };
+    }
+    retouches.push(r);
+  }
+
   const fragments = [];
-  for (const brutFrag of approche.split(',')) {
+  for (const brutFrag of brutFragments.split(',')) {
     const f = lireFragment(brutFrag);
     if (!f) return { ...vide, saisie, saisieBrute, raison: `fragment illisible : ${brutFrag}`, bandeau: BANDEAUX.formatInconnu };
     fragments.push(f);
@@ -533,7 +607,7 @@ export function lire(hash, options = {}) {
 
   if (options.catalogue) {
     const connus = new Set(normaliserCatalogue(options.catalogue).map((o) => o.code));
-    for (const f of fragments) {
+    for (const f of [...retouches, ...fragments]) {
       for (const c of f.codes) {
         if (!connus.has(c)) {
           return { ...vide, saisie, saisieBrute, raison: `code inconnu : ${c}`, bandeau: BANDEAUX.codeInconnu };
@@ -543,7 +617,7 @@ export function lire(hash, options = {}) {
   }
 
   return {
-    forme: 'canonique', saisie, saisieBrute, fragments,
+    forme: 'canonique', saisie, saisieBrute, fragments, retouches,
     // ★ Le registre rendu est celui qu'on JOUERA, pas celui qu'on a lu : un
     //   `sce!` sur une cible sans emblème retombe sur « sobre » (voir
     //   l'en-tête). Ce qui était écrit reste lisible dans `registreDemande`.
@@ -670,15 +744,38 @@ export const BANDEAUX = {
  * voies menant à 111, qui est précisément le lien que la page de listing doit
  * pouvoir partager quand on lui a demandé de viser autre chose.
  *
- * @param {{saisie:string, fragments?:FragmentUrl[], registre?:'sobre'|'scenique',
+ * ★ Les RETOUCHES précèdent les fragments, chacune suivie de son `;`. Une
+ * démonstration sans retouche s'écrit donc **au caractère près comme avant** :
+ * le séparateur n'apparaît que là où il y a deux étages à séparer.
+ *
+ * @param {{saisie:string, fragments?:FragmentUrl[], retouches?:FragmentUrl[],
+ *          registre?:'sobre'|'scenique',
  *          cible?:import('./cible.js').Cible|string}} demonstration
  * @returns {string} le fragment d'URL complet, `#…#…`
  */
-export function ecrire({ saisie, fragments, registre, cible }) {
+export function ecrire({ saisie, fragments, retouches, registre, cible }) {
   const b58 = encoderTexte(saisie);
   const c = marqueurCible(cible);
+  // Une page de RÉSULTATS n'a pas de programme, donc rien à préparer : une
+  // retouche sans fragment à nourrir ne désigne aucune démonstration, et on ne
+  // l'écrit pas plutôt que d'écrire un lien qui ne se relit pas.
   if (!fragments || !fragments.length) return `#${c}#${b58}`;
-  return `#${marqueur(registre, cible)}${c}${ecrireApproche(fragments)}#${b58}`;
+  return `#${marqueur(registre, cible)}${c}${ecrireRetouches(retouches)}${ecrireApproche(fragments)}#${b58}`;
+}
+
+/**
+ * Les retouches et leurs `;`, ou rien du tout.
+ *
+ * Exportée parce que `index.js` en a besoin AILLEURS que dans une URL : les
+ * `codes` d'une approche — la chaîne qui la nomme dans le classement, dans le
+ * banc et dans le dernier départage de `ordreTotal` — doivent dire exactement
+ * ce que le lien dit. Deux voies qui ne diffèrent que par leur retouche ont les
+ * mêmes codes de fragment ; sans ce préfixe, elles deviennent indiscernables et
+ * l'ordre total cesse d'être total (§4.4-1).
+ */
+export function ecrireRetouches(retouches) {
+  if (!retouches || !retouches.length) return '';
+  return retouches.map((r) => `${ecrireFragment(r)};`).join('');
 }
 
 /** Le préfixe de registre, normalisé — et REPLIÉ sur ce que la cible sait jouer,
@@ -739,6 +836,29 @@ export function descripteursDe(approche, ctx = {}) {
     portee: porteeDe(p.fragment, ctx),
     resonance: null,
     codes: p.codes,
+  }));
+}
+
+/**
+ * Les descripteurs des RETOUCHES d'une approche — l'étage amont, dans l'ordre
+ * où il a été appliqué.
+ *
+ * ⚠️ **Pas de `nbJetons` ici, et c'est délibéré.** Une retouche voit la saisie
+ * déjà réécrite par celles qui la précèdent : le nombre de jetons n'est pas le
+ * même d'un étage à l'autre, et un compte unique se tromperait forcément
+ * quelque part. La question que `porteeDe` pose avec ce compte — « cette portée
+ * couvre-t-elle tout, donc peut-on l'omettre ? » — se répond ici par la
+ * FAMILLE du fragment, que `index.js › rejouer` pose en déroulant les étages :
+ * il est le seul à savoir de quel texte chaque retouche est partie.
+ * @param {Object} approche
+ * @param {{nbJetons?:number}} [ctx]
+ * @returns {FragmentUrl[]}
+ */
+export function retouchesDe(approche, ctx = {}) {
+  return (approche.retouches || []).map((r) => ({
+    portee: porteeDe(r.fragment, ctx),
+    resonance: null,
+    codes: r.chemin.ops.map((o) => o.code),
   }));
 }
 
