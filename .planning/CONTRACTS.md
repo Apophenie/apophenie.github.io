@@ -2875,6 +2875,69 @@ programme  := code ('+' code)*
 > lui-même. Les mesures et le chemin en trois étapes sont dans
 > `.planning/A-VENIR-retouches.md`.
 
+> *Amendement — LES PORTÉES GROUPÉES, `0.1+2.1+4.1:tca+m14`.*
+>
+> **La demande de l'auteur.** « Pour hope-hope-hope.fr voici celui que je trouve
+> le plus élégant : `#so!0.1:tca+m14,2.1:tca+m14,4.1:tca+m14,1.1:tca+mtc+cs,3.1:tca+mtc+cs,6.1:tca+mpy+mr9#…`.
+> Qui gagnerait à pouvoir s'écrire :
+> `#so!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+mpy+mr9#…` »
+>
+> La grammaire devient :
+>
+> ```
+> fragment   := [portees ':'] programme
+> portees    := portee ('+' portee)*        // un programme, plusieurs places
+> ```
+>
+> Sur son exemple, l'approche passe de 84 signes à 57 — un tiers de moins.
+>
+> ★ **C'EST UNE ABRÉVIATION D'ÉCRITURE, ET RIEN D'AUTRE.** `0.1+2.1:P` est
+> DÉPLIÉ en `0.1:P,2.1:P` dans `lire()`, avant que quoi que ce soit en aval n'en
+> voie la trace : mêmes descripteurs, même ordre, même rejeu, même score. Le
+> modèle ne connaît pas le groupe, et un test compare les deux lectures champ
+> par champ plutôt que de comparer deux exécutions.
+>
+> ★ **LE `+` NE DEVIENT PAS AMBIGU.** Il sépare désormais les portées avant le
+> `:` et les codes après, mais jamais dans la même région : le `:` est cherché
+> EN PREMIER et partage le fragment en deux zones étanches avant qu'un seul `+`
+> ne soit lu — et le premier `:` est toujours le bon, un programme ne pouvant
+> pas en contenir (§4.1). La sûreté est double : les deux alphabets sont
+> disjoints par construction (une portée ouvre sur un chiffre, un code sur une
+> lettre de famille), si bien que `url.js`, **qui lit la grammaire sans
+> catalogue**, n'a jamais à se demander si `2` est un code connu. C'est toute la
+> différence avec la virgule proposée pour la retouche, qui aurait exigé, elle,
+> de savoir ce que `fr13` PRODUIT.
+>
+> ★ **ET `ecrire()` LA PRODUIT : la forme groupée est la forme CANONIQUE.** Trois
+> raisons, dans cet ordre. (1) Sans cela la grammaire ferait le contraire de ce
+> qu'on lui demande — `canoniser()` réécrit la barre d'adresse à chaque
+> ouverture (§4.3), donc un lien groupé se ferait déplier sous les yeux de celui
+> qui vient de l'écrire ; une abréviation qu'on ne peut pas garder n'en est pas
+> une. (2) La forme canonique de cette grammaire est déjà partout la plus
+> courte : `sobre!` → `so!`, `c666!` jamais écrit, portée couvrante omise, et
+> `×3:` qui abrège mot pour mot « le même programme sur trois places » — le
+> groupe est ce geste-là sur des places quelconques. (3) **Le coût est mesuré et
+> nul là où il aurait fait mal** : aucune URL figée de ce dépôt ne change, les
+> deux puces d'accueil (`src/i18n/fr.js`) alternant leurs programmes ; sur 133
+> voies produites pour 14 saisies, 5 se groupent (3,8 %), pour 12 signes gagnés
+> en moyenne. Un test gèle l'invariance des liens d'accueil.
+>
+> ★ **SEULES LES PORTÉES CONTIGUËS SE GROUPENT**, et c'est un invariant, pas une
+> paresse : l'ordre des fragments est ce qui ÉCRIT la cible de gauche à droite,
+> si bien que rapprocher les jumelles de `0.1:P,1.1:Q,2.1:P` rendrait `007` là
+> où le lien disait `070`. Sur 666 la faute serait invisible — les trois
+> chiffres y sont égaux —, raison de plus pour l'écrire. L'exemple de l'auteur
+> est d'ailleurs déjà rangé 0, 2, 4, 1, 3, 6 pour que ses jumelles se touchent.
+>
+> ★ **PAS DE GROUPE DANS UNE RETOUCHE**, pour la raison qui y interdit déjà
+> `×3:` : les jetons sont recomptés à chaque étage, donc un groupe aurait l'air
+> parallèle et serait séquentiel. Deux places se réécrivent avec deux retouches.
+>
+> ★ **AUCUNE VALIDATION AJOUTÉE NI RETIRÉE.** `0.1+0.1:P` est accepté parce que
+> `0.1:P,0.1:P` l'était ; une portée hors bornes est refusée au même endroit
+> qu'avant — le moteur, seul à connaître la saisie. Refuser ici ce que la forme
+> dépliée accepte ferait deux grammaires au lieu d'une.
+
 Exemples :
 
 ```
@@ -2886,9 +2949,16 @@ Exemples :
 #Donald Trump                                  cherche, puis montre la 1ʳᵉ voie
 #c111!sce!#Donald Trump                        idem, avec les réglages du lien
 #so!tca+m36#Donald Trump                       ce programme, sur cette saisie en clair
-#so!c007!0.1:tca+mboc+cp,2.1:tca+mboc+cp,6.1:tca+mms+cs#…   une voie qui écrit 007
+#so!c007!0.1+2.1:tca+mboc+cp,6.1:tca+mms+cs#…   une voie qui écrit 007
+#so!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+mpy+mr9#…   trois groupes, six places
 #so!2.1:fr13;fl+tca+mtal+m14+mpf#2HuP1G8mNg3sJWhqR   on chiffre « Trump », puis on lit tout
 ```
+
+⚠️ L'exemple 007 ci-dessus s'écrivait `0.1:tca+mboc+cp,2.1:tca+mboc+cp,…` avant
+l'amendement « LES PORTÉES GROUPÉES » : ses deux premières places sont voisines
+et portent le même programme, donc elles se groupent désormais. Sa suite de
+chiffres, elle, est inchangée — c'est justement ce que la règle « seulement des
+voisines » garantit.
 
 ### 4.3 Lecture tolérante, écriture canonique
 
@@ -2900,6 +2970,8 @@ Exemples :
 | `#texte` (un seul `#`), `#so!#…` (marqueurs seuls) | Recherche, puis **animation de la 1ʳᵉ voie** — le geste de « Révéler ». `#c111!#…` fait exception et reste la liste (§4.2, amendement « LA SAISIE EN CLAIR »). |
 | `#…#texte` dont le texte n'est pas du base58 lisible | Le texte EST la saisie ; la barre d'adresse est réécrite en base58 à l'ouverture. Le base58 reste prioritaire (§4.2). |
 | Fragment désignant un élément monté (`#registre-titre`) | Ancre HTML : le routeur ne route pas, le navigateur défile. |
+| `#0.1+2.1:P#…` (portées groupées) | **Dépliée en `0.1:P,2.1:P`** à la lecture : mêmes fragments, même ordre, même score. C'est aussi la forme ÉCRITE quand deux places VOISINES partagent un programme (§4.2, amendement « LES PORTÉES GROUPÉES »). |
+| `#0.1+2.1:P;…#…` (groupe dans une retouche) | Refusée, bandeau explicite : un groupe y aurait l'air parallèle et serait séquentiel — même règle que pour `×3:`. |
 | `#c111!…#…` (marqueur de cible) | Rejouée sur la cible demandée. Absent ⇒ 666 (§4.2, amendement « LA CIBLE »). |
 | `#c1234567!…#…` (cible illisible) | Bandeau explicite : jamais un repli muet sur 666. |
 | `#sce!c111!…#…` (registre sans emblème) | **Replié sur `so!`**, à la lecture comme à l'écriture. Mêmes étapes, même verdict : ce qui manque est un DESSIN. |
