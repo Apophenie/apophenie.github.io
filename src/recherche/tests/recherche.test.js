@@ -935,7 +935,17 @@ test('★ Macron — le 666 déjà écrit est montré, et il l’est UNE fois', 
   const app = creerMoteur(catalogue).resoudre('Macron').approches;
   const cesar = app.filter((a) => a.codes.startsWith('fr13+tca+m14'));
   assert.equal(cesar.length, 1, `${cesar.length} voies « César + quatorze segments » : ${cesar.map((a) => a.codes).join(' | ')}`);
-  assert.ok(cesar[0].codes.endsWith('+m36'), `la voie retenue ne montre pas le triptyque : ${cesar[0].codes}`);
+  // ★ **CE QU'ON GÈLE, C'EST « UNE SEULE FOIS », PAS « PAR `m36` ».**
+  //
+  // Le test exigeait que la voie retenue finisse par `+m36`. C'était juste tant
+  // que cet opérateur était le seul à montrer un 666 déjà écrit ; il ne l'est
+  // plus, et l'auteur a rangé l'autre devant — « m36 doit être une alternative
+  // de secours à mpf, et non l'inverse ». Exiger `m36` reviendrait donc à
+  // interdire au moteur de choisir le geste que l'auteur préfère.
+  //
+  // Ce qui reste vrai, et qui est le VRAI propos du test : le catalogue ne doit
+  // proposer qu'UNE voie par « César + quatorze segments », pas deux jumelles
+  // distinguées par leur seul dernier geste.
 });
 
 test('anti-doublons — aucune étape inopérante ne subsiste dans une approche', () => {
@@ -1169,11 +1179,22 @@ test('★ « Donald Trump » : deux 666 déjà formés, en tête de liste', () =
     + `César puis quatorze segments — obtenu : ${tete.codes}`);
   assert.deepEqual(tete.parts.map((p) => p.fragment.texte), ['Donald', 'Trump']);
 
-  // Rien n'est jeté : six 6 récoltés sur six valeurs calculées. Le rendement
-  // est donc neutre — et il l'est parce que la démonstration est sans déchet,
-  // pas parce que l'opérateur le rendrait aveugle : les vecteurs d'entrée
-  // [6,6,6,7,3,6] et [6,6,6,4,4] portent leurs 666 SANS réarrangement.
-  assert.equal(tete.criteres.R, 1000, 'aucune valeur calculée pour être écartée');
+  // ★ **LE RENDEMENT N'EST PLUS NEUTRE, ET C'EST LE CORRECTIF QU'IL MESURE.**
+  //
+  // Il valait 1 000, et le commentaire d'alors s'en félicitait : « rien n'est
+  // jeté, six 6 récoltés sur six valeurs calculées ». Ce n'était vrai qu'à
+  // condition de regarder le DERNIER vecteur. Les vecteurs d'entrée sont
+  // `[6,6,6,7,3,6]` et `[6,6,6,4,4]` : onze valeurs calculées, six montrées,
+  // cinq écartées par `m36`. Le rendement ne les voyait pas parce que cet
+  // opérateur en était exempté (`elegance.js › OPERATEURS_QUI_ECARTENT`), au
+  // motif qu'il « rétrécit honnêtement ».
+  //
+  // L'auteur a levé l'exemption — « m36 doit être une alternative de secours à
+  // mpf, et non l'inverse » —, et 545 est ce que la démonstration montre
+  // vraiment : six valeurs gardées sur onze calculées, à l'arrondi près du
+  // groupement par parts. Ce n'est pas une régression, c'est la fin d'un angle
+  // mort.
+  assert.equal(tete.criteres.R, 545, 'cinq des onze valeurs calculées sont écartées');
   const finaux = tete.parts.map((p) => p.chemin.etats[p.chemin.etats.length - 1].valeur);
   assert.deepEqual(finaux, [[6, 6, 6], [6, 6, 6]]);
 

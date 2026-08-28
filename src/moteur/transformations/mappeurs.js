@@ -2033,22 +2033,29 @@ const AUTRES_MAPPEURS = [
       'Une suite de trois 6 contigus, prise telle quelle. On ne rassemble rien, on la trouve.',
       'A run of three adjacent 6s, taken as it stands. Nothing is gathered, it is found.',
     ),
-    // ★ Notoriété 0,80. Personne n'a besoin qu'on lui explique que trois 6
-    // écrits côte à côte font 666 — c'est le seul endroit du catalogue où la
-    // règle est déjà connue du spectateur avant d'être énoncée. Ce n'est pas
-    // 1,00 pour autant : la moitié « et l'on s'arrête là » est une convention
-    // de la maison, pas un savoir partagé. La moitié qu'on reconnaît vaut le
-    // barème plein (heuristique §4.3, ligne « A1Z26 »), l'autre nettement
-    // moins ; 0,80 est le point honnête entre les deux.
+    // ★ Notoriété 0,30. Personne n'a besoin qu'on lui explique que trois 6
+    // écrits côte à côte font 666 — mais ce n'est pas ça qu'on lui demande de
+    // croire. Ce qu'il faut avaler, c'est « et l'on efface tout le reste », qui
+    // n'est pas un savoir partagé mais une convention de la maison : « 0,8 c'est
+    // bien trop, 0,3 serait plus adapté, si c'est bien lui qui supprime les
+    // chiffres excédentaires » (l'auteur).
     //
-    // ★ AdHoc 0,20, et pas zéro. Cet opérateur n'existe que parce qu'on
-    // cherche 666 : c'est, au sens strict, une étape taillée pour la cible.
-    // Mais il ne FABRIQUE rien — pas de coïncidence de dessin comme le
-    // retournement du 9 (0,35), pas de valeur absolue de secours (0,25) —, et
-    // il ne choisit pas où s'arrêter : la contiguïté désigne un seul endroit
-    // possible. On pénalise donc, moitié moins que la pirouette, sans exclure
-    // (heuristique §4.5).
-    notoriete: 0.30, adHoc: 0.20,
+    // ★ **AdHoc 0,55 — RELEVÉ de 0,20, et c'est sa propre justification qui
+    //   l'imposait.** Elle disait déjà, mot pour mot : « cet opérateur n'existe
+    //   que parce qu'on cherche 666 : c'est, au sens strict, une étape taillée
+    //   pour la cible » — puis facturait 0,20, moins que le retournement du 9
+    //   (0,35) et moitié moins que `m.plusFrequent` (0,40), qui, lui, ne regarde
+    //   PAS la cible. Le critère mesure une chose et une seule (heuristique
+    //   §4.5) : « cette méthode est-elle taillée pour ce qu'on cherche ? ». Aucun
+    //   opérateur du catalogue ne l'est davantage que celui-ci — il cherche le
+    //   motif visé, s'arrête dessus, et ne saurait rien faire d'autre.
+    //
+    // ⚠️ C'est ce qui met `m36` DERRIÈRE `mpf`, comme l'auteur le demande :
+    //   « m36 doit être une alternative de secours à mpf et non l'inverse ».
+    //   Garder les 6 parce qu'ils sont les plus nombreux est un argument qui
+    //   vaudrait pour n'importe quel chiffre ; les garder parce qu'ils sont des
+    //   6 n'est pas un argument, c'est la conclusion prise pour prémisse.
+    notoriete: 0.30, adHoc: 0.55,
     note: bilingue(
       'Contigus, vraiment. Trois 6 éparpillés dans le vecteur ne font pas un 666, ils font trois 6.',
       'Adjacent, truly. Three 6s scattered through the vector are not a 666, they are three 6s.',
@@ -2208,14 +2215,24 @@ const AUTRES_MAPPEURS = [
     // (il lui faut une pluralité STRICTE dont le vainqueur écrit 666 d'affilée).
     // Ce chiffre énonce une doctrine ; il ne truque pas un résultat.
     //
-    // ★ AdHoc 0,45, juste sous le joker (0,50). C'est la plus ad hoc des trois :
-    // elle ne s'autorise d'aucune propriété du nombre, d'aucune coïncidence de
-    // dessin — seulement d'un décompte fait après coup sur le résultat qu'on
-    // vient d'obtenir. Elle n'est pas exclue pour autant (heuristique §4.5) :
-    // le barème d'élégance porte la peine SPÉCIFIQUE du geste, `adHoc` ne porte
-    // que la peine GÉNÉRIQUE — « taillé pour la cible ». Les deux ne mesurent
-    // pas la même chose et ne se doublent donc pas.
-    notoriete: 0.35, adHoc: 0.40,
+    // ★ **AdHoc 0,15 — ABAISSÉ de 0,40, et pour la même raison qui a relevé
+    //   celui de `m36`.** `adHoc` ne mesure ni la laideur ni l'arbitraire : il
+    //   mesure « cette méthode est-elle taillée pour ce qu'on cherche ? »
+    //   (heuristique §4.5). Or celle-ci ne regarde pas la cible — sa propre note
+    //   le dit : « le plus fréquent, quel qu'il soit — pas le 6 ». Elle
+    //   garderait des 4 si les 4 étaient les plus nombreux, et elle rendrait le
+    //   même service en visant 111 ou 007.
+    //
+    //   Ce n'est pas zéro : le garde-fou `portePleinement` refuse de s'appliquer
+    //   quand le vainqueur n'écrit pas la cible, et ce refus-là, lui, regarde
+    //   bien ce qu'on cherche. C'est une entorse réelle, mais mince — 0,15.
+    //
+    // ⚠️ Ce que la ficelle a de laid reste facturé, et ailleurs : le barème
+    //   d'élégance porte la peine SPÉCIFIQUE du geste (`MAJORITE`), `adHoc` ne
+    //   porte que la peine GÉNÉRIQUE. Les deux ne mesurent pas la même chose et
+    //   ne se doublent pas ; les confondre est ce qui avait mis ces deux
+    //   opérateurs à l'envers l'un de l'autre.
+    notoriete: 0.35, adHoc: 0.15,
     note: bilingue(
       'Le plus fréquent, quel qu’il soit — pas le 6. Faire gagner le 6 d’office, ce serait '
       + 'le tri arbitraire, c’est-à-dire le geste que celui-ci prétend valoir mieux que.',

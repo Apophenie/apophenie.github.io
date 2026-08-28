@@ -163,19 +163,30 @@ test('★ barème — casser un 666 contigu est le plus gros malus du barème', 
 });
 
 /**
- * ★ LES TROIS FICELLES SONT BRANCHÉES — et le barème les voit.
+ * ★ LES FICELLES SONT BRANCHÉES — et le barème les voit.
  *
- * Ce test remplace celui qui gelait leur ABSENCE. Trois demandes de l'auteur
+ * Ce test remplace celui qui gelait leur ABSENCE. Des demandes de l'auteur
  * n'avaient aucun opérateur à mesurer ; il a tranché — « ma demande c'est aussi
- * de les ajouter au catalogue ». `mpf`, `m1s2`, `mad` existent, et chacun
- * alimente son palier. On le vérifie des DEUX côtés : l'identifiant inscrit
- * dans `FICELLES` doit exister au catalogue, et le compteur doit bouger quand
- * l'opérateur s'applique. Sans les deux, un palier pourrait se rendormir en
- * silence et l'on croirait mesurer ce qu'on ne mesure plus.
+ * de les ajouter au catalogue ». Chacune existe, et chacune alimente son palier.
+ * On le vérifie des DEUX côtés : l'identifiant inscrit dans `FICELLES` doit
+ * exister au catalogue, et le compteur doit bouger quand l'opérateur s'applique.
+ * Sans les deux, un palier pourrait se rendormir en silence et l'on croirait
+ * mesurer ce qu'on ne mesure plus.
+ *
+ * ⚠️ **`m.plusFrequent` N'Y FIGURE PLUS** — « mpf ne doit plus être considéré
+ * comme une ficelle ! » (l'auteur). Son palier `MAJORITE` existe toujours et se
+ * paie toujours ; il est simplement devenu le tarif ordinaire d'un rejet de
+ * minorité ÉNONCÉ, facturé par la voie commune à tous les rétrécissements. Le
+ * test qui suit vérifie qu'elle continue bel et bien de le payer : sortir des
+ * ficelles n'est pas devenir gratuite.
  */
-test('★ les trois ficelles sont au catalogue, et chacune alimente SON palier', () => {
+/** Les codes des ficelles, lus du barème — jamais recopiés. */
+function codesDesFicelles() {
+  return Object.keys(FICELLES).map((id) => operateur(id).code);
+}
+
+test('★ les ficelles sont au catalogue, et chacune alimente SON palier', () => {
   const attendu = {
-    'm.plusFrequent': ['mpf', 'majorite', [6, 4, 6, 6, 6]],
     'm.unRangSurDeux': ['m1s2', 'decimation', [6, 4, 6, 3, 6]],
     'm.additionSelective': ['mad', 'additionSelective', [6, 5, 16, 8]],
     // ★ La quatrième, allouée le 27 août : le redécoupage tricheur. Son vecteur
@@ -205,6 +216,53 @@ test('★ les trois ficelles sont au catalogue, et chacune alimente SON palier',
     assert.equal(b.valeursJetees, 0,
       `${code} : son palier remplace « valeurs jetées », il ne s’y ajoute pas`);
   }
+});
+
+/**
+ * ★ SORTIR DES FICELLES N'EST PAS DEVENIR GRATUITE.
+ *
+ * « mpf ne doit plus être considéré comme une ficelle ! » (l'auteur). Elle ne
+ * l'est plus — elle n'évince plus, ne se fait plus évincer, et ne compte plus
+ * dans `nbFicelles`. Mais elle écarte toujours des valeurs, et ce geste-là se
+ * paie toujours : par la voie ORDINAIRE des rétrécissements, au tarif de la
+ * majorité ÉNONCÉE.
+ *
+ * Ce test gèle les deux moitiés de la phrase, parce qu'une seule serait un
+ * contresens dans un sens comme dans l'autre.
+ */
+test('★ `mpf` n’est plus une ficelle — mais son rejet se paie encore', () => {
+  assert.ok(!Object.prototype.hasOwnProperty.call(FICELLES, 'm.plusFrequent'),
+    'elle ne doit plus figurer parmi les ficelles');
+
+  const op = operateur('m.plusFrequent');
+  const avant = etat('NUMS', [2, 2, 6, 6, 6, 7]);
+  const brut = op.apply(avant.valeur, avant.valeur.map(() => []));
+  const apres = etat('NUMS', brut.valeur);
+  assert.deepEqual(apres.valeur, [6, 6, 6], 'elle garde bien le plus fréquent');
+
+  const b = bilanChemin({ ops: [op], etats: [avant, apres] });
+  assert.equal(b.majorite, 3, 'les trois minoritaires se paient, un par un');
+  assert.equal(b.majoriteTacite, 0, 'et pas au tarif de celui qui ne dit pas sa règle');
+  assert.equal(b.valeursJetees, 0, 'ni à celui du gaspillage sans excuse');
+
+  // ★ ET LE MÊME GESTE, SANS L'ÉNONCER, COÛTE PLUS CHER. C'est toute la
+  //   consigne : « m36 doit être une alternative de secours à mpf, et non
+  //   l'inverse ». On compare sur le MÊME vecteur et pour le MÊME résultat.
+  const m36 = operateur('m.troisSixDAffilee');
+  const brut36 = m36.apply(avant.valeur, avant.valeur.map(() => []));
+  const apres36 = etat('NUMS', brut36.valeur);
+  assert.deepEqual(apres36.valeur, [6, 6, 6], 'le geste comparé doit être le même');
+  const b36 = bilanChemin({ ops: [m36], etats: [avant, apres36] });
+  assert.equal(b36.majoriteTacite, 3, 'lui paie le tarif de la règle tue');
+  // ★ Les deux tarifs se lisent au barème, pas au crédit : `bilanChemin` rend
+  //   le bilan d'UNE part, et `credit` attend celui d'une approche entière.
+  //   Comparer les paliers dit exactement la même chose, sans détour.
+  assert.ok(BAREME.MAJORITE_TACITE > BAREME.MAJORITE,
+    `énoncer la règle doit coûter moins cher que s’en servir en silence `
+    + `(${BAREME.MAJORITE} contre ${BAREME.MAJORITE_TACITE})`);
+  assert.equal(b.majorite * BAREME.MAJORITE, 3 * BAREME.MAJORITE);
+  assert.ok(b.majorite * BAREME.MAJORITE < b36.majoriteTacite * BAREME.MAJORITE_TACITE,
+    'sur le même vecteur et pour le même résultat, le silence coûte plus cher');
 });
 
 /**
@@ -669,9 +727,13 @@ test('★ ficelles — aucune ne figure en tête des quatre cas de référence',
     assert.equal(fournie.series || 1, series,
       `« ${saisie} » : ${series} séries attendues en tête, ${fournie.series} trouvées`);
     for (const a of tete) {
-      // Codes parlants depuis le recodage du catalogue : `mpf` le plus fréquent,
-      // `m1s2` un rang sur deux, `mad` l'addition sélective.
-      for (const code of ['mpf', 'm1s2', 'mad']) {
+      // ★ La liste n'est PAS écrite ici : elle se lit dans `FICELLES`, pour que
+      //   ce test dise toujours « aucune ficelle », et jamais « aucun de ces
+      //   trois codes-là ». C'est ce qui l'a fait changer tout seul le jour où
+      //   `m.plusFrequent` en est sortie — « mpf ne doit plus être considéré
+      //   comme une ficelle ! » (l'auteur) — au lieu d'interdire encore un
+      //   opérateur que le barème avait cessé de traiter en suspect.
+      for (const code of codesDesFicelles()) {
         assert.ok(!a.codes.includes(code),
           `« ${saisie} » : la voie de tête (${a.codes}) emploie la ficelle ${code}`);
       }
@@ -1127,8 +1189,21 @@ test('★ rejouabilité — une URL rejouée retrouve le même score ET la même
 test('★ cornes — la scène couronne exactement les triptyques que le bilan a CONSTATÉS', () => {
   const m = creerMoteur(catalogue, { filetTemporel: false });
   let vues = 0;
+  // ★ L'ÉCHANTILLON A DÛ S'ÉLARGIR, et la raison mérite d'être écrite : il ne
+  //   contient que des saisies dont une voie EMPLOIE `m36`, puisque c'est ce que
+  //   ce test recoupe. Or la dévaluation de cet opérateur — « m36 doit être une
+  //   alternative de secours à mpf, et non l'inverse » (l'auteur) — a réduit sa
+  //   présence de MOITIÉ : mesuré sur le corpus, 19 voies sur 191 l'employaient,
+  //   il n'en reste que 10 sur 189, et 7 saisies sur 19 au lieu de 11.
+  //
+  //   Le seuil `vues >= 3` plus bas n'est pas un chiffre à tenir, c'est un
+  //   garde-fou : il dit « l'instrument a eu de la matière à mesurer ». On
+  //   élargit donc l'échantillon plutôt que d'abaisser la barre — abaisser
+  //   aurait rendu le test moins exigeant à mesure que l'opérateur se raréfie,
+  //   c'est-à-dire exactement quand il faut le surveiller.
   for (const s of ['Donald Trump', 'Macron', 'hope', 'https://hope-hope-hope.fr/',
-    'Éléonore à Nîmes', 'Wikipedia']) {
+    'Éléonore à Nîmes', 'Wikipedia', 'Nombre de la bête', 'satan',
+    'Emmanuel Macron', 'Marie Curie']) {
     for (const a of m.resoudre(s).approches) {
       // ★ `m36` n'est plus le seul à couronner — et c'est le sens de
       //   l'amendement « couronner sans effacer » (CONTRACTS §3.1).
@@ -1211,7 +1286,13 @@ test('★ étalonnage — les quatre cas de référence gardent leur tête de li
     ['hope-hope-hope.fr', 'MOISSON', 5, null],
     ['https://hope-hope-hope.fr/', 'MOISSON', 6, null],
     ['Donald Trump', 'MOISSON', 2, 'tca+m14+m36,fr13+tca+m14+m36'],
-    ['Macron', 'GROUPEMENT', 1, 'fr13+tca+m14+m36'],
+    // ★ **`Macron` CHANGE DE RÉFÉRENCE, ET C'EST L'AUTEUR QUI LA NOMME.**
+    //   « Pour Macron, `#so!tca+mt9+mpf` me semble optimal : les 666 ne sont pas
+    //   contigus, mais le procédé se fait en très peu d'étapes, ce qui est mieux
+    //   qu'avec `fr13` ou `mtal`. » La voie César existe toujours et se joue —
+    //   avec `mpf` en dernier geste elle vaut 892 contre 652 avec `m36` —, mais
+    //   ce n'est plus elle qu'on met en vitrine.
+    ['Macron', 'GROUPEMENT', 1, 'tca+mt9+mpf'],
   ];
   for (const [saisie, mode, series, codes] of attendu) {
     // ★ AMENDEMENT — « la tête de liste » est devenue DEUX lignes, parce que

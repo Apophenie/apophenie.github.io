@@ -13,7 +13,7 @@
 
 import { estDecret } from './titres.js';
 // ★ `elegance.js` n'importe RIEN : la dépendance est à sens unique, sans cycle.
-import { FICELLES_QUI_ECARTENT } from './elegance.js';
+import { OPERATEURS_QUI_ECARTENT } from './elegance.js';
 import { normaliserCible, indexUtiles } from './cible.js';
 import {
   bilanApproche, credit as creditDElegance, facteur as facteurDElegance,
@@ -696,16 +696,16 @@ export function noter(approche, ctx) {
  */
 /**
  * La largeur à porter au dénominateur du rendement : celle du dernier vecteur,
- * sauf si le chemin emploie une ficelle — auquel cas celle du PLUS LARGE.
- * Voir le commentaire dans `rendementSix`.
+ * sauf si le chemin ÉCARTE — auquel cas celle du PLUS LARGE.
+ * Voir `elegance.js › OPERATEURS_QUI_ECARTENT` et le commentaire ci-dessous.
  */
 function largeurDuChemin(chemin, defaut) {
   const ops = (chemin && chemin.ops) || [];
-  let ficelle = false;
+  let ecarte = false;
   for (const o of ops) {
-    if (o && o.id && FICELLES_QUI_ECARTENT.has(o.id)) { ficelle = true; break; }
+    if (o && o.id && OPERATEURS_QUI_ECARTENT.has(o.id)) { ecarte = true; break; }
   }
-  if (!ficelle) return defaut;
+  if (!ecarte) return defaut;
   let max = defaut;
   for (const e of (chemin && chemin.etats) || []) {
     if (e && e.type === 'NUMS' && e.valeur.length > max) max = e.valeur.length;
@@ -729,13 +729,15 @@ function rendementSix(approche) {
       if (cbl.alphabet.includes(fin.valeur)) six++;
     } else if (fin.type === 'NUMS' && fin.valeur.length) {
       unVecteur = true;
-      // ★ UNE FICELLE NE SE FAIT PAS NOTER SUR CE QU'ELLE A JETÉ.
+      // ★ CE QUI ÉCARTE SE FAIT NOTER SUR CE QU'IL A ÉCARTÉ.
       //
       // CONTRACTS §7-5 laisse ouverte la question « le rendement doit-il
-      // regarder le vecteur LE PLUS LARGE du chemin, ou le dernier ? », et le
-      // dernier l'emporte encore : c'est un arbitrage d'auteur, et `m36` en
-      // profite (il rétrécit honnêtement, après avoir CONSTATÉ un 666 déjà
-      // écrit).
+      // regarder le vecteur LE PLUS LARGE du chemin, ou le dernier ? ». Le
+      // dernier l'emportait, SAUF pour les trois ficelles, et `m36` profitait de
+      // l'exception au motif qu'il « rétrécit honnêtement ». L'auteur a tranché
+      // dans l'autre sens — « m36 doit être une alternative de secours à mpf, et
+      // non l'inverse » —, et la mesure lui donnait raison : sur le même vecteur
+      // et pour le même résultat, l'exemption valait 1 700 points d'écart.
       //
       // ⚠️ Mais pour les ficelles qui ÉCARTENT (`mpf`, `m1s2` —
       // `elegance.js › FICELLES_QUI_ECARTENT`), la question ne se pose pas :

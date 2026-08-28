@@ -668,7 +668,15 @@ export const BAREME = {
   // vitrine — seulement à accepter qu'une voie tricheuse passe devant son
   // équivalente honnête, à compte égal, quelque part entre le 4ᵉ et le 7ᵉ rang.
 
-  // ── ★ LES TROIS FICELLES, dans l'ordre de laideur de l'auteur.
+  // ── ★ LES FICELLES, dans l'ordre de laideur de l'auteur.
+  //
+  // ⚠️ **ELLES ÉTAIENT TROIS ; `m.plusFrequent` N'EN EST PLUS.** « mpf ne doit
+  // plus être considéré comme une ficelle ! » (l'auteur). Le palier `MAJORITE`
+  // reste et garde sa valeur — c'est le prix d'un rejet de minorité, et il se
+  // paie toujours —, mais il est devenu le tarif ORDINAIRE d'un geste énoncé,
+  // et non plus la peine d'une ruse. Voir `ENONCENT_LA_MAJORITE` : ce qui
+  // sépare désormais 180 de 260, c'est de dire sa règle ou de s'en servir en
+  // sous-main.
   //
   // ★ **Unité : ce que la ficelle coûte PAR VALEUR ÉCARTÉE** (par chiffre
   // absorbé pour la troisième), exactement comme `VALEUR_JETEE`. Le tarif
@@ -706,6 +714,31 @@ export const BAREME = {
    * critère après avoir vu le résultat.
    */
   MAJORITE: 180,
+
+  /**
+   * ★ **LA MÊME RÈGLE, MAIS SANS LA DIRE — ET ÇA COÛTE PLUS CHER.**
+   *
+   * `m36` et `m.plusFrequent` font, sur `[2,2,6,6,6,7]`, exactement le même
+   * geste : ils rendent `[6,6,6]`. Ils ne disent pas la même chose pour autant.
+   * L'un ÉNONCE l'argument — « le plus fréquent l'emporte », vérifiable en
+   * comptant, et qui vaudrait pour n'importe quelle valeur ; l'autre s'en sert
+   * en sous-main, en annonçant seulement « il y a trois 6 d'affilée, on garde
+   * ça », c'est-à-dire la conclusion prise pour prémisse.
+   *
+   * ⚠️ Le tarif a d'abord été posé ÉGAL (180 tous les deux), en pariant que la
+   * dilution des ficelles suffirait à départager. **Mesuré : elle ne s'applique
+   * pas ici, et les deux voies sortaient à 932 d'élégance pile.** « `mpf` est
+   * nettement plus élégant que `m36` […] `m36` doit être une alternative de
+   * secours à `mpf`, et non l'inverse » (l'auteur) : il fallait donc l'écrire,
+   * pas l'espérer.
+   *
+   * 260, soit un peu moins d'une fois et demie. Assez pour que l'argument énoncé
+   * l'emporte toujours quand les deux sont jouables ; pas assez pour reléguer le
+   * rejet tacite au rang des ficelles — il reste une alternative de secours,
+   * c'est le mot de l'auteur, et il est nettement sous `VALEUR_JETEE` (300),
+   * qui, lui, punit le rejet sans AUCUNE excuse.
+   */
+  MAJORITE_TACITE: 260,
 
   /**
    * 3. ★ « Garder un caractère sur deux » (`m1s2`) — par valeur écartée.
@@ -981,6 +1014,7 @@ export const NATURE = Object.freeze({
   // ── ce qui se perd par une TRICHE assumée
   EFFACEMENT_SANS_MOTIF: { sens: -1, famille: 'elegance' },
   MAJORITE: { sens: -1, famille: 'elegance' },
+  MAJORITE_TACITE: { sens: -1, famille: 'elegance' },
   DECIMATION: { sens: -1, famille: 'elegance' },
   ADDITION_SELECTIVE: { sens: -1, famille: 'elegance' },
   REDECOUPAGE: { sens: -1, famille: 'elegance' },
@@ -1022,7 +1056,7 @@ const pondererAmpleur = (ampleur, famille, poids) => {
 };
 
 /**
- * ★ LES TROIS FICELLES, par identifiant d'opérateur — et le compteur qu'elles
+ * ★ LES FICELLES, par identifiant d'opérateur — et le compteur qu'elles
  * alimentent.
  *
  * Par IDENTIFIANT, jamais par code, pour la raison qui vaut déjà pour
@@ -1037,7 +1071,22 @@ const pondererAmpleur = (ampleur, famille, poids) => {
  * mesurerait plus.
  */
 export const FICELLES = Object.freeze({
-  'm.plusFrequent': 'majorite',
+  // ⚠️ **`m.plusFrequent` N'EN FAIT PLUS PARTIE** — « mpf ne doit plus être
+  //    considéré comme une ficelle ! » (l'auteur), et le retrait a des effets
+  //    bien au-delà de son tarif, qui sont tout l'objet de la consigne :
+  //
+  //     · elle cesse d'être ÉVINÇABLE. La règle de sélection
+  //       (`assemblage.js › apporteQuelqueChose`) écarte une ficelle dès qu'une
+  //       voie « sans ficelle » fait aussi bien — et sur `Macron`, l'incumbent
+  //       honnête était `m36`, celui-là même qu'elle est censée dépanner ;
+  //     · elle cesse d'ÉVINCER, et de compter dans `nbFicelles` ;
+  //     · son geste se facture désormais par la voie ORDINAIRE, celle de tous
+  //       les rétrécissements — au tarif de la majorité ÉNONCÉE (`MAJORITE`),
+  //       là où un rejet qui ne dit pas sa règle paie `MAJORITE_TACITE`.
+  //
+  //    Ce qu'elle garde : son geste reste compté, et le rendement continue de la
+  //    voir écarter (`OPERATEURS_QUI_ECARTENT`). Sortir des ficelles n'est pas
+  //    devenir gratuite, c'est cesser d'être traitée en suspecte.
   'm.unRangSurDeux': 'decimation',
   'm.additionSelective': 'additionSelective',
   'm.redecoupageChoisi': 'redecoupage',
@@ -1102,6 +1151,58 @@ export function emploieUneFicelle(bilan) {
 export const FICELLES_QUI_ECARTENT = Object.freeze(new Set(
   Object.keys(FICELLES).filter((id) => ECARTEMENTS.has(FICELLES[id])),
 ));
+
+/**
+ * ★ **TOUT CE QUI RÉTRÉCIT UN VECTEUR EN ÉCARTANT** — ficelles comprises, mais
+ *   pas seulement.
+ *
+ * Le rendement (`score.js › rendementSix`) mesure la part de ce qu'on a calculé
+ * qui vaut la cible. Restait à dire sur QUEL vecteur : le dernier, ou le plus
+ * large que le chemin ait montré. Le dernier l'emportait, **sauf pour les trois
+ * ficelles** — et `m36` en profitait, au motif qu'il « rétrécit honnêtement,
+ * après avoir constaté un 666 déjà écrit ».
+ *
+ * ⚠️ **MESURÉ, cette exemption inversait exactement l'ordre que l'auteur
+ * voulait.** Sur `Macron`, `tca+mtal+mt9+mpf` et `tca+mtal+mt9+m36` partent du
+ * MÊME vecteur `[2,2,6,6,6,7]` et rendent le MÊME `[6,6,6]` — même geste, même
+ * matière, même résultat. Le rendement disait pourtant 500 à l'une et **1 000**
+ * à l'autre, et ce seul écart valait 1 700 points de score.
+ *
+ * « `m36` doit être une alternative de secours à `mpf`, et non l'inverse »
+ * (l'auteur). L'exemption est donc levée : ce qui écarte se fait noter sur ce
+ * qu'il a écarté, quel que soit son nom. `m.retirerZeros` entre par la même
+ * porte et pour la même raison — il tronque, lui aussi.
+ *
+ * ⚠️ Ce qui ABSORBE n'y entre pas, et c'est la ligne de partage de tout le
+ * fichier : `m.compterLesChiffres` remplace `6 6 6` par « 3 6 », la ligne
+ * raccourcit mais les trois 6 sont ENTIÈREMENT dans le « 3 ». Agréger n'est pas
+ * écarter.
+ */
+export const OPERATEURS_QUI_ECARTENT = Object.freeze(new Set([
+  ...FICELLES_QUI_ECARTENT,
+  // ⚠️ `m.plusFrequent` est ici bien qu'elle ne soit plus une ficelle : ce que
+  //    cette liste nomme, c'est le GESTE — retirer des valeurs de la ligne —, et
+  //    non le statut de celui qui le fait.
+  'm.plusFrequent',
+  'm.troisSixDAffilee',
+  'm.retirerZeros',
+]));
+
+/**
+ * ★ **QUI ÉNONCE LA RÈGLE DE MAJORITÉ, ET QUI S'EN SERT SANS LE DIRE.**
+ *
+ * Le geste est le même — garder ce qui est le plus nombreux, écarter le reste —
+ * et sur `[2,2,6,6,6,7]` `m.plusFrequent` et `m.troisSixDAffilee` rendent tous
+ * deux `[6,6,6]`. Ce qu'ils DISENT diffère, et c'est cela qui se paie : « le
+ * plus fréquent l'emporte » est un argument, vérifiable en comptant, et qui
+ * vaudrait pour n'importe quelle valeur ; « il y a trois 6 d'affilée, on garde
+ * ça » est la conclusion prise pour prémisse.
+ *
+ * Celui qui énonce paie `MAJORITE` (180), celui qui se tait `MAJORITE_TACITE`
+ * (260). C'est ce qui fait de `m36` une alternative de SECOURS à `mpf`, et non
+ * l'inverse — la consigne de l'auteur, écrite là où elle s'applique.
+ */
+const ENONCENT_LA_MAJORITE = Object.freeze(new Set(['m.plusFrequent']));
 
 /**
  * ★ Les opérateurs qui RÉARRANGENT sans rien retirer — le tri croissant.
@@ -1549,7 +1650,7 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       if (perdus > 0 && !but) b.sixDetruits += perdus;
     }
 
-    // ── ★ LES TROIS FICELLES — comptées ICI, et NULLE PART AILLEURS.
+    // ── ★ LES FICELLES — comptées ICI, et NULLE PART AILLEURS.
     //
     // Chacune se paie à son propre tarif, et ce tarif REMPLACE `VALEUR_JETEE`
     // au lieu de s'y ajouter : c'est ce qui rend vraie la consigne de l'auteur,
@@ -1625,12 +1726,18 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       // avait, le rejet se paie donc au tarif de la majorité (`MAJORITE`) et non
       // à celui du gaspillage (`VALEUR_JETEE`).
       //
-      // ⚠️ Le tarif reste PLUS CHER que celui de `m.plusFrequent`, qui, lui,
-      //    ÉNONCE la règle au lieu de s'en servir en sous-main : c'est la
-      //    dilution des ficelles (`dilution`) qui l'allège, et un rejet tacite
-      //    n'y a pas droit. « La majorité l'emporte, c'est mieux qu'un `m36` »
-      //    (l'auteur) reste donc vrai, et se lit dans les chiffres.
-      if (majoriteTacite(avant, apres)) b.majoriteTacite += jetees;
+      // ⚠️ Le tarif est PLUS CHER que celui de `m.plusFrequent`, qui, lui,
+      //    ÉNONCE la règle au lieu de s'en servir en sous-main — voir
+      //    `MAJORITE_TACITE`. On avait d'abord parié que la dilution des
+      //    ficelles suffirait à les départager ; mesuré, elle ne s'applique pas
+      //    ici et les deux voies sortaient à égalité parfaite. Il a fallu
+      //    l'écrire.
+      if (majoriteTacite(avant, apres)) {
+        // ★ Énoncée ou tue : deux tarifs, un seul geste (voir
+        //   `ENONCENT_LA_MAJORITE`).
+        if (ENONCENT_LA_MAJORITE.has(op.id)) b.majorite += jetees;
+        else b.majoriteTacite += jetees;
+      }
       else b.valeursJetees += jetees;
     }
     // …et un mappeur qui ne sait pas convertir tous ses jetons en laisse tomber
@@ -2037,8 +2144,8 @@ export function detailDuCredit(b, poids) {
     ['transformations en trop', 'TRANSFORMATION', enTrop, B.TRANSFORMATION * enTrop],
     ['valeurs calculées puis jetées en route', 'VALEUR_JETEE', b.valeursJetees,
       B.VALEUR_JETEE * b.valeursJetees],
-    ['rejet tacite d’une minorité', 'MAJORITE', b.majoriteTacite || 0,
-      B.MAJORITE * (b.majoriteTacite || 0)],
+    ['rejet tacite d’une minorité', 'MAJORITE_TACITE', b.majoriteTacite || 0,
+      B.MAJORITE_TACITE * (b.majoriteTacite || 0)],
     ['reste du vecteur, à la fin', 'RELIQUAT_HORS_CIBLE', b.reliquatHorsCible || 0,
       B.RELIQUAT_HORS_CIBLE * (b.reliquatHorsCible || 0)],
     ['6 produits que le verdict ne montre pas', 'RELIQUAT_DE_CIBLE', b.reliquatDeCible || 0,

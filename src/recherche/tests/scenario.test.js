@@ -7,6 +7,7 @@ import {
 } from '../scenario.js';
 import { etat } from '../bfs.js';
 import { approcheJoker } from '../assemblage.js';
+import { OPERATEURS_QUI_ECARTENT } from '../elegance.js';
 import { catalogue, operateur } from './_catalogue.js';
 import { lire as lireUrl } from '../url.js';
 import { encoderTexte } from '../base58.js';
@@ -281,7 +282,37 @@ test('★ scénario — jeter coûte : le rendement suit ce qu’on garde', () =
   for (const a of app) {
     const sc = m.scenarioDe(a, { saisie: 'https://hope-hope-hope.fr/' });
     const tri = sc.steps.find((st) => st.recolte);
-    const jetes = tri ? tri.ops.find((o) => o.op === 'drop').targets.length : 0;
+    // ★ **ET CE QUI TOMBE EN CHEMIN, PAS SEULEMENT AU VERDICT.**
+    //
+    // On ne comptait que l'étape de récolte — le tri final —, ce qui suffisait
+    // tant qu'aucune voie PROPOSÉE n'écartait de valeurs en cours de route.
+    // Depuis que `m.plusFrequent` n'est plus traitée en ficelle et remonte dans
+    // les listes, une voie peut faire tomber deux valeurs à son étape 12 et rien
+    // au verdict : le test lisait « 18 gardés, 0 jetés », attendait 1 000, et
+    // rougissait là où le rendement disait 900 — à raison. Le contrôle avait
+    // tort, pas la mesure, ce qui est exactement l'inverse de son office.
+    //
+    // ⚠️ **Ces chutes-là se lisent sur les ÉTATS, pas sur la scène**, et c'est un
+    // affaiblissement assumé du contrôle croisé. La scène les montre bien — deux
+    // `drop` à l'étape du « plus fréquent l'emporte » —, mais elle montre aussi
+    // les caractères qu'un filtre écarte, et rien dans une étape ne dit lesquels
+    // sont des VALEURS. Mesuré : tout compter faisait rougir `fl+tca+mazc+mr9`
+    // en sens inverse (428 attendu contre 500 mesuré), le filtre `fl` versant
+    // huit lettres dans un compte de nombres. La moitié « verdict » du contrôle
+    // reste donc lue sur la scène, et elle seule.
+    const jetesEnRoute = (a.parts || []).reduce((n, p) => {
+      const e = (p.chemin && p.chemin.etats) || [];
+      const ops = (p.chemin && p.chemin.ops) || [];
+      let d = 0;
+      for (let i = 1; i < e.length; i++) {
+        if (e[i - 1].type !== 'NUMS' || e[i].type !== 'NUMS') continue;
+        if (e[i].valeur.length >= e[i - 1].valeur.length) continue;
+        if (!OPERATEURS_QUI_ECARTENT.has(ops[i - 1] && ops[i - 1].id)) continue;
+        d += e[i - 1].valeur.length - e[i].valeur.length;
+      }
+      return n + d;
+    }, 0);
+    const jetes = (tri ? tri.ops.find((o) => o.op === 'drop').targets.length : 0) + jetesEnRoute;
     const gardes = tri
       ? tri.ops.find((o) => o.op === 'highlight').targets.length
       : (a.series || 1) * 3;
