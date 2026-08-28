@@ -112,6 +112,18 @@ const borner = (x, min, max) => (x < min ? min : x > max ? max : x);
 /** Fraction entière : `x × num / den`, tronquée. Aucun flottant n'en sort. */
 const fraction = (x, [num, den]) => Math.floor((x * num) / den);
 
+/**
+ * ★ En deçà de cette longueur, le rangement se paie PLEIN TARIF ; au-delà, il se
+ * dilue (voir `BAREME › REARRANGEMENT`).
+ *
+ * Ce n'est pas un palier et il n'a rien à faire dans `BAREME` : un palier est un
+ * TARIF, quelque chose qui s'ajoute ou se retranche au crédit et dont `NATURE`
+ * doit pouvoir dire le signe. Celui-ci est un SEUIL — il ne vaut aucune
+ * milli-unité, il dit seulement à partir de combien de gestes la dilution
+ * commence.
+ */
+const LONGUEUR_PLEIN_TARIF = 4;
+
 // ══════════════════════════════════════════════════════════════════════════════
 // ★ LE BARÈME — LE SEUL ENDROIT À RÉGLER
 // ══════════════════════════════════════════════════════════════════════════════
@@ -848,6 +860,37 @@ export const BAREME = {
    * ⚠️ MESURÉ au banc : à 20, aucune tête de liste du corpus de dix-neuf
    * saisies ne change, et les quatre cas de référence de l'auteur gardent leur
    * rang.
+   *
+   * ★ **ET IL PÈSE MOINS SUR UNE LONGUE DÉMONSTRATION.** « Le fait d'ajouter
+   * `mtal` ici devrait peser du fait de la concision du processus, mais peser
+   * moins quand il y a de toute façon plus d'étapes » (l'auteur).
+   *
+   * Le grief est juste et il est de PROPORTION : ranger la ligne dans une
+   * démonstration de quatre gestes, c'est un geste sur quatre — le spectateur
+   * le voit ; dans une démonstration de douze, il passe inaperçu, et le facturer
+   * au même prix reviendrait à punir deux fois la longueur, que le critère de
+   * concision mesure déjà (`score.js › POIDS.concision`).
+   *
+   * ⚠️ **La peine ne MONTE pas sur les courtes, elle DESCEND sur les longues**,
+   * et le choix n'est pas neutre : la monter aurait érodé le seul écart que
+   * l'auteur venait de demander de préserver — « entre `fr13+tca+m14+mpf` et
+   * `tca+mtal+mt9+mpf`, le second devrait avoir un meilleur score, mais pas de
+   * beaucoup ». Il est de 40 milli-unités (932 contre 892) ; alourdir le
+   * rangement l'aurait mangé. `LONGUEUR_PLEIN_TARIF` est donc posée à la
+   * longueur de ces deux voies-là : à quatre gestes et en deçà, rien ne change.
+   *
+   * ⚠️ **ET LA DILUTION NE MORD SUR RIEN AUJOURD'HUI — mesuré, et dit ici pour
+   * qu'on ne le redécouvre pas.** Cinq voies du corpus rangent quelque chose, et
+   * les cinq tiennent en trois ou quatre gestes : `tca+mtal+m14+mtri` sur
+   * « Donald Trump », `fatb+tca+mt9+mtri` sur « Millicent », `fl+tca+m14+mtri`
+   * sur « jean-michel »… Aucune n'atteint le seuil. La règle est donc écrite
+   * pour le jour où un rangement se glissera dans une longue démonstration ;
+   * elle ne déplace pas une milli-unité du classement actuel.
+   *
+   * On l'écrit quand même, et pas par acquit de conscience : sans elle, ce jour-
+   * là, le rangement se paierait au prix d'un geste sur quatre dans une
+   * démonstration de douze, et la longueur serait punie deux fois — une fois
+   * ici, une fois par le critère de concision.
    */
   REARRANGEMENT: 20,
 
@@ -2178,8 +2221,11 @@ export function detailDuCredit(b, poids) {
     ['un rang sur deux', 'DECIMATION', b.decimation, B.DECIMATION * b.decimation],
     ['addition sélective (millièmes)', 'ADDITION_SELECTIVE', b.additionSelective,
       peine(B.ADDITION_SELECTIVE, b.additionSelective)],
+    // ★ Dilué par la longueur de la démonstration — voir `REARRANGEMENT` et
+    //   `LONGUEUR_PLEIN_TARIF`. À quatre gestes ou moins, le tarif est plein.
     ['réarrangement', 'REARRANGEMENT', b.rearrangement || 0,
-      B.REARRANGEMENT * (b.rearrangement || 0)],
+      fraction(B.REARRANGEMENT * (b.rearrangement || 0),
+        [LONGUEUR_PLEIN_TARIF, Math.max(LONGUEUR_PLEIN_TARIF, b.transformations || 0)])],
   ];
   return lignes.map(([poste, cle, quantite, brut]) => {
     const { sens, famille } = NATURE[cle];
