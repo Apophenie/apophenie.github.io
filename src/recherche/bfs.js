@@ -375,7 +375,29 @@ export function validerCatalogue(catalogue) {
   return pbs;
 }
 
-/** Opérateurs explorables : ni dépréciés, ni jokers. */
+/**
+ * ★ **LES VINGT-CINQ DÉCALAGES SONT EXPLORÉS — l'attente est levée.**
+ *
+ * Ils ont vécu quelques heures hors de l'exploration, le temps que la jauge
+ * existe : « tous explorables », disait l'auteur, mais il avait lui-même posé la
+ * condition — « on peut assouplir le budget temps en insérant une jauge de
+ * progression pour la phase de recherche ». Elle existe (`src/app/travailleur.js`,
+ * `src/recherche/tranches.js`), le budget est à 5 000 ms, et la recherche ne
+ * bloque plus le fil principal : la condition est remplie, la liste se vide.
+ *
+ * Ce qu'elle retenait, et qui est maintenant assumé :
+ *
+ *  · **le temps.** Vingt-quatre filtres de plus, ce sont vingt-quatre bases de
+ *    plus à l'étage 1 de `vecteursDeSix` : 230 ms → 733 ms à JIT chaud sur la
+ *    saisie la plus lourde. C'est précisément ce que la jauge rend supportable ;
+ *  · **le magasinage de décalage.** « Avance de quinze rangs » ne se justifie par
+ *    rien d'autre que le résultat qu'on en attend, et six têtes de liste sur
+ *    dix-neuf s'y adossent une fois les vingt-trois lâchés. C'est ce que leur
+ *    `adHoc` de 0,45 facture — et si l'auteur juge la peine trop douce, c'est ce
+ *    réglage-là qu'il faut monter, pas l'exploration qu'il faut refermer.
+ */
+
+/** Opérateurs explorables : ni dépréciés, ni jokers, ni en attente de la jauge. */
 export function operateursExplorables(catalogue) {
   return normaliserCatalogue(catalogue).filter((op) => !op.deprecated && !op.isJoker);
 }

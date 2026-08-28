@@ -54,6 +54,33 @@ const VECTEURS = [
   ['flt', S('h0p3'), 'hope'],
   ['fatb', S('hope'), 'slkv'],
   ['fr13', S('hope'), 'ubcr'],
+  // ★ Les vingt-quatre autres décalages, gelés comme le treizième. Les sorties
+  //   sont calculées ici À LA MAIN — `hope` décalé de n — précisément pour
+  //   qu'elles ne viennent pas de la même fonction que ce qu'elles vérifient.
+  ['fr1', S('hope'), 'ipqf'],
+  ['fr2', S('hope'), 'jqrg'],
+  ['fr3', S('hope'), 'krsh'],
+  ['fr4', S('hope'), 'lsti'],
+  ['fr5', S('hope'), 'mtuj'],
+  ['fr6', S('hope'), 'nuvk'],
+  ['fr7', S('hope'), 'ovwl'],
+  ['fr8', S('hope'), 'pwxm'],
+  ['fr9', S('hope'), 'qxyn'],
+  ['fr10', S('hope'), 'ryzo'],
+  ['fr11', S('hope'), 'szap'],
+  ['fr12', S('hope'), 'tabq'],
+  ['fr14', S('hope'), 'vcds'],
+  ['fr15', S('hope'), 'wdet'],
+  ['fr16', S('hope'), 'xefu'],
+  ['fr17', S('hope'), 'yfgv'],
+  ['fr18', S('hope'), 'zghw'],
+  ['fr19', S('hope'), 'ahix'],
+  ['fr20', S('hope'), 'bijy'],
+  ['fr21', S('hope'), 'cjkz'],
+  ['fr22', S('hope'), 'dkla'],
+  ['fr23', S('hope'), 'elmb'],
+  ['fr24', S('hope'), 'fmnc'],
+  ['fr25', S('hope'), 'gnod'],
   ['tca', S('hope'), ['h', 'o', 'p', 'e']],
   ['tm', S('a-b.c'), ['a', 'b', 'c']],
   ['tsp', S('a-b.c'), ['-', '.']],
@@ -256,9 +283,13 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
  * un goût : « 2, 3 ou 4 caractères, évite d'aller au-delà ». Un code plus long
  * qu'une portée (`0.1:`) cesse d'être une abréviation.
  */
-test('le registre : cent codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 101);
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 101, 'aucun code alloué deux fois');
+// ★ Le titre disait « cent » ; ils sont cent vingt-cinq depuis que les
+//   vingt-quatre décalages de César ont rejoint le treizième
+//   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
+//   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
+test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
+  assert.equal(ORDRE_CANONIQUE.length, 125);
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 125, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -268,7 +299,7 @@ test('le registre : cent codes distincts, de deux à quatre signes (CONTRACTS §
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 101, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 125, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
