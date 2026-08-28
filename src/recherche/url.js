@@ -35,6 +35,8 @@
 //     #Donald Trump              recherche, puis animation de la 1ʳᵉ voie
 //     ##Donald Trump             recherche, puis ÉNUMÉRATION des voies
 //     #c111!sce!#Donald Trump    recherche visant 111, puis animation scénique
+//     #c111!#Donald Trump        idem, registre par défaut — la MAIN
+//     #c111!#<b58>               la LISTE des voies visant 111 — la MACHINE
 //     #so!tca+m36#Donald Trump   aucune recherche : CE programme, sur ce texte
 //
 // La première est le geste de « Révéler » (`pages/accueil.js`) : on cherche et
@@ -441,7 +443,34 @@ export function lire(hash, options = {}) {
     //   une mise en scène, c'est demander une DÉMONSTRATION ; nous savons
     //   maintenant laquelle montrer quand le lien ne la nomme pas — celle que
     //   le classement met en tête, exactement comme le bouton de l'accueil.
-    if (parts.length === 1 || registreEcrit) {
+    //
+    //   ★ **ET LA CIBLE SEULE VAUT AUSSI LA PREMIÈRE VOIE — QUAND LA SAISIE EST
+    //   ÉCRITE EN CLAIR.** « Je veux l'inverse » (l'auteur), sur l'exception qui
+    //   avait d'abord été faite à `#c111!#…`. Donc `#c111!#Donald Trump` cherche
+    //   111 et JOUE la démonstration de tête, comme `#Donald Trump` le fait
+    //   pour 666.
+    //
+    //   ⚠️ **Mais `#c111!#<b58>` reste la liste, et ce n'est pas un
+    //   contournement de sa consigne — c'est la frontière qu'il a lui-même
+    //   posée** : « la version b58 est bien sûr toujours supportée et à
+    //   conserver par défaut quand on passe par l'interface du site ». Cette
+    //   forme-là, le site l'ÉCRIT : c'est le sélecteur de cible de la page de
+    //   listing (`pages/resultat.js`, « changer de cible, c'est changer
+    //   d'URL »). La lire comme une animation ferait sauter dans une
+    //   démonstration au moment où l'on clique sur `[111]` pour voir la LISTE
+    //   des voies menant à 111.
+    //
+    //   La règle se lit donc en une phrase : **ce que le site écrit garde son
+    //   sens, ce qu'un humain tape suit la règle simple de l'auteur.** Le
+    //   base58 est la signature de la machine, le texte en clair celle de la
+    //   main ; les quatre exemples de l'auteur sont tous en clair.
+    //
+    //   ⚠️ C'est un choix que l'auteur n'a pas tranché explicitement — il a dit
+    //   « je veux l'inverse » sans mentionner le sélecteur de cible, qu'il ne
+    //   pouvait pas avoir en tête. À défaire en une ligne s'il préfère que la
+    //   bascule vaille aussi pour les liens du site : il faudra alors donner au
+    //   listing une autre façon d'écrire « la liste, pour cette cible-là ».
+    if (parts.length === 1 || registreEcrit || (cibleEcrite && saisieBrute)) {
       return {
         forme: 'premiere', saisie, saisieBrute, fragments: null,
         // Même résolution que la forme canonique : le registre rendu est celui

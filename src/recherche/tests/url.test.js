@@ -471,22 +471,38 @@ test('saisie en clair — les liens base58 existants se relisent à l’identiqu
 });
 
 /**
- * ★ L'EXCEPTION, et pourquoi elle n'est pas un caprice.
+ * ★ **CE QUE LE SITE ÉCRIT GARDE SON SENS ; CE QU'UN HUMAIN TAPE SUIT LA RÈGLE
+ *   SIMPLE DE L'AUTEUR.**
  *
- * La lecture littérale de la règle de l'auteur ferait de `#c111!#…` une
- * animation. C'est pourtant la forme que `ecrire({saisie, cible})` PRODUIT — le
- * lien de partage de la page de listing —, et l'écriture ne change pas. Sans
- * cette exception, l'énumération deviendrait indemandable pour toute cible
- * autre que 666. Le registre, lui, n'est jamais écrit sans programme : il n'a
- * aucun lien existant à protéger, et il bascule.
+ * `#c111!#…` avait d'abord été lu comme la LISTE dans les deux cas, au motif
+ * que c'est la forme que `ecrire({saisie, cible})` produit. « Je veux
+ * l'inverse » (l'auteur) : des marqueurs seuls valent la première voie animée,
+ * cible comprise.
+ *
+ * La bascule ne peut pourtant pas être totale, et la raison n'est pas
+ * théorique : cette forme est écrite par le SÉLECTEUR DE CIBLE de la page de
+ * listing (`pages/resultat.js`, « changer de cible, c'est changer d'URL »). La
+ * lire comme une animation ferait sauter dans une démonstration au moment
+ * précis où l'on clique sur `[111]` pour voir la liste des voies menant à 111.
+ *
+ * La frontière retenue est celle que l'auteur a lui-même posée — « la version
+ * b58 est bien sûr toujours supportée et à conserver par défaut quand on passe
+ * par l'interface du site » : le base58 est la signature de la machine, le
+ * texte en clair celle de la main. Ses quatre exemples sont tous en clair.
  */
-test('★ saisie en clair — `#c111!#…` reste la LISTE, `#c111!sce!#…` est l’animation', () => {
-  assert.equal(lire(`#c111!#${B58_HOPE}`).forme, 'resultats');
-  assert.equal(lire('#c111!#Donald Trump').forme, 'resultats');
+test('★ saisie en clair — `#c111!#…` ANIME ; en base58 il reste la LISTE', () => {
+  // La main : ce que l'auteur demande.
+  assert.equal(lire('#c111!#Donald Trump').forme, 'premiere');
   assert.equal(lire('#c111!#Donald Trump').cible.texte, '111');
   assert.equal(lire('#c111!sce!#Donald Trump').forme, 'premiere');
-  // Ce que le site écrit se relit comme le site l'entend : aller-retour.
+
+  // La machine : ce que le site écrit se relit comme le site l'entend.
+  assert.equal(lire(`#c111!#${B58_HOPE}`).forme, 'resultats');
   const lien = ecrire({ saisie: 'Donald Trump', cible: '111' });
   assert.equal(lire(lien).forme, 'resultats');
   assert.equal(lire(lien).cible.texte, '111');
+
+  // ⚠️ Et la liste reste demandable à la main, sans cible comme avec : deux
+  //    dièses, c'est la liste, et cela n'a pas bougé.
+  assert.equal(lire('##Donald Trump').forme, 'resultats');
 });
