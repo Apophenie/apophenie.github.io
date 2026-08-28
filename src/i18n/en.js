@@ -278,6 +278,21 @@ export const en = {
     texte: 'The truth behind {saisie}: {resultat}.',
   },
 
+  /* La jauge de recherche. ⚠️ Aucune espace avant le `%` : c'est une règle
+     française, et l'anglais ne l'hérite pas (`i18n.test.js` le vérifie). */
+  progression: {
+    label: 'Search progress',
+    demarrage: 'Searching…',
+    etat: '{pourcent}% — fragment {faits} of {total}',
+    termine: 'Search complete.',
+  },
+
+  attente: {
+    surtitre: 'The arcana are unfolding',
+    texte: 'The engine is walking the paths one by one. Everything is computed here: '
+      + 'nothing goes over the network, which is also why it takes a moment.',
+  },
+
   bandeaux: {
     urlAbsente: 'The URL grammar could not be loaded: link navigation is disabled. {raison}',
     lienIllisible: 'This link could not be read.',

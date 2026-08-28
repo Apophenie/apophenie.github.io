@@ -325,6 +325,33 @@ export const fr = {
     texte: 'La vérité derrière {saisie} : {resultat}.',
   },
 
+  /* ★ LA JAUGE DE RECHERCHE. Trois états, et pas un de plus : on démarre, on
+     avance, on a fini. Aucune de ces phrases ne promet une DURÉE — le moteur
+     compte des fragments, pas des secondes, et annoncer « encore trois
+     secondes » serait exactement le mensonge que la jauge existe pour éviter.
+     `jauge.etat` dit « fragment 8 sur 18 » au singulier quel que soit le
+     nombre : c’est un rang, pas un décompte, et les deux langues s’en
+     accommodent sans accord.
+
+     ⚠️ Le TOTAL peut diminuer en route — « fragment 10 sur 16 » puis
+     « fragment 11 sur 12 ». Ce n’est pas un défaut d’affichage : le budget de
+     travail vient de s’épuiser, et la recherche a décidé qu’elle s’arrêterait
+     au plancher garanti au lieu d’aller au bout (`recherche/index.js`). Le
+     chiffre montré est toujours celui des fragments qu’on cherchera vraiment ;
+     le figer au total initial ferait une jauge qui s’arrête à 60 %. */
+  progression: {
+    label: 'Avancement de la recherche',
+    demarrage: 'Recherche en cours…',
+    etat: '{pourcent} % — fragment {faits} sur {total}',
+    termine: 'Recherche terminée.',
+  },
+
+  attente: {
+    surtitre: 'Les arcanes se dévoilent',
+    texte: 'Le moteur explore les voies une par une. Tout est calculé ici : rien '
+      + 'ne part sur le réseau, et c’est aussi pour ça que ça prend un instant.',
+  },
+
   bandeaux: {
     urlAbsente: 'La grammaire d’URL n’a pas pu être chargée : la navigation par lien '
       + 'est désactivée. {raison}',

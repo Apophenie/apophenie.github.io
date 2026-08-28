@@ -12,10 +12,26 @@ import { titreApproche } from './libelles.js';
 import * as pont from './pont.js';
 import { pageAccueil, focaliserSaisie } from './pages/accueil.js';
 import { pageResultat, enteteResultat } from './pages/resultat.js';
+import { pageAttente } from './pages/attente.js';
 import { pageDemonstration, enteteDemonstration } from './pages/demonstration.js';
+import { creerJaugeRecherche } from './jauge-recherche.js';
 
 let vueCourante = null;      // { detruire() } de la page démonstration
 let derniereClef = null;
+
+/**
+ * ★ LE JETON DE ROUTE — ce qui empêche une recherche en retard de repeindre
+ *   par-dessus la page qu'on regarde.
+ *
+ * Depuis que la recherche rend une promesse, une route peut se terminer APRÈS
+ * qu'une autre a commencé : on tape, on n'attend pas, on clique sur un lien.
+ * `pont.resoudreEnFond` sait annuler une recherche coiffée par une plus
+ * récente, mais il ne sait rien des navigations qui ne cherchent RIEN — un lien
+ * canonique se rejoue sans moteur. Chaque route prend donc un numéro à son
+ * entrée, et refuse de peindre si ce numéro n'est plus le dernier.
+ */
+let jetonRoute = 0;
+const estCourante = (jeton) => jeton === jetonRoute;
 
 function poserTitre(titre) {
   document.title = titre ? t('global.suffixeTitre', { titre }) : t('global.titreDefaut');
@@ -56,8 +72,38 @@ function routeAccueil({ saisieInitiale = '', bandeau = null } = {}) {
   });
 }
 
-function routeResultat(saisie, { bandeau = null, cible = null } = {}) {
-  const resultat = pont.resoudre(saisie, cible);
+/**
+ * ★ CHERCHER EN MONTRANT QU'ON CHERCHE.
+ *
+ * La page d'attente est posée TOUT DE SUITE, avant le premier fragment : c'est
+ * elle qui porte la jauge, et une jauge qui n'apparaît qu'à la moitié du calcul
+ * ne sert à rien. La recherche la remplit, puis la page définitive la remplace.
+ *
+ * ⚠️ Le résultat `null` veut dire « une recherche plus récente a pris la
+ *    main » : on ne peint pas, quelqu'un d'autre peint.
+ *
+ * @param {string} saisie
+ * @param {*} cible
+ * @param {{titre?:string}} [reglages]
+ * @returns {Promise<?Object>} le résultat, ou `null` s'il ne faut plus rien faire
+ */
+async function chercherEnMontrant(saisie, cible, reglages = {}) {
+  const jeton = jetonRoute;
+  const jauge = creerJaugeRecherche();
+  rendre(enteteResultat(), pageAttente({ saisie, jauge }), { titre: reglages.titre ?? saisie });
+  const resultat = await pont.resoudreEnFond(saisie, cible, {
+    // La jauge n'est plus la nôtre dès qu'une autre route est partie : on cesse
+    // de l'alimenter plutôt que d'écrire dans un élément détaché du document.
+    surAvancement: (a) => { if (estCourante(jeton)) jauge.avancer(a); },
+  });
+  if (resultat === null || !estCourante(jeton)) return null;
+  jauge.achever();
+  return resultat;
+}
+
+async function routeResultat(saisie, { bandeau = null, cible = null } = {}) {
+  const resultat = await chercherEnMontrant(saisie, cible);
+  if (!resultat) return;
   const contenu = pageResultat({
     saisie,
     resultat,
@@ -152,8 +198,9 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
  * sans rechercher, et le retour arrière ne repasse pas par une recherche. Même
  * conduite que la forme héritée juste en dessous, pour la même raison.
  */
-function routePremiereVoie(lecture) {
-  const resultat = pont.resoudre(lecture.saisie, lecture.cible);
+async function routePremiereVoie(lecture) {
+  const resultat = await chercherEnMontrant(lecture.saisie, lecture.cible);
+  if (!resultat) return;
   const premiere = (resultat.approches || [])[0];
   // Aucune voie : la page de résultats sait le dire (réponse dédiée, saisie
   // vide, cible hors de portée). Pas de bandeau — il n'y a pas d'échec à
@@ -163,6 +210,24 @@ function routePremiereVoie(lecture) {
   if (direct) { location.replace(location.pathname + location.search + direct); return; }
   // Moteur en repli : il ne fabrique jamais d'URL. On montre sur place.
   montrerDemonstrationLocale(lecture.saisie, premiere, resultat);
+}
+
+/** Rangs hérités du README (`#3#…`) : la recherche est relancée, on l'annonce.
+ *  Elle passe par la page d'attente comme les autres — un vieux lien n'a pas
+ *  moins droit à voir où en est le calcul. */
+async function routeRangHerite(lecture) {
+  const resultat = await chercherEnMontrant(lecture.saisie, lecture.cible);
+  if (!resultat) return;
+  const rang = lecture.rangs[0];
+  const approche = (resultat.approches || []).find((a) => a.rang === rang);
+  if (!approche) {
+    routeResultat(lecture.saisie, {
+      bandeau: t('bandeaux.rangAbsent', { rang }), cible: lecture.cible,
+    });
+    return;
+  }
+  if (approche.url) { location.replace(location.pathname + approche.url); return; }
+  montrerDemonstrationLocale(lecture.saisie, approche, resultat);
 }
 
 /** Démonstration de secours : aucune URL n'est fabriquée, on ne touche pas au hash. */
@@ -193,6 +258,9 @@ function montrerDemonstrationLocale(saisie, approche, resultat) {
 /* ─────────────────────────────── l'aiguillage ──────────────────────────── */
 
 export function router() {
+  // Toute route commence par prendre un numéro : celles qui cherchent s'en
+  // servent pour savoir si elles ont encore le droit de peindre.
+  jetonRoute++;
   const hash = location.hash;
   if (pont.etat.url !== 'branché') {
     routeAccueil({
@@ -236,21 +304,9 @@ export function router() {
       routePremiereVoie(lecture);
       break;
 
-    case 'heritee': {
-      // Rangs hérités du README : la recherche est relancée, on l'annonce.
-      const resultat = pont.resoudre(lecture.saisie, lecture.cible);
-      const rang = lecture.rangs[0];
-      const approche = (resultat.approches || []).find((a) => a.rang === rang);
-      if (!approche) {
-        routeResultat(lecture.saisie, {
-          bandeau: t('bandeaux.rangAbsent', { rang }), cible: lecture.cible,
-        });
-        break;
-      }
-      if (approche.url) { location.replace(location.pathname + approche.url); break; }
-      montrerDemonstrationLocale(lecture.saisie, approche, resultat);
+    case 'heritee':
+      routeRangHerite(lecture);
       break;
-    }
 
     default: {
       const message = lecture.bandeau || t('bandeaux.incantation');

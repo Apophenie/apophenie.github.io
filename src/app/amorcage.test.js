@@ -51,7 +51,7 @@ test('amorçage — `pont` expose tout ce que les pages lui demandent', async ()
   const attendus = [
     'preparer', 'preparerVisuel', 'creerLecteur', 'etat',
     'lireHash', 'ecrireHash', 'canoniser',
-    'resoudre', 'rejouer', 'scenarioDe',
+    'resoudre', 'resoudreEnFond', 'rejouer', 'scenarioDe',
     'LIMITE_SAISIE', 'bandeaux', 'facteurRepetitions',
   ];
   for (const nom of attendus) {

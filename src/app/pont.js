@@ -17,12 +17,17 @@
 
 import * as secours from './secours.js';
 import { langue } from '../i18n/index.js';
+import { creerRechercheEnFond } from './travailleur.js';
 
-/** @type {{url:string, recherche:string, visuel:string, raison:?string}} */
+/** @type {{url:string, recherche:string, visuel:string, fond:string, raison:?string}} */
 export const etat = {
   url: 'attente',        // 'branché' | 'absent'
   recherche: 'attente',  // 'branché' | 'absent'
   visuel: 'attente',     // 'branché' | 'absent'
+  // Par où la recherche s'exécute réellement : 'fichier-unique' ou 'sources'
+  // (un Worker), 'tranches' (le fil principal qui rend la main), ou 'aucun'.
+  // C'est un CONSTAT, pas un réglage — la page l'affiche en mode débogage.
+  fond: 'attente',
   raison: null,
 };
 
@@ -114,6 +119,7 @@ export function preparer() {
       try {
         const catalogue = await rech.chargerCatalogue();
         M.moteur = rech.creerMoteur(catalogue);
+        M.creerCanal = rech.creerCanal;
         etat.recherche = 'branché';
       } catch (err) {
         etat.recherche = 'absent';
@@ -230,6 +236,79 @@ export function resoudre(saisie, cible) {
     urlResultats: null,        // un repli ne fabrique pas d'URL
     source: 'secours',
   };
+}
+
+/**
+ * ★ LA RECHERCHE QUI SE VOIT — celle que les pages appellent désormais.
+ *
+ * `resoudre()` ci-dessus reste ce qu'elle est : synchrone, immédiate, et
+ * utilisée là où l'on ne peut pas attendre (le repli, le rejeu). Celle-ci rend
+ * une promesse et appelle `surAvancement` à chaque fragment cherché.
+ *
+ * Où le calcul a lieu ne la regarde pas : `creerRechercheEnFond` choisit un
+ * travailleur si le navigateur en accepte un, et sinon le fil principal en
+ * tranches. Le résultat a la même forme dans les deux cas — celle de
+ * `serialisable()`, c'est-à-dire sans les objets opérateurs. Les pages de LISTE
+ * n'en ont pas besoin : elles lisent des titres, des rangs et des liens. La
+ * page de démonstration, elle, ne cherche pas — elle rejoue une URL (§4.3).
+ *
+ * ⚠️ Une recherche annulée (une plus récente est partie) rend `null`, pas une
+ *    erreur : l'appelant doit simplement ne rien faire, sa page n'est plus
+ *    celle qu'on regarde.
+ *
+ * @param {string} saisie
+ * @param {*} cible
+ * @param {{surAvancement?:(a:Object)=>void}} [reglages]
+ * @returns {Promise<Object|null>}
+ */
+export async function resoudreEnFond(saisie, cible, reglages = {}) {
+  const executantCourant = fond();
+  // ⚠️ On demande la voie AVANT de chercher, et c'est ce qui distingue les deux
+  //    `null` de ce fichier : « aucun moteur nulle part » n'est pas « une
+  //    recherche plus récente m'a coiffée ». Confondre les deux laisserait la
+  //    page d'attente à l'écran pour toujours quand `src/recherche/` manque —
+  //    exactement la panne muette que `pont.js` existe pour éviter.
+  const voie = await executantCourant.pret();
+  if (voie) {
+    const texteDeLaCible = cible === null || cible === undefined ? null : texteCible(cible);
+    try {
+      const brut = await executantCourant.chercher(saisie, texteDeLaCible, reglages);
+      if (brut === null) return null;    // coiffée : quelqu'un d'autre peindra
+      return {
+        ...brut,
+        approches: (brut.approches || []).map(traduireApproche),
+        source: 'moteur',
+      };
+    } catch (err) {
+      console.error('[NumHeroLOLgeek] la recherche en fond a échoué :', err);
+    }
+  }
+  // Aucun moteur, ou une recherche qui a jeté : on ne laisse pas la page en
+  // suspens. `resoudre()` connaît déjà le chemin du repli, et le prend.
+  return resoudre(saisie, cible);
+}
+
+/** L'exécutant de la recherche, construit au premier besoin. Il n'est PAS bâti
+ *  dans `preparer()` : ouvrir un travailleur coûte, et une visite qui ne
+ *  cherche rien — un lien canonique rejoué, par exemple — ne doit pas le payer. */
+let executant = null;
+function fond() {
+  if (executant) return executant;
+  executant = creerRechercheEnFond({
+    canalLocal: (recevoir) => (M.moteur && M.creerCanal ? M.creerCanal(M.moteur, recevoir) : null),
+  });
+  executant.pret().then(() => {
+    etat.fond = executant.mode();
+    // ★ Écrit sur `<html>` : c'est la seule trace observable de l'endroit où le
+    //   calcul a lieu, et elle vaut de l'or au diagnostic. Un travailleur qui
+    //   ne naît pas ne casse rien — la recherche continue en tranches —, donc
+    //   rien d'autre dans la page ne le dirait. `data-fond="tranches"` là où on
+    //   attendait `fichier-unique`, et l'on sait immédiatement quoi chercher.
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-fond', etat.fond);
+    }
+  });
+  return executant;
 }
 
 /** Recompose `titre` et `regle` d'une approche dans la langue courante.
