@@ -69,9 +69,19 @@ export function plan(ctx) {
   const local = (p) => ({ x: glyphToLocal(p, fs * zoom).x, y: glyphToLocal(p, fs * zoom).y });
 
   // --- 1. l'encart s'ouvre, la lettre y monte ------------------------------
-  const encart = ouvrirEncart(ctx, src, {
-    at: 0, dur: T * 0.12, title: typeof ctx.op.note === 'string' ? ctx.op.note : null,
-  });
+  //   ★ Le nom de l'OUTIL s'affiche au-dessus du cadre : en plein écran, la
+  //   scène est tout ce qu'on voit, et « Boucles fermées, en capitale » dit ce
+  //   qu'on est en train de compter. Il vient du catalogue et voyage dans l'op
+  //   (`moteur/transformations/commun.js › def`, champ « outil »).
+  //
+  //   ★ Ce cadre-ci NE SE MUTUALISE PAS, et c'est délibéré : ce qu'il montre
+  //   est le tracé de la lettre elle-même — il change donc entièrement d'une
+  //   lettre à l'autre. L'afficheur à segments, lui, est le même objet pour
+  //   toutes les lettres, et c'est ce qui autorise à le garder en place.
+  if (ctx.op.titre !== undefined && typeof ctx.op.titre !== 'string') {
+    fail(`${ctx.where}« titre » doit être une chaîne — le nom de l'outil, déjà traduit, tel que le catalogue le porte.`);
+  }
+  const encart = ouvrirEncart(ctx, src, { at: 0, dur: T * 0.12, titre: ctx.op.titre });
 
   // --- 2. changement de police : la lettre devient son propre tracé --------
   const apparition = T * 0.2;

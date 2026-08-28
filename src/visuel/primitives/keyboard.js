@@ -79,6 +79,14 @@ export function plan(ctx) {
   if (!MESURES.includes(mesure)) {
     fail(`${ctx.where}« mesure » = ${JSON.stringify(mesure)} — les trois mesures sont ${MESURES.join(', ')}.`);
   }
+  if (ctx.op.titre !== undefined && typeof ctx.op.titre !== 'string') {
+    fail(`${ctx.where}« titre » doit être une chaîne — le nom de l'outil, déjà traduit, tel que le catalogue le porte.`);
+  }
+  // ★ Le nom de l'outil, affiché sous le clavier : en plein écran, la scène est
+  //   tout ce qu'on voit, et « Clavier AZERTY » dit ce qu'on regarde. Il fait
+  //   partie de l'identité du décor — deux ops qui dessinent le même clavier
+  //   mais l'annoncent autrement ne montrent pas le même outil.
+  const titre = typeof ctx.op.titre === 'string' ? ctx.op.titre.trim() : '';
 
   const layout = normalizeLayout(ctx.op.layout);
   // La rangée de chiffres est retirée quand c'est la RANGÉE qu'on mesure.
@@ -94,7 +102,7 @@ export function plan(ctx) {
   // pour `sevenSeg`.
   if (!key) {
     substituerSeul(ctx, src, to, 'digit');
-    const orphelin = `@kbd:${layout}:${rows}:${mesure}`;
+    const orphelin = idClavier(layout, rows, mesure, titre);
     if (ctx.op.montre !== true && ctx.op.retire !== false && decorEnLAir(ctx, orphelin)) {
       replierDecor(ctx, orphelin, 0);
     }
@@ -134,12 +142,12 @@ export function plan(ctx) {
   //   du nœud est celle du DESSIN (disposition, rangées montrées, repères de
   //   la mesure) : deux ops qui montrent le même clavier partagent le nœud,
   //   deux claviers différents ne peuvent pas se confondre.
-  const board = `@kbd:${layout}:${rows}:${mesure}`;
+  const board = idClavier(layout, rows, mesure, titre);
   const deployer = !decorEnLAir(ctx, board) || ctx.op.montre === true;
   const replier = ctx.op.retire !== false;
 
   const t0 = monterDecor(ctx, {
-    id: board, role: 'keyboard', data: { geo, mesure, layout },
+    id: board, role: 'keyboard', titre, data: { geo, mesure, layout },
     pos: boardPos, width: geo.width, deployer,
     encombrement: {
       // La réglette de colonnes dépasse au-dessus du clavier ; la marge des
@@ -167,6 +175,15 @@ export function plan(ctx) {
 }
 
 const DIT = Object.freeze({ touche: 'le chiffre', colonne: 'la colonne', rangee: 'la rangée' });
+
+/**
+ * L'identité du décor — le DESSIN, et le nom sous lequel il est annoncé.
+ *
+ * Deux ops qui montrent le même clavier partagent le nœud (c'est ce qui
+ * mutualise le déploiement) ; deux claviers différents, ou deux méthodes qui ne
+ * les nomment pas pareil, ne peuvent pas se confondre.
+ */
+const idClavier = (layout, rows, mesure, titre) => `@kbd:${layout}:${rows}:${mesure}:${titre}`;
 
 /** Boîte à éclairer, en coordonnées locales du clavier. */
 function haloDe(geo, key, mesure) {

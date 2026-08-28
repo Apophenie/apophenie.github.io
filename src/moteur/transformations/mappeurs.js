@@ -98,6 +98,73 @@ import { bilingue, dire } from '../i18n.js';
 const pli = (c) => sansAccents(String(c)).toUpperCase();
 const estVoyelle = (c) => VOYELLES.includes(pli(c));
 
+/* ── ★ LE NOM DES OUTILS QUE LA SCÈNE MONTE ──────────────────────────────────
+ *
+ * En plein écran, le décor est tout ce qu'on voit : un clavier, un afficheur,
+ * une grille de vingt-six cases. Sans son nom, on ne sait pas de quelle méthode
+ * il est la preuve. Ces noms vivent donc au CATALOGUE (champ `outil`, voir
+ * `commun.js › def`), et la scène les reçoit tout traduits — jamais recopiés
+ * là-bas, sans quoi renommer un opérateur laisserait la scène annoncer
+ * l'ancien nom.
+ *
+ * ★ Et ils se DÉDUISENT du geste plutôt que d'être écrits opérateur par
+ * opérateur : deux claviers, quatre afficheurs, et pas une chaîne en double —
+ * l'AZERTY et le QWERTY partagent une phrase, le sept et le quatorze segments
+ * en partagent une autre.
+ */
+
+/** Le nom d'un clavier — sa disposition suffit à le nommer. */
+const outilClavier = (disposition) => {
+  const d = String(disposition || 'azerty').toUpperCase();
+  return bilingue(`Clavier ${d}`, `${d} keyboard`);
+};
+
+/**
+ * Le nom d'un afficheur à segments — et la mention de la FUSION, écrite une
+ * seule fois pour les deux afficheurs.
+ *
+ * En comptage individuel, l'outil est l'afficheur lui-même. En fusion, ce ne
+ * sont plus les segments qu'on compte mais leurs ALIGNEMENTS — `b` et `c` n'y
+ * font qu'un trait — et le nom doit le dire, sinon deux scènes rigoureusement
+ * différentes s'annonceraient pareil.
+ */
+const outilAfficheur = (segments, mode) => (mode === 'fusion'
+  ? bilingue(`Alignements sur afficheur ${segments} segments`,
+    `Aligned strokes on a ${segments}-segment display`)
+  : bilingue(`Afficheur ${segments} segments`, `${segments}-segment display`));
+
+/**
+ * Le nom de l'outil qu'un geste monte — `null` quand le geste ne monte aucun
+ * décor nommé (une table de correspondance porte le nom de sa MÉTHODE, qui est
+ * déjà le libellé de l'opérateur : « Numérologie pythagoricienne », « Points du
+ * Scrabble français »).
+ */
+function outilDuGeste(spec) {
+  if (spec.geste === 'keyboard') return outilClavier(spec.disposition);
+  if (spec.geste === 'sevenSeg') return outilAfficheur(7, spec.mode);
+  if (spec.geste === 'fourteenSeg') return outilAfficheur(14, spec.mode);
+  return null;
+}
+
+/**
+ * Un mappeur à décor déclaré à la main — l'opérateur d'un côté, le GESTE de
+ * l'autre, et le nom de l'outil calculé UNE fois pour les deux.
+ *
+ * Les mappeurs lettre → nombre passent par une fabrique commune, qui s'en
+ * charge ; trois d'entre eux (`mtc`, `m14`, `m14F`) sont écrits à la main
+ * parce que leur `apply` ne se déduit pas d'une table. Sans ce petit
+ * intermédiaire, le nom de l'outil devrait être écrit deux fois — une fois
+ * pour le catalogue, une fois pour la scène — et deux écritures d'une même
+ * chose finissent toujours par diverger.
+ *
+ * @param {object} spec   le descripteur d'opérateur (sans `steps`)
+ * @param {object} geste  ce que `etapeMappeur` a besoin de savoir de la scène
+ */
+function mappeurGeste(spec, geste) {
+  const outil = spec.outil || outilDuGeste(geste) || spec.libelle;
+  return def({ ...spec, outil, steps: etapeMappeur({ ...geste, outil }) });
+}
+
 // Libellés dont `steps()` a besoin avant que `def()` ait figé l'opérateur.
 const LIB_REDUIRE_CHAQUE = bilingue('On réduit chaque nombre à un chiffre', 'Reduce every number to a single digit');
 const LIB_ZEROS = bilingue('On retire les zéros', 'Drop the zeros');
@@ -1008,6 +1075,12 @@ function parLettre(fn) {
 function etapeMappeur(spec) {
   return (avant, apres, ctx) => {
     const sortie = nomsTokens(ctx, apres.valeur.length);
+    // ★ Le nom de l'OUTIL, affiché dans la scène sous le décor qu'elle monte —
+    //   dérivé du catalogue (`commun.js › def`, champ « outil »), jamais écrit
+    //   côté visuel. En plein écran, le décor est tout ce qu'on voit : sans son
+    //   nom, on regarde un clavier ou un afficheur sans savoir de quelle
+    //   méthode il est la preuve.
+    const nomOutil = dire(spec.outil || spec.libelle, ctx.langue);
     const carDe = (i) => [...String(avant.valeur[i] ?? '')][0] || '';
     // `pli` = sans accent, en capitale — exactement le pliage qu'applique
     // `apply()`. Sans lui, « é » chercherait un glyphe « É » qui n'existe pas.
@@ -1039,6 +1112,7 @@ function etapeMappeur(spec) {
           return {
             op: 'fourteenSeg',
             target: ctx.ids[i],
+            titre: nomOutil,
             // Un TABLEAU de noms : deux des quatorze segments s'écrivent sur
             // deux caractères (`g1`, `g2`), une chaîne les rendrait ambigus.
             segments: [...(segments14De(pliCar(i)) || [])],
@@ -1051,6 +1125,7 @@ function etapeMappeur(spec) {
           return {
             op: 'sevenSeg',
             target: ctx.ids[i],
+            titre: nomOutil,
             segments: segmentsDe(pliCar(i)) || '',
             // L'afficheur 7 segments connaît aussi les CHIFFRES, la table
             // vectorielle non (52 glyphes, les lettres). Un chiffre n'a donc pas
@@ -1065,6 +1140,7 @@ function etapeMappeur(spec) {
         return {
           op: 'countStrokes',
           target: ctx.ids[i],
+          titre: nomOutil,
           mode: spec.metrique,
           // Même pliage que `apply()` (`pli`, puis la casse de la méthode) :
           // c'est le glyphe COMPTÉ qui doit être le glyphe DESSINÉ.
@@ -1134,6 +1210,7 @@ function etapeMappeur(spec) {
             [{
               op: 'table',
               disposition: spec.forme || 'reglette',
+              titre: nomOutil,
               ...(spec.colonnes ? { colonnes: spec.colonnes } : {}),
               // Le retour à la ligne au cycle et la teinte par valeur ne sont
               // pas des ornements : ils MONTRENT la règle de la table. Ils
@@ -1187,6 +1264,7 @@ function etapeMappeur(spec) {
           [{
             op: 'keyboard',
             target: ctx.ids[i],
+            titre: nomOutil,
             key: toucheDe(i),
             layout: disposition,
             mesure,
@@ -1698,15 +1776,20 @@ const MAPPEURS_LETTRE = [
     fn, geste, mode, metrique, casse, disposition, mesureClavier,
     forme, colonnes, cycle, teinte, noteDe, labelDe, ...reste
   } = spec;
+  // ★ Le nom AFFICHÉ DANS LA SCÈNE : celui que l'opérateur déclare, sinon celui
+  // que son geste porte (clavier, afficheur), sinon son libellé. Il est calculé
+  // ici, une fois, pour que `steps()` et le catalogue lisent la MÊME chaîne.
+  const outil = spec.outil || outilDuGeste(spec) || reste.libelle;
   const base = {
     ...reste, geste, mode, metrique, casse, disposition, mesureClavier,
-    forme, colonnes, cycle, teinte,
+    forme, colonnes, cycle, teinte, outil,
     // ★ La table MONTRÉE est dérivée de `fn`, la fonction même que `apply()`
     // applique. Une seule source, donc aucune divergence possible.
     table: geste === 'table' ? tableDe(fn, { noteDe, labelDe }) : null,
   };
   return def({
     ...reste,
+    outil,
     famille: 'mappeur',
     from: 'TOKENS',
     to: 'NUMS',
@@ -1802,7 +1885,7 @@ const AUTRES_MAPPEURS = [
   // de rendre 6 sur les deux tirets de `hope-hope-hope` — la table
   // `TIRET_DU_SIX` existait, mais personne ne l'exploitait, et `m.azertyColonne`
   // cherche dans les rangées de LETTRES : la colonne d'un « - » y vaut `null`.
-  def({
+  mappeurGeste({
     id: 'm.toucheChiffre', code: 'mtc', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
     libelle: bilingue('Le chiffre qui partage la touche',
       'The digit that shares the same key'),
@@ -1815,13 +1898,12 @@ const AUTRES_MAPPEURS = [
     notoriete: 0.75, adHoc: 0.05,
     note: NOTE_AFNOR,
     apply: parLettre(chiffreDeTouche),
-    steps: etapeMappeur({
-      libelle: bilingue('Le chiffre qui partage la touche',
-        'The digit that shares the same key'),
-      regle: bilingue('Le tiret du 6, et ses neuf voisines de la rangée du haut',
-        'The dash on the 6 — and its nine neighbours on the top row'),
-      geste: 'keyboard', disposition: 'azerty', mesureClavier: 'touche',
-    }),
+  }, {
+    libelle: bilingue('Le chiffre qui partage la touche',
+      'The digit that shares the same key'),
+    regle: bilingue('Le tiret du 6, et ses neuf voisines de la rangée du haut',
+      'The dash on the 6 — and its nine neighbours on the top row'),
+    geste: 'keyboard', disposition: 'azerty', mesureClavier: 'touche',
   }),
   // ★ L'afficheur QUATORZE segments — deux méthodes de plus, et deux codes
   // neufs. Le registre est append-only (CONTRACTS §4.1) : `mtc` était le dernier
@@ -1833,7 +1915,7 @@ const AUTRES_MAPPEURS = [
   // segments (`A` et `O`), si bien que `HOP` s'y écrit littéralement 6·6·6 ;
   // et la borne des traits fusionnés passe de 5 à 10, ce qui ouvre des sommes
   // que le sept segments ne savait pas produire.
-  def({
+  mappeurGeste({
     id: 'm.seg14', code: 'm14', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
     libelle: bilingue('Lettre vers nombre de segments, en 14 segments',
       'Letter to number of segments, on a fourteen-segment display'),
@@ -1844,17 +1926,16 @@ const AUTRES_MAPPEURS = [
     notoriete: 0.40,
     note: MENTION_SEG14,
     apply: parLettre((c) => compteSegments14(pli(c))),
-    steps: etapeMappeur({
-      libelle: bilingue('Lettre vers nombre de segments, en 14 segments',
-        'Letter to number of segments, on a fourteen-segment display'),
-      regle: bilingue('Sur afficheur 14 segments (celui des autoradios et des tableaux '
-        + 'd’affichage), combien faut-il allumer de segments pour former cette lettre ?',
-        'On a fourteen-segment display (the one in car radios and station boards), how many '
-        + 'segments have to light up to form this letter?'),
-      geste: 'fourteenSeg', mode: 'segments',
-    }),
+  }, {
+    libelle: bilingue('Lettre vers nombre de segments, en 14 segments',
+      'Letter to number of segments, on a fourteen-segment display'),
+    regle: bilingue('Sur afficheur 14 segments (celui des autoradios et des tableaux '
+      + 'd’affichage), combien faut-il allumer de segments pour former cette lettre ?',
+      'On a fourteen-segment display (the one in car radios and station boards), how many '
+      + 'segments have to light up to form this letter?'),
+    geste: 'fourteenSeg', mode: 'segments',
   }),
-  def({
+  mappeurGeste({
     id: 'm.seg14Fusion', code: 'm14F', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
     // ★ « TRAITS », pas « lignes » — même réserve qu'en sept segments (`m7F`) :
     // le mot « ligne » reste réservé au comptage des seules HORIZONTALES.
@@ -1869,15 +1950,14 @@ const AUTRES_MAPPEURS = [
     notoriete: 0.35,
     note: MENTION_SEG14,
     apply: parLettre((c) => compteTraitsFusionnes14(pli(c))),
-    steps: etapeMappeur({
-      libelle: bilingue('Lettre vers nombre de traits, en 14 segments',
-        'Letter to number of strokes, on a fourteen-segment display'),
-      regle: bilingue('Sur afficheur 14 segments, combien faut-il de lignes droites '
-        + 'continues pour former cette lettre ?',
-        'On a fourteen-segment display, how many unbroken straight lines does it take to '
-        + 'form this letter?'),
-      geste: 'fourteenSeg', mode: 'fusion',
-    }),
+  }, {
+    libelle: bilingue('Lettre vers nombre de traits, en 14 segments',
+      'Letter to number of strokes, on a fourteen-segment display'),
+    regle: bilingue('Sur afficheur 14 segments, combien faut-il de lignes droites '
+      + 'continues pour former cette lettre ?',
+      'On a fourteen-segment display, how many unbroken straight lines does it take to '
+      + 'form this letter?'),
+    geste: 'fourteenSeg', mode: 'fusion',
   }),
   // ★ « On retourne les 9 » — le pendant VECTORIEL de `p.retournement` (`pr9`).
   //

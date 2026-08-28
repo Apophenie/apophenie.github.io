@@ -41,12 +41,26 @@ export const ENCART = Object.freeze({
 });
 
 /**
- * Ouvre l'encart et y fait monter la lettre.
+ * ★ L'ENCART SE MUTUALISE, comme la table et le clavier.
+ *
+ * « Comme pour les tables ou claviers, pas besoin de l'effacer entre chaque
+ * conversion d'affilée, tu peux garder l'afficheur d'une fois sur l'autre »
+ * (l'auteur). Quatre lettres d'affilée sur le même afficheur ne justifient pas
+ * quatre ouvertures et quatre fermetures : le cadre monte à la première, reste,
+ * et se referme à la dernière — exactement le partage que `decor.js` organise
+ * pour les deux autres décors, et pour la même raison (le DÉCOR se mutualise,
+ * le GESTE jamais).
+ *
+ * L'identité du décor est passée par l'appelant (`cle`) : c'est ce qui décide
+ * quels cadres sont « le même cadre ». Sans `cle`, l'encart reste attaché à son
+ * jeton, comme avant — c'est le cas du comptage de traits, où ce qui est montré
+ * dans le cadre est le tracé de la lettre elle-même.
  *
  * @param {object} ctx
  * @param {object} src  le token de la ligne
- * @param {{at:number, dur:number, title?:string}} spec
- * @returns {{frame:string, titre:?string, centre:{x:number,y:number}, cote:number}}
+ * @param {{at:number, dur:number, titre?:string, cle?:string, deployer?:boolean}} spec
+ * @returns {{frame:string, titre:?string, centre:{x:number,y:number}, cote:number,
+ *            deployer:boolean}}
  */
 export function ouvrirEncart(ctx, src, spec = {}) {
   const fs = ctx.metrics.fontSize;
@@ -59,35 +73,59 @@ export function ouvrirEncart(ctx, src, spec = {}) {
   const vue = ancreVue(ctx);
   const centre = { x: vue.x, y: vue.y - fs * ENCART.hauteur };
 
-  const frame = `@encart:${src.id}`;
-  ctx.scene.create({
-    id: frame, role: 'frame', inFlow: false, w: cote,
-    data: { h: cote, rx: 8 },
-    base: { opacity: 0, scale: 0.92, stroke: ctx.palette.line },
-  }, { where: ctx.where });
-  ctx.scene.place(frame, { x: centre.x, y: centre.y, w: cote });
-  ctx.anim({ id: frame, prop: 'opacity', to: 1, at, dur });
-  ctx.anim({ id: frame, prop: 'scale', to: 1, at, dur, ease: EASE.pop });
+  const cle = typeof spec.cle === 'string' && spec.cle ? spec.cle : null;
+  const frame = cle ? `@encart:${cle}` : `@encart:${src.id}`;
+  const deployer = cle === null || spec.deployer !== false || !ctx.scene.has(frame);
+  if (!ctx.scene.has(frame)) {
+    ctx.scene.create({
+      id: frame, role: 'frame', inFlow: false, w: cote,
+      data: { h: cote, rx: 8 },
+      base: { opacity: 0, scale: 0.92, stroke: ctx.palette.line },
+    }, { where: ctx.where });
+    ctx.scene.place(frame, { x: centre.x, y: centre.y, w: cote });
+  } else {
+    // Déjà ouvert : il SUIT la vue, comme le fait tout décor mutualisé — si la
+    // ligne a défilé entre deux lettres, le milieu de l'écran a bougé.
+    ctx.place(frame, { x: centre.x, y: centre.y, w: cote }, { at, dur });
+  }
+  if (deployer) {
+    ctx.anim({ id: frame, prop: 'opacity', to: 1, at, dur });
+    ctx.anim({ id: frame, prop: 'scale', from: 0.92, to: 1, at, dur, ease: EASE.pop });
+  }
 
   let titre = null;
-  if (typeof spec.title === 'string' && spec.title) {
-    titre = ctx.gensym('encartTitre');
-    ctx.scene.create({
-      id: titre, role: 'label', text: spec.title, inFlow: false,
-      w: ctx.metrics.advance * 0.55 * [...spec.title].length,
-      data: { scale: 0.5 },
-      base: { opacity: 0, fill: ctx.palette.fg2 },
-    }, { where: ctx.where });
-    ctx.scene.place(titre, { x: centre.x, y: centre.y - cote / 2 - fs * 0.42 });
-    ctx.anim({ id: titre, prop: 'opacity', to: 1, at, dur });
+  const texte = typeof spec.titre === 'string' ? spec.titre.trim() : '';
+  if (texte) {
+    // ★ Le nom de l'outil, AU-DESSUS du cadre — du côté opposé à la ligne, comme
+    //   la table et le clavier le mettent en dessous : le titre ne s'interpose
+    //   jamais entre la ligne et l'objet qui l'interroge. Il vient du catalogue
+    //   (`moteur/transformations/commun.js › def`, champ « outil »), déjà
+    //   traduit, et n'est écrit nulle part ici.
+    titre = cle ? `${frame}:titre` : ctx.gensym('encartTitre');
+    if (!ctx.scene.has(titre)) {
+      ctx.scene.create({
+        id: titre, role: 'label', text: texte, inFlow: false,
+        w: ctx.metrics.advance * 0.55 * [...texte].length,
+        data: { scale: 0.5 },
+        base: { opacity: 0, fill: ctx.palette.fg2 },
+      }, { where: ctx.where });
+      ctx.scene.place(titre, { x: centre.x, y: centre.y - cote / 2 - fs * 0.42 });
+    } else {
+      ctx.place(titre, { x: centre.x, y: centre.y - cote / 2 - fs * 0.42 }, { at, dur });
+    }
+    if (deployer) ctx.anim({ id: titre, prop: 'opacity', to: 1, at, dur });
   }
+
+  // L'état du décor est NOTÉ sur son nœud, au fil de la compilation : « il
+  // existe » ne veut pas dire « il est visible » (CONTRACTS §3.2 règle 7).
+  ctx.scene.get(frame).data.deploye = true;
 
   // La lettre monte dans l'encart et y grandit. Elle reste dans le flux : sa
   // place est réservée, c'est là que le nombre reviendra.
   ctx.anim({ id: src.id, prop: 'translate', to: centre, at, dur: dur * 1.5, ease: EASE.move });
   ctx.anim({ id: src.id, prop: 'scale', to: ENCART.zoomLettre, at, dur: dur * 1.5, ease: EASE.move });
 
-  return { frame, titre, centre, cote };
+  return { frame, titre, centre, cote, deployer };
 }
 
 /**
@@ -146,17 +184,26 @@ export function poserCompteur(ctx, spec) {
  * lettre. C'est le geste qui conclut : « une fois tout allumé, le nombre
  * remplace la lettre ».
  *
+ * ★ `replier: false` — l'encart RESTE OUVERT. La lettre suivante emploie le
+ * même afficheur : refermer le cadre pour le rouvrir aussitôt ferait un
+ * clignotement gratuit, et surtout dirait que l'outil a changé alors qu'il est
+ * le même. Seul le geste se termine ; le décor attend la suivante. C'est
+ * l'appelant qui rend alors ses segments à l'état fantôme — lui seul sait ce
+ * qu'il a allumé.
+ *
  * @param {{src:object, to:?object, montres:string[], compteur:string,
- *          encart:object, at:number, dur:number}} spec
+ *          encart:object, at:number, dur:number, replier?:boolean}} spec
  */
 export function refermerEncart(ctx, spec) {
   const { src, to, encart } = spec;
   const at = spec.at;
   const dur = spec.dur;
+  const replier = spec.replier !== false;
 
   // Tout ce qui était montré s'efface : le cadre, le titre, l'afficheur.
-  const sortants = [encart.frame, ...(encart.titre ? [encart.titre] : []), ...spec.montres];
-  for (const id of sortants) {
+  const cadre = replier ? [encart.frame, ...(encart.titre ? [encart.titre] : [])] : [];
+  if (replier) ctx.scene.get(encart.frame).data.deploye = false;
+  for (const id of [...cadre, ...spec.montres]) {
     ctx.anim({ id, prop: 'opacity', to: 0, at, dur: dur * 0.4 });
   }
   if (!to) {

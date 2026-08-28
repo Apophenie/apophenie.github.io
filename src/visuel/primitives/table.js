@@ -128,6 +128,11 @@ import { tokenSpec, ancreVue } from './helpers.js';
 //   PAR-DESSUS, faire redescendre la valeur — est écrit une seule fois, et
 //   `keyboard` l'appelle aussi. Deux gestes ne peuvent plus diverger.
 import { monterDecor, allerRetour, replierDecor, substituerSeul, decorEnLAir } from './decor.js';
+// ★ La seconde réglette d'une glissière n'est pas dessinée avec la table : elle
+//   est faite de cases à part, parce qu'elle DOIT pouvoir bouger — elle paraît
+//   alignée sur la première, puis se déplace pour montrer le déplacement que la
+//   table, sans cela, se contenterait d'affirmer.
+import { poserBande } from './glissiere.js';
 import {
   tableGeometry, alphabetEntries,
   normalizeOrdre, normalizeDisposition, ALPHABET_ORDRES, DISPOSITIONS, TEINTES,
@@ -170,6 +175,9 @@ export function plan(ctx) {
   if (op.cycle !== undefined && typeof op.cycle !== 'boolean') {
     fail(`${ctx.where}« cycle » doit être un booléen.`);
   }
+  if (op.titre !== undefined && typeof op.titre !== 'string') {
+    fail(`${ctx.where}« titre » doit être une chaîne — le nom de l'outil, déjà traduit, tel que le catalogue le porte.`);
+  }
 
   const disposition = normalizeDisposition(op.disposition);
   const entries = entreesDe(ctx);
@@ -195,7 +203,11 @@ export function plan(ctx) {
       + `pour « ${lettre} ». Le moteur visuel refuse d’afficher autre chose que ce qui est montré.`);
   }
 
-  const board = `@table:${cleDeTable(disposition, geo)}`;
+  // ★ Le TITRE fait partie de l'identité du décor. Deux ops qui dessinent la
+  //   même table mais l'annoncent autrement ne montrent pas le même outil : les
+  //   confondre laisserait la seconde s'afficher sous le nom de la première.
+  const titre = typeof op.titre === 'string' ? op.titre.trim() : '';
+  const board = `@table:${cleDeTable(disposition, geo, titre)}`;
   // ★ Le décor se mutualise, le geste non. On déploie quand on nous le demande
   //   — et de toute façon quand la table n'existe pas encore, pour qu'une op
   //   isolée reste autosuffisante.
@@ -221,8 +233,12 @@ export function plan(ctx) {
   };
 
   // ── 1. le décor : monté maintenant, ou déjà là ──────────────────────────
-  const t0 = monterDecor(ctx, {
-    id: board, role: 'table', data: { geo, disposition },
+  //   ★ En glissière, la table ne dessine que la réglette du HAUT : celle du
+  //   bas est faite de cases mobiles (`glissiere.js`), qui paraissent alignées
+  //   sur elle avant de se déplacer.
+  const bandeSeparee = disposition === 'glissiere';
+  let t0 = monterDecor(ctx, {
+    id: board, role: 'table', titre, data: { geo, disposition, bandeSeparee },
     pos: boardPos, width: geo.width, deployer,
     encombrement: {
       haut: boardPos.y - geo.height / 2,
@@ -231,6 +247,7 @@ export function plan(ctx) {
       pad: PAD,
     },
   });
+  if (bandeSeparee) t0 = poserBande(ctx, { board, boardPos, geo, deployer, t0 });
 
   // ── 2. l'aller-retour de CETTE lettre, en entier ────────────────────────
   //   ★ Le geste est celui du clavier, au mot près (`decor.js`) : la lettre
@@ -269,8 +286,8 @@ export function plan(ctx) {
  * diffèrent d'une seule case ne peuvent pas se confondre, donc un changement de
  * méthode retire bien l'ancienne. FNV-1a, en base 36.
  */
-function cleDeTable(disposition, geo) {
-  const src = `${disposition}|${geo.cols}×${geo.rows}|`
+function cleDeTable(disposition, geo, titre = '') {
+  const src = `${disposition}|${geo.cols}×${geo.rows}|${titre}|`
     + geo.cells.map((c) => `${c.key}@${c.ligne},${c.col}~${c.teinte ?? ''}:${c.labels.map((l) => l.text).join('/')}`).join(';');
   let h = 0x811c9dc5;
   for (let i = 0; i < src.length; i++) {

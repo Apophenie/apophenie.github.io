@@ -987,6 +987,16 @@ test('table : un caractère hors de la table dégrade sans table', () => {
 
 const encartDe = (tl, id) => tl.nodes.find((n) => n.id === `@encart:${id}`);
 const compteurDe = (tl, id) => tl.nodes.find((n) => n.id === `@compteur:${id}`);
+/**
+ * ★ L'afficheur est un DÉCOR, et son identité est celle de ce qu'il MONTRE —
+ * l'afficheur et son régime (segments comptés un par un, ou traits fusionnés) —,
+ * jamais celle de la lettre qui passe dedans. C'est ce qui lui permet de rester
+ * en place d'une conversion à la suivante, comme la table et le clavier. Le
+ * comptage de traits, lui, garde un encart par jeton : ce qu'il montre EST la
+ * lettre.
+ */
+const cleSeg = (nom, regime) => `${nom}:${regime}`;
+const segDe = (cle, k) => `@seg:${cle}:${k}`;
 
 test('sevenSeg : encart, compteur, allumage un à un, puis substitution', () => {
   const tl = compile(sc([{
@@ -994,7 +1004,7 @@ test('sevenSeg : encart, compteur, allumage un à un, puis substitution', () => 
     ops: [{ op: 'sevenSeg', target: 't0', segments: 'bcefg', count: 3, to: { id: 'trois', text: '3' } }],
   }], lettres('hope')));
 
-  assert.ok(encartDe(tl, 't0'), 'la lettre est montée dans un encart');
+  assert.ok(encartDe(tl, cleSeg('sevenSeg', 'traits')), 'la lettre est montée dans un encart');
   assert.ok(animsDe(tl, 't0', 'translate').length, 'elle s’y est déplacée');
   assert.ok(animsDe(tl, 't0', 'scale').some((a) => a.keyframes.at(-1).value > 1), 'et y a grandi');
 
@@ -1004,10 +1014,11 @@ test('sevenSeg : encart, compteur, allumage un à un, puis substitution', () => 
   assert.deepEqual([0, 0.5, 1].map((u) => suite.render(u)), ['1', '2', '3'], 'un cran par trait allumé');
 
   // Les segments s'allument l'un après l'autre, jamais tous ensemble.
+  const cle7 = cleSeg('sevenSeg', 'traits');
   const allumages = ['b', 'c', 'e', 'f', 'g']
-    .map((k) => animsDe(tl, `@seg:t0:${k}`, 'opacity').find((a) => a.keyframes.at(-1).value === 1).delay);
+    .map((k) => animsDe(tl, segDe(cle7, k), 'opacity').find((a) => a.keyframes.at(-1).value === 1).delay);
   assert.equal(new Set(allumages).size, 3, 'trois instants d’allumage — les traits fusionnés');
-  const eteints = ['a', 'd'].map((k) => animsDe(tl, `@seg:t0:${k}`, 'opacity'));
+  const eteints = ['a', 'd'].map((k) => animsDe(tl, segDe(cle7, k), 'opacity'));
   assert.ok(eteints.every((l) => !l.some((a) => a.keyframes.at(-1).value === 1)),
     'les segments éteints restent en fantôme');
 
@@ -1036,14 +1047,15 @@ test('fourteenSeg : même grammaire d’encart, sur l’autre afficheur', () => 
     }],
   }], lettres('hope')));
 
-  assert.ok(encartDe(tl, 't0'), 'la lettre est montée dans un encart');
+  const cle14 = cleSeg('fourteenSeg', 'segments');
+  assert.ok(encartDe(tl, cle14), 'la lettre est montée dans un encart');
   const compteur = compteurDe(tl, 't0');
   const suite = tl.discrete.find((d) => d.id === compteur.id);
   assert.equal(suite.render(1), '6', 'le compteur va jusqu’à six');
   // Les quatorze segments sont posés, six s'allument, huit restent fantômes.
-  const poses = SEGMENT14_ORDER.filter((k) => tl.nodes.some((n) => n.id === `@seg:t0:${k}`));
+  const poses = SEGMENT14_ORDER.filter((k) => tl.nodes.some((n) => n.id === segDe(cle14, k)));
   assert.deepEqual(poses, [...SEGMENT14_ORDER], 'l’afficheur entier est montré, éteint compris');
-  const allumes = SEGMENT14_ORDER.filter((k) => animsDe(tl, `@seg:t0:${k}`, 'opacity')
+  const allumes = SEGMENT14_ORDER.filter((k) => animsDe(tl, segDe(cle14, k), 'opacity')
     .some((a) => a.keyframes.at(-1).value === 1));
   assert.deepEqual(allumes, H14);
   assert.ok(tl.nodes.some((n) => n.id === 'six'), 'le nombre du compteur remplace la lettre');
@@ -1176,23 +1188,24 @@ test('★ deux régimes, deux dessins : la fusion soude, le comptage sépare', (
   });
   // Fusion : traits d'axe, allumés par leur `stroke` — ils se soudent.
   const fusionne = compile(sc([{ id: 'a', title: 'A', ops: [opSept(true, 3)] }], lettres('hope')));
-  const nSoude = fusionne.nodes.find((n) => n.id === '@seg:t0:b');
+  const nSoude = fusionne.nodes.find((n) => n.id === segDe(cleSeg('sevenSeg', 'traits'), 'b'));
   assert.equal(nSoude.data.d, SEGMENTS.b.d, 'la fusion garde le trait d’axe');
   assert.ok(!nSoude.data.plein);
   assert.ok(nSoude.base.stroke, 'un trait s’allume par sa couleur de trait');
-  assert.equal(animsDe(fusionne, '@seg:t0:b', 'stroke').length, 1);
-  assert.equal(animsDe(fusionne, '@seg:t0:b', 'fill').length, 0);
+  assert.equal(animsDe(fusionne, segDe(cleSeg('sevenSeg', 'traits'), 'b'), 'stroke').length, 2,
+    'un allumage, puis le retour à la couleur de l’éteint quand le décor se range');
+  assert.equal(animsDe(fusionne, segDe(cleSeg('sevenSeg', 'traits'), 'b'), 'fill').length, 0);
 
   // Comptage individuel : le polygone de la police, allumé par son `fill`.
   const compte = compile(sc([{ id: 'a', title: 'A', ops: [opSept(false, 5)] }], lettres('hope')));
-  const nPlein = compte.nodes.find((n) => n.id === '@seg:t0:b');
+  const nPlein = compte.nodes.find((n) => n.id === segDe(cleSeg('sevenSeg', 'segments'), 'b'));
   assert.equal(nPlein.data.d, SEGMENTS_DSEG7.b.d, 'le comptage prend le dessin de la police');
   assert.equal(nPlein.data.plein, true);
   assert.ok(nPlein.base.fill, 'un plein s’allume par sa couleur de remplissage');
-  assert.equal(animsDe(compte, '@seg:t0:b', 'fill').length, 1);
-  assert.equal(animsDe(compte, '@seg:t0:b', 'stroke').length, 0);
+  assert.equal(animsDe(compte, segDe(cleSeg('sevenSeg', 'segments'), 'b'), 'fill').length, 2);
+  assert.equal(animsDe(compte, segDe(cleSeg('sevenSeg', 'segments'), 'b'), 'stroke').length, 0);
   // Et le contrôle croisé reste entier : cinq segments, cinq allumages.
-  const allumes = SEGMENT_ORDER.filter((k) => animsDe(compte, `@seg:t0:${k}`, 'fill').length);
+  const allumes = SEGMENT_ORDER.filter((k) => animsDe(compte, segDe(cleSeg('sevenSeg', 'segments'), k), 'fill').length);
   assert.deepEqual(allumes, ['b', 'c', 'e', 'f', 'g']);
   assert.throws(() => compile(sc([{
     id: 'a', title: 'A', ops: [opSept(false, 3)],
@@ -1204,7 +1217,7 @@ test('le quatorze segments suit la même règle des deux régimes', () => {
   const compte = compile(sc([{
     id: 'a', title: 'A', ops: [{ op: 'fourteenSeg', target: 't0', segments: H14, fusion: false, count: 6 }],
   }], lettres('hope')));
-  const n = compte.nodes.find((x) => x.id === '@seg:t0:g1');
+  const n = compte.nodes.find((x) => x.id === segDe(cleSeg('fourteenSeg', 'segments'), 'g1'));
   assert.equal(n.data.d, SEGMENTS_DSEG14.g1.d);
   assert.equal(n.data.plein, true);
   // Un polygone porte son épaisseur : il ne reçoit pas de largeur de trait.
@@ -1212,7 +1225,7 @@ test('le quatorze segments suit la même règle des deux régimes', () => {
   const fusionne = compile(sc([{
     id: 'a', title: 'A', ops: [{ op: 'fourteenSeg', target: 't0', segments: H14, count: 3 }],
   }], lettres('hope')));
-  const f = fusionne.nodes.find((x) => x.id === '@seg:t0:g1');
+  const f = fusionne.nodes.find((x) => x.id === segDe(cleSeg('fourteenSeg', 'traits'), 'g1'));
   assert.equal(f.data.d, SEGMENTS14.g1.d);
   assert.equal(f.data.width, SEG14_STROKE, 'un trait d’axe reçoit son épaisseur');
 });

@@ -99,15 +99,31 @@ export const methode5 = {
       ],
       hold: 500,
     },
+    // ★ UNE LETTRE PAR ÉTAPE, et non trois dans la même. L'afficheur est un
+    //   DÉCOR mutualisé — un seul cadre, un seul jeu de segments, gardés d'une
+    //   lettre à l'autre (`primitives/afficheur.js`) : trois ops dans le même
+    //   step allumeraient trois lettres sur le même afficheur, en même temps,
+    //   et se contrediraient. C'est ce que le moteur refuse désormais
+    //   statiquement (`visuel/scenario.js`), et c'est de toute façon ce que
+    //   l'émetteur réel fait déjà — « un step par jeton », sans quoi on ne voit
+    //   plus quelle lettre a donné quel compte.
     {
       id: 's1',
-      title: 'Les trois autres lettres',
-      caption: 'O = 4, P = 4, E = 4',
-      ops: [
-        { op: 'sevenSeg', target: 'o', segments: 'abcdef', count: 4 },
-        { op: 'sevenSeg', target: 'p', segments: 'abefg', count: 4, at: 300 },
-        { op: 'sevenSeg', target: 'e', segments: 'adefg', count: 4, at: 600 },
-      ],
+      title: 'La deuxième lettre',
+      caption: 'O = 4',
+      ops: [{ op: 'sevenSeg', target: 'o', segments: 'abcdef', count: 4, montre: true, retire: false }],
+    },
+    {
+      id: 's1b',
+      title: 'La troisième lettre',
+      caption: 'P = 4',
+      ops: [{ op: 'sevenSeg', target: 'p', segments: 'abefg', count: 4, retire: false }],
+    },
+    {
+      id: 's1c',
+      title: 'La quatrième lettre',
+      caption: 'E = 4',
+      ops: [{ op: 'sevenSeg', target: 'e', segments: 'adefg', count: 4 }],
       hold: 500,
     },
     {
