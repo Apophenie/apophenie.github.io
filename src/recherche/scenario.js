@@ -51,7 +51,7 @@ import { rendreValeur } from './bfs.js';
 // fin de fichier) ; on les importe pour continuer à les ré-exporter d'ici.
 import { titreApproche, regleApproche } from './titres.js';
 import { serieDeSix, sixDuChemin, compterMoisson } from './assemblage.js';
-import { CIBLE_DEFAUT, normaliserCible, seriesDe } from './cible.js';
+import { CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles } from './cible.js';
 
 /**
  * Une chaîne affichable du catalogue est un couple `{fr, en}` (voir
@@ -1391,6 +1391,30 @@ function dUnSeulTenant(ligne, trio) {
  * @param {'fr'|'en'} langue
  * @returns {number} le nombre de couronnements insérés
  */
+/**
+ * ★ LES `k` INDEX LES PLUS CENTRAUX d'une liste — voir « le surplus se prélève
+ *   au milieu ».
+ *
+ * « Central » se mesure sur le RANG dans la liste des candidats, pas sur la
+ * position dans la ligne : ce qu'on équilibre est le nombre de jetons de part et
+ * d'autre, et c'est ce que l'œil compte.
+ *
+ * À distance égale du centre — deux candidats qui l'encadrent —, celui de
+ * GAUCHE part le premier. Il faut une règle, elle doit être la même partout, et
+ * celle-ci a l'avantage d'être celle du sens de lecture (§4.4 : aucun départage
+ * ne se laisse au hasard).
+ *
+ * @param {number[]} candidats les index, croissants
+ * @param {number} k combien en retirer
+ * @returns {Set<number>} les index retirés
+ */
+function lesPlusCentraux(candidats, k) {
+  const milieu = (candidats.length - 1) / 2;
+  const ordre = candidats.map((idx, rang) => ({ idx, rang }))
+    .sort((a, b) => (Math.abs(a.rang - milieu) - Math.abs(b.rang - milieu)) || (a.rang - b.rang));
+  return new Set(ordre.slice(0, k).map((x) => x.idx));
+}
+
 function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_DEFAUT) {
   /* ★ HORS DE 666, AUCUNE CORNE — et la longueur des séries suit la cible.
      Point d'intégration entre deux chantiers menés en parallèle : celui des
@@ -2166,7 +2190,32 @@ export function construireScenario(approche, ctx = {}) {
     //   jetons récoltés valent 6, on prend le préfixe) ; sur `007`, non : la
     //   suite `0 7 0 0 7` n'écrit `007` qu'en sautant le deuxième jeton, et
     //   couper au préfixe révélerait `0 7 0` sous un verdict qui annonce `007`.
-    const series = seriesDe(valeursFinales, cible, recolteTotale.series);
+    // ★ **LE SURPLUS SE PRÉLÈVE AU MILIEU, PAS À LA FIN.**
+    //
+    // « Au verdict, après avoir réuni tous les 6 et enlevé ce qui restait qui
+    // n'est pas 6, enlever le 6 le plus central au début du processus de
+    // découpage trois par trois » (l'auteur).
+    //
+    // `seriesDe` prend les positions dans l'ordre de lecture : sur seize 6 pour
+    // cinq séries, il retenait les quinze PREMIERS et laissait tomber le
+    // seizième — le dernier de la ligne, celui de `fr` sur
+    // `hope-hope-hope.fr`. Le triptyque final se retrouvait alors à cheval sur
+    // deux portées, et l'auteur l'a vu : « il ne s'agence pas correctement par
+    // triptyque dans le rendu final ».
+    //
+    // On retire donc l'excédent PAR LE MILIEU, puis on découpe ce qui reste.
+    // Ce qu'on ôte au milieu ne déséquilibre aucun des deux bords ; ce qu'on
+    // ôte au bout raccourcit une extrémité et laisse l'autre pleine.
+    //
+    // ⚠️ On ne retire que des jetons qui VALENT la cible : le reste est déjà
+    //    parti avec `rejets`, et en ôter un ici le ferait tomber deux fois.
+    const utiles = indexUtiles(valeursFinales, cible);
+    const excedent = utiles.length - recolteTotale.series * cible.longueur;
+    const retires = excedent > 0 ? lesPlusCentraux(utiles, excedent) : new Set();
+    // `null` ne vaut aucun chiffre de la cible : `seriesDe` saute ces positions
+    // sans qu'on ait à lui apprendre une notion de « retiré ».
+    const valeursCoupees = valeursFinales.map((v, i) => (retires.has(i) ? null : v));
+    const series = seriesDe(valeursCoupees, cible, recolteTotale.series);
     const garde = new Set(series.flat());
     const surplus = finaux.filter((_, i) => !garde.has(i));
     // Les valeurs suivent la même coupe que les jetons — c'est ce qui permet de
