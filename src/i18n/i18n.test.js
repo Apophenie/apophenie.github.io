@@ -127,11 +127,11 @@ test('aucune valeur vide, aucune valeur restée identique par oubli de traductio
   const identiquesLegitimes = new Set([
     'code', 'autonyme',
     'global.titre', 'global.logoTexte', 'global.suffixeTitre',
-    // Ces quatre-là sont des ÉCHANTILLONS DE GRAMMAIRE d'URL, pas des phrases :
-    // `so!`, `sce!` et `c111!` s'écrivent pareil dans les deux langues, parce
-    // que la grammaire n'a qu'une langue (`src/recherche/url.js`).
-    'resultat.memo.resonance', 'resultat.memo.portee', 'resultat.memo.registre',
-    'resultat.memo.cible',
+    // Ces cinq-là sont des ÉCHANTILLONS DE GRAMMAIRE d'URL, pas des phrases :
+    // `so!`, `sce!`, `c111!` et `0.1+2.1:` s'écrivent pareil dans les deux
+    // langues, parce que la grammaire n'a qu'une langue (`src/recherche/url.js`).
+    'resultat.memo.resonance', 'resultat.memo.portee', 'resultat.memo.portees',
+    'resultat.memo.registre', 'resultat.memo.cible',
     'demo.raccourcis.d', 'demo.debug.url', 'demo.debug.source',
     'registre.transformation',   // « Transformation » s'écrit pareil dans les deux langues
     // Le badge de séries du listing (« 5 × 666 ») est un DESSIN, pas une

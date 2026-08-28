@@ -8,12 +8,15 @@
 //   marqueur   := registre '!' | 'c' chiffre+ '!'
 //   registre   := 'so' | 'sce'        (formes longues encore LUES, plus écrites)
 //   retouche   := [portee ':'] programme       // STR → STR : réécrit la saisie
-//   fragment   := [portee ':'] programme
+//   fragment   := [portees ':'] programme
+//   portees    := portee ('+' portee)*         // un programme, plusieurs places
 //   portee     := offset '.' longueur          // en jetons ; absent ⇒ saisie entière
 //   programme  := code ('+' code)*
 //   saisie     := b58(texte) | texte           // le b58 gagne, voir plus bas
 //
-// `+` sépare les OPÉRATIONS d'un même fragment (arbitrage utilisateur).
+// `+` sépare les OPÉRATIONS d'un même fragment (arbitrage utilisateur) — et,
+// AVANT le `:`, les PORTÉES qui se partagent ce programme. Les deux régions sont
+// étanches, voir « les portées groupées » plus bas.
 // `,` sépare les FRAGMENTS dont les 6 s'assemblent en 666.
 // `;` sépare les ÉTAGES : ce qui réécrit la saisie, puis ce qui la lit.
 // `×3:programme` abrège la résonance (le même programme sur les 3 occurrences).
@@ -148,6 +151,83 @@
 // s'assemble avec rien, elle réécrit une place. Trois places se réécrivent avec
 // trois retouches, dont l'ordre est alors écrit noir sur blanc — ce qui vaut
 // mieux qu'une abréviation qui tairait dans quel sens les offsets se décalent.
+//
+// ── LES PORTÉES GROUPÉES, `0.1+2.1+4.1:tca+m14` — un programme, plusieurs places
+//
+// « Pour hope-hope-hope.fr voici celui que je trouve le plus élégant :
+// `#so!0.1:tca+m14,2.1:tca+m14,4.1:tca+m14,1.1:tca+mtc+cs,3.1:tca+mtc+cs,6.1:tca+mpy+mr9#…`
+// Qui gagnerait à pouvoir s'écrire :
+// `#so!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+mpy+mr9#…` » (l'auteur)
+//
+// Le lien répétait `tca+m14` trois fois et `tca+mtc+cs` deux fois ; le groupe
+// les écrit une fois. Sur son exemple, l'approche passe de 84 signes à 57 —
+// un tiers de moins.
+//
+// ★ **C'EST UNE ABRÉVIATION, ET RIEN D'AUTRE.** `0.1+2.1:P` se DÉPLIE en
+// `0.1:P,2.1:P` dans `lire()`, avant que quiconque en aval n'en voie la trace :
+// les descripteurs rendus sont les mêmes objets, dans le même ordre, et le
+// moteur ne sait pas — ne peut pas savoir — que le lien était groupé. C'est ce
+// qui rend l'équivalence VÉRIFIABLE plutôt que promise : un test compare les
+// deux lectures champ par champ, il ne compare pas deux exécutions.
+//
+// ★ **LE `+` NE DEVIENT PAS AMBIGU, ET CE N'EST PAS UN PARI.** Il sépare
+// désormais deux choses — les portées avant le `:`, les codes après — mais
+// jamais dans la même région, parce que c'est le `:` qui est cherché EN PREMIER
+// (`lireFragments`) : il coupe le fragment en deux zones étanches avant qu'un
+// seul `+` n'ait été lu. Et le premier `:` est toujours LE bon, puisqu'un
+// programme ne peut pas en contenir (§4.1 : `[ftnmcpj][0-9a-z]+[A-Z]?`).
+//
+// La sûreté est même DOUBLE, et c'est ce qui compte ici : ce module lit la
+// grammaire **sans catalogue** — c'est ce qui permet de tester `src/recherche`
+// sur un catalogue de fantaisie —, il ne peut donc jamais se demander « est-ce
+// que `2` est un code connu ». Il n'en a pas besoin : les deux alphabets sont
+// disjoints par CONSTRUCTION. Une portée commence par un chiffre, un code par
+// une lettre de famille ; même privé du `:`, `2.1` ne peut pas passer pour un
+// code ni `tca` pour une portée. C'est toute la différence avec la virgule que
+// l'auteur avait proposée pour la retouche, qui aurait exigé, elle, de savoir
+// ce que `fr13` PRODUIT.
+//
+// ★ **ET `ecrire()` LA PRODUIT** — la forme groupée est la forme CANONIQUE, pas
+// une tolérance de lecture de plus. Trois raisons, dans cet ordre.
+//   1. Sans cela, la grammaire ferait le CONTRAIRE de ce qu'on lui demande :
+//      `canoniser()` réécrit la barre d'adresse à chaque ouverture (§4.3), si
+//      bien qu'un lien groupé se ferait déplier sous les yeux de celui qui
+//      vient de l'écrire. Une abréviation qu'on ne peut pas garder n'est pas
+//      une abréviation.
+//   2. La forme canonique de cette grammaire est déjà, partout, la plus
+//      courte : `sobre!` s'abrège en `so!`, `c666!` ne s'écrit pas, une portée
+//      qui couvre tout ne s'écrit pas — et `×3:` abrège déjà, mot pour mot,
+//      « le même programme sur trois places ». Le groupe est ce même geste sur
+//      des places quelconques ; l'écrire autrement ferait deux règles là où il
+//      n'y en a qu'une.
+//   3. Le coût est MESURÉ, et il est nul là où il aurait fait mal : aucune des
+//      URL figées de ce dépôt ne change — les deux puces d'accueil
+//      (`i18n/fr.js`) alternent leurs programmes, `tca+m14` puis `tca+mtc+cs`,
+//      si bien qu'aucune n'est contiguë à sa jumelle. Sur 133 voies produites
+//      pour 14 saisies, 5 se groupent (3,8 %), pour 12 signes gagnés en moyenne.
+//
+// ★ **SEULES LES PORTÉES CONTIGUËS SE GROUPENT, ET C'EST UN INVARIANT, PAS UNE
+// PARESSE.** L'ordre des fragments est ce qui ÉCRIT la cible, de gauche à droite
+// (§4.2, « quelles positions ÉCRIVENT la cible ? ») : rapprocher les jumeaux
+// de `0.1:P,1.1:Q,2.1:P` pour écrire `0.1+2.1:P,1.1:Q` rendrait les chiffres
+// dans l'ordre P P Q au lieu de P Q P — donc `007` là où le lien disait `070`.
+// Sur 666 la faute serait invisible, les trois chiffres y étant égaux ; c'est
+// exactement pour cela qu'elle est écrite ici. L'auteur avait d'ailleurs déjà
+// rangé son exemple dans cet ordre : ses fragments vont 0, 2, 4, 1, 3, 6 et non
+// 0 à 6, précisément pour que ses jumeaux se touchent.
+//
+// ★ **PAS DE GROUPE DANS UNE RETOUCHE**, pour la raison qui y interdit déjà
+// `×3:` : un groupe a l'air PARALLÈLE et serait SÉQUENTIEL. Les jetons sont
+// recomptés à chaque étage (`index.js › rejouer`), donc le `2.1` de `0.1+2.1:`
+// désignerait le deuxième jeton du texte que la PREMIÈRE réécriture a laissé,
+// et non celui qu'on voit. Deux places se réécrivent avec deux retouches, dont
+// l'ordre est alors écrit noir sur blanc.
+//
+// ★ **RIEN N'EST VALIDÉ DE PLUS, RIEN DE MOINS.** `0.1+0.1:P` est accepté parce
+// que `0.1:P,0.1:P` l'était déjà, et une portée hors bornes est refusée au même
+// endroit qu'avant — par le moteur, qui seul connaît la saisie. Le groupe est
+// un raccourci d'écriture, pas un contrôle : lui faire refuser ce que la forme
+// dépliée accepte ferait deux grammaires au lieu d'une.
 //
 // ── LA CIBLE, `c111!` — viser autre chose que 666 ──────────────────────────
 //
@@ -585,24 +665,37 @@ export function lire(hash, options = {}) {
   const brutFragments = etages.pop();
   const retouches = [];
   for (const brutRet of etages) {
-    const r = lireFragment(brutRet);
+    const r = lireFragments(brutRet);
     if (!r) return { ...vide, saisie, saisieBrute, raison: `retouche illisible : ${brutRet}`, bandeau: BANDEAUX.formatInconnu };
-    // Voir l'en-tête : `×3:` nomme trois parts qui s'assemblent, une retouche
-    // ne s'assemble avec rien. On le refuse plutôt que de lui inventer un sens.
-    if (r.resonance) {
+    // ★ Ni résonance ni portées groupées dans une retouche, et c'est le MÊME
+    //   argument (voir l'en-tête) : les deux abrègent « plusieurs places à la
+    //   fois », alors qu'une retouche réécrit une place et décale ce qui suit.
+    //   L'abréviation aurait l'air parallèle et serait séquentielle ; on la
+    //   refuse plutôt que de lui inventer un sens que personne ne devinerait.
+    if (r.length > 1) {
+      return {
+        ...vide, saisie, saisieBrute,
+        raison: `portées groupées dans une retouche : ${brutRet}`, bandeau: BANDEAUX.formatInconnu,
+      };
+    }
+    if (r[0].resonance) {
       return {
         ...vide, saisie, saisieBrute,
         raison: `résonance dans une retouche : ${brutRet}`, bandeau: BANDEAUX.formatInconnu,
       };
     }
-    retouches.push(r);
+    retouches.push(r[0]);
   }
 
   const fragments = [];
   for (const brutFrag of brutFragments.split(',')) {
-    const f = lireFragment(brutFrag);
+    const f = lireFragments(brutFrag);
     if (!f) return { ...vide, saisie, saisieBrute, raison: `fragment illisible : ${brutFrag}`, bandeau: BANDEAUX.formatInconnu };
-    fragments.push(f);
+    // ★ Le DÉPLIAGE est ici, et il est total : à partir de cette ligne, plus
+    //   rien dans le site ne sait qu'un lien était groupé. `0.1+2.1:P` a rendu
+    //   deux descripteurs, exactement ceux de `0.1:P,2.1:P` — dans l'ordre où
+    //   les places sont écrites, puisque c'est cet ordre qui écrit la cible.
+    fragments.push(...f);
   }
 
   if (options.catalogue) {
@@ -682,25 +775,61 @@ function texteBase58(segment) {
   return texte;
 }
 
-function lireFragment(brut) {
+/**
+ * Un fragment écrit → les descripteurs qu'il DÉNOTE, dépliés.
+ *
+ * Rend une LISTE et non un objet, parce qu'une tête peut porter plusieurs
+ * portées : `0.1+2.1:P` dénote exactement les deux fragments de `0.1:P,2.1:P`,
+ * et le dépliage se fait ici pour que personne en aval n'ait à connaître le
+ * groupe (voir l'en-tête, « les portées groupées »).
+ *
+ * ★ **L'ORDRE DE LECTURE EST CE QUI LÈVE L'AMBIGUÏTÉ DU `+`.** Le `:` est
+ * cherché d'abord, et il partage le fragment en deux zones étanches : à gauche
+ * des portées, à droite des codes. Aucun `+` n'est lu avant ce partage, et un
+ * programme ne peut pas contenir de `:` (§4.1) — le premier est donc toujours
+ * le bon. Les deux alphabets sont de surcroît disjoints (un chiffre ouvre une
+ * portée, une lettre de famille ouvre un code), ce qui vaut filet : la lecture
+ * reste décidable sans catalogue, comme tout ce module.
+ *
+ * @param {string} brut
+ * @returns {FragmentUrl[]|null}
+ */
+function lireFragments(brut) {
   if (!brut) return null;
-  let portee = null;
-  let resonance = null;
+  let tetes = null;
   let programme = brut;
   const i = brut.indexOf(':');
   if (i >= 0) {
-    const tete = brut.slice(0, i);
+    tetes = brut.slice(0, i).split('+');
     programme = brut.slice(i + 1);
-    const mp = RE_PORTEE.exec(tete);
-    const mr = RE_RESONANCE.exec(tete);
-    if (mp) portee = { offset: Number(mp[1]), longueur: Number(mp[2]) };
-    else if (mr) resonance = Number(mr[1]);
-    else return null;
   }
   if (!programme) return null;
   const codes = programme.split('+');
-  if (!codes.length || !codes.every((c) => RE_CODE.test(c))) return null;
-  return { portee, resonance, codes };
+  if (!codes.every((c) => RE_CODE.test(c))) return null;
+  // Pas de tête : le fragment porte sur la saisie entière, comme toujours.
+  if (!tetes) return [{ portee: null, resonance: null, codes }];
+  // La résonance ne se groupe pas — elle nomme DÉJÀ plusieurs places, et les
+  // mêler à des portées écrites demanderait d'inventer dans quel ordre les
+  // unes et les autres rendent leur chiffre. Elle reste donc seule en tête.
+  if (tetes.length === 1) {
+    const mr = RE_RESONANCE.exec(tetes[0]);
+    if (mr) return [{ portee: null, resonance: Number(mr[1]), codes }];
+  }
+  const sortie = [];
+  for (const tete of tetes) {
+    const mp = RE_PORTEE.exec(tete);
+    if (!mp) return null;
+    // ★ `codes` est RECOPIÉ pour chaque place. Le dépliage doit rendre ce que
+    //   la forme écrite en toutes lettres aurait rendu, et celle-ci fabrique un
+    //   tableau par fragment : partager le même laisserait deux descripteurs
+    //   liés par un alias, ce qu'aucun appelant n'attend.
+    sortie.push({
+      portee: { offset: Number(mp[1]), longueur: Number(mp[2]) },
+      resonance: null,
+      codes: codes.slice(),
+    });
+  }
+  return sortie;
 }
 
 export const BANDEAUX = {
@@ -747,6 +876,13 @@ export const BANDEAUX = {
  * ★ Les RETOUCHES précèdent les fragments, chacune suivie de son `;`. Une
  * démonstration sans retouche s'écrit donc **au caractère près comme avant** :
  * le séparateur n'apparaît que là où il y a deux étages à séparer.
+ *
+ * ★ Les PORTÉES VOISINES qui partagent un programme sont GROUPÉES —
+ * `0.1+2.1:tca+m14` —, parce que la forme canonique de cette grammaire est
+ * partout la plus courte et qu'une abréviation que `canoniser()` déplierait à
+ * chaque ouverture n'en serait pas une. Voir l'en-tête. Comme pour le `;`, le
+ * signe ne paraît que là où il dit quelque chose : sans deux voisines
+ * identiques, l'écriture est inchangée au caractère près.
  *
  * @param {{saisie:string, fragments?:FragmentUrl[], retouches?:FragmentUrl[],
  *          registre?:'sobre'|'scenique',
@@ -803,8 +939,46 @@ export function autreRegistre(registre, cible = CIBLE_DEFAUT) {
   return registre === 'sobre' ? 'scenique' : 'sobre';
 }
 
+/**
+ * L'approche écrite — avec ses PORTÉES GROUPÉES quand il y en a.
+ *
+ * ★ Le groupement est une affaire d'ÉCRITURE, et de rien d'autre : les
+ * descripteurs reçus ne le portent pas, `lire()` le déplie, et les deux formes
+ * dénotent la même démonstration. C'est ce qui permet de l'ajouter sans toucher
+ * ni au modèle, ni au rejeu, ni au barème.
+ *
+ * ★ **On ne groupe QUE des voisines.** L'ordre des fragments est ce qui écrit
+ * la cible de gauche à droite : rapprocher deux jumelles séparées par une
+ * tierce changerait la suite de chiffres produite — `070` deviendrait `007`.
+ * Voir l'en-tête, où la démonstration est faite ; l'exemple de l'auteur est
+ * d'ailleurs déjà rangé pour que ses jumelles se touchent.
+ */
 export function ecrireApproche(fragments) {
-  return fragments.map(ecrireFragment).join(',');
+  const morceaux = [];
+  for (let i = 0; i < fragments.length;) {
+    const f = fragments[i];
+    const programme = f.codes.join('+');
+    // Une résonance ne se groupe pas (elle nomme déjà plusieurs places), et un
+    // fragment sans portée non plus : « toute la saisie » n'a pas de place à
+    // mettre dans une liste.
+    let j = i + 1;
+    if (f.portee && !f.resonance) {
+      while (j < fragments.length && seGroupe(fragments[j], programme)) j++;
+    }
+    if (j - i > 1) {
+      const places = fragments.slice(i, j).map((x) => `${x.portee.offset}.${x.portee.longueur}`);
+      morceaux.push(`${places.join('+')}:${programme}`);
+    } else {
+      morceaux.push(ecrireFragment(f));
+    }
+    i = j;
+  }
+  return morceaux.join(',');
+}
+
+/** Ce fragment-là peut-il rejoindre le groupe en cours ? */
+function seGroupe(f, programme) {
+  return !!f.portee && !f.resonance && f.codes.join('+') === programme;
 }
 
 function ecrireFragment(f) {

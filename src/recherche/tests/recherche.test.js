@@ -650,13 +650,23 @@ test('résonance — `hope-hope-hope` produit bien des approches en ×3', () => 
 test('rejeu — une URL canonique est rejouée SANS relancer la recherche', () => {
   const m = creerMoteur(catalogue);
   const r = m.resoudre('https://hope-hope-hope.fr/');
+  let groupees = 0;
   for (const a of r.approches) {
     const lecture = lire(a.url, { catalogue });
     assert.equal(lecture.forme, 'canonique', a.url);
     const rejoue = m.rejouer(lecture);
     assert.ok(rejoue.ok, `${a.url} : ${rejoue.raison}`);
     assert.equal(rejoue.approche.score, a.score, `score identique pour ${a.url}`);
+    // ★ Le lien REJOUÉ se réécrit à l'identique. C'est ce qui ferme la boucle
+    //   des PORTÉES GROUPÉES (`url.js`) : le groupe est déplié à la lecture,
+    //   regroupé à l'écriture, et `canoniser()` ne bouge donc rien dans la
+    //   barre d'adresse. Sans cette égalité, un lien groupé s'allongerait tout
+    //   seul à chaque ouverture.
+    assert.equal(rejoue.approche.url, a.url, `URL stable pour ${a.url}`);
+    if (/\d\.\d+\+\d/.test(a.url)) groupees++;
   }
+  // Cette saisie-là en produit : le cas est réellement traversé, pas supposé.
+  assert.ok(groupees >= 1, 'aucune URL groupée dans le lot : le rejeu ne prouve rien ici');
 });
 
 test('rejeu — portée hors bornes : refus explicite, jamais une autre démonstration', () => {

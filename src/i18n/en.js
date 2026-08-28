@@ -153,6 +153,8 @@ export const en = {
       resonanceTexte: 'resonance: the same program on all three occurrences of a repeated pattern.',
       portee: '#0.1:ma1+cs,1.1:nv#…',
       porteeTexte: 'scope: offset and length, counted in tokens of the query.',
+      portees: '#0.1+2.1+4.1:ma1+cs#…',
+      porteesTexte: 'grouped scopes: several neighbouring places sharing one program.',
       registre: '#so!…#…  ·  #sce!…#…',
       registreTexte: 'staging register, at the head of the approach. When absent it means “plain”: the show has to be asked for.',
       cible: '#c111!…#…  ·  #c007!…#…',

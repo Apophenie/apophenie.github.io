@@ -108,6 +108,151 @@ test('url — écriture canonique : aller-retour exact', () => {
   assert.equal(r.registreEcrit, true);
 });
 
+/* ═══════════ les PORTÉES GROUPÉES — un programme, plusieurs places ═══════ */
+
+/**
+ * ★ LA DEMANDE, mot pour mot. « Pour hope-hope-hope.fr voici celui que je
+ * trouve le plus élégant : `#so!0.1:tca+m14,2.1:tca+m14,4.1:tca+m14,…`. Qui
+ * gagnerait à pouvoir s'écrire : `#so!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,…` »
+ *
+ * Le piège était le `+`, qui séparait déjà les codes d'un programme. Il ne s'en
+ * est pas trouvé un : le `:` est cherché AVANT, et il partage le fragment en
+ * deux zones étanches — voir `url.js`, « les portées groupées ».
+ */
+const GROUPE = 'so!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+mpy+mr9';
+const DEPLIE = 'so!0.1:tca+m14,2.1:tca+m14,4.1:tca+m14,'
+  + '1.1:tca+mtc+cs,3.1:tca+mtc+cs,6.1:tca+mpy+mr9';
+
+test('★ portées groupées — la forme de l’auteur se lit, et se déplie', () => {
+  const r = lire(`#${GROUPE}#${B58_URL}`);
+  assert.equal(r.forme, 'canonique');
+  assert.equal(r.fragments.length, 6, 'trois groupes, six places');
+  assert.deepEqual(r.fragments.map((f) => `${f.portee.offset}.${f.portee.longueur}`),
+    ['0.1', '2.1', '4.1', '1.1', '3.1', '6.1'],
+    'les places sortent dans l’ordre ÉCRIT : c’est lui qui écrit la cible');
+  assert.deepEqual(r.fragments[0].codes, ['tca', 'm14']);
+  assert.deepEqual(r.fragments[2].codes, ['tca', 'm14']);
+  assert.deepEqual(r.fragments[3].codes, ['tca', 'mtc', 'cs']);
+  assert.equal(r.bandeau, null);
+});
+
+/**
+ * ★ **L'ÉQUIVALENCE EST VÉRIFIÉE, PAS PROMISE.** Le dépliage a lieu dans
+ * `lire()`, donc les deux formes ne se comparent pas par leurs effets — deux
+ * exécutions qui « donnent la même chose » — mais champ par champ, sur la
+ * lecture entière. Si un jour l'une des deux gagnait un attribut que l'autre
+ * n'a pas, ce test tomberait avant que le moteur ne s'en aperçoive.
+ */
+test('★ portées groupées — la forme groupée EST la forme dépliée, champ par champ', () => {
+  assert.deepEqual(lire(`#${GROUPE}#${B58_URL}`), lire(`#${DEPLIE}#${B58_URL}`));
+  // Et jusqu'aux tableaux de codes, qui ne sont pas partagés d'une place à
+  // l'autre : la forme dépliée en fabrique un par fragment, la groupée aussi.
+  const f = lire(`#${GROUPE}#${B58_URL}`).fragments;
+  assert.notEqual(f[0].codes, f[1].codes, 'deux places ne partagent pas un alias');
+});
+
+/**
+ * ★ **ET C'EST LA FORME CANONIQUE.** Décision argumentée en tête de `url.js` :
+ * `canoniser()` réécrit la barre d'adresse à chaque ouverture, si bien qu'une
+ * abréviation qu'on n'écrirait pas se ferait déplier sous les yeux de celui qui
+ * vient de la taper. Une abréviation qu'on ne peut pas garder n'en est pas une.
+ */
+test('★ portées groupées — l’écriture les PRODUIT : l’aller-retour est exact', () => {
+  const lien = `#${GROUPE}#${B58_URL}`;
+  const r = lire(lien);
+  const reecrit = ecrire({ saisie: r.saisie, fragments: r.fragments, registre: r.registre });
+  assert.equal(reecrit, lien, 'la forme groupée doit se réécrire à l’identique');
+  // Et la forme dépliée CONVERGE vers elle : deux écritures, un seul canonique.
+  const d = lire(`#${DEPLIE}#${B58_URL}`);
+  assert.equal(ecrire({ saisie: d.saisie, fragments: d.fragments, registre: d.registre }), lien);
+});
+
+/**
+ * ★ **SEULES LES VOISINES SE GROUPENT.** L'ordre des fragments est ce qui écrit
+ * la cible de gauche à droite (§4.2) : rapprocher deux jumelles séparées par
+ * une tierce rendrait les chiffres dans un autre ordre — `070` deviendrait
+ * `007`. Sur 666 la faute serait invisible, les trois chiffres y étant égaux ;
+ * c'est exactement pour cela qu'elle se teste sur une cible qui, elle, distingue
+ * ses places.
+ */
+test('★ portées groupées — on ne groupe QUE des voisines : l’ordre écrit la cible', () => {
+  const place = (offset, codes) => ({ portee: { offset, longueur: 1 }, resonance: null, codes });
+  const alterne = [place(0, ['ma1']), place(1, ['nv']), place(2, ['ma1'])];
+  assert.equal(ecrireApproche(alterne), '0.1:ma1,1.1:nv,2.1:ma1',
+    'grouper 0.1 et 2.1 par-dessus 1.1 changerait la suite de chiffres produite');
+  // Trois voisines, elles, se groupent en un seul programme écrit.
+  assert.equal(ecrireApproche([place(0, ['ma1']), place(2, ['ma1']), place(4, ['ma1'])]),
+    '0.1+2.1+4.1:ma1');
+  // Un groupe s'arrête dès que le programme change, et reprend après.
+  assert.equal(ecrireApproche([place(0, ['ma1']), place(1, ['ma1']), place(2, ['nv']), place(3, ['nv'])]),
+    '0.1+1.1:ma1,2.1+3.1:nv');
+});
+
+test('★ portées groupées — ce qui n’a pas de place ne se groupe pas', () => {
+  const entier = (codes) => ({ portee: null, resonance: null, codes });
+  // « Toute la saisie » n'a pas de place à mettre dans une liste : deux
+  // fragments entiers identiques restent deux fragments.
+  assert.equal(ecrireApproche([entier(['ma1']), entier(['ma1'])]), 'ma1,ma1');
+  // La résonance nomme DÉJÀ plusieurs places : elle reste seule en tête.
+  const reso = { portee: null, resonance: 3, codes: ['ma1'] };
+  assert.equal(ecrireApproche([reso, { portee: { offset: 9, longueur: 1 }, resonance: null, codes: ['ma1'] }]),
+    '×3:ma1,9.1:ma1');
+  // Et à la lecture, une résonance ne rejoint pas un groupe : `×3` n'est pas
+  // une portée, le fragment est simplement illisible.
+  const r = lire(`#×3+0.1:ma1#${B58_URL}`);
+  assert.equal(r.forme, 'invalide');
+  assert.ok(r.bandeau, 'jamais de repli muet');
+});
+
+test('★ portées groupées — pas de groupe dans une RETOUCHE', () => {
+  // Même argument que pour `×3:` (voir `url.js`) : les jetons sont recomptés à
+  // chaque étage, donc `0.1+2.1:` aurait l'air parallèle et serait séquentiel.
+  const r = lire(`#so!0.1+2.1:fr13;tca+m14#${encoderTexte('Donald Trump')}`);
+  assert.equal(r.forme, 'invalide');
+  assert.match(r.raison, /groupées/);
+  assert.equal(r.bandeau, BANDEAUX.formatInconnu);
+  // …mais deux retouches écrites en toutes lettres restent parfaitement licites.
+  assert.equal(lire(`#so!0.1:fr13;2.1:fr13;tca+m14#${encoderTexte('Donald Trump')}`).forme, 'canonique');
+});
+
+test('★ portées groupées — le groupe n’ajoute ni ne retire aucune validation', () => {
+  // Une place répétée est acceptée parce que `0.1:ma1,0.1:ma1` l'était déjà :
+  // le groupe est un raccourci d'écriture, jamais un contrôle de plus.
+  assert.equal(lire(`#0.1+0.1:ma1#${B58_URL}`).fragments.length, 2);
+  // Une tête mal formée reste illisible, groupée ou non.
+  for (const tete of ['0.1+', '+0.1', '0.1+2', '0.1+2.', '0.1++2.1']) {
+    const r = lire(`#${tete}:ma1#${B58_URL}`);
+    assert.equal(r.forme, 'invalide', tete);
+    assert.ok(r.bandeau, tete);
+  }
+  // Et un code inconnu se dénonce à travers le groupe comme ailleurs.
+  const r = lire(`#0.1+2.1:czz9#${B58_URL}`, { catalogue });
+  assert.equal(r.bandeau, BANDEAUX.codeInconnu);
+});
+
+/**
+ * ★ **LA NON-RÉGRESSION QUI COMPTE : le groupe ne paraît QUE là où il abrège.**
+ *
+ * Le changement est observable — les URL canoniques d'une voie à jumelles
+ * voisines raccourcissent —, et c'est pour cela qu'il se mesure ici plutôt que
+ * de se supposer. Les deux puces de l'accueil (`src/i18n/fr.js`) ALTERNENT
+ * leurs programmes (`tca+m14`, puis `tca+mtc+cs`, puis `tca+m14`…) : aucune
+ * jumelle n'y est voisine, et pas un signe de ces liens ne bouge.
+ */
+test('★ portées groupées — les liens figés de l’accueil sont INCHANGÉS', () => {
+  for (const hash of [
+    '#0.1:tca+m14,1.1:tca+mtc+cs,2.1:tca+m14,3.1:tca+mtc+cs,4.1:tca+m14,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
+    '#0.1:tca+mch+cs+prn,3.1:fc+nl,5.1:tca+m7+cs#3A8evQZovd7BUyRUF65ToBwrHvW25EUn',
+    '#0.1:tca+m14+m36,2.1:fr13+tca+m14+m36#2HuP1G8mNg3sJWhqR',
+  ]) {
+    const r = lire(hash);
+    assert.equal(r.forme, 'canonique', hash);
+    const approche = hash.slice(1, hash.lastIndexOf('#'));
+    assert.equal(ecrireApproche(r.fragments), approche, `${hash} a changé de forme canonique`);
+    assert.ok(!ecrireApproche(r.fragments).includes('.1+'), 'aucun groupe à écrire ici');
+  }
+});
+
 /**
  * ★ LA RETOUCHE — un étage AMONT qui réécrit la saisie, puis tout le monde lit.
  *

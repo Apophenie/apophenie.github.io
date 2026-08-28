@@ -187,6 +187,11 @@ export const fr = {
       resonanceTexte: 'résonance : le même programme sur les trois occurrences d’un motif répété.',
       portee: '#0.1:ma1+cs,1.1:nv#…',
       porteeTexte: 'portée : offset et longueur en jetons de la saisie.',
+      // Le site ÉCRIT désormais cette forme (`src/recherche/url.js`, « les
+      // portées groupées ») : sans cette entrée, le mémo laisserait un lecteur
+      // devant un « + » placé avant le « : » qu'aucune ligne n'explique.
+      portees: '#0.1+2.1+4.1:ma1+cs#…',
+      porteesTexte: 'portées groupées : plusieurs places voisines qui se partagent un même programme.',
       registre: '#so!…#…  ·  #sce!…#…',
       registreTexte: 'registre de mise en scène, en tête de l’approche. Absent, il vaut « sobre » : le spectacle se demande.',
       cible: '#c111!…#…  ·  #c007!…#…',

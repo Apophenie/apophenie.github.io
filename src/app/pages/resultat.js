@@ -335,6 +335,13 @@ export function pageResultat({ saisie, resultat, cible, surChoixSecours }) {
       e('dd', { texte: t('resultat.memo.resonanceTexte') }),
       e('dt', { texte: t('resultat.memo.portee') }),
       e('dd', { texte: t('resultat.memo.porteeTexte') }),
+      // Les portées GROUPÉES suivent immédiatement la portée : c'est la même
+      // notation, écrite une fois pour plusieurs places. Le mémo doit la
+      // porter parce que le site l'ÉCRIT (`url.js`) — sans elle, un visiteur
+      // verrait dans ses propres liens un « + » avant le « : » que rien ici
+      // n'expliquerait.
+      e('dt', { texte: t('resultat.memo.portees') }),
+      e('dd', { texte: t('resultat.memo.porteesTexte') }),
       // Le registre de mise en scène fait partie de la grammaire (§4.2) : le
       // mémo la documente en entier, sinon les deux boutons ci-dessus
       // resteraient deux liens qu'on ne saurait pas écrire soi-même.
