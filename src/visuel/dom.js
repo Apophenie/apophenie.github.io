@@ -37,6 +37,10 @@ export const LAYERS = ['nuit', 'back', 'mid', 'front'];
 
 const LAYER_OF = {
   camera: null, halo: 'back', keyboard: 'back', table: 'back', frame: 'back',
+  // Une case de réglette MOBILE (la seconde bande d'une glissière, qui coulisse
+  // ou se retourne au déploiement) : c'est du décor, comme la table dont elle
+  // se détache — et elle doit rester DERRIÈRE les jetons qui la survolent.
+  case: 'back',
   text: 'mid',
   glyph: 'front', seg: 'front', bracket: 'front', label: 'front', marker: 'front',
   // Les cornes se posent PAR-DESSUS les chiffres qu'elles couronnent : elles
@@ -335,6 +339,27 @@ export function createElementFor(node, env) {
     }
     case 'table': {
       element = buildTable(node, fs, palette);
+      break;
+    }
+    case 'case': {
+      // Une case de réglette, seule : le même rectangle et la même étiquette
+      // que dans la table (`buildTable`), mais portée par son propre nœud parce
+      // qu'elle doit pouvoir se déplacer sans la table (`primitives/
+      // glissiere.js`). Le dessin est ici volontairement le jumeau de celui des
+      // cases fixes : une bande qui ne ressemblerait pas à la réglette dont
+      // elle est la moitié ne se lirait pas comme sa moitié.
+      const h = (node.data && node.data.h) || fs;
+      const g = el('g');
+      g.appendChild(el('rect', {
+        x: -node.w / 2, y: -h / 2, width: node.w, height: h,
+        rx: (node.data && node.data.rx) || 4,
+        fill: palette.raised, stroke: palette.line, 'stroke-width': 1,
+      }));
+      g.appendChild(keyLabel(
+        node.data.texte, 0, 0, node.data.taille || fs * 0.46,
+        palette[node.data.tone] || palette.fg,
+      ));
+      element = g;
       break;
     }
     case 'nuit':
@@ -644,6 +669,10 @@ function buildTable(node, fs, palette) {
   const geo = node.data.geo;
   const TONES = { fg: palette.fg, fg3: palette.fg3, gold: palette.gold };
   for (const c of geo.cells) {
+    // ★ La seconde bande d'une glissière est dessinée AILLEURS — case par case,
+    //   sur des nœuds mobiles (`primitives/glissiere.js`). La dessiner ici
+    //   aussi la ferait voir deux fois : une immobile, une qui coulisse.
+    if (node.data.bandeSeparee && c.ligne === 1) continue;
     g.appendChild(el('rect', {
       x: c.x, y: c.y, width: c.w, height: c.h, rx: 4,
       fill: fondDeCase(c, palette), stroke: palette.line, 'stroke-width': 1,

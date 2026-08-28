@@ -160,6 +160,11 @@ function verifier(liste) {
     if (typeof op.sortie !== 'function') echec(`${ou} : « sortie » manquant.`);
     if (!estBilingue(op.libelle)) echec(`${ou} : « libelle » doit porter ses deux langues (§ i18n).`);
     if (!estBilingue(op.regle)) echec(`${ou} : « regle » doit porter ses deux langues (§ i18n).`);
+    // `outil` — le nom AFFICHÉ DANS LA SCÈNE du décor que l'opérateur monte
+    // (réglette, clavier, afficheur). Il est toujours présent : `def` le fait
+    // retomber sur le libellé quand l'objet montré n'a pas de nom propre. Il
+    // est donc affichable, donc bilingue, comme tout le reste.
+    if (!estBilingue(op.outil)) echec(`${ou} : « outil » doit porter ses deux langues (§ i18n).`);
     if (op.note !== null && !estBilingue(op.note)) {
       echec(`${ou} : « note » doit être null ou porter ses deux langues (§ i18n).`);
     }

@@ -705,14 +705,25 @@ function mutualiserDecor(steps) {
     if (o && o.op === 'table') {
       return JSON.stringify(['table',
         o.disposition || 'reglette', o.colonnes ?? null, o.ordre ?? null,
-        o.cycle ?? null, o.teinte ?? null,
+        o.cycle ?? null, o.teinte ?? null, o.titre ?? null,
         (o.entries || []).map((e) => [e.char, e.value, e.note ?? '', e.label ?? '']),
       ]);
     }
     if (o && o.op === 'keyboard') {
       // Le dessin du clavier, et lui seul : la touche éclairée change à chaque
       // caractère, le CLAVIER ne change pas.
-      return JSON.stringify(['keyboard', o.layout || 'azerty', o.mesure || 'touche']);
+      return JSON.stringify(['keyboard', o.layout || 'azerty', o.mesure || 'touche', o.titre ?? null]);
+    }
+    // ★ L'AFFICHEUR À SEGMENTS est un décor comme les autres. « Comme pour les
+    // tables ou claviers, pas besoin de l'effacer entre chaque conversion
+    // d'affilée, tu peux garder l'afficheur d'une fois sur l'autre »
+    // (l'auteur). Ce qui l'identifie est ce qu'il MONTRE : l'afficheur, son
+    // régime — segments comptés un par un, ou traits fusionnés, qui ne se
+    // dessinent même pas pareil — et le nom sous lequel il s'annonce. Les
+    // segments ALLUMÉS, eux, changent à chaque lettre : c'est le geste, il ne
+    // se mutualise jamais.
+    if (o && (o.op === 'sevenSeg' || o.op === 'fourteenSeg')) {
+      return JSON.stringify([o.op, o.fusion !== false, o.titre ?? null]);
     }
     return null;
   };
@@ -2200,6 +2211,20 @@ export class ErreurRendu extends Error {
 }
 
 /**
+ * Ce qu'un décor mutualisé ajoute à la forme d'une op : son nom d'outil et les
+ * deux drapeaux de son cycle de vie. Écrit une fois — les afficheurs à segments
+ * partagent mot pour mot ce que la table et le clavier exigent déjà.
+ */
+function formeDeDecor(o) {
+  const chaine = (x) => typeof x === 'string' && x.length > 0;
+  if (o.titre !== undefined && !chaine(o.titre)) return '« titre » doit être le nom de l’outil, non vide';
+  for (const k of ['montre', 'retire']) {
+    if (o[k] !== undefined && typeof o[k] !== 'boolean') return `« ${k} » doit être un booléen`;
+  }
+  return null;
+}
+
+/**
  * Formes de paramètres exigées par les primitives de `src/visuel/primitives/`.
  * Le vocabulaire est fermé, mais chaque primitive a ses paramètres : un `op`
  * bien nommé mais mal paramétré échouerait à la compilation, côté visuel, au
@@ -2253,11 +2278,10 @@ export function validerFormeOp(o) {
       if (o.teinte !== undefined && o.teinte !== 'valeur') return '« teinte » doit valoir valeur';
       if (o.cycle !== undefined && typeof o.cycle !== 'boolean') return '« cycle » doit être un booléen';
       if (!chaine(o.target)) return '« target » manquant';
-      // Le décor se mutualise d'une étape à l'autre : deux drapeaux, deux
-      // booléens, rien de plus.
-      for (const k of ['montre', 'retire']) {
-        if (o[k] !== undefined && typeof o[k] !== 'boolean') return `« ${k} » doit être un booléen`;
-      }
+      // Le décor se mutualise d'une étape à l'autre, et il porte le nom de
+      // l'outil : un titre, deux drapeaux, rien de plus (`formeDeDecor`).
+      const decor = formeDeDecor(o);
+      if (decor) return decor;
       return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
     }
     case 'substitute': {
@@ -2288,14 +2312,13 @@ export function validerFormeOp(o) {
       return Array.isArray(o.ids) && o.ids.length === n && o.ids.every(chaine)
         ? null : `« ids », s'il est fourni, doit contenir exactement ${n} identifiant(s)`;
     }
-    case 'keyboard':
+    case 'keyboard': {
       if (!chaine(o.target)) return '« target » manquant';
-      // Le décor se mutualise d'une étape à l'autre, comme celui de la table :
-      // deux drapeaux, deux booléens, rien de plus.
-      for (const k of ['montre', 'retire']) {
-        if (o[k] !== undefined && typeof o[k] !== 'boolean') return `« ${k} » doit être un booléen`;
-      }
+      // Même décor mutualisé, même contrôle que la table (`formeDeDecor`).
+      const decor = formeDeDecor(o);
+      if (decor) return decor;
       return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
+    }
     case 'horns': {
       // Trois cibles, pas deux, pas quatre : 666 fait trois 6. Et `efface` est
       // une liste d'identifiants, éventuellement vide (rien à effacer autour
@@ -2310,11 +2333,14 @@ export function validerFormeOp(o) {
     }
     case 'flip180': case 'countStrokes':
       if (!chaine(o.target)) return '« target » manquant';
+      if (o.op === 'countStrokes' && o.titre !== undefined && !chaine(o.titre)) {
+        return '« titre » doit être le nom de l’outil, non vide';
+      }
       return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
     case 'sevenSeg':
       if (!chaine(o.target)) return '« target » manquant';
       if (typeof o.segments !== 'string' || !/^[a-g]+$/.test(o.segments)) return '« segments » doit être une chaîne de a à g';
-      return null;
+      return formeDeDecor(o);
     case 'fourteenSeg': {
       // Quatorze segments : `segments` est un TABLEAU de noms, parce que deux
       // d'entre eux font deux caractères (`g1`, `g2`). Voir
@@ -2326,7 +2352,8 @@ export function validerFormeOp(o) {
         || new Set(o.segments).size !== o.segments.length) {
         return `« segments » doit être un tableau de segments allumés, sans doublon, parmi ${connus.join(', ')}`;
       }
-      return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
+      if (o.to !== undefined && !tok(o.to)) return '« to » doit être {id, text}';
+      return formeDeDecor(o);
     }
     case 'annotate':
       return typeof o.text === 'string' && o.text.trim() ? null : '« text » non vide obligatoire';

@@ -29,8 +29,11 @@ import { NOTE_SOURCAGE } from './tables/ecritures.js';
 /** Champs affichés à l'écran par l'interface (`catalogue.js → descriptif`).
  *  `gabarit` est le libellé d'ÉTAPE à trou des combinateurs (« On additionne
  *  les %s ») : il s'affiche dans Le Registre, donc il porte ses deux langues
- *  comme le reste (`transformations/combinateurs.js`). */
-const CHAMPS_AFFICHES = ['libelle', 'regle', 'note', 'gabarit'];
+ *  comme le reste (`transformations/combinateurs.js`).
+ *  `outil` est le nom du DÉCOR affiché dans la scène — la réglette, le clavier,
+ *  l'afficheur (`transformations/commun.js › def`). Il est toujours présent
+ *  (à défaut, c'est le libellé), donc toujours à traduire. */
+const CHAMPS_AFFICHES = ['libelle', 'regle', 'note', 'gabarit', 'outil'];
 
 /**
  * Les seuls couples légitimement identiques dans les deux langues : de la

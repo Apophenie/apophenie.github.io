@@ -86,6 +86,51 @@ export const TEMPS = Object.freeze({
 const MONTE_DE = 28;
 
 /**
+ * ★ LE NOM DE L'OUTIL, SOUS LE DÉCOR.
+ *
+ * « Titrer les outils dans la scène, pour qu'on sache en plein écran quel outil
+ * est utilisé » (l'auteur). En plein écran, la scène est tout ce qu'on voit :
+ * Le Registre, qui porte le libellé de l'étape, n'y est plus. Une grille de
+ * vingt-six cases sans nom ne dit pas de quelle méthode elle est la preuve.
+ *
+ * ★ Le nom vient du CATALOGUE (`moteur/transformations/commun.js › def`, champ
+ * « outil ») et voyage dans l'op, déjà traduit. Il n'est écrit nulle part ici :
+ * une scène qui recopierait « Miroir Atbash » serait une seconde source de
+ * vérité, et renommer l'opérateur laisserait la scène annoncer l'ancien nom.
+ *
+ * ★ Il se pose du côté OPPOSÉ à la ligne — sous la table et sous le clavier,
+ * qui sont dessous ; au-dessus de l'encart de comptage, qui est dessus
+ * (`encart.js`). Le titre ne s'interpose donc jamais entre la ligne et l'objet
+ * qu'elle interroge.
+ */
+const TITRE = Object.freeze({
+  /** Taille du texte, en fraction de la police des jetons. */
+  taille: 0.5,
+  /** Distance entre le bas du décor et l'axe du titre, en fraction de police. */
+  ecart: 0.52,
+});
+
+/** L'identifiant du titre d'un décor — dérivé du décor, comme tout le reste. */
+const idTitre = (board) => `${board}:titre`;
+
+/**
+ * Ce que le titre ajoute à l'encombrement du décor : la caméra doit le faire
+ * tenir, sans quoi il tomberait hors du cadre au moment précis où l'on recule
+ * pour tout voir.
+ */
+function avecTitre(ctx, spec) {
+  const texte = typeof spec.titre === 'string' ? spec.titre.trim() : '';
+  if (!texte) return { texte: '', encombrement: spec.encombrement, y: 0 };
+  const fs = ctx.metrics.fontSize;
+  const y = spec.encombrement.bas + fs * TITRE.ecart;
+  return {
+    texte,
+    y,
+    encombrement: { ...spec.encombrement, bas: y + fs * TITRE.taille * 0.6 },
+  };
+}
+
+/**
  * Le décor est-il actuellement EN L'AIR ?
  *
  * Le nœud n'est jamais retiré du DOM (CONTRACTS §3.2 règle 7) : « il existe »
@@ -112,6 +157,9 @@ export function decorEnLAir(ctx, id) {
  * @param {{x:number,y:number}} spec.pos   centre du décor, en coordonnées scène
  * @param {number} spec.width       encombrement horizontal du dessin
  * @param {boolean} spec.deployer   faut-il le faire monter maintenant ?
+ * @param {string} [spec.titre]     le nom de l'OUTIL, déjà traduit, tel que le
+ *                                  catalogue le porte — affiché sous le décor
+ *                                  (voir `TITRE`, plus haut)
  * @param {{haut:number,bas:number,largeur:number,pad:number}} spec.encombrement
  *        ce que la caméra doit faire tenir — calculé par l'appelant, qui seul
  *        sait qu'une réglette dépasse en haut ou qu'une rangée dépasse à gauche
@@ -120,6 +168,7 @@ export function decorEnLAir(ctx, id) {
 export function monterDecor(ctx, spec) {
   const T = ctx.dur;
   const { id, pos, width } = spec;
+  const titre = avecTitre(ctx, spec);
   if (!ctx.scene.has(id)) {
     ctx.scene.create({
       id, role: spec.role, inFlow: false, w: width, data: spec.data,
@@ -127,19 +176,33 @@ export function monterDecor(ctx, spec) {
     }, { where: ctx.where });
     ctx.scene.place(id, { x: pos.x, y: pos.y + MONTE_DE, w: width });
   }
+  if (titre.texte && !ctx.scene.has(idTitre(id))) {
+    ctx.scene.create({
+      id: idTitre(id), role: 'label', text: titre.texte, inFlow: false,
+      w: ctx.metrics.advance * TITRE.taille * [...titre.texte].length,
+      data: { scale: TITRE.taille },
+      base: { opacity: 0, translate: { x: pos.x, y: titre.y + MONTE_DE }, fill: ctx.palette.fg2 },
+    }, { where: ctx.where });
+    ctx.scene.place(idTitre(id), { x: pos.x, y: titre.y + MONTE_DE });
+  }
 
   if (spec.deployer) {
     const cam = ctx.scene.get(CAMERA_ID);
-    const { zoom, dy } = cadrage(ctx, spec.encombrement);
+    const { zoom, dy } = cadrage(ctx, titre.encombrement);
     const restScale = cam.base.scale ?? 1;
     const restT = cam.base.translate ?? { x: 0, y: 0 };
     ctx.anim({ id: CAMERA_ID, prop: 'scale', to: restScale * zoom, at: 0, dur: T * TEMPS.CAMERA, ease: EASE.move });
     ctx.anim({ id: CAMERA_ID, prop: 'translate', to: { x: restT.x, y: restT.y + dy }, at: 0, dur: T * TEMPS.CAMERA, ease: EASE.move });
     ctx.anim({ id, prop: 'opacity', to: 1, at: 0, dur: T * TEMPS.DECOR_FONDU });
+    if (titre.texte) ctx.anim({ id: idTitre(id), prop: 'opacity', to: 1, at: 0, dur: T * TEMPS.DECOR_FONDU });
   }
   // Déjà monté ou non, le décor suit la VUE : si la ligne a défilé entre deux
-  // étapes, le milieu de l'écran n'est plus celui de la scène.
+  // étapes, le milieu de l'écran n'est plus celui de la scène. Le titre est
+  // solidaire du décor qu'il nomme — il le suit du même mouvement.
   ctx.place(id, { x: pos.x, y: pos.y, w: width }, { at: 0, dur: T * TEMPS.DECOR_GLISSE });
+  if (titre.texte) {
+    ctx.place(idTitre(id), { x: pos.x, y: titre.y }, { at: 0, dur: T * TEMPS.DECOR_GLISSE });
+  }
   ctx.scene.get(id).data.deploye = true;
 
   return spec.deployer ? T * TEMPS.MONTEE : 0;
@@ -217,6 +280,14 @@ export function replierDecor(ctx, id, at) {
   const cam = ctx.scene.get(CAMERA_ID);
   ctx.scene.get(id).data.deploye = false;
   ctx.anim({ id, prop: 'opacity', to: 0, at, dur: T * TEMPS.DECOR_FONDU });
+  // Le titre s'en va avec ce qu'il nomme : un nom d'outil qui survivrait à son
+  // outil désignerait le vide.
+  if (ctx.scene.has(idTitre(id))) {
+    ctx.anim({ id: idTitre(id), prop: 'opacity', to: 0, at, dur: T * TEMPS.DECOR_FONDU });
+  }
+  for (const sid of (ctx.scene.get(id).data.bande || [])) {
+    ctx.anim({ id: sid, prop: 'opacity', to: 0, at, dur: T * TEMPS.DECOR_FONDU });
+  }
   ctx.anim({ id: CAMERA_ID, prop: 'scale', to: cam.base.scale ?? 1, at: at + T * 0.02, dur: T * TEMPS.CAMERA, ease: EASE.move });
   ctx.anim({
     id: CAMERA_ID, prop: 'translate', to: cam.base.translate ?? { x: 0, y: 0 },

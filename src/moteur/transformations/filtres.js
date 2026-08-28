@@ -20,6 +20,83 @@ import {
   def, apparier, sortieCreee, sortieConservee, etape, token, fusion, enchainer, nomToken,
 } from './commun.js';
 
+/**
+ * ★ Le décalage du César « classique » — celui que tout le monde appelle ROT13.
+ *
+ * Il est écrit UNE fois : le libellé, la fonction appliquée, la réglette dessinée
+ * et le nom affiché dans la scène le lisent tous ici. Un jour où le catalogue
+ * accueillera les autres décalages, aucun d'eux n'aura à recopier quoi que ce
+ * soit — il lui suffira de son nombre.
+ */
+const CESAR_CLASSIQUE = 13;
+
+/**
+ * ★ Le nom de l'OUTIL d'un chiffre de César, **dérivé de son décalage**.
+ *
+ * Exporté parce qu'il est fait pour servir plusieurs fois : le jour où les
+ * vingt-cinq décalages entreront au catalogue, chacun s'annoncera dans la scène
+ * « Chiffre de César (7) » en appelant cette fonction, et pas une seule chaîne
+ * ne sera écrite deux fois. Treize garde sa mention « classique » : c'est le
+ * seul décalage que la culture nomme, et le seul qui soit sa propre réciproque.
+ *
+ * @param {number} decalage  le nombre de rangs dont l'alphabet glisse
+ */
+export const outilCesar = (decalage) => bilingue(
+  decalage === CESAR_CLASSIQUE
+    ? `Chiffre de César classique (${decalage})`
+    : `Chiffre de César (${decalage})`,
+  decalage === CESAR_CLASSIQUE
+    ? `Classic Caesar cipher (${decalage})`
+    : `Caesar cipher (${decalage})`,
+);
+
+/**
+ * ★ LE DÉCALAGE, LU SUR LA TABLE — et donc sur la fonction qui chiffre.
+ *
+ * Un chiffre de César n'a pas à DÉCLARER son décalage : sa réglette le dit. On
+ * la lit comme le moteur visuel la lira pour animer le coulissement — la
+ * question est la même (« de combien de rangs l'alphabet a-t-il glissé ? ») et
+ * la réponse doit venir de la même source, sinon le titre et le mouvement
+ * pourraient se contredire.
+ *
+ * Est un glissement, et rien d'autre : les vingt-six lettres, dans l'ordre, et
+ * une valeur qui les suit d'un pas de +1 constant modulo 26. Le miroir de
+ * l'Atbash (pas de −1) n'en est pas un — il n'est pas *un* César, il est le
+ * sien propre, et il porte donc son nom en propre.
+ *
+ * @param {ReadonlyArray<{char:string,value:string}>} table
+ * @returns {number|null} le décalage, ou `null` si ce n'est pas un glissement
+ */
+function decalageDe(table) {
+  if (!Array.isArray(table) || table.length !== LETTRES.length) return null;
+  const rang = (c) => LETTRES.indexOf(String(c).toUpperCase());
+  const pas = [];
+  for (let i = 0; i < table.length; i++) {
+    const e = table[i];
+    if (!e || rang(e.char) !== i || String(e.value).length !== 1) return null;
+    const v = rang(e.value);
+    if (v < 0) return null;
+    pas.push((v - i + 26) % 26);
+  }
+  // Un décalage, c'est le MÊME écart partout ; et zéro n'est pas un chiffrement.
+  if (!pas[0] || pas.some((p) => p !== pas[0])) return null;
+  return pas[0];
+}
+
+/**
+ * Le nom de l'outil qu'un chiffrement montre, quand il se déduit de sa table.
+ *
+ * ★ C'est le pendant exact d'`outilDuGeste` chez les mappeurs, et il existe
+ * pour la même raison : ajouter `fr7` ne doit demander AUCUNE chaîne de plus.
+ * L'opérateur donne sa fonction, la fonction donne la réglette, la réglette
+ * donne le décalage, et le décalage donne le nom — « Chiffre de César (7) »,
+ * sous la table, sans que rien n'ait été recopié nulle part.
+ */
+const outilDuChiffrement = (spec) => {
+  const n = decalageDe(spec.table);
+  return n === null ? null : outilCesar(n);
+};
+
 // Libellés dont `steps()` a besoin avant que `def()` ait figé l'opérateur.
 const LIB_RAPPROCHER = bilingue('On rapproche ce qui reste', 'Close the gaps');
 const REG_RAPPROCHER = bilingue('Les lettres retenues se remettent côte à côte',
@@ -198,6 +275,12 @@ function etapeTable(op) {
     const ap = [...apres.valeur];
     const titre = dire(op.libelle, ctx.langue);
     const regle = dire(op.regle, ctx.langue);
+    // ★ Le nom de l'OUTIL, affiché sous la réglette — dérivé du catalogue, et
+    //   jamais recopié dans la scène (voir `commun.js › def`, champ « outil »).
+    //   En plein écran, la table est tout ce qu'on voit : sans son nom, on
+    //   regarde vingt-six cases sans savoir de quelle méthode elles sont la
+    //   preuve.
+    const nomOutil = dire(op.outil, ctx.langue);
 
     // Longueurs désalignées : plus rien à mettre en face de quoi. On rend la
     // main au geste générique, qui sait faire porter la queue du mot d'arrivée.
@@ -224,6 +307,7 @@ function etapeTable(op) {
       [{
         op: 'table',
         disposition: op.forme || 'reglette',
+        titre: nomOutil,
         entries: op.table.map((e) => ({ ...e })),
         target: ctx.ids[i],
         // La lettre PLIÉE — c'est celle qu'`apply()` a convertie, et celle que
@@ -498,6 +582,9 @@ const brut = [
   {
     id: 'f.leet', code: 'flt', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On décode le leetspeak', 'Decode the leetspeak'),
+    // Le libellé dit le GESTE, l'outil dit ce qu'on a sous les yeux : une table
+    // de six correspondances, et rien d'autre à démontrer.
+    outil: bilingue('Table du leetspeak', 'Leetspeak table'),
     regle: bilingue('4→a, 3→e, 1→i, 0→o, 5→s, 7→t', '4→a, 3→e, 1→i, 0→o, 5→s, 7→t'),
     notoriete: 0.30, adHoc: 0.15,
     apply: (valeur, traces) => muer(valeur, traces, deleet),
@@ -513,6 +600,10 @@ const brut = [
   {
     id: 'f.atbash', code: 'fatb', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On applique l’Atbash', 'Apply the Atbash cipher'),
+    // Ce que la scène montre n'est pas le geste mais l'OBJET : un miroir tendu
+    // à l'alphabet. Le nom l'annonce, et l'animation de la table le joue — la
+    // seconde réglette part identique à la première, puis se retourne.
+    outil: bilingue('Miroir Atbash', 'Atbash mirror'),
     regle: bilingue('A devient Z, B devient Y… le miroir de l’alphabet',
       'A becomes Z, B becomes Y… the alphabet held up to a mirror'),
     notoriete: 0.25, adHoc: 0.2,
@@ -528,17 +619,23 @@ const brut = [
   },
   {
     id: 'f.rot13', code: 'fr13', famille: 'filtre', from: 'STR', to: 'STR',
-    libelle: bilingue('On applique le chiffre de César (13)', 'Apply the Caesar cipher (13)'),
+    libelle: bilingue(`On applique le chiffre de César (${CESAR_CLASSIQUE})`,
+      `Apply the Caesar cipher (${CESAR_CLASSIQUE})`),
+    // ★ Pas d'`outil` déclaré, et c'est délibéré : il se DÉDUIT de la réglette
+    //   (`outilDuChiffrement`), qui se déduit elle-même de `cesar`. Le jour où
+    //   le catalogue accueillera les autres décalages, chacun s'annoncera
+    //   « Chiffre de César (7) » sans une ligne de plus — et sans qu'aucun
+    //   d'eux ne puisse annoncer un décalage qu'il n'applique pas.
     regle: bilingue('Chaque lettre avance de 13 rangs', 'Every letter moves thirteen places along'),
     notoriete: 0.25, adHoc: 0.25,
-    apply: (valeur, traces) => muer(valeur, traces, (s) => cesar(s, 13)),
+    apply: (valeur, traces) => muer(valeur, traces, (s) => cesar(s, CESAR_CLASSIQUE)),
     remplace: true,
     // ★ Un décalage se montre par une réglette qui GLISSE : la bande du bas est
     //   la même que celle du haut, partie treize rangs plus loin. Sa couture —
     //   le vide entre `Z` et `A` — est le modulo, à l'endroit exact où il
     //   opère, comme le retour à la ligne de la pythagoricienne pour son 9.
     forme: 'glissiere',
-    table: regletteDe(LETTRES, (c) => cesar(c, 13)),
+    table: regletteDe(LETTRES, (c) => cesar(c, CESAR_CLASSIQUE)),
   },
 ];
 
@@ -589,6 +686,12 @@ export const FILTRES = Object.freeze(brut.map((spec) => {
   const parTable = remplace && Array.isArray(spec.table) && spec.table.length > 0;
   const base = {
     ...reste,
+    // Le nom AFFICHÉ DANS LA SCÈNE : celui que l'opérateur déclare, sinon celui
+    // que sa table dicte (un chiffre de César se nomme par son décalage), sinon
+    // son libellé. Calculé ici, une fois, AVANT que `steps()` ne se referme
+    // dessus : la scène et le catalogue doivent lire la MÊME chaîne, pas deux
+    // replis qui se ressemblent.
+    outil: reste.outil || outilDuChiffrement(reste) || reste.libelle,
     sortie: parTable ? sortieMuee : (remplace ? sortieCreee : sortieConservee),
   };
   const steps = parTable ? etapeTable(base)

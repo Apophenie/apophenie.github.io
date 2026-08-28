@@ -340,13 +340,34 @@ export function def(spec) {
     couverture: null,
     steps: null,
     sortie: null,
+    outil: null,
     ...spec,
   };
+  // ★ LE NOM DE L'OUTIL — ce que la scène AFFICHE sous le décor qu'elle monte.
+  //
+  // Pourquoi un champ de plus, alors que `libelle` existe. Les deux ne disent
+  // pas la même chose : `libelle` nomme le GESTE (« On applique le chiffre de
+  // César (13) »), l'étape que Le Registre annonce ; `outil` nomme la CHOSE
+  // qu'on voit à l'écran (« Chiffre de César classique (13) ») — la réglette,
+  // le clavier, l'afficheur. En plein écran, la scène seule est visible : sans
+  // ce nom, on regarde une grille de vingt-six cases sans savoir de quelle
+  // méthode elle est la preuve.
+  //
+  // ★ Et il vit ICI, au catalogue, jamais dans le moteur visuel. Une scène qui
+  // écrirait « Miroir Atbash » en dur serait une seconde source de vérité :
+  // renommer l'opérateur laisserait la scène annoncer l'ancien nom, c'est-à-dire
+  // exactement le contraire de « ce qui est montré est ce qui est compté ».
+  //
+  // ★ Le défaut est le libellé, et c'est ce qui rend l'oubli impossible : un
+  // opérateur qui monte un décor sans avoir déclaré son `outil` affiche son
+  // libellé — moins précis, jamais faux, jamais vide. On ne déclare donc un
+  // `outil` que là où l'objet montré porte un nom propre.
+  if (!op.outil) op.outil = op.libelle;
   if (!FAMILLES.includes(op.famille)) {
     throw new Error(`opérateur « ${op.id} » : famille inconnue « ${op.famille} ».`);
   }
   // Toute chaîne AFFICHABLE porte ses deux langues (voir `../i18n.js`).
-  for (const champ of ['libelle', 'regle']) {
+  for (const champ of ['libelle', 'regle', 'outil']) {
     if (!estBilingue(op[champ])) {
       throw new Error(`opérateur « ${op.id} » : « ${champ} » doit être un couple `
         + `{ ${LANGUES.join(', ')} } de chaînes non vides — reçu ${JSON.stringify(op[champ])}.`);
