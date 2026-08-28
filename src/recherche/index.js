@@ -2,10 +2,17 @@
 // Point d'entrée du moteur de recherche heuristique.
 // Assemble bfs + bassin + fragments + assemblage + score + scenario + url.
 //
-// L'interface `postMessage` est prévue dès maintenant (CONTRACTS.md §0.4) mais
-// l'exécution est INLINE en v1 : la mesure donne 1,2 ms en moyenne et 48 ms au
-// pire pour une fermeture complète, le budget d'une seconde est tenu 20×.
-// Passer au Worker se fera sans refondre l'appelant : même protocole de message.
+// L'interface `postMessage` (CONTRACTS.md §0.4) N'EST PLUS UNE PRÉPARATION :
+// `src/recherche/travailleur.js` la branche pour de bon sur un Worker, et
+// `src/app/travailleur.js` retombe sur le même protocole, en tranches, quand
+// aucun travailleur ne peut naître. Les deux chemins passent par `creerCanal`.
+//
+// ★ Ce qui a changé ici, et rien d'autre : `resoudre` est désormais le
+//   CONDUCTEUR d'un générateur (`deroulerResolution`) qui s'arrête entre deux
+//   fragments. La version synchrone le pousse d'un trait — pas une ligne de
+//   comportement ne bouge, et c'est celle que les tests et le banc appellent ;
+//   la version en tranches lui laisse rendre la main, pour que la jauge dise
+//   quelque chose de vrai (`src/recherche/tranches.js`).
 
 import { LIMITE_SAISIE, encoderTexte } from './base58.js';
 import {
@@ -27,6 +34,7 @@ import { construireScenario } from './scenario.js';
 import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
 import { lire, ecrire, descripteursDe, BANDEAUX } from './url.js';
 import { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES } from './cible.js';
+import { deroulerParTranches } from './tranches.js';
 
 export { LIMITE_SAISIE, BANDEAUX, REGLAGES };
 export { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES };
@@ -149,14 +157,25 @@ export function creerMoteur(catalogue, options = {}) {
   });
 
   /**
-   * Pipeline complet. Ne rend JAMAIS la main bredouille (§5) — **quand la cible
-   * vaut 666**. Voir `assemblage.js › approcheJoker` : le dernier recours du
-   * site est une propriété du français, pas des chiffres.
+   * Pipeline complet, DÉROULÉ PAS À PAS. Ne rend JAMAIS la main bredouille (§5)
+   * — **quand la cible vaut 666**. Voir `assemblage.js › approcheJoker` : le
+   * dernier recours du site est une propriété du français, pas des chiffres.
+   *
+   * ★ C'est un GÉNÉRATEUR, et il n'a qu'un seul point d'arrêt : la fin d'un
+   *   fragment cherché. Ce n'est pas un détail d'implémentation, c'est la
+   *   condition du déterminisme (§4.4) — on ne s'arrête jamais AU MILIEU d'une
+   *   exploration, donc l'ensemble exploré ne dépend pas d'où l'on s'est arrêté.
+   *   Ce que le `yield` produit est l'avancement RÉEL (voir `avancementDe`) ;
+   *   ce qu'il reçoit en retour est la durée rendue à l'appelant, que le filet
+   *   temporel doit ignorer.
+   *
+   * Deux conducteurs le poussent : `resoudre`, d'un trait ; et
+   * `resoudreProgressif`, par tranches (`tranches.js`).
    *
    * @param {string} saisieBrute
    * @param {{cible?:import('./cible.js').Cible|string}} [optionsResolution]
    */
-  function resoudre(saisieBrute, optionsResolution = {}) {
+  function* deroulerResolution(saisieBrute, optionsResolution = {}) {
     const cbl = normaliserCible(optionsResolution.cible ?? options.cible);
     const saisie = String(saisieBrute ?? '').normalize('NFC'); // §4.4 règle 5
     if (!saisie.length) {
@@ -198,14 +217,30 @@ export function creerMoteur(catalogue, options = {}) {
     const parFrag = new Map();
     // ★ Débranché, le filet ne LIT même pas l'horloge (voir `bfs.js`).
     const filetTemporel = options.filetTemporel !== false;
-    const debutRecherche = filetTemporel ? maintenant() : 0;
+    let debutRecherche = filetTemporel ? maintenant() : 0;
     const budgetTotal = options.budgetTotalMs ?? BUDGET_TOTAL_MS;
     const travailTotal = options.budgetTravailTotal ?? BUDGET_TRAVAIL_TOTAL;
     let cherches = 0;
     let travailRestant = travailTotal;
     let tronqueTravail = false;  // borne déterministe atteinte : reproductible
     let tronqueTemps = false;    // filet de sécurité : à signaler à l'utilisateur
-    for (const f of ordreDeRecherche(frags)) {
+    // ★ LE DÉNOMINATEUR DE LA JAUGE, et il est compté, pas estimé : les
+    //   fragments DISTINCTS que la boucle va parcourir. Distincts, parce que
+    //   `ordreDeRecherche` peut proposer deux fois le même texte (une répétition
+    //   et une unité, par exemple) et que la boucle saute le doublon sans rien
+    //   chercher — le compter ferait une jauge qui s'arrête à 90 % sur les
+    //   saisies à motif répété, c'est-à-dire précisément celles du site.
+    const ordre = ordreDeRecherche(frags);
+    const aChercher = new Set(ordre.map((f) => f.texte.normalize('NFC'))).size;
+    // ★ Le PLAFOND de travail, réserve comprise — le dénominateur honnête de la
+    //   jauge, et pas `travailTotal`. Le budget global épuisé, la recherche ne
+    //   s'arrête pas : les fragments garantis se cherchent encore, sur la
+    //   réserve (voir plus bas, et `bfs.js › BUDGET_TRAVAIL_RESERVE`). Rapporter
+    //   l'avancement au seul budget global le ferait donc atteindre 100 % alors
+    //   qu'il reste jusqu'à douze fragments à faire — la jauge à cent pour cent
+    //   qui continue de tourner, c'est-à-dire le mensonge le plus détesté.
+    const plafondTravail = travailTotal + FRAGMENTS_GARANTIS * BUDGET_TRAVAIL_RESERVE;
+    for (const f of ordre) {
       const cle = f.texte.normalize('NFC');
       if (parFrag.has(cle)) continue;
       const epuise = travailRestant <= 0;
@@ -234,6 +269,28 @@ export function creerMoteur(catalogue, options = {}) {
       parFrag.set(cle, chercherSix(f.texte, ctxRecherche));
       travailRestant -= (ctxRecherche.travail || 0) - avant;
       cherches++;
+      // ── L'UNIQUE point d'arrêt du dérouleur. Ce qui remonte est vrai : un
+      //    fragment vient d'être cherché, et le travail dépensé est celui que
+      //    `chercherSix` a réellement compté.
+      //
+      //    ★ Le total des fragments se CORRIGE une fois le budget épuisé. La
+      //      boucle s'arrête alors dès que le plancher garanti est atteint : ce
+      //      ne sont plus les `aChercher` fragments qui restent à faire, mais
+      //      les `FRAGMENTS_GARANTIS` premiers. Annoncer l'ancien total ferait
+      //      une jauge qui s'arrête à 40 % — et le dénominateur ne fait que
+      //      rétrécir, donc la jauge ne recule jamais.
+      const pause = yield avancementDe({
+        fragments: cherches,
+        fragmentsTotal: travailRestant > 0
+          ? aChercher
+          : Math.min(aChercher, Math.max(FRAGMENTS_GARANTIS, cherches)),
+        travail: travailTotal - travailRestant,
+        travailTotal: plafondTravail,
+      });
+      // Le temps rendu à l'appelant n'est pas du temps de recherche : on recule
+      // l'origine du filet d'autant (voir `tranches.js`, qui mesure la pause).
+      // Conduit d'un trait, `pause` vaut zéro et rien ne bouge.
+      if (filetTemporel && pause > 0) debutRecherche += pause;
     }
     if (ctxRecherche.tronque && !ctxRecherche.tronqueTemps) tronqueTravail = true;
     if (ctxRecherche.tronqueTemps) tronqueTemps = true;
@@ -354,6 +411,38 @@ export function creerMoteur(catalogue, options = {}) {
   }
 
   /**
+   * ★ LA VERSION SYNCHRONE, ET ELLE LE RESTE (CONTRACTS §5).
+   *
+   * Des centaines de tests et le banc de mesure appellent `moteur.resoudre(x)`
+   * et lisent le résultat sur la ligne suivante. Le dérouleur est donc poussé
+   * d'un trait, sans jamais rendre la main : `next(0)` annonce une pause nulle,
+   * le filet temporel ne bouge pas, et l'ensemble exploré est exactement celui
+   * d'avant. Le générateur ne coûte ici que ses reprises — une par fragment,
+   * quelques microsecondes en tout.
+   */
+  function resoudre(saisieBrute, optionsResolution = {}) {
+    const derouleur = deroulerResolution(saisieBrute, optionsResolution);
+    let pas = derouleur.next();
+    while (!pas.done) pas = derouleur.next(0);
+    return pas.value;
+  }
+
+  /**
+   * ★ LA VERSION QUI SE VOIT — même pipeline, mais qui rend la main.
+   *
+   * @param {string} saisieBrute
+   * @param {Object} [optionsResolution]  celles de `resoudre`, plus :
+   *   `surAvancement(avancement)`, `annule()`, `trancheMs`.
+   * @returns {Promise<Object|null>}  `null` si `annule()` a dit oui.
+   */
+  function resoudreProgressif(saisieBrute, optionsResolution = {}) {
+    return deroulerParTranches(
+      deroulerResolution(saisieBrute, optionsResolution),
+      { maintenant, ...optionsResolution },
+    );
+  }
+
+  /**
    * Rejoue une URL canonique SANS relancer la recherche (§4.3).
    * @returns {{ok:boolean, approche?:Object, bandeau?:string, raison?:string}}
    */
@@ -445,7 +534,48 @@ export function creerMoteur(catalogue, options = {}) {
     });
   }
 
-  return { resoudre, rejouer, scenarioDe, catalogue, bassin, cache, ops };
+  return {
+    resoudre, resoudreProgressif, deroulerResolution,
+    rejouer, scenarioDe, catalogue, bassin, cache, ops,
+  };
+}
+
+/**
+ * ★ L'AVANCEMENT, ET POURQUOI C'EST UN MAXIMUM DE DEUX RAPPORTS.
+ *
+ * « Un avancement qui ment est pire que pas d'avancement. » La phase de
+ * recherche s'arrête à la PREMIÈRE des deux bornes atteintes (voir la boucle
+ * ci-dessus) :
+ *
+ *   · tous les fragments cherchés — le rapport `fragments / fragmentsTotal` ;
+ *   · le budget de travail épuisé — le rapport `travail / travailTotal`, la
+ *     borne déterministe de §4.4, celle qui décide vraiment.
+ *
+ * Puisque la fin arrive à la première des deux, l'avancement honnête est le
+ * PLUS GRAND des deux rapports : c'est celui qui est le plus près de sa borne.
+ * Prendre les fragments seuls mentirait sur une saisie longue, où le budget de
+ * travail tombe bien avant le dernier fragment — la jauge irait tranquillement
+ * jusqu'à 40 % puis sauterait à la fin. Prendre le travail seul mentirait sur
+ * une saisie courte, qui n'en dépense qu'une fraction et finirait à 15 %.
+ *
+ * ⚠️ Les deux dénominateurs sont fournis par l'appelant, et ce ne sont pas les
+ * deux qu'on croit : `travailTotal` est le PLAFOND réserve comprise, et
+ * `fragmentsTotal` se corrige quand le budget s'épuise. Les deux termes restent
+ * alors croissants — un numérateur qui monte, un dénominateur qui ne fait que
+ * rétrécir —, donc leur maximum aussi : **la jauge ne recule jamais**.
+ *
+ * Elle peut en revanche **finir avant 100 %**, quand la dernière borne est
+ * franchie d'un coup, et c'est le sens qu'on préfère à l'autre : mieux vaut une
+ * jauge qui saute à la fin qu'une jauge assise à 100 % pendant qu'on calcule
+ * encore.
+ *
+ * @param {{fragments:number, fragmentsTotal:number, travail:number, travailTotal:number}} compte
+ */
+export function avancementDe(compte) {
+  const parFragments = compte.fragmentsTotal > 0 ? compte.fragments / compte.fragmentsTotal : 1;
+  const parTravail = compte.travailTotal > 0 ? compte.travail / compte.travailTotal : 0;
+  const fraction = Math.min(1, Math.max(0, parFragments, parTravail));
+  return { ...compte, fraction };
 }
 
 /**
@@ -587,32 +717,70 @@ function executerProgramme(texte, codes, parCode) {
   return chemin;
 }
 
-// ══════════════════════════════════ interface postMessage (inline en v1)
+// ══════════════════════════════ interface postMessage (Worker ou fil principal)
 
 /**
- * Protocole : `{type:'resoudre', generation, saisie}` →
+ * Protocole : `{type:'resoudre', generation, saisie, cible}` →
+ *   `{type:'avancement', generation, fraction, …}` (zéro, une ou n fois), puis
  *   `{type:'resultat', generation, …}` ou `{type:'erreur', generation, message}`.
  * Le compteur `generation` permet d'annuler les recherches obsolètes quand
  * l'utilisateur continue de taper (équivalent d'un AbortController).
+ *
+ * ★ Ce n'est plus une préparation : `src/recherche/travailleur.js` branche
+ *   `traiterProgressif` sur `self.onmessage` dans un vrai Worker, et
+ *   `src/app/travailleur.js` branche exactement le même canal sur le fil
+ *   principal quand aucun travailleur ne peut naître. Un seul protocole, deux
+ *   moteurs d'exécution — c'est pour ça que le repli ne coûte pas une ligne de
+ *   plus à l'appelant.
  */
 export function creerCanal(moteur, poster) {
   let generation = 0;
   const envoyer = poster || ((m) => m);
+  /** La cible voyage en CLAIR dans le message : `serialisable()` la réduit déjà
+   *  à son texte, et un objet cible ne survivrait pas au clonage structuré. */
+  const optionsDe = (message) => (message.cible ? { cible: message.cible } : {});
   return {
     get generation() { return generation; },
-    /** À brancher sur `worker.onmessage` le jour où l'on passe au Worker. */
+    /**
+     * La voie SYNCHRONE — sans avancement, et c'est son intérêt : elle rend le
+     * résultat sur la ligne suivante. C'est celle des tests de protocole.
+     */
     traiter(message) {
       if (!message || message.type !== 'resoudre') return null;
       generation = message.generation ?? generation + 1;
       try {
-        const r = moteur.resoudre(message.saisie);
+        const r = moteur.resoudre(message.saisie, optionsDe(message));
         return envoyer({ type: 'resultat', generation, ...serialisable(r) });
       } catch (err) {
         return envoyer({ type: 'erreur', generation, message: err.message });
       }
     },
-    demander(saisie) {
-      return this.traiter({ type: 'resoudre', generation: ++generation, saisie });
+    /**
+     * La voie qui SE VOIT. Elle poste un `avancement` par fragment cherché, et
+     * abandonne d'elle-même dès qu'une génération plus récente est demandée :
+     * qui continue de taper n'attend pas la recherche d'avant.
+     * @returns {Promise<Object|null>}
+     */
+    async traiterProgressif(message) {
+      if (!message || message.type !== 'resoudre') return null;
+      const mienne = message.generation ?? generation + 1;
+      generation = mienne;
+      try {
+        const r = await moteur.resoudreProgressif(message.saisie, {
+          ...optionsDe(message),
+          annule: () => generation !== mienne,
+          surAvancement: (a) => envoyer({ type: 'avancement', generation: mienne, ...a }),
+        });
+        // `null` : une recherche plus récente l'a coiffée. On ne poste rien —
+        // un résultat périmé qui arrive après le neuf est pire qu'un silence.
+        if (r === null) return null;
+        return envoyer({ type: 'resultat', generation: mienne, ...serialisable(r) });
+      } catch (err) {
+        return envoyer({ type: 'erreur', generation: mienne, message: err.message });
+      }
+    },
+    demander(saisie, cible) {
+      return this.traiter({ type: 'resoudre', generation: ++generation, saisie, cible });
     },
   };
 }

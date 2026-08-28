@@ -1,11 +1,12 @@
 /** Page d'accueil. */
 
-import { e, qs } from '../dom.js';
+import { e, qs, remplir } from '../dom.js';
 import { logoTitre } from '../logo.js';
 import { t, v } from '../../i18n/index.js';
 import { montrerInfobulle } from '../infobulle.js';
 import * as pont from '../pont.js';
 import { interrupteurs } from '../entete.js';
+import { creerJaugeRecherche } from '../jauge-recherche.js';
 
 const SEUIL_COMPTEUR = 200;
 
@@ -44,10 +45,18 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
     sur: { click: () => aller((saisie) => pont.ecrireHash({ saisie })) },
   });
 
+  /* ★ LA PLACE DE LA JAUGE — sous le bouton, et vide tant qu'on ne cherche pas.
+     Elle ne préexiste pas à la recherche : une barre à zéro pour cent posée en
+     permanence sous un formulaire annoncerait une attente là où il n'y en a
+     aucune. Le conteneur, lui, est là depuis le début pour que l'apparition ne
+     décale rien de ce qui l'entoure. */
+  const zoneJauge = e('div.champ-progression');
+
   const formulaire = e('form.champ-groupe', { novalidate: true }, [
     e('label', { for: 'saisie', texte: t('accueil.label') }),
     e('div.champ-boite', {}, [champ, compteur]),
     bouton,
+    zoneJauge,
     e('div.champ-appoint', {}, [voies]),
     erreur,
   ]);
@@ -81,21 +90,25 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
   });
   majCompteur();
 
+  /** Le refus commun aux deux commandes. Le bouton n'est jamais désactivé :
+   *  une impasse silencieuse est pire qu'un refus qui se dit. */
+  function refuserLeVide() {
+    erreur.textContent = t('accueil.erreurVide');
+    champ.setAttribute('aria-invalid', 'true');
+    champ.setAttribute('aria-describedby', 'erreur-saisie');
+    champ.focus();
+  }
+
   /**
-   * Le trajet commun aux deux commandes : on valide, on calcule, on part.
+   * Le trajet de la commande qui ne CHERCHE pas : « Énumérer les voies » ne
+   * fait qu'écrire un lien, et part aussitôt. La recherche, elle, a son propre
+   * trajet plus bas, parce qu'elle a quelque chose à montrer en attendant.
    *
    * @param {Function} destination  reçoit la saisie, rend le hash où aller.
    */
   function aller(destination) {
     const saisie = champ.value.trim();
-    if (!saisie) {
-      // Le bouton n'est jamais désactivé : une impasse silencieuse est pire.
-      erreur.textContent = t('accueil.erreurVide');
-      champ.setAttribute('aria-invalid', 'true');
-      champ.setAttribute('aria-describedby', 'erreur-saisie');
-      champ.focus();
-      return;
-    }
+    if (!saisie) { refuserLeVide(); return; }
     const hash = destination(saisie);
     if (!hash) {
       erreur.textContent = t('accueil.erreurUrl');
@@ -119,23 +132,53 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
    * d'un cran. On prend la première approche — celle que le classement met en
    * tête — dans sa mise en scène par défaut.
    *
+   * ★ ET ON RESTE SUR PLACE PENDANT QU'IL SE FAIT. C'est la seule des quatre
+   *   recherches du site qui ne change pas de page pour chercher : le visiteur
+   *   vient d'écrire, son champ est encore sous ses yeux, et l'emmener sur une
+   *   page d'attente pour le ramener aussitôt serait un aller-retour gratuit.
+   *   La jauge s'installe donc sous le bouton, à l'endroit exact où le regard
+   *   se trouve déjà.
+   *
    * ★ On retombe sur la LISTE dès que le lien direct manque : moteur en repli
    * (qui ne fabrique jamais d'URL), recherche en échec, ou approche sans URL.
    * Mieux vaut une liste que rien, et c'est exactement ce que la page de
    * résultats saura dire elle-même.
    */
-  function urlPremiereVoie(saisie) {
-    let resultat = null;
-    try { resultat = pont.resoudre(saisie); } catch { resultat = null; }
-    const premiere = resultat && (resultat.approches || [])[0];
+  async function revelerPremiereVoie() {
+    const saisie = champ.value.trim();
+    if (!saisie) { refuserLeVide(); return; }
+
+    bouton.setAttribute('aria-busy', 'true');
+    bouton.textContent = t('accueil.consultation');
+    const jauge = creerJaugeRecherche();
+    remplir(zoneJauge, [jauge.element]);
+
+    const resultat = await pont.resoudreEnFond(saisie, null, { surAvancement: jauge.avancer });
+    // `null` : une recherche plus récente est partie (deux clics, deux Entrées).
+    // C'est elle qui mènera quelque part ; celle-ci se retire sans rien toucher.
+    if (resultat === null) return;
+    jauge.achever();
+
+    const premiere = (resultat.approches || [])[0];
     const direct = premiere
       && (pont.REGISTRE_DEFAUT === 'sobre' ? premiere.urlSobre : premiere.urlScenique);
-    return direct || pont.ecrireHash({ saisie });
+    const hash = direct || pont.ecrireHash({ saisie });
+    if (!hash) {
+      // Le seul cas où l'on revient en arrière : sans grammaire d'URL, il n'y a
+      // nulle part où aller. On rend son bouton au visiteur plutôt que de le
+      // laisser devant une jauge terminée qui ne mène à rien.
+      remplir(zoneJauge, []);
+      bouton.removeAttribute('aria-busy');
+      bouton.textContent = t('accueil.reveler');
+      erreur.textContent = t('accueil.erreurUrl');
+      return;
+    }
+    location.hash = hash;
   }
 
   formulaire.addEventListener('submit', (ev) => {
     ev.preventDefault();
-    aller(urlPremiereVoie);
+    revelerPremiereVoie();
   });
 
   // ★ Deux sortes de puces, et le visiteur doit pouvoir les distinguer AVANT

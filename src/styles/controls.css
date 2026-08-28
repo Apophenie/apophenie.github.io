@@ -327,3 +327,73 @@
   .infobulle--vue { transform: none; }
   .infobulle--adieu { transition: none; }
 }
+
+/* ═══════════════════ LA JAUGE DE RECHERCHE ═══════════════════════════════════
+
+   ⚠️ Ce n'est PAS `.jauge` ci-dessus. Celle-là est le PEIGNE de la barre de
+   transport : une case par transformation, chacune cliquable, qui sert à
+   NAVIGUER dans une démonstration déjà calculée. Celle-ci est une barre pleine,
+   inerte, qui dit où en est un calcul qu'on ne peut pas presser. Deux objets
+   sans rapport, d'où deux noms — les confondre reviendrait à laisser croire
+   qu'on peut cliquer dans l'avancement pour aller plus vite.
+
+   Elle ne s'anime QUE quand sa valeur change. Aucun défilement d'attente,
+   aucun chatoiement : le mouvement est l'information, et rien d'autre ne
+   bouge (voir `src/app/jauge-recherche.js`). */
+.jauge-recherche {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  margin-top: var(--e3);
+}
+
+.jauge-recherche__piste {
+  display: block;
+  height: 6px;
+  background: var(--line);
+  border: var(--rule) solid var(--line-ui);
+  overflow: hidden;
+}
+
+/* La part remplie est portée par une propriété personnalisée plutôt que par
+   `width` en pourcents : le JavaScript n'écrit qu'un nombre entre 0 et 1, la
+   feuille de style décide de ce qu'on en fait. `transform` plutôt que `width`
+   parce qu'une mise à l'échelle est composée par le compositeur — elle ne
+   déclenche ni calcul de disposition ni repeinture, ce qui compte quand le
+   fil principal est justement en train de chercher (chemin sans travailleur). */
+.jauge-recherche__remplissage {
+  display: block;
+  height: 100%;
+  background: var(--phos);
+  transform: scaleX(var(--jauge-part, 0));
+  transform-origin: left center;
+  transition: transform var(--t-court) linear;
+}
+
+.jauge-recherche__legende {
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  color: var(--fg-3);
+  /* Réservée d'avance : le texte passe de « 8 % » à « 100 % » sans faire
+     sauter ce qui suit. */
+  min-height: 1.4em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* La barre saute d'un palier à l'autre au lieu de glisser. Ce qu'on lit
+     ici est une LONGUEUR, pas un mouvement : elle reste entièrement lisible
+     sans la transition, et c'est exactement le genre de glissement continu
+     que la préférence vise. */
+  .jauge-recherche__remplissage { transition: none; }
+}
+
+/* Sur l'accueil, la jauge se glisse sous le bouton « Révéler ». Le conteneur
+   existe avant elle et reste vide : sans lui, l'apparition de la barre
+   décalerait la ligne « Énumérer les voies occultes » et les exemples d'un
+   cran, au moment précis où le visiteur regarde ailleurs. */
+.champ-progression:not(:empty) { margin-top: var(--e2); }
+.champ-progression .jauge-recherche { margin-top: 0; }
+
+/* La page d'attente : la jauge y est le seul objet, elle a droit à sa place. */
+.attente .jauge-recherche { margin-top: var(--e5); }
+.attente__note { margin-top: var(--e4); }

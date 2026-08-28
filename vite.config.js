@@ -69,7 +69,26 @@ function protocoleFichier() {
         // sert plus à rien une fois tout replié dans un fichier unique (sa liste
         // de dépendances y vaut `void 0`). `document.baseURI` dit la même chose
         // — l'URL du document — dans une langue que le script classique parle.
-        sortie.code = sortie.code.replace(/\bimport\.meta\.url\b/g, 'document.baseURI');
+        //
+        // ★ MAIS CE SCRIPT N'EST PLUS TOUJOURS EXÉCUTÉ PAR UNE PAGE.
+        //
+        //   Depuis que la recherche peut passer dans un travailleur, le fichier
+        //   unique est aussi chargé par `importScripts` depuis un Worker (voir
+        //   `src/app/travailleur.js`, qui porte le relevé `file://`). Là, il n'y
+        //   a pas de `document` du tout, et un `document.baseURI` nu au premier
+        //   niveau jette une `ReferenceError` — que Chromium rapporte sous le
+        //   nom trompeur de « NetworkError … failed to load ».
+        //
+        //   ⚠️ Ce n'est pas hypothétique : c'est exactement ce qui est arrivé,
+        //   deux fois, et il a fallu bissecter le fichier construit pour le
+        //   voir. La substitution répond donc à la vraie question — « quelle est
+        //   l'URL de ce qui s'exécute ? » — des deux côtés : le document quand
+        //   il y en a un, l'adresse du script courant sinon. C'est aussi ce que
+        //   `import.meta.url` aurait valu dans un module de travailleur.
+        sortie.code = sortie.code.replace(
+          /\bimport\.meta\.url\b/g,
+          '(typeof document<"u"?document.baseURI:self.location.href)',
+        );
         const reste = sortie.code.match(/\bimport\.meta\b|(?:^|[;}])\s*(?:import|export)[\s{*]/);
         if (reste) {
           this.error(`${sortie.fileName} garde de la syntaxe de module (« ${reste[0].trim()} ») : `
