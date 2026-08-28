@@ -375,9 +375,44 @@ export function validerCatalogue(catalogue) {
   return pbs;
 }
 
-/** Opérateurs explorables : ni dépréciés, ni jokers. */
+/**
+ * ★ **LES DÉCALAGES DE CÉSAR SANS NOM, EN ATTENTE DE LA JAUGE.**
+ *
+ * Le catalogue porte les vingt-cinq décalages, et tous se JOUENT — un lien écrit
+ * à la main (`#so!fr7+tca+m14#…`) les rejoue sans réserve. Mais l'exploration
+ * n'en prend que deux : le treizième (ROT13) et le troisième (le César
+ * historique), les seuls qui portent un nom.
+ *
+ * ⚠️ **C'est un ÉTAGE, pas un verdict, et l'auteur a déjà tranché dans l'autre
+ * sens** — « tous explorables ». Deux mesures disent pourquoi ce n'est pas
+ * encore le cas :
+ *
+ *  · **le temps.** Vingt-quatre filtres de plus, ce sont vingt-quatre bases de
+ *    plus à l'étage 1 de `vecteursDeSix`, et tout l'étage 3 qui suit : mesuré à
+ *    JIT chaud sur la saisie la plus lourde du banc, **230 ms → 733 ms**, pour
+ *    un budget d'une seconde que le démarrage à froid frôlait déjà ;
+ *  · **le magasinage.** Une fois lâchés, six têtes de liste sur dix-neuf
+ *    reposent sur un décalage SANS NOM — `fr15` sur « Donald Trump », `fr24` sur
+ *    « Macron », `fr4` sur « reinfocovid ». « Avance de quinze rangs » ne se
+ *    justifie par rien d'autre que le résultat qu'on en attend, et `adHoc` à
+ *    0,45 n'y suffit pas.
+ *
+ * La levée du plafond est conditionnée, par l'auteur lui-même, à une JAUGE DE
+ * PROGRESSION : « l'important n'est pas que ça paraisse instantané, mais que
+ * l'utilisateur voie que c'est en cours et que le résultat est en vue ». Le
+ * budget est déjà porté à 5 000 ms (`src/config.js`) ; il manque la jauge. Le
+ * jour où elle existe, cette liste se vide et rien d'autre ne bouge.
+ */
+export const CESARS_SANS_NOM = Object.freeze(
+  Array.from({ length: 25 }, (_, i) => i + 1)
+    .filter((n) => n !== 13 && n !== 3)
+    .map((n) => `f.cesar${n}`),
+);
+
+/** Opérateurs explorables : ni dépréciés, ni jokers, ni en attente de la jauge. */
 export function operateursExplorables(catalogue) {
-  return normaliserCatalogue(catalogue).filter((op) => !op.deprecated && !op.isJoker);
+  return normaliserCatalogue(catalogue)
+    .filter((op) => !op.deprecated && !op.isJoker && !CESARS_SANS_NOM.includes(op.id));
 }
 
 /**

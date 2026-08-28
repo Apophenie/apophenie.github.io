@@ -39,8 +39,27 @@
  * La constante est écrite pour que ce dernier geste soit d'une ligne.
  */
 
-/** Ce que la recherche s'autorise, en tout, pour une saisie. */
-export const BUDGET_TOTAL_MS = 3000;
+/**
+ * Ce que la recherche s'autorise, en tout, pour une saisie.
+ *
+ * ★ **PASSÉ DE 3 000 À 5 000**, et la condition posée par l'auteur est
+ * désormais remplie : « on peut assouplir le budget temps en insérant une jauge
+ * de progression pour la phase de recherche avec suivi d'avancement.
+ * L'important n'est pas que ça paraisse instantané, mais que l'utilisateur voie
+ * que c'est en cours et que le résultat est en vue — pas un waiter à durée non
+ * identifiée. »
+ *
+ * ⚠️ **Et la jauge n'est PAS un Worker**, contrairement à ce que la première
+ * rédaction de ce fichier annonçait. `dist/` doit s'ouvrir par double-clic, donc
+ * en `file://`, où l'origine est « null » : `new Worker()` y est refusé, et un
+ * worker de Blob l'est aussi. La recherche rend donc la main à la boucle
+ * d'événements ENTRE SES FRAGMENTS, ce qu'elle peut faire parce qu'elle les
+ * traite déjà un par un et qu'elle compte son travail (`bfs.js ›
+ * comptabiliser`). Le fil principal peint entre deux tranches ; l'avancement
+ * qu'affiche la jauge est le compte réel des fragments traités, pas une
+ * estimation.
+ */
+export const BUDGET_TOTAL_MS = 5000;
 
 /**
  * Ce qu'elle s'autorise pour UN fragment, dans le pipeline complet. C'est un
@@ -53,8 +72,7 @@ export const BUDGET_MS_FILET = 1000;
 export const BUDGET_MS = 250;
 
 /**
- * Le plafond que l'auteur autorise LE JOUR OÙ la progression sera lisible.
- * Il n'est lu par personne : il est là pour que la valeur cible ne se perde pas
- * entre deux sessions, et pour qu'un test puisse rappeler la condition.
+ * Le plafond d'avant la jauge. Conservé pour que le test qui gèle le rapport
+ * entre les deux ait de quoi comparer, et pour qu'on retrouve d'où l'on vient.
  */
-export const BUDGET_TOTAL_MS_AVEC_PROGRESSION = 5000;
+export const BUDGET_TOTAL_MS_SANS_PROGRESSION = 3000;

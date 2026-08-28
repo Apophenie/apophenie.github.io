@@ -290,6 +290,115 @@ const PROTOCOLES = /^(?:https?|ftp|ftps|ssh|file):\/\//i;
 const LEET = Object.freeze({ 4: 'a', 3: 'e', 1: 'i', 0: 'o', 5: 's', 7: 't' });
 const deleet = (s) => s.replace(/[431057]/g, (c) => LEET[c] ?? c);
 
+/**
+ * ★ **LES VINGT-CINQ CÉSARS, D'UNE SEULE SOURCE.**
+ *
+ * « Ajoute soit un opérateur configurable, soit plusieurs opérateurs pour
+ * tester : fr1 fr2 fr3 fr4… avec pour titre "Chiffre de César ({décalage})" »
+ * (l'auteur).
+ *
+ * **Configurable, le catalogue ne sait pas faire** : la signature d'un
+ * opérateur est `apply(valeur, traces)`, sans paramètre, et tout le reste du
+ * moteur — l'URL, le registre, le score, la scène — l'identifie par son code
+ * seul. Un opérateur paramétré demanderait de porter son argument dans l'URL,
+ * donc une extension de la grammaire, pour un gain nul : vingt-cinq décalages,
+ * ce sont vingt-cinq gestes distincts que le spectateur doit pouvoir nommer.
+ *
+ * Ils sont donc vingt-cinq — et écrits UNE fois. Le libellé, la règle, la
+ * fonction et la réglette se dérivent tous du seul décalage : il n'existe pas
+ * d'endroit où l'un pourrait mentir sur l'autre, et ajouter un pas se ferait en
+ * changeant une borne.
+ *
+ * ★ **`fr13` garde son rang, son code et son titre à part.** Il était là avant
+ * les autres et il n'est pas leur égal : ROT13 est le seul décalage que le
+ * public reconnaisse, le seul qui soit son propre inverse, et le seul dont le
+ * nom circule. « Chiffre de César classique (13) », dit l'auteur — le reste,
+ * « Chiffre de César (7) ».
+ *
+ * ★ **NOTORIÉTÉ : 0,25 pour treize, 0,20 pour trois, 0,10 pour les autres.**
+ * Ce n'est pas une décroissance décorative :
+ *
+ *  · **13** est ROT13, connu de qui a fréquenté un forum — il garde sa valeur ;
+ *  · **3** est le décalage de Jules César lui-même, celui que racontent les
+ *    manuels d'histoire : moins su que ROT13, su tout de même ;
+ *  · **les vingt-trois autres** ne sont connus de personne. Choisir « avance de
+ *    sept rangs » plutôt que de six n'a aucune justification hors du résultat
+ *    qu'on en attend — ils ne valent donc presque rien, sans valoir zéro : le
+ *    procédé, lui, reste le chiffre de César, et il s'explique en une phrase.
+ *
+ * ★ **AD HOC : 0,25 pour treize et trois, 0,45 pour les autres.** Le critère
+ * demande « cette méthode est-elle taillée pour la cible ? » (heuristique §4.5),
+ * et la réponse est franchement oui pour un décalage qu'on ne peut motiver que
+ * par son résultat. Un décalage nommé — ROT13, le César historique — se
+ * justifie AVANT de regarder ce qu'il donne ; les autres, non.
+ */
+const CESAR_CLASSIQUE = 13;
+const CESAR_HISTORIQUE = 3;
+
+/** Le nom du décalage, en toutes lettres, pour la règle affichée. */
+const RANGS = Object.freeze([
+  '', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf',
+  'dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept',
+  'dix-huit', 'dix-neuf', 'vingt', 'vingt et un', 'vingt-deux', 'vingt-trois',
+  'vingt-quatre', 'vingt-cinq',
+]);
+const RANGS_EN = Object.freeze([
+  '', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+  'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+  'seventeen', 'eighteen', 'nineteen', 'twenty', 'twenty-one', 'twenty-two',
+  'twenty-three', 'twenty-four', 'twenty-five',
+]);
+
+/** Un césar, tout entier dérivé de son décalage. */
+function cesarDe(n) {
+  const classique = n === CESAR_CLASSIQUE;
+  return {
+    // ★ **`f.rot13` GARDE SON IDENTIFIANT**, alors que ses vingt-quatre cadets
+    //   s'appellent `f.cesarN`. Ce n'est pas de la nostalgie : un identifiant
+    //   est la clé stable de l'opérateur — les tables de titres, le barème et
+    //   les notes de `.planning/` le nomment ainsi —, et le renommer aurait
+    //   coûté une migration pour ne gagner qu'une régularité de façade. ROT13
+    //   porte d'ailleurs un nom que les autres n'ont pas.
+    id: n === CESAR_CLASSIQUE ? 'f.rot13' : `f.cesar${n}`, code: `fr${n}`, famille: 'filtre', from: 'STR', to: 'STR',
+    libelle: classique
+      ? bilingue('Chiffre de César classique (13)', 'Classic Caesar cipher (13)')
+      : bilingue(`Chiffre de César (${n})`, `Caesar cipher (${n})`),
+    regle: bilingue(
+      `Chaque lettre avance de ${RANGS[n]} rang${n > 1 ? 's' : ''}`,
+      `Every letter moves ${RANGS_EN[n]} place${n > 1 ? 's' : ''} along`,
+    ),
+    notoriete: classique ? 0.25 : (n === CESAR_HISTORIQUE ? 0.20 : 0.10),
+    adHoc: (classique || n === CESAR_HISTORIQUE) ? 0.25 : 0.45,
+    // ★ **LE DÉCALAGE EST PUBLIÉ**, et pas seulement appliqué. La scène doit
+    //   pouvoir faire coulisser la réglette du bon nombre de crans sans le
+    //   deviner du code ni le recompter de la table (`visuel/primitives/
+    //   table.js`) : le lire ici est la seule façon d'être sûr que ce qui glisse
+    //   à l'écran est ce qui a été calculé (CONTRACTS §0.3).
+    decalage: n,
+    apply: (valeur, traces) => muer(valeur, traces, (s) => cesar(s, n)),
+    remplace: true,
+    // ★ Un décalage se montre par une réglette qui GLISSE : la bande du bas est
+    //   la même que celle du haut, partie n rangs plus loin. Sa couture — le
+    //   vide entre `Z` et `A` — est le modulo, à l'endroit exact où il opère,
+    //   comme le retour à la ligne de la pythagoricienne pour son 9.
+    forme: 'glissiere',
+    table: regletteDe(LETTRES, (c) => cesar(c, n)),
+  };
+}
+
+/**
+ * ⚠️ **L'ORDRE COMPTE** : la déclaration doit suivre le registre
+ * (`catalogue.js › ORDRE_CANONIQUE`, §4.1 règle 3). `fr13` était inscrit avant
+ * les autres ; il reste donc en tête de la série, et les vingt-quatre nouveaux
+ * viennent après, par décalage croissant.
+ */
+const CESARS = Object.freeze([
+  cesarDe(CESAR_CLASSIQUE),
+  ...Array.from({ length: 25 }, (_, i) => i + 1)
+    .filter((n) => n !== CESAR_CLASSIQUE)
+    .map(cesarDe),
+]);
+
 const brut = [
   {
     id: 'f.protocole', code: 'fp', famille: 'filtre', from: 'STR', to: 'STR',
@@ -526,20 +635,7 @@ const brut = [
     forme: 'glissiere',
     table: regletteDe(LETTRES, atbash),
   },
-  {
-    id: 'f.rot13', code: 'fr13', famille: 'filtre', from: 'STR', to: 'STR',
-    libelle: bilingue('On applique le chiffre de César (13)', 'Apply the Caesar cipher (13)'),
-    regle: bilingue('Chaque lettre avance de 13 rangs', 'Every letter moves thirteen places along'),
-    notoriete: 0.25, adHoc: 0.25,
-    apply: (valeur, traces) => muer(valeur, traces, (s) => cesar(s, 13)),
-    remplace: true,
-    // ★ Un décalage se montre par une réglette qui GLISSE : la bande du bas est
-    //   la même que celle du haut, partie treize rangs plus loin. Sa couture —
-    //   le vide entre `Z` et `A` — est le modulo, à l'endroit exact où il
-    //   opère, comme le retour à la ligne de la pythagoricienne pour son 9.
-    forme: 'glissiere',
-    table: regletteDe(LETTRES, (c) => cesar(c, 13)),
-  },
+  ...CESARS,
 ];
 
 /** Première barre oblique qui ne fait pas partie d'un « :// ». */

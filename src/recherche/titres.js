@@ -85,8 +85,26 @@ const b = (fr, en) => ({ fr, en });
  * Priorité de vedette, du plus parlant au moins. Un opérateur absent de cette
  * table ne peut pas donner son nom à la méthode tant qu'un autre le peut.
  */
+/**
+ * ★ **LES VINGT-QUATRE CÉSARS SANS NOM, EN UNE LIGNE PAR TABLE.**
+ *
+ * Ils partagent tout sauf leur décalage : les nommer un par un serait
+ * vingt-quatre lignes à tenir d'accord dans chacune des trois tables, et la
+ * première divergence passerait inaperçue. On les dérive donc du même compte que
+ * `transformations/filtres.js › CESARS`, et le treizième garde ses entrées
+ * propres — il porte un nom que les autres n'ont pas.
+ *
+ * @param {(n:number) => any} valeur ce que la table associe au décalage `n`
+ */
+function cesars(valeur) {
+  const out = {};
+  for (let n = 1; n <= 25; n++) if (n !== 13) out[`f.cesar${n}`] = valeur(n);
+  return out;
+}
+
 const PRIORITE = {
   'f.traduitFR': 0, 'f.traduitEN': 0, 'f.atbash': 0, 'f.rot13': 0, 'f.leet': 0,
+  ...cesars(() => 0),
   'f.motRepete': 1, 'f.initiales': 1,
   joker: 0,
   mappeur: 2,
@@ -154,6 +172,7 @@ export const NOMS = {
   'f.traduitEN': b('Par le détour linguistique', 'Through the linguistic detour'),
   'f.atbash': b('Par le chiffre Atbash', 'Through the Atbash cipher'),
   'f.rot13': b('Par le chiffre de César', 'Through the Caesar cipher'),
+  ...cesars((n) => b(`Par le chiffre de César (${n})`, `Through the Caesar cipher (${n})`)),
   'f.leet': b('En leetspeak', 'In leetspeak'),
   'f.motRepete': b('Sur le motif qui revient', 'On the pattern that recurs'),
   'f.initiales': b('Par les initiales', 'By the initials'),
@@ -369,6 +388,9 @@ export const PRECISIONS = {
   'f.leet': b('en leetspeak', 'in leetspeak'),
   'f.atbash': b('après un Atbash', 'after an Atbash'),
   'f.rot13': b('après le chiffre de César', 'after the Caesar cipher'),
+  // ⚠️ Minuscule initiale : une précision se soude derrière le nom de la voie,
+  //    elle ne recommence pas la ligne (voir le test des titres).
+  ...cesars((n) => b(`après un décalage de ${n}`, `after a shift of ${n}`)),
 
   // ── découpes : le grain de lecture
   't.caracteres': b('lettre à lettre', 'letter by letter'),
