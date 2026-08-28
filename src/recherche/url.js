@@ -2,18 +2,102 @@
 // Grammaire d'URL : lecture tolérante, écriture toujours canonique.
 // CONTRACTS.md §4.2, §4.3, §4.4.
 //
-//   url        := {chemin} '#' [approche] '#' b58(saisie)
+//   url        := {chemin} '#' [approche] '#' saisie
+//              |  {chemin} '#' saisie                 // un seul `#`, voir plus bas
 //   approche   := marqueur* fragment (',' fragment)*
 //   marqueur   := registre '!' | 'c' chiffre+ '!'
 //   registre   := 'so' | 'sce'        (formes longues encore LUES, plus écrites)
 //   fragment   := [portee ':'] programme
 //   portee     := offset '.' longueur          // en jetons ; absent ⇒ saisie entière
 //   programme  := code ('+' code)*
+//   saisie     := b58(texte) | texte           // le b58 gagne, voir plus bas
 //
 // `+` sépare les OPÉRATIONS d'un même fragment (arbitrage utilisateur).
 // `,` sépare les FRAGMENTS dont les 6 s'assemblent en 666.
 // `×3:programme` abrège la résonance (le même programme sur les 3 occurrences).
 // `so!` / `sce!` préfixe l'approche entière — voir ci-dessous.
+//
+// ── LA SAISIE EN CLAIR, quand le base58 ne prend pas ───────────────────────
+//
+// « Si après le 2nd # une séquence non b58 est présente, plutôt que d'échouer,
+// considère la chaîne comme étant la saisie brute (celle qui serait dans le
+// champ de la page d'accueil). » (l'auteur)
+//
+// Une URL se tape à la main, se dicte au téléphone, se recopie d'un message.
+// `#Donald Trump` est ce que quelqu'un écrit spontanément ; jusqu'ici c'était un
+// lien mort. La tolérance est en LECTURE SEULE — `ecrire()` ne produit que du
+// base58, et `canoniser()` réécrit la barre d'adresse dès l'ouverture : un lien
+// tapé à la main se convertit tout seul en lien partageable, exactement comme
+// `sobre!` s'abrège en `so!` sans qu'on ait rien demandé.
+//
+// ★ **QUATRE FORMES, et ce qui les distingue est le NOMBRE DE `#`** :
+//
+//     #Donald Trump              recherche, puis animation de la 1ʳᵉ voie
+//     ##Donald Trump             recherche, puis ÉNUMÉRATION des voies
+//     #c111!sce!#Donald Trump    recherche visant 111, puis animation scénique
+//     #so!tca+m36#Donald Trump   aucune recherche : CE programme, sur ce texte
+//
+// La première est le geste de « Révéler » (`pages/accueil.js`) : on cherche et
+// on montre, sans passer par la liste. La troisième est la même chose avec des
+// réglages — « si après les ...! il y a d'autres instructions, saute la
+// recherche et effectue directement le programme demandé » (l'auteur), donc a
+// contrario : tant qu'il n'y a QUE des marqueurs, on cherche.
+//
+// ⚠️ **UNE EXCEPTION, et elle n'est pas de moi.** `#c111!#…` — cible seule, sans
+// registre — reste la PAGE DE RÉSULTATS visant 111, contre la lecture littérale
+// de la règle ci-dessus. Deux raisons, et la seconde suffirait : c'est la forme
+// que `ecrire({saisie, cible})` PRODUIT (le lien de partage de la page de
+// listing), et l'écriture ne change pas ; et sans elle il n'existerait aucune
+// façon de demander l'énumération pour une autre cible que 666. Le registre,
+// lui, n'est jamais écrit sans programme : `#so!#…` ne dénotait rien, il dénote
+// désormais l'animation. La frontière est celle qui était déjà argumentée plus
+// bas, mot pour mot — le registre dit comment MONTRER une démonstration, et une
+// liste n'en montre aucune ; la cible dit ce qu'on CHERCHE, et une liste est le
+// résultat d'une recherche.
+//
+// ★ **LE BASE58 GAGNE TOUJOURS**, et la règle tient en trois conditions.
+//
+// La collision est réelle, et vaste : l'alphabet base58 est fait de lettres et
+// de chiffres, si bien que 134 357 des 346 244 mots de `/usr/share/dict/french`
+// — 39 % — n'emploient que les 58 signes autorisés. « Macron », « chat »,
+// « aide » en sont. Ce n'est donc pas `estBase58()` qui peut trancher.
+//
+// Ce qui tranche est le DÉCODAGE. Un texte quelconque lu comme un grand entier
+// puis redécoupé en octets ne fait presque jamais de l'UTF-8 valide — « Macron »
+// et « chat » échouent là —, et quand il en fait, ce sont des caractères de
+// COMMANDE : « amour » rend U+0016 Ƕ a, « cat » rend U+0001 ә. Or le site n'a
+// jamais encodé un caractère de commande : le champ d'accueil est un `<input
+// type=text>` qui n'en accepte aucun et qui coupe les blancs de bord
+// (`pages/accueil.js`).
+//
+// D'où la règle, déterministe et sans horloge (§4.4) — c'est du base58 si :
+//   1. la chaîne n'emploie que les 58 signes de l'alphabet ;
+//   2. elle décode en UTF-8 valide ;
+//   3. le texte obtenu ne porte AUCUN caractère de commande (C0/C1) et n'est
+//      pas fait que de blancs.
+// Les trois tiennent ⇒ c'est du base58, parce que c'est ce que le site PRODUIT
+// et qu'un lien produit par le site ne doit JAMAIS être relu comme autre chose.
+// Sinon, c'est le texte lui-même.
+//
+// ⚠️ **LE PRIX, MESURÉ SUR LE MÊME DICTIONNAIRE** : 435 mots sur 346 244
+// (0,13 %) restent lus comme du base58. Vingt-quatre sont des lettres seules —
+// les 25 minuscules de l'alphabet décodent en « ! » à « 9 » — et les 411 autres
+// font 4, 5, 8, 11 ou 12 signes, les seules longueurs qui rendent un compte rond
+// d'octets imprimables : « aide » rend « db9 », « abattent » rend « Cwd!9a ».
+//
+// Ce reste est tenable pour une raison qui n'est pas une excuse : L'ÉCHEC EST
+// BRUYANT. La page cite entre guillemets, en titre, la saisie qu'elle a
+// comprise — qui écrit `##aide` lit « db9 » du premier coup d'œil. §4.3 interdit
+// les replis MUETS ; celui-ci se dénonce tout seul, et le remède est à portée :
+// `##<b58 de « aide »>`, que le champ d'accueil produit de toute façon.
+//
+// ⚠️ Et il n'y a PAS de quatrième condition à ajouter. Une longueur minimale
+// tuerait la plupart de ces 435 mots — mais elle tuerait aussi `##KD8Z`, qui est
+// le lien légitime de la saisie « 666 », quatre signes. Un lien produit par le
+// site passe avant un mot du dictionnaire. Second angle mort, théorique
+// celui-là : une saisie qui contiendrait vraiment un caractère de commande
+// serait relue en clair au lieu d'être décodée. Aucun chemin de l'interface ne
+// peut en produire une.
 //
 // ── LA CIBLE, `c111!` — viser autre chose que 666 ──────────────────────────
 //
@@ -230,8 +314,9 @@ const REGISTRE_DU_MOT = Object.freeze({
  * @property {string[]} codes
  *
  * @typedef {Object} LectureUrl
- * @property {'canonique'|'heritee'|'resultats'|'invalide'} forme
+ * @property {'canonique'|'premiere'|'heritee'|'resultats'|'invalide'} forme
  * @property {string|null} saisie
+ * @property {boolean} saisieBrute  lue en clair faute de base58 valide ?
  * @property {FragmentUrl[]|null} fragments
  * @property {'sobre'|'scenique'|null} registre  résolu ; `null` hors forme canonique
  * @property {boolean} registreEcrit  le lien le portait-il en toutes lettres ?
@@ -253,7 +338,7 @@ const REGISTRE_DU_MOT = Object.freeze({
  */
 export function lire(hash, options = {}) {
   const vide = {
-    forme: 'invalide', saisie: null, fragments: null,
+    forme: 'invalide', saisie: null, saisieBrute: false, fragments: null,
     registre: null, registreEcrit: false,
     cible: CIBLE_DEFAUT, cibleEcrite: false, registreDemande: null,
     rangs: null, bandeau: null, raison: null,
@@ -261,15 +346,26 @@ export function lire(hash, options = {}) {
   if (typeof hash !== 'string') return { ...vide, raison: 'hash absent' };
 
   let brut = hash;
-  try { brut = decodeURIComponent(hash); } catch { /* on garde la forme brute */ }
   if (brut.startsWith('#')) brut = brut.slice(1);
   if (brut === '') return { ...vide, forme: 'resultats', saisie: null };
 
-  const parts = brut.split('#');
-  if (parts.length !== 2) {
+  // ★ Le pourcentage se décode PAR SEGMENT, et non sur le fragment entier.
+  //   Tant que la saisie était du base58 la distinction ne se voyait pas —
+  //   aucun des 58 signes ne s'échappe. Elle se voit dès que la saisie est du
+  //   texte : `##%23JeSuis666` porte un `#` DANS la saisie, et décoder avant de
+  //   découper en ferait un troisième segment, donc un lien mort. Découper
+  //   d'abord, décoder ensuite, c'est l'ordre que le navigateur lui-même
+  //   applique — le fragment commence au premier `#` NON échappé.
+  const parts = brut.split('#').map(depourcenter);
+  if (parts.length > 2) {
     return { ...vide, raison: 'format inconnu', bandeau: BANDEAUX.formatInconnu };
   }
-  let [approche, b58] = parts;
+  // ★ UN SEUL `#` : il n'y a pas d'approche, tout est saisie. C'est la forme
+  //   qu'on écrit de mémoire — `#Donald Trump` —, et elle vaut « cherche, puis
+  //   montre ». Elle ne peut porter aucun marqueur : `#so!Machin` est une
+  //   saisie qui commence par « so! », pas un registre sans saisie.
+  let approche = parts.length === 2 ? parts[0] : '';
+  const texteSaisie = parts[parts.length - 1];
 
   // ★ Les MARQUEURS se détachent AVANT tout le reste : ils préfixent l'approche
   //   entière, ils n'appartiennent à aucun fragment. Deux existent — le
@@ -316,23 +412,45 @@ export function lire(hash, options = {}) {
     break;
   }
 
-  if (!estBase58(b58)) {
-    return { ...vide, raison: 'saisie base58 invalide', bandeau: BANDEAUX.lienIllisible };
+  // Le base58 d'abord, le texte en clair à défaut (voir l'en-tête).
+  const lueSaisie = lireSaisie(texteSaisie);
+  if (!lueSaisie) {
+    // Ne subsiste ici qu'une saisie VIDE, ou faite de blancs : elle ne désigne
+    // aucune démonstration et n'est pas un texte à chercher.
+    return { ...vide, raison: 'saisie absente', bandeau: BANDEAUX.lienIllisible };
   }
-  const saisie = decoderTexte(b58);
-  if (saisie === null) {
-    return { ...vide, raison: 'saisie base58 illisible', bandeau: BANDEAUX.lienIllisible };
-  }
+  const { saisie, brute: saisieBrute } = lueSaisie;
+  // Le plafond vaut pour les deux lectures : une saisie en clair n'a aucune
+  // raison d'échapper à la borne qui protège l'encodage (`base58.js`, O(n²)).
   if (saisie.length > LIMITE_SAISIE) {
-    return { ...vide, saisie, raison: 'saisie trop longue', bandeau: BANDEAUX.saisieTropLongue };
+    return {
+      ...vide, saisie, saisieBrute,
+      raison: 'saisie trop longue', bandeau: BANDEAUX.saisieTropLongue,
+    };
   }
 
   if (approche === '') {
-    // `sobre!` tout seul ne désigne aucune démonstration : un marqueur de mise
-    // en scène sans programme à mettre en scène est un lien tronqué, pas une
-    // page de résultats. On le dit plutôt que de retomber en silence — §4.3.
-    if (registreEcrit) {
-      return { ...vide, saisie, raison: 'registre sans programme', bandeau: BANDEAUX.formatInconnu };
+    // ★ RIEN À GAUCHE : on CHERCHE. Reste à savoir ce qu'on montre ensuite —
+    //   la première voie, ou la liste.
+    //
+    //   `#texte` (un seul `#`) et `#so!#texte` (un registre, pas de programme)
+    //   valent la PREMIÈRE VOIE, animée : c'est le geste de « Révéler ».
+    //   Le second cas était jusqu'ici refusé — « un marqueur de mise en scène
+    //   sans programme à mettre en scène est un lien tronqué ». Il ne l'est
+    //   plus, et c'est le même argument qui a changé de conclusion : demander
+    //   une mise en scène, c'est demander une DÉMONSTRATION ; nous savons
+    //   maintenant laquelle montrer quand le lien ne la nomme pas — celle que
+    //   le classement met en tête, exactement comme le bouton de l'accueil.
+    if (parts.length === 1 || registreEcrit) {
+      return {
+        forme: 'premiere', saisie, saisieBrute, fragments: null,
+        // Même résolution que la forme canonique : le registre rendu est celui
+        // qu'on saura JOUER sur cette cible, pas celui qui était écrit.
+        registre: registreEffectif(registre, cible),
+        registreDemande: registre,
+        registreEcrit, cible, cibleEcrite,
+        rangs: null, bandeau: null, raison: null,
+      };
     }
     // ★ La CIBLE, elle, a parfaitement sa place sur une page de résultats — et
     //   c'est même le lien que la page de listing doit savoir écrire quand on
@@ -342,8 +460,12 @@ export function lire(hash, options = {}) {
     //   comment MONTRER une démonstration, et une liste n'en montre aucune ;
     //   la cible dit ce qu'on CHERCHE, et une liste est le résultat d'une
     //   recherche.
+    //
+    //   ⚠️ C'est aussi ce qui fait de `#c111!#…` l'EXCEPTION à la règle « des
+    //   marqueurs seuls ⇒ la première voie » : voir l'en-tête, et le fait que
+    //   `ecrire()` produit exactement cette forme.
     return {
-      forme: 'resultats', saisie, fragments: null,
+      forme: 'resultats', saisie, saisieBrute, fragments: null,
       registre: null, registreEcrit: false,
       cible, cibleEcrite,
       rangs: null, bandeau: null, raison: null,
@@ -355,6 +477,7 @@ export function lire(hash, options = {}) {
     return {
       forme: 'heritee',
       saisie,
+      saisieBrute,
       fragments: null,
       // Une forme héritée relance la recherche : elle n'aboutit pas à une
       // démonstration mais à un rang du classement courant, et c'est ce rang
@@ -375,7 +498,7 @@ export function lire(hash, options = {}) {
   const fragments = [];
   for (const brutFrag of approche.split(',')) {
     const f = lireFragment(brutFrag);
-    if (!f) return { ...vide, saisie, raison: `fragment illisible : ${brutFrag}`, bandeau: BANDEAUX.formatInconnu };
+    if (!f) return { ...vide, saisie, saisieBrute, raison: `fragment illisible : ${brutFrag}`, bandeau: BANDEAUX.formatInconnu };
     fragments.push(f);
   }
 
@@ -384,14 +507,14 @@ export function lire(hash, options = {}) {
     for (const f of fragments) {
       for (const c of f.codes) {
         if (!connus.has(c)) {
-          return { ...vide, saisie, raison: `code inconnu : ${c}`, bandeau: BANDEAUX.codeInconnu };
+          return { ...vide, saisie, saisieBrute, raison: `code inconnu : ${c}`, bandeau: BANDEAUX.codeInconnu };
         }
       }
     }
   }
 
   return {
-    forme: 'canonique', saisie, fragments,
+    forme: 'canonique', saisie, saisieBrute, fragments,
     // ★ Le registre rendu est celui qu'on JOUERA, pas celui qu'on a lu : un
     //   `sce!` sur une cible sans emblème retombe sur « sobre » (voir
     //   l'en-tête). Ce qui était écrit reste lisible dans `registreDemande`.
@@ -400,6 +523,60 @@ export function lire(hash, options = {}) {
     registreEcrit, cible, cibleEcrite,
     rangs: null, bandeau: null, raison: null,
   };
+}
+
+/**
+ * Un segment d'URL, dépourcenté — et rendu tel quel si le pourcentage ment.
+ *
+ * `decodeURIComponent` jette sur un `%` isolé ou sur une paire d'octets qui ne
+ * fait pas de l'UTF-8. Une saisie tapée à la main en contient facilement un
+ * (« 100% vrai ») : la refuser reviendrait à faire échouer le lien pour la
+ * seule ponctuation que le visiteur n'a pas songé à échapper.
+ */
+function depourcenter(segment) {
+  try { return decodeURIComponent(segment); } catch { return segment; }
+}
+
+/**
+ * Les caractères de COMMANDE, C0 et C1 — ce qu'une saisie ne contient jamais.
+ * C'est le crible qui sépare le base58 du texte en clair (voir l'en-tête) :
+ * décoder « amour » rend U+0016, décoder « cat » rend U+0001. Un texte tapé
+ * dans un `<input type=text>`, jamais.
+ */
+const RE_COMMANDE = /[\u0000-\u001F\u007F-\u009F]/;
+
+/**
+ * La saisie d'un lien : du base58 si c'en est, le texte lui-même sinon.
+ *
+ * L'ordre n'est pas négociable — le base58 est ce que le site ÉCRIT, il doit
+ * donc être ce qu'il relit en premier. La règle exacte, ses trois conditions et
+ * son unique angle mort mesuré sont en tête de fichier.
+ *
+ * @param {string} segment
+ * @returns {{saisie:string, brute:boolean}|null}  `null` si rien à chercher.
+ */
+function lireSaisie(segment) {
+  const decode = texteBase58(segment);
+  if (decode !== null) return { saisie: decode, brute: false };
+  // ★ On COUPE les blancs de bord, comme le fait le champ d'accueil avant de
+  //   chercher (`pages/accueil.js › aller`). Sans cela, `#Macron ` et `#Macron`
+  //   seraient deux saisies différentes pour un œil qui ne voit pas l'espace,
+  //   donc deux classements et deux liens canoniques. La normalisation NFC est
+  //   celle de §4.4 règle 5, la même que `encoderTexte` applique — faute de
+  //   quoi un « é » recopié depuis un traitement de texte ne donnerait pas le
+  //   même résultat qu'un « é » tapé au clavier.
+  const brute = segment.trim().normalize('NFC');
+  return brute ? { saisie: brute, brute: true } : null;
+}
+
+/** Le texte porté par un segment base58, ou `null` si ce n'en est pas un. */
+function texteBase58(segment) {
+  if (!estBase58(segment)) return null;
+  const texte = decoderTexte(segment);
+  if (texte === null) return null;
+  if (RE_COMMANDE.test(texte)) return null;
+  if (!texte.trim()) return null;
+  return texte;
 }
 
 function lireFragment(brut) {

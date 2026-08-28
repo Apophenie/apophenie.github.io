@@ -2732,6 +2732,86 @@ programme  := code ('+' code)*
 > de plaisanter à côté. La promesse du site porte sur son titre, pas sur les
 > chiffres en général.
 
+> *Amendement — LA SAISIE EN CLAIR, et les liens qui ne nomment pas de voie.*
+>
+> **La demande de l'auteur.** « Si après le 2nd # une séquence non b58 est
+> présente, plutôt que d'échouer, considère la chaîne comme étant la saisie brute
+> (celle qui serait dans le champ de la page d'accueil). S'il n'y a qu'un #
+> effectue la recherche et affiche la méthode 1 (comme si on avait cliqué sur
+> Révéler). […] Si après les ...! il y a d'autres instructions, saute la
+> recherche et effectue directement le programme demandé. La version b58 est bien
+> sûr toujours supportée et à conserver par défaut quand on passe par l'interface
+> du site. »
+>
+> La grammaire devient :
+>
+> ```
+> url        := {chemin} '#' [approche] '#' saisie
+>            |  {chemin} '#' saisie            // un seul `#` : cherche, puis montre
+> saisie     := b58(texte) | texte
+> ```
+>
+> ★ **LA TOLÉRANCE EST EN LECTURE SEULE.** `ecrire()` ne produit que du base58,
+> et `canoniser()` réécrit la barre d'adresse à l'ouverture (§4.3) : un lien tapé
+> à la main devient un lien partageable sans que personne ait rien demandé —
+> exactement le mécanisme qui abrège `sobre!` en `so!`. Une URL se tape, se dicte
+> et se recopie ; `#Donald Trump` est ce qu'on écrit de mémoire, et c'était
+> jusqu'ici un lien mort.
+>
+> ★ **QUATRE FORMES, et ce qui les sépare est le NOMBRE DE `#`** — la nature de
+> la saisie, elle, ne sépare rien : elle se lit pareil dans les quatre.
+>
+> | Lien | Ce qu'il fait |
+> |---|---|
+> | `#Donald Trump` | Recherche, puis **animation de la 1ʳᵉ voie** (« Révéler »). |
+> | `##Donald Trump` | Recherche, puis **énumération** des voies. |
+> | `#c111!sce!#Donald Trump` | Recherche avec ces réglages, puis animation. |
+> | `#so!tca+m36#Donald Trump` | **Aucune recherche** : ce programme, sur ce texte. |
+>
+> Un lien qui ne porte QUE des marqueurs cherche ; dès qu'il porte un programme,
+> il rejoue. C'est l'a contrario de la phrase de l'auteur, et cela rend son sens
+> au cas `#so!#…`, qui jusqu'ici était refusé comme « registre sans programme » :
+> demander une mise en scène, c'est demander une DÉMONSTRATION, et nous savons
+> désormais laquelle montrer quand le lien ne la nomme pas.
+>
+> ★ **LE BASE58 EST PRIORITAIRE**, et la règle tient en trois conditions. La
+> collision est réelle et vaste : l'alphabet base58 est fait de lettres et de
+> chiffres, si bien que 134 357 des 346 244 mots de `/usr/share/dict/french`
+> (39 %) n'emploient que les 58 signes — « Macron », « chat », « aide ». Ce qui
+> tranche est le DÉCODAGE : lus comme un grand entier puis redécoupés en octets,
+> presque tous cessent d'être de l'UTF-8 valide, et ceux qui survivent rendent
+> des caractères de COMMANDE (« amour » rend U+0016, « cat » rend U+0001) que le
+> champ d'accueil ne peut pas produire. C'est donc du base58 si (1) la chaîne
+> n'emploie que les 58 signes, (2) elle décode en UTF-8 valide, (3) le texte
+> obtenu ne porte aucun caractère de commande et n'est pas fait que de blancs.
+> Sinon, c'est le texte lui-même. Le base58 gagne parce que c'est ce que le site
+> PRODUIT : un lien produit par le site ne doit jamais être relu comme autre
+> chose.
+>
+> ⚠️ **Le prix, mesuré sur le même dictionnaire** : 435 mots sur 346 244 (0,13 %)
+> restent lus comme du base58 — 24 lettres seules (les 25 minuscules décodent en
+> « ! » à « 9 ») et 411 mots de 4, 5, 8, 11 ou 12 signes, seules longueurs à
+> rendre un compte rond d'octets imprimables (« aide » rend « db9 »). Ce reste
+> est tenable parce que l'échec est BRUYANT — la page cite en titre la saisie
+> qu'elle a comprise —, et parce qu'aucune quatrième condition ne tient : une
+> longueur minimale tuerait `##KD8Z`, lien légitime de la saisie « 666 ».
+>
+> ⚠️ **UNE EXCEPTION : `#c111!#…` reste la PAGE DE RÉSULTATS**, contre la lecture
+> littérale de la règle ci-dessus. C'est la forme que `ecrire({saisie, cible})`
+> produit — le lien de partage de la page de listing — et l'écriture ne change
+> pas ; sans elle, l'énumération deviendrait indemandable pour toute cible autre
+> que 666. La frontière est celle qui était déjà posée pour le registre : le
+> registre dit comment MONTRER une démonstration, et une liste n'en montre
+> aucune ; la cible dit ce qu'on CHERCHE, et une liste est le résultat d'une
+> recherche.
+>
+> ⚠️ **UNE ANCRE HTML N'EST PAS UNE SAISIE.** Le fragment d'URL désigne un
+> élément de la page depuis toujours, et le site s'en sert : le lien d'évitement
+> « Aller au Registre » pointe sur `#registre-titre`. Le routeur ne route donc
+> pas un fragment qui désigne un élément monté — sans quoi ce lien-là ouvrirait
+> une démonstration sur « registre-titre ». C'était déjà un défaut avant cet
+> amendement (il menait à l'accueil avec un bandeau) ; il devenait invisible.
+
 Exemples :
 
 ```
@@ -2740,6 +2820,9 @@ Exemples :
 #0.1:ma1+cs+prn,1.1:nv+prn,2.1:mch+cst#4CWoMo83    trois fragments, méthodes distinctes
 ##3fq9KJ                                       page de résultats (README)
 #c111!#3fq9KJ                                  page de résultats, mais pour 111
+#Donald Trump                                  cherche, puis montre la 1ʳᵉ voie
+#c111!sce!#Donald Trump                        idem, avec les réglages du lien
+#so!tca+m36#Donald Trump                       ce programme, sur cette saisie en clair
 #so!c007!0.1:tca+mboc+cp,2.1:tca+mboc+cp,6.1:tca+mms+cs#…   une voie qui écrit 007
 ```
 
@@ -2750,6 +2833,9 @@ Exemples :
 | Grammaire §4.2 | **Rejouée telle quelle, sans recherche.** |
 | `#3+7+2#…` (rangs hérités du README) | Recherche relancée, rangs 3/7/2 du classement courant, bandeau discret « démonstration recalculée ». |
 | `##…` | Page de résultats. |
+| `#texte` (un seul `#`), `#so!#…` (marqueurs seuls) | Recherche, puis **animation de la 1ʳᵉ voie** — le geste de « Révéler ». `#c111!#…` fait exception et reste la liste (§4.2, amendement « LA SAISIE EN CLAIR »). |
+| `#…#texte` dont le texte n'est pas du base58 lisible | Le texte EST la saisie ; la barre d'adresse est réécrite en base58 à l'ouverture. Le base58 reste prioritaire (§4.2). |
+| Fragment désignant un élément monté (`#registre-titre`) | Ancre HTML : le routeur ne route pas, le navigateur défile. |
 | `#c111!…#…` (marqueur de cible) | Rejouée sur la cible demandée. Absent ⇒ 666 (§4.2, amendement « LA CIBLE »). |
 | `#c1234567!…#…` (cible illisible) | Bandeau explicite : jamais un repli muet sur 666. |
 | `#sce!c111!…#…` (registre sans emblème) | **Replié sur `so!`**, à la lecture comme à l'écriture. Mêmes étapes, même verdict : ce qui manque est un DESSIN. |
