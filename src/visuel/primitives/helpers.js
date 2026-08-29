@@ -132,6 +132,11 @@ export function ancreVue(ctx) {
 /** Écart entre deux NOMBRES, en multiples du gap de base. */
 export const ECART_NOMBRES = 2.2;
 
+/** Écart entre deux TERMES d'un calcul — devant le signe qui ouvre le suivant. */
+export const ECART_TERMES = 2.0;
+/** Ce qui sépare un signe du nombre qu'il gouverne : presque rien. */
+export const COLLE_AU_SIGNE = 0.18;
+
 /** Profondeur du soulignement sous l'ancre du jeton, en fraction de `fontSize`. */
 const SOUS_LIGNE = 0.42;
 
@@ -316,6 +321,17 @@ export function insertOperatorTokens(ctx, spec) {
   const glyphs = Array.isArray(spec.glyphs) && spec.glyphs.length === between.length - 1
     ? spec.glyphs
     : null;
+  // ★ UN SIGNE APPARTIENT AU NOMBRE QUI LE SUIT, pas à celui qui le précède.
+  //
+  //   « v₀ − v₁ + v₂ » se lit « v₀, moins-v₁, plus-v₂ » : c'est le terme
+  //   SIGNÉ qui est l'unité de lecture, et c'est lui qui descendra d'un bloc
+  //   dans l'accolade (voir `accumulate`). Un signe posé à mi-chemin entre
+  //   deux nombres — ou pire, serré contre le précédent — dit le contraire de
+  //   ce que le calcul fait.
+  //
+  //   La colle se pose donc en deux temps : l'écart de terme AVANT le signe,
+  //   et presque rien entre le signe et son nombre.
+  const gap = ctx.layoutOpts.gap;
   const created = [];
   for (let i = 0; i < between.length - 1; i++) {
     const leftIdx = ctx.scene.flowIndex(between[i]);
@@ -327,8 +343,11 @@ export function insertOperatorTokens(ctx, spec) {
       role: 'text',
       inFlow: true,
       insertAt: leftIdx + 1,
+      gapBefore: gap * ECART_TERMES,
       base: { opacity: 0, scale: 0.5, fill: ctx.palette.phos },
     }, { where: ctx.where });
+    const suivant = ctx.scene.get(between[i + 1]);
+    if (suivant) suivant.gapBefore = gap * COLLE_AU_SIGNE;
     created.push(node.id);
   }
   // 1. réserver la place (les voisins s'écartent), 2. faire apparaître.
@@ -529,6 +548,9 @@ export function accumulate(ctx, spec) {
   const acc = tracerAccolade(ctx, operands, {
     shape: 'brace',
     tighten: 0.66,
+    // Les signes déjà posés entre les termes font le travail du soulignement,
+    // et mieux que lui : l'accolade n'a plus à marquer les nombres.
+    signes: consume.length > 0,
     symbol: spec.symbol,
     label: spec.label,
     at: t0,
@@ -653,6 +675,18 @@ export function accumulate(ctx, spec) {
   const vol = Math.max(1, tVol - cadence * (n - 1));
   const arrivees = [];
 
+  // ★ CHAQUE SIGNE DESCEND AVEC SON NOMBRE.
+  //
+  // Ils s'effaçaient tous d'un coup juste avant l'envol, pour éviter de laisser
+  // lire « + 4 + 4 + 4 » sur une ligne dont le premier terme s'était déjà
+  // envolé. C'était traiter le symptôme : le vrai sujet est que le signe FAIT
+  // PARTIE du terme — « moins onze » descend, pas « onze » pendant qu'un
+  // « moins » orphelin s'évapore ailleurs. Attelé à son nombre, il ne peut plus
+  // rester en arrière, et la ligne reste juste à chaque instant : après le
+  // départ du deuxième terme, on lit « ␣ ␣ + 2 », qui est bien ce qui reste à
+  // additionner.
+  const attelage = apparierLesSignes(ctx, operands, consume);
+  const orphelins = new Set(consume);
   voler.forEach((id, i) => {
     const a = debutVol + i * cadence;
     arrivees.push(a + vol);
@@ -660,15 +694,17 @@ export function accumulate(ctx, spec) {
     ctx.anim({ id, prop: 'scale', to: 0.65, at: a, dur: vol });
     ctx.anim({ id, prop: 'opacity', to: 0, at: a + vol * 0.6, dur: vol * 0.4 });
     effacerSoulignement(ctx, id, { at: a, dur: vol * 0.5 });
+    for (const sid of attelage.get(id) || []) {
+      orphelins.delete(sid);
+      ctx.anim({ id: sid, prop: 'translate', to: { x: ancre.x, y: ancre.y }, at: a, dur: vol, ease: EASE.move });
+      ctx.anim({ id: sid, prop: 'scale', to: 0.65, at: a, dur: vol });
+      ctx.anim({ id: sid, prop: 'opacity', to: 0, at: a + vol * 0.6, dur: vol * 0.4 });
+    }
   });
-  // ★ Les signes partent AVANT l'envol, pas pendant.
-  //
-  // Effacés en même temps que les opérandes, ils laissaient lire « + 4 + 4 + 4 »
-  // pendant une demi-seconde : une somme dont le premier terme s'est envolé
-  // n'est plus une somme, c'est une faute d'écriture. Ils s'effacent donc
-  // pendant que les opérandes sont tous encore là, et le vol commence sur une
-  // ligne de nombres nus.
-  for (const id of consume) {
+  // Un signe qu'aucun opérande ne réclame — il en reste quand `voler` ne
+  // couvre pas toute la ligne — s'efface comme avant, pendant que les autres
+  // termes sont encore en place.
+  for (const id of orphelins) {
     ctx.anim({ id, prop: 'opacity', to: 0, at: Math.max(t0, tE - tVol * 0.2), dur: Math.max(1, tVol * 0.1) });
   }
 
@@ -753,6 +789,37 @@ function posDeRepli(ctx, operands) {
  * **possédés par le moteur** (id `@…`) : ceux que l'émetteur a nommés lui
  * appartiennent, c'est à lui de les lister dans `consume`.
  */
+/**
+ * Quel signe gouverne quel opérande — la lecture est faite SUR LA LIGNE, par
+ * position, jamais par l'ordre de deux listes.
+ *
+ * ★ Pourquoi pas « le signe n° i va avec l'opérande n° i+1 ». Parce que rien
+ *   ne garantit que les deux listes se correspondent : `consume` mêle les
+ *   signes déclarés par l'émetteur et ceux que le moteur a absorbés, et un
+ *   opérande peut n'avoir aucun signe devant lui (le premier terme, toujours).
+ *   La ligne, elle, dit la vérité : ce qui est écrit entre l'opérande
+ *   précédent et celui-ci, c'est ce qui le gouverne.
+ *
+ * @returns {Map<string,string[]>} opérande → signes qui le précèdent
+ */
+function apparierLesSignes(ctx, operands, signes) {
+  const parOperande = new Map();
+  if (!signes.length) return parOperande;
+  const rangs = signes
+    .map((id) => ({ id, i: ctx.scene.flowIndex(id) }))
+    .filter((s) => s.i >= 0);
+  for (let k = 1; k < operands.length; k++) {
+    const avant = ctx.scene.flowIndex(operands[k - 1]);
+    const ici = ctx.scene.flowIndex(operands[k]);
+    if (avant < 0 || ici < 0) continue;
+    const lo = Math.min(avant, ici);
+    const hi = Math.max(avant, ici);
+    const mien = rangs.filter((s) => s.i > lo && s.i < hi).map((s) => s.id);
+    if (mien.length) parOperande.set(operands[k], mien);
+  }
+  return parOperande;
+}
+
 function absorbOperators(ctx, operands, declared) {
   const out = [...declared];
   const idx = operands.map((id) => ctx.scene.flowIndex(id)).filter((i) => i >= 0);
@@ -812,8 +879,21 @@ export function tracerAccolade(ctx, ids, spec = {}) {
   // contraire de ce qu'il faut, « 15 16 » finissant par se lire « 1516 ». Les
   // nombres s'écartent au lieu de se resserrer, et chacun reçoit son trait —
   // c'est le trait, alors, qui dit ce que le regroupement dirait.
-  const nombres = marquerLesNombres(ctx, ids, { at, dur: dur * 0.7 });
-  if (spec.tighten || nombres) {
+  //
+  // ★ ET SAUF QUAND DES SIGNES SÉPARENT DÉJÀ LES TERMES. Le trait ne répond
+  //   qu'à un risque : lire « 15 16 » comme « 1516 ». Sur « 5 − 11 + 2 », ce
+  //   risque n'existe pas — un signe est une frontière plus nette qu'un
+  //   soulignement, et il est là pour une autre raison que la mise en page.
+  //   Souligner par-dessus ajoute un trait sous chaque nombre là où plus rien
+  //   n'est ambigu : ça charge sans distinguer. On laisse donc les écarts
+  //   qu'`insertOperatorTokens` a posés, qui attellent chaque signe à son
+  //   nombre, et on ne trace rien.
+  const signes = Boolean(spec.signes);
+  const nombres = signes ? false : marquerLesNombres(ctx, ids, { at, dur: dur * 0.7 });
+  if (signes) {
+    const bouge = { at, dur: dur * 0.45, ease: EASE.move };
+    ctx.reflow(bouge);
+  } else if (spec.tighten || nombres) {
     if (!nombres) {
       const gap = ctx.layoutOpts.gap;
       ids.slice(1).forEach((id) => { ctx.scene.get(id).gapBefore = gap * spec.tighten; });

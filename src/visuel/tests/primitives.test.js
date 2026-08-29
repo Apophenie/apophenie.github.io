@@ -552,7 +552,19 @@ test('l’accolade se défait avec ses sources : jamais tracée sous un trou', (
   }
 });
 
-test('les signes s’effacent AVANT l’envol : on ne lit jamais « + 4 + 4 + 4 »', () => {
+/**
+ * ★ UN SIGNE NE QUITTE JAMAIS LE NOMBRE QU'IL GOUVERNE.
+ *
+ * Le signe faisait bande à part : tous s'effaçaient d'un coup juste avant
+ * l'envol, pour ne pas laisser lire « + 4 + 4 + 4 » sur une ligne dont le
+ * premier terme était déjà parti. C'était soigner le symptôme. La règle est
+ * que « moins onze » est UN terme : le signe descend avec son nombre, et ce
+ * qui reste écrit à chaque instant est ce qui reste à additionner.
+ *
+ * Ce que ce test gèle est donc l'attelage, pas un ordre d'effacement — les
+ * deux opacités ne peuvent plus diverger, dans un sens ni dans l'autre.
+ */
+test('un signe descend avec son nombre : les deux ne se lisent jamais l’un sans l’autre', () => {
   const tokens = [{ id: 'n0', text: '3' }, { id: 'n1', text: '4' }, { id: 'n2', text: '4' }, { id: 'n3', text: '4' }];
   const T = 2800;
   const tl = compile(sc([{
@@ -564,13 +576,51 @@ test('les signes s’effacent AVANT l’envol : on ne lit jamais « + 4 + 4 + 4 
     ],
   }], tokens));
 
-  // Le premier opérande décolle à 28 % de la somme : à cet instant, plus un
-  // seul signe ne doit rester, sinon l'écran écrit une somme amputée.
-  const decollage = 700 + T * 0.28;
-  for (const id of ['p0', 'p1', 'p2']) {
-    assert.ok(valeurA(tl, id, 'opacity', decollage) < 0.05,
-      `le signe « ${id} » est encore lisible quand le premier terme s’envole`);
+  // `p0` est écrit entre `n0` et `n1` : c'est `n1` qu'il gouverne. Le premier
+  // terme, lui, n'a rien devant lui — et c'est pour ça que la somme commence
+  // par lui.
+  const attelages = [['p0', 'n1'], ['p1', 'n2'], ['p2', 'n3']];
+  for (let u = 0; u <= 1; u += 0.02) {
+    const t = 700 + T * u;
+    for (const [signe, nombre] of attelages) {
+      const s = valeurA(tl, signe, 'opacity', t);
+      const n = valeurA(tl, nombre, 'opacity', t);
+      assert.ok(!(s > 0.3 && n < 0.05),
+        `à ${Math.round(u * 100)} % : « ${signe} » se lit encore alors que « ${nombre} » est parti`);
+      assert.ok(!(n > 0.3 && s < 0.05),
+        `à ${Math.round(u * 100)} % : « ${nombre} » se lit encore sans son signe « ${signe} »`);
+    }
   }
+});
+
+/**
+ * ★ Le soulignement des nombres ne s'ajoute PAS aux signes.
+ *
+ * Le trait ne répond qu'au risque de lire « 15 16 » comme « 1516 ». Entre deux
+ * termes séparés par un « + », ce risque n'existe pas : le trait ne
+ * distinguerait plus rien, il chargerait seulement.
+ */
+test('une somme signée ne souligne pas ses nombres', () => {
+  const tokens = [{ id: 'n0', text: '5' }, { id: 'n1', text: '11' }, { id: 'n2', text: '2' }];
+  const avecSignes = compile(sc([{
+    id: 'a',
+    title: 'On alterne plus et moins',
+    ops: [
+      { op: 'insertOperators', between: ['n0', 'n1', 'n2'], glyph: '−', glyphs: ['−', '+'], ids: ['p0', 'p1'], at: 0, dur: 700 },
+      { op: 'sum', targets: ['n0', 'n1', 'n2'], consume: ['p0', 'p1'], to: { id: 'q', text: '-4' }, partials: [0, 5, -6, -4], symbol: '∓', at: 700, dur: 2800 },
+    ],
+  }], tokens));
+  const traits = (tl) => tl.nodes.filter((n) => n.id.startsWith('@sous:')).length;
+  assert.equal(traits(avecSignes), 0, 'des nombres soulignés SOUS des signes d’opération');
+
+  // Contrôle : sans signes, le trait revient — c'est bien la présence des
+  // signes qui le retire, pas une suppression pure et simple.
+  const sansSignes = compile(sc([{
+    id: 'a',
+    title: 'On compte les valeurs',
+    ops: [{ op: 'group', targets: ['n0', 'n1', 'n2'], symbol: '#', to: { id: 'q', text: '3' } }],
+  }], tokens));
+  assert.ok(traits(sansSignes) > 0, 'sans signes, les nombres doivent rester soulignés');
 });
 
 test('l’accolade tient sa promesse : la valeur paraît SOUS la pointe, jamais dans la ligne', () => {

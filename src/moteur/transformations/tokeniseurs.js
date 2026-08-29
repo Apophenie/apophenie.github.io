@@ -47,13 +47,30 @@ function etapeGroupes(spec) {
     const decoupe = [];
     const pairs = [];
     const perdus = [];
+    // ★ CE QUI N'EST DANS AUCUN GROUPE S'EN VA AUSSI.
+    //
+    //   `perdus` ne listait que les caractères ABSORBÉS par un groupe — ceux
+    //   que la tête de groupe remplace. Les caractères qu'aucun groupe ne
+    //   couvre restaient : sur `https://reinfocovid.fr/`, le découpage en mots
+    //   rend trois jetons et laissait `//`, `.` et `/` en place, jusqu'au
+    //   verdict. L'addition qui suivait s'écrivait donc « 5 // − 11 . + 2 / »,
+    //   et l'accolade embrassait des signes qui n'étaient pas des opérandes.
+    //
+    //   Ce n'est pas une question de propreté : l'état d'arrivée ne contient
+    //   PAS ces caractères, et les laisser à l'écran fait diverger ce qui est
+    //   montré de ce qui est compté (CONTRACTS §0.3). Ils partent donc avec
+    //   les autres, dans le même geste.
+    const tetes = new Set();
     groupes.forEach((g, k) => {
       const ids = g.indices.map((i) => ctx.ids[i]).filter(Boolean);
       if (!ids.length) return;
+      tetes.add(ids[0]);
       decoupe.push({ targets: ids, label: `${k + 1}` });
       pairs.push({ target: ids[0], to: token(sortie[k], g.texte, 'letter') });
-      perdus.push(...ids.slice(1));
     });
+    // Dans l'ordre de la ligne : le `drop` s'échelonne de gauche à droite, et
+    // une liste mêlée ferait sauter l'effacement d'un bout à l'autre.
+    for (const id of ctx.ids) if (id && !tetes.has(id)) perdus.push(id);
 
     const fusionner = etape(ctx, dire(spec.libelle, ctx.langue), dire(spec.regle, ctx.langue), enchainer([
       pairs.length ? { op: 'substitute', pairs, stagger: 60 } : null,
