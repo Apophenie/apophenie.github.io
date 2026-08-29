@@ -79,7 +79,7 @@ export const LINE_HEIGHT = 78;   // unités viewBox
 export const OP_NAMES = Object.freeze([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift',
 ]);
 
 /**
@@ -122,6 +122,10 @@ export const DEFAULT_DUR = Object.freeze({
   // seconde suffit à voir les espaces se résorber, et s'attarder donnerait à
   // ce quasi-rien l'importance d'un calcul.
   merge: 1000,
+  // Le tamis : les deux moitiés s'écartent, on les lit, elles se rendent.
+  // Assez lent pour qu'on ait le temps de vérifier le tri avant qu'il ne
+  // soit consommé — c'est tout l'intérêt du geste.
+  shift: 900,
 });
 
 /** `kind` des tokens — vocabulaire fermé (recherche §2.2). */

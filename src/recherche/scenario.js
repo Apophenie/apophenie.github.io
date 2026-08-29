@@ -71,7 +71,7 @@ function dire(texte, langue = LANGUE_DEFAUT) {
 export const VOCABULAIRE = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift',
 ]);
 
 /**
@@ -543,6 +543,10 @@ function referencesDe(o) {
   refs.push(...normaliserCibles(o.between));
   refs.push(...normaliserCibles(o.anchor));
   refs.push(...normaliserCibles(o.order));
+  // `shift` — le tamis désigne ce qui monte, ce qui descend et ce qui se rend.
+  refs.push(...normaliserCibles(o.up));
+  refs.push(...normaliserCibles(o.down));
+  refs.push(...normaliserCibles(o.reset));
   for (const p of o.pairs || []) {
     refs.push(...normaliserCibles(p.target));
     refs.push(...normaliserCibles(p.targets));
@@ -1029,7 +1033,9 @@ export function suivreLaLigne(tokens, steps) {
       switch (o.op) {
         // Ces gestes ne touchent pas à la ligne : ils désignent, estompent,
         // annotent, attendent, ou tracent une accolade autour de ce qui est là.
-        case 'highlight': case 'dim': case 'pulse': case 'annotate': case 'wait':
+        // `shift` écarte verticalement puis rend l'écart : il ne crée, ne
+        // supprime ni ne réordonne rien. La ligne est la même avant et après.
+        case 'highlight': case 'dim': case 'pulse': case 'annotate': case 'wait': case 'shift':
           break;
         case 'partition': {
           // Le découpage ne change ni l'ordre ni la composition de la ligne —
@@ -2579,6 +2585,30 @@ export function validerFormeOp(o) {
       }
       if (o.to !== undefined && !tok(o.to)) return '« to » doit être {id, text}';
       return formeDeDecor(o);
+    }
+    case 'merge': {
+      // Coller demande au moins deux jetons — un seul ne se colle à rien — et
+      // le nombre annoncé sera recoupé contre les textes collés à la
+      // compilation (`visuel/primitives/merge.js`).
+      if (!Array.isArray(o.targets) || o.targets.length < 2 || !o.targets.every(chaine)) {
+        return '« targets » doit lister au moins deux jetons voisins à coller';
+      }
+      return tok(o.to) ? null : '« to » doit être {id, text}';
+    }
+    case 'shift': {
+      // Le tamis écarte, ou rend ce qu'il a écarté. Sans aucune des trois
+      // listes il ne ferait rien, et un geste qui ne fait rien n'a pas à être
+      // émis.
+      for (const champ of ['up', 'down', 'reset']) {
+        if (o[champ] !== undefined && !cibles(o[champ])) return `« ${champ} » mal formé`;
+      }
+      if (o.up === undefined && o.down === undefined && o.reset === undefined) {
+        return 'au moins un de « up », « down » ou « reset » est attendu';
+      }
+      if (o.amount !== undefined && !(typeof o.amount === 'number' && o.amount > 0)) {
+        return '« amount » doit être une fraction de casse strictement positive';
+      }
+      return null;
     }
     case 'annotate':
       return typeof o.text === 'string' && o.text.trim() ? null : '« text » non vide obligatoire';

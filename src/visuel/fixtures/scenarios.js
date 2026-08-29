@@ -395,6 +395,15 @@ export const vocabulaire = {
       ],
     },
     {
+      id: 'p10b',
+      title: 'shift',
+      caption: 'le tamis : ce qu’on garde descend, ce qu’on jette monte — puis se rend',
+      ops: [
+        { op: 'shift', down: ['ab6'], up: ['v4'] },
+        { op: 'shift', reset: ['ab6', 'v4'], at: 1000 },
+      ],
+    },
+    {
       id: 'p11a',
       title: 'merge',
       caption: 'deux chiffres qui se collent n’en font plus qu’un — et rien d’autre ne bouge',

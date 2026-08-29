@@ -1,11 +1,12 @@
 /**
  * Le vocabulaire fermé des ops — CONTRACTS §3.1.
  *
- * Vingt-deux primitives, une par fichier — les dix-sept du socle, plus
+ * Vingt-trois primitives, une par fichier — les dix-sept du socle, plus
  * `partition` (découper en sous-groupes), `table` (la table de correspondance
  * affichée — réglette, glissière ou pavé téléphonique), `fourteenSeg`
  * (l'afficheur quatorze segments), `horns` (les cornes du 666 déjà formé) et
- * `merge` (des jetons voisins qui se collent et n'en font plus qu'un),
+ * `merge` (des jetons voisins qui se collent et n'en font plus qu'un) et
+ * `shift` (le tamis : ce qu'on garde descend, ce qu'on jette monte),
  * ajoutées selon la clause d'extension du contrat. `afficheur.js` n'en est PAS une : c'est le corps
  * partagé de `sevenSeg` et `fourteenSeg`, qui font le même geste sur deux
  * afficheurs. Ajouter une transformation arithmétique sans
@@ -35,13 +36,14 @@ import * as partition from './partition.js';
 import * as table from './table.js';
 import * as horns from './horns.js';
 import * as merge from './merge.js';
+import * as shift from './shift.js';
 
 import { OP_NAMES } from '../constants.js';
 
 export const PRIMITIVES = Object.freeze({
   highlight, dim, drop, substitute, move, group, insertOperators,
   sum, reduce, flip180, sevenSeg, fourteenSeg, countStrokes, keyboard,
-  annotate, pulse, reveal, wait, partition, table, horns, merge,
+  annotate, pulse, reveal, wait, partition, table, horns, merge, shift,
 });
 
 // Garde-fou de chargement : la table des primitives et le vocabulaire déclaré

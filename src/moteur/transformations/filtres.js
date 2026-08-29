@@ -18,6 +18,7 @@ import { LETTRES, VOYELLES, VOYELLES_Y, sansAccents, atbash, cesar } from '../ta
 import { bilingue, dire } from '../i18n.js';
 import {
   def, apparier, sortieCreee, sortieConservee, etape, token, fusion, enchainer, nomToken,
+  retirerAccolade,
 } from './commun.js';
 
 /**
@@ -153,6 +154,53 @@ function etapeRetrait(op) {
     if (!perdus.length) {
       return [etape(ctx, titre, regle, [{ op: 'move', targets: restants }])];
     }
+
+    // ★ LE TAMIS, quand le filtre DIT ce qu'il retient.
+    //
+    //   Un filtre nommé — les consonnes, les voyelles, les lettres — sait de
+    //   quel côté il trie, et c'est cela qu'il faut montrer. L'accolade écrit
+    //   ce qu'on cherche, la ligne se partage en deux d'un seul mouvement (les
+    //   retenus descendent, les autres montent : c'est la SIMULTANÉITÉ qui fait
+    //   lire un partage), on lit le tri pendant que rien n'est encore perdu,
+    //   puis seulement les rejetés s'effacent et les retenus reviennent.
+    //
+    //   Sans `mention`, le filtre n'a rien à écrire sous son accolade et
+    //   retombe sur l'effacement sobre : mieux vaut un geste nu qu'une accolade
+    //   qui promet un nom et n'en donne aucun.
+    const mention = restants.length > 1 && op.mentionPluriel
+      ? dire(op.mentionPluriel, ctx.langue)
+      : dire(op.mention, ctx.langue);
+    if (mention && restants.length) {
+      const corps = enchainer([
+        { op: 'group', targets: ctx.ids, symbol: op.symbole || '⊃', label: mention },
+        // Un seul `shift` pour les deux moitiés : deux ops enchaînées feraient
+        // monter puis descendre, c'est-à-dire deux gestes au lieu d'un partage.
+        { op: 'shift', down: restants, up: perdus },
+        { op: 'drop', targets: perdus, mode: 'erase', regroup: false },
+        { op: 'shift', reset: restants },
+      ]);
+      // Le signe qui pointe chaque retenu, s'il y en a un. Il vit à côté de
+      // l'enchaînement — il ne touche aucun jeton — et s'efface avec l'étape.
+      if (typeof op.designe === 'string' && op.designe) {
+        const pose = corps[1] ? corps[1].at : 0;
+        const tenue = Math.max(400, corps[corps.length - 1].at - pose);
+        for (const id of restants) {
+          corps.push({
+            op: 'annotate', anchor: [id], text: op.designe, place: 'below',
+            fugace: true, at: pose, dur: tenue,
+          });
+        }
+      }
+      return [
+        etape(ctx, titre, regle, retirerAccolade(corps), { id: `s_${ctx.cle}_0`, hold: 300 }),
+        // Le comblement reste un temps À PART — c'est la discipline de
+        // `drop.js`, et c'est aussi ce qu'a demandé l'auteur : replacer sur la
+        // ligne, PUIS rassembler.
+        etape(ctx, dire(LIB_RAPPROCHER, ctx.langue), dire(REG_RAPPROCHER, ctx.langue),
+          [{ op: 'move' }], { id: `s_${ctx.cle}_1` }),
+      ];
+    }
+
     return [
       // ① l'effacement. `regroup: false` : rien d'autre ne bouge, et le
       // stagger laisse voir partir chaque caractère.
@@ -587,6 +635,7 @@ const brut = [
     id: 'f.lettres', code: 'fl', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les lettres', 'Keep the letters only'),
     regle: bilingue('Chiffres et ponctuation sont du décor', 'Digits and punctuation are mere scenery'),
+    mention: bilingue('Lettres', 'Letters'),
     notoriete: 0.85, commute: true,
     apply: (valeur, traces) => garder(valeur, traces, estLettreLarge),
   },
@@ -594,6 +643,7 @@ const brut = [
     id: 'f.voyelles', code: 'fv', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les voyelles', 'Keep the vowels only'),
     regle: bilingue('A, E, I, O, U — le souffle du mot', 'A, E, I, O, U — the breath of the word'),
+    mention: bilingue('Voyelles', 'Vowels'),
     notoriete: 0.85, commute: true,
     apply: (valeur, traces) => garder(valeur, traces, (c) => estVoyelle(c, false)),
   },
@@ -601,6 +651,7 @@ const brut = [
     id: 'f.voyellesY', code: 'fvy', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les voyelles, Y compris', 'Keep the vowels only, Y included'),
     regle: bilingue('A, E, I, O, U et Y', 'A, E, I, O, U and Y'),
+    mention: bilingue('Voyelles, Y compris', 'Vowels, Y included'),
     notoriete: 0.75, commute: true,
     note: bilingue(
       'Le Y est une voyelle « selon les écoles » : les deux lectures existent dans le catalogue.',
@@ -612,6 +663,7 @@ const brut = [
     id: 'f.consonnes', code: 'fc', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les consonnes', 'Keep the consonants only'),
     regle: bilingue('Toutes les lettres sauf A, E, I, O, U', 'Every letter but A, E, I, O, U'),
+    mention: bilingue('Consonnes', 'Consonants'),
     notoriete: 0.85, commute: true,
     apply: (valeur, traces) => garder(valeur, traces,
       (c) => estLettreLarge(c) && !estVoyelle(c, false)),
@@ -635,6 +687,7 @@ const brut = [
     id: 'f.repetees', code: 'fr', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les lettres répétées', 'Keep the repeated letters only'),
     regle: bilingue('Ce qui revient au moins deux fois', 'Whatever comes back at least twice'),
+    mention: bilingue('L’union fait la force', 'Strength in numbers'),
     notoriete: 0.50, commute: true,
     apply: (valeur, traces) => {
       const compte = new Map();
@@ -646,6 +699,16 @@ const brut = [
     id: 'f.initiales', code: 'fi', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On ne garde que les initiales', 'Keep the initials only'),
     regle: bilingue('La première lettre de chaque mot', 'The first letter of every word'),
+    // ★ ACCORDÉ SUR CE QU'ON VOIT, comme le titre d'une agrégation l'est sur
+    //   ses opérandes (`combinateurs.js › natureOperandes`). Un mot, une
+    //   initiale ; trois mots, trois initiales. « Initiale(s) » avec sa
+    //   parenthèse serait la forme de personne — celle d'un formulaire, pas
+    //   d'une démonstration.
+    mention: bilingue('Initiale', 'Initial'),
+    mentionPluriel: bilingue('Initiales', 'Initials'),
+    // Le signe qui DÉSIGNE : un accent circonflexe sous chaque lettre retenue,
+    // pointé vers elle. Il dit « celle-ci », là où l'accolade dit « celles-ci ».
+    designe: '^',
     notoriete: 0.65,
     apply: (valeur, traces) => {
       const its = [...valeur];

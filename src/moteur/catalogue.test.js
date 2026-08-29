@@ -250,7 +250,7 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
 const OPS_AUTORISEES = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift',
 ]);
 
 test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {

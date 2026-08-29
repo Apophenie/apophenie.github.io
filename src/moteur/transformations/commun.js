@@ -254,7 +254,7 @@ export const DUREE_OP = Object.freeze({
   highlight: 600, dim: 700, drop: 2000, substitute: 1100, move: 900, group: 1300,
   insertOperators: 700, sum: 2800, reduce: 2600, flip180: 1100, sevenSeg: 3000,
   fourteenSeg: 3400, countStrokes: 3000, keyboard: 2400, annotate: 800, pulse: 600, reveal: 1400,
-  wait: 900, partition: 1800, table: 2600, horns: 2200, merge: 1000,
+  wait: 900, partition: 1800, table: 2600, horns: 2200, merge: 1000, shift: 900,
 });
 
 /** Nombre de cibles échelonnées par `stagger`, pour mesurer l'étendue réelle. */
@@ -342,6 +342,8 @@ export function def(spec) {
     sortie: null,
     outil: null,
     mention: null,
+    mentionPluriel: null,
+    designe: null,
     ...spec,
   };
   // ★ LE NOM DE L'OUTIL — ce que la scène AFFICHE sous le décor qu'elle monte.
@@ -384,9 +386,15 @@ export function def(spec) {
   // s'efface avec l'étape (`visuel/primitives/annotate.js`, champ « fugace »).
   //
   // Facultative : un geste qui se lit tout seul n'a pas à être sous-titré.
-  if (op.mention !== null && !estBilingue(op.mention)) {
-    throw new Error(`opérateur « ${op.id} » : « mention » doit être null ou un couple `
-      + `{ ${LANGUES.join(', ')} } — reçu ${JSON.stringify(op.mention)}.`);
+  for (const champ of ['mention', 'mentionPluriel']) {
+    if (op[champ] !== null && !estBilingue(op[champ])) {
+      throw new Error(`opérateur « ${op.id} » : « ${champ} » doit être null ou un couple `
+        + `{ ${LANGUES.join(', ')} } — reçu ${JSON.stringify(op[champ])}.`);
+    }
+  }
+  // Un pluriel sans singulier ne s'accorderait à rien.
+  if (op.mentionPluriel && !op.mention) {
+    throw new Error(`opérateur « ${op.id} » : « mentionPluriel » sans « mention ».`);
   }
   if (op.note !== null && !estBilingue(op.note)) {
     throw new Error(`opérateur « ${op.id} » : « note » doit être null ou un couple `
