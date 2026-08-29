@@ -79,7 +79,7 @@ export const LINE_HEIGHT = 78;   // unités viewBox
 export const OP_NAMES = Object.freeze([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge',
 ]);
 
 /**
@@ -118,6 +118,10 @@ export const DEFAULT_DUR = Object.freeze({
   // `drop` en mode gomme), et les cornes poussent par-dessus la fin de
   // l'effacement. Deux gestes qui se recouvrent, donc un peu plus qu'un `drop`.
   horns: 2200,
+  // Coller des chiffres ne montre presque rien — c'est tout le propos. Une
+  // seconde suffit à voir les espaces se résorber, et s'attarder donnerait à
+  // ce quasi-rien l'importance d'un calcul.
+  merge: 1000,
 });
 
 /** `kind` des tokens — vocabulaire fermé (recherche §2.2). */

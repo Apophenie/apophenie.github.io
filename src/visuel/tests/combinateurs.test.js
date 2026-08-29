@@ -60,40 +60,127 @@ const etatNum = (v) => ({ type: 'NUM', valeur: v, traces: [[0, 1]] });
 
 // ───────────────────────────── 1. sélectionner n'est pas calculer
 
-test('« on garde le plus grand » efface les perdants et garde le gagnant EN PLACE', () => {
+/**
+ * ★ CE QUI EST GELÉ ICI A CHANGÉ, et il faut dire pourquoi.
+ *
+ * La sélection se jouait sans accolade : on soulignait l'élu, les autres
+ * s'effaçaient, l'élu restait où il était. Deux défauts, et le second est
+ * grave. Rien ne DISAIT à quel titre il était élu — et surtout, « on garde le
+ * plus grand » et « on garde le plus petit » produisaient à l'écran des gestes
+ * rigoureusement identiques : deux règles opposées, une seule image. Un
+ * spectateur ne pouvait pas les distinguer, donc ne pouvait pas les vérifier.
+ *
+ * Le geste est maintenant celui de tous les ramassages : l'accolade se ferme
+ * en ÉCRIVANT ce qu'elle cherche (`min`, `max`), l'élu descend sous sa pointe
+ * pendant que le reste s'efface, et la valeur remonte dans la ligne.
+ */
+test('une sélection RAMASSE : l’accolade dit ce qu’elle cherche, et l’élu descend', () => {
   const avant = etatNums([8, 15, 16, 5]);
   const [step] = stepsDe('cmx', avant, etatNum(16), ['t0', 't1', 't2', 't3']);
-  const ops = step.ops.map((o) => o.op);
-  assert.deepEqual(ops, ['highlight', 'drop', 'move'], 'désigner, effacer, resserrer — rien d’autre');
-  assert.ok(!ops.includes('substitute'), 'le gagnant n’est jamais remplacé par lui-même');
-  assert.deepEqual(step.ops[0].targets, ['t2'], 'c’est le MAXIMUM qui est désigné');
-  assert.deepEqual(step.ops[1].targets, ['t0', 't1', 't3'], 'et tous les autres qui s’effacent');
-  assert.equal(step.ops[1].mode, 'erase', 'ils s’effacent sur place, ils ne tombent pas');
-  assert.equal(step.ops[1].regroup, false, 'le resserrement est un temps À PART');
+  assert.deepEqual(step.ops.map((o) => o.op), ['sum'], 'un seul geste : le ramassage');
+  const [s] = step.ops;
+  assert.equal(s.symbol, 'max', 'l’accolade écrit ce qu’elle cherche');
+  assert.deepEqual(s.voler, ['t2'], 'c’est le MAXIMUM qui descend');
+  assert.deepEqual(s.effacer, ['t0', 't1', 't3'], 'et tous les autres qui s’effacent');
+  assert.deepEqual(s.partials, [16], 'la valeur n’existe qu’à l’atterrissage de l’élu');
+  assert.equal(s.depart, '', 'avant lui, il n’y a rien à afficher : on ne compte pas');
 });
 
-test('le jeton qui SURVIT à une sélection est le gagnant, pas un jeton neuf', () => {
-  const ctx = { ids: ['t0', 't1', 't2', 't3'], cle: 'x0', langue: 'fr' };
-  assert.deepEqual(op('cmx').sortie(etatNums([8, 15, 16, 5]), etatNum(16), ctx), ['t2']);
-  assert.deepEqual(op('cmn').sortie(etatNums([8, 15, 16, 5]), etatNum(5), ctx), ['t3']);
+test('« le plus petit » se distingue du plus grand À L’ÉCRAN, pas seulement dans le titre', () => {
+  const grand = stepsDe('cmx', etatNums([8, 15, 16, 5]), etatNum(16), ['t0', 't1', 't2', 't3'])[0];
+  const petit = stepsDe('cmn', etatNums([8, 15, 16, 5]), etatNum(5), ['t0', 't1', 't2', 't3'])[0];
+  assert.notEqual(grand.ops[0].symbol, petit.ops[0].symbol, 'deux règles, deux symboles');
+  assert.deepEqual(petit.ops[0].voler, ['t3'], 'et ce n’est pas le même jeton qui descend');
 });
 
-test('« le plus petit » suit exactement le même geste', () => {
-  const [step] = stepsDe('cmn', etatNums([8, 15, 16, 5]), etatNum(5), ['t0', 't1', 't2', 't3']);
-  assert.deepEqual(step.ops.map((o) => o.op), ['highlight', 'drop', 'move']);
-  assert.deepEqual(step.ops[0].targets, ['t3']);
-});
-
-test('à l’écran : les perdants s’effacent, le gagnant ne bouge pas de sa valeur', () => {
+test('à l’écran : les perdants s’effacent sur place, l’élu vole vers la pointe', () => {
   const [step] = stepsDe('cmx', etatNums([8, 15, 16, 5]), etatNum(16), ['t0', 't1', 't2', 't3']);
   const tl = compile(sc([{ ...step, id: 'a' }], nums([8, 15, 16, 5])));
-  assert.equal(tl.scene.get('t2').alive, true, 'le maximum est encore là');
-  assert.equal(tl.scene.get('t2').text, '16', 'et il porte toujours 16 : rien ne l’a remplacé');
+  assert.ok(vole(tl, 't2'), 'le maximum descend dans l’accolade');
   for (const id of ['t0', 't1', 't3']) {
-    assert.equal(tl.scene.get(id).alive, false, `${id} s’est effacé`);
-    assert.equal(animsDe(tl, id, 'translate').length, 0, `${id} s’efface SUR PLACE`);
+    assert.ok(efface(tl, id), `${id} s’efface`);
+    assert.ok(!vole(tl, id), `${id} ne descend PAS dans l’accolade : il s’efface là où il est`);
   }
-  assert.deepEqual(tl.scene.flow, ['t2'], 'la ligne s’est refermée sur le gagnant');
+  const reste = tl.scene.flow.filter((id) => tl.scene.get(id).alive);
+  assert.equal(reste.length, 1, 'une seule valeur reste sur la ligne');
+  assert.equal(tl.scene.get(reste[0]).text, '16', 'et c’est bien le maximum');
+});
+
+/**
+ * ★ L'ÉCART montre sa soustraction, il ne l'annonce plus.
+ *
+ * Il se jouait comme un dénombrement : tout tombait sous l'accolade, un nombre
+ * paraissait, et la phrase « le plus grand moins le plus petit » portait seule
+ * ce que l'image aurait dû montrer. Ni les deux termes, ni le signe, ni le
+ * choix des deux élus n'étaient jamais visibles — donc jamais vérifiables.
+ */
+test('l’écart DÉSIGNE ses deux élus, les range, et pose le signe entre eux', () => {
+  const [step] = stepsDe('cmm', etatNums([8, 15, 16, 5]), etatNum(11), ['t0', 't1', 't2', 't3']);
+  const noms = step.ops.map((o) => o.op);
+  assert.deepEqual(noms.slice(0, 5), ['group', 'drop', 'move', 'insertOperators', 'sum']);
+  const parNom = Object.fromEntries(step.ops.map((o) => [o.op, o]));
+  assert.equal(parNom.group.symbol, 'Δ');
+  assert.deepEqual(parNom.drop.targets, ['t0', 't1'], 'ni le max ni le min ne s’effacent');
+  assert.deepEqual(parNom.move.order, ['t2', 't3'], 'le grand DEVANT le petit — l’ordre du calcul');
+  assert.deepEqual(parNom.insertOperators.between, ['t2', 't3']);
+  assert.equal(parNom.insertOperators.glyph, '−', 'le signe de la soustraction, écrit');
+  assert.deepEqual(parNom.sum.partials, [16, 11], 'le premier se pose, le second retranche');
+  assert.equal(parNom.sum.accolade, 'existante', 'pas de seconde accolade par-dessus la première');
+  const etiquettes = step.ops.filter((o) => o.op === 'annotate').map((o) => o.text);
+  assert.deepEqual(etiquettes.sort(), ['MAX', 'MIN'], 'les deux élus sont NOMMÉS');
+});
+
+test('l’écart se joue vraiment, et il ne reste que sa différence', () => {
+  const [step] = stepsDe('cmm', etatNums([8, 15, 16, 5]), etatNum(11), ['t0', 't1', 't2', 't3']);
+  const tl = compile(sc([{ ...step, id: 'a' }], nums([8, 15, 16, 5])));
+  const reste = tl.scene.flow.filter((id) => tl.scene.get(id).alive);
+  assert.equal(reste.length, 1);
+  assert.equal(tl.scene.get(reste[0]).text, '11');
+  // Une seule accolade : deux tracés superposés se liraient comme deux
+  // regroupements concurrents.
+  const accolades = tl.nodes.filter((n) => n.role === 'bracket' && !n.id.startsWith('@sous:'));
+  assert.equal(accolades.length, 1, `une accolade et une seule (vu : ${accolades.map((a) => a.id).join(', ')})`);
+});
+
+test('tous les nombres égaux : il n’y a ni plus grand ni plus petit à désigner', () => {
+  const [step] = stepsDe('cmm', etatNums([6, 6, 6]), etatNum(0), ['t0', 't1', 't2']);
+  const noms = step.ops.map((o) => o.op);
+  assert.ok(!noms.includes('annotate'), 'deux étiquettes sur le même jeton ne diraient rien');
+  assert.ok(noms.includes('group'), 'le geste sobre reste un ramassage');
+});
+
+/**
+ * ★ COLLER N'EST PAS RAMASSER. « Mathématiquement c'est significatif, mais
+ *   visuellement c'est presque comme ne rien faire » (l'auteur) : les mêmes
+ *   chiffres, dans le même ordre, à la même place, et seul l'écart entre eux
+ *   disparaît. Une accolade par-dessus ferait chercher un calcul absent.
+ */
+test('le collage se fait sans accolade, sans symbole et sans libellé', () => {
+  const [step] = stepsDe('ccat', etatNums([5, 11, 2]), etatNum(5112), ['t0', 't1', 't2']);
+  assert.deepEqual(step.ops.map((o) => o.op), ['merge']);
+  assert.deepEqual(step.ops[0].targets, ['t0', 't1', 't2']);
+  assert.equal(step.ops[0].to.text, '5112');
+});
+
+test('le collage résorbe les espaces et ne fait bouger rien d’autre', () => {
+  const [step] = stepsDe('ccat', etatNums([5, 11, 2]), etatNum(5112), ['t0', 't1', 't2']);
+  const tl = compile(sc([{ ...step, id: 'a' }], nums([5, 11, 2])));
+  for (const id of ['t0', 't1', 't2']) {
+    assert.equal(tl.scene.get(id).alive, false, `${id} a été absorbé`);
+    // Aucun changement d'échelle : rien ne rétrécit, rien ne « tombe ».
+    assert.equal(animsDe(tl, id, 'scale').length, 0, `${id} ne rétrécit pas : il ne tombe nulle part`);
+  }
+  const reste = tl.scene.flow.filter((id) => tl.scene.get(id).alive);
+  assert.equal(reste.length, 1);
+  assert.equal(tl.scene.get(reste[0]).text, '5112');
+  const accolades = tl.nodes.filter((n) => n.role === 'bracket');
+  assert.equal(accolades.length, 0, 'aucune accolade : il ne s’est presque rien passé');
+});
+
+test('un collage refuse d’afficher un nombre qui n’est pas celui qu’on colle', () => {
+  assert.throws(() => compile(sc([{
+    id: 'a', title: 'On colle', ops: [{ op: 'merge', targets: ['t0', 't1'], to: { id: 'q', text: '999' } }],
+  }], nums([5, 11]))), CompileError);
 });
 
 // ───────────────────────────── 2. une moyenne se nivelle

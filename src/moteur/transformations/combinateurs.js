@@ -306,24 +306,144 @@ function etapeSelection(spec) {
     // Un sélecteur dont le résultat n'est aucun de ses opérandes n'en est pas
     // un : on ne devine pas, on retombe sur le geste générique.
     if (i < 0) return etapeDecompte(spec)(avant, apres, ctx);
-    const gagnant = ctx.ids[i];
+    const sortie = nomsTokens(ctx, 1);
+    const elu = ctx.ids[i];
     const perdants = ctx.ids.filter((_, k) => k !== i);
     const titre = titreEtape(spec, avant.valeur, ctx.langue);
+    // ★ UNE SÉLECTION EST UN RAMASSAGE, elle aussi.
+    //
+    //   Elle se jouait sans accolade : on soulignait l'élu, les autres
+    //   s'effaçaient, et l'élu restait où il était. Rien ne DISAIT à quel titre
+    //   il était élu — « il manque l'accolade avec comme opérateur visuel sous
+    //   l'accolade MIN » (l'auteur) —, et surtout rien ne distinguait « on
+    //   garde le plus petit » de « on garde le plus grand » : deux gestes
+    //   identiques à l'écran pour deux règles opposées.
+    //
+    //   Le geste est donc celui de tous les autres combinateurs : l'accolade
+    //   se ferme en écrivant ce qu'elle cherche, l'élu descend sous sa pointe
+    //   pendant que le reste s'efface sur place, et il remonte dans la ligne.
+    //   `depart: ''` parce qu'il n'y a rien à compter : la valeur n'existe pas
+    //   avant que l'élu ne se pose, et c'est SA descente qui l'écrit.
     return [etape(ctx, titre, `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`, enchainer([
-      { op: 'highlight', targets: [gagnant] },
-      // « erase », pas « fall » : les perdants ne tombent pas dans un calcul,
-      // ils s'effacent sur place, un par un. Et le rapprochement est un temps
-      // À PART — c'est la discipline de `drop.js`.
-      perdants.length ? { op: 'drop', targets: perdants, mode: 'erase', regroup: false, dur: 1400 } : null,
-      perdants.length ? { op: 'move', dur: 900 } : null,
+      {
+        op: 'sum',
+        targets: ctx.ids,
+        voler: [elu],
+        effacer: perdants,
+        depart: '',
+        partials: [apres.valeur],
+        to: token(sortie[0], apres.valeur, 'number'),
+        symbol: spec.symbole || 'min',
+      },
     ]), { hold: 400 })];
   };
 }
 
-/** Le jeton qui survit à une sélection : le gagnant lui-même, pas un neuf. */
-function sortieSelection(avant, apres, ctx) {
-  const i = avant.valeur.indexOf(apres.valeur);
-  return [i >= 0 ? ctx.ids[i] : nomToken(ctx, 0)];
+/**
+ * ★ L'ÉCART SE MONTRE EN QUATRE TEMPS, parce qu'il en compte quatre.
+ *
+ * « Le plus grand moins le plus petit » se jouait comme un dénombrement : tout
+ * tombait sous l'accolade et un nombre paraissait. On voyait donc une
+ * soustraction dont ni les deux termes ni le signe n'apparaissaient jamais —
+ * et la phrase sous l'accolade portait seule ce que l'image aurait dû montrer.
+ *
+ *  ① l'accolade et son Δ ;
+ *  ② MAX et MIN se posent au-dessus des deux nombres concernés — c'est là que
+ *    se joue la règle, et c'est le seul moment où l'on peut vérifier qu'elle
+ *    désigne bien les bons ;
+ *  ③ les autres s'effacent, et les deux élus se rangent dans l'ordre du calcul,
+ *    le grand devant, avec le « − » entre eux ;
+ *  ④ ils descendent et la différence paraît.
+ *
+ * La règle en toutes lettres a disparu du même coup : « la phrase "On prend
+ * l'écart entre les nombres" est devenue obsolète par la décomposition
+ * visuelle » (l'auteur). Ce qui est montré n'a plus à être dit.
+ */
+function etapeEcart(spec) {
+  return (avant, apres, ctx) => {
+    const vs = avant.valeur;
+    let iMax = 0;
+    let iMin = 0;
+    vs.forEach((v, k) => {
+      if (v > vs[iMax]) iMax = k;
+      if (v < vs[iMin]) iMin = k;
+    });
+    // Tous égaux : il n'y a ni plus grand ni plus petit à désigner, et deux
+    // étiquettes sur le même jeton diraient n'importe quoi. Geste sobre.
+    if (iMax === iMin) return etapeDecompte(spec)(avant, apres, ctx);
+
+    const sortie = nomsTokens(ctx, 1);
+    const idMax = ctx.ids[iMax];
+    const idMin = ctx.ids[iMin];
+    const signe = `${ctx.cle}moins`;
+    const autres = ctx.ids.filter((id) => id !== idMax && id !== idMin);
+    const titre = titreEtape(spec, vs, ctx.langue);
+    const MOTS = ctx.langue === 'en' ? ['MAX', 'MIN'] : ['MAX', 'MIN'];
+
+    const corps = enchainer([
+      { op: 'group', targets: ctx.ids, symbol: spec.symbole || 'Δ' },
+      autres.length ? { op: 'drop', targets: autres, mode: 'erase', regroup: false } : null,
+      // Le grand DEVANT le petit : c'est l'ordre du calcul, pas celui de la
+      // ligne. `order` réordonne en place — les deux jetons reprennent les
+      // places qu'ils occupaient déjà, l'un dans celle de l'autre.
+      { op: 'move', order: [idMax, idMin] },
+      { op: 'insertOperators', between: [idMax, idMin], ids: [signe], glyph: '−' },
+      {
+        op: 'sum',
+        targets: [idMax, idMin],
+        consume: [signe],
+        // Le premier terme se pose tel quel, le second le retranche : deux
+        // paliers, deux atterrissages, et le compteur les suit.
+        partials: [vs[iMax], apres.valeur],
+        to: token(sortie[0], apres.valeur, 'number'),
+        symbol: spec.symbole || 'Δ',
+        accolade: 'existante',
+      },
+    ]);
+
+    // Les deux étiquettes vivent EN PARALLÈLE du reste : elles ne touchent
+    // aucun jeton, rien ne les oblige à attendre leur tour, et elles doivent
+    // tenir jusqu'à ce que les nombres qu'elles désignent quittent la ligne.
+    const debut = corps[1] ? corps[1].at : corps[2].at;
+    const jusquAu = corps[corps.length - 1].at;
+    const tenue = Math.max(400, jusquAu - debut);
+    for (const [id, mot] of [[idMax, MOTS[0]], [idMin, MOTS[1]]]) {
+      corps.push({
+        op: 'annotate', anchor: [id], text: mot, place: 'above',
+        fugace: true, at: debut, dur: tenue,
+      });
+    }
+    return [etape(ctx, titre, `${apres.valeur}`, corps, { hold: 400 })];
+  };
+}
+
+/**
+ * Étape d'ACCOLEMENT : les espaces se résorbent, et c'est tout.
+ *
+ * ★ Ni accolade, ni symbole, ni libellé sous la ligne. Coller `5 11 2` pour
+ *   lire `5112` ne déplace aucun chiffre, n'en efface aucun, n'en écrit aucun
+ *   de neuf : les mêmes glyphes, dans le même ordre, à la même place. Le seul
+ *   fait, c'est que l'écart entre eux disparaît. Monter une accolade par-dessus
+ *   ce quasi-rien ferait chercher au spectateur un calcul qui n'a pas eu lieu —
+ *   « mathématiquement c'est significatif, mais visuellement c'est presque
+ *   comme ne rien faire » (l'auteur), et c'est exactement ce qu'il faut jouer.
+ */
+function etapeAccolement(spec) {
+  return (avant, apres, ctx) => {
+    const sortie = nomsTokens(ctx, 1);
+    const titre = titreEtape(spec, avant.valeur, ctx.langue);
+    // Le collage est un geste de VOISINAGE : il lui faut au moins deux jetons,
+    // et il ne sait pas coller ce qui ne se touche pas. Un opérande unique — ou
+    // un signe négatif, dont le « − » n'est pas un chiffre à coller — retombe
+    // sur le ramassage ordinaire, qui sait tout montrer.
+    const collable = ctx.ids.length > 1
+      && avant.valeur.every((v) => Number.isInteger(v) && v >= 0)
+      && avant.valeur.map((v) => String(v)).join('') === String(apres.valeur);
+    if (!collable) return etapeDecompte(spec)(avant, apres, ctx);
+    return [etape(ctx, titre, `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`, [
+      { op: 'merge', targets: ctx.ids, to: token(sortie[0], apres.valeur, 'number') },
+    ], { hold: 250 })];
+  };
 }
 
 /**
@@ -332,10 +452,12 @@ function sortieSelection(avant, apres, ctx) {
  * op est la première chose qu'on lit d'un scénario (CONTRACTS §3.1).
  */
 const GESTES = Object.freeze({
-  decompte: etapeDecompte,   // on encadre, ça se ramasse, un nombre reste
-  comptage: etapeComptage,   // ça se compte, un jeton à la fois
-  moyenne: etapeMoyenne,     // ça se nivelle, puis ça fusionne
-  selection: etapeSelection, // on garde l'élu, on efface le reste
+  decompte: etapeDecompte,     // on encadre, ça se ramasse, un nombre reste
+  comptage: etapeComptage,     // ça se compte, un jeton à la fois
+  moyenne: etapeMoyenne,       // ça se nivelle, puis ça fusionne
+  selection: etapeSelection,   // on encadre, l'élu descend, le reste s'efface
+  accolement: etapeAccolement, // les espaces se résorbent, rien d'autre
+  ecart: etapeEcart,           // le plus grand moins le plus petit, montré
 });
 
 /** Sommes partielles successives, pour animer un compteur. */
@@ -394,9 +516,9 @@ const agregations = [
     libelle: bilingue('On prend l’écart', 'Take the spread'),
     gabarit: bilingue('On prend l’écart entre les %s', 'Take the spread between the %s'),
     regle: bilingue('Le plus grand moins le plus petit', 'The largest one minus the smallest'),
-    notoriete: 0.30, adHoc: 0.2, lecture: '…',
+    notoriete: 0.30, adHoc: 0.2, lecture: '−',
     calcul: (vs) => Math.max(...vs) - Math.min(...vs),
-    geste: 'decompte', minimum: 2,
+    geste: 'ecart', minimum: 2,
   },
   {
     id: 'c.moyenne', code: 'cmo',
@@ -412,10 +534,17 @@ const agregations = [
   {
     id: 'c.cardinal', code: 'cnv',
     symbole: '#',
-    libelle: bilingue('On compte les valeurs', 'Count the values'),
-    gabarit: bilingue('On compte les %s', 'Count the %s'),
+    libelle: bilingue('Combien de nombres ?', 'How many numbers?'),
+    gabarit: bilingue('Combien de %s ?', 'How many %s?'),
     regle: bilingue('Combien de nombres en tout', 'How many numbers there are in all'),
-    notoriete: 0.80,
+    // ★ MOINS NOTOIRE QUE `cnj`, ET C'EST L'AUTEUR QUI LE MESURE : « c'est très
+    //   peu élégant comme opérateur ». Compter les caractères d'une saisie est
+    //   un geste que tout le monde fait ; compter les NOMBRES qu'un calcul
+    //   intermédiaire vient de produire, c'est retourner contre lui le résultat
+    //   d'une étape qu'on a soi-même choisie — la quantité n'était pas dans la
+    //   saisie, elle est dans la méthode. D'où l'`adHoc` : ce n'est pas une
+    //   propriété du mot, c'est une propriété de ce qu'on lui a fait.
+    notoriete: 0.30, adHoc: 0.30,
     calcul: (vs) => vs.length,
     geste: 'comptage',
   },
@@ -428,7 +557,7 @@ const agregations = [
       'Set the numbers end to end and read the result'),
     notoriete: 0.20, adHoc: 0.3, lecture: '⁀',
     calcul: (vs) => Number(vs.map((v) => String(Math.abs(v))).join('')),
-    geste: 'decompte', minimum: 2,
+    geste: 'accolement', minimum: 2,
   },
   {
     id: 'c.max', code: 'cmx',
@@ -465,9 +594,11 @@ const agregations = [
       return { valeur: n, traces: [fusion(traces)] };
     },
     steps: GESTES[geste] ? GESTES[geste]({ ...reste, cibles }) : etapeAgregation(base),
-    // ★ Une SÉLECTION ne crée pas de jeton : elle en garde un. C'est le
-    // gagnant qui représente l'état d'arrivée, à sa place, avec son identité.
-    ...(geste === 'selection' ? { sortie: sortieSelection } : {}),
+    // ★ Une sélection CRÉE désormais son jeton, comme tout ramassage : l'élu
+    // descend sous la pointe et ce qui remonte dans la ligne est la valeur,
+    // posée là où l'accolade l'avait promise. Garder l'identité du gagnant
+    // l'aurait fait rester en place — ce qui était justement le défaut : rien
+    // ne montrait qu'il avait été élu, ni à quel titre.
   });
 });
 
@@ -475,7 +606,7 @@ const denombrements = [
   {
     id: 'c.compteTokens', code: 'cnj',
     symbole: '#',
-    libelle: bilingue('On compte les jetons', 'Count the tokens'),
+    libelle: bilingue('Combien de caractères ?', 'How many characters?'),
     regle: bilingue('Combien de morceaux', 'How many pieces there are'),
     notoriete: 0.4,
     calcul: (toks) => toks.length,
@@ -484,7 +615,7 @@ const denombrements = [
   {
     id: 'c.compteTokensDistincts', code: 'cnjd',
     symbole: '#',
-    libelle: bilingue('On compte les jetons distincts', 'Count the distinct tokens'),
+    libelle: bilingue('Combien de caractères différents ?', 'How many different characters?'),
     regle: bilingue('Combien de morceaux différents', 'How many different pieces there are'),
     notoriete: 0.60,
     calcul: (toks) => new Set(toks.map((t) => t.toLowerCase())).size,

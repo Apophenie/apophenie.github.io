@@ -35,6 +35,14 @@ export function plan(ctx) {
   // additionne, si l'on multiplie ou si l'on dénombre (voir `group.js`).
   const res = accumulate(ctx, {
     operands, consume, to, at: 0, dur: ctx.dur, partials,
+    // ★ « accolade: 'existante' » — le calcul se glisse SOUS une accolade déjà
+    //   tracée dans le même step, au lieu d'en poser une seconde par-dessus.
+    accoladeExistante: ctx.op.accolade === 'existante',
+    // Ce qui vole, quand ce n'est pas tout le monde : une sélection fait
+    // descendre l'élu et efface le reste sur place.
+    ...(Array.isArray(ctx.op.voler) ? { voler: ctx.scene.resolve(ctx.op.voler, ctx.where) } : {}),
+    ...(Array.isArray(ctx.op.effacer) ? { effacer: ctx.scene.resolve(ctx.op.effacer, ctx.where) } : {}),
+    ...(typeof ctx.op.depart === 'string' ? { depart: ctx.op.depart } : {}),
     symbol: typeof ctx.op.symbol === 'string' && ctx.op.symbol ? ctx.op.symbol : 'Σ',
     label: typeof ctx.op.label === 'string' ? ctx.op.label : null,
   });

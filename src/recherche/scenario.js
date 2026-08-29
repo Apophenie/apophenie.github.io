@@ -71,7 +71,7 @@ function dire(texte, langue = LANGUE_DEFAUT) {
 export const VOCABULAIRE = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge',
 ]);
 
 /**
@@ -490,6 +490,11 @@ function inventaire(o) {
     case 'sum':
       ajouter(o.to);
       supprimes.push(...normaliserCibles(o.targets), ...normaliserCibles(o.consume));
+      break;
+    case 'merge':
+      // Coller n jetons en un seul : les sources s'en vont, l'arrivée reste.
+      ajouter(o.to);
+      supprimes.push(...normaliserCibles(o.targets));
       break;
     case 'flip180': case 'keyboard':
     case 'sevenSeg': case 'fourteenSeg': case 'countStrokes':
@@ -959,7 +964,6 @@ export function suivreLaLigne(tokens, steps) {
   // `insertOperators` ne les nomme pas : ils occupent une place dans la ligne
   // — c'est tout ce qu'on a besoin de savoir d'eux — et une somme les absorbe.
   const signes = new Set();
-  let nSigne = 0;
   const lignes = [];
 
   /** Les identifiants explicitement écrits, ou `null` pour un sélecteur. */
@@ -1115,6 +1119,14 @@ export function suivreLaLigne(tokens, steps) {
           if (!operandes || !consomme || !accumuler(operandes, consomme, o.to)) perdu = true;
           break;
         }
+        case 'merge': {
+          // Coller, c'est accumuler sans rien absorber entre les termes : le
+          // jeton unique prend la place et l'espacement du premier, et les
+          // autres s'en vont avec la leur (`visuel/primitives/merge.js`).
+          const colles = ids(o.targets);
+          if (!colles || !accumuler(colles, [], o.to)) perdu = true;
+          break;
+        }
         case 'group': {
           // L'accolade qui tient sa promesse elle-même (décompte, nivellement)
           // consomme ce qu'elle embrasse et pose le résultat à sa place : c'est
@@ -1131,9 +1143,23 @@ export function suivreLaLigne(tokens, steps) {
           for (let i = 0; i < entre.length - 1; i++) {
             const rang = ligne.indexOf(entre[i]);
             if (rang < 0) { perdu = true; break; }
-            const id = nommes && nommes[i] ? nommes[i] : `@signe:${nSigne++}`;
+            // ★ Le nom d'un signe anonyme est celui que le MOTEUR VISUEL lui
+            //   donne, à la lettre près : `@op:<gauche>:<rang>`
+            //   (`primitives/insertOperators.js`). Inventer une numérotation
+            //   parallèle marchait tant que ces signes étaient absorbés avant
+            //   la première comparaison ; dès qu'un geste les laisse survivre —
+            //   un collage, par exemple, qui ne ramasse rien —, les deux
+            //   lignes cessent de porter les mêmes noms et le contrôle croisé
+            //   accuse un désaccord qui n'existe pas.
+            const id = nommes && nommes[i] ? nommes[i] : `@op:${entre[i]}:${i}`;
             signes.add(id);
             ligne.splice(rang + 1, 0, id);
+            // ★ LE SIGNE OUVRE LE TERME, il ne ferme pas le précédent : l'écart
+            //   large se pose DEVANT lui, et le nombre qu'il gouverne s'y colle
+            //   (`visuel/primitives/helpers.js › insertOperatorTokens`). C'est
+            //   ce qui fait lire « 5  −11  +2 » plutôt que « 5−  11+  2 ».
+            frontieres.add(id);
+            frontieres.delete(entre[i + 1]);
           }
           break;
         }

@@ -238,14 +238,14 @@ export const methode6 = {
 };
 
 /**
- * Parcours de contrôle : les **21 primitives** du vocabulaire fermé, au moins
+ * Parcours de contrôle : **toutes les primitives** du vocabulaire fermé, au moins
  * une fois chacune. Sert de test de non-régression du catalogue et de page de
  * vérification manuelle.
  */
 export const vocabulaire = {
   version: 1,
   input: 'HOPE-HOPE',
-  method: { id: 0, label: 'Parcours des 21 primitives', rule: 'vérification du vocabulaire fermé' },
+  method: { id: 0, label: 'Parcours du vocabulaire', rule: 'vérification du vocabulaire fermé' },
   result: '666',
   tokens: [
     { id: 'v0', text: 'H', kind: 'letter', group: 'w0' },
@@ -395,6 +395,16 @@ export const vocabulaire = {
       ],
     },
     {
+      id: 'p11a',
+      title: 'merge',
+      caption: 'deux chiffres qui se collent n’en font plus qu’un — et rien d’autre ne bouge',
+      ops: [
+        { op: 'substitute', pairs: [{ target: 'six2', to: [{ id: 'mg0', text: '5', kind: 'digit' }, { id: 'mg1', text: '1', kind: 'digit' }] }] },
+        { op: 'merge', targets: ['mg0', 'mg1'], to: { id: 'mg', text: '51', kind: 'number' }, at: 1150 },
+        { op: 'substitute', pairs: [{ target: 'mg', to: { id: 'six2b', text: '6', kind: 'digit' } }], at: 2200 },
+      ],
+    },
+    {
       id: 'p11b',
       title: 'horns',
       caption: 'trois 6 d’affilée : le 666 était déjà écrit, le reste s’efface',
@@ -402,8 +412,8 @@ export const vocabulaire = {
         // Les cornes exigent que les trois 6 se TOUCHENT dans la ligne — c'est
         // tout leur propos. On remet donc l'ordre avant de les poser ; le `4`
         // reste en queue, et c'est lui que le geste efface.
-        { op: 'move', order: ['kb6', 'six2', 'ab6', 'v4'] },
-        { op: 'horns', targets: ['kb6', 'six2', 'ab6'], efface: ['v4'], at: 950 },
+        { op: 'move', order: ['kb6', 'six2b', 'ab6', 'v4'] },
+        { op: 'horns', targets: ['kb6', 'six2b', 'ab6'], efface: ['v4'], at: 950 },
       ],
       hold: 400,
     },
@@ -412,7 +422,7 @@ export const vocabulaire = {
       title: 'reveal + wait',
       caption: 'C.Q.F.D.',
       ops: [
-        { op: 'reveal', targets: ['kb6', 'six2', 'ab6'], stagger: 220 },
+        { op: 'reveal', targets: ['kb6', 'six2b', 'ab6'], stagger: 220 },
         { op: 'wait', dur: 900 },
       ],
     },

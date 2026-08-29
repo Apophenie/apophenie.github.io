@@ -150,6 +150,48 @@ export function repeatOrigins(scenario) {
   });
 }
 
+/**
+ * ★ UNE REDITE NE S'ACCÉLÈRE QU'AU MILIEU DE SES PAREILLES.
+ *
+ * Avoir déjà été vu ne suffit pas, et c'est une leçon d'usage. Une série de
+ * conversions — des lettres qui montent l'une après l'autre vers la même
+ * réglette — commence par MONTER le décor et finit par le RETIRER. Ces deux
+ * moments ne sont pas dans le geste : ils l'encadrent, et c'est pourquoi
+ * `montre` et `retire` sont hors signature (ils décrivent le cycle de vie du
+ * décor, pas ce qu'on fait dessus). Conséquence : le dernier pas d'une série
+ * portait la signature d'un pas antérieur, se déclarait redite, et s'expédiait
+ * cinq fois plus vite — emportant avec lui la disparition de la table, que
+ * personne n'avait le temps de voir.
+ *
+ * La règle ferme les deux bouts : « l'accélération ne doit s'activer que si
+ * l'opération précédente ET l'opération suivante sont du même type, et que la
+ * conversion précise actuelle a déjà eu lieu » (l'auteur). Un pas de bord — le
+ * premier, le dernier, ou celui qui touche un geste étranger — garde son
+ * rythme plein quoi qu'il ait déjà été joué.
+ *
+ * ★ Le TYPE est LU sur le step, jamais déclaré : la suite des noms d'ops qu'il
+ *   émet. Deux passages de réglette sont du même type ; une réglette et un
+ *   verdict ne le sont pas. Rien à tenir à jour le jour où une primitive
+ *   s'ajoute — ce qui serait une seconde table de vérité à laisser diverger.
+ *
+ * @returns {number[]} par step, l'origine de la redite ACCÉLÉRABLE, ou -1
+ */
+export function repeatAccelerables(scenario) {
+  const steps = scenario.steps || [];
+  const types = steps.map(typeDeStep);
+  return repeatOrigins(scenario).map((origine, i) => {
+    if (origine < 0) return -1;
+    if (i === 0 || i === steps.length - 1) return -1;
+    if (types[i - 1] !== types[i] || types[i + 1] !== types[i]) return -1;
+    return origine;
+  });
+}
+
+/** La « forme de geste » d'un step, aux valeurs près : la suite de ses ops. */
+function typeDeStep(step) {
+  return ((step && step.ops) || []).map((o) => (o && o.op) || '?').join('>');
+}
+
 /** L'ensemble des chaînes qui DÉSIGNENT un jeton — pas ce qui est dessiné. */
 function collectIds(scenario) {
   const ids = new Set();
@@ -278,7 +320,7 @@ export function compile(scenario, options = {}) {
   // n'abrégerait pas un trajet, ça rendrait la redite illisible — et le
   // spectateur qui a demandé moins de mouvement n'a pas demandé moins de temps.
   // L'accélération est donc purement et simplement ignorée dans ce mode.
-  const origines = (!reduced && repeatSpeed > 1) ? repeatOrigins(scenario) : null;
+  const origines = (!reduced && repeatSpeed > 1) ? repeatAccelerables(scenario) : null;
 
   scenario.steps.forEach((step, si) => {
     const t0 = cursor;

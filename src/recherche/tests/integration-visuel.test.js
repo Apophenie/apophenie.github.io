@@ -318,7 +318,15 @@ test('intégration — « hope-hope-hope » : les trois « hope » ne se lisent 
     for (const st of redites) {
       assert.ok(st.repeatOf >= 0 && st.repeatOf < st.index, `étape ${st.index} : repeatOf=${st.repeatOf}`);
     }
-    assert.ok(rapide.total < plein.total * 0.6,
+    // ★ LE GAIN A BAISSÉ, ET C'EST LE PRIX D'UNE RÈGLE. Une redite ne
+    //   s'accélère plus que si elle est ENTOURÉE de gestes du même type
+    //   (`compile.js › repeatAccelerables`) : les pas de bord — celui qui monte
+    //   la réglette, celui qui la retire — gardent leur rythme plein, et ce
+    //   sont précisément ceux dont l'expédition escamotait la disparition du
+    //   décor. On perd donc quelques dixièmes de gain pour ne plus bâcler ce
+    //   qu'on avait mis une seconde à monter. Le seuil dit ce qu'on exige :
+    //   que les redites fassent encore gagner plus d'un tiers du temps.
+    assert.ok(rapide.total < plein.total * 0.7,
       `${Math.round(plein.total)} ms → ${Math.round(rapide.total)} ms : gain insuffisant`);
     console.log(`    hope-hope-hope : ${(plein.total / 1000).toFixed(1)} s → `
       + `${(rapide.total / 1000).toFixed(1)} s (${rapide.steps.length} étapes, ${redites.length} accélérées)`);

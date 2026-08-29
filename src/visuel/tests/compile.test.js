@@ -7,7 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  compile, stepSignatures, repeatOrigins, REPEAT_SPEED,
+  compile, stepSignatures, repeatOrigins, repeatAccelerables, REPEAT_SPEED,
 } from '../compile.js';
 import { setGlyphes } from '../glyphes.js';
 import { GLYPHES } from '../fixtures/glyphes.js';
@@ -29,7 +29,7 @@ test('les scénarios de démonstration compilent tous sans avertissement', () =>
   }
 });
 
-test('le parcours de vérification exerce les 21 primitives', () => {
+test('le parcours de vérification exerce TOUTES les primitives du vocabulaire', () => {
   const used = new Set();
   for (const step of SCENARIOS.vocabulaire.steps) for (const op of step.ops) used.add(op.op);
   const manquantes = OP_NAMES.filter((n) => !used.has(n));
@@ -371,7 +371,15 @@ test('les durées par défaut du moteur visuel et leur miroir arithmétique coï
  * structure des ops, jamais dans le libellé.
  */
 
-/** Deux jetons par lettre, trois groupes : le squelette de « hope-hope ». */
+/**
+ * Le même geste, TROIS fois — le squelette de « hope-hope-hope ».
+ *
+ * ★ Trois et pas deux, et ce n'est pas de la coquetterie. Une redite ne
+ *   s'accélère qu'entourée de ses pareilles (`repeatAccelerables`) : le
+ *   dernier pas d'une série garde toujours son rythme plein, parce que c'est
+ *   lui qui remet le décor en place. Un scénario de deux étapes n'a donc aucune
+ *   redite accélérable — que du bord.
+ */
 const deuxGroupes = () => sc([
   {
     id: 's0',
@@ -383,12 +391,53 @@ const deuxGroupes = () => sc([
     title: 'Continuous strokes — group 2',   // libellé volontairement dans l'autre langue
     ops: [{ op: 'sevenSeg', target: 'b0', segments: 'bcefg', glyph: 'H', count: 3, to: { id: 'n1', text: '3' } }],
   },
-], [{ id: 'a0', text: 'H', kind: 'letter' }, { id: 'b0', text: 'H', kind: 'letter' }]);
+  {
+    id: 's2',
+    title: 'Traits continus — groupe 3',
+    ops: [{ op: 'sevenSeg', target: 'c0', segments: 'bcefg', glyph: 'H', count: 3, to: { id: 'n2', text: '3' } }],
+  },
+], [
+  { id: 'a0', text: 'H', kind: 'letter' },
+  { id: 'b0', text: 'H', kind: 'letter' },
+  { id: 'c0', text: 'H', kind: 'letter' },
+]);
 
 test('deux steps identiques à un renommage de jetons près ont la même signature', () => {
-  const [s0, s1] = stepSignatures(deuxGroupes());
+  const [s0, s1, s2] = stepSignatures(deuxGroupes());
   assert.equal(s0, s1);
-  assert.deepEqual(repeatOrigins(deuxGroupes()), [-1, 0]);
+  assert.equal(s0, s2);
+  assert.deepEqual(repeatOrigins(deuxGroupes()), [-1, 0, 0]);
+});
+
+/**
+ * ★ DÉTECTER une redite et l'ACCÉLÉRER sont deux questions distinctes.
+ *
+ * `repeatOrigins` répond à la première : ce geste a-t-il déjà été joué ?
+ * `repeatAccelerables` répond à la seconde, et elle est plus exigeante — la
+ * redite doit être ENTOURÉE de gestes du même type. Le dernier pas d'une série
+ * est celui qui remet le décor en place ; l'expédier cinq fois plus vite
+ * escamote la seule chose qu'il avait à montrer.
+ */
+test('le dernier pas d’une série n’est jamais accéléré, même s’il redit', () => {
+  assert.deepEqual(repeatAccelerables(deuxGroupes()), [-1, 0, -1],
+    'le pas du milieu s’accélère ; celui qui referme la série, non');
+});
+
+test('une redite voisine d’un geste ÉTRANGER garde son rythme plein', () => {
+  const scen = sc([
+    { id: 's0', title: 'A', ops: [{ op: 'sevenSeg', target: 'a0', segments: 'bcefg', glyph: 'H', count: 3, to: { id: 'n0', text: '3' } }] },
+    { id: 's1', title: 'B', ops: [{ op: 'sevenSeg', target: 'b0', segments: 'bcefg', glyph: 'H', count: 3, to: { id: 'n1', text: '3' } }] },
+    { id: 's2', title: 'C', ops: [{ op: 'wait', dur: 900 }] },
+    { id: 's3', title: 'D', ops: [{ op: 'sevenSeg', target: 'c0', segments: 'bcefg', glyph: 'H', count: 3, to: { id: 'n2', text: '3' } }] },
+    { id: 's4', title: 'E', ops: [{ op: 'wait', dur: 900 }] },
+  ], [
+    { id: 'a0', text: 'H', kind: 'letter' },
+    { id: 'b0', text: 'H', kind: 'letter' },
+    { id: 'c0', text: 'H', kind: 'letter' },
+  ]);
+  assert.deepEqual(repeatOrigins(scen), [-1, 0, -1, 0, 2], 'trois fois le même geste, deux attentes');
+  assert.deepEqual(repeatAccelerables(scen), [-1, -1, -1, -1, -1],
+    'aucune redite n’est entourée de ses pareilles : rien ne s’accélère');
 });
 
 test('la signature ignore le libellé — bilingue et cosmétique', () => {
@@ -492,11 +541,13 @@ test('la première occurrence garde son rythme, la redite est divisée par le fa
   const scen = deuxGroupes();
   const plein = compile(scen, { repeatSpeed: 1 });
   const rapide = compile(scen, { repeatSpeed: REPEAT_SPEED });
-  assert.deepEqual(plein.steps.map((st) => st.accelerated), [false, false]);
-  assert.deepEqual(rapide.steps.map((st) => st.accelerated), [false, true]);
+  assert.deepEqual(plein.steps.map((st) => st.accelerated), [false, false, false]);
+  assert.deepEqual(rapide.steps.map((st) => st.accelerated), [false, true, false]);
   assert.equal(rapide.steps[0].duration, plein.steps[0].duration);
   assert.equal(rapide.steps[1].duration, plein.steps[1].duration / REPEAT_SPEED);
   assert.equal(rapide.steps[1].repeatOf, 0);
+  assert.equal(rapide.steps[2].duration, plein.steps[2].duration,
+    'le pas qui referme la série garde son rythme, redite ou non');
 });
 
 test('les charnières restent cohérentes : bounds, t0/t1 et TOTAL suivent', () => {
@@ -544,7 +595,7 @@ test('le mouvement réduit ignore l’accélération : le temps de LECTURE est i
   const reduit = compile(deuxGroupes(), { reduced: true, repeatSpeed: REPEAT_SPEED });
   const temoin = compile(deuxGroupes(), { reduced: true, repeatSpeed: 1 });
   assert.deepEqual(reduit.steps.map((st) => st.duration), temoin.steps.map((st) => st.duration));
-  assert.deepEqual(reduit.steps.map((st) => st.accelerated), [false, false]);
+  assert.deepEqual(reduit.steps.map((st) => st.accelerated), [false, false, false]);
   assert.equal(reduit.repeatSpeed, 1);
 });
 

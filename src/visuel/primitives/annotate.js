@@ -39,6 +39,17 @@ export function plan(ctx) {
   ctx.anim({ id, prop: 'opacity', to: 1, at: 0, dur: ctx.dur * 0.7 });
   ctx.place(id, at, { at: 0, dur: ctx.dur * 0.7 });
 
+  // ★ FUGACE — l'étiquette qui NOMME un geste, et s'en va avec lui.
+  //
+  //   Une annotation ordinaire reste : c'est une conclusion, elle appartient à
+  //   ce qui suit. Nommer une transformation est autre chose — « on retire les
+  //   accents », « en capitales » — : la mention accompagne le geste, et si
+  //   elle survivait, la ligne finirait couverte de sous-titres d'étapes déjà
+  //   jouées. Elle paraît, elle tient le temps qu'on la lise, elle s'efface.
+  if (ctx.op.fugace) {
+    ctx.anim({ id, prop: 'opacity', to: 0, at: ctx.dur * 0.78, dur: Math.max(1, ctx.dur * 0.22), ease: EASE.fade });
+  }
+
   if (ctx.op.arrow) {
     const aid = ctx.gensym('arrow');
     const y0 = above ? box.y - 6 : box.y + box.h + 6;

@@ -41,13 +41,15 @@ const CESAR_CLASSIQUE = 13;
  *
  * @param {number} decalage  le nombre de rangs dont l'alphabet glisse
  */
+// ★ **UN SEUL GABARIT POUR LES VINGT-CINQ.** ROT13 portait « classique » ;
+//   « enlève "classique" à la version 13 pour homogénéiser » (l'auteur). Le
+//   décalage 13 n'a rien qui se voie de plus que les autres à l'écran — c'est
+//   la même réglette qui coulisse d'un cran de plus ou de moins —, et le
+//   distinguer par le nom laissait croire à une autre méthode. Sa notoriété,
+//   elle, reste supérieure : c'est là que la différence est réelle.
 export const outilCesar = (decalage) => bilingue(
-  decalage === CESAR_CLASSIQUE
-    ? `Chiffre de César classique (${decalage})`
-    : `Chiffre de César (${decalage})`,
-  decalage === CESAR_CLASSIQUE
-    ? `Classic Caesar cipher (${decalage})`
-    : `Caesar cipher (${decalage})`,
+  `Chiffre de César (${decalage})`,
+  `Caesar cipher (${decalage})`,
 );
 
 /**
@@ -191,7 +193,20 @@ function etapeRemplacement(op) {
     if (cible.length < ctx.ids.length) {
       ops.push({ op: 'drop', targets: ctx.ids.slice(cible.length), stagger: 40 });
     }
-    return [etape(ctx, dire(op.libelle, ctx.langue), dire(op.regle, ctx.langue), enchainer(ops))];
+    // La MENTION du geste, sous la ligne, le temps de l'étape (voir `commun.js`).
+    // Elle vit à côté des substitutions, pas dans leur enchaînement : elle ne
+    // touche à aucun jeton, donc rien ne l'oblige à attendre son tour.
+    // ★ L'ancre est prise sur les jetons d'ARRIVÉE, jamais sur ceux de départ :
+    //   ceux-là sont morts à l'instant où la substitution se plane, et un id
+    //   supprimé ne se référence plus (invariant 4).
+    const mention = dire(op.mention, ctx.langue);
+    const corps = enchainer(ops);
+    const arrivees = [];
+    for (const p of pairs) for (const t of (Array.isArray(p.to) ? p.to : [p.to])) arrivees.push(t.id);
+    if (mention && arrivees.length) {
+      corps.push({ op: 'annotate', anchor: arrivees, text: mention, place: 'below', fugace: true, at: 0 });
+    }
+    return [etape(ctx, dire(op.libelle, ctx.langue), dire(op.regle, ctx.langue), corps)];
   };
 }
 
@@ -371,8 +386,18 @@ const PROTOCOLES = /^(?:https?|ftp|ftps|ssh|file):\/\//i;
  * montrée s'obtient en appliquant `deleet` — pas en relisant la table. Le
  * dessin ne peut donc pas diverger du calcul.
  */
-const LEET = Object.freeze({ 4: 'a', 3: 'e', 1: 'i', 0: 'o', 5: 's', 7: 't' });
-const deleet = (s) => s.replace(/[431057]/g, (c) => LEET[c] ?? c);
+// ★ NEUF CORRESPONDANCES, et les trois dernières se lisent à la CASSE près :
+//   le 6 a la panse et la hampe d'un « b » de bas de casse, le 8 les deux
+//   panses d'un « B » capital, le 9 la boucle et la jambe d'un « g ». Écrire
+//   « 8 → b » perdrait ce qui fait la substitution — c'est le DESSIN qui la
+//   justifie, pas la valeur du chiffre.
+const LEET = Object.freeze({
+  0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 6: 'b', 7: 't', 8: 'B', 9: 'g',
+});
+// La classe se DÉDUIT de la table : ajouter une correspondance suffit, il n'y
+// a pas de liste de chiffres à tenir à jour à côté.
+const CHIFFRES_LEET = new RegExp(`[${Object.keys(LEET).join('')}]`, 'g');
+const deleet = (s) => s.replace(CHIFFRES_LEET, (c) => LEET[c] ?? c);
 
 /**
  * ★ **LES VINGT-CINQ CÉSARS, D'UNE SEULE SOURCE.**
@@ -444,9 +469,7 @@ function cesarDe(n) {
     //   coûté une migration pour ne gagner qu'une régularité de façade. ROT13
     //   porte d'ailleurs un nom que les autres n'ont pas.
     id: n === CESAR_CLASSIQUE ? 'f.rot13' : `f.cesar${n}`, code: `fr${n}`, famille: 'filtre', from: 'STR', to: 'STR',
-    libelle: classique
-      ? bilingue('Chiffre de César classique (13)', 'Classic Caesar cipher (13)')
-      : bilingue(`Chiffre de César (${n})`, `Caesar cipher (${n})`),
+    libelle: bilingue(`Chiffre de César (${n})`, `Caesar cipher (${n})`),
     regle: bilingue(
       `Chaque lettre avance de ${RANGS[n]} rang${n > 1 ? 's' : ''}`,
       `Every letter moves ${RANGS_EN[n]} place${n > 1 ? 's' : ''} along`,
@@ -533,7 +556,14 @@ const brut = [
     id: 'f.avantSlash', code: 'fav', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On garde ce qui précède le « / »', 'Keep what comes before the "/"'),
     regle: bilingue('Le domaine, pas le chemin', 'The domain, not the path'),
-    notoriete: 0.70,
+    // ★ SOUS L'ATBASH, ET C'EST MÉRITÉ. Ils étaient notés 0,70 et 0,60 — au
+    //   niveau des filtres que tout le monde reconnaît. Or couper une adresse à
+    //   la première barre oblique n'est un geste évident QUE si l'on sait déjà
+    //   quelle moitié on veut : les deux moitiés existent, l'opérateur choisit,
+    //   et ce choix ne se lit nulle part dans la saisie. C'est la définition
+    //   même de l'ad hoc. « Ils devraient être pires que fatb » (l'auteur) —
+    //   l'Atbash, lui, est un chiffrement nommé qui ne choisit rien.
+    notoriete: 0.20, adHoc: 0.25,
     apply(valeur, traces) {
       const i = positionSlash(valeur);
       if (i < 0) return null;
@@ -544,7 +574,9 @@ const brut = [
     id: 'f.apresSlash', code: 'fap', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On garde ce qui suit le « / »', 'Keep what comes after the "/"'),
     regle: bilingue('Le chemin, pas le domaine', 'The path, not the domain'),
-    notoriete: 0.60,
+    // Encore un cran en dessous de son jumeau : garder le domaine est au moins
+    // le réflexe de qui lit une adresse ; garder le chemin ne l'est pas.
+    notoriete: 0.15, adHoc: 0.30,
     apply(valeur, traces) {
       const i = positionSlash(valeur);
       if (i < 0) return null;
@@ -667,6 +699,7 @@ const brut = [
     libelle: bilingue('On passe en capitales', 'Switch to capitals'),
     regle: bilingue('La capitale n’a pas le même tracé que le bas de casse',
       'A capital is not drawn like a lower-case letter'),
+    mention: bilingue('En capitales', 'To capitals'),
     notoriete: 0.90, commute: true,
     apply: (valeur, traces) => muer(valeur, traces, (s) => s.toUpperCase()),
     remplace: true,
@@ -676,6 +709,7 @@ const brut = [
     libelle: bilingue('On passe en bas de casse', 'Switch to lower case'),
     regle: bilingue('Le bas de casse n’a pas le même tracé que la capitale',
       'A lower-case letter is not drawn like a capital'),
+    mention: bilingue('En bas de casse', 'To lower case'),
     notoriete: 0.90, commute: true,
     apply: (valeur, traces) => muer(valeur, traces, (s) => s.toLowerCase()),
     remplace: true,
@@ -684,7 +718,11 @@ const brut = [
     id: 'f.sansAccents', code: 'fac', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On retire les accents', 'Strip the accents'),
     regle: bilingue('é devient e, ç devient c', 'é becomes e, ç becomes c'),
-    notoriete: 0.85, commute: true,
+    mention: bilingue('Normalisation sans accents', 'Accent-free normalisation'),
+    // ★ 0,95 — « son score de notoriété peut grimper » (l'auteur). Retirer les
+    //   accents n'est pas un tour de passe-passe : c'est ce que fait tout
+    //   moteur de recherche, tout identifiant d'URL, tout tri de bibliothèque.
+    notoriete: 0.95, commute: true,
     apply: (valeur, traces) => muer(valeur, traces, sansAccents),
     remplace: true,
   },
@@ -692,13 +730,14 @@ const brut = [
     id: 'f.leet', code: 'flt', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On décode le leetspeak', 'Decode the leetspeak'),
     // Le libellé dit le GESTE, l'outil dit ce qu'on a sous les yeux : une table
-    // de six correspondances, et rien d'autre à démontrer.
+    // de neuf correspondances, et rien d'autre à démontrer.
     outil: bilingue('Table du leetspeak', 'Leetspeak table'),
-    regle: bilingue('4→a, 3→e, 1→i, 0→o, 5→s, 7→t', '4→a, 3→e, 1→i, 0→o, 5→s, 7→t'),
+    regle: bilingue('0→o, 1→i, 3→e, 4→a, 5→s, 6→b, 7→t, 8→B, 9→g',
+      '0→o, 1→i, 3→e, 4→a, 5→s, 6→b, 7→t, 8→B, 9→g'),
     notoriete: 0.30, adHoc: 0.15,
     apply: (valeur, traces) => muer(valeur, traces, deleet),
     remplace: true,
-    // ★ Six correspondances, arbitraires : rien à démontrer, tout à MONTRER.
+    // ★ Neuf correspondances, arbitraires : rien à démontrer, tout à MONTRER.
     //   Une réglette ordinaire suffit — le chiffre en haut, la lettre dessous —
     //   et la règle cesse d'être une ligne de légende qu'il faut croire. Pas de
     //   glissière ici : le leet n'est pas un déplacement de l'alphabet, et le

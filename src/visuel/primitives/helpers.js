@@ -545,7 +545,16 @@ export function accumulate(ctx, spec) {
   const tD = tE + tVol;          // fin du vol = début de la remontée
 
   // --- 1 & 2. l'accolade et son symbole ------------------------------------
-  const acc = tracerAccolade(ctx, operands, {
+  // ★ L'ACCOLADE DÉJÀ TRACÉE — quand le calcul n'ouvre pas le geste.
+  //
+  //   Une chorégraphie en plusieurs temps commence parfois par poser
+  //   l'accolade, puis désigne, efface, réordonne, et ne calcule qu'à la fin
+  //   (voir `c.maxMoinsMin`). En tracer une seconde au moment du calcul en
+  //   superposerait deux, décalées, sur la même ligne. On réutilise donc celle
+  //   qui promet déjà — son point de résultat est enregistré sur chacune de ses
+  //   sources (`scene.ancreDe`), et il reste valable tant que le step dure.
+  const dejaLa = spec.accoladeExistante ? ctx.scene.ancreDe(operands[0]) : null;
+  const acc = dejaLa ? null : tracerAccolade(ctx, operands, {
     shape: 'brace',
     tighten: 0.66,
     // Les signes déjà posés entre les termes font le travail du soulignement,
@@ -556,7 +565,7 @@ export function accumulate(ctx, spec) {
     at: t0,
     dur: tAcc,
   });
-  const ancre = acc ? acc.resultat : posDeRepli(ctx, operands);
+  const ancre = dejaLa || (acc ? acc.resultat : posDeRepli(ctx, operands));
 
   // --- 3. les doublons montent d'un cran, sur une ligne étiquetée ----------
   const copies = [];

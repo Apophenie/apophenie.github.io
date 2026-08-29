@@ -196,9 +196,12 @@ test('leet speak : une réglette ordinaire, mais une réglette QUAND MÊME', () 
   assert.deepEqual(steps.map((s) => s.ops[0].disposition), ['reglette', 'reglette']);
   assert.deepEqual(steps.map((s) => s.ops[0].letter), ['0', '3']);
   assert.deepEqual(steps.map((s) => s.ops[0].to.text), ['o', 'e']);
-  // Six correspondances montrées, pas six affirmées en légende.
+  // Neuf correspondances montrées, pas neuf affirmées en légende. Les trois
+  // dernières se lisent à la casse près : le 6 a la panse d'un « b », le 8 les
+  // deux panses d'un « B », le 9 la boucle d'un « g » — c'est le DESSIN qui
+  // justifie la substitution, et l'écrire en bas de casse la perdrait.
   assert.deepEqual(steps[0].ops[0].entries.map((e) => `${e.char}${e.value}`),
-    ['0o', '1i', '3e', '4a', '5s', '7t']);
+    ['0o', '1i', '3e', '4a', '5s', '6b', '7t', '8B', '9g']);
 });
 
 test('la table montrée est dérivée de la fonction qui chiffre, pas d’une copie', () => {

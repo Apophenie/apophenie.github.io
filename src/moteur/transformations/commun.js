@@ -254,7 +254,7 @@ export const DUREE_OP = Object.freeze({
   highlight: 600, dim: 700, drop: 2000, substitute: 1100, move: 900, group: 1300,
   insertOperators: 700, sum: 2800, reduce: 2600, flip180: 1100, sevenSeg: 3000,
   fourteenSeg: 3400, countStrokes: 3000, keyboard: 2400, annotate: 800, pulse: 600, reveal: 1400,
-  wait: 900, partition: 1800, table: 2600, horns: 2200,
+  wait: 900, partition: 1800, table: 2600, horns: 2200, merge: 1000,
 });
 
 /** Nombre de cibles échelonnées par `stagger`, pour mesurer l'étendue réelle. */
@@ -341,6 +341,7 @@ export function def(spec) {
     steps: null,
     sortie: null,
     outil: null,
+    mention: null,
     ...spec,
   };
   // ★ LE NOM DE L'OUTIL — ce que la scène AFFICHE sous le décor qu'elle monte.
@@ -372,6 +373,20 @@ export function def(spec) {
       throw new Error(`opérateur « ${op.id} » : « ${champ} » doit être un couple `
         + `{ ${LANGUES.join(', ')} } de chaînes non vides — reçu ${JSON.stringify(op[champ])}.`);
     }
+  }
+  // ★ LA MENTION — le nom du geste, écrit sous la ligne le temps qu'il dure.
+  //
+  // Elle ne remplace ni `libelle` (que Le Registre annonce, hors de la scène)
+  // ni `outil` (qui nomme un DÉCOR monté : une réglette, un clavier). Elle
+  // répond à un troisième besoin : une transformation qui n'a ni décor ni
+  // accolade — retirer les accents, passer en capitales — se joue à l'écran
+  // sans que rien ne dise ce qu'on est en train de faire. La mention le dit, et
+  // s'efface avec l'étape (`visuel/primitives/annotate.js`, champ « fugace »).
+  //
+  // Facultative : un geste qui se lit tout seul n'a pas à être sous-titré.
+  if (op.mention !== null && !estBilingue(op.mention)) {
+    throw new Error(`opérateur « ${op.id} » : « mention » doit être null ou un couple `
+      + `{ ${LANGUES.join(', ')} } — reçu ${JSON.stringify(op.mention)}.`);
   }
   if (op.note !== null && !estBilingue(op.note)) {
     throw new Error(`opérateur « ${op.id} » : « note » doit être null ou un couple `
