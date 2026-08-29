@@ -404,6 +404,59 @@ function arc(a, b, hauteur) {
 }
 
 /**
+ * ★ LE NIVELLEMENT, SEUL — un `1` du plus grand au plus petit, en boucle.
+ *
+ * Extrait d'`accumulate` parce qu'il a désormais deux emplois : la MOYENNE, qui
+ * nivelle puis fusionne ce qui est devenu égal, et l'ÉGALISATION, qui nivelle
+ * et s'arrête là. Les deux doivent montrer rigoureusement le même transfert —
+ * s'ils divergeaient, l'un des deux mentirait sur ce que l'autre démontre.
+ *
+ * @param {object} ctx
+ * @param {{operands:string[], transferts:object[], paliers:Map, at:number, dur:number}} spec
+ */
+export function jouerTransferts(ctx, spec) {
+  const { operands, transferts, paliers } = spec;
+  const tB = spec.at;
+  const tNiv = spec.dur;
+  // --- 4. le nivellement : un `1` du plus grand au plus petit --------------
+  const pas = tNiv / (transferts.length + 0.35);
+  transferts.forEach((tr, k) => {
+    const a = tB + k * pas;
+    const dur = Math.max(1, pas * 1.25);
+    const src = ctx.scene.pos(operands[tr.de]);
+    const dst = ctx.scene.pos(operands[tr.vers]);
+    const id = ctx.gensym('unite');
+    ctx.scene.create({
+      id, role: 'text', text: '1', kind: 'digit', inFlow: false,
+      base: { opacity: 0, scale: 0.5, fill: ctx.palette.gold },
+    }, { where: ctx.where });
+    ctx.scene.place(id, exigerPoint(ctx, { x: src.x, y: src.y },
+      'le 1 qui quitte le plus grand', id));
+    const chemin = arc(src, dst, ctx.metrics.fontSize * 1.15);
+    ctx.anim({ id, prop: 'translate', values: chemin, at: a, dur, ease: EASE.linear });
+    ctx.anim({ id, prop: 'opacity', values: [0, 1, 1, 0], offsets: [0, 0.16, 0.84, 1], at: a, dur });
+    ctx.anim({ id, prop: 'scale', values: [0.5, 0.62, 0.5], offsets: [0, 0.5, 1], at: a, dur });
+  });
+  // Les deux nombres changent À L'ARRIVÉE du 1, pas à son départ : c'est le
+  // transfert qui fait la nouvelle valeur, et on doit le lire dans cet ordre.
+  for (const [id, ps] of paliers) {
+    if (ps.length < 2) continue;
+    const seuils = ps.map((p) => ({ u: p.k === 0 ? 0 : (p.k - 1 + 0.94) / (transferts.length + 0.35), text: p.text }));
+    ctx.discrete({
+      id,
+      channel: 'text',
+      at: tB,
+      dur: Math.max(1, tNiv),
+      render: (x) => {
+        let out = seuils[0].text;
+        for (const s of seuils) if (x >= s.u) out = s.text;
+        return out;
+      },
+    });
+  }
+}
+
+/**
  * Accumulation sous l'accolade — la composition demandée par CONTRACTS §3.1
  * pour tout combinateur : **les sources dans l'accolade, le résultat sous la
  * pointe, l'opération écrite**.
@@ -575,43 +628,7 @@ export function accumulate(ctx, spec) {
   }
 
   // --- 4. le nivellement : un `1` du plus grand au plus petit --------------
-  if (transferts.length) {
-    const pas = tNiv / (transferts.length + 0.35);
-    transferts.forEach((tr, k) => {
-      const a = tB + k * pas;
-      const dur = Math.max(1, pas * 1.25);
-      const src = ctx.scene.pos(operands[tr.de]);
-      const dst = ctx.scene.pos(operands[tr.vers]);
-      const id = ctx.gensym('unite');
-      ctx.scene.create({
-        id, role: 'text', text: '1', kind: 'digit', inFlow: false,
-        base: { opacity: 0, scale: 0.5, fill: ctx.palette.gold },
-      }, { where: ctx.where });
-      ctx.scene.place(id, exigerPoint(ctx, { x: src.x, y: src.y },
-        'le 1 qui quitte le plus grand', id));
-      const chemin = arc(src, dst, ctx.metrics.fontSize * 1.15);
-      ctx.anim({ id, prop: 'translate', values: chemin, at: a, dur, ease: EASE.linear });
-      ctx.anim({ id, prop: 'opacity', values: [0, 1, 1, 0], offsets: [0, 0.16, 0.84, 1], at: a, dur });
-      ctx.anim({ id, prop: 'scale', values: [0.5, 0.62, 0.5], offsets: [0, 0.5, 1], at: a, dur });
-    });
-    // Les deux nombres changent À L'ARRIVÉE du 1, pas à son départ : c'est le
-    // transfert qui fait la nouvelle valeur, et on doit le lire dans cet ordre.
-    for (const [id, ps] of paliers) {
-      if (ps.length < 2) continue;
-      const seuils = ps.map((p) => ({ u: p.k === 0 ? 0 : (p.k - 1 + 0.94) / (transferts.length + 0.35), text: p.text }));
-      ctx.discrete({
-        id,
-        channel: 'text',
-        at: tB,
-        dur: Math.max(1, tNiv),
-        render: (x) => {
-          let out = seuils[0].text;
-          for (const s of seuils) if (x >= s.u) out = s.text;
-          return out;
-        },
-      });
-    }
-  }
+  if (transferts.length) jouerTransferts(ctx, { operands, transferts, paliers, at: tB, dur: tNiv });
 
   // --- 5a. ce qui ne compte pas s'efface, sur place ------------------------
   if (effacer.length) {

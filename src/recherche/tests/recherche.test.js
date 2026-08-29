@@ -442,9 +442,23 @@ test('★ suppression du décret — les saisies courtes se démontrent sans rie
  * de le déguiser : ces trois saisies sont les seules du corpus dégénéré qui en
  * dépendent encore.
  */
-test('★ le joker reste indispensable aux saisies sans lettre', () => {
+/**
+ * ★ « 42 » A QUITTÉ CETTE LISTE, et c'est une bonne nouvelle.
+ *
+ * Il n'y trouvait sa place que par pauvreté du catalogue : deux chiffres, aucun
+ * opérateur pour les lire. La table du leetspeak porte maintenant neuf
+ * correspondances au lieu de six, et le dictionnaire six mille mots au lieu de
+ * quarante-neuf — `42` se lit donc `a2`, puis se traduit, puis se compte. Le
+ * joker n'y est plus indispensable parce que la méthode existe, pas parce
+ * qu'on aurait relâché l'exigence.
+ *
+ * Ce que ce test garde est intact : une saisie où il n'y a RIEN à lire — de la
+ * ponctuation, des espaces — n'a d'autre issue que le joker, et le moteur ne
+ * doit jamais lui inventer une méthode.
+ */
+test('★ le joker reste indispensable aux saisies sans rien à lire', () => {
   const m = creerMoteur(catalogue);
-  for (const s of ['42', '!!!', '   ']) {
+  for (const s of ['!!!', '   ']) {
     const r = m.resoudre(s);
     assert.equal(r.approches.length, 1, `« ${s} » : ${r.approches.length} approches`);
     assert.equal(r.approches[0].mode, 'JOKER', `« ${s} » : ${r.approches[0].mode}`);

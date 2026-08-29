@@ -50,8 +50,25 @@ def sans_accents(s):
                    if unicodedata.category(c) != 'Mn')
 
 
+# Combien d'acceptions on retient par mot. Trois : au-delà, le dictionnaire
+# grossit sans que la lecture y gagne — et un opérateur qui offrirait dix
+# lectures d'un même mot ne serait plus une méthode, ce serait un catalogue de
+# prétextes.
+ACCEPTIONS = 3
+
+
 def lire(chemin):
-    """{mot source → première traduction simple}, dans l'ordre du fichier."""
+    """{mot source → ses premières traductions simples}, dans l'ordre du fichier.
+
+    ★ PLUSIEURS ACCEPTIONS, ET C'EST VOULU. « hope » donne « espérer » puis
+      « espoir » : le verbe et le nom, deux mots de longueurs différentes, donc
+      deux démonstrations différentes. N'en garder qu'un revenait à trancher à
+      la place du lecteur — et à trancher, en l'occurrence, pour celui que
+      FreeDict cite en premier, sans que ce soit un choix de personne. Les trois
+      premières sont donc conservées, et le catalogue en fait trois opérateurs
+      (`ffr`, `ffr2`, `ffr3`) : le choix devient VISIBLE dans l'URL, et se paie
+      en ad-hoc au lieu de se cacher dans une table.
+    """
     racine = ET.parse(chemin).getroot()
     out = {}
     for entree in racine.iter(f'{TEI}entry'):
@@ -59,19 +76,26 @@ def lire(chemin):
         if len(orths) != 1 or not MOT.match(orths[0].strip()):
             continue
         source = orths[0].strip().lower()
+        # La clé est SANS ACCENTS : `traduire()` cherche d'abord la forme
+        # normalisée, pour que « bête » se trouve depuis « bete ».
+        cle = sans_accents(source)
+        if cle in out:
+            continue
+        cibles = []
         for cit in entree.iter(f'{TEI}cit'):
             if cit.get('type') != 'trans':
                 continue
             for quote in cit.iter(f'{TEI}quote'):
                 cible = (quote.text or '').strip().lower()
-                if not MOT.match(cible) or cible == source:
+                if not MOT.match(cible) or cible == source or cible in cibles:
                     continue
-                # La clé est SANS ACCENTS : `traduire()` cherche d'abord la
-                # forme normalisée, pour que « bête » se trouve depuis « bete ».
-                out.setdefault(sans_accents(source), cible)
+                cibles.append(cible)
+                if len(cibles) >= ACCEPTIONS:
+                    break
+            if len(cibles) >= ACCEPTIONS:
                 break
-            if sans_accents(source) in out:
-                break
+        if cibles:
+            out[cle] = cibles
     return out
 
 
@@ -94,17 +118,23 @@ def rendre(en_fr, fr_en):
         ' * Seules les entrées MOT SIMPLE → MOT SIMPLE sont retenues : `traduire()`',
         ' * rend un mot entier, et la scène ne sait montrer que cela. Les clés sont',
         ' * sans accents et en bas de casse (voir le générateur).',
+        ' *',
+        ' * Chaque mot porte ses TROIS premières acceptions, dans l’ordre du',
+        ' * dictionnaire : « hope » donne « espérer », puis « espoir ». Le catalogue',
+        ' * en fait autant d’opérateurs (`ffr`, `ffr2`, `ffr3`), pour que le choix',
+        ' * d’une lecture soit écrit dans l’URL et se paie, au lieu d’être tranché',
+        ' * en silence par l’ordre d’un fichier.',
         ' */',
         '',
         f'/** {len(en_fr)} entrées, anglais → français. */',
         'export const DICO_EN_FR = Object.freeze({',
     ]
     for k, v in sorted(en_fr.items()):
-        lignes.append(f'  {js(k)}: {js(v)},')
+        lignes.append(f'  {js(k)}: [{", ".join(js(x) for x in v)}],')
     lignes += ['});', '', f'/** {len(fr_en)} entrées, français → anglais. */',
                'export const DICO_FR_EN = Object.freeze({']
     for k, v in sorted(fr_en.items()):
-        lignes.append(f'  {js(k)}: {js(v)},')
+        lignes.append(f'  {js(k)}: [{", ".join(js(x) for x in v)}],')
     lignes += ['});', '']
     return '\n'.join(lignes)
 

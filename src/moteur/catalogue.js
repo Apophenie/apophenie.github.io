@@ -77,7 +77,9 @@ export const ORDRE_CANONIQUE = Object.freeze([
   // Les quatre cadets du dédoublonnage, par rang du survivant, puis les deux
   // annulations — même geste, résultats différents (`filtres.js`).
   'fd2', 'fd3', 'fd4', 'fd5', 'fpr', 'fun', 'fr',
-  'fi', 'fmr', 'ffr', 'fen', 'fmaj', 'fmin', 'fac', 'flt', 'fatb', 'fr13',
+  'fi', 'fmr',
+  // Les trois acceptions de chaque sens de traduction (`filtres.js`).
+  'ffr', 'ffr2', 'ffr3', 'fen', 'fen2', 'fen3', 'fmaj', 'fmin', 'fac', 'flt', 'fatb', 'fr13',
   // ★ Les vingt-quatre autres décalages, par ordre croissant — voir
   //   `transformations/filtres.js › CESARS`. `fr13` garde son rang d'aîné.
   'fr1', 'fr2', 'fr3', 'fr4', 'fr5', 'fr6', 'fr7', 'fr8', 'fr9', 'fr10', 'fr11', 'fr12', 'fr14', 'fr15', 'fr16', 'fr17', 'fr18', 'fr19', 'fr20', 'fr21', 'fr22', 'fr23', 'fr24', 'fr25',

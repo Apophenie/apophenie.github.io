@@ -530,9 +530,20 @@ function etapeTable(op) {
 export { DICO_EN_FR, DICO_FR_EN } from '../tables/traduction.js';
 
 /** Traduction d'un mot entier — `null` si le mot est inconnu. */
-function traduire(valeur, traces, dico) {
+/**
+ * Traduction d'un mot entier, à l'acception `rang` — `null` si le mot est
+ * inconnu, ou s'il n'a pas tant d'acceptions.
+ *
+ * ★ UN RANG QUI NE TROUVE RIEN REND `null`, il ne se replie pas sur le
+ *   précédent. Sans quoi `ffr3` jouerait `ffr` sur les quatre mille mots qui
+ *   n'ont qu'une lecture, et l'URL annoncerait un troisième choix là où il n'y
+ *   en avait qu'un : trois codes pour une seule démonstration, indiscernables
+ *   au rejeu. Un opérateur qui ne s'applique pas doit le dire.
+ */
+function traduire(valeur, traces, dico, rang = 1) {
   const mot = sansAccents(valeur).toLowerCase();
-  const cible = dico[mot] ?? dico[valeur.toLowerCase()];
+  const acceptions = dico[mot] ?? dico[valeur.toLowerCase()];
+  const cible = Array.isArray(acceptions) ? acceptions[rang - 1] : (rang === 1 ? acceptions : null);
   if (!cible || cible.toLowerCase() === valeur.toLowerCase()) return null;
   const toutes = fusion(traces);
   return { valeur: cible, traces: [...cible].map(() => toutes) };
@@ -931,32 +942,44 @@ const brut = [
       return parts.map((p) => [p.debut, p.fin]);
     },
   },
-  {
-    id: 'f.traduitFR', code: 'ffr', famille: 'filtre', from: 'STR', to: 'STR',
-    libelle: bilingue('On traduit en français', 'Translate into French'),
-    regle: bilingue('Le sens ne dépend pas de la langue', 'Meaning does not depend on the language'),
+  // ★ TROIS LECTURES D'UN MOT, TROIS OPÉRATEURS — et le choix est dans l'URL.
+  //
+  //   « hope » se traduit par « espérer », « souhaiter » ou « espérance » : le
+  //   verbe, son synonyme, le nom. Trois mots de longueurs différentes, donc
+  //   trois démonstrations différentes. N'en offrir qu'une revenait à trancher
+  //   à la place du lecteur — et à trancher pour celle que le dictionnaire cite
+  //   en premier, ce qui n'est le choix de personne.
+  //
+  //   « Il serait utile que l'opérateur soit déclinable en plusieurs variantes,
+  //   comme ça on peut garder la traduction qui nous arrange, tout en ayant un
+  //   vrai dictionnaire » (l'auteur). Le choix devient alors VISIBLE : il
+  //   s'écrit dans le lien, il se relit, et il se paie en ad-hoc — préférer la
+  //   troisième acception parce qu'elle tombe juste est exactement le
+  //   magasinage qu'un décalage de César choisi après coup nous coûte déjà.
+  ...[
+    ['f.traduitFR', 'ffr', DICO_EN_FR, bilingue('On traduit en français', 'Translate into French')],
+    ['f.traduitEN', 'fen', DICO_FR_EN, bilingue('On traduit en anglais', 'Translate into English')],
+  ].flatMap(([id, code, dico, libelle]) => [1, 2, 3].map((rang) => ({
+    id: rang === 1 ? id : `${id}${rang}`,
+    code: rang === 1 ? code : `${code}${rang}`,
+    famille: 'filtre', from: 'STR', to: 'STR',
+    libelle,
+    regle: rang === 1
+      ? bilingue('Le sens ne dépend pas de la langue', 'Meaning does not depend on the language')
+      : bilingue(`Le sens ne dépend pas de la langue — ${rang}ᵉ acception`,
+        `Meaning does not depend on the language — sense ${rang}`),
     mention: bilingue('Traduction', 'Translation'),
-    // ★ L'AD HOC MONTE AVEC LA COUVERTURE, et c'est la même leçon que les
-    //   vingt-cinq césars. Tant que le dictionnaire tenait en quarante-neuf
-    //   mots, traduire ne s'appliquait presque jamais : le noter 0,1 ne coûtait
-    //   rien parce que l'occasion ne se présentait pas. Avec six mille entrées,
+    // ★ L'AD HOC MONTE AVEC LA COUVERTURE, et c'est la leçon des vingt-cinq
+    //   césars. Tant que le dictionnaire tenait en quarante-neuf mots,
+    //   traduire ne s'appliquait presque jamais. Avec six mille entrées,
     //   l'opérateur devient applicable partout — et « changer de langue jusqu'à
-    //   ce que ça tombe juste » est exactement le magasinage qu'on reproche à
-    //   un décalage de César choisi après coup. Rien dans la saisie ne dit
-    //   qu'il fallait la lire en français.
-    notoriete: 0.15, adHoc: 0.45,
-    apply: (valeur, traces) => traduire(valeur, traces, DICO_EN_FR),
+    //   ce que ça tombe juste » est du magasinage. Descendre dans les
+    //   acceptions en est un second, superposé au premier.
+    notoriete: rang === 1 ? 0.15 : 0.10,
+    adHoc: 0.45 + (rang - 1) * 0.12,
+    apply: (valeur, traces) => traduire(valeur, traces, dico, rang),
     remplace: true,
-  },
-  {
-    id: 'f.traduitEN', code: 'fen', famille: 'filtre', from: 'STR', to: 'STR',
-    libelle: bilingue('On traduit en anglais', 'Translate into English'),
-    regle: bilingue('Le sens ne dépend pas de la langue', 'Meaning does not depend on the language'),
-    mention: bilingue('Traduction', 'Translation'),
-    notoriete: 0.15, adHoc: 0.45,
-    apply: (valeur, traces) => traduire(valeur, traces, DICO_FR_EN),
-    remplace: true,
-  },
+  }))),
   {
     id: 'f.majuscule', code: 'fmaj', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On passe en capitales', 'Switch to capitals'),

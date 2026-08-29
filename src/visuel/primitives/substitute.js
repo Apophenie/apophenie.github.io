@@ -58,6 +58,9 @@ export function plan(ctx) {
   const sources = new Set(jobs.map((j) => j.src.id));
   for (const j of jobs) {
     j.ancre = j.tos.length === 1 ? ctx.scene.ancreDe(j.src.id) : null;
+    // Le rang de la source DANS LA LIGNE, relevé avant toute suppression :
+    // c'est lui qui dira dans quel ordre les valeurs rentrent.
+    j.rang = ctx.scene.flowIndex(j.src.id);
     j.gauche = null;
     for (let i = ctx.scene.flowIndex(j.src.id) - 1; i >= 0; i--) {
       const id = ctx.scene.flow[i];
@@ -126,10 +129,26 @@ export function plan(ctx) {
   // 4. la valeur remonte prendre la place dans la ligne — c'est ce geste qui
   //    dit que le calcul est refermé (le même que le temps 5 de `accumulate`).
   if (!sousAccolade) return;
-  for (const j of jobs) {
-    if (!j.ancre) continue;
-    const index = j.gauche ? ctx.scene.flowIndex(j.gauche) + 1 : 0;
+  // ★ PLUSIEURS VALEURS QUI RENTRENT, ET L'ORDRE DE LA LIGNE.
+  //
+  //   Chaque valeur reprend la place de sa source : juste après le voisin de
+  //   gauche SURVIVANT. Quand toutes les sources sont substituées — une ligne
+  //   entière de nombres qui changent sous une accolade —, plus personne n'a de
+  //   voisin survivant : les quatre valeurs visaient donc l'index 0, et la
+  //   ligne ressortait À L'ENVERS. Mesuré sur l'égalisation, où `8 15 16 5`
+  //   devenait `11 11 11 11` dans l'ordre inverse — invisible tant que les
+  //   quatre nombres sont égaux, mais le verdict, lui, couronnait les mauvais.
+  //
+  //   Les jobs entrent donc dans l'ORDRE OÙ ILS ÉTAIENT, et ceux qui partagent
+  //   un même point d'insertion s'y rangent l'un après l'autre.
+  const aRentrer = jobs.filter((j) => j.ancre);
+  aRentrer.sort((a, b) => a.rang - b.rang);
+  let dernier = -1;
+  for (const j of aRentrer) {
+    const base = j.gauche ? ctx.scene.flowIndex(j.gauche) + 1 : 0;
+    const index = Math.max(base, dernier + 1);
     ctx.scene.enterFlow(j.tos[0].id, index, ctx.where);
+    dernier = index;
   }
   ctx.reflow({ at: ctx.dur * 0.56, dur: ctx.dur * 0.44, ease: EASE.move });
 }

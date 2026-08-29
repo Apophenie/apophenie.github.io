@@ -169,7 +169,11 @@ const MAPPEURS_DE_SERVICE = new Set([
 export const NOMS = {
   // ── filtres caractéristiques
   'f.traduitFR': b('Par le détour linguistique', 'Through the linguistic detour'),
+  'f.traduitFR2': b('Par le détour linguistique', 'Through the linguistic detour'),
+  'f.traduitFR3': b('Par le détour linguistique', 'Through the linguistic detour'),
   'f.traduitEN': b('Par le détour linguistique', 'Through the linguistic detour'),
+  'f.traduitEN2': b('Par le détour linguistique', 'Through the linguistic detour'),
+  'f.traduitEN3': b('Par le détour linguistique', 'Through the linguistic detour'),
   'f.atbash': b('Par le chiffre Atbash', 'Through the Atbash cipher'),
   'f.rot13': b('Par le chiffre de César', 'Through the Caesar cipher'),
   ...cesars((n) => b(`Par le chiffre de César (${n})`, `Through the Caesar cipher (${n})`)),
@@ -390,6 +394,10 @@ export const PRECISIONS = {
   'f.motRepete': b('sur le motif répété', 'on the repeated pattern'),
   'f.traduitFR': b('traduit en français', 'translated into French'),
   'f.traduitEN': b('traduit en anglais', 'translated into English'),
+  'f.traduitFR2': b('traduit en français', 'translated into French'),
+  'f.traduitFR3': b('traduit en français', 'translated into French'),
+  'f.traduitEN2': b('traduit en anglais', 'translated into English'),
+  'f.traduitEN3': b('traduit en anglais', 'translated into English'),
   'f.majuscule': b('en capitales', 'in capitals'),
   'f.minuscule': b('en bas de casse', 'in lower case'),
   'f.sansAccents': b('sans les accents', 'without the accents'),

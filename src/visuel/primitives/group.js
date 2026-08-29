@@ -57,8 +57,9 @@
 
 import {
   targetsOf, tracerAccolade, tokenSpec, accumulate, numberOf,
-  nivellementDe, MAX_TRANSFERTS,
+  nivellementDe, MAX_TRANSFERTS, jouerTransferts,
 } from './helpers.js';
+import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
 
 export const name = 'group';
@@ -71,6 +72,15 @@ export function plan(ctx) {
     planRamassage(ctx, ids);
     return;
   }
+
+  // ★ L'ÉGALISATION — niveler, et s'arrêter là.
+  //
+  //   La moyenne fait deux choses en un geste : elle égalise, puis elle
+  //   fusionne ce qui est devenu égal. Ce sont deux règles, et la première se
+  //   tient toute seule — « ça ne serait donc pas une moyenne mais une
+  //   répartition homogène » (l'auteur). L'accolade se ferme, les `1` passent
+  //   du plus grand au plus petit, et la ligne reste une ligne de nombres.
+  if (ctx.op.egaliser) { planEgalisation(ctx, ids); return; }
 
   const shape = ctx.op.shape || 'brace';
   if (shape !== 'brace' && shape !== 'box') {
@@ -110,6 +120,61 @@ function planRamassage(ctx, ids) {
   const label = typeof ctx.op.label === 'string' && ctx.op.label ? ctx.op.label : null;
   if (ctx.op.niveler) planNivellement(ctx, ids, to, symbol, label);
   else planDecompte(ctx, ids, to, symbol, label);
+}
+
+/** L'accolade qui nivelle sans rien ramasser : `c.egalisation`. */
+function planEgalisation(ctx, ids) {
+  const valeurs = ids.map((id) => numberOf(ctx.scene.live(id, ctx.where).text, ctx, id));
+  if (valeurs.length < 2) {
+    fail(`${ctx.where}une égalisation demande au moins deux nombres : il n'y a rien à égaliser.`);
+  }
+  const { transferts, valeurs: nivelees, converge } = nivellementDe(valeurs);
+  if (!converge) {
+    fail(`${ctx.where}l'égalisation de ${valeurs.join(', ')} demanderait plus de ${MAX_TRANSFERTS} `
+      + 'transferts : le geste serait interminable.');
+  }
+  // Contrôle croisé : un transfert donne autant qu'il prend, la somme est un
+  // invariant. On le vérifie plutôt que de le supposer.
+  const avant = valeurs.reduce((a, b) => a + b, 0);
+  const apres = nivelees.reduce((a, b) => a + b, 0);
+  if (avant !== apres) {
+    fail(`${ctx.where}l'égalisation a perdu ${avant - apres} en route : un transfert donne autant qu'il prend.`);
+  }
+  // Ce que l'émetteur annonce doit être ce que le nivellement produit.
+  const dits = ctx.op.resultat;
+  if (Array.isArray(dits) && dits.join(',') !== nivelees.join(',')) {
+    fail(`${ctx.where}incohérence : l'égalisation de ${valeurs.join(', ')} donne ${nivelees.join(', ')}, `
+      + `mais l'émetteur annonce ${dits.join(', ')}. Le moteur visuel refuse d'afficher un calcul faux.`);
+  }
+
+  const T = ctx.dur;
+  const acc = tracerAccolade(ctx, ids, {
+    shape: 'brace', tighten: 0.66,
+    symbol: ctx.op.symbol || '≡', label: ctx.op.label || null,
+    at: 0, dur: T * 0.28,
+  });
+  // Les largeurs réservées, comme dans `accumulate` : un jeton qui passera de
+  // `8` à `11` doit avoir sa place avant de changer, sinon il recouvre son
+  // voisin à mi-parcours.
+  const paliers = new Map();
+  const courant = valeurs.map((v) => String(v));
+  ids.forEach((id, i) => paliers.set(id, [{ k: 0, text: courant[i] }]));
+  transferts.forEach((tr, k) => {
+    paliers.get(ids[tr.de]).push({ k: k + 1, text: String(tr.source) });
+    paliers.get(ids[tr.vers]).push({ k: k + 1, text: String(tr.cible) });
+  });
+  for (const [id, ps] of paliers) {
+    const large = Math.max(...ps.map((p) => [...p.text].length));
+    const node = ctx.scene.get(id);
+    node.w = Math.max(node.w, large * ctx.metrics.advance);
+  }
+  if (transferts.length) {
+    jouerTransferts(ctx, { operands: ids, transferts, paliers, at: T * 0.28, dur: T * 0.58 });
+  }
+  if (acc) {
+    for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.12 });
+  }
+  ctx.reflow({ at: T * 0.88, dur: T * 0.12, ease: EASE.move });
 }
 
 /**

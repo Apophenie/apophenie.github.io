@@ -94,6 +94,7 @@ import { decouperMots } from './filtres.js';
 import { def, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade } from './commun.js';
 import { opComptage } from './combinateurs.js';
 import { bilingue, dire } from '../i18n.js';
+import { nivellementDe, dureeRamassage } from './combinateurs.js';
 
 const pli = (c) => sansAccents(String(c)).toUpperCase();
 const estVoyelle = (c) => VOYELLES.includes(pli(c));
