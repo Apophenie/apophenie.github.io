@@ -79,7 +79,7 @@ export const LINE_HEIGHT = 78;   // unités viewBox
 export const OP_NAMES = Object.freeze([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse',
 ]);
 
 /**
@@ -126,6 +126,8 @@ export const DEFAULT_DUR = Object.freeze({
   // Assez lent pour qu'on ait le temps de vérifier le tri avant qu'il ne
   // soit consommé — c'est tout l'intérêt du geste.
   shift: 900,
+  // Monter, converger, retomber : trois temps, et le choc doit se voir.
+  collapse: 2400,
 });
 
 /** `kind` des tokens — vocabulaire fermé (recherche §2.2). */

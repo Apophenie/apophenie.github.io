@@ -254,7 +254,7 @@ export const DUREE_OP = Object.freeze({
   highlight: 600, dim: 700, drop: 2000, substitute: 1100, move: 900, group: 1300,
   insertOperators: 700, sum: 2800, reduce: 2600, flip180: 1100, sevenSeg: 3000,
   fourteenSeg: 3400, countStrokes: 3000, keyboard: 2400, annotate: 800, pulse: 600, reveal: 1400,
-  wait: 900, partition: 1800, table: 2600, horns: 2200, merge: 1000, shift: 900,
+  wait: 900, partition: 1800, table: 2600, horns: 2200, merge: 1000, shift: 900, collapse: 2400,
 });
 
 /** Nombre de cibles échelonnées par `stagger`, pour mesurer l'étendue réelle. */

@@ -73,7 +73,10 @@ const echec = (msg, d) => { throw new ErreurCatalogue(msg, d); };
  * d'exploration de tout ce qui suit et le classement avec.
  */
 export const ORDRE_CANONIQUE = Object.freeze([
-  'fp', 'fw', 'ftld', 'fav', 'fap', 'fl', 'fv', 'fvy', 'fc', 'fd', 'fr',
+  'fp', 'fw', 'ftld', 'fav', 'fap', 'fl', 'fv', 'fvy', 'fc', 'fd',
+  // Les quatre cadets du dédoublonnage, par rang du survivant, puis les deux
+  // annulations — même geste, résultats différents (`filtres.js`).
+  'fd2', 'fd3', 'fd4', 'fd5', 'fpr', 'fun', 'fr',
   'fi', 'fmr', 'ffr', 'fen', 'fmaj', 'fmin', 'fac', 'flt', 'fatb', 'fr13',
   // ★ Les vingt-quatre autres décalages, par ordre croissant — voir
   //   `transformations/filtres.js › CESARS`. `fr13` garde son rang d'aîné.

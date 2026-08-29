@@ -377,6 +377,14 @@ export const PRECISIONS = {
   'f.voyellesY': b('sur les voyelles, Y compris', 'on the vowels, Y included'),
   'f.consonnes': b('sur les consonnes', 'on the consonants'),
   'f.dedoublonne': b('sans les doublons', 'without the duplicates'),
+  // Les quatre cadets disent la MÊME chose : c'est la même règle, et la place
+  // où le survivant retombe n'a pas à encombrer le titre d'une voie.
+  'f.dedoublonne2': b('sans les doublons', 'without the duplicates'),
+  'f.dedoublonne3': b('sans les doublons', 'without the duplicates'),
+  'f.dedoublonne4': b('sans les doublons', 'without the duplicates'),
+  'f.dedoublonne5': b('sans les doublons', 'without the duplicates'),
+  'f.annulationPaires': b('les paires annulées', 'with pairs cancelled out'),
+  'f.unique': b('sur ce qui ne se répète pas', 'on what never repeats'),
   'f.repetees': b('sur les lettres répétées', 'on the repeated letters'),
   'f.initiales': b('sur les initiales', 'on the initials'),
   'f.motRepete': b('sur le motif répété', 'on the repeated pattern'),

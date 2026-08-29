@@ -43,6 +43,15 @@ const VECTEURS = [
   ['fvy', S('hopey'), 'oey'],
   ['fc', S('hope'), 'hp'],
   ['fd', S('hello'), 'helo'],
+  // Les quatre cadets : même règle, autre rang du survivant. Sur « hello »,
+  // le second « l » est en 4ᵉ position — au-delà, on prend le dernier.
+  ['fd2', S('hello'), 'helo'],
+  ['fd3', S('hello'), 'helo'],
+  ['fd4', S('hello'), 'helo'],
+  ['fd5', S('hello'), 'helo'],
+  // Les deux « l » s'annulent l'un l'autre : il n'en reste aucun.
+  ['fpr', S('hello'), 'heo'],
+  ['fun', S('hello'), 'heo'],
   ['fr', S('hello'), 'll'],
   ['fi', S('le chat dort'), 'lcd'],
   ['fmr', S('hope-hope-hope'), 'hope'],
@@ -255,7 +264,7 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
 const OPS_AUTORISEES = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse',
 ]);
 
 test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
@@ -293,8 +302,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 125);
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 125, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 131);
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 131, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -304,7 +313,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 125, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 131, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

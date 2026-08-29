@@ -223,8 +223,17 @@ export function saisiesTemoins() {
 
 /** Profondeur maximale du préfixe cherché — la longueur d'un programme réel. */
 export const PROFONDEUR_EXEMPLE = 4;
-/** Plafond d'états explorés par saisie témoin : la page doit rester vive. */
-export const NOEUDS_EXEMPLE = 2500;
+/**
+ * Plafond d'états explorés par saisie témoin : la page doit rester vive.
+ *
+ * ★ Il monte AVEC LE CATALOGUE, et pas d'un cran arbitraire. Chaque opérateur
+ *   ajouté multiplie les états atteignables à profondeur égale ; à plafond
+ *   constant, l'exploration s'arrête donc plus tôt dans l'arbre, et un
+ *   opérateur qui avait son exemple hier ne l'a plus aujourd'hui — sans que
+ *   rien n'ait changé pour LUI. C'est ce qui est arrivé à `m.retournerLesTrios`
+ *   le jour où six filtres de rapprochement sont entrés au catalogue.
+ */
+export const NOEUDS_EXEMPLE = 4500;
 
 /**
  * ★ L'EXPLORATION EST FAITE UNE FOIS, PAS CENT.

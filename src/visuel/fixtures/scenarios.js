@@ -395,12 +395,22 @@ export const vocabulaire = {
       ],
     },
     {
+      id: 'p10a',
+      title: 'collapse',
+      caption: 'deux exemplaires identiques se rejoignent — il n’en reste qu’un',
+      ops: [
+        { op: 'substitute', pairs: [{ target: 'ab6', to: [{ id: 'cl0', text: '6', kind: 'digit' }, { id: 'cl1', text: '6', kind: 'digit' }] }] },
+        { op: 'collapse', familles: [{ membres: ['cl0', 'cl1'], garde: 'cl0' }], at: 1150 },
+        { op: 'substitute', pairs: [{ target: 'cl0', to: { id: 'ab6b', text: '6', kind: 'digit' } }], at: 3600 },
+      ],
+    },
+    {
       id: 'p10b',
       title: 'shift',
       caption: 'le tamis : ce qu’on garde descend, ce qu’on jette monte — puis se rend',
       ops: [
-        { op: 'shift', down: ['ab6'], up: ['v4'] },
-        { op: 'shift', reset: ['ab6', 'v4'], at: 1000 },
+        { op: 'shift', down: ['ab6b'], up: ['v4'] },
+        { op: 'shift', reset: ['ab6b', 'v4'], at: 1000 },
       ],
     },
     {
@@ -421,8 +431,8 @@ export const vocabulaire = {
         // Les cornes exigent que les trois 6 se TOUCHENT dans la ligne — c'est
         // tout leur propos. On remet donc l'ordre avant de les poser ; le `4`
         // reste en queue, et c'est lui que le geste efface.
-        { op: 'move', order: ['kb6', 'six2b', 'ab6', 'v4'] },
-        { op: 'horns', targets: ['kb6', 'six2b', 'ab6'], efface: ['v4'], at: 950 },
+        { op: 'move', order: ['kb6', 'six2b', 'ab6b', 'v4'] },
+        { op: 'horns', targets: ['kb6', 'six2b', 'ab6b'], efface: ['v4'], at: 950 },
       ],
       hold: 400,
     },
@@ -431,7 +441,7 @@ export const vocabulaire = {
       title: 'reveal + wait',
       caption: 'C.Q.F.D.',
       ops: [
-        { op: 'reveal', targets: ['kb6', 'six2b', 'ab6'], stagger: 220 },
+        { op: 'reveal', targets: ['kb6', 'six2b', 'ab6b'], stagger: 220 },
         { op: 'wait', dur: 900 },
       ],
     },

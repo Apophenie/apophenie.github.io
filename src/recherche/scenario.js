@@ -71,7 +71,7 @@ function dire(texte, langue = LANGUE_DEFAUT) {
 export const VOCABULAIRE = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse',
 ]);
 
 /**
@@ -496,6 +496,15 @@ function inventaire(o) {
       ajouter(o.to);
       supprimes.push(...normaliserCibles(o.targets));
       break;
+    case 'collapse':
+      // Chaque famille se rejoint : tout part sauf le gardé, s'il y en a un.
+      for (const f of o.familles || []) {
+        for (const id of normaliserCibles(f && f.membres)) {
+          if (f && f.garde === id) continue;
+          supprimes.push(id);
+        }
+      }
+      break;
     case 'flip180': case 'keyboard':
     case 'sevenSeg': case 'fourteenSeg': case 'countStrokes':
       // Ces cinq-là remplacent leur cible quand — et seulement quand — un `to`
@@ -547,6 +556,10 @@ function referencesDe(o) {
   refs.push(...normaliserCibles(o.up));
   refs.push(...normaliserCibles(o.down));
   refs.push(...normaliserCibles(o.reset));
+  for (const f of o.familles || []) {
+    refs.push(...normaliserCibles(f && f.membres));
+    if (f && typeof f.garde === 'string') refs.push(f.garde);
+  }
   for (const p of o.pairs || []) {
     refs.push(...normaliserCibles(p.target));
     refs.push(...normaliserCibles(p.targets));
@@ -1123,6 +1136,27 @@ export function suivreLaLigne(tokens, steps) {
           const operandes = ids(o.targets);
           const consomme = ids(o.consume);
           if (!operandes || !consomme || !accumuler(operandes, consomme, o.to)) perdu = true;
+          break;
+        }
+        case 'collapse': {
+          // Les exemplaires se rejoignent : tous s'en vont sauf le gardé, qui
+          // reprend sa place — celle qu'il occupait déjà.
+          for (const f of o.familles || []) {
+            const membres = ids(f && f.membres);
+            if (!membres || membres.length < 2) { perdu = true; break; }
+            const morts = membres.filter((id) => id !== f.garde);
+            // L'annulation par paires laisse le dernier quand le compte est
+            // impair — même règle que `visuel/primitives/collapse.js`.
+            const impair = (o.mode === 'annulation') && membres.length % 2 === 1;
+            const rescape = impair ? membres[membres.length - 1] : null;
+            for (const id of morts) {
+              if (id === rescape) continue;
+              const i = ligne.indexOf(id);
+              if (i < 0) { perdu = true; break; }
+              frontieres.delete(id);
+              ligne.splice(i, 1);
+            }
+          }
           break;
         }
         case 'merge': {
@@ -2599,6 +2633,19 @@ export function validerFormeOp(o) {
         return '« targets » doit lister au moins deux jetons voisins à coller';
       }
       return tok(o.to) ? null : '« to » doit être {id, text}';
+    }
+    case 'collapse': {
+      if (!['fusion', 'annulation', 'unique'].includes(o.mode || 'fusion')) {
+        return '« mode » doit valoir fusion, annulation ou unique';
+      }
+      if (!Array.isArray(o.familles) || !o.familles.length) return '« familles » doit lister au moins un groupe';
+      for (const f of o.familles) {
+        if (!f || !Array.isArray(f.membres) || f.membres.length < 2 || !f.membres.every(chaine)) {
+          return '« familles[].membres » doit lister au moins deux exemplaires';
+        }
+        if (f.garde !== undefined && !chaine(f.garde)) return '« familles[].garde » doit être un identifiant';
+      }
+      return null;
     }
     case 'shift': {
       // Le tamis écarte, ou rend ce qu'il a écarté. Sans aucune des trois

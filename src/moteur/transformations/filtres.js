@@ -117,6 +117,66 @@ const rendu = (its) => (its.length
   : null);
 
 /** Filtre caractère par caractère ; `null` si rien n'a bougé ou si tout part. */
+/**
+ * Dédoublonnage : de chaque famille de lettres identiques, on garde CELLE DE
+ * RANG `rang` — la première par défaut, la deuxième, la troisième…
+ *
+ * ★ Pourquoi plusieurs rangs, et pourquoi le même nom. Le geste est le même —
+ *   les exemplaires se rejoignent — et le seul choix qui reste est celui de la
+ *   place où le survivant retombe. En faire cinq opérateurs distincts par leur
+ *   NOM laisserait croire à cinq règles ; ils portent donc le même libellé, et
+ *   se distinguent par leur code (`fd`, `fd2`… `fd5`) comme les vingt-cinq
+ *   césars par leur décalage.
+ *
+ * Un rang plus grand que la famille désigne son dernier : demander le cinquième
+ * quand il n'y en a que trois, c'est demander le dernier, pas échouer.
+ */
+/** Les indices des caractères identiques, par famille, dans l'ordre de la ligne. */
+function famillesDeLettres(valeur) {
+  const parCle = new Map();
+  [...valeur].forEach((c, i) => {
+    const k = pli(c);
+    if (!parCle.has(k)) parCle.set(k, []);
+    parCle.get(k).push(i);
+  });
+  return [...parCle.values()].filter((ids) => ids.length > 1);
+}
+
+function dedoublonner(valeur, traces, rang) {
+  const chars = [...valeur];
+  const familles = new Map();
+  chars.forEach((c, i) => {
+    const k = pli(c);
+    if (!familles.has(k)) familles.set(k, []);
+    familles.get(k).push(i);
+  });
+  const gardes = new Set();
+  for (const [, indices] of familles) {
+    gardes.add(indices[Math.min(Math.max(1, rang), indices.length) - 1]);
+  }
+  return garder(valeur, traces, (_, i) => gardes.has(i));
+}
+
+/**
+ * Le prédicat de l'annulation par paires : survit ce qui reste quand on retire
+ * les exemplaires deux à deux. Concrètement, le DERNIER d'une famille en nombre
+ * impair — les autres se sont détruits.
+ */
+function parite(valeur) {
+  const chars = [...valeur];
+  const familles = new Map();
+  chars.forEach((c, i) => {
+    const k = pli(c);
+    if (!familles.has(k)) familles.set(k, []);
+    familles.get(k).push(i);
+  });
+  const gardes = new Set();
+  for (const [, indices] of familles) {
+    if (indices.length % 2 === 1) gardes.add(indices[indices.length - 1]);
+  }
+  return (_, i) => gardes.has(i);
+}
+
 function garder(valeur, traces, predicat) {
   const its = items(valeur, traces);
   const gardes = its.filter((x, i) => predicat(x.c, i, its));
@@ -215,6 +275,70 @@ function etapeRetrait(op) {
         [{ op: 'move' }],
         { id: `s_${ctx.cle}_1` }),
     ];
+  };
+}
+
+/**
+ * ★ DES EXEMPLAIRES IDENTIQUES SE REJOIGNENT — le geste de `fd`, `fpr` et `fun`.
+ *
+ * Les trois opérateurs font le même mouvement et se distinguent par ce qu'il en
+ * reste : un exemplaire (dédoublonnage), rien par paires (annulation), rien du
+ * tout (unique). Les jouer avec le même dessin n'est pas une économie de code,
+ * c'est ce qui les rend COMPARABLES à l'écran — trois règles voisines, trois
+ * résultats différents, et la différence se lit dans le résultat, pas dans une
+ * chorégraphie qu'on aurait inventée pour chacune.
+ *
+ * `garde` dit où le survivant retombe : au premier exemplaire, au deuxième…
+ * C'est l'index déclaré par l'opérateur (`rang`), borné au nombre réel de
+ * copies — demander le cinquième quand il n'y en a que trois, c'est demander le
+ * dernier.
+ */
+function etapeRapprochement(op) {
+  return (avant, apres, ctx) => {
+    // Ce qui fait FAMILLE se déclare : des caractères identiques par défaut, la
+    // k-ième lettre de chaque répétition pour un motif de mots. Le geste, lui,
+    // ne change pas — et c'est ce qui permet de lire les deux échelles comme
+    // une seule règle.
+    const groupes = typeof op.familles === 'function'
+      ? op.familles(avant.valeur)
+      : famillesDeLettres(avant.valeur);
+    const familles = [];
+    for (const indices of groupes) {
+      const membres = indices.map((i) => ctx.ids[i]).filter(Boolean);
+      if (membres.length < 2) continue;
+      const f = { membres };
+      if (op.mode === 'fusion') {
+        const rang = Math.min(Math.max(1, op.rang || 1), membres.length) - 1;
+        f.garde = membres[rang];
+      }
+      familles.push(f);
+    }
+    // Rien à rejoindre : aucune lettre n'a de jumelle. Le filtre n'aurait rien
+    // changé de toute façon — `apply` l'a déjà refusé —, mais le rendu ne doit
+    // pas émettre une op vide pour autant.
+    if (!familles.length) return [etape(ctx, dire(op.libelle, ctx.langue), dire(op.regle, ctx.langue), [{ op: 'move' }])];
+
+    // ★ CE QUI N'APPARTIENT À AUCUNE FAMILLE, ET QUI PART QUAND MÊME.
+    //
+    //   Un motif de mots laisse ses séparateurs de côté : ils ne rejoignent
+    //   personne, et pourtant l'état d'arrivée ne les contient pas. Les laisser
+    //   à l'écran ferait diverger ce qui est montré de ce qui est compté — le
+    //   même défaut que le découpage en mots avait sur les barres obliques. On
+    //   lit donc ce qui SURVIT dans l'arrivée, et le reste s'efface avec le
+    //   rapprochement.
+    const survivants = new Set(apparier(avant, apres).filter((i) => i >= 0).map((i) => ctx.ids[i]));
+    const rejoints = new Set(familles.flatMap((f) => f.membres));
+    const perdus = ctx.ids.filter((id) => !survivants.has(id) && !rejoints.has(id));
+
+    const mention = dire(op.mention, ctx.langue);
+    const corps = enchainer([
+      mention ? { op: 'group', targets: ctx.ids, symbol: op.symbole || '⊃', label: mention } : null,
+      { op: 'collapse', mode: op.mode, familles },
+      perdus.length ? { op: 'drop', targets: perdus, mode: 'erase', regroup: false } : null,
+      { op: 'move' },
+    ]);
+    return [etape(ctx, dire(op.libelle, ctx.langue), dire(op.regle, ctx.langue),
+      mention ? retirerAccolade(corps) : corps, { hold: 350 })];
   };
 }
 
@@ -672,15 +796,65 @@ const brut = [
     id: 'f.dedoublonne', code: 'fd', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On supprime les doublons', 'Drop the duplicates'),
     regle: bilingue('Une lettre déjà vue ne compte pas deux fois', 'A letter already seen does not count twice'),
+    mention: bilingue('Dédoublonnage', 'De-duplication'),
+    mode: 'fusion', rang: 1,
     notoriete: 0.55, commute: true,
-    apply: (valeur, traces) => {
-      const vus = new Set();
-      return garder(valeur, traces, (c) => {
-        const k = pli(c);
-        if (vus.has(k)) return false;
-        vus.add(k);
-        return true;
-      });
+    apply: (valeur, traces) => dedoublonner(valeur, traces, 1),
+  },
+  // ★ LES QUATRE CADETS DU DÉDOUBLONNAGE. Même règle, même accolade, même
+  //   geste : seule change la place où le survivant retombe. « Une variante
+  //   pour le faire remonter à la position du dernier exemplaire, sans porter
+  //   un nom différent » (l'auteur) — et, pour les triplets, celle du milieu.
+  //   Ils sont donc engendrés d'une seule source, comme les césars, et leur
+  //   ad-hoc monte avec le rang : garder la première occurrence est ce que
+  //   fait n'importe qui ; garder la quatrième demande une raison.
+  ...[2, 3, 4, 5].map((rang) => ({
+    id: `f.dedoublonne${rang}`, code: `fd${rang}`, famille: 'filtre', from: 'STR', to: 'STR',
+    libelle: bilingue('On supprime les doublons', 'Drop the duplicates'),
+    regle: bilingue(
+      `On garde le ${['', '', 'deuxième', 'troisième', 'quatrième', 'cinquième'][rang]} exemplaire`,
+      `Keep the ${['', '', 'second', 'third', 'fourth', 'fifth'][rang]} copy`),
+    mention: bilingue('Dédoublonnage', 'De-duplication'),
+    mode: 'fusion', rang,
+    notoriete: 0.20, adHoc: 0.25 + rang * 0.05,
+    apply: (valeur, traces) => dedoublonner(valeur, traces, rang),
+  })),
+  {
+    // ★ ANNULATION PAR PAIRES — et ce n'est pas un dédoublonnage.
+    //
+    //   « Contrairement au dédoublonnage, on ne garde AUCUN des deux
+    //   exemplaires » (l'auteur). Deux jumeaux montent, se jettent l'un sur
+    //   l'autre, disparaissent ensemble. Ce qui survit, c'est ce qui n'avait
+    //   personne contre qui s'annuler : les lettres uniques, et l'exemplaire
+    //   surnuméraire d'une famille en nombre impair. Trois `o` laissent donc un
+    //   `o`, cinq en laissent un — et c'est une bien meilleure justification de
+    //   garder le troisième ou le cinquième qu'un choix décrété.
+    id: 'f.annulationPaires', code: 'fpr', famille: 'filtre', from: 'STR', to: 'STR',
+    libelle: bilingue('Les paires s’annulent', 'Pairs cancel out'),
+    regle: bilingue('Deux exemplaires identiques se détruisent l’un l’autre',
+      'Two identical copies destroy each other'),
+    mention: bilingue('Annulation par paires', 'Pairwise cancellation'),
+    mode: 'annulation',
+    notoriete: 0.25, adHoc: 0.35,
+    apply: (valeur, traces) => garder(valeur, traces, parite(valeur)),
+  },
+  {
+    // ★ UNIQUE — tous les exemplaires d'une lettre répétée s'annulent, y
+    //   compris le dernier. Ne survit que ce qui n'a jamais eu de jumeau.
+    //   C'est le complément exact de `f.repetees` (« l'union fait la force »),
+    //   et les deux se lisent ensemble : l'un garde ce qui revient, l'autre ce
+    //   qui ne revient pas.
+    id: 'f.unique', code: 'fun', famille: 'filtre', from: 'STR', to: 'STR',
+    libelle: bilingue('On ne garde que ce qui ne se répète pas', 'Keep only what never repeats'),
+    regle: bilingue('Une lettre vue deux fois s’annule entièrement',
+      'A letter seen twice cancels out entirely'),
+    mention: bilingue('Unique', 'Unique'),
+    mode: 'unique',
+    notoriete: 0.30, adHoc: 0.25,
+    apply(valeur, traces) {
+      const compte = new Map();
+      for (const c of valeur) compte.set(pli(c), (compte.get(pli(c)) || 0) + 1);
+      return garder(valeur, traces, (c) => (compte.get(pli(c)) || 0) === 1);
     },
   },
   {
@@ -726,6 +900,22 @@ const brut = [
     libelle: bilingue('On isole le motif répété', 'Isolate the repeated pattern'),
     regle: bilingue('X-X-X : trois fois la même chose, donc une seule',
       'X-X-X: the same thing three times over, so just the once'),
+    mention: bilingue('Dédoublonnage', 'De-duplication'),
+    // ★ LE MÊME GESTE, UNE ÉCHELLE PLUS HAUT. « Même nom et animation que pour
+    //   le dédoublonnage, mais à l'échelle des mots » (l'auteur). Une famille
+    //   n'est plus faite de lettres identiques mais des k-ièmes lettres de
+    //   chaque répétition : le `h` du deuxième « hope » rejoint le `h` du
+    //   premier, le `o` rejoint le `o`… et les trois mots se superposent
+    //   littéralement. Les séparateurs, eux, n'appartiennent à aucune famille
+    //   et s'en vont avec le reste.
+    mode: 'fusion', rang: 1,
+    familles(valeur) {
+      const parts = decouperMots(valeur);
+      if (parts.length < 2) return [];
+      const long = parts[0].fin - parts[0].debut;
+      if (!parts.every((p) => p.fin - p.debut === long)) return [];
+      return Array.from({ length: long }, (_, k) => parts.map((p) => p.debut + k));
+    },
     notoriete: 0.70,
     apply(valeur, traces) {
       const parts = decouperMots(valeur);
@@ -899,7 +1089,11 @@ export const FILTRES = Object.freeze(brut.map((spec) => {
     outil: reste.outil || outilDuChiffrement(reste) || reste.libelle,
     sortie: parTable ? sortieMuee : (remplace ? sortieCreee : sortieConservee),
   };
+  // ★ Le geste se DÉDUIT de ce que l'opérateur déclare, dans cet ordre : une
+  //   table à montrer, un rapprochement d'exemplaires, un remplacement, un
+  //   retrait. Aucune liste de codes nulle part.
   const steps = parTable ? etapeTable(base)
-    : (remplace ? etapeRemplacement(base) : etapeRetrait(base));
+    : (base.mode ? etapeRapprochement(base)
+      : (remplace ? etapeRemplacement(base) : etapeRetrait(base)));
   return def({ ...base, steps });
 }));
