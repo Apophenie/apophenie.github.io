@@ -598,6 +598,9 @@ function fusionnerBlocs(parGroupe) {
       titre: variantes[0].titre,
       legende: variantes[0].legende,
       figure: variantes[0].figure ?? null,
+      // Les groupes fusionnés jouent le MÊME programme (c'est la condition de
+      // la fusion) : leur provenance est la même, et elle traverse.
+      code: variantes[0].code,
       ops,
       hold: variantes[0].hold,
     });
@@ -1881,6 +1884,15 @@ export function construireScenario(approche, ctx = {}) {
         blocs: emis.steps.map((st) => ({
           titre: st.title || titreOp,
           legende: st.caption ?? null,
+          // ★ LA PROVENANCE — le code de l'opérateur qui a produit ce bloc.
+          //   Elle ne change rien à ce qui est joué ; elle dit seulement QUI
+          //   l'a demandé. Sans elle, personne ne peut isoler « l'étape de
+          //   `mpf` » dans une timeline où les steps ne portent qu'un numéro :
+          //   la page de debug devrait recouper des titres, c'est-à-dire une
+          //   table de correspondance recopiée qui mentirait au premier
+          //   renommage (`app/pages/debug.js`). Le verdict, la récolte et les
+          //   retouches n'en portent pas : ils ne viennent d'aucun opérateur.
+          code: op.code,
           // La FIGURE d'un step — le petit afficheur sept segments du Registre.
           // Elle voyage avec le libellé : c'est de l'équivalent accessible, pas
           // du geste (CONTRACTS §6). Voir `figureSeg7` dans `mappeurs.js`.
@@ -1901,7 +1913,7 @@ export function construireScenario(approche, ctx = {}) {
         op,
       );
     }
-    return { blocs: g.blocs.map((b) => ({ ...b, hold: undefined })), courants: g.courants };
+    return { blocs: g.blocs.map((b) => ({ ...b, code: op.code, hold: undefined })), courants: g.courants };
   };
 
   const poserBloc = (b, suffixe = '') => {
@@ -1915,6 +1927,8 @@ export function construireScenario(approche, ctx = {}) {
     // que de se poser à côté de lui. Deux gommes qui se suivent diraient qu'on
     // a écarté deux fois — voir `reglerLesCornes`.
     if (b.recolte) st.recolte = b.recolte;
+    // La provenance survit à la pose (voir `produire`) et à la fusion.
+    if (b.code) st.code = b.code;
     steps.push(st);
     return st;
   };

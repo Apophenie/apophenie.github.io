@@ -874,6 +874,14 @@ function corpsDeLaScene(op, d, registre) {
     // seule, et le lecteur applique lui-même la règle du mouvement réduit.
     autoplay: true,
   });
+  // ★ ON NE JOUE QUE L'ÉTAPE DÉCRITE — pas ce qui la précède, pas ce qui la
+  //   suit. Le programme d'exemple porte des transformations d'approche parce
+  //   qu'il faut bien AMENER l'opérateur à s'appliquer, et le scénario finit
+  //   par la récolte et le verdict parce que c'est ce que fait une
+  //   démonstration ; mais cette page-ci ne pose qu'une question — de quoi cet
+  //   opérateur a-t-il l'air à l'écran ? Le reste est du contexte qui répond à
+  //   côté. Voir `cadrerSurLOperateur`.
+  const cadrage = cadrerSurLOperateur(lecteur, d.scenario, op);
   const transport = creerTransport(lecteur, {}, { repetitions: pont.facteurRepetitions() });
   const registreVue = creerRegistre(lecteur, { titre: titreApproche(d.approche) });
   const detacherClavier = brancherClavier(cadre, lecteur);
@@ -885,6 +893,7 @@ function corpsDeLaScene(op, d, registre) {
     //   sont, mot pour mot, ceux qu'un visiteur lirait.
     regle ? e('p.dbg__regle', { texte: regle }) : null,
     e('div.dbg__scene', {}, [cadre, transport.element]),
+    e('p.dbg__note', { texte: cadrage.note }),
     registreVue.element,
     registreVue.regionLive,
     d.source === 'secours' || sourceLecteur === 'secours'
@@ -895,11 +904,80 @@ function corpsDeLaScene(op, d, registre) {
   return {
     element,
     detruire() {
+      cadrage.detacher();
       detacherClavier();
       registreVue.detruire();
       transport.detruire();
       if (typeof lecteur.destroy === 'function') lecteur.destroy();
     },
+  };
+}
+
+/**
+ * Cale la lecture sur les SEULS steps que l'opérateur a produits : on part de
+ * son premier et on s'arrête à la fin de son dernier.
+ *
+ * ★ La provenance est LUE, pas devinée. Chaque step porte le code de
+ *   l'opérateur qui l'a émis (`recherche/scenario.js › produire`) ; recouper
+ *   les titres à la place serait une table de correspondance recopiée, et elle
+ *   se tromperait au premier libellé retouché. Un step sans code — le verdict,
+ *   la récolte, une retouche — n'appartient à aucun opérateur, et c'est
+ *   exactement ce qu'on veut écarter.
+ *
+ * ★ Le reste de la timeline n'est pas COUPÉ, seulement dépassé. Les commandes
+ *   de transport y donnent toujours accès, et l'arrêt automatique ne joue
+ *   qu'une fois : qui relance après la borne veut manifestement voir la suite,
+ *   et un bouton qui se remettrait en pause tout seul passerait pour cassé.
+ */
+function cadrerSurLOperateur(lecteur, scenario, op) {
+  // Les steps du SCÉNARIO portent la provenance ; ceux de la TIMELINE portent
+  // les temps. On passe de l'un à l'autre par l'id, jamais par l'indice : c'est
+  // la seule jointure que le moteur visuel garantit (CONTRACTS §3.3).
+  const marques = new Set(
+    ((scenario && scenario.steps) || []).filter((s) => s.code === op.code).map((s) => s.id),
+  );
+  const joues = (typeof lecteur.steps === 'object' && lecteur.steps) || [];
+  const total = joues.length;
+  let debut = -1;
+  let fin = -1;
+  for (let i = 0; i < total; i++) {
+    if (!marques.has(joues[i].id)) continue;
+    if (debut < 0) debut = i;
+    fin = i;
+  }
+  if (debut < 0 || typeof lecteur.seekToStep !== 'function') {
+    return {
+      // ★ « Aucun step » n'est pas une panne : certains opérateurs ne CHANGENT
+      //   rien de visible — `tca` découpe en caractères une ligne déjà rendue
+      //   caractère par caractère —, et le scénario refuse alors d'émettre une
+      //   étape qui ne montrerait rien (`scenario.js › rienAMontrer`). C'est un
+      //   RÉSULTAT de mesure, pas un incident, et il mérite d'être écrit.
+      note: marques.size === 0
+        ? `△ « ${op.code} » n’émet aucune étape : il ne déplace rien à l’écran. `
+          + `La scène est jouée en entier (${total} étapes).`
+        : `△ Lecteur sans navigation par étape : la scène est jouée en entier (${total} étapes).`,
+      detacher() {},
+    };
+  }
+
+  const borne = joues[fin].t1;
+  let arrete = false;
+  lecteur.seekToStep(debut);
+  const detacher = lecteur.on('change', () => {
+    if (arrete || !lecteur.playing) return;
+    if (lecteur.currentTime < borne) return;
+    arrete = true;
+    lecteur.pause();
+    // Recaler exactement : la frame qui a franchi la borne l'a dépassée, et on
+    // veut l'état de fin d'étape, pas le début de la suivante.
+    lecteur.seek(borne);
+  });
+
+  const nombre = fin - debut + 1;
+  return {
+    note: `Étape isolée : ${nombre === 1 ? `l’étape ${debut + 1}` : `les étapes ${debut + 1} à ${fin + 1}`} `
+        + `sur ${total} — l’approche et le verdict restent joignables par les commandes.`,
+    detacher,
   };
 }
 
