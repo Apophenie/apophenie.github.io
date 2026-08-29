@@ -334,6 +334,9 @@ function etapeSelection(spec) {
         partials: [apres.valeur],
         to: token(sortie[0], apres.valeur, 'number'),
         symbol: spec.symbole || 'min',
+        // L'élu descend d'abord, ses rivaux s'effacent ensuite : on doit voir
+        // CONTRE QUI il a gagné, pas un nombre qui tombe seul.
+        ordre: 'volDabord',
       },
     ]), { hold: 400 })];
   };
@@ -410,6 +413,8 @@ function etapeEcart(spec) {
     for (const [id, mot] of [[idMax, MOTS[0]], [idMin, MOTS[1]]]) {
       corps.push({
         op: 'annotate', anchor: [id], text: mot, place: 'above',
+        // Collée à son nombre : c'est LUI qu'elle désigne, pas la ligne.
+        ecart: 0.62,
         fugace: true, at: debut, dur: tenue,
       });
     }

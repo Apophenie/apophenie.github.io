@@ -46,7 +46,12 @@ const VECTEURS = [
   ['fr', S('hello'), 'll'],
   ['fi', S('le chat dort'), 'lcd'],
   ['fmr', S('hope-hope-hope'), 'hope'],
-  ['ffr', S('hope'), 'espoir'],
+  // ★ « espérer », et pas « espoir ». Le dictionnaire n'est plus une liste
+  //   écrite ici : il est extrait de FreeDict (`src/gfx/freedict-traduction.py`),
+  //   et c'est FreeDict qui donne le verbe en première acception. Le gel note
+  //   donc ce que la source dit, pas ce qui nous arrangerait — c'était tout
+  //   l'intérêt d'aller chercher un dictionnaire dehors.
+  ['ffr', S('hope'), 'espérer'],
   ['fen', S('espoir'), 'hope'],
   ['fmaj', S('hope'), 'HOPE'],
   ['fmin', S('HOPE'), 'hope'],

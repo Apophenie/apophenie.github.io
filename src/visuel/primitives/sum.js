@@ -43,6 +43,9 @@ export function plan(ctx) {
     ...(Array.isArray(ctx.op.voler) ? { voler: ctx.scene.resolve(ctx.op.voler, ctx.where) } : {}),
     ...(Array.isArray(ctx.op.effacer) ? { effacer: ctx.scene.resolve(ctx.op.effacer, ctx.where) } : {}),
     ...(typeof ctx.op.depart === 'string' ? { depart: ctx.op.depart } : {}),
+    // « volDabord » : l'élu descend AVANT que les autres ne s'effacent — c'est
+    // l'ordre d'une sélection, où le choix doit se voir contre ses rivaux.
+    ...(ctx.op.ordre ? { ordre: ctx.op.ordre } : {}),
     symbol: typeof ctx.op.symbol === 'string' && ctx.op.symbol ? ctx.op.symbol : 'Σ',
     label: typeof ctx.op.label === 'string' ? ctx.op.label : null,
   });

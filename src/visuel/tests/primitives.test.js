@@ -594,14 +594,16 @@ test('un signe descend avec son nombre : les deux ne se lisent jamais l’un san
 });
 
 /**
- * ★ Le soulignement des nombres ne s'ajoute PAS aux signes.
+ * ★ Plus aucun soulignement, signes ou pas.
  *
- * Le trait ne répond qu'au risque de lire « 15 16 » comme « 1516 ». Entre deux
- * termes séparés par un « + », ce risque n'existe pas : le trait ne
- * distinguerait plus rien, il chargerait seulement.
+ * Le trait répondait au risque de lire « 15 16 » comme « 1516 » — mais l'écart
+ * y répondait déjà, et deux remèdes pour un mal font du bruit. « Enlève le
+ * souligné, et partout où souligné il y a » (l'auteur).
  */
-test('une somme signée ne souligne pas ses nombres', () => {
+test('aucune accolade ne souligne ses nombres, avec ou sans signes', () => {
   const tokens = [{ id: 'n0', text: '5' }, { id: 'n1', text: '11' }, { id: 'n2', text: '2' }];
+  const traits = (tl) => tl.nodes.filter((n) => n.id.startsWith('@sous:')).length;
+
   const avecSignes = compile(sc([{
     id: 'a',
     title: 'On alterne plus et moins',
@@ -610,18 +612,16 @@ test('une somme signée ne souligne pas ses nombres', () => {
       { op: 'sum', targets: ['n0', 'n1', 'n2'], consume: ['p0', 'p1'], to: { id: 'q', text: '-4' }, partials: [0, 5, -6, -4], symbol: '∓', at: 700, dur: 2800 },
     ],
   }], tokens));
-  const traits = (tl) => tl.nodes.filter((n) => n.id.startsWith('@sous:')).length;
-  assert.equal(traits(avecSignes), 0, 'des nombres soulignés SOUS des signes d’opération');
+  assert.equal(traits(avecSignes), 0);
 
-  // Contrôle : sans signes, le trait revient — c'est bien la présence des
-  // signes qui le retire, pas une suppression pure et simple.
   const sansSignes = compile(sc([{
     id: 'a',
     title: 'On compte les valeurs',
     ops: [{ op: 'group', targets: ['n0', 'n1', 'n2'], symbol: '#', to: { id: 'q', text: '3' } }],
   }], tokens));
-  assert.ok(traits(sansSignes) > 0, 'sans signes, les nombres doivent rester soulignés');
+  assert.equal(traits(sansSignes), 0);
 });
+
 
 test('l’accolade tient sa promesse : la valeur paraît SOUS la pointe, jamais dans la ligne', () => {
   // Les trois gestes enchaînés d'un dénombrement, tels que les émet le

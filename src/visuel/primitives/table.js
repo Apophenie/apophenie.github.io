@@ -127,12 +127,15 @@ import { tokenSpec, ancreVue } from './helpers.js';
 // ★ Le geste — monter le décor, allumer la case, faire passer le caractère
 //   PAR-DESSUS, faire redescendre la valeur — est écrit une seule fois, et
 //   `keyboard` l'appelle aussi. Deux gestes ne peuvent plus diverger.
-import { monterDecor, allerRetour, replierDecor, substituerSeul, decorEnLAir } from './decor.js';
+import {
+  monterDecor, allerRetour, replierDecor, substituerSeul, decorEnLAir,
+  TEMPS as TEMPS_DECOR,
+} from './decor.js';
 // ★ La seconde réglette d'une glissière n'est pas dessinée avec la table : elle
 //   est faite de cases à part, parce qu'elle DOIT pouvoir bouger — elle paraît
 //   alignée sur la première, puis se déplace pour montrer le déplacement que la
 //   table, sans cela, se contenterait d'affirmer.
-import { poserBande } from './glissiere.js';
+import { poserBande, finDuDeplacement } from './glissiere.js';
 import {
   tableGeometry, alphabetEntries,
   normalizeOrdre, normalizeDisposition, ALPHABET_ORDRES, DISPOSITIONS, TEINTES,
@@ -237,9 +240,14 @@ export function plan(ctx) {
   //   bas est faite de cases mobiles (`glissiere.js`), qui paraissent alignées
   //   sur elle avant de se déplacer.
   const bandeSeparee = disposition === 'glissiere';
+  // Le nom d'une glissière ne paraît qu'une fois sa bande arrivée : c'est le
+  // déplacement qui prouve la règle, le nom ne fait que la conclure.
+  const titreAt = bandeSeparee && deployer
+    ? finDuDeplacement(ctx.dur, ctx.dur * TEMPS_DECOR.MONTEE)
+    : 0;
   let t0 = monterDecor(ctx, {
     id: board, role: 'table', titre, data: { geo, disposition, bandeSeparee },
-    pos: boardPos, width: geo.width, deployer,
+    pos: boardPos, width: geo.width, deployer, titreAt,
     encombrement: {
       haut: boardPos.y - geo.height / 2,
       bas: boardPos.y + geo.height / 2,

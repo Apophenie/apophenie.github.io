@@ -15,6 +15,7 @@
  */
 
 import { LETTRES, VOYELLES, VOYELLES_Y, sansAccents, atbash, cesar } from '../tables/alphabet.js';
+import { DICO_EN_FR, DICO_FR_EN } from '../tables/traduction.js';
 import { bilingue, dire } from '../i18n.js';
 import {
   def, apparier, sortieCreee, sortieConservee, etape, token, fusion, enchainer, nomToken,
@@ -187,7 +188,7 @@ function etapeRetrait(op) {
         for (const id of restants) {
           corps.push({
             op: 'annotate', anchor: [id], text: op.designe, place: 'below',
-            fugace: true, at: pose, dur: tenue,
+            ecart: 0.62, fugace: true, at: pose, dur: tenue,
           });
         }
       }
@@ -386,24 +387,23 @@ function etapeTable(op) {
   };
 }
 
-/** Petit dictionnaire embarqué (zéro dépendance, zéro requête réseau). */
-export const DICO_EN_FR = Object.freeze({
-  hope: 'espoir', love: 'amour', life: 'vie', death: 'mort', god: 'dieu',
-  devil: 'diable', beast: 'bête', number: 'nombre', name: 'nom', world: 'monde',
-  money: 'argent', power: 'pouvoir', truth: 'vérité', light: 'lumière',
-  dark: 'sombre', night: 'nuit', day: 'jour', sun: 'soleil', moon: 'lune',
-  star: 'étoile', fire: 'feu', water: 'eau', earth: 'terre', air: 'air',
-  book: 'livre', word: 'mot', king: 'roi', queen: 'reine', dream: 'rêve',
-  time: 'temps', house: 'maison', dog: 'chien', cat: 'chat', bird: 'oiseau',
-  news: 'nouvelles', game: 'jeu', code: 'code', net: 'toile', web: 'toile',
-  cloud: 'nuage', mail: 'courrier', shop: 'boutique', free: 'libre',
-  peace: 'paix', war: 'guerre', good: 'bien', evil: 'mal', end: 'fin',
-});
-
-/** Dictionnaire inverse (première traduction gagnante, ordre de déclaration). */
-export const DICO_FR_EN = Object.freeze(Object.fromEntries(
-  Object.entries(DICO_EN_FR).map(([en, fr]) => [fr, en]).reverse(),
-));
+/**
+ * ★ LE DICTIONNAIRE VIENT D'AILLEURS, ET C'EST LE POINT.
+ *
+ * Il comptait quarante-neuf mots, choisis un par un. C'était un gadget : le
+ * filtre ne trouvait rien sur une saisie réelle, et les rares fois où il
+ * trouvait, c'est qu'on avait mis le mot dans la liste — une méthode qui ne
+ * marche que sur les exemples de son auteur n'en est pas une, et le reproche
+ * d'avoir trié les mots qui arrangent aurait été mérité.
+ *
+ * Les tables sont maintenant EXTRAITES de FreeDict (GNU GPL 2.0 ou ultérieure,
+ * compatible avec l'AGPL 3.0 de ce dépôt) : six mille quatre cents entrées dans
+ * chaque sens, du vocabulaire courant, maintenu par des tiers. Zéro dépendance
+ * et zéro requête réseau restent vrais — c'est un fichier de données généré, au
+ * même titre que les tables de segments ou de glyphes
+ * (`src/gfx/freedict-traduction.py`).
+ */
+export { DICO_EN_FR, DICO_FR_EN } from '../tables/traduction.js';
 
 /** Traduction d'un mot entier — `null` si le mot est inconnu. */
 function traduire(valeur, traces, dico) {
@@ -745,7 +745,16 @@ const brut = [
     id: 'f.traduitFR', code: 'ffr', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On traduit en français', 'Translate into French'),
     regle: bilingue('Le sens ne dépend pas de la langue', 'Meaning does not depend on the language'),
-    notoriete: 0.15, adHoc: 0.1,
+    mention: bilingue('Traduction', 'Translation'),
+    // ★ L'AD HOC MONTE AVEC LA COUVERTURE, et c'est la même leçon que les
+    //   vingt-cinq césars. Tant que le dictionnaire tenait en quarante-neuf
+    //   mots, traduire ne s'appliquait presque jamais : le noter 0,1 ne coûtait
+    //   rien parce que l'occasion ne se présentait pas. Avec six mille entrées,
+    //   l'opérateur devient applicable partout — et « changer de langue jusqu'à
+    //   ce que ça tombe juste » est exactement le magasinage qu'on reproche à
+    //   un décalage de César choisi après coup. Rien dans la saisie ne dit
+    //   qu'il fallait la lire en français.
+    notoriete: 0.15, adHoc: 0.45,
     apply: (valeur, traces) => traduire(valeur, traces, DICO_EN_FR),
     remplace: true,
   },
@@ -753,7 +762,8 @@ const brut = [
     id: 'f.traduitEN', code: 'fen', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On traduit en anglais', 'Translate into English'),
     regle: bilingue('Le sens ne dépend pas de la langue', 'Meaning does not depend on the language'),
-    notoriete: 0.15, adHoc: 0.1,
+    mention: bilingue('Traduction', 'Translation'),
+    notoriete: 0.15, adHoc: 0.45,
     apply: (valeur, traces) => traduire(valeur, traces, DICO_FR_EN),
     remplace: true,
   },

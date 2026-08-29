@@ -25,7 +25,17 @@ export function plan(ctx) {
   if (!box) fail(`${ctx.where}aucune ancre positionnée pour l'annotation.`);
 
   const above = (ctx.op.place || 'below') === 'above';
-  const dy = ctx.metrics.fontSize * 1.05;
+  // ★ À QUELLE DISTANCE — et ce n'est pas la même selon ce qu'on annote.
+  //
+  //   Une conclusion (« 666 ») se pose à distance de lecture : elle commente
+  //   toute la ligne, et la coller au dernier jeton la ferait passer pour une
+  //   suite de celui-ci. Une DÉSIGNATION (« MAX » au-dessus d'un nombre, « ^ »
+  //   sous une initiale) fait l'inverse : elle ne vaut que pour CE jeton-là, et
+  //   c'est la proximité qui l'attache — « MAX et MIN sont trop loin au-dessus
+  //   du nombre qu'ils désignent » (l'auteur). L'écart se déclare donc, en
+  //   fractions de casse, et vaut la distance de lecture par défaut.
+  const ecart = typeof ctx.op.ecart === 'number' && ctx.op.ecart > 0 ? ctx.op.ecart : 1.05;
+  const dy = ctx.metrics.fontSize * ecart;
   const at = { x: box.cx, y: above ? box.y - dy : box.y + box.h + dy };
 
   const id = ctx.op.id && !String(ctx.op.id).startsWith('@') ? ctx.op.id : ctx.gensym('annot');

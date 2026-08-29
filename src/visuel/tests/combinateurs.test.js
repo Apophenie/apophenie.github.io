@@ -376,72 +376,54 @@ test('les mesures du catalogue comptent ce qu’elles montrent', () => {
 
 // ───────────────────────────── 4. les nombres ne sont pas des chiffres
 
-test('une ligne de NOMBRES se souligne et s’espace ; une ligne de chiffres, non', () => {
-  const avecNombres = compile(sc([{
-    id: 'a', title: 'A',
-    ops: [{ op: 'sum', targets: ['t0', 't1', 't2', 't3'], to: { id: 'r', text: '44' } }],
-  }], nums([8, 15, 16, 5])));
-  const traits = avecNombres.nodes.filter((n) => n.id.startsWith('@sous:'));
-  assert.equal(traits.length, 4, 'un trait par nombre, y compris sous les chiffres isolés de la ligne');
-  // Le trait a EXACTEMENT la largeur de son nombre : c'est lui qui dit où le
-  // nombre commence et où il finit.
-  for (const t of traits) {
-    const cible = t.id.slice('@sous:'.length);
-    assert.equal(t.w, avecNombres.scene.get(cible).w, `${t.id} : largeur du nombre`);
-  }
-  // Et l'écart entre deux nombres est plus large que l'écart de base.
-  for (const id of ['t1', 't2', 't3']) {
-    assert.ok(avecNombres.scene.get(id).gapBefore > TOKEN_GAP,
-      `${id} : les nombres s’écartent au lieu de se resserrer`);
-  }
+/**
+ * ★ L'ÉCART SEUL, le trait en moins.
+ *
+ * Le risque de lecture est réel — « 15 16 » se lit « 1516 » quand l'espacement
+ * ordinaire les sépare comme deux lettres —, mais on y répondait deux fois :
+ * en écartant les nombres ET en soulignant chacun. Le trait est retiré (« et
+ * partout où souligné il y a », l'auteur) ; l'écart reste, parce que c'est lui
+ * qui agit sur la cause.
+ */
+test('une ligne de NOMBRES s’écarte ; une ligne de chiffres, non', () => {
+  const gros = compile(sc([{
+    id: 'a', title: 'On additionne',
+    ops: [{ op: 'group', targets: ['t0', 't1', 't2'], symbol: '#', to: { id: 'q', text: '3' } }],
+  }], nums([8, 15, 16])));
+  const petits = compile(sc([{
+    id: 'a', title: 'On additionne',
+    ops: [{ op: 'group', targets: ['t0', 't1', 't2'], symbol: '#', to: { id: 'q', text: '3' } }],
+  }], nums([3, 4, 4])));
 
-  const avecChiffres = compile(sc([{
-    id: 'a', title: 'A',
-    ops: [{ op: 'sum', targets: ['t0', 't1', 't2', 't3'], to: { id: 'r', text: '15' } }],
-  }], nums([3, 4, 4, 4])));
-  assert.equal(avecChiffres.nodes.filter((n) => n.id.startsWith('@sous:')).length, 0,
-    'sur une ligne de chiffres, souligner serait du bruit');
+  const traits = (tl) => tl.nodes.filter((n) => n.role === 'bracket' && n.id.startsWith('@sous:'));
+  assert.equal(traits(gros).length, 0, 'plus aucun soulignement, nulle part');
+  assert.equal(traits(petits).length, 0);
+
+  // L'écart, lui, distingue toujours les deux lignes.
+  const ecart = (tl, id) => {
+    const a = tl.anims.find((x) => x.id === id && x.prop === 'translate');
+    return a ? a.keyframes[a.keyframes.length - 1].value.x : null;
+  };
+  const largeur = (tl) => ecart(tl, 't2') - ecart(tl, 't0');
+  assert.ok(largeur(gros) > largeur(petits) * 1.2,
+    `une ligne de nombres s’écarte plus qu’une ligne de chiffres (${largeur(gros)} vs ${largeur(petits)})`);
 });
 
 test('★ le critère du rendu est celui du moteur arithmétique, sur la même matière', () => {
-  const cas = [[[8, 15, 16, 5], 'nombre'], [[3, 4, 4, 4], 'chiffre'], [[1, 2], 'chiffre'], [[10, 2], 'nombre']];
-  for (const [vs, attendu] of cas) {
-    assert.equal(natureOperandes(vs), attendu, `natureOperandes(${vs})`);
-    const tl = compile(sc([{ id: 'a', title: 'A', ops: [{ op: 'wait', dur: 20 }] }], nums(vs)));
+  for (const vs of [[8, 15, 16, 5], [3, 4, 4, 4], [6], [10, 2], [-11, 2]]) {
+    const tl = compile(sc([{ id: 'a', title: 'x', ops: [{ op: 'wait', dur: 500 }] }], nums(vs)));
     const ids = vs.map((_, i) => `t${i}`);
-    assert.equal(natureDesJetons({ scene: tl.scene }, ids), attendu, `natureDesJetons(${vs})`);
+    assert.equal(natureDesJetons({ scene: tl.scene }, ids), natureOperandes(vs),
+      `${JSON.stringify(vs)} : le rendu et le moteur ne lisent pas la même matière`);
   }
 });
 
-test('un nombre SEUL ne se souligne pas : il ne se confond avec rien', () => {
+test('un nombre SEUL ne s’écarte pas : il ne se confond avec rien', () => {
   const tl = compile(sc([{
-    id: 'a', title: 'A',
-    ops: [{ op: 'group', targets: ['t0'], symbol: '#', to: { id: 'r', text: '1' }, dur: 2500 }],
+    id: 'a', title: 'x',
+    ops: [{ op: 'group', targets: ['t0'], symbol: '#', to: { id: 'q', text: '1' } }],
   }], nums([15])));
   assert.equal(tl.nodes.filter((n) => n.id.startsWith('@sous:')).length, 0);
-});
-
-test('le soulignement suit son nombre, et s’en va avec lui', () => {
-  const tl = compile(sc([{
-    id: 'a', title: 'A',
-    ops: [{ op: 'sum', targets: ['t0', 't1', 't2'], to: { id: 'r', text: '45' } }],
-  }], nums([15, 15, 15])));
-  // `t1` est au milieu : l'écartement le laisse sur place, il n'a donc rien à
-  // suivre. Les deux autres, si.
-  for (const id of ['t0', 't2']) {
-    const trait = `@sous:${id}`;
-    assert.ok(animsDe(tl, trait, 'translate').length, `${trait} suit son nombre à l’écartement`);
-    const bouge = animsDe(tl, trait, 'translate')[0];
-    const jeton = animsDe(tl, id, 'translate')[0];
-    const a = valeurFinale(bouge);
-    const b = valeurFinale(jeton);
-    assert.deepEqual([a.x, a.y], [b.x, b.y], `${trait} arrive où arrive son nombre`);
-  }
-  for (const id of ['t0', 't1', 't2']) {
-    const trait = `@sous:${id}`;
-    const fin = animsDe(tl, trait, 'opacity').pop();
-    assert.equal(fin.keyframes[fin.keyframes.length - 1].value, 0, `${trait} s’en va avec lui`);
-  }
 });
 
 test('accumulation — le TOTAL s’affiche avant la fin, jamais seulement à x = 1', () => {

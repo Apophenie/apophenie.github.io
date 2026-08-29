@@ -194,7 +194,17 @@ export function monterDecor(ctx, spec) {
     ctx.anim({ id: CAMERA_ID, prop: 'scale', to: restScale * zoom, at: 0, dur: T * TEMPS.CAMERA, ease: EASE.move });
     ctx.anim({ id: CAMERA_ID, prop: 'translate', to: { x: restT.x, y: restT.y + dy }, at: 0, dur: T * TEMPS.CAMERA, ease: EASE.move });
     ctx.anim({ id, prop: 'opacity', to: 1, at: 0, dur: T * TEMPS.DECOR_FONDU });
-    if (titre.texte) ctx.anim({ id: idTitre(id), prop: 'opacity', to: 1, at: 0, dur: T * TEMPS.DECOR_FONDU });
+    // ★ LE NOM ARRIVE APRÈS LA DÉMONSTRATION, quand elle en a une.
+    //
+    //   Un décor qui se contente de paraître peut porter son nom tout de suite :
+    //   la réglette du leetspeak est ce qu'elle est dès qu'on la voit. Une
+    //   GLISSIÈRE, elle, se démontre — la bande du bas paraît alignée sur celle
+    //   du haut, puis se déplace —, et la nommer avant serait donner la réponse
+    //   avant la question. « Alphabet simple, puis doublon qui en sort, puis
+    //   coulissement, PUIS libellé » (l'auteur) : le nom conclut le geste, il ne
+    //   l'annonce pas.
+    const titreAt = typeof spec.titreAt === 'number' ? spec.titreAt : 0;
+    if (titre.texte) ctx.anim({ id: idTitre(id), prop: 'opacity', to: 1, at: titreAt, dur: T * TEMPS.DECOR_FONDU });
   }
   // Déjà monté ou non, le décor suit la VUE : si la ligne a défilé entre deux
   // étapes, le milieu de l'écran n'est plus celui de la scène. Le titre est

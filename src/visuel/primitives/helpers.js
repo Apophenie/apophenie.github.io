@@ -102,7 +102,7 @@ export function ancreVue(ctx) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Des NOMBRES ou des CHIFFRES ? — le soulignement et l'écart
+// Des NOMBRES ou des CHIFFRES ? — l'écart entre les termes
 // ───────────────────────────────────────────────────────────────────────────
 
 /**
@@ -116,17 +116,8 @@ export function ancreVue(ctx) {
  * MÊME matière : les jetons vivants de la ligne. Rien ne voyage dans l'op, il
  * n'y a donc rien qui puisse diverger.
  *
- * Deux conséquences visuelles, et une seule raison :
- *
- * 1. **chaque nombre est souligné** — un trait qui se trace sous lui, de sa
- *    première à sa dernière décimale : c'est le trait qui dit où le nombre
- *    commence et où il finit ;
- * 2. **l'écart entre deux nombres s'élargit**, sans que rien ne s'insère entre
- *    les chiffres d'un même nombre — ils sont dans un seul jeton, aucun
- *    espacement ne peut les séparer, c'est ce qui rend la règle exacte.
- *
- * Sur une ligne de chiffres (un signe par jeton), les deux marques seraient du
- * bruit : elles ne paraissent pas.
+ * Sur une ligne de chiffres (un signe par jeton), l'écart serait du bruit : il
+ * ne paraît pas.
  */
 
 /** Écart entre deux NOMBRES, en multiples du gap de base. */
@@ -136,9 +127,6 @@ export const ECART_NOMBRES = 2.2;
 export const ECART_TERMES = 2.0;
 /** Ce qui sépare un signe du nombre qu'il gouverne : presque rien. */
 export const COLLE_AU_SIGNE = 0.18;
-
-/** Profondeur du soulignement sous l'ancre du jeton, en fraction de `fontSize`. */
-const SOUS_LIGNE = 0.42;
 
 /** Un jeton qui s'écrit comme un nombre (signe éventuel, puis des chiffres). */
 const estNombreEcrit = (n) => !!n && (n.kind === 'number' || n.kind === 'digit')
@@ -156,70 +144,32 @@ export function natureDesJetons(ctx, ids) {
   return noeuds.every((n) => [...n.text.replace(/^[-−]/, '')].length <= 1) ? 'chiffre' : 'nombre';
 }
 
-/** Le trait d'un nombre — un nœud du moteur, jamais nommé par un scénario. */
-export const idSoulignement = (id) => `@sous:${id}`;
-
 /**
- * Marque la ligne si elle porte des NOMBRES : écart élargi et soulignements.
+ * ★ L'ÉCART, ET RIEN QUE L'ÉCART.
+ *
+ * Une ligne de nombres à plusieurs chiffres court un risque de lecture précis :
+ * « 15 16 » se lit « 1516 » si l'espacement ordinaire les sépare comme deux
+ * lettres. Deux remèdes avaient été posés ensemble — écarter les nombres, et
+ * souligner chacun d'un trait qui dit où il commence et où il finit.
+ *
+ * Le trait est retiré. « Enlève le souligné, et partout où souligné il y a »
+ * (l'auteur) : il répondait deux fois à la même question, il fallait le faire
+ * suivre à chaque reflow, l'effacer avec son jeton, le retirer devant les
+ * signes d'opération — beaucoup de dette pour une redite. L'écart, lui, suffit
+ * : c'est le remède qui agit sur la cause, l'espacement.
+ *
  * N'entraîne AUCUN reflow — c'est l'appelant qui recalcule, une seule fois.
  * @returns {boolean} vrai si la ligne portait des nombres
  */
-export function marquerLesNombres(ctx, ids, spec = {}) {
-  // Un nombre SEUL ne se confond avec rien : ni trait, ni écart. Les deux
-  // marques ne répondent qu'au risque de lecture « 15 16 » → « 1516 ».
+export function marquerLesNombres(ctx, ids) {
+  // Un nombre SEUL ne se confond avec rien : pas d'écart non plus.
   if (ids.length < 2 || natureDesJetons(ctx, ids) !== 'nombre') return false;
-  const at = spec.at ?? 0;
-  const dur = Math.max(1, spec.dur ?? ctx.dur);
   const gap = ctx.layoutOpts.gap;
   ids.slice(1).forEach((id) => {
     const n = ctx.scene.get(id);
     if (n) n.gapBefore = gap * ECART_NOMBRES;
   });
-  const y = round(ctx.metrics.fontSize * SOUS_LIGNE);
-  ids.forEach((id, i) => {
-    const n = ctx.scene.get(id);
-    if (!n || !n.alive) return;
-    const sid = idSoulignement(id);
-    if (ctx.scene.has(sid)) return;
-    const demi = round(n.w / 2);
-    ctx.scene.create({
-      id: sid,
-      role: 'bracket',
-      inFlow: false,
-      w: n.w,
-      data: { d: `M ${-demi} ${y} H ${demi}`, shape: 'line' },
-      base: { opacity: 0, strokeDashoffset: 100, stroke: ctx.palette.phos },
-    }, { where: ctx.where });
-    ctx.scene.place(sid, exigerPoint(ctx, ctx.scene.pos(id),
-      `le soulignement du nombre « ${n.text} »`, sid));
-    const a = at + i * (ctx.stagger || 0);
-    ctx.anim({ id: sid, prop: 'opacity', to: 0.8, at: a, dur: dur * 0.4 });
-    ctx.anim({ id: sid, prop: 'strokeDashoffset', from: 100, to: 0, at: a, dur, ease: EASE.fade });
-  });
   return true;
-}
-
-/** Les soulignements suivent leurs jetons — sinon ils se décrochent au reflow. */
-export function suivreLesSoulignements(ctx, moved, spec = {}) {
-  for (const m of moved) {
-    const sid = idSoulignement(m.id);
-    if (!ctx.scene.has(sid) || !ctx.scene.pos(sid)) continue;
-    ctx.place(sid, { x: m.to.x, y: m.to.y, w: ctx.scene.pos(sid).w }, spec);
-  }
-}
-
-/** Le trait s'en va avec le nombre qu'il souligne. */
-export function effacerSoulignement(ctx, id, spec = {}) {
-  const sid = idSoulignement(id);
-  if (!ctx.scene.has(sid)) return;
-  ctx.anim({ id: sid, prop: 'opacity', to: 0, at: spec.at ?? 0, dur: Math.max(1, spec.dur ?? 200) });
-}
-
-/** Reflow + soulignements qui suivent, en un seul geste. */
-export function reflowMarque(ctx, spec = {}) {
-  const moved = ctx.reflow(spec);
-  suivreLesSoulignements(ctx, moved, spec);
-  return moved;
 }
 
 /** Résout `op.targets` (ou un autre champ) en liste d'ids vivants, non vide. */
@@ -541,8 +491,20 @@ export function accumulate(ctx, spec) {
   const tA = t0 + tAcc;          // fin de l'accolade
   const tB = tA + tDup;          // fin des doublons
   const tC = tB + tNiv;          // fin du nivellement
-  const tE = tC + tEff;          // fin des effacements = début du vol
-  const tD = tE + tVol;          // fin du vol = début de la remontée
+  // ★ QUI PART LE PREMIER — et ce n'est pas toujours le même.
+  //
+  //   Une SOMME efface d'abord ce qui ne compte pas, puis fait voler ce qui
+  //   compte : le vol est le calcul, il doit se jouer sur une ligne nette.
+  //   Une SÉLECTION lit dans l'autre sens — « déplace le minimum en dessous de
+  //   l'accolade, PUIS enlève les autres nombres, PUIS remonte le résultat »
+  //   (l'auteur) — parce que ce qui doit se voir, c'est le CHOIX : effacer
+  //   d'abord ferait disparaître les perdants avant qu'on ait vu contre qui
+  //   l'élu gagnait, et il ne resterait qu'un nombre qui descend tout seul.
+  const volDabord = spec.ordre === 'volDabord';
+  const tVolDebut = volDabord ? tC : tC + tEff;
+  const tEffDebut = volDabord ? tC + tVol : tC;
+  const tE = tVolDebut;          // début du vol
+  const tD = tC + tEff + tVol;   // fin des deux = début de la remontée
 
   // --- 1 & 2. l'accolade et son symbole ------------------------------------
   // ★ L'ACCOLADE DÉJÀ TRACÉE — quand le calcul n'ouvre pas le geste.
@@ -656,11 +618,10 @@ export function accumulate(ctx, spec) {
     const cadence = effacer.length > 1 ? (tEff * 0.55) / (effacer.length - 1) : 0;
     const fondu = Math.max(1, tEff - cadence * (effacer.length - 1));
     effacer.forEach((id, i) => {
-      const a = tC + i * cadence;
+      const a = tEffDebut + i * cadence;
       ctx.anim({ id, prop: 'opacity', to: 0, at: a, dur: fondu, ease: EASE.fade });
       ctx.anim({ id, prop: 'scale', to: 0.82, at: a, dur: fondu, ease: EASE.fade });
-      effacerSoulignement(ctx, id, { at: a, dur: fondu * 0.7 });
-    });
+      });
   }
 
   // --- 5b. la case résultat, sous la pointe --------------------------------
@@ -702,7 +663,6 @@ export function accumulate(ctx, spec) {
     ctx.anim({ id, prop: 'translate', to: { x: ancre.x, y: ancre.y }, at: a, dur: vol, ease: EASE.move });
     ctx.anim({ id, prop: 'scale', to: 0.65, at: a, dur: vol });
     ctx.anim({ id, prop: 'opacity', to: 0, at: a + vol * 0.6, dur: vol * 0.4 });
-    effacerSoulignement(ctx, id, { at: a, dur: vol * 0.5 });
     for (const sid of attelage.get(id) || []) {
       orphelins.delete(sid);
       ctx.anim({ id: sid, prop: 'translate', to: { x: ancre.x, y: ancre.y }, at: a, dur: vol, ease: EASE.move });
@@ -781,7 +741,7 @@ export function accumulate(ctx, spec) {
   const consumed = [...operands, ...consume, ...copies];
   for (const id of consumed) ctx.scene.kill(id, ctx.where);
   ctx.scene.enterFlow(to.id, firstIdx < 0 ? undefined : firstIdx, ctx.where);
-  reflowMarque(ctx, { at: tD + tRem * 0.1, dur: Math.max(1, tRem * 0.9), ease: EASE.move });
+  ctx.reflow({ at: tD + tRem * 0.1, dur: Math.max(1, tRem * 0.9), ease: EASE.move });
 
   return { partials, resultPos: ctx.scene.pos(to.id), brace: acc, transferts };
 }
@@ -898,17 +858,13 @@ export function tracerAccolade(ctx, ids, spec = {}) {
   //   qu'`insertOperatorTokens` a posés, qui attellent chaque signe à son
   //   nombre, et on ne trace rien.
   const signes = Boolean(spec.signes);
-  const nombres = signes ? false : marquerLesNombres(ctx, ids, { at, dur: dur * 0.7 });
-  if (signes) {
-    const bouge = { at, dur: dur * 0.45, ease: EASE.move };
-    ctx.reflow(bouge);
-  } else if (spec.tighten || nombres) {
-    if (!nombres) {
+  const nombres = signes ? false : marquerLesNombres(ctx, ids);
+  if (signes || spec.tighten || nombres) {
+    if (!signes && !nombres) {
       const gap = ctx.layoutOpts.gap;
       ids.slice(1).forEach((id) => { ctx.scene.get(id).gapBefore = gap * spec.tighten; });
     }
-    const bouge = { at, dur: dur * 0.45, ease: EASE.move };
-    suivreLesSoulignements(ctx, ctx.reflow(bouge), bouge);
+    ctx.reflow({ at, dur: dur * 0.45, ease: EASE.move });
   }
 
   const box = bboxOf(ids, ctx.scene.positions, ctx.metrics, 10);

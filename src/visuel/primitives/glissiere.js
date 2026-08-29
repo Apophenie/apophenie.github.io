@@ -63,6 +63,14 @@ import { EASE } from '../constants.js';
 export const ROLE_CASE = 'case';
 
 /**
+ * L'instant où la bande a fini de se déplacer, en ms depuis le début de l'op.
+ * `table.js` s'en sert pour ne nommer l'outil qu'une fois sa règle démontrée —
+ * et le calcule DEPUIS CE MODULE, faute de quoi les deux dériveraient au
+ * premier réglage des durées.
+ */
+export const finDuDeplacement = (T, t0) => t0 + T * (TEMPS.ATTENTE + TEMPS.COURSE);
+
+/**
  * Le temps de la bande, en fractions de la durée d'op — après la montée du
  * décor, avant l'aller-retour de la lettre.
  *
@@ -73,8 +81,14 @@ const TEMPS = Object.freeze({
   /** Le fondu d'apparition de la bande — celui du décor, à l'identique. */
   PARAIT: 0.16,
   /** Le temps d'arrêt, une fois la bande là, AVANT qu'elle ne bouge. */
-  ATTENTE: 0.08,
-  COURSE: 0.45,
+  ATTENTE: 0.14,
+  // ★ PLUS LENTE. « L'animation actuelle est très bien, mais gagnerait à être
+  //   un peu plus lente » (l'auteur). C'est le seul moment où la règle se
+  //   DÉMONTRE — vingt-six cases qui vont chacune à sa place — et l'expédier
+  //   revient à demander qu'on la croie sur parole. Le temps repris l'est sur
+  //   l'attente d'après : la bande arrivée se lit encore pendant que la
+  //   première lettre s'envole.
+  COURSE: 0.62,
   REPOS: 0.08,
 });
 
@@ -174,7 +188,17 @@ export function poserBande(ctx, spec) {
     // encore en fondu d'entrée, personne ne voit ce retour à la case départ.
     // (Une table remontée après avoir été repliée rejoue donc son
     // déplacement, ce qui est juste : elle se re-démontre.)
+    //
+    // ⚠️ ET IL FAUT LE DIRE AU DESSIN, PAS SEULEMENT AU MODÈLE. `scene.place`
+    //    ne réécrit `base.translate` que pour un nœud jamais placé ; celui-ci
+    //    l'a été à sa position d'ARRIVÉE, deux lignes plus haut. Sans cette
+    //    ligne, la case était peinte à l'arrivée pendant tout son fondu, puis
+    //    sautait au départ à l'instant où l'animation démarrait : on voyait
+    //    l'alphabet DÉJÀ retourné, un saut, puis le retournement. C'est-à-dire
+    //    la règle affirmée d'abord et démontrée ensuite — l'inverse exact de
+    //    ce que la glissière existe pour faire.
     ctx.scene.place(c.id, scene(c.depart));
+    ctx.scene.get(c.id).base.translate = scene(c.depart);
     // ★ Ce qui est VISIBLE au départ : la réglette du bas telle qu'elle paraît,
     // c'est-à-dire l'alphabet à l'identique — les cases qui resteront ET les
     // fantômes qui occupent les colonnes que le déplacement videra. Les

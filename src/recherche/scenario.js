@@ -2527,6 +2527,11 @@ export function validerFormeOp(o) {
     }
     case 'sum':
       if (!cibles(o.targets)) return '« targets » manquant';
+      if (o.ordre !== undefined && o.ordre !== 'volDabord') return '« ordre » ne connaît que « volDabord »';
+      if (o.accolade !== undefined && o.accolade !== 'existante') return '« accolade » ne connaît que « existante »';
+      for (const champ of ['voler', 'effacer']) {
+        if (o[champ] !== undefined && !cibles(o[champ])) return `« ${champ} » mal formé`;
+      }
       return tok(o.to) ? null : '« to » doit être {id, text}';
     case 'reduce':
       if (!chaine(o.target)) return '« target » manquant';
@@ -2611,6 +2616,9 @@ export function validerFormeOp(o) {
       return null;
     }
     case 'annotate':
+      if (o.ecart !== undefined && !(typeof o.ecart === 'number' && o.ecart > 0)) {
+        return '« ecart » doit être une fraction de casse strictement positive';
+      }
       return typeof o.text === 'string' && o.text.trim() ? null : '« text » non vide obligatoire';
     case 'wait':
       return null;
