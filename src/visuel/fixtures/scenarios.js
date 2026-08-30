@@ -395,11 +395,20 @@ export const vocabulaire = {
       ],
     },
     {
+      id: 'p09b',
+      title: 'fraction',
+      caption: 'on pose le calcul — numérateur, barre, dénominateur — puis on le fait',
+      ops: [
+        { op: 'substitute', pairs: [{ target: 'ab6', to: [{ id: 'fr0', text: '4', kind: 'digit' }, { id: 'fr1', text: '8', kind: 'digit' }] }] },
+        { op: 'fraction', targets: ['fr0', 'fr1'], symbol: 'moy.', diviseur: { id: 'frd', text: '2', kind: 'number' }, to: { id: 'ab6f', text: '6', kind: 'digit' }, at: 1150 },
+      ],
+    },
+    {
       id: 'p10a',
       title: 'collapse',
       caption: 'deux exemplaires identiques se rejoignent — il n’en reste qu’un',
       ops: [
-        { op: 'substitute', pairs: [{ target: 'ab6', to: [{ id: 'cl0', text: '6', kind: 'digit' }, { id: 'cl1', text: '6', kind: 'digit' }] }] },
+        { op: 'substitute', pairs: [{ target: 'ab6f', to: [{ id: 'cl0', text: '6', kind: 'digit' }, { id: 'cl1', text: '6', kind: 'digit' }] }] },
         { op: 'collapse', familles: [{ membres: ['cl0', 'cl1'], garde: 'cl0' }], at: 1150 },
         { op: 'substitute', pairs: [{ target: 'cl0', to: { id: 'ab6b', text: '6', kind: 'digit' } }], at: 3600 },
       ],

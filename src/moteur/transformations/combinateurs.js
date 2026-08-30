@@ -432,52 +432,25 @@ function etapeFraction(spec) {
     const vs = avant.valeur;
     if (vs.length < 2) return etapeDecompte(spec)(avant, apres, ctx);
     const somme = vs.reduce((a, b) => a + b, 0);
-    const sortie = nomsTokens(ctx, 4);
+    const sortie = nomsTokens(ctx, 2);
     const titre = titreEtape(spec, vs, ctx.langue);
-    const signes = ctx.ids.slice(1).map((_, i) => `${ctx.cle}p${i}`);
-    const [idSomme, idSomme2, idDiviseur, idQuotient] = sortie;
-    const idDivise = `${ctx.cle}div`;
-
-    const corps = enchainer([
-      { op: 'group', targets: ctx.ids, symbol: spec.symbole || 'moy.', label: titre },
-      { op: 'insertOperators', between: ctx.ids, ids: signes, glyph: '+' },
-      {
-        op: 'sum',
-        targets: ctx.ids,
-        consume: signes,
-        partials: partielsSomme(vs).slice(1),
-        to: token(idSomme, somme, 'number'),
-        symbol: spec.symbole || 'moy.',
-        accolade: 'existante',
-      },
-      // Le diviseur paraît à côté de la somme : c'est le nombre de termes qu'on
-      // vient de voir descendre, il n'a pas à être cru sur parole. La somme
-      // RENAÎT sous un autre identifiant — un id supprimé ne se réutilise pas.
-      {
-        op: 'substitute',
-        pairs: [{
-          target: idSomme,
-          to: [token(idSomme2, somme, 'number'), token(idDiviseur, vs.length, 'number')],
-        }],
-      },
-      { op: 'insertOperators', between: [idSomme2, idDiviseur], ids: [idDivise], glyph: '÷' },
-      {
-        op: 'sum',
-        targets: [idSomme2, idDiviseur],
-        consume: [idDivise],
-        partials: [somme, apres.valeur],
-        to: token(idQuotient, apres.valeur, 'number'),
-        symbol: spec.symbole || 'moy.',
-      },
-    ]);
-    // L'accolade de la SOMME se retire quand le diviseur paraît : la division
-    // qui suit trace la sienne, sur ses deux termes à elle.
-    const groupe = corps.find((o) => o.op === 'group');
-    const releve = corps.find((o) => o.op === 'substitute');
-    if (groupe && releve) groupe.fadeAt = Math.max(0, releve.at - groupe.at - 200);
-    return [etape(ctx, titre,
-      `${vs.join(' + ')} = ${somme}, ÷ ${vs.length} = ${apres.valeur}`,
-      corps, { hold: 500 })];
+    // ★ UN SEUL GESTE, ET C'EST TOUT LE PROPOS. La moyenne se jouait en deux
+    //   ops enchaînées — l'addition, puis la division —, et la couture se
+    //   voyait : l'accolade se retirait, une autre se traçait, la somme
+    //   renaissait sous un autre nom. « D'abord tu poses le calcul, ensuite tu
+    //   le fais » (l'auteur) : une fraction est UNE écriture, pas deux calculs
+    //   qui se suivent. La primitive `fraction` la pose en entier avant d'en
+    //   tirer quoi que ce soit (`visuel/primitives/fraction.js`).
+    //
+    // ★ Pas de légende à rallonge non plus : « moy. c'est parfait ». Le symbole
+    //   sous l'accolade dit ce qu'on fait, la scène montre comment.
+    return [etape(ctx, titre, `${vs.join(' + ')} = ${somme}, ÷ ${vs.length} = ${apres.valeur}`, [{
+      op: 'fraction',
+      targets: ctx.ids,
+      symbol: spec.symbole || 'moy.',
+      diviseur: token(sortie[0], vs.length, 'number'),
+      to: token(sortie[1], apres.valeur, 'number'),
+    }], { hold: 600 })];
   };
 }
 
@@ -685,7 +658,9 @@ const agregations = [
     notoriete: 0.55, adHoc: 0.1,
     actifParDefaut: false,
     calcul: (vs) => Math.round(vs.reduce((a, b) => a + b, 0) / vs.length),
-    sortie: (avant, apres, ctx) => [nomsTokens(ctx, 4)[3]],
+    // Deux jetons nommés : le diviseur, puis le quotient — c'est lui qui
+    // représente l'état d'arrivée.
+    sortie: (avant, apres, ctx) => [nomsTokens(ctx, 2)[1]],
     geste: 'fraction', minimum: 2,
   },
   {

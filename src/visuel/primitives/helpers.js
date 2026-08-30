@@ -962,7 +962,23 @@ export function tracerAccolade(ctx, ids, spec = {}) {
   //
   // Une accolade SANS symbole ne promet rien — `partition` découpe, elle ne
   // calcule pas —, elle ne publie donc aucune ancre.
-  if (typeof spec.symbol === 'string' && spec.symbol) ctx.scene.poserAncre(ids, resultat);
+  // ★ UNE ACCOLADE NE PROMET PAS TOUJOURS UN RÉSULTAT SOUS SA POINTE.
+  //
+  //   Elle le promet quand elle CALCULE — une somme, un compte, un écart :
+  //   quelque chose descend et s'écrit là. Elle ne promet rien quand elle
+  //   désigne seulement une zone que le geste transforme SUR PLACE, comme
+  //   l'égalisation : les nombres restent où ils sont, ils changent de valeur.
+  //
+  //   La nuance n'est pas théorique. `substitute` lit cette promesse
+  //   (`scene.ancreDe`) et, quand elle existe, fait naître la valeur sous la
+  //   pointe avant de la remonter dans la ligne. Sur un relevé d'identité —
+  //   même texte, même place — ce détour se voyait : les valeurs plongeaient
+  //   sous l'accolade et remontaient, pour rien. « Sauf tout à la fin la
+  //   remontée fugace de la valeur vers les valeurs déjà présentes »
+  //   (l'auteur). Un geste qui ne déplace rien ne doit rien déplacer.
+  if (typeof spec.symbol === 'string' && spec.symbol && spec.promet !== false) {
+    ctx.scene.poserAncre(ids, resultat);
+  }
   // Et l'accolade s'inscrit, pour que les gestes qui referment la ligne sous
   // elle sachent la redimensionner (`suivreLesAccolades`).
   if (shape !== 'box') ctx.scene.poserAccolade(id, ids);

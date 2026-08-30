@@ -79,7 +79,7 @@ export const LINE_HEIGHT = 78;   // unités viewBox
 export const OP_NAMES = Object.freeze([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse', 'fraction',
 ]);
 
 /**
@@ -128,6 +128,9 @@ export const DEFAULT_DUR = Object.freeze({
   shift: 900,
   // Monter, converger, retomber : trois temps, et le choc doit se voir.
   collapse: 2400,
+  // Six temps : poser le calcul en demande quatre, le faire en demande deux.
+  // C'est long parce que c'est une leçon, pas une transition.
+  fraction: 7000,
 });
 
 /** `kind` des tokens — vocabulaire fermé (recherche §2.2). */

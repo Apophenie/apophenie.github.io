@@ -1,7 +1,7 @@
 /**
  * Le vocabulaire fermé des ops — CONTRACTS §3.1.
  *
- * Vingt-quatre primitives, une par fichier — les dix-sept du socle, plus
+ * Vingt-cinq primitives, une par fichier — les dix-sept du socle, plus
  * `partition` (découper en sous-groupes), `table` (la table de correspondance
  * affichée — réglette, glissière ou pavé téléphonique), `fourteenSeg`
  * (l'afficheur quatorze segments), `horns` (les cornes du 666 déjà formé) et
@@ -39,13 +39,14 @@ import * as horns from './horns.js';
 import * as merge from './merge.js';
 import * as shift from './shift.js';
 import * as collapse from './collapse.js';
+import * as fraction from './fraction.js';
 
 import { OP_NAMES } from '../constants.js';
 
 export const PRIMITIVES = Object.freeze({
   highlight, dim, drop, substitute, move, group, insertOperators,
   sum, reduce, flip180, sevenSeg, fourteenSeg, countStrokes, keyboard,
-  annotate, pulse, reveal, wait, partition, table, horns, merge, shift, collapse,
+  annotate, pulse, reveal, wait, partition, table, horns, merge, shift, collapse, fraction,
 });
 
 // Garde-fou de chargement : la table des primitives et le vocabulaire déclaré

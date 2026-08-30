@@ -151,6 +151,9 @@ function planEgalisation(ctx, ids) {
   const acc = tracerAccolade(ctx, ids, {
     shape: 'brace', tighten: 0.66,
     symbol: ctx.op.symbol || '≡', label: ctx.op.label || null,
+    // Elle DÉSIGNE, elle ne calcule pas : rien ne descendra sous sa pointe, et
+    // le relevé d'identité qui referme le geste ne doit pas y plonger.
+    promet: false,
     at: 0, dur: T * 0.28,
   });
   // Les largeurs réservées, comme dans `accumulate` : un jeton qui passera de

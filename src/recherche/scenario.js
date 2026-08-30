@@ -71,7 +71,7 @@ function dire(texte, langue = LANGUE_DEFAUT) {
 export const VOCABULAIRE = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
-  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse',
+  'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse', 'fraction',
 ]);
 
 /**
@@ -493,6 +493,11 @@ function inventaire(o) {
       break;
     case 'merge':
       // Coller n jetons en un seul : les sources s'en vont, l'arrivée reste.
+      ajouter(o.to);
+      supprimes.push(...normaliserCibles(o.targets));
+      break;
+    case 'fraction':
+      // Le diviseur naît puis s'efface avec la barre ; seul le quotient reste.
       ajouter(o.to);
       supprimes.push(...normaliserCibles(o.targets));
       break;
@@ -1262,6 +1267,13 @@ export function suivreLaLigne(tokens, steps) {
               ligne.splice(i, 1);
             }
           }
+          break;
+        }
+        case 'fraction': {
+          // Les termes s'en vont, le quotient prend la place du premier — le
+          // diviseur et la barre ne sont jamais entrés dans la ligne.
+          const termes = ids(o.targets);
+          if (!termes || !accumuler(termes, [], o.to)) perdu = true;
           break;
         }
         case 'merge': {
@@ -2834,6 +2846,11 @@ export function validerFormeOp(o) {
         if (f.garde !== undefined && !chaine(f.garde)) return '« familles[].garde » doit être un identifiant';
       }
       return null;
+    }
+    case 'fraction': {
+      if (!cibles(o.targets)) return '« targets » manquant';
+      if (!tok(o.to)) return '« to » doit être {id, text}';
+      return tok(o.diviseur) ? null : '« diviseur » doit être {id, text}';
     }
     case 'shift': {
       // Le tamis écarte, ou rend ce qu'il a écarté. Sans aucune des trois
