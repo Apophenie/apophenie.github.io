@@ -46,6 +46,11 @@ const LAYER_OF = {
   // Les cornes se posent PAR-DESSUS les chiffres qu'elles couronnent : elles
   // dépassent du haut des glyphes et ne doivent jamais passer derrière eux.
   horns: 'front',
+  // Le souffle du 6 surnuméraire qui explose au verdict
+  // (`primitives/explosion.js`). Devant, comme les cornes, et pour la même
+  // raison : ses éclats passent PAR-DESSUS les deux triptyques qu'ils écartent
+  // — c'est ce recouvrement qui fait lire une poussée plutôt qu'un fondu.
+  souffle: 'front',
   // L'orage. Le fond et l'éclair tapissent la scène entière ; l'embrasement,
   // lui, est un décor accroché à UN chiffre — il doit donc rester DERRIÈRE lui
   // (`back`), sinon un halo orange passerait par-dessus le 6 qu'il entoure et
@@ -402,6 +407,22 @@ export function createElementFor(node, env) {
         stroke: 'none',
         'fill-rule': 'nonzero',
         class: 'nhl-horns',
+      });
+      break;
+    }
+    case 'souffle': {
+      // Les neuf éclats en UN seul tracé (neuf sous-chemins fermés), rempli —
+      // même parti que les cornes, et pour la même raison : un éclat porte son
+      // épaisseur dans sa forme, large au pied et pointu au bout, ce qu'un
+      // trait d'épaisseur constante ne sait pas dire. Le repère est celui de la
+      // scène, centré sur la place qu'occupait le 6 : aucune mise à l'échelle
+      // statique, et le canal `d` reste seul à décrire le geste
+      // (`primitives/explosion.js › souffleD`).
+      element = el('path', {
+        d: node.data.d,
+        stroke: 'none',
+        'fill-rule': 'nonzero',
+        class: 'nhl-souffle',
       });
       break;
     }
