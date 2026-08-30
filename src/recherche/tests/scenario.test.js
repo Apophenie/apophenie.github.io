@@ -180,7 +180,15 @@ test('scénario — le dernier step révèle le résultat', () => {
   const sc = m.scenarioDe(r.approches[0], { saisie: r.saisie });
   const dernier = sc.steps[sc.steps.length - 1];
   assert.ok(dernier.ops.some((o) => o.op === 'reveal'));
-  assert.equal(sc.result, '666');
+  // ★ Le RÉSULTAT s'accorde au nombre de séries, il ne vaut pas « 666 » par
+  //   décret. Ce test gelait la chaîne littérale, ce qui revenait à figer
+  //   QUELLE voie sort en tête de « macron » — or c'est le classement qui en
+  //   décide, et il bouge à chaque opérateur ajouté. Ce qu'il faut geler est
+  //   l'accord entre ce que le verdict annonce et ce que la voie aligne.
+  const series = sc.steps[sc.steps.length - 1].ops.find((o) => o.op === 'reveal');
+  const attendu = Array.from({ length: r.approches[0].series || 1 }, () => '666').join(' ');
+  assert.equal(sc.result, attendu, `le verdict annonce ${sc.result} pour ${r.approches[0].series || 1} série(s)`);
+  assert.ok(series.targets.length >= 3, 'le verdict révèle au moins un triptyque');
 });
 
 test('scénario — un opérateur qui fournit steps() est employé tel quel', () => {
@@ -313,6 +321,22 @@ test('★ scénario — jeter coûte : le rendement suit ce qu’on garde', () =
       }
       return n + d;
     }, 0);
+    // ★ UNE LIGNE UNIFORMISÉE NE SE PRÉDIT PAS DEPUIS SES LONGUEURS.
+    //
+    //   Ce contrôle croisé suppose que les valeurs traversent le chemin sans
+    //   changer : ce qui reste à l'arrivée est ce qui n'a pas été jeté. C'est
+    //   vrai de tous les gestes, sauf de l'égalisation — elle ne jette RIEN et
+    //   réécrit TOUT, si bien qu'un jeton qui valait 6 peut cesser de l'être et
+    //   l'inverse. Le rendement se calcule alors sur d'autres valeurs que
+    //   celles d'où l'on part, et la formule ne peut plus le retrouver.
+    //
+    //   On saute donc ces voies, plutôt que d'élargir la tolérance jusqu'à ne
+    //   plus rien attraper. Ce que le contrôle garde est intact pour toutes les
+    //   autres, et l'égalisation, elle, se paie ailleurs (`elegance.js`,
+    //   palier `EGALISATION`, et elle est inscrite aux FICELLES).
+    const uniformise = (a.parts || []).some((p) => ((p.chemin && p.chemin.ops) || [])
+      .some((o) => o.id === 'm.egalisation'));
+    if (uniformise) continue;
     const jetes = (tri ? tri.ops.find((o) => o.op === 'drop').targets.length : 0) + jetesEnRoute;
     const gardes = tri
       ? tri.ops.find((o) => o.op === 'highlight').targets.length

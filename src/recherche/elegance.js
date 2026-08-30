@@ -889,6 +889,34 @@ export const BAREME = {
   MAJORITE: 180,
 
   /**
+   * ★ ÉGALISER — par valeur réécrite.
+   *
+   * `m.egalisation` prend `8 15 16 5` et rend `11 11 11 11` : un `1` passe du
+   * plus grand au plus petit jusqu'à ce que tout se tienne. Le geste est
+   * arithmétiquement irréprochable — la somme est un invariant du transfert,
+   * c'est ce qui garantit que la valeur commune atteinte est la moyenne — et
+   * c'est justement ce qui le rend redoutable.
+   *
+   * Car il ne jette rien, ne choisit rien, n'énonce aucun critère : il ne
+   * tombait donc sous AUCUN compteur, et ne payait que les 14 du socle. Or
+   * dès que la moyenne vaut le chiffre cherché, la ligne entière devient ce
+   * chiffre — six lettres donnent deux séries d'un coup. Mesuré à l'ouverture :
+   * il raflait quatre têtes de liste sur cinq (`Macron` 1553, `reinfocovid`
+   * 1611, `Capitalisme` 1597, `Marie Curie` 1509), là où les meilleures voies
+   * honnêtes plafonnaient vers 930.
+   *
+   * Ce qui se paie n'est pas la malhonnêteté — il n'y en a pas — mais le fait
+   * que **le résultat ne vient plus de la saisie** : douze valeurs distinctes
+   * deviennent douze fois la même, et ce que la démonstration montre ensuite
+   * ne dit plus rien du mot qu'on lisait. Par valeur réécrite, donc : uniformiser
+   * trois nombres n'est pas uniformiser douze.
+   *
+   * ⚠️ Réglé par BALAYAGE, comme `RETOUCHE` (voir plus bas) : c'est la première
+   *    valeur qui rend les têtes de liste aux voies qui lisent vraiment.
+   */
+  EGALISATION: 200,
+
+  /**
    * ★ **LA MÊME RÈGLE, MAIS SANS LA DIRE — ET ÇA COÛTE PLUS CHER.**
    *
    * `m36` et `m.plusFrequent` font, sur `[2,2,6,6,6,7]`, exactement le même
@@ -1221,6 +1249,7 @@ export const NATURE = Object.freeze({
   // ── ce qui se perd par une TRICHE assumée
   EFFACEMENT_SANS_MOTIF: { sens: -1, famille: 'elegance' },
   MAJORITE: { sens: -1, famille: 'elegance' },
+  EGALISATION: { sens: -1, famille: 'elegance' },
   MAJORITE_TACITE: { sens: -1, famille: 'elegance' },
   DECIMATION: { sens: -1, famille: 'elegance' },
   ADDITION_SELECTIVE: { sens: -1, famille: 'elegance' },
@@ -1300,6 +1329,24 @@ export const FICELLES = Object.freeze({
   // ⚠️ `effacementSansMotif` n'a pas encore d'opérateur : la scission du geste
   //    de `m36` (couronner / effacer) est en cours ailleurs. Inscrire ici
   //    l'identifiant de la moitié « effacer » suffira à brancher le palier.
+  // ★ **`m.egalisation` EST UNE FICELLE**, et la mesure ne laisse pas le choix.
+  //
+  //   Elle n'est pourtant pas malhonnête : la somme est un invariant du
+  //   transfert, la valeur commune atteinte EST la moyenne, rien n'est jeté.
+  //   Mais dès que cette moyenne vaut le chiffre cherché, la ligne entière le
+  //   devient — et ce que la démonstration montre ensuite ne dit plus rien du
+  //   mot qu'on lisait. C'est la définition du dernier recours : ça marche
+  //   toujours, et ça ne prouve rien.
+  //
+  //   Mesuré à l'ouverture : elle prenait SEPT têtes de liste sur huit
+  //   (`Macron` 1553, `Millicent` 1733, `reinfocovid` 1611…), là où les
+  //   meilleures voies honnêtes plafonnaient vers 930. Et la facturer ne
+  //   suffisait pas : à 400 elle valait zéro d'élégance et restait en tête,
+  //   parce qu'elle avait ÉVINCÉ les voies honnêtes du faisceau de vecteurs
+  //   avant tout classement — le plafond consulte `nbFicelles`, qui ne la
+  //   voyait pas. L'inscrire ici la rend évinçable, et c'est ce qui rend le
+  //   palier efficace.
+  'm.egalisation': 'egalisees',
 });
 
 /**
@@ -1410,6 +1457,14 @@ export const OPERATEURS_QUI_ECARTENT = Object.freeze(new Set([
  * l'inverse — la consigne de l'auteur, écrite là où elle s'applique.
  */
 const ENONCENT_LA_MAJORITE = Object.freeze(new Set(['m.plusFrequent']));
+
+/**
+ * Les opérateurs qui UNIFORMISENT une ligne — ils rendent autant de valeurs
+ * qu'ils en reçoivent, mais toutes égales. Nommés plutôt que devinés : deviner
+ * demanderait de comparer les vecteurs à chaque étape et frapperait au passage
+ * une réduction qui tombe juste par hasard (`mrn` sur `[9, 18, 27]`).
+ */
+const UNIFORMISENT = Object.freeze(new Set(['m.egalisation']));
 
 /**
  * ★ Les opérateurs qui RÉARRANGENT sans rien retirer — le tri croissant.
@@ -1789,6 +1844,7 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     lettreVersLettre: 0,
     sixDetruits: 0,
     majoriteTacite: 0,
+    egalisees: 0,
     valeursJetees: 0,
     // ★ les ficelles — voir `FICELLES` et l'en-tête
     majorite: 0,
@@ -1946,6 +2002,16 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
         else b.majoriteTacite += jetees;
       }
       else b.valeursJetees += jetees;
+    }
+    // ★ L'UNIFORMISATION — autant de valeurs, mais toutes la même. Elle ne
+    //   jette rien, donc aucun compteur de rejet ne la voyait ; ce qu'elle
+    //   coûte, c'est que la ligne cesse de dire quoi que ce soit du mot lu.
+    if (UNIFORMISENT.has(op.id) && avant.type === 'NUMS' && apres.type === 'NUMS') {
+      let reecrites = 0;
+      for (let k = 0; k < apres.valeur.length; k++) {
+        if (apres.valeur[k] !== avant.valeur[k]) reecrites++;
+      }
+      b.egalisees += reecrites;
     }
     // …et un mappeur qui ne sait pas convertir tous ses jetons en laisse tomber
     //    aussi (le quatorze segments cale sur un tiret).
@@ -2169,6 +2235,7 @@ export function bilanApproche(approche, ctx = {}) {
     lettreVersLettre: 0,
     sixDetruits: 0,
     majoriteTacite: 0,
+    egalisees: 0,
     valeursJetees: 0,
     filtresSelectifs: 0,
     reglagesEnTrop: 0,
@@ -2260,6 +2327,7 @@ export function bilanApproche(approche, ctx = {}) {
     b.lettreVersLettre += bc.lettreVersLettre;
     b.sixDetruits += bc.sixDetruits;
     b.majoriteTacite += bc.majoriteTacite;
+    b.egalisees += bc.egalisees;
     b.valeursJetees += bc.valeursJetees;
     b.majorite += bc.majorite;
     b.decimation += bc.decimation;
@@ -2431,6 +2499,7 @@ export function detailDuCredit(b, poids) {
     ['transformations en trop', 'TRANSFORMATION', enTrop, B.TRANSFORMATION * enTrop],
     ['valeurs calculées puis jetées en route', 'VALEUR_JETEE', b.valeursJetees,
       B.VALEUR_JETEE * b.valeursJetees],
+    ['ligne uniformisée', 'EGALISATION', b.egalisees || 0, B.EGALISATION * (b.egalisees || 0)],
     ['rejet tacite d’une minorité', 'MAJORITE_TACITE', b.majoriteTacite || 0,
       B.MAJORITE_TACITE * (b.majoriteTacite || 0)],
     ['reste du vecteur, à la fin', 'RELIQUAT_HORS_CIBLE', b.reliquatHorsCible || 0,

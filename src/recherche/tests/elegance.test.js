@@ -193,6 +193,13 @@ test('★ les ficelles sont au catalogue, et chacune alimente SON palier', () =>
     //   est celui de l'auteur — trente-deux chiffres —, parce que l'opérateur
     //   refuse en deçà de dix-neuf : c'est un DERNIER RECOURS sur une ligne
     //   trop longue pour tenir dans un verdict, pas une astuce de poche.
+    // ★ La cinquième : l'ÉGALISATION. Elle n'est pas malhonnête — la somme est
+    //   un invariant du transfert —, mais dès que la moyenne vaut le chiffre
+    //   cherché, la ligne entière le devient, et la démonstration ne dit plus
+    //   rien du mot qu'on lisait. Mesuré à son ouverture : sept têtes de liste
+    //   sur huit. C'est la définition du dernier recours — ça marche toujours,
+    //   et ça ne prouve rien.
+    'm.egalisation': ['meg', 'egalisees', [8, 15, 16, 5]],
     'm.redecoupageChoisi': ['mrd', 'redecoupage',
       [4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
         1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8]],
