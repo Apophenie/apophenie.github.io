@@ -688,14 +688,43 @@ export function lire(hash, options = {}) {
   }
 
   const fragments = [];
+  let groupee = false;
   for (const brutFrag of brutFragments.split(',')) {
     const f = lireFragments(brutFrag);
     if (!f) return { ...vide, saisie, saisieBrute, raison: `fragment illisible : ${brutFrag}`, bandeau: BANDEAUX.formatInconnu };
     // ★ Le DÉPLIAGE est ici, et il est total : à partir de cette ligne, plus
     //   rien dans le site ne sait qu'un lien était groupé. `0.1+2.1:P` a rendu
-    //   deux descripteurs, exactement ceux de `0.1:P,2.1:P` — dans l'ordre où
-    //   les places sont écrites, puisque c'est cet ordre qui écrit la cible.
+    //   deux descripteurs, exactement ceux de `0.1:P,2.1:P`.
+    if (f.length > 1 && !f[0].resonance) groupee = true;
     fragments.push(...f);
+  }
+  // ★ UNE LIGNE GROUPÉE SE LIT DANS L'ORDRE DU TEXTE.
+  //
+  //   L'ordre des fragments est ce qui écrit la cible de gauche à droite. Tant
+  //   qu'on ne groupait que des portées VOISINES, l'ordre écrit et l'ordre du
+  //   texte coïncidaient et la question ne se posait pas. Grouper des portées
+  //   éloignées les sépare : `0.1+2.1:A,1.1+3.1:B` se déplierait en 0, 2, 1, 3
+  //   — et sur une cible dont les places ne rendent pas toutes le même chiffre,
+  //   `070` deviendrait `007`.
+  //
+  //   Une ligne qui factorise déclare donc lire dans l'ordre du texte, et le
+  //   dépliage l'y remet. C'est la contrepartie exacte de `factorisable()`, qui
+  //   ne factorise QUE des lignes déjà rangées ainsi : les deux formes dénotent
+  //   la même démonstration, dans le même ordre, et l'aller-retour est neutre.
+  //
+  //   ⚠️ Tri par insertion sur les offsets — pas de comparateur de tri fourni
+  //   par la plateforme, pas de `localeCompare` : le déterminisme du moteur ne
+  //   se délègue pas (§4.4).
+  if (groupee && fragments.every((f) => f.portee)) {
+    for (let i = 1; i < fragments.length; i++) {
+      const courant = fragments[i];
+      let j = i - 1;
+      while (j >= 0 && fragments[j].portee.offset > courant.portee.offset) {
+        fragments[j + 1] = fragments[j];
+        j--;
+      }
+      fragments[j + 1] = courant;
+    }
   }
 
   if (options.catalogue) {
@@ -954,32 +983,53 @@ export function autreRegistre(registre, cible = CIBLE_DEFAUT) {
  * d'ailleurs déjà rangé pour que ses jumelles se touchent.
  */
 export function ecrireApproche(fragments) {
-  const morceaux = [];
-  for (let i = 0; i < fragments.length;) {
-    const f = fragments[i];
-    const programme = f.codes.join('+');
-    // Une résonance ne se groupe pas (elle nomme déjà plusieurs places), et un
-    // fragment sans portée non plus : « toute la saisie » n'a pas de place à
-    // mettre dans une liste.
-    let j = i + 1;
-    if (f.portee && !f.resonance) {
-      while (j < fragments.length && seGroupe(fragments[j], programme)) j++;
-    }
-    if (j - i > 1) {
-      const places = fragments.slice(i, j).map((x) => `${x.portee.offset}.${x.portee.longueur}`);
-      morceaux.push(`${places.join('+')}:${programme}`);
-    } else {
-      morceaux.push(ecrireFragment(f));
-    }
-    i = j;
+  if (!factorisable(fragments)) {
+    // Forme à plat : plus longue, mais fidèle à l'ordre écrit.
+    return fragments.map(ecrireFragment).join(',');
   }
-  return morceaux.join(',');
+  // Une `Map` garde l'ordre de PREMIÈRE INSERTION : les groupes sortent donc
+  // rangés par leur plus petite portée, et les portées d'un groupe dans l'ordre
+  // croissant — la ligne d'entrée l'étant déjà. Aucun tri, donc aucun
+  // comparateur à qui faire confiance (§4.4).
+  const groupes = new Map();
+  for (const f of fragments) {
+    const programme = f.codes.join('+');
+    const place = `${f.portee.offset}.${f.portee.longueur}`;
+    const deja = groupes.get(programme);
+    if (deja) deja.push(place);
+    else groupes.set(programme, [place]);
+  }
+  return [...groupes]
+    .map(([programme, places]) => `${places.join('+')}:${programme}`)
+    .join(',');
 }
 
-/** Ce fragment-là peut-il rejoindre le groupe en cours ? */
-function seGroupe(f, programme) {
-  return !!f.portee && !f.resonance && f.codes.join('+') === programme;
+/**
+ * Peut-on FACTORISER cette ligne sans rien perdre ?
+ *
+ * ★ LA TROISIÈME CONDITION EST CELLE QUI PROTÈGE LE SENS. Grouper des portées
+ *   non adjacentes REORDONNE la lecture : `0.1:A,1.1:B,2.1:A,3.1:B` factorisé
+ *   en `0.1+2.1:A,1.1+3.1:B` se relit dans l'ordre 0, 2, 1, 3. Sur une cible
+ *   dont toutes les places rendent le même chiffre, c'est sans conséquence ;
+ *   sur `007`, la suite produite changerait — `070` deviendrait `007`.
+ *
+ *   On exige donc que les portées soient DÉJÀ dans l'ordre du texte, et le
+ *   dépliage les y remet (`lireFragments`). Les deux formes dénotent alors
+ *   exactement la même démonstration, dans le même ordre, et une approche qui
+ *   lit ses parts autrement s'écrit à plat.
+ */
+function factorisable(fragments) {
+  if (fragments.length < 2) return false;
+  let precedent = -1;
+  for (const f of fragments) {
+    if (f.resonance || !f.portee) return false;
+    if (f.portee.offset <= precedent) return false;
+    precedent = f.portee.offset;
+  }
+  const programmes = fragments.map((f) => f.codes.join('+'));
+  return new Set(programmes).size < programmes.length;
 }
+
 
 function ecrireFragment(f) {
   const programme = f.codes.join('+');

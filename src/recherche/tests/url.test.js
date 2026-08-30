@@ -120,19 +120,23 @@ test('url — écriture canonique : aller-retour exact', () => {
  * deux zones étanches — voir `url.js`, « les portées groupées ».
  */
 const GROUPE = 'so!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+mpy+mr9';
-const DEPLIE = 'so!0.1:tca+m14,2.1:tca+m14,4.1:tca+m14,'
-  + '1.1:tca+mtc+cs,3.1:tca+mtc+cs,6.1:tca+mpy+mr9';
+// ★ La forme dépliée est celle de l'ORDRE DU TEXTE, et non celle de l'ordre
+//   des groupes : une ligne groupée déclare se lire de gauche à droite, et le
+//   dépliage l'y remet (`url.js › lireFragments`). C'est ce qui rend la
+//   factorisation neutre — sans quoi `0.1+2.1:A,1.1:B` dirait 0, 2, 1.
+const DEPLIE = 'so!0.1:tca+m14,1.1:tca+mtc+cs,2.1:tca+m14,'
+  + '3.1:tca+mtc+cs,4.1:tca+m14,6.1:tca+mpy+mr9';
 
 test('★ portées groupées — la forme de l’auteur se lit, et se déplie', () => {
   const r = lire(`#${GROUPE}#${B58_URL}`);
   assert.equal(r.forme, 'canonique');
   assert.equal(r.fragments.length, 6, 'trois groupes, six places');
   assert.deepEqual(r.fragments.map((f) => `${f.portee.offset}.${f.portee.longueur}`),
-    ['0.1', '2.1', '4.1', '1.1', '3.1', '6.1'],
-    'les places sortent dans l’ordre ÉCRIT : c’est lui qui écrit la cible');
+    ['0.1', '1.1', '2.1', '3.1', '4.1', '6.1'],
+    'une ligne groupée se déplie dans l’ordre du TEXTE : c’est lui qui écrit la cible');
   assert.deepEqual(r.fragments[0].codes, ['tca', 'm14']);
   assert.deepEqual(r.fragments[2].codes, ['tca', 'm14']);
-  assert.deepEqual(r.fragments[3].codes, ['tca', 'mtc', 'cs']);
+  assert.deepEqual(r.fragments[1].codes, ['tca', 'mtc', 'cs']);
   assert.equal(r.bandeau, null);
 });
 
@@ -175,18 +179,47 @@ test('★ portées groupées — l’écriture les PRODUIT : l’aller-retour es
  * c'est exactement pour cela qu'elle se teste sur une cible qui, elle, distingue
  * ses places.
  */
-test('★ portées groupées — on ne groupe QUE des voisines : l’ordre écrit la cible', () => {
+/**
+ * ★ AMENDEMENT — ON GROUPE AUSSI LES ÉLOIGNÉES, et le dépliage remet l'ordre.
+ *
+ * Ce test gelait « on ne groupe QUE des voisines », au motif que rapprocher
+ * deux jumelles séparées par une tierce changerait la suite de chiffres
+ * produite — `070` deviendrait `007`. L'argument reste vrai : c'est bien
+ * l'ordre des fragments qui écrit la cible de gauche à droite.
+ *
+ * La réponse a changé de côté. Plutôt que d'interdire le groupe, une ligne
+ * groupée DÉCLARE se lire dans l'ordre du texte, et `lireFragments` l'y remet
+ * (`url.js`). Les deux formes dénotent alors la même démonstration, dans le
+ * même ordre — et l'écriture ne factorise que des lignes déjà rangées ainsi
+ * (`factorisable`), si bien que l'aller-retour est neutre par construction.
+ *
+ * C'est ce que l'auteur demandait : « `0.1:X,1.1:Y,2.1:X,3.1:Y` gagnerait à
+ * pouvoir s'écrire `0.1+2.1:X,1.1+3.1:Y` ».
+ */
+test('★ portées groupées — les éloignées se groupent, et l’ordre du texte est rendu', () => {
   const place = (offset, codes) => ({ portee: { offset, longueur: 1 }, resonance: null, codes });
   const alterne = [place(0, ['ma1']), place(1, ['nv']), place(2, ['ma1'])];
-  assert.equal(ecrireApproche(alterne), '0.1:ma1,1.1:nv,2.1:ma1',
-    'grouper 0.1 et 2.1 par-dessus 1.1 changerait la suite de chiffres produite');
-  // Trois voisines, elles, se groupent en un seul programme écrit.
+  assert.equal(ecrireApproche(alterne), '0.1+2.1:ma1,1.1:nv',
+    'deux places de même programme se rejoignent, même séparées');
+  // …et la relecture rend l'ordre du TEXTE, pas celui des groupes : c'est ce
+  // qui rend la factorisation neutre.
+  const relu = lire(`#so!${ecrireApproche(alterne)}#${encoderTexte('hope')}`);
+  assert.deepEqual(relu.fragments.map((f) => f.portee.offset), [0, 1, 2],
+    'une ligne groupée se déplie dans l’ordre du texte');
+  assert.deepEqual(relu.fragments.map((f) => f.codes.join('+')), ['ma1', 'nv', 'ma1']);
+
+  // Trois voisines se groupent aussi, comme avant.
   assert.equal(ecrireApproche([place(0, ['ma1']), place(2, ['ma1']), place(4, ['ma1'])]),
     '0.1+2.1+4.1:ma1');
-  // Un groupe s'arrête dès que le programme change, et reprend après.
   assert.equal(ecrireApproche([place(0, ['ma1']), place(1, ['ma1']), place(2, ['nv']), place(3, ['nv'])]),
     '0.1+1.1:ma1,2.1+3.1:nv');
+
+  // ★ Et une ligne dont les places ne sont PAS dans l'ordre du texte s'écrit à
+  //   plat : la factoriser lui imposerait un ordre qu'elle n'a pas choisi.
+  assert.equal(ecrireApproche([place(2, ['ma1']), place(0, ['nv']), place(4, ['ma1'])]),
+    '2.1:ma1,0.1:nv,4.1:ma1', 'une ligne à contre-sens du texte reste à plat');
 });
+
 
 test('★ portées groupées — ce qui n’a pas de place ne se groupe pas', () => {
   const entier = (codes) => ({ portee: null, resonance: null, codes });
@@ -239,7 +272,14 @@ test('★ portées groupées — le groupe n’ajoute ni ne retire aucune valida
  * leurs programmes (`tca+m14`, puis `tca+mtc+cs`, puis `tca+m14`…) : aucune
  * jumelle n'y est voisine, et pas un signe de ces liens ne bouge.
  */
-test('★ portées groupées — les liens figés de l’accueil sont INCHANGÉS', () => {
+/**
+ * ★ Les liens figés de l'accueil se RELISENT à l'identique — mais la forme
+ *   canonique qu'ils produisent peut être groupée, et c'est voulu : le lien
+ *   écrit dans `src/i18n/fr.js` reste un témoin de la lecture tolérante, et le
+ *   site republie la forme courte. Ce qui est gelé ici est ce qui compte : la
+ *   lecture réussit, et l'aller-retour est un point fixe.
+ */
+test('★ portées groupées — les liens figés de l’accueil se relisent, et se stabilisent', () => {
   for (const hash of [
     '#0.1:tca+m14,1.1:tca+mtc+cs,2.1:tca+m14,3.1:tca+mtc+cs,4.1:tca+m14,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
     '#0.1:tca+mch+cs+prn,3.1:fc+nl,5.1:tca+m7+cs#3A8evQZovd7BUyRUF65ToBwrHvW25EUn',
@@ -247,11 +287,19 @@ test('★ portées groupées — les liens figés de l’accueil sont INCHANGÉS
   ]) {
     const r = lire(hash);
     assert.equal(r.forme, 'canonique', hash);
-    const approche = hash.slice(1, hash.lastIndexOf('#'));
-    assert.equal(ecrireApproche(r.fragments), approche, `${hash} a changé de forme canonique`);
-    assert.ok(!ecrireApproche(r.fragments).includes('.1+'), 'aucun groupe à écrire ici');
+    // Point fixe : ce que l'écriture produit se relit en donnant exactement les
+    // mêmes descripteurs, dans le même ordre.
+    const ecrit = ecrireApproche(r.fragments);
+    const relu = lire(`#so!${ecrit}#${hash.slice(hash.lastIndexOf('#') + 1)}`);
+    assert.equal(relu.forme, 'canonique', ecrit);
+    assert.deepEqual(
+      relu.fragments.map((f) => `${f.portee.offset}.${f.portee.longueur}:${f.codes.join('+')}`),
+      r.fragments.map((f) => `${f.portee.offset}.${f.portee.longueur}:${f.codes.join('+')}`),
+      `${hash} : l’aller-retour n’est pas neutre`);
+    assert.equal(ecrireApproche(relu.fragments), ecrit, `${ecrit} n’est pas un point fixe`);
   }
 });
+
 
 /**
  * ★ LA RETOUCHE — un étage AMONT qui réécrit la saisie, puis tout le monde lit.
