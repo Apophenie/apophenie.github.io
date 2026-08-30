@@ -382,6 +382,12 @@ export const PRECISIONS = {
   'f.tld': b('sans l’extension', 'without the extension'),
   'f.avantSlash': b('avant le « / »', 'before the “/”'),
   'f.apresSlash': b('après le « / »', 'after the “/”'),
+  // Les trois découpes nommées disent l'OBJET, quand leurs aînées disaient la
+  // position : c'est toute la différence, et le titre est le seul endroit où le
+  // lecteur peut la voir.
+  'f.domaine': b('sur le domaine', 'on the domain'),
+  'f.chemin': b('sur le chemin', 'on the path'),
+  'f.page': b('sur le nom de la page', 'on the page name'),
   'f.lettres': b('sur les lettres seules', 'on the letters alone'),
   'f.voyelles': b('sur les voyelles', 'on the vowels'),
   'f.voyellesY': b('sur les voyelles, Y compris', 'on the vowels, Y included'),

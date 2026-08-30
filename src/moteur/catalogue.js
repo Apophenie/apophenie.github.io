@@ -73,7 +73,11 @@ const echec = (msg, d) => { throw new ErreurCatalogue(msg, d); };
  * d'exploration de tout ce qui suit et le classement avec.
  */
 export const ORDRE_CANONIQUE = Object.freeze([
-  'fp', 'fw', 'ftld', 'fav', 'fap', 'fl', 'fv', 'fvy', 'fc', 'fd',
+  'fp', 'fw', 'ftld', 'fav', 'fap',
+  // Les trois découpes qui NOMMENT ce qu'elles gardent, après les deux qui se
+  // contentent de couper à la barre (`filtres.js`).
+  'fdom', 'fchm', 'fpag',
+  'fl', 'fv', 'fvy', 'fc', 'fd',
   // Les quatre cadets du dédoublonnage, par rang du survivant, puis les deux
   // annulations — même geste, résultats différents (`filtres.js`).
   'fd2', 'fd3', 'fd4', 'fd5', 'fpr', 'fun', 'fr',
