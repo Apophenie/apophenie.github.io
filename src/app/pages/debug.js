@@ -74,6 +74,9 @@ import {
 import {
   POIDS, BONUS, MALUS, PART_CRITERES, REGLAGES,
 } from '../../recherche/score.js';
+// La découpe en jetons est celle de la recherche, pas une seconde : une portée
+// écrite ici et lue là-bas doit tomber sur les mêmes frontières.
+import { tokeniser } from '../../recherche/fragments.js';
 // `v` est aliasé : trois fonctions de rendu de ce fichier prennent une valeur
 // nommée `v`, et un import du même nom s'y ferait masquer sans prévenir.
 import { localiser, v as valeurTraduite } from '../../i18n/index.js';
@@ -184,13 +187,35 @@ function section(titre, source, ...contenu) {
    de la page d'accueil (`src/i18n/*.js › accueil.exemples`), donc les saisies
    que le site met déjà en vitrine. On ne les recopie pas, on les LIT.
 
-   Les deux dernières comblent ce que la vitrine ne contient pas — un `www.`,
-   des accents, une saisie de chiffres purs — parce que quelques filtres ne
+   Les suivantes comblent ce que la vitrine ne contient pas — un `www.`, des
+   accents, une saisie de chiffres purs, des chiffres mêlés à des lettres,
+   une adresse posée au milieu d'une phrase — parce que quelques filtres ne
    s'appliquent qu'à ça. Elles ne visent aucun opérateur en particulier : si
    demain un opérateur n'est jouable sur aucune d'elles, la lightbox l'écrira,
    et c'est ce constat-là qui appellera une saisie de plus.
    ══════════════════════════════════════════════════════════════════════════ */
 
+/**
+ * ★ UNE SAISIE TÉMOIN PEUT DÉSIGNER UNE ZONE, ET PAS SEULEMENT UN TEXTE.
+ *
+ * « Je voudrais qu'il y ait des caractères supplémentaires avant et après la
+ * zone dont on fait la moyenne, afin de mieux visualiser l'étape dans un
+ * contexte lisible. Par exemple, tu peux partir de "avant 5 11 2 /après" pour
+ * arriver à "avant 6 /après" » (l'auteur).
+ *
+ * Un programme joué sur la saisie ENTIÈRE consomme toute la ligne : au moment
+ * où le geste s'exécute, il n'y a plus que ce qu'il transforme, et on ne voit
+ * pas ce qu'il laisse tranquille. Or c'est justement là que se lit la portée
+ * d'un opérateur — « ceci, et rien d'autre ». Un témoin peut donc s'écrire
+ * `{ texte, zone }` : le programme ne s'applique qu'à la `zone`, le reste du
+ * texte demeure de part et d'autre, et la lightbox montre le geste dans une
+ * phrase plutôt que dans le vide.
+ *
+ * La zone est donnée EN TOUTES LETTRES, pas en indices de jetons : un
+ * `{ offset: 2, longueur: 7 }` serait faux dès qu'on ajoute un mot au texte, et
+ * personne ne le verrait. Elle est convertie en jetons ici (`porteeDe`), là où
+ * le texte et sa découpe sont sous les yeux.
+ */
 /** Ce que les exemples du site ne montrent pas — et rien de plus. */
 export const TEMOINS_COMPLEMENTAIRES = Object.freeze([
   'https://www.numérologie-évidente.fr/preuve',
@@ -202,15 +227,66 @@ export const TEMOINS_COMPLEMENTAIRES = Object.freeze([
   //   n'en contient aucune. Il lui faut les deux matières à la fois, pour qu'on
   //   VOIE ce qui part et ce qui reste.
   'Les 7 nains',
+  // La même adresse que la vitrine, mais AU MILIEU D'UNE PHRASE : ce qui se
+  // joue dessus se joue sous les yeux de « voir » et de « demain », qui ne
+  // bougent pas. C'est le seul témoin qui montre la frontière d'un geste.
+  Object.freeze({ texte: 'voir https://reinfocovid.fr/ demain', zone: 'https://reinfocovid.fr/' }),
 ]);
+
+/** Le texte d'un témoin, qu'il désigne une zone ou non. */
+const texteDe = (t) => (typeof t === 'string' ? t : t && t.texte);
 
 /** Les saisies témoins, dans l'ordre où elles seront essayées. */
 export function saisiesTemoins() {
+  return graines().map((g) => g.texte);
+}
+
+/**
+ * La zone d'un témoin, traduite en portée de jetons — la forme qu'attendent
+ * l'URL et le rejeu (`recherche/url.js`, `recherche/index.js`).
+ *
+ * Rend `null` quand la zone ne tombe pas sur des frontières de jetons : mieux
+ * vaut un exemple sans contexte qu'un exemple dont la portée déborde.
+ */
+function porteeDe(texte, zone) {
+  if (!zone) return null;
+  const jetons = tokeniser(texte);
+  const debut = jetons.findIndex((j) => j.offset === texte.indexOf(zone));
+  if (debut < 0) return null;
+  const fin = jetons.findIndex((j) => j.offset + j.longueur === texte.indexOf(zone) + zone.length);
+  if (fin < debut) return null;
+  return { offset: debut, longueur: fin - debut + 1 };
+}
+
+/**
+ * Les graines de l'exploration : le texte joué, la portée éventuelle, et la
+ * SAISIE sur laquelle le programme travaille vraiment — le texte entier, ou la
+ * seule zone désignée. C'est cette dernière qui part en recherche : un
+ * programme scopé ne voit rien d'autre.
+ */
+function graines() {
   const vitrine = valeurTraduite('accueil.exemples');
   const textes = (Array.isArray(vitrine) ? vitrine : [])
     .map((x) => (typeof x === 'string' ? x : x && x.texte))
     .filter((x) => typeof x === 'string' && x);
-  return [...new Set([...textes, ...TEMOINS_COMPLEMENTAIRES])];
+  const par = new Map();
+  for (const t of [...textes, ...TEMOINS_COMPLEMENTAIRES]) {
+    const texte = texteDe(t);
+    if (!texte) continue;
+    const portee = typeof t === 'string' ? null : porteeDe(texte, t.zone);
+    const graine = { texte, portee, saisie: portee ? t.zone : texte };
+    const vue = par.get(graine.saisie);
+    // ★ MÊME SAISIE JOUÉE, UNE SEULE EXPLORATION — et c'est celle qui la montre
+    //   en contexte qui reste. Deux témoins qui donnent le même texte au
+    //   programme déplient exactement le même arbre : le second ne trouverait
+    //   rien de plus, mais il consommerait la moitié du plafond de candidats et
+    //   repousserait les autres témoins hors de portée. À état identique, le
+    //   contexte est gratuit — il ne change pas ce qu'on démontre, seulement ce
+    //   qu'on en voit autour.
+    if (!vue) par.set(graine.saisie, graine);
+    else if (!vue.portee && portee) par.set(graine.saisie, graine);
+  }
+  return [...par.values()];
 }
 
 /* ═══════════════ Un exemple qui emploie RÉELLEMENT l'opérateur ════════════
@@ -258,10 +334,10 @@ let explorationMemo = null;
 
 function exploration() {
   if (explorationMemo) return explorationMemo;
-  explorationMemo = saisiesTemoins().map((saisie) => {
-    const depart = depuisSaisie(saisie);
+  explorationMemo = graines().map((graine) => {
+    const depart = depuisSaisie(graine.saisie);
     return {
-      saisie,
+      ...graine,
       niveaux: [depart ? [{ etat: depart, codes: [] }] : []],
       vus: new Set(depart ? [signature(depart)] : []),
       noeuds: 0,
@@ -449,14 +525,25 @@ export function programmePour(op) {
         if (resultat === null) continue;
         const candidat = {
           saisie: p.saisie,
+          texte: p.texte,
+          portee: p.portee,
           codes: [...noeud.codes, op.code],
           distingue: discrimination(op, noeud.etat, resultat),
           semblables: rivaux,
           poids: encombrement(noeud.etat),
         };
+        // ★ ET À LISIBILITÉ ÉGALE, LE CONTEXTE TRANCHE. Deux exemples qui
+        //   montrent exactement le même état ne se valent pas si l'un le montre
+        //   seul au monde et l'autre au milieu d'une phrase : « des caractères
+        //   supplémentaires avant et après la zone […] afin de mieux visualiser
+        //   l'étape dans un contexte lisible » (l'auteur). Ce critère passe en
+        //   DERNIER, après la discrimination et l'encombrement : du contexte ne
+        //   rachète jamais une démonstration confuse ou illisible.
         if (!meilleur
           || candidat.distingue > meilleur.distingue
-          || (candidat.distingue === meilleur.distingue && candidat.poids < meilleur.poids)) {
+          || (candidat.distingue === meilleur.distingue && candidat.poids < meilleur.poids)
+          || (candidat.distingue === meilleur.distingue && candidat.poids === meilleur.poids
+            && candidat.portee && !meilleur.portee)) {
           meilleur = candidat;
         }
         // ⚠️ On NE s'arrête PAS au premier état qui écarte tous les semblables :
@@ -821,9 +908,12 @@ async function composerLaDemonstration(op, registre) {
   const prog = programmePour(op);
   if (!prog) return { echec: 'exemple', saisies: saisiesTemoins() };
 
+  // Le texte joué est celui du témoin ; la PORTÉE dit sur quelle part de ce
+  // texte le programme s'applique. Sans portée, les deux se confondent — et
+  // c'est le cas de la plupart des témoins.
   const hash = pont.ecrireHash({
-    saisie: prog.saisie,
-    fragments: [{ portee: null, resonance: null, codes: prog.codes }],
+    saisie: prog.texte || prog.saisie,
+    fragments: [{ portee: prog.portee || null, resonance: null, codes: prog.codes }],
     registre,
   });
   if (!hash) return { echec: 'url', prog };
@@ -831,7 +921,7 @@ async function composerLaDemonstration(op, registre) {
   const rejeu = lecture ? pont.rejouer(lecture) : null;
   if (!rejeu || !rejeu.ok) return { echec: 'rejeu', prog, hash, raison: rejeu && rejeu.raison };
 
-  const { scenario, source } = pont.scenarioDe(rejeu.approche, prog.saisie, {
+  const { scenario, source } = pont.scenarioDe(rejeu.approche, prog.texte || prog.saisie, {
     registre: lecture.registre,
   });
   return { prog, hash, lecture, approche: rejeu.approche, scenario, source };
