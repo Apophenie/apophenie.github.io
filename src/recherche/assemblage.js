@@ -679,14 +679,19 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
  * démonstration, une opération de plus, et rien de plus à montrer. On exige
  * donc STRICTEMENT plus de séries qu'avant retouche.
  *
- * ⚠️ **Ce garde-fou tient lieu de barème, et c'est un pis-aller assumé.** Les
- * opérations d'une retouche ne sont PAS vues par `score.js` ni par
- * `elegance.js` : elles voyagent à côté des parts, jamais dedans (voir
- * `index.js › rejouer`, et le pavé qui explique pourquoi les mettre dedans
- * fabriquerait un mode faux). Une voie retouchée est donc notée comme si son
- * étage amont était gratuit. Exiger une série de plus borne le dégât — elle ne
- * peut pas gagner sa place sans rien apporter — mais ne le supprime pas.
- * L'arbitrage revient à l'auteur : `.planning/A-VENIR-retouches.md`.
+ * ⚠️ **Ce garde-fou a tenu lieu de barème, et il ne le tient plus.** Il a été
+ * écrit du temps où les opérations d'une retouche n'étaient vues ni par
+ * `score.js` ni par `elegance.js` — elles voyagent à côté des parts, jamais
+ * dedans (voir `index.js › rejouer`, et le pavé qui explique pourquoi les
+ * mettre dedans fabriquerait un mode faux) —, si bien qu'une voie retouchée
+ * était notée comme si son étage amont était gratuit. Le barème le charge
+ * désormais (`elegance.js › BAREME.RETOUCHE`), et c'est LUI qui arbitre.
+ *
+ * ★ Le seuil reste, et il change de rôle : ce n'est plus un prix de
+ * remplacement, c'est un filtre de GÉNÉRATION. Une retouche qui ne rapporte pas
+ * une série est un détour — la même démonstration, une opération de plus, et
+ * rien de plus à montrer —, et il n'y a pas de raison d'aller jusqu'à la noter
+ * pour l'apprendre. Il économise du travail ; il ne prononce plus de verdict.
  *
  * ★ **Trois bornes, et elles sont là pour le budget, pas pour la doctrine.** Le
  * pipeline complet tient sous la seconde (`recherche.test.js`) et la saisie la
@@ -695,10 +700,22 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
  * vecteurs de tête, et à la saisie entière — jamais aux sous-fragments, dont la
  * recombinaison n'apporterait qu'une explosion.
  *
- * ⚠️ Et même ainsi bornées, elles coûtent **+64 ms** sur cette saisie-là (mesuré,
- * JIT chaud). C'est la seconde raison — après l'arbitrage du barème — pour
- * laquelle l'étage reste débranché : il faudra balayer ces trois bornes avant de
- * le brancher, aucune n'ayant encore été mesurée contre les autres.
+ * ⚠️ Et même ainsi bornées, elles coûtent quelque chose. MESURÉ à JIT chaud, sur
+ * les cinq cas du test de budget, l'étage branché contre l'étage tu :
+ *
+ *     Lorem ipsum… (60 fragments) ....  770 → 826 ms CPU   (+56)
+ *     `x` × 400 ......................  492 → 529 ms       (+37)
+ *     Le chat dort sur le tapis… ......  450 → 410 ms       (−40, sous le bruit)
+ *     https://hope-hope-hope.fr/ ......  383 → 283 ms       (−100, sous le bruit)
+ *
+ * Le pire cas reste à 826 des 1 000 ms du contrat. À FROID, la mesure ne dit
+ * plus rien — le premier `resoudre` d'un processus paie 2 à 3 secondes de JIT,
+ * avec ou sans l'étage —, et c'est ce que `budget — le pipeline complet tient
+ * sous la seconde` constate quand il rougit.
+ *
+ * ⚠️ Les trois bornes n'ont toujours pas été balayées L'UNE CONTRE L'AUTRE : on
+ * sait ce que leur produit coûte, pas ce que chacune achète. C'est le chantier
+ * qui reste ouvert sur cet étage.
  *
  * @param {string} saisie
  * @param {Object[]} jetons        la tokenisation de la saisie (§4.2)
@@ -1636,13 +1653,17 @@ export function assembler(saisie, fragments, parFrag, ctx) {
 
   // ── mode G bis : le GROUPEMENT SOUS RETOUCHE — un mot réécrit, puis tout lu.
   //
-  // ⚠️ **DÉBRANCHÉ PAR DÉFAUT, et ce n'est pas de la prudence : c'est un
-  //    arbitrage qui n'appartient pas au moteur.** Voir `groupementsRetouches`
-  //    et `.planning/A-VENIR-retouches.md`. Le générateur est complet, mesuré et
-  //    éprouvé ; ce qui manque est que le barème CHARGE l'étage amont. Tant
-  //    qu'il ne le charge pas, brancher l'étage détrône sur « Donald Trump » la
-  //    voie que l'auteur a nommée lui-même, au profit d'une voie qui doit son
-  //    avantage à une opération que personne n'a payée.
+  // ★ **BRANCHÉ.** Il est resté débranché tant que le barème ne chargeait pas
+  //   l'étage amont : une voie retouchée était notée comme si sa préparation
+  //   était gratuite, et sur « Donald Trump » cela suffisait à détrôner la voie
+  //   que l'auteur a nommée lui-même. Le barème le charge désormais — les gestes
+  //   de la retouche au tarif ordinaire, plus le palier `BAREME.RETOUCHE` réglé
+  //   au banc —, et l'arbitrage est rendu : plus aucune tête de liste du corpus
+  //   ne change du fait d'une retouche, et vingt voies retouchées restent
+  //   proposées dans neuf listes sur dix-neuf.
+  //
+  //   `ctx.retouches === false` les tait encore, pour que le banc puisse
+  //   comparer les deux classements sans toucher au moteur.
   if (ctx.retouches && vecteursEntiers && vecteursEntiers.length) {
     for (const a of groupementsRetouches(saisie, ctx.jetons || [], vecteursEntiers, opsExplorables, cbl)) {
       approches.push(a);

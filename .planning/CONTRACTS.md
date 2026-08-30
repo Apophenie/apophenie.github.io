@@ -2941,18 +2941,35 @@ programme  := code ('+' code)*
 > ★ **Sans retouche, une URL s'écrit au caractère près comme avant** : le `;`
 > n'apparaît que là où il y a deux étages à séparer. Un test le gèle.
 >
-> ⚠️ **CE QUE LE BARÈME NE VOIT PAS, et c'est un arbitrage EN ATTENTE.** Les
-> opérations d'une retouche voyagent dans `approche.retouches`, **à côté** de
-> `approche.parts` et jamais dedans — `parts` signifie « un morceau qui rend un
-> chiffre », et c'est sur lui que se lisent le mode, la moisson, le verdict et la
-> géométrie des portées disjointes ; y verser une retouche ferait déduire une
-> PARTITION là où il n'y a qu'une préparation. Conséquence : ni `score.js` ni
-> `elegance.js` ne les voient, et une voie retouchée est notée comme si son étage
-> amont était gratuit. **Le générateur de recherche existe, il est mesuré et
-> testé, mais il reste DÉBRANCHÉ** (`creerMoteur(…, { retouches: true })`) :
-> branché, il détrône sur « Donald Trump » la voie que l'auteur a nommée
-> lui-même. Les mesures et le chemin en trois étapes sont dans
-> `.planning/A-VENIR-retouches.md`.
+> ★ **CE QUE LE BARÈME EN VOIT — l'arbitrage est rendu, et l'étage est BRANCHÉ.**
+> Les opérations d'une retouche voyagent toujours dans `approche.retouches`,
+> **à côté** de `approche.parts` et jamais dedans — `parts` signifie « un morceau
+> qui rend un chiffre », et c'est sur lui que se lisent le mode, la moisson, le
+> verdict et la géométrie des portées disjointes ; y verser une retouche ferait
+> déduire une PARTITION là où il n'y a qu'une préparation. Mais `elegance.js ›
+> bilanApproche` LIT désormais cette liste, et l'étage se paie deux fois :
+>
+> - **au tarif ORDINAIRE**, pour ses gestes. Une transformation en amont est une
+>   transformation, et sa nature compte avec elle — `fr13` et `fatb` sont des
+>   conversions `lettre → lettre`. On n'en retient que le PROCESSUS : une
+>   retouche finit sur du texte, elle n'a pas de vecteur, et sa géométrie
+>   (les 6, la largeur, les triptyques) n'existe pas ;
+> - **au palier `BAREME.RETOUCHE`** (420 milli-unités, réglé au banc), qui dit ce
+>   que le tarif ordinaire ne dit pas : on a réécrit la question avant d'y
+>   répondre. C'est `FILTRE_SELECTIF` d'un cran au-dessus — un filtre sélectif
+>   choisit où appliquer une méthode, une retouche choisit où réécrire la
+>   matière.
+>
+> Il n'y a **qu'un seul palier**, et pas deux : retoucher pour ne lire QUE la
+> portée réécrite est déjà lourdement facturé par `PORTEE_IGNOREE`, qui compte ce
+> qu'on n'a pas lu. Le coût **croît linéairement** avec le nombre d'étages ; un
+> exposant ne se règle pas sur zéro observation, et rien n'émet plus d'un étage.
+>
+> Mesuré au banc sur les dix-neuf saisies : **aucune tête de liste ne change** du
+> fait d'une retouche, et vingt voies retouchées restent proposées dans neuf
+> listes — 3ᵉ sur « Donald Trump », 2ᵉ sur « Emmanuel Macron ». Visibles, jamais
+> offertes. `creerMoteur(…, { retouches: false })` les tait encore, pour que le
+> banc puisse comparer les deux classements (`--sans-retouches`).
 
 > *Amendement — LES PORTÉES GROUPÉES, `0.1+2.1+4.1:tca+m14`.*
 >

@@ -1,14 +1,15 @@
-# À VENIR — la RETOUCHE : ce qui est livré, et les deux choses qui restent
+# La RETOUCHE : ce qui a été livré, et ce qui reste
 
 > Ce document est un **report** et un **passage de relais**, pas une recherche.
 >
-> Ce qui est FAIT et livré : la grammaire (`;`), le rejeu, la scène, le lien
-> canonique, et le générateur de recherche — **écrit, mesuré, éprouvé par des
-> tests, mais DÉBRANCHÉ**.
+> Tout ce qui était annoncé est FAIT : la grammaire (`;`), le rejeu, la scène,
+> le lien canonique, le générateur de recherche — et, depuis, **le barème qui
+> charge l'étage amont** (§3) et **la scénographie du 6 surnuméraire** (§4).
+> L'étage est **branché par défaut**.
 >
-> Ce qui reste : **(1) que le barème charge l'étage amont**, ce qui est la
-> condition pour brancher le générateur. ~~(2) la scénographie du 6
-> surnuméraire~~ — **faite**, voir §4.
+> Ce qui reste est écrit à la fin du §3 : le balayage des trois bornes du
+> générateur l'une contre l'autre, et un désaccord entre `LETTRE_VERS_LETTRE` et
+> le catalogue que ce chantier a rendu visible sans le corriger.
 
 ---
 
@@ -55,81 +56,96 @@ Ce lien rend `Donald Gehzc` → `acDdeGhlnoz` → `[7,4,6,6,6,6,6,3,6,6,4]` →
 `[6,6,6,6,6,6,6]` : **sept 6, donc deux séries et un 6 de trop** — exactement ce
 que l'auteur annonce.
 
-## 3. Ce qui reste, n° 1 : QUE LE BARÈME CHARGE LA RETOUCHE
+## 3. ~~Ce qui reste, n° 1~~ : QUE LE BARÈME CHARGE LA RETOUCHE — **FAIT**
 
-C'est le vrai chantier, et il commande tout le reste.
+C'était le vrai chantier, et il commandait tout le reste. Il est rendu :
+l'étage est **branché par défaut**, et le barème le paie.
 
-**Le fait, en une phrase** : les opérations d'une retouche voyagent dans
-`approche.retouches`, **à côté** de `approche.parts` et jamais dedans. Ni
-`score.js › noter` ni `elegance.js › bilanApproche` ne les voient. Une voie
-retouchée est donc notée comme si son étage amont était gratuit.
+### Ce que le barème en voit
 
-**Pourquoi elles ne sont pas dans `parts`.** `parts` a un sens précis partout
-ailleurs — « un morceau qui rend un chiffre » — et c'est sur lui que se lisent le
-mode, la moisson, le verdict et la géométrie des portées disjointes. Une retouche
-ne rend pas de chiffre : la glisser là ferait déduire une PARTITION là où il n'y
-a qu'une préparation, et un mode faux se propagerait jusqu'au titre et jusqu'au
-malus de mode. Le pavé complet est dans `index.js › rejouer`.
+Les opérations d'une retouche voyagent toujours dans `approche.retouches`, à
+côté de `approche.parts` et jamais dedans — la raison n'a pas bougé, elle est
+dans `index.js › rejouer` : `parts` signifie « un morceau qui rend un chiffre »,
+et y verser une préparation fabriquerait une PARTITION là où il n'y en a pas.
+Ce qui a changé, c'est que `elegance.js › bilanApproche` **lit cette liste**.
 
-**Ce que ça coûte, MESURÉ** — sur le barème du 28 août (`c292171`), générateur
-branché (`retouches: true`), sur les dix-neuf saisies témoins du banc :
+L'étage se paie donc deux fois, et les deux sont distinctes :
 
-| | |
-|---|---|
-| voies retouchées proposées | **15**, dans **9** listes sur 19 |
-| têtes de liste changées | **2** — « Donald Trump » et « Marie Curie » |
-| coût CPU, saisie la plus lourde du banc | **+64 ms** (288 → 348 ms, JIT chaud) |
-| coût CPU, les trois autres saisies lourdes | +13 à +24 ms |
+1. **au tarif ORDINAIRE**, pour ses gestes. Une transformation en amont est une
+   transformation ; sa nature compte avec elle. On n'en retient que le
+   PROCESSUS (`POSTES_DU_PROCESSUS`) : une retouche finit sur du TEXTE, elle n'a
+   pas de vecteur, et sa géométrie — les 6, la largeur, les triptyques, la
+   casse — n'a aucun sens ;
+2. **au palier `BAREME.RETOUCHE`** (420 milli-unités), qui dit ce que le tarif
+   ordinaire ne dit pas : on a réécrit la question avant d'y répondre.
 
-Les deux têtes changées gagnent sur les deux tableaux à la fois :
+Un seul palier, pas deux : retoucher pour ne lire QUE la portée réécrite est
+déjà lourdement facturé par `PORTEE_IGNOREE` (−872 sur « Donald Trump », plus
+−48 de blocs écartés), et un second palier facturerait deux fois le même
+reproche. Le coût croît **linéairement** avec le nombre d'étages ; rien n'en
+émet plus d'un, et l'on ne règle pas un exposant sur zéro observation.
 
-```
-Donald Trump   avant : fl+tca+m14                    [GROUPEMENT s=1] sc=2296 el=431
-               après : 2.1:fr13;fl+tca+m14           [GROUPEMENT s=2] sc=5656 el=904
-Marie Curie    avant : tca+masb+mrn,fatb+tca+mpy+mr9 [MOISSON s=2]    sc=2989 el=748
-               après : 2.1:fatb;fl+tca+mpy+mr9       [GROUPEMENT s=2] sc=4798 el=817
-```
+### Ce que le palier a coûté à régler, MESURÉ
 
-⚠️ **DEUX RAISONS DE LE LAISSER DÉBRANCHÉ, et la première suffirait.**
+Ce qu'une retouche ACHÈTE, sur les vingt et une voies retouchées du corpus — le
+même programme rejoué SANS elle, crédit contre crédit, palier à zéro : gain le
+plus faible **266**, gain **MÉDIAN 544**, gain le plus fort **720**. À comparer
+aux **54** milli-unités que le seul tarif ordinaire facture à `fr13` (14 de
+transformation + 40 de `lettre → lettre`) : le socle seul aurait vendu une série
+au dixième de son prix, et le générateur n'en propose une QUE si elle rapporte.
 
-1. **Il détrône la voie que l'auteur a nommée.** Sur « Donald Trump », la MOISSON
-   `tca+m14+m36,fr13+tca+m14+m36` — « j'aimerais que le premier résultat suggéré
-   soit la combinaison des deux » — sort carrément des deux premières lignes,
-   les deux voies retouchées prenant les rangs 1 et 2 avec deux séries chacune.
-   Le test `★ « Donald Trump » : deux 666 déjà formés, en tête de liste` rougit,
-   et le contourner reviendrait à trancher à la place de l'auteur.
-2. **Le budget n'a plus la place.** Le pipeline est plafonné à une seconde
-   (`recherche.test.js`), et la saisie la plus lourde du banc y consomme déjà
-   954 à 964 ms au démarrage à froid. +64 ms la fait passer par-dessus.
+Balayage du palier, chaque liste comparée à celle que rend l'étage débranché :
 
-Le générateur reste donc derrière `creerMoteur(catalogue, { retouches: true })`,
-et deux tests gèlent les deux moitiés de la décision : qu'il marche, et qu'il
-soit débranché.
+| palier | têtes changées | voies retouchées en 1ʳᵉ ligne | en 2ᵈ ligne |
+|---|---|---|---|
+| 0   | **1** (« Marie Curie ») | 1 | 2 |
+| 240 | **1** (« Marie Curie », de 5 milli-unités) | 1 | 2 |
+| 246 | 0 | 0 | 3 |
+| 390 | 0 | 0 | 3 |
+| **420** | **0** | **0** | **2** |
+| 540 | 0 | 0 | 2 |
+| 720 | 0 | 0 | 2 |
+| 1 000 | 0 | 0 | 2 |
 
-**Le garde-fou provisoire, en attendant.** `groupementsRetouches` n'émet une voie
-que si la retouche apporte **strictement plus de séries** que le même programme
-sans elle. Ça borne le dégât — une retouche ne peut pas gagner sa place sans rien
-apporter — mais ça ne le supprime pas : ça reste un seuil à la place d'un prix.
+420 est le premier palier où plus **aucune voie du corpus n'est déplacée** par
+une retouche : c'est là que `jean-michel` rend sa 2ᵈ ligne à la moisson honnête
+`tca+m14,fr2+tca+m14+mpf`, qui aligne le même compte de séries. Au-delà, rien ne
+bouge plus jusqu'à 1 000 — on n'achèterait que de la sévérité.
 
-**Le chemin, en trois étapes.**
+### Ce que le branchement coûte en TEMPS, MESURÉ
 
-1. **Décider ce que coûte une retouche.** Trois postes existants la décrivent
-   déjà sans changement de nature : la CONCISION (une opération de plus), la
-   NOTORIÉTÉ (`fr13` vaut 0,25 et `fatb` 0,25 — ce sont des chiffrements, pas des
-   évidences), et l'HOMOGÉNÉITÉ (l'étage amont n'est pas la méthode du reste).
-   S'y ajoute peut-être un quatrième, propre à l'étage : `FILTRE_SELECTIF` (100)
-   existe déjà pour « un filtre qu'on n'applique qu'à un mot », et une retouche
-   EST littéralement cela — appliqué au texte plutôt qu'aux chiffres.
-2. **Donner à `noter` et à `bilanApproche` de quoi les voir.** Le plus petit
-   geste possible est un accès en lecture à `approche.retouches` à côté de
-   `approche.parts`, sans toucher à la sémantique de `parts` (voir ci-dessus
-   pourquoi il ne faut pas les y verser).
-3. **Rebrancher, et remesurer sur le banc.** Le tableau ci-dessus est la ligne de
-   base ; si la voie de référence de « Donald Trump » reprend la tête une fois la
-   retouche payée, la question est réglée. ⚠️ Il restera alors le budget : +64 ms
-   sur une saisie qui en consomme déjà 960 sur 1 000. Les trois bornes de
-   `groupementsRetouches` (six mots, quatre vecteurs, la saisie entière seule)
-   sont là pour ça et n'ont pas encore été balayées.
+À JIT chaud, sur les cinq cas de `budget — le pipeline complet tient sous la
+seconde`, l'étage branché contre l'étage tu :
+
+| | sans | avec |
+|---|---|---|
+| `Lorem ipsum…` (60 fragments) | 770 ms CPU | **826 ms** (+56) |
+| `x` × 400 | 492 ms | 529 ms (+37) |
+| `Le chat dort sur le tapis…` | 450 ms | 410 ms (−40, sous le bruit) |
+| `https://hope-hope-hope.fr/` | 383 ms | 283 ms (−100, sous le bruit) |
+
+Le pire cas reste à 826 des 1 000 ms du contrat. À FROID, la mesure ne dit plus
+rien : le premier `resoudre` d'un processus paie 2 à 3 secondes de JIT, avec ou
+sans l'étage — c'est ce que le test constate quand il rougit, et il rougissait
+déjà avant.
+
+### Ce qui reste ouvert sur cet étage
+
+- **Les trois bornes de `groupementsRetouches`** (six mots, quatre vecteurs, la
+  saisie entière seule) n'ont toujours pas été balayées L'UNE CONTRE L'AUTRE :
+  on sait ce que leur produit coûte, pas ce que chacune achète.
+- ⚠️ **`LETTRE_VERS_LETTRE` a perdu de vue le catalogue, et ça se voit ici.** Le
+  poste nomme trois identifiants — `f.atbash`, `f.rot13`, `f.leet` — et son
+  commentaire affirme que le catalogue n'en porte pas d'autre. Ce n'est plus
+  vrai : les vingt-cinq autres décalages de César y sont entrés sous `f.cesar1`
+  à `f.cesar25`, et ils ne paient **rien** là où `fr13` paie 40. Tant que
+  l'étage amont était gratuit, l'écart ne se voyait pas ; il se voit maintenant,
+  et il suffit à faire passer `2.1:fatb;…` devant `2.1:fr13;…` sur « Donald
+  Trump », à geste rigoureusement identique. Non corrigé ici — ce poste touche
+  presque toutes les voies du corpus et son tarif a été étalonné en croyant
+  qu'il frappait tous les césars. Mesuré au passage : le corriger déplace **une
+  seule tête de liste** sur dix-neuf, « Millicent »
+  (`fr10+tca+mhe+mrn` → `fr13+tca+mx6+mrn`).
 
 ## 4. ~~Ce qui reste, n° 2~~ : LE 6 SURNUMÉRAIRE QUI EXPLOSE — **FAIT**
 
@@ -173,7 +189,10 @@ Tests : `visuel/tests/explosion.test.js` (11), `recherche/tests/scenario.test.js
 | la grammaire, et POURQUOI `;` | `src/recherche/url.js`, en-tête |
 | l'étage amont au rejeu | `src/recherche/index.js › rejouer` |
 | les codes qui nomment la retouche | `src/recherche/index.js › marquerLesCodes` |
-| le générateur, débranché | `src/recherche/assemblage.js › groupementsRetouches` |
+| le générateur, branché | `src/recherche/assemblage.js › groupementsRetouches` |
+| le prix de l’étage | `src/recherche/elegance.js › BAREME.RETOUCHE` |
+| ce que le bilan en retient | `src/recherche/elegance.js › POSTES_DU_PROCESSUS` |
+| la ligne de base du réglage | `node .planning/banc/classement.mjs --sans-retouches` |
 | la scène | `src/recherche/scenario.js`, « L'ÉTAGE DES RETOUCHES » |
 | le sous-titre qui la nomme | `src/recherche/titres.js › regleApproche` |
 | les tests | `tests/url.test.js`, `tests/recherche.test.js`, `tests/integration-visuel.test.js` |
