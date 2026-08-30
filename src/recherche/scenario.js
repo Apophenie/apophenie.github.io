@@ -2153,11 +2153,49 @@ export function construireScenario(approche, ctx = {}) {
     });
   }
 
-  if (memeMethode) {
-    // ── En parallèle : un seul geste pour les trois groupes ────────────────
-    const nbOps = groupes[0].part.chemin.ops.length;
+  // ★ LE PARCOURS HORIZONTAL — une opération à la fois, sur tous les morceaux
+  //   qui la partagent, plutôt qu'un programme entier morceau par morceau.
+  //
+  //   « `ffr3` devrait être appliqué aux 3 blocs, puis `tca` aux 3 blocs, puis
+  //   `m14` aux 3 blocs, puis `mpf` aux 3 blocs — et non `ffr3+tca+m14+mpf` au
+  //   premier bloc, puis au 2ᵈ, puis au 3ᵉ. Ce parcours horizontal est d'autant
+  //   plus important pour que les versions redites soient optimisées »
+  //   (l'auteur). Deux raisons, et la seconde est la plus forte :
+  //
+  //   · ce qu'on démontre, c'est UNE méthode appliquée à plusieurs morceaux.
+  //     La jouer en entier sur le premier, puis en entier sur le second, montre
+  //     trois démonstrations qui se ressemblent ; la jouer geste par geste sur
+  //     les trois montre une seule démonstration, à trois endroits ;
+  //   · une redite ne s'accélère qu'entourée de ses pareilles
+  //     (`visuel/compile.js › repeatAccelerables`). En vertical, chaque geste
+  //     est isolé entre deux gestes différents et garde son rythme plein ; en
+  //     horizontal, les répétitions se touchent et l'accélération peut jouer.
+  //
+  //   ⚠️ CE N'EST PLUS TOUT OU RIEN. La mise en parallèle exigeait que TOUS les
+  //   morceaux partagent la même méthode ; il suffisait qu'un seul diffère pour
+  //   que la voie entière retombe en vertical. On regroupe donc par méthode :
+  //   les morceaux qui se lisent pareil forment un PAQUET joué horizontalement,
+  //   et les paquets s'enchaînent dans l'ordre de leur premier membre. Un
+  //   paquet d'un seul morceau se joue comme avant — c'est le même code.
+  const paquets = [];
+  {
+    const parSignature = new Map();
+    for (const g of groupes) {
+      const sig = signatureChemin(g.part.chemin);
+      if (!parSignature.has(sig)) {
+        const neuf = [];
+        parSignature.set(sig, neuf);
+        paquets.push(neuf);
+      }
+      parSignature.get(sig).push(g);
+    }
+  }
+
+  /** Un paquet de morceaux qui se lisent pareil : un geste à la fois, pour tous. */
+  const jouerEnsemble = (membres) => {
+    const nbOps = membres[0].part.chemin.ops.length;
     for (let i = 0; i < nbOps; i++) {
-      const rendus = groupes.map((g) => {
+      const rendus = membres.map((g) => {
         const chemin = g.part.chemin;
         const avant = chemin.etats[i];
         const apres = chemin.etats[i + 1];
@@ -2167,26 +2205,47 @@ export function construireScenario(approche, ctx = {}) {
       const actifs = rendus.filter(Boolean);
       if (!actifs.length) continue;
 
-      // Fusionnable ? Alors la transformation s'applique à chaque groupe
+      // Fusionnable ? Alors la transformation s'applique à chaque morceau
       // SIMULTANÉMENT — c'est littéralement « trois d'affilée, selon la même
-      // méthode ». Sinon (une somme par groupe, une accolade par groupe, une
-      // caméra par groupe), on les enchaîne, groupe après groupe : la règle
-      // reste la même, elle se répète sous les yeux.
-      const fusionnes = actifs.length === groupes.length ? fusionnerBlocs(actifs.map((r) => r.blocs)) : null;
+      // méthode ». Sinon (une somme par morceau, une accolade par morceau, une
+      // caméra par morceau), on les enchaîne : la règle reste la même, elle se
+      // répète sous les yeux, et c'est déjà mieux que trois programmes entiers.
+      const fusionnes = actifs.length === membres.length ? fusionnerBlocs(actifs.map((r) => r.blocs)) : null;
       if (fusionnes) {
         for (const b of fusionnes) poserBloc(b);
       } else {
-        actifs.forEach((r, k) => {
-          const suffixe = actifs.length > 1 ? MOTS.suffixeGroupe(k + 1, langue) : '';
-          for (const b of r.blocs) poserBloc(b, suffixe);
-        });
+        // ★ ET QUAND LA FUSION EST IMPOSSIBLE, ON ENTRELACE.
+        //
+        //   Certaines transformations ne se jouent pas à trois endroits en même
+        //   temps : un afficheur à quatorze segments monte un décor et recule la
+        //   caméra, trois d'un coup se contrediraient. Le repli était alors de
+        //   dérouler le morceau 1 en entier, puis le 2, puis le 3 — c'est-à-dire
+        //   exactement le parcours vertical qu'on vient de quitter, réintroduit
+        //   par la bande.
+        //
+        //   On entrelace donc PAR RANG : la première lettre des trois morceaux,
+        //   puis la deuxième des trois, et ainsi de suite. Les blocs de même
+        //   rang portent sur des jetons distincts, rien ne les lie ; et cet
+        //   ordre-là a une conséquence directe — deux gestes identiques
+        //   deviennent voisins, donc l'accélération des redites peut jouer
+        //   (`visuel/compile.js › repeatAccelerables`), et le décor mutualisé
+        //   reste monté au lieu de se replier entre chaque morceau.
+        const profondeur = Math.max(...actifs.map((r) => r.blocs.length));
+        for (let rang = 0; rang < profondeur; rang++) {
+          actifs.forEach((r, k) => {
+            const b = r.blocs[rang];
+            if (!b) return;
+            const suffixe = actifs.length > 1 ? MOTS.suffixeGroupe(k + 1, langue) : '';
+            poserBloc(b, suffixe);
+          });
+        }
       }
-      rendus.forEach((r, k) => { if (r) groupes[k].courants = r.courants; });
+      rendus.forEach((r, k) => { if (r) membres[k].courants = r.courants; });
     }
-    for (const g of groupes) {
-      // Une moisson dont toutes les portées se lisent de la même façon passe
-      // par ici — trois `hope` en quatorze segments, douze 6 d'un seul geste.
-      // Sans récolte, la scène n'en révélait qu'un par groupe.
+    for (const g of membres) {
+      // Une moisson dont plusieurs portées se lisent de la même façon passe par
+      // ici — trois `hope` en quatorze segments, douze 6 d'un seul geste. Sans
+      // récolte, la scène n'en révélait qu'un par morceau.
       const recolte = moisson
         ? recolterLesSix(g, g.part.chemin, poserBloc, langue, true, rejets, cible)
         : null;
@@ -2194,55 +2253,60 @@ export function construireScenario(approche, ctx = {}) {
       const dernier = g.courants.flat()[0];
       if (dernier) { resultats.push(dernier); valeursFinales.push(valeurTerminale(g.part.chemin)); }
     }
-  } else {
-    // ── L'un après l'autre : les méthodes diffèrent d'un morceau à l'autre ──
-    for (const g of groupes) {
-      const indexPart = groupes.indexOf(g);
-      // Isolation du fragment (inutile s'il couvre déjà toute la saisie, et
-      // inutile aussi si le découpage vient de la montrer).
-      if (groupes.length === 1 && g.positions.length && g.positions.length < saisieLue.length) {
-        poserBloc({
-          titre: MOTS.isolerPassage[langue],
-          legende: g.part.fragment ? citer(g.part.fragment.texte, langue) : null,
-          ops: [
-            { op: 'highlight', targets: cibleGroupe(g), mode: 'select' },
-            { op: 'dim', targets: cibleHorsGroupe(g), at: 200 },
-          ],
-        });
-      } else if (groupes.length > 1) {
-        // Sur une convergence, les copies n'ont pas de tag de groupe (elles
-        // naissent en cours de scène) : on désigne leurs ids en clair.
-        const cibles = convergente ? g.courants.flat() : cibleGroupe(g);
-        poserBloc({
-          titre: convergente
-            ? MOTS.lecture(indexPart + 1, langue)
-            : MOTS.isolerMorceau(indexPart + 1, langue),
-          legende: g.part.fragment ? citer(g.part.fragment.texte, langue) : null,
-          ops: [{ op: 'highlight', targets: cibles, mode: 'select' }],
-        });
-      }
+  };
 
-      const chemin = g.part.chemin;
-      for (let i = 0; i < chemin.ops.length; i++) {
-        const avant = chemin.etats[i];
-        const apres = chemin.etats[i + 1];
-        if (rienAMontrer(avant, apres)) continue;
-        const r = produire(chemin.ops[i], avant, apres, g.courants);
-        for (const b of r.blocs) poserBloc(b);
-        g.courants = r.courants;
-      }
-      // ── Le GROUPEMENT : le calcul ne finit pas sur UN 6, il finit sur un
-      //    VECTEUR qui en porte plusieurs. On les garde, on jette le reste, et
-      //    ce qui reste s'assemble par trois. Sans cette récolte, le verdict
-      //    révélait le premier nombre venu en annonçant « 666 » — c'est-à-dire
-      //    qu'il décrétait, ce que ce mode existe précisément pour ne plus faire.
-      const recolte = recolterLesSix(
-        g, chemin, poserBloc, langue, moisson, moisson ? rejets : null, cible,
-      );
-      if (recolte) { resultats.push(...recolte.ids); valeursFinales.push(...recolte.valeurs); continue; }
-      const dernier = g.courants.flat()[0];
-      if (dernier) { resultats.push(dernier); valeursFinales.push(valeurTerminale(chemin)); }
+  /** Un morceau seul de sa méthode : on l'isole, puis on le mène jusqu'au bout. */
+  const jouerSeul = (g) => {
+    const indexPart = groupes.indexOf(g);
+    // Isolation du fragment (inutile s'il couvre déjà toute la saisie, et
+    // inutile aussi si le découpage vient de la montrer).
+    if (groupes.length === 1 && g.positions.length && g.positions.length < saisieLue.length) {
+      poserBloc({
+        titre: MOTS.isolerPassage[langue],
+        legende: g.part.fragment ? citer(g.part.fragment.texte, langue) : null,
+        ops: [
+          { op: 'highlight', targets: cibleGroupe(g), mode: 'select' },
+          { op: 'dim', targets: cibleHorsGroupe(g), at: 200 },
+        ],
+      });
+    } else if (groupes.length > 1) {
+      // Sur une convergence, les copies n'ont pas de tag de groupe (elles
+      // naissent en cours de scène) : on désigne leurs ids en clair.
+      const cibles = convergente ? g.courants.flat() : cibleGroupe(g);
+      poserBloc({
+        titre: convergente
+          ? MOTS.lecture(indexPart + 1, langue)
+          : MOTS.isolerMorceau(indexPart + 1, langue),
+        legende: g.part.fragment ? citer(g.part.fragment.texte, langue) : null,
+        ops: [{ op: 'highlight', targets: cibles, mode: 'select' }],
+      });
     }
+
+    const chemin = g.part.chemin;
+    for (let i = 0; i < chemin.ops.length; i++) {
+      const avant = chemin.etats[i];
+      const apres = chemin.etats[i + 1];
+      if (rienAMontrer(avant, apres)) continue;
+      const r = produire(chemin.ops[i], avant, apres, g.courants);
+      for (const b of r.blocs) poserBloc(b);
+      g.courants = r.courants;
+    }
+    // ── Le GROUPEMENT : le calcul ne finit pas sur UN 6, il finit sur un
+    //    VECTEUR qui en porte plusieurs. On les garde, on jette le reste, et
+    //    ce qui reste s'assemble par trois. Sans cette récolte, le verdict
+    //    révélait le premier nombre venu en annonçant « 666 » — c'est-à-dire
+    //    qu'il décrétait, ce que ce mode existe précisément pour ne plus faire.
+    const recolte = recolterLesSix(
+      g, chemin, poserBloc, langue, moisson, moisson ? rejets : null, cible,
+    );
+    if (recolte) { resultats.push(...recolte.ids); valeursFinales.push(...recolte.valeurs); return; }
+    const dernier = g.courants.flat()[0];
+    if (dernier) { resultats.push(dernier); valeursFinales.push(valeurTerminale(chemin)); }
+  };
+
+  for (const paquet of paquets) {
+    if (paquet.length > 1) jouerEnsemble(paquet);
+    else jouerSeul(paquet[0]);
   }
 
   let finaux = resultats.filter(Boolean);

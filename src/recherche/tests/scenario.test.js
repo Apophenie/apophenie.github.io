@@ -371,11 +371,26 @@ test('★ scénario — le clavier reste monté par-dessus une étape inerte', (
   assert.deepEqual(claviers.map((o) => o.montre), [true, false], 'le clavier ne monte qu’une fois…');
   assert.deepEqual(claviers.map((o) => o.retire), [false, true], '… et ne redescend qu’une fois');
 
-  // … et il y a bien une étape entre les deux : c'est tout l'objet du test.
+  // ★ AMENDEMENT — les deux conversions sont désormais VOISINES, et c'est mieux.
+  //
+  //   Ce test gelait qu'une étape inerte s'intercale entre elles et que la
+  //   série du décor la traverse. Cette étape était l'isolation du second
+  //   morceau : « on s'occupe du 3ᵉ morceau ». Depuis que les morceaux qui
+  //   partagent une méthode sont joués ENSEMBLE, geste par geste
+  //   (`scenario.js`, le parcours horizontal), il n'y a plus rien à isoler
+  //   entre les deux — elles se suivent.
+  //
+  //   Ce qui compte n'a pas changé d'un mot : le clavier monte UNE fois et
+  //   redescend UNE fois, quoi qu'il y ait entre les deux. C'est ce que les
+  //   trois assertions ci-dessus gèlent, et elles suffisent. On vérifie ici
+  //   que la série est bien CONTINUE — aucune étape qui déplacerait quoi que
+  //   ce soit ne s'est glissée sous le décor monté.
   const rangs = sc.steps.map((s, i) => (s.ops.some((o) => o.op === 'keyboard') ? i : -1)).filter((i) => i >= 0);
-  assert.equal(rangs[1] - rangs[0], 2, 'une étape s’intercale, et la série la traverse');
-  assert.deepEqual(sc.steps[rangs[0] + 1].ops.map((o) => o.op), ['highlight'],
-    'l’étape traversée est inerte : elle désigne, elle ne déplace rien');
+  for (let i = rangs[0] + 1; i < rangs[1]; i++) {
+    const noms = sc.steps[i].ops.map((o) => o.op);
+    assert.ok(noms.every((n) => ['highlight', 'dim', 'pulse', 'annotate', 'wait'].includes(n)),
+      `l’étape ${i} traversée par le décor doit être inerte, elle joue ${noms.join('+')}`);
+  }
 
   // La table chaldéenne qui précède, elle, referme sa série avant le clavier :
   // un décor qui change, c'est l'ancien qui se retire avant que le neuf ne monte.

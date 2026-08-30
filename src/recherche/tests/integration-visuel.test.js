@@ -154,15 +154,26 @@ test('★ intégration — la figure du Registre traverse le compilateur intacte
         `step ${i} : la figure ne survit pas à la compilation`);
     });
     for (const st of avecFigure) {
-      assert.equal(st.figure.type, 'seg7');
+      // ★ LE TYPE DE LA FIGURE EST CELUI DE L'OP QUI L'ÉMET, et on le lit sur
+      //   le step plutôt que de le figer. Ce test épinglait `seg7` parce que
+      //   l'approche trouvée n'employait qu'un afficheur ; depuis que les
+      //   morceaux de même méthode sont joués ensemble, l'approche retenue en
+      //   mêle deux — sept segments sur un morceau, quatorze sur un autre —,
+      //   et exiger `seg7` partout revenait à geler quelle voie sort du
+      //   classement, ce qui n'est pas l'objet de ce test.
+      // La figure et l'op qui l'émet vont ENSEMBLE : sept segments pour
+      // `sevenSeg`, quatorze pour `fourteenSeg`. On lit le couple sur le step
+      // plutôt que d'en figer un — depuis que les morceaux de même méthode
+      // sont joués ensemble, une même approche en mêle les deux.
+      const nomOp = st.figure.type === 'seg14' ? 'fourteenSeg' : 'sevenSeg';
+      const op = st.ops.find((o) => o.op === nomOp);
+      assert.ok(op, `une figure ${st.figure.type} sans op ${nomOp}`);
       assert.ok(st.figure.glyphe, 'figure sans glyphe à afficher');
       assert.ok(st.figure.texte.trim(), 'figure sans équivalent en une ligne');
       // Contrôle croisé : le nombre de la figure est celui que la primitive
-      // `sevenSeg` fait descendre — jamais une valeur saisie à part.
-      const op = st.ops.find((o) => o.op === 'sevenSeg');
-      assert.ok(op, 'une figure sept segments sans op sevenSeg');
+      // fait descendre — jamais une valeur saisie à part.
       assert.equal(String(op.to.text), String(st.figure.valeur));
-      assert.equal(op.segments, st.figure.segments);
+      assert.deepEqual(op.segments, st.figure.segments);
       assert.equal(op.count, st.figure.valeur);
     }
   });
