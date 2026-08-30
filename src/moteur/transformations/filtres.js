@@ -649,13 +649,32 @@ const TLD = '[a-z]{2,18}';
 const RE_EXTENSION = new RegExp(`\\.${TLD}$`, 'i');
 
 /**
+ * Une ÉTIQUETTE de nom de domaine — ce qu'il y a entre deux points.
+ *
+ * ★ Toutes les lettres, pas seulement l'ASCII. La saisie témoin du site est
+ * `https://www.numérologie-évidente.fr/preuve` : refuser les accents ferait
+ * échouer la reconnaissance sur l'exemple même que le site montre, et sur la
+ * moitié des adresses françaises. Un tiret est admis, mais jamais en bordure —
+ * c'est la seule contrainte que la résolution de noms impose vraiment.
+ */
+const ETIQUETTE = '[\\p{L}\\p{N}](?:[\\p{L}\\p{N}-]*[\\p{L}\\p{N}])?';
+
+/**
  * Un nom de domaine EN TÊTE de la chaîne : des étiquettes séparées par des
  * points, puis l'extension, puis la fin ou ce qui n'appartient déjà plus au nom
  * (`/`, `:`, `?`, `#`). C'est la règle que l'auteur a écrite —
  * `(https?://)?[…]+\.[tld]/?` —, à ceci près que le protocole se retire au lieu
  * de se garder : `https://` dit comment on y va, pas comment le site s'appelle.
+ *
+ * ★ POURQUOI L'ÉTIQUETTE ACCEPTE TOUTE LETTRE ET L'EXTENSION NON. Ce n'est pas
+ * une inattention : l'étiquette ne décide de rien, l'élargir ne fait que
+ * reconnaître plus d'adresses réelles. L'extension, elle, PORTE la décision —
+ * c'est elle qui répond « ceci est une adresse ». Lui ouvrir tout l'Unicode
+ * ferait passer n'importe quelle phrase ponctuée d'un point pour un site, et la
+ * règle ne dirait plus rien. On paie ce choix en refusant `сайт.рф` ; c'est
+ * écrit ici pour que personne n'ait à le redécouvrir.
  */
-const RE_HOTE = new RegExp(`^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+${TLD}(?=[:/?#]|$)`, 'i');
+const RE_HOTE = new RegExp(`^(?:${ETIQUETTE}\\.)+${TLD}(?=[:/?#]|$)`, 'iu');
 
 /**
  * Le leet speak, dans le sens où on le DÉCODE : le chiffre, puis la lettre.
