@@ -8,6 +8,14 @@
 //                                                    barème d'élégance
 //   node .planning/banc/classement.mjs --sans-triches → le classement avec les
 //                                                    paliers de TRICHE mis à zéro
+//   node .planning/banc/classement.mjs --sans-retouches → le classement avec
+//                                                    l'ÉTAGE AMONT débranché
+//
+// ★ `--sans-retouches` est la ligne de base de `BAREME.RETOUCHE` : c'est contre
+// ce classement-là que le palier a été réglé, liste à liste. L'étage est branché
+// par défaut depuis que le barème le charge (`elegance.js`), et le drapeau ne
+// sert plus qu'à retrouver l'avant — sans quoi un balayage du palier se
+// comparerait à lui-même.
 //
 // ★ `--sans-triches` répond à une question de l'auteur, et à elle seule : « je
 // ne suis pas sûr que les triches nécessitent une pénalité en plus de leur
@@ -49,7 +57,11 @@ if (args.includes('--sans-triches')) {
   BAREME.REDECOUPAGE = 0;
 }
 
-const moteur = creerMoteur(CATALOGUE, { filetTemporel: false, elegance: !avant });
+const moteur = creerMoteur(CATALOGUE, {
+  filetTemporel: false,
+  elegance: !avant,
+  retouches: !args.includes('--sans-retouches'),
+});
 
 const sortie = [];
 for (const s of saisies) {

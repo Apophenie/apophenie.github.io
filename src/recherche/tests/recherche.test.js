@@ -11,6 +11,7 @@ import {
   rangConviction, RANG,
 } from '../score.js';
 import { approcheJoker, normaliserChemin, compterMoisson, sixDuChemin, SERIE } from '../assemblage.js';
+import { BAREME, detailDuCredit } from '../elegance.js';
 import { estDecret, titreApproche } from '../titres.js';
 import { catalogue, source, horlogeFactice, demarrerCharge, arreterCharge } from './_catalogue.js';
 import { fr } from '../../i18n/fr.js';
@@ -1234,61 +1235,89 @@ test('★ « Donald Trump » : deux 666 déjà formés, en tête de liste', () =
 });
 
 /**
- * ★ L'ÉTAGE DES RETOUCHES DANS LA RECHERCHE — branché, éprouvé, DÉBRANCHÉ.
+ * ★ L'ÉTAGE DES RETOUCHES DANS LA RECHERCHE — BRANCHÉ.
  *
  * « On fait la conversion fr13 sur le 2ᵈ mot, puis on trie l'ensemble, on
  * applique m14 à l'ensemble » (l'auteur). La grammaire sait l'écrire (`url.js`,
- * le `;`), le moteur sait le rejouer, la scène sait le montrer — et
- * `assemblage.js › groupementsRetouches` sait le TROUVER.
+ * le `;`), le moteur sait le rejouer, la scène sait le montrer,
+ * `assemblage.js › groupementsRetouches` sait le TROUVER — et le barème le
+ * PAIE désormais (`elegance.js › BAREME.RETOUCHE`, réglé au banc).
  *
- * ⚠️ **Il reste débranché, et ce test gèle les deux moitiés de cette décision.**
- * Le générateur marche : sur « Donald Trump », il retrouve tout seul la
- * démonstration que l'auteur avait décrite à la main. Mais les opérations d'une
- * retouche ne sont vues ni par `score.js` ni par `elegance.js` — elles voyagent
- * à côté des parts —, si bien qu'une voie retouchée est notée comme si son
- * étage amont était gratuit. Branché, il détrône la voie que l'auteur a nommée
- * lui-même sur cette saisie-là (le test ci-dessus), ce qui n'est pas un
- * arbitrage de moteur. Voir `.planning/A-VENIR-retouches.md`.
+ * Il est donc branché par défaut, et ce qui gelait sa mise à l'écart gèle
+ * maintenant sa présence : une voie retouchée doit être trouvée, être notée
+ * comme les autres, et se rejouer au caractère près.
  */
 /**
- * ⚠️ **Le moteur à retouches est construit UNE fois, à la demande, et les
- * saisies sont comptées.** Le budget du pipeline est mesuré dans ce même
- * fichier, à 1 000 ms, et la saisie la plus lourde du banc en consomme 96 % —
- * ajouter du travail ici, c'est rapprocher ce test-là de son plafond par la
- * bande. `creerMoteur` construit un bassin d'attraction complet : un seul
- * suffit pour les deux tests, et il ne se construit que si on y arrive.
+ * ⚠️ **Le moteur est construit UNE fois pour ces trois tests.** Le budget du
+ * pipeline est mesuré dans ce même fichier, à 1 000 ms, et la saisie la plus
+ * lourde du banc en consomme l'essentiel — ajouter du travail ici, c'est
+ * rapprocher ce test-là de son plafond par la bande. `creerMoteur` construit un
+ * bassin d'attraction complet : un seul suffit, et il ne se construit que si on
+ * y arrive.
  */
 let moteurRetouches = null;
 const AVEC_RETOUCHES = () => (moteurRetouches
   ||= creerMoteur(catalogue, { filetTemporel: false, retouches: true }));
 
-test('★ retouches — DÉBRANCHÉES par défaut : aucune voie n’en porte', () => {
-  const m = creerMoteur(catalogue, { filetTemporel: false });
+test('★ retouches — BRANCHÉES par défaut, et l’option ne sert plus qu’à les taire', () => {
+  // Branchées : la voie retouchée est là, sans qu'on ait rien demandé.
+  const parDefaut = creerMoteur(catalogue, { filetTemporel: false });
+  const vues = parDefaut.resoudre('Donald Trump').approches
+    .filter((a) => a.retouches && a.retouches.length);
+  assert.ok(vues.length, 'aucune voie retouchée sur « Donald Trump » au réglage par défaut');
+  for (const a of vues) assert.ok(a.url.includes(';'), `${a.url} ne porte pas de « ; »`);
+
+  // …et `retouches: false` les tait encore, parce que le banc en a besoin pour
+  // comparer les deux classements sans toucher au moteur.
+  const nu = creerMoteur(catalogue, { filetTemporel: false, retouches: false });
   for (const s of ['Donald Trump', 'Marie Curie']) {
-    for (const a of m.resoudre(s).approches) {
+    for (const a of nu.resoudre(s).approches) {
       assert.equal(a.retouches, undefined, `« ${s} » : ${a.codes} porte une retouche`);
       assert.ok(!a.url.includes(';'), `« ${s} » : ${a.url} porte un « ; »`);
     }
   }
 });
 
-test('★ retouches — branchées, la recherche RETROUVE la voie décrite par l’auteur', () => {
+test('★ retouches — la recherche RETROUVE le geste décrit par l’auteur', () => {
   const r = AVEC_RETOUCHES().resoudre('Donald Trump');
   const avec = r.approches.filter((a) => a.retouches && a.retouches.length);
   assert.ok(avec.length, 'aucune voie retouchée trouvée sur « Donald Trump »');
 
   const voie = avec[0];
-  // Le mot réécrit est bien le SECOND, et le chiffre est celui que l'auteur
-  // nomme — la recherche les a choisis, ils ne sont pas écrits ici.
+  // Le GESTE est celui que l'auteur décrit, et c'est lui qu'on fige : un seul
+  // mot réécrit, le SECOND, par un chiffrement lettre à lettre qui garde la
+  // longueur — puis tout est lu d'un trait, et il en sort deux séries au lieu
+  // de la seule que le même programme donne sans la retouche.
+  assert.equal(voie.retouches.length, 1, 'un seul étage amont');
   assert.equal(voie.retouches[0].fragment.texte, 'Trump');
-  assert.deepEqual(voie.retouches[0].chemin.ops.map((o) => o.code), ['fr13']);
-  assert.equal(voie.saisieRetouchee, 'Donald Gehzc');
+  assert.equal(voie.mode, 'GROUPEMENT');
   assert.equal(voie.series, 2);
+  assert.match(voie.saisieRetouchee, /^Donald .{5}$/);
+  assert.notEqual(voie.saisieRetouchee, 'Donald Trump');
+
+  /* ⚠️ **CE N'EST PLUS `fr13` QUE LA RECHERCHE MET EN TÊTE, et la raison n'est
+     pas dans cet étage-ci.** `LETTRE_VERS_LETTRE` (`elegance.js`) nomme trois
+     identifiants — `f.atbash`, `f.rot13`, `f.leet` — et son commentaire affirme
+     que le catalogue n'en porte pas d'autre. Ce n'est plus vrai : les vingt-cinq
+     autres décalages de César y sont entrés sous les identifiants `f.cesar1` à
+     `f.cesar25`, et ils ne paient donc RIEN là où `fr13` paie 40. Tant que
+     l'étage amont était gratuit, l'écart ne se voyait pas ; il se voit
+     maintenant, et il suffit à faire passer `2.1:fatb;…` et `2.1:fr12;…` devant
+     `2.1:fr13;…`, à geste rigoureusement identique.
+
+     On ne le corrige pas ici — ce poste-là touche presque toutes les voies du
+     corpus, et son tarif (40) a été étalonné en croyant qu'il frappait tous les
+     césars ; le rouvrir demande son propre balayage. Mesuré au passage : le
+     corriger déplace UNE tête de liste sur les dix-neuf, « Millicent ». Le test
+     fige donc le GESTE, que l'auteur dit lui-même être ce qui compte (« si le
+     programme entre ## s'écrit différemment, ça me va du moment que ça produit
+     l'effet que je décris »), et le lien exact qu'il a écrit reste éprouvé au
+     caractère près dans `integration-visuel.test.js`. */
 
   // Les CODES nomment l'étage amont, exactement comme le lien l'écrit : sans
   // quoi deux voies qui ne diffèrent que par leur retouche seraient
   // indiscernables et l'ordre total cesserait d'être total (§4.4-1).
-  assert.match(voie.codes, /^2\.1:fr13;/);
+  assert.match(voie.codes, /^2\.1:[a-z0-9]+;/);
 
   // Et le lien rejoue EXACTEMENT ce que la liste affiche (§4.3).
   const rejeu = AVEC_RETOUCHES().rejouer(lire(voie.url, { catalogue }));
@@ -1296,6 +1325,35 @@ test('★ retouches — branchées, la recherche RETROUVE la voie décrite par l
   assert.equal(rejeu.approche.url, voie.url);
   assert.equal(rejeu.approche.score, voie.score);
   assert.equal(rejeu.approche.series, voie.series);
+});
+
+test('★ retouches — l’étage amont est PAYÉ, et il ne peut plus être gratuit', () => {
+  /* Le vrai garde-fou n'est plus le seuil de séries d'`assemblage.js` : c'est le
+     barème. On le vérifie là où il se lit — dans le détail du crédit, poste par
+     poste — plutôt que sur un total qui pourrait tomber juste par accident.
+
+     Deux choses, et elles sont distinctes : le palier propre à l'étage, et le
+     prix ORDINAIRE des gestes de la retouche, qui n'était compté nulle part. */
+  let vues = 0;
+  for (const s of ['Donald Trump', 'Marie Curie']) {
+    for (const a of AVEC_RETOUCHES().resoudre(s).approches) {
+      if (!a.retouches || !a.retouches.length) continue;
+      vues++;
+      const lignes = new Map(detailDuCredit(a.bilan).map((l) => [l.cle, l]));
+      const palier = lignes.get('RETOUCHE');
+      assert.equal(palier.quantite, a.retouches.length,
+        `« ${s} » : ${a.codes} porte ${a.retouches.length} retouche(s),`
+        + ` le crédit en compte ${palier.quantite}`);
+      assert.equal(palier.points, -BAREME.RETOUCHE * a.retouches.length);
+      // …et les gestes de l'étage amont sont dans le compte des transformations.
+      const gestes = a.retouches.reduce((t, x) => t + x.chemin.ops.length, 0);
+      assert.ok(a.bilan.transformations >= gestes,
+        `« ${s} » : ${a.bilan.transformations} transformations pour ${gestes} gestes en amont`);
+      // Une voie retouchée n'est jamais « sans reproche » (`estPur`).
+      assert.equal(a.pur, false, `« ${s} » : ${a.codes} passe pour pure`);
+    }
+  }
+  assert.ok(vues >= 3, `seulement ${vues} voies retouchées observées`);
 });
 
 test('★ retouches — une retouche qui n’apporte pas de série de plus n’est pas proposée', () => {

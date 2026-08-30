@@ -492,6 +492,115 @@ export const BAREME = {
   REGLAGE_PAR_MORCEAU: 240,
 
   /**
+   * ★ **ON A RÉÉCRIT LA QUESTION AVANT D'Y RÉPONDRE** — par étage amont.
+   *
+   * Une RETOUCHE prend une portée de la saisie, lui applique un programme qui
+   * rend du TEXTE, et repose le résultat à sa place ; tout ce qui suit lit le
+   * texte réécrit (`url.js`, le `;` ; `index.js › rejouer`). Sur « Donald
+   * Trump », `2.1:fr13;fl+tca+m14` chiffre `Trump` en `Gehzc`, puis lit
+   * `Donald Gehzc` d'un seul geste et en tire deux séries au lieu d'une.
+   *
+   * ★ **CE PALIER N'EST PAS LE PRIX DES GESTES DE LA RETOUCHE — ceux-là se
+   * paient désormais au tarif de tout le monde.** Depuis que `bilanApproche` lit
+   * `approche.retouches`, une retouche compte ses transformations comme
+   * n'importe quel morceau de chemin, et leur NATURE avec : `fr13` et `fatb`
+   * sont des conversions `lettre → lettre` et paient `LETTRE_VERS_LETTRE`.
+   * C'était le premier trou, et le plus grossier — un étage entier ne coûtait
+   * rien du tout.
+   *
+   * ⚠️ **Mais le socle ne pouvait pas suffire, et l'écart est mesuré.** Le geste
+   * de `fr13` facturé à l'ordinaire vaut 14 + 40 = **54 milli-unités**. Ce que la
+   * retouche ACHÈTE, sur les vingt et une voies retouchées que le corpus de
+   * dix-neuf saisies propose — le même programme rejoué SANS elle, crédit contre
+   * crédit, palier à zéro — vaut tout autre chose :
+   *
+   *     gain le plus faible ....  266   (`7.1:fr25;fl+tca+masc+mrd`, google.com)
+   *     gain MÉDIAN ............  544
+   *     gain le plus fort ......  720   (`2.1:fatb;fl+tca+mpy+mr9`, Marie Curie)
+   *
+   * (Une seule voie y perd — `6.1:fen2;…` sur « Le chat dort… », −417 : elle
+   * gagne une série et la paie plus cher qu'elle ne la vend.) Facturer 54 ce qui
+   * en rapporte 544 revient à vendre une série au dixième de son prix — et le
+   * générateur n'en propose une QUE si elle rapporte (`groupementsRetouches`
+   * exige strictement plus de séries), si bien que le socle seul ferait de
+   * l'étage un profit garanti par construction.
+   *
+   * ★ **CE QUI SE PAIE ICI EST DE MÊME NATURE QUE `FILTRE_SELECTIF`, D'UN CRAN
+   * AU-DESSUS.** « Ce qui se paie n'est pas le geste, c'est le CHOIX de
+   * l'endroit où le faire » — c'est le mot du filtre sélectif, et il vaut
+   * intégralement ici. La différence tient en une phrase : un filtre sélectif
+   * choisit où appliquer une MÉTHODE ; une retouche choisit où réécrire la
+   * MATIÈRE. Tout ce qui suit démontre alors sur un texte que personne n'a tapé,
+   * et le spectateur doit accepter la substitution avant de pouvoir suivre le
+   * raisonnement. D'où un tarif au-dessus de `REGLAGE_PAR_MORCEAU` (240), qui ne
+   * fait que régler l'outil morceau par morceau.
+   *
+   * ★ **ET IL N'Y A QU'UN SEUL PALIER, PAS DEUX.** Retoucher puis lire la portée
+   * réécrite AVEC les autres (`2.1:fr13;fl+tca+m14`) est la forme que l'auteur
+   * trouve remarquable ; retoucher pour ne lire QUE la portée réécrite
+   * (`2.1:fr13;2.1:tca+m14`) est un tour de passe-passe. La tentation était de
+   * surtaxer la seconde — **le barème le fait déjà, et lourdement**. ⚠️ MESURÉ,
+   * les deux formes de la MÊME retouche sur « Donald Trump » :
+   *
+   *     2.1:fr13;fl+tca+m14    2 séries, crédit  430
+   *     2.1:fr13;2.1:tca+m14   1 série,  crédit −405
+   *
+   * …et les 835 milli-unités d'écart ne doivent RIEN à ce palier, que les deux
+   * paient à l'identique : ne lire qu'un mot laisse l'autre jamais lu, donc
+   * **−872 de `PORTEE_IGNOREE` et −48 d'`EFFACE_BLOC`**. Un second palier ne
+   * ferait que facturer une deuxième fois le même reproche — la faute que
+   * l'en-tête interdit (« la peine n'est comptée qu'une fois »).
+   *
+   * ★ **LE COÛT CROÎT AVEC LE NOMBRE D'ÉTAGES, ET LINÉAIREMENT.** Il se compte
+   * PAR RETOUCHE : deux portées réécrites coûtent deux fois. Le rendre
+   * superlinéaire a été écarté faute de pouvoir le mesurer —
+   * `groupementsRetouches` n'émet jamais plus d'UN étage, et aucune voie du
+   * corpus n'en porte deux. On ne règle pas un exposant sur zéro observation. Et
+   * le total croît de toute façon plus vite que le palier seul : chaque étage
+   * supplémentaire paie AUSSI ses propres transformations et sa propre nature.
+   *
+   * ⚠️ **420 — BALAYÉ AU BANC**, générateur branché, en comparant chaque liste à
+   * celle que rend l'étage DÉBRANCHÉ (dix-neuf saisies, `--json` à l'appui) :
+   *
+   *       0 · « Marie Curie » bascule sur `2.1:fatb;fl+tca+mpy+mr9` (crédit 763)
+   *           et évince la moisson honnête à deux séries (518). La retouche est
+   *           gratuite, elle prend la tête. Inacceptable.
+   *     240 · le tarif du réglage par morceau : « Marie Curie » tombe toujours,
+   *           de 5 milli-unités (523 contre 518). À ce prix, l'étage reste une
+   *           affaire.
+   *     246 · la moisson repasse d'un cheveu. **Plus aucune tête de liste ne
+   *           change** — mais trois voies retouchées tiennent encore la 2ᵈ ligne.
+   *     420 · `jean-michel` rend la sienne : `2.1:fr2;fl+tca+m14+mtri` cède la
+   *           2ᵈ ligne à la moisson honnête `tca+m14,fr2+tca+m14+mpf`, qui
+   *           aligne **le même compte de séries**. C'est le premier palier où
+   *           plus aucune voie du corpus n'est déplacée par une retouche.
+   *     540 · rien ne bouge (c'est pourtant le gain MÉDIAN mesuré plus haut).
+   *     720, 1 000 · rien ne bouge non plus : vingt voies retouchées dans neuf
+   *           listes, zéro en 1ʳᵉ ligne, deux en 2ᵈ, aux trois valeurs.
+   *
+   * On s'arrête donc au premier palier qui atteint le plateau, comme
+   * `PORTEE_IGNOREE` et `REDECOUPAGE` avant lui — au-delà, on paierait une
+   * sévérité qui ne change rien, et l'on finirait par chasser des listes une
+   * démonstration que l'auteur a demandée.
+   *
+   * ★ **ET LES VOIES RETOUCHÉES RESTENT PROPOSÉES**, ce qui est tout l'objet de
+   * l'étage : vingt d'entre elles, dans neuf listes sur dix-neuf — 3ᵉ sur
+   * « Donald Trump », 3ᵉ sur `jean-michel`, 2ᵉ sur « Emmanuel Macron », où elle
+   * aligne quatre séries contre trois. Visibles, jamais offertes.
+   *
+   * ⚠️ **ET DEUX D'ENTRE ELLES NE BOUGERONT PAS, quel que soit le tarif — dit
+   * ici pour qu'on n'essaie pas.** Balayage poussé jusqu'à **5 000** : les deux
+   * voies retouchées de 2ᵈ ligne (« Emmanuel Macron », « Marie Curie ») y sont
+   * encore, au mot près. Elles n'y sont pas par leur crédit — sur « Emmanuel
+   * Macron » c'est le COMPTE de séries qui décide (quatre contre trois), sur
+   * « Marie Curie » c'est `index.js › diversifier`, qui remplit le reste de la
+   * liste sur la variété et non sur le barème. Alourdir le palier pour les
+   * déloger reviendrait à tordre un poste d'élégance pour agir sur une règle de
+   * SÉLECTION, qui n'est pas la sienne.
+   */
+  RETOUCHE: 420,
+
+  /**
    * ★ « Tout chiffre ou lettre effacé/ignoré » — le malus plein, quand c'est un
    * caractère pris au milieu d'un bloc dont le reste sert.
    */
@@ -1096,6 +1205,7 @@ export const NATURE = Object.freeze({
   RETOUR_SUR_UNE_ETAPE: { sens: -1, famille: 'elegance' },
   FILTRE_SELECTIF: { sens: -1, famille: 'elegance' },
   REGLAGE_PAR_MORCEAU: { sens: -1, famille: 'elegance' },
+  RETOUCHE: { sens: -1, famille: 'elegance' },
   VALEUR_JETEE: { sens: -1, famille: 'elegance' },
   RELIQUAT_HORS_CIBLE: { sens: -1, famille: 'elegance' },
   RELIQUAT_DE_CIBLE: { sens: -1, famille: 'elegance' },
@@ -2019,6 +2129,28 @@ function intervallesDe(fragment) {
  * @param {Object} ctx       {saisie, signifiants:{total, masque}}
  * @returns {Object} le bilan
  */
+/**
+ * ★ CE QU'UN BILAN DE CHEMIN DIT DU **PROCESSUS** — par opposition à ce qu'il
+ * dit de la GÉOMÉTRIE du vecteur d'arrivée.
+ *
+ * La liste sert à l'étage des RETOUCHES, et à lui seul : une retouche a un
+ * chemin, donc un processus, mais elle finit sur du TEXTE et n'a aucun vecteur.
+ * Ses `six`, sa `largeur`, ses triptyques et sa casse n'ont pas de sens, et les
+ * additionner à ceux des parts crédierait une récolte que le verdict ne montre
+ * pas. Ce qui reste — ce qu'on a FAIT, et à quel prix — s'additionne, lui, sans
+ * réserve : une transformation est une transformation, où qu'elle ait lieu.
+ *
+ * ⚠️ Écrite en clair plutôt que déduite de `Object.keys` : un compteur ajouté
+ * demain à `bilanChemin` doit être RANGÉ d'un côté ou de l'autre par quelqu'un
+ * qui sait ce qu'il mesure, pas versé au processus par défaut.
+ */
+const POSTES_DU_PROCESSUS = Object.freeze([
+  'transformations', 'additionsChiffres', 'additionsNombres', 'additionsEnChaine',
+  'arrondi', 'minMax', 'lettreVersLettre', 'sixDetruits', 'majoriteTacite',
+  'valeursJetees', 'majorite', 'decimation', 'additionSelective', 'redecoupage',
+  'effacementSansMotif', 'rearrangement',
+]);
+
 export function bilanApproche(approche, ctx = {}) {
   const parts = (approche && approche.parts) || [];
   const series = approche && approche.series ? approche.series : 1;
@@ -2058,6 +2190,8 @@ export function bilanApproche(approche, ctx = {}) {
     effacementSansMotif: 0,
     // ★ ce qu'un tri croissant déplace, valeur par valeur.
     rearrangement: 0,
+    // ★ combien de portées ont été RÉÉCRITES avant que le reste ne les lise.
+    retouches: 0,
   };
 
   // ★ Où s'arrête la matière signifiante de la saisie — c'est ce qui définit
@@ -2199,6 +2333,29 @@ export function bilanApproche(approche, ctx = {}) {
   b.gardees = gardees;
   b.series = series;
 
+  // ── ★ L'ÉTAGE AMONT : les RETOUCHES — voir `BAREME.RETOUCHE`.
+  //
+  //    Elles voyagent À CÔTÉ des parts et jamais dedans (`index.js › rejouer`
+  //    dit pourquoi : les y verser fabriquerait une PARTITION là où il n'y a
+  //    qu'une préparation). Le barème ne les voyait donc pas du tout, et un
+  //    étage entier ne coûtait rien. Il coûte maintenant DEUX choses, et deux
+  //    seulement : le prix ORDINAIRE de ses gestes, ci-dessous, et le palier
+  //    propre à l'étage, dans `detailDuCredit`.
+  //
+  // ★ **On ne retient d'une retouche que le PROCESSUS, jamais la GÉOMÉTRIE.**
+  //   Une retouche finit sur du TEXTE — `rejouer` refuse le lien si ce n'est pas
+  //   le cas —, elle n'a donc pas de vecteur : ses 6, sa largeur, ses triptyques
+  //   et sa casse n'existent pas, et les verser dans le bilan y fabriquerait une
+  //   récolte que le verdict ne montre pas. Les postes retenus sont listés en
+  //   clair (`POSTES_DU_PROCESSUS`) plutôt que copiés en bloc, pour que
+  //   l'exclusion soit une décision lisible et non un oubli.
+  const lesRetouches = (approche && approche.retouches) || [];
+  b.retouches = lesRetouches.length;
+  for (const r of lesRetouches) {
+    const bc = bilanChemin(r.chemin, cbl);
+    for (const poste of POSTES_DU_PROCESSUS) b[poste] += bc[poste];
+  }
+
   b.abandons = abandons(approche, ctx);
   // La cible voyage avec le bilan : `detailDuCredit` en a besoin, et elle doit
   // y arriver par le bilan plutôt que par un second argument — deux chemins
@@ -2292,6 +2449,8 @@ export function detailDuCredit(b, poids) {
       B.FILTRE_SELECTIF * (b.filtresSelectifs || 0)],
     ['même outil, réglé morceau par morceau', 'REGLAGE_PAR_MORCEAU', b.reglagesEnTrop || 0,
       B.REGLAGE_PAR_MORCEAU * (b.reglagesEnTrop || 0)],
+    ['portée réécrite avant d’être lue', 'RETOUCHE', b.retouches || 0,
+      B.RETOUCHE * (b.retouches || 0)],
     ['part de la saisie jamais lue', 'PORTEE_IGNOREE', ignores,
       a.signifiants ? fraction(B.PORTEE_IGNOREE, [ignores, a.signifiants]) : 0],
     ['lettre ou chiffre arraché', 'EFFACE_ALNUM', a.alnum, B.EFFACE_ALNUM * a.alnum],
@@ -2394,7 +2553,13 @@ export function note(c) {
  */
 export function estPur(b) {
   const a = b.abandons || {};
-  return b.casses === 0
+  // ★ Une portée RÉÉCRITE avant lecture sort de la définition, et sans
+  //   discussion : « sans malus autre que d'exclure des blocs courts » n'a
+  //   jamais autorisé à changer la question. Une retouche est le plus lourd
+  //   malus d'élégance du barème (`BAREME.RETOUCHE`) ; l'oublier ici ferait
+  //   passer une voie retouchée pour « sans reproche » au dernier cran du tri.
+  return (b.retouches || 0) === 0
+    && b.casses === 0
     && b.sixDetruits === 0
     && b.valeursJetees === 0
     && (b.majoriteTacite || 0) === 0

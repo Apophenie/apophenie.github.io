@@ -104,11 +104,12 @@ export async function chargerCatalogue(specificateur = '../moteur/catalogue.js')
  * @param {{valider?:boolean, plageBassin?:Object, maintenant?:()=>number,
  *   filetTemporel?:boolean, elegance?:boolean, retouches?:boolean}} [options]
  *
- * ★ `retouches: true` BRANCHE l'étage amont du GROUPEMENT — « on chiffre un
+ * ★ `retouches: false` DÉBRANCHE l'étage amont du GROUPEMENT — « on chiffre un
  *   mot, puis on lit tout » (`assemblage.js › groupementsRetouches`). Il est
- *   débranché par défaut tant que le barème ne charge pas cet étage-là ; la
- *   raison complète est écrite au point d'appel, et le chemin pour le brancher
- *   dans `.planning/A-VENIR-retouches.md`.
+ *   BRANCHÉ par défaut depuis que le barème le charge (`elegance.js ›
+ *   BAREME.RETOUCHE`) ; la raison complète est écrite au point d'appel. Reste
+ *   une option pour que le banc puisse comparer les deux classements sans
+ *   toucher au moteur.
  *
  * ★ `filetTemporel: false` débranche l'arrêt d'urgence à l'horloge — la
  *   DERNIÈRE source d'entropie du moteur (`bfs.js`, en-tête). Deux usages, et
@@ -303,21 +304,22 @@ export function creerMoteur(catalogue, options = {}) {
     if (ctxRecherche.tronque && !ctxRecherche.tronqueTemps) tronqueTravail = true;
     if (ctxRecherche.tronqueTemps) tronqueTemps = true;
 
-    // ★ `retouches` BRANCHE l'étage amont du GROUPEMENT (`assemblage.js ›
-    //   groupementsRetouches`). Il est DÉBRANCHÉ par défaut, pour deux raisons
-    //   dont la première suffirait — et aucune n'est un doute sur le générateur,
-    //   que trois tests éprouvent.
-    //   1. Le barème ne voit PAS les opérations d'une retouche : elles voyagent
-    //      à côté des parts, jamais dedans (voir `rejouer`). Une voie retouchée
-    //      est donc notée comme si son étage amont était gratuit, et sur
-    //      « Donald Trump » cela suffit à sortir des DEUX premières lignes la
-    //      voie que l'auteur a nommée lui-même — un arbitrage qui ne revient pas
-    //      au moteur.
-    //   2. Le budget n'a plus la place : +64 ms mesurés sur la saisie la plus
-    //      lourde du banc, qui consomme déjà 960 ms sur les 1 000 du contrat.
-    //   Le chemin pour le brancher est écrit dans `.planning/A-VENIR-retouches.md`.
+    // ★ L'ÉTAGE AMONT DU GROUPEMENT (`assemblage.js › groupementsRetouches`)
+    //   est BRANCHÉ — « on chiffre un mot, puis on lit tout ».
+    //
+    //   Il est resté débranché tant que le barème ne le chargeait pas : les
+    //   opérations d'une retouche voyagent à côté des parts et jamais dedans
+    //   (voir `rejouer`), si bien qu'une voie retouchée était notée comme si son
+    //   étage amont était gratuit. Ce n'est plus le cas — `elegance.js` lit
+    //   `approche.retouches`, en facture les gestes au tarif ordinaire, et
+    //   ajoute le palier `RETOUCHE`, réglé au banc.
+    //
+    //   ⚠️ Ce que le branchement coûte en TEMPS reste réel, et le générateur
+    //   porte ses trois bornes pour cela (six mots, quatre vecteurs, la saisie
+    //   entière seule). Le budget d'une seconde est mesuré par
+    //   `recherche.test.js`, qui reste le garde-fou.
     const ctxAssemblage = {
-      saisie, jetons, signifiants, catalogue, cible: cbl, retouches: options.retouches === true,
+      saisie, jetons, signifiants, catalogue, cible: cbl, retouches: options.retouches !== false,
     };
     let approches = assembler(saisie, frags, parFrag, ctxAssemblage);
 
