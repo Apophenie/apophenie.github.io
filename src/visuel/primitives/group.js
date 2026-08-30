@@ -240,6 +240,10 @@ function planDecompte(ctx, ids, to, symbol, label) {
     partials: Array.from({ length: total }, (_, i) => i + 1),
     voler: [...compte, ...doubles.map((d) => d.spec.id)],
     effacer: ids.filter((id) => !vus.has(id)),
+    // Le comptage peut se glisser sous une accolade DÉJÀ tracée : c'est le cas
+    // quand un geste l'a posée avant lui dans le même step (`c.compteTokensDistincts`
+    // rapproche les exemplaires identiques avant de compter ce qui reste).
+    accoladeExistante: ctx.op.accolade === 'existante',
     doubles,
     doublesLabel: typeof ctx.op.doublesLabel === 'string' ? ctx.op.doublesLabel : null,
     symbol,

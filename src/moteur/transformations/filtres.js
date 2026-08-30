@@ -279,6 +279,51 @@ function etapeRetrait(op) {
 }
 
 /**
+ * ★ COUPER UNE ADRESSE — on montre d'abord ce qu'on écarte, ensuite on l'écarte.
+ *
+ * « L'exemple montre à merveille le problème : il ne s'agit pas de garder le
+ * premier caractère qui correspond au résultat quelle que soit sa position,
+ * mais bien ceux qui suivent le / concerné » (l'auteur). Le geste effaçait, et
+ * un effacement ne dit pas OÙ passe la coupe : sur `https://reinfocovid.fr/`,
+ * garder ce qui suit la barre ou garder ce qui la précède produisaient à
+ * l'écran deux disparitions, sans que la frontière apparaisse jamais.
+ *
+ * Trois temps, et le premier est celui qui manquait :
+ *
+ *  ① on ESTOMPE ce qui va partir — la coupe devient visible, et rien n'est
+ *    encore perdu : c'est le moment où l'on peut vérifier qu'elle est au bon
+ *    endroit ;
+ *  ② on DÉSIGNE ce qui reste, sous son nom (« le domaine », « le chemin ») ;
+ *  ③ on efface, et la ligne se referme.
+ */
+function etapeDecoupeAdresse(op) {
+  return (avant, apres, ctx) => {
+    const gardes = new Set(apparier(avant, apres).filter((i) => i >= 0));
+    const perdus = ctx.ids.filter((_, i) => !gardes.has(i));
+    const restants = ctx.ids.filter((_, i) => gardes.has(i));
+    const titre = dire(op.libelle, ctx.langue);
+    const regle = dire(op.regle, ctx.langue);
+    if (!perdus.length || !restants.length) {
+      return [etape(ctx, titre, regle, [{ op: 'move', targets: restants }])];
+    }
+    const mention = dire(op.mention, ctx.langue);
+    const corps = enchainer([
+      // ① la coupe se montre : ce qui part s'estompe, ce qui reste ne bouge pas.
+      { op: 'dim', targets: perdus, to: 0.18 },
+      // ② et l'on dit ce qu'on garde, sous ce qu'on garde.
+      mention ? { op: 'annotate', anchor: restants, text: mention, place: 'below', ecart: 0.7, fugace: true } : null,
+      // ③ seulement alors, l'effacement — puis le rapprochement, à part.
+      { op: 'drop', targets: perdus, mode: 'erase', regroup: false },
+    ]);
+    return [
+      etape(ctx, titre, regle, corps, { id: `s_${ctx.cle}_0`, hold: 300 }),
+      etape(ctx, dire(LIB_RAPPROCHER, ctx.langue), dire(REG_RAPPROCHER, ctx.langue),
+        [{ op: 'move' }], { id: `s_${ctx.cle}_1` }),
+    ];
+  };
+}
+
+/**
  * ★ DES EXEMPLAIRES IDENTIQUES SE REJOIGNENT — le geste de `fd`, `fpr` et `fun`.
  *
  * Les trois opérateurs font le même mouvement et se distinguent par ce qu'il en
@@ -739,6 +784,8 @@ const brut = [
     id: 'f.avantSlash', code: 'fav', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On garde ce qui précède le « / »', 'Keep what comes before the "/"'),
     regle: bilingue('Le domaine, pas le chemin', 'The domain, not the path'),
+    mention: bilingue('Le domaine', 'The domain'),
+    coupe: true,
     // ★ SOUS L'ATBASH, ET C'EST MÉRITÉ. Ils étaient notés 0,70 et 0,60 — au
     //   niveau des filtres que tout le monde reconnaît. Or couper une adresse à
     //   la première barre oblique n'est un geste évident QUE si l'on sait déjà
@@ -757,6 +804,8 @@ const brut = [
     id: 'f.apresSlash', code: 'fap', famille: 'filtre', from: 'STR', to: 'STR',
     libelle: bilingue('On garde ce qui suit le « / »', 'Keep what comes after the "/"'),
     regle: bilingue('Le chemin, pas le domaine', 'The path, not the domain'),
+    mention: bilingue('Le chemin', 'The path'),
+    coupe: true,
     // Encore un cran en dessous de son jumeau : garder le domaine est au moins
     // le réflexe de qui lit une adresse ; garder le chemin ne l'est pas.
     notoriete: 0.15, adHoc: 0.30,
@@ -959,7 +1008,7 @@ const brut = [
   ...[
     ['f.traduitFR', 'ffr', DICO_EN_FR, bilingue('On traduit en français', 'Translate into French')],
     ['f.traduitEN', 'fen', DICO_FR_EN, bilingue('On traduit en anglais', 'Translate into English')],
-  ].flatMap(([id, code, dico, libelle]) => [1, 2, 3].map((rang) => ({
+  ].flatMap(([id, code, dico, libelle]) => [1, 2, 3, 4, 5].map((rang) => ({
     id: rang === 1 ? id : `${id}${rang}`,
     code: rang === 1 ? code : `${code}${rang}`,
     famille: 'filtre', from: 'STR', to: 'STR',
@@ -969,14 +1018,22 @@ const brut = [
       : bilingue(`Le sens ne dépend pas de la langue — ${rang}ᵉ acception`,
         `Meaning does not depend on the language — sense ${rang}`),
     mention: bilingue('Traduction', 'Translation'),
-    // ★ L'AD HOC MONTE AVEC LA COUVERTURE, et c'est la leçon des vingt-cinq
-    //   césars. Tant que le dictionnaire tenait en quarante-neuf mots,
-    //   traduire ne s'appliquait presque jamais. Avec six mille entrées,
-    //   l'opérateur devient applicable partout — et « changer de langue jusqu'à
-    //   ce que ça tombe juste » est du magasinage. Descendre dans les
-    //   acceptions en est un second, superposé au premier.
-    notoriete: rang === 1 ? 0.15 : 0.10,
-    adHoc: 0.45 + (rang - 1) * 0.12,
+    // ★ LE MÊME PRIX POUR LES CINQ, et c'est un choix mesuré.
+    //
+    //   J'avais fait monter l'ad-hoc avec le rang, par analogie avec les
+    //   vingt-cinq césars. L'analogie est fausse, et l'auteur l'a corrigée :
+    //   « bien plus discret que les césars, pas de malus à choisir les
+    //   suivantes ». Un décalage de César n'a AUCUN sens hors du résultat qu'il
+    //   produit — treize plutôt que douze, c'est le nombre qui tombe juste et
+    //   rien d'autre. Une acception, si : « espoir » et « espérer » sont deux
+    //   lectures légitimes du même mot, et préférer l'une reste une lecture.
+    //
+    //   « Le choix après coup est le principe même du site : on choisit ce
+    //   qu'on veut obtenir et on cherche le chemin le plus élégant pour y
+    //   arriver » (l'auteur). Ce qui se paie, c'est de changer de langue —
+    //   une fois, au même tarif pour les cinq.
+    notoriete: 0.15,
+    adHoc: 0.30,
     apply: (valeur, traces) => traduire(valeur, traces, dico, rang),
     remplace: true,
   }))),
@@ -1116,7 +1173,8 @@ export const FILTRES = Object.freeze(brut.map((spec) => {
   //   table à montrer, un rapprochement d'exemplaires, un remplacement, un
   //   retrait. Aucune liste de codes nulle part.
   const steps = parTable ? etapeTable(base)
-    : (base.mode ? etapeRapprochement(base)
-      : (remplace ? etapeRemplacement(base) : etapeRetrait(base)));
+    : (base.coupe ? etapeDecoupeAdresse(base)
+      : (base.mode ? etapeRapprochement(base)
+        : (remplace ? etapeRemplacement(base) : etapeRetrait(base))));
   return def({ ...base, steps });
 }));

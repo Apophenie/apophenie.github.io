@@ -50,11 +50,14 @@ def sans_accents(s):
                    if unicodedata.category(c) != 'Mn')
 
 
-# Combien d'acceptions on retient par mot. Trois : au-delà, le dictionnaire
-# grossit sans que la lecture y gagne — et un opérateur qui offrirait dix
-# lectures d'un même mot ne serait plus une méthode, ce serait un catalogue de
-# prétextes.
-ACCEPTIONS = 3
+# Combien d'acceptions on retient par mot.
+#
+# ★ CINQ, et pas trois. « Élargis aux cinq traductions les plus convaincantes »
+#   (l'auteur). Un dictionnaire ne range pas ses acceptions par ordre de
+#   commodité : la bonne — celle qui fait sens pour le mot qu'on a sous les yeux
+#   — est aussi souvent la quatrième que la première. S'arrêter à trois, c'était
+#   garder le tri arbitraire du fichier tout en prétendant l'avoir ouvert.
+ACCEPTIONS = 5
 
 
 def lire(chemin):

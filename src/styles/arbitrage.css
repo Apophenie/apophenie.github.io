@@ -1,0 +1,31 @@
+/* La page d'arbitrage — austère, comme le récapitulatif du barème.
+   Deux colonnes tant que l'écran les tient, une seule en dessous : comparer
+   deux démonstrations demande de les voir ENSEMBLE, et un empilement vaut
+   mieux qu'une réduction qui les rendrait illisibles toutes les deux. */
+
+.arb { max-width: 1600px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+.arb__titre { font-size: 1.4rem; margin: 0 0 .3rem; }
+.arb__note { margin: 0 0 1.2rem; opacity: .75; font-size: .9rem; max-width: 70ch; }
+
+.arb__barre { display: flex; gap: .6rem; align-items: center; margin-bottom: 1rem; }
+.arb__fleche { min-width: 3rem; min-height: 2.6rem; font-size: 1.1rem; cursor: pointer; }
+.arb__fleche[disabled] { opacity: .35; cursor: default; }
+.arb__choix { flex: 1; min-height: 2.6rem; font: inherit; padding: 0 .5rem; }
+
+.arb__saisie { grid-column: 1 / -1; margin: 0 0 .4rem; font-size: 1.05rem; font-weight: 600; }
+.arb__scenes { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+@media (max-width: 1100px) { .arb__scenes { grid-template-columns: 1fr; } }
+
+.arb__cote { border: 1px solid currentColor; border-radius: .4rem; padding: .8rem; min-width: 0; }
+.arb__cote-titre { font-size: 1rem; margin: 0 0 .3rem; letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
+.arb__voie { margin: 0 0 .2rem; font-family: ui-monospace, monospace; font-size: .85rem; }
+.arb__regle { margin: 0 0 .6rem; font-size: .85rem; opacity: .8; font-style: italic; }
+.arb__lien { display: block; margin-top: .6rem; font-size: .72rem; word-break: break-all; opacity: .65; }
+.arb__alerte { color: #b00; font-weight: 600; }
+
+.arb__avis-bloc { margin-top: 1.6rem; }
+.arb__label { display: block; margin-bottom: .3rem; font-weight: 600; }
+.arb__avis { width: 100%; font: inherit; font-family: ui-monospace, monospace; font-size: .85rem; padding: .6rem; }
+.arb__actions { display: flex; gap: .6rem; margin-top: .6rem; }
+.arb__action { min-height: 2.6rem; padding: 0 1rem; font: inherit; cursor: pointer; }
+.arb__bilan { margin-top: 1rem; padding: .8rem; border: 1px dashed currentColor; white-space: pre-wrap; font-size: .85rem; }

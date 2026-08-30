@@ -423,6 +423,66 @@ function etapeEcart(spec) {
 }
 
 /**
+ * ★ COMPTER LES DIFFÉRENTS — par vagues, du plus solitaire au plus répété.
+ *
+ * Le geste effaçait les redites et comptait le reste : on voyait donc des
+ * jetons disparaître sans savoir POURQUOI ceux-là, et le compteur avancer sans
+ * qu'on ait pu vérifier qu'il n'avait pas sauté un tour. Or ce qu'on compte
+ * ici, ce sont des FAMILLES, et une famille se montre en se rassemblant.
+ *
+ * L'ordre est celui de l'auteur : « commence par faire descendre les caractères
+ * déjà uniques, les uns après les autres, puis pour chaque élément en double ou
+ * triple, fais se fusionner les exemplaires […] par ordre croissant
+ * d'exemplaires identiques ». Il n'est pas décoratif : les solitaires n'ont
+ * rien à démontrer et se comptent tout de suite, les paires demandent un geste,
+ * les triplets un geste plus long. Aller du simple au composé, c'est enseigner
+ * dans l'ordre où l'on comprend — et c'est aussi la seule façon de voir que
+ * chaque famille, si nombreuse soit-elle, ne compte QU'UNE FOIS.
+ */
+function etapeDistincts(spec) {
+  return (avant, apres, ctx) => {
+    const familles = new Map();
+    avant.valeur.forEach((t, i) => {
+      const k = String(t).toLowerCase();
+      if (!familles.has(k)) familles.set(k, []);
+      familles.get(k).push(i);
+    });
+    // Par nombre d'exemplaires croissant, puis par position : deux familles de
+    // même taille gardent l'ordre de la ligne.
+    const vagues = [...familles.values()]
+      .sort((a, b) => (a.length - b.length) || (a[0] - b[0]));
+    const sortie = nomsTokens(ctx, 1);
+    const titre = titreEtape(spec, avant.valeur, ctx.langue);
+    const aRejoindre = vagues.filter((v) => v.length > 1);
+    const compte = vagues.map((v) => ctx.ids[v[0]]).filter(Boolean);
+
+    const corps = enchainer([
+      { op: 'group', targets: ctx.ids, symbol: spec.symbole || '#', label: titre },
+      aRejoindre.length ? {
+        op: 'collapse',
+        mode: 'fusion',
+        familles: aRejoindre.map((v) => ({
+          membres: v.map((i) => ctx.ids[i]).filter(Boolean),
+          garde: ctx.ids[v[0]],
+        })),
+      } : null,
+      {
+        op: 'group',
+        targets: compte,
+        count: compte,
+        symbol: spec.symbole || '#',
+        label: titre,
+        accolade: 'existante',
+        to: token(sortie[0], apres.valeur, 'number'),
+        dur: dureeRamassage({ voler: compte.length }),
+      },
+    ]);
+    return [etape(ctx, titre, `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`,
+      retirerAccolade(corps), { hold: 400 })];
+  };
+}
+
+/**
  * Étape d'ACCOLEMENT : les espaces se résorbent, et c'est tout.
  *
  * ★ Ni accolade, ni symbole, ni libellé sous la ligne. Coller `5 11 2` pour
@@ -462,6 +522,7 @@ const GESTES = Object.freeze({
   moyenne: etapeMoyenne,       // ça se nivelle, puis ça fusionne
   selection: etapeSelection,   // on encadre, l'élu descend, le reste s'efface
   accolement: etapeAccolement, // les espaces se résorbent, rien d'autre
+  distincts: etapeDistincts,   // par vagues : les solitaires, les paires, les trios
   ecart: etapeEcart,           // le plus grand moins le plus petit, montré
 });
 
@@ -624,20 +685,7 @@ const denombrements = [
     regle: bilingue('Combien de morceaux différents', 'How many different pieces there are'),
     notoriete: 0.60,
     calcul: (toks) => new Set(toks.map((t) => t.toLowerCase())).size,
-    geste: 'comptage',
-    // On ne compte QUE la première occurrence de chaque morceau ; les redites
-    // s'effacent sans faire avancer le compteur — c'est ce qui montre la règle.
-    cibles: (toks) => {
-      const vus = new Set();
-      const out = [];
-      toks.forEach((t, i) => {
-        const k = String(t).toLowerCase();
-        if (vus.has(k)) return;
-        vus.add(k);
-        out.push(i);
-      });
-      return out;
-    },
+    geste: 'distincts',
   },
 ].map((spec) => {
   const { calcul, geste, cibles, ...reste } = spec;

@@ -195,6 +195,13 @@ function section(titre, source, ...contenu) {
 export const TEMOINS_COMPLEMENTAIRES = Object.freeze([
   'https://www.numérologie-évidente.fr/preuve',
   '2024',
+  // ★ CHIFFRES ET LETTRES MÊLÉS, DANS LA MÊME SAISIE. « Ton exemple est mal
+  //   choisi, il contient un espace mais pas de lettre ; "Les 7 nains" sera
+  //   plus adapté » (l'auteur) : un filtre qui ne garde que les lettres ne
+  //   démontre rien sur une saisie qui n'en contient que, ni sur une saisie qui
+  //   n'en contient aucune. Il lui faut les deux matières à la fois, pour qu'on
+  //   VOIE ce qui part et ce qui reste.
+  'Les 7 nains',
 ]);
 
 /** Les saisies témoins, dans l'ordre où elles seront essayées. */
