@@ -18,6 +18,17 @@ const BRAS = 13;
 const POINTE = 16;
 const COUDE = 14;
 
+/**
+ * Ces deux mesures sont PUBLIÉES, et pas seulement partagées.
+ *
+ * Une primitive qui empile ses propres étages autour d'une accolade — la
+ * fraction pose un dénominateur au-dessus d'elle et un total en dessous — doit
+ * savoir de combien les bras montent et de combien la pointe descend. Sans
+ * cela, elle les recopierait au jugé, et le premier ajustement du tracé la
+ * laisserait derrière : le dénominateur s'écrirait sur les bras.
+ */
+export const ACCOLADE = Object.freeze({ bras: BRAS, pointe: POINTE });
+
 /** Valide un descripteur de token créé par une op : c'est l'émetteur qui nomme. */
 export function tokenSpec(ctx, spec, field) {
   if (!spec || typeof spec !== 'object') {
@@ -1080,8 +1091,13 @@ export function suivreLesAccolades(ctx, spec = {}) {
  * Une vraie accolade horizontale : deux bras qui remontent aux extrémités
  * (les sources sont dedans), deux coudes arrondis, une pointe centrale qui
  * descend. Coordonnées locales, `y` vers le bas, origine sur la barre.
+ *
+ * Exporté parce qu'une accolade doit se ressembler d'un geste à l'autre : la
+ * fraction trace la sienne elle-même — elle ne veut ni le resserrement ni
+ * l'ancre de `tracerAccolade` — mais elle ne doit pas dessiner une AUTRE
+ * accolade pour autant.
  */
-function braceD(W) {
+export function braceD(W) {
   const r = round(Math.min(COUDE, Math.max(3, W * 0.3)));   // coude des bras
   const p = round(Math.min(COUDE, Math.max(3, W * 0.3)));   // amorce de la pointe
   const w = round(W);
