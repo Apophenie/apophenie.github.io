@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { creerMoteur } from '../index.js';
 import {
   construireScenario, validerScenario, VOCABULAIRE, DUREE_MIN, elementsDe, validerFormeOp,
-  placeDuCouronnement, jalonsDesCornes, suivreLaLigne,
+  placeDuCouronnement, jalonsDesCornes, suivreLaLigne, lesPlusCentraux,
 } from '../scenario.js';
 import { etat } from '../bfs.js';
 import { approcheJoker } from '../assemblage.js';
 import { OPERATEURS_QUI_ECARTENT } from '../elegance.js';
 import { catalogue, operateur } from './_catalogue.js';
+import { lireCible } from '../cible.js';
 import { lire as lireUrl } from '../url.js';
 import { encoderTexte } from '../base58.js';
 
@@ -844,4 +845,126 @@ test('★ cornes — le rejeu suit les frontières de groupe, et leur héritage'
   ])[1];
   assert.deepEqual(eclate.ids, ['a', 'b', 'z1', 'z2', 'd']);
   assert.deepEqual([...eclate.frontieres], ['z1']);
+});
+
+// ══════════════════════════ LE 6 DE TROP, ET SON EXPLOSION AU VERDICT
+
+/**
+ * ★ OÙ SE TIENT LE 6 EN TROP — la règle, éprouvée sur sa table.
+ *
+ * > « Une fois les 6 collés les uns contre les autres, le 6 CENTRAL devrait
+ * > disparaître par explosion pour propulser les deux triptyques dans leur
+ * > agrandissement. » (l'auteur)
+ *
+ * Trois choses se gèlent ici, et ce sont les trois qui décident :
+ *
+ *  · la coupure SÉPARE deux séries, jamais l'intérieur de l'une d'elles — un
+ *    triptyque coupé en deux ne serait pas propulsé, il serait cassé ;
+ *  · elle est la plus proche du MILIEU, et à égalité la plus à gauche : rien
+ *    à départager, donc rien à truquer (CONTRACTS §4.4) ;
+ *  · et la fonction RENONCE là où permuter changerait ce qui est démontré.
+ */
+test('★ surnuméraire — la coupure sépare deux séries, au plus près du milieu', () => {
+  const c666 = lireCible('666');
+  // Sept 6, deux séries : le quatrième s'en va, et les deux triptyques sont
+  // ceux que la lecture donne — c'est le cas exact de l'auteur.
+  assert.deepEqual(lesPlusCentraux([6, 6, 6, 6, 6, 6, 6], [0, 1, 2, 3, 4, 5], c666), {
+    gardes: [0, 1, 2, 4, 5, 6],
+    surnumeraires: [3],
+  });
+  // Huit : « celui — ou les deux — du centre ».
+  assert.deepEqual(lesPlusCentraux(Array(8).fill(6), [0, 1, 2, 3, 4, 5], c666).surnumeraires,
+    [3, 4]);
+  // Trois séries et un de trop : la coupure la plus proche du milieu de neuf
+  // chiffres est à distance égale de part et d'autre ; on prend la gauche.
+  assert.deepEqual(lesPlusCentraux(Array(10).fill(6), [...Array(9).keys()], c666).surnumeraires,
+    [3]);
+  // Quatre séries : le milieu tombe pile, et il est INTÉRIEUR.
+  assert.deepEqual(lesPlusCentraux(Array(13).fill(6), [...Array(12).keys()], c666).surnumeraires,
+    [6]);
+  // Une cible à deux chiffres découpe par deux, pas par trois.
+  assert.deepEqual(lesPlusCentraux([1, 1, 1, 1, 1], [0, 1, 2, 3], lireCible('11')).surnumeraires,
+    [2]);
+});
+
+test('★ surnuméraire — la fonction renonce là où permuter changerait la démonstration', () => {
+  const c666 = lireCible('666');
+  // Rien en trop : il n'y a pas de geste à faire.
+  assert.equal(lesPlusCentraux([6, 6, 6, 6, 6, 6], [0, 1, 2, 3, 4, 5], c666), null);
+  // UNE seule série : une explosion PROPULSE, il lui faut quelqu'un à pousser
+  // de chaque côté. Un 666 seul avec un 6 qui traîne n'a pas de milieu.
+  assert.equal(lesPlusCentraux([6, 6, 6, 6], [0, 1, 2], c666), null);
+  // Une cible NON HOMOGÈNE : les jetons ne sont plus interchangeables. La
+  // suite `0 0 7 0 0 7 0` n'écrit `007` qu'en lisant certains jetons et pas
+  // d'autres, et permuter y changerait ce qui est démontré, pas la façon de
+  // le montrer.
+  assert.equal(
+    lesPlusCentraux([0, 0, 7, 0, 0, 7, 0], [0, 1, 2, 3, 4, 5], lireCible('007')),
+    null,
+  );
+  // Et ce qui n'est pas le chiffre de la cible n'est pas SURNUMÉRAIRE, il est
+  // FAUX : il tombe à l'étape de récolte, comme avant.
+  assert.deepEqual(lesPlusCentraux([6, 6, 6, 4, 6, 6, 6, 6], [0, 1, 2, 4, 5, 6], c666), {
+    gardes: [0, 1, 2, 5, 6, 7],
+    surnumeraires: [4],
+  });
+});
+
+/**
+ * ★ LE LIEN DE L'AUTEUR, DE BOUT EN BOUT.
+ *
+ * > « `#sce!0.1:tca+m14+mpf,2.1:fr13+tca+m14+mpf#2HuP1G8mNg3sJWhqR` insère une
+ * > étape 24 pour retirer le 6 excédentaire alors que c'est durant le verdict
+ * > […] que le 6 central devrait disparaître. »
+ *
+ * Ce que le test tient : cette étape-là n'existe plus, le 6 de trop voyage
+ * jusqu'au verdict, et c'est bien celui du MILIEU — donc les deux triptyques
+ * révélés sont ceux que la ligne écrit d'elle-même, « Donald » d'un côté et
+ * « Trump » de l'autre, et non le mélange que le découpage glouton donnait.
+ */
+test('★ surnuméraire — « Donald Trump » : plus d’étape pour le 6 de trop', () => {
+  const m = creerMoteur(catalogue);
+  const lien = `#sce!0.1:tca+m14+mpf,2.1:fr13+tca+m14+mpf#${encoderTexte('Donald Trump')}`;
+  const r = m.rejouer(lireUrl(lien, { catalogue }));
+  assert.ok(r.ok, r.raison || 'rejeu impossible');
+  const sc = m.scenarioDe(r.approche, { saisie: 'Donald Trump', registre: 'scenique' });
+  assert.deepEqual(validerScenario(sc), []);
+  assert.equal(sc.result, '666 666');
+
+  // 1. Sept 6 sur la ligne au moment du verdict — six révélés, un qui explose.
+  const verdict = sc.steps[sc.steps.length - 1].ops.find((o) => o.op === 'reveal');
+  assert.equal(verdict.targets.length, 6);
+  assert.equal(verdict.surnumeraires.length, 1);
+
+  // 2. Et c'est celui DU MILIEU : la ligne d'arrivée est trois révélés, le 6 de
+  //    trop, trois révélés.
+  const ligne = suivreLaLigne(sc.tokens, sc.steps).filter(Boolean).at(-1).ids;
+  const six = ligne.filter((id) => verdict.targets.includes(id)
+    || verdict.surnumeraires.includes(id));
+  assert.equal(six.length, 7, 'les sept 6 sont encore là quand le verdict s’ouvre');
+  assert.equal(six.indexOf(verdict.surnumeraires[0]), 3,
+    `le 6 de trop est en ${six.indexOf(verdict.surnumeraires[0]) + 1}ᵉ position sur sept`);
+
+  // 3. Plus AUCUNE étape ne fait tomber un 6 — c'est le reproche exact de
+  //    l'auteur, et sur ce lien-ci la récolte n'avait rien d'autre à jeter,
+  //    si bien qu'elle disparaît entièrement.
+  assert.equal(sc.steps.filter((st) => st.recolte).length, 0,
+    'la récolte n’avait plus rien à récolter : elle ne doit plus être là');
+});
+
+test('★ surnuméraire — un jeton ne peut pas être à la fois révélé et détruit', () => {
+  assert.equal(validerFormeOp({ op: 'reveal', targets: ['a', 'b', 'c'] }), null);
+  assert.equal(
+    validerFormeOp({ op: 'reveal', targets: ['a', 'b', 'c'], surnumeraires: ['d'] }),
+    null,
+  );
+  assert.match(
+    validerFormeOp({ op: 'reveal', targets: ['a', 'b', 'c'], surnumeraires: ['b'] }),
+    /révèle/,
+  );
+  // Jamais un sélecteur : le verdict doit SAVOIR lesquels il fait sauter.
+  assert.match(
+    validerFormeOp({ op: 'reveal', targets: ['a', 'b'], surnumeraires: { group: 'p0' } }),
+    /identifiants/,
+  );
 });

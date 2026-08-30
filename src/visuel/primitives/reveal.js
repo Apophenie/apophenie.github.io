@@ -73,6 +73,43 @@
  * `halo: true` le rétablit pour qui en voudrait.
  *
  * ═══════════════════════════════════════════════════════════════════════════
+ * ## LE 6 DE TROP — il n'est plus jeté avant, il EXPLOSE pendant
+ *
+ * > « Il reste un 6 de trop au verdict ; une fois les 6 réunis, celui (ou les
+ * > deux) du centre surnuméraire disparaît (explose en mode scénique pour
+ * > propulser les autres à grossir avant que la foudre ne les enflamme). »
+ * > (l'auteur) — puis, plus tard : « `#sce!0.1:tca+m14+mpf,…` insère une étape
+ * > 24 pour retirer le 6 excédentaire alors que c'est DURANT le verdict […]
+ * > que le 6 central devrait disparaître par explosion pour propulser les deux
+ * > triptyques dans leur agrandissement. »
+ *
+ * **Ce qui se faisait avant, et pourquoi c'était faux.** Sept 6 récoltés font
+ * deux séries et un reste ; le reste tombait dans l'étape « on ne garde que les
+ * 6 », d'un `drop` en mode `fall`, avec ce qui n'était pas 6. Trois reproches,
+ * et le premier suffit :
+ *
+ *  1. l'étape s'intitule « on ne garde que les 6 » et elle jetait un **6**.
+ *     Sur le lien de l'auteur, elle ne faisait même que cela — une étape
+ *     entière dont le titre contredisait le seul geste ;
+ *  2. un `drop` fait TOMBER : rien ne bouge autour de ce qui s'en va. Ce que
+ *     l'auteur décrit est l'inverse — un départ qui POUSSE ;
+ *  3. et le 6 jeté était le DERNIER de la ligne, parce que le balayage qui
+ *     découpe les séries est glouton et de gauche à droite. Un 6 qui s'en va
+ *     par le bout ne sépare rien.
+ *
+ * **Ce qui se fait maintenant.** Le surnuméraire reste sur la ligne, et il y
+ * reste AU MILIEU — c'est `recherche/scenario.js › lesPlusCentraux` qui le
+ * place là, à la seule condition qui l'autorise (des jetons interchangeables,
+ * donc une cible homogène). Il arrive donc ici, dans `op.surnumeraires`, et le
+ * verdict se déplie en deux temps au lieu de trois : **on rassemble tout**,
+ * puis **il explose et l'agrandissement part au même instant**. Le troisième
+ * temps — découper — n'a plus lieu d'être : le 6 de trop occupait exactement la
+ * place que le vide de série va occuper, et son explosion l'ouvre.
+ *
+ * Le dessin de l'explosion vit dans `primitives/explosion.js`, qui dit aussi
+ * pourquoi il n'est PAS une vingt-deuxième primitive.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
  * ## L'ORAGE — la scénographie du registre scénique
  *
  * « En thème clair, le passage à un fond noir/lugubre ; puis, quel que soit le
@@ -112,6 +149,7 @@
 
 import { targetsOf, ensureHalo } from './helpers.js';
 import { poserLesCornes, effriterLesCornes } from './horns.js';
+import { exploser } from './explosion.js';
 import { EASE } from '../constants.js';
 
 export const name = 'reveal';
@@ -355,6 +393,23 @@ export function plan(ctx) {
   const withHalo = ctx.op.halo === true;
   const efface = ctx.op.clear !== false;
 
+  // ★ LES SURNUMÉRAIRES — les 6 en trop, qui n'ont PAS été jetés en chemin.
+  //
+  // Voir l'en-tête, « LE 6 DE TROP ». On les relit sur la
+  // scène plutôt que de leur faire confiance : `live()` échoue bruyamment si
+  // l'un d'eux n'existe plus, ce qui est très exactement ce qu'on veut savoir —
+  // un scénario qui ferait exploser un jeton déjà tombé se contredirait, et le
+  // silence ferait juste disparaître l'explosion.
+  const surnumeraires = Array.isArray(ctx.op.surnumeraires) ? ctx.op.surnumeraires : [];
+  for (const id of surnumeraires) ctx.scene.live(id, ctx.where);
+  const boum = surnumeraires.length > 0;
+  // La ligne RASSEMBLÉE : les révélés et les surnuméraires, dans l'ordre du
+  // flux — c'est cet ordre-là qui met le 6 de trop entre les deux triptyques,
+  // et il vient de la scène, jamais de l'ordre où l'op les a écrits.
+  const rassembles = boum
+    ? [...ids, ...surnumeraires].sort((a, b) => ctx.scene.flowIndex(a) - ctx.scene.flowIndex(b))
+    : ids;
+
   // Combien de 666 ? Un découpage n'a de sens que si la suite EST faite de
   // séries entières — sinon on n'invente pas des frontières qui n'existent pas.
   const series = decouperEnSeries(ids, serieDe(ctx.op));
@@ -472,7 +527,10 @@ export function plan(ctx) {
     : stagger;
 
   // --- 1. ce qui n'est pas le verdict quitte la scène -----------------------
-  const restes = efface ? ctx.scene.flow.filter((id) => !ids.includes(id)) : [];
+  // ★ …sauf le 6 de trop. Il n'est pas un RESTE — un reste est ce qui n'a rien
+  //   à voir avec le verdict, et lui en vient. Il rejoint le rassemblement, et
+  //   il ne s'en va qu'après, en explosant.
+  const restes = efface ? ctx.scene.flow.filter((id) => !rassembles.includes(id)) : [];
   const fonduRestes = Math.max(1, ctx.dur * 0.3);
   const cadenceRestes = restes.length > 1 ? (ctx.dur * 0.22) / (restes.length - 1) : 0;
   restes.forEach((id, i) => {
@@ -511,7 +569,7 @@ export function plan(ctx) {
   // donc que la précédente ait fini (`ctx.libreA`). L'effacement, lui, a
   // commencé tout de suite — on efface AVANT de grouper.
   let depart = ctx.dur * 0.34;
-  for (const id of ids) depart = Math.max(depart, ctx.libreA(id, 'translate'));
+  for (const id of rassembles) depart = Math.max(depart, ctx.libreA(id, 'translate'));
   depart = Math.min(depart, ctx.dur * 0.75);
 
   // ★ Le verdict rend son centre à la ligne. `partition` avait décalé le cadrage
@@ -558,7 +616,59 @@ export function plan(ctx) {
   // — le coup de poing du verdict —, mais sur les DEUX canaux.
   const courbeVerdict = EASE.pop;
 
-  if (!multi || couronnes) {
+  if (boum) {
+    /* ★ DEUX TEMPS, ET L'EXPLOSION EST LA CHARNIÈRE.
+       « Une fois les 6 collés les uns contre les autres, le 6 central devrait
+       disparaître par explosion pour propulser les deux triptyques dans leur
+       agrandissement » (l'auteur).
+
+       (a) on rassemble TOUT — les six révélés et le septième, épaule contre
+           épaule, à leur taille. C'est la seule image où la ligne dit « sept » ;
+       (b) le surnuméraire explose, et l'agrandissement part au MÊME INSTANT.
+           C'est là toute la demande : pas un retrait suivi d'un mouvement, mais
+           un mouvement CAUSÉ par un retrait. Deux horloges confondues, et la
+           lecture se fait toute seule.
+
+       ★ Et il n'y a pas de troisième temps de DÉCOUPAGE, parce que l'explosion
+       le fait. Le blanc que le verdict ouvre entre deux séries vaut deux écarts
+       et une chasse (`videDeSerie`), c'est-à-dire DEUX pas de centre à centre ;
+       or un jeton qui occupe un pas en sépare justement deux. Le trou que le 6
+       de trop laisse derrière lui EST la séparation, au centième d'unité
+       (`tests/explosion.test.js`). Le vide n'a pas à être creusé, il n'a qu'à
+       ne pas se refermer.
+
+       ★ Ceci vaut aussi quand les triptyques sont déjà couronnés : la voie
+       courte (« ils sont déjà formés, un seul trajet suffit ») supposait qu'il
+       n'y ait rien à retirer entre eux. Il y a quelque chose, et ce quelque
+       chose est le propos de l'étape. */
+    const pas = Math.max(1, ctx.dur * 0.42);
+    poserLeFlux(ctx, rassembles, [rassembles], { echelle: 1, separation: false, rangs: [1] });
+    ctx.reflow({ at: depart, dur: pas, ease: EASE.move });
+
+    tGrossir = depart + pas;
+    dGrossir = Math.max(1, ctx.dur - tGrossir);
+    // L'explosion se consume en moins de temps que la propulsion : les éclats
+    // sont retombés quand le 666 finit de grandir, sinon ils accompagneraient
+    // l'arrivée au lieu de la déclencher.
+    exploser(ctx, surnumeraires, {
+      at: tGrossir,
+      dur: Math.max(1, dGrossir * 0.62),
+      encre: ctx.scenographie ? ctx.palette.flamme : ctx.palette.rubric,
+      souffle: !!ctx.scenographie && !ctx.reduced,
+      // Le souffle est du même repère que ce qu'il écarte : il subit
+      // l'homothétie du verdict, dont il occupe justement le centre.
+      homothetie: { to: grow, at: tGrossir, dur: dGrossir, ease: courbeVerdict },
+    });
+    // ★ Le retrait du flux a lieu ICI, entre les deux mises en page : après le
+    //   rassemblement, qui doit le compter, et avant l'agrandissement, qui ne
+    //   doit plus. Un `kill` plus tôt aurait laissé un trou dans la ligne
+    //   rassemblée ; plus tard, le 666 aurait grandi autour d'un fantôme.
+    for (const id of surnumeraires) ctx.scene.kill(id, ctx.where);
+
+    poserLeFlux(ctx, ids, series, { echelle: grow, separation: true, rangs });
+    centrerLeBloc();
+    ctx.reflow({ at: tGrossir, dur: dGrossir, ease: courbeVerdict });
+  } else if (!multi || couronnes) {
     // Un seul 666 : rassembler et grossir sont le MÊME geste. Rien à découper,
     // rien à répartir, et l'intercaler ferait un temps mort au moment de la
     // chute.

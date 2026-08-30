@@ -530,6 +530,13 @@ function inventaire(o) {
       // jetons vivent encore à l'étape suivante.
       supprimes.push(...normaliserCibles(o.efface));
       break;
+    case 'reveal':
+      // Le verdict fait le vide autour de lui — mais un seul de ces
+      // effacements est NOMMÉ, et c'est le seul qui soit un geste : le 6 en
+      // trop qui explose. Le reste (ce qu'un `dim` avait laissé en veilleuse)
+      // n'est désigné par personne, la primitive le balaie sur la ligne.
+      supprimes.push(...normaliserCibles(o.surnumeraires));
+      break;
     default:
       ajouter(o.to);
       break;
@@ -560,6 +567,8 @@ function referencesDe(o) {
     refs.push(...normaliserCibles(f && f.membres));
     if (f && typeof f.garde === 'string') refs.push(f.garde);
   }
+  // `reveal` — les 6 en trop qui survivent jusqu'au verdict pour y exploser.
+  refs.push(...normaliserCibles(o.surnumeraires));
   for (const p of o.pairs || []) {
     refs.push(...normaliserCibles(p.target));
     refs.push(...normaliserCibles(p.targets));
@@ -844,15 +853,28 @@ function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = n
   // divergeraient donneraient un verdict « 666 666 » sur quatre jetons révélés.
   const serie = tous ? sixDuChemin(chemin, cbl) : serieDeSix(chemin, cbl);
   if (!serie) return null;
-  const gardes = serie.indices;
+  // ★ LE 6 DE TROP NE TOMBE PLUS ICI — il reste sur la ligne, au milieu, et
+  //   c'est le verdict qui le fera exploser (voir `lesPlusCentraux`). En
+  //   MOISSON la question ne se pose pas encore : la portée garde tous ses 6 et
+  //   c'est l'appelant qui, une fois toutes les portées passées, arbitre
+  //   l'appoint sur la ligne entière.
+  const boum = tous ? null : lesPlusCentraux(fin.valeur, serie.indices, cbl);
+  const gardes = boum ? boum.gardes : serie.indices;
   const premierDe = (k) => (groupe.courants[k] || [])[0] || null;
   const aGarder = gardes.map(premierDe);
   // Le vecteur et les jetons de scène doivent se correspondre un pour un ; si
   // l'opérateur a rendu autre chose, on ne bricole pas — on laisse le rendu
   // ordinaire faire ce qu'il peut.
   if (aGarder.some((x) => !x) || groupe.courants.length !== fin.valeur.length) return null;
+  const surnumeraires = boum ? boum.surnumeraires.map(premierDe) : [];
+  if (surnumeraires.some((x) => !x)) return null;
 
-  const set = new Set(gardes);
+  // Ce qui RESTE à l'écran après cette étape : les jetons retenus ET les
+  // surnuméraires, qui ne sont pas faux — ils sont en trop, ce qui n'est pas la
+  // même chose et ne se montre pas de la même façon.
+  const set = new Set([...gardes, ...(boum ? boum.surnumeraires : [])]);
+  const restants = [];
+  const valeursRestantes = [];
   const aJeter = [];
   // Les VALEURS de ce qui tombe, dans le même ordre que `aJeter` : c'est la
   // seconde moitié de la ligne, et sans elle on ne peut pas dire si ce qu'on
@@ -860,8 +882,8 @@ function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = n
   // fait suivre à l'appelant, qui trie tout d'un seul geste à la fin.
   const valeursJetees = [];
   for (let i = 0; i < groupe.courants.length; i++) {
-    if (set.has(i)) continue;
     const id = premierDe(i);
+    if (set.has(i)) { if (id) { restants.push(id); valeursRestantes.push(fin.valeur[i]); } continue; }
     if (id) { aJeter.push(id); valeursJetees.push(fin.valeur[i]); }
   }
   const valeursGardees = gardes.map((i) => fin.valeur[i]);
@@ -871,13 +893,15 @@ function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = n
       // `tous` (la moisson) passe toujours par `differe` : on n'arrive ici que
       // pour un GROUPEMENT, dont la récolte est déjà la dernière étape avant le
       // verdict — c'est-à-dire la seule place que l'auteur lui reconnaît.
-      const majoritaire = recolteMajoritaire(valeursGardees, valeursJetees, cbl);
+      // ★ Et ce qu'on annonce est ce qui se voit : le surnuméraire compte parmi
+      //   les valeurs GARDÉES, puisqu'il est encore là quand l'étape s'achève.
+      const majoritaire = recolteMajoritaire(valeursRestantes, valeursJetees, cbl);
       poser({
         titre: MOTS.recolter(cbl, majoritaire, langue),
         legende: MOTS.recolterLegende(serie.series, aJeter.length, cbl, majoritaire, langue),
         recolte: { series: serie.series, jetes: aJeter.length, cible: cbl.texte, majoritaire },
         ops: [
-          { op: 'highlight', targets: aGarder, mode: 'select' },
+          { op: 'highlight', targets: restants, mode: 'select' },
           { op: 'drop', targets: aJeter, mode: 'fall', at: 350 },
           { op: 'move', at: 700 },
         ],
@@ -893,7 +917,88 @@ function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = n
   //   valeurs, et on ne peut pas les recalculer plus loin sans refaire une
   //   seconde fois un découpage que ce module s'interdit précisément de
   //   refaire (voir plus haut : « la scène ne recalcule pas, elle MONTRE »).
-  return { ids: aGarder, valeurs: valeursGardees };
+  return { ids: aGarder, valeurs: valeursGardees, surnumeraires };
+}
+
+/**
+ * ★ LE 6 DE TROP — où il se tient, et à quelle condition il peut exploser.
+ *
+ * > « `#sce!0.1:tca+m14+mpf,2.1:fr13+tca+m14+mpf#…` insère une étape 24 pour
+ * > retirer le 6 excédentaire alors que c'est durant le verdict, une fois les 6
+ * > collés les uns contre les autres, que le 6 central devrait disparaître par
+ * > explosion pour propulser les deux triptyques dans leur agrandissement. »
+ * > (l'auteur)
+ *
+ * Deux gestes sont demandés là, et le second suppose le premier.
+ *
+ *  1. **Le surnuméraire n'est plus JETÉ, il est GARDÉ jusqu'au verdict.** Une
+ *     étape qui s'intitule « on ne garde que les 6 » et qui fait tomber un 6 se
+ *     contredit à voix haute ; dans le cas de l'auteur elle ne faisait même que
+ *     cela, si bien qu'elle disparaît entièrement. C'est l'affaire de
+ *     l'appelant : cette fonction-ci ne dit QUE lequel des 6 est en trop.
+ *  2. **Et ce n'est pas n'importe lequel : c'est celui DU MILIEU.** Un 6 qui
+ *     s'en va par le bout de la ligne ne pousse personne. Entre les deux
+ *     triptyques, il est très exactement ce qui les sépare — et la place qu'il
+ *     libère en explosant EST le blanc que le verdict ouvre entre deux séries.
+ *     Au centième d'unité, et sans que personne l'ait cherché : le blanc de
+ *     série vaut deux écarts et une chasse (`reveal.js › videDeSerie`), soit
+ *     deux pas de centre à centre, et un jeton qui occupe un pas en sépare
+ *     justement deux. L'explosion ne fait donc pas que retirer un jeton : elle
+ *     ÉCRIT la séparation, et c'est pour cela que le verdict n'a plus de temps
+ *     de découpage à jouer (`tests/explosion.test.js` le mesure).
+ *
+ * ★ **La permutation est LICITE parce que les jetons sont interchangeables, et
+ * cette fonction renonce dès qu'ils cessent de l'être.** Sur `666`, tous les
+ * jetons récoltés portent la même valeur : « lesquels des sept forment les deux
+ * séries » est une question sans contenu arithmétique, et y répondre est une
+ * décision de mise en scène, pas un truquage. Sur `007`, non — la suite
+ * `0 7 0 0 7` n'écrit `007` qu'en sautant le deuxième jeton (`cible.js ›
+ * seriesDe`), et permuter changerait ce qui est démontré. La condition est donc
+ * la **cible homogène**, et rien de moins.
+ *
+ * ★ **Et il faut DEUX séries au moins.** Une explosion PROPULSE : il lui faut
+ * quelqu'un à pousser de chaque côté. Un triptyque seul avec un 6 qui traîne
+ * n'a pas de milieu, et son surnuméraire retombe dans la chute ordinaire.
+ *
+ * ★ La coupure choisie sépare DEUX SÉRIES, jamais l'intérieur de l'une d'elles
+ * — sans quoi le triptyque qu'on prétend propulser serait coupé en deux — et
+ * parmi elles la plus proche du milieu. À égalité, la plus à gauche : l'ordre
+ * de lecture, donc rien à départager, donc rien à truquer (CONTRACTS §4.4).
+ *
+ * ★ **Fonction PURE, et EXPORTÉE pour être éprouvée.** Ce n'est pas une
+ * commodité de test : le choix de la coupure est une décision de mise en scène
+ * qui ne se lit nulle part ailleurs — ni dans le scénario émis, où l'on ne voit
+ * que son résultat, ni dans la scène, où l'on ne voit plus que six chiffres.
+ * Un test qui ne l'atteindrait qu'à travers un lien ne gèlerait que le cas de
+ * ce lien-là.
+ *
+ * @param {number[]} valeurs — les valeurs de la ligne, dans l'ordre de lecture
+ * @param {number[]} gardes — les index que la récolte retenait, série par série
+ * @param {import('./cible.js').Cible} cible
+ * @returns {{gardes:number[], surnumeraires:number[]}|null} `null` quand le
+ *   geste ne s'applique pas : l'appelant reprend la chute ordinaire.
+ */
+export function lesPlusCentraux(valeurs, gardes, cible) {
+  const cbl = normaliserCible(cible);
+  if (!cbl.homogene) return null;
+  const chiffre = cbl.chiffres[0];
+  if (!Array.isArray(valeurs) || !Array.isArray(gardes) || !gardes.length) return null;
+  if (!gardes.every((i) => valeurs[i] === chiffre)) return null;
+  const nSeries = gardes.length / cbl.longueur;
+  if (!Number.isInteger(nSeries) || nSeries < 2) return null;
+  // Les jetons INTERCHANGEABLES : ceux qui portent le chiffre de la cible, que
+  // la récolte les ait retenus ou non. Les autres ne sont pas surnuméraires,
+  // ils sont FAUX — ils tombent comme avant, et à leur étape.
+  const memes = [];
+  for (let i = 0; i < valeurs.length; i++) if (valeurs[i] === chiffre) memes.push(i);
+  const surplus = memes.length - gardes.length;
+  if (surplus <= 0) return null;
+  const coupure = Math.min(nSeries - 1, Math.max(1, Math.floor(nSeries / 2)));
+  const debut = coupure * cbl.longueur;
+  return {
+    gardes: [...memes.slice(0, debut), ...memes.slice(debut + surplus)],
+    surnumeraires: memes.slice(debut, debut + surplus),
+  };
 }
 
 /** La valeur du dernier état d'un chemin, quand c'est un nombre unique. */
@@ -1460,29 +1565,6 @@ function dUnSeulTenant(ligne, trio) {
  * @param {'fr'|'en'} langue
  * @returns {number} le nombre de couronnements insérés
  */
-/**
- * ★ LES `k` INDEX LES PLUS CENTRAUX d'une liste — voir « le surplus se prélève
- *   au milieu ».
- *
- * « Central » se mesure sur le RANG dans la liste des candidats, pas sur la
- * position dans la ligne : ce qu'on équilibre est le nombre de jetons de part et
- * d'autre, et c'est ce que l'œil compte.
- *
- * À distance égale du centre — deux candidats qui l'encadrent —, celui de
- * GAUCHE part le premier. Il faut une règle, elle doit être la même partout, et
- * celle-ci a l'avantage d'être celle du sens de lecture (§4.4 : aucun départage
- * ne se laisse au hasard).
- *
- * @param {number[]} candidats les index, croissants
- * @param {number} k combien en retirer
- * @returns {Set<number>} les index retirés
- */
-function lesPlusCentraux(candidats, k) {
-  const milieu = (candidats.length - 1) / 2;
-  const ordre = candidats.map((idx, rang) => ({ idx, rang }))
-    .sort((a, b) => (Math.abs(a.rang - milieu) - Math.abs(b.rang - milieu)) || (a.rang - b.rang));
-  return new Set(ordre.slice(0, k).map((x) => x.idx));
-}
 
 function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_DEFAUT) {
   /* ★ HORS DE 666, AUCUNE CORNE — et la longueur des séries suit la cible.
@@ -1921,6 +2003,12 @@ export function construireScenario(approche, ctx = {}) {
   // `recolterLesSix` : sur une cible non homogène, le verdict doit relire la
   // SUITE et non compter des occurrences.
   const valeursFinales = [];
+  // ★ LES SURNUMÉRAIRES — les 6 en trop qui ne tombent PAS avant le verdict.
+  //   Ils restent sur la ligne jusqu'au bout, se rassemblent avec les autres,
+  //   et c'est le verdict qui les fait exploser (voir `lesPlusCentraux` et
+  //   `visuel/primitives/reveal.js`). Ils ne sont donc jamais dans `resultats` :
+  //   ce n'est pas eux qu'on révèle, c'est eux qui poussent.
+  let surnumeraires = [];
   let nStep = 0;
   let nCle = 0; // préfixe unique offert aux opérateurs pour nommer leurs tokens
   const nouvelleEtape = (titre, legende, ops, options) => {
@@ -2249,7 +2337,12 @@ export function construireScenario(approche, ctx = {}) {
       const recolte = moisson
         ? recolterLesSix(g, g.part.chemin, poserBloc, langue, true, rejets, cible)
         : null;
-      if (recolte) { resultats.push(...recolte.ids); valeursFinales.push(...recolte.valeurs); continue; }
+      if (recolte) {
+        resultats.push(...recolte.ids);
+        valeursFinales.push(...recolte.valeurs);
+        surnumeraires.push(...(recolte.surnumeraires || []));
+        continue;
+      }
       const dernier = g.courants.flat()[0];
       if (dernier) { resultats.push(dernier); valeursFinales.push(valeurTerminale(g.part.chemin)); }
     }
@@ -2299,7 +2392,12 @@ export function construireScenario(approche, ctx = {}) {
     const recolte = recolterLesSix(
       g, chemin, poserBloc, langue, moisson, moisson ? rejets : null, cible,
     );
-    if (recolte) { resultats.push(...recolte.ids); valeursFinales.push(...recolte.valeurs); return; }
+    if (recolte) {
+      resultats.push(...recolte.ids);
+      valeursFinales.push(...recolte.valeurs);
+      surnumeraires.push(...(recolte.surnumeraires || []));
+      return;
+    }
     const dernier = g.courants.flat()[0];
     if (dernier) { resultats.push(dernier); valeursFinales.push(valeurTerminale(chemin)); }
   };
@@ -2334,43 +2432,36 @@ export function construireScenario(approche, ctx = {}) {
     //   jetons récoltés valent 6, on prend le préfixe) ; sur `007`, non : la
     //   suite `0 7 0 0 7` n'écrit `007` qu'en sautant le deuxième jeton, et
     //   couper au préfixe révélerait `0 7 0` sous un verdict qui annonce `007`.
-    // ★ **LE SURPLUS SE PRÉLÈVE AU MILIEU, PAS À LA FIN.**
-    //
-    // « Au verdict, après avoir réuni tous les 6 et enlevé ce qui restait qui
-    // n'est pas 6, enlever le 6 le plus central au début du processus de
-    // découpage trois par trois » (l'auteur).
-    //
-    // `seriesDe` prend les positions dans l'ordre de lecture : sur seize 6 pour
-    // cinq séries, il retenait les quinze PREMIERS et laissait tomber le
-    // seizième — le dernier de la ligne, celui de `fr` sur
-    // `hope-hope-hope.fr`. Le triptyque final se retrouvait alors à cheval sur
-    // deux portées, et l'auteur l'a vu : « il ne s'agence pas correctement par
-    // triptyque dans le rendu final ».
-    //
-    // On retire donc l'excédent PAR LE MILIEU, puis on découpe ce qui reste.
-    // Ce qu'on ôte au milieu ne déséquilibre aucun des deux bords ; ce qu'on
-    // ôte au bout raccourcit une extrémité et laisse l'autre pleine.
-    //
-    // ⚠️ On ne retire que des jetons qui VALENT la cible : le reste est déjà
-    //    parti avec `rejets`, et en ôter un ici le ferait tomber deux fois.
-    const utiles = indexUtiles(valeursFinales, cible);
-    const excedent = utiles.length - recolteTotale.series * cible.longueur;
-    const retires = excedent > 0 ? lesPlusCentraux(utiles, excedent) : new Set();
-    // `null` ne vaut aucun chiffre de la cible : `seriesDe` saute ces positions
-    // sans qu'on ait à lui apprendre une notion de « retiré ».
-    const valeursCoupees = valeursFinales.map((v, i) => (retires.has(i) ? null : v));
-    const series = seriesDe(valeursCoupees, cible, recolteTotale.series);
-    const garde = new Set(series.flat());
-    const surplus = finaux.filter((_, i) => !garde.has(i));
+    const series = seriesDe(valeursFinales, cible, recolteTotale.series);
+    // ★ Et l'APPOINT ne tombe plus forcément : quand les 6 récoltés sont
+    //   interchangeables, celui (ou ceux) du milieu reste sur la ligne et
+    //   c'est le verdict qui le fait exploser (`lesPlusCentraux`). Ce qui
+    //   tombe ici se réduit alors aux valeurs FAUSSES — et sur « Donald
+    //   Trump » il n'en reste aucune, si bien que l'étape entière disparaît.
+    const boum = lesPlusCentraux(valeursFinales, series.flat(), cible);
+    const garde = new Set(boum ? boum.gardes : series.flat());
+    const explosifs = new Set(boum ? boum.surnumeraires : []);
+    const reste = (i) => garde.has(i) || explosifs.has(i);
+    const surplus = finaux.filter((_, i) => !reste(i));
     // Les valeurs suivent la même coupe que les jetons — c'est ce qui permet de
-    // compter la ligne, gardés et tombés ensemble (`recolteMajoritaire`).
-    const valeursGardees = valeursFinales.filter((_, i) => garde.has(i));
-    const surplusValeurs = valeursFinales.filter((_, i) => !garde.has(i));
+    // compter la ligne, gardés et tombés ensemble (`recolteMajoritaire`). Un
+    // surnuméraire compte parmi les GARDÉS : il est encore là quand l'étape
+    // s'achève, et ce qui est dit reste ce qui est montré.
+    const restants = finaux.filter((_, i) => reste(i));
+    const valeursRestantes = valeursFinales.filter((_, i) => reste(i));
+    const surplusValeurs = valeursFinales.filter((_, i) => !reste(i));
+    // ★ ON AJOUTE, ON N'ÉCRASE PAS. Les surnuméraires viennent de deux étages :
+    //   chaque part en désigne un quand sa propre récolte en laisse un
+    //   (`recolterLesSix`), et la récolte GLOBALE en désigne quand c'est la
+    //   somme des parts qui dépasse. Écraser ici perdait les premiers — et sur
+    //   « Donald Trump », dont chaque moitié rend son 6 de trop, il ne restait
+    //   plus rien à faire exploser.
+    surnumeraires.push(...finaux.filter((_, i) => explosifs.has(i)));
     finaux = finaux.filter((_, i) => garde.has(i));
     const aJeter = [...rejets.ids, ...surplus];
     const valeursJetees = [...rejets.valeurs, ...surplusValeurs];
     if (aJeter.length) {
-      const majoritaire = recolteMajoritaire(valeursGardees, valeursJetees, cible);
+      const majoritaire = recolteMajoritaire(valeursRestantes, valeursJetees, cible);
       poserBloc({
         titre: MOTS.recolter(cible, majoritaire, langue),
         legende: MOTS.recolterLegende(
@@ -2385,7 +2476,7 @@ export function construireScenario(approche, ctx = {}) {
           majoritaire,
         },
         ops: [
-          { op: 'highlight', targets: finaux, mode: 'select' },
+          { op: 'highlight', targets: restants, mode: 'select' },
           { op: 'drop', targets: aJeter, mode: 'fall', at: 350 },
           { op: 'move', at: 700 },
         ],
@@ -2433,6 +2524,11 @@ export function construireScenario(approche, ctx = {}) {
   //    trios lui aussi. Deux tris différents ici et là feraient couronner un
   //    triptyque que le verdict n'assemble pas, et le test d'accord entre les
   //    deux mesures rougirait — à raison.
+  // ★ Relevé AVANT le tri : celui-ci recopie `aReveler` dans un tableau neuf,
+  //   et comparer les références après lui ferait croire que le verdict révèle
+  //   autre chose que ce que la récolte a rendu. C'est ce qui faisait taire
+  //   l'explosion du 6 en trop sur « Donald Trump ».
+  const verdictRecolte = aReveler === finaux;
   const ligneFinale = (() => {
     const suivies = suivreLaLigne(tokens, steps);
     for (let k = suivies.length - 1; k >= 0; k--) if (suivies[k]) return suivies[k].ids;
@@ -2446,6 +2542,10 @@ export function construireScenario(approche, ctx = {}) {
       aReveler = [...aReveler].sort((a, b) => rang.get(a) - rang.get(b));
     }
   }
+  // ★ Les surnuméraires n'appartiennent qu'au verdict d'une ligne récoltée. La
+  //   résonance recopie UN chiffre en trois : elle n'a rien de trop à faire
+  //   exploser, et les jetons qu'elle révèle ne sont même pas ceux d'avant.
+  if (!verdictRecolte) surnumeraires = [];
 
   if (aReveler.length > 1) {
     // Pas de `move` ici : `reveal` efface lui-même les jetons écartés et laisse
@@ -2461,8 +2561,15 @@ export function construireScenario(approche, ctx = {}) {
     //   trois. Le nombre est DÉRIVÉ de la cible et voyage dans l'op, plutôt que
     //   d'être une constante recopiée dans le moteur visuel : c'était déjà la
     //   quatrième copie de « 3 » dans ce dépôt.
+    // ★ `surnumeraires` — les 6 en trop, qui n'ont PAS été jetés en chemin et
+    //   qui explosent une fois la ligne rassemblée (voir `lesPlusCentraux` et
+    //   `visuel/primitives/reveal.js`). Le champ n'est écrit que s'il y en a :
+    //   un verdict qui n'a rien de trop reste le scénario d'hier, à l'octet.
     nouvelleEtape(MOTS.verdict[langue], ctx.resultat || cible.texte, [
-      { op: 'reveal', targets: aReveler, at: 250, stagger: 150, serie: cible.longueur },
+      {
+        op: 'reveal', targets: aReveler, at: 250, stagger: 150, serie: cible.longueur,
+        ...(surnumeraires.length ? { surnumeraires } : {}),
+      },
     ], { hold: 1200 });
   } else {
     nouvelleEtape(MOTS.verdict[langue], ctx.resultat || cible.texte, [
@@ -2569,7 +2676,24 @@ export function validerFormeOp(o) {
     && typeof x.text === 'string' && !x.id.startsWith('@');
 
   switch (o.op) {
-    case 'highlight': case 'dim': case 'drop': case 'pulse': case 'reveal': case 'group':
+    case 'reveal': {
+      if (!cibles(o.targets)) return '« targets » manquant ou mal formé';
+      // Les surnuméraires sont des jetons NOMMÉS, jamais un sélecteur : le
+      // verdict doit savoir lesquels il fait exploser, et un `{group:…}` ne le
+      // dirait pas. Et ils ne peuvent pas être parmi les révélés — ce serait
+      // demander à la fois de montrer et de détruire le même chiffre.
+      if (o.surnumeraires === undefined) return null;
+      if (!Array.isArray(o.surnumeraires) || !o.surnumeraires.length
+        || !o.surnumeraires.every(chaine)) {
+        return '« surnumeraires », s’il est fourni, doit lister des identifiants de jetons';
+      }
+      const reveles = new Set(normaliserCibles(o.targets));
+      if (o.surnumeraires.some((id) => reveles.has(id))) {
+        return '« surnumeraires » ne peut pas contenir un jeton que le verdict révèle';
+      }
+      return null;
+    }
+    case 'highlight': case 'dim': case 'drop': case 'pulse': case 'group':
       return cibles(o.targets) ? null : '« targets » manquant ou mal formé';
     case 'move':
       // Sans cible ni ordre, `move` est un simple recalcul du flux — c'est la

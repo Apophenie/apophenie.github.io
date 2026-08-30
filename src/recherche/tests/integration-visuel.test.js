@@ -632,3 +632,66 @@ test('★ retouche — un programme qui ne rend PAS du texte est refusé, en le 
   assert.equal(sansFiltre.raison, 'programme inapplicable');
 });
 
+
+/**
+ * ★ LE 6 SURNUMÉRAIRE, DES DEUX CÔTÉS DU PONT.
+ *
+ * C'est le geste dont le pont a le plus à dire, parce qu'il vit des deux côtés
+ * à la fois : le moteur de recherche décide QUEL 6 est en trop et le laisse sur
+ * la ligne (`scenario.js › lesPlusCentraux`), le moteur visuel décide COMMENT
+ * il s'en va (`visuel/primitives/reveal.js`). Trois choses ne peuvent se
+ * vérifier qu'ici, avec le compilateur RÉEL :
+ *
+ *  1. le 6 de trop est **encore vivant** à l'entrée du verdict — l'invariant 3
+ *     lu par la scène, pas par le validateur ;
+ *  2. la ligne rejouée par `suivreLaLigne` est celle du moteur visuel, sur un
+ *     scénario où une étape a DISPARU. Un modèle qui aurait encore jeté ce 6
+ *     divergerait à l'étape suivante, pas au verdict ;
+ *  3. et la compilation ne rend **aucun avertissement** : deux mises en page
+ *     dans le même step, une explosion au milieu, et pas une animation
+ *     concurrente.
+ */
+test('★ surnuméraire — « Donald Trump » : le 6 de trop explose au verdict, des deux côtés',
+  { skip: compile && Scene ? false : 'src/visuel/ absent' }, () => {
+    const m = creerMoteur(catalogue);
+    const lien = `#sce!0.1:tca+m14+mpf,2.1:fr13+tca+m14+mpf#${encoderTexte('Donald Trump')}`;
+    const r = m.rejouer(lireUrl(lien, { catalogue }));
+    assert.ok(r.ok, r.raison || 'rejeu impossible');
+    const sc = m.scenarioDe(r.approche, { saisie: 'Donald Trump', registre: 'scenique' });
+
+    const verdict = sc.steps[sc.steps.length - 1].ops.find((o) => o.op === 'reveal');
+    assert.equal(verdict.surnumeraires.length, 1, 'un 6 de trop, et il est nommé');
+    // Aucune étape ne le fait tomber : c'est le reproche de l'auteur, mesuré
+    // sur les ops plutôt que sur un compte d'étapes.
+    const jetes = sc.steps.flatMap((st) => st.ops)
+      .filter((o) => o.op === 'drop').flatMap((o) => o.targets || []);
+    assert.ok(!jetes.includes(verdict.surnumeraires[0]),
+      'le 6 de trop ne doit tomber nulle part — il explose');
+
+    // 1 + 3. Le moteur visuel réel le trouve vivant, le fait sauter, et ne se
+    //        plaint de rien.
+    const tl = compile(sc, { scenographie: true });
+    assert.deepEqual(tl.warnings, []);
+    assert.equal(tl.scene.get(verdict.surnumeraires[0]).alive, false);
+    assert.deepEqual(tl.scene.flow, verdict.targets, 'la ligne finale EST le verdict');
+    assert.equal(tl.nodes.filter((n) => n.role === 'souffle').length, 1);
+
+    // 2. Les deux modèles de scène, step par step.
+    const releves = relever(sc, { scenographie: true });
+    const rejeu = suivreLaLigne(sc.tokens, sc.steps);
+    let comparees = 0;
+    for (let i = 0; i + 1 < sc.steps.length; i++) {
+      if (rejeu[i] === null) break;
+      assert.deepEqual(rejeu[i].ids, releves[i + 1].ids,
+        `ligne après l’étape ${i + 1} « ${sc.steps[i].title} »`);
+      comparees++;
+    }
+    assert.ok(comparees >= 20, `seulement ${comparees} lignes comparées`);
+    // Et la dernière ligne connue — celle qu'on donne au verdict — porte bien
+    // les SEPT 6, pas six.
+    const derniere = rejeu[comparees - 1].ids;
+    const six = derniere.filter((id) => verdict.targets.includes(id)
+      || verdict.surnumeraires.includes(id));
+    assert.equal(six.length, 7);
+    assert.equal(six.indexOf(verdict.surnumeraires[0]), 3, 'et le 6 de trop est au milieu');
+  });

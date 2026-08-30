@@ -7,8 +7,8 @@
 > tests, mais DÉBRANCHÉ**.
 >
 > Ce qui reste : **(1) que le barème charge l'étage amont**, ce qui est la
-> condition pour brancher le générateur ; **(2) la scénographie du 6
-> surnuméraire** que l'auteur a décrite.
+> condition pour brancher le générateur. ~~(2) la scénographie du 6
+> surnuméraire~~ — **faite**, voir §4.
 
 ---
 
@@ -131,42 +131,40 @@ apporter — mais ça ne le supprime pas : ça reste un seuil à la place d'un p
    `groupementsRetouches` (six mots, quatre vecteurs, la saisie entière seule)
    sont là pour ça et n'ont pas encore été balayées.
 
-## 4. Ce qui reste, n° 2 : LE 6 SURNUMÉRAIRE QUI EXPLOSE
+## 4. ~~Ce qui reste, n° 2~~ : LE 6 SURNUMÉRAIRE QUI EXPLOSE — **FAIT**
 
 > « Il reste un 6 de trop au verdict ; une fois les 6 réunis, celui (ou les deux)
 > du centre surnuméraire disparaît (explose en mode scénique pour propulser les
 > autres à grossir avant que la foudre ne les enflamme). »
 
-**Non fait, et délibérément.** Deux raisons.
+**Livré.** L'argumentaire complet est dans `CONTRACTS.md`, amendement « LE 6 DE
+TROP N'EST PLUS JETÉ : il EXPLOSE au verdict ». En bref :
 
-1. C'est de la **scénographie de verdict**, et l'auteur travaillait en parallèle
-   sur celle des cornes au moment où ceci a été écrit. Deux mains sur le même
-   geste, c'est un conflit garanti.
-2. La géométrie que ça demande n'existe pas encore côté visuel. Aujourd'hui le
-   surplus tombe par `drop` en même temps que le reste, dans le geste unique de
-   récolte (`scenario.js`, « on ne trie qu'UNE fois, et juste avant le verdict »).
-   Ce que l'auteur décrit est **l'inverse d'une chute** : une explosion qui
-   PROPULSE, donc une causalité entre le jeton qui part et ceux qui restent.
+- le surnuméraire n'est plus jeté à l'étape de récolte : il reste sur la ligne
+  jusqu'au verdict, et il y reste **au milieu**
+  (`recherche/scenario.js › lesPlusCentraux`, exportée et éprouvée sur sa table) ;
+- le verdict le reçoit dans `reveal.surnumeraires` et se déplie en **deux temps**
+  au lieu de trois : rassembler les sept, puis l'explosion et l'agrandissement
+  au même instant. Le temps de découpage disparaît — le trou que le 6 laisse EST
+  la séparation, au centième d'unité ;
+- le dessin vit dans `visuel/primitives/explosion.js`, qui n'est **pas** une
+  vingt-deuxième primitive : le retrait est déjà nommé par le scénario, seule sa
+  FORME s'ajoute. Le souffle est réservé au registre scénique, comme les cornes
+  et l'orage.
 
-**Ce qui est déjà là pour le faire, et ce qui manque.**
+Sur le lien de l'auteur (`#sce!0.1:tca+m14+mpf,2.1:fr13+tca+m14+mpf#…`) l'étape
+qui retirait le 6 excédentaire **n'existe plus du tout** : elle ne faisait que
+cela. Et les deux triptyques révélés cessent d'être un mélange pour devenir le
+666 de « Donald » et celui de « Trump », tous deux couronnés en chemin.
 
-- Le surplus est **déjà identifié et séparé** : `construireScenario` calcule
-  `surplus` (ce qui dépasse le multiple de la série ou le plafond `MAX_SERIES`)
-  et `aJeter`, et les distingue déjà des rejets ordinaires. Le « 6 de trop » est
-  donc nommé ; il ne demande qu'un autre geste.
-- Le **rythme** est là aussi : `reglerLesCornes` sait avancer un couronnement au
-  plus tôt, et `placeDuCouronnement` sait dire si la ligne le permet. L'ordre
-  demandé — les 6 se réunissent, PUIS le surnuméraire explose, PUIS les autres
-  grossissent, PUIS la foudre — est une suite de jalons de ce genre.
-- Ce qui **manque** est une primitive. Le vocabulaire est FERMÉ (§3.1) : `drop`
-  fait tomber, il ne fait pas exploser. Il faudra soit un mode de `drop`
-  (`mode: 'burst'`, comme il y a déjà `fall` et la gomme sur place), soit une
-  primitive neuve — et dans les deux cas, sa sémantique devra être écrite **deux
-  fois** (la primitive dans `src/visuel/primitives/`, son modèle dans
-  `scenario.js › suivreLaLigne`), que le test d'intégration tient d'accord.
-  ⚠️ Un `burst` qui ne fait que retirer un jeton se modélise exactement comme un
-  `drop` : `suivreLaLigne` n'aurait rien à apprendre. C'est la partie « propulse
-  les autres à grossir » qui, elle, touche au layout.
+**Ce qui n'a pas été fait, et qui n'a pas été demandé** : rien ne touche à la
+foudre ni au brasier, qui suivent l'agrandissement comme avant — « avant que la
+foudre ne les enflamme » était déjà l'ordre en place (`reveal.js ›
+allumerLOrage`, qui n'éclate qu'une fois le mouvement fini).
+
+Tests : `visuel/tests/explosion.test.js` (11), `recherche/tests/scenario.test.js`
+(4) et le contrôle croisé des deux modèles de scène dans
+`recherche/tests/integration-visuel.test.js`.
 
 ## 5. Où regarder dans le code
 
