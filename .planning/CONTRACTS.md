@@ -931,6 +931,85 @@ ici**, puis l'émettre.
 > son étape de tri **montre** — si le malus disparaissait, l'écart sauterait aux
 > yeux.
 
+> *Amendement — LE 6 DE TROP N'EST PLUS JETÉ : il EXPLOSE au verdict.*
+>
+> **La demande, mot pour mot.** « Il reste un 6 de trop au verdict ; une fois
+> les 6 réunis, celui (ou les deux) du centre surnuméraire disparaît (explose en
+> mode scénique pour propulser les autres à grossir avant que la foudre ne les
+> enflamme). » Puis, sur un lien précis : «
+> `#sce!0.1:tca+m14+mpf,2.1:fr13+tca+m14+mpf#2HuP1G8mNg3sJWhqR` insère une étape
+> 24 pour retirer le 6 excédentaire alors que c'est **durant le verdict**, une
+> fois les 6 collés les uns contre les autres, que le 6 **central** devrait
+> disparaître par explosion pour propulser les deux triptyques dans leur
+> agrandissement. »
+>
+> **Ce qui se faisait, et les trois reproches.** Sept 6 récoltés font deux séries
+> et un appoint ; l'appoint tombait dans l'étape « on ne garde que les 6 », d'un
+> `drop` en mode `fall`. (1) L'étape s'intitule « on ne garde que les 6 » et
+> jetait un **6** — sur le lien ci-dessus, elle ne faisait même que cela. (2) Un
+> `drop` fait TOMBER : rien ne bouge autour de ce qui s'en va, alors que ce qui
+> est demandé POUSSE. (3) Et le 6 jeté était le **dernier** de la ligne, le
+> découpage en séries étant glouton et de gauche à droite : un 6 qui s'en va par
+> le bout ne sépare rien.
+>
+> **★ CE N'EST PAS UNE VINGT-DEUXIÈME PRIMITIVE, et c'est l'argument de
+> l'orage.** Le vocabulaire §3.1 nomme les GESTES DE LA DÉMONSTRATION, ceux dont
+> Le Registre doit rendre compte. Or le retrait du 6 en trop est **déjà nommé** :
+> il voyage dans `reveal.surnumeraires`, il se lit dans l'inventaire du scénario
+> (`recherche/scenario.js › inventaire`), et Le Registre y trouve tout ce qu'il a
+> à dire — ce jeton-là s'en va au verdict. Ce que le dessin ajoute est la FORME
+> de ce départ, donc de la mise en scène. C'est une **option** de `reveal`, au
+> même titre que `disposition` pour `table` : un nom de plus aurait coûté cinq
+> tables à tenir d'accord pour ne rien nommer de neuf.
+>
+> **Ce qui se fait maintenant, en deux temps au lieu de trois.**
+>
+> 1. **rassembler TOUT** — les six révélés et le septième, épaule contre épaule,
+>    à leur taille. C'est la seule image où la ligne dit « sept » ;
+> 2. **l'explosion, et la propulsion au MÊME INSTANT.** Pas un retrait suivi d'un
+>    mouvement : un mouvement CAUSÉ par un retrait. La causalité s'écrit dans les
+>    horloges, pas dans un dessin.
+>
+> **★ Et il n'y a plus de temps de DÉCOUPAGE, parce que l'explosion le fait.** Le
+> blanc que le verdict ouvre entre deux séries vaut deux écarts et une chasse,
+> c'est-à-dire **deux pas** de centre à centre ; or un jeton qui occupe un pas en
+> sépare justement deux. Le trou que le 6 de trop laisse derrière lui **EST** la
+> séparation, au centième d'unité (`visuel/tests/explosion.test.js`). Le vide n'a
+> pas à être creusé, il n'a qu'à ne pas se refermer. Corollaire : la voie courte
+> des triptyques déjà couronnés (amendement précédent) ne s'applique plus quand
+> il y a quelque chose entre eux — elle supposait qu'il n'y ait rien à retirer.
+>
+> **★ QUEL 6 est en trop : celui du MILIEU, et à une condition stricte.**
+> `recherche/scenario.js › lesPlusCentraux` choisit la coupure qui **sépare deux
+> séries** — jamais l'intérieur de l'une d'elles, un triptyque coupé en deux ne
+> serait pas propulsé mais cassé — et parmi elles la plus proche du milieu, à
+> égalité la plus à gauche (rien à départager, donc rien à truquer, §4.4).
+>
+> La permutation n'est licite que parce que les jetons sont **interchangeables**,
+> et la fonction renonce dès qu'ils cessent de l'être : il faut une **cible
+> homogène** (sur `007`, la suite `0 7 0 0 7` n'écrit la cible qu'en sautant le
+> deuxième jeton, et permuter changerait ce qui est démontré) et **au moins deux
+> séries** (une explosion PROPULSE : il lui faut quelqu'un à pousser de chaque
+> côté). Hors de là, l'appoint retombe dans la chute ordinaire, à son étape.
+>
+> Effet de bord mesuré, et bienvenu : sur « Donald Trump », les deux triptyques
+> révélés cessent d'être un mélange (`Donald`×3 + `Donald`×1 + `Trump`×2) pour
+> devenir ceux que la ligne écrit d'elle-même — le 666 de « Donald » et celui de
+> « Trump », que la démonstration couronne désormais tous les deux en chemin.
+>
+> **★ Le partage des registres est celui des cornes et de l'orage.** Le RETRAIT
+> a lieu dans les deux : c'est un fait — il y avait sept 6, le verdict en révèle
+> six —, et le registre change ce qui se voit, jamais ce qui est démontré. Le
+> **souffle** (neuf éclats projetés, un tracé réécrit par le canal discret, à la
+> manière de l'effritement des cornes) n'existe qu'en registre scénique, et pas
+> en mouvement réduit : une enveloppe compilée à 1 ms n'est pas une explosion,
+> c'est une image blanche d'une frame.
+>
+> **★ Un rôle de plus dans `dom.js`, aucun nom de plus dans le vocabulaire** :
+> `souffle`, un `<path>` rempli à sous-tracés fermés, couche `front` — ses éclats
+> passent PAR-DESSUS les deux triptyques qu'ils écartent, et c'est ce
+> recouvrement qui fait lire une poussée plutôt qu'un fondu.
+
 > *Amendement — `horns`, la vingt-et-unième primitive : LES CORNES.*
 >
 > **La demande de l'auteur, mot pour mot.** « S'il y a *naturellement* 3 “6”
