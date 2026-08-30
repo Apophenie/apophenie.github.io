@@ -608,6 +608,47 @@ function muer(valeur, traces, fn) {
 const PROTOCOLES = /^(?:https?|ftp|ftps|ssh|file):\/\//i;
 
 /**
+ * ★ À QUOI RESSEMBLE UNE EXTENSION DE NOM DE DOMAINE — une FORME, pas une liste.
+ *
+ * On pourrait embarquer la racine IANA : mille cinq cents lignes, exactes le
+ * jour de la copie et périmées le lendemain. Surtout, elle serait FAUSSE pour
+ * ce site : `.onion`, `.local`, `.test`, `.internal` ne sont délégués nulle
+ * part et se tapent tous les jours. Une liste officielle refuserait de
+ * reconnaître des adresses que tout le monde reconnaît, et il faudrait alors
+ * lui ajouter des exceptions — c'est-à-dire admettre que ce n'est pas la liste
+ * qui décide. Autant le dire tout de suite et décrire la forme :
+ *
+ *  · **deux caractères au moins** — aucune extension d'une seule lettre n'a
+ *    jamais été déléguée, et personne n'en écrit ;
+ *  · **des lettres, rien d'autre** — ni chiffre, ni tiret. Les extensions
+ *    internationalisées vivent en racine sous leur forme punycode (`xn--…`),
+ *    mais ce n'est pas ce qu'on tape : on tape `.рф`, et un moteur qui ne lit
+ *    que l'ASCII n'a pas à faire semblant de la reconnaître ;
+ *  · **dix-huit caractères au plus** — la longueur de la plus longue extension
+ *    déléguée en lettres latines (`.travelersinsurance`, `.northwesternmutual`).
+ *    Le plafond ne sert pas à recaler l'exotique, il sert à ce qu'une phrase
+ *    ponctuée de points ne passe pas pour une adresse.
+ *
+ * ★ Le plafond valait SIX, et il recalait `.website`, `.technology`,
+ * `.photography` — des extensions on ne peut plus ordinaires. « On ignore
+ * l'extension » ne faisait donc rien du tout sur `hope.technology`, sans le
+ * dire. Un opérateur qui ne s'applique pas doit le dire ; celui-là mentait par
+ * un chiffre.
+ */
+const TLD = '[a-z]{2,18}';
+
+/**
+ * L'extension FINALE d'une chaîne — ce que `f.tld` retire.
+ *
+ * ⚠️ Elle n'exige pas qu'il y ait un domaine devant : `.html` est une extension
+ * elle aussi, et `f.tld` dit « l'extension », pas « le TLD ». C'est le seul
+ * endroit où la forme partagée s'emploie sans la reconnaissance d'un hôte, et
+ * c'est délibéré — retirer un suffixe et reconnaître une adresse sont deux
+ * métiers, les confondre ferait échouer l'un ou mentir l'autre.
+ */
+const RE_EXTENSION = new RegExp(`\\.${TLD}$`, 'i');
+
+/**
  * Le leet speak, dans le sens où on le DÉCODE : le chiffre, puis la lettre.
  *
  * La substitution est écrite une fois ; `deleet` l'applique, et la réglette
@@ -770,13 +811,13 @@ const brut = [
       '.fr, .com, .org… are only a shelf in the library'),
     notoriete: 0.70, commute: true,
     apply(valeur, traces) {
-      const m = /\.[a-z]{2,6}$/i.exec(valeur);
+      const m = RE_EXTENSION.exec(valeur);
       if (!m) return null;
       const debut = valeur.length - m[0].length;
       return garder(valeur, traces, (_, i) => i < debut);
     },
     couverture(valeur) {
-      const m = /\.[a-z]{2,6}$/i.exec(valeur);
+      const m = RE_EXTENSION.exec(valeur);
       return m ? [[valeur.length - m[0].length, valeur.length]] : [];
     },
   },
