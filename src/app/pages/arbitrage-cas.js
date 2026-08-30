@@ -55,6 +55,17 @@ export const CAS_ARBITRAGE = Object.freeze([
     apres: '#sce!0.1:fatb+tca+mt9+mr9,2.1:fr3+tca+mhe+mrn#2HuP1G8mNg3sJWhqR',
   },
   {
+    // ★ Ce que la FICELLE achetait : un 6 de plus, payé au triple à l'arrivée.
+    //   `m.additionSelective` arrivait EN TÊTE du faisceau de « Macron » avec
+    //   cinq 6 contre quatre, et occupait la place avant que le filtre de
+    //   qualité n'ait à se prononcer. Élégance finale : 318 contre 881.
+    id: 'macron-ficelle',
+    titre: 'Macron — ce que la ficelle achetait (318) contre une voie propre (881)',
+    saisie: 'Macron',
+    avant: '#sce!fr24+tca+mx6+mad#fXvexbmf',
+    apres: '#sce!fr1+tca+m14+mpf#fXvexbmf',
+  },
+  {
     id: 'macron-tete',
     titre: 'Macron — la tête de liste',
     saisie: 'Macron',

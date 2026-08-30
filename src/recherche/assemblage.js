@@ -572,14 +572,44 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
       }
     }
   }
-  // Plus de 6 d'abord ; à égalité, le vecteur le moins dilué (un `[6,6,6,6]`
-  // vaut mieux qu'un `[6,6,6,5,7]`, qui laisse deux valeurs tomber) ; puis
-  // l'ordre déterministe du faisceau. La dilution se lit sur le vecteur LE PLUS
-  // LARGE du chemin, jamais sur le dernier — voir `largeurMontree`.
+  // ★ LA QUALITÉ SE CONSULTE AVANT LE PLAFOND, PAS APRÈS.
+  //
+  //   Le tri rangeait : plus de 6 d'abord, puis le moins dilué, puis le moins
+  //   de ficelles. La troisième clef n'était donc lue qu'entre ex æquo — et le
+  //   plafond, lui, coupe après la deuxième. Une ficelle qui arrache un 6 de
+  //   plus passait devant tout le monde et occupait la place AVANT que le
+  //   filtre de qualité (`apporteQuelqueChose`, plus bas) n'ait eu à se
+  //   prononcer. C'est la maladie déjà soignée dans `bfs.js › MAX_RESULTATS` :
+  //   « ce n'était pas une borne, c'était un classement par ordre
+  //   alphabétique ».
+  //
+  //   MESURÉ sur `Macron` : `fr24+tca+mx6+mad` — une ficelle — arrivait en
+  //   TÊTE du faisceau avec cinq 6, pour une élégance finale de 318, devant
+  //   `fr1+tca+m14+mpf` (881) et `fr24+tca+mx6+mrn` (928). Elle achetait sa
+  //   place avec un chiffre de plus et la payait au triple à l'arrivée.
+  //
+  //   ★ Le compte de 6 reste PREMIER, et c'est délibéré : c'est ce que le
+  //     fragment doit rapporter, et une voie propre qui n'écrit pas la cible ne
+  //     sert à rien. Mais à quantité MOINDRE d'une seule unité, une voie sans
+  //     ficelle vaut mieux qu'une voie qui triche — d'où la comparaison par
+  //     paliers : on n'oppose pas 5 six à 3, on oppose 5 six tricheurs à 4 six
+  //     honnêtes.
   const six = (c) => compterSix(c.etats[c.etats.length - 1], cbl);
   const dilue = (c) => largeurMontree(c, c.etats[c.etats.length - 1].valeur.length) - six(c);
-  out.sort((a, b) => (six(b) - six(a)) || (dilue(a) - dilue(b))
-    || (nbFicelles(a) - nbFicelles(b)) || comparerChemins(a, b));
+  // Le meilleur compte de 6 atteint SANS ficelle : c'est lui l'étalon. Une voie
+  // à ficelle doit le dépasser d'au moins deux pour mériter sa place devant.
+  let etalon = 0;
+  for (const c of out) if (!nbFicelles(c)) etalon = Math.max(etalon, six(c));
+  const rang = (c) => {
+    const n = six(c);
+    if (!nbFicelles(c)) return n;
+    // Une ficelle qui n'apporte qu'un 6 de plus que la meilleure voie honnête
+    // est ramenée derrière elle : ce qu'elle achète ne vaut pas ce qu'elle
+    // coûtera (`elegance.js`, les paliers de ficelle).
+    return n > etalon + 1 ? n : Math.min(n, etalon) - 1;
+  };
+  out.sort((a, b) => (rang(b) - rang(a)) || (nbFicelles(a) - nbFicelles(b))
+    || (dilue(a) - dilue(b)) || comparerChemins(a, b));
 
   // N2/N3 puis N1, comme partout ailleurs : `fmaj+tca+m14` — passer en capitales
   // avant de compter les segments — montre le même vecteur que `tca+m14`, la
