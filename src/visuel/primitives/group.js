@@ -154,6 +154,8 @@ function planEgalisation(ctx, ids) {
     // Elle DÉSIGNE, elle ne calcule pas : rien ne descendra sous sa pointe, et
     // le relevé d'identité qui referme le geste ne doit pas y plonger.
     promet: false,
+    // Et elle n'écarte pas non plus : les valeurs vont changer sous elle.
+    marquer: false,
     at: 0, dur: T * 0.28,
   });
   // Les largeurs réservées, comme dans `accumulate` : un jeton qui passera de

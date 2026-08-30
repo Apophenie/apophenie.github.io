@@ -874,7 +874,15 @@ export function tracerAccolade(ctx, ids, spec = {}) {
   //   n'est ambigu : ça charge sans distinguer. On laisse donc les écarts
   //   qu'`insertOperatorTokens` a posés, qui attellent chaque signe à son
   //   nombre, et on ne trace rien.
-  const signes = Boolean(spec.signes);
+  // ★ ET SAUF QUAND LES VALEURS VONT CHANGER SOUS L'ACCOLADE. L'écart se règle
+  //   sur ce que la ligne porte À L'INSTANT du tracé ; une égalisation
+  //   transforme ses nombres sur place — `8 15 16 5` devient `11 11 11 11` —,
+  //   et figer un espacement d'après l'état de départ écarterait pour une
+  //   raison qui aura disparu. Le modèle de ligne, qui ne suit que des
+  //   identifiants et jamais des valeurs, ne saurait d'ailleurs pas le rejouer
+  //   (`recherche/scenario.js › suivreLaLigne`) — et le contrôle croisé des
+  //   deux modèles rougirait, à raison.
+  const signes = Boolean(spec.signes) || spec.marquer === false;
   const nombres = signes ? false : marquerLesNombres(ctx, ids);
   if (signes || spec.tighten || nombres) {
     if (!signes && !nombres) {

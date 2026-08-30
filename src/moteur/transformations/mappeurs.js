@@ -2616,18 +2616,12 @@ const AUTRES_MAPPEURS = [
     regle: bilingue('On donne 1 du plus grand au plus petit jusqu’à ce que tout se tienne à 1 près',
       'Hand 1 from the largest to the smallest until nothing is more than 1 apart'),
     notoriete: 0.30, adHoc: 0.30, cout: 1,
-    // ★ INACTIF PAR DÉFAUT — le geste est écrit, il n'est pas encore jugé.
-    //
-    //   « Si les animations cassent trop de choses, fais des opérateurs que tu
-    //   n'utilises pas en production, mais que je peux visualiser via la page
-    //   debug pour te dire s'ils me vont ou non » (l'auteur). Celui-ci passe
-    //   par un chemin que le reste du moteur n'emprunte nulle part ailleurs :
-    //   il change la VALEUR de jetons qui gardent leur place, et le relevé
-    //   d'identité qu'il faut pour le déclarer au modèle de ligne fait rougir
-    //   la récolte et le verdict. Le laisser chercher aurait été livrer un
-    //   défaut ; le retirer, perdre le geste. Il attend donc son arbitrage dans
-    //   le catalogue, jouable et hors classement.
-    actifParDefaut: false,
+    // ★ ARBITRÉ, ET ACTIVÉ. Il est resté inactif le temps d'un aller-retour :
+    //   son relevé d'identité — les jetons changent de valeur sans changer de
+    //   place, et il faut le DÉCLARER au modèle de ligne — plongeait sous
+    //   l'accolade pour remonter aussitôt, ce que l'auteur a vu et fait
+    //   corriger. Une accolade ne promet un résultat sous sa pointe que quand
+    //   elle calcule ; celle-ci désigne. Le geste jugé, l'opérateur cherche.
     // ★ LES JETONS CHANGENT D'IDENTITÉ À LA FIN, et il le faut.
     //
     //   À l'écran, ce sont les MÊMES jetons qui changent de valeur, un par un,

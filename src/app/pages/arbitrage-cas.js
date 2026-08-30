@@ -39,20 +39,34 @@ export const CAS_ARBITRAGE = Object.freeze([
     apres: '#sce!0.1:fr14+tca+m14+mpf,3.1:ffr3+tca+m14+mpf,5.1:ffr+tca+m14+mpf,7.1:tca+m14+m36,9.1:fr9+tca+m7#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
   },
   {
-    id: 'trump-tete',
-    titre: 'Donald Trump — la tête de liste',
-    saisie: 'Donald Trump',
-    // Un seul 666, par les lettres et les quatorze segments.
-    avant: '#sce!fl+tca+m14#2HuP1G8mNg3sJWhqR',
-    // Trois 666, par deux césars sans nom.
-    apres: '#sce!0.1:fr15+tca+mx6+mrn,2.1:fr3+tca+mhe+mrn#2HuP1G8mNg3sJWhqR',
-  },
-  {
     id: 'trump-deux-six',
     titre: 'Donald Trump — les deux 666 déjà formés (voie nommée)',
     saisie: 'Donald Trump',
     avant: '#sce!0.1:tca+m14+m36,2.1:fr13+tca+m14+m36#2HuP1G8mNg3sJWhqR',
     apres: '#sce!0.1:fatb+tca+mt9+mr9,2.1:fr3+tca+mhe+mrn#2HuP1G8mNg3sJWhqR',
+  },
+  {
+    // ★ L'ÉTAGE DES RETOUCHES, débranché faute de barème.
+    //
+    //   « 2.1:fr13;0.1+2.1:tca+m14+mpf » — on chiffre « Trump », puis on lit
+    //   les deux mots d'un même programme. L'auteur trouve cette voie
+    //   remarquable de concision ; la recherche ne la propose pas, parce que le
+    //   générateur qui la produit est débranché tant qu'une retouche ne coûte
+    //   rien à l'élégance. Branché, elle sortirait au rang 3.
+    id: 'trump-retouche',
+    titre: 'Donald Trump — la retouche (902) contre la tête actuelle (1353)',
+    saisie: 'Donald Trump',
+    avant: '#sce!2.1:fr13;0.1+2.1:tca+m14+mpf#2HuP1G8mNg3sJWhqR',
+    apres: '#sce!0.1:fatb+tca+mt9+mr9,2.1:fr3+tca+mhe+mrn#2HuP1G8mNg3sJWhqR',
+  },
+  {
+    // La variante que le générateur trouve DE LUI-MÊME, plus concise encore que
+    // celle de l'auteur : un seul programme pour toute la saisie retouchée.
+    id: 'trump-retouche-2',
+    titre: 'Donald Trump — la retouche trouvée seule (904) contre la 2ᵈ ligne (1196)',
+    saisie: 'Donald Trump',
+    avant: '#sce!2.1:fr13;fl+tca+m14#2HuP1G8mNg3sJWhqR',
+    apres: '#sce!0.1:fr15+tca+mx6+mrn,2.1:fr3+tca+mhe+mrn#2HuP1G8mNg3sJWhqR',
   },
   {
     // ★ Ce que la FICELLE achetait : un 6 de plus, payé au triple à l'arrivée.
