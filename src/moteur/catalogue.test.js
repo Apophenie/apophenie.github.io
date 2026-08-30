@@ -38,6 +38,13 @@ const VECTEURS = [
   ['ftld', S('hope.fr'), 'hope'],
   ['fav', S('hope.fr/a/b'), 'hope.fr'],
   ['fap', S('hope.fr/a/b'), 'a/b'],
+  // ★ Les trois découpes NOMMÉES, sur la même adresse que leurs aînées — c'est
+  //   la comparaison qui les définit. `fav` rendrait ici « hope.fr » comme
+  //   `fdom`, mais préfixez l'adresse de « https:// » et `fav` garde le
+  //   protocole quand `fdom` le laisse : ils ne disent pas la même chose.
+  ['fdom', S('https://hope.fr/a/b'), 'hope.fr'],
+  ['fchm', S('hope.fr/a/b'), 'a'],
+  ['fpag', S('hope.fr/a/b'), 'b'],
   ['fl', S('h0pe-2'), 'hpe'],
   ['fv', S('hope'), 'oe'],
   ['fvy', S('hopey'), 'oey'],
@@ -314,8 +321,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 141);
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 141, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 144);
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 144, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -325,7 +332,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 141, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 144, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

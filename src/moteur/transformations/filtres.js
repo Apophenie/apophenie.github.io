@@ -649,6 +649,15 @@ const TLD = '[a-z]{2,18}';
 const RE_EXTENSION = new RegExp(`\\.${TLD}$`, 'i');
 
 /**
+ * Un nom de domaine EN TÊTE de la chaîne : des étiquettes séparées par des
+ * points, puis l'extension, puis la fin ou ce qui n'appartient déjà plus au nom
+ * (`/`, `:`, `?`, `#`). C'est la règle que l'auteur a écrite —
+ * `(https?://)?[…]+\.[tld]/?` —, à ceci près que le protocole se retire au lieu
+ * de se garder : `https://` dit comment on y va, pas comment le site s'appelle.
+ */
+const RE_HOTE = new RegExp(`^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+${TLD}(?=[:/?#]|$)`, 'i');
+
+/**
  * Le leet speak, dans le sens où on le DÉCODE : le chiffre, puis la lettre.
  *
  * La substitution est écrite une fois ; `deleet` l'applique, et la réglette
@@ -855,6 +864,62 @@ const brut = [
       if (i < 0) return null;
       return garder(valeur, traces, (_, k) => k > i);
     },
+  },
+  // ★ LES TROIS DÉCOUPES QUI DISENT LEUR NOM.
+  //
+  //   `fav` et `fap` sont POSITIONNELS : ils coupent à la première barre
+  //   oblique et gardent un côté. Ils ne prétendent rien savoir de ce qu'ils
+  //   gardent — d'où leur note basse, et d'où la demande de l'auteur : « il
+  //   faudrait aussi nommer ce qu'on fait ». Les trois qui suivent nomment.
+  //   Ils ne coupent pas à un endroit, ils RECONNAISSENT un objet — le domaine,
+  //   un tronçon de chemin, la page — et s'abstiennent quand l'objet n'est pas
+  //   là. C'est pour cela qu'ils coexistent avec leurs aînés au lieu de les
+  //   remplacer : sur `hope.fr/a`, `fap` et `fpag` rendent tous deux « a », et
+  //   pourtant l'un a dit « ce qui suit la barre » quand l'autre a dit « la
+  //   page ». Deux affirmations différentes, dont une seule survit à
+  //   `hope.fr/a/b`.
+  {
+    id: 'f.domaine', code: 'fdom', famille: 'filtre', from: 'STR', to: 'STR',
+    libelle: bilingue('On analyse le domaine', 'Analyse the domain'),
+    regle: bilingue('Le nom du site : ni le protocole, ni ce qui suit',
+      'The site’s name: neither the protocol nor what follows'),
+    mention: bilingue('Le domaine', 'The domain'),
+    coupe: true,
+    // ★ PILE SUR LA LIGNE DE L'ATBASH (0,25 / 0,20), et c'est le seul des cinq
+    //   à y avoir droit. Ses aînés sont dessous parce qu'ils CHOISISSENT une
+    //   moitié, et que ce choix ne se lit pas dans la saisie ; celui-ci ne
+    //   choisit rien — la forme d'un nom de domaine est écrite dans l'adresse,
+    //   il la reconnaît ou il s'abstient. Pas au-dessus non plus : décider de
+    //   regarder l'adresse plutôt que le texte reste une décision.
+    notoriete: 0.25, adHoc: 0.20,
+    apply: (valeur, traces) => garderBornes(valeur, traces, bornesDomaine(valeur)),
+  },
+  {
+    id: 'f.chemin', code: 'fchm', famille: 'filtre', from: 'STR', to: 'STR',
+    libelle: bilingue('On analyse le chemin', 'Analyse the path'),
+    regle: bilingue('Le premier tronçon après le domaine, pas le reste',
+      'The first leg after the domain, not the rest'),
+    mention: bilingue('Le chemin', 'The path'),
+    coupe: true,
+    // Le dernier de la file, et de loin. Il reconnaît son domaine comme
+    // `f.domaine` — il ne coupe donc pas au hasard —, mais ce qu'il GARDE est
+    // le plus arbitraire des cinq : ni le site, ni la page, un tronçon du
+    // milieu. `fap` gardait le chemin entier, ce qui se discute encore ;
+    // s'arrêter au premier tronçon ne se discute pas, cela s'assume.
+    notoriete: 0.12, adHoc: 0.35,
+    apply: (valeur, traces) => garderBornes(valeur, traces, bornesChemin(valeur)),
+  },
+  {
+    id: 'f.page', code: 'fpag', famille: 'filtre', from: 'STR', to: 'STR',
+    libelle: bilingue('On analyse le nom de la page', 'Analyse the page name'),
+    regle: bilingue('Ce qui suit la dernière barre, la barre finale ne comptant pas',
+      'What follows the last slash, a trailing slash aside'),
+    mention: bilingue('Le nom de la page', 'The page name'),
+    coupe: true,
+    // Entre les deux aînés : « la page » est un objet que tout le monde nomme,
+    // mais s'y arrêter plutôt que de lire le site est déjà un choix.
+    notoriete: 0.18, adHoc: 0.30,
+    apply: (valeur, traces) => garderBornes(valeur, traces, bornesPage(valeur)),
   },
   {
     id: 'f.lettres', code: 'fl', famille: 'filtre', from: 'STR', to: 'STR',
@@ -1163,6 +1228,88 @@ function positionSlash(valeur) {
     return i;
   }
   return -1;
+}
+
+/**
+ * ★ LES BORNES SE COMPTENT EN POINTS DE CODE, jamais en unités UTF-16.
+ *
+ * C'est `garder` qui impose l'unité : son prédicat reçoit l'index dans
+ * `[...valeur]`. Une expression régulière, elle, rend un index de chaîne. Un
+ * seul émoji dans un chemin — ils existent, dans les adresses comme ailleurs —
+ * suffirait à décaler d'un cran tout ce qui suit, et la coupe tomberait à côté
+ * sans que rien ne proteste.
+ */
+const points = (valeur) => [...valeur];
+const enPoints = (valeur, i) => (i < 0 ? -1 : points(valeur.slice(0, i)).length);
+
+/** Ne garder que l'intervalle reconnu — et `null` quand il n'y en a pas. */
+const garderBornes = (valeur, traces, bornes) => (bornes
+  ? garder(valeur, traces, (_, k) => k >= bornes[0] && k < bornes[1])
+  : null);
+
+/**
+ * Le NOM DE DOMAINE en tête de la chaîne (`RE_HOTE`), protocole exclu.
+ *
+ * `null` dès que rien ne ressemble à un domaine : c'est ce qui distingue
+ * `f.domaine` de `f.avantSlash`, lequel coupe à la barre même quand ce qui
+ * précède est une phrase.
+ */
+function bornesDomaine(valeur) {
+  const protocole = PROTOCOLES.exec(valeur);
+  const tete = protocole ? protocole[0] : '';
+  const m = RE_HOTE.exec(valeur.slice(tete.length));
+  if (!m) return null;
+  const debut = points(tete).length;
+  return [debut, debut + points(m[0]).length];
+}
+
+/**
+ * Le PREMIER TRONÇON de chemin — « domaine/{ceci}/… », la forme écrite par
+ * l'auteur, y compris le mot « domaine » qu'elle contient.
+ *
+ * ★ Le tronçon se compte donc APRÈS UN DOMAINE RECONNU, pas après la première
+ * barre venue. C'est ce qui sépare `f.chemin` de `f.apresSlash` : sur `a/b`, la
+ * seconde garde « b » sans se demander ce qu'était « a », la première s'abstient
+ * — il n'y a pas de chemin là où il n'y a pas de site. Et c'est aussi ce qui la
+ * rend juste sur `https://hope.fr/a/b`, où la première barre utile n'est plus
+ * celle du chemin.
+ *
+ * Une chaîne de requête n'est pas du chemin : `?` et `#` ferment le tronçon au
+ * même titre que la barre suivante.
+ */
+function bornesChemin(valeur) {
+  const domaine = bornesDomaine(valeur);
+  if (!domaine) return null;
+  const cs = points(valeur);
+  // Un port n'est pas du chemin, mais il s'intercale entre le domaine et lui :
+  // le sauter coûte deux lignes, et l'oublier ferait s'abstenir l'opérateur sur
+  // une adresse qui a pourtant un chemin parfaitement lisible.
+  let barre = domaine[1];
+  if (cs[barre] === ':') { do { barre++; } while (barre < cs.length && cs[barre] >= '0' && cs[barre] <= '9'); }
+  if (cs[barre] !== '/') return null;
+  let fin = barre + 1;
+  while (fin < cs.length && !'/?#'.includes(cs[fin])) fin++;
+  return fin > barre + 1 ? [barre + 1, fin] : null;
+}
+
+/**
+ * Le NOM DE LA PAGE — « ^.+/{ceci sans / final}$ ».
+ *
+ * La barre finale ne compte pas : `…/manifeste/` et `…/manifeste` nomment la
+ * même page, et une adresse ne devrait pas dépendre de la façon dont on l'a
+ * recopiée. Le début doit tomber APRÈS la première barre : sous celle-ci on est
+ * encore dans le domaine, et `https://hope.fr` n'a pas de page — l'opérateur le
+ * dit en rendant `null` plutôt qu'en rendant le domaine sous un autre nom.
+ */
+function bornesPage(valeur) {
+  const i = enPoints(valeur, positionSlash(valeur));
+  if (i < 0) return null;
+  const cs = points(valeur);
+  let fin = cs.length;
+  while (fin > 0 && cs[fin - 1] === '/') fin--;
+  let debut = fin;
+  while (debut > 0 && cs[debut - 1] !== '/') debut--;
+  return debut > i && debut < fin ? [debut, fin] : null;
 }
 
 /** Découpe en mots sur `- . _ / espace`, avec les bornes dans la chaîne. */
