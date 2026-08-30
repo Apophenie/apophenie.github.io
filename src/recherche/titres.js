@@ -272,6 +272,7 @@ export const NOMS = {
   //   l'on regarde le geste se faire ; c'est interdit dans un titre de liste,
   //   où l'on n'a encore rien vu (test « jamais le résultat dans le nom de la
   //   voie »). Le nom de vedette dit donc le geste et tait ce qu'il produit.
+  'm.egalisation': b('Par répartition homogène', 'By evening out'),
   'm.triCroissant': b('Par rangement croissant', 'By ascending order'),
   'm.triAlphabetique': b('Par rangement alphabétique', 'By alphabetical order'),
   'm.retournerLesTrios': b('Par le retournement des trios', 'By flipping the trios'),
@@ -291,6 +292,7 @@ export const NOMS = {
   'c.alternee': b('En alternant les signes', 'By alternating the signs'),
   'c.maxMoinsMin': b('Par l’écart des valeurs', 'By the spread of the values'),
   'c.moyenne': b('En moyenne', 'On average'),
+'c.moyenneDivisee': b('En moyenne', 'On average'),
   'c.cardinal': b('Par le nombre de valeurs', 'By the number of values'),
   'c.concat': b('En collant les chiffres', 'By gluing the digits together'),
   'c.max': b('Par la plus grande valeur', 'By the largest value'),
@@ -473,6 +475,7 @@ export const PRECISIONS = {
   'm.retournerLesNeuf': b('les 9 retournés', 'with the 9s flipped'),
   // ★ Les quatre du 27 août — mêmes précautions que pour les noms de vedette :
   //   le geste, jamais ce qu'il produit.
+  'm.egalisation': b('égalisés', 'evened out'),
   'm.triCroissant': b('rangé par ordre croissant', 'sorted in ascending order'),
   'm.triAlphabetique': b('les lettres rangées dans l’ordre', 'with the letters put in order'),
   'm.retournerLesTrios': b('les trios retournés', 'with the trios flipped'),
@@ -489,6 +492,7 @@ export const PRECISIONS = {
   'c.alternee': b('en alternant les signes', 'alternating the signs'),
   'c.maxMoinsMin': b('par l’écart', 'by the spread'),
   'c.moyenne': b('en moyenne', 'on average'),
+'c.moyenneDivisee': b('en moyenne', 'on average'),
   'c.cardinal': b('au nombre de valeurs', 'by the number of values'),
   'c.concat': b('chiffres collés', 'digits glued together'),
   'c.max': b('au plus grand', 'at the largest'),

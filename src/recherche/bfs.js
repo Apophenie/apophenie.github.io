@@ -397,9 +397,24 @@ export function validerCatalogue(catalogue) {
  *    réglage-là qu'il faut monter, pas l'exploration qu'il faut refermer.
  */
 
-/** Opérateurs explorables : ni dépréciés, ni jokers, ni en attente de la jauge. */
+/**
+ * Opérateurs explorables : ni dépréciés, ni jokers, ni INACTIFS PAR DÉFAUT.
+ *
+ * ★ Le dernier critère est neuf, et il a une raison précise. Un opérateur peut
+ *   être écrit, jouable et néanmoins pas encore JUGÉ : son geste demande un
+ *   avis avant d'entrer dans le classement. Il vit alors au catalogue —
+ *   la page de récapitulatif le liste, sa lightbox le joue — et la recherche
+ *   l'ignore. Sans quoi il faudrait choisir entre livrer un geste non arbitré
+ *   et perdre le travail, alors qu'un troisième terme existe : le montrer sans
+ *   s'en servir.
+ *
+ *   Le moteur arithmétique connaissait déjà cette nuance (`catalogue.js ›
+ *   operateursActifs`) ; la recherche, elle, l'ignorait — et un `prm` inactif
+ *   ne sortait des résultats que par la grâce de son barème.
+ */
 export function operateursExplorables(catalogue) {
-  return normaliserCatalogue(catalogue).filter((op) => !op.deprecated && !op.isJoker);
+  return normaliserCatalogue(catalogue)
+    .filter((op) => !op.deprecated && !op.isJoker && op.actifParDefaut !== false);
 }
 
 /**

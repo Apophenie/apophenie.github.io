@@ -474,6 +474,24 @@ export const BAREME = {
   FILTRE_SELECTIF: 100,
 
   /**
+   * ★ PLUSIEURS DÉCALAGES DIFFÉRENTS DU MÊME CHIFFREMENT, dans une seule voie.
+   *
+   * « Utiliser fr{N} ne pose pas problème, mais utiliser plusieurs N différents
+   * dans une même voie devrait mettre un malus » (l'auteur), et la raison tient
+   * en une phrase : un chiffrement de César est UNE méthode, son décalage est
+   * son réglage. Lire un morceau avec quatorze crans et le suivant avec neuf,
+   * ce n'est pas appliquer une méthode à l'ensemble — c'est régler l'outil
+   * morceau par morceau jusqu'à ce que chacun tombe juste, et la démonstration
+   * ne prouve alors que l'existence du réglage.
+   *
+   * Compté PAR DÉCALAGE SURNUMÉRAIRE, comme `FILTRE_SELECTIF` compte les parts
+   * qui s'écartent de la majorité : deux césars différents coûtent une fois,
+   * trois en coûtent deux. Un seul décalage, si obscur soit-il, ne coûte rien
+   * ici — c'est l'`adHoc` de l'opérateur qui s'en charge, et il le fait déjà.
+   */
+  REGLAGE_PAR_MORCEAU: 240,
+
+  /**
    * ★ « Tout chiffre ou lettre effacé/ignoré » — le malus plein, quand c'est un
    * caractère pris au milieu d'un bloc dont le reste sert.
    */
@@ -1077,6 +1095,7 @@ export const NATURE = Object.freeze({
   PORTEE_IGNOREE: { sens: -1, famille: 'elegance' },
   RETOUR_SUR_UNE_ETAPE: { sens: -1, famille: 'elegance' },
   FILTRE_SELECTIF: { sens: -1, famille: 'elegance' },
+  REGLAGE_PAR_MORCEAU: { sens: -1, famille: 'elegance' },
   VALEUR_JETEE: { sens: -1, famille: 'elegance' },
   RELIQUAT_HORS_CIBLE: { sens: -1, famille: 'elegance' },
   RELIQUAT_DE_CIBLE: { sens: -1, famille: 'elegance' },
@@ -2020,6 +2039,7 @@ export function bilanApproche(approche, ctx = {}) {
     majoriteTacite: 0,
     valeursJetees: 0,
     filtresSelectifs: 0,
+    reglagesEnTrop: 0,
     retours: 0,
     triptyquesContigus: 0,
     triptyquesRepetes: 0,
@@ -2072,6 +2092,25 @@ export function bilanApproche(approche, ctx = {}) {
     for (const [, n] of compte) if (n > dominante) dominante = n;
     b.filtresSelectifs = signatures.length - dominante;
   }
+
+  // ★ LES RÉGLAGES D'UN MÊME OUTIL, comptés par famille d'outil.
+  //
+  //   Le décalage est PUBLIÉ par l'opérateur (`filtres.js`, champ `decalage`) :
+  //   on ne le déduit ni du code ni du libellé, on le lit. Un outil réglable
+  //   dont deux réglages différents servent dans la même voie coûte un
+  //   surnuméraire par réglage au-delà du premier.
+  const reglages = new Map();
+  for (const p of parts) {
+    for (const op of (p.chemin && p.chemin.ops) || []) {
+      if (!Number.isFinite(op.decalage)) continue;
+      // La famille d'outil, c'est ce qui reste du code sans son réglage :
+      // `fr14` et `fr9` sont deux réglages de `fr`.
+      const outil = String(op.code).replace(/\d+$/, '');
+      if (!reglages.has(outil)) reglages.set(outil, new Set());
+      reglages.get(outil).add(op.decalage);
+    }
+  }
+  for (const [, vus] of reglages) b.reglagesEnTrop += Math.max(0, vus.size - 1);
 
   let poidsTot = 0;
   let sommeTot = 0;
@@ -2251,6 +2290,8 @@ export function detailDuCredit(b, poids) {
       B.RETOUR_SUR_UNE_ETAPE * (b.retours || 0)],
     ['filtre appliqué à une part seulement', 'FILTRE_SELECTIF', b.filtresSelectifs || 0,
       B.FILTRE_SELECTIF * (b.filtresSelectifs || 0)],
+    ['même outil, réglé morceau par morceau', 'REGLAGE_PAR_MORCEAU', b.reglagesEnTrop || 0,
+      B.REGLAGE_PAR_MORCEAU * (b.reglagesEnTrop || 0)],
     ['part de la saisie jamais lue', 'PORTEE_IGNOREE', ignores,
       a.signifiants ? fraction(B.PORTEE_IGNOREE, [ignores, a.signifiants]) : 0],
     ['lettre ou chiffre arraché', 'EFFACE_ALNUM', a.alnum, B.EFFACE_ALNUM * a.alnum],

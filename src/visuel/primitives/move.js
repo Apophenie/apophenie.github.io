@@ -17,6 +17,7 @@
  */
 
 import { EASE } from '../constants.js';
+import { suivreLesAccolades } from './helpers.js';
 import { fail } from '../errors.js';
 
 export const name = 'move';
@@ -65,6 +66,10 @@ export function plan(ctx) {
     scene.flow.splice(0, scene.flow.length, ...next);
   }
 
-  const moved = ctx.reflow({ at: 0, dur: ctx.dur, ease: EASE.move });
+  const bouge = { at: 0, dur: ctx.dur, ease: EASE.move };
+  const moved = ctx.reflow(bouge);
+  // Ce qu'une accolade embrasse vient peut-être de changer de largeur : elle
+  // suit, sinon elle désignerait autre chose que ce qu'elle a promis.
+  suivreLesAccolades(ctx, bouge);
   if (!moved.length) ctx.occupy(ctx.dur);
 }

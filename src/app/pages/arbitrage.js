@@ -71,7 +71,9 @@ export function pageArbitrage() {
     spellcheck: 'false',
   });
   const bilan = e('button.arb__action', { type: 'button', texte: 'Bilan' });
-  const vider = e('button.arb__action', { type: 'button', texte: 'Vider la mémoire' });
+  // Rejeté à droite : voisin de « Bilan », il offrait de tout perdre d'un clic
+  // mal visé — et l'un affiche quand l'autre détruit sans retour.
+  const vider = e('button.arb__action.arb__action--danger', { type: 'button', texte: 'Vider la mémoire' });
   const sortie = e('pre.arb__bilan', { hidden: 'hidden' });
 
   racine.append(

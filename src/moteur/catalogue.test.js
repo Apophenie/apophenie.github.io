@@ -185,6 +185,7 @@ const VECTEURS = [
   // « Tri croissant » : `95956636494` → `34455666999` — trois 6 qui étaient
   // dispersés deviennent contigus, sans que rien ne soit écarté.
   ['mtal', T(['M', 'a', 'c', 'r', 'o', 'n']), ['a', 'c', 'M', 'n', 'o', 'r']],
+  ['meg', N([8, 15, 16, 5]), [11, 11, 11, 11]],
   ['mtri', N([9, 5, 9, 5, 6, 6, 3, 6, 4, 9, 4]), [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]],
   // « On retourne les 666 qui se cachent » : par TRIO contigu, jamais un par
   // un. Quatre 9 d'affilée n'en donnent que trois ; les 9 isolés ne bougent pas.
@@ -206,6 +207,7 @@ const VECTEURS = [
   ['cal', N([8, 15, 16, 5]), 4],
   ['cmm', N([8, 15, 16, 5]), 11],
   ['cmo', N([8, 15, 16, 5]), 11],
+  ['cmod', N([8, 15, 16, 5]), 11],
   ['cnv', N([8, 15, 16, 5]), 4],
   ['ccat', N([8, 15, 16, 5]), 815165],
   ['cmx', N([8, 15, 16, 5]), 16],
@@ -312,8 +314,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 139);
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 139, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 141);
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 141, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -323,7 +325,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 139, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 141, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

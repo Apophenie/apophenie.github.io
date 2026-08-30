@@ -31,6 +31,13 @@ export class Scene {
     this.deadIds = new Set();
     this.autoSeq = 0;
     this.ancres = new Map();   // source → où son résultat doit paraître
+    // ★ Les accolades VIVANTES du step, avec ce qu'elles embrassent. Une
+    //   accolade est une affirmation — « ceci, pris ensemble » — et la zone
+    //   qu'elle désigne bouge : un effacement referme la ligne sous elle. Sans
+    //   ce registre, chaque geste qui recalcule le flux devrait savoir de
+    //   lui-même quelle accolade il fait mentir ; avec lui, il suffit de les
+    //   parcourir (`primitives/helpers.js › suivreLesAccolades`).
+    this.accolades = new Map(); // id de l'accolade → les jetons qu'elle embrasse
     this.suiveurs = new Map(); // jeton → nœuds de décor qui lui sont ACCROCHÉS
 
     // Nœud caméra : c'est lui qu'on zoome/déplace, jamais l'attribut viewBox.
@@ -237,7 +244,10 @@ export class Scene {
    * Oublie les ancres. Appelé à chaque nouveau step : une accolade ne promet
    * que pour le geste en cours, et le step suivant repart d'une page nette.
    */
-  oublierAncres() { this.ancres.clear(); }
+  oublierAncres() { this.ancres.clear(); this.accolades.clear(); }
+
+  /** Une accolade vient d'être tracée : elle embrasse `sources`. */
+  poserAccolade(id, sources) { this.accolades.set(id, [...sources]); }
 
   pos(id) { return this.positions.get(id) || null; }
 

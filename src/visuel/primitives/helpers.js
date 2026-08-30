@@ -963,14 +963,101 @@ export function tracerAccolade(ctx, ids, spec = {}) {
   // Une accolade SANS symbole ne promet rien — `partition` découpe, elle ne
   // calcule pas —, elle ne publie donc aucune ancre.
   if (typeof spec.symbol === 'string' && spec.symbol) ctx.scene.poserAncre(ids, resultat);
+  // Et l'accolade s'inscrit, pour que les gestes qui referment la ligne sous
+  // elle sachent la redimensionner (`suivreLesAccolades`).
+  if (shape !== 'box') ctx.scene.poserAccolade(id, ids);
 
   return {
     id,
     ids: crees,
     box,
+    shape,
+    sources: ids,
     pointe: { x: box.cx, y: pointeY },
     resultat,
   };
+}
+
+/**
+ * ★ L'ACCOLADE SUIT SA ZONE — elle ne la promet pas une fois pour toutes.
+ *
+ * Elle était tracée à la largeur qu'embrassaient ses sources À L'INSTANT où
+ * elle paraissait, et elle gardait cette largeur quoi qu'il advienne. Or la
+ * zone bouge : un filtre efface des jetons et la ligne se referme, et
+ * l'accolade continuait d'embrasser un espace où il n'y a plus rien —
+ * « quand la zone désignée par l'accolade évolue, sa taille doit se modifier en
+ * même temps pour toujours correspondre à la zone cible » (l'auteur), mesuré
+ * sur `m.plusFrequent`.
+ *
+ * Ce n'est pas de la cosmétique : une accolade est une AFFIRMATION — « ceci,
+ * pris ensemble ». Si elle déborde, elle affirme quelque chose de faux, et le
+ * spectateur cherche ce qu'il y a dans le vide qu'elle désigne.
+ *
+ * Deux canaux, et il en faut deux : l'accolade se recentre (`translate`) et se
+ * redessine (`d`). Le tracé passe par le canal DISCRET — c'est une chaîne, pas
+ * un nombre —, ce qui préserve l'exactitude du scrubbing : le chemin est une
+ * fonction pure de `t`, comme le texte d'un compteur.
+ *
+ * @param {object} ctx
+ * @param {object|null} acc  ce que `tracerAccolade` a rendu
+ * @param {{at:number, dur:number, ids?:string[]}} spec
+ */
+export function suivreLaZone(ctx, acc, spec = {}) {
+  if (!acc || acc.shape === 'box') return;
+  const sources = (spec.ids || acc.sources || []).filter((id) => {
+    const n = ctx.scene.get(id);
+    return n && n.alive;
+  });
+  if (sources.length < 1) return;
+  const cible = bboxOf(sources, ctx.scene.positions, ctx.metrics, 10);
+  if (!cible) return;
+
+  const depart = ctx.scene.pos(acc.id);
+  if (!depart) return;
+  const at = spec.at ?? 0;
+  const dur = Math.max(1, spec.dur ?? ctx.dur);
+
+  // Rien n'a bougé : on n'émet pas une animation qui ne ferait rien — elle
+  // entrerait en conflit avec celles qui, elles, ont quelque chose à dire.
+  const bougeX = Math.abs(cible.cx - depart.x) > 0.5;
+  const change = Math.abs(cible.w - (depart.w || 0)) > 0.5;
+  if (!bougeX && !change) return;
+
+  const anchorY = cible.y + cible.h + BRAS + 6;
+  if (bougeX || Math.abs(anchorY - depart.y) > 0.5) {
+    ctx.place(acc.id, { x: cible.cx, y: anchorY, w: cible.w }, { at, dur, ease: EASE.move });
+  }
+  if (!change) return;
+  const w0 = depart.w || cible.w;
+  const w1 = cible.w;
+  ctx.discrete({
+    id: acc.id,
+    channel: 'd',
+    at,
+    dur,
+    // Interpolation linéaire de la demi-largeur : le tracé est recalculé, pas
+    // étiré — une accolade mise à l'échelle épaissirait ses traits d'un côté.
+    render: (x) => braceD((w0 + (w1 - w0) * Math.min(1, Math.max(0, x))) / 2),
+  });
+}
+
+/**
+ * Fait suivre à TOUTES les accolades du step la zone qu'elles embrassent.
+ *
+ * Appelée par les gestes qui recalculent le flux — un effacement referme la
+ * ligne, un rangement la réordonne. Une accolade qui garderait sa largeur
+ * désignerait alors du vide, c'est-à-dire affirmerait quelque chose de faux.
+ */
+export function suivreLesAccolades(ctx, spec = {}) {
+  const registre = ctx.scene.accolades;
+  if (!registre || !registre.size) return;
+  for (const [id, sources] of registre) {
+    const noeud = ctx.scene.get(id);
+    if (!noeud || !noeud.alive) continue;
+    const pos = ctx.scene.pos(id);
+    if (!pos) continue;
+    suivreLaZone(ctx, { id, shape: 'brace', sources }, spec);
+  }
 }
 
 /**

@@ -2598,6 +2598,80 @@ const AUTRES_MAPPEURS = [
   // (`src/recherche/cible.js`). L'assemblage, lui, sait les deux.
 
   def({
+    // ★ ÉGALISER N'EST PAS FAIRE LA MOYENNE — c'est la première moitié du
+    //   geste, et elle se tient toute seule.
+    //
+    //   La moyenne nivelle, puis fusionne ce qui est devenu égal. Le
+    //   nivellement seul rend une LIGNE de nombres égaux (à l'arrondi près) :
+    //   « ça ne serait donc pas une moyenne mais une répartition homogène, ou
+    //   normalisation, ou égalisation — je pense que le terme "égalisation"
+    //   correspond le mieux » (l'auteur). C'est un mappeur, pas un
+    //   combinateur : il rend autant de nombres qu'il en reçoit.
+    //
+    //   La somme est un INVARIANT du transfert : ce qu'on ôte au plus grand,
+    //   on le donne au plus petit. C'est ce qui garantit que la valeur commune
+    //   atteinte est bien la moyenne, et le moteur visuel le recoupe.
+    id: 'm.egalisation', code: 'meg', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: bilingue('On égalise', 'Even them out'),
+    regle: bilingue('On donne 1 du plus grand au plus petit jusqu’à ce que tout se tienne à 1 près',
+      'Hand 1 from the largest to the smallest until nothing is more than 1 apart'),
+    notoriete: 0.30, adHoc: 0.30, cout: 1,
+    // ★ INACTIF PAR DÉFAUT — le geste est écrit, il n'est pas encore jugé.
+    //
+    //   « Si les animations cassent trop de choses, fais des opérateurs que tu
+    //   n'utilises pas en production, mais que je peux visualiser via la page
+    //   debug pour te dire s'ils me vont ou non » (l'auteur). Celui-ci passe
+    //   par un chemin que le reste du moteur n'emprunte nulle part ailleurs :
+    //   il change la VALEUR de jetons qui gardent leur place, et le relevé
+    //   d'identité qu'il faut pour le déclarer au modèle de ligne fait rougir
+    //   la récolte et le verdict. Le laisser chercher aurait été livrer un
+    //   défaut ; le retirer, perdre le geste. Il attend donc son arbitrage dans
+    //   le catalogue, jouable et hors classement.
+    actifParDefaut: false,
+    // ★ LES JETONS CHANGENT D'IDENTITÉ À LA FIN, et il le faut.
+    //
+    //   À l'écran, ce sont les MÊMES jetons qui changent de valeur, un par un,
+    //   à mesure que les `1` les rejoignent : c'est tout le propos du geste.
+    //   Mais le modèle de ligne (`recherche/scenario.js › suivreLaLigne`) suit
+    //   les jetons par leur IDENTIFIANT, et un jeton qui change de valeur sans
+    //   changer d'identifiant lui reste invisible — le verdict couronnait alors
+    //   « 8 2 2 » en croyant y lire trois 6. Le nivellement se referme donc sur
+    //   une substitution, silencieuse à l'œil (même texte, même place) mais qui
+    //   DÉCLARE ce qui a changé.
+    sortie: (avant, apres, ctx) => nomsTokens(ctx, apres.valeur.length),
+    apply(valeur, traces) {
+      if (valeur.length < 2) return null;
+      const { valeurs, converge, transferts } = nivellementDe(valeur);
+      if (!converge || !transferts.length) return null;
+      return { valeur: valeurs, traces: valeurs.map((_, i) => traces[i] || []) };
+    },
+    steps: (avant, apres, ctx) => {
+      const { transferts } = nivellementDe(avant.valeur);
+      const sortie = nomsTokens(ctx, apres.valeur.length);
+      return [etape(ctx, dire(bilingue('On égalise', 'Even them out'), ctx.langue),
+        `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`, enchainer([
+          {
+            op: 'group',
+            targets: ctx.ids,
+            egaliser: true,
+            symbol: '≡',
+            label: dire(bilingue('Égalisation', 'Evening out'), ctx.langue),
+            resultat: apres.valeur,
+            dur: dureeRamassage({ transferts: transferts.length }),
+          },
+          // Le relevé d'identité : même texte, même place, fondu imperceptible.
+          // Il ne montre rien — il DIT ce que le nivellement vient de faire.
+          {
+            op: 'substitute',
+            dur: 120,
+            pairs: ctx.ids.map((id, i) => ({
+              target: id, to: token(sortie[i], apres.valeur[i], 'number'),
+            })),
+          },
+        ]), { hold: 400 })];
+    },
+  }),
+  def({
     id: 'm.triCroissant', code: 'mtri', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_TRI_CROISSANT,
     regle: bilingue(

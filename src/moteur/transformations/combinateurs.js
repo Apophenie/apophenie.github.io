@@ -423,6 +423,65 @@ function etapeEcart(spec) {
 }
 
 /**
+ * La moyenne jouée comme la division qu'elle est : on additionne, on compte
+ * combien on était, on divise. Voir `c.moyenneDivisee` pour le pourquoi — et
+ * pour la raison de son inactivité.
+ */
+function etapeFraction(spec) {
+  return (avant, apres, ctx) => {
+    const vs = avant.valeur;
+    if (vs.length < 2) return etapeDecompte(spec)(avant, apres, ctx);
+    const somme = vs.reduce((a, b) => a + b, 0);
+    const sortie = nomsTokens(ctx, 4);
+    const titre = titreEtape(spec, vs, ctx.langue);
+    const signes = ctx.ids.slice(1).map((_, i) => `${ctx.cle}p${i}`);
+    const [idSomme, idSomme2, idDiviseur, idQuotient] = sortie;
+    const idDivise = `${ctx.cle}div`;
+
+    const corps = enchainer([
+      { op: 'group', targets: ctx.ids, symbol: spec.symbole || 'moy.', label: titre },
+      { op: 'insertOperators', between: ctx.ids, ids: signes, glyph: '+' },
+      {
+        op: 'sum',
+        targets: ctx.ids,
+        consume: signes,
+        partials: partielsSomme(vs).slice(1),
+        to: token(idSomme, somme, 'number'),
+        symbol: spec.symbole || 'moy.',
+        accolade: 'existante',
+      },
+      // Le diviseur paraît à côté de la somme : c'est le nombre de termes qu'on
+      // vient de voir descendre, il n'a pas à être cru sur parole. La somme
+      // RENAÎT sous un autre identifiant — un id supprimé ne se réutilise pas.
+      {
+        op: 'substitute',
+        pairs: [{
+          target: idSomme,
+          to: [token(idSomme2, somme, 'number'), token(idDiviseur, vs.length, 'number')],
+        }],
+      },
+      { op: 'insertOperators', between: [idSomme2, idDiviseur], ids: [idDivise], glyph: '÷' },
+      {
+        op: 'sum',
+        targets: [idSomme2, idDiviseur],
+        consume: [idDivise],
+        partials: [somme, apres.valeur],
+        to: token(idQuotient, apres.valeur, 'number'),
+        symbol: spec.symbole || 'moy.',
+      },
+    ]);
+    // L'accolade de la SOMME se retire quand le diviseur paraît : la division
+    // qui suit trace la sienne, sur ses deux termes à elle.
+    const groupe = corps.find((o) => o.op === 'group');
+    const releve = corps.find((o) => o.op === 'substitute');
+    if (groupe && releve) groupe.fadeAt = Math.max(0, releve.at - groupe.at - 200);
+    return [etape(ctx, titre,
+      `${vs.join(' + ')} = ${somme}, ÷ ${vs.length} = ${apres.valeur}`,
+      corps, { hold: 500 })];
+  };
+}
+
+/**
  * ★ COMPTER LES DIFFÉRENTS — par vagues, du plus solitaire au plus répété.
  *
  * Le geste effaçait les redites et comptait le reste : on voyait donc des
@@ -523,6 +582,7 @@ const GESTES = Object.freeze({
   selection: etapeSelection,   // on encadre, l'élu descend, le reste s'efface
   accolement: etapeAccolement, // les espaces se résorbent, rien d'autre
   distincts: etapeDistincts,   // par vagues : les solitaires, les paires, les trios
+  fraction: etapeFraction,     // on additionne, on compte, on divise
   ecart: etapeEcart,           // le plus grand moins le plus petit, montré
 });
 
@@ -596,6 +656,37 @@ const agregations = [
     notoriete: 0.55, adHoc: 0.1, lecture: '+',
     calcul: (vs) => Math.round(vs.reduce((a, b) => a + b, 0) / vs.length),
     geste: 'moyenne', minimum: 2,
+  },
+  {
+    // ★ LA MOYENNE MONTRÉE COMME UNE DIVISION — inactive, en attente d'un avis.
+    //
+    //   `c.moyenne` nivelle : un `1` passe du plus grand au plus petit jusqu'à
+    //   ce que tout se tienne, puis ce qui est devenu égal fusionne. Le geste
+    //   montre POURQUOI la moyenne est ce qu'elle est, mais pas ce qu'on
+    //   calcule. Celui-ci fait l'inverse : on additionne sous l'accolade, on
+    //   relève combien on était, on divise. Trois nombres à l'écran, et
+    //   l'arrondi se lit dans l'écart.
+    //
+    //   Il est INACTIF par défaut. Branché, il fait rougir le couronnement des
+    //   triptyques et la récolte : sa chorégraphie en six ops met le modèle de
+    //   ligne et la scène en désaccord quelque part, et livrer ça aurait été
+    //   livrer un défaut. Il attend son arbitrage — jouable depuis la page de
+    //   debug, hors du classement.
+    //
+    //   ⚠️ Le quotient est ARRONDI : la division n'est pas exacte, et le
+    //   prétendre serait un calcul faux. `partials` porte la valeur annoncée,
+    //   et le moteur visuel la recoupe contre `to.text`.
+    id: 'c.moyenneDivisee', code: 'cmod',
+    symbole: 'moy.',
+    libelle: bilingue('On fait la moyenne, en divisant', 'Take the average, by dividing'),
+    gabarit: bilingue('On fait la moyenne des %s, en divisant', 'Take the average of the %s, by dividing'),
+    regle: bilingue('La somme divisée par le nombre de valeurs, arrondie',
+      'The sum divided by how many values there are, rounded'),
+    notoriete: 0.55, adHoc: 0.1,
+    actifParDefaut: false,
+    calcul: (vs) => Math.round(vs.reduce((a, b) => a + b, 0) / vs.length),
+    sortie: (avant, apres, ctx) => [nomsTokens(ctx, 4)[3]],
+    geste: 'fraction', minimum: 2,
   },
   {
     id: 'c.cardinal', code: 'cnv',

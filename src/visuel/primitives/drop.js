@@ -27,7 +27,7 @@
  * sinon un `seek()` en arrière ne pourrait pas le faire revenir.
  */
 
-import { targetsOf, effacerSurPlace } from './helpers.js';
+import { targetsOf, effacerSurPlace, suivreLesAccolades } from './helpers.js';
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
 
@@ -70,7 +70,13 @@ export function plan(ctx) {
     ctx.scene.kill(id, ctx.where);
   });
 
-  if (regroup) ctx.reflow({ at: fall * 0.6, dur: ctx.dur - fall * 0.6, ease: EASE.move });
+  if (regroup) {
+    const bouge = { at: fall * 0.6, dur: ctx.dur - fall * 0.6, ease: EASE.move };
+    ctx.reflow(bouge);
+    // ★ L'accolade se resserre AVEC la ligne : ce qu'elle embrassait vient de
+    //   rétrécir, et garder sa largeur reviendrait à désigner du vide.
+    suivreLesAccolades(ctx, bouge);
+  }
   else ctx.occupy(ctx.dur);
 }
 
@@ -83,6 +89,10 @@ export function plan(ctx) {
  */
 function planEffacement(ctx, ids, regroup) {
   const fin = effacerSurPlace(ctx, ids, { at: 0, dur: ctx.dur });
-  if (regroup) ctx.reflow({ at: fin, dur: ctx.dur * 0.4, ease: EASE.move });
+  if (regroup) {
+    const bouge = { at: fin, dur: ctx.dur * 0.4, ease: EASE.move };
+    ctx.reflow(bouge);
+    suivreLesAccolades(ctx, bouge);
+  }
   else ctx.occupy(fin);
 }

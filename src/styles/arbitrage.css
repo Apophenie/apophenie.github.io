@@ -27,5 +27,10 @@
 .arb__label { display: block; margin-bottom: .3rem; font-weight: 600; }
 .arb__avis { width: 100%; font: inherit; font-family: ui-monospace, monospace; font-size: .85rem; padding: .6rem; }
 .arb__actions { display: flex; gap: .6rem; margin-top: .6rem; }
+/* ★ « Vider la mémoire » est POUSSÉ À DROITE, seul, loin de « Bilan ».
+   Les deux boutons voisins n'ont rien de comparable : l'un affiche, l'autre
+   détruit sans retour possible. Les mettre côte à côte, c'était offrir de
+   perdre tous ses avis d'un clic mal visé. */
+.arb__action--danger { margin-left: auto; }
 .arb__action { min-height: 2.6rem; padding: 0 1rem; font: inherit; cursor: pointer; }
 .arb__bilan { margin-top: 1rem; padding: .8rem; border: 1px dashed currentColor; white-space: pre-wrap; font-size: .85rem; }

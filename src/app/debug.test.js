@@ -33,7 +33,7 @@ import {
   programmePour, sensDesPaliers, mesurerLesPaliers, saisiesTemoins, PROFONDEUR_EXEMPLE,
   TERMES_IDEAUX,
 } from './pages/debug.js';
-import { CATALOGUE, appliquer, PAR_CODE } from '../moteur/catalogue.js';
+import { CATALOGUE, appliquer, PAR_CODE, operateursActifs } from '../moteur/catalogue.js';
 import { depuisSaisie, signature } from '../moteur/etat.js';
 import { creerMoteur } from '../recherche/index.js';
 import { BAREME, NATURE, FICELLES, detailDuCredit } from '../recherche/elegance.js';
@@ -129,7 +129,12 @@ test('chaque opérateur a un exemple, et cet exemple l’emploie réellement', (
  * dessus : il attrape la régression, il ne fige pas le chiffre.
  */
 test('★ l’exemple SÉPARE l’opérateur de ses semblables', () => {
-  const actifs = CATALOGUE.filter((op) => !op.deprecated && !op.isJoker);
+  // ★ Les RIVAUX sont les opérateurs ACTIFS, exactement comme la page les
+  //   compte (`pages/debug.js › amontParType`). Un opérateur inactif par
+  //   défaut est écrit mais pas encore jugé : il ne dispute aucune place dans
+  //   un classement dont il est absent, et exiger qu'on s'en distingue
+  //   reviendrait à le faire peser sur un choix qu'il ne prend pas.
+  const actifs = operateursActifs({ maitres: true });
   const confondus = [];
   let total = 0;
   let couverture = 0;
