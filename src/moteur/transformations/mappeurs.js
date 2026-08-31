@@ -1873,21 +1873,121 @@ const MAPPEURS_LETTRE = [
   });
 });
 
+const LIB_MLM = bilingue('Chaque mot vaut son nombre de lettres', 'Each word is worth its letter count');
+const REGLE_MLM = bilingue('On compte les lettres de chaque jeton', 'Count the letters of every token');
+
+/**
+ * ★ **UN MOT SE COMPTE, LETTRE PAR LETTRE — comme tout le reste.**
+ *
+ * `m.longueurToken` se contentait du geste sobre : `hope` s'effaçait, `4`
+ * paraissait, `fr` s'effaçait, `2` paraissait. C'était la faute exacte que
+ * `n.longueur` avait déjà corrigée pour la ligne entière — « rien n'y
+ * distinguait "on compte les lettres" de "on compte les voyelles", et le
+ * nombre annoncé n'était jamais celui qu'on avait vu se former ». Un mot qui
+ * devient un nombre sans qu'on ait vu compter est une affirmation de plus.
+ *
+ * « Animation manquante/catastrophique, appliquer ce que je dis pour `jnf` »
+ * (l'auteur) — c'est-à-dire le comptage sous accolade de `cnj` et de
+ * `n.longueur`. Le geste est donc le leur, mot pour mot, et il vient du même
+ * endroit (`opComptage`, `combinateurs.js`) :
+ *
+ *  ① le mot S'ÉCLATE en ses lettres — nées sur leurs propres glyphes, puisque
+ *    mises bout à bout elles réécrivent le mot (`substitute` l'exige) ;
+ *  ② l'accolade se ferme, chaque lettre descend dans sa pointe et fait avancer
+ *    le compteur d'un cran, et le nombre remonte prendre la place du mot.
+ *
+ * ★ **Un step PAR MOT.** Même raison que pour les tables et les afficheurs :
+ * compter quatre mots à la fois, ce sont quatre chantiers simultanés, et l'on
+ * ne voit plus quel mot a donné quel nombre — c'est-à-dire précisément ce
+ * qu'il fallait montrer.
+ *
+ * ★ **Ce qui n'est pas une lettre ne compte pas, et on le VOIT ne pas
+ * compter** : `count` ne désigne que les lettres, le reste s'efface sur place
+ * sans faire bouger le compteur. C'est la règle d'`etapeMesure`, appliquée à
+ * l'intérieur d'un mot au lieu de la ligne entière.
+ *
+ * ★ **Un mot d'une seule lettre garde le geste sobre.** L'éclater en
+ * lui-même pour compter jusqu'à un ne montrerait rien : il n'y a pas de
+ * comptage à voir, il y a un `1` à écrire.
+ */
+function etapeLongueurMot() {
+  return (avant, apres, ctx) => {
+    const sortie = nomsTokens(ctx, apres.valeur.length);
+    const titre = (langue) => dire(LIB_MLM, langue);
+    return avant.valeur.map((mot, i) => {
+      const chars = [...String(mot)];
+      const n = apres.valeur[i];
+      const to = token(sortie[i], n, 'number');
+      const t = titre(ctx.langue);
+      const legende = `${dire(REGLE_MLM, ctx.langue)} : ${mot} → ${n}`;
+      if (chars.length < 2) {
+        return etape(ctx, t, legende, enchainer([
+          { op: 'substitute', pairs: [{ target: ctx.ids[i], to }] },
+          { op: 'pulse', targets: [sortie[i]] },
+        ]), { id: `s_${ctx.cle}_${i}` });
+      }
+      const lettres = chars.map((_, k) => `${ctx.cle}l${i}x${k}`);
+      const comptees = lettres.filter((_, k) => estLettre(chars[k]));
+      return etape(ctx, t, legende, enchainer([
+        {
+          op: 'substitute',
+          pairs: [{
+            target: ctx.ids[i],
+            to: chars.map((c, k) => token(lettres[k], c, estLettre(c) ? 'letter' : 'sep')),
+          }],
+        },
+        opComptage({
+          ids: lettres,
+          // `count` n'est déclaré que s'il RESTREINT : un mot tout en lettres
+          // compte entièrement, et le dire deux fois n'ajoute rien.
+          count: comptees.length === lettres.length ? null : comptees,
+          symbole: '#',
+          libelle: t,
+          to,
+        }),
+      ]), { id: `s_${ctx.cle}_${i}`, hold: 400 });
+    });
+  };
+}
+
 const AUTRES_MAPPEURS = [
   def({
     id: 'm.longueurToken', code: 'mlm', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
-    libelle: bilingue('Chaque mot vaut son nombre de lettres', 'Each word is worth its letter count'),
-    regle: bilingue('On compte les lettres de chaque jeton', 'Count the letters of every token'),
+    libelle: LIB_MLM,
+    regle: REGLE_MLM,
+    // ★ **« EN QUOI NE FAIT-IL PAS DOUBLON avec `cnj` / `nl` ? »** (l'auteur).
+    //
+    //   Réponse MESURÉE, pas argumentée. Sur un corpus de dix découpages en
+    //   mots, on a comparé la sortie de `mlm` à celle de **tous** les autres
+    //   opérateurs du catalogue, puis à celle de **toutes** les compositions de
+    //   deux codes : aucun ne la reproduit, pas une fois.
+    //
+    //   La raison tient dans les TYPES, et elle est nette :
+    //
+    //   | code  | de → vers      | ce qu'il rend                          |
+    //   |-------|----------------|----------------------------------------|
+    //   | `nl`  | `STR → NUM`    | un nombre, AVANT tout découpage         |
+    //   | `cnj` | `TOKENS → NUM` | un nombre : **combien de morceaux**     |
+    //   | `mlm` | `TOKENS → NUMS`| **un nombre PAR morceau**               |
+    //
+    //   Sur `["hope"]`, `mlm` rend `[4]` et `cnj` rend `1` — l'un compte les
+    //   lettres du mot, l'autre compte les mots. Ils ne se ressemblent que sur
+    //   `nl("hope") = 4`, et encore : `nl` travaille sur la chaîne, avant
+    //   qu'un tokeniseur ait pu passer, et rend un scalaire. Une fois la ligne
+    //   découpée, `nl` n'est plus applicable du tout.
+    //
+    //   Ce que `mlm` apporte et que rien d'autre n'apporte, c'est donc le
+    //   VECTEUR : `hope-hope-hope.fr` → `[4, 4, 4, 2]`, sur lequel un
+    //   combinateur peut ensuite prendre l'écart, le maximum, la moyenne. Le
+    //   réduire à un scalaire, c'est perdre le découpage — c'est-à-dire
+    //   précisément ce que le README promet de montrer.
     notoriete: 0.90,
     apply: (valeur, traces) => {
       const out = valeur.map((tok) => [...String(tok)].filter(estLettre).length);
       if (!out.length || out.some((n) => n === 0)) return null;
       return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
     },
-    steps: etapeMappeur({
-      libelle: bilingue('Chaque mot vaut son nombre de lettres', 'Each word is worth its letter count'),
-      regle: bilingue('On compte les lettres de chaque jeton', 'Count the letters of every token'),
-    }),
+    steps: etapeLongueurMot(),
   }),
   def({
     id: 'm.reduireChaque', code: 'mrn', famille: 'mappeur', from: 'NUMS', to: 'NUMS',

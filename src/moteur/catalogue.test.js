@@ -737,6 +737,63 @@ test('★ pmr — le nombre s’éclate, les chiffres s’échangent en ellipse,
   assert.ok(!zero.ops.some((o) => o.op === 'move'), 'pas de miroir quand un chiffre se perd');
 });
 
+/**
+ * ★ `mlm` compte, il n'annonce pas — et il ne fait doublon avec personne.
+ *
+ * Deux questions de l'auteur, deux réponses mesurées.
+ *
+ * 1. L'ANIMATION. Elle se contentait du geste sobre : `hope` s'efface, `4`
+ *    paraît. C'est la faute exacte que `n.longueur` avait déjà corrigée pour la
+ *    ligne entière. « Appliquer ce que je dis pour `jnf` » — c'est-à-dire le
+ *    comptage sous accolade de `cnj` et de `nl` : le mot s'éclate en lettres,
+ *    chacune descend dans la pointe et fait avancer le compteur.
+ *
+ * 2. LE DOUBLON. « En quoi ne fait-il pas doublon [avec `cnj` / `nl`] ? » — la
+ *    réponse est dans les types, et ce test la fige plutôt que de l'affirmer.
+ */
+test('★ mlm — un mot se compte lettre par lettre, et ne double ni cnj ni nl', () => {
+  const entree = T(['hope', 'fr']);
+  const op = PAR_CODE.get('mlm');
+  const apres = appliquer(op, entree);
+  assert.deepEqual(apres.valeur, [4, 2]);
+
+  // ① UN STEP PAR MOT : compter deux mots à la fois, ce sont deux chantiers
+  //    simultanés, et l'on ne voit plus quel mot a donné quel nombre.
+  const steps = etapes(op, entree, apres, { ids: ['t0', 't1'], cle: 'e0' });
+  assert.equal(steps.length, 2);
+
+  // ② Le mot S'ÉCLATE en ses lettres, qui le reconstituent — sans quoi
+  //    `substitute` refuserait —, puis l'accolade les compte une par une.
+  const [eclat, compte] = steps[0].ops;
+  assert.equal(eclat.op, 'substitute');
+  assert.equal(eclat.pairs[0].to.map((t) => t.text).join(''), 'hope');
+  assert.equal(compte.op, 'group');
+  assert.deepEqual(compte.targets, eclat.pairs[0].to.map((t) => t.id));
+  assert.equal(compte.to.text, '4', 'le compteur remonte le nombre qu’il a compté');
+  assert.equal(compte.symbol, '#');
+
+  // ③ LE DOUBLON, mesuré : aucun opérateur du catalogue ne rend ce que rend
+  //    `mlm`, et aucune composition de deux codes non plus.
+  const attendu = JSON.stringify(apres.valeur);
+  const memeSortie = (o) => {
+    const r = appliquer(o, entree);
+    return r && JSON.stringify(r.valeur) === attendu;
+  };
+  const jumeaux = CATALOGUE.filter((o) => o.code !== 'mlm' && memeSortie(o));
+  assert.deepEqual(jumeaux.map((o) => o.code), [], 'aucun jumeau au catalogue');
+
+  // ④ Et la raison tient dans les TYPES : `cnj` compte les MORCEAUX, `mlm`
+  //    compte les LETTRES de chacun. Sur un mot unique, l'un rend 1, l'autre 4.
+  const un = T(['hope']);
+  assert.deepEqual(appliquer(PAR_CODE.get('mlm'), un).valeur, [4]);
+  assert.equal(appliquer(PAR_CODE.get('cnj'), un).valeur, 1);
+  // `nl`, lui, travaille sur la CHAÎNE — avant tout découpage — et rend un
+  // scalaire : une fois la ligne découpée, il n'est plus applicable du tout.
+  assert.equal(PAR_CODE.get('nl').from, 'STR');
+  assert.equal(PAR_CODE.get('mlm').to, 'NUMS', 'ce que mlm apporte, c’est le VECTEUR');
+  assert.equal(appliquer(PAR_CODE.get('nl'), entree), null);
+});
+
 test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émetteur', () => {
   for (const [code, entree] of VECTEURS) {
     const op = PAR_CODE.get(code);
