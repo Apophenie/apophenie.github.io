@@ -386,19 +386,42 @@ function etapeEcart(spec) {
     ]);
 
     // Les deux étiquettes vivent EN PARALLÈLE du reste : elles ne touchent
-    // aucun jeton, rien ne les oblige à attendre leur tour, et elles doivent
-    // tenir jusqu'à ce que les nombres qu'elles désignent quittent la ligne.
+    // aucun jeton, rien ne les oblige à attendre leur tour.
     const debut = corps[1] ? corps[1].at : corps[2].at;
+    // ★ ELLES S'EN VONT UNE FOIS LE SIGNE POSÉ, et pas avant.
+    //
+    //   « MAX et MIN […] ne doivent disparaître qu'une fois le − placé entre
+    //   les deux » (l'auteur). Elles ont désigné les deux élus, elles les ont
+    //   suivis pendant qu'on les rangeait, et leur travail s'achève quand la
+    //   soustraction est ÉCRITE : à partir de là, c'est le calcul qui parle, et
+    //   deux étiquettes de plus au-dessus de lui ne diraient rien.
+    //
+    //   Le fondu de `fugace` occupe les 22 derniers pour cent de la tenue : on
+    //   la calcule donc pour qu'il COMMENCE à l'instant du calcul, au lieu de
+    //   s'y terminer — les étiquettes s'effaçaient jusque-là pendant que le
+    //   signe paraissait, c'est-à-dire pile au moment qu'elles devaient tenir.
     const jusquAu = corps[corps.length - 1].at;
-    const tenue = Math.max(400, jusquAu - debut);
-    for (const [id, mot] of [[idMax, MOTS[0]], [idMin, MOTS[1]]]) {
-      corps.push({
-        op: 'annotate', anchor: [id], text: mot, place: 'above',
-        // Collée à son nombre : c'est LUI qu'elle désigne, pas la ligne.
-        ecart: 0.62,
-        fugace: true, at: debut, dur: tenue,
-      });
-    }
+    const tenue = Math.max(400, (jusquAu - debut) / 0.78);
+    const etiquettes = [idMax, idMin].map((id, k) => ({
+      op: 'annotate', anchor: [id], text: MOTS[k], place: 'above',
+      // Collée à son nombre : c'est LUI qu'elle désigne, pas la ligne.
+      ecart: 0.62,
+      // ★ Et elle le SUIT. Le geste range le grand devant le petit, puis
+      //   intercale le signe : sans accrochage, `MAX` restait à la place que le
+      //   maximum occupait et c'est le MINIMUM qui venait s'y installer.
+      suit: true,
+      fugace: true, at: debut, dur: tenue,
+    }));
+    // ★ Et elles sont posées AVANT le rangement, dans l'ordre des ops.
+    //
+    //   Un accroché ne suit son jeton que s'il EXISTE au moment où celui-ci se
+    //   déplace (`compile.js`) — c'est la même règle que pour le brasier du
+    //   verdict. Émises en queue, les deux étiquettes naissaient après que le
+    //   `move` et l'`insertOperators` avaient joué : elles héritaient des
+    //   positions FINALES et n'avaient plus rien à suivre. Leur `at` reste
+    //   celui qu'il était : c'est la place dans la liste qui compte pour la
+    //   compilation, pas pour l'horloge.
+    corps.splice(1, 0, ...etiquettes);
     return [etape(ctx, titre, `${apres.valeur}`, corps, { hold: 400 })];
   };
 }

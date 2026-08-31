@@ -117,7 +117,18 @@ test('à l’écran : les perdants s’effacent sur place, l’élu vole vers la
 test('l’écart DÉSIGNE ses deux élus, les range, et pose le signe entre eux', () => {
   const [step] = stepsDe('cmm', etatNums([8, 15, 16, 5]), etatNum(11), ['t0', 't1', 't2', 't3']);
   const noms = step.ops.map((o) => o.op);
-  assert.deepEqual(noms.slice(0, 5), ['group', 'drop', 'move', 'insertOperators', 'sum']);
+  // ★ CE GEL A BOUGÉ, et il fallait qu'il bouge. Les deux étiquettes étaient
+  //   émises en QUEUE de liste — elles ne touchent aucun jeton, l'ordre semblait
+  //   donc libre. Il ne l'est pas : un décor accroché ne suit son jeton que s'il
+  //   EXISTE au moment où celui-ci se déplace (`compile.js`). Émises en dernier,
+  //   `MAX` et `MIN` naissaient APRÈS le rangement et l'insertion du signe,
+  //   héritaient des positions finales, et n'avaient plus rien à suivre. Ce que
+  //   ce test gèle reste le geste — accolade, effacement, rangement, signe,
+  //   calcul, dans cet ordre — ; ce qui s'y ajoute est que les désignations
+  //   sont posées AVANT ce qu'elles doivent accompagner.
+  assert.deepEqual(noms, [
+    'group', 'annotate', 'annotate', 'drop', 'move', 'insertOperators', 'sum',
+  ]);
   const parNom = Object.fromEntries(step.ops.map((o) => [o.op, o]));
   assert.equal(parNom.group.symbol, 'Δ');
   assert.deepEqual(parNom.drop.targets, ['t0', 't1'], 'ni le max ni le min ne s’effacent');
@@ -126,8 +137,74 @@ test('l’écart DÉSIGNE ses deux élus, les range, et pose le signe entre eux'
   assert.equal(parNom.insertOperators.glyph, '−', 'le signe de la soustraction, écrit');
   assert.deepEqual(parNom.sum.partials, [16, 11], 'le premier se pose, le second retranche');
   assert.equal(parNom.sum.accolade, 'existante', 'pas de seconde accolade par-dessus la première');
-  const etiquettes = step.ops.filter((o) => o.op === 'annotate').map((o) => o.text);
-  assert.deepEqual(etiquettes.sort(), ['MAX', 'MIN'], 'les deux élus sont NOMMÉS');
+  const etiquettes = step.ops.filter((o) => o.op === 'annotate');
+  assert.deepEqual(etiquettes.map((o) => o.text).sort(), ['MAX', 'MIN'], 'les deux élus sont NOMMÉS');
+  for (const e of etiquettes) assert.equal(e.suit, true, 'et elles SUIVENT leur nombre');
+});
+
+/**
+ * ★ UNE DÉSIGNATION SUIT CE QU'ELLE DÉSIGNE.
+ *
+ * « Quand il y a redimensionnement/déplacement du max et du min, MAX et MIN
+ * devraient suivre leur nombre et ne disparaître qu'une fois le − placé entre
+ * les deux » (l'auteur).
+ *
+ * Le grief était mesurable et il était grave : le geste range le maximum devant
+ * le minimum, et `MAX` restait à la place que le maximum venait de quitter —
+ * place où le MINIMUM venait précisément s'installer. Pendant huit dixièmes de
+ * seconde, l'étiquette annonçait le contraire de ce qu'elle désignait.
+ */
+test('l’écart : MAX et MIN suivent leur nombre, et ne partent qu’une fois le signe posé', () => {
+  const [step] = stepsDe('cmm', etatNums([8, 15, 16, 5]), etatNum(11), ['t0', 't1', 't2', 't3']);
+  const tl = compile(sc([{ ...step, id: 'a' }], nums([8, 15, 16, 5])));
+
+  // Chaque étiquette est ACCROCHÉE à son nombre, à l'écart près : elle est
+  // au-dessus de lui, pas dessus.
+  const par = {};
+  for (const n of tl.nodes) if (n.role === 'label' && ['MAX', 'MIN'].includes(n.text)) par[n.text] = n;
+  assert.equal(par.MAX.data.suit, 't2', 'MAX est accroché au maximum');
+  assert.equal(par.MIN.data.suit, 't3', 'MIN est accroché au minimum');
+  assert.ok(par.MAX.data.decalage.dy < 0, 'et posée AU-DESSUS de lui');
+
+  // À chaque déplacement du nombre correspond un déplacement de son étiquette,
+  // au même instant, de la même distance.
+  //
+  // ★ Depuis sa NAISSANCE seulement : l'accolade resserre la ligne avant que
+  //   les étiquettes n'existent, et une étiquette ne peut pas suivre un
+  //   déplacement antérieur à elle. C'est exactement pour cela qu'elles sont
+  //   posées tôt — mais pas plus tôt que l'accolade, qui les placerait sur des
+  //   nombres qu'elle est en train de rapprocher.
+  //
+  // ★ Et jusqu'à leur DÉPART seulement : après le signe, les deux termes
+  //   descendent sous l'accolade et les étiquettes ne les y suivent pas — elles
+  //   ont fini leur travail, et un « MAX » qui plongerait dans le calcul
+  //   désignerait un nombre qui n'est plus là.
+  const naissance = tl.anims.find((a) => a.id === par.MAX.id).delay;
+  const depart = animsDe(tl, par.MAX.id, 'opacity').at(-1).delay;
+  for (const [mot, jeton] of [['MAX', 't2'], ['MIN', 't3']]) {
+    const duJeton = animsDe(tl, jeton, 'translate')
+      .filter((a) => a.delay >= naissance && a.delay < depart);
+    const deLEtiquette = animsDe(tl, par[mot].id, 'translate');
+    assert.ok(duJeton.length >= 2, 'le nombre est bien rangé puis écarté par le signe');
+    for (const a of duJeton) {
+      const jumelle = deLEtiquette.find((b) => b.delay === a.delay && b.duration === a.duration);
+      assert.ok(jumelle, `${mot} ne suit pas le déplacement de ${jeton} à ${a.delay} ms`);
+      const dx = (v) => v.keyframes.at(-1).value.x - v.keyframes[0].value.x;
+      assert.ok(Math.abs(dx(jumelle) - dx(a)) < 1e-6, `${mot} ne parcourt pas la même distance`);
+    }
+  }
+
+  // ★ Et elles s'en vont APRÈS le signe : le fondu commence là où le calcul
+  //   commence, il ne se termine plus pendant que le « − » paraît.
+  const signe = tl.anims.find((a) => a.id === 'e0moins' && a.prop === 'opacity')
+    || tl.anims.find((a) => a.prop === 'opacity' && (tl.nodes.find((n) => n.id === a.id) || {}).text === '−');
+  const sortie = tl.anims.filter((a) => a.id === par.MAX.id && a.prop === 'opacity').at(-1);
+  assert.ok(sortie.delay >= signe.delay + signe.duration - 1,
+    'MAX ne doit pas commencer à s’effacer avant que le « − » ne soit posé');
+
+  // Et aucune animation concurrente : le geste d'entrée ne s'étire pas sur
+  // toute la tenue de l'étiquette, sinon il chevaucherait ses propres suivis.
+  assert.deepEqual(tl.warnings, []);
 });
 
 test('l’écart se joue vraiment, et il ne reste que sa différence', () => {

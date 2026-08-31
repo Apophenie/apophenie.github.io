@@ -512,9 +512,23 @@ export function compile(scenario, options = {}) {
             // décroche au reflow : le halo, comme les cornes du 666. Le
             // déplacement est le MÊME (mêmes `at`, `dur` et courbe), sans quoi
             // le décor arriverait après ce qu'il désigne.
+            //
+            // ★ `data.decalage` — l'accroché qui ne se pose PAS sur son jeton.
+            //
+            //   Les trois accrochés historiques — le halo, la corne, le brasier
+            //   — sont dessinés SUR leur jeton : ils naissent à sa position, et
+            //   les recoller dessus à chaque reflow est exactement juste. Une
+            //   ÉTIQUETTE, non : « MAX » se pose au-dessus du nombre qu'il
+            //   désigne, et le recoller dessus l'y enfoncerait. Ceux-là
+            //   déclarent donc leur écart à la création, et c'est cet écart
+            //   qu'on reporte — pas l'écart COURANT, qui aurait dérivé au
+            //   premier déplacement fait hors reflow.
             for (const sid of scene.satellitesDe(m.id)) {
               if (!scene.pos(sid)) continue;
-              const mv = scene.place(sid, { x: m.to.x, y: m.to.y });
+              const d = (scene.get(sid).data || {}).decalage;
+              const mv = scene.place(sid, d
+                ? { x: m.to.x + (d.dx || 0), y: m.to.y + (d.dy || 0) }
+                : { x: m.to.x, y: m.to.y });
               if (!mv) continue;
               ctx.anim({
                 id: sid, prop: 'translate', from: mv.from, to: mv.to,
