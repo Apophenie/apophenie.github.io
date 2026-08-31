@@ -4,6 +4,11 @@ import { creerMoteur, creerCanal } from '../index.js';
 import { lire } from '../url.js';
 import { encoderTexte } from '../base58.js';
 import { validerCatalogue, chercherSix, operateursExplorables, D_MAX, MAX_NODES, BUDGET_MS, N_FRAG_MAX } from '../bfs.js';
+// ★ La borne du budget global se LIT là où elle se règle — `src/config.js`, le
+//   seul fichier que l'on vient changer sans lire le moteur. La recopier ici,
+//   c'était en fabriquer une seconde, et c'est exactement ce qui est arrivé :
+//   elle est restée à 1 000 ms pendant que la vraie passait à 5 000.
+import { BUDGET_TOTAL_MS } from '../../config.js';
 import { construireBassin, statistiquesBassin, DISTANCE_MAX } from '../bassin.js';
 import { genererFragments, motifsRepetes, periodicite, tokeniser, zonesSignifiantes, structureUrl } from '../fragments.js';
 import {
@@ -547,7 +552,26 @@ test('budget — chaque fragment reste sous BUDGET_MS', () => {
   }
 });
 
-test('budget — le pipeline complet tient sous la seconde', () => {
+/**
+ * ★ **CINQ SECONDES, ET LA JAUGE EST LA CONDITION** — pas une seconde.
+ *
+ * « S'il y a une barre de progression pour la recherche, avec un avancement
+ * lisible, alors on peut dépasser le budget d'une seconde pour aller disons
+ * jusqu'à cinq secondes max » (l'auteur). La condition est remplie depuis que la
+ * recherche rend la main par tranches et annonce son avancement fragment par
+ * fragment (`recherche/tranches.js`, `app/jauge.js`), et `config.js › `
+ * `BUDGET_TOTAL_MS` a été relevé en conséquence.
+ *
+ * ⚠️ CE TEST, LUI, ÉTAIT RESTÉ À LA SECONDE — écrite en dur, `ms < 1000`, à
+ *   côté d'une constante qui disait 5000. Il rougissait donc sur
+ *   `https://hope-hope-hope.fr/` (≈ 1 960 ms CPU) en annonçant un dépassement
+ *   qui n'en était pas un, et je l'ai compté plusieurs jours durant parmi les
+ *   arbitrages en attente de l'auteur. Il ne recopie plus la borne : il la LIT.
+ *
+ * Le titre garde le mot « budget » et perd « la seconde », qui était le seul
+ * endroit du dépôt où le chiffre survivait encore.
+ */
+test('budget — le pipeline complet tient dans le budget global', () => {
   const m = creerMoteur(catalogue);
   const cas = [
     'https://hope-hope-hope.fr/',
@@ -574,7 +598,9 @@ test('budget — le pipeline complet tient sous la seconde', () => {
     const mural = performance.now() - t0;
     const u = process.cpuUsage(u0);
     const ms = (u.user + u.system) / 1000;
-    assert.ok(ms < 1000, `« ${s.slice(0, 30)} » : ${ms.toFixed(0)} ms CPU (${mural.toFixed(0)} ms mural)`);
+    assert.ok(ms < BUDGET_TOTAL_MS,
+      `« ${s.slice(0, 30)} » : ${ms.toFixed(0)} ms CPU (${mural.toFixed(0)} ms mural), `
+      + `budget ${BUDGET_TOTAL_MS} ms`);
     console.log(`    ${ms.toFixed(1).padStart(7)} ms CPU  ${String(r.approches.length).padStart(2)} approches  ${JSON.stringify(s.slice(0, 40))}`);
   }
 });

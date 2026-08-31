@@ -28,9 +28,22 @@ const SAISIES = [
   'Le chat dort sur le tapis rouge', 'https://www.example.com/path/to/page',
 ];
 
-/** Tous les titres produits par le moteur sur le corpus, dans les deux langues. */
+/**
+ * Tous les titres produits par le moteur sur le corpus, dans les deux langues.
+ *
+ * ⚠️ **`filetTemporel: false`, et ce n'était pas le cas.** Sans lui, la recherche
+ *   se laisse écourter par une horloge réelle : sous la charge d'une suite qui
+ *   lance ses fichiers en parallèle, elle rend une liste TRONQUÉE, et le test
+ *   compare alors des titres qu'aucune machine au repos ne produirait. Il
+ *   rougissait donc par intermittence, en accusant l'unicité des noms.
+ *
+ *   Les deux autres moteurs de ce fichier ne le posaient pas non plus. Un test
+ *   qui ne passe que sur une machine au repos ne prouve rien et finit par être
+ *   ignoré — c'est exactement ce que dit déjà `recherche.test.js` à propos du
+ *   budget, et la même règle vaut ici.
+ */
 function tousLesTitres() {
-  const m = creerMoteur(catalogue);
+  const m = creerMoteur(catalogue, { filetTemporel: false });
   const out = [];
   for (const s of SAISIES) {
     for (const a of m.resoudre(s).approches) {
@@ -197,7 +210,9 @@ test('★ titres — la typographie française des tables', () => {
  */
 test('★ titres — uniques dans la liste, et sans jamais montrer la plomberie', () => {
   const plomberie = /\b[a-z][0-9a-z]\+[a-z][0-9a-z]/;
-  const m = creerMoteur(catalogue);
+  // `filetTemporel: false` — voir `tousLesTitres` : une liste tronquée par
+  // l'horloge ferait juger des titres que la recherche n'aurait pas choisis.
+  const m = creerMoteur(catalogue, { filetTemporel: false });
   let vus = 0;
   for (const s of SAISIES) {
     const approches = m.resoudre(s).approches;
@@ -220,7 +235,7 @@ test('★ titres — uniques dans la liste, et sans jamais montrer la plomberie'
  * dans un titre — ils commencent tous par « On » ou par un article.
  */
 test('★ titres — la distinction est un fragment, pas une phrase de Registre', () => {
-  const m = creerMoteur(catalogue);
+  const m = creerMoteur(catalogue, { filetTemporel: false });
   for (const s of SAISIES) {
     const approches = distinguerTitres(m.resoudre(s).approches);
     for (const a of approches) {
