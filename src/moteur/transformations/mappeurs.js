@@ -92,6 +92,7 @@ import {
   valeurHebreu, valeurGrec, NOTE_SOURCAGE, TRANSLIT_HEBREU, TRANSLIT_GREC,
 } from '../tables/ecritures.js';
 import { decouperMots } from './filtres.js';
+import { estSeparateur } from './tokeniseurs.js';
 import {
   def, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade, ordreCroissant,
 } from './commun.js';
@@ -1493,13 +1494,79 @@ const MESURES = [
     },
   },
   {
+    /**
+     * ★ **IL COMPTE DÉSORMAIS CE QUE `tsp` MONTRE — et c'était un bug.**
+     *
+     * « Soit seuls les `/` sont comptés ce qui fait 3, soit tous les séparateurs
+     * le sont, et il manque `:` donc le total fait 5 et non 4. » (l'auteur)
+     *
+     * ⚠️ MESURÉ, sur la saisie qu'il donne. Sur `https://reinfocovid.fr/`,
+     * `tsp` — « on ne garde que les séparateurs » — rend CINQ jetons
+     * (`: / / . /`), et celui-ci en annonçait QUATRE : il lisait `[-._/]`, une
+     * seconde définition du mot « séparateur », plus étroite, recopiée ici et
+     * qui avait divergé de celle de `tokeniseurs.js`. Deux opérateurs du même
+     * catalogue, portant le même nom, ne comptaient pas la même chose.
+     *
+     * C'est la faute que CONTRACTS §0.3 nomme, et elle se corrige d'une seule
+     * façon : en supprimant la copie. `estSeparateur` est désormais la question
+     * posée à la SEULE source (`tokeniseurs.js`), celle-là même dont `tsp` tire
+     * ce qu'il affiche.
+     *
+     * ⚠️ **Un code alloué change donc de compte**, ce que le registre
+     * append-only (§4.1) n'autorise pas à la légère. C'est assumé comme une
+     * CORRECTION et non comme une variante : l'ancien compte n'était pas une
+     * autre lecture défendable, c'était le désaccord de deux opérateurs sur le
+     * sens d'un mot. Le vecteur gelé (`a-b.c` → 2) ne bouge pas ; ce qui bouge,
+     * ce sont les saisies portant `:`, `?`, `&`, `=`, `,`, `;`, `!`, `~`, `+`
+     * ou une espace — c'est-à-dire les adresses.
+     */
     id: 'n.separateurs', code: 'nsp',
-    libelle: bilingue('On compte les séparateurs', 'Count the separators'),
-    regle: bilingue('Les tirets, points et barres', 'Dashes, dots and slashes'),
+    libelle: bilingue('Combien de séparateurs ?', 'How many separators?'),
+    regle: bilingue(
+      'Tout ce qui sépare : tirets, points, barres, deux-points, espaces…',
+      'Everything that separates: dashes, dots, slashes, colons, spaces…',
+    ),
     notoriete: 0.65,
-    compte: (s) => [...s].filter((c) => /[-._/]/.test(c)).length || null,
-    cibles: (s) => rangs(s, (c) => /[-._/]/.test(c)),
+    compte: (s) => [...s].filter(estSeparateur).length || null,
+    cibles: (s) => rangs(s, estSeparateur),
   },
+  // ★ **LES QUATRE COMPTEURS PRÉCIS** — « tu peux faire plusieurs opérateurs :
+  //   un pour les séparateurs, un pour les `/`, un pour les `.`, pourquoi pas
+  //   un pour les espaces et un pour les `-` » (l'auteur).
+  //
+  //   Ils ne sont pas redondants avec celui du dessus : sur
+  //   `https://reinfocovid.fr/`, « tous les séparateurs » fait 5, « les barres »
+  //   3, « les points » 1. Trois lectures, trois nombres, et chacune s'énonce
+  //   AVANT d'avoir vu la saisie — ce qui est précisément ce qui les sépare
+  //   d'une ficelle.
+  //
+  //   ⚠️ Chacun COMPTE CE QU'IL MONTRE : l'accolade embarque un caractère à la
+  //   fois (`cibles`, le même prédicat que `compte`), et le contrôle croisé de
+  //   `comptageDe` refuse le geste si les deux ne tombent pas d'accord.
+  ...[
+    ['n.barres', 'nsl', 0.55, '/', bilingue('Combien de barres obliques ?', 'How many slashes?'),
+      bilingue('Les barres obliques d’une adresse', 'The slashes in an address')],
+    ['n.points', 'npt', 0.55, '.', bilingue('Combien de points ?', 'How many dots?'),
+      bilingue('Les points d’une adresse ou d’une phrase', 'The dots in an address or a sentence')],
+    ['n.espaces', 'nes', 0.60, ' ', bilingue('Combien d’espaces ?', 'How many spaces?'),
+      bilingue('Ce qui sépare les mots', 'What sets the words apart')],
+    ['n.tirets', 'ntr', 0.55, '-', bilingue('Combien de tirets ?', 'How many dashes?'),
+      bilingue('Les tirets, et eux seuls', 'The dashes, and nothing else')],
+  ].map(([id, code, notoriete, signe, libelle, regle]) => ({
+    id,
+    code,
+    libelle,
+    regle,
+    notoriete,
+    // ★ Un `adHoc` un cran au-dessus des mesures de lettres (0) : choisir QUEL
+    //   signe compter, parmi cinq, est déjà un choix — même s'il s'énonce
+    //   d'avance. Il reste très bas : le signe ne dépend pas du nombre cherché.
+    adHoc: 0.15,
+    // La comparaison est faite sur le caractère lui-même, jamais sur une
+    // expression rationnelle recopiée : un signe est un signe.
+    compte: (s) => [...s].filter((c) => c === signe).length || null,
+    cibles: (s) => rangs(s, (c) => c === signe),
+  })),
   {
     id: 'n.mots', code: 'nm',
     libelle: bilingue('On compte les mots', 'Count the words'),

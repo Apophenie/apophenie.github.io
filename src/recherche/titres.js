@@ -191,6 +191,12 @@ export const NOMS = {
   'n.consonnes': b('En comptant les consonnes', 'By counting the consonants'),
   'n.lettresDistinctes': b('En comptant les lettres distinctes', 'By counting the distinct letters'),
   'n.separateurs': b('En comptant les séparateurs', 'By counting the separators'),
+  // Les quatre compteurs précis : chacun NOMME le signe qu'il compte, sans
+  // quoi quatre voies différentes porteraient le même nom dans la liste.
+  'n.barres': b('En comptant les barres obliques', 'By counting the slashes'),
+  'n.points': b('En comptant les points', 'By counting the dots'),
+  'n.espaces': b('En comptant les espaces', 'By counting the spaces'),
+  'n.tirets': b('En comptant les tirets', 'By counting the dashes'),
   'n.mots': b('En comptant les mots', 'By counting the words'),
   'n.lettresPlusVoyelles': b('En comptant lettres et voyelles', 'By counting letters and vowels'),
   'n.lettresPlusConsonnes': b('En comptant lettres et consonnes', 'By counting letters and consonants'),
@@ -451,6 +457,10 @@ export const PRECISIONS = {
   'n.consonnes': b('au compte des consonnes', 'by consonant count'),
   'n.lettresDistinctes': b('au compte des lettres distinctes', 'by distinct-letter count'),
   'n.separateurs': b('au compte des séparateurs', 'by separator count'),
+  'n.barres': b('au compte des barres', 'by slash count'),
+  'n.points': b('au compte des points', 'by dot count'),
+  'n.espaces': b('au compte des espaces', 'by space count'),
+  'n.tirets': b('au compte des tirets', 'by dash count'),
   'n.mots': b('au compte des mots', 'by word count'),
   'n.lettresPlusVoyelles': b('lettres et voyelles', 'letters and vowels'),
   'n.lettresPlusConsonnes': b('lettres et consonnes', 'letters and consonants'),

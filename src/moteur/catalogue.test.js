@@ -121,7 +121,15 @@ const VECTEURS = [
   ['nv', S('hope'), 2],
   ['nc', S('hope'), 2],
   ['nd', S('hello'), 4],
+  // ★ « a-b.c » ne porte que des signes que l'ancienne définition connaissait
+  //   déjà : le gel ne bouge donc pas, alors même que le compte a changé sur
+  //   les adresses (voir `n.separateurs`, le `:` manquait).
   ['nsp', S('a-b.c'), 2],
+  // Les quatre compteurs précis, sur une saisie qui porte les quatre signes.
+  ['nsl', S('a/b c-d.e/f'), 2],
+  ['npt', S('a/b c-d.e/f'), 1],
+  ['nes', S('a/b c-d.e/f'), 1],
+  ['ntr', S('a/b c-d.e/f'), 1],
   ['nm', S('a-b.c'), 3],
   ['nlv', S('hope'), 6],
   ['nlc', S('hope'), 6],
@@ -346,8 +354,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 149);
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 149, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 153);
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 153, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -357,7 +365,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 149, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 153, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -531,6 +539,60 @@ test('★ la médiane : on range, les extrêmes s’annulent, le centre reste', 
   assert.equal(mediane([6, 6]), 6);
   // Un seul : une médiane demande au moins deux nombres, comme une moyenne.
   assert.equal(appliquer(PAR_CODE.get('cme'), N([6])), null);
+});
+
+/**
+ * ★ LES COMPTEURS DE SÉPARATEURS — sur l'adresse même de l'auteur.
+ *
+ * « Soit seuls les `/` sont comptés ce qui fait 3, soit tous les séparateurs le
+ * sont, et il manque `:` donc le total fait 5 et non 4. » (l'auteur)
+ *
+ * Ce test tient les deux lectures, et surtout la CONFRONTATION qui a révélé le
+ * bug : `tsp` MONTRE les séparateurs, `nsp` les COMPTE, et il n'existe qu'une
+ * seule définition du mot — donc les deux ne peuvent plus se contredire.
+ */
+test('★ séparateurs : ce que `tsp` montre est ce que `nsp` compte', () => {
+  const url = 'https://reinfocovid.fr/';
+  const montres = appliquer(PAR_CODE.get('tsp'), S(url)).valeur;
+  const comptes = appliquer(PAR_CODE.get('nsp'), S(url)).valeur;
+  assert.deepEqual(montres, [':', '/', '/', '.', '/'], 'cinq séparateurs, le « : » compris');
+  assert.equal(comptes, montres.length,
+    'le compte et la montre sortent de la MÊME définition (CONTRACTS §0.3)');
+  assert.equal(comptes, 5, '« il manque : donc le total fait 5 et non 4 » — l’auteur');
+
+  // ★ Et les compteurs PRÉCIS, qui donnent l’autre lecture qu’il propose.
+  assert.equal(appliquer(PAR_CODE.get('nsl'), S(url)).valeur, 3, '« seuls les / … ce qui fait 3 »');
+  assert.equal(appliquer(PAR_CODE.get('npt'), S(url)).valeur, 1, 'un seul point');
+  // Rien à compter, rien à montrer : une mesure qui rend zéro ne se joue pas.
+  assert.equal(appliquer(PAR_CODE.get('nes'), S(url)), null, 'aucune espace dans une adresse');
+  assert.equal(appliquer(PAR_CODE.get('ntr'), S(url)), null, 'aucun tiret non plus');
+  assert.equal(appliquer(PAR_CODE.get('ntr'), S('hope-hope-hope.fr')).valeur, 2, 'deux tirets');
+  assert.equal(appliquer(PAR_CODE.get('nes'), S('Le chat dort')).valeur, 2, 'deux espaces');
+});
+
+/**
+ * ★ LE JOKER COMPTE SES LETTRES UNE PAR UNE.
+ *
+ * « `jnf` devrait être "combien de caractères ?" et les compter 1 par 1 de la
+ * même manière que juste avant » (l'auteur). Le geste faisait autre chose : le
+ * chiffre devenait le mot d'un seul bloc et le compte paraissait — l'étape
+ * AFFIRMAIT que « quatre » a six lettres au lieu de le montrer.
+ */
+test('★ le joker écrit son mot, puis en compte les lettres une par une', () => {
+  const op = PAR_CODE.get('jnf');
+  const avant = U(4);
+  const apres = appliquer(op, avant);
+  assert.equal(apres.valeur, 6, '« quatre » — six lettres');
+  const [step] = etapes(op, avant, apres, { ids: ['t0'], cle: 'e0', langue: 'fr' });
+  const [ecrire, compter] = step.ops;
+  // ① le mot s’écrit lettre par lettre : six jetons, pas un bloc.
+  assert.equal(ecrire.op, 'substitute');
+  assert.deepEqual(ecrire.pairs[0].to.map((t) => t.text), ['q', 'u', 'a', 't', 'r', 'e']);
+  // ② et chaque lettre est comptée, sous l’accolade — le geste de tous les
+  //    comptages du site, emprunté et non recopié.
+  assert.equal(compter.op, 'group');
+  assert.equal(compter.targets.length, 6, 'six lettres embrassées');
+  assert.equal(compter.to.text, '6', 'et le compte qui en sort');
 });
 
 test('★ gel des codes publiés : chaque code rend exactement la même sortie', () => {

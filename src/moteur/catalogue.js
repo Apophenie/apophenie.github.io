@@ -87,7 +87,11 @@ export const ORDRE_CANONIQUE = Object.freeze([
   // ★ Les vingt-quatre autres décalages, par ordre croissant — voir
   //   `transformations/filtres.js › CESARS`. `fr13` garde son rang d'aîné.
   'fr1', 'fr2', 'fr3', 'fr4', 'fr5', 'fr6', 'fr7', 'fr8', 'fr9', 'fr10', 'fr11', 'fr12', 'fr14', 'fr15', 'fr16', 'fr17', 'fr18', 'fr19', 'fr20', 'fr21', 'fr22', 'fr23', 'fr24', 'fr25',
-  'tca', 'tm', 'tsp', 'tsy', 'tch', 'nl', 'nv', 'nc', 'nd', 'nsp', 'nm',
+  'tca', 'tm', 'tsp', 'tsy', 'tch', 'nl', 'nv', 'nc', 'nd', 'nsp',
+  // Les quatre compteurs PRÉCIS, derrière celui qui compte tout
+  // (`mappeurs.js`) : les barres, les points, les espaces, les tirets.
+  'nsl', 'npt', 'nes', 'ntr',
+  'nm',
   'nlv', 'nlc', 'ma1', 'mz26', 'mpy', 'mch', 'mx6', 'msfr', 'msen', 'mt9',
   'mms', 'mmt', 'masc', 'masb', 'm7', 'm7F', 'mtrc', 'mtrb', 'mexc', 'mexb',
   'mboc', 'mbob', 'mazc', 'mazr', 'mqwc', 'mqwr', 'maz4', 'mqw4', 'mhe', 'mgr', 'mln',

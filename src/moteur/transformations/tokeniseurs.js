@@ -13,7 +13,24 @@ import {
 } from './commun.js';
 import { decouperMots } from './filtres.js';
 
+/**
+ * ★ **CE QU'EST UN SÉPARATEUR — une seule fois, pour tout le catalogue.**
+ *
+ * `tsp` (« on ne garde que les séparateurs ») le lisait ici, et `nsp` (« on
+ * compte les séparateurs ») en tenait une seconde définition, plus étroite,
+ * dans `mappeurs.js` : `[-._/]`. Deux opérateurs du même catalogue, portant le
+ * même mot, ne comptaient donc pas la même chose — sur
+ * `https://reinfocovid.fr/`, l'un montrait CINQ séparateurs et l'autre en
+ * annonçait QUATRE, le `:` manquant à l'appel.
+ *
+ * ⚠️ C'est exactement la faute que CONTRACTS §0.3 nomme : une table recopiée
+ * qui a divergé. La liste vit donc ici, et elle est exportée ; il n'y a plus
+ * de seconde copie à faire diverger.
+ */
 const SEPARATEURS = /[-._/\s+~:?&=,;!]/;
+
+/** Ce caractère sépare-t-il ? — la question, posée à la seule source. */
+export const estSeparateur = (c) => SEPARATEURS.test(c);
 
 // Les libellés dont `steps()` a besoin AVANT que `def()` ait figé l'opérateur.
 const LIB_CARACTERES = bilingue('On prend les lettres une par une', 'Take the letters one by one');
