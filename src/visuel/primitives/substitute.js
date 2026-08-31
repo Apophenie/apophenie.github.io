@@ -99,6 +99,27 @@ export function plan(ctx) {
         offset += n;
       }
     });
+    // ★ **UNE ACCOLADE SUIT CE QU'ELLE EMBRASSE, MÊME REMPLACÉ.**
+    //
+    //   Le registre des accolades (`scene.accolades`) garde, pour chaque
+    //   accolade vivante, la liste des jetons qu'elle embrasse — c'est lui que
+    //   `suivreLesAccolades` relit pour la redimensionner quand la ligne bouge.
+    //   Une substitution TUE ses sources : l'accolade se retrouvait alors à
+    //   embrasser des morts, `suivreLaZone` les écartait, et elle cessait de
+    //   suivre — figée sur une zone qui n'existait plus.
+    //
+    //   On transmet donc l'appartenance aux jetons d'arrivée, exactement comme
+    //   on transmet l'espacement. Ce n'est pas propre à un opérateur : toute
+    //   accolade posée avant une substitution en avait besoin, et le manque ne
+    //   se voyait que sur celles qui devaient s'ÉLARGIR ensuite — le complément
+    //   à neuf, où l'accolade embrasse `N` puis `9 − N`.
+    for (const [idAcc, sources] of ctx.scene.accolades) {
+      const k = sources.indexOf(j.src.id);
+      if (k < 0) continue;
+      ctx.scene.poserAccolade(idAcc, [
+        ...sources.slice(0, k), ...j.tos.map((t) => t.id), ...sources.slice(k + 1),
+      ]);
+    }
     ctx.scene.kill(j.src.id, ctx.where);
   }
 

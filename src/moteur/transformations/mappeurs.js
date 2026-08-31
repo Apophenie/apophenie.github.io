@@ -585,12 +585,36 @@ const LIB_EN_LETTRES = bilingue(
  * deux plages au lieu de quatre, et deux fois la cible écrite. C'est pour ça
  * que cet opérateur reste explorable quelle que soit la cible, là où le
  * redécoupage (`mrd`), lui, en sort (`src/recherche/bfs.js`).
+ *
+ * ★ **IL PEUT DÉSORMAIS RANGER UNE LIGNE QUI GAGNE DÉJÀ**, et c'est un
+ *   arbitrage de l'auteur.
+ *
+ *   Il refusait toute ligne portant déjà une plage de la longueur d'une série :
+ *   `plusLongue(valeur) < SUITE`. L'intention était bonne — ne pas laisser un
+ *   tri s'attribuer un 666 qui était là avant lui — mais elle interdisait le
+ *   geste utile : « `mtri` doit pouvoir agir sur une ligne ayant déjà 666, il
+ *   s'agit simplement d'en RAJOUTER ; et `mtri` n'était pas gratuit,
+ *   l'opération ne sera retenue que si elle est rentable » (l'auteur).
+ *
+ *   ⚠️ MESURÉ, et c'est ce qui bloquait la suite de son exemple : sur
+ *     `666661661662662`, le tri donne `112266666666666` — cinq 6 d'affilée de
+ *     plus —, et il était refusé parce que la ligne en portait déjà trois.
+ *
+ *   La condition devient donc : la plus longue plage doit AUGMENTER, et
+ *   atteindre au moins une série. Un tri qui déplace tout sans allonger la
+ *   meilleure plage reste refusé — il aurait défait l'ordre de lecture pour
+ *   rien. Ce qui garantit qu'on ne s'attribue pas le mérite d'un 666 préexistant
+ *   n'est plus un interdit ici, c'est le barème : le rangement se paie
+ *   (`elegance.js › REARRANGEMENT`), et une étape qui ne rapporte pas plus
+ *   qu'elle ne coûte ne survit pas au classement.
  */
 function triRassemble(valeur) {
   const ordre = ordreCroissant(valeur);
   if (!ordre.some((src, i) => valeur[src] !== valeur[i])) return false;
   const plusLongue = (v) => plagesDe(v).reduce((m, p) => Math.max(m, p.compte), 0);
-  return plusLongue(valeur) < SUITE && plusLongue(ordre.map((i) => valeur[i])) >= SUITE;
+  const avant = plusLongue(valeur);
+  const apres = plusLongue(ordre.map((i) => valeur[i]));
+  return apres > avant && apres >= SUITE;
 }
 
 /**

@@ -21,8 +21,37 @@ import { BUDGET_MS, BUDGET_MS_FILET, BUDGET_TOTAL_MS } from '../config.js';
 //   appeler « famille » la même chose (`elegance.js`, l'en-tête de la fonction).
 import { familleDeConvention } from './elegance.js';
 
-/** Constantes de garde-fou — CONTRACTS.md §5. */
-export const D_MAX = 4;        // + 2 niveaux gratuits par le bassin → profondeur effective 6
+/**
+ * ★ **SIX GESTES, ET C'EST L'ARBITRAGE DE L'AUTEUR** — quatre auparavant.
+ *
+ * « `D_MAX` peut être relevé, mais le chercheur doit chercher en priorité les
+ * voies courtes d'abord et, s'il lui reste du temps/budget, explorer des voies
+ * plus longues. `D_MAX` devrait pouvoir monter à 6 sans problème, tant que ça
+ * ne met pas une éternité » (l'auteur).
+ *
+ * ★ La première condition est déjà tenue PAR CONSTRUCTION : `rechercheBrute`
+ *   explore EN LARGEUR (`for (let d = 0; d < dMax; d++)`), un niveau entier
+ *   avant le suivant, et contrôle ses budgets en tête de niveau ET à chaque
+ *   état étendu. Les voies courtes sont donc trouvées d'abord, et les longues
+ *   ne sont explorées qu'avec ce qui reste. Relever la borne n'ajoute pas une
+ *   obligation, elle lève un plafond.
+ *
+ * ★ La seconde est MESURÉE, sur le corpus, en temps CPU par saisie :
+ *
+ *     dMax = 4  →  11 730 ms au total
+ *     dMax = 5  →   9 704 ms
+ *     dMax = 6  →   9 442 ms
+ *
+ *   Elle ne coûte rien, et l'explication tient au garde-fou lui-même : c'est
+ *   `BUDGET_TRAVAIL` — un compte d'applications d'opérateurs, déterministe —
+ *   qui tranche bien avant la profondeur. Les têtes de liste du corpus sont
+ *   inchangées à une exception près (`Les 7 nains`, troisième part).
+ *
+ * ⚠️ Ce qu'ouvre concrètement ce relèvement : `mrd` produit désormais des 9
+ *   qu'un `mr9` doit retourner, et `fr21+tca+mx6+mrd+mr9` — cinq gestes — donne
+ *   seize 6 sur vingt. À quatre, cette voie était hors de portée.
+ */
+export const D_MAX = 6;
 export const P_BEAM = 12;      // chemins conservés par état canonique
 export const MAX_NODES = 20000;
 export { BUDGET_MS };          // par fragment

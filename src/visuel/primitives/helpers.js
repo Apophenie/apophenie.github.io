@@ -607,7 +607,22 @@ export function accumulate(ctx, spec) {
   //   VALEURS restent `operands`, ce qui change est la seule portée du dessin.
   const embrasses = Array.isArray(spec.avant) && spec.avant.length
     ? [...spec.avant, ...operands] : operands;
-  const dejaLa = spec.accoladeExistante ? ctx.scene.ancreDe(operands[0]) : null;
+  // ★ « Il y a DÉJÀ une accolade ici » et « elle promet un résultat » sont deux
+  //   questions, et le code n'en posait qu'une. L'ancre ne se publie que si
+  //   l'accolade CALCULE (`tracerAccolade`, `promet`) ; une accolade qui a
+  //   seulement DÉSIGNÉ — celle du complément à neuf, posée sur le seul nombre
+  //   présent avant que `9 − N` n'existe — n'en publie aucune, et `sum` en
+  //   dessinait donc une seconde par-dessus. Mesuré : deux `@group` dans la
+  //   scène pour un seul geste.
+  //
+  //   On interroge donc le REGISTRE, qui est rempli par toute accolade quelle
+  //   que soit sa promesse ; et faute d'ancre publiée, le point de résultat est
+  //   celui du repli, calculé sur les opérandes eux-mêmes.
+  const accoladeDeja = spec.accoladeExistante && [...ctx.scene.accolades.values()]
+    .some((sources) => operands.some((id) => sources.includes(id)));
+  const dejaLa = spec.accoladeExistante
+    ? (ctx.scene.ancreDe(operands[0]) || (accoladeDeja ? posDeRepli(ctx, operands) : null))
+    : null;
   const acc = dejaLa ? null : tracerAccolade(ctx, embrasses, {
     shape: 'brace',
     tighten: 0.66,

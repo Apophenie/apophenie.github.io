@@ -248,7 +248,28 @@ export function creerMoteur(catalogue, options = {}) {
     //   l'avancement au seul budget global le ferait donc atteindre 100 % alors
     //   qu'il reste jusqu'à douze fragments à faire — la jauge à cent pour cent
     //   qui continue de tourner, c'est-à-dire le mensonge le plus détesté.
-    const plafondTravail = travailTotal + FRAGMENTS_GARANTIS * BUDGET_TRAVAIL_RESERVE;
+    //
+    // ⚠️ **ET IL FAUT Y AJOUTER UN FRAGMENT ENTIER**, ce qui manquait. La boucle
+    //   décide d'entrer AVANT de savoir ce que le fragment coûtera : elle teste
+    //   `travailRestant <= 0`, si bien qu'un fragment qui commence avec une
+    //   unité de budget dépense tout de même son plafond ordinaire
+    //   (`BUDGET_TRAVAIL`), et non la réserve. Le vrai plafond est donc le
+    //   budget global, PLUS ce débordement d'un fragment, PLUS la réserve des
+    //   garantis.
+    //
+    //   MESURÉ, et c'est `D_MAX` porté à six qui l'a révélé : sur « La
+    //   numérologie est une science exacte, disent-ils », le travail atteint
+    //   1 625 018 pour un dénominateur annoncé à 1 480 000 — la jauge restait
+    //   pleine QUATRE paliers pendant qu'il restait quatre fragments à chercher.
+    //   Exactement le mensonge que ce dénominateur existe pour empêcher. À
+    //   profondeur quatre le total tombait à 1 479 619, sous le plafond d'un
+    //   cheveu : le défaut dormait là depuis toujours.
+    //
+    //   La jauge n'en finit pas plus bas pour autant : elle est le MAXIMUM de
+    //   deux rapports, et celui des fragments atteint 1 au dernier. Le budget,
+    //   lui, se contente désormais de ne plus mentir en chemin.
+    const plafondTravail = travailTotal + BUDGET_TRAVAIL
+      + FRAGMENTS_GARANTIS * BUDGET_TRAVAIL_RESERVE;
     for (const f of ordre) {
       const cle = f.texte.normalize('NFC');
       if (parFrag.has(cle)) continue;

@@ -27,7 +27,10 @@ test(`catalogue de test employé : ${source}`, () => {
 });
 
 test('constantes conformes à CONTRACTS.md §5', () => {
-  assert.equal(D_MAX, 4);
+  // Six depuis l'arbitrage de l'auteur — voir `bfs.js › D_MAX` pour la mesure
+  // qui l'autorise : la profondeur ne coûte rien, c'est `BUDGET_TRAVAIL` qui
+  // tranche.
+  assert.equal(D_MAX, 6);
   assert.equal(MAX_NODES, 20000);
   assert.equal(BUDGET_MS, 250);
   assert.equal(N_FRAG_MAX, 64);

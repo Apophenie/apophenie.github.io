@@ -378,6 +378,34 @@ function etapeComplement(spec, base) {
     const signe = `${ctx.cle}moins`;
     const titre = dire(spec.libelle, ctx.langue);
     return [etape(ctx, titre, `${base} − ${avant.valeur} = ${apres.valeur}`, enchainer([
+      // ★ **L'ACCOLADE D'ABORD, ET ELLE S'ÉLARGIT** — arbitrage de l'auteur.
+      //
+      //   Elle arrivait au troisième temps, une fois `9 − N` posé, au motif
+      //   qu'une accolade doit embrasser quelque chose et que `9 − N` n'existe
+      //   pas encore. C'était vrai de la CONTRAINTE, faux de la conclusion :
+      //   il reste un nombre sur la ligne, et rien n'interdit de l'embrasser
+      //   lui seul. « Il faudrait qu'elle embrasse le seul nombre présent puis
+      //   s'élargisse — oui, c'est exactement ce que je veux pour pc9 »
+      //   (l'auteur).
+      //
+      //   Elle annonce donc ce qu'on va faire AVANT de le faire, ce qui est le
+      //   propos d'une accolade nommée ; puis elle suit sa zone, qui grandit de
+      //   `N` à `9 − N` (`helpers.js › suivreLesAccolades`, le mécanisme même
+      //   qui la fait rétrécir quand `mpf` referme les vides).
+      //
+      //   ⚠️ `promet: false` : elle DÉSIGNE ici, elle ne calcule pas encore. Une
+      //     accolade ne publie une ancre de résultat sous sa pointe que quand
+      //     elle additionne — c'est le `sum` du quatrième temps qui le fera, et
+      //     deux promesses pour un seul résultat feraient plonger le nombre
+      //     sous la pointe pour l'en faire remonter aussitôt.
+      {
+        op: 'group',
+        targets: [ctx.ids[0]],
+        symbol: `${base} −`,
+        label: titre,
+        promet: false,
+        marquer: false,
+      },
       {
         op: 'substitute',
         pairs: [{
@@ -397,6 +425,11 @@ function etapeComplement(spec, base) {
         // Le signe sous la pointe DIT l'opération ; la phrase à côté dit à quel
         // titre on la fait. Une accolade nue ne distinguerait pas ce complément
         // d'une soustraction quelconque.
+        // ★ « existante » : l'accolade a déjà été posée au premier temps, sur
+        //   le seul nombre présent, et elle s'est élargie à `9 − N` en suivant
+        //   sa zone. Sans ce drapeau, `sum` en dessinerait une SECONDE par
+        //   dessus — mesuré : deux `@group` dans la scène pour un seul geste.
+        accolade: 'existante',
         symbol: `${base} −`,
         label: titre,
       },
