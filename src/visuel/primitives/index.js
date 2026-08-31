@@ -10,7 +10,11 @@
  * rejoignent),
  * ajoutées selon la clause d'extension du contrat. `afficheur.js` n'en est PAS une : c'est le corps
  * partagé de `sevenSeg` et `fourteenSeg`, qui font le même geste sur deux
- * afficheurs. Ajouter une transformation arithmétique sans
+ * afficheurs. `decor.js` non plus (le geste commun du clavier et de la table),
+ * ni `ellipse.js` : celui-ci est le calcul du MIROIR, commun à la glissière de
+ * l'Atbash et au retournement d'un nombre sur la ligne — « il devrait être
+ * commun à tout type de miroir, même si ce n'est pas la même chose qu'on met
+ * en miroir » (l'auteur). Ajouter une transformation arithmétique sans
  * rendu impose d'**ajouter d'abord la primitive ici**, puis de l'émettre : un
  * `op` hors de cette table est une erreur de compilation, pas une op ignorée.
  */
