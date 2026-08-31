@@ -23,7 +23,7 @@ import { compile } from '../compile.js';
 import { setGlyphes } from '../glyphes.js';
 import { GLYPHES } from '../fixtures/glyphes.js';
 import { CompileError } from '../errors.js';
-import { TOKEN_GAP } from '../constants.js';
+import { TOKEN_GAP, colorForKind } from '../constants.js';
 import {
   nivellementDe as nivellementVisuel, MAX_TRANSFERTS as MAX_VISUEL,
   poidsRamassage, natureDesJetons,
@@ -140,6 +140,44 @@ test('l’écart se joue vraiment, et il ne reste que sa différence', () => {
   // regroupements concurrents.
   const accolades = tl.nodes.filter((n) => n.role === 'bracket' && !n.id.startsWith('@sous:'));
   assert.equal(accolades.length, 1, `une accolade et une seule (vu : ${accolades.map((a) => a.id).join(', ')})`);
+});
+
+/**
+ * ★ UNE NOTATION N'EST PAS UN COMMENTAIRE — et se mesure sur ce qu'elle entoure.
+ *
+ * « Elles sont plus petites que les nombres associés » (l'auteur, à propos des
+ * barres de `|−28|`). C'était exact : `annotate` posait tout à la demi-casse,
+ * le réglage juste pour une étiquette qui se lit en second. Les barres de la
+ * valeur absolue ne se lisent pas en second — elles font partie de
+ * l'expression, et une notation qui n'atteint pas ce qu'elle enserre ne
+ * l'enserre pas.
+ */
+test('valeur absolue : les barres ont la casse des chiffres, et leur couleur', () => {
+  const [step] = op('pabs').steps(
+    { type: 'NUM', valeur: -28, traces: [[0, 1]] },
+    { type: 'NUM', valeur: 28, traces: [[0, 1]] },
+    { ids: ['t0'], cle: 'x0', langue: 'fr' },
+  );
+  const barres = step.ops.filter((o) => o.op === 'annotate');
+  assert.equal(barres.length, 2, 'une barre de chaque côté — c’est ce qui fait une notation');
+  assert.deepEqual(barres.map((o) => o.place).sort(), ['left', 'right']);
+
+  const tl = compile(sc([{ ...step, id: 'a' }], [{ id: 't0', text: '-28', kind: 'number' }]));
+  const nombre = noeud(tl, 't0');
+  const etiquettes = tl.nodes.filter((n) => n.role === 'label' && n.text === '|');
+  assert.equal(etiquettes.length, 2);
+  for (const b of etiquettes) {
+    assert.equal(b.data.scale, 1,
+      'à la demi-casse, une barre est deux fois moins haute que le chiffre qu’elle encadre');
+    assert.equal(b.base.fill, colorForKind('number'),
+      'un gris de commentaire poserait la barre à CÔTÉ de l’expression, pas dedans');
+  }
+  // Et elles encadrent : l'une à gauche du nombre, l'autre à droite, aucune
+  // ne le chevauche — l'écart se compte de bord à bord.
+  const [g, d] = etiquettes.map((b) => b.base.translate.x).sort((a, c) => a - c);
+  const bord = { g: tl.scene.pos('t0').x - nombre.w / 2, d: tl.scene.pos('t0').x + nombre.w / 2 };
+  assert.ok(g + etiquettes[0].w / 2 <= bord.g, 'la barre de gauche ne mord pas sur le nombre');
+  assert.ok(d - etiquettes[1].w / 2 >= bord.d, 'celle de droite non plus');
 });
 
 test('tous les nombres égaux : il n’y a ni plus grand ni plus petit à désigner', () => {

@@ -14,6 +14,16 @@ import { fail } from '../errors.js';
 export const name = 'annotate';
 
 /**
+ * La casse d'une annotation qui COMMENTE — la moitié de celle des jetons.
+ *
+ * C'est le réglage historique, et il est juste pour ce qu'il sert : une
+ * étiquette qui se lit en second doit se voir sans se disputer la ligne. Il
+ * cesse de l'être dès que l'annotation n'est plus un commentaire mais une
+ * NOTATION (voir `taille`, plus bas).
+ */
+const TAILLE_COMMENTAIRE = 0.55;
+
+/**
  * D'où l'annotation arrive : de quelques unités en deçà de sa place, du côté
  * où elle se pose. Le glissement est ce qui la fait lire comme une venue, et
  * non comme une apparition.
@@ -63,8 +73,39 @@ export function plan(ctx) {
   //   du nombre qu'ils désignent » (l'auteur). L'écart se déclare donc, en
   //   fractions de casse, et vaut la distance de lecture par défaut.
   const ecart = typeof ctx.op.ecart === 'number' && ctx.op.ecart > 0 ? ctx.op.ecart : 1.05;
+
+  // ★ À QUELLE TAILLE — et pourquoi une NOTATION n'a pas celle d'un commentaire.
+  //
+  //   Une annotation commente : elle se lit en second, et sa demi-casse
+  //   (`TAILLE_COMMENTAIRE`) dit exactement cela — voici un mot sur ce qui est
+  //   écrit, pas ce qui est écrit. Une NOTATION est l'inverse : les barres de
+  //   `|−28|` ne commentent pas le nombre, elles l'ENTOURENT, et elles font
+  //   partie de l'expression au même titre que ses chiffres.
+  //
+  //   « Elles sont plus petites que les nombres associés » (l'auteur). C'était
+  //   exact et c'était faux à deux titres : à la demi-casse, une barre est
+  //   moitié moins haute que le `2` qu'elle encadre — une notation qui
+  //   n'atteint pas ce qu'elle enserre ne l'enserre pas —, et le gris de
+  //   commentaire la posait en retrait d'un nombre en phosphore, c'est-à-dire
+  //   à côté de l'expression plutôt que dedans.
+  //
+  //   La taille se déclare donc, en casse pleine, et le TON suit : `1` et la
+  //   couleur des nombres pour une notation, la demi-casse grise par défaut
+  //   pour tout ce qui reste un commentaire.
+  const taille = typeof ctx.op.taille === 'number' && ctx.op.taille > 0
+    ? ctx.op.taille : TAILLE_COMMENTAIRE;
+  const teinte = typeof ctx.op.ton === 'string' && ctx.palette[ctx.op.ton]
+    ? ctx.palette[ctx.op.ton] : ctx.palette.fg2;
+
   const dy = ctx.metrics.fontSize * ecart;
-  const dx = ctx.metrics.advance * (typeof ctx.op.ecart === 'number' && ctx.op.ecart > 0 ? ctx.op.ecart : 0.45);
+  // ★ De côté, l'écart se mesure de BORD à BORD, pas de bord à centre. Une
+  //   étiquette est ancrée sur son milieu (`text-anchor: middle`) : à la
+  //   demi-casse la différence était d'un quart de chasse et ne se voyait pas,
+  //   mais une barre en casse pleine, posée à un demi-cadratin du nombre,
+  //   chevauchait son premier chiffre.
+  const demi = (ctx.metrics.advance * taille * [...text].length) / 2;
+  const dx = demi + ctx.metrics.advance
+    * (typeof ctx.op.ecart === 'number' && ctx.op.ecart > 0 ? ctx.op.ecart : 0.45);
   const at = deCote
     ? { x: place === 'left' ? box.x - dx : box.x + box.w + dx, y: box.y + box.h / 2 }
     : { x: box.cx, y: above ? box.y - dy : box.y + box.h + dy };
@@ -72,9 +113,9 @@ export function plan(ctx) {
   const id = ctx.op.id && !String(ctx.op.id).startsWith('@') ? ctx.op.id : ctx.gensym('annot');
   ctx.scene.create({
     id, role: 'label', text, inFlow: false,
-    w: ctx.metrics.advance * 0.55 * [...text].length,
-    data: { scale: 0.55 },
-    base: { opacity: 0, fill: ctx.palette.fg2, translate: depart(at, place) },
+    w: ctx.metrics.advance * taille * [...text].length,
+    data: { scale: taille },
+    base: { opacity: 0, fill: teinte, translate: depart(at, place) },
   }, { where: ctx.where });
   ctx.scene.place(id, depart(at, place));
   ctx.anim({ id, prop: 'opacity', to: 1, at: 0, dur: ctx.dur * 0.7 });

@@ -136,9 +136,18 @@ function etapeSubstitution(spec) {
     //   plus de barres.
     const corps = [];
     if (spec.encadre) {
+      // ★ EN CASSE PLEINE, ET DE LA COULEUR DES NOMBRES. « Elles sont plus
+      //   petites que les nombres associés » (l'auteur) : une notation qui
+      //   n'atteint pas ce qu'elle enserre ne l'enserre pas, et un gris de
+      //   commentaire la posait à côté de l'expression au lieu de dedans. Les
+      //   barres appartiennent au calcul autant que ses chiffres.
+      // L'écart est compté de bord à bord (`annotate`), et le glyphe « | » est
+      // un trait fin au milieu de sa chasse : il ne faut donc presque rien
+      // au-delà, sans quoi les barres flottent loin du nombre qu'elles serrent.
+      const notation = { taille: 1, ton: 'phos', ecart: 0.1, fugace: true, at: 0 };
       corps.push(
-        { op: 'annotate', anchor: [ctx.ids[0]], text: spec.encadre, place: 'left', ecart: 0.5, fugace: true, at: 0 },
-        { op: 'annotate', anchor: [ctx.ids[0]], text: spec.encadre, place: 'right', ecart: 0.5, fugace: true, at: 0 },
+        { op: 'annotate', anchor: [ctx.ids[0]], text: spec.encadre, place: 'left', ...notation },
+        { op: 'annotate', anchor: [ctx.ids[0]], text: spec.encadre, place: 'right', ...notation },
       );
     }
     // Le `pulse` vient APRÈS la substitution : pendant, le nouveau token voit
