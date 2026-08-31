@@ -6,7 +6,9 @@
  * (`sum`, avec les sommes partielles — research §4.7).
  */
 
-import { def, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade } from './commun.js';
+import {
+  def, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade, ordreCroissant,
+} from './commun.js';
 import { bilingue, dire } from '../i18n.js';
 import { NUM_MIN, NUM_MAX } from '../etat.js';
 
@@ -536,6 +538,104 @@ function etapeAccolement(spec) {
 }
 
 /**
+ * ★ LA MÉDIANE — on enlève les extrêmes par paires, et l'on regarde ce qui reste.
+ *
+ * « Qui trie comme `mtri` le fait, puis façon annulation par paires, enlève les
+ * nombres aux extrêmes par paires jusqu'à ce qu'il ne reste plus que le ou les
+ * 2 centraux. S'il n'en reste qu'un, il est gardé tel quel ; s'il en reste 2,
+ * l'animation de `cmo` sert à produire la valeur médiane. Le tout avec une
+ * accolade et symbole "médiane" juste en dessous. » (l'auteur)
+ *
+ * Trois temps, et chacun dit une moitié de ce qu'est une médiane :
+ *
+ *  ① **le RANGEMENT** — un `move`, le même geste et le même ordre que le tri
+ *    croissant (`ordreCroissant`, partagé, jamais recopié). Une médiane sans
+ *    tri n'est qu'un nombre pris au milieu d'un désordre : c'est le rangement
+ *    qui fait du milieu une position et non un hasard ;
+ *  ② **L'ANNULATION PAR PAIRES** — le plus petit et le plus grand se jettent
+ *    l'un sur l'autre et partent ensemble, puis les deux suivants, et ainsi de
+ *    suite. C'est le mode `annulation` de `collapse`, et il est exact au sens
+ *    fort : chaque paire retirée laisse la médiane INCHANGÉE, ce qui est la
+ *    seule chose qu'il y ait à démontrer ici ;
+ *  ③ **CE QUI RESTE** — un nombre, ou deux. Un, il est la médiane et on ne lui
+ *    fait rien : l'accolade se ferme dessus et le nomme. Deux, et il faut leur
+ *    demi-somme : c'est là que la fraction de la moyenne (`c.moyenne`) rend
+ *    service.
+ *
+ * ⚠️ **L'ACCOLADE NE CHANGE PAS DE NOM QUAND LA FRACTION S'EN MÊLE.** « S'il y
+ * a besoin de l'animation de `cmo`, fais-la mais SANS CHANGER L'ACCOLADE :
+ * c'est la médiane et non la moyenne qui est en cours de calcul » (l'auteur).
+ * Le symbole reste donc celui de cet opérateur — `méd.` —, et c'est tout ce que
+ * la fraction emprunte : son geste, pas son nom. Ce qu'on démontre est la
+ * médiane ; la moyenne de deux nombres n'en est ici que l'outil.
+ *
+ * ★ **Et le pivot ne se déplace pas.** Sur un compte impair, le survivant est
+ * celui du milieu, à sa place, avec son identité de jeton : c'est le même
+ * nombre avant et après, comme le gagnant d'une sélection (`sortieSelection`).
+ */
+function pairesExtremes(rang) {
+  const out = [];
+  for (let i = 0, j = rang.length - 1; j - i >= 2; i++, j--) out.push([rang[i], rang[j]]);
+  return out;
+}
+
+/** Ce qui reste au centre après l'annulation : un jeton, ou deux. */
+function centreDe(rang) {
+  const n = pairesExtremes(rang).length;
+  return rang.slice(n, rang.length - n);
+}
+
+function etapeMediane(spec) {
+  return (avant, apres, ctx) => {
+    const vs = avant.valeur;
+    if (vs.length < 2) return etapeDecompte(spec)(avant, apres, ctx);
+    const ordre = ordreCroissant(vs);
+    const rang = ordre.map((i) => ctx.ids[i]);
+    const restants = centreDe(rang);
+    const titre = titreEtape(spec, vs, ctx.langue);
+    const symbole = spec.symbole || 'méd.';
+    const ops = [];
+    // ① le rangement — et seulement s'il range vraiment : un `move` qui ne
+    //    déplace rien ferait attendre le spectateur devant une ligne immobile.
+    if (ordre.some((src, i) => vs[src] !== vs[i])) ops.push({ op: 'move', order: rang });
+    // ② les extrêmes, deux par deux.
+    const duos = pairesExtremes(rang);
+    if (duos.length) {
+      ops.push({ op: 'collapse', mode: 'annulation', familles: duos.map((m) => ({ membres: m })) });
+      // La ligne se referme sur ce qui reste : `collapse` fait partir les
+      // jetons, il ne range pas ce qu'ils laissent.
+      ops.push({ op: 'move' });
+    }
+    // ③ l'accolade, et ce qu'elle produit.
+    const sortie = nomsTokens(ctx, 2);
+    if (restants.length === 2) {
+      ops.push({
+        op: 'fraction',
+        targets: restants,
+        symbol: symbole,
+        diviseur: token(sortie[0], 2, 'number'),
+        to: token(sortie[1], apres.valeur, 'number'),
+      });
+    } else {
+      ops.push({ op: 'group', targets: restants, symbol: symbole, label: titre, tighten: 0 });
+    }
+    const tries = ordre.map((i) => vs[i]);
+    return [etape(ctx, titre, `${tries.join(' ')} → ${apres.valeur}`,
+      enchainer(ops), { hold: 500 })];
+  };
+}
+
+/**
+ * Le jeton qui représente une médiane : le pivot lui-même quand il est seul, le
+ * quotient de la fraction quand ils étaient deux. Même discipline que
+ * `sortieSelection` — on ne crée un jeton que lorsqu'on calcule vraiment.
+ */
+function sortieMediane(avant, apres, ctx) {
+  const restants = centreDe(ordreCroissant(avant.valeur).map((i) => ctx.ids[i]));
+  return restants.length === 2 ? [nomsTokens(ctx, 2)[1]] : [restants[0] || nomToken(ctx, 0)];
+}
+
+/**
  * Les gestes disponibles, par nom. Un combinateur DIT lequel lui va : le nom du
  * geste est la première chose qu'on lit d'une spécification, comme le nom d'une
  * op est la première chose qu'on lit d'un scénario (CONTRACTS §3.1).
@@ -548,6 +648,7 @@ const GESTES = Object.freeze({
   distincts: etapeDistincts,   // par vagues : les solitaires, les paires, les trios
   fraction: etapeFraction,     // on additionne, on compte, on divise
   ecart: etapeEcart,           // le plus grand moins le plus petit, montré
+  mediane: etapeMediane,       // on range, les extrêmes s'annulent, le centre reste
 });
 
 /** Sommes partielles successives, pour animer un compteur. */
@@ -747,6 +848,64 @@ const agregations = [
     // représente l'état d'arrivée.
     sortie: (avant, apres, ctx) => [nomsTokens(ctx, 2)[1]],
     geste: 'fraction', minimum: 2,
+  },
+  {
+    /**
+     * ★ LA MÉDIANE — la seconde façon de dire « au milieu ».
+     *
+     * « Un opérateur `cme`, la MÉDIANE, à côté de `cmo` la moyenne » (l'auteur).
+     * Les deux répondent à la même question et ne donnent pas la même réponse,
+     * et c'est tout leur intérêt : la moyenne se laisse tirer par un extrême, la
+     * médiane ne bouge pas. Sur `1 5 6 6 60`, la moyenne dit 16 et la médiane
+     * dit 6.
+     *
+     * ★ Notoriété 0,45, sous la moyenne (0,55). Tout le monde sait ce qu'est une
+     * moyenne ; « médiane » est un mot qu'on a entendu, dont beaucoup savent
+     * qu'il désigne le milieu, et que peu sauraient calculer de tête. Ce n'est
+     * pas une astuce de la maison pour autant — c'est de la statistique de
+     * collège.
+     *
+     * ★ AdHoc 0,10, celui de la moyenne, et pour la même raison : elle ne
+     * regarde pas ce qu'on cherche. Elle rendrait le même nombre en visant 111.
+     *
+     * ⚠️ **Le quotient est ARRONDI quand il faut le calculer** — deux centraux
+     * de parités différentes n'ont pas de demi-somme entière. C'est la règle de
+     * `c.moyenne`, reprise telle quelle, et la fraction la recoupe à l'écran.
+     */
+    id: 'c.mediane', code: 'cme',
+    symbole: 'méd.',
+    libelle: bilingue('On prend la médiane', 'Take the median'),
+    gabarit: bilingue('On prend la médiane des %s', 'Take the median of the %s'),
+    regle: bilingue(
+      'On range, on retire les extrêmes deux par deux, et l’on garde le milieu',
+      'Line them up, drop the extremes two at a time, and keep the middle one',
+    ),
+    notoriete: 0.45, adHoc: 0.1,
+    calcul: (vs) => {
+      const t = vs.slice().sort((a, b) => a - b);
+      const m = t.length >> 1;
+      return t.length % 2 ? t[m] : Math.round((t[m - 1] + t[m]) / 2);
+    },
+    // Le pivot quand il est seul, le quotient quand ils étaient deux — voir
+    // `sortieMediane`.
+    sortie: sortieMediane,
+    // ★ **CE SUR QUOI ELLE ARRONDIT EST PUBLIÉ**, comme un César publie son
+    //   décalage. Le barème facture l'arrondi d'une moyenne sur les nombres
+    //   qu'elle divise (`elegance.js › amplitudeArrondi`) ; ceux de la médiane
+    //   ne sont pas toute la ligne, mais les UN OU DEUX qui restent au centre.
+    //   Le lui laisser deviner reviendrait à lui faire mesurer l'arrondi d'une
+    //   moyenne qu'on ne calcule pas.
+    arrondiSur: (vs) => {
+      const tries = ordreCroissant(vs).map((i) => vs[i]);
+      return centreDe(tries);
+    },
+    geste: 'mediane', minimum: 2,
+    note: bilingue(
+      'Elle ne se laisse pas tirer par un extrême, là où la moyenne le fait : sur '
+      + '1 5 6 6 60, la moyenne dit 16 et la médiane dit 6.',
+      'It does not get pulled by an outlier, where the average does: on 1 5 6 6 60, '
+      + 'the average says 16 and the median says 6.',
+    ),
   },
   {
     id: 'c.cardinal', code: 'cnv',

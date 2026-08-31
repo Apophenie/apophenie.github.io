@@ -92,7 +92,9 @@ import {
   valeurHebreu, valeurGrec, NOTE_SOURCAGE, TRANSLIT_HEBREU, TRANSLIT_GREC,
 } from '../tables/ecritures.js';
 import { decouperMots } from './filtres.js';
-import { def, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade } from './commun.js';
+import {
+  def, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade, ordreCroissant,
+} from './commun.js';
 import { opComptage } from './combinateurs.js';
 import { bilingue, dire } from '../i18n.js';
 import { nivellementDe, dureeRamassage } from './combinateurs.js';
@@ -556,25 +558,6 @@ const LIB_REDECOUPAGE = bilingue(
   'On redécoupe en paquets qui tombent sur 6',
   'Recut into packets that land on 6',
 );
-
-/**
- * ★ L'ORDRE CROISSANT — la permutation, pas le tableau trié.
- *
- * On rend les INDEX dans leur nouvel ordre plutôt que les valeurs, parce que
- * `steps()` en a besoin pour nommer les jetons qui se déplacent : un tri, à
- * l'écran, n'est ni une substitution ni un effacement, c'est un `move` — les
- * mêmes jetons, dans un autre ordre.
- *
- * ★ **Le départage est ÉCRIT, il n'est pas hérité du moteur.** `Array.sort`
- * est stable depuis ES2019, mais s'appuyer là-dessus reviendrait à faire
- * dépendre une URL rejouable (§4.3) d'une garantie de plateforme. À valeurs
- * égales, c'est donc l'index de départ qui départage, explicitement : deux 6
- * restent dans l'ordre où on les a lus, et le déterminisme (§4.4) ne doit rien
- * à personne.
- */
-function ordreCroissant(valeur) {
-  return valeur.map((_, i) => i).sort((a, b) => valeur[a] - valeur[b] || a - b);
-}
 
 /**
  * ★ LE TRI RASSEMBLE-T-IL VRAIMENT ? — la seule condition, et elle ne regarde

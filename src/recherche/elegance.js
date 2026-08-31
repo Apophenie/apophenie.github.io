@@ -1902,8 +1902,22 @@ export function compterTraductionsDivergentes(parts) {
  */
 const porteUneReglette = (op) => !!(op && op.table);
 
-/** La moyenne — le seul opérateur qui arrondisse. */
-const MOYENNE = 'c.moyenne';
+/**
+ * ★ CE QUI ARRONDIT — la moyenne, et la médiane quand ils sont deux au centre.
+ *
+ * La liste disait « le seul opérateur qui arrondisse », et c'était vrai le jour
+ * où elle a été écrite. `c.mediane` divise elle aussi par deux dès que le compte
+ * est pair, et sa division ne tombe pas toujours juste.
+ *
+ * ★ **Mais elle n'arrondit pas sur les MÊMES nombres.** La moyenne divise toute
+ * la ligne ; la médiane ne divise que les un ou deux qui restent au centre. Ce
+ * sur quoi l'arrondi se mesure est donc PUBLIÉ par l'opérateur (`arrondiSur`) —
+ * même doctrine que le décalage d'un César ou les additions d'une triche : le
+ * barème lit ce que l'opérateur déclare, il ne le devine pas de son vecteur
+ * d'entrée. Sans ce champ, on retombe sur la ligne entière, c'est-à-dire sur la
+ * lecture de la moyenne — ce qui est exact pour elle et pour elle seule.
+ */
+const ARRONDISSENT = new Set(['c.moyenne', 'c.moyenneDivisee', 'c.mediane']);
 
 /** `natureOperandes` de `combinateurs.js`, relu ici (un test gèle l'accord). */
 const tientEnUnChiffre = (v) => Number.isInteger(v) && Math.abs(v) <= 9;
@@ -1919,7 +1933,7 @@ export function classeDeTransformation(op, avant) {
     const vs = avant && Array.isArray(avant.valeur) ? avant.valeur : [];
     return vs.length && vs.every(tientEnUnChiffre) ? 'chiffres' : 'nombres';
   }
-  if (op.id === MOYENNE) return 'moyenne';
+  if (ARRONDISSENT.has(op.id)) return 'moyenne';
   if (MIN_MAX.has(op.id)) return 'minmax';
   if (porteUneReglette(op)) return 'lettres';
   return 'autre';
@@ -2147,7 +2161,10 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       if (classe === 'nombres') b.additionsNombres++;
       else if (classe === 'minmax') b.minMax++;
       else if (classe === 'lettres') b.lettreVersLettre++;
-      else if (classe === 'moyenne') b.arrondi += amplitudeArrondi(avant.valeur);
+      else if (classe === 'moyenne') {
+        b.arrondi += amplitudeArrondi(typeof op.arrondiSur === 'function'
+          ? op.arrondiSur(avant.valeur) : avant.valeur);
+      }
     }
     classePrecedente = classe;
 

@@ -95,7 +95,7 @@ export const ORDRE_CANONIQUE = Object.freeze([
   'mad', 'meg', 'mtri', 'mtal', 'mr39', 'mcc', 'mrd', 'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',
-  'cmo', 'cmod', 'cnv', 'ccat', 'cmx', 'cmn', 'cnj', 'cnjd', 'prn', 'psc', 'pabs',
+  'cmo', 'cmod', 'cme', 'cnv', 'ccat', 'cmx', 'cmn', 'cnj', 'cnjd', 'prn', 'psc', 'pabs',
   'prs', 'pec', 'pmr', 'pc9', 'pm9', 'pr9', 'prm', 'pm10', 'jnf',
 ]);
 

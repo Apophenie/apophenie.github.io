@@ -432,6 +432,13 @@ test('★ intégration — les quatre transformations du 27 août se MONTRENT',
       ['Le chat dort sur le tapis rouge', 'fl+tca+mx6+mrn+mr39', 'mr39', 'flip180'],
       ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mtri+mcc', 'mcc', 'substitute'],
       ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mrd', 'mrd', 'partition'],
+      // ★ La médiane, dans ses DEUX formes — c'est la parité du compte qui
+      //   décide, et les deux doivent tenir. « Le chat dort » donne quatre
+      //   nombres (deux au centre, donc la fraction), « Le chat » trois (un
+      //   seul centre, donc l'accolade nue). Ce qui est commun aux deux, et ce
+      //   que la primitive nommée vérifie, c'est l'annulation par paires.
+      ['Le chat dort', 'fl+tca+m14+cme', 'cme', 'collapse'],
+      ['Le chat', 'fl+tca+m14+cme', 'cme', 'collapse'],
     ];
 
     for (const [saisie, codes, code, primitive] of cas) {

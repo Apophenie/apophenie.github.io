@@ -231,6 +231,11 @@ const VECTEURS = [
   ['cmm', N([8, 15, 16, 5]), 11],
   ['cmo', N([8, 15, 16, 5]), 11],
   ['cmod', N([8, 15, 16, 5]), 11],
+  // ★ La médiane, sur le MÊME vecteur que la moyenne — c'est la comparaison
+  //   qui la définit. Rangé, `8 15 16 5` donne `5 8 15 16` : les extrêmes 5
+  //   et 16 s'annulent, restent 8 et 15, dont la demi-somme arrondie vaut 12.
+  //   La moyenne, elle, dit 11 — et l'écart est tout le sujet.
+  ['cme', N([8, 15, 16, 5]), 12],
   ['cnv', N([8, 15, 16, 5]), 4],
   ['ccat', N([8, 15, 16, 5]), 815165],
   ['cmx', N([8, 15, 16, 5]), 16],
@@ -337,8 +342,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 147);
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 147, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 148);
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 148, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -348,7 +353,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 147, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 148, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -491,6 +496,37 @@ test('★ les quatre transformations du 27 août — ce qu’elles font, et ce q
   //   les 9 et la ligne écrit `666661661662662`.
   assert.equal(appliquerProgramme(['mrd', 'mr9'], N(longue)).valeur.join(''),
     '666661661662662', 'la suite de l’auteur, un cran plus loin');
+});
+
+/**
+ * ★ LA MÉDIANE — ce qu'elle calcule, et ce qui la sépare de la moyenne.
+ *
+ * « Un opérateur `cme`, la MÉDIANE, à côté de `cmo` la moyenne » (l'auteur). Les
+ * deux répondent à la même question ; ce test gèle le fait qu'elles ne donnent
+ * pas la même réponse, et il gèle les deux formes de son geste — un centre, ou
+ * deux.
+ */
+test('★ la médiane : on range, les extrêmes s’annulent, le centre reste', () => {
+  const mediane = (v) => appliquer(PAR_CODE.get('cme'), N(v)).valeur;
+  const moyenne = (v) => appliquer(PAR_CODE.get('cmo'), N(v)).valeur;
+
+  // ── un compte IMPAIR : il reste un nombre, et on ne lui fait rien.
+  assert.equal(mediane([3, 1, 2]), 2, 'rangé « 1 2 3 », les extrêmes partent, 2 reste');
+  // ── un compte PAIR : il en reste deux, et c’est leur demi-somme.
+  assert.equal(mediane([8, 15, 16, 5]), 12, 'rangé « 5 8 15 16 », il reste 8 et 15');
+  // ★ …et l’arrondi est celui de la moyenne, sur ces deux-là seulement.
+  assert.equal(PAR_CODE.get('cme').arrondiSur([8, 15, 16, 5]).join(' '), '8 15',
+    'l’opérateur PUBLIE ce sur quoi il arrondit — le barème ne le devine pas');
+
+  // ★ CE QUI LA SÉPARE DE LA MOYENNE, et c’est tout son intérêt : un extrême
+  //   tire l’une et pas l’autre.
+  assert.equal(moyenne([1, 5, 6, 6, 60]), 16);
+  assert.equal(mediane([1, 5, 6, 6, 60]), 6);
+
+  // Deux nombres : il n’y a rien à retirer, ils SONT le centre.
+  assert.equal(mediane([6, 6]), 6);
+  // Un seul : une médiane demande au moins deux nombres, comme une moyenne.
+  assert.equal(appliquer(PAR_CODE.get('cme'), N([6])), null);
 });
 
 test('★ gel des codes publiés : chaque code rend exactement la même sortie', () => {
