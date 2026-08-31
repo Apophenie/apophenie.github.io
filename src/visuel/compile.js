@@ -466,14 +466,48 @@ export function compile(scenario, options = {}) {
           extent = Math.max(extent, opAt + a + d);
         },
 
-        /** Recalcule le layout et anime les tokens déplacés (FLIP analytique). */
+        /**
+         * Recalcule le layout et anime les tokens déplacés (FLIP analytique).
+         *
+         * ★ `spec.trajectoire` — le chemin, quand la ligne droite ment.
+         *
+         *   Par défaut un jeton qui change de place y va tout droit : c'est ce
+         *   qu'on veut d'un resserrement, d'un rangement, d'une insertion. Un
+         *   MIROIR, non — deux jetons qui échangent leurs places en ligne
+         *   droite se traversent, et rien ne dit lequel est allé où. La
+         *   fonction reçoit le déplacement `{id, from, to}` et rend
+         *   `{trajet, tailles}` (voir `primitives/ellipse.js`), ou `null` pour
+         *   laisser la ligne droite.
+         *
+         *   Elle ne vaut que pour le jeton lui-même : les décors accrochés
+         *   suivent, eux, par le chemin le plus court — une corne n'a pas de
+         *   trajectoire propre, elle est collée à ce qu'elle couronne.
+         */
         reflow(spec = {}) {
           const moved = scene.relayout();
           for (const m of moved) {
-            ctx.anim({
-              id: m.id, prop: 'translate', from: m.from, to: m.to,
-              at: spec.at ?? 0, dur: spec.dur, ease: spec.ease || EASE.move,
-            });
+            const courbe = typeof spec.trajectoire === 'function' ? spec.trajectoire(m) : null;
+            if (courbe && Array.isArray(courbe.trajet) && courbe.trajet.length > 2) {
+              const n = courbe.trajet.length - 1;
+              ctx.anim({
+                id: m.id, prop: 'translate',
+                values: courbe.trajet, offsets: courbe.trajet.map((_, i) => i / n),
+                at: spec.at ?? 0, dur: spec.dur, ease: spec.ease || EASE.move,
+              });
+              if (Array.isArray(courbe.tailles) && courbe.tailles.length > 1) {
+                const p = courbe.tailles.length - 1;
+                ctx.anim({
+                  id: m.id, prop: 'scale',
+                  values: courbe.tailles, offsets: courbe.tailles.map((_, i) => i / p),
+                  at: spec.at ?? 0, dur: spec.dur, ease: spec.ease || EASE.move,
+                });
+              }
+            } else {
+              ctx.anim({
+                id: m.id, prop: 'translate', from: m.from, to: m.to,
+                at: spec.at ?? 0, dur: spec.dur, ease: spec.ease || EASE.move,
+              });
+            }
             // ★ Le décor ACCROCHÉ à un jeton le suit toujours, sinon il se
             // décroche au reflow : le halo, comme les cornes du 666. Le
             // déplacement est le MÊME (mêmes `at`, `dur` et courbe), sans quoi

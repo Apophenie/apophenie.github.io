@@ -153,6 +153,75 @@ function etapeSubstitution(spec) {
 }
 
 /**
+ * ★ **LE MIROIR SE FAIT SUR LA LIGNE, PAS DANS UNE TABLE.**
+ *
+ * `p.miroir` — « 28 se lit 82 » — se contentait du geste générique : `28`
+ * s'efface, `82` paraît. Le nombre changeait sous les yeux du spectateur sans
+ * qu'aucun chiffre n'ait bougé, c'est-à-dire sans qu'on voie jamais le miroir.
+ *
+ * « C'est bien un miroir (comme Atbash). Ce n'est pas un miroir de table mais
+ * un miroir directement sur les données de la ligne : effectue le miroir
+ * directement sur la ligne. Réutilise le principe de l'animation en ellipse,
+ * il devrait être commun à tout type de miroir, même si ce n'est pas la même
+ * chose qu'on met en miroir » (l'auteur). Trois temps, donc :
+ *
+ *  ① le nombre s'ÉCLATE en ses chiffres — `28` devient `2` et `8`, nés
+ *    exactement sur leurs glyphes (`substitute` refuse tout autre découpage,
+ *    puisque les chiffres doivent reconstituer le jeton) ;
+ *  ② les chiffres ÉCHANGENT leurs places par une demi-ellipse — le geste de la
+ *    glissière de l'Atbash, mot pour mot, appelé au même endroit
+ *    (`visuel/primitives/ellipse.js`) ;
+ *  ③ ils se recollent en un nombre (`merge`), sans accolade ni symbole : les
+ *    mêmes chiffres, dans le même ordre, à la même place — « ça devrait avoir
+ *    lieu rapidement et discrètement ».
+ *
+ * ★ **Le signe ne se retourne pas, et il fait partie du dessin.** `-28` se lit
+ * `-82` : le `-` est un jeton comme les autres, il occupe la première place et
+ * la garde pendant que les chiffres échangent les leurs. Il faut donc l'écrire
+ * dans l'éclatement, faute de quoi `2` et `8` ne reconstitueraient pas `-28` et
+ * `substitute` refuserait — à raison.
+ *
+ * ★ **Un cas retombe sur le geste sobre : le zéro de tête.** `20` se lit `02`,
+ * qui vaut `2` — un chiffre y disparaît, et le collage rendrait `02` là où
+ * l'arithmétique annonce `2`. `merge` refuserait ce collage, et il aurait
+ * raison : montrer `02` puis le remplacer par `2` serait une seconde règle,
+ * que personne n'a énoncée. On préfère le geste sobre à une règle en cachette.
+ */
+function etapeMiroir(spec) {
+  return (avant, apres, ctx) => {
+    const v = avant.valeur;
+    const ds = chiffres(v);
+    const negatif = v < 0;
+    // Ce que la ligne écrira une fois les chiffres échangés — et ce que le
+    // collage doit rendre. S'il ne s'écrit pas comme le résultat, c'est qu'un
+    // chiffre s'est perdu en route : geste sobre.
+    // ⚠️ Le signe s'écrit ici avec le TRAIT D'UNION du `String(n)` de
+    //    JavaScript, et non le « moins » typographique : c'est le texte que
+    //    portent déjà tous les jetons de nombre négatif de la ligne
+    //    (`token(id, apres.valeur)`), et l'éclatement doit reconstituer le
+    //    jeton EXISTANT, pas une jolie version de lui.
+    const ecrit = (negatif ? '-' : '') + [...ds].reverse().join('');
+    if (ds.length < 2 || ecrit !== String(apres.valeur)) {
+      return etapeSubstitution(spec)(avant, apres, ctx);
+    }
+    const sortie = nomsTokens(ctx, 1);
+    const signe = negatif ? [`${ctx.cle}sg`] : [];
+    const idsChiffres = ds.map((_, i) => `${ctx.cle}c${i}`);
+    const eclats = [
+      ...(negatif ? [token(signe[0], '-', 'operator')] : []),
+      ...ds.map((d, i) => token(idsChiffres[i], d, 'digit')),
+    ];
+    // Le miroir ne renverse QUE les chiffres : le signe garde sa place de tête.
+    const renverse = [...signe, ...[...idsChiffres].reverse()];
+    return [etape(ctx, dire(spec.libelle, ctx.langue), `${v} → ${apres.valeur}`, enchainer([
+      { op: 'substitute', pairs: [{ target: ctx.ids[0], to: eclats }] },
+      { op: 'move', order: renverse, geste: 'miroir' },
+      { op: 'merge', targets: renverse, to: token(sortie[0], apres.valeur, 'number') },
+    ]), { hold: 400 })];
+  };
+}
+
+/**
  * ★ **LE PLAFOND DE RANGÉES D'UNE TABLE DES RESTES.**
  *
  * ⚠ **Miroir** de `MODULO_LIGNES_MAX` (`src/visuel/assets.js`), pour la même
@@ -395,6 +464,8 @@ const brut = [
     notoriete: 0.20, adHoc: 0.3,
     calcul: (n) => Math.sign(n || 1) * Number(chiffres(n).reverse().join('')),
     exige: (n) => Math.abs(n) > 9 && chiffres(n).join('') !== chiffres(n).reverse().join(''),
+    // Le miroir se joue sur la ligne, en ellipse : voir `etapeMiroir`.
+    miroir: true,
   },
   {
     id: 'p.complement9', code: 'pc9',
@@ -457,9 +528,11 @@ const brut = [
     modulo: 10,
   },
 ].map((spec) => {
-  const { calcul, exige, reduction, reductionUnique, geste, complement, modulo, ...reste } = spec;
+  const { calcul, exige, reduction, reductionUnique, geste, complement, modulo, miroir, ...reste } = spec;
   let steps;
-  if (modulo !== undefined) {
+  if (miroir) {
+    steps = etapeMiroir(reste);
+  } else if (modulo !== undefined) {
     steps = etapeModulo(reste, modulo);
   } else if (complement !== undefined) {
     steps = etapeComplement(reste, complement);

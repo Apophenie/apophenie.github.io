@@ -689,6 +689,54 @@ test('★ pc9 — le complément se pose : « 9 − 3 », puis 9 descend, puis �
     'pc9 : le « − » appartient au calcul, il s’en va avec lui');
 });
 
+/**
+ * ★ `pmr` retourne la LIGNE, pas une table.
+ *
+ * « Ce n'est pas un miroir de table mais un miroir directement sur les données
+ * de la ligne » (l'auteur). Le geste générique remplaçait `28` par `82` sans
+ * qu'aucun chiffre n'ait bougé : le miroir n'était nulle part. On vérifie donc
+ * les trois temps, et surtout que le déplacement demande le chemin en ellipse —
+ * deux chiffres qui échangent leurs places en ligne droite se traversent.
+ */
+test('★ pmr — le nombre s’éclate, les chiffres s’échangent en ellipse, et se recollent', () => {
+  const op = PAR_CODE.get('pmr');
+  const steps = (v) => {
+    const entree = U(v);
+    const apres = appliquer(op, entree);
+    return { apres, ops: etapes(op, entree, apres, { ids: ['t0'], cle: 'e0' })[0].ops };
+  };
+
+  const { apres, ops } = steps(28);
+  assert.equal(apres.valeur, 82);
+  const eclat = ops.find((o) => o.op === 'substitute');
+  assert.deepEqual(eclat.pairs[0].to.map((t) => t.text), ['2', '8'],
+    'les chiffres doivent RECONSTITUER le jeton : c’est ce que `substitute` exige');
+  const bouge = ops.find((o) => o.op === 'move');
+  assert.equal(bouge.geste, 'miroir', 'sans le chemin en ellipse, les chiffres se traversent');
+  assert.deepEqual(bouge.order, [...eclat.pairs[0].to.map((t) => t.id)].reverse());
+  const colle = ops.find((o) => o.op === 'merge');
+  assert.deepEqual(colle.targets, bouge.order, 'on recolle ce qu’on vient de retourner');
+  assert.equal(colle.to.text, '82');
+
+  // ★ Le signe garde sa place de tête : `-28` se lit `-82`, pas `82-`. Il doit
+  //   figurer dans l'éclatement, faute de quoi les chiffres ne reconstitueraient
+  //   pas le jeton `-28`.
+  const negatif = steps(-28);
+  assert.equal(negatif.apres.valeur, -82);
+  const parts = negatif.ops.find((o) => o.op === 'substitute').pairs[0].to;
+  assert.deepEqual(parts.map((t) => t.text), ['-', '2', '8']);
+  const ordre = negatif.ops.find((o) => o.op === 'move').order;
+  assert.equal(ordre[0], parts[0].id, 'le signe ne se retourne pas avec les chiffres');
+  assert.equal(negatif.ops.find((o) => o.op === 'merge').to.text, '-82');
+
+  // ★ Le zéro de tête retombe sur le geste sobre : `20` se lit `02`, qui vaut
+  //   `2` — un chiffre s’y perd, et `merge` refuserait le collage. Montrer `02`
+  //   puis le remplacer par `2` serait une seconde règle que personne n’a dite.
+  const zero = steps(20);
+  assert.equal(zero.apres.valeur, 2);
+  assert.ok(!zero.ops.some((o) => o.op === 'move'), 'pas de miroir quand un chiffre se perd');
+});
+
 test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émetteur', () => {
   for (const [code, entree] of VECTEURS) {
     const op = PAR_CODE.get(code);

@@ -22,6 +22,7 @@ import { compile, repeatOrigins } from '../compile.js';
 import { setGlyphes } from '../glyphes.js';
 import { GLYPHES } from '../fixtures/glyphes.js';
 import { tableGeometry, pasDeGlissiere, DISPOSITIONS } from '../assets.js';
+import { demiEllipse } from '../primitives/ellipse.js';
 import { layerOf } from '../dom.js';
 import { LETTRES, atbash, cesar } from '../../moteur/tables/alphabet.js';
 import { FILTRES } from '../../moteur/transformations/filtres.js';
@@ -240,4 +241,89 @@ test('Atbash : le geste compile, et c’est celui du clavier', () => {
   // Et la valeur revient bien à sa place dans la ligne.
   const arrivee = tl.nodes.find((n) => n.text === 's' && n.role === 'text');
   assert.ok(arrivee, 'le « s » de l’Atbash est bien né');
+});
+
+/* ═════════════════ Le miroir, partagé — l'alphabet et la ligne ═════════════
+ *
+ * « C'est bien un miroir (comme Atbash) […] Réutilise le principe de
+ * l'animation en ellipse, il devrait être commun à tout type de miroir, même si
+ * ce n'est pas la même chose qu'on met en miroir » (l'auteur, à propos de
+ * `p.miroir`). Ce qui est vérifié ici, c'est justement le COMMUN : que les deux
+ * gestes appellent le même calcul, et que ce calcul garde la propriété qui fait
+ * tout son propos — l'alignement à chaque instant.
+ */
+
+test('ellipse : la bosse est proportionnelle à la course — donc la bande reste droite', () => {
+  // Trois éléments qui se retournent autour d'un même centre. À chaque instant,
+  // leurs positions doivent rester ALIGNÉES : c'est ce que garantit b ∝ a, et
+  // c'est ce qui fait lire le mouvement comme une bande qui pivote plutôt que
+  // comme n éléments qui se croisent chacun pour soi.
+  const y = 100;
+  const xs = [0, 50, 100];
+  const trajets = xs.map((x, i) => demiEllipse({ x, y }, { x: xs[xs.length - 1 - i], y }).trajet);
+  for (let k = 0; k < trajets[0].length; k++) {
+    const [a, b, c] = trajets.map((t) => t[k]);
+    // Le milieu reste le milieu : trois points alignés, régulièrement espacés.
+    assert.ok(Math.abs((a.x + c.x) / 2 - b.x) < 1e-9, `x désaligné au pas ${k}`);
+    assert.ok(Math.abs((a.y + c.y) / 2 - b.y) < 1e-9, `y désaligné au pas ${k}`);
+  }
+  // Ce qui part à droite se creuse vers le bas, ce qui part à gauche vers le
+  // haut : les deux moitiés se croisent sans se traverser.
+  const versLaDroite = demiEllipse({ x: 0, y }, { x: 100, y }).trajet;
+  const versLaGauche = demiEllipse({ x: 100, y }, { x: 0, y }).trajet;
+  assert.ok(versLaDroite[6].y > y, 'ce qui va à droite passe dessous');
+  assert.ok(versLaGauche[6].y < y, 'ce qui va à gauche passe dessus');
+  // Et l'élément qui ne bouge pas ne s'arque pas : a = 0, donc b = 0.
+  const immobile = demiEllipse({ x: 42, y }, { x: 42, y });
+  assert.ok(immobile.trajet.every((p) => p.x === 42 && p.y === y));
+});
+
+test('miroir de ligne : les chiffres échangent leurs places EN ELLIPSE', () => {
+  const tl = compile(sc([{
+    id: 'a', title: 'On lit le nombre à l’envers',
+    ops: [{ op: 'move', order: ['t1', 't0'], geste: 'miroir' }],
+  }], [
+    { id: 't0', text: '2', kind: 'digit' },
+    { id: 't1', text: '8', kind: 'digit' },
+  ]));
+
+  const vols = ['t0', 't1'].map((id) => tl.anims.find((a) => a.id === id && a.prop === 'translate'));
+  for (const v of vols) {
+    assert.ok(v.keyframes.length > 2,
+      'un miroir ne va pas tout droit : deux jetons qui échangent leurs places en '
+      + 'ligne droite se traversent, et rien ne dit lequel est allé où');
+  }
+  // L'un passe dessus, l'autre dessous — et ils se croisent au milieu.
+  const ys = vols.map((v) => v.keyframes[Math.floor(v.keyframes.length / 2)].value.y);
+  assert.ok((ys[0] - 240) * (ys[1] - 240) < 0, 'les deux moitiés ne se traversent pas');
+  const xs = vols.map((v) => v.keyframes[Math.floor(v.keyframes.length / 2)].value.x);
+  assert.ok(Math.abs(xs[0] - xs[1]) < 1e-6, 'le croisement a lieu au même point');
+  // Et ils rétrécissent au croisement, pour que la pile s'éclaircisse.
+  for (const id of ['t0', 't1']) {
+    const s = tl.anims.find((a) => a.id === id && a.prop === 'scale');
+    assert.ok(s && s.keyframes.some((k) => k.value < 0.9), 'le rétrécissement du croisement');
+    assert.ok(Math.abs(s.keyframes.at(-1).value - 1) < 1e-9, 'et la taille rendue à l’arrivée');
+  }
+});
+
+test('miroir de ligne : un déplacement ORDINAIRE va toujours tout droit', () => {
+  // Le chemin courbe est réservé à ce qui le mérite : un rangement, un
+  // resserrement, une insertion ne sont pas des miroirs, et personne ne
+  // regarde le chemin qu'ils prennent.
+  const tl = compile(sc([{
+    id: 'a', title: 'On range',
+    ops: [{ op: 'move', order: ['t1', 't0'] }],
+  }], [
+    { id: 't0', text: '2', kind: 'digit' },
+    { id: 't1', text: '8', kind: 'digit' },
+  ]));
+  for (const id of ['t0', 't1']) {
+    const v = tl.anims.find((a) => a.id === id && a.prop === 'translate');
+    assert.equal(v.keyframes.length, 2, 'deux keyframes : un départ, une arrivée');
+  }
+  // Un geste hors vocabulaire est une erreur, pas une option ignorée.
+  assert.throws(() => compile(sc([{
+    id: 'a', title: 'A', ops: [{ op: 'move', order: ['t1', 't0'], geste: 'saut' }],
+  }], [{ id: 't0', text: '2', kind: 'digit' }, { id: 't1', text: '8', kind: 'digit' }])),
+  /les deux déplacements modélisés/);
 });

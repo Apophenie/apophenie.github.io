@@ -59,6 +59,11 @@
  */
 
 import { EASE } from '../constants.js';
+// ★ Le calcul du miroir — la demi-ellipse, l'aplatissement, le rétrécissement —
+//   est écrit UNE fois et partagé avec le miroir de la LIGNE (`move.js`,
+//   `geste: 'miroir'`). « Il devrait être commun à tout type de miroir, même si
+//   ce n'est pas la même chose qu'on met en miroir » (l'auteur).
+import { demiEllipse, ECHANTILLONS } from './ellipse.js';
 
 export const ROLE_CASE = 'case';
 
@@ -91,36 +96,6 @@ const TEMPS = Object.freeze({
   COURSE: 0.62,
   REPOS: 0.08,
 });
-
-/** Points d'échantillonnage d'une ellipse — assez pour que l'arc soit un arc. */
-const ECHANTILLONS = 12;
-
-/**
- * ★ L'aplatissement des ellipses du retournement.
- *
- * Un vrai demi-tour de la bande (demi-cercles) enverrait les cases extrêmes à
- * treize colonnes au-dessus et au-dessous de la réglette : hors de la scène. On
- * aplatit donc, et le facteur est **borné par la hauteur utile** : au-delà, les
- * cases sortiraient du cadre — or la caméra ne recule qu'une fois, au
- * déploiement, et pas pour une excursion d'une demi-seconde.
- *
- * Ce qui compte est préservé : les demi-axes verticaux restent proportionnels
- * aux horizontaux, donc l'alignement tient à chaque instant.
- */
-const APLATISSEMENT = 0.22;
-
-/**
- * ★ Ce que les cases perdent en taille pendant le retournement.
- *
- * Un miroir a ceci de particulier que TOUTES ses cases se croisent au même
- * point au même instant : leur milieu commun est le milieu de la bande. À
- * mi-parcours, les vingt-six se retrouvent donc empilées sur une même verticale
- * — c'est de la géométrie, pas un défaut d'animation, et aucun réglage
- * d'ellipse ne l'évite. On les rétrécit à l'approche du croisement pour que la
- * pile s'éclaircisse, et on les rend à leur taille en arrivant : le mouvement
- * se lit alors comme une bande qui se met de chant, puis se repose retournée.
- */
-const RETRECISSEMENT = 0.55;
 
 /** Fenêtre de fondu d'une case qui franchit un bord, en fraction de la course. */
 const FONDU_BORD = 0.07;
@@ -367,19 +342,13 @@ function trajectoires(geo, board) {
   for (let col = 0; col < n; col++) {
     const bas = basses[col];
     const haut = depart(bas);
-    const a = (bas.cx - haut.cx) / 2;
-    const cx = (bas.cx + haut.cx) / 2;
-    const b = a * APLATISSEMENT;
-    const trajet = [];
-    const tailles = [];
-    for (let k = 0; k <= ECHANTILLONS; k++) {
-      const theta = (Math.PI * k) / ECHANTILLONS;
-      trajet.push({ x: cx - a * Math.cos(theta), y: bas.cy + b * Math.sin(theta) });
-      // La case s'amincit à mesure qu'elle approche du croisement, et se
-      // retrouve entière une fois posée. Le facteur suit le sinus, comme la
-      // bosse : les deux disent la même chose du même mouvement.
-      tailles.push(1 - RETRECISSEMENT * Math.sin(theta));
-    }
+    // Le calcul est celui de `ellipse.js`, partagé avec le miroir de la ligne :
+    // demi-ellipse de la place de départ à la place d'arrivée, bosse
+    // proportionnelle à la distance — donc alignement tenu à chaque instant —,
+    // et rétrécissement au croisement.
+    const { trajet, tailles } = demiEllipse(
+      { x: haut.cx, y: bas.cy }, { x: bas.cx, y: bas.cy }, { echantillons: ECHANTILLONS },
+    );
     cases.push({
       ...gabarit(bas, col, board),
       depart: { x: haut.cx, y: bas.cy },

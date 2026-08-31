@@ -2766,6 +2766,12 @@ export function validerFormeOp(o) {
     case 'highlight': case 'dim': case 'drop': case 'pulse': case 'group':
       return cibles(o.targets) ? null : '« targets » manquant ou mal formé';
     case 'move':
+      // Le CHEMIN, quand la ligne droite ment : un miroir se joue en ellipse,
+      // sans quoi deux jetons qui échangent leurs places se traversent et rien
+      // ne dit lequel est allé où (`visuel/primitives/ellipse.js`).
+      if (o.geste !== undefined && o.geste !== 'droit' && o.geste !== 'miroir') {
+        return '« geste » doit valoir « droit » ou « miroir »';
+      }
       // Sans cible ni ordre, `move` est un simple recalcul du flux — c'est la
       // forme qu'emploie le second temps d'un filtre (« on rapproche ce qui
       // reste »), où l'ordre n'a pas changé, seuls les trous se referment.
