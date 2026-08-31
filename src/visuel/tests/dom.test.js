@@ -26,6 +26,7 @@ import {
 import { compile } from '../compile.js';
 import { setGlyphes } from '../glyphes.js';
 import { GLYPHES } from '../fixtures/glyphes.js';
+import { tableGeometry } from '../assets.js';
 
 setGlyphes(GLYPHES, 'fixtures/glyphes.js');
 
@@ -386,6 +387,41 @@ test('le canal discret écrit dans l’élément qui dessine, sous la chaîne', 
     const racine = createElementFor(unToken(), { metrics: METRICS });
     applyDiscrete(racine, 'text', '15');
     assert.equal(contenuDe(racine).textContent, '15');
+  });
+});
+
+/**
+ * ★ La table des restes DESSINE son barème — une fois par colonne.
+ *
+ * C'est toute la différence avec une réglette cyclique, où chaque case répète
+ * sa valeur ; et c'est ce que la primitive promet quand elle fait redescendre
+ * le reste « de la quotation ». Si le dessin ne l'écrivait pas, la valeur
+ * tomberait d'un endroit vide, et la mise en page affirmerait au lieu de
+ * montrer (CONTRACTS §0.3). On compte donc les textes réellement produits.
+ */
+test('la table des restes écrit ses nombres, et son barème une fois par colonne', () => {
+  avecDocument(() => {
+    const entrees = Array.from({ length: 18 }, (_, n) => ({ char: String(n), value: String(n % 9) }));
+    const geo = tableGeometry({ disposition: 'modulo', colonnes: 9, entries: entrees });
+    const racine = createElementFor({
+      id: '@table:x', role: 'table', w: geo.width, data: { geo, disposition: 'modulo' },
+      base: { translate: { x: 600, y: 400 }, opacity: 1, rotate: 0, scale: 1 },
+    }, { metrics: METRICS });
+
+    const textes = [];
+    const parcourir = (el) => {
+      if (el.tagName === 'text') textes.push(el.textContent);
+      for (const e of el.enfants || []) parcourir(e);
+    };
+    parcourir(racine);
+
+    // Les dix-huit nombres de la grille, écrits une fois chacun…
+    for (let n = 0; n < 18; n++) {
+      assert.equal(textes.filter((t) => t === String(n)).length, n < 9 ? 2 : 1,
+        `« ${n} » : une case, plus le barème de sa colonne pour les neuf premiers`);
+    }
+    // … et neuf repères de barème, un par colonne : 18 cases + 9 barèmes.
+    assert.equal(textes.length, 27);
   });
 });
 
