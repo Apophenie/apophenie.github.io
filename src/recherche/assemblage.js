@@ -984,14 +984,17 @@ function largeurMontree(chemin, plancher = 0) {
 
 /**
  * ★ Combien de gestes du chemin doivent MÉRITER leur place
- * (`elegance.js › A_MERITER_SA_PLACE`) — les ficelles, et l'égalisation.
+ * (`elegance.js › A_MERITER_SA_PLACE`) — les ficelles, l'égalisation, et le
+ * redécoupage choisi.
  *
  * ⚠️ Ce n'est PAS `FICELLES`, et ça l'a été. La table des ficelles est un
  * jugement sur le geste, qui décide de paliers d'élégance ; celle-ci dit
  * seulement qu'à quantité comparable, la voie ne prouve pas autant — ce qui est
  * la question que le classement ci-dessus pose, et la seule. L'égalisation en
  * fait partie sans être une ficelle : elle réécrit la ligne entière d'un geste,
- * donc elle produit des 6 en masse par construction.
+ * donc elle produit des 6 en masse par construction. Le redécoupage choisi y est
+ * pour la même raison, et depuis qu'il a quitté les ficelles lui aussi : sa
+ * découpe est CHOISIE pour tomber sur 6 ou sur 9 le plus souvent possible.
  *
  * ⚠️ MESURÉ, et c'est le second piège que ces trois opérateurs tendaient. Sur
  * `hope-hope-hope.fr`, `fl+tca+m14` rend `[6,6,6,6,6,6,6,6,6,6,6,6,5,7]` et

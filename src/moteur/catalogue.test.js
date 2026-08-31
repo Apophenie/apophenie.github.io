@@ -12,7 +12,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  CATALOGUE, PAR_CODE, PAR_ID, appliquer, etapes, idsApres, derouler,
+  CATALOGUE, PAR_CODE, PAR_ID, appliquer, appliquerProgramme, etapes, idsApres, derouler,
   rangCode, ORDRE_CANONIQUE, operateursActifs, operateursDepuis, JOKER, LANGUES,
 } from './catalogue.js';
 import { RE_CODE } from './transformations/commun.js';
@@ -206,14 +206,19 @@ const VECTEURS = [
   // « On compte les chiffres » : `34455666999` → `1324253639` — un 3, deux 4,
   // deux 5, trois 6, trois 9.
   ['mcc', N([3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]), [1, 3, 2, 4, 2, 5, 3, 6, 3, 9]],
-  // « Le redécoupage tricheur » : LES TRENTE-DEUX CHIFFRES DE L'AUTEUR, pris
-  // tels qu'il les écrit. Sa découpe à la main rend six 6 sur douze paquets ;
-  // la programmation dynamique en rend HUIT sur onze, dont six d'affilée —
-  // deux 666 avant même le tri croissant. Le vecteur gèle donc à la fois le
-  // résultat et la promesse : « tomber sur 6 le plus souvent possible ».
-  // (Et il gèle la borne basse : `mrd` refuse en deçà de dix-neuf chiffres.)
-  ['mrd', N([4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
-    1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8]), [6, 3, 6, 6, 6, 6, 6, 6, 3, 6, 9]],
+  // « Le redécoupage tricheur » : LES TRENTE CHIFFRES DE L'AUTEUR, pris tels
+  // qu'il les écrit, et la sortie qu'il a lui-même calculée à la main —
+  // `999991691662692`. Coupe pour coupe : `999 7+1+1 2+1+0+5+1 1 6 9 7+1+0+8
+  // 1+0+5 1+1 5+1+0 9 1+0+1`.
+  //
+  // Le vecteur gèle donc les deux règles qui ont corrigé le calcul : un 9 vaut
+  // un 6 acquis (`mr9` le retournera), donc il ne s'absorbe pas et un paquet
+  // qui tombe dessus compte ; et la somme d'un paquet s'écrit TELLE QU'ELLE
+  // TOMBE — `7+1+0+8 = 16` rend « 1 6 » et non « 7 », qui perdrait le 6 qu'on
+  // venait de fabriquer.
+  // (Et il gèle la borne basse : `mrd` refuse en deçà de vingt-cinq chiffres.)
+  ['mrd', N('9 9 9 7 1 1 2 1 0 5 1 1 6 9 7 1 0 8 1 0 5 1 1 5 1 0 9 1 0 1'.split(' ').map(Number)),
+    [9, 9, 9, 9, 9, 1, 6, 9, 1, 6, 6, 2, 6, 9, 2]],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],
@@ -454,21 +459,33 @@ test('★ les quatre transformations du 27 août — ce qu’elles font, et ce q
   // Un DERNIER RECOURS : il refuse tant que la ligne n'est pas devenue longue.
   assert.equal(sortie('mrd', [1, 2, 3, 6, 4, 2]), null,
     'six chiffres : la ligne se lit encore, il n’y a rien à redécouper');
-  const longue = [4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
-    1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8];
+  const longue = '9 9 9 7 1 1 2 1 0 5 1 1 6 9 7 1 0 8 1 0 5 1 1 5 1 0 9 1 0 1'.split(' ').map(Number);
   const paquets = sortie('mrd', longue);
-  assert.deepEqual(paquets, [6, 3, 6, 6, 6, 6, 6, 6, 3, 6, 9], 'les 32 chiffres de l’auteur');
-  // ★ Il ACHÈTE des 6, sinon il ne se joue pas : huit contre trois au départ.
-  assert.equal(longue.filter((v) => v === 6).length, 3);
-  assert.equal(paquets.filter((v) => v === 6).length, 8);
-  // ★ Et les 6 déjà écrits ne sont jamais absorbés : ils restent seuls dans leur
-  //   paquet, exactement comme dans le calcul à la main de l’auteur.
+  assert.equal(paquets.join(''), '999991691662692',
+    'les trente chiffres de l’auteur, et la sortie qu’il a calculée à la main');
+  // ★ Il ACHÈTE des 6-ou-9, sinon il ne se joue pas : onze contre six au départ.
+  const gagnants = (vs) => vs.filter((v) => v === 6 || v === 9).length;
+  assert.equal(gagnants(longue), 6);
+  assert.equal(gagnants(paquets), 11);
+  // ★ **Un 9 n’est jamais absorbé, pas plus qu’un 6** : les trois 9 de tête, le
+  //   6 du milieu et les deux 9 isolés se retrouvent intacts et à leur place.
+  assert.deepEqual(paquets.slice(0, 3), [9, 9, 9], 'les trois 9 de tête restent seuls');
+  // ★ Et une somme qui dépasse neuf s’écrit chiffre à chiffre, sans être
+  //   réduite : `7+1+0+8 = 16` rend « 1 6 » — c’est de là que vient le 6 du
+  //   rang 8, et le réduire à 7 le ferait disparaître.
+  assert.deepEqual(paquets.slice(8, 10), [1, 6], 'la somme 16 s’écrit « 1 6 »');
   const tailles = PAR_CODE.get('mrd').additions(longue);
   assert.ok(tailles.length > 0 && tailles.every((t) => t >= 2),
     'les additions déclarées portent toutes au moins deux termes');
-  // Rien à acheter : une ligne longue mais qui ne gagne aucun 6 est refusée.
+  // Rien à acheter : une ligne longue mais qui ne gagne rien est refusée.
   assert.equal(sortie('mrd', new Array(30).fill(6)), null,
     'trente 6 : chacun reste seul, rien n’est gagné, la triche ne se joue pas');
+  assert.equal(sortie('mrd', new Array(30).fill(9)), null,
+    'trente 9 : même refus, et c’est ce que la règle des 9 implique');
+  // ★ Et la suite que l’auteur en tire se rejoue telle quelle : `mr9` retourne
+  //   les 9 et la ligne écrit `666661661662662`.
+  assert.equal(appliquerProgramme(['mrd', 'mr9'], N(longue)).valeur.join(''),
+    '666661661662662', 'la suite de l’auteur, un cran plus loin');
 });
 
 test('★ gel des codes publiés : chaque code rend exactement la même sortie', () => {

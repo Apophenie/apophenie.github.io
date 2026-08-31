@@ -1360,10 +1360,15 @@ test('★ retouches — une retouche qui n’apporte pas de série de plus n’e
   // Le seuil est STRICT : c'est le seul garde-fou contre un étage amont gratuit
   // (voir `assemblage.js › groupementsRetouches`). On le vérifie en rejouant le
   // même programme SANS la retouche : il doit aligner moins de séries.
-  // Deux saisies suffisent — elles portent à elles seules quatre voies
-  // retouchées, et le corpus complet est passé au banc, pas ici.
+  // ⚠️ **TROIS saisies, et la troisième est arrivée par la mesure.** Il n'y en
+  // avait que deux — « elles portent à elles seules quatre voies retouchées ».
+  // Le jour où `mrd` a changé de calcul, « Emmanuel Macron » a cessé d'en
+  // porter une seule, et l'échantillon est tombé à deux : le test n'échouait
+  // sur aucune de ses assertions, il échouait sur sa TAILLE. Un garde-fou qui
+  // rougit parce qu'il n'a plus rien à regarder ne dit rien du code ; on lui
+  // redonne de quoi regarder plutôt que d'abaisser le seuil.
   let vues = 0;
-  for (const s of ['Donald Trump', 'Emmanuel Macron']) {
+  for (const s of ['Donald Trump', 'Emmanuel Macron', 'Marie Curie']) {
     for (const a of AVEC_RETOUCHES().resoudre(s).approches) {
       if (!a.retouches || !a.retouches.length) continue;
       vues++;

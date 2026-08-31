@@ -1010,6 +1010,13 @@ export const BAREME = {
    * redécoupant de manière à ce que ça tombe sur 6 le plus souvent possible. »
    * — l'auteur, et le mot est de lui.
    *
+   * ⚠️ **Ce palier survit à la sortie des ficelles.** L'auteur a demandé plus
+   * tard que `mrd` « soit retiré des ficelles pour devenir un opérateur à 0.2 de
+   * notoriété » (voir `FICELLES`). Il n'y est donc plus, il n'évince plus et ne
+   * se fait plus évincer — mais son geste n'a pas changé d'un pouce, et ce qui
+   * se paie ici, c'est le GESTE. Même partage que pour `mpf` et pour
+   * `m.egalisation` : sortir des ficelles n'est pas devenir gratuit.
+   *
    * ★ **Le TARIF le plus élevé des triches d'opérateur — et il n'est comparable
    * à aucun autre, parce qu'il est le seul (avec l'addition sélective) à être
    * DIVISÉ avant d'être facturé.** L'auteur n'a jamais comparé celui-ci aux
@@ -1359,7 +1366,28 @@ export const FICELLES = Object.freeze({
   //    devenir gratuite, c'est cesser d'être traitée en suspecte.
   'm.unRangSurDeux': 'decimation',
   'm.additionSelective': 'additionSelective',
-  'm.redecoupageChoisi': 'redecoupage',
+  // ★ **`m.redecoupageChoisi` N'EN FAIT PLUS PARTIE** — « `mrd`, l'idée est là,
+  //   à retirer des ficelles pour en faire un opérateur à 0.2 de notoriété »
+  //   (l'auteur). C'est le même mouvement que pour `mpf` et pour `m.egalisation`
+  //   avant lui, et il se lit à la définition posée en tête de cette table : une
+  //   ficelle ABOUTIT quel que soit le mot. Le redécoupage, lui, refuse de
+  //   s'appliquer dès qu'il ne gagne pas de 6-ou-9, et il refuse en deçà de
+  //   vingt-cinq chiffres — sur la quasi-totalité des saisies, il ne se propose
+  //   même pas.
+  //
+  //   Ce qu'il garde, et ce sont les deux moitiés de la phrase :
+  //
+  //    · le palier `REDECOUPAGE`, compté par chiffre absorbé et dilué par le
+  //      nombre d'additions, exactement comme avant — voir
+  //      `ABSORBENT_PAR_ADDITION`. Sortir des ficelles n'est pas devenir
+  //      gratuit ;
+  //    · sa place dans `A_MERITER_SA_PLACE`, parce que la question du faisceau
+  //      n'est pas celle du barème : il produit des 6 EN MASSE par construction,
+  //      ce qui est précisément le critère de cette table-là.
+  //
+  //   Ce qu'il perd : il cesse d'être évinçable et d'évincer (`nbFicelles`,
+  //   `assemblage.js`), et il redevient éligible à la seconde suggestion, celle
+  //   qui met en avant le NOMBRE de séries (`index.js › selectionner`).
   // ⚠️ `effacementSansMotif` n'a pas encore d'opérateur : la scission du geste
   //    de `m36` (couronner / effacer) est en cours ailleurs. Inscrire ici
   //    l'identifiant de la moitié « effacer » suffira à brancher le palier.
@@ -1396,13 +1424,24 @@ export const FICELLES = Object.freeze({
 const ECARTEMENTS = new Set(['majorite', 'decimation', 'effacementSansMotif']);
 
 /**
- * ★ Les ficelles qui ABSORBENT par ADDITION — leur peine se dilue.
+ * ★ CE QUI ABSORBE PAR ADDITION — par identifiant d'opérateur, ficelle ou non.
  *
- * Ce sont les deux seules dont l'auteur ait dit que le malus devait fondre avec
- * le nombre d'additions (voir `dilution`). Elles ne jettent rien : chaque
- * chiffre entre dans une somme et ressort dedans.
+ * Ce sont les deux gestes dont l'auteur ait dit que le malus devait fondre avec
+ * le nombre d'additions (voir `dilution`). Ils ne jettent rien : chaque chiffre
+ * entre dans une somme et ressort dedans.
+ *
+ * ★ **La table est distincte de `FICELLES`, et depuis peu.** Les deux se
+ * confondaient tant que les deux seuls absorbeurs étaient aussi les deux
+ * dernières ficelles. `m.redecoupageChoisi` est sorti des ficelles sur
+ * arbitrage de l'auteur ; son geste, lui, n'a pas changé d'un pouce et se paie
+ * toujours. Séparer les deux tables est la seule façon d'écrire cela sans
+ * mentir d'un côté ou de l'autre — c'est déjà ce qui a été fait pour
+ * `A_MERITER_SA_PLACE`, et pour la même raison.
  */
-const ABSORPTIONS_ADDITIVES = new Set(['additionSelective', 'redecoupage']);
+const ABSORBENT_PAR_ADDITION = Object.freeze({
+  'm.additionSelective': 'additionSelective',
+  'm.redecoupageChoisi': 'redecoupage',
+});
 
 /**
  * ★ Les ficelles qui ÉCARTENT, par identifiant d'opérateur — publié pour
@@ -1411,8 +1450,8 @@ const ABSORPTIONS_ADDITIVES = new Set(['additionSelective', 'redecoupage']);
  * Le rendement (`score.js › rendementSix`) lit, POUR CELLES-LÀ SEULEMENT, le
  * vecteur le plus large du chemin plutôt que le dernier : les noter sur ce
  * qu'il reste les récompenserait d'avoir jeté davantage. Le raisonnement
- * s'arrête là où l'écartement s'arrête — une ficelle qui ABSORBE (`mad`,
- * `mrd`) ne jette rien, et sa ligne de chiffres momentanément élargie n'est pas
+ * s'arrête là où l'écartement s'arrête — un geste qui ABSORBE (`mad`, ficelle,
+ * `mrd`, qui ne l'est plus) ne jette rien, et sa ligne momentanément élargie n'est pas
  * du gaspillage : c'est le même nombre, écrit autrement, le temps d'une
  * addition. La lui compter au dénominateur lui reprocherait précisément d'avoir
  * MONTRÉ son calcul.
@@ -1527,10 +1566,20 @@ export const UNIFORMISENT = Object.freeze(new Set(['m.egalisation']));
  * et c'est elle que le faisceau consulte. Une ficelle y est par définition ;
  * l'égalisation y est parce qu'elle réécrit la ligne ENTIÈRE d'un geste, ce qui
  * n'est pas une performance mais un changement de sujet.
+ *
+ * ★ **Et le redécoupage y reste alors qu'il vient de quitter les ficelles.**
+ *   C'est le cas d'école qui justifie la scission : sa découpe est CHOISIE pour
+ *   tomber sur 6 ou sur 9 le plus souvent possible — il n'y a pas, dans tout le
+ *   catalogue, de geste qui produise plus de 6 par construction. Le retirer
+ *   d'ici en même temps que des ficelles lui aurait rendu, d'un seul mouvement,
+ *   le plafond du faisceau — c'est-à-dire le seul levier qui ait jamais agi sur
+ *   ce genre de voie. L'auteur a demandé qu'il cesse d'être traité en ficelle,
+ *   pas qu'il cesse de mériter sa place.
  */
 export const A_MERITER_SA_PLACE = Object.freeze(new Set([
   ...Object.keys(FICELLES),
   ...UNIFORMISENT,
+  'm.redecoupageChoisi',
 ]));
 
 /**
@@ -2132,11 +2181,16 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     // le tri qu'elle est censée valoir mieux que.
     const ficelle = op.id && Object.prototype.hasOwnProperty.call(FICELLES, op.id)
       ? FICELLES[op.id] : null;
+    // …et l'absorption par addition se compte que le geste soit une ficelle ou
+    // non : `mad` en est une, `mrd` n'en est plus une, tous deux additionnent.
+    const absorption = op.id
+      && Object.prototype.hasOwnProperty.call(ABSORBENT_PAR_ADDITION, op.id)
+      ? ABSORBENT_PAR_ADDITION[op.id] : null;
     if (ECARTEMENTS.has(ficelle)) {
       // Ce que la ruse ÉCARTE, à son tarif. Même unité que `VALEUR_JETEE` :
       // une valeur calculée, montrée, puis écartée.
       b[ficelle] += Math.max(0, avant.valeur.length - apres.valeur.length);
-    } else if (ABSORPTIONS_ADDITIVES.has(ficelle)) {
+    } else if (absorption) {
       // Ce que la ruse ABSORBE : le nombre de CHIFFRES qui disparaissent dans
       // une addition. `[6,5,16,8]` porte cinq chiffres et n'en rend que quatre
       // termes : un chiffre a été absorbé, donc une sélection a été faite.
@@ -2151,7 +2205,7 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       let chiffres = 0;
       for (const v of avant.valeur) chiffres += String(Math.abs(v)).length;
       const absorbes = Math.max(0, chiffres - apres.valeur.length);
-      b[ficelle] += typeof op.additions === 'function'
+      b[absorption] += typeof op.additions === 'function'
         ? dilution(op.additions(avant.valeur)) : absorbes * 1000;
     }
 
@@ -2181,7 +2235,7 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     //    écartées, et la scène les MONTRE tomber. Les ficelles en sont exclues :
     //    elles viennent de payer, ci-dessus, ce même rétrécissement. Les
     //    agrégations aussi : elles n'écartent rien, elles absorbent.
-    if (!ficelle && !agrege && avant.type === 'NUMS' && apres.type === 'NUMS'
+    if (!ficelle && !absorption && !agrege && avant.type === 'NUMS' && apres.type === 'NUMS'
       && apres.valeur.length < avant.valeur.length) {
       const jetees = avant.valeur.length - apres.valeur.length;
       // ★ **MAIS TOUT REJET N'A PAS LA MÊME EXCUSE.**
