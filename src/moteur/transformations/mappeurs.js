@@ -72,7 +72,7 @@
  */
 
 import {
-  A1Z26, Z26A1, PYTHAGORE, CHALDEEN, ENGLISH_X6, NOM_LETTRE_FR,
+  A1Z26, Z26A1, PYTHAGORE, CHALDEEN, ENGLISH_X6, NOM_LETTRE_FR, NOM_CHIFFRE_FR,
   VOYELLES, sansAccents, estLettre, valeur as valeurTable, LETTRES,
 } from '../tables/alphabet.js';
 import { SCRABBLE_FR, SCRABBLE_EN, T9, MORSE, morseSignaux, morseTraits } from '../tables/jeux.js';
@@ -557,6 +557,10 @@ const LIB_COMPTER_LES_CHIFFRES = bilingue(
 const LIB_REDECOUPAGE = bilingue(
   'On redécoupe en paquets qui tombent sur 6',
   'Recut into packets that land on 6',
+);
+const LIB_EN_LETTRES = bilingue(
+  'On écrit le chiffre en toutes lettres',
+  'Write the digit out in French words',
 );
 
 /**
@@ -3282,6 +3286,85 @@ const AUTRES_MAPPEURS = [
       steps.push(etape(ctx, dire(LIB_REDECOUPAGE, ctx.langue),
         `${vus} → ${apres.valeur.join(' ')}`, enchainer(ops), { id: `s_${ctx.cle}_d` }));
       return steps;
+    },
+  }),
+
+  def({
+    /**
+     * ★ LE CHIFFRE ÉCRIT EN TOUTES LETTRES — et c'est le sens INVERSE de tout
+     *   le reste du site.
+     *
+     * « Un opérateur "chiffre écrit en lettres" (7 → « sept »), avec un gros
+     * malus puisqu'on essaie plutôt d'aller en sens inverse, mais
+     * occasionnellement ça peut dépanner […] c'est plutôt à considérer comme une
+     * ficelle. » (l'auteur)
+     *
+     * Tout le catalogue lit du texte pour en tirer des nombres ; celui-ci
+     * rembobine. Ce n'est pas une gêne technique — le moteur sait très bien
+     * repartir d'un `STR` —, c'est une gêne de DÉMONSTRATION : on avait promis
+     * de faire parler la saisie, et on lui redonne des lettres qu'on vient
+     * d'inventer. D'où le malus, et d'où sa place parmi les ficelles.
+     *
+     * ★ **Il REMPLACE l'idée d'un opérateur qui écrirait la lettre pour compter
+     * ses lettres** : ce compte-là existe déjà, c'est le joker `jnf`
+     * (`posts.js`), qui va de 7 à 4 sans passer par le texte. Écrire le mot ET
+     * le compter aurait été deux fois le même geste, en deux étapes.
+     *
+     * ★ **Français seulement, et c'est assumé** — comme `jnf`, comme le « tiret
+     * du 6 ». Le nom sort de `NOM_CHIFFRE_FR` (`tables/alphabet.js`), la table
+     * que le joker emploie déjà : une seule source, donc jamais deux
+     * orthographes du même chiffre dans une même démonstration (CONTRACTS §0.3).
+     *
+     * ★ Notoriété 0,80 : écrire un chiffre en lettres est ce qu'on apprend à
+     * l'école primaire, et un chèque le demande encore. Ce qui est louche ici
+     * n'est pas le geste, c'est le SENS dans lequel on le fait — et cela se
+     * paie ailleurs, au barème (`ECRITURE_EN_LETTRES`) et par un `adHoc` élevé,
+     * pas en prétendant que personne ne connaît.
+     *
+     * ★ AdHoc 0,45 : on ne réécrit pas un nombre en lettres pour le plaisir, on
+     * le fait quand on espère que les lettres, elles, tomberont juste. C'est le
+     * niveau de « le plus fréquent l'emporte », et pour la même raison.
+     */
+    id: 'm.chiffreEnLettres', code: 'mlet', famille: 'mappeur', from: 'NUM', to: 'STR',
+    libelle: LIB_EN_LETTRES,
+    regle: bilingue(
+      'Le chiffre s’écrit en toutes lettres, en français : 7 devient « sept »',
+      'The digit is written out in French words: 7 becomes “sept”',
+    ),
+    notoriete: 0.80, adHoc: 0.45,
+    note: bilingue(
+      'On remonte le courant : tout le reste du site lit des lettres pour en tirer des '
+      + 'nombres. Ça dépanne, et ça se paie — le barème le compte comme une ficelle.',
+      'This runs against the current: everything else here reads letters to get numbers. '
+      + 'It helps now and then, and it costs — the scoring counts it as a trick.',
+    ),
+    apply: (valeur, traces) => {
+      const nom = NOM_CHIFFRE_FR[valeur];
+      if (nom === undefined) return null;
+      // Chaque lettre du mot vient du MÊME nombre : elles portent toutes sa
+      // trace, et la saisie d'origine reste atteignable depuis chacune.
+      return { valeur: nom, traces: [...nom].map(() => traces[0] || []) };
+    },
+    sortie: (avant, apres, ctx) => [...apres.valeur].map((_, i) => `${ctx.cle}l${i}`),
+    /**
+     * ★ UN SEUL GESTE : le nombre devient son mot, lettre par lettre.
+     *
+     * `substitute` sait faire naître plusieurs jetons d'un seul — c'est ce qui
+     * sert déjà à écrire un nombre chiffre à chiffre (`mrd`). Ici les jetons
+     * créés sont des LETTRES, et c'est tout ce qui change : le mot n'est pas un
+     * bloc, c'est la ligne de lettres que la suite de la démonstration va lire.
+     */
+    steps: (avant, apres, ctx) => {
+      const lettres = [...apres.valeur];
+      const legende = `${avant.valeur} → « ${apres.valeur} »`;
+      return [etape(ctx, dire(LIB_EN_LETTRES, ctx.langue), legende, enchainer([{
+        op: 'substitute',
+        pairs: [{
+          target: ctx.ids[0],
+          to: lettres.map((c, i) => token(`${ctx.cle}l${i}`, c, 'letter')),
+        }],
+        dur: 900,
+      }]))];
     },
   }),
 ];

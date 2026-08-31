@@ -187,9 +187,18 @@ function codesDesFicelles() {
 }
 
 test('★ les ficelles sont au catalogue, et chacune alimente SON palier', () => {
+  // ★ Les types d'états sont DÉCLARÉS, et depuis qu'une ficelle ne va plus de
+  //   `NUMS` à `NUMS` : « le chiffre écrit en toutes lettres » remonte le
+  //   courant, d'un `NUM` vers un `STR`. Les deviner — en supposant `NUMS` des
+  //   deux côtés, comme ce test le faisait — aurait fabriqué des états faux et
+  //   mesuré un bilan qui n'existe pas.
   const attendu = {
-    'm.unRangSurDeux': ['m1s2', 'decimation', [6, 4, 6, 3, 6]],
-    'm.additionSelective': ['mad', 'additionSelective', [6, 5, 16, 8]],
+    'm.unRangSurDeux': ['m1s2', 'decimation', [6, 4, 6, 3, 6], 'NUMS', 'NUMS'],
+    'm.additionSelective': ['mad', 'additionSelective', [6, 5, 16, 8], 'NUMS', 'NUMS'],
+    // ★ La ficelle qui RÉÉCRIT — « avec un gros malus puisqu'on essaie plutôt
+    //   d'aller en sens inverse » (l'auteur). Elle ne jette rien, n'absorbe
+    //   rien, et se paie au forfait : un emploi, une fois.
+    'm.chiffreEnLettres': ['mlet', 'ecritureEnLettres', 7, 'NUM', 'STR'],
     // ⚠️ **`m.egalisation` N'Y FIGURE PLUS** — et elle y a figuré une journée.
     //    « meg ne marche pas toujours, l'égalisation pourrait être autre que
     //    sur 6 » (l'auteur), et c'est ce qui la sépare des autres : elle
@@ -207,15 +216,16 @@ test('★ les ficelles sont au catalogue, et chacune alimente SON palier', () =>
   assert.deepEqual(Object.keys(FICELLES).sort(), Object.keys(attendu).sort(),
     'FICELLES et le catalogue doivent parler des mêmes opérateurs');
 
-  for (const [id, [code, compteur, entree]] of Object.entries(attendu)) {
+  for (const [id, [code, compteur, entree, typeAvant, typeApres]] of Object.entries(attendu)) {
     assert.equal(FICELLES[id], compteur, `${id} doit alimenter « ${compteur} »`);
     const op = operateur(id);
     assert.equal(op.code, code, `${id} doit porter le code ${code} (registre append-only, §4.1)`);
 
-    const avant = etat('NUMS', entree);
-    const brut = op.apply(entree, entree.map(() => []));
+    const avant = etat(typeAvant, entree);
+    const traces = Array.isArray(entree) ? entree.map(() => []) : [[]];
+    const brut = op.apply(entree, traces);
     assert.ok(brut, `${code} doit s’appliquer à ${JSON.stringify(entree)}`);
-    const apres = etat('NUMS', brut.valeur);
+    const apres = etat(typeApres, brut.valeur);
     const b = bilanChemin({ ops: [op], etats: [avant, apres] });
     assert.ok(b[compteur] > 0, `${code} doit faire monter « ${compteur} »`);
     // ★ …et la peine n'est PAS comptée deux fois : ce que la ficelle écarte ne

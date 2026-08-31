@@ -280,6 +280,11 @@ export const NOMS = {
   'm.retournerLesTrios': b('Par le retournement des trios', 'By flipping the trios'),
   'm.compterLesChiffres': b('Par le décompte des chiffres', 'By tallying the digits'),
   'm.redecoupageChoisi': b('Par redécoupage choisi', 'By chosen recutting'),
+  // ★ Elle NOMME une voie, elle, et c'est ce qui la sépare des mappeurs de
+  //   service ci-dessus : « on écrit le chiffre en toutes lettres » dit par
+  //   quel chemin on est passé — c'est un détour qu'on prend, pas une
+  //   retouche qu'on applique à ce qu'un autre a calculé.
+  'm.chiffreEnLettres': b('Par le détour des lettres', 'Through the letters detour'),
   // ★ `m36` ne nomme rien et ne DOIT rien nommer : il souligne un 666 déjà écrit,
   // c'est-à-dire le résultat. Il est écarté des vedettes (`MAPPEURS_DE_SERVICE`)
   // et son nom de repli reste muet sur ce qu'il montre.
@@ -502,6 +507,7 @@ export const PRECISIONS = {
   'm.retournerLesTrios': b('les trios retournés', 'with the trios flipped'),
   'm.compterLesChiffres': b('les chiffres comptés', 'with the digits tallied'),
   'm.redecoupageChoisi': b('redécoupé en paquets', 'recut into packets'),
+  'm.chiffreEnLettres': b('écrit en toutes lettres', 'written out in words'),
   // ★ Muet sur ce qu'il souligne — voir `MAPPEURS_DE_SERVICE`. « 666 déjà
   // écrit » serait exact et divulguerait la chute d'une ligne de la liste.
   'm.troisSixDAffilee': b('avec le trio souligné', 'with the trio underlined'),

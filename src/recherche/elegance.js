@@ -1170,6 +1170,40 @@ export const BAREME = {
    */
   EFFACEMENT_SANS_MOTIF: 520,
 
+  /**
+   * ★ **ÉCRIRE UN CHIFFRE EN TOUTES LETTRES — le seul geste qui remonte le
+   *   courant.**
+   *
+   * « Avec un gros malus puisqu'on essaie plutôt d'aller en sens inverse, mais
+   * occasionnellement ça peut dépanner […] c'est plutôt à considérer comme une
+   * ficelle. » (l'auteur)
+   *
+   * Tout le catalogue lit du texte pour en tirer des nombres. Celui-ci rend des
+   * lettres à un nombre, et ces lettres-là ne viennent pas de la saisie : elles
+   * viennent de nous. Ce n'est pas un effacement — rien ne disparaît —, ce n'est
+   * pas une absorption — rien n'est additionné — et ce n'est pas un rejet de
+   * minorité. C'est une RÉÉCRITURE, et c'est le quatrième genre de ficelle.
+   *
+   * ★ **Un FORFAIT, par emploi, et pas un tarif par valeur.** Les autres
+   * ficelles se comptent par ce qu'elles font disparaître ; celle-ci ne fait
+   * disparaître qu'une chose, le nombre, quel qu'il soit. Écrire « six » ne
+   * coûte pas moins qu'écrire « quatre » : ce qui se paie est le CHANGEMENT DE
+   * SENS, une fois, à chaque fois qu'on le prend.
+   *
+   * ★ **Au niveau de la retouche (420), et c'est l'analogie qui le fixe.** Une
+   * retouche réécrit un mot de la saisie avant de le lire ; celle-ci réécrit un
+   * nombre qu'on venait de calculer. Les deux ajoutent au raisonnement une
+   * étape qui ne prouve rien par elle-même, et les deux se paient une fois par
+   * emploi — même geste, même unité, même prix. En dessous
+   * d'`EFFACEMENT_SANS_MOTIF` (520), qui, lui, fait perdre de la matière.
+   *
+   * ⚠️ MESURÉ sur les huit saisies témoins : à ce tarif, aucune tête de liste
+   * ne change, et l'opérateur ne s'invite dans aucune. C'est exactement ce que
+   * l'auteur en attend — « occasionnellement ça peut dépanner ».
+   */
+  ECRITURE_EN_LETTRES: 420,
+
+
   // ── Comment le crédit redescend sur le score de conviction ─────────────────
 
   /**
@@ -1295,6 +1329,7 @@ export const NATURE = Object.freeze({
   DECIMATION: { sens: -1, famille: 'elegance' },
   ADDITION_SELECTIVE: { sens: -1, famille: 'elegance' },
   REDECOUPAGE: { sens: -1, famille: 'elegance' },
+  ECRITURE_EN_LETTRES: { sens: -1, famille: 'elegance' },
   REARRANGEMENT: { sens: -1, famille: 'elegance' },
 
   // ── ni bonus ni malus : des bornes, qui ne produisent aucune ligne
@@ -1366,6 +1401,12 @@ export const FICELLES = Object.freeze({
   //    devenir gratuite, c'est cesser d'être traitée en suspecte.
   'm.unRangSurDeux': 'decimation',
   'm.additionSelective': 'additionSelective',
+  // ★ La troisième, et d'un genre à elle : elle ne jette rien et n'absorbe
+  //   rien, elle RÉÉCRIT — un nombre redevient du texte. « C'est plutôt à
+  //   considérer comme une ficelle » (l'auteur), et c'en est une au sens
+  //   posé en tête de cette table : elle aboutit quel que soit le mot, tout
+  //   chiffre ayant un nom.
+  'm.chiffreEnLettres': 'ecritureEnLettres',
   // ★ **`m.redecoupageChoisi` N'EN FAIT PLUS PARTIE** — « `mrd`, l'idée est là,
   //   à retirer des ficelles pour en faire un opérateur à 0.2 de notoriété »
   //   (l'auteur). C'est le même mouvement que pour `mpf` et pour `m.egalisation`
@@ -1422,6 +1463,15 @@ export const FICELLES = Object.freeze({
  * ligne.
  */
 const ECARTEMENTS = new Set(['majorite', 'decimation', 'effacementSansMotif']);
+
+/**
+ * ★ Les ficelles qui RÉÉCRIVENT — leur peine est un forfait, par emploi.
+ *
+ * Ni l'unité de `VALEUR_JETEE` (rien ne disparaît) ni celle de la dilution
+ * (rien n'est additionné) : le geste ne se décompose pas, il se prend ou ne se
+ * prend pas. On compte donc les fois où on l'a pris.
+ */
+const REECRITURES = new Set(['ecritureEnLettres']);
 
 /**
  * ★ CE QUI ABSORBE PAR ADDITION — par identifiant d'opérateur, ficelle ou non.
@@ -2128,6 +2178,8 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     redecoupage: 0,
     // ★ le sommet de l'échelle, en attente d'un opérateur (voir le barème).
     effacementSansMotif: 0,
+    // ★ le chiffre réécrit en toutes lettres — un forfait, par emploi.
+    ecritureEnLettres: 0,
     // ★ ce qu'un tri croissant déplace, valeur par valeur.
     rearrangement: 0,
     triptyqueVu: false,
@@ -2207,6 +2259,10 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       // Ce que la ruse ÉCARTE, à son tarif. Même unité que `VALEUR_JETEE` :
       // une valeur calculée, montrée, puis écartée.
       b[ficelle] += Math.max(0, avant.valeur.length - apres.valeur.length);
+    } else if (REECRITURES.has(ficelle)) {
+      // Ce que la ruse RÉÉCRIT : un forfait, une fois par emploi. Il n'y a
+      // rien à compter d'autre — le geste ne se fait pas à moitié.
+      b[ficelle] += 1;
     } else if (absorption) {
       // Ce que la ruse ABSORBE : le nombre de CHIFFRES qui disparaissent dans
       // une addition. `[6,5,16,8]` porte cinq chiffres et n'en rend que quatre
@@ -2537,6 +2593,8 @@ export function bilanApproche(approche, ctx = {}) {
     redecoupage: 0,
     // ★ le sommet de l'échelle, en attente d'un opérateur (voir le barème).
     effacementSansMotif: 0,
+    // ★ le chiffre réécrit en toutes lettres — un forfait, par emploi.
+    ecritureEnLettres: 0,
     // ★ ce qu'un tri croissant déplace, valeur par valeur.
     rearrangement: 0,
     // ★ combien de portées ont été RÉÉCRITES avant que le reste ne les lise.
@@ -2639,6 +2697,7 @@ export function bilanApproche(approche, ctx = {}) {
     b.additionSelective += bc.additionSelective;
     b.redecoupage += bc.redecoupage;
     b.effacementSansMotif += bc.effacementSansMotif;
+    b.ecritureEnLettres += bc.ecritureEnLettres;
     b.rearrangement += bc.rearrangement;
     b.six += bc.six;
     b.montrees += bc.largeur;
@@ -2838,6 +2897,8 @@ export function detailDuCredit(b, poids) {
     // ── ★ les ficelles assumées, au tarif qui remplace `VALEUR_JETEE`
     ['★ effacement sans motif', 'EFFACEMENT_SANS_MOTIF', b.effacementSansMotif || 0,
       B.EFFACEMENT_SANS_MOTIF * (b.effacementSansMotif || 0)],
+    ['chiffre écrit en toutes lettres', 'ECRITURE_EN_LETTRES', b.ecritureEnLettres || 0,
+      B.ECRITURE_EN_LETTRES * (b.ecritureEnLettres || 0)],
     ['le plus fréquent l’emporte', 'MAJORITE', b.majorite, B.MAJORITE * b.majorite],
     // ★ Ces deux-là sont comptés en MILLIÈMES d'un chiffre absorbé — leur peine
     //   est diluée par le nombre d'additions qui se suivent (`dilution`), et
