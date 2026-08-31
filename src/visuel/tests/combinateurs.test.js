@@ -222,13 +222,26 @@ test('★ les deux copies des poids de ramassage ne divergent pas non plus', () 
   }
 });
 
-test('la moyenne se joue en nivellement : des « 1 » voyagent, les autres s’effacent', () => {
+/**
+ * ★ **LE NIVELLEMENT A CHANGÉ DE MAISON** — il est chez `m.egalisation`.
+ *
+ * Il appartenait à `c.moyenne`, qui nivelait puis fusionnait les égaux. « L'ancienne
+ * animation vit dans meg et n'a plus sa place côté cmo » (l'auteur) : la moyenne
+ * se montre désormais comme une DIVISION, et le nivellement reste ce qu'il a
+ * toujours été — le geste entier de l'égalisation, qui s'arrête où il a un sens.
+ *
+ * Ce que ce test gèle est donc inchangé sur le fond : neuf « 1 » voyagent en
+ * courbe pour `8 15 16 5`, et tout le monde finit à 11. Seul l'émetteur diffère,
+ * et avec lui deux détails qui disent la différence : le symbole est `≡` et non
+ * `moy.`, et le geste s'appelle `egaliser` — parce qu'il ne fusionne rien.
+ */
+test('l’égalisation se joue en nivellement : des « 1 » voyagent, les autres s’effacent', () => {
   const vs = [8, 15, 16, 5];
-  const [step] = stepsDe('cmo', etatNums(vs), etatNum(11), ['t0', 't1', 't2', 't3']);
+  const [step] = stepsDe('meg', etatNums(vs), etatNums([11, 11, 11, 11]), ['t0', 't1', 't2', 't3']);
   const g = step.ops[0];
   assert.equal(g.op, 'group');
-  assert.equal(g.niveler, true);
-  assert.equal(g.symbol, 'moy.');
+  assert.equal(g.egaliser, true);
+  assert.equal(g.symbol, '≡');
   const tl = compile(sc([{ ...step, id: 'a' }], nums(vs)));
 
   const unites = tl.nodes.filter((n) => n.id.startsWith('@unite:'));
@@ -247,7 +260,11 @@ test('la moyenne se joue en nivellement : des « 1 » voyagent, les autres s’e
     return e ? e.render(1) : null;
   });
   assert.deepEqual(finals, ['11', '11', '11', '11'], 'tout le monde à la même hauteur');
+  // ★ ET RIEN NE FUSIONNE : l'égalisation rend AUTANT de valeurs qu'elle en
+  //   reçoit. C'est ce qui la sépare de la moyenne, et ce qu'aucune assertion
+  //   ne disait tant que les deux partageaient le même geste.
   assert.equal(tl.scene.get('r') ? tl.scene.get('r').text : null, null);
+  assert.equal(finals.length, vs.length, 'quatre valeurs entrent, quatre sortent');
 });
 
 test('la moyenne refuse d’afficher un résultat qui n’est pas la sienne', () => {
@@ -261,9 +278,29 @@ test('la moyenne refuse d’afficher un résultat qui n’est pas la sienne', ()
   });
 });
 
-test('les nombres égaux à la moyenne fusionnent, les autres — l’arrondi — s’effacent', () => {
+/**
+ * ★ **LE MODE `niveler` N'A PLUS D'ÉMETTEUR AU CATALOGUE**, et ce test est ce
+ *   qui l'empêche de mourir en silence.
+ *
+ * Il était produit par `c.moyenne`, qui nivelait PUIS fusionnait les égaux en un
+ * résultat unique. La moyenne se montre désormais comme une division, et
+ * `m.egalisation` — qui a hérité du nivellement — ne fusionne rien : elle rend
+ * autant de valeurs qu'elle en reçoit, et emploie donc `egaliser`.
+ *
+ * On construit donc l'op À LA MAIN, comme le fait déjà « la moyenne refuse
+ * d'afficher un résultat qui n'est pas la sienne » juste au-dessus. Le mode
+ * reste vivant et vérifié ; le jour où un opérateur en aura de nouveau besoin,
+ * il le trouvera en état de marche.
+ */
+test('mode `niveler` — les égaux fusionnent, les autres, l’arrondi, s’effacent', () => {
   const vs = [1, 7, 4, 7, 8, 6, 5, 9, 5];  // somme 52, moyenne 6, nivelé : sept 6 et deux 5
-  const [step] = stepsDe('cmo', etatNums(vs), etatNum(6), vs.map((_, i) => `t${i}`));
+  const step = {
+    id: 'a', title: 'On fait la moyenne',
+    ops: [{
+      op: 'group', targets: vs.map((_, i) => `t${i}`), niveler: true, symbol: 'moy.',
+      to: { id: 'r', text: '6' }, dur: 6000,
+    }],
+  };
   const tl = compile(sc([{ ...step, id: 'a' }], nums(vs)));
   const ids = vs.map((_, i) => `t${i}`);
   assert.equal(ids.filter((id) => vole(tl, id)).length, 7,

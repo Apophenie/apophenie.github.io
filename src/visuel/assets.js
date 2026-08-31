@@ -683,7 +683,26 @@ export function pasDeGlissiere(entries) {
   if (!Array.isArray(entries) || entries.length < 2) return null;
   const rang = (c) => ALPHABET.indexOf(String(c).toUpperCase());
   const haut = entries.map((e) => rang(e && e.char));
-  const bas = entries.map((e) => (String(e && e.value).length === 1 ? rang(e.value) : -1));
+  // ★ **LA BANDE DU BAS PEUT ÊTRE UNE NUMÉROTATION**, pas seulement un alphabet.
+  //
+  //   Elle ne lisait que des lettres — `length === 1`, puis rang dans
+  //   l'alphabet —, ce qui convenait à l'Atbash et aux césars, dont la bande
+  //   inférieure EST un alphabet déplacé. `m.z26a1` fait le même geste sur une
+  //   autre matière : sa bande porte 26, 25, … 1, et le retournement s'y lit
+  //   exactement pareil.
+  //
+  //   Ce qui est vérifié ne change pas d'un iota : un PAS CONSTANT de ±1. Un
+  //   rang de lettre et un numéro de 1 à 26 sont la même échelle écrite
+  //   autrement, et c'est pourquoi la même garde vaut pour les deux — on ramène
+  //   simplement les numéros sur la base 0 des rangs.
+  const numero = (v) => {
+    const n = Number(String(v).trim());
+    return Number.isInteger(n) && n >= 1 && n <= 26 ? n - 1 : -1;
+  };
+  const enChiffres = entries.every((e) => numero(e && e.value) >= 0);
+  const bas = enChiffres
+    ? entries.map((e) => numero(e.value))
+    : entries.map((e) => (String(e && e.value).length === 1 ? rang(e.value) : -1));
   if (haut.some((i) => i < 0) || bas.some((i) => i < 0)) return null;
   const pas = (a, b) => (b - a + 26) % 26;
   const sens = pas(bas[0], bas[1]) === 1 ? 1 : (pas(bas[0], bas[1]) === 25 ? -1 : 0);

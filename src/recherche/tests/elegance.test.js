@@ -26,7 +26,7 @@ import {
   BAREME, NATURE, FICELLES, FICELLES_QUI_ECARTENT, bilanChemin, bilanApproche, credit,
   detailDuCredit, dilution, emploieUneFicelle,
   facteur, note, estPur, amplitudeArrondi, finDuTriptyque, nbTriptyques,
-  classeDeTransformation, survieDesCaracteres,
+  classeDeTransformation, survieDesCaracteres, compterTraductionsDivergentes,
 } from '../elegance.js';
 import { creerMoteur } from '../index.js';
 import { ordreElegance, ordreTriptyques, ordreTotal, POIDS_DES_REGIMES } from '../score.js';
@@ -193,13 +193,13 @@ test('★ les ficelles sont au catalogue, et chacune alimente SON palier', () =>
     //   est celui de l'auteur — trente-deux chiffres —, parce que l'opérateur
     //   refuse en deçà de dix-neuf : c'est un DERNIER RECOURS sur une ligne
     //   trop longue pour tenir dans un verdict, pas une astuce de poche.
-    // ★ La cinquième : l'ÉGALISATION. Elle n'est pas malhonnête — la somme est
-    //   un invariant du transfert —, mais dès que la moyenne vaut le chiffre
-    //   cherché, la ligne entière le devient, et la démonstration ne dit plus
-    //   rien du mot qu'on lisait. Mesuré à son ouverture : sept têtes de liste
-    //   sur huit. C'est la définition du dernier recours — ça marche toujours,
-    //   et ça ne prouve rien.
-    'm.egalisation': ['meg', 'egalisees', [8, 15, 16, 5]],
+    // ⚠️ **`m.egalisation` N'Y FIGURE PLUS** — et elle y a figuré une journée.
+    //    « meg ne marche pas toujours, l'égalisation pourrait être autre que
+    //    sur 6 » (l'auteur), et c'est ce qui la sépare des quatre autres : elle
+    //    ne CHOISIT pas sa valeur, elle tombe sur la moyenne de la ligne. Sur
+    //    `8 15 16 5` elle donne 11 et la voie meurt. Son palier `EGALISATION`
+    //    existe toujours et se paie toujours, comme celui de `mpf` — le test
+    //    juste en dessous le vérifie.
     'm.redecoupageChoisi': ['mrd', 'redecoupage',
       [4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
         1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8]],
@@ -270,6 +270,107 @@ test('★ `mpf` n’est plus une ficelle — mais son rejet se paie encore', () 
   assert.equal(b.majorite * BAREME.MAJORITE, 3 * BAREME.MAJORITE);
   assert.ok(b.majorite * BAREME.MAJORITE < b36.majoriteTacite * BAREME.MAJORITE_TACITE,
     'sur le même vecteur et pour le même résultat, le silence coûte plus cher');
+});
+
+/**
+ * ★ **`meg` non plus n'est une ficelle — et son uniformisation se paie encore.**
+ *
+ * Le jumeau exact du test ci-dessus, et pour la même raison. L'auteur a tranché
+ * sur le fond : « meg ne marche pas toujours, l'égalisation pourrait être autre
+ * que sur 6 ». C'est le critère de la table `FICELLES` — une ficelle aboutit
+ * quel que soit le mot — et l'égalisation n'y répond pas : elle ne choisit pas
+ * sa valeur, elle tombe sur la moyenne de la ligne.
+ *
+ * Ce test le vérifie SUR LE VECTEUR MÊME qui servait à la geler quand elle était
+ * inscrite aux ficelles : `8 15 16 5` — dont la moyenne est 11. Elle égalise
+ * parfaitement, et ne démontre rien du tout.
+ */
+/**
+ * ★ **LE MÊME MOT, TRADUIT DE DEUX FAÇONS** — l'arbitrage de l'auteur, gelé.
+ *
+ * « Traduire un même mot de manière différente dans une même voie est encore
+ * PIRE que d'utiliser des conversions de César différentes dans une même voie.
+ * Autant la traduction n'est pas une ficelle, autant traduire le même mot
+ * différemment dans une même voie peut être considéré comme une ficelle ou
+ * comme du ad-hoc très élevé. Mieux vaut un peu de déchet que ça. »
+ *
+ * Trois choses en découlent, et ce test les tient toutes les trois : le tarif
+ * est plus lourd que celui des césars, choisir UNE acception reste gratuit, et
+ * la recherche n'en produit plus.
+ */
+test('★ traductions — le même mot lu de deux façons coûte plus cher qu’un César de trop', () => {
+  assert.ok(BAREME.TRADUCTION_DIVERGENTE > BAREME.REGLAGE_PAR_MORCEAU,
+    `« encore pire » doit se lire au barème (${BAREME.TRADUCTION_DIVERGENTE} `
+    + `contre ${BAREME.REGLAGE_PAR_MORCEAU})`);
+
+  // ★ L'ACCEPTION EST PUBLIÉE, jamais devinée au code — c'est ce qui rend le
+  //   compte possible sans lire une chaîne (`filtres.js`, champ `acception`).
+  for (const [id, rang] of [['f.traduitFR', 1], ['f.traduitFR3', 3], ['f.traduitEN5', 5]]) {
+    assert.equal(operateur(id).acception, rang, `${id} doit publier son acception`);
+  }
+
+  // Une part réduite à ce que le compte lit : l'opérateur, et le mot qu'il a
+  // reçu en entrée. Le reste du chemin ne l'intéresse pas.
+  const par = (code, mot = 'hope') => ({
+    chemin: { ops: [catalogue.find((o) => o.code === code)], etats: [etat('STR', mot)] },
+  });
+  // Deux morceaux, le MÊME mot, deux acceptions : une divergence.
+  assert.equal(compterTraductionsDivergentes([par('ffr3'), par('ffr')]), 1);
+  // Trois acceptions du même mot : deux surnuméraires.
+  assert.equal(compterTraductionsDivergentes([par('ffr3'), par('ffr'), par('ffr2')]), 2);
+  // ★ LA MÊME acception partout ne coûte RIEN — « pas de malus à choisir les
+  //   suivantes » reste vrai, c'est la DIVERGENCE qui se paie, pas le rang.
+  assert.equal(compterTraductionsDivergentes([par('ffr3'), par('ffr3')]), 0);
+  assert.equal(compterTraductionsDivergentes([par('ffr5'), par('ffr5')]), 0);
+  // ★ ET DEUX MOTS DIFFÉRENTS lus chacun à leur façon ne coûtent rien : « un
+  //   même mot » est la lettre de l'arbitrage, et sa limite.
+  assert.equal(compterTraductionsDivergentes([par('ffr3'), par('ffr', 'love')]), 0);
+  // Le repli est celui du dictionnaire : « Hope » et « hope » sont un seul mot.
+  assert.equal(compterTraductionsDivergentes([par('ffr3', 'Hope'), par('ffr', 'hope')]), 1);
+  // Changer de LANGUE n'est pas changer de lecture : ce sont deux traductions.
+  assert.equal(compterTraductionsDivergentes([par('ffr3'), par('fen')]), 0);
+});
+
+test('★ traductions — la recherche n’en produit plus aucune', () => {
+  const m = creerMoteur(catalogue);
+  let vues = 0;
+  for (const saisie of ['hope-hope-hope.fr', 'https://hope-hope-hope.fr/', 'Les 7 nains']) {
+    for (const a of m.resoudre(saisie).approches) {
+      vues++;
+      assert.equal(compterTraductionsDivergentes(a.parts || []), 0,
+        `« ${saisie} » : un mot y est traduit de deux façons — ${a.codes}`);
+    }
+  }
+  assert.ok(vues >= 10, `seulement ${vues} voies observées`);
+});
+
+test('★ `meg` n’est pas une ficelle — mais son uniformisation se paie encore', () => {
+  assert.ok(!Object.prototype.hasOwnProperty.call(FICELLES, 'm.egalisation'),
+    'elle ne doit pas figurer parmi les ficelles');
+
+  const op = operateur('m.egalisation');
+  const avant = etat('NUMS', [8, 15, 16, 5]);
+  const brut = op.apply(avant.valeur, avant.valeur.map(() => []));
+  const apres = etat('NUMS', brut.valeur);
+  assert.deepEqual(apres.valeur, [11, 11, 11, 11],
+    'elle égalise sur la moyenne de la ligne, et sur rien d’autre');
+
+  const b = bilanChemin({ ops: [op], etats: [avant, apres] });
+  assert.equal(b.egalisees, 4, 'chaque valeur réécrite se compte, une par une');
+  assert.ok(BAREME.EGALISATION > 0, 'et le palier n’est pas nul');
+
+  // ★ CE QUI LA DISTINGUE D'UNE FICELLE, en un seul assert : le résultat n'est
+  //   pas choisi. Aucune ligne ne peut être égalisée vers autre chose que sa
+  //   propre moyenne — donc `meg` échoue partout où cette moyenne n'est pas la
+  //   cible, et c'est une propriété du mot lu, pas du geste posé.
+  assert.ok(!apres.valeur.includes(6),
+    'sur ce vecteur-là elle ne produit aucun 6 : elle ne marche pas toujours');
+
+  // ★ Sa notoriété est basse et c'est voulu : le geste se comprend en le
+  //   voyant, il ne se reconnaît pas. Sortir des ficelles n'est pas devenir
+  //   gratuite — c'est cesser d'être traitée en suspecte.
+  assert.ok(op.notoriete <= 0.2,
+    `égaliser une ligne n’est pas un geste connu du lecteur (${op.notoriete})`);
 });
 
 /**
@@ -991,8 +1092,26 @@ test('★ c.somme change de classe selon ses opérandes — chiffres ou nombres'
   assert.equal(classeDeTransformation(somme, etat('NUMS', [8, 15, 16, 5])), 'nombres');
   assert.equal(classeDeTransformation({ id: 'c.moyenne' }, etat('NUMS', [1, 2])), 'moyenne');
   assert.equal(classeDeTransformation({ id: 'c.max' }, etat('NUMS', [1, 2])), 'minmax');
-  assert.equal(classeDeTransformation({ id: 'f.atbash' }, etat('STR', 'hope')), 'lettres');
-  assert.equal(classeDeTransformation({ id: 'm.a1z26' }, etat('TOKENS', ['h'])), 'autre');
+  // ★ LES LETTRE → LETTRE SE LISENT AU CATALOGUE, plus dans une liste de noms.
+  //
+  //   Elles étaient nommées — `f.atbash`, `f.rot13`, `f.leet` —, et ce test
+  //   passait un `{ id: 'f.atbash' }` fabriqué à la main. Les vingt-quatre
+  //   décalages de César sont entrés depuis, la liste ne les a jamais vus, et
+  //   ni elle ni ce test-là ne pouvaient s'en apercevoir : `fr15` ne payait
+  //   RIEN là où `fr13` payait 40, pour le geste identique.
+  //
+  //   Le critère est désormais la RÉGLETTE que l'opérateur publie — ce que la
+  //   scène affiche sous l'étape, une lettre en face d'une lettre. On passe
+  //   donc les VRAIS opérateurs, et le test tombe si le lien se défait.
+  for (const id of ['f.atbash', 'f.rot13', 'f.leet']) {
+    assert.equal(classeDeTransformation(operateur(id), etat('STR', 'hope')), 'lettres', id);
+  }
+  // ★ Le gel de la correction : un César quelconque paie comme rot13.
+  for (const id of ['f.cesar1', 'f.cesar15', 'f.cesar25']) {
+    assert.equal(classeDeTransformation(operateur(id), etat('STR', 'hope')), 'lettres',
+      `${id} fait le même geste que f.rot13 et doit être classé comme lui`);
+  }
+  assert.equal(classeDeTransformation(operateur('m.a1z26'), etat('TOKENS', ['h'])), 'autre');
 });
 
 /**

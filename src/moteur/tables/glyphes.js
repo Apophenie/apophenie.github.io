@@ -41,7 +41,10 @@
  *
  * - `A` **pointu** (deux diagonales + barre), pas de sommet plat ;
  * - `I` **sans empattement** : une simple verticale → 1 trait, 2 extrémités ;
- * - `a` et `g` **à un seul étage** (cercle + fût) ;
+ * - `g` **à un seul étage** (cercle + fût) — mesuré sur la police : son creux
+ *   monte à 89 % de la hauteur du glyphe, c'est une panse pleine. La convention
+ *   disait « `a` et `g` » ; le `a` en est SORTI, son creux s'arrêtant à 46 %,
+ *   ce qui est un deuxième étage (voir le glyphe) ;
  * - `Q` à queue **tangente** au cercle (elle ne le traverse pas) → 1 extrémité ;
  * - `W` (et `w`) tracés en **4 traits** (zigzag), pas en deux `V` ;
  * - `J` **sans barre supérieure** ;
@@ -52,10 +55,13 @@
  * Deux conventions ajoutées ici, nécessaires pour retrouver les comptages de
  * référence, et parfaitement visibles à l'écran :
  *
- * - **`M` et `N` : les fûts dépassent la jonction des diagonales** (les
- *   diagonales naissent 45 unités sous le sommet du fût). Les quatre pointes
- *   de ces deux lettres sont donc réellement visibles — c'est ce qui est
- *   compté, et c'est ce qui est dessiné ;
+ * - ~~**`M` et `N` : les fûts dépassent la jonction des diagonales**~~ —
+ *   **CONVENTION ABANDONNÉE.** Les diagonales naissaient 45 unités sous le
+ *   sommet du fût, ce qui rendait quatre pointes « réellement visibles » et
+ *   faisait tomber le compte sur la référence. Quarante-cinq sur six cents, ce
+ *   sont 7,5 % de la hauteur de capitale : l'auteur, lisant le glyphe, en compte
+ *   deux. Les diagonales rejoignent donc le sommet, comme celles du `W`, et
+ *   l'écart avec la référence est déclaré (`derivees.js › ECARTS`) ;
  * - **`m` et `n` : l'arche naît au sommet du fût** (le fût s'arrête où l'épaule
  *   commence), construction uniforme des lettres à arche (`h`, `m`, `n`, `r`).
  */
@@ -128,15 +134,36 @@ const G = {
     traits: [t('M 60 600 L 60 0'), t('M 60 0 L 350 0')],
     jonctions: [[0, 1, 'pied']],
   },
+  // ★ **LES FÛTS NE DÉPASSENT PLUS** — arbitrage de l'auteur, et son prix est
+  //   inscrit dans `derivees.js › ECARTS`.
+  //
+  //   Ils dépassaient de 45 unités : la diagonale s'accrochait à `y = 555` au
+  //   lieu du sommet `600`, si bien que chaque fût offrait une pointe libre en
+  //   haut. C'était DÉLIBÉRÉ — c'est ce qui faisait tomber `M` et `N` sur les
+  //   quatre extrémités de la table de recherche, et ce que l'ancien commentaire
+  //   d'`ECARTS` appelait « les capitales reproduites à l'identique, `M` et `N`
+  //   compris, grâce aux fûts qui dépassent ».
+  //
+  //   ⚠️ Sauf que 45 sur 600, c'est 7,5 % de la hauteur de capitale : personne
+  //     ne les voit. « M n'a que deux extrémités libres, contre 4 détectées »
+  //     (l'auteur) — il lit le glyphe, et il a raison de le lire. Le §0.3 dit
+  //     « ce que le spectateur voit est ce qui est compté » : entre un tracé
+  //     contorsionné pour tomber juste et un tracé qu'on reconnaît, c'est le
+  //     second qui gagne, et c'est la table qui s'écarte.
+  //
+  //   `N` suit `M` sans que l'auteur l'ait nommé, parce que c'est la MÊME
+  //   construction — l'argument est déjà écrit pour le `m` et le `n` bas de
+  //   casse : « les deux lettres partagent la même construction : elles ne
+  //   peuvent pas suivre deux conventions ».
   M: {
     traits: [
-      t('M 60 0 L 60 600'), t('M 60 555 L 200 120'),
-      t('M 200 120 L 340 555'), t('M 340 0 L 340 600'),
+      t('M 60 0 L 60 600'), t('M 60 600 L 200 120'),
+      t('M 200 120 L 340 600'), t('M 340 600 L 340 0'),
     ],
     jonctions: [[0, 1, 'fût gauche'], [1, 2, 'pointe'], [2, 3, 'fût droit']],
   },
   N: {
-    traits: [t('M 60 0 L 60 600'), t('M 60 555 L 340 45'), t('M 340 0 L 340 600')],
+    traits: [t('M 60 0 L 60 600'), t('M 60 600 L 340 0'), t('M 340 0 L 340 600')],
     jonctions: [[0, 1, 'fût gauche'], [1, 2, 'fût droit']],
   },
   O: { traits: [ovale(200, 300, 180, 300)], jonctions: [] },
@@ -185,9 +212,33 @@ const G = {
   },
 
   // ─── BAS DE CASSE ─────────────────────────────────────────────────────────
+  // ★ **LE « a » EST À DEUX ÉTAGES**, et c'est la police qui le dit.
+  //
+  //   Il se dessinait en un seul — un ovale plein et un fût tangent —, sur la
+  //   foi d'une convention de `research §3.4` : « `a` et `g` à un seul étage
+  //   (cercle + fût) ». « `a` n'a pas la bonne graphie minuscule au regard de la
+  //   font utilisée » (l'auteur), et la mesure lui donne raison.
+  //
+  //   ⚠️ MESURÉ SUR JETBRAINS MONO — la police dans laquelle la scène rend ses
+  //     jetons (`visuel/constants.js › FONT_FAMILY`) —, en relevant la hauteur
+  //     du CREUX de chaque lettre par rapport à son contour extérieur :
+  //
+  //       a : creux jusqu'à  46 % de la hauteur du glyphe  ← deux étages
+  //       g : creux jusqu'à  89 %                          ← un seul
+  //       o : 86 %   ·   e : 87 %
+  //
+  //     Un creux qui s'arrête à mi-hauteur est une panse basse surmontée d'un
+  //     bras : la convention était juste pour le `g`, fausse pour le `a`.
+  //
+  //   ★ ET LE COMPTE NE BOUGE PAS — c'est ce qui a permis de le corriger sans
+  //     rien déplacer au barème. Le bras et le fût sont UN seul trait (le
+  //     crayon ne se lève pas entre les deux), la panse en est un second qui
+  //     rejoint le fût en deux points, donc une boucle. Restent libres la
+  //     pointe du bras et le pied du fût : 2 traits, 2 extrémités, 1 boucle,
+  //     exactement comme l'ovale qu'il remplace.
   a: {
-    traits: [ovale(185, 200, 145, 200), t('M 330 400 L 330 0')],
-    jonctions: [[0, 1, 'tangence']],
+    traits: [t('M 95 330 A 160 95 0 0 1 330 380 L 330 0'), t('M 330 210 A 145 105 0 0 1 330 10')],
+    jonctions: [[0, 1, 'naissance'], [0, 1, 'pied']],
   },
   b: {
     traits: [t('M 60 600 L 60 0'), t('M 60 400 A 270 200 0 0 0 60 0')],

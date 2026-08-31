@@ -13,6 +13,17 @@ import { fail } from '../errors.js';
 
 export const name = 'annotate';
 
+/**
+ * D'où l'annotation arrive : de quelques unités en deçà de sa place, du côté
+ * où elle se pose. Le glissement est ce qui la fait lire comme une venue, et
+ * non comme une apparition.
+ */
+function depart(at, place) {
+  if (place === 'left') return { x: at.x - 10, y: at.y };
+  if (place === 'right') return { x: at.x + 10, y: at.y };
+  return { x: at.x, y: at.y + (place === 'above' ? 10 : -10) };
+}
+
 export function plan(ctx) {
   const text = ctx.op.text;
   if (typeof text !== 'string' || !text.trim()) {
@@ -24,7 +35,24 @@ export function plan(ctx) {
   const box = bboxOf(ids, ctx.scene.positions, ctx.metrics, 6);
   if (!box) fail(`${ctx.where}aucune ancre positionnée pour l'annotation.`);
 
-  const above = (ctx.op.place || 'below') === 'above';
+  // ★ QUATRE CÔTÉS, ET LE POURQUOI DES DEUX DERNIERS.
+  //
+  //   Une annotation commente, donc elle se pose au-dessus ou au-dessous : deux
+  //   places suffisaient tant qu'il s'agissait de nommer. Encadrer est un autre
+  //   besoin — `|−28|` n'est pas un commentaire sur le nombre, c'est une
+  //   NOTATION qui l'entoure, et elle n'a de sens qu'à sa gauche et à sa droite.
+  //   « Durant la transition, le nombre devrait être encadré par le symbole de
+  //   abs » (l'auteur, à propos de `p.abs`).
+  //
+  //   Les deux nouvelles places se calent sur le FLANC de la boîte et se
+  //   centrent verticalement dessus ; elles n'entrent pas dans le flux, comme
+  //   toute annotation, donc elles ne poussent rien.
+  const place = ctx.op.place || 'below';
+  if (!['above', 'below', 'left', 'right'].includes(place)) {
+    fail(`${ctx.where}« place » = ${JSON.stringify(place)} — les quatre côtés modélisés sont above, below, left, right.`);
+  }
+  const above = place === 'above';
+  const deCote = place === 'left' || place === 'right';
   // ★ À QUELLE DISTANCE — et ce n'est pas la même selon ce qu'on annote.
   //
   //   Une conclusion (« 666 ») se pose à distance de lecture : elle commente
@@ -36,16 +64,19 @@ export function plan(ctx) {
   //   fractions de casse, et vaut la distance de lecture par défaut.
   const ecart = typeof ctx.op.ecart === 'number' && ctx.op.ecart > 0 ? ctx.op.ecart : 1.05;
   const dy = ctx.metrics.fontSize * ecart;
-  const at = { x: box.cx, y: above ? box.y - dy : box.y + box.h + dy };
+  const dx = ctx.metrics.advance * (typeof ctx.op.ecart === 'number' && ctx.op.ecart > 0 ? ctx.op.ecart : 0.45);
+  const at = deCote
+    ? { x: place === 'left' ? box.x - dx : box.x + box.w + dx, y: box.y + box.h / 2 }
+    : { x: box.cx, y: above ? box.y - dy : box.y + box.h + dy };
 
   const id = ctx.op.id && !String(ctx.op.id).startsWith('@') ? ctx.op.id : ctx.gensym('annot');
   ctx.scene.create({
     id, role: 'label', text, inFlow: false,
     w: ctx.metrics.advance * 0.55 * [...text].length,
     data: { scale: 0.55 },
-    base: { opacity: 0, fill: ctx.palette.fg2, translate: { x: at.x, y: at.y + (above ? 10 : -10) } },
+    base: { opacity: 0, fill: ctx.palette.fg2, translate: depart(at, place) },
   }, { where: ctx.where });
-  ctx.scene.place(id, { x: at.x, y: at.y + (above ? 10 : -10) });
+  ctx.scene.place(id, depart(at, place));
   ctx.anim({ id, prop: 'opacity', to: 1, at: 0, dur: ctx.dur * 0.7 });
   ctx.place(id, at, { at: 0, dur: ctx.dur * 0.7 });
 

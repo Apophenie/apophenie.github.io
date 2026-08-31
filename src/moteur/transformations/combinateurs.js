@@ -251,40 +251,21 @@ export function nivellementDe(valeurs, maxTransferts = MAX_TRANSFERTS) {
   return { transferts, valeurs: v, converge: false };
 }
 
-/** Étape de moyenne : on nivelle, puis les nombres égaux à la moyenne fusionnent. */
-function etapeMoyenne(spec) {
-  return (avant, apres, ctx) => {
-    const { transferts, valeurs, converge } = nivellementDe(avant.valeur);
-    const gagnants = valeurs.filter((v) => v === apres.valeur).length;
-    // Repli honnête : un nivellement interminable ne se montre pas, on retombe
-    // sur l'accolade sobre plutôt que sur un geste qu'on ne saurait pas finir.
-    if (!converge || !gagnants) return etapeDecompte(spec)(avant, apres, ctx);
-    const sortie = nomsTokens(ctx, 1);
-    const titre = titreEtape(spec, avant.valeur, ctx.langue);
-    // La légende dit ce qu'on VA voir — et rien de plus : quand tout se tient
-    // déjà à 1 près, il n'y a aucun transfert à annoncer.
-    const legende = dire(transferts.length ? bilingue(
-      `On donne 1 du plus grand au plus petit jusqu’à ce que tout se tienne à 1 près, puis les ${apres.valeur} fusionnent`,
-      `Hand 1 from the largest to the smallest until nothing is more than 1 apart, then the ${apres.valeur}s merge`,
-    ) : bilingue(
-      `Tout se tient déjà à 1 près : les ${apres.valeur} fusionnent, le reste est l’arrondi`,
-      `Nothing is more than 1 apart already: the ${apres.valeur}s merge, what is left is the rounding`,
-    ), ctx.langue);
-    return [etape(ctx, titre, `${legende} : ${apres.valeur}`, [{
-      op: 'group',
-      targets: ctx.ids,
-      niveler: true,
-      symbol: spec.symbole || 'moy.',
-      label: titre,
-      to: token(sortie[0], apres.valeur, 'number'),
-      dur: dureeRamassage({
-        voler: gagnants,
-        effacer: ctx.ids.length - gagnants,
-        transferts: transferts.length,
-      }),
-    }], { hold: 500 })];
-  };
-}
+/* ★ **`etapeMoyenne` A ÉTÉ RETIRÉE ICI** — et son geste n'est pas perdu.
+ *
+ * Elle produisait le nivellement de `c.moyenne` : un `1` passe du plus grand au
+ * plus petit jusqu'à ce que tout se tienne, puis les valeurs devenues égales
+ * fusionnent en une seule. `c.moyenne` se montre désormais comme une DIVISION
+ * (`geste: 'fraction'`), et plus aucun opérateur ne réclamait cette étape-là :
+ * la garder aurait été garder du code qui a l'air vivant.
+ *
+ * ⚠️ Le nivellement lui-même est bien vivant, chez `m.egalisation` — c'est son
+ *   propos entier, et il en emploie `nivellementDe` juste au-dessus. Ce qui
+ *   disparaît est la SUITE que seule la moyenne demandait : la fusion des
+ *   égaux en un résultat unique. Le mode `niveler` de `visuel/primitives/
+ *   group.js` n'a donc plus d'émetteur au catalogue ; il reste exercé par les
+ *   tests visuels, qui le construisent à la main.
+ */
 
 /**
  * ★ SÉLECTIONNER n'est pas CALCULER.
@@ -551,7 +532,6 @@ function etapeAccolement(spec) {
 const GESTES = Object.freeze({
   decompte: etapeDecompte,     // on encadre, ça se ramasse, un nombre reste
   comptage: etapeComptage,     // ça se compte, un jeton à la fois
-  moyenne: etapeMoyenne,       // ça se nivelle, puis ça fusionne
   selection: etapeSelection,   // on encadre, l'élu descend, le reste s'efface
   accolement: etapeAccolement, // les espaces se résorbent, rien d'autre
   distincts: etapeDistincts,   // par vagues : les solitaires, les paires, les trios
@@ -626,11 +606,48 @@ const agregations = [
     gabarit: bilingue('On fait la moyenne des %s', 'Take the average of the %s'),
     regle: bilingue('La somme divisée par le nombre de valeurs, arrondie',
       'The sum divided by how many values there are, rounded'),
-    notoriete: 0.55, adHoc: 0.1, lecture: '+',
+    notoriete: 0.55, adHoc: 0.1,
     calcul: (vs) => Math.round(vs.reduce((a, b) => a + b, 0) / vs.length),
-    geste: 'moyenne', minimum: 2,
+    // ★ **ELLE SE MONTRE COMME UNE DIVISION** — le geste de `c.moyenneDivisee`,
+    //   passé sous le code historique.
+    //
+    //   Les deux opérateurs calculaient EXACTEMENT la même chose : même
+    //   `calcul`, même règle, même notoriété. Ils ne différaient que par leur
+    //   chorégraphie — le nivellement d'un côté (un `1` passe du plus grand au
+    //   plus petit jusqu'à ce que tout se tienne, puis ce qui est devenu égal
+    //   fusionne), la fraction de l'autre (on additionne sous l'accolade, on
+    //   relève combien on était, on divise).
+    //
+    //   « L'animation cmod devrait venir remplacer cmo, inutile de garder les
+    //   deux […] l'ancienne animation vit dans meg et n'a plus sa place côté
+    //   cmo » (l'auteur). C'est exact et c'est ce qui tranche : le nivellement
+    //   n'est pas une façon de montrer la moyenne, c'est un AUTRE geste — celui
+    //   de `m.egalisation`, qui le fait pour lui-même et s'arrête là où il a un
+    //   sens. Le garder ici, c'était montrer deux fois la même chose en
+    //   prétendant montrer deux choses.
+    //
+    //   ⚠️ Le quotient est ARRONDI : la division n'est pas exacte, et le
+    //     prétendre serait un calcul faux. `partials` porte la valeur annoncée,
+    //     et le moteur visuel la recoupe contre `to.text`.
+    //
+    //   Deux jetons nommés : le diviseur, puis le quotient — c'est lui qui
+    //   représente l'état d'arrivée.
+    sortie: (avant, apres, ctx) => [nomsTokens(ctx, 2)[1]],
+    geste: 'fraction', minimum: 2,
   },
   {
+    // ★ **DÉPRÉCIÉ — SON GESTE A ÉMIGRÉ CHEZ `c.moyenne`.**
+    //
+    //   Il n'a jamais été qu'une seconde mise en scène du même calcul, tenue à
+    //   l'écart le temps que sa chorégraphie soit au point. Elle l'est ; elle
+    //   est donc devenue LA mise en scène de la moyenne, sous le code
+    //   historique `cmo`. Deux codes pour un calcul et une animation n'auraient
+    //   plus rien distingué.
+    //
+    //   ⚠️ DÉPRÉCIÉ, PAS RAYÉ : le code reste réservé (§4.1). Ce qui suit est
+    //     l'ancien commentaire, gardé parce qu'il explique le geste — lequel vit
+    //     maintenant chez `c.moyenne`.
+    //
     // ★ LA MOYENNE MONTRÉE COMME UNE DIVISION — inactive, en attente d'un avis.
     //
     //   `c.moyenne` nivelle : un `1` passe du plus grand au plus petit jusqu'à
@@ -650,6 +667,7 @@ const agregations = [
     //   prétendre serait un calcul faux. `partials` porte la valeur annoncée,
     //   et le moteur visuel la recoupe contre `to.text`.
     id: 'c.moyenneDivisee', code: 'cmod',
+    deprecated: true,
     symbole: 'moy.',
     libelle: bilingue('On fait la moyenne, en divisant', 'Take the average, by dividing'),
     gabarit: bilingue('On fait la moyenne des %s, en divisant', 'Take the average of the %s, by dividing'),

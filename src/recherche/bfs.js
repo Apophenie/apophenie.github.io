@@ -16,6 +16,10 @@ import {
 // ★ Les bornes de TEMPS vivent dans `src/config.js` — voir l'en-tête de ce
 //   fichier-là pour la condition qui permettrait de les relever.
 import { BUDGET_MS, BUDGET_MS_FILET, BUDGET_TOTAL_MS } from '../config.js';
+// ★ Une seule fonction, et rien de plus : la lecture du champ `convention`.
+//   Le barème COMPTE le mélange, ce module le REFUSE — mais tous deux doivent
+//   appeler « famille » la même chose (`elegance.js`, l'en-tête de la fonction).
+import { familleDeConvention } from './elegance.js';
 
 /** Constantes de garde-fou — CONTRACTS.md §5. */
 export const D_MAX = 4;        // + 2 niveaux gratuits par le bassin → profondeur effective 6
@@ -521,7 +525,29 @@ export function cheminVide(depart) {
  * 4 préfixes candidats sur 5 sont rejetés à ce point.
  * @returns {Prefixe|null}
  */
+/**
+ * ★ **DEUX CONVENTIONS CONTRAIRES NE SE RENCONTRENT PAS DANS UNE VOIE.**
+ *
+ * La rangée d'une touche vaut 1, 2, 3 si l'on ne compte que les lettres, et
+ * 2, 3, 4 si l'on compte celle des chiffres. Les deux se défendent ; en changer
+ * au milieu d'une démonstration, non — « ce serait une ficelle bien trop
+ * visible » (l'auteur). Ce n'est donc pas un malus, c'est un REFUS, et il se
+ * pose ici, à l'endroit exact où un chemin s'allonge.
+ *
+ * On remonte la chaîne des parents : elle est courte (six étapes au plus), et
+ * la recherche n'a rien à mémoriser de plus.
+ */
+function conventionContraire(prefixe, op) {
+  const famille = familleDeConvention(op);
+  if (!famille) return false;
+  for (let p = prefixe; p && p.op; p = p.parent) {
+    if (familleDeConvention(p.op) === famille && p.op.convention !== op.convention) return true;
+  }
+  return false;
+}
+
 function etendreSi(prefixe, op, cible, seuil) {
+  if (conventionContraire(prefixe, op)) return null;
   const acc = accumuler(prefixe.acc, op, cible);
   const sp = scoreDeAcc(acc);
   if (sp < seuil) return null;

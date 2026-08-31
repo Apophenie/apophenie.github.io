@@ -42,7 +42,7 @@
 // hachage, O(nb de chemins), quasi gratuite.
 
 import { signature, comparerCodes, scorePartiel, maniere } from './score.js';
-import { FICELLES, nbTriptyques } from './elegance.js';
+import { A_MERITER_SA_PLACE, nbTriptyques, compterTraductionsDivergentes } from './elegance.js';
 import {
   CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecrit, verdict as ecrireVerdict,
 } from './cible.js';
@@ -438,7 +438,22 @@ export function verdictDe(approche, cible = approche && approche.cible) {
  * @returns {Object[]} chemins finissant sur un `NUMS` à ≥ minSix six, les meilleurs d'abord
  */
 export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS_PAR_FRAGMENT * 2,
-  cible = CIBLE_DEFAUT) {
+  cible = CIBLE_DEFAUT, options = {}) {
+  // ★ **DEUX APPELANTS, DEUX QUESTIONS** — et un seul des deux veut un faisceau
+  //   mis en forme.
+  //
+  //   Le GROUPEMENT demande « quelles voies proposer au lecteur » : onze réglages
+  //   de César interchangeables y sont du bruit, et la réserve de qualité y a
+  //   tout son sens. `candidatsDePortee`, lui, demande « qu'est-ce que cette
+  //   portée SAIT donner » : c'est de la matière première, dans laquelle
+  //   `reduireLeSurplus` ira ensuite chercher, précisément, le réglage qui
+  //   gaspille le moins.
+  //
+  //   ⚠️ MESURÉ, et c'est ce qui a imposé la distinction : la déduplication
+  //     appliquée aux deux retirait de la matière à la moisson, et
+  //     `https://hope-hope-hope.fr/` ressortait à sept 6 récoltés pour six
+  //     montrés — un déchet que la variante supprimée savait éviter.
+  const miseEnForme = options.miseEnForme !== false;
   const cbl = normaliserCible(cible);
   // ★ Deux exigences, et non deux seuils. Le GROUPEMENT veut de quoi ÉCRIRE la
   //   cible à lui seul ; la MOISSON veut au moins un chiffre utile, parce
@@ -611,6 +626,49 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   out.sort((a, b) => (rang(b) - rang(a)) || (nbFicelles(a) - nbFicelles(b))
     || (dilue(a) - dilue(b)) || comparerChemins(a, b));
 
+  // ★ UN RÉGLAGE PAR FORME, ET PAS ONZE.
+  //
+  //   MESURÉ sur `Macron`, et c'est le relevé qui a imposé la règle : sur les
+  //   trente-quatre vecteurs trouvés, les ONZE PREMIERS étaient le même geste —
+  //   `fr{N}+tca+{mappeur}+meg` — à onze décalages de César près. Cinq d'entre
+  //   eux ne différaient que par le N. Le faisceau dépensait donc un tiers de
+  //   sa place à répéter une seule idée, et `tca+mt9+mpf` — trois étapes, six
+  //   tout rond, la voie que l'auteur tient pour la plus élégante du corpus —
+  //   attendait au rang 23, hors de portée du GROUPEMENT.
+  //
+  //   ★ Ce n'est pas un jugement sur le décalage : « utiliser fr{N} ne pose pas
+  //     problème » (l'auteur). C'est un constat sur le CHOIX. Vingt-cinq
+  //     réglettes essayées à la file, ce n'est pas vingt-cinq méthodes, c'est
+  //     une méthode et un balayage — et un balayage fait tomber juste à peu
+  //     près n'importe quelle propriété globale de la ligne, ce qui est
+  //     précisément comment `meg` gagnait ses places.
+  //
+  //   La forme, c'est le programme dont on a ôté les réglages : `fr13+tca+m14`
+  //   et `fr15+tca+m14` en ont UNE. Le tri vient de passer, donc le premier
+  //   rencontré est le meilleur des siens — on le garde, on laisse les autres.
+  //   Le décalage est LU sur l'opérateur (`filtres.js`, champ `decalage`), pas
+  //   deviné sur son code : un outil réglable qui arriverait demain entrerait
+  //   ici sans qu'on touche à cette ligne.
+  //
+  //   ⚠️ Et c'est bien par FRAGMENT : une moisson qui veut `fr14` sur un
+  //     morceau et `fr9` sur un autre les trouve toujours, ce sont deux listes
+  //     de vecteurs distinctes. Ce qu'on refuse, c'est onze candidats
+  //     interchangeables pour le même morceau.
+  const formeDe = (c) => (c.ops || []).map((o) => (Number.isFinite(o.decalage)
+    ? String(o.code).replace(/\d+$/, '') : o.code)).join('+');
+  if (miseEnForme) {
+    const formes = new Set();
+    const garde = [];
+    for (const c of out) {
+      const f = formeDe(c);
+      if (formes.has(f)) continue;
+      formes.add(f);
+      garde.push(c);
+    }
+    out.length = 0;
+    out.push(...garde);
+  }
+
   // N2/N3 puis N1, comme partout ailleurs : `fmaj+tca+m14` — passer en capitales
   // avant de compter les segments — montre le même vecteur que `tca+m14`, la
   // capitale n'y changeant rien. Sans normalisation, les deux occupaient deux
@@ -635,7 +693,107 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   // `Macron`, `tca+mt9` rend `[6,2,2,7,6,6]` — trois 6 dispersés, aucun 666 — et
   // `tca+mt9+mpf` rend `[6,6,6]`. La ficelle reste, et c'est le barème qui la
   // range où elle doit être.
-  const tete = out.slice(0, plafond);
+  // ★ LA QUALITÉ N'ATTEND PLUS LE CLASSEMENT : ELLE A DES PLACES RÉSERVÉES.
+  //
+  //   « Il va falloir retravailler l'algo de recherche pour qu'il intègre la
+  //   qualité/notoriété/élégance plus tôt afin d'améliorer ses choix de pistes,
+  //   même si certains critères ne peuvent arriver qu'après coup » (l'auteur).
+  //   Voici l'endroit : le tri ci-dessus range sur le COMPTE DE 6, et c'est
+  //   légitime — un fragment doit rapporter —, mais une voie courte et propre
+  //   qui écrit la cible UNE fois ne rattrapera jamais une voie qui en écrit
+  //   deux. Elle n'atteignait donc pas le régime d'élégance, qui existe pourtant
+  //   pour la couronner (`index.js › selectionner`).
+  //
+  //   ★ MESURÉ sur `Macron` : `tca+mt9+mpf` — trois étapes, `[6,6,6]` tout rond,
+  //     la voie que l'auteur tient pour la plus élégante du corpus (« La version
+  //     "avant" brille par sa simplicité et son élégance extrême […] ça devrait
+  //     clairement rester celle-ci ») — sortait au rang 23 sur 34, puis 14 après
+  //     la déduplication des réglages, et le GROUPEMENT ne descend pas si bas.
+  //
+  //   Le critère de qualité employé ici est CELUI DE L'AUTEUR, et il tient en
+  //   une phrase : « sur l'élégance, la brièveté est un critère fort, en plus de
+  //   ne pas supprimer de caractères ». Donc, dans l'ordre : rien qui doive
+  //   mériter sa place, une ligne NETTE à l'arrivée, puis le moins d'étapes.
+  //   Ce n'est pas le barème — il ne peut pas tourner ici, il se calcule sur des
+  //   approches assemblées —, c'en est le pressentiment, avec les seules données
+  //   que ce niveau possède.
+  //
+  //   ★ LA NETTETÉ EST CE QUE LA VOIE POSE, la dilution ce qu'elle a calculé en
+  //     route ; les deux se ressemblent et ne disent pas la même chose. Trié sur
+  //     la dilution, ce filtre écartait `tca+mt9+mpf` — qui calcule six valeurs
+  //     pour n'en garder que trois — au profit de `fr1+tca+m14`, qui en calcule
+  //     six et en laisse six, dont deux qui ne sont pas des 6. C'est l'inverse
+  //     de ce qu'on cherche : la seconde laisse un verdict encombré, et jeter en
+  //     route se paie ailleurs, au barème, où c'est sa place.
+  //
+  //   ⚠️ Et `ecrit` ne suffit pas comme filtre : il demande seulement qu'il y ait
+  //     DE QUOI écrire la cible, pas qu'elle soit écrite. `tca+mt9` rend
+  //     `[6,2,2,7,6,6]` — trois 6 qui ne se touchent pas — et le passe.
+  //
+  //   ⚠️ Elles sont RÉSERVÉES, pas prioritaires : un siège sur quatre. La
+  //     quantité garde les trois autres, et un vecteur qui gagne sur les deux
+  //     tableaux n'en occupe qu'un.
+  //
+  //   ⚠️⚠️ ET ELLES SONT ENTRELACÉES, pas ajoutées à la fin — c'est ce qui
+  //     décide si la mesure sert à quelque chose. L'appelant demande `plafond`
+  //     vecteurs puis n'en garde que la MOITIÉ (`assembler`, mode G :
+  //     `.slice(0, MAX_VECTEURS_PAR_FRAGMENT)`), si bien qu'une réserve posée en
+  //     queue était intégralement jetée une ligne plus loin. Un siège sur quatre
+  //     doit valoir pour TOUT préfixe de la liste, pas pour la liste entière.
+  // Ce que la voie POSE sur la ligne, une fois finie : les chiffres qui ne sont
+  // pas ceux de la cible. Zéro veut dire « il ne reste que 666 ».
+  // ⚠️ `six` (défini plus haut) prend le CHEMIN et lit son dernier état ;
+  //   `compterSix` prend l'ÉTAT. Passer le chemin au second rend 0 en silence —
+  //   il ne trouve pas `type === 'NUMS'` — et la netteté se réduisait alors à
+  //   « le vecteur le plus court », ce qui donne le même classement sur les cas
+  //   mesurés et le mauvais partout ailleurs (`[1,2,3]` valait `[6,6,6]`).
+  const nettete = (c) => c.etats[c.etats.length - 1].valeur.length - six(c);
+  const RESERVE_QUALITE = Math.max(1, Math.floor(plafond / 4));
+  // ★ On CANONICALISE en marchant, et il le faut : `fmaj+tca+mt9+mpf` et
+  //   `fmin+tca+mt9+mpf` montrent exactement ce que montre `tca+mt9+mpf` — la
+  //   capitale ne change rien au compte de segments —, et sans cette passe ils
+  //   prenaient deux des quatre places réservées pour se faire dédupliquer
+  //   trois lignes plus bas. Le coût est borné par la réserve, pas par le
+  //   faisceau : on ne canonicalise que jusqu'à l'avoir remplie.
+  const parLaQualite = [];
+  if (miseEnForme) {
+    const candidats = out
+      .filter((c) => ecrit(c.etats[c.etats.length - 1].valeur, cbl))
+      .sort((a, b) => (nbFicelles(a) - nbFicelles(b)) || (nettete(a) - nettete(b))
+        || (a.ops.length - b.ops.length) || (dilue(a) - dilue(b)) || comparerChemins(a, b));
+    // ⚠️ La canonicalisation est CHÈRE (`normaliserChemin` rejoue le programme
+    //   une fois par étape candidate) et la boucle ci-dessous ne s'arrête que
+    //   lorsqu'elle a rempli la réserve. Sur un fragment où beaucoup de voies
+    //   se ramènent au même canon, elle les canonicaliserait toutes. On borne
+    //   donc aussi le nombre d'ESSAIS : quatre fois la réserve suffit largement
+    //   à trouver quatre voies distinctes, et à défaut la réserve reste
+    //   partielle — ce qui est sans conséquence, elle n'est pas obligatoire.
+    const formes = new Set();
+    let essais = 0;
+    for (const c of candidats) {
+      if (parLaQualite.length >= RESERVE_QUALITE || essais >= RESERVE_QUALITE * 4) break;
+      essais++;
+      const cle = cleTrace(normaliserChemin(c));
+      if (formes.has(cle)) continue;
+      formes.add(cle);
+      parLaQualite.push(c);
+    }
+  }
+  const tete = [];
+  {
+    const parLaQuantite = out.filter((c) => !parLaQualite.includes(c));
+    let iQte = 0;
+    let iQal = 0;
+    while (tete.length < plafond && (iQte < parLaQuantite.length || iQal < parLaQualite.length)) {
+      // Un siège sur quatre à la qualité — le quatrième —, et le tour revient à
+      // la quantité dès que la réserve est épuisée (et réciproquement).
+      const auTourDeLaQualite = (tete.length + 1) % 4 === 0;
+      if (auTourDeLaQualite && iQal < parLaQualite.length) tete.push(parLaQualite[iQal++]);
+      else if (iQte < parLaQuantite.length) tete.push(parLaQuantite[iQte++]);
+      else if (iQal < parLaQualite.length) tete.push(parLaQualite[iQal++]);
+      else break;
+    }
+  }
   const mesureDe = (c) => {
     const fin = c.etats[c.etats.length - 1];
     return { six: six(c), dilue: dilue(c), trip: nbTriptyques(fin.valeur, cbl) };
@@ -825,8 +983,15 @@ function largeurMontree(chemin, plancher = 0) {
 }
 
 /**
- * ★ Combien de FICELLES un chemin emploie — `mpf`, `m1s2`, `mad`, `mrd`
- * (`elegance.js › FICELLES`).
+ * ★ Combien de gestes du chemin doivent MÉRITER leur place
+ * (`elegance.js › A_MERITER_SA_PLACE`) — les ficelles, et l'égalisation.
+ *
+ * ⚠️ Ce n'est PAS `FICELLES`, et ça l'a été. La table des ficelles est un
+ * jugement sur le geste, qui décide de paliers d'élégance ; celle-ci dit
+ * seulement qu'à quantité comparable, la voie ne prouve pas autant — ce qui est
+ * la question que le classement ci-dessus pose, et la seule. L'égalisation en
+ * fait partie sans être une ficelle : elle réécrit la ligne entière d'un geste,
+ * donc elle produit des 6 en masse par construction.
  *
  * ⚠️ MESURÉ, et c'est le second piège que ces trois opérateurs tendaient. Sur
  * `hope-hope-hope.fr`, `fl+tca+m14` rend `[6,6,6,6,6,6,6,6,6,6,6,6,5,7]` et
@@ -843,7 +1008,7 @@ function largeurMontree(chemin, plancher = 0) {
 function nbFicelles(chemin) {
   let n = 0;
   for (const o of (chemin && chemin.ops) || []) {
-    if (o && o.id && Object.prototype.hasOwnProperty.call(FICELLES, o.id)) n++;
+    if (o && o.id && A_MERITER_SA_PLACE.has(o.id)) n++;
   }
   return n;
 }
@@ -1021,7 +1186,10 @@ function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT) {
     });
   };
   if (ops && ops.length) {
-    for (const c of vecteursDeSix(texte, ops, 1, MAX_CANDIDATS_PORTEE * 2, cbl)) ajouter(c);
+    // `miseEnForme: false` — on veut ici la MATIÈRE, pas une sélection : voir
+    // l'en-tête de `vecteursDeSix`, « deux appelants, deux questions ».
+    const bruts = vecteursDeSix(texte, ops, 1, MAX_CANDIDATS_PORTEE * 2, cbl, { miseEnForme: false });
+    for (const c of bruts) ajouter(c);
   }
   for (const c of chemins || []) ajouter(c);
   // Le plus de 6 d'abord ; à égalité, celui qui LIT le plus de la portée ; puis
@@ -1093,7 +1261,70 @@ function meilleureMoisson(parDebut, n, accepte) {
       i += c.portee.longueur;
     } else i++;
   }
-  return { six: dp[0], choix: retenus };
+  return { six: dp[0], choix: uniformiserLesProgrammes(retenus) };
+}
+
+/**
+ * ★ **À RÉCOLTE ÉGALE, LE MÊME PROGRAMME PARTOUT** — pour que l'URL se
+ *   factorise, et pour que la scène n'ait qu'une phase à jouer.
+ *
+ * L'ordonnancement ci-dessus choisit chaque portée SÉPARÉMENT : il prend, pour
+ * chacune, le premier candidat acceptable, c'est-à-dire le plus fourni. Deux
+ * portées qui se lisent de la même façon en ressortaient donc avec deux
+ * programmes voisins mais distincts, et l'écriture ne pouvait plus les grouper.
+ *
+ * ⚠️ MESURÉ sur `https://hope-hope-hope.fr/` : les trois « hope » sortaient en
+ *   `ffr3`, `ffr` et `ffr2` — trois acceptions de la MÊME traduction, chacune
+ *   rendant autant de 6. L'auteur : « elle ne groupe pas ce qu'elle aurait dû
+ *   grouper […] 3.1+5.1+7.1:ffr3+tca+m14+mpf ».
+ *
+ * ★ La passe ne CHANGE RIEN au compte. Une portée n'adopte le programme d'une
+ *   autre que si elle le possède parmi ses candidats ET qu'il lui rend
+ *   exactement autant de 6. Si l'uniformité coûtait un seul chiffre, on la
+ *   refuse : ce mode vaut par ce que chaque portée sait donner, et c'est le
+ *   classement — pas le générateur — qui arbitre entre fourni et homogène.
+ *
+ * Le programme retenu comme étalon est celui qui sert DÉJÀ le plus de portées ;
+ * à égalité, l'ordre de la ligne tranche, donc le résultat est déterministe
+ * (§4.4).
+ */
+function uniformiserLesProgrammes(retenus, options = {}) {
+  // `auMoins` : accepter aussi un jumeau qui rapporte DAVANTAGE. C'est le
+  // second appel — après `reduireLeSurplus`, qui a le droit de baisser la
+  // récolte d'une portée pour gaspiller moins. À l'égalité stricte, la variante
+  // groupée n'était alors plus constructible (mesuré sur les trois « hope » :
+  // `ffr` rend 4 six là où `ffr3` en rend 5). Ce qu'on ne fait jamais, dans les
+  // deux cas : adopter un programme qui rapporte MOINS.
+  const auMoins = options.auMoins === true;
+  if (retenus.length < 2) return retenus;
+  const codesDe = (c) => c.chemin.ops.map((o) => o.code).join('+');
+  const compte = new Map();
+  for (const r of retenus) {
+    const k = codesDe(r.candidat);
+    compte.set(k, (compte.get(k) || 0) + 1);
+  }
+  // Les programmes en présence, du plus répandu au moins ; l'ordre d'apparition
+  // sur la ligne départage, jamais l'ordre d'une table de hachage.
+  const rangDApparition = new Map();
+  retenus.forEach((r, i) => {
+    const k = codesDe(r.candidat);
+    if (!rangDApparition.has(k)) rangDApparition.set(k, i);
+  });
+  const etalons = [...compte.keys()].sort((a, b) => (compte.get(b) - compte.get(a))
+    || (rangDApparition.get(a) - rangDApparition.get(b)));
+
+  const out = retenus.map((r) => r);
+  for (const etalon of etalons) {
+    for (let i = 0; i < out.length; i++) {
+      const actuel = out[i].candidat;
+      if (codesDe(actuel) === etalon) continue;
+      const jumeau = out[i].portee.candidats.find(
+        (c) => codesDe(c) === etalon && (auMoins ? c.six >= actuel.six : c.six === actuel.six),
+      );
+      if (jumeau) out[i] = { portee: out[i].portee, candidat: jumeau };
+    }
+  }
+  return out;
 }
 
 /**
@@ -1155,16 +1386,91 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT)
   const out = [];
   const signatures = new Set();
   let coutMaximale = Infinity;
+  // ★ CHAQUE FILTRE REND DEUX MOISSONS : celle qui gaspille le moins, et celle
+  //   qui SE GROUPE le mieux. Quand les deux coïncident, la seconde est
+  //   silencieusement dédupliquée quelques lignes plus bas (`signatures`).
+  //
+  //   « Elle rate les 7×666 et elle ne groupe pas ce qu'elle aurait dû grouper :
+  //   3.1+5.1+7.1:ffr3+tca+m14+mpf » (l'auteur). `uniformiserLesProgrammes`
+  //   aligne bien les trois « hope » sur un seul programme, mais
+  //   `reduireLeSurplus` défait ensuite l'alignement : `ffr` et `ffr2`
+  //   gaspillent une valeur de moins que `ffr3`, et la boucle de réduction
+  //   n'optimise que cela. Elle a raison de le faire — c'est son travail —, et
+  //   il n'y a pas de bonne façon d'arbitrer LOCALEMENT entre « une valeur
+  //   jetée en moins » et « une phase de scène au lieu de trois ».
+  //
+  //   On ne tranche donc pas : on propose les deux, et c'est le barème qui
+  //   décide, sur l'approche entière, là où les deux effets sont enfin
+  //   comparables. Mesuré sur `https://hope-hope-hope.fr/` : les deux rendent
+  //   SIX séries, et leurs scores tiennent en dix points (1 211 contre 1 221).
+  //
+  //   ⚠️ Ce que cela ne fait PAS, et qui reste ouvert : rien ne RÉCOMPENSE
+  //     encore l'homogénéité. À dix points près, la variante groupée passe
+  //     derrière. Lui donner sa prime demande un poste de barème et son
+  //     balayage — voir la remarque de l'auteur sur « le bonus de score/élégance
+  //     lié à l'homogénéité permettant de factoriser ensuite ».
+  const variantes = [];
   for (const accepte of filtres) {
     const { choix } = meilleureMoisson(parDebut, n, accepte);
     if (choix.length < 2) continue;
+    const sobre = reduireLeSurplus(choix, accepte, cbl);
+    variantes.push({ accepte, retenu: sobre });
+    const groupee = uniformiserLesProgrammes(sobre, { auMoins: true });
+    if (groupee.some((r, i) => r.candidat !== sobre[i].candidat)) {
+      // ★ ET ON RÉDUIT DE NOUVEAU, SANS DÉFAIRE LE GROUPEMENT.
+      //
+      //   `auMoins` autorise une portée à adopter un programme qui rapporte
+      //   DAVANTAGE, et un 6 de plus qui ne fait pas de série de plus est un 6
+      //   qu'il faudra montrer puis écarter. MESURÉ sur `hope-hope-hope.fr` :
+      //   la variante groupée récoltait dix-neuf 6 pour dix-huit montrés — un
+      //   surnuméraire, exactement ce que `reduireLeSurplus` existe pour éviter.
+      //
+      //   On la repasse donc à la réduction, mais en ne lui laissant à choisir
+      //   QUE les programmes déjà en place : elle peut retirer le déchet, elle
+      //   ne peut pas rompre l'alignement qu'on vient de faire.
+      const enPlace = new Set(groupee.map((r) => r.candidat.chemin.ops.map((o) => o.code).join('+')));
+      const memeProgramme = (c) => enPlace.has(c.chemin.ops.map((o) => o.code).join('+'));
+      const nette = reduireLeSurplus(groupee, memeProgramme, cbl);
+      // ★ ET SI LE DÉCHET SURVIT, ON RENONCE À LA VARIANTE.
+      //
+      //   La réduction ci-dessus ne peut échanger qu'entre les programmes déjà
+      //   en place ; quand aucun d'eux ne sait faire plus court, le surnuméraire
+      //   reste. MESURÉ sur `hope-hope-hope.fr` : les trois « hope » alignés sur
+      //   `ffr3` récoltent DIX-NEUF 6 pour six séries, soit dix-huit montrés —
+      //   un 6 calculé, affiché, puis écarté au verdict.
+      //
+      //   « On ne récolte que ce qu'on montre » n'est pas une préférence, c'est
+      //   un invariant du mode, et l'homogénéité ne l'achète pas : montrer une
+      //   valeur pour l'écarter aussitôt donne à voir que le compte était arrêté
+      //   d'avance, ce qui est exactement le reproche que ce site adresse à la
+      //   numérologie. La variante groupée est donc proposée quand elle est
+      //   propre, et abandonnée sinon — sans repli, la moisson sobre reste là.
+      //
+      //   ⚠️ ET LE CONTRÔLE SE FAIT APRÈS L'ÉLAGAGE, pas ici. Je l'avais posé à
+      //     cet endroit, sur `nette` : `elaguerLaMoisson` retire ensuite les
+      //     portées entièrement surnuméraires, ce qui change LES DEUX termes du
+      //     compte, et une variante déclarée propre ici ressortait à sept 6 pour
+      //     six montrés. On se contente donc de marquer la variante, et on la
+      //     juge plus bas, sur ce qui sera réellement montré.
+      variantes.push({ accepte, retenu: nette, groupee: true });
+    }
+  }
+  for (const { retenu, groupee } of variantes) {
     const parts = elaguerLaMoisson(
-      reduireLeSurplus(choix, accepte, cbl).map(({ portee, candidat }) => ({
+      retenu.map(({ portee, candidat }) => ({
         fragment: fragmentDeJetons(saisie, jetons, portee.debut, portee.longueur),
         chemin: candidat.chemin,
       })), cbl,
     );
-    if (!compterMoisson(parts, cbl)) continue;
+    // `compterMoisson` rend `{six, total, series}` — la récolte ET ce qui sera
+    // montré, mesurés sur les parts APRÈS élagage. Les deux termes du contrôle
+    // sont donc là, déjà calculés.
+    const moisson = compterMoisson(parts, cbl);
+    if (!moisson) continue;
+    // ★ La variante groupée n'est retenue que si elle ne laisse RIEN sur le
+    //   carreau — voir plus haut. La sobre, elle, sort de `reduireLeSurplus` et
+    //   n'a pas à se justifier une seconde fois.
+    if (groupee && moisson.six !== moisson.series * cbl.longueur) continue;
     const cout = parts.reduce((s, p) => s + p.chemin.ops.reduce((t, o) => t + (o.cout || 0), 0), 0);
     // ★ Une variante homogène qui récolte MOINS que la moisson maximale et
     // coûte DAVANTAGE n'apporte rien : elle demande plus de temps de scène pour
@@ -1273,8 +1579,29 @@ function reduireLeSurplus(choix, accepte, cible = CIBLE_DEFAUT) {
   const nbSeries = (liste) => Math.min(
     seriesDe(liste.flatMap((c) => c.candidat.chiffres), cbl, MAX_SERIES).length, MAX_SERIES,
   );
+  // ★ L'HOMOGÉNÉITÉ COMME DERNIER DÉPARTAGE — voir `uniformiserLesProgrammes`.
+  //
+  //   Cette boucle échange un candidat contre un autre pour réduire le déchet,
+  //   et deux candidats rendent souvent le MÊME déchet : ce sont alors deux
+  //   programmes équivalents, et rien ne les départageait. Elle défaisait ainsi
+  //   l'uniformisation faite juste avant — sur `https://hope-hope-hope.fr/`,
+  //   trois « hope » alignés en `ffr3` ressortaient en `ffr3`, `ffr` et `ffr2`,
+  //   trois acceptions de la même traduction, et l'écriture ne pouvait plus les
+  //   grouper.
+  //
+  //   On compte donc, à déchet et à récolte égaux, combien de portées portent
+  //   déjà le programme envisagé : le plus répandu gagne. C'est un DÉPARTAGE,
+  //   pas une préférence — un candidat qui gaspille moins passe toujours devant,
+  //   quelle qu'en soit l'homogénéité.
+  const codesDe = (c) => c.chemin.ops.map((o) => o.code).join('+');
+  const combienPortent = (liste, codes) => liste.reduce(
+    (n, x) => n + (codesDe(x.candidat) === codes ? 1 : 0), 0,
+  );
   let six = out.reduce((n, c) => n + c.candidat.six, 0);
   let total = out.reduce((n, c) => n + c.candidat.total, 0);
+  // Le point de départ peut DÉJÀ diverger — l'ordonnancement pondéré ne s'en
+  // soucie pas. On n'aggrave pas ; on ne prétend pas non plus réparer ici.
+  const divergentes = compterTraductionsDivergentes(out.map((x) => ({ chemin: x.candidat.chemin })));
   const series = nbSeries(out);
   const garde = series * cbl.longueur;
   // Le déchet : les valeurs calculées qui ne finiront pas dans le verdict.
@@ -1285,6 +1612,7 @@ function reduireLeSurplus(choix, accepte, cible = CIBLE_DEFAUT) {
     let meilleurC = null;
     let meilleurDechet = dechet;
     let meilleurSix = six;
+    let meilleurHomogene = 0;
     for (let i = out.length - 1; i >= 0; i--) {
       const { portee, candidat } = out[i];
       for (const c of portee.candidats) {
@@ -1294,10 +1622,32 @@ function reduireLeSurplus(choix, accepte, cible = CIBLE_DEFAUT) {
         const essai = out.slice();
         essai[i] = { portee, candidat: c };
         if (nbSeries(essai) !== series) continue;
+        // ★ JAMAIS DEUX LECTURES DU MÊME MOT, quel qu'en soit le prix en déchet.
+        //
+        //   « Traduire un même mot de manière différente dans une même voie est
+        //   encore pire que d'utiliser des conversions de César différentes […]
+        //   Mieux vaut un peu de déchet que ça » (l'auteur).
+        //
+        //   C'est un INTERDIT, pas un départage : cette boucle ne cherche qu'à
+        //   réduire le gaspillage, et elle y arrivait en échangeant `ffr3`
+        //   contre `ffr2` sur l'un des trois « hope » — une valeur jetée en
+        //   moins, et le mot qui cesse de vouloir dire la même chose d'un bout à
+        //   l'autre de la démonstration. Le barème le facture (`elegance.js ›
+        //   TRADUCTION_DIVERGENTE`, 600) ; mieux vaut ne pas le produire.
+        //
+        //   ⚠️ Le compte vient de `compterTraductionsDivergentes`, celui-là même
+        //     que le barème emploie : interdire ici et facturer là-bas deux
+        //     choses différentes serait le pire des deux mondes.
+        if (compterTraductionsDivergentes(essai.map((x) => ({ chemin: x.candidat.chemin })))
+          > divergentes) continue;
         const d = (total - candidat.total + c.total) - garde;
-        if (d < meilleurDechet || (d === meilleurDechet && sixApres < meilleurSix)) {
+        const h = combienPortent(essai, codesDe(c));
+        if (d < meilleurDechet
+          || (d === meilleurDechet && sixApres < meilleurSix)
+          || (d === meilleurDechet && sixApres === meilleurSix && h > meilleurHomogene)) {
           meilleurDechet = d;
           meilleurSix = sixApres;
+          meilleurHomogene = h;
           meilleurI = i;
           meilleurC = c;
         }

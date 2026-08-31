@@ -30,21 +30,41 @@ test('les 52 glyphes sont définis et gelés', () => {
 test('sommes de contrôle des tables dérivées', () => {
   assert.equal(somme(TRAITS_MAJ), 61);
   assert.equal(somme(TRAITS_MIN), 53);
-  assert.equal(somme(EXTREMITES_MAJ), 58);
+  assert.equal(somme(EXTREMITES_MAJ), 54); // 58 avant l’écart M / N
   assert.equal(somme(BOUCLES_MAJ), 8);
   assert.equal(somme(BOUCLES_MIN), 8);
   assert.deepEqual(SOMMES_OBTENUES, SOMMES);
 });
 
-test('les capitales reproduisent exactement research §3.4', () => {
+/**
+ * ★ **PLUS « EXACTEMENT » : AUX DEUX ÉCARTS DOCUMENTÉS PRÈS.**
+ *
+ * `M` et `N` valaient 4 dans la recherche, et le tracé les y faisait tomber en
+ * accrochant la diagonale 45 unités sous le sommet du fût — deux pointes libres
+ * que 7,5 % de la hauteur de capitale rendait invisibles. « M n'a que deux
+ * extrémités libres, contre 4 détectées » (l'auteur). Le §0.3 tranche pour le
+ * glyphe : les diagonales rejoignent le sommet, comme celles du `W`, et l'écart
+ * est déclaré dans `ECARTS` — la même mécanique que pour les cinq bas de casse.
+ */
+test('les capitales reproduisent research §3.4, aux deux écarts documentés près', () => {
   assert.deepEqual(TRAITS_MAJ, {
     A: 3, B: 3, C: 1, D: 2, E: 4, F: 3, G: 2, H: 3, I: 1, J: 1, K: 3, L: 2, M: 4,
     N: 3, O: 1, P: 2, Q: 2, R: 3, S: 1, T: 2, U: 1, V: 2, W: 4, X: 2, Y: 3, Z: 3,
   });
-  assert.deepEqual(EXTREMITES_MAJ, {
+  const rechercheMAJ = {
     A: 2, B: 0, C: 2, D: 0, E: 3, F: 3, G: 2, H: 4, I: 2, J: 2, K: 4, L: 2, M: 4,
     N: 4, O: 0, P: 1, Q: 1, R: 2, S: 2, T: 3, U: 2, V: 2, W: 2, X: 4, Y: 3, Z: 2,
-  });
+  };
+  const attendusMAJ = { ...rechercheMAJ };
+  for (const e of ECARTS.filter((x) => x.table === 'EXTREMITES_MAJ')) attendusMAJ[e.glyphe] = e.dessine;
+  assert.deepEqual(EXTREMITES_MAJ, attendusMAJ);
+
+  // Les écarts sont exactement ceux déclarés, ni plus ni moins — et `M` comme
+  // `N` tombent sur la valeur du `W`, qui a la même construction.
+  const ecartesMAJ = Object.keys(rechercheMAJ).filter((c) => rechercheMAJ[c] !== EXTREMITES_MAJ[c]);
+  assert.deepEqual(ecartesMAJ.sort(), ['M', 'N']);
+  assert.equal(EXTREMITES_MAJ.M, EXTREMITES_MAJ.W);
+  assert.equal(EXTREMITES_MAJ.N, EXTREMITES_MAJ.W);
   assert.deepEqual(Object.entries(BOUCLES_MAJ).filter(([, v]) => v > 0), [
     ['A', 1], ['B', 2], ['D', 1], ['O', 1], ['P', 1], ['Q', 1], ['R', 1],
   ]);
@@ -63,19 +83,32 @@ test('les bas de casse reproduisent research §3.4, aux cinq écarts documentés
     n: 2, o: 0, p: 1, q: 1, r: 2, s: 2, t: 3, u: 2, v: 2, w: 2, x: 4, y: 2, z: 2,
   };
   const attendus = { ...recherche };
-  for (const e of ECARTS) attendus[e.glyphe] = e.dessine;
+  // Ne s'appliquent ici que les écarts de CETTE table : depuis `M` et `N`, la
+  // liste en porte aussi pour les capitales, et les glyphes s'y appellent
+  // pareil à la casse près.
+  for (const e of ECARTS.filter((x) => x.table === 'EXTREMITES_MIN')) attendus[e.glyphe] = e.dessine;
   assert.deepEqual(EXTREMITES_MIN, attendus);
 
   // Les écarts sont exactement ceux déclarés, ni plus ni moins.
   const differents = Object.keys(recherche).filter((c) => recherche[c] !== EXTREMITES_MIN[c]);
-  assert.deepEqual(differents.sort(), ECARTS.map((e) => e.glyphe).sort());
+  assert.deepEqual(differents.sort(),
+    ECARTS.filter((e) => e.table === 'EXTREMITES_MIN').map((e) => e.glyphe).sort());
   for (const e of ECARTS) assert.ok(e.raison.length > 40, `écart ${e.glyphe} : justification trop courte`);
 });
 
-test('l’écart avec la somme de contrôle du contrat est circonscrit à extMin', () => {
-  for (const k of ['trMAJ', 'trMin', 'extMAJ', 'bcMAJ', 'bcMin']) {
+test('l’écart avec la somme de contrôle du contrat porte sur extMin ET extMAJ', () => {
+  // Les traits et les boucles, eux, n'ont jamais bougé : aucun écart déclaré ne
+  // les touche, et c'est ce qui circonscrit la dérive aux seules extrémités.
+  for (const k of ['trMAJ', 'trMin', 'bcMAJ', 'bcMin']) {
     assert.equal(SOMMES_OBTENUES[k], SOMMES_CONTRAT[k], `somme ${k}`);
   }
+  // ★ Les deux colonnes s'écartent maintenant, et dans des SENS OPPOSÉS : la
+  //   recherche compte plus d'extrémités que le dessin sur les capitales
+  //   (`M`, `N`), et moins sur les bas de casse. Ce n'est pas une dérive
+  //   commune, ce sont deux arbitrages indépendants, chacun justifié dans
+  //   `ECARTS`.
+  assert.equal(SOMMES_CONTRAT.extMAJ, 58);
+  assert.equal(SOMMES_OBTENUES.extMAJ, 54);
   assert.equal(SOMMES_CONTRAT.extMin, 54);
   assert.equal(SOMMES_OBTENUES.extMin, 57);
 });

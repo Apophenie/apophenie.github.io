@@ -84,9 +84,27 @@ export function plan(ctx) {
     const cx = points.reduce((t, p) => t + p.x, 0) / points.length;
     const cy = points.reduce((t, p) => t + p.y, 0) / points.length - haut;
 
+    // ★ **LES PLACES D'ORIGINE, RELEVÉES AVANT LE PREMIER MOUVEMENT.**
+    //
+    //   `ctx.scene.pos` rend la position COURANTE, c'est-à-dire celle qu'ont
+    //   déjà écrite les `place` de cette même passe. Une fois la convergence
+    //   posée, tous les exemplaires sont au point de rencontre, et demander
+    //   « où était-il ? » ne rend plus que ce point.
+    //
+    //   ⚠️ MESURÉ, et c'est le défaut relevé par l'auteur : « fd bien, mais
+    //     redescend verticalement sur un caractère existant, là où il devrait
+    //     redescendre vers sa position cible en un seul mouvement ». Le retour
+    //     s'écrivait `{ x: p.x, y: p.y + haut }` avec `p` relu APRÈS la
+    //     convergence : `p.x` valait `cx`, donc le survivant retombait à la
+    //     verticale au MILIEU de sa famille — sur le voisin qui s'y trouvait —
+    //     et le reflow le déplaçait ensuite une seconde fois.
+    //
+    //   Il rejoint donc sa propre place, en un seul geste oblique.
+    const origines = new Map(ids.map((id) => [id, ctx.scene.pos(id)]));
+
     const decalage = k * (tMontee * 0.12);
     for (const id of ids) {
-      const p = ctx.scene.pos(id);
+      const p = origines.get(id);
       // ① l'envol, à la verticale : on quitte la ligne sans changer de colonne,
       //    et c'est ce qui permet de suivre qui monte.
       ctx.place(id, { x: p.x, y: p.y - haut, w: p.w },
@@ -103,8 +121,8 @@ export function plan(ctx) {
         ctx.anim({ id, prop: 'opacity', to: 0, at: decalage + tMontee + tChoc * 0.65, dur: tChoc * 0.35 });
         ctx.scene.kill(id, ctx.where);
       }
-      const p = ctx.scene.pos(survivant);
-      ctx.place(survivant, { x: p.x, y: p.y + haut, w: p.w },
+      const p = origines.get(survivant);
+      ctx.place(survivant, { x: p.x, y: p.y, w: p.w },
         { at: decalage + tMontee + tChoc, dur: tRetour, ease: EASE.move });
       // Il reprend sa place dans le flux : le reflow de l'appelant refermera
       // les trous laissés par ses jumeaux.
@@ -121,8 +139,8 @@ export function plan(ctx) {
         ctx.scene.kill(id, ctx.where);
       }
       if (rescape) {
-        const p = ctx.scene.pos(rescape);
-        ctx.place(rescape, { x: p.x, y: p.y + haut, w: p.w },
+        const p = origines.get(rescape);
+        ctx.place(rescape, { x: p.x, y: p.y, w: p.w },
           { at: decalage + tMontee + tChoc, dur: tRetour, ease: EASE.move });
       }
     }

@@ -552,7 +552,21 @@ test('★ retouche — « Donald Trump » : on chiffre un mot, puis on lit le to
 
     // 4. La règle affichée NOMME l'étage amont : taire le chiffrement
     //    annoncerait une méthode qui ne mène pas au résultat montré.
-    assert.match(a.regle.fr, /13 rangs/);
+    //
+    // ⚠️ CE CONTRÔLE CHERCHAIT « 13 rangs », ET NE POUVAIT PAS LE TROUVER : la
+    //   règle des césars écrit son décalage EN TOUTES LETTRES — « Chaque lettre
+    //   avance de treize rangs » (`filtres.js › RANGS`). Le test échouait donc
+    //   sur sa propre formulation, alors que les trois contrôles précédents
+    //   passaient : la retouche était trouvée, le lien se réécrivait, les sept 6
+    //   étaient là. Un rouge qui ressemblait à un arbitrage en attente, et qui
+    //   n'était qu'une expression régulière périmée.
+    //
+    //   On ne recopie donc plus la formulation : on la DEMANDE à l'opérateur,
+    //   comme partout ailleurs dans ce dépôt. Le jour où `fr13` changera de
+    //   phrase, ce test suivra au lieu de mentir.
+    const regleDuChiffrement = catalogue.find((o) => o.code === 'fr13').regle.fr;
+    assert.match(a.regle.fr, new RegExp(regleDuChiffrement.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      'la règle affichée doit contenir, mot pour mot, celle du chiffrement de l’étage amont');
 
     // 5. La scène part du texte TAPÉ, montre la retouche, et finit sur 666 666.
     const sc = m.scenarioDe(a, { saisie: 'Donald Trump', registre: 'sobre' });

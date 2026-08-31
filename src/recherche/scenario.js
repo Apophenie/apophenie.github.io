@@ -515,8 +515,17 @@ function inventaire(o) {
       // Ces cinq-là remplacent leur cible quand — et seulement quand — un `to`
       // leur est donné : le clavier fait redescendre son chiffre, l'encart le
       // nombre de son compteur.
-      ajouter(o.to);
-      if (o.to) supprimes.push(...normaliserCibles(o.target));
+      //
+      // ⚠️ `flip180` connaît une seconde forme : un BLOC qui se retourne d'un
+      //   seul geste (`targets` + `to` en tableau, voir `primitives/flip180.js`).
+      //   Elle consomme et rend autant de jetons qu'elle en reçoit.
+      if (Array.isArray(o.to)) {
+        for (const t of o.to) ajouter(t);
+        supprimes.push(...normaliserCibles(o.targets));
+      } else {
+        ajouter(o.to);
+        if (o.to) supprimes.push(...normaliserCibles(o.target));
+      }
       break;
     case 'table':
       // La table de correspondance travaille jeton par jeton : la lettre monte
@@ -1122,6 +1131,23 @@ export function suivreLaLigne(tokens, steps) {
     ligne.splice(i, 1, ...neufs);
     return true;
   };
+  /**
+   * ★ N JETONS REMPLACÉS PAR N JETONS, place pour place.
+   *
+   * Le geste du BLOC retourné (`primitives/flip180.js`) : les cibles doivent
+   * être contiguës et dans l'ordre de la ligne — c'est ce qu'un trio de `999`
+   * est par construction —, et chacune cède sa place à son homologue. On refuse
+   * plutôt que de deviner si elles ne le sont pas : un modèle de ligne qui
+   * réarrange au jugé cesserait d'être un contrôle.
+   */
+  const remplacerPlusieurs = (cibles, neufs) => {
+    const rangs = cibles.map((id) => ligne.indexOf(id));
+    if (rangs.some((r) => r < 0)) return false;
+    for (let k = 1; k < rangs.length; k++) if (rangs[k] !== rangs[k - 1] + 1) return false;
+    cibles.forEach((cible, k) => heriterEcart(cible, [neufs[k]]));
+    ligne.splice(rangs[0], cibles.length, ...neufs);
+    return true;
+  };
   const nes = (to) => (Array.isArray(to) ? to : [to])
     .filter((t) => t && typeof t.id === 'string').map((t) => t.id);
   /**
@@ -1237,6 +1263,19 @@ export function suivreLaLigne(tokens, steps) {
         case 'table': case 'keyboard': case 'sevenSeg': case 'fourteenSeg':
         case 'countStrokes': case 'flip180': case 'reduce': {
           if (o.to === undefined) break;
+          // ★ LE BLOC RETOURNÉ — autant de jetons rendus que reçus, DANS L'ORDRE
+          //   DE LA LIGNE. La rotation échange bien la gauche et la droite à
+          //   l'écran, mais l'émetteur donne ses deux listes en ordre de ligne
+          //   et c'est la primitive qui applique le miroir : ici, on remplace
+          //   donc place pour place, et le modèle ne peut pas diverger de la
+          //   scène sur ce point-là.
+          if (Array.isArray(o.to)) {
+            const cibles = ids(o.targets);
+            const arrivees = o.to.flatMap((t) => nes(t));
+            if (!cibles || cibles.length !== arrivees.length
+              || !remplacerPlusieurs(cibles, arrivees)) { perdu = true; }
+            break;
+          }
           const arrivee = nes(o.to);
           if (typeof o.target !== 'string' || arrivee.length !== 1
             || !remplacer(o.target, arrivee)) { perdu = true; }
@@ -2124,10 +2163,21 @@ export function construireScenario(approche, ctx = {}) {
       poserBloc({
         titre: MOTS.retoucher[langue],
         legende: citer(r.fragment.texte, langue),
-        ops: [
-          { op: 'highlight', targets: vises, mode: 'select' },
-          { op: 'dim', targets: autres, at: 200 },
-        ],
+        // ★ ON DÉSIGNE, ON N'ÉTEINT PAS — et c'est un arbitrage de l'auteur.
+        //
+        //   Ce bloc estompait tout le reste de la ligne. Sur
+        //   `2.1:fr13;0.1+2.1:tca+m14+mpf`, la retouche porte sur le SECOND mot,
+        //   si bien que la scène ouvrait en grisant « Donald » — « commencé par
+        //   2.1 grise le premier mot alors qu'il va servir ensuite ». Estomper
+        //   veut dire « celui-là, on ne le lira pas » : c'est vrai quand on
+        //   isole un fragment et qu'on abandonne le reste (`jouerSeul`,
+        //   `isolerPassage`), c'est faux ici, où toute la ligne sera lue une
+        //   fois la retouche faite.
+        //
+        //   Le `highlight` en mode `select` suffit à dire lequel on retouche —
+        //   c'est déjà le choix fait pour `isolerMorceau` quand plusieurs
+        //   morceaux vont servir, et pour la même raison.
+        ops: [{ op: 'highlight', targets: vises, mode: 'select' }],
       });
     }
     let courants = positions.map((k) => [idsParPosition[k]]);
@@ -2314,31 +2364,39 @@ export function construireScenario(approche, ctx = {}) {
       if (fusionnes) {
         for (const b of fusionnes) poserBloc(b);
       } else {
-        // ★ ET QUAND LA FUSION EST IMPOSSIBLE, ON ENTRELACE.
+        // ★ ET QUAND LA FUSION EST IMPOSSIBLE, ON DÉROULE MORCEAU PAR MORCEAU —
+        //   mais toujours À L'INTÉRIEUR DE L'OPÉRATION.
         //
         //   Certaines transformations ne se jouent pas à trois endroits en même
         //   temps : un afficheur à quatorze segments monte un décor et recule la
-        //   caméra, trois d'un coup se contrediraient. Le repli était alors de
-        //   dérouler le morceau 1 en entier, puis le 2, puis le 3 — c'est-à-dire
-        //   exactement le parcours vertical qu'on vient de quitter, réintroduit
-        //   par la bande.
+        //   caméra, trois d'un coup se contrediraient. Le repli d'origine était
+        //   de dérouler le PROGRAMME du morceau 1 en entier, puis celui du 2 —
+        //   c'est-à-dire le parcours vertical qu'on vient de quitter, réintroduit
+        //   par la bande. Ce n'est pas ce qu'on fait : la boucle qui englobe
+        //   celle-ci est la boucle des opérations, et on n'en sort pas. Le
+        //   parcours reste horizontal — `m14` partout, PUIS `mpf` partout.
         //
-        //   On entrelace donc PAR RANG : la première lettre des trois morceaux,
-        //   puis la deuxième des trois, et ainsi de suite. Les blocs de même
-        //   rang portent sur des jetons distincts, rien ne les lie ; et cet
-        //   ordre-là a une conséquence directe — deux gestes identiques
-        //   deviennent voisins, donc l'accélération des redites peut jouer
-        //   (`visuel/compile.js › repeatAccelerables`), et le décor mutualisé
-        //   reste monté au lieu de se replier entre chaque morceau.
-        const profondeur = Math.max(...actifs.map((r) => r.blocs.length));
-        for (let rang = 0; rang < profondeur; rang++) {
-          actifs.forEach((r, k) => {
-            const b = r.blocs[rang];
-            if (!b) return;
-            const suffixe = actifs.length > 1 ? MOTS.suffixeGroupe(k + 1, langue) : '';
-            poserBloc(b, suffixe);
-          });
-        }
+        //   ★ ARBITRÉ. J'avais entrelacé PAR RANG : la première lettre des deux
+        //     morceaux, puis la deuxième des deux, et ainsi de suite. L'auteur a
+        //     tranché l'inverse — « la partie 0.1+2.1 fait une action de chaque
+        //     côté plutôt qu'une phase pour l'ensemble, puis la suivante […] il
+        //     devrait faire de gauche à droite la phase m14 sur l'ensemble de la
+        //     partie 0.1 puis l'ensemble de la partie 2.1 ». Mesuré sur
+        //     `2.1:fr13;0.1+2.1:tca+m14+mpf` : la scène alternait `x1_0, x2_0,
+        //     x1_1, x2_1…`, si bien que les cornes du premier triptyque
+        //     tombaient au milieu des conversions du second.
+        //
+        //   ★ Et l'argument qui m'avait fait entrelacer se retourne : je
+        //     cherchais à rendre voisins deux gestes identiques pour que
+        //     l'accélération des redites joue (`visuel/compile.js ›
+        //     repeatAccelerables`). Six conversions d'affilée SUR LE MÊME
+        //     MORCEAU sont une redite plus longue et plus franche que deux
+        //     morceaux qui se relaient — le décor mutualisé reste monté d'autant
+        //     plus longtemps.
+        actifs.forEach((r, k) => {
+          const suffixe = actifs.length > 1 ? MOTS.suffixeGroupe(k + 1, langue) : '';
+          for (const b of r.blocs) poserBloc(b, suffixe);
+        });
       }
       rendus.forEach((r, k) => { if (r) membres[k].courants = r.courants; });
     }
@@ -2802,6 +2860,19 @@ export function validerFormeOp(o) {
       return null;
     }
     case 'flip180': case 'countStrokes':
+      // ★ LA FORME BLOC de `flip180` — un trio de 9 qui se retourne comme un
+      //   seul glyphe (`visuel/primitives/flip180.js`). Elle prend `targets` et
+      //   un `to` en TABLEAU, de même longueur : un bloc retourné rend
+      //   exactement ce qu'il a reçu.
+      if (o.op === 'flip180' && o.targets !== undefined) {
+        if (!Array.isArray(o.targets) || o.targets.length < 2 || !o.targets.every(chaine)) {
+          return '« targets » doit lister au moins deux jetons';
+        }
+        if (!Array.isArray(o.to) || o.to.length !== o.targets.length || !o.to.every(tok)) {
+          return '« to » doit porter autant de {id, text} que « targets »';
+        }
+        return null;
+      }
       if (!chaine(o.target)) return '« target » manquant';
       if (o.op === 'countStrokes' && o.titre !== undefined && !chaine(o.titre)) {
         return '« titre » doit être le nom de l’outil, non vide';
@@ -2913,12 +2984,25 @@ function validerArithmetiqueOp(o, ctxOp) {
     // rattrape ici, où l'on connaît encore la valeur du jeton de départ, et où
     // un opérateur du catalogue qui se tromperait retombe sur le rendu
     // générique avec un avertissement plutôt que de faire échouer la page.
-    const source = valeurDe(o.target);
-    if (source !== null && String(source) !== '9') {
-      return `« flip180 » retournerait « ${source} » : seul un 9 se retourne en 6`;
+    //
+    // ⚠️ Le contrôle vaut pour les DEUX formes. Il ne connaissait que la simple,
+    //   si bien qu'un bloc passait sans être vérifié — et, pire, `validerFormeOp`
+    //   le déclarait mal formé : `m.retournerLesTrios` retombait donc sur le
+    //   rendu générique et sa scène montrait une substitution là où l'opérateur
+    //   annonce un demi-tour. Une dégradation silencieuse, exactement ce que ces
+    //   garde-fous existent pour empêcher.
+    const cibles = Array.isArray(o.targets) ? o.targets : [o.target];
+    const arrivees = Array.isArray(o.to) ? o.to : [o.to];
+    for (const cible of cibles) {
+      const source = valeurDe(cible);
+      if (source !== null && String(source) !== '9') {
+        return `« flip180 » retournerait « ${source} » : seul un 9 se retourne en 6`;
+      }
     }
-    if (String(o.to.text) !== '6') {
-      return `« flip180 » afficherait « ${o.to.text} » : un 9 retourné donne 6, et rien d'autre`;
+    for (const t of arrivees) {
+      if (String(t.text) !== '6') {
+        return `« flip180 » afficherait « ${t.text} » : un 9 retourné donne 6, et rien d'autre`;
+      }
     }
   }
   if (o.op === 'horns') {

@@ -149,6 +149,12 @@ const VECTEURS = [
   ['mazr', T(HOPE), [2, 1, 1, 1]],
   ['mqwc', T(HOPE), [6, 9, 10, 3]],
   ['mqwr', T(HOPE), [2, 1, 1, 1]],
+  // ★ Les mêmes touches, comptées depuis la rangée des CHIFFRES : chaque valeur
+  //   monte d'exactement un cran. C'est le contrôle qui dit que les deux
+  //   conventions mesurent bien la même chose — et donc qu'elles ne peuvent pas
+  //   cohabiter dans une voie (`recherche/bfs.js › conventionContraire`).
+  ['maz4', T(HOPE), [3, 2, 2, 2]],
+  ['mqw4', T(HOPE), [3, 2, 2, 2]],
   ['mhe', T(HOPE), [8, 70, 80, 5]],
   ['mgr', T(HOPE), [8, 70, 80, 5]],
   ['mln', T(HOPE), [5, 1, 2, 1]],
@@ -321,8 +327,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 144);
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 144, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 146);
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 146, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -332,7 +338,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 144, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 146, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -676,7 +682,13 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
         }
         for (const d of o.digits || []) connus.add(d.id);
         for (const id of o.ids || []) connus.add(id);
-        if (o.to && o.to.id) connus.add(o.to.id);
+        // ★ `to` est un token, ou une LISTE de tokens. La seconde forme n'était
+        //   connue que des `pairs` ; `flip180` l'emploie désormais aussi, pour
+        //   le trio de 9 qui se retourne d'un bloc (`primitives/flip180.js`).
+        //   Sans cette ligne, les jetons qu'un bloc fait naître restaient
+        //   inconnus, et le `pulse` qui les désigne juste après passait pour
+        //   viser un identifiant fantôme.
+        for (const t of [].concat(o.to || [])) if (t && t.id) connus.add(t.id);
       }
     }
 
@@ -760,10 +772,17 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
         if (attendue === 'table') {
           // ★ L'aller-retour est INDIVIDUEL : une lettre monte, sa valeur
           // redescend, puis la suivante. Ce qui se mutualise, c'est le DÉCOR.
-          // ★ Deux mises en page, pas trois : seul le clavier téléphonique met
-          //   plusieurs lettres dans une case. Partout ailleurs, une case vaut
-          //   une lettre et un nombre.
-          assert.ok(['reglette', 'pave'].includes(o.disposition),
+          // ★ TROIS mises en page. Une case vaut une lettre et un nombre, sauf
+          //   au clavier téléphonique (`pave`), qui en met plusieurs.
+          //
+          //   ⚠️ La GLISSIÈRE a été ajoutée ici le jour où `m.z26a1` l'a prise :
+          //     elle existait déjà pour les filtres — c'est la mise en scène de
+          //     l'Atbash, deux bandes alignées dont la seconde se retourne —,
+          //     et cette liste-ci ne connaissait que les mappeurs. Elle n'est
+          //     pas une troisième façon de dessiner une case : c'est la même
+          //     case, dans une table qui DÉRIVE sa seconde bande de la première
+          //     au lieu de l'affirmer (`visuel/assets.js › pasDeGlissiere`).
+          assert.ok(['reglette', 'pave', 'glissiere'].includes(o.disposition),
             `${code} : mise en page inconnue`);
           assert.ok(o.teinte === undefined || o.teinte === 'valeur',
             `${code} : encodage de teinte inconnu`);
@@ -863,4 +882,58 @@ test('le joker français : tout chiffre atteint 6 en au plus trois étapes', () 
 test('les identifiants d’opérateurs sont uniques et lisibles', () => {
   assert.equal(PAR_ID.size, CATALOGUE.length);
   for (const op of CATALOGUE) assert.match(op.id, /^[a-z]\.[A-Za-z0-9]+$/);
+});
+
+/**
+ * ★ **UNE DÉCOUPE D'ADRESSE MONTRE LA ZONE QU'ELLE COUPE, PAS SES LETTRES.**
+ *
+ * Le défaut relevé par l'auteur : « visiblement tu identifies les caractères à
+ * conserver (ceux du chemin) puis tu cherches leur PREMIÈRE OCCURRENCE dans la
+ * string, peu importe que ce soit dans la zone du chemin, et tu le gardes en
+ * virant les autres. Résultat, des caractères qui semblent pris au hasard sont
+ * gardés et le reste supprimé. »
+ *
+ * C'était exact, et pour trois des cinq découpes. `etapeDecoupeAdresse`
+ * demandait à `apparier` quels jetons survivent ; faute de traces
+ * discriminantes, celui-ci retombe sur la plus longue sous-suite commune, qui
+ * prend la première occurrence de chaque caractère. Sur
+ * `https://www.example.com/path/to/page`, `fchm` garde `path` — mais la scène
+ * gardait le `p` de `https`, le `a` d'`example`, puis le `th` de `path` :
+ *
+ * ```
+ *   bornes       ························path········
+ *   appariement  ···p··········a···········th········   ← ce qu'on voyait
+ * ```
+ *
+ * Les cinq publient donc leurs `bornes`, et la scène les lit. Ce test croise
+ * les deux — la zone déclarée et le texte rendu par `apply` — sur une adresse
+ * qui les met toutes en défaut, et il tombe si l'une des deux dérive.
+ */
+test('★ découpes d’adresse — la zone déclarée EST le texte rendu', () => {
+  const coupes = CATALOGUE.filter((o) => o.coupe);
+  assert.ok(coupes.length >= 5, `attendu au moins cinq découpes, vu ${coupes.length}`);
+
+  for (const saisie of [
+    'https://www.example.com/path/to/page',
+    'https://hope-hope-hope.fr/',
+    'hope.fr/a/b',
+    'https://www.numérologie-évidente.fr/preuve',
+  ]) {
+    for (const op of coupes) {
+      // ★ TOUTE découpe doit publier ses bornes : sans elles, la scène retombe
+      //   sur l'appariement, c'est-à-dire sur le défaut qu'on vient de fermer.
+      assert.equal(typeof op.bornes, 'function',
+        `${op.code} coupe sans publier ses bornes`);
+      const bornes = op.bornes(saisie);
+      const rendu = op.apply(saisie, [...saisie].map(() => []));
+      if (!bornes || !rendu) {
+        // S'abstenir est licite — mais les deux doivent s'abstenir ENSEMBLE.
+        assert.equal(!bornes, !rendu,
+          `${op.code} sur « ${saisie} » : bornes et rendu ne s’accordent pas`);
+        continue;
+      }
+      assert.equal([...saisie].slice(bornes[0], bornes[1]).join(''), rendu.valeur,
+        `${op.code} sur « ${saisie} » : la zone déclarée n’est pas ce qui est rendu`);
+    }
+  }
 });

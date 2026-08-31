@@ -333,14 +333,29 @@ test('★ scénario — jeter coûte : le rendement suit ce qu’on garde', () =
     //   On saute donc ces voies, plutôt que d'élargir la tolérance jusqu'à ne
     //   plus rien attraper. Ce que le contrôle garde est intact pour toutes les
     //   autres, et l'égalisation, elle, se paie ailleurs (`elegance.js`,
-    //   palier `EGALISATION`, et elle est inscrite aux FICELLES).
+    //   palier `EGALISATION` — elle n'est PAS une ficelle, c'est un arbitrage
+    //   de l'auteur : elle ne choisit pas sa valeur, elle tombe sur la moyenne).
     const uniformise = (a.parts || []).some((p) => ((p.chemin && p.chemin.ops) || [])
       .some((o) => o.id === 'm.egalisation'));
     if (uniformise) continue;
-    const jetes = (tri ? tri.ops.find((o) => o.op === 'drop').targets.length : 0) + jetesEnRoute;
-    const gardes = tri
-      ? tri.ops.find((o) => o.op === 'highlight').targets.length
-      : (a.series || 1) * 3;
+    // ★ CE QUI EST GARDÉ EST CE QUE LE VERDICT MONTRE, pas ce que le tri
+    //   surligne — et les deux diffèrent d'un SURNUMÉRAIRE.
+    //
+    //   Le tri peut retenir sept 6 quand le verdict n'en aligne que six : le
+    //   septième ne fait pas de série, il tombe au verdict, et le rendement le
+    //   compte comme jeté — c'est toute la doctrine du score, « ce qui est
+    //   montré est ce qui est compté ». La formule, elle, le comptait comme
+    //   gardé et prédisait 777 là où le score dit 666.
+    //
+    //   ⚠️ Ce n'était pas une divergence, c'était une lecture fautive de ce
+    //     test : il existait déjà deux façons de compter ici — le surlignage du
+    //     tri, et `séries × 3` quand il n'y a pas de tri — et la seconde était
+    //     la bonne des deux. On l'applique aux deux cas.
+    const surligne = tri ? tri.ops.find((o) => o.op === 'highlight').targets.length : null;
+    const gardes = Math.min(surligne ?? Infinity, (a.series || 1) * 3);
+    const surnumeraires = surligne === null ? 0 : Math.max(0, surligne - gardes);
+    const jetes = (tri ? tri.ops.find((o) => o.op === 'drop').targets.length : 0)
+      + jetesEnRoute + surnumeraires;
     // Le rendement EST ce rapport : c'est le contrôle croisé du malus.
     const attendu = Math.floor((gardes * 1000) / (gardes + jetes));
     assert.ok(Math.abs(a.criteres.R - attendu) <= 60,

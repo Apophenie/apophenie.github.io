@@ -353,15 +353,17 @@ function verifierGlissiere(ctx, op, geo) {
       + 'à découper, elle EST deux réglettes — et sa couture dit déjà où le déplacement revient au début.');
   }
   if (op.teinte !== undefined) {
-    fail(`${ctx.where}« teinte » n’a rien à encoder sur une glissière : ses cases portent des lettres, `
-      + 'et une lettre n’est ni plus grande ni plus petite qu’une autre.');
+    fail(`${ctx.where}« teinte » n’a rien à encoder sur une glissière : sa bande dit un DÉPLACEMENT, `
+      + 'et un déplacement d’un cran n’est ni plus grand ni plus petit qu’un autre.');
   }
   if (geo.sens) return;
   const couples = geo.couples || [];
   const dit = couples.map((c) => `${c.char}→${c.value}`).slice(0, 4).join(', ');
   fail(`${ctx.where}« glissiere » : la réglette du bas (${dit}${couples.length > 4 ? '…' : ''}) `
-    + 'ne parcourt pas l’alphabet d’un pas constant de ±1 — ce n’est donc pas la réglette du haut '
-    + 'déplacée, et deux alphabets alignés affirmeraient une règle que cette table n’a pas. '
+    + 'ne descend ni ne monte d’un pas constant de ±1 — ce n’est donc pas la réglette du haut '
+    + 'déplacée, et deux bandes alignées affirmeraient une règle que cette table n’a pas. '
+    + 'La bande peut porter des lettres (un alphabet déplacé) ou une numérotation de 1 à 26 : '
+    + 'ce qui est exigé est le PAS, pas la matière. '
     + 'Le moteur visuel refuse de la mettre en page ainsi : une réglette ordinaire dit la vérité.');
 }
 

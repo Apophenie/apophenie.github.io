@@ -492,6 +492,39 @@ export const BAREME = {
   REGLAGE_PAR_MORCEAU: 240,
 
   /**
+   * ★ **LE MÊME MOT, TRADUIT DE DEUX FAÇONS DANS LA MÊME VOIE.**
+   *
+   * « Traduire un même mot de manière différente dans une même voie est encore
+   * PIRE que d'utiliser des conversions de César différentes dans une même
+   * voie. Autant la traduction n'est pas une ficelle, autant traduire le même
+   * mot différemment dans une même voie peut être considéré comme une ficelle
+   * ou comme du ad-hoc très élevé » (l'auteur). D'où 600, deux fois et demie
+   * `REGLAGE_PAR_MORCEAU` — et le rapport n'est pas décoratif, c'est
+   * exactement ce que la phrase demande.
+   *
+   * ★ POURQUOI C'EST PIRE, alors que choisir une acception ne coûte rien.
+   *
+   *   Une acception est une LECTURE : « espoir » et « espérer » sont deux
+   *   lectures légitimes de `hope`, et en préférer une reste une lecture — c'est
+   *   pourquoi les cinq se paient au même tarif (`filtres.js`, « le même prix
+   *   pour les cinq »). Mais dire, dans la MÊME démonstration, que `hope` veut
+   *   dire « espoir » ici et « espérer » là, ce n'est plus lire : c'est se
+   *   servir du dictionnaire comme d'un jeu de réglages, en choisissant à chaque
+   *   occurrence celle qui tombe juste. Le mot ne signifie plus rien, il rend
+   *   un compte.
+   *
+   *   Le César n'a pas cette aggravation parce qu'il ne prétend à aucun sens :
+   *   `fr14` puis `fr9` est un magasinage avoué. Ici le magasinage se cache
+   *   derrière une prétention de sens, et c'est ce qui coûte davantage.
+   *
+   * ⚠️ Compté par ACCEPTION SURNUMÉRAIRE ET PAR MOT — deux lectures d'un mot
+   *   coûtent une fois, trois en coûtent deux, et deux mots différents lus
+   *   chacun à leur façon ne coûtent RIEN : la divergence n'existe que sur un
+   *   même mot. C'est la lecture littérale de « un même mot ».
+   */
+  TRADUCTION_DIVERGENTE: 600,
+
+  /**
    * ★ **ON A RÉÉCRIT LA QUESTION AVANT D'Y RÉPONDRE** — par étage amont.
    *
    * Une RETOUCHE prend une portée de la saisie, lui applique un programme qui
@@ -1233,6 +1266,7 @@ export const NATURE = Object.freeze({
   RETOUR_SUR_UNE_ETAPE: { sens: -1, famille: 'elegance' },
   FILTRE_SELECTIF: { sens: -1, famille: 'elegance' },
   REGLAGE_PAR_MORCEAU: { sens: -1, famille: 'elegance' },
+  TRADUCTION_DIVERGENTE: { sens: -1, famille: 'elegance' },
   RETOUCHE: { sens: -1, famille: 'elegance' },
   VALEUR_JETEE: { sens: -1, famille: 'elegance' },
   RELIQUAT_HORS_CIBLE: { sens: -1, famille: 'elegance' },
@@ -1329,24 +1363,27 @@ export const FICELLES = Object.freeze({
   // ⚠️ `effacementSansMotif` n'a pas encore d'opérateur : la scission du geste
   //    de `m36` (couronner / effacer) est en cours ailleurs. Inscrire ici
   //    l'identifiant de la moitié « effacer » suffira à brancher le palier.
-  // ★ **`m.egalisation` EST UNE FICELLE**, et la mesure ne laisse pas le choix.
+  // ★ **`m.egalisation` N'EST PAS UNE FICELLE**, et c'est un arbitrage rendu.
   //
-  //   Elle n'est pourtant pas malhonnête : la somme est un invariant du
-  //   transfert, la valeur commune atteinte EST la moyenne, rien n'est jeté.
-  //   Mais dès que cette moyenne vaut le chiffre cherché, la ligne entière le
-  //   devient — et ce que la démonstration montre ensuite ne dit plus rien du
-  //   mot qu'on lisait. C'est la définition du dernier recours : ça marche
-  //   toujours, et ça ne prouve rien.
+  //   Elle y a figuré une journée. J'avais écrit ici « ça marche toujours, et
+  //   ça ne prouve rien » — l'auteur a tranché l'inverse, et sur le fond :
+  //   « meg ne marche pas toujours, l'égalisation pourrait être autre que sur
+  //   6 ». C'est exact, et c'est ce qui la distingue des trois ci-dessus.
+  //   L'égalisation ne CHOISIT pas sa valeur : elle tombe sur la moyenne de la
+  //   ligne, qui vaut ce qu'elle vaut. Sur `8 15 16 5` elle donne 11, et la
+  //   voie meurt. Elle ne réussit que là où la ligne portait DÉJÀ la moyenne
+  //   cherchée — ce qui est une propriété du mot lu, pas du geste posé. Une
+  //   ficelle, elle, aboutit quel que soit le mot ; c'est la définition
+  //   retenue en tête de cette table, et l'égalisation n'y répond pas.
   //
-  //   Mesuré à l'ouverture : elle prenait SEPT têtes de liste sur huit
-  //   (`Macron` 1553, `Millicent` 1733, `reinfocovid` 1611…), là où les
-  //   meilleures voies honnêtes plafonnaient vers 930. Et la facturer ne
-  //   suffisait pas : à 400 elle valait zéro d'élégance et restait en tête,
-  //   parce qu'elle avait ÉVINCÉ les voies honnêtes du faisceau de vecteurs
-  //   avant tout classement — le plafond consulte `nbFicelles`, qui ne la
-  //   voyait pas. L'inscrire ici la rend évinçable, et c'est ce qui rend le
-  //   palier efficace.
-  'm.egalisation': 'egalisees',
+  //   Ce qu'elle garde : le palier `EGALISATION`, compté par valeur réécrite
+  //   (elle réécrit toute la ligne, et cela se paie), et une notoriété
+  //   abaissée à 0.20 — le geste est peu connu, non malhonnête.
+  //
+  //   Le journal de la mesure, parce qu'il explique le palier : à l'ouverture
+  //   elle prenait SEPT têtes de liste sur huit (`Macron` 1553, `Millicent`
+  //   1733, `reinfocovid` 1611…) là où les voies honnêtes plafonnaient vers
+  //   930. C'est ce qui a fixé `EGALISATION` à 200 — pas son inscription ici.
 });
 
 /**
@@ -1464,7 +1501,37 @@ const ENONCENT_LA_MAJORITE = Object.freeze(new Set(['m.plusFrequent']));
  * demanderait de comparer les vecteurs à chaque étape et frapperait au passage
  * une réduction qui tombe juste par hasard (`mrn` sur `[9, 18, 27]`).
  */
-const UNIFORMISENT = Object.freeze(new Set(['m.egalisation']));
+export const UNIFORMISENT = Object.freeze(new Set(['m.egalisation']));
+
+/**
+ * ★ **CE QUI DOIT MÉRITER SA PLACE DANS LE FAISCEAU** — et ce n'est PAS la même
+ *   question que « est-ce une ficelle ».
+ *
+ * `assemblage.js › vecteursDeSix` garde un nombre borné de vecteurs par
+ * fragment, et il les classe d'abord sur le compte de 6. Certains gestes rendent
+ * ce classement inéquitable : ils produisent des 6 EN MASSE par construction, si
+ * bien qu'ils occupent toutes les places avant qu'aucun critère de qualité n'ait
+ * eu à se prononcer. Le plafond consultait `FICELLES` pour les reconnaître — et
+ * confondait ainsi deux choses sans rapport.
+ *
+ * ★ MESURÉ, le jour où `m.egalisation` est sortie des ficelles sur arbitrage de
+ *   l'auteur : elle a repris SIX têtes de liste sur huit. Et le palier
+ *   `EGALISATION` n'y peut rien — balayé de 200 à 1 500, l'élégance de ces
+ *   voies tombe à zéro et elles mènent toujours, parce que ce qui les porte est
+ *   le SCORE, c'est-à-dire la quantité. Le plafond du faisceau était le seul
+ *   levier qui ait jamais agi sur elle.
+ *
+ * La table est donc scindée. `FICELLES` reste ce qu'elle dit : un jugement sur
+ * le geste, qui décide de paliers d'élégance. Celle-ci dit autre chose, et de
+ * structurel — « à quantité comparable, cette voie-là ne prouve pas autant » —,
+ * et c'est elle que le faisceau consulte. Une ficelle y est par définition ;
+ * l'égalisation y est parce qu'elle réécrit la ligne ENTIÈRE d'un geste, ce qui
+ * n'est pas une performance mais un changement de sujet.
+ */
+export const A_MERITER_SA_PLACE = Object.freeze(new Set([
+  ...Object.keys(FICELLES),
+  ...UNIFORMISENT,
+]));
 
 /**
  * ★ Les opérateurs qui RÉARRANGENT sans rien retirer — le tri croissant.
@@ -1640,8 +1707,151 @@ const ADDITION = 'c.somme';
 /** ★ « Les min et les max. » `c.maxMoinsMin` emploie les deux. */
 const MIN_MAX = new Set(['c.max', 'c.min', 'c.maxMoinsMin']);
 
-/** ★ Les conversions lettre → lettre. Trois, et le catalogue n'en porte pas d'autre. */
-const LETTRE_VERS_LETTRE = new Set(['f.atbash', 'f.rot13', 'f.leet']);
+/**
+ * ★ Le mot tel que le DICTIONNAIRE le range — copie réécrite, et assumée.
+ *
+ * `filtres.js › traduire` cherche `sansAccents(valeur).toLowerCase()`, donc
+ * `Hope`, `hope` et `hôpe` y désignent la même entrée. Pour savoir si deux
+ * étapes ont traduit LE MÊME MOT, il faut replier de la même façon.
+ *
+ * ⚠️ C'est une copie, et le contrat l'impose : aucun module de `src/recherche/`
+ *   n'importe `src/moteur/` (CONTRACTS §2.2) — la recherche code contre le
+ *   DESCRIPTEUR d'opérateur, pas contre les entrailles d'un autre agent. Même
+ *   discipline que « la règle réécrite » de `classeDeTransformation`, et même
+ *   garde-fou : un test croise les deux (`tests/elegance.test.js`).
+ */
+function replierPourLeDictionnaire(mot) {
+  return String(mot).normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC')
+    .toLowerCase();
+}
+
+/**
+ * ★ **DEUX CONVENTIONS QUI SE CONTREDISENT, DANS UNE MÊME VOIE.**
+ *
+ * Certains opérateurs mesurent la MÊME chose selon deux conventions également
+ * défendables — et c'est précisément ce qui les rend dangereux ensemble. La
+ * rangée d'une touche vaut 1, 2, 3 si l'on ne compte que les lettres, et 2, 3,
+ * 4 si l'on compte la rangée des chiffres que le clavier montre. Aucune n'est
+ * plus vraie que l'autre.
+ *
+ * « Tu peux choisir l'une ou l'autre selon ce qui donne le meilleur score, mais
+ * jamais mixer les deux dans une même voie : ce serait une ficelle bien trop
+ * visible » (l'auteur). C'est exact, et c'est l'inverse d'un malus : choisir sa
+ * convention est libre, en changer EN COURS DE ROUTE ne l'est pas. Une
+ * démonstration qui compte les rangées d'une façon ici et d'une autre là ne
+ * mesure plus rien — elle cherche le chiffre qui l'arrange.
+ *
+ * ★ La convention est DÉCLARÉE par l'opérateur (champ `convention`), jamais
+ *   devinée d'un code : deux opérateurs qui se contredisent le disent
+ *   eux-mêmes, et l'un qui arriverait demain n'aurait qu'à se nommer.
+ *
+ * @param {Array<{chemin:Object}>} parts
+ * @returns {number} le nombre de conventions surnuméraires — 0 quand la voie
+ *   n'en change jamais.
+ */
+export function compterConventionsMelangees(parts) {
+  const familles = new Map();
+  for (const p of parts || []) {
+    for (const op of (p && p.chemin && p.chemin.ops) || []) {
+      const famille = familleDeConvention(op);
+      if (!famille) continue;
+      if (!familles.has(famille)) familles.set(famille, new Set());
+      familles.get(famille).add(op.convention);
+    }
+  }
+  let n = 0;
+  for (const [, vues] of familles) n += Math.max(0, vues.size - 1);
+  return n;
+}
+
+/**
+ * La FAMILLE de convention d'un opérateur — ce qui précède le « : ».
+ *
+ * `clavier:3rangees` et `clavier:4rangees` sont deux conventions de la famille
+ * « clavier » : elles mesurent la même chose et se contredisent. Deux familles
+ * différentes ne se contredisent jamais — elles ne parlent pas de la même
+ * mesure.
+ *
+ * ★ EXPORTÉE parce que deux endroits la lisent, et qu'ils ne doivent pas
+ *   diverger : le barème, qui COMPTE le mélange après coup, et
+ *   `bfs.js › etendreSi`, qui le REFUSE pendant qu'il explore. La règle est un
+ *   interdit — « jamais mixer les deux dans une même voie » —, donc c'est le
+ *   second qui fait le travail ; le premier est le filet qui dirait qu'il a
+ *   fui.
+ *
+ * @returns {string|null}
+ */
+export function familleDeConvention(op) {
+  if (!op || typeof op.convention !== 'string' || !op.convention) return null;
+  const i = op.convention.indexOf(':');
+  return i < 0 ? op.convention : op.convention.slice(0, i);
+}
+
+/**
+ * ★ **COMBIEN DE FOIS UN MÊME MOT EST TRADUIT DE DEUX FAÇONS** dans une voie.
+ *
+ * L'unité de `BAREME.TRADUCTION_DIVERGENTE` — voir ce palier pour le pourquoi.
+ * Compté par acception surnuméraire ET par mot : deux lectures d'un mot coûtent
+ * une fois, trois en coûtent deux, et deux mots différents lus chacun à leur
+ * façon ne coûtent rien.
+ *
+ * ★ EXPORTÉE PARCE QUE DEUX ENDROITS LA POSENT, et qu'ils ne doivent pas
+ *   diverger : le barème, qui la FACTURE après coup, et `assemblage.js ›
+ *   reduireLeSurplus`, qui l'INTERDIT pendant qu'il choisit. « Mieux vaut un
+ *   peu de déchet que ça » (l'auteur) — pour que la seconde puisse obéir, il
+ *   faut qu'elle compte exactement ce que la première facture.
+ *
+ * @param {Array<{chemin:Object}>} parts
+ * @returns {number}
+ */
+export function compterTraductionsDivergentes(parts) {
+  // L'acception est PUBLIÉE par l'opérateur (`filtres.js`, champ `acception`) :
+  // on ne la déduit pas du code. Le SENS de la traduction entre dans la clé —
+  // traduire un mot vers le français ici et vers l'anglais là n'est pas deux
+  // lectures d'une même traduction, c'est deux traductions.
+  //
+  // ⚠️ Ce qu'on lit est le texte D'ENTRÉE de l'étape, pas la portée : une
+  //   traduction peut suivre un filtre qui a déjà changé le mot, et c'est bien
+  //   ce mot-là qui est traduit.
+  const lectures = new Map();
+  for (const p of parts || []) {
+    const ops = (p && p.chemin && p.chemin.ops) || [];
+    const etats = (p && p.chemin && p.chemin.etats) || [];
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
+      if (!op || !Number.isFinite(op.acception)) continue;
+      const entree = etats[i];
+      if (!entree || typeof entree.valeur !== 'string') continue;
+      const sens = String(op.code).replace(/\d+$/, '');
+      const cle = `${sens}\u0000${replierPourLeDictionnaire(entree.valeur)}`;
+      if (!lectures.has(cle)) lectures.set(cle, new Set());
+      lectures.get(cle).add(op.acception);
+    }
+  }
+  let n = 0;
+  for (const [, vues] of lectures) n += Math.max(0, vues.size - 1);
+  return n;
+}
+
+/**
+ * ★ Les conversions lettre → lettre — RECONNUES À LEUR RÉGLETTE, plus nommées.
+ *
+ * Elles l'ont été, et la liste disait « trois, et le catalogue n'en porte pas
+ * d'autre » : `f.atbash`, `f.rot13`, `f.leet`. C'était vrai le jour où elle a
+ * été écrite. Les vingt-quatre autres décalages de César sont entrés depuis
+ * sous `f.cesar1`…`f.cesar25`, et la liste ne les a jamais vus : `fr15` ne
+ * payait RIEN là où `fr13` payait 40, pour le geste identique. On mesurait donc
+ * un alphabet gratuit — vingt-cinq réglettes à essayer sans frais, ce qui suffit
+ * à faire tomber juste à peu près n'importe quelle propriété globale de la
+ * ligne. C'est ce qui portait `fr15+tca+m14+meg` en tête sur `Macron`.
+ *
+ * ★ La réglette EST le critère, et ce n'est pas un raccourci : `spec.table` est
+ * exactement ce que la scène affiche sous l'étape (voir `outilDuChiffrement`,
+ * `filtres.js`) — une lettre en face d'une lettre. Compter ce qui est montré,
+ * plutôt qu'une liste recopiée qui peut diverger, c'est la doctrine du projet
+ * (CONTRACTS) et c'est ce qui empêche cette divergence-ci de se reformer.
+ */
+const porteUneReglette = (op) => !!(op && op.table);
 
 /** La moyenne — le seul opérateur qui arrondisse. */
 const MOYENNE = 'c.moyenne';
@@ -1662,7 +1872,7 @@ export function classeDeTransformation(op, avant) {
   }
   if (op.id === MOYENNE) return 'moyenne';
   if (MIN_MAX.has(op.id)) return 'minmax';
-  if (LETTRE_VERS_LETTRE.has(op.id)) return 'lettres';
+  if (porteUneReglette(op)) return 'lettres';
   return 'autre';
 }
 
@@ -2239,6 +2449,7 @@ export function bilanApproche(approche, ctx = {}) {
     valeursJetees: 0,
     filtresSelectifs: 0,
     reglagesEnTrop: 0,
+    traductionsDivergentes: 0,
     retours: 0,
     triptyquesContigus: 0,
     triptyquesRepetes: 0,
@@ -2312,6 +2523,21 @@ export function bilanApproche(approche, ctx = {}) {
     }
   }
   for (const [, vus] of reglages) b.reglagesEnTrop += Math.max(0, vus.size - 1);
+
+  // ★ LE MÊME MOT, TRADUIT DE DEUX FAÇONS — voir `BAREME.TRADUCTION_DIVERGENTE`.
+  //
+  //   L'acception est PUBLIÉE par l'opérateur (`filtres.js`, champ `acception`),
+  //   comme le décalage juste au-dessus : on ne la déduit pas du code. Et la clé
+  //   est le MOT, replié comme le dictionnaire le replie — sans accents, en bas
+  //   de casse (`traduire`) —, de sorte que « Hope » et « hope » soient bien le
+  //   même mot. Le sens de la traduction entre dans la clé : traduire un mot
+  //   vers le français ici et vers l'anglais là n'est pas deux lectures d'une
+  //   même traduction, c'est deux traductions.
+  //
+  //   ⚠️ Ce qu'on lit est le texte D'ENTRÉE de l'étape, pas la portée : une
+  //     traduction peut suivre un filtre qui a déjà changé le mot, et c'est bien
+  //     ce mot-là qui est traduit.
+  b.traductionsDivergentes += compterTraductionsDivergentes(parts);
 
   let poidsTot = 0;
   let sommeTot = 0;
@@ -2518,6 +2744,8 @@ export function detailDuCredit(b, poids) {
       B.FILTRE_SELECTIF * (b.filtresSelectifs || 0)],
     ['même outil, réglé morceau par morceau', 'REGLAGE_PAR_MORCEAU', b.reglagesEnTrop || 0,
       B.REGLAGE_PAR_MORCEAU * (b.reglagesEnTrop || 0)],
+    ['même mot, traduit de deux façons', 'TRADUCTION_DIVERGENTE', b.traductionsDivergentes || 0,
+      B.TRADUCTION_DIVERGENTE * (b.traductionsDivergentes || 0)],
     ['portée réécrite avant d’être lue', 'RETOUCHE', b.retouches || 0,
       B.RETOUCHE * (b.retouches || 0)],
     ['part de la saisie jamais lue', 'PORTEE_IGNOREE', ignores,

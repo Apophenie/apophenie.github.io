@@ -241,6 +241,8 @@ export const NOMS = {
   'm.azertyRangee': b('En rangées AZERTY', 'In AZERTY rows'),
   'm.qwertyColonne': b('En spacialisation QWERTY', 'In QWERTY spatialisation'),
   'm.qwertyRangee': b('En rangées QWERTY', 'In QWERTY rows'),
+  'm.azertyRangee4': b('En rangées AZERTY, chiffres compris', 'In AZERTY rows, digits included'),
+  'm.qwertyRangee4': b('En rangées QWERTY, chiffres compris', 'In QWERTY rows, digits included'),
   'm.hebreu': b('Par gématrie hébraïque', 'By Hebrew gematria'),
   'm.grec': b('Par isopséphie grecque', 'By Greek isopsephy'),
   'm.longueurNom': b('Par le nom des lettres', 'By the names of the letters'),
@@ -468,6 +470,12 @@ export const PRECISIONS = {
   'm.azertyRangee': b('en rangées AZERTY', 'in AZERTY rows'),
   'm.qwertyColonne': b('en spacialisation QWERTY', 'in QWERTY spatialisation'),
   'm.qwertyRangee': b('en rangées QWERTY', 'in QWERTY rows'),
+  // ★ « chiffres compris » plutôt qu'un numéro : deux formes courtes qui ne
+  //   différeraient que par un « 4 » se liraient comme une coquille, alors que
+  //   ce qui change est la CONVENTION — on compte la rangée des chiffres, ou
+  //   on ne la compte pas.
+  'm.azertyRangee4': b('en rangées AZERTY, chiffres compris', 'in AZERTY rows, digits included'),
+  'm.qwertyRangee4': b('en rangées QWERTY, chiffres compris', 'in QWERTY rows, digits included'),
   'm.hebreu': b('par la gématrie hébraïque', 'by Hebrew gematria'),
   'm.grec': b('par l’isopséphie grecque', 'by Greek isopsephy'),
   'm.longueurNom': b('par le nom des lettres', 'by the names of the letters'),

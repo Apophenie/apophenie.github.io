@@ -58,6 +58,44 @@
    cesse d'être un tableau de comparaison. */
 .dbg__table--large { display: block; overflow-x: auto; white-space: nowrap; max-width: 100%; }
 
+/* ★ LE TABLEAU COLLANT — la ligne de titres et la colonne des codes restent.
+ *
+ * « Garde la première ligne (les titres de colonnes) et la colonne code fixées
+ * quand on parcourt le tableau, pour voir pour chaque case à quelle ligne et
+ * quelle colonne elle correspond » (l'auteur).
+ *
+ * ⚠️ `thead th` était DÉJÀ `position: sticky; top: 0` — et ne collait à rien.
+ *   `--large` pose `display: block; overflow-x: auto`, ce qui fait du tableau
+ *   son propre conteneur de défilement ; `top: 0` s'y réfère alors, et non à la
+ *   page. Sans hauteur, ce conteneur ne défile jamais verticalement : l'en-tête
+ *   restait donc collé à un bord qui ne bougeait pas pendant que la PAGE
+ *   défilait sous lui. Une hauteur maximale rend le défilement au conteneur, et
+ *   la propriété se met enfin à servir.
+ *
+ * La colonne des codes est la PREMIÈRE du tableau (voir `debug.js`) : une
+ * colonne collée à gauche doit l'être, sinon son décalage dépend de la largeur
+ * de ce qui la précède, laquelle dépend du contenu. */
+.dbg__table--collante { max-height: 70vh; overflow: auto; }
+.dbg__table--collante tbody th.dbg__code {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--canvas);
+}
+/* Le coin : il croise les deux, il doit passer devant les deux. */
+.dbg__table--collante thead th.dbg__code { left: 0; z-index: 2; }
+
+/* La colonne fourre-tout peut être longue : elle seule a le droit de se replier,
+   et elle est bornée pour que les colonnes utiles restent atteignables. */
+.dbg__particularites {
+  white-space: normal;
+  max-width: 42ch;
+  min-width: 18ch;
+}
+.dbg__part { display: inline-block; margin-right: var(--e2); }
+.dbg__part-cle { color: var(--fg-2); opacity: .75; }
+.dbg__part-val { color: var(--phos); }
+
 .dbg__table th,
 .dbg__table td {
   border: var(--rule) solid var(--line);

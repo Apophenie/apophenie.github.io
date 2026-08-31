@@ -23,6 +23,21 @@ const LIB_JOKER = bilingue(
 const borne = (n) => (Number.isFinite(n) && Number.isInteger(n) && n >= NUM_MIN && n <= NUM_MAX ? n : null);
 const chiffres = (n) => [...String(Math.abs(n))].map(Number);
 
+/**
+ * Les chiffres d'un nombre, LE SIGNE PORTÉ PAR LE PREMIER — `−28` → `[−2, 8]`.
+ *
+ * C'est la lecture exacte de `reductionSignee` (juste en dessous), et c'est
+ * aussi ce qu'il faut montrer : mis bout à bout, `−2` et `8` réécrivent `−28`,
+ * donc `reduce` accepte de les faire naître du jeton d'origine. Une liste
+ * `[2, 8]` reconstituerait `28`, un autre nombre, et la primitive refuserait —
+ * à raison.
+ */
+const chiffresSignes = (n) => {
+  const ds = chiffres(n);
+  if (n < 0 && ds.length) ds[0] = -ds[0];
+  return ds;
+};
+
 /** Somme des chiffres, une passe. */
 export const sommeChiffres = (n) => chiffres(n).reduce((a, b) => a + b, 0);
 
@@ -68,6 +83,15 @@ function paliers(n, pas) {
 
 /** Étape(s) de réduction : un `reduce` par palier, un step par palier. */
 function etapeReduction(spec, pas) {
+  // ★ Comment le nombre S'ÉCLATE — et pourquoi c'est réglable.
+  //
+  //   `reduce` exige que les chiffres RECONSTITUENT le texte du jeton source
+  //   (`visuel/primitives/reduce.js`) : il refuse d'éclater un nombre en autre
+  //   chose que lui-même. Pour la réduction ordinaire, `−28` n'a pas à se
+  //   présenter, l'opérateur ne voit que des positifs. Pour la réduction
+  //   SIGNÉE, si : le signe porte sur le premier chiffre, `−28` s'éclate en
+  //   `−2` et `8`, et c'est bien `−28` que les deux reconstituent.
+  const eclater = spec.chiffresDe || chiffres;
   return (avant, apres, ctx) => {
     const suite = paliers(avant.valeur, pas);
     const sortie = nomsTokens(ctx, 1);
@@ -76,10 +100,11 @@ function etapeReduction(spec, pas) {
     suite.slice(1).forEach((v, k) => {
       const dernier = k === suite.length - 2;
       const cible = dernier ? sortie[0] : `${ctx.cle}_r${k}`;
-      steps.push(etape(ctx, dire(spec.libelle, ctx.langue), `${suite[k]} → ${chiffres(suite[k]).join(' + ')} → ${v}`, [{
+      const parts = eclater(suite[k]);
+      steps.push(etape(ctx, dire(spec.libelle, ctx.langue), `${suite[k]} → ${parts.join(' + ')} → ${v}`, [{
         op: 'reduce',
         target: source,
-        digits: chiffres(suite[k]).map((d, i) => token(`${ctx.cle}_d${k}x${i}`, d, 'digit')),
+        digits: parts.map((d, i) => token(`${ctx.cle}_d${k}x${i}`, d, 'digit')),
         to: token(cible, v, 'number'),
       }], { id: `s_${ctx.cle}_${k}` }));
       source = cible;
@@ -97,12 +122,33 @@ function etapeReduction(spec, pas) {
 function etapeSubstitution(spec) {
   return (avant, apres, ctx) => {
     const sortie = nomsTokens(ctx, 1);
+    // ★ **L'ENCADREMENT, quand l'opérateur porte une NOTATION.**
+    //
+    //   `p.abs` ne remplace pas un nombre par un autre : il en prend la valeur
+    //   absolue, et cela s'écrit `|−28|`. Sans les barres, la scène montrait un
+    //   `−28` qui devient `28` — c'est-à-dire un signe qui s'évapore, ce qui
+    //   ressemble à une faute de frappe plutôt qu'à une opération.
+    //
+    //   « Durant la transition, le nombre devrait être encadré par le symbole
+    //   de abs » (l'auteur). Les barres se posent AVANT la substitution, tiennent
+    //   pendant, et s'en vont avec l'étape (`fugace`) : elles encadrent ce sur
+    //   quoi on opère, jamais le résultat — une valeur absolue déjà prise n'a
+    //   plus de barres.
+    const corps = [];
+    if (spec.encadre) {
+      corps.push(
+        { op: 'annotate', anchor: [ctx.ids[0]], text: spec.encadre, place: 'left', ecart: 0.5, fugace: true, at: 0 },
+        { op: 'annotate', anchor: [ctx.ids[0]], text: spec.encadre, place: 'right', ecart: 0.5, fugace: true, at: 0 },
+      );
+    }
     // Le `pulse` vient APRÈS la substitution : pendant, le nouveau token voit
     // déjà son `scale` animé par le crossfade.
-    return [etape(ctx, dire(spec.libelle, ctx.langue), `${avant.valeur} → ${apres.valeur}`, enchainer([
+    const gestes = enchainer([
       { op: 'substitute', pairs: [{ target: ctx.ids[0], to: token(sortie[0], apres.valeur, 'number') }] },
       { op: 'pulse', targets: [sortie[0]] },
-    ]))];
+    ], spec.encadre ? 500 : 0);
+    return [etape(ctx, dire(spec.libelle, ctx.langue), `${avant.valeur} → ${apres.valeur}`,
+      [...corps, ...gestes], spec.encadre ? { hold: 400 } : {})];
   };
 }
 
@@ -132,6 +178,9 @@ const brut = [
     notoriete: 0.70, adHoc: 0.25,
     calcul: (n) => Math.abs(n),
     exige: (n) => n < 0,
+    // La notation, et rien de plus : deux barres qui encadrent le nombre le
+    // temps qu'on en prenne la valeur absolue. Voir `etapeSubstitution`.
+    encadre: '|',
   },
   {
     id: 'p.reductionSignee', code: 'prs',
@@ -147,11 +196,38 @@ const brut = [
     ),
     calcul: (n) => reductionSignee(n),
     exige: (n) => Math.abs(n) > 9,
+    // ★ **ELLE SE MONTRE COMME LA RÉDUCTION ORDINAIRE** — « appliquer la même
+    //   chose que pour prn » (l'auteur). Elle se contentait du geste générique :
+    //   le nombre remplacé d'un coup, avec une annotation. On ne voyait donc
+    //   pas l'addition, c'est-à-dire la seule chose que la règle affirme.
+    //
+    //   `−28` s'éclate en `−2` et `8`, les deux s'additionnent, le 6 paraît.
+    //   C'est le geste de `p.racineNumerique`, avec la seule différence que sa
+    //   règle énonce : le signe reste collé au premier chiffre.
+    reduction: (n) => reductionSignee(n),
+    chiffresDe: chiffresSignes,
   },
   {
     id: 'p.ecartChiffres', code: 'pec',
     libelle: bilingue('On prend l’écart des deux chiffres', 'Take the gap between the two digits'),
     regle: bilingue('|d₁ − d₂|, pour un nombre à deux chiffres', '|d₁ − d₂|, for a two-digit number'),
+    // ★ **DÉPRÉCIÉ — `c.maxMoinsMin` fait la même chose, et davantage.**
+    //
+    //   « pec fait doublon cmm, il peut donc je pense être supprimé »
+    //   (l'auteur). C'est exact, et la mesure va plus loin que l'intuition :
+    //   `pec(47) = 3` et `cmm([4, 7]) = 3` — même geste, même résultat —, mais
+    //   `pec(471)` rend `null` (son `exige` réclame exactement deux chiffres)
+    //   là où `cmm([4, 7, 1])` rend 6. Il n'est donc pas un jumeau : il est un
+    //   `cmm` MUTILÉ, qui s'abstient dès qu'il y a trois chiffres.
+    //
+    //   Ce qu'il coûte de le retirer : une étape. La voie qui l'employait
+    //   s'écrit `tch+cmm` — découper le nombre en chiffres, puis prendre
+    //   l'écart —, et elle dit la même chose en la montrant mieux.
+    //
+    //   ⚠️ DÉPRÉCIÉ, PAS RAYÉ. « Retirer un opérateur, ce n'est pas le rayer du
+    //     registre » (`catalogue.js`, §4.1) : le code reste réservé, l'opérateur
+    //     quitte la recherche (`bfs.js`) et reste jouable depuis `debug.html`.
+    deprecated: true,
     notoriete: 0.20, adHoc: 0.3,
     calcul: (n) => Math.abs(chiffres(n)[0] - chiffres(n)[1]),
     exige: (n) => chiffres(n).length === 2,

@@ -83,7 +83,8 @@ import {
   segments14De, compteSegments14, compteTraitsFusionnes14, MENTION_SEG14,
 } from '../tables/seg14.js';
 import {
-  AZERTY, QWERTY, colonne, rangee, chiffreDeTouche, CHIFFRE_DE_TOUCHE, NOTE_AFNOR,
+  AZERTY, QWERTY, colonne, rangee, rangeeDepuisLesChiffres,
+  chiffreDeTouche, CHIFFRE_DE_TOUCHE, NOTE_AFNOR,
 } from '../tables/claviers.js';
 import { mesure as mesureGlyphe } from '../tables/derivees.js';
 import { GLYPHES } from '../tables/glyphes.js';
@@ -1492,7 +1493,26 @@ const MAPPEURS_LETTRE = [
       'Each letter is worth its reversed alphabetical rank'),
     regle: bilingue('A=26, B=25, … Z=1', 'A=26, B=25, … Z=1'),
     notoriete: 0.45,
-    geste: 'table', forme: 'reglette', ordre: 'z26a1',
+    // ★ **EN GLISSIÈRE, COMME L'ATBASH** — parce que c'est le même geste.
+    //
+    //   Il se montrait en réglette : une case par lettre, portant d'emblée
+    //   « A 26 ». Le rang inversé y était AFFIRMÉ, jamais dérivé — et il l'est
+    //   pourtant, à partir du rang ordinaire que tout le monde connaît.
+    //
+    //   « Amène-le comme l'Atbash : sors la numérotation dans l'ordre, puis
+    //   retourne-la en ellipse, puis fusionne aux touches, puis fais la
+    //   conversion » (l'auteur). C'est exactement ce que la glissière joue déjà
+    //   pour `f.atbash` : la bande du bas paraît alignée sur celle du haut,
+    //   elle se retourne, elle se recolle, et la lettre descend alors sur la
+    //   case qui lui fait face.
+    //
+    //   ⚠️ La glissière EXIGE que la bande du bas parcoure son alphabet d'un pas
+    //     constant de ±1 (`verifierGlissiere`) : deux réglettes alignées qui ne
+    //     se déduisent pas l'une de l'autre affirmeraient une règle que la table
+    //     n'a pas. `26, 25, … 1` descend d'exactement 1 — la condition est donc
+    //     satisfaite, et c'est elle qui autorise cette mise en scène plutôt
+    //     qu'une simple ressemblance de forme.
+    geste: 'table', forme: 'glissiere', ordre: 'z26a1',
     fn: (c) => valeurTable(Z26A1, pli(c)),
   },
   {
@@ -1707,6 +1727,9 @@ const MAPPEURS_LETTRE = [
     regle: bilingue('1 en haut, 2 au milieu, 3 en bas', '1 at the top, 2 in the middle, 3 at the bottom'),
     notoriete: 0.20, adHoc: 0.2,
     note: NOTE_AFNOR, geste: 'keyboard', disposition: 'azerty', mesureClavier: 'rangee',
+    // Ne compte QUE les lettres — voir sa jumelle à quatre rangées, et
+    // l'exclusion qui les sépare (`recherche/elegance.js`).
+    convention: 'clavier:3rangees',
     fn: (c) => rangee(pli(c), AZERTY),
   },
   {
@@ -1723,7 +1746,47 @@ const MAPPEURS_LETTRE = [
     regle: bilingue('1 en haut, 2 au milieu, 3 en bas', '1 at the top, 2 in the middle, 3 at the bottom'),
     notoriete: 0.20, adHoc: 0.2,
     geste: 'keyboard', disposition: 'qwerty', mesureClavier: 'rangee',
+    // Ne compte QUE les lettres — voir sa jumelle à quatre rangées, et
+    // l'exclusion qui les sépare (`recherche/elegance.js`).
+    convention: 'clavier:3rangees',
     fn: (c) => rangee(pli(c), QWERTY),
+  },
+  // ★ **LES DEUX RANGÉES À QUATRE LIGNES** — le clavier entier, chiffres compris.
+  //
+  //   Leurs aînées comptent 1, 2, 3 sur les seules rangées de lettres ;
+  //   celles-ci comptent 2, 3, 4, la rangée des chiffres étant la première. Les
+  //   deux conventions se tiennent, et c'est bien le problème : pouvoir choisir
+  //   après coup laquelle tombe juste serait « une ficelle bien trop visible »
+  //   (l'auteur). Elles ne peuvent donc PAS se rencontrer dans une même voie —
+  //   la règle vit dans `recherche/elegance.js › CONVENTIONS_EXCLUSIVES`, et
+  //   c'est le champ `convention` ci-dessous qui la rend lisible sans deviner.
+  //
+  //   ⚠️ Plus ad hoc que leurs aînées, et d'un cran seulement : compter la
+  //     rangée des chiffres est ce que le clavier MONTRE — la colonne le fait
+  //     déjà —, mais ne compter que les lettres est ce qu'on fait
+  //     spontanément. Le choix demande donc une justification que le premier
+  //     n'exige pas.
+  {
+    id: 'm.azertyRangee4', code: 'maz4',
+    libelle: bilingue('Rangée de la touche, chiffres compris, en AZERTY',
+      'Key row counting the digit row, on a French AZERTY'),
+    regle: bilingue('1 pour les chiffres, puis 2, 3, 4 en descendant',
+      '1 for the digits, then 2, 3, 4 going down'),
+    notoriete: 0.20, adHoc: 0.3,
+    note: NOTE_AFNOR, geste: 'keyboard', disposition: 'azerty', mesureClavier: 'rangee',
+    convention: 'clavier:4rangees',
+    fn: (c) => rangeeDepuisLesChiffres(pli(c), AZERTY),
+  },
+  {
+    id: 'm.qwertyRangee4', code: 'mqw4',
+    libelle: bilingue('Rangée de la touche, chiffres compris, en QWERTY',
+      'Key row counting the digit row, on a US QWERTY'),
+    regle: bilingue('1 pour les chiffres, puis 2, 3, 4 en descendant',
+      '1 for the digits, then 2, 3, 4 going down'),
+    notoriete: 0.20, adHoc: 0.3,
+    geste: 'keyboard', disposition: 'qwerty', mesureClavier: 'rangee',
+    convention: 'clavier:4rangees',
+    fn: (c) => rangeeDepuisLesChiffres(pli(c), QWERTY),
   },
   {
     id: 'm.hebreu', code: 'mhe',
@@ -1760,6 +1823,17 @@ const MAPPEURS_LETTRE = [
       'The letter names used here are the French ones — "effe", "double vé", "i grec" — '
       + 'not the English "ef", "double-u", "why". The method is French, and stays French.',
     ),
+    // ★ **DÉPRÉCIÉ — « trop alambiqué, à supprimer » (l'auteur).**
+    //
+    //   Il fallait, pour lire une seule lettre, passer par son NOM français,
+    //   puis compter les lettres de ce nom : « W → double vé → 8 ». Trois
+    //   affirmations enchaînées, dont la deuxième ne se démontre pas — elle se
+    //   récite. Et la table qui la porte demandait neuf colonnes au lieu de
+    //   treize, pour que « double vé » tienne dans sa case.
+    //
+    //   ⚠️ DÉPRÉCIÉ, PAS RAYÉ : le code reste réservé, l'opérateur quitte la
+    //     recherche (`bfs.js`) et reste jouable depuis `debug.html`.
+    deprecated: true,
     notoriete: 0.15, adHoc: 0.25,
     // ★ Ce n'en est pas moins une table lettre → nombre : simplement, la
     // correspondance passe par un MOT, et c'est le mot qui prouve le nombre.
@@ -2615,7 +2689,12 @@ const AUTRES_MAPPEURS = [
     libelle: bilingue('On égalise', 'Even them out'),
     regle: bilingue('On donne 1 du plus grand au plus petit jusqu’à ce que tout se tienne à 1 près',
       'Hand 1 from the largest to the smallest until nothing is more than 1 apart'),
-    notoriete: 0.30, adHoc: 0.30, cout: 1,
+    // ★ NOTORIÉTÉ 0.20 — arbitrée. Égaliser une ligne de nombres n'est pas un
+    //   geste que le lecteur a déjà vu ailleurs ; il se comprend en le voyant,
+    //   il ne se reconnaît pas. Elle est descendue de 0.30 le jour où elle est
+    //   SORTIE des ficelles (`recherche/elegance.js › FICELLES`) : le prix de
+    //   son manque de notoriété remplace le soupçon, il ne s'y ajoute pas.
+    notoriete: 0.20, adHoc: 0.30, cout: 1,
     // ★ ARBITRÉ, ET ACTIVÉ. Il est resté inactif le temps d'un aller-retour :
     //   son relevé d'identité — les jetons changent de valeur sans changer de
     //   place, et il faut le DÉCLARER au modèle de ligne — plongeait sous
@@ -2857,11 +2936,25 @@ const AUTRES_MAPPEURS = [
     steps: (avant, apres, ctx) => {
       const trios = triosDeNeuf(avant.valeur);
       if (!trios.length) return [];
+      // ★ **UN DEMI-TOUR PAR TRIO, PAS PAR NEUF** — « retourner d'un bloc le
+      //   triptyque 999 comme si c'était un seul glyphe » (l'auteur). Trois
+      //   demi-tours à la file disent « chacun de ces 9 vaut un 6 » ; un seul
+      //   dit « ce 999-là, retourné, EST un 666 », et c'est ce que l'opérateur
+      //   prétend montrer.
+      //
+      //   Les indices arrivent à plat : on les regroupe par TRIPLETS CONTIGUS,
+      //   ce que `triosDeNeuf` garantit déjà — il ne marque que des trios
+      //   complets et d'un seul tenant.
+      const blocs = [];
+      for (let k = 0; k < trios.length; k += 3) blocs.push(trios.slice(k, k + 3));
       const neufs = [];
-      const ops = trios.map((i) => {
-        const id = nomToken(ctx, i);
-        neufs.push(id);
-        return { op: 'flip180', target: ctx.ids[i], to: token(id, apres.valeur[i], 'number') };
+      const ops = blocs.map((bloc) => {
+        const nes = bloc.map((i) => token(nomToken(ctx, i), apres.valeur[i], 'number'));
+        for (const t of nes) neufs.push(t.id);
+        // `targets` et `to` sont donnés dans l'ORDRE DE LA LIGNE — avant et
+        // après. Le miroir de la rotation est appliqué par la primitive, pas
+        // ici : le modèle de ligne remplace ainsi place pour place.
+        return { op: 'flip180', targets: bloc.map((i) => ctx.ids[i]), to: nes };
       });
       // Le `pulse` vient APRÈS le dernier demi-tour, jamais pendant : pendant,
       // le jeton d'arrivée voit déjà son `scale` animé par le crossfade de

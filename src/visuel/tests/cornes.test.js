@@ -356,9 +356,16 @@ test('★ cornes : la couleur des cornes et celle du verdict se succèdent, jama
  * démonstration ne couronne que ce qu'elle CONSTATE. Le verdict, lui, les
  * réunit, et c'est là qu'il faut le dire.
  *
- * Quatre choses se vérifient ici, et ce sont les quatre restrictions écrites
- * dans `reveal.js` : plusieurs séries, jamais deux couronnements sur un même
- * chiffre, jamais le rang du bas, jamais autre chose que trois 6.
+ * Trois choses se vérifient ici, et ce sont les restrictions écrites dans
+ * `reveal.js` : jamais deux couronnements sur un même chiffre, jamais le rang
+ * du bas, jamais autre chose que trois 6 — et le registre sobre, qui n'en veut
+ * pas du tout.
+ *
+ * ⚠️ La quatrième A ÉTÉ LEVÉE, et ce test l'a gelée à l'envers pendant tout ce
+ * temps : « un 666 seul reste nu — et reste grand ». L'auteur a tranché sur la
+ * voie qu'il tient pour la plus élégante du corpus, `tca+mt9+mpf` sur
+ * `Macron` — un 666 seul : « Il lui manque juste les cornes ». Le prix est réel
+ * et se mesure juste en dessous : le zoom tombe de moitié. Il est payé.
  */
 test('★ cornes : le verdict couronne les séries nues du rang du haut', () => {
   // Deux séries, aucune couronnée en chemin : les deux le sont au verdict.
@@ -372,12 +379,37 @@ test('★ cornes : le verdict couronne les séries nues du rang du haut', () => 
   }], chiffres('666666')));
   assert.equal(cornesDe(sobre).length, 0, 'sans scénographie, aucune corne au verdict');
 
-  // Un 666 SEUL n'est pas couronné : il n'a personne dont il faille le
-  // distinguer, et il paierait la moitié de sa taille pour rien.
+  // ★ UN 666 SEUL EST COURONNÉ LUI AUSSI — c'est l'emblème du site, et
+  //   l'auteur l'a demandé nommément. Deux cornes, une paire pour la série.
   const seul = verdict(3);
-  assert.equal(cornesDe(seul).length, 0, 'un 666 seul reste nu — et reste grand');
+  assert.equal(cornesDe(seul).length, 2, 'un 666 seul porte ses cornes');
+
+  // ★ ET CE QU'IL EN COÛTE, mesuré ici pour que personne n'ait à le redécouvrir :
+  //   un décor au-dessus des chiffres leur prend de la hauteur, donc le verdict
+  //   grandit moins. C'est le prix accepté, pas un défaut — mais il ne doit pas
+  //   dériver au-delà : un 666 couronné reste plus grand qu'un verdict de deux
+  //   séries, sans quoi le zoom aurait cessé de tenir compte du décor.
   const zoom = seul.anims.filter((a) => a.id === 'd0' && a.prop === 'scale').pop();
-  assert.ok(zoom.keyframes[1].value > 8, `un 666 seul prend la scène (× ${zoom.keyframes[1].value})`);
+  const zoomDeux = deux.anims.filter((a) => a.id === 'd0' && a.prop === 'scale').pop();
+  assert.ok(zoom.keyframes[1].value > zoomDeux.keyframes[1].value,
+    `un 666 seul prend encore la scène (× ${zoom.keyframes[1].value} `
+    + `contre × ${zoomDeux.keyframes[1].value} à deux séries)`);
+
+  // ★ ET LE REGISTRE SOBRE NE PAIE RIEN — question de l'auteur, mesurée ici.
+  //
+  //   Le prix du couronnement est celui du DÉCOR : des cornes au-dessus des
+  //   chiffres leur prennent de la hauteur, donc le verdict grandit moins. En
+  //   sobre il n'y a pas de cornes (restriction 1, intacte), donc pas de décor,
+  //   donc pas de prix — le zoom y reste ENTIER, exactement ce qu'il valait
+  //   avant que la restriction « jamais un 666 seul » ne soit levée.
+  const sobre3 = compile(sc([{
+    id: 'v', title: 'Le verdict', ops: [{ op: 'reveal', targets: ['d0', 'd1', 'd2'] }],
+  }], chiffres('666')));
+  assert.equal(cornesDe(sobre3).length, 0, 'sobre : pas de cornes, donc rien à loger');
+  const zoomSobre = sobre3.anims.filter((a) => a.id === 'd0' && a.prop === 'scale').pop();
+  assert.ok(zoomSobre.keyframes[1].value > zoom.keyframes[1].value,
+    `le sobre garde tout son zoom (× ${zoomSobre.keyframes[1].value} `
+    + `contre × ${zoom.keyframes[1].value} en scénique couronné)`);
 
   // Cinq séries : deux rangs (5 → 3 puis 2), et seul le rang du HAUT est
   // couronné. On ne pose pas des cornes pour les retirer trois lignes plus bas.

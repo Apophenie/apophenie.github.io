@@ -90,7 +90,7 @@ export const ORDRE_CANONIQUE = Object.freeze([
   'tca', 'tm', 'tsp', 'tsy', 'tch', 'nl', 'nv', 'nc', 'nd', 'nsp', 'nm',
   'nlv', 'nlc', 'ma1', 'mz26', 'mpy', 'mch', 'mx6', 'msfr', 'msen', 'mt9',
   'mms', 'mmt', 'masc', 'masb', 'm7', 'm7F', 'mtrc', 'mtrb', 'mexc', 'mexb',
-  'mboc', 'mbob', 'mazc', 'mazr', 'mqwc', 'mqwr', 'mhe', 'mgr', 'mln',
+  'mboc', 'mbob', 'mazc', 'mazr', 'mqwc', 'mqwr', 'maz4', 'mqw4', 'mhe', 'mgr', 'mln',
   'mlm', 'mrn', 'm0', 'mtc', 'm14', 'm14F', 'mr9', 'm36', 'mpf', 'm1s2',
   'mad', 'meg', 'mtri', 'mtal', 'mr39', 'mcc', 'mrd', 'cs', 'cst', 'cp', 'cal', 'cmm',
   'cmo', 'cmod', 'cnv', 'ccat', 'cmx', 'cmn', 'cnj', 'cnjd', 'prn', 'psc', 'pabs',

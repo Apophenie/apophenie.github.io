@@ -465,17 +465,26 @@ export function plan(ctx) {
   //     rendrait par la fenêtre ce que le registre a sorti par la porte.
   //     `ctx.scenographie` EST le registre — la page le pose depuis le même
   //     booléen que l'orage et le son (`app/pages/demonstration.js`).
-  //  2. **PLUSIEURS séries, jamais un 666 seul.** La phrase de l'auteur commence
-  //     par « quand il y a plusieurs séries de 666 », et ce n'est pas un hasard
-  //     de formulation : les cornes servent alors à faire LIRE chaque triptyque
-  //     comme un 666 distinct — le même service que le découpage. Un 666 seul
-  //     n'a personne dont il faille le distinguer, et il paierait cher : poser
-  //     un décor au-dessus des chiffres, c'est leur prendre de la hauteur
-  //     (voir `zoomDuVerdict`), et un 666 seul tombe de ×8,5 à ×4,8. On ne
-  //     réduit pas la chute de moitié pour souligner ce que rien ne concurrence.
-  //     Un 666 seul QUE LA DÉMONSTRATION A COURONNÉ garde évidemment ses
-  //     cornes : elles ont été gagnées en chemin, et le zoom en tient compte
-  //     depuis toujours.
+  //  2. ~~**PLUSIEURS séries, jamais un 666 seul.**~~ **LEVÉE — ARBITRÉE.**
+  //
+  //     J'avais lu « quand il y a plusieurs séries de 666, [les cornes]
+  //     seulement sur les 666 de la ligne du haut » comme si la première moitié
+  //     de la phrase posait une condition. Elle situait un cas, elle n'en
+  //     excluait pas un autre : l'auteur, devant `tca+mt9+mpf` sur `Macron` —
+  //     un 666 seul, la voie qu'il tient pour la plus élégante du corpus —
+  //     écrit « Il lui manque juste les cornes ».
+  //
+  //     Ce que la restriction protégeait était réel et reste vrai : un décor
+  //     au-dessus des chiffres leur prend de la hauteur (voir `zoomDuVerdict`),
+  //     et un 666 seul tombe de ×8,5 à ×4,8. Mais c'est un arbitrage entre deux
+  //     biens, pas une règle, et il n'était pas à moi de le rendre : le 666 à
+  //     cornes est l'emblème du site. On paie la moitié du zoom, et on le dit
+  //     ici pour que le jour où quelqu'un trouvera le verdict petit, il sache
+  //     où regarder.
+  //
+  //     Reste debout, et intacte : la restriction 4 (seulement le rang du
+  //     haut). Un 666 seul EST le rang du haut, donc les deux se rejoignent
+  //     sans se contredire.
   //  3. **Seulement ceux qui n'en portent pas.** On ne recouronne rien : un
   //     nœud de cornes est nommé d'après le 6 qu'il couronne, deux couronnements
   //     sur un même chiffre se disputeraient le même identifiant.
@@ -503,7 +512,9 @@ export function plan(ctx) {
   const rangDuBas = lignes > 1 ? rangs[0] : Infinity;
   const cornesDuVerdict = [];
   series.forEach((serie, s) => {
-    if (!ctx.scenographie || !multi || s >= rangDuBas) return;
+    // `multi` ne conditionne plus rien ici (restriction 2, levée) — il reste
+    // lu par `couronnes`, plus haut, qui décide du DÉCOUPAGE des séries.
+    if (!ctx.scenographie || s >= rangDuBas) return;
     if (serie.length !== SERIE) return;
     if (serie.some(porteDesCornes)) return;
     if (!serie.every((id) => String(ctx.scene.live(id, ctx.where).text) === '6')) return;

@@ -413,10 +413,31 @@ const REF = {
  * (ou l'inverse). Le principe du §0.3 — *ce que le spectateur voit est ce qui
  * est compté* — l'emporte : on garde le tracé juste et on documente l'écart.
  *
- * Les capitales, elles, sont reproduites **à l'identique** (Σ 61 / 58 / 8),
- * `M` et `N` compris, grâce aux fûts qui dépassent (voir `glyphes.js`).
+ * ★ **LES CAPITALES NE SONT PLUS REPRODUITES À L'IDENTIQUE**, et c'est `M` et
+ * `N` qui en sortent. Elles l'étaient « grâce aux fûts qui dépassent » : la
+ * diagonale s'accrochait 45 unités sous le sommet, ce qui laissait à chaque fût
+ * une pointe libre en haut, donc quatre. Quarante-cinq sur six cents, c'est
+ * 7,5 % de la hauteur de capitale — invisible. « M n'a que deux extrémités
+ * libres, contre 4 détectées » (l'auteur) : il lit le glyphe.
+ *
+ * Le §0.3 tranche dans ce sens, et il l'a déjà fait cinq fois ci-dessous : on
+ * garde le tracé juste et l'on documente l'écart. Σ extMAJ passe donc de 58 à
+ * 54.
  */
 export const ECARTS = Object.freeze([
+  Object.freeze({
+    table: 'EXTREMITES_MAJ', glyphe: 'M', recherche: 4, dessine: 2,
+    raison: 'les diagonales rejoignent le sommet des fûts, comme celles du « W » '
+      + '(compté 2 par la recherche). Les faire s’accrocher plus bas donnait deux '
+      + 'pointes de 45 unités que personne ne voit — un compte juste sur un '
+      + 'glyphe faux.',
+  }),
+  Object.freeze({
+    table: 'EXTREMITES_MAJ', glyphe: 'N', recherche: 4, dessine: 2,
+    raison: 'même construction que le « M » : elles ne peuvent pas suivre deux '
+      + 'conventions. La diagonale part du sommet du fût gauche et arrive au pied '
+      + 'du droit ; restent libres le pied du gauche et le sommet du droit.',
+  }),
   Object.freeze({
     table: 'EXTREMITES_MIN', glyphe: 'h', recherche: 2, dessine: 3,
     raison: 'un « h » a trois pointes visibles : sommet de la hampe, pied du fût, '
@@ -449,7 +470,7 @@ for (const e of ECARTS) REF[e.table][e.glyphe] = e.dessine;
 
 /** Sommes de contrôle attendues, après application des `ECARTS`. */
 export const SOMMES = Object.freeze({
-  trMAJ: 61, trMin: 53, extMAJ: 58, extMin: 57, bcMAJ: 8, bcMin: 8,
+  trMAJ: 61, trMin: 53, extMAJ: 54, extMin: 57, bcMAJ: 8, bcMin: 8,
 });
 
 /** Sommes de contrôle du contrat (CONTRACTS §0.3), pour mémoire et pour l'UI. */

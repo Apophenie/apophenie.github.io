@@ -796,50 +796,104 @@ export function sensDesPaliers() {
 
 /* ═════════════════════════ Le catalogue, mesuré ═══════════════════════════ */
 
-/** Les colonnes du tableau des opérateurs.
+/** ★ **UNE COLONNE N'EN EST UNE QUE SI TOUT LE MONDE LA REMPLIT.**
  *
- *  ⚠ Elles sont DÉRIVÉES d'un opérateur réel, pas listées à la main — sauf
- *  l'ordre, qui est le seul choix éditorial de ce fichier. Un champ ajouté au
- *  catalogue apparaîtra donc ici, en fin de ligne, au lieu d'être ignoré en
- *  silence. C'est le contraire du piège que ce dépôt connaît bien : une
- *  troisième copie du vocabulaire qui oublie une entrée. */
-const EN_TETE = ['code', 'id', 'famille', 'from', 'to', 'notoriete', 'adHoc', 'cout'];
+ *  Le tableau portait UNE colonne par champ rencontré dans le catalogue —
+ *  quarante et une —, dont la plupart vides sur presque toutes les lignes :
+ *  `familles` est renseigné par 1 opérateur sur 144, `designe` par 1, `doubles`
+ *  par 2. On lisait donc un damier.
+ *
+ *  Le partage se MESURE, il ne se choisit pas : huit champs sont remplis par
+ *  les 144 opérateurs, et le suivant tombe à 32. Ceux-là restent des colonnes ;
+ *  tout le reste se replie dans une seule case, où chaque particularité arrive
+ *  précédée de son nom. Un champ ajouté demain au catalogue apparaîtra donc
+ *  encore — dans les particularités s'il est rare, en colonne s'il est
+ *  universel — au lieu d'être ignoré en silence.
+ *
+ *  ⚠️ `cout` en est SORTI, et c'est ce qu'il y avait à en apprendre : il vaut
+ *    1 pour les 144 opérateurs, sans exception. Le coût d'un chemin
+ *    (`bfs.js › prolonger`) est donc exactement son NOMBRE D'ÉTAPES, et rien
+ *    d'autre — un fait qui mérite d'être écrit une fois ici plutôt qu'une
+ *    colonne de 144 fois « 1 ». Le champ reste au catalogue, où `bfs.js`
+ *    l'additionne ; il a cessé d'être une information à afficher.
+ */
+const EN_TETE = ['code', 'id', 'famille', 'from', 'to', 'notoriete', 'adHoc'];
 
-function champsSupplementaires() {
-  const connus = new Set([...EN_TETE, 'libelle', 'regle', 'apply', 'steps', 'note',
-    'sortie', 'couverture', 'deprecated', 'commute', 'isJoker', 'actifParDefaut']);
-  const vus = new Set();
-  for (const op of CATALOGUE) for (const k of Object.keys(op)) if (!connus.has(k)) vus.add(k);
-  return [...vus].sort();
+/** Les champs que l'affichage traite lui-même, ou qui n'ont rien à montrer. */
+const HORS_TABLEAU = new Set([...EN_TETE, 'cout', 'libelle', 'regle', 'apply', 'steps',
+  'sortie', 'deprecated', 'isJoker', 'actifParDefaut']);
+
+/**
+ * Les particularités d'un opérateur : tout ce qui n'est ni universel ni traité
+ * ailleurs, chacune précédée de son nom.
+ */
+function particularitesDe(op) {
+  const out = [];
+  for (const cle of Object.keys(op).sort()) {
+    if (HORS_TABLEAU.has(cle)) continue;
+    const v = op[cle];
+    if (v === undefined || v === null || v === '' || v === false) continue;
+    if (Array.isArray(v) && !v.length) continue;
+    out.push({ cle, valeur: apercu(v) });
+  }
+  if (FICELLES[op.id]) out.unshift({ cle: 'ficelle', valeur: FICELLES[op.id] });
+  return out;
 }
 
-function tableauDesOperateurs() {
-  const extras = champsSupplementaires();
-  const colonnes = [...EN_TETE, ...extras, 'ficelle', 'état'];
+/** L'état d'un opérateur, ou `null` s'il est simplement actif. */
+function etatDe(op) {
+  const etats = [];
+  if (op.deprecated) etats.push('déprécié');
+  if (op.isJoker) etats.push('joker');
+  if (op.actifParDefaut === false) etats.push('inactif par défaut');
+  return etats.length ? etats.join(' · ') : null;
+}
 
-  const lignes = [...CATALOGUE]
+/**
+ * ★ **DEUX TABLEAUX, PARCE QUE CE SONT DEUX POPULATIONS.**
+ *
+ * « Fais un tableau avec les opérateurs actifs et un avec ceux
+ * dépréciés/désactivés » (l'auteur). Les seconds ne concourent pas : ils ne
+ * sortent d'aucune recherche (`bfs.js` les filtre) et ne se jouent que d'ici.
+ * Les mêler aux premiers, c'était laisser croire que la liste des voies
+ * possibles les contient.
+ *
+ * ★ Et la colonne `code` PASSE EN TÊTE, devant le bouton. L'auteur l'autorise
+ *   — « tu peux inverser la colonne code et la colonne jouer si c'est plus
+ *   simple pour épingler la colonne CODE » — et c'est en effet ce qui la rend
+ *   épinglable sans arithmétique de largeurs : une colonne collée à gauche doit
+ *   être la première, sinon il faut connaître la largeur de celles qui la
+ *   précèdent, laquelle dépend du contenu.
+ */
+function tableauDesOperateurs(ops, avecEtat) {
+  const colonnes = [...EN_TETE, ...(avecEtat ? ['état'] : []), 'particularités'];
+
+  const lignes = [...ops]
     .sort((a, b) => String(a.code).localeCompare(String(b.code), 'en'))
     .map((op) => {
-      const etats = [];
-      if (op.deprecated) etats.push('déprécié');
-      if (op.isJoker) etats.push('joker');
-      if (op.actifParDefaut === false) etats.push('inactif par défaut');
-      const cellules = colonnes.map((c) => {
-        if (c === 'ficelle') return FICELLES[op.id] || '';
-        if (c === 'état') return etats.join(' · ');
-        return apercu(op[c]);
+      const parts = particularitesDe(op);
+      const cellules = colonnes.slice(1).map((c) => {
+        if (c === 'état') return e('td', { texte: etatDe(op) || '' });
+        if (c === 'particularités') {
+          return e('td.dbg__particularites', {}, parts.map((x) => e('span.dbg__part', {}, [
+            e('span.dbg__part-cle', { texte: x.cle }),
+            ' ',
+            e('span.dbg__part-val', { texte: x.valeur }),
+          ])));
+        }
+        return e('td', { texte: apercu(op[c]) });
       });
       return e(`tr${FICELLES[op.id] ? '.dbg__ficelle' : ''}`, {}, [
+        // `code` d'abord — c'est la colonne épinglée (voir l'en-tête).
+        e('th.dbg__code', { scope: 'row', texte: op.code }),
         e('td.dbg__jouer-cellule', {}, [boutonJouer(op)]),
-        ...cellules.map((t, i) => e(i === 0 ? 'th.dbg__code' : 'td', {
-          texte: t, ...(i === 0 ? { scope: 'row' } : {}),
-        })),
+        ...cellules,
       ]);
     });
 
-  return e('table.dbg__table.dbg__table--large', {}, [
-    e('thead', {}, [e('tr', {}, ['jouer', ...colonnes]
-      .map((c) => e('th', { scope: 'col', texte: c })))]),
+  return e('table.dbg__table.dbg__table--large.dbg__table--collante', {}, [
+    e('thead', {}, [e('tr', {}, [colonnes[0], 'jouer', ...colonnes.slice(1)]
+      .map((c, i) => e(`th${i === 0 ? '.dbg__code' : ''}`, { scope: 'col', texte: c })))]),
     e('tbody', {}, lignes),
   ]);
 }
@@ -1358,8 +1412,16 @@ function baremeRange() {
 /* ════════════════════════════ L'assemblage ════════════════════════════════ */
 
 export function pageDebug() {
+  // ★ La partition vient du CATALOGUE lui-même — `operateursActifs`, déjà
+  //   importé —, jamais d'un prédicat réécrit ici. La règle « ni déprécié, ni
+  //   joker, ni inactif par défaut » vit à un seul endroit ; en tenir une copie
+  //   dans une page de debug, c'est fabriquer la seconde vérité qui dérivera au
+  //   premier ajout, et cette page-là est justement celle qui devrait le voir.
+  const ACTIFS = operateursActifs();
+  const dansLeJeu = new Set(ACTIFS.map((o) => o.id));
+  const HORS_JEU = CATALOGUE.filter((op) => !dansLeJeu.has(op.id));
   const parFamille = new Map();
-  for (const op of CATALOGUE) parFamille.set(op.famille, (parFamille.get(op.famille) || 0) + 1);
+  for (const op of ACTIFS) parFamille.set(op.famille, (parFamille.get(op.famille) || 0) + 1);
 
   return e('div.dbg', {}, [
     e('h1', { texte: 'Récapitulatif du barème' }),
@@ -1372,13 +1434,22 @@ export function pageDebug() {
            + 'de son nom.',
     }),
 
-    section(`Les opérateurs (${CATALOGUE.length})`,
+    section(`Les opérateurs actifs (${ACTIFS.length})`,
       'src/moteur/catalogue.js · src/moteur/transformations/',
       e('p.dbg__note', {
         texte: [...parFamille.entries()].sort()
           .map(([f, n]) => `${f} : ${n}`).join('  ·  '),
       }),
-      tableauDesOperateurs()),
+      tableauDesOperateurs(ACTIFS, false)),
+
+    section(`Les opérateurs hors recherche (${HORS_JEU.length})`,
+      'catalogue.js — dépréciés, jokers, inactifs par défaut',
+      e('p.dbg__note', {
+        texte: 'Ils sont au catalogue et se jouent d’ici, mais aucune recherche ne '
+          + 'les propose : `recherche/bfs.js` les écarte avant d’explorer. Un code '
+          + 'déprécié reste réservé — on ne raye pas du registre (§4.1).',
+      }),
+      tableauDesOperateurs(HORS_JEU, true)),
 
     section('Le crédit d’élégance — ce qui se gagne, ce qui se perd',
       'src/recherche/elegance.js › BAREME',

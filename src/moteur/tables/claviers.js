@@ -107,6 +107,28 @@ export function rangee(c, rangees = AZERTY) {
   return null;
 }
 
+/**
+ * ★ **LA RANGÉE COMPTÉE DEPUIS LES CHIFFRES** — 2, 3, 4 au lieu de 1, 2, 3.
+ *
+ * Un clavier a QUATRE rangées, et la colonne le sait déjà : le rang d'une
+ * touche « est le chiffre juste au-dessus », donc la rangée numérique est
+ * dessinée, comptée, montrée. La rangée, elle, n'en connaissait que trois —
+ * elle commençait à `azertyuiop` comme si la ligne des chiffres n'existait pas.
+ *
+ * « En version colonne tu as 4 lignes et en version ligne il n'y en a plus que
+ * 3. Décline 2 versions lignes, une à 4 lignes et une à 3 lignes » (l'auteur).
+ * Les deux conventions se défendent — on peut ne compter que les lettres, ou
+ * compter ce que le clavier montre — et aucune n'est plus vraie que l'autre.
+ * C'est justement pourquoi elles ne peuvent pas cohabiter dans une même voie :
+ * voir `recherche/elegance.js › CONVENTIONS_EXCLUSIVES`.
+ *
+ * @returns {number|null} 2 pour la rangée du haut, 4 pour celle du bas.
+ */
+export function rangeeDepuisLesChiffres(c, rangees = AZERTY) {
+  const r = rangee(c, rangees);
+  return r === null ? null : r + 1;
+}
+
 /** Position `{rangee, colonne}` d'une lettre, ou `null`. */
 export function position(c, rangees = AZERTY) {
   const r = rangee(c, rangees);

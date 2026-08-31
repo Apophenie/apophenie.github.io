@@ -216,14 +216,48 @@ function etapeRetrait(op) {
       return [etape(ctx, titre, regle, [{ op: 'move', targets: restants }])];
     }
 
-    // ★ LE TAMIS, quand le filtre DIT ce qu'il retient.
+    // ★ LE TAMIS, quand le filtre DIT ce qu'il retient — ET IL A DEUX FORMES.
     //
     //   Un filtre nommé — les consonnes, les voyelles, les lettres — sait de
     //   quel côté il trie, et c'est cela qu'il faut montrer. L'accolade écrit
-    //   ce qu'on cherche, la ligne se partage en deux d'un seul mouvement (les
-    //   retenus descendent, les autres montent : c'est la SIMULTANÉITÉ qui fait
-    //   lire un partage), on lit le tri pendant que rien n'est encore perdu,
-    //   puis seulement les rejetés s'effacent et les retenus reviennent.
+    //   ce qu'on cherche ; ce qui suit dépend de CE QUI EST REJETÉ.
+    //
+    //   ① LE PARTAGE, quand les rejetés sont des signes VISIBLES. La ligne se
+    //      coupe en deux d'un seul mouvement — les retenus descendent, les
+    //      autres montent, et c'est la SIMULTANÉITÉ qui fait lire un partage.
+    //      On lit le tri pendant que rien n'est encore perdu, puis seulement
+    //      les rejetés s'effacent et les retenus reviennent. Le rapprochement
+    //      est un second step, à part.
+    //
+    //   ② L'EFFACEMENT SUR PLACE, quand au moins un rejeté est un BLANC. Un
+    //      seul temps : les rejetés s'effacent où ils sont, la ligne se referme
+    //      et l'accolade rétrécit AVEC elle, puis s'en va.
+    //
+    //   ★ ET LE CRITÈRE EST « CE QUI MONTE », pas le nom du filtre. Je l'avais
+    //     d'abord posé sur le filtre, en supprimant le partage PARTOUT — une
+    //     sur-généralisation, corrigée par l'auteur : « pourtant je l'ai
+    //     demandé, en particulier pour les filtres voyelles ou consonne, c'est
+    //     le comportement attendu ».
+    //
+    //     Sa demande initiale portait sur `fl` — « les caractères autres
+    //     devraient simplement être supprimés avec une accolade qui indique ce
+    //     qui se passe, et les étapes 7 et 8 sont à fusionner » — et elle
+    //     donnait sa propre limite dans la phrase suivante : « l'effet de
+    //     descente et montée marche mal quand il s'agit de faire monter un
+    //     ESPACE ». Un blanc qui monte ne monte pas — il n'a rien à montrer —,
+    //     et la ligne semble alors se déformer au lieu de se partager. Sur
+    //     `fv`/`fc`, où montent des lettres, le partage se lit parfaitement.
+    //
+    //     D'où la lecture littérale, et locale : on regarde les caractères
+    //     réellement rejetés à cette étape-ci. `fl` sur « Donald Trump » rejette
+    //     l'espace, donc ② ; `fv` sur le même mot rejette des consonnes, donc ①.
+    //     Le même opérateur peut prendre l'une ou l'autre selon la saisie, et
+    //     c'est voulu : ce qu'on protège est ce que l'œil peut suivre.
+    //
+    //   ⚠️ Dans la forme ②, `regroup: true` remplace le second step : `drop.js`
+    //     efface sur place, PUIS referme la ligne, PUIS fait suivre les
+    //     accolades (`suivreLesAccolades`). Le rapprochement n'est pas supprimé,
+    //     il est rendu à la primitive qui savait déjà l'enchaîner.
     //
     //   Sans `mention`, le filtre n'a rien à écrire sous son accolade et
     //   retombe sur l'effacement sobre : mieux vaut un geste nu qu'une accolade
@@ -232,19 +266,49 @@ function etapeRetrait(op) {
       ? dire(op.mentionPluriel, ctx.langue)
       : dire(op.mention, ctx.langue);
     if (mention && restants.length) {
-      const corps = enchainer([
-        { op: 'group', targets: ctx.ids, symbol: op.symbole || '⊃', label: mention },
-        // Un seul `shift` pour les deux moitiés : deux ops enchaînées feraient
-        // monter puis descendre, c'est-à-dire deux gestes au lieu d'un partage.
-        { op: 'shift', down: restants, up: perdus },
-        { op: 'drop', targets: perdus, mode: 'erase', regroup: false },
-        { op: 'shift', reset: restants },
-      ]);
+      // Ce qui monterait, lu sur les caractères eux-mêmes : `ctx.ids` est aligné
+      // sur `avant.valeur`, signe par signe.
+      //
+      // ★ LA QUESTION EST « QUELQUE CHOSE MONTE-T-IL ? », pas « y a-t-il un
+      //   blanc ? ». J'ai d'abord disqualifié le partage dès qu'un seul blanc
+      //   était rejeté — ce qui l'annulait sur toute saisie à plusieurs mots,
+      //   `fv` et `fc` compris, puisque l'espace n'est ni une voyelle ni une
+      //   consonne. C'était rendre par une autre porte la sur-généralisation
+      //   qu'on venait de corriger.
+      //
+      //   Ce que l'auteur décrit — « l'effet de descente et montée marche mal
+      //   quand il s'agit de faire monter un ESPACE » — est le cas où la moitié
+      //   qui monte est INVISIBLE EN ENTIER : on voit alors les retenus
+      //   descendre face à rien. `fl` sur « Donald Trump » ne rejette que
+      //   l'espace, et c'est exactement ce cas. `fv` sur le même mot rejette
+      //   huit consonnes et l'espace : huit signes montent, le partage se lit,
+      //   et le blanc qui les accompagne ne gêne personne.
+      const signes = [...String(avant.valeur)];
+      const rienNeMonte = !signes.some((c, i) => !gardes.has(i) && c.trim());
+      const monteDuBlanc = rienNeMonte;
+
+      const corps = enchainer(monteDuBlanc
+        ? [
+          { op: 'group', targets: ctx.ids, symbol: op.symbole || '⊃', label: mention },
+          { op: 'drop', targets: perdus, mode: 'erase', regroup: true },
+        ]
+        : [
+          { op: 'group', targets: ctx.ids, symbol: op.symbole || '⊃', label: mention },
+          // Un seul `shift` pour les deux moitiés : deux ops enchaînées feraient
+          // monter puis descendre, c'est-à-dire deux gestes au lieu d'un partage.
+          { op: 'shift', down: restants, up: perdus },
+          { op: 'drop', targets: perdus, mode: 'erase', regroup: false },
+          { op: 'shift', reset: restants },
+        ]);
+
       // Le signe qui pointe chaque retenu, s'il y en a un. Il vit à côté de
       // l'enchaînement — il ne touche aucun jeton — et s'efface avec l'étape.
+      // Il se pose au moment où le tri devient lisible : avec le partage quand
+      // il y en a un, avec l'accolade sinon — et tient jusqu'à l'effacement.
       if (typeof op.designe === 'string' && op.designe) {
-        const pose = corps[1] ? corps[1].at : 0;
-        const tenue = Math.max(400, corps[corps.length - 1].at - pose);
+        const pose = (monteDuBlanc ? corps[0].at : corps[1] && corps[1].at) || 0;
+        const dernier = monteDuBlanc ? (corps[1] ? corps[1].at : 400) : corps[corps.length - 1].at;
+        const tenue = Math.max(400, dernier - pose);
         for (const id of restants) {
           corps.push({
             op: 'annotate', anchor: [id], text: op.designe, place: 'below',
@@ -252,11 +316,14 @@ function etapeRetrait(op) {
           });
         }
       }
+
+      const premier = etape(ctx, titre, regle, retirerAccolade(corps),
+        { id: `s_${ctx.cle}_0`, hold: 300 });
+      if (monteDuBlanc) return [premier];
+      // Après un partage, le comblement reste un temps À PART — c'est la
+      // discipline de `drop.js` : replacer sur la ligne, PUIS rassembler.
       return [
-        etape(ctx, titre, regle, retirerAccolade(corps), { id: `s_${ctx.cle}_0`, hold: 300 }),
-        // Le comblement reste un temps À PART — c'est la discipline de
-        // `drop.js`, et c'est aussi ce qu'a demandé l'auteur : replacer sur la
-        // ligne, PUIS rassembler.
+        premier,
         etape(ctx, dire(LIB_RAPPROCHER, ctx.langue), dire(REG_RAPPROCHER, ctx.langue),
           [{ op: 'move' }], { id: `s_${ctx.cle}_1` }),
       ];
@@ -298,7 +365,37 @@ function etapeRetrait(op) {
  */
 function etapeDecoupeAdresse(op) {
   return (avant, apres, ctx) => {
-    const gardes = new Set(apparier(avant, apres).filter((i) => i >= 0));
+    // ★ **LA COUPE SE LIT SUR SES BORNES, ELLE NE SE DEVINE PAS.**
+    //
+    //   Ce geste demandait à `apparier` quels jetons survivent — c'est-à-dire
+    //   qu'il RETROUVAIT le résultat dans la saisie au lieu de le lire là où il
+    //   est. Or `apparier` n'a que deux moyens : les traces, qui ne discriminent
+    //   pas ici (tous les caractères d'un `STR` partagent la même), et la
+    //   sous-suite commune, qui prend la PREMIÈRE occurrence de chaque
+    //   caractère, où qu'elle soit.
+    //
+    //   ⚠️ MESURÉ sur `https://www.example.com/path/to/page` : `fchm` garde
+    //     `path`, points de code 24 à 27. L'appariement par sous-suite, lui,
+    //     cherchait `p`, `a`, `t`, `h` de gauche à droite et tombait sur des
+    //     lettres éparpillées dans `https://www.example.com/…` — la scène
+    //     effaçait alors des caractères pris au hasard et gardait les autres.
+    //     C'est le défaut relevé par l'auteur : « visiblement tu identifies les
+    //     caractères à conserver puis tu cherches leur première occurrence dans
+    //     la string, peu importe que ce soit dans la zone du chemin ». Il vaut
+    //     pour les CINQ découpes, et pas seulement pour `fchm`.
+    //
+    //   Les cinq savent pourtant exactement où elles coupent : elles gardent un
+    //   INTERVALLE CONTIGU, et elles le calculent déjà pour `apply`. Elles le
+    //   publient donc (champ `bornes`, comme un César publie son `decalage`) et
+    //   la scène le lit. Ce qui est montré est ce qui est calculé, sans
+    //   intermédiaire qui suppose.
+    //
+    //   Le repli sur `apparier` reste pour un opérateur qui aurait `coupe: true`
+    //   sans bornes ; un test interdit ce cas, il ne devrait jamais servir.
+    const bornes = typeof op.bornes === 'function' ? op.bornes(avant.valeur) : null;
+    const gardes = bornes
+      ? new Set(ctx.ids.map((_, k) => k).filter((k) => k >= bornes[0] && k < bornes[1]))
+      : new Set(apparier(avant, apres).filter((i) => i >= 0));
     const perdus = ctx.ids.filter((_, i) => !gardes.has(i));
     const restants = ctx.ids.filter((_, i) => gardes.has(i));
     const titre = dire(op.libelle, ctx.langue);
@@ -424,7 +521,28 @@ function etapeRemplacement(op) {
     if (mention && arrivees.length) {
       corps.push({ op: 'annotate', anchor: arrivees, text: mention, place: 'below', fugace: true, at: 0 });
     }
-    return [etape(ctx, dire(op.libelle, ctx.langue), dire(op.regle, ctx.langue), corps)];
+    // ★ **UN TEMPS DE LECTURE, parce qu'il n'y a qu'une étape pour tout le mot.**
+    //
+    //   Un chiffrement à réglette (`etapeTable`) déroule une étape PAR LETTRE :
+    //   son titre reste sous les yeux le temps de six ou sept étapes. Celui-ci
+    //   substitue tout d'un coup, et sa seule étape durait 1 690 ms sur
+    //   « Macron » — contre 4 872 ms pour la première étape de l'Atbash sur le
+    //   même mot. « fac, fmaj, fmin devraient avoir le titre qui s'affiche
+    //   durant toute la durée du processus ; là on n'a pas le temps de le
+    //   lire » (l'auteur).
+    //
+    //   Le geste ne change pas — il n'a rien de plus à montrer, et l'étirer
+    //   ferait une substitution au ralenti, ce qui ne se lit pas mieux. C'est
+    //   le TEMPS D'ARRÊT qui s'allonge : l'étape tient une seconde de plus une
+    //   fois le mot changé, ce qui est le moment où l'on compare le titre à ce
+    //   qu'on voit.
+    //
+    //   ⚠️ `hold` est bien de l'emballage, pas du geste (`visuel/compile.js`,
+    //     « step.duration, step.hold — l'emballage, pas le geste ») : il
+    //     s'ajoute à l'étendue des ops et disparaît sous l'accélération des
+    //     redites, exactement comme il faut.
+    return [etape(ctx, dire(op.libelle, ctx.langue), dire(op.regle, ctx.langue), corps,
+      { hold: 2000 })];
   };
 }
 
@@ -863,11 +981,8 @@ const brut = [
     //   même de l'ad hoc. « Ils devraient être pires que fatb » (l'auteur) —
     //   l'Atbash, lui, est un chiffrement nommé qui ne choisit rien.
     notoriete: 0.20, adHoc: 0.25,
-    apply(valeur, traces) {
-      const i = positionSlash(valeur);
-      if (i < 0) return null;
-      return garder(valeur, traces, (_, k) => k < i);
-    },
+    bornes: bornesAvantSlash,
+    apply: (valeur, traces) => garderBornes(valeur, traces, bornesAvantSlash(valeur)),
   },
   {
     id: 'f.apresSlash', code: 'fap', famille: 'filtre', from: 'STR', to: 'STR',
@@ -878,11 +993,8 @@ const brut = [
     // Encore un cran en dessous de son jumeau : garder le domaine est au moins
     // le réflexe de qui lit une adresse ; garder le chemin ne l'est pas.
     notoriete: 0.15, adHoc: 0.30,
-    apply(valeur, traces) {
-      const i = positionSlash(valeur);
-      if (i < 0) return null;
-      return garder(valeur, traces, (_, k) => k > i);
-    },
+    bornes: bornesApresSlash,
+    apply: (valeur, traces) => garderBornes(valeur, traces, bornesApresSlash(valeur)),
   },
   // ★ LES TROIS DÉCOUPES QUI DISENT LEUR NOM.
   //
@@ -911,6 +1023,7 @@ const brut = [
     //   il la reconnaît ou il s'abstient. Pas au-dessus non plus : décider de
     //   regarder l'adresse plutôt que le texte reste une décision.
     notoriete: 0.25, adHoc: 0.20,
+    bornes: bornesDomaine,
     apply: (valeur, traces) => garderBornes(valeur, traces, bornesDomaine(valeur)),
   },
   {
@@ -926,6 +1039,7 @@ const brut = [
     // milieu. `fap` gardait le chemin entier, ce qui se discute encore ;
     // s'arrêter au premier tronçon ne se discute pas, cela s'assume.
     notoriete: 0.12, adHoc: 0.35,
+    bornes: bornesChemin,
     apply: (valeur, traces) => garderBornes(valeur, traces, bornesChemin(valeur)),
   },
   {
@@ -938,6 +1052,7 @@ const brut = [
     // Entre les deux aînés : « la page » est un objet que tout le monde nomme,
     // mais s'y arrêter plutôt que de lire le site est déjà un choix.
     notoriete: 0.18, adHoc: 0.30,
+    bornes: bornesPage,
     apply: (valeur, traces) => garderBornes(valeur, traces, bornesPage(valeur)),
   },
   {
@@ -1159,6 +1274,18 @@ const brut = [
     //   une fois, au même tarif pour les cinq.
     notoriete: 0.15,
     adHoc: 0.30,
+    // ★ L'ACCEPTION EST PUBLIÉE, comme un César publie son décalage.
+    //
+    //   Elle ne sert pas au geste — `apply` a déjà `rang` en portée —, elle sert
+    //   à ce que le barème puisse RECONNAÎTRE deux lectures du même mot sans
+    //   déduire quoi que ce soit d'un code. C'est la règle du projet : ce qui
+    //   est jugé est déclaré, jamais deviné à la forme d'une chaîne.
+    //
+    //   Ce qu'elle permet, et qui est un arbitrage de l'auteur : « traduire le
+    //   même mot différemment dans une même voie peut être considéré comme une
+    //   ficelle ou comme du ad-hoc très élevé » — voir
+    //   `recherche/elegance.js › TRADUCTIONS_DIVERGENTES`.
+    acception: rang,
     apply: (valeur, traces) => traduire(valeur, traces, dico, rang),
     remplace: true,
   }))),
@@ -1250,6 +1377,49 @@ function positionSlash(valeur) {
 }
 
 /**
+ * ★ LES BORNES DES DEUX AÎNÉS, écrites comme celles des trois cadets.
+ *
+ * `fav` et `fap` gardaient un côté de la barre par un prédicat sur l'index ;
+ * c'est la même chose qu'un intervalle, dit autrement. Les écrire sous la même
+ * forme n'est pas un rangement : c'est ce qui permet à la SCÈNE de savoir où
+ * passe la coupe (voir `etapeDecoupeAdresse`), pour les cinq et de la même
+ * façon.
+ *
+ * ⚠️ `positionSlash` rend un index de CHAÎNE ; les bornes se comptent en points
+ *   de code (voir juste en dessous). D'où `enPoints`, comme partout ailleurs.
+ */
+/**
+ * ★ **DES BORNES QUI NE COUPENT RIEN N'EN SONT PAS** — et il faut le dire ici,
+ *   une fois, plutôt que dans cinq `apply`.
+ *
+ * `garder` refuse déjà deux cas : ne rien garder, et ne rien retirer. Un
+ * opérateur qui ne s'applique pas doit le DIRE — c'est la règle du fichier —, et
+ * `apply` la respectait donc en rendant `null`. Mais les bornes, elles, étaient
+ * rendues telles quelles : sur `https://hope-hope-hope.fr/`, `f.apresSlash`
+ * trouvait la barre FINALE et publiait un intervalle vide, non nul. La scène
+ * aurait alors affiché une coupe là où le moteur s'abstient.
+ *
+ * Les deux passent donc par ici, et disent la même chose.
+ */
+function bornesUtiles(valeur, bornes) {
+  if (!bornes) return null;
+  const [debut, fin] = bornes;
+  if (fin <= debut) return null;                              // rien à garder
+  if (debut <= 0 && fin >= points(valeur).length) return null; // rien à retirer
+  return bornes;
+}
+
+function bornesAvantSlash(valeur) {
+  const i = positionSlash(valeur);
+  return i < 0 ? null : bornesUtiles(valeur, [0, enPoints(valeur, i)]);
+}
+
+function bornesApresSlash(valeur) {
+  const i = positionSlash(valeur);
+  return i < 0 ? null : bornesUtiles(valeur, [enPoints(valeur, i) + 1, points(valeur).length]);
+}
+
+/**
  * ★ LES BORNES SE COMPTENT EN POINTS DE CODE, jamais en unités UTF-16.
  *
  * C'est `garder` qui impose l'unité : son prédicat reçoit l'index dans
@@ -1279,7 +1449,7 @@ function bornesDomaine(valeur) {
   const m = RE_HOTE.exec(valeur.slice(tete.length));
   if (!m) return null;
   const debut = points(tete).length;
-  return [debut, debut + points(m[0]).length];
+  return bornesUtiles(valeur, [debut, debut + points(m[0]).length]);
 }
 
 /**
@@ -1308,7 +1478,7 @@ function bornesChemin(valeur) {
   if (cs[barre] !== '/') return null;
   let fin = barre + 1;
   while (fin < cs.length && !'/?#'.includes(cs[fin])) fin++;
-  return fin > barre + 1 ? [barre + 1, fin] : null;
+  return bornesUtiles(valeur, fin > barre + 1 ? [barre + 1, fin] : null);
 }
 
 /**
@@ -1328,7 +1498,7 @@ function bornesPage(valeur) {
   while (fin > 0 && cs[fin - 1] === '/') fin--;
   let debut = fin;
   while (debut > 0 && cs[debut - 1] !== '/') debut--;
-  return debut > i && debut < fin ? [debut, fin] : null;
+  return bornesUtiles(valeur, debut > i && debut < fin ? [debut, fin] : null);
 }
 
 /** Découpe en mots sur `- . _ / espace`, avec les bornes dans la chaîne. */
