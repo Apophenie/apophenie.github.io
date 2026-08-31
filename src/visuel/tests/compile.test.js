@@ -363,6 +363,17 @@ test('les durées par défaut du moteur visuel et leur miroir arithmétique coï
   }
 });
 
+test('le plafond de rangées d’une table des restes et son miroir arithmétique coïncident', async () => {
+  // Même raison que le test ci-dessus, sur une autre valeur : c'est l'ÉMETTEUR
+  // qui décide de monter la table des restes ou de s'en passer, et c'est le
+  // DESSIN qui sait à partir de combien de rangées elle cesse d'être lisible.
+  // Deux plafonds qui divergent, c'est une table demandée qu'on ne saurait pas
+  // rendre — ou un repli sur le geste sobre là où la table tenait très bien.
+  const { MODULO_LIGNES_MAX: visuel } = await import('../assets.js');
+  const { MODULO_LIGNES_MAX: arithmetique } = await import('../../moteur/transformations/posts.js');
+  assert.equal(arithmetique, visuel, 'plafond de rangées divergent');
+});
+
 
 /* ═══════════════════ Accélération des répétitions ═══════════════════
  *

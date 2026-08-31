@@ -645,6 +645,155 @@ test('★ les trois ficelles se MONTRENT — accolade nommée, additions ordinai
   }
 });
 
+/**
+ * ★ `pc9` POSE le calcul avant de le faire.
+ *
+ * Il se contentait du geste générique — `3` s'efface, `6` paraît — et le neuf
+ * dont on prend le complément n'entrait jamais en scène : la légende disait
+ * « 3 → 6 » et l'image montrait une substitution arbitraire. Le geste attendu
+ * est celui de `c.maxMoinsMin`, à ceci près que l'un des deux termes vient de
+ * la RÈGLE et non de la ligne. On vérifie donc les quatre temps, et surtout que
+ * le compteur sous l'accolade passe bien par 9 avant d'afficher le reste.
+ */
+test('★ pc9 — le complément se pose : « 9 − 3 », puis 9 descend, puis −3', () => {
+  const op = PAR_CODE.get('pc9');
+  const entree = U(3);
+  const apres = appliquer(op, entree);
+  assert.equal(apres.valeur, 6);
+  const steps = etapes(op, entree, apres, { ids: ['t0'], cle: 'e0' });
+  assert.equal(steps.length, 1, 'pc9 : un seul step — c’est UNE transformation');
+  const ops = steps[0].ops;
+
+  // ① le nombre se déploie en `9` et lui-même : le neuf naît du nombre.
+  const pose = ops.find((o) => o.op === 'substitute');
+  assert.ok(pose, 'pc9 : sans déploiement, le 9 n’apparaîtrait de nulle part');
+  assert.equal(pose.pairs[0].target, 't0');
+  assert.deepEqual(pose.pairs[0].to.map((t) => t.text), ['9', '3'],
+    'pc9 : la ligne doit écrire le 9 ET garder le nombre — c’est le calcul posé');
+
+  // ② le signe s'intercale entre les deux, et c'est un MOINS.
+  const signes = ops.find((o) => o.op === 'insertOperators');
+  assert.equal(signes.glyph, '−', 'pc9 : un complément est une soustraction, pas une somme');
+  assert.deepEqual(signes.between, pose.pairs[0].to.map((t) => t.id));
+
+  // ③ l'accolade dit ce qu'elle fait ET à quel titre.
+  const somme = ops.find((o) => o.op === 'sum');
+  assert.equal(somme.symbol, '9 −', 'pc9 : le symbole sous la pointe doit porter le neuf');
+  assert.equal(somme.label, 'On prend le complément à neuf');
+
+  // ④ deux paliers : le 9 se pose, le terme le retranche. C'est ce que le
+  //    compteur affiche, et `sum` refuse d'annoncer un total qu'il ne montre pas.
+  assert.deepEqual(somme.partials, [9, 6]);
+  assert.equal(somme.to.text, '6');
+  assert.deepEqual(somme.consume, [signes.ids[0]],
+    'pc9 : le « − » appartient au calcul, il s’en va avec lui');
+});
+
+/**
+ * ★ `pmr` retourne la LIGNE, pas une table.
+ *
+ * « Ce n'est pas un miroir de table mais un miroir directement sur les données
+ * de la ligne » (l'auteur). Le geste générique remplaçait `28` par `82` sans
+ * qu'aucun chiffre n'ait bougé : le miroir n'était nulle part. On vérifie donc
+ * les trois temps, et surtout que le déplacement demande le chemin en ellipse —
+ * deux chiffres qui échangent leurs places en ligne droite se traversent.
+ */
+test('★ pmr — le nombre s’éclate, les chiffres s’échangent en ellipse, et se recollent', () => {
+  const op = PAR_CODE.get('pmr');
+  const steps = (v) => {
+    const entree = U(v);
+    const apres = appliquer(op, entree);
+    return { apres, ops: etapes(op, entree, apres, { ids: ['t0'], cle: 'e0' })[0].ops };
+  };
+
+  const { apres, ops } = steps(28);
+  assert.equal(apres.valeur, 82);
+  const eclat = ops.find((o) => o.op === 'substitute');
+  assert.deepEqual(eclat.pairs[0].to.map((t) => t.text), ['2', '8'],
+    'les chiffres doivent RECONSTITUER le jeton : c’est ce que `substitute` exige');
+  const bouge = ops.find((o) => o.op === 'move');
+  assert.equal(bouge.geste, 'miroir', 'sans le chemin en ellipse, les chiffres se traversent');
+  assert.deepEqual(bouge.order, [...eclat.pairs[0].to.map((t) => t.id)].reverse());
+  const colle = ops.find((o) => o.op === 'merge');
+  assert.deepEqual(colle.targets, bouge.order, 'on recolle ce qu’on vient de retourner');
+  assert.equal(colle.to.text, '82');
+
+  // ★ Le signe garde sa place de tête : `-28` se lit `-82`, pas `82-`. Il doit
+  //   figurer dans l'éclatement, faute de quoi les chiffres ne reconstitueraient
+  //   pas le jeton `-28`.
+  const negatif = steps(-28);
+  assert.equal(negatif.apres.valeur, -82);
+  const parts = negatif.ops.find((o) => o.op === 'substitute').pairs[0].to;
+  assert.deepEqual(parts.map((t) => t.text), ['-', '2', '8']);
+  const ordre = negatif.ops.find((o) => o.op === 'move').order;
+  assert.equal(ordre[0], parts[0].id, 'le signe ne se retourne pas avec les chiffres');
+  assert.equal(negatif.ops.find((o) => o.op === 'merge').to.text, '-82');
+
+  // ★ Le zéro de tête retombe sur le geste sobre : `20` se lit `02`, qui vaut
+  //   `2` — un chiffre s’y perd, et `merge` refuserait le collage. Montrer `02`
+  //   puis le remplacer par `2` serait une seconde règle que personne n’a dite.
+  const zero = steps(20);
+  assert.equal(zero.apres.valeur, 2);
+  assert.ok(!zero.ops.some((o) => o.op === 'move'), 'pas de miroir quand un chiffre se perd');
+});
+
+/**
+ * ★ `mlm` compte, il n'annonce pas — et il ne fait doublon avec personne.
+ *
+ * Deux questions de l'auteur, deux réponses mesurées.
+ *
+ * 1. L'ANIMATION. Elle se contentait du geste sobre : `hope` s'efface, `4`
+ *    paraît. C'est la faute exacte que `n.longueur` avait déjà corrigée pour la
+ *    ligne entière. « Appliquer ce que je dis pour `jnf` » — c'est-à-dire le
+ *    comptage sous accolade de `cnj` et de `nl` : le mot s'éclate en lettres,
+ *    chacune descend dans la pointe et fait avancer le compteur.
+ *
+ * 2. LE DOUBLON. « En quoi ne fait-il pas doublon [avec `cnj` / `nl`] ? » — la
+ *    réponse est dans les types, et ce test la fige plutôt que de l'affirmer.
+ */
+test('★ mlm — un mot se compte lettre par lettre, et ne double ni cnj ni nl', () => {
+  const entree = T(['hope', 'fr']);
+  const op = PAR_CODE.get('mlm');
+  const apres = appliquer(op, entree);
+  assert.deepEqual(apres.valeur, [4, 2]);
+
+  // ① UN STEP PAR MOT : compter deux mots à la fois, ce sont deux chantiers
+  //    simultanés, et l'on ne voit plus quel mot a donné quel nombre.
+  const steps = etapes(op, entree, apres, { ids: ['t0', 't1'], cle: 'e0' });
+  assert.equal(steps.length, 2);
+
+  // ② Le mot S'ÉCLATE en ses lettres, qui le reconstituent — sans quoi
+  //    `substitute` refuserait —, puis l'accolade les compte une par une.
+  const [eclat, compte] = steps[0].ops;
+  assert.equal(eclat.op, 'substitute');
+  assert.equal(eclat.pairs[0].to.map((t) => t.text).join(''), 'hope');
+  assert.equal(compte.op, 'group');
+  assert.deepEqual(compte.targets, eclat.pairs[0].to.map((t) => t.id));
+  assert.equal(compte.to.text, '4', 'le compteur remonte le nombre qu’il a compté');
+  assert.equal(compte.symbol, '#');
+
+  // ③ LE DOUBLON, mesuré : aucun opérateur du catalogue ne rend ce que rend
+  //    `mlm`, et aucune composition de deux codes non plus.
+  const attendu = JSON.stringify(apres.valeur);
+  const memeSortie = (o) => {
+    const r = appliquer(o, entree);
+    return r && JSON.stringify(r.valeur) === attendu;
+  };
+  const jumeaux = CATALOGUE.filter((o) => o.code !== 'mlm' && memeSortie(o));
+  assert.deepEqual(jumeaux.map((o) => o.code), [], 'aucun jumeau au catalogue');
+
+  // ④ Et la raison tient dans les TYPES : `cnj` compte les MORCEAUX, `mlm`
+  //    compte les LETTRES de chacun. Sur un mot unique, l'un rend 1, l'autre 4.
+  const un = T(['hope']);
+  assert.deepEqual(appliquer(PAR_CODE.get('mlm'), un).valeur, [4]);
+  assert.equal(appliquer(PAR_CODE.get('cnj'), un).valeur, 1);
+  // `nl`, lui, travaille sur la CHAÎNE — avant tout découpage — et rend un
+  // scalaire : une fois la ligne découpée, il n'est plus applicable du tout.
+  assert.equal(PAR_CODE.get('nl').from, 'STR');
+  assert.equal(PAR_CODE.get('mlm').to, 'NUMS', 'ce que mlm apporte, c’est le VECTEUR');
+  assert.equal(appliquer(PAR_CODE.get('nl'), entree), null);
+});
+
 test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émetteur', () => {
   for (const [code, entree] of VECTEURS) {
     const op = PAR_CODE.get(code);

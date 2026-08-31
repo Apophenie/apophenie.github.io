@@ -774,8 +774,111 @@ test('table : une case = une lettre + un nombre — le pavé seul groupe les let
   assert.equal(t7.labels.length, 5, 'la tête, puis les quatre lettres');
 
   // Une disposition retirée du vocabulaire ne peut plus être demandée.
-  assert.deepEqual([...DISPOSITIONS], ['reglette', 'glissiere', 'pave']);
+  //
+  // ★ Le gel a bougé, et il devait bouger : `modulo` s'est ajoutée pour les
+  //   conversions nombre → reste (`pm9`, `pm10`), qui affirmaient sans montrer
+  //   exactement comme les quatorze conversions par table avant elles. Ce que
+  //   ce gel protège n'est pas le NOMBRE de mises en page — il en est à quatre
+  //   comme il en fut à trois — mais le fait qu'une mise en page inconnue
+  //   retombe silencieusement sur la réglette au lieu de dessiner n'importe
+  //   quoi. C'est cette seconde assertion qui compte, et elle est intacte.
+  assert.deepEqual([...DISPOSITIONS], ['reglette', 'glissiere', 'pave', 'modulo']);
   assert.equal(tableGeometry({ disposition: 'grille', entries: PYTHAGORE }).disposition, 'reglette');
+});
+
+/**
+ * ★ La table des restes — la colonne EST le reste, et le barème est écrit une
+ * fois pour toutes en tête de colonne.
+ *
+ * C'est ce qui la distingue d'une réglette cyclique, où chaque case répète sa
+ * valeur : ici l'alignement porte la démonstration, et répéter le reste dans
+ * les quatre-vingts cases le noierait au lieu de le montrer. On vérifie donc
+ * que la case ne porte QUE le nombre, que le barème existe une fois par
+ * colonne, et que le reste redescend de là où il est écrit.
+ */
+test('table : la table des restes écrit son barème UNE fois, en tête de colonne', () => {
+  const entrees = Array.from({ length: 45 }, (_, n) => ({ char: String(n), value: String(n % 9) }));
+  const geo = tableGeometry({ disposition: 'modulo', colonnes: 9, entries: entrees });
+
+  assert.equal(geo.disposition, 'modulo');
+  assert.equal(geo.cols, 9, 'une colonne par reste possible');
+  assert.equal(geo.rows, 5, 'cinq rangées pour aller jusqu’à 44');
+  assert.equal(geo.cells.length, 45);
+
+  // ① une case, un nombre, et rien d'autre.
+  for (const c of geo.cells) {
+    assert.equal(c.labels.length, 1, `la case « ${c.key} » ne doit porter que son nombre`);
+    assert.equal(c.labels[0].text, c.key);
+  }
+
+  // ② le barème : un repère par colonne, et c'est le reste de la colonne.
+  assert.equal(geo.quotation.length, 9);
+  geo.quotation.forEach((q, col) => assert.equal(String(q.n), String(col)));
+  assert.ok(geo.quotation.every((q) => q.cy === geo.quotationCy), 'la quotation est une ligne');
+
+  // ③ 44 tombe dans la colonne 8, cinquième rangée — c'est la mise en page qui
+  //    le démontre, et c'est cette colonne-là que le reste doit désigner.
+  const p = geo.index['44'];
+  const cell = geo.cells[p.cell];
+  assert.equal(cell.col, 8);
+  assert.equal(cell.ligne, 4);
+  assert.equal(p.value, '8');
+  assert.equal(p.valeur.y, geo.quotationCy, 'le reste redescend de la quotation, pas de la case');
+  assert.equal(p.valeur.x, cell.cx, 'et de la colonne du nombre');
+  // ④ le halo couvre la COLONNE, quotation comprise : c'est le lien vertical
+  //    qui est la correspondance.
+  assert.ok(p.halo.h > cell.h * geo.rows, 'le halo doit embrasser toute la colonne');
+  assert.ok(p.halo.cy < cell.cy, 'et remonter jusqu’au barème');
+});
+
+test('table : une colonne discordante n’a pas le droit à un barème', () => {
+  // Écrire le barème une fois en tête de colonne, c'est affirmer que toute la
+  // colonne le partage. Un seul intrus, et l'affirmation est fausse pour lui :
+  // le moteur visuel refuse de la dessiner, comme il refuse `cycle` à une table
+  // qui n'est pas cyclique.
+  const menteuse = Array.from({ length: 18 }, (_, n) => ({
+    char: String(n), value: String(n === 9 ? 7 : n % 9),
+  }));
+  assert.throws(() => compile(sc([{
+    id: 'a', title: 'A',
+    ops: [{
+      op: 'table', disposition: 'modulo', colonnes: 9, entries: menteuse,
+      target: 't0', letter: '0', to: { id: 'r', text: '0' },
+    }],
+  }], lettres('hope'))), /Le barème est écrit UNE FOIS/,
+  'une colonne dont les restes divergent ne peut pas se donner un barème');
+});
+
+test('table : le nombre vole vers sa case, le reste redescend du barème', () => {
+  const entrees = Array.from({ length: 50 }, (_, n) => ({ char: String(n), value: String(n % 10) }));
+  const tl = compile(sc([{
+    id: 'a', title: 'On garde le dernier chiffre',
+    ops: [{
+      op: 'table', disposition: 'modulo', colonnes: 10, entries: entrees,
+      target: 't0', letter: '44', to: { id: 'r', text: '4' },
+    }],
+  }], [{ id: 't0', text: '44', kind: 'number' }]));
+
+  const board = tl.scene.pos(tl.nodes.find((n) => n.role === 'table').id);
+  const geo = tableGeometry({ disposition: 'modulo', colonnes: 10, entries: entrees });
+  const p = geo.index['44'];
+
+  const vol = animsDe(tl, 't0', 'translate').at(-1).keyframes.at(-1).value;
+  assert.ok(Math.abs(vol.x - (board.x + p.lettre.x)) < 0.5, 'le nombre atterrit sur SA case');
+  assert.ok(Math.abs(vol.y - (board.y + p.lettre.y)) < 0.5);
+
+  const naissance = tl.scene.get('r').base.translate;
+  assert.ok(Math.abs(naissance.y - (board.y + geo.quotationCy)) < 0.5,
+    'le reste part du barème — de l’endroit où il est écrit, et de nulle part ailleurs');
+
+  // Contrôle croisé : la table refuse d'annoncer autre chose que ce qu'elle montre.
+  assert.throws(() => compile(sc([{
+    id: 'a', title: 'A',
+    ops: [{
+      op: 'table', disposition: 'modulo', colonnes: 10, entries: entrees,
+      target: 't0', letter: '44', to: { id: 'r', text: '7' },
+    }],
+  }], [{ id: 't0', text: '44', kind: 'number' }])), /refuse d’afficher autre chose/);
 });
 
 test('table : la teinte encode la valeur sans jamais la porter seule', () => {

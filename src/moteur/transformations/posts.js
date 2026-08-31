@@ -136,9 +136,18 @@ function etapeSubstitution(spec) {
     //   plus de barres.
     const corps = [];
     if (spec.encadre) {
+      // ★ EN CASSE PLEINE, ET DE LA COULEUR DES NOMBRES. « Elles sont plus
+      //   petites que les nombres associés » (l'auteur) : une notation qui
+      //   n'atteint pas ce qu'elle enserre ne l'enserre pas, et un gris de
+      //   commentaire la posait à côté de l'expression au lieu de dedans. Les
+      //   barres appartiennent au calcul autant que ses chiffres.
+      // L'écart est compté de bord à bord (`annotate`), et le glyphe « | » est
+      // un trait fin au milieu de sa chasse : il ne faut donc presque rien
+      // au-delà, sans quoi les barres flottent loin du nombre qu'elles serrent.
+      const notation = { taille: 1, ton: 'phos', ecart: 0.1, fugace: true, at: 0 };
       corps.push(
-        { op: 'annotate', anchor: [ctx.ids[0]], text: spec.encadre, place: 'left', ecart: 0.5, fugace: true, at: 0 },
-        { op: 'annotate', anchor: [ctx.ids[0]], text: spec.encadre, place: 'right', ecart: 0.5, fugace: true, at: 0 },
+        { op: 'annotate', anchor: [ctx.ids[0]], text: spec.encadre, place: 'left', ...notation },
+        { op: 'annotate', anchor: [ctx.ids[0]], text: spec.encadre, place: 'right', ...notation },
       );
     }
     // Le `pulse` vient APRÈS la substitution : pendant, le nouveau token voit
@@ -149,6 +158,231 @@ function etapeSubstitution(spec) {
     ], spec.encadre ? 500 : 0);
     return [etape(ctx, dire(spec.libelle, ctx.langue), `${avant.valeur} → ${apres.valeur}`,
       [...corps, ...gestes], spec.encadre ? { hold: 400 } : {})];
+  };
+}
+
+/**
+ * ★ **LE MIROIR SE FAIT SUR LA LIGNE, PAS DANS UNE TABLE.**
+ *
+ * `p.miroir` — « 28 se lit 82 » — se contentait du geste générique : `28`
+ * s'efface, `82` paraît. Le nombre changeait sous les yeux du spectateur sans
+ * qu'aucun chiffre n'ait bougé, c'est-à-dire sans qu'on voie jamais le miroir.
+ *
+ * « C'est bien un miroir (comme Atbash). Ce n'est pas un miroir de table mais
+ * un miroir directement sur les données de la ligne : effectue le miroir
+ * directement sur la ligne. Réutilise le principe de l'animation en ellipse,
+ * il devrait être commun à tout type de miroir, même si ce n'est pas la même
+ * chose qu'on met en miroir » (l'auteur). Trois temps, donc :
+ *
+ *  ① le nombre s'ÉCLATE en ses chiffres — `28` devient `2` et `8`, nés
+ *    exactement sur leurs glyphes (`substitute` refuse tout autre découpage,
+ *    puisque les chiffres doivent reconstituer le jeton) ;
+ *  ② les chiffres ÉCHANGENT leurs places par une demi-ellipse — le geste de la
+ *    glissière de l'Atbash, mot pour mot, appelé au même endroit
+ *    (`visuel/primitives/ellipse.js`) ;
+ *  ③ ils se recollent en un nombre (`merge`), sans accolade ni symbole : les
+ *    mêmes chiffres, dans le même ordre, à la même place — « ça devrait avoir
+ *    lieu rapidement et discrètement ».
+ *
+ * ★ **Le signe ne se retourne pas, et il fait partie du dessin.** `-28` se lit
+ * `-82` : le `-` est un jeton comme les autres, il occupe la première place et
+ * la garde pendant que les chiffres échangent les leurs. Il faut donc l'écrire
+ * dans l'éclatement, faute de quoi `2` et `8` ne reconstitueraient pas `-28` et
+ * `substitute` refuserait — à raison.
+ *
+ * ★ **Un cas retombe sur le geste sobre : le zéro de tête.** `20` se lit `02`,
+ * qui vaut `2` — un chiffre y disparaît, et le collage rendrait `02` là où
+ * l'arithmétique annonce `2`. `merge` refuserait ce collage, et il aurait
+ * raison : montrer `02` puis le remplacer par `2` serait une seconde règle,
+ * que personne n'a énoncée. On préfère le geste sobre à une règle en cachette.
+ */
+function etapeMiroir(spec) {
+  return (avant, apres, ctx) => {
+    const v = avant.valeur;
+    const ds = chiffres(v);
+    const negatif = v < 0;
+    // Ce que la ligne écrira une fois les chiffres échangés — et ce que le
+    // collage doit rendre. S'il ne s'écrit pas comme le résultat, c'est qu'un
+    // chiffre s'est perdu en route : geste sobre.
+    // ⚠️ Le signe s'écrit ici avec le TRAIT D'UNION du `String(n)` de
+    //    JavaScript, et non le « moins » typographique : c'est le texte que
+    //    portent déjà tous les jetons de nombre négatif de la ligne
+    //    (`token(id, apres.valeur)`), et l'éclatement doit reconstituer le
+    //    jeton EXISTANT, pas une jolie version de lui.
+    const ecrit = (negatif ? '-' : '') + [...ds].reverse().join('');
+    if (ds.length < 2 || ecrit !== String(apres.valeur)) {
+      return etapeSubstitution(spec)(avant, apres, ctx);
+    }
+    const sortie = nomsTokens(ctx, 1);
+    const signe = negatif ? [`${ctx.cle}sg`] : [];
+    const idsChiffres = ds.map((_, i) => `${ctx.cle}c${i}`);
+    const eclats = [
+      ...(negatif ? [token(signe[0], '-', 'operator')] : []),
+      ...ds.map((d, i) => token(idsChiffres[i], d, 'digit')),
+    ];
+    // Le miroir ne renverse QUE les chiffres : le signe garde sa place de tête.
+    const renverse = [...signe, ...[...idsChiffres].reverse()];
+    return [etape(ctx, dire(spec.libelle, ctx.langue), `${v} → ${apres.valeur}`, enchainer([
+      { op: 'substitute', pairs: [{ target: ctx.ids[0], to: eclats }] },
+      { op: 'move', order: renverse, geste: 'miroir' },
+      { op: 'merge', targets: renverse, to: token(sortie[0], apres.valeur, 'number') },
+    ]), { hold: 400 })];
+  };
+}
+
+/**
+ * ★ **LE PLAFOND DE RANGÉES D'UNE TABLE DES RESTES.**
+ *
+ * ⚠ **Miroir** de `MODULO_LIGNES_MAX` (`src/visuel/assets.js`), pour la même
+ * raison que `DUREE_OP` et `POIDS_RAMASSAGE` : le moteur arithmétique ne
+ * dépend pas du moteur visuel (CONTRACTS §1), mais c'est lui qui décide de
+ * monter la table ou de s'en passer. Un test croisé échoue si les deux
+ * divergent — sans quoi l'émetteur demanderait une table que le dessin ne sait
+ * pas rendre lisible, et personne ne le signalerait.
+ *
+ * Le nombre est **mesuré**, pas choisi : il est le plus grand pour lequel le
+ * recul de caméra laisse les nombres de la grille au moins aussi lisibles que
+ * le plus petit texte qu'un décor déployé affiche déjà. Le détail du calcul et
+ * le tableau des reculs sont côté visuel, là où ils se vérifient.
+ */
+export const MODULO_LIGNES_MAX = 8;
+
+/**
+ * ★ **LE RESTE SE MONTRE, IL NE S'ANNONCE PAS.**
+ *
+ * `pm9` et `pm10` se contentaient du geste générique : `44` s'efface, `4`
+ * paraît, et « le reste de la division par 10 » restait une affirmation. C'est
+ * exactement le grief de CONTRACTS §3.1 contre les quatorze conversions par
+ * table qui « affirmaient sans montrer » — et le remède est le même : **on
+ * montre la table**.
+ *
+ * « Une table de 0 à N (modulo−1) par ligne, avec la quotation en fixe comme
+ * pour les azerty colonne, et l'énumération des nombres façon touche de
+ * clavier » (l'auteur). La mise en page EST la démonstration : les entiers
+ * s'écrivent en rangées de `m`, et la COLONNE dans laquelle un nombre tombe est
+ * son reste. Le nombre vole vers sa case, la colonne s'allume avec son barème,
+ * et le reste redescend **de la quotation** — de l'endroit où il est écrit, et
+ * de nulle part ailleurs.
+ *
+ * ★ **Trois cas retombent sur le geste sobre**, et chacun pour une raison :
+ *
+ *  · un nombre NÉGATIF — la table est faite d'entiers naturels, et `−44` n'y a
+ *    pas de case. Dessiner la table de `44` pour y chercher `−44` ferait lire
+ *    au spectateur une correspondance qui n'y est pas ;
+ *  · plus de `MODULO_LIGNES_MAX` rangées — la table serait montrée sans être
+ *    lisible, c'est-à-dire montrée pour rien (voir ci-dessus) ;
+ *  · un modulo qui n'en est pas un (`m < 2`), par sûreté.
+ *
+ * ★ **Mesure, plutôt que supposition** : sur douze saisies variées et 97
+ * approches produites, `pm10` paraît quatre fois — sur 26, 36 et 66 — et `pm9`
+ * jamais. Le plafond de huit rangées (jusqu'à 71 en modulo 9, 79 en modulo 10)
+ * couvre donc tout ce qui s'est joué réellement, et le repli reste un
+ * garde-fou, pas un cas courant.
+ *
+ * ★ **Et la « roue codeuse » n'a pas lieu d'être**, mesure à l'appui :
+ * `pm9` et `pm10` exigent `|n| > 9` et rendent un chiffre — ils ne peuvent
+ * donc jamais s'enchaîner directement, et aucune des 97 approches n'en a
+ * enchaîné deux. La table qui monte ou descend d'une conversion à l'autre
+ * répondrait à un cas qui ne se présente pas.
+ */
+function etapeModulo(spec, m) {
+  return (avant, apres, ctx) => {
+    const v = avant.valeur;
+    const lignes = Math.floor(v / m) + 1;
+    if (m < 2 || v < 0 || lignes > MODULO_LIGNES_MAX) return etapeSubstitution(spec)(avant, apres, ctx);
+    const sortie = nomsTokens(ctx, 1);
+    // La table est DÉRIVÉE : de 0 jusqu'au bout de la rangée où tombe le
+    // nombre, et pas une case de plus. Elle s'arrête là parce que c'est là que
+    // la démonstration s'arrête — montrer des rangées au-delà du nombre
+    // cherché n'apprendrait rien et coûterait du recul de caméra.
+    const entries = [];
+    for (let n = 0; n < lignes * m; n++) entries.push({ char: String(n), value: String(n % m) });
+    const titre = dire(spec.libelle, ctx.langue);
+    const quotient = Math.floor(v / m);
+    return [etape(ctx, titre, `${v} = ${quotient} × ${m} + ${apres.valeur}`, [{
+      op: 'table',
+      target: ctx.ids[0],
+      // Le jeton porte plusieurs chiffres : c'est à l'émetteur de dire quelle
+      // case chercher, la primitive ne devine pas au-delà d'un caractère.
+      letter: String(v),
+      disposition: 'modulo',
+      colonnes: m,
+      entries,
+      titre: dire(spec.outil || spec.libelle, ctx.langue),
+      to: token(sortie[0], apres.valeur, 'number'),
+    }], { hold: 500 })];
+  };
+}
+
+/**
+ * ★ **LE COMPLÉMENT SE POSE AVANT DE SE FAIRE.**
+ *
+ * `p.complement9` se contentait du geste générique : `3` s'effaçait, `6`
+ * paraissait, et pas un instant on ne voyait le neuf dont on prenait le
+ * complément. C'était la même faute que celle relevée sur `c.maxMoinsMin` —
+ * « une soustraction dont ni les deux termes ni le signe n'apparaissent
+ * jamais » —, et le remède est le même, à ceci près qu'il manque ici un
+ * opérande : le 9 n'est pas sur la ligne, il vient de la RÈGLE.
+ *
+ * « Si c'est un complément à 9, il devrait y avoir une accolade symbole/phrase
+ * "complément à 9" et le nombre se voit précédé de `9 −`, puis 9 descend sous
+ * l'accolade, puis `−N`, puis le résultat remonte » (l'auteur). Quatre temps,
+ * donc, et ce sont exactement ceux de `c.maxMoinsMin` :
+ *
+ *  ① le nombre se DÉPLOIE en `9` et lui-même — c'est le seul moment où le neuf
+ *    entre en scène, et il entre en naissant du nombre qu'il va réduire ;
+ *  ② le `−` s'intercale, la ligne écrit `9 − N` ;
+ *  ③ l'accolade se ferme, portant le signe sous sa pointe et la phrase à côté ;
+ *  ④ le 9 descend (le compteur affiche 9), le `−N` le suit (le compteur affiche
+ *    le reste), et le résultat remonte dans la ligne.
+ *
+ * ★ **Pourquoi `substitute` 1 → 2, et pourquoi ce n'est pas un mensonge.**
+ * Le vocabulaire est fermé (CONTRACTS §3.1) et aucune op ne sait faire paraître
+ * un opérande CONSTANT dans le flux : `insertOperators` en réclame déjà deux,
+ * `sum` ne pose que son résultat. `substitute` sait, lui, faire d'un jeton
+ * plusieurs — l'éclatement (`44` → `4`, `4`) et la résonance (le même 6 recopié
+ * trois fois). Poser le calcul en est un troisième usage, et il est du même
+ * ordre : les jetons d'arrivée naissent SUR le jeton de départ, la ligne les
+ * écarte ensuite, et rien n'apparaît qui ne vienne de quelque part. La seule
+ * chose qu'il faut lire à l'écran, c'est que le nombre s'est doublé d'un 9 —
+ * ce qui est précisément ce que la règle dit.
+ *
+ * ★ **Le contrôle croisé tient.** `sum` refuse d'afficher un total qui n'est
+ * pas celui qu'il annonce : les paliers `[9, 9−N]` doivent finir sur `to.text`,
+ * sans quoi la compilation échoue. Le compteur sous l'accolade montre donc
+ * littéralement le calcul, et non son résumé.
+ */
+function etapeComplement(spec, base) {
+  return (avant, apres, ctx) => {
+    const sortie = nomsTokens(ctx, 1);
+    const neuf = `${ctx.cle}base`;
+    const terme = `${ctx.cle}terme`;
+    const signe = `${ctx.cle}moins`;
+    const titre = dire(spec.libelle, ctx.langue);
+    return [etape(ctx, titre, `${base} − ${avant.valeur} = ${apres.valeur}`, enchainer([
+      {
+        op: 'substitute',
+        pairs: [{
+          target: ctx.ids[0],
+          to: [token(neuf, base), token(terme, avant.valeur)],
+        }],
+      },
+      { op: 'insertOperators', between: [neuf, terme], ids: [signe], glyph: '−' },
+      {
+        op: 'sum',
+        targets: [neuf, terme],
+        consume: [signe],
+        // Deux paliers, deux atterrissages : le 9 se pose, le terme le
+        // retranche. C'est le même compteur que l'écart (`c.maxMoinsMin`).
+        partials: [base, apres.valeur],
+        to: token(sortie[0], apres.valeur, 'number'),
+        // Le signe sous la pointe DIT l'opération ; la phrase à côté dit à quel
+        // titre on la fait. Une accolade nue ne distinguerait pas ce complément
+        // d'une soustraction quelconque.
+        symbol: `${base} −`,
+        label: titre,
+      },
+    ]), { hold: 400 })];
   };
 }
 
@@ -239,6 +473,8 @@ const brut = [
     notoriete: 0.20, adHoc: 0.3,
     calcul: (n) => Math.sign(n || 1) * Number(chiffres(n).reverse().join('')),
     exige: (n) => Math.abs(n) > 9 && chiffres(n).join('') !== chiffres(n).reverse().join(''),
+    // Le miroir se joue sur la ligne, en ellipse : voir `etapeMiroir`.
+    miroir: true,
   },
   {
     id: 'p.complement9', code: 'pc9',
@@ -247,6 +483,8 @@ const brut = [
     notoriete: 0.35, adHoc: 0.25,
     calcul: (n) => 9 - n,
     exige: (n) => n >= 0 && n <= 9,
+    // Le complément se POSE (`9 − n`) avant de se faire : voir `etapeComplement`.
+    complement: 9,
   },
   {
     id: 'p.modulo9', code: 'pm9',
@@ -255,6 +493,9 @@ const brut = [
     notoriete: 0.40, adHoc: 0.2,
     calcul: (n) => ((n % 9) + 9) % 9,
     exige: (n) => Math.abs(n) > 9,
+    outil: bilingue('Table des restes modulo 9', 'Table of remainders modulo 9'),
+    // La table des restes se montre : voir `etapeModulo`.
+    modulo: 9,
   },
   {
     id: 'p.retournement', code: 'pr9',
@@ -291,11 +532,20 @@ const brut = [
     notoriete: 0.35, adHoc: 0.25,
     calcul: (n) => ((n % 10) + 10) % 10,
     exige: (n) => Math.abs(n) > 9,
+    outil: bilingue('Table des restes modulo 10', 'Table of remainders modulo 10'),
+    // La table des restes se montre : voir `etapeModulo`.
+    modulo: 10,
   },
 ].map((spec) => {
-  const { calcul, exige, reduction, reductionUnique, geste, ...reste } = spec;
+  const { calcul, exige, reduction, reductionUnique, geste, complement, modulo, miroir, ...reste } = spec;
   let steps;
-  if (geste === 'flip180') {
+  if (miroir) {
+    steps = etapeMiroir(reste);
+  } else if (modulo !== undefined) {
+    steps = etapeModulo(reste, modulo);
+  } else if (complement !== undefined) {
+    steps = etapeComplement(reste, complement);
+  } else if (geste === 'flip180') {
     steps = (avant, apres, ctx) => {
       const sortie = nomsTokens(ctx, 1);
       const legende = ctx.langue === 'en'

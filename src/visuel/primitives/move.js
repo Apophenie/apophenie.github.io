@@ -18,9 +18,13 @@
 
 import { EASE } from '../constants.js';
 import { suivreLesAccolades } from './helpers.js';
+import { demiEllipse } from './ellipse.js';
 import { fail } from '../errors.js';
 
 export const name = 'move';
+
+/** Gestes de déplacement modélisés — vocabulaire fermé. */
+export const GESTES = Object.freeze(['droit', 'miroir']);
 
 export function plan(ctx) {
   const { op, scene } = ctx;
@@ -66,7 +70,36 @@ export function plan(ctx) {
     scene.flow.splice(0, scene.flow.length, ...next);
   }
 
-  const bouge = { at: 0, dur: ctx.dur, ease: EASE.move };
+  // ★ **`geste: 'miroir'` — LE MIROIR SUR LA LIGNE ELLE-MÊME.**
+  //
+  //   « Ce n'est pas un miroir de table mais un miroir directement sur les
+  //   données de la ligne : effectue le miroir directement sur la ligne »
+  //   (l'auteur, à propos de `p.miroir` — 28 se lit 82).
+  //
+  //   Un réarrangement ordinaire va tout droit, et c'est ce qu'il faut d'un
+  //   rangement : chacun rejoint sa place, on ne regarde pas le chemin. Un
+  //   MIROIR est l'inverse — le chemin EST la démonstration. Deux chiffres qui
+  //   échangent leurs places en ligne droite se traversent, et rien ne dit
+  //   lequel est allé où ; c'est exactement le grief que la glissière de
+  //   l'Atbash avait résolu par la demi-ellipse. Le calcul est donc le sien,
+  //   partagé (`ellipse.js`) : bosse proportionnelle à la distance parcourue,
+  //   donc alignement tenu à chaque instant, et rétrécissement au croisement.
+  //
+  //   ★ La primitive n'a pas à savoir que c'est un miroir : elle reçoit un
+  //   ordre, et l'ordre suffit. Si le nouvel ordre n'est pas un renversement,
+  //   les ellipses restent justes — chaque jeton part de sa place et arrive à
+  //   la sienne —, elles cessent seulement d'être toutes concourantes. Le nom
+  //   du geste dit ce qu'on montre, il ne contraint pas ce qu'on range.
+  const geste = op.geste === undefined ? 'droit' : op.geste;
+  if (!GESTES.includes(geste)) {
+    fail(`${ctx.where}« geste » = ${JSON.stringify(geste)} — les deux déplacements modélisés sont ${GESTES.join(' et ')}.`);
+  }
+  const bouge = {
+    at: 0,
+    dur: ctx.dur,
+    ease: EASE.move,
+    ...(geste === 'miroir' ? { trajectoire: (m) => demiEllipse(m.from, m.to) } : {}),
+  };
   const moved = ctx.reflow(bouge);
   // Ce qu'une accolade embrasse vient peut-être de changer de largeur : elle
   // suit, sinon elle désignerait autre chose que ce qu'elle a promis.

@@ -560,8 +560,75 @@ export const ALPHABET_ORDRES = Object.freeze(['a1z26', 'z26a1']);
  * une variante décorative de `reglette` — c'est la seule mise en page où le
  * dessin porte la règle, et elle se refuse à qui n'est pas un déplacement de
  * l'alphabet.
+ *
+ * ★ `modulo` s'est ajoutée pour les conversions nombre → **reste**. Même
+ * argument, une fois de plus : « le reste de la division par 9 » était une
+ * affirmation, et rien à l'écran ne permettait de la vérifier. La mise en page
+ * EST la démonstration — on écrit les entiers en rangées de `m`, et la colonne
+ * dans laquelle un nombre tombe EST son reste :
+ *
+ * ```
+ *   quotation   0  1  2  3  4  5  6  7  8      ← le barème, fixe
+ *               0  1  2  3  4  5  6  7  8
+ *               9 10 11 12 13 14 15 16 17
+ *              18 19 20 21 22 23 24 25 26
+ * ```
+ *
+ * « Une table de 0 à N (modulo−1) par ligne, avec la quotation en fixe comme
+ * pour les azerty colonne, et l'énumération des nombres façon touche de
+ * clavier » (l'auteur). Ce n'est donc pas une réglette cyclique : la valeur
+ * n'est PAS répétée dans chaque case — elle est écrite une fois, en tête de
+ * colonne, exactement comme la réglette de colonnes du clavier AZERTY. C'est
+ * ce qui fait que la colonne se lit comme une colonne, et non comme
+ * quatre-vingts affirmations empilées.
+ *
+ * ★ Et comme `cycle` et `glissiere`, le dessin **se refuse à qui ne le mérite
+ * pas** : si deux nombres d'une même colonne n'ont pas le même reste, la
+ * quotation mentirait pour l'un des deux. `geo.discordance` le dit, et
+ * `primitives/table.js` fait alors échouer la compilation.
  */
-export const DISPOSITIONS = Object.freeze(['reglette', 'glissiere', 'pave']);
+export const DISPOSITIONS = Object.freeze(['reglette', 'glissiere', 'pave', 'modulo']);
+
+/**
+ * ★ Le PLAFOND DE RANGÉES d'une table modulo — **mesuré, pas choisi**.
+ *
+ * La table est dessinée en entier, de 0 jusqu'au nombre à convertir, et la
+ * caméra recule d'autant : le facteur est calculé sur l'encombrement réel
+ * (`primitives/decor.js › cadrage`), donc il tombe quand les rangées
+ * s'accumulent. Passé un certain nombre, la table est bien montrée — mais elle
+ * n'est plus lisible, c'est-à-dire montrée pour rien.
+ *
+ * **Où placer la limite, sans la choisir au goût.** Le projet a déjà un
+ * plancher de lisibilité : le plus petit texte qu'un décor déployé affiche est
+ * la NOTE d'une case de réglette, `FONT_SIZE × T.note` = 14,4 unités de
+ * viewBox, à un recul de 1. Un nombre de la grille est écrit en
+ * `FONT_SIZE × T.lettre` = 22,08 unités : il reste donc au moins aussi lisible
+ * que cette note tant que le recul ne descend pas sous 14,4 / 22,08 ≈ **0,65**.
+ *
+ * Recul mesuré, rangée par rangée (`cadrage`, viewBox 1200×480) :
+ *
+ * | rangées | 5 | 6 | 7 | **8** | 9 | 10 | 12 |
+ * |---------|---|---|---|-------|---|----|----|
+ * | recul   | 0,95 | 0,84 | 0,76 | **0,69** | 0,63 | 0,58 | 0,50 |
+ *
+ * Huit rangées passent, neuf ne passent pas. Pour comparaison, le décor le
+ * plus encombrant déjà servi — le clavier AZERTY — recule à 0,89.
+ *
+ * ★ **Au-delà, l'émetteur ne monte pas la table** : il retombe sur le geste
+ * sobre (`moteur/transformations/posts.js`), comme le nivellement retombe sur
+ * l'accolade quand il ne converge pas assez vite. Un dessin qu'on ne sait pas
+ * rendre lisible ne se dessine pas. ⚠️ C'est exactement là que commencerait la
+ * table QUI DÉFILE demandée par l'auteur — « si la valeur cible n'est pas à
+ * l'écran, la table descend jusqu'à faire apparaître la valeur à convertir » :
+ * elle demande une fenêtre de découpe, dont `dom.js` n'a aujourd'hui aucune
+ * notion, et elle n'est pas faite.
+ *
+ * ⚠ **Miroir** de `MODULO_LIGNES_MAX` (`moteur/transformations/posts.js`) : le
+ * moteur arithmétique ne dépend pas du moteur visuel (CONTRACTS §1), mais
+ * c'est lui qui décide de monter la table ou non. Un test croisé échoue si les
+ * deux divergent.
+ */
+export const MODULO_LIGNES_MAX = 8;
 
 /** Encodages de teinte de fond modélisés — vocabulaire fermé. */
 export const TEINTES = Object.freeze(['valeur']);
@@ -654,9 +721,111 @@ export function tableGeometry(options = {}) {
   const fs = options.fontSize || FONT_SIZE;
   const entries = normalizeEntries(options.entries);
   if (disposition === 'glissiere') return glissiere(entries, fs);
+  if (disposition === 'modulo') return moduloTable(entries, options, fs);
   return disposition === 'reglette'
     ? reglette(entries, options, fs)
     : pave(entries, fs);
+}
+
+/**
+ * ★ La table des restes — les entiers en rangées de `m`, le barème en tête.
+ *
+ * Une case porte **un nombre, et rien d'autre** : la valeur commune de la
+ * colonne est écrite une fois, sur la quotation, au-dessus de la grille. C'est
+ * la différence de fond avec `reglette`, où chaque case répète sa valeur —
+ * ici, ce qui démontre, c'est l'ALIGNEMENT, et répéter le reste quatre-vingts
+ * fois le noierait au lieu de le montrer.
+ *
+ * Ce que la géométrie publie en plus des cases :
+ *  · `quotation[]` — un repère par colonne, `{n, cx, cy}`, comme la réglette de
+ *    colonnes du clavier (`keyboardGeometry › ruler`) ;
+ *  · `quotationCy` — l'axe de cette rangée : c'est de là que le reste redescend ;
+ *  · `discordance` — la première colonne où deux nombres n'ont pas le même
+ *    reste, si elle existe. Le dessin ne se refuse pas lui-même (une géométrie
+ *    ne fait pas échouer une compilation) : il DIT ce qui ne va pas, et
+ *    `primitives/table.js` refuse.
+ *
+ * ★ `halo` couvre la COLONNE, quotation comprise — même raison que la mesure
+ * « colonne » du clavier et que la colonne d'une glissière : ce qui fait la
+ * correspondance, c'est le lien vertical entre le nombre et son barème, pas la
+ * case seule.
+ */
+function moduloTable(entries, options, fs) {
+  const cols = Math.max(1, Math.min(options.colonnes || entries.length || 1, Math.max(1, entries.length)));
+  const rangs = [];
+  for (let i = 0; i < entries.length; i += cols) rangs.push(entries.slice(i, i + cols));
+  const rows = Math.max(1, rangs.length);
+
+  // Le barème de chaque colonne, DÉRIVÉ des correspondances : c'est la valeur
+  // que toutes les cases de la colonne partagent — et si elles ne la partagent
+  // pas, la colonne est discordante et le dessin ment.
+  const bareme = [];
+  let discordance = null;
+  rangs.forEach((rang) => {
+    rang.forEach((e, col) => {
+      if (bareme[col] === undefined) { bareme[col] = { valeur: e.value, key: e.char }; return; }
+      if (bareme[col].valeur !== e.value && !discordance) {
+        discordance = { col, a: bareme[col], b: { valeur: e.value, key: e.char } };
+      }
+    });
+  });
+
+  let large = 0;
+  for (const e of entries) large = Math.max(large, textWidth(e.label, fs * T.lettre));
+  for (const b of bareme) large = Math.max(large, textWidth(b ? b.valeur : '', fs * T.valeur));
+  // Une seule ligne de texte par case : la case est celle d'une touche, pas
+  // celle d'une réglette qui empile la lettre, la note et la valeur.
+  const cellW = Math.max(CELL_MIN_W, Math.ceil(large) + PAD_X * 2);
+  const cellH = PAD_Y * 2 + LIGNE;
+
+  const width = cols * cellW + (cols - 1) * GAP;
+  const grille = rows * cellH + (rows - 1) * GAP;
+  // La quotation dépasse EN HAUT, comme la réglette du clavier : elle fait
+  // partie de l'encombrement, sans quoi la caméra la couperait.
+  const teteH = Math.round(cellH * 0.62);
+  const height = grille + teteH;
+  const x0 = -width / 2;
+  // (0,0) est le centre de l'ENSEMBLE — quotation comprise —, donc la grille
+  // commence plus bas que la moitié de sa propre hauteur.
+  const y0 = -height / 2 + teteH;
+  const quotationCy = round(y0 - GAP - teteH * 0.34);
+
+  const cxOf = (col) => round(x0 + col * (cellW + GAP) + cellW / 2);
+  const quotation = bareme.map((b, col) => ({ n: b ? b.valeur : '', cx: cxOf(col), cy: quotationCy }));
+
+  const cells = [];
+  const index = {};
+  rangs.forEach((rang, ligne) => {
+    rang.forEach((e, col) => {
+      const cx = cxOf(col);
+      const cy = round(y0 + ligne * (cellH + GAP) + cellH / 2);
+      const cell = {
+        key: e.char, col, ligne,
+        x: round(cx - cellW / 2), y: round(cy - cellH / 2),
+        w: cellW, h: cellH, cx, cy, vide: false,
+        labels: [{ text: e.label, cx, cy, size: round(fs * T.lettre), tone: 'fg' }],
+      };
+      cells.push(cell);
+      const haut = quotationCy - teteH * 0.34;
+      const bas = -height / 2 + height + 4;
+      index[e.char] = {
+        cell: cells.length - 1,
+        lettre: { x: cx, y: cy },
+        // ★ Le reste redescend DE LA QUOTATION, jamais de la case : la case ne
+        //   le porte pas, et le faire tomber d'un endroit où il n'est pas écrit
+        //   serait exactement le mensonge que la mise en page évite.
+        valeur: { x: cx, y: quotationCy },
+        value: e.value,
+        note: null,
+        halo: { cx, cy: round((haut + bas) / 2), w: cellW + 8, h: round(bas - haut) },
+      };
+    });
+  });
+
+  return {
+    disposition: 'modulo', cols, rows, width, height, cellW, cellH,
+    cells, index, quotation, quotationCy, teteH, discordance,
+  };
 }
 
 /**

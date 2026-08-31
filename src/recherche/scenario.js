@@ -2766,6 +2766,12 @@ export function validerFormeOp(o) {
     case 'highlight': case 'dim': case 'drop': case 'pulse': case 'group':
       return cibles(o.targets) ? null : '« targets » manquant ou mal formé';
     case 'move':
+      // Le CHEMIN, quand la ligne droite ment : un miroir se joue en ellipse,
+      // sans quoi deux jetons qui échangent leurs places se traversent et rien
+      // ne dit lequel est allé où (`visuel/primitives/ellipse.js`).
+      if (o.geste !== undefined && o.geste !== 'droit' && o.geste !== 'miroir') {
+        return '« geste » doit valoir « droit » ou « miroir »';
+      }
       // Sans cible ni ordre, `move` est un simple recalcul du flux — c'est la
       // forme qu'emploie le second temps d'un filtre (« on rapproche ce qui
       // reste »), où l'ordre n'a pas changé, seuls les trous se referment.
@@ -2790,13 +2796,15 @@ export function validerFormeOp(o) {
           && o.entries.every((e) => e && typeof e === 'object'
             && chaine(e.char) && e.value !== undefined && e.value !== null));
       if (!aTable) return '« entries » doit lister les correspondances {char, value}, ou « ordre » la réglette alphabétique';
-      // Trois mises en page, et chacune dit quelque chose : la réglette (une
+      // Quatre mises en page, et chacune dit quelque chose : la réglette (une
       // case = une lettre + sa valeur), la GLISSIÈRE (deux réglettes alignées,
       // celle du bas étant celle du haut déplacée — les chiffrements par
-      // substitution) et le pavé, seul endroit où une case porte plusieurs
-      // lettres parce que la touche 7 porte vraiment « PQRS ».
-      if (o.disposition !== undefined && !['reglette', 'glissiere', 'pave'].includes(o.disposition)) {
-        return '« disposition » doit valoir reglette, glissiere ou pave';
+      // substitution), le pavé, seul endroit où une case porte plusieurs
+      // lettres parce que la touche 7 porte vraiment « PQRS », et le MODULO
+      // (les entiers en rangées de m, le reste écrit une fois en tête de
+      // colonne — la colonne où un nombre tombe EST son reste).
+      if (o.disposition !== undefined && !['reglette', 'glissiere', 'pave', 'modulo'].includes(o.disposition)) {
+        return '« disposition » doit valoir reglette, glissiere, pave ou modulo';
       }
       if (o.teinte !== undefined && o.teinte !== 'valeur') return '« teinte » doit valoir valeur';
       if (o.cycle !== undefined && typeof o.cycle !== 'boolean') return '« cycle » doit être un booléen';

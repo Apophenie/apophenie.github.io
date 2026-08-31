@@ -195,6 +195,7 @@ export function plan(ctx) {
   // ★ La glissière d'abord : c'est elle qui refuse `cycle` et `teinte`, et le
   //   contrôle du cycle n'a aucun sens sur des colonnes de deux lettres.
   if (disposition === 'glissiere') verifierGlissiere(ctx, op, geo);
+  else if (disposition === 'modulo') verifierModulo(ctx, op, geo);
   else if (op.cycle === true) verifierCycle(ctx, geo);
   const src = ctx.scene.live(op.target, `${ctx.where}« target » : `);
   const to = op.to === undefined || op.to === null ? null : tokenSpec(ctx, op.to, 'to');
@@ -365,6 +366,37 @@ function verifierGlissiere(ctx, op, geo) {
     + 'La bande peut porter des lettres (un alphabet déplacé) ou une numérotation de 1 à 26 : '
     + 'ce qui est exigé est le PAS, pas la matière. '
     + 'Le moteur visuel refuse de la mettre en page ainsi : une réglette ordinaire dit la vérité.');
+}
+
+/**
+ * ★ Contrôle croisé de la table des restes — troisième du même genre.
+ *
+ * Écrire le barème UNE FOIS en tête de colonne, c'est AFFIRMER que tous les
+ * nombres de cette colonne ont ce reste-là. Si deux d'entre eux ne l'ont pas,
+ * la quotation ment pour l'un des deux, et le spectateur qui vérifie — c'est
+ * tout l'objet de la mise en page — trouve la faute avant nous. On refuse donc
+ * de dessiner, comme `cycle` refuse d'aligner des colonnes qui ne se répondent
+ * pas et comme `glissiere` refuse deux bandes qui ne se déduisent pas l'une de
+ * l'autre.
+ *
+ * `geo.discordance` est l'oracle, et il ne lit QUE les valeurs de la table —
+ * celles-là mêmes qui viennent de la fonction de l'opérateur.
+ */
+function verifierModulo(ctx, op, geo) {
+  if (op.cycle === true) {
+    fail(`${ctx.where}« cycle » et « modulo » ne vont pas ensemble : une table des restes EST déjà `
+      + 'découpée au cycle — c\'est sa largeur qui vaut le modulo, et sa quotation qui le dit.');
+  }
+  if (op.teinte !== undefined) {
+    fail(`${ctx.where}« teinte » n’a rien à encoder sur une table des restes : un reste de 8 n’est `
+      + 'ni plus grand ni plus fort qu’un reste de 1, il est juste dans une autre colonne.');
+  }
+  if (!geo.discordance) return;
+  const d = geo.discordance;
+  fail(`${ctx.where}« modulo » : la colonne ${d.col + 1} porte ${d.a.valeur} pour « ${d.a.key} » `
+    + `et ${d.b.valeur} pour « ${d.b.key} ». Le barème est écrit UNE FOIS en tête de colonne : `
+    + 'l’écrire là revient à affirmer que toute la colonne le partage, et le moteur visuel refuse '
+    + 'de l’affirmer pour une colonne qui ne le fait pas.');
 }
 
 /**

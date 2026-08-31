@@ -2,8 +2,47 @@
  * Découpes — `STR → TOKENS` et `NUM → NUMS`. Codes `t…` (CONTRACTS §4.1).
  *
  * Une découpe ne change aucune valeur : elle regroupe. Les tokens d'un même
- * groupe sont réunis par un `group`, le premier porte le texte du groupe
- * (`substitute`) et les autres tombent (`drop`) — le tout en une étape.
+ * groupe s'écartent aux frontières sous une accolade numérotée (`partition`),
+ * puis la tête de groupe prend le texte du groupe (`substitute`) et les
+ * surnuméraires tombent (`drop`).
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ★ « CES DÉCOUPES NE SONT PEUT-ÊTRE QUE DE LA PLOMBERIE INTERNE » — mesuré.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * L'auteur : « Les animations de découpe sont absentes ou foireuses. Soit il
+ * faut les changer, soit les supprimer, et ces découpes ne sont peut-être que
+ * de la plomberie interne et non des changements visuels pour l'utilisateur. »
+ *
+ * Relevé sur cinquante-et-une approches réelles (`hope`, `macron`,
+ * `jean-michel`, `wikipedia.org`, `https://hope-hope-hope.fr/`), scénario
+ * compilé en main. Les cinq découpes ne sont pas du tout dans le même cas :
+ *
+ * · **`tca` — « absente », et c'est VOULU.** Son étape n'atteint JAMAIS la
+ *   scène : `rienAMontrer` (`recherche/scenario.js`) la saute avant émission,
+ *   et le fait systématiquement — `tca` transforme `STR 'hope'` en
+ *   `TOKENS ['h','o','p','e']`, donc le type change et **les quatre glyphes de
+ *   la ligne sont exactement les mêmes**. Sur `tca+m14+m36`, le scénario
+ *   commence directement au premier afficheur. C'est donc bien de la plomberie
+ *   interne, et l'assemblage le sait déjà. Le `move` + `pulse` ci-dessous est
+ *   un repli qui ne sert qu'à ne pas laisser un opérateur sans geste : il n'y a
+ *   rien à y corriger tant que le filtre tient, et rien à y voir non plus.
+ *   ⚠️ 83 emplois de `tca` relevés sur ces cinq saisies, zéro étape émise.
+ *
+ * · **`tm` et `tsy` — présentes et justes.** Deux étapes, mesurées sur
+ *   `hope-hope.fr` : les douze caractères s'écartent aux frontières, trois
+ *   accolades numérotées se tracent (1, 2, 3), elles se retirent, puis chaque
+ *   tête prend le texte de son groupe et les surnuméraires tombent. C'est
+ *   exactement ce que CONTRACTS §3.1 décrit pour `partition`.
+ *
+ * · **`tsp` — présente et juste**, avec une réserve qui n'est pas la nôtre à
+ *   trancher (voir son `steps`).
+ *
+ * · **`tch` — présente et juste** : un éclatement pur, les chiffres naissent
+ *   sur les glyphes du nombre, le layout les écarte.
+ *
+ * Conclusion : rien à supprimer, rien à réécrire. La seule chose qui manquait
+ * était la mesure — d'où ce paragraphe, pour qu'on ne recommence pas.
  */
 
 import { sansAccents, VOYELLES_Y } from '../tables/alphabet.js';
@@ -183,6 +222,29 @@ const brut = [
       return g.length ? assembler(valeur, traces, g) : null;
     },
     sortie: sortieConservee,
+    // ★ **UNE RÉSERVE MESURÉE, ET LAISSÉE À L'ARBITRAGE.**
+    //
+    //   Le geste est juste — mesuré sur `hope-hope-hope.fr` : les lettres
+    //   tombent une à une, les deux tirets se rapprochent, puis ils passent en
+    //   or. La réserve porte sur ce dernier temps.
+    //
+    //   Le dépôt a une règle explicite, et elle est gelée par un test : « un
+    //   filtre ne surligne pas ce qu'il garde : la disparition suffit »
+    //   (`visuel/tests/primitives.test.js`). Or `t.separateurs` EST un filtre,
+    //   et son surlignage tombe APRÈS que tout le reste a disparu : il désigne
+    //   les seuls jetons encore là, c'est-à-dire qu'il ne désigne rien.
+    //
+    //   ⚠️ Mais l'or n'est pas gratuit non plus : la règle de cet opérateur est
+    //   « les tirets, points et barres comptent AUSSI », et c'est une surprise
+    //   — le surlignage peut se lire comme l'énoncé de cette surprise plutôt
+    //   que comme une désignation. Et il ne serait pas seul à corriger : le
+    //   même « drop puis highlight des survivants » est le geste de
+    //   `m.sansZeros` (`mappeurs.js`), là où `mz` fait l'inverse — il surligne
+    //   d'ABORD les trois 6, puis efface le reste, ce qui se lit sans réserve.
+    //
+    //   Deux conventions coexistent donc, et choisir entre elles est un
+    //   arbitrage d'auteur, pas une correction : on mesure, on le dit, on ne
+    //   tranche pas.
     steps: (avant, apres, ctx) => {
       const idxSep = [];
       [...avant.valeur].forEach((c, i) => { if (SEPARATEURS.test(c)) idxSep.push(i); });
