@@ -191,6 +191,12 @@ export const NOMS = {
   'n.consonnes': b('En comptant les consonnes', 'By counting the consonants'),
   'n.lettresDistinctes': b('En comptant les lettres distinctes', 'By counting the distinct letters'),
   'n.separateurs': b('En comptant les séparateurs', 'By counting the separators'),
+  // Les quatre compteurs précis : chacun NOMME le signe qu'il compte, sans
+  // quoi quatre voies différentes porteraient le même nom dans la liste.
+  'n.barres': b('En comptant les barres obliques', 'By counting the slashes'),
+  'n.points': b('En comptant les points', 'By counting the dots'),
+  'n.espaces': b('En comptant les espaces', 'By counting the spaces'),
+  'n.tirets': b('En comptant les tirets', 'By counting the dashes'),
   'n.mots': b('En comptant les mots', 'By counting the words'),
   'n.lettresPlusVoyelles': b('En comptant lettres et voyelles', 'By counting letters and vowels'),
   'n.lettresPlusConsonnes': b('En comptant lettres et consonnes', 'By counting letters and consonants'),
@@ -280,6 +286,11 @@ export const NOMS = {
   'm.retournerLesTrios': b('Par le retournement des trios', 'By flipping the trios'),
   'm.compterLesChiffres': b('Par le décompte des chiffres', 'By tallying the digits'),
   'm.redecoupageChoisi': b('Par redécoupage choisi', 'By chosen recutting'),
+  // ★ Elle NOMME une voie, elle, et c'est ce qui la sépare des mappeurs de
+  //   service ci-dessus : « on écrit le chiffre en toutes lettres » dit par
+  //   quel chemin on est passé — c'est un détour qu'on prend, pas une
+  //   retouche qu'on applique à ce qu'un autre a calculé.
+  'm.chiffreEnLettres': b('Par le détour des lettres', 'Through the letters detour'),
   // ★ `m36` ne nomme rien et ne DOIT rien nommer : il souligne un 666 déjà écrit,
   // c'est-à-dire le résultat. Il est écarté des vedettes (`MAPPEURS_DE_SERVICE`)
   // et son nom de repli reste muet sur ce qu'il montre.
@@ -292,9 +303,14 @@ export const NOMS = {
   'c.soustraction': b('Par soustraction', 'By subtraction'),
   'c.produit': b('Par multiplication', 'By multiplication'),
   'c.alternee': b('En alternant les signes', 'By alternating the signs'),
+  // Même nom de méthode que sa jumelle : ce qui les sépare est une PHASE, pas
+  // une idée, et un titre de voie n'a pas à trancher entre deux façons de
+  // commencer la même alternance.
+  'c.alterneeInverse': b('En alternant les signes', 'By alternating the signs'),
   'c.maxMoinsMin': b('Par l’écart des valeurs', 'By the spread of the values'),
   'c.moyenne': b('En moyenne', 'On average'),
 'c.moyenneDivisee': b('En moyenne', 'On average'),
+  'c.mediane': b('Par la valeur médiane', 'By the median value'),
   'c.cardinal': b('Par le nombre de valeurs', 'By the number of values'),
   'c.concat': b('En collant les chiffres', 'By gluing the digits together'),
   'c.max': b('Par la plus grande valeur', 'By the largest value'),
@@ -344,8 +360,10 @@ export const QUALIFIANTS = {
   'c.soustraction': [3, b('en soustrayant', 'subtracting')],
   'c.produit': [3, b('en multipliant', 'multiplying')],
   'c.alternee': [3, b('en alternant les signes', 'alternating the signs')],
+  'c.alterneeInverse': [3, b('en alternant les signes', 'alternating the signs')],
   'c.maxMoinsMin': [3, b('en prenant l’écart', 'taking the spread')],
   'c.moyenne': [3, b('en moyenne', 'on average')],
+  'c.mediane': [3, b('à la médiane', 'at the median')],
   'c.concat': [3, b('chiffres collés', 'digits glued together')],
   'c.max': [3, b('au plus grand', 'at the largest')],
   'c.min': [3, b('au plus petit', 'at the smallest')],
@@ -439,6 +457,10 @@ export const PRECISIONS = {
   'n.consonnes': b('au compte des consonnes', 'by consonant count'),
   'n.lettresDistinctes': b('au compte des lettres distinctes', 'by distinct-letter count'),
   'n.separateurs': b('au compte des séparateurs', 'by separator count'),
+  'n.barres': b('au compte des barres', 'by slash count'),
+  'n.points': b('au compte des points', 'by dot count'),
+  'n.espaces': b('au compte des espaces', 'by space count'),
+  'n.tirets': b('au compte des tirets', 'by dash count'),
   'n.mots': b('au compte des mots', 'by word count'),
   'n.lettresPlusVoyelles': b('lettres et voyelles', 'letters and vowels'),
   'n.lettresPlusConsonnes': b('lettres et consonnes', 'letters and consonants'),
@@ -495,6 +517,7 @@ export const PRECISIONS = {
   'm.retournerLesTrios': b('les trios retournés', 'with the trios flipped'),
   'm.compterLesChiffres': b('les chiffres comptés', 'with the digits tallied'),
   'm.redecoupageChoisi': b('redécoupé en paquets', 'recut into packets'),
+  'm.chiffreEnLettres': b('écrit en toutes lettres', 'written out in words'),
   // ★ Muet sur ce qu'il souligne — voir `MAPPEURS_DE_SERVICE`. « 666 déjà
   // écrit » serait exact et divulguerait la chute d'une ligne de la liste.
   'm.troisSixDAffilee': b('avec le trio souligné', 'with the trio underlined'),
@@ -504,9 +527,11 @@ export const PRECISIONS = {
   'c.soustraction': b('par soustraction', 'by subtraction'),
   'c.produit': b('par multiplication', 'by multiplication'),
   'c.alternee': b('en alternant les signes', 'alternating the signs'),
+  'c.alterneeInverse': b('en alternant les signes', 'alternating the signs'),
   'c.maxMoinsMin': b('par l’écart', 'by the spread'),
   'c.moyenne': b('en moyenne', 'on average'),
 'c.moyenneDivisee': b('en moyenne', 'on average'),
+  'c.mediane': b('à la médiane', 'at the median'),
   'c.cardinal': b('au nombre de valeurs', 'by the number of values'),
   'c.concat': b('chiffres collés', 'digits glued together'),
   'c.max': b('au plus grand', 'at the largest'),

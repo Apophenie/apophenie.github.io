@@ -12,7 +12,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  CATALOGUE, PAR_CODE, PAR_ID, appliquer, etapes, idsApres, derouler,
+  CATALOGUE, PAR_CODE, PAR_ID, appliquer, appliquerProgramme, etapes, idsApres, derouler,
   rangCode, ORDRE_CANONIQUE, operateursActifs, operateursDepuis, JOKER, LANGUES,
 } from './catalogue.js';
 import { RE_CODE } from './transformations/commun.js';
@@ -121,7 +121,15 @@ const VECTEURS = [
   ['nv', S('hope'), 2],
   ['nc', S('hope'), 2],
   ['nd', S('hello'), 4],
+  // ★ « a-b.c » ne porte que des signes que l'ancienne définition connaissait
+  //   déjà : le gel ne bouge donc pas, alors même que le compte a changé sur
+  //   les adresses (voir `n.separateurs`, le `:` manquait).
   ['nsp', S('a-b.c'), 2],
+  // Les quatre compteurs précis, sur une saisie qui porte les quatre signes.
+  ['nsl', S('a/b c-d.e/f'), 2],
+  ['npt', S('a/b c-d.e/f'), 1],
+  ['nes', S('a/b c-d.e/f'), 1],
+  ['ntr', S('a/b c-d.e/f'), 1],
   ['nm', S('a-b.c'), 3],
   ['nlv', S('hope'), 6],
   ['nlc', S('hope'), 6],
@@ -206,21 +214,40 @@ const VECTEURS = [
   // « On compte les chiffres » : `34455666999` → `1324253639` — un 3, deux 4,
   // deux 5, trois 6, trois 9.
   ['mcc', N([3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]), [1, 3, 2, 4, 2, 5, 3, 6, 3, 9]],
-  // « Le redécoupage tricheur » : LES TRENTE-DEUX CHIFFRES DE L'AUTEUR, pris
-  // tels qu'il les écrit. Sa découpe à la main rend six 6 sur douze paquets ;
-  // la programmation dynamique en rend HUIT sur onze, dont six d'affilée —
-  // deux 666 avant même le tri croissant. Le vecteur gèle donc à la fois le
-  // résultat et la promesse : « tomber sur 6 le plus souvent possible ».
-  // (Et il gèle la borne basse : `mrd` refuse en deçà de dix-neuf chiffres.)
-  ['mrd', N([4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
-    1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8]), [6, 3, 6, 6, 6, 6, 6, 6, 3, 6, 9]],
+  // « Le redécoupage tricheur » : LES TRENTE CHIFFRES DE L'AUTEUR, pris tels
+  // qu'il les écrit, et la sortie qu'il a lui-même calculée à la main —
+  // `999991691662692`. Coupe pour coupe : `999 7+1+1 2+1+0+5+1 1 6 9 7+1+0+8
+  // 1+0+5 1+1 5+1+0 9 1+0+1`.
+  //
+  // Le vecteur gèle donc les deux règles qui ont corrigé le calcul : un 9 vaut
+  // un 6 acquis (`mr9` le retournera), donc il ne s'absorbe pas et un paquet
+  // qui tombe dessus compte ; et la somme d'un paquet s'écrit TELLE QU'ELLE
+  // TOMBE — `7+1+0+8 = 16` rend « 1 6 » et non « 7 », qui perdrait le 6 qu'on
+  // venait de fabriquer.
+  // (Et il gèle la borne basse : `mrd` refuse en deçà de vingt-cinq chiffres.)
+  ['mrd', N('9 9 9 7 1 1 2 1 0 5 1 1 6 9 7 1 0 8 1 0 5 1 1 5 1 0 9 1 0 1'.split(' ').map(Number)),
+    [9, 9, 9, 9, 9, 1, 6, 9, 1, 6, 6, 2, 6, 9, 2]],
+  // ★ Le seul opérateur qui remonte le courant : un nombre redevient du texte.
+  //   Le nom sort de `NOM_CHIFFRE_FR`, la table du joker `jnf` — une seule
+  //   source pour les deux, donc jamais deux orthographes du même chiffre.
+  ['mlet', U(7), 'sept'],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],
   ['cal', N([8, 15, 16, 5]), 4],
+  // ★ L'autre phase de la même alternance : `−8 +15 −16 +5`. Elle vaut
+  //   exactement l'opposé de la précédente, ce qui est la définition même de
+  //   « commencer par retrancher » — et ce que le gel doit tenir, parce que
+  //   c'est ce qui rend les deux codes distinguables dans un lien.
+  ['cali', N([8, 15, 16, 5]), -4],
   ['cmm', N([8, 15, 16, 5]), 11],
   ['cmo', N([8, 15, 16, 5]), 11],
   ['cmod', N([8, 15, 16, 5]), 11],
+  // ★ La médiane, sur le MÊME vecteur que la moyenne — c'est la comparaison
+  //   qui la définit. Rangé, `8 15 16 5` donne `5 8 15 16` : les extrêmes 5
+  //   et 16 s'annulent, restent 8 et 15, dont la demi-somme arrondie vaut 12.
+  //   La moyenne, elle, dit 11 — et l'écart est tout le sujet.
+  ['cme', N([8, 15, 16, 5]), 12],
   ['cnv', N([8, 15, 16, 5]), 4],
   ['ccat', N([8, 15, 16, 5]), 815165],
   ['cmx', N([8, 15, 16, 5]), 16],
@@ -327,8 +354,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 146);
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 146, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 153);
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 153, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -338,7 +365,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 146, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 153, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -454,21 +481,118 @@ test('★ les quatre transformations du 27 août — ce qu’elles font, et ce q
   // Un DERNIER RECOURS : il refuse tant que la ligne n'est pas devenue longue.
   assert.equal(sortie('mrd', [1, 2, 3, 6, 4, 2]), null,
     'six chiffres : la ligne se lit encore, il n’y a rien à redécouper');
-  const longue = [4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
-    1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8];
+  const longue = '9 9 9 7 1 1 2 1 0 5 1 1 6 9 7 1 0 8 1 0 5 1 1 5 1 0 9 1 0 1'.split(' ').map(Number);
   const paquets = sortie('mrd', longue);
-  assert.deepEqual(paquets, [6, 3, 6, 6, 6, 6, 6, 6, 3, 6, 9], 'les 32 chiffres de l’auteur');
-  // ★ Il ACHÈTE des 6, sinon il ne se joue pas : huit contre trois au départ.
-  assert.equal(longue.filter((v) => v === 6).length, 3);
-  assert.equal(paquets.filter((v) => v === 6).length, 8);
-  // ★ Et les 6 déjà écrits ne sont jamais absorbés : ils restent seuls dans leur
-  //   paquet, exactement comme dans le calcul à la main de l’auteur.
+  assert.equal(paquets.join(''), '999991691662692',
+    'les trente chiffres de l’auteur, et la sortie qu’il a calculée à la main');
+  // ★ Il ACHÈTE des 6-ou-9, sinon il ne se joue pas : onze contre six au départ.
+  const gagnants = (vs) => vs.filter((v) => v === 6 || v === 9).length;
+  assert.equal(gagnants(longue), 6);
+  assert.equal(gagnants(paquets), 11);
+  // ★ **Un 9 n’est jamais absorbé, pas plus qu’un 6** : les trois 9 de tête, le
+  //   6 du milieu et les deux 9 isolés se retrouvent intacts et à leur place.
+  assert.deepEqual(paquets.slice(0, 3), [9, 9, 9], 'les trois 9 de tête restent seuls');
+  // ★ Et une somme qui dépasse neuf s’écrit chiffre à chiffre, sans être
+  //   réduite : `7+1+0+8 = 16` rend « 1 6 » — c’est de là que vient le 6 du
+  //   rang 8, et le réduire à 7 le ferait disparaître.
+  assert.deepEqual(paquets.slice(8, 10), [1, 6], 'la somme 16 s’écrit « 1 6 »');
   const tailles = PAR_CODE.get('mrd').additions(longue);
   assert.ok(tailles.length > 0 && tailles.every((t) => t >= 2),
     'les additions déclarées portent toutes au moins deux termes');
-  // Rien à acheter : une ligne longue mais qui ne gagne aucun 6 est refusée.
+  // Rien à acheter : une ligne longue mais qui ne gagne rien est refusée.
   assert.equal(sortie('mrd', new Array(30).fill(6)), null,
     'trente 6 : chacun reste seul, rien n’est gagné, la triche ne se joue pas');
+  assert.equal(sortie('mrd', new Array(30).fill(9)), null,
+    'trente 9 : même refus, et c’est ce que la règle des 9 implique');
+  // ★ Et la suite que l’auteur en tire se rejoue telle quelle : `mr9` retourne
+  //   les 9 et la ligne écrit `666661661662662`.
+  assert.equal(appliquerProgramme(['mrd', 'mr9'], N(longue)).valeur.join(''),
+    '666661661662662', 'la suite de l’auteur, un cran plus loin');
+});
+
+/**
+ * ★ LA MÉDIANE — ce qu'elle calcule, et ce qui la sépare de la moyenne.
+ *
+ * « Un opérateur `cme`, la MÉDIANE, à côté de `cmo` la moyenne » (l'auteur). Les
+ * deux répondent à la même question ; ce test gèle le fait qu'elles ne donnent
+ * pas la même réponse, et il gèle les deux formes de son geste — un centre, ou
+ * deux.
+ */
+test('★ la médiane : on range, les extrêmes s’annulent, le centre reste', () => {
+  const mediane = (v) => appliquer(PAR_CODE.get('cme'), N(v)).valeur;
+  const moyenne = (v) => appliquer(PAR_CODE.get('cmo'), N(v)).valeur;
+
+  // ── un compte IMPAIR : il reste un nombre, et on ne lui fait rien.
+  assert.equal(mediane([3, 1, 2]), 2, 'rangé « 1 2 3 », les extrêmes partent, 2 reste');
+  // ── un compte PAIR : il en reste deux, et c’est leur demi-somme.
+  assert.equal(mediane([8, 15, 16, 5]), 12, 'rangé « 5 8 15 16 », il reste 8 et 15');
+  // ★ …et l’arrondi est celui de la moyenne, sur ces deux-là seulement.
+  assert.equal(PAR_CODE.get('cme').arrondiSur([8, 15, 16, 5]).join(' '), '8 15',
+    'l’opérateur PUBLIE ce sur quoi il arrondit — le barème ne le devine pas');
+
+  // ★ CE QUI LA SÉPARE DE LA MOYENNE, et c’est tout son intérêt : un extrême
+  //   tire l’une et pas l’autre.
+  assert.equal(moyenne([1, 5, 6, 6, 60]), 16);
+  assert.equal(mediane([1, 5, 6, 6, 60]), 6);
+
+  // Deux nombres : il n’y a rien à retirer, ils SONT le centre.
+  assert.equal(mediane([6, 6]), 6);
+  // Un seul : une médiane demande au moins deux nombres, comme une moyenne.
+  assert.equal(appliquer(PAR_CODE.get('cme'), N([6])), null);
+});
+
+/**
+ * ★ LES COMPTEURS DE SÉPARATEURS — sur l'adresse même de l'auteur.
+ *
+ * « Soit seuls les `/` sont comptés ce qui fait 3, soit tous les séparateurs le
+ * sont, et il manque `:` donc le total fait 5 et non 4. » (l'auteur)
+ *
+ * Ce test tient les deux lectures, et surtout la CONFRONTATION qui a révélé le
+ * bug : `tsp` MONTRE les séparateurs, `nsp` les COMPTE, et il n'existe qu'une
+ * seule définition du mot — donc les deux ne peuvent plus se contredire.
+ */
+test('★ séparateurs : ce que `tsp` montre est ce que `nsp` compte', () => {
+  const url = 'https://reinfocovid.fr/';
+  const montres = appliquer(PAR_CODE.get('tsp'), S(url)).valeur;
+  const comptes = appliquer(PAR_CODE.get('nsp'), S(url)).valeur;
+  assert.deepEqual(montres, [':', '/', '/', '.', '/'], 'cinq séparateurs, le « : » compris');
+  assert.equal(comptes, montres.length,
+    'le compte et la montre sortent de la MÊME définition (CONTRACTS §0.3)');
+  assert.equal(comptes, 5, '« il manque : donc le total fait 5 et non 4 » — l’auteur');
+
+  // ★ Et les compteurs PRÉCIS, qui donnent l’autre lecture qu’il propose.
+  assert.equal(appliquer(PAR_CODE.get('nsl'), S(url)).valeur, 3, '« seuls les / … ce qui fait 3 »');
+  assert.equal(appliquer(PAR_CODE.get('npt'), S(url)).valeur, 1, 'un seul point');
+  // Rien à compter, rien à montrer : une mesure qui rend zéro ne se joue pas.
+  assert.equal(appliquer(PAR_CODE.get('nes'), S(url)), null, 'aucune espace dans une adresse');
+  assert.equal(appliquer(PAR_CODE.get('ntr'), S(url)), null, 'aucun tiret non plus');
+  assert.equal(appliquer(PAR_CODE.get('ntr'), S('hope-hope-hope.fr')).valeur, 2, 'deux tirets');
+  assert.equal(appliquer(PAR_CODE.get('nes'), S('Le chat dort')).valeur, 2, 'deux espaces');
+});
+
+/**
+ * ★ LE JOKER COMPTE SES LETTRES UNE PAR UNE.
+ *
+ * « `jnf` devrait être "combien de caractères ?" et les compter 1 par 1 de la
+ * même manière que juste avant » (l'auteur). Le geste faisait autre chose : le
+ * chiffre devenait le mot d'un seul bloc et le compte paraissait — l'étape
+ * AFFIRMAIT que « quatre » a six lettres au lieu de le montrer.
+ */
+test('★ le joker écrit son mot, puis en compte les lettres une par une', () => {
+  const op = PAR_CODE.get('jnf');
+  const avant = U(4);
+  const apres = appliquer(op, avant);
+  assert.equal(apres.valeur, 6, '« quatre » — six lettres');
+  const [step] = etapes(op, avant, apres, { ids: ['t0'], cle: 'e0', langue: 'fr' });
+  const [ecrire, compter] = step.ops;
+  // ① le mot s’écrit lettre par lettre : six jetons, pas un bloc.
+  assert.equal(ecrire.op, 'substitute');
+  assert.deepEqual(ecrire.pairs[0].to.map((t) => t.text), ['q', 'u', 'a', 't', 'r', 'e']);
+  // ② et chaque lettre est comptée, sous l’accolade — le geste de tous les
+  //    comptages du site, emprunté et non recopié.
+  assert.equal(compter.op, 'group');
+  assert.equal(compter.targets.length, 6, 'six lettres embrassées');
+  assert.equal(compter.to.text, '6', 'et le compte qui en sort');
 });
 
 test('★ gel des codes publiés : chaque code rend exactement la même sortie', () => {

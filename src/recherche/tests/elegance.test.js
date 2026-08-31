@@ -23,7 +23,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  BAREME, NATURE, FICELLES, FICELLES_QUI_ECARTENT, bilanChemin, bilanApproche, credit,
+  BAREME, NATURE, FICELLES, FICELLES_QUI_ECARTENT, A_MERITER_SA_PLACE,
+  bilanChemin, bilanApproche, credit,
   detailDuCredit, dilution, emploieUneFicelle,
   facteur, note, estPur, amplitudeArrondi, finDuTriptyque, nbTriptyques,
   classeDeTransformation, survieDesCaracteres, compterTraductionsDivergentes,
@@ -186,36 +187,45 @@ function codesDesFicelles() {
 }
 
 test('★ les ficelles sont au catalogue, et chacune alimente SON palier', () => {
+  // ★ Les types d'états sont DÉCLARÉS, et depuis qu'une ficelle ne va plus de
+  //   `NUMS` à `NUMS` : « le chiffre écrit en toutes lettres » remonte le
+  //   courant, d'un `NUM` vers un `STR`. Les deviner — en supposant `NUMS` des
+  //   deux côtés, comme ce test le faisait — aurait fabriqué des états faux et
+  //   mesuré un bilan qui n'existe pas.
   const attendu = {
-    'm.unRangSurDeux': ['m1s2', 'decimation', [6, 4, 6, 3, 6]],
-    'm.additionSelective': ['mad', 'additionSelective', [6, 5, 16, 8]],
-    // ★ La quatrième, allouée le 27 août : le redécoupage tricheur. Son vecteur
-    //   est celui de l'auteur — trente-deux chiffres —, parce que l'opérateur
-    //   refuse en deçà de dix-neuf : c'est un DERNIER RECOURS sur une ligne
-    //   trop longue pour tenir dans un verdict, pas une astuce de poche.
+    'm.unRangSurDeux': ['m1s2', 'decimation', [6, 4, 6, 3, 6], 'NUMS', 'NUMS'],
+    'm.additionSelective': ['mad', 'additionSelective', [6, 5, 16, 8], 'NUMS', 'NUMS'],
+    // ★ La ficelle qui RÉÉCRIT — « avec un gros malus puisqu'on essaie plutôt
+    //   d'aller en sens inverse » (l'auteur). Elle ne jette rien, n'absorbe
+    //   rien, et se paie au forfait : un emploi, une fois.
+    'm.chiffreEnLettres': ['mlet', 'ecritureEnLettres', 7, 'NUM', 'STR'],
     // ⚠️ **`m.egalisation` N'Y FIGURE PLUS** — et elle y a figuré une journée.
     //    « meg ne marche pas toujours, l'égalisation pourrait être autre que
-    //    sur 6 » (l'auteur), et c'est ce qui la sépare des quatre autres : elle
+    //    sur 6 » (l'auteur), et c'est ce qui la sépare des autres : elle
     //    ne CHOISIT pas sa valeur, elle tombe sur la moyenne de la ligne. Sur
     //    `8 15 16 5` elle donne 11 et la voie meurt. Son palier `EGALISATION`
     //    existe toujours et se paie toujours, comme celui de `mpf` — le test
     //    juste en dessous le vérifie.
-    'm.redecoupageChoisi': ['mrd', 'redecoupage',
-      [4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
-        1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8]],
+    // ⚠️ **`m.redecoupageChoisi` N'Y FIGURE PLUS NON PLUS** — « mrd, l'idée est
+    //    là, à retirer des ficelles pour en faire un opérateur à 0.2 de
+    //    notoriété » (l'auteur). Même partage que pour les deux précédentes :
+    //    son palier `REDECOUPAGE` reste, il reste dilué, et il reste dans
+    //    `A_MERITER_SA_PLACE`. Le test « le redécoupage paie encore » plus bas
+    //    tient les trois moitiés de la phrase.
   };
   assert.deepEqual(Object.keys(FICELLES).sort(), Object.keys(attendu).sort(),
     'FICELLES et le catalogue doivent parler des mêmes opérateurs');
 
-  for (const [id, [code, compteur, entree]] of Object.entries(attendu)) {
+  for (const [id, [code, compteur, entree, typeAvant, typeApres]] of Object.entries(attendu)) {
     assert.equal(FICELLES[id], compteur, `${id} doit alimenter « ${compteur} »`);
     const op = operateur(id);
     assert.equal(op.code, code, `${id} doit porter le code ${code} (registre append-only, §4.1)`);
 
-    const avant = etat('NUMS', entree);
-    const brut = op.apply(entree, entree.map(() => []));
+    const avant = etat(typeAvant, entree);
+    const traces = Array.isArray(entree) ? entree.map(() => []) : [[]];
+    const brut = op.apply(entree, traces);
     assert.ok(brut, `${code} doit s’appliquer à ${JSON.stringify(entree)}`);
-    const apres = etat('NUMS', brut.valeur);
+    const apres = etat(typeApres, brut.valeur);
     const b = bilanChemin({ ops: [op], etats: [avant, apres] });
     assert.ok(b[compteur] > 0, `${code} doit faire monter « ${compteur} »`);
     // ★ …et la peine n'est PAS comptée deux fois : ce que la ficelle écarte ne
@@ -298,6 +308,53 @@ test('★ `mpf` n’est plus une ficelle — mais son rejet se paie encore', () 
  * est plus lourd que celui des césars, choisir UNE acception reste gratuit, et
  * la recherche n'en produit plus.
  */
+/**
+ * ★ LES DEUX PHASES DE L'ALTERNANCE — un outil, deux réglages, et ça se paie.
+ *
+ * « Comme les `frN` », dit l'auteur de la variante `cali` : « un malus à
+ * utiliser plusieurs variantes dans la même voie ». C'est mot pour mot le grief
+ * de `REGLAGE_PAR_MORCEAU`, et c'est donc ce poste-là qui la voit.
+ *
+ * Ce que le test tient, et qui n'allait pas de soi : **la phase est PUBLIÉE**
+ * (`decalage`), et **la famille d'outil aussi** (`familleOutil`). Le compte
+ * déduisait jusqu'ici la famille du code, en lui retirant ses chiffres de
+ * queue — `fr14` et `fr9` sont deux réglages de `fr`. Cette règle-là ne voit
+ * pas que `cal` et `cali` en sont deux d'une même alternance : elle les aurait
+ * laissés passer EN SILENCE, ce qui est précisément le défaut que ce poste
+ * existe pour couvrir.
+ */
+test('★ alternance — employer ses deux phases dans une voie coûte un réglage', () => {
+  const cal = operateur('c.alternee');
+  const cali = operateur('c.alterneeInverse');
+  for (const op of [cal, cali]) {
+    assert.equal(op.familleOutil, 'cal', `${op.code} doit publier sa famille d’outil`);
+    assert.ok(Number.isFinite(op.decalage), `${op.code} doit publier sa phase`);
+  }
+  assert.notEqual(cal.decalage, cali.decalage, 'deux phases, deux réglages');
+
+  const part = (op) => ({
+    fragment: {
+      texte: 'xx', offset: 0, longueur: 2, intervalles: [[0, 2]],
+      famille: 'entier', priorite: 1,
+    },
+    chemin: {
+      ops: [op],
+      etats: [etat('NUMS', [8, 15]), etat('NUM', op.apply([8, 15], [[], []]).valeur)],
+    },
+  });
+  const bilanDe = (ops) => bilanApproche({ parts: ops.map(part), series: 1 }, ctxDe('xx'));
+
+  assert.equal(bilanDe([cal, cal]).reglagesEnTrop, 0,
+    'la même phase partout, c’est une méthode appliquée à l’ensemble : gratuit');
+  assert.equal(bilanDe([cal, cali]).reglagesEnTrop, 1,
+    'les deux phases dans la même voie : un réglage surnuméraire');
+
+  // …et les deux valent bien l’opposé l’une de l’autre — c’est ce qui fait
+  // d’elles un réglage et non deux idées.
+  assert.equal(cal.apply([8, 15, 16, 5], [[], [], [], []]).valeur, 4);
+  assert.equal(cali.apply([8, 15, 16, 5], [[], [], [], []]).valeur, -4);
+});
+
 test('★ traductions — le même mot lu de deux façons coûte plus cher qu’un César de trop', () => {
   assert.ok(BAREME.TRADUCTION_DIVERGENTE > BAREME.REGLAGE_PAR_MORCEAU,
     `« encore pire » doit se lire au barème (${BAREME.TRADUCTION_DIVERGENTE} `
@@ -676,11 +733,15 @@ test('★ les quatre transformations du 27 août alimentent le bon poste', () =>
   assert.equal(compte.sixDetruits, 2,
     'trois 6 qui deviennent « 3 6 », ce sont deux 6 convertis en autre chose');
 
-  // ── le redécoupage : une ficelle, à son palier, et DILUÉE
+  // ── le redécoupage : plus une ficelle, mais toujours à son palier, et DILUÉ
   const chiffres = [4, 8, 1, 2, 0, 1, 2, 0, 9, 6, 1, 1, 4, 1, 0, 8, 8, 4, 3, 6,
     1, 8, 1, 3, 2, 2, 4, 3, 6, 1, 0, 8];
   const redec = bilan('m.redecoupageChoisi', chiffres);
-  assert.ok(redec.redecoupage > 0, 'le redécoupage doit alimenter son palier');
+  assert.ok(!Object.prototype.hasOwnProperty.call(FICELLES, 'm.redecoupageChoisi'),
+    'il ne doit plus figurer parmi les ficelles — l’auteur l’en a retiré');
+  assert.ok(redec.redecoupage > 0, 'le redécoupage doit alimenter son palier quand même');
+  assert.ok(A_MERITER_SA_PLACE.has('m.redecoupageChoisi'),
+    'il doit mériter sa place dans le faisceau : il fabrique des 6 par construction');
   assert.equal(redec.valeursJetees, 0, 'son palier REMPLACE « valeurs jetées »');
   // ★ Et la dilution mord : vingt et un chiffres sont absorbés, le compteur en
   //   pèse une fraction — « presque négligeable, vu le nombre d'additions ».

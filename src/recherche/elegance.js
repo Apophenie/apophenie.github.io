@@ -1010,6 +1010,13 @@ export const BAREME = {
    * redécoupant de manière à ce que ça tombe sur 6 le plus souvent possible. »
    * — l'auteur, et le mot est de lui.
    *
+   * ⚠️ **Ce palier survit à la sortie des ficelles.** L'auteur a demandé plus
+   * tard que `mrd` « soit retiré des ficelles pour devenir un opérateur à 0.2 de
+   * notoriété » (voir `FICELLES`). Il n'y est donc plus, il n'évince plus et ne
+   * se fait plus évincer — mais son geste n'a pas changé d'un pouce, et ce qui
+   * se paie ici, c'est le GESTE. Même partage que pour `mpf` et pour
+   * `m.egalisation` : sortir des ficelles n'est pas devenir gratuit.
+   *
    * ★ **Le TARIF le plus élevé des triches d'opérateur — et il n'est comparable
    * à aucun autre, parce qu'il est le seul (avec l'addition sélective) à être
    * DIVISÉ avant d'être facturé.** L'auteur n'a jamais comparé celui-ci aux
@@ -1163,6 +1170,40 @@ export const BAREME = {
    */
   EFFACEMENT_SANS_MOTIF: 520,
 
+  /**
+   * ★ **ÉCRIRE UN CHIFFRE EN TOUTES LETTRES — le seul geste qui remonte le
+   *   courant.**
+   *
+   * « Avec un gros malus puisqu'on essaie plutôt d'aller en sens inverse, mais
+   * occasionnellement ça peut dépanner […] c'est plutôt à considérer comme une
+   * ficelle. » (l'auteur)
+   *
+   * Tout le catalogue lit du texte pour en tirer des nombres. Celui-ci rend des
+   * lettres à un nombre, et ces lettres-là ne viennent pas de la saisie : elles
+   * viennent de nous. Ce n'est pas un effacement — rien ne disparaît —, ce n'est
+   * pas une absorption — rien n'est additionné — et ce n'est pas un rejet de
+   * minorité. C'est une RÉÉCRITURE, et c'est le quatrième genre de ficelle.
+   *
+   * ★ **Un FORFAIT, par emploi, et pas un tarif par valeur.** Les autres
+   * ficelles se comptent par ce qu'elles font disparaître ; celle-ci ne fait
+   * disparaître qu'une chose, le nombre, quel qu'il soit. Écrire « six » ne
+   * coûte pas moins qu'écrire « quatre » : ce qui se paie est le CHANGEMENT DE
+   * SENS, une fois, à chaque fois qu'on le prend.
+   *
+   * ★ **Au niveau de la retouche (420), et c'est l'analogie qui le fixe.** Une
+   * retouche réécrit un mot de la saisie avant de le lire ; celle-ci réécrit un
+   * nombre qu'on venait de calculer. Les deux ajoutent au raisonnement une
+   * étape qui ne prouve rien par elle-même, et les deux se paient une fois par
+   * emploi — même geste, même unité, même prix. En dessous
+   * d'`EFFACEMENT_SANS_MOTIF` (520), qui, lui, fait perdre de la matière.
+   *
+   * ⚠️ MESURÉ sur les huit saisies témoins : à ce tarif, aucune tête de liste
+   * ne change, et l'opérateur ne s'invite dans aucune. C'est exactement ce que
+   * l'auteur en attend — « occasionnellement ça peut dépanner ».
+   */
+  ECRITURE_EN_LETTRES: 420,
+
+
   // ── Comment le crédit redescend sur le score de conviction ─────────────────
 
   /**
@@ -1288,6 +1329,7 @@ export const NATURE = Object.freeze({
   DECIMATION: { sens: -1, famille: 'elegance' },
   ADDITION_SELECTIVE: { sens: -1, famille: 'elegance' },
   REDECOUPAGE: { sens: -1, famille: 'elegance' },
+  ECRITURE_EN_LETTRES: { sens: -1, famille: 'elegance' },
   REARRANGEMENT: { sens: -1, famille: 'elegance' },
 
   // ── ni bonus ni malus : des bornes, qui ne produisent aucune ligne
@@ -1359,7 +1401,34 @@ export const FICELLES = Object.freeze({
   //    devenir gratuite, c'est cesser d'être traitée en suspecte.
   'm.unRangSurDeux': 'decimation',
   'm.additionSelective': 'additionSelective',
-  'm.redecoupageChoisi': 'redecoupage',
+  // ★ La troisième, et d'un genre à elle : elle ne jette rien et n'absorbe
+  //   rien, elle RÉÉCRIT — un nombre redevient du texte. « C'est plutôt à
+  //   considérer comme une ficelle » (l'auteur), et c'en est une au sens
+  //   posé en tête de cette table : elle aboutit quel que soit le mot, tout
+  //   chiffre ayant un nom.
+  'm.chiffreEnLettres': 'ecritureEnLettres',
+  // ★ **`m.redecoupageChoisi` N'EN FAIT PLUS PARTIE** — « `mrd`, l'idée est là,
+  //   à retirer des ficelles pour en faire un opérateur à 0.2 de notoriété »
+  //   (l'auteur). C'est le même mouvement que pour `mpf` et pour `m.egalisation`
+  //   avant lui, et il se lit à la définition posée en tête de cette table : une
+  //   ficelle ABOUTIT quel que soit le mot. Le redécoupage, lui, refuse de
+  //   s'appliquer dès qu'il ne gagne pas de 6-ou-9, et il refuse en deçà de
+  //   vingt-cinq chiffres — sur la quasi-totalité des saisies, il ne se propose
+  //   même pas.
+  //
+  //   Ce qu'il garde, et ce sont les deux moitiés de la phrase :
+  //
+  //    · le palier `REDECOUPAGE`, compté par chiffre absorbé et dilué par le
+  //      nombre d'additions, exactement comme avant — voir
+  //      `ABSORBENT_PAR_ADDITION`. Sortir des ficelles n'est pas devenir
+  //      gratuit ;
+  //    · sa place dans `A_MERITER_SA_PLACE`, parce que la question du faisceau
+  //      n'est pas celle du barème : il produit des 6 EN MASSE par construction,
+  //      ce qui est précisément le critère de cette table-là.
+  //
+  //   Ce qu'il perd : il cesse d'être évinçable et d'évincer (`nbFicelles`,
+  //   `assemblage.js`), et il redevient éligible à la seconde suggestion, celle
+  //   qui met en avant le NOMBRE de séries (`index.js › selectionner`).
   // ⚠️ `effacementSansMotif` n'a pas encore d'opérateur : la scission du geste
   //    de `m36` (couronner / effacer) est en cours ailleurs. Inscrire ici
   //    l'identifiant de la moitié « effacer » suffira à brancher le palier.
@@ -1396,13 +1465,33 @@ export const FICELLES = Object.freeze({
 const ECARTEMENTS = new Set(['majorite', 'decimation', 'effacementSansMotif']);
 
 /**
- * ★ Les ficelles qui ABSORBENT par ADDITION — leur peine se dilue.
+ * ★ Les ficelles qui RÉÉCRIVENT — leur peine est un forfait, par emploi.
  *
- * Ce sont les deux seules dont l'auteur ait dit que le malus devait fondre avec
- * le nombre d'additions (voir `dilution`). Elles ne jettent rien : chaque
- * chiffre entre dans une somme et ressort dedans.
+ * Ni l'unité de `VALEUR_JETEE` (rien ne disparaît) ni celle de la dilution
+ * (rien n'est additionné) : le geste ne se décompose pas, il se prend ou ne se
+ * prend pas. On compte donc les fois où on l'a pris.
  */
-const ABSORPTIONS_ADDITIVES = new Set(['additionSelective', 'redecoupage']);
+const REECRITURES = new Set(['ecritureEnLettres']);
+
+/**
+ * ★ CE QUI ABSORBE PAR ADDITION — par identifiant d'opérateur, ficelle ou non.
+ *
+ * Ce sont les deux gestes dont l'auteur ait dit que le malus devait fondre avec
+ * le nombre d'additions (voir `dilution`). Ils ne jettent rien : chaque chiffre
+ * entre dans une somme et ressort dedans.
+ *
+ * ★ **La table est distincte de `FICELLES`, et depuis peu.** Les deux se
+ * confondaient tant que les deux seuls absorbeurs étaient aussi les deux
+ * dernières ficelles. `m.redecoupageChoisi` est sorti des ficelles sur
+ * arbitrage de l'auteur ; son geste, lui, n'a pas changé d'un pouce et se paie
+ * toujours. Séparer les deux tables est la seule façon d'écrire cela sans
+ * mentir d'un côté ou de l'autre — c'est déjà ce qui a été fait pour
+ * `A_MERITER_SA_PLACE`, et pour la même raison.
+ */
+const ABSORBENT_PAR_ADDITION = Object.freeze({
+  'm.additionSelective': 'additionSelective',
+  'm.redecoupageChoisi': 'redecoupage',
+});
 
 /**
  * ★ Les ficelles qui ÉCARTENT, par identifiant d'opérateur — publié pour
@@ -1411,8 +1500,8 @@ const ABSORPTIONS_ADDITIVES = new Set(['additionSelective', 'redecoupage']);
  * Le rendement (`score.js › rendementSix`) lit, POUR CELLES-LÀ SEULEMENT, le
  * vecteur le plus large du chemin plutôt que le dernier : les noter sur ce
  * qu'il reste les récompenserait d'avoir jeté davantage. Le raisonnement
- * s'arrête là où l'écartement s'arrête — une ficelle qui ABSORBE (`mad`,
- * `mrd`) ne jette rien, et sa ligne de chiffres momentanément élargie n'est pas
+ * s'arrête là où l'écartement s'arrête — un geste qui ABSORBE (`mad`, ficelle,
+ * `mrd`, qui ne l'est plus) ne jette rien, et sa ligne momentanément élargie n'est pas
  * du gaspillage : c'est le même nombre, écrit autrement, le temps d'une
  * addition. La lui compter au dénominateur lui reprocherait précisément d'avoir
  * MONTRÉ son calcul.
@@ -1527,10 +1616,20 @@ export const UNIFORMISENT = Object.freeze(new Set(['m.egalisation']));
  * et c'est elle que le faisceau consulte. Une ficelle y est par définition ;
  * l'égalisation y est parce qu'elle réécrit la ligne ENTIÈRE d'un geste, ce qui
  * n'est pas une performance mais un changement de sujet.
+ *
+ * ★ **Et le redécoupage y reste alors qu'il vient de quitter les ficelles.**
+ *   C'est le cas d'école qui justifie la scission : sa découpe est CHOISIE pour
+ *   tomber sur 6 ou sur 9 le plus souvent possible — il n'y a pas, dans tout le
+ *   catalogue, de geste qui produise plus de 6 par construction. Le retirer
+ *   d'ici en même temps que des ficelles lui aurait rendu, d'un seul mouvement,
+ *   le plafond du faisceau — c'est-à-dire le seul levier qui ait jamais agi sur
+ *   ce genre de voie. L'auteur a demandé qu'il cesse d'être traité en ficelle,
+ *   pas qu'il cesse de mériter sa place.
  */
 export const A_MERITER_SA_PLACE = Object.freeze(new Set([
   ...Object.keys(FICELLES),
   ...UNIFORMISENT,
+  'm.redecoupageChoisi',
 ]));
 
 /**
@@ -1853,8 +1952,22 @@ export function compterTraductionsDivergentes(parts) {
  */
 const porteUneReglette = (op) => !!(op && op.table);
 
-/** La moyenne — le seul opérateur qui arrondisse. */
-const MOYENNE = 'c.moyenne';
+/**
+ * ★ CE QUI ARRONDIT — la moyenne, et la médiane quand ils sont deux au centre.
+ *
+ * La liste disait « le seul opérateur qui arrondisse », et c'était vrai le jour
+ * où elle a été écrite. `c.mediane` divise elle aussi par deux dès que le compte
+ * est pair, et sa division ne tombe pas toujours juste.
+ *
+ * ★ **Mais elle n'arrondit pas sur les MÊMES nombres.** La moyenne divise toute
+ * la ligne ; la médiane ne divise que les un ou deux qui restent au centre. Ce
+ * sur quoi l'arrondi se mesure est donc PUBLIÉ par l'opérateur (`arrondiSur`) —
+ * même doctrine que le décalage d'un César ou les additions d'une triche : le
+ * barème lit ce que l'opérateur déclare, il ne le devine pas de son vecteur
+ * d'entrée. Sans ce champ, on retombe sur la ligne entière, c'est-à-dire sur la
+ * lecture de la moyenne — ce qui est exact pour elle et pour elle seule.
+ */
+const ARRONDISSENT = new Set(['c.moyenne', 'c.moyenneDivisee', 'c.mediane']);
 
 /** `natureOperandes` de `combinateurs.js`, relu ici (un test gèle l'accord). */
 const tientEnUnChiffre = (v) => Number.isInteger(v) && Math.abs(v) <= 9;
@@ -1870,7 +1983,7 @@ export function classeDeTransformation(op, avant) {
     const vs = avant && Array.isArray(avant.valeur) ? avant.valeur : [];
     return vs.length && vs.every(tientEnUnChiffre) ? 'chiffres' : 'nombres';
   }
-  if (op.id === MOYENNE) return 'moyenne';
+  if (ARRONDISSENT.has(op.id)) return 'moyenne';
   if (MIN_MAX.has(op.id)) return 'minmax';
   if (porteUneReglette(op)) return 'lettres';
   return 'autre';
@@ -2065,6 +2178,8 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     redecoupage: 0,
     // ★ le sommet de l'échelle, en attente d'un opérateur (voir le barème).
     effacementSansMotif: 0,
+    // ★ le chiffre réécrit en toutes lettres — un forfait, par emploi.
+    ecritureEnLettres: 0,
     // ★ ce qu'un tri croissant déplace, valeur par valeur.
     rearrangement: 0,
     triptyqueVu: false,
@@ -2098,7 +2213,10 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       if (classe === 'nombres') b.additionsNombres++;
       else if (classe === 'minmax') b.minMax++;
       else if (classe === 'lettres') b.lettreVersLettre++;
-      else if (classe === 'moyenne') b.arrondi += amplitudeArrondi(avant.valeur);
+      else if (classe === 'moyenne') {
+        b.arrondi += amplitudeArrondi(typeof op.arrondiSur === 'function'
+          ? op.arrondiSur(avant.valeur) : avant.valeur);
+      }
     }
     classePrecedente = classe;
 
@@ -2132,11 +2250,20 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     // le tri qu'elle est censée valoir mieux que.
     const ficelle = op.id && Object.prototype.hasOwnProperty.call(FICELLES, op.id)
       ? FICELLES[op.id] : null;
+    // …et l'absorption par addition se compte que le geste soit une ficelle ou
+    // non : `mad` en est une, `mrd` n'en est plus une, tous deux additionnent.
+    const absorption = op.id
+      && Object.prototype.hasOwnProperty.call(ABSORBENT_PAR_ADDITION, op.id)
+      ? ABSORBENT_PAR_ADDITION[op.id] : null;
     if (ECARTEMENTS.has(ficelle)) {
       // Ce que la ruse ÉCARTE, à son tarif. Même unité que `VALEUR_JETEE` :
       // une valeur calculée, montrée, puis écartée.
       b[ficelle] += Math.max(0, avant.valeur.length - apres.valeur.length);
-    } else if (ABSORPTIONS_ADDITIVES.has(ficelle)) {
+    } else if (REECRITURES.has(ficelle)) {
+      // Ce que la ruse RÉÉCRIT : un forfait, une fois par emploi. Il n'y a
+      // rien à compter d'autre — le geste ne se fait pas à moitié.
+      b[ficelle] += 1;
+    } else if (absorption) {
       // Ce que la ruse ABSORBE : le nombre de CHIFFRES qui disparaissent dans
       // une addition. `[6,5,16,8]` porte cinq chiffres et n'en rend que quatre
       // termes : un chiffre a été absorbé, donc une sélection a été faite.
@@ -2151,7 +2278,7 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       let chiffres = 0;
       for (const v of avant.valeur) chiffres += String(Math.abs(v)).length;
       const absorbes = Math.max(0, chiffres - apres.valeur.length);
-      b[ficelle] += typeof op.additions === 'function'
+      b[absorption] += typeof op.additions === 'function'
         ? dilution(op.additions(avant.valeur)) : absorbes * 1000;
     }
 
@@ -2181,7 +2308,7 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     //    écartées, et la scène les MONTRE tomber. Les ficelles en sont exclues :
     //    elles viennent de payer, ci-dessus, ce même rétrécissement. Les
     //    agrégations aussi : elles n'écartent rien, elles absorbent.
-    if (!ficelle && !agrege && avant.type === 'NUMS' && apres.type === 'NUMS'
+    if (!ficelle && !absorption && !agrege && avant.type === 'NUMS' && apres.type === 'NUMS'
       && apres.valeur.length < avant.valeur.length) {
       const jetees = avant.valeur.length - apres.valeur.length;
       // ★ **MAIS TOUT REJET N'A PAS LA MÊME EXCUSE.**
@@ -2466,6 +2593,8 @@ export function bilanApproche(approche, ctx = {}) {
     redecoupage: 0,
     // ★ le sommet de l'échelle, en attente d'un opérateur (voir le barème).
     effacementSansMotif: 0,
+    // ★ le chiffre réécrit en toutes lettres — un forfait, par emploi.
+    ecritureEnLettres: 0,
     // ★ ce qu'un tri croissant déplace, valeur par valeur.
     rearrangement: 0,
     // ★ combien de portées ont été RÉÉCRITES avant que le reste ne les lise.
@@ -2517,7 +2646,15 @@ export function bilanApproche(approche, ctx = {}) {
       if (!Number.isFinite(op.decalage)) continue;
       // La famille d'outil, c'est ce qui reste du code sans son réglage :
       // `fr14` et `fr9` sont deux réglages de `fr`.
-      const outil = String(op.code).replace(/\d+$/, '');
+      //
+      // ★ …sauf quand l'opérateur la PUBLIE (`familleOutil`), et il le fait dès
+      //   que le code ne la dit pas. `cal` et `cali` sont les deux phases d'une
+      //   même alternance — `+-+-` et `-+-+` —, mais `cali` ne se lit pas comme
+      //   « `cal` réglé sur 1 » : son réglage est dans les LETTRES du code, pas
+      //   dans un nombre en fin de mot. Deviner l'aurait manqué en silence, ce
+      //   qui est précisément le défaut que ce poste existe pour couvrir.
+      const outil = typeof op.familleOutil === 'string' && op.familleOutil
+        ? op.familleOutil : String(op.code).replace(/\d+$/, '');
       if (!reglages.has(outil)) reglages.set(outil, new Set());
       reglages.get(outil).add(op.decalage);
     }
@@ -2560,6 +2697,7 @@ export function bilanApproche(approche, ctx = {}) {
     b.additionSelective += bc.additionSelective;
     b.redecoupage += bc.redecoupage;
     b.effacementSansMotif += bc.effacementSansMotif;
+    b.ecritureEnLettres += bc.ecritureEnLettres;
     b.rearrangement += bc.rearrangement;
     b.six += bc.six;
     b.montrees += bc.largeur;
@@ -2759,6 +2897,8 @@ export function detailDuCredit(b, poids) {
     // ── ★ les ficelles assumées, au tarif qui remplace `VALEUR_JETEE`
     ['★ effacement sans motif', 'EFFACEMENT_SANS_MOTIF', b.effacementSansMotif || 0,
       B.EFFACEMENT_SANS_MOTIF * (b.effacementSansMotif || 0)],
+    ['chiffre écrit en toutes lettres', 'ECRITURE_EN_LETTRES', b.ecritureEnLettres || 0,
+      B.ECRITURE_EN_LETTRES * (b.ecritureEnLettres || 0)],
     ['le plus fréquent l’emporte', 'MAJORITE', b.majorite, B.MAJORITE * b.majorite],
     // ★ Ces deux-là sont comptés en MILLIÈMES d'un chiffre absorbé — leur peine
     //   est diluée par le nombre d'additions qui se suivent (`dilution`), et

@@ -432,6 +432,13 @@ test('★ intégration — les quatre transformations du 27 août se MONTRENT',
       ['Le chat dort sur le tapis rouge', 'fl+tca+mx6+mrn+mr39', 'mr39', 'flip180'],
       ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mtri+mcc', 'mcc', 'substitute'],
       ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mrd', 'mrd', 'partition'],
+      // ★ La médiane, dans ses DEUX formes — c'est la parité du compte qui
+      //   décide, et les deux doivent tenir. « Le chat dort » donne quatre
+      //   nombres (deux au centre, donc la fraction), « Le chat » trois (un
+      //   seul centre, donc l'accolade nue). Ce qui est commun aux deux, et ce
+      //   que la primitive nommée vérifie, c'est l'annulation par paires.
+      ['Le chat dort', 'fl+tca+m14+cme', 'cme', 'collapse'],
+      ['Le chat', 'fl+tca+m14+cme', 'cme', 'collapse'],
     ];
 
     for (const [saisie, codes, code, primitive] of cas) {
@@ -478,11 +485,16 @@ test('★ la chaîne du 27 août se rejoue sur les chiffres de l’auteur', () =
     'les 32 chiffres de la section 7.4');
 
   // 2. le redécoupage : sa découpe à la main rend six 6 sur douze paquets ;
-  //    l'optimisation en rend huit sur onze, dont six d'affilée.
+  //    l'optimisation en rend ONZE 6-ou-9 sur quinze signes, là où la ligne de
+  //    départ n'en portait que quatre. Le compte se lit désormais en 6 **et**
+  //    en 9 — « garder les 9 et les 6 (mr9 ou mr39 convertiront les 9 en 6) »
+  //    (l'auteur) —, et c'est ce qui a corrigé le calcul de cet opérateur.
   const redec = chaine(avant, 'mrd');
-  assert.deepEqual(redec.valeur, [6, 3, 6, 6, 6, 6, 6, 6, 3, 6, 9]);
-  assert.equal(redec.valeur.filter((v) => v === 6).length, 8,
-    'huit 6, contre six à la découpe manuelle');
+  const gagnants = (vs) => vs.filter((v) => v === 6 || v === 9).length;
+  assert.deepEqual(redec.valeur, [1, 2, 6, 9, 6, 6, 9, 1, 5, 6, 9, 6, 9, 6, 9]);
+  assert.equal(gagnants(avant.valeur.join('').split('').map(Number)), 4,
+    'la ligne de départ ne porte que trois 6 et un 9');
+  assert.equal(gagnants(redec.valeur), 11, 'onze 6-ou-9, contre quatre au départ');
 
   // 3. …et sur SON vecteur à lui (`996696696969`), le tri puis les trios font
   //    exactement ce qu'il annonce, dans cet ordre.

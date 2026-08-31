@@ -11,13 +11,31 @@
  */
 
 import { def, etape, token, nomsTokens, enchainer } from './commun.js';
+// ★ Le comptage un-par-un est le MÊME geste que celui des mesures et des
+//   dénombrements : « les compter 1 par 1 de la même manière que juste avant »
+//   (l'auteur). On l'emprunte plutôt que d'en écrire un second.
+import { opComptage } from './combinateurs.js';
 import { NUM_MIN, NUM_MAX } from '../etat.js';
 import { lettresDuNomChiffre, NOM_CHIFFRE_FR } from '../tables/alphabet.js';
 import { bilingue, dire } from '../i18n.js';
 
+/**
+ * ★ **À L'INTERROGATIF, comme les autres compteurs.** « `jnf` devrait être
+ * "combien de caractères ?" et les compter 1 par 1 de la même manière que juste
+ * avant » (l'auteur) — « juste avant », dans la démonstration qu'il regardait,
+ * c'est `cnj`, « Combien de caractères ? ». Le libellé prend donc la même forme.
+ *
+ * Il dit « lettres » et non « caractères », et c'est la seule liberté prise sur
+ * sa phrase : ce qui est compté ici n'est pas une saisie mais un MOT — celui du
+ * chiffre —, et « combien de caractères ? » n'aurait pas dit de quoi. Le geste,
+ * lui, est exactement celui qu'il demande.
+ */
 const LIB_JOKER = bilingue(
-  'On compte les lettres du nom du chiffre',
-  'Count the letters in the French name of the digit',
+  'Combien de lettres dans son nom ?',
+  // ⚠️ « French » doit y figurer : la version anglaise NOMME l'obstacle plutôt
+  //    que d'inventer un équivalent qui n'existe pas (« four » a quatre
+  //    lettres). Un test le tient (`langues.test.js`).
+  'How many letters in its French name?',
 );
 
 const borne = (n) => (Number.isFinite(n) && Number.isInteger(n) && n >= NUM_MIN && n <= NUM_MAX ? n : null);
@@ -600,10 +618,9 @@ const brut = [
  */
 const JOKER = def({
   id: 'j.nomFrancais', code: 'jnf', famille: 'joker', from: 'NUM', to: 'NUM',
-  libelle: bilingue(
-    'On compte les lettres du nom du chiffre',
-    'Count the letters in the French name of the digit',
-  ),
+  // ⚠️ Le libellé de l'étape et celui de l'opérateur sont LA MÊME chaîne, et
+  //    c'est ce qui interdit qu'ils divergent — ils décrivent le même geste.
+  libelle: LIB_JOKER,
   regle: bilingue(
     '« quatre » a six lettres — et le cycle 4, 6, 3, 5 passe toujours par 6',
     '"quatre" — French for four — has six letters, and the cycle 4, 6, 3, 5 always runs through 6',
@@ -623,20 +640,50 @@ const JOKER = def({
     if (n === null || n === valeur) return null;
     return { valeur: n, traces: [traces[0] || []] };
   },
+  /**
+   * ★ **LE MOT S'ÉCRIT, PUIS SES LETTRES SE COMPTENT — UNE PAR UNE.**
+   *
+   * « Les compter 1 par 1 de la même manière que juste avant » (l'auteur). Le
+   * geste faisait autre chose : le chiffre devenait le mot D'UN SEUL BLOC, une
+   * accolade se fermait dessus, et le compte paraissait. On voyait donc un
+   * nombre remplacer un mot sans avoir rien compté — l'étape AFFIRMAIT que
+   * « quatre » a six lettres, elle ne le montrait pas.
+   *
+   * Deux temps, et ce sont ceux de tous les comptages du site :
+   *
+   *  ① le nombre devient les LETTRES de son nom, une par jeton. C'est le même
+   *    `substitute` qui écrit un nombre chiffre à chiffre (`mrd`) ; ici les
+   *    jetons créés sont des lettres, et la ligne devient un mot qu'on peut
+   *    lire ;
+   *  ② `opComptage` — l'accolade se ferme, chaque lettre descend dans sa pointe
+   *    et fait avancer le compteur d'un cran. C'est LE geste de compter, celui
+   *    des mesures (`mappeurs.js`) et des dénombrements (`combinateurs.js`),
+   *    emprunté et non recopié.
+   *
+   * ⚠️ **Les accents ne comptent pas, et cela se voit maintenant.** « zéro »
+   * s'écrit avec quatre lettres dont un `é` ; `lettresDuNomChiffre` les compte
+   * sans accent, donc quatre. L'accolade embrasse les quatre jetons et les
+   * compte tous les quatre : ce qui est montré est ce qui est compté (§0.3).
+   */
   steps: (avant, apres, ctx) => {
     const sortie = nomsTokens(ctx, 1);
     const nom = NOM_CHIFFRE_FR[avant.valeur];
+    const lettres = [...nom];
+    const ids = lettres.map((_, i) => `${ctx.cle}_l${i}`);
+    const titre = dire(LIB_JOKER, ctx.langue);
     const legende = ctx.langue === 'en'
       ? `"${nom}" has ${apres.valeur} letters`
       : `« ${nom} » : ${apres.valeur} lettres`;
-    return [etape(ctx, dire(LIB_JOKER, ctx.langue), legende, enchainer([
-      { op: 'substitute', pairs: [{ target: ctx.ids[0], to: token(`${ctx.cle}_mot`, nom, 'letter') }], dur: 700 },
-      { op: 'group', targets: [`${ctx.cle}_mot`], dur: 600 },
+    return [etape(ctx, titre, legende, enchainer([
       {
         op: 'substitute',
-        dur: 700,
-        pairs: [{ target: `${ctx.cle}_mot`, to: token(sortie[0], apres.valeur, 'number') }],
+        dur: 900,
+        pairs: [{
+          target: ctx.ids[0],
+          to: lettres.map((c, i) => token(ids[i], c, 'letter')),
+        }],
       },
+      opComptage({ ids, symbole: '#', libelle: titre, to: token(sortie[0], apres.valeur, 'number') }),
     ]))];
   },
 });

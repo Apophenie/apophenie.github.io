@@ -44,5 +44,30 @@ export function plan(ctx) {
     }
   }
 
-  insertOperatorTokens(ctx, { between, ids, glyph, glyphs, at: 0, dur: ctx.dur });
+  // ★ `tete` (facultatif) : un signe DEVANT le premier nombre.
+  //
+  //   Il n'y en avait pas besoin tant qu'une somme commençait toujours par
+  //   ajouter : `v₀ − v₁ + v₂` ne signe que ce qui suit le premier terme.
+  //   L'alternance de phase inverse, elle, commence par RETRANCHER
+  //   (`− v₀ + v₁ − v₂`, `combinateurs.js › c.alterneeInverse`), et ce signe-là
+  //   n'est pas une décoration : sans lui, l'écran montrerait une addition et
+  //   la case résultat annoncerait une soustraction — c'est-à-dire le calcul
+  //   faux que CONTRACTS §0.3 interdit d'afficher.
+  //
+  //   C'est une OPTION de cette primitive, pas une primitive de plus : le
+  //   vocabulaire reste fermé (§3.1). Et l'émetteur nomme ce jeton comme il
+  //   nomme les autres — c'est lui qui devra le faire disparaître avec sa
+  //   somme (`consume`).
+  const tete = ctx.op.tete;
+  if (tete !== undefined) {
+    if (typeof tete !== 'string' || !tete) fail(`${ctx.where}« tete », s'il est fourni, doit être un signe (ex. « − »).`);
+    if (typeof ctx.op.teteId !== 'string' || !ctx.op.teteId) {
+      fail(`${ctx.where}« tete » exige « teteId » : c'est l'émetteur qui nomme les tokens qu'il crée (CONTRACTS §3).`);
+    }
+  }
+
+  insertOperatorTokens(ctx, {
+    between, ids, glyph, glyphs, at: 0, dur: ctx.dur,
+    ...(tete ? { tete, teteId: ctx.op.teteId } : {}),
+  });
 }

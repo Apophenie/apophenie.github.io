@@ -294,6 +294,27 @@ export function insertOperatorTokens(ctx, spec) {
   //   et presque rien entre le signe et son nombre.
   const gap = ctx.layoutOpts.gap;
   const created = [];
+  // ★ LE SIGNE DE TÊTE — celui qui porte le PREMIER terme, quand il est
+  //   retranché. Même règle que les autres, à ceci près qu'il n'a personne à sa
+  //   gauche : il se pose devant le premier nombre, avec l'écart de terme
+  //   AVANT lui (il ouvre la ligne) et presque rien entre lui et son nombre.
+  if (spec.tete) {
+    const idx = ctx.scene.flowIndex(between[0]);
+    if (idx < 0) fail(`${ctx.where}« ${between[0]} » n'est pas dans le flux de layout.`);
+    const node = ctx.scene.create({
+      id: spec.teteId,
+      text: spec.tete,
+      kind: 'operator',
+      role: 'text',
+      inFlow: true,
+      insertAt: idx,
+      gapBefore: gap * ECART_TERMES,
+      base: { opacity: 0, scale: 0.5, fill: ctx.palette.phos },
+    }, { where: ctx.where });
+    const premier = ctx.scene.get(between[0]);
+    if (premier) premier.gapBefore = gap * COLLE_AU_SIGNE;
+    created.push(node.id);
+  }
   for (let i = 0; i < between.length - 1; i++) {
     const leftIdx = ctx.scene.flowIndex(between[i]);
     if (leftIdx < 0) fail(`${ctx.where}« ${between[i]} » n'est pas dans le flux de layout.`);
@@ -579,8 +600,15 @@ export function accumulate(ctx, spec) {
   //   superposerait deux, décalées, sur la même ligne. On réutilise donc celle
   //   qui promet déjà — son point de résultat est enregistré sur chacune de ses
   //   sources (`scene.ancreDe`), et il reste valable tant que le step dure.
+  // ★ `avant` — ce que l'accolade doit embrasser À GAUCHE du premier opérande.
+  //   Un signe de tête (`− v₀ + v₁ …`) appartient au calcul : le laisser hors
+  //   de l'accolade donnerait à lire « − { v₀ + v₁ } », qui n'est pas le
+  //   calcul fait. L'accolade s'étend donc jusqu'à lui — et lui seul : les
+  //   VALEURS restent `operands`, ce qui change est la seule portée du dessin.
+  const embrasses = Array.isArray(spec.avant) && spec.avant.length
+    ? [...spec.avant, ...operands] : operands;
   const dejaLa = spec.accoladeExistante ? ctx.scene.ancreDe(operands[0]) : null;
-  const acc = dejaLa ? null : tracerAccolade(ctx, operands, {
+  const acc = dejaLa ? null : tracerAccolade(ctx, embrasses, {
     shape: 'brace',
     tighten: 0.66,
     // Les signes déjà posés entre les termes font le travail du soulignement,

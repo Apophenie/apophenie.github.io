@@ -35,6 +35,9 @@ export function plan(ctx) {
   // additionne, si l'on multiplie ou si l'on dénombre (voir `group.js`).
   const res = accumulate(ctx, {
     operands, consume, to, at: 0, dur: ctx.dur, partials,
+    // ★ `avant` — les signes déjà posés DEVANT le premier opérande, que
+    //   l'accolade doit embrasser avec lui (voir `insertOperators › tete`).
+    ...(Array.isArray(ctx.op.avant) ? { avant: ctx.scene.resolve(ctx.op.avant, ctx.where) } : {}),
     // ★ « accolade: 'existante' » — le calcul se glisse SOUS une accolade déjà
     //   tracée dans le même step, au lieu d'en poser une seconde par-dessus.
     accoladeExistante: ctx.op.accolade === 'existante',
