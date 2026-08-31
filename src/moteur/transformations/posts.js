@@ -153,6 +153,90 @@ function etapeSubstitution(spec) {
 }
 
 /**
+ * ★ **LE PLAFOND DE RANGÉES D'UNE TABLE DES RESTES.**
+ *
+ * ⚠ **Miroir** de `MODULO_LIGNES_MAX` (`src/visuel/assets.js`), pour la même
+ * raison que `DUREE_OP` et `POIDS_RAMASSAGE` : le moteur arithmétique ne
+ * dépend pas du moteur visuel (CONTRACTS §1), mais c'est lui qui décide de
+ * monter la table ou de s'en passer. Un test croisé échoue si les deux
+ * divergent — sans quoi l'émetteur demanderait une table que le dessin ne sait
+ * pas rendre lisible, et personne ne le signalerait.
+ *
+ * Le nombre est **mesuré**, pas choisi : il est le plus grand pour lequel le
+ * recul de caméra laisse les nombres de la grille au moins aussi lisibles que
+ * le plus petit texte qu'un décor déployé affiche déjà. Le détail du calcul et
+ * le tableau des reculs sont côté visuel, là où ils se vérifient.
+ */
+export const MODULO_LIGNES_MAX = 8;
+
+/**
+ * ★ **LE RESTE SE MONTRE, IL NE S'ANNONCE PAS.**
+ *
+ * `pm9` et `pm10` se contentaient du geste générique : `44` s'efface, `4`
+ * paraît, et « le reste de la division par 10 » restait une affirmation. C'est
+ * exactement le grief de CONTRACTS §3.1 contre les quatorze conversions par
+ * table qui « affirmaient sans montrer » — et le remède est le même : **on
+ * montre la table**.
+ *
+ * « Une table de 0 à N (modulo−1) par ligne, avec la quotation en fixe comme
+ * pour les azerty colonne, et l'énumération des nombres façon touche de
+ * clavier » (l'auteur). La mise en page EST la démonstration : les entiers
+ * s'écrivent en rangées de `m`, et la COLONNE dans laquelle un nombre tombe est
+ * son reste. Le nombre vole vers sa case, la colonne s'allume avec son barème,
+ * et le reste redescend **de la quotation** — de l'endroit où il est écrit, et
+ * de nulle part ailleurs.
+ *
+ * ★ **Trois cas retombent sur le geste sobre**, et chacun pour une raison :
+ *
+ *  · un nombre NÉGATIF — la table est faite d'entiers naturels, et `−44` n'y a
+ *    pas de case. Dessiner la table de `44` pour y chercher `−44` ferait lire
+ *    au spectateur une correspondance qui n'y est pas ;
+ *  · plus de `MODULO_LIGNES_MAX` rangées — la table serait montrée sans être
+ *    lisible, c'est-à-dire montrée pour rien (voir ci-dessus) ;
+ *  · un modulo qui n'en est pas un (`m < 2`), par sûreté.
+ *
+ * ★ **Mesure, plutôt que supposition** : sur douze saisies variées et 97
+ * approches produites, `pm10` paraît quatre fois — sur 26, 36 et 66 — et `pm9`
+ * jamais. Le plafond de huit rangées (jusqu'à 71 en modulo 9, 79 en modulo 10)
+ * couvre donc tout ce qui s'est joué réellement, et le repli reste un
+ * garde-fou, pas un cas courant.
+ *
+ * ★ **Et la « roue codeuse » n'a pas lieu d'être**, mesure à l'appui :
+ * `pm9` et `pm10` exigent `|n| > 9` et rendent un chiffre — ils ne peuvent
+ * donc jamais s'enchaîner directement, et aucune des 97 approches n'en a
+ * enchaîné deux. La table qui monte ou descend d'une conversion à l'autre
+ * répondrait à un cas qui ne se présente pas.
+ */
+function etapeModulo(spec, m) {
+  return (avant, apres, ctx) => {
+    const v = avant.valeur;
+    const lignes = Math.floor(v / m) + 1;
+    if (m < 2 || v < 0 || lignes > MODULO_LIGNES_MAX) return etapeSubstitution(spec)(avant, apres, ctx);
+    const sortie = nomsTokens(ctx, 1);
+    // La table est DÉRIVÉE : de 0 jusqu'au bout de la rangée où tombe le
+    // nombre, et pas une case de plus. Elle s'arrête là parce que c'est là que
+    // la démonstration s'arrête — montrer des rangées au-delà du nombre
+    // cherché n'apprendrait rien et coûterait du recul de caméra.
+    const entries = [];
+    for (let n = 0; n < lignes * m; n++) entries.push({ char: String(n), value: String(n % m) });
+    const titre = dire(spec.libelle, ctx.langue);
+    const quotient = Math.floor(v / m);
+    return [etape(ctx, titre, `${v} = ${quotient} × ${m} + ${apres.valeur}`, [{
+      op: 'table',
+      target: ctx.ids[0],
+      // Le jeton porte plusieurs chiffres : c'est à l'émetteur de dire quelle
+      // case chercher, la primitive ne devine pas au-delà d'un caractère.
+      letter: String(v),
+      disposition: 'modulo',
+      colonnes: m,
+      entries,
+      titre: dire(spec.outil || spec.libelle, ctx.langue),
+      to: token(sortie[0], apres.valeur, 'number'),
+    }], { hold: 500 })];
+  };
+}
+
+/**
  * ★ **LE COMPLÉMENT SE POSE AVANT DE SE FAIRE.**
  *
  * `p.complement9` se contentait du geste générique : `3` s'effaçait, `6`
@@ -329,6 +413,9 @@ const brut = [
     notoriete: 0.40, adHoc: 0.2,
     calcul: (n) => ((n % 9) + 9) % 9,
     exige: (n) => Math.abs(n) > 9,
+    outil: bilingue('Table des restes modulo 9', 'Table of remainders modulo 9'),
+    // La table des restes se montre : voir `etapeModulo`.
+    modulo: 9,
   },
   {
     id: 'p.retournement', code: 'pr9',
@@ -365,11 +452,16 @@ const brut = [
     notoriete: 0.35, adHoc: 0.25,
     calcul: (n) => ((n % 10) + 10) % 10,
     exige: (n) => Math.abs(n) > 9,
+    outil: bilingue('Table des restes modulo 10', 'Table of remainders modulo 10'),
+    // La table des restes se montre : voir `etapeModulo`.
+    modulo: 10,
   },
 ].map((spec) => {
-  const { calcul, exige, reduction, reductionUnique, geste, complement, ...reste } = spec;
+  const { calcul, exige, reduction, reductionUnique, geste, complement, modulo, ...reste } = spec;
   let steps;
-  if (complement !== undefined) {
+  if (modulo !== undefined) {
+    steps = etapeModulo(reste, modulo);
+  } else if (complement !== undefined) {
     steps = etapeComplement(reste, complement);
   } else if (geste === 'flip180') {
     steps = (avant, apres, ctx) => {

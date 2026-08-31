@@ -2790,13 +2790,15 @@ export function validerFormeOp(o) {
           && o.entries.every((e) => e && typeof e === 'object'
             && chaine(e.char) && e.value !== undefined && e.value !== null));
       if (!aTable) return '« entries » doit lister les correspondances {char, value}, ou « ordre » la réglette alphabétique';
-      // Trois mises en page, et chacune dit quelque chose : la réglette (une
+      // Quatre mises en page, et chacune dit quelque chose : la réglette (une
       // case = une lettre + sa valeur), la GLISSIÈRE (deux réglettes alignées,
       // celle du bas étant celle du haut déplacée — les chiffrements par
-      // substitution) et le pavé, seul endroit où une case porte plusieurs
-      // lettres parce que la touche 7 porte vraiment « PQRS ».
-      if (o.disposition !== undefined && !['reglette', 'glissiere', 'pave'].includes(o.disposition)) {
-        return '« disposition » doit valoir reglette, glissiere ou pave';
+      // substitution), le pavé, seul endroit où une case porte plusieurs
+      // lettres parce que la touche 7 porte vraiment « PQRS », et le MODULO
+      // (les entiers en rangées de m, le reste écrit une fois en tête de
+      // colonne — la colonne où un nombre tombe EST son reste).
+      if (o.disposition !== undefined && !['reglette', 'glissiere', 'pave', 'modulo'].includes(o.disposition)) {
+        return '« disposition » doit valoir reglette, glissiere, pave ou modulo';
       }
       if (o.teinte !== undefined && o.teinte !== 'valeur') return '« teinte » doit valoir valeur';
       if (o.cycle !== undefined && typeof o.cycle !== 'boolean') return '« cycle » doit être un booléen';

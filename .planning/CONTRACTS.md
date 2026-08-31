@@ -519,6 +519,7 @@ ici**, puis l'émettre.
 > | `reglette` | **une lettre** et sa valeur, ordre alphabétique | toutes sauf `mt9` ; `flt` |
 > | `glissiere` | **une lettre**, sur deux réglettes alignées | `fatb`, `fr13` |
 > | `pave` | **les lettres d'une touche**, à leur place sur le téléphone | `mt9` |
+> | `modulo` | **un nombre**, la colonne portant le reste | `pm9`, `pm10` |
 >
 > ★ **Seul le clavier téléphonique a plusieurs lettres pour un chiffre.** La
 > mise en page « une colonne par valeur, les lettres dessous » a été retirée du
@@ -695,6 +696,70 @@ ici**, puis l'émettre.
 > (`compile.test.js`, « les drapeaux de décor mutualisé ne changent pas le
 > geste »). Ce que le décor fait de plus — se déployer, se replier — n'est pas
 > une conversion, et n'a donc pas à en interdire une.
+>
+> ---
+>
+> *Amendement — `modulo`, et les conversions nombre → reste.*
+>
+> **Le constat, une quatrième fois.** `pm9` et `pm10` — « le reste de la
+> division par 9 », « on garde le dernier chiffre » — se jouaient par le geste
+> générique : le nombre s'efface, un autre paraît. Rien à l'écran ne permettait
+> de vérifier quoi que ce soit, exactement comme les quatorze conversions par
+> table avant elles. Même verdict, même remède : **on montre la table**.
+>
+> **La mise en page, parce que la règle EST une mise en page.** On écrit les
+> entiers en rangées de `m`, et la COLONNE dans laquelle un nombre tombe est
+> son reste :
+>
+> ```
+>   quotation   0  1  2  3  4  5  6  7  8      ← le barème, fixe
+>               0  1  2  3  4  5  6  7  8
+>               9 10 11 12 13 14 15 16 17
+>              18 19 20 21 22 23 24 25 26
+> ```
+>
+> « Une table de 0 à N (modulo−1) par ligne, avec la quotation en fixe comme
+> pour les azerty colonne, et l'énumération des nombres façon touche de
+> clavier » (l'auteur). Ce n'est donc **pas** une réglette cyclique : la valeur
+> n'est pas répétée dans chaque case, elle est écrite **une fois** en tête de
+> colonne, comme la réglette de colonnes du clavier AZERTY — le dessin est
+> littéralement le même trait. C'est ce qui fait qu'une colonne se lit comme
+> une colonne, et non comme quatre-vingts affirmations empilées. Le halo couvre
+> donc la **colonne**, quotation comprise, et le reste redescend **du barème** :
+> de l'endroit où il est écrit, et de nulle part ailleurs.
+>
+> ★ **Le dessin se refuse à qui ne le mérite pas**, comme `cycle` et
+> `glissiere`. Écrire le barème une fois en tête de colonne, c'est affirmer que
+> toute la colonne le partage : si deux nombres d'une même colonne n'ont pas le
+> même reste, la compilation échoue (`geo.discordance`, `visuel/assets.js`).
+>
+> ★ **Un plafond, MESURÉ.** La table est dessinée en entier, de 0 jusqu'au
+> nombre à convertir, et la caméra recule d'autant. Le plancher de lisibilité
+> existait déjà : le plus petit texte qu'un décor déployé affiche est la note
+> d'une case de réglette (14,4 unités de viewBox). Un nombre de la grille en
+> fait 22,08 : il reste donc au moins aussi lisible tant que le recul ne
+> descend pas sous 0,65 — soit **huit rangées** (recul mesuré : 0,69 à huit,
+> 0,63 à neuf). Au-delà, l'émetteur **ne monte pas la table** et retombe sur le
+> geste sobre, comme le nivellement retombe sur l'accolade quand il ne converge
+> pas. `MODULO_LIGNES_MAX` est mirroré côté arithmétique et un test croise les
+> deux.
+>
+> ⚠️ **Ce qui n'est PAS fait, et il faut le dire.** L'auteur demandait en outre
+> que « si la valeur cible n'est pas à l'écran, la table descende jusqu'à faire
+> apparaître la valeur à convertir », et qu'elle « monte ou descende comme une
+> roue codeuse » entre deux conversions d'affilée. Ni l'un ni l'autre n'existe.
+>
+> · **Le défilement** demande une fenêtre de découpe (`clip-path`), dont
+>   `dom.js` n'a aujourd'hui aucune notion : sans elle, une table qui glisse
+>   passe par-dessus la ligne de jetons. C'est exactement là que commence le
+>   plafond ci-dessus, et c'est le travail qui le repousserait.
+> · **La roue codeuse** répondrait à un cas qui ne se présente pas : `pm9` et
+>   `pm10` exigent `|n| > 9` et rendent un chiffre, ils ne peuvent donc jamais
+>   s'enchaîner directement. Mesuré sur douze saisies et 97 approches : `pm10`
+>   paraît quatre fois (sur 26, 36 et 66), `pm9` jamais, et jamais deux de
+>   suite.
+>
+> ---
 >
 > **Durées.** Une transformation de quatre lettres coûte **7,5 s** (2,2 s pour la
 > première, déploiement compris, puis 1,6 s par lettre, puis 2,1 s pour la

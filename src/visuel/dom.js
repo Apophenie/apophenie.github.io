@@ -703,6 +703,22 @@ function buildTable(node, fs, palette) {
       g.appendChild(keyLabel(l.text, l.cx, l.cy, l.size, TONES[l.tone] || palette.fg));
     }
   }
+  // ★ LA QUOTATION — le barème d'une table des restes, écrit une fois par
+  //   colonne, au-dessus de la grille. Le dessin est celui de la réglette de
+  //   colonnes du clavier AZERTY, au trait près : c'est le même objet, et
+  //   l'auteur l'a demandé comme tel — « la quotation en fixe comme pour les
+  //   azerty colonne ». Deux réglettes qui ne se ressembleraient pas ne se
+  //   liraient pas comme la même chose.
+  if (Array.isArray(geo.quotation) && geo.quotation.length) {
+    for (const t of geo.quotation) {
+      g.appendChild(keyLabel(String(t.n), t.cx, t.cy, fs * 0.38, palette.gold));
+    }
+    const y = geo.quotation[0].cy + fs * 0.26;
+    g.appendChild(el('path', {
+      d: `M ${round(-geo.width / 2)} ${round(y)} L ${round(geo.width / 2)} ${round(y)}`,
+      fill: 'none', stroke: palette.gold, 'stroke-width': 1, opacity: 0.4,
+    }));
+  }
   return g;
 }
 
