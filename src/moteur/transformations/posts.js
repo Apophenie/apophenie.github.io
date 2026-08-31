@@ -152,6 +152,78 @@ function etapeSubstitution(spec) {
   };
 }
 
+/**
+ * ★ **LE COMPLÉMENT SE POSE AVANT DE SE FAIRE.**
+ *
+ * `p.complement9` se contentait du geste générique : `3` s'effaçait, `6`
+ * paraissait, et pas un instant on ne voyait le neuf dont on prenait le
+ * complément. C'était la même faute que celle relevée sur `c.maxMoinsMin` —
+ * « une soustraction dont ni les deux termes ni le signe n'apparaissent
+ * jamais » —, et le remède est le même, à ceci près qu'il manque ici un
+ * opérande : le 9 n'est pas sur la ligne, il vient de la RÈGLE.
+ *
+ * « Si c'est un complément à 9, il devrait y avoir une accolade symbole/phrase
+ * "complément à 9" et le nombre se voit précédé de `9 −`, puis 9 descend sous
+ * l'accolade, puis `−N`, puis le résultat remonte » (l'auteur). Quatre temps,
+ * donc, et ce sont exactement ceux de `c.maxMoinsMin` :
+ *
+ *  ① le nombre se DÉPLOIE en `9` et lui-même — c'est le seul moment où le neuf
+ *    entre en scène, et il entre en naissant du nombre qu'il va réduire ;
+ *  ② le `−` s'intercale, la ligne écrit `9 − N` ;
+ *  ③ l'accolade se ferme, portant le signe sous sa pointe et la phrase à côté ;
+ *  ④ le 9 descend (le compteur affiche 9), le `−N` le suit (le compteur affiche
+ *    le reste), et le résultat remonte dans la ligne.
+ *
+ * ★ **Pourquoi `substitute` 1 → 2, et pourquoi ce n'est pas un mensonge.**
+ * Le vocabulaire est fermé (CONTRACTS §3.1) et aucune op ne sait faire paraître
+ * un opérande CONSTANT dans le flux : `insertOperators` en réclame déjà deux,
+ * `sum` ne pose que son résultat. `substitute` sait, lui, faire d'un jeton
+ * plusieurs — l'éclatement (`44` → `4`, `4`) et la résonance (le même 6 recopié
+ * trois fois). Poser le calcul en est un troisième usage, et il est du même
+ * ordre : les jetons d'arrivée naissent SUR le jeton de départ, la ligne les
+ * écarte ensuite, et rien n'apparaît qui ne vienne de quelque part. La seule
+ * chose qu'il faut lire à l'écran, c'est que le nombre s'est doublé d'un 9 —
+ * ce qui est précisément ce que la règle dit.
+ *
+ * ★ **Le contrôle croisé tient.** `sum` refuse d'afficher un total qui n'est
+ * pas celui qu'il annonce : les paliers `[9, 9−N]` doivent finir sur `to.text`,
+ * sans quoi la compilation échoue. Le compteur sous l'accolade montre donc
+ * littéralement le calcul, et non son résumé.
+ */
+function etapeComplement(spec, base) {
+  return (avant, apres, ctx) => {
+    const sortie = nomsTokens(ctx, 1);
+    const neuf = `${ctx.cle}base`;
+    const terme = `${ctx.cle}terme`;
+    const signe = `${ctx.cle}moins`;
+    const titre = dire(spec.libelle, ctx.langue);
+    return [etape(ctx, titre, `${base} − ${avant.valeur} = ${apres.valeur}`, enchainer([
+      {
+        op: 'substitute',
+        pairs: [{
+          target: ctx.ids[0],
+          to: [token(neuf, base), token(terme, avant.valeur)],
+        }],
+      },
+      { op: 'insertOperators', between: [neuf, terme], ids: [signe], glyph: '−' },
+      {
+        op: 'sum',
+        targets: [neuf, terme],
+        consume: [signe],
+        // Deux paliers, deux atterrissages : le 9 se pose, le terme le
+        // retranche. C'est le même compteur que l'écart (`c.maxMoinsMin`).
+        partials: [base, apres.valeur],
+        to: token(sortie[0], apres.valeur, 'number'),
+        // Le signe sous la pointe DIT l'opération ; la phrase à côté dit à quel
+        // titre on la fait. Une accolade nue ne distinguerait pas ce complément
+        // d'une soustraction quelconque.
+        symbol: `${base} −`,
+        label: titre,
+      },
+    ]), { hold: 400 })];
+  };
+}
+
 const brut = [
   {
     id: 'p.racineNumerique', code: 'prn',
@@ -247,6 +319,8 @@ const brut = [
     notoriete: 0.35, adHoc: 0.25,
     calcul: (n) => 9 - n,
     exige: (n) => n >= 0 && n <= 9,
+    // Le complément se POSE (`9 − n`) avant de se faire : voir `etapeComplement`.
+    complement: 9,
   },
   {
     id: 'p.modulo9', code: 'pm9',
@@ -293,9 +367,11 @@ const brut = [
     exige: (n) => Math.abs(n) > 9,
   },
 ].map((spec) => {
-  const { calcul, exige, reduction, reductionUnique, geste, ...reste } = spec;
+  const { calcul, exige, reduction, reductionUnique, geste, complement, ...reste } = spec;
   let steps;
-  if (geste === 'flip180') {
+  if (complement !== undefined) {
+    steps = etapeComplement(reste, complement);
+  } else if (geste === 'flip180') {
     steps = (avant, apres, ctx) => {
       const sortie = nomsTokens(ctx, 1);
       const legende = ctx.langue === 'en'

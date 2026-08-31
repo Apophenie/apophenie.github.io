@@ -645,6 +645,50 @@ test('★ les trois ficelles se MONTRENT — accolade nommée, additions ordinai
   }
 });
 
+/**
+ * ★ `pc9` POSE le calcul avant de le faire.
+ *
+ * Il se contentait du geste générique — `3` s'efface, `6` paraît — et le neuf
+ * dont on prend le complément n'entrait jamais en scène : la légende disait
+ * « 3 → 6 » et l'image montrait une substitution arbitraire. Le geste attendu
+ * est celui de `c.maxMoinsMin`, à ceci près que l'un des deux termes vient de
+ * la RÈGLE et non de la ligne. On vérifie donc les quatre temps, et surtout que
+ * le compteur sous l'accolade passe bien par 9 avant d'afficher le reste.
+ */
+test('★ pc9 — le complément se pose : « 9 − 3 », puis 9 descend, puis −3', () => {
+  const op = PAR_CODE.get('pc9');
+  const entree = U(3);
+  const apres = appliquer(op, entree);
+  assert.equal(apres.valeur, 6);
+  const steps = etapes(op, entree, apres, { ids: ['t0'], cle: 'e0' });
+  assert.equal(steps.length, 1, 'pc9 : un seul step — c’est UNE transformation');
+  const ops = steps[0].ops;
+
+  // ① le nombre se déploie en `9` et lui-même : le neuf naît du nombre.
+  const pose = ops.find((o) => o.op === 'substitute');
+  assert.ok(pose, 'pc9 : sans déploiement, le 9 n’apparaîtrait de nulle part');
+  assert.equal(pose.pairs[0].target, 't0');
+  assert.deepEqual(pose.pairs[0].to.map((t) => t.text), ['9', '3'],
+    'pc9 : la ligne doit écrire le 9 ET garder le nombre — c’est le calcul posé');
+
+  // ② le signe s'intercale entre les deux, et c'est un MOINS.
+  const signes = ops.find((o) => o.op === 'insertOperators');
+  assert.equal(signes.glyph, '−', 'pc9 : un complément est une soustraction, pas une somme');
+  assert.deepEqual(signes.between, pose.pairs[0].to.map((t) => t.id));
+
+  // ③ l'accolade dit ce qu'elle fait ET à quel titre.
+  const somme = ops.find((o) => o.op === 'sum');
+  assert.equal(somme.symbol, '9 −', 'pc9 : le symbole sous la pointe doit porter le neuf');
+  assert.equal(somme.label, 'On prend le complément à neuf');
+
+  // ④ deux paliers : le 9 se pose, le terme le retranche. C'est ce que le
+  //    compteur affiche, et `sum` refuse d'annoncer un total qu'il ne montre pas.
+  assert.deepEqual(somme.partials, [9, 6]);
+  assert.equal(somme.to.text, '6');
+  assert.deepEqual(somme.consume, [signes.ids[0]],
+    'pc9 : le « − » appartient au calcul, il s’en va avec lui');
+});
+
 test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émetteur', () => {
   for (const [code, entree] of VECTEURS) {
     const op = PAR_CODE.get(code);
