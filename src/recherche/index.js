@@ -729,30 +729,56 @@ function selectionner(approches, limite) {
   // La seconde suggestion ne prend sa place que si elle apporte réellement plus
   // de triptyques que la première — sinon elle ne suggère rien de neuf.
   //
-  // ★ **Et jamais une FICELLE.** Cette place-là ne récompense qu'une chose : le
-  //   NOMBRE de séries qu'une méthode sait donner. Une ficelle n'en donne pas
-  //   davantage, elle en FABRIQUE — en effaçant ce qui gêne (`mpf`, `m1s2`) ou
-  //   en relisant la ligne jusqu'à ce qu'elle tombe juste (`mad`, `mrd`). La
-  //   promouvoir ici afficherait « celle-ci en aligne une de plus » au-dessus
-  //   d'une voie honnête, c'est-à-dire exactement l'inverse de ce que le barème
-  //   vient de décider.
+  // ★ **UNE FICELLE Y EST ADMISE — À CONDITION DE PAYER EN EXEMPLAIRES.**
   //
-  //   C'est la même règle que CONTRACTS §4.1 pose déjà pour la MOISSON —
-  //   « aucune ficelle dans une moisson ; le mode vaut par ce que chaque portée
-  //   SAIT donner » —, appliquée à l'autre endroit où la quantité est mise en
-  //   avant pour elle-même. Les ficelles restent pleinement éligibles à la
-  //   première place (l'élégance) et au mixte : c'est là qu'elles se font juger
-  //   sur le solde, ce qu'elles doivent.
+  //   « `mad` met un malus d'élégance, mais l'élégance n'était pas le critère
+  //   principal du 2ⁿᵈ résultat ; celui-ci devrait accepter facilement des
+  //   versions avec ficelles du moment que ça permet d'atteindre l'objectif avec
+  //   un maximum d'exemplaires. » — l'auteur. La place est donc rendue aux
+  //   ficelles, et la condition qu'il pose est reprise mot pour mot : *du moment
+  //   que* le compte y gagne.
   //
-  //   ⚠️ MESURÉ, et c'est ce qui a imposé la règle : sur « Millicent »,
-  //   `fr13+tca+mx6+mrd` (trois séries, élégance 1 278) prenait la seconde place
-  //   au-dessus de `fr13+tca+mx6+mrn` (deux séries, élégance 1 310) — et la liste
+  //   Concrètement, une seule règle, et elle tient en une phrase : **à compte
+  //   égal, la voie honnête garde la place ; à compte SUPÉRIEUR, la ficelle la
+  //   prend.** C'est ce qui réconcilie la demande de l'auteur avec la raison qui
+  //   avait fait poser l'interdit — cette place-là ne récompense qu'une chose,
+  //   le NOMBRE de séries qu'une méthode sait donner, et une ficelle qui n'en
+  //   donne pas davantage ne l'a pas gagnée : elle l'aurait prise pour avoir
+  //   effacé ce qui gêne (`m1s2`) ou relu la ligne jusqu'à ce qu'elle tombe
+  //   juste (`mad`, `mrd`), c'est-à-dire pour un geste que le barème vient
+  //   précisément de punir. Dès qu'elle en donne davantage, en revanche, elle
+  //   répond exactement à la question que cette place pose, et la taire
+  //   reviendrait à annoncer un maximum d'exemplaires qu'on sait dépassé.
+  //
+  //   ★ **L'ARGUMENT QUI AVAIT IMPOSÉ L'INTERDIT A CESSÉ DE VALOIR.** Il tenait
+  //   à une mesure — sur « Millicent », `fr13+tca+mx6+mrd` (trois séries)
+  //   passait au-dessus de `fr13+tca+mx6+mrn` (deux séries), « et la liste
   //   affichait deux séries au rang 1 puis trois au rang 2, un compte qui
-  //   REMONTE, ce qu'un test de classement interdit depuis toujours
-  //   (`recherche.test.js`).
-  const fournie = approches.slice()
-    .filter((a) => !emploieUneFicelle(a.bilan))
-    .sort(ordreTriptyques)[0];
+  //   REMONTE, ce qu'un test de classement interdit depuis toujours ». Ce test a
+  //   depuis été amendé, et sur ce point même : « l'invariant commence APRÈS les
+  //   deux places réservées […] dire que la 2ᵈ aligne PLUS de 666 que la 1ʳᵉ,
+  //   c'est dire ce qui la met là » (`recherche.test.js`). L'obstacle technique
+  //   n'existe donc plus ; ce qui restait était une doctrine, et l'auteur la
+  //   tranche ici dans l'autre sens.
+  //
+  //   Les ficelles restaient de toute façon pleinement éligibles à la première
+  //   place (l'élégance) et au mixte : ce § ne leur ouvre que la seule porte qui
+  //   leur était fermée, et il ne l'ouvre qu'à celles qui apportent un compte.
+  //
+  //   ⚠️ MESURÉ, et il faut le dire : sur les vingt-deux saisies du banc, cette
+  //   règle ne déplace AUCUNE ligne. Le champion des triptyques est une ficelle
+  //   sur trois d'entre elles (`reinfocovid`, `Capitalisme`, `NumHeroLOLgeek`),
+  //   et les trois fois à compte ÉGAL avec la meilleure voie honnête — donc la
+  //   place ne change pas de main. Ce n'est pas un argument contre : c'est la
+  //   preuve que l'interdit ne coûtait rien tant qu'une ficelle ne produit pas
+  //   davantage, et que le jour où elle en produira, la liste le dira au lieu de
+  //   le cacher.
+  const parLeCompte = approches.slice().sort(ordreTriptyques);
+  const champion = parLeCompte[0];
+  const championHonnete = parLeCompte.find((a) => !emploieUneFicelle(a.bilan));
+  const fournie = champion && emploieUneFicelle(champion.bilan) && championHonnete
+    && (championHonnete.series || 1) >= (champion.series || 1)
+    ? championHonnete : champion;
   if (fournie && elegante && (fournie.series || 1) > (elegante.series || 1)) {
     prendre(fournie, 'triptyques');
   }
