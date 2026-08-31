@@ -298,6 +298,53 @@ test('★ `mpf` n’est plus une ficelle — mais son rejet se paie encore', () 
  * est plus lourd que celui des césars, choisir UNE acception reste gratuit, et
  * la recherche n'en produit plus.
  */
+/**
+ * ★ LES DEUX PHASES DE L'ALTERNANCE — un outil, deux réglages, et ça se paie.
+ *
+ * « Comme les `frN` », dit l'auteur de la variante `cali` : « un malus à
+ * utiliser plusieurs variantes dans la même voie ». C'est mot pour mot le grief
+ * de `REGLAGE_PAR_MORCEAU`, et c'est donc ce poste-là qui la voit.
+ *
+ * Ce que le test tient, et qui n'allait pas de soi : **la phase est PUBLIÉE**
+ * (`decalage`), et **la famille d'outil aussi** (`familleOutil`). Le compte
+ * déduisait jusqu'ici la famille du code, en lui retirant ses chiffres de
+ * queue — `fr14` et `fr9` sont deux réglages de `fr`. Cette règle-là ne voit
+ * pas que `cal` et `cali` en sont deux d'une même alternance : elle les aurait
+ * laissés passer EN SILENCE, ce qui est précisément le défaut que ce poste
+ * existe pour couvrir.
+ */
+test('★ alternance — employer ses deux phases dans une voie coûte un réglage', () => {
+  const cal = operateur('c.alternee');
+  const cali = operateur('c.alterneeInverse');
+  for (const op of [cal, cali]) {
+    assert.equal(op.familleOutil, 'cal', `${op.code} doit publier sa famille d’outil`);
+    assert.ok(Number.isFinite(op.decalage), `${op.code} doit publier sa phase`);
+  }
+  assert.notEqual(cal.decalage, cali.decalage, 'deux phases, deux réglages');
+
+  const part = (op) => ({
+    fragment: {
+      texte: 'xx', offset: 0, longueur: 2, intervalles: [[0, 2]],
+      famille: 'entier', priorite: 1,
+    },
+    chemin: {
+      ops: [op],
+      etats: [etat('NUMS', [8, 15]), etat('NUM', op.apply([8, 15], [[], []]).valeur)],
+    },
+  });
+  const bilanDe = (ops) => bilanApproche({ parts: ops.map(part), series: 1 }, ctxDe('xx'));
+
+  assert.equal(bilanDe([cal, cal]).reglagesEnTrop, 0,
+    'la même phase partout, c’est une méthode appliquée à l’ensemble : gratuit');
+  assert.equal(bilanDe([cal, cali]).reglagesEnTrop, 1,
+    'les deux phases dans la même voie : un réglage surnuméraire');
+
+  // …et les deux valent bien l’opposé l’une de l’autre — c’est ce qui fait
+  // d’elles un réglage et non deux idées.
+  assert.equal(cal.apply([8, 15, 16, 5], [[], [], [], []]).valeur, 4);
+  assert.equal(cali.apply([8, 15, 16, 5], [[], [], [], []]).valeur, -4);
+});
+
 test('★ traductions — le même mot lu de deux façons coûte plus cher qu’un César de trop', () => {
   assert.ok(BAREME.TRADUCTION_DIVERGENTE > BAREME.REGLAGE_PAR_MORCEAU,
     `« encore pire » doit se lire au barème (${BAREME.TRADUCTION_DIVERGENTE} `

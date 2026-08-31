@@ -2571,7 +2571,15 @@ export function bilanApproche(approche, ctx = {}) {
       if (!Number.isFinite(op.decalage)) continue;
       // La famille d'outil, c'est ce qui reste du code sans son réglage :
       // `fr14` et `fr9` sont deux réglages de `fr`.
-      const outil = String(op.code).replace(/\d+$/, '');
+      //
+      // ★ …sauf quand l'opérateur la PUBLIE (`familleOutil`), et il le fait dès
+      //   que le code ne la dit pas. `cal` et `cali` sont les deux phases d'une
+      //   même alternance — `+-+-` et `-+-+` —, mais `cali` ne se lit pas comme
+      //   « `cal` réglé sur 1 » : son réglage est dans les LETTRES du code, pas
+      //   dans un nombre en fin de mot. Deviner l'aurait manqué en silence, ce
+      //   qui est précisément le défaut que ce poste existe pour couvrir.
+      const outil = typeof op.familleOutil === 'string' && op.familleOutil
+        ? op.familleOutil : String(op.code).replace(/\d+$/, '');
       if (!reglages.has(outil)) reglages.set(outil, new Set());
       reglages.get(outil).add(op.decalage);
     }

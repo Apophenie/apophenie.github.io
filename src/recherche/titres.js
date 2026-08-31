@@ -292,6 +292,10 @@ export const NOMS = {
   'c.soustraction': b('Par soustraction', 'By subtraction'),
   'c.produit': b('Par multiplication', 'By multiplication'),
   'c.alternee': b('En alternant les signes', 'By alternating the signs'),
+  // Même nom de méthode que sa jumelle : ce qui les sépare est une PHASE, pas
+  // une idée, et un titre de voie n'a pas à trancher entre deux façons de
+  // commencer la même alternance.
+  'c.alterneeInverse': b('En alternant les signes', 'By alternating the signs'),
   'c.maxMoinsMin': b('Par l’écart des valeurs', 'By the spread of the values'),
   'c.moyenne': b('En moyenne', 'On average'),
 'c.moyenneDivisee': b('En moyenne', 'On average'),
@@ -344,6 +348,7 @@ export const QUALIFIANTS = {
   'c.soustraction': [3, b('en soustrayant', 'subtracting')],
   'c.produit': [3, b('en multipliant', 'multiplying')],
   'c.alternee': [3, b('en alternant les signes', 'alternating the signs')],
+  'c.alterneeInverse': [3, b('en alternant les signes', 'alternating the signs')],
   'c.maxMoinsMin': [3, b('en prenant l’écart', 'taking the spread')],
   'c.moyenne': [3, b('en moyenne', 'on average')],
   'c.concat': [3, b('chiffres collés', 'digits glued together')],
@@ -504,6 +509,7 @@ export const PRECISIONS = {
   'c.soustraction': b('par soustraction', 'by subtraction'),
   'c.produit': b('par multiplication', 'by multiplication'),
   'c.alternee': b('en alternant les signes', 'alternating the signs'),
+  'c.alterneeInverse': b('en alternant les signes', 'alternating the signs'),
   'c.maxMoinsMin': b('par l’écart', 'by the spread'),
   'c.moyenne': b('en moyenne', 'on average'),
 'c.moyenneDivisee': b('en moyenne', 'on average'),

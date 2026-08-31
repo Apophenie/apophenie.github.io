@@ -71,6 +71,10 @@ function etapeAgregation(spec) {
     const ops = [];
     const glyphe = (i) => (typeof spec.glyphe === 'function' ? spec.glyphe(i) : spec.glyphe);
     const signes = ctx.ids.slice(1).map((_, i) => `${ctx.cle}op${i}`);
+    // ★ LE SIGNE DE TÊTE — celui du PREMIER terme, quand il est retranché.
+    //   Un combinateur qui ne le déclare pas n'en a pas : c'est le cas de tous
+    //   sauf l'alternance de phase inverse (`c.alterneeInverse`).
+    const tete = spec.signeInitial ? `${ctx.cle}op_` : null;
     if (spec.glyphe && ctx.ids.length > 1) {
       ops.push({
         op: 'insertOperators',
@@ -80,6 +84,7 @@ function etapeAgregation(spec) {
         // Un signe par interstice : la somme alternée n'est pas une
         // soustraction en chaîne, et l'écran doit dire lequel des deux.
         glyphs: ctx.ids.slice(1).map((_, i) => glyphe(i)),
+        ...(tete ? { tete: spec.signeInitial, teteId: tete } : {}),
       });
     }
     const sum = {
@@ -89,7 +94,10 @@ function etapeAgregation(spec) {
       // par l'émetteur, ils ne sont pas absorbés d'office par `sum` (qui
       // n'absorbe que les siens, préfixés « @ ») — il faut les lui déclarer,
       // faute de quoi une rangée de « + » survivait jusqu'au verdict.
-      ...(spec.glyphe && signes.length ? { consume: signes } : {}),
+      ...(spec.glyphe && (signes.length || tete)
+        ? { consume: tete ? [tete, ...signes] : signes } : {}),
+      // …et le signe de tête est DANS le calcul, donc sous l'accolade.
+      ...(tete ? { avant: [tete] } : {}),
       to: token(sortie[0], apres.valeur, 'number'),
       // ★ Chaque combinateur DIT ce qu'il fait : le symbole paraît sous la
       // pointe de l'accolade, entre les sources et le résultat. Une accolade
@@ -98,8 +106,11 @@ function etapeAgregation(spec) {
     };
     if (partiels) sum.partials = partiels;
     ops.push(sum);
-    return [etape(ctx, titreEtape(spec, avant.valeur, ctx.langue),
-      `${avant.valeur.join(` ${spec.lecture || '+'} `)} = ${apres.valeur}`,
+    // La légende dit la ligne telle qu'elle sera écrite — signe de tête compris,
+    // sans quoi elle annoncerait un calcul et l'écran en montrerait un autre.
+    const lecture = `${spec.signeInitial ? `${spec.signeInitial} ` : ''}`
+      + `${avant.valeur.join(` ${spec.lecture || '+'} `)} = ${apres.valeur}`;
+    return [etape(ctx, titreEtape(spec, avant.valeur, ctx.langue), lecture,
       enchainer(ops), { hold: 500 })];
   };
 }
@@ -588,6 +599,62 @@ const agregations = [
     // de tomber sur le total alterné : ce serait un calcul faux à l'écran.
     partiels: (vs) => vs.reduce((acc, v, i) => [...acc, i === 0 ? v : acc[acc.length - 1] + (i % 2 ? -v : v)], [0]),
     minimum: 2,
+    // ★ LA PHASE EST PUBLIÉE, comme un César publie son décalage.
+    //   Voir `c.alterneeInverse` juste en dessous, et
+    //   `elegance.js › REGLAGE_PAR_MORCEAU` : c'est ce champ, et lui seul, qui
+    //   permet au barème de voir qu'une voie a réglé le même outil deux fois.
+    decalage: 0, familleOutil: 'cal',
+  },
+
+  /**
+   * ★ L'ALTERNANCE DE PHASE INVERSE — et pourquoi elle n'est pas `−cal` écrit
+   *   autrement.
+   *
+   * « `cali` — variante de `cal` (addition alternée) qui commence par `-` :
+   * `-+-+-+` au lieu de `+-+-+-`. » (l'auteur)
+   *
+   * Il lit les signes des TERMES, et il a raison de le faire : `cal` calcule
+   * bien `+v₀ −v₁ +v₂ −v₃`, c'est-à-dire `+-+-`. Celle-ci calcule donc
+   * `−v₀ +v₁ −v₂ +v₃` — l'autre phase, la seule qui manquait.
+   *
+   * ★ **Le premier signe est MONTRÉ, pas sous-entendu.** C'est ce qui a coûté
+   * une option de primitive (`insertOperators › tete`, et `sum › avant` pour
+   * que l'accolade l'embrasse) : arithmétiquement, cette variante n'est que
+   * l'opposé de `cal`, et il aurait été facile de laisser l'écran écrire
+   * `v₀ + v₁ − v₂` en annonçant un total négatif. C'est exactement le calcul
+   * faux que CONTRACTS §0.3 interdit d'afficher. Le signe de tête paraît donc
+   * avec les autres, sous l'accolade, et s'en va avec la somme.
+   *
+   * ★ Notoriété 0,20 — sous `cal` (0,35). Le critère de divisibilité par 11
+   * s'énonce toujours en commençant par ajouter ; commencer par retrancher est
+   * la même idée, mais personne ne l'écrit dans ce sens.
+   *
+   * ★ AdHoc 0,35 — au-dessus de `cal` (0,20), et c'est ce que le champ mesure :
+   * « cette méthode est-elle taillée pour la cible ? ». Disposer des DEUX
+   * phases, c'est pouvoir choisir celle qui tombe juste ; ce choix-là se paie
+   * une fois ici, et une seconde fois au barème dès qu'une voie emploie les
+   * deux (`REGLAGE_PAR_MORCEAU`).
+   */
+  {
+    id: 'c.alterneeInverse', code: 'cali',
+    symbole: '∓',
+    libelle: bilingue('On alterne moins et plus', 'Alternate minus and plus'),
+    regle: bilingue('− v₀ + v₁ − v₂ + v₃… l’alternance, en commençant par retrancher',
+      '− v₀ + v₁ − v₂ + v₃… the same alternation, starting by subtracting'),
+    notoriete: 0.20, adHoc: 0.35,
+    glyphe: (i) => (i % 2 === 0 ? '+' : '−'), lecture: '∓',
+    signeInitial: '−',
+    calcul: (vs) => vs.reduce((a, b, i) => (i === 0 ? -b : a + (i % 2 ? b : -b)), 0),
+    partiels: (vs) => vs.reduce((acc, v, i) => [...acc,
+      i === 0 ? -v : acc[acc.length - 1] + (i % 2 ? v : -v)], [0]),
+    minimum: 2,
+    decalage: 1, familleOutil: 'cal',
+    note: bilingue(
+      'Elle vaut l’opposé de « on alterne plus et moins » — c’est bien la même méthode, '
+      + 'à une phase près, et c’est pour ça qu’en employer deux dans une même voie coûte.',
+      'It is the exact opposite of “alternate plus and minus” — the same method, one phase '
+      + 'apart, which is why using both in one route has a price.',
+    ),
   },
   {
     id: 'c.maxMoinsMin', code: 'cmm',
