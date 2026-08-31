@@ -64,6 +64,15 @@ export const ECHANTILLONS = 12;
  * s'arque peu et un miroir de vingt-six cases s'arque beaucoup. C'est exact —
  * ils ne parcourent pas la même distance — et c'est la seule règle qui n'ait
  * pas besoin de connaître ce qu'elle retourne.
+ *
+ * ⚠️ **MAIS LA PROPORTION SEULE NE SUFFIT PAS**, et c'est ce que la mesure a
+ *   montré : sur deux chiffres, le demi-trajet vaut une demi-chasse, donc la
+ *   bosse ne fait que 3,8 unités — pendant que le rétrécissement, lui, est
+ *   ABSOLU et descend jusqu'à 0,45. On voit alors les chiffres rapetisser sans
+ *   les voir passer l'un au-dessus de l'autre : le geste cesse de dire ce qu'il
+ *   dit. D'où un PLANCHER, en unités de scène, que l'appelant fournit — lui
+ *   seul connaît la casse. La proportion continue de valoir partout où elle
+ *   donne davantage ; le plancher ne sert que les trajets courts.
  */
 export const APLATISSEMENT = 0.22;
 
@@ -79,7 +88,9 @@ export const RETRECISSEMENT = 0.55;
  * @param {{x:number,y:number}} depart
  * @param {{x:number,y:number}} arrivee — l'ordonnée d'arrivée fait la ligne de
  *   base ; un miroir ne change pas de ligne, les deux sont normalement égales
- * @param {{echantillons?:number, aplatissement?:number, retrecissement?:number}} [opts]
+ * @param {{echantillons?:number, aplatissement?:number, retrecissement?:number,
+ *   hauteurMin?:number}} [opts]  `hauteurMin` : la bosse minimale en unités de
+ *   scène, pour qu'un trajet court s'arque tout de même (voir `APLATISSEMENT`)
  * @returns {{trajet:{x:number,y:number}[], tailles:number[]}}
  *   `trajet` compte `echantillons + 1` points, départ et arrivée compris ;
  *   `tailles` porte le facteur d'échelle au même pas.
@@ -90,7 +101,11 @@ export function demiEllipse(depart, arrivee, opts = {}) {
   const retr = opts.retrecissement === undefined ? RETRECISSEMENT : opts.retrecissement;
   const a = (arrivee.x - depart.x) / 2;
   const cx = (arrivee.x + depart.x) / 2;
-  const b = a * plat;
+  // La bosse garde le SIGNE de `a` — c'est lui qui décide de quel côté on
+  // passe, et donc que les deux voisins ne se croisent pas au même endroit.
+  const planche = opts.hauteurMin === undefined ? 0 : Math.abs(opts.hauteurMin);
+  const ampleur = Math.max(Math.abs(a * plat), a === 0 ? 0 : planche);
+  const b = Math.sign(a || 1) * ampleur;
   const trajet = [];
   const tailles = [];
   for (let k = 0; k <= n; k++) {

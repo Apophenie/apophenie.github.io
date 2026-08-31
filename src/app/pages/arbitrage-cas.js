@@ -157,4 +157,73 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!fr24+tca+mx6+mad#fXvexbmf',
     apres: '#sce!fr24+tca+mx6+mrn+mpf#fXvexbmf',
   },
+  {
+    id: 'reinfocovid-mad-enchaine',
+    titre: 'reinfocovid — enchaîner un raffinage APRÈS une ficelle',
+    saisie: 'reinfocovid',
+    // ★ MESURÉ, et l'ouverture n'est PAS commitée : c'est ce cas qui doit la
+    //   décider.
+    //
+    //   « À partir du moment où on accepte du `mad`, on peut l'enchaîner plutôt
+    //   que de passer à d'autres opérateurs » (l'auteur). Le faisceau ne déroule
+    //   qu'UN raffinage. Trois ouvertures ont été mesurées : « enchaîner le
+    //   même » ne change rien du tout (rangs 1-3 identiques sur neuf saisies) ;
+    //   « tous les couples » fait tomber `tca+mt9+mpf` au rang 3 sur `Macron` et
+    //   coûte sa tête à `Donald Trump` ; « enchaîner seulement APRÈS une
+    //   ficelle » — la lecture littérale de la phrase — préserve les quatre
+    //   têtes de référence.
+    //
+    //   À gauche ce que la recherche trouve aujourd'hui, à droite ce que cette
+    //   troisième ouverture trouverait. Trois séries contre QUATRE, et l'élégance
+    //   monte de 579 à 890.
+    //
+    //   ★ CE QU'IL EN COÛTE, et c'est là qu'il faut trancher : les meilleures
+    //     voies chassent les voies RETOUCHÉES de la liste des douze sur
+    //     `Donald Trump`. Deux tests de `retouches` passent au rouge. L'étage de
+    //     retouche n'est pas cassé, il devient invisible.
+    avant: '#sce!fr17+tca+mx6+mrd#VNJqp6YkCCrK9Uf',
+    apres: '#sce!fr12+tca+mx6+mrd+mr9#VNJqp6YkCCrK9Uf',
+  },
+  {
+    id: 'emmanuel-lettre-vers-lettre',
+    titre: 'Emmanuel Macron — le tarif des conversions lettre → lettre',
+    saisie: 'Emmanuel Macron',
+    // ★ LE POSTE EST INERTE, SAUF ICI — balayage sur 22 saisies, rangs 1 à 3 :
+    //   de 35 à 100, le classement est RIGOUREUSEMENT identique. La valeur en
+    //   vigueur (40) est au milieu de ce plateau, et l'élargir de trois à
+    //   vingt-sept opérateurs ne l'a pas rendue plus mordante — le balayage des
+    //   césars est discipliné ailleurs, par la déduplication de forme du
+    //   faisceau.
+    //
+    //   Une seule saisie bascule, et c'est celle-ci. À gauche ce que donnerait
+    //   un tarif de 20 à 25 : deux portées, UN seul programme, aucune ficelle,
+    //   élégance 1 016. À droite ce que donne le tarif actuel : une ficelle,
+    //   élégance 743.
+    //
+    //   La question est donc étroite : faut-il baisser le poste pour ce cas-là,
+    //   sachant que rien d'autre ne bouge ?
+    avant: '#sce!0.1+2.1:fatb+tca+mt9+mr9#2wf7jXfFchfzXqpBk2keh',
+    apres: '#sce!fl+tca+mz26+mrd#2wf7jXfFchfzXqpBk2keh',
+  },
+  {
+    id: 'hope-faisceau-affame',
+    titre: 'https://hope-hope-hope.fr/ — le faisceau affame la moisson',
+    saisie: 'https://hope-hope-hope.fr/',
+    // ★ DEUX LEVIERS INDÉPENDANTS MÈNENT À LA MÊME VOIE, et c'est ce qui rend
+    //   ce cas intéressant : lever la rétrogradation des ficelles dans le
+    //   faisceau (`assemblage.js › rang`), OU ouvrir le second raffinage après
+    //   une ficelle, donnent tous deux la voie de gauche.
+    //
+    //   À gauche : six séries, TROIS portées sur un même programme — donc l'URL
+    //   se factorise —, élégance 1 752. À droite : ce que la recherche trouve
+    //   aujourd'hui, six séries aussi mais cinq portées et quatre programmes,
+    //   élégance 664.
+    //
+    //   ★ CE QU'IL EN COÛTE : la rétrogradation existe pour empêcher une ficelle
+    //     d'occuper une place du faisceau avant que la qualité n'ait eu à se
+    //     prononcer. La lever coûte la tête de `Donald Trump` (3 séries → 2) et
+    //     une série à `Marie Curie`.
+    avant: '#sce!0.1:fr14+tca+m14+mpf,3.1+5.1+7.1:tca+m14,9.1:fr9+tca+m7#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
+    apres: '#sce!0.1:fr14+tca+m14+mpf,3.1:ffr3+tca+m14+mpf,5.1:tca+m14,7.1:tca+m14+m36,9.1:fr9+tca+m7#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
+  },
 ]);

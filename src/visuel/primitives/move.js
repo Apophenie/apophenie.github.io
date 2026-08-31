@@ -98,7 +98,16 @@ export function plan(ctx) {
     at: 0,
     dur: ctx.dur,
     ease: EASE.move,
-    ...(geste === 'miroir' ? { trajectoire: (m) => demiEllipse(m.from, m.to) } : {}),
+    // ★ LE PLANCHER DE BOSSE — sans lui, un miroir de deux chiffres rétrécit
+    //   sans passer. La bosse est proportionnelle au trajet (`ellipse.js ›
+    //   APLATISSEMENT`), or le trajet d'un miroir de nombre vaut une chasse ou
+    //   deux : elle tombait à 3,8 unités quand le rétrécissement, lui, allait
+    //   jusqu'à 0,45. La demi-casse est la plus petite bosse qui se lise encore
+    //   comme un passage au-dessus, et c'est ici qu'on la connaît — `ellipse.js`
+    //   ne sait rien de la typographie.
+    ...(geste === 'miroir'
+      ? { trajectoire: (m) => demiEllipse(m.from, m.to, { hauteurMin: ctx.metrics.fontSize * 0.5 }) }
+      : {}),
   };
   const moved = ctx.reflow(bouge);
   // Ce qu'une accolade embrasse vient peut-être de changer de largeur : elle
