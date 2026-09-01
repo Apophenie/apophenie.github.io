@@ -994,24 +994,50 @@ export const POIDS_DES_REGIMES = Object.freeze({
  *
  * ★ **MULTIPLICATIF, ET NON ADDITIF.** Un terme ajouté aurait demandé un poids,
  *   donc un troisième réglage à étalonner. Un facteur pose la question
- *   autrement, et plus juste : le crédit dit ce que la voie vaut, la concision
- *   et la couverture disent quelle PART de cette valeur survit à ce qu'elle a
- *   coûté. Une démonstration deux fois plus longue doit être deux fois plus
- *   belle pour valoir la même chose — c'est exactement la phrase de l'auteur.
+ *   autrement, et plus juste : le crédit dit ce que la voie vaut, les deux
+ *   autres disent quelle PART de cette valeur survit à ce qu'elle a coûté.
  *
- * ★ **LE SOCLE.** Une voie sans crédit — il y en a, et de très courtes — vaudrait
- *   zéro quoi qu'elle fasse, et le facteur ne trancherait rien entre elles. Le
- *   socle leur rend la concision et la couverture pour seul juge, ce qui est
- *   bien ce qu'on veut d'une voie qui n'a rien d'autre à faire valoir.
+ * ★ **CE QUI PÈSE EST L'USAGE DE LA SAISIE, ET NON LA BRIÈVETÉ.** La première
+ *   version prenait la concision en facteur, et l'auteur l'a corrigée sur un cas
+ *   qu'il a démonté lui-même :
+ *
+ *   > « Elle ne jette que le `.` et se sert de tout le reste, ce qui compense la
+ *   >   longueur légèrement plus importante. L'autre voie, avec `fl`, jette
+ *   >   `- - .` soit 3 caractères, puis en jette 5 et 7 à la fin. […] Même si
+ *   >   l'autre est courte et que les jetés/filtrés le sont de manière propre,
+ *   >   ça ne doit pas compenser l'usage maximal de la saisie utilisateur. Elle
+ *   >   est à récompenser autant que possible. » (l'auteur)
+ *
+ *   Le mérite lit donc la COUVERTURE — quelle part de la saisie signifiante
+ *   entre dans la démonstration — ET le RENDEMENT — quelle part de ce qu'on
+ *   calcule finit par servir. Les deux disent « ce qui est pris est employé »,
+ *   à deux endroits de la chaîne : à l'entrée et à la sortie. Mesuré sur le cas
+ *   de l'auteur : `fl+tca+m14` calcule quatorze valeurs pour en garder douze
+ *   (rendement 857), la voie groupée en calcule quinze et les garde toutes
+ *   (1 000) — la mesure disait déjà ce qu'il décrit, le mérite ne l'écoutait
+ *   pas.
+ *
+ * ★ **ET LA CONCISION N'A PAS DISPARU** : elle reste un des six critères, avec
+ *   son poids, dans `a.score` — que ce comparateur consulte plus bas. Ce qui
+ *   change est son rang : elle départage, elle ne commande plus. C'est
+ *   exactement « ça ne doit pas compenser ».
+ *
+ * ★ **LE SOCLE.** Une voie sans crédit — il y en a, et de très courtes —
+ *   vaudrait zéro quoi qu'elle fasse, et le facteur ne trancherait rien entre
+ *   elles. Le socle leur rend la couverture et le rendement pour seuls juges,
+ *   ce qui est bien ce qu'on veut d'une voie qui n'a rien d'autre à faire
+ *   valoir.
  */
 const SOCLE_ELEGANCE = 1000;
 
 const meriteDElegance = (a) => {
   const c = (a && a.criteres) || {};
   const credit = eleganceSelon(a, 'elegance') + SOCLE_ELEGANCE;
-  const concision = c.C === undefined ? MILLE : c.C;
   const couverture = c.U === undefined ? MILLE : c.U;
-  return Math.floor((credit * concision * couverture) / (MILLE * MILLE));
+  // Le rendement n'existe que là où il y a du déchet à mesurer : absent, il
+  // vaut neutre — la voie n'a rien laissé tomber.
+  const rendement = c.R === undefined || c.R === null ? MILLE : c.R;
+  return Math.floor((credit * couverture * rendement) / (MILLE * MILLE));
 };
 
 const eleganceSelon = (a, regime) => {

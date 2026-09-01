@@ -1333,19 +1333,67 @@ function uniformiserLesProgrammes(retenus, options = {}) {
   const etalons = [...compte.keys()].sort((a, b) => (compte.get(b) - compte.get(a))
     || (rangDApparition.get(a) - rangDApparition.get(b)));
 
-  const out = retenus.map((r) => r);
-  for (const etalon of etalons) {
+  /* ★ **UNE VARIANTE PAR ÉTALON, ET NON LA SEULE DU PROGRAMME LE PLUS RÉPANDU.**
+
+     Cette fonction n'essayait que le programme majoritaire, puis rendait une
+     variante unique. Sur `hope-hope-hope.fr` cela donnait `ffr3` — deux des
+     trois « hope » le portaient —, lequel récolte DIX-NEUF 6 pour dix-huit
+     montrés : un surnuméraire, donc la variante était rejetée plus bas, et
+     l'homogénéité perdue avec elle. Or `m14`, minoritaire, aligne les trois
+     « hope » sur QUINZE 6 pour quinze montrés — propre.
+
+     > « Elle ne jette que le `.` et se sert de tout le reste, ce qui compense la
+     >   longueur légèrement plus importante. […] L'usage maximal de la saisie
+     >   utilisateur est à récompenser autant que possible. » (l'auteur)
+
+     Le majoritaire n'est donc pas le bon critère : il décrit ce que la moisson
+     maximale a choisi portée par portée, pas ce qui s'aligne le mieux. On rend
+     toutes les uniformisations constructibles et l'on laisse le classement
+     trancher — c'est la doctrine du module, « le générateur ne tranche pas ».
+
+     ⚠️ Bornées à `ETALONS_MAX` : chaque variante coûte une réduction, un
+       élagage et une notation. Les étalons sont classés du plus répandu au
+       moins, donc la borne coupe les plus marginaux. */
+  const sorties = [];
+  for (const etalon of etalons.slice(0, options.tousLesEtalons ? ETALONS_MAX : 1)) {
+    const out = retenus.map((r) => r);
+    let touche = false;
     for (let i = 0; i < out.length; i++) {
       const actuel = out[i].candidat;
       if (codesDe(actuel) === etalon) continue;
-      const jumeau = out[i].portee.candidats.find(
-        (c) => codesDe(c) === etalon && (auMoins ? c.six >= actuel.six : c.six === actuel.six),
-      );
-      if (jumeau) out[i] = { portee: out[i].portee, candidat: jumeau };
+      /* ★ **UNE VARIANTE PEUT RAPPORTER MOINS — c'est même souvent la bonne.**
+
+         La règle était « jamais adopter un programme qui rapporte MOINS », et
+         elle interdisait très exactement la voie que l'auteur désigne : aligner
+         les trois « hope » sur `tca+m14` récolte moins que `ffr3+tca+m14+mpf`,
+         et ne gaspille RIEN — quinze 6 pour quinze montrés, contre dix-neuf
+         pour dix-huit.
+
+         > « Même si l'autre est courte et que les jetés/filtrés le sont de
+         >   manière propre, ça ne doit pas compenser l'usage maximal de la
+         >   saisie utilisateur. » (l'auteur)
+
+         Quand on ÉNUMÈRE les variantes, on ne tranche donc pas sur la récolte :
+         on les construit toutes et le classement décide, ce qui est la doctrine
+         du module. Le garde-fou reste entier ailleurs — le verdict est
+         intangible (`nbSeries`), la variante groupée est rejetée si elle laisse
+         un surnuméraire, et le coût la coupe si elle traîne. */
+      const jumeau = out[i].portee.candidats.find((c) => codesDe(c) === etalon
+        && (options.tousLesEtalons || (auMoins ? c.six >= actuel.six : c.six === actuel.six)));
+      if (jumeau) { out[i] = { portee: out[i].portee, candidat: jumeau }; touche = true; }
     }
+    if (touche) sorties.push(out);
   }
-  return out;
+  // ★ Deux appelants, deux besoins. `meilleureMoisson` veut UN alignement — le
+  //   plus répandu, celui qui ne défait rien de ce qu'elle vient de choisir ; la
+  //   fabrique de variantes les veut TOUS, pour que le classement tranche. On
+  //   rend donc la liste ou son premier élément, jamais deux fonctions qui
+  //   pourraient diverger.
+  return options.tousLesEtalons ? sorties : (sorties[0] || retenus);
 }
+
+/** Programmes essayés comme étalon d'uniformisation — voir la fonction. */
+const ETALONS_MAX = 4;
 
 /**
  * Les approches de MOISSON d'une saisie.
@@ -1435,8 +1483,7 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT)
     if (choix.length < 2) continue;
     const sobre = reduireLeSurplus(choix, accepte, cbl);
     variantes.push({ accepte, retenu: sobre });
-    const groupee = uniformiserLesProgrammes(sobre, { auMoins: true });
-    if (groupee.some((r, i) => r.candidat !== sobre[i].candidat)) {
+    for (const groupee of uniformiserLesProgrammes(sobre, { auMoins: true, tousLesEtalons: true })) {
       // ★ ET ON RÉDUIT DE NOUVEAU, SANS DÉFAIRE LE GROUPEMENT.
       //
       //   `auMoins` autorise une portée à adopter un programme qui rapporte
@@ -1448,8 +1495,34 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT)
       //   On la repasse donc à la réduction, mais en ne lui laissant à choisir
       //   QUE les programmes déjà en place : elle peut retirer le déchet, elle
       //   ne peut pas rompre l'alignement qu'on vient de faire.
-      const enPlace = new Set(groupee.map((r) => r.candidat.chemin.ops.map((o) => o.code).join('+')));
-      const memeProgramme = (c) => enPlace.has(c.chemin.ops.map((o) => o.code).join('+'));
+      /* ★ **CE QU'IL NE FAUT PAS DÉFAIRE, C'EST L'ALIGNEMENT — pas la ligne.**
+
+         La restriction était « seulement les programmes DÉJÀ EN PLACE », ce qui
+         gelait aussi les portées qui ne participent à aucun alignement. Mesuré
+         sur `hope-hope-hope.fr` : les trois « hope » alignés sur `tca+m14`
+         donnent quinze 6, mais le « fr » restait sur `tca+mpy+mr9` qui en rend
+         deux là qu'un seul suffit — seize 6 pour quinze montrés, donc variante
+         rejetée pour un surnuméraire qui n'avait rien à voir avec le
+         groupement.
+
+         Ce qu'on protège est donc l'ÉTALON : une portée qui le porte ne bouge
+         plus, les autres restent libres de gaspiller moins. C'est la lecture
+         exacte de « elle peut retirer le déchet, elle ne peut pas rompre
+         l'alignement qu'on vient de faire ». */
+      const codesEtalon = (() => {
+        const n = new Map();
+        for (const r of groupee) {
+          const k = r.candidat.chemin.ops.map((o) => o.code).join('+');
+          n.set(k, (n.get(k) || 0) + 1);
+        }
+        let meilleur = null;
+        for (const [k, v] of n) if (!meilleur || v > n.get(meilleur)) meilleur = k;
+        return meilleur;
+      })();
+      const memeProgramme = (c, actuel) => (actuel
+        && actuel.chemin.ops.map((o) => o.code).join('+') === codesEtalon
+        ? c.chemin.ops.map((o) => o.code).join('+') === codesEtalon
+        : true);
       const nette = reduireLeSurplus(groupee, memeProgramme, cbl);
       // ★ ET SI LE DÉCHET SURVIT, ON RENONCE À LA VARIANTE.
       //
@@ -1636,7 +1709,7 @@ function reduireLeSurplus(choix, accepte, cible = CIBLE_DEFAUT) {
     for (let i = out.length - 1; i >= 0; i--) {
       const { portee, candidat } = out[i];
       for (const c of portee.candidats) {
-        if (c === candidat || c.six < 1 || !accepte(c)) continue;
+        if (c === candidat || c.six < 1 || !accepte(c, candidat)) continue;
         const sixApres = six - candidat.six + c.six;
         // Le verdict est intangible : ni une série de moins, ni une de plus.
         const essai = out.slice();

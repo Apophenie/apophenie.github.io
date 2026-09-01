@@ -60,52 +60,84 @@
 /** Un cas : `{ id, place, titre, saisie, avant, apres }`. */
 export const CAS_ARBITRAGE = Object.freeze([
   {
+    id: 'macron-jeter-ou-nommer',
+    place: 1,
+    titre: 'Macron — 1ʳᵉ place : la voie nommée jette la moitié de ce qu’elle calcule',
+    saisie: 'Macron',
+    /* ★ **DEUX RÈGLES DE L'AUTEUR SE CONTREDISENT ICI, ET C'EST TOUT LE CAS.**
+       Il a désigné `tca+mt9+mpf` comme optimal pour « Macron » — « les 666 ne
+       sont pas contigus, mais le procédé se fait en très peu d'étapes ». Puis,
+       sur `hope-hope-hope.fr` : « l'usage maximal de la saisie utilisateur est
+       à récompenser autant que possible ; même si l'autre est courte et que les
+       jetés/filtrés le sont de manière propre, ça ne doit pas compenser ».
+
+       Or `mpf` — « on ne garde que les majoritaires » — est structurellement un
+       JETEUR : la voie nommée calcule six valeurs et en garde trois.
+
+         à gauche  `tca+mt9+mpf`        3 étapes · R = 500 · 1 série
+         à droite  `fr13+tca+m14+meg`   4 étapes · R = 1 000 · 2 séries
+
+       ★ La question n'est pas « laquelle est la plus belle » mais : **le déchet
+         d'un opérateur qui ANNONCE qu'il écarte doit-il se payer comme celui
+         d'une voie qui gaspille sans le dire ?** `mpf` dit ce qu'il fait et le
+         montre à l'écran ; le rendement, lui, ne fait pas la différence. */
+    avant: '#sce!tca+mt9+mpf#fXvexbmf',
+    apres: '#sce!fr13+tca+m14+meg#fXvexbmf',
+  },
+  {
+    id: 'trump-court-ou-employant',
+    place: 1,
+    titre: 'Donald Trump — 1ʳᵉ place : la plus courte, ou celle qui emploie tout',
+    saisie: 'Donald Trump',
+    /* ★ LE MÊME ARBITRAGE, SANS L'AMBIGUÏTÉ DU JETEUR ASSUMÉ.
+       Les deux couvrent toute la saisie (U = 1 000) et tiennent en trois ou
+       quatre étapes. Ce qui les sépare est le seul GASPILLAGE :
+
+         à gauche  `fl+tca+m14`        3 étapes · R =  272 · 1 série
+         à droite  `fl+tca+mazc+meg`   4 étapes · R =  818 · 3 séries
+
+       Celle de gauche calcule onze valeurs pour en garder trois — elle ne le
+       dit nulle part, aucun opérateur n'annonce d'écarter : le tri se fait au
+       verdict. Une étape de plus achète à droite trois fois moins de déchet et
+       deux séries de plus. */
+    avant: '#sce!fl+tca+m14#2HuP1G8mNg3sJWhqR',
+    apres: '#sce!fl+tca+mazc+meg#2HuP1G8mNg3sJWhqR',
+  },
+  {
     id: 'hope-place-1-brieve-ou-nommee',
     place: 1,
     titre: 'hope-hope-hope.fr — 1ʳᵉ place : la brève, ou celle que l’auteur a nommée',
     saisie: 'hope-hope-hope.fr',
-    // ★ DEUX CANDIDATES À LA PREMIÈRE PLACE, et une seule question : laquelle
-    //   est « la plus belle » ?
-    //
-    //   À GAUCHE, ce que la liste met en tête depuis que le mérite d'élégance
-    //   regarde la longueur et la couverture : `fl+tca+m14`. TROIS étapes,
-    //   toute la saisie employée, quatre séries — et rien à expliquer, ce qui
-    //   est peut-être son meilleur argument.
-    //
-    //   À DROITE, la stratégie que l'auteur a nommée lui-même — « les 14
-    //   segments + tiret du 6 plus `fr` → 4 + 2 → 6 » —, celle qui est citée
-    //   dans `src/i18n/fr.js`. CINQ séries, un crédit d'élégance supérieur
-    //   (2 113 contre 1 653), mais vingt-deux étapes et six portées.
-    //
-    //   ⚠️ Trois tests figent aujourd'hui la SECONDE (`recherche.test.js`,
-    //     « mène cinq séries », « le fr reste en sept segments ») et sont donc
-    //     rouges : ils ont été laissés rouges EXPRÈS, parce qu'ils portent une
-    //     préférence de l'auteur et que les dégeler l'effacerait.
+    /* ★ LE CAS QUI A OUVERT LA QUESTION, et l'auteur l'a déjà tranché :
+       « Elle ne jette que le `.` et se sert de tout le reste, ce qui compense la
+       longueur légèrement plus importante. L'autre voie, avec `fl`, jette
+       `- - .` soit 3 caractères, puis en jette 5 et 7 à la fin. »
+
+         à gauche  `fl+tca+m14`   3 étapes · R =  857 · 4 séries
+         à droite  la groupée    15 étapes · R = 1 000 · 5 séries
+
+       ⚠️ La voie de droite N'EST PAS ENCORE FABRIQUÉE par la recherche : elle
+         se rejoue par son lien, mais l'assemblage la rejette pour un
+         surnuméraire d'UN 6 sur la portée « fr » — seize récoltés pour quinze
+         montrés. Deux verrous ont été levés (l'uniformisation n'essayait que le
+         programme majoritaire, et refusait tout alignement rapportant moins) ;
+         il en reste un, non identifié. */
     avant: '#sce!fl+tca+m14#yvQYkzhNVYJT8wM8jhvJxSM',
-    apres: '#sce!0.1:tca+m14,1.1:tca+mtc+cs,2.1:tca+m14,3.1:tca+mtc+cs,4.1:tca+m14,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
+    apres: '#sce!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
   },
   {
     id: 'hope-place-2-six-series',
     place: 2,
     titre: 'hope-hope-hope.fr — 2ᵈ place : six séries, à quel prix ?',
     saisie: 'hope-hope-hope.fr',
-    // ★ DEUX CANDIDATES À LA SECONDE PLACE, celle de la quantité.
-    //
-    //   À GAUCHE, ce que la recherche propose : SIX séries, obtenues en lisant
-    //   deux « hope » par la traduction française (`ffr3`) et le troisième par
-    //   les quatorze segments.
-    //
-    //   ⚠️ C'est précisément ce que l'auteur a proscrit sur un autre cas : « même
-    //     contenu (hope) transformé de 3 manières différentes → incohérent, à
-    //     proscrire ». L'interdit de divergence existe et se paie
-    //     (`elegance.js › compterTraductionsDivergentes`), mais il ne porte que
-    //     sur les TRADUCTIONS entre elles — deux `ffr3` et un `m14` ne sont pas
-    //     deux traductions divergentes, ce sont deux méthodes différentes. La
-    //     question est donc : faut-il étendre l'interdit à toute lecture
-    //     divergente d'un même mot, ou est-ce trop large ?
-    //
-    //   À DROITE, la même moisson privée de sa divergence : les trois « hope »
-    //   lus tous les trois en quatorze segments.
+    /* ★ ARBITRÉ, ET GARDÉ POUR VÉRIFICATION. « Le fait de ne pas appliquer le
+       même traitement aux 3 hope devrait mettre un malus trop important pour
+       que ce soit retenu » (l'auteur). C'est fait — `LECTURE_DIVERGENTE`, 240
+       par lecture surnuméraire, malus et non interdit, « comme pour `fr15` et
+       `fr3` dans une même voie ».
+
+       À gauche la moisson divergente (deux « hope » en français, un en
+       segments), à droite les trois lus pareil. */
     avant: '#sce!0.1+2.1:ffr3+tca+m14+mpf,1.1+3.1:tca+mtc,4.1:tca+m14,6.1:tca+mpy+mr9#yvQYkzhNVYJT8wM8jhvJxSM',
     apres: '#sce!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
   },
