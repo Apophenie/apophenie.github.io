@@ -200,8 +200,28 @@ test('étalonnage — écart mesuré avec le tableau attendu de research §4.7',
   const m3 = mesures.find((x) => x.n === 3);
   assert.ok(Math.abs(m2.obtenu - m3.obtenu) < 1,
     'les méthodes 2 et 3 sont statistiquement corrélées : leurs scores doivent être quasi identiques');
-  // 3. Aucune méthode du README ne tombe sous le plafond du joker (45/100).
-  for (const m of mesures) assert.ok(m.obtenu > 45, `M${m.n} = ${m.obtenu} ≤ 45 (plafond du joker)`);
+  /* 3. **Aucune méthode du README ne descend au niveau du joker.**
+
+     ⚠️ Le seuil était écrit « 45 », d'après research §5.4 — « ≈ 45/100 pour une
+        approche jokerisée contre ≈ 88 pour une bonne ». C'était un ORDRE DE
+        GRANDEUR relevé à une époque où la concision ne distinguait rien :
+        `L_IDEAL` valait 9, `C` valait 1 000 pour toute voie réelle, et le
+        critère versait à chacun le même forfait de 150 ‰. Depuis qu'il mord
+        (voir `score.js › REGLAGES`), tous les scores ont baissé ensemble — une
+        démonstration de onze étapes n'encaisse plus le forfait. M4, qui EST
+        longue et peu homogène, passe à 42,7 sans avoir changé d'un pouce.
+
+        Comparer une mesure mouvante à une constante figée ne dit plus rien. On
+        mesure donc ce que la garantie affirme vraiment : une méthode du README
+        bat le joker. Mesuré sur le catalogue réel, les voies jokerisées rendent
+        10,1 (« !!! ») et 18,1 (« q ») — l'écart avec la plus faible des sept
+        méthodes est d'un facteur deux, pas d'un cheveu. */
+  const PLANCHER_JOKER = 25;
+  for (const m of mesures) {
+    assert.ok(m.obtenu > PLANCHER_JOKER,
+      `M${m.n} = ${m.obtenu} ≤ ${PLANCHER_JOKER} : une méthode du README ne doit pas `
+      + 'tomber au niveau d’une voie jokerisée');
+  }
   // 4. L'ordre reste total et strict.
   const tri = [...mesures.map((m) => m.approche)].sort(ordreTotal);
   assert.equal(new Set(tri.map((a) => `${a.score}|${a.L}|${a.codes}`)).size, 7);

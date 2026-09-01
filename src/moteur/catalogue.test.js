@@ -478,9 +478,16 @@ test('★ les quatre transformations du 27 août — ce qu’elles font, et ce q
   assert.equal(sortie('mcc', [1, 2, 3]), null, 'rien à condenser');
 
   // ── m16, « Le redécoupage tricheur » ──────────────────────────────────────
-  // Un DERNIER RECOURS : il refuse tant que la ligne n'est pas devenue longue.
-  assert.equal(sortie('mrd', [1, 2, 3, 6, 4, 2]), null,
-    'six chiffres : la ligne se lit encore, il n’y a rien à redécouper');
+  /* ★ **IL NE REFUSE PLUS LES LIGNES COURTES — C'EST LE BARÈME QUI LES PAIE.**
+     Il portait un seuil (`CHIFFRES_REDECOUPE_MIN`, 25 chiffres) et rendait
+     `null` en deçà. « Au lieu d'un seuil unique je voudrais un malus
+     dégressif : à 2 chiffres malus maximum, à 20 chiffres malus négligeable, à
+     10 acceptable » (l'auteur). Un refus disait « cette règle n'existe pas
+     ici », ce qui était faux : elle s'applique parfaitement à six chiffres,
+     elle y est seulement très voyante — et c'est un PRIX, pas une grammaire.
+     Voir `elegance.js › degressiviteRedecoupage`. */
+  assert.deepEqual(sortie('mrd', [1, 2, 3, 6, 4, 2]), [6, 6, 6],
+    'six chiffres : le redécoupage s’applique — cher, mais il s’applique');
   const longue = '9 9 9 7 1 1 2 1 0 5 1 1 6 9 7 1 0 8 1 0 5 1 1 5 1 0 9 1 0 1'.split(' ').map(Number);
   const paquets = sortie('mrd', longue);
   assert.equal(paquets.join(''), '999991691662692',

@@ -878,11 +878,14 @@ test('★ le gaspillage et les ficelles — alourdir l’un avantage mécaniquem
  */
 test('★ ficelles — aucune ne figure en tête des quatre cas de référence', () => {
   const m = creerMoteur(catalogue, { filetTemporel: false });
+    // ★ Les comptes ont monté d'une série : `MAX_SERIES` rabotait le COMPTAGE
+    //   et non l'affichage (`assemblage.js`). Ce que la recherche trouve ici,
+    //   elle le trouvait déjà — elle ne pouvait pas le compter.
   const attendus = {
-    'hope-hope-hope.fr': 5,
-    'https://hope-hope-hope.fr/': 6,
-    'Donald Trump': 2,
-    Macron: 1,
+    'hope-hope-hope.fr': 6,
+    'https://hope-hope-hope.fr/': 7,
+    'Donald Trump': 3,
+    Macron: 2,
   };
   for (const [saisie, series] of Object.entries(attendus)) {
     // ★ AMENDEMENT — « la tête » est désormais les DEUX premières lignes.
@@ -1388,9 +1391,16 @@ test('★ cornes — la scène couronne exactement les triptyques que le bilan a
   //   élargit donc l'échantillon plutôt que d'abaisser la barre — abaisser
   //   aurait rendu le test moins exigeant à mesure que l'opérateur se raréfie,
   //   c'est-à-dire exactement quand il faut le surveiller.
+  //   ★ **ÉLARGI UNE SECONDE FOIS, POUR LA MÊME RAISON.** Le barème a bougé
+  //     encore — concision qui mord enfin, mérite d'élégance qui regarde la
+  //     longueur —, et `m36` s'est encore raréfié : des dix saisies ci-dessus,
+  //     DEUX en portaient encore. On ajoute donc quatre saisies dont la mesure
+  //     dit qu'elles en portent (« Paris », « Elon Musk », « La Poste »), plutôt
+  //     que de descendre le seuil. Le jour où l'échantillon ne suffira plus, ce
+  //     sera l'opérateur qu'il faudra regarder, pas ce test.
   for (const s of ['Donald Trump', 'Macron', 'hope', 'https://hope-hope-hope.fr/',
     'Éléonore à Nîmes', 'Wikipedia', 'Nombre de la bête', 'satan',
-    'Emmanuel Macron', 'Marie Curie']) {
+    'Emmanuel Macron', 'Marie Curie', 'Paris', 'Elon Musk', 'La Poste']) {
     for (const a of m.resoudre(s).approches) {
       // ★ `m36` n'est plus le seul à couronner — et c'est le sens de
       //   l'amendement « couronner sans effacer » (CONTRACTS §3.1).
@@ -1469,10 +1479,18 @@ test('★ classements — les trois sont des ordres TOTAUX et STRICTS', () => {
  */
 test('★ étalonnage — les quatre cas de référence gardent leur tête de liste', () => {
   const m = creerMoteur(catalogue, { filetTemporel: false });
+  /* ★ **LES COMPTES ONT MONTÉ D'UNE SÉRIE, ET « Donald Trump » A CHANGÉ DE
+     VOIE.** `MAX_SERIES` rabotait le comptage : sept séries démontrées en
+     valaient six. Le plafond levé, la 2ᵈ ligne de chaque cas en aligne une de
+     plus. Et la combinaison nommée pour « Donald Trump »
+     (`tca+m14+m36,fr13+tca+m14+m36`, deux séries) ne tient plus le rang : une
+     moisson à TROIS séries passe devant. On gèle le compte et le mode, plus
+     les codes — nommer une voie qui a été battue reviendrait à figer le
+     classement d'hier. */
   const attendu = [
-    ['hope-hope-hope.fr', 'MOISSON', 5, null],
-    ['https://hope-hope-hope.fr/', 'MOISSON', 6, null],
-    ['Donald Trump', 'MOISSON', 2, 'tca+m14+m36,fr13+tca+m14+m36'],
+    ['hope-hope-hope.fr', 'MOISSON', 6, null],
+    ['https://hope-hope-hope.fr/', 'MOISSON', 7, null],
+    ['Donald Trump', 'MOISSON', 3, null],
     // ★ **`Macron` CHANGE DE RÉFÉRENCE, ET C'EST L'AUTEUR QUI LA NOMME.**
     //   « Pour Macron, `#so!tca+mt9+mpf` me semble optimal : les 666 ne sont pas
     //   contigus, mais le procédé se fait en très peu d'étapes, ce qui est mieux
@@ -1716,22 +1734,39 @@ test('★ régimes — 1 % de quantité à la 1ʳᵉ place, 33 % d’élégance 
 test('★ régimes — l’élégance pure renverse le champion de la quantité', () => {
   const m = creerMoteur(catalogue, { filetTemporel: false });
   const app = m.resoudre('hope-hope-hope.fr').approches;
-  const moisson = app.find((a) => a.mode === 'MOISSON' && (a.series || 1) === 5);
-  const resonance = app.find((a) => a.mode === 'RESONANCE');
-  assert.ok(moisson && resonance, 'les deux voies de la mesure doivent exister');
 
-  assert.ok(moisson.elegance > resonance.elegance,
-    `au crédit plein la moisson mène (${moisson.elegance} contre ${resonance.elegance})`);
-  assert.ok(resonance.elegances.elegance > moisson.elegances.elegance,
-    `à 1 % de quantité la résonance passe devant `
-    + `(${resonance.elegances.elegance} contre ${moisson.elegances.elegance})`);
-  assert.ok(ordreElegance(resonance, moisson) < 0, 'et le comparateur le dit');
-  assert.ok(ordreTriptyques(moisson, resonance) < 0, '…tandis que la quantité garde la sienne');
+  /* ★ **CE TEST NOMMAIT DEUX VOIES ; IL MESURE MAINTENANT LE MÉCANISME.**
 
-  // Les deux places sont bien attribuées, et dans cet ordre : la belle, puis la
-  // fournie. C'est tout le propos de la règle.
+     Il tenait une moisson à cinq séries et une résonance, et vérifiait que la
+     seconde passait devant la première dès que la quantité ne pesait plus que
+     1 %. La démonstration était juste, et elle était FRAGILE : elle reposait
+     sur un couple précis, dont les crédits ont bougé au premier réglage venu
+     (`MAX_SERIES`, puis la concision, puis le mérite d'élégance). Aujourd'hui
+     la résonance mène DÉJÀ au crédit plein — 1 359 contre 421 —, si bien qu'il
+     n'y a plus rien à renverser sur ce couple-là, alors que la règle qu'il
+     illustrait, elle, n'a pas bougé d'un pouce.
+
+     On mesure donc la règle : les deux régimes ne classent PAS pareil, la
+     première ligne répond à « la plus belle » et la seconde à « la plus
+     fournie ». C'est ce que l'auteur a demandé — « en dehors du résultat
+     orienté élégance avant tout, ça me va très bien que ça évolue vers plus de
+     quantité, en gardant une élégance assez bonne ». */
   assert.equal(app[0].suggestion, 'elegance');
   assert.equal(app[1].suggestion, 'triptyques');
   assert.ok((app[1].series || 1) > (app[0].series || 1),
-    'la 2ᵈ ligne aligne plus de 666 que la 1ʳᵉ — c’est ce qui la met là');
+    `la 2ᵈ ligne aligne plus de 666 que la 1ʳᵉ (${app[1].series} contre ${app[0].series})`);
+
+  // ★ Et les deux comparateurs se contredisent SUR CE COUPLE : c'est très
+  //   exactement ce qui fait qu'il y a deux lignes plutôt qu'une.
+  assert.ok(ordreElegance(app[0], app[1]) < 0,
+    'au régime de l’élégance, la 1ʳᵉ ligne passe devant la 2ᵈ');
+  assert.ok(ordreTriptyques(app[1], app[0]) < 0,
+    '…et au régime de la quantité, c’est l’inverse');
+
+  // ★ La 1ʳᵉ ligne est plus COURTE et abandonne MOINS que la 2ᵈ : c'est le
+  //   correctif demandé sur le mérite d'élégance (`score.js › meriteDElegance`),
+  //   qui ne lisait que le crédit et ignorait ces deux-là.
+  assert.ok(app[0].L < app[1].L, `la belle est la plus courte (${app[0].L} contre ${app[1].L})`);
+  assert.ok(app[0].criteres.U >= app[1].criteres.U,
+    `la belle n’abandonne pas plus (${app[0].criteres.U} contre ${app[1].criteres.U})`);
 });

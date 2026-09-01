@@ -361,8 +361,17 @@ test('arithmétique entière — racine entière et critères', () => {
   assert.equal(critereCouverture(10, 10), 1000, 'U_brut = 1 → U = 1');
   assert.equal(critereCouverture(0, 10), 0);
   assert.ok(Math.abs(critereCouverture(5, 10) - 353) <= 2, 'U_brut = 0,5 → ≈ 0,354');
-  assert.equal(critereConcision(9), 1000, 'L* = 9');
-  assert.equal(critereConcision(12), 681, '0,88³ ≈ 0,681');
+  // ★ `L_IDEAL` est passé de 9 à 2 : la décroissance de la concision existait,
+  //   mais ne s'appliquait à AUCUNE voie du corpus — voir `score.js › REGLAGES`.
+  //   Ce qu'on gèle ici est la forme de la courbe, pas la valeur d'un point :
+  //   plein tarif jusqu'au seuil, puis 0,88 par étape, donc un coût marginal
+  //   qui décroît — « passer de 2 à 3 étapes doit peser plus lourd que passer
+  //   de 5 à 6 » (l'auteur).
+  assert.equal(critereConcision(2), 1000, 'L* = 2 : au seuil, rien à payer');
+  assert.equal(critereConcision(5), 681, '0,88³ ≈ 0,681');
+  assert.ok(critereConcision(2) - critereConcision(3)
+    > critereConcision(5) - critereConcision(6),
+  'la marche 2→3 doit coûter plus cher que la marche 5→6');
 });
 
 // ══════════════════════════════════ garantie « jamais bredouille » (§5)

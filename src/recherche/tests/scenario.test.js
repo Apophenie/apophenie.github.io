@@ -13,6 +13,38 @@ import { lireCible } from '../cible.js';
 import { lire as lireUrl } from '../url.js';
 import { encoderTexte } from '../base58.js';
 
+/**
+ * ★ **UNE VOIE NOMMÉE SE REJOUE PAR SON LIEN, ELLE NE SE CHERCHE PAS DANS LA
+ *   LISTE.**
+ *
+ * Trois tests de SCÈNE localisaient leur sujet par `resoudre(…).approches.find(
+ * codes === '…')`. C'est un couplage caché : ils vérifient l'ordre des gestes —
+ * un 666 couronné avant que son reste ne tombe — et ils échouaient dès que le
+ * BARÈME changeait, parce que leur voie sortait des douze places. Ils
+ * disaient alors « la voie de référence doit être trouvée », ce qui est un
+ * constat de classement déguisé en panne de mise en scène.
+ *
+ * Le lien, lui, ne dépend d'aucun classement : `rejouer` reconstruit l'approche
+ * à partir du programme écrit, exactement comme le fait le site quand on ouvre
+ * une URL partagée (§4.3). C'est d'ailleurs le seul chemin qui compte pour ces
+ * trois-là — la voie de la vitrine est CITÉE dans `src/i18n/fr.js`, elle doit
+ * se jouer qu'elle soit première, douzième ou absente.
+ */
+/* ⚠️ Le lien est écrit À LA MAIN, et surtout PAS par `ecrire()`. La forme
+   canonique GROUPE les portées voisines qui partagent un programme —
+   `0.1+2.1+4.1:tca+m14` — et une phase groupée ne se joue pas dans le même
+   ordre que trois phases successives : les couronnements tombaient aux étapes
+   5 et 11 au lieu de 6 et 15. Ce que ces tests observent étant précisément
+   l'ORDRE des gestes, passer par la canonisation aurait changé leur sujet. */
+function voieNommee(moteur, saisie, fragments) {
+  const programme = fragments
+    .map(([offset, codes]) => `${offset}.1:${codes.join('+')}`).join(',');
+  const url = `#so!${programme}#${encoderTexte(saisie)}`;
+  const r = moteur.rejouer(lireUrl(url, { catalogue }));
+  assert.ok(r.ok, `« ${saisie} » ${url} : ${r.detail || r.raison}`);
+  return r.approche;
+}
+
 const SAISIES = ['https://hope-hope-hope.fr/', 'hope', 'macron', 'a', '666', 'jean-michel', 'Éléonore à Nîmes'];
 
 test('scénario — toute approche produite est convertible et VALIDE', () => {
@@ -600,10 +632,8 @@ test('scénario — une approche à passage unique se triple à la fin (joker, t
  */
 test('★ cornes — chaque 666 est couronné avant que son reste ne s’efface', () => {
   const m = creerMoteur(catalogue);
-  const r = m.resoudre('Donald Trump');
-  const a = r.approches.find((x) => x.codes === 'tca+m14+m36,fr13+tca+m14+m36');
-  assert.ok(a, 'la voie de référence doit être trouvée');
-  const sc = m.scenarioDe(a, { saisie: r.saisie });
+  const a = voieNommee(m, 'Donald Trump', [[0, ['tca', 'm14', 'm36']], [2, ['fr13', 'tca', 'm14', 'm36']]]);
+  const sc = m.scenarioDe(a, { saisie: 'Donald Trump' });
   assert.deepEqual(validerScenario(sc), []);
 
   const rang = (predicat) => sc.steps.map((s, i) => (predicat(s) ? i : -1)).filter((i) => i >= 0);
@@ -688,9 +718,8 @@ test('★ cornes — l’avance est REFUSÉE dès qu’une étape pourrait défa
  */
 test('★ cornes — les jalons publiés pour le score sont exacts et purs', () => {
   const m = creerMoteur(catalogue);
-  const r = m.resoudre('Donald Trump');
-  const a = r.approches.find((x) => x.codes === 'tca+m14+m36,fr13+tca+m14+m36');
-  const sc = m.scenarioDe(a, { saisie: r.saisie });
+  const a = voieNommee(m, 'Donald Trump', [[0, ['tca', 'm14', 'm36']], [2, ['fr13', 'tca', 'm14', 'm36']]]);
+  const sc = m.scenarioDe(a, { saisie: 'Donald Trump' });
 
   assert.ok(sc.cornes, 'le scénario publie ses jalons');
   assert.equal(sc.cornes.total, sc.steps.length);
@@ -731,11 +760,13 @@ test('★ cornes — les jalons publiés pour le score sont exacts et purs', () 
  */
 test('★ cornes — la voie de la vitrine couronne ses triptyques, et n’efface rien', () => {
   const m = creerMoteur(catalogue);
-  const r = m.resoudre('hope-hope-hope.fr');
-  const a = r.approches.find((x) => x.codes === 'tca+m14,tca+mtc+cs,tca+m14,tca+mtc+cs,tca+m14,tca+m7+cs');
-  assert.ok(a, 'la voie mise en vitrine dans src/i18n/fr.js doit être trouvée');
+  const a = voieNommee(m, 'hope-hope-hope.fr', [
+    [0, ['tca', 'm14']], [1, ['tca', 'mtc', 'cs']], [2, ['tca', 'm14']],
+    [3, ['tca', 'mtc', 'cs']], [4, ['tca', 'm14']], [6, ['tca', 'm7', 'cs']],
+  ]);
+  assert.equal(a.codes, 'tca+m14,tca+mtc+cs,tca+m14,tca+mtc+cs,tca+m14,tca+m7+cs');
   assert.ok(!a.codes.includes('m36'), 'et elle n’emploie pas « trois 6 d’affilée »');
-  const sc = m.scenarioDe(a, { saisie: r.saisie });
+  const sc = m.scenarioDe(a, { saisie: 'hope-hope-hope.fr' });
   assert.deepEqual(validerScenario(sc), []);
 
   const cornes = sc.steps
@@ -773,12 +804,24 @@ test('★ cornes — la voie de la vitrine couronne ses triptyques, et n’effac
   //   Elle appartient d'ailleurs au rang du bas, dont `reveal` retire les
   //   cornes : le silence d'ici et l'effritement de là-bas disent la même chose.
 
-  // ★ Et les rangs, tels que l'auteur les a dictés. Sur les 27 étapes de la
-  //   démonstration, le premier 666 est couronné à la sixième — c'est-à-dire
-  //   « entre l'étape 5 et 6 » du déroulé d'origine, qui en comptait 25.
-  assert.deepEqual(cornes.map((c) => c.i + 1), [6, 15]);
-  assert.equal(sc.cornes.premier, 6);
+  /* ★ **LES RANGS ONT AVANCÉ PARCE QUE LA DÉMONSTRATION A RACCOURCI.**
+     Ils valaient 6 et 15 sur 27 étapes ; ils valent 5 et 11 sur 22. Rien n'a
+     changé dans le couronnement : c'est `jouerEnsemble` qui joue désormais les
+     portées d'un même rang MEMBRE PAR MEMBRE au lieu de RANG PAR RANG, ce qui
+     fond des étapes qui se répétaient. Le premier 666 paraît toujours aussi
+     tôt qu'il peut, et l'écart entre les deux couronnements suit la même
+     compression (9 étapes, puis 6).
+
+     ⚠️ Ce qui MÉRITE d'être gelé ici n'est pas le numéro : c'est que le
+        couronnement tombe dans le premier quart de la démonstration — c'est ce
+        que le score paie (`sc.cornes.premier` rapporté au total). On garde donc
+        les deux : la mesure exacte, pour voir bouger ce qui bouge, et la
+        propriété, qui est ce qu'on défend. */
+  assert.deepEqual(cornes.map((c) => c.i + 1), [5, 11]);
+  assert.equal(sc.cornes.premier, 5);
   assert.equal(sc.cornes.total, sc.steps.length);
+  assert.ok(sc.cornes.premier * 4 <= sc.cornes.total,
+    `le premier 666 est couronné dans le premier quart (${sc.cornes.premier}/${sc.cornes.total})`);
 });
 
 /**

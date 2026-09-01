@@ -1494,6 +1494,49 @@ const ABSORBENT_PAR_ADDITION = Object.freeze({
 });
 
 /**
+ * ★ **LA DÉGRESSIVITÉ DU REDÉCOUPAGE — le prix suit la longueur de la ligne.**
+ *
+ * > « Au lieu d'un seuil unique `CHIFFRES_REDECOUPE_MIN` je voudrais un malus
+ * >   dégressif : à 2 chiffres, malus maximum ; à 20 chiffres, malus
+ * >   négligeable ; à 10, malus acceptable. » (l'auteur)
+ *
+ * ★ **POURQUOI LA LONGUEUR, ET PAS AUTRE CHOSE.** Redécouper, c'est choisir où
+ *   poser les coupes pour que les paquets tombent sur 6. Sur une ligne de deux
+ *   chiffres, il n'y a qu'une coupe possible : le choix EST le résultat, et le
+ *   spectateur voit qu'on a décidé de l'arrivée. Sur vingt chiffres, il y a
+ *   des milliers de découpes et personne ne peut les tenir en tête — le geste
+ *   redevient ce qu'il prétend être, une lecture parmi d'autres. Ce n'est pas
+ *   la même ruse à deux échelles, c'est deux gestes que la longueur sépare.
+ *
+ * ★ **UNE DÉCROISSANCE GÉOMÉTRIQUE, PAS TROIS PALIERS.** Trois valeurs données,
+ *   trois paliers auraient suffi — et auraient créé deux falaises où un chiffre
+ *   de plus change brutalement le classement. Un facteur constant par chiffre
+ *   passe par les trois points demandés sans discontinuité :
+ *
+ *       2 chiffres → 1 000 ‰   (plein tarif, le maximum demandé)
+ *      10 chiffres →   291 ‰   (« acceptable »)
+ *      20 chiffres →    62 ‰   (« négligeable »)
+ *
+ *   Le rapport 6/7 n'est pas choisi pour lui-même : c'est la fraction simple
+ *   qui traverse au plus près les trois ancrages de l'auteur.
+ *
+ * ★ Arithmétique ENTIÈRE et boucle bornée par la longueur — pas de `Math.pow`,
+ *   donc pas de flottant, donc reproductible partout (§4.4).
+ *
+ * @param {number} chiffres  le nombre de chiffres de la ligne AVANT le geste
+ * @returns {number} un facteur en millièmes, de 1 000 à ~0
+ */
+export function degressiviteRedecoupage(chiffres) {
+  const n = chiffres | 0;
+  let f = 1000;
+  for (let i = PLEIN_TARIF_REDECOUPE; i < n; i++) f = Math.floor((f * 6) / 7);
+  return f;
+}
+
+/** En deçà, le redécoupage est au maximum : c'est le plus court sur quoi il opère. */
+const PLEIN_TARIF_REDECOUPE = 2;
+
+/**
  * ★ Les ficelles qui ÉCARTENT, par identifiant d'opérateur — publié pour
  *   `score.js`, qui en a besoin et ne doit pas en tenir une seconde liste.
  *
@@ -2278,8 +2321,16 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       let chiffres = 0;
       for (const v of avant.valeur) chiffres += String(Math.abs(v)).length;
       const absorbes = Math.max(0, chiffres - apres.valeur.length);
-      b[absorption] += typeof op.additions === 'function'
+      const poids = typeof op.additions === 'function'
         ? dilution(op.additions(avant.valeur)) : absorbes * 1000;
+      // ★ Et le redécoupage, LUI SEUL, s'allège avec la longueur de la ligne :
+      //   voir `degressiviteRedecoupage`. L'addition sélective garde son tarif
+      //   plein — l'auteur n'a rien demandé pour elle, et son geste ne change
+      //   pas de nature avec la longueur : elle additionne des suites qui font
+      //   6, ce qui se vérifie d'un coup d'œil quelle que soit la ligne.
+      b[absorption] += absorption === 'redecoupage'
+        ? Math.floor((poids * degressiviteRedecoupage(chiffres)) / 1000)
+        : poids;
     }
 
     // ── ★ Le RÉARRANGEMENT : rien n'est jeté, rien n'est converti, mais

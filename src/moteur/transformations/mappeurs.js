@@ -464,13 +464,75 @@ const CHIFFRES_MAX = 12;
 const INTERDITS_A_LA_SOMME = (cible) => new Set([0, cible]);
 
 /**
+ * ★ **CE QU'UN PAQUET A LE DROIT DE FAIRE — la règle qui remplace les deux
+ *   interdits d'entrée.**
+ *
+ * `INTERDITS_A_LA_SOMME` refusait un paquet dès qu'un 0 ou un 6 s'y présentait,
+ * et coupait le balayage. C'était trop grossier, et l'auteur l'a montré par un
+ * contre-exemple : sur `661506967872`, il attendait `6 6 6 6 9 6 15 9`, dont le
+ * quatrième 6 naît de `0 + 6`. L'ancienne règle l'interdisait deux fois — pour
+ * le 0 ET pour le 6 — alors que ce paquet ne détruit rien : il fait disparaître
+ * un zéro parasite et rend le 6 intact. « Un 6 peut entrer dans un paquet si le
+ * paquet vaut encore 6 » (l'auteur), « mais attention à ne pas faire rentrer
+ * plusieurs 6 pour n'en sortir qu'un ».
+ *
+ * Cette seconde phrase EST l'invariant, et il se dit mieux en comptant qu'en
+ * interdisant : **un paquet ne doit pas appauvrir la ligne**. Ce qui entre en
+ * 6 doit ressortir en 6, ce qui entre en 9 doit ressortir en 9. Écrite ainsi,
+ * la règle couvre d'un coup les cas que deux interdits ne voyaient pas :
+ *
+ *   · `0+6 → 6`    un zéro absorbé, le 6 intact          → AUTORISÉ
+ *   · `6+6 → 12`   deux 6 pour aucun                     → refusé
+ *   · `9+6 → 15`   un 6 dissous dans « 1 5 »             → refusé
+ *   · `9+9 → 18`   deux 9 pour un seul                   → refusé
+ *   · `1+5 → 6`    un 6 gagné                            → AUTORISÉ
+ *   · `7+2 → 9`    un 9 gagné                            → AUTORISÉ
+ *   · `7+8 → 15`   rien gagné, rien perdu, et `15` se
+ *                  réduit à 6 au coup suivant            → AUTORISÉ
+ *
+ * ★ **ET L'UTILITÉ, séparément.** Ne rien détruire ne suffit pas : `3+4 → 7`
+ *   ne détruit rien et ne sert à rien. Un paquet doit VISER — sa somme se
+ *   réduit à 6, ou à 9 « à défaut » (l'auteur). C'est ce qui autorise `7+8`,
+ *   dont l'auteur note lui-même qu'il faudra enchaîner (`15 → 6`).
+ */
+const reduire = (n) => {
+  let v = Math.abs(n);
+  while (v > 9) v = chiffresDe(v).reduce((a, b) => a + b, 0);
+  return v;
+};
+
+/** Combien de fois le chiffre `d` paraît dans une liste de chiffres. */
+const compte = (liste, d) => liste.reduce((n, c) => n + (c === d ? 1 : 0), 0);
+
+/**
+ * Un paquet est-il recevable ? Voir l'en-tête de `INTERDITS_A_LA_SOMME`.
+ * @param {number[]} entree  les chiffres consommés
+ * @param {number} cible     le chiffre visé
+ */
+function paquetRecevable(entree, cible) {
+  if (entree.length < 2) return false;
+  const somme = entree.reduce((a, b) => a + b, 0);
+  const r = reduire(somme);
+  // 1. viser quelque chose : la cible, ou le 9 qu'un demi-tour rendra.
+  if (r !== cible && r !== RETOURNABLE) return false;
+  // 2. et ne rien appauvrir — l'avertissement de l'auteur, compté.
+  const sortie = chiffresDe(somme);
+  for (const d of [cible, RETOURNABLE]) {
+    if (compte(sortie, d) < compte(entree, d)) return false;
+  }
+  return true;
+}
+
+/**
  * @param {number[]} valeur
  * @param {number} [cible] le chiffre à fabriquer — nommé, plus jamais deviné
  */
+/** Largeur maximale d'un paquet d'addition sélective — même lisibilité que `PAQUET_MAX`. */
+const PAQUET_ADDITION_MAX = 6;
+
 function planAdditionSelective(valeur, cible = CIBLE_CHIFFRE) {
   if (!valeur.length) return null;
   if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
-  const interdits = INTERDITS_A_LA_SOMME(cible);
   const chiffres = [];
   valeur.forEach((v, i) => {
     for (const c of String(v)) chiffres.push({ v: Number(c), src: i });
@@ -485,16 +547,25 @@ function planAdditionSelective(valeur, cible = CIBLE_CHIFFRE) {
   let i = 0;
   let additions = 0;
   while (i < chiffres.length) {
+    // ★ On cherche le paquet le plus COURT qui vise juste, puis, à défaut, le
+    //   plus court qui vise le 9. Deux passes plutôt qu'un départage : le 6 ne
+    //   se négocie pas contre un 9, il passe avant (« ou les 9 à défaut »).
     let pris = 0;
-    let somme = 0;
-    for (let L = 1; L <= cible && i + L <= chiffres.length; L++) {
-      const c = chiffres[i + L - 1].v;
-      if (interdits.has(c)) break;
-      somme += c;
-      if (somme > cible) break;
-      if (L >= 2 && somme === cible) { pris = L; break; }
+    let valeur = 0;
+    for (const vise of [cible, RETOURNABLE]) {
+      for (let L = 2; L <= PAQUET_ADDITION_MAX && i + L <= chiffres.length; L++) {
+        const entree = [];
+        for (let k = i; k < i + L; k++) entree.push(chiffres[k].v);
+        if (!paquetRecevable(entree, cible)) continue;
+        const somme = entree.reduce((a, b) => a + b, 0);
+        if (reduire(somme) !== vise) continue;
+        pris = L;
+        valeur = somme;
+        break;
+      }
+      if (pris) break;
     }
-    if (pris) { sortie.push({ v: cible, debut: i, fin: i + pris }); i += pris; additions++; }
+    if (pris) { sortie.push({ v: valeur, debut: i, fin: i + pris }); i += pris; additions++; }
     else { sortie.push({ v: chiffres[i].v, debut: i, fin: i + 1 }); i++; }
   }
   if (!additions) return null;
@@ -893,8 +964,21 @@ const CHIFFRES_REDECOUPE_MAX = 36;
  * L'exemple de l'auteur — trente-deux chiffres — reste au-dessus du seuil,
  * lequel n'a jamais été autre chose que ce qu'il décrit : « après l'étape 15,
  * il y a 32 chiffres. C'est le moment de tricher ».
+ *
+ * ★ **LE SEUIL EST SUPPRIMÉ, ET CE QUI PRÉCÈDE RESTE ÉCRIT PARCE QUE C'EST UN
+ *   AVERTISSEMENT.** L'auteur veut un malus dégressif plutôt qu'une porte
+ *   fermée, et il a raison sur le fond : `mrd` s'applique parfaitement à douze
+ *   chiffres, il y est simplement plus voyant. Mais les deux symptômes relevés
+ *   ci-dessus n'étaient PAS des symptômes de tarif — c'étaient des symptômes
+ *   d'ÉVICTION : les voies honnêtes ne tombaient pas plus bas au classement,
+ *   elles n'atteignaient plus le classement (`assemblage.js ›
+ *   K_CANONISABLES`). Un barème ne peut rien pour ce qu'il ne voit jamais.
+ *
+ *   La dégressivité est donc la bonne réponse à la question posée, et elle ne
+ *   répond pas à celle-là. Ce qu'elle donne sur le corpus est mesuré et
+ *   consigné dans le commit ; si l'éviction revient, elle se corrigera là où
+ *   elle a lieu — dans la largeur du faisceau —, pas en refermant la porte.
  */
-const CHIFFRES_REDECOUPE_MIN = 2 * CHIFFRES_MAX + 1;
 
 /**
  * Largeur maximale d'un paquet. Six chiffres, et c'est un CHOIX de lisibilité
@@ -934,7 +1018,14 @@ function planRedecoupage(valeur) {
     for (const c of String(v)) chiffres.push({ v: Number(c), src: i });
   });
   const n = chiffres.length;
-  if (n < CHIFFRES_REDECOUPE_MIN || n > CHIFFRES_REDECOUPE_MAX) return null;
+  // ★ **PLUS DE SEUIL BAS — c'est le BARÈME qui décide, plus la grammaire.**
+  //   « Au lieu d'un seuil unique je voudrais un malus dégressif : à 2 chiffres
+  //   malus maximum, à 20 chiffres malus négligeable, à 10 acceptable »
+  //   (l'auteur). Voir `elegance.js › degressiviteRedecoupage`. Un refus pur et
+  //   simple disait « cette règle n'existe pas ici », ce qui est faux : elle
+  //   existe, elle est juste CHÈRE sur une ligne courte — et le prix est
+  //   précisément ce que le barème sait exprimer.
+  if (n > CHIFFRES_REDECOUPE_MAX) return null;
 
   // ── la programmation dynamique, de la fin vers le début
   const meilleur = Array.from({ length: n + 1 }, () => null);
@@ -2791,11 +2882,13 @@ const AUTRES_MAPPEURS = [
     libelle: LIB_ADDITION_SELECTIVE,
     regle: bilingue(
       'Chaque nombre s’écrit chiffre à chiffre, puis on n’additionne QUE les suites '
-      + 'contiguës de chiffres dont la somme fait exactement 6 — jamais un 6 déjà là, '
-      + 'jamais un zéro, et toujours la plus courte, de gauche à droite.',
-      'Every number is written out digit by digit, then only the adjacent runs of digits '
-      + 'that add up to exactly 6 are summed — never a 6 already there, never a zero, and '
-      + 'always the shortest run, left to right.',
+      + 'contiguës dont la somme vise 6 — ou 9 à défaut, qu’un demi-tour rendra. '
+      + 'Une suite qui ferait perdre un 6 ou un 9 déjà écrits est refusée. Toujours '
+      + 'la plus courte, de gauche à droite.',
+      'Every number is written out digit by digit, then only the adjacent runs aiming at 6 '
+      + '— or at 9 failing that, which half a turn will convert — are summed. A run that '
+      + 'would cost a 6 or a 9 already written is refused. Always the shortest run, left '
+      + 'to right.',
     ),
     // ★ Notoriété 0,30, la plus haute des trois : additionner des chiffres
     // contigus est le geste le plus banal de toute la numérologie — c'est ce
@@ -2808,12 +2901,14 @@ const AUTRES_MAPPEURS = [
     // explicitement à « se débarrasser artificiellement de chiffres ».
     notoriete: 0.30, adHoc: 0.30,
     note: bilingue(
-      'Sélective, donc discutable : on additionne 5+1 pour faire un 6, et l’on saute '
-      + 'les 6 déjà là plutôt que de les détruire. Les signes + ne paraissent qu’entre '
-      + 'les termes retenus — la sélection est sous les yeux, c’est le score qui la juge.',
-      'Selective, hence arguable: 5+1 is added to make a 6, and the 6s already there are '
-      + 'skipped rather than destroyed. The plus signs appear only between the chosen '
-      + 'terms — the selection is in plain sight, and the score is what judges it.',
+      'Sélective, donc discutable : on additionne 5+1 pour faire un 6, et l’on ne touche '
+      + 'à un 6 déjà là que pour lui faire avaler un zéro — il en ressort intact. Les '
+      + 'signes + ne paraissent qu’entre les termes retenus : la sélection est sous les '
+      + 'yeux, c’est le score qui la juge.',
+      'Selective, hence arguable: 5+1 is added to make a 6, and a 6 already there is only '
+      + 'touched to swallow a zero — it comes out intact. The plus signs appear only '
+      + 'between the chosen terms: the selection is in plain sight, and the score is what '
+      + 'judges it.',
     ),
     apply: (valeur, traces) => {
       const plan = planAdditionSelective(valeur);

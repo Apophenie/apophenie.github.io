@@ -143,7 +143,26 @@ export const MALUS = {
  */
 
 export const REGLAGES = {
-  L_IDEAL: 9,                    // 3 fragments × 3 étapes
+  // ★ **L_IDEAL EST PASSÉ DE 9 À 2, ET C'EST UN CORRECTIF, PAS UN RÉGLAGE.**
+  //
+  //   > « Le malus d'élégance pour chaque étape supplémentaire doit décroître
+  //   >   avec le nombre d'étapes. Passer de 2 à 3 étapes doit peser plus lourd
+  //   >   que passer de 5 à 6 étapes. » (l'auteur)
+  //
+  //   La DÉCROISSANCE existait déjà — une décroissance géométrique a par
+  //   construction un coût marginal qui diminue. Ce qui n'existait pas, c'est
+  //   qu'elle s'applique : à 9, le critère valait 1 000 pour TOUTE voie du
+  //   corpus, dont aucune n'atteint neuf étapes. Mesuré sur « Donald Trump » :
+  //   six voies en tête, C = 1 000 pour les six, d'une démonstration de quatre
+  //   étapes à une de huit. Un critère qui ne distingue rien ne pèse rien, quel
+  //   que soit son poids affiché — 150 ‰ de rien font rien.
+  //
+  //   À 2, le barème dit ce que l'auteur décrit, et on peut le lire :
+  //       2 → 3 étapes : −120 ‰      5 → 6 étapes : −82 ‰
+  //   La première marche coûte une fois et demie la seconde, et l'écart se
+  //   resserre encore ensuite. Deux, parce qu'une démonstration d'une ou deux
+  //   étapes est ce qu'on ne peut pas raccourcir — au-delà, on paie.
+  L_IDEAL: 2,
   CONCISION_DECROISSANCE: [88, 100], // C = 0,88 ^ max(0, L − L*)
   // Exposant de couverture 1,5 — implémenté en entier via une racine entière.
   PALIERS_HOMOGENEITE: { memeMethodeEtFiltres: 1000, memeMethode: 900, memeMappeur: 600, memeFamille: 300, sinon: 50 },
@@ -956,6 +975,45 @@ export const POIDS_DES_REGIMES = Object.freeze({
  * approches montées à la main. Une approche sans régimes se compare alors comme
  * avant, ce qui est le comportement le moins surprenant.
  */
+/**
+ * ★ **CE QUE « LA PLUS ÉLÉGANTE » VEUT DIRE — et ce qu'il y manquait.**
+ *
+ * > « Entre l'élégance de la concision et le bonus de quantité, ajuste les
+ * >   barèmes pour que l'élégance fasse vraiment primer la concision et
+ * >   l'utilisation d'un maximum de caractères (ou la suppression d'un minimum
+ * >   d'entre eux). » (l'auteur)
+ *
+ * Le comparateur de la 1ʳᵉ place lisait le CRÉDIT d'élégance, et lui seul. Or le
+ * crédit récompense ce qu'une voie fait de PROPRE — pas de ficelle, pas de
+ * valeur jetée sans motif —, et il ne dit rien de sa LONGUEUR ni de ce qu'elle
+ * laisse tomber de la saisie. Ces deux-là vivaient dans le score général, que
+ * le comparateur ne consultait qu'en tout dernier recours, après le crédit,
+ * après le compte de séries et après la pureté. Mesuré sur « Donald Trump » :
+ * la voie de tête employait huit étapes et abandonnait 12 % de la saisie,
+ * pendant que quatre voies de quatre étapes couvrant TOUT attendaient derrière.
+ *
+ * ★ **MULTIPLICATIF, ET NON ADDITIF.** Un terme ajouté aurait demandé un poids,
+ *   donc un troisième réglage à étalonner. Un facteur pose la question
+ *   autrement, et plus juste : le crédit dit ce que la voie vaut, la concision
+ *   et la couverture disent quelle PART de cette valeur survit à ce qu'elle a
+ *   coûté. Une démonstration deux fois plus longue doit être deux fois plus
+ *   belle pour valoir la même chose — c'est exactement la phrase de l'auteur.
+ *
+ * ★ **LE SOCLE.** Une voie sans crédit — il y en a, et de très courtes — vaudrait
+ *   zéro quoi qu'elle fasse, et le facteur ne trancherait rien entre elles. Le
+ *   socle leur rend la concision et la couverture pour seul juge, ce qui est
+ *   bien ce qu'on veut d'une voie qui n'a rien d'autre à faire valoir.
+ */
+const SOCLE_ELEGANCE = 1000;
+
+const meriteDElegance = (a) => {
+  const c = (a && a.criteres) || {};
+  const credit = eleganceSelon(a, 'elegance') + SOCLE_ELEGANCE;
+  const concision = c.C === undefined ? MILLE : c.C;
+  const couverture = c.U === undefined ? MILLE : c.U;
+  return Math.floor((credit * concision * couverture) / (MILLE * MILLE));
+};
+
 const eleganceSelon = (a, regime) => {
   const r = a && a.elegances;
   const v = r && r[regime];
@@ -1053,8 +1111,8 @@ export function ordreElegance(a, b) {
   //   son poids habituel (`POIDS_DES_REGIMES.elegance`). Sans cette lecture-là,
   //   « le champion de l'élégance » désignait pour une bonne part le champion du
   //   COMPTE, puisque le crédit paie chaque 666 contigu 260 milli-unités.
-  const ea = eleganceSelon(a, 'elegance');
-  const eb = eleganceSelon(b, 'elegance');
+  const ea = meriteDElegance(a);
+  const eb = meriteDElegance(b);
   if (ea !== eb) return eb - ea;
   const sa = a.series || 1;
   const sb = b.series || 1;
