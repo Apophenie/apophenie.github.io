@@ -134,7 +134,7 @@ async function routeResultat(saisie, { bandeau = null, cible = null } = {}) {
  * qu'on y fait : choisir parmi des voies classées.
  */
 function routeEnumeration(lecture) {
-  const r = pont.enumerer(lecture);
+  const r = pont.enumererLesTrous(lecture);
   if (!r.ok) {
     const raison = r.bandeau || t('bandeaux.voieInconnue');
     if (lecture.saisie) routeResultat(lecture.saisie, { bandeau: raison, cible: lecture.cible });

@@ -843,7 +843,7 @@ test('★ commande — l’énumération classe le compte juste devant l’à-pe
   const m = creerMoteur(catalogue, { filetTemporel: false });
 
   // « Donald » sait rendre quatre valeurs utiles : la commande est satisfaite.
-  const juste = m.enumerer(lire('#sce!0.1:????,2.1:tca+m14#2HuP1G8mNg3sJWhqR'));
+  const juste = m.enumererLesTrous(lire('#sce!0.1:????,2.1:tca+m14#2HuP1G8mNg3sJWhqR'));
   assert.ok(juste.ok, juste.detail || juste.raison);
   assert.ok(juste.approches.length > 1, 'une énumération montre plusieurs remplissages');
   for (const a of juste.approches) {
@@ -853,7 +853,7 @@ test('★ commande — l’énumération classe le compte juste devant l’à-pe
 
   // ★ Onze est hors de portée du mot. On montre QUAND MÊME — « mieux vaut des
   //   résultats que aucun » —, et toutes les propositions sont en manque.
-  const trop = m.enumerer(lire('#sce!0.1:???????????,2.1:tca+m14#2HuP1G8mNg3sJWhqR'));
+  const trop = m.enumererLesTrous(lire('#sce!0.1:???????????,2.1:tca+m14#2HuP1G8mNg3sJWhqR'));
   assert.ok(trop.ok, 'une commande hors de portée doit RENDRE quelque chose');
   assert.ok(trop.approches.every((a) => a.ecartCommande < 0),
     'aucune ne peut atteindre le compte : toutes sont en manque');

@@ -339,12 +339,12 @@ export function rejouer(lecture) {
  * `recherche/index.js › enumerer`. Rend la MÊME forme que `resoudre`, pour que
  * la page de résultats n'ait rien à savoir de la façon dont la liste est née.
  */
-export function enumerer(lecture) {
-  if (!M.moteur || typeof M.moteur.enumerer !== 'function') {
+export function enumererLesTrous(lecture) {
+  if (!M.moteur || typeof M.moteur.enumererLesTrous !== 'function') {
     return { ok: false, raison: 'moteur absent' };
   }
   try {
-    const r = M.moteur.enumerer(lecture);
+    const r = M.moteur.enumererLesTrous(lecture);
     if (!r || !r.ok) return r;
     return { ...r, approches: r.approches.map((a) => traduireApproche(a)) };
   } catch (err) {

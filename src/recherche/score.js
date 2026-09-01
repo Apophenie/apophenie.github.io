@@ -172,6 +172,20 @@ export const REGLAGES = {
   MAX_PAR_MAPPEUR: 2,
   MAX_APPROCHES: 12,
   MAX_FRAGMENTS: 24,
+  // ── les trois réglages du CURSEUR DE QUANTITÉ (voir `facteurQuantite`)
+  // Recopié de `assemblage.js › MAX_SERIES`, qui est privé : c'est le plus
+  // grand nombre de 666 que le moteur montre d'un coup. Un test le recoupe avec
+  // ce que le moteur produit réellement, faute de quoi les deux se perdraient
+  // de vue le jour où l'un des deux bouge.
+  SERIES_PLAFOND: 6,
+  // Ce qu'une série manquante (ou surnuméraire) coûte au cran extrême, en ‰.
+  // Mesuré : au cran 200, une voie à une seule série paie ×0,60 face à une
+  // moisson à six — assez pour renverser un écart de score de 40 %, pas assez
+  // pour effacer la voie de la liste.
+  PAS_DE_QUANTITE: 80,
+  // Le même garde-fou que `elegance.js › FACTEUR_PLANCHER` : un curseur ne doit
+  // jamais pouvoir annihiler une voie, seulement la reléguer.
+  PLANCHER_DE_QUANTITE: 400,
 };
 
 // ══════════════════════════════════ arithmétique entière
@@ -200,6 +214,364 @@ export function comparerCodes(a, b) {
     return a[i] < b[i] ? -1 : 1;
   }
   return a.length - b.length;
+}
+
+// ═══════════════ ★ LES QUATRE CURSEURS — « repondérer sans réécrire le barème »
+
+/**
+ * ══════════════════════════════════════════════════════════════════════════
+ *  L'écran de liste offre QUATRE CURSEURS INDÉPENDANTS. Ils ne remplacent pas
+ *  les six critères : ils les REPONDÈRENT.
+ *
+ *   · `simplicite`   — la concision de la voie ;
+ *   · `exhaustivite` — ne rien jeter de la saisie ;
+ *   · `quantite`     — maximiser la présence du motif cherché ;
+ *   · `coherence`    — ce que le code appelle « élégance », et que l'auteur
+ *                      dit « pourrait aussi être nommé vraisemblance ».
+ *
+ *  Le POURCENTAGE affiché à côté d'un curseur vaut sa position divisée par la
+ *  somme des quatre (`pourcentagesDe`) : quatre curseurs au même cran, c'est
+ *  quatre fois 25 %, et lever un curseur abaisse mécaniquement l'affichage des
+ *  trois autres sans qu'on les ait touchés. C'est un AFFICHAGE, pas un calcul :
+ *  le moteur, lui, ne lit que les POSITIONS.
+ *
+ * ── LA CORRESPONDANCE VERS LES SIX CRITÈRES — tranchée par l'auteur ────────
+ *
+ * > « homogénéité devrait varier avec simplicité ET cohérence »
+ * > « notoriété devrait varier avec cohérence »
+ *
+ * Les deux phrases fixent trois cases de la table ; les quatre autres se
+ * déduisent de ce que chaque critère MESURE, et il n'y avait pas d'hésitation :
+ *
+ *   · `concision`  ← simplicité   — c'est le même mot. Le critère compte les
+ *                                   étapes rendues ; le curseur s'appelle
+ *                                   « concision de la voie ».
+ *   · `couverture` ← exhaustivité — « ne rien jeter » est la définition
+ *                                   littérale de U (part de la saisie lue).
+ *   · `antiAdHoc`  ← cohérence    — une pirouette est exactement ce qui rend
+ *                                   une démonstration INVRAISEMBLABLE.
+ *   · `elegance`   ← cohérence    — le curseur porte le nom que le code donne
+ *                                   déjà à ce critère.
+ *
+ * ⚠️ **Le partage de l'HOMOGÉNÉITÉ est MOITIÉ-MOITIÉ, et c'est un choix par
+ * défaut assumé.** L'auteur a dit « simplicité ET cohérence » sans dire dans
+ * quelle proportion. Toute autre répartition inventerait une préséance qu'il
+ * n'a pas énoncée ; 125 + 125 est la seule qui n'en invente aucune. Elle se
+ * révise en changeant deux nombres ici, et nulle part ailleurs.
+ *
+ * ★ **La QUANTITÉ ne pèse sur AUCUN des six.** Ce n'est pas un oubli : aucun
+ * des six critères ne compte les 666 produits — c'est précisément le reproche
+ * que `POIDS_DES_REGIMES` documente déjà (« les six critères ne voient pas la
+ * différence »). Elle agit donc là où la quantité se mesure vraiment, et à deux
+ * endroits qui existaient avant elle :
+ *   · la famille `quantite` du crédit d'élégance (`elegance.js › NATURE` —
+ *     `TRIPTYQUE_CONTIGU`, `TRIPTYQUE_REPETE`, `SIX_SURNUMERAIRE`, c'est-à-dire
+ *     littéralement les postes qui paient pour avoir trouvé le motif souvent) ;
+ *   · un facteur sur le score, lu sur le nombre de séries (`facteurQuantite`).
+ *
+ * ── LES POSITIONS : entiers de 0 à 200, défaut 100 ─────────────────────────
+ *
+ * Cent au milieu, pour trois raisons qui tombent toutes juste :
+ *   1. au défaut, la table ci-dessous rend EXACTEMENT `POIDS` (250, 200, 180,
+ *      150, 120, 100 ‰, somme 1 000) — l'invariant que le test vérifie ;
+ *   2. les quatre pourcentages affichés valent alors 25 % chacun ;
+ *   3. le maximum, 200, est le point où l'exhaustivité fait payer le rendement
+ *      PLEIN TARIF (voir `facteurRendement`) : la butée du curseur est un
+ *      arbitrage lisible, pas un nombre rond choisi au hasard.
+ *
+ * ── DÉTERMINISME (§4.4) ────────────────────────────────────────────────────
+ * Tout est entier. La renormalisation à 1 000 distribue son reste au « plus
+ * fort reste », et départage les ex æquo par l'ORDRE DE LA TABLE — jamais par
+ * un tri instable ni par un `localeCompare`.
+ *
+ * ── ⚠️ CE QUE LA RENORMALISATION FAIT, ET QU'ON NE VOIT PAS VENIR ──────────
+ *
+ * Les six poids somment à 1 000 : c'est un jeu à somme nulle, et « lever un
+ * curseur » n'y veut pas dire « monter les critères qu'il nourrit ». MESURÉ :
+ * quand la cohérence passe de 0 à 200, la contribution BRUTE de l'homogénéité
+ * TRIPLE (12 500 → 37 500) et sa part NORMALISÉE BAISSE (275 → 243 ‰) — parce
+ * que la notoriété, l'anti-ad-hoc et l'élégance, eux, partent de zéro et
+ * gonflent le dénominateur plus vite.
+ *
+ * Ce n'est pas un défaut de la table, c'est ce que « pondérer » signifie. La
+ * garantie que le barème offre est donc un RAPPORT, et elle est exacte : à
+ * témoin constant — un critère que le curseur ne nourrit pas —, le rapport ne
+ * recule jamais. C'est cela que le test vérifie, poste par poste, plutôt qu'une
+ * monotonie de la part absolue, qui serait fausse et qu'on aurait fini par
+ * « corriger » en cassant la table.
+ *
+ * ── ⚠️ CE QUE LES CURSEURS NE TOUCHENT PAS : LE FAISCEAU DU BFS ────────────
+ *
+ * `scorePartiel` et `scoreDeAcc` lisent `POIDS` en direct, et continuent de le
+ * faire quels que soient les curseurs. Ils décident de ce que la recherche
+ * EXPLORE (`bfs.js`, le faisceau par état), pas de ce que la liste MONTRE, et
+ * les deux questions sont distinctes : l'ensemble exploré doit rester le même
+ * pour une saisie donnée, sans quoi deux réglages de curseurs ne classeraient
+ * pas les mêmes voies mais des voies différentes — et « repondérer » cesserait
+ * de vouloir dire « trier autrement ». Le curseur qui agit sur l'exploration
+ * existe, il s'appelle la PUISSANCE DE FOUILLE (`config.js`), et il est
+ * séparé pour cette raison exacte.
+ */
+
+/** Les quatre curseurs, dans l'ordre où l'auteur les a nommés. */
+export const CURSEURS = Object.freeze(['simplicite', 'exhaustivite', 'quantite', 'coherence']);
+
+/** Position centrale : au défaut, le barème est celui d'aujourd'hui. */
+export const CURSEUR_DEFAUT = 100;
+
+/** Butée haute — le plein tarif du rendement (voir `facteurRendement`). */
+export const CURSEUR_MAX = 200;
+
+/**
+ * Ce que chaque curseur apporte à chaque critère, en pour-mille de poids pour
+ * CENT crans de curseur. Somme au défaut : 1 000, comme l'exige `POIDS`.
+ *
+ * ⚠️ C'EST LE SEUL ENDROIT À MODIFIER pour changer la correspondance.
+ */
+export const CORRESPONDANCE = Object.freeze({
+  homogeneite: Object.freeze({ simplicite: 125, coherence: 125 }), // 250 au défaut
+  notoriete: Object.freeze({ coherence: 200 }),
+  couverture: Object.freeze({ exhaustivite: 180 }),
+  concision: Object.freeze({ simplicite: 150 }),
+  antiAdHoc: Object.freeze({ coherence: 120 }),
+  elegance: Object.freeze({ coherence: 100 }),
+});
+
+/** Les positions par défaut, en objet — l'état du panneau au premier affichage. */
+export const CURSEURS_DEFAUT = Object.freeze(
+  Object.fromEntries(CURSEURS.map((c) => [c, CURSEUR_DEFAUT])),
+);
+
+/**
+ * Une position de curseur, ramenée à un entier de [0, CURSEUR_MAX].
+ * Ce qui n'est pas un nombre retombe au défaut : un curseur absent n'est pas un
+ * curseur à zéro, c'est un curseur qu'on n'a pas touché.
+ */
+function positionDe(v) {
+  if (v === undefined || v === null || v === '') return CURSEUR_DEFAUT;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return CURSEUR_DEFAUT;
+  return borner(Math.trunc(n), 0, CURSEUR_MAX);
+}
+
+/** Les quatre positions, complétées et bornées. */
+export function normaliserCurseurs(curseurs) {
+  const src = curseurs || {};
+  const out = {};
+  for (const c of CURSEURS) out[c] = positionDe(src[c]);
+  return out;
+}
+
+/** Les quatre curseurs sont-ils tous au cran par défaut ? */
+export const auDefaut = (curseurs) => CURSEURS.every((c) => curseurs[c] === CURSEUR_DEFAUT);
+
+/**
+ * Répartition entière au PLUS FORT RESTE, ex æquo départagés par l'ordre des
+ * clés. C'est la seule façon de faire tomber une somme sur un total exact sans
+ * flottant et sans tri instable (§4.4).
+ *
+ * @param {number[]} parts   les numérateurs
+ * @param {number} somme     leur somme (> 0)
+ * @param {number} total     le total visé
+ * @param {string[]} cles    les noms, dans l'ordre qui départage
+ */
+function repartir(parts, somme, total, cles) {
+  const quotients = parts.map((p) => Math.floor((p * total) / somme));
+  const restes = parts.map((p, i) => (p * total) - (quotients[i] * somme));
+  let reste = total - quotients.reduce((s, q) => s + q, 0);
+  // Les indices classés par reste décroissant, l'indice croissant départageant.
+  const rang = parts.map((_, i) => i).sort((a, b) => (restes[b] - restes[a]) || (a - b));
+  for (let i = 0; i < rang.length && reste > 0; i++, reste--) quotients[rang[i]]++;
+  const out = {};
+  cles.forEach((k, i) => { out[k] = quotients[i]; });
+  return out;
+}
+
+/**
+ * Le pourcentage affiché à côté de chaque curseur : sa position rapportée à la
+ * somme des quatre. « `valeur_du_curseur / max(1, somme_de_toutes_les_positions)` »
+ * — l'auteur, mot pour mot. Le `max(1, …)` évite la division par zéro quand les
+ * quatre curseurs sont au plancher ; il n'invente aucune répartition, il rend
+ * quatre fois 0 %.
+ *
+ * Arrondi ENTIER, et le reste part au plus fort reste comme pour les poids :
+ * quatre curseurs égaux affichent 25 / 25 / 25 / 25 et non 25 / 25 / 25 / 24.
+ */
+export function pourcentagesDe(curseurs) {
+  const c = normaliserCurseurs(curseurs);
+  const somme = CURSEURS.reduce((s, k) => s + c[k], 0);
+  if (somme <= 0) return Object.fromEntries(CURSEURS.map((k) => [k, 0]));
+  return repartir(CURSEURS.map((k) => c[k]), somme, 100, CURSEURS);
+}
+
+/**
+ * ★ LA FONCTION DE PONDÉRATION — quatre positions ⇒ le barème effectif.
+ *
+ * @param {Object} [curseurs]  positions, complétées par le défaut
+ * @returns {{curseurs:Object, poids:Object, poidsCredit:Object,
+ *            pourcentages:Object, personnalisee:boolean}}
+ *
+ * ★ **`personnalisee` est la clé de tout le reste.** Quand elle est fausse —
+ * c'est-à-dire quand les quatre curseurs sont au défaut —, `noter` ne prend
+ * AUCUN des chemins nouveaux : il lit `POIDS` en direct, ne repondère pas le
+ * crédit, et applique le rendement en racine comme il l'a toujours fait.
+ * L'invariant « curseurs au défaut ⇒ classement identique à aujourd'hui » n'est
+ * donc pas une coïncidence numérique qu'un test surveille : c'est la MÊME LIGNE
+ * DE CODE qui s'exécute. Le test la vérifie quand même — voir
+ * `tests/curseurs.test.js` —, parce qu'un invariant qu'on croit structurel est
+ * exactement celui qu'une réécriture casse en silence.
+ *
+ * ★ `POIDS` est lu à CHAQUE appel, jamais capturé : `tests/etalonnage.test.js`
+ * le réécrit à la volée (`Object.assign(POIDS, …)`) pour mesurer l'effet d'un
+ * autre barème, et une pondération figée au chargement du module le rendrait
+ * muet.
+ */
+export function ponderer(curseurs) {
+  const c = normaliserCurseurs(curseurs);
+  const personnalisee = !auDefaut(c);
+  const cles = Object.keys(CORRESPONDANCE);
+  const bruts = cles.map((critere) => {
+    let v = 0;
+    for (const [cur, coef] of Object.entries(CORRESPONDANCE[critere])) v += coef * c[cur];
+    return v;
+  });
+  const somme = bruts.reduce((s, v) => s + v, 0);
+  // ★ AUCUN des trois curseurs qui nourrissent les six critères n'est levé —
+  //   « quantité seule », par exemple. Les six poids n'ont alors pas de rapport
+  //   défini entre eux : on ne les invente pas, on garde le barème du défaut, et
+  //   les autres leviers du curseur levé (le crédit, le facteur de quantité)
+  //   continuent d'agir. C'est le seul repli de cette fonction, et il est DIT.
+  const poids = somme > 0 ? repartir(bruts, somme, MILLE, cles) : { ...POIDS };
+  return {
+    curseurs: c,
+    poids,
+    // Le crédit d'élégance se repondère par FAMILLE (`elegance.js › credit`) :
+    // 100 crans = poids plein = 1 000 ‰, donc dix pour-mille par cran.
+    poidsCredit: { quantite: c.quantite * 10, elegance: c.coherence * 10 },
+    pourcentages: pourcentagesDe(c),
+    personnalisee,
+  };
+}
+
+/**
+ * ★ LE RENDEMENT, PORTÉ PAR L'EXHAUSTIVITÉ.
+ *
+ * « L'usage maximal de la saisie utilisateur est à récompenser autant que
+ * possible » (l'auteur). Le rendement (`rendementSix`) est exactement le
+ * compteur qui dit ce qu'une voie a CALCULÉ puis JETÉ ; le curseur règle donc à
+ * quel prix ce déchet se paie, entre trois ancrages exacts :
+ *
+ *   · 0   → ×1,000 — le rendement ne compte plus. Jeter est gratuit.
+ *   · 100 → ×√r    — le tarif d'aujourd'hui, « franc sans être capital ».
+ *   · 200 → ×r     — plein tarif. Récolter trois 6 sur dix-sept valeurs vaut
+ *                    0,176 et non 0,419 : la voie qui gaspille disparaît.
+ *
+ * Entre deux ancrages, l'interpolation est LINÉAIRE sur le facteur — et non sur
+ * un exposant, qui demanderait une puissance fractionnaire, donc du flottant,
+ * donc la fin du déterminisme (§4.4). Trois ancrages exacts et deux segments
+ * droits disent la même intention en arithmétique entière.
+ *
+ * Mesuré sur les cinq cas du pavé `rendementSix` (r en pour-mille), aux crans
+ * 0 / 100 / 200 :
+ *
+ *   r = 1000 (3/3)   → 1000 / 1000 / 1000   — le parfait ne bouge jamais
+ *   r =  750 (3/4)   → 1000 /  866 /  750
+ *   r =  857 (12/14) → 1000 /  925 /  857
+ *   r =  285 (4/14)  → 1000 /  533 /  285
+ *   r =  176 (3/17)  → 1000 /  419 /  176
+ *
+ * ── ⚠️ LES DEUX FAÇONS DE « NE RIEN JETER » NE DÉSIGNENT PAS LES MÊMES VOIES ─
+ *
+ * Ce curseur tire sur DEUX leviers, et l'auteur les a demandés tous les deux :
+ * le poids de la COUVERTURE parmi les six critères (« ne rien jeter de la
+ * saisie ») et ce facteur-ci (« ne rien jeter de ce qu'on a calculé »). Les deux
+ * sont monotones dans le bon sens, et ce sont des propriétés EXACTES, vérifiées
+ * par un test : à deux voies identiques par ailleurs, lever le curseur avantage
+ * toujours celle qui lit plus de la saisie (le poids de U passe de 0 ‰ au cran 0
+ * à 305 ‰ au cran 200), et toujours celle qui jette moins.
+ *
+ * MAIS ILS NE TIRENT PAS LES MÊMES VOIES VERS LE HAUT, et la mesure le dit
+ * franchement. Moyennes sur les trois premières voies de neuf listes, rang des
+ * séries replié pour que les autres curseurs puissent atteindre la tête :
+ *
+ *   cran     0    50   100   150   200
+ *   U      924   815   789   745   745      ‰ de la saisie réellement lue
+ *   R      464   548   560   574   574      ‰ des valeurs récoltées qui font 6
+ *
+ * La couverture moyenne BAISSE quand le curseur monte, le rendement moyen MONTE.
+ * Ce n'est pas une inversion du curseur — c'est un arbitrage réel entre deux
+ * lectures du même mot : **lire toute la saisie demande souvent un vecteur
+ * large, et un vecteur large jette.** Au cran 0, jeter est gratuit, donc les
+ * moissons qui balaient tout le texte et abandonnent les trois quarts de ce
+ * qu'elles calculent remontent ; au cran 200, elles paient plein tarif et
+ * cèdent la place à des voies plus étroites et plus propres.
+ *
+ * ⚠️ **ARBITRAGE OUVERT.** Trois variantes ont été essayées et mesurées pour
+ * faire monter U avec le curseur — n'ouvrir le levier du rendement que vers le
+ * haut, ou que vers le bas, ou n'en ouvrir que la moitié. Aucune ne rend U
+ * monotone : la meilleure (levier bas au quart) donne 707 / 756 / 789 / 745 /
+ * 745, soit une bosse au milieu au lieu d'une pente. Le levier du rendement a
+ * été gardé ENTIER, parce qu'une variante qui ne corrige pas la mesure et qui
+ * ajoute deux réglages est un réglage de plus sans une raison de plus. Si
+ * l'auteur veut que « exhaustivité » ne parle QUE de la saisie lue, la ligne à
+ * supprimer est celle qui appelle cette fonction dans `noter`, et ce
+ * commentaire dit alors pourquoi.
+ *
+ * @param {number} rendement    part des valeurs récoltées qui vaut 6, en ‰
+ * @param {number} exhaustivite position du curseur
+ * @returns {number} facteur en pour-mille
+ */
+export function facteurRendement(rendement, exhaustivite = CURSEUR_DEFAUT) {
+  const racine = racineEntiere(rendement * MILLE);
+  const e = positionDe(exhaustivite);
+  if (e === CURSEUR_DEFAUT) return racine;
+  if (e < CURSEUR_DEFAUT) return MILLE + Math.floor(((racine - MILLE) * e) / CURSEUR_DEFAUT);
+  return racine + Math.floor(((rendement - racine) * (e - CURSEUR_DEFAUT)) / CURSEUR_DEFAUT);
+}
+
+/**
+ * ★ LE COMPTE DES SÉRIES, PORTÉ PAR LA QUANTITÉ.
+ *
+ * « Quantité — maximiser la présence du motif recherché. » Le compteur existe
+ * déjà et il est redéduit de la géométrie, donc stable au rejeu d'une URL :
+ * `approche.series`, le nombre de 666 réellement alignés.
+ *
+ * ★ **Le facteur ne dépasse JAMAIS 1 000, et c'est la doctrine du projet, pas
+ * une timidité.** `PART_CRITERES` explique pourquoi un bonus additif est
+ * ruineux — il se prélève sur la réserve et écrase toute l'échelle —, et
+ * `elegance.js › facteur` pose la même règle en toutes lettres : « l'élégance
+ * ne peut que retirer ». Un facteur qui monterait au-dessus de 1 000 ferait
+ * saturer le plafond de 10 000 (§4.7) et remettrait à égalité, tout en haut de
+ * la liste, ce que le barème vient de séparer.
+ *
+ * Récompenser la quantité s'écrit donc en PÉNALISANT ce qui en manque, et
+ * l'inverse en pénalisant ce qui en abonde :
+ *
+ *   · quantite = 100 → ×1,000 partout. Le défaut ne touche à rien.
+ *   · quantite > 100 → chaque série MANQUANTE sous le plafond coûte, et la
+ *                      peine croît jusqu'au cran 200.
+ *   · quantite < 100 → chaque série SUPPLÉMENTAIRE au-dessus d'une coûte : qui
+ *                      baisse ce curseur demande qu'on cesse de lui vendre du
+ *                      nombre, et le 666 unique cesse alors d'être pénalisé.
+ *
+ * Le PLAFOND de référence est `REGLAGES.SERIES_PLAFOND`, calé sur
+ * `assemblage.js › MAX_SERIES` (six) : c'est le plus grand nombre de 666 que le
+ * moteur montre d'un coup, donc le seul repère qui ne dépende pas de la saisie.
+ *
+ * @param {number} series      le nombre de 666 alignés (au moins 1)
+ * @param {number} quantite    position du curseur
+ * @returns {number} facteur en pour-mille, dans [PLANCHER_DE_QUANTITE, 1000]
+ */
+export function facteurQuantite(series, quantite = CURSEUR_DEFAUT) {
+  const q = positionDe(quantite);
+  if (q === CURSEUR_DEFAUT) return MILLE;
+  const plafond = REGLAGES.SERIES_PLAFOND;
+  const s = borner(Math.trunc(series) || 1, 1, plafond);
+  const ecart = q > CURSEUR_DEFAUT
+    ? (plafond - s) * (q - CURSEUR_DEFAUT)   // il en manque : on paie le manque
+    : (s - 1) * (CURSEUR_DEFAUT - q);        // il y en a trop : on paie l'abondance
+  const peine = Math.floor((REGLAGES.PAS_DE_QUANTITE * ecart) / CURSEUR_DEFAUT);
+  return borner(MILLE - peine, REGLAGES.PLANCHER_DE_QUANTITE, MILLE);
 }
 
 // ══════════════════════════════════ signature de méthode (§4.2)
@@ -577,10 +949,20 @@ export function scorePartiel(chemin) {
 
 /**
  * @param {Object} approche  {mode, parts:[{fragment, chemin}], resonance}
- * @param {Object} ctx       {saisie, signifiants:{total, masque}}
+ * @param {Object} ctx       {saisie, signifiants:{total, masque}, ponderation?}
  * @returns {Object} approche enrichie de {score, criteres, L}
+ *
+ * ★ **`ctx.ponderation` — LES QUATRE CURSEURS, ou rien du tout.** C'est le
+ * résultat de `ponderer()`, et il n'agit QUE s'il se déclare `personnalisee`.
+ * Au défaut, `P` vaut `null` et pas une seule des quatre lignes qui le lisent
+ * ne change de branche : les poids sont lus dans `POIDS`, le crédit n'est pas
+ * repondéré, le rendement passe par sa racine, aucun facteur de quantité ne
+ * s'applique. L'invariant du défaut est donc STRUCTUREL — c'est le même code —
+ * et non une égalité numérique qu'il faudrait maintenir des deux côtés.
  */
 export function noter(approche, ctx) {
+  const P = ctx.ponderation && ctx.ponderation.personnalisee ? ctx.ponderation : null;
+  const W = P ? P.poids : POIDS;
   const chemins = approche.parts.map((p) => p.chemin);
   const tousOps = [];
   for (const c of chemins) tousOps.push(...c.ops);
@@ -600,8 +982,8 @@ export function noter(approche, ctx) {
   // …puis ramenée à la part réservée aux critères, pour laisser aux bonus leur
   // propre place dans l'échelle plutôt que de les empiler par-dessus (cf. PART_CRITERES).
   let score = Math.floor(
-    (POIDS.homogeneite * H + POIDS.notoriete * N + POIDS.couverture * U
-      + POIDS.concision * C + POIDS.antiAdHoc * A + POIDS.elegance * E) / 100,
+    (W.homogeneite * H + W.notoriete * N + W.couverture * U
+      + W.concision * C + W.antiAdHoc * A + W.elegance * E) / 100,
   );
   score = Math.floor((score * PART_CRITERES[0]) / PART_CRITERES[1]);
 
@@ -625,8 +1007,20 @@ export function noter(approche, ctx) {
   if (creux) score = Math.floor((score * MALUS.fragmentCreux[0]) / MALUS.fragmentCreux[1]);
   if (approche.mode === 'LIBRE') score = Math.floor((score * MALUS.modeLibre[0]) / MALUS.modeLibre[1]);
   // Le rendement du groupement — calculé, pas réglé. Voir le pavé ci-dessus.
+  // ★ Et PORTÉ PAR L'EXHAUSTIVITÉ quand les curseurs sont personnalisés : le
+  //   curseur ne fait que déplacer le tarif entre « gratuit » et « plein »
+  //   (`facteurRendement`), qui vaut la racine au cran par défaut.
   const rendement = rendementSix(approche);
-  if (rendement !== null) score = Math.floor((score * racineEntiere(rendement * MILLE)) / MILLE);
+  if (rendement !== null) {
+    const f = P ? facteurRendement(rendement, P.curseurs.exhaustivite)
+      : racineEntiere(rendement * MILLE);
+    score = Math.floor((score * f) / MILLE);
+  }
+  // ★ LE COMPTE DES SÉRIES, porté par la quantité — neutre au défaut, et jamais
+  //   au-dessus de ×1,000 (voir `facteurQuantite`). Il vient AVANT l'élégance
+  //   pour la même raison que le rendement : ce sont des faits sur la récolte,
+  //   pas sur la manière, et la manière se paie en dernier.
+  if (P) score = Math.floor((score * facteurQuantite(approche.series || 1, P.curseurs.quantite)) / MILLE);
 
   // ── ★ L'ÉLÉGANCE DU CHEMIN — le neuvième malus, et le second qui se CALCULE.
   //
@@ -649,8 +1043,18 @@ export function noter(approche, ctx) {
   //   exécution, et donc de comparer autre chose qu'un souvenir. Option
   //   explicite, jamais un défaut silencieux — même doctrine que le filet
   //   temporel de `bfs.js`.
+  //
+  // ★ **Et le crédit se REPONDÈRE quand les curseurs sont personnalisés.** La
+  //   quantité et la cohérence pilotent les deux familles de `elegance.js ›
+  //   NATURE` — les postes qui paient pour avoir trouvé le motif SOUVENT d'un
+  //   côté, ceux qui paient pour la MANIÈRE de l'autre. C'est le mécanisme que
+  //   `POIDS_DES_REGIMES` emploie déjà pour ses deux régimes de classement ; ici
+  //   il descend sur le SCORE, parce qu'en mode personnalisé il n'y a plus de
+  //   régimes — une seule question posée, une seule réponse (voir `index.js`).
+  //   Au défaut, `poidsCredit` vaut {1 000, 1 000}, que `pondererAmpleur`
+  //   court-circuite : le crédit reste bit à bit celui d'avant.
   const bilan = bilanApproche(approche, ctx);
-  const creditG = creditDElegance(bilan);
+  const creditG = creditDElegance(bilan, P ? P.poidsCredit : undefined);
   if (ctx.elegance !== false) {
     score = Math.floor((score * facteurDElegance(creditG)) / MILLE);
   }
@@ -677,7 +1081,11 @@ export function noter(approche, ctx) {
   //   les paires (MMR, §4.8), et un crédit recalculé à chaque comparaison
   //   coûterait un facteur n² sur un barème qui parcourt vingt-six postes.
   //   Même raison que la mémoïsation des signatures de méthode, plus haut.
-  approche.elegances = {
+  //   ★ En mode PERSONNALISÉ, elles ne sont pas calculées : les deux régimes
+  //     sont débranchés (`index.js › selectionner` n'est plus appelé), et deux
+  //     crédits de plus par approche coûteraient vingt-six postes chacun pour
+  //     que personne ne les lise. `eleganceSelon` retombe sur `a.elegance`.
+  approche.elegances = P ? null : {
     mixte: approche.elegance,
     elegance: noteDElegance(creditDElegance(bilan, POIDS_DES_REGIMES.elegance)),
     triptyques: noteDElegance(creditDElegance(bilan, POIDS_DES_REGIMES.triptyques)),
@@ -903,6 +1311,81 @@ export function ordreTotal(a, b) {
   if (sa !== sb) return sb - sa;
   if (a.L !== b.L) return a.L - b.L;
   return a.codes < b.codes ? -1 : a.codes > b.codes ? 1 : 0;
+}
+
+/**
+ * ★ LE RANG, QUAND LE VISITEUR TIENT LE CURSEUR DE QUANTITÉ.
+ *
+ * ⚠️ **C'est le seul endroit où les curseurs touchent à un arbitrage de
+ * l'auteur, et il faut dire pourquoi.** Le rang des séries est catégoriel : une
+ * moisson passe devant un 666 unique quel que soit leur score. Tant que le
+ * classement était unique, c'était une hiérarchie ; du jour où le visiteur
+ * dispose d'un curseur « quantité », c'en devient un plafond — il peut le
+ * pousser à zéro et voir la même moisson en tête, parce qu'un rang ne se
+ * pondère pas.
+ *
+ * MESURÉ, et c'est ce qui a imposé cette fonction : sur les neuf saisies du
+ * relevé, le curseur de quantité poussé à 0 ne changeait la tête de liste
+ * d'AUCUNE d'entre elles ; sur `hope-hope-hope.fr` comme sur « Le chat dort sur
+ * le tapis rouge », la moisson à cinq séries restait première à tous les crans.
+ * Un curseur qui ne peut pas bouger ce qu'il nomme est un curseur décoratif.
+ *
+ * La règle, donc, et son seuil est le cran par DÉFAUT :
+ *
+ *  · quantité ≥ 100 — le rang tient, et le compte prime le score comme
+ *    aujourd'hui. C'est le réglage du site, et quelqu'un qui n'a bougé QUE le
+ *    curseur de cohérence n'a rien demandé sur la quantité : sa hiérarchie ne
+ *    doit pas changer sous ses pieds.
+ *  · quantité < 100 — le rang des séries est REPLIÉ sur le rang simple, et le
+ *    compte cesse de primer le score. La préférence de quantité ne disparaît
+ *    pas pour autant : elle redescend dans le score, graduellement, par
+ *    `facteurQuantite`. C'est exactement ce que « baisser un curseur » doit
+ *    vouloir dire — moins, pas plus rien.
+ *
+ * ★ **La CONVERGENCE, elle, reste dernière à tous les crans.** L'auteur l'a
+ * classée là pour une raison qu'aucun compteur ne mesure — « les mêmes
+ * caractères y servent trois fois » —, et aucun des quatre curseurs ne nomme
+ * cette question. Un curseur ne déplace que ce qu'il nomme.
+ */
+export function rangPondere(approche, ponderation) {
+  if (!approche) return RANG.SIMPLE;
+  if (approche.mode === 'CONVERGENCE') return RANG.CONVERGENCE;
+  const q = ponderation ? ponderation.curseurs.quantite : CURSEUR_DEFAUT;
+  if (q < CURSEUR_DEFAUT) return RANG.SIMPLE;
+  return (approche.series || 1) >= 2 ? RANG.SERIES : RANG.SIMPLE;
+}
+
+/**
+ * ★ L'ORDRE TOTAL du mode personnalisé — `ordreTotal` dont les deux crans de
+ * quantité obéissent au curseur.
+ *
+ * C'est une FABRIQUE : elle rend un comparateur, parce que `Array.sort` n'en
+ * accepte pas d'autre argument et qu'une pondération lue dans une variable
+ * globale serait exactement le genre d'état caché que §4.4 interdit.
+ *
+ * ⚠️ Au cran par défaut de la quantité, le comparateur rendu est
+ * COMPORTEMENTALEMENT IDENTIQUE à `ordreTotal` : mêmes crans, même ordre,
+ * mêmes départages. C'est ce qui permet de bouger un curseur sans toucher à ce
+ * que les autres décident.
+ *
+ * @param {Object} [ponderation]  le résultat de `ponderer`
+ * @returns {(a:Object,b:Object)=>number}
+ */
+export function ordrePondere(ponderation) {
+  const q = ponderation ? ponderation.curseurs.quantite : CURSEUR_DEFAUT;
+  const compteAvantScore = q >= CURSEUR_DEFAUT;
+  return function ordre(a, b) {
+    const ra = rangPondere(a, ponderation);
+    const rb = rangPondere(b, ponderation);
+    if (ra !== rb) return ra - rb;
+    const sa = a.series || 1;
+    const sb = b.series || 1;
+    if (compteAvantScore && ra === RANG.SERIES && sa !== sb) return sb - sa;
+    if (a.score !== b.score) return b.score - a.score;
+    if (sa !== sb) return sb - sa;
+    if (a.L !== b.L) return a.L - b.L;
+    return a.codes < b.codes ? -1 : a.codes > b.codes ? 1 : 0;
+  };
 }
 
 /**
@@ -1219,8 +1702,18 @@ export function diversifier(approches, options = {}) {
   const lambda = options.lambda ?? REGLAGES.LAMBDA_MMR;
   const maxParMappeur = options.maxParMappeur ?? REGLAGES.MAX_PAR_MAPPEUR;
   const limite = options.limite ?? REGLAGES.MAX_APPROCHES;
+  // ★ `options.ponderation` — LE BARÈME DU VISITEUR. Le MMR choisit et classe
+  //   avec le même ordre que le reste de la liste : lui laisser `ordreTotal`
+  //   pendant que la liste est triée autrement ferait piocher les douze selon
+  //   une hiérarchie que personne n'a demandée. Au défaut — ou sans pondération
+  //   — la fabrique rend un comparateur qui se comporte comme `ordreTotal`, et
+  //   on prend `ordreTotal` lui-même pour que rien ne change du tout.
+  const P = options.ponderation && options.ponderation.personnalisee ? options.ponderation : null;
+  const ordre = P ? ordrePondere(P) : ordreTotal;
+  const rangDe = P ? (a) => rangPondere(a, P) : rangConviction;
+  const compteAvantScore = !P || P.curseurs.quantite >= CURSEUR_DEFAUT;
 
-  const restants = approches.slice().sort(ordreTotal);
+  const restants = approches.slice().sort(ordre);
   // ★ L'AMORCE — les approches déjà retenues AILLEURS, que la sélection doit
   //   connaître sans les reprendre. Les deux premières places de la liste sont
   //   réservées aux champions de l'élégance et des triptyques (voir les trois
@@ -1262,7 +1755,9 @@ export function diversifier(approches, options = {}) {
       // deux groupements quatorze segments épuisaient le quota du mappeur
       // (MAX_PAR_MAPPEUR) avant que la moisson à cinq séries n'ait été
       // regardée — le mode le mieux classé n'atteignait jamais la liste.
-      if (meilleur < 0 || plusConvaincant(a, ajuste, restants[meilleur], meilleurScore)) {
+      if (meilleur < 0
+        || plusConvaincant(a, ajuste, restants[meilleur], meilleurScore,
+          rangDe, compteAvantScore, ordre)) {
         meilleurScore = ajuste;
         meilleur = i;
       }
@@ -1274,25 +1769,31 @@ export function diversifier(approches, options = {}) {
     const m = mappeurApproche(a);
     if (m) compteMappeur.set(m, (compteMappeur.get(m) || 0) + 1);
   }
-  return choisis.sort(ordreTotal);
+  return choisis.sort(ordre);
 }
 
 /**
- * Le même ordre que `ordreTotal`, mais sur des scores AJUSTÉS par la pénalité
- * de redondance : le rang de conviction d'abord, le nombre de séries ensuite,
- * puis seulement le score ajusté.
+ * Le même ordre que le comparateur en vigueur, mais sur des scores AJUSTÉS par
+ * la pénalité de redondance : le rang de conviction d'abord, le nombre de
+ * séries ensuite, puis seulement le score ajusté.
+ *
+ * ⚠️ Les trois derniers arguments viennent de `diversifier` et disent QUEL
+ * classement est en vigueur. Ils sont passés plutôt que relus dans une variable
+ * de module : cette fonction est appelée une fois par paire candidate, et un
+ * état global la rendrait dépendante de l'ordre des appels — l'inverse de ce
+ * que §4.4 demande.
  */
-function plusConvaincant(a, ajusteA, b, ajusteB) {
-  const ra = rangConviction(a);
-  const rb = rangConviction(b);
+function plusConvaincant(a, ajusteA, b, ajusteB, rangDe, compteAvantScore, ordre) {
+  const ra = rangDe(a);
+  const rb = rangDe(b);
   if (ra !== rb) return ra < rb;
-  if (ra === RANG.SERIES) {
+  if (compteAvantScore && ra === RANG.SERIES) {
     const sa = a.series || 1;
     const sb = b.series || 1;
     if (sa !== sb) return sa > sb;
   }
   if (ajusteA !== ajusteB) return ajusteA > ajusteB;
-  return ordreTotal(a, b) < 0;
+  return ordre(a, b) < 0;
 }
 
 export function mappeurApproche(approche) {

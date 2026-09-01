@@ -6,7 +6,10 @@
 //              |  {chemin} '#' saisie                 // un seul `#`, voir plus bas
 //   approche   := marqueur* (retouche ';')* fragment (',' fragment)*
 //   marqueur   := registre '!' | 'c' chiffre+ '!'
+//               |  'p' cran '.' cran '.' cran '.' cran '!'   // les 4 curseurs
+//               |  'f' chiffre '!'                           // puissance de fouille
 //   registre   := 'so' | 'sce'        (formes longues encore LUES, plus écrites)
+//   cran       := chiffre+            // 0 à 200 ; 100 = position par défaut
 //   retouche   := [portee ':'] programme       // STR → STR : réécrit la saisie
 //   fragment   := [portees ':'] programme
 //   portees    := portee ('+' portee)*         // un programme, plusieurs places
@@ -271,6 +274,75 @@
 // tous les liens déjà partagés, que `canoniser()` réécrit à chaque ouverture.
 // Le marqueur ne paraît donc que là où il dit quelque chose.
 
+// ── LES QUATRE CURSEURS, `p100.100.100.100!` — partager une liste PONDÉRÉE ──
+//
+// L'écran de liste offre quatre curseurs indépendants — simplicité,
+// exhaustivité, quantité, cohérence — qui repondèrent le classement
+// (`score.js › ponderer`). Une liste ainsi repondérée n'est PAS la liste du
+// site : c'est une autre réponse à une autre question. Si le lien ne la porte
+// pas, celui qui le reçoit voit autre chose que ce qu'on lui a montré, ce que
+// §4.3 interdit exactement autant qu'un rang qui bouge en silence.
+//
+// ★ **Un seul marqueur pour les quatre, dans un ORDRE FIXE** — celui où
+// l'auteur les a nommés : simplicité, exhaustivité, quantité, cohérence. Quatre
+// marqueurs séparés auraient demandé quatre lettres, dont `c` (cohérence) qui
+// est déjà la cible et `f` (…) qui est déjà la fouille. Un marqueur unique
+// n'a besoin d'aucune lettre pour ses quatre champs : leur POSITION suffit, et
+// c'est ce que le point sépare.
+//
+// ★ **Pourquoi le POINT.** Il est légal tel quel dans un fragment d'URL
+// (`unreserved`, RFC 3986 §2.3) — aucune messagerie ne l'échappera — et il dit
+// déjà « des champs dans un nombre » partout où on l'a vu. Il sert par ailleurs
+// dans la grammaire (`0.1:` est une portée), mais jamais au même endroit : une
+// portée vit DANS un fragment, un marqueur vit devant TOUS les fragments, et le
+// `!` clôt le marqueur avant que le premier fragment ne commence.
+//
+// ★ **Décidable sans catalogue**, comme tout ce module. `p` est bien une lettre
+// de famille d'opérateur (`prn`, `pr`…), mais un programme ne contient JAMAIS ni
+// `!` ni `.` hors d'une portée qui le précède : `p` suivi de quatre nombres
+// pointés et d'un `!`, en tête de l'approche, ne peut être qu'un marqueur. C'est
+// mot pour mot l'argument déjà écrit pour `c111!`, et le `!` y reste la
+// séparation qui fait foi.
+//
+// ★ **ÉCRIT SEULEMENT S'IL DIT QUELQUE CHOSE**, comme la cible. Quatre curseurs
+// au cran 100 rendent exactement le barème du site : le marqueur ne paraît pas,
+// et tous les liens déjà partagés gardent leur forme canonique au caractère
+// près. Un cran hors de [0, 200] est BORNÉ plutôt que refusé — c'est une
+// position de curseur, elle n'a pas de sens hors de sa glissière, et la borner
+// rend exactement ce que la glissière aurait rendu. Ce qui est refusé, avec son
+// bandeau, c'est un marqueur qui n'a pas ses quatre champs : là, on ne sait pas
+// lequel manque, donc on ne sait pas ce qu'on rejoue.
+//
+// ── LA PUISSANCE DE FOUILLE, `f3!` — chercher 2^N fois plus loin ────────────
+//
+// La réglette de `config.js › reglagesDeBudget` multiplie tous les budgets de
+// recherche par 2^N, N de 0 à 7. Elle voyage pour la même raison que les
+// curseurs, et c'en est même le cas le plus net : une liste obtenue en
+// fouillant cent vingt-huit fois plus contient des voies que la recherche
+// ordinaire n'a jamais eu le temps d'atteindre. Un lien qui tairait le cran
+// rendrait une liste PLUS COURTE que celle qu'on partage — l'échec le plus
+// silencieux qui soit, puisque rien n'y paraîtrait cassé.
+//
+// ★ `f` pour fouille, un seul chiffre (0 à 7 tient dans un signe), le `!` qui
+// clôt. Le cran 0 est le défaut et ne s'écrit pas ; un cran au-delà de 7 est
+// borné à 7, pour la même raison qu'un curseur est borné à sa glissière.
+//
+// ★ **Les deux marqueurs valent la LISTE, pas la première voie.** `#p…!#texte`
+// et `#f3!#texte` rendent la page de résultats, même écrits en clair — à la
+// différence de `#c111!#texte`, qui joue la démonstration de tête. Ce n'est pas
+// une exception de plus : la frontière est celle que l'en-tête pose déjà. La
+// cible dit ce qu'on CHERCHE, et cela vaut aussi bien pour une animation ; les
+// curseurs et la fouille disent comment on CLASSE et jusqu'où on FOUILLE, deux
+// choses dont une démonstration unique n'a rien à faire. Un marqueur qui ne
+// peut rien changer à ce qu'on montre ne peut pas décider qu'on le montre.
+//
+// ★ Ils sont néanmoins ÉCRITS sur les liens de voie, quand ils ne sont pas au
+// défaut. Deux raisons : le score affiché sous une voie rejouée est celui de la
+// liste dont elle vient, donc il dépend des curseurs ; et le visiteur qui
+// remonte de la voie vers la liste retrouve ses réglages. La fouille, elle, ne
+// change rien à un rejeu (il n'y a pas de recherche) — elle est écrite quand
+// même, parce qu'une règle unique se relit et qu'une exception se discute.
+
 // ── LE REGISTRE, et pourquoi ce n'est PAS un opérateur ──────────────────────
 //
 // Le registre de codes d'opérateurs est FERMÉ (CONTRACTS §4.1) : aucun code ne
@@ -334,6 +406,8 @@
 import { encoderTexte, decoderTexte, estBase58, LIMITE_SAISIE } from './base58.js';
 import { normaliserCatalogue } from './bfs.js';
 import { lireCible, normaliserCible, CIBLE_DEFAUT, MAX_CHIFFRES } from './cible.js';
+import { CURSEURS, normaliserCurseurs, auDefaut } from './score.js';
+import { PUISSANCE_DE_FOUILLE_DEFAUT, normaliserPuissance } from '../config.js';
 
 /**
  * La grammaire d'un code (CONTRACTS §4.1) : lettre de famille, corps parlant en
@@ -456,6 +530,37 @@ const RE_REGISTRE = /^(so|sce|sobre|scenique)!/;
  */
 const RE_CIBLE = /^c([0-9]+)!/;
 
+/**
+ * Le marqueur des QUATRE CURSEURS — `p100.100.100.100!`.
+ *
+ * Les quatre champs sont EXIGÉS : un marqueur amputé ne dit pas lequel de ses
+ * curseurs manque, donc ne dit pas ce qu'on rejoue, et il est refusé avec son
+ * bandeau plutôt que complété au hasard. Les valeurs, elles, ne sont pas bornées
+ * ici — c'est `normaliserCurseurs` qui les ramène dans la glissière, et une
+ * position hors glissière n'est pas une erreur de lien : c'est une position que
+ * la glissière aurait butée de la même façon.
+ */
+const RE_CURSEURS = /^p([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)!/;
+
+/**
+ * Le marqueur de PUISSANCE DE FOUILLE — `f3!`.
+ *
+ * UN SEUL CHIFFRE : la réglette va de 0 à 7 (`config.js ›
+ * PUISSANCE_DE_FOUILLE_MAX`). `f8!` et `f9!` sont bornés à 7, comme un curseur
+ * poussé au-delà de sa butée ; `f12!` n'est pas un cran mais une faute de
+ * frappe, et il échoue bruyamment plus loin (« fragment illisible ») plutôt que
+ * de se faire deviner. Un chiffre de plus ne serait pas une tolérance, ce serait
+ * une invention.
+ */
+const RE_FOUILLE = /^f([0-9])!/;
+
+/**
+ * Les quatre curseurs au cran par défaut, figés une fois.
+ * `normaliserCurseurs({})` les recalcule à l'identique ; les figer ici évite
+ * qu'un appelant ne modifie l'objet que TOUTES les lectures partagent.
+ */
+const CURSEURS_DEFAUT_URL = Object.freeze(normaliserCurseurs({}));
+
 /** Le mot lu dans l'URL → l'identifiant interne. */
 const REGISTRE_DU_MOT = Object.freeze({
   so: 'sobre', sce: 'scenique', sobre: 'sobre', scenique: 'scenique',
@@ -477,6 +582,10 @@ const REGISTRE_DU_MOT = Object.freeze({
  * @property {boolean} registreEcrit  le lien le portait-il en toutes lettres ?
  * @property {import('./cible.js').Cible} cible  la suite visée ; `666` par défaut
  * @property {boolean} cibleEcrite  le lien portait-il un marqueur `c…!` ?
+ * @property {Object} curseurs      les quatre positions, résolues et bornées
+ * @property {boolean} curseursEcrits  le lien portait-il un marqueur `p…!` ?
+ * @property {number} fouille       le cran de puissance de fouille, 0 par défaut
+ * @property {boolean} fouilleEcrite  le lien portait-il un marqueur `f…!` ?
  * @property {number[]|null} rangs
  * @property {string|null} bandeau     message à afficher (jamais silencieux)
  * @property {string|null} raison
@@ -496,6 +605,12 @@ export function lire(hash, options = {}) {
     forme: 'invalide', saisie: null, saisieBrute: false, fragments: null, retouches: [],
     registre: null, registreEcrit: false,
     cible: CIBLE_DEFAUT, cibleEcrite: false, registreDemande: null,
+    // ★ Les deux réglages de recherche sont TOUJOURS rendus, résolus, sur toutes
+    //   les formes — y compris invalides. L'appelant n'a jamais à savoir si le
+    //   lien les portait pour savoir avec quoi chercher ; `curseursEcrits` et
+    //   `fouilleEcrite` sont là pour qui veut le dire à l'écran.
+    curseurs: CURSEURS_DEFAUT_URL, curseursEcrits: false,
+    fouille: PUISSANCE_DE_FOUILLE_DEFAUT, fouilleEcrite: false,
     rangs: null, bandeau: null, raison: null,
   };
   if (typeof hash !== 'string') return { ...vide, raison: 'hash absent' };
@@ -542,6 +657,10 @@ export function lire(hash, options = {}) {
   let registreEcrit = false;
   let cible = CIBLE_DEFAUT;
   let cibleEcrite = false;
+  let curseurs = CURSEURS_DEFAUT_URL;
+  let curseursEcrits = false;
+  let fouille = PUISSANCE_DE_FOUILLE_DEFAUT;
+  let fouilleEcrite = false;
   for (;;) {
     const mReg = registreEcrit ? null : RE_REGISTRE.exec(approche);
     if (mReg) {
@@ -562,6 +681,28 @@ export function lire(hash, options = {}) {
       cible = lue;
       cibleEcrite = true;
       approche = approche.slice(mCib[0].length);
+      continue;
+    }
+    // ★ LES QUATRE CURSEURS. Les crans sont BORNÉS, pas refusés : une position
+    //   hors glissière est ce que la glissière aurait rendu. Ce qui est refusé,
+    //   c'est un marqueur amputé — mais la grammaire l'attrape déjà, faute de
+    //   ses quatre champs il ne ressemble plus à un marqueur et il finira en
+    //   « fragment illisible », avec son bandeau.
+    const mCur = curseursEcrits ? null : RE_CURSEURS.exec(approche);
+    if (mCur) {
+      const crans = {};
+      CURSEURS.forEach((c, i) => { crans[c] = Number(mCur[i + 1]); });
+      curseurs = normaliserCurseurs(crans);
+      curseursEcrits = true;
+      approche = approche.slice(mCur[0].length);
+      continue;
+    }
+    // ★ LA PUISSANCE DE FOUILLE, bornée de la même façon.
+    const mFou = fouilleEcrite ? null : RE_FOUILLE.exec(approche);
+    if (mFou) {
+      fouille = normaliserPuissance(mFou[1]);
+      fouilleEcrite = true;
+      approche = approche.slice(mFou[0].length);
       continue;
     }
     break;
@@ -623,6 +764,15 @@ export function lire(hash, options = {}) {
     //   pouvait pas avoir en tête. À défaire en une ligne s'il préfère que la
     //   bascule vaille aussi pour les liens du site : il faudra alors donner au
     //   listing une autre façon d'écrire « la liste, pour cette cible-là ».
+    //
+    //   ⚠️ **LES CURSEURS ET LA FOUILLE N'ENTRENT PAS DANS CETTE CONDITION**, et
+    //   c'est raisonné en tête de fichier : ils disent comment on CLASSE et
+    //   jusqu'où on FOUILLE, deux questions dont une démonstration unique n'a
+    //   rien à faire. `#p…!#texte` et `#f3!#texte` rendent donc la LISTE, que la
+    //   saisie soit en base58 ou en clair. Ils s'ajoutent en revanche sans rien
+    //   changer quand un AUTRE marqueur a déjà fait pencher vers la première
+    //   voie : `#sce!p0.200.100.100!#texte` anime bien la voie de tête — celle
+    //   que le classement repondéré met en tête.
     if (parts.length === 1 || registreEcrit || (cibleEcrite && saisieBrute)) {
       return {
         forme: 'premiere', saisie, saisieBrute, fragments: null, retouches: [],
@@ -631,6 +781,7 @@ export function lire(hash, options = {}) {
         registre: registreEffectif(registre, cible),
         registreDemande: registre,
         registreEcrit, cible, cibleEcrite,
+        curseurs, curseursEcrits, fouille, fouilleEcrite,
         rangs: null, bandeau: null, raison: null,
       };
     }
@@ -650,6 +801,7 @@ export function lire(hash, options = {}) {
       forme: 'resultats', saisie, saisieBrute, fragments: null, retouches: [],
       registre: null, registreEcrit: false,
       cible, cibleEcrite,
+      curseurs, curseursEcrits, fouille, fouilleEcrite,
       rangs: null, bandeau: null, raison: null,
     };
   }
@@ -672,6 +824,11 @@ export function lire(hash, options = {}) {
       // la recherche de 111 et va au troisième rang de CETTE liste.
       cible,
       cibleEcrite,
+      // Les curseurs et la fouille survivent au recalcul pour la même raison que
+      // la cible : ils décrivent la RECHERCHE qu'on relance, pas la ligne qu'on
+      // voulait. `#p0.200.100.100!3#…` refait bien la liste repondérée, puis va
+      // à son troisième rang.
+      curseurs, curseursEcrits, fouille, fouilleEcrite,
       rangs: approche.split('+').map(Number),
       bandeau: BANDEAUX.recalculee,
       raison: null,
@@ -770,6 +927,12 @@ export function lire(hash, options = {}) {
     registre: registreEffectif(registre, cible),
     registreDemande: registre,
     registreEcrit, cible, cibleEcrite,
+    // ★ Une voie rejouée porte les curseurs de la liste dont elle vient : le
+    //   score affiché sous elle est celui de cette liste-là (`index.js ›
+    //   rejouer`). La fouille, elle, ne change rien à un rejeu — il n'y a pas de
+    //   recherche —, mais elle est relue pour que le retour à la liste retrouve
+    //   le cran demandé.
+    curseurs, curseursEcrits, fouille, fouilleEcrite,
     rangs: null, bandeau: null, raison: null,
   };
 }
@@ -949,19 +1112,30 @@ export const BANDEAUX = {
  * signe ne paraît que là où il dit quelque chose : sans deux voisines
  * identiques, l'écriture est inchangée au caractère près.
  *
+ * ★ Les CURSEURS et la FOUILLE suivent la règle de la cible — écrits seulement
+ * s'ils disent quelque chose. Au défaut, `ecrire()` produit exactement les
+ * mêmes octets qu'avant qu'ils n'existent, ce qu'un test vérifie : la forme
+ * canonique de tous les liens déjà partagés ne bouge pas d'un signe.
+ *
+ * ★ L'ORDRE est fixé ici, une fois : registre, cible, curseurs, fouille — du
+ * plus ancien au plus récent, de sorte qu'un lien d'hier reste un préfixe d'un
+ * lien d'aujourd'hui. `lire()` les accepte dans n'importe quel ordre (même
+ * doctrine que §4.3), `canoniser()` remet celui-ci.
+ *
  * @param {{saisie:string, fragments?:FragmentUrl[], retouches?:FragmentUrl[],
  *          registre?:'sobre'|'scenique',
- *          cible?:import('./cible.js').Cible|string}} demonstration
+ *          cible?:import('./cible.js').Cible|string,
+ *          curseurs?:Object, fouille?:number}} demonstration
  * @returns {string} le fragment d'URL complet, `#…#…`
  */
-export function ecrire({ saisie, fragments, retouches, registre, cible }) {
+export function ecrire({ saisie, fragments, retouches, registre, cible, curseurs, fouille }) {
   const b58 = encoderTexte(saisie);
-  const c = marqueurCible(cible);
+  const reglages = marqueurCible(cible) + marqueurCurseurs(curseurs) + marqueurFouille(fouille);
   // Une page de RÉSULTATS n'a pas de programme, donc rien à préparer : une
   // retouche sans fragment à nourrir ne désigne aucune démonstration, et on ne
   // l'écrit pas plutôt que d'écrire un lien qui ne se relit pas.
-  if (!fragments || !fragments.length) return `#${c}#${b58}`;
-  return `#${marqueur(registre, cible)}${c}${ecrireRetouches(retouches)}${ecrireApproche(fragments)}#${b58}`;
+  if (!fragments || !fragments.length) return `#${reglages}#${b58}`;
+  return `#${marqueur(registre, cible)}${reglages}${ecrireRetouches(retouches)}${ecrireApproche(fragments)}#${b58}`;
 }
 
 /**
@@ -989,6 +1163,24 @@ function marqueur(registre, cible) {
 function marqueurCible(cible) {
   const c = normaliserCible(cible);
   return c.defaut ? '' : `c${c.texte}!`;
+}
+
+/**
+ * Le préfixe des quatre curseurs — vide au défaut, `p0.200.100.100!` sinon.
+ * L'ordre est celui de `score.js › CURSEURS`, et c'est le seul endroit où il
+ * s'écrit : la grammaire n'a pas de nom pour ses champs, elle n'a que leur rang.
+ */
+function marqueurCurseurs(curseurs) {
+  if (!curseurs) return '';
+  const c = normaliserCurseurs(curseurs);
+  if (auDefaut(c)) return '';
+  return `p${CURSEURS.map((k) => c[k]).join('.')}!`;
+}
+
+/** Le préfixe de puissance de fouille — vide au cran 0, `f3!` sinon. */
+function marqueurFouille(fouille) {
+  const n = normaliserPuissance(fouille);
+  return n === PUISSANCE_DE_FOUILLE_DEFAUT ? '' : `f${n}!`;
 }
 
 /**
