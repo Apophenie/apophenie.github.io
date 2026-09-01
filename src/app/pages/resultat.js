@@ -358,7 +358,7 @@ function commandeDeCible({ saisie, cible, texteCible }) {
  * distinctes, et les encadrés le disent. Il devra valoir `false` dès qu'un
  * classement à barème UNIQUE produira la liste — la pondération personnalisée
  * en préparation, où toutes les voies sont notées au même curseur. Là, il n'y a
- * plus qu'une question : encadrer les deux premières lignes leur ferait dire
+ * plus qu'une question : encadrer les deux premières ligne leur ferait dire
  * qu'elles répondent à autre chose que les suivantes, ce qui serait faux.
  *
  * Éteindre le drapeau ne retire aucune voie : les approches marquées repassent
@@ -477,30 +477,74 @@ export function pageResultat({ saisie, resultat, cible, surChoixSecours, podium 
   ];
 
   return e('div.page.page--etroite.resultat', {}, [
+    // ⚠️ Le bandeau d'erreur du routeur s'insère devant `firstChild` : ce qui
+    //    ouvre la page doit rester un enfant direct, sinon il atterrirait dans
+    //    une colonne. C'est aussi pourquoi l'en-tête ne descend pas dans le
+    //    corps à deux colonnes ci-dessous.
     ...bandeaux,
     e('p.surtitre', { texte: t('resultat.surtitre') }),
     e('h1', {}, [e('span.saisie-citee', { texte: guillemets(abreger(saisie, 120)) })]),
     e('p.resultat__annonce', { texte: phraseApproches(approches.length, texteCible) }),
     dedie,
-    e('section.section', {}, [
-      e('h2.h2-machine', { texte: t('resultat.voiesTitre') }),
-      ...(aucune ? [aucune] : listeDesVoies),
+    /**
+     * ★ LE CORPS À DEUX COLONNES — « sur grand écran, tout ce qui va de "Trop
+     *   diabolique pour vous ?" jusqu'à la fin de l'encart "Assembler vos
+     *   propres arcanes" passe en aside, dans une 2ᵈ colonne à droite »
+     *   (l'auteur).
+     *
+     * Deux boîtes, et la bascule est ENTIÈREMENT dans `pages.css` : aucun
+     * `matchMedia`, aucune mesure, aucun re-rendu au redimensionnement. Le DOM
+     * est le même aux deux largeurs, dans le même ordre — sous le seuil, le
+     * flux puis l'aside se retrouvent l'un sous l'autre exactement là où ils
+     * sont aujourd'hui. C'est ce qui garantit que l'ordre de lecture au clavier
+     * et au lecteur d'écran ne dépend pas de la largeur de la fenêtre.
+     */
+    e('div.resultat__corps', {}, [
+      e('div.resultat__flux', {}, [
+        e('section.section', {}, [
+          e('h2.h2-machine', { texte: t('resultat.voiesTitre') }),
+          ...(aucune ? [aucune] : listeDesVoies),
+        ]),
+        fragments.length ? e('section.section', {}, [
+          e('h2.h2-machine', {
+            texte: cibleObjet && !cibleObjet.homogene
+              ? t('resultat.fragmentsTitreMele', { cible: texteCible })
+              : t('resultat.fragmentsTitre', { chiffre: chiffreCible }),
+          }),
+          e('div.fragments', {}, fragments.map((f) => rangeeFragment(f, !secours, chiffreCible))),
+        ]) : null,
+      ]),
+      // Un `<aside>` est un point de repère (`complementary`) : il se nomme,
+      // sinon il s'annonce « complémentaire » et rien de plus dans la liste des
+      // repères d'un lecteur d'écran. Le nom dit ce qu'on y trouve — de quoi
+      // aller plus loin —, pas où c'est posé à l'écran : sous le seuil, il n'y
+      // a plus de colonne de droite, et le nom doit rester vrai.
+      e('aside.resultat__aside', { 'aria-label': t('resultat.asideLabel') }, [
+        // ★ La commande de cible vient AVANT le mémo d'URL, comme l'auteur le
+        //   demande : « en bas de page de listing, avant les explications pour
+        //   construire des URL sur mesure ». L'ordre n'est pas cosmétique — on
+        //   propose d'abord un geste, on explique ensuite comment l'écrire à la
+        //   main.
+        commandeDeCible({ saisie, cible: cibleObjet, texteCible }),
+        /**
+         * ★ L'EMPLACEMENT DES CURSEURS — réservé, vide, et nommé.
+         *
+         * « Laisse la place, dans cet aside, pour un bloc de curseurs qui
+         * viendra s'insérer ENTRE la commande de cible et le mémo » (l'auteur,
+         * qui le posera lui-même). C'est le futur réglage de PONDÉRATION
+         * PERSONNALISÉE — celui qui, quand il sera branché, fera passer
+         * `podium: false` à cette même page.
+         *
+         * Le nœud est créé même vide, et il porte un `id` : c'est le point
+         * d'ancrage stable (`document.getElementById('curseurs-ponderation')`),
+         * là où un commentaire dans le code ne serait accrochable par rien.
+         * `:empty` le fait disparaître tant qu'on n'y met rien, sans quoi il
+         * laisserait un blanc entre la commande et le mémo (`pages.css`).
+         */
+        e('div.resultat__curseurs#curseurs-ponderation'),
+        memo,
+      ]),
     ]),
-    fragments.length ? e('section.section', {}, [
-      e('h2.h2-machine', {
-        texte: cibleObjet && !cibleObjet.homogene
-          ? t('resultat.fragmentsTitreMele', { cible: texteCible })
-          : t('resultat.fragmentsTitre', { chiffre: chiffreCible }),
-      }),
-      e('div.fragments', {}, fragments.map((f) => rangeeFragment(f, !secours, chiffreCible))),
-    ]) : null,
-    // ★ La commande de cible vient AVANT le mémo d'URL, comme l'auteur le
-    //   demande : « en bas de page de listing, avant les explications pour
-    //   construire des URL sur mesure ». L'ordre n'est pas cosmétique — on
-    //   propose d'abord un geste, on explique ensuite comment l'écrire à la
-    //   main.
-    commandeDeCible({ saisie, cible: cibleObjet, texteCible }),
-    memo,
   ]);
 }
 

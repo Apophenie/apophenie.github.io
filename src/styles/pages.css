@@ -239,6 +239,76 @@
 .section { margin-top: var(--e7); }
 .section > .h2-machine { margin-bottom: var(--e4); }
 
+/* ═══════════ ★ LE CORPS À DEUX COLONNES — le flux et son aside ════════════
+   « Sur grand écran, tout ce qui va de "Trop diabolique pour vous ?" jusqu'à la
+   fin de l'encart "Assembler vos propres arcanes" passe en aside, dans une 2ᵈ
+   colonne à droite » (l'auteur).
+
+   ── Tout est ici, rien n'est en JavaScript ────────────────────────────────
+   `pages/resultat.js` produit le MÊME DOM aux deux largeurs, dans le même
+   ordre : `.resultat__flux` puis `.resultat__aside`. Sous le seuil, la grille
+   n'a qu'une colonne et les deux boîtes se retrouvent l'une sous l'autre —
+   c'est-à-dire exactement l'ordre d'avant, la commande de cible puis le mémo en
+   pied de page. Aucun `matchMedia`, aucun re-rendu au redimensionnement, et
+   l'ordre de lecture au clavier ne dépend pas de la largeur de la fenêtre.
+
+   ── Pourquoi 1100 px, et pas un seuil taillé sur mesure ───────────────────
+   La colonne de droite mesure 22rem (352 px), la même que celle du Registre sur
+   la page d'animation ; l'écart entre colonnes est `--e6` (48 px) ; et la
+   colonne principale doit garder ses 34rem, sinon la liste se réécrit alors
+   qu'on n'a rien demandé de tel. Total : 34 + 22 = 56rem de colonnes, plus 48 px
+   d'écart, soit 944 px de CONTENU — et comme `.page` est en `border-box` avec
+   `padding: 0 var(--e4)`, sa largeur maximale doit valoir 944 + 2 × 24 = 992 px,
+   c'est-à-dire 62rem. C'est aussi, du même coup, la largeur de fenêtre minimale
+   au-dessous de laquelle la bascule n'aurait plus la place de se faire. Le
+   palier utile le plus proche est celui que la charte appelle déjà « bureau »
+   (§2.4) et que la démonstration emploie pour la même bascule : 1100 px. On
+   préfère un usage de plus d'un seuil existant à un seuil de plus qui
+   n'existerait que pour ici.
+
+   ── La colonne principale ne bouge PAS d'un pixel ─────────────────────────
+   `minmax(0, 34rem)` rend très exactement la largeur que `page--etroite` donne
+   aujourd'hui à toute la page. Au-dessus du seuil, la page s'élargit à 59rem —
+   mais ce qu'elle gagne va INTÉGRALEMENT à l'aside. Les cartes de voies, leurs
+   titres, leurs deux accès : rien n'est recomposé, la seconde colonne s'ajoute
+   à côté. `minmax(0, …)` et non `34rem` tout court, parce qu'un item de grille
+   a une largeur minimale automatique égale à son contenu : un titre de voie
+   sans espace ferait déborder la piste.
+
+   ── Les marges de tête ALIGNENT les deux colonnes toutes seules ───────────
+   `.section` et `.commande-cible` portent déjà `margin-top: var(--e7)`, et les
+   marges de deux items de grille ne fusionnent pas : les deux colonnes
+   commencent donc à la même hauteur sans qu'on écrive une règle de plus. Si la
+   commande de cible manque (repli sans grammaire d'URL), c'est le mémo qui
+   ouvre l'aside — il porte la même marge, l'alignement tient encore. */
+.resultat__corps { display: grid; }
+.resultat__flux { min-width: 0; }
+.resultat__aside { min-width: 0; }
+/* L'emplacement réservé au futur bloc de curseurs de pondération, entre la
+   commande de cible et le mémo (`resultat.js`). Il n'existe encore que comme
+   point d'ancrage : tant qu'il est vide, il ne doit pas creuser un blanc. */
+.resultat__curseurs:empty { display: none; }
+
+@media (min-width: 1100px) {
+  /* `page--etroite` garde ses 34rem pour la colonne principale — c'est la
+     grille ci-dessous qui les lui rend. La page, elle, s'ouvre à 62rem, dont
+     48 px partent dans ses propres marges (`border-box`). */
+  .resultat.page--etroite { max-width: 62rem; }
+  /* Le CHAPEAU — bandeaux, surtitre, titre, annonce, réponse dédiée — ne suit
+     PAS la page qui s'élargit : il reste calé sur les 34rem de la colonne
+     principale, qu'il coiffe. Sans cette bride, le titre courrait sur 944 px
+     au-dessus d'une liste large de 544, et une saisie de 120 signes s'étalerait
+     en une seule ligne interminable là où elle en faisait trois. `base.css`
+     bride déjà tout `p` à la mesure de lecture ; `h1` et le cadre de réponse
+     dédiée, eux, ne l'étaient par rien. */
+  .resultat > :not(.resultat__corps) { max-width: 34rem; }
+  .resultat__corps {
+    grid-template-columns: minmax(0, 34rem) 22rem;
+    column-gap: var(--e6);
+    align-items: start;   /* l'aside ne s'étire pas à la hauteur de la liste */
+  }
+}
+
 .voies { display: grid; gap: var(--e3); }
 @media (min-width: 760px) {
   .voies { grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); }

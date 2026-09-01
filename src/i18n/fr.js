@@ -148,6 +148,10 @@ export const fr = {
       maximisation: 'Maximisation',
       maximisationGlose: 'la plus fournie',
     },
+    /* Le nom du point de repère `complementary` — la colonne de droite sur
+       grand écran, la fin de page en dessous. Il dit ce qu'on y trouve, pas où
+       c'est posé : « à droite » deviendrait faux sur un téléphone. */
+    asideLabel: 'Aller plus loin',
     fragmentsTitre: 'Les fragments valant {chiffre}',
     /* Quand la cible mêle plusieurs chiffres — « 007 », « 13 » —, un fragment
        n'en vaut qu'UN : dire « les fragments valant 007 » serait faux sept fois

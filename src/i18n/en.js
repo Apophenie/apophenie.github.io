@@ -128,6 +128,10 @@ export const en = {
       maximisation: 'Abundance',
       maximisationGlose: 'the fullest',
     },
+    /* The name of the `complementary` landmark — the right-hand column on a
+       wide screen, the foot of the page below the threshold. It says what is
+       inside, not where it sits: “on the right” would be a lie on a phone. */
+    asideLabel: 'Going further',
     fragmentsTitre: 'The fragments worth {chiffre}',
     /* When the target mixes digits — “007”, “13” — a fragment is worth just
        ONE of them. Each row's chip carries the digit actually reached. */
