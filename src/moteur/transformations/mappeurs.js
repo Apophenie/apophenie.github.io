@@ -2970,25 +2970,49 @@ const AUTRES_MAPPEURS = [
           enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
       }
 
-      // ── 2. les additions retenues, et elles seules
-      const ops = [];
+      /* ── 2. les additions retenues, UNE ÉTAPE CHACUNE ─────────────────────
+
+         > « `mrd` (ou `mad`, j'ai l'impression qu'ils font ou devraient faire la
+         >   même chose) devrait décomposer ses étapes par addition de 2 chiffres
+         >   et générer une étape dans le registre pour chaque, comme ça on peut
+         >   naviguer dedans convenablement. » (l'auteur)
+
+         Elles tenaient toutes dans UN step. À l'écran, cela donnait plusieurs
+         additions qui se jouaient à la suite sans qu'on puisse s'arrêter entre
+         deux — et, dans Le Registre, une seule ligne pour un geste qui en
+         comporte quatre ou cinq. Or Le Registre est l'équivalent accessible
+         OBLIGATOIRE de la scène (CONTRACTS §6) : ce qui se voit en quatre temps
+         doit s'y lire en quatre lignes, sans quoi il ne rend pas compte.
+
+         Chaque étape porte donc SON addition et rien d'autre, avec pour légende
+         l'opération elle-même — `1 + 5 = 6`, qui se vérifie d'un coup d'œil. */
+      const vus = plan.chiffres.map((c) => c.v).join(' ');
       plan.sortie.forEach((s, j) => {
         if (s.fin - s.debut < 2) return;
         const termes = [];
-        for (let k = s.debut; k < s.fin; k++) termes.push(idc(k));
+        const valeurs = [];
+        for (let k = s.debut; k < s.fin; k++) { termes.push(idc(k)); valeurs.push(plan.chiffres[k].v); }
         const signes = termes.slice(1).map((_, t) => `${ctx.cle}p${j}x${t}`);
-        ops.push({ op: 'insertOperators', between: termes, ids: signes, glyph: '+' });
-        ops.push({
-          op: 'sum',
-          targets: termes,
-          consume: signes,
-          to: token(idSortie(plan, ctx, s, j), s.v, 'number'),
-          symbol: '+',
-        });
+        steps.push(etape(ctx, dire(LIB_ADDITION_SELECTIVE, ctx.langue),
+          `${valeurs.join(' + ')} = ${s.v}`, enchainer([
+            { op: 'insertOperators', between: termes, ids: signes, glyph: '+' },
+            {
+              op: 'sum',
+              targets: termes,
+              consume: signes,
+              to: token(idSortie(plan, ctx, s, j), s.v, 'number'),
+              symbol: '+',
+            },
+          ]), { id: `s_${ctx.cle}_s${j}` }));
       });
-      const vus = plan.chiffres.map((c) => c.v).join(' ');
-      steps.push(etape(ctx, dire(LIB_ADDITION_SELECTIVE, ctx.langue),
-        `${vus} → ${apres.valeur.join(' ')}`, enchainer(ops), { id: `s_${ctx.cle}_s` }));
+      // ⚠️ Aucune addition retenue ne peut arriver ici : `planAdditionSelective`
+      //   rend `null` sans elles (`if (!additions) return null`). Le relevé
+      //   d'ensemble reste néanmoins utile à qui lit Le Registre d'une traite,
+      //   et il ne coûte qu'une ligne — celle du DÉCOUPAGE, pas d'un calcul.
+      if (!steps.length) {
+        steps.push(etape(ctx, dire(LIB_ADDITION_SELECTIVE, ctx.langue),
+          `${vus} → ${apres.valeur.join(' ')}`, [], { id: `s_${ctx.cle}_s` }));
+      }
       return steps;
     },
   }),
@@ -3535,29 +3559,53 @@ const AUTRES_MAPPEURS = [
           enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
       }
 
-      // ── 2. la découpe, puis les additions
-      const ops = [];
+      /* ── 2. la DÉCOUPE, puis UNE ÉTAPE PAR ADDITION ───────────────────────
+
+         > « `mrd` (ou `mad`…) devrait décomposer ses étapes par addition de 2
+         >   chiffres et générer une étape dans le registre pour chaque, comme ça
+         >   on peut naviguer dedans convenablement. » (l'auteur)
+
+         Tout tenait dans UN step : la découpe et les cinq ou six additions se
+         jouaient d'affilée, sans arrêt possible entre deux, et Le Registre n'en
+         gardait qu'une ligne. Or il est l'équivalent accessible OBLIGATOIRE de
+         la scène (§6) — ce qui se voit en six temps doit s'y lire en six lignes.
+
+         ★ **LA DÉCOUPE RESTE SEULE DANS SA PROPRE ÉTAPE**, et c'est le bon
+           découpage plutôt qu'un découpage commode : elle n'additionne rien, elle
+           ANNONCE les paquets. La coller à la première addition ferait commencer
+           un calcul dans l'étape qui pose la question. */
+      const vus = plan.chiffres.map((c) => c.v).join(' ');
       const groupes = plan.paquets.map((p, j) => ({
         targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
         tag: `${ctx.cle}q${j}`,
       }));
-      if (groupes.length >= 2) ops.push({ op: 'partition', groups: groupes });
+      if (groupes.length >= 2) {
+        const decoupe = plan.paquets
+          .map((p) => plan.chiffres.slice(p.debut, p.fin).map((c) => c.v).join('')).join(' · ');
+        steps.push(etape(ctx, dire(LIB_REDECOUPAGE, ctx.langue),
+          `${vus} → ${decoupe}`, enchainer([{ op: 'partition', groups: groupes }]),
+          { id: `s_${ctx.cle}_d` }));
+      }
+
       plan.paquets.forEach((p, j) => {
         if (p.fin - p.debut < 2) return;
         const termes = [];
-        for (let k = p.debut; k < p.fin; k++) termes.push(idc(k));
+        const valeurs = [];
+        for (let k = p.debut; k < p.fin; k++) { termes.push(idc(k)); valeurs.push(plan.chiffres[k].v); }
         const signes = termes.slice(1).map((_, t) => `${ctx.cle}p${j}x${t}`);
-        ops.push({ op: 'insertOperators', between: termes, ids: signes, glyph: '+' });
-        // La somme d'abord, telle qu'elle tombe. Puis, si elle dépasse neuf,
-        // elle s'écrit chiffre à chiffre — et c'est tout : rien ne la réduit.
         const sortie = idsPaquet(plan, ctx, p, j);
-        ops.push({
-          op: 'sum',
-          targets: termes,
-          consume: signes,
-          to: token(idSomme(plan, ctx, p, j), p.somme, 'number'),
-          symbol: '+',
-        });
+        const ops = [
+          { op: 'insertOperators', between: termes, ids: signes, glyph: '+' },
+          // La somme d'abord, telle qu'elle tombe. Puis, si elle dépasse neuf,
+          // elle s'écrit chiffre à chiffre — et c'est tout : rien ne la réduit.
+          {
+            op: 'sum',
+            targets: termes,
+            consume: signes,
+            to: token(idSomme(plan, ctx, p, j), p.somme, 'number'),
+            symbol: '+',
+          },
+        ];
         if (p.sortie.length > 1) {
           ops.push({
             op: 'substitute',
@@ -3567,10 +3615,23 @@ const AUTRES_MAPPEURS = [
             }],
           });
         }
+        // ★ La légende dit l'addition ET son écriture : `7 + 8 = 15`, puis
+        //   `15 → 1 5` quand la somme déborde. Les deux temps sont dans la même
+        //   étape parce qu'ils sont le même fait — un nombre qui ne tient pas
+        //   sur un chiffre s'écrit avec deux.
+        const eclate = p.sortie.length > 1 ? ` → ${p.sortie.join(' ')}` : '';
+        steps.push(etape(ctx, dire(LIB_REDECOUPAGE, ctx.langue),
+          `${valeurs.join(' + ')} = ${p.somme}${eclate}`, enchainer(ops),
+          { id: `s_${ctx.cle}_p${j}` }));
       });
-      const vus = plan.chiffres.map((c) => c.v).join(' ');
-      steps.push(etape(ctx, dire(LIB_REDECOUPAGE, ctx.langue),
-        `${vus} → ${apres.valeur.join(' ')}`, enchainer(ops), { id: `s_${ctx.cle}_d` }));
+
+      // Un redécoupage sans aucun paquet à additionner n'existe pas
+      // (`planRedecoupage` exige `groupes`), mais un relevé d'ensemble reste dû
+      // à qui lit Le Registre d'une traite.
+      if (!steps.length) {
+        steps.push(etape(ctx, dire(LIB_REDECOUPAGE, ctx.langue),
+          `${vus} → ${apres.valeur.join(' ')}`, [], { id: `s_${ctx.cle}_d` }));
+      }
       return steps;
     },
   }),
