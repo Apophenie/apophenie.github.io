@@ -95,3 +95,53 @@ export const BUDGET_MS = 250;
  * 12 ms est un PLANCHER de découpe, pas une garantie de fluidité.
  */
 export const TRANCHE_MS = 12;
+
+/**
+ * ★ **LA RÉGLETTE DE FOUILLE — une puissance de deux, de 0 à 7.**
+ *
+ * > « Le budget de travail par défaut devrait rester le même pour les recherches
+ * >   depuis la page d'accueil. En revanche, les recherches effectuées depuis la
+ * >   page d'énumération devraient avoir un budget réglable, par défaut ×4 le
+ * >   budget historique, augmentable jusqu'à ×128 (en repoussant avec profondeur
+ * >   max autour de 32 et durée à 128 s) et rabaissable jusqu'à ×1. C'est une
+ * >   réglette en puissance de 2 (de 0 à 7, par défaut 2, donc 2^N). »
+ * >   (l'auteur)
+ *
+ * ★ **POURQUOI DEUX RÉGIMES, ET PAS UN SEUL RELEVÉ GLOBAL.** La page d'accueil
+ *   répond à quelqu'un qui vient de taper son nom : il attend une liste, pas une
+ *   fouille. La page d'énumération répond à quelqu'un qui CONSTRUIT une voie —
+ *   il a déjà écrit un programme à trous, il sait ce qu'il cherche, et il peut
+ *   accepter d'attendre. Le même moteur, deux patiences.
+ *
+ * ★ **CE QUI SUIT LA PUISSANCE, ET CE QUI NE LA SUIT PAS.** Le TRAVAIL double à
+ *   chaque cran, c'est la réglette elle-même. Le TEMPS suit, mais sans jamais
+ *   descendre sous le budget ordinaire : rendre la main plus tôt que la page
+ *   d'accueil n'aurait aucun sens. La PROFONDEUR, elle, ne bouge qu'AU-DESSUS du
+ *   défaut — en deçà, la raccourcir n'économiserait rien (c'est le faisceau qui
+ *   borne, mesuré : +17 % de temps pour deux fois et demie la profondeur) et
+ *   priverait la recherche de voies qu'elle sait déjà trouver.
+ *
+ * @param {number} p  la position de la réglette, 0 à 7
+ */
+export const PUISSANCE_MAX = 7;
+export const PUISSANCE_DEFAUT = 2;   // ×4, la valeur d'ouverture de l'énumération
+export const PUISSANCE_ACCUEIL = 0;  // ×1, le budget historique
+
+export function reglagesDeBudget(p) {
+  const n = Math.max(0, Math.min(PUISSANCE_MAX, Math.round(Number(p) || 0)));
+  const facteur = 2 ** n;
+  return {
+    puissance: n,
+    facteur,
+    budgetTravailTotal: BUDGET_TRAVAIL_TOTAL_BASE * facteur,
+    budgetTotalMs: Math.max(BUDGET_TOTAL_MS, 1000 * facteur),
+    dMax: Math.min(D_MAX_PLAFOND, D_MAX_BASE + Math.max(0, n - PUISSANCE_DEFAUT) * 4),
+  };
+}
+
+/** Le budget de travail d'une recherche ordinaire — le « historique » de l'auteur. */
+export const BUDGET_TRAVAIL_TOTAL_BASE = 1000000;
+
+/** La profondeur du régime ordinaire, et celle qu'on ne dépasse jamais. */
+export const D_MAX_BASE = 15;
+export const D_MAX_PLAFOND = 32;

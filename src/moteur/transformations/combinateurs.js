@@ -194,10 +194,19 @@ function etapeDecompte(spec) {
  * Seules les deux constantes du nivellement doublent : l'accolade, le vol et la
  * remontée n'ont rien à montrer de plus qu'ailleurs, et les allonger rendrait
  * `meg` interminable au lieu de le rendre lisible.
+ *
+ * ★ **DEUX CORRECTIONS SUCCESSIVES, ET LA SECONDE ANNULE À MOITIÉ LA PREMIÈRE.**
+ *   `nivellement1` avait doublé (520 → 1 040) sur « les mouvements de `meg`
+ *   sont trop rapides ». Mesuré ensuite par l'auteur sur une égalisation
+ *   fournie : « les transferts sont bien, ils pourraient être 20 % plus rapides
+ *   au maximum ». D'où 830. Et `nivellement0` — le coût FIXE d'entrée du
+ *   nivellement, qui ne montre aucun transfert — revient à 260 : le doubler
+ *   n'avait ralenti que l'attente, ce qui pèse surtout sur les égalisations
+ *   COURTES, précisément celles que l'auteur trouve « bien trop lentes ».
  */
 export const POIDS_RAMASSAGE = Object.freeze({
   accolade: 900, doubles: 800,
-  nivellement0: 520, nivellement1: 1040,
+  nivellement0: 260, nivellement1: 830,
   effacement0: 380, effacement1: 90,
   vol0: 620, vol1: 260,
   remontee: 760,

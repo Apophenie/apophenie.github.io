@@ -481,7 +481,7 @@ export function nivellementDe(valeurs, maxTransferts = MAX_TRANSFERTS) {
  */
 export const POIDS_RAMASSAGE = Object.freeze({
   accolade: 900, doubles: 800,
-  nivellement0: 520, nivellement1: 1040,
+  nivellement0: 260, nivellement1: 830,
   effacement0: 380, effacement1: 90,
   vol0: 620, vol1: 260,
   remontee: 760,
@@ -664,9 +664,26 @@ export function accumulate(ctx, spec) {
     voler: voler.length, effacer: effacer.length,
     doubles: doubles.length, transferts: transferts.length,
   });
+  /* ★ **L'ACCOLADE NE S'ÉTIRE PAS AVEC LE RESTE.**
+
+     > « Les transferts sont bien […] mais le tracé de l'accolade est bien trop
+     >   lent. La vitesse pour tracer l'accolade devrait être la même
+     >   qu'ailleurs, à savoir très rapide. Ce n'est pas ça qui donne la
+     >   lisibilité, mais ce qui se passe en matière de conversion. »
+     >   (l'auteur)
+
+     Toutes les phases étaient mises à l'échelle par le même `u`, si bien qu'un
+     nivellement à quatorze transferts — dix-sept secondes d'étape — traçait son
+     accolade quatorze fois plus lentement qu'un geste ordinaire. Or une
+     accolade ne DÉMONTRE rien : elle annonce. Sa durée doit être celle du même
+     trait partout, quelle que soit la longueur de ce qu'il embrasse.
+
+     Le temps qu'elle ne prend pas revient aux phases qui, elles, ont quelque
+     chose à montrer. `T * 0.25` la borne quand le geste est court : une
+     accolade qui mangerait le quart d'une étape brève redeviendrait le sujet. */
   const totalPoids = Object.values(poids).reduce((a, b) => a + b, 0);
-  const u = T / totalPoids;
-  const tAcc = poids.accolade * u;
+  const tAcc = Math.min(poids.accolade, T * 0.25);
+  const u = (T - tAcc) / Math.max(1, totalPoids - poids.accolade);
   const tDup = poids.doubles * u;
   const tNiv = poids.nivellement * u;
   const tEff = poids.effacement * u;

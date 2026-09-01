@@ -180,16 +180,7 @@ export const FRAGMENTS_GARANTIS = 12; // = MAX_LIBRES de assemblage.js
  *    sous une charge de douze processus sur huit cœurs.
  */
 export const BUDGET_TRAVAIL = 420000;         // par fragment, régime normal
-/* ★ **DOUBLÉ AVEC LE TEMPS QU'IL DÉPENSE.** L'auteur a porté `BUDGET_TOTAL_MS`
-   de 5 à 10 secondes ; sans ce plafond-ci, la seconde moitié n'aurait jamais
-   servi. Mesuré avant : les recherches lourdes rendaient la main en 2,7 s en se
-   déclarant tronquées — c'est le TRAVAIL qui coupait, pas l'horloge, et
-   allonger l'horloge seule n'aurait rien changé.
-
-   Après : `https://fr.wikipedia.org/wiki/Nombre_de_la_bête` passe de six séries
-   en tête à NEUF, pour 3,0 s. Le temps accordé est employé, et il reste les
-   deux tiers de la marge. */
-export const BUDGET_TRAVAIL_TOTAL = 2000000;  // phase de recherche entière
+export const BUDGET_TRAVAIL_TOTAL = 1000000;  // phase de recherche entière
 
 /**
  * Plafond par fragment une fois le budget global épuisé — le pendant

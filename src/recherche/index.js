@@ -31,6 +31,7 @@ import {
 } from './score.js';
 import { emploieUneFicelle } from './elegance.js';
 import { indexUtiles } from './cible.js';
+import { reglagesDeBudget, PUISSANCE_DEFAUT } from '../config.js';
 import { construireScenario } from './scenario.js';
 import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
 import {
@@ -150,7 +151,7 @@ export function creerMoteur(catalogue, options = {}) {
   // chiffres (§4.4 règle 3 : l'ordre d'itération décide du classement).
   const tablesDe = (cbl) => cbl.alphabet.map((but) => ({ but, table: bassinPour(but) }));
 
-  const contexteBase = (cbl) => ({
+  const contexteBase = (cbl, sur = {}) => ({
     catalogue,
     operateurs: operateursPourCible(catalogue, cbl),
     bassin,
@@ -164,6 +165,10 @@ export function creerMoteur(catalogue, options = {}) {
     maxTravail: options.maxTravail,
     budgetMs: options.budgetMs,
     filetTemporel: options.filetTemporel,
+    // ★ Les surcharges de la RÉGLETTE DE FOUILLE (`config.js ›
+    //   reglagesDeBudget`). Elles ne servent qu'à l'énumération : une recherche
+    //   ordinaire n'en passe aucune et retrouve exactement le régime d'avant.
+    ...sur,
   });
 
   /**
@@ -737,14 +742,23 @@ export function creerMoteur(catalogue, options = {}) {
    *   noter. On garde les meilleures candidates de chaque portée puis on borne
    *   le total — la liste n'en montrera de toute façon qu'une douzaine.
    */
-  function enumerer(lecture) {
+  function enumerer(lecture, reglages = {}) {
     if (!lecture || lecture.forme !== 'canonique') {
       return { ok: false, raison: 'forme non canonique', bandeau: lecture && lecture.bandeau };
     }
     const cbl = normaliserCible(lecture.cible);
     const saisie = lecture.saisie;
     const jetons = tokeniser(saisie);
-    const ctxE = contexteBase(cbl);
+    // ★ La fouille de l'énumération est plus patiente que celle de l'accueil —
+    //   voir `config.js › reglagesDeBudget` pour les deux régimes et leur
+    //   raison. La puissance vient du lien ou de la réglette ; à défaut, celle
+    //   d'ouverture.
+    const b = reglagesDeBudget(reglages.puissance ?? PUISSANCE_DEFAUT);
+    const ctxE = contexteBase(cbl, {
+      dMax: b.dMax,
+      maxTravail: BUDGET_TRAVAIL * b.facteur,
+      budgetMs: b.budgetTotalMs,
+    });
 
     // ── 1. déplier : une commande portant sur trois portées en fait trois.
     const plan = [];
@@ -829,6 +843,8 @@ export function creerMoteur(catalogue, options = {}) {
       cible: cbl,
       approches: approches.slice(0, REGLAGES.MAX_APPROCHES),
       commande: true,
+      puissance: b.puissance,
+      facteur: b.facteur,
     };
   }
 
