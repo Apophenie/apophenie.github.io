@@ -111,6 +111,23 @@ export const en = {
     annonceUne: 'One approach leads to {cible}.',
     annoncePlusieurs: '{n} approaches lead to {cible}.',
     voiesTitre: 'The complete paths',
+    /* THE PODIUM — the two framed places at the top of the list. The headings
+       name the QUESTION each place answers, not the ranking that picked it:
+       the engine says “triptychs”, which is exact and unreadable. The gloss is
+       three words long — the author's own words — because the frame has to make
+       the difference obvious without starting to explain the scoring.
+
+       “Abundance”, not “Maximisation”. The French heading names a PROCESS, and
+       it reads well next to « Élégance » because both are everyday words there.
+       The literal English word is a piece of management jargon, and it would
+       pair a quality with a procedure. Two qualities keep the two questions
+       side by side, which is the whole point of the pair. */
+    podium: {
+      elegance: 'Elegance',
+      eleganceGlose: 'the finest',
+      maximisation: 'Abundance',
+      maximisationGlose: 'the fullest',
+    },
     fragmentsTitre: 'The fragments worth {chiffre}',
     /* When the target mixes digits — “007”, “13” — a fragment is worth just
        ONE of them. Each row's chip carries the digit actually reached. */
