@@ -469,11 +469,35 @@ export function jouerTransferts(ctx, spec) {
     ctx.anim({ id, prop: 'opacity', values: [0, 1, 1, 0], offsets: [0, 0.16, 0.84, 1], at: a, dur });
     ctx.anim({ id, prop: 'scale', values: [0.5, 0.62, 0.5], offsets: [0, 0.5, 1], at: a, dur });
   });
-  // Les deux nombres changent À L'ARRIVÉE du 1, pas à son départ : c'est le
-  // transfert qui fait la nouvelle valeur, et on doit le lire dans cet ordre.
+  // ★ **CHACUN CHANGE À SON MOMENT** — le donneur au DÉPART, le receveur à
+  //   l'ARRIVÉE.
+  //
+  //   Les deux changeaient à l'arrivée, au motif que « c'est le transfert qui
+  //   fait la nouvelle valeur ». C'est vrai du receveur et faux du donneur :
+  //   pendant tout le vol, le `1` était compté DEUX FOIS — encore chez celui
+  //   qui l'a lâché, déjà en route vers l'autre. « C'est quand un 1 part d'un
+  //   nombre que le nombre d'origine doit être décrémenté, et quand le 1 arrive
+  //   à destination que le nombre d'arrivée doit augmenter. Ce n'est pas
+  //   réaliste » (l'auteur).
+  //
+  //   Et ce n'est pas qu'une question de réalisme : la somme de la ligne est
+  //   l'INVARIANT du nivellement — c'est lui qui garantit que la valeur commune
+  //   atteinte est bien la moyenne. Un spectateur qui additionnait la ligne en
+  //   cours de vol trouvait un de trop. Maintenant le compte est juste à chaque
+  //   image : ce qui a quitté un nombre n'est nulle part ailleurs que dans le
+  //   `1` qui vole.
+  //
+  //   Les deux seuils encadrent le vol : `0,20` d'un pas après son début, quand
+  //   le `1` vient d'apparaître (il s'allume à 16 % de sa course), et `0,94`
+  //   quand il est presque posé.
+  const SEUIL = { de: 0.20, vers: 0.94 };
   for (const [id, ps] of paliers) {
     if (ps.length < 2) continue;
-    const seuils = ps.map((p) => ({ u: p.k === 0 ? 0 : (p.k - 1 + 0.94) / (transferts.length + 0.35), text: p.text }));
+    const seuils = ps.map((p) => ({
+      u: p.k === 0 ? 0
+        : (p.k - 1 + (SEUIL[p.role] ?? SEUIL.vers)) / (transferts.length + 0.35),
+      text: p.text,
+    }));
     ctx.discrete({
       id,
       channel: 'text',
@@ -550,8 +574,8 @@ export function accumulate(ctx, spec) {
     const courant = values.map((v) => String(v));
     operands.forEach((id, i) => paliers.set(id, [{ k: 0, text: courant[i] }]));
     transferts.forEach((tr, k) => {
-      paliers.get(operands[tr.de]).push({ k: k + 1, text: String(tr.source) });
-      paliers.get(operands[tr.vers]).push({ k: k + 1, text: String(tr.cible) });
+      paliers.get(operands[tr.de]).push({ k: k + 1, text: String(tr.source), role: 'de' });
+      paliers.get(operands[tr.vers]).push({ k: k + 1, text: String(tr.cible), role: 'vers' });
     });
     for (const [id, ps] of paliers) {
       const large = Math.max(...ps.map((p) => [...p.text].length));

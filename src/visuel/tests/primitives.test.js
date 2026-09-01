@@ -827,7 +827,13 @@ test('table : la table des restes écrit son barème UNE fois, en tête de colon
   assert.equal(p.valeur.x, cell.cx, 'et de la colonne du nombre');
   // ④ le halo couvre la COLONNE, quotation comprise : c'est le lien vertical
   //    qui est la correspondance.
-  assert.ok(p.halo.h > cell.h * geo.rows, 'le halo doit embrasser toute la colonne');
+  // ⚠️ La colonne, c'est ce qu'on VOIT d'elle : depuis que le cycle défile
+  //   derrière une fenêtre de trois rangées, un halo qui couvrirait les cinq
+  //   déborderait du volet et désignerait des cases invisibles. Il embrasse donc
+  //   la fenêtre, quotation comprise — le lien vertical entre le barème et la
+  //   rangée active, et rien de plus.
+  assert.ok(p.halo.h > cell.h * geo.fenetre, 'le halo doit embrasser la colonne visible');
+  assert.ok(p.halo.h < cell.h * (geo.fenetre + 2), 'et pas déborder du volet');
   assert.ok(p.halo.cy < cell.cy, 'et remonter jusqu’au barème');
 });
 
@@ -863,9 +869,16 @@ test('table : le nombre vole vers sa case, le reste redescend du barème', () =>
   const geo = tableGeometry({ disposition: 'modulo', colonnes: 10, entries: entrees });
   const p = geo.index['44'];
 
+  // ★ **LA ROUE A TOURNÉ AVANT QUE LE NOMBRE N'ARRIVE**, et c'est ce que ce
+  //   contrôle doit dire. `44` est en cinquième rangée, la fenêtre en montre
+  //   trois : le cycle coulisse pour l'amener au centre, et la case n'est donc
+  //   plus là où la géométrie la pose au repos. Le jeton vise la case APRÈS le
+  //   défilement — sans quoi il atterrirait sur une rangée qui a bougé.
   const vol = animsDe(tl, 't0', 'translate').at(-1).keyframes.at(-1).value;
+  assert.ok(p.roulis < 0, 'la cinquième rangée d’un cycle de trois doit défiler');
   assert.ok(Math.abs(vol.x - (board.x + p.lettre.x)) < 0.5, 'le nombre atterrit sur SA case');
-  assert.ok(Math.abs(vol.y - (board.y + p.lettre.y)) < 0.5);
+  assert.ok(Math.abs(vol.y - (board.y + p.lettre.y + p.roulis)) < 0.5,
+    'et sur la place qu’elle occupe une fois la roue arrêtée');
 
   const naissance = tl.scene.get('r').base.translate;
   assert.ok(Math.abs(naissance.y - (board.y + geo.quotationCy)) < 0.5,

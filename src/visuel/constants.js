@@ -139,11 +139,38 @@ export const KINDS = Object.freeze([
   'operator', 'annotation', 'ghost',
 ]);
 
-/** Courbes par défaut. */
+/**
+ * Courbes par défaut.
+ *
+ * ★ `course` — **la seule qui soit lente aux DEUX bouts.** Les trois autres
+ *   partent lentement et finissent lentement d'une manière ou d'une autre, mais
+ *   aucune ne creuse vraiment le milieu. Mesuré, vitesse rapportée à la vitesse
+ *   moyenne :
+ *
+ *   | courbe                  | au départ | au milieu | maximum |
+ *   |-------------------------|-----------|-----------|---------|
+ *   | `move` (.4,0,.2,1)      | 0,09      | 1,20      | 2,73    |
+ *   | `fade` (.4,0,.6,1)      | 0,08      | 1,67      | 1,67    |
+ *   | **`course`** (.85,0,.15,1) | **0,02** | **6,14** | **6,67** |
+ *
+ *   `move` atteint d'ailleurs son maximum TÔT, pas au milieu : c'est une courbe
+ *   qui décélère, faite pour un déplacement court dont on veut voir l'arrivée.
+ *
+ *   `course` est faite pour l'inverse — un long trajet dont on veut voir le
+ *   DÉPART et l'ARRIVÉE, et dont le milieu n'a rien à apprendre : la table des
+ *   restes qui descend de cinquante rangées vers la valeur cherchée. « Commencer
+ *   le mouvement lentement, le finir lentement, mais aller bien plus vite au
+ *   milieu de la course » (l'auteur).
+ *
+ *   Poussée plus loin (.9,0,.1,1 donne 7,85 au milieu), les extrémités se
+ *   figent : on ne lit plus un mouvement qui démarre, on lit une pause suivie
+ *   d'un saut. C'est pour cela qu'elle s'arrête là.
+ */
 export const EASE = Object.freeze({
   move: 'cubic-bezier(.4,0,.2,1)',
   fade: 'cubic-bezier(.4,0,.6,1)',
   pop: 'cubic-bezier(.34,1.4,.64,1)',
+  course: 'cubic-bezier(.85,0,.15,1)',
   linear: 'linear',
 });
 

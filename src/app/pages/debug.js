@@ -512,6 +512,8 @@ export function programmePour(op) {
   if (!op || !op.code) return null;
   const pistes = exploration();
   const rivaux = semblables(op).length;
+  // Ce qu'on garderait faute de mieux — voir `exempleUtile` plus bas.
+  const replis = [];
   for (let niveau = 0; niveau <= PROFONDEUR_EXEMPLE; niveau++) {
     deplierJusqua(niveau);
     let meilleur = null;
@@ -523,6 +525,33 @@ export function programmePour(op) {
         if (noeud.etat.type !== op.from) continue;
         const resultat = appliquer(op, noeud.etat);
         if (resultat === null) continue;
+        // ★ **UN EXEMPLE QUI N'EXERCE PAS LE GESTE N'EN EST PAS UN.**
+        //
+        //   Le choix ci-dessous ne connaît que des CRITÈRES GÉNÉRIQUES — écarter
+        //   les opérateurs voisins, ne pas encombrer la ligne. Ils suffisent tant
+        //   que le geste est le même quelle que soit la valeur. Il ne l'est pas
+        //   toujours : la table des restes ne DÉFILE qu'au-delà de sa fenêtre, et
+        //   `pm10` sur 18 montrait deux rangées immobiles — un exemple juste, qui
+        //   ne montrait pas ce que l'opérateur fait.
+        //
+        //   L'opérateur le dit donc lui-même (`exempleUtile`), comme il déclare
+        //   déjà sa réglette, son décalage ou sa convention. C'est le seul qui
+        //   sache ce que son geste exige ; cette page ne peut que l'écouter.
+        //
+        //   ⚠️ C'est une PRÉFÉRENCE, pas une exigence : si aucun état ne la
+        //     satisfait à aucune profondeur, on rend quand même le meilleur des
+        //     autres. Une page de debug qui n'affiche rien n'aide personne.
+        if (typeof op.exempleUtile === 'function' && !op.exempleUtile(noeud.etat)) {
+          if (!replis[niveau]) replis[niveau] = [];
+          replis[niveau].push({
+            saisie: p.saisie, texte: p.texte, portee: p.portee,
+            codes: [...noeud.codes, op.code],
+            distingue: discrimination(op, noeud.etat, resultat),
+            semblables: rivaux,
+            poids: encombrement(noeud.etat),
+          });
+          continue;
+        }
         const candidat = {
           saisie: p.saisie,
           texte: p.texte,
@@ -558,6 +587,19 @@ export function programmePour(op) {
       delete meilleur.poids;
       return meilleur;
     }
+  }
+  // ★ LE REPLI — le meilleur de ceux que `exempleUtile` avait écartés, au
+  //   niveau le plus court où il en existait un. On ne rend jamais rien plutôt
+  //   qu'un exemple imparfait : la préférence de l'opérateur cède devant
+  //   l'existence.
+  for (const niveau of replis) {
+    if (!niveau || !niveau.length) continue;
+    let meilleur = null;
+    for (const c of niveau) {
+      if (!meilleur || c.distingue > meilleur.distingue
+        || (c.distingue === meilleur.distingue && c.poids < meilleur.poids)) meilleur = c;
+    }
+    if (meilleur) { delete meilleur.poids; return meilleur; }
   }
   return null;
 }

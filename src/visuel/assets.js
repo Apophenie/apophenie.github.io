@@ -14,7 +14,7 @@
  * transformation d'entrée `glyphTransform()`.
  */
 
-import { CAP_RATIO, FONT_SIZE, ADVANCE_RATIO } from './constants.js';
+import { CAP_RATIO, FONT_SIZE, ADVANCE_RATIO, VIEWBOX } from './constants.js';
 
 export const GLYPH_BOX = { w: 400, h: 600 };
 
@@ -617,18 +617,36 @@ export const DISPOSITIONS = Object.freeze(['reglette', 'glissiere', 'pave', 'mod
  * ★ **Au-delà, l'émetteur ne monte pas la table** : il retombe sur le geste
  * sobre (`moteur/transformations/posts.js`), comme le nivellement retombe sur
  * l'accolade quand il ne converge pas assez vite. Un dessin qu'on ne sait pas
- * rendre lisible ne se dessine pas. ⚠️ C'est exactement là que commencerait la
- * table QUI DÉFILE demandée par l'auteur — « si la valeur cible n'est pas à
- * l'écran, la table descend jusqu'à faire apparaître la valeur à convertir » :
- * elle demande une fenêtre de découpe, dont `dom.js` n'a aujourd'hui aucune
- * notion, et elle n'est pas faite.
+ * ★ **CE N'EST PLUS UN PLAFOND, C'EST UNE FENÊTRE.** La table qui défile est
+ * faite : au-delà de huit rangées, on n'abandonne plus le dessin, on n'en
+ * montre que huit à la fois et la grille COULISSE derrière un volet de découpe
+ * (`dom.js › nhl-roue`) jusqu'à faire paraître la rangée cherchée — « si la
+ * valeur cible n'est pas à l'écran, la table descend jusqu'à faire apparaître
+ * la valeur à convertir » (l'auteur).
+ *
+ * La mesure de lisibilité ci-dessus garde donc tout son sens, mais elle borne
+ * désormais ce qu'on VOIT, non ce qu'on accepte de convertir : le recul de
+ * caméra se calcule sur la fenêtre, pas sur la table entière, et il ne bouge
+ * plus quand le nombre grandit.
  *
  * ⚠ **Miroir** de `MODULO_LIGNES_MAX` (`moteur/transformations/posts.js`) : le
  * moteur arithmétique ne dépend pas du moteur visuel (CONTRACTS §1), mais
  * c'est lui qui décide de monter la table ou non. Un test croisé échoue si les
  * deux divergent.
  */
-export const MODULO_LIGNES_MAX = 8;
+export const MODULO_LIGNES_MAX = 3;
+
+/**
+ * ★ **LA PART DE LA SCÈNE QU'UN CYCLE PEUT PRENDRE EN LARGEUR.**
+ *
+ * « Tu peux utiliser 90 % de la largeur de la scène pour ça » (l'auteur). Les
+ * cases d'un cycle sont étroites — un ou deux chiffres — et la largeur minimale
+ * commune aux tables (`CELL_MIN_W`) laissait un cycle de dix colonnes occuper
+ * moins des deux tiers du cadre : le reste était du vide, et la caméra reculait
+ * quand même pour l'englober. Elles s'élargissent donc jusqu'à remplir le cadre,
+ * jamais au-delà.
+ */
+const MODULO_PART_LARGEUR = 0.9;
 
 /** Encodages de teinte de fond modélisés — vocabulaire fermé. */
 export const TEINTES = Object.freeze(['valeur']);
@@ -677,6 +695,12 @@ const PAD_Y = 11;
 const GAP = 8;
 const LIGNE = 26;      // interligne dans une case
 const CELL_MIN_W = 66;
+/**
+ * Largeur maximale d'une case de cycle — au-delà, une case de deux chiffres
+ * devient une plaque. C'est deux fois la largeur minimale : de quoi remplir le
+ * cadre sur dix colonnes, sans qu'une table de trois colonnes ne s'étale.
+ */
+const CELL_MAX_W = CELL_MIN_W * 2;
 
 /** Largeur approchée d'un texte à chasse fixe, en unités viewBox. */
 function textWidth(texte, size) {
@@ -755,6 +779,10 @@ function moduloTable(entries, options, fs) {
   const rangs = [];
   for (let i = 0; i < entries.length; i += cols) rangs.push(entries.slice(i, i + cols));
   const rows = Math.max(1, rangs.length);
+  // ★ LA FENÊTRE — ce qu'on montre, et non ce qu'on dessine. Au-delà, la grille
+  //   coulisse derrière un volet (voir l'en-tête de `MODULO_LIGNES_MAX`).
+  const fenetre = Math.min(rows, MODULO_LIGNES_MAX);
+  const roule = rows > fenetre;
 
   // Le barème de chaque colonne, DÉRIVÉ des correspondances : c'est la valeur
   // que toutes les cases de la colonne partagent — et si elles ne la partagent
@@ -775,11 +803,20 @@ function moduloTable(entries, options, fs) {
   for (const b of bareme) large = Math.max(large, textWidth(b ? b.valeur : '', fs * T.valeur));
   // Une seule ligne de texte par case : la case est celle d'une touche, pas
   // celle d'une réglette qui empile la lettre, la note et la valeur.
-  const cellW = Math.max(CELL_MIN_W, Math.ceil(large) + PAD_X * 2);
+  // ★ La case s'élargit jusqu'à remplir 90 % du cadre — voir
+  //   `MODULO_PART_LARGEUR`. Jamais moins que la largeur minimale commune :
+  //   un cycle de cinquante colonnes se serrerait sinon jusqu'à l'illisible.
+  const dispo = VIEWBOX.w * MODULO_PART_LARGEUR;
+  const large2 = Math.floor((dispo - (cols - 1) * GAP) / cols);
+  const cellW = Math.max(CELL_MIN_W, Math.ceil(large) + PAD_X * 2, Math.min(large2, CELL_MAX_W));
   const cellH = PAD_Y * 2 + LIGNE;
 
   const width = cols * cellW + (cols - 1) * GAP;
-  const grille = rows * cellH + (rows - 1) * GAP;
+  // L'encombrement ne compte que les rangées VISIBLES : c'est lui qui décide du
+  // recul de caméra, et une table qui coulisse ne doit pas faire reculer la
+  // caméra pour des rangées qu'on ne verra jamais toutes à la fois.
+  const grille = fenetre * cellH + (fenetre - 1) * GAP;
+  const pas = cellH + GAP;
   // La quotation dépasse EN HAUT, comme la réglette du clavier : elle fait
   // partie de l'encombrement, sans quoi la caméra la couperait.
   const teteH = Math.round(cellH * 0.62);
@@ -806,8 +843,10 @@ function moduloTable(entries, options, fs) {
         labels: [{ text: e.label, cx, cy, size: round(fs * T.lettre), tone: 'fg' }],
       };
       cells.push(cell);
+      // Du barème au bas de la FENÊTRE — jamais au bas de la grille, qui peut
+      // compter cinquante rangées dont on n'en voit que trois.
       const haut = quotationCy - teteH * 0.34;
-      const bas = -height / 2 + height + 4;
+      const bas = y0 + grille + 4;
       index[e.char] = {
         cell: cells.length - 1,
         lettre: { x: cx, y: cy },
@@ -817,13 +856,54 @@ function moduloTable(entries, options, fs) {
         valeur: { x: cx, y: quotationCy },
         value: e.value,
         note: null,
-        halo: { cx, cy: round((haut + bas) / 2), w: cellW + 8, h: round(bas - haut) },
+        // ★ **LE HALO NE DÉFILE PAS** — il est dans le repère de la FENÊTRE.
+        //
+        //   Il embrasse la colonne : du barème, qui est fixe au-dessus du volet,
+        //   jusqu'au bas de ce qu'on voit. Calculé dans le repère de la GRILLE,
+        //   il aurait suivi la roue — et se serait donc décollé du barème, qui
+        //   lui ne bouge pas. Une fois la roue arrêtée, la rangée active est au
+        //   centre de la fenêtre : le halo n'a donc rien à suivre, il désigne
+        //   une colonne, et une colonne ne défile pas.
+        halo: { cx, cy: round((haut + bas) / 2), w: cellW + 8, h: round(bas - haut), fixe: true },
       };
     });
   });
 
+  // ★ DE COMBIEN LA ROUE TOURNE pour amener une rangée sous les yeux.
+  //
+  //   Zéro tant que la rangée est déjà dans la fenêtre ; sinon on la fait
+  //   monter jusqu'à la DERNIÈRE ligne visible — c'est ce qui se lit comme
+  //   « la table est descendue jusqu'à elle », et non comme un saut au milieu.
+  //   Le déplacement est négatif : la grille monte, la fenêtre ne bouge pas.
+  // ★ **MACHINE À SOUS : LA RANGÉE ACTIVE AU CENTRE.**
+  //
+  //   Elle s'arrêtait sur la DERNIÈRE ligne visible, ce qui se lit comme une
+  //   table qu'on a fait descendre — juste, mais pas ce que l'auteur veut voir :
+  //   « en visant un effet machine à sous de casino pour le défilement et la
+  //   position de la ligne active au centre ». On vise donc le milieu de la
+  //   fenêtre, et l'on borne aux deux bouts pour ne jamais montrer de vide : le
+  //   cycle a un début et une fin, une machine à sous n'en a pas.
+  //   ⚠️ ON NE BORNE PLUS À LA FIN. Le garde-fou « ne jamais montrer de vide »
+  //     ramenait la dernière rangée en bas de la fenêtre au lieu du centre —
+  //     mesuré : `252` en modulo 10 arrivait en position 2 sur 3, et non 1.
+  //     C'est à l'ÉMETTEUR de dessiner une rangée de plus que la cible (voir
+  //     `posts.js › etapeModulo`), ce qui est d'ailleurs vrai : un cycle ne
+  //     s'arrête pas au nombre qu'on y cherche.
+  const centre = Math.floor((fenetre - 1) / 2);
+  const roulisDe = (ligne) => -Math.max(ligne - centre, 0) * pas;
+  for (const e of entries) {
+    const idx = index[e.char];
+    if (idx) idx.roulis = roulisDe(cells[idx.cell].ligne);
+  }
+  // Le volet, en coordonnées locales : la fenêtre, et rien d'autre. La
+  // quotation vit AU-DESSUS et reste hors du volet — « la quotation en fixe »
+  // (l'auteur) : c'est le barème, il ne défile pas avec les rangées.
+  const volet = roule
+    ? { x: round(x0 - 4), y: round(y0 - GAP / 2), w: round(width + 8), h: round(grille + GAP) }
+    : null;
   return {
-    disposition: 'modulo', cols, rows, width, height, cellW, cellH,
+    disposition: 'modulo', cols, rows, fenetre, roule, volet, pas,
+    width, height, cellW, cellH,
     cells, index, quotation, quotationCy, teteH, discordance,
   };
 }

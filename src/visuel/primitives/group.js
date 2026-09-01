@@ -165,8 +165,8 @@ function planEgalisation(ctx, ids) {
   const courant = valeurs.map((v) => String(v));
   ids.forEach((id, i) => paliers.set(id, [{ k: 0, text: courant[i] }]));
   transferts.forEach((tr, k) => {
-    paliers.get(ids[tr.de]).push({ k: k + 1, text: String(tr.source) });
-    paliers.get(ids[tr.vers]).push({ k: k + 1, text: String(tr.cible) });
+    paliers.get(ids[tr.de]).push({ k: k + 1, text: String(tr.source), role: 'de' });
+    paliers.get(ids[tr.vers]).push({ k: k + 1, text: String(tr.cible), role: 'vers' });
   });
   for (const [id, ps] of paliers) {
     const large = Math.max(...ps.map((p) => [...p.text].length));

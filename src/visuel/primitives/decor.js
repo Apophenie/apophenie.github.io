@@ -172,7 +172,17 @@ export function monterDecor(ctx, spec) {
   if (!ctx.scene.has(id)) {
     ctx.scene.create({
       id, role: spec.role, inFlow: false, w: width, data: spec.data,
-      base: { opacity: 0, translate: { x: pos.x, y: pos.y + MONTE_DE } },
+      // ★ `roue: 0` quand le décor en a une — une table des restes qui coulisse
+      //   derrière son volet (`dom.js › nhl-roue`). Sans valeur de base, le
+      //   canal n'aurait pas d'où partir, et la première image le peindrait au
+      //   hasard de ce que le navigateur trouve. Les décors qui ne roulent pas
+      //   n'en portent pas : un canal muet est un canal qu'on ne peut pas
+      //   animer par mégarde.
+      base: {
+        opacity: 0,
+        translate: { x: pos.x, y: pos.y + MONTE_DE },
+        ...(spec.data && spec.data.geo && spec.data.geo.roule ? { roue: 0 } : {}),
+      },
     }, { where: ctx.where });
     ctx.scene.place(id, { x: pos.x, y: pos.y + MONTE_DE, w: width });
   }

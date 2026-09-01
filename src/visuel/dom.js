@@ -210,6 +210,14 @@ export function porteurDe(element, prop) {
   if (!c) return element;
   if (prop === 'translate') return c.translate;
   if (prop === 'rotate') return c.rotate;
+  // ★ `roue` — un maillon de plus, et il n'existe que sur les décors qui en ont
+  //   un : la table des restes qui coulisse derrière son volet. Ailleurs, le
+  //   canal retombe sur le contenu, où il ne sera jamais animé.
+  if (prop === 'roue') {
+    const r = c.content && c.content.querySelector
+      ? c.content.querySelector('.nhl-roue') : null;
+    return r || c.content;
+  }
   return c.content;
 }
 
@@ -689,18 +697,48 @@ function buildTable(node, fs, palette) {
   const g = el('g', { class: 'nhl-table' });
   const geo = node.data.geo;
   const TONES = { fg: palette.fg, fg3: palette.fg3, gold: palette.gold };
+  // ★ **LE VOLET DE DÉCOUPE, ET LA ROUE QUI TOURNE DERRIÈRE.**
+  //
+  //   Une table des restes de 0 à 500 ferait cinquante rangées : dessinée en
+  //   entier, elle est illisible ; abandonnée, elle ne montre rien. On en montre
+  //   donc HUIT à la fois, et la grille coulisse derrière un volet jusqu'à faire
+  //   paraître la rangée cherchée (`assets.js › moduloTable`, la fenêtre).
+  //
+  //   Deux éléments, et chacun a sa raison :
+  //    · le VOLET (`clipPath`) découpe ce qu'on voit. Son identifiant vient du
+  //      nœud, jamais d'un compteur ni d'un tirage — deux scènes rejouées
+  //      doivent produire le même document (CONTRACTS §4.4) ;
+  //    · la ROUE est un maillon de plus dans la chaîne de transformations, au
+  //      même titre que `nhl-pos` et `nhl-rot` : c'est lui que le canal `roue`
+  //      anime (voir `porteurDe`). La quotation reste DEHORS — c'est le barème,
+  //      il ne défile pas avec les rangées.
+  const volet = geo.volet || null;
+  let cible = g;
+  if (volet) {
+    const idVolet = `nhl-volet-${String(node.id).replace(/[^\w-]/g, '_')}`;
+    const clip = el('clipPath', { id: idVolet });
+    clip.appendChild(el('rect', { x: volet.x, y: volet.y, width: volet.w, height: volet.h }));
+    g.appendChild(clip);
+    const cadre = el('g', { 'clip-path': `url(#${idVolet})` });
+    const roue = el('g', { class: 'nhl-roue' });
+    roue.style.transformBox = 'view-box';
+    roue.style.transformOrigin = ORIGINE_TOKEN;
+    cadre.appendChild(roue);
+    g.appendChild(cadre);
+    cible = roue;
+  }
   for (const c of geo.cells) {
     // ★ La seconde bande d'une glissière est dessinée AILLEURS — case par case,
     //   sur des nœuds mobiles (`primitives/glissiere.js`). La dessiner ici
     //   aussi la ferait voir deux fois : une immobile, une qui coulisse.
     if (node.data.bandeSeparee && c.ligne === 1) continue;
-    g.appendChild(el('rect', {
+    cible.appendChild(el('rect', {
       x: c.x, y: c.y, width: c.w, height: c.h, rx: 4,
       fill: fondDeCase(c, palette), stroke: palette.line, 'stroke-width': 1,
       opacity: c.vide ? 0.35 : 1,
     }));
     for (const l of c.labels) {
-      g.appendChild(keyLabel(l.text, l.cx, l.cy, l.size, TONES[l.tone] || palette.fg));
+      cible.appendChild(keyLabel(l.text, l.cx, l.cy, l.size, TONES[l.tone] || palette.fg));
     }
   }
   // ★ LA QUOTATION — le barème d'une table des restes, écrit une fois par
@@ -801,6 +839,10 @@ export function formatValue(prop, v) {
       return `rotate(${num(v)}deg)`;
     case 'scale':
       return `scale(${num(v)})`;
+    // La roue ne tourne que verticalement : une table coulisse, elle ne dérive
+    // pas de côté. Un seul nombre suffit donc à la décrire.
+    case 'roue':
+      return `translate(0px, ${num(v)}px)`;
     case 'r':
       return `${num(v)}px`;
     case 'opacity':
@@ -820,6 +862,7 @@ const CSS_NAME = {
   translate: 'transform',
   rotate: 'transform',
   scale: 'transform',
+  roue: 'transform',
   opacity: 'opacity',
   fill: 'fill',
   stroke: 'stroke',
@@ -867,6 +910,7 @@ export function valeurUtilisable(prop, v) {
       return !!v && Number.isFinite(Number(v.x)) && Number.isFinite(Number(v.y));
     case 'rotate':
     case 'scale':
+    case 'roue':
     case 'r':
       return Number.isFinite(Number(v));
     default:

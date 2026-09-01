@@ -263,7 +263,29 @@ function etapeMiroir(spec) {
  * le plus petit texte qu'un décor déployé affiche déjà. Le détail du calcul et
  * le tableau des reculs sont côté visuel, là où ils se vérifient.
  */
-export const MODULO_LIGNES_MAX = 8;
+export const MODULO_LIGNES_MAX = 3;
+
+/**
+ * ★ **CE QU'ON ACCEPTE DE CONVERTIR** — distinct de ce qu'on montre à la fois.
+ *
+ * `MODULO_LIGNES_MAX` borne la FENÊTRE : huit rangées, la mesure de lisibilité
+ * qui la fixe est dans `visuel/assets.js`. Depuis que la grille coulisse
+ * derrière un volet, elle ne borne plus le nombre convertible — la table
+ * descend jusqu'à la rangée cherchée.
+ *
+ * ★ **ET CE N'EST PLUS LE NOMBRE DE RANGÉES QUI BORNE, C'EST CE QU'ON EN
+ *   DESSINE.** Depuis le saut exponentiel (`rangeesAMontrer`), un cycle de mille
+ *   cent douze rangées n'en dessine qu'une quarantaine : la patience du
+ *   spectateur ne dépend plus du nombre converti mais de la profondeur de
+ *   l'escalier, qui croît en logarithme. « Maintenant qu'on a une vraie roue, on
+ *   peut aller bien au-delà de 500, 10000 % 9 devrait aussi marcher »
+ *   (l'auteur).
+ *
+ *   La borne porte donc sur les rangées DESSINÉES. Soixante, c'est deux fois ce
+ *   qu'un cycle de dix mille demande — de la marge pour un modulo plus petit
+ *   sans jamais laisser le document enfler.
+ */
+export const MODULO_RANGEES_DESSINEES_MAX = 60;
 
 /**
  * ★ **LE RESTE SE MONTRE, IL NE S'ANNONCE PAS.**
@@ -303,19 +325,150 @@ export const MODULO_LIGNES_MAX = 8;
  * enchaîné deux. La table qui monte ou descend d'une conversion à l'autre
  * répondrait à un cas qui ne se présente pas.
  */
+/**
+ * ★ **CE QU'UN EXEMPLE DE MODULO DOIT MONTRER** — la table qui DÉFILE.
+ *
+ * `debug.html` choisit ses exemples sur des critères génériques : écarter les
+ * opérateurs voisins, ne pas encombrer la ligne. Ils suffisent tant que le geste
+ * ne dépend pas de la valeur. Ici il en dépend : la grille ne coulisse qu'au-delà
+ * de sa fenêtre, et `pm10` sur 18 montrait deux rangées immobiles — un exemple
+ * exact, qui ne montrait pas ce que l'opérateur fait.
+ *
+ * « Tes exemples de modulo se font avec 18, peux-tu les faire avec 242 que je
+ * voie l'effet de défilement » (l'auteur). L'opérateur déclare donc ce que son
+ * geste exige, et la page l'écoute — comme elle écoute déjà la réglette d'un
+ * chiffrement ou le décalage d'un César.
+ *
+ * ⚠️ Le seuil n'est pas un chiffre choisi : c'est la fenêtre elle-même. En deçà
+ *   de `MODULO_LIGNES_MAX` rangées, il n'y a rien à faire défiler.
+ */
+/** Le mot que Le Registre affiche, suivi du modulo — bilingue, une seule fois. */
+const LIB_MODULO = bilingue('Modulo', 'Modulo');
+
+/**
+ * ★ **LES RANGÉES QU'ON DESSINE — pas toutes, et c'est ce qui rend 10 000 possible.**
+ *
+ * Un cycle de 0 à 10 000 en modulo 9 compte mille cent douze rangées. Les
+ * dessiner toutes, c'est mille cent douze rangées dans le document pour trois
+ * qu'on regarde, et un défilement interminable.
+ *
+ * « Dès que la roue défile suffisamment rapidement, tu peux sauter des lignes de
+ * manière exponentielle : en gros tu commences sans sauter de ligne, puis une
+ * ligne sur 2, puis 3 lignes sur 4, puis 7 lignes sur 8, puis 15 lignes sur
+ * 16… et tu décélères pareil » (l'auteur). C'est exactement le geste d'une
+ * machine à sous : on lit les premières positions, ça s'emballe, ça ralentit, on
+ * lit les dernières.
+ *
+ * ★ **Ce que le saut ne fait PAS : mentir.** Chaque rangée dessinée porte ses
+ *   `m` entiers consécutifs et vrais, et sa colonne garde le reste qui lui
+ *   revient — on saute des rangées, on n'en invente aucune. Le barème reste donc
+ *   exact, et le contrôle croisé de la primitive (une colonne discordante refuse
+ *   d'être dessinée) continue de mordre.
+ *
+ * ★ Le début et la fin sont TOUJOURS entiers : `PALIER` rangées d'affilée au
+ *   départ, puis autant à chaque doublement, et le même escalier à l'envers en
+ *   arrivant sur la cible. Ce qu'on lit sans effort, ce sont les deux bouts.
+ */
+const PALIER = 3;
+
+function rangeesAMontrer(cible) {
+  const vues = new Set([0, cible, cible + 1]);
+  // La descente : on part de zéro, on prend `PALIER` rangées par vitesse, puis
+  // on double le saut. On s'arrête au milieu, l'autre moitié étant l'image
+  // renversée de celle-ci.
+  const milieu = cible / 2;
+  let i = 0;
+  let saut = 1;
+  while (i < milieu) {
+    for (let k = 0; k < PALIER && i < milieu; k++) { vues.add(i); i += saut; }
+    saut *= 2;
+  }
+  // La remontée, symétrique : on part de la cible et on recule.
+  let j = cible;
+  saut = 1;
+  while (j > milieu) {
+    for (let k = 0; k < PALIER && j > milieu; k++) { vues.add(j); j -= saut; }
+    saut *= 2;
+  }
+  return [...vues].filter((n) => n >= 0 && n <= cible + 1).sort((a, b) => a - b);
+}
+
+const exempleQuiDefile = (m) => (etat) => {
+  const v = etat && etat.valeur;
+  if (typeof v !== 'number' || v < 0) return false;
+  const lignes = Math.floor(v / m) + 1;
+  // ★ **DEUX FOIS LA FENÊTRE, ET NON UNE SEULE RANGÉE DE PLUS.**
+  //
+  //   Le seuil naturel serait « au-delà de la fenêtre » — neuf rangées pour une
+  //   fenêtre de huit. Mesuré, cela donnait `nl+pmr+pm10` sur 81 : la table
+  //   défile bien, d'UNE rangée, et l'effet reste invisible. Ce qu'un exemple
+  //   doit montrer n'est pas que le défilement existe, c'est ce qu'il fait — on
+  //   demande donc de quoi parcourir PLUSIEURS fenêtres — huit, depuis que la
+  //   fenêtre n'en fait plus que trois rangées : une machine à sous qui avance
+  //   d'un cran ne se lit pas comme une machine à sous.
+  //
+  //   ⚠️ Le facteur a été MESURÉ, pas choisi. À ×2 la page retenait
+  //     `nl+pmr+pm10` sur 81 — neuf rangées, une seule de défilement. À ×4,
+  //     `tm+mlm+cp+pm10` sur 128. À ×8, `tca+mx6+cal+pm10` sur **252**, qui est
+  //     l'ordre de grandeur que l'auteur demandait pour voir l'effet. Au-delà,
+  //     rien de plus n'est atteignable en quatre gestes.
+  return lignes >= MODULO_LIGNES_MAX * 8
+    && rangeesAMontrer(lignes - 1).length <= MODULO_RANGEES_DESSINEES_MAX;
+};
+
 function etapeModulo(spec, m) {
+  // ★ **LE TITRE NE DÉPEND PAS DU GESTE**, et il ne le devrait jamais.
+  //
+  //   Il ne se posait que dans la branche qui monte le cycle. Le repli sobre —
+  //   un nombre trop grand pour être dessiné — retombait donc sur le libellé du
+  //   catalogue, « On prend le reste par neuf », et Le Registre changeait de
+  //   vocabulaire selon que la scène avait pu montrer sa roue ou non. « C'est
+  //   l'ancien texte qui s'affiche dans le registre » (l'auteur) : c'était ça,
+  //   et non un cache.
+  //
+  //   Ce que l'étape S'APPELLE est une propriété de l'opération, pas de la façon
+  //   dont on a réussi à la mettre en scène.
+  const spec2 = { ...spec, libelle: bilingue(`Modulo ${m}`, `Modulo ${m}`) };
   return (avant, apres, ctx) => {
     const v = avant.valeur;
     const lignes = Math.floor(v / m) + 1;
-    if (m < 2 || v < 0 || lignes > MODULO_LIGNES_MAX) return etapeSubstitution(spec)(avant, apres, ctx);
+    if (m < 2 || v < 0) return etapeSubstitution(spec2)(avant, apres, ctx);
+    // ★ Ce qui borne est le nombre de rangées DESSINÉES, jamais le nombre
+    //   converti : le saut exponentiel rend le second sans effet sur le premier.
+    const aMontrer = rangeesAMontrer(lignes - 1);
+    if (aMontrer.length > MODULO_RANGEES_DESSINEES_MAX) {
+      return etapeSubstitution(spec2)(avant, apres, ctx);
+    }
     const sortie = nomsTokens(ctx, 1);
     // La table est DÉRIVÉE : de 0 jusqu'au bout de la rangée où tombe le
     // nombre, et pas une case de plus. Elle s'arrête là parce que c'est là que
     // la démonstration s'arrête — montrer des rangées au-delà du nombre
     // cherché n'apprendrait rien et coûterait du recul de caméra.
+    // ★ **UNE RANGÉE DE PLUS QUE LA CIBLE**, et c'est ce qui permet de la
+    //   centrer. La fenêtre en montre trois ; sans rangée en dessous, la
+    //   dernière ne peut arriver qu'en bas, et l'effet de machine à sous se
+    //   perd — mesuré : `252` en modulo 10 tombait en position 2 sur 3.
+    //
+    //   Et ce n'est pas un artifice : un cycle ne s'arrête pas au nombre qu'on
+    //   y cherche. Montrer ce qui vient après, c'est montrer qu'il continue.
     const entries = [];
-    for (let n = 0; n < lignes * m; n++) entries.push({ char: String(n), value: String(n % m) });
-    const titre = dire(spec.libelle, ctx.langue);
+    for (const ligne of aMontrer) {
+      for (let c = 0; c < m; c++) {
+        const n = ligne * m + c;
+        entries.push({ char: String(n), value: String(n % m) });
+      }
+    }
+    // ★ **LE TITRE DIT « MODULO », ET IL DOIT LE DIRE.**
+    //
+    //   Le libellé du catalogue nomme le GESTE tel qu'on le fait — « on garde le
+    //   dernier chiffre » pour `pm10` —, ce qui est juste et ne suffit pas dans
+    //   Le Registre : la liste des étapes ne dit plus alors de quelle opération
+    //   il s'agit. « Le titre dans le registre doit inclure le terme modulo ; ça
+    //   peut être simplement "Modulo 9" et "Modulo 10" » (l'auteur).
+    //
+    //   Le nombre vient du CHAMP `modulo` de l'opérateur, jamais d'une chaîne
+    //   recopiée : `pm9` et `pm10` déclarent 9 et 10, et le titre les suit.
+    const titre = dire(spec2.libelle, ctx.langue);
     const quotient = Math.floor(v / m);
     return [etape(ctx, titre, `${v} = ${quotient} × ${m} + ${apres.valeur}`, [{
       op: 'table',
@@ -544,7 +697,11 @@ const brut = [
     notoriete: 0.40, adHoc: 0.2,
     calcul: (n) => ((n % 9) + 9) % 9,
     exige: (n) => Math.abs(n) > 9,
-    outil: bilingue('Table des restes modulo 9', 'Table of remainders modulo 9'),
+    // ★ « CYCLE » ET NON « TABLE » — arbitrage de l'auteur. Le dessin n'est pas
+    //   une table de correspondance qu'on consulte, c'est un cycle qu'on
+    //   parcourt : les colonnes se répètent à l'infini, et c'est précisément ce
+    //   que la roue montre en défilant. Le mot dit ce que l'image fait.
+    outil: bilingue('Cycle des restes modulo 9', 'Cycle of remainders modulo 9'),
     // La table des restes se montre : voir `etapeModulo`.
     modulo: 9,
   },
@@ -583,7 +740,11 @@ const brut = [
     notoriete: 0.35, adHoc: 0.25,
     calcul: (n) => ((n % 10) + 10) % 10,
     exige: (n) => Math.abs(n) > 9,
-    outil: bilingue('Table des restes modulo 10', 'Table of remainders modulo 10'),
+    // ★ « CYCLE » ET NON « TABLE » — arbitrage de l'auteur. Le dessin n'est pas
+    //   une table de correspondance qu'on consulte, c'est un cycle qu'on
+    //   parcourt : les colonnes se répètent à l'infini, et c'est précisément ce
+    //   que la roue montre en défilant. Le mot dit ce que l'image fait.
+    outil: bilingue('Cycle des restes modulo 10', 'Cycle of remainders modulo 10'),
     // La table des restes se montre : voir `etapeModulo`.
     modulo: 10,
   },
@@ -594,6 +755,9 @@ const brut = [
     steps = etapeMiroir(reste);
   } else if (modulo !== undefined) {
     steps = etapeModulo(reste, modulo);
+    // L'opérateur publie ce que son exemple doit exercer — voir
+    // `exempleQuiDefile` : une table qui ne défile pas ne montre pas son geste.
+    reste.exempleUtile = exempleQuiDefile(modulo);
   } else if (complement !== undefined) {
     steps = etapeComplement(reste, complement);
   } else if (geste === 'flip180') {

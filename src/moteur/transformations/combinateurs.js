@@ -105,6 +105,25 @@ function etapeAgregation(spec) {
       // pointe de l'accolade, entre les sources et le résultat. Une accolade
       // nue ne distingue pas une somme d'un produit.
       symbol: spec.symbole || 'Σ',
+      // ★ **LA DURÉE SUIT LE NOMBRE DE TERMES**, et c'est tout le propos.
+      //
+      //   Elle ne la fixait pas : l'op prenait les 2 800 ms nominales de `sum`
+      //   et les partageait entre ses opérandes. Sur onze valeurs, chacune
+      //   descendait en un onzième du temps — « cal va trop vite […] il faut
+      //   descendre les éléments 1 à 1 pour pouvoir actualiser le résultat à
+      //   chaque fois » (l'auteur).
+      //
+      //   Et il ne s'agit pas de confort : « l'observateur ne doit pas avoir à
+      //   faire confiance au site pour faire des calculs justes, il doit voir
+      //   que le calcul est bon. C'est pour ça qu'on le décompose. » Un total
+      //   partiel qui défile trop vite pour être lu ne démontre plus rien — il
+      //   redevient une affirmation, c'est-à-dire ce que ce site reproche à la
+      //   numérologie.
+      //
+      //   `dureeRamassage` est déjà le dimensionnement du projet pour ce geste :
+      //   `opComptage` l'emploie depuis toujours, et le nivellement aussi. La
+      //   somme était la seule à s'en passer.
+      dur: dureeRamassage({ voler: ctx.ids.length }),
     };
     if (partiels) sum.partials = partiels;
     ops.push(sum);

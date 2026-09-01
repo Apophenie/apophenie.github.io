@@ -140,6 +140,7 @@ import {
   tableGeometry, alphabetEntries,
   normalizeOrdre, normalizeDisposition, ALPHABET_ORDRES, DISPOSITIONS, TEINTES,
 } from '../assets.js';
+import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
 
 export const name = 'table';
@@ -271,13 +272,47 @@ export function plan(ctx) {
   //   mesure « colonne » du clavier, qui éclaire la colonne et sa graduation.
   const cell = geo.cells[place.cell];
   const boite = place.halo || { cx: cell.cx, cy: cell.cy, w: cell.w, h: cell.h };
+
+  // ── 2 bis. LA ROUE TOURNE, si la rangée cherchée n'est pas sous les yeux ──
+  //
+  //   « Si la valeur cible n'est pas à l'écran, la table descend jusqu'à faire
+  //   apparaître la valeur à convertir » (l'auteur). La grille coulisse derrière
+  //   son volet (`assets.js › moduloTable`, `dom.js › nhl-roue`) et s'arrête
+  //   quand la rangée est sur la dernière ligne visible — ce qui se lit comme
+  //   une descente jusqu'à elle, et non comme un saut.
+  //
+  //   ⚠️ Tout ce qui vole ensuite VERS la grille doit être décalé d'autant : la
+  //     case, et le point d'arrivée du jeton. Le point de départ du reste, lui,
+  //     ne bouge PAS — il tombe de la quotation, qui est hors du volet et ne
+  //     défile pas. C'est le même écart que celui qui existe entre le barème et
+  //     les rangées, et le décaler serait faire descendre le barème avec elles.
+  const roulis = geo.roule ? (place.roulis || 0) : 0;
+  let tRoue = t0;
+  if (roulis) {
+    // ★ La durée suit la COURSE, bornée aux deux bouts : en deçà de 400 ms le
+    //   mouvement ne se lit pas, au-delà de 1 400 il fait attendre. Entre les
+    //   deux, elle est proportionnelle — une descente de cinquante rangées doit
+    //   durer plus longtemps qu'une descente de deux.
+    const duree = Math.max(400, Math.min(1400, Math.abs(roulis) * 0.5));
+    // ★ `course` et non `move` : lente aux deux bouts, rapide au milieu. Le
+    //   spectateur doit voir la table s'ébranler et voir où elle s'arrête ; ce
+    //   qui défile entre les deux n'a rien à lui apprendre. Voir le tableau de
+    //   vitesses dans `constants.js › EASE`.
+    ctx.anim({ id: board, prop: 'roue', to: roulis, at: t0, dur: duree, ease: EASE.course });
+    tRoue = t0 + duree;
+  }
+
   const fin = allerRetour(ctx, {
-    src, to, t0, kind: 'number',
+    src, to, t0: tRoue, kind: 'number',
     case: {
       id: `@case:${src.id}`, w: boite.w, h: boite.h, rx: 5,
-      x: boardPos.x + boite.cx, y: boardPos.y + boite.cy,
+      x: boardPos.x + boite.cx,
+      // ⚠️ Le halo d'un cycle est FIXE (`boite.fixe`) : il désigne une colonne,
+      //   du barème au bas de la fenêtre, et ni l'un ni l'autre ne défilent. Lui
+      //   ajouter le roulis le décollerait du barème.
+      y: boardPos.y + boite.cy + (boite.fixe ? 0 : roulis),
     },
-    arrivee: { x: boardPos.x + place.lettre.x, y: boardPos.y + place.lettre.y },
+    arrivee: { x: boardPos.x + place.lettre.x, y: boardPos.y + place.lettre.y + roulis },
     source: { x: boardPos.x + place.valeur.x, y: boardPos.y + place.valeur.y },
   });
 
