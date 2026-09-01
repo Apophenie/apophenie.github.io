@@ -808,3 +808,25 @@ test('★ saisie en clair — `#c111!#…` ANIME ; en base58 il reste la LISTE',
   //    dièses, c'est la liste, et cela n'a pas bougé.
   assert.equal(lire('##Donald Trump').forme, 'resultats');
 });
+
+/**
+ * ★ **LES VOIES À TROUS — `????` commande au lieu de décrire.**
+ *
+ * > « Une voie indiquée comme ça pourrait déclencher une recherche spécifique
+ * >   pour remplacer les fragments dont le programme est `????` par exactement
+ * >   autant de 6 (ou de caractères dans le motif recherché) qu'il y a de "?".
+ * >   Ça permettrait de construire des voies sur mesure. » (l'auteur)
+ *
+ * C'est la seule construction de cette grammaire qui DEMANDE au lieu de DIRE, et
+ * elle ne se compose pas : `??+tca` n'a aucun sens et doit être refusé.
+ */
+test('★ commande — une suite de « ? » se lit comme un programme à trouver', () => {
+  const d = lire('#sce!0.1:????,2.1:tca+m14#2HuP1G8mNg3sJWhqR');
+  assert.equal(d.forme, 'canonique');
+  assert.deepEqual(d.fragments[0].codes, ['????'], 'la commande voyage entière, jamais découpée');
+  assert.deepEqual(d.fragments[1].codes, ['tca', 'm14']);
+
+  // Elle ne se mélange pas à des codes : une commande est une commande.
+  assert.notEqual(lire('#sce!0.1:??+tca#2HuP1G8mNg3sJWhqR').forme, 'canonique');
+  assert.notEqual(lire('#sce!0.1:tca+??#2HuP1G8mNg3sJWhqR').forme, 'canonique');
+});

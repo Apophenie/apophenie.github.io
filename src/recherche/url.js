@@ -11,7 +11,7 @@
 //   fragment   := [portees ':'] programme
 //   portees    := portee ('+' portee)*         // un programme, plusieurs places
 //   portee     := offset '.' longueur          // en jetons ; absent ⇒ saisie entière
-//   programme  := code ('+' code)*
+//   programme  := code ('+' code)* | '?'+        // les '?' : une COMMANDE
 //   saisie     := b58(texte) | texte           // le b58 gagne, voir plus bas
 //
 // `+` sépare les OPÉRATIONS d'un même fragment (arbitrage utilisateur) — et,
@@ -347,6 +347,30 @@ import { lireCible, normaliserCible, CIBLE_DEFAUT, MAX_CHIFFRES } from './cible.
  * réconcilierait en cassant l'injection.
  */
 export const RE_CODE = /^[ftnmcpj][0-9a-z]+[A-Z]?$/;
+
+/**
+ * ★ **LE PROGRAMME À TROUVER — une suite de `?`, et rien d'autre.**
+ *
+ * > « Une voie indiquée comme ça pourrait déclencher une recherche spécifique
+ * >   pour remplacer les fragments dont le programme est `????` par exactement
+ * >   autant de 6 (ou de caractères dans le motif recherché) qu'il y a de "?".
+ * >   Ça permettrait de construire des voies sur mesure. » (l'auteur)
+ *
+ * `0.1+9.1:????` ne DÉCRIT pas une méthode, il en COMMANDE une : « trouve, pour
+ * ces portées, un programme qui rende exactement quatre 6 ». C'est la seule
+ * construction de cette grammaire qui demande au lieu de dire, et c'est assumé :
+ * un lien reste la description exacte d'une démonstration, mais on peut
+ * désormais en écrire une à trous et laisser le moteur les remplir.
+ *
+ * ★ **UN `?` VAUT UN CARACTÈRE DE LA CIBLE, pas un 6.** L'auteur l'écrit
+ *   lui-même — « autant de 6 (ou de caractères dans le motif recherché) » : sur
+ *   une cible `111`, quatre `?` demandent quatre 1. Le compte est celui des
+ *   valeurs qui SERVENT, quelle que soit la cible visée.
+ *
+ * ★ Il ne se mélange pas : `??+tca` n'a aucun sens et est refusé. Une commande
+ *   est une commande, un programme est un programme.
+ */
+export const RE_A_TROUVER = /^\?+$/;
 const RE_PORTEE = /^(\d+)\.(\d+)$/;
 const RE_RESONANCE = /^[×xX*](\d+)$/;
 const RE_RANGS = /^\d+(\+\d+)*$/;
@@ -833,8 +857,11 @@ function lireFragments(brut) {
     programme = brut.slice(i + 1);
   }
   if (!programme) return null;
-  const codes = programme.split('+');
-  if (!codes.every((c) => RE_CODE.test(c))) return null;
+  // ★ La COMMANDE se reconnaît avant tout découpage : elle ne se compose pas.
+  const codes = RE_A_TROUVER.test(programme)
+    ? [programme]
+    : programme.split('+');
+  if (!RE_A_TROUVER.test(programme) && !codes.every((c) => RE_CODE.test(c))) return null;
   // Pas de tête : le fragment porte sur la saisie entière, comme toujours.
   if (!tetes) return [{ portee: null, resonance: null, codes }];
   // La résonance ne se groupe pas — elle nomme DÉJÀ plusieurs places, et les
@@ -885,6 +912,10 @@ export const BANDEAUX = {
       + 'not the rank.',
   },
   saisieTropLongue: `Ce lien dépasse le plafond de ${LIMITE_SAISIE} caractères.`,
+  // ★ Une COMMANDE (`????`) à laquelle rien ne répond : ce n'est ni un lien
+  //   cassé ni une règle inconnue, c'est une demande impossible sur ce mot-là.
+  commandeSansReponse: (n) => `Ce lien demande ${n} chiffre(s) utile(s) d’un morceau `
+    + 'qui ne sait pas en donner autant.',
 };
 
 // ══════════════════════════════════ écriture canonique

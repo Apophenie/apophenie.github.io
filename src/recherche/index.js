@@ -24,12 +24,13 @@ import {
 import { construireBassin } from './bassin.js';
 import { genererFragments, zonesSignifiantes, tokeniser, motifsRepetes } from './fragments.js';
 import {
-  assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe,
+  assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe, vecteursDeSix,
 } from './assemblage.js';
 import {
   noter, diversifier, ordreTotal, ordreElegance, ordreTriptyques, REGLAGES,
 } from './score.js';
 import { emploieUneFicelle } from './elegance.js';
+import { indexUtiles } from './cible.js';
 import { construireScenario } from './scenario.js';
 import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
 import {
@@ -573,6 +574,10 @@ export function creerMoteur(catalogue, options = {}) {
     // scène affiche au premier rideau — c'est `approche.saisie`.
     const jetons = tokeniser(texte);
     const parts = [];
+    // ★ Le rejeu n'ouvre une recherche QUE si le lien en commande une ; le
+    //   contexte est donc construit ici, une fois, et ne coûte rien sinon.
+    const ctxRejeu = contexteBase(cbl);
+    let commandes = false;
 
     for (const desc of lecture.fragments) {
       let portees = [];
@@ -594,12 +599,30 @@ export function creerMoteur(catalogue, options = {}) {
         portees = [fragmentEntier(texte, jetons)];
       }
 
+      // ★ Une COMMANDE (`????`) au lieu d'un programme : voir `trouverProgramme`.
+      const commande = desc.codes.length === 1 && /^\?+$/.test(desc.codes[0])
+        ? desc.codes[0].length : 0;
+      if (commande) commandes = true;
       for (const fragment of portees) {
-        const journal = [];
-        const chemin = executerProgramme(fragment.texte, desc.codes, parCode, journal);
-        if (!chemin) {
-          const d = diagnostic(journal);
-          return { ok: false, raison: 'programme inapplicable', bandeau: d.bandeau, detail: d.detail };
+        let chemin;
+        if (commande) {
+          chemin = trouverProgramme(fragment.texte, commande, ctxRejeu, cbl);
+          if (!chemin) {
+            return {
+              ok: false,
+              raison: 'commande sans réponse',
+              bandeau: BANDEAUX.commandeSansReponse(commande),
+              detail: `« ${fragment.texte} » : aucun programme connu n’en tire `
+                + `exactement ${commande} valeur(s) utile(s).`,
+            };
+          }
+        } else {
+          const journal = [];
+          chemin = executerProgramme(fragment.texte, desc.codes, parCode, journal);
+          if (!chemin) {
+            const d = diagnostic(journal);
+            return { ok: false, raison: 'programme inapplicable', bandeau: d.bandeau, detail: d.detail };
+          }
         }
         parts.push({ fragment, chemin });
       }
@@ -633,7 +656,27 @@ export function creerMoteur(catalogue, options = {}) {
     // Le registre du lien rejoué est celui qu'il porte : on ne le devine pas,
     // on le relit (`lecture.registre`, résolu par `url.js`).
     const registre = lecture.registre;
-    const lien = { saisie, fragments: lecture.fragments, retouches: lecture.retouches, cible: cbl };
+    /* ★ **UNE COMMANDE RÉSOLUE S'ÉCRIT RÉSOLUE.**
+       « Remplacer les fragments dont le programme est `????` » (l'auteur) — le
+       verbe est bien « remplacer ». Un lien partagé doit être la description
+       exacte d'une démonstration : garder `????` dedans en ferait une DEMANDE,
+       qui rejouerait une recherche à chaque ouverture et pourrait rendre autre
+       chose le jour où le catalogue bouge. Le lien rendu porte donc les codes
+       trouvés — et rien n'empêche de réécrire une commande à la main pour en
+       chercher une autre, ce qui est bien tout l'intérêt.
+       ⚠️ Une commande partagée par PLUSIEURS portées peut se résoudre
+         différemment sur chacune : « https » et « fr » ne rendent pas deux 6 par
+         le même chemin. On écrit donc un descripteur PAR PART, et `ecrire`
+         regroupera ceux qui se retrouvent identiques. */
+    const fragmentsEcrits = commandes
+      ? parts.map((p) => ({
+        portee: p.fragment.tokenDebut >= 0 && p.fragment.tokenLong > 0
+          ? { offset: p.fragment.tokenDebut, longueur: p.fragment.tokenLong } : null,
+        resonance: null,
+        codes: p.chemin.ops.map((o) => o.code),
+      }))
+      : lecture.fragments;
+    const lien = { saisie, fragments: fragmentsEcrits, retouches: lecture.retouches, cible: cbl };
     approche.urlSobre = ecrire({ ...lien, registre: 'sobre' });
     approche.urlScenique = ecrire({ ...lien, registre: 'scenique' });
     approche.url = ecrire({ ...lien, registre });
@@ -895,6 +938,72 @@ function fragmentDePortee(saisie, jetons, portee) {
     intervalles: [[d, f]], tokenDebut: offset, tokenLong: longueur,
     famille: 'portee', priorite: 2,
   };
+}
+
+/** Chemins rendus par `vecteursDeSix` pour une commande. Large : on filtre après. */
+const MAX_A_TROUVER = 200;
+
+/**
+ * ★ **UNE VOIE À TROUS — le programme écrit `????`, le moteur le remplit.**
+ *
+ * > « Une voie indiquée comme ça pourrait déclencher une recherche spécifique
+ * >   pour remplacer les fragments dont le programme est `????` par exactement
+ * >   autant de 6 (ou de caractères dans le motif recherché) qu'il y a de "?".
+ * >   Ça permettrait de construire des voies sur mesure. » (l'auteur)
+ *
+ * On cherche donc les chemins de CETTE portée — la même fermeture exhaustive
+ * que la recherche ordinaire, `chercherSix` —, et l'on garde ceux qui rendent
+ * exactement le compte demandé.
+ *
+ * ★ **« EXACTEMENT », ET C'EST LE MOT QUI COMPTE.** Un chemin qui rend cinq 6
+ *   là où quatre étaient demandés ne convient PAS : la commande sert à composer
+ *   une moisson qui tombe juste, et un 6 de trop décale tout ce qui suit. C'est
+ *   d'ailleurs tout l'intérêt de la construire à la main plutôt que de la
+ *   laisser chercher.
+ *
+ * ★ **CE QUI DÉPARTAGE, à compte égal : le chemin le plus COURT, puis l'ordre
+ *   des codes.** Pas le score : noter demande une approche entière, qui n'existe
+ *   pas encore — on est en train de la construire. Deux critères sans horloge ni
+ *   hasard, donc un choix reproductible (§4.4), et le plus court est de toute
+ *   façon ce que l'élégance récompensera ensuite.
+ *
+ * @param {string} texte     le texte de la portée
+ * @param {number} combien   le nombre de `?`, donc de valeurs utiles voulues
+ * @param {object} ctx       contexte de recherche (`chercherSix`)
+ * @param {object} cible
+ * @returns {{ops:object[], etats:object[], valeur:?number, cout:number}|null}
+ */
+function trouverProgramme(texte, combien, ctx, cible) {
+  // ★ **DEUX SOURCES, PARCE QU'IL Y A DEUX FAÇONS DE RENDRE DES 6.**
+  //
+  //   `chercherSix` rend les chemins qui aboutissent à UN 6 — un nombre, seul.
+  //   `vecteursDeSix` rend ceux qui aboutissent à une LIGNE en portant
+  //   plusieurs. Une commande `?` relève de la première, `????` de la seconde,
+  //   et rien ne dit d'avance laquelle : on interroge les deux et on compte.
+  //
+  //   ⚠️ C'est le piège dans lequel la première version est tombée : n'appeler
+  //     que `chercherSix` faisait répondre « aucun programme » à tout ce qui
+  //     dépassait un seul 6, puisque tous ses chemins en rendent exactement un.
+  const utiles = (c) => {
+    const fin = c.etats[c.etats.length - 1];
+    const v = Array.isArray(fin.valeur) ? fin.valeur : [fin.valeur];
+    return indexUtiles(v, cible).length;
+  };
+  const chemins = [
+    ...chercherSix(texte, ctx),
+    ...(combien >= 2
+      ? vecteursDeSix(texte, ctx.operateurs, combien, MAX_A_TROUVER, cible)
+      : []),
+  ];
+  const bons = chemins.filter((c) => utiles(c) === combien);
+  if (!bons.length) return null;
+  bons.sort((a, b) => {
+    if (a.ops.length !== b.ops.length) return a.ops.length - b.ops.length;
+    const ca = a.ops.map((o) => o.code).join('+');
+    const cb = b.ops.map((o) => o.code).join('+');
+    return ca < cb ? -1 : ca > cb ? 1 : 0;
+  });
+  return bons[0];
 }
 
 function executerProgramme(texte, codes, parCode, journal = null) {
