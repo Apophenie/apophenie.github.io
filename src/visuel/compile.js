@@ -95,6 +95,16 @@ const HORS_SIGNATURE = new Set(['montre', 'retire']);
 /** Le facteur proposé à l'interface (CONTRACTS §3.3 : « 5× par exemple »). */
 export const REPEAT_SPEED = 5;
 
+/**
+ * Vitesse de croisière du panoramique, en unités de viewBox par seconde, et ses
+ * deux bornes en millisecondes. Voir `jalonsDuPan`. Les 450 sont pris au milieu
+ * de ce que les panoramiques SAINS du corpus faisaient déjà (127 à 637) : on
+ * ne dicte pas un rythme neuf, on donne le leur à ceux qui l'avaient perdu.
+ */
+const PAN_VITESSE = 450;
+const PAN_MIN = 260;
+const PAN_MAX = 900;
+
 /** Une étape déjà courte ne s'accélère pas : la compilation refuserait une
  *  durée sous `MIN_STEP_DURATION` (CONTRACTS §3). Garde-fou, jamais atteint
  *  par les scénarios réels — leurs étapes durent 2 à 4 secondes. */
@@ -185,6 +195,60 @@ export function repeatAccelerables(scenario) {
     if (types[i - 1] !== types[i] || types[i + 1] !== types[i]) return -1;
     return origine;
   });
+}
+
+/**
+ * ★ **LE RECENTRAGE DURE CE QUE SON TRAJET DEMANDE — plus toute l'étape.**
+ *
+ * > « Entre les 3 `mpf`, plus particulièrement à la fin du 2ᵉ, c'est comme si le
+ * >   temps gagné en mode redite était perdu pour centrer le suivant avec une
+ * >   lenteur anormale. Corrige ce timing de recentrage qui est bien trop
+ * >   long. » (l'auteur)
+ *
+ * Les trois jalons — d'où l'on vient, ce qu'on regarde, où l'on se repose —
+ * étaient posés à 0, 0,45 et 1 de la durée du step, QUELLE QUE SOIT la distance
+ * à parcourir. Un step de huit secondes qui déplace la vue de soixante-neuf
+ * unités donnait donc un glissement à NEUF unités par seconde, là où les
+ * panoramiques sains du même scénario tiennent entre 127 et 637. Quatorze fois
+ * trop lent : ce n'est pas une lenteur perçue, c'est une lenteur mesurée.
+ *
+ * ★ **ET LA REDITE AGGRAVAIT LE CAS AU LIEU DE L'AIDER.** Accélérer un step
+ *   raccourcit ses gestes ; le panoramique, lui, s'étirait sur ce qui restait.
+ *   Le temps gagné sur le geste était rendu au déplacement — exactement ce que
+ *   l'auteur décrit.
+ *
+ * ★ **CE QU'ON CHANGE N'EST PAS LA DURÉE, CE SONT LES JALONS.** L'animation
+ *   couvre toujours le step : la caméra doit être au repos à sa fin, et rien
+ *   d'autre ne peut le garantir. Mais chaque TRAJET prend le temps de sa
+ *   distance, et la vue TIENT entre les deux — un mouvement franc puis une
+ *   pause se lisent ; une dérive continue ne se lit pas, elle se subit.
+ *
+ * @returns {{offset:number, value:object}[]} quatre jalons, ou trois si le
+ *   step est trop court pour ménager une pause
+ */
+function jalonsDuPan(precedent, focus, repos, duree) {
+  const dist = (p, q) => Math.hypot(q.x - p.x, q.y - p.y);
+  // Une vitesse de croisière, et des bornes : en deçà de `PAN_MIN` un
+  // déplacement devient un saut, au-delà de `PAN_MAX` il redevient une dérive.
+  const temps = (d) => Math.min(PAN_MAX, Math.max(PAN_MIN, (d * 1000) / PAN_VITESSE));
+  const t1 = temps(dist(precedent, focus));
+  const t2 = temps(dist(focus, repos));
+  // Pas la place de tenir : on retombe sur un partage proportionnel, qui reste
+  // meilleur que le 0,45 fixe puisqu'il suit au moins les deux distances.
+  if (t1 + t2 >= duree) {
+    const part = t1 + t2 > 0 ? t1 / (t1 + t2) : 0.45;
+    return [
+      { offset: 0, value: precedent },
+      { offset: Math.min(0.9, Math.max(0.1, part)), value: focus },
+      { offset: 1, value: repos },
+    ];
+  }
+  return [
+    { offset: 0, value: precedent },
+    { offset: t1 / duree, value: focus },
+    { offset: 1 - t2 / duree, value: focus },
+    { offset: 1, value: repos },
+  ];
 }
 
 /** La « forme de geste » d'un step, aux valeurs près : la suite de ses ops. */
@@ -590,13 +654,12 @@ export function compile(scenario, options = {}) {
     scene.pan = panRepos;
     if (!(memePan(panPrecedent, panFocus) && memePan(panFocus, panRepos))) {
       const dPan = reduced ? DUR_REDUCED_OP : Math.max(1, extent || MIN_STEP_DURATION);
-      const valeurs = reduced ? [panRepos] : [panPrecedent, panFocus, panRepos];
       anims.push({
         id: PAN_ID,
         prop: 'translate',
-        keyframes: valeurs.length === 1
+        keyframes: reduced
           ? [{ offset: 1, value: panRepos }]
-          : [{ offset: 0, value: panPrecedent }, { offset: 0.45, value: panFocus }, { offset: 1, value: panRepos }],
+          : jalonsDuPan(panPrecedent, panFocus, panRepos, dPan),
         delay: round(t0),
         duration: round(dPan),
         easing: EASE.move,
