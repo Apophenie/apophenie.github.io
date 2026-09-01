@@ -429,3 +429,60 @@ function verdict(n) {
 }
 
 const cornesDe = (tl) => tl.nodes.filter((n) => n.role === 'horns');
+
+/**
+ * ★ **LE FEU NE GARDE PAS LA FORME D'UNE CORNE QUI VA S'EFFRITER.**
+ *
+ * > « C'est normal que tu ne les trouves pas : elles sont le fruit de la forme
+ * >   des flammes, calculée avec les cornes — mais pour des cornes qui entre
+ * >   temps ont été retirées/effritées. Les flammes devraient être calculées
+ * >   après effritage et retrait des cornes, pour ne les inclure que quand elles
+ * >   sont définitives. » (l'auteur)
+ *
+ * Le brasier RECOPIE le tracé de la corne de son 6 pour brûler avec elle. Il
+ * naissait au début du geste, quand toutes les cornes existent encore ; les
+ * triptyques relégués au rang du bas perdent les leurs plus tard. Le feu gardait
+ * donc, gravée dans sa forme, une corne que la scène venait d'effacer — et le
+ * corps du brasier étant peint en couleur de NUIT, ce qu'on voyait était une
+ * corne NOIRE, sans propriétaire, posée sur le verdict.
+ *
+ * Le test tient les deux bouts : un 666 couronné qui RESTE emporte sa corne dans
+ * les flammes, un 666 dont la corne s'effrite n'y met rien.
+ */
+test('★ cornes : le brasier ignore les cornes que le verdict va effriter', () => {
+  // QUATRE triptyques : c'est le premier compte que `repartirEnLignes` étale
+  // sur deux rangs (4 / 1 ≥ 3,5), donc le premier qui produise un rang du bas
+  // — celui dont les cornes s'effritent.
+  const six = [...'666666666666'].map((c, i) => ({ id: `d${i}`, text: c, kind: 'digit' }));
+  const trio = (k) => [`d${k * 3}`, `d${k * 3 + 1}`, `d${k * 3 + 2}`];
+  const tl = compile(sc([
+    ...[0, 1, 2, 3].map((k) => ({
+      id: `h${k}`, title: 'Trois 6 d’affilée', ops: [{ op: 'horns', targets: trio(k) }],
+    })),
+    { id: 'v', title: 'Le verdict', ops: [{ op: 'reveal', targets: six.map((t) => t.id), serie: 3 }] },
+  ], six), { scenographie: true });
+
+  const cornes = tl.nodes.filter((n) => n.role === 'horns');
+  assert.equal(cornes.length, 8, 'quatre triptyques couronnés, deux cornes chacun');
+
+  // Une corne qui s'effrite se reconnaît à son TRACÉ animé (canal discret `d`),
+  // qui est très exactement le geste de `effriterLesCornes`.
+  const effritees = new Set(tl.discrete
+    .filter((d) => d.channel === 'd' && cornes.some((n) => n.id === d.id))
+    .map((d) => d.id));
+  assert.ok(effritees.size > 0, 'le rang du bas perd bien ses cornes');
+  assert.ok(effritees.size < cornes.length, 'et le rang du haut garde les siennes');
+
+  // ★ Aucun brasier ne porte le tracé d'une corne effritée : c'est LÀ que la
+  //   corne noire naissait.
+  const brasiers = tl.nodes.filter((n) => n.role === 'brasier' && n.data && n.data.corne);
+  assert.ok(brasiers.length > 0, 'les 666 qui gardent leurs cornes brûlent avec elles');
+  for (const b of brasiers) {
+    const chiffre = b.id.replace('@brasier:', '');
+    const sienne = cornes.find((n) => n.data && n.data.suit === chiffre);
+    assert.ok(sienne, `${b.id} : le feu porte une corne, elle doit exister`);
+    assert.ok(!effritees.has(sienne.id),
+      `${b.id} porte le tracé de « ${sienne.id} », qui s’effrite — une corne noire `
+      + 'survivrait au verdict, sans propriétaire et en couleur de nuit');
+  }
+});

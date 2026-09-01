@@ -570,7 +570,37 @@ export function plan(ctx) {
   //   partage l'instant de naissance de ce qu'il suit (CONTRACTS §3.2 règle
   //   10). Un brasier créé après le regroupement serait posé d'un coup à
   //   l'arrivée pendant que son chiffre, lui, y voyagerait.
-  const orage = ctx.scenographie ? monterLOrage(ctx, ids, grow) : null;
+  /* ★ **LES CORNES QUI VONT S'EFFRITER SE CALCULENT AVANT LE FEU, PAS APRÈS.**
+
+     > « C'est normal que tu ne les trouves pas : elles sont le fruit de la forme
+     >   des flammes, calculée avec les cornes — mais pour des cornes qui entre
+     >   temps ont été retirées/effritées. Les flammes devraient être calculées
+     >   après effritage et retrait des cornes, pour ne les inclure que quand
+     >   elles sont définitives. » (l'auteur)
+
+     Le brasier RECOPIE le tracé de la corne de son 6 pour brûler avec elle. Il
+     naissait au début du geste, quand toutes les cornes existent encore ; les
+     triptyques relégués au rang du bas perdent les leurs plus tard
+     (`effriterLesCornes`). Le feu gardait donc, gravée dans sa forme, une corne
+     que la scène venait d'effacer — et comme le corps du brasier est peint en
+     couleur de nuit, ce qu'on voyait était une CORNE NOIRE, sans propriétaire,
+     posée sur le verdict.
+
+     Ce n'était donc ni une couleur ni un oubli de repeint : c'était un ordre de
+     calcul. `detrones` se connaît dès `series` et `rangDuBas`, tous deux
+     établis plus haut — il suffisait de le demander avant, pas après. */
+  const detrones = [];
+  series.forEach((serie, s) => {
+    if (s < rangDuBas) return;
+    for (const id of serie) {
+      for (const sid of ctx.scene.accrochesA(id)) {
+        const n = ctx.scene.get(sid);
+        if (n && n.role === 'horns' && !detrones.includes(sid)) detrones.push(sid);
+      }
+    }
+  });
+
+  const orage = ctx.scenographie ? monterLOrage(ctx, ids, grow, detrones) : null;
 
   // --- 2. le regroupement : quand le canal est libre, et pas avant ----------
   //
@@ -742,16 +772,6 @@ export function plan(ctx) {
   //   `horns.js › effriterLesCornes`. L'ordre de la liste est celui de la
   //   lecture : c'est lui qui décale les effritements les uns par rapport aux
   //   autres.
-  const detrones = [];
-  series.forEach((serie, s) => {
-    if (s < rangDuBas) return;
-    for (const id of serie) {
-      for (const sid of ctx.scene.accrochesA(id)) {
-        const n = ctx.scene.get(sid);
-        if (n && n.role === 'horns' && !detrones.includes(sid)) detrones.push(sid);
-      }
-    }
-  });
 
   // ★ SOUS LA NUIT, C'EST LA RUBRIQUE DE NUIT — et c'est une question de
   //   lisibilité, pas de goût. La rubrique du thème clair est un rouge sombre
@@ -852,9 +872,11 @@ export function plan(ctx) {
  * que le feu ne prenne. La naissance est donc appelée en tête de `plan`,
  * l'allumage à la fin.
  *
+ * @param {string[]} [sansCorne] les cornes qui vont s'effriter : leur tracé ne
+ *   doit PAS entrer dans le feu, sous peine d'y survivre en noir.
  * @returns {{nuit:string, eclair:?string, brasiers:string[]}}
  */
-function monterLOrage(ctx, ids, grow = 1) {
+function monterLOrage(ctx, ids, grow = 1, sansCorne = []) {
   const vb = ctx.layoutOpts.viewBox;
   // Trois fois la scène : voir `dom.js`, rôle « nuit ». Un aplat uni ne se
   // paie pas au pixel, et l'on est certain qu'aucun bord ne se découvrira.
@@ -894,7 +916,11 @@ function monterLOrage(ctx, ids, grow = 1) {
       //   ne peut donc pas bouger. Les deux corps partagent en outre le même
       //   repère et la même échelle, puisqu'ils suivent tous deux le même
       //   chiffre (`data.suit`) : il n'y a aucune arithmétique de rattrapage.
+      // ★ …SAUF CELLE QUI VA S'EFFRITER. Voir le pavé de `detrones` : un feu
+      //   qui garde la forme d'une corne retirée dessine une corne noire.
+      const exclues = new Set(sansCorne);
       const corne = ctx.scene.accrochesA(id)
+        .filter((sid) => !exclues.has(sid))
         .map((sid) => ctx.scene.get(sid))
         .find((n) => n && n.role === 'horns');
       ctx.scene.create({
