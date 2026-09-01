@@ -368,9 +368,10 @@
    · ÉLÉGANCE — l'OR, celui du compteur de séries : l'encre de l'affirmation.
      Filet plein, doublé d'un second filet à 3 px (le geste de `.cadre`) : c'est
      l'écrin, la place qu'on met sous verre.
-   · MAXIMISATION — le PHOSPHORE, celui de la numérotation : l'encre de ce qui
+   · ABONDANCE — le PHOSPHORE, celui de la numérotation : l'encre de ce qui
      compte. Filet TIRETÉ, et rien autour : une règle graduée plutôt qu'un
      écrin. La quantité se mesure, elle ne s'expose pas.
+     (La classe garde `--maximisation` : c'est une adresse, pas un texte.)
 
    Les deux encres sont déjà employées comme texte dans cette page ; leur
    contraste sur `--canvas` est donc tenu dans les deux thèmes par construction,

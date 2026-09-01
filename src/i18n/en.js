@@ -117,11 +117,14 @@ export const en = {
        three words long — the author's own words — because the frame has to make
        the difference obvious without starting to explain the scoring.
 
-       “Abundance”, not “Maximisation”. The French heading names a PROCESS, and
-       it reads well next to « Élégance » because both are everyday words there.
-       The literal English word is a piece of management jargon, and it would
-       pair a quality with a procedure. Two qualities keep the two questions
-       side by side, which is the whole point of the pair. */
+       “Abundance”, not “Maximisation”: the literal word is management jargon,
+       and it would pair a quality with a procedure. Two qualities keep the two
+       questions side by side, which is the whole point of the pair.
+
+       ★ The French side has since followed — « Abondance », on the author's
+         call, for that same reason. The two languages no longer diverge here,
+         and the note is kept because it records WHY neither of them says
+         “maximisation”, which is the thing one would otherwise reinstate. */
     podium: {
       elegance: 'Elegance',
       eleganceGlose: 'the finest',

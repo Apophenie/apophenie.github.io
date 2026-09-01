@@ -141,11 +141,24 @@ export const fr = {
        (`recherche/score.js › POIDS_DES_REGIMES`), un mot juste et illisible.
        La glose tient en trois mots — c'est celle de l'auteur, « la plus belle »
        contre « la plus fournie » —, parce que l'encadré doit faire comprendre
-       la différence sans se mettre à expliquer le classement. */
+       la différence sans se mettre à expliquer le classement.
+
+       ★ **« Abondance » ET NON « Maximisation »** — arbitrage de l'auteur, et il
+         remet les deux intitulés d'aplomb. « Maximisation » nomme un PROCÉDÉ,
+         « Élégance » nomme une QUALITÉ : les mettre en vis-à-vis appariait une
+         vertu et une méthode, ce qui donnait à lire deux choses de nature
+         différente là où l'on veut deux réponses à la même question. Deux
+         qualités se comparent ; une qualité et un procédé, non.
+
+         La version anglaise disait déjà « Abundance » pour cette raison exacte,
+         faute d'avoir un « maximisation » qui se lise en langue courante. Les
+         deux langues se rejoignent donc, et la clé technique garde son ancien
+         nom (`maximisation`) : c'est une adresse dans le dictionnaire, pas un
+         texte, et la renommer casserait les liens sans rien apprendre. */
     podium: {
       elegance: 'Élégance',
       eleganceGlose: 'la plus belle',
-      maximisation: 'Maximisation',
+      maximisation: 'Abondance',
       maximisationGlose: 'la plus fournie',
     },
     /* Le nom du point de repère `complementary` — la colonne de droite sur
