@@ -1259,3 +1259,49 @@ html[data-animation="reduite"] .scene[data-embrasement] .nhl-feu-souffle {
   .scene-jouer { transition: none; }
   .scene-jouer:hover, .scene-jouer:active { transform: none; }
 }
+
+/* ── Le panneau de pondération ────────────────────────────────────────────
+   Quatre curseurs, une réglette de fouille, deux boutons. Il vit dans l'aside
+   (`#curseurs-ponderation`), entre la commande de cible et le mémo.
+
+   ★ La GRILLE à trois colonnes — nom, glissière, part — plutôt que trois blocs
+     empilés : les pourcentages doivent s'aligner en colonne pour être
+     COMPARÉS, c'est tout leur objet. `max-content` sur la première et la
+     troisième laisse à la glissière ce qui reste, et l'alignement tient sans
+     largeur écrite nulle part. */
+.curseurs__rangee {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  align-items: center;
+  gap: var(--e3);
+  margin-top: var(--e3);
+}
+.curseurs__nom { color: var(--fg-2); }
+/* La part est un NOMBRE qu'on compare : chasse fixe et alignement à droite,
+   sinon les unités et les dizaines dansent d'une ligne à l'autre. */
+.curseurs__part {
+  font-family: var(--police-mono);
+  color: var(--phos);
+  text-align: right;
+  min-width: 4ch;
+}
+.curseurs__glissiere { width: 100%; accent-color: var(--gold); }
+
+/* ★ La FOUILLE est séparée par un filet : elle ne classe pas, elle CREUSE, et
+   sa valeur n'est pas un pourcentage mais un facteur. Le filet dit qu'on change
+   de sujet — sans quoi on lirait « ×4 » comme une cinquième part. */
+.curseurs__rangee--fouille {
+  margin-top: var(--e4);
+  padding-top: var(--e4);
+  border-top: 1px solid var(--line);
+}
+.curseurs__rangee--fouille .curseurs__part { color: var(--gold); }
+
+.curseurs__actions {
+  display: flex;
+  gap: var(--e3);
+  margin-top: var(--e4);
+}
+/* `hidden` doit l'emporter sur `display:flex` de son parent — sans cette règle,
+   un bouton masqué resterait visible, ce qui est le contraire du contrat. */
+.curseurs__actions [hidden] { display: none; }

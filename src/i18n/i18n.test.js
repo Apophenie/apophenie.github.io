@@ -139,6 +139,10 @@ test('aucune valeur vide, aucune valeur restée identique par oubli de traductio
     // médians. Il n'a pas plus de langue qu'un cadran. La phrase que lit un
     // lecteur d'écran, elle, est traduite — c'est `resultat.voieSeries`.
     'resultat.voieSeriesBadge',
+    // Le facteur de la réglette de fouille (« ×4 ») est du même ordre : un signe
+    // multiplié et un nombre. Le mot qui le nomme, lui, est bien traduit — c'est
+    // `resultat.curseurs.fouille`.
+    'resultat.curseurs.fouilleFacteur',
     'transport.pauseCourt',
   ]);
   // On COLLECTE tous les manquements avant d'échouer : un `assert` par clé

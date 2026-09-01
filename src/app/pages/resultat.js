@@ -271,8 +271,169 @@ const CIBLES_EN_VITRINE = Object.freeze(['111', '777', '000', '13', '007']);
  * qu'on ne pourrait ni partager ni recharger — et le partage est la raison
  * d'être de toute cette grammaire.
  */
-function commandeDeCible({ saisie, cible, texteCible }) {
-  const lien = (texte) => pont.ecrireHash({ saisie, cible: texte });
+/**
+ * ★ **LE PANNEAU DE PONDÉRATION — quatre curseurs, une réglette, deux boutons.**
+ *
+ * > « Il faudrait, sur l'écran de liste, avoir plusieurs curseurs pour pouvoir
+ * >   réordonner les voies en fonction : simplicité (concision de la voie),
+ * >   exhaustivité (ne rien jeter), quantité (maximiser la présence du motif
+ * >   recherché), cohérence (ce qu'on appelle élégance, pourrait aussi être
+ * >   nommé vraisemblance). Chacun de ces curseurs peut être déplacé
+ * >   indépendamment des autres, mais le % affiché à côté correspond à la valeur
+ * >   du curseur / la somme de toutes les positions de curseurs (avec max(1,…)
+ * >   pour éviter les divisions par 0). » (l'auteur)
+ *
+ * ★ **INDÉPENDANTS À LA PRISE, RELATIFS À L'AFFICHAGE**, et c'est toute la
+ *   trouvaille de ce réglage. Quatre curseurs qui se pousseraient l'un l'autre
+ *   pour tenir un total de 100 % seraient impossibles à manier : bouger le
+ *   premier déplacerait les trois autres, et l'on ne pourrait plus dire « je
+ *   veux DAVANTAGE de simplicité » sans dire du même geste « et moins du
+ *   reste ». Ici on hausse ce qu'on veut, et le pourcentage — qui, lui, est
+ *   forcément relatif — le dit après coup. Le calcul vit dans le moteur
+ *   (`score.js › pourcentagesDe`) : l'écran ne recopie pas une arithmétique de
+ *   classement.
+ *
+ * ★ **LES BOUTONS NE PARAISSENT QUE SI QUELQUE CHOSE A BOUGÉ.** « Si les
+ *   curseurs/jauges sont déplacés, alors un bouton "rétablir" et un bouton
+ *   "appliquer" apparaît. » Un panneau qui offrirait en permanence d'appliquer
+ *   ce qui est déjà appliqué apprendrait au visiteur que ces boutons ne servent
+ *   à rien.
+ *
+ * ★ **ET « RÉTABLIR » NE REMET PAS LES CURSEURS AU MILIEU : IL REND LA LISTE
+ *   PAR DÉFAUT.** « Le bouton rétablir restaure le mode par défaut avec les
+ *   2 premières voies spéciales. » C'est un retour à un ÉTAT de la page — celui
+ *   où le podium existe —, pas un raz-de-marée sur quatre glissières. La
+ *   différence se voit quand on est déjà au défaut avec un lien qui l'écrit :
+ *   les curseurs ne bougent pas, le podium revient.
+ *
+ * @param {object} etat  `{ saisie, cible, curseurs, fouille, personnalise }`
+ */
+function panneauDePonderation({ saisie, cible, curseurs, fouille, personnalise }) {
+  if (!pont.reglagesDisponibles()) return null;
+
+  const noms = pont.CURSEURS();
+  const max = pont.CURSEUR_MAX();
+  const defaut = pont.CURSEURS_DEFAUT();
+  const puissanceMax = pont.PUISSANCE_MAX();
+  const puissanceDefaut = pont.PUISSANCE_DEFAUT();
+
+  // L'état de départ : celui du lien s'il en portait, le défaut sinon.
+  const position = { ...defaut, ...(curseurs || {}) };
+  let cranDeFouille = fouille === undefined ? puissanceDefaut : fouille;
+
+  const glissieres = new Map();
+  const pourcents = new Map();
+
+  /** Le panneau diffère-t-il de ce que la page affiche en ce moment ? */
+  const modifie = () => noms.some((n) => position[n] !== (curseurs ? curseurs[n] : defaut[n]))
+    || cranDeFouille !== (fouille === undefined ? puissanceDefaut : fouille);
+
+  // ★ **LES DEUX BOUTONS SONT BÂTIS UNE FOIS, ET SE CACHENT.**
+  //   Les reconstruire à chaque mouvement de curseur les arracherait au clavier
+  //   qui les a peut-être atteints, et à la voix qui vient de les annoncer. On
+  //   les masque donc plutôt que de les remplacer — et `hidden` dit la même
+  //   chose aux deux publics, ce qu'un `display:none` posé à la main ne fait pas.
+  const retablir = e('button.bouton-secondaire.curseurs__retablir', {
+    type: 'button',
+    texte: t('resultat.curseurs.retablir'),
+    // ★ « Rétablir restaure le MODE PAR DÉFAUT avec les 2 premières voies
+    //   spéciales » (l'auteur) : c'est un retour à un ÉTAT de la page — celui
+    //   où le podium existe —, pas une remise à zéro de quatre glissières. Le
+    //   lien s'écrit donc sans curseurs du tout.
+    sur: { click: () => { location.hash = pont.ecrireHash({ saisie, cible }); } },
+  });
+  const appliquer = e('button.bouton.curseurs__appliquer', {
+    type: 'button',
+    texte: t('resultat.curseurs.appliquer'),
+    sur: {
+      click: () => {
+        // ★ La CIBLE COURANTE part avec : « Calculer et Appliquer doivent tenir
+        //   compte des saisies/réglages de l'autre et non s'ignorer mutuellement »
+        //   (l'auteur). Ici c'est le sens facile — la cible affichée est celle
+        //   qu'on garde ; l'autre sens est dans `commandeDeCible`, qui emporte
+        //   les curseurs.
+        const href = pont.ecrireHash({
+          saisie, cible, curseurs: { ...position }, fouille: cranDeFouille,
+        });
+        if (href) location.hash = href;
+      },
+    },
+  });
+  const actions = e('div.curseurs__actions', {}, [retablir, appliquer]);
+
+  function rafraichir() {
+    const parts = pont.pourcentagesDe(position);
+    for (const n of noms) {
+      pourcents.get(n).textContent = t('resultat.curseurs.part', { n: parts[n] ?? 0 });
+    }
+    // Les boutons ne s'offrent que tant qu'il y a quelque chose à en faire : un
+    // panneau qui proposerait en permanence d'appliquer ce qui l'est déjà
+    // apprendrait au visiteur que ces boutons ne servent à rien.
+    const utile = modifie() || personnalise;
+    for (const b of [retablir, appliquer]) {
+      if (utile) b.removeAttribute('hidden');
+      else b.setAttribute('hidden', 'hidden');
+    }
+  }
+
+  const glissiere = (nom, valeur, borne, surEntree, id) => e('input.curseurs__glissiere', {
+    type: 'range', min: '0', max: String(borne), step: '1', value: String(valeur),
+    id, name: id, sur: { input: surEntree },
+  });
+
+  const rangees = noms.map((n) => {
+    const id = `curseur-${n}`;
+    const part = e('span.curseurs__part');
+    pourcents.set(n, part);
+    const g = glissiere(n, position[n], max, (ev) => {
+      position[n] = Number(ev.target.value);
+      rafraichir();
+    }, id);
+    glissieres.set(n, g);
+    return e('div.curseurs__rangee', {}, [
+      e('label.curseurs__nom', { for: id, texte: t(`resultat.curseurs.${n}`) }),
+      g,
+      part,
+    ]);
+  });
+
+  // ★ LA RÉGLETTE DE FOUILLE — elle ne classe pas, elle CREUSE. Elle est donc à
+  //   part, sous un intitulé qui le dit : monter les curseurs réordonne ce qu'on
+  //   a trouvé, monter la fouille va chercher ce qu'on n'avait pas trouvé.
+  const partFouille = e('span.curseurs__part');
+  const majFouille = () => {
+    partFouille.textContent = t('resultat.curseurs.fouilleFacteur', { n: 2 ** cranDeFouille });
+  };
+  const rangeeFouille = e('div.curseurs__rangee.curseurs__rangee--fouille', {}, [
+    e('label.curseurs__nom', { for: 'curseur-fouille', texte: t('resultat.curseurs.fouille') }),
+    glissiere('fouille', cranDeFouille, puissanceMax, (ev) => {
+      cranDeFouille = Number(ev.target.value);
+      majFouille();
+      rafraichir();
+    }, 'curseur-fouille'),
+    partFouille,
+  ]);
+
+  majFouille();
+  rafraichir();
+
+  return e('section.section.curseurs', {}, [
+    e('h2.h2-machine', { texte: t('resultat.curseurs.titre') }),
+    e('p.curseurs__appel.secondaire', { texte: t('resultat.curseurs.appel') }),
+    ...rangees,
+    rangeeFouille,
+    actions,
+  ]);
+}
+
+function commandeDeCible({ saisie, cible, texteCible, curseurs, fouille }) {
+  // ★ **« CALCULER » N'OUBLIE PAS LES CURSEURS.** « Calculer (pour un objectif
+  //   différent de 666) et Appliquer doivent tenir compte des saisies/réglages
+  //   de l'autre et non s'ignorer mutuellement » (l'auteur). Changer de motif
+  //   cible en perdant sa pondération obligerait à la refaire à chaque essai —
+  //   et, pire, rendrait les deux listes incomparables sans qu'on sache
+  //   pourquoi.
+  const lien = (texte) => pont.ecrireHash({ saisie, cible: texte, curseurs, fouille });
   // Un repli sans grammaire d'URL ne fabrique aucun lien (`pont.js`) : la
   // commande n'aurait alors nulle part où mener, et une commande qui ne commande
   // rien vaut moins que pas de commande du tout.
@@ -370,7 +531,10 @@ function commandeDeCible({ saisie, cible, texteCible }) {
  * @param {{saisie:string, resultat:Object, cible?:Object|string,
  *          surChoixSecours:Function, podium?:boolean}} ctx
  */
-export function pageResultat({ saisie, resultat, cible, surChoixSecours, podium = true }) {
+export function pageResultat({
+  saisie, resultat, cible, surChoixSecours, podium = true,
+  curseurs = null, fouille = undefined,
+}) {
   const secours = resultat.source === 'secours';
   const approches = resultat.approches || [];
   const fragments = resultat.fragments || [];
@@ -532,7 +696,7 @@ export function pageResultat({ saisie, resultat, cible, surChoixSecours, podium 
         //   construire des URL sur mesure ». L'ordre n'est pas cosmétique — on
         //   propose d'abord un geste, on explique ensuite comment l'écrire à la
         //   main.
-        commandeDeCible({ saisie, cible: cibleObjet, texteCible }),
+        commandeDeCible({ saisie, cible: cibleObjet, texteCible, curseurs, fouille }),
         /**
          * ★ L'EMPLACEMENT DES CURSEURS — réservé, vide, et nommé.
          *
@@ -548,7 +712,11 @@ export function pageResultat({ saisie, resultat, cible, surChoixSecours, podium 
          * `:empty` le fait disparaître tant qu'on n'y met rien, sans quoi il
          * laisserait un blanc entre la commande et le mémo (`pages.css`).
          */
-        e('div.resultat__curseurs#curseurs-ponderation'),
+        e('div.resultat__curseurs#curseurs-ponderation', {}, [
+          panneauDePonderation({
+            saisie, cible: cibleObjet, curseurs, fouille, personnalise: !podium,
+          }),
+        ]),
         memo,
       ]),
     ]),

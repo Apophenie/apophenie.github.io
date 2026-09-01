@@ -116,6 +116,19 @@ export function preparer() {
       M.normaliserCible = rech.normaliserCible;
       M.CIBLE_DEFAUT = rech.CIBLE_DEFAUT;
       M.MAX_CHIFFRES = rech.MAX_CHIFFRES;
+      // ★ Le PANNEAU DE RÉGLAGES de la liste : les noms des curseurs, leurs
+      //   bornes, leur défaut, et les deux fonctions qui traduisent des
+      //   positions en pourcentages. L'écran ne doit pas connaître le découpage
+      //   interne du moteur pour dessiner quatre curseurs — mais il ne doit pas
+      //   non plus recopier ses bornes, sous peine de les laisser diverger.
+      M.CURSEURS = rech.CURSEURS;
+      M.CURSEUR_DEFAUT = rech.CURSEUR_DEFAUT;
+      M.CURSEUR_MAX = rech.CURSEUR_MAX;
+      M.CURSEURS_DEFAUT = rech.CURSEURS_DEFAUT;
+      M.normaliserCurseurs = rech.normaliserCurseurs;
+      M.pourcentagesDe = rech.pourcentagesDe;
+      M.PUISSANCE_DE_FOUILLE_DEFAUT = rech.PUISSANCE_DE_FOUILLE_DEFAUT;
+      M.PUISSANCE_DE_FOUILLE_MAX = rech.PUISSANCE_DE_FOUILLE_MAX;
       try {
         const catalogue = await rech.chargerCatalogue();
         M.moteur = rech.creerMoteur(catalogue);
@@ -153,6 +166,25 @@ export const bandeaux = () => M.BANDEAUX || {};
 
 /** Le plafond de longueur d'une cible, relayé depuis `src/recherche/cible.js`. */
 export const MAX_CHIFFRES = () => M.MAX_CHIFFRES || 6;
+
+/**
+ * ★ **LE PANNEAU DE RÉGLAGES, ET SON REPLI.**
+ *
+ * Quand `src/recherche/` manque, la page de liste existe quand même (mode de
+ * secours) : le panneau ne doit alors pas se dessiner à moitié avec des bornes
+ * inventées. `reglagesDisponibles()` répond franchement, et l'écran s'abstient.
+ * C'est la même règle que pour la commande de cible, qui ne se dessine pas
+ * quand aucun lien ne peut être écrit.
+ */
+export const reglagesDisponibles = () => Boolean(M.CURSEURS && M.pourcentagesDe);
+export const CURSEURS = () => M.CURSEURS || [];
+export const CURSEUR_DEFAUT = () => M.CURSEUR_DEFAUT ?? 100;
+export const CURSEUR_MAX = () => M.CURSEUR_MAX ?? 200;
+export const CURSEURS_DEFAUT = () => M.CURSEURS_DEFAUT || {};
+export const PUISSANCE_MAX = () => M.PUISSANCE_DE_FOUILLE_MAX ?? 7;
+export const PUISSANCE_DEFAUT = () => M.PUISSANCE_DE_FOUILLE_DEFAUT ?? 0;
+export const pourcentagesDe = (c) => (M.pourcentagesDe ? M.pourcentagesDe(c) : {});
+export const normaliserCurseurs = (c) => (M.normaliserCurseurs ? M.normaliserCurseurs(c) : c);
 
 /** Lecture d'une cible saisie : `null` si ce n'en est pas une. */
 export const lireCible = (texte) => (M.lireCible ? M.lireCible(texte) : null);
@@ -219,10 +251,14 @@ export const reponseDediee = (saisie) =>
  * @returns {{saisie:string, approches:Array, fragments:Array, dedie:?Object,
  *            urlResultats:?string, source:'moteur'|'secours'}}
  */
-export function resoudre(saisie, cible) {
+export function resoudre(saisie, cible, reglages = {}) {
   if (M.moteur) {
     try {
-      const r = M.moteur.resoudre(saisie, { cible });
+      const r = M.moteur.resoudre(saisie, {
+        cible,
+        ...(reglages.curseurs ? { curseurs: reglages.curseurs } : {}),
+        ...(reglages.fouille === undefined ? {} : { fouille: reglages.fouille }),
+      });
       return { ...r, approches: (r.approches || []).map(traduireApproche), source: 'moteur' };
     } catch (err) {
       console.error('[NumHeroLOLgeek] la recherche a échoué :', err);
@@ -272,6 +308,8 @@ export async function resoudreEnFond(saisie, cible, reglages = {}) {
   if (voie) {
     const texteDeLaCible = cible === null || cible === undefined ? null : texteCible(cible);
     try {
+      // `reglages` porte déjà `surAvancement` ; il porte désormais aussi les
+      // curseurs et la fouille, que `travailleur.js` place dans le message.
       const brut = await executantCourant.chercher(saisie, texteDeLaCible, reglages);
       if (brut === null) return null;    // coiffée : quelqu'un d'autre peindra
       return {
@@ -285,7 +323,10 @@ export async function resoudreEnFond(saisie, cible, reglages = {}) {
   }
   // Aucun moteur, ou une recherche qui a jeté : on ne laisse pas la page en
   // suspens. `resoudre()` connaît déjà le chemin du repli, et le prend.
-  return resoudre(saisie, cible);
+  // ⚠️ Le repli synchrone reçoit les mêmes réglages : sans eux, une liste
+  //    pondérée obtenue sans travailleur retomberait en silence sur le barème
+  //    par défaut — c'est-à-dire afficherait autre chose que ce que l'URL dit.
+  return resoudre(saisie, cible, reglages);
 }
 
 /** L'exécutant de la recherche, construit au premier besoin. Il n'est PAS bâti

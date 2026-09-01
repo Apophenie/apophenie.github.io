@@ -155,6 +155,34 @@ export const fr = {
          deux langues se rejoignent donc, et la clé technique garde son ancien
          nom (`maximisation`) : c'est une adresse dans le dictionnaire, pas un
          texte, et la renommer casserait les liens sans rien apprendre. */
+    /* ★ **LE PANNEAU DE PONDÉRATION.** Les quatre noms sont ceux de l'auteur,
+       au mot près — « simplicité (concision de la voie), exhaustivité (ne rien
+       jeter), quantité (maximiser la présence du motif recherché), cohérence
+       (ce qu'on appelle élégance, pourrait aussi être nommé vraisemblance) ».
+       On garde les siens plutôt que ceux du barème : « concision »,
+       « couverture » et « élégance » nomment des CRITÈRES, c'est-à-dire des
+       rouages ; « simplicité » et « cohérence » nomment ce que le visiteur
+       cherche. La glose de chaque curseur dit le rouage, une fois, pour qui
+       veut savoir.
+
+       ★ La FOUILLE est nommée à part et ne dit pas un pourcentage mais un
+         FACTEUR : les quatre curseurs se partagent une somme, elle non — elle
+         ne classe pas, elle creuse. Les mêler sous le même intitulé ferait
+         croire qu'on retire du classement ce qu'on donne à la recherche. */
+    curseurs: {
+      titre: 'Régler ce qui compte',
+      appel: 'Chaque réglage se hausse à part\u202f; le pourcentage dit la part qu’il '
+        + 'prend sur l’ensemble.',
+      simplicite: 'Simplicité',
+      exhaustivite: 'Exhaustivité',
+      quantite: 'Quantité',
+      coherence: 'Cohérence',
+      fouille: 'Fouille',
+      part: '{n} %',
+      fouilleFacteur: '×{n}',
+      retablir: 'Rétablir',
+      appliquer: 'Appliquer',
+    },
     podium: {
       elegance: 'Élégance',
       eleganceGlose: 'la plus belle',

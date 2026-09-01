@@ -303,8 +303,35 @@ test('★ aside — l’emplacement des curseurs est réservé entre la commande
   const emplacement = aside.enfants[iCurseurs];
   assert.equal(emplacement.id, 'curseurs-ponderation',
     'l’ancre nommée a changé de nom ou disparu : un autre module la vise');
-  assert.equal(emplacement.enfants.length, 0,
-    'l’emplacement n’est plus vide — c’est peut-être une bonne nouvelle, à confirmer');
+
+  /* ★ **L'EMPLACEMENT EST OCCUPÉ, ET C'ÉTAIT LA BONNE NOUVELLE ATTENDUE.**
+     Ce test exigeait un emplacement VIDE, avec pour message « c'est peut-être
+     une bonne nouvelle, à confirmer » : le fil était tendu exprès, pour que le
+     jour où quelqu'un remplirait l'ancre, il vienne dire ICI ce qu'il y a mis.
+     Voici. Le panneau de pondération l'occupe — quatre curseurs, la réglette de
+     fouille et les deux boutons.
+
+     ⚠️ Il peut légitimement ne PAS s'y trouver : sans grammaire d'URL, le
+       panneau ne se dessine pas (`pont.reglagesDisponibles`), pour la même
+       raison que la commande de cible — un réglage qui n'a nulle part où mener
+       vaut moins que pas de réglage du tout. On ne l'exige donc que là où la
+       commande de cible est elle aussi présente. */
+  if (GRAMMAIRE) {
+    assert.equal(emplacement.enfants.length, 1, 'le panneau de pondération manque');
+    const panneau = emplacement.enfants[0];
+    assert.ok(panneau.classes.has('curseurs'), 'ce n’est pas le panneau attendu');
+    const glissieres = [...parcourir(panneau)].filter((n) => n.tagName === 'input');
+    assert.equal(glissieres.length, 5,
+      'quatre curseurs de pondération, plus la réglette de fouille');
+    // ★ Chaque glissière porte un `label` qui la désigne : sans lui, un lecteur
+    //   d'écran annonce cinq curseurs sans nom, ce qui est pire qu'aucun.
+    const etiquettes = [...parcourir(panneau)].filter((n) => n.tagName === 'label');
+    assert.equal(etiquettes.length, glissieres.length,
+      'une étiquette par glissière, sans quoi elles sont anonymes à la voix');
+  } else {
+    assert.equal(emplacement.enfants.length, 0,
+      'sans grammaire d’URL, le panneau n’a nulle part où mener : il s’abstient');
+  }
 });
 
 /**

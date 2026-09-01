@@ -92,6 +92,9 @@ async function chercherEnMontrant(saisie, cible, reglages = {}) {
   const jauge = creerJaugeRecherche();
   rendre(enteteResultat(), pageAttente({ saisie, jauge }), { titre: reglages.titre ?? saisie });
   const resultat = await pont.resoudreEnFond(saisie, cible, {
+    // Les réglages de l'écran de liste, quand il y en a — voir `routeResultat`.
+    ...(reglages.curseurs ? { curseurs: reglages.curseurs } : {}),
+    ...(reglages.fouille === undefined ? {} : { fouille: reglages.fouille }),
     // La jauge n'est plus la nôtre dès qu'une autre route est partie : on cesse
     // de l'alimenter plutôt que d'écrire dans un élément détaché du document.
     surAvancement: (a) => { if (estCourante(jeton)) jauge.avancer(a); },
@@ -101,12 +104,22 @@ async function chercherEnMontrant(saisie, cible, reglages = {}) {
   return resultat;
 }
 
-async function routeResultat(saisie, { bandeau = null, cible = null } = {}) {
-  const resultat = await chercherEnMontrant(saisie, cible);
+async function routeResultat(saisie, {
+  bandeau = null, cible = null, curseurs = null, fouille = undefined, personnalise = false,
+} = {}) {
+  const resultat = await chercherEnMontrant(saisie, cible, { curseurs, fouille });
   if (!resultat) return;
   const contenu = pageResultat({
     saisie,
     resultat,
+    // ★ **PAS DE PODIUM QUAND LA PONDÉRATION EST PERSONNALISÉE.** « Quand une
+    //   pondération personnalisée est utilisée pour la recherche, tous les
+    //   résultats sont avec les mêmes critères, pas de 1ᵉʳ et 2ᵉ voie calculés
+    //   différemment » (l'auteur). Les deux encadrés annoncent deux barèmes ;
+    //   s'il n'y en a plus qu'un, ils mentiraient.
+    podium: !personnalise,
+    curseurs,
+    fouille,
     // La CIBLE affichée est celle que le moteur a réellement visée, pas celle
     // qu'on lui a demandée : c'est lui qui a le dernier mot (une cible
     // illisible retombe sur 666, `cible.js › normaliserCible`).
@@ -321,7 +334,21 @@ export function router() {
   switch (lecture.forme) {
     case 'resultats':
       if (!lecture.saisie) routeAccueil();
-      else routeResultat(lecture.saisie, { cible: lecture.cible });
+      // ★ Les RÉGLAGES viennent du lien, et le drapeau `personnalise` se lit sur
+      //   `curseursEcrits` — pas sur les valeurs. Un lien qui écrit les curseurs
+      //   AU DÉFAUT demande explicitement le barème uniforme, et il doit
+      //   l'obtenir : c'est ce que l'auteur veut dire par « quand une
+      //   pondération personnalisée est utilisée, pas de 1ᵉʳ et 2ᵉ calculés
+      //   différemment ». Comparer les valeurs au défaut rendrait ce lien-là
+      //   indiscernable d'un lien qui n'a rien demandé.
+      else {
+        routeResultat(lecture.saisie, {
+          cible: lecture.cible,
+          curseurs: lecture.curseursEcrits ? lecture.curseurs : null,
+          fouille: lecture.fouilleEcrite ? lecture.fouille : undefined,
+          personnalise: Boolean(lecture.curseursEcrits),
+        });
+      }
       break;
 
     case 'canonique':

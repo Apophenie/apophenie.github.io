@@ -267,7 +267,20 @@ export function creerRechercheEnFond(options = {}) {
           tenir, rompre,
           surAvancement: reglages.surAvancement || (() => {}),
         });
-        voie.envoyer({ type: 'resoudre', generation: mienne, saisie, cible: cible || undefined });
+        // ★ Les RÉGLAGES DE L'ÉCRAN DE LISTE voyagent avec la demande, au même
+        //   titre que la cible : les quatre curseurs disent comment CLASSER, la
+        //   fouille jusqu'où CHERCHER. Ils ne sont posés que s'ils existent —
+        //   un message sans eux vaut « au défaut », et le protocole reste
+        //   celui d'hier pour qui ne s'en sert pas (`recherche/index.js ›
+        //   creerCanal`, qui les relit avec la même prudence).
+        voie.envoyer({
+          type: 'resoudre',
+          generation: mienne,
+          saisie,
+          cible: cible || undefined,
+          ...(reglages.curseurs ? { curseurs: reglages.curseurs } : {}),
+          ...(reglages.fouille === undefined ? {} : { fouille: reglages.fouille }),
+        });
       });
     },
   };

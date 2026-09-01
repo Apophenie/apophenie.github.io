@@ -125,6 +125,28 @@ export const en = {
          call, for that same reason. The two languages no longer diverge here,
          and the note is kept because it records WHY neither of them says
          “maximisation”, which is the thing one would otherwise reinstate. */
+    /* The four names are the author's own. We keep them rather than the scoring
+       criteria they drive: “concision”, “coverage” and “elegance” name COGS,
+       while “simplicity” and “coherence” name what the reader is after.
+
+       ★ The DIG is named apart and shows a FACTOR, not a percentage: the four
+         sliders share a total, it does not — it does not rank, it searches
+         deeper. Putting them under one heading would suggest that what you give
+         to the search is taken from the ranking. */
+    curseurs: {
+      titre: 'Tune what matters',
+      appel: 'Each setting is raised on its own; the percentage shows the share '
+        + 'it takes of the whole.',
+      simplicite: 'Simplicity',
+      exhaustivite: 'Thoroughness',
+      quantite: 'Quantity',
+      coherence: 'Coherence',
+      fouille: 'Dig',
+      part: '{n}%',
+      fouilleFacteur: '×{n}',
+      retablir: 'Reset',
+      appliquer: 'Apply',
+    },
     podium: {
       elegance: 'Elegance',
       eleganceGlose: 'the finest',
