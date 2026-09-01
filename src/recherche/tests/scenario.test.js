@@ -1050,3 +1050,48 @@ test('★ surnuméraire — un jeton ne peut pas être à la fois révélé et d
     /identifiants/,
   );
 });
+
+/**
+ * ★ **UNE SEULE ROUE POUR TOUTE LA DÉMONSTRATION.**
+ *
+ * > « S'il y a plusieurs valeurs à convertir chacune modulo 9, es-tu capable de
+ * >   naviguer correctement dans la roue entre chaque ? Tu pourrais identifier
+ * >   quelle a été la dernière valeur convertie pour placer la roue sur cette
+ * >   position et rouler depuis celle-ci vers la nouvelle. » (l'auteur)
+ *
+ * Chaque cycle ne dessinait que ce dont SA valeur avait besoin — `34 % 9`
+ * s'arrête à la cinquième rangée, `4410 % 9` en demande trente-neuf. Deux
+ * dessins, donc deux décors (l'identité d'une table est dérivée de son dessin),
+ * donc un remontage entre les deux : la roue repartait de zéro.
+ *
+ * `unifierLesCycles` leur fait dessiner la MÊME roue, celle qui porte toutes
+ * leurs rangées. Ils deviennent alors un seul décor par la règle existante, et
+ * la roue — restée en place — roule de là où l'étape précédente l'a laissée.
+ * Rien n'est mémorisé ni transmis : c'est la persistance du nœud qui porte
+ * l'information.
+ */
+test('★ cycles — deux modulos d’une même démonstration partagent une seule roue', () => {
+  const m = creerMoteur(catalogue);
+  const a = voieNommee(m, 'Donald Trump', [
+    [0, ['tca', 'm14', 'cs', 'pm9']], [2, ['tca', 'm14', 'cp', 'pm9']],
+  ]);
+  const sc = m.scenarioDe(a, { saisie: 'Donald Trump' });
+  const cycles = sc.steps
+    .flatMap((s) => (s.ops || []).filter((o) => o.op === 'table' && o.disposition === 'modulo'));
+  assert.equal(cycles.length, 2, 'la démonstration convertit bien deux valeurs');
+
+  // Les deux valeurs sont DIFFÉRENTES — sans quoi le test ne prouverait rien.
+  assert.notEqual(String(cycles[0].letter), String(cycles[1].letter));
+
+  // Et pourtant les deux dessinent exactement la même roue.
+  const dessin = (o) => o.entries.map((e) => `${e.char}:${e.value}`).join(',');
+  assert.equal(dessin(cycles[0]), dessin(cycles[1]),
+    'deux dessins différents feraient deux décors, donc un remontage entre les deux valeurs');
+
+  // Chaque valeur doit malgré tout figurer sur la roue commune : unifier ne
+  // doit jamais retirer à l'un ce qu'il montrait.
+  for (const o of cycles) {
+    assert.ok(o.entries.some((e) => e.char === String(o.letter)),
+      `« ${o.letter} » doit être sur la roue qu’on lui fait dessiner`);
+  }
+});

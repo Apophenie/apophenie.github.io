@@ -746,6 +746,82 @@ function memesReglages(a, b, sauf) {
 /** Étapes qu'une série de décor peut traverser sans se refermer. */
 const TRAVERSABLES = new Set(['highlight', 'dim', 'pulse', 'annotate', 'wait']);
 
+/**
+ * Au-delà, on renonce à unifier : une roue de plus de soixante rangées coûte
+ * plus à dessiner qu'un remontage n'en coûte à regarder. Même borne que
+ * `posts.js › MODULO_RANGEES_DESSINEES_MAX`, et pour la même raison.
+ */
+const CYCLE_RANGEES_MAX = 60;
+
+/**
+ * ★ **LA ROUE ROULE D'UNE VALEUR À L'AUTRE — elle ne se remonte plus entre.**
+ *
+ * > « S'il y a plusieurs valeurs à convertir chacune modulo 9, es-tu capable de
+ * >   naviguer correctement dans la roue entre chaque ? […] Tu pourrais
+ * >   identifier quelle a été la dernière valeur convertie pour placer/maintenir
+ * >   la roue sur cette position et rouler depuis celle-ci vers la nouvelle. »
+ * >   (l'auteur)
+ *
+ * J'avais répondu que ce n'était pas possible, et c'était faux — mais faux pour
+ * une raison qu'il fallait nommer. L'identité d'un décor est DÉRIVÉE de son
+ * dessin (`visuel/primitives/table.js › cleDeTable`), ce qui est une bonne règle
+ * et n'est pas en cause. Ce qui était en cause, c'est que chaque cycle ne
+ * dessinait QUE ce dont sa propre valeur avait besoin : `18 % 9` s'arrête à la
+ * rangée 2, `252 % 9` va jusqu'à la 28. Deux dessins, donc deux décors, donc un
+ * remontage — et la roue repartait de zéro.
+ *
+ * Le remède n'est pas de toucher à l'identité : c'est de faire dessiner aux
+ * cycles d'une même démonstration LA MÊME ROUE, celle qui porte toutes leurs
+ * rangées. Ils deviennent alors le même décor par la règle existante, sans
+ * exception ni cas particulier — et la roue, restée en place, roule de la
+ * position où l'étape précédente l'a laissée jusqu'à la nouvelle. Rien à
+ * mémoriser, rien à transmettre : c'est la persistance du nœud qui porte
+ * l'information, exactement comme l'auteur le décrivait.
+ *
+ * ★ **CE QUI EST UNIFIÉ, ET CE QUI NE L'EST PAS.** Deux cycles ne se
+ *   rejoignent que s'ils partagent leur MODULO et leur titre : `modulo 9` et
+ *   `modulo 10` sont deux roues différentes, et les confondre dessinerait une
+ *   table dont les colonnes mentiraient. Un seul cycle dans la démonstration ne
+ *   change pas d'un pouce — l'union d'un ensemble avec lui-même.
+ */
+function unifierLesCycles(steps) {
+  const cycles = new Map();
+  for (const s of steps) {
+    for (const o of (s && s.ops) || []) {
+      if (!o || o.op !== 'table' || o.disposition !== 'modulo') continue;
+      const m = o.colonnes;
+      if (!Number.isInteger(m) || m < 2) continue;
+      const cle = `${m}|${o.titre ?? ''}`;
+      if (!cycles.has(cle)) cycles.set(cle, []);
+      cycles.get(cle).push(o);
+    }
+  }
+
+  for (const [, ops] of cycles) {
+    if (ops.length < 2) continue;
+    const rangees = new Set();
+    for (const o of ops) {
+      for (const e of o.entries || []) {
+        const n = Number(e.char);
+        if (Number.isFinite(n)) rangees.add(Math.floor(n / o.colonnes));
+      }
+    }
+    if (rangees.size > CYCLE_RANGEES_MAX) continue;
+    const toutes = [...rangees].sort((a, b) => a - b);
+    for (const o of ops) {
+      const m = o.colonnes;
+      const entries = [];
+      for (const ligne of toutes) {
+        for (let c = 0; c < m; c++) {
+          const n = ligne * m + c;
+          entries.push({ char: String(n), value: String(n % m) });
+        }
+      }
+      o.entries = entries;
+    }
+  }
+}
+
 function mutualiserDecor(steps) {
   const cleDecor = (s) => {
     if (!s || !Array.isArray(s.ops) || s.ops.length !== 1) return null;
@@ -2673,6 +2749,9 @@ export function construireScenario(approche, ctx = {}) {
   // ★ Le DÉCOR des tables se mutualise ici, et nulle part ailleurs : c'est le
   //   seul endroit qui voit la suite complète des étapes. Un opérateur ne
   //   connaît que les siennes.
+  // ★ Les CYCLES d'abord : ils doivent dessiner la même roue pour que le décor
+  //   les reconnaisse comme un seul. Voir `unifierLesCycles`.
+  unifierLesCycles(steps);
   mutualiserDecor(steps);
 
   const scenario = {
