@@ -239,9 +239,151 @@
 .section { margin-top: var(--e7); }
 .section > .h2-machine { margin-bottom: var(--e4); }
 
+/* ═══════════ ★ LE CORPS À DEUX COLONNES — le flux et son aside ════════════
+   « Sur grand écran, tout ce qui va de "Trop diabolique pour vous ?" jusqu'à la
+   fin de l'encart "Assembler vos propres arcanes" passe en aside, dans une 2ᵈ
+   colonne à droite » (l'auteur).
+
+   ── Tout est ici, rien n'est en JavaScript ────────────────────────────────
+   `pages/resultat.js` produit le MÊME DOM aux deux largeurs, dans le même
+   ordre : `.resultat__flux` puis `.resultat__aside`. Sous le seuil, la grille
+   n'a qu'une colonne et les deux boîtes se retrouvent l'une sous l'autre —
+   c'est-à-dire exactement l'ordre d'avant, la commande de cible puis le mémo en
+   pied de page. Aucun `matchMedia`, aucun re-rendu au redimensionnement, et
+   l'ordre de lecture au clavier ne dépend pas de la largeur de la fenêtre.
+
+   ── Pourquoi 1100 px, et pas un seuil taillé sur mesure ───────────────────
+   La colonne de droite mesure 22rem (352 px), la même que celle du Registre sur
+   la page d'animation ; l'écart entre colonnes est `--e6` (48 px) ; et la
+   colonne principale doit garder ses 34rem, sinon la liste se réécrit alors
+   qu'on n'a rien demandé de tel. Total : 34 + 22 = 56rem de colonnes, plus 48 px
+   d'écart, soit 944 px de CONTENU — et comme `.page` est en `border-box` avec
+   `padding: 0 var(--e4)`, sa largeur maximale doit valoir 944 + 2 × 24 = 992 px,
+   c'est-à-dire 62rem. C'est aussi, du même coup, la largeur de fenêtre minimale
+   au-dessous de laquelle la bascule n'aurait plus la place de se faire. Le
+   palier utile le plus proche est celui que la charte appelle déjà « bureau »
+   (§2.4) et que la démonstration emploie pour la même bascule : 1100 px. On
+   préfère un usage de plus d'un seuil existant à un seuil de plus qui
+   n'existerait que pour ici.
+
+   ── La colonne principale ne bouge PAS d'un pixel ─────────────────────────
+   `minmax(0, 34rem)` rend très exactement la largeur que `page--etroite` donne
+   aujourd'hui à toute la page. Au-dessus du seuil, la page s'élargit à 59rem —
+   mais ce qu'elle gagne va INTÉGRALEMENT à l'aside. Les cartes de voies, leurs
+   titres, leurs deux accès : rien n'est recomposé, la seconde colonne s'ajoute
+   à côté. `minmax(0, …)` et non `34rem` tout court, parce qu'un item de grille
+   a une largeur minimale automatique égale à son contenu : un titre de voie
+   sans espace ferait déborder la piste.
+
+   ── Les marges de tête ALIGNENT les deux colonnes toutes seules ───────────
+   `.section` et `.commande-cible` portent déjà `margin-top: var(--e7)`, et les
+   marges de deux items de grille ne fusionnent pas : les deux colonnes
+   commencent donc à la même hauteur sans qu'on écrive une règle de plus. Si la
+   commande de cible manque (repli sans grammaire d'URL), c'est le mémo qui
+   ouvre l'aside — il porte la même marge, l'alignement tient encore. */
+.resultat__corps { display: grid; }
+.resultat__flux { min-width: 0; }
+.resultat__aside { min-width: 0; }
+/* L'emplacement réservé au futur bloc de curseurs de pondération, entre la
+   commande de cible et le mémo (`resultat.js`). Il n'existe encore que comme
+   point d'ancrage : tant qu'il est vide, il ne doit pas creuser un blanc. */
+.resultat__curseurs:empty { display: none; }
+
+@media (min-width: 1100px) {
+  /* `page--etroite` garde ses 34rem pour la colonne principale — c'est la
+     grille ci-dessous qui les lui rend. La page, elle, s'ouvre à 62rem, dont
+     48 px partent dans ses propres marges (`border-box`). */
+  .resultat.page--etroite { max-width: 62rem; }
+  /* Le CHAPEAU — bandeaux, surtitre, titre, annonce, réponse dédiée — ne suit
+     PAS la page qui s'élargit : il reste calé sur les 34rem de la colonne
+     principale, qu'il coiffe. Sans cette bride, le titre courrait sur 944 px
+     au-dessus d'une liste large de 544, et une saisie de 120 signes s'étalerait
+     en une seule ligne interminable là où elle en faisait trois. `base.css`
+     bride déjà tout `p` à la mesure de lecture ; `h1` et le cadre de réponse
+     dédiée, eux, ne l'étaient par rien. */
+  .resultat > :not(.resultat__corps) { max-width: 34rem; }
+  .resultat__corps {
+    grid-template-columns: minmax(0, 34rem) 22rem;
+    column-gap: var(--e6);
+    align-items: start;   /* l'aside ne s'étire pas à la hauteur de la liste */
+  }
+}
+
 .voies { display: grid; gap: var(--e3); }
 @media (min-width: 760px) {
   .voies { grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); }
+}
+
+/* ═══════════════ ★ LE PODIUM — deux encadrés, deux questions ══════════════
+   Les deux premières voies ne répondent pas à la même question que la liste, ni
+   qu'entre elles (`recherche/score.js › POIDS_DES_REGIMES`). Affichées à
+   l'identique, elles passaient pour les deux premières lignes d'un classement
+   unique — et pour deux lignes mal rangées, puisque la seconde affiche parfois
+   PLUS de séries que la première. L'encadré est ce qui répond avant la question.
+
+   ★ Aucun FOND, et ce n'est pas de la sobriété : c'est une contrainte. Le
+   numéro de rang et le compteur de séries de la carte sont à cheval sur le
+   filet, avec un aplat de `--canvas` qui le découpe (`.voie__numero`,
+   `.voie__series`). Un encadré peint laisserait deux rectangles de la couleur
+   du fond de page en travers de sa propre carte.
+
+   ★ Empilés, jamais côte à côte. La colonne principale fait 34rem : deux
+   encadrés en vis-à-vis donneraient 17rem chacun, moins que les 20rem que la
+   grille des voies exige déjà pour une carte. Le podium se lit donc de haut en
+   bas, ce qui est aussi l'ordre dans lequel l'auteur les a nommés. */
+.podium { display: grid; gap: var(--e5); margin-bottom: var(--e5); }
+.podium__place {
+  position: relative;
+  padding: var(--e5) var(--e3) var(--e3);
+  border: var(--rule) solid var(--podium-encre);
+}
+/* L'intitulé est à cheval sur le filet du haut, comme le numéro de rang l'est
+   sur celui de la carte : c'est le geste déjà en place dans cette page pour
+   poser une étiquette sur un cadre, et il n'y en a pas deux à apprendre. */
+.podium__titre {
+  position: absolute;
+  top: calc(-1 * var(--fs-xs));
+  left: var(--e3);
+  padding: 0 var(--e2);
+  background: var(--canvas);
+  font-family: var(--machine);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: .18em;
+  line-height: var(--lh-mono);
+  text-transform: uppercase;
+  color: var(--podium-encre);
+}
+.podium__glose {
+  margin-bottom: var(--e4);
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  letter-spacing: .08em;
+  color: var(--fg-3);
+}
+/* ★ DEUX ENCRES, ET DEUX FAÇONS DE TRACER LE CADRE — la couleur seule ne suffit
+   pas (design §5.1 : jamais d'information portée par la seule couleur), et de
+   toute façon les intitulés disent déjà tout en toutes lettres.
+
+   · ÉLÉGANCE — l'OR, celui du compteur de séries : l'encre de l'affirmation.
+     Filet plein, doublé d'un second filet à 3 px (le geste de `.cadre`) : c'est
+     l'écrin, la place qu'on met sous verre.
+   · MAXIMISATION — le PHOSPHORE, celui de la numérotation : l'encre de ce qui
+     compte. Filet TIRETÉ, et rien autour : une règle graduée plutôt qu'un
+     écrin. La quantité se mesure, elle ne s'expose pas.
+
+   Les deux encres sont déjà employées comme texte dans cette page ; leur
+   contraste sur `--canvas` est donc tenu dans les deux thèmes par construction,
+   et non par une valeur de plus à surveiller. MESURÉ sur la page rendue, contre
+   le 4,5:1 de design §5.1 : or 9,93:1 en sombre et 5,60:1 en clair, phosphore
+   11,94:1 et 5,42:1, glose (`--fg-3`) 5,30:1 et 5,08:1. */
+.podium__place--elegance {
+  --podium-encre: var(--gold);
+  box-shadow: 0 0 0 3px var(--canvas), 0 0 0 4px var(--gold);
+}
+.podium__place--maximisation {
+  --podium-encre: var(--phos);
+  border-style: dashed;
 }
 
 .voie {

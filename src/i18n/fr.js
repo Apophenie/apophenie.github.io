@@ -134,6 +134,24 @@ export const fr = {
     annonceUne: 'Une approche mène à {cible}.',
     annoncePlusieurs: '{n} approches mènent à {cible}.',
     voiesTitre: 'Les voies complètes',
+    /* ★ LE PODIUM — les deux encadrés de tête (`pages/resultat.js › socleDePodium`).
+
+       Les intitulés nomment la QUESTION à laquelle la place répond, pas le
+       barème qui l'a désignée : le moteur, lui, parle de « triptyques »
+       (`recherche/score.js › POIDS_DES_REGIMES`), un mot juste et illisible.
+       La glose tient en trois mots — c'est celle de l'auteur, « la plus belle »
+       contre « la plus fournie » —, parce que l'encadré doit faire comprendre
+       la différence sans se mettre à expliquer le classement. */
+    podium: {
+      elegance: 'Élégance',
+      eleganceGlose: 'la plus belle',
+      maximisation: 'Maximisation',
+      maximisationGlose: 'la plus fournie',
+    },
+    /* Le nom du point de repère `complementary` — la colonne de droite sur
+       grand écran, la fin de page en dessous. Il dit ce qu'on y trouve, pas où
+       c'est posé : « à droite » deviendrait faux sur un téléphone. */
+    asideLabel: 'Aller plus loin',
     fragmentsTitre: 'Les fragments valant {chiffre}',
     /* Quand la cible mêle plusieurs chiffres — « 007 », « 13 » —, un fragment
        n'en vaut qu'UN : dire « les fragments valant 007 » serait faux sept fois

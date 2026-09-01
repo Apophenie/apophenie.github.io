@@ -129,6 +129,69 @@ function carteVoie(approche, i, { surChoix, lienDisponible, cible, registres }) 
   ]);
 }
 
+/**
+ * ══════════════════ ★ LE PODIUM — deux questions, deux encadrés ═════════════
+ *
+ * Les deux premières lignes d'un listing ne répondent PAS à la même question.
+ * « 1ʳᵉ suggestion — l'élégance. […] 2ᵈ suggestion — le nombre de triptyques, au
+ * prix d'une élégance éventuellement moindre, sans l'ignorer. 3ᵉ et suivantes —
+ * un mixte pondéré des deux » (l'auteur, cité par `src/recherche/score.js ›
+ * POIDS_DES_REGIMES`). Le reste de la liste est trié à un troisième barème.
+ *
+ * Trois barèmes affichés à l'identique, ça ne se voit pas : la liste ressemble
+ * à un classement unique dont les deux premières lignes seraient parfois mal
+ * rangées — « pourquoi celle-ci, avec ses deux séries, passe-t-elle devant
+ * celle-là qui en a cinq ? ». L'encadré répond avant qu'on pose la question :
+ * ce ne sont pas deux places, ce sont deux réponses.
+ *
+ * ★ **La marque vient de `approche.suggestion`, JAMAIS du rang.** C'est
+ * `src/recherche/index.js › selectionner()` qui la pose, et lui seul sait si la
+ * seconde suggestion avait quelque chose à dire — elle ne prend sa place que
+ * quand elle aligne réellement PLUS de séries que la première, faute de quoi
+ * elle n'existe pas. Se fier au rang encadrerait alors une ligne du mixte en
+ * lui faisant dire ce qu'elle ne dit pas. Une liste courte, un résultat de
+ * secours ou une liste rejouée à un barème unique n'en portent aucune : il n'y
+ * a alors pas d'encadré du tout, et surtout pas d'encadré vide.
+ *
+ * ★ **« maximisation », alors que le moteur dit « triptyques ».** Le moteur
+ * nomme ce qu'il COMPTE — les séries de 666 —, la page nomme ce qu'on VIENT
+ * chercher. « Triptyques » est un mot d'ingénieur, exact et opaque ; l'encadré
+ * n'explique pas le barème, il annonce une intention. Même écart qu'entre
+ * `elegance` (l'identifiant) et « Élégance » (l'intitulé) : les deux tables ne
+ * se confondent pas, et c'est ici — dans la page — qu'elles se rejoignent.
+ */
+const PLACES_DU_PODIUM = Object.freeze([
+  Object.freeze({ suggestion: 'elegance', cle: 'elegance' }),
+  Object.freeze({ suggestion: 'triptyques', cle: 'maximisation' }),
+]);
+
+/**
+ * Un encadré de podium : son intitulé, sa glose, et la carte qu'il englobe.
+ *
+ * ★ Le titre est un `h3`, sous le `h2` « Les voies complètes » qui ouvre la
+ * section : l'encadré est une subdivision de la liste, pas une section de plus.
+ * La hiérarchie de la page reste donc h1 (la saisie) → h2 (les listes) → h3
+ * (les deux places).
+ *
+ * ★ La GLOSE tient en trois mots — « la plus belle », « la plus fournie ». Ce
+ * n'est pas une explication du barème (il en faudrait un paragraphe, et il est
+ * déjà écrit dans `score.js`) : c'est le mot que l'auteur emploie lui-même pour
+ * dire, en passant, ce que la place récompense.
+ *
+ * ★ L'encadré n'a PAS de fond à lui, et c'est nécessaire, pas décoratif : le
+ * numéro de rang et le compteur de séries de la carte sont à cheval sur son
+ * filet, avec un aplat de `--canvas` qui le découpe (`.voie__numero`,
+ * `.voie__series`). Un encadré peint aurait laissé deux rectangles de la
+ * couleur du fond de page au milieu.
+ */
+function socleDePodium(cle, carte) {
+  return e(`section.podium__place.podium__place--${cle}`, {}, [
+    e('h3.podium__titre', { texte: t(`resultat.podium.${cle}`) }),
+    e('p.podium__glose', { texte: t(`resultat.podium.${cle}Glose`) }),
+    carte,
+  ]);
+}
+
 /** Le libellé de méthode d'un fragment : celui qu'il porte, sinon un résumé
  *  fabriqué à partir du nombre de chemins trouvés. */
 function libelleFragment(fragment) {
@@ -286,10 +349,28 @@ function commandeDeCible({ saisie, cible, texteCible }) {
 }
 
 /**
+ * La page de listing.
+ *
+ * ★ `podium` — le drapeau qui éteint les deux encadrés.
+ *
+ * Il vaut `true` par défaut, parce que c'est le cas normal : la liste vient de
+ * `selectionner()`, ses deux premières lignes répondent à deux questions
+ * distinctes, et les encadrés le disent. Il devra valoir `false` dès qu'un
+ * classement à barème UNIQUE produira la liste — la pondération personnalisée
+ * en préparation, où toutes les voies sont notées au même curseur. Là, il n'y a
+ * plus qu'une question : encadrer les deux premières ligne leur ferait dire
+ * qu'elles répondent à autre chose que les suivantes, ce qui serait faux.
+ *
+ * Éteindre le drapeau ne retire aucune voie : les approches marquées repassent
+ * simplement dans la grille commune, à leur rang. C'est pour ça que le drapeau
+ * est ici et non dans le moteur — c'est une décision d'AFFICHAGE, et la marque
+ * `approche.suggestion` reste posée par `src/recherche/index.js` quoi qu'il
+ * arrive.
+ *
  * @param {{saisie:string, resultat:Object, cible?:Object|string,
- *          surChoixSecours:Function}} ctx
+ *          surChoixSecours:Function, podium?:boolean}} ctx
  */
-export function pageResultat({ saisie, resultat, cible, surChoixSecours }) {
+export function pageResultat({ saisie, resultat, cible, surChoixSecours, podium = true }) {
   const secours = resultat.source === 'secours';
   const approches = resultat.approches || [];
   const fragments = resultat.fragments || [];
@@ -375,33 +456,102 @@ export function pageResultat({ saisie, resultat, cible, surChoixSecours }) {
     ])
     : null;
 
+  // ── Le podium, s'il y a lieu ────────────────────────────────────────────
+  // Les places sont cherchées PAR LEUR MARQUE (`suggestion`), et l'index
+  // d'origine voyage avec l'approche : c'est lui que `carteVoie` utilise pour
+  // numéroter et pour rappeler `surChoixSecours`. Sortir une approche de la
+  // grille ne doit pas la renuméroter — le n° 2 reste le n° 2, encadré ou non.
+  const places = (podium ? PLACES_DU_PODIUM : [])
+    .map(({ suggestion, cle }) => {
+      const i = approches.findIndex((a) => a && a.suggestion === suggestion);
+      return i < 0 ? null : { cle, i, approche: approches[i] };
+    })
+    .filter(Boolean);
+  const encadrees = new Set(places.map((p) => p.i));
+  const grille = approches
+    .map((approche, i) => ({ approche, i }))
+    .filter(({ i }) => !encadrees.has(i));
+
+  const carte = ({ approche, i }) => carteVoie(approche, i, {
+    surChoix: surChoixSecours, lienDisponible: !secours, cible: texteCible, registres,
+  });
+  // `null` plutôt qu'un conteneur vide dans les deux sens : une liste de deux
+  // voies toutes deux encadrées ne laisse rien à la grille, et une liste sans
+  // marque ne laisse rien au podium. `e()` ignore les `null`.
+  const listeDesVoies = [
+    places.length ? e('div.podium', {}, places.map((p) => socleDePodium(p.cle, carte(p)))) : null,
+    grille.length ? e('div.voies', {}, grille.map(carte)) : null,
+  ];
+
   return e('div.page.page--etroite.resultat', {}, [
+    // ⚠️ Le bandeau d'erreur du routeur s'insère devant `firstChild` : ce qui
+    //    ouvre la page doit rester un enfant direct, sinon il atterrirait dans
+    //    une colonne. C'est aussi pourquoi l'en-tête ne descend pas dans le
+    //    corps à deux colonnes ci-dessous.
     ...bandeaux,
     e('p.surtitre', { texte: t('resultat.surtitre') }),
     e('h1', {}, [e('span.saisie-citee', { texte: guillemets(abreger(saisie, 120)) })]),
     e('p.resultat__annonce', { texte: phraseApproches(approches.length, texteCible) }),
     dedie,
-    e('section.section', {}, [
-      e('h2.h2-machine', { texte: t('resultat.voiesTitre') }),
-      aucune || e('div.voies', {}, approches.map((a, i) => carteVoie(a, i, {
-        surChoix: surChoixSecours, lienDisponible: !secours, cible: texteCible, registres,
-      }))),
+    /**
+     * ★ LE CORPS À DEUX COLONNES — « sur grand écran, tout ce qui va de "Trop
+     *   diabolique pour vous ?" jusqu'à la fin de l'encart "Assembler vos
+     *   propres arcanes" passe en aside, dans une 2ᵈ colonne à droite »
+     *   (l'auteur).
+     *
+     * Deux boîtes, et la bascule est ENTIÈREMENT dans `pages.css` : aucun
+     * `matchMedia`, aucune mesure, aucun re-rendu au redimensionnement. Le DOM
+     * est le même aux deux largeurs, dans le même ordre — sous le seuil, le
+     * flux puis l'aside se retrouvent l'un sous l'autre exactement là où ils
+     * sont aujourd'hui. C'est ce qui garantit que l'ordre de lecture au clavier
+     * et au lecteur d'écran ne dépend pas de la largeur de la fenêtre.
+     */
+    e('div.resultat__corps', {}, [
+      e('div.resultat__flux', {}, [
+        e('section.section', {}, [
+          e('h2.h2-machine', { texte: t('resultat.voiesTitre') }),
+          ...(aucune ? [aucune] : listeDesVoies),
+        ]),
+        fragments.length ? e('section.section', {}, [
+          e('h2.h2-machine', {
+            texte: cibleObjet && !cibleObjet.homogene
+              ? t('resultat.fragmentsTitreMele', { cible: texteCible })
+              : t('resultat.fragmentsTitre', { chiffre: chiffreCible }),
+          }),
+          e('div.fragments', {}, fragments.map((f) => rangeeFragment(f, !secours, chiffreCible))),
+        ]) : null,
+      ]),
+      // Un `<aside>` est un point de repère (`complementary`) : il se nomme,
+      // sinon il s'annonce « complémentaire » et rien de plus dans la liste des
+      // repères d'un lecteur d'écran. Le nom dit ce qu'on y trouve — de quoi
+      // aller plus loin —, pas où c'est posé à l'écran : sous le seuil, il n'y
+      // a plus de colonne de droite, et le nom doit rester vrai.
+      e('aside.resultat__aside', { 'aria-label': t('resultat.asideLabel') }, [
+        // ★ La commande de cible vient AVANT le mémo d'URL, comme l'auteur le
+        //   demande : « en bas de page de listing, avant les explications pour
+        //   construire des URL sur mesure ». L'ordre n'est pas cosmétique — on
+        //   propose d'abord un geste, on explique ensuite comment l'écrire à la
+        //   main.
+        commandeDeCible({ saisie, cible: cibleObjet, texteCible }),
+        /**
+         * ★ L'EMPLACEMENT DES CURSEURS — réservé, vide, et nommé.
+         *
+         * « Laisse la place, dans cet aside, pour un bloc de curseurs qui
+         * viendra s'insérer ENTRE la commande de cible et le mémo » (l'auteur,
+         * qui le posera lui-même). C'est le futur réglage de PONDÉRATION
+         * PERSONNALISÉE — celui qui, quand il sera branché, fera passer
+         * `podium: false` à cette même page.
+         *
+         * Le nœud est créé même vide, et il porte un `id` : c'est le point
+         * d'ancrage stable (`document.getElementById('curseurs-ponderation')`),
+         * là où un commentaire dans le code ne serait accrochable par rien.
+         * `:empty` le fait disparaître tant qu'on n'y met rien, sans quoi il
+         * laisserait un blanc entre la commande et le mémo (`pages.css`).
+         */
+        e('div.resultat__curseurs#curseurs-ponderation'),
+        memo,
+      ]),
     ]),
-    fragments.length ? e('section.section', {}, [
-      e('h2.h2-machine', {
-        texte: cibleObjet && !cibleObjet.homogene
-          ? t('resultat.fragmentsTitreMele', { cible: texteCible })
-          : t('resultat.fragmentsTitre', { chiffre: chiffreCible }),
-      }),
-      e('div.fragments', {}, fragments.map((f) => rangeeFragment(f, !secours, chiffreCible))),
-    ]) : null,
-    // ★ La commande de cible vient AVANT le mémo d'URL, comme l'auteur le
-    //   demande : « en bas de page de listing, avant les explications pour
-    //   construire des URL sur mesure ». L'ordre n'est pas cosmétique — on
-    //   propose d'abord un geste, on explique ensuite comment l'écrire à la
-    //   main.
-    commandeDeCible({ saisie, cible: cibleObjet, texteCible }),
-    memo,
   ]);
 }
 
