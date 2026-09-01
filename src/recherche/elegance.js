@@ -525,6 +525,35 @@ export const BAREME = {
   TRADUCTION_DIVERGENTE: 600,
 
   /**
+   * ★ **LE MÊME MOT, LU PAR DEUX MÉTHODES DIFFÉRENTES.**
+   *
+   * « Même contenu (hope) transformé de 3 manières différentes → incohérent, à
+   * proscrire », avait dit l'auteur ; puis, la question posée de savoir s'il
+   * fallait en faire un interdit : « pour les traductions c'est un interdit,
+   * pour les méthodes différentes c'est un malus (comme pour `fr15` et `fr3`
+   * dans une même voie, qui est fortement pénalisé mais pas interdit) ».
+   *
+   * D'où 240, le tarif exact de `REGLAGE_PAR_MORCEAU` — la comparaison est dans
+   * la phrase, le prix la suit. Et d'où un MALUS et non un refus : lire `hope`
+   * en quatorze segments ici et par le clavier là est du magasinage, mais du
+   * magasinage AVOUÉ — les deux méthodes sont à l'écran, chacune est honnête, et
+   * ce qui est louche est seulement d'en changer. Une démonstration qui n'aurait
+   * que cette faute doit pouvoir exister et se classer bas, plutôt que de ne pas
+   * exister.
+   *
+   * ★ **POURQUOI LA TRADUCTION, ELLE, RESTE UN INTERDIT.** Parce qu'elle
+   *   prétend au SENS. Dire que `hope` veut dire « espoir » ici et « espérer »
+   *   là, c'est se servir du dictionnaire comme d'un jeu de réglages en cachant
+   *   le magasinage derrière une prétention de sens. Le quatorze segments ne
+   *   prétend à rien : il compte des segments, et tout le monde le voit.
+   *
+   * ⚠️ Compté par PROGRAMME SURNUMÉRAIRE ET PAR MOT, comme les deux autres :
+   *   deux lectures d'un mot coûtent une fois, trois en coûtent deux, et deux
+   *   mots différents lus chacun à leur façon ne coûtent RIEN.
+   */
+  LECTURE_DIVERGENTE: 240,
+
+  /**
    * ★ **ON A RÉÉCRIT LA QUESTION AVANT D'Y RÉPONDRE** — par étage amont.
    *
    * Une RETOUCHE prend une portée de la saisie, lui applique un programme qui
@@ -1308,6 +1337,7 @@ export const NATURE = Object.freeze({
   FILTRE_SELECTIF: { sens: -1, famille: 'elegance' },
   REGLAGE_PAR_MORCEAU: { sens: -1, famille: 'elegance' },
   TRADUCTION_DIVERGENTE: { sens: -1, famille: 'elegance' },
+  LECTURE_DIVERGENTE: { sens: -1, famille: 'elegance' },
   RETOUCHE: { sens: -1, famille: 'elegance' },
   VALEUR_JETEE: { sens: -1, famille: 'elegance' },
   RELIQUAT_HORS_CIBLE: { sens: -1, famille: 'elegance' },
@@ -1946,6 +1976,43 @@ export function familleDeConvention(op) {
  * @param {Array<{chemin:Object}>} parts
  * @returns {number}
  */
+/**
+ * Le même mot, lu par deux PROGRAMMES différents dans la même voie.
+ *
+ * L'unité de `BAREME.LECTURE_DIVERGENTE` — voir ce palier pour le pourquoi et
+ * pour ce qui le sépare de `TRADUCTION_DIVERGENTE`.
+ *
+ * ★ **CE QU'ON COMPARE EST LE PROGRAMME ENTIER, pas le mappeur.** Deux voies
+ *   qui ne diffèrent que par leur filtre lisent bien le mot différemment — le
+ *   spectateur voit deux chemins, pas un. Réduire la comparaison au seul
+ *   mappeur laisserait passer `fl+tca+m14` face à `fv+tca+m14`, qui est
+ *   exactement le magasinage visé.
+ *
+ * ★ Le mot comparé est celui de la PORTÉE, replié comme pour le dictionnaire :
+ *   « Hope » et « hope » sont le même mot, et changer de casse ne doit pas
+ *   servir à échapper au compte.
+ *
+ * @param {Array<{fragment:Object, chemin:Object}>} parts
+ * @returns {number}
+ */
+export function compterLecturesDivergentes(parts) {
+  const lectures = new Map();
+  for (const p of parts || []) {
+    const texte = p && p.fragment && p.fragment.texte;
+    const ops = (p && p.chemin && p.chemin.ops) || [];
+    if (typeof texte !== 'string' || !texte || !ops.length) continue;
+    const mot = replierPourLeDictionnaire(texte);
+    // Un mot d'un seul caractère non signifiant — un tiret, un point — n'a pas
+    // de « lecture » à trahir : on ne facture pas la ponctuation.
+    if (!/[a-z0-9]/i.test(mot)) continue;
+    if (!lectures.has(mot)) lectures.set(mot, new Set());
+    lectures.get(mot).add(ops.map((o) => o.code).join('+'));
+  }
+  let n = 0;
+  for (const [, vues] of lectures) n += Math.max(0, vues.size - 1);
+  return n;
+}
+
 export function compterTraductionsDivergentes(parts) {
   // L'acception est PUBLIÉE par l'opérateur (`filtres.js`, champ `acception`) :
   // on ne la déduit pas du code. Le SENS de la traduction entre dans la clé —
@@ -2628,6 +2695,7 @@ export function bilanApproche(approche, ctx = {}) {
     filtresSelectifs: 0,
     reglagesEnTrop: 0,
     traductionsDivergentes: 0,
+    lecturesDivergentes: 0,
     retours: 0,
     triptyquesContigus: 0,
     triptyquesRepetes: 0,
@@ -2726,6 +2794,7 @@ export function bilanApproche(approche, ctx = {}) {
   //     traduction peut suivre un filtre qui a déjà changé le mot, et c'est bien
   //     ce mot-là qui est traduit.
   b.traductionsDivergentes += compterTraductionsDivergentes(parts);
+  b.lecturesDivergentes += compterLecturesDivergentes(parts);
 
   let poidsTot = 0;
   let sommeTot = 0;
@@ -2935,6 +3004,8 @@ export function detailDuCredit(b, poids) {
       B.REGLAGE_PAR_MORCEAU * (b.reglagesEnTrop || 0)],
     ['même mot, traduit de deux façons', 'TRADUCTION_DIVERGENTE', b.traductionsDivergentes || 0,
       B.TRADUCTION_DIVERGENTE * (b.traductionsDivergentes || 0)],
+    ['même mot, lu par deux méthodes', 'LECTURE_DIVERGENTE', b.lecturesDivergentes || 0,
+      B.LECTURE_DIVERGENTE * (b.lecturesDivergentes || 0)],
     ['portée réécrite avant d’être lue', 'RETOUCHE', b.retouches || 0,
       B.RETOUCHE * (b.retouches || 0)],
     ['part de la saisie jamais lue', 'PORTEE_IGNOREE', ignores,

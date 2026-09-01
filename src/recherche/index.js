@@ -34,7 +34,7 @@ import { indexUtiles } from './cible.js';
 import { construireScenario } from './scenario.js';
 import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
 import {
-  lire, ecrire, descripteursDe, retouchesDe, ecrireRetouches, BANDEAUX,
+  lire, ecrire, descripteursDe, retouchesDe, ecrireRetouches, BANDEAUX, RE_A_TROUVER,
 } from './url.js';
 import { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES } from './cible.js';
 import { deroulerParTranches } from './tranches.js';
@@ -606,7 +606,11 @@ export function creerMoteur(catalogue, options = {}) {
       for (const fragment of portees) {
         let chemin;
         if (commande) {
-          chemin = trouverProgramme(fragment.texte, commande, ctxRejeu, cbl);
+          const trouves = trouverProgramme(fragment.texte, commande, ctxRejeu, cbl);
+          // Le rejeu ORDINAIRE ne garde que le compte exact : un lien qui joue
+          // une démonstration doit jouer celle qu'il annonce. C'est
+          // `enumerer()` qui montre les approchants, et lui seul.
+          chemin = trouves.length && trouves[0].ecart === 0 ? trouves[0].chemin : null;
           if (!chemin) {
             return {
               ok: false,
@@ -710,9 +714,127 @@ export function creerMoteur(catalogue, options = {}) {
     });
   }
 
+  /**
+   * ★ **L'ÉNUMÉRATION D'UNE VOIE À TROUS.**
+   *
+   * > « `????` devrait mener vers une page d'énumération dont la recherche est
+   * >   dédiée à remplacer ces `????`. » (l'auteur)
+   *
+   * Un lien qui commande ne désigne pas UNE démonstration mais une FAMILLE :
+   * toutes celles qui remplissent les trous. On les énumère donc, on les note
+   * comme n'importe quelle voie, et on applique le malus d'écart avant de
+   * classer — de sorte que ce que l'auteur attendait sorte en tête et que
+   * l'à-peu-près reste visible dessous.
+   *
+   * ★ **CHAQUE CANDIDATE EST REJOUÉE COMME UN LIEN ORDINAIRE**, avec sa
+   *   commande remplacée par des codes réels. Rien n'est calculé deux fois par
+   *   deux chemins différents : le mode, la moisson, le barème et l'URL sortent
+   *   du même `rejouer` que tout le reste. C'est ce qui garantit qu'une voie
+   *   énumérée ici et la même voie ouverte directement affichent le même score.
+   *
+   * ★ **LE PRODUIT EST BORNÉ, et il faut qu'il le soit** : deux portées
+   *   commandées à six candidates chacune font trente-six démonstrations à
+   *   noter. On garde les meilleures candidates de chaque portée puis on borne
+   *   le total — la liste n'en montrera de toute façon qu'une douzaine.
+   */
+  function enumerer(lecture) {
+    if (!lecture || lecture.forme !== 'canonique') {
+      return { ok: false, raison: 'forme non canonique', bandeau: lecture && lecture.bandeau };
+    }
+    const cbl = normaliserCible(lecture.cible);
+    const saisie = lecture.saisie;
+    const jetons = tokeniser(saisie);
+    const ctxE = contexteBase(cbl);
+
+    // ── 1. déplier : une commande portant sur trois portées en fait trois.
+    const plan = [];
+    for (const desc of lecture.fragments || []) {
+      const combien = desc.codes.length === 1 && RE_A_TROUVER.test(desc.codes[0])
+        ? desc.codes[0].length : 0;
+      if (!combien) { plan.push({ fixe: desc }); continue; }
+      const portees = desc.portee
+        ? [fragmentDePortee(saisie, jetons, desc.portee)]
+        : [fragmentEntier(saisie, jetons)];
+      for (const f of portees) {
+        if (!f) return { ok: false, raison: 'portée hors bornes', bandeau: BANDEAUX.formatInconnu };
+        plan.push({
+          portee: desc.portee,
+          combien,
+          choix: trouverProgramme(f.texte, combien, ctxE, cbl).slice(0, CANDIDATS_PAR_TROU),
+          texte: f.texte,
+        });
+      }
+    }
+    const trous = plan.filter((x) => !x.fixe);
+    if (!trous.length) {
+      return { ok: false, raison: 'aucune commande', bandeau: BANDEAUX.formatInconnu };
+    }
+    if (trous.some((t) => !t.choix.length)) {
+      const muet = trous.find((t) => !t.choix.length);
+      return {
+        ok: false,
+        raison: 'commande sans réponse',
+        bandeau: BANDEAUX.commandeSansReponse(muet.combien),
+        detail: `« ${muet.texte} » : aucun programme connu n’en tire de valeur utile.`,
+      };
+    }
+
+    // ── 2. le produit, borné.
+    let combinaisons = [[]];
+    for (const t of trous) {
+      const suite = [];
+      for (const debut of combinaisons) {
+        for (const c of t.choix) {
+          if (suite.length >= COMBINAISONS_MAX) break;
+          suite.push([...debut, c]);
+        }
+      }
+      combinaisons = suite;
+    }
+
+    // ── 3. chaque combinaison se rejoue comme un lien ordinaire.
+    const approches = [];
+    for (const combi of combinaisons) {
+      let k = 0;
+      const fragments = [];
+      let ecart = 0;
+      for (const x of plan) {
+        if (x.fixe) { fragments.push(x.fixe); continue; }
+        const c = combi[k++];
+        ecart += Math.abs(c.ecart);
+        fragments.push({
+          portee: x.portee,
+          resonance: null,
+          codes: c.chemin.ops.map((o) => o.code),
+        });
+      }
+      const r = rejouer({ ...lecture, fragments });
+      if (!r.ok) continue;
+      const a = r.approche;
+      if (ecart) {
+        const [n, d] = facteurDEcart(combi.reduce((t, c) => t + c.ecart, 0));
+        a.score = Math.floor((a.score * n) / d);
+        a.ecartCommande = combi.reduce((t, c) => t + c.ecart, 0);
+      }
+      approches.push(a);
+    }
+    if (!approches.length) {
+      return { ok: false, raison: 'commande sans réponse', bandeau: BANDEAUX.formatInconnu };
+    }
+    approches.sort(ordreTotal);
+    approches.forEach((a, i) => { a.rang = i + 1; });
+    return {
+      ok: true,
+      saisie,
+      cible: cbl,
+      approches: approches.slice(0, REGLAGES.MAX_APPROCHES),
+      commande: true,
+    };
+  }
+
   return {
     resoudre, resoudreProgressif, deroulerResolution,
-    rejouer, scenarioDe, catalogue, bassin, cache, ops,
+    rejouer, enumerer, scenarioDe, catalogue, bassin, cache, ops,
   };
 }
 
@@ -943,6 +1065,10 @@ function fragmentDePortee(saisie, jetons, portee) {
 /** Chemins rendus par `vecteursDeSix` pour une commande. Large : on filtre après. */
 const MAX_A_TROUVER = 200;
 
+/** Candidates gardées par trou, et plafond du produit — voir `enumerer`. */
+const CANDIDATS_PAR_TROU = 6;
+const COMBINAISONS_MAX = 24;
+
 /**
  * ★ **UNE VOIE À TROUS — le programme écrit `????`, le moteur le remplit.**
  *
@@ -995,15 +1121,55 @@ function trouverProgramme(texte, combien, ctx, cible) {
       ? vecteursDeSix(texte, ctx.operateurs, combien, MAX_A_TROUVER, cible)
       : []),
   ];
-  const bons = chemins.filter((c) => utiles(c) === combien);
-  if (!bons.length) return null;
-  bons.sort((a, b) => {
-    if (a.ops.length !== b.ops.length) return a.ops.length - b.ops.length;
-    const ca = a.ops.map((o) => o.code).join('+');
-    const cb = b.ops.map((o) => o.code).join('+');
+  const classes = chemins.map((c) => ({ chemin: c, ecart: utiles(c) - combien }));
+  if (!classes.length) return [];
+  // ★ L'ordre : le compte demandé d'abord, puis le SURPLUS avant le MANQUE, puis
+  //   le plus court. Voir `PENALITE_SURPLUS` / `PENALITE_MANQUE` pour le
+  //   pourquoi de l'asymétrie.
+  classes.sort((a, b) => {
+    const ra = rangDEcart(a.ecart);
+    const rb = rangDEcart(b.ecart);
+    if (ra !== rb) return ra - rb;
+    if (a.chemin.ops.length !== b.chemin.ops.length) return a.chemin.ops.length - b.chemin.ops.length;
+    const ca = a.chemin.ops.map((o) => o.code).join('+');
+    const cb = b.chemin.ops.map((o) => o.code).join('+');
     return ca < cb ? -1 : ca > cb ? 1 : 0;
   });
-  return bons[0];
+  return classes;
+}
+
+/**
+ * ★ **CE QUE COÛTE UN ÉCART AU COMPTE DEMANDÉ — et pourquoi il n'est pas
+ *   symétrique.**
+ *
+ * > « Objectif : autant de `?` qu'a la saisie. Mais s'il y en a plus, c'est
+ * >   juste un malus de score à appliquer, pour que les premiers résultats
+ * >   correspondent à ce qui est attendu. S'il y en a moins, c'est un énorme
+ * >   malus à appliquer, mais mieux vaut des résultats que aucun. » (l'auteur)
+ *
+ * L'asymétrie n'est pas un réglage, elle est dans la nature des deux fautes.
+ * Un 6 DE TROP se voit : il reste sur la ligne, le spectateur le compte, la
+ * démonstration est bavarde mais elle tient. Un 6 QUI MANQUE casse la série
+ * qu'on était en train de composer — la voie sur mesure ne rend plus ce pour
+ * quoi on l'écrivait. La première se pardonne, la seconde ruine.
+ *
+ * ★ Et AUCUNE des deux n'est un refus : « mieux vaut des résultats que aucun ».
+ *   Une page d'énumération qui ne montre rien n'apprend rien ; une page qui
+ *   montre l'à-peu-près en bas de liste dit au moins ce que le mot sait faire.
+ */
+const PENALITE_SURPLUS = [80, 100];   // ×0,80 par 6 de trop
+const PENALITE_MANQUE = [25, 100];    // ×0,25 par 6 manquant — « énorme »
+
+/** 0 pour le compte juste, 1 par 6 en trop, 100 + n pour un manque. */
+const rangDEcart = (e) => (e === 0 ? 0 : (e > 0 ? e : 100 - e));
+
+/** Le facteur à appliquer au score, en fraction entière. */
+function facteurDEcart(ecart) {
+  const [n, d] = ecart > 0 ? PENALITE_SURPLUS : PENALITE_MANQUE;
+  let num = 1;
+  let den = 1;
+  for (let i = 0; i < Math.abs(ecart); i++) { num *= n; den *= d; }
+  return [num, den];
 }
 
 function executerProgramme(texte, codes, parCode, journal = null) {

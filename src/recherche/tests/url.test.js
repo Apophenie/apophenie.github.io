@@ -6,6 +6,7 @@ import {
 } from '../url.js';
 import { encoderTexte, LIMITE_SAISIE } from '../base58.js';
 import { catalogue } from './_catalogue.js';
+import { creerMoteur } from '../index.js';
 
 const B58_HOPE = encoderTexte('hope');                       // 3fq9KJ
 const B58_URL = encoderTexte('https://hope-hope-hope.fr/');
@@ -829,4 +830,46 @@ test('★ commande — une suite de « ? » se lit comme un programme à trouver
   // Elle ne se mélange pas à des codes : une commande est une commande.
   assert.notEqual(lire('#sce!0.1:??+tca#2HuP1G8mNg3sJWhqR').forme, 'canonique');
   assert.notEqual(lire('#sce!0.1:tca+??#2HuP1G8mNg3sJWhqR').forme, 'canonique');
+});
+
+/**
+ * ★ **L'ÉNUMÉRATION D'UNE VOIE À TROUS — et l'asymétrie de son malus.**
+ *
+ * > « Objectif : autant de `?` qu'a la saisie. Mais s'il y en a plus, c'est
+ * >   juste un malus de score. S'il y en a moins, c'est un énorme malus, mais
+ * >   mieux vaut des résultats que aucun. » (l'auteur)
+ */
+test('★ commande — l’énumération classe le compte juste devant l’à-peu-près', () => {
+  const m = creerMoteur(catalogue, { filetTemporel: false });
+
+  // « Donald » sait rendre quatre valeurs utiles : la commande est satisfaite.
+  const juste = m.enumerer(lire('#sce!0.1:????,2.1:tca+m14#2HuP1G8mNg3sJWhqR'));
+  assert.ok(juste.ok, juste.detail || juste.raison);
+  assert.ok(juste.approches.length > 1, 'une énumération montre plusieurs remplissages');
+  for (const a of juste.approches) {
+    assert.ok(!a.ecartCommande,
+      `« ${a.codes} » : le compte juste est atteignable, rien ne doit s’en écarter`);
+  }
+
+  // ★ Onze est hors de portée du mot. On montre QUAND MÊME — « mieux vaut des
+  //   résultats que aucun » —, et toutes les propositions sont en manque.
+  const trop = m.enumerer(lire('#sce!0.1:???????????,2.1:tca+m14#2HuP1G8mNg3sJWhqR'));
+  assert.ok(trop.ok, 'une commande hors de portée doit RENDRE quelque chose');
+  assert.ok(trop.approches.every((a) => a.ecartCommande < 0),
+    'aucune ne peut atteindre le compte : toutes sont en manque');
+
+  /* ★ **ET LE MANQUE COÛTE ÉNORMÉMENT.** « S'il y en a moins, c'est un énorme
+     malus » — la meilleure des approchantes doit tomber loin derrière ce que la
+     même énumération rend quand le compte est atteignable, sinon le classement
+     ne dirait pas que l'une répond à la question et l'autre pas.
+
+     ⚠️ Ce qui est comparé est le SCORE, pas le rang d'écart : la liste finale
+       est triée par score une fois le malus appliqué, ce qui est exactement ce
+       que l'auteur demande — « juste un malus de score à appliquer, pour que
+       les premiers résultats correspondent à ce qui est attendu ». Un écart de
+       +1 peut donc devancer un écart de −2, et c'est voulu : le surplus se
+       pardonne, le manque ruine. */
+  assert.ok(trop.approches[0].score * 5 < juste.approches[0].score,
+    `manque ${trop.approches[0].score} contre juste ${juste.approches[0].score} : `
+    + 'le malus de manque doit être énorme');
 });

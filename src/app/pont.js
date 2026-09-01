@@ -334,6 +334,32 @@ export function rejouer(lecture) {
   }
 }
 
+/**
+ * Énumère les remplissages d'une voie à trous (`????`) — voir
+ * `recherche/index.js › enumerer`. Rend la MÊME forme que `resoudre`, pour que
+ * la page de résultats n'ait rien à savoir de la façon dont la liste est née.
+ */
+export function enumerer(lecture) {
+  if (!M.moteur || typeof M.moteur.enumerer !== 'function') {
+    return { ok: false, raison: 'moteur absent' };
+  }
+  try {
+    const r = M.moteur.enumerer(lecture);
+    if (!r || !r.ok) return r;
+    return { ...r, approches: r.approches.map((a) => traduireApproche(a)) };
+  } catch (err) {
+    console.error('[NumHeroLOLgeek] énumération impossible :', err);
+    return { ok: false, raison: 'énumération impossible' };
+  }
+}
+
+/** Une lecture porte-t-elle une commande à remplir ? */
+export function porteUneCommande(lecture) {
+  return Boolean(lecture && Array.isArray(lecture.fragments)
+    && lecture.fragments.some((f) => f && Array.isArray(f.codes)
+      && f.codes.length === 1 && /^\?+$/.test(f.codes[0])));
+}
+
 /** @returns {{scenario:Object, source:'moteur'|'secours'}} */
 export function scenarioDe(approche, saisie, options = {}) {
   if (M.moteur && typeof M.moteur.scenarioDe === 'function' && approche && approche.parts) {

@@ -122,8 +122,38 @@ async function routeResultat(saisie, { bandeau = null, cible = null } = {}) {
   rendre(enteteResultat(), contenu, { titre: saisie });
 }
 
+/**
+ * ★ **UNE VOIE À TROUS MÈNE À UNE ÉNUMÉRATION, pas à une démonstration.**
+ *
+ * > « `????` devrait mener vers une page d'énumération dont la recherche est
+ * >   dédiée à remplacer ces `????`. » (l'auteur)
+ *
+ * Un lien qui COMMANDE ne désigne pas une démonstration mais une famille : il
+ * n'y a rien à jouer tant qu'on n'a pas choisi. On montre donc la liste — la
+ * même page que celle d'une recherche ordinaire, puisque c'est la même chose
+ * qu'on y fait : choisir parmi des voies classées.
+ */
+function routeEnumeration(lecture) {
+  const r = pont.enumerer(lecture);
+  if (!r.ok) {
+    const raison = r.bandeau || t('bandeaux.voieInconnue');
+    if (lecture.saisie) routeResultat(lecture.saisie, { bandeau: raison, cible: lecture.cible });
+    else routeAccueil({ bandeau: raison });
+    return;
+  }
+  const contenu = pageResultat({
+    saisie: r.saisie,
+    resultat: r,
+    cible: r.cible || lecture.cible,
+    surChoixSecours: (approche) => montrerDemonstrationLocale(r.saisie, approche, r),
+  });
+  rendre(enteteResultat(), contenu, { titre: r.saisie });
+}
+
 /** Démonstration issue d'une URL canonique, rejouée telle quelle. */
 function routeDemonstration(lecture, { bandeau = null } = {}) {
+  // ★ La commande se traite AVANT le rejeu : il n'y a pas de voie à rejouer.
+  if (pont.porteUneCommande(lecture)) { routeEnumeration(lecture); return; }
   const rejeu = pont.rejouer(lecture);
   if (!rejeu.ok) {
     const raison = rejeu.bandeau || t('bandeaux.voieInconnue');
