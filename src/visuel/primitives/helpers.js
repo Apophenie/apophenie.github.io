@@ -6,7 +6,7 @@
  * gestes que ceux du vocabulaire, pas des variantes (recherche §4.8).
  */
 
-import { EASE, KINDS } from '../constants.js';
+import { EASE, KINDS, progressionDe } from '../constants.js';
 import { fail } from '../errors.js';
 import { guessKind } from '../scene.js';
 import { charCenter, bboxOf } from '../layout.js';
@@ -17,6 +17,81 @@ const KIND_SET = new Set(KINDS);
 const BRAS = 13;
 const POINTE = 16;
 const COUDE = 14;
+
+/**
+ * Ce qu'une accolade prend en plus de ce qu'elle embrasse, FAUTE DE VOISIN.
+ *
+ * Voir `boiteEmbrassee` : dès qu'il y a un voisin exclu, c'est lui qui décide,
+ * et cette constante ne sert plus. Elle ne vaut qu'aux deux bouts de la ligne.
+ */
+const DEBORD_ACCOLADE = 10;
+
+/**
+ * La boîte qu'une accolade doit couvrir — et ce n'est PAS la boîte de ses
+ * sources élargie d'une marge fixe.
+ *
+ * > « Elles sont un peu trop larges, elles devraient s'arrêter pile entre le
+ * >   caractère le plus à gauche inclus et le plus à droite de ceux sur sa
+ * >   gauche qu'elle n'inclut pas (et pareil à droite). » (l'auteur)
+ *
+ * ★ **CE QUE LA MARGE FIXE AVAIT DE FAUX.** Dix unités de chaque côté, quel que
+ *   soit l'entourage : sur une ligne resserrée, l'accolade mordait sur le
+ *   voisin qu'elle EXCLUT — elle affirmait donc l'inclure. Une accolade est une
+ *   affirmation ; sa frontière doit tomber là où le doute se lève, c'est-à-dire
+ *   à MI-CHEMIN entre le dernier inclus et le premier exclu. Là, aucun jeton
+ *   n'est plus près du mauvais côté que du bon.
+ *
+ * ★ **ELLE RESTE SYMÉTRIQUE, ET C'EST UNE CONTRAINTE, PAS UNE APPROXIMATION.**
+ *   Une accolade a une POINTE, et la pointe est ce qui désigne : c'est de là
+ *   que tombe le résultat (`accumulate`), et c'est sous elle qu'on le lit. La
+ *   décentrer pour gagner deux unités d'un côté ferait tomber la somme à côté
+ *   de ce qu'on vient d'additionner — on aurait corrigé une frontière en
+ *   déplaçant une affirmation. La marge retenue est donc la PLUS PETITE des
+ *   deux : celle qui ne mord d'aucun côté.
+ *
+ * ★ **LE VOISIN SE CHERCHE DANS LE FLUX, ET SUR LA MÊME LIGNE.** Le flux donne
+ *   l'ordre de lecture ; un voisin renvoyé à la ligne suivante est à l'autre
+ *   bout de l'écran, et prendre le milieu vers lui étirerait l'accolade à
+ *   travers toute la scène. Quand il n'y en a pas — bord de ligne, bord de
+ *   flux —, ce côté ne réclame rien et laisse l'autre décider ; si aucun des
+ *   deux ne réclame, on retombe sur `DEBORD_ACCOLADE`, qui n'a alors plus rien
+ *   à trancher : il n'y a personne à ne pas mordre.
+ *
+ * ★ Les bornes VERTICALES gardent la marge : rien ne les dispute.
+ *
+ * @returns {object|null} la boîte, au format de `bboxOf`
+ */
+export function boiteEmbrassee(ctx, ids, pad = DEBORD_ACCOLADE) {
+  const nu = bboxOf(ids, ctx.scene.positions, ctx.metrics, 0);
+  if (!nu) return null;
+
+  const dedans = new Set(ids);
+  const flux = ctx.scene.flow.filter((id) => {
+    const n = ctx.scene.get(id);
+    return n && n.alive && ctx.scene.positions.has(id);
+  });
+  const rangs = [];
+  flux.forEach((id, i) => { if (dedans.has(id)) rangs.push(i); });
+
+  const ligneDe = (id) => (ctx.scene.positions.get(id) || {}).line ?? 0;
+  // La demi-distance jusqu'au voisin exclu de ce côté-là, ou `Infinity` s'il
+  // n'y en a pas : ce côté ne contraint alors rien.
+  const demiEcart = (iBord, sens) => {
+    if (!rangs.length) return Infinity;
+    const voisin = flux[iBord + sens];
+    if (!voisin || dedans.has(voisin)) return Infinity;
+    if (ligneDe(voisin) !== ligneDe(flux[iBord])) return Infinity;
+    const p = ctx.scene.positions.get(voisin);
+    const ecart = sens < 0 ? nu.x - (p.x + p.w / 2) : (p.x - p.w / 2) - (nu.x + nu.w);
+    return Math.max(0, ecart / 2);
+  };
+
+  const marge = Math.min(
+    demiEcart(Math.min(...rangs), -1),
+    demiEcart(Math.max(...rangs), +1),
+  );
+  return bboxOf(ids, ctx.scene.positions, ctx.metrics, Number.isFinite(marge) ? marge : pad);
+}
 
 /**
  * Ces deux mesures sont PUBLIÉES, et pas seulement partagées.
@@ -970,7 +1045,7 @@ export function tracerAccolade(ctx, ids, spec = {}) {
     ctx.reflow({ at, dur: dur * 0.45, ease: EASE.move });
   }
 
-  const box = bboxOf(ids, ctx.scene.positions, ctx.metrics, 10);
+  const box = boiteEmbrassee(ctx, ids);
   if (!box) return null;
 
   const W = box.w / 2;
@@ -1111,7 +1186,7 @@ export function suivreLaZone(ctx, acc, spec = {}) {
     return n && n.alive;
   });
   if (sources.length < 1) return;
-  const cible = bboxOf(sources, ctx.scene.positions, ctx.metrics, 10);
+  const cible = boiteEmbrassee(ctx, sources);
   if (!cible) return;
 
   const depart = ctx.scene.pos(acc.id);
@@ -1132,14 +1207,18 @@ export function suivreLaZone(ctx, acc, spec = {}) {
   if (!change) return;
   const w0 = depart.w || cible.w;
   const w1 = cible.w;
+  // ★ LA MÊME COURBE QUE LA LIGNE, et c'est tout le correctif du « ça rame ».
+  //   Le tracé est recalculé et non étiré — une accolade mise à l'échelle
+  //   épaissirait ses traits d'un côté —, mais la demi-largeur suit désormais
+  //   `EASE.move` au lieu du temps brut. Voir `constants.js › progressionDe`
+  //   pour ce que l'écart valait : vingt-huit points de course à mi-durée.
+  const courbe = progressionDe(EASE.move);
   ctx.discrete({
     id: acc.id,
     channel: 'd',
     at,
     dur,
-    // Interpolation linéaire de la demi-largeur : le tracé est recalculé, pas
-    // étiré — une accolade mise à l'échelle épaissirait ses traits d'un côté.
-    render: (x) => braceD((w0 + (w1 - w0) * Math.min(1, Math.max(0, x))) / 2),
+    render: (x) => braceD((w0 + (w1 - w0) * courbe(x)) / 2),
   });
 }
 

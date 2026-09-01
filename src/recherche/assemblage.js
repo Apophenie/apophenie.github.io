@@ -162,12 +162,29 @@ const MAX_LIBRES = 12;      // C(12,3) = 220 combinaisons
  * six, le schéma en donnant trois de plus. Plafonner à 4 aurait consisté à
  * jeter deux séries démontrées ; `reveal` (moteur visuel) met le verdict à
  * l'échelle de la scène, dix-huit chiffres tiennent donc dans le cadre comme
- * trois — plus petits, mais entiers. Au-delà de six, ce n'est plus une chute,
- * c'est un tableau : la borne reste.
+ * trois — plus petits, mais entiers.
+ *
+ * ★ **IL VAUT 9, ET LA RAISON A CHANGÉ DE NATURE.** J'avais écrit « au-delà de
+ *   six, ce n'est plus une chute, c'est un tableau : la borne reste ». La borne
+ *   n'est pas restée, parce que l'argument était faux : une borne de LISIBILITÉ
+ *   n'a aucune raison de s'appliquer au COMPTAGE. En rabotant `series`, elle ne
+ *   rendait pas la scène plus lisible — le verdict affiche ce que la ligne
+ *   porte —, elle faisait mentir le score sur ce que la voie avait démontré.
+ *
+ *   Mesuré : `0.1:fr14+tca+m14+mpf,3.1+5.1+7.1:ffr3+tca+m14+mpf,4.1+6.1:tca+mtc+cs,9.1:fr9+tca+m7`
+ *   sur `https://hope-hope-hope.fr/` récolte VINGT-TROIS 6, soit sept séries et
+ *   deux surnuméraires. Le plafond en annonçait six et jetait la septième :
+ *   « le verdict ne le gère pas et détruit tout ce qui dépasse 6×666 — à
+ *   corriger » (l'auteur). C'est corrigé, et la scène compile ses sept séries.
+ *
+ *   Neuf, et non `Infinity`, parce que `seriesDe` s'en sert aussi comme sortie
+ *   anticipée : c'est un garde-fou de balayage, pas un jugement esthétique. Ce
+ *   qui déborde vraiment le cadre est l'affaire de `reveal`, qui met à
+ *   l'échelle, et lui seul est en position d'en juger.
  */
 const MAX_FRAGMENTS_VECTEUR = 6;    // fragments soumis à l'énumération des vecteurs
 const MAX_VECTEURS_PAR_FRAGMENT = 8; // = K_PAR_FRAGMENT : même largeur que le reste
-const MAX_SERIES = 6;               // au plus « 666 » six fois
+const MAX_SERIES = 9;               // au plus « 666 » neuf fois
 const MAX_CONVERGENCES = 3;         // trios de manières distinctes par fragment
 
 /**

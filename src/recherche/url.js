@@ -864,6 +864,11 @@ function lireFragments(brut) {
 export const BANDEAUX = {
   recalculee: 'Démonstration recalculée : ce lien désigne des rangs, pas une méthode.',
   codeInconnu: 'Ce lien emploie une règle que cette version ne connaît pas.',
+  // ★ Le refus n'est PAS l'inconnu : la règle est là, elle a dit non. Voir
+  //   `recherche/index.js › diagnostic`. Confondre les deux envoyait chercher
+  //   une version manquante pour un opérateur présent.
+  regleRefusee: (code) => `La règle « ${code} » ne s’applique pas à cette valeur : `
+    + 'la démonstration s’arrête là.',
   cibleIllisible: `Ce lien vise une suite que le moteur ne sait pas viser : au plus ${MAX_CHIFFRES} chiffres.`,
   formatInconnu: 'Ce lien a été créé par une autre version du site.',
   lienIllisible: 'Ce lien est illisible : la saisie n’a pas pu être décodée.',

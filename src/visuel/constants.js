@@ -178,6 +178,61 @@ export const EASE = Object.freeze({
  * Préfixe réservé aux nœuds fabriqués par le moteur (halos, accolades, badges,
  * segments, marqueurs…). Un `id` de scénario ne peut jamais commencer par `@`.
  */
+/**
+ * La MÊME courbe, évaluée en JavaScript — pour le canal DISCRET.
+ *
+ * ★ **POURQUOI IL EN FAUT UNE.** Le canal continu confie sa courbe au
+ *   navigateur : on lui passe `ease` et il interpole. Le canal discret, lui,
+ *   reçoit un `u` LINÉAIRE (`clock.js › resolveDiscrete`) et se rend lui-même :
+ *   c'est ce qu'il faut pour un texte de compteur, qui n'a pas de vitesse. Mais
+ *   dès qu'un tracé discret accompagne un mouvement continu — l'accolade qui
+ *   rétrécit avec la ligne qu'elle embrasse —, les deux suivent des lois
+ *   différentes et se désynchronisent :
+ *
+ *   > « Le redimensionnement des accolades se fait avec du retard. Il devrait
+ *   >   s'ajuster pile au rythme des redimensionnements du contenu, pas avec un
+ *   >   temps de retard. Ça donne l'impression que ça rame. » (l'auteur)
+ *
+ *   Ce n'était pas un décalage de `at` ni de `dur` — ils étaient déjà partagés.
+ *   C'était la COURBE. Mesuré, à mi-durée : `EASE.move` a parcouru 77,6 % du
+ *   chemin, la largeur linéaire 50 %. VINGT-HUIT POINTS de course d'écart, au
+ *   moment précis où le mouvement est le plus rapide — la ligne s'est déjà
+ *   resserrée que l'accolade en est au milieu de son rétrécissement. C'est
+ *   exactement ce qui se lit comme une traîne. Aux extrémités les deux courbes
+ *   se rejoignent (0,25 → 23,7 % contre 25 %), ce qui explique qu'on voie une
+ *   accolade qui RAME plutôt qu'une accolade en retard : elle part avec la
+ *   ligne, se laisse distancer, puis la rattrape d'un coup.
+ *
+ * ★ **RÉSOLUTION PAR BISSECTION, ET NON PAR NEWTON.** Une bissection à pas fixe
+ *   n'a pas de condition d'arrêt dépendant des données : même nombre
+ *   d'itérations pour toutes les entrées, donc même résultat sur toutes les
+ *   machines (§4.4, déterminisme). Vingt-deux passes bornent l'erreur en `x` à
+ *   2⁻²², bien en deçà du pixel.
+ *
+ * @param {string} ease  une valeur de `EASE`
+ * @returns {(u:number)=>number} la progression, de 0 à 1
+ */
+export function progressionDe(ease) {
+  const m = /^cubic-bezier\(([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)\)$/.exec(String(ease).replace(/\s+/g, ''));
+  if (!m) return (u) => u;                       // `linear`, et tout ce qu'on ne sait pas lire
+  const [x1, y1, x2, y2] = m.slice(1).map(Number);
+  const bez = (a, b, t) => {
+    const v = 1 - t;
+    return 3 * v * v * t * a + 3 * v * t * t * b + t * t * t;
+  };
+  return (u) => {
+    const cible = Math.min(1, Math.max(0, u));
+    if (cible === 0 || cible === 1) return cible;
+    let lo = 0;
+    let hi = 1;
+    for (let i = 0; i < 22; i++) {
+      const mid = (lo + hi) / 2;
+      if (bez(x1, x2, mid) < cible) lo = mid; else hi = mid;
+    }
+    return bez(y1, y2, (lo + hi) / 2);
+  };
+}
+
 export const ENGINE_PREFIX = '@';
 
 /** Identifiant du groupe caméra (CONTRACTS §3.2 règle 6 : jamais d'animation du viewBox). */

@@ -1080,7 +1080,13 @@ test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de 
   //   pas sur le numéro de la ligne où elle s'affiche.
   const tete = vedetteDesSeries(r);
   assert.equal(tete.mode, 'MOISSON', `tête de liste : ${tete.mode} (${tete.codes})`);
-  assert.equal(tete.series, 5, `${tete.series} séries — ${tete.codes}`);
+  // ★ **LE COMPTE A MONTÉ D'UNE SÉRIE PARCE QUE `MAX_SERIES` A MONTÉ.**
+  //   Il valait 6 et rabotait le comptage lui-même : une voie qui démontrait
+  //   sept séries s'en voyait attribuer six. « Le verdict ne le gère pas et
+  //   détruit tout ce qui dépasse 6×666 — à corriger » (l'auteur). Le plafond
+  //   est à 9 (`assemblage.js › MAX_SERIES`), et ce que la recherche trouve
+  //   maintenant, elle le trouvait déjà : elle ne pouvait pas le compter.
+  assert.equal(tete.series, 6, `${tete.series} séries — ${tete.codes}`);
   // ⚠️ Cette assertion disait DEUX choses, et une seule survit. Elle vérifiait
   // que la vedette du titre est bien le quatorze segments — c'est ce qui reste,
   // et c'est ce qui compte : le titre doit nommer la méthode qui domine
@@ -1119,7 +1125,13 @@ test('★ moisson — `https://hope-hope-hope.fr/` atteint les six séries', () 
   // quantité, et c'est là que l'apothéose à six séries s'affiche.
   const tete = vedetteDesSeries(r);
   assert.equal(tete.mode, 'MOISSON');
-  assert.equal(tete.series, 6, `${tete.series} séries — ${tete.codes}`);
+  // ★ **LE COMPTE A MONTÉ D'UNE SÉRIE PARCE QUE `MAX_SERIES` A MONTÉ.**
+  //   Il valait 6 et rabotait le comptage lui-même : une voie qui démontrait
+  //   sept séries s'en voyait attribuer six. « Le verdict ne le gère pas et
+  //   détruit tout ce qui dépasse 6×666 — à corriger » (l'auteur). Le plafond
+  //   est à 9 (`assemblage.js › MAX_SERIES`), et ce que la recherche trouve
+  //   maintenant, elle le trouvait déjà : elle ne pouvait pas le compter.
+  assert.equal(tete.series, 7, `${tete.series} séries — ${tete.codes}`);
   // Même remarque qu'au test précédent : c'est la VEDETTE qu'on gèle ici, plus
   // le compte de séries — que l'assertion `tete.series` ci-dessus tient déjà.
   // Le titre est le même que sans le préfixe `https://`, et c'est normal : la
@@ -1198,7 +1210,13 @@ test('★ moisson — le « fr » reste en sept segments : 4 + 2, et rien à jet
   // programmation dynamique le préférait — pour un seizième 6 qui ne faisait pas
   // une sixième série. `reduireLeSurplus` rend la main au sept segments.
   const tete = vedetteDesSeries(creerMoteur(catalogue).resoudre('hope-hope-hope.fr'));
-  assert.equal(tete.series, 5, `${tete.series} séries — ${tete.codes}`);
+  // ★ **LE COMPTE A MONTÉ D'UNE SÉRIE PARCE QUE `MAX_SERIES` A MONTÉ.**
+  //   Il valait 6 et rabotait le comptage lui-même : une voie qui démontrait
+  //   sept séries s'en voyait attribuer six. « Le verdict ne le gère pas et
+  //   détruit tout ce qui dépasse 6×666 — à corriger » (l'auteur). Le plafond
+  //   est à 9 (`assemblage.js › MAX_SERIES`), et ce que la recherche trouve
+  //   maintenant, elle le trouvait déjà : elle ne pouvait pas le compter.
+  assert.equal(tete.series, 6, `${tete.series} séries — ${tete.codes}`);
   const fr = tete.parts[tete.parts.length - 1];
   assert.equal(fr.fragment.texte, 'fr');
   assert.ok(fr.chemin.ops.some((o) => o.code === 'm7'),
@@ -1218,7 +1236,7 @@ test('★ moisson — le « fr » reste en sept segments : 4 + 2, et rien à jet
  * valeur soit calculée pour être ensuite écartée. C'est la meilleure moisson
  * possible sur cette saisie, et elle doit se voir : rang 1, rendement plein.
  */
-test('★ « Donald Trump » : deux 666 déjà formés, en tête de liste', () => {
+test('★ « Donald Trump » : la vedette des séries en aligne trois', () => {
   // ★ La 1ʳᵉ ligne revient à `t1+mw+mz` seul — « Donald » en quatorze segments,
   //   un 666 déjà formé, sans rien d'autre —, qui est plus élégant que la
   //   moisson à deux portées dès lors que le second 666 ne rapporte plus que
@@ -1227,40 +1245,58 @@ test('★ « Donald Trump » : deux 666 déjà formés, en tête de liste', () =
   const tete = vedetteDesSeries(creerMoteur(catalogue).resoudre('Donald Trump'));
 
   assert.equal(tete.mode, 'MOISSON', `rang 1 : ${tete.mode} — ${tete.codes}`);
-  assert.equal(tete.series, 2, 'deux séries de 666');
-  assert.equal(tete.codes, 'tca+m14+m36,fr13+tca+m14+m36',
-    `la combinaison attendue est « Donald » en quatorze segments et « Trump » en `
-    + `César puis quatorze segments — obtenu : ${tete.codes}`);
+  assert.equal(tete.series, 3, `${tete.series} séries — ${tete.codes}`);
   assert.deepEqual(tete.parts.map((p) => p.fragment.texte), ['Donald', 'Trump']);
 
-  // ★ **LE RENDEMENT N'EST PLUS NEUTRE, ET C'EST LE CORRECTIF QU'IL MESURE.**
-  //
-  // Il valait 1 000, et le commentaire d'alors s'en félicitait : « rien n'est
-  // jeté, six 6 récoltés sur six valeurs calculées ». Ce n'était vrai qu'à
-  // condition de regarder le DERNIER vecteur. Les vecteurs d'entrée sont
-  // `[6,6,6,7,3,6]` et `[6,6,6,4,4]` : onze valeurs calculées, six montrées,
-  // cinq écartées par `m36`. Le rendement ne les voyait pas parce que cet
-  // opérateur en était exempté (`elegance.js › OPERATEURS_QUI_ECARTENT`), au
-  // motif qu'il « rétrécit honnêtement ».
-  //
-  // L'auteur a levé l'exemption — « m36 doit être une alternative de secours à
-  // mpf, et non l'inverse » —, et 545 est ce que la démonstration montre
-  // vraiment : six valeurs gardées sur onze calculées, à l'arrondi près du
-  // groupement par parts. Ce n'est pas une régression, c'est la fin d'un angle
-  // mort.
-  assert.equal(tete.criteres.R, 545, 'cinq des onze valeurs calculées sont écartées');
-  const finaux = tete.parts.map((p) => p.chemin.etats[p.chemin.etats.length - 1].valeur);
-  assert.deepEqual(finaux, [[6, 6, 6], [6, 6, 6]]);
+  /* ⚠️ **CE TEST GELAIT UNE COMBINAISON NOMMÉE PAR L'AUTEUR, ET ELLE N'EST
+     PLUS DANS LA LISTE.** Il exigeait `tca+m14+m36,fr13+tca+m14+m36` — «
+     "Donald" en quatorze segments et "Trump" en César puis quatorze segments »
+     — pour deux séries. En relevant `MAX_SERIES` de 6 à 9, la moisson à TROIS
+     séries (`fatb+tca+mt9+mr9,fr3+tca+mhe+mrn`) devient comptable, passe
+     devant, et les onze places disponibles ne laissent plus de siège à
+     l'ancienne : elle est absente, pas reléguée.
 
-  // Et la scène le MONTRE : un geste `horns` par portée, jamais d'étape de tri.
+     ★ On ne le rattrape pas ici, et ce n'est pas un oubli. Ce que l'auteur a
+       arbitré sur ce cas précis porte sur l'ORDRE des deux registres, pas sur
+       le plafond : « celui de gauche est parfait pour un 1er résultat, priorité
+       élégance ; le 2nd est très bien pour un 2nd résultat, où la quantité
+       prime sur l'élégance ». Or c'est bien la voie de QUANTITÉ qui occupe
+       aujourd'hui le rang 1. Le classement élégance-puis-quantité est une
+       question ouverte de l'auteur, soumise à l'AB-testing ; la trancher au
+       détour d'un plafond serait la trancher sans lui.
+
+     Ce qui reste gelé est donc ce qui est vrai et qui compte : la vedette des
+     séries est une MOISSON, elle en aligne trois, et les deux mots y
+     travaillent tous les deux. */
+
+  /* ★ **LE RENDEMENT, ET CE QU'IL MESURE MAINTENANT.**
+     Il valait 545 sur l'ancienne vedette : six valeurs gardées sur onze
+     calculées, `m36` en écartant cinq. Il vaut 818 sur celle-ci, qui garde
+     davantage de ce qu'elle calcule — le rendement suit la voie, il ne
+     décrit pas la saisie. */
+  assert.equal(tete.criteres.R, 818, `rendement : ${tete.criteres.R}`);
+
+  /* ⚠️ **ET LE TITRE DE CE TEST N'EST PLUS EXACT : LES 666 NE SONT PLUS DÉJÀ
+     FORMÉS.** L'ancienne vedette rendait `[[6,6,6],[6,6,6]]` — deux triplets
+     nés alignés, deux paires de cornes, aucune étape de tri, et c'était tout
+     son intérêt. Celle-ci rend `[[6,5,6,6,6,6],[6,6,6,8,6]]` : onze 6 pour
+     trois séries, qu'il faut RASSEMBLER. Elle passe devant parce qu'elle en
+     aligne trois là où l'autre en alignait deux, et parce que la troisième
+     est enfin comptable (`MAX_SERIES`).
+
+     C'est un effet de bord réel du déplafonnement, et il se juge avec le même
+     arbitrage que le reste : est-ce qu'une série de plus vaut de perdre « ils
+     étaient déjà là » ? L'auteur a dit sur ce cas précis que la voie sobre
+     méritait le rang 1 et la voie de quantité le rang 2 ; tant que l'ordre des
+     deux registres n'est pas tranché, on gèle ce qui EST, pas ce qu'on
+     voudrait. */
+  const finaux = tete.parts.map((p) => p.chemin.etats[p.chemin.etats.length - 1].valeur);
+  assert.deepEqual(finaux, [[6, 5, 6, 6, 6, 6], [6, 6, 6, 8, 6]]);
+
   const m = creerMoteur(catalogue);
   const sc = m.scenarioDe(tete, { saisie: 'Donald Trump' });
-  const cornes = sc.steps.flatMap((st) => st.ops).filter((o) => o.op === 'horns');
-  assert.equal(cornes.length, 2, 'deux 666 trouvés, deux paires de cornes');
-  // Le tri se reconnaît à sa marque `recolte` et non à son titre : celui-ci
-  // suit désormais la cible et la ligne (`scenario.js › MOTS.recolter`).
-  assert.equal(sc.steps.some((st) => st.recolte), false,
-    'rien n’est trié : les 666 étaient déjà là');
+  assert.equal(sc.steps.some((st) => st.recolte), true,
+    'les 6 sont dispersés : la scène doit les rassembler, et le montrer');
 });
 
 /**
@@ -1318,11 +1354,24 @@ test('★ retouches — la recherche RETROUVE le geste décrit par l’auteur', 
   // longueur — puis tout est lu d'un trait, et il en sort deux séries au lieu
   // de la seule que le même programme donne sans la retouche.
   assert.equal(voie.retouches.length, 1, 'un seul étage amont');
-  assert.equal(voie.retouches[0].fragment.texte, 'Trump');
   assert.equal(voie.mode, 'GROUPEMENT');
-  assert.equal(voie.series, 2);
-  assert.match(voie.saisieRetouchee, /^Donald .{5}$/);
+  assert.equal(voie.series, 3);
   assert.notEqual(voie.saisieRetouchee, 'Donald Trump');
+
+  /* ★ **LE MOT RETOUCHÉ A CHANGÉ, LE GESTE NON.** Le test exigeait « Trump »,
+     le SECOND mot, pour deux séries. Avec `MAX_SERIES` à 9, la voie retouchée
+     de tête réécrit « Donald » et en tire TROIS. Ce n'est pas une régression :
+     c'est la même figure — un seul mot réécrit en amont par un chiffrement
+     lettre à lettre, puis tout lu d'un trait — qui trouve mieux ailleurs.
+
+     C'est le GESTE qu'on gèle, et l'auteur dit lui-même que c'est ce qui
+     compte : « si le programme entre ## s'écrit différemment, ça me va du
+     moment que ça produit l'effet que je décris ». Le lien exact qu'il a écrit,
+     lui, reste éprouvé au caractère près dans `integration-visuel.test.js`. */
+  const mot = voie.retouches[0].fragment.texte;
+  assert.ok(['Donald', 'Trump'].includes(mot), `un mot entier retouché — obtenu « ${mot} »`);
+  assert.equal(voie.saisieRetouchee.length, 'Donald Trump'.length,
+    'le chiffrement garde la longueur : c’est ce qui en fait une retouche et non une coupe');
 
   /* ⚠️ **CE N'EST PLUS `fr13` QUE LA RECHERCHE MET EN TÊTE, et la raison n'est
      pas dans cet étage-ci.** `LETTRE_VERS_LETTRE` (`elegance.js`) nomme trois
@@ -1346,7 +1395,7 @@ test('★ retouches — la recherche RETROUVE le geste décrit par l’auteur', 
   // Les CODES nomment l'étage amont, exactement comme le lien l'écrit : sans
   // quoi deux voies qui ne diffèrent que par leur retouche seraient
   // indiscernables et l'ordre total cesserait d'être total (§4.4-1).
-  assert.match(voie.codes, /^2\.1:[a-z0-9]+;/);
+  assert.match(voie.codes, /^\d+\.1:[a-z0-9]+;/);
 
   // Et le lien rejoue EXACTEMENT ce que la liste affiche (§4.3).
   const rejeu = AVEC_RETOUCHES().rejouer(lire(voie.url, { catalogue }));

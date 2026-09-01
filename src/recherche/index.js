@@ -548,8 +548,12 @@ export function creerMoteur(catalogue, options = {}) {
         ? fragmentDePortee(texte, jt, desc.portee)
         : fragmentEntier(texte, jt);
       if (!f) return { ok: false, raison: 'portée hors bornes', bandeau: BANDEAUX.formatInconnu };
-      const chemin = executerProgramme(f.texte, desc.codes, parCode);
-      if (!chemin) return { ok: false, raison: 'programme inapplicable', bandeau: BANDEAUX.codeInconnu };
+      const journal = [];
+      const chemin = executerProgramme(f.texte, desc.codes, parCode, journal);
+      if (!chemin) {
+        const d = diagnostic(journal);
+        return { ok: false, raison: 'programme inapplicable', bandeau: d.bandeau, detail: d.detail };
+      }
       const fin = chemin.etats[chemin.etats.length - 1];
       // ★ Une retouche doit rendre du TEXTE — c'est ici, et nulle part ailleurs,
       //   que la règle se vérifie : `url.js` lit la grammaire sans catalogue et
@@ -591,8 +595,12 @@ export function creerMoteur(catalogue, options = {}) {
       }
 
       for (const fragment of portees) {
-        const chemin = executerProgramme(fragment.texte, desc.codes, parCode);
-        if (!chemin) return { ok: false, raison: 'programme inapplicable', bandeau: BANDEAUX.codeInconnu };
+        const journal = [];
+        const chemin = executerProgramme(fragment.texte, desc.codes, parCode, journal);
+        if (!chemin) {
+          const d = diagnostic(journal);
+          return { ok: false, raison: 'programme inapplicable', bandeau: d.bandeau, detail: d.detail };
+        }
         parts.push({ fragment, chemin });
       }
     }
@@ -889,14 +897,43 @@ function fragmentDePortee(saisie, jetons, portee) {
   };
 }
 
-function executerProgramme(texte, codes, parCode) {
+function executerProgramme(texte, codes, parCode, journal = null) {
   let courant = etat('STR', String(texte).normalize('NFC'), [[0, texte.length]]);
   const chemin = { ops: [], etats: [courant], valeur: null, cout: 0 };
   for (const code of codes) {
     const op = parCode.get(code);
-    if (!op) return null;
+    // ★ **DEUX ÉCHECS QUI N'ONT RIEN À VOIR, ET QUI SE DISAIENT PAREIL.**
+    //
+    //   > « Pourquoi es-tu capable d'identifier ce qui bloque, mais que rien
+    //   >   n'est affiché en console pour comprendre ce qui ne va pas
+    //   >   précisément, en plus du message d'erreur générique qui s'affiche
+    //   >   sur le site ? » (l'auteur)
+    //
+    //   Les deux sorties rendaient `null`, l'appelant posait le même bandeau —
+    //   « ce lien emploie une règle que cette version ne connaît pas » — et
+    //   c'était FAUX une fois sur deux. `mrd` est parfaitement connu ; ce qu'il
+    //   refuse, c'est la VALEUR qu'on lui présente. Envoyer quelqu'un chercher
+    //   une version manquante alors que son opérateur est là et vient de dire
+    //   non, c'est une piste fausse, pas une information incomplète.
+    //
+    //   Le journal note donc lequel des deux, quel code, à quel rang, et sur
+    //   quel état — la seule chose qui permette de comprendre sans relire le
+    //   catalogue.
+    if (!op) {
+      if (journal) journal.push({ cause: 'inconnu', code, rang: chemin.ops.length });
+      return null;
+    }
     const apres = appliquerOp(op, courant);
-    if (apres === null) return null;
+    if (apres === null) {
+      if (journal) {
+        journal.push({
+          cause: 'refus', code, rang: chemin.ops.length,
+          type: courant.type,
+          valeur: Array.isArray(courant.valeur) ? courant.valeur.join(' ') : String(courant.valeur),
+        });
+      }
+      return null;
+    }
     chemin.ops.push(op);
     chemin.etats.push(apres);
     chemin.cout += op.cout || 0;
@@ -904,6 +941,30 @@ function executerProgramme(texte, codes, parCode) {
   }
   chemin.valeur = courant.type === 'NUM' ? courant.valeur : null;
   return chemin;
+}
+
+/**
+ * Ce qu'on dit d'un programme qui n'a pas pu se jouer — en clair, et exact.
+ *
+ * Deux causes, deux phrases, et surtout deux CONDUITES différentes pour qui
+ * lit : un code inconnu se répare en changeant de version ou de lien, un refus
+ * se répare en changeant la valeur qu'on présente à l'opérateur — ou en
+ * corrigeant l'opérateur, quand c'est lui qui a tort.
+ */
+function diagnostic(journal) {
+  const e = journal && journal[journal.length - 1];
+  if (!e) return null;
+  if (e.cause === 'inconnu') {
+    return {
+      bandeau: BANDEAUX.codeInconnu,
+      detail: `« ${e.code} » (position ${e.rang + 1}) n’existe pas dans ce catalogue.`,
+    };
+  }
+  return {
+    bandeau: BANDEAUX.regleRefusee(e.code),
+    detail: `« ${e.code} » (position ${e.rang + 1}) refuse ${e.type} « ${e.valeur} » : `
+      + 'l’opérateur existe, mais sa règle ne s’applique pas à cette valeur.',
+  };
 }
 
 // ══════════════════════════════ interface postMessage (Worker ou fil principal)
