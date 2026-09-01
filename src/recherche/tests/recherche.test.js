@@ -27,10 +27,13 @@ test(`catalogue de test employé : ${source}`, () => {
 });
 
 test('constantes conformes à CONTRACTS.md §5', () => {
-  // Six depuis l'arbitrage de l'auteur — voir `bfs.js › D_MAX` pour la mesure
-  // qui l'autorise : la profondeur ne coûte rien, c'est `BUDGET_TRAVAIL` qui
-  // tranche.
-  assert.equal(D_MAX, 6);
+  // ★ QUINZE depuis l'arbitrage de l'auteur — « vu que ça n'a pas l'air de
+  //   coincer côté timing, on va pouvoir passer la profondeur max à 15 au lieu
+  //   de 6 ». Voir `bfs.js › D_MAX` : la profondeur ne coûte presque rien,
+  //   c'est le FAISCEAU et le budget de travail qui tranchent. Mesuré au
+  //   relèvement : le corpus des douze saisies passe de 13,8 s à 16,2 s, soit
+  //   +17 % pour deux fois et demie la profondeur.
+  assert.equal(D_MAX, 15);
   assert.equal(MAX_NODES, 20000);
   assert.equal(BUDGET_MS, 250);
   assert.equal(N_FRAG_MAX, 64);

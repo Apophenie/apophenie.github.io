@@ -53,7 +53,7 @@
  * dépense aujourd'hui 1,1 à 1,4 s de calcul : le filet ne se déclenche jamais
  * en régime normal, et c'est exactement ce qu'on lui demande.
  */
-export const BUDGET_TOTAL_MS = 5000;
+export const BUDGET_TOTAL_MS = 10000;
 
 /**
  * Ce qu'elle s'autorise pour UN fragment, dans le pipeline complet. C'est un

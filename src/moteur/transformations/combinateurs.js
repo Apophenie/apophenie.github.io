@@ -179,9 +179,25 @@ function etapeDecompte(spec) {
  * divergent : sans lui, l'étape garderait sa durée et le geste se jouerait
  * accéléré, sans que rien ne le signale.
  */
+/**
+ * ★ **LE NIVELLEMENT A DOUBLÉ, ET LUI SEUL.**
+ *
+ * > « La seconde fait un usage remarquable de `meg`, mais les mouvements de
+ * >   `meg` sont trop rapides : ils devraient être je pense deux fois plus
+ * >   lents environ. » (l'auteur)
+ *
+ * Ce qui va vite dans un nivellement, ce sont les `1` qui passent d'un nombre à
+ * l'autre — et chacun porte une arithmétique à suivre : un nombre décroît au
+ * départ, un autre croît à l'arrivée, et la somme de la ligne doit se lire juste
+ * entre les deux. C'est la phase la plus DENSE du geste, pas la plus longue.
+ *
+ * Seules les deux constantes du nivellement doublent : l'accolade, le vol et la
+ * remontée n'ont rien à montrer de plus qu'ailleurs, et les allonger rendrait
+ * `meg` interminable au lieu de le rendre lisible.
+ */
 export const POIDS_RAMASSAGE = Object.freeze({
   accolade: 900, doubles: 800,
-  nivellement0: 260, nivellement1: 520,
+  nivellement0: 520, nivellement1: 1040,
   effacement0: 380, effacement1: 90,
   vol0: 620, vol1: 260,
   remontee: 760,

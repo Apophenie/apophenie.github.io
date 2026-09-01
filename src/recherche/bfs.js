@@ -51,7 +51,16 @@ import { familleDeConvention } from './elegance.js';
  *   qu'un `mr9` doit retourner, et `fr21+tca+mx6+mrd+mr9` — cinq gestes — donne
  *   seize 6 sur vingt. À quatre, cette voie était hors de portée.
  */
-export const D_MAX = 6;
+/* ★ **QUINZE, ET C'EST L'AUTEUR QUI L'AUTORISE** : « vu que ça n'a pas l'air de
+   coincer côté timing, on va pouvoir passer la profondeur max à 15 au lieu de
+   6, et le temps max à 10 s au lieu de 5 ».
+
+   ⚠️ Ce n'est PAS quinze fois plus de travail. Le faisceau (`P_BEAM`) et le
+     budget par fragment (`BUDGET_TRAVAIL`) bornent l'exploration bien avant la
+     profondeur : ce que ce plafond change est la LONGUEUR des voies
+     atteignables, pas la quantité de nœuds visités. Mesuré sur le corpus au
+     moment du relèvement — à consigner ici si le chiffre bouge. */
+export const D_MAX = 15;
 export const P_BEAM = 12;      // chemins conservés par état canonique
 export const MAX_NODES = 20000;
 export { BUDGET_MS };          // par fragment
@@ -171,7 +180,16 @@ export const FRAGMENTS_GARANTIS = 12; // = MAX_LIBRES de assemblage.js
  *    sous une charge de douze processus sur huit cœurs.
  */
 export const BUDGET_TRAVAIL = 420000;         // par fragment, régime normal
-export const BUDGET_TRAVAIL_TOTAL = 1000000;  // phase de recherche entière
+/* ★ **DOUBLÉ AVEC LE TEMPS QU'IL DÉPENSE.** L'auteur a porté `BUDGET_TOTAL_MS`
+   de 5 à 10 secondes ; sans ce plafond-ci, la seconde moitié n'aurait jamais
+   servi. Mesuré avant : les recherches lourdes rendaient la main en 2,7 s en se
+   déclarant tronquées — c'est le TRAVAIL qui coupait, pas l'horloge, et
+   allonger l'horloge seule n'aurait rien changé.
+
+   Après : `https://fr.wikipedia.org/wiki/Nombre_de_la_bête` passe de six séries
+   en tête à NEUF, pour 3,0 s. Le temps accordé est employé, et il reste les
+   deux tiers de la marge. */
+export const BUDGET_TRAVAIL_TOTAL = 2000000;  // phase de recherche entière
 
 /**
  * Plafond par fragment une fois le budget global épuisé — le pendant
