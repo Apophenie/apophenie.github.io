@@ -95,3 +95,104 @@ export const BUDGET_MS = 250;
  * 12 ms est un PLANCHER de découpe, pas une garantie de fluidité.
  */
 export const TRANCHE_MS = 12;
+
+/**
+ * ★ LA PUISSANCE DE FOUILLE — une réglette 2^N, de 0 à 7.
+ *
+ * Tous les plafonds ci-dessus (et ceux, déterministes, de `bfs.js ›
+ * BUDGET_TRAVAIL*`) décrivent UNE recherche : celle qui doit rendre la main
+ * assez vite pour qu'on la regarde. Ils n'ont rien à dire de celle qu'on lance
+ * exprès pour aller plus loin, et qu'on accepte d'attendre.
+ *
+ * La réglette dit exactement ce supplément, en une seule grandeur : le cran N
+ * multiplie TOUS les budgets par 2^N, du cran 0 (×1, ce que le site fait
+ * aujourd'hui) au cran 7 (×128, soit jusqu'à 128 millions d'applications
+ * d'opérateurs et un filet temporel à dix minutes).
+ *
+ * ★ **Un seul facteur pour tous les budgets, et non un réglage par budget.**
+ * Ces bornes forment un système : le budget global décide du NOMBRE de
+ * fragments cherchés, le budget par fragment décide de la PROFONDEUR de
+ * chacun, la réserve protège les douze fragments garantis. Ne relever que l'un
+ * des trois ne « cherche pas deux fois plus », il déplace le goulot — mesuré
+ * dès le premier essai : le seul budget global relevé, la recherche parcourt
+ * plus de fragments mais les explore exactement aussi peu, et la liste ne
+ * change quasiment pas. Le facteur unique est ce qui rend la réglette lisible :
+ * un cran de plus, c'est deux fois plus de tout.
+ *
+ * ★ **Le FILET TEMPOREL suit, sinon il annule la réglette.** À budget de
+ * travail multiplié par huit, cinq secondes de filet mordent avant la borne
+ * déterministe : la recherche s'écourterait à l'horloge, donc de façon non
+ * reproductible (§4.4), au moment précis où l'on demande davantage. Le filet
+ * reste un filet — il ne doit jamais décider — donc il monte avec le reste.
+ *
+ * ★ **Le cran par défaut est 0, et il rend les constantes TELLES QUELLES.**
+ * `1 << 0` vaut 1, la multiplication est l'identité : au défaut, pas un budget
+ * ne change de valeur, et la recherche d'aujourd'hui reste au bit près celle
+ * d'aujourd'hui. C'est le même invariant que celui des quatre curseurs
+ * (`recherche/score.js › ponderer`), et il se vérifie de la même façon.
+ *
+ * ── CE QU'ELLE CHANGE, MESURÉ ──────────────────────────────────────────────
+ *
+ * Relevé sur quatre saisies, moteur sans filet temporel, crans 0 à 3 :
+ *
+ *   `hope`                              identique aux quatre crans (67–168 ms)
+ *   `https://hope-hope-hope.fr/`        identique aux quatre crans (431–575 ms)
+ *   `Le chat dort sur le tapis rouge`   identique aux quatre crans (744–1 196 ms)
+ *   `La numérologie est une science exacte, disent-ils`
+ *       cran 0 : **tronquée**, tête à 2 954
+ *       cran 1 : entière, tête à **5 296**, liste différente (847 → 1 292 ms)
+ *       crans 2 et 3 : identiques au cran 1
+ *
+ * C'est exactement ce qu'on attend d'une réglette de fouille, et c'est ce qui
+ * justifie de la publier : **elle ne fait rien là où le budget ne mordait pas,
+ * et elle fait tout là où il mordait.** Sur la saisie longue, le cran 0 rend une
+ * liste marquée `tronque` dont la meilleure voie vaut 2 954 ; un seul cran de
+ * plus suffit à finir la recherche et la tête double. Au-delà, plus rien ne
+ * change : la recherche a fini, les crans 2 à 7 ne servent qu'aux saisies
+ * encore plus lourdes.
+ *
+ * ⚠️ Ce n'est PAS une préférence utilisateur au sens de `src/app/reglages.js` :
+ * la puissance voyage dans l'URL (`recherche/url.js`, marqueur `f<N>!`), parce
+ * qu'une liste obtenue en fouillant huit fois plus n'est pas la même liste, et
+ * qu'un lien qui ne la porterait pas rendrait autre chose que ce qu'on partage.
+ */
+export const PUISSANCE_DE_FOUILLE_DEFAUT = 0;
+export const PUISSANCE_DE_FOUILLE_MAX = 7;
+
+/**
+ * Les budgets d'un cran de fouille.
+ *
+ * ⚠️ Ne rend PAS les budgets de travail (`bfs.js › BUDGET_TRAVAIL`,
+ * `BUDGET_TRAVAIL_TOTAL`, `BUDGET_TRAVAIL_RESERVE`) : ils vivent là où ils se
+ * justifient, et `config.js` n'a jamais eu le droit de les redéfinir (voir
+ * l'en-tête de ce fichier). C'est `facteur` qui traverse, et
+ * `recherche/index.js` l'applique à ces trois-là au point d'appel.
+ *
+ * @param {number} puissance  le cran demandé ; borné, jamais refusé
+ * @returns {{puissance:number, facteur:number, budgetTotalMs:number, budgetMsFilet:number}}
+ */
+export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
+  const n = normaliserPuissance(puissance);
+  const facteur = 1 << n;
+  return {
+    puissance: n,
+    facteur,
+    budgetTotalMs: BUDGET_TOTAL_MS * facteur,
+    budgetMsFilet: BUDGET_MS_FILET * facteur,
+  };
+}
+
+/**
+ * Un cran, ramené à un entier de [0, PUISSANCE_DE_FOUILLE_MAX].
+ * Ce qui n'est pas un nombre vaut le défaut : un réglage absent n'est pas un
+ * réglage à zéro par hasard, c'est un réglage qu'on n'a pas touché — et zéro se
+ * trouve être le défaut, ce qui rend les deux lectures indiscernables ici, mais
+ * la règle est écrite pour le jour où le défaut bougerait.
+ */
+export function normaliserPuissance(puissance) {
+  const n = Number(puissance);
+  if (!Number.isFinite(n)) return PUISSANCE_DE_FOUILLE_DEFAUT;
+  const e = Math.trunc(n);
+  if (e < 0) return 0;
+  return e > PUISSANCE_DE_FOUILLE_MAX ? PUISSANCE_DE_FOUILLE_MAX : e;
+}

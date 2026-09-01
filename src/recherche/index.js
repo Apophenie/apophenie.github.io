@@ -18,7 +18,12 @@ import { LIMITE_SAISIE, encoderTexte } from './base58.js';
 import {
   chercherSix, normaliserCatalogue, validerCatalogue,
   appliquerOp, etat, operateursPourCible,
-  N_FRAG_MAX, BUDGET_MS_FILET, BUDGET_TOTAL_MS, FRAGMENTS_GARANTIS,
+  N_FRAG_MAX, FRAGMENTS_GARANTIS,
+  // ⚠️ Les deux filets TEMPORELS (`BUDGET_TOTAL_MS`, `BUDGET_MS_FILET`) ne se
+  //   lisent plus ici mais dans `config.js › reglagesDeBudget`, qui les rend
+  //   déjà multipliés par le cran de fouille. Les budgets de TRAVAIL, eux,
+  //   restent lus dans `bfs.js` où ils se justifient, et c'est `facteur` qui les
+  //   met à l'échelle au point d'appel.
   BUDGET_TRAVAIL, BUDGET_TRAVAIL_TOTAL, BUDGET_TRAVAIL_RESERVE,
 } from './bfs.js';
 import { construireBassin } from './bassin.js';
@@ -27,8 +32,14 @@ import {
   assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe,
 } from './assemblage.js';
 import {
-  noter, diversifier, ordreTotal, ordreElegance, ordreTriptyques, REGLAGES,
+  noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, REGLAGES,
+  ponderer, normaliserCurseurs, pourcentagesDe,
+  CURSEURS, CURSEUR_DEFAUT, CURSEUR_MAX, CURSEURS_DEFAUT, CORRESPONDANCE,
 } from './score.js';
+import {
+  reglagesDeBudget, normaliserPuissance,
+  PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX,
+} from '../config.js';
 import { emploieUneFicelle } from './elegance.js';
 import { construireScenario } from './scenario.js';
 import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
@@ -40,6 +51,19 @@ import { deroulerParTranches } from './tranches.js';
 
 export { LIMITE_SAISIE, BANDEAUX, REGLAGES };
 export { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES };
+// ★ Tout ce que le PANNEAU DE RÉGLAGES de la liste a besoin de savoir, réexporté
+//   ici : l'écran ne doit pas avoir à connaître le découpage interne du moteur
+//   pour dessiner quatre curseurs et une réglette. Les noms, les bornes, le
+//   défaut, la table de correspondance (pour dire ce qu'un curseur touche) et
+//   les deux fonctions qui traduisent des positions en pourcentages affichés.
+export {
+  ponderer, normaliserCurseurs, pourcentagesDe,
+  CURSEURS, CURSEUR_DEFAUT, CURSEUR_MAX, CURSEURS_DEFAUT, CORRESPONDANCE,
+};
+export {
+  reglagesDeBudget, normaliserPuissance,
+  PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX,
+};
 
 /**
  * Réponses écrites à la main — CONTRACTS.md §0.4.
@@ -180,19 +204,51 @@ export function creerMoteur(catalogue, options = {}) {
    * Deux conducteurs le poussent : `resoudre`, d'un trait ; et
    * `resoudreProgressif`, par tranches (`tranches.js`).
    *
+   * ★ **LES DEUX RÉGLAGES DE L'ÉCRAN DE LISTE**, et ils traversent tout le
+   *   pipeline sans se ressembler :
+   *
+   *   · `curseurs` — les quatre positions (`score.js › ponderer`). Elles ne
+   *     changent RIEN à ce qui est exploré : elles repondèrent la NOTATION et
+   *     donc le classement. Une liste repondérée est la même récolte, triée
+   *     autrement.
+   *   · `fouille` — le cran 2^N de `config.js › reglagesDeBudget`. Lui, à
+   *     l'inverse, ne change rien à la notation : il change ce qu'on a eu le
+   *     temps de CHERCHER, donc ce qu'il y a à classer.
+   *
+   *   Les deux se lisent d'abord dans `optionsResolution` — c'est un réglage
+   *   par recherche —, puis dans les options du moteur, pour qu'un banc de
+   *   mesure puisse en fixer un pour toute une campagne.
+   *
    * @param {string} saisieBrute
-   * @param {{cible?:import('./cible.js').Cible|string}} [optionsResolution]
+   * @param {{cible?:import('./cible.js').Cible|string, curseurs?:Object,
+   *   fouille?:number}} [optionsResolution]
    */
   function* deroulerResolution(saisieBrute, optionsResolution = {}) {
     const cbl = normaliserCible(optionsResolution.cible ?? options.cible);
+    const ponderation = ponderer(optionsResolution.curseurs ?? options.curseurs);
+    const fouille = normaliserPuissance(optionsResolution.fouille ?? options.fouille);
+    const budgets = reglagesDeBudget(fouille);
+    // Ce que l'écran de liste doit retrouver dans TOUTE réponse, y compris les
+    // deux replis ci-dessous : sans quoi le panneau de réglages perdrait ses
+    // positions sur une saisie vide ou trop longue.
+    const reglagesRendus = {
+      curseurs: ponderation.curseurs,
+      pourcentages: ponderation.pourcentages,
+      poids: ponderation.poids,
+      fouille,
+    };
     const saisie = String(saisieBrute ?? '').normalize('NFC'); // §4.4 règle 5
     if (!saisie.length) {
-      return { saisie, cible: cbl, approches: [], fragments: [], dedie: null, vide: true };
+      return {
+        saisie, cible: cbl, approches: [], fragments: [], dedie: null, vide: true,
+        ...reglagesRendus,
+      };
     }
     if (saisie.length > LIMITE_SAISIE) {
       return {
         saisie: saisie.slice(0, LIMITE_SAISIE), cible: cbl,
         approches: [], fragments: [], dedie: null, vide: false,
+        ...reglagesRendus,
         avertissement: BANDEAUX.saisieTropLongue,
       };
     }
@@ -226,8 +282,18 @@ export function creerMoteur(catalogue, options = {}) {
     // ★ Débranché, le filet ne LIT même pas l'horloge (voir `bfs.js`).
     const filetTemporel = options.filetTemporel !== false;
     let debutRecherche = filetTemporel ? maintenant() : 0;
-    const budgetTotal = options.budgetTotalMs ?? BUDGET_TOTAL_MS;
-    const travailTotal = options.budgetTravailTotal ?? BUDGET_TRAVAIL_TOTAL;
+    // ★ LA PUISSANCE DE FOUILLE MULTIPLIE LES QUATRE BUDGETS, ET SEULEMENT EUX.
+    //   `budgets.facteur` vaut 2^N ; au cran 0 il vaut 1 et pas une constante ne
+    //   bouge (`config.js › reglagesDeBudget`). Les quatre montent ENSEMBLE parce
+    //   qu'ils forment un système : n'en relever qu'un déplace le goulot au lieu
+    //   de chercher plus loin — voir le pavé de `config.js`, qui porte la mesure.
+    //   ⚠️ Les surcharges explicites de l'appelant (`options.budget*`) restent
+    //   PRIORITAIRES et ne sont PAS multipliées : le banc de mesure qui fixe un
+    //   budget le fixe pour de bon, sinon deux réglages se battraient en silence.
+    const budgetTotal = options.budgetTotalMs ?? budgets.budgetTotalMs;
+    const travailTotal = options.budgetTravailTotal ?? BUDGET_TRAVAIL_TOTAL * budgets.facteur;
+    const travailParFragment = BUDGET_TRAVAIL * budgets.facteur;
+    const travailDeReserve = BUDGET_TRAVAIL_RESERVE * budgets.facteur;
     let cherches = 0;
     let travailRestant = travailTotal;
     let tronqueTravail = false;  // borne déterministe atteinte : reproductible
@@ -247,7 +313,7 @@ export function creerMoteur(catalogue, options = {}) {
     //   l'avancement au seul budget global le ferait donc atteindre 100 % alors
     //   qu'il reste jusqu'à douze fragments à faire — la jauge à cent pour cent
     //   qui continue de tourner, c'est-à-dire le mensonge le plus détesté.
-    const plafondTravail = travailTotal + FRAGMENTS_GARANTIS * BUDGET_TRAVAIL_RESERVE;
+    const plafondTravail = travailTotal + FRAGMENTS_GARANTIS * travailDeReserve;
     for (const f of ordre) {
       const cle = f.texte.normalize('NFC');
       if (parFrag.has(cle)) continue;
@@ -271,8 +337,8 @@ export function creerMoteur(catalogue, options = {}) {
       // cache sans rien garantir de plus.
       // Le budget global, lui, ne décide que du NOMBRE de fragments cherchés.
       ctxRecherche.maxTravail = options.maxTravail
-        ?? (epuise ? BUDGET_TRAVAIL_RESERVE : BUDGET_TRAVAIL);
-      ctxRecherche.budgetMs = options.budgetMs ?? BUDGET_MS_FILET;
+        ?? (epuise ? travailDeReserve : travailParFragment);
+      ctxRecherche.budgetMs = options.budgetMs ?? budgets.budgetMsFilet;
       const avant = ctxRecherche.travail || 0;
       parFrag.set(cle, chercherSix(f.texte, ctxRecherche));
       travailRestant -= (ctxRecherche.travail || 0) - avant;
@@ -332,7 +398,13 @@ export function creerMoteur(catalogue, options = {}) {
     //   permet au banc de mesurer l'avant et l'après d'une seule exécution
     //   (`.planning/banc/classement.mjs --avant`). Réservé à la mesure.
     const barèmeDElegance = options.elegance !== false;
-    const ctxScore = { saisie, signifiants, elegance: barèmeDElegance, cible: cbl };
+    // ★ La pondération descend jusqu'à `noter` par le CONTEXTE, comme la cible et
+    //   les zones signifiantes : c'est une propriété de la question posée, pas
+    //   une propriété de l'approche. Au défaut elle se déclare non personnalisée
+    //   et `noter` ne change pas une ligne de branche.
+    const ctxScore = {
+      saisie, signifiants, elegance: barèmeDElegance, cible: cbl, ponderation,
+    };
     // ★ Une approche RETOUCHÉE se note sur le texte qu'elle lit réellement, pas
     //   sur celui qu'on a tapé. Ses portions, sa couverture et le barème
     //   d'élégance comptent tous en positions de caractères, et la retouche peut
@@ -351,7 +423,11 @@ export function creerMoteur(catalogue, options = {}) {
       return c;
     };
     for (const a of approches) { noter(a, contexteDe(a)); marquerLesCodes(a); }
-    approches.sort(ordreTotal);
+    // ★ Le comparateur du mode personnalisé — au défaut, `ordrePondere` rend un
+    //   ordre identique à `ordreTotal`, mais on prend `ordreTotal` lui-même pour
+    //   qu'aucune indirection ne s'interpose sur le chemin par défaut.
+    const ordreDeLaListe = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
+    approches.sort(ordreDeLaListe);
 
     // Le joker est affiché et assumé, en bas de liste (§0.4). Il n'est plus le
     // seul : le DÉCRET — un unique 6 recopié trois fois — porte désormais son
@@ -362,9 +438,26 @@ export function creerMoteur(catalogue, options = {}) {
     const jokers = approches.filter((a) => a.mode === 'JOKER');
     const honnetes = approches.filter((a) => a.mode !== 'JOKER');
     const place = REGLAGES.MAX_APPROCHES - (jokers.length ? 1 : 0);
-    const retenues = barèmeDElegance
+    // ★ **EN MODE PERSONNALISÉ, LES DEUX RÉGIMES SONT DÉBRANCHÉS.**
+    //
+    //   `selectionner` réserve la 1ʳᵉ ligne au champion de l'ÉLÉGANCE et la 2ᵈ
+    //   au champion des TRIPTYQUES, chacune jugée sur un crédit repondéré à elle
+    //   (`score.js › POIDS_DES_REGIMES`). C'est la réponse du site à une
+    //   question que l'auteur avait posée AVANT les curseurs : « ce n'est pas un
+    //   tri unique ». Les curseurs sont l'autre réponse à la même question —
+    //   celle où c'est le visiteur qui dit ce qu'il cherche.
+    //
+    //   Les faire cohabiter n'aurait pas de sens : trois lignes calculées avec
+    //   trois pondérations différentes, dont deux que le visiteur n'a pas
+    //   demandées, au-dessus de neuf qui obéissent à ses curseurs. Il pousserait
+    //   « quantité » à fond et verrait toujours, en tête, la voie que le régime
+    //   « élégance » a choisie. Dès qu'un curseur bouge, la liste entière est
+    //   donc classée avec les MÊMES critères, et le MMR (§4.8) garnit les douze
+    //   places par `ordreTotal` — c'est-à-dire par le barème que le visiteur
+    //   vient de régler.
+    const retenues = (barèmeDElegance && !ponderation.personnalisee)
       ? selectionner(honnetes, place)
-      : diversifier(honnetes, { limite: place });
+      : diversifier(honnetes, { limite: place, ponderation });
     if (jokers.length) retenues.push(jokers[0]);
     else if (!retenues.length) {
       const j = approcheJoker(saisie, ctxAssemblage);
@@ -394,8 +487,13 @@ export function creerMoteur(catalogue, options = {}) {
         nbJetons: lu === saisie ? jetons.length : tokeniser(lu).length,
       });
       const retouches = retouchesDe(a);
-      a.urlSobre = ecrire({ saisie, retouches, fragments: descripteurs, registre: 'sobre', cible: cbl });
-      a.urlScenique = ecrire({ saisie, retouches, fragments: descripteurs, registre: 'scenique', cible: cbl });
+      //   ★ Et les CURSEURS et la FOUILLE, quand ils ne sont pas au défaut : le
+      //   score que la voie rejouée affichera est celui de CETTE liste-ci, donc
+      //   il dépend d'eux (`url.js`, en-tête). Au défaut, `ecrire()` n'écrit
+      //   rien de plus et les liens sont ceux d'avant, au caractère près.
+      const reglages = { curseurs: ponderation.curseurs, fouille };
+      a.urlSobre = ecrire({ saisie, retouches, fragments: descripteurs, registre: 'sobre', cible: cbl, ...reglages });
+      a.urlScenique = ecrire({ saisie, retouches, fragments: descripteurs, registre: 'scenique', cible: cbl, ...reglages });
       // `url` reste le lien de référence de la voie — la version scénique,
       // celle que le site montre par défaut (voir `url.js`, le registre).
       a.url = a.urlScenique;
@@ -427,6 +525,8 @@ export function creerMoteur(catalogue, options = {}) {
         url: ecrire({
           saisie,
           cible: cbl,
+          curseurs: ponderation.curseurs,
+          fouille,
           fragments: [{
             portee: f.tokenDebut >= 0 && f.tokenLong > 0
               ? { offset: f.tokenDebut, longueur: f.tokenLong } : null,
@@ -452,7 +552,14 @@ export function creerMoteur(catalogue, options = {}) {
       vide: false,
       approches: retenues,
       fragments: listeFragments,
-      urlResultats: ecrire({ saisie, cible: cbl }),
+      // ★ LE LIEN DE LA LISTE porte les curseurs et la fouille : c'est lui qu'on
+      //   partage quand on a réglé quelque chose, et sans eux il rendrait la
+      //   liste du site plutôt que celle qu'on a sous les yeux.
+      urlResultats: ecrire({ saisie, cible: cbl, curseurs: ponderation.curseurs, fouille }),
+      // Ce que le panneau de réglages doit relire pour se redessiner : les
+      // positions telles qu'elles ont été comprises (bornées), les pourcentages
+      // affichés, les six poids qui en découlent, et le cran de fouille.
+      ...reglagesRendus,
       tronque: tronqueTravail || tronqueTemps,
       tronqueTemps,
       ...(avertissement ? { avertissement } : {}),
@@ -474,6 +581,36 @@ export function creerMoteur(catalogue, options = {}) {
     let pas = derouleur.next();
     while (!pas.done) pas = derouleur.next(0);
     return pas.value;
+  }
+
+  /**
+   * ★ `enumerer` — LA MÊME RECHERCHE, NOMMÉE PAR CE QU'ELLE SERT.
+   *
+   * L'écran d'accueil demande UNE démonstration ; l'écran de liste demande
+   * DOUZE voies, et c'est le seul des deux qui porte les quatre curseurs et la
+   * réglette de fouille. Les deux passent par le même pipeline — il n'y a qu'une
+   * recherche, et la première voie est simplement la tête de la liste.
+   *
+   * ⚠️ **Ce n'est donc pas un second pipeline, et il ne faut pas en faire un.**
+   * Ce que cette fonction ajoute est un NOM et un contrat écrit : « voici l'appel
+   * qui accepte les réglages de l'écran de liste ». Un appelant qui lit
+   * `moteur.enumerer(saisie, { curseurs, fouille })` sait où passent les
+   * curseurs ; le même appelant devant `resoudre` devait le deviner ou le
+   * chercher. Le prix est de quatre lignes, et le gain est qu'on ne branche pas
+   * les curseurs sur `resoudre` au petit bonheur depuis trois écrans différents.
+   *
+   * @param {string} saisieBrute
+   * @param {{cible?:*, curseurs?:Object, fouille?:number}} [optionsListe]
+   * @returns {Object} le résultat de `resoudre`, réglages compris
+   *   (`curseurs`, `pourcentages`, `poids`, `fouille`, `urlResultats`).
+   */
+  function enumerer(saisieBrute, optionsListe = {}) {
+    return resoudre(saisieBrute, optionsListe);
+  }
+
+  /** Le pendant progressif d'`enumerer` — même contrat, mais qui rend la main. */
+  function enumererProgressif(saisieBrute, optionsListe = {}) {
+    return resoudreProgressif(saisieBrute, optionsListe);
   }
 
   /**
@@ -593,7 +730,17 @@ export function creerMoteur(catalogue, options = {}) {
     // devinés — `scenario.js` a besoin des deux à la fois.
     approche.saisie = saisie;
     approche.saisieRetouchee = texte;
-    noter(approche, { saisie: texte, signifiants: zonesSignifiantes(texte), cible: cbl });
+    // ★ La PONDÉRATION vient du LIEN, comme la cible et le registre. Un lien
+    //   émis depuis une liste repondérée porte ses quatre crans (`url.js`) : sans
+    //   eux, la voie rejouée afficherait un score que la liste d'origine ne
+    //   montrait pas, et §4.3 interdit de rendre en silence autre chose que ce
+    //   qu'on a promis. Un lien sans marqueur note au barème du site.
+    noter(approche, {
+      saisie: texte,
+      signifiants: zonesSignifiantes(texte),
+      cible: cbl,
+      ponderation: ponderer(lecture.curseurs),
+    });
     marquerLesCodes(approche);
     // Hors liste, il n'y a personne dont se distinguer : le titre est celui que
     // `titres.js` compose à partir de la seule signature du chemin.
@@ -602,7 +749,12 @@ export function creerMoteur(catalogue, options = {}) {
     // Le registre du lien rejoué est celui qu'il porte : on ne le devine pas,
     // on le relit (`lecture.registre`, résolu par `url.js`).
     const registre = lecture.registre;
-    const lien = { saisie, fragments: lecture.fragments, retouches: lecture.retouches, cible: cbl };
+    // Les réglages voyagent avec, à l'identique : un lien réécrit doit rester
+    // le même lien, et la voie doit pouvoir ramener vers SA liste.
+    const lien = {
+      saisie, fragments: lecture.fragments, retouches: lecture.retouches, cible: cbl,
+      curseurs: lecture.curseurs, fouille: lecture.fouille,
+    };
     approche.urlSobre = ecrire({ ...lien, registre: 'sobre' });
     approche.urlScenique = ecrire({ ...lien, registre: 'scenique' });
     approche.url = ecrire({ ...lien, registre });
@@ -638,6 +790,8 @@ export function creerMoteur(catalogue, options = {}) {
 
   return {
     resoudre, resoudreProgressif, deroulerResolution,
+    // L'entrée de l'ÉCRAN DE LISTE — celle qui porte les curseurs et la fouille.
+    enumerer, enumererProgressif,
     rejouer, scenarioDe, catalogue, bassin, cache, ops,
   };
 }
@@ -878,7 +1032,15 @@ export function creerCanal(moteur, poster) {
   const envoyer = poster || ((m) => m);
   /** La cible voyage en CLAIR dans le message : `serialisable()` la réduit déjà
    *  à son texte, et un objet cible ne survivrait pas au clonage structuré. */
-  const optionsDe = (message) => (message.cible ? { cible: message.cible } : {});
+  const optionsDe = (message) => ({
+    ...(message.cible ? { cible: message.cible } : {}),
+    // Les curseurs sont un objet de nombres, la fouille un nombre : les deux
+    // survivent au clonage structuré sans rien de particulier, à la différence
+    // de la cible. Ils ne sont transmis que s'ils sont là — un message qui se
+    // tait garde le barème et le budget du site.
+    ...(message.curseurs ? { curseurs: message.curseurs } : {}),
+    ...(message.fouille === undefined ? {} : { fouille: message.fouille }),
+  });
   return {
     get generation() { return generation; },
     /**
@@ -934,6 +1096,13 @@ function serialisable(resultat) {
     vide: resultat.vide,
     urlResultats: resultat.urlResultats,
     fragments: resultat.fragments,
+    // Les réglages tels qu'ils ont été COMPRIS — bornés, résolus, accompagnés
+    // des pourcentages affichés et des six poids qui en découlent. L'écran de
+    // liste redessine son panneau avec ça, sans refaire le calcul de son côté.
+    curseurs: resultat.curseurs,
+    pourcentages: resultat.pourcentages,
+    poids: resultat.poids,
+    fouille: resultat.fouille,
     tronque: resultat.tronque,
     tronqueTemps: resultat.tronqueTemps,
     avertissement: resultat.avertissement,
