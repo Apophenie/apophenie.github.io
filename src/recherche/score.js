@@ -264,6 +264,34 @@ export function comparerCodes(a, b) {
  * Tout est entier. La renormalisation à 1 000 distribue son reste au « plus
  * fort reste », et départage les ex æquo par l'ORDRE DE LA TABLE — jamais par
  * un tri instable ni par un `localeCompare`.
+ *
+ * ── ⚠️ CE QUE LA RENORMALISATION FAIT, ET QU'ON NE VOIT PAS VENIR ──────────
+ *
+ * Les six poids somment à 1 000 : c'est un jeu à somme nulle, et « lever un
+ * curseur » n'y veut pas dire « monter les critères qu'il nourrit ». MESURÉ :
+ * quand la cohérence passe de 0 à 200, la contribution BRUTE de l'homogénéité
+ * TRIPLE (12 500 → 37 500) et sa part NORMALISÉE BAISSE (275 → 243 ‰) — parce
+ * que la notoriété, l'anti-ad-hoc et l'élégance, eux, partent de zéro et
+ * gonflent le dénominateur plus vite.
+ *
+ * Ce n'est pas un défaut de la table, c'est ce que « pondérer » signifie. La
+ * garantie que le barème offre est donc un RAPPORT, et elle est exacte : à
+ * témoin constant — un critère que le curseur ne nourrit pas —, le rapport ne
+ * recule jamais. C'est cela que le test vérifie, poste par poste, plutôt qu'une
+ * monotonie de la part absolue, qui serait fausse et qu'on aurait fini par
+ * « corriger » en cassant la table.
+ *
+ * ── ⚠️ CE QUE LES CURSEURS NE TOUCHENT PAS : LE FAISCEAU DU BFS ────────────
+ *
+ * `scorePartiel` et `scoreDeAcc` lisent `POIDS` en direct, et continuent de le
+ * faire quels que soient les curseurs. Ils décident de ce que la recherche
+ * EXPLORE (`bfs.js`, le faisceau par état), pas de ce que la liste MONTRE, et
+ * les deux questions sont distinctes : l'ensemble exploré doit rester le même
+ * pour une saisie donnée, sans quoi deux réglages de curseurs ne classeraient
+ * pas les mêmes voies mais des voies différentes — et « repondérer » cesserait
+ * de vouloir dire « trier autrement ». Le curseur qui agit sur l'exploration
+ * existe, il s'appelle la PUISSANCE DE FOUILLE (`config.js`), et il est
+ * séparé pour cette raison exacte.
  */
 
 /** Les quatre curseurs, dans l'ordre où l'auteur les a nommés. */
@@ -432,6 +460,43 @@ export function ponderer(curseurs) {
  *   r =  857 (12/14) → 1000 /  925 /  857
  *   r =  285 (4/14)  → 1000 /  533 /  285
  *   r =  176 (3/17)  → 1000 /  419 /  176
+ *
+ * ── ⚠️ LES DEUX FAÇONS DE « NE RIEN JETER » NE DÉSIGNENT PAS LES MÊMES VOIES ─
+ *
+ * Ce curseur tire sur DEUX leviers, et l'auteur les a demandés tous les deux :
+ * le poids de la COUVERTURE parmi les six critères (« ne rien jeter de la
+ * saisie ») et ce facteur-ci (« ne rien jeter de ce qu'on a calculé »). Les deux
+ * sont monotones dans le bon sens, et ce sont des propriétés EXACTES, vérifiées
+ * par un test : à deux voies identiques par ailleurs, lever le curseur avantage
+ * toujours celle qui lit plus de la saisie (le poids de U passe de 0 ‰ au cran 0
+ * à 305 ‰ au cran 200), et toujours celle qui jette moins.
+ *
+ * MAIS ILS NE TIRENT PAS LES MÊMES VOIES VERS LE HAUT, et la mesure le dit
+ * franchement. Moyennes sur les trois premières voies de neuf listes, rang des
+ * séries replié pour que les autres curseurs puissent atteindre la tête :
+ *
+ *   cran     0    50   100   150   200
+ *   U      924   815   789   745   745      ‰ de la saisie réellement lue
+ *   R      464   548   560   574   574      ‰ des valeurs récoltées qui font 6
+ *
+ * La couverture moyenne BAISSE quand le curseur monte, le rendement moyen MONTE.
+ * Ce n'est pas une inversion du curseur — c'est un arbitrage réel entre deux
+ * lectures du même mot : **lire toute la saisie demande souvent un vecteur
+ * large, et un vecteur large jette.** Au cran 0, jeter est gratuit, donc les
+ * moissons qui balaient tout le texte et abandonnent les trois quarts de ce
+ * qu'elles calculent remontent ; au cran 200, elles paient plein tarif et
+ * cèdent la place à des voies plus étroites et plus propres.
+ *
+ * ⚠️ **ARBITRAGE OUVERT.** Trois variantes ont été essayées et mesurées pour
+ * faire monter U avec le curseur — n'ouvrir le levier du rendement que vers le
+ * haut, ou que vers le bas, ou n'en ouvrir que la moitié. Aucune ne rend U
+ * monotone : la meilleure (levier bas au quart) donne 707 / 756 / 789 / 745 /
+ * 745, soit une bosse au milieu au lieu d'une pente. Le levier du rendement a
+ * été gardé ENTIER, parce qu'une variante qui ne corrige pas la mesure et qui
+ * ajoute deux réglages est un réglage de plus sans une raison de plus. Si
+ * l'auteur veut que « exhaustivité » ne parle QUE de la saisie lue, la ligne à
+ * supprimer est celle qui appelle cette fonction dans `noter`, et ce
+ * commentaire dit alors pourquoi.
  *
  * @param {number} rendement    part des valeurs récoltées qui vaut 6, en ‰
  * @param {number} exhaustivite position du curseur

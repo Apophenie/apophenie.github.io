@@ -204,6 +204,56 @@ test('curseurs — le compte des séries, porté par la quantité : jamais au-de
   assert.equal(facteurQuantite(plafond, CURSEUR_MAX), facteurQuantite(plafond + 5, CURSEUR_MAX));
 });
 
+test('★ curseurs — ce que chaque curseur GARANTIT, exactement', () => {
+  // ⚠️ Ces quatre propriétés sont les seules que le barème promette, et elles
+  //    sont EXACTES — la moyenne d'un corpus, elle, ne promet rien (voir le pavé
+  //    « les deux façons de ne rien jeter » dans `score.js › facteurRendement`).
+  //    Chacune se lit ainsi : à deux voies identiques sur tout le reste, lever
+  //    le curseur ne peut qu'avantager celle qu'il nomme.
+  // ⚠️ La grandeur qui doit croître est le RAPPORT du critère à un TÉMOIN que le
+  //    curseur ne nourrit pas — jamais son poids absolu. Les six poids somment à
+  //    1 000 : lever un curseur qui nourrit quatre critères leur donne à tous du
+  //    terrain, mais la part de chacun peut baisser si les trois autres montent
+  //    plus vite. MESURÉ : l'homogénéité passe de 275 à 243 ‰ quand la cohérence
+  //    va de 0 à 200, alors même que sa contribution brute triple — parce que la
+  //    notoriété, l'anti-ad-hoc et l'élégance, eux, partent de zéro. La phrase de
+  //    l'auteur (« varier avec ») porte sur ce que le curseur APPORTE, et c'est
+  //    le rapport qui le dit sans se faire piéger par la normalisation.
+  const gagneDuTerrain = (curseur, critere, temoin) => {
+    let precedent = null;
+    for (let cran = 0; cran <= CURSEUR_MAX; cran += 10) {
+      const p = ponderer({ [curseur]: cran }).poids;
+      // Comparaison en produits croisés : entière, donc exacte (§4.4).
+      if (precedent !== null) {
+        assert.ok(p[critere] * precedent[temoin] >= precedent[critere] * p[temoin],
+          `${curseur}=${cran} : ${critere}/${temoin} recule `
+          + `(${precedent[critere]}/${precedent[temoin]} → ${p[critere]}/${p[temoin]})`);
+      }
+      precedent = p;
+    }
+  };
+  // « exhaustivité doit peser sur couverture » : du poids nul au poids dominant.
+  gagneDuTerrain('exhaustivite', 'couverture', 'concision');
+  assert.equal(ponderer({ exhaustivite: 0 }).poids.couverture, 0);
+  assert.ok(ponderer({ exhaustivite: CURSEUR_MAX }).poids.couverture > 300,
+    'au cran haut, la couverture doit être le critère dominant');
+  // « simplicité » : la concision.
+  gagneDuTerrain('simplicite', 'concision', 'couverture');
+  // « homogénéité devrait varier avec simplicité ET cohérence » : les deux.
+  gagneDuTerrain('simplicite', 'homogeneite', 'couverture');
+  gagneDuTerrain('coherence', 'homogeneite', 'couverture');
+  // « notoriété devrait varier avec cohérence », et les deux autres critères de
+  // manière suivent le même curseur.
+  for (const critere of ['notoriete', 'antiAdHoc', 'elegance']) {
+    gagneDuTerrain('coherence', critere, 'couverture');
+  }
+  // Et le rendement : plus le curseur monte, plus jeter coûte cher.
+  for (const r of [176, 285, 500, 750]) {
+    assert.ok(facteurRendement(r, 0) > facteurRendement(r, CURSEUR_DEFAUT));
+    assert.ok(facteurRendement(r, CURSEUR_DEFAUT) > facteurRendement(r, CURSEUR_MAX));
+  }
+});
+
 // ══════════════════════════════════ l'invariant du défaut
 
 test('★ curseurs — au défaut, le classement est identique à celui d’avant, au point près', () => {
