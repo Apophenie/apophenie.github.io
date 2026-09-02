@@ -17,7 +17,8 @@
  */
 
 import { tokenSpec, espacementDe, targetsOf } from './helpers.js';
-import { EASE } from '../constants.js';
+import { demiEllipse } from './ellipse.js';
+import { EASE, LINE_HEIGHT } from '../constants.js';
 import { fail } from '../errors.js';
 
 export const name = 'flip180';
@@ -75,18 +76,67 @@ export function plan(ctx) {
 
 
 /**
+ * ★ **LE CHEMIN EST UN CERCLE — tant que la ligne du dessus le permet.**
+ *
+ * `demiEllipse` s'aplatit par défaut à 0,22 : c'est le réglage du MIROIR, où
+ * une bande de vingt-six cases doit se retourner sans quitter la scène. Ici,
+ * l'objet retourné est un carré de trois chiffres, et ce qu'on imite n'est plus
+ * un pivotement de bande mais la rotation RIGIDE d'une image : chaque point
+ * décrit alors un cercle autour du centre, et son écart vertical maximal égale
+ * exactement sa distance au centre. Aplatir ce cercle-là, c'est écraser la
+ * seule chose que le geste avait à dire.
+ *
+ * ⚠️ **MAIS LA SCÈNE A DES LIGNES, ET ELLES SONT PROCHES.** Mesuré sur
+ *   « Capitalisme » : le trio écarte ses extrêmes de 112 unités, donc le cercle
+ *   exact ferait voler les chiffres à 56 unités de leur ligne — au beau milieu
+ *   de la ligne du dessus, qui n'est qu'à 78 (`LINE_HEIGHT`), avec des
+ *   capitales hautes de 35. Le pivot juste devient alors illisible : deux
+ *   chiffres se superposent à d'autres chiffres.
+ *
+ *   On borne donc la bosse à une PART de l'interligne, et cette part se calcule
+ *   plutôt qu'elle ne se décrète : 35 (la hauteur d'un glyphe) plus 35 (la
+ *   bosse) restent sous 78, dans les deux sens. Le cercle est conservé partout
+ *   où il tient — un bloc plus resserré s'en tirera exactement rond.
+ */
+const PART_DE_LIGNE = 0.45;
+
+/** L'aplatissement à donner à `demiEllipse` pour une demi-course de `a`. */
+const aplatissementPour = (a) => (a > 0 ? Math.min(1, (LINE_HEIGHT * PART_DE_LIGNE) / a) : 1);
+
+/**
  * ★ **LE TRIO SE RETOURNE D'UN BLOC, comme un seul glyphe.**
  *
- * « `mr39` devrait non pas retourner chaque 9 sur lui-même, mais retourner d'un
- * bloc le triptyque 999 comme si c'était un seul glyphe à retourner »
- * (l'auteur). C'est une autre affirmation que trois demi-tours à la file : trois
- * demi-tours disent « chacun de ces 9 vaut un 6 », un seul dit « ce 999-là,
- * retourné, EST un 666 ». Le second est ce que l'opérateur prétend montrer.
+ * « Retourner 999 comme si c'était une image qu'on pivote à 180° : le 9 central
+ * va donc se retourner comme les 9 indépendants, mais les 2 autres neuf vont
+ * suivre le mouvement, l'un par le haut, l'autre par le bas » (l'auteur). C'est
+ * une autre affirmation que trois demi-tours à la file : trois demi-tours
+ * disent « chacun de ces 9 vaut un 6 », un seul dit « ce 999-là, retourné, EST
+ * un 666 ». Le second est ce que le geste prétend montrer.
  *
- * ★ Un demi-tour d'un bloc n'est pas un demi-tour de chacun : la rotation se
- *   fait autour du centre du BLOC, donc le jeton de gauche finit à droite et
- *   réciproquement. C'est ce déplacement qui fait lire le geste comme une seule
- *   pièce qu'on retourne, et non comme trois pièces qui tournent en même temps.
+ * ★ **CHACUN VA PAR SON ARC, ET C'EST LÀ TOUT LE GESTE.** Un demi-tour de bloc
+ *   n'est pas un demi-tour de chacun : la rotation se fait autour du centre du
+ *   BLOC, donc le jeton de gauche finit à droite et réciproquement. Mais les
+ *   envoyer là EN LIGNE DROITE les fait se traverser au milieu — rien ne dit
+ *   alors lequel est allé où, et le mouvement se lit comme un échange, pas
+ *   comme un retournement. C'était le défaut mesuré : « l'animation est
+ *   bancale » (l'auteur).
+ *
+ *   `demiEllipse` porte déjà exactement cette règle pour le miroir, et la bosse
+ *   y garde le SIGNE du déplacement : celui qui part à droite se creuse d'un
+ *   côté, celui qui part à gauche de l'autre. Les deux passent donc l'un
+ *   au-dessus, l'autre au-dessous, et le central — qui ne se déplace pas — reste
+ *   sur place à tourner sur lui-même. C'est le mouvement d'une seule pièce.
+ *
+ * ★ **LE 6 QUI NAÎT PARCOURT LE MÊME ARC QUE LE 9 QUI MEURT.** Le crossfade se
+ *   joue au voisinage de 90°, c'est-à-dire au SOMMET de la course : si le jeton
+ *   d'arrivée attendait, immobile, à sa place définitive, le glyphe se
+ *   téléporterait au beau milieu du vol. Les deux suivent donc le même chemin,
+ *   et l'échange de l'un pour l'autre se fait sans que rien ne bouge d'un pixel.
+ *
+ *   Son arc est calculé APRÈS le `reflow`, sur la position que la mise en page
+ *   lui a réellement donnée : la deviner reviendrait à parier que le 6 a
+ *   exactement la chasse du 9, et un écart d'un demi-point se verrait en fin de
+ *   course comme un sursaut.
  *
  * ★ **`targets` et `to` sont donnés dans l'ORDRE DE LA LIGNE**, avant et après.
  *   Le miroir est appliqué ICI, pas par l'émetteur : le jeton de la place `k`
@@ -128,30 +178,58 @@ function planBloc(ctx) {
     }
   }
 
-  // Les places d'AVANT, relevées avant tout mouvement — `pos` rend la position
-  // courante, et le premier `place` la remplacerait.
+  // Les places d'AVANT, relevées avant que rien ne bouge : ce sont les deux
+  // bouts de chaque arc, et le `reflow` de la fin les aurait effacées.
   const places = srcs.map((s) => ctx.scene.pos(s.id));
   const n = srcs.length;
   const idx = ctx.scene.flowIndex(srcs[0].id);
 
+  /**
+   * L'arc d'un point du bloc, de `depart` à `arrivee`, prêt à être animé.
+   *
+   * Rend `null` quand il n'y a rien à parcourir — c'est le cas du jeton
+   * CENTRAL, qui tourne sur lui-même sans changer de place. Ne pas l'animer du
+   * tout est plus juste que l'animer vers là où il est déjà : le canal reste
+   * libre, et le `pulse` qui suit n'a personne à bousculer.
+   */
+  const arc = (depart, arrivee) => {
+    if (!depart || !arrivee || Math.abs(arrivee.x - depart.x) <= 0.5) return null;
+    const { trajet } = demiEllipse(depart, arrivee,
+      { aplatissement: aplatissementPour(Math.abs(arrivee.x - depart.x) / 2) });
+    return { values: trajet, offsets: trajet.map((_, i) => i / (trajet.length - 1)) };
+  };
+
   srcs.forEach((src, k) => {
-    const arrivee = places[n - 1 - k];
     ctx.anim({ id: src.id, prop: 'rotate', to: 180, at: 0, dur: spin, ease: EASE.move });
-    if (arrivee && places[k] && Math.abs(arrivee.x - places[k].x) > 0.5) {
-      ctx.place(src.id, { x: arrivee.x, y: arrivee.y, w: places[k].w },
-        { at: 0, dur: spin, ease: EASE.move });
-    }
+    const chemin = arc(places[k], places[n - 1 - k]);
+    // Le jeton de départ est TUÉ au bout du demi-tour : sa position enregistrée
+    // ne sert plus à personne — ni au `reflow`, qui ne relaie que le flux, ni à
+    // un step suivant, qui ne le retrouvera pas. On anime donc son vol sans le
+    // « placer » : `ctx.place` émettrait une seconde animation de `translate`,
+    // en ligne droite, sur le canal que l'arc occupe déjà.
+    if (chemin) ctx.anim({ id: src.id, prop: 'translate', ...chemin, at: 0, dur: spin, ease: EASE.move });
     ctx.anim({ id: src.id, prop: 'opacity', values: [1, 1, 0, 0], offsets: [0, 0.4, 0.6, 1], at: 0, dur: spin });
   });
 
   // Le jeton qui naît à la place `k` vient de celui qui s'y rend, c'est-à-dire
   // de l'ancien `n-1-k`. Il naît donc À SA PLACE D'ARRIVÉE, déjà retourné.
+  //
+  // ⚠️ **MAIS SON ESPACEMENT ET SON PAQUET SONT CEUX DE LA PLACE `k`, pas ceux
+  //   de la source qui l'y amène.** La rotation déplace des GLYPHES ; elle ne
+  //   déplace pas la géométrie de la ligne. Un blanc ouvert avant le premier
+  //   jeton du bloc reste avant le premier, et le paquet auquel une place
+  //   appartient ne change pas parce qu'un chiffre a fait un demi-tour.
+  //
+  //   MESURÉ : les hériter de la source miroir décalait la frontière de deux
+  //   crans — le modèle de ligne (`recherche/scenario.js › suivreLaLigne`) la
+  //   voyait sur `x4_0`, la scène sur `x4_2`. Le modèle avait raison, et le
+  //   défaut ne s'est vu que le jour où `mr9` a repris le geste : le bloc ne se
+  //   jouait jusque-là que par des liens rejoués à la main.
   specs.forEach((spec, k) => {
-    const source = srcs[n - 1 - k];
     ctx.scene.create({
-      id: spec.id, text: spec.text, kind: spec.kind || 'digit', group: spec.group ?? source.group,
+      id: spec.id, text: spec.text, kind: spec.kind || 'digit', group: spec.group ?? srcs[k].group,
       role: 'text', inFlow: true, insertAt: idx < 0 ? undefined : idx + k,
-      ...espacementDe(ctx, source.id),
+      ...espacementDe(ctx, srcs[k].id),
       base: { opacity: 0, rotate: 180, fill: ctx.palette.gold },
     }, { where: ctx.where });
     ctx.anim({ id: spec.id, prop: 'opacity', values: [0, 0, 1, 1], offsets: [0, 0.4, 0.6, 1], at: 0, dur: spin });
@@ -160,4 +238,13 @@ function planBloc(ctx) {
 
   for (const src of srcs) ctx.scene.kill(src.id, ctx.where);
   ctx.reflow({ at: 0, dur: spin, ease: EASE.move });
+
+  // Le vol des jetons qui naissent, une fois la mise en page faite : `reflow`
+  // vient de leur donner leur place définitive, et c'est d'elle que l'arc a
+  // besoin. Un nœud qui vient de naître n'a pas été « déplacé » — `reflow` ne
+  // lui a donc rien animé, et le canal `translate` est libre.
+  specs.forEach((spec, k) => {
+    const chemin = arc(places[n - 1 - k], ctx.scene.pos(spec.id));
+    if (chemin) ctx.anim({ id: spec.id, prop: 'translate', ...chemin, at: 0, dur: spin, ease: EASE.move });
+  });
 }

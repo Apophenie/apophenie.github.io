@@ -466,6 +466,38 @@ test('★ les quatre transformations du 27 août — ce qu’elles font, et ce q
   assert.ok(!stepsTrio.flatMap((s) => s.ops).some((o) => o.op === 'horns'),
     'un opérateur ne couronne pas à l’aveugle : il ne sait pas ce que la suite fera de ses 6');
 
+  /* ★ **ET LE TRIO A CHANGÉ DE MAIN : c'est `mr9` qui le montre désormais.**
+
+     « Supprimer `mr39` et utiliser `mr9` partout où l'on veut retourner des
+     neuf, mais dans l'animation, détecter s'il y a 999 contigu » (l'auteur).
+     Ce qui est vérifié ici est exactement la couture entre les deux :
+
+      · le CALCUL de `mr9` ne connaît pas les trios — tous les 9 tombent, y
+        compris le quatrième et l'esseulé, que `mr39` laissait debout ;
+      · le GESTE, lui, les connaît : un seul `flip180` porte les trois premiers
+        (`targets`, au pluriel), et les 9 restants gardent chacun le leur
+        (`target`, au singulier).
+
+     Sans cette double lecture, la doctrine §0.3 se romprait dans un sens ou
+     dans l'autre : soit la scène grouperait des chiffres que le calcul n'a pas
+     groupés, soit elle montrerait trois demi-tours là où elle en annonce un. */
+  assert.deepEqual(sortie('mr9', [9, 9, 9, 9, 2, 9]), [6, 6, 6, 6, 2, 6],
+    'le calcul ignore les trios : tous les 9 se retournent');
+  const stepsNeuf = etapes(PAR_CODE.get('mr9'), N([9, 9, 9, 9, 2, 9]), N([6, 6, 6, 6, 2, 6]),
+    { ids: ['a', 'b', 'c', 'd', 'e', 'f'], cle: 'e1', langue: 'fr' });
+  const demiTours = stepsNeuf.flatMap((s) => s.ops).filter((o) => o.op === 'flip180');
+  assert.deepEqual(demiTours.map((o) => o.targets || o.target),
+    [['a', 'b', 'c'], 'd', 'f'],
+    'un bloc pour le 999 d’affilée, puis un demi-tour par 9 esseulé, dans l’ordre de la ligne');
+  assert.equal(demiTours[0].to.length, 3,
+    'le bloc annonce ses trois jetons d’arrivée : la primitive rend ce qu’elle a reçu');
+  // Six 9 d'affilée font DEUX blocs, et pas un seul de six : on pivote un 999,
+  // pas une plage. C'est `triosDeNeuf` qui le garantit, et il est partagé.
+  const stepsSix = etapes(PAR_CODE.get('mr9'), N([9, 9, 9, 9, 9, 9]), N([6, 6, 6, 6, 6, 6]),
+    { ids: ['a', 'b', 'c', 'd', 'e', 'f'], cle: 'e2', langue: 'fr' });
+  assert.deepEqual(stepsSix.flatMap((s) => s.ops).filter((o) => o.op === 'flip180')
+    .map((o) => o.targets), [['a', 'b', 'c'], ['d', 'e', 'f']], 'six 9 d’affilée font deux blocs');
+
   // ── m15, « On compte les chiffres » ───────────────────────────────────────
   // L'exemple de l'auteur : un 3, deux 4, deux 5, trois 6, trois 9.
   assert.deepEqual(sortie('mcc', [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9]),

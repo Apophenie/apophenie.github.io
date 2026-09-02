@@ -236,6 +236,32 @@ export const TEMOINS_COMPLEMENTAIRES = Object.freeze([
   Object.freeze({ texte: 'voir https://reinfocovid.fr/ demain', zone: 'https://reinfocovid.fr/' }),
 ]);
 
+/* ⚠️ CE QU'ON N'AJOUTE PAS ICI, ET POURQUOI : « voir 99922969 demain ».
+   ─────────────────────────────────────────────────────────────────────────────
+   « L'exemple pour `mr9` devrait être "voir 99922969 demain" » (l'auteur) — le
+   demi-tour ayant deux formes depuis qu'il a absorbé les trios, il lui faut un
+   état qui porte `999` d'affilée ET des 9 esseulés. La saisie le porte à l'œil.
+   La ligne, elle, ne le portera jamais.
+
+   MESURÉ, jusqu'à quatre étapes, sur la saisie seule puis sur la phrase
+   entière : AUCUN état atteignable ne contient trois 9 contigus venus de ces
+   chiffres-là. La cause n'est pas un plafond d'exploration, c'est le
+   catalogue — **aucun opérateur ne lit un chiffre comme sa propre valeur.**
+   `tca` fait de « 999 » trois jetons `9`, et les trente TOKENS→NUMS qui
+   suivent CONVERTISSENT tous : `m7` compte les segments du glyphe (donc 6),
+   `ma1` le rang de la lettre, `mt9` la touche… Un chiffre tapé n'entre dans la
+   ligne que déguisé.
+
+   C'est le même mur que sur `#c01111984!#`, qui « ne trouve rien » : une date
+   de naissance est faite de chiffres, et les chiffres n'ont pas de porte.
+
+   Le besoin est donc satisfait ailleurs, et mieux : `mr9` déclare lui-même ce
+   que son exemple doit exercer (`exempleUtile`, `mappeurs.js`), et la page va
+   chercher un état qui l'exerce vraiment — `tca+masb+mrd` sur « Capitalisme »
+   rend `9 9 9 9 9 1 6 9 1 6 6 2 6 9 2`, où l'on voit du même coup le trio qui
+   pivote, les deux 9 de trop qui ne le rejoignent pas, et les esseulés qui
+   tournent sur eux-mêmes. */
+
 /** Le texte d'un témoin, qu'il désigne une zone ou non. */
 const texteDe = (t) => (typeof t === 'string' ? t : t && t.texte);
 

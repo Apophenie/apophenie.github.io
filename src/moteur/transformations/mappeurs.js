@@ -2600,8 +2600,10 @@ const AUTRES_MAPPEURS = [
     // rentable reviendrait à truquer le classement pour se donner raison.
     notoriete: 0.25, adHoc: 0.35,
     note: bilingue(
-      'On ne retourne que les 9. Retourner un 6 serait, disons, contre-productif.',
-      'Only the 9s get turned. Turning a 6 would be, shall we say, counter-productive.',
+      'On ne retourne que les 9. Retourner un 6 serait, disons, contre-productif. '
+      + 'Trois 9 côte à côte pivotent d’un seul bloc : 999 renversé, c’est 666.',
+      'Only the 9s get turned. Turning a 6 would be, shall we say, counter-productive. '
+      + 'Three 9s side by side pivot as one block: 999 upside down is 666.',
     ),
     apply: (valeur, traces) => {
       // ★ L'`exige` de `pr9` (« n === 9 »), transposé au vecteur : sans un seul
@@ -2615,6 +2617,19 @@ const AUTRES_MAPPEURS = [
       const out = valeur.map((n) => (n === 9 ? 6 : n));
       return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
     },
+    // ★ CE QUE SON EXEMPLE DOIT EXERCER (`debug.js › programmePour`).
+    //
+    //   Le demi-tour a DEUX formes depuis qu'il a absorbé les trios : le bloc
+    //   qui pivote d'une pièce, et le 9 esseulé qui tourne sur lui-même. Un
+    //   état sans `999` d'affilée n'en montre qu'une — et laisse croire qu'il
+    //   n'y en a qu'une. C'est exactement le cas que `exempleUtile` sert :
+    //   l'opérateur seul sait ce que son geste exige, la page de debug ne peut
+    //   qu'en tenir compte.
+    //
+    //   ⚠️ Une PRÉFÉRENCE, pas une exigence : faute d'un tel état, la page rend
+    //     tout de même le meilleur des autres. Mieux vaut un exemple partiel
+    //     qu'une case vide.
+    exempleUtile: (etat) => triosDeNeuf(etat.valeur).length > 0,
     // Seuls les 9 reçoivent un identifiant neuf. Les autres gardent le leur :
     // aucun step ne les touche, et un renommage sans geste ferait croire au
     // pont qu'un jeton a été remplacé alors qu'il n'a pas bougé.
@@ -2637,6 +2652,24 @@ const AUTRES_MAPPEURS = [
      * aucune attribution à préserver, et douze steps portant le même titre
      * noieraient Le Registre au lieu de l'instruire.
      *
+     * ★ **UN 999 D'AFFILÉE SE RETOURNE COMME UNE IMAGE, PAS COMME TROIS
+     *   CHIFFRES**, et c'est la seule chose que le trio change ici.
+     *
+     *   « Supprimer `mr39` et utiliser `mr9` partout où l'on veut retourner des
+     *   neuf, mais dans l'animation, détecter s'il y a 999 contigu, et dans ce
+     *   cas, retourner 999 comme si c'était une image qu'on pivote à 180° »
+     *   (l'auteur). Deux opérateurs se disputaient le même demi-tour, et c'est
+     *   toujours `mr9` qui l'emportait : il retourne TOUS les 9 là où `mr39`
+     *   n'en retournait que des paquets de trois, donc il rend davantage de 6
+     *   sur la même ligne, donc il passe devant — même quand les trois 9 sont
+     *   là. La distinction ne tenait pas au classement ; elle tenait au regard.
+     *   Elle passe donc du catalogue à la scène : un seul opérateur, et une
+     *   animation qui VOIT la contiguïté (`m.retournerLesTrios`, déprécié).
+     *
+     *   ⚠️ Le calcul est intact — tous les 9 deviennent des 6, ce que `apply`
+     *     établit sans jamais consulter les trios. Ce qui se groupe est le
+     *     GESTE, et le contrôle croisé ci-dessous vaut pour les deux formes.
+     *
      * ★ Contrôle croisé (CONTRACTS §0.3). La valeur d'arrivée n'est jamais
      * écrite en dur : elle est LUE dans `apres.valeur[i]`, c'est-à-dire dans ce
      * qu'`apply()` a calculé, et la comparaison avec `avant.valeur[i]` décide
@@ -2647,14 +2680,35 @@ const AUTRES_MAPPEURS = [
      * la valeur du jeton de départ.
      */
     steps: (avant, apres, ctx) => {
+      // ★ **LES 999 D'AFFILÉE SE RETOURNENT D'UN BLOC.** Le calcul ne change
+      //   pas d'un iota — tous les 9 deviennent des 6, un par un, et c'est
+      //   `apply` qui le dit —, mais le GESTE, lui, distingue : là où la ligne
+      //   écrit déjà `999`, on ne retourne pas trois chiffres, on retourne une
+      //   image. `triosDeNeuf` marque les indices concernés, et il le fait
+      //   comme on lit : par plages contiguës, trois par trois depuis la
+      //   gauche, sans jamais entamer un quatrième 9 esseulé.
+      const enTrio = new Set(triosDeNeuf(avant.valeur));
       const ops = [];
       const neufs = [];
-      apres.valeur.forEach((v, i) => {
-        if (v === avant.valeur[i]) return; // ce jeton n'est pas un 9 : il ne bouge pas
+      let i = 0;
+      while (i < apres.valeur.length) {
+        if (apres.valeur[i] === avant.valeur[i]) { i++; continue; } // pas un 9 : il ne bouge pas
+        if (enTrio.has(i)) {
+          const bloc = [i, i + 1, i + 2];
+          const nes = bloc.map((k) => token(nomToken(ctx, k), apres.valeur[k], 'number'));
+          for (const t of nes) neufs.push(t.id);
+          // `targets` et `to` dans l'ORDRE DE LA LIGNE : le miroir de la
+          // rotation est l'affaire de la primitive, pas la nôtre. Le modèle de
+          // ligne remplace ainsi place pour place, sans rien savoir du pivot.
+          ops.push({ op: 'flip180', targets: bloc.map((k) => ctx.ids[k]), to: nes });
+          i += TRIO;
+          continue;
+        }
         const id = nomToken(ctx, i);
         neufs.push(id);
-        ops.push({ op: 'flip180', target: ctx.ids[i], to: token(id, v, 'number') });
-      });
+        ops.push({ op: 'flip180', target: ctx.ids[i], to: token(id, apres.valeur[i], 'number') });
+        i++;
+      }
       if (!ops.length) return [];
       // Le `pulse` final vient APRÈS le dernier demi-tour, jamais pendant :
       // pendant, le jeton d'arrivée voit déjà son `scale` animé par le
@@ -3541,6 +3595,32 @@ const AUTRES_MAPPEURS = [
 
   def({
     id: 'm.retournerLesTrios', code: 'mr39', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    // ★ **DÉPRÉCIÉ — le geste passe à `mr9`, qui le fait sans se dédoubler.**
+    //
+    //   « J'ai deux soucis avec `mr39`. L'un : même avec 3 9 d'affilée, c'est
+    //   `mr9` qui a l'air de se déclencher. Et l'animation de `mr39` est
+    //   bancale. La solution : supprimer `mr39` et utiliser `mr9` partout où
+    //   l'on veut retourner des neuf, mais dans l'animation, détecter s'il y a
+    //   999 contigu » (l'auteur).
+    //
+    //   Le premier reproche n'était pas un défaut de réglage, et aucune
+    //   notoriété n'y aurait rien changé : les deux opérateurs partent du même
+    //   état et `mr9` en retourne STRICTEMENT PLUS — tous les 9, contre les
+    //   seuls paquets de trois. Il rend donc plus de 6 sur la même ligne, et il
+    //   passera devant tant que le classement récompensera les 6. La contiguïté
+    //   ne se défendait pas au score ; elle se défend à l'écran, et c'est là
+    //   qu'elle est allée (`mr9 › steps`, et `visuel/primitives/flip180.js` pour
+    //   le pivot d'un bloc).
+    //
+    //   Ce qu'il coûte de le retirer : rien du tout. La voie qui l'employait
+    //   s'écrit `mr9`, elle retourne au moins autant de chiffres, et elle montre
+    //   le trio du même geste.
+    //
+    //   ⚠️ DÉPRÉCIÉ, PAS RAYÉ. « Retirer un opérateur, ce n'est pas le rayer du
+    //     registre » (`catalogue.js`, §4.1) : le code reste réservé, l'opérateur
+    //     quitte la recherche (`bfs.js`) et reste jouable depuis `debug.html`.
+    //     Les liens déjà partagés qui le portent continuent donc de s'ouvrir.
+    deprecated: true,
     libelle: LIB_TRIOS_DE_NEUF,
     regle: bilingue(
       'Trois 9 côte à côte se retournent ensemble et donnent 666. Un 9 esseulé reste un 9.',

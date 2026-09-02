@@ -413,10 +413,16 @@ test('intégration — la ligne rejouée par le moteur de recherche est celle du
  *    le redécoupage.
  *
  * ★ Deux des quatre sont joués par URL plutôt que cherchés. Ce n'est pas une
- * facilité : `mr39` demande trois 9 CONTIGUS et `mcc` une ligne condensable,
- * deux géométries que le classement ne met pas spontanément en tête sur le
- * corpus. Les rejouer par leur programme est exactement ce que fait un lien
- * partagé (§4.3), et c'est donc le chemin qu'il faut éprouver.
+ * facilité : le demi-tour d'un BLOC demande trois 9 contigus et `mcc` une ligne
+ * condensable, deux géométries que le classement ne met pas spontanément en
+ * tête sur le corpus. Les rejouer par leur programme est exactement ce que fait
+ * un lien partagé (§4.3), et c'est donc le chemin qu'il faut éprouver.
+ *
+ * ⚠️ Le trio a changé de porteur : `mr39` est déprécié, et c'est `mr9` qui
+ *   groupe désormais les `999` d'affilée — dans son GESTE, son calcul
+ *   continuant de retourner tous les 9 (voir `mappeurs.js › m.retournerLesNeuf`
+ *   et `visuel/primitives/flip180.js › planBloc`). Le programme éprouvé ici est
+ *   donc celui de l'auteur, à un code près, et il produit la même primitive.
  */
 test('★ intégration — les quatre transformations du 27 août se MONTRENT',
   { skip: compile ? false : 'src/visuel/ absent' }, async () => {
@@ -429,7 +435,7 @@ test('★ intégration — les quatre transformations du 27 août se MONTRENT',
       // quand même par leur programme, pour que le test ne dépende pas d'un
       // classement qui peut légitimement bouger.
       ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mtri', 'mtri', 'move'],
-      ['Le chat dort sur le tapis rouge', 'fl+tca+mx6+mrn+mr39', 'mr39', 'flip180'],
+      ['Le chat dort sur le tapis rouge', 'fl+tca+mx6+mrn+mr9', 'mr9', 'flip180'],
       ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mtri+mcc', 'mcc', 'substitute'],
       ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mrd', 'mrd', 'partition'],
       // ★ La médiane, dans ses DEUX formes — c'est la parité du compte qui
@@ -502,7 +508,10 @@ test('★ la chaîne du 27 août se rejoue sur les chiffres de l’auteur', () =
   const range = chaine(sien, 'mtri');
   assert.deepEqual(range.valeur, [6, 6, 6, 6, 6, 6, 9, 9, 9, 9, 9, 9],
     '« tri croissant 996696696969 → 666666999999 »');
-  const retourne = chaine(range, 'mr39');
+  // ★ « Retourne les 999 trois par trois » — la phrase de l'auteur reste vraie,
+  //   mais elle décrit maintenant le GESTE et non plus un opérateur à part.
+  //   `mr9` retourne les douze, et sa scène en groupe deux trios.
+  const retourne = chaine(range, 'mr9');
   assert.deepEqual(retourne.valeur, new Array(12).fill(6),
     '« retourne les 999 trois par trois » — deux trios, douze 6');
 });
