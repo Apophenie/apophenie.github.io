@@ -1391,6 +1391,24 @@ function caracteresLus(chemin, texte) {
    plus : l'alphabet n'y a qu'un chiffre, compter et écrire sont la même chose,
    et une seconde variante ne rendrait que des doublons.
 
+   ★ **CE QUE ÇA REND, MESURÉ** — quatre saisies, six cibles mêlées, nombre de
+   voies proposées avant → après (les trois correctifs ensemble : la matière,
+   le choix, le seuil) :
+
+                              13      007    1984  01012000 01111984 19012000
+       Henri Prunelle Ch.   12→12    1→12   0→12     1→11     0→1      0→2
+       Millicent Billette   12→12    0→12   1→11     0→8      0→2      0→1
+       hope-hope-hope.fr    12→12    2→12   5→12     0→4      0→1      0→3
+       Donald Trump         12→12    0→12   2→11     0→1      0→0      0→0
+
+   Toutes les voies rendues ÉCRIVENT la cible au moins une fois — c'est vérifié
+   chiffre par chiffre, pas compté. Les deux cases restées vides sont sur
+   `Donald Trump` : deux mots, donc deux portées, et huit chiffres à écrire dans
+   l'ordre avec ce que deux portées savent donner. Ce n'est pas un défaut de
+   l'algorithme, c'est un fait sur la saisie — et la page de résultats le dit au
+   lieu de faire semblant (§5.3, « la garantie jamais bredouille est une
+   garantie sur 666 »).
+
    ★ **LE MOTIF SE PORTE DANS L'ÉTAT DE LA PROGRAMMATION DYNAMIQUE.** C'est
    toute l'idée, et elle tient en une phrase : ce qu'une portée rapporte ne
    dépend plus seulement d'elle, mais de L'ENDROIT DE LA CIBLE où la portée
