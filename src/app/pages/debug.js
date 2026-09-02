@@ -1073,8 +1073,20 @@ export function titreRegistreDe(op) {
   return null;
 }
 
-/** Le compte de mots d'un titre — la question que l'auteur pose à cette colonne. */
-const motsDe = (titre) => (titre ? titre.trim().split(/\s+/).filter(Boolean).length : 0);
+/**
+ * Le compte de SIGNES d'un titre.
+ *
+ * > « Pas besoin de préciser le nombre de mots devant le titre, je m'en aperçois
+ * >   bien. À la limite le nombre de caractères serait plus utile. » (l'auteur)
+ *
+ * Il a raison, et pas seulement par économie : deux mots ne disent rien de la
+ * PLACE que le titre prendra. « Modulo 9 » et « Numérologie chaldéenne » en font
+ * deux tous les deux, et vingt-trois signes d'écart — or c'est la largeur qui
+ * décide si l'énumération d'une carte tient sur sa ligne. Le compte de mots, lui,
+ * se lit d'un coup d'œil sur le titre : l'afficher revenait à commenter ce qui
+ * est déjà sous les yeux.
+ */
+const signesDe = (titre) => (titre ? [...titre.trim()].length : 0);
 
 const EN_TETE = ['code', 'id', 'famille', 'from', 'to', 'notoriete', 'adHoc'];
 
@@ -1125,7 +1137,14 @@ function etatDe(op) {
  *   précèdent, laquelle dépend du contenu.
  */
 function tableauDesOperateurs(ops, avecEtat) {
-  const colonnes = [...EN_TETE, 'titre court', 'titre registre', 'cible', ...(avecEtat ? ['état'] : []), 'particularités'];
+  /* ★ **L'ORDRE DEMANDÉ : code, titre registre, titre court, jouer, puis le
+     reste.** C'est celui du travail en cours — l'auteur relit les titres courts
+     en les comparant à ceux du Registre, et veut les deux à portée de regard,
+     juste après la colonne épinglée. Le bouton « jouer » et l'identifiant, qui
+     servaient d'ancrage tant que les titres n'existaient pas, reculent derrière
+     eux. */
+  const colonnes = ['code', 'titre registre', 'titre court', 'jouer',
+    ...EN_TETE.slice(1), 'cible', ...(avecEtat ? ['état'] : []), 'particularités'];
 
   const lignes = [...ops]
     .sort((a, b) => String(a.code).localeCompare(String(b.code), 'en'))
@@ -1142,18 +1161,19 @@ function tableauDesOperateurs(ops, avecEtat) {
         cellCible.className = `dbg__cible-classe dbg__cible-${classe.toLowerCase()}`;
       });
       const cellules = colonnes.slice(1).map((c) => {
+        if (c === 'jouer') return e('td.dbg__jouer-cellule', {}, [boutonJouer(op)]);
         if (c === 'titre court') {
           // ★ La colonne que l'auteur vient corriger : deux mots, ou le trou qui
           //   se voit. Voir `titres.js › TITRES_COURTS` pour le pourquoi de la
           //   table, et pourquoi elle ne remplace pas le titre du Registre.
           const bref = localiser(titreCourtDe(op));
           return e('td.dbg__titre-court', {}, bref
-            ? [e('span.dbg__titre-mots', { texte: String(motsDe(bref)) }), ' ', e('span', { texte: bref })]
+            ? [e('span.dbg__titre-mots', { texte: String(signesDe(bref)) }), ' ', e('span', { texte: bref })]
             : [e('span.dbg__part-cle', { texte: '— manquant' })]);
         }
         if (c === 'titre registre') {
           const titre = titreRegistreDe(op);
-          const n = motsDe(titre);
+          const n = signesDe(titre);
           return e('td.dbg__titre-registre', {}, titre
             ? [
               e('span.dbg__titre-mots', { texte: String(n) }),
@@ -1176,13 +1196,12 @@ function tableauDesOperateurs(ops, avecEtat) {
       return e(`tr${FICELLES[op.id] ? '.dbg__ficelle' : ''}`, {}, [
         // `code` d'abord — c'est la colonne épinglée (voir l'en-tête).
         e('th.dbg__code', { scope: 'row', texte: op.code }),
-        e('td.dbg__jouer-cellule', {}, [boutonJouer(op)]),
         ...cellules,
       ]);
     });
 
   return e('table.dbg__table.dbg__table--large.dbg__table--collante', {}, [
-    e('thead', {}, [e('tr', {}, [colonnes[0], 'jouer', ...colonnes.slice(1)]
+    e('thead', {}, [e('tr', {}, colonnes
       .map((c, i) => e(`th${i === 0 ? '.dbg__code' : ''}`, { scope: 'col', texte: c })))]),
     e('tbody', {}, lignes),
   ]);
