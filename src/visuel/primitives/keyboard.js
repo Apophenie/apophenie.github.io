@@ -59,6 +59,7 @@ import { tokenSpec, ancreVue } from './helpers.js';
 import { monterDecor, allerRetour, replierDecor, substituerSeul, decorEnLAir } from './decor.js';
 import { keyboardGeometry, findKey, keyboardValue, normalizeLayout } from '../assets.js';
 import { fail } from '../errors.js';
+import { bboxOf } from '../layout.js';
 
 export const name = 'keyboard';
 
@@ -122,9 +123,48 @@ export function plan(ctx) {
   // Le clavier se pose au centre de la VUE — pas du viewBox : si la ligne
   // défile, le milieu de l'écran n'est plus le milieu de la scène (`ancreVue`).
   const vue = ancreVue(ctx);
+  /* ★ **LA RÉGLETTE DE COLONNES DÉBORDE AU-DESSUS DU CLAVIER, et le placement
+     l'ignorait.**
+
+     > « Sur `mqwc` (et probablement d'autres du même type), la ligne principale
+     >   se superpose au barème qui surplombe le clavier. » (l'auteur)
+
+     Le décor était posé à neuf dixièmes de casse sous la ligne, mesurés depuis
+     le HAUT DES TOUCHES (`geo.height` ne couvre que les touches). Or en mesure
+     « colonne » la réglette est dessinée AU-DESSUS de ce bord — à
+     `y0 − gap − 0,28 h` dans `assets.js` — et venait donc chercher la ligne dans
+     l'espace qu'on croyait libre.
+
+     Le débord entre maintenant dans le placement, avec la MÊME valeur que celle
+     déjà déclarée à la caméra quelques lignes plus bas : le décor sait depuis
+     toujours de combien il dépasse, il ne s'en servait que pour le cadrage et
+     pas pour se poser. Une seule constante, deux usages — c'est ce qui empêche
+     les deux de diverger à la prochaine retouche du dessin.
+
+     ★ La mesure « rangée » n'est pas concernée : ses numéros sont en marge
+       GAUCHE, ils ne peuvent rien surplomber. */
+  /* ★ **ET LE DÉGAGEMENT SE MESURE SOUS LA LIGNE, PAS SOUS LE CENTRE DE LA VUE.**
+
+     `ancreVue` rend le MILIEU de l'écran. Tant que la ligne tient sur un rang,
+     son bas est à une demi-casse de là et les neuf dixièmes suffisaient. Dès
+     qu'elle se replie sur DEUX rangs — ce qui arrive sur toute saisie un peu
+     longue —, son bas descend d'une hauteur de ligne entière que le calcul ne
+     voyait pas : le clavier remontait dedans.
+
+     On lit donc la boîte du FLUX, c'est-à-dire ce qui est réellement écrit, et
+     l'on se place sous elle. Le plancher à `vue.y` demeure : une ligne qui a
+     défilé vers le haut ne doit pas faire remonter le clavier au-dessus du
+     milieu de l'écran, où il serait hors cadre. */
+  const debordHaut = mesure === 'colonne' ? geo.keyH * 0.7 : 0;
+  const vivants = ctx.scene.flow.filter((id) => {
+    const n = ctx.scene.get(id);
+    return n && n.alive && ctx.scene.positions.has(id);
+  });
+  const flux = bboxOf(vivants, ctx.scene.positions, ctx.metrics, 0);
+  const bas = flux ? Math.max(vue.y, flux.y + flux.h) : vue.y;
   const boardPos = {
     x: vue.x,
-    y: vue.y + ctx.metrics.fontSize * 0.9 + geo.height / 2,
+    y: bas + ctx.metrics.fontSize * 0.9 + geo.height / 2 + debordHaut,
   };
   const keyPos = { x: boardPos.x + key.cx, y: boardPos.y + key.cy };
   const halo = haloDe(geo, key, mesure);
@@ -152,7 +192,7 @@ export function plan(ctx) {
     encombrement: {
       // La réglette de colonnes dépasse au-dessus du clavier ; la marge des
       // rangées dépasse à gauche. La caméra doit les faire tenir aussi.
-      haut: boardPos.y - geo.height / 2 - (mesure === 'colonne' ? geo.keyH * 0.7 : 0),
+      haut: boardPos.y - geo.height / 2 - debordHaut,
       bas: boardPos.y + geo.height / 2,
       largeur: mesure === 'rangee' ? geo.width + geo.keyW : geo.width,
       pad: PAD,

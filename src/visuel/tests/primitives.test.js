@@ -1574,3 +1574,59 @@ test('★ horns : les cornes SUIVENT — au reflow comme au verdict', () => {
     assert.equal(zoomCorne, zoomJeton);
   }
 });
+
+/**
+ * ★ **LE CLAVIER SE POSE SOUS LA LIGNE, RÉGLETTE COMPRISE.**
+ *
+ * > « Sur `mqwc` (et probablement d'autres du même type), la ligne principale se
+ * >   superpose au barème qui surplombe le clavier. » (l'auteur)
+ *
+ * Deux défauts se cumulaient, et il fallait les deux pour que ça se voie.
+ *
+ *  1. En mesure « colonne », la réglette qui porte les numéros est dessinée
+ *     AU-DESSUS du bord des touches. `geo.height` ne couvre que les touches : le
+ *     décor se posait donc à neuf dixièmes de casse sous la ligne en comptant
+ *     depuis un bord qui n'était pas le sien.
+ *  2. Le dégagement partait du CENTRE DE LA VUE (`ancreVue`). Tant que la ligne
+ *     tient sur un rang, son bas est à une demi-casse de là ; dès qu'elle se
+ *     replie sur deux, il descend d'une hauteur de ligne que personne ne
+ *     mesurait.
+ *
+ * On vérifie donc ce qui compte : la chose la plus HAUTE du décor reste sous la
+ * chose la plus BASSE de la ligne — sur un rang comme sur deux.
+ */
+test('★ clavier : la réglette de colonnes ne monte jamais dans la ligne', () => {
+  const hautDuDecor = (tokens) => {
+    const tl = compile(sc([{
+      id: 'a', title: 'A',
+      ops: [{ op: 'keyboard', target: tokens[0].id, key: tokens[0].text, mesure: 'colonne', to: { id: 'r', text: '6' } }],
+    }], tokens));
+    const kb = tl.nodes.find((n) => n.role === 'keyboard');
+    assert.ok(kb, 'le clavier doit être monté');
+    const pos = tl.scene.pos(kb.id);
+    const geo = kb.data.geo;
+    // Le haut du DESSIN : le bord des touches, moins ce que la réglette déborde.
+    return pos.y - geo.height / 2 - geo.keyH * 0.7;
+  };
+  const basDeLaLigne = (tokens) => {
+    const tl = compile(sc([{ id: 'a', title: 'A', ops: [{ op: 'highlight', targets: [tokens[0].id] }] }], tokens));
+    let bas = -Infinity;
+    for (const t of tokens) {
+      const p = tl.scene.pos(t.id);
+      if (p) bas = Math.max(bas, p.y + (p.h || tl.metrics.fontSize) / 2);
+    }
+    return bas;
+  };
+
+  // Un rang, puis assez de jetons pour que le flux se replie.
+  const court = [{ id: 'k0', text: '-', kind: 'sep' }];
+  const long = [{ id: 'k0', text: '-', kind: 'sep' }].concat(
+    Array.from({ length: 60 }, (_, i) => ({ id: `n${i}`, text: '8', kind: 'digit' })),
+  );
+
+  for (const [nom, tokens] of [['un rang', court], ['deux rangs', long]]) {
+    assert.ok(hautDuDecor(tokens) > basDeLaLigne(tokens),
+      `${nom} : la réglette (${Math.round(hautDuDecor(tokens))}) doit rester sous la ligne `
+      + `(${Math.round(basDeLaLigne(tokens))})`);
+  }
+});
