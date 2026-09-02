@@ -15,7 +15,7 @@ import { estDecret } from './titres.js';
 // ★ `elegance.js` n'importe RIEN : la dépendance est à sens unique, sans cycle.
 import { OPERATEURS_QUI_ECARTENT } from './elegance.js';
 import { normaliserCible, indexUtiles } from './cible.js';
-import { CODES_IMPLICITES, MAX_SERIES } from '../config.js';
+import { CODES_NON_FACTURES, MAX_SERIES } from '../config.js';
 import {
   bilanApproche, credit as creditDElegance, facteur as facteurDElegance,
   note as noteDElegance, estPur,
@@ -1028,9 +1028,14 @@ export function longueurRendue(chemins) {
  *   a rien à démontrer, donc il n'y a pas d'étape à payer. Les trente autres
  *   conversions `TOKENS → NUMS` soutiennent chacune quelque chose — « cette
  *   lettre vaut 3 », « ce glyphe fait six segments » — et se facturent.
- *   Voir `config.js › CODES_IMPLICITES`.
+ *
+ * ★ **NI L'ACCOLEMENT**, et lui n'est PAS implicite pour autant : il s'écrit
+ *   dans les liens, parce que dix opérateurs font `NUMS → NUM` et qu'on ne
+ *   peut pas deviner lequel. Ne rien affirmer et ne pas s'écrire sont deux
+ *   propriétés distinctes ; voir `config.js › CODES_NON_FACTURES`, qui les
+ *   sépare.
  */
-const coutRendu = (op) => (op && CODES_IMPLICITES.includes(op.code) ? 0 : (op.cout || 0));
+const coutRendu = (op) => (op && CODES_NON_FACTURES.includes(op.code) ? 0 : (op.cout || 0));
 
 // ══════════════════════════════════ score partiel (faisceau du BFS)
 

@@ -22,10 +22,11 @@
  *  ajoutée au code source, qui reste lisible et exécutable tel quel.
  */
 
-import { copyFileSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { defineConfig } from 'vite';
+import { BASE_CANONIQUE, SAISIE_EN_VITRINE, HORS_PLAN } from './site.config.js';
 
 const racine = import.meta.dirname;
 
@@ -259,6 +260,88 @@ function carteDePartage() {
   };
 }
 
+/**
+ * ★ **L'ADRESSE PUBLIÉE — une seule source, trois emplois.**
+ *
+ * `site.config.js` (à la racine, comme `favicon.svg`) porte la base canonique.
+ * Ce greffon en tire :
+ *
+ *  · `og:image` en URL ABSOLUE. C'était le défaut : un chemin relatif oblige le
+ *    robot d'aperçu à le résoudre, ce que les grandes plateformes font mais que
+ *    la spécification n'exige pas — et une carte sans image n'est signalée
+ *    nulle part ;
+ *  · `og:url` et `<link rel="canonical">`, qui disent laquelle des adresses est
+ *    LA bonne. Le site est publié à deux endroits (GitHub Pages et Framagit) :
+ *    sans canonique, ce sont deux sites jumeaux qui se font concurrence ;
+ *  · `robots.txt` et `sitemap.xml`.
+ *
+ * ⚠️ **LE PLAN NE PORTE PAS `debug.html` NI `AB-testing.html`** — ce sont des
+ *   ateliers, pas des pages. `robots.txt` les interdit en plus, parce qu'un
+ *   plan qui ne cite pas une page ne l'interdit pas pour autant.
+ *
+ * ⚠️ **UNE RÉSERVE HONNÊTE SUR LA DEUXIÈME ENTRÉE DU PLAN.** L'auteur la
+ *   demande — « avec la 1ère voie pour Capitalisme » — et elle y est. Mais un
+ *   moteur de recherche IGNORE le fragment : `…/#sce!…` et `…/` sont la même
+ *   URL pour lui, et il n'indexera pas deux pages. L'entrée reste utile à un
+ *   humain qui ouvre le plan, et inerte pour un robot. Elle ne coûte rien ;
+ *   elle ne rapportera pas ce qu'on pourrait croire.
+ *
+ * ⚠️ **ET SON LIEN EST CALCULÉ, jamais recopié** : le moteur est chargé ici, au
+ *   build, et l'on écrit la voie qu'il classe première. Un lien figé serait
+ *   périmé au premier changement de barème, sans que personne ne le voie.
+ */
+function adressePubliee() {
+  let voie = null;
+  const abs = (chemin) => new URL(chemin.replace(/^\//, ''), BASE_CANONIQUE).href;
+  const echapper = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return {
+    name: 'nhlg-adresse-publiee',
+    apply: 'build',
+    async buildStart() {
+      try {
+        const { creerMoteur, chargerCatalogue } = await import('./src/recherche/index.js');
+        const moteur = creerMoteur(await chargerCatalogue());
+        const premiere = moteur.resoudre(SAISIE_EN_VITRINE).approches[0];
+        voie = premiere && (premiere.url || premiere.urlScenique || premiere.urlSobre);
+      } catch (err) {
+        voie = null;
+        this.warn(`plan du site : la voie de « ${SAISIE_EN_VITRINE} » n'a pas pu être calculée `
+          + `(${err.message}) — le plan se limite à l'accueil.`);
+      }
+    },
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        // Seul l'accueil est canonique : les ateliers ont leur propre build, et
+        // leur donner l'adresse de la page d'accueil serait leur faire dire
+        // qu'ils SONT la page d'accueil.
+        if (ctx && ctx.filename && !/index\.html$/.test(ctx.filename)) return html;
+        return html
+          .replace(/(<meta property="og:image" content=")([^"]*)(")/,
+            (_m, a, chemin, z) => a + abs(chemin) + z)
+          .replace('<meta property="og:type" content="website">',
+            '<meta property="og:type" content="website">\n'
+            + `<meta property="og:url" content="${BASE_CANONIQUE}">\n`
+            + `<link rel="canonical" href="${BASE_CANONIQUE}">`);
+      },
+    },
+    writeBundle(options) {
+      const dossier = options.dir ?? resolve(racine, 'dist');
+      // Sur ce site, tout est public sauf les ateliers — et le plan se dit.
+      writeFileSync(resolve(dossier, 'robots.txt'),
+        `User-agent: *\n${HORS_PLAN.map((p) => `Disallow: ${p}\n`).join('')}`
+        + `\nSitemap: ${abs('sitemap.xml')}\n`);
+      const pages = [BASE_CANONIQUE, ...(voie ? [BASE_CANONIQUE + voie] : [])];
+      writeFileSync(resolve(dossier, 'sitemap.xml'),
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        + '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + pages.map((u) => `  <url><loc>${echapper(u)}</loc></url>\n`).join('')
+        + '</urlset>\n');
+    },
+  };
+}
+
 export default defineConfig({
   // Les sources vivent dans `src/` : `index.html` y est, et c'est de là que
   // partent tous les chemins relatifs (`styles/`, `fonts/`, `app/main.js`).
@@ -324,5 +407,6 @@ export default defineConfig({
       },
     },
   },
-  plugins: [protocoleFichier(), licencesRedistribuees(), faviconRacine(), iconeApple(), carteDePartage()],
+  plugins: [protocoleFichier(), licencesRedistribuees(), faviconRacine(), iconeApple(),
+    carteDePartage(), adressePubliee()],
 });

@@ -363,6 +363,41 @@ function etapeRetrait(op) {
  *  ② on DÉSIGNE ce qui reste, sous son nom (« le domaine », « le chemin ») ;
  *  ③ on efface, et la ligne se referme.
  */
+/**
+ * ★ **LA SORTIE D'UNE DÉCOUPE SE LIT SUR SES BORNES — comme son geste.**
+ *
+ * ⚠️ **LE CORRECTIF N'AVAIT ÉTÉ FAIT QU'À MOITIÉ, et c'est ce qui cassait
+ *   l'animation de `fpag`.** `etapeDecoupeAdresse` avait cessé de demander à
+ *   `apparier` quels jetons survivent — il lit les bornes que l'opérateur
+ *   publie —, mais `sortie` était restée sur `sortieConservee`, c'est-à-dire
+ *   sur ce même `apparier`. Les deux se contredisaient donc, et la
+ *   contradiction était FATALE : `scenario.js` refuse une `sortie()` qui
+ *   désigne des jetons que les steps n'ont pas gardés, et se rabat sur le rendu
+ *   générique.
+ *
+ *   MESURÉ sur `https://www.example.com/path/to/page` : `fpag` garde « page »,
+ *   points de code 32 à 35 ; `sortieConservee` annonçait `t3` et `t14` — le
+ *   `p` de « https » et un `a` de « example » —, et la scène jouait alors un
+ *   `drop` nu de trente-deux jetons. Plus d'estompage, plus de mention « Le nom
+ *   de la page » sous ce qu'on garde, plus de rapprochement : toute la
+ *   chorégraphie écrite pour ces cinq-là passait à la trappe, en silence.
+ *
+ *   `fdom` y échappait par chance — la première occurrence de `www.example.com`
+ *   EST celle qu'il garde. C'est bien le hasard qui décidait.
+ *
+ * ★ Une seule source de vérité, donc : les bornes servent au calcul (`apply`),
+ *   au geste (`etapeDecoupeAdresse`) et au nommage (ici). Le repli sur
+ *   `sortieConservee` ne vaut que pour un `coupe: true` sans bornes, cas qu'un
+ *   test interdit.
+ */
+function sortieDecoupee(op) {
+  return (avant, apres, ctx) => {
+    const bornes = typeof op.bornes === 'function' ? op.bornes(avant.valeur) : null;
+    if (!bornes) return sortieConservee(avant, apres, ctx);
+    return ctx.ids.filter((_, k) => k >= bornes[0] && k < bornes[1]);
+  };
+}
+
 function etapeDecoupeAdresse(op) {
   return (avant, apres, ctx) => {
     // ★ **LA COUPE SE LIT SUR SES BORNES, ELLE NE SE DEVINE PAS.**
@@ -1544,7 +1579,11 @@ export const FILTRES = Object.freeze(brut.map((spec) => {
     // dessus : la scène et le catalogue doivent lire la MÊME chaîne, pas deux
     // replis qui se ressemblent.
     outil: reste.outil || outilDuChiffrement(reste) || reste.libelle,
-    sortie: parTable ? sortieMuee : (remplace ? sortieCreee : sortieConservee),
+    // ★ Le NOMMAGE suit la même règle que le geste : une découpe d'adresse lit
+    //   ses bornes, elle ne recherche pas son résultat dans la saisie. Voir
+    //   `sortieDecoupee` — c'est la moitié du correctif qui manquait.
+    sortie: parTable ? sortieMuee
+      : (remplace ? sortieCreee : (spec.coupe ? sortieDecoupee(reste) : sortieConservee)),
   };
   // ★ Le geste se DÉDUIT de ce que l'opérateur déclare, dans cet ordre : une
   //   table à montrer, un rapprochement d'exemplaires, un remplacement, un

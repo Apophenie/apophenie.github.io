@@ -1294,6 +1294,26 @@ test('★ découpes d’adresse — la zone déclarée EST le texte rendu', () =
       }
       assert.equal([...saisie].slice(bornes[0], bornes[1]).join(''), rendu.valeur,
         `${op.code} sur « ${saisie} » : la zone déclarée n’est pas ce qui est rendu`);
+
+      /* ★ **ET LA SORTIE AUSSI — c'est la moitié qui manquait.**
+
+         Les bornes servaient au calcul et au geste, mais `sortie()` était
+         restée sur `apparier`, qui cherche la première occurrence de chaque
+         caractère où qu'elle soit. Les deux se contredisaient, et
+         `scenario.js` — qui refuse à juste titre une `sortie()` désignant des
+         jetons que les steps n'ont pas gardés — se rabattait EN SILENCE sur le
+         rendu générique : un effacement nu, sans estompage, sans le nom de ce
+         qu'on garde, sans rapprochement.
+
+         MESURÉ sur `https://www.example.com/path/to/page` : `fpag` garde
+         « page » (32 à 35) et annonçait `t3`, `t14` — le `p` de « https », un
+         `a` d'« example ». `fdom` y échappait par pure chance, la première
+         occurrence de ce qu'il garde étant celle qu'il garde. */
+      const etat = depuisSaisie(saisie);
+      const ids = [...saisie].map((_, i) => `t${i}`);
+      const sortie = op.sortie(etat, appliquer(op, etat), { ids, cle: 'e0', langue: 'fr' });
+      assert.deepEqual(sortie, ids.slice(bornes[0], bornes[1]),
+        `${op.code} sur « ${saisie} » : sortie() ne nomme pas les jetons de la zone`);
     }
   }
 });

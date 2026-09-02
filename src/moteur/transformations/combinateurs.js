@@ -988,6 +988,34 @@ const agregations = [
     //   saisie, elle est dans la méthode. D'où l'`adHoc` : ce n'est pas une
     //   propriété du mot, c'est une propriété de ce qu'on lui a fait.
     notoriete: 0.30, adHoc: 0.30,
+    // ★ **DÉPRÉCIÉ — il compte ce que `cnj` a déjà compté, un pas plus tôt.**
+    //
+    //   « `cnv` : certainement jamais utilisé, vu qu'étape supplémentaire après
+    //   une conversion lettre→chiffre qui mène au même résultat. Si tu confirmes
+    //   qu'il n'est jamais retenu et ne risque pas de l'être, déprécie-le »
+    //   (l'auteur).
+    //
+    //   MESURÉ, deux fois, et l'intuition est bonne :
+    //
+    //    · JAMAIS RETENU — zéro fois sur 816 approches, quarante-sept saisies,
+    //      deux budgets de fouille (×1 et ×16) ;
+    //    · ET C'EST STRUCTUREL — sur 25 509 états `NUMS` atteignables en quatre
+    //      étapes, `cnv` rend 24 961 fois (97,9 %) exactement ce que `cnj`
+    //      aurait rendu UN PAS PLUS TÔT. Tous les mappeurs `TOKENS → NUMS`
+    //      rendent un nombre par jeton : compter les nombres, c'est alors
+    //      compter les jetons, en ayant payé la conversion pour rien.
+    //
+    //   ⚠️ **LES 548 CAS RESTANTS NE SONT PAS DES DOUBLONS**, et il faut le
+    //     dire : après `tch` (un nombre éclaté en chiffres) ou `mrd` (des
+    //     paquets refaits), le compte des nombres n'est plus celui des jetons —
+    //     `tca+cnj+tch` en donne 2 quand `cnj` en donnait 26. Ces états
+    //     existent ; simplement, aucun n'a jamais produit une approche retenue,
+    //     et une ficelle notée 0,30 / 0,30 n'a pas de quoi remonter la pente.
+    //
+    //   ⚠️ DÉPRÉCIÉ, PAS RAYÉ (§4.1) : le code reste réservé, l'opérateur quitte
+    //     la recherche et reste jouable depuis `debug.html`. Un `deprecated`
+    //     retiré d'une ligne le fait revenir si la mesure vieillit mal.
+    deprecated: true,
     calcul: (vs) => vs.length,
     geste: 'comptage',
   },
@@ -998,7 +1026,38 @@ const agregations = [
     gabarit: bilingue('On colle les %s bout à bout', 'Glue the %s end to end'),
     regle: bilingue('On met les nombres bout à bout et on relit',
       'Set the numbers end to end and read the result'),
-    notoriete: 0.20, adHoc: 0.3, lecture: '⁀',
+    // ★ **NOTORIÉTÉ 0,99, ET IL NE SE FACTURE PLUS — arbitrage de l'auteur.**
+    //
+    //   « `ccat` : si possible de le rendre implicite, le faire. En tout cas le
+    //   rendre gratuit ou 0,99 de notoriété et qui ne compte pas comme une
+    //   étape » (l'auteur). Les deux sont faits ; l'implicite, non, et la raison
+    //   est écrite juste dessous.
+    //
+    //   0,99 se défend : mettre des chiffres bout à bout et relire le résultat
+    //   n'est pas une méthode de numérologie, c'est ce que fait n'importe qui à
+    //   qui l'on dicte un numéro. Il rejoint la ligne du signe « + » et du
+    //   découpage par caractères — les gestes que personne n'a eu à apprendre.
+    //
+    //   Et il ne se facture plus (`config.js › CODES_NON_FACTURES`) : accoler
+    //   n'AFFIRME rien sur ce qu'on accole, c'est une relecture de ce qui est
+    //   déjà écrit. Une étape se paie parce qu'elle soutient quelque chose.
+    //
+    //   ⚠️ **IL NE PEUT PAS ÊTRE IMPLICITE, et ce n'est pas une timidité.** Un
+    //     opérateur implicite se RÉINSÈRE à la lecture d'un lien, ce qui n'est
+    //     honnête que s'il est la SEULE porte de son type — `tca` est le seul
+    //     `STR → TOKENS` qui ne choisisse rien, `m09` le seul `TOKENS → NUMS`
+    //     qui n'affirme rien. Ici, ils sont DIX à faire `NUMS → NUM` : somme,
+    //     produit, écart, moyenne, médiane, maximum, minimum, décompte,
+    //     accolement… Réinsérer `ccat` reviendrait à DEVINER lequel l'auteur du
+    //     lien voulait, alors que la règle actuelle ne fait que CONSTATER. Un
+    //     lien cesserait d'être la description exacte d'une démonstration.
+    //
+    //   ⚠️ `adHoc` reste à 0,30 : le geste est connu de tous, mais DÉCIDER de
+    //     coller ces nombres-là plutôt que de les additionner reste un choix
+    //     qu'on fait parce qu'il arrange. La notoriété dit ce que le public
+    //     sait ; l'`adHoc`, ce que la méthode se permet. Les deux ne bougent pas
+    //     ensemble.
+    notoriete: 0.99, adHoc: 0.3, lecture: '⁀',
     calcul: (vs) => Number(vs.map((v) => String(Math.abs(v))).join('')),
     geste: 'accolement', minimum: 2,
   },

@@ -287,6 +287,28 @@ export const IMPLICITE_DEPUIS = Object.freeze({
 export const CODES_IMPLICITES = Object.freeze([CODE_DECOUPE_IMPLICITE, CODE_LECTURE_IMPLICITE]);
 
 /**
+ * ★ **CE QUI NE SE FACTURE PAS — un ensemble PLUS LARGE que l'implicite.**
+ *
+ * Les deux notions se ressemblent et ne coïncident pas, et les confondre serait
+ * une faute grammaticale autant qu'une faute de barème :
+ *
+ *  · **implicite** = « ne s'ÉCRIT pas dans le lien ». Cela n'est honnête que
+ *    pour l'unique porte d'un type d'état — sans quoi la relecture devrait
+ *    DEVINER, et un lien cesserait d'être la description exacte d'une
+ *    démonstration ;
+ *  · **non facturé** = « ne compte pas comme une ÉTAPE ». Cela vaut pour tout
+ *    geste qui n'AFFIRME rien — et un tel geste peut parfaitement devoir
+ *    s'écrire, parce qu'il avait des rivaux au moment où on l'a choisi.
+ *
+ * `ccat` est exactement ce cas : accoler des chiffres et relire le résultat ne
+ * soutient aucune thèse, mais dix opérateurs font `NUMS → NUM` et l'on ne peut
+ * pas deviner lequel un lien voulait. Il s'écrit donc, et ne se paie pas —
+ * « le rendre gratuit ou 0,99 de notoriété et qui ne compte pas comme une
+ * étape » (l'auteur).
+ */
+export const CODES_NON_FACTURES = Object.freeze([...CODES_IMPLICITES, 'ccat']);
+
+/**
  * ★ **LE PLAFOND DES SÉRIES — au plus « 666 » neuf fois.**
  *
  * Il vivait dans `assemblage.js`, où il DÉCIDE, et il en existait une COPIE dans
