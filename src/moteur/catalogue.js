@@ -25,7 +25,7 @@ import { MESURES_STR, MAPPEURS } from './transformations/mappeurs.js';
 import { COMBINATEURS } from './transformations/combinateurs.js';
 import { POSTS, JOKERS } from './transformations/posts.js';
 import {
-  ORDRE_PREFIXES, PREFIXE, FAMILLES, RE_CODE, tracesDe,
+  ORDRE_PREFIXES, PREFIXE, FAMILLES, RE_CODE, tracesDe, lireVisee, VISEE_DEFAUT,
 } from './transformations/commun.js';
 import { estBilingue, langueValide, LANGUES, LANGUE_DEFAUT, dire } from './i18n.js';
 import {
@@ -191,6 +191,28 @@ function verifier(liste) {
       echec(`${ou} : « note » doit être null ou porter ses deux langues (§ i18n).`);
     }
     if (op.isJoker && op.famille !== 'joker') echec(`${ou} : isJoker réservé à la famille joker.`);
+    // ★ LE CANAL DE LA CIBLE — voir `transformations/commun.js › selonLaCible`.
+    //   Il est FACULTATIF : la grande majorité des opérateurs n'a rien à savoir
+    //   de ce qu'on cherche. Mais s'il est là, il doit tenir deux promesses, et
+    //   les deux se vérifient d'un appel :
+    //
+    //    1. il vise ; c'est une fonction, pas un drapeau ;
+    //    2. **il se REPLIE exactement sur lui-même en 666.** `viser('666')`
+    //       rend l'opérateur qui est au catalogue — le même objet —, si bien
+    //       qu'aucune comparaison par référence ne peut diverger et qu'aucun
+    //       chemin de code ne change quand la cible vaut 666. C'est la garantie
+    //       de non-régression de `recherche/cible.js`, exigée ici au chargement
+    //       plutôt qu'espérée.
+    if (op.viser !== undefined) {
+      if (typeof op.viser !== 'function') {
+        echec(`${ou} : « viser » doit être une fonction — c'est le canal par lequel la `
+          + 'cible atteint un opérateur (commun.js › selonLaCible).');
+      }
+      if (op.viser(VISEE_DEFAUT) !== op) {
+        echec(`${ou} : « viser(${VISEE_DEFAUT}) » ne rend pas l'opérateur du catalogue. `
+          + 'Le repli sur la cible par défaut doit être EXACT, jusqu\'à l\'identité.');
+      }
+    }
   }
   // Le registre ne contient pas de rang fantôme : un code inscrit sans
   // opérateur derrière creuserait un trou dans l'ordre, et surtout laisserait
@@ -231,6 +253,92 @@ export function operateursActifs(options = {}) {
 
 /** Opérateurs applicables à un type d'état donné, par codes croissants. */
 export const operateursDepuis = (type, options) => operateursActifs(options).filter((o) => o.from === type);
+
+// ───────────────────────────────────────────────────────────────────────────
+// ★ LA CLASSIFICATION FACE À LA CIBLE — dérivée, jamais recopiée
+// ───────────────────────────────────────────────────────────────────────────
+//
+// « Quels opérateurs sont compatibles avec autre chose que 6 comme cible et
+//  lesquels ne le sont pas ? Lesquels peux-tu adapter, lesquels faut-il
+//  désactiver quand la cible est différente ? » (l'auteur)
+//
+// La réponse ne s'écrit nulle part : elle se CALCULE, sur l'opérateur lui-même,
+// en lui montrant la cible. Trois classes, et les trois sont des faits :
+//
+//  · `INDIFFERENT` — l'opérateur ne porte pas `viser`. Il n'a donc AUCUN moyen
+//    d'apprendre ce qu'on cherche : A1Z26 convertit des lettres, le quatorze
+//    segments compte des segments, la somme additionne. Ce n'est pas une
+//    promesse, c'est une impossibilité de structure ;
+//  · `ADAPTE` — il porte `viser`, et `viser(cible)` lui rend un opérateur. Sa
+//    règle s'est transposée : « trois 6 d'affilée » devient « trois 1
+//    d'affilée », « la somme vise 6 » devient « la somme vise 1 » ;
+//  · `DESACTIVE` — il porte `viser`, et `viser(cible)` rend `null`. Sa règle
+//    n'a pas de sens pour cette cible-là, et c'est LUI qui le dit, en la
+//    regardant. `mpf` (« le plus fréquent l'emporte ») ne laisse qu'un seul
+//    chiffre répété : il ne peut écrire que `666`, `111` ou `000`, jamais `13`.
+//
+// ⚠️ **Une classe est relative à UNE cible**, et c'est voulu : « adaptable » et
+// « à désactiver » ne sont pas des propriétés de l'opérateur, ce sont des
+// propriétés du COUPLE (opérateur, cible). Demander « cet opérateur est-il
+// adaptable ? » dans l'absolu, c'est demander une moyenne sur un ensemble de
+// cibles qu'on ne connaît pas.
+//
+// ★ **Aucune liste, nulle part.** C'est tout l'enjeu : `bfs.js` tenait
+// `OPERATEURS_LIES_A_666`, cinq identifiants écrits à la main à côté du
+// catalogue. Une seconde source de vérité que CONTRACTS §0.3 refuse — « ce qui
+// est montré est ce qui est compté » —, et qui avait déjà commencé à diverger
+// (son en-tête annonçait quatre opérateurs au-dessus d'une liste de cinq).
+
+/** Les trois classes, dans l'ordre où une page de débogage les montre. */
+export const CLASSES_CIBLE = Object.freeze(['INDIFFERENT', 'ADAPTE', 'DESACTIVE']);
+
+/**
+ * La classe d'un opérateur FACE À UNE CIBLE, et l'opérateur à employer.
+ *
+ * @param {Object} op
+ * @param {string|number[]} [cible]  l'écriture de la cible ; 666 par défaut
+ * @returns {{classe:string, op:Object|null, litLaCible:boolean}}
+ *   `op` est l'opérateur RÉELLEMENT explorable pour cette cible : celui du
+ *   catalogue s'il est indifférent, sa version visée s'il est adaptable,
+ *   `null` s'il est à désactiver.
+ */
+export function classerPourCible(op, cible = VISEE_DEFAUT) {
+  if (!op || typeof op.viser !== 'function') {
+    return { classe: 'INDIFFERENT', op: op || null, litLaCible: false };
+  }
+  const vise = op.viser(cible);
+  return { classe: vise ? 'ADAPTE' : 'DESACTIVE', op: vise, litLaCible: true };
+}
+
+/**
+ * Le relevé complet, pour une cible — ce que publie `debug.html`.
+ *
+ * ★ Il se lit sur `CATALOGUE` ENTIER, pas sur les seuls explorables : la page
+ * de récapitulatif liste tout, y compris les dépréciés et les jokers, et un
+ * relevé qui en tairait la moitié laisserait croire que la question ne se pose
+ * pas pour eux.
+ *
+ * @param {string|number[]} [cible]
+ * @returns {Array<{code:string, id:string, classe:string, litLaCible:boolean, regle:Object|null}>}
+ */
+export function classementPourCible(cible = VISEE_DEFAUT) {
+  const visee = lireVisee(cible);
+  const ecriture = visee ? visee.texte : VISEE_DEFAUT;
+  return CATALOGUE.map((op) => {
+    const c = classerPourCible(op, ecriture);
+    return {
+      code: op.code,
+      id: op.id,
+      classe: c.classe,
+      litLaCible: c.litLaCible,
+      // ★ La règle RENDUE est celle de l'opérateur VISÉ, pas celle du
+      //   catalogue : c'est la seule qui décrira ce qui sera réellement joué.
+      //   Montrer « trois 6 d'affilée » au-dessus d'une colonne qui annonce
+      //   « adapté à 111 » serait précisément la divergence qu'on chasse.
+      regle: c.op ? c.op.regle : op.regle,
+    };
+  });
+}
 
 /** L'opérateur de secours (heuristique §5.4). */
 export const JOKER = PAR_ID.get('j.nomFrancais');

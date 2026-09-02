@@ -674,7 +674,31 @@ export function creerMoteur(catalogue, options = {}) {
     // La cible vient du LIEN, et de nulle part ailleurs — comme le registre.
     // Un lien sans marqueur vise 666, c'est `url.js` qui le résout.
     const cbl = normaliserCible(lecture.cible);
-    const parCode = new Map(ops.map((o) => [o.code, o]));
+    // ★ **LA TABLE DES CODES SUIT LA CIBLE DU LIEN**, et il le faut absolument.
+    //
+    //   Un code ne dit pas TOUT ce qu'un opérateur fait : six d'entre eux lisent
+    //   la cible (`moteur/transformations/commun.js › selonLaCible`), et `m36`
+    //   sur `c111!` cherche trois 1 là où le même code sur `666` cherche trois
+    //   6. Résoudre le code sur le catalogue nu rejouerait donc la version
+    //   visant 666 sous un lien qui vise autre chose — c'est-à-dire une AUTRE
+    //   démonstration que celle dont le lien est issu, ce que §4.3 interdit.
+    //
+    //   La cible est dans l'URL (`c111!`), donc la résolution est reproductible :
+    //   même lien, même cible, même opérateur, même scène. Sur un lien sans
+    //   marqueur — la cible vaut 666 —, `viser` rend l'opérateur du catalogue
+    //   lui-même (identité garantie, `catalogue.js › verifier`) : rien ne change.
+    //
+    //   ⚠️ On part de `ops`, le catalogue ENTIER, et non des explorables : un
+    //   lien peut porter le joker (`jnf`) ou un code déprécié, et rejouer un
+    //   lien déjà partagé passe avant l'exploration (§4.3). Un opérateur que sa
+    //   propre règle désactive pour cette cible ne rentre pas dans la table, et
+    //   `executerProgramme` refuse alors le programme — bruyamment, plutôt que
+    //   de jouer une règle qui n'a pas de sens.
+    const parCode = new Map();
+    for (const o of ops) {
+      const vise = typeof o.viser === 'function' ? o.viser(cbl.texte) : o;
+      if (vise) parCode.set(o.code, vise);
+    }
 
     // ── ÉTAGE AMONT : les RETOUCHES (`2.1:fr13;…`, voir `url.js`) ───────────
     //

@@ -17,7 +17,7 @@ import {
 } from '../cible.js';
 import { lire, ecrire, REGISTRE_DEFAUT, registreEffectif, registresDisponibles, autreRegistre } from '../url.js';
 import { creerMoteur } from '../index.js';
-import { operateursPourCible, operateursExplorables, OPERATEURS_LIES_A_666 } from '../bfs.js';
+import { operateursPourCible, operateursExplorables } from '../bfs.js';
 import { serieDeSix, sixDuChemin, compterMoisson, verdictDe } from '../assemblage.js';
 import { nbTriptyques, finDuTriptyque } from '../elegance.js';
 import { catalogue } from './_catalogue.js';
@@ -311,18 +311,64 @@ test('★ NON-RÉGRESSION — aucune URL de la cible par défaut ne porte de mar
   }
 });
 
-test('★ NON-RÉGRESSION — les opérateurs restent explorables pour 666', () => {
+test('★ NON-RÉGRESSION — les opérateurs restent explorables pour 666, aux objets près', () => {
   const tous = operateursExplorables(catalogue);
-  assert.deepEqual(
-    operateursPourCible(catalogue, normaliserCible('666')).map((o) => o.code),
-    tous.map((o) => o.code),
-  );
-  // …et les cinq opérateurs écrits autour du 6 sortent dès qu'on vise ailleurs.
-  const autres = operateursPourCible(catalogue, normaliserCible('111')).map((o) => o.id);
-  for (const id of OPERATEURS_LIES_A_666) {
-    assert.ok(tous.some((o) => o.id === id), `${id} existe au catalogue`);
-    assert.ok(!autres.includes(id), `${id} ne s’explore pas hors de 666`);
+  const pour666 = operateursPourCible(catalogue, normaliserCible('666'));
+  assert.deepEqual(pour666.map((o) => o.code), tous.map((o) => o.code));
+  // ★ Identité, pas seulement égalité de codes : le moteur compare des
+  //   opérateurs par RÉFÉRENCE (`bfs.js › conventionContraire`), et deux
+  //   descripteurs jumeaux mais distincts y feraient diverger un classement.
+  pour666.forEach((o, i) => assert.equal(o, tous[i], `${o.code} : même objet qu'avant`));
+});
+
+test('★ la classification face à la cible est DÉRIVÉE, jamais recopiée', () => {
+  // ★ CONTRACTS §0.3. Il n'existe aucune liste d'opérateurs « liés à 666 » :
+  //   la classe se CALCULE en montrant la cible à l'opérateur. Ce test ne
+  //   nomme donc aucune liste attendue — il vérifie la MÉCANIQUE, et les
+  //   conséquences que la mécanique implique.
+  const tous = operateursExplorables(catalogue);
+  const lisent = tous.filter((o) => typeof o.viser === 'function');
+  assert.ok(lisent.length, 'au moins un opérateur lit la cible');
+
+  // 1. Un opérateur sans `viser` ne PEUT pas dépendre de la cible : il n'a
+  //    aucun moyen de l'apprendre. C'est ce qui rend la classe « indifférent »
+  //    vérifiable sans faire confiance à personne.
+  for (const o of tous) {
+    if (typeof o.viser === 'function') continue;
+    assert.equal(o.visee, undefined, `${o.code} : pas de visée sans canal`);
   }
+
+  // 2. Le repli sur 666 est EXACT, jusqu'à l'identité.
+  for (const o of lisent) assert.equal(o.viser('666'), o, `${o.code} : viser(666) === lui-même`);
+
+  // 3. Et l'ensemble explorable d'une cible EST celui que la classification
+  //    annonce — les deux se lisent au même endroit, donc ils ne peuvent pas
+  //    diverger. C'est très exactement ce que l'ancienne liste ne garantissait
+  //    pas.
+  for (const texte of ['111', '13', '007', '000', '01111984']) {
+    const attendu = tous
+      .map((o) => (typeof o.viser === 'function' ? o.viser(texte) : o))
+      .filter(Boolean);
+    assert.deepEqual(
+      operateursPourCible(catalogue, normaliserCible(texte)).map((o) => o.code),
+      attendu.map((o) => o.code),
+      `explorables de ${texte}`,
+    );
+  }
+});
+
+test('★ ce qu’un opérateur ANNONCE est ce qu’il applique, cible comprise', () => {
+  // ★ CONTRACTS §0.3 encore : un opérateur visé porte la règle de ce qu'il
+  //   fera, pas celle qu'il faisait en visant 666. Sans cela, la lightbox du
+  //   récapitulatif décrirait « trois 6 d'affilée » au-dessus d'une scène qui
+  //   cherche trois 1.
+  const m36 = operateursExplorables(catalogue).find((o) => o.code === 'm36');
+  if (!m36 || typeof m36.viser !== 'function') return; // catalogue jouet
+  const vise = m36.viser('111');
+  assert.ok(vise.regle.fr.includes('1'), vise.regle.fr);
+  assert.ok(!vise.regle.fr.includes(' 6 '), `la règle ne parle plus du 6 : ${vise.regle.fr}`);
+  assert.equal(vise.code, m36.code, 'le code ne change pas — c’est la CIBLE qui change');
+  assert.equal(vise.id, m36.id);
 });
 
 /* ═══════════════ 7. Le moteur : viser réellement autre chose ════════════ */
