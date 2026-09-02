@@ -47,6 +47,7 @@ import { construireScenario } from './scenario.js';
 import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
 import {
   lire, ecrire, descripteursDe, retouchesDe, ecrireRetouches, BANDEAUX, RE_A_TROUVER,
+  CODE_DECOUPE_IMPLICITE,
 } from './url.js';
 import { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES } from './cible.js';
 import { deroulerParTranches } from './tranches.js';
@@ -1359,6 +1360,26 @@ function executerProgramme(texte, codes, parCode, journal = null) {
   const chemin = { ops: [], etats: [courant], valeur: null, cout: 0 };
   for (const code of codes) {
     const op = parCode.get(code);
+    /* ★ **LE DÉCOUPAGE IMPLICITE SE RÉINSÈRE ICI.** Voir
+       `url.js › CODE_DECOUPE_IMPLICITE` : `tca` ne s'écrit plus dans les liens.
+       On le remet quand — et seulement quand — l'état courant est du TEXTE et
+       que l'opérateur qui vient réclame des JETONS.
+
+       ⚠️ La règle ne devine pas : elle CONSTATE. Un lien qui écrit `tm`, `tsp`
+         ou `tsy` fournit lui-même ses jetons, l'état n'est plus `STR` quand
+         l'opérateur suivant se présente, et rien n'est inséré. Un lien qui écrit
+         `tca` explicitement — tous ceux d'hier — le voit appliqué normalement,
+         puis l'état n'est plus `STR` : la réinsertion ne peut pas le doubler. */
+    if (op && courant.type === 'STR' && op.from === 'TOKENS') {
+      const decoupe = parCode.get(CODE_DECOUPE_IMPLICITE);
+      const jetons = decoupe && appliquerOp(decoupe, courant);
+      if (jetons) {
+        chemin.ops.push(decoupe);
+        chemin.etats.push(jetons);
+        chemin.cout += decoupe.cout || 0;
+        courant = jetons;
+      }
+    }
     // ★ **DEUX ÉCHECS QUI N'ONT RIEN À VOIR, ET QUI SE DISAIENT PAREIL.**
     //
     //   > « Pourquoi es-tu capable d'identifier ce qui bloque, mais que rien

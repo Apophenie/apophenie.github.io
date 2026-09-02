@@ -15,6 +15,9 @@
 //   portees    := portee ('+' portee)*         // un programme, plusieurs places
 //   portee     := offset '.' longueur          // en jetons ; absent ⇒ saisie entière
 //   programme  := code ('+' code)* | '?'+        // les '?' : une COMMANDE
+//              // `tca` (« un caractère, un jeton ») est IMPLICITE : il ne
+//              // s'écrit pas et se réinsère à la lecture — voir
+//              // `CODE_DECOUPE_IMPLICITE`.
 //   saisie     := b58(texte) | texte           // le b58 gagne, voir plus bas
 //
 // `+` sépare les OPÉRATIONS d'un même fragment (arbitrage utilisateur) — et,
@@ -445,6 +448,43 @@ export const RE_CODE = /^[ftnmcpj][0-9a-z]+[A-Z]?$/;
  *   est une commande, un programme est un programme.
  */
 export const RE_A_TROUVER = /^\?+$/;
+
+/**
+ * ★ **`tca` EST IMPLICITE — le découpage par défaut ne s'écrit plus.**
+ *
+ * > « Si `tca` devient implicite, et qu'on saute `mpf`, ça donne `#mt9#` comme
+ * >   programme : là, la concision est vraiment exemplaire ! » (l'auteur)
+ *
+ * `t.caracteres` — « un caractère, un jeton » — ouvre la quasi-totalité des
+ * voies du site : c'est le passage obligé entre le TEXTE et les JETONS, et le
+ * plus neutre des quatre. L'écrire à chaque fois revenait à faire dire à chaque
+ * lien la même chose que tous les autres.
+ *
+ * ★ **IL EST LE DÉFAUT, PAS LE SEUL.** Trois autres opérateurs font ce même
+ *   passage — `tm` (par mots), `tsp` (par séparateurs), `tsy` (par syllabes) —
+ *   et ceux-là s'écrivent, parce qu'ils DISENT quelque chose : découper « hope »
+ *   en syllabes n'est pas le découper en lettres. Seul le découpage qui ne
+ *   choisit rien se tait.
+ *
+ * ★ **L'ALLER-RETOUR RESTE EXACT, et ce n'est pas une chance.** `tca` transforme
+ *   `STR` en `TOKENS` : il ne peut donc PARAÎTRE qu'à l'endroit exact où la
+ *   règle de réinsertion le remettrait — après les filtres qui travaillent le
+ *   texte, avant le premier opérateur qui réclame des jetons. Il n'existe aucune
+ *   place où il serait facultatif, donc aucune où l'omettre perdrait une
+ *   information. C'est ce qui autorise à le taire plutôt qu'à l'abréger.
+ *
+ * ⚠️ Un programme RÉDUIT à `tca` garde son code : le taire laisserait un
+ *   fragment vide, c'est-à-dire une grammaire cassée pour gagner trois signes.
+ */
+export const CODE_DECOUPE_IMPLICITE = 'tca';
+
+/** Les codes tels qu'on les ÉCRIT : sans le découpage implicite. */
+export function codesEcrits(codes) {
+  const liste = [...codes];
+  if (liste.length < 2) return liste;
+  const sortie = liste.filter((c) => c !== CODE_DECOUPE_IMPLICITE);
+  return sortie.length ? sortie : liste;
+}
 const RE_PORTEE = /^(\d+)\.(\d+)$/;
 const RE_RESONANCE = /^[×xX*](\d+)$/;
 const RE_RANGS = /^\d+(\+\d+)*$/;
@@ -1221,7 +1261,7 @@ export function ecrireApproche(fragments) {
   // comparateur à qui faire confiance (§4.4).
   const groupes = new Map();
   for (const f of fragments) {
-    const programme = f.codes.join('+');
+    const programme = codesEcrits(f.codes).join('+');
     const place = `${f.portee.offset}.${f.portee.longueur}`;
     const deja = groupes.get(programme);
     if (deja) deja.push(place);
@@ -1254,13 +1294,13 @@ function factorisable(fragments) {
     if (f.portee.offset <= precedent) return false;
     precedent = f.portee.offset;
   }
-  const programmes = fragments.map((f) => f.codes.join('+'));
+  const programmes = fragments.map((f) => codesEcrits(f.codes).join('+'));
   return new Set(programmes).size < programmes.length;
 }
 
 
 function ecrireFragment(f) {
-  const programme = f.codes.join('+');
+  const programme = codesEcrits(f.codes).join('+');
   if (f.resonance) return `×${f.resonance}:${programme}`;
   if (f.portee) return `${f.portee.offset}.${f.portee.longueur}:${programme}`;
   return programme;
@@ -1275,7 +1315,7 @@ function ecrireFragment(f) {
  */
 export function descripteursDe(approche, ctx = {}) {
   const parts = approche.parts.map((p) => ({
-    codes: p.chemin.ops.map((o) => o.code),
+    codes: codesEcrits(p.chemin.ops.map((o) => o.code)),
     fragment: p.fragment,
   }));
   const memeProgramme = parts.length === 3
@@ -1287,7 +1327,7 @@ export function descripteursDe(approche, ctx = {}) {
   return parts.map((p) => ({
     portee: porteeDe(p.fragment, ctx),
     resonance: null,
-    codes: p.codes,
+    codes: codesEcrits(p.codes),
   }));
 }
 
@@ -1310,7 +1350,7 @@ export function retouchesDe(approche, ctx = {}) {
   return (approche.retouches || []).map((r) => ({
     portee: porteeDe(r.fragment, ctx),
     resonance: null,
-    codes: r.chemin.ops.map((o) => o.code),
+    codes: codesEcrits(r.chemin.ops.map((o) => o.code)),
   }));
 }
 

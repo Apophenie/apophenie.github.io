@@ -120,13 +120,19 @@ test('url — écriture canonique : aller-retour exact', () => {
  * est pas trouvé un : le `:` est cherché AVANT, et il partage le fragment en
  * deux zones étanches — voir `url.js`, « les portées groupées ».
  */
-const GROUPE = 'so!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+mpy+mr9';
+// ★ Sans `tca` : le découpage par défaut ne s'écrit plus (`url.js ›
+//   CODE_DECOUPE_IMPLICITE`). Un lien qui le porte reste LU — c'est vérifié
+//   plus bas —, mais la forme canonique, celle que `canoniser()` remet dans la
+//   barre d'adresse, s'en passe.
+const GROUPE = 'so!0.1+2.1+4.1:m14,1.1+3.1:mtc+cs,6.1:mpy+mr9';
 // ★ La forme dépliée est celle de l'ORDRE DU TEXTE, et non celle de l'ordre
 //   des groupes : une ligne groupée déclare se lire de gauche à droite, et le
 //   dépliage l'y remet (`url.js › lireFragments`). C'est ce qui rend la
 //   factorisation neutre — sans quoi `0.1+2.1:A,1.1:B` dirait 0, 2, 1.
-const DEPLIE = 'so!0.1:tca+m14,1.1:tca+mtc+cs,2.1:tca+m14,'
-  + '3.1:tca+mtc+cs,4.1:tca+m14,6.1:tca+mpy+mr9';
+// ★ Sans `tca`, comme `GROUPE` : les deux formes se comparent, elles doivent
+//   donc s'écrire dans le même alphabet.
+const DEPLIE = 'so!0.1:m14,1.1:mtc+cs,2.1:m14,'
+  + '3.1:mtc+cs,4.1:m14,6.1:mpy+mr9';
 
 test('★ portées groupées — la forme de l’auteur se lit, et se déplie', () => {
   const r = lire(`#${GROUPE}#${B58_URL}`);
@@ -135,9 +141,9 @@ test('★ portées groupées — la forme de l’auteur se lit, et se déplie', 
   assert.deepEqual(r.fragments.map((f) => `${f.portee.offset}.${f.portee.longueur}`),
     ['0.1', '1.1', '2.1', '3.1', '4.1', '6.1'],
     'une ligne groupée se déplie dans l’ordre du TEXTE : c’est lui qui écrit la cible');
-  assert.deepEqual(r.fragments[0].codes, ['tca', 'm14']);
-  assert.deepEqual(r.fragments[2].codes, ['tca', 'm14']);
-  assert.deepEqual(r.fragments[1].codes, ['tca', 'mtc', 'cs']);
+  assert.deepEqual(r.fragments[0].codes, ['m14']);
+  assert.deepEqual(r.fragments[2].codes, ['m14']);
+  assert.deepEqual(r.fragments[1].codes, ['mtc', 'cs']);
   assert.equal(r.bandeau, null);
 });
 
@@ -166,7 +172,13 @@ test('★ portées groupées — l’écriture les PRODUIT : l’aller-retour es
   const lien = `#${GROUPE}#${B58_URL}`;
   const r = lire(lien);
   const reecrit = ecrire({ saisie: r.saisie, fragments: r.fragments, registre: r.registre });
-  assert.equal(reecrit, lien, 'la forme groupée doit se réécrire à l’identique');
+  // ⚠️ `tca` ne s'écrit plus : on compare donc l'écriture à ELLE-MÊME une fois
+  //    de plus, ce qui est la vraie propriété — le groupement est un point fixe.
+  //    Le lien de départ, lui, reste lu (assertion suivante).
+  const encore = lire(reecrit);
+  assert.equal(
+    ecrire({ saisie: encore.saisie, fragments: encore.fragments, registre: encore.registre }),
+    reecrit, 'la forme groupée doit se réécrire à l’identique');
   // Et la forme dépliée CONVERGE vers elle : deux écritures, un seul canonique.
   const d = lire(`#${DEPLIE}#${B58_URL}`);
   assert.equal(ecrire({ saisie: d.saisie, fragments: d.fragments, registre: d.registre }), lien);
@@ -290,14 +302,24 @@ test('★ portées groupées — les liens figés de l’accueil se relisent, et
     assert.equal(r.forme, 'canonique', hash);
     // Point fixe : ce que l'écriture produit se relit en donnant exactement les
     // mêmes descripteurs, dans le même ordre.
+    /* ⚠️ **LE POINT FIXE SE MESURE À PARTIR DE L'ÉCRITURE, pas de la saisie.**
+       Ces liens portent `tca`, qui ne s'écrit plus (`url.js ›
+       CODE_DECOUPE_IMPLICITE`) : la PREMIÈRE écriture le laisse tomber, et
+       comparer son résultat au hash d'origine ne mesurerait pas la stabilité,
+       seulement le fait qu'on vient de retirer quelque chose. Ce qui doit être
+       stable, et l'est, c'est ce qui vient APRÈS : écrire une forme déjà écrite
+       ne la change plus. Les liens d'hier restent lus — c'est la première
+       assertion, et elle porte toujours. */
     const ecrit = ecrireApproche(r.fragments);
     const relu = lire(`#so!${ecrit}#${hash.slice(hash.lastIndexOf('#') + 1)}`);
     assert.equal(relu.forme, 'canonique', ecrit);
-    assert.deepEqual(
-      relu.fragments.map((f) => `${f.portee.offset}.${f.portee.longueur}:${f.codes.join('+')}`),
-      r.fragments.map((f) => `${f.portee.offset}.${f.portee.longueur}:${f.codes.join('+')}`),
-      `${hash} : l’aller-retour n’est pas neutre`);
     assert.equal(ecrireApproche(relu.fragments), ecrit, `${ecrit} n’est pas un point fixe`);
+    // Et les PORTÉES, elles, traversent sans bouger — seul le découpage
+    // implicite se tait, la géométrie de la voie est intacte.
+    assert.deepEqual(
+      relu.fragments.map((f) => `${f.portee.offset}.${f.portee.longueur}`),
+      r.fragments.map((f) => `${f.portee.offset}.${f.portee.longueur}`),
+      `${hash} : les portées ont bougé`);
   }
 });
 
@@ -343,7 +365,11 @@ test('★ url — une retouche sans portée porte sur la saisie entière', () =>
 });
 
 test('★ url — aller-retour d’une retouche, au caractère près', () => {
-  const lien = `#so!2.1:fr13;fl+tca+mtal+m14+mpf#${encoderTexte('Donald Trump')}`;
+  /* ★ `tca` NE S'ÉCRIT PLUS : « un caractère, un jeton » est le découpage par
+     défaut, réinséré à la lecture (`url.js › CODE_DECOUPE_IMPLICITE`). Les liens
+     qui le PORTENT restent lisibles — ceux d'hier le font —, mais la forme
+     canonique s'en passe. Ce qui est comparé ici est une ÉCRITURE, donc sans. */
+  const lien = `#so!2.1:fr13;fl+mtal+m14+mpf#${encoderTexte('Donald Trump')}`;
   const r = lire(lien);
   assert.equal(ecrire({
     saisie: r.saisie, retouches: r.retouches, fragments: r.fragments, registre: r.registre,
@@ -357,7 +383,11 @@ test('★ url — aller-retour d’une retouche, au caractère près', () => {
  */
 test('★ url — sans retouche, l’écriture est INCHANGÉE au caractère près', () => {
   const frags = [{ portee: null, resonance: null, codes: ['tca', 'm14', 'm36'] }];
-  const attendu = `#so!tca+m14+m36#${B58_HOPE}`;
+  /* ★ `tca` NE S'ÉCRIT PLUS : « un caractère, un jeton » est le découpage par
+     défaut, réinséré à la lecture (`url.js › CODE_DECOUPE_IMPLICITE`). Les liens
+     qui le PORTENT restent lisibles — ceux d'hier le font —, mais la forme
+     canonique s'en passe. Ce qui est comparé ici est une ÉCRITURE, donc sans. */
+  const attendu = `#so!m14+m36#${B58_HOPE}`;
   assert.equal(ecrire({ saisie: 'hope', fragments: frags, registre: 'sobre' }), attendu);
   assert.equal(ecrire({ saisie: 'hope', fragments: frags, registre: 'sobre', retouches: [] }), attendu);
   assert.ok(!attendu.includes(';'));
@@ -520,7 +550,13 @@ test('registre — aller-retour exact dans les deux registres', () => {
     const s = ecrire({ saisie: 'hope', fragments: frags, registre });
     const r = lire(s);
     assert.equal(r.registre, registre);
-    assert.deepEqual(r.fragments, frags);
+    /* ⚠️ Les codes RELUS n'ont plus le `tca` qu'on a fourni : il ne s'écrit
+       plus, donc il n'est pas dans le lien, donc `lire()` ne peut pas l'y
+       trouver — c'est `executerProgramme` qui le remet, au moment de jouer, et
+       lui seul a le catalogue pour savoir où (`url.js ›
+       CODE_DECOUPE_IMPLICITE`). Ce que ce test mesure est le REGISTRE ; on
+       compare donc les fragments à ce que l'écriture retient. */
+    assert.deepEqual(r.fragments, [{ ...frags[0], codes: ['m14', 'm36'] }]);
     assert.equal(ecrire({ saisie: 'hope', fragments: r.fragments, registre: r.registre }), s);
   }
 });
@@ -727,7 +763,7 @@ test('saisie en clair — le plafond de saisie vaut aussi pour le texte brut', (
  */
 test('★ saisie en clair — l’écriture reste en base58, la barre d’adresse se corrige', () => {
   const frags = [{ portee: null, resonance: null, codes: ['tca', 'm36'] }];
-  assert.equal(ecrire({ saisie: 'Macron', fragments: frags }), `#so!tca+m36#${encoderTexte('Macron')}`);
+  assert.equal(ecrire({ saisie: 'Macron', fragments: frags }), `#so!m36#${encoderTexte('Macron')}`);
   assert.equal(ecrire({ saisie: 'Donald Trump' }), `##${encoderTexte('Donald Trump')}`);
 
   const appels = [];
@@ -738,7 +774,7 @@ test('★ saisie en clair — l’écriture reste en base58, la barre d’adress
   const lu = lire(faux.location.hash);
   canoniser({ saisie: lu.saisie, fragments: lu.fragments, registre: lu.registre }, faux);
   assert.equal(appels.length, 1, 'un lien tapé à la main n’est pas laissé en l’état');
-  assert.equal(appels[0][2], `/numherololgeek/#so!tca+m36#${encoderTexte('Macron')}`);
+  assert.equal(appels[0][2], `/numherololgeek/#so!m36#${encoderTexte('Macron')}`);
 });
 
 /**
