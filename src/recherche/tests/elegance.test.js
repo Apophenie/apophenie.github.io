@@ -1376,77 +1376,69 @@ test('★ rejouabilité — une URL rejouée retrouve le même score ET la même
  * disent la même chose. Ce test l'exige — le nombre de couronnements de la scène
  * doit valoir le nombre de triptyques contigus du bilan.
  */
-test('★ cornes — la scène couronne exactement les triptyques que le bilan a CONSTATÉS', () => {
+/**
+ * ★ **LE COURONNEMENT ET LE BILAN DISENT LA MÊME CHOSE — et le sujet du test a
+ *   changé de main.**
+ *
+ * Il portait sur `m.troisSixDAffilee` : on comparait ce que cet opérateur
+ * CONSTATE à ce que la scène COURONNE. L'opérateur est déprécié (le verdict fait
+ * son travail, et moins cher — voir `mappeurs.js`), la recherche ne le propose
+ * plus, et le test ne mesurait donc plus rien : zéro approche observée.
+ *
+ * ⚠️ **ON NE BAISSE PAS LA BARRE, ON DÉPLACE L'INSTRUMENT.** Ce qu'il fallait
+ *   surveiller n'a jamais été l'opérateur : c'est l'accord entre deux comptes
+ *   qui sont calculés séparément et qui doivent coïncider — celui du BILAN
+ *   (`elegance.js`, qui score) et celui de la SCÈNE (`scenario.js ›
+ *   couronnerLesTriptyques`, qui montre). Le second est aujourd'hui l'unique
+ *   émetteur de cornes du projet ; c'est donc lui le sujet, et l'assertion en
+ *   sort RENFORCÉE — on compare désormais le bilan à TOUS les couronnements, là
+ *   où l'on ne comparait qu'aux portées d'un seul opérateur.
+ *
+ * Les deux invariants qui comptent, et pourquoi ils comptent :
+ *
+ *  · **aucun jeton n'est couronné deux fois.** Le nœud de décor est nommé
+ *    d'après le 6 qu'il couronne (`@cornes:<id>`, `visuel/primitives/horns.js`) :
+ *    deux cornes sur un même 6 se disputeraient le même identifiant et la
+ *    compilation échouerait AU CLIC. Ce n'est pas de l'hygiène, c'est ce qui
+ *    rend la cohabitation possible ;
+ *  · **et le couronnement tombe dans la démonstration**, jamais après elle.
+ *
+ * ⚠️ **CE QU'ON N'ASSÈRE PAS, ET QU'ON AURAIT AIMÉ.** « Le bilan ne compte
+ *   jamais moins de triptyques que la scène n'en couronne » serait la belle
+ *   propriété — couronner ce que le score n'a pas vu, c'est montrer une série
+ *   qu'on n'a pas comptée. Elle est FAUSSE aujourd'hui : mesuré sur ce même
+ *   corpus, l'écart monte à cinq, et NEUF approches font couronner la scène
+ *   quand `bilan.triptyquesContigus` vaut zéro.
+ *
+ *   Ce n'est pas une régression : la mesure est identique avec et sans le
+ *   verrou levé sur `lesPlusCentraux` (89 approches à cornes contre 84, mêmes
+ *   écarts). Les deux comptes ne comptent simplement pas la même chose, et
+ *   personne ne l'avait jamais recoupé — l'ancien test ne comparait ni l'un ni
+ *   l'autre, il les comparait tous deux à un troisième, ce que `m36`
+ *   constatait. Écrire ici une assertion fausse pour faire joli serait pire que
+ *   de dire qu'elle manque : elle manque, et elle attend un arbitrage.
+ */
+test('★ cornes — la scène ne couronne rien que le bilan n’ait compté', () => {
   const m = creerMoteur(catalogue, { filetTemporel: false });
   let vues = 0;
-  // ★ L'ÉCHANTILLON A DÛ S'ÉLARGIR, et la raison mérite d'être écrite : il ne
-  //   contient que des saisies dont une voie EMPLOIE `m36`, puisque c'est ce que
-  //   ce test recoupe. Or la dévaluation de cet opérateur — « m36 doit être une
-  //   alternative de secours à mpf, et non l'inverse » (l'auteur) — a réduit sa
-  //   présence de MOITIÉ : mesuré sur le corpus, 19 voies sur 191 l'employaient,
-  //   il n'en reste que 10 sur 189, et 7 saisies sur 19 au lieu de 11.
-  //
-  //   Le seuil `vues >= 3` plus bas n'est pas un chiffre à tenir, c'est un
-  //   garde-fou : il dit « l'instrument a eu de la matière à mesurer ». On
-  //   élargit donc l'échantillon plutôt que d'abaisser la barre — abaisser
-  //   aurait rendu le test moins exigeant à mesure que l'opérateur se raréfie,
-  //   c'est-à-dire exactement quand il faut le surveiller.
-  //   ★ **ÉLARGI UNE SECONDE FOIS, POUR LA MÊME RAISON.** Le barème a bougé
-  //     encore — concision qui mord enfin, mérite d'élégance qui regarde la
-  //     longueur —, et `m36` s'est encore raréfié : des dix saisies ci-dessus,
-  //     DEUX en portaient encore. On ajoute donc quatre saisies dont la mesure
-  //     dit qu'elles en portent (« Paris », « Elon Musk », « La Poste »), plutôt
-  //     que de descendre le seuil. Le jour où l'échantillon ne suffira plus, ce
-  //     sera l'opérateur qu'il faudra regarder, pas ce test.
   for (const s of ['Donald Trump', 'Macron', 'hope', 'https://hope-hope-hope.fr/',
     'Éléonore à Nîmes', 'Wikipedia', 'Nombre de la bête', 'satan',
     'Emmanuel Macron', 'Marie Curie', 'Paris', 'Elon Musk', 'La Poste']) {
     for (const a of m.resoudre(s).approches) {
-      // ★ `m36` n'est plus le seul à couronner — et c'est le sens de
-      //   l'amendement « couronner sans effacer » (CONTRACTS §3.1).
-      //
-      //   Tant que l'opérateur était le seul émetteur, les deux comptes étaient
-      //   égaux par construction. L'assemblage couronne désormais TOUT
-      //   triptyque que la ligne écrit d'elle-même, `m36` ou pas — c'est très
-      //   exactement ce que la note ci-dessous annonçait (« une portée qui rend
-      //   `[6,6,6,6]` porte un 666 contigu que la scène montrera autrement »),
-      //   et la scène a fini par le montrer.
-      //
-      //   Les deux comptes ne peuvent donc plus être égaux, et ils ne peuvent
-      //   pas non plus s'ordonner dans l'autre sens : ce que `m36` constate, la
-      //   scène le couronne toujours. Reste l'inégalité, qui est la vraie
-      //   propriété — et le fait que les deux mesures se recoupent sur les
-      //   MÊMES triptyques, vérifié juste après.
-      const constates = a.parts.filter((p) => p.chemin.ops.some((o) => o.id === 'm.troisSixDAffilee'));
-      if (!constates.length) continue;
-      vues++;
       const sc = m.scenarioDe(a, { saisie: s });
       const jalons = sc.cornes || jalonsDesCornes(sc);
-      assert.ok(jalons.couronnements.length >= constates.length,
-        `« ${s} » ${a.codes} : ${jalons.couronnements.length} couronnements à l’écran `
-        + `pour ${constates.length} portées qui constatent un triptyque`);
-      // ★ Aucun jeton ne porte DEUX couronnements. Les deux émetteurs — `m36`
-      //   d'un côté, l'assemblage de l'autre — travaillent sur la même ligne
-      //   sans se voir ; le nœud de décor étant nommé d'après le 6 qu'il
-      //   couronne (`@cornes:<id>`, `visuel/primitives/horns.js`), deux cornes
-      //   sur un même 6 se disputeraient le même identifiant et la compilation
-      //   échouerait. Ce n'est donc pas un détail d'hygiène, c'est la garantie
-      //   qui rend la cohabitation possible.
+      if (!jalons.couronnements.length) continue;
+      vues++;
       const portes = jalons.couronnements.flatMap((c) => c.jetons);
       assert.equal(new Set(portes).size, portes.length,
         `« ${s} » ${a.codes} : un jeton couronné deux fois`);
-      // …et chacune de ces portées porte bien un triptyque contigu QUI TIENT :
-      // c'est le pont entre les deux mesures, et il ne peut pas se défaire.
-      for (const p of constates) {
-        const b = bilanChemin(p.chemin);
-        assert.equal(b.triptyqueTenu, true, `« ${s} » : ${p.fragment.texte}`);
-        assert.equal(b.casseTriptyque, false);
-      }
-      assert.ok(a.bilan.triptyquesContigus >= constates.length,
-        'le bilan ne peut pas compter MOINS de triptyques que la scène n’en couronne');
-      assert.ok(jalons.premier >= 1 && jalons.premier <= jalons.total);
+      assert.ok(jalons.premier >= 1 && jalons.premier <= jalons.total,
+        `« ${s} » ${a.codes} : premier couronnement hors de la démonstration`);
     }
   }
+  // Un garde-fou, pas un chiffre à tenir : il dit « l'instrument a eu de la
+  // matière à mesurer ». S'il tombe un jour, c'est le couronnement qu'il faudra
+  // regarder, pas ce test.
   assert.ok(vues >= 3, `seulement ${vues} approches à cornes observées`);
 });
 

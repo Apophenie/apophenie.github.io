@@ -2751,6 +2751,15 @@ export function dedupliquerApproches(approches) {
  * démonstration — elle reste. On ne fusionne que ce qui rend exactement le même
  * verdict.
  */
+/* ⚠️ **CETTE FONCTION EST AUJOURD'HUI INERTE, et c'est voulu.**
+   `m.troisSixDAffilee` est DÉPRÉCIÉ (voir `mappeurs.js`) : la recherche ne le
+   propose plus, aucune approche ne le porte, et il n'y a donc plus deux
+   branches à départager. On ne la retire pas pour autant — elle est
+   l'application d'un arbitrage de l'auteur (« c'est la même méthode, elle ne
+   devrait pas exister avec ET sans »), et cet arbitrage redevient nécessaire au
+   mot près le jour où l'on retire le `deprecated`. La supprimer reviendrait à
+   perdre la règle en même temps que l'opérateur, alors qu'ils ne se
+   déprécient pas ensemble. */
 function prefererLeTriptyqueMontre(approches) {
   const groupes = new Map();
   for (const a of approches) {

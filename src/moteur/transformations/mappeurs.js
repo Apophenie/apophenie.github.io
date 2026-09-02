@@ -2791,6 +2791,46 @@ const AUTRES_MAPPEURS = [
   // entière, et il n'affirme rien de plus qu'avant : que c'était déjà écrit.
   selonLaCible((visee) => ({
     id: 'm.troisSixDAffilee', code: 'm36', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    // ★ **DÉPRÉCIÉ — le verdict fait son travail, et le fait mieux.**
+    //
+    //   « Je ne vois pas où `m36` reste pertinent. La mécanique d'explosion a
+    //   été créée ultérieurement. Si `m36` n'est pas à déprécier, il va falloir
+    //   que tu m'expliques mieux pourquoi » (l'auteur). Il n'y a pas d'excuse à
+    //   fournir : la première réponse s'appuyait sur un argument de COHÉRENCE
+    //   (`assemblage.js › prefererLeTriptyqueMontre` impose la variante avec
+    //   `m36` quand les deux se valent) et non d'UTILITÉ. L'auteur l'a vu, et
+    //   la question était : à quoi sert-il encore ?
+    //
+    //   ── Ce qu'il faisait, et qui s'est vidé en deux temps ──────────────────
+    //
+    //    · **couronner** — il ne le fait plus depuis longtemps :
+    //      `scenario.js › couronnerLesTriptyques` est aujourd'hui le SEUL
+    //      émetteur de cornes du projet, parce qu'un couronnement qui dépendrait
+    //      d'un code dépendrait de l'URL ;
+    //    · **tronquer aux trois** — c'est ce que le verdict fait désormais, par
+    //      l'EXPLOSION du surnuméraire, depuis que celle-ci accepte une série
+    //      unique (`lesPlusCentraux`). Le verdict le fait sans étape, donc sans
+    //      longueur facturée, donc moins cher.
+    //
+    //   MESURÉ sur `#m14#` (« hope »), ligne d'arrivée `6 6 6 6` : sans `m36`,
+    //   quatre conversions, les cornes, le verdict — le quatrième 6 y explose.
+    //   Avec `m36`, la même chose plus une étape pour effacer ce même 6. Il ne
+    //   reste donc, littéralement, qu'un coût.
+    //
+    //   ── Le seul cas qui résistait, et pourquoi il ne suffit pas ────────────
+    //   Sur une ligne MÊLÉE — `1 2 3 4 5 6 6 6` —, `m36` dit « on s'arrête aux
+    //   trois 6 d'affilée » là où la récolte dit « on ne garde que les 6 », et
+    //   la doctrine attache un malus d'aveu à la seconde. Une meilleure PHRASE,
+    //   donc. Mais l'effacement est le même — cinq chiffres jetés dans les deux
+    //   cas —, et la récolte sait déjà dire « Trois, côte à côte » dans sa
+    //   légende. Une nuance de formulation ne vaut pas un opérateur qui, par
+    //   l'effet de `prefererLeTriptyqueMontre`, TAXE d'une étape toutes les
+    //   voies où il s'applique.
+    //
+    //   ⚠️ DÉPRÉCIÉ, PAS RAYÉ (§4.1) : le code reste réservé, l'opérateur quitte
+    //     la recherche, reste jouable depuis `debug.html`, et les liens déjà
+    //     partagés qui le portent continuent de s'ouvrir.
+    deprecated: true,
     libelle: libTrouvaille(visee),
     regle: (() => {
       const s = compteDite(visee);

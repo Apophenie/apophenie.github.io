@@ -973,9 +973,24 @@ test('★ surnuméraire — la fonction renonce là où permuter changerait la d
   const c666 = lireCible('666');
   // Rien en trop : il n'y a pas de geste à faire.
   assert.equal(lesPlusCentraux([6, 6, 6, 6, 6, 6], [0, 1, 2, 3, 4, 5], c666), null);
-  // UNE seule série : une explosion PROPULSE, il lui faut quelqu'un à pousser
-  // de chaque côté. Un 666 seul avec un 6 qui traîne n'a pas de milieu.
-  assert.equal(lesPlusCentraux([6, 6, 6, 6], [0, 1, 2], c666), null);
+  /* ★ **UNE SEULE SÉRIE EST DÉSORMAIS ACCEPTÉE — le refus coûtait plus qu'il
+     ne rapportait.** Il disait « une explosion PROPULSE, il lui faut quelqu'un
+     à pousser de chaque côté ». Belle figure, mais l'auteur a fait le compte :
+     « quitte à jeter de toute façon le surplus à la fin, pourquoi ne pas le
+     faire durant le verdict, vu qu'il sait faire ça et le facture moins
+     cher ? ». Sur `#m14#` (« hope »), le refus produisait une étape entière
+     intitulée « On ne garde que les 6 » sur une ligne où il n'y a QUE des 6, et
+     dont le seul geste était d'en jeter un.
+
+     La coupure tombe alors AVANT le triptyque : c'est le premier jeton
+     interchangeable qui part, pas le dernier — « un 6 qui s'en va par le bout
+     de la ligne ne pousse personne » vise la fin. */
+  assert.deepEqual(lesPlusCentraux([6, 6, 6, 6], [0, 1, 2], c666),
+    { gardes: [1, 2, 3], surnumeraires: [0] });
+  // Et quand le 6 en trop n'est PAS collé au triptyque, c'est lui qui part :
+  // il n'y a pas d'autre lecture possible.
+  assert.deepEqual(lesPlusCentraux([6, 4, 6, 6, 6], [2, 3, 4], c666),
+    { gardes: [2, 3, 4], surnumeraires: [0] });
   // Une cible NON HOMOGÈNE : les jetons ne sont plus interchangeables. La
   // suite `0 0 7 0 0 7 0` n'écrit `007` qu'en lisant certains jetons et pas
   // d'autres, et permuter y changerait ce qui est démontré, pas la façon de

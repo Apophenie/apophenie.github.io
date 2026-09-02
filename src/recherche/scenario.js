@@ -1046,9 +1046,36 @@ function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = n
  * seriesDe`), et permuter changerait ce qui est démontré. La condition est donc
  * la **cible homogène**, et rien de moins.
  *
- * ★ **Et il faut DEUX séries au moins.** Une explosion PROPULSE : il lui faut
- * quelqu'un à pousser de chaque côté. Un triptyque seul avec un 6 qui traîne
- * n'a pas de milieu, et son surnuméraire retombe dans la chute ordinaire.
+ * ★ **UNE SEULE SÉRIE SUFFIT — l'exigence de deux est levée.**
+ *
+ *   Elle disait : « une explosion PROPULSE, il lui faut quelqu'un à pousser de
+ *   chaque côté ; un triptyque seul avec un 6 qui traîne n'a pas de milieu ».
+ *   L'argument portait sur la BELLE FIGURE du geste, et il oubliait de compter
+ *   ce que son refus coûtait. L'auteur a fait le compte :
+ *
+ *   > « Quitte à jeter de toute façon le surplus à la fin, pourquoi ne pas le
+ *   > faire durant le verdict, vu qu'il sait faire ça et le facture moins
+ *   > cher ? […] Pour un 4ᵉ 6, l'explosion finale au verdict me semble plus
+ *   > pertinente. »
+ *
+ *   MESURÉ, et c'est accablant : sur `#m14#` (« hope »), la ligne d'arrivée est
+ *   `6 6 6 6` — QUE des 6 —, et le refus faisait retomber le quatrième dans la
+ *   récolte ordinaire. On obtenait donc une étape entière intitulée **« On ne
+ *   garde que les 6 »** sur une ligne où il n'y a QUE des 6, et dont le seul
+ *   geste était d'en jeter un. Le titre ne décrivait rien ; il contredisait ce
+ *   qu'on voyait. C'est exactement le défaut que l'en-tête ci-dessus dit avoir
+ *   corrigé — il ne l'avait corrigé qu'au-dessus de deux séries.
+ *
+ *   Avec une seule série, la coupure tombe AVANT le triptyque (`coupure = 0`) :
+ *   le surnuméraire est le premier jeton interchangeable, pas le dernier. C'est
+ *   ce qu'il faut — « un 6 qui s'en va par le bout de la ligne ne pousse
+ *   personne » vise la fin, et un départ par la tête pousse tout le reste. Et
+ *   quand le 6 en trop n'est PAS collé au triptyque — `6 4 6 6 6` —, c'est lui
+ *   qui part, ce qui est la seule lecture possible.
+ *
+ *   ⚠️ Ce qui disparaît alors n'est pas seulement un titre menteur : c'est une
+ *     ÉTAPE, donc une longueur, donc un malus de récolte. La voie devient plus
+ *     courte ET plus honnête, sans qu'on ait touché au barème.
  *
  * ★ La coupure choisie sépare DEUX SÉRIES, jamais l'intérieur de l'une d'elles
  * — sans quoi le triptyque qu'on prétend propulser serait coupé en deux — et
@@ -1075,7 +1102,7 @@ export function lesPlusCentraux(valeurs, gardes, cible) {
   if (!Array.isArray(valeurs) || !Array.isArray(gardes) || !gardes.length) return null;
   if (!gardes.every((i) => valeurs[i] === chiffre)) return null;
   const nSeries = gardes.length / cbl.longueur;
-  if (!Number.isInteger(nSeries) || nSeries < 2) return null;
+  if (!Number.isInteger(nSeries) || nSeries < 1) return null;
   // Les jetons INTERCHANGEABLES : ceux qui portent le chiffre de la cible, que
   // la récolte les ait retenus ou non. Les autres ne sont pas surnuméraires,
   // ils sont FAUX — ils tombent comme avant, et à leur étape.
