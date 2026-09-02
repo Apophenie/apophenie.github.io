@@ -31,9 +31,11 @@ import { fileURLToPath } from 'node:url';
 
 import {
   programmePour, sensDesPaliers, mesurerLesPaliers, saisiesTemoins, PROFONDEUR_EXEMPLE,
-  TERMES_IDEAUX,
+  TERMES_IDEAUX, PHRASES_DE_CLASSE,
 } from './pages/debug.js';
-import { CATALOGUE, appliquer, PAR_CODE, operateursActifs } from '../moteur/catalogue.js';
+import {
+  CATALOGUE, appliquer, PAR_CODE, operateursActifs, classerPourCible, CLASSES_CIBLE,
+} from '../moteur/catalogue.js';
 import { depuisSaisie, signature } from '../moteur/etat.js';
 import { creerMoteur } from '../recherche/index.js';
 import { BAREME, NATURE, FICELLES, detailDuCredit } from '../recherche/elegance.js';
@@ -321,4 +323,60 @@ test('★ chaque ligne du détail du crédit porte le signe que NATURE déclare'
     }
   }
   assert.ok(vues >= 10, `seules ${vues} lignes signées observées : le témoin est trop pauvre`);
+});
+
+/* ═══════════ 4. La classification face à la cible reste DÉRIVÉE ═══════════ */
+
+test('★ la page couvre toutes les classes de cible, et n’en invente aucune', () => {
+  /* La page écrit UNE chose que le calcul ne peut pas lui donner : une phrase
+     française par classe. C'est le seul endroit de la section qui puisse
+     dériver, donc c'est le seul qu'un test doive tenir. Les CLÉS, elles,
+     viennent de `CLASSES_CIBLE` — et ce test exige qu'elles coïncident dans les
+     deux sens : une classe ajoutée au moteur sans phrase ici fait rougir la CI,
+     une phrase orpheline aussi. */
+  assert.deepEqual(
+    Object.keys(PHRASES_DE_CLASSE).sort(),
+    [...CLASSES_CIBLE].sort(),
+    'la table des phrases et le registre des classes doivent coïncider',
+  );
+  for (const c of CLASSES_CIBLE) {
+    assert.equal(typeof PHRASES_DE_CLASSE[c], 'string');
+    assert.ok(PHRASES_DE_CLASSE[c].length > 20, `${c} : la phrase doit dire quelque chose`);
+  }
+});
+
+test('★ classerPourCible : la classe est un FAIT, pas une déclaration', () => {
+  /* Le cœur de CONTRACTS §0.3 appliqué aux cibles. On ne vérifie pas qu'un
+     opérateur donné tombe dans une classe donnée — ce serait recopier la liste
+     qu'on vient de supprimer. On vérifie l'IMPLICATION : la classe est
+     exactement ce que la présence et le résultat de `viser` disent, opérateur
+     par opérateur, sur toutes les cibles témoins. */
+  for (const texte of ['666', '111', '13', '007', '000', '01111984']) {
+    for (const op of CATALOGUE) {
+      const { classe, op: vise, litLaCible } = classerPourCible(op, texte);
+      assert.equal(litLaCible, typeof op.viser === 'function', `${op.code} : canal déclaré`);
+      if (!litLaCible) {
+        assert.equal(classe, 'INDIFFERENT', `${op.code} sans canal`);
+        assert.equal(vise, op, `${op.code} : un indifférent se joue tel quel`);
+      } else if (op.viser(texte)) {
+        assert.equal(classe, 'ADAPTE', `${op.code} sur ${texte}`);
+        assert.equal(vise.code, op.code, 'le code ne change pas — la cible, oui');
+      } else {
+        assert.equal(classe, 'DESACTIVE', `${op.code} sur ${texte}`);
+        assert.equal(vise, null, 'un désactivé ne se joue pas');
+      }
+    }
+  }
+});
+
+test('★ la page de débogage ne recopie AUCUN nom d’opérateur qui lise la cible', () => {
+  /* Le corollaire du canal `viser` : la section « face à la cible » se construit
+     en montrant la cible à chaque opérateur, donc elle n'a aucune raison d'en
+     nommer un seul. Ce test recoupe la même exigence que le premier de ce
+     fichier, mais sur les IDENTIFIANTS — plus longs, plus reconnaissables, et
+     c'est sous cette forme que l'ancienne liste de `bfs.js` était écrite. */
+  for (const op of CATALOGUE) {
+    if (typeof op.viser !== 'function') continue;
+    assert.ok(!SOURCE.includes(op.id), `« ${op.id} » est écrit dans la page`);
+  }
 });

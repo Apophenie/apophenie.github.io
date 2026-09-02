@@ -65,8 +65,10 @@
  */
 
 import {
-  CATALOGUE, PAR_ID, appliquer, operateursActifs,
+  CATALOGUE, PAR_ID, appliquer, operateursActifs, classerPourCible, CLASSES_CIBLE,
 } from '../../moteur/catalogue.js';
+import { lireCible, normaliserCible, MAX_CHIFFRES, TEXTE_DEFAUT } from '../../recherche/cible.js';
+import { operateursExplorables, operateursPourCible } from '../../recherche/bfs.js';
 import { depuisSaisie, signature } from '../../moteur/etat.js';
 import {
   BAREME, NATURE, FICELLES, NOTE_MAX, bilanApproche, credit, facteur,
@@ -85,7 +87,7 @@ import { creerRegistre } from '../registre.js';
 import { creerTransport, brancherClavier } from '../transport.js';
 import { infobuller } from '../infobulle.js';
 import * as pont from '../pont.js';
-import { e, svg as s } from '../dom.js';
+import { e, svg as s, vider, ajouter } from '../dom.js';
 
 /* ═══════════════════════════ Rendu générique ══════════════════════════════
    Tout ce qui suit travaille sur des objets quelconques : c'est ce qui permet
@@ -836,6 +838,162 @@ export function sensDesPaliers() {
   return sensMemo;
 }
 
+/* ══════════════════ Les opérateurs face à la CIBLE ════════════════════════
+   « Quels opérateurs sont compatibles avec autre chose que 6 comme cible et
+    lesquels ne le sont pas ? Lesquels peux-tu adapter, lesquels faut-il
+    désactiver quand la cible est différente ? (et ça doit apparaître dans
+    debug.html) » (l'auteur)
+
+   ★ **RIEN N'EST RECOPIÉ ICI, PAS MÊME LES TROIS NOMS DE CLASSES.** La classe
+   d'un opérateur se calcule en lui MONTRANT la cible (`catalogue.js ›
+   classerPourCible`), et cette page ne fait que rendre le résultat. Une table
+   « ces cinq-là sont liés à 666 » serait exactement la faute que le canal
+   `viser` vient de corriger dans `bfs.js` : elle mentirait au premier opérateur
+   ajouté, et cette page est justement celle qui devrait le voir.
+
+   ★ **ET LE CHANGEMENT DE CIBLE SE VOIT.** Un champ, dix chiffres au plus, et
+   la page se relit : les compteurs, la colonne « cible » des deux tableaux
+   d'opérateurs et la RÈGLE de chacun. C'est le seul moyen de vérifier ce que
+   §0.3 exige — qu'un opérateur adapté annonce ce qu'il fera, et non ce qu'il
+   faisait en visant 666. */
+
+/**
+ * Ce que chaque classe raconte, en une phrase.
+ *
+ * ⚠️ C'est la seule chose de cette section qui soit ÉCRITE et non calculée, et
+ * il faut savoir pourquoi on l'accepte : une phrase française n'est pas
+ * dérivable d'un identifiant. Le garde-fou est ailleurs — l'ORDRE et
+ * l'EXISTENCE des classes viennent de `CLASSES_CIBLE`, et un test exige qu'il
+ * n'en manque aucune ici. Une quatrième classe ajoutée demain fera donc rougir
+ * la CI au lieu de disparaître de la page en silence.
+ */
+const DIT_LA_CLASSE = Object.freeze({
+  INDIFFERENT: 'ne peut pas lire la cible — sa règle ne la consulte jamais',
+  ADAPTE: 'lit la cible, et sa règle s’y transpose',
+  DESACTIVE: 'lit la cible, et sa règle n’a pas de sens pour celle-ci',
+});
+
+/** Exporté pour le test qui recoupe cette table contre `CLASSES_CIBLE`. */
+export const PHRASES_DE_CLASSE = DIT_LA_CLASSE;
+
+/** La cible affichée par la page, et ceux qui veulent le savoir quand elle change. */
+const cibleAffichee = { texte: TEXTE_DEFAUT };
+const abonnesCible = new Set();
+
+function changerLaCible(texte) {
+  const c = lireCible(texte);
+  if (!c) return false;
+  cibleAffichee.texte = c.texte;
+  for (const redessiner of abonnesCible) redessiner(c);
+  return true;
+}
+
+/** S'abonne, et se dessine tout de suite : un abonné n'attend pas un changement. */
+function suivreLaCible(redessiner) {
+  abonnesCible.add(redessiner);
+  redessiner(normaliserCible(cibleAffichee.texte));
+}
+
+/**
+ * Le champ de cible. Filtré au clavier comme celui de la page de liste : ce qui
+ * en sort est une suite de chiffres, ou n'en sort pas (`cible.js › lireCible`,
+ * « aucune tolérance, et c'est délibéré »).
+ */
+function champDeCible() {
+  const champ = e('input.dbg__cible-champ', {
+    type: 'text',
+    inputmode: 'numeric',
+    id: 'dbg-cible',
+    value: cibleAffichee.texte,
+    maxlength: MAX_CHIFFRES,
+    'aria-describedby': 'dbg-cible-aide',
+  });
+  champ.addEventListener('input', () => {
+    const propre = champ.value.replace(/[^0-9]/g, '').slice(0, MAX_CHIFFRES);
+    if (propre !== champ.value) champ.value = propre;
+    changerLaCible(propre || TEXTE_DEFAUT);
+  });
+  return e('p.dbg__cible-barre', {}, [
+    e('label', { for: 'dbg-cible', texte: 'Cible visée : ' }),
+    champ,
+    ' ',
+    e('span.dbg__note#dbg-cible-aide', {
+      texte: `une suite de chiffres, ${MAX_CHIFFRES} au plus ; vide vaut ${TEXTE_DEFAUT}.`,
+    }),
+  ]);
+}
+
+/**
+ * Le relevé complet : combien d'opérateurs dans chaque classe, et le détail de
+ * ceux qui LISENT la cible — les seuls dont la réponse dépende d'elle.
+ *
+ * ★ Les indifférents ne sont pas détaillés ici, et ce n'est pas un oubli : ils
+ *   sont détaillés dans les deux grands tableaux, colonne « cible », où chaque
+ *   opérateur du catalogue porte sa classe. Les lister une seconde fois par
+ *   dizaines n'apprendrait rien de plus que le compte.
+ */
+function sectionFaceALaCible() {
+  const resume = e('p.dbg__note');
+  const corps = e('tbody');
+  const explorables = e('p.dbg__note');
+
+  suivreLaCible((cible) => {
+    // `source` est l'opérateur du catalogue, `vise` celui qu'on jouerait pour
+    // cette cible — le même objet quand la cible ne change rien, `null` quand
+    // l'opérateur se désactive. Les deux sont nommés : les confondre, c'est
+    // afficher la règle d'hier au-dessus de la classe d'aujourd'hui.
+    const classes = CATALOGUE.map((source) => {
+      const { classe, op: vise, litLaCible } = classerPourCible(source, cible.texte);
+      return { source, vise, classe, litLaCible };
+    });
+    const compte = (c) => classes.filter((x) => x.classe === c).length;
+    resume.textContent = CLASSES_CIBLE
+      .map((c) => `${c.toLowerCase()} : ${compte(c)}`).join('  ·  ')
+      + `  —  sur ${CATALOGUE.length} opérateurs du catalogue.`;
+
+    // ★ Le compte des EXPLORABLES vient de `bfs.js`, pas d'un filtre réécrit
+    //   ici : c'est lui qui décide de ce que la recherche voit, et un second
+    //   comptage divergerait au premier changement de règle.
+    const tous = operateursExplorables(CATALOGUE).length;
+    const pour = operateursPourCible(CATALOGUE, cible).length;
+    explorables.textContent = `La recherche explore ${pour} opérateurs sur ${tous} `
+      + `en visant ${cible.texte}${pour === tous ? ' — aucun n’est écarté.' : '.'}`;
+
+    vider(corps);
+    for (const x of classes) {
+      if (!x.litLaCible) continue;
+      // La règle MONTRÉE est celle de l'opérateur VISÉ — ce qui sera réellement
+      // joué —, et non celle du catalogue (CONTRACTS §0.3). Un opérateur
+      // désactivé n'a plus de règle à montrer : on dit pourquoi, pas ce qu'il
+      // aurait fait.
+      ajouter(corps, e(`tr.dbg__cible-${x.classe.toLowerCase()}`, {}, [
+        e('th.dbg__code', { scope: 'row', texte: x.source.code }),
+        e('td', { texte: x.classe.toLowerCase() }),
+        e('td', {
+          texte: x.vise ? localiser(x.vise.regle) : DIT_LA_CLASSE.DESACTIVE,
+        }),
+      ]));
+    }
+  });
+
+  return section('Les opérateurs face à la cible',
+    'moteur/catalogue.js › classerPourCible · recherche/bfs.js › operateursPourCible',
+    e('p.dbg__note', {
+      texte: 'Classement CALCULÉ, jamais recopié : on montre la cible à chaque opérateur '
+        + 'et l’on regarde ce qu’il en fait. Un opérateur sans canal `viser` ne PEUT pas '
+        + 'la lire — c’est ce qui rend « indifférent » vérifiable plutôt que promis. '
+        + CLASSES_CIBLE.map((c) => `${c.toLowerCase()} : ${DIT_LA_CLASSE[c]}`).join(' · ') + '.',
+    }),
+    champDeCible(),
+    resume,
+    explorables,
+    e('table.dbg__table.dbg__table--large', {}, [
+      e('thead', {}, [e('tr', {}, ['code', 'classe', 'règle appliquée pour cette cible']
+        .map((c, i) => e(`th${i === 0 ? '.dbg__code' : ''}`, { scope: 'col', texte: c })))]),
+      corps,
+    ]));
+}
+
 /* ═════════════════════════ Le catalogue, mesuré ═══════════════════════════ */
 
 /** ★ **UNE COLONNE N'EN EST UNE QUE SI TOUT LE MONDE LA REMPLIT.**
@@ -908,13 +1066,24 @@ function etatDe(op) {
  *   précèdent, laquelle dépend du contenu.
  */
 function tableauDesOperateurs(ops, avecEtat) {
-  const colonnes = [...EN_TETE, ...(avecEtat ? ['état'] : []), 'particularités'];
+  const colonnes = [...EN_TETE, 'cible', ...(avecEtat ? ['état'] : []), 'particularités'];
 
   const lignes = [...ops]
     .sort((a, b) => String(a.code).localeCompare(String(b.code), 'en'))
     .map((op) => {
       const parts = particularitesDe(op);
+      // ★ LA COLONNE « CIBLE » SE REDESSINE AVEC LE CHAMP. C'est ce que l'auteur
+      //   demande — « qu'on puisse voir l'effet d'un changement de cible ». Elle
+      //   n'est pas calculée une fois au montage : elle s'abonne, et une cible
+      //   tapée plus haut la met à jour ligne par ligne.
+      const cellCible = e('td.dbg__cible-classe');
+      suivreLaCible((cible) => {
+        const { classe } = classerPourCible(op, cible.texte);
+        cellCible.textContent = classe.toLowerCase();
+        cellCible.className = `dbg__cible-classe dbg__cible-${classe.toLowerCase()}`;
+      });
       const cellules = colonnes.slice(1).map((c) => {
+        if (c === 'cible') return cellCible;
         if (c === 'état') return e('td', { texte: etatDe(op) || '' });
         if (c === 'particularités') {
           return e('td.dbg__particularites', {}, parts.map((x) => e('span.dbg__part', {}, [
@@ -1475,6 +1644,11 @@ export function pageDebug() {
            + 'choisi d’avance ; le signe de chaque palier du barème est MESURÉ, pas déduit '
            + 'de son nom.',
     }),
+
+    // ★ AVANT les deux grands tableaux, parce que c'est LUI qui commande leur
+    //   colonne « cible » : on lit d'abord ce qu'on vise, ensuite ce que chacun
+    //   en fait.
+    sectionFaceALaCible(),
 
     section(`Les opérateurs actifs (${ACTIFS.length})`,
       'src/moteur/catalogue.js · src/moteur/transformations/',
