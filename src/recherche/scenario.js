@@ -2415,6 +2415,73 @@ export function construireScenario(approche, ctx = {}) {
       }
       parSignature.get(sig).push(g);
     }
+    ordonnerLesPaquets(paquets);
+  }
+
+  /**
+   * ★ **L'ORDRE DES PAQUETS — de gauche à droite, sauf quand l'un ENJAMBE
+   *   l'autre.**
+   *
+   * > « S'il n'y a pas de regroupement, continue de gauche à droite. S'il y a
+   * >   regroupement, par défaut reste de gauche à droite, mais pour chaque
+   * >   groupe, compare-le à chacun des autres. Nommons deux groupes A et B : si
+   * >   A a un fragment avant ceux de B et un fragment après ceux de B, alors le
+   * >   groupe ayant le plus de caractères est traité en premier. »
+   * >   (l'auteur)
+   *
+   * ★ **POURQUOI L'ENJAMBEMENT, ET LUI SEUL.** Deux paquets qui se suivent sur
+   *   la ligne se lisent dans l'ordre de la ligne, et il n'y a rien à arbitrer.
+   *   Mais quand A commence avant B ET finit après lui, aucun des deux n'est
+   *   « à gauche » de l'autre : l'ordre de lecture ne tranche plus, il faut un
+   *   autre critère. Celui de l'auteur est la MASSE — le paquet qui porte le
+   *   plus de caractères de la saisie passe devant, parce que c'est lui que le
+   *   spectateur tient pour le sujet principal.
+   *
+   * ★ **UNE SÉLECTION, PAS UN TRI.** « A enjambe B » n'est pas une relation
+   *   d'ordre : trois paquets peuvent s'enjamber en rond, et un comparateur non
+   *   transitif rendrait un résultat qui dépend de l'algorithme de tri du
+   *   moteur JavaScript — c'est-à-dire de l'entropie, que §4.4 interdit. On
+   *   choisit donc explicitement, un paquet à la fois : le plus à gauche, sauf
+   *   si un autre l'enjambe ET pèse plus lourd. À poids égal, le plus à gauche
+   *   gagne — la comparaison est STRICTE, et c'est ce qui rend le choix unique.
+   */
+  function ordonnerLesPaquets(paquets) {
+    if (paquets.length < 2) return;
+    const bornes = new Map();
+    for (const p of paquets) {
+      let min = Infinity;
+      let max = -Infinity;
+      let taille = 0;
+      for (const g of p) {
+        const f = (g.part && g.part.fragment) || {};
+        const d = Number.isInteger(f.offset) ? f.offset : 0;
+        const l = Number.isInteger(f.longueur) ? f.longueur : 0;
+        if (d < min) min = d;
+        if (d + l > max) max = d + l;
+        taille += l;
+      }
+      bornes.set(p, { min, max, taille });
+    }
+    // A enjambe B : A commence avant lui ET finit après lui.
+    const enjambe = (a, b) => bornes.get(a).min < bornes.get(b).min
+      && bornes.get(a).max > bornes.get(b).max;
+
+    const reste = [...paquets].sort((a, b) => bornes.get(a).min - bornes.get(b).min);
+    const sortie = [];
+    while (reste.length) {
+      let choisi = 0;
+      for (let i = 1; i < reste.length; i++) {
+        const c = reste[i];
+        const t = reste[choisi];
+        if ((enjambe(c, t) || enjambe(t, c)) && bornes.get(c).taille > bornes.get(t).taille) {
+          choisi = i;
+        }
+      }
+      sortie.push(reste[choisi]);
+      reste.splice(choisi, 1);
+    }
+    paquets.length = 0;
+    paquets.push(...sortie);
   }
 
   /** Un paquet de morceaux qui se lisent pareil : un geste à la fois, pour tous. */

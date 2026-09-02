@@ -674,9 +674,42 @@ export const BAREME = {
    * C'est la seule exception que l'auteur autorise dans une stratégie qu'il
    * appelle « sans malus » (première suggestion) : `estPur` s'appuie dessus.
    */
-  EFFACE_BLOC_COURT: 2,
-  /** ★ « Tout caractère ignoré — malus faible pour la ponctuation. » */
-  EFFACE_PONCTUATION: 1,
+  EFFACE_BLOC_COURT: 6,
+  /**
+   * ★ « Tout caractère ignoré — malus faible pour la ponctuation. »
+   *
+   * ★ **IL VAUT 5, ET NON PLUS 1** — arbitrage de l'auteur, avec sa raison :
+   *
+   * > « Le coût de suppression des ponctuations doit exister (ça reste jeter,
+   * >   et les convertisseurs par position sur le clavier peuvent convertir une
+   * >   ponctuation en nombre), mais le malus pour jeter une ponctuation doit
+   * >   être bien plus faible que pour un caractère alphanumérique, je dirais
+   * >   cinq fois plus faible. »
+   *
+   * L'argument est décisif et il est FACTUEL : `mtc` — « le chiffre qui partage
+   * la touche » — rend 6 sur un tiret, 1 sur `&`, 9 sur `ç`. Une ponctuation
+   * n'est donc pas un caractère qu'on ne saurait pas lire, c'est un caractère
+   * qu'on a CHOISI de ne pas lire. À 1, elle coûtait vingt-six fois moins qu'une
+   * lettre arrachée ; à 5, elle en coûte cinq, ce que l'auteur demande.
+   *
+   * ⚠️ **ET CELA ENTRAÎNE `EFFACE_BLOC_COURT`, QUE L'AUTEUR N'A PAS NOMMÉ.**
+   *   Les quatre postes se comptent PAR CARACTÈRE (`abandons` incrémente dans la
+   *   boucle des caractères, pas dans celle des blocs). L'échelle valait donc
+   *   1 → 2 → 8 → 26 par caractère ; monter la ponctuation à 5 sans toucher au
+   *   reste ferait coûter 4 le fait de jeter le mot « fr » en entier, et 5 celui
+   *   de jeter un seul tiret. Cela ne se défend pas.
+   *
+   *   `EFFACE_BLOC_COURT` passe donc de 2 à 6 : la leniency que l'auteur accorde
+   *   aux blocs courts reste entière — six contre vingt-six pour une lettre
+   *   arrachée —, mais elle cesse d'être MEILLEURE que celle de la ponctuation.
+   *   C'est une conséquence de sa règle, pas une initiative : la retirer est une
+   *   ligne, et l'ordre par caractère redevient 5 → 6 → 8 → 26.
+   *
+   *   ★ `estPur` n'en est pas affecté : il n'examine ni `blocCourt` ni
+   *     `ponctuation` — la « stratégie sans malus » les tolère toutes deux, et
+   *     ce sont leurs TARIFS qui bougent, pas leur statut.
+   */
+  EFFACE_PONCTUATION: 5,
 
   // ── Les quatre transformations « artificielles », par ordre décroissant de
   //    laideur. L'ordre est celui de l'auteur, et un test le gèle.
@@ -698,7 +731,7 @@ export const BAREME = {
    *
    * L'échelle des abandons monte d'un facteur trois à chaque barreau :
    *
-   *     ponctuation 1  →  bloc court 2  →  bloc entier 8  →  lettre arrachée 26
+   *     ponctuation 5  →  bloc court 6  →  bloc entier 8  →  lettre arrachée 26
    *
    * `VALEUR_JETEE` en est le barreau suivant, et il n'en respecte pas le pas :
    * 36, soit à peine 1,4 fois le barreau du dessous, là où la règle voudrait
