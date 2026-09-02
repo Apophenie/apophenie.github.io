@@ -236,7 +236,23 @@ function rangeeFragment(fragment, lienDisponible, chiffreParDefaut) {
  * est écartée de la liste plus bas — proposer d'aller où l'on est déjà n'est
  * pas une proposition.
  */
-const CIBLES_EN_VITRINE = Object.freeze(['111', '777', '000', '13', '007']);
+/**
+ * ★ **666 EST DANS LA VITRINE, ET IL LE FAUT.**
+ *
+ * > « Il manque 666 aux options, au moins quand ce n'est pas 666 qui est
+ * >   actif. » (l'auteur)
+ *
+ * Il n'y était pas parce que la liste avait été écrite POUR une page calée sur
+ * 666 : proposer d'y revenir n'avait alors aucun sens. Mais la commande de
+ * cible filtre déjà la cible COURANTE (voir `raccourcis`), si bien qu'ajouter
+ * 666 ici ne l'affiche jamais quand il est actif — et l'affiche partout
+ * ailleurs, ce qui est exactement ce qu'on veut : d'une page calée sur 111, le
+ * retour à la maison est un raccourci comme un autre.
+ *
+ * ★ En TÊTE, parce que c'est la promesse du site : quand on s'en est éloigné,
+ *   c'est le premier chemin qu'on doit voir pour y revenir.
+ */
+const CIBLES_EN_VITRINE = Object.freeze(['666', '111', '777', '000', '13', '007']);
 
 /**
  * ★ LA COMMANDE DE CIBLE — « trop diabolique pour vous ? »
@@ -454,7 +470,7 @@ function commandeDeCible({ saisie, cible, texteCible, curseurs, fouille }) {
     autocomplete: 'off',
     id: 'cible-libre',
     name: 'cible',
-    placeholder: CIBLES_EN_VITRINE[0],
+    placeholder: t('resultat.cible.champInvite'),
     'aria-describedby': 'cible-aide',
   });
 

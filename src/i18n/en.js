@@ -213,10 +213,11 @@ export const en = {
     cible: {
       titreDiabolique: 'Too diabolical for you?',
       titreAutre: 'Too predictable?',
-      appel: 'Step right up — have the arcana worked out for:',
+      appel: 'Which calculations yield:',
       raccourciLabel: 'Find the paths leading to {cible}',
       ou: 'or any value you like',
       champLabel: 'Digit sequence to aim for',
+      champInvite: 'any number…',
       champAide: 'A sequence of digits, {max} at most. Leading zeros count: “007” is not “7”.',
       calculer: 'Compute',
       invalide: 'A sequence of digits, {max} at most.',

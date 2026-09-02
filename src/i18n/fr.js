@@ -267,10 +267,14 @@ export const fr = {
     cible: {
       titreDiabolique: 'Trop diabolique pour vous ?',
       titreAutre: 'Trop prévisible ?',
-      appel: 'Demandez, demandez les calculs pour obtenir :',
+      appel: 'Quels calculs permettent d’obtenir :',
       raccourciLabel: 'Chercher les voies menant à {cible}',
       ou: 'ou la valeur de votre choix',
       champLabel: 'Suite de chiffres à viser',
+      // ★ Un exemple ne peut pas servir d'invite ici : « 111 » se lisait comme
+      //   la valeur DÉJÀ inscrite, et les raccourcis juste à côté en proposent
+      //   déjà cinq. L'invite dit ce qu'on attend, pas ce qu'on pourrait vouloir.
+      champInvite: 'nombre souhaité…',
       champAide: 'Une suite de chiffres, {max} au plus. Les zéros de tête comptent : « 007 » n’est pas « 7 ».',
       calculer: 'Calculer',
       invalide: 'Une suite de chiffres, {max} au plus.',
