@@ -136,6 +136,11 @@ const MAPPEURS_DE_SERVICE = new Set([
   'm.triCroissant', 'm.redecoupageChoisi',
   // ★ Le tri alphabétique est du même bois : il RANGE, il ne conclut pas.
   'm.triAlphabetique',
+  // ★ Et la LECTURE, plus radicalement encore : elle ne fait rien du tout.
+  //   « Par la lecture des chiffres » nommerait une voie d'après le geste de
+  //   constater que 9 s'écrit 9 — c'est-à-dire d'après rien. Un opérateur qui
+  //   ne s'écrit pas dans l'URL ne peut pas davantage y donner son nom.
+  'm.chiffreTelQuel',
 ]);
 
 /**
@@ -286,6 +291,9 @@ export const NOMS = {
   'm.retournerLesTrios': b('Par le retournement des trios', 'By flipping the trios'),
   'm.compterLesChiffres': b('Par le décompte des chiffres', 'By tallying the digits'),
   'm.redecoupageChoisi': b('Par redécoupage choisi', 'By chosen recutting'),
+  // Jamais employé — il est mappeur de service — mais le registre des noms est
+  // EXHAUSTIF, et un trou ici serait un trou le jour où la règle changerait.
+  'm.chiffreTelQuel': b('Par la lecture des chiffres', 'By reading the digits'),
   // ★ Elle NOMME une voie, elle, et c'est ce qui la sépare des mappeurs de
   //   service ci-dessus : « on écrit le chiffre en toutes lettres » dit par
   //   quel chemin on est passé — c'est un détour qu'on prend, pas une
@@ -537,6 +545,7 @@ export const TITRES_COURTS = {
   'm.retournerLesTrios': b('retourne 666', 'Turn over'), // mr39
   'm.retournerLesNeuf': b('retourne 9', 'Turn 9s'), // mr9
   'm.redecoupageChoisi': b('redécoupe paquets', 'Recut packets'), // mrd
+  'm.chiffreTelQuel': b('lit chiffres', 'Read digits'), // m09
   'm.reduireChaque': b('réduit chaque', 'Reduce number'), // mrn
   'm.scrabbleEN': b('Points Scrabble', 'English Scrabble'), // msen
   'm.scrabbleFR': b('Points Scrabble', 'French Scrabble'), // msfr
@@ -700,6 +709,14 @@ export const PRECISIONS = {
   'm.retournerLesTrios': b('les trios retournés', 'with the trios flipped'),
   'm.compterLesChiffres': b('les chiffres comptés', 'with the digits tallied'),
   'm.redecoupageChoisi': b('redécoupé en paquets', 'recut into packets'),
+  // ⚠️ ELLE EXISTE, mais elle ne devrait jamais servir : `m.chiffreTelQuel` est
+  //    un mappeur de service, et deux voies ne se distinguent pas par le fait
+  //    d'avoir lu leurs chiffres. Sans cette entrée, `precisionDe` se
+  //    rabattrait sur le libellé et souderait « Chaque chiffre vaut lui-même »
+  //    derrière un nom de voie — une majuscule en milieu de phrase pour annoncer
+  //    une étape que la démonstration ne joue pas. Elle est donc écrite au ras
+  //    du sol, et surtout minuscule.
+  'm.chiffreTelQuel': b('les chiffres lus tels quels', 'with the digits read as they stand'),
   'm.chiffreEnLettres': b('écrit en toutes lettres', 'written out in words'),
   // ★ Muet sur ce qu'il souligne — voir `MAPPEURS_DE_SERVICE`. « 666 déjà
   // écrit » serait exact et divulguerait la chute d'une ligne de la liste.

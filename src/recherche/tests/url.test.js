@@ -393,6 +393,48 @@ test('★ url — sans retouche, l’écriture est INCHANGÉE au caractère prè
   assert.ok(!attendu.includes(';'));
 });
 
+/**
+ * ★ **LES DEUX IMPLICITES S'ENCHAÎNENT — `STR → TOKENS → NUMS`, sans un signe.**
+ *
+ * `m09` — « chaque chiffre vaut lui-même » — s'est ajouté à `tca` : ni l'un ni
+ * l'autre n'affirme quoi que ce soit, donc ni l'un ni l'autre ne s'écrit
+ * (`config.js › IMPLICITE_DEPUIS`). Sur une saisie de chiffres, la voie la plus
+ * honnête du site — lire les chiffres, constater que 666 y est déjà écrit —
+ * tient donc dans un lien de quatre signes.
+ *
+ * Ce que le test tient, et qu'aucun autre ne tiendrait : l'aller-retour EXACT
+ * d'une chaîne de DEUX portes. Une seule se vérifiait jusqu'ici ; la seconde
+ * pourrait se réinsérer au mauvais rang — avant un filtre, après une conversion
+ * explicite — sans qu'aucun test d'écriture ne s'en aperçoive, puisque
+ * l'écriture, justement, ne la montre pas.
+ */
+test('★ url — la lecture des chiffres se tait, elle aussi, et se réinsère au bon rang', () => {
+  const chiffres = encoderTexte('12345666');
+  // L'écriture : les deux implicites tombent, le reste ne bouge pas.
+  const frags = [{ portee: null, resonance: null, codes: ['tca', 'm09', 'm36'] }];
+  assert.equal(ecrire({ saisie: '12345666', fragments: frags, registre: 'sobre' }),
+    `#so!m36#${chiffres}`);
+
+  // La lecture : les deux se remettent, dans cet ordre, et à leur place.
+  const r = lire(`#m36#${chiffres}`);
+  assert.equal(r.forme, 'canonique');
+  assert.deepEqual(r.fragments[0].codes, ['m36'], 'le lien ne porte que ce qui s’écrit');
+
+  // ★ Et le programme RÉELLEMENT exécuté les porte tous les deux — c'est le
+  //   moteur qui le dit, pas cette page : un lien de quatre signes déroule
+  //   trois opérateurs.
+  const m = creerMoteur(catalogue);
+  const rejeu = m.rejouer(lire(`#m36#${chiffres}`));
+  assert.ok(rejeu.ok, rejeu.raison);
+  assert.equal(String(rejeu.approche.codes), 'tca+m09+m36');
+
+  // ⚠️ ET UN LIEN QUI LES ÉCRIT RESTE LU, sans que rien ne se double : la
+  //   réinsertion CONSTATE le type de l'état, elle ne devine pas.
+  const explicite = m.rejouer(lire(`#tca+m09+m36#${chiffres}`));
+  assert.ok(explicite.ok, explicite.raison);
+  assert.equal(String(explicite.approche.codes), 'tca+m09+m36');
+});
+
 test('★ url — une retouche seule ne désigne aucune démonstration', () => {
   // À la lecture : il manque l'étage qui lit.
   assert.equal(lire(`#so!2.1:fr13;#${B58_HOPE}`).forme, 'invalide');

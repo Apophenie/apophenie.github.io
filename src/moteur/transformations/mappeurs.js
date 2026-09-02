@@ -102,6 +102,28 @@ import { bilingue, dire } from '../i18n.js';
 import { nivellementDe, dureeRamassage } from './combinateurs.js';
 
 const pli = (c) => sansAccents(String(c)).toUpperCase();
+
+/**
+ * UN chiffre, et rien d'autre — voir `m.chiffreTelQuel`.
+ *
+ * ⚠️ **UN SEUL, ET C'EST TOUTE LA DIFFÉRENCE ENTRE LIRE ET ASSEMBLER.** Le
+ *   premier jet acceptait un jeton de plusieurs chiffres, « 42 » valant
+ *   quarante-deux : refuser aurait supposé de savoir comment la ligne avait été
+ *   découpée. C'était FAUX, et la scène l'a dit — sur `tm+m09` (« 42 » en un
+ *   mot), deux glyphes devaient fondre en un seul nombre, et le compilateur a
+ *   refusé de réduire un token « 4 » en chiffres « 42 ».
+ *
+ *   Une fusion est un GESTE : il faut la montrer, donc elle fait une étape,
+ *   donc elle se facture — c'est-à-dire tout le contraire d'un opérateur
+ *   invisible. « Chaque chiffre vaut lui-même » est vrai d'un chiffre ; d'un
+ *   groupe de chiffres, c'est déjà une lecture positionnelle qu'on assemble.
+ *
+ * ⚠️ `0-9` et non `\p{N}` : le second accepte les chiffres arabo-indiens, les
+ *   idéogrammes numériques et les fractions, dont `Number()` ne sait rien faire
+ *   (`Number('٩')` rend `NaN`). Une lecture qui rend `NaN` sur ce qu'elle vient
+ *   d'accepter serait pire qu'un refus.
+ */
+const RE_UN_CHIFFRE = /^[0-9]$/;
 const estVoyelle = (c) => VOYELLES.includes(pli(c));
 
 /* ── ★ LE NOM DES OUTILS QUE LA SCÈNE MONTE ──────────────────────────────────
@@ -4025,6 +4047,92 @@ const AUTRES_MAPPEURS = [
       return steps;
     },
   })),
+
+  def({
+    /**
+     * ★ **UN CHIFFRE VAUT LUI-MÊME — et jusqu'ici, il n'avait pas de porte.**
+     *
+     * « Bien sûr que chaque chiffre se vaut lui-même. Comme `tca`, si ça manque
+     * c'est à ajouter comme opérateur invisible/implicite qui ne compte pas
+     * comme une étape et n'a pas à apparaître dans l'URL » (l'auteur).
+     *
+     * ⚠️ **LE MANQUE ÉTAIT RÉEL, ET MESURÉ.** Le catalogue portait trente
+     *   opérateurs `TOKENS → NUMS`, et TOUS convertissaient : `m7` compte les
+     *   segments du glyphe (un « 9 » y vaut 6), `ma1` le rang de la lettre,
+     *   `mt9` la touche du téléphone. Aucun ne rendait le chiffre lui-même. Une
+     *   saisie de chiffres purs n'entrait donc dans la ligne que DÉGUISÉE :
+     *   depuis `99922969`, aucun état atteignable en quatre étapes ne portait
+     *   trois 9 contigus, et `#c01111984!#` — une date de naissance — ne
+     *   trouvait rien du tout. On n'avait pas oublié une méthode : on avait
+     *   oublié la LECTURE.
+     *
+     * ★ **IMPLICITE, COMME `tca`, ET POUR LA MÊME RAISON.** Il ne s'écrit pas
+     *   dans les liens (`url.js › CODES_IMPLICITES`) et ne se facture pas comme
+     *   une étape (`score.js › coutRendu`). Ce n'est pas une faveur : c'est que
+     *   lire un chiffre n'AFFIRME rien. Toutes les autres conversions
+     *   soutiennent quelque chose — « cette lettre vaut 3 », « ce glyphe fait
+     *   six segments » — et une affirmation se paie. Celle-ci n'en fait aucune,
+     *   et il n'y a rien à démontrer : elle ne coûte donc rien.
+     *
+     * ★ **ET IL NE MONTRE RIEN, PARCE QU'IL N'Y A RIEN À VOIR.** `steps` rend
+     *   la liste vide, et les identifiants de jetons sont CONSERVÉS : le « 9 »
+     *   de la ligne devient le nombre 9 à la même place, sous le même dessin.
+     *   Une étape ici serait un temps mort portant un titre — exactement ce que
+     *   la doctrine reproche à une transformation qui ne transforme rien à
+     *   l'écran. Et l'objection habituelle tombe d'elle-même : un code que la
+     *   démonstration ne montre nulle part serait gênant s'il figurait dans
+     *   l'URL, et celui-ci n'y figure pas.
+     *
+     * ★ **UN JETON, UN CHIFFRE, ET RIEN D'AUTRE.** Une lettre n'a pas de valeur
+     *   à rendre — lui en donner une serait précisément la conversion qu'on
+     *   refuse d'être —, donc l'opérateur REFUSE la ligne entière dès qu'un
+     *   jeton n'est pas un chiffre, plutôt que d'écarter ce qui le gêne.
+     *   Écarter, c'est le métier des filtres, et cela se paie.
+     *
+     *   ⚠️ Un jeton de PLUSIEURS chiffres est refusé lui aussi, et ce n'est pas
+     *     une timidité : lire « 42 » comme quarante-deux fait fondre deux
+     *     glyphes en un nombre. C'est un geste, il faut le montrer, donc il fait
+     *     une étape et se facture — le contraire même d'un opérateur invisible.
+     *     Voir `RE_UN_CHIFFRE`, où la scène a tranché.
+     *
+     *   Sous `tca` — le découpage implicite —, les jetons sont de toute façon
+     *   des caractères : c'est là que cet opérateur travaille, et les découpages
+     *   par mots ou par syllabes ne lui présentent rien qu'il sache lire.
+     *
+     * ★ Notoriété 1,00, la note du signe « + » : c'est la seule règle du
+     *   catalogue que personne n'a jamais eu à apprendre. AdHoc 0,00, la seule
+     *   du catalogue : elle rendrait le même résultat en visant 666, 111 ou 007,
+     *   et elle ne regarde ni la cible, ni ce qu'on espère en tirer.
+     */
+    id: 'm.chiffreTelQuel', code: 'm09', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    libelle: bilingue('Chaque chiffre vaut lui-même', 'Every digit is worth itself'),
+    regle: bilingue('Un 9 écrit vaut neuf : il n’y a rien à convertir.',
+      'A written 9 is worth nine: there is nothing to convert.'),
+    notoriete: 1.00, adHoc: 0,
+    cout: 1,
+    note: bilingue(
+      'La ligne entière doit être faite de chiffres seuls : une lettre n’a pas de valeur à '
+      + 'rendre, et lire « 42 » d’un coup serait déjà assembler.',
+      'The whole line must be single digits: a letter has no value to give back, and reading '
+      + '“42” in one go would already be assembling.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      const out = [];
+      for (const jeton of valeur) {
+        const texte = String(jeton);
+        if (!RE_UN_CHIFFRE.test(texte)) return null;
+        out.push(Number(texte));
+      }
+      return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
+    },
+    // Un nombre par jeton, à sa place, sous le même dessin : les identifiants
+    // sont ceux d'avant. Les renommer ferait croire au pont qu'un jeton a été
+    // remplacé alors que rien n'a bougé (même règle que `mr9` sur ses non-9).
+    sortie: (avant, apres, ctx) => ctx.ids,
+    // Aucune étape : voir l'en-tête. Ce n'est pas un oubli, c'est le geste.
+    steps: () => [],
+  }),
 
   def({
     /**

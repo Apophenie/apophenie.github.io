@@ -47,8 +47,8 @@ import { construireScenario } from './scenario.js';
 import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
 import {
   lire, ecrire, descripteursDe, retouchesDe, ecrireRetouches, BANDEAUX, RE_A_TROUVER,
-  CODE_DECOUPE_IMPLICITE,
 } from './url.js';
+import { IMPLICITE_DEPUIS } from '../config.js';
 import { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES } from './cible.js';
 import { deroulerParTranches } from './tranches.js';
 
@@ -1384,25 +1384,33 @@ function executerProgramme(texte, codes, parCode, journal = null) {
   const chemin = { ops: [], etats: [courant], valeur: null, cout: 0 };
   for (const code of codes) {
     const op = parCode.get(code);
-    /* ★ **LE DÉCOUPAGE IMPLICITE SE RÉINSÈRE ICI.** Voir
-       `url.js › CODE_DECOUPE_IMPLICITE` : `tca` ne s'écrit plus dans les liens.
-       On le remet quand — et seulement quand — l'état courant est du TEXTE et
-       que l'opérateur qui vient réclame des JETONS.
+    /* ★ **LES IMPLICITES SE RÉINSÈRENT ICI.** Voir `url.js` : `tca` — « un
+       caractère, un jeton » — et `m09` — « chaque chiffre vaut lui-même » — ne
+       s'écrivent plus dans les liens. On les remet quand — et seulement quand —
+       l'état courant ne présente pas le type que l'opérateur qui vient réclame,
+       et qu'une porte existe depuis ce type-là (`config.js › IMPLICITE_DEPUIS`).
 
        ⚠️ La règle ne devine pas : elle CONSTATE. Un lien qui écrit `tm`, `tsp`
          ou `tsy` fournit lui-même ses jetons, l'état n'est plus `STR` quand
          l'opérateur suivant se présente, et rien n'est inséré. Un lien qui écrit
          `tca` explicitement — tous ceux d'hier — le voit appliqué normalement,
-         puis l'état n'est plus `STR` : la réinsertion ne peut pas le doubler. */
-    if (op && courant.type === 'STR' && op.from === 'TOKENS') {
-      const decoupe = parCode.get(CODE_DECOUPE_IMPLICITE);
-      const jetons = decoupe && appliquerOp(decoupe, courant);
-      if (jetons) {
-        chemin.ops.push(decoupe);
-        chemin.etats.push(jetons);
-        chemin.cout += decoupe.cout || 0;
-        courant = jetons;
-      }
+         puis l'état n'est plus `STR` : la réinsertion ne peut pas le doubler. La
+         même chose vaut pour les trente conversions `TOKENS → NUMS`, qui
+         s'écrivent toutes.
+
+       ★ **LA CHAÎNE PEUT FAIRE DEUX PAS**, et c'est le cas de `#mtri#` sur une
+         date de naissance : `STR → TOKENS → NUMS`. Elle s'arrête d'elle-même —
+         il n'y a qu'une porte par type, aucune ne ramène à un type déjà vu, et
+         la boucle rend la main dès qu'un pas échoue (une lettre n'a pas de
+         valeur à rendre) ou dès que le type attendu est là. */
+    while (op && courant.type !== op.from && IMPLICITE_DEPUIS[courant.type]) {
+      const porte = parCode.get(IMPLICITE_DEPUIS[courant.type]);
+      const suivant = porte && appliquerOp(porte, courant);
+      if (!suivant || suivant.type === courant.type) break;
+      chemin.ops.push(porte);
+      chemin.etats.push(suivant);
+      chemin.cout += porte.cout || 0;
+      courant = suivant;
     }
     // ★ **DEUX ÉCHECS QUI N'ONT RIEN À VOIR, ET QUI SE DISAIENT PAREIL.**
     //

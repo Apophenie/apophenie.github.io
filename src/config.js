@@ -251,6 +251,42 @@ export function normaliserPuissance(puissance) {
 export const CODE_DECOUPE_IMPLICITE = 'tca';
 
 /**
+ * ★ **LA LECTURE PAR DÉFAUT — le second implicite, et le même raisonnement.**
+ *
+ * `m.chiffreTelQuel` (« chaque chiffre vaut lui-même ») ne s'écrit pas dans les
+ * liens et ne se facture pas comme une étape, exactement comme le découpage.
+ * « Bien sûr que chaque chiffre se vaut lui-même. Comme `tca`, si ça manque
+ * c'est à ajouter comme opérateur invisible/implicite qui ne compte pas comme
+ * une étape et n'a pas à apparaître dans l'URL » (l'auteur).
+ *
+ * La raison de fond est la même pour les deux, et elle n'est pas « c'est
+ * pratique » : ni l'un ni l'autre n'AFFIRME quoi que ce soit. Découper une
+ * chaîne en caractères et lire un 9 comme neuf sont des gestes qu'on peut
+ * refaire chez soi sans rien croire ; toutes les autres transformations
+ * soutiennent quelque chose, et une affirmation se paie.
+ */
+export const CODE_LECTURE_IMPLICITE = 'm09';
+
+/**
+ * ★ **QUEL IMPLICITE OUVRE QUELLE PORTE.**
+ *
+ * La clé est le type de l'état COURANT, la valeur le code qui en sort. C'est
+ * ce que lit la réinsertion (`recherche/index.js › executerProgramme`) : tant
+ * que l'état ne présente pas le type qu'attend l'opérateur suivant, elle
+ * franchit une porte, et il n'y en a qu'une par type. La chaîne complète fait
+ * donc au plus deux pas — `STR → TOKENS → NUMS` —, et elle CONSTATE au lieu de
+ * deviner : un lien qui écrit lui-même son découpage ou sa conversion voit
+ * l'état changer avant la porte, qui ne s'ouvre pas.
+ */
+export const IMPLICITE_DEPUIS = Object.freeze({
+  STR: CODE_DECOUPE_IMPLICITE,
+  TOKENS: CODE_LECTURE_IMPLICITE,
+});
+
+/** Les codes qui ne s'écrivent ni ne se facturent — dans l'ordre de la chaîne. */
+export const CODES_IMPLICITES = Object.freeze([CODE_DECOUPE_IMPLICITE, CODE_LECTURE_IMPLICITE]);
+
+/**
  * ★ **LE PLAFOND DES SÉRIES — au plus « 666 » neuf fois.**
  *
  * Il vivait dans `assemblage.js`, où il DÉCIDE, et il en existait une COPIE dans

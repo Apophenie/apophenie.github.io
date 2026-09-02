@@ -227,6 +227,10 @@ const VECTEURS = [
   // (Et il gèle la borne basse : `mrd` refuse en deçà de vingt-cinq chiffres.)
   ['mrd', N('9 9 9 7 1 1 2 1 0 5 1 1 6 9 7 1 0 8 1 0 5 1 1 5 1 0 9 1 0 1'.split(' ').map(Number)),
     [9, 9, 9, 9, 9, 1, 6, 9, 1, 6, 6, 2, 6, 9, 2]],
+  // ★ LA LECTURE, qui n'est pas une conversion : chaque chiffre vaut lui-même.
+  //   UN chiffre par jeton — « 24 » d'un coup serait déjà assembler, et la scène
+  //   l'a dit (voir `RE_UN_CHIFFRE`). Les refus sont éprouvés plus bas.
+  ['m09', T(['9', '0', '2', '6']), [9, 0, 2, 6]],
   // ★ Le seul opérateur qui remonte le courant : un nombre redevient du texte.
   //   Le nom sort de `NOM_CHIFFRE_FR`, la table du joker `jnf` — une seule
   //   source pour les deux, donc jamais deux orthographes du même chiffre.
@@ -354,8 +358,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 153);
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 153, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 154);
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 154, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -365,7 +369,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 153, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 154, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -497,6 +501,28 @@ test('★ les quatre transformations du 27 août — ce qu’elles font, et ce q
     { ids: ['a', 'b', 'c', 'd', 'e', 'f'], cle: 'e2', langue: 'fr' });
   assert.deepEqual(stepsSix.flatMap((s) => s.ops).filter((o) => o.op === 'flip180')
     .map((o) => o.targets), [['a', 'b', 'c'], ['d', 'e', 'f']], 'six 9 d’affilée font deux blocs');
+
+  /* ★ **LA LECTURE — ce qu'elle rend, et surtout ce qu'elle REFUSE.**
+
+     `m09` est implicite : il ne s'écrit pas dans les liens et ne se facture pas.
+     Une porte gratuite doit donc être ÉTROITE, faute de quoi elle laisse passer
+     gratuitement des gestes qui se paient. Ses deux refus sont son contrat.
+
+      · une LETTRE n'a pas de valeur à rendre — lui en donner une serait la
+        conversion même qu'il refuse d'être — et il écarte la ligne ENTIÈRE
+        plutôt que le jeton qui le gêne : écarter est le métier des filtres ;
+      · un jeton de PLUSIEURS chiffres, parce que lire « 42 » d'un coup fait
+        fondre deux glyphes en un nombre. C'est un geste, il se montre, donc il
+        fait une étape. La scène l'avait dit avant nous : sur `tm+m09`, le
+        compilateur a refusé de réduire un token « 4 » en chiffres « 42 ». */
+  const lu = (jetons) => { const r = appliquer(PAR_CODE.get('m09'), T(jetons)); return r && r.valeur; };
+  assert.deepEqual(lu(['0', '1', '9', '8', '4']), [0, 1, 9, 8, 4],
+    'une date de naissance, lue chiffre par chiffre');
+  assert.equal(lu(['h', 'o', 'p', 'e']), null, 'des lettres : rien à lire');
+  assert.equal(lu(['4', 'a', '2']), null,
+    'une seule lettre suffit à refuser la ligne — on n’écarte pas, on renonce');
+  assert.equal(lu(['42']), null, 'deux chiffres d’un coup, c’est assembler, pas lire');
+  assert.equal(lu([' ']), null, 'une espace n’est pas un chiffre');
 
   // ── m15, « On compte les chiffres » ───────────────────────────────────────
   // L'exemple de l'auteur : un 3, deux 4, deux 5, trois 6, trois 9.
@@ -965,7 +991,29 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
       : entree.type === 'NUM' ? 1 : entree.valeur.length;
     const ctx = { ids: Array.from({ length: n }, (_, i) => `t${i}`), cle: 'e0' };
     const steps = etapes(op, entree, apres, ctx);
-    assert.ok(Array.isArray(steps) && steps.length >= 1, `${code} : aucun step`);
+    assert.ok(Array.isArray(steps), `${code} : steps n’est pas une liste`);
+
+    /* ★ **ZÉRO STEP EST PERMIS — À UNE SEULE CONDITION, ET ELLE SE VÉRIFIE.**
+       Un opérateur muet est normalement un défaut : il porte un code dans
+       l'URL que la démonstration ne montre nulle part, et deux programmes
+       distincts rejouent alors la même scène. Il existe pourtant un cas où se
+       taire est JUSTE — celui où il n'y a rien à voir : `m09` lit le jeton
+       « 9 » comme le nombre 9, à la même place, sous le même dessin. Une étape
+       y serait un temps mort portant un titre.
+
+       La permission n'est donc pas une exception nommée, c'est un CONTRAT :
+       pas de step ⟺ la ligne est identique après, jetons ET dessin. Un
+       opérateur qui oublierait ses steps demain fera rougir ici, puisque sa
+       ligne, elle, aura changé. */
+    if (!steps.length) {
+      assert.deepEqual(idsApres(op, entree, apres, ctx), ctx.ids,
+        `${code} : aucun step, mais les jetons changent d’identité`);
+      const dessin = (etat) => (etat.type === 'NUM' ? [String(etat.valeur)]
+        : etat.type === 'STR' ? [...etat.valeur] : etat.valeur.map(String));
+      assert.deepEqual(dessin(apres), dessin(entree),
+        `${code} : aucun step, mais la ligne n’affiche plus la même chose`);
+      continue;
+    }
 
     // pureté : sérialisable, aucune fonction
     assert.deepEqual(JSON.parse(JSON.stringify(steps)), steps, `${code} : steps non purs`);

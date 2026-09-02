@@ -15,7 +15,7 @@ import { estDecret } from './titres.js';
 // ★ `elegance.js` n'importe RIEN : la dépendance est à sens unique, sans cycle.
 import { OPERATEURS_QUI_ECARTENT } from './elegance.js';
 import { normaliserCible, indexUtiles } from './cible.js';
-import { CODE_DECOUPE_IMPLICITE, MAX_SERIES } from '../config.js';
+import { CODES_IMPLICITES, MAX_SERIES } from '../config.js';
 import {
   bilanApproche, credit as creditDElegance, facteur as facteurDElegance,
   note as noteDElegance, estPur,
@@ -1022,8 +1022,15 @@ export function longueurRendue(chemins) {
  * ★ Les trois autres découpages — `tm`, `tsp`, `tsy` — se facturent, eux. Ils
  *   CHOISISSENT quelque chose : découper « hope » en syllabes est une décision,
  *   et une décision se paie.
+ *
+ * ★ **ET LA LECTURE DES CHIFFRES NE SE FACTURE PAS NON PLUS**, pour la raison
+ *   qui est au fond la même : lire un 9 comme neuf n'affirme rien, donc il n'y
+ *   a rien à démontrer, donc il n'y a pas d'étape à payer. Les trente autres
+ *   conversions `TOKENS → NUMS` soutiennent chacune quelque chose — « cette
+ *   lettre vaut 3 », « ce glyphe fait six segments » — et se facturent.
+ *   Voir `config.js › CODES_IMPLICITES`.
  */
-const coutRendu = (op) => (op && op.code === CODE_DECOUPE_IMPLICITE ? 0 : (op.cout || 0));
+const coutRendu = (op) => (op && CODES_IMPLICITES.includes(op.code) ? 0 : (op.cout || 0));
 
 // ══════════════════════════════════ score partiel (faisceau du BFS)
 

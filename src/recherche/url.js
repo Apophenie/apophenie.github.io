@@ -410,7 +410,7 @@ import { encoderTexte, decoderTexte, estBase58, LIMITE_SAISIE } from './base58.j
 import { normaliserCatalogue } from './bfs.js';
 import { lireCible, normaliserCible, CIBLE_DEFAUT, MAX_CHIFFRES } from './cible.js';
 import { CURSEURS, normaliserCurseurs, auDefaut } from './score.js';
-import { CODE_DECOUPE_IMPLICITE } from '../config.js';
+import { CODE_DECOUPE_IMPLICITE, CODE_LECTURE_IMPLICITE, CODES_IMPLICITES } from '../config.js';
 import { PUISSANCE_DE_FOUILLE_DEFAUT, normaliserPuissance } from '../config.js';
 
 /**
@@ -476,14 +476,22 @@ export const RE_A_TROUVER = /^\?+$/;
  *
  * ⚠️ Un programme RÉDUIT à `tca` garde son code : le taire laisserait un
  *   fragment vide, c'est-à-dire une grammaire cassée pour gagner trois signes.
+ *
+ * ★ **ILS SONT DEUX, DEPUIS QUE LA LECTURE EN EST UN.** `m09` — « chaque chiffre
+ *   vaut lui-même » — se tait pour les mêmes raisons, et l'aller-retour y est
+ *   exact par le même argument : il transforme `TOKENS` en `NUMS` et ne peut
+ *   paraître qu'à l'endroit exact où la réinsertion le remettrait. Là où les
+ *   trente autres conversions `TOKENS → NUMS` s'écrivent parce qu'elles
+ *   affirment quelque chose — « cette lettre vaut 3 » —, celle-ci ne fait que
+ *   lire. Voir `config.js › IMPLICITE_DEPUIS`.
  */
-export { CODE_DECOUPE_IMPLICITE };
+export { CODE_DECOUPE_IMPLICITE, CODE_LECTURE_IMPLICITE };
 
-/** Les codes tels qu'on les ÉCRIT : sans le découpage implicite. */
+/** Les codes tels qu'on les ÉCRIT : sans les implicites. */
 export function codesEcrits(codes) {
   const liste = [...codes];
   if (liste.length < 2) return liste;
-  const sortie = liste.filter((c) => c !== CODE_DECOUPE_IMPLICITE);
+  const sortie = liste.filter((c) => !CODES_IMPLICITES.includes(c));
   return sortie.length ? sortie : liste;
 }
 const RE_PORTEE = /^(\d+)\.(\d+)$/;

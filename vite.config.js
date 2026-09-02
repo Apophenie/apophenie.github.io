@@ -201,6 +201,64 @@ function iconeApple() {
   };
 }
 
+/**
+ * La CARTE DE PARTAGE, produite du même dessin que l'icône.
+ *
+ * ★ **CARRÉE, ET C'EST LE PICTO** — « le favicon/picto en og-image carrée »
+ *   (l'auteur). La balise pointait jusqu'ici `og-card.png`, un fichier qui
+ *   n'existait nulle part : ni dans les sources, ni dans `dist/`, ni dans
+ *   l'historique. Toute carte partagée s'affichait donc sans image.
+ *
+ * ★ **PRODUITE, PAS VERSIONNÉE**, exactement comme `apple-touch-icon.png` et
+ *   pour la même raison : `favicon.svg` reste l'unique source de vérité du
+ *   dessin. Un PNG committé finirait par diverger du SVG sans que rien ne le
+ *   dise — et une carte de partage est précisément ce que personne ne relit.
+ *
+ * ★ 1200 × 1200 : la plus grande taille carrée que les robots d'aperçu
+ *   acceptent sans rogner. Le dessin est vectoriel, l'agrandissement est donc
+ *   gratuit en netteté et presque gratuit en octets (deux aplats).
+ *
+ * ⚠️ Comme sa jumelle, elle RETIRE ses balises plutôt que de pointer dans le
+ *   vide si `rsvg-convert` manque. Un `og:image` mort vaut moins que pas
+ *   d'`og:image` du tout : le premier fait afficher un cadre cassé, le second
+ *   laisse le robot se rabattre sur le texte.
+ */
+function carteDePartage() {
+  let produite = false;
+  return {
+    name: 'nhlg-carte-de-partage',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        return produite ? html : html.replace(/\s*<meta property="og:image[^>]*>/g, '');
+      },
+    },
+    buildStart() {
+      try {
+        execFileSync('rsvg-convert', ['--version'], { stdio: 'ignore' });
+        produite = true;
+      } catch {
+        produite = false;
+        this.warn(
+          'rsvg-convert est introuvable : `og-card.png` ne sera pas produite et ses balises '
+          + 'sont retirées du HTML plutôt que de pointer dans le vide. '
+          + 'Installez librsvg (paquet Alpine « rsvg-convert ») pour la rétablir.',
+        );
+      }
+    },
+    writeBundle(options) {
+      if (!produite) return;
+      const dossier = options.dir ?? resolve(racine, 'dist');
+      execFileSync('rsvg-convert', [
+        '-w', '1200', '-h', '1200',
+        '-o', resolve(dossier, 'og-card.png'),
+        resolve(racine, 'favicon.svg'),
+      ]);
+    },
+  };
+}
+
 export default defineConfig({
   // Les sources vivent dans `src/` : `index.html` y est, et c'est de là que
   // partent tous les chemins relatifs (`styles/`, `fonts/`, `app/main.js`).
@@ -266,5 +324,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [protocoleFichier(), licencesRedistribuees(), faviconRacine(), iconeApple()],
+  plugins: [protocoleFichier(), licencesRedistribuees(), faviconRacine(), iconeApple(), carteDePartage()],
 });

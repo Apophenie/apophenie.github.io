@@ -97,6 +97,9 @@ export const ORDRE_CANONIQUE = Object.freeze([
   'mboc', 'mbob', 'mazc', 'mazr', 'mqwc', 'mqwr', 'maz4', 'mqw4', 'mhe', 'mgr', 'mln',
   'mlm', 'mrn', 'm0', 'mtc', 'm14', 'm14F', 'mr9', 'm36', 'mpf', 'm1s2',
   'mad', 'meg', 'mtri', 'mtal', 'mr39', 'mcc', 'mrd',
+  // La LECTURE, qui n'est pas une conversion : un chiffre vaut lui-même
+  // (`mappeurs.js › m.chiffreTelQuel`). Implicite, comme `tca`.
+  'm09',
   // Le seul opérateur qui REMONTE le courant : d'un nombre vers du texte
   // (`mappeurs.js › m.chiffreEnLettres`).
   'mlet',
