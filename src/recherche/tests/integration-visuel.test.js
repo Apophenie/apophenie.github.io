@@ -558,9 +558,16 @@ test('★ retouche — « Donald Trump » : on chiffre un mot, puis on lit le to
     assert.equal(a.mode, 'GROUPEMENT');
     assert.equal(a.series, 2);
 
-    // 3. Le lien se réécrit à l'identique — c'est ce que `canoniser()` posera
-    //    dans la barre d'adresse (§4.3).
-    assert.equal(a.url, lien);
+    /* 3. Le lien se réécrit sous sa forme CANONIQUE — c'est ce que
+          `canoniser()` posera dans la barre d'adresse (§4.3).
+
+          ⚠️ Ce n'est plus le lien de départ AU CARACTÈRE PRÈS : `tca` ne
+            s'écrit plus (`url.js › CODE_DECOUPE_IMPLICITE`, « je souhaite que
+            tca ne soit pas facturé comme une étape » et, avant cela, qu'il ne
+            s'écrive plus). Le lien d'entrée le porte — et il reste lu, c'est
+            tout l'objet des assertions précédentes —, la forme canonique s'en
+            passe. Ce qu'on gèle ici est donc l'écriture, pas l'entrée. */
+    assert.equal(a.url, `#so!2.1:fr13;fl+mtal+m14+mpf#${b58}`);
 
     // 4. La règle affichée NOMME l'étage amont : taire le chiffrement
     //    annoncerait une méthode qui ne mène pas au résultat montré.

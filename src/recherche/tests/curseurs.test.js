@@ -25,7 +25,7 @@ import {
 import {
   reglagesDeBudget, normaliserPuissance,
   PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX,
-  BUDGET_TOTAL_MS, BUDGET_MS_FILET, BUDGET_MS_PLAFOND,
+  BUDGET_TOTAL_MS, BUDGET_MS_FILET, BUDGET_MS_PLAFOND, MAX_SERIES,
 } from '../../config.js';
 import { catalogue } from './_catalogue.js';
 
@@ -190,7 +190,16 @@ test('curseurs — le rendement, porté par l’exhaustivité : trois ancrages e
 });
 
 test('curseurs — le compte des séries, porté par la quantité : jamais au-dessus de ×1', () => {
-  const plafond = REGLAGES.SERIES_PLAFOND;
+  /* ★ **CE TEST COMPARAIT LA CONSTANTE À ELLE-MÊME.** Il lisait
+     `REGLAGES.SERIES_PLAFOND` des deux côtés, alors que son commentaire annonçait
+     un recoupement « avec ce que le moteur produit réellement ». Il ne pouvait
+     donc rien détecter — et les deux avaient effectivement divergé, la copie
+     disant 6 quand le moteur en montrait 9.
+
+     Il n'y a plus de copie : `config.js › MAX_SERIES` est le seul nombre, lu par
+     `assemblage.js` qui décide et par `score.js` qui s'y réfère. On le lit ici à
+     la même source, ce qui rend le recoupement inutile plutôt que faux. */
+  const plafond = MAX_SERIES;
   for (let s = 1; s <= plafond + 2; s++) {
     for (let q = 0; q <= CURSEUR_MAX; q++) {
       const f = facteurQuantite(s, q);

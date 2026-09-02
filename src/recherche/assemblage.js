@@ -54,6 +54,7 @@ import {
 // d'URL se compte en jetons (§4.2), et ceux du texte réécrit ne sont pas ceux
 // du texte tapé. `fragments.js` ne dépend que de `bfs.js` — aucun cycle.
 import { tokeniser } from './fragments.js';
+import { MAX_SERIES } from '../config.js';
 
 /**
  * Modes d'assemblage, du plus convaincant au moins :
@@ -184,7 +185,7 @@ const MAX_LIBRES = 12;      // C(12,3) = 220 combinaisons
  */
 const MAX_FRAGMENTS_VECTEUR = 6;    // fragments soumis à l'énumération des vecteurs
 const MAX_VECTEURS_PAR_FRAGMENT = 8; // = K_PAR_FRAGMENT : même largeur que le reste
-const MAX_SERIES = 9;               // au plus « 666 » neuf fois
+// `MAX_SERIES` vit dans `config.js` — voir l'import en tête et le pavé là-bas.
 const MAX_CONVERGENCES = 3;         // trios de manières distinctes par fragment
 
 /**

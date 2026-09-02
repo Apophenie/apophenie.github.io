@@ -15,7 +15,7 @@ import { estDecret } from './titres.js';
 // ★ `elegance.js` n'importe RIEN : la dépendance est à sens unique, sans cycle.
 import { OPERATEURS_QUI_ECARTENT } from './elegance.js';
 import { normaliserCible, indexUtiles } from './cible.js';
-import { CODE_DECOUPE_IMPLICITE } from '../config.js';
+import { CODE_DECOUPE_IMPLICITE, MAX_SERIES } from '../config.js';
 import {
   bilanApproche, credit as creditDElegance, facteur as facteurDElegance,
   note as noteDElegance, estPur,
@@ -173,12 +173,11 @@ export const REGLAGES = {
   MAX_PAR_MAPPEUR: 2,
   MAX_APPROCHES: 12,
   MAX_FRAGMENTS: 24,
-  // ── les trois réglages du CURSEUR DE QUANTITÉ (voir `facteurQuantite`)
-  // Recopié de `assemblage.js › MAX_SERIES`, qui est privé : c'est le plus
-  // grand nombre de 666 que le moteur montre d'un coup. Un test le recoupe avec
-  // ce que le moteur produit réellement, faute de quoi les deux se perdraient
-  // de vue le jour où l'un des deux bouge.
-  SERIES_PLAFOND: 6,
+  // ── les deux réglages du CURSEUR DE QUANTITÉ (voir `facteurQuantite`)
+  // ★ Le PLAFOND n'est plus ici : il vit dans `config.js › MAX_SERIES`, et il
+  //   n'en existe plus de copie. Celle qui était ici disait 6 quand le moteur
+  //   en montrait 9 — voir le pavé de `config.js`, qui raconte comment un
+  //   contrôle croisé annoncé mais jamais écrit a laissé les deux diverger.
   // Ce qu'une série manquante (ou surnuméraire) coûte au cran extrême, en ‰.
   // Mesuré : au cran 200, une voie à une seule série paie ×0,60 face à une
   // moisson à six — assez pour renverser un écart de score de 40 %, pas assez
@@ -406,6 +405,88 @@ export function pourcentagesDe(curseurs) {
 }
 
 /**
+ * ★ **LES QUATRE SCORES BRUTS D'UNE VOIE — ce que chaque axe vaut, AVANT
+ *   pondération.**
+ *
+ * > « Ensuite les 4 scores de métriques intermédiaires doivent être listés sans
+ * >   y appliquer les ajustements de pondération. Simplicité : {score},
+ * >   Exhaustivité : {score}… Soit 5 scores (le global pondéré et les composants
+ * >   bruts) à afficher sur chaque encart. » (l'auteur)
+ *
+ * ★ **DÉRIVÉS DE `CORRESPONDANCE`, JAMAIS RECOPIÉS.** Chaque axe vaut la moyenne
+ *   des critères qu'il nourrit, pondérée par les coefficients de la table — les
+ *   MÊMES qui font le barème. Une seconde table qui dirait « simplicité, c'est
+ *   la concision » se serait périmée au premier ajout de critère, et l'écran
+ *   aurait affiché autre chose que ce que le classement mesure. C'est la
+ *   doctrine du dépôt : ce qui est montré est ce qui est compté (§0.3).
+ *
+ * ★ **LA QUANTITÉ N'EST DANS AUCUN DES SIX CRITÈRES**, et c'est un fait du
+ *   barème, pas un oubli : aucun d'eux ne compte les 666. Elle se lit donc sur
+ *   ce qu'elle mesure vraiment — le nombre de séries, rapporté au plafond que le
+ *   moteur sait montrer (`config.js › MAX_SERIES`).
+ *
+ * ★ **« SANS AJUSTEMENT DE PONDÉRATION »** : ces quatre-là ne bougent PAS quand
+ *   on déplace les curseurs. C'est ce qui leur donne leur usage — comparer deux
+ *   voies sur un axe, indépendamment du réglage qui les classe. Seul le score
+ *   global, lui, suit les curseurs.
+ *
+ * @param {Object} approche  une approche notée (`criteres`, `series`)
+ * @returns {Object} un score en pour-mille par axe
+ */
+/**
+ * ★ **LE PONT ENTRE LES DEUX NOMMAGES DU MÊME CRITÈRE.**
+ *
+ * `POIDS` et `CORRESPONDANCE` nomment les critères en toutes lettres —
+ * `homogeneite`, `notoriete`… — tandis que `approche.criteres` les abrège d'une
+ * majuscule, `H`, `N`, `U`, `C`, `A`, `E`, parce que c'est ce qui se lit dans un
+ * relevé de banc. Les deux nommages existaient bien avant ce module ; ce qui
+ * manquait est ce qui les relie.
+ *
+ * ⚠️ Sans lui, `scoresParAxe` lisait `criteres.notoriete` — qui n'existe pas —
+ *   et retombait sur son défaut de 1 000 : les quatre axes affichaient un
+ *   parfait uniforme, ce qui est le pire des mensonges, parce qu'il est
+ *   crédible. Mesuré avant correction : « cohérence 1 000 » sur une voie dont la
+ *   notoriété valait 566.
+ *
+ * ★ Un test croise cette table avec `POIDS` : une clé de trop ou de moins d'un
+ *   côté fait rougir, plutôt que de laisser un critère se taire.
+ */
+export const LETTRE_DU_CRITERE = Object.freeze({
+  homogeneite: 'H',
+  notoriete: 'N',
+  couverture: 'U',
+  concision: 'C',
+  antiAdHoc: 'A',
+  elegance: 'E',
+});
+
+export function scoresParAxe(approche) {
+  const c = (approche && approche.criteres) || {};
+  const out = {};
+  for (const axe of CURSEURS) {
+    let somme = 0;
+    let poids = 0;
+    for (const [critere, apports] of Object.entries(CORRESPONDANCE)) {
+      const w = apports[axe];
+      if (!w) continue;
+      somme += w * (c[LETTRE_DU_CRITERE[critere]] ?? MILLE);
+      poids += w;
+    }
+    out[axe] = poids ? Math.round(somme / poids) : null;
+  }
+  // ★ L'EXHAUSTIVITÉ compte AUSSI ce qu'on jette en chemin : la couverture dit
+  //   ce qui est lu, le rendement ce qui sert. Les deux à parts égales, comme
+  //   les deux leviers que le curseur actionne (`facteurRendement`).
+  if (out.exhaustivite !== null && c.R !== undefined && c.R !== null) {
+    out.exhaustivite = Math.round((out.exhaustivite + c.R) / 2);
+  }
+  // ★ LA QUANTITÉ, sur ce qu'elle mesure : les séries rapportées au plafond.
+  const series = Math.min(approche && approche.series ? approche.series : 1, MAX_SERIES);
+  out.quantite = Math.round((series * MILLE) / MAX_SERIES);
+  return out;
+}
+
+/**
  * ★ LA FONCTION DE PONDÉRATION — quatre positions ⇒ le barème effectif.
  *
  * @param {Object} [curseurs]  positions, complétées par le défaut
@@ -614,7 +695,7 @@ export function facteurRendement(rendement, exhaustivite = CURSEUR_DEFAUT) {
  *                      baisse ce curseur demande qu'on cesse de lui vendre du
  *                      nombre, et le 666 unique cesse alors d'être pénalisé.
  *
- * Le PLAFOND de référence est `REGLAGES.SERIES_PLAFOND`, calé sur
+ * Le PLAFOND de référence est `config.js › MAX_SERIES`, celui-là même que
  * `assemblage.js › MAX_SERIES` (six) : c'est le plus grand nombre de 666 que le
  * moteur montre d'un coup, donc le seul repère qui ne dépende pas de la saisie.
  *
@@ -625,7 +706,7 @@ export function facteurRendement(rendement, exhaustivite = CURSEUR_DEFAUT) {
 export function facteurQuantite(series, quantite = CURSEUR_DEFAUT) {
   const q = positionDe(quantite);
   if (q === CURSEUR_DEFAUT) return MILLE;
-  const plafond = REGLAGES.SERIES_PLAFOND;
+  const plafond = MAX_SERIES;
   const s = borner(Math.trunc(series) || 1, 1, plafond);
   const ecart = q > CURSEUR_DEFAUT
     ? (plafond - s) * (q - CURSEUR_DEFAUT)   // il en manque : on paie le manque

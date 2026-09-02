@@ -249,3 +249,23 @@ export function normaliserPuissance(puissance) {
  * tenir par la main.
  */
 export const CODE_DECOUPE_IMPLICITE = 'tca';
+
+/**
+ * ★ **LE PLAFOND DES SÉRIES — au plus « 666 » neuf fois.**
+ *
+ * Il vivait dans `assemblage.js`, où il DÉCIDE, et il en existait une COPIE dans
+ * `score.js › REGLAGES.SERIES_PLAFOND`, où il sert de repère au curseur de
+ * quantité. La copie portait ce commentaire : « Un test le recoupe avec ce que
+ * le moteur produit réellement, faute de quoi les deux se perdraient de vue le
+ * jour où l'un des deux bouge. »
+ *
+ * ⚠️ **CE TEST N'EXISTAIT PAS.** Il comparait `REGLAGES.SERIES_PLAFOND` à
+ *   lui-même, des deux côtés de l'assertion : il ne pouvait donc rien détecter.
+ *   Et les deux s'étaient PERDUS DE VUE, exactement comme le commentaire le
+ *   craignait — le vrai plafond était passé à 9, la copie disait toujours 6.
+ *
+ * On ne le recoupe donc plus : il n'y a plus qu'un seul nombre. Il vit ici parce
+ * que `assemblage.js` importe `score.js` — le chemin inverse fermerait un cycle
+ * — et que `config.js` n'importe rien.
+ */
+export const MAX_SERIES = 9;

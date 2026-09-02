@@ -101,9 +101,13 @@ export const REPEAT_SPEED = 5;
  * de ce que les panoramiques SAINS du corpus faisaient déjà (127 à 637) : on
  * ne dicte pas un rythme neuf, on donne le leur à ceux qui l'avaient perdu.
  */
-const PAN_VITESSE = 450;
-const PAN_MIN = 260;
-const PAN_MAX = 900;
+/* La distance qui vaut le trajet le plus long, en unités de viewBox, et les
+   deux bornes de la fraction d'étape qu'un trajet peut prendre. Trois nombres
+   de GÉOMÉTRIE et de PROPORTION : aucun ne dépend du temps, donc aucun ne bouge
+   quand une redite s'accélère. */
+const PAN_REFERENCE = 620;
+const PAN_PART_MIN = 0.04;
+const PAN_PART_MAX = 0.22;
 
 /** Une étape déjà courte ne s'accélère pas : la compilation refuserait une
  *  durée sous `MIN_STEP_DURATION` (CONTRACTS §3). Garde-fou, jamais atteint
@@ -228,25 +232,48 @@ export function repeatAccelerables(scenario) {
  */
 function jalonsDuPan(precedent, focus, repos, duree) {
   const dist = (p, q) => Math.hypot(q.x - p.x, q.y - p.y);
-  // Une vitesse de croisière, et des bornes : en deçà de `PAN_MIN` un
-  // déplacement devient un saut, au-delà de `PAN_MAX` il redevient une dérive.
-  const temps = (d) => Math.min(PAN_MAX, Math.max(PAN_MIN, (d * 1000) / PAN_VITESSE));
-  const t1 = temps(dist(precedent, focus));
-  const t2 = temps(dist(focus, repos));
-  // Pas la place de tenir : on retombe sur un partage proportionnel, qui reste
-  // meilleur que le 0,45 fixe puisqu'il suit au moins les deux distances.
-  if (t1 + t2 >= duree) {
-    const part = t1 + t2 > 0 ? t1 / (t1 + t2) : 0.45;
+  /* ★ **DES FRACTIONS DE L'ÉTAPE, ET NON DES MILLISECONDES.**
+
+     La première version donnait à chaque trajet un temps ABSOLU, tiré d'une
+     vitesse de croisière en unités par seconde. C'était le plus direct, et
+     c'était faux pour une raison qu'un test a rattrapée : « l'accélération des
+     redites ne change QUE les durées ». Un temps absolu ne suit pas
+     l'accélération — dans une redite jouée cinq fois plus vite, le panoramique
+     occupait cinq fois plus de l'étape, et la redite ne jouait plus la même
+     chose, seulement plus vite.
+
+     ⚠️ Diviser par la vitesse du step ne répare pas : certaines étapes sont
+       marquées accélérées sans que leur étendue rétrécisse (mesuré — un
+       panoramique de 7 900 ms identique dans les deux compilations, pour un
+       `stepSpeed` de 5). Il n'existe donc aucun facteur temporel fiable ; la
+       seule grandeur qui ne bouge JAMAIS avec la vitesse est la DISTANCE, qui
+       est de la géométrie.
+
+     Chaque trajet prend donc une fraction de l'étape proportionnelle à ce qu'il
+     parcourt, rapportée à `PAN_REFERENCE` — la distance qui mérite le trajet le
+     plus long. Un déplacement court prend peu, un long prend le plafond, et la
+     vue TIENT entre les deux : c'est ce que l'auteur demandait — « corrige ce
+     timing de recentrage qui est bien trop long » — et c'est désormais vrai à
+     toutes les vitesses. */
+  const part = (d) => (d <= 0.5 ? 0
+    : Math.min(PAN_PART_MAX, Math.max(PAN_PART_MIN, d / PAN_REFERENCE)));
+  const f1 = part(dist(precedent, focus));
+  const f2 = part(dist(focus, repos));
+
+  // Pas la place de tenir : partage proportionnel, qui reste meilleur que le
+  // 0,45 fixe puisqu'il suit au moins les deux distances.
+  if (f1 + f2 >= 1) {
+    const total = f1 + f2;
     return [
       { offset: 0, value: precedent },
-      { offset: Math.min(0.9, Math.max(0.1, part)), value: focus },
+      { offset: total > 0 ? Math.min(0.9, Math.max(0.1, f1 / total)) : 0.45, value: focus },
       { offset: 1, value: repos },
     ];
   }
   return [
     { offset: 0, value: precedent },
-    { offset: t1 / duree, value: focus },
-    { offset: 1 - t2 / duree, value: focus },
+    { offset: f1, value: focus },
+    { offset: 1 - f2, value: focus },
     { offset: 1, value: repos },
   ];
 }

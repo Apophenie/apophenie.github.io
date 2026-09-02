@@ -55,7 +55,14 @@ test('cible — les cinq exemples de l’auteur se lisent tous', () => {
 });
 
 test('cible — ce qui n’est pas une suite de chiffres est refusé', () => {
-  for (const mauvais of ['', '  ', 'six', '6,6', '6.6', '-6', '6 6', '1234567', null, undefined, {}]) {
+  /* ⚠️ La liste portait « 1234567 » comme exemple de suite TROP LONGUE. Sept
+     chiffres l'étaient quand le plafond valait six ; ils ne le sont plus depuis
+     qu'il vaut dix (`cible.js › MAX_CHIFFRES`, relevé pour les dates de
+     naissance). Un littéral qui dépend d'une constante sans la nommer se périme
+     en silence : la longueur excessive est éprouvée deux lignes plus bas, DÉRIVÉE
+     du plafond, et cette liste-ci ne garde que ce qui n'est pas une suite de
+     chiffres — ce qu'annonce son titre. */
+  for (const mauvais of ['', '  ', 'six', '6,6', '6.6', '-6', '6 6', null, undefined, {}]) {
     assert.equal(lireCible(mauvais), null, JSON.stringify(mauvais));
   }
   assert.equal(lireCible('9'.repeat(MAX_CHIFFRES)).longueur, MAX_CHIFFRES, 'le plafond est atteignable');
@@ -230,7 +237,9 @@ test('url — `#c111!#…` est la PAGE DE RÉSULTATS pour 111', () => {
 });
 
 test('url — une cible illisible s’ANNONCE au lieu de retomber en silence sur 666', () => {
-  const r = lire(`#c1234567!nd#${B58}`);
+  // La cible est illisible par sa LONGUEUR, dérivée du plafond — voir le pavé
+  // du test « ce qui n'est pas une suite de chiffres est refusé ».
+  const r = lire(`#c${'9'.repeat(MAX_CHIFFRES + 1)}!nd#${B58}`);
   assert.equal(r.forme, 'invalide');
   assert.ok(r.bandeau, 'un lien ne renvoie jamais silencieusement ailleurs (§4.3)');
 });
