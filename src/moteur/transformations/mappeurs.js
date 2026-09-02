@@ -994,13 +994,18 @@ function plagesDe(valeur) {
  *  · un paquet qui **tombe sur 9** compte comme une réussite, au même titre
  *    qu'un paquet qui tombe sur 6.
  *
- * ⚠️ La seconde moitié de la règle — « si l'objectif est autre que 6, tente de
- * convertir vers l'objectif » — ne peut pas s'écrire ici : `apply()` ne reçoit
- * pas la cible (CONTRACTS §2.2, signature gelée). C'est précisément pour cela
- * que `bfs.js › OPERATEURS_LIES_A_666` retire cet opérateur de l'exploration
- * dès que la cible change, plutôt que de le laisser fabriquer des 6 et des 9
- * que personne ne cherche. Le chantier est noté à part
- * (`.planning/A-VENIR-cibles.md`).
+ * ★ **LA SECONDE MOITIÉ DE LA RÈGLE S'ÉCRIT DÉSORMAIS ICI** — « si l'objectif
+ * est autre que 6, tente de convertir vers l'objectif ». Elle ne le pouvait pas
+ * tant que la cible n'atteignait pas `apply()` ; elle l'atteint, par `viser`
+ * (`commun.js › selonLaCible`), et sans que la signature §2.2 ait bougé d'un
+ * signe — c'est le DESCRIPTEUR qui se fabrique pour une cible, `apply` la
+ * tenant par fermeture.
+ *
+ * ⚠️ Le 9, lui, ne suit PAS la cible, et c'est la seule chose qui reste écrite
+ * en dur : un demi-tour ne rend qu'un 6 (`visuel/primitives/flip180.js` le
+ * refuse noir sur blanc). Il n'est donc « à défaut » que lorsque la cible veut
+ * des 6 — voir `rapporte` et `butsDuPaquet`, qui posent la même règle pour
+ * `mad`.
  *
  * ── ★ LA SOMME S'ÉCRIT TELLE QU'ELLE TOMBE — plus de racine numérique ───────
  *
