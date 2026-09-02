@@ -51,8 +51,33 @@
 // seulement ce qu'on y cherche. Si `000` rend peu de voies, c'est un fait sur
 // la saisie, pas un défaut à corriger en truquant la mesure.
 
-/** Le plafond de longueur — voir l'en-tête. Six chiffres, comme six séries. */
-export const MAX_CHIFFRES = 6;
+/**
+ * Le plafond de longueur — voir l'en-tête.
+ *
+ * ★ **IL VAUT 10, ET L'ARGUMENT QUI LE TENAIT À 6 ÉTAIT FAUX.**
+ *
+ * > « Pour les cibles autres que 666, pourquoi limiter à 6 chiffres ? 8 ou 10
+ * >   c'est bien, non ? Je voudrais au moins 8 pour pouvoir y mettre des dates
+ * >   de naissance. » (l'auteur)
+ *
+ * L'en-tête justifiait 6 par la combinatoire : « les modes qui assemblent des
+ * fragments disjoints énumèrent des combinaisons de `longueur` portées parmi
+ * douze, soit C(12, 6) = 924 au pire — le plafond est ce qui garde ce nombre
+ * fini ». Or 924 est le MAXIMUM du binôme, atteint précisément à 6 : C(12, 8)
+ * vaut 495 et C(12, 10) vaut 66. Relever le plafond ne fait pas grossir le pire
+ * cas, il l'éloigne. Le raisonnement partait de l'idée qu'une borne plus haute
+ * élargit toujours, ce qui est vrai d'une somme et faux d'un binôme.
+ *
+ * Reste l'argument de LISIBILITÉ, qui lui est réel : dix chiffres par série,
+ * c'est un verdict long. Mais c'est `reveal` qui met le verdict à l'échelle de
+ * la scène, et lui seul est en position d'en juger — la même erreur avait été
+ * commise sur `MAX_SERIES`, où une borne de lisibilité rabotait un COMPTAGE.
+ *
+ * Dix plutôt que huit : une date de naissance s'écrit `01012000` en huit
+ * chiffres, mais aussi `0101200019` ou `19012000` selon les usages, et deux
+ * chiffres de marge ne coûtent rien puisque la combinatoire décroît.
+ */
+export const MAX_CHIFFRES = 10;
 
 /** L'écriture de la cible par défaut. Toute la promesse du site tient ici. */
 export const TEXTE_DEFAUT = '666';

@@ -410,6 +410,7 @@ import { encoderTexte, decoderTexte, estBase58, LIMITE_SAISIE } from './base58.j
 import { normaliserCatalogue } from './bfs.js';
 import { lireCible, normaliserCible, CIBLE_DEFAUT, MAX_CHIFFRES } from './cible.js';
 import { CURSEURS, normaliserCurseurs, auDefaut } from './score.js';
+import { CODE_DECOUPE_IMPLICITE } from '../config.js';
 import { PUISSANCE_DE_FOUILLE_DEFAUT, normaliserPuissance } from '../config.js';
 
 /**
@@ -476,7 +477,7 @@ export const RE_A_TROUVER = /^\?+$/;
  * ⚠️ Un programme RÉDUIT à `tca` garde son code : le taire laisserait un
  *   fragment vide, c'est-à-dire une grammaire cassée pour gagner trois signes.
  */
-export const CODE_DECOUPE_IMPLICITE = 'tca';
+export { CODE_DECOUPE_IMPLICITE };
 
 /** Les codes tels qu'on les ÉCRIT : sans le découpage implicite. */
 export function codesEcrits(codes) {

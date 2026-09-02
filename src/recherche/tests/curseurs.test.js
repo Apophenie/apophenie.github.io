@@ -497,7 +497,7 @@ test('★ url — aller-retour des quatre curseurs et de la fouille', () => {
 test('url — les marqueurs se lisent dans n’importe quel ordre, et s’écrivent dans un seul', () => {
   const attendu = { simplicite: 10, exhaustivite: 20, quantite: 30, coherence: 40 };
   for (const h of [
-    '#so!c111!p10.20.30.40!f2!tca+m36#3fq9KJ',
+    '#so!c111!p10.20.30.40!f2!m36#3fq9KJ',
     '#f2!p10.20.30.40!c111!so!tca+m36#3fq9KJ',
     '#p10.20.30.40!so!f2!c111!tca+m36#3fq9KJ',
   ]) {
@@ -513,7 +513,7 @@ test('url — les marqueurs se lisent dans n’importe quel ordre, et s’écriv
       saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['tca', 'm36'] }],
       registre: 'sobre', cible: '111', curseurs: attendu, fouille: 2,
     }),
-    '#so!c111!p10.20.30.40!f2!tca+m36#3fq9KJ',
+    '#so!c111!p10.20.30.40!f2!m36#3fq9KJ',
   );
 });
 

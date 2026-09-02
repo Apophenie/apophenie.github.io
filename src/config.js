@@ -236,3 +236,16 @@ export function normaliserPuissance(puissance) {
   if (e < 0) return 0;
   return e > PUISSANCE_DE_FOUILLE_MAX ? PUISSANCE_DE_FOUILLE_MAX : e;
 }
+
+/**
+ * ★ **LE DÉCOUPAGE PAR DÉFAUT — son code, et pourquoi il vit ICI.**
+ *
+ * `t.caracteres` (« un caractère, un jeton ») est implicite à deux titres : il
+ * ne s'écrit pas dans les liens (`recherche/url.js`) et il ne se facture pas
+ * comme une étape (`recherche/score.js › coutRendu`). Ces deux modules-là ne
+ * peuvent pas se le passer l'un à l'autre — `url.js` importe déjà `score.js`,
+ * et le chemin inverse fermerait un cycle. Il vit donc dans `config.js`, qui
+ * n'importe rien : c'est le seul endroit d'où les deux peuvent le lire sans se
+ * tenir par la main.
+ */
+export const CODE_DECOUPE_IMPLICITE = 'tca';

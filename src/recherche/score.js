@@ -15,6 +15,7 @@ import { estDecret } from './titres.js';
 // ★ `elegance.js` n'importe RIEN : la dépendance est à sens unique, sans cycle.
 import { OPERATEURS_QUI_ECARTENT } from './elegance.js';
 import { normaliserCible, indexUtiles } from './cible.js';
+import { CODE_DECOUPE_IMPLICITE } from '../config.js';
 import {
   bilanApproche, credit as creditDElegance, facteur as facteurDElegance,
   note as noteDElegance, estPur,
@@ -915,10 +916,33 @@ export function longueurRendue(chemins) {
     prefixe++;
   }
   let L = 0;
-  for (let i = 0; i < prefixe; i++) L += premier[i].cout || 0;
-  for (const c of chemins) for (let i = prefixe; i < c.ops.length; i++) L += c.ops[i].cout || 0;
+  for (let i = 0; i < prefixe; i++) L += coutRendu(premier[i]);
+  for (const c of chemins) for (let i = prefixe; i < c.ops.length; i++) L += coutRendu(c.ops[i]);
   return L;
 }
+
+/**
+ * ★ **LE DÉCOUPAGE PAR DÉFAUT NE SE FACTURE PAS COMME UNE ÉTAPE.**
+ *
+ * > « Je souhaite que `tca` ne soit pas facturé comme une étape. » (l'auteur)
+ *
+ * `t.caracteres` est le passage obligé entre le TEXTE et les JETONS : il ouvre
+ * la quasi-totalité des voies, et il ne se choisit pas — il s'écrit même plus
+ * dans les liens (`url.js › CODE_DECOUPE_IMPLICITE`). Le facturer revenait à
+ * poser le même péage sur tout le monde, ce qui ne classe personne, puis à
+ * pénaliser les voies courtes deux fois plus que les longues en proportion.
+ *
+ * ★ **CE QU'ON NE FAIT PAS, ET POURQUOI.** On ne met pas son `cout` à zéro dans
+ *   le catalogue : `cout` sert aussi au FAISCEAU du BFS, qui s'en sert pour
+ *   borner sa profondeur. Un découpage gratuit à l'exploration décalerait ce que
+ *   la recherche VISITE, alors que l'auteur parle de ce qu'elle FACTURE. Les
+ *   deux questions sont distinctes, et une seule était posée.
+ *
+ * ★ Les trois autres découpages — `tm`, `tsp`, `tsy` — se facturent, eux. Ils
+ *   CHOISISSENT quelque chose : découper « hope » en syllabes est une décision,
+ *   et une décision se paie.
+ */
+const coutRendu = (op) => (op && op.code === CODE_DECOUPE_IMPLICITE ? 0 : (op.cout || 0));
 
 // ══════════════════════════════════ score partiel (faisceau du BFS)
 
