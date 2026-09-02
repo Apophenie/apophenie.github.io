@@ -426,6 +426,44 @@ export function pourcentagesDe(curseurs) {
  * autre barème, et une pondération figée au chargement du module le rendrait
  * muet.
  */
+/**
+ * ★ **CE QUE PÈSE UNE SUPPRESSION — et pourquoi cette famille est la seule à
+ *   monter plus haut que le double.**
+ *
+ * Les cinq postes de la suppression sont de PETITS nombres : la ponctuation vaut
+ * 1, un bloc court 2, un bloc entier 8, une lettre arrachée 26, une valeur jetée
+ * 36. C'est une échelle juste — elle a été mesurée, et sa dernière marche a
+ * même résisté à trois tentatives d'alourdissement (voir `elegance.js ›
+ * VALEUR_JETEE`). Mais elle est juste À L'ÉCHELLE DU CRÉDIT, qui se compte en
+ * milliers.
+ *
+ * MESURÉ, avec la pondération ordinaire des familles (×0 à ×2) : sur
+ * `hope-hope-hope.fr`, `fl+tca+m14` — qui abandonne trois signes et jette deux
+ * valeurs calculées — passe de 1 656 à 1 650 quand on pousse le curseur d'un
+ * bout à l'autre. SIX POINTS SUR MILLE SIX CENT : le levier existait, il ne
+ * levait rien. Un curseur qui ne déplace rien est pire qu'un curseur absent — il
+ * promet une prise qu'il n'a pas.
+ *
+ * ★ **D'OÙ UNE COURSE ASYMÉTRIQUE, ET ASSUMÉE.** Vers le bas, jusqu'à zéro :
+ *   « supprimer ne coûte rien », qui est une position tenable pour qui ne
+ *   cherche que la quantité. Vers le haut, jusqu'à HUIT FOIS : c'est ce qu'il
+ *   faut pour que soixante-quinze points bruts de suppression pèsent contre un
+ *   crédit de deux mille. Le défaut, lui, reste à 1 000 au bit près — le barème
+ *   d'aujourd'hui, que l'invariant du défaut vérifie.
+ *
+ * ★ Et ce n'est pas un tarif de plus à étalonner : l'ÉCHELLE entre les cinq
+ *   postes ne bouge pas d'un pouce, seul son bloc monte ou descend. Une valeur
+ *   jetée continue de coûter trente-six fois une ponctuation, à tous les crans.
+ */
+const SUPPRESSION_AU_PLUS_HAUT = 8000;
+
+function poidsDeLaSuppression(exhaustivite) {
+  const e = positionDe(exhaustivite);
+  if (e <= CURSEUR_DEFAUT) return e * 10;
+  const marge = SUPPRESSION_AU_PLUS_HAUT - MILLE;
+  return MILLE + Math.floor((marge * (e - CURSEUR_DEFAUT)) / CURSEUR_DEFAUT);
+}
+
 export function ponderer(curseurs) {
   const c = normaliserCurseurs(curseurs);
   const personnalisee = !auDefaut(c);
@@ -447,7 +485,28 @@ export function ponderer(curseurs) {
     poids,
     // Le crédit d'élégance se repondère par FAMILLE (`elegance.js › credit`) :
     // 100 crans = poids plein = 1 000 ‰, donc dix pour-mille par cran.
-    poidsCredit: { quantite: c.quantite * 10, elegance: c.coherence * 10 },
+    /* ★ **TROIS FAMILLES PONDÉRÉES, PAS DEUX.** L'exhaustivité rejoint la
+       quantité et la cohérence : les cinq postes de la SUPPRESSION portent
+       désormais la famille `exhaustivite` (`elegance.js › NATURE`), et le
+       curseur les hausse ou les abaisse d'un bloc.
+
+       C'est l'arbitrage de l'auteur, et il déplace la mesure : « ce critère doit
+       faire peser plus ou moins lourd tout ce qui est suppression, que ce soit
+       au départ ou plus tard ; quand `57` est écarté à la fin, malus
+       d'exhaustivité, aussi bien que si `fr` avait été ignoré au début. En
+       revanche si `fr` est converti en 4+2 qui fait 6, aucun problème, même si
+       on passe de 2 à 1 caractère. »
+
+       ⚠️ Cela ne remplace pas le poids de la COUVERTURE, qui reste nourri par
+         le même curseur : « utiliser toute la saisie, oui ». Mais la couverture
+         ne voit que les caractères SIGNIFIANTS — elle est aveugle aux deux
+         tirets et au point de `hope-hope-hope.fr`, que l'auteur compte pourtant
+         parmi les jetés. Ces postes-ci les voient, et c'est ce qui manquait. */
+    poidsCredit: {
+      quantite: c.quantite * 10,
+      elegance: c.coherence * 10,
+      exhaustivite: poidsDeLaSuppression(c.exhaustivite),
+    },
     pourcentages: pourcentagesDe(c),
     personnalisee,
   };

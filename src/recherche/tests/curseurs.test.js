@@ -71,7 +71,12 @@ test('curseurs — au défaut, la correspondance rend EXACTEMENT le barème du s
   assert.deepEqual(p.curseurs, CURSEURS_DEFAUT);
   // Le crédit d'élégance au poids plein : `elegance.js › pondererAmpleur` le
   // court-circuite à 1 000 ‰, donc le crédit reste bit à bit celui d'avant.
-  assert.deepEqual(p.poidsCredit, { quantite: 1000, elegance: 1000 });
+  // ★ TROIS familles pondérées, et 1 000 est l'identité pour chacune : le
+  //   barème du site est intact au défaut. `exhaustivite` a rejoint les deux
+  //   autres quand l'auteur a tranché que ce curseur devait peser « tout ce qui
+  //   est suppression, que ce soit au départ ou plus tard » — les cinq postes de
+  //   l'abandon portent désormais cette famille (`elegance.js › NATURE`).
+  assert.deepEqual(p.poidsCredit, { quantite: 1000, elegance: 1000, exhaustivite: 1000 });
 });
 
 test('curseurs — la table couvre les six critères et rien d’autre', () => {

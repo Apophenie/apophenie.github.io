@@ -1632,7 +1632,11 @@ test('★ nature — chaque poste du barème déclare son signe et sa famille', 
     'un poste du barème n’est pas déclaré dans NATURE, ou l’inverse');
   for (const [cle, n] of Object.entries(NATURE)) {
     assert.ok([-1, 0, 1].includes(n.sens), `${cle} : sens ${n.sens}`);
-    assert.ok(['socle', 'quantite', 'elegance', 'reglage'].includes(n.famille),
+    // ★ `exhaustivite` a rejoint les familles pondérables quand l'auteur a
+    //   tranché que ce curseur devait peser « tout ce qui est suppression, que
+    //   ce soit au départ ou plus tard » : les cinq postes de l'abandon la
+    //   portent désormais.
+    assert.ok(['socle', 'quantite', 'elegance', 'exhaustivite', 'reglage'].includes(n.famille),
       `${cle} : famille ${n.famille}`);
     // Un réglage n'est ni bonus ni malus, et réciproquement : les deux
     // propriétés se tiennent, et les confondre rendrait la table illisible.
@@ -1702,8 +1706,15 @@ test('★ régimes — 1 % de quantité à la 1ʳᵉ place, 33 % d’élégance 
     for (const a of m.resoudre(s).approches) {
       for (const [regime, poids] of Object.entries(POIDS_DES_REGIMES)) {
         const attendu = detailDuCredit(a.bilan).reduce((t, l) => {
-          const p = l.famille === 'socle' || l.famille === 'reglage'
-            ? 1000 : poids[l.famille];
+          // ⚠️ Le miroir doit suivre `pondererAmpleur` À LA LETTRE, y compris
+          //   sur son cas muet : une famille que le régime ne nomme PAS n'est
+          //   pas pondérée à zéro, elle n'est pas pondérée du tout. Les trois
+          //   régimes ne nomment que `quantite` et `elegance` ; `exhaustivite`
+          //   les traverse donc intacte, ce qui est exact — un régime de lecture
+          //   ne change pas ce qu'une suppression coûte.
+          const brut = l.famille === 'socle' || l.famille === 'reglage'
+            ? undefined : poids[l.famille];
+          const p = brut === undefined ? 1000 : brut;
           return t + l.sens * Math.trunc((l.ampleur * p) / 1000);
         }, 0);
         assert.equal(credit(a.bilan, poids), attendu, `« ${s} » ${a.codes} · ${regime}`);

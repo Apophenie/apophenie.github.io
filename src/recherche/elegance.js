@@ -1332,24 +1332,46 @@ export const NATURE = Object.freeze({
   SIX_DETRUIT: { sens: -1, famille: 'elegance' },
   TRANSFORMATION: { sens: -1, famille: 'elegance' },
   REMISE_ADDITION_EN_CHAINE: { sens: +1, famille: 'elegance' },
-  PORTEE_IGNOREE: { sens: -1, famille: 'elegance' },
+  /* ★ **LES CINQ POSTES DE LA SUPPRESSION — famille `exhaustivite`.**
+   *
+   * > « Ce critère doit faire peser plus ou moins lourd tout ce qui est
+   * >   suppression, que ce soit au départ ou plus tard. Quand `57` est écarté à
+   * >   la fin, malus d'exhaustivité, aussi bien que si `fr` avait été ignoré au
+   * >   début. En revanche, si `fr` est converti en 4+2 qui fait 6, aucun
+   * >   problème, même si on passe de 2 à 1 caractère. » (l'auteur)
+   *
+   * Ces cinq-là sont exactement « ce qui est supprimé », aux deux bouts de la
+   * chaîne : quatre pour la saisie qu'on n'a pas lue (`PORTEE_IGNOREE`,
+   * `EFFACE_ALNUM`, `EFFACE_BLOC`, `EFFACE_BLOC_COURT`, `EFFACE_PONCTUATION`) et
+   * un pour ce qu'on a calculé puis jeté (`VALEUR_JETEE`). Ils forment déjà une
+   * échelle cohérente — ponctuation 1, bloc court 2, bloc entier 8, lettre
+   * arrachée 26, valeur jetée 36 —, et le curseur ne fait que la hausser ou
+   * l'abaisser d'un bloc.
+   *
+   * ★ **CE QUI N'EN EST PAS, ET C'EST LE POINT.** Réduire deux caractères à un
+   *   par une ADDITION ne supprime rien : `4 + 2 = 6` emporte tout ce qu'il
+   *   avait. Aucun poste d'agrégation n'entre donc ici, et le rendement ne les
+   *   compte pas non plus (mesuré : `tca+m7+cs` sur « fr » rend R = 1 000). La
+   *   frontière est là — entre ce qui DISPARAÎT et ce qui se TRANSFORME —, et
+   *   c'est elle que ce curseur pèse. */
+  PORTEE_IGNOREE: { sens: -1, famille: 'exhaustivite' },
   RETOUR_SUR_UNE_ETAPE: { sens: -1, famille: 'elegance' },
   FILTRE_SELECTIF: { sens: -1, famille: 'elegance' },
   REGLAGE_PAR_MORCEAU: { sens: -1, famille: 'elegance' },
   TRADUCTION_DIVERGENTE: { sens: -1, famille: 'elegance' },
   LECTURE_DIVERGENTE: { sens: -1, famille: 'elegance' },
   RETOUCHE: { sens: -1, famille: 'elegance' },
-  VALEUR_JETEE: { sens: -1, famille: 'elegance' },
+  VALEUR_JETEE: { sens: -1, famille: 'exhaustivite' },
   RELIQUAT_HORS_CIBLE: { sens: -1, famille: 'elegance' },
   RELIQUAT_DE_CIBLE: { sens: -1, famille: 'elegance' },
   RELIQUAT_PROPORTIONNEL: { sens: -1, famille: 'elegance' },
   ARRONDI: { sens: -1, famille: 'elegance' },
   MIN_MAX: { sens: -1, famille: 'elegance' },
   LETTRE_VERS_LETTRE: { sens: -1, famille: 'elegance' },
-  EFFACE_ALNUM: { sens: -1, famille: 'elegance' },
-  EFFACE_BLOC: { sens: -1, famille: 'elegance' },
-  EFFACE_BLOC_COURT: { sens: -1, famille: 'elegance' },
-  EFFACE_PONCTUATION: { sens: -1, famille: 'elegance' },
+  EFFACE_ALNUM: { sens: -1, famille: 'exhaustivite' },
+  EFFACE_BLOC: { sens: -1, famille: 'exhaustivite' },
+  EFFACE_BLOC_COURT: { sens: -1, famille: 'exhaustivite' },
+  EFFACE_PONCTUATION: { sens: -1, famille: 'exhaustivite' },
 
   // ── ce qui se perd par une TRICHE assumée
   EFFACEMENT_SANS_MOTIF: { sens: -1, famille: 'elegance' },
