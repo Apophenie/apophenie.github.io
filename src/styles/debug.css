@@ -269,3 +269,17 @@
    parfaitement lisible : le glyphe a toujours été le porteur de l'information,
    la couleur ne faisait que la redire (WCAG 1.4.1). */
 .dbg__sens--seul { color: var(--fg-2); }
+
+/* ── La colonne « titre registre » ────────────────────────────────────────
+   Le compte de mots précède le titre : c'est LUI qu'on parcourt de haut en bas
+   pour juger « deux mots ou pas », et le titre n'est là que pour vérifier.
+   Chasse fixe et largeur figée, sans quoi les nombres ne s'alignent pas d'une
+   ligne à l'autre et la colonne cesse de se lire en diagonale. */
+.dbg__titre-mots {
+  display: inline-block;
+  min-width: 2ch;
+  text-align: right;
+  font-family: var(--police-mono);
+  color: var(--phos);
+}
+.dbg__titre-registre { max-width: 26rem; }

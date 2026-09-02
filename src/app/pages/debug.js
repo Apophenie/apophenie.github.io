@@ -81,7 +81,7 @@ import {
 import { tokeniser } from '../../recherche/fragments.js';
 // `v` est aliasé : trois fonctions de rendu de ce fichier prennent une valeur
 // nommée `v`, et un import du même nom s'y ferait masquer sans prévenir.
-import { localiser, v as valeurTraduite } from '../../i18n/index.js';
+import { localiser, v as valeurTraduite, langue } from '../../i18n/index.js';
 import { titreApproche, regleApproche } from '../libelles.js';
 import { creerRegistre } from '../registre.js';
 import { creerTransport, brancherClavier } from '../transport.js';
@@ -1017,6 +1017,64 @@ function sectionFaceALaCible() {
  *    colonne de 144 fois « 1 ». Le champ reste au catalogue, où `bfs.js`
  *    l'additionne ; il a cessé d'être une information à afficher.
  */
+/**
+ * ★ **LE TITRE DU REGISTRE — celui qui s'affiche, pas celui du catalogue.**
+ *
+ * > « Il y a des opérateurs dont le titre tient déjà en 2 mots. Ajoute à la page
+ * >   debug une colonne titre registre, je vais voir s'il y a besoin d'ajouter
+ * >   titre court, ou si l'actuel fait le job. » (l'auteur)
+ *
+ * ⚠️ **CE N'EST PAS `op.libelle`, ET LA DIFFÉRENCE EST MESURÉE.** Sur 113
+ *   opérateurs éprouvés, TREIZE affichent dans Le Registre autre chose que leur
+ *   libellé — `cs` est intitulé « On additionne » au catalogue et « On
+ *   additionne les nombres » à l'écran, `mrd` annonce son premier temps (« On
+ *   écrit chaque nombre chiffre à chiffre ») et non son geste d'ensemble.
+ *   Afficher le libellé sous le nom de « titre registre » aurait donc fait juger
+ *   l'auteur sur une chaîne que personne ne lit.
+ *
+ * ★ **ET IL N'EST PAS CONSTANT.** Plusieurs opérateurs accordent leur titre à ce
+ *   que la ligne porte — « on additionne les CHIFFRES » ou « les NOMBRES »,
+ *   selon (`combinateurs.js › natureOperandes`). Il n'existe donc pas UN titre
+ *   par opérateur : il en existe un par situation. On en montre un vrai,
+ *   fabriqué en jouant l'opérateur sur l'état le plus simple qu'il accepte —
+ *   c'est ce que le visiteur verra le plus souvent, et c'est mesuré plutôt que
+ *   décrété.
+ *
+ * ★ Le COMPTE DE MOTS accompagne le titre, parce que c'est la question posée :
+ *   « deux mots, ou pas ». Le lire d'un coup d'œil sur cent quarante-huit lignes
+ *   est tout l'objet de la colonne.
+ */
+const ETATS_TEMOINS = [
+  { type: 'STR', valeur: 'Donald Trump', traces: [[0, 12]] },
+  { type: 'TOKENS', valeur: [...'hope'], traces: [...'hope'].map((_, i) => [[i, i + 1]]) },
+  { type: 'NUMS', valeur: [8, 15, 16, 5], traces: [0, 1, 2, 3].map((i) => [[i, i + 1]]) },
+  { type: 'NUM', valeur: 44, traces: [[0, 2]] },
+];
+
+export function titreRegistreDe(op) {
+  if (!op || typeof op.steps !== 'function') return null;
+  for (const avant of ETATS_TEMOINS) {
+    if (op.from !== avant.type) continue;
+    let apres;
+    try { apres = op.apply(avant.valeur, avant.traces); } catch { continue; }
+    if (!apres) continue;
+    const ids = (Array.isArray(avant.valeur) ? avant.valeur : [avant.valeur]).map((_, i) => `t${i}`);
+    let steps;
+    try {
+      // ★ La langue de l'INTERFACE, jamais une constante écrite ici : le titre
+      //   montré doit être celui que le visiteur lira. Et « fr » écrit en dur
+      //   est aussi un code d'opérateur — le garde-fou de cette page l'attrape,
+      //   à juste titre.
+      steps = op.steps(avant, { type: op.to, ...apres }, { ids, cle: 'dbg', langue: langue() });
+    } catch { continue; }
+    if (steps && steps.length && steps[0].title) return String(steps[0].title);
+  }
+  return null;
+}
+
+/** Le compte de mots d'un titre — la question que l'auteur pose à cette colonne. */
+const motsDe = (titre) => (titre ? titre.trim().split(/\s+/).filter(Boolean).length : 0);
+
 const EN_TETE = ['code', 'id', 'famille', 'from', 'to', 'notoriete', 'adHoc'];
 
 /** Les champs que l'affichage traite lui-même, ou qui n'ont rien à montrer. */
@@ -1066,7 +1124,7 @@ function etatDe(op) {
  *   précèdent, laquelle dépend du contenu.
  */
 function tableauDesOperateurs(ops, avecEtat) {
-  const colonnes = [...EN_TETE, 'cible', ...(avecEtat ? ['état'] : []), 'particularités'];
+  const colonnes = [...EN_TETE, 'titre registre', 'cible', ...(avecEtat ? ['état'] : []), 'particularités'];
 
   const lignes = [...ops]
     .sort((a, b) => String(a.code).localeCompare(String(b.code), 'en'))
@@ -1083,6 +1141,17 @@ function tableauDesOperateurs(ops, avecEtat) {
         cellCible.className = `dbg__cible-classe dbg__cible-${classe.toLowerCase()}`;
       });
       const cellules = colonnes.slice(1).map((c) => {
+        if (c === 'titre registre') {
+          const titre = titreRegistreDe(op);
+          const n = motsDe(titre);
+          return e('td.dbg__titre-registre', {}, titre
+            ? [
+              e('span.dbg__titre-mots', { texte: String(n) }),
+              ' ',
+              e('span', { texte: titre }),
+            ]
+            : [e('span.dbg__part-cle', { texte: '—' })]);
+        }
         if (c === 'cible') return cellCible;
         if (c === 'état') return e('td', { texte: etatDe(op) || '' });
         if (c === 'particularités') {
