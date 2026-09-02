@@ -668,13 +668,13 @@ export const BAREME = {
    */
   EFFACE_ALNUM: 26,
   /** « …moindre si c'est un bloc entier séparé par un caractère ni lettre ni chiffre. » */
-  EFFACE_BLOC: 8,
+  EFFACE_BLOC: 20,
   /**
    * ★ Et moindre encore si ce bloc faisait moins de trois lettres au départ.
    * C'est la seule exception que l'auteur autorise dans une stratégie qu'il
    * appelle « sans malus » (première suggestion) : `estPur` s'appuie dessus.
    */
-  EFFACE_BLOC_COURT: 6,
+  EFFACE_BLOC_COURT: 10,
   /**
    * ★ « Tout caractère ignoré — malus faible pour la ponctuation. »
    *
@@ -699,11 +699,18 @@ export const BAREME = {
    *   reste ferait coûter 4 le fait de jeter le mot « fr » en entier, et 5 celui
    *   de jeter un seul tiret. Cela ne se défend pas.
    *
-   *   `EFFACE_BLOC_COURT` passe donc de 2 à 6 : la leniency que l'auteur accorde
-   *   aux blocs courts reste entière — six contre vingt-six pour une lettre
-   *   arrachée —, mais elle cesse d'être MEILLEURE que celle de la ponctuation.
-   *   C'est une conséquence de sa règle, pas une initiative : la retirer est une
-   *   ligne, et l'ordre par caractère redevient 5 → 6 → 8 → 26.
+   *   L'échelle entière a donc été resserrée par l'auteur, qui l'a dictée :
+   *
+   *       ponctuation 5 → bloc court 10 → bloc entier 20 → lettre arrachée 26
+   *
+   *   Ce qui change n'est pas seulement l'ordre, c'est l'ÉCART. L'ancienne
+   *   échelle (1 → 2 → 8 → 26) rendait un bloc entier trois fois moins cher
+   *   qu'une lettre arrachée, et un bloc court treize fois moins : abandonner un
+   *   mot entier y coûtait presque rien tant qu'on ne touchait pas aux autres.
+   *   La nouvelle rapproche les trois formes d'abandon alphanumérique — 10, 20,
+   *   26 — et ne laisse loin derrière que la ponctuation. Jeter reste jeter,
+   *   quelle que soit la découpe ; ce qui vaut encore une remise, c'est de jeter
+   *   ce qui n'est ni lettre ni chiffre.
    *
    *   ★ `estPur` n'en est pas affecté : il n'examine ni `blocCourt` ni
    *     `ponctuation` — la « stratégie sans malus » les tolère toutes deux, et
@@ -731,7 +738,7 @@ export const BAREME = {
    *
    * L'échelle des abandons monte d'un facteur trois à chaque barreau :
    *
-   *     ponctuation 5  →  bloc court 6  →  bloc entier 8  →  lettre arrachée 26
+   *     ponctuation 5  →  bloc court 10  →  bloc entier 20  →  lettre arrachée 26
    *
    * `VALEUR_JETEE` en est le barreau suivant, et il n'en respecte pas le pas :
    * 36, soit à peine 1,4 fois le barreau du dessous, là où la règle voudrait
