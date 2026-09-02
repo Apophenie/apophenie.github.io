@@ -283,3 +283,4 @@
   color: var(--phos);
 }
 .dbg__titre-registre { max-width: 26rem; }
+.dbg__titre-court { max-width: 14rem; }

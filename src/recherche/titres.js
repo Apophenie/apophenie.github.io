@@ -395,6 +395,189 @@ export const QUALIFIANTS = {
  * jamais rendre un titre vide, mais y tomber serait une régression visible : la
  * ligne rattraperait sa phrase à rallonge.
  */
+/**
+ * ★ **LES TITRES COURTS — deux mots par méthode, pour l'écran de liste.**
+ *
+ * > « Un titre énumérant avec concision les méthodes employées, max 2 mots par
+ * >   méthode/étape. » (l'auteur, sur la carte d'une voie)
+ *
+ * ★ **POURQUOI UNE TABLE, ET NON UN CHAMP DU CATALOGUE.** C'est le choix déjà
+ *   fait pour `NOMS` et `PRECISIONS` juste à côté, et pour la même raison : un
+ *   titre court est un travail d'ÉCRITURE, pas une propriété de l'opérateur. Le
+ *   rassembler en un seul endroit permet de l'accorder — deux méthodes voisines
+ *   doivent s'abréger de la même façon —, ce que cent cinquante déclarations
+ *   éparpillées dans quatre fichiers rendraient impossible à relire.
+ *
+ * ★ **CE N'EST PAS LE TITRE DU REGISTRE, et les deux doivent coexister.** Le
+ *   Registre annonce ce qui se passe, en phrase, et il s'accorde à ce que la
+ *   ligne porte (« les chiffres » ou « les nombres »). Mesuré : sur 148
+ *   opérateurs, HUIT seulement tiennent en deux mots à l'écran, quarante-huit en
+ *   font quatre. Les abréger là où ils s'affichent aurait appauvri la
+ *   démonstration pour arranger une liste ; ce sont deux textes pour deux
+ *   usages.
+ *
+ * ⚠️ **CE PREMIER JET EST DÉRIVÉ, DONC APPROXIMATIF.** Il a été fabriqué en
+ *   retenant les deux premiers mots pleins du libellé, ce qui donne « garde
+ *   lettres » (juste) mais aussi « garde ce » et « analyse nom » (boiteux).
+ *   L'auteur les reprend ; ce qui compte ici est qu'AUCUN ne manque, et un test
+ *   le garantit.
+ */
+export const TITRES_COURTS = {
+  'c.alternee': b('alterne plus', 'Alternate plus'), // cal
+  'c.alterneeInverse': b('alterne moins', 'Alternate minus'), // cali
+  'c.concat': b('colle chiffres', 'Glue digits'), // ccat
+  'c.mediane': b('prend médiane', 'Take median'), // cme
+  'c.maxMoinsMin': b('prend écart', 'Take spread'), // cmm
+  'c.min': b('garde plus', 'smallest'), // cmn
+  'c.moyenne': b('fait moyenne', 'Take average'), // cmo
+  'c.moyenneDivisee': b('fait moyenne', 'Take average'), // cmod
+  'c.max': b('garde plus', 'largest'), // cmx
+  'c.compteTokens': b('Combien caractères', 'How many'), // cnj
+  'c.compteTokensDistincts': b('Combien caractères', 'How many'), // cnjd
+  'c.cardinal': b('Combien nombres', 'How many'), // cnv
+  'c.produit': b('multiplie', 'Multiply them'), // cp
+  'c.somme': b('additionne', 'Add them'), // cs
+  'c.soustraction': b('soustrait à', 'Subtract along'), // cst
+  'f.sansAccents': b('retire accents', 'Strip accents'), // fac
+  'f.apresSlash': b('garde suit', 'what comes'), // fap
+  'f.atbash': b('applique Atbash', 'Apply Atbash'), // fatb
+  'f.avantSlash': b('garde précède', 'what comes'), // fav
+  'f.consonnes': b('garde consonnes', 'consonants'), // fc
+  'f.chemin': b('analyse chemin', 'Analyse path'), // fchm
+  'f.dedoublonne': b('supprime doublons', 'Drop duplicates'), // fd
+  'f.dedoublonne2': b('supprime doublons', 'Drop duplicates'), // fd2
+  'f.dedoublonne3': b('supprime doublons', 'Drop duplicates'), // fd3
+  'f.dedoublonne4': b('supprime doublons', 'Drop duplicates'), // fd4
+  'f.dedoublonne5': b('supprime doublons', 'Drop duplicates'), // fd5
+  'f.domaine': b('analyse domaine', 'Analyse domain'), // fdom
+  'f.traduitEN': b('traduit anglais', 'Translate English'), // fen
+  'f.traduitEN2': b('traduit anglais', 'Translate English'), // fen2
+  'f.traduitEN3': b('traduit anglais', 'Translate English'), // fen3
+  'f.traduitEN4': b('traduit anglais', 'Translate English'), // fen4
+  'f.traduitEN5': b('traduit anglais', 'Translate English'), // fen5
+  'f.traduitFR': b('traduit français', 'Translate French'), // ffr
+  'f.traduitFR2': b('traduit français', 'Translate French'), // ffr2
+  'f.traduitFR3': b('traduit français', 'Translate French'), // ffr3
+  'f.traduitFR4': b('traduit français', 'Translate French'), // ffr4
+  'f.traduitFR5': b('traduit français', 'Translate French'), // ffr5
+  'f.initiales': b('garde initiales', 'initials'), // fi
+  'f.lettres': b('garde lettres', 'letters'), // fl
+  'f.leet': b('décode leetspeak', 'Decode leetspeak'), // flt
+  'f.majuscule': b('passe capitales', 'Switch capitals'), // fmaj
+  'f.minuscule': b('passe bas', 'Switch lower'), // fmin
+  'f.motRepete': b('isole motif', 'Isolate repeated'), // fmr
+  'f.protocole': b('ignore protocole', 'Ignore protocol'), // fp
+  'f.page': b('analyse nom', 'Analyse page'), // fpag
+  'f.annulationPaires': b('paires s’', 'Pairs cancel'), // fpr
+  'f.repetees': b('garde lettres', 'repeated letters'), // fr
+  'f.cesar1': b('Chiffre César', 'Caesar cipher'), // fr1
+  'f.cesar10': b('Chiffre César', 'Caesar cipher'), // fr10
+  'f.cesar11': b('Chiffre César', 'Caesar cipher'), // fr11
+  'f.cesar12': b('Chiffre César', 'Caesar cipher'), // fr12
+  'f.rot13': b('Chiffre César', 'Caesar cipher'), // fr13
+  'f.cesar14': b('Chiffre César', 'Caesar cipher'), // fr14
+  'f.cesar15': b('Chiffre César', 'Caesar cipher'), // fr15
+  'f.cesar16': b('Chiffre César', 'Caesar cipher'), // fr16
+  'f.cesar17': b('Chiffre César', 'Caesar cipher'), // fr17
+  'f.cesar18': b('Chiffre César', 'Caesar cipher'), // fr18
+  'f.cesar19': b('Chiffre César', 'Caesar cipher'), // fr19
+  'f.cesar2': b('Chiffre César', 'Caesar cipher'), // fr2
+  'f.cesar20': b('Chiffre César', 'Caesar cipher'), // fr20
+  'f.cesar21': b('Chiffre César', 'Caesar cipher'), // fr21
+  'f.cesar22': b('Chiffre César', 'Caesar cipher'), // fr22
+  'f.cesar23': b('Chiffre César', 'Caesar cipher'), // fr23
+  'f.cesar24': b('Chiffre César', 'Caesar cipher'), // fr24
+  'f.cesar25': b('Chiffre César', 'Caesar cipher'), // fr25
+  'f.cesar3': b('Chiffre César', 'Caesar cipher'), // fr3
+  'f.cesar4': b('Chiffre César', 'Caesar cipher'), // fr4
+  'f.cesar5': b('Chiffre César', 'Caesar cipher'), // fr5
+  'f.cesar6': b('Chiffre César', 'Caesar cipher'), // fr6
+  'f.cesar7': b('Chiffre César', 'Caesar cipher'), // fr7
+  'f.cesar8': b('Chiffre César', 'Caesar cipher'), // fr8
+  'f.cesar9': b('Chiffre César', 'Caesar cipher'), // fr9
+  'f.tld': b('ignore extension', 'Ignore extension'), // ftld
+  'f.unique': b('garde répète', 'what never'), // fun
+  'f.voyelles': b('garde voyelles', 'vowels'), // fv
+  'f.voyellesY': b('garde voyelles', 'vowels Y'), // fvy
+  'f.www': b('ignore www', 'Ignore "www'), // fw
+  'j.nomFrancais': b('Combien lettres', 'How many'), // jnf
+  'm.retirerZeros': b('retire zéros', 'Drop zeros'), // m0
+  'm.seg14': b('Lettre vers', 'Letter number'), // m14
+  'm.seg14Fusion': b('Lettre vers', 'Letter number'), // m14F
+  'm.unRangSurDeux': b('garde qu’', 'other position'), // m1s2
+  'm.troisSixDAffilee': b('Trois 6', 'Three 6s'), // m36
+  'm.seg7': b('Lettre vers', 'Letter number'), // m7
+  'm.seg7Fusion': b('Lettre vers', 'Letter number'), // m7F
+  'm.a1z26': b('Chaque lettre', 'letter is'), // ma1
+  'm.additionSelective': b('additionne chiffres', 'Add up'), // mad
+  'm.asciiMin': b('Code ASCII', 'ASCII code'), // masb
+  'm.asciiMaj': b('Code ASCII', 'ASCII code'), // masc
+  'm.azertyRangee4': b('Rangée touche', 'Key row'), // maz4
+  'm.azertyColonne': b('Colonne touche', 'Key column'), // mazc
+  'm.azertyRangee': b('Rangée touche', 'Key row'), // mazr
+  'm.bouclesMin': b('Boucles fermées', 'Closed loops'), // mbob
+  'm.bouclesMaj': b('Boucles fermées', 'Closed loops'), // mboc
+  'm.compterLesChiffres': b('compte chiffres', 'Count digits'), // mcc
+  'm.chaldeen': b('Numérologie chaldéenne', 'Chaldean numerology'), // mch
+  'm.egalisation': b('égalise', 'Even them'), // meg
+  'm.extremitesMin': b('Extrémités libres', 'Free ends'), // mexb
+  'm.extremitesMaj': b('Extrémités libres', 'Free ends'), // mexc
+  'm.grec': b('Isopséphie grecque', 'Greek isopsephy'), // mgr
+  'm.hebreu': b('Gématrie hébraïque', 'Hebrew gematria'), // mhe
+  'm.chiffreEnLettres': b('écrit chiffre', 'Write digit'), // mlet
+  'm.longueurToken': b('Chaque mot', 'word is'), // mlm
+  'm.longueurNom': b('Longueur nom', 'Length letter’'), // mln
+  'm.morseSignaux': b('Signaux morse', 'Morse signals'), // mms
+  'm.morseTraits': b('Traits morse', 'Morse dashes'), // mmt
+  'm.plusFrequent': b('plus fréquent', 'most frequent'), // mpf
+  'm.pythagore': b('Numérologie pythagoricienne', 'Pythagorean numerology'), // mpy
+  'm.qwertyRangee4': b('Rangée touche', 'Key row'), // mqw4
+  'm.qwertyColonne': b('Colonne touche', 'Key column'), // mqwc
+  'm.qwertyRangee': b('Rangée touche', 'Key row'), // mqwr
+  'm.retournerLesTrios': b('retourne 666', 'Turn over'), // mr39
+  'm.retournerLesNeuf': b('retourne 9', 'Turn 9s'), // mr9
+  'm.redecoupageChoisi': b('redécoupe paquets', 'Recut packets'), // mrd
+  'm.reduireChaque': b('réduit chaque', 'Reduce number'), // mrn
+  'm.scrabbleEN': b('Points Scrabble', 'English Scrabble'), // msen
+  'm.scrabbleFR': b('Points Scrabble', 'French Scrabble'), // msfr
+  'm.t9': b('Touche clavier', 'Phone keypad'), // mt9
+  'm.triAlphabetique': b('range lettres', 'Sort letters'), // mtal
+  'm.toucheChiffre': b('chiffre partage', 'digit that'), // mtc
+  'm.traitsMin': b('Traits crayon', 'Pen strokes'), // mtrb
+  'm.traitsMaj': b('Traits crayon', 'Pen strokes'), // mtrc
+  'm.triCroissant': b('range nombres', 'Sort numbers'), // mtri
+  'm.englishX6': b('Gématrie anglaise', 'English gematria'), // mx6
+  'm.z26a1': b('Chaque lettre', 'letter is'), // mz26
+  'n.consonnes': b('compte consonnes', 'Count consonants'), // nc
+  'n.lettresDistinctes': b('compte lettres', 'Count distinct'), // nd
+  'n.espaces': b('Combien d’', 'How many'), // nes
+  'n.longueur': b('compte lettres', 'Count letters'), // nl
+  'n.lettresPlusConsonnes': b('lettres plus', 'letters plus'), // nlc
+  'n.lettresPlusVoyelles': b('lettres plus', 'letters plus'), // nlv
+  'n.mots': b('compte mots', 'Count words'), // nm
+  'n.points': b('Combien points', 'How many'), // npt
+  'n.barres': b('Combien barres', 'How many'), // nsl
+  'n.separateurs': b('Combien séparateurs', 'How many'), // nsp
+  'n.tirets': b('Combien tirets', 'How many'), // ntr
+  'n.voyelles': b('compte voyelles', 'Count vowels'), // nv
+  'p.abs': b('prend valeur', 'Take absolute'), // pabs
+  'p.complement9': b('prend complément', 'Take nines'), // pc9
+  'p.ecartChiffres': b('prend écart', 'Take gap'), // pec
+  'p.modulo10': b('garde dernier', 'last digit'), // pm10
+  'p.modulo9': b('prend reste', 'Take remainder'), // pm9
+  'p.miroir': b('lit nombre', 'Read number'), // pmr
+  'p.retournement': b('retourne 9', 'Turn 9'), // pr9
+  'p.racineMaitres': b('réduit sauf', 'Reduce unless'), // prm
+  'p.racineNumerique': b('réduit à', 'Reduce single'), // prn
+  'p.reductionSignee': b('réduit gardant', 'Reduce keeping'), // prs
+  'p.sommeChiffres': b('additionne chiffres', 'Add digits'), // psc
+  't.caracteres': b('prend lettres', 'Take letters'), // tca
+  't.chiffres': b('éclate nombre', 'Break number'), // tch
+  't.mots': b('découpe mots', 'Split words'), // tm
+  't.separateurs': b('garde séparateurs', 'separators'), // tsp
+  't.syllabes': b('découpe syllabes', 'Split syllables'), // tsy
+};
+
 export const PRECISIONS = {
   // ── filtres : ce sur quoi on travaille, ou ce qu'on écarte
   'f.protocole': b('sans le protocole', 'without the protocol'),
@@ -939,4 +1122,15 @@ export function nommer(approches) {
     a.regle = regleBilingue(a);
   }
   return approches;
+}
+
+/**
+ * Le titre court d'un opérateur — voir `TITRES_COURTS`.
+ *
+ * Rendu `null` quand il manque, plutôt qu'un repli silencieux sur le libellé :
+ * un titre de quatre mots glissé dans une énumération qui en promet deux se
+ * verrait moins qu'un trou, et c'est le trou qu'on veut voir.
+ */
+export function titreCourtDe(op) {
+  return (op && TITRES_COURTS[op.id]) || null;
 }

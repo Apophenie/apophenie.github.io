@@ -36,6 +36,7 @@ import {
 import {
   CATALOGUE, appliquer, PAR_CODE, operateursActifs, classerPourCible, CLASSES_CIBLE,
 } from '../moteur/catalogue.js';
+import { titreCourtDe } from '../recherche/titres.js';
 import { depuisSaisie, signature } from '../moteur/etat.js';
 import { creerMoteur } from '../recherche/index.js';
 import { BAREME, NATURE, FICELLES, detailDuCredit } from '../recherche/elegance.js';
@@ -379,4 +380,32 @@ test('★ la page de débogage ne recopie AUCUN nom d’opérateur qui lise la c
     if (typeof op.viser !== 'function') continue;
     assert.ok(!SOURCE.includes(op.id), `« ${op.id} » est écrit dans la page`);
   }
+});
+
+/**
+ * ★ **CHAQUE OPÉRATEUR A SON TITRE COURT, ET IL TIENT EN DEUX MOTS.**
+ *
+ * > « Un titre énumérant avec concision les méthodes employées, max 2 mots par
+ * >   méthode/étape. » (l'auteur)
+ *
+ * La contrainte n'est pas décorative : la carte d'une voie en enchaîne un par
+ * étape, et une seule entrée bavarde suffit à faire déborder la ligne. Un
+ * opérateur ajouté demain sans titre court ferait donc rougir ici — plutôt que
+ * de se replier en silence sur son libellé, qui en fait quatre en moyenne.
+ */
+test('★ titres courts — un par opérateur, deux mots au plus', () => {
+  const sans = CATALOGUE.filter((op) => !titreCourtDe(op));
+  assert.deepEqual(sans.map((op) => op.code), [],
+    'un opérateur sans titre court se replierait sur un libellé trop long');
+
+  const bavards = [];
+  for (const op of CATALOGUE) {
+    for (const langue of ['fr', 'en']) {
+      const t = (titreCourtDe(op) || {})[langue];
+      assert.ok(t, `${op.code} : titre court manquant en « ${langue} »`);
+      const mots = t.trim().split(/\s+/).filter(Boolean).length;
+      if (mots > 2) bavards.push(`${op.code} (${langue}) : « ${t} » — ${mots} mots`);
+    }
+  }
+  assert.deepEqual(bavards, [], 'deux mots au plus, c’est la consigne');
 });

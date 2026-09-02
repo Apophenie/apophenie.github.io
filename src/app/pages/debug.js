@@ -83,6 +83,7 @@ import { tokeniser } from '../../recherche/fragments.js';
 // nommée `v`, et un import du même nom s'y ferait masquer sans prévenir.
 import { localiser, v as valeurTraduite, langue } from '../../i18n/index.js';
 import { titreApproche, regleApproche } from '../libelles.js';
+import { titreCourtDe } from '../../recherche/titres.js';
 import { creerRegistre } from '../registre.js';
 import { creerTransport, brancherClavier } from '../transport.js';
 import { infobuller } from '../infobulle.js';
@@ -1124,7 +1125,7 @@ function etatDe(op) {
  *   précèdent, laquelle dépend du contenu.
  */
 function tableauDesOperateurs(ops, avecEtat) {
-  const colonnes = [...EN_TETE, 'titre registre', 'cible', ...(avecEtat ? ['état'] : []), 'particularités'];
+  const colonnes = [...EN_TETE, 'titre court', 'titre registre', 'cible', ...(avecEtat ? ['état'] : []), 'particularités'];
 
   const lignes = [...ops]
     .sort((a, b) => String(a.code).localeCompare(String(b.code), 'en'))
@@ -1141,6 +1142,15 @@ function tableauDesOperateurs(ops, avecEtat) {
         cellCible.className = `dbg__cible-classe dbg__cible-${classe.toLowerCase()}`;
       });
       const cellules = colonnes.slice(1).map((c) => {
+        if (c === 'titre court') {
+          // ★ La colonne que l'auteur vient corriger : deux mots, ou le trou qui
+          //   se voit. Voir `titres.js › TITRES_COURTS` pour le pourquoi de la
+          //   table, et pourquoi elle ne remplace pas le titre du Registre.
+          const bref = localiser(titreCourtDe(op));
+          return e('td.dbg__titre-court', {}, bref
+            ? [e('span.dbg__titre-mots', { texte: String(motsDe(bref)) }), ' ', e('span', { texte: bref })]
+            : [e('span.dbg__part-cle', { texte: '— manquant' })]);
+        }
         if (c === 'titre registre') {
           const titre = titreRegistreDe(op);
           const n = motsDe(titre);
