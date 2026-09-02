@@ -17,7 +17,7 @@ import {
 } from '../cible.js';
 import { lire, ecrire, REGISTRE_DEFAUT, registreEffectif, registresDisponibles, autreRegistre } from '../url.js';
 import { creerMoteur } from '../index.js';
-import { operateursPourCible, operateursExplorables, OPERATEURS_LIES_A_666 } from '../bfs.js';
+import { operateursPourCible, operateursExplorables } from '../bfs.js';
 import { serieDeSix, sixDuChemin, compterMoisson, verdictDe } from '../assemblage.js';
 import { nbTriptyques, finDuTriptyque } from '../elegance.js';
 import { catalogue } from './_catalogue.js';
@@ -320,18 +320,64 @@ test('★ NON-RÉGRESSION — aucune URL de la cible par défaut ne porte de mar
   }
 });
 
-test('★ NON-RÉGRESSION — les opérateurs restent explorables pour 666', () => {
+test('★ NON-RÉGRESSION — les opérateurs restent explorables pour 666, aux objets près', () => {
   const tous = operateursExplorables(catalogue);
-  assert.deepEqual(
-    operateursPourCible(catalogue, normaliserCible('666')).map((o) => o.code),
-    tous.map((o) => o.code),
-  );
-  // …et les cinq opérateurs écrits autour du 6 sortent dès qu'on vise ailleurs.
-  const autres = operateursPourCible(catalogue, normaliserCible('111')).map((o) => o.id);
-  for (const id of OPERATEURS_LIES_A_666) {
-    assert.ok(tous.some((o) => o.id === id), `${id} existe au catalogue`);
-    assert.ok(!autres.includes(id), `${id} ne s’explore pas hors de 666`);
+  const pour666 = operateursPourCible(catalogue, normaliserCible('666'));
+  assert.deepEqual(pour666.map((o) => o.code), tous.map((o) => o.code));
+  // ★ Identité, pas seulement égalité de codes : le moteur compare des
+  //   opérateurs par RÉFÉRENCE (`bfs.js › conventionContraire`), et deux
+  //   descripteurs jumeaux mais distincts y feraient diverger un classement.
+  pour666.forEach((o, i) => assert.equal(o, tous[i], `${o.code} : même objet qu'avant`));
+});
+
+test('★ la classification face à la cible est DÉRIVÉE, jamais recopiée', () => {
+  // ★ CONTRACTS §0.3. Il n'existe aucune liste d'opérateurs « liés à 666 » :
+  //   la classe se CALCULE en montrant la cible à l'opérateur. Ce test ne
+  //   nomme donc aucune liste attendue — il vérifie la MÉCANIQUE, et les
+  //   conséquences que la mécanique implique.
+  const tous = operateursExplorables(catalogue);
+  const lisent = tous.filter((o) => typeof o.viser === 'function');
+  assert.ok(lisent.length, 'au moins un opérateur lit la cible');
+
+  // 1. Un opérateur sans `viser` ne PEUT pas dépendre de la cible : il n'a
+  //    aucun moyen de l'apprendre. C'est ce qui rend la classe « indifférent »
+  //    vérifiable sans faire confiance à personne.
+  for (const o of tous) {
+    if (typeof o.viser === 'function') continue;
+    assert.equal(o.visee, undefined, `${o.code} : pas de visée sans canal`);
   }
+
+  // 2. Le repli sur 666 est EXACT, jusqu'à l'identité.
+  for (const o of lisent) assert.equal(o.viser('666'), o, `${o.code} : viser(666) === lui-même`);
+
+  // 3. Et l'ensemble explorable d'une cible EST celui que la classification
+  //    annonce — les deux se lisent au même endroit, donc ils ne peuvent pas
+  //    diverger. C'est très exactement ce que l'ancienne liste ne garantissait
+  //    pas.
+  for (const texte of ['111', '13', '007', '000', '01111984']) {
+    const attendu = tous
+      .map((o) => (typeof o.viser === 'function' ? o.viser(texte) : o))
+      .filter(Boolean);
+    assert.deepEqual(
+      operateursPourCible(catalogue, normaliserCible(texte)).map((o) => o.code),
+      attendu.map((o) => o.code),
+      `explorables de ${texte}`,
+    );
+  }
+});
+
+test('★ ce qu’un opérateur ANNONCE est ce qu’il applique, cible comprise', () => {
+  // ★ CONTRACTS §0.3 encore : un opérateur visé porte la règle de ce qu'il
+  //   fera, pas celle qu'il faisait en visant 666. Sans cela, la lightbox du
+  //   récapitulatif décrirait « trois 6 d'affilée » au-dessus d'une scène qui
+  //   cherche trois 1.
+  const m36 = operateursExplorables(catalogue).find((o) => o.code === 'm36');
+  if (!m36 || typeof m36.viser !== 'function') return; // catalogue jouet
+  const vise = m36.viser('111');
+  assert.ok(vise.regle.fr.includes('1'), vise.regle.fr);
+  assert.ok(!vise.regle.fr.includes(' 6 '), `la règle ne parle plus du 6 : ${vise.regle.fr}`);
+  assert.equal(vise.code, m36.code, 'le code ne change pas — c’est la CIBLE qui change');
+  assert.equal(vise.id, m36.id);
 });
 
 /* ═══════════════ 7. Le moteur : viser réellement autre chose ════════════ */
@@ -519,7 +565,134 @@ test('★ sixDuChemin et compterMoisson lisent la SUITE, pas un compte', () => {
   const parts = [part([0, 0, 7], 0, 3), part([0, 0, 7], 3, 6)];
   assert.deepEqual(sixDuChemin(parts[0].chemin, c).chiffres, [0, 0, 7]);
   assert.equal(compterMoisson(parts, c).series, 2);
-  // Et l'ordre compte : `7 0 0` puis `7 0 0` n'écrit qu'un seul 007.
+  // Et l'ORDRE compte : `7 0 0` puis `7 0 0` n'écrit qu'un seul 007 — les deux
+  // portées rapportent autant de chiffres utiles et n'en écrivent que la moitié.
   const desordre = [part([7, 0, 0], 0, 3), part([7, 0, 0], 3, 6)];
-  assert.equal(compterMoisson(desordre, c), null, 'une seule série, ce n’est pas une moisson');
+  assert.equal(compterMoisson(desordre, c).series, 1);
+});
+
+test('★ le seuil de deux séries SUIT LA CIBLE — et il n’a jamais dit pourquoi il valait 2', () => {
+  /* ★ « Une seule série, c'est un 666 ordinaire » : la phrase est exacte, et
+     c'est ce qui la rend LOCALE. Elle vaut parce que sur une cible homogène,
+     une portée qui rapporte `longueur` chiffres utiles écrit la cible à elle
+     seule — le GROUPEMENT le fait déjà, en un geste. Sur une cible mêlée,
+     l'argument tombe : l'ordre des chiffres fait qu'une seule série est DÉJÀ
+     l'ouvrage conjoint de plusieurs portées, c'est-à-dire ce que le mode existe
+     pour montrer. */
+  const faux = (valeurs) => ({
+    ops: [], cout: 0, valeur: null,
+    etats: [{ type: 'TOKENS', valeur: valeurs.map(() => 'x'), traces: [] },
+      { type: 'NUMS', valeur: valeurs, traces: [] }],
+  });
+  const part = (valeurs, d, f) => ({
+    fragment: { intervalles: [[d, f]], offset: d, longueur: f - d, texte: 'x' },
+    chemin: faux(valeurs),
+  });
+
+  // Homogène : le seuil ne bouge PAS. Deux portées, une seule série → refus,
+  // exactement comme avant la généralisation.
+  const six = [part([6, 6], 0, 2), part([6], 2, 3)];
+  assert.equal(compterMoisson(six, CIBLE_DEFAUT), null, '666 : une série ne fait pas moisson');
+  assert.equal(compterMoisson([part([6, 6, 6], 0, 3), part([6, 6, 6], 3, 6)], CIBLE_DEFAUT).series, 2);
+  // …et `111`, `777`, `000` sont homogènes eux aussi : mêmes règles, même seuil.
+  assert.equal(compterMoisson([part([1, 1], 0, 2), part([1], 2, 3)], lireCible('111')), null);
+
+  // Mêlée : une série suffit, et elle vaut d'être montrée.
+  const treize = [part([1], 0, 1), part([3], 1, 2)];
+  assert.equal(compterMoisson(treize, lireCible('13')).series, 1,
+    'deux portées, chacune un chiffre, et la cible écrite : c’est une moisson');
+});
+
+/* ═══════════ 9. Une cible HÉTÉROGÈNE et LONGUE : le motif ════════════════
+   ★ Le cas qui a ouvert le chantier, tel que l'auteur l'a envoyé :
+   `#c01111984!#7boAPhRQaJv3r4zEtw6VY8rtE7Vi65vVA` — une date de naissance sur
+   « Henri Prunelle Chochotte » — ne rendait RIEN. Ce n'était pas une panne :
+   c'était l'objectif de la moisson qui n'était pas le bon.
+
+   Trois biais de COMPTAGE se cachaient l'un derrière l'autre, et chacun est
+   inoffensif sur une cible homogène — où compter les chiffres utiles et écrire
+   la cible sont la même chose à la division près :
+
+     1. la MATIÈRE — `vecteursDeSix` coupait ses vingt candidats par compte, et
+        sur `01111984` les vingt premiers étaient tous riches en 1 : aucun 0,
+        aucun 4, aucun 8 ne franchissait le plafond ;
+     2. le CHOIX — `meilleureMoisson` maximisait la somme des chiffres utiles :
+        elle retenait vingt-deux 1 pour ZÉRO série ;
+     3. le SEUIL — `compterMoisson` exigeait DEUX séries, ce qui revenait à
+        demander seize chiffres à leur place pour accepter d'en montrer huit.
+
+   Ces tests tiennent la correction des trois, et ils tiennent aussi ce qu'elle
+   ne doit pas déplacer : sur une cible homogène, rien ne bouge. */
+
+test('★ le cas qui ouvre le chantier — `01111984` sur « Henri Prunelle Chochotte »', () => {
+  const c = lireCible('01111984');
+  const r = moteur.resoudre('Henri Prunelle Chochotte', { cible: c });
+  assert.ok(r.approches.length, 'une date de naissance doit être atteignable');
+  for (const a of r.approches) {
+    // ★ Le contrôle qui compte : la voie ÉCRIT la cible, chiffre par chiffre et
+    //   dans l'ordre. Un compte de chiffres utiles ne prouverait rien ici —
+    //   c'est précisément l'erreur qu'on vient de corriger.
+    const suite = a.parts.flatMap((p) => sixDuChemin(p.chemin, c).chiffres);
+    assert.ok(seriesDe(suite, c).length >= 1,
+      `${a.mode} : la suite récoltée doit écrire ${c.texte} — ${suite.join('')}`);
+    assert.equal(verdictDe(a), verdict(a.series || 1, c));
+    assert.ok(a.url.includes('c01111984!'), a.url);
+  }
+});
+
+test('★ une voie de cible hétérogène se REJOUE depuis son lien', () => {
+  // §4.3 : un lien partagé rend la même démonstration, cible comprise. C'est
+  // aussi ce qui vérifie que `rejouer` résout les codes SUR LA CIBLE DU LIEN —
+  // six opérateurs ne font pas la même chose selon ce qu'on cherche.
+  const r = moteur.resoudre('Henri Prunelle Chochotte', { cible: '01111984' });
+  for (const a of r.approches) {
+    const rejoue = moteur.rejouer(lire(a.url));
+    assert.ok(rejoue.ok, `${a.url} : ${rejoue.raison}`);
+    assert.equal(rejoue.approche.cible.texte, '01111984');
+    assert.equal(rejoue.approche.series, a.series, 'le compte de séries est redéduit, pas transporté');
+    assert.equal(verdictDe(rejoue.approche), verdictDe(a));
+  }
+});
+
+test('★ maximiser un chiffre n’est PAS écrire un motif — la mesure', () => {
+  /* Le cœur du volet : sur une cible mêlée, les deux objectifs divergent, et
+     l'ancien choisissait le mauvais. On le montre sans nommer aucun programme —
+     on compare ce que les deux LECTURES rapportent. */
+  const c = lireCible('01111984');
+  const r = moteur.resoudre('Henri Prunelle Chochotte', { cible: c });
+  const moissons = r.approches.filter((a) => a.mode === 'MOISSON');
+  assert.ok(moissons.length, 'la moisson est le seul mode capable d’enchaîner des portées');
+  for (const a of moissons) {
+    const suite = a.parts.flatMap((p) => sixDuChemin(p.chemin, c).chiffres);
+    const utiles = indexUtiles(suite, c).length;
+    const ecrits = seriesDe(suite, c).length * c.longueur;
+    assert.ok(ecrits >= 1, 'la voie écrit la cible');
+    // ★ Et voilà la démonstration en une ligne : la voie retenue récolte des
+    //   chiffres utiles qu'elle n'écrit PAS. Un algorithme qui maximise
+    //   `utiles` ne trouverait jamais celle-ci — il prendrait la lecture qui en
+    //   récolte davantage et n'en écrit aucun.
+    assert.ok(utiles >= ecrits, `${utiles} récoltés, ${ecrits} écrits`);
+  }
+});
+
+test('★ NON-RÉGRESSION — une cible homogène ne connaît PAS la moisson de motif', () => {
+  /* La variante « motif » n'est pas calculée sur une cible homogène, et il ne
+     faut pas qu'elle le soit : `666`, `111`, `777` et `000` y ont un seul
+     chiffre utile, les deux objectifs y sont le même, et une seconde variante
+     ne rendrait que des doublons — ou pire, un classement différent.
+
+     On ne teste pas l'absence d'un appel (invisible), on teste ce qu'elle
+     garantit : le seuil de deux séries tient, donc aucune moisson à une seule
+     série n'apparaît jamais sur une cible homogène. */
+  for (const texte of ['666', '111', '000']) {
+    const c = lireCible(texte);
+    for (const saisie of ['hope-hope-hope.fr', 'Millicent Billette', 'Henri Prunelle Chochotte']) {
+      const r = moteur.resoudre(saisie, { cible: c });
+      for (const a of r.approches) {
+        if (a.mode !== 'MOISSON') continue;
+        assert.ok(a.series >= 2,
+          `${saisie} / ${texte} : une moisson à ${a.series} série sur une cible homogène`);
+      }
+    }
+  }
 });

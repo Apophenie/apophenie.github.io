@@ -2584,11 +2584,33 @@ fusionnés) · `m14`/`m14F` **quatorze segments**, mêmes deux lectures ·
 > `111`.
 >
 > ★ **`mrd` rejoint les quatre opérateurs écrits autour du 6** et sort de la
-> recherche dès que la cible change (`bfs.js › OPERATEURS_LIES_A_666`) : son
-> objectif, son départage et son refus sont tous écrits en « 6 ». Ils sont donc
-> **cinq**, et viser autre chose que 666 donne accès à 95 opérateurs sur 100.
-> Les trois autres restent explorables partout, et servent même MIEUX les autres
-> cibles : ranger rapproche les 1 d'un `111` exactement comme les 6.
+> recherche dès que la cible change : son objectif, son départage et son refus
+> sont tous écrits en « 6 ». Ils sont donc **cinq**, et viser autre chose que 666
+> donne accès à 95 opérateurs sur 100. Les trois autres restent explorables
+> partout, et servent même MIEUX les autres cibles : ranger rapproche les 1 d'un
+> `111` exactement comme les 6.
+>
+> > *Amendement — LA LISTE N'EXISTE PLUS, ET LE COMPTE ÉTAIT FAUX.* Ces cinq
+> > identifiants vivaient dans `bfs.js › OPERATEURS_LIES_A_666`, écrits à la
+> > main à côté du catalogue : la seconde source de vérité que §0.3 refuse. Un
+> > opérateur qui a besoin du nombre visé le REÇOIT désormais, par un canal
+> > (`moteur/transformations/commun.js › selonLaCible`), et il ne peut le
+> > recevoir que par là — d'où une classification qui se DÉDUIT au lieu de se
+> > déclarer : pas de `viser` ⇒ indifférent (il ne PEUT pas lire la cible) ;
+> > `viser(cible)` rend un opérateur ⇒ adapté ; il rend `null` ⇒ à désactiver,
+> > et c'est l'opérateur qui le dit. `debug.html` l'affiche, cible par cible.
+> >
+> > ⚠️ Ce qui était faux : `mtri` n'est PAS indifférent. Son garde-fou exige que
+> > le tri fasse apparaître une plage de TROIS valeurs identiques — c'est la
+> > longueur d'une série de 666 —, si bien qu'il refusait de servir `13`, dont
+> > la série en fait deux. Il lit donc la cible, par sa LONGUEUR plutôt que par
+> > son chiffre, et il porte `viser` avec les cinq autres.
+> >
+> > ⚠️ Et les cinq ne sortent plus tous : chacun décide en regardant la cible.
+> > MESURÉ — 666 et 111 : 148 explorables sur 148 ; `13`, `007` et `01111984` :
+> > 147 (`mpf` seul se retire, car il ne laisse qu'un chiffre répété et ne peut
+> > donc écrire qu'une cible homogène) ; `000` : 146 (`mad` et `mrd`
+> > s'ajoutent — une somme ne retombe sur 0 qu'en n'additionnant que des 0).
 >
 > ★ **`exige` — les quatre refusent plutôt que de se jouer pour rien**, même
 > discipline que `mr9`, `m36` et les trois ficelles. `mtri` refuse s'il ne
@@ -2862,12 +2884,32 @@ programme  := code ('+' code)*
 > c'est ce que le mode signifie.
 >
 > ★ **Quatre opérateurs sortent de la recherche hors de 666** — `m36`, `mpf`,
-> `m1s2`, `mad` (`bfs.js › OPERATEURS_LIES_A_666`). Leurs garde-fous sont écrits
-> en « 6 » et en « 666 » : les trois ficelles refusent d'elles-mêmes de
-> s'appliquer, et `m36` est le seul qui pourrait encore agir — en couronnant de
-> cornes trois 6 qui ne sont pas le verdict. Les généraliser demanderait de faire
-> voyager la cible jusque dans `apply()`, donc d'étendre la signature §2.2 : c'est
-> un chantier à part, noté dans `.planning/A-VENIR-cibles.md`.
+> `m1s2`, `mad`. Leurs garde-fous sont écrits en « 6 » et en « 666 » : les trois
+> ficelles refusent d'elles-mêmes de s'appliquer, et `m36` est le seul qui
+> pourrait encore agir — en couronnant de cornes trois 6 qui ne sont pas le
+> verdict. Les généraliser demanderait de faire voyager la cible jusque dans
+> `apply()`, donc d'étendre la signature §2.2 : c'est un chantier à part, noté
+> dans `.planning/A-VENIR-cibles.md`.
+>
+> > *Amendement — LE CHANTIER EST FAIT, ET LA SIGNATURE §2.2 N'A PAS BOUGÉ.*
+> > `apply(valeur, traces)` est gelée et le reste : ce n'est pas elle qui reçoit
+> > la cible, c'est le DESCRIPTEUR qui se fabrique en fonction d'elle
+> > (`commun.js › selonLaCible`), `apply` la tenant par fermeture. Le champ
+> > `viser` s'ajoute comme `additions` s'était ajouté — facultatif, et seulement
+> > là où il a un sens. Le repli sur 666 est EXACT jusqu'à l'identité :
+> > `op.viser('666') === op`, exigé au chargement par `catalogue.js › verifier`.
+> >
+> > Ce que chacun devient : `m36` cherche le motif visé (« trois 1 d'affilée »
+> > sur `111`, la suite entière sur une date) ; `m1s2` compte les chiffres
+> > UTILES pour choisir sa parité ; `mad` et `mrd` visent les chiffres de la
+> > cible, le 9 ne restant « à défaut » que lorsqu'elle veut des 6 — le
+> > demi-tour n'en produit pas d'autre (`visuel/primitives/flip180.js`) ; `mpf`
+> > se désactive dès que la cible n'est pas homogène, puisqu'il ne laisse qu'un
+> > chiffre répété. ⚠️ `mr9`, `mr39` et `pr9` restent INDIFFÉRENTS et non
+> > adaptés : leur règle est un fait de dessin — un 9 retourné donne un 6 —, et
+> > la retourner vers un autre chiffre demanderait de toucher `flip180`,
+> > c'est-à-dire au vocabulaire visuel fermé (§3.1). Ils ne mentent pas hors de
+> > 666 ; ils n'y servent simplement à rien.
 >
 > ★ **LA GARANTIE « JAMAIS BREDOUILLE » (§5.3) EST UNE GARANTIE SUR 666.** Le
 > dernier recours du moteur est le joker français, dont le cycle attracteur

@@ -460,65 +460,64 @@ export function operateursExplorables(catalogue) {
 }
 
 /**
- * ★ LES CINQ OPÉRATEURS ÉCRITS AUTOUR DU CHIFFRE 6 — et pourquoi ils sortent
- *   de la recherche dès que la cible change.
+ * ★ **LES OPÉRATEURS QUI LISENT LA CIBLE SE DÉCLARENT EUX-MÊMES.**
  *
- * Le catalogue est, à quatre exceptions près, indifférent au nombre visé : A1Z26
- * convertit des lettres, le quatorze segments compte des segments, la somme
- * additionne. Quatre opérateurs, eux, DÉCIDENT en regardant le chiffre 6 :
+ * Il y avait ici une liste : `OPERATEURS_LIES_A_666`, cinq identifiants écrits
+ * à la main, à côté du catalogue et jamais recoupés contre lui. Elle a été
+ * supprimée, et pas pour faire joli — c'était la seconde source de vérité que
+ * CONTRACTS §0.3 refuse (« ce qui est montré est ce qui est compté »), et elle
+ * avait déjà commencé à mentir : son propre en-tête annonçait « QUATRE
+ * opérateurs qui DÉCIDENT en regardant le chiffre 6 » au-dessus d'une liste qui
+ * en portait cinq, et il affirmait que le tri croissant « ne regarde pas ce
+ * qu'on cherche » alors que son garde-fou exigeait une plage de TROIS valeurs —
+ * c'est-à-dire la longueur d'une série de 666 — même en visant `13`.
  *
- *  · `m36` — « trois 6 d'affilée », qui repère un 666 déjà écrit et TRONQUE le
- *    vecteur dessus. C'est lui qui émet la primitive `horns` : le laisser courir
- *    sur une cible visant 111 ferait pousser des cornes de diable au-dessus de
- *    trois 6 qui ne sont pas le verdict ;
- *  · `mpf`, `m1s2`, `mad` — les trois ficelles, dont chaque garde-fou
- *    (`portePleinement`, `paritePorteuse`, la fenêtre de somme) est écrit en
- *    « 6 » et en « 666 ». Elles refusent d'elles-mêmes de s'appliquer quand le
- *    résultat n'écrit pas 666 d'affilée ; les explorer sur une autre cible
- *    revient donc à dépenser du budget de recherche pour des `null` ;
- *  · `mrd` — le redécoupage tricheur, dont la programmation dynamique MAXIMISE
- *    le nombre de paquets valant 6 et qui refuse de s'appliquer s'il n'en gagne
- *    pas. Tout, chez lui, est écrit en « 6 » : l'objectif, le départage, le
- *    refus. Le lâcher sur une cible visant 111 lui ferait fabriquer des 6 que
- *    personne ne cherche, et payer une triche pour rien.
+ * ★ **Ce qui la remplace n'est pas une autre liste, c'est un CANAL**
+ * (`moteur/transformations/commun.js › selonLaCible`). Un opérateur qui a
+ * besoin du nombre visé le REÇOIT, et il ne peut le recevoir que par là :
  *
- * ★ **Et les trois autres transformations du 27 août n'y sont PAS** — c'est
- * délibéré, et c'est ce qui les distingue de `mrd`. Le tri croissant (`mtri`)
- * range, le décompte des chiffres (`mcc`) compte, et ni l'un ni l'autre ne
- * regarde ce qu'on cherche : ils rendraient le même résultat en visant 007. Ils
- * servent même MIEUX les autres cibles que le 666 — trier rapproche les 1 d'un
- * `111` aussi bien que les 6. Quant aux trios de 9 (`mr39`), ils font ce que
- * `mr9` fait déjà, en trio plutôt qu'un par un : ils produisent des 6 sans
- * jamais rien affirmer, et ils n'émettent aucune corne (c'est
- * `couronnerLesTriptyques` qui couronne, et lui suit la cible).
+ *  · pas de `viser` ⇒ il ne peut pas lire la cible, donc il n'en dépend pas.
+ *    Ce n'est pas une déclaration qu'on croit sur parole, c'est une
+ *    impossibilité de structure ;
+ *  · `viser(cible)` rend un opérateur ⇒ on explore CELUI-LÀ, adapté ;
+ *  · `viser(cible)` rend `null` ⇒ sa règle n'a pas de sens ici, on le retire.
  *
- * On les RETIRE plutôt que de les généraliser, et c'est un choix de portée, pas
- * de paresse : leur généraliser demanderait de faire voyager la cible jusque
- * dans `apply()`, donc d'étendre la signature d'opérateur de CONTRACTS §2.2 —
- * un contrat gelé, dont dépend le registre de codes clos §4.1. Ce chantier-là
- * est noté à part (`.planning/A-VENIR-cibles.md`).
+ * ★ **Le repli sur 666 est EXACT** : `viser('666')` rend l'opérateur du
+ * catalogue lui-même (identité vérifiée au chargement, `catalogue.js ›
+ * verifier`), et la cible par défaut court-circuite de toute façon la boucle.
+ * Même tableau, même ordre, mêmes objets qu'avant.
  *
- * ★ Conséquence assumée, et mesurable : viser autre chose que 666 donne accès à
- * 95 opérateurs au lieu de 100. Aucun de ces cinq n'aurait rendu autre chose
- * que `null` de toute façon, sauf `m36` — dont la seule contribution possible
- * eût été de mentir.
- */
-export const OPERATEURS_LIES_A_666 = Object.freeze([
-  'm.troisSixDAffilee', 'm.plusFrequent', 'm.unRangSurDeux', 'm.additionSelective',
-  'm.redecoupageChoisi',
-]);
-
-/**
- * Les opérateurs explorables POUR UNE CIBLE. Sur la cible par défaut, c'est
- * `operateursExplorables` mot pour mot — même tableau, même ordre.
+ * ★ **Et ce que la généralisation a rendu** — mesuré au passage, sur les six
+ * opérateurs qui portent désormais `viser` (`m36`, `mpf`, `m1s2`, `mad`, `mtri`,
+ * `mrd`) :
+ *
+ *      cible        explorables    désactivés
+ *      666              148            —
+ *      111              148            —
+ *      13               147            mpf
+ *      007              147            mpf
+ *      000              146            mad, mrd
+ *      01111984         147            mpf
+ *
+ * Là où l'ancienne liste en retirait CINQ dès que la cible changeait, on n'en
+ * retire plus que ce que chacun refuse en regardant la cible — et le refus est
+ * démontré, pas décrété : `mpf` ne laisse qu'un chiffre répété, il ne peut donc
+ * écrire que `666`, `111` ou `000` ; `mad` et `mrd` additionnent, et une somme
+ * ne retombe sur 0 qu'en n'additionnant que des 0.
  *
  * @param {Object} catalogue
- * @param {{defaut:boolean}} cible
+ * @param {{defaut:boolean, texte:string}} cible
  */
 export function operateursPourCible(catalogue, cible) {
   const tous = operateursExplorables(catalogue);
   if (!cible || cible.defaut !== false) return tous;
-  return tous.filter((op) => !OPERATEURS_LIES_A_666.includes(op.id));
+  const out = [];
+  for (const op of tous) {
+    if (typeof op.viser !== 'function') { out.push(op); continue; }
+    const vise = op.viser(cible.texte ?? cible.chiffres);
+    if (vise) out.push(vise);
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────── chemins

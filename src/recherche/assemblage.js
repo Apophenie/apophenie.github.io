@@ -408,7 +408,25 @@ export function compterMoisson(parts, cible = CIBLE_DEFAUT) {
   // est cherchée sur la concaténation. Sur `666` cela vaut `six / 3` à
   // l'entier près — c'est exactement l'ancien calcul.
   const series = Math.min(seriesDe(suite, c, MAX_SERIES).length, MAX_SERIES);
-  if (series < 2) return null; // une seule série, c'est un 666 ordinaire
+  // ★ **LE SEUIL SUIT LA CIBLE, ET IL N'AVAIT JAMAIS DIT POURQUOI IL VALAIT 2.**
+  //
+  //   « Une seule série, c'est un 666 ordinaire » : la phrase est exacte, et
+  //   c'est ce qui la rend LOCALE. Elle vaut parce que sur une cible homogène,
+  //   une portée qui rapporte `longueur` chiffres utiles écrit la cible À ELLE
+  //   SEULE — le GROUPEMENT le fait déjà, en un geste et sur une seule portée.
+  //   Une moisson n'a donc de raison d'être que si elle en enchaîne DEUX.
+  //
+  //   Sur une cible mêlée, l'argument tombe : `01111984` demande un 0, quatre 1,
+  //   un 9, un 8 et un 4 DANS CET ORDRE, et aucun vecteur du catalogue ne les
+  //   écrit d'un trait (mesuré : zéro sur les six fragments de `Henri Prunelle
+  //   Chochotte`). Une seule série y est déjà l'ouvrage conjoint de plusieurs
+  //   portées — c'est-à-dire, très exactement, ce que ce mode existe pour
+  //   montrer. Exiger d'en doubler la longueur reviendrait à demander seize
+  //   chiffres à leur place pour accepter d'en montrer huit.
+  //
+  //   ⚠️ Repli EXACT sur 666 comme sur 111, 777 et 000 : toutes homogènes, le
+  //     seuil y reste 2, et pas une moisson ne change.
+  if (series < (c.homogene ? 2 : 1)) return null;
   return { six, total, series };
 }
 
@@ -797,9 +815,53 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
       parLaQualite.push(c);
     }
   }
-  const tete = [];
+  /* ★ **UN SIÈGE PAR CHIFFRE DEMANDÉ — la troisième réserve, et celle sans
+       laquelle une cible-MOTIF est hors d'atteinte.**
+
+     Le tri ci-dessus range par COMPTE de chiffres utiles, et le plafond coupe
+     là. Sur une cible homogène c'est sans conséquence : tous les chiffres
+     utiles sont le même. Sur une cible mêlée, c'est fatal — le chiffre le plus
+     FRÉQUENT de la cible gonfle le compte, donc les voies qui le produisent en
+     masse raflent toutes les places, et les chiffres rares n'arrivent jamais
+     jusqu'à l'assemblage.
+
+     ⚠️ MESURÉ sur `Henri Prunelle Chochotte` visant `01111984` : chacun des
+       trois mots SAIT produire un 0, un 4, un 8 et un 9 — la matière existe —,
+       mais les vingt vecteurs qui franchissaient le plafond étaient tous des
+       lectures riches en 1. La portée arrivait donc à la moisson incapable de
+       fournir quatre des cinq chiffres demandés, et aucun algorithme en aval ne
+       pouvait plus rien y faire. Le biais de comptage n'était pas dans le
+       choix : il était déjà dans la MATIÈRE.
+
+     On réserve donc une place à la meilleure voie qui SAIT DONNER chacun des
+     chiffres de la cible, dans l'ordre croissant de l'alphabet — un ordre, pas
+     une préférence (§4.4 règle 3).
+
+     ★ Repli EXACT sur toute cible homogène (`666`, `111`, `777`, `000`) : la
+       réserve n'est même pas calculée. Et sur les voies du GROUPEMENT elle est
+       vide de toute façon — celles-là écrivent déjà la cible entière
+       (`exigeSerie`), elles portent donc tous ses chiffres. */
+  /* ⚠️ **ET LA RÉSERVE VA D'ABORD AUX VOIES SANS FICELLE.** Ce n'est pas une
+       préférence esthétique posée ici : la MOISSON refuse les ficelles à
+       l'entrée (`candidatsDePortee`, « aucune ficelle dans une moisson »), et
+       elle est justement celle qui a besoin de cette réserve. Mesuré : sur
+       `Henri` visant `01111984`, les dix-huit vecteurs qui portent un 0, un 4
+       ou un 8 emploient TOUS `mrd` — le siège réservé partait donc à une voie
+       que l'appelant jetterait une ligne plus loin, et la portée arrivait
+       toujours aussi démunie. On ne retombe sur une ficelle que si aucune voie
+       honnête ne sait donner ce chiffre-là. */
+  const parLeMotif = [];
+  if (!cbl.homogene) {
+    const donne = (x, d) => !parLeMotif.includes(x)
+      && x.etats[x.etats.length - 1].valeur.includes(d);
+    for (const d of cbl.alphabet) {
+      const c = out.find((x) => !nbFicelles(x) && donne(x, d)) || out.find((x) => donne(x, d));
+      if (c) parLeMotif.push(c);
+    }
+  }
+  const tete = [...parLeMotif.slice(0, plafond)];
   {
-    const parLaQuantite = out.filter((c) => !parLaQualite.includes(c));
+    const parLaQuantite = out.filter((c) => !parLaQualite.includes(c) && !tete.includes(c));
     let iQte = 0;
     let iQal = 0;
     while (tete.length < plafond && (iQte < parLaQuantite.length || iQal < parLaQualite.length)) {
@@ -1233,7 +1295,57 @@ function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT) {
     || (lus(b) - lus(a))
     || (jetees(a) - jetees(b))
     || comparerChemins(a.chemin, b.chemin));
-  return out.slice(0, MAX_CANDIDATS_PORTEE);
+  return retenirLesCandidats(out, cbl);
+}
+
+/**
+ * ★ **CE QU'UNE PORTÉE GARDE — et pourquoi « les dix plus fournis » ne suffit
+ *   plus dès que la cible est un motif.**
+ *
+ * Le tri ci-dessus range par QUANTITÉ de chiffres utiles, et l'on n'en gardait
+ * que les dix premiers. C'est le bon critère quand tous les chiffres utiles se
+ * valent — sur `666`, un 6 est un 6 —, et c'est le pire possible sur une cible
+ * mêlée.
+ *
+ * ⚠️ MESURÉ sur `Henri Prunelle Chochotte` visant `01111984` : les dix
+ *   meilleurs candidats de chaque mot sont tous des lectures riches en 1 (le
+ *   chiffre le plus fréquent de la cible, donc celui qui gonfle le compte), et
+ *   AUCUN ne rapporte de 0, de 8 ni de 4. La portée arrivait donc à la moisson
+ *   incapable d'offrir quatre des cinq chiffres demandés — quel que soit
+ *   l'algorithme qui suivait, il ne pouvait plus rien écrire. Le biais de
+ *   comptage n'était pas seulement dans le CHOIX, il était déjà dans la
+ *   MATIÈRE.
+ *
+ * On réserve donc, pour chaque chiffre de la cible, la meilleure lecture qui
+ * SAIT LE DONNER, avant de compléter par l'ordre ordinaire. Une portée arrive
+ * ainsi à la moisson capable de fournir chacun des chiffres qu'on lui demande,
+ * pas seulement celui qu'elle a en abondance.
+ *
+ * ★ Repli EXACT sur une cible homogène — `666`, `111`, `777`, `000` : l'alphabet
+ *   n'y a qu'un chiffre, la réservation désigne le premier de la liste, qui y
+ *   était déjà. Même liste, même ordre, mêmes dix.
+ *
+ * ★ Et la borne ne bouge pas : `MAX_CANDIDATS_PORTEE` reste dix. Ce qui change
+ *   est QUI occupe les dix places, jamais combien il y en a — la moisson
+ *   énumère sur ce produit, et l'élargir se paierait sur toutes les cibles.
+ */
+function retenirLesCandidats(candidats, cible) {
+  if (candidats.length <= MAX_CANDIDATS_PORTEE) return candidats;
+  const retenus = [];
+  const pris = new Set();
+  const garder = (c) => {
+    if (pris.has(c) || retenus.length >= MAX_CANDIDATS_PORTEE) return;
+    pris.add(c);
+    retenus.push(c);
+  };
+  // Un siège par chiffre demandé, dans l'ordre croissant de l'alphabet — un
+  // ordre, pas une préférence : il faut que deux exécutions retiennent les
+  // mêmes (§4.4 règle 3).
+  for (const d of cible.alphabet) garder(candidats.find((c) => c.chiffres.includes(d)));
+  for (const c of candidats) garder(c);
+  // L'ordre RENDU reste celui du tri : la moisson lit ses candidats du plus
+  // fourni au moins, et les départages en dépendent.
+  return candidats.filter((c) => pris.has(c));
 }
 
 /**
@@ -1248,6 +1360,148 @@ function caracteresLus(chemin, texte) {
     else break;
   }
   return large || [...texte].length;
+}
+
+/* ══════════ LA MOISSON D'UN MOTIF — quand compter ne suffit plus ══════════
+   « Comment faire une recherche où c'est un MOTIF qu'il faut trouver et pas un
+    même chiffre à maximiser ? » (l'auteur)
+
+   ★ **LE DIAGNOSTIC, MESURÉ.** Sur `Henri Prunelle Chochotte` visant
+   `01111984`, la moisson ordinaire choisit portée par portée le programme le
+   plus FOURNI — c'est `meilleureMoisson`, une programmation dynamique qui
+   maximise la somme des chiffres utiles. Elle retient alors `tca+mlm` sur les
+   trois mots et récolte :
+
+       Henri → 1 1 1 1 1 · Prunelle → 1 1 1 1 1 1 1 1 · Chochotte → 1×9
+
+   soit VINGT-DEUX chiffres utiles… et ZÉRO série, parce que `01111984` ne
+   demande pas vingt-deux 1, il demande un 0, quatre 1, un 9, un 8, un 4, dans
+   cet ordre. Pendant ce temps une autre lecture — `tca+mlm`, `fr10+tca+mbob`,
+   `fr13+tca+masb+mrn` — récolte moins et écrit la cible une fois.
+
+   L'objectif était donc le bon pour 666 et le mauvais ici : sur une cible
+   homogène, « le plus de chiffres utiles » et « le plus de séries » sont la
+   MÊME quantité à la division par trois près ; sur une cible mêlée, ils
+   divergent jusqu'à l'absurde.
+
+   ★ **CE QU'ON CHANGE, ET CE QU'ON NE CHANGE PAS.** On n'échange pas un
+   objectif contre l'autre : on AJOUTE une variante, et seulement quand la
+   cible n'est pas homogène. La moisson de 666 n'est pas touchée d'une ligne —
+   même programmation dynamique, mêmes départages, mêmes choix —, ce qu'exige
+   `cible.js` (« quand la cible vaut 666, rien ne change »). Sur `111` non
+   plus : l'alphabet n'y a qu'un chiffre, compter et écrire sont la même chose,
+   et une seconde variante ne rendrait que des doublons.
+
+   ★ **CE QUE ÇA REND, MESURÉ** — quatre saisies, six cibles mêlées, nombre de
+   voies proposées avant → après (les trois correctifs ensemble : la matière,
+   le choix, le seuil) :
+
+                              13      007    1984  01012000 01111984 19012000
+       Henri Prunelle Ch.   12→12    1→12   0→12     1→11     0→1      0→2
+       Millicent Billette   12→12    0→12   1→11     0→8      0→2      0→1
+       hope-hope-hope.fr    12→12    2→12   5→12     0→4      0→1      0→3
+       Donald Trump         12→12    0→12   2→11     0→1      0→0      0→0
+
+   Toutes les voies rendues ÉCRIVENT la cible au moins une fois — c'est vérifié
+   chiffre par chiffre, pas compté. Les deux cases restées vides sont sur
+   `Donald Trump` : deux mots, donc deux portées, et huit chiffres à écrire dans
+   l'ordre avec ce que deux portées savent donner. Ce n'est pas un défaut de
+   l'algorithme, c'est un fait sur la saisie — et la page de résultats le dit au
+   lieu de faire semblant (§5.3, « la garantie jamais bredouille est une
+   garantie sur 666 »).
+
+   ★ **LE MOTIF SE PORTE DANS L'ÉTAT DE LA PROGRAMMATION DYNAMIQUE.** C'est
+   toute l'idée, et elle tient en une phrase : ce qu'une portée rapporte ne
+   dépend plus seulement d'elle, mais de L'ENDROIT DE LA CIBLE où la portée
+   précédente s'est arrêtée. `dp[i][r]` = ce que rapportent au mieux les jetons
+   `i…n` lorsqu'on cherche le `r`-ième chiffre de la cible. Une portée fait
+   passer de `r` à `r'` en complétant `k` séries, ce que `avancerLeMotif`
+   calcule d'un balayage. L'état est fini — au plus dix rangs (`MAX_CHIFFRES`)
+   —, donc la table reste petite et le parcours exact : aucun glouton, aucun
+   tri, rien à départager en secret (§4.4). */
+
+/**
+ * Ce qu'une suite de chiffres écrit quand on cherche déjà le `rang`-ième
+ * chiffre de la cible : combien de séries elle achève, et où elle laisse la
+ * lecture.
+ *
+ * ★ C'est `cible.js › seriesDe` avec un rang de DÉPART. Les deux balaient de
+ *   gauche à droite et sautent ce qui ne sert pas ; celui-ci se souvient
+ *   simplement d'où l'on en était. À rang 0, ils rendent le même compte —
+ *   c'est ce qui garantit que la variante ne raconte pas une autre arithmétique
+ *   que le verdict.
+ */
+function avancerLeMotif(chiffres, rang, cible) {
+  let r = rang;
+  let series = 0;
+  for (const d of chiffres) {
+    if (d !== cible.chiffres[r]) continue;
+    r++;
+    if (r === cible.longueur) { series++; r = 0; }
+  }
+  return { series, rang: r };
+}
+
+/**
+ * La famille de portées disjointes qui ÉCRIT le plus de fois la cible.
+ *
+ * Départages, dans l'ordre, et tous entiers (§4.4 règle 2) : plus de séries,
+ * puis plus de chiffres utiles récoltés — à séries égales, une portée qui donne
+ * de la matière vaut mieux qu'une qui n'en donne pas —, puis MOINS de portées,
+ * parce qu'une démonstration en trois temps se lit mieux qu'en six. À égalité
+ * complète, le premier rencontré gagne : les portées viennent dans l'ordre de
+ * la ligne et les candidats dans celui de `candidatsDePortee`, donc « le
+ * premier » est un fait de lecture et pas un hasard de table.
+ *
+ * @param {Array<Array<Object>>} parDebut  portées indexées par jeton de départ
+ * @param {number} n  nombre de jetons
+ * @param {(c:Object)=>boolean} accepte
+ * @param {import('./cible.js').Cible} cible
+ * @returns {{series:number, choix:Object[]}}
+ */
+function moissonDuMotif(parDebut, n, accepte, cible) {
+  const K = cible.longueur;
+  // `dp[i][r]` — l'état est (jeton courant, rang cherché dans la cible).
+  const dp = Array.from({ length: n + 1 }, () => new Array(K).fill(null));
+  for (let r = 0; r < K; r++) dp[n][r] = { series: 0, six: 0, portees: 0, pris: null };
+  const meilleurQue = (a, b) => !b || a.series > b.series
+    || (a.series === b.series && (a.six > b.six
+      || (a.six === b.six && a.portees < b.portees)));
+
+  for (let i = n - 1; i >= 0; i--) {
+    for (let r = 0; r < K; r++) {
+      // Sauter le jeton : il ne participera à rien.
+      let cur = { ...dp[i + 1][r], pris: null };
+      for (const portee of parDebut[i] || []) {
+        for (const c of portee.candidats) {
+          if (!accepte(c, null)) continue;
+          const { series, rang } = avancerLeMotif(c.chiffres, r, cible);
+          const suite = dp[i + portee.longueur][rang];
+          if (!suite) continue;
+          const essai = {
+            series: suite.series + series,
+            six: suite.six + c.six,
+            portees: suite.portees + 1,
+            pris: { portee, candidat: c, rang },
+          };
+          if (meilleurQue(essai, cur)) cur = essai;
+        }
+      }
+      dp[i][r] = cur;
+    }
+  }
+
+  const choix = [];
+  let i = 0;
+  let r = 0;
+  while (i < n) {
+    const etat = dp[i][r];
+    if (!etat || !etat.pris) { i++; continue; }
+    choix.push({ portee: etat.pris.portee, candidat: etat.pris.candidat });
+    i += etat.pris.portee.longueur;
+    r = etat.pris.rang;
+  }
+  return { series: dp[0][0] ? dp[0][0].series : 0, choix };
 }
 
 /**
@@ -1480,6 +1734,18 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT)
   //     lié à l'homogénéité permettant de factoriser ensuite ».
   const variantes = [];
   for (const accepte of filtres) {
+    // ★ **UNE VARIANTE DE PLUS QUAND LA CIBLE EST UN MOTIF**, et elle passe
+    //   DEVANT : sur une cible mêlée, « le plus de séries » est la question
+    //   posée, et « le plus de chiffres utiles » n'en est plus qu'une
+    //   approximation — celle qui récolte vingt-deux 1 pour zéro série sur
+    //   `01111984` (voir l'en-tête de `moissonDuMotif`). Sur une cible
+    //   homogène, elle n'est même pas calculée : les deux objectifs y sont le
+    //   même à la division près, et la seconde ne rendrait que des doublons que
+    //   `signatures` jetterait.
+    if (!cbl.homogene) {
+      const { choix: motif } = moissonDuMotif(parDebut, n, accepte, cbl);
+      if (motif.length >= 2) variantes.push({ accepte, retenu: reduireLeSurplus(motif, accepte, cbl) });
+    }
     const { choix } = meilleureMoisson(parDebut, n, accepte);
     if (choix.length < 2) continue;
     const sobre = reduireLeSurplus(choix, accepte, cbl);

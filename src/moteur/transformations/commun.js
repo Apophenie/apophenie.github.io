@@ -454,3 +454,130 @@ export function def(spec) {
   }
   return Object.freeze(op);
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// ★ LA VISÉE — le seul canal par lequel la cible atteint un opérateur
+// ───────────────────────────────────────────────────────────────────────────
+//
+// ★ **POURQUOI UN CANAL PLUTÔT QU'UNE ÉTIQUETTE.**
+//
+// `bfs.js` tenait la liste des opérateurs « liés à 666 » : cinq identifiants
+// écrits à la main, à côté du catalogue, qu'il fallait penser à tenir à jour.
+// C'est exactement la seconde source de vérité que CONTRACTS §0.3 refuse — « ce
+// qui est montré est ce qui est compté » —, et elle avait déjà commencé à
+// diverger : son propre en-tête annonçait « QUATRE opérateurs qui décident en
+// regardant le chiffre 6 » au-dessus d'une liste qui en portait cinq.
+//
+// On ne remplace pas cette liste par un champ `lieAu666: true` : ce serait la
+// même étiquette rangée ailleurs, et elle pourrait mentir tout autant. On
+// remplace le PROBLÈME. Un opérateur qui a besoin du nombre visé ne le lit plus
+// dans une constante de module : il le REÇOIT, et il ne peut le recevoir que
+// par ici. La classification cesse alors d'être une déclaration pour devenir un
+// fait de structure :
+//
+//   · `op.viser` absent      → l'opérateur est INDIFFÉRENT à la cible. Ce n'est
+//     pas une promesse qu'on lui fait crédit de tenir : il n'a AUCUN moyen
+//     d'apprendre ce qu'on cherche, donc aucun moyen d'en dépendre ;
+//   · `op.viser(chiffres)` rend un opérateur → il est ADAPTABLE, et le voilà
+//     adapté ;
+//   · `op.viser(chiffres)` rend `null`       → sa règle n'a pas de sens pour
+//     cette cible-là, il faut le DÉSACTIVER. Le refus est CALCULÉ par
+//     l'opérateur, sur la cible qu'on lui montre — jamais recopié d'une liste.
+//
+// ★ **La signature de `apply` ne bouge pas d'un iota** (CONTRACTS §2.2, gelé).
+// C'est le DESCRIPTEUR qui se fabrique en fonction de la cible ; `apply`,
+// `steps` et `sortie` la tiennent par fermeture et reçoivent toujours
+// `(valeur, traces)`. Le contrat gelé n'est pas contourné, il n'est pas touché.
+//
+// ★ **Le repli sur 666 est EXACT, et vérifiable d'un appel** :
+// `op.viser('666') === op` — le même objet, gelé, mémoïsé —, si bien qu'aucun
+// chemin de code ne diffère quand la cible vaut 666. `catalogue.js › verifier`
+// l'exige au chargement, bruyamment.
+//
+// ★ **Aucune dépendance vers `src/recherche/`.** Là-bas une cible est un objet
+// riche (`recherche/cible.js › Cible`) ; ici, ce n'est qu'une SUITE DE
+// CHIFFRES — tout ce dont un opérateur a besoin, et tout ce que l'étanchéité
+// des répertoires (CONTRACTS §1) autorise. Les deux écritures du défaut se
+// contrôlent l'une l'autre par un test, comme `ORDRE_CANONIQUE` contrôle
+// l'ordre de déclaration du catalogue.
+
+/** L'écriture de la cible par défaut — celle de tout le site. */
+export const VISEE_DEFAUT = '666';
+
+/**
+ * @typedef {Object} Visee
+ * @property {string} texte       l'écriture, zéros de tête compris
+ * @property {number[]} chiffres  les chiffres, gelés
+ * @property {number} longueur    la longueur d'une série
+ * @property {number[]} alphabet  les chiffres DISTINCTS, croissants, gelés
+ * @property {boolean} homogene   un seul chiffre distinct (`666`, `111`, `000`)
+ * @property {boolean} defaut     vise-t-elle `666` ?
+ * @property {(d:number)=>boolean} utile  ce chiffre sert-il à écrire la cible ?
+ */
+
+/**
+ * Lit une visée. Accepte une suite de chiffres écrite, un tableau de chiffres,
+ * ou une visée déjà lue. Rend `null` sur tout le reste.
+ * @returns {Visee|null}
+ */
+export function lireVisee(entree) {
+  if (entree && typeof entree === 'object' && Array.isArray(entree.chiffres)
+    && typeof entree.utile === 'function') {
+    return /** @type {Visee} */ (entree);
+  }
+  const texte = Array.isArray(entree)
+    ? entree.join('')
+    : String(entree === undefined || entree === null ? '' : entree).trim();
+  if (!/^[0-9]+$/.test(texte)) return null;
+  const chiffres = Object.freeze([...texte].map(Number));
+  const alphabet = Object.freeze([...new Set(chiffres)].sort((a, b) => a - b));
+  const presents = new Set(alphabet);
+  return Object.freeze({
+    texte,
+    chiffres,
+    longueur: chiffres.length,
+    alphabet,
+    homogene: alphabet.length === 1,
+    defaut: texte === VISEE_DEFAUT,
+    utile: (d) => presents.has(d),
+  });
+}
+
+/** La visée par défaut — 666, et rien d'autre tant que personne ne demande. */
+export const VISEE_666 = /** @type {Visee} */ (lireVisee(VISEE_DEFAUT));
+
+/**
+ * Fabrique un opérateur QUI LIT LA CIBLE.
+ *
+ * `fabrique(visee)` rend le descripteur à passer à `def`, ou `null` quand la
+ * règle de l'opérateur n'a aucun sens pour cette visée-là. Ce qui sort d'ici est
+ * l'opérateur visant 666 — celui qui entre au catalogue —, muni de son `viser`
+ * et de sa `visee`, mémoïsé par écriture de cible.
+ *
+ * ⚠️ La mémoïsation n'est pas une optimisation, c'est ce qui rend
+ * `op.viser('666') === op` VRAI. Le moteur de recherche compare des opérateurs
+ * par RÉFÉRENCE en plusieurs endroits (`bfs.js › conventionContraire`,
+ * `assemblage.js`) : deux descripteurs équivalents mais distincts suffiraient à
+ * y faire diverger un classement, en silence.
+ *
+ * @param {(visee:Visee)=>Object|null} fabrique
+ * @returns {Object} l'opérateur visant 666
+ */
+export function selonLaCible(fabrique) {
+  const cache = new Map();
+  const viser = (entree) => {
+    const visee = lireVisee(entree);
+    if (!visee) return null;
+    if (cache.has(visee.texte)) return cache.get(visee.texte);
+    const spec = fabrique(visee);
+    const op = spec ? def({ ...spec, viser, visee }) : null;
+    cache.set(visee.texte, op);
+    return op;
+  };
+  const defaut = viser(VISEE_666);
+  if (!defaut) {
+    throw new Error('selonLaCible : la fabrique refuse la cible par défaut — un '
+      + 'opérateur qui ne sait pas viser 666 n’a rien à faire au catalogue.');
+  }
+  return defaut;
+}

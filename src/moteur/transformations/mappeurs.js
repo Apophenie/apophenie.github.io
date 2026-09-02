@@ -94,7 +94,8 @@ import {
 import { decouperMots } from './filtres.js';
 import { estSeparateur } from './tokeniseurs.js';
 import {
-  def, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade, ordreCroissant,
+  def, selonLaCible, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade,
+  ordreCroissant,
 } from './commun.js';
 import { opComptage } from './combinateurs.js';
 import { bilingue, dire } from '../i18n.js';
@@ -175,10 +176,64 @@ const LIB_REDUIRE_CHAQUE = bilingue('On réduit chaque nombre à un chiffre', 'R
 const LIB_ZEROS = bilingue('On retire les zéros', 'Drop the zeros');
 const REG_ZEROS = bilingue('Un zéro n’apporte rien à la somme', 'A zero brings nothing to the sum');
 const LIB_RETOURNER_9 = bilingue('On retourne les 9', 'Turn the 9s upside down');
-const LIB_TROUVAILLE = bilingue(
-  'Trois 6 d’affilée — le 666 était déjà écrit',
-  'Three 6s in a row — the 666 was already written',
-);
+/**
+ * ★ **NOMMER LA CIBLE DANS UNE PHRASE**, sans jamais l'y écrire en dur.
+ *
+ * « Trois 6 d'affilée » est la phrase historique, et elle n'est juste que parce
+ * que 666 répète UN chiffre TROIS fois. Sur `111` elle doit dire « trois 1 »,
+ * sur `01111984` elle ne peut plus rien dire de tel — il n'y a pas de « n fois
+ * le chiffre d », il y a une suite. La phrase se fabrique donc, et elle se
+ * fabrique à partir de la visée :
+ *
+ *  · visée HOMOGÈNE — `trois 6`, `trois 1`, `deux 7`. Le nombre s'écrit en
+ *    toutes lettres, comme un francophone le dirait, et le chiffre reste un
+ *    chiffre. Sur `666`, cela rend « trois 6 » : le repli est EXACT, mot pour
+ *    mot, ce que les tests de langue vérifient ;
+ *  · visée HÉTÉROGÈNE — on cite la suite entre guillemets, `« 01111984 »`. Il
+ *    n'y a pas de compte à annoncer, il y a un motif à reconnaître.
+ *
+ * Le nom du nombre vient de `NOM_CHIFFRE_FR` (`tables/alphabet.js`) pour le
+ * français — la table que le joker et `mlet` emploient déjà, donc jamais deux
+ * orthographes du même nombre dans un même site (CONTRACTS §0.3). L'anglais a
+ * la sienne, ici, faute d'une table équivalente.
+ */
+const NOMBRE_EN = Object.freeze([
+  'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+]);
+/** `dix` complète `NOM_CHIFFRE_FR`, qui s'arrête à neuf — une cible va jusqu'à dix chiffres. */
+const nombreEcrit = (n) => bilingue(n === 10 ? 'dix' : NOM_CHIFFRE_FR[n], NOMBRE_EN[n] || String(n));
+/** Une majuscule d'initiale, en unités de code — pas d'`Intl` (CONTRACTS §4.4). */
+const capitale = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/**
+ * « trois 6 » / « three 6s » — le groupe nominal, sans article, quand la visée
+ * répète un seul chiffre. `null` sinon : il n'y a alors PAS de compte à
+ * annoncer, et forcer la formule donnerait « huit 0 » pour `01111984`.
+ * @param {import('./commun.js').Visee} visee
+ */
+function compteDite(visee) {
+  if (!visee.homogene) return null;
+  const n = nombreEcrit(visee.longueur);
+  const d = visee.chiffres[0];
+  // `nb` et `chiffre` séparés : l'anglais glisse son adjectif ENTRE les deux
+  // (« three adjacent 6s ») là où le français le met après (« trois 6
+  // contigus »). Rendre la phrase toute faite obligerait à la recoudre.
+  return { ...bilingue(`${n.fr} ${d}`, `${n.en} ${d}s`), nb: n, chiffre: d };
+}
+
+const libTrouvaille = (visee) => {
+  const s = compteDite(visee);
+  if (!s) {
+    return bilingue(
+      `« ${visee.texte} » d’affilée — la suite était déjà écrite`,
+      `“${visee.texte}” in a row — the run was already written`,
+    );
+  }
+  return bilingue(
+    `${capitale(s.fr)} d’affilée — le ${visee.texte} était déjà écrit`,
+    `${capitale(s.en)} in a row — the ${visee.texte} was already written`,
+  );
+};
 
 /**
  * Le titre de L'ÉTAPE de `m36`, distinct de son libellé d'opérateur.
@@ -193,53 +248,78 @@ const LIB_TROUVAILLE = bilingue(
  * Le LIBELLÉ de l'opérateur, lui, ne bouge pas : il nomme la méthode dans le
  * titre de la voie, et la méthode est bien la trouvaille.
  */
-const LIB_ARRET = bilingue(
-  'On s’arrête aux trois 6 d’affilée — le reste s’efface',
-  'Stop at the three 6s in a row — the rest is erased',
-);
-
-/** Longueur de la suite cherchée. 666 fait trois 6, ni deux, ni quatre. */
-const SUITE = 3;
+const libArret = (visee) => {
+  const s = compteDite(visee);
+  if (!s) {
+    return bilingue(
+      `On s’arrête à « ${visee.texte} » — le reste s’efface`,
+      `Stop at “${visee.texte}” — the rest is erased`,
+    );
+  }
+  return bilingue(
+    `On s’arrête aux ${s.fr} d’affilée — le reste s’efface`,
+    `Stop at the ${s.en} in a row — the rest is erased`,
+  );
+};
 
 /**
- * ★ **LE CHIFFRE VISÉ PAR LES QUATRE OPÉRATEURS QUI REGARDENT LA CIBLE.**
+ * Longueur d'un TRIO de 9 retournés. Trois, et ce trois-là ne suit AUCUNE
+ * cible : un demi-tour ne sait produire qu'un 6 (`visuel/primitives/flip180.js`
+ * le vérifie), et il en faut trois pour écrire 666. Le nombre de chiffres d'une
+ * série, lui, se lit sur la visée — voir `Visee.longueur`.
+ */
+const TRIO = 3;
+
+/**
+ * ★ **LE CHIFFRE VISÉ N'EST PLUS UNE CONSTANTE DE MODULE.**
  *
- * Il vaut 6 aujourd'hui, et ce n'est plus une fatalité : c'est une valeur
- * NOMMÉE, relue partout, que le jour où la recherche saura la leur passer il
- * suffira de faire descendre. Tant qu'elle est figée ici, `bfs.js` retire ces
- * quatre opérateurs de l'exploration dès que la cible change (voir
- * `operateursExplorables`) — ils ne mentiraient pas, ils ne serviraient à rien.
+ * Il en était une — `CIBLE_CHIFFRE = 6` —, et son propre commentaire annonçait
+ * la suite : « le jour où la recherche saura la leur passer, il suffira de la
+ * faire descendre ». Ce jour est arrivé. La cible descend désormais jusqu'ici
+ * par le canal `viser` (`commun.js › selonLaCible`), et les cinq opérateurs qui
+ * la lisent sont FABRIQUÉS pour une visée donnée au lieu de consulter un
+ * nombre écrit au-dessus d'eux.
  *
- * ⚠️ **ET LE 0 NE S'ATTEINDRA JAMAIS PAR CETTE PORTE.** « Quand on veut 777 la
+ * Conséquence directe, et c'est tout l'intérêt : `bfs.js` n'a plus de liste
+ * d'opérateurs « liés à 666 » à tenir à la main. Un opérateur porte `viser` ou
+ * ne le porte pas, et c'est le seul fait qui décide (CONTRACTS §0.3).
+ *
+ * ⚠️ **ET LE 0 NE S'ATTEINDRA JAMAIS PAR L'ADDITION.** « Quand on veut 777 la
  * cible ne sera pas la même ; quand on veut des 0 il faudra faire des 10, des
  * 100, des 1000 — et donc les opérateurs manquants sont peut-être soustraction
  * sélective et multiplication sélective » (l'auteur). C'est exact et c'est
- * arithmétique : une somme de chiffres strictement positifs ne vaut jamais 0, et
- * l'addition sélective refuse par construction d'absorber un 0 (voir
- * `INTERDITS_A_LA_SOMME`). Viser `000` demandera donc soit une soustraction qui
- * annule deux valeurs égales, soit une multiplication qui absorbe par le 0 —
- * deux opérateurs qui n'existent pas encore.
+ * arithmétique : une somme de chiffres positifs ne se réduit jamais à 0 sans
+ * que tous ses termes soient nuls, et un paquet de zéros appauvrit la ligne
+ * (voir `paquetRecevable`). Viser `000` demandera donc soit une soustraction
+ * qui annule deux valeurs égales, soit une multiplication qui absorbe par le
+ * 0 — deux opérateurs qui n'existent pas encore. `mad` le CONSTATE désormais au
+ * lieu de le subir : `viser('000')` rend `null`, et l'opérateur se désactive.
  */
-const CIBLE_CHIFFRE = 6;
-/** Alias historique, conservé le temps que tous les appels soient nommés. */
-const SIX = CIBLE_CHIFFRE;
 
 /**
- * L'index du premier 6 de la première suite de trois 6 CONTIGUS, ou −1.
+ * L'index du premier chiffre de la première occurrence CONTIGUË de la cible,
+ * ou −1.
  *
  * Source unique de `apply`, de `sortie` et de `steps` : les trois posent la
  * même question au même vecteur, donc aucune ne peut désigner d'autres jetons
  * que les deux autres (CONTRACTS §0.3, « ce qui est montré est ce qui est
  * compté »).
  *
- * « Contigus » se lit sur les INDEX du vecteur, sans exception ni tolérance :
+ * « Contiguë » se lit sur les INDEX du vecteur, sans exception ni tolérance :
  * `[6,6,7,6]` ne contient pas de 666, il contient trois 6 dont deux voisins.
+ *
+ * ★ Le repli sur l'existant est EXACT. Sur la visée `666`, chercher « 6 puis 6
+ * puis 6 à la file » et compter trois 6 consécutifs sont la même question, et
+ * la réponse est le même index. Sur `007` elles cessent de l'être — l'ordre des
+ * chiffres fait partie de ce qu'on démontre —, et c'est cette formulation-ci
+ * qui reste vraie.
  */
-function debutDesTroisSix(valeur) {
-  let court = 0;
-  for (let i = 0; i < valeur.length; i++) {
-    court = valeur[i] === 6 ? court + 1 : 0;
-    if (court === SUITE) return i - (SUITE - 1);
+function debutDeLaCible(valeur, visee) {
+  const c = visee.chiffres;
+  for (let i = 0; i + c.length <= valeur.length; i++) {
+    let k = 0;
+    while (k < c.length && valeur[i + k] === c[k]) k++;
+    if (k === c.length) return i;
   }
   return -1;
 }
@@ -302,7 +382,7 @@ const LIB_CHIFFRE_A_CHIFFRE = bilingue(
  * s'applique PAS, au lieu de rendre un `[4,4,4]` que personne n'a demandé et
  * que la scène montrerait pour rien.
  */
-function valeurDominante(valeur) {
+function valeurDominante(valeur, visee) {
   const comptes = new Map();
   for (const v of valeur) comptes.set(v, (comptes.get(v) || 0) + 1);
   let meilleure = null;
@@ -314,7 +394,7 @@ function valeurDominante(valeur) {
   }
   if (meilleure === null || exAequo) return null;
   if (max === valeur.length) return null;
-  if (!portePleinement(Array.from({ length: max }, () => meilleure))) return null;
+  if (!portePleinement(Array.from({ length: max }, () => meilleure), visee)) return null;
   return { valeur: meilleure, compte: max };
 }
 
@@ -353,8 +433,8 @@ function vaguesDEffacement(valeur, gardee) {
     .sort((a, b) => (a.indices.length - b.indices.length) || (a.indices[0] - b.indices[0]));
 }
 
-/** Le vecteur écrit-il 666 d'affilée ? C'est le seul but que ces ficelles servent. */
-const portePleinement = (v) => debutDesTroisSix(v) >= 0;
+/** Le vecteur écrit-il la cible d'affilée ? C'est le seul but que ces ficelles servent. */
+const portePleinement = (v, visee) => debutDeLaCible(v, visee) >= 0;
 
 /** Le relevé écrit — `6 ×4 · 4 ×1` —, par ordre de PREMIÈRE apparition. */
 function releveEcrit(valeur) {
@@ -364,41 +444,64 @@ function releveEcrit(valeur) {
 }
 
 /**
- * ★ La parité de rang qui porte le plus de 6 — `0` (1ᵉʳ, 3ᵉ, 5ᵉ…), `1`
- * (2ᵉ, 4ᵉ, 6ᵉ…), ou `−1` quand la règle refuse de s'appliquer.
+ * ★ La parité de rang qui porte le plus de chiffres UTILES — `0` (1ᵉʳ, 3ᵉ,
+ * 5ᵉ…), `1` (2ᵉ, 4ᵉ, 6ᵉ…), ou `−1` quand la règle refuse de s'appliquer.
  *
  * « Si sur l'ensemble des caractères, en garder 1 sur 2 permet d'isoler les 6 »
  * — l'auteur. Le critère est donc les 6, dans ses propres termes, et il est
  * annoncé à l'écran avant d'être appliqué : ce n'est pas un choix fait après
  * coup, c'est le choix ANNONCÉ, chiffres à l'appui.
  *
- * ★ Et là encore, l'ex æquo est un REFUS et non un arbitrage : à nombre de 6
- * égal, aucune des deux parités ne vaut mieux que l'autre, et prétendre le
- * contraire serait remettre par la fenêtre l'arbitraire qu'on chasse par la
- * porte. Il n'y a donc aucune règle de départage à retenir — il n'y a rien à
- * départager.
+ * ★ « Les 6 » se lit « les chiffres qui servent à écrire la cible » dès que la
+ * cible change, et le repli est exact : sur `666`, l'alphabet de la visée est
+ * `{6}` et l'on recompte très exactement les 6.
  *
- * ★ Et le côté retenu doit ÉCRIRE 666 d'affilée, sinon la règle ne s'applique
- * pas : décimer pour qu'il reste deux nombres, ou trois 6 encore dispersés,
- * ce n'est pas isoler les 6, c'est en perdre. Même exigence que pour `mpf`, et
- * pour la même raison — une ficelle qui n'achète rien ne doit pas être jouée.
+ * ★ Et là encore, l'ex æquo est un REFUS et non un arbitrage : à nombre égal,
+ * aucune des deux parités ne vaut mieux que l'autre, et prétendre le contraire
+ * serait remettre par la fenêtre l'arbitraire qu'on chasse par la porte. Il n'y
+ * a donc aucune règle de départage à retenir — il n'y a rien à départager.
+ *
+ * ★ Et le côté retenu doit ÉCRIRE la cible d'affilée, sinon la règle ne
+ * s'applique pas : décimer pour qu'il reste deux nombres, ou trois 6 encore
+ * dispersés, ce n'est pas isoler les 6, c'est en perdre. Même exigence que pour
+ * `mpf`, et pour la même raison — une ficelle qui n'achète rien ne doit pas
+ * être jouée.
  */
-function paritePorteuse(valeur) {
-  const six = [0, 0];
-  valeur.forEach((v, i) => { if (v === 6) six[i % 2]++; });
-  if (six[0] === six[1]) return -1;
-  const p = six[0] > six[1] ? 0 : 1;
+function paritePorteuse(valeur, visee) {
+  const utiles = comptesParParite(valeur, visee);
+  if (utiles[0] === utiles[1]) return -1;
+  const p = utiles[0] > utiles[1] ? 0 : 1;
   const garde = valeur.filter((_, i) => i % 2 === p);
-  return portePleinement(garde) ? p : -1;
+  return portePleinement(garde, visee) ? p : -1;
+}
+
+/** Les chiffres utiles portés par chaque parité de rang — `[impaires, paires]`. */
+function comptesParParite(valeur, visee) {
+  const utiles = [0, 0];
+  valeur.forEach((v, i) => { if (visee.utile(v)) utiles[i % 2]++; });
+  return utiles;
 }
 
 /** Le relevé des deux parités, écrit — c'est lui qui dit POURQUOI cette parité. */
-function releveDesParites(valeur, langue) {
-  const six = [0, 0];
-  valeur.forEach((v, i) => { if (v === 6) six[i % 2]++; });
+function releveDesParites(valeur, langue, visee) {
+  const utiles = comptesParParite(valeur, visee);
+  // ★ CE QU'ON COMPTE DOIT ÊTRE NOMMÉ POUR CE QUE C'EST (CONTRACTS §0.3).
+  //   Sur `111`, la phrase historique annoncerait « 4 six » au-dessus d'un
+  //   comptage de 1 : un relevé qui ne dit pas ce qu'il compte est pire qu'un
+  //   relevé absent.
+  //
+  //   ★ La cible par défaut GARDE son mot, au mot près — « 4 six » se lit
+  //   « quatre 6 », le français nomme le chiffre. Ce tour ne se transpose pas :
+  //   « 4 un » ne se lit pas, et fabriquer les dix noms de chiffres dans deux
+  //   langues pour une légende de bas de page serait payer cher un mot juste.
+  //   Ailleurs, on dit donc ce qui est réellement compté — les chiffres qui
+  //   SERVENT, qu'il y en ait un seul ou cinq.
+  const nom = visee.defaut
+    ? bilingue('six', 'sixes')
+    : bilingue('chiffres utiles', 'useful digits');
   return dire(bilingue(
-    `positions impaires : ${six[0]} six · positions paires : ${six[1]} six`,
-    `odd positions: ${six[0]} sixes · even positions: ${six[1]} sixes`,
+    `positions impaires : ${utiles[0]} ${nom.fr} · positions paires : ${utiles[1]} ${nom.fr}`,
+    `odd positions: ${utiles[0]} ${nom.en} · even positions: ${utiles[1]} ${nom.en}`,
   ), langue);
 }
 
@@ -505,32 +608,60 @@ const reduire = (n) => {
 const compte = (liste, d) => liste.reduce((n, c) => n + (c === d ? 1 : 0), 0);
 
 /**
- * Un paquet est-il recevable ? Voir l'en-tête de `INTERDITS_A_LA_SOMME`.
- * @param {number[]} entree  les chiffres consommés
- * @param {number} cible     le chiffre visé
+ * ★ **CE QU'UN PAQUET A LE DROIT DE VISER**, et pourquoi le 9 n'est pas toujours
+ *   de la partie.
+ *
+ * Les chiffres de la cible d'abord, dans l'ordre croissant — un ordre, pas une
+ * préférence : le balayage les essaie tous et le déterminisme (§4.4) exige
+ * qu'il les essaie toujours dans le même sens.
+ *
+ * Puis le 9, MAIS SEULEMENT SI LA CIBLE VEUT DES 6. Le 9 n'a jamais été un but :
+ * c'est un 6 qui n'a pas encore tourné, et il ne vaut que parce que `mr9` et
+ * `mr39` savent le retourner (`RETOURNABLE`). Or le demi-tour ne rend qu'un 6 et
+ * rien d'autre — `visuel/primitives/flip180.js` le refuse noir sur blanc. Une
+ * cible qui ne demande pas de 6 n'a donc rien à faire d'un 9 : le lui offrir
+ * « à défaut » serait fabriquer un chiffre qui ne servira jamais.
+ *
+ * ★ Repli exact sur `666` : l'alphabet vaut `{6}`, le 6 y est, la liste est
+ * `[6, 9]` — mot pour mot l'ancien `[cible, RETOURNABLE]`.
  */
-function paquetRecevable(entree, cible) {
+function butsDuPaquet(visee) {
+  const buts = [...visee.alphabet];
+  if (visee.utile(SIX_RETOURNE) && !buts.includes(RETOURNABLE)) buts.push(RETOURNABLE);
+  return buts;
+}
+
+/** Le chiffre qu'un demi-tour PRODUIT — voir `flip180`, qui ne connaît que celui-là. */
+const SIX_RETOURNE = 6;
+
+/**
+ * Un paquet est-il recevable ?
+ *
+ * @param {number[]} entree  les chiffres consommés
+ * @param {number[]} buts    ce que le paquet a le droit de viser
+ */
+function paquetRecevable(entree, buts) {
   if (entree.length < 2) return false;
   const somme = entree.reduce((a, b) => a + b, 0);
   const r = reduire(somme);
-  // 1. viser quelque chose : la cible, ou le 9 qu'un demi-tour rendra.
-  if (r !== cible && r !== RETOURNABLE) return false;
+  // 1. viser quelque chose : un chiffre de la cible, ou le 9 qu'un demi-tour rendra.
+  if (!buts.includes(r)) return false;
   // 2. et ne rien appauvrir — l'avertissement de l'auteur, compté.
   const sortie = chiffresDe(somme);
-  for (const d of [cible, RETOURNABLE]) {
+  for (const d of buts) {
     if (compte(sortie, d) < compte(entree, d)) return false;
   }
   return true;
 }
 
-/**
- * @param {number[]} valeur
- * @param {number} [cible] le chiffre à fabriquer — nommé, plus jamais deviné
- */
 /** Largeur maximale d'un paquet d'addition sélective — même lisibilité que `PAQUET_MAX`. */
 const PAQUET_ADDITION_MAX = 6;
 
-function planAdditionSelective(valeur, cible = CIBLE_CHIFFRE) {
+/**
+ * @param {number[]} valeur
+ * @param {import('./commun.js').Visee} visee  la cible à fabriquer — reçue, plus jamais devinée
+ */
+function planAdditionSelective(valeur, visee) {
   if (!valeur.length) return null;
   if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
   const chiffres = [];
@@ -543,20 +674,23 @@ function planAdditionSelective(valeur, cible = CIBLE_CHIFFRE) {
   chiffres.forEach((c) => parSource.set(c.src, (parSource.get(c.src) || 0) + 1));
   for (const [src, n] of parSource) if (n > 1) multi.add(src);
 
+  const buts = butsDuPaquet(visee);
   const sortie = [];
   let i = 0;
   let additions = 0;
   while (i < chiffres.length) {
     // ★ On cherche le paquet le plus COURT qui vise juste, puis, à défaut, le
-    //   plus court qui vise le 9. Deux passes plutôt qu'un départage : le 6 ne
-    //   se négocie pas contre un 9, il passe avant (« ou les 9 à défaut »).
+    //   plus court qui vise le suivant. Une passe par but plutôt qu'un
+    //   départage : le 6 ne se négocie pas contre un 9, il passe avant (« ou
+    //   les 9 à défaut »), et l'ordre de `butsDuPaquet` fixe ce « avant » une
+    //   fois pour toutes.
     let pris = 0;
     let valeur = 0;
-    for (const vise of [cible, RETOURNABLE]) {
+    for (const vise of buts) {
       for (let L = 2; L <= PAQUET_ADDITION_MAX && i + L <= chiffres.length; L++) {
         const entree = [];
         for (let k = i; k < i + L; k++) entree.push(chiffres[k].v);
-        if (!paquetRecevable(entree, cible)) continue;
+        if (!paquetRecevable(entree, buts)) continue;
         const somme = entree.reduce((a, b) => a + b, 0);
         if (reduire(somme) !== vise) continue;
         pris = L;
@@ -569,11 +703,11 @@ function planAdditionSelective(valeur, cible = CIBLE_CHIFFRE) {
     else { sortie.push({ v: chiffres[i].v, debut: i, fin: i + 1 }); i++; }
   }
   if (!additions) return null;
-  // ★ Même exigence que les deux autres ficelles : le résultat doit ÉCRIRE 666
-  //   d'affilée. « Faire `6, 5+1, 6, 8` POUR OBTENIR `666, 8` » — c'est
+  // ★ Même exigence que les deux autres ficelles : le résultat doit ÉCRIRE la
+  //   cible d'affilée. « Faire `6, 5+1, 6, 8` POUR OBTENIR `666, 8` » — c'est
   //   l'auteur qui met le but dans la phrase, et sans ce but l'addition
   //   sélective n'est plus qu'une addition qu'on a refusé de faire partout.
-  return portePleinement(sortie.map((x) => x.v)) ? { chiffres, sortie, multi } : null;
+  return portePleinement(sortie.map((x) => x.v), visee) ? { chiffres, sortie, multi } : null;
 }
 
 /**
@@ -651,11 +785,25 @@ const LIB_EN_LETTRES = bilingue(
  *    achète : mettre côte à côte ce qui était dispersé. Un tri qui promène les
  *    valeurs sans en réunir deux a défait l'ordre de lecture pour rien.
  *
- * ★ Et cette condition ne dit pas un mot du 6. Elle vaut telle quelle pour
- * `111`, pour `777`, et même pour `13` — `[3,1,3,1]` rangé donne `[1,1,3,3]`,
- * deux plages au lieu de quatre, et deux fois la cible écrite. C'est pour ça
- * que cet opérateur reste explorable quelle que soit la cible, là où le
- * redécoupage (`mrd`), lui, en sort (`src/recherche/bfs.js`).
+ * ★ Cette condition ne dit pas un mot du 6 — mais elle disait un mot de TROIS,
+ * et c'était la même faute d'un cran plus bas. Elle vaut telle quelle pour
+ * `111` et pour `777`, dont les séries font trois chiffres ; sur `13`, elle
+ * exigeait une plage de TROIS valeurs identiques pour écrire une cible qui en
+ * fait DEUX. `[3,1,3,1]` rangé donne `[1,1,3,3]` — deux plages au lieu de
+ * quatre, et la cible écrite —, et l'ancienne condition le refusait.
+ *
+ * C'est pourquoi cet opérateur porte désormais `viser` : la LONGUEUR d'une
+ * série se lit sur la cible, exactement comme le chiffre. Le repli sur `666`
+ * est exact — la visée y fait trois chiffres, et `visee.longueur` vaut le
+ * `SUITE` d'hier, valeur pour valeur.
+ *
+ * ⚠️ Ce qui n'est PAS généralisé, et c'est délibéré : le critère reste « la
+ * plus longue plage de valeurs IDENTIQUES ». Sur une cible hétérogène, ce n'est
+ * qu'un indice — ranger rapproche les semblables, et c'est de ce
+ * rapprochement-là que naît un `1 1 3 3`. Compter les occurrences de la cible
+ * elle-même serait plus juste et changerait le classement sur `666` (la plus
+ * longue plage et le nombre d'occurrences ne varient pas ensemble) ; la
+ * non-régression passe avant, et ce raffinement-là attend une mesure.
  *
  * ★ **IL PEUT DÉSORMAIS RANGER UNE LIGNE QUI GAGNE DÉJÀ**, et c'est un
  *   arbitrage de l'auteur.
@@ -679,13 +827,13 @@ const LIB_EN_LETTRES = bilingue(
  *   (`elegance.js › REARRANGEMENT`), et une étape qui ne rapporte pas plus
  *   qu'elle ne coûte ne survit pas au classement.
  */
-function triRassemble(valeur) {
+function triRassemble(valeur, visee) {
   const ordre = ordreCroissant(valeur);
   if (!ordre.some((src, i) => valeur[src] !== valeur[i])) return false;
   const plusLongue = (v) => plagesDe(v).reduce((m, p) => Math.max(m, p.compte), 0);
   const avant = plusLongue(valeur);
   const apres = plusLongue(ordre.map((i) => valeur[i]));
-  return apres > avant && apres >= SUITE;
+  return apres > avant && apres >= visee.longueur;
 }
 
 /**
@@ -761,7 +909,7 @@ function rangementUtile(jetons) {
  * un 9. Sur une suite de quatre, le quatrième ne bouge pas — le couper en deux
  * n'aurait pas de sens, et prendre les trois DERNIERS demanderait de choisir
  * là où la lecture de gauche à droite désigne déjà (même argument que
- * `debutDesTroisSix`).
+ * `debutDeLaCible`).
  *
  * @returns {number[]} les index à retourner, croissants
  */
@@ -772,7 +920,7 @@ function triosDeNeuf(valeur) {
     if (valeur[i] !== 9) { i++; continue; }
     let j = i;
     while (j < valeur.length && valeur[j] === 9) j++;
-    const complets = Math.floor((j - i) / SUITE) * SUITE;
+    const complets = Math.floor((j - i) / TRIO) * TRIO;
     for (let k = 0; k < complets; k++) out.push(i + k);
     i = j;
   }
@@ -846,13 +994,18 @@ function plagesDe(valeur) {
  *  · un paquet qui **tombe sur 9** compte comme une réussite, au même titre
  *    qu'un paquet qui tombe sur 6.
  *
- * ⚠️ La seconde moitié de la règle — « si l'objectif est autre que 6, tente de
- * convertir vers l'objectif » — ne peut pas s'écrire ici : `apply()` ne reçoit
- * pas la cible (CONTRACTS §2.2, signature gelée). C'est précisément pour cela
- * que `bfs.js › OPERATEURS_LIES_A_666` retire cet opérateur de l'exploration
- * dès que la cible change, plutôt que de le laisser fabriquer des 6 et des 9
- * que personne ne cherche. Le chantier est noté à part
- * (`.planning/A-VENIR-cibles.md`).
+ * ★ **LA SECONDE MOITIÉ DE LA RÈGLE S'ÉCRIT DÉSORMAIS ICI** — « si l'objectif
+ * est autre que 6, tente de convertir vers l'objectif ». Elle ne le pouvait pas
+ * tant que la cible n'atteignait pas `apply()` ; elle l'atteint, par `viser`
+ * (`commun.js › selonLaCible`), et sans que la signature §2.2 ait bougé d'un
+ * signe — c'est le DESCRIPTEUR qui se fabrique pour une cible, `apply` la
+ * tenant par fermeture.
+ *
+ * ⚠️ Le 9, lui, ne suit PAS la cible, et c'est la seule chose qui reste écrite
+ * en dur : un demi-tour ne rend qu'un 6 (`visuel/primitives/flip180.js` le
+ * refuse noir sur blanc). Il n'est donc « à défaut » que lorsque la cible veut
+ * des 6 — voir `rapporte` et `butsDuPaquet`, qui posent la même règle pour
+ * `mad`.
  *
  * ── ★ LA SOMME S'ÉCRIT TELLE QU'ELLE TOMBE — plus de racine numérique ───────
  *
@@ -1000,19 +1153,39 @@ const PAQUET_MAX = 6;
  * et le redécoupage le traite comme tel : il ne l'absorbe pas, et il compte
  * comme une réussite un paquet qui tombe dessus.
  *
- * Le nombre est écrit ICI et nulle part ailleurs dans cette fonction, pour la
- * même raison que `CIBLE_CHIFFRE` : le jour où la recherche saura passer la
- * cible à `apply()`, c'est cette liste-là qui descendra.
+ * Le nombre est écrit ICI et nulle part ailleurs dans cette fonction, et il n'a
+ * pas eu à descendre : le demi-tour ne rend qu'un 6
+ * (`visuel/primitives/flip180.js`), donc le 9 ne « rapporte » que quand la
+ * cible veut des 6. La cible, elle, descend par `viser` — voir
+ * `butsDuPaquet`, qui pose exactement la même règle pour `mad`.
  */
 const RETOURNABLE = 9;
-const rapporte = (d) => d === SIX || d === RETOURNABLE;
+
+/**
+ * Ce chiffre-là sert-il la cible ? Un chiffre qu'elle demande, ou le 9 qu'un
+ * demi-tour changera en 6 — ce dernier seulement si elle veut des 6.
+ *
+ * ★ Repli exact sur `666` : l'alphabet vaut `{6}`, le 6 y est, la réponse est
+ * « 6 ou 9 » — mot pour mot l'ancien `d === SIX || d === RETOURNABLE`.
+ */
+const rapporte = (d, visee) => visee.utile(d)
+  || (d === RETOURNABLE && visee.utile(SIX_RETOURNE));
 
 /** Les chiffres qu'un nombre écrit — la ligne ne porte jamais autre chose. */
 const chiffresDe = (n) => [...String(n)].map(Number);
 
-function planRedecoupage(valeur) {
+function planRedecoupage(valeur, visee) {
   if (!valeur.length) return null;
   if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
+  // ★ Deux prédicats, et il faut bien les deux. `paye` dit « ce chiffre sert »
+  //   — la cible, ou le 9 qu'un demi-tour rendra ; `vise` dit « ce chiffre EST
+  //   la cible ». Le premier compte les gains, le second départage les ex æquo
+  //   (« à tout prendre, plus de 6 que de 9 »). Ils sont nommés ici plutôt que
+  //   passés en `filter` : `Array.prototype.filter` donne l'INDEX en second
+  //   argument, et `filter(rapporte)` remettrait un entier là où la visée
+  //   s'attend.
+  const paye = (d) => rapporte(d, visee);
+  const vise = (d) => visee.utile(d);
   const chiffres = [];
   valeur.forEach((v, i) => {
     for (const c of String(v)) chiffres.push({ v: Number(c), src: i });
@@ -1031,26 +1204,27 @@ function planRedecoupage(valeur) {
   const meilleur = Array.from({ length: n + 1 }, () => null);
   meilleur[n] = { gains: 0, six: 0, paquets: 0, coupe: 0, somme: 0, sortie: [] };
   for (let i = n - 1; i >= 0; i--) {
-    // Un 6 — ou un 9 — déjà écrit reste seul dans son paquet : on ne l'absorbe
-    // jamais.
-    const large = rapporte(chiffres[i].v) ? 1 : PAQUET_MAX;
+    // Un chiffre qui sert déjà — de la cible, ou le 9 qu'un demi-tour rendra —
+    // reste seul dans son paquet : on ne l'absorbe jamais.
+    const large = paye(chiffres[i].v) ? 1 : PAQUET_MAX;
     let somme = 0;
     for (let L = 1; L <= large && i + L <= n; L++) {
       // …et l'on ne va pas non plus le chercher plus loin dans le paquet.
-      if (L > 1 && rapporte(chiffres[i + L - 1].v)) break;
+      if (L > 1 && paye(chiffres[i + L - 1].v)) break;
       somme += chiffres[i + L - 1].v;
       const suite = meilleur[i + L];
       if (!suite) continue;
       // Un paquet d'un seul chiffre le RECOPIE ; un paquet qui additionne écrit
       // sa somme, chiffre à chiffre — `7+1+0+8` rend « 1 6 », pas « 7 ».
       const sortie = L === 1 ? [chiffres[i].v] : chiffresDe(somme);
-      const gains = suite.gains + sortie.filter(rapporte).length;
-      const six = suite.six + sortie.filter((d) => d === SIX).length;
+      const gains = suite.gains + sortie.filter(paye).length;
+      const six = suite.six + sortie.filter(vise).length;
       const paquets = suite.paquets + 1;
       const cur = meilleur[i];
-      // Départage explicite, dans l'ordre dicté : plus de 6-ou-9, puis moins de
-      // paquets, puis — à tout prendre — plus de 6 que de 9, puis la coupe la
-      // plus courte, c'est-à-dire la première rencontrée, `L` étant croissant.
+      // Départage explicite, dans l'ordre dicté : plus de chiffres qui SERVENT,
+      // puis moins de paquets, puis — à tout prendre — plus de chiffres de la
+      // cible que de 9 à retourner, puis la coupe la plus courte, c'est-à-dire
+      // la première rencontrée, `L` étant croissant.
       //
       // ★ Le troisième critère est un ARBITRAGE, et il est gratuit sur
       //   l'exemple de l'auteur (mesuré : la découpe ne bouge pas d'une coupe).
@@ -1084,8 +1258,8 @@ function planRedecoupage(valeur) {
     i += b.coupe;
   }
   if (!groupes) return null;
-  const avant = chiffres.filter((c) => rapporte(c.v)).length;
-  const apres = paquets.reduce((t, p) => t + p.sortie.filter(rapporte).length, 0);
+  const avant = chiffres.filter((c) => paye(c.v)).length;
+  const apres = paquets.reduce((t, p) => t + p.sortie.filter(paye).length, 0);
   return apres > avant ? { chiffres, multi, paquets } : null;
 }
 
@@ -2531,13 +2705,32 @@ const AUTRES_MAPPEURS = [
   //
   // Registre append-only (CONTRACTS §4.1, registre FERMÉ) : `mr9` était le
   // dernier alloué, celui-ci prend `m36`. Aucun code existant n'est touché.
-  def({
+  // ★ **IL SUIT LA CIBLE, ET C'EST TOUT CE QU'IL LUI FALLAIT.** Il était le
+  // premier des cinq opérateurs que `bfs.js` retirait dès qu'on visait autre
+  // chose que 666 : « le laisser courir sur une cible visant 111 ferait pousser
+  // des cornes de diable au-dessus de trois 6 qui ne sont pas le verdict ».
+  // L'argument était juste et il ne l'est plus — les cornes ne viennent plus
+  // d'ici (voir `steps`), et le motif cherché descend maintenant par `viser`.
+  // Sur `111` il trouve trois 1 d'affilée, sur `01111984` il trouve la suite
+  // entière, et il n'affirme rien de plus qu'avant : que c'était déjà écrit.
+  selonLaCible((visee) => ({
     id: 'm.troisSixDAffilee', code: 'm36', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
-    libelle: LIB_TROUVAILLE,
-    regle: bilingue(
-      'Une suite de trois 6 contigus, prise telle quelle. On ne rassemble rien, on la trouve.',
-      'A run of three adjacent 6s, taken as it stands. Nothing is gathered, it is found.',
-    ),
+    libelle: libTrouvaille(visee),
+    regle: (() => {
+      const s = compteDite(visee);
+      return s
+        ? bilingue(
+          `Une suite de ${s.fr} contigus, prise telle quelle. On ne rassemble rien, on la trouve.`,
+          `A run of ${s.nb.en} adjacent ${s.chiffre}s, taken as it stands. `
+          + 'Nothing is gathered, it is found.',
+        )
+        : bilingue(
+          `La suite « ${visee.texte} » écrite d’un seul tenant, prise telle quelle. `
+          + 'On ne rassemble rien, on la trouve.',
+          `The run “${visee.texte}” written in one piece, taken as it stands. `
+          + 'Nothing is gathered, it is found.',
+        );
+    })(),
     // ★ Notoriété 0,30. Personne n'a besoin qu'on lui explique que trois 6
     // écrits côte à côte font 666 — mais ce n'est pas ça qu'on lui demande de
     // croire. Ce qu'il faut avaler, c'est « et l'on efface tout le reste », qui
@@ -2561,12 +2754,24 @@ const AUTRES_MAPPEURS = [
     //   vaudrait pour n'importe quel chiffre ; les garder parce qu'ils sont des
     //   6 n'est pas un argument, c'est la conclusion prise pour prémisse.
     notoriete: 0.30, adHoc: 0.55,
-    note: bilingue(
-      'Contigus, vraiment. Trois 6 éparpillés dans le vecteur ne font pas un 666, ils font trois 6.',
-      'Adjacent, truly. Three 6s scattered through the vector are not a 666, they are three 6s.',
-    ),
+    note: (() => {
+      const s = compteDite(visee);
+      return s
+        ? bilingue(
+          `Contigus, vraiment. ${capitale(s.fr)} éparpillés dans le vecteur ne font pas `
+          + `un ${visee.texte}, ils font ${s.fr}.`,
+          `Adjacent, truly. ${capitale(s.en)} scattered through the vector are not `
+          + `a ${visee.texte}, they are ${s.en}.`,
+        )
+        : bilingue(
+          `D’un seul tenant, vraiment. Les chiffres de ${visee.texte} éparpillés dans le `
+          + 'vecteur n’écrivent rien : c’est l’ordre et la contiguïté qui font la suite.',
+          `In one piece, truly. The digits of ${visee.texte} scattered through the vector `
+          + 'write nothing: order and adjacency are what make the run.',
+        );
+    })(),
     apply: (valeur, traces) => {
-      const d = debutDesTroisSix(valeur);
+      const d = debutDeLaCible(valeur, visee);
       if (d < 0) return null;
       // ★ REFUS quand il n'y a rien à effacer, pour la raison qui a déjà fait
       // refuser `mr9` sur un vecteur sans 9 : un mappeur qui rend son entrée
@@ -2575,19 +2780,19 @@ const AUTRES_MAPPEURS = [
       // porterait alors dans son URL un code que la démonstration ne montre
       // nulle part. Un vecteur qui vaut déjà `[6,6,6]` n'a pas besoin qu'on
       // lui dise qu'il vaut `[6,6,6]`.
-      if (valeur.length === SUITE) return null;
+      if (valeur.length === visee.longueur) return null;
       return {
-        valeur: [6, 6, 6],
-        traces: [0, 1, 2].map((k) => traces[d + k] || []),
+        valeur: [...visee.chiffres],
+        traces: visee.chiffres.map((_, k) => traces[d + k] || []),
       };
     },
-    // Les trois survivants GARDENT leur identifiant de jeton : ils n'ont pas
-    // bougé, ils n'ont pas changé de valeur, et rien ne les a remplacés. Leur
-    // donner un nom neuf ferait croire au pont qu'un jeton en a remplacé un
-    // autre, et l'animation raconterait un travail qui n'a pas eu lieu.
+    // Les survivants GARDENT leur identifiant de jeton : ils n'ont pas bougé,
+    // ils n'ont pas changé de valeur, et rien ne les a remplacés. Leur donner un
+    // nom neuf ferait croire au pont qu'un jeton en a remplacé un autre, et
+    // l'animation raconterait un travail qui n'a pas eu lieu.
     sortie: (avant, apres, ctx) => {
-      const d = debutDesTroisSix(avant.valeur);
-      return d < 0 ? [] : [0, 1, 2].map((k) => ctx.ids[d + k]);
+      const d = debutDeLaCible(avant.valeur, visee);
+      return d < 0 ? [] : visee.chiffres.map((_, k) => ctx.ids[d + k]);
     },
     /**
      * ★ CET OPÉRATEUR NE COURONNE PLUS — il DÉSIGNE et il EFFACE.
@@ -2637,21 +2842,22 @@ const AUTRES_MAPPEURS = [
      * qu'`apply()` a examinée —, et `recherche/scenario.js` recoupe.
      */
     steps: (avant, apres, ctx) => {
-      const d = debutDesTroisSix(avant.valeur);
+      const d = debutDeLaCible(avant.valeur, visee);
       if (d < 0) return [];
-      const gardes = [0, 1, 2].map((k) => ctx.ids[d + k]);
-      const efface = ctx.ids.filter((_, i) => i < d || i > d + 2);
+      const fin = d + visee.longueur - 1;
+      const gardes = visee.chiffres.map((_, k) => ctx.ids[d + k]);
+      const efface = ctx.ids.filter((_, i) => i < d || i > fin);
       const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join('')}`;
       // La gomme de `drop` en mode `erase`, sans regroupement : un par un, sur
-      // place, sans que rien ne bouge. Les trois 6 sont déjà d'un seul tenant,
-      // il n'y a aucun trou à refermer entre eux — et un resserrement ferait
-      // croire qu'on a fabriqué le 666 en rapprochant des chiffres épars.
-      return [etape(ctx, dire(LIB_ARRET, ctx.langue), legende, [
+      // place, sans que rien ne bouge. Les chiffres retenus sont déjà d'un seul
+      // tenant, il n'y a aucun trou à refermer entre eux — et un resserrement
+      // ferait croire qu'on a fabriqué le 666 en rapprochant des chiffres épars.
+      return [etape(ctx, dire(libArret(visee), ctx.langue), legende, [
         { op: 'highlight', targets: gardes, mode: 'select' },
         { op: 'drop', targets: efface, mode: 'erase', regroup: false, at: 300 },
       ])];
     },
-  }),
+  })),
   // ══════════════════════════════════════════════════════════════════════════
   // ★ LES TROIS FICELLES ASSUMÉES — `mpf`, `m1s2`, `mad`
   // ══════════════════════════════════════════════════════════════════════════
@@ -2690,7 +2896,21 @@ const AUTRES_MAPPEURS = [
   // déterminisme (§4.4) gratuit — aucun ordre de `Map`, aucun tri, aucune
   // préférence tacite pour le 6 ne peut s'y glisser.
 
-  def({
+  // ★ **IL SE DÉSACTIVE TOUT SEUL SUR UNE CIBLE HÉTÉROGÈNE, ET IL LE PROUVE.**
+  //
+  // Ce que cet opérateur laisse derrière lui est un vecteur d'UNE SEULE valeur
+  // répétée — c'est la définition même de « le plus fréquent reste ». Or son
+  // garde-fou exige que ce qui reste ÉCRIVE la cible d'affilée
+  // (`portePleinement`). Une suite d'un seul chiffre ne peut écrire que `666`,
+  // `111`, `000` : jamais `13`, jamais `007`, jamais `01111984`.
+  //
+  // Le refus n'est donc pas une opinion qu'on inscrirait quelque part — c'est
+  // une conséquence, et `viser` la CALCULE : sur une cible hétérogène, la
+  // fabrique rend `null` et l'opérateur sort de la recherche. Le laisser courir
+  // reviendrait à dépenser du budget pour des `null` garantis (c'est très
+  // exactement ce que `bfs.js` disait de lui, et le voilà démontré au lieu
+  // d'être décrété).
+  selonLaCible((visee) => (!visee.homogene ? null : {
     id: 'm.plusFrequent', code: 'mpf', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_PLUS_FREQUENT,
     regle: bilingue(
@@ -2738,14 +2958,20 @@ const AUTRES_MAPPEURS = [
     //   ne se doublent pas ; les confondre est ce qui avait mis ces deux
     //   opérateurs à l'envers l'un de l'autre.
     notoriete: 0.35, adHoc: 0.15,
+    // ★ Le chiffre nommé ici est celui de la CIBLE, et il est lu sur elle : cet
+    //   opérateur ne s'instancie que sur une visée homogène (voir plus haut),
+    //   donc `visee.chiffres[0]` est bien LE chiffre cherché. Sur `666`, la
+    //   phrase est celle d'hier, mot pour mot.
     note: bilingue(
-      'Le plus fréquent, quel qu’il soit — pas le 6. Faire gagner le 6 d’office, ce serait '
-      + 'le tri arbitraire, c’est-à-dire le geste que celui-ci prétend valoir mieux que.',
-      'The most frequent one, whichever it is — not the 6. Rigging it for the 6 would be '
-      + 'the arbitrary sort, that is, the very gesture this one claims to beat.',
+      `Le plus fréquent, quel qu’il soit — pas le ${visee.chiffres[0]}. Faire gagner `
+      + `le ${visee.chiffres[0]} d’office, ce serait le tri arbitraire, c’est-à-dire le `
+      + 'geste que celui-ci prétend valoir mieux que.',
+      `The most frequent one, whichever it is — not the ${visee.chiffres[0]}. Rigging it `
+      + `for the ${visee.chiffres[0]} would be the arbitrary sort, that is, the very `
+      + 'gesture this one claims to beat.',
     ),
     apply: (valeur, traces) => {
-      const dom = valeurDominante(valeur);
+      const dom = valeurDominante(valeur, visee);
       if (!dom) return null;
       const gardes = [];
       valeur.forEach((v, i) => { if (v === dom.valeur) gardes.push(i); });
@@ -2758,7 +2984,7 @@ const AUTRES_MAPPEURS = [
     // identifiant de jeton. En inventer un neuf ferait croire au pont qu'un
     // jeton en a remplacé un autre (même raison que `m0` et `m36`).
     sortie: (avant, apres, ctx) => {
-      const dom = valeurDominante(avant.valeur);
+      const dom = valeurDominante(avant.valeur, visee);
       return dom ? ctx.ids.filter((_, i) => avant.valeur[i] === dom.valeur) : [];
     },
     /**
@@ -2778,7 +3004,7 @@ const AUTRES_MAPPEURS = [
      * reste ce qui est compté, et l'on peut refaire l'addition soi-même.
      */
     steps: (avant, apres, ctx) => {
-      const dom = valeurDominante(avant.valeur);
+      const dom = valeurDominante(avant.valeur, visee);
       if (!dom) return [];
       const gardes = ctx.ids.filter((_, i) => avant.valeur[i] === dom.valeur);
       const jetes = ctx.ids.filter((_, i) => avant.valeur[i] !== dom.valeur);
@@ -2802,16 +3028,31 @@ const AUTRES_MAPPEURS = [
       const legende = `${releveEcrit(avant.valeur)}  —  ${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
       return [etape(ctx, dire(LIB_PLUS_FREQUENT, ctx.langue), legende, ops)];
     },
-  }),
-  def({
+  })),
+  // ★ **IL SUIT LA CIBLE, QUELLE QU'ELLE SOIT.** Contrairement à `mpf`, ce qu'il
+  // garde n'est pas UNE valeur répétée mais une position sur deux : le vecteur
+  // qui survit est encore mêlé, donc il peut écrire `13`, `007` ou une date de
+  // naissance. Le seul « 6 » de sa règle est le chiffre qu'on COMPTE pour
+  // choisir la parité, et celui-là descend par `viser`.
+  selonLaCible((visee) => ({
     id: 'm.unRangSurDeux', code: 'm1s2', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_UN_SUR_DEUX,
-    regle: bilingue(
-      'Une position sur deux — les impaires, ou les paires : celle des deux qui porte '
-      + 'le plus de 6. À égalité de 6, aucune ne vaut mieux et la règle ne s’applique pas.',
-      'Every other position — the odd ones or the even ones: whichever carries the most '
-      + '6s. On an equal count neither is better and the rule does not apply.',
-    ),
+    regle: (() => {
+      // Sur une visée homogène, la règle nomme LE chiffre — « le plus de 6 »,
+      // la phrase d'hier sur `666`. Sur une visée mêlée, ce sont les chiffres
+      // qui SERVENT qu'on compte, et il faut le dire ainsi : annoncer un
+      // chiffre unique là où l'on en compte cinq serait un relevé qui ment.
+      const quoi = visee.homogene
+        ? bilingue(`de ${visee.chiffres[0]}`, `${visee.chiffres[0]}s`)
+        : bilingue('de chiffres utiles', 'useful digits');
+      return bilingue(
+        'Une position sur deux — les impaires, ou les paires : celle des deux qui porte '
+        + `le plus ${quoi.fr}. À égalité ${quoi.fr}, aucune ne vaut mieux et la règle ne `
+        + 's’applique pas.',
+        'Every other position — the odd ones or the even ones: whichever carries the most '
+        + `${quoi.en}. On an equal count neither is better and the rule does not apply.`,
+      );
+    })(),
     // ★ Notoriété 0,20, à peine plus que la majorité : décimer une liste est un
     // geste que tout le monde sait faire, mais que personne n'attend d'une
     // numérologie. ★ AdHoc 0,38 — moins que la majorité (0,45), plus que le
@@ -2827,7 +3068,7 @@ const AUTRES_MAPPEURS = [
       + 'deleting the other half. We say so rather than dress it up.',
     ),
     apply: (valeur, traces) => {
-      const p = paritePorteuse(valeur);
+      const p = paritePorteuse(valeur, visee);
       if (p < 0) return null;
       const gardes = [];
       valeur.forEach((_, i) => { if (i % 2 === p) gardes.push(i); });
@@ -2837,7 +3078,7 @@ const AUTRES_MAPPEURS = [
       };
     },
     sortie: (avant, apres, ctx) => {
-      const p = paritePorteuse(avant.valeur);
+      const p = paritePorteuse(avant.valeur, visee);
       return p < 0 ? [] : ctx.ids.filter((_, i) => i % 2 === p);
     },
     /**
@@ -2860,7 +3101,7 @@ const AUTRES_MAPPEURS = [
      * inventée — mais c'est de l'équivalent accessible, pas un plaidoyer.
      */
     steps: (avant, apres, ctx) => {
-      const p = paritePorteuse(avant.valeur);
+      const p = paritePorteuse(avant.valeur, visee);
       if (p < 0) return [];
       const gardes = ctx.ids.filter((_, i) => i % 2 === p);
       const jetes = ctx.ids.filter((_, i) => i % 2 !== p);
@@ -2873,23 +3114,49 @@ const AUTRES_MAPPEURS = [
         { op: 'drop', targets: jetes, mode: 'fall', stagger: 40 },
         { op: 'highlight', targets: gardes, mode: 'select' },
       ]));
-      const legende = `${releveDesParites(avant.valeur, ctx.langue)}  —  ${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
+      const legende = `${releveDesParites(avant.valeur, ctx.langue, visee)}  —  ${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
       return [etape(ctx, dire(LIB_UN_SUR_DEUX, ctx.langue), legende, ops)];
     },
-  }),
-  def({
+  })),
+  // ★ **IL SUIT LA CIBLE — SAUF QUAND ELLE NE VEUT QUE DES ZÉROS.**
+  //
+  // « Quand on veut des 0 il faudra faire des 10, des 100, des 1000 — et donc
+  // les opérateurs manquants sont peut-être soustraction sélective et
+  // multiplication sélective » (l'auteur). C'est arithmétique et sans appel :
+  // une somme se réduit à 0 seulement si tous ses termes sont nuls, et un paquet
+  // de zéros APPAUVRIT la ligne (`paquetRecevable` : `0 + 0 → 0`, deux zéros
+  // pour un). Viser `0`, `00` ou `000` par l'addition ne rendra donc jamais rien.
+  //
+  // On le CONSTATE ici plutôt que de laisser la recherche le redécouvrir à
+  // chaque fragment : `viser('000')` rend `null`, l'opérateur se désactive, et
+  // la page de débogage l'annonce. Toute autre cible — homogène ou non — le
+  // garde : ses paquets visent alors les chiffres qu'elle demande.
+  selonLaCible((visee) => (butsDuPaquet(visee).every((d) => d === 0) ? null : {
     id: 'm.additionSelective', code: 'mad', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_ADDITION_SELECTIVE,
-    regle: bilingue(
-      'Chaque nombre s’écrit chiffre à chiffre, puis on n’additionne QUE les suites '
-      + 'contiguës dont la somme vise 6 — ou 9 à défaut, qu’un demi-tour rendra. '
-      + 'Une suite qui ferait perdre un 6 ou un 9 déjà écrits est refusée. Toujours '
-      + 'la plus courte, de gauche à droite.',
-      'Every number is written out digit by digit, then only the adjacent runs aiming at 6 '
-      + '— or at 9 failing that, which half a turn will convert — are summed. A run that '
-      + 'would cost a 6 or a 9 already written is refused. Always the shortest run, left '
-      + 'to right.',
-    ),
+    regle: (() => {
+      // Les buts se LISENT sur `butsDuPaquet` : la règle affichée est la règle
+      // appliquée, pas une phrase parallèle qui pourrait dériver (§0.3). Sur
+      // `666` la liste vaut `[6, 9]`, et la phrase est celle d'hier.
+      const buts = butsDuPaquet(visee);
+      const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
+      const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
+      const defaut = retourne
+        ? bilingue(` — ou ${RETOURNABLE} à défaut, qu’un demi-tour rendra`,
+          ` — or at ${RETOURNABLE} failing that, which half a turn will convert —`)
+        : bilingue('', '');
+      return bilingue(
+        'Chaque nombre s’écrit chiffre à chiffre, puis on n’additionne QUE les suites '
+        + `contiguës dont la somme vise ${vises}${defaut.fr}. `
+        + `Une suite qui ferait perdre un ${buts.join(' ou un ')} déjà `
+        + `${buts.length > 1 ? 'écrits' : 'écrit'} est refusée. `
+        + 'Toujours la plus courte, de gauche à droite.',
+        'Every number is written out digit by digit, then only the adjacent runs aiming '
+        + `at ${vises}${defaut.en} are summed. A run that `
+        + `would cost a ${buts.join(' or a ')} already written is refused. `
+        + 'Always the shortest run, left to right.',
+      );
+    })(),
     // ★ Notoriété 0,30, la plus haute des trois : additionner des chiffres
     // contigus est le geste le plus banal de toute la numérologie — c'est ce
     // que fait la racine numérique. Ce qui est louche n'est pas l'addition,
@@ -2900,18 +3167,35 @@ const AUTRES_MAPPEURS = [
     // rien — elle ABSORBE arithmétiquement, ce que l'auteur préfère
     // explicitement à « se débarrasser artificiellement de chiffres ».
     notoriete: 0.30, adHoc: 0.30,
-    note: bilingue(
-      'Sélective, donc discutable : on additionne 5+1 pour faire un 6, et l’on ne touche '
-      + 'à un 6 déjà là que pour lui faire avaler un zéro — il en ressort intact. Les '
-      + 'signes + ne paraissent qu’entre les termes retenus : la sélection est sous les '
-      + 'yeux, c’est le score qui la juge.',
-      'Selective, hence arguable: 5+1 is added to make a 6, and a 6 already there is only '
-      + 'touched to swallow a zero — it comes out intact. The plus signs appear only '
-      + 'between the chosen terms: the selection is in plain sight, and the score is what '
-      + 'judges it.',
-    ),
+    // ★ L'EXEMPLE de la note est CALCULÉ sur la cible, jamais recopié. « 5+1 »
+    //   ne fait un 6 que parce qu'on vise 6 ; sur `111` la note doit montrer une
+    //   somme qui fait 1. On prend la plus petite paire qui vise juste — deux
+    //   termes non nuls dont la somme se réduit au premier chiffre de la cible —,
+    //   et si aucune n'existe on se passe d'exemple plutôt que d'en inventer un.
+    note: (() => {
+      const but = visee.alphabet.find((d) => d !== 0) ?? visee.alphabet[0];
+      const paire = (() => {
+        for (let a = 1; a <= 9; a++) {
+          for (let b = 1; b <= 9; b++) if (reduire(a + b) === but) return `${a}+${b}`;
+        }
+        return null;
+      })();
+      const ex = paire
+        ? bilingue(`on additionne ${paire} pour faire un ${but}, et l’on ne touche `,
+          `${paire} is added to make a ${but}, and a ${but} already there is only `)
+        : bilingue('on additionne des chiffres contigus, et l’on ne touche ',
+          `adjacent digits are added up, and a ${but} already there is only `);
+      return bilingue(
+        `Sélective, donc discutable : ${ex.fr}à un ${but} déjà là que pour lui faire avaler `
+        + 'un zéro — il en ressort intact. Les signes + ne paraissent qu’entre les termes '
+        + 'retenus : la sélection est sous les yeux, c’est le score qui la juge.',
+        `Selective, hence arguable: ${ex.en}touched to swallow a zero — it comes out `
+        + 'intact. The plus signs appear only between the chosen terms: the selection is '
+        + 'in plain sight, and the score is what judges it.',
+      );
+    })(),
     apply: (valeur, traces) => {
-      const plan = planAdditionSelective(valeur);
+      const plan = planAdditionSelective(valeur, visee);
       if (!plan) return null;
       return {
         valeur: plan.sortie.map((s) => s.v),
@@ -2922,12 +3206,12 @@ const AUTRES_MAPPEURS = [
     },
     // ★ Ce que la triche fait VOIR — voir `additions` dans `commun.js`.
     additions: (valeur) => {
-      const plan = planAdditionSelective(valeur);
+      const plan = planAdditionSelective(valeur, visee);
       return plan ? plan.sortie.filter((s) => s.fin - s.debut >= 2)
         .map((s) => s.fin - s.debut) : [];
     },
     sortie: (avant, apres, ctx) => {
-      const plan = planAdditionSelective(avant.valeur);
+      const plan = planAdditionSelective(avant.valeur, visee);
       return plan ? plan.sortie.map((s, j) => idSortie(plan, ctx, s, j)) : [];
     },
     /**
@@ -2951,7 +3235,7 @@ const AUTRES_MAPPEURS = [
      * encore la valeur des jetons de départ.
      */
     steps: (avant, apres, ctx) => {
-      const plan = planAdditionSelective(avant.valeur);
+      const plan = planAdditionSelective(avant.valeur, visee);
       if (!plan) return [];
       const steps = [];
       const idc = (k) => idChiffre(plan, ctx, k);
@@ -3015,7 +3299,7 @@ const AUTRES_MAPPEURS = [
       }
       return steps;
     },
-  }),
+  })),
 
   // ══════════════════════════════════════════════════════════════════════════
   // ★ LES QUATRE TRANSFORMATIONS DU 27 AOÛT — `mtri`, `mr39`, `mcc`, `mrd`
@@ -3122,7 +3406,15 @@ const AUTRES_MAPPEURS = [
         ]), { hold: 400 })];
     },
   }),
-  def({
+  // ★ **IL LIT LA CIBLE, ET PERSONNE NE L'AVAIT VU.** Sa règle ne dit pas un mot
+  // du 6 — mais son garde-fou disait TROIS : « la plus longue plage doit
+  // augmenter, et atteindre au moins une série ». Une série fait trois chiffres
+  // quand on vise 666, DEUX quand on vise 13, huit quand on vise une date de
+  // naissance. Il exigeait donc trois valeurs identiques pour écrire une cible
+  // qui en demande deux, et son propre commentaire affirmait le contraire (« et
+  // cette condition ne dit pas un mot du 6 […] même pour `13` »).
+  // Voir `triRassemble`, où le repli sur `666` reste exact.
+  selonLaCible((visee) => ({
     id: 'm.triCroissant', code: 'mtri', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_TRI_CROISSANT,
     regle: bilingue(
@@ -3162,7 +3454,7 @@ const AUTRES_MAPPEURS = [
       // entrée fabrique une étape que `scenario.js` saute silencieusement, et
       // l'URL porterait alors un code que la démonstration ne montre nulle
       // part.
-      if (!triRassemble(valeur)) return null;
+      if (!triRassemble(valeur, visee)) return null;
       const ordre = ordreCroissant(valeur);
       return {
         valeur: ordre.map((i) => valeur[i]),
@@ -3196,7 +3488,7 @@ const AUTRES_MAPPEURS = [
         { op: 'move', order: ordre.map((i) => ctx.ids[i]) },
       ]))];
     },
-  }),
+  })),
 
   def({
     id: 'm.triAlphabetique', code: 'mtal', famille: 'mappeur', from: 'TOKENS', to: 'TOKENS',
@@ -3278,7 +3570,7 @@ const AUTRES_MAPPEURS = [
       const trios = triosDeNeuf(valeur);
       if (!trios.length) return null;
       const bouge = new Set(trios);
-      const out = valeur.map((n, i) => (bouge.has(i) ? SIX : n));
+      const out = valeur.map((n, i) => (bouge.has(i) ? SIX_RETOURNE : n));
       return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
     },
     // Seuls les 9 retournés reçoivent un identifiant neuf — même règle que
@@ -3447,17 +3739,35 @@ const AUTRES_MAPPEURS = [
     },
   }),
 
-  def({
+  // ★ **IL SUIT LA CIBLE — SAUF QUAND ELLE NE VEUT QUE DES ZÉROS**, exactement
+  // comme `mad`, et pour la même raison arithmétique : une somme de chiffres ne
+  // retombe sur 0 qu'en n'additionnant que des 0, ce qui appauvrit la ligne au
+  // lieu de la servir. `viser('000')` rend donc `null`.
+  //
+  // Tout le reste descend : le chiffre que les paquets cherchent, et le 9 qui
+  // n'est « à défaut » que lorsque la cible veut des 6 — voir `rapporte`.
+  selonLaCible((visee) => (butsDuPaquet(visee).every((d) => d === 0) ? null : {
     id: 'm.redecoupageChoisi', code: 'mrd', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_REDECOUPAGE,
-    regle: bilingue(
-      'Chaque nombre s’écrit chiffre à chiffre, puis on redécoupe la ligne en paquets '
-      + 'choisis pour tomber sur 6 — ou sur 9, qu’un demi-tour rendra — le plus souvent '
-      + 'possible ; chaque paquet est remplacé par sa somme. Un 6 ou un 9 déjà là reste seul.',
-      'Every number is written out digit by digit, then the line is recut into packets '
-      + 'chosen to land on 6 — or on 9, which a half-turn will settle — as often as '
-      + 'possible; each packet is replaced by its sum. A 6 or a 9 already there is left alone.',
-    ),
+    regle: (() => {
+      // La phrase LIT `butsDuPaquet`, comme celle de `mad` : ce qui est annoncé
+      // est ce que la programmation dynamique cherche réellement (§0.3).
+      const buts = butsDuPaquet(visee);
+      const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
+      const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
+      const defaut = retourne
+        ? bilingue(` — ou sur ${RETOURNABLE}, qu’un demi-tour rendra —`,
+          ` — or on ${RETOURNABLE}, which a half-turn will settle —`)
+        : bilingue('', '');
+      return bilingue(
+        'Chaque nombre s’écrit chiffre à chiffre, puis on redécoupe la ligne en paquets '
+        + `choisis pour tomber sur ${vises}${defaut.fr} le plus souvent possible ; chaque `
+        + `paquet est remplacé par sa somme. Un ${buts.join(' ou un ')} déjà là reste seul.`,
+        'Every number is written out digit by digit, then the line is recut into packets '
+        + `chosen to land on ${vises}${defaut.en} as often as possible; each packet is `
+        + `replaced by its sum. A ${buts.join(' or a ')} already there is left alone.`,
+      );
+    })(),
     // ★ Notoriété 0,20 — « `mrd`, l'idée est là, à retirer des ficelles pour en
     // faire un opérateur à 0.2 de notoriété » (l'auteur). Elle valait 0,10, la
     // plus basse du catalogue hors joker, du temps où l'opérateur était compté
@@ -3485,7 +3795,7 @@ const AUTRES_MAPPEURS = [
       + 'was added, and the score says what it costs.',
     ),
     apply: (valeur, traces) => {
-      const plan = planRedecoupage(valeur);
+      const plan = planRedecoupage(valeur, visee);
       if (!plan) return null;
       const sortie = [];
       const org = [];
@@ -3501,12 +3811,12 @@ const AUTRES_MAPPEURS = [
     //   par là que le barème apprend combien d'additions se suivent, donc à
     //   quel point chacune passe inaperçue.
     additions: (valeur) => {
-      const plan = planRedecoupage(valeur);
+      const plan = planRedecoupage(valeur, visee);
       return plan ? plan.paquets.filter((p) => p.fin - p.debut >= 2)
         .map((p) => p.fin - p.debut) : [];
     },
     sortie: (avant, apres, ctx) => {
-      const plan = planRedecoupage(avant.valeur);
+      const plan = planRedecoupage(avant.valeur, visee);
       return plan ? plan.paquets.flatMap((p, j) => idsPaquet(plan, ctx, p, j)) : [];
     },
     /**
@@ -3537,7 +3847,7 @@ const AUTRES_MAPPEURS = [
      * des jetons de départ.
      */
     steps: (avant, apres, ctx) => {
-      const plan = planRedecoupage(avant.valeur);
+      const plan = planRedecoupage(avant.valeur, visee);
       if (!plan) return [];
       const steps = [];
       const idc = (k) => idChiffreRedecoupe(plan, ctx, k);
@@ -3634,7 +3944,7 @@ const AUTRES_MAPPEURS = [
       }
       return steps;
     },
-  }),
+  })),
 
   def({
     /**
