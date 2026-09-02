@@ -173,9 +173,25 @@ test('déterminisme — l’horloge ne peut pas changer le classement', () => {
   // Un moteur par horloge, réutilisé sur toutes les saisies : le cache mémoïsé
   // se remplit donc dans le même ordre, et s'il devait influer sur le
   // classement, cette comparaison le verrait.
+  /* ⚠️ **LE BUDGET EST OUVERT EN GRAND, ET C'EST CE QUI REND CE TEST FIABLE.**
+
+     Il exigeait `tronqueTemps === false` avec le budget ordinaire — une
+     PRÉCONDITION sur la machine, pas sur le code : sous charge, le filet mord
+     légitimement, l'assertion tombe, et l'on croit à une régression de
+     déterminisme là où il n'y a qu'un ordinateur occupé. C'est la cause des
+     rouges intermittents que l'auteur voit passer depuis des mois — mesuré ici :
+     vert seul en 33 s, rouge dès qu'un autre fichier tourne à côté.
+
+     Ce que le test PROMET n'a pas changé d'un mot : trois horloges qui n'ont
+     rien à voir entre elles rendent le même classement. Les horloges restent
+     donc aussi différentes qu'avant (zéro, réelle, réelle divisée par mille) —
+     si l'une d'elles influençait le classement, la comparaison le verrait
+     toujours. Seul le filet, qui n'est pas le sujet, cesse de pouvoir
+     interrompre la mesure au milieu. */
+  const LARGE = 600000;
   const empreintes = new Map();
   for (const [nom, maintenant] of Object.entries(horloges)) {
-    const m = creerMoteur(catalogue, { maintenant });
+    const m = creerMoteur(catalogue, { maintenant, budgetMs: LARGE, budgetTotalMs: LARGE });
     for (const s of SAISIES_DETERMINISME) {
       const r = m.resoudre(s);
       assert.equal(r.tronqueTemps, false,
