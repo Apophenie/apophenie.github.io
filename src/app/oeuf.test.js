@@ -363,68 +363,35 @@ test('★ œuf — au verdict, le π obtenu survit et l’énoncé vient à sa g
 });
 
 /**
- * ★ **LA CONVERSION DU « pi » DE DROITE SE VOIT.**
+ * ★ **LE « pi » DE LA SAISIE PASSE PAR LE MÊME ATELIER QUE LES AUTRES.**
  *
- * > « Il manque l'animation pour la conversion du Pi à droite du = »
- * >   (l'auteur)
+ * > « Il n'empêche qu'on convertit Pi en π : c'est une synthèse phonétique
+ * >   aussi. Donc que ce soit pie ou Pi ou pi, ça reste une conversion vers le
+ * >   symbole mathématique. Je veux donc le même appareillage et processus que
+ * >   pour pie ou bête à. » (l'auteur)
  *
- * Un `substitute` de un vers un fait un fondu croisé sur place : à trois
- * lettres d'un atelier qui déploie une accolade, il passe pour un changement de
- * rendu. Il est donc encadré de ce qui désigne — la lettre s'allume avant, le
- * symbole bat après.
+ * Je lui avais donné un traitement au rabais — une désignation, un fondu, un
+ * battement — au motif qu'il est RECOPIÉ de l'énoncé et non démontré. Ce qui
+ * définit le geste n'est pas d'où vient le mot, c'est ce qu'on lui fait :
+ * passer de trois lettres à un signe est une synthèse phonétique, d'où qu'il
+ * vienne. Deux traitements pour un même geste auraient dit qu'il y a deux
+ * gestes.
+ *
+ * Le test compte donc les ACCOLADES de l'étape, chacune portant le nom de la
+ * règle invoquée : quatre sans « = pi » — deux au numérateur, deux au
+ * dénominateur — et CINQ avec.
  */
-test('★ œuf — le « pi » de la saisie est désigné avant de devenir π, et bat après', () => {
-  const tl = compile(scenarioDeLOeuf('cheval sur oiseau = pi'));
-  const designe = tl.anims.filter((a) => a.id === 'pi' && a.prop === 'fill');
-  assert.ok(designe.length, 'le « pi » saisi doit être DÉSIGNÉ avant sa conversion');
-  const naissance = Math.min(...tl.anims.filter((a) => a.id === 'P2' && a.prop === 'opacity')
-    .map((a) => a.delay));
-  const bat = tl.anims.filter((a) => a.id === 'P2' && a.prop === 'scale');
-  assert.ok(bat.length, 'le π obtenu doit BATTRE une fois écrit');
-  assert.ok(Math.min(...designe.map((a) => a.delay)) < naissance,
-    'la désignation précède la conversion');
-  assert.ok(Math.max(...bat.map((a) => a.delay)) >= naissance,
-    'le battement suit la conversion');
-});
-
-/**
- * ★ **LE C.Q.F.D. NE SE POSE PAS AU MÊME ENDROIT SELON CE QU'IL CONCLUT.**
- *
- * > « Quand on finit sur Pi = Pi, CQFD est bien, centré au-dessus. Quand on
- * >   finit sur cheval/oiseau = Pi, CQFD au-dessus est disgracieux (centré mais
- * >   décalé par rapport au reste). Il devrait dans ce cas venir comme une
- * >   signature en bas à droite. » (l'auteur)
- *
- * Une ligne unique est centrée : un titre posé au milieu du haut de la vue la
- * surmonte exactement. Une FRACTION ne l'est pas — son axe n'est pas le milieu
- * de la scène —, et deux centrages différents dans la même image se lisent
- * comme un défaut d'alignement.
- */
-test('★ œuf — le C.Q.F.D. surmonte une ligne, mais SIGNE une fraction', () => {
-  const oux = (sc) => {
-    const tl = compile(sc);
-    const n = [...tl.scene.allNodes()].find((x) => x.role === 'label' && (x.text || '').startsWith('C.Q'));
-    assert.ok(n, 'le C.Q.F.D. doit être posé');
-    const p = tl.scene.pos(n.id);
-    const boites = tl.scene.flow.map((id) => tl.scene.pos(id)).filter(Boolean);
-    return {
-      p,
-      droite: Math.max(...boites.map((b) => b.x + b.w / 2)),
-      bas: Math.max(...boites.map((b) => b.y)),
-      haut: Math.min(...boites.map((b) => b.y)),
-    };
+test('★ œuf — le « pi » saisi a son atelier, comme « pie » et « bête à »', () => {
+  const ateliers = (saisie) => {
+    const sc = scenarioDeLOeuf(saisie);
+    const tl = compile({ ...sc, steps: sc.steps.slice(0, 3) });
+    const nom = sc.steps[2].title;
+    return [...tl.scene.allNodes()].filter((n) => n.role === 'label' && n.text === nom).length;
   };
-
-  // ① La ligne unique : au-dessus, et centré sur elle.
-  const un = oux(scenarioDeLOeuf('cheval sur oiseau = pi'));
-  assert.ok(un.p.y < un.haut, `le titre doit surmonter la ligne (${un.p.y} vs ${un.haut})`);
-
-  // ② La fraction : au coin bas-droit, hors du contenu des DEUX côtés.
-  const deux = oux(scenarioDeLOeuf('cheval sur oiseau'));
-  assert.ok(deux.p.y > deux.bas,
-    `la signature doit être SOUS le dernier rang (${deux.p.y} vs ${deux.bas})`);
-  assert.ok(deux.p.x >= deux.droite,
-    `la signature doit être à DROITE du contenu (${deux.p.x} vs ${deux.droite})`);
+  assert.equal(ateliers('cheval sur oiseau'), 4,
+    'deux synthèses au numérateur, deux au dénominateur');
+  assert.equal(ateliers('cheval sur oiseau = pi'), 5,
+    'plus celle du « pi » de l’énoncé — même geste, même appareillage');
 });
 
 test('★ œuf — chaque étape porte son titre de registre', () => {

@@ -377,13 +377,26 @@ function etapes(mots, pi) {
         barre de fraction » (l'auteur). Les regrouper aurait fait paraître
         quatre β et π d'un coup, sans qu'on voie lequel vient d'où.
 
-        ★ **ET UN CINQUIÈME TEMPS QUAND L'ÉNONCÉ PORTE SON « = pi ».** Ce
-          `pi`-là devient π lui aussi, et il lui faut sa place dans l'étape —
-          voir le `substitute` plus bas, qui dit pourquoi il ne peut pas la
-          prendre sur celle d'un atelier voisin. `decalPi` est ce qu'il coûte
-          au reste de l'étape, et il vaut ZÉRO dans l'autre branche : celle-là
-          n'a rien à convertir, donc rien à attendre. */
-  const decalPi = pi ? 1500 : 0;
+        ★ **ET UN CINQUIÈME ATELIER QUAND L'ÉNONCÉ PORTE SON « = pi ».**
+
+          > « Il n'empêche qu'on convertit Pi en π : c'est une synthèse
+          >   phonétique aussi. Donc que ce soit pie ou Pi ou pi, ça reste une
+          >   conversion vers le symbole mathématique. Je veux donc le même
+          >   appareillage et processus que pour pie ou bête à. » (l'auteur)
+
+          ⚠️ J'avais donné à celui-là un traitement au rabais — une désignation,
+            un fondu, un battement — au motif qu'il est RECOPIÉ de l'énoncé et
+            non démontré. L'argument est faux, et l'auteur le dit exactement :
+            ce qui définit le geste n'est pas d'où vient le mot, c'est ce qu'on
+            lui fait. Passer de trois lettres à un signe est une synthèse
+            phonétique, que le mot vienne d'une qualification animale ou de la
+            saisie. Deux traitements pour un même geste auraient dit qu'il y a
+            deux gestes.
+
+          `decalPi` est ce que ce cinquième atelier coûte au reste de l'étape,
+          et il vaut ZÉRO dans l'autre branche : celle-là n'a rien à convertir,
+          donc rien à attendre. */
+  const decalPi = pi ? 3000 : 0;
   const s3 = {
     id: 's_oeuf_3',
     title: dire('synthese'),
@@ -426,24 +439,19 @@ function etapes(mots, pi) {
          Il se pose donc À LA SUITE, à l'instant où le π du numérateur vient de
          prendre sa place : les deux π sont neufs du même temps de la
          démonstration, ce qui est ce que l'auteur demande. */
-      /* ★ **ET ELLE DOIT SE VOIR.** « Il manque l'animation pour la conversion
-         du Pi à droite du = » (l'auteur). Un `substitute` de un vers un fait un
-         fondu croisé SUR PLACE : à trois lettres d'un atelier qui déploie une
-         accolade et fait coulisser une expression, il passe pour un changement
-         de rendu, pas pour un geste. On l'encadre donc de ce qui DÉSIGNE — la
-         lettre s'allume avant, le symbole bat après — sans lui ouvrir un
-         atelier, qu'il ne mérite pas : ce « pi » est recopié de l'énoncé, il
-         n'est pas démontré, et lui donner une accolade lui prêterait une
-         justification qu'il n'a pas. */
+      /* Le « pi » de l'énoncé : MÊME atelier, même accolade, même règle nommée
+         que les quatre autres. Il s'ouvre vers le HAUT, comme ceux du
+         numérateur : la zone au-dessus de lui est libre — le numérateur et le
+         dénominateur sont centrés sur l'axe du trait, donc à sa gauche —, alors
+         qu'en dessous il rencontrerait le dénominateur. */
       ...(pi ? [{
-        op: 'highlight', targets: ['pi'], at: 4400, dur: 700,
-      }, {
-        op: 'substitute',
-        pairs: [{ target: 'pi', to: tok('P2', 'π') }],
+        op: 'convert',
+        targets: ['pi'],
+        to: [tok('P2', 'π')],
+        label: dire('synthese'),
+        sens: 'haut',
         at: 5200,
-        dur: 900,
-      }, {
-        op: 'pulse', targets: ['P2'], at: 6100, dur: 700,
+        dur: 2400,
       }] : []),
       { op: 'rule', id: 'barre', couvre: { all: true }, at: 4600 + decalPi, dur: 700 },
       {
