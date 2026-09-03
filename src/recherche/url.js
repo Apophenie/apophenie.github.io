@@ -494,7 +494,34 @@ export function codesEcrits(codes) {
   const sortie = liste.filter((c) => !CODES_IMPLICITES.includes(c));
   return sortie.length ? sortie : liste;
 }
-const RE_PORTEE = /^(\d+)\.(\d+)$/;
+/**
+ * ★ **UNE PORTÉE D'UN SEUL JETON S'ÉCRIT SANS SA LONGUEUR.**
+ *
+ * > « Vu l'omniprésence de .1 dans les fragments, on peut considérer que si ce
+ * >   n'est pas précisé c'est .1 » (l'auteur), et l'exemple qu'il donne :
+ * >   `0.1+2.1+4.1:tca+m14,…` devient `0+2+4:tca+m14,…`.
+ *
+ * La longueur reste ÉCRITE dès qu'elle vaut autre chose — `3.5` existe, et
+ * c'était l'objection qui interdisait de supprimer le champ. Mais interdire de
+ * le supprimer n'obligeait pas à l'écrire quand il ne dit rien : `.1` est la
+ * valeur de très loin la plus fréquente, et la répéter à chaque tête charge
+ * l'URL d'un signe et demi par place sans jamais rien distinguer.
+ *
+ * ★ **L'ALLER-RETOUR RESTE EXACT**, et par le même argument que pour `tca` :
+ *   `0` ne peut vouloir dire QUE `0.1`, puisque la longueur omise a une valeur
+ *   et une seule. Il n'existe aucune écriture où l'omission perdrait une
+ *   information ; c'est ce qui autorise à la taire plutôt qu'à l'abréger.
+ */
+const RE_PORTEE = /^(\d+)(?:\.(\d+))?$/;
+
+/** La longueur qu'une tête sans point désigne. */
+export const LONGUEUR_IMPLICITE = 1;
+
+/** Une portée telle qu'on l'ÉCRIT : sans sa longueur quand elle vaut un. */
+function ecrirePortee(portee) {
+  const n = portee.longueur;
+  return n === LONGUEUR_IMPLICITE ? String(portee.offset) : `${portee.offset}.${n}`;
+}
 const RE_RESONANCE = /^[×xX*](\d+)$/;
 const RE_RANGS = /^\d+(\+\d+)*$/;
 
@@ -1092,7 +1119,8 @@ function lireFragments(brut) {
     //   tableau par fragment : partager le même laisserait deux descripteurs
     //   liés par un alias, ce qu'aucun appelant n'attend.
     sortie.push({
-      portee: { offset: Number(mp[1]), longueur: Number(mp[2]) },
+      // `mp[2]` absent : la tête n'a pas de point, donc un seul jeton.
+      portee: { offset: Number(mp[1]), longueur: mp[2] === undefined ? LONGUEUR_IMPLICITE : Number(mp[2]) },
       resonance: null,
       codes: codes.slice(),
     });
@@ -1271,7 +1299,7 @@ export function ecrireApproche(fragments) {
   const groupes = new Map();
   for (const f of fragments) {
     const programme = codesEcrits(f.codes).join('+');
-    const place = `${f.portee.offset}.${f.portee.longueur}`;
+    const place = ecrirePortee(f.portee);
     const deja = groupes.get(programme);
     if (deja) deja.push(place);
     else groupes.set(programme, [place]);
@@ -1311,7 +1339,7 @@ function factorisable(fragments) {
 function ecrireFragment(f) {
   const programme = codesEcrits(f.codes).join('+');
   if (f.resonance) return `×${f.resonance}:${programme}`;
-  if (f.portee) return `${f.portee.offset}.${f.portee.longueur}:${programme}`;
+  if (f.portee) return `${ecrirePortee(f.portee)}:${programme}`;
   return programme;
 }
 

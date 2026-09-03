@@ -1,0 +1,178 @@
+/**
+ * ★ LA BARRE DE TRANSPORT — l'ordre des contrôles, et le sélecteur de vitesse.
+ *
+ * Il n'y avait aucun test ici, et l'ordre des boutons n'est pas décoratif : il
+ * dit la PORTÉE de chacun. C'est ce que l'auteur a corrigé — « à placer avant
+ * redites pour éviter qu'on pense que c'est aux redites qu'il s'applique » —,
+ * et rien ne l'aurait retenu.
+ */
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+/* ── un document de laboratoire, comme dans `resultat.test.js` ───────────── */
+
+class Noeud {
+  constructor(balise) {
+    this.tagName = balise;
+    this.enfants = [];
+    this.classes = new Set();
+    this.attributs = {};
+    this.textContent = '';
+    this.dataset = {};
+    this.style = {};
+    this.classList = {
+      add: (c) => this.classes.add(c),
+      remove: (c) => this.classes.delete(c),
+      contains: (c) => this.classes.has(c),
+      toggle: (c) => this.classes.add(c),
+    };
+  }
+
+  set className(v) { this.classes = new Set(String(v).split(/\s+/).filter(Boolean)); }
+
+  get className() { return [...this.classes].join(' '); }
+
+  set innerHTML(v) { this.propre = String(v); }
+
+  setAttribute(k, v) { this.attributs[k] = String(v); }
+
+  getAttribute(k) { return k in this.attributs ? this.attributs[k] : null; }
+
+  removeAttribute(k) { delete this.attributs[k]; }
+
+  addEventListener(nom, cb) { (this.ecouteurs ||= {})[nom] = cb; }
+
+  appendChild(n) { this.enfants.push(n); return n; }
+
+  replaceChild(neuf, ancien) {
+    const i = this.enfants.indexOf(ancien);
+    if (i >= 0) this.enfants[i] = neuf; else this.enfants.push(neuf);
+    return ancien;
+  }
+
+  querySelector(sel) {
+    const classe = sel.replace(/^\./, '');
+    for (const n of parcourir(this)) if (n !== this && n.classes.has(classe)) return n;
+    return null;
+  }
+
+  get firstChild() { return this.enfants[0] || null; }
+}
+
+function* parcourir(noeud) {
+  if (!noeud || !noeud.tagName) return;
+  yield noeud;
+  for (const enfant of noeud.enfants) yield* parcourir(enfant);
+}
+
+globalThis.document = {
+  createElement: (b) => new Noeud(b),
+  createElementNS: (_ns, b) => new Noeud(b),
+  createTextNode: (d) => ({ textContent: String(d) }),
+};
+
+const { creerTransport } = await import('./transport.js');
+const { fr } = await import('../i18n/fr.js');
+
+/** Un lecteur de façade : juste ce que la barre lit (le contrat §3.3). */
+const lecteurFactice = (extra = {}) => ({
+  steps: [{ title: 'une' }, { title: 'deux' }],
+  vitesse: 1,
+  reduced: false,
+  playing: false,
+  atStart: true,
+  atEnd: false,
+  atHinge: false,
+  stepIndex: 0,
+  currentTime: 0,
+  total: 1000,
+  on: () => () => {},
+  seekToStep() {}, toStart() {}, prev() {}, next() {}, toEnd() {}, play() {}, pause() {},
+  ...extra,
+});
+
+const roles = (transport) => [...parcourir(transport.element)]
+  .filter((n) => n.dataset && n.dataset.role)
+  .map((n) => n.dataset.role);
+
+/* ═════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ★ **L'ORDRE PORTE UNE PORTÉE, ET L'ADJACENCE SE LIT COMME UNE SUBORDINATION.**
+ *
+ * > « À placer avant redites pour éviter qu'on pense que c'est aux redites
+ * >   qu'il s'applique. » (l'auteur)
+ *
+ * Je l'avais mis APRÈS, au motif que les deux règlent le rythme. Mauvais
+ * argument : « redites accélérées » suivi de « vitesse » se lit « la vitesse
+ * des redites », ce qui est faux — la vitesse porte sur toute la lecture, les
+ * redites sur ce qui se répète. Le plus général passe devant.
+ */
+test('★ transport — la vitesse précède les redites', () => {
+  const tr = creerTransport(lecteurFactice(), {}, { repetitions: 5 });
+  const ordre = roles(tr);
+  const iVitesse = ordre.indexOf('vitesse');
+  const iRedites = ordre.indexOf('redites');
+  assert.ok(iVitesse >= 0, 'le sélecteur de vitesse manque');
+  assert.ok(iRedites >= 0, 'la bascule des redites manque');
+  assert.ok(iVitesse < iRedites,
+    `la vitesse doit précéder les redites, vu ${ordre.join(' → ')}`);
+});
+
+/**
+ * ★ **IL RESSEMBLE AUX AUTRES, ET C'EST TOUT L'INTÉRÊT DU `<select>` COUVRANT.**
+ *
+ * > « Homogénéise le design : x1 doit être à la même hauteur et taille que les
+ * >   picto, et juste en dessous, même police que pour le reste, "vitesse". »
+ * >   (l'auteur)
+ *
+ * Un `<select>` n'affiche que le texte de son option et ne sait pas porter deux
+ * lignes. On dessine donc le bouton comme les six autres — une zone de la
+ * hauteur d'une icône, un libellé dessous — et le `<select>` s'étale par-dessus,
+ * invisible : il garde son clavier, son nom accessible et le sélecteur roulant
+ * des mobiles.
+ */
+test('★ transport — le facteur tient la place d’une icône, sous son libellé', () => {
+  const tr = creerTransport(lecteurFactice(), {}, { repetitions: 5 });
+  const bouton = [...parcourir(tr.element)].find((n) => n.dataset.role === 'vitesse');
+  const facteur = [...parcourir(bouton)].find((n) => n.classes.has('transport__facteur'));
+  const libelle = [...parcourir(bouton)].find((n) => n.classes.has('transport__libelle'));
+  assert.ok(facteur, 'le facteur manque');
+  assert.equal(facteur.textContent, fr.transport.vitesseFacteur.replace('{n}', '1'));
+  assert.ok(libelle, 'le libellé manque');
+  assert.equal(libelle.textContent, fr.transport.vitesseCourt);
+  // ★ NI LIÈVRE NI TORTUE : « vu le design, abandonne les lièvre et tortue »
+  //   (l'auteur). Deux systèmes de signes dans une même rangée — des émoji en
+  //   couleur à côté de six icônes tracées — c'est une rangée qui n'en est plus
+  //   une. Le facteur dit tout ce que l'animal disait, et plus précisément.
+  const tout = [...parcourir(bouton)].map((n) => n.textContent).join('');
+  assert.ok(!/[🐇🐢]/u.test(tout), 'les animaux ne reviennent pas');
+});
+
+test('★ transport — les treize vitesses, et le nom accessible sur le select', () => {
+  const tr = creerTransport(lecteurFactice(), {}, { repetitions: 5 });
+  const choix = [...parcourir(tr.element)].find((n) => n.classes.has('transport__vitesse-choix'));
+  assert.ok(choix, 'le select manque');
+  assert.equal(choix.getAttribute('aria-label'), fr.transport.vitesse);
+  const options = [...parcourir(choix)].filter((n) => n.tagName === 'option');
+  assert.equal(options.length, 13, 'les treize valeurs demandées');
+  // ★ LA PLUS RAPIDE EN HAUT : la liste se déroule vers le bas, et l'œil qui
+  //   descend doit voir le rythme RALENTIR. C'est la convention des lecteurs en
+  //   ligne, et l'ordre du geste plutôt que celui du tableur.
+  assert.equal(options[0].getAttribute('value'), '10');
+  assert.equal(options[options.length - 1].getAttribute('value'), '0.25');
+  // ⚠️ La DÉCIMALE en français s'écrit avec une virgule, sans `Intl` (§4.4).
+  assert.equal(options[options.length - 1].textContent, '×0,25');
+});
+
+/**
+ * ⚠️ **PAS DE RÉGLAGE QUI NE PUISSE AGIR** — même règle que le son et le plein
+ *   écran. Sous `prefers-reduced-motion` ou sans WAAPI, le moteur ne joue pas :
+ *   il pose l'image d'un instant. Régler la vitesse d'une image fixe serait
+ *   exactement le mensonge que cette barre s'interdit.
+ */
+test('★ transport — pas de sélecteur quand le mouvement est réduit', () => {
+  const tr = creerTransport(lecteurFactice({ reduced: true }), {}, { repetitions: 5 });
+  assert.ok(!roles(tr).includes('vitesse'), 'un réglage inerte ne s’affiche pas');
+});

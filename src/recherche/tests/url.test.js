@@ -124,15 +124,15 @@ test('url — écriture canonique : aller-retour exact', () => {
 //   CODE_DECOUPE_IMPLICITE`). Un lien qui le porte reste LU — c'est vérifié
 //   plus bas —, mais la forme canonique, celle que `canoniser()` remet dans la
 //   barre d'adresse, s'en passe.
-const GROUPE = 'so!0.1+2.1+4.1:m14,1.1+3.1:mtc+cs,6.1:mpy+mr9';
+const GROUPE = 'so!0+2+4:m14,1+3:mtc+cs,6:mpy+mr9';
 // ★ La forme dépliée est celle de l'ORDRE DU TEXTE, et non celle de l'ordre
 //   des groupes : une ligne groupée déclare se lire de gauche à droite, et le
 //   dépliage l'y remet (`url.js › lireFragments`). C'est ce qui rend la
 //   factorisation neutre — sans quoi `0.1+2.1:A,1.1:B` dirait 0, 2, 1.
 // ★ Sans `tca`, comme `GROUPE` : les deux formes se comparent, elles doivent
 //   donc s'écrire dans le même alphabet.
-const DEPLIE = 'so!0.1:m14,1.1:mtc+cs,2.1:m14,'
-  + '3.1:mtc+cs,4.1:m14,6.1:mpy+mr9';
+const DEPLIE = 'so!0:m14,1:mtc+cs,2:m14,'
+  + '3:mtc+cs,4:m14,6:mpy+mr9';
 
 test('★ portées groupées — la forme de l’auteur se lit, et se déplie', () => {
   const r = lire(`#${GROUPE}#${B58_URL}`);
@@ -212,7 +212,7 @@ test('★ portées groupées — l’écriture les PRODUIT : l’aller-retour es
 test('★ portées groupées — les éloignées se groupent, et l’ordre du texte est rendu', () => {
   const place = (offset, codes) => ({ portee: { offset, longueur: 1 }, resonance: null, codes });
   const alterne = [place(0, ['ma1']), place(1, ['nv']), place(2, ['ma1'])];
-  assert.equal(ecrireApproche(alterne), '0.1+2.1:ma1,1.1:nv',
+  assert.equal(ecrireApproche(alterne), '0+2:ma1,1:nv',
     'deux places de même programme se rejoignent, même séparées');
   // …et la relecture rend l'ordre du TEXTE, pas celui des groupes : c'est ce
   // qui rend la factorisation neutre.
@@ -223,14 +223,14 @@ test('★ portées groupées — les éloignées se groupent, et l’ordre du te
 
   // Trois voisines se groupent aussi, comme avant.
   assert.equal(ecrireApproche([place(0, ['ma1']), place(2, ['ma1']), place(4, ['ma1'])]),
-    '0.1+2.1+4.1:ma1');
+    '0+2+4:ma1');
   assert.equal(ecrireApproche([place(0, ['ma1']), place(1, ['ma1']), place(2, ['nv']), place(3, ['nv'])]),
-    '0.1+1.1:ma1,2.1+3.1:nv');
+    '0+1:ma1,2+3:nv');
 
   // ★ Et une ligne dont les places ne sont PAS dans l'ordre du texte s'écrit à
   //   plat : la factoriser lui imposerait un ordre qu'elle n'a pas choisi.
   assert.equal(ecrireApproche([place(2, ['ma1']), place(0, ['nv']), place(4, ['ma1'])]),
-    '2.1:ma1,0.1:nv,4.1:ma1', 'une ligne à contre-sens du texte reste à plat');
+    '2:ma1,0:nv,4:ma1', 'une ligne à contre-sens du texte reste à plat');
 });
 
 
@@ -242,7 +242,7 @@ test('★ portées groupées — ce qui n’a pas de place ne se groupe pas', ()
   // La résonance nomme DÉJÀ plusieurs places : elle reste seule en tête.
   const reso = { portee: null, resonance: 3, codes: ['ma1'] };
   assert.equal(ecrireApproche([reso, { portee: { offset: 9, longueur: 1 }, resonance: null, codes: ['ma1'] }]),
-    '×3:ma1,9.1:ma1');
+    '×3:ma1,9:ma1');
   // Et à la lecture, une résonance ne rejoint pas un groupe : `×3` n'est pas
   // une portée, le fragment est simplement illisible.
   const r = lire(`#×3+0.1:ma1#${B58_URL}`);
@@ -265,8 +265,17 @@ test('★ portées groupées — le groupe n’ajoute ni ne retire aucune valida
   // Une place répétée est acceptée parce que `0.1:ma1,0.1:ma1` l'était déjà :
   // le groupe est un raccourci d'écriture, jamais un contrôle de plus.
   assert.equal(lire(`#0.1+0.1:ma1#${B58_URL}`).fragments.length, 2);
-  // Une tête mal formée reste illisible, groupée ou non.
-  for (const tete of ['0.1+', '+0.1', '0.1+2', '0.1+2.', '0.1++2.1']) {
+  /* ★ **UNE TÊTE SANS POINT EST DÉSORMAIS VALIDE** — elle vaut `.1`, c'est
+     l'abréviation demandée par l'auteur (« vu l'omniprésence de .1 […] si ce
+     n'est pas précisé c'est .1 »). `0.1+2` mêle donc les deux graphies et se
+     lit sans peine : ce n'est plus une tête mal formée, c'est une tête écrite
+     à moitié court. */
+  assert.equal(lire(`#0.1+2:ma1#${B58_URL}`).forme, 'canonique');
+  assert.deepEqual(lire(`#0.1+2:ma1#${B58_URL}`).fragments.map((f) => f.portee),
+    [{ offset: 0, longueur: 1 }, { offset: 2, longueur: 1 }]);
+  // Une tête mal formée, elle, reste illisible — groupée ou non. Le point SANS
+  // chiffre derrière en est une : abréger n'est pas tolérer.
+  for (const tete of ['0.1+', '+0.1', '0.1+2.', '0.1++2.1', '0.']) {
     const r = lire(`#${tete}:ma1#${B58_URL}`);
     assert.equal(r.forme, 'invalide', tete);
     assert.ok(r.bandeau, tete);
@@ -369,7 +378,7 @@ test('★ url — aller-retour d’une retouche, au caractère près', () => {
      défaut, réinséré à la lecture (`url.js › CODE_DECOUPE_IMPLICITE`). Les liens
      qui le PORTENT restent lisibles — ceux d'hier le font —, mais la forme
      canonique s'en passe. Ce qui est comparé ici est une ÉCRITURE, donc sans. */
-  const lien = `#so!2.1:fr13;fl+mtal+m14+mpf#${encoderTexte('Donald Trump')}`;
+  const lien = `#so!2:fr13;fl+mtal+m14+mpf#${encoderTexte('Donald Trump')}`;
   const r = lire(lien);
   assert.equal(ecrire({
     saisie: r.saisie, retouches: r.retouches, fragments: r.fragments, registre: r.registre,

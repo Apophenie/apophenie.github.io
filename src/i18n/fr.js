@@ -348,6 +348,7 @@ export const fr = {
 
   transport: {
       vitesse: 'Vitesse de lecture',
+      vitesseCourt: 'Vitesse',
       vitesseFacteur: '×{n}',
     groupe: 'Contrôles de la démonstration',
     jauge: 'Aller à une étape',
@@ -441,6 +442,7 @@ export const fr = {
   },
 
   bandeaux: {
+    cheminIntrouvable: 'Cette adresse n’existe pas sur ce site\u202f; voici la page d’accueil. Si vous suiviez un lien de démonstration, il a été rejoué ci-dessous.',
     urlAbsente: 'La grammaire d’URL n’a pas pu être chargée : la navigation par lien '
       + 'est désactivée. {raison}',
     lienIllisible: 'Ce lien n’a pas pu être lu.',

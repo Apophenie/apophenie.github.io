@@ -543,7 +543,7 @@ test('★ retouche — « Donald Trump » : on chiffre un mot, puis on lit le to
   { skip: compile && Scene ? false : 'src/visuel/ absent' }, () => {
     const m = creerMoteur(catalogue);
     const b58 = encoderTexte('Donald Trump');
-    const lien = `#so!2.1:fr13;fl+tca+mtal+m14+mpf#${b58}`;
+    const lien = `#so!2:fr13;fl+tca+mtal+m14+mpf#${b58}`;
 
     const lu = lireUrl(lien, { catalogue });
     assert.equal(lu.forme, 'canonique');
@@ -576,7 +576,7 @@ test('★ retouche — « Donald Trump » : on chiffre un mot, puis on lit le to
             s'écrive plus). Le lien d'entrée le porte — et il reste lu, c'est
             tout l'objet des assertions précédentes —, la forme canonique s'en
             passe. Ce qu'on gèle ici est donc l'écriture, pas l'entrée. */
-    assert.equal(a.url, `#so!2.1:fr13;fl+mtal+m14+mpf#${b58}`);
+    assert.equal(a.url, `#so!2:fr13;fl+mtal+m14+mpf#${b58}`);
 
     // 4. La règle affichée NOMME l'étage amont : taire le chiffrement
     //    annoncerait une méthode qui ne mène pas au résultat montré.
@@ -669,7 +669,7 @@ test('★ retouche — un programme qui ne rend PAS du texte est refusé, en le 
   assert.equal(nombres.raison, 'retouche non textuelle');
   // Et le programme EXACT de l'auteur, sans `fl` : `m14` n'a pas de segment
   // pour l'espace que `tca` a fait naître entre les deux mots.
-  const sansFiltre = m.rejouer(lireUrl(`#so!2.1:fr13;tca+mtal+m14+mpf#${b58}`, { catalogue }));
+  const sansFiltre = m.rejouer(lireUrl(`#so!2:fr13;tca+mtal+m14+mpf#${b58}`, { catalogue }));
   assert.equal(sansFiltre.ok, false);
   assert.equal(sansFiltre.raison, 'programme inapplicable');
 });

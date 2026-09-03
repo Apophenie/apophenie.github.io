@@ -73,6 +73,47 @@
 }
 .transport__bouton:hover { border-color: var(--line-ui); }
 .transport__bouton svg { width: 24px; height: 24px; flex: none; }
+
+/* ★ LE FACTEUR DE VITESSE TIENT LA PLACE D'UNE ICÔNE — mêmes 24 px de haut que
+   les six tracés de la rangée, et le libellé dessous comme partout ailleurs.
+   « x1 doit être à la même hauteur et taille que les picto, et juste en
+   dessous, même police que pour le reste, "vitesse" » (l'auteur). Sans cette
+   hauteur imposée, un « ×10 » et un « ×1 » ne feraient pas la même boîte et la
+   rangée se mettrait à danser au changement de valeur. */
+.transport__facteur {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  font-family: var(--machine);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+  flex: none;
+}
+
+/* Le `<select>` couvre le bouton, invisible : il garde son clavier, son nom
+   accessible et le sélecteur roulant des mobiles, pendant que l'œil ne voit
+   qu'un bouton de la même famille que les six autres. */
+.transport__vitesse { position: relative; }
+.transport__vitesse-choix {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+  font: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+/* Le focus du `<select>` ne se voit pas — il est transparent : c'est le bouton
+   qui le porte, comme il porterait le sien. */
+.transport__vitesse:focus-within { border-color: var(--line-ui); }
+.transport__vitesse:focus-within .transport__facteur { color: var(--gold); }
 .transport__libelle {
   display: none;
   font-family: var(--machine);

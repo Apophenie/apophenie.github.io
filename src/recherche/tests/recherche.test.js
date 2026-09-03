@@ -735,7 +735,12 @@ test('rejeu — une URL canonique est rejouée SANS relancer la recherche', () =
     //   barre d'adresse. Sans cette égalité, un lien groupé s'allongerait tout
     //   seul à chaque ouverture.
     assert.equal(rejoue.approche.url, a.url, `URL stable pour ${a.url}`);
-    if (/\d\.\d+\+\d/.test(a.url)) groupees++;
+    // ⚠️ La marque d'un GROUPE est le `+` dans la TÊTE, pas le point : depuis
+    //    que `.1` s'omet (`url.js › ecrirePortee`), une URL groupée s'écrit
+    //    `0+2+4:` et le motif d'hier — qui exigeait un point — n'en reconnaissait
+    //    plus AUCUNE. Le test passait alors sur un lot vide, ce que son propre
+    //    garde-fou a heureusement dit tout haut.
+    if (/(?:^|[#!,])\d+(?:\.\d+)?\+\d/.test(a.url)) groupees++;
   }
   // Cette saisie-là en produit : le cas est réellement traversé, pas supposé.
   assert.ok(groupees >= 1, 'aucune URL groupée dans le lot : le rejeu ne prouve rien ici');
@@ -1465,7 +1470,7 @@ test('★ retouches — la recherche RETROUVE le geste décrit par l’auteur', 
   // Les CODES nomment l'étage amont, exactement comme le lien l'écrit : sans
   // quoi deux voies qui ne diffèrent que par leur retouche seraient
   // indiscernables et l'ordre total cesserait d'être total (§4.4-1).
-  assert.match(voie.codes, /^\d+\.1:[a-z0-9]+;/);
+  assert.match(voie.codes, /^\d+(?:\.\d+)?:[a-z0-9]+;/);
 
   // Et le lien rejoue EXACTEMENT ce que la liste affiche (§4.3).
   const rejeu = AVEC_RETOUCHES().rejouer(lire(voie.url, { catalogue }));

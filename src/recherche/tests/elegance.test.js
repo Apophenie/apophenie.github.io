@@ -1502,7 +1502,7 @@ test('★ classements — les trois sont des ordres TOTAUX et STRICTS', () => {
    sortie, et il ne fait pas tomber la suite. Le jour où l'arbitrage tombe, on
    retire le drapeau — et si le test passe entre-temps, `node:test` le signale
    comme « todo réussi », ce qui est précisément l'alerte qu'on veut. */
-test('★ étalonnage — les quatre cas de référence gardent leur tête de liste', { todo: 'arbitrage « Macron » ouvert : `tca+mt9+mpf` contre `fr13+tca+m14+meg`' }, () => {
+test('★ étalonnage — les quatre cas de référence gardent leur tête de liste', () => {
   const m = creerMoteur(catalogue, { filetTemporel: false });
   /* ★ **LES COMPTES ONT MONTÉ D'UNE SÉRIE, ET « Donald Trump » A CHANGÉ DE
      VOIE.** `MAX_SERIES` rabotait le comptage : sept séries démontrées en
@@ -1516,13 +1516,24 @@ test('★ étalonnage — les quatre cas de référence gardent leur tête de li
     ['hope-hope-hope.fr', 'MOISSON', 6, null],
     ['https://hope-hope-hope.fr/', 'MOISSON', 7, null],
     ['Donald Trump', 'MOISSON', 3, null],
-    // ★ **`Macron` CHANGE DE RÉFÉRENCE, ET C'EST L'AUTEUR QUI LA NOMME.**
-    //   « Pour Macron, `#so!tca+mt9+mpf` me semble optimal : les 666 ne sont pas
-    //   contigus, mais le procédé se fait en très peu d'étapes, ce qui est mieux
-    //   qu'avec `fr13` ou `mtal`. » La voie César existe toujours et se joue —
-    //   avec `mpf` en dernier geste elle vaut 892 contre 652 avec `m36` —, mais
-    //   ce n'est plus elle qu'on met en vitrine.
-    ['Macron', 'GROUPEMENT', 1, 'tca+mt9+mpf'],
+    /* ★ **`Macron` : L'ARBITRAGE EST TRANCHÉ, ET IL VA À LA VOIE FOURNIE.**
+
+       L'auteur avait d'abord nommé `tca+mt9+mpf` — « très peu d'étapes ». Puis,
+       remis devant les deux : « priorité élégance : `#mt9#` ; priorité
+       quantité : `#sce!fr13+tca+m14+meg#`. […] Si c'est vraiment plus simple de
+       garder le 2ᵈ côté score, ok pour celui de droite en premier. »
+
+       C'est plus simple, et surtout c'est ce que le barème dit déjà sans qu'on
+       le pousse : `fr13+tca+m14+meg` ne jette rien (R = 1 000) et aligne deux
+       séries, quand `tca+mt9+mpf` calcule six valeurs pour en garder trois.
+       Deux règles de l'auteur se contredisaient sur ce cas — la concision
+       contre l'usage maximal de la saisie — et c'est lui qui vient de dire
+       laquelle prime ICI.
+
+       ⚠️ La voie brève n'a pas disparu : elle se joue toujours, au rang 7, et
+         son lien tient en quatre signes (`#mt9#`) depuis que `tca` est
+         implicite. Ce que ce test gèle, c'est la VITRINE, pas le catalogue. */
+    ['Macron', 'GROUPEMENT', 2, 'fr13+tca+m14+meg'],
   ];
   for (const [saisie, mode, series, codes] of attendu) {
     // ★ AMENDEMENT — « la tête de liste » est devenue DEUX lignes, parce que

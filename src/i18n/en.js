@@ -288,6 +288,7 @@ export const en = {
 
   transport: {
       vitesse: 'Playback speed',
+      vitesseCourt: 'Speed',
       vitesseFacteur: '×{n}',
     groupe: 'Demonstration controls',
     jauge: 'Jump to a step',
@@ -364,6 +365,7 @@ export const en = {
   },
 
   bandeaux: {
+    cheminIntrouvable: 'This address does not exist on this site; here is the home page. If you were following a demonstration link, it has been replayed below.',
     urlAbsente: 'The URL grammar could not be loaded: link navigation is disabled. {raison}',
     lienIllisible: 'This link could not be read.',
     voieInconnue: 'This path is absent from our records: the engine cannot replay it.',

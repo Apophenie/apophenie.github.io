@@ -53,7 +53,17 @@
  *   cornes sur un 666 seul (`visuel/primitives/reveal.js`), les places réservées
  *   à la qualité (`recherche/assemblage.js › vecteursDeSix`).
  *
- * ★ **DEUX DE PLUS SONT SORTIS, ET ON DIT LEQUEL EST VÉRIFIABLE.**
+ * ★ **DEUX AUTRES SONT SORTIS DEPUIS, TRANCHÉS PAR L'AUTEUR.**
+ *
+ *  · **`hope` — effacer le 4ᵉ 6, ou le laisser exploser au verdict.** « La 2ᵈ,
+ *    `#sce!m14#`, sans hésitation. » C'est la voie sans `m36`, et elle confirme
+ *    la dépréciation de l'opérateur : le verdict fait le travail, sans étape.
+ *  · **`Macron` — 1ʳᵉ place.** « Priorité élégance : `#mt9#` ; priorité
+ *    quantité : `#sce!fr13+tca+m14+meg#`. […] Si c'est vraiment plus simple de
+ *    garder le 2ᵈ côté score, ok pour celui de droite en premier. » C'est ce
+ *    que le barème faisait déjà ; le test d'étalonnage n'est plus `todo`.
+ *
+ * ★ **DEUX DE PLUS ÉTAIENT SORTIS AVANT EUX.**
  *
  *  · **`Donald Trump` — la plus courte contre celle qui emploie tout.** Arbitré
  *    ET APPLIQUÉ : la voie gaspilleuse (`fl+tca+m14`, onze valeurs calculées
@@ -64,11 +74,17 @@
  *    lui-même arbitré (« gardé pour vérification »), et son barème est en place
  *    (`elegance.js › LECTURE_DIVERGENTE`, 240 par lecture surnuméraire).
  *
- * ★ **CE QUI RESTE OUVERT NE TIENT QU'À UNE CHOSE : deux règles de l'auteur qui
- *   se contredisent sur `Macron`**, et cela ne se tranche pas au calcul. Le cas
- *   `hope` de 1ʳᵉ place a la même racine — concision contre usage maximal de la
- *   saisie —, et les quatre tests `todo` qui rougissent aujourd'hui n'attendent
- *   que cette réponse-là.
+ * ★ **CE QUI RESTE OUVERT.** Un seul cas, et l'auteur l'a lui-même déclaré
+ *   indécidable : « les deux sont tellement bien, vraiment je ne sais pas quoi
+ *   dire. Je vais assouplir : celle que tu veux en 1ᵉʳ résultat, mais l'autre
+ *   doit être en 3ᵉ. » Le cas reste ici pour ce qu'il montre — deux façons
+ *   opposées d'être bon sur la même saisie —, et non parce qu'il bloque.
+ *
+ * ⚠️ Les trois `todo` de moisson qui rougissent encore ne portent PAS sur ce
+ *   classement-là : ils gèlent la COMPOSITION de la récolte (les trois « hope »
+ *   en quatorze segments, le « fr » en sept segments), et le barème en compose
+ *   une autre aujourd'hui. C'est une question distincte, à laquelle la réponse
+ *   ci-dessus ne répond pas.
  *
  * ⚠️ **ET CE QUI N'A PAS SA PLACE ICI.** Un désaccord entre deux COMPTEURS n'est
  *   pas un arbitrage de goût : il a une bonne réponse, qu'on trouve en mesurant.
@@ -84,31 +100,6 @@
 
 /** Un cas : `{ id, place, titre, saisie, avant, apres }`. */
 export const CAS_ARBITRAGE = Object.freeze([
-  {
-    id: 'macron-jeter-ou-nommer',
-    place: 1,
-    titre: 'Macron — 1ʳᵉ place : la voie nommée jette la moitié de ce qu’elle calcule',
-    saisie: 'Macron',
-    /* ★ **DEUX RÈGLES DE L'AUTEUR SE CONTREDISENT ICI, ET C'EST TOUT LE CAS.**
-       Il a désigné `tca+mt9+mpf` comme optimal pour « Macron » — « les 666 ne
-       sont pas contigus, mais le procédé se fait en très peu d'étapes ». Puis,
-       sur `hope-hope-hope.fr` : « l'usage maximal de la saisie utilisateur est
-       à récompenser autant que possible ; même si l'autre est courte et que les
-       jetés/filtrés le sont de manière propre, ça ne doit pas compenser ».
-
-       Or `mpf` — « on ne garde que les majoritaires » — est structurellement un
-       JETEUR : la voie nommée calcule six valeurs et en garde trois.
-
-         à gauche  `tca+mt9+mpf`        3 étapes · R = 500 · 1 série
-         à droite  `fr13+tca+m14+meg`   4 étapes · R = 1 000 · 2 séries
-
-       ★ La question n'est pas « laquelle est la plus belle » mais : **le déchet
-         d'un opérateur qui ANNONCE qu'il écarte doit-il se payer comme celui
-         d'une voie qui gaspille sans le dire ?** `mpf` dit ce qu'il fait et le
-         montre à l'écran ; le rendement, lui, ne fait pas la différence. */
-    avant: '#sce!tca+mt9+mpf#fXvexbmf',
-    apres: '#sce!fr13+tca+m14+meg#fXvexbmf',
-  },
   {
     id: 'hope-place-1-brieve-ou-nommee',
     place: 1,
@@ -130,34 +121,5 @@ export const CAS_ARBITRAGE = Object.freeze([
          il en reste un, non identifié. */
     avant: '#sce!fl+tca+m14#yvQYkzhNVYJT8wM8jhvJxSM',
     apres: '#sce!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
-  },
-  {
-    id: 'hope-m36-ou-le-verdict',
-    place: 1,
-    titre: 'hope — 1ʳᵉ place : effacer le 4ᵉ 6, ou le laisser exploser au verdict',
-    saisie: 'hope',
-    /* ★ **UNE DÉCISION DÉJÀ PRISE, SOUMISE À VÉRIFICATION** — c'est le seul cas
-       de cette liste que je porte moi-même, et il faut le dire.
-
-       `m.troisSixDAffilee` est déprécié : le verdict fait désormais exploser le
-       surnuméraire d'une série UNIQUE, ce que `lesPlusCentraux` refusait au nom
-       d'une belle figure (« une explosion propulse, il lui faut quelqu'un à
-       pousser de chaque côté »). L'auteur a fait le compte que cette figure
-       oubliait : « quitte à jeter de toute façon le surplus à la fin, pourquoi
-       ne pas le faire durant le verdict, vu qu'il sait faire ça et le facture
-       moins cher ? ».
-
-         à gauche  `m14+m36`   une étape de plus, qui efface le 4ᵉ 6
-         à droite  `m14`       rien de plus, le 4ᵉ 6 explose au verdict
-
-       ⚠️ **CE QUI RESTE À VÉRIFIER À L'ŒIL**, et que la mesure ne dit pas : sur
-         une ligne MÊLÉE, `m36` disait « on s'arrête aux trois 6 d'affilée » là
-         où la récolte dit « on ne garde que les 6 ». J'ai jugé qu'une nuance de
-         formulation ne valait pas un opérateur qui taxait d'une étape toutes les
-         voies où il s'appliquait. Si l'explosion vous paraît moins parlante que
-         la phrase perdue, c'est ici qu'il faut le dire — un mot retiré au
-         `deprecated` le fait revenir. */
-    avant: '#sce!m14+m36#3fq9KJ',
-    apres: '#sce!m14#3fq9KJ',
   },
 ]);

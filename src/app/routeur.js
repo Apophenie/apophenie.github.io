@@ -381,6 +381,19 @@ export function router() {
 
   const lecture = pont.lireHash(hash);
   if (!lecture) { routeAccueil({ bandeau: t('bandeaux.lienIllisible') }); return; }
+  /* ★ **UNE ADRESSE INTROUVABLE N'EST PAS UN LIEN CASSÉ.**
+
+     Le serveur a rendu `404.html`, qui EST le site (voir
+     `vite.config.js › pageIntrouvable`) : seul le CHEMIN manquait. Or le site
+     vit dans le fragment, et le fragment n'est jamais envoyé au serveur — il
+     est donc arrivé intact. Un lien de démonstration partagé avec un chemin
+     fautif se rejoue tel quel ; on le laisse faire, et l'on ajoute seulement
+     le bandeau qui dit ce qui, lui, était vraiment perdu.
+
+     Le marqueur ne se lit qu'UNE FOIS : sans cela, le bandeau reviendrait à
+     chaque navigation dans l'onglet, longtemps après qu'on a quitté l'adresse
+     fautive. */
+  if (introuvable && !hash) { routeAccueil({ bandeau: t('bandeaux.cheminIntrouvable') }); return; }
 
   switch (lecture.forme) {
     case 'resultats':
@@ -424,7 +437,22 @@ export function router() {
   }
 }
 
+/**
+ * ★ Le document servi est-il la page 404 ? Le marqueur est un `<template>` posé
+ *   au build, invisible et non stylé — voir `vite.config.js › pageIntrouvable`.
+ *   Il se consomme au premier passage : un bandeau d'adresse fautive n'a rien à
+ *   dire des navigations suivantes.
+ */
+let introuvable = false;
+
 export function demarrer() {
+  const marque = typeof document !== 'undefined'
+    && document.getElementById && document.getElementById('page-introuvable');
+  if (marque) {
+    introuvable = true;
+    if (marque.remove) marque.remove();
+  }
+
   // Changer de langue reconstruit la page entière : les titres d'étape, les
   // libellés d'opérateurs et jusqu'au scénario du lecteur en dépendent. C'est le
   // seul point d'entrée — aucune vue ne se retraduit toute seule.

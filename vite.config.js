@@ -342,6 +342,53 @@ function adressePubliee() {
   };
 }
 
+/**
+ * ★ **LA PAGE 404 — le site tout entier, avec une phrase de plus.**
+ *
+ * > « Au build, il faudrait générer une page 404.html ; à toi de voir son
+ * >   contenu, pour respecter le design du site, tout en gérant intelligemment
+ * >   ce qui est dans l'URL. » (l'auteur)
+ *
+ * ★ **CE N'EST PAS UNE PAGE À PART, C'EST `index.html` AVEC UN BANDEAU.** Une
+ *   404 écrite à la main serait une seconde mise en page à tenir — thème,
+ *   polices, logo, pied, langue —, et elle divergerait au premier changement de
+ *   l'une des six. On recopie donc le document construit, et l'on y insère un
+ *   `<template>` que l'application lit au démarrage. Rien à styler, rien à
+ *   traduire deux fois.
+ *
+ * ★ **ET « GÉRER CE QUI EST DANS L'URL » SE FAIT TOUT SEUL — c'est le fragment
+ *   qui porte tout.** Le site vit dans le hash (`#programme#saisie`), qui n'est
+ *   JAMAIS envoyé au serveur : une adresse qui tombe en 404 a donc perdu son
+ *   CHEMIN, pas son fragment. En servant l'application, le routeur reçoit le
+ *   hash intact et ouvre exactement la démonstration demandée — un lien partagé
+ *   avec un chemin fautif se répare de lui-même.
+ *
+ *   Ce qui reste vraiment perdu, c'est le chemin ; le bandeau le dit, et le
+ *   `<template>` le porte pour que l'application puisse l'afficher au lieu de
+ *   la page d'accueil muette.
+ *
+ * ⚠️ GitHub Pages sert `404.html` pour toute adresse inconnue ; Framagit Pages
+ *   fait de même. C'est la seule convention que ce fichier suppose, et elle est
+ *   partagée par les deux hébergeurs du projet.
+ */
+function pageIntrouvable() {
+  return {
+    name: 'nhlg-page-introuvable',
+    apply: 'build',
+    writeBundle(options) {
+      const dossier = options.dir ?? resolve(racine, 'dist');
+      const index = resolve(dossier, 'index.html');
+      let html;
+      try { html = readFileSync(index, 'utf8'); } catch { return; }
+      // Le marqueur est un `<template>` : invisible, non stylé, et lisible par
+      // l'application d'une seule ligne. Il ne change pas d'un octet le rendu
+      // tant que personne ne le lit.
+      const marque = '<template id="page-introuvable"></template>\n</body>';
+      writeFileSync(resolve(dossier, '404.html'), html.replace('</body>', marque));
+    },
+  };
+}
+
 export default defineConfig({
   // Les sources vivent dans `src/` : `index.html` y est, et c'est de là que
   // partent tous les chemins relatifs (`styles/`, `fonts/`, `app/main.js`).
@@ -408,5 +455,5 @@ export default defineConfig({
     },
   },
   plugins: [protocoleFichier(), licencesRedistribuees(), faviconRacine(), iconeApple(),
-    carteDePartage(), adressePubliee()],
+    carteDePartage(), adressePubliee(), pageIntrouvable()],
 });
