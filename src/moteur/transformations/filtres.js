@@ -107,6 +107,8 @@ const REG_RAPPROCHER = bilingue('Les lettres retenues se remettent côte à côt
   'The letters we kept move back side by side');
 
 const estLettreLarge = (c) => /\p{L}/u.test(c);
+/** Le pendant exact, pour `f.chiffres` : un chiffre décimal, quelle que soit l'écriture. */
+const estChiffreLarge = (c) => /\p{Nd}/u.test(c);
 const pli = (c) => sansAccents(c).toUpperCase();
 const estVoyelle = (c, avecY) => (avecY ? VOYELLES_Y : VOYELLES).includes(pli(c)[0] || '');
 
@@ -1399,6 +1401,51 @@ const brut = [
   //   il se DÉDUIT de la réglette, qui se déduit elle-même de `cesar` — si bien
   //   qu'aucun ne peut annoncer un décalage qu'il n'applique pas.
   ...CESARS,
+  {
+    /**
+     * ★ **LE JUMEAU DE `fl` — et son absence bloquait tout un pan du site.**
+     *
+     * « Le filtre "garder les chiffres", le jumeau manquant de `fl`, sans
+     * lequel `m09` ne s'ouvre que sur des saisies de chiffres purs. Ajoute-le »
+     * (l'auteur).
+     *
+     * MESURÉ avant de l'écrire : sur les vingt-neuf filtres `STR → STR`
+     * applicables à `c01111984!`, AUCUN ne rendait les chiffres. `fl` garde les
+     * lettres, `fc` les consonnes, `fv` les voyelles — la moitié alphabétique
+     * du monde était outillée, l'autre pas du tout. Une date de naissance, un
+     * numéro, une année dans une phrase : rien de tout cela n'atteignait
+     * `m09` (« chaque chiffre vaut lui-même »), qui exige une ligne de chiffres
+     * seuls. Le geste le plus évident du site n'avait pas de porte.
+     *
+     * ★ **NOTORIÉTÉ 0,85, LA MÊME QUE `fl`**, et pour la même raison : ne
+     *   retenir que les chiffres d'une chaîne est ce que fait n'importe qui à
+     *   qui l'on dicte une référence. Il n'y a pas de raison que garder les
+     *   lettres soit connu et garder les chiffres, obscur — c'est le même
+     *   geste, sur l'autre moitié.
+     *
+     * ★ `commute: true`, comme `fl` : appliqué avant ou après un autre filtre
+     *   qui ne touche pas aux chiffres, il rend la même chose.
+     *
+     * ⚠️ `\p{Nd}` et non `[0-9]` : les chiffres décimaux de toutes les
+     *   écritures, comme `fl` prend les lettres de toutes les écritures
+     *   (`\p{L}`). Les deux jumeaux doivent avoir la même largeur de vue, sans
+     *   quoi l'un serait le filtre du monde et l'autre celui du clavier.
+     *   ⚠️ Ce que `m09` en fera est une autre affaire : LUI n'accepte que
+     *     `0-9`, parce que `Number('٩')` rend `NaN`. Filtrer largement et lire
+     *     étroitement n'est pas une incohérence — c'est un filtre qui fait son
+     *     travail et une lecture qui refuse ce qu'elle ne sait pas lire.
+     */
+    id: 'f.chiffres', code: 'fch', famille: 'filtre', from: 'STR', to: 'STR',
+    libelle: bilingue('On ne garde que les chiffres', 'Keep the digits only'),
+    regle: bilingue('Lettres et ponctuation sont du décor', 'Letters and punctuation are mere scenery'),
+    mention: bilingue('Chiffres', 'Digits'),
+    notoriete: 0.85, commute: true,
+    apply: (valeur, traces) => garder(valeur, traces, estChiffreLarge),
+  },
+  // ⚠️ EN FIN DE TABLEAU, et non à côté de son jumeau `fl` : l'ordre de
+  //   déclaration doit être celui du registre (§4.1 règle 3), et le registre
+  //   est append-only. Le lire ici, loin de `fl`, est le prix de cette règle —
+  //   et le commentaire ci-dessus est ce qui rachète la distance.
 ];
 
 /** Première barre oblique qui ne fait pas partie d'un « :// ». */

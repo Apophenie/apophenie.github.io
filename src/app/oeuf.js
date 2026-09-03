@@ -87,9 +87,73 @@ export function estOeuf(saisie) {
   return RE_OEUF.test(aplatir(saisie));
 }
 
+/**
+ * ★ **LES DEUX MOTS, TELS QU'ILS ONT ÉTÉ TAPÉS.**
+ *
+ * > « L'easter egg devrait se déclencher quelle que soit la casse, mais se
+ * >   dérouler en respectant la casse saisie » (l'auteur).
+ *
+ * La reconnaissance se fait à plat — sans casse, sans accent — pour attraper
+ * toutes les façons d'écrire la phrase ; l'AFFICHAGE, lui, doit rendre ce que
+ * le visiteur a écrit. `cheval` en bas de casse reste en bas de casse, et le
+ * `L` de « VACHE L » est le sien, pas un `L` de convention.
+ *
+ * ★ **ON RETROUVE LES MOTS PAR APLATISSEMENT, jamais par une seconde
+ *   expression.** Écrire un `/(ch[eéèê]val)/i` à côté du premier motif, ce
+ *   serait deux reconnaissances pour une phrase, donc deux occasions de ne pas
+ *   s'accorder. On balaie la saisie et l'on garde la tranche de six signes qui
+ *   s'aplatit sur le mot cherché : c'est la MÊME fonction qui décide des deux
+ *   côtés, donc elles ne peuvent pas diverger.
+ *
+ * Rend `null` si la saisie n'est pas l'œuf, et les majuscules de convention si
+ * — cas qui ne devrait pas exister — un mot restait introuvable.
+ */
+export function motsDeLOeuf(saisie) {
+  if (!estOeuf(saisie)) return null;
+  const brut = String(saisie ?? '');
+  const trancheQuiVaut = (cible) => {
+    const n = [...cible].length;
+    const cs = [...brut];
+    for (let i = 0; i + n <= cs.length; i++) {
+      const tranche = cs.slice(i, i + n).join('');
+      if (aplatir(tranche) === cible) return tranche;
+    }
+    return cible.toUpperCase();
+  };
+  return { cheval: trancheQuiVaut('cheval'), oiseau: trancheQuiVaut('oiseau') };
+}
+
 /* ══════════════════════════ Le scénario, à la main ═════════════════════════ */
 
 const tok = (id, text, kind = 'letter') => ({ id, text, kind });
+
+/**
+ * La casse du `L` — celle de la DERNIÈRE lettre du mot tapé au numérateur.
+ *
+ * C'est ce `L`-là qui survit à la qualification (« VACHE L »), et c'est donc
+ * lui qui fait loi : celui que « ailes » deviendra doit lui ressembler, sans
+ * quoi l'annulation de l'étape suivante ne se lirait plus.
+ */
+const casseDuL = (mots) => {
+  const dernier = [...mots.cheval].pop() || 'L';
+  return dernier === dernier.toLowerCase() ? 'l' : 'L';
+};
+
+/**
+ * ★ **LES MOTS DU CALEMBOUR NE SE TRADUISENT PAS**, et c'est le seul texte du
+ *   dépôt dont on puisse le dire. « Bête à pie » et « bête à ailes » ne valent
+ *   que parce qu'ils s'entendent *bêta pi* et *bêta L* : traduits, ils cessent
+ *   d'être une démonstration pour devenir une phrase sur des animaux. Les
+ *   TITRES d'étape, eux, sont bien bilingues — ils décrivent le geste, et un
+ *   anglophone a le droit de savoir ce qu'on prétend faire.
+ */
+const MOT = Object.freeze({ bete: 'bête', a: 'à', pie: 'pie', ailes: 'ailes' });
+
+/** L'anagramme du numérateur, dans l'ordre où la scène va la ranger. */
+const anagramme = (mots) => {
+  const c = [...mots.cheval];
+  return [3, 4, 0, 1, 2].map((i) => c[i]).join('');
+};
 
 /**
  * ★ **LA BARRE DE DIVISION EST UN JETON, et c'est ce qui la rend possible.**
@@ -108,10 +172,10 @@ const tok = (id, text, kind = 'letter') => ({ id, text, kind });
  */
 const BARRE = '————————';
 
-/** Les jetons de départ : CHEVAL, la barre, OISEAU — trois lignes. */
-function jetonsDeDepart() {
-  const haut = [...'CHEVAL'].map((c, i) => tok(`h${i}`, c));
-  const bas = [...'OISEAU'].map((c, i) => tok(`b${i}`, c));
+/** Les jetons de départ : le numérateur, la barre, le dénominateur — trois lignes. */
+function jetonsDeDepart(mots) {
+  const haut = [...mots.cheval].map((c, i) => tok(`h${i}`, c));
+  const bas = [...mots.oiseau].map((c, i) => tok(`b${i}`, c));
   bas[0].breakBefore = true;
   return [
     ...haut,
@@ -125,7 +189,7 @@ function jetonsDeDepart() {
  * a dictés. Le Registre les affiche comme il affiche ceux d'une vraie voie :
  * c'est lui qui raconte, et il ne doit pas savoir que celle-ci est fausse.
  */
-function etapes() {
+function etapes(mots) {
   // ⚠️ `t()` rend la langue COURANTE, et c'est ce qu'il faut : un scénario est
   //    construit pour être joué maintenant, et le routeur le refabrique quand la
   //    langue change (comme il le fait pour une vraie voie).
@@ -162,14 +226,14 @@ function etapes() {
   const s2 = {
     id: 's_oeuf_2',
     title: dire('qualification'),
-    caption: 'VACHE → bête à pie · OISEAU → bête à ailes',
+    caption: `${anagramme(mots)} → ${MOT.bete} ${MOT.a} ${MOT.pie} · ${mots.oiseau} → ${MOT.bete} ${MOT.a} ${MOT.ailes}`,
     ops: [
       {
         op: 'substitute',
         stagger: 60,
         pairs: [
-          { target: 'h3', to: [tok('qh0', 'bête', 'letter'), tok('qh1', 'à', 'letter'), tok('qh2', 'pie', 'letter')] },
-          { target: 'b0', to: [tok('qb0', 'bête', 'letter'), tok('qb1', 'à', 'letter'), tok('qb2', 'ailes', 'letter')] },
+          { target: 'h3', to: [tok('qh0', MOT.bete, 'letter'), tok('qh1', MOT.a, 'letter'), tok('qh2', MOT.pie, 'letter')] },
+          { target: 'b0', to: [tok('qb0', MOT.bete, 'letter'), tok('qb1', MOT.a, 'letter'), tok('qb2', MOT.ailes, 'letter')] },
         ],
       },
       { op: 'drop', targets: ['h4', 'h0', 'h1', 'h2', 'b1', 'b2', 'b3', 'b4', 'b5'], mode: 'erase' },
@@ -183,7 +247,7 @@ function etapes() {
   const s3 = {
     id: 's_oeuf_3',
     title: dire('synthese'),
-    caption: 'bête → β · pie → π · ailes → L',
+    caption: `${MOT.bete} → β · ${MOT.pie} → π · ${MOT.ailes} → ${casseDuL(mots)}`,
     ops: [
       {
         op: 'substitute',
@@ -192,7 +256,15 @@ function etapes() {
           { target: 'qh0', to: tok('B1', 'β', 'letter') },
           { target: 'qh2', to: tok('P1', 'π', 'letter') },
           { target: 'qb0', to: tok('B2', 'β', 'letter') },
-          { target: 'qb2', to: tok('L2', 'L', 'letter') },
+          /* ★ **LE `L` DE « AILES » PREND LA CASSE DE CELUI DE « CHEVAL ».**
+             « Ce qui implique de transformer ailes en L ou l selon la casse de
+             cheval » (l'auteur), et l'argument est visuel, pas typographique :
+             les deux `L` doivent S'ANNULER à l'étape suivante. Deux glyphes de
+             casses différentes ne se lisent pas comme le même facteur, et
+             l'annulation cesserait d'être évidente. Celui du haut est le jeton
+             TAPÉ — on ne peut donc pas le changer ; c'est à celui du bas de
+             s'aligner. */
+          { target: 'qb2', to: tok('L2', casseDuL(mots), 'letter') },
         ],
       },
       { op: 'drop', targets: ['qh1', 'qb1'], mode: 'erase' },
@@ -207,7 +279,7 @@ function etapes() {
   const s4 = {
     id: 's_oeuf_4',
     title: dire('reduction'),
-    caption: 'βπL / βL = π',
+    caption: `βπ${casseDuL(mots)} / β${casseDuL(mots)} = π`,
     ops: [
       {
         op: 'collapse',
@@ -230,7 +302,7 @@ function etapes() {
   const s5 = {
     id: 's_oeuf_5',
     title: dire('verdict'),
-    caption: 'CHEVAL / OISEAU = π',
+    caption: `${mots.cheval} / ${mots.oiseau} = π`,
     ops: [
       {
         op: 'substitute',
@@ -241,11 +313,11 @@ function etapes() {
           //   sépare, jamais sous le dénominateur. Il suffit donc de l'insérer
           //   entre la barre et le `O` : c'est ce dernier qui rompt la ligne.
           to: [
-            ...[...'CHEVAL'].map((c, i) => tok(`v${i}`, c, 'letter')),
+            ...[...mots.cheval].map((c, i) => tok(`v${i}`, c, 'letter')),
             { ...tok('vbarre', BARRE, 'sep'), breakBefore: true },
             tok('veq', '=', 'sep'),
             tok('vpi', 'π', 'letter'),
-            ...[...'OISEAU'].map((c, i) => {
+            ...[...mots.oiseau].map((c, i) => {
               const j = { ...tok(`w${i}`, c, 'letter') };
               if (i === 0) j.breakBefore = true;
               return j;
@@ -272,6 +344,11 @@ function etapes() {
  * regarde, et non sur ce qu'on démontre.
  */
 export function scenarioDeLOeuf(saisie) {
+  // Les mots TELS QUE TAPÉS : c'est eux que la scène montre, du premier jeton
+  // au verdict. Une saisie qui ne serait pas l'œuf ne devrait jamais arriver
+  // ici — le routeur ne l'appelle qu'après `estOeuf` — mais on retombe sur les
+  // capitales de convention plutôt que d'exploser sur un `null`.
+  const mots = motsDeLOeuf(saisie) || { cheval: 'CHEVAL', oiseau: 'OISEAU' };
   return {
     version: 1,
     input: saisie,
@@ -281,8 +358,8 @@ export function scenarioDeLOeuf(saisie) {
       rule: t('oeuf.regle'),
     },
     result: 'π',
-    tokens: jetonsDeDepart(),
-    steps: etapes(),
+    tokens: jetonsDeDepart(mots),
+    steps: etapes(mots),
     registre: 'sobre',
   };
 }

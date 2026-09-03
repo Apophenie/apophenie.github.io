@@ -87,6 +87,13 @@ export const ORDRE_CANONIQUE = Object.freeze([
   // ★ Les vingt-quatre autres décalages, par ordre croissant — voir
   //   `transformations/filtres.js › CESARS`. `fr13` garde son rang d'aîné.
   'fr1', 'fr2', 'fr3', 'fr4', 'fr5', 'fr6', 'fr7', 'fr8', 'fr9', 'fr10', 'fr11', 'fr12', 'fr14', 'fr15', 'fr16', 'fr17', 'fr18', 'fr19', 'fr20', 'fr21', 'fr22', 'fr23', 'fr24', 'fr25',
+  // ★ EN FIN DE BLOC, comme le veut l'append-only (§4.1) : un code neuf ne
+  //   s'insère pas au milieu, même quand la lecture y gagnerait. `fch` est le
+  //   jumeau de `fl` — ne garder que les chiffres — et sa place NATURELLE serait
+  //   à côté de lui ; sa place JUSTE est ici, à la fin des filtres, parce que
+  //   l'ordre du registre est l'ordre d'exploration et qu'on ne décale pas
+  //   vingt-quatre chiffres de César pour une commodité de lecture.
+  'fch',
   'tca', 'tm', 'tsp', 'tsy', 'tch', 'nl', 'nv', 'nc', 'nd', 'nsp',
   // Les quatre compteurs PRÉCIS, derrière celui qui compte tout
   // (`mappeurs.js`) : les barres, les points, les espaces, les tirets.

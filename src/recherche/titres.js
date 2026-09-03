@@ -450,6 +450,7 @@ export const TITRES_COURTS = {
   'f.apresSlash': b('extrait /...', 'extracts /...'), // fap
   'f.atbash': b('miroir Atbash', 'Atbash mirror'), // fatb
   'f.avantSlash': b('extrait .../', 'extracts .../'), // fav
+  'f.chiffres': b('chiffres seulement', 'digits only'), // fch
   'f.consonnes': b('consonnes', 'consonants'), // fc
   'f.chemin': b('chemin /.../', 'path /.../'), // fchm
   'f.dedoublonne': b('dédoublonnage', 'de-duplication'), // fd
@@ -601,6 +602,7 @@ export const PRECISIONS = {
   'f.chemin': b('sur le chemin', 'on the path'),
   'f.page': b('sur le nom de la page', 'on the page name'),
   'f.lettres': b('sur les lettres seules', 'on the letters alone'),
+  'f.chiffres': b('sur les chiffres seuls', 'on the digits alone'),
   'f.voyelles': b('sur les voyelles', 'on the vowels'),
   'f.voyellesY': b('sur les voyelles, Y compris', 'on the vowels, Y included'),
   'f.consonnes': b('sur les consonnes', 'on the consonants'),

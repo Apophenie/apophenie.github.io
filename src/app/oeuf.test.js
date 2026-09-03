@@ -95,9 +95,44 @@ test('★ œuf — la fraction se pose sur trois rangs, et le verdict la repose'
   // Et le verdict repose l'énoncé, l'égalité à hauteur de la barre.
   const fin = ligneApres(sc, 5);
   assert.equal(fin.length, 3);
-  assert.equal(fin[0], 'C H E V A L');
-  assert.equal(fin[2], 'O I S E A U');
+  // ⚠️ En BAS DE CASSE : le verdict repose les mots TELS QU'ILS ONT ÉTÉ TAPÉS,
+  //    et la saisie de ce test est en minuscules.
+  assert.equal(fin[0], 'c h e v a l');
+  assert.equal(fin[2], 'o i s e a u');
   assert.match(fin[1], /^—+ = π$/, 'l’égalité se lit sur la ligne du trait, pas sous le dénominateur');
+});
+
+/**
+ * ★ **LA CASSE SAISIE SE DÉROULE JUSQU'AU BOUT.**
+ *
+ * > « L'easter egg devrait se déclencher quelle que soit la casse, mais se
+ * >   dérouler en respectant la casse saisie […] ce qui implique de transformer
+ * >   ailes en L ou l selon la casse de cheval » (l'auteur).
+ *
+ * Le dernier point est le moins évident, et c'est celui qui compte : les deux
+ * `L` doivent S'ANNULER à l'avant-dernière étape. Celui du haut est le jeton
+ * TAPÉ — on ne peut pas le changer ; c'est donc à celui que « ailes » devient
+ * de s'aligner sur lui, sinon l'annulation cesse d'être évidente.
+ */
+test('★ œuf — il se déroule dans la casse saisie, les deux L compris', () => {
+  // ⚠️ `ligneApres(sc, 1)` montre la ligne APRÈS la première étape, donc déjà
+  //    permutée : « vachel ». C'est bien la casse tapée, dans l'ordre rangé.
+  const bas = scenarioDeLOeuf('cheval sur oiseau');
+  assert.equal(ligneApres(bas, 1)[0], 'v a c h e l');
+  assert.equal(ligneApres(bas, 3)[0], 'β π l', 'le L du haut est celui qui a été tapé');
+  assert.equal(ligneApres(bas, 3)[2], 'β l', 'celui de « ailes » s’aligne sur lui');
+  assert.equal(ligneApres(bas, 5)[2], 'o i s e a u');
+
+  const haut = scenarioDeLOeuf('CHEVAL SUR OISEAU');
+  assert.equal(ligneApres(haut, 1)[0], 'V A C H E L');
+  assert.equal(ligneApres(haut, 3)[0], 'β π L');
+  assert.equal(ligneApres(haut, 3)[2], 'β L');
+
+  // Casse mixte : chaque mot garde la sienne, et le L suit celui du numérateur.
+  const mixte = scenarioDeLOeuf('Cheval/Oiseau = Pi');
+  assert.equal(ligneApres(mixte, 5)[0], 'C h e v a l');
+  assert.equal(ligneApres(mixte, 5)[2], 'O i s e a u');
+  assert.equal(ligneApres(mixte, 3)[2], 'β l');
 });
 
 test('★ œuf — chaque étape porte son titre de registre', () => {

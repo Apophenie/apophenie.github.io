@@ -287,6 +287,8 @@ export const en = {
   },
 
   transport: {
+      vitesse: 'Playback speed',
+      vitesseFacteur: '×{n}',
     groupe: 'Demonstration controls',
     jauge: 'Jump to a step',
     jaugeCase: 'Jump to step {i} of {total}',

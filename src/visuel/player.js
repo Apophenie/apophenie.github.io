@@ -140,6 +140,32 @@ class Player {
 
   seek(ms) { return this._apply('seek', ms); }
 
+  /**
+   * ★ **LA VITESSE GLOBALE DE LECTURE.**
+   *
+   * > « Je voudrais un réglage de vitesse globale […] x0.25 … x10 » (l'auteur)
+   *
+   * Elle ne touche NI au scénario NI à la ligne de temps : c'est le taux de
+   * lecture, appliqué au moteur (`setRate`). Un scénario reste donc le même
+   * objet quel que soit le rythme auquel on le regarde — ce qui est la
+   * condition pour que la jauge, le registre et le pas-à-pas continuent de
+   * désigner les mêmes instants.
+   *
+   * ★ Elle SURVIT à une reconstruction (changement de thème, de langue, de
+   *   palette) : `_buildAll` la réapplique, sinon un changement de thème
+   *   remettrait discrètement la lecture à ×1.
+   */
+  get vitesse() { return this._vitesse ?? 1; }
+
+  set vitesse(rate) {
+    const r = Number(rate);
+    this._vitesse = Number.isFinite(r) && r > 0 ? r : 1;
+    if (this.engine && typeof this.engine.setRate === 'function') {
+      this.engine.setRate(this._vitesse);
+    }
+    this.emit('change', this.state);
+  }
+
   seekToStep(i) { return this._apply('seekToStep', i); }
 
   _apply(action, arg) {
@@ -297,6 +323,11 @@ class Player {
       : new StaticEngine(this.timeline, this.elements);
     this._ticker = createTicker(() => this._tick());
     this._lastStep = -1;
+    // ★ La vitesse SURVIT à la reconstruction (thème, langue, palette) : sans
+    //   cette ligne, changer de thème remettrait discrètement la lecture à ×1.
+    if (this._vitesse && typeof this.engine.setRate === 'function') {
+      this.engine.setRate(this._vitesse);
+    }
     this.engine.seek(0);
     this._render();
   }
@@ -659,14 +690,53 @@ class WaapiEngine {
     for (const a of this.all) a.currentTime = v;
   }
 
+  /**
+   * ★ **LA VITESSE GLOBALE — `playbackRate`, et surtout PAS une recompilation.**
+   *
+   * `compile()` accepte déjà une option `speed`, qui met les durées à l'échelle
+   * à la fabrication. S'en servir ici aurait tout refait à chaque changement :
+   * une scène reconstruite, des nœuds recréés, la tête de lecture perdue, et le
+   * `t` courant qui ne désigne plus le même instant du récit. Le taux de lecture
+   * de WAAPI fait la même chose sans rien détruire — la ligne de temps reste
+   * celle qu'on a compilée, seule sa lecture accélère.
+   *
+   * ★ Cela COMPOSE avec l'accélération des redites, et c'est voulu : celle-ci
+   *   est cuite dans la ligne de temps (elle raccourcit ce qui se répète), le
+   *   taux la lit plus ou moins vite. Deux réglages, deux étages, aucun ne
+   *   masque l'autre.
+   *
+   * ⚠️ **LE `startTime` SE RECALCULE.** WAAPI définit
+   *   `currentTime = (temps − startTime) × playbackRate` : changer le taux sans
+   *   toucher au `startTime` fait donc SAUTER la tête de lecture. On relit donc
+   *   l'instant courant avant, et on le réimpose après.
+   */
+  setRate(rate) {
+    const r = Number(rate) > 0 ? Number(rate) : 1;
+    const t = this.currentTime;
+    for (const a of this.all) {
+      try { a.playbackRate = r; } catch { /* moteur sans taux : on garde le sien */ }
+    }
+    if (this._playing) {
+      const base = timelineNow();
+      for (const a of this.all) {
+        try { a.startTime = base - t / r; } catch { /* la resynchro différée suffit */ }
+      }
+    } else {
+      for (const a of this.all) a.currentTime = t;
+    }
+  }
+
   play() {
     const t = this.currentTime;
     const base = timelineNow();
+    const r = this.all[0] && this.all[0].playbackRate ? this.all[0].playbackRate : 1;
     for (const a of this.all) {
       // `play()` seul rembobinerait toute animation déjà terminée (auto-rewind) :
       // on impose donc un `startTime` commun, comme dans le prototype.
       a.play();
-      try { a.startTime = base - t; } catch { /* moteur strict : la resynchro différée suffit */ }
+      // ⚠️ Divisé par le TAUX : sans cela, une lecture à ×2 repartirait deux
+      //    fois trop loin en arrière (voir `setRate`).
+      try { a.startTime = base - t / r; } catch { /* moteur strict : la resynchro différée suffit */ }
     }
     this._playing = true;
     Promise.all(this.all.map((a) => a.ready.catch(() => null))).then(() => {
@@ -715,6 +785,15 @@ class StaticEngine {
   get currentTime() { return this._t; }
 
   get playing() { return this._playing; }
+
+  /**
+   * ⚠️ **SANS EFFET, ET C'EST EXACT.** Le moteur statique ne joue rien : il pose
+   *   l'image d'un instant donné, sur un navigateur sans WAAPI ou sous
+   *   `prefers-reduced-motion`. Il n'y a pas de vitesse à régler pour une
+   *   image fixe, et faire semblant d'en avoir une serait un réglage qui ment.
+   *   Le bouton, lui, se retire de la barre dans ce cas (voir `transport.js`).
+   */
+  setRate() { /* rien à accélérer : ce moteur ne joue pas, il montre */ }
 
   seek(t) {
     this._t = clamp(t, 0, this.timeline.total);

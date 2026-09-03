@@ -21,7 +21,7 @@
  */
 
 import { e, svg as s } from './dom.js';
-import { t } from '../i18n/index.js';
+import { t, langue } from '../i18n/index.js';
 import { interpoler } from '../i18n/resolution.js';
 import { titreEtape } from './libelles.js';
 import { infobuller } from './infobulle.js';
@@ -106,6 +106,18 @@ const ICONES = {
     s('path', { class: 'ico-trait', d: 'M20 15 H15 V20' }),
     s('path', { class: 'ico-trait', d: 'M4 15 H9 V20' })),
 };
+
+/**
+ * Le facteur, écrit comme on le lit : « 0,25 » en français, « 0.25 » ailleurs.
+ *
+ * ⚠️ PAS de `toLocaleString` : `Intl` est proscrit (§4.4, déterminisme), et deux
+ *   navigateurs n'écriraient pas la même chose sur la même valeur. La virgule
+ *   française est donc posée à la main, sur la seule règle qui la gouverne.
+ */
+function formaterFacteur(v) {
+  const brut = String(v);
+  return langue() === 'fr' ? brut.replace('.', ',') : brut;
+}
 
 function boutonTransport(cle, libelle, nomAccessible, principal = false) {
   const icone = ICONES[cle]();
@@ -206,7 +218,57 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     bRedites.dataset.role = 'redites';
   }
 
-  /* ── la coupure du son, SEPTIÈME contrôle, juste après les redites ──
+  /* ══ la VITESSE GLOBALE, septième contrôle, juste après les redites ═══════
+     > « Je voudrais un réglage de vitesse globale, avec un picto de lièvre si
+     >   vitesse > 1, de tortue si < 1, et je te laisse décider si = à 1. Et
+     >   quand on clique dessus on a le choix entre x0.25 … x10. » (l'auteur)
+
+     ★ **PLACÉE JUSTE APRÈS LES REDITES**, parce que les deux règlent la MÊME
+       chose — le rythme — à deux étages : l'accélération des redites raccourcit
+       ce qui se répète, à la compilation ; la vitesse lit plus ou moins vite ce
+       qui a été compilé. Les lire côte à côte est la seule façon de comprendre
+       qu'elles se composent au lieu de se concurrencer.
+
+     ★ **UN `<select>`, ET PAS UN BOUTON QUI TOURNE.** Les autres réglages sont
+       des bascules à deux états : un clic suffit à en faire le tour. Treize
+       valeurs, non — il faudrait douze clics pour revenir, et l'on ne saurait
+       jamais où l'on est dans le cycle. Le `<select>` natif donne la liste
+       entière d'un coup, le clavier, et le sélecteur roulant des mobiles, sans
+       une ligne de fenêtre surgissante à écrire ni à rendre accessible.
+
+     ★ **LE PICTO DIT L'ÉCART, PAS LA VITESSE.** Tortue en dessous de 1, lièvre
+       au-dessus — et à ×1, RIEN. C'est la décision que l'auteur me laissait :
+       les deux animaux marquent un écart au rythme normal, et il n'y a pas de
+       troisième animal parce qu'il n'y a pas de troisième régime. En poser un
+       laisserait croire que « normal » est un choix parmi trois, quand c'est
+       le point d'où les deux autres s'écartent.
+
+     ⚠️ **IL N'EXISTE QUE S'IL PEUT AGIR** — même règle que le son et le plein
+       écran. Sous `prefers-reduced-motion`, ou sans WAAPI, le moteur ne joue
+       pas : il pose l'image d'un instant. Régler la vitesse d'une image fixe
+       n'a aucun sens, et un réglage inerte est précisément le mensonge que
+       cette barre s'interdit. */
+  const VITESSES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5, 10];
+  const picto = (v) => (v > 1 ? '🐇' : (v < 1 ? '🐢' : ''));
+  const nomVitesse = (v) => `${picto(v)}${picto(v) ? ' ' : ''}${tt('vitesseFacteur', { n: formaterFacteur(v) })}`;
+  const bVitesse = options.vitesses === false || lecteur.reduced
+    ? null
+    : e('select.transport__bouton.transport__bouton--reglage.transport__vitesse', {
+      'aria-label': tt('vitesse'),
+    }, VITESSES.map((v) => e('option', {
+      value: String(v),
+      texte: nomVitesse(v),
+      ...(v === (lecteur.vitesse ?? 1) ? { selected: 'selected' } : {}),
+    })));
+  if (bVitesse) {
+    bVitesse.dataset.role = 'vitesse';
+    bVitesse.addEventListener('change', () => {
+      lecteur.vitesse = Number(bVitesse.value);
+      rafraichir();
+    });
+  }
+
+  /* ── la coupure du son, HUITIÈME contrôle, juste après la vitesse ──
      Même nature que la bascule des redites, donc même place et même facture :
      une préférence de lecture, à portée immédiate de ce qu'elle règle. Le
      bouton n'existe QUE s'il y a quelque chose à couper — registre scénique
@@ -246,8 +308,8 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     role: 'group',
     'aria-label': tt('groupe'),
   }, [bDebut, bPrec, bLect, bSuiv, bFin,
-    ...(bRedites ? [bRedites] : []), ...(bSon ? [bSon] : []),
-    ...(bPlein ? [bPlein] : [])]);
+    ...(bRedites ? [bRedites] : []), ...(bVitesse ? [bVitesse] : []),
+    ...(bSon ? [bSon] : []), ...(bPlein ? [bPlein] : [])]);
 
   const element = e('div.transport-groupe', {}, [jauge, barre]);
 

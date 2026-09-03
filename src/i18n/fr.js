@@ -347,6 +347,8 @@ export const fr = {
   },
 
   transport: {
+      vitesse: 'Vitesse de lecture',
+      vitesseFacteur: '×{n}',
     groupe: 'Contrôles de la démonstration',
     jauge: 'Aller à une étape',
     jaugeCase: 'Aller à l’étape {i} sur {total}',

@@ -143,6 +143,13 @@ test('aucune valeur vide, aucune valeur restée identique par oubli de traductio
     // multiplié et un nombre. Le mot qui le nomme, lui, est bien traduit — c'est
     // `resultat.curseurs.fouille`.
     'resultat.curseurs.fouilleFacteur',
+    // Et le facteur de vitesse (« ×2,5 ») pour la même raison exactement : un
+    // signe multiplié et un nombre. Le mot qui le nomme — « Vitesse de
+    // lecture » / « Playback speed » — est bien traduit, lui.
+    // ⚠️ La DÉCIMALE, elle, n'est pas identique : le français écrit « ×0,25 »
+    //    là où l'anglais écrit « ×0.25 ». C'est `transport.js › formaterFacteur`
+    //    qui s'en charge, à la main — `Intl` est proscrit (§4.4).
+    'transport.vitesseFacteur',
     'transport.pauseCourt',
   ]);
   // On COLLECTE tous les manquements avant d'échouer : un `assert` par clé

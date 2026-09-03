@@ -6,6 +6,7 @@ import { t, v } from '../../i18n/index.js';
 import { montrerInfobulle } from '../infobulle.js';
 import * as pont from '../pont.js';
 import { interrupteurs } from '../entete.js';
+import { estOeuf } from '../oeuf.js';
 import { creerJaugeRecherche } from '../jauge-recherche.js';
 
 const SEUIL_COMPTEUR = 200;
@@ -147,6 +148,24 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
   async function revelerPremiereVoie() {
     const saisie = champ.value.trim();
     if (!saisie) { refuserLeVide(); return; }
+
+    /* ★ **L'ŒUF SE PREND LA MAIN ICI AUSSI — et il le fallait.**
+
+       Le garde posé dans `routeur.js › routeResultat` ne suffisait pas : cette
+       page-ci ne passe PAS par là. Elle cherche elle-même, puis saute
+       directement au lien de la première voie (voir l'en-tête ci-dessus, « il
+       faut donc chercher ici »). L'œuf tapé dans le champ partait donc en
+       recherche comme n'importe quelle phrase, et menait à une vraie voie sur
+       « cheval sur oiseau ».
+
+       On écrit le hash de la SAISIE, et c'est tout : le routeur reconnaîtra
+       l'œuf à son tour et montrera la démonstration. Une seule reconnaissance
+       fait foi — celle du routeur —, et cette page ne fait que lui passer la
+       main sans chercher pour rien. */
+    if (estOeuf(saisie)) {
+      const hash = pont.ecrireHash({ saisie });
+      if (hash) { location.hash = hash; return; }
+    }
 
     bouton.setAttribute('aria-busy', 'true');
     bouton.textContent = t('accueil.consultation');
