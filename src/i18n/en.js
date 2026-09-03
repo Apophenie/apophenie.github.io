@@ -229,6 +229,21 @@ export const en = {
     },
   },
 
+  /* ★ THE EASTER EGG — “cheval sur oiseau = π”. See `src/app/oeuf.js`. The pun
+     is French to the bone: a cow is a “bête à pie”, a bird a “bête à ailes”,
+     which are heard as beta-pi-L over beta-L. The titles translate; the joke
+     stays where it was born. */
+  oeuf: {
+    titre: 'By phonetic zoology',
+    regle: 'A cow is a piebald beast, a bird a winged one: the rest is a matter of hearing.',
+    commutation: 'Commutative multiplication',
+    commutationDetail: 'So the letters may be reordered at will',
+    qualification: 'Animal qualification',
+    synthese: 'Phonetic synthesis',
+    reduction: 'Mathematical reduction',
+    verdict: 'The verdict',
+  },
+
   demo: {
     surtitre: 'The truth behind',
     methode: 'Method {rang} — {titre}',

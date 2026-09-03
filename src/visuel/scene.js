@@ -77,6 +77,16 @@ export class Scene {
         group: tok.group ?? null,
         role: 'text',
         inFlow: true,
+        /* ★ **UN JETON DE DÉPART PEUT DEMANDER SA LIGNE, comme n'importe quel
+           autre.** `create()` accepte `gapBefore` et `breakBefore` depuis
+           toujours ; le constructeur, lui, les laissait tomber en chemin. La
+           ligne de départ était donc la seule de toute la scène à ne pas
+           pouvoir se disposer — une asymétrie sans raison, qu'on ne voyait pas
+           tant qu'aucun scénario ne commençait sur plusieurs rangs.
+           Un scénario qui n'en déclare pas garde exactement le comportement
+           d'avant : `undefined` des deux côtés. */
+        gapBefore: tok.gapBefore,
+        breakBefore: tok.breakBefore,
       }, { initial: true });
     }
     this.relayout();

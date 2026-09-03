@@ -82,7 +82,15 @@ export function plan(ctx) {
         // referme sans elle, puis elle y entre (temps 4), comme le résultat
         // d'une somme.
         role: 'text', inFlow: !j.ancre, insertAt: idx < 0 ? undefined : idx + 1 + k,
+        // Le PREMIER né hérite de l'espacement de la source — la ligne ne doit
+        // pas se resserrer parce qu'une valeur en remplace une autre.
         ...(k === 0 ? espacement : {}),
+        // ★ …mais ce que l'ÉMETTEUR déclare l'emporte, et pour chaque né. Un
+        //   verdict qui repose une fraction sur trois rangs demande ses
+        //   coupures ; sans cela, la mise en page serait celle de la source,
+        //   c'est-à-dire d'un jeton qui n'en avait aucune (voir `tokenSpec`).
+        ...(to.gapBefore !== undefined ? { gapBefore: to.gapBefore } : {}),
+        ...(to.breakBefore !== undefined ? { breakBefore: to.breakBefore } : {}),
         base: { opacity: 0, scale: 1.15, fill: ctx.palette.phos },
       }, { where: ctx.where });
       if (j.ancre) {

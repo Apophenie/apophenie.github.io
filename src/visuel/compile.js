@@ -365,6 +365,18 @@ export function compile(scenario, options = {}) {
   // scénario doit donner deux fois le même résultat — donc jamais depuis un
   // objet que la compilation précédente aurait laissé sali.
   const layoutOpts = { ...(options.layoutOpts || defaultLayoutOptions(metrics, viewBox)) };
+  /* ★ **UN JETON QUI DEMANDE UNE COUPURE L'OBTIENT — sans drapeau à poser.**
+     `coupuresExplicites` gouverne le respect des `breakBefore` (voir
+     `layout.js` : la coupure choisie, jamais subie). Il partait à `false`, et
+     seul `reveal` le relevait au moment de répartir ses séries — si bien qu'un
+     scénario dont la LIGNE DE DÉPART tient sur plusieurs rangs voyait ses
+     coupures ignorées jusqu'au verdict.
+     On le DÉDUIT donc des jetons plutôt que de le demander : déclarer un
+     `breakBefore` EST la demande. Un scénario sans coupure garde le
+     comportement d'avant, à l'octet près, puisque le drapeau reste faux. */
+  if ((scenario.tokens || []).some((tok) => tok && tok.breakBefore)) {
+    layoutOpts.coupuresExplicites = true;
+  }
   const palette = { ...PALETTE, ...(options.palette || {}) };
 
   const scene = new Scene(scenario.tokens, { metrics, layoutOpts, palette });

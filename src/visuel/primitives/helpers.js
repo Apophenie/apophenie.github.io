@@ -121,7 +121,19 @@ export function tokenSpec(ctx, spec, field) {
   if (spec.kind !== undefined && !KIND_SET.has(spec.kind)) {
     fail(`${ctx.where}« ${field}.kind » = « ${spec.kind} » hors vocabulaire (${KINDS.join(', ')}).`);
   }
-  return { id: spec.id, text: spec.text, kind: spec.kind || guessKind(spec.text), group: spec.group ?? null };
+  /* ★ **UN JETON QUI NAÎT PEUT DEMANDER SA LIGNE.** `create()` accepte
+     `gapBefore` et `breakBefore` ; `tokenSpec` les laissait tomber, si bien
+     qu'un jeton créé héritait TOUJOURS de l'espacement de sa source
+     (`espacementDe`) sans pouvoir en déclarer un autre. C'est juste tant qu'on
+     remplace une valeur par une valeur ; ça ne l'est plus quand une op écrit
+     une MISE EN PAGE — un verdict qui repose une fraction sur trois rangs, par
+     exemple. L'émetteur qui ne dit rien garde l'héritage, à l'octet près. */
+  const sortie = {
+    id: spec.id, text: spec.text, kind: spec.kind || guessKind(spec.text), group: spec.group ?? null,
+  };
+  if (spec.gapBefore !== undefined) sortie.gapBefore = spec.gapBefore;
+  if (spec.breakBefore !== undefined) sortie.breakBefore = spec.breakBefore;
+  return sortie;
 }
 
 /**

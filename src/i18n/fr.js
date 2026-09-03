@@ -286,6 +286,20 @@ export const fr = {
     },
   },
 
+  /* ★ L'ŒUF DE PÂQUES — « cheval sur oiseau = π ». Voir `src/app/oeuf.js` : les
+     titres sont ceux que l'auteur a dictés, et le Registre les affiche comme
+     ceux de n'importe quelle voie. Il n'a pas à savoir que celle-ci est fausse. */
+  oeuf: {
+    titre: 'Par la zoologie phonétique',
+    regle: 'Une vache est une bête à pie, un oiseau une bête à ailes\u202f: le reste s’entend.',
+    commutation: 'Multiplication commutative',
+    commutationDetail: 'On peut donc réagencer librement l’ordre des lettres',
+    qualification: 'Qualification animale',
+    synthese: 'Synthèse phonétique',
+    reduction: 'Réduction mathématique',
+    verdict: 'Le verdict',
+  },
+
   demo: {
     surtitre: 'La vérité derrière',
     methode: 'Méthode {rang} — {titre}',

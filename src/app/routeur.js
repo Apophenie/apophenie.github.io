@@ -14,6 +14,7 @@ import { pageAccueil, focaliserSaisie } from './pages/accueil.js';
 import { pageResultat, enteteResultat } from './pages/resultat.js';
 import { pageAttente } from './pages/attente.js';
 import { pageDemonstration, enteteDemonstration } from './pages/demonstration.js';
+import { estOeuf, scenarioDeLOeuf, approcheDeLOeuf } from './oeuf.js';
 import { creerJaugeRecherche } from './jauge-recherche.js';
 
 let vueCourante = null;      // { detruire() } de la page démonstration
@@ -107,6 +108,24 @@ async function chercherEnMontrant(saisie, cible, reglages = {}) {
 async function routeResultat(saisie, {
   bandeau = null, cible = null, curseurs = null, fouille = undefined, personnalise = false,
 } = {}) {
+  /* ★ **L'ŒUF SE PREND LA MAIN ICI, avant toute recherche.**
+
+     « Ça doit générer une URL qui permette d'arriver directement sur la
+     démonstration animée (en auto-play sobre) » (l'auteur). Cette URL, c'est
+     celle de la saisie elle-même — `##<b58>` —, et il n'en fallait pas
+     d'autre : le lien qu'on obtient en tapant la phrase EST le lien qui mène à
+     l'œuf, donc partageable tel quel, sans grammaire supplémentaire à inventer
+     ni code à réserver au registre.
+
+     ★ **AVANT LA RECHERCHE, ET C'EST LE POINT.** Lancer le moteur puis jeter
+       son résultat ferait tourner une fouille complète pour rien, et laisserait
+       surtout une fenêtre où la page de liste s'affiche avant d'être remplacée.
+       On ne cherche pas ce qu'on ne montrera pas.
+
+     ⚠️ La cible et les réglages sont IGNORÉS : l'œuf ne vise pas 666, ne se
+       classe pas et n'a pas de barème. Un `##…&111` sur cette phrase mène au
+       même endroit, et c'est juste — il n'y a rien à viser dans une blague. */
+  if (estOeuf(saisie)) { montrerLOeuf(saisie); return; }
   const resultat = await chercherEnMontrant(saisie, cible, { curseurs, fouille });
   if (!resultat) return;
   const contenu = pageResultat({
@@ -271,6 +290,38 @@ async function routeRangHerite(lecture) {
   }
   if (approche.url) { location.replace(location.pathname + approche.url); return; }
   montrerDemonstrationLocale(lecture.saisie, approche, resultat);
+}
+
+/**
+ * ★ L'ŒUF — une démonstration écrite à la main, jouée par le moteur ordinaire.
+ *
+ * `registre: 'sobre'`, et l'auto-lecture vient avec : « en sobre, l'autoplay
+ * reste » (`pages/demonstration.js`). Il n'y avait donc rien à demander de plus
+ * — le registre sobre EST le mode auto-play, et c'est aussi le seul qui
+ * convienne : l'orage et les cornes sont la scénographie du 666, et il n'y a
+ * pas de 666 ici.
+ *
+ * `urlCanonique` reste le hash courant : celui de la saisie. On ne le réécrit
+ * pas, parce qu'il est déjà exact.
+ */
+function montrerLOeuf(saisie) {
+  const approche = approcheDeLOeuf();
+  const vue = pageDemonstration({
+    saisie,
+    approche,
+    scenario: scenarioDeLOeuf(saisie),
+    sourceScenario: 'oeuf',
+    registre: 'sobre',
+    urlCanonique: null,
+    urlAutreRegistre: null,
+    bandeau: null,
+    debug: false,
+  });
+  rendre(enteteDemonstration(), vue.element, {
+    titre: `${titreApproche(approche)} — ${saisie}`,
+    focaliser: vue.monter,
+    vue,
+  });
 }
 
 /** Démonstration de secours : aucune URL n'est fabriquée, on ne touche pas au hash. */
