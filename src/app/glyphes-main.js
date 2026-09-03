@@ -18,10 +18,12 @@
  *     qui pose des arcs elliptiques sur les mesures de la police ;
  *  4. **LE SQUELETTE** — celui que `src/gfx/jetbrains-squelette.py` EXTRAIT par
  *     érosion du contour réel ;
- *  5. **L'APPARIÉ** — les traits DÉCLARÉS par la recette, reposés sur le
- *     squelette MESURÉ. Le seul de ces trois-là à porter des JONCTIONS, donc le
- *     seul dont les comptes soient utilisables ;
- *  6. **L'AXE** — la police extrapolée jusqu'à l'épaisseur nulle.
+ *  5. **L'AXE** — la police extrapolée jusqu'à l'épaisseur nulle. Ni grille, ni
+ *     amincissement, ni filtre : c'est JetBrains Mono elle-même, à une graisse
+ *     qu'elle ne propose pas mais qu'elle décrit ;
+ *  6. **LES TRAITS SUR L'AXE** — la topologie DÉCLARÉE par la recette, posée sur
+ *     cet axe exact. La seule des six à porter des JONCTIONS, donc la seule
+ *     dont les comptes soient utilisables — et la seule adoptable.
  *
  * ★ **ET LA SIXIÈME REND LES QUATRE PRÉCÉDENTES CADUQUES.**
  *
@@ -65,8 +67,8 @@ import { e, svg as s } from './dom.js';
 import { GLYPHES, METRIQUES } from '../moteur/tables/glyphes.js';
 import { setGlyphes, deriveGlyph } from '../visuel/glyphes.js';
 import { CANDIDATS, MESURES } from '../gfx/_glyphes-candidats.js';
-import { SQUELETTES, APPARIES } from '../gfx/_glyphes-squelette.js';
-import { AXES } from '../gfx/_glyphes-axe.js';
+import { SQUELETTES } from '../gfx/_glyphes-squelette.js';
+import { AXES, TRAITS } from '../gfx/_glyphes-axe.js';
 
 setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
 
@@ -186,7 +188,7 @@ function rangee(c) {
   const actuel = GLYPHES[c];
   const candidat = CANDIDATS[c];
   const squelette = SQUELETTES[c];
-  const apparie = APPARIES[c];
+  const poses = TRAITS[c];
   return e('section.gl__rangee', {}, [
     e('h2.gl__lettre', { texte: c }),
     caseDeLaPolice(c),
@@ -203,7 +205,7 @@ function rangee(c) {
        pour un résultat. */
     squelette
       ? e('div.gl__case', {}, [
-        dessin(squelette, 'var(--phos)'),
+        dessin(squelette, 'var(--line-ui)'),
         e('div.gl__nom', { texte: 'squelette' }),
         e('div.gl__comptes', { texte: `${squelette.length} branche(s)` }),
       ])
@@ -211,12 +213,10 @@ function rangee(c) {
     /* ★ L'apparié, LUI, affiche ses comptes — et c'est toute la différence :
        il a des jonctions, donc `deriveGlyph` sait les lire. Ils doivent
        coïncider avec ceux de la recette, dont il reprend la topologie. */
-    apparie
-      ? case_('apparié', apparie.traits, apparie.jonctions, 'var(--line-ui)')
-      : e('div.gl__case.gl__case--vide', { texte: 'pas d’appariement' }),
-    /* ⚠️ L'axe n'affiche pas de comptes : son contour est un ALLER-RETOUR, donc
-       `deriveGlyph` y verrait une boucle par trait. Il faudra le REPLIER avant
-       de pouvoir le compter — et c'est tout ce qui manque pour l'adopter. */
+    /* ⚠️ L'axe BRUT n'affiche pas de comptes : son contour est un ALLER-RETOUR,
+       donc `deriveGlyph` y verrait une boucle par trait. C'est la colonne
+       suivante qui lui donne une topologie — non pas en la cherchant dans le
+       dessin, mais en l'y APPORTANT depuis la recette. */
     AXES[c]
       ? e('div.gl__case', {}, [
         dessin([{ d: AXES[c] }], 'var(--rubric-hi)'),
@@ -224,20 +224,22 @@ function rangee(c) {
         e('div.gl__comptes', { texte: 'extrapolé à graisse nulle' }),
       ])
       : e('div.gl__case.gl__case--vide', { texte: 'pas d’axe' }),
+    poses
+      ? case_('traits sur l’axe', poses.traits, poses.jonctions, 'var(--phos)')
+      : e('div.gl__case.gl__case--vide', { texte: 'pas de traits' }),
   ]);
 }
 
 function page() {
   return e('div.gl', {}, [
     e('header.gl__entete', {}, [
-      e('h1', { texte: 'Glyphes — police, actuel, recette, squelette, apparié, axe' }),
+      e('h1', { texte: 'Glyphes — police, actuel, recette, squelette, axe, traits' }),
       e('p.gl__appel', {
         texte: 'La première colonne est ce que la SCÈNE affiche sur sa ligne ; la deuxième, '
           + 'ce que la zone de traçage dessine aujourd’hui. La troisième DEVINE la courbe '
           + 'avec des arcs, la quatrième l’EXTRAIT du contour par érosion, la cinquième '
-          + 'pose les traits DÉCLARÉS par la recette sur le squelette MESURÉ — et la '
-          + 'sixième ne reconstruit rien : c’est la police elle-même, extrapolée jusqu’à '
-          + 'l’épaisseur nulle.',
+          + 'ne reconstruit rien — c’est la police elle-même, extrapolée jusqu’à '
+          + 'l’épaisseur nulle —, et la sixième y pose la topologie que la recette déclare.',
       }),
       e('p.gl__appel', {
         texte: `Sous chaque tracé : traits · extrémités · boucles — les trois comptes que `
