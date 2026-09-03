@@ -289,37 +289,88 @@ export function creerPleinEcran(options = {}) {
     if (z && z.dataset && z.dataset.commandes === 'vues' && !minuteur) return;
     montrer();
   };
-  /* Le doigt : un appui BASCULE. Sauf s'il vise une commande — auquel cas la
-     barre doit rester, sinon le bouton qu'on vient d'atteindre s'évanouit sous
-     le doigt qui l'actionne, et le clic suivant retomberait dans le vide. */
+  /* ══ LE DOIGT BASCULE — ET IL BASCULE DEPUIS TOUTE L'IMAGE ════════════════
+     > « Le player s'affiche et se masque correctement en plein écran sur
+     >   ordinateur, mais sur mon mobile, en plein écran, même en cliquant en
+     >   haut de l'écran, il ne se masque pas. Conséquence : une partie de
+     >   l'animation passe sous la barre de contrôle. » (l'auteur)
+
+     ⚠️ **L'APPUI ÉTAIT POSÉ SUR LA ZONE, DONC SUR LE QUART INFÉRIEUR SEUL.**
+       Ce qui MONTRE la barre peut vivre là : on tape en bas, les commandes
+       viennent. Mais ce qui la CACHE ne le peut pas. À la souris, le masquage
+       n'est pas un geste — c'est `pointerleave`, l'absence de geste, et il se
+       déclenche partout ailleurs sur l'écran par construction. Au doigt, il
+       n'existe pas de « partir » : taper hors du quart inférieur n'atteignait
+       aucun écouteur, et la barre restait posée sur l'animation jusqu'à la
+       sortie du plein écran. Le dispositif avait donc une entrée tactile et
+       aucune sortie tactile.
+
+     ★ **L'APPUI ÉCOUTE MAINTENANT LA CIBLE**, c'est-à-dire l'écran entier du
+       plein écran, dont la zone est une descendante : un seul écouteur couvre
+       les deux moitiés du geste, et l'évènement qui naît dans la zone y remonte
+       de lui-même. Pas de second écouteur, donc pas de double bascule.
+       C'est aussi l'idiome de tous les lecteurs vidéo tactiles : une tape sur
+       l'image montre les commandes, la suivante les rend à l'image.
+
+     ★ Le survol, lui, RESTE sur la zone. `pointerenter` sur la cible entière
+       vaudrait « le pointeur est quelque part sur l'écran », ce qui est vrai en
+       permanence : la barre ne se cacherait plus jamais à la souris.
+
+     Une exception, inchangée : l'appui qui vise une commande ne bascule pas,
+     sinon le bouton qu'on vient d'atteindre s'évanouit sous le doigt qui
+     l'actionne et le clic suivant retombe dans le vide.
+     ⚠️ `select` est dans la liste : le réglage de vitesse est un `<select>`
+     étalé sur un faux bouton (`src/app/transport.js`), il n'est ni un `button`
+     ni un `[role=button]` — sans lui, ouvrir la liste des vitesses au doigt
+     effaçait la barre sous le menu qui s'ouvrait. */
   const surAppui = (ev) => {
     if (vientDUneSouris(ev)) return;
     const surUnControle = ev.target && typeof ev.target.closest === 'function'
-      && ev.target.closest('button, a[href], [role="button"]');
+      && ev.target.closest('button, a[href], select, [role="button"]');
     const z = zone();
     const deja = !!(z && z.dataset && z.dataset.commandes === 'vues');
     if (surUnControle || !deja) montrer();
     else cacher();
   };
 
+  /* Les nœuds effectivement écoutés sont MÉMORISÉS, pas relus au détachement :
+     `zone` et `cible` sont des fonctions, et rien ne garantit qu'elles rendront
+     le même nœud une fois la page démontée. Retirer un écouteur d'un autre
+     élément que celui qui le porte ne fait rien — et ne le dit pas. */
+  let zoneEcoutee = null;
+  let cibleEcoutee = null;
+
   function attacher() {
+    if (attaches) return;
     const z = zone();
-    if (!z || attaches) return;
+    const c = cible();
+    if (!z && !c) return;
     attaches = true;
-    z.addEventListener('pointerenter', surEntree);
-    z.addEventListener('pointerleave', surSortie);
-    z.addEventListener('pointermove', surMouvement);
-    z.addEventListener('pointerdown', surAppui);
+    if (z) {
+      zoneEcoutee = z;
+      z.addEventListener('pointerenter', surEntree);
+      z.addEventListener('pointerleave', surSortie);
+      z.addEventListener('pointermove', surMouvement);
+    }
+    if (c) {
+      cibleEcoutee = c;
+      c.addEventListener('pointerdown', surAppui);
+    }
   }
 
   function detacher() {
-    const z = zone();
-    if (!z || !attaches) return;
+    if (!attaches) return;
     attaches = false;
-    z.removeEventListener('pointerenter', surEntree);
-    z.removeEventListener('pointerleave', surSortie);
-    z.removeEventListener('pointermove', surMouvement);
-    z.removeEventListener('pointerdown', surAppui);
+    if (zoneEcoutee) {
+      zoneEcoutee.removeEventListener('pointerenter', surEntree);
+      zoneEcoutee.removeEventListener('pointerleave', surSortie);
+      zoneEcoutee.removeEventListener('pointermove', surMouvement);
+      zoneEcoutee = null;
+    }
+    if (cibleEcoutee) {
+      cibleEcoutee.removeEventListener('pointerdown', surAppui);
+      cibleEcoutee = null;
+    }
   }
 
   /** Vrai si c'est bien NOTRE cible qui occupe l'écran. Une vidéo passée en

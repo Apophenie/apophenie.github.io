@@ -206,26 +206,42 @@ test('★ plein écran — sans API, tout est inerte et rien n’explose', async
   plein.detruire();
 });
 
-test('★ plein écran — `detruire` rend l’écouteur du document et les écouteurs de la zone', async () => {
-  const { doc, zone, plein } = attelage();
+test('★ plein écran — `detruire` rend l’écouteur du document et ceux du pointeur', async () => {
+  const { doc, zone, cible, plein } = attelage();
   await plein.basculer();
   doc.emettre('fullscreenchange');
   assert.ok(zone.ecouteurs.length > 0, 'la zone n’écoute rien en plein écran');
+  assert.ok(cible.ecouteurs.length > 0, 'l’image n’écoute pas l’appui du doigt');
   plein.detruire();
   assert.equal(doc.combienDEcouteurs('fullscreenchange'), 0);
   assert.equal(zone.ecouteurs.length, 0, 'des écouteurs ont survécu à la page');
+  assert.equal(cible.ecouteurs.length, 0, 'l’appui du doigt a survécu à la page');
 });
 
-test('★ plein écran — la zone n’écoute QUE pendant le plein écran', async () => {
-  const { doc, zone, plein } = attelage();
+/**
+ * ★ **LE SURVOL VIT SUR LA ZONE, L'APPUI SUR TOUTE L'IMAGE.**
+ *
+ * Le partage n'est pas cosmétique. `pointerenter` posé sur l'image entière
+ * vaudrait « le pointeur est quelque part sur l'écran », donc vrai en
+ * permanence : la barre ne se cacherait plus jamais à la souris. L'appui, lui,
+ * doit porter partout — c'est le seul geste par lequel un doigt peut RENVOYER
+ * la barre, faute de pouvoir « partir » comme une souris le fait.
+ */
+test('★ plein écran — le survol écoute la zone, l’appui écoute toute l’image', async () => {
+  const { doc, zone, cible, plein } = attelage();
   assert.equal(zone.ecouteurs.length, 0, 'la zone écoute déjà hors plein écran');
+  assert.equal(cible.ecouteurs.length, 0, 'l’image écoute déjà hors plein écran');
   await plein.basculer();
   doc.emettre('fullscreenchange');
-  const dedans = zone.ecouteurs.length;
-  assert.ok(dedans >= 4, 'survol, sortie, mouvement et appui : les quatre voies');
+  const noms = (n) => n.ecouteurs.map(([x]) => x).sort();
+  assert.deepEqual(noms(zone), ['pointerenter', 'pointerleave', 'pointermove'],
+    'le survol, la sortie et le mouvement : les trois voies de la souris');
+  assert.deepEqual(noms(cible), ['pointerdown'],
+    'l’appui doit porter sur toute l’image, sinon le doigt n’a aucune sortie');
   doc.fullscreenElement = null;
   doc.emettre('fullscreenchange');
   assert.equal(zone.ecouteurs.length, 0);
+  assert.equal(cible.ecouteurs.length, 0);
   plein.detruire();
 });
 
@@ -243,13 +259,13 @@ test('★ plein écran — les commandes se présentent à l’entrée, puis s�
 });
 
 test('★ plein écran — un doigt BASCULE, une souris SURVOLE', async () => {
-  const { doc, zone, plein } = attelage();
+  const { doc, zone, cible, plein } = attelage();
   await plein.basculer();
   doc.emettre('fullscreenchange');
-  const tirer = (nom) => (zone.ecouteurs.find(([n]) => n === nom) || [])[1];
-  const appui = tirer('pointerdown');
-  const entree = tirer('pointerenter');
-  const sortie = tirer('pointerleave');
+  const tirer = (n, nom) => (n.ecouteurs.find(([x]) => x === nom) || [])[1];
+  const appui = tirer(cible, 'pointerdown');
+  const entree = tirer(zone, 'pointerenter');
+  const sortie = tirer(zone, 'pointerleave');
 
   delete zone.dataset.commandes;
   // ★ Le doigt : un appui montre, le suivant cache. Sans la distinction de
@@ -279,6 +295,67 @@ test('★ plein écran — un doigt BASCULE, une souris SURVOLE', async () => {
   assert.equal(zone.dataset.commandes, 'vues');
   sortie({ pointerType: 'mouse' });
   assert.equal(zone.dataset.commandes, undefined);
+  plein.detruire();
+});
+
+/**
+ * ⚠️ **LE DÉFAUT SIGNALÉ : LA BARRE NE SE RENDAIT PAS.**
+ *
+ * > « Le player s'affiche et se masque correctement en plein écran sur
+ * >   ordinateur, mais sur mon mobile, en plein écran, même en cliquant en haut
+ * >   de l'écran, il ne se masque pas. Conséquence : une partie de l'animation
+ * >   passe sous la barre de contrôle. » (l'auteur)
+ *
+ * L'appui vivait sur la ZONE, c'est-à-dire sur le quart inférieur. Montrer y
+ * marchait ; cacher, non — taper ailleurs n'atteignait aucun écouteur. À la
+ * souris le masquage n'est pas un geste mais une absence (`pointerleave`), et
+ * une absence se produit partout par construction ; au doigt, « partir »
+ * n'existe pas. Le dispositif avait donc une entrée tactile et pas de sortie.
+ */
+test('★ plein écran — une tape EN HAUT DE L’IMAGE rend la barre à l’animation', async () => {
+  const { doc, zone, cible, plein } = attelage();
+  await plein.basculer();
+  doc.emettre('fullscreenchange');
+  const appui = (cible.ecouteurs.find(([n]) => n === 'pointerdown') || [])[1];
+  assert.equal(typeof appui, 'function', 'l’image n’écoute pas l’appui');
+
+  /* Le haut de l'image : ni la zone, ni un contrôle — le SVG de la scène. */
+  const hautDeLEcran = { closest: () => null };
+
+  delete zone.dataset.commandes;
+  appui({ pointerType: 'touch', target: hautDeLEcran });
+  assert.equal(zone.dataset.commandes, 'vues',
+    'une tape sur l’image doit faire venir les commandes');
+  appui({ pointerType: 'touch', target: hautDeLEcran });
+  assert.equal(zone.dataset.commandes, undefined,
+    'la barre reste posée sur l’animation : le défaut signalé est intact');
+
+  /* Et la souris, elle, ne bascule toujours rien : un clic dans l'image ne doit
+     pas escamoter la barre sous le pointeur qui vient de s'y poser. */
+  zone.dataset.commandes = 'vues';
+  appui({ pointerType: 'mouse', target: hautDeLEcran });
+  assert.equal(zone.dataset.commandes, 'vues');
+  plein.detruire();
+});
+
+/**
+ * ⚠️ **LE RÉGLAGE DE VITESSE EST UN `<select>`, PAS UN `<button>`.**
+ *
+ * Il est étalé, transparent, sur un faux bouton (`src/app/transport.js`) : il
+ * n'a ni la balise `button` ni `role="button"`. Sans lui dans la liste des
+ * commandes, ouvrir la liste des vitesses au doigt effaçait la barre sous le
+ * menu déroulant qui s'ouvrait — on relâchait le doigt sur un contrôle disparu.
+ */
+test('★ plein écran — le sélecteur de vitesse compte comme une commande', async () => {
+  const { doc, zone, cible, plein } = attelage();
+  await plein.basculer();
+  doc.emettre('fullscreenchange');
+  const appui = (cible.ecouteurs.find(([n]) => n === 'pointerdown') || [])[1];
+  const choix = { closest: (sel) => (sel.includes('select') ? choix : null) };
+  zone.dataset.commandes = 'vues';
+  appui({ pointerType: 'touch', target: choix });
+  assert.equal(zone.dataset.commandes, 'vues',
+    'la barre a fui le doigt qui ouvrait la liste des vitesses');
   plein.detruire();
 });
 
@@ -409,6 +486,34 @@ test('★ câblage — le contrôleur masqué reste FOCUSABLE, sans quoi le mode
   //   `filter`, sur le même élément (CONTRACTS §3.2).
   assert.doesNotMatch(bloc, /(?:^|[\s;{])(?:translate|rotate|scale|filter)\s*:/m,
     'opacité animée ET transformation individuelle : le nœud sera composé à l’identité');
+});
+
+/**
+ * ⚠️ **UN BOUTON INVISIBLE RESTE CLIQUABLE**, et au doigt c'est un piège.
+ *
+ * `opacity: 0` ne retire rien du test de survol : la barre effacée gardait des
+ * cibles tactiles pleine largeur dans le quart inférieur. La première tape,
+ * celle qui doit FAIRE VENIR les commandes, tombait donc sur l'une d'elles — et
+ * celle du bout de rangée est « agrandir » : on ressortait du plein écran en
+ * croyant l'ouvrir.
+ *
+ * ★ Ce sont les ENFANTS qu'on neutralise, jamais le groupe : c'est lui qui
+ *   porte `:hover` et les écouteurs de pointeur. L'inerter supprimerait la
+ *   révélation elle-même. Et le clavier n'est pas concerné — `pointer-events`
+ *   ne touche ni l'ordre de tabulation ni `:focus-within`.
+ */
+test('★ câblage — la barre effacée ne garde aucune cible tactile', () => {
+  const css = lire('../styles/controls.css');
+  assert.match(css, /\.demo__scene\[data-plein-ecran\] \.transport-groupe > \* \{ pointer-events: none; \}/,
+    'la barre effacée intercepte encore les tapes destinées à la faire venir');
+  assert.match(css, /\.transport-groupe\[data-commandes="vues"\] > \*,/,
+    'rien ne rend les commandes cliquables une fois révélées');
+  assert.match(css, /\.transport-groupe:focus-within > \* \{ pointer-events: auto; \}/,
+    'le clavier atteindrait un contrôle inerte');
+  // Le groupe lui-même reste sensible, sinon plus rien ne le révèle.
+  const bloc = css.match(/\.demo__scene\[data-plein-ecran\] \.transport-groupe \{([\s\S]*?)\n\}/)[1];
+  assert.doesNotMatch(bloc, /pointer-events/,
+    'neutraliser le groupe supprimerait le survol qui le fait paraître');
 });
 
 test('★ câblage — les deux catalogues portent les quatre libellés', async () => {

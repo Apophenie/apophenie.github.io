@@ -290,6 +290,22 @@
 .demo__scene[data-plein-ecran] .transport-groupe:hover,
 .demo__scene[data-plein-ecran] .transport-groupe:focus-within { opacity: 1; }
 
+/* ⚠️ UN BOUTON INVISIBLE RESTE CLIQUABLE — et au doigt, c'est un piège.
+   `opacity: 0` ne retire rien du test de survol : la barre effacée gardait des
+   cibles tactiles pleine largeur dans le quart inférieur de l'écran. La première
+   tape destinée à FAIRE VENIR les commandes tombait donc sur l'une d'elles, et
+   celle du bout de rangée est justement « agrandir » — on ressortait du plein
+   écran en croyant l'ouvrir.
+   Ce sont les ENFANTS qu'on rend inertes, jamais le groupe : c'est lui qui porte
+   `:hover` et les écouteurs de pointeur, et le neutraliser supprimerait la
+   révélation elle-même. Le clavier n'est pas concerné — `pointer-events` ne
+   touche ni l'ordre de tabulation ni `:focus-within`, qui continue de faire
+   paraître la barre avant tout geste de pointeur. */
+.demo__scene[data-plein-ecran] .transport-groupe > * { pointer-events: none; }
+.demo__scene[data-plein-ecran] .transport-groupe[data-commandes="vues"] > *,
+.demo__scene[data-plein-ecran] .transport-groupe:hover > *,
+.demo__scene[data-plein-ecran] .transport-groupe:focus-within > * { pointer-events: auto; }
+
 /* La jauge ne se resserre pas en plein écran : elle garde ses cases tapables et
    sa marge, mais elle cesse d'être ce qu'on lit en premier. */
 .demo__scene[data-plein-ecran] .jauge { margin-top: 0; margin-bottom: var(--e2); }
