@@ -161,16 +161,20 @@ export function plan(ctx) {
   // Le titre de phase se pose au haut de la VUE — pas du `viewBox` : la ligne
   // peut défiler, et un titre posé sur le repère fixe se décrocherait d'elle.
   const vue = ancreVue(ctx);
-  /* La signature se pose au coin BAS-DROIT du contenu, et « nettement en
-     dessous » : deux casses sous le dernier rang, là où plus rien ne peut la
-     disputer. Elle déborde d'une demi-largeur à droite du bord — c'est ce
-     débord qui la fait lire comme un paraphe et non comme un rang de plus. */
+  /* La signature se pose au coin BAS-DROIT du contenu, « nettement en dessous »
+     et débordant à droite : c'est ce débord qui la fait lire comme un paraphe
+     et non comme un rang de plus.
+
+     ⚠️ Les deux écarts ont été RÉGLÉS À L'ŒIL, et il n'y a pas d'autre façon de
+       les régler : « s'il pouvait être légèrement plus haut et légèrement plus
+       à droite, ce serait parfait » (l'auteur). Une casse et demie sous le
+       dernier rang, une chasse au-delà du bord droit. */
   const at = enScene
     ? { x: vue.x, y: vue.y - ctx.metrics.fontSize * (typeof ctx.op.ecart === 'number' ? ctx.op.ecart : 3.4) }
     : (signe
       ? {
-        x: box.x + box.w,
-        y: box.y + box.h + ctx.metrics.fontSize * (typeof ctx.op.ecart === 'number' ? ctx.op.ecart : 2.1),
+        x: box.x + box.w + ctx.metrics.advance,
+        y: box.y + box.h + ctx.metrics.fontSize * (typeof ctx.op.ecart === 'number' ? ctx.op.ecart : 1.5),
       }
       : (deCote
         ? { x: place === 'left' ? box.x - dx : box.x + box.w + dx, y: box.y + box.h / 2 }

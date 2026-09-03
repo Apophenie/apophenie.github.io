@@ -394,6 +394,36 @@ test('★ œuf — le « pi » saisi a son atelier, comme « pie » et « bête 
     'plus celle du « pi » de l’énoncé — même geste, même appareillage');
 });
 
+/**
+ * ★ **LE C.Q.F.D. SIGNE — il ne surmonte pas.**
+ *
+ * > « Quand on finit sur cheval/oiseau = Pi, CQFD au-dessus est disgracieux
+ * >   (centré mais décalé par rapport au reste). Il devrait venir comme une
+ * >   signature en bas à droite. » Puis : « place-le aussi comme ça pour la
+ * >   version Pi = Pi. » (l'auteur)
+ *
+ * Un titre posé au milieu du haut de la vue surmonte exactement une LIGNE
+ * UNIQUE, centrée comme lui. Il détonne sur une FRACTION, dont l'axe n'est pas
+ * le milieu de la scène : deux centrages différents dans la même image se
+ * lisent comme un défaut d'alignement. Le paraphe, lui, se cale sur le contenu
+ * et le suit où qu'il aille — il n'a rien à accorder, et les deux fins se
+ * ressemblent.
+ */
+test('★ œuf — le C.Q.F.D. signe au coin bas-droit, dans les DEUX fins', () => {
+  for (const saisie of ['cheval sur oiseau', 'cheval sur oiseau = pi']) {
+    const tl = compile(scenarioDeLOeuf(saisie));
+    const n = [...tl.scene.allNodes()]
+      .find((x) => x.role === 'label' && (x.text || '').startsWith('C.Q'));
+    assert.ok(n, `${saisie} : le C.Q.F.D. doit être posé`);
+    const p = tl.scene.pos(n.id);
+    const boites = tl.scene.flow.map((id) => tl.scene.pos(id)).filter(Boolean);
+    const droite = Math.max(...boites.map((b) => b.x + b.w / 2));
+    const bas = Math.max(...boites.map((b) => b.y));
+    assert.ok(p.y > bas, `${saisie} : la signature doit être SOUS le dernier rang (${p.y} vs ${bas})`);
+    assert.ok(p.x > droite, `${saisie} : et DÉBORDER à droite du contenu (${p.x} vs ${droite})`);
+  }
+});
+
 test('★ œuf — chaque étape porte son titre de registre', () => {
   const sc = scenarioDeLOeuf('cheval sur oiseau');
   for (const st of sc.steps) {

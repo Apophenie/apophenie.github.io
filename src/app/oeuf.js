@@ -575,16 +575,16 @@ function etapes(mots, pi) {
    * >   finit sur cheval/oiseau = Pi, CQFD au-dessus est disgracieux […] il
    * >   devrait venir comme une signature en bas à droite. » (l'auteur)
    *
-   * La branche qui finit sur `π = π` laisse une LIGNE UNIQUE, centrée : un
-   * titre posé au milieu du haut de la vue la surmonte exactement. L'autre
-   * repose une FRACTION, dont l'axe n'est pas le milieu de la scène — le même
-   * titre y flotterait au centre pendant que tout le reste s'en écarte, et deux
-   * centrages différents dans une même image se lisent comme un défaut
-   * d'alignement. La signature ne surmonte rien : elle se cale sur le coin
-   * bas-droit de ce qui est écrit, comme on paraphe une démonstration faite.
+   * ★ **ET C'EST LA SIGNATURE DANS LES DEUX CAS** — « place-le aussi comme ça
+   *   pour la version Pi = Pi » (l'auteur). Le titre centré au haut de la vue
+   *   convenait à une ligne unique et détonnait sur une fraction, dont l'axe
+   *   n'est pas le milieu de la scène : deux centrages différents dans une même
+   *   image se lisent comme un défaut d'alignement. Le paraphe, lui, se cale
+   *   sur le contenu et le suit où qu'il aille — il n'a donc rien à accorder,
+   *   et les deux fins se ressemblent enfin.
    */
-  const cqfd = (place) => ({
-    op: 'annotate', text: dire('cqfd'), place, taille: 0.9, ton: 'gold',
+  const cqfd = () => ({
+    op: 'annotate', text: dire('cqfd'), place: 'signature', taille: 0.9, ton: 'gold',
   });
   const s5 = pi
     ? {
@@ -593,7 +593,7 @@ function etapes(mots, pi) {
       caption: `π = π`,
       ops: [
         { op: 'pulse', targets: ['P1', 'P2'], at: 0, dur: 900 },
-        { ...cqfd('scene'), at: 700, dur: 1800 },
+        { ...cqfd(), at: 700, dur: 1800 },
       ],
     }
     : {
@@ -644,7 +644,7 @@ function etapes(mots, pi) {
         // départ est écrite en signes, `rule` l'ajuste au dixième d'unité.
         { op: 'rule', id: 'barre2', couvre: { all: true }, at: 3800, dur: 700 },
         { op: 'pulse', targets: ['P1'], at: 4500, dur: 900 },
-        { ...cqfd('signature'), at: 5000, dur: 1800 },
+        { ...cqfd(), at: 5000, dur: 1800 },
       ],
     };
 
