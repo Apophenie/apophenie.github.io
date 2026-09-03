@@ -114,6 +114,10 @@ def contours(ch):
 
 # ── rastérisation (règle pair-impair sur des contours non auto-intersectants) ──
 PAS = 4.0          # unités de repère par pixel
+#: L'épaisseur du fût, à l'échelle du repère — la même que `jetbrains-traces.py`
+#: mesure (90 unités de police × k). C'est elle qui donne le rayon attendu au
+#: bout d'un vrai trait : sa moitié.
+M_FUT = 90 * K
 MARGE = 12         # pixels
 
 def rasteriser(subs):
@@ -299,7 +303,7 @@ def branches(sk):
 # du contour : ce sont des ÉPINES, pas des traits. On les reconnaît à ce qu'elles
 # meurent sur un bout libre après quelques pixels — bien moins que l'épaisseur
 # du trait, qui est la plus petite longueur qu'un vrai trait puisse avoir.
-def ebarber(sk, seuil):
+def ebarber(sk, seuil, iles=frozenset()):
     """Retire les ÉPINES : les branches terminales plus courtes qu'un trait.
 
     ⚠️ **ELLE NE TOUCHE AUCUN PIXEL DE CARREFOUR.** Un carrefour occupe une
@@ -320,33 +324,12 @@ def ebarber(sk, seuil):
             continue                      # deux bouts, ou aucun : ce n'est pas une épine
         if len(br) >= seuil:
             continue
+        if any(p in iles for p in br):
+            continue                      # le point du `i` n'est pas une épine
         for (i, j) in br:
             if (i, j) not in appartient:  # jamais un pixel de carrefour
                 sk[j][i] = 0
     return sk
-
-
-if __name__ == '__main__' and len(sys.argv) > 2 and sys.argv[2] == 'svg':
-    lettres = sys.argv[1]
-    CEL, MARG = 170, 14
-    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{len(lettres)*(CEL+MARG)+MARG}" height="{CEL*1.5+2*MARG}" '
-             f'viewBox="0 0 {len(lettres)*(CEL+MARG)+MARG} {CEL*1.5+2*MARG}"><rect width="100%" height="100%" fill="#14161a"/>']
-    for n, ch in enumerate(lettres):
-        subs = contours(ch)
-        g, ox, oy, W, H = rasteriser(subs)
-        sk = ebarber(amincir(g), seuil=20)
-        ech = CEL / (W * PAS)
-        parts.append(f'<g transform="translate({MARG + n*(CEL+MARG)},{MARG}) scale({ech}) translate({-ox},{H*PAS+oy}) scale(1,-1)">')
-        d = ' '.join('M %.1f %.1f ' % s[0] + ' '.join('L %.1f %.1f' % p for p in s[1:]) + ' Z' for s in subs)
-        parts.append(f'<path d="{d}" fill="#5b6b8a" fill-rule="nonzero"/>')
-        for j in range(H):
-            for i in range(W):
-                if sk[j][i]:
-                    parts.append(f'<rect x="{ox+i*PAS}" y="{oy+j*PAS}" width="{PAS}" height="{PAS}" fill="#e05c4a"/>')
-        parts.append('</g>')
-    parts.append('</svg>')
-    open('/tmp/sk.svg', 'w').write('\n'.join(parts))
-    print('→ /tmp/sk.svg')
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -457,6 +440,110 @@ def petitesIles(sk, taille=3):
     return iles
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  ★ **LE RAYON INSCRIT — le critère qui distingue une épine d'un trait.**
+#
+#  L'ébarbage par LONGUEUR est un réglage : il marche quand les épines sont plus
+#  courtes que les traits, et se trompe dès qu'un vrai trait est court. Sur les
+#  panses tangentes — `b d g p q` —, là où la police pose un congé entre la
+#  panse et le fût, l'amincissement sème des crochets que la longueur ne
+#  distingue de rien. « Il y a des artéfacts improbables » (l'auteur).
+#
+#  Le rayon inscrit, lui, est INTRINSÈQUE : c'est la distance du point d'axe au
+#  bord le plus proche, c'est-à-dire le rayon du plus grand disque qu'on puisse
+#  y loger. Au bout d'un VRAI trait il vaut la demi-épaisseur — le crayon y est
+#  aussi large qu'ailleurs. Au bout d'une ÉPINE il est bien plus petit, parce
+#  qu'une épine pointe vers un recoin, où plus rien ne tient. Le critère ne se
+#  règle donc pas : il se mesure, et il vaut pour n'importe quelle résolution.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def distances(grille, W, H):
+    """Transformée de distance par chamfer 3-4, en TIERS de pixel.
+
+    Deux balayages — un avant, un arrière — suffisent : le coût de tout chemin
+    étant croissant, la distance minimale se propage de proche en proche. Les
+    poids 3 et 4 approchent 1 et √2 à 4 % près, ce qui est très en deçà de la
+    précision que la grille elle-même autorise.
+    """
+    INF = 1 << 30
+    d = [[0 if not grille[j][i] else INF for i in range(W)] for j in range(H)]
+    for j in range(H):
+        for i in range(W):
+            if not d[j][i]:
+                continue
+            m = d[j][i]
+            if j > 0:
+                m = min(m, d[j - 1][i] + 3)
+                if i > 0:
+                    m = min(m, d[j - 1][i - 1] + 4)
+                if i < W - 1:
+                    m = min(m, d[j - 1][i + 1] + 4)
+            if i > 0:
+                m = min(m, d[j][i - 1] + 3)
+            d[j][i] = m
+    for j in range(H - 1, -1, -1):
+        for i in range(W - 1, -1, -1):
+            if not d[j][i]:
+                continue
+            m = d[j][i]
+            if j < H - 1:
+                m = min(m, d[j + 1][i] + 3)
+                if i > 0:
+                    m = min(m, d[j + 1][i - 1] + 4)
+                if i < W - 1:
+                    m = min(m, d[j + 1][i + 1] + 4)
+            if i < W - 1:
+                m = min(m, d[j][i + 1] + 3)
+            d[j][i] = m
+    return d
+
+
+def ebarberParGoulet(sk, dist, rayonMini, iles=frozenset()):
+    """Coupe les branches terminales qui SORTENT D'UN GOULET.
+
+    ⚠️ **CE N'EST PAS LE RAYON AU BOUT — mesuré, cette idée-là est fausse.** Un
+      squelette de Blum s'arrête à une demi-épaisseur du bord, et son extrémité
+      a donc le rayon du trait ; celui de Zhang-Suen, non : l'amincissement
+      pousse jusqu'à un pixel d'épaisseur, et le bout finit COLLÉ au contour.
+      Relevé sur les deux branches du `v` — des traits parfaitement légitimes —
+      un rayon terminal de 1,0 et 2,0 px pour une demi-épaisseur de 9,2.
+
+    ⚠️ **CE N'EST PAS NON PLUS LE MINIMUM DU PARCOURS.** Sur une branche oblique
+      dont la police coupe la terminaison à l'horizontale — `v`, `w`, `x`, `y` —
+      la remontée du rayon s'étale sur bien plus qu'une demi-épaisseur, et
+      aucune marge fixe ne l'écarte sans écarter aussi de vrais traits. Le `x`
+      et le `k` y ont perdu la moitié de leurs branches.
+
+    ★ **CE QUI DISTINGUE, C'EST LE RAYON À L'ATTACHE.** Une épine de congé sort
+      d'un RECOIN : au point où elle quitte le carrefour, il n'y a presque pas
+      de place. Un vrai trait part à pleine largeur. Mesuré sur tout l'alphabet :
+      le crochet du `b` s'attache à 4,7 ; la plus étroite des branches
+      légitimes — une diagonale du `x` — à 8,0, pour une demi-épaisseur de 9,2.
+      Le seuil se pose entre les deux sans rien frôler.
+    """
+    sk = [r[:] for r in sk]
+    grappes, appartient, nd = clusters(sk)
+    for br in branches(sk):
+        a, b = br[0], br[-1]
+        boutA, boutB = nd.get(a, 2) == 1, nd.get(b, 2) == 1
+        if boutA == boutB:
+            continue                      # deux bouts, ou aucun : pas une épine
+        attache = b if boutA else a
+        # ⚠️ L'autre extrémité doit être un CARREFOUR : le parcours peut aussi
+        #   s'arrêter sur un pixel ordinaire — deux branches qui se bloquent au
+        #   milieu d'un trait —, et ce demi-trait-là n'a pas d'attache à mesurer.
+        if attache not in appartient:
+            continue
+        if any(p in iles for p in br):
+            continue                      # le point du `i` n'est pas une épine
+        if dist[attache[1]][attache[0]] >= rayonMini * 3:
+            continue                      # part à pleine largeur : c'est un trait
+        for (i, j) in br:
+            if (i, j) not in appartient:
+                sk[j][i] = 0
+    return sk
+
+
 def polylignes(sk, iles=frozenset()):
     """Le squelette COUVERT par des polylignes, sans passer par les carrefours.
 
@@ -512,14 +599,83 @@ def polylignes(sk, iles=frozenset()):
     return out
 
 
-def traces(ch):
+# ═══════════════════════════════════════════════════════════════════════════
+#  ★ **LE RECALAGE PAR LES BORDS — la précision que la grille ne donne pas.**
+#
+#  L'amincissement travaille sur des PIXELS de quatre unités : son axe est juste
+#  à deux unités près, et il hérite en prime des escaliers de la grille. C'est
+#  cette approximation, et non un défaut de méthode, qui produit les crochets de
+#  congé sur `b d g p q` — là où deux bords se frôlent, deux pixels de plus ou de
+#  moins décident d'une branche.
+#
+#  L'appariement de bords, lui, est EXACT : c'est celui qui donnait déjà un `c`
+#  et un `s` parfaits dans `jetbrains-traces.py`. Il ne savait traiter qu'un
+#  trait unique, faute de pouvoir décider quel bord répond à quel bord — mais le
+#  squelette, lui, le dit : il est déjà entre les deux. On s'en sert donc comme
+#  GUIDE, et l'on recale chaque point entre les deux bords réels.
+#
+#  Pour chaque point d'axe : le point de contour le plus proche donne un bord ;
+#  le plus proche parmi ceux qui sont de l'autre CÔTÉ — produit scalaire négatif
+#  — donne l'autre ; leur milieu est l'axe exact. Là où il n'y a pas d'autre
+#  côté (une terminaison), le point est laissé tel quel.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _regulier(pts, pas=3.0):
+    """Points équidistants le long d'un contour fermé — la finesse du recalage.
+
+    Trois quarts de pixel : le recalage cherche un plus proche point, et sa
+    précision ne peut pas dépasser l'écart entre deux points du bord.
+    """
+    out, reste = [pts[0]], 0.0
+    for a, b in zip(pts, pts[1:] + [pts[0]]):
+        d = math.dist(a, b)
+        if d < 1e-9:
+            continue
+        t = reste
+        while t < d:
+            u = t / d
+            out.append((a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u))
+            t += pas
+        reste = t - d
+    return out
+
+
+def recaler(axe, bord):
+    """Repose chaque point d'axe au MILIEU EXACT des deux bords qui l'encadrent."""
+    out = []
+    for P in axe:
+        q1 = min(bord, key=lambda z: (z[0] - P[0]) ** 2 + (z[1] - P[1]) ** 2)
+        dx, dy = q1[0] - P[0], q1[1] - P[1]
+        enFace = [z for z in bord if (z[0] - P[0]) * dx + (z[1] - P[1]) * dy < 0]
+        if not enFace:
+            out.append(P)
+            continue
+        q2 = min(enFace, key=lambda z: (z[0] - P[0]) ** 2 + (z[1] - P[1]) ** 2)
+        out.append(((q1[0] + q2[0]) / 2, (q1[1] + q2[1]) / 2))
+    return out
+
+
+def traces(ch, recale=False):
     """Les tracés d'une lettre, dans le repère du moteur."""
     subs = contours(ch)
     g, ox, oy, W, H = rasteriser(subs)
     brut = amincir(g)
     iles = petitesIles(brut)
-    sk = ebarber(brut, seuil=20)
+    # ⚠️ **L'ÉBARBAGE PAR RAYON A ÉTÉ ESSAYÉ, MESURÉ, ET N'APPORTE RIEN.** Voir
+    #   `ebarberParGoulet`, gardé pour ce qu'il documente : appliqué après
+    #   l'ébarbage par longueur, il ne coupe plus une seule branche de tout
+    #   l'alphabet — les comptes sont identiques au tracé près. Les crochets qui
+    #   subsistent sur `b d g p q` ne sont donc ni courts ni étroits à l'attache :
+    #   ce sont de VRAIES branches du squelette, que la géométrie du congé
+    #   produit. Aucun filtre sur le squelette ne les enlèvera ; c'est la
+    #   PRÉCISION du squelette qu'il faut reprendre.
+    dist = distances(g, W, H)
+    demi = (M_FUT / 2) / PAS
+    sk = ebarber(brut, seuil=20, iles=iles)
     versRepere = lambda p: (ox + (p[0] + 0.5) * PAS, oy + (p[1] + 0.5) * PAS)
+    # Le contour rééchantillonné, une fois pour toute la lettre : c'est contre
+    # lui que chaque point d'axe se recale.
+    bord = [q for sub in subs for q in _regulier(sub, pas=3.0)] if recale else None
     out = []
     for br in polylignes(sk, iles):
         if len(br) <= 2:
@@ -534,7 +690,10 @@ def traces(ch):
         # On ne prolonge qu'un trait : une épine résiduelle prolongée sort du
         # dessin en pointe, et c'est ce qui hérissait les panses.
         pts = br if (ferme or len(br) < 12) else prolonger(br, g, W, H)
-        out.append({'d': catmull([versRepere(p) for p in allege(pts)]), 'ouvert': not ferme})
+        pointsRepere = [versRepere(p) for p in allege(pts)]
+        if recale:
+            pointsRepere = recaler(pointsRepere, bord)
+        out.append({'d': catmull(pointsRepere), 'ouvert': not ferme})
     return out
 
 
@@ -542,20 +701,68 @@ if __name__ == '__main__' and len(sys.argv) > 2 and sys.argv[2] == 'js':
     import pathlib as _pl
     lignes = ["/* ⚠️ ENGENDRÉ par `src/gfx/jetbrains-squelette.py` — ne pas éditer à la main.",
               " *",
-              " * Le SQUELETTE extrait par érosion des contours de JetBrains Mono. Ce ne sont",
-              " * ni les tracés du moteur (`moteur/tables/glyphes.js` fait foi) ni les",
-              " * candidats des recettes : c'est une troisième lecture, celle que la page de",
-              " * comparaison met à côté des deux autres.",
+              " * Le SQUELETTE extrait par érosion des contours de JetBrains Mono, sous ses",
+              " * DEUX formes : `SQUELETTES` tel que l'amincissement le rend, `RECALES` une",
+              " * fois chaque point reposé au milieu exact des deux bords qui l'encadrent.",
+              " * Ce ne sont ni les tracés du moteur (`moteur/tables/glyphes.js` fait foi) ni",
+              " * les candidats des recettes : ce sont deux lectures de plus, que la page de",
+              " * comparaison met à côté des autres.",
               " *",
-              " * ⚠️ Le DÉCOUPAGE en traits n'est pas fiable sur les lettres à panse tangente",
-              " *   (`b d g p q`) : voir l'en-tête du générateur. Le dessin, lui, l'est.",
-              " */",
-              "export const SQUELETTES = {"]
-    for ch in 'abcdefghijklmnopqrstuvwxyz':
-        t = traces(ch)
-        lignes.append("  %r: [%s]," % (ch, ', '.join(
-            "{ d: %r, ouvert: %s }" % (x['d'], 'true' if x['ouvert'] else 'false') for x in t)))
-    lignes.append("};")
+              " * ⚠️ Le DÉCOUPAGE en traits n'est fiable ni dans l'une ni dans l'autre : voir",
+              " *   l'en-tête du générateur. Le dessin, lui, l'est.",
+              " */"]
+    for nom, recale in (('SQUELETTES', False), ('RECALES', True)):
+        lignes.append('export const %s = {' % nom)
+        for ch in 'abcdefghijklmnopqrstuvwxyz':
+            t = traces(ch, recale=recale)
+            lignes.append("  %r: [%s]," % (ch, ', '.join(
+                "{ d: %r, ouvert: %s }" % (x['d'], 'true' if x['ouvert'] else 'false') for x in t)))
+        lignes.append('};')
+        lignes.append('')
     cible = _pl.Path(__file__).resolve().parent / '_glyphes-squelette.js'
     cible.write_text('\n'.join(lignes) + '\n')
-    print('→ src/gfx/_glyphes-squelette.js')
+    print('→ src/gfx/_glyphes-squelette.js (squelette + recalé)')
+
+if __name__ == '__main__' and len(sys.argv) > 2 and sys.argv[2] == 'svg':
+    lettres = sys.argv[1]
+    CEL, MARG = 170, 14
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{len(lettres)*(CEL+MARG)+MARG}" height="{CEL*1.5+2*MARG}" '
+             f'viewBox="0 0 {len(lettres)*(CEL+MARG)+MARG} {CEL*1.5+2*MARG}"><rect width="100%" height="100%" fill="#14161a"/>']
+    for n, ch in enumerate(lettres):
+        subs = contours(ch)
+        g, ox, oy, W, H = rasteriser(subs)
+        brut = amincir(g)
+        sk = ebarber(brut, seuil=20, iles=petitesIles(brut))
+        ech = CEL / (W * PAS)
+        parts.append(f'<g transform="translate({MARG + n*(CEL+MARG)},{MARG}) scale({ech}) translate({-ox},{H*PAS+oy}) scale(1,-1)">')
+        d = ' '.join('M %.1f %.1f ' % s[0] + ' '.join('L %.1f %.1f' % p for p in s[1:]) + ' Z' for s in subs)
+        parts.append(f'<path d="{d}" fill="#5b6b8a" fill-rule="nonzero"/>')
+        for j in range(H):
+            for i in range(W):
+                if sk[j][i]:
+                    parts.append(f'<rect x="{ox+i*PAS}" y="{oy+j*PAS}" width="{PAS}" height="{PAS}" fill="#e05c4a"/>')
+        parts.append('</g>')
+    parts.append('</svg>')
+    open('/tmp/sk.svg', 'w').write('\n'.join(parts))
+    print('→ /tmp/sk.svg')
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  ④ LE PROLONGEMENT — rendre la longueur que l'amincissement a mangée.
+#
+#  > « Compare les extrémités du squelette aux extrémités de la font d'origine
+#  >   pour repérer la longueur manquante due à la réduction/affinage effectuée
+#  >   plus tôt. Repère aussi la direction dans laquelle s'arrête l'extrémité
+#  >   dans la font d'origine, pour t'assurer que tu es raccord (attention, sur
+#  >   la plupart des lettres le trait s'arrête à la perpendiculaire comme sur
+#  >   le bas de t, mais sur v w x y non). » (l'auteur)
+#
+#  ★ **ET LA DIRECTION N'A PAS BESOIN D'ÊTRE CLASSÉE.** On avance dans le sens
+#    de la TANGENTE du squelette jusqu'à sortir du contour, et l'on s'arrête au
+#    dernier point encore dedans. Une terminaison coupée perpendiculairement au
+#    trait — le pied du `t` — arrête la marche tout de suite ; une terminaison
+#    coupée en biais — les branches du `v`, du `w`, du `x`, du `y`, qui finissent
+#    à l'horizontale sur un trait oblique — la laisse aller plus loin, jusqu'au
+#    coin. Le cas particulier que l'auteur signale se règle donc tout seul :
+#    c'est le contour qui décide, pas une règle écrite à la main.
+# ═══════════════════════════════════════════════════════════════════════════
