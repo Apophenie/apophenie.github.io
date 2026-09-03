@@ -72,7 +72,25 @@ export function plan(ctx) {
   // 1. mutation du modèle : les nouveaux tokens prennent la place de l'ancien.
   for (const j of jobs) {
     const idx = ctx.scene.flowIndex(j.src.id);
+    /* ★ **UN ÉCLATEMENT N'EST PAS UN REMPLACEMENT — c'est le MÊME dessin.**
+     *
+     * > « Au début de `mrd`, tous les chiffres sont effacés puis réécrits. Ils
+     * >   ne doivent pas être effacés puis ré-écrits […] sinon on perd la
+     * >   confiance que ce sont les mêmes avant et après. » (l'auteur)
+     *
+     * `15` qui devient `1` et `5` ne change RIEN à l'écran : mêmes glyphes,
+     * mêmes places, même encre. Ce qui change est le MODÈLE — un jeton devient
+     * deux, pour que la découpe puisse les séparer ensuite. Le crossfade
+     * ordinaire faisait pourtant pâlir et rapetisser la source pendant que les
+     * nés grossissaient depuis le vide : un clignotement, là où il ne se passe
+     * littéralement rien. Et il coûtait cher, parce qu'il défait ce que toute
+     * la démonstration construit — la certitude que ce sont les mêmes chiffres.
+     *
+     * L'éclatement se reconnaît à ceci : les textes des nés, mis bout à bout,
+     * REFONT celui de la source. On bascule alors sans transition, en une
+     * milliseconde : ce qui est peint avant l'est encore après. */
     const eclatement = j.tos.map((t) => t.text).join('') === j.src.text && j.tos.length > 1;
+    j.eclatement = eclatement;
     let offset = 0;
     const espacement = espacementDe(ctx, j.src.id);
     /* ⚠️ **UNE COUPURE POSÉE ICI DOIT ÊTRE HONORÉE.** `layoutFlow` ne respecte
@@ -123,7 +141,13 @@ export function plan(ctx) {
          *   cette scène, veut dire « valeur calculée ». Un rappel d'énoncé
          *   n'est pas un calcul.
          */
-        base: { opacity: 0, scale: 1.15, fill: colorForKind(to.kind, ctx.palette) },
+        base: {
+          opacity: 0,
+          // Un né d'éclatement ne grandit pas : il est déjà à sa taille, sur le
+          // glyphe qu'il continue.
+          scale: eclatement ? 1 : 1.15,
+          fill: colorForKind(to.kind, ctx.palette),
+        },
       }, { where: ctx.where });
       if (j.ancre) {
         ctx.scene.place(to.id, exigerPoint(ctx, j.ancre,
@@ -172,9 +196,19 @@ export function plan(ctx) {
   let rang = 0;
   for (const j of jobs) {
     const at = rang * ctx.stagger;
+    const halo = `@halo:${j.src.id}`;
+    if (j.eclatement) {
+      // Le relais, en une milliseconde et sans un mouvement : l'image ne bouge
+      // pas, seul le modèle change. C'est le geste SUIVANT — la découpe qui
+      // écarte les paquets — qui montrera qu'il y a désormais plusieurs jetons.
+      ctx.anim({ id: j.src.id, prop: 'opacity', to: 0, at, dur: 1 });
+      if (ctx.scene.has(halo)) ctx.anim({ id: halo, prop: 'opacity', to: 0, at, dur: 1 });
+      for (const to of j.tos) ctx.anim({ id: to.id, prop: 'opacity', to: 1, at, dur: 1 });
+      rang++;
+      continue;
+    }
     ctx.anim({ id: j.src.id, prop: 'opacity', to: 0, at, dur: ctx.dur * 0.55 });
     ctx.anim({ id: j.src.id, prop: 'scale', to: 0.85, at, dur: ctx.dur * 0.55 });
-    const halo = `@halo:${j.src.id}`;
     if (ctx.scene.has(halo)) ctx.anim({ id: halo, prop: 'opacity', to: 0, at, dur: ctx.dur * 0.4 });
     j.tos.forEach((to, k) => {
       // Sous l'accolade, la valeur paraît TÔT et se laisse lire là où le

@@ -1152,12 +1152,45 @@ export function lesPlusCentraux(valeurs, gardes, cible) {
       surnumeraires: surn.sort((a, b) => a - b),
     };
   }
-  const coupure = Math.min(nSeries - 1, Math.max(1, Math.floor(nSeries / 2)));
-  const debut = coupure * cbl.longueur;
-  return {
-    gardes: [...memes.slice(0, debut), ...memes.slice(debut + surplus)],
-    surnumeraires: memes.slice(debut, debut + surplus),
-  };
+  /* ★ **UN SURNUMÉRAIRE PAR INTERSTICE, et pas tous au même.**
+   *
+   * > « Ce sont deux 6 d'affilée qui explosent au verdict, et non un 6 par
+   * >   interstice. Pourtant, à 3 × 666, c'est ce qui serait le plus
+   * >   pertinent. » (l'auteur)
+   *
+   * Le surplus partait d'un bloc à une coupure unique : sur `Capitalisme` —
+   * onze 6, trois séries — les deux surnuméraires étaient les indices 3 et 4,
+   * côte à côte, quand les deux blancs à ouvrir sont en 3 et en 7.
+   *
+   * ★ **PARCE QU'UN SURNUMÉRAIRE N'EST PAS UN JETON DE TROP, C'EST UN BLANC.**
+   *   La place qu'il libère en explosant EST l'espace qui sépare deux séries —
+   *   c'est tout son emploi, et c'est pourquoi il se tient au milieu plutôt
+   *   qu'au bout. Deux d'entre eux au même endroit n'ouvrent qu'un seul blanc,
+   *   deux fois plus large, et laissent la seconde frontière sans rien pour la
+   *   marquer. Un par interstice ouvre les deux.
+   *
+   * ★ **ET ON REMPLIT DEPUIS LE CENTRE.** Quand il y a moins de surnuméraires
+   *   que d'interstices — un seul sur quatre séries —, c'est la frontière
+   *   CENTRALE qui le mérite : elle partage le verdict en deux moitiés égales,
+   *   là où une frontière de bord ne détacherait qu'une série du reste. Sur
+   *   deux séries, il n'y a qu'un interstice et tout y va : c'est exactement
+   *   « passe au centre à partir de 2 × 666 » (l'auteur), inchangé.
+   */
+  const interstices = nSeries - 1;
+  const milieu = (interstices - 1) / 2;
+  const ordre = [...Array(interstices).keys()]
+    .sort((a, b) => Math.abs(a - milieu) - Math.abs(b - milieu) || a - b);
+  const parts = new Array(interstices).fill(0);
+  for (let k = 0; k < surplus; k++) parts[ordre[k % interstices]] += 1;
+
+  const surn = [];
+  const retenus = [];
+  let i = 0;
+  for (let s = 0; s < nSeries; s++) {
+    for (let k = 0; k < cbl.longueur; k++) retenus.push(memes[i++]);
+    for (let k = 0; k < (parts[s] || 0); k++) surn.push(memes[i++]);
+  }
+  return { gardes: retenus, surnumeraires: surn };
 }
 
 /** La valeur du dernier état d'un chemin, quand c'est un nombre unique. */

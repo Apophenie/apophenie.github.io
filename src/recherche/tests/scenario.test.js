@@ -967,6 +967,26 @@ test('★ surnuméraire — la coupure sépare deux séries, au plus près du mi
   // Une cible à deux chiffres découpe par deux, pas par trois.
   assert.deepEqual(lesPlusCentraux([1, 1, 1, 1, 1], [0, 1, 2, 3], lireCible('11')).surnumeraires,
     [2]);
+
+  /* ★ **DEUX SURNUMÉRAIRES SUR TROIS SÉRIES : UN PAR INTERSTICE.**
+   *
+   * > « Ce sont deux 6 d'affilée qui explosent au verdict, et non un 6 par
+   * >   interstice. Pourtant, à 3 × 666, c'est ce qui serait le plus
+   * >   pertinent. » (l'auteur)
+   *
+   * C'est le cas de `Capitalisme` — onze 6 —, et il tenait à ce qu'un
+   * surnuméraire n'est pas un jeton de trop mais un BLANC : la place qu'il
+   * libère EST la frontière entre deux séries. Deux au même endroit n'ouvrent
+   * qu'un seul blanc, deux fois plus large, et laissent la seconde frontière
+   * sans rien pour la marquer.
+   */
+  assert.deepEqual(lesPlusCentraux(Array(11).fill(6), [...Array(9).keys()], c666).surnumeraires,
+    [3, 7]);
+
+  // ⚠️ Mais sur DEUX séries il n'y a qu'un interstice, et tout y va : « passe au
+  //   centre à partir de 2 × 666 » (l'auteur) reste vrai au chiffre près.
+  assert.deepEqual(lesPlusCentraux(Array(8).fill(6), [...Array(6).keys()], c666).surnumeraires,
+    [3, 4]);
 });
 
 /**
