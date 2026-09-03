@@ -431,7 +431,33 @@ def allege(pts, combien=14):
     return [pts[min(len(pts) - 1, int(round(k * pas)))] for k in range(combien)]
 
 
-def polylignes(sk):
+def petitesIles(sk, taille=3):
+    """Les pixels des composantes minuscules — les POINTS du `i` et du `j`.
+
+    ★ Elles se relèvent AVANT l'ébarbage, et c'est ce qui les distingue d'un
+      orphelin : le point du `i` s'amincit en un pixel, celui du `j` en deux,
+      et tous deux sont isolés depuis l'origine. Un pixel resté seul APRÈS
+      l'ébarbage, lui, est un résidu — l'épine coupée en a laissé le pied.
+      Mesuré : `a`, `m` et `q` gagnaient ainsi un « point » qui n'existe pas.
+    """
+    H, W = len(sk), len(sk[0])
+    reste = {(i, j) for j in range(H) for i in range(W) if sk[j][i]}
+    iles = set()
+    while reste:
+        pile = [reste.pop()]
+        comp = set(pile)
+        while pile:
+            i, j = pile.pop()
+            for e, f in V8:
+                v = (i + e, j + f)
+                if v in reste:
+                    reste.discard(v); comp.add(v); pile.append(v)
+        if len(comp) <= taille:
+            iles |= comp
+    return iles
+
+
+def polylignes(sk, iles=frozenset()):
     """Le squelette COUVERT par des polylignes, sans passer par les carrefours.
 
     ★ **CE N'EST PAS LE DÉCOUPAGE EN TRAITS, et c'est volontaire.** Séparer un
@@ -466,7 +492,22 @@ def polylignes(sk):
                 break
             chemin.append(suite)
             reste.discard(suite)
-        if len(chemin) > 2:
+        # ⚠️ **UN POINT EST UNE COMPOSANTE D'UN SEUL PIXEL, et il se garde.**
+        #   Le seuil rejetait tout chemin de moins de trois pixels — ce qui est
+        #   juste d'un moignon accroché à un trait, et faux d'une composante
+        #   ISOLÉE. Or le point du `i` et celui du `j` s'amincissent très
+        #   exactement en UN pixel (mesuré), et disparaissaient : « les points
+        #   sur i et j ont disparu » (l'auteur). On les rend comme la table du
+        #   dépôt les écrit — un sous-chemin dégénéré, que le trait arrondi
+        #   peint en rond.
+        # ⚠️ **UN POINT EST UNE ÎLE, PAS UN CHEMIN COURT.** Le seuil rejetait
+        #   tout chemin de moins de trois pixels — juste d'un moignon accroché à
+        #   un trait, faux d'une composante ISOLÉE. Le point du `i` s'amincit en
+        #   UN pixel, celui du `j` en DEUX (mesuré), et tous deux disparaissaient :
+        #   « les points sur i et j ont disparu » (l'auteur). On les rend comme la
+        #   table du dépôt les écrit — un sous-chemin dégénéré, que le trait
+        #   arrondi peint en rond.
+        if len(chemin) > 2 or all(p in iles for p in chemin):
             out.append(chemin)
     return out
 
@@ -475,10 +516,18 @@ def traces(ch):
     """Les tracés d'une lettre, dans le repère du moteur."""
     subs = contours(ch)
     g, ox, oy, W, H = rasteriser(subs)
-    sk = ebarber(amincir(g), seuil=20)
+    brut = amincir(g)
+    iles = petitesIles(brut)
+    sk = ebarber(brut, seuil=20)
     versRepere = lambda p: (ox + (p[0] + 0.5) * PAS, oy + (p[1] + 0.5) * PAS)
     out = []
-    for br in polylignes(sk):
+    for br in polylignes(sk, iles):
+        if len(br) <= 2:
+            # Le point du `i`, du `j` : un sous-chemin dégénéré, peint en rond
+            # par le trait arrondi. C'est ainsi que `glyphes.js` l'écrit déjà.
+            x, y = versRepere(br[0])
+            out.append({'d': 'M %s %s L %s %s' % (r(x), r(y), r(x), r(y)), 'ouvert': True})
+            continue
         if len(br) < 4:
             continue
         ferme = math.dist(br[0], br[-1]) <= 1.5
