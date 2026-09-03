@@ -75,13 +75,31 @@ export function plan(ctx) {
     const eclatement = j.tos.map((t) => t.text).join('') === j.src.text && j.tos.length > 1;
     let offset = 0;
     const espacement = espacementDe(ctx, j.src.id);
+    /* ⚠️ **UNE COUPURE POSÉE ICI DOIT ÊTRE HONORÉE.** `layoutFlow` ne respecte
+       les `breakBefore` que si `coupuresExplicites` est armé, et `compile.js`
+       ne l'arme que d'après les jetons de DÉPART. Une op qui repose une mise en
+       page sur plusieurs rangs en cours de route — le verdict de l'œuf, qui
+       réécrit une fraction — déclarait donc des coupures que le layout
+       ignorait, et les trois lignes se retrouvaient bout à bout. C'est la règle
+       que `reveal` applique déjà pour ses deux rangs de séries : celui qui
+       coupe arme la coupure. */
+    if (j.tos.some((to) => to.breakBefore === true)) ctx.layoutOpts.coupuresExplicites = true;
     j.tos.forEach((to, k) => {
       ctx.scene.create({
         id: to.id, text: to.text, kind: to.kind, group: to.group ?? j.src.group,
         // Sous une accolade, la valeur vit d'abord À CÔTÉ du flux : la ligne se
         // referme sans elle, puis elle y entre (temps 4), comme le résultat
         // d'une somme.
-        role: 'text', inFlow: !j.ancre, insertAt: idx < 0 ? undefined : idx + 1 + k,
+        /* ★ **LE RÔLE SE DÉCLARE, et il vaut « text » quand il ne l'est pas.**
+           Un jeton créé était forcément un texte, ce qui est vrai de toute
+           substitution de VALEUR — et faux dès qu'une op REPOSE une mise en
+           page : le verdict de l'œuf réécrit une fraction entière, trait
+           compris, et un trait n'est pas un texte (`primitives/rule.js`). La
+           largeur suit, faute de quoi un rôle non textuel se mesurerait sur
+           une chaîne vide. */
+        role: to.role || 'text',
+        ...(to.w !== undefined ? { w: to.w } : {}),
+        inFlow: !j.ancre, insertAt: idx < 0 ? undefined : idx + 1 + k,
         // Le PREMIER né hérite de l'espacement de la source — la ligne ne doit
         // pas se resserrer parce qu'une valeur en remplace une autre.
         ...(k === 0 ? espacement : {}),

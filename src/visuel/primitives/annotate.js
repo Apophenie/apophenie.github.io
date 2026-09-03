@@ -6,7 +6,7 @@
  * accessible via `step.caption` — la scène SVG étant `aria-hidden` (CONTRACTS §6).
  */
 
-import { targetsOf } from './helpers.js';
+import { targetsOf, ancreVue } from './helpers.js';
 import { bboxOf } from '../layout.js';
 import { EASE, DEFAULT_DUR } from '../constants.js';
 import { fail } from '../errors.js';
@@ -48,11 +48,29 @@ export function plan(ctx) {
   if (typeof text !== 'string' || !text.trim()) {
     fail(`${ctx.where}« text » non vide obligatoire.`);
   }
-  const ids = ctx.op.anchor !== undefined
+  /* ★ **`place: 'scene'` — LE TITRE DE PHASE, qui n'annote aucun jeton.**
+   *
+   * > « Le titre de la phase doit aussi apparaître dans la scène et rester
+   * >   durant la phase (même s'il n'y a pas besoin d'accolade pour ça). »
+   * >   (l'auteur)
+   *
+   * Les quatre autres places désignent : elles se calent sur la boîte de ce
+   * qu'elles commentent, et exiger une ancre y est exactement juste — une
+   * annotation qui ne désigne rien ne dit rien. Un titre de phase fait
+   * l'inverse : il ne parle d'aucun jeton en particulier, il parle de ce qui
+   * est en train de se passer, et il doit tenir sa place même quand la ligne
+   * se vide sous lui. Il se pose donc dans le repère de la VUE — celui du
+   * clavier et de la réglette (`helpers.ancreVue`) —, en haut, à distance de
+   * la ligne.
+   *
+   * ⚠️ Et il n'a pas d'ancre du tout : lui en réclamer une l'aurait fait
+   *   suivre des jetons qui, ici, sont précisément ce qui disparaît. */
+  const enScene = ctx.op.place === 'scene';
+  const ids = enScene ? [] : (ctx.op.anchor !== undefined
     ? ctx.scene.resolve(ctx.op.anchor, ctx.where)
-    : targetsOf(ctx);
-  const box = bboxOf(ids, ctx.scene.positions, ctx.metrics, 6);
-  if (!box) fail(`${ctx.where}aucune ancre positionnée pour l'annotation.`);
+    : targetsOf(ctx));
+  const box = enScene ? null : bboxOf(ids, ctx.scene.positions, ctx.metrics, 6);
+  if (!enScene && !box) fail(`${ctx.where}aucune ancre positionnée pour l'annotation.`);
 
   // ★ QUATRE CÔTÉS, ET LE POURQUOI DES DEUX DERNIERS.
   //
@@ -67,8 +85,9 @@ export function plan(ctx) {
   //   centrent verticalement dessus ; elles n'entrent pas dans le flux, comme
   //   toute annotation, donc elles ne poussent rien.
   const place = ctx.op.place || 'below';
-  if (!['above', 'below', 'left', 'right'].includes(place)) {
-    fail(`${ctx.where}« place » = ${JSON.stringify(place)} — les quatre côtés modélisés sont above, below, left, right.`);
+  if (!['above', 'below', 'left', 'right', 'scene'].includes(place)) {
+    fail(`${ctx.where}« place » = ${JSON.stringify(place)} — les quatre côtés modélisés sont above, below, left, right ; `
+      + '« scene » pose un titre de phase, qui n\'annote aucun jeton.');
   }
   const above = place === 'above';
   const deCote = place === 'left' || place === 'right';
@@ -115,9 +134,14 @@ export function plan(ctx) {
   const demi = (ctx.metrics.advance * taille * [...text].length) / 2;
   const dx = demi + ctx.metrics.advance
     * (typeof ctx.op.ecart === 'number' && ctx.op.ecart > 0 ? ctx.op.ecart : 0.45);
-  const at = deCote
-    ? { x: place === 'left' ? box.x - dx : box.x + box.w + dx, y: box.y + box.h / 2 }
-    : { x: box.cx, y: above ? box.y - dy : box.y + box.h + dy };
+  // Le titre de phase se pose au haut de la VUE — pas du `viewBox` : la ligne
+  // peut défiler, et un titre posé sur le repère fixe se décrocherait d'elle.
+  const vue = ancreVue(ctx);
+  const at = enScene
+    ? { x: vue.x, y: vue.y - ctx.metrics.fontSize * (typeof ctx.op.ecart === 'number' ? ctx.op.ecart : 3.4) }
+    : (deCote
+      ? { x: place === 'left' ? box.x - dx : box.x + box.w + dx, y: box.y + box.h / 2 }
+      : { x: box.cx, y: above ? box.y - dy : box.y + box.h + dy });
 
   // ★ SUIVRE SON JETON — quand l'étiquette DÉSIGNE au lieu de conclure.
   //
@@ -177,7 +201,8 @@ export function plan(ctx) {
     ctx.anim({ id, prop: 'opacity', to: 0, at: ctx.dur * 0.78, dur: Math.max(1, ctx.dur * 0.22), ease: EASE.fade });
   }
 
-  if (ctx.op.arrow) {
+  // Une flèche PART d'une boîte ; un titre de phase n'en a pas.
+  if (ctx.op.arrow && box) {
     const aid = ctx.gensym('arrow');
     const y0 = above ? box.y - 6 : box.y + box.h + 6;
     const y1 = above ? at.y + 16 : at.y - 16;

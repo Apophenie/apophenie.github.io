@@ -423,6 +423,40 @@ export const vocabulaire = {
       ],
     },
     {
+      id: 'p10c',
+      title: 'convert + rule',
+      caption: 'une expression monte sous l’accolade, s’y voit égalée à une autre — et le trait suit ce qu’il sépare',
+      ops: [
+        // Un trait de fraction naît sur son propre rang : c'est ce que `rule`
+        // gouverne, et il n'existe pas ailleurs dans ce parcours.
+        {
+          op: 'substitute',
+          pairs: [{
+            target: 'v4',
+            to: [
+              { id: 'cv4', text: '4', kind: 'digit' },
+              { id: 'cvf', role: 'filet', kind: 'sep', text: '    ', breakBefore: true },
+            ],
+          }],
+        },
+        { op: 'rule', id: 'cvf', couvre: { all: true }, at: 1150, dur: 700 },
+        // L'atelier : le 4 monte sous une accolade OUVERTE VERS LE HAUT — le
+        // seul endroit du parcours où ce sens-là s'exerce —, s'y voit égalé à
+        // un autre 4, et c'est l'autre qui reprend la place.
+        {
+          op: 'convert',
+          targets: ['cv4'],
+          to: [{ id: 'cv4b', text: '4', kind: 'digit' }],
+          label: 'conversion',
+          sens: 'haut',
+          at: 1900,
+          dur: 2200,
+        },
+        { op: 'rule', id: 'cvf', to: 0, retire: true, at: 4100, dur: 700 },
+        { op: 'substitute', pairs: [{ target: 'cv4b', to: { id: 'v4b', text: '4', kind: 'digit' } }], at: 4800 },
+      ],
+    },
+    {
       id: 'p11a',
       title: 'merge',
       caption: 'deux chiffres qui se collent n’en font plus qu’un — et rien d’autre ne bouge',
@@ -440,8 +474,8 @@ export const vocabulaire = {
         // Les cornes exigent que les trois 6 se TOUCHENT dans la ligne — c'est
         // tout leur propos. On remet donc l'ordre avant de les poser ; le `4`
         // reste en queue, et c'est lui que le geste efface.
-        { op: 'move', order: ['kb6', 'six2b', 'ab6b', 'v4'] },
-        { op: 'horns', targets: ['kb6', 'six2b', 'ab6b'], efface: ['v4'], at: 950 },
+        { op: 'move', order: ['kb6', 'six2b', 'ab6b', 'v4b'] },
+        { op: 'horns', targets: ['kb6', 'six2b', 'ab6b'], efface: ['v4b'], at: 950 },
       ],
       hold: 400,
     },

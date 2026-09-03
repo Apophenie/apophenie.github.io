@@ -47,8 +47,12 @@ export const BASE_CANONIQUE = 'https://apophenie.github.io/';
 export const SAISIE_EN_VITRINE = 'Capitalisme';
 
 /**
- * Ce que les robots n'ont rien à faire d'explorer : les deux pages d'atelier.
- * Elles ne sont référencées nulle part, mais un lien partagé par mégarde suffit
- * à les faire découvrir, et elles n'ont aucun sens pour un visiteur.
+ * Ce que les robots n'ont rien à faire d'explorer : les pages d'atelier. Elles
+ * ne sont référencées nulle part, mais un lien partagé par mégarde suffit à les
+ * faire découvrir, et elles n'ont aucun sens pour un visiteur.
  */
-export const HORS_PLAN = Object.freeze(['/debug.html', '/AB-testing.html']);
+export const HORS_PLAN = Object.freeze([
+  '/debug.html',
+  '/AB-testing.html',
+  '/AB-glyphes.html',
+]);

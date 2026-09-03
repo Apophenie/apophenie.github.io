@@ -62,9 +62,61 @@ export const name = 'highlight';
 const MONTEE = 0.4;
 const RELACHE = 0.7;
 
+/**
+ * ★ **`mode: 'raye'` — LA RATURE, qui n'est pas une désignation de plus.**
+ *
+ * > « Les deux β sont rayés en diagonale du bas gauche vers le haut droit. »
+ * >   (l'auteur)
+ *
+ * `select` dit « regarde ceci », `reject` dit « celui-ci ne va pas ». La rature
+ * dit autre chose encore, et c'est un geste de MATHÉMATICIEN : ces deux
+ * facteurs-là s'annulent, on les barre AVANT de les faire disparaître. C'est ce
+ * qui distingue une simplification d'un effacement — on ne retire pas deux
+ * symboles, on montre qu'ils se neutralisent, et le trait est la trace du
+ * raisonnement.
+ *
+ * ★ **LE SENS DU TRAIT N'EST PAS ARBITRAIRE** : bas-gauche vers haut-droit,
+ *   comme on barre à la main. L'autre diagonale se lit comme une annulation
+ *   (le `∅`, le panneau d'interdiction) ; celle-ci se lit comme une
+ *   simplification.
+ *
+ * ⚠️ **LA RATURE EST ACCROCHÉE AU JETON** (`data.suit`) : elle doit le suivre
+ *   quand il se jette sur son jumeau. Une rature restée en place pendant que
+ *   le β s'en va barrerait le vide — et le β arriverait nu à sa collision,
+ *   c'est-à-dire sans ce qui la justifie.
+ */
+function planRature(ctx, ids) {
+  const fs = ctx.metrics.fontSize;
+  ids.forEach((id, i) => {
+    const p = ctx.scene.pos(id);
+    if (!p) return;
+    const w = Math.max(p.w, ctx.metrics.advance) * 0.62;
+    const h = fs * 0.62;
+    const rid = ctx.gensym('rature');
+    ctx.scene.create({
+      id: rid,
+      role: 'bracket',
+      inFlow: false,
+      w: w * 2,
+      // Le trait est écrit dans le repère LOCAL du décor, origine sur son
+      // ancre : c'est ce qui permet de l'accrocher au jeton sans arithmétique.
+      data: { d: `M ${-w} ${h} L ${w} ${-h}`, suit: id, decalage: { dx: 0, dy: 0 } },
+      base: { opacity: 1, strokeDashoffset: 100, stroke: ctx.palette.rubric },
+    }, { where: ctx.where });
+    ctx.scene.place(rid, { x: p.x, y: p.y, w: w * 2 });
+    // Elle s'ÉCRIT, elle ne paraît pas : `strokeDashoffset` fait courir le
+    // trait d'un bout à l'autre, exactement comme une accolade se ferme.
+    ctx.anim({
+      id: rid, prop: 'strokeDashoffset', from: 100, to: 0,
+      at: i * ctx.stagger, dur: Math.max(1, ctx.dur * 0.8), ease: EASE.move,
+    });
+  });
+}
+
 export function plan(ctx) {
   const ids = targetsOf(ctx);
-  const mode = ctx.op.mode || 'select'; // 'select' (l'attention arrive) | 'reject'
+  const mode = ctx.op.mode || 'select'; // 'select' | 'reject' | 'raye'
+  if (mode === 'raye') { planRature(ctx, ids); return; }
   const tone = mode === 'reject' ? 'rubric' : 'gold';
   const tenir = ctx.op.tenir === true;
 

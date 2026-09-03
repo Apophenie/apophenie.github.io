@@ -6,7 +6,7 @@
   "description": "La vérité derrière n’importe quoi. Tout mène à 666.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && vite build --config vite.debug.config.js && vite build --config vite.arbitrage.config.js",
+    "build": "vite build && vite build --config vite.debug.config.js && vite build --config vite.arbitrage.config.js && vite build --config vite.glyphes.config.js",
     "preview": "vite preview",
     "test": "node --test 'src/*/*.test.js' 'src/visuel/tests/*.test.js' 'src/recherche/tests/*.test.js'",
     "logo": "python3 src/gfx/logo-jost-trace.py src/gfx/_logo-test.html favicon.svg --site",

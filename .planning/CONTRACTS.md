@@ -379,10 +379,38 @@ Format normatif : `Scenario` / `Step` / `Op`, tel que spécifié dans
 
 `highlight` · `dim` · `drop` · `substitute` · `move` · `group` · `insertOperators` ·
 `sum` · `reduce` · `flip180` · `sevenSeg` · `fourteenSeg` · `countStrokes` · `keyboard` ·
-`annotate` · `pulse` · `reveal` · `wait` · `partition` · `table` · `horns`
+`annotate` · `pulse` · `reveal` · `wait` · `partition` · `table` · `horns` ·
+`merge` · `shift` · `collapse` · `fraction` · `rule` · `convert`
 
 Ajouter une transformation arithmétique sans rendu ⇒ **ajouter d'abord la primitive
 ici**, puis l'émettre.
+
+> *Amendement — `rule` et `convert`, les deux primitives de l'œuf.*
+>
+> « Si besoin de créer de nouvelles commandes pour produire cette animation,
+> fais-le. Par exemple, jusqu'ici on n'a pas d'accolade en haut, c'est à créer »
+> (l'auteur). C'est la première fois qu'une extension du vocabulaire est
+> DEMANDÉE plutôt que déduite, et les deux gestes ajoutés se distinguent par ce
+> qu'aucun existant ne sait dire :
+>
+> - **`rule`** — le trait de fraction qui SUIT en longueur ce qu'il sépare. Un
+>   jeton de tirets ne pouvait pas : la longueur d'un texte est un nombre de
+>   signes, elle ne s'interpole pas, et une barre qui rétrécit sauterait d'une
+>   image à l'autre. Et ce n'est pas `fraction`, qui est la chorégraphie d'une
+>   MOYENNE en sept temps : ici le trait est l'ÉNONCÉ, présent avant le premier
+>   geste et jusqu'au dernier.
+> - **`convert`** — l'atelier : une expression monte sous une accolade, s'y voit
+>   égalée à une autre par une flèche, coulisse pour centrer la CIBLE, et c'est
+>   la cible qui redescend prendre la place. `substitute` montre une identité
+>   (« ceci EST cela ») ; l'atelier montre quelqu'un qui l'AFFIRME, sous le nom
+>   de la règle invoquée. Sur une démonstration dont tout le propos est que les
+>   règles sont fausses, la différence est le sujet même.
+>
+> Trois besoins voisins sont restés des OPTIONS, parce que le geste, lui, ne
+> changeait pas : l'accolade retournée (`sens: 'haut'` — même courbe, axe des
+> `y` inversé), la rature diagonale (`highlight mode: 'raye'`), et la collision
+> qui explose au lieu de s'éteindre (`collapse souffle/part/envol`, réemployant
+> l'explosion du verdict plutôt que d'en dessiner une seconde).
 
 > *Amendement — deux primitives ajoutées, selon la clause ci-dessus.*
 >

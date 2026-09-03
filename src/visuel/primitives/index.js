@@ -1,14 +1,22 @@
 /**
  * Le vocabulaire fermé des ops — CONTRACTS §3.1.
  *
- * Vingt-cinq primitives, une par fichier — les dix-sept du socle, plus
+ * Vingt-sept primitives, une par fichier — les dix-sept du socle, plus
  * `partition` (découper en sous-groupes), `table` (la table de correspondance
  * affichée — réglette, glissière ou pavé téléphonique), `fourteenSeg`
  * (l'afficheur quatorze segments), `horns` (les cornes du 666 déjà formé) et
  * `merge` (des jetons voisins qui se collent et n'en font plus qu'un) et
  * `shift` (le tamis) et `collapse` (des exemplaires identiques qui se
  * rejoignent),
- * ajoutées selon la clause d'extension du contrat. `afficheur.js` n'en est PAS une : c'est le corps
+ * ajoutées selon la clause d'extension du contrat, plus `rule` (le trait de
+ * fraction, qui suit en longueur ce qu'il sépare) et `convert` (l'atelier :
+ * une expression monte sous l'accolade, s'y voit égalée à une autre, et c'est
+ * l'autre qui redescend). Ces deux dernières sont les seules du dépôt à avoir
+ * été demandées EN TANT QUE PRIMITIVES : « si besoin de créer de nouvelles
+ * commandes pour produire cette animation, fais-le — par exemple, jusqu'ici on
+ * n'a pas d'accolade en haut, c'est à créer » (l'auteur).
+ *
+ * `afficheur.js` n'en est PAS une : c'est le corps
  * partagé de `sevenSeg` et `fourteenSeg`, qui font le même geste sur deux
  * afficheurs. `decor.js` non plus (le geste commun du clavier et de la table),
  * ni `ellipse.js` : celui-ci est le calcul du MIROIR, commun à la glissière de
@@ -44,6 +52,8 @@ import * as merge from './merge.js';
 import * as shift from './shift.js';
 import * as collapse from './collapse.js';
 import * as fraction from './fraction.js';
+import * as rule from './rule.js';
+import * as convert from './convert.js';
 
 import { OP_NAMES } from '../constants.js';
 
@@ -51,6 +61,7 @@ export const PRIMITIVES = Object.freeze({
   highlight, dim, drop, substitute, move, group, insertOperators,
   sum, reduce, flip180, sevenSeg, fourteenSeg, countStrokes, keyboard,
   annotate, pulse, reveal, wait, partition, table, horns, merge, shift, collapse, fraction,
+  rule, convert,
 });
 
 // Garde-fou de chargement : la table des primitives et le vocabulaire déclaré

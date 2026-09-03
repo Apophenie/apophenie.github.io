@@ -80,6 +80,7 @@ export const OP_NAMES = Object.freeze([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
   'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse', 'fraction',
+  'rule', 'convert',
 ]);
 
 /**
@@ -131,6 +132,13 @@ export const DEFAULT_DUR = Object.freeze({
   // Six temps : poser le calcul en demande quatre, le faire en demande deux.
   // C'est long parce que c'est une leçon, pas une transition.
   fraction: 7000,
+  // Le trait de fraction ne fait que suivre : il n'est jamais le sujet, il
+  // s'ajuste pendant qu'autre chose se passe. Court, donc, et discret.
+  rule: 700,
+  // L'atelier de conversion : six temps, dont trois qui se lisent (l'expression
+  // montée, la flèche, la cible centrée). Aussi long qu'une somme, parce que
+  // c'est la même chose — un raisonnement qu'on donne à vérifier.
+  convert: 3200,
 });
 
 /** `kind` des tokens — vocabulaire fermé (recherche §2.2). */

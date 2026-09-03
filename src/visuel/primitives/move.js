@@ -90,6 +90,32 @@ export function plan(ctx) {
   //   les ellipses restent justes — chaque jeton part de sa place et arrive à
   //   la sienne —, elles cessent seulement d'être toutes concourantes. Le nom
   //   du geste dit ce qu'on montre, il ne contraint pas ce qu'on range.
+  /* ★ **`ecarts` — LE RANGEMENT QUI SÉPARE AUSSI.**
+   *
+   * > « Réagencement : cheval → vache l » (l'auteur)
+   *
+   * Six lettres réagencées donnent six lettres ; « VACHE L » en demande sept
+   * places, dont une vide. Cette espace n'est PAS un jeton — il n'y a rien à
+   * y montrer, et en créer un ferait naître de la matière au milieu d'une
+   * permutation qui, par définition, n'en crée pas. C'est un ÉCART, c'est-à-dire
+   * une propriété de mise en page, et c'est ce que `gapBefore` dit déjà partout
+   * ailleurs (`partition` écarte ses sous-groupes exactement ainsi).
+   *
+   * Le geste reste donc un seul mouvement : les lettres rejoignent leurs places,
+   * et l'une d'elles a désormais de l'air devant elle. La lire comme un produit
+   * dont on isole un facteur devient possible ; c'est bien ce qu'affirme la
+   * « multiplication commutative ».
+   */
+  if (op.ecarts && typeof op.ecarts === 'object') {
+    for (const [id, mult] of Object.entries(op.ecarts)) {
+      const n = scene.live(id, `${ctx.where}ecarts : `);
+      if (typeof mult !== 'number' || !Number.isFinite(mult) || mult < 0) {
+        fail(`${ctx.where}ecarts[« ${id} »] = ${JSON.stringify(mult)} : un écart est un multiple positif de la chasse.`);
+      }
+      n.gapBefore = ctx.layoutOpts.gap + ctx.metrics.advance * mult;
+    }
+  }
+
   const geste = op.geste === undefined ? 'droit' : op.geste;
   if (!GESTES.includes(geste)) {
     fail(`${ctx.where}« geste » = ${JSON.stringify(geste)} — les deux déplacements modélisés sont ${GESTES.join(' et ')}.`);

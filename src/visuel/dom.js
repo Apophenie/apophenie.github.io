@@ -279,6 +279,28 @@ export function createElementFor(node, env) {
       });
       break;
     }
+    case 'filet': {
+      // ★ LE TRAIT DE FRACTION — un segment horizontal centré sur son ancre.
+      //
+      // Il est dessiné comme un `path` et non comme une `line` pour une seule
+      // raison, mais elle est décisive : sa longueur s'ANIME, et un `path`
+      // s'anime par son `d`, c'est-à-dire par le canal discret — donc par une
+      // fonction pure du temps, donc en `seek()` exact (`primitives/rule.js`).
+      // Animer `x1`/`x2` demanderait deux canaux d'attribut de plus, dont le
+      // moteur n'a pas besoin ailleurs.
+      //
+      // Pas de `stroke-dasharray` : ce trait ne se TRACE pas comme une
+      // accolade, il est là dès le premier temps — c'est l'énoncé, pas un
+      // geste — et il ne fait ensuite que se raccourcir.
+      element = el('path', {
+        d: node.data && node.data.d ? node.data.d : `M ${-node.w / 2} 0 H ${node.w / 2}`,
+        fill: 'none',
+        'stroke-width': 2.5,
+        'stroke-linecap': 'round',
+        class: 'nhl-filet',
+      });
+      break;
+    }
     case 'bracket': {
       element = el('path', {
         d: node.data.d,

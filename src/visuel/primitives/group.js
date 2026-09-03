@@ -94,6 +94,14 @@ export function plan(ctx) {
     symbol: ctx.op.symbol,
     label: ctx.op.label,
     id: ctx.op.id,
+    // ★ De quel côté elle s'ouvre. « Jusqu'ici on n'a pas d'accolade en haut,
+    //   c'est à créer » (l'auteur) : une accolade qui DÉSIGNE un rangement se
+    //   pose au-dessus de la ligne, parce que ce qu'elle annonce ne descend
+    //   pas — rien ne tombe sous sa pointe, les jetons se réagencent sur
+    //   place. En dessous, elle promettrait un résultat qui ne viendra pas.
+    sens: ctx.op.sens,
+    // Une accolade qui ne calcule pas ne promet rien sous sa pointe.
+    promet: ctx.op.promet,
     at: 0,
     dur: ctx.dur,
   });

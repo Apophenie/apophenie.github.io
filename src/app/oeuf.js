@@ -128,6 +128,20 @@ export function motsDeLOeuf(saisie) {
 const tok = (id, text, kind = 'letter') => ({ id, text, kind });
 
 /**
+ * L'espace, en tant que JETON.
+ *
+ * > « N'oublie pas les espaces, leur absence nuit à la lisibilité. » (l'auteur)
+ *
+ * ★ **ET IL EN FAUT UN VRAI, PAS UN ÉCART.** « Bête à pie » se lit en trois
+ *   mots ; l'étape suivante en prend DEUX — « bête à » — pour en faire un β. Un
+ *   écart de mise en page ne se désigne pas : on ne peut pas le nommer dans une
+ *   liste de cibles, donc on ne pourrait pas le convertir avec ce qu'il sépare,
+ *   et il survivrait à la conversion — une espace orpheline devant le β. Le
+ *   jeton, lui, se cible, se convertit et meurt avec ses voisins.
+ */
+const esp = (id) => ({ id, text: ' ', kind: 'space' });
+
+/**
  * La casse du `L` — celle de la DERNIÈRE lettre du mot tapé au numérateur.
  *
  * C'est ce `L`-là qui survit à la qualification (« VACHE L »), et c'est donc
@@ -156,44 +170,103 @@ const anagramme = (mots) => {
 };
 
 /**
- * ★ **LA BARRE DE DIVISION EST UN JETON, et c'est ce qui la rend possible.**
+ * ★ **LA BARRE DE FRACTION EST UN TRAIT, PAS UNE SUITE DE TIRETS.**
  *
- * Aucune primitive ne trace un filet horizontal : `fraction` en dessine un, mais
- * c'est une chorégraphie complète de moyenne — poser une somme, la diviser —
- * qui n'a rien à voir avec une fraction qu'on garde à l'écran d'un bout à
- * l'autre. Un jeton de tirets, lui, existe dans le flux comme les autres : il
- * se centre avec les lignes, il survit aux reflows, et il tombe quand on n'en
- * a plus besoin. Le geste le plus simple qui dise la chose.
+ * > « La barre de fraction doit suivre en longueur quand le contenu s'adapte. »
+ * >   (l'auteur)
  *
- * ★ **ET LES TROIS LIGNES SONT NATIVES.** `layout.js` centre chaque ligne
- *   horizontalement et le bloc verticalement — c'est-à-dire exactement la mise
- *   en page d'une fraction. Il suffit de demander la coupure (`breakBefore`),
- *   ce que `compile.js` honore désormais dès qu'un jeton la déclare.
+ * Le premier jet l'écrivait `————————`, comme un jeton de plus. Ça tient tant
+ * que rien ne bouge : la longueur d'un texte est un NOMBRE DE SIGNES, elle ne
+ * s'interpole pas, et une barre qui doit rétrécir ne peut alors que sauter
+ * d'une image à l'autre. Elle est donc un nœud de rôle `filet`, gouverné par
+ * `rule` — le trait se recalcule à chaque changement, en continu.
+ *
+ * ★ **SA LARGEUR DE DÉPART S'ÉCRIT EN SIGNES, et c'est ce qui évite un nombre
+ *   magique** : `text` porte autant d'espaces que la plus longue des deux
+ *   lignes a de lettres, plus une. Le scénario ne connaît pas les métriques de
+ *   la scène — il ne DOIT pas les connaître —, mais il connaît la longueur d'un
+ *   mot, et la scène sait ce que vaut un signe. `rule` ajuste ensuite au
+ *   dixième d'unité.
  */
-const BARRE = '————————';
+const filet = (id, signes) => ({ id, role: 'filet', kind: 'sep', text: ' '.repeat(signes) });
 
-/** Les jetons de départ : le numérateur, la barre, le dénominateur — trois lignes. */
-function jetonsDeDepart(mots) {
+/**
+ * ★ **LA SAISIE PORTE-T-ELLE DÉJÀ SA CONCLUSION ?**
+ *
+ * > « L'animation doit partir de la saisie utilisateur : s'il a saisi "cheval
+ * >   sur oiseau = pi", la partie "= pi" doit apparaître tout du long ; pi sera
+ * >   converti en symbole en même temps que les autres apparitions de symbole,
+ * >   la conclusion est alors π = π. Et dans cette version, pas de verdict mais
+ * >   "CQFD". » (l'auteur)
+ *
+ * Les deux saisies ne demandent donc pas la même démonstration. Celle qui pose
+ * l'égalité demande qu'on la VÉRIFIE — le membre de droite reste là du premier
+ * au dernier temps, et la fin est une confrontation. Celle qui n'en pose pas
+ * demande qu'on la TROUVE, et la fin est un énoncé qu'on récrit avec sa
+ * réponse. Une seule chorégraphie pour les deux aurait, dans un cas sur deux,
+ * répondu à une question qu'on n'avait pas posée.
+ */
+function conclusionSaisie(saisie) {
+  const plat = aplatir(saisie);
+  const m = /(=|est\s+egale?\s+a|egale?\s+a|egale?|vaut)\s*(pi|π)$/.exec(plat);
+  if (!m) return null;
+  // Le `pi` TEL QU'IL A ÉTÉ TAPÉ — même règle que pour les deux mots : on
+  // balaie la saisie et l'on garde la tranche qui s'aplatit dessus.
+  const brut = String(saisie ?? '');
+  const cs = [...brut];
+  for (let n = 2; n >= 1; n--) {
+    for (let i = 0; i + n <= cs.length; i++) {
+      const tranche = cs.slice(i, i + n).join('');
+      if (aplatir(tranche) === m[2] && i + n === cs.length) return tranche;
+    }
+  }
+  return m[2];
+}
+
+/** Les jetons de départ : le numérateur, le trait, le dénominateur — trois lignes. */
+function jetonsDeDepart(mots, pi) {
   const haut = [...mots.cheval].map((c, i) => tok(`h${i}`, c));
   const bas = [...mots.oiseau].map((c, i) => tok(`b${i}`, c));
   bas[0].breakBefore = true;
+  const large = Math.max([...mots.cheval].length, [...mots.oiseau].length) + 1;
+  const trait = { ...filet('barre', large), breakBefore: true };
   return [
     ...haut,
-    { ...tok('barre', BARRE, 'sep'), breakBefore: true },
+    trait,
+    // « = pi » se pose sur la ligne du TRAIT, à sa droite : c'est là qu'une
+    // égalité se lit, à hauteur de ce qui sépare, jamais sous le dénominateur.
+    ...(pi ? [esp('e0'), tok('eq', '=', 'operator'), esp('e1'), tok('pi', pi, 'letter')] : []),
     ...bas,
   ];
 }
 
 /**
- * ★ **CINQ ÉTAPES, ET CHACUNE PORTE SON TITRE DE REGISTRE** — ceux que l'auteur
- * a dictés. Le Registre les affiche comme il affiche ceux d'une vraie voie :
- * c'est lui qui raconte, et il ne doit pas savoir que celle-ci est fausse.
+ * ★ **CINQ PHASES, ET CHACUNE EST UN ATELIER PLUTÔT QU'UN REMPLACEMENT.**
+ *
+ * > « Quand une expression va à la pointe de l'accolade, elle y va centrée,
+ * >   puis ajoute flèche et nouvelle expression, puis coulisse pour centrer la
+ * >   cible, puis la cible vient prendre la place d'origine (puis disparition
+ * >   de l'accolade). » (l'auteur)
+ *
+ * C'est `convert` qui joue ce geste (`visuel/primitives/convert.js`), et il est
+ * ici employé SIX fois : deux qualifications, quatre synthèses. Le choix n'est
+ * pas décoratif — un `substitute` aurait montré « vache » DEVENANT « bête à
+ * pie », c'est-à-dire une identité ; l'atelier montre quelqu'un qui l'AFFIRME,
+ * sous le nom de la règle invoquée. Sur une démonstration dont tout le propos
+ * est que les règles sont fausses, la différence est le sujet même.
+ *
+ * ★ **ET LES ACCOLADES S'OUVRENT DU CÔTÉ DE LEUR LIGNE.** Le numérateur ouvre
+ *   vers le haut, le dénominateur vers le bas — « ensuite même opération en
+ *   miroir en dessous » (l'auteur). Une accolade qui s'ouvrirait vers le bas
+ *   sous le numérateur écrirait son atelier par-dessus le trait de fraction.
  */
-function etapes(mots) {
+function etapes(mots, pi) {
   // ⚠️ `t()` rend la langue COURANTE, et c'est ce qu'il faut : un scénario est
   //    construit pour être joué maintenant, et le routeur le refabrique quand la
   //    langue change (comme il le fait pour une vraie voie).
   const dire = (cle) => t(`oeuf.${cle}`);
+  const L = casseDuL(mots);
+  const large = Math.max([...mots.cheval].length, [...mots.oiseau].length) + 1;
 
   /* ① CHEVAL devient VACHE L.
 
@@ -210,127 +283,270 @@ function etapes(mots) {
         permute sur place, sans rien créer ni détruire. Ce sont les mêmes six
         lettres et le spectateur doit pouvoir les suivre une à une — un
         `substitute` aurait fait naître six lettres neuves, c'est-à-dire aurait
-        affirmé une réécriture là où il n'y a qu'un déplacement. */
+        affirmé une réécriture là où il n'y a qu'un déplacement.
+
+        ★ **ET L'ACCOLADE EST AU-DESSUS.** « Dans la scène, une accolade
+          au-dessus de cheval indiquant Multiplication commutative pendant que
+          les lettres sont déplacées » (l'auteur). En dessous, elle aurait
+          promis un résultat sous sa pointe — or rien ne descend ici, les
+          lettres se rangent sur place. Le côté DIT ce qui va se passer. */
   const s1 = {
     id: 's_oeuf_1',
     title: dire('commutation'),
-    caption: dire('commutationDetail'),
-    ops: [{ op: 'move', order: ['h3', 'h4', 'h0', 'h1', 'h2', 'h5'] }],
+    caption: `${dire('commutationDetail')} : ${mots.cheval} → ${anagramme(mots)} ${[...mots.cheval].pop()}`,
+    ops: [
+      {
+        op: 'group',
+        targets: ['h0', 'h1', 'h2', 'h3', 'h4', 'h5'],
+        sens: 'haut',
+        label: dire('commutation'),
+        // Elle DÉSIGNE un rangement : ni resserrement (les lettres vont bouger
+        // pour une autre raison), ni promesse de résultat sous la pointe.
+        tighten: 0,
+        promet: false,
+        at: 0,
+        dur: 900,
+        fadeAt: 2500,
+      },
+      {
+        op: 'move',
+        order: ['h3', 'h4', 'h0', 'h1', 'h2', 'h5'],
+        // Le `L` s'isole : c'est le facteur qu'on met de côté, et l'espace est
+        // ce qui le dit. Voir `move.ecarts` — un écart, pas un jeton : une
+        // permutation ne crée pas de matière.
+        ecarts: { h5: 1 },
+        at: 900,
+        dur: 1500,
+      },
+      { op: 'rule', id: 'barre', couvre: { all: true }, at: 1500, dur: 900 },
+    ],
   };
 
-  /* ② La qualification animale. La première lettre de chaque mot devient les
-        mots qui le qualifient, les autres tombent — c'est la forme que
-        `filtres.js` emploie déjà pour une substitution qui RACCOURCIT la
-        ligne (`substitute` puis `drop`). Le `L` de VACHE L ne bouge pas :
-        il n'est pas un animal, il est déjà une lettre. */
+  /* ② La qualification animale, en deux ateliers successifs — l'un au-dessus
+        du trait, l'autre en dessous. La première lettre de chaque mot n'est
+        pas « remplacée » : le mot MONTE sous l'accolade, s'y voit égalé à sa
+        qualification, et c'est la qualification qui redescend. Le `L` de
+        VACHE L ne bouge pas : il n'est pas un animal, il est déjà une lettre. */
   const s2 = {
     id: 's_oeuf_2',
     title: dire('qualification'),
     caption: `${anagramme(mots)} → ${MOT.bete} ${MOT.a} ${MOT.pie} · ${mots.oiseau} → ${MOT.bete} ${MOT.a} ${MOT.ailes}`,
     ops: [
       {
-        op: 'substitute',
-        stagger: 60,
-        pairs: [
-          { target: 'h3', to: [tok('qh0', MOT.bete, 'letter'), tok('qh1', MOT.a, 'letter'), tok('qh2', MOT.pie, 'letter')] },
-          { target: 'b0', to: [tok('qb0', MOT.bete, 'letter'), tok('qb1', MOT.a, 'letter'), tok('qb2', MOT.ailes, 'letter')] },
+        op: 'convert',
+        targets: ['h3', 'h4', 'h0', 'h1', 'h2'],
+        to: [
+          tok('qh0', MOT.bete), esp('qhs1'), tok('qh1', MOT.a), esp('qhs2'), tok('qh2', MOT.pie),
         ],
+        label: dire('qualification'),
+        sens: 'haut',
+        at: 0,
+        dur: 3400,
       },
-      { op: 'drop', targets: ['h4', 'h0', 'h1', 'h2', 'b1', 'b2', 'b3', 'b4', 'b5'], mode: 'erase' },
+      { op: 'rule', id: 'barre', couvre: { all: true }, at: 2600, dur: 800 },
+      {
+        op: 'convert',
+        targets: ['b0', 'b1', 'b2', 'b3', 'b4', 'b5'],
+        to: [
+          tok('qb0', MOT.bete), esp('qbs1'), tok('qb1', MOT.a), esp('qbs2'), tok('qb2', MOT.ailes),
+        ],
+        label: dire('qualification'),
+        sens: 'bas',
+        at: 3400,
+        dur: 3400,
+      },
+      { op: 'rule', id: 'barre', couvre: { all: true }, at: 6000, dur: 800 },
     ],
   };
 
   /* ③ La synthèse phonétique : ce qui s'ENTEND devient ce qui s'écrit.
-        « bête » se lit β, « pie » se lit π, « ailes » se lit L. Le « à » ne
-        se lit rien du tout — il tombe, et c'est la seule chose que cette
-        étape jette. */
+        « bête à » se lit β — et c'est bien « bête à » et non « bête », la
+        correction de l'auteur est phonétique : sans le « à », on entend *bêt*,
+        pas *bêta*. « pie » se lit π, « ailes » se lit L.
+
+        Quatre ateliers, un par conversion : « une par une avec déplacement
+        bête à → β puis redescente de β, ou remontée pour la partie sous la
+        barre de fraction » (l'auteur). Les regrouper aurait fait paraître
+        quatre β et π d'un coup, sans qu'on voie lequel vient d'où. */
   const s3 = {
     id: 's_oeuf_3',
     title: dire('synthese'),
-    caption: `${MOT.bete} → β · ${MOT.pie} → π · ${MOT.ailes} → ${casseDuL(mots)}`,
+    caption: `${MOT.bete} ${MOT.a} → β · ${MOT.pie} → π · ${MOT.ailes} → ${L}`,
     ops: [
       {
-        op: 'substitute',
-        stagger: 60,
-        pairs: [
-          { target: 'qh0', to: tok('B1', 'β', 'letter') },
-          { target: 'qh2', to: tok('P1', 'π', 'letter') },
-          { target: 'qb0', to: tok('B2', 'β', 'letter') },
-          /* ★ **LE `L` DE « AILES » PREND LA CASSE DE CELUI DE « CHEVAL ».**
-             « Ce qui implique de transformer ailes en L ou l selon la casse de
-             cheval » (l'auteur), et l'argument est visuel, pas typographique :
-             les deux `L` doivent S'ANNULER à l'étape suivante. Deux glyphes de
-             casses différentes ne se lisent pas comme le même facteur, et
-             l'annulation cesserait d'être évidente. Celui du haut est le jeton
-             TAPÉ — on ne peut donc pas le changer ; c'est à celui du bas de
-             s'aligner. */
-          { target: 'qb2', to: tok('L2', casseDuL(mots), 'letter') },
-        ],
+        op: 'convert',
+        targets: ['qh0', 'qhs1', 'qh1'],
+        to: [tok('B1', 'β')],
+        label: dire('synthese'),
+        sens: 'haut',
+        at: 0,
+        dur: 2800,
       },
-      { op: 'drop', targets: ['qh1', 'qb1'], mode: 'erase' },
+      {
+        op: 'convert',
+        targets: ['qh2'],
+        to: [tok('P1', 'π')],
+        label: dire('synthese'),
+        sens: 'haut',
+        at: 2800,
+        dur: 2400,
+      },
+      /* ★ **LE `pi` DE LA SAISIE DEVIENT π AU MÊME INSTANT.** « Pi sera
+         converti en symbole en même temps que les autres apparitions de
+         symbole » (l'auteur). C'est un `substitute` et non un atelier : celui
+         de droite n'est pas DÉMONTRÉ, il est recopié de l'énoncé — lui ouvrir
+         une accolade lui donnerait une justification qu'il n'a pas. */
+      ...(pi ? [{
+        op: 'substitute',
+        pairs: [{ target: 'pi', to: tok('P2', 'π') }],
+        at: 3400,
+        dur: 1000,
+      }] : []),
+      { op: 'rule', id: 'barre', couvre: { all: true }, at: 4600, dur: 700 },
+      {
+        op: 'convert',
+        targets: ['qb0', 'qbs1', 'qb1'],
+        to: [tok('B2', 'β')],
+        label: dire('synthese'),
+        sens: 'bas',
+        at: 5300,
+        dur: 2800,
+      },
+      {
+        op: 'convert',
+        targets: ['qb2'],
+        to: [tok('L2', L)],
+        label: dire('synthese'),
+        sens: 'bas',
+        at: 8100,
+        dur: 2400,
+      },
+      { op: 'rule', id: 'barre', couvre: { all: true }, at: 10200, dur: 700 },
     ],
   };
 
-  /* ④ La réduction mathématique — et c'est la chute. Les β s'annulent entre
-        eux, les L aussi : `collapse` en mode « annulation » est le geste que
-        la médiane emploie pour faire tomber ses extrêmes par paires, et il
-        dit ici exactement la même chose. Reste π, seul, et la barre n'a plus
-        rien à séparer. */
+  /* ④ La réduction mathématique — et c'est la chute.
+
+        > « Le titre de la phase doit aussi apparaître dans la scène et rester
+        >   durant la phase (même s'il n'y a pas besoin d'accolade pour ça).
+        >   Les deux β sont rayés en diagonale du bas gauche vers le haut droit,
+        >   puis ils se jettent l'un vers l'autre (mais celui du bas fait les
+        >   3/4 du trajet pour que la superposition ne se fasse pas par-dessus
+        >   la barre de fraction). Quand ils se collisionnent, ils explosent
+        >   (comme les 6 excédentaires au verdict). Puis c'est au tour des l
+        >   d'être barrés puis réunis et explosés. Pendant ce temps, la barre de
+        >   fraction se réduit pour s'adapter à ce qui reste ; quand il ne reste
+        >   plus rien en bas, elle finit de se réduire et disparaît. Enfin Pi
+        >   restant descend à hauteur principale. » (l'auteur)
+
+        ★ **AUCUNE ACCOLADE ICI, ET C'EST VOULU.** Les trois phases précédentes
+          en avaient une parce qu'elles INVOQUAIENT une règle : il fallait
+          nommer ce qui autorisait le passage. Simplifier une fraction
+          n'invoque rien — c'est le seul moment vrai de toute la
+          démonstration. Le titre suffit, et il se pose dans la scène.
+
+        ★ **`part: 0.25` N'EST PAS UN RÉGLAGE D'ESTHÈTE.** À mi-chemin, les
+          deux β se rencontreraient SUR le trait de fraction, c'est-à-dire à
+          l'endroit précis que la collision ne doit pas recouvrir : on ne peut
+          pas faire disparaître deux termes en cachant ce qui les sépare. Celui
+          du haut ne fait donc qu'un quart du trajet. */
   const s4 = {
     id: 's_oeuf_4',
     title: dire('reduction'),
-    caption: `βπ${casseDuL(mots)} / β${casseDuL(mots)} = π`,
+    caption: `β π ${L} / β ${L} = π`,
     ops: [
+      {
+        op: 'annotate', text: dire('reduction'), place: 'scene', fugace: true,
+        at: 0, dur: 9200,
+      },
+      { op: 'highlight', mode: 'raye', targets: ['B1', 'B2'], at: 500, dur: 800, stagger: 120 },
       {
         op: 'collapse',
         mode: 'annulation',
-        familles: [
-          { membres: ['B1', 'B2'] },
-          { membres: ['h5', 'L2'] },
-        ],
+        // Ils sont déjà séparés par le trait : les faire s'envoler d'abord les
+        // ferait le franchir avant l'heure (`collapse.envol`).
+        envol: 0,
+        souffle: true,
+        familles: [{ membres: ['B1', 'B2'], part: 0.25 }],
+        at: 1400,
+        dur: 1800,
       },
-      { op: 'drop', targets: ['barre'], mode: 'erase', at: 700 },
-      { op: 'move', at: 900 },
+      { op: 'highlight', mode: 'raye', targets: ['h5', 'L2'], at: 3400, dur: 800, stagger: 120 },
+      {
+        op: 'collapse',
+        mode: 'annulation',
+        envol: 0,
+        souffle: true,
+        familles: [{ membres: ['h5', 'L2'], part: 0.25 }],
+        at: 4300,
+        dur: 1800,
+      },
+      // Les espaces qui séparaient des mots dont il ne reste rien.
+      { op: 'drop', targets: ['qhs2', 'qbs2'], mode: 'erase', at: 6200, dur: 700 },
+      /* Le trait n'a plus rien à séparer : il se referme, puis s'en va. Et
+         parce qu'il portait la coupure de ligne, sa mort fait remonter « = π »
+         sur le rang du π — « la conclusion est alors π = π ». */
+      { op: 'rule', id: 'barre', to: 0, retire: true, at: 6900, dur: 1200 },
+      // Une ligne unique se recentre verticalement d'elle-même : « enfin Pi
+      // restant descend à hauteur principale ».
+      { op: 'move', at: 8100, dur: 1000 },
     ],
   };
 
-  /* ⑤ Le verdict. Il RÉÉCRIT l'énoncé de départ, cette fois avec sa
-        conclusion : c'est la seule étape qui fait revenir ce qui était tombé,
-        et c'est pour ça qu'elle ne peut pas être un `reveal` — celui-là est la
-        machinerie du 666, il aligne des séries et fait exploser des
-        surnuméraires. Ici il n'y a qu'une égalité à écrire. */
-  const s5 = {
-    id: 's_oeuf_5',
-    title: dire('verdict'),
-    caption: `${mots.cheval} / ${mots.oiseau} = π`,
-    ops: [
-      {
-        op: 'substitute',
-        pairs: [{
-          target: 'P1',
-          // ★ L'ORDRE EST CELUI DES LIGNES, et « = π » se pose sur celle de la
-          //   BARRE — c'est là qu'une égalité se lit, à hauteur du trait qui
-          //   sépare, jamais sous le dénominateur. Il suffit donc de l'insérer
-          //   entre la barre et le `O` : c'est ce dernier qui rompt la ligne.
-          to: [
-            ...[...mots.cheval].map((c, i) => tok(`v${i}`, c, 'letter')),
-            { ...tok('vbarre', BARRE, 'sep'), breakBefore: true },
-            tok('veq', '=', 'sep'),
-            tok('vpi', 'π', 'letter'),
-            ...[...mots.oiseau].map((c, i) => {
-              const j = { ...tok(`w${i}`, c, 'letter') };
-              if (i === 0) j.breakBefore = true;
-              return j;
-            }),
-          ],
-        }],
-      },
-      // ⚠️ APRÈS la substitution, jamais pendant : le jeton qui naît voit déjà
-      //    son `scale` animé par le crossfade, et deux ops sur le même canal
-      //    sont un avertissement de compilation (recherche §2.4, contrainte 4).
-      { op: 'pulse', targets: ['vpi'], at: 1400 },
-    ],
+  /* ⑤ La fin, et il y en a DEUX — c'est la saisie qui décide.
+
+        > « S'il y a déjà = Pi, il n'y a plus qu'à afficher dans la scène
+        >   C.Q.F.D. Sinon, Pi migre vers la droite, et cheval/oiseau =
+        >   apparaît à gauche tel qu'au début de la démonstration, puis
+        >   C.Q.F.D. est ajouté comme titre en scène. » (l'auteur)
+
+        Dans les deux cas la conclusion est un TITRE EN SCÈNE et non le verdict
+        du site : l'orage, les cornes et les triptyques sont la scénographie du
+        666, et il n'y a pas de 666 ici. « C.Q.F.D. » est ce qu'écrit quelqu'un
+        qui vient de finir une démonstration — c'est exactement le ton. */
+  const cqfd = {
+    op: 'annotate', text: dire('cqfd'), place: 'scene', taille: 0.9, ton: 'gold',
   };
+  const s5 = pi
+    ? {
+      id: 's_oeuf_5',
+      title: dire('cqfd'),
+      caption: `π = π`,
+      ops: [
+        { op: 'pulse', targets: ['P1', 'P2'], at: 0, dur: 900 },
+        { ...cqfd, at: 700, dur: 1800 },
+      ],
+    }
+    : {
+      id: 's_oeuf_5',
+      title: dire('cqfd'),
+      caption: `${mots.cheval} / ${mots.oiseau} = π`,
+      ops: [
+        {
+          op: 'substitute',
+          pairs: [{
+            target: 'P1',
+            to: [
+              ...[...mots.cheval].map((c, i) => tok(`v${i}`, c)),
+              { ...filet('barre2', large), breakBefore: true },
+              esp('v_e0'), tok('veq', '=', 'operator'), esp('v_e1'), tok('vpi', 'π'),
+              ...[...mots.oiseau].map((c, i) => {
+                const j = tok(`w${i}`, c);
+                if (i === 0) j.breakBefore = true;
+                return j;
+              }),
+            ],
+          }],
+          at: 0,
+          dur: 1600,
+        },
+        // Le trait renaît avec l'énoncé, et se cale sur lui : sa largeur de
+        // départ est écrite en signes, `rule` l'ajuste au dixième d'unité.
+        { op: 'rule', id: 'barre2', couvre: { all: true }, at: 1600, dur: 700 },
+        { op: 'pulse', targets: ['vpi'], at: 2300, dur: 900 },
+        { ...cqfd, at: 2800, dur: 1800 },
+      ],
+    };
 
   return [s1, s2, s3, s4, s5];
 }
@@ -349,6 +565,7 @@ export function scenarioDeLOeuf(saisie) {
   // ici — le routeur ne l'appelle qu'après `estOeuf` — mais on retombe sur les
   // capitales de convention plutôt que d'exploser sur un `null`.
   const mots = motsDeLOeuf(saisie) || { cheval: 'CHEVAL', oiseau: 'OISEAU' };
+  const pi = conclusionSaisie(saisie);
   return {
     version: 1,
     input: saisie,
@@ -358,8 +575,8 @@ export function scenarioDeLOeuf(saisie) {
       rule: t('oeuf.regle'),
     },
     result: 'π',
-    tokens: jetonsDeDepart(mots),
-    steps: etapes(mots),
+    tokens: jetonsDeDepart(mots, pi),
+    steps: etapes(mots, pi),
     registre: 'sobre',
   };
 }

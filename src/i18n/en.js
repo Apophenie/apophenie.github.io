@@ -237,11 +237,12 @@ export const en = {
     titre: 'By phonetic zoology',
     regle: 'A cow is a piebald beast, a bird a winged one: the rest is a matter of hearing.',
     commutation: 'Commutative multiplication',
-    commutationDetail: 'So the letters may be reordered at will',
+    commutationDetail: 'Rearranged',
     qualification: 'Animal qualification',
     synthese: 'Phonetic synthesis',
     reduction: 'Mathematical reduction',
     verdict: 'The verdict',
+    cqfd: 'Q.E.D.',
   },
 
   demo: {

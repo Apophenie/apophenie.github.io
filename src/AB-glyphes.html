@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glyphes — police, tracé actuel, tracé dérivé</title>
+<meta name="color-scheme" content="dark light">
+
+<!-- ★ HORS DU SITE, comme `debug.html` et `AB-testing.html`.
+
+     Aucun lien n'y mène, `robots` la tient à l'écart, et elle ne propose aucun
+     retour. Ce n'est pas une page du site : c'est l'instrument qui met UN MÊME
+     SIGNE sous trois formes côte à côte, pour qu'un dessin se juge à l'œil
+     plutôt qu'à l'argument. -->
+<meta name="robots" content="noindex, nofollow">
+
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/pages.css">
+
+<style>
+/* ★ La mise en page vit ICI et non dans `styles/`, parce que la page n'est pas
+     du site : lui donner une feuille dans `src/styles/` la ferait charger par
+     les trois autres cibles pour rien, et surtout elle finirait par être
+     entretenue comme si elle comptait. */
+.gl { max-width: 78rem; margin: 0 auto; padding: 2rem 1rem 6rem; }
+.gl__entete { margin-bottom: 2.5rem; }
+.gl__appel { color: var(--ink-soft, #9a9); max-width: 60ch; line-height: 1.5; }
+.gl__titre {
+  margin: 3rem 0 1rem; padding-bottom: .4rem;
+  border-bottom: 1px solid var(--rule, #444);
+}
+.gl__rangee {
+  display: grid;
+  grid-template-columns: 3rem repeat(3, 1fr);
+  align-items: start;
+  gap: 1rem;
+  padding: .75rem 0;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+.gl__lettre {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 1.6rem; margin: 0; align-self: center; opacity: .65;
+}
+.gl__case { text-align: center; }
+.gl__dessin { width: 100%; max-width: 9rem; height: auto; display: block; margin: 0 auto; }
+.gl__nom { font-size: .78rem; opacity: .55; margin-top: .25rem; }
+.gl__comptes {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: .78rem; opacity: .8;
+}
+.gl__case--vide { align-self: center; font-size: .8rem; opacity: .35; font-style: italic; }
+</style>
+</head>
+<body>
+<main id="glyphes"></main>
+<script type="module" src="app/glyphes-main.js"></script>
+</body>
+</html>

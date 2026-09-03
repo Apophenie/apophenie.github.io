@@ -293,11 +293,12 @@ export const fr = {
     titre: 'Par la zoologie phonétique',
     regle: 'Une vache est une bête à pie, un oiseau une bête à ailes\u202f: le reste s’entend.',
     commutation: 'Multiplication commutative',
-    commutationDetail: 'On peut donc réagencer librement l’ordre des lettres',
+    commutationDetail: 'Réagencement',
     qualification: 'Qualification animale',
     synthese: 'Synthèse phonétique',
     reduction: 'Réduction mathématique',
     verdict: 'Le verdict',
+    cqfd: 'C.Q.F.D.',
   },
 
   demo: {

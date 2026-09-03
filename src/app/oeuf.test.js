@@ -52,7 +52,17 @@ test('★ œuf — toutes les façons de l’écrire, et aucune autre', () => {
 
 /* ═══════════════════════ 2. Le scénario, joué pour de vrai ═══════════════ */
 
-/** La ligne vivante, rang par rang, après les `n` premières étapes. */
+/**
+ * La ligne vivante, rang par rang, après les `n` premières étapes.
+ *
+ * ★ **DEUX JETONS NE PORTENT PAS LEUR TEXTE, et il faut les rendre visibles.**
+ *   Une ESPACE est un vrai jeton — « n'oublie pas les espaces, leur absence
+ *   nuit à la lisibilité » (l'auteur) —, et c'est ce qui permet à « bête à »
+ *   d'être converti EN BLOC, l'espace comprise. Le TRAIT de fraction n'est pas
+ *   un texte du tout : c'est un nœud de rôle `filet`, dont la longueur
+ *   s'interpole (`primitives/rule.js`). Les rendre `␣` et `—` dit exactement ce
+ *   que la scène porte, sans confondre une espace avec l'absence de jeton.
+ */
 function ligneApres(scenario, n) {
   const c = compile({ ...scenario, steps: scenario.steps.slice(0, Math.max(1, n)) });
   const rangs = new Map();
@@ -62,7 +72,10 @@ function ligneApres(scenario, n) {
     if (!noeud || !p) continue;
     const l = p.line ?? 0;
     if (!rangs.has(l)) rangs.set(l, []);
-    rangs.get(l).push(noeud.text);
+    let vu = noeud.text;
+    if (noeud.role === 'filet') vu = '\u2014';
+    else if (noeud.kind === 'space') vu = '\u2423';
+    rangs.get(l).push(vu);
   }
   return [...rangs].sort((a, b) => a[0] - b[0]).map(([, v]) => v.join(' '));
 }
@@ -82,24 +95,54 @@ test('★ œuf — il compile dans le moteur visuel réel, sans un avertissement
 test('★ œuf — la fraction se pose sur trois rangs, et le verdict la repose', () => {
   const sc = scenarioDeLOeuf('cheval sur oiseau');
 
-  // ★ La ligne de DÉPART : trois rangs, la barre au milieu. C'est ce qui a
-  //   demandé que `Scene` transmette le `breakBefore` d'un jeton initial —
-  //   il le laissait tomber, et la fraction s'écrasait sur une ligne.
+  // ★ La ligne de DÉPART : trois rangs, le trait au milieu. C'est ce qui a
+  //   demandé que `Scene` transmette le `breakBefore` d'un jeton initial — il
+  //   le laissait tomber, et la fraction s'écrasait sur une ligne — puis qu'un
+  //   jeton initial puisse déclarer son RÔLE, le trait n'étant pas un texte.
   const debut = ligneApres(sc, 1);
   assert.equal(debut.length, 3, `trois rangs attendus, vu ${debut.length}`);
-  assert.match(debut[1], /^—+$/, 'le rang du milieu est la barre de division');
+  assert.equal(debut[1], '—', 'le rang du milieu est le trait de division');
 
-  // La chute : après la réduction, il ne reste que π — barre comprise.
+  // La chute : après la réduction, il ne reste que π — trait compris.
   assert.deepEqual(ligneApres(sc, 4), ['π']);
 
-  // Et le verdict repose l'énoncé, l'égalité à hauteur de la barre.
+  // Et le verdict repose l'énoncé, l'égalité à hauteur du trait.
   const fin = ligneApres(sc, 5);
   assert.equal(fin.length, 3);
   // ⚠️ En BAS DE CASSE : le verdict repose les mots TELS QU'ILS ONT ÉTÉ TAPÉS,
   //    et la saisie de ce test est en minuscules.
   assert.equal(fin[0], 'c h e v a l');
   assert.equal(fin[2], 'o i s e a u');
-  assert.match(fin[1], /^—+ = π$/, 'l’égalité se lit sur la ligne du trait, pas sous le dénominateur');
+  assert.equal(fin[1], '— ␣ = ␣ π', 'l’égalité se lit sur la ligne du trait, pas sous le dénominateur');
+});
+
+/**
+ * ★ **LA SAISIE QUI POSE DÉJÀ L'ÉGALITÉ NE DEMANDE PAS LA MÊME FIN.**
+ *
+ * > « L'animation doit partir de la saisie utilisateur : s'il a saisi "cheval
+ * >   sur oiseau = pi", la partie "= pi" doit apparaître tout du long ; pi sera
+ * >   converti en symbole en même temps que les autres apparitions de symbole,
+ * >   la conclusion est alors π = π. » (l'auteur)
+ *
+ * Celle qui pose l'égalité demande qu'on la VÉRIFIE — le membre de droite est
+ * là du premier au dernier temps, et la fin est une confrontation. Celle qui
+ * n'en pose pas demande qu'on la TROUVE, et la fin réécrit l'énoncé avec sa
+ * réponse. Une chorégraphie unique aurait, dans un cas sur deux, répondu à une
+ * question qu'on n'avait pas posée.
+ */
+test('★ œuf — « = pi » saisi reste à l’écran, et la conclusion est π = π', () => {
+  const avec = scenarioDeLOeuf('cheval sur oiseau = pi');
+  // Dès le départ, sur la ligne du TRAIT : c'est là qu'une égalité se lit.
+  assert.equal(ligneApres(avec, 1)[1], '— ␣ = ␣ pi');
+  // Le « pi » devient π en même temps que les autres symboles (étape 3).
+  assert.equal(ligneApres(avec, 3)[1], '— ␣ = ␣ π');
+  /* Le trait mort, sa coupure de ligne meurt avec lui : « = π » remonte sur le
+     rang du π survivant, et l'on lit la confrontation d'un seul œil. */
+  assert.deepEqual(ligneApres(avec, 4), ['π ␣ = ␣ π']);
+  assert.deepEqual(ligneApres(avec, 5), ['π ␣ = ␣ π'], 'rien à reposer : tout est déjà écrit');
+
+  // Sans égalité saisie, la même étape 4 ne laisse que le π.
+  assert.deepEqual(ligneApres(scenarioDeLOeuf('cheval sur oiseau'), 4), ['π']);
 });
 
 /**
@@ -119,20 +162,22 @@ test('★ œuf — il se déroule dans la casse saisie, les deux L compris', () 
   //    permutée : « vachel ». C'est bien la casse tapée, dans l'ordre rangé.
   const bas = scenarioDeLOeuf('cheval sur oiseau');
   assert.equal(ligneApres(bas, 1)[0], 'v a c h e l');
-  assert.equal(ligneApres(bas, 3)[0], 'β π l', 'le L du haut est celui qui a été tapé');
-  assert.equal(ligneApres(bas, 3)[2], 'β l', 'celui de « ailes » s’aligne sur lui');
+  assert.equal(ligneApres(bas, 3)[0], 'β ␣ π l', 'le L du haut est celui qui a été tapé');
+  assert.equal(ligneApres(bas, 3)[2], 'β ␣ l', 'celui de « ailes » s’aligne sur lui');
   assert.equal(ligneApres(bas, 5)[2], 'o i s e a u');
 
   const haut = scenarioDeLOeuf('CHEVAL SUR OISEAU');
   assert.equal(ligneApres(haut, 1)[0], 'V A C H E L');
-  assert.equal(ligneApres(haut, 3)[0], 'β π L');
-  assert.equal(ligneApres(haut, 3)[2], 'β L');
+  assert.equal(ligneApres(haut, 3)[0], 'β ␣ π L');
+  assert.equal(ligneApres(haut, 3)[2], 'β ␣ L');
 
   // Casse mixte : chaque mot garde la sienne, et le L suit celui du numérateur.
-  const mixte = scenarioDeLOeuf('Cheval/Oiseau = Pi');
+  // ⚠️ SANS « = pi » : cette branche-là est celle qui repose l'énoncé au
+  //    verdict, et c'est la casse de cet énoncé qu'on vérifie ici.
+  const mixte = scenarioDeLOeuf('Cheval/Oiseau');
   assert.equal(ligneApres(mixte, 5)[0], 'C h e v a l');
   assert.equal(ligneApres(mixte, 5)[2], 'O i s e a u');
-  assert.equal(ligneApres(mixte, 3)[2], 'β l');
+  assert.equal(ligneApres(mixte, 3)[2], 'β ␣ l');
 });
 
 test('★ œuf — chaque étape porte son titre de registre', () => {

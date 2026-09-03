@@ -133,6 +133,14 @@ export function tokenSpec(ctx, spec, field) {
   };
   if (spec.gapBefore !== undefined) sortie.gapBefore = spec.gapBefore;
   if (spec.breakBefore !== undefined) sortie.breakBefore = spec.breakBefore;
+  /* ★ **UN JETON QUI NAÎT PEUT NE PAS ÊTRE UN TEXTE.** Même raison que la
+     ligne : la scène accepte désormais qu'un jeton de DÉPART déclare son rôle
+     (`scene.js`, le trait de fraction) ; un jeton CRÉÉ doit pouvoir en faire
+     autant, sans quoi le verdict de l'œuf saurait reposer une fraction mais
+     pas son trait. La largeur suit le même chemin : sans elle, un rôle non
+     textuel se mesurerait sur un texte vide. */
+  if (typeof spec.role === 'string' && spec.role) sortie.role = spec.role;
+  if (spec.w !== undefined) sortie.w = spec.w;
   return sortie;
 }
 
@@ -1092,13 +1100,21 @@ export function tracerAccolade(ctx, ids, spec = {}) {
 
   const W = box.w / 2;
   const H = box.h / 2;
+  /* ★ **LE SENS : `bas` par défaut, `haut` sur demande.**
+     Tout ce qui suit — l'ancre, la pointe, le symbole, la légende, le point où
+     tombe le résultat — se déduit du même `s`. Aucune de ces cinq valeurs n'est
+     écrite deux fois : c'est ce qui garantit qu'une accolade retournée reste
+     une accolade, et non un empilement qui se chevaucherait au premier
+     changement d'écart. */
+  const s = spec.sens === 'haut' || spec.sens === -1 ? -1 : 1;
   const d = shape === 'box'
     ? `M ${-W} ${-H} H ${W} V ${H} H ${-W} Z`
-    : braceD(W);
-  // L'accolade est ancrée juste SOUS les sources : ses bras remontent vers
-  // elles, sa pointe descend vers le résultat.
-  const anchorY = shape === 'box' ? box.cy : box.y + box.h + BRAS + 6;
-  const pointeY = shape === 'box' ? box.y + box.h + 8 : anchorY + POINTE;
+    : braceD(W, s);
+  // L'accolade est ancrée juste au-delà des sources, du côté demandé : ses bras
+  // reviennent vers elles, sa pointe s'en éloigne, vers le résultat.
+  const flanc = s > 0 ? box.y + box.h : box.y;
+  const anchorY = shape === 'box' ? box.cy : flanc + s * (BRAS + 6);
+  const pointeY = shape === 'box' ? box.y + box.h + 8 : anchorY + s * POINTE;
 
   const id = spec.id && !String(spec.id).startsWith('@') ? spec.id : ctx.gensym('group');
   ctx.scene.create({
@@ -1106,7 +1122,7 @@ export function tracerAccolade(ctx, ids, spec = {}) {
     role: 'bracket',
     inFlow: false,
     w: box.w,
-    data: { d, shape },
+    data: { d, shape, sens: s },
     base: { opacity: 1, strokeDashoffset: 100, stroke: ctx.palette.gold },
   }, { where: ctx.where });
   exigerPoint(ctx, { x: box.cx, y: anchorY }, 'le tracé de l’accolade', id);
@@ -1117,8 +1133,8 @@ export function tracerAccolade(ctx, ids, spec = {}) {
   });
 
   const crees = [id];
-  // 2. le symbole d'opération, juste sous la pointe : ce qu'on FAIT.
-  const symboleY = pointeY + fs * 0.52;
+  // 2. le symbole d'opération, juste au-delà de la pointe : ce qu'on FAIT.
+  const symboleY = pointeY + s * fs * 0.52;
   if (typeof spec.symbol === 'string' && spec.symbol) {
     const sid = ctx.gensym('op');
     ctx.scene.create({
@@ -1144,19 +1160,19 @@ export function tracerAccolade(ctx, ids, spec = {}) {
       id: lid, role: 'label', text: spec.label, inFlow: false,
       w: ctx.metrics.advance * 0.55 * [...spec.label].length,
       // Même règle que le symbole : la légende désigne, donc elle suit.
-      data: { scale: 0.5, suit: id, decalage: { dx: 0, dy: (spec.symbol ? symboleY + fs * 0.56 : symboleY) - anchorY } },
+      data: { scale: 0.5, suit: id, decalage: { dx: 0, dy: (spec.symbol ? symboleY + s * fs * 0.56 : symboleY) - anchorY } },
       base: { opacity: 0, fill: ctx.palette.fg2 },
     }, { where: ctx.where });
     // Sans symbole — un découpage en sous-groupes, par exemple —, la légende
     // prend la place du symbole plutôt que de flotter un cran plus bas.
-    ctx.scene.place(lid, exigerPoint(ctx, { x: box.cx, y: spec.symbol ? symboleY + fs * 0.56 : symboleY },
+    ctx.scene.place(lid, exigerPoint(ctx, { x: box.cx, y: spec.symbol ? symboleY + s * fs * 0.56 : symboleY },
       'la légende de l’accolade', lid));
     ctx.anim({ id: lid, prop: 'opacity', to: 1, at: at + dur * 0.65, dur: dur * 0.35 });
     crees.push(lid);
   }
 
   // Où va le résultat : sous la pointe, sous le symbole, sous la légende.
-  const resultat = { x: box.cx, y: symboleY + fs * (spec.label ? 1.34 : 0.92) };
+  const resultat = { x: box.cx, y: symboleY + s * fs * (spec.label ? 1.34 : 0.92) };
 
   // ★ Une accolade QUI PORTE UN SYMBOLE promet un résultat sous sa pointe.
   //
@@ -1246,7 +1262,11 @@ export function suivreLaZone(ctx, acc, spec = {}) {
   const change = Math.abs(cible.w - (depart.w || 0)) > 0.5;
   if (!bougeX && !change) return;
 
-  const anchorY = cible.y + cible.h + BRAS + 6;
+  // Le sens est celui du TRACÉ, relu sur le nœud : c'est lui qui sait de quel
+  // côté de la ligne il vit, et l'appelant — `suivreLesAccolades` balaie un
+  // registre — n'a aucune raison de le savoir.
+  const s = sensDeLAccolade(ctx, acc.id);
+  const anchorY = (s > 0 ? cible.y + cible.h : cible.y) + s * (BRAS + 6);
   if (bougeX || Math.abs(anchorY - depart.y) > 0.5) {
     ctx.place(acc.id, { x: cible.cx, y: anchorY, w: cible.w }, { at, dur, ease: EASE.move });
   }
@@ -1265,7 +1285,7 @@ export function suivreLaZone(ctx, acc, spec = {}) {
        ne promet rien — `partition` découpe, elle ne calcule pas — ne doit pas
        s'en voir attribuer une au premier reflux. */
   if (ctx.scene.ancreDe(sources[0])) {
-    ctx.scene.poserAncre(sources, { x: cible.cx, y: anchorY + POINTE + ctx.metrics.fontSize * 1.44 });
+    ctx.scene.poserAncre(sources, { x: cible.cx, y: anchorY + s * (POINTE + ctx.metrics.fontSize * 1.44) });
   }
   if (!change) return;
   const w0 = depart.w || cible.w;
@@ -1281,7 +1301,7 @@ export function suivreLaZone(ctx, acc, spec = {}) {
     channel: 'd',
     at,
     dur,
-    render: (x) => braceD((w0 + (w1 - w0) * courbe(x)) / 2),
+    render: (x) => braceD((w0 + (w1 - w0) * courbe(x)) / 2, s),
   });
 }
 
@@ -1313,20 +1333,50 @@ export function suivreLesAccolades(ctx, spec = {}) {
  * fraction trace la sienne elle-même — elle ne veut ni le resserrement ni
  * l'ancre de `tracerAccolade` — mais elle ne doit pas dessiner une AUTRE
  * accolade pour autant.
+ *
+ * ★ **`sens = −1` LA RETOURNE, et c'est un miroir, pas un second dessin.**
+ *
+ * > « Jusqu'ici on n'a pas d'accolade en haut, c'est à créer » (l'auteur).
+ *
+ * Une accolade posée AU-DESSUS de ce qu'elle embrasse a ses bras qui
+ * descendent vers la ligne et sa pointe qui monte — c'est exactement la même
+ * courbe, l'axe des `y` inversé. Un second tracé écrit à la main aurait pu
+ * diverger du premier au premier ajustement de coude ; ici c'est arithmétique­
+ * ment impossible, il n'y a qu'une formule.
+ *
+ * @param {number} W  demi-largeur
+ * @param {1|-1} sens `1` : pointe vers le bas (accolade sous les sources) ;
+ *                    `-1` : pointe vers le haut (accolade au-dessus).
  */
-export function braceD(W) {
+export function braceD(W, sens = 1) {
+  const s = sens < 0 ? -1 : 1;
   const r = round(Math.min(COUDE, Math.max(3, W * 0.3)));   // coude des bras
   const p = round(Math.min(COUDE, Math.max(3, W * 0.3)));   // amorce de la pointe
   const w = round(W);
+  const bras = round(-BRAS * s);
+  const pointe = round(POINTE * s);
   return [
-    `M ${-w} ${-BRAS}`,
+    `M ${-w} ${bras}`,
     `Q ${-w} 0 ${-w + r} 0`,
     `L ${-p} 0`,
-    `Q 0 0 0 ${POINTE}`,
+    `Q 0 0 0 ${pointe}`,
     `Q 0 0 ${p} 0`,
     `L ${w - r} 0`,
-    `Q ${w} 0 ${w} ${-BRAS}`,
+    `Q ${w} 0 ${w} ${bras}`,
   ].join(' ');
+}
+
+/**
+ * Le sens d'une accolade, lu sur le nœud qui la porte.
+ *
+ * Il est écrit UNE fois, au tracé (`data.sens`), et relu partout où le tracé se
+ * recalcule (`suivreLaZone`). Le passer de main en main dans les `spec` aurait
+ * demandé que chaque appelant s'en souvienne — y compris `suivreLesAccolades`,
+ * qui balaie un registre et ne sait rien de ce qu'il redimensionne.
+ */
+export function sensDeLAccolade(ctx, id) {
+  const n = ctx.scene.get(id);
+  return n && n.data && n.data.sens < 0 ? -1 : 1;
 }
 
 function round(v) {

@@ -75,7 +75,18 @@ export class Scene {
         text: tok.text,
         kind: tok.kind || guessKind(tok.text),
         group: tok.group ?? null,
-        role: 'text',
+        /* ★ **UN JETON DE DÉPART PEUT ÊTRE AUTRE CHOSE QU'UN TEXTE.**
+           Le rôle était forcé à `text`, et c'était sans conséquence tant que
+           tout ce qui n'est pas un glyphe naissait d'une op. Une BARRE DE
+           FRACTION, elle, est là avant le premier geste : elle appartient à
+           l'énoncé, pas à sa transformation. La forcer en texte obligerait à
+           l'écrire en tirets — donc à une largeur figée par un nombre de
+           signes, qui ne peut plus suivre ce qu'elle sépare (`primitives/
+           rule.js`). Un scénario qui ne dit rien reste du texte, à l'octet
+           près. */
+        role: tok.role || 'text',
+        w: tok.w,
+        data: tok.data,
         inFlow: true,
         /* ★ **UN JETON DE DÉPART PEUT DEMANDER SA LIGNE, comme n'importe quel
            autre.** `create()` accepte `gapBefore` et `breakBefore` depuis
