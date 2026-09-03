@@ -100,7 +100,17 @@ const cadre = (enfants) => s('svg', {
   ...enfants,
 ]);
 
-/** Un tracé, dessiné dans le repère du moteur. */
+/**
+ * Un tracé, dessiné dans le repère du moteur.
+ *
+ * ⚠️ **LA TEINTE DOIT ÊTRE UNE COULEUR, et `tokens.css` n'en contient pas que.**
+ *   Deux colonnes sont restées VIDES pour l'avoir oublié : `--oracle` et
+ *   `--pedagogue` existent bien — un `grep` le confirmait — mais ce sont des
+ *   familles de POLICES. `stroke: "Jost", Futura, …` est invalide, et un tracé
+ *   sans `stroke` valide ne se peint pas. Vérifier qu'un jeton existe ne dit
+ *   pas ce qu'il contient ; c'est le même défaut que la classe `.nhl-filet`,
+ *   qui n'existait nulle part et laissait le trait de fraction transparent.
+ */
 function dessin(traits, teinte) {
   return cadre([
     s('g', { transform: 'scale(1,-1)' }, traits.map((t) => s('path', {
@@ -192,7 +202,7 @@ function rangee(c) {
       : e('div.gl__case.gl__case--vide', { texte: 'pas de squelette' }),
     recale
       ? e('div.gl__case', {}, [
-        dessin(recale, 'var(--oracle)'),
+        dessin(recale, 'var(--line-ui)'),
         e('div.gl__nom', { texte: 'recalé sur les bords' }),
         e('div.gl__comptes', { texte: `${recale.length} branche(s)` }),
       ])
@@ -201,7 +211,7 @@ function rangee(c) {
        il a des jonctions, donc `deriveGlyph` sait les lire. Ils doivent
        coïncider avec ceux de la recette, dont il reprend la topologie. */
     apparie
-      ? case_('apparié', apparie.traits, apparie.jonctions, 'var(--pedagogue)')
+      ? case_('apparié', apparie.traits, apparie.jonctions, 'var(--rubric-hi)')
       : e('div.gl__case.gl__case--vide', { texte: 'pas d’appariement' }),
   ]);
 }
