@@ -33,7 +33,7 @@
  */
 
 import { tokenSpec, espacementDe, exigerPoint } from './helpers.js';
-import { EASE } from '../constants.js';
+import { EASE, colorForKind } from '../constants.js';
 import { charCenter } from '../layout.js';
 import { fail } from '../errors.js';
 
@@ -109,7 +109,21 @@ export function plan(ctx) {
         //   c'est-à-dire d'un jeton qui n'en avait aucune (voir `tokenSpec`).
         ...(to.gapBefore !== undefined ? { gapBefore: to.gapBefore } : {}),
         ...(to.breakBefore !== undefined ? { breakBefore: to.breakBefore } : {}),
-        base: { opacity: 0, scale: 1.15, fill: ctx.palette.phos },
+        /* ★ **L'ENCRE D'UN JETON NEUF EST CELLE DE SON ESPÈCE, pas le phosphore.**
+         *
+         * ⚠️ Elle était `phos` en dur — la couleur des NOMBRES —, et ça n'a
+         *   jamais eu de conséquence parce que `substitute` ne faisait naître
+         *   que ça : un chiffre, un nombre, un opérateur. Pour ces trois-là,
+         *   `colorForKind` rend exactement `phos` ; la correction ne change donc
+         *   rien à aucune démonstration du catalogue.
+         *
+         *   Elle change ce qui n'avait jamais été essayé : une LETTRE. L'œuf en
+         *   substitue — « cheval / oiseau = π » au verdict — et l'énoncé
+         *   s'écrivait tout entier en vert, c'est-à-dire de la couleur qui, sur
+         *   cette scène, veut dire « valeur calculée ». Un rappel d'énoncé
+         *   n'est pas un calcul.
+         */
+        base: { opacity: 0, scale: 1.15, fill: colorForKind(to.kind, ctx.palette) },
       }, { where: ctx.where });
       if (j.ancre) {
         ctx.scene.place(to.id, exigerPoint(ctx, j.ancre,
