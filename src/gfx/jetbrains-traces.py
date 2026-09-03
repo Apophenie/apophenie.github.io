@@ -40,12 +40,14 @@ Changer de version de police déplace donc les tracés avec elle, et le contrôl
 de `derivees.js` dit aussitôt si un comptage a bougé.
 """
 
+import math
 import sys
 import pathlib
 
 try:
     from fontTools.ttLib import TTFont
     from fontTools.pens.boundsPen import BoundsPen
+    from fontTools.pens.recordingPen import RecordingPen
 except ImportError:  # pragma: no cover
     sys.exit('fontTools est requis : pip install fonttools brotli')
 
@@ -80,6 +82,13 @@ def mesures():
     return {
         'k': k,
         'upm': upm,
+        # ★ Le jeu de glyphes et la table de caractères VOYAGENT avec les
+        #   mesures : l'extraction d'axe (`axe_median`) lit le CONTOUR, pas
+        #   seulement sa boîte. Rouvrir la police ailleurs, ce serait deux
+        #   lectures du même fichier, donc deux occasions de ne pas lire la
+        #   même version.
+        'gs': gs,
+        'cmap': cmap,
         'avance': f['hmtx'][cmap[ord('l')]][0] * k,
         'hauteurX': f['OS/2'].sxHeight * k,
         'capitale': CAPITALE_CIBLE,
@@ -93,6 +102,198 @@ def r(v):
     """Un nombre pour un `d` SVG : entier quand il peut l'être."""
     x = round(v, 1)
     return str(int(x)) if x == int(x) else str(x)
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  L'AXE MÉDIAN — la géométrie EXTRAITE, et non plus devinée.
+#
+#  > « Pourquoi n'arrives-tu pas à reproduire correctement la font en SVG ? »
+#  >   (l'auteur)
+#
+#  ★ **PARCE QUE LES RECETTES DEVINENT.** Elles posent des arcs elliptiques
+#    paramétrés à la main sur des mesures de boîte ; la police, elle, est en
+#    Bézier. Un arc n'a qu'un seul sens de courbure et un seul jeu de rayons :
+#    il peut passer par les mêmes extrémités qu'une courbe de police et n'avoir
+#    aucun de ses infléchissements. Sur un `s` — deux inversions de courbure —
+#    l'écart cesse d'être une nuance : trop courts, les arcs bouclaient ; trop
+#    longs, ils tendaient la lettre en `∫`.
+#
+#  ★ **CE QU'ON EXTRAIT ICI, ET CE QU'ON NE PEUT PAS.** Une police donne des
+#    CONTOURS remplis ; `glyphes.js` demande des TRACÉS DE CRAYON. Pour un trait
+#    d'épaisseur constante — JetBrains Mono est monolinéaire —, le crayon est le
+#    MILIEU des deux bords, et ce milieu se mesure : on repère les deux
+#    terminaisons (le contour y fait un demi-tour), ce qui sépare les deux
+#    bords, puis on apparie chaque point de l'un au plus proche de l'autre.
+#
+#    ⚠️ Cela ne vaut que pour un trait UNIQUE et OUVERT — `c` et `s`. Dès qu'une
+#      lettre a des branches (`n`, `t`, `k`…), son contour porte plus de deux
+#      terminaisons et il faudrait décider quel bord répond à quel bord : c'est
+#      une squelettisation, pas un appariement. Ces lettres-là gardent leurs
+#      recettes, qui suffisent parce que leurs traits sont pour l'essentiel
+#      droits ou d'un seul sens de courbure.
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Les lettres dont l'axe est EXTRAIT plutôt que décrit — un trait, deux bouts.
+EXTRAITES = 'cs'
+
+
+def _bezier(p0, pts, n=12):
+    """Échantillonne une Bézier par l'algorithme de De Casteljau."""
+    ctrl = [p0] + list(pts)
+    out = []
+    for i in range(1, n + 1):
+        u = i / n
+        q = list(ctrl)
+        while len(q) > 1:
+            q = [((1 - u) * q[j][0] + u * q[j + 1][0],
+                  (1 - u) * q[j][1] + u * q[j + 1][1]) for j in range(len(q) - 1)]
+        out.append(q[0])
+    return out
+
+
+def _contour(gs, cmap, ch, k):
+    """Le contour de la lettre, aplati en points, à l'échelle du repère."""
+    pen = RecordingPen()
+    gs[cmap[ord(ch)]].draw(pen)
+    subs, cur, pos = [], [], (0, 0)
+    for op, args in pen.value:
+        if op == 'moveTo':
+            if cur:
+                subs.append(cur)
+            pos = args[0]
+            cur = [pos]
+        elif op == 'lineTo':
+            pos = args[0]
+            cur.append(pos)
+        elif op == 'qCurveTo':
+            pts = [a for a in args if a is not None]
+            # Une `qCurveTo` TrueType chaîne les contrôles : les points sur la
+            # courbe sont les MILIEUX des contrôles consécutifs (points implicites).
+            for a, b in zip(pts, pts[1:]):
+                mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+                cur += _bezier(pos, [a, mid])
+                pos = mid
+            if len(pts) >= 2:
+                cur += _bezier(pos, [pts[-2], pts[-1]])
+            pos = pts[-1]
+        elif op == 'curveTo':
+            cur += _bezier(pos, list(args))
+            pos = args[-1]
+        elif op == 'closePath' and cur:
+            subs.append(cur)
+            cur = []
+    if cur:
+        subs.append(cur)
+    return [[(x * k, y * k) for x, y in sub] for sub in subs]
+
+
+def _regulier(pts, pas=4.0):
+    """Points équidistants le long d'un contour fermé."""
+    out, reste = [pts[0]], 0.0
+    for a, b in zip(pts, pts[1:] + [pts[0]]):
+        d = math.dist(a, b)
+        if d < 1e-9:
+            continue
+        t = reste
+        while t < d:
+            u = t / d
+            out.append((a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u))
+            t += pas
+        reste = t - d
+    return out
+
+
+def _curviligne(pts):
+    s, out = 0.0, [0.0]
+    for a, b in zip(pts, pts[1:]):
+        s += math.dist(a, b)
+        out.append(s)
+    return out, s
+
+
+def _au(seq, s, longueur, u):
+    """Le point à la fraction `u` de la longueur d'une polyligne."""
+    cible = u * longueur
+    for i in range(len(s) - 1):
+        if s[i + 1] >= cible:
+            f = (cible - s[i]) / max(1e-9, s[i + 1] - s[i])
+            return (seq[i][0] + (seq[i + 1][0] - seq[i][0]) * f,
+                    seq[i][1] + (seq[i + 1][1] - seq[i][1]) * f)
+    return seq[-1]
+
+
+def _terminaisons(pts, fenetre):
+    """Les deux indices où le contour fait un DEMI-TOUR : les bouts du trait."""
+    n = len(pts)
+    virage = []
+    for i in range(n):
+        a, b, c = pts[(i - fenetre) % n], pts[i], pts[(i + fenetre) % n]
+        v1 = (b[0] - a[0], b[1] - a[1])
+        v2 = (c[0] - b[0], c[1] - b[1])
+        n1, n2 = math.hypot(*v1), math.hypot(*v2)
+        if n1 < 1e-9 or n2 < 1e-9:
+            virage.append(0.0)
+            continue
+        cos = max(-1.0, min(1.0, (v1[0] * v2[0] + v1[1] * v2[1]) / (n1 * n2)))
+        virage.append(math.acos(cos))
+    pics = []
+    for i in sorted(range(n), key=lambda j: -virage[j]):
+        if all(min(abs(i - j), n - abs(i - j)) > n // 6 for j in pics):
+            pics.append(i)
+        if len(pics) == 2:
+            break
+    return sorted(pics)
+
+
+def axe_median(gs, cmap, ch, k, points=12):
+    """L'axe d'une lettre à trait unique, en points ordonnés d'un bout à l'autre."""
+    pts = _regulier(_contour(gs, cmap, ch, k)[0])
+    t1, t2 = _terminaisons(pts, max(3, len(pts) // 40))
+    A = pts[t1:t2 + 1]
+    B = list(reversed(pts[t2:] + pts[:t1 + 1]))
+    sa, la = _curviligne(A)
+    # ★ **L'APPARIEMENT SE FAIT PAR LA NORMALE, jamais par l'abscisse.** Deux
+    #   bords concentriques (un `c`) se correspondent proportionnellement ; ceux
+    #   d'un `s`, non — à l'intérieur d'un crochet, le bord est court là où
+    #   l'extérieur est long. Mesuré : la correspondance linéaire accouplait des
+    #   points distants de 269 unités pour un trait qui en fait 74.
+    brut, larg = [], []
+    N = points * 6
+    for i in range(N + 1):
+        p = _au(A, sa, la, i / N)
+        q = min(B, key=lambda z: math.dist(p, z))
+        brut.append(((p[0] + q[0]) / 2, (p[1] + q[1]) / 2))
+        larg.append(math.dist(p, q))
+    # ★ **ET LES BOUTS SE COUPENT.** Près d'une terminaison les deux bords se
+    #   rejoignent : la largeur mesurée s'effondre et le milieu part en crochet
+    #   vers le centre du demi-cercle terminal. L'axe s'arrête là où le trait
+    #   cesse d'avoir son épaisseur — c'est où un crayon lèverait.
+    med = sorted(larg)[len(larg) // 2]
+    bons = [i for i, w in enumerate(larg) if w > med * 0.75]
+    utile = brut[bons[0]:bons[-1] + 1] if len(bons) >= 4 else brut
+    su, lu = _curviligne(utile)
+    return [_au(utile, su, lu, i / points) for i in range(points + 1)]
+
+
+def catmull(P):
+    """Polyligne → cubiques de Catmull-Rom : un `d` court, lisse, et RELISIBLE.
+
+    Une polyligne de quarante points dirait la même courbe, mais `glyphes.js`
+    est un fichier qu'on relit : douze cubiques se comparent d'une version à
+    l'autre, quarante segments non.
+    """
+    n = len(P)
+    d = ['M %s %s' % (r(P[0][0]), r(P[0][1]))]
+    for i in range(n - 1):
+        p0 = P[i - 1] if i > 0 else P[0]
+        p1, p2 = P[i], P[i + 1]
+        p3 = P[i + 2] if i + 2 < n else P[-1]
+        c1 = (p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6)
+        c2 = (p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6)
+        d.append('C %s %s %s %s %s %s' % (r(c1[0]), r(c1[1]), r(c2[0]), r(c2[1]),
+                                          r(p2[0]), r(p2[1])))
+    return ' '.join(d)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -146,43 +347,17 @@ def recettes(M):
         R[c] = ([ovale((o['x0'] + o['x1']) / 2, (o['y0'] + o['y1']) / 2,
                        o['l'] / 2, o['h'] / 2)], [])
 
-    # ── `c` et `s` : un seul trait ouvert ─────────────────────────────────────
-    o = b['c']
-    R['c'] = ([t(arc(o['x1'], o['y1'] - o['h'] * 0.18, o['l'] / 2, o['h'] / 2, 1, 1,
-                     o['x1'], o['y0'] + o['h'] * 0.18))], [])
-    o = b['s']
-    # ⚠️ Les deux terminaisons s'arrêtaient à un cinquième de la hauteur des
-    #   bords : le `s` ne descendait qu'à 87 pour une lettre qui va à −7. Un
-    #   `s` a deux crochets qui reviennent VERS le milieu, mais son axe passe
-    #   bien par le haut et par le bas de sa boîte.
-    #   ⚠️ Les deux arcs d'un `s` bombent en sens OPPOSÉS — c'est ce qui en fait
-    #     un `s` et non un `c` allongé. Le second garde donc son `sweep` à zéro ;
-    #     ce qui était faux, c'étaient ses extrémités, pas son sens.
-    #   ⚠️ Le premier arc portait `large-arc = 1` : il faisait plus d'un demi-tour
-    #     et se refermait en boucle sur lui-même. Les deux moitiés d'un `s` sont
-    #     des demi-tours, pas des tours.
-    #   ★ **ET IL PASSE EN BÉZIER, seul de tout l'alphabet.** Un `s` est la seule
-    #     lettre dont l'axe change DEUX FOIS de sens de courbure ; l'arc
-    #     elliptique, qui n'en a qu'un, ne peut le dire qu'en le coupant en
-    #     morceaux dont les raccords se voient. Deux cubiques l'écrivent d'un
-    #     trait, et leurs tangentes se répondent au point d'inflexion — c'est ce
-    #     raccord-là qui fait la souplesse d'un `s`, et qu'aucun réglage de rayon
-    #     n'obtenait : trop courts, les arcs bouclaient ; trop longs, ils
-    #     tendaient la courbe en `∫`.
-    milieuS = (o['y0'] + o['y1']) / 2
-    eS = o['l'] * 0.03
-    #   ⚠️ Et les CONTRÔLES doivent viser AU-DELÀ du bord : une cubique n'atteint
-    #     qu'environ les trois quarts de la distance à ses points de contrôle.
-    #     Posés pile sur `y1` et `y0`, ils laissaient la courbe s'arrêter 76
-    #     unités trop haut — un `s` plus petit que sa lettre. Le débord de
-    #     contrôle (`dS`) est ce qui rend la courbe tangente au bord.
-    dS = o['h'] * 0.14
-    R['s'] = ([t('M %s %s C %s %s %s %s %s %s C %s %s %s %s %s %s' % (
-        r(o['x1'] - eS), r(o['y1'] - o['h'] * 0.2),
-        r(o['x1'] - eS), r(o['y1'] + dS), r(o['x0']), r(o['y1'] + dS),
-        r(o['x0'] + o['l'] * 0.42), r(milieuS),
-        r(o['x1'] - o['l'] * 0.42), r(milieuS), r(o['x1']), r(o['y0'] - dS),
-        r(o['x0'] + eS), r(o['y0'] + o['h'] * 0.2)))], [])
+    # ── `c` et `s` : UN SEUL TRAIT OUVERT, donc un axe EXTRAIT ────────────────
+    #
+    # Ce sont les deux seules lettres dont le contour n'a que DEUX terminaisons :
+    # on peut donc séparer ses deux bords sans rien décider, et le crayon est
+    # leur milieu (voir « L'AXE MÉDIAN », plus haut). Ce ne sont pas non plus
+    # deux lettres au hasard — ce sont celles où les arcs devinés échouaient le
+    # plus : « s est le plus gênant » (l'auteur). Trois recettes successives ont
+    # essayé de le décrire, et aucune n'y arrivait, parce qu'un `s` change deux
+    # fois de sens de courbure et qu'un arc n'en a qu'un.
+    for c in EXTRAITES:
+        R[c] = ([t(catmull(axe_median(M['gs'], M['cmap'], c, M['k'])))], [])
 
     # ── `e` : la barre puis la boucle ─────────────────────────────────────────
     o = b['e']
@@ -199,7 +374,9 @@ def recettes(M):
         epaule = hx * 0.74
         if c == 'm':
             milieu = (o['x0'] + o['x1']) / 2
-            R[c] = ([t(ligne(fut, o['y0'], fut, epaule)),
+            # Le `m` a la même amorce que le `n` : son fût monte jusqu'en haut
+            # de la hauteur d'x, les deux arches naissent en dessous.
+            R[c] = ([t(ligne(fut, o['y0'], fut, hx)),
                      t(arc(fut, epaule, (milieu - fut) / 2, hx * 0.28, 0, 0,
                            milieu, epaule) + ' L %s %s' % (r(milieu), r(o['y0']))),
                      t(arc(milieu, epaule, (o['x1'] - milieu) / 2, hx * 0.28, 0, 0,
@@ -212,18 +389,28 @@ def recettes(M):
             #   par-dessus la lettre. Le `r` de JetBrains a une épaule COURTE,
             #   qui s'arrête avant de redescendre — elle atteint le haut, elle
             #   ne le dépasse pas.
-            R[c] = ([t(ligne(fut, o['y0'], fut, epaule)),
-                     t(arc(fut, epaule, (o['x1'] - fut) / 2, hx * 0.2, 0, 0,
-                           o['x1'], hx * 0.9))],
+            # ⚠️ Même amorce que `m` et `n` : le fût du `r` monte jusqu'en haut
+            #   de la hauteur d'x, l'épaule naît en dessous. Et l'épaule est
+            #   COURTE — un quart de tour, de la naissance au sommet de la même
+            #   ellipse, donc qui ne peut pas dépasser la lettre.
+            R[c] = ([t(ligne(fut, o['y0'], fut, hx)),
+                     t(arc(fut, epaule, o['x1'] - fut, hx - epaule, 0, 0,
+                           o['x1'], hx))],
                     [[0, 1, 'naissance de l’épaule']])
         else:
-            # ★ **LE FÛT S'ARRÊTE OÙ L'ARCHE NAÎT — sauf s'il porte une hampe.**
-            #   Il montait toujours jusqu'au sommet de la lettre, si bien qu'un
-            #   bout de fût dépassait au-dessus de la naissance de l'arche : une
-            #   TROISIÈME extrémité libre, que ni la police ni la table du dépôt
-            #   ne comptent. Le `h`, lui, doit dépasser — c'est sa hampe, et
-            #   c'est pourquoi le compte du `h` est bien de trois.
-            R[c] = ([t(ligne(fut, o['y0'], fut, haut if c == 'h' else epaule)),
+            # ★ **LE FÛT MONTE AU-DESSUS DE L'ARCHE, et c'est une AMORCE.**
+            #
+            #   > « m, n, par exemple, qui impliquerait, tout comme r, de changer
+            #   >   les pondérations (des extrémités supplémentaires), mais c'est
+            #   >   pertinent, c'est ce que la font fait. » (l'auteur)
+            #
+            #   J'avais fermé cette jonction pour préserver les comptes de la
+            #   table actuelle — c'était prendre le barème pour la référence. La
+            #   référence est la POLICE : JetBrains Mono donne à `m`, `n` et `r`
+            #   un départ de fût qui dépasse la naissance de l'arche, et ce
+            #   départ EST une extrémité. `mexb` en comptera une de plus sur ces
+            #   trois lettres, et ce sera juste.
+            R[c] = ([t(ligne(fut, o['y0'], fut, haut if c == 'h' else hx)),
                      t(arc(fut, epaule, (o['x1'] - fut) / 2, hx * 0.28, 0, 0,
                            o['x1'], epaule) + ' L %s %s' % (r(o['x1']), r(o['y0'])))],
                     [[0, 1, 'naissance de l’arche']])
@@ -363,11 +550,21 @@ def recettes(M):
     futT = o['x0'] + (o['x1'] - o['x0']) * 0.42
     # ⚠️ Le pied rebroussait vers le bas : le crochet pendait sous la ligne de
     #   base au lieu de s'y relever. Un `t` a une base qui REMONTE à droite.
-    piedT = (o['x1'] - futT) / 2
-    R['t'] = ([t(ligne(futT, o['y1'], futT, o['y0'] + piedT)
-                 + ' A %s %s 0 0 1 %s %s' % (r(piedT), r(piedT),
-                                             r(o['x1']), r(o['y0'] + piedT * 1.5))),
-               t(ligne(o['x0'], hx, o['x1'] - o['l'] * 0.1, hx))],
+    # ⚠️ Le pied ne remontait presque pas : un quart de tour de rayon égal à la
+    #   demi-chasse restante, qui s'arrêtait à hauteur du creux. Dans la police
+    #   il REMONTE — la base du `t` finit nettement au-dessus de la ligne de
+    #   base. Le quart de tour va donc du bas du fût au flanc droit, où il est
+    #   vertical, et c'est cette verticalité qui se lit comme une remontée.
+    # Le crochet DESCEND jusqu'à la ligne de base puis REMONTE : c'est le même
+    # geste que le creux du `u`, en asymétrique. Un quart de tour ne pouvait pas
+    # le dire — il monte ou il descend, jamais les deux —, et le pied s'arrêtait
+    # 111 unités au-dessus du sol.
+    rxT = (o['x1'] - futT) / 2
+    ryT = rxT * 0.62
+    R['t'] = ([t(ligne(futT, o['y1'], futT, o['y0'] + ryT)
+                 + ' A %s %s 0 0 1 %s %s' % (r(rxT), r(ryT),
+                                             r(o['x1']), r(o['y0'] + ryT * 1.3))),
+               t(ligne(o['x0'], hx, o['x1'], hx))],
               [[0, 1, 'barre']])
     o = b['f']
     futF = o['x0'] + (o['x1'] - o['x0']) * 0.42
@@ -377,7 +574,7 @@ def recettes(M):
     # ★ Un QUART de tour, et non un arc quelconque : de l'extrême gauche au
     #   sommet de la même ellipse, il ne peut par construction dépasser ni l'un
     #   ni l'autre. Un arc libre montait 63 unités au-dessus de la hampe.
-    ryF = o['l'] * 0.34
+    ryF = o['l'] * 0.52
     R['f'] = ([t(ligne(futF, o['y0'], futF, o['y1'] - ryF)
                  + ' A %s %s 0 0 0 %s %s' % (r(o['x1'] - futF), r(ryF),
                                              r(o['x1']), r(o['y1']))),
