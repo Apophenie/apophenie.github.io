@@ -53,6 +53,31 @@
  *   cornes sur un 666 seul (`visuel/primitives/reveal.js`), les places réservées
  *   à la qualité (`recherche/assemblage.js › vecteursDeSix`).
  *
+ * ★ **DEUX DE PLUS SONT SORTIS, ET ON DIT LEQUEL EST VÉRIFIABLE.**
+ *
+ *  · **`Donald Trump` — la plus courte contre celle qui emploie tout.** Arbitré
+ *    ET APPLIQUÉ : la voie gaspilleuse (`fl+tca+m14`, onze valeurs calculées
+ *    pour trois gardées) a disparu du classement, et `fl+tca+mazc+meg` s'y
+ *    tient. Ce n'est pas une déclaration, c'est un relevé : la première est
+ *    aujourd'hui ABSENTE des approches retenues.
+ *  · **`hope-hope-hope.fr` — six séries, à quel prix.** Il se déclarait
+ *    lui-même arbitré (« gardé pour vérification »), et son barème est en place
+ *    (`elegance.js › LECTURE_DIVERGENTE`, 240 par lecture surnuméraire).
+ *
+ * ★ **CE QUI RESTE OUVERT NE TIENT QU'À UNE CHOSE : deux règles de l'auteur qui
+ *   se contredisent sur `Macron`**, et cela ne se tranche pas au calcul. Le cas
+ *   `hope` de 1ʳᵉ place a la même racine — concision contre usage maximal de la
+ *   saisie —, et les quatre tests `todo` qui rougissent aujourd'hui n'attendent
+ *   que cette réponse-là.
+ *
+ * ⚠️ **ET CE QUI N'A PAS SA PLACE ICI.** Un désaccord entre deux COMPTEURS n'est
+ *   pas un arbitrage de goût : il a une bonne réponse, qu'on trouve en mesurant.
+ *   L'écart cru entre `bilan.triptyquesContigus` et les couronnements de la
+ *   scène en était un — il venait de ce que je lisais un champ pour deux
+ *   (`triptyquesRepetes` porte les répétitions), et il s'est dissous à la
+ *   mesure, pas à l'arbitrage. Cette page ne doit recevoir que des questions
+ *   dont la réponse est un GOÛT.
+ *
  * Les liens sont en registre scénique (`sce!`) des deux côtés : on compare des
  * démonstrations complètes, cornes comprises.
  */
@@ -85,25 +110,6 @@ export const CAS_ARBITRAGE = Object.freeze([
     apres: '#sce!fr13+tca+m14+meg#fXvexbmf',
   },
   {
-    id: 'trump-court-ou-employant',
-    place: 1,
-    titre: 'Donald Trump — 1ʳᵉ place : la plus courte, ou celle qui emploie tout',
-    saisie: 'Donald Trump',
-    /* ★ LE MÊME ARBITRAGE, SANS L'AMBIGUÏTÉ DU JETEUR ASSUMÉ.
-       Les deux couvrent toute la saisie (U = 1 000) et tiennent en trois ou
-       quatre étapes. Ce qui les sépare est le seul GASPILLAGE :
-
-         à gauche  `fl+tca+m14`        3 étapes · R =  272 · 1 série
-         à droite  `fl+tca+mazc+meg`   4 étapes · R =  818 · 3 séries
-
-       Celle de gauche calcule onze valeurs pour en garder trois — elle ne le
-       dit nulle part, aucun opérateur n'annonce d'écarter : le tri se fait au
-       verdict. Une étape de plus achète à droite trois fois moins de déchet et
-       deux séries de plus. */
-    avant: '#sce!fl+tca+m14#2HuP1G8mNg3sJWhqR',
-    apres: '#sce!fl+tca+mazc+meg#2HuP1G8mNg3sJWhqR',
-  },
-  {
     id: 'hope-place-1-brieve-ou-nommee',
     place: 1,
     titre: 'hope-hope-hope.fr — 1ʳᵉ place : la brève, ou celle que l’auteur a nommée',
@@ -126,19 +132,32 @@ export const CAS_ARBITRAGE = Object.freeze([
     apres: '#sce!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
   },
   {
-    id: 'hope-place-2-six-series',
-    place: 2,
-    titre: 'hope-hope-hope.fr — 2ᵈ place : six séries, à quel prix ?',
-    saisie: 'hope-hope-hope.fr',
-    /* ★ ARBITRÉ, ET GARDÉ POUR VÉRIFICATION. « Le fait de ne pas appliquer le
-       même traitement aux 3 hope devrait mettre un malus trop important pour
-       que ce soit retenu » (l'auteur). C'est fait — `LECTURE_DIVERGENTE`, 240
-       par lecture surnuméraire, malus et non interdit, « comme pour `fr15` et
-       `fr3` dans une même voie ».
+    id: 'hope-m36-ou-le-verdict',
+    place: 1,
+    titre: 'hope — 1ʳᵉ place : effacer le 4ᵉ 6, ou le laisser exploser au verdict',
+    saisie: 'hope',
+    /* ★ **UNE DÉCISION DÉJÀ PRISE, SOUMISE À VÉRIFICATION** — c'est le seul cas
+       de cette liste que je porte moi-même, et il faut le dire.
 
-       À gauche la moisson divergente (deux « hope » en français, un en
-       segments), à droite les trois lus pareil. */
-    avant: '#sce!0.1+2.1:ffr3+tca+m14+mpf,1.1+3.1:tca+mtc,4.1:tca+m14,6.1:tca+mpy+mr9#yvQYkzhNVYJT8wM8jhvJxSM',
-    apres: '#sce!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
+       `m.troisSixDAffilee` est déprécié : le verdict fait désormais exploser le
+       surnuméraire d'une série UNIQUE, ce que `lesPlusCentraux` refusait au nom
+       d'une belle figure (« une explosion propulse, il lui faut quelqu'un à
+       pousser de chaque côté »). L'auteur a fait le compte que cette figure
+       oubliait : « quitte à jeter de toute façon le surplus à la fin, pourquoi
+       ne pas le faire durant le verdict, vu qu'il sait faire ça et le facture
+       moins cher ? ».
+
+         à gauche  `m14+m36`   une étape de plus, qui efface le 4ᵉ 6
+         à droite  `m14`       rien de plus, le 4ᵉ 6 explose au verdict
+
+       ⚠️ **CE QUI RESTE À VÉRIFIER À L'ŒIL**, et que la mesure ne dit pas : sur
+         une ligne MÊLÉE, `m36` disait « on s'arrête aux trois 6 d'affilée » là
+         où la récolte dit « on ne garde que les 6 ». J'ai jugé qu'une nuance de
+         formulation ne valait pas un opérateur qui taxait d'une étape toutes les
+         voies où il s'appliquait. Si l'explosion vous paraît moins parlante que
+         la phrase perdue, c'est ici qu'il faut le dire — un mot retiré au
+         `deprecated` le fait revenir. */
+    avant: '#sce!m14+m36#3fq9KJ',
+    apres: '#sce!m14#3fq9KJ',
   },
 ]);

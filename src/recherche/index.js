@@ -33,7 +33,7 @@ import {
 } from './assemblage.js';
 import {
   noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, REGLAGES,
-  ponderer, normaliserCurseurs, pourcentagesDe,
+  ponderer, normaliserCurseurs, pourcentagesDe, scoresParAxe,
   CURSEURS, CURSEUR_DEFAUT, CURSEUR_MAX, CURSEURS_DEFAUT, CORRESPONDANCE,
 } from './score.js';
 import {
@@ -44,7 +44,37 @@ import { emploieUneFicelle } from './elegance.js';
 import { indexUtiles } from './cible.js';
 
 import { construireScenario } from './scenario.js';
-import { titreApproche, regleApproche, titreBilingue, regleBilingue, nommer } from './titres.js';
+import {
+  titreApproche, regleApproche, titreBilingue, regleBilingue, nommer, titreCourtDe,
+} from './titres.js';
+
+/**
+ * ★ **LA FORME COURTE D'UN CODE — le seul pont possible avec l'interface.**
+ *
+ * Une carte de la liste énumère les méthodes d'une voie, et elle n'a pour cela
+ * que les CODES : les opérateurs sont des objets du catalogue, ils ne survivent
+ * pas à la sérialisation d'un `postMessage` vers le travailleur. Cette fonction
+ * fait la traversée du bon côté — celui où le catalogue vit —, et rend une
+ * chaîne bilingue que l'interface n'a plus qu'à localiser.
+ *
+ * Rend `null` pour un code inconnu, et une entrée VIDE pour un opérateur qui
+ * choisit de ne pas se nommer (les implicites) : l'appelant saute les deux.
+ */
+export function titreCourtDuCode(code, catalogue = null) {
+  // ⚠️ Le catalogue voyage sous DEUX formes selon d'où il vient : un tableau
+  //   d'opérateurs (`chargerCatalogue`) ou l'objet `{ operateurs }` que les
+  //   tests fabriquent. On accepte les deux plutôt que de rendre `null` en
+  //   silence sur la seconde — c'est ce que faisait le premier jet, et
+  //   l'énumération d'une carte y perdait toutes ses méthodes d'un coup.
+  const table = Array.isArray(catalogue) ? catalogue
+    : (catalogue && Array.isArray(catalogue.operateurs) ? catalogue.operateurs : null);
+  if (!table || !code) return null;
+  const op = table.find((o) => o.code === code);
+  return op ? titreCourtDe(op) : null;
+}
+
+/** La forme courte d'un opérateur — l'énumération des cartes s'en sert. */
+export { titreCourtDe };
 import {
   lire, ecrire, descripteursDe, retouchesDe, ecrireRetouches, BANDEAUX, RE_A_TROUVER,
 } from './url.js';
@@ -60,7 +90,7 @@ export { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES };
 //   défaut, la table de correspondance (pour dire ce qu'un curseur touche) et
 //   les deux fonctions qui traduisent des positions en pourcentages affichés.
 export {
-  ponderer, normaliserCurseurs, pourcentagesDe,
+  ponderer, normaliserCurseurs, pourcentagesDe, scoresParAxe,
   CURSEURS, CURSEUR_DEFAUT, CURSEUR_MAX, CURSEURS_DEFAUT, CORRESPONDANCE,
 };
 export {

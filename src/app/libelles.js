@@ -13,8 +13,21 @@
 import { localiser, t } from '../i18n/index.js';
 
 /** Le titre d'une approche, ou « Démonstration » à défaut. */
-export const titreApproche = (approche) =>
-  localiser(approche && approche.titre) || t('demo.demonstration');
+/* ★ **PAS DE REPLI ICI — chaque page a le sien, et ils ne se ressemblent pas.**
+
+   Cette fonction se repliait sur « Démonstration ». Le mot ne nomme AUCUNE
+   voie : sur une carte de listing, il annonce à douze reprises la même chose,
+   c'est-à-dire rien. « Je vois encore des versions arborant Démonstration et
+   rien d'autre ou presque » (l'auteur) — c'était ce repli, et il gagnait
+   toujours : `carteVoie` écrivait bien `titreApproche(a) || voieSansTitre`,
+   mais le `||` ne se déclenchait jamais, puisque « Démonstration » n'est pas
+   une chaîne vide. La clé `resultat.voieSansTitre` était donc du code mort
+   depuis le premier jour.
+
+   On rend donc la chaîne VIDE, et le repli redescend chez l'appelant, qui seul
+   sait de quoi il parle : « Approche n° 3 » dans la liste, « sans titre » sur
+   la page d'animation. */
+export const titreApproche = (approche) => localiser(approche && approche.titre) || '';
 
 /** La règle affichée sous le titre. Chaîne vide si l'approche n'en porte pas. */
 export const regleApproche = (approche) => localiser(approche && approche.regle);

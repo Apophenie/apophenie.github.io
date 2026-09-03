@@ -291,8 +291,8 @@ export const NOMS = {
   'm.retournerLesTrios': b('Par le retournement des trios', 'By flipping the trios'),
   'm.compterLesChiffres': b('Par le décompte des chiffres', 'By tallying the digits'),
   'm.redecoupageChoisi': b('Par redécoupage choisi', 'By chosen recutting'),
-  // Jamais employé — il est mappeur de service — mais le registre des noms est
-  // EXHAUSTIF, et un trou ici serait un trou le jour où la règle changerait.
+  // Jamais employé — il est mappeur de service — mais le registre des noms
+  // est EXHAUSTIF, et un trou ici serait un trou le jour où la règle changerait.
   'm.chiffreTelQuel': b('Par la lecture des chiffres', 'By reading the digits'),
   // ★ Elle NOMME une voie, elle, et c'est ce qui la sépare des mappeurs de
   //   service ci-dessus : « on écrit le chiffre en toutes lettres » dit par
@@ -431,160 +431,160 @@ export const QUALIFIANTS = {
  *   le garantit.
  */
 export const TITRES_COURTS = {
-  'c.alternee': b('alterne plus', 'Alternate plus'), // cal
-  'c.alterneeInverse': b('alterne moins', 'Alternate minus'), // cali
-  'c.concat': b('colle chiffres', 'Glue digits'), // ccat
-  'c.mediane': b('prend médiane', 'Take median'), // cme
-  'c.maxMoinsMin': b('prend écart', 'Take spread'), // cmm
-  'c.min': b('garde plus', 'smallest'), // cmn
-  'c.moyenne': b('fait moyenne', 'Take average'), // cmo
-  'c.moyenneDivisee': b('fait moyenne', 'Take average'), // cmod
-  'c.max': b('garde plus', 'largest'), // cmx
-  'c.compteTokens': b('Combien caractères', 'How many'), // cnj
-  'c.compteTokensDistincts': b('Combien caractères', 'How many'), // cnjd
-  'c.cardinal': b('Combien nombres', 'How many'), // cnv
-  'c.produit': b('multiplie', 'Multiply them'), // cp
-  'c.somme': b('additionne', 'Add them'), // cs
-  'c.soustraction': b('soustrait à', 'Subtract along'), // cst
-  'f.sansAccents': b('retire accents', 'Strip accents'), // fac
-  'f.apresSlash': b('garde suit', 'what comes'), // fap
-  'f.atbash': b('applique Atbash', 'Apply Atbash'), // fatb
-  'f.avantSlash': b('garde précède', 'what comes'), // fav
-  'f.consonnes': b('garde consonnes', 'consonants'), // fc
-  'f.chemin': b('analyse chemin', 'Analyse path'), // fchm
-  'f.dedoublonne': b('supprime doublons', 'Drop duplicates'), // fd
-  'f.dedoublonne2': b('supprime doublons', 'Drop duplicates'), // fd2
-  'f.dedoublonne3': b('supprime doublons', 'Drop duplicates'), // fd3
-  'f.dedoublonne4': b('supprime doublons', 'Drop duplicates'), // fd4
-  'f.dedoublonne5': b('supprime doublons', 'Drop duplicates'), // fd5
-  'f.domaine': b('analyse domaine', 'Analyse domain'), // fdom
-  'f.traduitEN': b('traduit anglais', 'Translate English'), // fen
-  'f.traduitEN2': b('traduit anglais', 'Translate English'), // fen2
-  'f.traduitEN3': b('traduit anglais', 'Translate English'), // fen3
-  'f.traduitEN4': b('traduit anglais', 'Translate English'), // fen4
-  'f.traduitEN5': b('traduit anglais', 'Translate English'), // fen5
-  'f.traduitFR': b('traduit français', 'Translate French'), // ffr
-  'f.traduitFR2': b('traduit français', 'Translate French'), // ffr2
-  'f.traduitFR3': b('traduit français', 'Translate French'), // ffr3
-  'f.traduitFR4': b('traduit français', 'Translate French'), // ffr4
-  'f.traduitFR5': b('traduit français', 'Translate French'), // ffr5
-  'f.initiales': b('garde initiales', 'initials'), // fi
-  'f.lettres': b('garde lettres', 'letters'), // fl
-  'f.leet': b('décode leetspeak', 'Decode leetspeak'), // flt
-  'f.majuscule': b('passe capitales', 'Switch capitals'), // fmaj
-  'f.minuscule': b('passe bas', 'Switch lower'), // fmin
-  'f.motRepete': b('isole motif', 'Isolate repeated'), // fmr
-  'f.protocole': b('ignore protocole', 'Ignore protocol'), // fp
-  'f.page': b('analyse nom', 'Analyse page'), // fpag
-  'f.annulationPaires': b('paires s’', 'Pairs cancel'), // fpr
-  'f.repetees': b('garde lettres', 'repeated letters'), // fr
-  'f.cesar1': b('Chiffre César', 'Caesar cipher'), // fr1
-  'f.cesar10': b('Chiffre César', 'Caesar cipher'), // fr10
-  'f.cesar11': b('Chiffre César', 'Caesar cipher'), // fr11
-  'f.cesar12': b('Chiffre César', 'Caesar cipher'), // fr12
-  'f.rot13': b('Chiffre César', 'Caesar cipher'), // fr13
-  'f.cesar14': b('Chiffre César', 'Caesar cipher'), // fr14
-  'f.cesar15': b('Chiffre César', 'Caesar cipher'), // fr15
-  'f.cesar16': b('Chiffre César', 'Caesar cipher'), // fr16
-  'f.cesar17': b('Chiffre César', 'Caesar cipher'), // fr17
-  'f.cesar18': b('Chiffre César', 'Caesar cipher'), // fr18
-  'f.cesar19': b('Chiffre César', 'Caesar cipher'), // fr19
-  'f.cesar2': b('Chiffre César', 'Caesar cipher'), // fr2
-  'f.cesar20': b('Chiffre César', 'Caesar cipher'), // fr20
-  'f.cesar21': b('Chiffre César', 'Caesar cipher'), // fr21
-  'f.cesar22': b('Chiffre César', 'Caesar cipher'), // fr22
-  'f.cesar23': b('Chiffre César', 'Caesar cipher'), // fr23
-  'f.cesar24': b('Chiffre César', 'Caesar cipher'), // fr24
-  'f.cesar25': b('Chiffre César', 'Caesar cipher'), // fr25
-  'f.cesar3': b('Chiffre César', 'Caesar cipher'), // fr3
-  'f.cesar4': b('Chiffre César', 'Caesar cipher'), // fr4
-  'f.cesar5': b('Chiffre César', 'Caesar cipher'), // fr5
-  'f.cesar6': b('Chiffre César', 'Caesar cipher'), // fr6
-  'f.cesar7': b('Chiffre César', 'Caesar cipher'), // fr7
-  'f.cesar8': b('Chiffre César', 'Caesar cipher'), // fr8
-  'f.cesar9': b('Chiffre César', 'Caesar cipher'), // fr9
-  'f.tld': b('ignore extension', 'Ignore extension'), // ftld
-  'f.unique': b('garde répète', 'what never'), // fun
-  'f.voyelles': b('garde voyelles', 'vowels'), // fv
-  'f.voyellesY': b('garde voyelles', 'vowels Y'), // fvy
-  'f.www': b('ignore www', 'Ignore "www'), // fw
-  'j.nomFrancais': b('Combien lettres', 'How many'), // jnf
-  'm.retirerZeros': b('retire zéros', 'Drop zeros'), // m0
-  'm.seg14': b('Lettre vers', 'Letter number'), // m14
-  'm.seg14Fusion': b('Lettre vers', 'Letter number'), // m14F
-  'm.unRangSurDeux': b('garde qu’', 'other position'), // m1s2
-  'm.troisSixDAffilee': b('Trois 6', 'Three 6s'), // m36
-  'm.seg7': b('Lettre vers', 'Letter number'), // m7
-  'm.seg7Fusion': b('Lettre vers', 'Letter number'), // m7F
-  'm.a1z26': b('Chaque lettre', 'letter is'), // ma1
-  'm.additionSelective': b('additionne chiffres', 'Add up'), // mad
-  'm.asciiMin': b('Code ASCII', 'ASCII code'), // masb
-  'm.asciiMaj': b('Code ASCII', 'ASCII code'), // masc
-  'm.azertyRangee4': b('Rangée touche', 'Key row'), // maz4
-  'm.azertyColonne': b('Colonne touche', 'Key column'), // mazc
-  'm.azertyRangee': b('Rangée touche', 'Key row'), // mazr
-  'm.bouclesMin': b('Boucles fermées', 'Closed loops'), // mbob
-  'm.bouclesMaj': b('Boucles fermées', 'Closed loops'), // mboc
-  'm.compterLesChiffres': b('compte chiffres', 'Count digits'), // mcc
-  'm.chaldeen': b('Numérologie chaldéenne', 'Chaldean numerology'), // mch
-  'm.egalisation': b('égalise', 'Even them'), // meg
-  'm.extremitesMin': b('Extrémités libres', 'Free ends'), // mexb
-  'm.extremitesMaj': b('Extrémités libres', 'Free ends'), // mexc
-  'm.grec': b('Isopséphie grecque', 'Greek isopsephy'), // mgr
-  'm.hebreu': b('Gématrie hébraïque', 'Hebrew gematria'), // mhe
-  'm.chiffreEnLettres': b('écrit chiffre', 'Write digit'), // mlet
-  'm.longueurToken': b('Chaque mot', 'word is'), // mlm
-  'm.longueurNom': b('Longueur nom', 'Length letter’'), // mln
-  'm.morseSignaux': b('Signaux morse', 'Morse signals'), // mms
-  'm.morseTraits': b('Traits morse', 'Morse dashes'), // mmt
-  'm.plusFrequent': b('plus fréquent', 'most frequent'), // mpf
-  'm.pythagore': b('Numérologie pythagoricienne', 'Pythagorean numerology'), // mpy
-  'm.qwertyRangee4': b('Rangée touche', 'Key row'), // mqw4
-  'm.qwertyColonne': b('Colonne touche', 'Key column'), // mqwc
-  'm.qwertyRangee': b('Rangée touche', 'Key row'), // mqwr
-  'm.retournerLesTrios': b('retourne 666', 'Turn over'), // mr39
-  'm.retournerLesNeuf': b('retourne 9', 'Turn 9s'), // mr9
-  'm.redecoupageChoisi': b('redécoupe paquets', 'Recut packets'), // mrd
-  'm.chiffreTelQuel': b('lit chiffres', 'Read digits'), // m09
-  'm.reduireChaque': b('réduit chaque', 'Reduce number'), // mrn
-  'm.scrabbleEN': b('Points Scrabble', 'English Scrabble'), // msen
-  'm.scrabbleFR': b('Points Scrabble', 'French Scrabble'), // msfr
-  'm.t9': b('Touche clavier', 'Phone keypad'), // mt9
-  'm.triAlphabetique': b('range lettres', 'Sort letters'), // mtal
-  'm.toucheChiffre': b('chiffre partage', 'digit that'), // mtc
-  'm.traitsMin': b('Traits crayon', 'Pen strokes'), // mtrb
-  'm.traitsMaj': b('Traits crayon', 'Pen strokes'), // mtrc
-  'm.triCroissant': b('range nombres', 'Sort numbers'), // mtri
-  'm.englishX6': b('Gématrie anglaise', 'English gematria'), // mx6
-  'm.z26a1': b('Chaque lettre', 'letter is'), // mz26
-  'n.consonnes': b('compte consonnes', 'Count consonants'), // nc
-  'n.lettresDistinctes': b('compte lettres', 'Count distinct'), // nd
-  'n.espaces': b('Combien d’', 'How many'), // nes
-  'n.longueur': b('compte lettres', 'Count letters'), // nl
-  'n.lettresPlusConsonnes': b('lettres plus', 'letters plus'), // nlc
-  'n.lettresPlusVoyelles': b('lettres plus', 'letters plus'), // nlv
-  'n.mots': b('compte mots', 'Count words'), // nm
-  'n.points': b('Combien points', 'How many'), // npt
-  'n.barres': b('Combien barres', 'How many'), // nsl
-  'n.separateurs': b('Combien séparateurs', 'How many'), // nsp
-  'n.tirets': b('Combien tirets', 'How many'), // ntr
-  'n.voyelles': b('compte voyelles', 'Count vowels'), // nv
-  'p.abs': b('prend valeur', 'Take absolute'), // pabs
-  'p.complement9': b('prend complément', 'Take nines'), // pc9
-  'p.ecartChiffres': b('prend écart', 'Take gap'), // pec
-  'p.modulo10': b('garde dernier', 'last digit'), // pm10
-  'p.modulo9': b('prend reste', 'Take remainder'), // pm9
-  'p.miroir': b('lit nombre', 'Read number'), // pmr
-  'p.retournement': b('retourne 9', 'Turn 9'), // pr9
-  'p.racineMaitres': b('réduit sauf', 'Reduce unless'), // prm
-  'p.racineNumerique': b('réduit à', 'Reduce single'), // prn
-  'p.reductionSignee': b('réduit gardant', 'Reduce keeping'), // prs
-  'p.sommeChiffres': b('additionne chiffres', 'Add digits'), // psc
-  't.caracteres': b('prend lettres', 'Take letters'), // tca
-  't.chiffres': b('éclate nombre', 'Break number'), // tch
-  't.mots': b('découpe mots', 'Split words'), // tm
-  't.separateurs': b('garde séparateurs', 'separators'), // tsp
-  't.syllabes': b('découpe syllabes', 'Split syllables'), // tsy
+  'c.alternee': b('alternance +-+-', 'alternating +-+-'), // cal
+  'c.alterneeInverse': b('alternance -+-+', 'alternating -+-+'), // cali
+  'c.concat': b('', ''), // ccat
+  'c.mediane': b('médiane', 'median'), // cme
+  'c.maxMoinsMin': b('Δ maximum', 'Δ spread'), // cmm
+  'c.min': b('minimum', 'minimum'), // cmn
+  'c.moyenne': b('moyenne', 'average'), // cmo
+  'c.moyenneDivisee': b('moyenne', 'average'), // cmod
+  'c.max': b('maximum', 'maximum'), // cmx
+  'c.compteTokens': b('nombre de caractères', 'character count'), // cnj
+  'c.compteTokensDistincts': b('caractères différents', 'distinct characters'), // cnjd
+  'c.cardinal': b('cardinal', 'cardinal'), // cnv
+  'c.produit': b('multiplication', 'multiplication'), // cp
+  'c.somme': b('addition', 'addition'), // cs
+  'c.soustraction': b('soustraction', 'subtraction'), // cst
+  'f.sansAccents': b('désaccentuation', 'accents stripped'), // fac
+  'f.apresSlash': b('extrait /...', 'extracts /...'), // fap
+  'f.atbash': b('miroir Atbash', 'Atbash mirror'), // fatb
+  'f.avantSlash': b('extrait .../', 'extracts .../'), // fav
+  'f.consonnes': b('consonnes', 'consonants'), // fc
+  'f.chemin': b('chemin /.../', 'path /.../'), // fchm
+  'f.dedoublonne': b('dédoublonnage', 'de-duplication'), // fd
+  'f.dedoublonne2': b('dédoublonnage', 'de-duplication'), // fd2
+  'f.dedoublonne3': b('dédoublonnage', 'de-duplication'), // fd3
+  'f.dedoublonne4': b('dédoublonnage', 'de-duplication'), // fd4
+  'f.dedoublonne5': b('dédoublonnage', 'de-duplication'), // fd5
+  'f.domaine': b('domaine.xyz', 'domain.xyz'), // fdom
+  'f.traduitEN': b('traduction EN', 'EN translation'), // fen
+  'f.traduitEN2': b('traduction EN', 'EN translation'), // fen2
+  'f.traduitEN3': b('traduction EN', 'EN translation'), // fen3
+  'f.traduitEN4': b('traduction EN', 'EN translation'), // fen4
+  'f.traduitEN5': b('traduction EN', 'EN translation'), // fen5
+  'f.traduitFR': b('traduction FR', 'FR translation'), // ffr
+  'f.traduitFR2': b('traduction FR', 'FR translation'), // ffr2
+  'f.traduitFR3': b('traduction FR', 'FR translation'), // ffr3
+  'f.traduitFR4': b('traduction FR', 'FR translation'), // ffr4
+  'f.traduitFR5': b('traduction FR', 'FR translation'), // ffr5
+  'f.initiales': b('initiales', 'initials'), // fi
+  'f.lettres': b('lettres seulement', 'letters only'), // fl
+  'f.leet': b('leetspeak', 'leetspeak'), // flt
+  'f.majuscule': b('MAJUSCULE', 'UPPERCASE'), // fmaj
+  'f.minuscule': b('minuscule', 'lowercase'), // fmin
+  'f.motRepete': b('dédoublonnage', 'de-duplication'), // fmr
+  'f.protocole': b('', ''), // fp
+  'f.page': b('extrait page.html', 'extracts page.html'), // fpag
+  'f.annulationPaires': b('anti-pair', 'pairs cancel'), // fpr
+  'f.repetees': b('lettres répétées', 'repeated letters'), // fr
+  'f.cesar1': b('César 1', 'Caesar 1'), // fr1
+  'f.cesar2': b('César 2', 'Caesar 2'), // fr2
+  'f.cesar3': b('César 3', 'Caesar 3'), // fr3
+  'f.cesar4': b('César 4', 'Caesar 4'), // fr4
+  'f.cesar5': b('César 5', 'Caesar 5'), // fr5
+  'f.cesar6': b('César 6', 'Caesar 6'), // fr6
+  'f.cesar7': b('César 7', 'Caesar 7'), // fr7
+  'f.cesar8': b('César 8', 'Caesar 8'), // fr8
+  'f.cesar9': b('César 9', 'Caesar 9'), // fr9
+  'f.cesar10': b('César 10', 'Caesar 10'), // fr10
+  'f.cesar11': b('César 11', 'Caesar 11'), // fr11
+  'f.cesar12': b('César 12', 'Caesar 12'), // fr12
+  'f.cesar14': b('César 14', 'Caesar 14'), // fr14
+  'f.cesar15': b('César 15', 'Caesar 15'), // fr15
+  'f.cesar16': b('César 16', 'Caesar 16'), // fr16
+  'f.cesar17': b('César 17', 'Caesar 17'), // fr17
+  'f.cesar18': b('César 18', 'Caesar 18'), // fr18
+  'f.cesar19': b('César 19', 'Caesar 19'), // fr19
+  'f.cesar20': b('César 20', 'Caesar 20'), // fr20
+  'f.cesar21': b('César 21', 'Caesar 21'), // fr21
+  'f.cesar22': b('César 22', 'Caesar 22'), // fr22
+  'f.cesar23': b('César 23', 'Caesar 23'), // fr23
+  'f.cesar24': b('César 24', 'Caesar 24'), // fr24
+  'f.cesar25': b('César 25', 'Caesar 25'), // fr25
+  'f.rot13': b('César 13', 'Caesar 13'), // fr13
+  'f.tld': b('sans extension', 'no extension'), // ftld
+  'f.unique': b('caractère unique', 'never repeated'), // fun
+  'f.voyelles': b('voyelles', 'vowels'), // fv
+  'f.voyellesY': b('voyelles', 'vowels'), // fvy
+  'f.www': b('', ''), // fw
+  'j.nomFrancais': b('', ''), // jnf
+  'm.retirerZeros': b('sans zéros', 'no zeros'), // m0
+  'm.chiffreTelQuel': b('', ''), // m09
+  'm.seg14': b('14 segments', '14 segments'), // m14
+  'm.seg14Fusion': b('14 droites', '14 strokes'), // m14F
+  'm.unRangSurDeux': b('un sur deux', 'every other'), // m1s2
+  'm.troisSixDAffilee': b('', ''), // m36
+  'm.seg7': b('7 segments', '7 segments'), // m7
+  'm.seg7Fusion': b('7 droites', '7 strokes'), // m7F
+  'm.a1z26': b('position alphabétique', 'alphabet position'), // ma1
+  'm.additionSelective': b('addition', 'addition'), // mad
+  'm.asciiMin': b('code ASCII', 'ASCII code'), // masb
+  'm.asciiMaj': b('code ASCII', 'ASCII code'), // masc
+  'm.azertyRangee4': b('rangée AZERTY', 'AZERTY row'), // maz4
+  'm.azertyColonne': b('colonne AZERTY', 'AZERTY column'), // mazc
+  'm.azertyRangee': b('rangée AZERTY', 'AZERTY row'), // mazr
+  'm.bouclesMin': b('graphie hermétique', 'closed loops'), // mbob
+  'm.bouclesMaj': b('graphie hermétique', 'closed loops'), // mboc
+  'm.compterLesChiffres': b('dénombrement sériel', 'serial tally'), // mcc
+  'm.chaldeen': b('numérologie chaldéenne', 'Chaldean numerology'), // mch
+  'm.egalisation': b('égalisation', 'evening out'), // meg
+  'm.extremitesMin': b('extrémités libres', 'free ends'), // mexb
+  'm.extremitesMaj': b('extrémités libres', 'free ends'), // mexc
+  'm.grec': b('isopséphie grecque', 'Greek isopsephy'), // mgr
+  'm.hebreu': b('gématrie hébraïque', 'Hebrew gematria'), // mhe
+  'm.chiffreEnLettres': b('chiffre en lettres', 'digit in words'), // mlet
+  'm.longueurToken': b('nombre de caractères', 'character count'), // mlm
+  'm.longueurNom': b('nombre de caractères', 'character count'), // mln
+  'm.morseSignaux': b('signaux morse', 'Morse signals'), // mms
+  'm.morseTraits': b('traits morse', 'Morse dashes'), // mmt
+  'm.plusFrequent': b('chiffre hégémonique', 'dominant digit'), // mpf
+  'm.pythagore': b('numérologie pythagoricienne', 'Pythagorean numerology'), // mpy
+  'm.qwertyRangee4': b('rangée QWERTY', 'QWERTY row'), // mqw4
+  'm.qwertyColonne': b('colonne QWERTY', 'QWERTY column'), // mqwc
+  'm.qwertyRangee': b('rangée QWERTY', 'QWERTY row'), // mqwr
+  'm.retournerLesTrios': b('retournement', 'half-turn'), // mr39
+  'm.retournerLesNeuf': b('retournement', 'half-turn'), // mr9
+  'm.redecoupageChoisi': b('additions futées', 'shrewd additions'), // mrd
+  'm.reduireChaque': b('addition', 'addition'), // mrn
+  'm.scrabbleEN': b('Scrabble EN', 'EN Scrabble'), // msen
+  'm.scrabbleFR': b('Scrabble FR', 'FR Scrabble'), // msfr
+  'm.t9': b('clavier téléphonique', 'phone keypad'), // mt9
+  'm.triAlphabetique': b('tri', 'sorting'), // mtal
+  'm.toucheChiffre': b('touche chiffrée', 'keyed digit'), // mtc
+  'm.traitsMin': b('graphie tracée', 'pen strokes'), // mtrb
+  'm.traitsMaj': b('graphie tracée', 'pen strokes'), // mtrc
+  'm.triCroissant': b('tri', 'sorting'), // mtri
+  'm.englishX6': b('gématrie anglaise', 'English gematria'), // mx6
+  'm.z26a1': b('alphabet inversé', 'reversed alphabet'), // mz26
+  'n.consonnes': b('nombre de consonnes', 'consonant count'), // nc
+  'n.lettresDistinctes': b('lettres distinctes', 'distinct letters'), // nd
+  'n.espaces': b('nombre d’espaces', 'space count'), // nes
+  'n.longueur': b('nombre de lettres', 'letter count'), // nl
+  'n.lettresPlusConsonnes': b('lettres+consonnes', 'letters+consonants'), // nlc
+  'n.lettresPlusVoyelles': b('lettres+voyelles', 'letters+vowels'), // nlv
+  'n.mots': b('nombre de mots', 'word count'), // nm
+  'n.points': b('nombre de points', 'dot count'), // npt
+  'n.barres': b('nombre de barres', 'slash count'), // nsl
+  'n.separateurs': b('nombre de séparateurs', 'separator count'), // nsp
+  'n.tirets': b('nombre de tirets', 'dash count'), // ntr
+  'n.voyelles': b('nombre de voyelles', 'vowel count'), // nv
+  'p.abs': b('valeur absolue', 'absolute value'), // pabs
+  'p.complement9': b('complément à 9', 'nines complement'), // pc9
+  'p.ecartChiffres': b('delta', 'delta'), // pec
+  'p.modulo10': b('modulo 10', 'modulo 10'), // pm10
+  'p.modulo9': b('modulo 9', 'modulo 9'), // pm9
+  'p.miroir': b('inversion des chiffres', 'digits reversed'), // pmr
+  'p.retournement': b('retournement', 'half-turn'), // pr9
+  'p.racineMaitres': b('addition', 'addition'), // prm
+  'p.racineNumerique': b('addition', 'addition'), // prn
+  'p.reductionSignee': b('somme', 'sum'), // prs
+  'p.sommeChiffres': b('addition', 'addition'), // psc
+  't.caracteres': b('', ''), // tca
+  't.chiffres': b('', ''), // tch
+  't.mots': b('découpe en mots', 'split into words'), // tm
+  't.separateurs': b('séparateurs', 'separators'), // tsp
+  't.syllabes': b('découpe en syllabes', 'split into syllables'), // tsy
 };
 
 export const PRECISIONS = {
@@ -709,13 +709,12 @@ export const PRECISIONS = {
   'm.retournerLesTrios': b('les trios retournés', 'with the trios flipped'),
   'm.compterLesChiffres': b('les chiffres comptés', 'with the digits tallied'),
   'm.redecoupageChoisi': b('redécoupé en paquets', 'recut into packets'),
-  // ⚠️ ELLE EXISTE, mais elle ne devrait jamais servir : `m.chiffreTelQuel` est
-  //    un mappeur de service, et deux voies ne se distinguent pas par le fait
-  //    d'avoir lu leurs chiffres. Sans cette entrée, `precisionDe` se
-  //    rabattrait sur le libellé et souderait « Chaque chiffre vaut lui-même »
-  //    derrière un nom de voie — une majuscule en milieu de phrase pour annoncer
-  //    une étape que la démonstration ne joue pas. Elle est donc écrite au ras
-  //    du sol, et surtout minuscule.
+  // ⚠️ Elle existe, mais ne devrait jamais servir : `m.chiffreTelQuel` est un
+  //    mappeur de service, et deux voies ne se distinguent pas par le fait
+  //    d'avoir lu leurs chiffres. Sans elle, `precisionDe` se rabattrait sur le
+  //    libellé et souderait « Chaque chiffre vaut lui-même » derrière un nom de
+  //    voie — une majuscule en milieu de phrase, pour une étape que la
+  //    démonstration ne joue pas. Elle est donc au ras du sol, et minuscule.
   'm.chiffreTelQuel': b('les chiffres lus tels quels', 'with the digits read as they stand'),
   'm.chiffreEnLettres': b('écrit en toutes lettres', 'written out in words'),
   // ★ Muet sur ce qu'il souligne — voir `MAPPEURS_DE_SERVICE`. « 666 déjà

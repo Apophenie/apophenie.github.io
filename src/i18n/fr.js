@@ -169,6 +169,9 @@ export const fr = {
          FACTEUR : les quatre curseurs se partagent une somme, elle non — elle
          ne classe pas, elle creuse. Les mêler sous le même intitulé ferait
          croire qu'on retire du classement ce qu'on donne à la recherche. */
+    scores: {
+      global: 'Score global',
+    },
     curseurs: {
       titre: 'Régler ce qui compte',
       appel: 'Chaque réglage se hausse à part\u202f; le pourcentage dit la part qu’il '
@@ -221,6 +224,7 @@ export const fr = {
        de la voie : douze cartes offrant douze liens « Sobre » ne distingueraient
        rien dans la liste des liens d'un lecteur d'écran. */
     acces: {
+      voir: 'Voir la démonstration',
       sobre: 'Sobre',
       sobreLabel: '{titre} — version sobre, sans mise en scène',
       scenique: 'Scénique',

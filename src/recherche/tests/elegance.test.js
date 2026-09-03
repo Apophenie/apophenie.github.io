@@ -1401,22 +1401,25 @@ test('★ rejouabilité — une URL rejouée retrouve le même score ET la même
  *    deux cornes sur un même 6 se disputeraient le même identifiant et la
  *    compilation échouerait AU CLIC. Ce n'est pas de l'hygiène, c'est ce qui
  *    rend la cohabitation possible ;
- *  · **et le couronnement tombe dans la démonstration**, jamais après elle.
+ *  · **et le bilan compte EXACTEMENT ce que la scène couronne** — à condition de
+ *    lire les deux champs qui le disent.
  *
- * ⚠️ **CE QU'ON N'ASSÈRE PAS, ET QU'ON AURAIT AIMÉ.** « Le bilan ne compte
- *   jamais moins de triptyques que la scène n'en couronne » serait la belle
- *   propriété — couronner ce que le score n'a pas vu, c'est montrer une série
- *   qu'on n'a pas comptée. Elle est FAUSSE aujourd'hui : mesuré sur ce même
- *   corpus, l'écart monte à cinq, et NEUF approches font couronner la scène
- *   quand `bilan.triptyquesContigus` vaut zéro.
+ * ⚠️ **L'ÉCART QUE CE TEST SIGNALAIT N'EXISTAIT PAS : je lisais un compteur pour
+ *   deux.** Le bilan sépare `triptyquesContigus` — le premier — de
+ *   `triptyquesRepetes` — ceux qui redisent la même figure. Sur « Donald
+ *   Trump », 1 + 2 = 3, et la scène couronne trois fois. Comparer les
+ *   couronnements au seul premier champ donnait un écart de deux, et neuf faux
+ *   positifs. MESURÉ après correction : sur les approches à UNE portée, la somme
+ *   est égale au nombre de couronnements, quatre-vingt-cinq fois sur
+ *   quatre-vingt-cinq, écart maximal ZÉRO.
  *
- *   Ce n'est pas une régression : la mesure est identique avec et sans le
- *   verrou levé sur `lesPlusCentraux` (89 approches à cornes contre 84, mêmes
- *   écarts). Les deux comptes ne comptent simplement pas la même chose, et
- *   personne ne l'avait jamais recoupé — l'ancien test ne comparait ni l'un ni
- *   l'autre, il les comparait tous deux à un troisième, ce que `m36`
- *   constatait. Écrire ici une assertion fausse pour faire joli serait pire que
- *   de dire qu'elle manque : elle manque, et elle attend un arbitrage.
+ * ★ **ET LA MOISSON EST EXCLUE DE CETTE ÉGALITÉ, à raison.** Le bilan y est
+ *   celui d'une PORTÉE ; le couronnement, lui, se pose sur la ligne JOINTE, où
+ *   trois portées qui rendent chacune un 6 écrivent un 666 qu'aucune d'elles ne
+ *   contenait. Les deux comptes portent alors sur deux objets différents, et
+ *   exiger qu'ils coïncident serait exiger qu'un compteur voie ce qui n'est pas
+ *   dans son champ. Reste, pour tous, l'inégalité qui a du sens : on ne couronne
+ *   jamais plus de triptyques qu'il n'y a de SÉRIES au verdict.
  */
 test('★ cornes — la scène ne couronne rien que le bilan n’ait compté', () => {
   const m = creerMoteur(catalogue, { filetTemporel: false });
@@ -1434,6 +1437,22 @@ test('★ cornes — la scène ne couronne rien que le bilan n’ait compté', (
         `« ${s} » ${a.codes} : un jeton couronné deux fois`);
       assert.ok(jalons.premier >= 1 && jalons.premier <= jalons.total,
         `« ${s} » ${a.codes} : premier couronnement hors de la démonstration`);
+      // Ce que la scène couronne ne dépasse jamais ce que le verdict annonce :
+      // couronner une quatrième série quand il n'en est promis que trois, ce
+      // serait montrer ce qui n'a pas été compté (doctrine §0.3).
+      // ⚠️ `a.series` n'est renseigné qu'en GROUPEMENT ; la moisson laisse le
+      //    compte dans son bilan. On lit celui qui existe, sans en inventer un.
+      const series = a.series ?? a.bilan.series;
+      assert.ok(series >= jalons.couronnements.length,
+        `« ${s} » ${a.codes} : ${jalons.couronnements.length} couronnements pour `
+        + `${series} séries annoncées`);
+      // Et sur une portée unique, l'égalité est EXACTE — les deux champs du
+      // bilan mis bout à bout. La moisson en est dispensée : voir l'en-tête.
+      if (a.parts.length === 1) {
+        assert.equal(a.bilan.triptyquesContigus + (a.bilan.triptyquesRepetes || 0),
+          jalons.couronnements.length,
+          `« ${s} » ${a.codes} : le bilan et la scène ne comptent pas la même chose`);
+      }
     }
   }
   // Un garde-fou, pas un chiffre à tenir : il dit « l'instrument a eu de la

@@ -459,6 +459,39 @@
   color: var(--fg-2);
   overflow-wrap: anywhere;
 }
+/* ★ LES CINQ SCORES D'UNE CARTE — un global, quatre bruts.
+
+   Le global est SEUL sur sa ligne et en chasse fixe : c'est le nombre qu'on
+   compare d'une carte à l'autre, et c'est lui que les curseurs font bouger. Les
+   quatre axes s'alignent dessous, plus petits et plus pâles — ils expliquent le
+   global, ils ne se lisent pas d'abord. */
+.voie__scores {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e1);
+  margin-top: var(--e1);
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.voie__score-global {
+  display: flex;
+  align-items: baseline;
+  gap: var(--e1);
+  color: var(--gold);
+}
+.voie__score-global .voie__score-valeur { font-size: var(--fs-sm); font-weight: 600; }
+.voie__score-axes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--e2);
+  color: var(--fg-2);
+}
+.voie__score-axe { display: flex; align-items: baseline; gap: .4em; }
+.voie__score-nom { opacity: .72; }
+.voie__score-valeur { font-variant-numeric: tabular-nums; }
+
 .voie__pied {
   display: flex;
   align-items: baseline;
@@ -468,13 +501,31 @@
   padding-top: var(--e2);
   border-top: var(--rule) solid var(--line);
 }
+/* ★ « Voir la démonstration » coiffe les deux accès — il dit CE QU'ON VA VOIR,
+   les deux boutons ne disant que la mise en scène. Sans lui, « Sobre » et
+   « Scénique » répétés douze fois n'annoncent aucune destination. */
+.voie__pied-titre {
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+.voie__acces-paire { display: flex; gap: var(--e1); }
+.voie__acces-paire > * { flex: 1 1 0; }
 /* Le pied d'un panneau porte DEUX accès — la version sobre et la scénique —,
    et c'est pour ça que le panneau n'est plus un lien : un `<a>` ne contient pas
    d'`<a>`, et un panneau à deux destinations n'en a plus une. Les deux se
    partagent la largeur à parts égales : aucun n'est le bouton principal, ce
    sont deux mises en scène de la même voie et le choix appartient au lecteur.
    Cible tactile de 48 px (design §5.1) portée par la hauteur minimale. */
-.voie__pied--double { align-items: stretch; }
+.voie__pied--double {
+  /* Le titre au-dessus, les deux accès dessous : la zone se lit de haut en bas,
+     comme une question suivie de deux réponses. */
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--e1);
+}
 .voie__acces {
   display: flex;
   flex: 1 1 0;

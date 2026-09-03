@@ -237,6 +237,23 @@ const G = {
   //     pointe du bras et le pied du fût : 2 traits, 2 extrémités, 1 boucle,
   //     exactement comme l'ovale qu'il remplace.
   a: {
+    /* ⚠️ **DÉFAUT DE GRAPHIE CONNU, NON CORRIGÉ — et la raison est géométrique.**
+
+       MESURÉ : 235 unités de large, la plus étroite de toutes les rondes (300
+       pour le `o`, 280 pour le `e`, 251 pour le `c`). La panse ne bombe que de
+       145 et n'atteint donc pas le milieu du glyphe : le `a` se lit comme un fût
+       flanqué d'un renflement, pas comme une lettre à deux étages.
+
+       ★ **ET ÇA NE SE RÈGLE PAS EN ÉLARGISSANT.** La panse est UN SEUL ARC dont
+         les deux bouts sont sur le fût ; entre deux points d'une même verticale,
+         un arc elliptique ne peut donner qu'une LENTILLE — un coin pointu aux
+         deux extrémités. Élargie, elle devient un coin plat : différemment
+         fausse, pas moins. Il lui faut la construction du `o` (`ovale()`),
+         c'est-à-dire un vrai redessin, avec l'œil de l'auteur.
+
+       Le comptage, lui, est juste : 2 traits, 2 extrémités, 1 boucle. C'est
+       pourquoi rien ne rougit — `derivees.js` vérifie l'arithmétique du glyphe,
+       personne ne vérifie sa beauté. */
     traits: [t('M 95 330 A 160 95 0 0 1 330 380 L 330 0'), t('M 330 210 A 145 105 0 0 1 330 10')],
     jonctions: [[0, 1, 'naissance'], [0, 1, 'pied']],
   },
@@ -279,10 +296,17 @@ const G = {
   },
   l: { traits: [t('M 200 600 L 200 0')], jonctions: [] },
   m: {
+    // ★ **ÉLARGI — il avait la largeur du `n` pour DEUX arches.**
+    //   MESURÉ : 280 unités, exactement comme le `n`, qui n'en porte qu'une.
+    //   Chaque arche ne faisait donc que 140 de large contre 280 à celle du
+    //   `n` : le `m` se lisait « rn », ce qui est le défaut de graphie le plus
+    //   coûteux qui soit — il change la lettre. Il passe à 360, la largeur du
+    //   `W`, qui est le précédent du dépôt pour une lettre à trois jambages.
+    //   Topologie inchangée — trois traits, trois extrémités, zéro boucle.
     traits: [
-      t('M 60 0 L 60 300'),
-      t('M 60 300 A 70 100 0 0 0 200 300 L 200 0'),
-      t('M 200 300 A 70 100 0 0 0 340 300 L 340 0'),
+      t('M 20 0 L 20 300'),
+      t('M 20 300 A 90 100 0 0 0 200 300 L 200 0'),
+      t('M 200 300 A 90 100 0 0 0 380 300 L 380 0'),
     ],
     jonctions: [[0, 1, 'première arche'], [1, 2, 'seconde arche']],
   },

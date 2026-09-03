@@ -83,9 +83,26 @@ export function plan(ctx) {
     // Rien à resserrer ni à souligner : elle n'embrasse qu'un jeton.
     tighten: 0,
     marquer: false,
-    // Elle DÉSIGNE ici, elle ne promet pas encore : le résultat sera promis par
-    // `accumulate`, qui porte le symbole. Deux promesses feraient deux pointes.
-    promet: false,
+    /* ★ **ELLE PORTE LE SYMBOLE, ET ELLE PROMET.**
+
+       Elle disait : « je désigne, `accumulate` promettra, qui porte le
+       symbole ». Elle avait tort, et les deux défauts signalés n'en faisaient
+       qu'un : `accumulate` est appelé plus bas avec `accoladeExistante`, ce qui
+       lui fait SAUTER `tracerAccolade` — son `symbol: 'Σ'` n'était donc jamais
+       dessiné, par personne. « Pas de symbole de somme » (l'auteur).
+
+       Et la promesse allait avec : une accolade sans symbole ne publie aucune
+       ancre (`tracerAccolade`), si bien qu'`accumulate` se rabattait sur
+       `posDeRepli` — lequel visait le premier opérande, c'est-à-dire le bord
+       GAUCHE. « Pas centré dans l'accolade » : le résultat se posait sous le
+       premier chiffre pendant que la pointe désignait le milieu.
+
+       C'est bien à ELLE de porter les deux. Elle est là avant tout le monde,
+       sous le nombre qui va s'ouvrir, et c'est elle qui pose la question ; la
+       promettre ailleurs revenait à la faire tenir par quelqu'un qui, dans ce
+       chemin-là, ne dessine rien. Le symbole et l'ancre suivent maintenant
+       l'élargissement (`suivreLaZone`, et `data.suit` sur le symbole). */
+    symbol: 'Σ',
     at: 0,
     dur: Math.max(1, T0),
   });
@@ -128,6 +145,14 @@ export function plan(ctx) {
         ...sources.slice(0, k), ...specs.map((x) => x.id), ...sources.slice(k + 1),
       ]);
     }
+    // ★ **ET LA PROMESSE SE TRANSFÈRE AVEC ELLE.** L'ancre est indexée par
+    //   SOURCE (`scene.poserAncre`), et la source vient de mourir : laissée sur
+    //   `src`, elle serait introuvable quand `accumulate` la cherchera sous le
+    //   premier chiffre éclaté, qui se rabattrait alors sur le repli. Les bras
+    //   et le point qu'ils désignent embrassent la même chose, ou ils ne
+    //   veulent rien dire.
+    const promesse = ctx.scene.ancreDe(src.id);
+    if (promesse) ctx.scene.poserAncre(specs.map((x) => x.id), promesse);
   }
   ctx.scene.kill(src.id, ctx.where);
   const ouverture = { at: T0, dur: T1, ease: EASE.move };

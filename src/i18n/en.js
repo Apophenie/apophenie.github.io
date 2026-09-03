@@ -133,6 +133,9 @@ export const en = {
          sliders share a total, it does not — it does not rank, it searches
          deeper. Putting them under one heading would suggest that what you give
          to the search is taken from the ranking. */
+    scores: {
+      global: 'Overall score',
+    },
     curseurs: {
       titre: 'Tune what matters',
       appel: 'Each setting is raised on its own; the percentage shows the share '
@@ -174,6 +177,7 @@ export const en = {
     voieSeries: '{n} runs of {cible}',
     voieSansTitre: 'Approach no. {rang}',
     acces: {
+      voir: 'See the demonstration',
       sobre: 'Plain',
       sobreLabel: '{titre} — plain version, no staging',
       scenique: 'Staged',

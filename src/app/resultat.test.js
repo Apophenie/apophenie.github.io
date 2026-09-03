@@ -414,3 +414,82 @@ test('★ accessibilité — aucun texte visible écrit en dur dans la page', ()
       `« ${brut} » est écrit en dur : il doit passer par t() et les dictionnaires`);
   }
 });
+
+/* ═══════════ 5. La carte d'une voie — ce qu'elle porte, et dans quel ordre ══ */
+
+/**
+ * ★ **CINQ SCORES, UNE ÉNUMÉRATION, ET LA DÉMONSTRATION EN PIED.**
+ *
+ * > « Un titre énumérant avec concision les méthodes employées. Puis un score
+ * >   global, synthèse pondérée selon les 4 réglages. Puis les 4 scores de
+ * >   métriques intermédiaires, sans pondération. Soit 5 scores. Et la partie
+ * >   "Voir la démonstration" descend dans la zone avec les boutons sobre et
+ * >   scénique. » (l'auteur)
+ *
+ * Ce test tient les quatre exigences ensemble, parce qu'elles se tiennent : une
+ * carte qui perdrait son énumération redeviendrait le panneau presque nu que
+ * l'auteur signalait — « des versions arborant Démonstration et rien d'autre ou
+ * presque ».
+ *
+ * ⚠️ **IL FAUT DE VRAIS CODES.** L'énumération se lit sur `approche.codes`, la
+ *   seule chose qui traverse le travailleur, et les traduit par le catalogue.
+ *   Une approche de laboratoire sans codes ne montrerait donc rien, et le test
+ *   passerait en ne mesurant rien du tout.
+ */
+test('★ carte — l’énumération des méthodes remplace la chaîne des règles', () => {
+  const a = { ...voie(1, 'Par le chiffre Atbash', null), codes: 'fatb+tca+mt9+mrn' };
+  const place = rendre([a], { podium: false });
+  const resume = un(place, 'voie__resume');
+  assert.ok(resume, 'la carte porte une ligne sous le titre');
+  // Trois méthodes NOMMÉES, et le découpage implicite `tca` SAUTE : sa forme
+  // courte est vide, parce qu'il ne s'écrit même pas dans le lien.
+  assert.equal(resume.textContent, 'miroir Atbash · clavier téléphonique · addition');
+});
+
+test('★ carte — cinq scores : un global pondéré, quatre bruts', () => {
+  const a = {
+    ...voie(1, 'Par le chiffre Atbash', null),
+    codes: 'fatb+tca+mt9+mrn',
+    criteres: { N: 400, A: 700, H: 900, U: 1000, R: 800, L: 3, C: 600 },
+  };
+  const place = rendre([a], { podium: false });
+  const global = un(place, 'voie__score-global');
+  assert.ok(global, 'le score global manque');
+  const axes = tous(place, 'voie__score-axe');
+  assert.equal(axes.length, 4, 'quatre axes bruts, un par curseur');
+  // ★ Le global est une SYNTHÈSE, donc il tombe entre le plus petit et le plus
+  //   grand des axes : un nombre hors de cet intervalle ne serait pas une
+  //   moyenne pondérée, ce serait un autre calcul.
+  const valeur = (n) => Number((un(n, 'voie__score-valeur') || {}).textContent);
+  const bruts = axes.map(valeur).filter((v) => Number.isFinite(v));
+  assert.equal(bruts.length, 4, 'les quatre axes portent un nombre');
+  const g = valeur(global);
+  assert.ok(g >= Math.min(...bruts) && g <= Math.max(...bruts),
+    `le global ${g} sort de l’intervalle des axes [${Math.min(...bruts)}, ${Math.max(...bruts)}]`);
+});
+
+test('★ carte — « Voir la démonstration » coiffe les deux accès', () => {
+  const a = { ...voie(1, 'Par le chiffre Atbash', null), codes: 'fatb+tca+mt9+mrn' };
+  const place = rendre([a], { podium: false });
+  const pied = un(place, 'voie__pied--double');
+  if (!pied) return; // une seule mise en scène : le pied redevient une flèche
+  const titre = un(pied, 'voie__pied-titre');
+  assert.ok(titre && titre.textContent === fr.resultat.acces.voir,
+    'le pied annonce ce qu’on va voir, pas seulement comment');
+  assert.equal(tous(pied, 'voie__acces').length, 2, 'les deux mises en scène restent');
+});
+
+/**
+ * ⚠️ **`titreApproche` NE SE REPLIE PLUS SUR « Démonstration ».** Le mot ne
+ *   nomme aucune voie et s'affichait douze fois d'affilée ; pire, il rendait
+ *   `resultat.voieSansTitre` inatteignable, puisqu'un `||` ne se déclenche pas
+ *   sur une chaîne pleine. La carte porte donc son propre repli, qui distingue.
+ */
+test('★ carte — sans titre, la carte numérote au lieu d’annoncer « Démonstration »', () => {
+  const a = { rang: 3, series: 1, codes: 'fatb', urlSobre: '#so!x#3', urlScenique: '#sce!x#3' };
+  const place = rendre([a], { podium: false });
+  const titre = un(place, 'voie__titre');
+  assert.ok(titre, 'la carte porte un titre');
+  assert.notEqual(titre.textContent, fr.demo.demonstration);
+  assert.equal(titre.textContent, fr.resultat.voieSansTitre.replace('{rang}', '1'));
+});

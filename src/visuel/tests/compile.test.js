@@ -183,6 +183,56 @@ test('substitute 1 → n : éclatement et résonance', () => {
   );
 });
 
+/**
+ * ★ **LA RÉDUCTION PROMET SOUS SA POINTE, ET C'EST LÀ QUE LE RÉSULTAT TOMBE.**
+ *
+ * « L'animation de `mrn` est buguée : pas centré dans l'accolade, pas de
+ * symbole de somme » (l'auteur). Les deux n'en faisaient qu'un :
+ *
+ *  · `reduce` traçait son accolade avec `promet: false` et SANS symbole, en
+ *    laissant à `accumulate` le soin de les porter — or `accumulate` est
+ *    appelé avec `accoladeExistante`, ce qui lui fait sauter `tracerAccolade`.
+ *    Personne ne dessinait donc le Σ ;
+ *  · et sans symbole, aucune ancre n'est publiée : `accumulate` se rabattait
+ *    sur `posDeRepli`, qui rendait la position du PREMIER opérande. Sur
+ *    `44 → 4 + 4 → 8`, le résultat se posait une demi-chasse à gauche de la
+ *    pointe qui le promettait.
+ *
+ * Les deux se gèlent ici parce qu'aucun test ne regardait la géométrie de ce
+ * geste : la suite d'intégration vérifie qu'il COMPILE, pas qu'il vise juste.
+ */
+test('reduce : le Σ existe, et le résultat naît au centre de ce qu’il somme', () => {
+  const tokens = [{ id: 'q', text: '44', kind: 'number' }];
+  const tl = compile(sc([{
+    id: 'a',
+    title: 'A',
+    ops: [{
+      op: 'reduce',
+      target: 'q',
+      digits: [{ id: 'd0', text: '4' }, { id: 'd1', text: '4' }],
+      to: { id: 'r', text: '8' },
+    }],
+  }], tokens));
+
+  const sigma = tl.nodes.filter((n) => n.role === 'label' && n.text === 'Σ');
+  assert.equal(sigma.length, 1, 'la réduction annonce une somme : le symbole doit être là');
+
+  // ★ ACCROCHÉ à l'accolade — sinon il désigne où la pointe ÉTAIT dès qu'elle
+  //   se recentre (`suivreLaZone` déplace les bras, pas les décors).
+  assert.ok(sigma[0].data && sigma[0].data.suit,
+    'le symbole doit suivre l’accolade qui le porte');
+
+  const centre = ['d0', 'd1']
+    .map((id) => tl.nodes.find((n) => n.id === id).base.translate.x)
+    .reduce((a, b) => a + b, 0) / 2;
+  const resultat = tl.nodes.find((n) => n.id === 'r');
+  assert.ok(Math.abs(resultat.base.translate.x - centre) < 0.5,
+    `le résultat naît en ${resultat.base.translate.x}, le centre des chiffres est en ${centre}`);
+  // Et il naît SOUS eux, pas sur la ligne : c'est une promesse d'accolade.
+  assert.ok(resultat.base.translate.y > tl.nodes.find((n) => n.id === 'd0').base.translate.y,
+    'le résultat descend sous la pointe avant de remonter dans la ligne');
+});
+
 test('reduce sans « to » renvoie vers substitute', () => {
   const tokens = [{ id: 'q', text: '44', kind: 'number' }];
   assert.throws(

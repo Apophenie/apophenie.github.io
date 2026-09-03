@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { creerMoteur } from '../index.js';
 import {
   construireScenario, validerScenario, VOCABULAIRE, DUREE_MIN, elementsDe, validerFormeOp,
-  placeDuCouronnement, jalonsDesCornes, suivreLaLigne, lesPlusCentraux,
+  placeDuCouronnement, jalonsDesCornes, suivreLaLigne, lesPlusCentraux, titreDeRecolte,
 } from '../scenario.js';
 import { etat } from '../bfs.js';
 import { approcheJoker } from '../assemblage.js';
@@ -969,6 +969,44 @@ test('★ surnuméraire — la coupure sépare deux séries, au plus près du mi
     [2]);
 });
 
+/**
+ * ★ **UN TITRE QUI SUPPRIME DES 6 NE PEUT PAS DIRE QU'IL GARDE LES 6.**
+ *
+ * « Ça ne dispense pas de corriger la formulation si elle reste trompeuse : si
+ * elle supprime des 6, alors elle ne garde pas que les 6. Si désormais elle n'a
+ * rien à supprimer, alors elle est sautée » (l'auteur).
+ *
+ * ⚠️ **CE TEST APPELLE LA FONCTION DIRECTEMENT, ET C'EST NÉCESSAIRE.** La
+ *   variante qui compte — « des exemplaires du chiffre visé tombent » — est
+ *   devenue introuvable sur le corpus le jour où le verdict a pris en charge le
+ *   surnuméraire d'une série unique : mesuré sur trente-cinq saisies, aucune
+ *   récolte ne fait tomber un 6. L'atteindre à travers une saisie ne gèlerait
+ *   donc rien, et la formulation redeviendrait fausse le jour où le cas revient
+ *   — par une cible non homogène, par une moisson dont l'appoint dépasse —
+ *   sans que rien ne rougisse.
+ *
+ * L'autre moitié de la demande n'a pas de test parce qu'elle n'a pas de code :
+ * `recolterLesSix` ne pose son bloc que `if (aJeter.length)`. Une étape qui
+ * n'ôte rien n'a jamais lieu, et c'était déjà vrai.
+ */
+test('★ récolte — le titre ne prétend jamais garder ce qu’il jette', () => {
+  const dit = (cible, maj, sac) => titreDeRecolte(cible, maj, 'fr', sac);
+  // La majorité ARGUMENTE — et elle exige que rien du chiffre visé ne tombe
+  // (`recolteMajoritaire`), donc elle ne peut pas cohabiter avec le sacrifice.
+  assert.equal(dit('666', true, false), 'Les 6 sont majoritaires, on les garde');
+  // Tout ce qui tombe est FAUX : le tri par valeur se dit sans mentir.
+  assert.equal(dit('666', false, false), 'On ne garde que les 6');
+  // ★ Des 6 tombent : ce qu'on garde n'est plus « les 6 », ce sont les 666
+  //   ENTIERS, et l'appoint qui n'en forme pas un s'en va avec le reste.
+  assert.equal(dit('666', false, true), 'On ne garde que les 666 complets');
+  // Hors cible homogène, ce sont des POSITIONS qu'on garde — et le sacrifice
+  // s'y dit de la même façon, puisque c'est la même vérité.
+  assert.equal(dit('007', false, false), 'On ne garde que ce qui écrit 007');
+  assert.equal(dit('007', false, true), 'On ne garde que les 007 complets');
+  // Les deux langues, ou rien (`src/moteur/i18n.js`).
+  assert.equal(titreDeRecolte('666', false, 'en', true), 'Keep only whole 666s');
+});
+
 test('★ surnuméraire — la fonction renonce là où permuter changerait la démonstration', () => {
   const c666 = lireCible('666');
   // Rien en trop : il n'y a pas de geste à faire.
@@ -991,6 +1029,32 @@ test('★ surnuméraire — la fonction renonce là où permuter changerait la d
   // il n'y a pas d'autre lecture possible.
   assert.deepEqual(lesPlusCentraux([6, 4, 6, 6, 6], [2, 3, 4], c666),
     { gardes: [2, 3, 4], surnumeraires: [0] });
+
+  /* ★ **CINQ 6 : LES DEUX BOUTS PARTENT, LE TRIO DU CENTRE RESTE.** « S'il y a
+     cinq 6 au total, alors fais exploser les deux aux extrémités, et passe au
+     centre à partir de 2 × 666 » (l'auteur).
+
+     Le milieu n'a de sens qu'ENTRE deux séries — la place qu'un jeton y libère
+     est le blanc que le verdict ouvre entre elles. Avec une seule série il n'y a
+     pas de blanc à écrire, et creuser le triptyque le casserait : c'est donc ce
+     qu'on GARDE qui doit être le plus central. */
+  assert.deepEqual(lesPlusCentraux(Array(5).fill(6), [0, 1, 2], c666),
+    { gardes: [1, 2, 3], surnumeraires: [0, 4] });
+  /* ⚠️ **ET SIX 6 NE FONT PAS TROIS SURNUMÉRAIRES : ils font DEUX SÉRIES.**
+     « Non, à 6 on garde tout » (l'auteur). Le premier jet de ce test posait
+     `gardes: [0, 1, 2]` sur six exemplaires — une entrée que le moteur ne
+     produit jamais, puisque `serieDeSix` rend des séries COMPLÈTES et en aurait
+     compté deux. Le surplus est donc structurellement PLUS PETIT que la cible :
+     1 ou 2 sur `666`, jamais 3. C'est ce qui borne l'alternance aux deux bouts,
+     et c'est désormais gardé dans la fonction elle-même. */
+  assert.equal(lesPlusCentraux(Array(6).fill(6), [0, 1, 2, 3, 4, 5], c666), null,
+    'six 6 font deux séries entières : rien ne dépasse');
+  assert.equal(lesPlusCentraux(Array(6).fill(6), [0, 1, 2], c666), null,
+    'un « gardes » incohérent fait renoncer, il ne fait pas casser une série');
+  // ★ Et DEUX séries repassent au milieu, comme avant : la règle des extrémités
+  //   ne vaut que là où il n'y a pas d'entre-deux.
+  assert.deepEqual(lesPlusCentraux(Array(7).fill(6), [0, 1, 2, 3, 4, 5], c666).surnumeraires,
+    [3]);
   // Une cible NON HOMOGÈNE : les jetons ne sont plus interchangeables. La
   // suite `0 0 7 0 0 7 0` n'écrit `007` qu'en lisant certains jetons et pas
   // d'autres, et permuter y changerait ce qui est démontré, pas la façon de

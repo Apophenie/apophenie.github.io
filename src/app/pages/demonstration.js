@@ -418,7 +418,7 @@ export function pageDemonstration(ctx) {
   // qui flotte au-dessus de la mise en page (`src/app/infobulle.js`).
   const partage = boutonPartage({
     saisie,
-    titreMethode: titreApproche(approche),
+    titreMethode: titreApproche(approche) || t('demo.demonstration'),
     resultat: scenario.result,
     url: ctx.urlCanonique ? location.origin + location.pathname + ctx.urlCanonique : null,
   });

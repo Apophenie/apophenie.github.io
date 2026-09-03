@@ -127,11 +127,17 @@ export function preparer() {
       M.CURSEURS_DEFAUT = rech.CURSEURS_DEFAUT;
       M.normaliserCurseurs = rech.normaliserCurseurs;
       M.pourcentagesDe = rech.pourcentagesDe;
+      M.scoresParAxe = rech.scoresParAxe;
       M.PUISSANCE_DE_FOUILLE_DEFAUT = rech.PUISSANCE_DE_FOUILLE_DEFAUT;
       M.PUISSANCE_DE_FOUILLE_MAX = rech.PUISSANCE_DE_FOUILLE_MAX;
       try {
         const catalogue = await rech.chargerCatalogue();
         M.moteur = rech.creerMoteur(catalogue);
+        // Le catalogue reste ici, et il ne sert qu'à une chose : traduire un
+        // CODE en forme courte pour l'énumération d'une carte. Les opérateurs
+        // eux-mêmes ne traversent jamais le travailleur — seuls les codes le
+        // font, parce qu'eux sont des chaînes.
+        M.titreCourtDuCode = (code) => rech.titreCourtDuCode(code, catalogue);
         M.creerCanal = rech.creerCanal;
         etat.recherche = 'branché';
       } catch (err) {
@@ -184,6 +190,10 @@ export const CURSEURS_DEFAUT = () => M.CURSEURS_DEFAUT || {};
 export const PUISSANCE_MAX = () => M.PUISSANCE_DE_FOUILLE_MAX ?? 7;
 export const PUISSANCE_DEFAUT = () => M.PUISSANCE_DE_FOUILLE_DEFAUT ?? 0;
 export const pourcentagesDe = (c) => (M.pourcentagesDe ? M.pourcentagesDe(c) : {});
+/** Les quatre scores BRUTS d'une voie, avant toute pondération. */
+export const scoresParAxe = (a) => (M.scoresParAxe ? M.scoresParAxe(a) : null);
+/** La forme courte d'un CODE, pour l'énumération d'une carte. */
+export const titreCourtDuCode = (code) => (M.titreCourtDuCode ? M.titreCourtDuCode(code) : null);
 export const normaliserCurseurs = (c) => (M.normaliserCurseurs ? M.normaliserCurseurs(c) : c);
 
 /** Lecture d'une cible saisie : `null` si ce n'en est pas une. */

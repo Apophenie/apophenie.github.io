@@ -986,8 +986,11 @@ function recolterLesSix(groupe, chemin, poser, langue, tous = false, differe = n
       // ★ Et ce qu'on annonce est ce qui se voit : le surnuméraire compte parmi
       //   les valeurs GARDÉES, puisqu'il est encore là quand l'étape s'achève.
       const majoritaire = recolteMajoritaire(valeursRestantes, valeursJetees, cbl);
+      // Des exemplaires du chiffre visé tombent-ils ? Le titre en dépend — voir
+      // `MOTS.recolter` : « on ne garde que les 6 » serait faux s'il en tombe.
+      const sacrifies = valeursJetees.some((v) => cbl.alphabet.includes(v));
       poser({
-        titre: MOTS.recolter(cbl, majoritaire, langue),
+        titre: MOTS.recolter(cbl, majoritaire, langue, sacrifies),
         legende: MOTS.recolterLegende(serie.series, aJeter.length, cbl, majoritaire, langue),
         recolte: { series: serie.series, jetes: aJeter.length, cible: cbl.texte, majoritaire },
         ops: [
@@ -1110,6 +1113,44 @@ export function lesPlusCentraux(valeurs, gardes, cible) {
   for (let i = 0; i < valeurs.length; i++) if (valeurs[i] === chiffre) memes.push(i);
   const surplus = memes.length - gardes.length;
   if (surplus <= 0) return null;
+  /* ★ **UNE SEULE SÉRIE : ON EXPLOSE AUX EXTRÉMITÉS, PAS AU MILIEU.**
+     « S'il y a cinq 6 au total, alors fais exploser les deux aux extrémités, et
+     passe au centre à partir de 2 × 666 » (l'auteur).
+
+     Le milieu n'a de sens qu'entre DEUX séries : la place qu'un jeton y libère
+     EST le blanc que le verdict ouvre entre elles. Avec une seule série il n'y
+     a pas de blanc à écrire, et creuser le triptyque le casserait. Ce qui reste
+     à décider est donc l'inverse : ce qu'on GARDE est le plus central, et ce qui
+     part est ce qui déborde de part et d'autre.
+
+     Les surnuméraires sont pris alternativement à gauche puis à droite, en
+     commençant par la GAUCHE. Sur cinq, cela donne les deux bouts et le trio du
+     centre, exactement ce que l'auteur décrit. Sur quatre, un seul part, et
+     c'est celui de tête : « un 6 qui s'en va par le bout de la ligne ne pousse
+     personne » vise la fin, et un départ par la tête pousse tout le reste. */
+  if (nSeries === 1) {
+    /* ⚠️ **LE SURPLUS EST STRUCTURELLEMENT PLUS PETIT QUE LA CIBLE**, et le
+       vérifier n'est pas de la paranoïa : c'est ce qui borne l'alternance aux
+       deux BOUTS. `serieDeSix` rend des séries COMPLÈTES ; s'il restait autant
+       d'exemplaires que la cible a de chiffres, ils en formeraient une de plus
+       et la récolte les aurait pris. Sur `666`, le surplus vaut donc 1 ou 2, et
+       jamais 3 — « à 6 on garde tout » (l'auteur), parce que six 6 font deux
+       séries et zéro surnuméraire.
+
+       Si un appelant présentait malgré tout un `gardes` incohérent, l'alternance
+       mordrait sur ce qui devait rester une série. On renonce plutôt que de la
+       casser : c'est la règle de cette fonction partout ailleurs. */
+    if (surplus >= cbl.longueur) return null;
+    const surn = [];
+    let g = 0;
+    let d = memes.length - 1;
+    for (let k = 0; k < surplus; k++) surn.push(k % 2 === 0 ? memes[g++] : memes[d--]);
+    const ecartes = new Set(surn);
+    return {
+      gardes: memes.filter((i) => !ecartes.has(i)),
+      surnumeraires: surn.sort((a, b) => a - b),
+    };
+  }
   const coupure = Math.min(nSeries - 1, Math.max(1, Math.floor(nSeries / 2)));
   const debut = coupure * cbl.longueur;
   return {
@@ -2702,8 +2743,9 @@ export function construireScenario(approche, ctx = {}) {
     const valeursJetees = [...rejets.valeurs, ...surplusValeurs];
     if (aJeter.length) {
       const majoritaire = recolteMajoritaire(valeursRestantes, valeursJetees, cible);
+      const sacrifies = valeursJetees.some((v) => normaliserCible(cible).alphabet.includes(v));
       poserBloc({
-        titre: MOTS.recolter(cible, majoritaire, langue),
+        titre: MOTS.recolter(cible, majoritaire, langue, sacrifies),
         legende: MOTS.recolterLegende(
           recolteTotale.series, aJeter.length, cible, majoritaire, langue,
         ),
@@ -3452,6 +3494,53 @@ function recolteMajoritaire(gardees, jetees, cible) {
 }
 
 /**
+ * ★ **LE TITRE DU TRI — exporté pour être ÉPROUVÉ, comme `lesPlusCentraux`.**
+ *
+ * Ce n'est pas une commodité de test. Ses quatre variantes se choisissent sur
+ * des conditions que le corpus ne produit pas toutes : celle qui compte le plus
+ * — « des exemplaires du chiffre visé tombent » — est justement devenue
+ * introuvable le jour où le verdict a pris en charge le surnuméraire d'une série
+ * unique. Un test qui ne l'atteindrait qu'à travers une saisie ne gèlerait donc
+ * rien du tout, et la formulation redeviendrait fausse le jour où le cas
+ * revient — sans que rien ne rougisse.
+ */
+export function titreDeRecolte(cible, majoritaire, langue, sacrifies = false) {
+  const cbl = normaliserCible(cible);
+  if (majoritaire) {
+    return langue === 'en'
+      ? `The ${cbl.chiffres[0]}s are in the majority, so they stay`
+      : `Les ${cbl.chiffres[0]} sont majoritaires, on les garde`;
+  }
+  /* ★ **QUAND DES 6 TOMBENT, ON NE PEUT PAS DIRE QU'ON GARDE LES 6.**
+     « Ça ne dispense pas de corriger la formulation si elle reste trompeuse :
+     si elle supprime des 6, alors elle ne garde pas que les 6 » (l'auteur).
+
+     Le titre « On ne garde que les 6 » décrit un tri par VALEUR ; il est juste
+     tant que tout ce qui tombe est faux. Dès qu'un exemplaire du chiffre visé
+     tombe — parce qu'il ne complète aucune série —, il devient un mensonge, et
+     de la pire espèce : celui que le spectateur peut vérifier d'un coup d'œil.
+     Ce qu'on garde alors n'est pas « les 6 », c'est les 666 ENTIERS, et
+     l'appoint qui n'en forme pas un s'en va avec le reste. C'est ce que dit le
+     titre, et c'est ce que la ligne montre.
+
+     ⚠️ Rien à jeter, pas d'étape : `recolterLesSix` ne pose son bloc que si
+       `aJeter` n'est pas vide. Une étape qui n'ôte rien n'a jamais lieu. */
+  if (sacrifies) {
+    return langue === 'en'
+      ? `Keep only whole ${cbl.texte}s`
+      : `On ne garde que les ${cbl.texte} complets`;
+  }
+  if (cbl.homogene) {
+    return langue === 'en'
+      ? `Keep the ${cbl.chiffres[0]}s, and only those`
+      : `On ne garde que les ${cbl.chiffres[0]}`;
+  }
+  return langue === 'en'
+    ? `Keep only what spells out ${cbl.texte}`
+    : `On ne garde que ce qui écrit ${cbl.texte}`;
+  }
+
+/**
  * Les quelques phrases que `scenario.js` écrit lui-même — celles qui n'ont pas
  * d'opérateur derrière elles. Même règle que le catalogue : les deux langues,
  * ou rien (`src/moteur/i18n.js`).
@@ -3544,22 +3633,8 @@ const MOTS = Object.freeze({
    * rend MOT POUR MOT l'ancienne chaîne : le repli exigé par `cible.js` est
    * exact partout où la majorité n'est pas acquise.
    */
-  recolter: (cible, majoritaire, langue) => {
-    const cbl = normaliserCible(cible);
-    if (majoritaire) {
-      return langue === 'en'
-        ? `The ${cbl.chiffres[0]}s are in the majority, so they stay`
-        : `Les ${cbl.chiffres[0]} sont majoritaires, on les garde`;
-    }
-    if (cbl.homogene) {
-      return langue === 'en'
-        ? `Keep the ${cbl.chiffres[0]}s, and only those`
-        : `On ne garde que les ${cbl.chiffres[0]}`;
-    }
-    return langue === 'en'
-      ? `Keep only what spells out ${cbl.texte}`
-      : `On ne garde que ce qui écrit ${cbl.texte}`;
-  },
+  recolter: titreDeRecolte,
+
   /**
    * La légende du tri — ce qu'on garde, et ce qui tombe.
    *

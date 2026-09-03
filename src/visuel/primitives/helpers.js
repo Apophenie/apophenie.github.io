@@ -935,8 +935,21 @@ export function accumulate(ctx, spec) {
 
 /** Sans accolade (un seul opérande, ou boîte vide) : sous les opérandes. */
 function posDeRepli(ctx, operands) {
+  /* ⚠️ **LE REPLI PRENAIT LE PREMIER OPÉRANDE POUR LE CENTRE.**
+     « L'animation de `mrn` est buguée : pas centré dans l'accolade »
+     (l'auteur). C'était littéralement ça : `pos(operands[0])`, c'est-à-dire le
+     bord GAUCHE de ce qu'on embrasse. Sur `44 → 4 + 4 → 8`, le 8 se posait
+     sous le premier `4` pendant que la pointe de l'accolade désignait le `+`.
+
+     Le repli sert quand aucune accolade n'a publié d'ancre ; il doit alors
+     viser ce que l'accolade aurait visé — le milieu de la zone —, et non le
+     premier jeton venu. `boiteEmbrassee` donne ce milieu, et c'est la même
+     fonction que `suivreLaZone` emploie pour recadrer les bras : un seul calcul
+     du centre, donc pas deux centres qui divergent. */
+  const boite = boiteEmbrassee(ctx, operands);
   const p = ctx.scene.pos(operands[0]);
-  return { x: p.x, y: p.y + ctx.metrics.fontSize * 1.6 };
+  if (!boite) return { x: p.x, y: p.y + ctx.metrics.fontSize * 1.6 };
+  return { x: boite.cx, y: boite.y + boite.h + ctx.metrics.fontSize * 0.9 };
 }
 
 /**
@@ -1099,7 +1112,10 @@ export function tracerAccolade(ctx, ids, spec = {}) {
     ctx.scene.create({
       id: sid, role: 'label', text: spec.symbol, inFlow: false,
       w: ctx.metrics.advance * 0.8 * [...spec.symbol].length,
-      data: { scale: 0.86 },
+      // ★ ACCROCHÉ À L'ACCOLADE, et à l'écart où il est posé : quand la zone
+      //   embrassée s'élargit, les bras se recentrent (`suivreLaZone`) et le
+      //   symbole doit suivre, faute de quoi il désigne où la pointe ÉTAIT.
+      data: { scale: 0.86, suit: id, decalage: { dx: 0, dy: symboleY - anchorY } },
       base: { opacity: 0, fill: ctx.palette.gold },
     }, { where: ctx.where });
     ctx.scene.place(sid, exigerPoint(ctx, { x: box.cx, y: symboleY },
@@ -1115,7 +1131,8 @@ export function tracerAccolade(ctx, ids, spec = {}) {
     ctx.scene.create({
       id: lid, role: 'label', text: spec.label, inFlow: false,
       w: ctx.metrics.advance * 0.55 * [...spec.label].length,
-      data: { scale: 0.5 },
+      // Même règle que le symbole : la légende désigne, donc elle suit.
+      data: { scale: 0.5, suit: id, decalage: { dx: 0, dy: (spec.symbol ? symboleY + fs * 0.56 : symboleY) - anchorY } },
       base: { opacity: 0, fill: ctx.palette.fg2 },
     }, { where: ctx.where });
     // Sans symbole — un découpage en sous-groupes, par exemple —, la légende
@@ -1220,6 +1237,23 @@ export function suivreLaZone(ctx, acc, spec = {}) {
   const anchorY = cible.y + cible.h + BRAS + 6;
   if (bougeX || Math.abs(anchorY - depart.y) > 0.5) {
     ctx.place(acc.id, { x: cible.cx, y: anchorY, w: cible.w }, { at, dur, ease: EASE.move });
+  }
+  /* ★ **LA PROMESSE SUIT L'ACCOLADE — sinon elle désigne où la pointe ÉTAIT.**
+     Une accolade qui porte un symbole publie une ancre : le point, sous sa
+     pointe, où le résultat viendra se poser (`tracerAccolade › poserAncre`).
+     Ce point est calculé au TRACÉ ; or la zone embrassée s'élargit ensuite —
+     un nombre qui s'éclate en chiffres, des signes `+` qui s'insèrent — et
+     l'ancre restait figée sur le centre d'avant.
+
+     MESURÉ sur `mrn` : sur `44 → 4 + 4 → 8`, la pointe finit au milieu des
+     trois glyphes et l'ancre pointait encore le milieu du `44` d'origine. Le
+     résultat tombait à gauche de la pointe qui le promettait.
+
+     ⚠️ On ne publie que là où il y avait DÉJÀ une promesse : une accolade qui
+       ne promet rien — `partition` découpe, elle ne calcule pas — ne doit pas
+       s'en voir attribuer une au premier reflux. */
+  if (ctx.scene.ancreDe(sources[0])) {
+    ctx.scene.poserAncre(sources, { x: cible.cx, y: anchorY + POINTE + ctx.metrics.fontSize * 1.44 });
   }
   if (!change) return;
   const w0 = depart.w || cible.w;

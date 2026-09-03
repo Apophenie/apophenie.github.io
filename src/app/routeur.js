@@ -220,7 +220,7 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
     debug: new URLSearchParams(location.search).get('debug') === '1',
   });
   rendre(enteteDemonstration(), vue.element, {
-    titre: `${titreApproche(approche)} — ${lecture.saisie}`,
+    titre: `${titreApproche(approche) || t('demo.demonstration')} — ${lecture.saisie}`,
     focaliser: vue.monter,
     vue,
   });
@@ -292,7 +292,7 @@ function montrerDemonstrationLocale(saisie, approche, resultat) {
     debug: false,
   });
   rendre(enteteDemonstration(), vue.element, {
-    titre: `${titreApproche(approche)} — ${saisie}`,
+    titre: `${titreApproche(approche) || t('demo.demonstration')} — ${saisie}`,
     focaliser: vue.monter,
     vue,
   });

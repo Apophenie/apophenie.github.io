@@ -74,15 +74,21 @@ function compteurSeries(approche, cible) {
  * des liens au lecteur d'écran : le nom accessible porte donc le titre de la
  * voie (`resultat.acces.sobreLabel`), là où le libellé visible reste court.
  */
-function carteVoie(approche, i, { surChoix, lienDisponible, cible, registres }) {
+function carteVoie(approche, i, { surChoix, lienDisponible, cible, registres, curseurs }) {
   const rang = approche.rang ?? i + 1;
-  const regle = regleApproche(approche);
   const titre = titreApproche(approche) || t('resultat.voieSansTitre', { rang: i + 1 });
+  /* ★ **L'ÉNUMÉRATION REMPLACE LA CHAÎNE DES RÈGLES.** `regleApproche` soudait
+     les règles bout à bout — trois lignes de prose exacte que personne ne lit,
+     et qui recommencent à chaque carte par la même phrase sur le découpage. Ce
+     qu'on veut sous le titre est ce que la voie FAIT, en trois mots par étape.
+     La règle complète n'est pas perdue : elle est sur la page de démonstration,
+     étape par étape, là où elle s'applique à quelque chose qu'on regarde. */
   const entete = [
     e('span.voie__numero', { texte: t('resultat.voieNumero', { rang }) }),
     compteurSeries(approche, cible),
     e('span.voie__titre', { texte: titre }),
-    regle ? e('span.voie__resume', { texte: regle }) : null,
+    (() => { const m = enumererLesMethodes(approche); return m ? e('span.voie__resume', { texte: m }) : null; })(),
+    scoresDeLaVoie(approche, curseurs),
   ];
   const note = approche.joker ? e('span.legende', { texte: t('resultat.jokerNote') }) : null;
 
@@ -119,13 +125,117 @@ function carteVoie(approche, i, { surChoix, lienDisponible, cible, registres }) 
     e('span.voie__fleche', { texte: '▸', 'aria-hidden': 'true' }),
   ]);
 
+  /* ★ **« VOIR LA DÉMONSTRATION » DESCEND AVEC LES DEUX ACCÈS.** « La partie
+     "Voir la démonstration" descend dans la zone avec les boutons sobre et
+     scénique » (l'auteur). Les deux boutons ne disaient que le REGISTRE —
+     « Sobre », « Scénique » — sans jamais dire ce qu'on allait voir ; l'intitulé
+     le dit une fois pour les deux, et il rend leur choix lisible : on ne choisit
+     pas entre deux destinations, on choisit la mise en scène d'une seule. */
   return e('div.voie.voie--double', {}, [
     ...entete,
     e('span.voie__pied.voie__pied--double', {}, [
-      acces('sobre', approche.urlSobre),
-      acces('scenique', approche.urlScenique),
+      e('span.voie__pied-titre', { texte: t('resultat.acces.voir') }),
+      e('span.voie__acces-paire', {}, [
+        acces('sobre', approche.urlSobre),
+        acces('scenique', approche.urlScenique),
+      ]),
     ]),
     note,
+  ]);
+}
+
+/**
+ * ★ **L'ÉNUMÉRATION DES MÉTHODES — le titre concis d'une carte.**
+ *
+ * > « Il devrait y avoir un titre énumérant avec concision les méthodes
+ * >   employées (max 2 mots par méthode/étape). » (l'auteur)
+ *
+ * Ce que la carte portait à la place : `regleApproche`, c'est-à-dire la chaîne
+ * des RÈGLES bout à bout — « A devient Z, B devient Y… le miroir de l'alphabet ·
+ * Un caractère, un jeton · Le rang de la touche… ». Une ligne exacte, illisible,
+ * et qui recommence à chaque carte par la même phrase sur le découpage.
+ *
+ * ★ **ELLE SE LIT SUR LES CODES, QUI SONT LA SEULE CHOSE QUI TRAVERSE LE
+ *   TRAVAILLEUR.** Les opérateurs d'une approche sont des objets du catalogue :
+ *   ils ne survivent pas à la sérialisation d'un `postMessage`. Les codes, si —
+ *   c'est une chaîne, et c'est elle que l'URL porte déjà. On les relit donc, et
+ *   le pont va chercher la forme courte dans le catalogue, qui vit du même côté
+ *   que la recherche.
+ *
+ * ★ **LES TITRES VIDES SAUTENT, ET C'EST LE POINT.** Un opérateur implicite —
+ *   le découpage par caractères, la lecture des chiffres — ne s'écrit pas dans
+ *   le lien ; l'annoncer dans une énumération de méthodes serait nommer une
+ *   étape que le lecteur n'a pas à retenir. Sa forme courte est vide, il
+ *   disparaît d'ici (`recherche/titres.js › TITRES_COURTS`).
+ *
+ * ★ Et les RÉPÉTITIONS IMMÉDIATES se fondent : une moisson qui applique la même
+ *   méthode à trois portées écrivait « 14 segments, 14 segments, 14 segments ».
+ *   On ne dédoublonne pas globalement pour autant — revenir deux fois à la même
+ *   méthode APRÈS un détour est un fait de la voie, et il se voit.
+ */
+function enumererLesMethodes(approche) {
+  const codes = String((approche && approche.codes) || '');
+  if (!codes) return '';
+  const noms = [];
+  for (const brut of codes.split(/[+,;]/)) {
+    // Un fragment porte sa portée devant lui — `0.1:fr13` —, et la portée n'est
+    // pas une méthode : on ne garde que ce qui suit le deux-points.
+    const code = brut.includes(':') ? brut.slice(brut.lastIndexOf(':') + 1) : brut;
+    const nom = localiser(pont.titreCourtDuCode(code.trim()));
+    if (!nom) continue;
+    if (noms[noms.length - 1] === nom) continue;
+    noms.push(nom);
+  }
+  return noms.join(' · ');
+}
+
+/**
+ * ★ **LES CINQ SCORES D'UNE CARTE — un pondéré, quatre bruts.**
+ *
+ * > « Puis un score global qui est la synthèse pondérée selon les 4 réglages.
+ * >   Puis les 4 scores de métriques intermédiaires listés sans y appliquer les
+ * >   ajustements de pondération. Soit 5 scores. » (l'auteur)
+ *
+ * ★ **LE GLOBAL EST CALCULÉ ICI, ET C'EST VOULU.** Il n'est pas le rang, ni le
+ *   score du moteur : c'est la moyenne des quatre axes PAR LES POIDS QUE LE
+ *   LECTEUR VIENT DE POSER (`pourcentagesDe`). Le déplacer un curseur doit
+ *   changer ce nombre sous les yeux, sans relancer la recherche — c'est
+ *   exactement ce que le panneau promet, et un chiffre venu du moteur ne le
+ *   tiendrait pas, puisqu'il a été calculé avant le réglage.
+ *
+ * ★ Les quatre autres sont RENDUS TELS QUELS par `scoresParAxe`, sans poids :
+ *   ce sont eux qu'on compare d'une carte à l'autre quand on cherche à
+ *   comprendre pourquoi celle-ci passe devant celle-là.
+ *
+ * ⚠️ Sans moteur — le repli hors ligne —, il n'y a ni axes ni pourcentages : on
+ *   ne rend rien du tout plutôt qu'une rangée de zéros, qui se lirait comme une
+ *   voie nulle et non comme une mesure absente.
+ */
+function scoresDeLaVoie(approche, curseurs) {
+  const axes = pont.scoresParAxe(approche);
+  if (!axes) return null;
+  const parts = pont.pourcentagesDe(curseurs || pont.CURSEURS_DEFAUT());
+  const noms = pont.CURSEURS();
+  let somme = 0;
+  let poids = 0;
+  for (const axe of noms) {
+    if (axes[axe] === null || axes[axe] === undefined) continue;
+    const w = parts[axe] ?? 0;
+    somme += w * axes[axe];
+    poids += w;
+  }
+  const global = poids ? Math.round(somme / poids) : null;
+  return e('span.voie__scores', {}, [
+    e('span.voie__score-global', {}, [
+      e('span.voie__score-nom', { texte: t('resultat.scores.global') }),
+      e('span.voie__score-valeur', { texte: global === null ? '—' : String(global) }),
+    ]),
+    e('span.voie__score-axes', {}, noms.map((axe) => e('span.voie__score-axe', {}, [
+      e('span.voie__score-nom', { texte: t(`resultat.curseurs.${axe}`) }),
+      e('span.voie__score-valeur', {
+        texte: axes[axe] === null || axes[axe] === undefined ? '—' : String(axes[axe]),
+      }),
+    ]))),
   ]);
 }
 
@@ -654,6 +764,10 @@ export function pageResultat({
 
   const carte = ({ approche, i }) => carteVoie(approche, i, {
     surChoix: surChoixSecours, lienDisponible: !secours, cible: texteCible, registres,
+    // Les MÊMES positions que le panneau du bas : le score global d'une carte
+    // est la synthèse par les poids que le lecteur a sous les yeux, pas par
+    // ceux d'un défaut qu'il vient justement de quitter.
+    curseurs,
   });
   // `null` plutôt qu'un conteneur vide dans les deux sens : une liste de deux
   // voies toutes deux encadrées ne laisse rien à la grille, et une liste sans

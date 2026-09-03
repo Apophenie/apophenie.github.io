@@ -630,11 +630,42 @@ export function compile(scenario, options = {}) {
           return moved;
         },
 
-        /** Place un nœud hors flux ; anime le déplacement s'il était déjà placé. */
+        /**
+         * Place un nœud hors flux ; anime le déplacement s'il était déjà placé.
+         *
+         * ★ **ET CE QUI LUI EST ACCROCHÉ SUIT, exactement comme au `reflow`.**
+         *
+         *   La règle était écrite juste au-dessus — « le décor ACCROCHÉ à un
+         *   jeton le suit toujours, sinon il se décroche » — mais elle n'était
+         *   tenue que par `reflow`, c'est-à-dire pour les nœuds DU FLUX. Un
+         *   décor accroché à un nœud HORS FLUX, lui, restait sur place.
+         *
+         *   MESURÉ sur `mrn` : l'accolade se recentre quand `44` s'ouvre en
+         *   `4 + 4` (`suivreLaZone` la déplace par ici), et son symbole Σ ne la
+         *   suivait pas — il désignait le vide à gauche de la pointe. Le même
+         *   défaut guette toute légende d'accolade et tout décor à venir : ce
+         *   n'est pas un cas particulier de `mrn`, c'est la moitié manquante
+         *   d'une règle générale.
+         */
         place(id, p, spec = {}) {
           const mv = scene.place(id, p);
           if (mv) {
             ctx.anim({ id, prop: 'translate', from: mv.from, to: mv.to, at: spec.at ?? 0, dur: spec.dur, ease: spec.ease || EASE.move });
+            // `data.decalage` — l'accroché qui ne se pose PAS sur son porteur :
+            // un symbole vit sous la pointe, pas sur la barre. C'est l'écart
+            // DÉCLARÉ qu'on reporte, jamais l'écart courant, qui aurait dérivé.
+            for (const sid of scene.satellitesDe(id)) {
+              if (!scene.pos(sid)) continue;
+              const d = (scene.get(sid).data || {}).decalage;
+              const suiv = scene.place(sid, d
+                ? { x: mv.to.x + (d.dx || 0), y: mv.to.y + (d.dy || 0) }
+                : { x: mv.to.x, y: mv.to.y });
+              if (!suiv) continue;
+              ctx.anim({
+                id: sid, prop: 'translate', from: suiv.from, to: suiv.to,
+                at: spec.at ?? 0, dur: spec.dur, ease: spec.ease || EASE.move,
+              });
+            }
           }
           return mv;
         },

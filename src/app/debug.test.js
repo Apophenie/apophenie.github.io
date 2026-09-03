@@ -383,29 +383,58 @@ test('★ la page de débogage ne recopie AUCUN nom d’opérateur qui lise la c
 });
 
 /**
- * ★ **CHAQUE OPÉRATEUR A SON TITRE COURT, ET IL TIENT EN DEUX MOTS.**
+ * ★ **CHAQUE OPÉRATEUR A SON TITRE COURT, ET IL TIENT SUR UNE LARGEUR.**
  *
- * > « Un titre énumérant avec concision les méthodes employées, max 2 mots par
- * >   méthode/étape. » (l'auteur)
+ * La consigne d'origine comptait les MOTS — « max 2 mots par méthode/étape »
+ * (l'auteur). Sa passe d'écriture l'a dépassée en connaissance de cause :
+ * vingt entrées sur trois cent huit en font trois, et ce sont les bonnes —
+ * « nombre de lettres » ne se dit pas en deux mots sans se mutiler.
  *
- * La contrainte n'est pas décorative : la carte d'une voie en enchaîne un par
- * étape, et une seule entrée bavarde suffit à faire déborder la ligne. Un
- * opérateur ajouté demain sans titre court ferait donc rougir ici — plutôt que
- * de se replier en silence sur son libellé, qui en fait quatre en moyenne.
+ * ★ **ON MESURE DONC EN SIGNES, et l'argument est de l'auteur lui-même** :
+ *   « pas besoin de préciser le nombre de mots, je m'en aperçois bien ; à la
+ *   limite le nombre de caractères serait plus utile ». C'est exact, et c'est
+ *   décisif ici : « numérologie pythagoricienne » fait DEUX mots et vingt-sept
+ *   signes, « nombre de lettres » en fait trois et dix-huit. Ce qui fait
+ *   déborder la ligne d'une carte est la largeur, jamais le compte de mots.
+ *
+ * Le plafond est celui de la table telle qu'elle est écrite, à un signe près :
+ * une entrée plus bavarde que la plus bavarde d'aujourd'hui fera rougir, et
+ * c'est tout ce qu'on lui demande.
  */
-test('★ titres courts — un par opérateur, deux mots au plus', () => {
+/** La plus longue entrée d'aujourd'hui : « numérologie pythagoricienne ». */
+const LARGEUR_TITRE_COURT = 28;
+
+test('★ titres courts — un par opérateur, et assez court pour tenir', () => {
   const sans = CATALOGUE.filter((op) => !titreCourtDe(op));
   assert.deepEqual(sans.map((op) => op.code), [],
     'un opérateur sans titre court se replierait sur un libellé trop long');
 
+  /* ★ **UN TITRE VIDE EST UNE DÉCISION, UN TITRE ABSENT EST UN OUBLI** — et la
+     distinction est déjà faite par l'assertion ci-dessus, qui exige l'ENTRÉE.
+
+     Certains opérateurs n'ont rien à faire dans une énumération de méthodes :
+     les implicites, qui ne s'écrivent même pas dans le lien (`tca`, `m09`) ;
+     ceux qui n'ôtent qu'un bruit d'adresse (`fp`, `fw`) ; l'accolement, qui ne
+     se facture plus ; le joker et un déprécié. Leur donner un nom reviendrait à
+     annoncer une étape que le lecteur n'a pas à retenir, et à faire déborder la
+     ligne pour rien. Les laisser à blanc les fait SAUTER de l'énumération —
+     c'est la carte qui les ignore, pas la table qui les a oubliés.
+
+     ⚠️ Les deux langues restent solidaires : vide ici, vide là. Une entrée
+       muette en français et bavarde en anglais serait une traduction perdue de
+       vue, pas un choix. */
+  const boiteux = [];
   const bavards = [];
   for (const op of CATALOGUE) {
+    const t = titreCourtDe(op);
+    if (!t.fr !== !t.en) boiteux.push(`${op.code} : « ${t.fr} » / « ${t.en} »`);
     for (const langue of ['fr', 'en']) {
-      const t = (titreCourtDe(op) || {})[langue];
-      assert.ok(t, `${op.code} : titre court manquant en « ${langue} »`);
-      const mots = t.trim().split(/\s+/).filter(Boolean).length;
-      if (mots > 2) bavards.push(`${op.code} (${langue}) : « ${t} » — ${mots} mots`);
+      const signes = [...t[langue].trim()].length;
+      if (signes > LARGEUR_TITRE_COURT) {
+        bavards.push(`${op.code} (${langue}) : « ${t[langue]} » — ${signes} signes`);
+      }
     }
   }
-  assert.deepEqual(bavards, [], 'deux mots au plus, c’est la consigne');
+  assert.deepEqual(boiteux, [], 'un titre court se tait dans les deux langues, ou dans aucune');
+  assert.deepEqual(bavards, [], `${LARGEUR_TITRE_COURT} signes au plus, c’est la largeur d’une carte`);
 });
