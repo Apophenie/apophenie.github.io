@@ -330,6 +330,63 @@ test('★ œuf — le π rejoint la ligne de base d’un seul geste, et avant la
   }
 });
 
+/**
+ * ★ **LE π OBTENU EST CELUI QUE L'ÉNONCÉ VIENT ENCADRER.**
+ *
+ * > « L'étape CQFD a un problème : elle fait disparaître Pi pour réafficher
+ * >   cheval/oiseau = Pi. Il faudrait déplacer Pi vers la droite puis faire
+ * >   apparaître cheval/oiseau = à sa gauche. » (l'auteur)
+ *
+ * Le verdict était un `substitute` : le π mourait, un autre renaissait au
+ * milieu de l'énoncé. Deux π, dont le second n'avait rien démontré — alors que
+ * ce lien est le seul que toute la démonstration ait construit. Ce test tient
+ * les trois choses qui le disent : le jeton SURVIT, il n'est jamais effacé, et
+ * il a fini de glisser avant que l'énoncé ne s'allume.
+ */
+test('★ œuf — au verdict, le π obtenu survit et l’énoncé vient à sa gauche', () => {
+  const tl = compile(scenarioDeLOeuf('cheval sur oiseau'));
+  const pi = tl.scene.get('P1');
+  assert.ok(pi && pi.alive, 'le π obtenu doit être VIVANT au verdict, pas remplacé');
+  assert.ok(!tl.anims.some((a) => a.id === 'P1' && a.prop === 'opacity' && a.keyframes.at(-1).value === 0),
+    'le π obtenu ne doit jamais être effacé');
+
+  // ★ L'ORDRE EST CE QUI SE LIT : il glisse, PUIS l'énoncé paraît.
+  const glisse = tl.anims.filter((a) => a.id === 'P1' && a.prop === 'translate')
+    .filter((a) => Math.abs(a.keyframes.at(-1).value.x - a.keyframes[0].value.x) > 1);
+  const dernierGlissement = Math.max(...glisse.map((a) => a.delay));
+  const allumage = Math.min(...tl.anims
+    .filter((a) => a.id === 'v0' && a.prop === 'opacity').map((a) => a.delay));
+  assert.ok(Number.isFinite(allumage), 'le « c » de l’énoncé doit s’allumer');
+  assert.ok(allumage > dernierGlissement,
+    `l’énoncé s’allume à ${allumage} ms, mais le π glisse encore à ${dernierGlissement} ms : `
+    + 'la place doit être faite AVANT que ce qui l’occupe ne paraisse');
+});
+
+/**
+ * ★ **LA CONVERSION DU « pi » DE DROITE SE VOIT.**
+ *
+ * > « Il manque l'animation pour la conversion du Pi à droite du = »
+ * >   (l'auteur)
+ *
+ * Un `substitute` de un vers un fait un fondu croisé sur place : à trois
+ * lettres d'un atelier qui déploie une accolade, il passe pour un changement de
+ * rendu. Il est donc encadré de ce qui désigne — la lettre s'allume avant, le
+ * symbole bat après.
+ */
+test('★ œuf — le « pi » de la saisie est désigné avant de devenir π, et bat après', () => {
+  const tl = compile(scenarioDeLOeuf('cheval sur oiseau = pi'));
+  const designe = tl.anims.filter((a) => a.id === 'pi' && a.prop === 'fill');
+  assert.ok(designe.length, 'le « pi » saisi doit être DÉSIGNÉ avant sa conversion');
+  const naissance = Math.min(...tl.anims.filter((a) => a.id === 'P2' && a.prop === 'opacity')
+    .map((a) => a.delay));
+  const bat = tl.anims.filter((a) => a.id === 'P2' && a.prop === 'scale');
+  assert.ok(bat.length, 'le π obtenu doit BATTRE une fois écrit');
+  assert.ok(Math.min(...designe.map((a) => a.delay)) < naissance,
+    'la désignation précède la conversion');
+  assert.ok(Math.max(...bat.map((a) => a.delay)) >= naissance,
+    'le battement suit la conversion');
+});
+
 test('★ œuf — chaque étape porte son titre de registre', () => {
   const sc = scenarioDeLOeuf('cheval sur oiseau');
   for (const st of sc.steps) {

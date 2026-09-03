@@ -80,7 +80,7 @@ export const OP_NAMES = Object.freeze([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
   'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse', 'fraction',
-  'rule', 'convert',
+  'rule', 'convert', 'insert',
 ]);
 
 /**
@@ -139,6 +139,9 @@ export const DEFAULT_DUR = Object.freeze({
   // montée, la flèche, la cible centrée). Aussi long qu'une somme, parce que
   // c'est la même chose — un raisonnement qu'on donne à vérifier.
   convert: 3200,
+  // Faire la place, puis paraître : deux temps courts. C'est un rappel, pas une
+  // démonstration — l'expression qui revient a déjà été lue au premier écran.
+  insert: 1800,
 });
 
 /** `kind` des tokens — vocabulaire fermé (recherche §2.2). */

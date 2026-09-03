@@ -426,11 +426,24 @@ function etapes(mots, pi) {
          Il se pose donc À LA SUITE, à l'instant où le π du numérateur vient de
          prendre sa place : les deux π sont neufs du même temps de la
          démonstration, ce qui est ce que l'auteur demande. */
+      /* ★ **ET ELLE DOIT SE VOIR.** « Il manque l'animation pour la conversion
+         du Pi à droite du = » (l'auteur). Un `substitute` de un vers un fait un
+         fondu croisé SUR PLACE : à trois lettres d'un atelier qui déploie une
+         accolade et fait coulisser une expression, il passe pour un changement
+         de rendu, pas pour un geste. On l'encadre donc de ce qui DÉSIGNE — la
+         lettre s'allume avant, le symbole bat après — sans lui ouvrir un
+         atelier, qu'il ne mérite pas : ce « pi » est recopié de l'énoncé, il
+         n'est pas démontré, et lui donner une accolade lui prêterait une
+         justification qu'il n'a pas. */
       ...(pi ? [{
+        op: 'highlight', targets: ['pi'], at: 4400, dur: 700,
+      }, {
         op: 'substitute',
         pairs: [{ target: 'pi', to: tok('P2', 'π') }],
         at: 5200,
         dur: 900,
+      }, {
+        op: 'pulse', targets: ['P2'], at: 6100, dur: 700,
       }] : []),
       { op: 'rule', id: 'barre', couvre: { all: true }, at: 4600 + decalPi, dur: 700 },
       {
@@ -566,29 +579,50 @@ function etapes(mots, pi) {
       title: dire('cqfd'),
       caption: `${mots.cheval} / ${mots.oiseau} = π`,
       ops: [
+        /* ★ **LE π NE DISPARAÎT PAS — c'est LUI que l'énoncé vient encadrer.**
+         *
+         * > « L'étape CQFD a un problème : elle fait disparaître Pi pour
+         * >   réafficher cheval/oiseau = Pi. Il faudrait déplacer Pi vers la
+         * >   droite puis faire apparaître cheval/oiseau = à sa gauche. »
+         * >   (l'auteur)
+         *
+         * C'était un `substitute` : le π mourait et un autre renaissait au
+         * milieu de l'énoncé — deux π, dont le second n'avait rien démontré,
+         * alors que ce lien-là est le seul que toute la démonstration ait
+         * construit. Avec `insert`, la ligne s'ouvre DEVANT lui : il glisse à
+         * droite parce qu'il y a désormais quelque chose à sa gauche, et
+         * l'énoncé s'écrit ensuite.
+         */
         {
-          op: 'substitute',
-          pairs: [{
-            target: 'P1',
-            to: [
-              ...[...mots.cheval].map((c, i) => tok(`v${i}`, c)),
-              { ...filet('barre2', large), breakBefore: true },
-              esp('v_e0'), tok('veq', '=', 'operator'), esp('v_e1'), tok('vpi', 'π'),
-              ...[...mots.oiseau].map((c, i) => {
-                const j = tok(`w${i}`, c);
-                if (i === 0) j.breakBefore = true;
-                return j;
-              }),
-            ],
-          }],
+          op: 'insert',
+          avant: 'P1',
+          tokens: [
+            ...[...mots.cheval].map((c, i) => tok(`v${i}`, c)),
+            { ...filet('barre2', large), breakBefore: true },
+            esp('v_e0'), tok('veq', '=', 'operator'), esp('v_e1'),
+          ],
           at: 0,
+          dur: 2200,
+        },
+        /* ⚠️ Le dénominateur entre APRÈS le π, et sur son propre rang — c'est le
+           `breakBefore` de son premier jeton qui le dit. Le glisser dans la même
+           insertion l'aurait posé avant le π, donc entre le trait et lui. */
+        {
+          op: 'insert',
+          apres: 'P1',
+          tokens: [...mots.oiseau].map((c, i) => {
+            const j = tok(`w${i}`, c);
+            if (i === 0) j.breakBefore = true;
+            return j;
+          }),
+          at: 2200,
           dur: 1600,
         },
         // Le trait renaît avec l'énoncé, et se cale sur lui : sa largeur de
         // départ est écrite en signes, `rule` l'ajuste au dixième d'unité.
-        { op: 'rule', id: 'barre2', couvre: { all: true }, at: 1600, dur: 700 },
-        { op: 'pulse', targets: ['vpi'], at: 2300, dur: 900 },
-        { ...cqfd, at: 2800, dur: 1800 },
+        { op: 'rule', id: 'barre2', couvre: { all: true }, at: 3800, dur: 700 },
+        { op: 'pulse', targets: ['P1'], at: 4500, dur: 900 },
+        { ...cqfd, at: 5000, dur: 1800 },
       ],
     };
 

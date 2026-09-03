@@ -1,7 +1,7 @@
 /**
  * Le vocabulaire fermé des ops — CONTRACTS §3.1.
  *
- * Vingt-sept primitives, une par fichier — les dix-sept du socle, plus
+ * Vingt-huit primitives, une par fichier — les dix-sept du socle, plus
  * `partition` (découper en sous-groupes), `table` (la table de correspondance
  * affichée — réglette, glissière ou pavé téléphonique), `fourteenSeg`
  * (l'afficheur quatorze segments), `horns` (les cornes du 666 déjà formé) et
@@ -11,7 +11,9 @@
  * ajoutées selon la clause d'extension du contrat, plus `rule` (le trait de
  * fraction, qui suit en longueur ce qu'il sépare) et `convert` (l'atelier :
  * une expression monte sous l'accolade, s'y voit égalée à une autre, et c'est
- * l'autre qui redescend). Ces deux dernières sont les seules du dépôt à avoir
+ * l'autre qui redescend) et `insert` (des jetons entrent dans la ligne, et rien
+ * n'en sort — l'énoncé qui revient encadrer le résultat sans le faire
+ * disparaître). Ces trois-là sont les seules du dépôt à avoir
  * été demandées EN TANT QUE PRIMITIVES : « si besoin de créer de nouvelles
  * commandes pour produire cette animation, fais-le — par exemple, jusqu'ici on
  * n'a pas d'accolade en haut, c'est à créer » (l'auteur).
@@ -54,6 +56,7 @@ import * as collapse from './collapse.js';
 import * as fraction from './fraction.js';
 import * as rule from './rule.js';
 import * as convert from './convert.js';
+import * as insert from './insert.js';
 
 import { OP_NAMES } from '../constants.js';
 
@@ -61,7 +64,7 @@ export const PRIMITIVES = Object.freeze({
   highlight, dim, drop, substitute, move, group, insertOperators,
   sum, reduce, flip180, sevenSeg, fourteenSeg, countStrokes, keyboard,
   annotate, pulse, reveal, wait, partition, table, horns, merge, shift, collapse, fraction,
-  rule, convert,
+  rule, convert, insert,
 });
 
 // Garde-fou de chargement : la table des primitives et le vocabulaire déclaré

@@ -457,6 +457,17 @@ export const vocabulaire = {
       ],
     },
     {
+      id: 'p10d',
+      title: 'insert',
+      caption: 'des jetons entrent dans la ligne, et rien n’en sort',
+      ops: [
+        // La place se fait d'abord — `v4b` glisse à droite —, puis le signe
+        // paraît : c'est l'ordre qui distingue `insert` d'un remplacement.
+        { op: 'insert', avant: 'v4b', tokens: [{ id: 'ins0', text: '=', kind: 'operator' }] },
+        { op: 'drop', targets: ['ins0'], mode: 'erase', at: 1800, dur: 600 },
+      ],
+    },
+    {
       id: 'p11a',
       title: 'merge',
       caption: 'deux chiffres qui se collent n’en font plus qu’un — et rien d’autre ne bouge',
