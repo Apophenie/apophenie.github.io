@@ -11,7 +11,7 @@
     "test": "node --test 'src/*/*.test.js' 'src/visuel/tests/*.test.js' 'src/recherche/tests/*.test.js'",
     "logo": "python3 src/gfx/logo-jost-trace.py src/gfx/_logo-test.html favicon.svg --site",
     "segments": "python3 src/gfx/dseg-segments.py && python3 src/gfx/jetbrains-six.py",
-    "glyphes": "python3 src/gfx/jetbrains-traces.py",
+    "glyphes": "python3 src/gfx/jetbrains-traces.py && python3 src/gfx/jetbrains-axe.py && python3 src/gfx/jetbrains-squelette.py abcdefghijklmnopqrstuvwxyz js",
     "segments:check": "python3 src/gfx/dseg-segments.py --check && python3 src/gfx/jetbrains-six.py --check",
     "sons": "python3 src/gfx/sons-base64.py",
     "check": "bun run test && bun run build"

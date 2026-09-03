@@ -18,27 +18,35 @@
  *     qui pose des arcs elliptiques sur les mesures de la police ;
  *  4. **LE SQUELETTE** — celui que `src/gfx/jetbrains-squelette.py` EXTRAIT par
  *     érosion du contour réel ;
- *  5. **LE RECALÉ** — le même, chaque point reposé au MILIEU EXACT des deux
- *     bords qui l'encadrent. L'amincissement travaille sur des pixels de quatre
- *     unités ; l'appariement de bords, lui, ne dépend d'aucune grille ;
- *  6. **L'APPARIÉ** — les traits DÉCLARÉS par la recette, reposés sur le
- *     squelette MESURÉ. C'est le seul des quatre derniers à porter des
- *     JONCTIONS, donc le seul dont les comptes soient utilisables.
+ *  5. **L'APPARIÉ** — les traits DÉCLARÉS par la recette, reposés sur le
+ *     squelette MESURÉ. Le seul de ces trois-là à porter des JONCTIONS, donc le
+ *     seul dont les comptes soient utilisables ;
+ *  6. **L'AXE** — la police extrapolée jusqu'à l'épaisseur nulle.
  *
- * ★ **ET C'EST LE PARTAGE QUE LE GÉNÉRATEUR ANNONCE DEPUIS SA PREMIÈRE LIGNE**
- *   — « mesuré dans la police / déclaré ici » — enfin appliqué pour de bon.
- *   La recette sait combien il y a de traits et lesquels se touchent, ce qui ne
- *   se mesure pas ; le squelette sait où ils passent, ce qui ne se devine pas.
- *   Chacun ne fait plus que ce qu'il sait faire.
+ * ★ **ET LA SIXIÈME REND LES QUATRE PRÉCÉDENTES CADUQUES.**
  *
- * ★ **LA TROISIÈME COLONNE DEVINE, LA QUATRIÈME MESURE**, et c'est tout l'objet
- *   de les avoir côte à côte. Une recette décrit une courbe par un arc, qui n'a
- *   qu'un seul sens de courbure et un seul jeu de rayons ; l'érosion suit
- *   l'axe médian du dessin, quel qu'il soit. Sur un `s` — deux inversions de
- *   courbure — l'écart cesse d'être une nuance.
+ *   > « Si tu repars des sources de la font, as-tu ce qu'il faut plutôt que de
+ *   >   chercher à le recréer ? » (l'auteur)
  *
- * ⚠️ Bas de casse seulement pour les deux dernières : les capitales n'ont ni
- *   recette ni squelette.
+ *   Oui — et sans même aller chercher les sources : le woff2 du dépôt est
+ *   VARIABLE, et JetBrains Mono est MONOLINÉAIRE. L'axe médian est donc la
+ *   limite de ses contours quand la graisse tend vers zéro, et cette limite se
+ *   calcule (`src/gfx/jetbrains-axe.py`). Les colonnes 3 à 5 reconstruisent ce
+ *   que la 6ᵉ se contente de LIRE ; on les garde pour ce qu'elles montrent —
+ *   l'écart entre deviner, mesurer, et savoir.
+ *
+ * ⚠️ La colonne « recalé sur les bords » a été retirée : « il n'y a rien à en
+ *   tirer » (l'auteur), et c'était exact — elle déplaçait de deux unités un
+ *   tracé déjà juste à deux unités près.
+ *
+ * ★ **LA TROISIÈME DEVINE, LA QUATRIÈME MESURE, LA SIXIÈME LIT** — et c'est
+ *   tout l'objet de les avoir côte à côte. Une recette décrit une courbe par un
+ *   arc, qui n'a qu'un seul sens de courbure ; l'érosion suit l'axe du dessin,
+ *   quel qu'il soit, mais à travers une grille ; l'extrapolation ne suit rien,
+ *   elle relit la police à une graisse qu'elle n'expose pas.
+ *
+ * ⚠️ Bas de casse seulement pour les quatre dernières : les capitales n'ont ni
+ *   recette, ni squelette, ni axe engendré.
  *
  * ★ **LE DÉFAUT SE VOIT ENTRE LA 1ʳᵉ ET LA 2ᵈ COLONNE**, et c'est tout l'objet
  *   de la page : « le glyphe qui est mené dans la zone de traçage devrait
@@ -46,18 +54,19 @@
  *   double-étage et ressort en lentille, un `l` qui entre avec un empattement et
  *   ressort en barre nue — la page le montre sans qu'on ait à l'affirmer.
  *
- * ⚠️ **LES COMPTES SONT AFFICHÉS SOUS LES DEUX TRACÉS QUI EN ONT**, parce qu'ils sont l'enjeu
- *   caché du redessin : `traits`, `extrémités`, `boucles` nourrissent trois
- *   opérateurs du catalogue, et un dessin plus juste qui changerait un compte
- *   déplacerait des scores. Les voir côte à côte dit d'un coup d'œil ce qu'un
- *   remplacement coûterait.
+ * ⚠️ **LES COMPTES NE S'AFFICHENT QUE SOUS LES TRACÉS QUI EN ONT** — ceux qui
+ *   portent des jonctions. C'est l'enjeu caché du redessin : `traits`,
+ *   `extrémités` et `boucles` nourrissent trois opérateurs du catalogue, et un
+ *   dessin plus juste qui changerait un compte déplacerait des scores. Les voir
+ *   côte à côte dit d'un coup d'œil ce qu'un remplacement coûterait.
  */
 
 import { e, svg as s } from './dom.js';
 import { GLYPHES, METRIQUES } from '../moteur/tables/glyphes.js';
 import { setGlyphes, deriveGlyph } from '../visuel/glyphes.js';
 import { CANDIDATS, MESURES } from '../gfx/_glyphes-candidats.js';
-import { SQUELETTES, RECALES, APPARIES } from '../gfx/_glyphes-squelette.js';
+import { SQUELETTES, APPARIES } from '../gfx/_glyphes-squelette.js';
+import { AXES } from '../gfx/_glyphes-axe.js';
 
 setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
 
@@ -177,7 +186,6 @@ function rangee(c) {
   const actuel = GLYPHES[c];
   const candidat = CANDIDATS[c];
   const squelette = SQUELETTES[c];
-  const recale = RECALES[c];
   const apparie = APPARIES[c];
   return e('section.gl__rangee', {}, [
     e('h2.gl__lettre', { texte: c }),
@@ -200,32 +208,36 @@ function rangee(c) {
         e('div.gl__comptes', { texte: `${squelette.length} branche(s)` }),
       ])
       : e('div.gl__case.gl__case--vide', { texte: 'pas de squelette' }),
-    recale
-      ? e('div.gl__case', {}, [
-        dessin(recale, 'var(--line-ui)'),
-        e('div.gl__nom', { texte: 'recalé sur les bords' }),
-        e('div.gl__comptes', { texte: `${recale.length} branche(s)` }),
-      ])
-      : e('div.gl__case.gl__case--vide', { texte: 'pas de recalage' }),
     /* ★ L'apparié, LUI, affiche ses comptes — et c'est toute la différence :
        il a des jonctions, donc `deriveGlyph` sait les lire. Ils doivent
        coïncider avec ceux de la recette, dont il reprend la topologie. */
     apparie
-      ? case_('apparié', apparie.traits, apparie.jonctions, 'var(--rubric-hi)')
+      ? case_('apparié', apparie.traits, apparie.jonctions, 'var(--line-ui)')
       : e('div.gl__case.gl__case--vide', { texte: 'pas d’appariement' }),
+    /* ⚠️ L'axe n'affiche pas de comptes : son contour est un ALLER-RETOUR, donc
+       `deriveGlyph` y verrait une boucle par trait. Il faudra le REPLIER avant
+       de pouvoir le compter — et c'est tout ce qui manque pour l'adopter. */
+    AXES[c]
+      ? e('div.gl__case', {}, [
+        dessin([{ d: AXES[c] }], 'var(--rubric-hi)'),
+        e('div.gl__nom', { texte: 'axe de la police' }),
+        e('div.gl__comptes', { texte: 'extrapolé à graisse nulle' }),
+      ])
+      : e('div.gl__case.gl__case--vide', { texte: 'pas d’axe' }),
   ]);
 }
 
 function page() {
   return e('div.gl', {}, [
     e('header.gl__entete', {}, [
-      e('h1', { texte: 'Glyphes — police, actuel, recette, squelette, recalé, apparié' }),
+      e('h1', { texte: 'Glyphes — police, actuel, recette, squelette, apparié, axe' }),
       e('p.gl__appel', {
         texte: 'La première colonne est ce que la SCÈNE affiche sur sa ligne ; la deuxième, '
           + 'ce que la zone de traçage dessine aujourd’hui. La troisième DEVINE la courbe '
           + 'avec des arcs, la quatrième l’EXTRAIT du contour par érosion, la cinquième '
-          + 'repose chaque point au milieu exact des deux bords, et la sixième pose les '
-          + 'traits DÉCLARÉS par la recette sur le squelette MESURÉ.',
+          + 'pose les traits DÉCLARÉS par la recette sur le squelette MESURÉ — et la '
+          + 'sixième ne reconstruit rien : c’est la police elle-même, extrapolée jusqu’à '
+          + 'l’épaisseur nulle.',
       }),
       e('p.gl__appel', {
         texte: `Sous chaque tracé : traits · extrémités · boucles — les trois comptes que `
