@@ -561,9 +561,23 @@ function etapes(mots, pi) {
         du site : l'orage, les cornes et les triptyques sont la scénographie du
         666, et il n'y a pas de 666 ici. « C.Q.F.D. » est ce qu'écrit quelqu'un
         qui vient de finir une démonstration — c'est exactement le ton. */
-  const cqfd = {
-    op: 'annotate', text: dire('cqfd'), place: 'scene', taille: 0.9, ton: 'gold',
-  };
+  /* ★ **DEUX FINS, DEUX PLACES — et c'est la scène qui décide, pas le goût.**
+   *
+   * > « Quand on finit sur Pi = Pi, CQFD est bien, centré au-dessus. Quand on
+   * >   finit sur cheval/oiseau = Pi, CQFD au-dessus est disgracieux […] il
+   * >   devrait venir comme une signature en bas à droite. » (l'auteur)
+   *
+   * La branche qui finit sur `π = π` laisse une LIGNE UNIQUE, centrée : un
+   * titre posé au milieu du haut de la vue la surmonte exactement. L'autre
+   * repose une FRACTION, dont l'axe n'est pas le milieu de la scène — le même
+   * titre y flotterait au centre pendant que tout le reste s'en écarte, et deux
+   * centrages différents dans une même image se lisent comme un défaut
+   * d'alignement. La signature ne surmonte rien : elle se cale sur le coin
+   * bas-droit de ce qui est écrit, comme on paraphe une démonstration faite.
+   */
+  const cqfd = (place) => ({
+    op: 'annotate', text: dire('cqfd'), place, taille: 0.9, ton: 'gold',
+  });
   const s5 = pi
     ? {
       id: 's_oeuf_5',
@@ -571,7 +585,7 @@ function etapes(mots, pi) {
       caption: `π = π`,
       ops: [
         { op: 'pulse', targets: ['P1', 'P2'], at: 0, dur: 900 },
-        { ...cqfd, at: 700, dur: 1800 },
+        { ...cqfd('scene'), at: 700, dur: 1800 },
       ],
     }
     : {
@@ -622,7 +636,7 @@ function etapes(mots, pi) {
         // départ est écrite en signes, `rule` l'ajuste au dixième d'unité.
         { op: 'rule', id: 'barre2', couvre: { all: true }, at: 3800, dur: 700 },
         { op: 'pulse', targets: ['P1'], at: 4500, dur: 900 },
-        { ...cqfd, at: 5000, dur: 1800 },
+        { ...cqfd('signature'), at: 5000, dur: 1800 },
       ],
     };
 

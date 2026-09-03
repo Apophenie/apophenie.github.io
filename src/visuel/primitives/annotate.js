@@ -66,9 +66,32 @@ export function plan(ctx) {
    * ⚠️ Et il n'a pas d'ancre du tout : lui en réclamer une l'aurait fait
    *   suivre des jetons qui, ici, sont précisément ce qui disparaît. */
   const enScene = ctx.op.place === 'scene';
+  /* ★ **`place: 'signature'` — LA CONCLUSION QUI NE COMMENTE PLUS, ELLE SIGNE.**
+   *
+   * > « Quand on finit sur Pi = Pi, CQFD est bien, centré au-dessus. Quand on
+   * >   finit sur cheval/oiseau = Pi, CQFD au-dessus est disgracieux (centré
+   * >   mais décalé par rapport au reste). Il devrait dans ce cas venir comme
+   * >   une signature en bas à droite, nettement en dessous de = Pi, en dessous
+   * >   à droite de oiseau. » (l'auteur)
+   *
+   * Un titre de phase se pose au haut de la VUE et s'y centre : il parle de ce
+   * qui se passe, il ne parle d'aucun jeton, et le centre de la scène est le
+   * seul point qui ne privilégie rien. Ça tient tant que ce qu'il surmonte est
+   * lui aussi centré — une ligne unique, un `π = π`. Ça cesse de tenir dès que
+   * la scène porte une FRACTION dont l'axe n'est pas le milieu : le titre reste
+   * au centre de la vue pendant que tout le reste s'en écarte, et deux
+   * centrages différents dans la même image se lisent comme un défaut
+   * d'alignement.
+   *
+   * Une signature n'a pas ce problème parce qu'elle ne prétend pas surmonter :
+   * elle se pose APRÈS, au coin bas-droit de ce qui est écrit, comme on signe
+   * une démonstration une fois qu'elle est faite. Elle se cale donc sur la
+   * boîte du contenu — pas sur la vue —, et suit ce contenu où qu'il soit.
+   */
+  const signe = ctx.op.place === 'signature';
   const ids = enScene ? [] : (ctx.op.anchor !== undefined
     ? ctx.scene.resolve(ctx.op.anchor, ctx.where)
-    : targetsOf(ctx));
+    : (signe ? ctx.scene.resolve({ all: true }, ctx.where) : targetsOf(ctx)));
   const box = enScene ? null : bboxOf(ids, ctx.scene.positions, ctx.metrics, 6);
   if (!enScene && !box) fail(`${ctx.where}aucune ancre positionnée pour l'annotation.`);
 
@@ -85,9 +108,10 @@ export function plan(ctx) {
   //   centrent verticalement dessus ; elles n'entrent pas dans le flux, comme
   //   toute annotation, donc elles ne poussent rien.
   const place = ctx.op.place || 'below';
-  if (!['above', 'below', 'left', 'right', 'scene'].includes(place)) {
+  if (!['above', 'below', 'left', 'right', 'scene', 'signature'].includes(place)) {
     fail(`${ctx.where}« place » = ${JSON.stringify(place)} — les quatre côtés modélisés sont above, below, left, right ; `
-      + '« scene » pose un titre de phase, qui n\'annote aucun jeton.');
+      + '« scene » pose un titre de phase, qui n\'annote aucun jeton ; « signature » '
+      + 'pose une conclusion au coin bas-droit de ce qui est écrit.');
   }
   const above = place === 'above';
   const deCote = place === 'left' || place === 'right';
@@ -137,11 +161,20 @@ export function plan(ctx) {
   // Le titre de phase se pose au haut de la VUE — pas du `viewBox` : la ligne
   // peut défiler, et un titre posé sur le repère fixe se décrocherait d'elle.
   const vue = ancreVue(ctx);
+  /* La signature se pose au coin BAS-DROIT du contenu, et « nettement en
+     dessous » : deux casses sous le dernier rang, là où plus rien ne peut la
+     disputer. Elle déborde d'une demi-largeur à droite du bord — c'est ce
+     débord qui la fait lire comme un paraphe et non comme un rang de plus. */
   const at = enScene
     ? { x: vue.x, y: vue.y - ctx.metrics.fontSize * (typeof ctx.op.ecart === 'number' ? ctx.op.ecart : 3.4) }
-    : (deCote
-      ? { x: place === 'left' ? box.x - dx : box.x + box.w + dx, y: box.y + box.h / 2 }
-      : { x: box.cx, y: above ? box.y - dy : box.y + box.h + dy });
+    : (signe
+      ? {
+        x: box.x + box.w,
+        y: box.y + box.h + ctx.metrics.fontSize * (typeof ctx.op.ecart === 'number' ? ctx.op.ecart : 2.1),
+      }
+      : (deCote
+        ? { x: place === 'left' ? box.x - dx : box.x + box.w + dx, y: box.y + box.h / 2 }
+        : { x: box.cx, y: above ? box.y - dy : box.y + box.h + dy }));
 
   // ★ SUIVRE SON JETON — quand l'étiquette DÉSIGNE au lieu de conclure.
   //

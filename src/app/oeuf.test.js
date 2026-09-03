@@ -387,6 +387,46 @@ test('★ œuf — le « pi » de la saisie est désigné avant de devenir π, e
     'le battement suit la conversion');
 });
 
+/**
+ * ★ **LE C.Q.F.D. NE SE POSE PAS AU MÊME ENDROIT SELON CE QU'IL CONCLUT.**
+ *
+ * > « Quand on finit sur Pi = Pi, CQFD est bien, centré au-dessus. Quand on
+ * >   finit sur cheval/oiseau = Pi, CQFD au-dessus est disgracieux (centré mais
+ * >   décalé par rapport au reste). Il devrait dans ce cas venir comme une
+ * >   signature en bas à droite. » (l'auteur)
+ *
+ * Une ligne unique est centrée : un titre posé au milieu du haut de la vue la
+ * surmonte exactement. Une FRACTION ne l'est pas — son axe n'est pas le milieu
+ * de la scène —, et deux centrages différents dans la même image se lisent
+ * comme un défaut d'alignement.
+ */
+test('★ œuf — le C.Q.F.D. surmonte une ligne, mais SIGNE une fraction', () => {
+  const oux = (sc) => {
+    const tl = compile(sc);
+    const n = [...tl.scene.allNodes()].find((x) => x.role === 'label' && (x.text || '').startsWith('C.Q'));
+    assert.ok(n, 'le C.Q.F.D. doit être posé');
+    const p = tl.scene.pos(n.id);
+    const boites = tl.scene.flow.map((id) => tl.scene.pos(id)).filter(Boolean);
+    return {
+      p,
+      droite: Math.max(...boites.map((b) => b.x + b.w / 2)),
+      bas: Math.max(...boites.map((b) => b.y)),
+      haut: Math.min(...boites.map((b) => b.y)),
+    };
+  };
+
+  // ① La ligne unique : au-dessus, et centré sur elle.
+  const un = oux(scenarioDeLOeuf('cheval sur oiseau = pi'));
+  assert.ok(un.p.y < un.haut, `le titre doit surmonter la ligne (${un.p.y} vs ${un.haut})`);
+
+  // ② La fraction : au coin bas-droit, hors du contenu des DEUX côtés.
+  const deux = oux(scenarioDeLOeuf('cheval sur oiseau'));
+  assert.ok(deux.p.y > deux.bas,
+    `la signature doit être SOUS le dernier rang (${deux.p.y} vs ${deux.bas})`);
+  assert.ok(deux.p.x >= deux.droite,
+    `la signature doit être à DROITE du contenu (${deux.p.x} vs ${deux.droite})`);
+});
+
 test('★ œuf — chaque étape porte son titre de registre', () => {
   const sc = scenarioDeLOeuf('cheval sur oiseau');
   for (const st of sc.steps) {
