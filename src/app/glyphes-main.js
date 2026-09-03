@@ -1,11 +1,11 @@
 /**
- * ★ **LA PAGE DE COMPARAISON DES GLYPHES — `AB-glyphes.html`.**
+ * ★ **LA PAGE DE COMPARAISON DES GLYPHES — `glyphes.html`.**
  *
  * > « Fais une page AB-glyphes qui affiche l'alphabet complet version actuelle
  * >   et version JetBrains, en minuscule et en majuscule ; comme ça je verrai
  * >   bien ce que j'en pense. » (l'auteur)
  *
- * Trois colonnes par signe, et l'ordre n'est pas indifférent :
+ * Quatre colonnes par signe, et l'ordre n'est pas indifférent :
  *
  *  1. **LA POLICE** — la lettre écrite en JetBrains Mono, c'est-à-dire
  *     EXACTEMENT ce que la scène affiche sur sa ligne (`visuel/constants.js ›
@@ -14,9 +14,19 @@
  *     copie que quelqu'un aurait extraite ;
  *  2. **LE TRACÉ ACTUEL** — `moteur/tables/glyphes.js`, celui que la zone de
  *     traçage dessine aujourd'hui pour `mtrb`, `mexb` et `mbob` ;
- *  3. **LE TRACÉ DÉRIVÉ** — le candidat produit par `src/gfx/jetbrains-traces.py`
- *     à partir des mesures de la police. Bas de casse seulement : les capitales
- *     n'ont pas encore de recette.
+ *  3. **LA RECETTE** — le candidat produit par `src/gfx/jetbrains-traces.py`,
+ *     qui pose des arcs elliptiques sur les mesures de la police ;
+ *  4. **LE SQUELETTE** — celui que `src/gfx/jetbrains-squelette.py` EXTRAIT par
+ *     érosion du contour réel (`_glyphes-squelette.js`).
+ *
+ * ★ **LA TROISIÈME COLONNE DEVINE, LA QUATRIÈME MESURE**, et c'est tout l'objet
+ *   de les avoir côte à côte. Une recette décrit une courbe par un arc, qui n'a
+ *   qu'un seul sens de courbure et un seul jeu de rayons ; l'érosion suit
+ *   l'axe médian du dessin, quel qu'il soit. Sur un `s` — deux inversions de
+ *   courbure — l'écart cesse d'être une nuance.
+ *
+ * ⚠️ Bas de casse seulement pour les deux dernières : les capitales n'ont ni
+ *   recette ni squelette.
  *
  * ★ **LE DÉFAUT SE VOIT ENTRE LA 1ʳᵉ ET LA 2ᵈ COLONNE**, et c'est tout l'objet
  *   de la page : « le glyphe qui est mené dans la zone de traçage devrait
@@ -24,7 +34,7 @@
  *   double-étage et ressort en lentille, un `l` qui entre avec un empattement et
  *   ressort en barre nue — la page le montre sans qu'on ait à l'affirmer.
  *
- * ⚠️ **LES COMPTES SONT AFFICHÉS SOUS CHAQUE TRACÉ**, parce qu'ils sont l'enjeu
+ * ⚠️ **LES COMPTES SONT AFFICHÉS SOUS LES DEUX TRACÉS QUI EN ONT**, parce qu'ils sont l'enjeu
  *   caché du redessin : `traits`, `extrémités`, `boucles` nourrissent trois
  *   opérateurs du catalogue, et un dessin plus juste qui changerait un compte
  *   déplacerait des scores. Les voir côte à côte dit d'un coup d'œil ce qu'un
@@ -35,13 +45,14 @@ import { e, svg as s } from './dom.js';
 import { GLYPHES, METRIQUES } from '../moteur/tables/glyphes.js';
 import { setGlyphes, deriveGlyph } from '../visuel/glyphes.js';
 import { CANDIDATS, MESURES } from '../gfx/_glyphes-candidats.js';
+import { SQUELETTES } from '../gfx/_glyphes-squelette.js';
 
 setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
 
 const MINUSCULES = [...'abcdefghijklmnopqrstuvwxyz'];
 const CAPITALES = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
 
-/* ★ **LA BOÎTE EST LA MÊME POUR LES TROIS COLONNES**, et c'est ce qui rend la
+/* ★ **LA BOÎTE EST LA MÊME POUR LES QUATRE COLONNES**, et c'est ce qui rend la
    page honnête : deux dessins à des échelles différentes se comparent mal, et
    un `viewBox` ajusté au contenu ferait paraître grand ce qui est petit. On
    fixe donc un cadre unique, assez large pour contenir les deux répertoires —
@@ -143,6 +154,7 @@ function case_(titre, traits, jonctions, teinte) {
 function rangee(c) {
   const actuel = GLYPHES[c];
   const candidat = CANDIDATS[c];
+  const squelette = SQUELETTES[c];
   return e('section.gl__rangee', {}, [
     e('h2.gl__lettre', { texte: c }),
     caseDeLaPolice(c),
@@ -150,18 +162,31 @@ function rangee(c) {
       ? case_('tracé actuel', actuel.traits, actuel.jonctions, 'var(--gold)')
       : e('div.gl__case.gl__case--vide', { texte: 'aucun tracé' }),
     candidat
-      ? case_('tracé dérivé', candidat.traits, candidat.jonctions, 'var(--rubric)')
+      ? case_('recette', candidat.traits, candidat.jonctions, 'var(--rubric)')
       : e('div.gl__case.gl__case--vide', { texte: 'pas de recette' }),
+    /* ⚠️ Le squelette n'affiche PAS ses comptes : son découpage en traits n'est
+       pas fiable sur les lettres à panse tangente (`b d g p q`), où l'érosion
+       sème une échelle de faux carrefours. Le DESSIN, lui, l'est — et c'est ce
+       qu'on regarde ici. Afficher des comptes qu'on sait faux les ferait passer
+       pour un résultat. */
+    squelette
+      ? e('div.gl__case', {}, [
+        dessin(squelette, 'var(--phos)'),
+        e('div.gl__nom', { texte: 'squelette' }),
+        e('div.gl__comptes', { texte: `${squelette.length} branche(s)` }),
+      ])
+      : e('div.gl__case.gl__case--vide', { texte: 'pas de squelette' }),
   ]);
 }
 
 function page() {
   return e('div.gl', {}, [
     e('header.gl__entete', {}, [
-      e('h1', { texte: 'Glyphes — police, tracé actuel, tracé dérivé' }),
+      e('h1', { texte: 'Glyphes — police, tracé actuel, recette, squelette' }),
       e('p.gl__appel', {
         texte: 'La première colonne est ce que la SCÈNE affiche sur sa ligne ; la deuxième, '
-          + 'ce que la zone de traçage dessine. Elles devraient se ressembler.',
+          + 'ce que la zone de traçage dessine aujourd’hui. La troisième DEVINE la courbe '
+          + 'avec des arcs, la quatrième l’EXTRAIT du contour par érosion.',
       }),
       e('p.gl__appel', {
         texte: `Sous chaque tracé : traits · extrémités · boucles — les trois comptes que `

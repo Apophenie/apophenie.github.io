@@ -825,13 +825,13 @@ def main():
     # ★ La SORTIE est un module de comparaison, pas la table du moteur. Tant que
     #   les tracés dérivés ne valent pas mieux que ceux qu'ils remplaceraient,
     #   ils n'ont rien à faire dans `glyphes.js` : ils vont sur la page
-    #   `AB-glyphes.html`, où l'auteur les met côte à côte avec la police et
+    #   `glyphes.html`, où l'auteur les met côte à côte avec la police et
     #   avec l'existant. Un dessin se juge à l'œil, pas au commit.
     lignes = ["/* ⚠️ ENGENDRÉ par `src/gfx/jetbrains-traces.py` — ne pas éditer à la main.",
               " *",
               " * Ce sont les tracés CANDIDATS, dérivés des mesures de JetBrains Mono. Ils ne",
               " * sont PAS ceux du moteur : `moteur/tables/glyphes.js` fait toujours foi. Ce",
-              " * fichier n'existe que pour la page de comparaison `AB-glyphes.html`.",
+              " * fichier n'existe que pour la page de comparaison `glyphes.html`.",
               " */",
               "export const CANDIDATS = {"]
     for c in 'abcdefghijklmnopqrstuvwxyz':

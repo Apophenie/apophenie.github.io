@@ -1,4 +1,4 @@
-/** Le quatrième passage de build — `AB-glyphes.html`.
+/** Le quatrième passage de build — `glyphes.html`.
  *
  *  Même raison que `vite.debug.config.js` et `vite.arbitrage.config.js` :
  *  `inlineDynamicImports` interdit plusieurs entrées dans une même
@@ -21,7 +21,7 @@ export default defineConfig({
     emptyOutDir: false,
     rollupOptions: {
       ...base.build.rollupOptions,
-      input: resolve(racine, 'src', 'AB-glyphes.html'),
+      input: resolve(racine, 'src', 'glyphes.html'),
     },
   },
 });

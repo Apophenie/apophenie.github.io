@@ -54,5 +54,5 @@ export const SAISIE_EN_VITRINE = 'Capitalisme';
 export const HORS_PLAN = Object.freeze([
   '/debug.html',
   '/AB-testing.html',
-  '/AB-glyphes.html',
+  '/glyphes.html',
 ]);
