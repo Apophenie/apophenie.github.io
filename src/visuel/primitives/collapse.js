@@ -175,7 +175,9 @@ export function plan(ctx) {
       // ③ tous s'effacent au contact, sauf celui qui redescend à sa place.
       for (const id of ids) {
         if (id === survivant) continue;
-        ctx.anim({ id, prop: 'opacity', to: 0, at: tContact - tRencontre * 0.35, dur: tRencontre * 0.35 });
+        // Solidaire : ce qui est posé sur l'exemplaire absorbé s'efface avec
+        // lui (voir la branche « annulation » plus bas).
+        ctx.animSolidaire({ id, prop: 'opacity', to: 0, at: tContact - tRencontre * 0.35, dur: tRencontre * 0.35 });
         ctx.scene.kill(id, ctx.where);
       }
       const p = origines.get(survivant);
@@ -205,8 +207,13 @@ export function plan(ctx) {
         for (const id of partants) ctx.scene.kill(id, ctx.where);
       } else {
         for (const id of partants) {
-          ctx.anim({ id, prop: 'opacity', to: 0, at: tContact - tRencontre * 0.3, dur: tRencontre * 0.3 });
-          ctx.anim({ id, prop: 'scale', to: 0.4, at: tContact - tRencontre * 0.3, dur: tRencontre * 0.3, ease: EASE.fade });
+          // Solidaire, pour la même raison que le souffle (`explosion.js`) :
+          // une rature, un halo, tout ce qui est POSÉ sur un exemplaire s'en va
+          // avec lui. Un décor qui survivrait à ce qu'il désigne désignerait le
+          // vide — c'est la faute que `highlight` avait déjà corrigée sur son
+          // cartouche, et qui revenait par la porte de l'annulation.
+          ctx.animSolidaire({ id, prop: 'opacity', to: 0, at: tContact - tRencontre * 0.3, dur: tRencontre * 0.3 });
+          ctx.animSolidaire({ id, prop: 'scale', to: 0.4, at: tContact - tRencontre * 0.3, dur: tRencontre * 0.3, ease: EASE.fade });
           ctx.scene.kill(id, ctx.where);
         }
       }

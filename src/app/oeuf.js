@@ -183,10 +183,18 @@ const anagramme = (mots) => {
  *
  * ★ **SA LARGEUR DE DÉPART S'ÉCRIT EN SIGNES, et c'est ce qui évite un nombre
  *   magique** : `text` porte autant d'espaces que la plus longue des deux
- *   lignes a de lettres, plus une. Le scénario ne connaît pas les métriques de
+ *   lignes a de lettres, plus DEUX. Le scénario ne connaît pas les métriques de
  *   la scène — il ne DOIT pas les connaître —, mais il connaît la longueur d'un
  *   mot, et la scène sait ce que vaut un signe. `rule` ajuste ensuite au
  *   dixième d'unité.
+ *
+ * ⚠️ Plus UNE, et c'était trop court d'une chasse entière : un mot de `n`
+ *   lettres occupe `n` chasses ET ses `n−1` écarts, et le trait doit encore
+ *   déborder d'une demi-chasse de chaque côté. Mesuré sur « cheval » : 201,6
+ *   pour une couverture de 231,6 — la barre ne couvrait pas son numérateur
+ *   pendant la seconde et demie qui précède le premier `rule`, c'est-à-dire
+ *   pendant tout le temps où l'on découvre l'énoncé. Plus deux tombe à 230,4,
+ *   à une unité et deux dixièmes près.
  */
 const filet = (id, signes) => ({ id, role: 'filet', kind: 'sep', text: ' '.repeat(signes) });
 
@@ -228,7 +236,7 @@ function jetonsDeDepart(mots, pi) {
   const haut = [...mots.cheval].map((c, i) => tok(`h${i}`, c));
   const bas = [...mots.oiseau].map((c, i) => tok(`b${i}`, c));
   bas[0].breakBefore = true;
-  const large = Math.max([...mots.cheval].length, [...mots.oiseau].length) + 1;
+  const large = Math.max([...mots.cheval].length, [...mots.oiseau].length) + 2;
   const trait = { ...filet('barre', large), breakBefore: true };
   return [
     ...haut,
@@ -266,7 +274,7 @@ function etapes(mots, pi) {
   //    langue change (comme il le fait pour une vraie voie).
   const dire = (cle) => t(`oeuf.${cle}`);
   const L = casseDuL(mots);
-  const large = Math.max([...mots.cheval].length, [...mots.oiseau].length) + 1;
+  const large = Math.max([...mots.cheval].length, [...mots.oiseau].length) + 2;
 
   /* ① CHEVAL devient VACHE L.
 
@@ -367,7 +375,15 @@ function etapes(mots, pi) {
         Quatre ateliers, un par conversion : « une par une avec déplacement
         bête à → β puis redescente de β, ou remontée pour la partie sous la
         barre de fraction » (l'auteur). Les regrouper aurait fait paraître
-        quatre β et π d'un coup, sans qu'on voie lequel vient d'où. */
+        quatre β et π d'un coup, sans qu'on voie lequel vient d'où.
+
+        ★ **ET UN CINQUIÈME TEMPS QUAND L'ÉNONCÉ PORTE SON « = pi ».** Ce
+          `pi`-là devient π lui aussi, et il lui faut sa place dans l'étape —
+          voir le `substitute` plus bas, qui dit pourquoi il ne peut pas la
+          prendre sur celle d'un atelier voisin. `decalPi` est ce qu'il coûte
+          au reste de l'étape, et il vaut ZÉRO dans l'autre branche : celle-là
+          n'a rien à convertir, donc rien à attendre. */
+  const decalPi = pi ? 1500 : 0;
   const s3 = {
     id: 's_oeuf_3',
     title: dire('synthese'),
@@ -391,25 +407,39 @@ function etapes(mots, pi) {
         at: 2800,
         dur: 2400,
       },
-      /* ★ **LE `pi` DE LA SAISIE DEVIENT π AU MÊME INSTANT.** « Pi sera
-         converti en symbole en même temps que les autres apparitions de
-         symbole » (l'auteur). C'est un `substitute` et non un atelier : celui
-         de droite n'est pas DÉMONTRÉ, il est recopié de l'énoncé — lui ouvrir
-         une accolade lui donnerait une justification qu'il n'a pas. */
+      /* ★ **LE `pi` DE LA SAISIE DEVIENT π DANS LE MÊME TEMPS — pas dans la
+         même milliseconde.** « Pi sera converti en symbole en même temps que
+         les autres apparitions de symbole » (l'auteur). C'est un `substitute`
+         et non un atelier : celui de droite n'est pas DÉMONTRÉ, il est recopié
+         de l'énoncé — lui ouvrir une accolade lui donnerait une justification
+         qu'il n'a pas.
+
+         ⚠️ Il se posait à `3400`, en plein milieu de l'atelier « pie → π »
+           (2800 → 5200), et depuis que les rangs d'une fraction partagent l'axe
+           du trait (`visuel/layout.js`), les deux gestes se contredisent : « pi »
+           compte deux signes et « π » un seul, donc le membre de droite
+           rétrécit, donc l'expression entière se recentre — pendant que
+           l'atelier déplace déjà ces mêmes jetons. Quatre avertissements
+           « animations concurrentes » à la compilation, et à l'écran deux
+           mouvements qui se marchent dessus.
+
+         Il se pose donc À LA SUITE, à l'instant où le π du numérateur vient de
+         prendre sa place : les deux π sont neufs du même temps de la
+         démonstration, ce qui est ce que l'auteur demande. */
       ...(pi ? [{
         op: 'substitute',
         pairs: [{ target: 'pi', to: tok('P2', 'π') }],
-        at: 3400,
-        dur: 1000,
+        at: 5200,
+        dur: 900,
       }] : []),
-      { op: 'rule', id: 'barre', couvre: { all: true }, at: 4600, dur: 700 },
+      { op: 'rule', id: 'barre', couvre: { all: true }, at: 4600 + decalPi, dur: 700 },
       {
         op: 'convert',
         targets: ['qb0', 'qbs1', 'qb1'],
         to: [tok('B2', 'β')],
         label: dire('synthese'),
         sens: 'bas',
-        at: 5300,
+        at: 5300 + decalPi,
         dur: 2800,
       },
       {
@@ -418,10 +448,10 @@ function etapes(mots, pi) {
         to: [tok('L2', L)],
         label: dire('synthese'),
         sens: 'bas',
-        at: 8100,
+        at: 8100 + decalPi,
         dur: 2400,
       },
-      { op: 'rule', id: 'barre', couvre: { all: true }, at: 10200, dur: 700 },
+      { op: 'rule', id: 'barre', couvre: { all: true }, at: 10200 + decalPi, dur: 700 },
     ],
   };
 
@@ -483,14 +513,28 @@ function etapes(mots, pi) {
       },
       // Les espaces qui séparaient des mots dont il ne reste rien.
       { op: 'drop', targets: ['qhs2', 'qbs2'], mode: 'erase', at: 6200, dur: 700 },
-      /* Le trait n'a plus rien à séparer : il se referme, puis s'en va. Et
-         parce qu'il portait la coupure de ligne, sa mort fait remonter « = π »
-         sur le rang du π — « la conclusion est alors π = π ». */
+      /* Le trait n'a plus rien à séparer : il se referme sur place, puis s'en
+         va. Il ne referme PAS la ligne en partant — il emporte seulement sa
+         coupure, et c'est le `move` qui suit qui rassemble ce qui reste. */
       { op: 'rule', id: 'barre', to: 0, retire: true, at: 6900, dur: 1200 },
-      // Une ligne unique se recentre verticalement d'elle-même : « enfin Pi
-      // restant descend à hauteur principale ».
+      /* ★ **LA DESCENTE EST UN SEUL MOUVEMENT, et c'est `rule` qui le permet.**
+         « Enfin Pi restant descend à hauteur principale » (l'auteur) : le trait
+         mort quitte le flux sans refermer la ligne derrière lui, et ce `move`
+         referme tout d'un coup — le rang du dénominateur, celui du trait, et la
+         coupure qu'il portait. Le π rejoint la ligne de base en une fois, et
+         « = π » l'y rejoint : « la conclusion est alors π = π » (l'auteur).
+
+         ⚠️ Il descendait en DEUX temps : le retrait du trait reflowait avant de
+           le tuer, donc la mise en page passait par un état à deux rangs dont
+           celui du milieu était vide, et le π s'arrêtait à mi-hauteur (y 162 →
+           201) avant de finir ici (201 → 240). Voir `primitives/rule.js`. */
       { op: 'move', at: 8100, dur: 1000 },
     ],
+    /* Le temps de regarder le résultat avant la conclusion. Sans lui, le π se
+       pose et « C.Q.F.D. » paraît dans la foulée — « son retour sur la ligne de
+       base […] arrive dans un second temps avec CQFD » (l'auteur). La chute a
+       besoin d'un silence, pas d'un enchaînement. */
+    hold: 800,
   };
 
   /* ⑤ La fin, et il y en a DEUX — c'est la saisie qui décide.

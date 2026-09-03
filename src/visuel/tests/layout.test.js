@@ -5,7 +5,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { layoutFlow, defaultLayoutOptions, defaultMetrics, measureText, bboxOf, charCenter, fitScale } from '../layout.js';
+import {
+  layoutFlow, defaultLayoutOptions, defaultMetrics, measureText, bboxOf, charCenter, fitScale, filetD,
+} from '../layout.js';
 import { VIEWBOX } from '../constants.js';
 
 const metrics = defaultMetrics();
@@ -111,4 +113,64 @@ test('charCenter remplace getStartPositionOfChar (chasse fixe)', () => {
 test('fitScale ne grossit jamais au-delà de 1', () => {
   assert.equal(fitScale(10, 10, opts), 1);
   assert.ok(fitScale(VIEWBOX.w * 2, 10, opts) < 1);
+});
+
+/**
+ * ★ **L'AXE PARTAGÉ — une fraction n'est pas trois lignes empilées.**
+ *
+ * Chaque rang se centre sur lui-même, et c'est juste tant que les rangs n'ont
+ * rien à se dire. Une FRACTION, si : numérateur, trait et dénominateur
+ * partagent un axe, et c'est cet axe qui en fait une fraction plutôt que trois
+ * lignes posées l'une sur l'autre.
+ *
+ * ⚠️ MESURÉ sur l'œuf — « la part = Pi, quand présente, vient trop à
+ *   l'intérieur, là où devrait être la barre de fraction » (l'auteur). Le
+ *   « = π » se pose à la droite du trait, donc sur SON rang ; ce rang devenait
+ *   le plus large, son centrage emportait le trait 84 unités vers la gauche, et
+ *   le numérateur restait, lui, au milieu de la scène — donc le débordait par
+ *   la droite, très exactement là où l'égalité venait s'écrire.
+ */
+test('★ l’axe reporte les autres rangs — et sans appendice, rien ne change', () => {
+  const a = metrics.advance;
+  const rang = (id, w, coupe) => ({ id, w, ...(coupe ? { breakBefore: true } : {}) });
+  const trois = [
+    rang('num', 6 * a),
+    { ...rang('trait', 8 * a, true), axe: true },
+    rang('app', 3 * a),                    // l'appendice, à la droite du trait
+    rang('den', 5 * a, true),
+  ];
+  const avec = layoutFlow(trois, { ...opts, coupuresExplicites: true }).positions;
+  assert.equal(avec.get('num').x, avec.get('trait').x, 'le numérateur se centre sur l’axe');
+  assert.equal(avec.get('den').x, avec.get('trait').x, 'le dénominateur aussi');
+  // Ce qui accompagne le trait reste HORS de ce qu'il sépare.
+  assert.ok(avec.get('app').x - 1.5 * a >= avec.get('trait').x + 4 * a,
+    'l’appendice mord sur le trait');
+  // Et l'expression entière, appendice compris, garde le centre de la scène :
+  // c'est le rang de l'axe qui tient cet équilibre, et il ne bouge pas.
+  const g = Math.min(...[...avec.values()].map((p) => p.x - p.w / 2));
+  const d = Math.max(...[...avec.values()].map((p) => p.x + p.w / 2));
+  assert.ok(Math.abs((g + d) / 2 - opts.centerX) < 0.001, 'l’expression n’est plus centrée');
+
+  // ★ SANS APPENDICE, l'axe ne change RIEN : les deux centres coïncident. La
+  //   correction est un élargissement, pas un changement de régime.
+  const sansApp = trois.filter((i) => i.id !== 'app');
+  const axe = layoutFlow(sansApp, { ...opts, coupuresExplicites: true }).positions;
+  const nu = layoutFlow(
+    sansApp.map(({ axe: _ignore, ...i }) => i), { ...opts, coupuresExplicites: true },
+  ).positions;
+  for (const id of ['num', 'trait', 'den']) {
+    assert.deepEqual(axe.get(id), nu.get(id), `« ${id} » bouge alors qu’aucun appendice ne l’y oblige`);
+  }
+});
+
+/**
+ * Le tracé d'un trait se déduit de sa largeur, et il vit ici parce que trois
+ * modules en ont besoin : `rule` l'anime, `scene` le pose à la naissance du
+ * trait, `dom` s'en sert de repli.
+ */
+test('filetD : un segment centré sur son ancre, jamais de largeur négative', () => {
+  assert.equal(filetD(50), 'M -50 0 H 50');
+  assert.equal(filetD(0), 'M 0 0 H 0');
+  assert.equal(filetD(-7), 'M 0 0 H 0', 'une demi-largeur négative ne dessine rien');
+  assert.equal(filetD(1 / 3), 'M -0.333 0 H 0.333', 'arrondi au millième, donc déterministe');
 });

@@ -10,7 +10,7 @@
  * réversible par `seek()` en arrière.
  */
 
-import { layoutFlow, measureText } from './layout.js';
+import { layoutFlow, measureText, filetD } from './layout.js';
 import { CAMERA_ID, PAN_ID, ENGINE_PREFIX, PALETTE, colorForKind } from './constants.js';
 import { fail } from './errors.js';
 
@@ -141,15 +141,40 @@ export class Scene {
       fail(`${where}identifiant « ${id} » déjà utilisé : un id créé n'est jamais recréé, un id supprimé n'est jamais réutilisé (CONTRACTS §3, invariant 4).`, { id });
     }
     const w = spec.w !== undefined ? spec.w : measureText(spec.text ?? '', this.metrics);
+    /* ★ **UN TRAIT S'ENCRE AU `stroke`, ET IL N'EN AVAIT AUCUN.**
+     *
+     * > « La barre de fraction a disparu. » (l'auteur)
+     *
+     * ⚠️ MESURÉ, et littéralement : le nœud de rôle `filet` naissait avec un
+     *   `fill` indéfini (réservé aux textes) et sans `stroke`. `dom.js` lui
+     *   pose bien `fill: "none"` et une épaisseur, mais l'encre du trait
+     *   venait d'une classe CSS — `.nhl-filet` — qui n'existe NULLE PART dans
+     *   les feuilles du dépôt. Un `<path>` sans `stroke` a pour valeur initiale
+     *   `none` : la barre était peinte, à sa place, à la bonne longueur, et
+     *   parfaitement invisible. Depuis le passage du `————` au filet, personne
+     *   ne l'avait jamais vue.
+     *
+     * L'encre vient donc de la PALETTE, comme celle des textes et pour la même
+     * raison : c'est elle qui porte le thème, et une couleur écrite en CSS
+     * aurait ouvert un second chemin par lequel un thème peut mentir.
+     *
+     * ★ **ET IL PORTE SON TRACÉ DÈS SA NAISSANCE.** Voir `layout.filetD` : le
+     *   dessin déduit de `node.w` est faux dès que `rule` a parlé, puisque
+     *   `rule` y écrit la largeur d'ARRIVÉE. */
+    const filet = (spec.role || 'text') === 'filet';
     const node = makeNode({
       ...spec,
       w,
+      data: filet && !(spec.data && spec.data.d)
+        ? { ...(spec.data || {}), d: filetD(w / 2) }
+        : spec.data,
       base: {
         translate: null,
         opacity: opt.initial ? 1 : 0,
         rotate: 0,
         scale: 1,
         fill: (spec.role || 'text') === 'text' ? colorForKind(spec.kind, this.palette) : undefined,
+        stroke: filet ? colorForKind(spec.kind, this.palette) : undefined,
         ...(spec.base || {}),
       },
     });
@@ -299,7 +324,14 @@ export class Scene {
   relayout() {
     const items = this.flow.map((id) => {
       const n = this.nodes.get(id);
-      return { id, w: n.w, gapBefore: n.gapBefore, breakBefore: n.breakBefore };
+      /* ★ **LE TRAIT EST L'AXE, et il n'a pas à le déclarer.** `layoutFlow`
+         sait reporter les rangs sur un axe (`item.axe`) ; reste à dire lequel.
+         C'est le rôle `filet` qui répond, et il répond seul : un trait de
+         fraction ne fait rien d'autre que SÉPARER deux rangs, donc les tenir
+         sur un même axe est sa définition, pas une option. Un scénario qui
+         devrait cocher une case en plus aurait pu l'oublier — et l'oublier ne
+         se voit que le jour où quelque chose se pose à la droite du trait. */
+      return { id, w: n.w, gapBefore: n.gapBefore, breakBefore: n.breakBefore, axe: n.role === 'filet' };
     });
     const res = layoutFlow(items, this.layoutOpts);
     this.lastLayout = res;

@@ -71,6 +71,29 @@ export function measureText(text, metrics) {
 }
 
 /**
+ * Le `d` d'un trait de demi-largeur `W`, centré sur son ancre.
+ *
+ * ★ **IL VIT ICI, ET PLUS DANS `rule`, PARCE QU'IL N'EST PLUS À `rule` SEUL.**
+ *   Le dessin d'un filet est la traduction directe de la largeur que le layout
+ *   lui donne — la même arithmétique que `measureText`, prise dans l'autre
+ *   sens. Trois modules en ont besoin, et ce n'est pas un hasard : `rule`
+ *   l'anime, `scene` le pose à la naissance du trait, `dom` s'en sert de repli.
+ *
+ * ⚠️ **ET C'EST LA NAISSANCE QUI COMPTE.** `rule` écrit `node.w` à sa valeur
+ *   d'ARRIVÉE ; or `dom.createElementFor` peint le nœud d'après son état FINAL,
+ *   `applyBase` d'après son état de naissance, et le canal discret ne parle
+ *   qu'à partir de son premier enregistrement. Un trait dont le dessin se
+ *   déduisait de `node.w` était donc peint à la largeur qu'il aurait à la fin —
+ *   zéro, quand il se retire — pendant tout le temps qui précède le premier
+ *   `rule`. MESURÉ sur l'œuf : la barre de fraction n'existait pas pendant les
+ *   1 500 premières millisecondes, et pas du tout en `seek(0)`.
+ */
+export function filetD(W) {
+  const w = Math.round(Math.max(0, W) * 1000) / 1000;
+  return `M ${-w} 0 H ${w}`;
+}
+
+/**
  * Dispose une suite d'éléments en ligne(s), centrée dans la zone utile.
  *
  * Par défaut (`opts.wrap !== true`) : **une seule ligne, toujours**, quelle que
@@ -104,7 +127,29 @@ export function measureText(text, metrics) {
  * cadré tant qu'il est le sujet, et `reveal` le remet à zéro pour que le
  * verdict retrouve le centre exact. Zéro par défaut : rien ne change.
  *
- * @param {{id:string,w:number,gapBefore?:number,breakBefore?:boolean}[]} items
+ * ★ **`item.axe` — L'AXE PARTAGÉ, ou pourquoi une fraction n'est pas trois
+ *   lignes indépendantes.**
+ *
+ * Chaque rang se centre sur lui-même, et c'est juste tant que les rangs n'ont
+ * rien à se dire : deux séries de 666 l'une sous l'autre se lisent chacune pour
+ * soi. Une FRACTION, non — numérateur, trait et dénominateur partagent un axe,
+ * et c'est cet axe qui fait d'eux une fraction plutôt que trois lignes empilées.
+ *
+ * ⚠️ MESURÉ sur l'œuf, et c'est le défaut relevé par l'auteur : « la part = Pi,
+ *   quand présente, vient trop à l'intérieur, là où devrait être la barre de
+ *   fraction ». `= π` se pose à la droite du trait, donc sur SON rang ; ce rang
+ *   devient plus large que les deux autres, son centrage le décale, et le trait
+ *   s'en va de 84 unités vers la gauche pendant que le numérateur reste au
+ *   milieu de la scène. Résultat : le numérateur débordait le trait par la
+ *   droite, et le `= π` venait s'écrire sous sa queue.
+ *
+ * Le rang qui porte l'axe garde donc son centrage — c'est lui qui équilibre
+ * l'expression entière, appendice compris —, et tous les autres viennent se
+ * centrer sur l'axe LUI-MÊME, pas sur le milieu de la scène. Sans appendice les
+ * deux centres coïncident et rien ne change : la correction est un
+ * élargissement, pas un changement de régime.
+ *
+ * @param {{id:string,w:number,gapBefore?:number,breakBefore?:boolean,axe?:boolean}[]} items
  * @param {ReturnType<typeof defaultLayoutOptions>} opts
  * @returns {{positions: Map<string,{x:number,y:number,w:number,line:number}>,
  *            lines:number, width:number, height:number, overflow:boolean}}
@@ -149,17 +194,46 @@ export function layoutFlow(items, opts) {
   // 2. Placement : lignes centrées horizontalement, bloc centré verticalement.
   const totalH = lines.length * lineHeight;
   const y0 = centerY - totalH / 2 + lineHeight / 2;
-  let maxW = 0;
+  // L'axe, s'il y en a un : le premier item qui le déclare. Un second axe ne
+  // voudrait rien dire — deux fractions superposées n'en partagent pas un —,
+  // donc on ne lit que le premier plutôt que d'en arbitrer deux.
+  let axe = null;
   lines.forEach((line, li) => {
-    maxW = Math.max(maxW, line.w);
     let x = centerX - line.w / 2 + decalage;
     const y = y0 + li * lineHeight;
     for (const it of line.items) {
       x += it.g;
       positions.set(it.id, { x: round(x + it.w / 2), y: round(y), w: it.w, line: li });
+      if (!axe && it.axe) axe = { ligne: li, x: x + it.w / 2 };
       x += it.w;
     }
   });
+
+  // 3. Le report sur l'axe : tous les rangs SAUF le sien viennent se centrer
+  //    sur lui. Le rang de l'axe ne bouge pas — c'est lui qui tient l'équilibre
+  //    de l'expression entière, appendice compris (voir l'en-tête).
+  if (axe) {
+    const report = round(axe.x - (centerX + decalage));
+    if (report !== 0) {
+      for (const [id, p] of positions) {
+        if (p.line === axe.ligne) continue;
+        positions.set(id, { ...p, x: round(p.x + report) });
+      }
+    }
+  }
+
+  // ★ La largeur RENDUE est l'étendue réellement occupée, pas la plus large des
+  //   lignes : reportées sur un axe, elles ne se recouvrent plus colonne pour
+  //   colonne, et c'est cette étendue-là que le défilement doit cadrer. Sans
+  //   axe, les deux valeurs sont égales — toutes les lignes partagent le même
+  //   milieu.
+  let g = Infinity;
+  let d = -Infinity;
+  for (const p of positions.values()) {
+    g = Math.min(g, p.x - p.w / 2);
+    d = Math.max(d, p.x + p.w / 2);
+  }
+  const maxW = Number.isFinite(g) ? round(d - g) : 0;
 
   return { positions, lines: lines.length, width: maxW, height: totalH, overflow: maxW > maxWidth };
 }

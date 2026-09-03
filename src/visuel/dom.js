@@ -22,6 +22,7 @@
 
 import { FONT_FAMILY, PALETTE } from './constants.js';
 import { glyphTransform } from './assets.js';
+import { filetD } from './layout.js';
 import { feuDe } from './primitives/feu.js';
 
 export const SVGNS = 'http://www.w3.org/2000/svg';
@@ -292,8 +293,19 @@ export function createElementFor(node, env) {
       // Pas de `stroke-dasharray` : ce trait ne se TRACE pas comme une
       // accolade, il est là dès le premier temps — c'est l'énoncé, pas un
       // geste — et il ne fait ensuite que se raccourcir.
+      //
+      // ⚠️ **ET SON ENCRE VIENT DE `base.stroke`, jamais de `.nhl-filet`.** La
+      //   classe est là pour qui voudrait le désigner ; elle n'a jamais porté
+      //   de couleur, et un `<path>` sans `stroke` a pour valeur initiale
+      //   `none`. La barre de fraction de l'œuf était donc peinte, à sa place,
+      //   à la bonne longueur, et parfaitement invisible — jusqu'à ce que
+      //   `scene.create` lui donne l'encre de son `kind` (voir là-bas).
+      //
+      // Le repli sur `node.w` ne sert plus qu'aux traits nés hors `Scene` :
+      // celle-ci pose `data.d` à la naissance, parce que `node.w` porte, dès
+      // que `rule` a parlé, la largeur d'ARRIVÉE et non celle du moment.
       element = el('path', {
-        d: node.data && node.data.d ? node.data.d : `M ${-node.w / 2} 0 H ${node.w / 2}`,
+        d: node.data && node.data.d ? node.data.d : filetD(node.w / 2),
         fill: 'none',
         'stroke-width': 2.5,
         'stroke-linecap': 'round',
