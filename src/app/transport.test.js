@@ -176,3 +176,79 @@ test('★ transport — pas de sélecteur quand le mouvement est réduit', () =>
   const tr = creerTransport(lecteurFactice({ reduced: true }), {}, { repetitions: 5 });
   assert.ok(!roles(tr).includes('vitesse'), 'un réglage inerte ne s’affiche pas');
 });
+
+/* ═════════════════════ La barre sur DEUX lignes ══════════════════════════ */
+
+/** La barre elle-même : `.transport-groupe` porte la jauge PUIS la rangée. */
+const rangee = (tr) => [...parcourir(tr.element)].find((n) => n.classes.has('transport'));
+
+/** Tout ce que la barre peut porter : neuf contrôles, le maximum. */
+const options = (extra = {}) => ({
+  repetitions: 5,
+  sons: { disponible: true, debloque: false, on: () => () => {} },
+  pleinEcran: { disponible: true, actif: () => false, basculer() {}, on: () => () => {} },
+  ...extra,
+});
+
+/**
+ * ⚠️ **LE DÉBORDEMENT DE LA SCÈNE VENAIT DE SES COMMANDES.**
+ *
+ * > « En portrait, la scène déborde sur le côté, elle ne s'adapte pas
+ * >   correctement à la taille de l'écran. Si c'est l'ajout de plus d'éléments
+ * >   dans le player, alors ce player doit passer sur 2 lignes sur écran étroit
+ * >   (en coupant après Fin, pour que vitesse, redite, agrandir et son soient
+ * >   sur la 2nde ligne). » (l'auteur)
+ *
+ * Mesuré sur un écran de 390 px : la rangée réclamait 466 px (526 avec le son),
+ * la colonne `.demo__scene` s'élargissait pour la contenir, et le SVG, en
+ * `width: 100%`, sortait de l'écran à sa suite. La `viewBox` du moteur n'y
+ * était pour rien.
+ *
+ * ★ **UN CONTENEUR PLUTÔT QU'UN SEUIL EN PIXELS.** La barre porte de six à neuf
+ *   contrôles selon ce que le navigateur permet, et les libellés n'ont pas la
+ *   même longueur en français et en anglais : aucune largeur écrite ici
+ *   n'aurait été juste pour toutes les combinaisons. Les quatre réglages réunis
+ *   dans un seul élément flex, c'est le navigateur qui replie — et la coupure
+ *   tombe toujours APRÈS « Fin », par construction et non par arithmétique.
+ */
+test('★ transport — les réglages font un bloc, et la coupure tombe après « Fin »', () => {
+  const tr = creerTransport(lecteurFactice(), {}, options());
+  const barre = rangee(tr);
+  assert.deepEqual(
+    barre.enfants.map((n) => n.dataset.role || n.className),
+    ['debut', 'precedent', 'lecture', 'suivant', 'fin', 'transport__reglages'],
+    'la rangée doit se lire : les cinq commandes, puis UN bloc de réglages',
+  );
+  assert.deepEqual(
+    barre.enfants[5].enfants.map((n) => n.dataset.role),
+    ['vitesse', 'redites', 'son', 'pleinEcran'],
+    'les quatre réglages demandés, dans l’ordre, et tous dans le même bloc',
+  );
+});
+
+/** Une boîte flex sans enfant compterait quand même dans la gouttière de la
+ *  rangée : elle ajouterait une gouttière après « Fin » pour ne rien contenir.
+ *  Le cas se produit vraiment — la révélation du logo ne règle ni redites ni
+ *  son, et le mouvement réduit retire jusqu'à la vitesse. */
+test('★ transport — pas de bloc de réglages quand il n’y a rien à régler', () => {
+  const tr = creerTransport(lecteurFactice({ reduced: true }), {}, {});
+  const barre = rangee(tr);
+  assert.equal(barre.enfants.length, 5, 'un conteneur vide traîne dans la rangée');
+  assert.ok(!barre.enfants.some((n) => n.classes.has('transport__reglages')));
+});
+
+/** ★ Et c'est bien `flex-wrap` qui replie : sans lui, la rangée pousse la
+ *  colonne au lieu de passer à la ligne, et le bloc de réglages ne sert à rien.
+ *  Les deux moitiés de la correction vivent dans deux fichiers ; seule une
+ *  lecture croisée les tient ensemble. */
+test('★ transport — la rangée sait se replier (le CSS le dit)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const css = readFileSync(fileURLToPath(new URL('../styles/controls.css', import.meta.url)), 'utf8');
+  const bloc = css.match(/\n\.transport \{([\s\S]*?)\n\}/);
+  assert.ok(bloc, 'la rangée n’est plus décrite dans controls.css');
+  assert.match(bloc[1], /flex-wrap:\s*wrap/,
+    'sans `flex-wrap`, la rangée déborde au lieu de passer à la ligne');
+  assert.match(css, /\.transport__reglages \{[\s\S]*?flex-wrap:\s*wrap[\s\S]*?\n\}/,
+    'le bloc des réglages doit se replier lui aussi sur un écran très étroit');
+});

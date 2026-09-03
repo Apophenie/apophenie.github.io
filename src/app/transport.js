@@ -324,14 +324,44 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     bPlein.dataset.role = 'pleinEcran';
   }
 
-  const barre = e('div.transport', {
-    role: 'group',
-    'aria-label': tt('groupe'),
-  }, [bDebut, bPrec, bLect, bSuiv, bFin,
+  /* ══ LES RÉGLAGES SONT UN BLOC, ET C'EST CE BLOC QUI PASSE À LA LIGNE ══════
+     > « En portrait, la scène déborde sur le côté […] ce player doit passer sur
+     >   2 lignes sur écran étroit (en coupant après Fin, pour que vitesse,
+     >   redite, agrandir et son soient sur la 2nde ligne) » (l'auteur).
+
+     ⚠️ **LE DÉBORDEMENT VENAIT D'ICI, ET IL TIRAIT LA SCÈNE AVEC LUI.** Mesuré
+       sur un écran de 390 px : la barre réclamait 466 px de large (526 avec le
+       bouton du son), la colonne `.demo__scene` s'élargissait pour la contenir,
+       et le SVG, qui fait `width: 100%`, sortait de l'écran à sa suite. Le
+       coupable n'était donc pas le moteur visuel — sa `viewBox` est fixe — mais
+       une rangée de neuf boutons qui ne savait pas se replier.
+
+     ★ **UN CONTENEUR PLUTÔT QU'UN POINT DE RUPTURE EN PIXELS.** On aurait pu
+       poser un séparateur `flex-basis: 100%` sous une largeur donnée. Il aurait
+       fallu la calculer, et elle n'est PAS calculable : la barre porte de six à
+       neuf contrôles selon ce que le navigateur permet (son, plein écran), et
+       les libellés — visibles au-delà de 560 px — n'ont pas la même longueur en
+       français et en anglais. Toute valeur écrite ici aurait été juste pour une
+       combinaison et fausse pour les autres. Les quatre réglages étant réunis
+       dans un seul élément flex, c'est le navigateur qui décide : le bloc reste
+       en bout de rangée tant qu'il y tient, et bascule d'un seul tenant sur une
+       seconde ligne dès qu'il n'y tient plus. La coupure tombe donc toujours
+       APRÈS « Fin », sans qu'aucun seuil n'ait à être maintenu. */
+  const reglages = [
     // La vitesse AVANT les redites : le plus général devant, le plus
     // particulier derrière — voir le pavé de `bVitesse`.
     ...(bVitesse ? [bVitesse] : []), ...(bRedites ? [bRedites] : []),
-    ...(bSon ? [bSon] : []), ...(bPlein ? [bPlein] : [])]);
+    ...(bSon ? [bSon] : []), ...(bPlein ? [bPlein] : []),
+  ];
+  /* Aucun réglage disponible — la révélation du logo, un navigateur sans plein
+     écran ni son en mouvement réduit : pas de conteneur vide. Une boîte flex
+     sans enfant compterait quand même dans la gouttière de la rangée. */
+  const blocReglages = reglages.length ? e('div.transport__reglages', {}, reglages) : null;
+
+  const barre = e('div.transport', {
+    role: 'group',
+    'aria-label': tt('groupe'),
+  }, [bDebut, bPrec, bLect, bSuiv, bFin, ...(blocReglages ? [blocReglages] : [])]);
 
   const element = e('div.transport-groupe', {}, [jauge, barre]);
 
