@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Glyphes — police, tracé actuel, recette, squelette, recalé</title>
+<title>Glyphes — police, actuel, recette, squelette, recalé, apparié</title>
 <meta name="color-scheme" content="dark light">
 
 <!-- ★ HORS DU SITE, comme `debug.html` et `AB-testing.html`.
 
      Aucun lien n'y mène, `robots` la tient à l'écart, et elle ne propose aucun
      retour. Ce n'est pas une page du site : c'est l'instrument qui met UN MÊME
-     SIGNE sous cinq formes côte à côte, pour qu'un dessin se juge à l'œil
+     SIGNE sous six formes côte à côte, pour qu'un dessin se juge à l'œil
      plutôt qu'à l'argument.
 
      ★ Elle s'appelait `AB-glyphes.html` quand elle opposait deux colonnes. Elle
@@ -29,7 +29,7 @@
      du site : lui donner une feuille dans `src/styles/` la ferait charger par
      les trois autres cibles pour rien, et surtout elle finirait par être
      entretenue comme si elle comptait. */
-.gl { max-width: 108rem; margin: 0 auto; padding: 2rem 1rem 6rem; }
+.gl { max-width: 124rem; margin: 0 auto; padding: 2rem 1rem 6rem; }
 .gl__entete { margin-bottom: 2.5rem; }
 .gl__appel { color: var(--ink-soft, #9a9); max-width: 60ch; line-height: 1.5; }
 .gl__titre {
@@ -38,7 +38,7 @@
 }
 .gl__rangee {
   display: grid;
-  grid-template-columns: 2.4rem repeat(5, 1fr);
+  grid-template-columns: 2.2rem repeat(6, 1fr);
   align-items: start;
   gap: 1rem;
   padding: .75rem 0;

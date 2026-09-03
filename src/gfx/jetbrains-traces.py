@@ -688,8 +688,14 @@ def _points_arc(x0, y0, rx, ry, grand, sens, x1, y1, n=48):
             for i in range(n + 1)]
 
 
-def boite_du_trace(d):
-    """La boîte réellement occupée par un `d` — arcs échantillonnés compris."""
+def points_du_trace(d):
+    """La POLYLIGNE d'un `d` — arcs et Bézier échantillonnés.
+
+    ★ Exportée parce qu'elle sert deux fois pour deux raisons opposées : ici
+      pour BORNER un tracé (`boite_du_trace`), et dans `jetbrains-squelette.py`
+      pour le SUIVRE — l'appariement des traits déclarés au squelette mesuré a
+      besoin de savoir où passe chaque trait, pas seulement jusqu'où il va.
+    """
     jetons = [(m.group(1), m.group(2)) for m in _JETON.finditer(d)]
     pts, cmd, args, x, y, dep = [], None, [], 0.0, 0.0, (0.0, 0.0)
     i = 0
@@ -743,6 +749,12 @@ def boite_du_trace(d):
         else:
             pts.extend([(args[k], args[k + 1]) for k in range(0, n, 2)])
             x, y = args[-2], args[-1]
+    return pts
+
+
+def boite_du_trace(d):
+    """La boîte réellement occupée par un `d` — arcs échantillonnés compris."""
+    pts = points_du_trace(d)
     xs = [p[0] for p in pts]
     ys = [p[1] for p in pts]
     return {'x0': min(xs), 'x1': max(xs), 'y0': min(ys), 'y1': max(ys)}

@@ -46,18 +46,20 @@
   une extrémité au même titre que p, alors que ça n'aurait pas été le cas avec
   une autre font ».
 
-⚠️ **CE QUI RESTE, ET POURQUOI CE N'EST PAS UN RÉGLAGE.** Le découpage en TRAITS
-  n'est pas propre sur les lettres à panse tangente — `b d g p q`. Là où la
-  panse rejoint le fût, elle ne le touche pas en un point mais le longe sur une
-  zone ; l'amincissement y sème une échelle de petits « Y » répartis sur toute
-  la tangence, trop éloignés les uns des autres pour se fusionner par
-  proximité. Un `b`, qui a deux jonctions, en déclare six.
+★ **ET LE DÉCOUPAGE EN TRAITS EST RÉSOLU — par `apparier`, en fin de fichier.**
+  Il ne l'a pas été en cherchant mieux DANS le squelette. Les crochets que
+  l'amincissement sème là où la panse rejoint le fût ne sont pas des artefacts :
+  ce sont de VRAIES branches de l'axe médian, celles des congés que la police
+  pose à ses jonctions. Aucun filtre géométrique ne les distingue d'un trait,
+  puisqu'ils EN SONT un — trois tours de critères l'ont vérifié à leurs dépens.
 
-  Ce n'est pas gênant pour le DESSIN — le squelette est juste — mais ça l'est
-  pour `glyphes.js`, qui demande des sous-chemins nommés et des jonctions
-  déclarées, et dont les comptes nourrissent `mtrb`, `mexb` et `mbob`. Il
-  manque la simplification de graphe : fusionner les branches qui se prolongent
-  (angle proche de 180° au carrefour) pour reconstituer des traits continus.
+  Ils disparaissent quand on cesse de les chasser : chaque pixel rejoint le
+  trait DÉCLARÉ par la recette le plus proche, et ce qui s'en écarte de trois
+  pixels se noie dans la moyenne au lieu d'en sortir. La topologie vient d'où
+  elle se lit, la géométrie d'où elle se mesure.
+
+⚠️ Le squelette BRUT, lui, garde ses branches de congé : c'est ce que montre la
+  colonne « squelette » de la page, à côté de la colonne « apparié ».
 
 ⚠️ **CE FICHIER NE PRODUIT DONC RIEN QUI ENTRE DANS LE DÉPÔT.** `glyphes.js`
   fait toujours foi, et les candidats de `jetbrains-traces.py` restent ceux que
@@ -697,13 +699,271 @@ def traces(ch, recale=False):
     return out
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  ★ **L'APPARIEMENT — la topologie DÉCLARÉE, la géométrie MESURÉE.**
+#
+#  > « Les recettes savent déjà que le `b` a deux traits et deux jonctions ; le
+#  >   squelette sait où ils passent, au dixième d'unité. Les apparier donnerait
+#  >   une topologie stable ET une géométrie mesurée. » — validé par l'auteur.
+#
+#  C'est la séparation que le générateur de recettes annonce depuis sa première
+#  ligne — « MESURÉ dans la police / DÉCLARÉ ici » —, appliquée pour de bon.
+#  Chacune des deux sources fait ce qu'elle sait faire, et rien d'autre :
+#
+#   · **LA RECETTE DIT LA TOPOLOGIE** : combien de traits, lesquels se touchent,
+#     où le crayon se lève. Rien de tout cela ne se mesure — c'est une lecture
+#     du dessin, et c'est ce qui donne des comptes stables à `mtrb`, `mexb` et
+#     `mbob`. Sa géométrie, en revanche, est devinée à coups d'arcs ;
+#   · **LE SQUELETTE DIT LA GÉOMÉTRIE**, exactement, puisqu'il est l'axe médian
+#     du contour réel. Mais sa topologie est intenable : là où la panse rejoint
+#     le fût, la police pose un CONGÉ, et l'axe médian d'un congé a une branche.
+#     Elle est mathématiquement juste ; c'est le dessinateur qui ne la trace pas,
+#     parce qu'il dessine des traits et non des surfaces.
+#
+#  ★ **ET LES CROCHETS DISPARAISSENT SANS QU'ON AIT À LES CHASSER.** Chaque pixel
+#    du squelette est attribué au trait déclaré le plus proche, puis à l'abscisse
+#    de ce trait où il se projette ; ce qui reste est la MOYENNE des pixels
+#    tombés sur chaque abscisse. Un crochet de congé, qui s'écarte du trait sur
+#    trois ou quatre pixels, est noyé dans cette moyenne au lieu d'en sortir. On
+#    ne l'a pas jugé : on ne lui a simplement pas donné de trait où aller.
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Combien d'abscisses par trait déclaré. Assez pour suivre une panse, pas assez
+#: pour qu'une abscisse n'attrape aucun pixel — le squelette n'en a que quelques
+#: centaines pour toute la lettre.
+ABSCISSES = 24
+
+
+def _projeter(p, guide):
+    """L'abscisse du guide dont `p` est le plus proche, et cette distance."""
+    meilleur, ou = None, 0
+    for k, q in enumerate(guide):
+        d = (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2
+        if meilleur is None or d < meilleur:
+            meilleur, ou = d, k
+    return ou, meilleur
+
+
+#: Sous quelle distance deux tracés se TOUCHENT, en unités du repère.
+#:
+#: ⚠️ **C'EST LA TOLÉRANCE DE `deriveGlyph`, et il faut que ce soit la même.**
+#:   Six unités sur la grille du dépôt (`visuel/glyphes.js › TOL`). En prendre
+#:   une autre reviendrait à relever des contacts que le comptage ne voit pas,
+#:   ou à en manquer qu'il voit — dans les deux cas, à reproduire une topologie
+#:   qui n'est pas celle qu'on croit reproduire.
+CONTACT = 6.0
+
+
+def _distSegment(p, a, b):
+    """Distance d'un point au SEGMENT `ab` — pas à ses extrémités."""
+    vx, vy = b[0] - a[0], b[1] - a[1]
+    n = vx * vx + vy * vy
+    if n < 1e-12:
+        return math.hypot(p[0] - a[0], p[1] - a[1])
+    t = max(0.0, min(1.0, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / n))
+    return math.hypot(p[0] - a[0] - t * vx, p[1] - a[1] - t * vy)
+
+
+#: Au-delà de cet angle, un sommet du guide est un COIN et non un tremblement.
+#: Quarante-cinq degrés : un empattement tourne à angle droit, une courbe de
+#: panse ne dévie que de quelques degrés par abscisse.
+COIN = math.radians(45)
+
+
+def _anguleux(guide):
+    """Les indices où le guide CHANGE DE DIRECTION franchement."""
+    dur = set()
+    for i in range(1, len(guide) - 1):
+        ax, ay = guide[i][0] - guide[i - 1][0], guide[i][1] - guide[i - 1][1]
+        bx, by = guide[i + 1][0] - guide[i][0], guide[i + 1][1] - guide[i][1]
+        na, nb = math.hypot(ax, ay), math.hypot(bx, by)
+        if na < 1e-9 or nb < 1e-9:
+            continue
+        cos = max(-1.0, min(1.0, (ax * bx + ay * by) / (na * nb)))
+        if math.acos(cos) > COIN:
+            dur.add(i)
+    return dur
+
+
+def _lisser(pts, dur=frozenset(), tours=2):
+    """Moyenne mobile sur trois points, en tenant les BOUTS et les COINS.
+
+    Chaque abscisse rend la moyenne d'une poignée de pixels, et une poignée de
+    pixels est bruitée : sur un trait droit, l'axe tremblait d'une unité ou deux
+    d'un point à l'autre — invisible isolément, très visible une fois relié par
+    des cubiques, qui amplifient toute inflexion.
+
+    ⚠️ **MAIS UN EMPATTEMENT N'EST PAS UN TREMBLEMENT.** Lissé sans réserve, le
+      `i` perdait sa base et le `l` son angle : ils devenaient mous là où la
+      police est franche. Les sommets que le GUIDE déclare anguleux — plus de
+      quarante-cinq degrés de changement de direction — sont donc tenus, comme
+      les extrémités, qui portent les contacts.
+    """
+    for _ in range(tours):
+        if len(pts) < 3:
+            return pts
+        sortie = [pts[0]]
+        for i in range(1, len(pts) - 1):
+            if i in dur:
+                sortie.append(pts[i])
+                continue
+            sortie.append(((pts[i - 1][0] + 2 * pts[i][0] + pts[i + 1][0]) / 4,
+                           (pts[i - 1][1] + 2 * pts[i][1] + pts[i + 1][1]) / 4))
+        sortie.append(pts[-1])
+        pts = sortie
+    return pts
+
+
+def _contacts(pa, pb):
+    """Les extrémités de `pa` qui touchent `pb` — indices 0 et/ou −1.
+
+    ⚠️ **AU SEGMENT, PAS AUX POINTS.** Une extrémité qui vient buter au MILIEU
+      d'un trait — le pied du `T`, l'épaule du `r`, la barre du `e` — peut être
+      loin de tous les points échantillonnés de l'autre et pourtant le toucher.
+      Mesurée aux points, elle paraissait libre : le `e` et le `r` gagnaient une
+      extrémité que la recette n'a pas.
+    """
+    out = []
+    for i in (0, -1):
+        d = min(_distSegment(pa[i], pb[k], pb[k + 1]) for k in range(len(pb) - 1)) \
+            if len(pb) > 1 else math.hypot(pa[i][0] - pb[0][0], pa[i][1] - pb[0][1])
+        if d <= CONTACT:
+            out.append(i)
+    return out
+
+
+def apparier(ch, recette):
+    """Repose les traits DÉCLARÉS de `recette` sur le squelette MESURÉ de `ch`.
+
+    `recette` est le couple `(traits, jonctions)` que `jetbrains-traces.py`
+    produit. Les jonctions ressortent telles quelles — c'est tout l'objet : la
+    topologie ne se remesure pas.
+    """
+    # ⚠️ Trois outils empruntés au générateur de recettes, et pas recopiés :
+    #   suivre un tracé, en mesurer l'abscisse curviligne, y prendre un point.
+    #   Deux copies finiraient par échantillonner deux courbes différentes.
+    from jetbrains_traces import points_du_trace, _curviligne, _au  # noqa: E402
+    globals().setdefault('points_du_trace', points_du_trace)
+
+    subs = contours(ch)
+    g, ox, oy, W, H = rasteriser(subs)
+    brut = amincir(g)
+    iles = petitesIles(brut)
+    sk = ebarber(brut, seuil=20, iles=iles)
+    versRepere = (lambda p: (ox + (p[0] + 0.5) * PAS, oy + (p[1] + 0.5) * PAS))
+
+    traits, jonctions = recette
+    guides = []
+    for t in traits:
+        pts = points_du_trace(t['d'])
+        s, longueur = _curviligne(pts)
+        guides.append([_au(pts, s, longueur, k / ABSCISSES) for k in range(ABSCISSES + 1)])
+
+    # ① chaque pixel du squelette rejoint le trait, puis l'abscisse, les plus proches
+    seaux = [[[] for _ in range(ABSCISSES + 1)] for _ in traits]
+    for j in range(H):
+        for i in range(W):
+            if not sk[j][i]:
+                continue
+            p = versRepere((i, j))
+            if p in iles:
+                continue
+            choix, meilleur = None, None
+            for t, guide in enumerate(guides):
+                k, d = _projeter(p, guide)
+                if meilleur is None or d < meilleur:
+                    meilleur, choix = d, (t, k)
+            seaux[choix[0]][choix[1]].append(p)
+
+    # ② l'abscisse rend la MOYENNE de ce qui lui est tombé ; là où rien n'est
+    #    tombé — un bout de guide qui traverse une zone que le squelette
+    #    n'occupe pas —, le guide parle pour lui-même.
+    lignes = []
+    for t, guide in enumerate(guides):
+        # ⚠️ Un trait DÉGÉNÉRÉ — le point du `i`, du `j` — n'a pas d'axe à
+        #   mesurer : c'est un sous-chemin réduit à un point, et le rééchantil-
+        #   lonner en vingt-quatre abscisses lui ferait quatre extrémités là où
+        #   il n'en a qu'une. Il passe tel que la recette l'écrit.
+        if max(abs(q[0] - guide[0][0]) + abs(q[1] - guide[0][1]) for q in guide) < 1e-6:
+            lignes.append(list(guide))
+            continue
+        # ⚠️ **UNE ABSCISSE SANS PIXEL NE PREND PAS LE GUIDE — elle s'interpole.**
+        #
+        #   Le guide est DEVINÉ (des arcs), la moyenne est MESURÉE : les alterner
+        #   sur une même ligne fait osciller le tracé entre deux dessins qui ne
+        #   coïncident pas. Sur les traits droits et longs — le fût du `i`, celui
+        #   du `l`, la hampe du `f` —, où les pixels se répartissent inégalement,
+        #   une abscisse sur trois retombait sur le guide et la ligne serpentait.
+        #   Les trous se comblent donc entre les points MESURÉS qui les
+        #   encadrent, et le guide ne parle que là où il n'y a rien du tout.
+        mesures = [None] * len(guide)
+        for k in range(len(guide)):
+            lot = seaux[t][k]
+            if lot:
+                mesures[k] = (sum(z[0] for z in lot) / len(lot),
+                              sum(z[1] for z in lot) / len(lot))
+        connus = [k for k, m in enumerate(mesures) if m is not None]
+        ligne = []
+        for k, q in enumerate(guide):
+            if mesures[k] is not None:
+                ligne.append(mesures[k])
+            elif connus:
+                avant = max([c for c in connus if c < k], default=None)
+                apres = min([c for c in connus if c > k], default=None)
+                if avant is None:
+                    ligne.append(mesures[apres])
+                elif apres is None:
+                    ligne.append(mesures[avant])
+                else:
+                    f = (k - avant) / (apres - avant)
+                    a0, a1 = mesures[avant], mesures[apres]
+                    ligne.append((a0[0] + (a1[0] - a0[0]) * f, a0[1] + (a1[1] - a0[1]) * f))
+            else:
+                ligne.append(q)
+        lignes.append(_lisser(ligne, _anguleux(guide)))
+
+    # ③ ★ **LES CONTACTS SE REPRODUISENT, ils ne se décrètent pas.**
+    #
+    #    Chaque point ayant bougé de quelques unités, deux traits que la recette
+    #    disait joints ne se touchent plus tout à fait — et `deriveGlyph` compte
+    #    alors deux extrémités libres de plus. Mesuré : sept lettres changeaient
+    #    de compte, dont le `w` qui passait de deux extrémités à quatre.
+    #
+    #    ⚠️ Mais RECOLLER LES DEUX SENS D'UNE JONCTION est faux, et ça se voit
+    #      aussi : sur un `T`, l'extrémité d'un trait touche le MILIEU de
+    #      l'autre, qui garde ses deux bouts libres. Coller des deux côtés
+    #      SUPPRIMAIT des extrémités — le `f`, le `t`, le `x` passaient de
+    #      quatre à deux, et le compte devenait faux dans l'autre sens.
+    #
+    #    On relève donc sur la RECETTE quelles extrémités touchent réellement,
+    #    et l'on reproduit ce schéma-là. La topologie n'est pas seulement
+    #    transportée : elle est reproduite à l'identique, contact par contact.
+    origines = [points_du_trace(t['d']) for t in traits]
+    for jonc in jonctions:
+        a, b = int(jonc[0]), int(jonc[1])
+        if not (0 <= a < len(lignes) and 0 <= b < len(lignes)):
+            continue
+        for (u, v) in ((a, b), (b, a)):
+            for iBout in _contacts(origines[u], origines[v]):
+                p = lignes[u][iBout]
+                lignes[u][iBout] = min(lignes[v], key=lambda q: (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2)
+
+    sortie = [{'d': catmull(allege(ligne, 14)), 'ouvert': traits[t].get('ouvert', True)}
+              for t, ligne in enumerate(lignes)]
+    return sortie, jonctions
+
+
 if __name__ == '__main__' and len(sys.argv) > 2 and sys.argv[2] == 'js':
     import pathlib as _pl
     lignes = ["/* ⚠️ ENGENDRÉ par `src/gfx/jetbrains-squelette.py` — ne pas éditer à la main.",
               " *",
               " * Le SQUELETTE extrait par érosion des contours de JetBrains Mono, sous ses",
-              " * DEUX formes : `SQUELETTES` tel que l'amincissement le rend, `RECALES` une",
-              " * fois chaque point reposé au milieu exact des deux bords qui l'encadrent.",
+              " * TROIS formes : `SQUELETTES` tel que l'amincissement le rend, `RECALES` une",
+              " * fois chaque point reposé au milieu exact des deux bords, et `APPARIES` —",
+              " * les traits DÉCLARÉS par les recettes, reposés sur le squelette MESURÉ.",
+              " *",
+              " * ★ `APPARIES` est le seul des trois à porter des JONCTIONS, donc le seul dont",
+              " *   les comptes soient utilisables : sa topologie ne se mesure pas, elle se lit.",
               " * Ce ne sont ni les tracés du moteur (`moteur/tables/glyphes.js` fait foi) ni",
               " * les candidats des recettes : ce sont deux lectures de plus, que la page de",
               " * comparaison met à côté des autres.",
@@ -711,6 +971,30 @@ if __name__ == '__main__' and len(sys.argv) > 2 and sys.argv[2] == 'js':
               " * ⚠️ Le DÉCOUPAGE en traits n'est fiable ni dans l'une ni dans l'autre : voir",
               " *   l'en-tête du générateur. Le dessin, lui, l'est.",
               " */"]
+    # ★ La TROISIÈME lecture : les traits déclarés par les recettes, reposés sur
+    #   le squelette mesuré. C'est la seule des trois qui porte des JONCTIONS,
+    #   donc la seule dont les comptes soient utilisables.
+    import importlib.util as _iu
+    _sp = _iu.spec_from_file_location('jetbrains_traces',
+                                      str(_pl.Path(__file__).resolve().parent / 'jetbrains-traces.py'))
+    _tr = _iu.module_from_spec(_sp)
+    sys.modules['jetbrains_traces'] = _tr
+    _argv = sys.argv
+    sys.argv = [_argv[0]]
+    _sp.loader.exec_module(_tr)
+    sys.argv = _argv
+    _rec = _tr.recettes(_tr.mesures())
+
+    lignes.append('export const APPARIES = {')
+    for ch in 'abcdefghijklmnopqrstuvwxyz':
+        t, jonc = apparier(ch, _rec[ch])
+        lignes.append("  %r: { traits: [%s], jonctions: %s }," % (
+            ch,
+            ', '.join("{ d: %r, ouvert: %s }" % (x['d'], 'true' if x['ouvert'] else 'false') for x in t),
+            '[' + ', '.join('[%d, %d]' % (j[0], j[1]) for j in jonc) + ']'))
+    lignes.append('};')
+    lignes.append('')
+
     for nom, recale in (('SQUELETTES', False), ('RECALES', True)):
         lignes.append('export const %s = {' % nom)
         for ch in 'abcdefghijklmnopqrstuvwxyz':

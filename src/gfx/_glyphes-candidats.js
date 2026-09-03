@@ -2,7 +2,7 @@
  *
  * Ce sont les tracés CANDIDATS, dérivés des mesures de JetBrains Mono. Ils ne
  * sont PAS ceux du moteur : `moteur/tables/glyphes.js` fait toujours foi. Ce
- * fichier n'existe que pour la page de comparaison `AB-glyphes.html`.
+ * fichier n'existe que pour la page de comparaison `glyphes.html`.
  */
 export const CANDIDATS = {
   'a': { traits: [{ d: 'M 111.9 379.7 A 270.2 72.3 0 0 0 382.2 452.1 L 382.2 -8.2', ouvert: true }, { d: 'M 217.8 -8.2 A 164.4 130.7 0 1 1 217.8 253.2 A 164.4 130.7 0 1 1 217.8 -8.2', ouvert: false }], jonctions: [[0, 1, 'panse']] },
