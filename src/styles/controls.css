@@ -45,8 +45,17 @@
    pâles. Le `min-width` de 24 px continue de tenir la cible tactile. */
 .jauge__case[data-redite] { flex-grow: .3; }
 
+/* ★ LA BARRE SE REPLIE, ELLE NE POUSSE PLUS.
+   ⚠️ Sans `flex-wrap`, une rangée de neuf boutons à `min-width: 48px` réclamait
+   466 px (526 avec le son) sur un écran de 390 : la colonne `.demo__scene`
+   s'élargissait pour la contenir et la scène, en `width: 100%`, débordait à sa
+   suite. Le débordement de la figure venait de ses commandes.
+   La coupure tombe après « Fin » parce que les réglages sont réunis dans
+   `.transport__reglages` — un seul élément flex, donc un seul objet à replier.
+   Le raisonnement complet est dans `src/app/transport.js`. */
 .transport {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: var(--e1);
@@ -54,6 +63,20 @@
   padding: var(--e1);
   background: var(--raised);
   border: var(--rule) solid var(--line);
+}
+
+/* Le bloc des réglages : la même rangée que les cinq commandes tant qu'il y
+   tient, une seconde ligne centrée dès qu'il n'y tient plus. Il ne porte NI
+   filet NI marge propres — chacun de ses boutons a déjà les siens
+   (`.transport__bouton--reglage`), et les ajouter ici doublerait la séparation
+   d'avec « Fin ». `flex-wrap` chez lui aussi, faute de quoi un écran vraiment
+   étroit le ferait déborder à son tour au lieu de le laisser se replier. */
+.transport__reglages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e1);
 }
 
 .transport__bouton {
