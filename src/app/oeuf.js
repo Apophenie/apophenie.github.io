@@ -393,10 +393,25 @@ function etapes(mots, pi) {
             saisie. Deux traitements pour un même geste auraient dit qu'il y a
             deux gestes.
 
+          ⚠️ **SAUF SI L'ÉNONCÉ PORTE DÉJÀ LE SYMBOLE.** « Si Pi est déjà écrit
+            π, il n'y a pas à le convertir — alors qu'actuellement tu le
+            convertis quand même » (l'auteur). Une synthèse phonétique va d'un
+            MOT à un signe ; sur `Cheval/Oiseau=π`, il n'y a pas de mot, il y a
+            déjà le signe. L'atelier aurait ouvert une accolade pour montrer que
+            π devient π, c'est-à-dire pour justifier un geste qui n'a pas lieu —
+            la seule chose que cette page ne peut pas se permettre.
+
           `decalPi` est ce que ce cinquième atelier coûte au reste de l'étape,
-          et il vaut ZÉRO dans l'autre branche : celle-là n'a rien à convertir,
-          donc rien à attendre. */
-  const decalPi = pi ? 3000 : 0;
+          et il vaut ZÉRO quand il n'y a rien à convertir : ni dans la branche
+          sans « = pi », ni quand le symbole est déjà là. */
+  /* ★ **LE π DE DROITE A DEUX IDENTITÉS POSSIBLES**, et c'est l'énoncé qui
+     tranche : le jeton de DÉPART quand la saisie porte déjà `π`, celui que
+     l'atelier fait naître quand elle porte un mot. Tout ce qui le désigne
+     ensuite — le battement du verdict — passe par ce nom-là. */
+  const dejaSymbole = pi === 'π';
+  const aConvertir = Boolean(pi) && !dejaSymbole;
+  const piDroite = dejaSymbole ? 'pi' : 'P2';
+  const decalPi = aConvertir ? 3000 : 0;
   const s3 = {
     id: 's_oeuf_3',
     title: dire('synthese'),
@@ -444,7 +459,7 @@ function etapes(mots, pi) {
          numérateur : la zone au-dessus de lui est libre — le numérateur et le
          dénominateur sont centrés sur l'axe du trait, donc à sa gauche —, alors
          qu'en dessous il rencontrerait le dénominateur. */
-      ...(pi ? [{
+      ...(aConvertir ? [{
         op: 'convert',
         targets: ['pi'],
         to: [tok('P2', 'π')],
@@ -592,7 +607,7 @@ function etapes(mots, pi) {
       title: dire('cqfd'),
       caption: `π = π`,
       ops: [
-        { op: 'pulse', targets: ['P1', 'P2'], at: 0, dur: 900 },
+        { op: 'pulse', targets: ['P1', piDroite], at: 0, dur: 900 },
         { ...cqfd(), at: 700, dur: 1800 },
       ],
     }

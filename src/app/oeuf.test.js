@@ -392,6 +392,34 @@ test('★ œuf — le « pi » saisi a son atelier, comme « pie » et « bête 
     'deux synthèses au numérateur, deux au dénominateur');
   assert.equal(ateliers('cheval sur oiseau = pi'), 5,
     'plus celle du « pi » de l’énoncé — même geste, même appareillage');
+  assert.equal(ateliers('CHEVAL SUR OISEAU = PI'), 5, 'la casse n’y change rien');
+
+  /* ⚠️ **MAIS PAS QUAND LE SYMBOLE EST DÉJÀ LÀ.** « Si Pi est déjà écrit π, il
+     n'y a pas à le convertir » (l'auteur). Une synthèse phonétique va d'un MOT
+     à un signe ; sur `Cheval/Oiseau=π` il n'y a pas de mot, il y a déjà le
+     signe. Ouvrir une accolade pour montrer que π devient π justifierait un
+     geste qui n'a pas lieu. */
+  assert.equal(ateliers('Cheval/Oiseau=π'), 4,
+    'rien à convertir quand l’énoncé porte déjà le symbole');
+});
+
+/**
+ * ★ **ET LE π DÉJÀ ÉCRIT TRAVERSE LA DÉMONSTRATION SANS ÊTRE TOUCHÉ.**
+ *
+ * C'est le corollaire du test précédent, et il vaut d'être tenu à part : ne pas
+ * OUVRIR d'atelier ne suffirait pas si le jeton était quand même remplacé en
+ * douce. Il doit être celui du DÉPART, vivant du premier au dernier temps — et
+ * c'est lui que le verdict fait battre.
+ */
+test('★ œuf — un π déjà saisi n’est ni converti ni remplacé', () => {
+  const tl = compile(scenarioDeLOeuf('Cheval/Oiseau=π'));
+  const n = tl.scene.get('pi');
+  assert.ok(n && n.alive, 'le π saisi doit être le jeton de départ, encore vivant');
+  assert.equal(n.text, 'π');
+  assert.ok(!tl.scene.has('P2'), 'aucun π de remplacement ne doit naître');
+  assert.ok(tl.anims.some((a) => a.id === 'pi' && a.prop === 'scale'),
+    'c’est LUI que le verdict fait battre');
+  assert.deepEqual(ligneApres(scenarioDeLOeuf('Cheval/Oiseau=π'), 5), ['π ␣ = ␣ π']);
 });
 
 /**
