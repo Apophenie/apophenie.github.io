@@ -52,6 +52,17 @@ test('★ œuf — toutes les façons de l’écrire, et aucune autre', () => {
 
 /* ═══════════════════════ 2. Le scénario, joué pour de vrai ═══════════════ */
 
+/** La scène telle qu'elle est après les `n` premières étapes. */
+function apres(scenario, n) {
+  return compile({ ...scenario, steps: scenario.steps.slice(0, Math.max(1, n)) }).scene;
+}
+
+/** Les animations d'un canal, dans l'ordre du temps. */
+function canal(c, id, prop) {
+  return c.anims.filter((a) => a.id === id && a.prop === prop)
+    .sort((a, b) => a.delay - b.delay);
+}
+
 /**
  * La ligne vivante, rang par rang, après les `n` premières étapes.
  *
@@ -64,11 +75,11 @@ test('★ œuf — toutes les façons de l’écrire, et aucune autre', () => {
  *   que la scène porte, sans confondre une espace avec l'absence de jeton.
  */
 function ligneApres(scenario, n) {
-  const c = compile({ ...scenario, steps: scenario.steps.slice(0, Math.max(1, n)) });
+  const scene = apres(scenario, n);
   const rangs = new Map();
-  for (const id of c.scene.flow) {
-    const noeud = c.scene.get(id);
-    const p = c.scene.pos(id);
+  for (const id of scene.flow) {
+    const noeud = scene.get(id);
+    const p = scene.pos(id);
     if (!noeud || !p) continue;
     const l = p.line ?? 0;
     if (!rangs.has(l)) rangs.set(l, []);
@@ -178,6 +189,145 @@ test('★ œuf — il se déroule dans la casse saisie, les deux L compris', () 
   assert.equal(ligneApres(mixte, 5)[0], 'C h e v a l');
   assert.equal(ligneApres(mixte, 5)[2], 'O i s e a u');
   assert.equal(ligneApres(mixte, 3)[2], 'β ␣ l');
+});
+
+/* ══════════ 3. Les trois défauts de la réduction, chacun gelé ici ═════════ */
+
+/**
+ * ★ **LA RATURE S'EN VA AVEC CE QU'ELLE BARRE.**
+ *
+ * > « Les barrés obliques ne s'effacent jamais ; ils devraient
+ * >   disparaître/exploser en même temps que leur lettre. » (l'auteur)
+ *
+ * La rature est un décor ACCROCHÉ (`highlight.mode: 'raye'`, `data.suit`) :
+ * elle suivait donc bien son β jusqu'à la collision, et restait ensuite seule à
+ * l'écran — quatre traits rouges barrant le vide jusqu'au verdict.
+ *
+ * Le test ne se contente pas de vérifier qu'elle finit invisible : il exige la
+ * SIMULTANÉITÉ, à la milliseconde et à la courbe près. « En même temps que leur
+ * lettre » est une contrainte de temps, et une rature qui s'éteindrait une
+ * demi-seconde trop tôt barrerait un β encore vivant.
+ */
+test('★ œuf — la rature explose à la milliseconde où sa lettre explose', () => {
+  for (const saisie of ['cheval sur oiseau', 'cheval sur oiseau = pi']) {
+    const c = compile(scenarioDeLOeuf(saisie));
+    const ratures = c.nodes.filter((n) => n.data && typeof n.data.suit === 'string'
+      && n.role === 'bracket' && n.id.startsWith('@rature:'));
+    // Quatre lettres barrées : les deux β, puis les deux L.
+    assert.equal(ratures.length, 4, `${saisie} : quatre ratures attendues`);
+    for (const r of ratures) {
+      const porteur = r.data.suit;
+      const jeton = canal(c, porteur, 'opacity');
+      const decor = canal(c, r.id, 'opacity');
+      const mort = jeton[jeton.length - 1];
+      const fin = decor[decor.length - 1];
+      assert.ok(mort && mort.keyframes[mort.keyframes.length - 1].value === 0,
+        `${porteur} devrait finir effacé`);
+      assert.ok(fin, `la rature de ${porteur} ne s’efface jamais`);
+      assert.equal(fin.keyframes[fin.keyframes.length - 1].value, 0,
+        `la rature de ${porteur} reste à l’écran après lui`);
+      assert.equal(fin.delay, mort.delay, `la rature de ${porteur} ne part pas au même instant`);
+      assert.equal(fin.duration, mort.duration, `la rature de ${porteur} ne part pas au même rythme`);
+    }
+  }
+});
+
+/**
+ * ★ **LE TRAIT DE FRACTION EXISTE, ET IL EST L'AXE.**
+ *
+ * > « La barre de fraction a disparu, et la part = Pi, quand présente, vient
+ * >   trop à l'intérieur, là où devrait être la barre de fraction. » (l'auteur)
+ *
+ * Deux défauts d'un seul coup d'œil, et ils n'ont pas la même cause :
+ *
+ *  · **disparue, littéralement.** Le nœud de rôle `filet` naissait sans
+ *    `stroke` — son encre venait d'une classe CSS, `.nhl-filet`, qui n'existe
+ *    dans aucune feuille du dépôt. Un `<path>` sans `stroke` ne se peint pas.
+ *    Et son tracé se déduisait de `node.w`, que `rule` écrit à sa valeur
+ *    d'ARRIVÉE : au premier temps, la barre était donc dessinée à la largeur
+ *    qu'elle aurait à la fin, c'est-à-dire zéro ;
+ *  · **le `= π` trop à l'intérieur.** Il se pose à la droite du trait, donc sur
+ *    SON rang ; ce rang devenait le plus large, son centrage le décalait, et le
+ *    trait s'en allait de 84 unités vers la gauche pendant que le numérateur
+ *    restait au milieu de la scène. Le numérateur DÉBORDAIT le trait par la
+ *    droite, et l'égalité venait s'écrire sous sa queue.
+ */
+test('★ œuf — le trait se voit, et les trois rangs partagent son axe', () => {
+  for (const saisie of ['cheval sur oiseau', 'cheval sur oiseau = pi']) {
+    const c = compile(scenarioDeLOeuf(saisie));
+    const trait = c.nodes.find((n) => n.id === 'barre');
+    assert.ok(trait.base.stroke, `${saisie} : un trait sans encre ne se peint pas`);
+    assert.ok(trait.data && /^M -\d/.test(trait.data.d),
+      `${saisie} : le trait doit porter son tracé dès sa naissance, pas le déduire d’une largeur que « rule » déplace`);
+
+    // ★ Après CHAQUE étape où la fraction est encore posée, les trois rangs se
+    //   lisent sur un seul axe — c'est ce qui en fait une fraction.
+    for (const n of [1, 2, 3]) {
+      const s = apres(scenarioDeLOeuf(saisie), n);
+      const t = s.pos('barre');
+      const rangs = new Map();
+      for (const id of s.flow) {
+        const p = s.pos(id);
+        if (!p || id === 'barre') continue;
+        const b = rangs.get(p.line) || { g: Infinity, d: -Infinity };
+        b.g = Math.min(b.g, p.x - p.w / 2);
+        b.d = Math.max(b.d, p.x + p.w / 2);
+        rangs.set(p.line, b);
+      }
+      for (const [ligne, b] of rangs) {
+        if (ligne === t.line) {
+          // Le rang du trait : ce qui l'accompagne se tient à sa DROITE, hors
+          // de ce qu'il sépare. C'est très exactement le défaut relevé.
+          assert.ok(b.g >= t.x + t.w / 2 - 0.01,
+            `${saisie} étape ${n} : « = π » commence à ${b.g}, c’est-à-dire par-dessus le trait qui finit à ${t.x + t.w / 2}`);
+          continue;
+        }
+        // Numérateur et dénominateur : centrés sur l'axe, et couverts par lui.
+        assert.ok(Math.abs((b.g + b.d) / 2 - t.x) < 0.01,
+          `${saisie} étape ${n} : le rang ${ligne} est centré sur ${(b.g + b.d) / 2}, le trait sur ${t.x}`);
+        assert.ok(b.g >= t.x - t.w / 2 && b.d <= t.x + t.w / 2,
+          `${saisie} étape ${n} : le rang ${ligne} déborde le trait`);
+      }
+    }
+  }
+});
+
+/**
+ * ★ **LE π REDESCEND EN UN SEUL MOUVEMENT.**
+ *
+ * > « Quand il ne reste plus que pi à la fin de la simplification, son retour
+ * >   sur la ligne de base ne se fait pas correctement et arrive dans un second
+ * >   temps avec CQFD. » (l'auteur)
+ *
+ * ⚠️ MESURÉ : il descendait DEUX fois. `rule` refermait la ligne AVANT de tuer
+ *   le trait, donc la mise en page passait par un état à deux rangs dont celui
+ *   du milieu était vide — le π s'arrêtait à mi-hauteur (y 162 → 201), puis le
+ *   `move` finissait le travail une seconde plus tard (201 → 240).
+ *
+ * Le test compte les mouvements de l'étape ④ : il doit y en avoir UN, il doit
+ * partir du rang du numérateur et arriver sur la ligne de base, et il doit
+ * s'achever assez tôt pour qu'on ait le temps de le lire avant « C.Q.F.D. ».
+ */
+test('★ œuf — le π rejoint la ligne de base d’un seul geste, et avant la conclusion', () => {
+  for (const saisie of ['cheval sur oiseau', 'cheval sur oiseau = pi']) {
+    const c = compile(scenarioDeLOeuf(saisie));
+    const debut = c.bounds[3];
+    const fin = c.bounds[4];
+    const descentes = canal(c, 'P1', 'translate').filter((a) => a.delay >= debut && a.delay < fin);
+    assert.equal(descentes.length, 1,
+      `${saisie} : ${descentes.length} mouvements pour une seule descente`);
+    const [d] = descentes;
+    const depart = d.keyframes[0].value;
+    const arrivee = d.keyframes[d.keyframes.length - 1].value;
+    // Le rang du numérateur d'une fraction à trois rangs, puis la ligne de base
+    // — le milieu du viewBox, là où se pose une ligne unique.
+    assert.equal(depart.y, 162, `${saisie} : la descente ne part pas du numérateur`);
+    assert.equal(arrivee.y, 240, `${saisie} : la descente ne finit pas sur la ligne de base`);
+    // ★ Et il reste un silence. « Arrive dans un second temps avec CQFD »
+    //   décrivait aussi un enchaînement : la chute a besoin qu'on la voie posée.
+    assert.ok(fin - (d.delay + d.duration) >= 700,
+      `${saisie} : ${fin - (d.delay + d.duration)} ms seulement entre la descente et la conclusion`);
+  }
 });
 
 test('★ œuf — chaque étape porte son titre de registre', () => {

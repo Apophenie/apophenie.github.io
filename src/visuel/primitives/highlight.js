@@ -84,6 +84,19 @@ const RELACHE = 0.7;
  *   quand il se jette sur son jumeau. Une rature restée en place pendant que
  *   le β s'en va barrerait le vide — et le β arriverait nu à sa collision,
  *   c'est-à-dire sans ce qui la justifie.
+ *
+ * ★ **ET C'EST L'ANNULATION QUI LA TUE, PAS LA RATURE ELLE-MÊME.**
+ *
+ * > « Les barrés obliques ne s'effacent jamais ; ils devraient
+ * >   disparaître/exploser en même temps que leur lettre. » (l'auteur)
+ *
+ * On aurait pu la faire s'éteindre au bout de son propre geste. Ç'aurait été
+ * faux deux fois : une rature qui s'efface avant que ce qu'elle barre ne parte
+ * annule sa propre affirmation, et l'instant du départ n'appartient pas à
+ * `highlight` — c'est `collapse` qui décide quand les deux facteurs se jettent
+ * l'un sur l'autre, et lui seul peut le savoir. La rature s'en va donc AVEC son
+ * jeton, parce que `collapse` et `explosion` emportent désormais ce qui est
+ * accroché (`ctx.animSolidaire`) : un seul instant, tenu à un seul endroit.
  */
 function planRature(ctx, ids) {
   const fs = ctx.metrics.fontSize;

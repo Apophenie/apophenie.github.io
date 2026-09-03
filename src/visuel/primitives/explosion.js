@@ -189,11 +189,29 @@ export function exploser(ctx, ids, quand) {
   const souffles = [];
   ids.forEach((id, k) => {
     const t0 = at + k * cadence;
-    // Le 6 se dilate — `pop`, la courbe du coup de poing — et s'efface plus
-    // vite qu'il ne grossit : ce qui se voit est la dilatation, pas le glyphe.
-    ctx.anim({ id, prop: 'scale', to: DILATATION, at: t0, dur: propre, ease: EASE.pop });
+    /* Le 6 se dilate — `pop`, la courbe du coup de poing — et s'efface plus
+       vite qu'il ne grossit : ce qui se voit est la dilatation, pas le glyphe.
+
+       ★ **ET CE QUI EST POSÉ SUR LUI EXPLOSE AVEC LUI.**
+
+       > « Les barrés obliques ne s'effacent jamais ; ils devraient
+       >   disparaître/exploser en même temps que leur lettre. » (l'auteur)
+
+       ⚠️ MESURÉ sur l'œuf : la rature du β (`highlight.mode: 'raye'`) est un
+         décor ACCROCHÉ (`data.suit`), donc elle suivait bien son jeton jusqu'à
+         la collision — et restait ensuite seule à l'écran, quatre traits rouges
+         barrant le vide, jusqu'à la fin de la démonstration. Le geste faisait
+         partir le jeton et oubliait ce qu'il portait.
+
+       ★ **`scale` et `opacity` SOLIDAIRES, `fill` NON.** Les deux premiers
+         décrivent l'objet entier : il enfle, il s'éteint, et ce qui est collé
+         dessus fait de même — c'est la raison d'être de `animSolidaire`. Le
+         `fill`, lui, est l'ENCRE DU GLYPHE ; un décor est un tracé, il porte sa
+         couleur au `stroke`, et lui poser un `fill` remplirait une corne ou une
+         rature au lieu de la teinter. */
+    ctx.animSolidaire({ id, prop: 'scale', to: DILATATION, at: t0, dur: propre, ease: EASE.pop });
     ctx.anim({ id, prop: 'fill', to: quand.encre, at: t0, dur: Math.max(1, propre * 0.3) });
-    ctx.anim({
+    ctx.animSolidaire({
       id, prop: 'opacity', to: 0,
       at: t0, dur: Math.max(1, propre * 0.55), ease: EASE.fade,
     });

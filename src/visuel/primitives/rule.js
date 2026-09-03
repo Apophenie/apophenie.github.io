@@ -41,17 +41,29 @@
  *
  * `couvre` désigne ce que la barre doit couvrir ; elle prend la largeur de la
  * plus large des LIGNES qu'occupent ces jetons — pas la boîte de tous, qui
- * additionnerait des colonnes de rangs différents. Un `debord` s'ajoute de
- * chaque côté, parce qu'un trait qui s'arrête pile au bord du dernier glyphe
- * se lit comme un soulignement, pas comme une division.
+ * additionnerait des colonnes de rangs différents, ni son propre rang, qui
+ * n'est pas séparé par elle. Un `debord` s'ajoute de chaque côté, parce qu'un
+ * trait qui s'arrête pile au bord du dernier glyphe se lit comme un
+ * soulignement, pas comme une division.
  *
  * ⚠️ **LA BARRE EST DANS LE FLUX**, et c'est ce qui lui donne sa ligne et son
  *   centrage. Changer sa largeur ne suffit donc pas : il faut la republier
  *   (`node.w`) et laisser le layout recentrer le bloc, faute de quoi la barre
  *   raccourcirait par la droite au lieu de raccourcir par les deux bouts.
+ *
+ * ★ **ET C'EST ELLE QUI TIENT L'AXE.** Le layout centre chaque rang sur
+ *   lui-même ; une fraction, non — ses trois rangs partagent un axe, et c'est
+ *   le trait qui le porte (`layout.js › item.axe`, posé par `scene.relayout`
+ *   d'après le rôle `filet`). Sans cela, tout ce qui se pose à la droite du
+ *   trait élargit son rang, décale son centre, et la barre s'en va de sous le
+ *   numérateur.
+ *
+ * ★ **LE RETRAIT NE REFERME PAS LA LIGNE** — voir `plan`. Le trait s'efface et
+ *   quitte le flux ; c'est l'appelant qui décide quand les rangs se rejoignent.
  */
 
 import { EASE, progressionDe } from '../constants.js';
+import { filetD } from '../layout.js';
 import { fail } from '../errors.js';
 
 export const name = 'rule';
@@ -67,12 +79,6 @@ const DEBORD = 0.5;
 /** La largeur en deçà de laquelle un trait n'est plus un trait. */
 const MINIMUM = 6;
 
-/** Le `d` d'un trait de demi-largeur `W`, centré sur son ancre. */
-export function filetD(W) {
-  const w = Math.round(Math.max(0, W) * 1000) / 1000;
-  return `M ${-w} 0 H ${w}`;
-}
-
 /**
  * La largeur que le trait doit prendre pour couvrir `ids`.
  *
@@ -81,8 +87,16 @@ export function filetD(W) {
  *   leur boîte commune est plus large que chacun d'eux, et le trait pris à
  *   cette largeur déborderait des deux. C'est la plus longue des deux lignes
  *   qui commande — c'est elle qui dit jusqu'où la fraction s'étend.
+ *
+ * ★ **ET SON PROPRE RANG NE COMPTE PAS.** Un trait sépare ce qui est AU-DESSUS
+ *   de ce qui est EN DESSOUS ; ce qui l'accompagne sur son rang — le « = π » de
+ *   l'œuf, posé à sa droite — n'est pas séparé par lui, il est à côté. Le
+ *   compter aurait fait grandir le trait pour couvrir une conclusion qu'il ne
+ *   divise pas, c'est-à-dire lui faire dire l'inverse de ce qu'il dit.
+ *   (`plan` retirait déjà le trait lui-même de la liste ; ça ne suffisait pas
+ *   dès qu'il avait un voisin de rang.)
  */
-function largeurCouvrante(ctx, ids) {
+function largeurCouvrante(ctx, ids, monRang) {
   const parLigne = new Map();
   for (const id of ids) {
     const n = ctx.scene.get(id);
@@ -90,6 +104,7 @@ function largeurCouvrante(ctx, ids) {
     const p = ctx.scene.positions.get(id);
     if (!p) continue;
     const ligne = p.line ?? 0;
+    if (ligne === monRang) continue;
     const bornes = parLigne.get(ligne) || { min: Infinity, max: -Infinity };
     bornes.min = Math.min(bornes.min, p.x - p.w / 2);
     bornes.max = Math.max(bornes.max, p.x + p.w / 2);
@@ -125,7 +140,7 @@ export function plan(ctx) {
     w1 = ctx.op.to;
   } else if (ctx.op.couvre !== undefined) {
     const ids = ctx.scene.resolve(ctx.op.couvre, `${ctx.where}couvre : `).filter((x) => x !== id);
-    w1 = largeurCouvrante(ctx, ids);
+    w1 = largeurCouvrante(ctx, ids, depart ? (depart.line ?? 0) : null);
   } else {
     fail(`${ctx.where}« rule » demande « couvre » (ce que le trait sépare) ou « to » (une largeur).`);
   }
@@ -145,7 +160,30 @@ export function plan(ctx) {
   //   centre pendant la moitié du geste — visible, et faux : une fraction se
   //   lit sur un axe.
   noeud.w = retire ? 0 : w1;
-  ctx.reflow({ at, dur, ease: EASE.move });
+  /* ★ **UN TRAIT QUI SE RETIRE NE REFERME PAS LA LIGNE — c'est l'appelant qui
+   *   le fait, quand il le veut.**
+   *
+   * > « Quand il ne reste plus rien en bas, elle finit de se réduire et
+   * >   disparaît. ENFIN Pi restant descend à hauteur principale. » (l'auteur)
+   *
+   * Deux temps, et l'auteur les a nommés dans cet ordre. Le reflow posé ici les
+   * mélangeait : le trait quittait le flux APRÈS avoir reflowé, donc il tenait
+   * encore son rang tout en n'ayant plus de largeur. La mise en page passait de
+   * trois rangs à DEUX — un rang vide au milieu —, et le π du numérateur
+   * descendait à mi-hauteur ; il fallait le `move` suivant pour finir la
+   * descente.
+   *
+   * ⚠️ MESURÉ sur l'œuf : `y` 162 → 201 pendant le retrait du trait, puis
+   *   201 → 240 une seconde plus tard. « Son retour sur la ligne de base ne se
+   *   fait pas correctement et arrive dans un second temps avec CQFD »
+   *   (l'auteur) — c'était très exactement cette descente en deux fois.
+   *
+   * ★ C'est la doctrine de `collapse`, mot pour mot : « il reprend sa place
+   *   dans le flux, le reflow de l'appelant refermera les trous ». Un
+   *   redimensionnement, lui, reflowe toujours : le trait est dans le flux, sa
+   *   largeur EST celle de son rang, et personne d'autre ne peut la publier. */
+  if (!retire) ctx.reflow({ at, dur, ease: EASE.move });
+  else ctx.occupy(at + dur);
 
   const courbe = progressionDe(EASE.move);
   ctx.discrete({
