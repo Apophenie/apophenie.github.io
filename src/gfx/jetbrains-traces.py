@@ -158,10 +158,31 @@ def recettes(M):
     #   ⚠️ Les deux arcs d'un `s` bombent en sens OPPOSÉS — c'est ce qui en fait
     #     un `s` et non un `c` allongé. Le second garde donc son `sweep` à zéro ;
     #     ce qui était faux, c'étaient ses extrémités, pas son sens.
-    R['s'] = ([t('M %s %s A %s %s 0 1 1 %s %s A %s %s 0 0 0 %s %s' % (
-        r(o['x1'] - o['l'] * 0.06), r(o['y1'] - o['h'] * 0.14),
-        r(o['l'] / 2), r(o['h'] / 4), r(o['x0'] + o['l'] / 2), r((o['y0'] + o['y1']) / 2),
-        r(o['l'] / 2), r(o['h'] / 4), r(o['x0'] + o['l'] * 0.06), r(o['y0'] + o['h'] * 0.14)))], [])
+    #   ⚠️ Le premier arc portait `large-arc = 1` : il faisait plus d'un demi-tour
+    #     et se refermait en boucle sur lui-même. Les deux moitiés d'un `s` sont
+    #     des demi-tours, pas des tours.
+    #   ★ **ET IL PASSE EN BÉZIER, seul de tout l'alphabet.** Un `s` est la seule
+    #     lettre dont l'axe change DEUX FOIS de sens de courbure ; l'arc
+    #     elliptique, qui n'en a qu'un, ne peut le dire qu'en le coupant en
+    #     morceaux dont les raccords se voient. Deux cubiques l'écrivent d'un
+    #     trait, et leurs tangentes se répondent au point d'inflexion — c'est ce
+    #     raccord-là qui fait la souplesse d'un `s`, et qu'aucun réglage de rayon
+    #     n'obtenait : trop courts, les arcs bouclaient ; trop longs, ils
+    #     tendaient la courbe en `∫`.
+    milieuS = (o['y0'] + o['y1']) / 2
+    eS = o['l'] * 0.03
+    #   ⚠️ Et les CONTRÔLES doivent viser AU-DELÀ du bord : une cubique n'atteint
+    #     qu'environ les trois quarts de la distance à ses points de contrôle.
+    #     Posés pile sur `y1` et `y0`, ils laissaient la courbe s'arrêter 76
+    #     unités trop haut — un `s` plus petit que sa lettre. Le débord de
+    #     contrôle (`dS`) est ce qui rend la courbe tangente au bord.
+    dS = o['h'] * 0.14
+    R['s'] = ([t('M %s %s C %s %s %s %s %s %s C %s %s %s %s %s %s' % (
+        r(o['x1'] - eS), r(o['y1'] - o['h'] * 0.2),
+        r(o['x1'] - eS), r(o['y1'] + dS), r(o['x0']), r(o['y1'] + dS),
+        r(o['x0'] + o['l'] * 0.42), r(milieuS),
+        r(o['x1'] - o['l'] * 0.42), r(milieuS), r(o['x1']), r(o['y0'] - dS),
+        r(o['x0'] + eS), r(o['y0'] + o['h'] * 0.2)))], [])
 
     # ── `e` : la barre puis la boucle ─────────────────────────────────────────
     o = b['e']
@@ -184,19 +205,25 @@ def recettes(M):
                      t(arc(milieu, epaule, (o['x1'] - milieu) / 2, hx * 0.28, 0, 0,
                            o['x1'], epaule) + ' L %s %s' % (r(o['x1']), r(o['y0'])))],
                     [[0, 1, 'première arche'], [1, 2, 'seconde arche']])
-        elif c == 'r':
+        elif c == 'r':  # noqa: E501 — voir la note « LE FÛT S'ARRÊTE OÙ L'ARCHE NAÎT »
             # ⚠️ L'épaule montait à 535 pour une lettre qui plafonne à 460 : son
             #   arrivée était plus haute que son départ ET son rayon vertical
             #   valait 0,30 hauteur d'x, si bien que le sommet de l'arc passait
             #   par-dessus la lettre. Le `r` de JetBrains a une épaule COURTE,
             #   qui s'arrête avant de redescendre — elle atteint le haut, elle
             #   ne le dépasse pas.
-            R[c] = ([t(ligne(fut, o['y0'], fut, hx)),
+            R[c] = ([t(ligne(fut, o['y0'], fut, epaule)),
                      t(arc(fut, epaule, (o['x1'] - fut) / 2, hx * 0.2, 0, 0,
                            o['x1'], hx * 0.9))],
                     [[0, 1, 'naissance de l’épaule']])
         else:
-            R[c] = ([t(ligne(fut, o['y0'], fut, haut)),
+            # ★ **LE FÛT S'ARRÊTE OÙ L'ARCHE NAÎT — sauf s'il porte une hampe.**
+            #   Il montait toujours jusqu'au sommet de la lettre, si bien qu'un
+            #   bout de fût dépassait au-dessus de la naissance de l'arche : une
+            #   TROISIÈME extrémité libre, que ni la police ni la table du dépôt
+            #   ne comptent. Le `h`, lui, doit dépasser — c'est sa hampe, et
+            #   c'est pourquoi le compte du `h` est bien de trois.
+            R[c] = ([t(ligne(fut, o['y0'], fut, haut if c == 'h' else epaule)),
                      t(arc(fut, epaule, (o['x1'] - fut) / 2, hx * 0.28, 0, 0,
                            o['x1'], epaule) + ' L %s %s' % (r(o['x1']), r(o['y0'])))],
                     [[0, 1, 'naissance de l’arche']])
@@ -232,8 +259,15 @@ def recettes(M):
         #   plus un, et la panse s'arrête à mi-chemin (mesuré : 87 unités trop
         #   court, soit un `b` dont la panse ne rejoint pas le bord de la
         #   chasse).
-        pHaut = (o['y1'] if c in 'bd' else hx) and hx - hx * 0.06
-        pBas = o['y0'] + hx * 0.06
+        # ★ **LA PANSE SE REFERME SUR LE FÛT, exactement.** Ses deux bouts
+        #   flottaient à 6 % de la hauteur d'x des bords : le fût dépassait donc
+        #   des deux côtés, ce qui faisait DEUX extrémités libres là où la police
+        #   — et la table du dépôt — n'en comptent qu'une. Sur `b` et `d`, le bas
+        #   de la panse tombe sur le pied ; sur `p` et `q`, son haut tombe sur le
+        #   sommet du fût et son bas sur la ligne de base, le jambage restant la
+        #   seule extrémité libre.
+        pHaut = hx * 0.94 if c in 'bd' else hx
+        pBas = o['y0'] if c in 'bd' else 0
         rx = abs((o['x1'] if gauche else o['x0']) - fut)
         cy = (pHaut - pBas) / 2
         haut = o['y1'] if c in 'bd' else hx
@@ -257,19 +291,51 @@ def recettes(M):
     # ── `a` : deux étages ─────────────────────────────────────────────────────
     o = b['a']
     futA = o['x1'] - M['fut'] / 2
-    R['a'] = ([t(arc(o['x0'] + o['l'] * 0.06, hx * 0.78, o['l'] * 0.46, hx * 0.24, 0, 1,
-                     futA, hx * 0.9) + ' L %s %s' % (r(futA), r(o['y0']))),
-               t(arc(futA, hx * 0.48, o['l'] * 0.46, hx * 0.25, 1, 1,
-                     futA, o['y0'] + hx * 0.06))],
-              [[0, 1, 'naissance'], [0, 1, 'pied']])
+    # ⚠️ L'arc d'attaque bombait vers le BAS — le `a` prenait la forme d'un `ə`.
+    #   Même piège de repère que les panses : il doit passer AU-DESSUS de la
+    #   corde qui joint son départ au sommet du fût, c'est ce qui fait l'étage
+    #   supérieur d'un `a` à deux étages.
+    # ★ **LA PANSE EST UN OVALE, exactement comme celle du `g`** — et c'est ce que
+    #   deux jets successifs avaient manqué.
+    #
+    #   Un DEMI-TOUR ne peut pas la dessiner : pour couvrir 310 de large sur 250
+    #   de haut, il lui faut un rayon horizontal de 310 contre 125 de vertical,
+    #   c'est-à-dire une ellipse trois fois plus large que haute — dont l'extrême
+    #   gauche est le point le plus COURBE. On obtenait un triangle arrondi, pas
+    #   une panse. L'ovale, lui, a ses deux rayons à la demi-dimension : il est
+    #   rond parce que la panse l'est.
+    #
+    #   La topologie y gagne aussi : un ovale fermé plus un trait « attaque +
+    #   fût » donnent 2 traits, 2 extrémités, 1 boucle — les comptes exacts de la
+    #   table actuelle, alors que la version en deux arcs en inventait d'autres.
+    #   ⚠️ Le chapeau descendait trop bas et partait trop à gauche : il enjambait
+    #     toute la chasse et se superposait à la panse. Dans la police il est
+    #     COURT — il quitte le sommet du fût, va vers la gauche sur les deux tiers
+    #     de la largeur, et ne redescend que d'un sixième de la hauteur d'x.
+    hautA = hx * 0.84
+    panseA = hx * 0.56
+    R['a'] = ([t(arc(o['x0'] + o['l'] * 0.16, hautA, futA - o['x0'] - o['l'] * 0.16,
+                     hx - hautA, 0, 0, futA, hx) + ' L %s %s' % (r(futA), r(o['y0']))),
+               ovale((o['x0'] + futA) / 2, (o['y0'] + panseA) / 2,
+                     (futA - o['x0']) / 2, (panseA - o['y0']) / 2)],
+              [[0, 1, 'panse']])
 
     # ── `g` : panse ronde + descendante à crochet ─────────────────────────────
     o = b['g']
     futG = o['x1'] - M['fut'] / 2
+    # ⚠️ La queue partait de la mi-hauteur de la panse, donc elle la TRAVERSAIT :
+    #   le `g` se lisait comme un `a` barré en diagonale. Elle part du sommet du
+    #   fût, longe la panse par la droite et descend au jambage — c'est là que la
+    #   panse et la descendante se touchent, et nulle part ailleurs.
+    #
+    #   ⚠️ Et elle part de l'EXTRÊME DROIT de l'ovale (`hx / 2`), pas de son
+    #     sommet : c'est le seul point que la verticale du fût partage avec la
+    #     panse. Un départ plus haut laissait une extrémité libre en l'air — un
+    #     compte de plus, pour un contact que l'œil croyait voir.
     R['g'] = ([ovale((o['x0'] + futG) / 2, hx / 2, (futG - o['x0']) / 2, hx / 2),
-               t(ligne(futG, hx / 2, futG, o['y0'] + o['l'] * 0.16)
-                 + ' A %s %s 0 0 1 %s %s' % (r(o['l'] * 0.3), r(o['l'] * 0.26),
-                                             r(o['x0'] + o['l'] * 0.12), r(o['y0'] + o['l'] * 0.1)))],
+               t(ligne(futG, hx / 2, futG, o['y0'] + o['l'] * 0.3)
+                 + ' A %s %s 0 0 0 %s %s' % (r(o['l'] * 0.34), r(o['l'] * 0.28),
+                                             r(o['x0'] + o['l'] * 0.06), r(o['y0'] + o['l'] * 0.2)))],
               [[0, 1, 'attache']])
 
     # ── les empattées : `i`, `j`, `l`, `t`, `f` ───────────────────────────────
@@ -280,9 +346,13 @@ def recettes(M):
                t(ligne(milieuI, o['y1'], milieuI, o['y1']))], [])
     o = b['j']
     futJ = o['x1'] - M['fut'] / 2
-    R['j'] = ([t(ligne(futJ, hx, futJ, o['y0'] + o['l'] * 0.28)
-                 + ' A %s %s 0 0 1 %s %s' % (r(o['l'] * 0.34), r(o['l'] * 0.3),
-                                             r(o['x0']), r(o['y0'] + o['l'] * 0.22))),
+    # ⚠️ La queue prenait des LARGEURS pour des ordonnées (`o['l'] * 0.28` posé
+    #   sur un `y`) : elle s'arrêtait bien au-dessus du jambage et rebroussait du
+    #   mauvais côté. Le crochet part du bas du fût et s'ouvre vers la GAUCHE.
+    crochetJ = (futJ - o['x0']) / 2
+    R['j'] = ([t(ligne(futJ, hx, futJ, o['y0'] + crochetJ)
+                 + ' A %s %s 0 0 0 %s %s' % (r(crochetJ), r(crochetJ),
+                                             r(o['x0']), r(o['y0'] + crochetJ))),
                t(ligne(futJ, o['y1'], futJ, o['y1']))], [])
     o = b['l']
     milieuL = o['x0'] + (o['x1'] - o['x0']) * 0.42
@@ -291,15 +361,25 @@ def recettes(M):
         r(o['y0'] + o['l'] * 0.16), r(o['x1']), r(o['y0'] + o['l'] * 0.16)))], [])
     o = b['t']
     futT = o['x0'] + (o['x1'] - o['x0']) * 0.42
-    R['t'] = ([t(ligne(futT, o['y1'], futT, o['y0'] + o['l'] * 0.16)
-                 + ' A %s %s 0 0 0 %s %s' % (r(o['l'] * 0.28), r(o['l'] * 0.2),
-                                             r(o['x1']), r(o['y0'] + o['l'] * 0.28))),
+    # ⚠️ Le pied rebroussait vers le bas : le crochet pendait sous la ligne de
+    #   base au lieu de s'y relever. Un `t` a une base qui REMONTE à droite.
+    piedT = (o['x1'] - futT) / 2
+    R['t'] = ([t(ligne(futT, o['y1'], futT, o['y0'] + piedT)
+                 + ' A %s %s 0 0 1 %s %s' % (r(piedT), r(piedT),
+                                             r(o['x1']), r(o['y0'] + piedT * 1.5))),
                t(ligne(o['x0'], hx, o['x1'] - o['l'] * 0.1, hx))],
               [[0, 1, 'barre']])
     o = b['f']
     futF = o['x0'] + (o['x1'] - o['x0']) * 0.42
-    R['f'] = ([t(ligne(futF, o['y0'], futF, o['y1'] - o['l'] * 0.28)
-                 + ' A %s %s 0 0 1 %s %s' % (r(o['l'] * 0.3), r(o['l'] * 0.28),
+    # ⚠️ Le crochet de hampe bombait vers l'intérieur : il revenait en pointe sur
+    #   le fût au lieu de s'ouvrir vers la droite. Un `f` a une hampe qui MONTE
+    #   puis part, pas qui rebrousse.
+    # ★ Un QUART de tour, et non un arc quelconque : de l'extrême gauche au
+    #   sommet de la même ellipse, il ne peut par construction dépasser ni l'un
+    #   ni l'autre. Un arc libre montait 63 unités au-dessus de la hampe.
+    ryF = o['l'] * 0.34
+    R['f'] = ([t(ligne(futF, o['y0'], futF, o['y1'] - ryF)
+                 + ' A %s %s 0 0 0 %s %s' % (r(o['x1'] - futF), r(ryF),
                                              r(o['x1']), r(o['y1']))),
                t(ligne(o['x0'], hx, o['x1'] - o['l'] * 0.22, hx))],
               [[0, 1, 'barre']])
@@ -329,7 +409,13 @@ def recettes(M):
                t(ligne(o['x0'], o['y0'], o['x1'], hx))],
               [[0, 1, 'croisée']])
     o = b['y']
-    R['y'] = ([t(ligne(o['x0'], hx, (o['x0'] + o['x1']) / 2, hx * 0.3)),
+    # ★ La fourche se pose SUR la diagonale, et son point est CALCULÉ — il ne se
+    #   règle pas à vue. La branche courte s'arrêtait à `hx * 0,3` quand la
+    #   longue passait par `hx * 0,34` à cette abscisse : quatre centièmes
+    #   d'écart, invisibles à l'œil, et une extrémité libre de plus au comptage.
+    pointeY = (o['x0'] + o['x1']) / 2
+    tY = (pointeY - o['x1']) / (o['x0'] + o['l'] * 0.24 - o['x1'])
+    R['y'] = ([t(ligne(o['x0'], hx, pointeY, hx + tY * (o['y0'] - hx))),
                t(ligne(o['x1'], hx, o['x0'] + o['l'] * 0.24, o['y0']))],
               [[0, 1, 'fourche']])
     o = b['z']
@@ -440,7 +526,24 @@ def boite_du_trace(d):
             echant = _points_arc(x, y, args[0], args[1], int(args[3]), int(args[4]), args[5], args[6])
             pts.extend(echant)
             x, y = args[5], args[6]
-        else:  # C, Q — le polygone de contrôle borne la courbe, ce qui suffit
+        elif c in 'CQ':
+            # ⚠️ **LA COURBE, PAS SON POLYGONE DE CONTRÔLE.** Borner une Bézier
+            #   par ses points de contrôle est correct au sens strict — la courbe
+            #   y tient toujours — mais c'est une borne LARGE : une cubique
+            #   atteint environ les trois quarts de la distance à ses contrôles.
+            #   Le critère « n'atteint pas les bords » devenait donc aveugle
+            #   exactement là où il servait (mesuré sur le `s` : le polygone
+            #   touchait 459, la courbe s'arrêtait à 421). On l'échantillonne.
+            pc = [(x, y)] + [(args[k], args[k + 1]) for k in range(0, n, 2)]
+            for i2 in range(33):
+                u = i2 / 32.0
+                q = list(pc)
+                while len(q) > 1:
+                    q = [((1 - u) * q[k][0] + u * q[k + 1][0],
+                          (1 - u) * q[k][1] + u * q[k + 1][1]) for k in range(len(q) - 1)]
+                pts.append(q[0])
+            x, y = args[-2], args[-1]
+        else:
             pts.extend([(args[k], args[k + 1]) for k in range(0, n, 2)])
             x, y = args[-2], args[-1]
     xs = [p[0] for p in pts]
@@ -464,6 +567,10 @@ def controler(R, M):
     arrondie (`stroke-linecap: round`) déborde de sa demi-épaisseur.
     """
     marge = M['fut'] / 2 + 4
+    # ★ Le RETRAIT toléré : l'axe médian court à une demi-épaisseur du bord, donc
+    #   un écart d'une épaisseur pleine est déjà le double du normal. Au-delà, le
+    #   tracé n'est plus en retrait, il est plus petit que sa lettre.
+    retrait = M['fut']
     ecarts = []
     for c in 'abcdefghijklmnopqrstuvwxyz':
         if c not in R:
@@ -482,7 +589,7 @@ def controler(R, M):
             ecart = signe * (b[cle] - o[cle])
             if ecart > marge:
                 debords.append('déborde en %s de %s' % (cle, r(ecart)))
-            elif ecart < -2 * marge:
+            elif ecart < -retrait:
                 debords.append('n’atteint pas %s, à %s près' % (cle, r(-ecart)))
         if debords:
             ecarts.append((c, b, o, debords))
