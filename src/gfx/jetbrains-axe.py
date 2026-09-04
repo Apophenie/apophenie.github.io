@@ -2088,18 +2088,15 @@ def _coins_nets(chem):
     change = True
     while change and len(chem) >= 3:
         change = False
-        for i in range(1, len(chem) - 1):
-            if _long_morceau(chem[i]) < COURT / 2:
-                m, v = chem[i], chem[i + 1]
-                dx, dy = m[0][0] - v[0][0], m[0][1] - v[0][1]
-                ctrl = list(v[1])
-                if ctrl:
-                    ctrl[0] = (ctrl[0][0] + dx, ctrl[0][1] + dy)
-                chem[i:i + 2] = [(m[0], ctrl, v[2])]
-                change = True
-                break
-        if change:
-            continue
+        # ⚠️ **ET L'INTERSECTION PASSE AVANT L'ABSORPTION.** Les deux règles
+        #   valent pour un moignon du milieu, et l'ordre décidait tout : sur le
+        #   `L` capitale, le résidu du virage mesure **14,7 unités** pour un
+        #   seuil d'absorption à 14,8 — un dixième d'unité. Absorbé, il léguait
+        #   son point HAUT à la barre du bas, qui partait alors en pente de trois
+        #   degrés : quatorze unités d'écart à l'axe, le pire signe des
+        #   cinquante-deux. Coupé, il rend le coin exact. Un moignon coincé entre
+        #   deux DROITES n'a jamais rien à donner à personne : il a une
+        #   intersection, et c'est le coin.
         for i in range(1, len(chem) - 1):
             m = chem[i]
             if m[1] or math.dist(m[0], m[2]) > COURT:
@@ -2124,6 +2121,18 @@ def _coins_nets(chem):
             chem[i - 1:i + 2] = [(a[0], [], coin), (coin, [], b[2])]
             change = True
             break
+        if change:
+            continue
+        for i in range(1, len(chem) - 1):
+            if _long_morceau(chem[i]) < COURT / 2:
+                m, v = chem[i], chem[i + 1]
+                dx, dy = m[0][0] - v[0][0], m[0][1] - v[0][1]
+                ctrl = list(v[1])
+                if ctrl:
+                    ctrl[0] = (ctrl[0][0] + dx, ctrl[0][1] + dy)
+                chem[i:i + 2] = [(m[0], ctrl, v[2])]
+                change = True
+                break
     return chem
 
 
