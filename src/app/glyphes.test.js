@@ -26,7 +26,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { GLYPHES } from '../moteur/tables/glyphes.js';
-import { setGlyphes, deriveGlyph } from '../visuel/glyphes.js';
+import { setGlyphes, deriveGlyph, flatten } from '../visuel/glyphes.js';
 import { CANDIDATS } from '../gfx/_glyphes-candidats.js';
 import { AXES, TRAITS } from '../gfx/_glyphes-axe.js';
 
@@ -63,32 +63,99 @@ test('★ glyphes — chaque teinte de tracé est bien une COULEUR', () => {
 });
 
 /**
- * ★ **LA GÉOMÉTRIE VIENT DE LA POLICE, LA TOPOLOGIE VIENT DE LA RECETTE — et
- *   c'est l'accord des deux qui rend `TRAITS` adoptable.**
+ * ★ **LA GÉOMÉTRIE VIENT DE LA POLICE, ET LES COMPTES AUSSI.**
  *
- * `src/gfx/jetbrains-axe.py` repose sur l'axe exact les traits que
- * `jetbrains-traces.py` DÉCLARE. Si la pose se trompe — un bout qui n'atteint
- * pas son partenaire, un trait qui ramasse un morceau d'un autre — les comptes
- * changent, et ces comptes sont ceux que `mtrb`, `mexb` et `mbob` facturent.
+ * > « n'adapte pas le tracé pour correspondre au compte que tu as de traits,
+ * >   extrémités et boucles fermées. […] Le `i` oui il a une extrémité de plus,
+ * >   c'est sûr, la police, n'essaie pas de tricher. » (l'auteur)
  *
- * ⚠️ **CE TEST A UNE HISTOIRE, ET C'EST POURQUOI IL EST ÉCRIT.** Trois manières
- *   de découper l'axe ont été essayées ; la meilleure rendait DIX-HUIT lettres
- *   sur vingt-six, et rien à l'écran ne le disait — les dessins restaient
- *   plausibles. Seul le comptage l'a montré.
+ * Ce test ne vérifie donc PAS que les comptes des traits posés sur l'axe égalent
+ * ceux de la recette : ce serait exiger du dessin qu'il obéisse à sa description.
+ * Il vérifie les trois choses qui doivent tenir :
+ *
+ *  · **LES BOUCLES**, qui sont l'invariant. « Ça ne devrait pas changer quelle
+ *    que soit la police ou presque » — un `g` à deux boucles existe ailleurs,
+ *    pas ici. Une boucle qui apparaît ou disparaît est un défaut, pas une
+ *    lecture ;
+ *  · **LE NOMBRE DE TRAITS**, qui est la lecture elle-même : c'est la recette
+ *    qui dit combien de fois le crayon se lève, et la pose ne peut pas en
+ *    inventer un ni en perdre un ;
+ *  · **AUCUN CONTACT INVENTÉ.** Une extrémité de moins que déclaré signifierait
+ *    qu'on a rapproché deux traits pour faire tomber le compte juste. Une de
+ *    PLUS est permise, et se lit comme ce qu'elle est : un contact que la
+ *    recette annonce et que la police ne réalise pas là où elle le dit.
+ *
+ * ⚠️ **ET L'ÉCART À L'AXE EST BORNÉ.** C'est le garde-fou qui a manqué tout du
+ *   long : trois refontes successives ont rendu des lettres à quatre-vingt-quinze,
+ *   soixante-seize et deux cent vingt-quatre unités de leur axe — des dessins
+ *   parfaitement plausibles à l'œil, et faux. Vingt unités sur six cents, c'est
+ *   déjà beaucoup ; au-delà, ce n'est plus la lettre.
  */
 const BAS_DE_CASSE = [...'abcdefghijklmnopqrstuvwxyz'];
 
-const comptes = (g) => {
-  const d = deriveGlyph(g);
-  return `${d.traits} traits · ${d.extremites} extrémités · ${d.boucles} boucles`;
+const comptes = (g) => deriveGlyph(g);
+
+/* ⚠️ Un `d` à plusieurs sous-chemins s'aplatit SOUS-CHEMIN PAR SOUS-CHEMIN : les
+   relier fabrique un segment fantôme qui traverse la lettre, et toute mesure de
+   distance s'appuie dessus pour paraître bonne. C'est ce qui m'a caché, une
+   après-midi entière, que le `k` et le `i` étaient partis de travers. */
+const nuageDe = (d) => d.split(/(?=M)/).filter((s) => s.trim()).map((s) => flatten(s).points);
+
+const auTrace = (p, sous) => {
+  let best = Infinity;
+  for (const pts of sous) {
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1]; const c = pts[i];
+      const dx = c.x - a.x; const dy = c.y - a.y; const L2 = dx * dx + dy * dy;
+      const t = L2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2)) : 0;
+      best = Math.min(best, Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)));
+    }
+  }
+  return best;
 };
 
-test('★ glyphes — les traits posés sur l’axe ont la topologie de leur recette', () => {
+/** Le pire écart d'un jeu de traits à son axe, en unités du moteur. */
+function ecartALAxe(traits, axe) {
+  const sous = nuageDe(axe);
+  let pire = 0;
+  for (const t of traits) {
+    const P = flatten(t.d).points;
+    if (P.length < 2) continue;
+    // On DENSIFIE : un trait droit ne rend que ses deux bouts, et se trouverait
+    // donc exclu de la mesure — précisément les traits qu'on vient de redresser.
+    for (let i = 1; i < P.length; i++) {
+      const a = P[i - 1]; const b = P[i];
+      const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 3));
+      for (let j = 0; j <= n; j++) {
+        pire = Math.max(pire, auTrace({ x: a.x + (b.x - a.x) * j / n, y: a.y + (b.y - a.y) * j / n }, sous));
+      }
+    }
+  }
+  return pire;
+}
+
+test('★ glyphes — les traits posés gardent les boucles et les traits déclarés', () => {
   for (const c of BAS_DE_CASSE) {
     assert.ok(TRAITS[c], `« ${c} » n'a pas de traits engendrés`);
     assert.ok(CANDIDATS[c], `« ${c} » n'a pas de recette`);
-    assert.equal(comptes(TRAITS[c]), comptes(CANDIDATS[c]),
-      `« ${c} » : la pose sur l'axe ne rend pas la topologie déclarée`);
+    const a = comptes(CANDIDATS[c]); const b = comptes(TRAITS[c]);
+    assert.equal(b.boucles, a.boucles,
+      `« ${c} » : ${b.boucles} boucle(s) au lieu de ${a.boucles} — une boucle ne dépend pas de la pose`);
+    assert.equal(b.traits, a.traits,
+      `« ${c} » : ${b.traits} trait(s) au lieu de ${a.traits} — la pose n'en invente ni n'en perd`);
+    assert.ok(b.extremites >= a.extremites,
+      `« ${c} » : ${b.extremites} extrémités libres pour ${a.extremites} déclarées — `
+      + 'un contact a été fabriqué pour faire tomber le compte juste');
+  }
+});
+
+test('★ glyphes — aucun trait ne s’éloigne de son axe', () => {
+  const LIMITE = 20;
+  for (const c of BAS_DE_CASSE) {
+    const e = ecartALAxe(TRAITS[c].traits, AXES[c]);
+    assert.ok(e < LIMITE,
+      `« ${c} » : le trait posé s'écarte de ${e.toFixed(1)} unités de son axe `
+      + `(limite ${LIMITE}) — c'est un dessin plausible et faux`);
   }
 });
 

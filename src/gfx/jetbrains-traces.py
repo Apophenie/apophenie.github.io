@@ -528,9 +528,20 @@ def recettes(M):
     # ── les empattées : `i`, `j`, `l`, `t`, `f` ───────────────────────────────
     o = b['i']
     milieuI = (o['x0'] + o['x1']) / 2
-    R['i'] = ([t('M %s %s L %s %s L %s %s L %s %s' % (
-        r(o['x0']), r(hx), r(milieuI), r(hx), r(milieuI), r(o['y0']), r(o['x1']), r(o['y0']))),
-               t(ligne(milieuI, o['y1'], milieuI, o['y1']))], [])
+    # ⚠️ **SON EMPATTEMENT DE PIED EST DES DEUX CÔTÉS, PAS D'UN SEUL.** La
+    #   recette le faisait partir du fût vers la droite ; la police le dessine de
+    #   x=54 à x=510, à cheval sur le fût. Le bas du `i` est donc un CARREFOUR à
+    #   trois branches, et non un simple coude — un trait de plus, une extrémité
+    #   de plus.
+    #     « le `i` oui il a une extrémité de plus, c'est sûr, la police, n'essaie
+    #       pas de tricher » (l'auteur)
+    #   ⚠️ Et ça déplace des scores : `mtrb` et `mexb` facturent ces comptes. Le
+    #     dessin ne s'ajuste pas au barème, c'est le barème qui suit le dessin.
+    R['i'] = ([t('M %s %s L %s %s L %s %s' % (
+        r(o['x0']), r(hx), r(milieuI), r(hx), r(milieuI), r(o['y0']))),
+               t(ligne(o['x0'], o['y0'], o['x1'], o['y0'])),
+               t(ligne(milieuI, o['y1'], milieuI, o['y1']))],
+              [[0, 1, 'pied']])
     o = b['j']
     futJ = o['x1'] - M['fut'] / 2
     # ⚠️ La queue prenait des LARGEURS pour des ordonnées (`o['l'] * 0.28` posé

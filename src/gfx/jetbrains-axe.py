@@ -441,23 +441,24 @@ def _plat(ch):
     """
     out = []
     for ci, segs in enumerate(morceaux(axe(ch))):
-        brut = []
+        brut, droits = [], []
         for m in segs:
             brut += [evalue(m, k / 32) for k in range(32)]
+            droits += [not m[1]] * 32          # `m[1]` vide : c'est un `L`
         if len(brut) < 2:
             continue
-        pts = _regulier(brut)
+        pts, tag = _regulier(brut, marques=droits)
         n = len(pts)
         for i, q in enumerate(pts):
             a, b = pts[(i - 2) % n], pts[(i + 2) % n]
             h = math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0
-            out.append((q, ((b[0] - a[0]) / h, (b[1] - a[1]) / h), ci))
+            out.append((q, ((b[0] - a[0]) / h, (b[1] - a[1]) / h), ci, tag[i]))
     return out
 
 
-def _regulier(pts, pas=PAS_AXE):
-    out, reste = [pts[0]], 0.0
-    for a, b in zip(pts, pts[1:] + [pts[0]]):
+def _regulier(pts, pas=PAS_AXE, marques=None):
+    out, tag, reste = [pts[0]], [bool(marques[0]) if marques else False], 0.0
+    for i, (a, b) in enumerate(zip(pts, pts[1:] + [pts[0]])):
         d = math.dist(a, b)
         if d < 1e-9:
             continue
@@ -465,9 +466,10 @@ def _regulier(pts, pas=PAS_AXE):
         while t < d:
             u = t / d
             out.append((a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u))
+            tag.append(bool(marques[i]) if marques else False)
             t += pas
         reste = t - d
-    return out
+    return (out, tag) if marques is not None else out
 
 
 #: |cos| minimal entre la direction d'un point de l'axe et celle du guide pour
@@ -495,26 +497,59 @@ CASE = 8.0
 
 
 def _grille(points):
+    """Le nuage de l'axe, casé — chaque entrée garde sa marque de rectitude."""
     g = {}
     for p in points:
         g.setdefault((int(p[0] // CASE), int(p[1] // CASE)), []).append(p)
     return g
 
 
-def _pres(g, p, portee=20):
-    """La distance de `p` au point d'axe le plus proche, par cases voisines."""
+def _plus_proche(g, p, portee=20):
+    """Le point d'axe le plus proche, avec ce qu'il sait — ou `None`."""
     cx, cy = int(p[0] // CASE), int(p[1] // CASE)
     for anneau in range(1, portee + 1):
-        best = None
+        best, bd = None, None
         for dx in range(-anneau, anneau + 1):
             for dy in range(-anneau, anneau + 1):
                 for q in g.get((cx + dx, cy + dy), ()):
                     d = (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2
-                    if best is None or d < best:
-                        best = d
+                    if bd is None or d < bd:
+                        bd, best = d, q
         if best is not None:
-            return math.sqrt(best)
-    return CASE * portee
+            return best, math.sqrt(bd)
+    return None, CASE * portee
+
+
+def _sur_droit(g, p):
+    """L'axe est-il DROIT à cet endroit ? La source le dit : un `L` est un `L`."""
+    q, _ = _plus_proche(g, p)
+    return bool(q is not None and len(q) > 2 and q[2])
+
+
+def _direction_axe(g, p, sens):
+    """★ **LA DIRECTION D'UNE POIGNÉE SE LIT SUR L'AXE, PAS SUR LE RELEVÉ.**
+
+    > « peut-être que gérer les courbes de Bézier avec les poignées en repère
+    >   radial plutôt que x y t'aidera à faire ce calibrage » (l'auteur)
+
+    C'est déjà le cas — l'ajustement ne cherche que la LONGUEUR des deux
+    poignées, leur direction lui étant imposée. Mais il la recevait des points
+    PROJETÉS, qui tremblent d'une unité ou deux : une poignée longue de cent
+    unités partait alors deux à trois degrés de travers, et c'est exactement ce
+    que l'auteur voit — « les poignées devraient être dans 2 directions et leur
+    opposé, aucune autre ». L'axe, lui, est fait de Béziers exactes ; sa tangente
+    est connue. On la lui prend.
+    """
+    q, _ = _plus_proche(g, p)
+    if q is None or len(q) < 4:
+        return None
+    tx, ty = q[3]
+    return (tx, ty) if (tx * sens[0] + ty * sens[1]) >= 0 else (-tx, -ty)
+
+
+def _pres(g, p, portee=20):
+    """La distance de `p` au point d'axe le plus proche, par cases voisines."""
+    return _plus_proche(g, p, portee)[1]
 
 
 def _ecart_a_laxe(lignes, casiers):
@@ -546,7 +581,7 @@ def plis(nuage):
     renverse. Le test échouait quand on lui demandait de distinguer un coin d'un
     demi-tour ; on ne lui demande plus que le demi-tour.
     """
-    pts = [p for p, _, _ in nuage]
+    pts = [p for p, _, _, _ in nuage]
     n = len(pts)
     if n < 3 * FENETRE_PLI:
         return []
@@ -696,7 +731,7 @@ def _contacts(pa, pb, tol=8.0):
 TOLERANCE = 1.0
 
 
-def _ajuste(P, tol=TOLERANCE, coins=frozenset()):
+def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None):
     """Le moins de cubiques possible passant à moins de `tol` de `P`."""
     # ⚠️ Les abscisses sans mesure ont été bouchées en recopiant la voisine
     #   connue : elles arrivent ici en doublons exacts, et une corde de longueur
@@ -723,8 +758,358 @@ def _ajuste(P, tol=TOLERANCE, coins=frozenset()):
         tronc = P[a:b + 1]
         if len(tronc) < 2:
             continue
-        out += _cubiques(tronc, _tangente(tronc, 0, 1), _tangente(tronc, -1, -1), tol)
+        # ★ **ON NE DEMANDE PAS À LA COURBE D'ÊTRE PLUS PRÈS DE L'AXE QUE NE LE
+        #   SONT LES POINTS QU'ON LUI DONNE.** Près d'une jonction, la projection
+        #   s'écarte réellement de l'axe — de douze unités sur la panse du `d` —
+        #   et aucune cubique passant par ces points-là ne peut y revenir.
+        #   L'ajusteur, lui, ne le sait pas : il subdivisait sans fin pour un but
+        #   inatteignable, et le compte des segments passait de 426 à 606. Le
+        #   plafond se lit donc sur la donnée, tronçon par tronçon.
+        # ★ **UN TRONÇON DROIT DANS LA SOURCE SORT DROIT, SANS AJUSTEMENT.** On
+        #   pose la question au tronçon ENTIER et non morceau par morceau : la
+        #   subdivision coupe où elle veut, et la moitié basse d'une diagonale de
+        #   `y` — celle qui plonge dans le carrefour — faisait échouer le vote
+        #   pour toute la branche. Le tronçon, lui, est délimité par les COINS que
+        #   la recette déclare : c'est la bonne unité de décision.
+        bouts = _tronc_droit(tronc, casiers) if casiers is not None else None
+        if bouts is not None:
+            out.append((bouts[0], [], bouts[1]))
+            continue
+        plafond = (max(_pres(casiers, q) for q in tronc) + tol) if casiers else None
+        t1, t2 = _tangente(tronc, 0, 1), _tangente(tronc, -1, -1)
+        if casiers is not None:
+            t1 = _direction_axe(casiers, tronc[0], t1) or t1
+            t2 = _direction_axe(casiers, tronc[-1], t2) or t2
+        morceau = _cubiques(tronc, t1, t2, tol, casiers, plafond)
+        # ⚠️ **REDRESSER PUIS FUSIONNER NE SUFFIT PAS : IL FAUT BOUCLER.** Un
+        #   redressement crée des droites que la fusion précédente n'a pas vues,
+        #   et le `y` sortait avec trois points alignés sur une même droite —
+        #   exactement le reproche de l'auteur. On alterne donc jusqu'à ce que
+        #   plus rien ne bouge ; deux tours suffisent partout, la borne n'est là
+        #   que pour interdire un cycle.
+        for _ in range(6):
+            avant = len(morceau)
+            morceau = _fusionne(_redresse(morceau, tol, casiers, plafond),
+                                tol, casiers, plafond)
+            if len(morceau) == avant:
+                break
+        out += _droites(_redresse(morceau, tol, casiers, plafond), casiers)
     return out
+
+
+#: Ce qu'on tolère entre la droite conclue et les points MARQUÉS droits du
+#: tronçon. Le repliage dérive jusqu'à huit unités près d'une pointe — c'est le
+#: coude du `y`, et c'est une erreur de ma méthode, pas du dessin. Douze le
+#: laissent passer ; un tronçon qui n'est pas droit s'en écarte de dizaines.
+ECART_DROITE = 12.0
+
+
+def _tronc_droit(tronc, casiers):
+    """Le tronçon est-il une DROITE ? La source vote, la géométrie arbitre.
+
+    ⚠️ **LA MAJORITÉ SEULE NE SUFFIT PAS**, et le `f` l'a montré cruellement : sa
+      hampe est droite sur les trois quarts, son crochet courbe sur le dernier.
+      Quatre cinquièmes de points marqués droits, le vote passait, et la lettre
+      sortait en une seule diagonale barrée — un `f` devenu croix. On vérifie
+      donc que la droite conclue passe VRAIMENT par les points qui l'ont votée.
+    """
+    vus = [_sur_droit(casiers, q) for q in tronc]
+    if len(vus) < 3 or sum(vus) < MAJORITE_DROITE * len(vus):
+        return None
+    bouts = _droite_ajustee(tronc, vus)
+    if bouts is None:
+        return None
+    a, b = bouts
+    # ⚠️ **ET LA VÉRIFICATION PORTE SUR TOUS LES POINTS, PAS SEULEMENT SUR CEUX
+    #   QUI ONT VOTÉ.** Le `k` de JetBrains Mono ne fait pas partir ses deux
+    #   diagonales du fût : elles se rejoignent d'abord, cent trente unités plus
+    #   à droite, par un court bras horizontal. Ce bras tombe dans un carrefour,
+    #   ses points n'y sont donc pas marqués droits — et en ne contrôlant que les
+    #   marqués, on l'ignorait purement et simplement : la diagonale ressortait
+    #   en droite parfaite, à soixante-douze unités de son axe.
+    if any(_dseg(q, a, b) >= ECART_DROITE for q in tronc):
+        return None
+    return bouts
+
+
+def _droite_ajustee(tronc, vus):
+    """★ **LA DROITE SE TIRE DES POINTS, PAS DES BOUTS.**
+
+    Les bouts d'un tronçon sont ce qu'il a de moins sûr : c'est là qu'il plonge
+    dans un carrefour et que la projection le tire de travers. Joindre bout à
+    bout donnait une diagonale de `k` à soixante-seize unités de son axe — une
+    droite parfaite, parfaitement fausse. On ajuste donc la droite sur les points
+    MARQUÉS droits (axe principal du nuage), puis on y projette les deux bouts
+    pour savoir où commencer et où finir.
+    """
+    pts = [q for q, droit in zip(tronc, vus) if droit]
+    if len(pts) < 2:
+        return None
+    cx = sum(q[0] for q in pts) / len(pts)
+    cy = sum(q[1] for q in pts) / len(pts)
+    sxx = sum((q[0] - cx) ** 2 for q in pts)
+    syy = sum((q[1] - cy) ** 2 for q in pts)
+    sxy = sum((q[0] - cx) * (q[1] - cy) for q in pts)
+    # direction principale : le vecteur propre dominant de la matrice d'inertie
+    theta = 0.5 * math.atan2(2 * sxy, sxx - syy)
+    ux, uy = math.cos(theta), math.sin(theta)
+    if math.hypot(ux, uy) < 1e-9:
+        return None
+    proj = lambda q: ((q[0] - cx) * ux + (q[1] - cy) * uy)
+    sur = lambda t: (cx + ux * t, cy + uy * t)
+    return sur(proj(tronc[0])), sur(proj(tronc[-1]))
+
+
+def _droites(chem, casiers):
+    """★ **DEUX BORDS DROITS FONT UN AXE DROIT, MÊME S'ILS CONVERGENT.**
+
+    > « y devrait avoir 4, max 5 points, et les poignées des courbes de Bézier
+    >   devraient être dans 2 directions et leur opposé, aucune autre. »
+    >   (l'auteur)
+
+    Le `y` sortait avec un coude de sept unités au milieu de sa diagonale
+    gauche, et ce coude est un ARTEFACT DE MA MÉTHODE, pas un trait du dessin :
+    la branche gauche du `y` s'affine vers le sommet, ses deux bords ne sont donc
+    pas parallèles, et le repliage — qui apparie chaque point au PLUS PROCHE d'en
+    face — dérive près de la pointe. Or le milieu de deux droites sécantes est
+    leur BISSECTRICE, qui est droite. La source déclare les deux bords `L` ; on
+    n'a donc pas à mesurer, on a à conclure.
+
+    ⚠️ Une suite de morceaux tous marqués droits devient UN segment, sans
+      vérification de distance : c'est le seul endroit de la chaîne où l'on
+      préfère ce que la police DIT à ce que le nuage MONTRE, et c'est légitime
+      parce que c'est le nuage qui a tort.
+    """
+    if casiers is None:
+        return chem
+    # ⚠️ **LE CARREFOUR NE VOTE PAS.** Aux derniers points d'un trait, la police
+    #   fond les deux traits en une seule masse et l'axe y devient courbe : le
+    #   `y` et le `v` gardaient leur coude parce que la poignée de points du
+    #   sommet suffisait à faire douter d'une diagonale longue de quatre cents
+    #   unités. On demande donc une large majorité, pas l'unanimité.
+    marques = []
+    for m in chem:
+        vus = [_sur_droit(casiers, evalue(m, k / 24)) for k in range(25)]
+        marques.append(sum(vus) >= MAJORITE_DROITE * len(vus))
+    out, i = [], 0
+    while i < len(chem):
+        if not marques[i]:
+            out.append(chem[i])
+            i += 1
+            continue
+        j = i
+        while j + 1 < len(chem) and marques[j + 1]:
+            j += 1
+        # ⚠️ **ET ON VÉRIFIE QUE LA DROITE PASSE PAR CE QU'ELLE REMPLACE.** Sans
+        #   ce contrôle, le groupe « bras + diagonale » du `k` — deux morceaux
+        #   droits, mais coudés l'un sur l'autre — se réduisait à une seule
+        #   droite passant à soixante-douze unités de son axe. Deux droites
+        #   accolées ne font une droite que si elles sont alignées.
+        a, b = chem[i][0], chem[j][2]
+        echos = [evalue(m, k / 12) for m in chem[i:j + 1] for k in range(13)]
+        if math.dist(a, b) > 1e-9 and all(_dseg(q, a, b) < ECART_DROITE for q in echos):
+            out.append((a, [], b))
+        else:
+            out += chem[i:j + 1]
+        i = j + 1
+    return out
+
+
+def _redresse(chem, tol, casiers, plafond):
+    """★ **CE QUI EST DROIT DANS LA SOURCE SORT DROIT.**
+
+    > « s'il y a un trait droit à l'origine, il ne doit pas y avoir d'aspérité à
+    >   l'arrivée. » (l'auteur)
+
+    Et la source le DIT : un segment de l'axe est un `L` ou il ne l'est pas —
+    aucune mesure d'angle, aucun seuil de courbure. La marque voyage avec chaque
+    point du nuage depuis `_plat`. Une cubique dont tous les points tombent sur du
+    droit devient une droite, et l'on vérifie seulement qu'elle tient dans la même
+    tolérance. La barre du `e`, la hampe du `f`, les diagonales du `x` : elles
+    ondulaient d'une unité ou deux parce que l'ajusteur suivait un relevé bruité
+    au lieu de suivre ce que la police déclare.
+    """
+    if casiers is None:
+        return chem
+    out = []
+    seuil = max(tol + MARGE_NUAGE, plafond if plafond is not None else 0.0)
+    for m in chem:
+        droite = (m[0], [], m[2])
+        ecart = max(_pres(casiers, evalue(droite, k / 24)) for k in range(25))
+        # ★ On essaie TOUJOURS la droite ; la marque de la source sert à savoir
+        #   jusqu'où l'accepter. Exiger que TOUS les points portent la marque
+        #   laissait les diagonales du `x` en cubiques : la police y fond ses deux
+        #   traits en une seule masse au croisement, et cette poignée de points
+        #   courbes suffisait à faire douter d'une droite longue de six cents
+        #   unités. Une droite qui tient dans la tolérance est une droite.
+        marquee = all(_sur_droit(casiers, evalue(m, k / 24)) for k in range(25))
+        if ecart < (seuil + MARGE_NUAGE if marquee else seuil):
+            out.append(droite)
+        else:
+            out.append(m)
+    return out
+
+
+def _fusionne(chem, tol, casiers, plafond):
+    """★ **ON ESSAIE DE RETIRER CHAQUE POINT, ET ON NE LE GARDE QUE S'IL SERT.**
+
+    > « pourquoi ne le vois-tu pas pour le retirer ? » (l'auteur)
+
+    Parce que je ne le lui demandais pas. La subdivision descendante ne revient
+    jamais sur ses pas : une coupure décidée tôt, sur un bruit, reste même quand
+    les deux moitiés se laissent réunir. Il fallait la question inverse — non pas
+    « faut-il couper ici ? » mais « ce point sert-il encore ? » — et elle se pose
+    aussi simplement qu'elle s'écrit.
+    """
+    i = 0
+    while i < len(chem) - 1:
+        a, b = chem[i], chem[i + 1]
+        P = ([evalue(a, k / 16) for k in range(17)]
+             + [evalue(b, k / 16) for k in range(1, 17)])
+        t1 = _versLe(a[0], a[1][0] if a[1] else a[2])
+        t2 = _versLe(b[2], b[1][-1] if b[1] else b[0])
+        if casiers is not None:
+            t1 = _direction_axe(casiers, a[0], t1) or t1
+            t2 = _direction_axe(casiers, b[2], t2) or t2
+        u = _parametres(P)
+        bez = _moindres_carres(P, u, t1, t2)
+        err, _ = _ecart_max(P, bez, u)
+        for _ in range(4):
+            if _accepte(bez, err, tol, casiers, plafond):
+                break
+            u = _reparametre(P, bez, u)
+            bez = _moindres_carres(P, u, t1, t2)
+            err, _ = _ecart_max(P, bez, u)
+        if _accepte(bez, err, tol, casiers, plafond):
+            chem[i:i + 2] = [bez]
+            i = max(0, i - 1)
+        else:
+            i += 1
+    return chem
+
+
+def _casteljau(P, t):
+    niveaux = [list(P)]
+    while len(niveaux[-1]) > 1:
+        n = niveaux[-1]
+        niveaux.append([(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+                        for a, b in zip(n, n[1:])])
+    return [n[0] for n in niveaux], [n[-1] for n in reversed(niveaux)]
+
+
+def _tronque(m, t, garderLeDebut):
+    """La restriction EXACTE d'un morceau — même degré, même courbe."""
+    P = [m[0]] + list(m[1]) + [m[2]]
+    if not m[1]:
+        q = (m[0][0] + (m[2][0] - m[0][0]) * t, m[0][1] + (m[2][1] - m[0][1]) * t)
+        return (m[0], [], q) if garderLeDebut else (q, [], m[2])
+    g, d = _casteljau(P, t)
+    return (g[0], g[1:-1], g[-1]) if garderLeDebut else (d[0], d[1:-1], d[-1])
+
+
+def _taille(chem, i, t, garderLeDebut):
+    if garderLeDebut:
+        return chem[:i] + [_tronque(chem[i], t, True)]
+    return [_tronque(chem[i], t, False)] + chem[i + 1:]
+
+
+#: Sur quelle longueur, au bout d'un trait, on cherche la rencontre avec son
+#: voisin. Au-delà, un trait qui frôle un autre à mi-parcours — la hampe du `t`
+#: sous sa barre — s'y ferait couper.
+ZONE_JONCTION = 60.0
+
+#: Quelle part d'un morceau doit tomber sur du droit pour qu'on le tienne pour
+#: droit. Quatre points sur cinq : la zone de carrefour d'une diagonale de `y`
+#: en occupe environ un dixième, et aucun morceau réellement courbe de
+#: l'alphabet n'atteint la moitié.
+MAJORITE_DROITE = 0.8
+
+
+def rejoint(chemins, liens, attendus):
+    """★ **UN TRAIT S'ARRÊTE OÙ IL EN RENCONTRE UN AUTRE — ni avant, ni après.**
+
+    > « tant que ton modèle n'est pas capable de voir 2 traits seulement, avec
+    >   une intersection, pas d'artéfact supplémentaire, c'est que ton modèle
+    >   n'est pas au point. » (l'auteur)
+
+    La projection donne au trait quelques points de trop au-delà du carrefour —
+    dix-sept unités de queue courbe au bas du `y`, là où deux droites devraient
+    simplement se croiser. On TAILLE donc chaque bout à sa rencontre, par de
+    Casteljau : la queue disparaît, et le bout se pose exactement sur le voisin.
+    C'est aussi ce qui rétablit les contacts que le redressement avait rompus —
+    le `b`, le `q` et le `r` avaient perdu le leur, la panse s'étant écartée de
+    plus de six unités en devenant droite.
+    """
+    plats = [[evalue(m, k / 12) for m in c for k in range(13)] for c in chemins]
+    for u, chem in enumerate(chemins):
+        if not chem or not liens[u]:
+            continue
+        for cote, garderLeDebut in ((0, False), (1, True)):
+            if not attendus[u][cote] or not chem:
+                continue
+            bord = chem[-1][2] if garderLeDebut else chem[0][0]
+            voisins = [q for v in liens[u] for q in plats[v]]
+            if not voisins:
+                continue
+            # ① le point du trait, dans la zone du bout, le plus proche du voisin
+            best = None
+            for i, m in enumerate(chem):
+                for j in range(25):
+                    t = j / 24
+                    z = evalue(m, t)
+                    if math.dist(z, bord) > ZONE_JONCTION:
+                        continue
+                    d = min(math.dist(z, w) for w in voisins)
+                    if best is None or d < best[0]:
+                        best = (d, i, t, z)
+            if best is None:
+                continue
+            _, i, t, _ = best
+            # ② on taille jusque-là, puis on pose le bout SUR le voisin
+            taille = _taille(chem, i, t, garderLeDebut)
+            taille = [m for m in taille if math.dist(m[0], m[2]) > 1e-9 or m[1]]
+            if not taille:
+                continue
+            # ★ **ON ALLONGE LE TRAIT DANS SA PROPRE DIRECTION — on ne le fait
+            #   pas pivoter.** Poser le bout d'un segment droit sur le voisin le
+            #   plus proche, c'est incliner toute la droite : la diagonale du `k`
+            #   partait à soixante-seize unités de son axe pour gagner cent
+            #   trente-et-une unités au départ. Le bout coulisse donc le long de
+            #   la tangente terminale, et rien d'autre ne bouge.
+            m = taille[-1] if garderLeDebut else taille[0]
+            bout = m[2] if garderLeDebut else m[0]
+            dire = (_versLe(m[1][-1] if m[1] else m[0], bout) if garderLeDebut
+                    else _versLe(m[1][0] if m[1] else m[2], bout))
+            if dire == (0.0, 0.0):
+                continue
+            meilleur = None
+            for pas in range(-int(ZONE_JONCTION), int(ZONE_JONCTION) + 1):
+                q = (bout[0] + dire[0] * pas, bout[1] + dire[1] * pas)
+                d = min(math.dist(q, w) for w in voisins)
+                if meilleur is None or d < meilleur[0]:
+                    meilleur = (d, q)
+            if meilleur is None or meilleur[0] > TOL:
+                # ⚠️ **ET S'IL N'ATTEINT PAS, ON NE TRICHE PAS.** Un trait que la
+                #   police ne fait pas se rejoindre ne se rejoindra pas ici :
+                #   c'est un désaccord entre la lecture et le dessin, et il doit
+                #   se voir dans les comptes plutôt que se cacher dans le tracé.
+                chem = taille
+                continue
+            cible = meilleur[1]
+            if garderLeDebut:
+                taille[-1] = (m[0], list(m[1]), cible)
+            else:
+                taille[0] = (cible, list(m[1]), m[2])
+            chem = taille
+        chemins[u] = chem
+        plats[u] = [evalue(m, k / 12) for m in chem for k in range(13)]
+    return chemins
+
+
+def _versLe(depuis, vers):
+    dx, dy = vers[0] - depuis[0], vers[1] - depuis[1]
+    h = math.hypot(dx, dy)
+    return (0.0, 0.0) if h < 1e-9 else (dx / h, dy / h)
 
 
 def _etendue(P):
@@ -783,7 +1168,25 @@ def _tangente_cercle(a, b, c):
     return (tx, ty) if tx * bx + ty * by >= 0 else (-tx, -ty)
 
 
-def _cubiques(P, t1, t2, tol, profondeur=0):
+def _cubiques(P, t1, t2, tol, casiers=None, plafond=None, profondeur=0):
+    """★ **ON JUGE L'AJUSTEMENT SUR L'AXE, PAS SUR LES POINTS RELEVÉS.**
+
+    > « dans le `f`, il y a un point inutile (le 2ᵈ en partant du bas de la tige)
+    >   pourquoi ne le vois-tu pas pour le retirer ? Dans la barre horizontale du
+    >   `e` il y en a aussi un au milieu d'une ligne droite. » (l'auteur)
+
+    Parce que je comparais la courbe aux POINTS PROJETÉS, et qu'ils sont bruités :
+    la barre du `e` ondulait de deux unités autour de sa droite, la tolérance
+    valait une unité, et l'ajusteur en concluait à sept virages là où il n'y en a
+    aucun. Or ces points ne sont pas la référence — ils ne sont qu'un ordre de
+    passage. **La référence est l'axe**, qui est exact.
+
+    On accepte donc une cubique quand elle reste sur l'AXE, et l'on garde les
+    points relevés pour la seule chose qu'ils sachent : dire par où passer. D'où
+    la seconde borne, large : elle interdit à la courbe de couper au court à
+    travers la lettre en trouvant de l'axe ailleurs, sans lui imposer d'épouser
+    le bruit.
+    """
     if len(P) == 2:
         d = math.dist(P[0], P[1]) / 3
         return [(P[0], [(P[0][0] + t1[0] * d, P[0][1] + t1[1] * d),
@@ -791,7 +1194,7 @@ def _cubiques(P, t1, t2, tol, profondeur=0):
     u = _parametres(P)
     bez = _moindres_carres(P, u, t1, t2)
     err, coupe = _ecart_max(P, bez, u)
-    if err < tol:
+    if _accepte(bez, err, tol, casiers, plafond):
         return [bez]
     # ★ **ON RE-PARAMÈTRE AVANT DE SUBDIVISER, ET C'EST TOUT L'ÉCART.** La
     #   longueur de corde n'est qu'une PREMIÈRE estimation du paramètre de
@@ -804,13 +1207,43 @@ def _cubiques(P, t1, t2, tol, profondeur=0):
             u = _reparametre(P, bez, u)
             bez = _moindres_carres(P, u, t1, t2)
             err, coupe = _ecart_max(P, bez, u)
-            if err < tol:
+            if _accepte(bez, err, tol, casiers, plafond):
                 return [bez]
     if profondeur > 14 or coupe <= 0 or coupe >= len(P) - 1:
         return [bez]
     tc = _tangente_milieu(P, coupe)
-    return (_cubiques(P[:coupe + 1], t1, (-tc[0], -tc[1]), tol, profondeur + 1)
-            + _cubiques(P[coupe:], tc, t2, tol, profondeur + 1))
+    if casiers is not None:
+        tc = _direction_axe(casiers, P[coupe], tc) or tc
+    return (_cubiques(P[:coupe + 1], t1, (-tc[0], -tc[1]), tol, casiers,
+                      plafond, profondeur + 1)
+            + _cubiques(P[coupe:], tc, t2, tol, casiers, plafond, profondeur + 1))
+
+
+#: Ce qu'on laisse à la courbe de s'écarter des POINTS RELEVÉS. C'est une laisse,
+#: pas une tolérance : elle empêche un raccourci à travers la lettre, elle ne
+#: prétend pas que le relevé soit exact. Le bruit de projection mesuré atteint
+#: deux unités sur la barre du `e` ; six laissent passer, et aucun trait voisin
+#: n'est à moins de cinquante.
+LAISSE = 6.0
+
+#: ⚠️ **L'AXE EST UN NUAGE, ET UN NUAGE A UN PAS.** On le mesure en cherchant le
+#:   POINT le plus proche, pas la courbe : un point posé exactement sur l'axe est
+#:   donc à un demi-pas d'échantillonnage du plus proche relevé (`PAS_AXE`), et
+#:   l'axe lui-même est un ALLER-RETOUR dont les deux passages restent écartés
+#:   d'une unité et demie — sa ligne moyenne est à trois quarts d'unité de
+#:   chacun. Exiger la tolérance nue revenait à exiger l'impossible : le compte
+#:   des segments a triplé d'un coup, 426 à 1207. On ajoute donc ce que la mesure
+#:   coûte, et rien de plus.
+MARGE_NUAGE = 1.3
+
+
+def _accepte(bez, err, tol, casiers, plafond):
+    if casiers is None:
+        return err < tol
+    if err >= LAISSE:
+        return False
+    seuil = max(tol + MARGE_NUAGE, plafond if plafond is not None else 0.0)
+    return all(_pres(casiers, evalue(bez, k / 24)) < seuil for k in range(25))
 
 
 def _tangente_milieu(P, i):
@@ -933,7 +1366,7 @@ def _pose(nuage, guides, coins):
     #    — parmi ceux dont la direction est compatible avec la sienne.
     tangentes = [[_direction(g, k) for k in range(len(g))] for g in guides]
     seaux = [[[] for _ in range(ABSCISSES + 1)] for _ in guides]
-    for p, u, _ in nuage:
+    for p, u, _, _d in nuage:
         choix, meilleur = None, None
         for t, guide in enumerate(guides):
             for k, q in enumerate(guide):
@@ -1081,7 +1514,7 @@ def traits(ch, recette, points_du_trace, journal=None):
     #   neuf à deux — mais DIVERGE sur celles dont la première passe est déjà
     #   fausse : le `j` s'éloignait de quatre-vingt-dix-sept à cent trente-deux.
     #   Le critère d'arrêt n'a donc pas à être choisi, il se mesure.
-    casiers = _grille([p for p, _, _ in reste])
+    casiers = _grille([(p[0], p[1], d, u) for p, u, _, d in reste])
 
     def poser(depart):
         lignes_, note_ = depart, None
@@ -1102,23 +1535,19 @@ def traits(ch, recette, points_du_trace, journal=None):
         if c is not None:
             lignes[t] = [c] * (ABSCISSES + 1)
 
-    # ③ les contacts se REPRODUISENT tels que la recette les réalise
-    origines = [points_du_trace(t['d']) for t in decl]
-    for jonc in jonctions:
-        a, b = int(jonc[0]), int(jonc[1])
-        if not (0 <= a < len(lignes) and 0 <= b < len(lignes)):
-            continue
-        for (u, v) in ((a, b), (b, a)):
-            for iBout in _contacts(origines[u], origines[v]):
-                i = 0 if iBout == 0 else len(lignes[u]) - 1
-                p = lignes[u][i]
-                lignes[u][i] = min(lignes[v],
-                                   key=lambda q: (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2)
+    # ③ chaque trait est AJUSTÉ : le moins de cubiques possible à une unité près.
+    #    Les coins du guide sont imposés comme bornes — un ajustement qui n'en
+    #    saurait rien arrondirait le pied du `l` et le `z`.
+    ajustes = [_ajuste(ligne, TOLERANCE, coins[t], casiers)
+               for t, ligne in enumerate(lignes)]
 
-    # ⑤ chaque trait est ensuite AJUSTÉ : le moins de cubiques possible à une
-    #    unité près. Les coins du guide sont imposés comme bornes — un ajustement
-    #    qui n'en saurait rien arrondirait le pied du `l` et le `z`.
-    ajustes = [_ajuste(ligne, TOLERANCE, coins[t]) for t, ligne in enumerate(lignes)]
+    # ④ puis chaque bout que la recette pose en contact est TAILLÉ à sa rencontre.
+    #    C'est le dernier geste, et il vient après l'ajustement : tailler avant
+    #    laisserait l'ajusteur repousser une queue de l'autre côté du carrefour.
+    attendus = [tuple(any(_dpoly(g[bout], guides[k]) <= TOL for k in liens[i])
+                      for bout in (0, -1))
+                for i, g in enumerate(guides)]
+    rejoint(ajustes, liens, attendus)
     if journal is not None:
         # ★ Ce que la projection a COÛTÉ : le pire écart du trait rendu à l'axe,
         #   mesuré sur le tracé final et non sur les points qui l'ont produit.
