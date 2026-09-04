@@ -546,10 +546,29 @@ def recettes(M):
     gaucheU = o['x0'] + M['fut'] / 2
     creux = o['y0'] + M['fut'] / 2
     ryU = (futU - gaucheU) / 2
-    R['u'] = ([t(ligne(gaucheU, hx, gaucheU, creux + ryU)),
-               t(arc(gaucheU, creux + ryU, ryU, ryU, 0, 1, futU, creux + ryU)
-                 + ' L %s %s' % (r(futU), r(hx)))],
-              [[0, 1, 'creux']])
+    # ★ **LE `u` N'A QU'UN SEUL TRAIT — et c'est la POLICE qui le dit.**
+    #
+    #   > « le `U` est bicolore sur les 3 ; si ça représente le nombre de traits,
+    #   >   `U` n'en a qu'un. » (l'auteur)
+    #
+    #   Vérifié sur l'axe replié, et pas sur le goût : le `u` porte exactement
+    #   DEUX PLIS — ses deux sommets, en haut de chaque fût — et **aucun point de
+    #   branchement**. Aucun endroit où trois brins d'axe se rencontrent, donc
+    #   aucun endroit où le crayon ait à se lever. C'est un tracé d'un seul
+    #   tenant : on descend le fût gauche, on tourne dans le creux, on remonte le
+    #   fût droit. Le `n` et le `h`, eux, ont bien un carrefour à trois branches
+    #   au départ de leur arche, et gardent leurs deux traits.
+    #
+    # ⚠️ **ET ON NE CHANGE PAS LE TRACÉ POUR TOMBER SUR LE COMPTE : on change la
+    #   LECTURE.** « N'adapte pas le tracé pour correspondre au compte que tu as »
+    #   (l'auteur). La géométrie est au point pour point la même — même fût, même
+    #   creux, même rayon ; ce qui change, c'est qu'on cesse d'y déclarer une
+    #   levée de crayon qui n'existe pas. Comptes : 1 trait, 2 extrémités,
+    #   0 boucle, contre 2/2/0 auparavant.
+    R['u'] = ([t(ligne(gaucheU, hx, gaucheU, creux + ryU)
+                 + ' A %s %s 0 0 1 %s %s L %s %s'
+                 % (r(ryU), r(ryU), r(futU), r(creux + ryU), r(futU), r(hx)))],
+              [])
 
     # ── panses : `b d p q` ────────────────────────────────────────────────────
     for c in 'bdpq':

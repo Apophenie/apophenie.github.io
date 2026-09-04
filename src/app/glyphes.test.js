@@ -114,22 +114,60 @@ const auTrace = (p, sous) => {
   return best;
 };
 
-/** Le pire écart d'un jeu de traits à son axe, en unités du moteur. */
+/* On DENSIFIE : un trait droit ne rend que ses deux bouts, et se trouverait donc
+   exclu de la mesure — précisément les traits qu'on vient de redresser. Un point
+   tous les trois unités sur six cents. */
+function densifie(pts, pas = 3) {
+  const out = [];
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]; const b = pts[i];
+    const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / pas));
+    for (let j = 0; j < n; j++) out.push({ x: a.x + (b.x - a.x) * j / n, y: a.y + (b.y - a.y) * j / n });
+  }
+  if (pts.length) out.push(pts[pts.length - 1]);
+  return out;
+}
+
+/** Le pire écart d'un jeu de traits à son axe — la FIDÉLITÉ, en unités du moteur. */
 function ecartALAxe(traits, axe) {
   const sous = nuageDe(axe);
   let pire = 0;
   for (const t of traits) {
     const P = flatten(t.d).points;
     if (P.length < 2) continue;
-    // On DENSIFIE : un trait droit ne rend que ses deux bouts, et se trouverait
-    // donc exclu de la mesure — précisément les traits qu'on vient de redresser.
-    for (let i = 1; i < P.length; i++) {
-      const a = P[i - 1]; const b = P[i];
-      const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 3));
-      for (let j = 0; j <= n; j++) {
-        pire = Math.max(pire, auTrace({ x: a.x + (b.x - a.x) * j / n, y: a.y + (b.y - a.y) * j / n }, sous));
-      }
-    }
+    for (const p of densifie(P)) pire = Math.max(pire, auTrace(p, sous));
+  }
+  return pire;
+}
+
+/**
+ * ★ **ET L'AUTRE SENS : LA COUVERTURE.**
+ *
+ * ⚠️ **LA FIDÉLITÉ SEULE NOTE PARFAITEMENT UN TRACÉ QUI NE COUVRE RIEN.** Un
+ *   moignon posé sur l'axe en est tout près : il sort donc excellent. C'est ainsi
+ *   qu'est passée une barre de `z` amputée de VINGT-CINQ unités — 0,5 de
+ *   fidélité, la meilleure de l'alphabet, pour un tracé qui s'arrêtait à x = 368
+ *   quand son axe va jusqu'à 395. Et une panse de `b` réduite à un tronçon de
+ *   trente unités avait failli passer de la même façon : « c'est l'œil qui l'a
+ *   vu, pas le chiffre ».
+ *
+ * On mesure donc aussi la distance maximale de l'AXE au tracé. Même précautions
+ * que pour la fidélité — sous-chemin par sous-chemin, et densifié.
+ *
+ * ⚠️ Les sous-chemins d'axe de moins de quatre-vingts unités d'étendue sont
+ *   ignorés : ce sont les points du `i` et du `j`, qui n'ont à être couverts par
+ *   rien d'autre qu'eux-mêmes.
+ */
+const ETENDUE_BRIN = 80;
+
+function couvertureDeLAxe(traits, axe) {
+  const rendu = traits.map((t) => flatten(t.d).points).filter((p) => p.length >= 2);
+  let pire = 0;
+  for (const brin of nuageDe(axe)) {
+    const xs = brin.map((p) => p.x); const ys = brin.map((p) => p.y);
+    const etendue = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    if (etendue < ETENDUE_BRIN) continue;
+    for (const p of densifie(brin)) pire = Math.max(pire, auTrace(p, rendu));
   }
   return pire;
 }
@@ -156,6 +194,33 @@ test('★ glyphes — aucun trait ne s’éloigne de son axe', () => {
     assert.ok(e < LIMITE,
       `« ${c} » : le trait posé s'écarte de ${e.toFixed(1)} unités de son axe `
       + `(limite ${LIMITE}) — c'est un dessin plausible et faux`);
+  }
+});
+
+/**
+ * ⚠️ **LE GARDE-FOU QUI MANQUAIT — et il a manqué à trois refontes de suite.**
+ *
+ * Sans lui, un tracé qui ne couvre rien passe tous les contrôles : boucles
+ * bonnes, traits comptés, extrémités bonnes, écart à l'axe EXCELLENT. La barre
+ * du bas du `z` s'arrêtait vingt-cinq unités trop tôt et affichait la meilleure
+ * fidélité de l'alphabet ; ce test l'aurait vue en une seconde, à 26,8 unités.
+ *
+ * ★ La borne est à VINGT-QUATRE unités, soit un vingt-cinquième de capitale.
+ *   Elle laisse passer ce qui est structurel — le pire du jeu est le `r`, à 20,3
+ *   unités, au carrefour où l'épaule naît du fût : là, la police fond deux
+ *   traits en une masse d'encre et l'axe replié y garde un brin que ni le fût ni
+ *   l'épaule ne parcourt. Aucun tracé de crayon ne peut couvrir ce brin-là sans
+ *   inventer un trait. Elle n'a en revanche aucune indulgence pour un morceau de
+ *   lettre qui manque.
+ */
+test('★ glyphes — l’axe est COUVERT, pas seulement longé', () => {
+  const LIMITE = 24;
+  for (const c of BAS_DE_CASSE) {
+    const e = couvertureDeLAxe(TRAITS[c].traits, AXES[c]);
+    assert.ok(e < LIMITE,
+      `« ${c} » : l'axe reste à ${e.toFixed(1)} unités du tracé le plus proche `
+      + `(limite ${LIMITE}) — un morceau de la lettre n'est pas dessiné, et la `
+      + 'fidélité ne le dira jamais : un moignon posé sur l\'axe en est tout près');
   }
 });
 
