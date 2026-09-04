@@ -379,6 +379,34 @@ def recettes(M):
         """
         return {'d': d, 'ouvert': False, 'couture': True}
 
+    def demiTour(fut, bord, yHaut, yBas, yTop, yBot, sens):
+        """★ **LA PANSE EST UN PRESQUE-OVALE, pas un demi-disque.**
+
+        ⚠️ La recette la décrivait comme un demi-tour entre deux points du fût
+          posés à 0,88 et 0 hauteur d'x : l'arc ne pouvait alors PAS dépasser sa
+          corde, si bien que le sommet de la panse plafonnait à 398 quand l'axe
+          le pose à 460. Le `p` s'en écartait de 11,7 unités — le pire de
+          l'alphabet — et le `b`, le `d`, le `q`, le `g` de six à huit.
+
+        ★ **L'AXE dit tout autre chose, et il le dit clairement** : la panse ne
+          touche le fût que sur une courte hauteur — de 144 à 306 pour le `b` —
+          et de là elle s'échappe, monte jusqu'à 460, redescend à −8. C'est une
+          BOUCLE presque close, pas une moitié de rond ; c'est d'ailleurs
+          exactement la même figure que la goutte d'eau du `a`.
+
+        On construit donc l'ellipse par ses trois cotes mesurées : les deux
+        hauteurs d'attache donnent son centre, le haut et le bas de la boucle
+        donnent son rayon vertical, et le rayon horizontal se DÉDUIT — c'est le
+        seul qui fasse passer l'ellipse par les deux attaches ET atteindre le
+        bord opposé.
+        """
+        cy = (yHaut + yBas) / 2
+        ry = (yTop - yBot) / 2
+        k = max(0.0, 1 - ((yHaut - cy) / ry) ** 2) ** 0.5
+        rx = abs(bord - fut) / (1 + k)
+        return 'M %s %s A %s %s 0 1 %d %s %s' % (
+            r(fut), r(yHaut), r(rx), r(ry), sens, r(fut), r(yBas))
+
     def ovale(cx, cy, rx, ry):
         return ferme('M %s %s A %s %s 0 1 1 %s %s A %s %s 0 1 1 %s %s' % (
             r(cx), r(cy - ry), r(rx), r(ry), r(cx), r(cy + ry),
@@ -524,10 +552,12 @@ def recettes(M):
         #   comme sur `b` et `d` ; le fût dépasse donc en haut ET en bas, et ces
         #   deux bouts-là sont libres. `mtrb` et `mexb` s'en trouveront déplacés :
         #   le dessin ne s'ajuste pas au barème.
-        pHaut = hx * 0.88
-        pBas = o['y0'] if c in 'bd' else 0
-        rx = abs((o['x1'] if gauche else o['x0']) - fut)
-        cy = (pHaut - pBas) / 2
+        # Les quatre cotes, lues dans l'axe et non posées à vue : la panse touche
+        # le fût de 0,320 à 0,675 hauteur d'x (144 → 306 sur le `b`), et sa
+        # boucle va de −0,018 à 1,018 (−8 → 460).
+        pHaut = hx * 0.675
+        pBas = hx * 0.320
+        bord = (o['x1'] - M['fut'] / 2) if gauche else (o['x0'] + M['fut'] / 2)
         haut = o['y1'] if c in 'bd' else hx
         # ★ **LE SENS DE LA PANSE — la faute que l'auteur avait devinée.**
         #
@@ -562,7 +592,8 @@ def recettes(M):
         #   jonctions compterait deux boucles là où la lettre n'en a qu'une.
         #   Deux traits, deux extrémités, une boucle — les comptes ne bougent pas.
         R[c] = ([t(ligne(fut, o['y0'], fut, haut)),
-                 couture(arc(fut, pHaut, rx, cy, 1, 0 if gauche else 1, fut, pBas))],
+                 couture(demiTour(fut, bord, pHaut, pBas,
+                                  hx * 1.018, hx * -0.018, 0 if gauche else 1))],
                 [[0, 1, 'panse']])
 
     # ── `a` : deux étages ─────────────────────────────────────────────────────
@@ -666,16 +697,18 @@ def recettes(M):
     #   crochet, et une panse qui naît sous son sommet et se referme dessus. Le
     #   fût dépasse en haut : c'est la seconde extrémité, et l'axe la montre en
     #   (385, 452).
-    pHautG = hx * 0.88
-    pBasG = hx * 0.06
+    # Mêmes cotes lues dans l'axe : la panse du `g` touche son fût de 0,421 à
+    # 0,678 hauteur d'x (190 → 306) et sa boucle va de 0,080 à 1,018 (36 → 460).
+    pHautG = hx * 0.678
+    pBasG = hx * 0.421
     # ★ Même fermeture que `b d p q` : la panse est une BOUCLE, refermée par un
     #   segment superposé au fût, et une seule jonction déclarée (voir ci-dessus).
     R['g'] = ([t(ligne(futG, hx, futG, o['y0'] + o['l'] * 0.3)
                  + ' A %s %s 0 0 0 %s %s' % (r(o['l'] * 0.34), r(o['l'] * 0.28),
                                              r(o['x0'] + o['l'] * 0.06),
                                              r(o['y0'] + o['l'] * 0.2))),
-               couture(arc(futG, pHautG, futG - o['x0'], (pHautG - pBasG) / 2, 1, 1,
-                           futG, pBasG))],
+               couture(demiTour(futG, o['x0'] + M['fut'] / 2, pHautG, pBasG,
+                                hx * 1.018, hx * 0.080, 1))],
               [[0, 1, 'panse']])
 
     # ── les empattées : `i`, `j`, `l`, `t`, `f` ───────────────────────────────

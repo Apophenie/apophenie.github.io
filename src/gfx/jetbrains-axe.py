@@ -1153,7 +1153,7 @@ def _redresse(chem, tol, casiers, plafond):
 RELATIF = object()
 
 
-def _fusionne(chem, tol, casiers, plafond):
+def _fusionne(chem, tol, casiers, plafond, sommets=()):
     """★ **ON ESSAIE DE RETIRER CHAQUE POINT, ET ON NE LE GARDE QUE S'IL SERT.**
 
     > « pourquoi ne le vois-tu pas pour le retirer ? » (l'auteur)
@@ -1175,6 +1175,21 @@ def _fusionne(chem, tol, casiers, plafond):
         #   unité de l'axe. Le plafond se lit donc sur ce qu'on efface, avec le
         #   même budget qu'ailleurs : un point de moins vaut une unité d'écart,
         #   pas quatre.
+        # ★ **ET L'ON NE FUSIONNE PAS PAR-DESSUS UN SOMMET.**
+        #
+        #   > « 2 [points] avec des poignées symétriques sur le haut des
+        #   >   courbes » (l'auteur, sur le `m`)
+        #
+        #   Une police pose un point à chaque extremum, et `AXES` le montre :
+        #   l'axe du `m` porte un nœud en (162, 457) et un en (335, 457), au
+        #   sommet exact de chaque arche. `_ajuste` les posait — la version avec
+        #   extrema y gagne trois dixièmes d'unité — et cette dernière passe les
+        #   reprenait aussitôt, laissant chaque arche en UNE cubique. On protège
+        #   donc les nœuds que la recette place à un extremum : ce ne sont pas
+        #   des points de découpe, ce sont des points du DESSIN.
+        if sommets and min(math.dist(b[0], q) for q in sommets) <= SOMMET_PROCHE:
+            i += 1
+            continue
         # ⚠️ **ET UNE DROITE LONGUE, CONFIRMÉE PAR L'AXE, NE SE FOND PAS DANS
         #   UNE COURBE.**
         #
@@ -1723,7 +1738,7 @@ def _jumelles(chemins, guides, casiers):
             poses.append((j, _decale(chemins[i], d)))
     for j, chem in poses:
         chemins[j] = chem
-    return chemins
+    return {j for j, _ in poses}
 
 #: Ce qu'un point de MOINS a le droit de coûter en fidélité à l'axe : une unité
 #: sur six cents. « Le point central en haut pourrait être retiré en déplaçant
@@ -1733,6 +1748,12 @@ MOINDRE_POINT = 1.0
 
 #: Ce qu'un point de PLUS doit rapporter pour être gardé.
 POINT_DE_PLUS = 0.25
+
+#: À quelle distance un nœud du tracé compte pour le sommet que la recette
+#: annonce : un quart de fût. La recette vise à quelques unités près — son
+#: sommet d'arche du `m` tombe à un dixième d'unité de celui de l'axe —, mais
+#: elle n'est pas la mesure, et il faut lui laisser du jeu.
+SOMMET_PROCHE = 0.25 * FUT
 
 #: Ce qu'on accepte de payer, en écart à l'axe, pour retirer un point à la
 #: dernière passe de fusion.
@@ -1770,6 +1791,64 @@ def _extremums(guide, fenetre=6):
             out.add(max(plage, key=lambda k: sens * guide[k][c]))
             i = j + 1
     return out
+
+def _recolle(chemins, liens, attendus, quels, tol=TOL):
+    """★ **UN CONTACT QUE LA RECETTE ANNONCE ET QUE LA POSE AVAIT, ON LE GARDE.**
+
+    ⚠️ `_jumelles` déplace une arche entière : elle la rapproche de son axe, et
+      peut l'éloigner de ce qu'elle touche. Le `m` en a fait les frais — la
+      seconde arche naissait à quatorze unités de la jambe centrale, soit une
+      extrémité libre de plus (3/5/0 au lieu de 3/4/0), alors que `rejoint`
+      l'avait bien posée dessus.
+
+    ★ **ET L'AXE DU `m` EST POUR QUELQUE CHOSE DANS CES QUATORZE UNITÉS** : sa
+      jambe centrale porte DEUX brins, à 240,2 et 253,0, parce que c'est là que
+      deux traits fondent leur encre et que le repliage n'y ramène pas un brin
+      unique. La première arche suit l'un, la seconde part de l'autre ; toutes
+      deux sont fidèles, et pourtant elles ne se touchent plus. On ramène donc le
+      bout sur son voisin — le point ET sa poignée, pour ne pas tordre la courbe
+      — sans toucher au reste : c'est un déplacement de quatorze unités sur un
+      seul point, contre douze unités d'écart à l'axe si l'on translatait toute
+      l'arche.
+    """
+    plats = [[evalue(m, k / 12) for m in c for k in range(13)] for c in chemins]
+    for u, chem in enumerate(chemins):
+        if u not in quels or not chem or not liens[u]:
+            continue
+        voisins = [q for v in liens[u] for q in plats[v]]
+        if not voisins:
+            continue
+        for cote, fin in ((0, False), (1, True)):
+            if not attendus[u][cote]:
+                continue
+            m = chem[-1] if fin else chem[0]
+            bout = m[2] if fin else m[0]
+            proche = min(voisins, key=lambda z: math.dist(z, bout))
+            d = math.dist(proche, bout)
+            if d <= tol or d > 0.5 * FUT:
+                continue
+            # ⚠️ **ON NE RECOLLE QUE CE QU'IL FAUT.** Poser le bout SUR son
+            #   voisin, c'est le déplacer de quatorze unités, et chaque unité de
+            #   déplacement est une unité d'écart à l'axe : le `m` passait de 2,3
+            #   à 8,2. Or le contact est établi dès que le bout est sous la
+            #   tolérance du moteur — six unités. On s'arrête donc à la moitié de
+            #   cette tolérance, ce qui laisse trois unités de marge au comptage
+            #   et rend au `m` quatre des six unités perdues.
+            f = max(0.0, (d - tol / 2) / d)
+            dx = (proche[0] - bout[0]) * f
+            dy = (proche[1] - bout[1]) * f
+            proche = (bout[0] + dx, bout[1] + dy)
+            ctrl = list(m[1])
+            if ctrl:
+                if fin:
+                    ctrl[-1] = (ctrl[-1][0] + dx, ctrl[-1][1] + dy)
+                else:
+                    ctrl[0] = (ctrl[0][0] + dx, ctrl[0][1] + dy)
+            if fin:
+                chem[-1] = (m[0], ctrl, proche)
+            else:
+                chem[0] = (proche, ctrl, m[2])
+    return chemins
 
 def _coins_nets(chem):
     """★ **UN COIN EST UN POINT, PAS DEUX.**
@@ -2489,6 +2568,7 @@ def traits(ch, recette, points_du_trace, journal=None):
     #   recolle ensuite chaque arche à ce qu'elle touche, et les deux reçoivent
     #   le même geste puisqu'elles sont dans la même position relative.
     _jumelles(ajustes, guides, casiers)
+
     rejoint(ajustes, cibles, attendus, lespis)
     # ★ **LE POINT SURPLOMBE SA HAMPE — c'est une lecture, pas une mesure.**
     #
@@ -2508,9 +2588,12 @@ def traits(ch, recette, points_du_trace, journal=None):
     #   lui manquait qu'un peu d'air : la tolérance de l'ajustement est calée sur
     #   la fidélité au dixième d'unité, quand retirer un point n'en coûte que
     #   quelques-uns et se voit, lui, tout de suite.
+    sommets = [[guides[t][k] for k in _extremums(guides[t])]
+               for t in range(len(guides))]
     ajustes = [_alignees(_tangence(_coins_nets(
-        _fusionne(list(c), TOLERANCE, casiers, RELATIF)), casiers, TOLERANCE),
-        casiers, TOLERANCE) for c in ajustes]
+        _fusionne(list(c), TOLERANCE, casiers, RELATIF, sommets[t])),
+        casiers, TOLERANCE), casiers, TOLERANCE)
+        for t, c in enumerate(ajustes)]
     _symetrise(ajustes, casiers, TOLERANCE)
     for t, c in enumerate(points):
         if c is None or not ajustes[t]:
@@ -2534,7 +2617,7 @@ def traits(ch, recette, points_du_trace, journal=None):
     #   la fusion finale rendait la première en UNE cubique symétrique et la
     #   seconde en DEUX. Le dernier mot revient à la géométrie finale — c'est la
     #   même règle que pour la tangence.
-    _jumelles(ajustes, guides, casiers)
+    _recolle(ajustes, cibles, attendus, _jumelles(ajustes, guides, casiers))
     if journal is not None:
         # ★ Ce que la projection a COÛTÉ : le pire écart du trait rendu à l'axe,
         #   mesuré sur le tracé final et non sur les points qui l'ont produit.
