@@ -744,12 +744,19 @@ def _contacts(pa, pb, tol=8.0):
 TOLERANCE = 1.0
 
 
-def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None):
+def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None, ferme=False):
     """Le moins de cubiques possible passant à moins de `tol` de `P`."""
     # ⚠️ Les abscisses sans mesure ont été bouchées en recopiant la voisine
     #   connue : elles arrivent ici en doublons exacts, et une corde de longueur
     #   nulle fausse le paramétrage. On les retire, en gardant leur rang pour que
     #   les coins déclarés restent au bon endroit.
+    # ⚠️ **UNE BOUCLE SE FERME AVANT D'ÊTRE AJUSTÉE.** La projection rend une
+    #   suite ouverte, même pour l'`o` : son dernier point s'arrêtait à quinze
+    #   unités du premier, et c'est le `Z` du rendu qui recollait — d'où « un
+    #   point en trop en bas » (l'auteur), et une couture qui n'était pas au bon
+    #   endroit. On referme d'abord, l'ajustement voit alors une vraie boucle.
+    if ferme and P and math.dist(P[0], P[-1]) > 1e-9:
+        P = list(P) + [P[0]]
     garde = [0] + [i for i in range(1, len(P)) if math.dist(P[i], P[i - 1]) > 1e-9]
     rang = {v: k for k, v in enumerate(garde)}
     P = [P[i] for i in garde]
@@ -779,7 +786,26 @@ def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None):
         #   sait, et c'est son rôle. On ajuste alors la droite sur les points
         #   mesurés : la recette dit qu'il y a une droite, l'axe dit laquelle.
         if guide is not None and _guide_droit(guide, a, b):
+            # ★ **ET LA DIRECTION FAIT PARTIE DE LA DÉCLARATION.** Le fût du `d`
+            #   et celui du `b` sont verticaux dans la police ; ajustés sur des
+            #   points que la panse contamine — les deux traits s'y superposent,
+            #   l'axe n'a qu'un brin pour deux — ils penchaient de trois unités.
+            #   La recette ne dit pas seulement « ici une droite », elle dit
+            #   laquelle : on lui prend sa DIRECTION et on ne cherche que la
+            #   POSITION, que l'axe, lui, sait donner.
+            #   ⚠️ **MAIS SEULEMENT SI ELLE S'ACCORDE AVEC LA MESURE.** Une
+            #     recette peut viser mal — la jambe basse du `k` et la diagonale
+            #     du `z` sont déclarées à quelques degrés de leur vraie pente, et
+            #     leur imposer la direction annoncée les envoyait à trente-neuf
+            #     unités de leur axe. Trois degrés d'accord suffisent à
+            #     distinguer « la recette précise ce que la mesure confirme » de
+            #     « la recette se trompe » : au-delà, c'est la mesure qui tranche.
             bouts_ = _droite_ajustee(tronc, [True] * len(tronc))
+            declaree = _versLe(guide[a], guide[b])
+            if bouts_ is not None and declaree != (0.0, 0.0):
+                mesuree = _versLe(bouts_[0], bouts_[1])
+                if abs(mesuree[0] * declaree[0] + mesuree[1] * declaree[1]) > ACCORD:
+                    bouts_ = _droite_orientee(tronc, declaree) or bouts_
             if bouts_ is not None:
                 out.append((bouts_[0], [], bouts_[1]))
                 continue
@@ -819,6 +845,19 @@ def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None):
             if len(morceau) == avant:
                 break
         out += _droites(_redresse(morceau, tol, casiers, plafond), casiers)
+    if (len(out) > 2 and math.dist(out[0][0], out[-1][2]) < 1e-6
+            and casiers is not None):
+        # ★ **UNE BOUCLE N'A PAS À PORTER DEUX POINTS À SA COUTURE.** On a coupé
+        #   le tracé fermé au point le plus éloigné du départ pour lui donner une
+        #   corde ; la couture, elle, est restée là où la projection avait
+        #   commencé — d'où « un point en trop en bas » sur l'`o` (l'auteur). On
+        #   essaie donc de recoudre : le dernier morceau et le premier ne font
+        #   qu'un si leur réunion tient dans la tolérance.
+        seuil = max(_pres(casiers, evalue(m, k / 8))
+                    for m in (out[0], out[-1]) for k in range(9)) + tol
+        recousu = _fusionne([out[-1], out[0]], tol, casiers, seuil)
+        if len(recousu) == 1:
+            out = [recousu[0]] + out[1:-1]
     return out
 
 
@@ -857,7 +896,21 @@ def _tronc_droit(tronc, casiers):
     return bouts
 
 
-def _droite_ajustee(tronc, vus):
+def _droite_orientee(tronc, u):
+    """La droite de direction `u` qui passe au mieux par `tronc`."""
+    if u == (0.0, 0.0) or len(tronc) < 2:
+        return None
+    # position : la MÉDIANE des écarts à la normale, pour que les carrefours —
+    # où la projection dérape de dix unités — ne tirent pas la droite à eux.
+    nx, ny = -u[1], u[0]
+    ecarts = sorted(q[0] * nx + q[1] * ny for q in tronc)
+    c = ecarts[len(ecarts) // 2]
+    sur = lambda q: (q[0] + nx * (c - q[0] * nx - q[1] * ny),
+                     q[1] + ny * (c - q[0] * nx - q[1] * ny))
+    return sur(tronc[0]), sur(tronc[-1])
+
+
+def _droite_ajustee(tronc, vus, casiers=None):
     """★ **LA DROITE SE TIRE DES POINTS, PAS DES BOUTS.**
 
     Les bouts d'un tronçon sont ce qu'il a de moins sûr : c'est là qu'il plonge
@@ -878,6 +931,23 @@ def _droite_ajustee(tronc, vus):
     # direction principale : le vecteur propre dominant de la matrice d'inertie
     theta = 0.5 * math.atan2(2 * sxy, sxx - syy)
     ux, uy = math.cos(theta), math.sin(theta)
+    # ★ **MAIS SI LA SOURCE CONNAÎT LA DIRECTION, C'EST LA SIENNE.** Le fût du
+    #   `d` est vertical dans la police ; ajusté sur des points que la jonction
+    #   contamine, il penchait de trois degrés — « la barre n'est plus droite
+    #   alors qu'elle l'est à l'origine, ça devrait t'alerter » (l'auteur). Le
+    #   nuage porte la tangente EXACTE de l'axe en chaque point : on prend celle
+    #   des points marqués droits, à la médiane pour que les carrefours ne votent
+    #   pas, et l'ajustement ne cherche plus que la position.
+    if casiers is not None:
+        angles = []
+        for q in pts:
+            t = _direction_axe(casiers, q, (ux, uy))
+            if t is not None and _sur_droit(casiers, q):
+                angles.append(math.atan2(t[1], t[0]))
+        if len(angles) >= max(3, MAJORITE_DROITE * len(pts)):
+            angles.sort()
+            a0 = angles[len(angles) // 2]
+            ux, uy = math.cos(a0), math.sin(a0)
     if math.hypot(ux, uy) < 1e-9:
         return None
     proj = lambda q: ((q[0] - cx) * ux + (q[1] - cy) * uy)
@@ -1055,7 +1125,7 @@ ZONE_JONCTION = 0.8 * FUT
 MAJORITE_DROITE = 0.8
 
 
-def rejoint(chemins, liens, attendus):
+def rejoint(chemins, liens, attendus, lespis=()):
     """★ **UN TRAIT S'ARRÊTE OÙ IL EN RENCONTRE UN AUTRE — ni avant, ni après.**
 
     > « tant que ton modèle n'est pas capable de voir 2 traits seulement, avec
@@ -1155,10 +1225,27 @@ def rejoint(chemins, liens, attendus):
                     meilleur = (0.0, t, (bout[0] + dire[0] * t, bout[1] + dire[1] * t))
                     reel = True
             if meilleur is None:
+                # ★ **À UNE POINTE, LE POINT DE RENCONTRE EST LE PLI DE L'AXE.**
+                #   C'est là que la police retourne son trait, et les deux
+                #   branches y arrivent ensemble : le sommet du `w`, la pointe du
+                #   `v`. Le prendre plutôt qu'un milieu donne aux DEUX traits le
+                #   même point, exactement, au lieu de deux points à deux unités.
                 proche = min(voisins, key=lambda z: math.dist(z, bout))
-                if math.dist(proche, bout) <= ZONE_JONCTION:
-                    meilleur = (0.0, 0.0, ((bout[0] + proche[0]) / 2,
-                                           (bout[1] + proche[1]) / 2))
+                pli = min(lespis, key=lambda z: math.dist(z, bout), default=None)
+                if pli is not None and math.dist(pli, bout) <= ZONE_JONCTION \
+                        and math.dist(pli, proche) <= ZONE_JONCTION:
+                    meilleur = (0.0, 0.0, pli)
+                elif math.dist(proche, bout) <= ZONE_JONCTION:
+                    # ⚠️ **ET SINON ON PROJETTE SUR SA PROPRE DROITE.** Poser le
+                    #   bout au milieu des deux, c'est le déplacer DE CÔTÉ — et un
+                    #   segment droit dont on déplace un bout de côté n'est plus
+                    #   droit : la barre du `d` et celle du `b` penchaient de
+                    #   dix-neuf unités alors qu'elles sont droites dans la
+                    #   police. « Ça devrait t'alerter » (l'auteur), et ça
+                    #   m'alerte : c'est le contrôle le plus simple qui soit.
+                    mid = ((bout[0] + proche[0]) / 2, (bout[1] + proche[1]) / 2)
+                    t = (mid[0] - bout[0]) * dire[0] + (mid[1] - bout[1]) * dire[1]
+                    meilleur = (0.0, t, (bout[0] + dire[0] * t, bout[1] + dire[1] * t))
             if meilleur is None:
                 for pas in range(-int(ZONE_JONCTION), int(ZONE_JONCTION) + 1):
                     q = (bout[0] + dire[0] * pas, bout[1] + dire[1] * pas)
@@ -1201,6 +1288,11 @@ def _intersection(p, u, a, b):
     return t if -0.001 <= sgn <= 1.001 else None
 
 
+def _long_morceau(m, n=8):
+    p = [evalue(m, k / n) for k in range(n + 1)]
+    return sum(math.dist(a, b) for a, b in zip(p, p[1:]))
+
+
 def _coins_nets(chem):
     """★ **UN COIN EST UN POINT, PAS DEUX.**
 
@@ -1220,7 +1312,7 @@ def _coins_nets(chem):
     for bout in (0, -1):
         while len(chem) >= 2:
             m = chem[bout]
-            if m[1] or math.dist(m[0], m[2]) > COURT:
+            if _long_morceau(m) > COURT:
                 break
             # ⚠️ **ON DÉPLACE LE DÉPART, PAS LA COURBE.** Réutiliser tels quels
             #   les points de contrôle du voisin en lui donnant un autre départ,
@@ -1276,6 +1368,12 @@ def _versLe(depuis, vers):
 #: Ce qu'on tolère à un guide pour le tenir pour DROIT : une unité sur six
 #: cents. Un arc de recette, même très plat, s'en écarte de plusieurs dizaines.
 GUIDE_DROIT = 1.0
+
+#: |cos| minimal entre la direction déclarée et la direction mesurée pour qu'on
+#: suive la déclaration : trois degrés. La contamination d'une jonction fait
+#: pencher une droite d'un ou deux degrés ; une recette qui vise mal s'en écarte
+#: de cinq ou plus.
+ACCORD = math.cos(math.radians(3))
 
 
 def _guide_droit(guide, a, b):
@@ -1736,7 +1834,8 @@ def traits(ch, recette, points_du_trace, journal=None):
     # ③ chaque trait est AJUSTÉ : le moins de cubiques possible à une unité près.
     #    Les coins du guide sont imposés comme bornes — un ajustement qui n'en
     #    saurait rien arrondirait le pied du `l` et le `z`.
-    ajustes = [_ajuste(ligne, TOLERANCE, coins[t], casiers, guides[t])
+    ajustes = [_ajuste(ligne, TOLERANCE, coins[t], casiers, guides[t],
+                       not decl[t].get('ouvert', True))
                for t, ligne in enumerate(lignes)]
 
     # ④ puis chaque bout que la recette pose en contact est TAILLÉ à sa rencontre.
@@ -1746,7 +1845,10 @@ def traits(ch, recette, points_du_trace, journal=None):
                       for bout in (0, -1))
                 for i, g in enumerate(guides)]
     ajustes = [_coins_nets(list(c)) for c in ajustes]
-    rejoint(ajustes, liens, attendus)
+    rejoint(ajustes, liens, attendus, lespis)
+    # ⚠️ Et l'on renettoie APRÈS : la taille des bouts recrée elle-même de courts
+    #   morceaux au ras du carrefour — c'est le « doublon » de l'épaule du `n`.
+    ajustes = [_coins_nets(list(c)) for c in ajustes]
     if journal is not None:
         # ★ Ce que la projection a COÛTÉ : le pire écart du trait rendu à l'axe,
         #   mesuré sur le tracé final et non sur les points qui l'ont produit.
