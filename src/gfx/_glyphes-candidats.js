@@ -15,7 +15,7 @@ export const CANDIDATS = {
   'h': { traits: [{ d: 'M 112.6 0 L 112.6 600', ouvert: true }, { d: 'M 112.6 334.5 A 153.3 126.6 0 0 0 419.2 334.5 L 419.2 0', ouvert: true }], jonctions: [[0, 1, 'naissance de l’arche']] },
   'i': { traits: [{ d: 'M 69.9 452.1 L 263 452.1 L 263 0', ouvert: true }, { d: 'M 69.9 0 L 456.2 0', ouvert: true }, { d: 'M 263 638.6 L 263 638.6', ouvert: true }], jonctions: [[0, 1, 'pied']] },
   'j': { traits: [{ d: 'M 69.9 452.1 L 337.8 452.1 L 337.8 -14 A 134 134 0 0 0 69.9 -14', ouvert: true }, { d: 'M 337.8 638.6 L 337.8 638.6', ouvert: true }], jonctions: [] },
-  'k': { traits: [{ d: 'M 115.1 0 L 115.1 600', ouvert: true }, { d: 'M 115.1 189.9 L 457.8 452.1', ouvert: true }, { d: 'M 115.1 189.9 L 457.8 0', ouvert: true }], jonctions: [[0, 1, 'attache haute'], [0, 2, 'attache basse']] },
+  'k': { traits: [{ d: 'M 115.1 0 L 115.1 600', ouvert: true }, { d: 'M 115.1 237.3 L 243.9 237.3 L 457.8 452.1', ouvert: true }, { d: 'M 243.9 237.3 L 457.8 0', ouvert: true }], jonctions: [[0, 1, 'naissance du bras'], [1, 2, 'fourche']] },
   'l': { traits: [{ d: 'M 24.7 600 L 204.2 600 L 204.2 68.4 L 452.1 68.4', ouvert: true }], jonctions: [] },
   'm': { traits: [{ d: 'M 91.2 0 L 91.2 452.1', ouvert: true }, { d: 'M 91.2 334.5 A 77.7 126.6 0 0 0 246.6 334.5 L 246.6 0', ouvert: true }, { d: 'M 246.6 334.5 A 96.2 126.6 0 0 0 438.9 334.5 L 438.9 0', ouvert: true }], jonctions: [[0, 1, 'première arche'], [1, 2, 'seconde arche']] },
   'n': { traits: [{ d: 'M 112.6 0 L 112.6 452.1', ouvert: true }, { d: 'M 112.6 334.5 A 153.3 126.6 0 0 0 419.2 334.5 L 419.2 0', ouvert: true }], jonctions: [[0, 1, 'naissance de l’arche']] },

@@ -731,7 +731,7 @@ def _contacts(pa, pb, tol=8.0):
 TOLERANCE = 1.0
 
 
-def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None):
+def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None):
     """Le moins de cubiques possible passant à moins de `tol` de `P`."""
     # ⚠️ Les abscisses sans mesure ont été bouchées en recopiant la voisine
     #   connue : elles arrivent ici en doublons exacts, et une corde de longueur
@@ -758,6 +758,18 @@ def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None):
         tronc = P[a:b + 1]
         if len(tronc) < 2:
             continue
+        # ★ **QUAND LA RECETTE DIT « LIGNE », C'EST UNE LIGNE.** Le fût du `q` et
+        #   celui du `d` sont déclarés droits, et ils sortaient pourtant en
+        #   accordéon de huit segments : la panse s'y superpose au fût, l'axe n'y
+        #   a qu'un brin pour deux traits, et la projection prend l'un puis
+        #   l'autre. Aucune mesure ne démêlera ça — mais la LECTURE, elle, le
+        #   sait, et c'est son rôle. On ajuste alors la droite sur les points
+        #   mesurés : la recette dit qu'il y a une droite, l'axe dit laquelle.
+        if guide is not None and _guide_droit(guide, a, b):
+            bouts_ = _droite_ajustee(tronc, [True] * len(tronc))
+            if bouts_ is not None:
+                out.append((bouts_[0], [], bouts_[1]))
+                continue
         # ★ **ON NE DEMANDE PAS À LA COURBE D'ÊTRE PLUS PRÈS DE L'AXE QUE NE LE
         #   SONT LES POINTS QU'ON LUI DONNE.** Près d'une jonction, la projection
         #   s'écarte réellement de l'axe — de douze unités sur la panse du `d` —
@@ -932,7 +944,12 @@ def _redresse(chem, tol, casiers, plafond):
     if casiers is None:
         return chem
     out = []
-    seuil = max(tol + MARGE_NUAGE, plafond if plafond is not None else 0.0)
+    # ⚠️ **LE PLAFOND N'AUTORISE PAS À REDRESSER.** Il dit ce que la donnée
+    #   permet à une COURBE ; s'en servir pour remplacer une courbe par sa corde,
+    #   c'est se donner le droit de tout aplatir près d'une jonction — et c'est
+    #   d'où venait le zigzag : « une droite qui n'est pas droite à l'arrivée »
+    #   (l'auteur). Le fût du `q` en sortait en huit segments en accordéon.
+    seuil = tol + MARGE_NUAGE
     for m in chem:
         droite = (m[0], [], m[2])
         ecart = max(_pres(casiers, evalue(droite, k / 24)) for k in range(25))
@@ -1051,6 +1068,24 @@ def rejoint(chemins, liens, attendus):
             voisins = [q for v in liens[u] for q in plats[v]]
             if not voisins:
                 continue
+            # ⚠️ **LE VOISIN AUSSI DOIT POUVOIR S'ALLONGER.** Au bas du `w`, les
+            #   deux branches s'arrêtent toutes les deux avant leur rencontre :
+            #   aucune n'atteint le segment de l'autre, et la recherche
+            #   d'intersection revenait bredouille. On prolonge donc les deux
+            #   bouts de la polyligne voisine — le point de croisement de deux
+            #   droites existe, qu'elles s'y rendent ou non.
+            aretes_voisines = []
+            for v in liens[u]:
+                pv = plats[v]
+                if len(pv) < 2:
+                    continue
+                aretes_voisines += [(a, b, True) for a, b in zip(pv, pv[1:])]
+                for (a, b) in ((pv[1], pv[0]), (pv[-2], pv[-1])):
+                    d = _versLe(a, b)
+                    if d != (0.0, 0.0):
+                        aretes_voisines.append(
+                            (b, (b[0] + d[0] * ZONE_JONCTION,
+                                 b[1] + d[1] * ZONE_JONCTION), False))
             # ① le point du trait, dans la zone du bout, le plus proche du voisin
             best = None
             for i, m in enumerate(chem):
@@ -1082,12 +1117,41 @@ def rejoint(chemins, liens, attendus):
                     else _versLe(m[1][0] if m[1] else m[2], bout))
             if dire == (0.0, 0.0):
                 continue
-            meilleur = None
-            for pas in range(-int(ZONE_JONCTION), int(ZONE_JONCTION) + 1):
-                q = (bout[0] + dire[0] * pas, bout[1] + dire[1] * pas)
-                d = min(math.dist(q, w) for w in voisins)
-                if meilleur is None or d < meilleur[0]:
-                    meilleur = (d, q)
+            # ★ **PILE SUR L'AUTRE TRAIT — on calcule l'INTERSECTION, on ne
+            #   l'approche pas.** « Le point au niveau de la fourche du `y`
+            #   devrait être pile sur le trait de l'autre » (l'auteur) : il en
+            #   était à douze unités parce que je faisais coulisser le bout
+            #   jusqu'au plus proche point ÉCHANTILLONNÉ du voisin. Deux droites
+            #   se coupent en un point, et ce point se calcule.
+            # ⚠️ **UN CROISEMENT N'EST PAS UNE POINTE.** Quand l'intersection
+            #   tombe SUR le voisin, les deux traits se croisent vraiment et le
+            #   point calculé est le bon — c'est la fourche du `y`, le bras du
+            #   `k`. Quand il faut PROLONGER le voisin pour l'atteindre, les deux
+            #   traits s'arrêtent avant de se rencontrer : c'est une pointe, la
+            #   police y coupe le bout, et suivre les droites jusqu'à leur
+            #   croisement enfonçait le `w` de vingt-huit unités sous la ligne de
+            #   base. Là, le point de rencontre est le MILIEU des deux bouts.
+            meilleur, reel = None, False
+            for a, b, vrai in aretes_voisines:
+                t = _intersection(bout, dire, a, b)
+                if t is None or abs(t) > ZONE_JONCTION:
+                    continue
+                if not vrai:
+                    continue
+                if meilleur is None or abs(t) < abs(meilleur[1]):
+                    meilleur = (0.0, t, (bout[0] + dire[0] * t, bout[1] + dire[1] * t))
+                    reel = True
+            if meilleur is None:
+                proche = min(voisins, key=lambda z: math.dist(z, bout))
+                if math.dist(proche, bout) <= ZONE_JONCTION:
+                    meilleur = (0.0, 0.0, ((bout[0] + proche[0]) / 2,
+                                           (bout[1] + proche[1]) / 2))
+            if meilleur is None:
+                for pas in range(-int(ZONE_JONCTION), int(ZONE_JONCTION) + 1):
+                    q = (bout[0] + dire[0] * pas, bout[1] + dire[1] * pas)
+                    d = min(math.dist(q, w) for w in voisins)
+                    if meilleur is None or d < meilleur[0]:
+                        meilleur = (d, pas, q)
             if meilleur is None or meilleur[0] > TOL:
                 # ⚠️ **ET S'IL N'ATTEINT PAS, ON NE TRICHE PAS.** Un trait que la
                 #   police ne fait pas se rejoindre ne se rejoindra pas ici :
@@ -1095,7 +1159,7 @@ def rejoint(chemins, liens, attendus):
                 #   se voir dans les comptes plutôt que se cacher dans le tracé.
                 chem = taille
                 continue
-            cible = meilleur[1]
+            cible = meilleur[2]
             if garderLeDebut:
                 taille[-1] = (m[0], list(m[1]), cible)
             else:
@@ -1106,10 +1170,109 @@ def rejoint(chemins, liens, attendus):
     return chemins
 
 
+#: Un morceau plus court que ça, coincé entre deux autres, n'est pas un trait :
+#: c'est le résidu d'un carrefour. Le plus court trait vrai de l'alphabet — le
+#: bras du `k` — en fait cent trente.
+COURT = 30.0
+
+
+def _intersection(p, u, a, b):
+    """Le paramètre `t` tel que `p + t·u` coupe le segment `[a, b]`, ou None."""
+    vx, vy = b[0] - a[0], b[1] - a[1]
+    det = u[0] * (-vy) - u[1] * (-vx)
+    if abs(det) < 1e-12:
+        return None
+    wx, wy = a[0] - p[0], a[1] - p[1]
+    t = (wx * (-vy) - wy * (-vx)) / det
+    sgn = (u[0] * wy - u[1] * wx) / det
+    return t if -0.001 <= sgn <= 1.001 else None
+
+
+def _coins_nets(chem):
+    """★ **UN COIN EST UN POINT, PAS DEUX.**
+
+    > « le `l` : il y a un angle droit qui est géré par 2 points au lieu d'1 » —
+    > « le `n` : il y a un double point à l'intersection » (l'auteur)
+
+    Entre la barre du `l` et sa hampe, la projection laisse un moignon de seize
+    unités : ni barre, ni hampe, le résidu du virage. On le retire et l'on pose
+    le coin là où les deux droites se COUPENT — ce qui est à la fois un point de
+    moins et un angle plus franc.
+    """
+    # ⚠️ **ET UN MOIGNON DE BOUT SE RETIRE, SANS RIEN COUPER.** Au départ de
+    #   l'épaule du `n`, la projection laisse six unités de trait avant le vrai
+    #   virage : c'est le « double point à l'intersection ». On le supprime en
+    #   ALLONGEANT son voisin jusque-là — le trait garde sa longueur, il perd un
+    #   point.
+    for bout in (0, -1):
+        while len(chem) >= 2:
+            m = chem[bout]
+            if m[1] or math.dist(m[0], m[2]) > COURT:
+                break
+            # ⚠️ **ON DÉPLACE LE DÉPART, PAS LA COURBE.** Réutiliser tels quels
+            #   les points de contrôle du voisin en lui donnant un autre départ,
+            #   c'est le tordre d'autant : la première arche du `m` repartait à
+            #   deux cent cinquante unités en arrière et remontait en zigzag —
+            #   « comment le zigzag central a pu passer ton filtre ? » (l'auteur).
+            #   Il n'y passait pas : je le fabriquais après coup. La poignée
+            #   voisine suit donc le même déplacement que le point, ce qui garde
+            #   la tangente et ne déforme rien.
+            if bout == 0:
+                v = chem[1]
+                dx, dy = m[0][0] - v[0][0], m[0][1] - v[0][1]
+                ctrl = list(v[1])
+                if ctrl:
+                    ctrl[0] = (ctrl[0][0] + dx, ctrl[0][1] + dy)
+                chem[0:2] = [(m[0], ctrl, v[2])]
+            else:
+                v = chem[-2]
+                dx, dy = m[2][0] - v[2][0], m[2][1] - v[2][1]
+                ctrl = list(v[1])
+                if ctrl:
+                    ctrl[-1] = (ctrl[-1][0] + dx, ctrl[-1][1] + dy)
+                chem[-2:] = [(v[0], ctrl, m[2])]
+    change = True
+    while change and len(chem) >= 3:
+        change = False
+        for i in range(1, len(chem) - 1):
+            m = chem[i]
+            if m[1] or math.dist(m[0], m[2]) > COURT:
+                continue
+            a, b = chem[i - 1], chem[i + 1]
+            if a[1] or b[1]:
+                continue                      # deux droites, sinon on ne touche à rien
+            u = _versLe(a[0], a[2])
+            t = _intersection(a[0], u, b[0], b[2])
+            if t is None:
+                continue
+            coin = (a[0][0] + u[0] * t, a[0][1] + u[1] * t)
+            if math.dist(coin, m[0]) > COURT * 2 or math.dist(coin, m[2]) > COURT * 2:
+                continue
+            chem[i - 1:i + 2] = [(a[0], [], coin), (coin, [], b[2])]
+            change = True
+            break
+    return chem
+
+
 def _versLe(depuis, vers):
     dx, dy = vers[0] - depuis[0], vers[1] - depuis[1]
     h = math.hypot(dx, dy)
     return (0.0, 0.0) if h < 1e-9 else (dx / h, dy / h)
+
+
+#: Ce qu'on tolère à un guide pour le tenir pour DROIT : une unité sur six
+#: cents. Un arc de recette, même très plat, s'en écarte de plusieurs dizaines.
+GUIDE_DROIT = 1.0
+
+
+def _guide_droit(guide, a, b):
+    """Le guide déclare-t-il une DROITE sur ce tronçon ?"""
+    if b - a < 2 or b >= len(guide):
+        return False
+    p, q = guide[a], guide[b]
+    if math.dist(p, q) < 1e-9:
+        return False
+    return all(_dseg(guide[i], p, q) < GUIDE_DROIT for i in range(a, b + 1))
 
 
 def _etendue(P):
@@ -1494,18 +1657,40 @@ def traits(ch, recette, points_du_trace, journal=None):
     #   lettre DEUX FOIS, avec et sans recalage, et on garde celle qui serre
     #   l'axe de plus près. Le `r` y gagne cent unités, le `m` et le `g` n'y
     #   perdent rien.
+    # ⚠️ **UN PLI APPARTIENT À UN SEUL BOUT.** Le pied du fût gauche du `m` est
+    #   à cent soixante-dix unités du bas de sa jambe centrale : plus près que la
+    #   portée autorisée, et le guide de l'arche s'y faisait tirer tout entier —
+    #   l'arche redescendait le fût sur deux cent cinquante unités avant de
+    #   remonter. C'est le zigzag central. On apparie donc les bouts libres aux
+    #   plis du plus proche au plus lointain, et chaque pli ne sert qu'une fois.
     lespis = plis(reste)
-    recales = list(guides)
+    libres = []
     for t, g in enumerate(guides):
-        if points[t] is not None or not lespis:
+        if points[t] is not None:
             continue
         for versLaFin in (False, True):
             bout = g[-1] if versLaFin else g[0]
             if any(_dpoly(bout, guides[k]) <= TOL for k in liens[t]):
                 continue                       # ce bout-là est tenu par un voisin
-            cible = min(lespis, key=lambda q: math.dist(q, bout))
-            if math.dist(cible, bout) <= PORTEE_PLI:
-                g = _recale(g, cible, versLaFin)
+            for pli in lespis:
+                d = math.dist(pli, bout)
+                if d <= PORTEE_PLI:
+                    libres.append((d, t, versLaFin, pli))
+    libres.sort(key=lambda z: z[0])
+    pris, servis, choix = set(), set(), {}
+    for d, t, versLaFin, pli in libres:
+        cle = (t, versLaFin)
+        if cle in servis or pli in pris:
+            continue
+        servis.add(cle)
+        pris.add(pli)
+        choix[cle] = pli
+    recales = list(guides)
+    for t, g in enumerate(guides):
+        for versLaFin in (False, True):
+            pli = choix.get((t, versLaFin))
+            if pli is not None:
+                g = _recale(g, pli, versLaFin)
         recales[t] = g
 
     # ★ **ON REJOUE TANT QUE ÇA RAPPROCHE DE L'AXE, ET ON S'ARRÊTE DÈS QUE ÇA
@@ -1538,7 +1723,7 @@ def traits(ch, recette, points_du_trace, journal=None):
     # ③ chaque trait est AJUSTÉ : le moins de cubiques possible à une unité près.
     #    Les coins du guide sont imposés comme bornes — un ajustement qui n'en
     #    saurait rien arrondirait le pied du `l` et le `z`.
-    ajustes = [_ajuste(ligne, TOLERANCE, coins[t], casiers)
+    ajustes = [_ajuste(ligne, TOLERANCE, coins[t], casiers, guides[t])
                for t, ligne in enumerate(lignes)]
 
     # ④ puis chaque bout que la recette pose en contact est TAILLÉ à sa rencontre.
@@ -1547,6 +1732,7 @@ def traits(ch, recette, points_du_trace, journal=None):
     attendus = [tuple(any(_dpoly(g[bout], guides[k]) <= TOL for k in liens[i])
                       for bout in (0, -1))
                 for i, g in enumerate(guides)]
+    ajustes = [_coins_nets(list(c)) for c in ajustes]
     rejoint(ajustes, liens, attendus)
     if journal is not None:
         # ★ Ce que la projection a COÛTÉ : le pire écart du trait rendu à l'axe,

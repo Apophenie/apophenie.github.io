@@ -604,10 +604,21 @@ def recettes(M):
     # ── `k` : fût, bras, jambe ────────────────────────────────────────────────
     o = b['k']
     futK = o['x0'] + M['fut'] / 2
+    # ⚠️ **SES DEUX JAMBES NE PARTENT PAS DU FÛT.** Elles se rejoignent d'abord,
+    #   cent trente unités plus à droite, par un court BRAS horizontal — c'est ce
+    #   que la police dessine, et la recette l'ignorait : « j'ai l'impression
+    #   qu'il y a un double segment central au lieu d'un, et donc 2 points à
+    #   l'intersection droite de ce segment » (l'auteur). Les deux jambes
+    #   déclarées droites depuis le fût s'y superposaient l'une l'autre sur toute
+    #   la longueur du bras, et chacune passait à trente-neuf unités de son axe.
+    #   Le bras appartient à UNE branche ; l'autre naît de la fourche.
+    epauleK = hx * 0.525
+    fourcheK = futK + (o['x1'] - futK) * 0.376
     R['k'] = ([t(ligne(futK, o['y0'], futK, o['y1'])),
-               t(ligne(futK, hx * 0.42, o['x1'], hx)),
-               t(ligne(futK, hx * 0.42, o['x1'], o['y0']))],
-              [[0, 1, 'attache haute'], [0, 2, 'attache basse']])
+               t(ligne(futK, epauleK, fourcheK, epauleK)
+                 + ' L %s %s' % (r(o['x1']), r(hx))),
+               t(ligne(fourcheK, epauleK, o['x1'], o['y0']))],
+              [[0, 1, 'naissance du bras'], [1, 2, 'fourche']])
 
     # ── les diagonales : `v w x y z` ──────────────────────────────────────────
     o = b['v']
