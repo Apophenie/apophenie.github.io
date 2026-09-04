@@ -749,7 +749,175 @@ def _contacts(pa, pb, tol=8.0):
 TOLERANCE = 1.0
 
 
-def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None, ferme=False):
+#: Combien d'abscisses de suite doivent porter la même marque pour qu'on tienne
+#: la frontière pour vraie. Trois : `_sur_droit` se lit sur le point d'axe le
+#: plus proche, et près d'un carrefour ce point peut appartenir au voisin.
+STABLE = 3
+
+#: Quelle fraction du trait une plage droite (ou courbe) doit peser pour qu'on la
+#: tienne pour une plage et non pour un accident de carrefour : un DIXIÈME.
+PART_FRONTIERE = 10
+
+
+def _frontieres(P, casiers):
+    """★ **LÀ OÙ LA SOURCE PASSE DU `L` AU `C`, ET RÉCIPROQUEMENT.** (idée de A)
+
+    La marque de rectitude voyage avec chaque point du nuage depuis `_plat` : on
+    n'estime aucune courbure, on LIT ce que la fonte déclare. C'est le seul
+    découpage du tracé qui ne doive rien à la recette, et il rend à l'`o` ses
+    deux flancs droits — la police en met, le tracé n'en avait qu'un, et
+    l'asymétrie se voyait.
+
+    ⚠️ Une frontière n'en est une que si la marque TIENT de part et d'autre :
+      `_sur_droit` se lit sur le point d'axe le plus proche, et près d'un
+      carrefour ce point-là peut appartenir au voisin. Trois abscisses de suite
+      suffisent — le plus court trait vrai de l'alphabet en compte soixante.
+    """
+    droit = [_sur_droit(casiers, q) for q in P]
+    brut = []
+    for i in range(STABLE, len(P) - STABLE):
+        if droit[i - 1] == droit[i]:
+            continue
+        if any(droit[j] != droit[i - 1] for j in range(i - STABLE, i)):
+            continue
+        if any(droit[j] != droit[i] for j in range(i, i + STABLE)):
+            continue
+        brut.append(i)
+    # ⚠️ **ET UNE FRONTIÈRE NE VAUT QUE SI CE QU'ELLE SÉPARE EXISTE.** Au
+    #   croisement du `w` et de l'`x`, la police fond ses deux diagonales en une
+    #   seule masse et l'axe y devient courbe sur une dizaine d'abscisses : deux
+    #   frontières, une plage minuscule, et une diagonale de six cents unités
+    #   coupée en trois pour un accident de carrefour. On exige donc qu'une plage
+    #   pèse un dixième du trait, comme `_guide_droit` en exige un quart.
+    mini = max(4, len(P) // PART_FRONTIERE)
+    garde, prec = [], 0
+    for i in brut:
+        if i - prec >= mini:
+            garde.append(i)
+            prec = i
+    while garde and len(P) - 1 - garde[-1] < mini:
+        garde.pop()
+    return garde
+
+
+#: Sur combien d'abscisses de part et d'autre on juge du sens de marche pour
+#: repérer un extrême. Trois : la projection tremble d'une unité ou deux, et un
+#: écart de trois abscisses vaut une vingtaine d'unités de tracé.
+LARGEUR_EXTREME = 3
+
+#: De combien d'unités le tracé doit repartir en arrière pour qu'on parle d'un
+#: extrême et non d'un tremblement de projection.
+SAUT_EXTREME = 4.0
+
+
+def _extremes(P, a, b):
+    """★ **UN EXTRÊME EST UN NŒUD — c'est la règle de toutes les fontes.** (de A)
+
+    > « un arc qui en part et redescend droit au centre, et un second arc
+    >   identique accolé au premier. […] 2 avec des poignées symétriques sur le
+    >   haut des courbes. » (l'auteur, sur le `m`)
+
+    Le sommet d'une arche, le flanc d'un `o` : partout où le tracé cesse de
+    monter ou d'aller à droite, JetBrains Mono pose un point. C'est le même fait
+    que `_extremums` lit sur le GUIDE ; ici on le lit sur la MESURE, ce qui vaut
+    là où la recette vise mal.
+    """
+    w = LARGEUR_EXTREME
+    if b - a < 3 * w:
+        return []
+    out = []
+    for i in range(a + w, b - w + 1):
+        av = (P[i][0] - P[i - w][0], P[i][1] - P[i - w][1])
+        ap = (P[i + w][0] - P[i][0], P[i + w][1] - P[i][1])
+        for k in (0, 1):
+            if (av[k] * ap[k] < 0 and abs(av[k]) > SAUT_EXTREME
+                    and abs(ap[k]) > SAUT_EXTREME):
+                out.append(i)
+                break
+    # un rebroussement s'étale sur quelques abscisses : on n'en garde que le
+    # milieu, sans quoi un sommet vaudrait trois bornes et deux moignons.
+    groupes, courant = [], []
+    for i in out:
+        if courant and i - courant[-1] > w:
+            groupes.append(courant)
+            courant = []
+        courant.append(i)
+    if courant:
+        groupes.append(courant)
+    return [g[len(g) // 2] for g in groupes]
+
+
+def _tronc_declare_droit(guide, a, b, jeu=3):
+    """★ **UN TRONÇON DÉCLARÉ DROIT L'EST ENCORE SI SON PREMIER POINT TRAÎNE.**
+    (de A)
+
+    Le pilier du `a` court de l'abscisse 24 à la 60 ; la borne, elle, tombe à la
+    23 — le coin déclaré, qui est encore sur l'arc du chapeau. Une abscisse de
+    trop suffisait à faire échouer le test de rectitude, donc à ouvrir le tronçon
+    aux frontières et aux extrêmes, donc à le couper en trois. On accorde donc
+    trois abscisses de jeu à chaque bout : c'est le coin voisin, pas le tronçon.
+    """
+    for total in range(2 * jeu + 1):
+        for da in range(min(total, jeu) + 1):
+            db = total - da
+            if db > jeu:
+                continue
+            if a + da < b - db and _guide_droit(guide, a + da, b - db):
+                return (da, db)
+    return None
+
+
+def _fin_de_droite(P, a, b, guide):
+    """★ **UNE DROITE S'ARRÊTE OÙ LA MESURE LA QUITTE, PAS OÙ LA RECETTE LE DIT.**
+
+    > « la poignée en bas devrait être verticale et donc le point un peu plus
+    >   haut » (l'auteur, sur le `l`)
+
+    ⚠️ La recette est une LECTURE : elle dit « ici un fût droit, puis un virage »
+      mais elle place la frontière à vue. Sur le `l` elle la met à y = 45 quand
+      l'axe quitte la verticale à y = 90 ; sur le `t`, à y = 42 pour une tangence
+      à y = 82. Le fût rendu mordait donc de quarante-cinq unités sur le virage,
+      et la courbe qui reprenait derrière devait rattraper tout le retard d'un
+      coup : dix unités d'écart à l'axe et une poignée que la tangence ne pouvait
+      redresser qu'en s'écartant davantage.
+
+    On rogne donc le tronçon déclaré droit tant que ses points s'écartent de plus
+    d'une unité de la droite ajustée — et on refait l'ajustement après chaque
+    rognage, puisque les points rognés étaient précisément ceux qui la tiraient.
+    Ce qui est rogné n'est pas perdu : il revient au tronçon voisin, qui est
+    courbe, et c'est bien de la courbe.
+    """
+    # ⚠️ Le guide compte `ABSCISSES + 1` points, `P` peut en compter moins :
+    #   `_ajuste` retire les abscisses en doublon avant de découper. On borne
+    #   donc, faute de quoi le `b` et le `q` lèvent un IndexError.
+    b = min(b, len(P) - 1)
+    if guide is None or b - a < 4 or not _guide_droit(guide, a, b):
+        return None
+    mini = max(2, PART_DROITE * len(guide))
+    i, j = a, b
+    for _ in range(4):
+        droite = _droite_ajustee(P[i:j + 1], [True] * (j - i + 1))
+        if droite is None:
+            return None
+        declaree = _versLe(guide[i], guide[j])
+        if declaree != (0.0, 0.0):
+            mesuree = _versLe(droite[0], droite[1])
+            if abs(mesuree[0] * declaree[0] + mesuree[1] * declaree[1]) > ACCORD:
+                droite = _droite_orientee(P[i:j + 1], declaree) or droite
+        A, B = droite
+        i2, j2 = i, j
+        while j2 - i2 > mini and _dseg(P[i2], A, B) > GUIDE_DROIT:
+            i2 += 1
+        while j2 - i2 > mini and _dseg(P[j2], A, B) > GUIDE_DROIT:
+            j2 -= 1
+        if (i2, j2) == (i, j):
+            break
+        i, j = i2, j2
+    return (i, j) if (i, j) != (a, b) else None
+
+
+def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None,
+            ferme=False, lues=False):
     """Le moins de cubiques possible passant à moins de `tol` de `P`."""
     # ⚠️ Les abscisses sans mesure ont été bouchées en recopiant la voisine
     #   connue : elles arrivent ici en doublons exacts, et une corde de longueur
@@ -790,6 +958,50 @@ def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None, ferme
              if all(abs(k - c) > 3 for c in coins)}
     coins = set(coins) | ajout
     bouts = sorted({0, len(P) - 1} | {i for i in coins if 0 < i < len(P) - 1})
+    # ★ **ET LA FRONTIÈRE DROITE/COURBE SE RECALE SUR LA MESURE.** On interroge
+    #   les tronçons que le GUIDE déclare droits — pas ceux que les coins ont
+    #   découpés : au pied du `l`, le coin de la barre tombe un point avant le
+    #   départ du fût, et le tronçon coin-à-coin n'était donc « pas droit », si
+    #   bien que `_fin_de_droite` ne s'y appliquait jamais.
+    # ⚠️ **ET LA BORNE RECALÉE REMPLACE SA VOISINE, elle ne s'y ajoute pas.**
+    #   Ajouter laissait deux ou trois points entre l'ancienne coupure et la
+    #   neuve — un moignon dont on ne tire ni droite ni courbe. C'est la même
+    #   frontière, mieux placée : elle prend la place de l'ancienne.
+    remplace, ajoute = {}, set()
+    interieur = [c for c in bouts if 0 < c < len(P) - 1]
+    for i, j in _runs_droits(guide):
+        borne = _fin_de_droite(P, i, j, guide)
+        if borne is None:
+            continue
+        for brut, net in zip((i, j), borne):
+            if brut == net or not (0 < net < len(P) - 1):
+                continue
+            voisin = min(interieur, key=lambda c: abs(c - brut), default=None)
+            if voisin is not None and abs(voisin - brut) <= 4:
+                remplace[voisin] = net
+            else:
+                ajoute.add(net)
+    bouts = sorted({remplace.get(c, c) for c in bouts} | ajoute)
+    # ★ **ET LA SOURCE AJOUTE LES BORNES QUE LA RECETTE N'A PAS VUES.** (de A)
+    #   `_fin_de_droite` corrige les bornes DÉCLARÉES ; il ne peut rien pour
+    #   celles qui n'ont pas été déclarées du tout. Les deux flancs droits de
+    #   l'`o` sont dans ce cas : nul arc de recette ne peut les annoncer, et la
+    #   marque `L`/`C` que le nuage porte depuis `_plat` les donne. Idem pour les
+    #   rebroussements, que `_extremes` lit sur la MESURE quand `_extremums` les
+    #   lit sur le guide.
+    # ⚠️ **ON NE COUPE PAS CE QUE LA RECETTE DÉCLARE DROIT.** Les diagonales du
+    #   `w`, du `x` et du `y` sont annoncées comme des droites entières : la seule
+    #   courbure que l'axe y montre est celle du carrefour, où la police fond les
+    #   deux traits en une masse. « S'il y a un trait droit à l'origine, il ne
+    #   doit pas y avoir d'aspérité à l'arrivée » (l'auteur).
+    if casiers is not None and lues:
+        cadre, neuves = list(bouts), set()
+        for a, b in zip(cadre, cadre[1:]):
+            if guide is not None and _tronc_declare_droit(guide, a, b) is not None:
+                continue
+            neuves |= {i for i in _frontieres(P, casiers) if a + 3 < i < b - 3}
+            neuves |= {i for i in _extremes(P, a, b) if a + 3 < i < b - 3}
+        bouts = sorted(set(bouts) | neuves)
     out = []
     for a, b in zip(bouts, bouts[1:]):
         tronc = P[a:b + 1]
@@ -1075,7 +1287,12 @@ def _redresse(chem, tol, casiers, plafond):
     return out
 
 
-def _fusionne(chem, tol, casiers, plafond):
+#: Le plafond de fusion « relatif » : on ne le fixe pas, on le lit sur les deux
+#: morceaux qu'on efface (voir `_fusionne`).
+RELATIF = object()
+
+
+def _fusionne(chem, tol, casiers, plafond, sommets=()):
     """★ **ON ESSAIE DE RETIRER CHAQUE POINT, ET ON NE LE GARDE QUE S'IL SERT.**
 
     > « pourquoi ne le vois-tu pas pour le retirer ? » (l'auteur)
@@ -1089,6 +1306,56 @@ def _fusionne(chem, tol, casiers, plafond):
     i = 0
     while i < len(chem) - 1:
         a, b = chem[i], chem[i + 1]
+        # ★ **RETIRER UN POINT NE DOIT PAS COÛTER PLUS QUE CE QU'IL VAUT.**
+        #   La dernière passe travaillait sous un plafond FIXE de 4,3 unités :
+        #   elle ravalait le segment droit du pied du `t` dans son quart de tour
+        #   (4,1 unités d'écart au lieu de 0,9) et les sommets d'arche du `m`,
+        #   alors que les morceaux qu'elle remplaçait tenaient à moins d'une
+        #   unité de l'axe. Le plafond se lit donc sur ce qu'on efface, avec le
+        #   même budget qu'ailleurs : un point de moins vaut une unité d'écart,
+        #   pas quatre.
+        # ★ **ET L'ON NE FUSIONNE PAS PAR-DESSUS UN SOMMET.**
+        #
+        #   > « 2 [points] avec des poignées symétriques sur le haut des
+        #   >   courbes » (l'auteur, sur le `m`)
+        #
+        #   Une police pose un point à chaque extremum, et `AXES` le montre :
+        #   l'axe du `m` porte un nœud en (162, 457) et un en (335, 457), au
+        #   sommet exact de chaque arche. `_ajuste` les posait — la version avec
+        #   extrema y gagne trois dixièmes d'unité — et cette dernière passe les
+        #   reprenait aussitôt, laissant chaque arche en UNE cubique. On protège
+        #   donc les nœuds que la recette place à un extremum : ce ne sont pas
+        #   des points de découpe, ce sont des points du DESSIN.
+        if sommets and min(math.dist(b[0], q) for q in sommets) <= SOMMET_PROCHE:
+            i += 1
+            continue
+        # ⚠️ **ET UNE DROITE LONGUE, CONFIRMÉE PAR L'AXE, NE SE FOND PAS DANS
+        #   UNE COURBE.**
+        #
+        #   > « un point supplémentaire devrait être à droite en bas pour finir
+        #   >   le segment » (l'auteur, sur le `t`)
+        #
+        #   `_ajuste` pose bien la droite finale du pied du `t` ; cette passe la
+        #   ravalait dans le quart de tour, et le point demandé disparaissait.
+        #   Trois conditions, pas une de moins : le morceau est DROIT, il est
+        #   LONG (plus de huit dixièmes de fût — en deçà c'est un moignon de
+        #   carrefour, comme celui qui traîne à la fourche du `k`), et l'AXE le
+        #   confirme droit. Sans la troisième, le `w` gagnait un point sur une
+        #   branche que l'axe montre courbe ; sans la deuxième, le `k` et le `m`
+        #   en gagnaient quatre.
+        if bool(a[1]) != bool(b[1]) and casiers is not None:
+            droit = a if not a[1] else b
+            if math.dist(droit[0], droit[2]) >= 0.8 * FUT:
+                echos = [evalue(droit, k / 24) for k in range(25)]
+                if (sum(_sur_droit(casiers, q) for q in echos)
+                        >= MAJORITE_DROITE * len(echos)):
+                    i += 1
+                    continue
+        plaf = plafond
+        if plafond is RELATIF:
+            plaf = (max(_pres(casiers, evalue(x, k / 8))
+                        for x in (a, b) for k in range(9)) + BUDGET_POINT
+                    if casiers is not None else None)
         P = ([evalue(a, k / 16) for k in range(17)]
              + [evalue(b, k / 16) for k in range(1, 17)])
         t1 = _versLe(a[0], a[1][0] if a[1] else a[2])
@@ -1100,12 +1367,12 @@ def _fusionne(chem, tol, casiers, plafond):
         bez = _moindres_carres(P, u, t1, t2)
         err, _ = _ecart_max(P, bez, u)
         for _ in range(4):
-            if _accepte(bez, err, tol, casiers, plafond):
+            if _accepte(bez, err, tol, casiers, plaf):
                 break
             u = _reparametre(P, bez, u)
             bez = _moindres_carres(P, u, t1, t2)
             err, _ = _ecart_max(P, bez, u)
-        if _accepte(bez, err, tol, casiers, plafond):
+        if _accepte(bez, err, tol, casiers, plaf):
             chem[i:i + 2] = [bez]
             i = max(0, i - 1)
         else:
@@ -1508,6 +1775,269 @@ def _symetrise(chemins, casiers, tol):
     return chemins
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  ⑤ᵇⁱˢ LA CHAÎNE — l'invariant qui manquait, et ce qu'il a coûté
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# ★ **UN TRACÉ EST UNE CHAÎNE : le départ d'un morceau EST l'arrivée du
+#   précédent.** On écrit pourtant chaque morceau `(départ, poignées, arrivée)`,
+#   ce qui range DEUX FOIS le même point. Rien n'oblige les deux copies à
+#   coïncider, et `versD` — qui n'émet qu'un `M` puis des `L`/`C` — ne rend que
+#   la PREMIÈRE : le départ rangé dans le morceau suivant n'est jamais dessiné.
+#
+# ⚠️ **C'EST L'ÉNIGME DU `t` ET DU `l`, ET ELLE N'EN EST PLUS UNE.** L'auteur :
+#   « la poignée devrait être verticale […] la fonction la calcule, l'accepte et
+#   l'applique, et pourtant le tracé final porte l'ancienne valeur. » Elle
+#   l'appliquait — mais sur un point FANTÔME. Mesuré : **6,9 unités de rupture
+#   au pied du `l`, 6,8 à celui du `t`**, et DOUZE lettres rompues sur
+#   vingt-six ; six degrés d'écart sur la poignée, exactement les six degrés que
+#   l'auteur voyait, et pas un correctif de plus n'y pouvait rien.
+#
+# ★ **DEUX GESTES, ET LE SECOND EST LE PLUS IMPORTANT.** `_recoud` referme la
+#   rupture ; `_rupture` la MESURE, et `Pose.applique` LÈVE dès qu'une retouche
+#   en laisse une derrière elle. Un correctif se contourne, un invariant non.
+
+
+def _rupture(chem):
+    """Le pire écart entre l'arrivée d'un morceau et le départ du suivant."""
+    return max((math.dist(a[2], b[0]) for a, b in zip(chem, chem[1:])), default=0.0)
+
+
+def _bouge_fin(m, j):
+    """L'arrivée d'un morceau va en `j`, SA POIGNÉE VOISINE AVEC — une courbe se
+    translate, elle ne se tord pas (même raison que dans `_coins_nets`). (de A)"""
+    if not m[1]:
+        return (m[0], [], j)
+    dx, dy = j[0] - m[2][0], j[1] - m[2][1]
+    ctrl = list(m[1])
+    ctrl[-1] = (ctrl[-1][0] + dx, ctrl[-1][1] + dy)
+    return (m[0], ctrl, j)
+
+
+def _bouge_debut(m, j):
+    """Le départ d'un morceau va en `j`, sa poignée voisine avec. (de A)"""
+    if not m[1]:
+        return (j, [], m[2])
+    dx, dy = j[0] - m[0][0], j[1] - m[0][1]
+    ctrl = list(m[1])
+    ctrl[0] = (ctrl[0][0] + dx, ctrl[0][1] + dy)
+    return (j, ctrl, m[2])
+
+
+def _recoud(chem):
+    """★ **UNE CHAÎNE NE SE COUPE PAS — et la mienne se coupait de sept unités.**
+
+    ⚠️ **C'EST LE DÉFAUT QUI RENDAIT TROIS PASSES INOPÉRANTES.** `_ajuste`
+      traite chaque tronçon SÉPARÉMENT ; quand la recette y déclare une droite,
+      `_droite_ajustee` la recale sur les points mesurés et rend deux bouts
+      NEUFS, qui n'ont plus aucune raison de tomber sur le premier point du
+      tronçon suivant. Onze lettres sortaient trouées — 6,9 unités au pied du
+      `l`, 6,8 à celui du `t`, 3,5 au `n`, 3,5 au `h`, 2,9 au `j`.
+
+    ⚠️ **ET `versD` LE CACHAIT.** Il n'écrit qu'un seul `M`, puis des `L`/`C`
+      qui repartent du POINT COURANT : le trou ne disparaissait pas, il devenait
+      en silence la première poignée de la courbe suivante.
+    ★ D'où le mystère : `_tangence` mesurait la poignée du `t` depuis le départ
+      DÉCLARÉ de la courbe, la rendait rigoureusement verticale, l'acceptait
+      (`_sur_laxe` à 4,9 unités pour 14,3 permises) — et le tracé rendu la
+      montrait à 6,1° de la verticale, parce que le lecteur, lui, la mesure
+      depuis la fin du fût. « La poignée devrait être verticale » (l'auteur) :
+      elle l'était dans les nombres, et le trou la couchait.
+
+    On recoud donc EXACTEMENT comme `versD` dessine — le morceau suivant repart
+    du point courant, ses poignées ne bougent pas. Le tracé rendu est au trait
+    près le même ; ce qui change, c'est que les passes d'après voient enfin ce
+    qui sera dessiné. Déplacer la poignée avec le point serait un autre choix,
+    et un mauvais : essayé, il éloigne le `h` de 6,1 à 8,8 unités de son axe et
+    le `l` de 8,2 à 10,1, parce que le trou refermé de force tire toute la
+    courbe hors de l'axe.
+    """
+    for i in range(len(chem) - 1):
+        a, b = chem[i], chem[i + 1]
+        if math.dist(a[2], b[0]) > 1e-9:
+            chem[i + 1] = (a[2], b[1], b[2])
+    return chem
+
+def _translation(ga, gb, tol=2.5):
+    """Le décalage CONSTANT qui mène `ga` sur `gb`, ou None s'il n'y en a pas."""
+    if len(ga) != len(gb) or len(ga) < 3:
+        return None
+    dx = sum(b[0] - a[0] for a, b in zip(ga, gb)) / len(ga)
+    dy = sum(b[1] - a[1] for a, b in zip(ga, gb)) / len(ga)
+    if any(abs(b[0] - a[0] - dx) > tol or abs(b[1] - a[1] - dy) > tol
+           for a, b in zip(ga, gb)):
+        return None
+    return (dx, dy)
+
+
+def _decale(chem, d):
+    return [((m[0][0] + d[0], m[0][1] + d[1]),
+             [(c[0] + d[0], c[1] + d[1]) for c in m[1]],
+             (m[2][0] + d[0], m[2][1] + d[1])) for m in chem]
+
+
+def _ecart_chem(chem, casiers):
+    return max([0.0] + [_pres(casiers, evalue(m, k / 12))
+                        for m in chem for k in range(13)])
+
+
+def _jumelles(chemins, guides, casiers):
+    """★ **DEUX ARCHES IDENTIQUES SORTENT IDENTIQUES.**
+
+    > « un trait vertical droit à gauche, un arc qui en part et redescend droit
+    >   au centre, et un second arc IDENTIQUE accolé au premier. » (l'auteur)
+
+    Les deux arches du `m` sont le même dessin décalé d'un entraxe : la recette
+    les déclare superposables, et l'axe le confirme à une unité près — trois
+    jambes à 79,2 / 246,6 / 413,9, deux pas de 167,35. Rien ne les distingue, et
+    pourtant elles sortaient différentes : l'une en trois morceaux, l'autre en
+    deux, leurs jambes naissant à quarante unités d'écart. C'est que le carrefour
+    central appartient aux DEUX et que la projection y répartit ses points comme
+    elle peut ; chaque arche y reçoit une moitié de mesure, et pas la même.
+
+    ⚠️ **ON NE MOYENNE PAS, ON CHOISIT.** Moyenner deux tracés qui n'ont ni le
+      même nombre de morceaux ni les mêmes coupures n'a pas de sens. On garde
+      celle qui SERRE LE MIEUX SON AXE, et l'on pose l'autre dessus — le décalage
+      étant repris à la mesure, par descente sur chaque coordonnée, et non à la
+      déclaration : la recette dit qu'il y a un entraxe, l'axe dit lequel.
+    """
+    if casiers is None:
+        return chemins
+    poses = []
+    for i in range(len(guides)):
+        for j in range(len(guides)):
+            if i == j or not chemins[i] or not chemins[j]:
+                continue
+            d = _translation(guides[i], guides[j])
+            if d is None or math.hypot(d[0], d[1]) < 1.0:
+                continue
+            if _ecart_chem(chemins[i], casiers) > _ecart_chem(chemins[j], casiers):
+                continue                       # l'autre sens fera mieux
+            for _ in range(2):
+                for quelle in (0, 1):
+                    note, mieux = None, d
+                    for pas in range(-20, 21):
+                        dd = ((d[0] + pas * 0.5, d[1]) if quelle == 0
+                              else (d[0], d[1] + pas * 0.5))
+                        e = _ecart_chem(_decale(chemins[i], dd), casiers)
+                        if note is None or e < note:
+                            note, mieux = e, dd
+                    d = mieux
+            poses.append((j, _decale(chemins[i], d)))
+    for j, chem in poses:
+        chemins[j] = chem
+    return {j for j, _ in poses}
+
+#: Ce qu'un point de MOINS a le droit de coûter en fidélité à l'axe : une unité
+#: sur six cents. « Le point central en haut pourrait être retiré en déplaçant
+#: légèrement les poignées de ses voisins pour garder la même courbe »
+#: (l'auteur) — « la même courbe », donc à une unité près.
+MOINDRE_POINT = 1.0
+
+#: Ce qu'un point de PLUS doit rapporter pour être gardé.
+POINT_DE_PLUS = 0.25
+
+#: À quelle distance un nœud du tracé compte pour le sommet que la recette
+#: annonce : un quart de fût. La recette vise à quelques unités près — son
+#: sommet d'arche du `m` tombe à un dixième d'unité de celui de l'axe —, mais
+#: elle n'est pas la mesure, et il faut lui laisser du jeu.
+SOMMET_PROCHE = 0.25 * FUT
+
+#: Ce qu'on accepte de payer, en écart à l'axe, pour retirer un point à la
+#: dernière passe de fusion.
+BUDGET_POINT = 2.6
+
+
+def _extremums(guide, fenetre=6):
+    """Les indices où le guide REBROUSSE en x ou en y — les extrema du dessin.
+
+    ★ Une police pose un point à chaque extremum ; c'est la convention, et
+      JetBrains Mono la suit. Le sommet d'une arche du `m` en est un.
+
+    ⚠️ **UN EXTREMUM EST UN POINT, PAS UNE PLAGE.** Le critère — la différence
+      change de signe sur une fenêtre — est vrai sur SIX abscisses d'affilée
+      autour du sommet, et l'arche du `m` sortait en onze morceaux au lieu de
+      trois. On réduit donc chaque plage à son point le plus extrême.
+    """
+    n = len(guide)
+    out = set()
+    for c in (0, 1):
+        marques = []
+        for k in range(fenetre, n - fenetre):
+            av = guide[k][c] - guide[k - fenetre][c]
+            ap = guide[k + fenetre][c] - guide[k][c]
+            if av * ap < 0 and abs(av) > 1.0 and abs(ap) > 1.0:
+                marques.append(k)
+        i = 0
+        while i < len(marques):
+            j = i
+            while j + 1 < len(marques) and marques[j + 1] == marques[j] + 1:
+                j += 1
+            plage = marques[i:j + 1]
+            k0 = plage[0]
+            sens = 1 if guide[k0][c] - guide[k0 - fenetre][c] > 0 else -1
+            out.add(max(plage, key=lambda k: sens * guide[k][c]))
+            i = j + 1
+    return out
+
+def _recolle(chemins, liens, attendus, quels, tol=TOL):
+    """★ **UN CONTACT QUE LA RECETTE ANNONCE ET QUE LA POSE AVAIT, ON LE GARDE.**
+
+    ⚠️ `_jumelles` déplace une arche entière : elle la rapproche de son axe, et
+      peut l'éloigner de ce qu'elle touche. Le `m` en a fait les frais — la
+      seconde arche naissait à quatorze unités de la jambe centrale, soit une
+      extrémité libre de plus (3/5/0 au lieu de 3/4/0), alors que `rejoint`
+      l'avait bien posée dessus.
+
+    ★ **ET L'AXE DU `m` EST POUR QUELQUE CHOSE DANS CES QUATORZE UNITÉS** : sa
+      jambe centrale porte DEUX brins, à 240,2 et 253,0, parce que c'est là que
+      deux traits fondent leur encre et que le repliage n'y ramène pas un brin
+      unique. La première arche suit l'un, la seconde part de l'autre ; toutes
+      deux sont fidèles, et pourtant elles ne se touchent plus. On ramène donc le
+      bout sur son voisin — le point ET sa poignée, pour ne pas tordre la courbe
+      — sans toucher au reste : c'est un déplacement de quatorze unités sur un
+      seul point, contre douze unités d'écart à l'axe si l'on translatait toute
+      l'arche.
+    """
+    plats = [[evalue(m, k / 12) for m in c for k in range(13)] for c in chemins]
+    for u, chem in enumerate(chemins):
+        if u not in quels or not chem or not liens[u]:
+            continue
+        voisins = [q for v in liens[u] for q in plats[v]]
+        if not voisins:
+            continue
+        for cote, fin in ((0, False), (1, True)):
+            if not attendus[u][cote]:
+                continue
+            m = chem[-1] if fin else chem[0]
+            bout = m[2] if fin else m[0]
+            proche = min(voisins, key=lambda z: math.dist(z, bout))
+            d = math.dist(proche, bout)
+            if d <= tol or d > 0.5 * FUT:
+                continue
+            # ⚠️ **ON NE RECOLLE QUE CE QU'IL FAUT.** Poser le bout SUR son
+            #   voisin, c'est le déplacer de quatorze unités, et chaque unité de
+            #   déplacement est une unité d'écart à l'axe : le `m` passait de 2,3
+            #   à 8,2. Or le contact est établi dès que le bout est sous la
+            #   tolérance du moteur — six unités. On s'arrête donc à la moitié de
+            #   cette tolérance, ce qui laisse trois unités de marge au comptage
+            #   et rend au `m` quatre des six unités perdues.
+            f = max(0.0, (d - tol / 2) / d)
+            dx = (proche[0] - bout[0]) * f
+            dy = (proche[1] - bout[1]) * f
+            proche = (bout[0] + dx, bout[1] + dy)
+            ctrl = list(m[1])
+            if ctrl:
+                if fin:
+                    ctrl[-1] = (ctrl[-1][0] + dx, ctrl[-1][1] + dy)
+                else:
+                    ctrl[0] = (ctrl[0][0] + dx, ctrl[0][1] + dy)
+            if fin:
+                chem[-1] = (m[0], ctrl, proche)
+            else:
+                chem[0] = (proche, ctrl, m[2])
+    return chemins
+
 def _coins_nets(chem):
     """★ **UN COIN EST UN POINT, PAS DEUX.**
 
@@ -1558,18 +2088,15 @@ def _coins_nets(chem):
     change = True
     while change and len(chem) >= 3:
         change = False
-        for i in range(1, len(chem) - 1):
-            if _long_morceau(chem[i]) < COURT / 2:
-                m, v = chem[i], chem[i + 1]
-                dx, dy = m[0][0] - v[0][0], m[0][1] - v[0][1]
-                ctrl = list(v[1])
-                if ctrl:
-                    ctrl[0] = (ctrl[0][0] + dx, ctrl[0][1] + dy)
-                chem[i:i + 2] = [(m[0], ctrl, v[2])]
-                change = True
-                break
-        if change:
-            continue
+        # ⚠️ **ET L'INTERSECTION PASSE AVANT L'ABSORPTION.** Les deux règles
+        #   valent pour un moignon du milieu, et l'ordre décidait tout : sur le
+        #   `L` capitale, le résidu du virage mesure **14,7 unités** pour un
+        #   seuil d'absorption à 14,8 — un dixième d'unité. Absorbé, il léguait
+        #   son point HAUT à la barre du bas, qui partait alors en pente de trois
+        #   degrés : quatorze unités d'écart à l'axe, le pire signe des
+        #   cinquante-deux. Coupé, il rend le coin exact. Un moignon coincé entre
+        #   deux DROITES n'a jamais rien à donner à personne : il a une
+        #   intersection, et c'est le coin.
         for i in range(1, len(chem) - 1):
             m = chem[i]
             if m[1] or math.dist(m[0], m[2]) > COURT:
@@ -1594,6 +2121,18 @@ def _coins_nets(chem):
             chem[i - 1:i + 2] = [(a[0], [], coin), (coin, [], b[2])]
             change = True
             break
+        if change:
+            continue
+        for i in range(1, len(chem) - 1):
+            if _long_morceau(chem[i]) < COURT / 2:
+                m, v = chem[i], chem[i + 1]
+                dx, dy = m[0][0] - v[0][0], m[0][1] - v[0][1]
+                ctrl = list(v[1])
+                if ctrl:
+                    ctrl[0] = (ctrl[0][0] + dx, ctrl[0][1] + dy)
+                chem[i:i + 2] = [(m[0], ctrl, v[2])]
+                change = True
+                break
     return chem
 
 
@@ -1619,20 +2158,31 @@ RASANT = math.cos(math.radians(20))
 
 
 #: Un tronçon droit du guide doit peser au moins ça pour valoir une coupure :
-#: un huitième du guide. En deçà, c'est un bout de courbe presque plat.
+#: un quart du guide. En deçà, c'est un bout de courbe presque plat — À MOINS
+#: qu'il ne soit droit EXACTEMENT (voir `_guide_droit`).
 PART_DROITE = 0.25
 
+#: La plus courte portée sur laquelle on consent à conclure « droite » : six
+#: abscisses sur soixante et une. En deçà, deux ou trois points alignés ne
+#: prouvent rien — `points_du_trace` échantillonne un arc en quarante-huit
+#: points, et deux points consécutifs d'une même corde sont exactement alignés.
+SONDE_DROITE = 6
 
-def _bornes_droites(guide, n):
-    """Les indices où le guide cesse d'être droit, ou recommence à l'être."""
+#: La flèche en deçà de laquelle une portée courte est tenue pour droite : deux
+#: centièmes d'unité sur six cents. Un `L` de la recette a une flèche NULLE.
+DROITE_EXACTE = 0.02
+
+
+def _runs_droits(guide):
+    """Les tronçons que le guide déclare DROITS, bornes comprises."""
     if guide is None or len(guide) < 5:
-        return set()
+        return []
     m = len(guide)
     # ⚠️ On ARRONDIT AU-DESSUS : `_guide_droit` compare à la même fraction,
     #   et quinze points contre quinze et quart suffisaient à faire échouer
     #   la jambe du `m` — un quart de point.
-    mini = max(4, int(math.ceil(PART_DROITE * m)))
-    out, i = set(), 0
+    mini = max(4, SONDE_DROITE)
+    out, i = [], 0
     while i < m - mini:
         j = i + mini
         if not _guide_droit(guide, i, j):
@@ -1640,11 +2190,19 @@ def _bornes_droites(guide, n):
             continue
         while j + 1 < m and _guide_droit(guide, i, j + 1):
             j += 1
+        out.append((i, j))
+        i = j
+    return out
+
+
+def _bornes_droites(guide, n):
+    """Les indices où le guide cesse d'être droit, ou recommence à l'être."""
+    out = set()
+    for i, j in _runs_droits(guide):
         if i > 0:
             out.add(i)
-        if j < m - 1:
+        if j < len(guide) - 1:
             out.add(j)
-        i = j
     return {k for k in out if 0 < k < n - 1}
 
 
@@ -1659,12 +2217,27 @@ def _guide_droit(guide, a, b):
       quart du guide : en deçà, la platitude est celle d'une courbe, pas d'une
       droite.
     """
-    if b - a < max(2, PART_DROITE * len(guide)) or b >= len(guide):
+    if b - a < 2 or b >= len(guide):
         return False
     p, q = guide[a], guide[b]
     if math.dist(p, q) < 1e-9:
         return False
-    return all(_dseg(guide[i], p, q) < GUIDE_DROIT for i in range(a, b + 1))
+    fleche = max(_dseg(guide[i], p, q) for i in range(a, b + 1))
+    if b - a >= max(2, PART_DROITE * len(guide)):
+        return fleche < GUIDE_DROIT
+    # ★ **EN DEÇÀ D'UN QUART DU GUIDE, ON N'ACCEPTE QU'UNE DROITE EXACTE.**
+    #
+    #   > « un point supplémentaire devrait être à droite en bas pour finir le
+    #   >   segment » (l'auteur, sur le `t`)
+    #
+    #   Le pied du `t` finit par cent quatre unités de droite déclarée — 14 % du
+    #   guide, donc sous le seuil : elle se noyait dans le quart de tour et
+    #   sortait en une seule cubique, sans le point demandé. Or ce qui distingue
+    #   une VRAIE droite d'un arc plat n'est pas sa longueur, c'est sa flèche :
+    #   un `L` de la recette a une flèche NULLE, l'épaule du `r` — ellipse de
+    #   rayons 311 × 118 — en a quatre dixièmes d'unité sur la même portée. Deux
+    #   centièmes séparent les deux sans ambiguïté, et le seuil long ne bouge pas.
+    return b - a >= SONDE_DROITE and fleche < DROITE_EXACTE
 
 
 def _etendue(P):
@@ -1904,6 +2477,16 @@ def _echelonne(pts):
     return [_au(pts, s, longueur_, k / ABSCISSES) for k in range(ABSCISSES + 1)]
 
 
+#: L'écart QUADRATIQUE en deçà duquel deux guides se disputent le même brin :
+#: deux unités du repère. Au-delà, le point appartient sans conteste au plus
+#: proche.
+PARTAGE = 2.0 ** 2
+
+#: Et il faut que le point soit VRAIMENT sur le brin des deux : à plus de trois
+#: unités du plus proche, il n'y a pas de dispute, il y a un vainqueur.
+SUR_LE_BRIN = 3.0 ** 2
+
+
 def _pose(nuage, guides, coins):
     """★ **UNE PASSE DE PROJECTION : chaque point de l'axe rejoint le guide le
       plus proche, chaque abscisse rend le centre de ce qu'elle a reçu.**
@@ -1933,6 +2516,24 @@ def _pose(nuage, guides, coins):
                     meilleur, choix = d, (t, k)
         if choix is not None:
             seaux[choix[0]][choix[1]].append(p)
+            # ★ **UN BRIN QUE DEUX GUIDES SE DISPUTENT SERT AUX DEUX.**
+            #   Là où deux traits fondent leur encre, l'axe n'a qu'un brin :
+            #   l'attribuer au seul plus proche, c'est l'attribuer au premier
+            #   déclaré, et l'autre n'a plus rien. L'épaule du `r` naît sur le
+            #   fût, sur trente-deux abscisses ; privée de mesure, elle démarrait
+            #   à 338 quand l'axe la fait naître à 306 — onze unités et demie,
+            #   le pire écart de l'alphabet, toutes au même endroit.
+            for t, guide in enumerate(guides):
+                if t == choix[0]:
+                    continue
+                for k, q in enumerate(guide):
+                    v = tangentes[t][k]
+                    if abs(u[0] * v[0] + u[1] * v[1]) < DE_FACE_GUIDE:
+                        continue
+                    if (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2 <= meilleur + PARTAGE \
+                            and meilleur <= SUR_LE_BRIN:
+                        seaux[t][k].append(p)
+                        break
 
     # ② chaque abscisse rend le CENTRE de ce qui s'y projette, intrus écartés ;
     #    les trous s'interpolent entre les points MESURÉS voisins, jamais depuis
@@ -1994,207 +2595,731 @@ def _pose(nuage, guides, coins):
     return lignes
 
 
-def traits(ch, recette, points_du_trace, journal=None):
-    """Les traits DÉCLARÉS par `recette`, reposés sur l'axe EXACT de `ch`."""
-    nuage = _plat(ch)
-    decl, jonctions = recette
+# ═══════════════════════════════════════════════════════════════════════════
+#  ⑥ LA POSE — une étape à la fois, chacune nommée, vérifiée, mesurée
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# > « le fichier a grossi par accumulation de passes correctives, au point que
+# >   son auteur ne sait plus expliquer pourquoi il produit ce qu'il produit. »
+# >   (l'auteur)
+#
+# ★ **UNE CHAÎNE QUI S'EXPLIQUE EST UNE CHAÎNE QUI S'ARRÊTE.** Les retouches
+#   tenaient en une expression de six appels imbriqués, écrite sur trois lignes :
+#   rien n'y disait l'ordre, rien n'y mesurait ce que chacune coûtait, et rien
+#   n'y vérifiait que le tracé restait un tracé. Elles sont désormais une LISTE
+#   NOMMÉE — `RETOUCHES` —, et `Pose.applique` les déroule une par une en
+#   contrôlant après chacune l'invariant de chaîne (§⑤ᵇⁱˢ) et l'écart à l'axe.
+#
+# ★ **ET ON PEUT LA REGARDER TRAVAILLER** : `python3 jetbrains-axe.py --passes l`
+#   déroule le tableau passe par passe — nombre de morceaux, écart à l'axe,
+#   tracé rendu. C'est le seul moyen d'attribuer un défaut à UNE étape plutôt
+#   qu'à leur somme, et c'est ce qui manquait quand `_tangence` appliquait une
+#   correction que le rendu ne montrait pas.
 
-    guides = [_echelonne(points_du_trace(t['d'])) for t in decl]
-    # ★ Les COINS restent ceux que la recette déclare : c'est une lecture du
-    #   dessin, et une passe de projection ne saurait ni les inventer ni les
-    #   perdre. Seule la géométrie se corrige d'une passe à l'autre.
-    coins = [_anguleux(g) for g in guides]
 
-    # ⚠️ **LE POINT DU `i` ET DU `j` SE SERT AVANT LES AUTRES, ET SORT DU NUAGE.**
-    #   Un trait DÉGÉNÉRÉ n'a pas de direction ; le filtre de tangente rejetait
-    #   donc tout pour lui, et son anneau d'axe — un point effondré reste un
-    #   anneau minuscule — partait grossir le seau le plus proche de la hampe.
-    #   Cent quatre-vingt-six unités plus bas, l'empattement du `i` s'en trouvait
-    #   tiré vers le haut, et le `j` finissait à cent trente-deux unités de son
-    #   axe.
-    #
-    # ★ **ET IL SE PREND PAR CONTOUR, PAS PAR RAYON.** Un point est un CONTOUR À
-    #   LUI SEUL — c'est exact, et ça ne demande aucun seuil. Le rayon, lui,
-    #   partait d'un repère que la recette pose au SOMMET de la boîte du signe et
-    #   non au centre du point : la moitié basse de l'anneau lui échappait de six
-    #   unités, repartait dans la hampe, et faisait monter le `i` et le `j` de
-    #   trente unités au-dessus de la hauteur d'x — un crochet en l'air, sur les
-    #   deux seules lettres qui en portent un.
-    points, reste = [], list(nuage)
-    for t, g in enumerate(guides):
-        if max(math.dist(g[0], q) for q in g) >= 1e-6:
-            points.append(None)
-            continue
-        proche = min(reste, key=lambda pu: math.dist(pu[0], g[0]), default=None)
-        if proche is None:
-            points.append(g[0])
-            continue
-        sien = proche[2]
-        lot = [pu[0] for pu in reste if pu[2] == sien]
-        reste = [pu for pu in reste if pu[2] != sien]
-        # ⚠️ **LE CENTRE D'UN POINT EST CELUI DE SA BOÎTE, PAS DE SES POINTS.**
-        #   L'anneau effondré n'est pas parcouru à vitesse constante : sa moyenne
-        #   penche du côté où les échantillons se serrent, et le point du `j`
-        #   sortait dix-sept unités à gauche de sa hampe — « il devrait surplomber
-        #   la barre verticale en étant pile au-dessus » (l'auteur). Les extrêmes,
-        #   eux, ne dépendent d'aucune vitesse.
-        points.append(((min(z[0] for z in lot) + max(z[0] for z in lot)) / 2,
-                       (min(z[1] for z in lot) + max(z[1] for z in lot)) / 2))
+class Pose:
+    """L'axe d'une lettre, sa topologie déclarée, et de quoi poser l'un sur
+    l'autre. Chaque étape est une méthode ou une retouche nommée, et chacune
+    rend un jeu de chemins qu'on peut mesurer, dessiner et comparer seul."""
 
-    # ★ **LES BOUTS LIBRES SE RECALENT SUR LES PLIS DE L'AXE — avant tout le
-    #   reste.** Un bout qu'aucune jonction ne retient est une extrémité de la
-    #   lettre, et une extrémité de la lettre est un PLI de l'axe effondré : le
-    #   seul repère que le dessin donne sans ambiguïté. La recette, elle, peut se
-    #   tromper de deux cents unités — elle envoie l'épaule du `r` en haut à
-    #   droite (439, 452) quand la police l'arrête à mi-hauteur (395, 259) — et
-    #   un guide faux de deux cents unités ne se rattrape par aucune itération.
-    #   L'écart se fond sur toute la longueur du guide : déplacer le seul dernier
-    #   point y ferait un coude que la projection prendrait pour un relief.
-    liens = [set() for _ in decl]
-    for j in jonctions:
-        a, b = int(j[0]), int(j[1])
-        if 0 <= a < len(decl) and 0 <= b < len(decl):
-            liens[a].add(b)
-            liens[b].add(a)
-    # ⚠️ **MAIS TOUS LES PLIS NE SONT PAS DES BOUTS.** L'axe se renverse aussi
-    #   dans les carrefours — le `m` en montre trois qui n'appartiennent à aucune
-    #   extrémité, le `g` autant. Recaler dessus a fait passer le `m` de seize
-    #   unités d'écart à soixante-dix-huit et le `g` de douze à cent dix. On ne
-    #   sait pas dire lesquels sont vrais ; on n'a pas à le savoir. On pose la
-    #   lettre DEUX FOIS, avec et sans recalage, et on garde celle qui serre
-    #   l'axe de plus près. Le `r` y gagne cent unités, le `m` et le `g` n'y
-    #   perdent rien.
-    # ⚠️ **UN PLI APPARTIENT À UN SEUL BOUT.** Le pied du fût gauche du `m` est
-    #   à cent soixante-dix unités du bas de sa jambe centrale : plus près que la
-    #   portée autorisée, et le guide de l'arche s'y faisait tirer tout entier —
-    #   l'arche redescendait le fût sur deux cent cinquante unités avant de
-    #   remonter. C'est le zigzag central. On apparie donc les bouts libres aux
-    #   plis du plus proche au plus lointain, et chaque pli ne sert qu'une fois.
-    lespis = plis(reste)
-    libres = []
-    for t, g in enumerate(guides):
-        if points[t] is not None:
-            continue
-        for versLaFin in (False, True):
-            bout = g[-1] if versLaFin else g[0]
-            if any(_dpoly(bout, guides[k]) <= TOL for k in liens[t]):
-                continue                       # ce bout-là est tenu par un voisin
-            for pli in lespis:
-                d = math.dist(pli, bout)
-                if d <= PORTEE_PLI:
-                    libres.append((d, t, versLaFin, pli))
-    libres.sort(key=lambda z: z[0])
-    pris, servis, choix = set(), set(), {}
-    for d, t, versLaFin, pli in libres:
-        cle = (t, versLaFin)
-        if cle in servis or pli in pris:
-            continue
-        servis.add(cle)
-        pris.add(pli)
-        choix[cle] = pli
-    recales = list(guides)
-    for t, g in enumerate(guides):
-        for versLaFin in (False, True):
-            pli = choix.get((t, versLaFin))
-            if pli is not None:
-                g = _recale(g, pli, versLaFin)
-        recales[t] = g
+    def __init__(self, ch, recette, points_du_trace, trace=False, lues=False):
+        self.ch = ch
+        self.trace = trace
+        #: Coupe-t-on aussi aux bornes LUES dans la source (`_frontieres`,
+        #: `_extremes`) ? Ce n'est pas un réglage : `traits` pose la lettre des
+        #: deux façons et garde celle qui ne recule sur AUCUNE des deux mesures.
+        self.lues = lues
+        self.decl, self.jonctions = recette
+        nuage = _plat(ch)
+        # Les boucles VRAIMENT fermées — celles dont l'axe décrit un tour
+        # complet, comme la panse du `a` ou l'`o`. Une panse à `couture` n'en est
+        # pas une : son guide est ouvert, seul le rendu se referme.
+        self.fermes = [not d.get('ouvert', True) and not d.get('couture')
+                       for d in self.decl]
+        self.guides = [_echelonne(points_du_trace(t['d'])) for t in self.decl]
+        # ★ Les COINS restent ceux que la recette déclare : c'est une lecture du
+        #   dessin, et une passe de projection ne saurait ni les inventer ni les
+        #   perdre. Seule la géométrie se corrige d'une passe à l'autre.
+        self.coins = [_anguleux(g) for g in self.guides]
+        self.points, self.reste = self._isole_les_points(nuage)
+        self.casiers = _grille([(p[0], p[1], d, u) for p, u, _, d in self.reste])
+        self.liens = self._liens()
+        self.lespis = plis(self.reste)
+        # Lequel des deux bouts de chaque trait la recette pose EN CONTACT.
+        # ⚠️ **UNE BOUCLE VRAIMENT FERMÉE N'A PAS DE BOUT, ET NE SERT PAS DE
+        #   CIBLE.** `rejoint` taille chaque bout libre à sa rencontre ; un
+        #   sous-chemin fermé n'en a aucun — sa couture n'est pas une extrémité
+        #   du dessin, c'est l'endroit arbitraire où le tracé recommence. Il ne
+        #   peut pas non plus servir de voisin à tailler : sur une panse cousue
+        #   au fût, tout point du fût serait à zéro unité de la panse et « le plus
+        #   proche » ne voudrait plus rien dire.
+        # ★ Une panse à COUTURE, elle, se pose et se taille comme un trait
+        #   OUVERT : c'est ce qu'elle est jusqu'au dernier geste (voir `couture`
+        #   dans `jetbrains-traces.py`).
+        self.attendus = [(False, False) if self.fermes[i] else
+                         tuple(any(_dpoly(g[bout], self.guides[k]) <= TOL
+                                   for k in self.liens[i])
+                               for bout in (0, -1))
+                         for i, g in enumerate(self.guides)]
+        self.cibles = [{k for k in voisins if not self.fermes[k]}
+                       for voisins in self.liens]
+        self.sommets = [[g[k] for k in _extremums(g)] for g in self.guides]
+        self.brins = self._brins()
+        #: Les traits que `_r_jumelles` a déplacés en dernier — `_r_recollage`
+        #: est le seul à devoir les rattraper.
+        self.jumelees = set()
 
-    # ★ **ON REJOUE TANT QUE ÇA RAPPROCHE DE L'AXE, ET ON S'ARRÊTE DÈS QUE ÇA
-    #   ÉLOIGNE.** Rejouer la projection sur sa propre sortie corrige la plupart
-    #   des lettres — le `w` passe de vingt-six unités d'écart à six, le `z` de
-    #   neuf à deux — mais DIVERGE sur celles dont la première passe est déjà
-    #   fausse : le `j` s'éloignait de quatre-vingt-dix-sept à cent trente-deux.
-    #   Le critère d'arrêt n'a donc pas à être choisi, il se mesure.
-    casiers = _grille([(p[0], p[1], d, u) for p, u, _, d in reste])
+    # ── ① ce que la recette déclare, mis en tables ────────────────────────
 
-    def poser(depart):
-        lignes_, note_ = depart, None
+    def _isole_les_points(self, nuage):
+        """★ **LE POINT DU `i` ET DU `j` SE SERT AVANT LES AUTRES, ET SORT DU
+          NUAGE.** Un trait DÉGÉNÉRÉ n'a pas de direction ; le filtre de tangente
+          rejetait donc tout pour lui, et son anneau d'axe — un point effondré
+          reste un anneau minuscule — partait grossir le seau le plus proche de
+          la hampe. Cent quatre-vingt-six unités plus bas, l'empattement du `i`
+          s'en trouvait tiré vers le haut, et le `j` finissait à cent trente-deux
+          unités de son axe.
+
+        ★ **ET IL SE PREND PAR CONTOUR, PAS PAR RAYON.** Un point est un CONTOUR
+          À LUI SEUL — c'est exact, et ça ne demande aucun seuil. Le rayon, lui,
+          partait d'un repère que la recette pose au SOMMET de la boîte du signe
+          et non au centre du point : la moitié basse de l'anneau lui échappait
+          de six unités, repartait dans la hampe, et faisait monter le `i` et le
+          `j` de trente unités au-dessus de la hauteur d'x — un crochet en l'air,
+          sur les deux seules lettres qui en portent un.
+        """
+        points, reste = [], list(nuage)
+        for g in self.guides:
+            if max(math.dist(g[0], q) for q in g) >= 1e-6:
+                points.append(None)
+                continue
+            proche = min(reste, key=lambda pu: math.dist(pu[0], g[0]), default=None)
+            if proche is None:
+                points.append(g[0])
+                continue
+            sien = proche[2]
+            lot = [pu[0] for pu in reste if pu[2] == sien]
+            reste = [pu for pu in reste if pu[2] != sien]
+            # ⚠️ **LE CENTRE D'UN POINT EST CELUI DE SA BOÎTE, PAS DE SES
+            #   POINTS.** L'anneau effondré n'est pas parcouru à vitesse
+            #   constante : sa moyenne penche du côté où les échantillons se
+            #   serrent, et le point du `j` sortait dix-sept unités à gauche de
+            #   sa hampe — « il devrait surplomber la barre verticale en étant
+            #   pile au-dessus » (l'auteur). Les extrêmes, eux, ne dépendent
+            #   d'aucune vitesse.
+            points.append(((min(z[0] for z in lot) + max(z[0] for z in lot)) / 2,
+                           (min(z[1] for z in lot) + max(z[1] for z in lot)) / 2))
+        return points, reste
+
+    def _brins(self):
+        """Les BRINS d'axe que le tracé doit couvrir — un par contour replié, et
+        seulement ceux qui pèsent plus de quatre-vingts unités : en deçà, c'est
+        le point du `i` ou du `j`, qui se couvre lui-même."""
+        lots = {}
+        for q, _, ci, _ in self.reste:
+            lots.setdefault(ci, []).append(q)
+        brins = []
+        for lot in lots.values():
+            xs = [z[0] for z in lot]
+            ys = [z[1] for z in lot]
+            if max(max(xs) - min(xs), max(ys) - min(ys)) >= ETENDUE_BRIN:
+                brins.append(lot)
+        return brins
+
+    def _liens(self):
+        liens = [set() for _ in self.decl]
+        for j in self.jonctions:
+            a, b = int(j[0]), int(j[1])
+            if 0 <= a < len(self.decl) and 0 <= b < len(self.decl):
+                liens[a].add(b)
+                liens[b].add(a)
+        return liens
+
+    # ── ② la projection : les guides déclarés, reposés sur l'axe ──────────
+
+    def _guides_recales(self):
+        """★ **LES BOUTS LIBRES SE RECALENT SUR LES PLIS DE L'AXE — avant tout
+          le reste.** Un bout qu'aucune jonction ne retient est une extrémité de
+          la lettre, et une extrémité de la lettre est un PLI de l'axe effondré :
+          le seul repère que le dessin donne sans ambiguïté. La recette, elle,
+          peut se tromper de deux cents unités — elle envoie l'épaule du `r` en
+          haut à droite (439, 452) quand la police l'arrête à mi-hauteur
+          (395, 259) — et un guide faux de deux cents unités ne se rattrape par
+          aucune itération. L'écart se fond sur toute la longueur du guide :
+          déplacer le seul dernier point y ferait un coude que la projection
+          prendrait pour un relief.
+
+        ⚠️ **UN PLI APPARTIENT À UN SEUL BOUT.** Le pied du fût gauche du `m` est
+          à cent soixante-dix unités du bas de sa jambe centrale : plus près que
+          la portée autorisée, et le guide de l'arche s'y faisait tirer tout
+          entier — l'arche redescendait le fût sur deux cent cinquante unités
+          avant de remonter. C'est le zigzag central. On apparie donc les bouts
+          libres aux plis du plus proche au plus lointain, et chaque pli ne sert
+          qu'une fois.
+        """
+        libres = []
+        for t, g in enumerate(self.guides):
+            if self.points[t] is not None:
+                continue
+            for versLaFin in (False, True):
+                bout = g[-1] if versLaFin else g[0]
+                if any(_dpoly(bout, self.guides[k]) <= TOL for k in self.liens[t]):
+                    continue                   # ce bout-là est tenu par un voisin
+                for pli in self.lespis:
+                    d = math.dist(pli, bout)
+                    if d <= PORTEE_PLI:
+                        libres.append((d, t, versLaFin, pli))
+        libres.sort(key=lambda z: z[0])
+        pris, servis, choix = set(), set(), {}
+        for d, t, versLaFin, pli in libres:
+            cle = (t, versLaFin)
+            if cle in servis or pli in pris:
+                continue
+            servis.add(cle)
+            pris.add(pli)
+            choix[cle] = pli
+        recales = list(self.guides)
+        for t, g in enumerate(self.guides):
+            for versLaFin in (False, True):
+                pli = choix.get((t, versLaFin))
+                if pli is not None:
+                    g = _recale(g, pli, versLaFin)
+            recales[t] = g
+        return recales
+
+    def _rejoue(self, depart):
+        """★ **ON REJOUE TANT QUE ÇA RAPPROCHE DE L'AXE, ET ON S'ARRÊTE DÈS QUE
+          ÇA ÉLOIGNE.** Rejouer la projection sur sa propre sortie corrige la
+          plupart des lettres — le `w` passe de vingt-six unités d'écart à six,
+          le `z` de neuf à deux — mais DIVERGE sur celles dont la première passe
+          est déjà fausse : le `j` s'éloignait de quatre-vingt-dix-sept à cent
+          trente-deux. Le critère d'arrêt n'a donc pas à être choisi, il se
+          mesure.
+        """
+        lignes, note = depart, None
         for _ in range(PASSES):
-            essai = _pose(reste, [_echelonne(l) for l in lignes_], coins)
-            note = _ecart_a_laxe(essai, casiers)
-            if note_ is not None and note >= note_:
+            essai = _pose(self.reste, [_echelonne(l) for l in lignes], self.coins)
+            neuve = _ecart_a_laxe(essai, self.casiers)
+            if note is not None and neuve >= note:
                 break
-            lignes_, note_ = essai, note
-        return lignes_, (note_ if note_ is not None else 1e18)
+            lignes, note = essai, neuve
+        return lignes, (note if note is not None else 1e18)
 
-    lignes, note = poser(guides)
-    if recales is not guides:
-        autres, autreNote = poser(recales)
+    def projette(self):
+        """Les guides déclarés, reposés sur l'axe — deux essais, le meilleur gagne.
+
+        ⚠️ **TOUS LES PLIS NE SONT PAS DES BOUTS.** L'axe se renverse aussi dans
+          les carrefours — le `m` en montre trois qui n'appartiennent à aucune
+          extrémité, le `g` autant. Recaler dessus a fait passer le `m` de seize
+          unités d'écart à soixante-dix-huit et le `g` de douze à cent dix. On ne
+          sait pas dire lesquels sont vrais ; on n'a pas à le savoir. On pose la
+          lettre DEUX FOIS, avec et sans recalage, et on garde celle qui serre
+          l'axe de plus près. Le `r` y gagne cent unités, le `m` et le `g` n'y
+          perdent rien.
+        """
+        lignes, note = self._rejoue(self.guides)
+        autres, autreNote = self._rejoue(self._guides_recales())
         if autreNote < note:
             lignes, note = autres, autreNote
-    for t, c in enumerate(points):
-        if c is not None:
-            lignes[t] = [c] * (ABSCISSES + 1)
+        for t, c in enumerate(self.points):
+            if c is not None:
+                lignes[t] = [c] * (ABSCISSES + 1)
+        #: ★ La MESURE de chaque trait, gardée : c'est le morceau d'axe que ce
+        #: trait-là doit couvrir, et le seul étalon dont dispose une retouche qui
+        #: ne travaille que sur un trait.
+        self.mesure = lignes
+        return lignes
 
-    # ③ chaque trait est AJUSTÉ : le moins de cubiques possible à une unité près.
-    #    Les coins du guide sont imposés comme bornes — un ajustement qui n'en
-    #    saurait rien arrondirait le pied du `l` et le `z`.
-    ajustes = [_ajuste(ligne, TOLERANCE, coins[t], casiers, guides[t],
-                       not decl[t].get('ouvert', True))
-               for t, ligne in enumerate(lignes)]
+    # ── ③ l'ajustement : le moins de cubiques possible ────────────────────
 
-    # ④ puis chaque bout que la recette pose en contact est TAILLÉ à sa rencontre.
-    #    C'est le dernier geste, et il vient après l'ajustement : tailler avant
-    #    laisserait l'ajusteur repousser une queue de l'autre côté du carrefour.
-    attendus = [tuple(any(_dpoly(g[bout], guides[k]) <= TOL for k in liens[i])
-                      for bout in (0, -1))
-                for i, g in enumerate(guides)]
-    ajustes = [_coins_nets(list(c)) for c in ajustes]
-    rejoint(ajustes, liens, attendus, lespis)
-    # ★ **LE POINT SURPLOMBE SA HAMPE — c'est une lecture, pas une mesure.**
-    #
-    #   > « le point du `j` devrait surplomber la barre verticale en étant pile
-    #   >   au-dessus ; là il est décalé vers la gauche. » (l'auteur)
-    #
-    #   Sa hauteur se mesure ; son abscisse, non. La police pose le centre du
-    #   point à 380 unités À TOUTE GRAISSE — il n'a pas d'épaisseur, donc pas
-    #   d'axe qui bouge — tandis que l'axe de la hampe, lui, glisse jusqu'à 401
-    #   quand l'encre s'annule. Vingt et une unités d'écart, qui n'existent dans
-    #   aucune graisse réelle : c'est un artefact de l'effondrement, pas un trait
-    #   du dessin. On aligne donc le point sur ce qu'il surplombe.
-    # ★ **UNE DERNIÈRE PASSE DE FUSION, UN PEU PLUS LARGE.** « L'`o` est déjà
-    #   très bien, mais le point central en haut pourrait être retiré en
-    #   déplaçant légèrement les poignées de ses voisins pour garder la même
-    #   courbe » (l'auteur) — c'est exactement ce que fait une fusion, et il ne
-    #   lui manquait qu'un peu d'air : la tolérance de l'ajustement est calée sur
-    #   la fidélité au dixième d'unité, quand retirer un point n'en coûte que
-    #   quelques-uns et se voit, lui, tout de suite.
-    large = TOLERANCE + MARGE_NUAGE + 2
-    ajustes = [_alignees(_tangence(_coins_nets(
-        _fusionne(list(c), TOLERANCE, casiers, large)), casiers, TOLERANCE),
-        casiers, TOLERANCE) for c in ajustes]
-    _symetrise(ajustes, casiers, TOLERANCE)
-    for t, c in enumerate(points):
-        if c is None or not ajustes[t]:
+    def ajuste(self, lignes):
+        """Chaque trait, ajusté à une unité près. Les coins du guide sont imposés
+        comme bornes — un ajustement qui n'en saurait rien arrondirait le pied du
+        `l` et le `z`.
+
+        ⚠️ **ET LA CHAÎNE SE RECOUD AUSSITÔT.** `_ajuste` rend ses tronçons
+          séparément ; onze lettres en sortaient trouées, et le trou se lisait
+          ensuite comme une poignée (voir `_recoud` et §⑤ᵇⁱˢ).
+
+        ★ **ET L'ON COUPE AUX EXTREMA — quand ça rapporte, et pas autrement.**
+
+          > « Avec 10 points dont […] 2 avec des poignées symétriques sur le haut
+          >   des courbes » (l'auteur, sur le `m`)
+
+          Une police pose un point à chaque extremum, et JetBrains Mono le fait :
+          le sommet d'une arche en est un. Mais l'auteur demande AUSSI d'en
+          retirer — « le point central en haut [de l'`o`] pourrait être retiré » —
+          et les deux exigences ne se contredisent pas : un point se paie en
+          fidélité. On ajuste donc chaque trait DEUX FOIS, avec et sans les
+          extrema, et l'on tranche à la mesure : un point de MOINS passe s'il ne
+          coûte pas une unité d'écart ; un point de PLUS ne passe que s'il en
+          fait gagner deux. Mesuré, ça donne au `m` ses deux sommets d'arche
+          (5 morceaux à 6,9 unités → 7 à 4,6), au `p` un point qui le ramène de
+          11,7 à 9,5, et ça RETIRE celui de l'`o` (5 → 4) et du `b` (6 → 5). Le
+          `a` et le `g`, eux, gardent leur version sans extrema : elle est deux
+          fois plus fidèle.
+        """
+        ajustes = []
+        for t, ligne in enumerate(lignes):
+            sobre = self._ajuste_un(t, ligne, self.coins[t])
+            riche = self._ajuste_un(t, ligne,
+                                    set(self.coins[t]) | _extremums(self.guides[t]))
+            es = _ecart_chem(sobre, self.casiers) if self.casiers is not None else 0.0
+            er = _ecart_chem(riche, self.casiers) if self.casiers is not None else 1e18
+            if len(riche) < len(sobre):
+                ajustes.append(riche if er <= es + MOINDRE_POINT else sobre)
+            else:
+                ajustes.append(riche if er < es - POINT_DE_PLUS else sobre)
+        return ajustes
+
+    def sommets_mesures(self, t):
+        """★ **UN REBROUSSEMENT SE LIT AUSSI SUR LA MESURE, pas seulement sur le
+        guide.** La recette pose le creux du `u` à y = 29 ; l'axe l'y met à −7.
+        Trente-six unités, soit deux fois la portée qui rattache un nœud à son
+        sommet déclaré : le sommet n'était donc pas protégé, la fusion réunissait
+        le demi-tour en UNE cubique, et le `u` passait de 1,4 à 3,7 unités
+        d'écart. Le guide dit QU'il y a un rebroussement ; la mesure dit OÙ.
+        """
+        return [self.mesure[t][k] for k in _extremums(self.mesure[t])]
+
+    def _ajuste_un(self, t, ligne, marques):
+        return _recoud(_ajuste(ligne, TOLERANCE, marques, self.casiers,
+                               self.guides[t], self.fermes[t], self.lues))
+
+    # ── ④ les retouches, une par une ──────────────────────────────────────
+
+    def ecart(self, chemins):
+        """Le pire écart du tracé RENDU à l'axe — la seule note qui compte.
+
+        ★ Mesuré sur le tracé final et non sur les points qui l'ont produit.
+        """
+        pire = 0.0
+        for t, chem in enumerate(chemins):
+            if self.points[t] is not None:
+                continue                       # le point du `i`, du `j`
+            for m in chem:
+                pire = max([pire] + [_pres(self.casiers, evalue(m, k / 12))
+                                     for k in range(13)])
+        return pire
+
+    def couverture(self, chemins):
+        """★ **L'AUTRE MOITIÉ DE LA MESURE : ce que le tracé NE COUVRE PAS.**
+
+        `ecart` dit à quelle distance le tracé s'écarte de l'axe. Il ne dit RIEN
+        d'un tracé qui ne couvre rien : un moignon posé sur l'axe en est tout
+        près, et sort donc parfait. C'est exactement ce qui a laissé passer la
+        barre du bas du `z`, amputée de vingt-cinq unités, et failli laisser
+        passer une panse de `b` réduite à un tronçon.
+
+        On mesure donc l'inverse : la distance MAXIMALE de l'axe au tracé. Les
+        brins d'axe de moins de quatre-vingts unités d'étendue en sont exclus —
+        ce sont les points du `i` et du `j`, qui n'ont pas à être couverts par
+        autre chose qu'eux-mêmes.
+        """
+        rendu = _densifie(chemins)
+        if not rendu:
+            return 1e18
+        grille = _grille(rendu)
+        return max((_pres(grille, q) for brin in self.brins for q in brin),
+                   default=0.0)
+
+    def applique(self, chemins):
+        """Déroule `RETOUCHES`, en vérifiant la chaîne après chacune.
+
+        ⚠️ **LE CONTRÔLE N'EST PAS DÉCORATIF.** C'est lui qui aurait attrapé, en
+          une seconde, les sept unités de rupture au pied du `t` et du `l` qui
+          ont fait passer `_tangence` pour une fonction sans effet (§⑤ᵇⁱˢ). Une
+          passe qui romprait la chaîne lève désormais, au lieu de rendre un tracé
+          plausible et faux.
+        """
+        if self.trace:
+            print('  %s · %-11s %2d morceaux · écart %5.1f'
+                  % (self.ch, 'pose', sum(len(c) for c in chemins),
+                     self.ecart(chemins)))
+        for nom, retouche in RETOUCHES:
+            chemins = retouche(self, chemins)
+            for t, c in enumerate(chemins):
+                rupture = _rupture(c)
+                if rupture > 1e-6:
+                    raise AssertionError(
+                        '« %s » trait %d : la passe « %s » a rompu la chaîne de '
+                        '%.2f unités — le départ d’un morceau EST l’arrivée du '
+                        'précédent, et `versD` ne rend que le premier des deux.'
+                        % (self.ch, t, nom, rupture))
+            if self.trace:
+                print('  %s · %-11s %2d morceaux · écart %5.1f'
+                      % (self.ch, nom, sum(len(c) for c in chemins),
+                         self.ecart(chemins)))
+        return chemins
+
+    def rendu(self, chemins):
+        return ([{'d': versD(chem),
+                  'ouvert': self.decl[t].get('ouvert', True)}
+                 for t, chem in enumerate(chemins)], self.jonctions)
+
+
+# ── les retouches elles-mêmes : chacune une fonction, chacune un nom ──────
+
+def _decouvert(pose, t, chem):
+    """Ce que le trait `t` laisse DÉCOUVERT de sa propre mesure — la couverture,
+    ramenée à un seul trait. C'est l'étalon d'une retouche qui n'en voit qu'un."""
+    if not chem:
+        return 1e18
+    return max((_pres(_grille(_densifie([chem])), q) for q in pose.mesure[t]),
+               default=0.0)
+
+def _r_coins(pose, chemins):
+    """Un coin est un point, pas deux ; un moignon de carrefour n'est pas un
+    trait. Se rejoue après chaque geste qui déplace un bout."""
+    return [_coins_nets(list(c)) for c in chemins]
+
+
+def _r_jumelles(pose, chemins):
+    """Deux traits que la recette déclare superposables le redeviennent — les
+    deux arches du `m` (voir `_jumelles`).
+
+    ★ **AVANT LA TAILLE** la première fois : `rejoint` recolle ensuite chaque
+      arche à ce qu'elle touche, et les deux reçoivent le même geste puisqu'elles
+      sont dans la même position relative.
+
+    ⚠️ **ET APRÈS, EN DERNIER.** Posées seulement avant la taille, les deux
+      arches du `m` repartaient identiques et se séparaient à nouveau : la fusion
+      finale rendait la première en UNE cubique symétrique et la seconde en DEUX.
+      Le dernier mot revient à la géométrie finale — c'est la même règle que pour
+      la tangence.
+
+    ⚠️ **MAIS DEUX GUIDES JUMEAUX NE FONT PAS DEUX AXES JUMEAUX — ET C'EST CE
+      QUI AMPUTAIT LE `z`.** `_jumelles` choisit « celle qui SERRE LE MIEUX SON
+      AXE » : un critère de FIDÉLITÉ seule, et la fidélité récompense un moignon.
+      Les deux barres du `z` sont déclarées de même longueur (74 → 419,2) donc
+      superposables ; l'axe, lui, donne 274 unités à celle du haut et **297 à
+      celle du bas**. Recopier la première sur la seconde amputait la barre du
+      bas de vingt-cinq unités — elle s'arrêtait à x = 368,4 pour un axe qui va
+      à 395,1 — et la lettre restait notée 0,5 de fidélité, la MEILLEURE de
+      l'alphabet. C'est exactement le piège que la couverture existe pour fermer :
+      un jumeau qui laisse sa propre mesure découverte n'est pas un jumeau, c'est
+      un moignon, et on le refuse.
+
+    ★ **ET LE SEUIL SE MESURE, IL NE SE CHOISIT PAS.** Les deux cas sont à un
+      ordre de grandeur l'un de l'autre : la barre du `z` passe de **0,8 à 25,0
+      unités découvertes**, la seconde arche du `m` de **11,5 à 15,5**. Une
+      tolérance de contact du moteur (six unités) les sépare sans ambiguïté — en
+      deçà, l'axe est encore touché ; au-delà, un morceau de lettre a disparu.
+      Le `m` garde donc ses deux arches identiques, comme l'auteur les décrit, et
+      le `z` retrouve ses vingt-cinq unités.
+    """
+    avant = [_decouvert(pose, t, c) for t, c in enumerate(chemins)]
+    neufs = [list(c) for c in chemins]
+    quels = _jumelles(neufs, pose.guides, pose.casiers)
+    quels = quels if isinstance(quels, set) else set()
+    garde = set()
+    for t in quels:
+        if _decouvert(pose, t, neufs[t]) > avant[t] + TOL:
+            neufs[t] = list(chemins[t])        # ce jumeau AMPUTE : on le refuse
+        else:
+            garde.add(t)
+    pose.jumelees = garde
+    return neufs
+
+
+def _r_jonctions(pose, chemins):
+    """Chaque bout que la recette pose en contact est TAILLÉ à sa rencontre.
+
+    ⚠️ C'est le dernier geste de la pose brute, et il vient APRÈS l'ajustement :
+      tailler avant laisserait l'ajusteur repousser une queue de l'autre côté du
+      carrefour.
+    """
+    chemins = [list(c) for c in chemins]
+    rejoint(chemins, pose.cibles, pose.attendus, pose.lespis)
+    return chemins
+
+
+def _r_fusion(pose, chemins):
+    """★ **UNE DERNIÈRE PASSE DE FUSION, UN PEU PLUS LARGE.**
+
+    > « L'`o` est déjà très bien, mais le point central en haut pourrait être
+    >   retiré en déplaçant légèrement les poignées de ses voisins pour garder la
+    >   même courbe » (l'auteur)
+
+    C'est exactement ce que fait une fusion, et il ne lui manquait qu'un peu
+    d'air : la tolérance de l'ajustement est calée sur la fidélité au dixième
+    d'unité, quand retirer un point n'en coûte que quelques-uns et se voit, lui,
+    tout de suite. Les SOMMETS déclarés, eux, ne se fondent pas : ce sont les
+    nœuds que la police pose à chaque extremum.
+    """
+    return [_fusionne(list(c), TOLERANCE, pose.casiers, RELATIF,
+                      pose.sommets[t] + pose.sommets_mesures(t))
+            for t, c in enumerate(chemins)]
+
+
+def _r_tangence(pose, chemins):
+    """Un raccord sans angle est un raccord tangent.
+
+    ⚠️ Elle se rejoue en fin de course, et pour une raison mesurée : calée sur
+      une droite que les passes suivantes redressaient encore, la poignée du `t`
+      et celle du `l` restaient à six degrés de la verticale. « Le dernier mot
+      revient à la géométrie FINALE. »
+    """
+    return [_tangence(list(c), pose.casiers, TOLERANCE) for c in chemins]
+
+
+def _r_alignees(pose, chemins):
+    """Deux droites qui se suivent presque en ligne n'en font qu'une."""
+    return [_alignees(list(c), pose.casiers, TOLERANCE) for c in chemins]
+
+
+def _r_symetrie(pose, chemins):
+    """Un demi-tour entre deux droites parallèles est symétrique."""
+    chemins = [list(c) for c in chemins]
+    _symetrise(chemins, pose.casiers, TOLERANCE)
+    return chemins
+
+
+def _r_point(pose, chemins):
+    """★ **LE POINT SURPLOMBE SA HAMPE — c'est une lecture, pas une mesure.**
+
+    > « le point du `j` devrait surplomber la barre verticale en étant pile
+    >   au-dessus ; là il est décalé vers la gauche. » (l'auteur)
+
+    Sa hauteur se mesure ; son abscisse, non. La police pose le centre du point à
+    380 unités À TOUTE GRAISSE — il n'a pas d'épaisseur, donc pas d'axe qui bouge
+    — tandis que l'axe de la hampe, lui, glisse jusqu'à 401 quand l'encre
+    s'annule. Vingt et une unités d'écart, qui n'existent dans aucune graisse
+    réelle : c'est un artefact de l'effondrement, pas un trait du dessin. On
+    aligne donc le point sur ce qu'il surplombe.
+    """
+    chemins = [list(c) for c in chemins]
+    for t, c in enumerate(pose.points):
+        if c is None or not chemins[t]:
             continue
-        dessous = [q for k, chem in enumerate(ajustes) if k != t and points[k] is None
+        dessous = [q for k, chem in enumerate(chemins)
+                   if k != t and pose.points[k] is None
                    for m in chem for q in (m[0], m[2])]
         if not dessous:
             continue
         appui = min(dessous, key=lambda q: math.hypot(q[0] - c[0], (q[1] - c[1]) * 0.2))
-        ajustes[t] = [((appui[0], c[1]), [], (appui[0], c[1]))]
-    # ⚠️ Et l'on renettoie APRÈS : la taille des bouts recrée elle-même de courts
-    #   morceaux au ras du carrefour — c'est le « doublon » de l'épaule du `n`.
-    #   La tangence se rejoue au même moment, et pour la même raison : elle
-    #   s'était calée sur une droite que les passes suivantes ont ensuite
-    #   redressée, si bien que la poignée du `t` et celle du `l` restaient à six
-    #   degrés de la verticale. Le dernier mot revient à la géométrie FINALE.
-    ajustes = [_tangence(_coins_nets(list(c)), casiers, TOLERANCE)
-               for c in ajustes]
+        chemins[t] = [((appui[0], c[1]), [], (appui[0], c[1]))]
+    return chemins
+
+
+#: De combien un bout libre a le droit d'être prolongé : un demi-fût. C'est
+#: l'ordre de grandeur d'un demi-pas d'abscisse sur le plus long trait de
+#: l'alphabet (dix-sept unités pour le `u` d'un seul tenant) ; au-delà, ce n'est
+#: plus un bout mal mesuré, c'est un trait qui manque.
+PROLONGE = 0.5 * FUT
+
+
+def _r_bouts(pose, chemins):
+    """★ **UN BOUT LIBRE VA JUSQU'AU BOUT DE SA MESURE.**
+
+    ⚠️ **UN TRAIT LONG A DES ABSCISSES LARGES, ET SES DEUX BOUTS EN PAIENT LA
+      MOITIÉ.** La projection rend, pour chaque abscisse, le CENTRE de ce qui s'y
+      projette. Au milieu d'un trait c'est exact ; au dernier, c'est un demi-pas
+      trop court, et le pas vaut la longueur du trait divisée par soixante. Le
+      `u` d'un seul tenant mesure 1 044 unités de long — dix-sept par abscisse —
+      et ses deux hampes s'arrêtaient **six unités sous la hauteur d'x**, quand
+      les deux traits séparés d'avant n'en perdaient qu'une. Ce n'est pas un
+      défaut du `u` : c'est la mesure du bout, et elle se corrige au bout.
+
+    ★ On prolonge donc chaque bout LIBRE — jamais un bout que la recette met en
+      contact, `rejoint` a le dernier mot sur ceux-là — le long de sa propre
+      tangente, tant que l'AXE continue devant lui. « Tant que » se mesure : le
+      point d'axe le plus avancé qui reste dans un couloir d'une tolérance de
+      contact autour du prolongement, et pas plus loin qu'un demi-fût. Aucun
+      point d'axe devant, aucun prolongement — c'est le cas de l'amorce du fût du
+      `m`, qui dépasse exprès et que rien ne doit rallonger.
+    """
+    chemins = [list(c) for c in chemins]
+    for t, chem in enumerate(chemins):
+        # ⚠️ **NI ANNEAU, NI COURBE.** Un sous-chemin fermé n'a pas de bout : ses
+        #   deux extrémités sont sa couture, l'axe continue des deux côtés, et
+        #   prolonger les deux fait déborder l'`o` de seize unités. Et une
+        #   terminaison COURBE — celle du `s`, du `c` — se prolonge sur sa
+        #   tangente, donc en dehors de sa propre courbure : le `s` y perdait
+        #   trois unités. La demi-abscisse manquante ne se voit que sur les bouts
+        #   DROITS, qui sont les seuls dont on connaisse la suite.
+        if not chem or pose.points[t] is not None or pose.fermes[t] \
+                or pose.decl[t].get('couture'):
+            continue
+        for cote in (0, -1):
+            if pose.attendus[t][0 if cote == 0 else 1]:
+                continue                       # ce bout-là est tenu par un voisin
+            m = chem[cote]
+            if m[1]:
+                continue                       # bout courbe : on n'extrapole pas
+            bout = m[0] if cote == 0 else m[2]
+            u = _versLe(m[2], m[0]) if cote == 0 else _versLe(m[0], m[2])
+            if u == (0.0, 0.0):
+                continue
+            loin = 0.0
+            for q, _, _, _ in pose.reste:
+                s = (q[0] - bout[0]) * u[0] + (q[1] - bout[1]) * u[1]
+                if s <= loin or s > PROLONGE:
+                    continue
+                if abs((q[0] - bout[0]) * -u[1] + (q[1] - bout[1]) * u[0]) > TOL:
+                    continue
+                loin = s
+            # ⚠️ Le seuil est celui de l'AJUSTEMENT, pas celui du contact : à six
+            #   unités, le fût gauche du `u` (6,2 à rattraper) passait et le
+            #   droit (7,0) non — deux hampes jumelles rendues de longueurs
+            #   différentes, pour un seuil.
+            if loin <= TOLERANCE:
+                continue
+            cible = (bout[0] + u[0] * loin, bout[1] + u[1] * loin)
+            chem[cote] = _bouge_debut(m, cible) if cote == 0 else _bouge_fin(m, cible)
+    return chemins
+
+
+def _r_recousu(pose, chemins):
+    """La chaîne, refermée exactement comme `versD` la dessinera (§⑤ᵇⁱˢ)."""
+    return [_recoud(list(c)) for c in chemins]
+
+
+def _r_recollage(pose, chemins):
+    """Un contact que la recette annonce et que la pose avait, on le garde —
+    `_r_jumelles` venant de déplacer une arche entière (voir `_recolle`)."""
+    chemins = [list(c) for c in chemins]
+    _recolle(chemins, pose.cibles, pose.attendus, pose.jumelees)
+    return chemins
+
+
+def _r_couture(pose, chemins):
+    """★ **ET LA COUTURE SE POSE EN DERNIER**, quand on sait enfin où sont les
+    deux bouts de la panse : un segment droit du dernier point au premier.
+
+    > « Sans chercher à éviter l'angle » (l'auteur)
+
+    Il n'y a rien à lisser, ce segment ne dessine pas, il ferme. Il vient APRÈS
+    toutes les autres : une passe de tangence ou de fusion qui le prendrait pour
+    du dessin déplacerait les deux bouts de la panse pour l'accorder au fût.
+    """
+    chemins = [list(c) for c in chemins]
+    for t, chem in enumerate(chemins):
+        if pose.decl[t].get('couture') and len(chem) >= 2 \
+                and math.dist(chem[-1][2], chem[0][0]) > 1e-9:
+            chem.append((chem[-1][2], [], chem[0][0]))
+    return chemins
+
+
+#: ★ **L'ORDRE DES RETOUCHES, ÉCRIT PLUTÔT QUE SUBI.**
+#:
+#:  · on nettoie les coins AVANT de tailler, pour que la taille voie de vrais
+#:    morceaux et non les moignons de la projection ;
+#:  · les jumelles passent avant la taille — les deux arches du `m` doivent
+#:    arriver identiques au carrefour pour y recevoir le même geste ;
+#:  · on taille aux jonctions, ce qui recrée des moignons au ras du carrefour —
+#:    c'est le « doublon » de l'épaule du `n` — d'où le second nettoyage ;
+#:  · la tangence vient APRÈS la fusion et le redressement, jamais avant : elle
+#:    se calait sinon sur une droite que les passes suivantes redressaient
+#:    encore, et « le dernier mot revient à la géométrie FINALE » ;
+#:  · le point du `i` et du `j` se pose une fois les hampes fixées ;
+#:  · les jumelles se rejouent EN DERNIER, pour la même raison que la tangence,
+#:    et `recollage` rattrape le contact que ce déplacement pouvait rompre ;
+#:  · la couture ferme la panse quand plus rien ne bougera.
+RETOUCHES = [
+    ('coins', _r_coins),
+    ('jumelles', _r_jumelles),
+    ('jonctions', _r_jonctions),
+    ('fusion', _r_fusion),
+    ('coins', _r_coins),
+    ('tangence', _r_tangence),
+    ('alignées', _r_alignees),
+    ('symétrie', _r_symetrie),
+    ('point', _r_point),
+    ('bouts', _r_bouts),
+    ('coins', _r_coins),
+    ('recousu', _r_recousu),
+    ('tangence', _r_tangence),
+    ('jumelles', _r_jumelles),
+    ('recollage', _r_recollage),
+    ('couture', _r_couture),
+]
+
+
+#: Ce qu'un brin d'axe doit peser pour qu'on exige qu'il soit couvert : quatre-
+#: vingts unités d'étendue. En deçà, c'est le point du `i` ou du `j`.
+ETENDUE_BRIN = 80.0
+
+#: Un point tous les deux unités le long du tracé rendu. ⚠️ **SANS ÇA, LES
+#: TRAITS DROITS ÉCHAPPENT À LA MESURE** : douze échantillons sur une hampe de
+#: cinq cents unités, c'est un point tous les quarante, et l'axe qui passe entre
+#: deux d'entre eux se croit à vingt unités d'un trait qu'il touche. Le `l`
+#: sortait alors à 21,1 de couverture pour 4,3 réelles.
+PAS_RENDU = 2.0
+
+
+def _densifie(chemins):
+    """Le tracé rendu, en points espacés de `PAS_RENDU` — de quoi mesurer une
+    distance À un tracé et non à ses seuls nœuds."""
+    out = []
+    for chem in chemins:
+        for m in chem:
+            L = math.dist(m[0], m[2]) + sum(
+                math.dist(a, b) for a, b in zip((m[0],) + tuple(m[1]),
+                                                tuple(m[1]) + (m[2],)))
+            n = max(2, int(L / PAS_RENDU) + 1)
+            out += [evalue(m, k / n) for k in range(n + 1)]
+    return out
+
+#: Le jeu qu'on laisse à une variante avant de dire qu'elle RECULE : un dixième
+#: d'unité sur six cents. « Ne t'autorise pas “c'est presque pareil” » — c'est
+#: donc à peine plus que le bruit de la mesure elle-même.
+JEU_MESURE = 0.1
+
+
+def _domine(neuf, vieux):
+    """La variante `neuf` est-elle meilleure SANS reculer nulle part ?
+
+    ★ **DEUX MESURES, ET IL FAUT LES DEUX.** Un tracé qui ne couvre rien est
+      parfaitement noté par la seule fidélité ; un tracé qui couvre tout en
+      passant à côté est parfaitement noté par la seule couverture. On n'accepte
+      une variante que si elle ne recule sur AUCUNE des deux et progresse sur au
+      moins une.
+    """
+    if any(n > v + JEU_MESURE for n, v in zip(neuf, vieux)):
+        return False
+    return any(n < v - JEU_MESURE for n, v in zip(neuf, vieux))
+
+
+def traits(ch, recette, points_du_trace, journal=None, trace=False):
+    """Les traits DÉCLARÉS par `recette`, reposés sur l'axe EXACT de `ch`.
+
+    ★ **LES BORNES LUES DANS LA SOURCE : ON MESURE, PUIS ON TRANCHE.** (idée de A)
+      La recette dit QU'il y a une droite ; elle dit mal OÙ elle finit, et elle
+      ne dit rien des bornes qu'elle n'a pas vues — les deux flancs droits de
+      l'`o`, qu'aucun arc de recette ne peut annoncer. La marque `L`/`C` que le
+      nuage porte depuis `_plat`, elle, les donne (`_frontieres`), et les
+      rebroussements se lisent sur la mesure (`_extremes`).
+
+    ⚠️ **MAIS ELLES NE VALENT PAS PARTOUT, ET C'EST MESURÉ.** Appliquées à toutes
+      les lettres, elles rendent le `p` de 7,0 à 3,6, le `q` de 6,3 à 3,5, le `f`
+      de 4,1 à 0,9 — et elles ABÎMENT le `a` (7,6 → 9,1), le `c` (couverture 7,2
+      → 16,8), l'`o` et le `s`. Le pire de l'alphabet passait de 7,6 à 9,1 :
+      c'est un recul, et un recul ne se garde pas.
+
+    ★ On pose donc la lettre DEUX FOIS — c'est le geste que `projette` fait déjà
+      pour le recalage sur les plis — et l'on ne garde la seconde que si elle ne
+      recule sur AUCUNE des deux mesures. Aucune lettre ne peut alors être moins
+      bonne qu'elle ne l'était ; huit le deviennent nettement plus.
+    """
+    essais = []
+    for lues in (False, True):
+        p = Pose(ch, recette, points_du_trace, trace, lues=lues)
+        c = p.applique(p.ajuste(p.projette()))
+        essais.append((p, c, (p.ecart(c), p.couverture(c))))
+    (pose, chemins, note), (autre, siens, sanote) = essais
+    lues = _domine(sanote, note)
+    if lues:
+        pose, chemins, note = autre, siens, sanote
+    if trace:
+        print('  %s · bornes lues dans la source : %s — sans %.1f/%.1f · '
+              'avec %.1f/%.1f (fidélité/couverture)'
+              % (ch, 'GARDÉES' if lues else 'écartées',
+                 essais[0][2][0], essais[0][2][1], sanote[0], sanote[1]))
     if journal is not None:
-        # ★ Ce que la projection a COÛTÉ : le pire écart du trait rendu à l'axe,
-        #   mesuré sur le tracé final et non sur les points qui l'ont produit.
-        pire = 0.0
-        for t, chem in enumerate(ajustes):
-            if points[t] is not None:
-                continue                       # le point du `i`, du `j`
-            for m in chem:
-                pire = max([pire] + [_pres(casiers, evalue(m, k / 12))
-                                     for k in range(13)])
-        journal.append((pire, ch))
-    return ([{'d': versD(chem), 'ouvert': decl[t].get('ouvert', True)}
-             for t, chem in enumerate(ajustes)], jonctions)
+        journal.append((note[0], note[1], ch, lues))
+    return pose.rendu(chemins)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -2210,7 +3335,28 @@ def _recettes():
     return mod.recettes(mod.mesures()), mod.points_du_trace
 
 
+def deroule(lettres):
+    """★ **REGARDER LA CHAÎNE TRAVAILLER, PASSE PAR PASSE.**
+
+    `python3 src/gfx/jetbrains-axe.py --passes tl` déroule le tableau pour le
+    `t` et le `l` : après chaque retouche, le nombre de morceaux et l'écart à
+    l'axe, puis le tracé rendu. C'est l'outil qui manquait — sans lui, on
+    n'attribue un défaut qu'à la SOMME des passes, et l'on corrige au hasard
+    celle qu'on soupçonne.
+    """
+    rec, points_du_trace = _recettes()
+    for ch in lettres:
+        if ch not in rec:
+            print('  %s : aucune recette' % ch)
+            continue
+        for x in traits(ch, rec[ch], points_du_trace, trace=True)[0]:
+            print('    %s = %s' % (ch, x['d']))
+
+
 def main():
+    if '--passes' in sys.argv:
+        i = sys.argv.index('--passes')
+        return deroule(sys.argv[i + 1] if i + 1 < len(sys.argv) else BAS_DE_CASSE)
     print('— l’axe LU dans les sources de %s v%s —'
           % (DONNEES['police'], DONNEES['version']))
     print('  fûts déclarés %s→%s : %s→%s vertical, %s→%s horizontal'
@@ -2230,16 +3376,29 @@ def main():
 
     rec, points_du_trace = _recettes()
     ecarts = []
+    # ★ **LES CAPITALES PASSENT PAR LA MÊME CHAÎNE, SANS UNE LIGNE DE PLUS.**
+    #   `AXES` les couvrait déjà ; il ne leur manquait que des recettes, et
+    #   `jetbrains-traces.py` en a désormais vingt-six. Ce qui suit — projection,
+    #   ajustement, les quinze retouches — ne sait pas quelle casse il traite.
     poses = {ch: traits(ch, rec[ch], points_du_trace, ecarts)
-             for ch in BAS_DE_CASSE}
+             for ch in BAS_DE_CASSE + CAPITALES if ch in rec}
 
-    # ★ **CE QUE LA POSE COÛTE, LETTRE PAR LETTRE.** `AXES` est exact ; `TRAITS`
-    #   est projeté, et l'écart entre les deux est le seul chiffre qui dise ce
-    #   que la projection a perdu. Il prédit à peu près l'œil : les lettres que
-    #   l'auteur a dites « au point » sont celles qui tiennent sous trois unités.
-    print('  écart des traits à l’axe, en unités du moteur (capitale = 600) :')
-    for pire, ch in sorted(ecarts):
-        print('    %s %5.1f %s' % (ch, pire, '·' * min(40, int(pire))))
+    # ★ **CE QUE LA POSE COÛTE, LETTRE PAR LETTRE — ET IL FAUT DEUX CHIFFRES.**
+    #   `AXES` est exact ; `TRAITS` est projeté, et l'écart entre les deux dit ce
+    #   que la projection a perdu. Mais la FIDÉLITÉ seule (du tracé vers l'axe)
+    #   note parfaitement un tracé qui ne couvre rien — c'est ainsi qu'une barre
+    #   de `z` amputée de vingt-cinq unités a passé toutes les mesures. La
+    #   COUVERTURE (de l'axe vers le tracé) est l'autre moitié, et elle est
+    #   désormais bornée par `src/app/glyphes.test.js`.
+    print('  fidélité (tracé→axe) et couverture (axe→tracé), en unités du '
+          'moteur (capitale = 600) :')
+    for pire, cov, ch, lues in sorted(ecarts):
+        print('    %s %5.1f %5.1f %s%s'
+              % (ch, pire, cov, '·' * min(30, int(max(pire, cov))),
+                 '  ← bornes lues dans la source' if lues else ''))
+    print('    pire %5.1f %5.1f · bornes lues gardées sur %d lettres'
+          % (max(e[0] for e in ecarts), max(e[1] for e in ecarts),
+             sum(1 for e in ecarts if e[3])))
 
     lignes = [
         "/* ⚠️ ENGENDRÉ par `src/gfx/jetbrains-axe.py` — ne pas éditer à la main.",
