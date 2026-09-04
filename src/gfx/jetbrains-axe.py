@@ -407,6 +407,17 @@ def axe(ch, journal=None):
 ABSCISSES = 60
 PAS_AXE = 1.0
 
+#: Combien de fois, AU PLUS, la projection se rejoue sur sa propre sortie. Le
+#: nombre effectif se décide lettre par lettre : on s'arrête dès qu'une passe
+#: n'améliore plus l'écart moyen à l'axe.
+PASSES = 4
+
+#: Le rayon dans lequel un trait DÉGÉNÉRÉ — le point du `i`, celui du `j` —
+#: ramasse ce qui lui revient. Le point de JetBrains Mono mesure quatre-vingt-dix
+#: unités de diamètre à la graisse Regular ; effondré il n'en fait plus que
+#: trente, et rien d'autre n'approche à moins de cent-cinquante.
+RAYON_POINT = 60.0
+
 
 def _dpoly(p, poly):
     if len(poly) == 1:
@@ -466,12 +477,76 @@ def _regulier(pts, pas=PAS_AXE):
 #: branches ne se recouvrent qu'en un point.
 DE_FACE_GUIDE = 0.5
 
+#: Au-delà de cet écart à la médiane du seau, un point n'appartient pas au même
+#: passage : les deux bords de l'aller-retour sont à une unité et demie l'un de
+#: l'autre, six laissent de la marge sans laisser entrer un trait voisin.
+INTRUS = 6.0
+
 
 def _direction(guide, k):
     a = guide[max(0, k - 1)]
     b = guide[min(len(guide) - 1, k + 1)]
     h = math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0
     return ((b[0] - a[0]) / h, (b[1] - a[1]) / h)
+
+
+#: Le pas de la grille de recherche, en unités du moteur.
+CASE = 8.0
+
+
+def _grille(points):
+    g = {}
+    for p in points:
+        g.setdefault((int(p[0] // CASE), int(p[1] // CASE)), []).append(p)
+    return g
+
+
+def _pres(g, p, portee=20):
+    """La distance de `p` au point d'axe le plus proche, par cases voisines."""
+    cx, cy = int(p[0] // CASE), int(p[1] // CASE)
+    for anneau in range(1, portee + 1):
+        best = None
+        for dx in range(-anneau, anneau + 1):
+            for dy in range(-anneau, anneau + 1):
+                for q in g.get((cx + dx, cy + dy), ()):
+                    d = (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2
+                    if best is None or d < best:
+                        best = d
+        if best is not None:
+            return math.sqrt(best)
+    return CASE * portee
+
+
+def _ecart_a_laxe(lignes, casiers):
+    """Le PIRE écart à l'axe, et non l'écart moyen.
+
+    ⚠️ La moyenne se laisse tromper : sur le `w`, la deuxième passe redresse une
+      branche entière — vingt-six unités d'écart ramenées à six — en déplaçant
+      légèrement toutes les autres, si bien que la moyenne EMPIRE pendant que le
+      dessin s'améliore. C'est le pire écart que l'œil voit, c'est donc lui qu'on
+      suit.
+    """
+    return max((_pres(casiers, p) for l in lignes for p in l), default=0.0)
+
+
+def _sans_intrus(lot):
+    """Le centre d'un seau, les points étrangers écartés.
+
+    ⚠️ **DEUX INTRUS SUFFISENT À DÉPLACER UNE MOYENNE DE ONZE UNITÉS.** Au milieu
+      du `x`, où la fonte fond ses deux diagonales en une seule masse, un seau de
+      vingt points en ramassait deux venus de cent vingt unités plus loin. Deux
+      seaux sur soixante-et-un, et la diagonale — une droite — demandait onze
+      cubiques au lieu d'une. La MÉDIANE, elle, ne bouge pas : on s'en sert comme
+      d'un fil à plomb, puis on moyenne ce qui reste. Les deux passages de
+      l'aller-retour, distants d'une unité et demie, y restent tous les deux —
+      et c'est bien leur moyenne qu'on veut.
+    """
+    xs = sorted(z[0] for z in lot)
+    ys = sorted(z[1] for z in lot)
+    mx, my = xs[len(xs) // 2], ys[len(ys) // 2]
+    proches = [z for z in lot if math.dist(z, (mx, my)) <= INTRUS] or lot
+    return (sum(z[0] for z in proches) / len(proches),
+            sum(z[1] for z in proches) / len(proches))
 
 
 def _curviligne(pts):
@@ -537,39 +612,266 @@ def _contacts(pa, pb, tol=8.0):
     return out
 
 
-def _catmull(P):
-    """Un chemin lisse à travers des points, sans en inventer entre eux."""
+# ═══════════════════════════════════════════════════════════════════════════
+#  ⑤ L'AJUSTEMENT — le moins de points possible, à une tolérance dite
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# > « il y a encore des raccords foireux et trop de points par rapport au
+# >   nécessaire. » (l'auteur)
+#
+# ★ **UN POINT PAR ÉCHANTILLON EST UN AVEU, PAS UN RÉSULTAT.** Passer une
+#   Catmull-Rom par soixante points relevés, c'est rendre le RELEVÉ et non la
+#   COURBE : la hampe du `l` sortait en soixante segments cubiques pour un
+#   segment droit. On ajuste donc au sens des moindres carrés, et on ne subdivise
+#   que là où l'écart le demande — c'est l'algorithme de Schneider, celui-là même
+#   qu'un logiciel de dessin emploie pour vectoriser un tracé à main levée.
+#
+# ⚠️ **LA TOLÉRANCE EST UN CHOIX, ET IL SE DIT.** Une unité du repère du moteur,
+#   qui en compte six cents pour une capitale : c'est un six-centième de la
+#   hauteur d'un `H`, quand le trait rendu à l'écran en fait vingt-six. L'écart
+#   est donc de l'ordre du vingt-sixième d'épaisseur de trait — invisible, et
+#   mesuré plutôt que promis (`main` en affiche le pire de l'alphabet).
+
+TOLERANCE = 1.0
+
+
+def _ajuste(P, tol=TOLERANCE, coins=frozenset()):
+    """Le moins de cubiques possible passant à moins de `tol` de `P`."""
+    # ⚠️ Les abscisses sans mesure ont été bouchées en recopiant la voisine
+    #   connue : elles arrivent ici en doublons exacts, et une corde de longueur
+    #   nulle fausse le paramétrage. On les retire, en gardant leur rang pour que
+    #   les coins déclarés restent au bon endroit.
+    garde = [0] + [i for i in range(1, len(P)) if math.dist(P[i], P[i - 1]) > 1e-9]
+    rang = {v: k for k, v in enumerate(garde)}
+    P = [P[i] for i in garde]
+    coins = {rang[i] for i in coins if i in rang}
     if len(P) < 2:
-        return 'M%s %s L%s %s' % (r(P[0][0]), r(P[0][1]), r(P[0][0]), r(P[0][1]))
-    d = ['M %s %s' % (r(P[0][0]), r(P[0][1]))]
+        p = P[0] if P else (0.0, 0.0)
+        return [(p, [p, p], p)]
+    # ⚠️ **UN TRACÉ FERMÉ N'A PAS DE CORDE**, et l'ajustement se règle sur elle.
+    #   Départ et arrivée confondus, le système devient singulier, la solution de
+    #   repli place les deux poignées à distance nulle et tout se subdivise :
+    #   l'`o` sortait en douze cubiques pour quatre. On le coupe donc d'abord au
+    #   point le plus éloigné du départ — l'autre bout de l'ovale.
+    if math.dist(P[0], P[-1]) < 1e-6 * max(1.0, _etendue(P)):
+        coins = set(coins) | {max(range(1, len(P) - 1),
+                                  key=lambda i: math.dist(P[i], P[0]))}
+    bouts = sorted({0, len(P) - 1} | {i for i in coins if 0 < i < len(P) - 1})
+    out = []
+    for a, b in zip(bouts, bouts[1:]):
+        tronc = P[a:b + 1]
+        if len(tronc) < 2:
+            continue
+        out += _cubiques(tronc, _tangente(tronc, 0, 1), _tangente(tronc, -1, -1), tol)
+    return out
+
+
+def _etendue(P):
+    return max(math.dist(P[0], q) for q in P)
+
+
+def _tangente(P, i, vers):
+    """La direction d'un bout VERS L'INTÉRIEUR du tronçon.
+
+    ⚠️ **LES DEUX TANGENTES POINTENT VERS LE DEDANS**, celle du départ comme
+      celle de l'arrivée : ce sont les directions des deux poignées, et une
+      poignée sort toujours de son point vers l'autre bout. L'avoir écrite à
+      l'envers pour l'arrivée faisait placer la seconde poignée AU-DELÀ de la fin
+      du tronçon ; l'ajustement échouait, et la hampe du `l` — une droite —
+      ressortait en douze cubiques.
+
+    ★ **ET ON NE PREND PAS LA CORDE : ON PREND LE CERCLE DES TROIS POINTS.** Sur
+      un arc, la corde est BIAISÉE de la moitié de l'angle parcouru — trois
+      degrés sur nos écartements. Trois degrés d'erreur au bout d'une poignée
+      longue de cent unités, c'est six unités d'écart au milieu : l'ajusteur
+      concluait à un défaut de forme et subdivisait. Un quart de cercle demandait
+      trois cubiques quand une seule le rend à cinq centièmes d'unité près.
+    """
     n = len(P)
-    for i in range(n - 1):
-        p0 = P[i - 1] if i > 0 else P[0]
-        p1, p2 = P[i], P[i + 1]
-        p3 = P[i + 2] if i + 2 < n else P[-1]
-        c1 = (p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6)
-        c2 = (p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6)
-        d.append('C %s %s %s %s %s %s' % (r(c1[0]), r(c1[1]), r(c2[0]), r(c2[1]),
-                                          r(p2[0]), r(p2[1])))
-    return ' '.join(d)
+    a = P[i]
+    b = P[(i + vers * min(2, n - 1)) % n]
+    c = P[(i + vers * min(4, n - 1)) % n]
+    t = _tangente_cercle(a, b, c)
+    if t is not None:
+        return t
+    dx, dy = c[0] - a[0], c[1] - a[1]
+    h = math.hypot(dx, dy)
+    return (0.0, 0.0) if h < 1e-9 else (dx / h, dy / h)
 
 
-def traits(ch, recette, points_du_trace):
-    """Les traits DÉCLARÉS par `recette`, reposés sur l'axe EXACT de `ch`."""
-    nuage = _plat(ch)
-    decl, jonctions = recette
+def _tangente_cercle(a, b, c):
+    """La tangente en `a` au cercle passant par `a`, `b`, `c` — ou rien si les
+    trois sont alignés, auquel cas la corde ne ment pas."""
+    ax, ay = b[0] - a[0], b[1] - a[1]
+    bx, by = c[0] - a[0], c[1] - a[1]
+    d = 2 * (ax * by - ay * bx)
+    la, lb = ax * ax + ay * ay, bx * bx + by * by
+    if la < 1e-12 or lb < 1e-12:
+        return None
+    if abs(d) < 1e-9 * math.sqrt(la * lb):
+        return None
+    # centre du cercle, dans le repère où `a` est l'origine
+    cx = (by * la - ay * lb) / d
+    cy = (ax * lb - bx * la) / d
+    # tangente = perpendiculaire au rayon, orientée vers `c`
+    tx, ty = -cy, cx
+    h = math.hypot(tx, ty)
+    if h < 1e-9:
+        return None
+    tx, ty = tx / h, ty / h
+    return (tx, ty) if tx * bx + ty * by >= 0 else (-tx, -ty)
 
-    guides = []
-    for t in decl:
-        pts = points_du_trace(t['d'])
-        s, longueur_ = _curviligne(pts)
-        guides.append([_au(pts, s, longueur_, k / ABSCISSES)
-                       for k in range(ABSCISSES + 1)])
 
+def _cubiques(P, t1, t2, tol, profondeur=0):
+    if len(P) == 2:
+        d = math.dist(P[0], P[1]) / 3
+        return [(P[0], [(P[0][0] + t1[0] * d, P[0][1] + t1[1] * d),
+                        (P[1][0] + t2[0] * d, P[1][1] + t2[1] * d)], P[1])]
+    u = _parametres(P)
+    bez = _moindres_carres(P, u, t1, t2)
+    err, coupe = _ecart_max(P, bez, u)
+    if err < tol:
+        return [bez]
+    # ★ **ON RE-PARAMÈTRE AVANT DE SUBDIVISER, ET C'EST TOUT L'ÉCART.** La
+    #   longueur de corde n'est qu'une PREMIÈRE estimation du paramètre de
+    #   chaque point ; là où la courbe accélère, elle se trompe assez pour faire
+    #   croire à un défaut de forme. Subdiviser là-dessus coupait la hampe du
+    #   `l` — un segment droit — en quatre cubiques. Newton-Raphson ramène
+    #   chaque point sur son vrai paramètre, et le même ajustement passe.
+    if err < tol * 24:
+        for _ in range(6):
+            u = _reparametre(P, bez, u)
+            bez = _moindres_carres(P, u, t1, t2)
+            err, coupe = _ecart_max(P, bez, u)
+            if err < tol:
+                return [bez]
+    if profondeur > 14 or coupe <= 0 or coupe >= len(P) - 1:
+        return [bez]
+    tc = _tangente_milieu(P, coupe)
+    return (_cubiques(P[:coupe + 1], t1, (-tc[0], -tc[1]), tol, profondeur + 1)
+            + _cubiques(P[coupe:], tc, t2, tol, profondeur + 1))
+
+
+def _tangente_milieu(P, i):
+    dx, dy = P[i + 1][0] - P[i - 1][0], P[i + 1][1] - P[i - 1][1]
+    h = math.hypot(dx, dy) or 1.0
+    return (dx / h, dy / h)
+
+
+def _parametres(P):
+    """Paramétrage par longueur de corde : la meilleure première estimation."""
+    u = [0.0]
+    for a, b in zip(P, P[1:]):
+        u.append(u[-1] + math.dist(a, b))
+    total = u[-1] or 1.0
+    return [x / total for x in u]
+
+
+def _B(i, t):
+    return ((1 - t) ** 3, 3 * t * (1 - t) ** 2, 3 * t * t * (1 - t), t ** 3)[i]
+
+
+def _moindres_carres(P, u, t1, t2):
+    """Les deux poignées qui minimisent l'écart, tangentes imposées."""
+    p0, p3 = P[0], P[-1]
+    c = [[0.0, 0.0], [0.0, 0.0]]
+    x = [0.0, 0.0]
+    for pt, t in zip(P, u):
+        a1 = (t1[0] * _B(1, t), t1[1] * _B(1, t))
+        a2 = (t2[0] * _B(2, t), t2[1] * _B(2, t))
+        c[0][0] += a1[0] * a1[0] + a1[1] * a1[1]
+        c[0][1] += a1[0] * a2[0] + a1[1] * a2[1]
+        c[1][0] = c[0][1]
+        c[1][1] += a2[0] * a2[0] + a2[1] * a2[1]
+        tmp = (pt[0] - (p0[0] * (_B(0, t) + _B(1, t)) + p3[0] * (_B(2, t) + _B(3, t))),
+               pt[1] - (p0[1] * (_B(0, t) + _B(1, t)) + p3[1] * (_B(2, t) + _B(3, t))))
+        x[0] += a1[0] * tmp[0] + a1[1] * tmp[1]
+        x[1] += a2[0] * tmp[0] + a2[1] * tmp[1]
+    det = c[0][0] * c[1][1] - c[1][0] * c[0][1]
+    if abs(det) < 1e-12:
+        a = math.dist(p0, p3) / 3
+        b = a
+    else:
+        a = (x[0] * c[1][1] - c[0][1] * x[1]) / det
+        b = (c[0][0] * x[1] - x[0] * c[1][0]) / det
+    # ⚠️ **UNE POIGNÉE PLUS LONGUE QUE LA CORDE FAIT UNE BOUCLE**, et les moindres
+    #   carrés n'ont aucune raison de s'en priver : ils minimisent une somme de
+    #   carrés, pas une allure. Sur l'épaule du `r` et la hampe du `j`, la
+    #   solution partait à trois fois la corde et le trait se repliait en nœud
+    #   papillon — mesure impeccable, dessin absurde. On borne donc les deux
+    #   poignées à la longueur de la corde ; c'est la limite au-delà de laquelle
+    #   une cubique ne peut plus rester simple.
+    corde = math.dist(p0, p3)
+    seuil = corde * 1e-6
+    if a < seuil or b < seuil:
+        a = b = corde / 3
+    a, b = min(a, corde), min(b, corde)
+    return (p0, [(p0[0] + t1[0] * a, p0[1] + t1[1] * a),
+                 (p3[0] + t2[0] * b, p3[1] + t2[1] * b)], p3)
+
+
+def _ecart_max(P, bez, u):
+    pire, ou = 0.0, len(P) // 2
+    for i, (pt, t) in enumerate(zip(P, u)):
+        q = evalue(bez, t)
+        d = math.dist(q, pt)
+        if d > pire:
+            pire, ou = d, i
+    return pire, ou
+
+
+def _reparametre(P, bez, u):
+    """Newton-Raphson : chaque point retrouve son vrai paramètre sur la courbe."""
+    p0, (c1, c2), p3 = bez[0], bez[1], bez[2]
+    q = [p0, c1, c2, p3]
+    q1 = [((q[i + 1][0] - q[i][0]) * 3, (q[i + 1][1] - q[i][1]) * 3) for i in range(3)]
+    q2 = [((q1[i + 1][0] - q1[i][0]) * 2, (q1[i + 1][1] - q1[i][1]) * 2) for i in range(2)]
+    out = []
+    for pt, t in zip(P, u):
+        d = (evalue(bez, t)[0] - pt[0], evalue(bez, t)[1] - pt[1])
+        d1 = _bez2(q1, t)
+        d2 = _bez1(q2, t)
+        num = d[0] * d1[0] + d[1] * d1[1]
+        den = d1[0] ** 2 + d1[1] ** 2 + d[0] * d2[0] + d[1] * d2[1]
+        out.append(t if abs(den) < 1e-12 else min(1.0, max(0.0, t - num / den)))
+    return out
+
+
+def _bez2(q, t):
+    a = [((1 - t) * q[i][0] + t * q[i + 1][0], (1 - t) * q[i][1] + t * q[i + 1][1])
+         for i in range(2)]
+    return ((1 - t) * a[0][0] + t * a[1][0], (1 - t) * a[0][1] + t * a[1][1])
+
+
+def _bez1(q, t):
+    return ((1 - t) * q[0][0] + t * q[1][0], (1 - t) * q[0][1] + t * q[1][1])
+
+
+def _echelonne(pts):
+    """Une polyligne ramenée à `ABSCISSES + 1` points équidistants."""
+    s, longueur_ = _curviligne(pts)
+    if longueur_ < 1e-9:
+        return [pts[0]] * (ABSCISSES + 1)
+    return [_au(pts, s, longueur_, k / ABSCISSES) for k in range(ABSCISSES + 1)]
+
+
+def _pose(nuage, guides, coins):
+    """★ **UNE PASSE DE PROJECTION : chaque point de l'axe rejoint le guide le
+      plus proche, chaque abscisse rend le centre de ce qu'elle a reçu.**
+
+    ⚠️ **ET LA PASSE SE REJOUE SUR SA PROPRE SORTIE.** Le guide de la recette
+      n'est qu'une approximation dessinée à l'arc, et sur certaines lettres elle
+      est franchement mauvaise : l'épaule du `r` est décrite par une ellipse de
+      rayons 311 × 118, bien trop plate pour la courbe réelle. Un guide faux
+      attire les points au mauvais endroit, et le trait rendu se repliait en
+      boucle — à quatre-vingt-dix-huit unités de l'axe. Rejouer la projection en
+      prenant le résultat pour guide corrige la géométrie sans toucher à la
+      topologie : la recette garde ce qu'elle sait, l'axe reprend ce qu'il sait.
+    """
     # ① chaque point de l'axe rejoint le trait, puis l'abscisse, les plus proches
     #    — parmi ceux dont la direction est compatible avec la sienne.
     tangentes = [[_direction(g, k) for k in range(len(g))] for g in guides]
-    seaux = [[[] for _ in range(ABSCISSES + 1)] for _ in decl]
+    seaux = [[[] for _ in range(ABSCISSES + 1)] for _ in guides]
     for p, u in nuage:
         choix, meilleur = None, None
         for t, guide in enumerate(guides):
@@ -583,9 +885,18 @@ def traits(ch, recette, points_du_trace):
         if choix is not None:
             seaux[choix[0]][choix[1]].append(p)
 
-    # ② chaque abscisse rend la MOYENNE ; les trous s'interpolent entre les
-    #    points MESURÉS voisins, jamais depuis le guide — alterner deviné et
-    #    mesuré fait serpenter les traits droits.
+    # ② chaque abscisse rend le CENTRE de ce qui s'y projette, intrus écartés ;
+    #    les trous s'interpolent entre les points MESURÉS voisins, jamais depuis
+    #    le guide — alterner deviné et mesuré fait serpenter les traits droits.
+    #
+    # ⚠️ **ON A ESSAYÉ DE NE GARDER QUE L'ÉCART PERPENDICULAIRE AU GUIDE**, en
+    #   tenant la position le long du trait du guide lui-même, régulier et
+    #   monotone. Ça n'a rien donné, et pour une raison qui se mesure : la panse
+    #   du `b` passe à soixante unités de son guide, et une erreur d'un degré sur
+    #   la normale d'une polyligne s'y traduit par une unité de déplacement. Le
+    #   report perpendiculaire AMPLIFIE le bruit d'orientation du guide
+    #   proportionnellement à l'écart. La position mesurée, elle, ne doit rien
+    #   au guide.
     lignes = []
     for t, guide in enumerate(guides):
         if max(abs(q[0] - guide[0][0]) + abs(q[1] - guide[0][1]) for q in guide) < 1e-6:
@@ -595,9 +906,14 @@ def traits(ch, recette, points_du_trace):
         for k in range(len(guide)):
             lot = seaux[t][k]
             if lot:
-                xs = sorted(z[0] for z in lot)
-                ys = sorted(z[1] for z in lot)
-                mes[k] = (xs[len(xs) // 2], ys[len(ys) // 2])
+                mes[k] = _sans_intrus(lot)
+        # ⚠️ **UN TROU SE COMBLE ENTRE MESURES VOISINES, ET PAS AUTREMENT.** On a
+        #   essayé d'y mettre le point d'axe le plus proche du guide : c'est
+        #   pourtant encore une mesure, et elle est sur l'axe par construction —
+        #   mais rien ne garantit qu'elle AVANCE. Deux abscisses voisines
+        #   ramenaient deux points pris à contresens, la suite se repliait sur
+        #   elle-même, et l'épaule du `r` sortait en boucle, le `j` en chiffon.
+        #   L'interpolation, elle, avance toujours.
         connus = [k for k, x in enumerate(mes) if x is not None]
         ligne = []
         for k, q in enumerate(guide):
@@ -616,7 +932,57 @@ def traits(ch, recette, points_du_trace):
                     ligne.append((a0[0] + (a1[0] - a0[0]) * f, a0[1] + (a1[1] - a0[1]) * f))
             else:
                 ligne.append(q)
-        lignes.append(_lisser(ligne, _anguleux(guide)))
+        lignes.append(_lisser(ligne, coins[t]))
+    return lignes
+
+
+def traits(ch, recette, points_du_trace, journal=None):
+    """Les traits DÉCLARÉS par `recette`, reposés sur l'axe EXACT de `ch`."""
+    nuage = _plat(ch)
+    decl, jonctions = recette
+
+    guides = [_echelonne(points_du_trace(t['d'])) for t in decl]
+    # ★ Les COINS restent ceux que la recette déclare : c'est une lecture du
+    #   dessin, et une passe de projection ne saurait ni les inventer ni les
+    #   perdre. Seule la géométrie se corrige d'une passe à l'autre.
+    coins = [_anguleux(g) for g in guides]
+
+    # ⚠️ **LE POINT DU `i` ET DU `j` SE SERT AVANT LES AUTRES, ET SORT DU NUAGE.**
+    #   Un trait DÉGÉNÉRÉ n'a pas de direction ; le filtre de tangente rejetait
+    #   donc tout pour lui, et son anneau d'axe — un point effondré reste un
+    #   anneau minuscule — partait grossir le seau le plus proche de la hampe.
+    #   Cent quatre-vingt-six unités plus bas, l'empattement du `i` s'en trouvait
+    #   tiré vers le haut, et le `j` finissait à cent trente-deux unités de son
+    #   axe. On lui réserve ce qui l'entoure, et la hampe ne le voit plus.
+    points, reste = [], list(nuage)
+    for t, g in enumerate(guides):
+        if max(math.dist(g[0], q) for q in g) >= 1e-6:
+            points.append(None)
+            continue
+        pris = [pu for pu in reste if math.dist(pu[0], g[0]) <= RAYON_POINT]
+        reste = [pu for pu in reste if pu not in pris]
+        lot = [p for p, _ in pris] or [g[0]]
+        points.append((sum(z[0] for z in lot) / len(lot),
+                       sum(z[1] for z in lot) / len(lot)))
+
+    # ★ **ON REJOUE TANT QUE ÇA RAPPROCHE DE L'AXE, ET ON S'ARRÊTE DÈS QUE ÇA
+    #   ÉLOIGNE.** Rejouer la projection sur sa propre sortie corrige la plupart
+    #   des lettres — le `w` passe de vingt-six unités d'écart à six, le `z` de
+    #   neuf à deux — mais DIVERGE sur celles dont la première passe est déjà
+    #   fausse : le `j` s'éloignait de quatre-vingt-dix-sept à cent trente-deux.
+    #   Le critère d'arrêt n'a donc pas à être choisi, il se mesure : l'écart
+    #   moyen à l'axe, que `main` affiche lettre par lettre.
+    casiers = _grille([p for p, _ in reste])
+    lignes, meilleur = guides, None
+    for _ in range(PASSES):
+        essai = _pose(reste, [_echelonne(l) for l in lignes], coins)
+        note = _ecart_a_laxe(essai, casiers)
+        if meilleur is not None and note >= meilleur:
+            break
+        lignes, meilleur = essai, note
+    for t, c in enumerate(points):
+        if c is not None:
+            lignes[t] = [c] * (ABSCISSES + 1)
 
     # ③ les contacts se REPRODUISENT tels que la recette les réalise
     origines = [points_du_trace(t['d']) for t in decl]
@@ -631,8 +997,23 @@ def traits(ch, recette, points_du_trace):
                 lignes[u][i] = min(lignes[v],
                                    key=lambda q: (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2)
 
-    return ([{'d': _catmull(ligne), 'ouvert': decl[t].get('ouvert', True)}
-             for t, ligne in enumerate(lignes)], jonctions)
+    # ⑤ chaque trait est ensuite AJUSTÉ : le moins de cubiques possible à une
+    #    unité près. Les coins du guide sont imposés comme bornes — un ajustement
+    #    qui n'en saurait rien arrondirait le pied du `l` et le `z`.
+    ajustes = [_ajuste(ligne, TOLERANCE, coins[t]) for t, ligne in enumerate(lignes)]
+    if journal is not None:
+        # ★ Ce que la projection a COÛTÉ : le pire écart du trait rendu à l'axe,
+        #   mesuré sur le tracé final et non sur les points qui l'ont produit.
+        pire = 0.0
+        for t, chem in enumerate(ajustes):
+            if points[t] is not None:
+                continue                       # le point du `i`, du `j`
+            for m in chem:
+                pire = max([pire] + [_pres(casiers, evalue(m, k / 12))
+                                     for k in range(13)])
+        journal.append((pire, ch))
+    return ([{'d': versD(chem), 'ouvert': decl[t].get('ouvert', True)}
+             for t, chem in enumerate(ajustes)], jonctions)
 
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -667,7 +1048,17 @@ def main():
         print('    %s[%d] %s' % (ch, k, ' '.join('(%d,%d)' % p for p in pts)))
 
     rec, points_du_trace = _recettes()
-    poses = {ch: traits(ch, rec[ch], points_du_trace) for ch in BAS_DE_CASSE}
+    ecarts = []
+    poses = {ch: traits(ch, rec[ch], points_du_trace, ecarts)
+             for ch in BAS_DE_CASSE}
+
+    # ★ **CE QUE LA POSE COÛTE, LETTRE PAR LETTRE.** `AXES` est exact ; `TRAITS`
+    #   est projeté, et l'écart entre les deux est le seul chiffre qui dise ce
+    #   que la projection a perdu. Il prédit à peu près l'œil : les lettres que
+    #   l'auteur a dites « au point » sont celles qui tiennent sous trois unités.
+    print('  écart des traits à l’axe, en unités du moteur (capitale = 600) :')
+    for pire, ch in sorted(ecarts):
+        print('    %s %5.1f %s' % (ch, pire, '·' * min(40, int(pire))))
 
     lignes = [
         "/* ⚠️ ENGENDRÉ par `src/gfx/jetbrains-axe.py` — ne pas éditer à la main.",

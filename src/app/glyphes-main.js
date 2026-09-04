@@ -64,7 +64,7 @@
 
 import { e, svg as s } from './dom.js';
 import { GLYPHES, METRIQUES } from '../moteur/tables/glyphes.js';
-import { setGlyphes, deriveGlyph } from '../visuel/glyphes.js';
+import { setGlyphes, deriveGlyph, parsePath } from '../visuel/glyphes.js';
 import { CANDIDATS, MESURES } from '../gfx/_glyphes-candidats.js';
 import { AXES, TRAITS } from '../gfx/_glyphes-axe.js';
 
@@ -120,17 +120,67 @@ const cadre = (enfants) => s('svg', {
  *   pas ce qu'il contient ; c'est le même défaut que la classe `.nhl-filet`,
  *   qui n'existait nulle part et laissait le trait de fraction transparent.
  */
-function dessin(traits, teinte) {
+function dessin(traits, teinte, ossature = false) {
   return cadre([
-    s('g', { transform: 'scale(1,-1)' }, traits.map((t) => s('path', {
-      d: t.d,
-      fill: 'none',
-      stroke: teinte,
-      'stroke-width': 26,
-      'stroke-linecap': 'round',
-      'stroke-linejoin': 'round',
-    }))),
+    s('g', { transform: 'scale(1,-1)' }, [
+      ...traits.map((t) => s('path', {
+        d: t.d,
+        fill: 'none',
+        stroke: teinte,
+        'stroke-width': ossature ? 10 : 26,
+        'stroke-opacity': ossature ? '0.45' : '1',
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+      })),
+      ...(ossature ? traits.flatMap((t) => ossatureDe(t.d)) : []),
+    ]),
   ]);
+}
+
+/**
+ * ★ **LES POINTS ET LES POIGNÉES — parce qu'on ne juge pas un tracé sur sa
+ *   seule silhouette.**
+ *
+ * > « trop de points par rapport au nécessaire » (l'auteur)
+ *
+ * C'est un reproche qui ne se vérifie qu'en les VOYANT. Un `l` en soixante
+ * cubiques et un `l` en cinq ont la même allure à l'écran ; seule l'ossature
+ * dit lequel décrit la lettre et lequel décrit le relevé. On la montre donc
+ * sous le tracé, qui s'efface d'autant.
+ *
+ * ⚠️ Les poignées se lisent SUR LE CHEMIN et non sur les données qui l'ont
+ *   produit : ce qui est affiché est ce qui sera lu par le moteur.
+ */
+function ossatureDe(d) {
+  const out = [];
+  let x = 0; let y = 0; let sx = 0; let sy = 0;
+  const noeud = (px, py) => s('circle', {
+    cx: px, cy: py, r: 9, fill: 'var(--gold)', 'fill-opacity': '0.9',
+  });
+  const poignee = (ax, ay, bx, by) => {
+    out.push(s('line', {
+      x1: ax, y1: ay, x2: bx, y2: by, stroke: 'var(--rubric-hi)',
+      'stroke-width': 3, 'stroke-opacity': '0.7',
+    }));
+    out.push(s('circle', {
+      cx: bx, cy: by, r: 5, fill: 'none', stroke: 'var(--rubric-hi)',
+      'stroke-width': 3, 'stroke-opacity': '0.7',
+    }));
+  };
+  for (const { cmd, args } of parsePath(d)) {
+    const c = cmd.toUpperCase();
+    if (c === 'M') { [x, y] = args; sx = x; sy = y; out.push(noeud(x, y)); } else if (c === 'L') {
+      [x, y] = args; out.push(noeud(x, y));
+    } else if (c === 'C') {
+      poignee(x, y, args[0], args[1]);
+      poignee(args[4], args[5], args[2], args[3]);
+      x = args[4]; y = args[5]; out.push(noeud(x, y));
+    } else if (c === 'Q') {
+      poignee(x, y, args[0], args[1]);
+      x = args[2]; y = args[3]; out.push(noeud(x, y));
+    } else if (c === 'Z') { x = sx; y = sy; }
+  }
+  return out;
 }
 
 /**
@@ -174,9 +224,9 @@ function comptes(traits, jonctions) {
 }
 
 /** Une case : un dessin, sa légende, ses comptes. */
-function case_(titre, traits, jonctions, teinte) {
+function case_(titre, traits, jonctions, teinte, ossature = false) {
   return e('div.gl__case', {}, [
-    dessin(traits, teinte),
+    dessin(traits, teinte, ossature),
     e('div.gl__nom', { texte: titre }),
     e('div.gl__comptes', { texte: comptes(traits, jonctions) }),
   ]);
@@ -211,7 +261,7 @@ function rangee(c) {
        doivent coïncider avec ceux de la recette, dont ils reprennent la
        topologie. */
     poses
-      ? case_('traits sur l’axe', poses.traits, poses.jonctions, 'var(--phos)')
+      ? case_('traits sur l’axe', poses.traits, poses.jonctions, 'var(--phos)', true)
       : e('div.gl__case.gl__case--vide', { texte: 'pas de traits' }),
   ]);
 }
