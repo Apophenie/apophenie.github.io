@@ -1356,11 +1356,22 @@ def _long_morceau(m, n=8):
 #: la barre du `f` — et on n'y touche pas.
 DOUX = math.cos(math.radians(45))
 
+#: Ce qu'on accepte de s'écarter de l'axe POUR OBTENIR LA TANGENCE. Douze unités
+#: sur six cents : c'est beaucoup plus que la tolérance d'ajustement, et c'est
+#: assumé — une cassure de six degrés à un raccord se voit, un écart de dix
+#: unités sur une courbe ne se voit pas. « La poignée n'est toujours pas
+#: parfaitement verticale » (l'auteur) : elle l'est maintenant, et l'on sait ce
+#: qu'elle coûte.
+MARGE_TANGENCE = 12.0
+
 #: Deux droites qui se suivent à moins de huit degrés n'en font qu'une.
 ALIGNE = math.cos(math.radians(8))
 
+#: |cos| au-delà duquel deux tangentes sont parallèles — donc un demi-tour.
+PARALLELE = math.cos(math.radians(12))
 
-def _tangence(chem, casiers, tol):
+
+def _tangence(chem, casiers, tol, marge=MARGE_TANGENCE):
     """★ **UN RACCORD SANS ANGLE EST UN RACCORD TANGENT.**
 
     > « côté droit il n'y a pas d'angle, donc la poignée devrait être
@@ -1382,23 +1393,32 @@ def _tangence(chem, casiers, tol):
             t = _versLe(a[1][-1], a[2])
             if u == (0.0, 0.0) or t == (0.0, 0.0) or abs(t[0]*u[0] + t[1]*u[1]) < DOUX:
                 continue
-            h = math.dist(a[1][-1], a[2])
-            ctrl = list(a[1])
-            ctrl[-1] = (a[2][0] - u[0] * h, a[2][1] - u[1] * h)
-            neuf = (a[0], ctrl, a[2])
-            if casiers is None or _sur_laxe(neuf, casiers, tol):
-                chem[i] = neuf
+            # ⚠️ **ET SI LA POIGNÉE ALIGNÉE S'ÉCARTE TROP, ON LA RACCOURCIT
+            #   PLUTÔT QUE D'ABANDONNER.** La tangence est ce qui se voit ; sa
+            #   longueur ne se voit pas. Renoncer laissait six degrés de cassure
+            #   au pied du `t` et du `l` — « c'est mieux, mais la poignée n'est
+            #   toujours pas parfaitement verticale » (l'auteur).
+            for f in (1.0, 0.8, 0.6, 0.45, 0.3):
+                h = math.dist(a[1][-1], a[2]) * f
+                ctrl = list(a[1])
+                ctrl[-1] = (a[2][0] - u[0] * h, a[2][1] - u[1] * h)
+                neuf = (a[0], ctrl, a[2])
+                if casiers is None or _sur_laxe(neuf, casiers, tol, marge):
+                    chem[i] = neuf
+                    break
         else:                                 # droite puis courbe
             u = _versLe(a[0], a[2])
             t = _versLe(b[0], b[1][0])
             if u == (0.0, 0.0) or t == (0.0, 0.0) or abs(t[0]*u[0] + t[1]*u[1]) < DOUX:
                 continue
-            h = math.dist(b[0], b[1][0])
-            ctrl = list(b[1])
-            ctrl[0] = (b[0][0] + u[0] * h, b[0][1] + u[1] * h)
-            neuf = (b[0], ctrl, b[2])
-            if casiers is None or _sur_laxe(neuf, casiers, tol):
-                chem[i + 1] = neuf
+            for f in (1.0, 0.8, 0.6, 0.45, 0.3):
+                h = math.dist(b[0], b[1][0]) * f
+                ctrl = list(b[1])
+                ctrl[0] = (b[0][0] + u[0] * h, b[0][1] + u[1] * h)
+                neuf = (b[0], ctrl, b[2])
+                if casiers is None or _sur_laxe(neuf, casiers, tol, marge):
+                    chem[i + 1] = neuf
+                    break
     return chem
 
 
@@ -1432,6 +1452,60 @@ def _alignees(chem, casiers, tol):
         else:
             i += 1
     return chem
+
+
+def _symetrise(chemins, casiers, tol):
+    """★ **UN DEMI-TOUR ENTRE DEUX DROITES PARALLÈLES EST SYMÉTRIQUE.**
+
+    > « le `u` est minimaliste, ce qui est très élégant, mais asymétrique dans
+    >   les poignées. Garde-les verticales mais déplace leur point pour qu'il y
+    >   ait une symétrie parfaite. » (l'auteur)
+
+    Ses deux jambes sont de même longueur dans la police, et son fond est un
+    demi-tour : les deux points d'attache sont donc à la même hauteur et les deux
+    poignées de la même longueur. La projection, elle, les rendait à quarante-deux
+    unités d'écart. On moyenne les deux — ce qui ne demande aucune mesure de
+    plus, seulement de constater que les deux tangentes sont parallèles.
+    """
+    for chem in chemins:
+        for i, m in enumerate(chem):
+            if len(m[1]) != 2:
+                continue
+            t1 = _versLe(m[0], m[1][0])
+            t2 = _versLe(m[2], m[1][1])
+            if t1 == (0.0, 0.0) or t2 == (0.0, 0.0):
+                continue
+            if t1[0] * t2[0] + t1[1] * t2[1] < PARALLELE:
+                continue                       # pas un demi-tour
+            h = (math.dist(m[0], m[1][0]) + math.dist(m[2], m[1][1])) / 2
+            # les deux bouts glissent SUR LEUR PROPRE TANGENTE jusqu'à la moyenne
+            d = ((m[2][0] - m[0][0]) * t1[0] + (m[2][1] - m[0][1]) * t1[1]) / 2
+            p0 = (m[0][0] + t1[0] * d, m[0][1] + t1[1] * d)
+            p3 = (m[2][0] - t2[0] * d, m[2][1] - t2[1] * d)
+            neuf = (p0, [(p0[0] + t1[0] * h, p0[1] + t1[1] * h),
+                         (p3[0] + t2[0] * h, p3[1] + t2[1] * h)], p3)
+            if casiers is not None and not _sur_laxe(neuf, casiers, tol):
+                continue
+            chem[i] = neuf
+            # les voisins suivent, y compris dans les autres traits
+            if i > 0:
+                chem[i - 1] = (chem[i - 1][0], chem[i - 1][1], p0)
+            if i + 1 < len(chem):
+                chem[i + 1] = (p3, chem[i + 1][1], chem[i + 1][2])
+            # ⚠️ Les traits VOISINS suivent : un bout posé sur l'ancien point
+            #   resterait en l'air. On les rattache à la nouvelle position.
+            for autre in chemins:
+                if autre is chem or not autre:
+                    continue
+                if math.dist(autre[-1][2], m[0]) <= TOL:
+                    autre[-1] = (autre[-1][0], autre[-1][1], p0)
+                if math.dist(autre[0][0], m[0]) <= TOL:
+                    autre[0] = (p0, autre[0][1], autre[0][2])
+                if math.dist(autre[-1][2], m[2]) <= TOL:
+                    autre[-1] = (autre[-1][0], autre[-1][1], p3)
+                if math.dist(autre[0][0], m[2]) <= TOL:
+                    autre[0] = (p3, autre[0][1], autre[0][2])
+    return chemins
 
 
 def _coins_nets(chem):
@@ -1477,9 +1551,25 @@ def _coins_nets(chem):
                 if ctrl:
                     ctrl[-1] = (ctrl[-1][0] + dx, ctrl[-1][1] + dy)
                 chem[-2:] = [(v[0], ctrl, m[2])]
+    # ⚠️ **ET UN MOIGNON AU MILIEU SE FOND DANS SON VOISIN.** Entre l'arche du
+    #   `m` et sa jambe traîne une courbe de dix unités qui n'est ni l'une ni
+    #   l'autre. On l'absorbe dans le morceau qui suit, en emmenant sa poignée du
+    #   même déplacement pour ne pas tordre la courbe.
     change = True
     while change and len(chem) >= 3:
         change = False
+        for i in range(1, len(chem) - 1):
+            if _long_morceau(chem[i]) < COURT / 2:
+                m, v = chem[i], chem[i + 1]
+                dx, dy = m[0][0] - v[0][0], m[0][1] - v[0][1]
+                ctrl = list(v[1])
+                if ctrl:
+                    ctrl[0] = (ctrl[0][0] + dx, ctrl[0][1] + dy)
+                chem[i:i + 2] = [(m[0], ctrl, v[2])]
+                change = True
+                break
+        if change:
+            continue
         for i in range(1, len(chem) - 1):
             m = chem[i]
             if m[1] or math.dist(m[0], m[2]) > COURT:
@@ -2074,6 +2164,7 @@ def traits(ch, recette, points_du_trace, journal=None):
     ajustes = [_alignees(_tangence(_coins_nets(
         _fusionne(list(c), TOLERANCE, casiers, large)), casiers, TOLERANCE),
         casiers, TOLERANCE) for c in ajustes]
+    _symetrise(ajustes, casiers, TOLERANCE)
     for t, c in enumerate(points):
         if c is None or not ajustes[t]:
             continue
@@ -2085,7 +2176,12 @@ def traits(ch, recette, points_du_trace, journal=None):
         ajustes[t] = [((appui[0], c[1]), [], (appui[0], c[1]))]
     # ⚠️ Et l'on renettoie APRÈS : la taille des bouts recrée elle-même de courts
     #   morceaux au ras du carrefour — c'est le « doublon » de l'épaule du `n`.
-    ajustes = [_coins_nets(list(c)) for c in ajustes]
+    #   La tangence se rejoue au même moment, et pour la même raison : elle
+    #   s'était calée sur une droite que les passes suivantes ont ensuite
+    #   redressée, si bien que la poignée du `t` et celle du `l` restaient à six
+    #   degrés de la verticale. Le dernier mot revient à la géométrie FINALE.
+    ajustes = [_tangence(_coins_nets(list(c)), casiers, TOLERANCE)
+               for c in ajustes]
     if journal is not None:
         # ★ Ce que la projection a COÛTÉ : le pire écart du trait rendu à l'axe,
         #   mesuré sur le tracé final et non sur les points qui l'ont produit.
