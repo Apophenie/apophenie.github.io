@@ -2280,6 +2280,16 @@ def _echelonne(pts):
     return [_au(pts, s, longueur_, k / ABSCISSES) for k in range(ABSCISSES + 1)]
 
 
+#: L'écart QUADRATIQUE en deçà duquel deux guides se disputent le même brin :
+#: deux unités du repère. Au-delà, le point appartient sans conteste au plus
+#: proche.
+PARTAGE = 2.0 ** 2
+
+#: Et il faut que le point soit VRAIMENT sur le brin des deux : à plus de trois
+#: unités du plus proche, il n'y a pas de dispute, il y a un vainqueur.
+SUR_LE_BRIN = 3.0 ** 2
+
+
 def _pose(nuage, guides, coins):
     """★ **UNE PASSE DE PROJECTION : chaque point de l'axe rejoint le guide le
       plus proche, chaque abscisse rend le centre de ce qu'elle a reçu.**
@@ -2309,6 +2319,24 @@ def _pose(nuage, guides, coins):
                     meilleur, choix = d, (t, k)
         if choix is not None:
             seaux[choix[0]][choix[1]].append(p)
+            # ★ **UN BRIN QUE DEUX GUIDES SE DISPUTENT SERT AUX DEUX.**
+            #   Là où deux traits fondent leur encre, l'axe n'a qu'un brin :
+            #   l'attribuer au seul plus proche, c'est l'attribuer au premier
+            #   déclaré, et l'autre n'a plus rien. L'épaule du `r` naît sur le
+            #   fût, sur trente-deux abscisses ; privée de mesure, elle démarrait
+            #   à 338 quand l'axe la fait naître à 306 — onze unités et demie,
+            #   le pire écart de l'alphabet, toutes au même endroit.
+            for t, guide in enumerate(guides):
+                if t == choix[0]:
+                    continue
+                for k, q in enumerate(guide):
+                    v = tangentes[t][k]
+                    if abs(u[0] * v[0] + u[1] * v[1]) < DE_FACE_GUIDE:
+                        continue
+                    if (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2 <= meilleur + PARTAGE \
+                            and meilleur <= SUR_LE_BRIN:
+                        seaux[t][k].append(p)
+                        break
 
     # ② chaque abscisse rend le CENTRE de ce qui s'y projette, intrus écartés ;
     #    les trous s'interpolent entre les points MESURÉS voisins, jamais depuis

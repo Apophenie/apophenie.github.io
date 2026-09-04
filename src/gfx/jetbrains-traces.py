@@ -444,7 +444,18 @@ def recettes(M):
     for c, haut in (('n', hx), ('h', b['h']['y1']), ('r', hx), ('m', hx)):
         o = b[c]
         fut = o['x0'] + M['fut'] / 2
-        epaule = hx * 0.74
+        # ★ **L'ARCHE NAÎT OÙ L'AXE LE DIT — 306, pas 334.**
+        #   `n`, `h` et `r` posent tous les trois leur naissance d'arche à 306,16
+        #   et leur sommet à 459,5 : 0,677 et 1,017 hauteur d'x. La recette
+        #   disait 0,74 et un rayon de 0,28, soit une arche qui naît vingt-huit
+        #   unités trop haut et monte d'autant moins.
+        # ★ **ET LA JAMBE DESCEND SUR L'AXE DU BORD, pas sur le bord de la
+        #   boîte.** `o['x1']` est le bord du CONTOUR ; l'axe de la jambe droite
+        #   est un demi-fût plus à gauche — 385,89 et non 423. Trente-sept unités
+        #   de guide faux, que la projection devait rattraper à chaque passe.
+        epaule = hx * 0.677
+        ryArche = hx * 0.340
+        bordArche = o['x1'] - M['fut'] / 2
         if c == 'm':
             # ★ **LES DEUX ARCHES SONT LA MÊME, À UN ENTRAXE PRÈS.**
             #
@@ -487,9 +498,23 @@ def recettes(M):
             #   de la hauteur d'x, l'épaule naît en dessous. Et l'épaule est
             #   COURTE — un quart de tour, de la naissance au sommet de la même
             #   ellipse, donc qui ne peut pas dépasser la lettre.
+            # ★ **ET SON ÉPAULE REDESCEND — l'axe est formel.**
+            #
+            #   Il la fait naître en (129, 306), passer par (260, 460) et
+            #    REVENIR à (395, 303), d'où elle file droit jusqu'à (395, 259).
+            #   La recette la décrivait comme un quart de tour s'arrêtant en haut
+            #   à droite : « elle atteint le haut, elle ne le dépasse pas », ce
+            #   qui était une lecture, et une fausse. Le `r` s'écartait de 11,0
+            #   unités de son axe, le pire de l'alphabet — et l'écart tombait
+            #   pile au départ de l'épaule, à (202, 437), là où l'arc déclaré
+            #   passe onze unités sous l'arche réelle.
+            #   C'est donc la MÊME figure que le `n` et le `h` : une arche
+            #   complète, suivie d'une jambe. Elle est juste très courte —
+            #   quarante-sept unités, de 306 à 259 (0,573 hauteur d'x).
             R[c] = ([t(ligne(fut, o['y0'], fut, hx)),
-                     t(arc(fut, epaule, o['x1'] - fut, hx - epaule, 0, 0,
-                           o['x1'], hx))],
+                     t(arc(fut, epaule, (bordArche - fut) / 2, ryArche, 0, 0,
+                           bordArche, epaule)
+                       + ' L %s %s' % (r(bordArche), r(hx * 0.573)))],
                     [[0, 1, 'naissance de l’épaule']])
         else:
             # ★ **LE FÛT MONTE AU-DESSUS DE L'ARCHE, et c'est une AMORCE.**
@@ -505,8 +530,9 @@ def recettes(M):
             #   départ EST une extrémité. `mexb` en comptera une de plus sur ces
             #   trois lettres, et ce sera juste.
             R[c] = ([t(ligne(fut, o['y0'], fut, haut if c == 'h' else hx)),
-                     t(arc(fut, epaule, (o['x1'] - fut) / 2, hx * 0.28, 0, 0,
-                           o['x1'], epaule) + ' L %s %s' % (r(o['x1']), r(o['y0'])))],
+                     t(arc(fut, epaule, (bordArche - fut) / 2, ryArche, 0, 0,
+                           bordArche, epaule)
+                       + ' L %s %s' % (r(bordArche), r(o['y0'])))],
                     [[0, 1, 'naissance de l’arche']])
 
     # ── `u` : le miroir de `n` ────────────────────────────────────────────────
