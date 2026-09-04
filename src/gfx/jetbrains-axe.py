@@ -861,7 +861,8 @@ def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None, ferme
                                 tol, casiers, plafond)
             if len(morceau) == avant:
                 break
-        out += _droites(_redresse(morceau, tol, casiers, plafond), casiers)
+        morceau = _droites(_redresse(morceau, tol, casiers, plafond), casiers)
+        out += _alignees(morceau, casiers, tol)
     if (len(out) > 2 and math.dist(out[0][0], out[-1][2]) < 1e-6
             and casiers is not None):
         # ★ **UNE BOUCLE N'A PAS À PORTER DEUX POINTS À SA COUTURE.** On a coupé
@@ -1350,6 +1351,89 @@ def _long_morceau(m, n=8):
     return sum(math.dist(a, b) for a, b in zip(p, p[1:]))
 
 
+#: |cos| au-delà duquel un raccord courbe/droite est réputé SANS ANGLE, donc
+#: tangent : quarante-cinq degrés. Au-delà c'est un vrai coin — le haut du `l`,
+#: la barre du `f` — et on n'y touche pas.
+DOUX = math.cos(math.radians(45))
+
+#: Deux droites qui se suivent à moins de huit degrés n'en font qu'une.
+ALIGNE = math.cos(math.radians(8))
+
+
+def _tangence(chem, casiers, tol):
+    """★ **UN RACCORD SANS ANGLE EST UN RACCORD TANGENT.**
+
+    > « côté droit il n'y a pas d'angle, donc la poignée devrait être
+    >   verticale. » (l'auteur, sur le `h`)
+
+    Là où une courbe rejoint une droite sans coin, la police ne fait AUCUN
+    angle : la tangente de l'une est la direction de l'autre. L'ajustement, lui,
+    les calculait séparément et laissait neuf degrés de cassure au pied de
+    l'arche du `h` et du `n`, vingt-six au pied du `t`. On aligne donc la
+    poignée sur la droite voisine — en gardant sa longueur, donc sans changer
+    l'allure de la courbe — et on ne le fait que si l'écart à l'axe le supporte.
+    """
+    for i in range(len(chem) - 1):
+        a, b = chem[i], chem[i + 1]
+        if bool(a[1]) == bool(b[1]):
+            continue
+        if a[1]:                              # courbe puis droite
+            u = _versLe(b[0], b[2])
+            t = _versLe(a[1][-1], a[2])
+            if u == (0.0, 0.0) or t == (0.0, 0.0) or abs(t[0]*u[0] + t[1]*u[1]) < DOUX:
+                continue
+            h = math.dist(a[1][-1], a[2])
+            ctrl = list(a[1])
+            ctrl[-1] = (a[2][0] - u[0] * h, a[2][1] - u[1] * h)
+            neuf = (a[0], ctrl, a[2])
+            if casiers is None or _sur_laxe(neuf, casiers, tol):
+                chem[i] = neuf
+        else:                                 # droite puis courbe
+            u = _versLe(a[0], a[2])
+            t = _versLe(b[0], b[1][0])
+            if u == (0.0, 0.0) or t == (0.0, 0.0) or abs(t[0]*u[0] + t[1]*u[1]) < DOUX:
+                continue
+            h = math.dist(b[0], b[1][0])
+            ctrl = list(b[1])
+            ctrl[0] = (b[0][0] + u[0] * h, b[0][1] + u[1] * h)
+            neuf = (b[0], ctrl, b[2])
+            if casiers is None or _sur_laxe(neuf, casiers, tol):
+                chem[i + 1] = neuf
+    return chem
+
+
+def _sur_laxe(m, casiers, tol, marge=6.0):
+    return all(_pres(casiers, evalue(m, k / 16)) < tol + MARGE_NUAGE + marge
+               for k in range(17))
+
+
+def _alignees(chem, casiers, tol):
+    """Deux droites qui se suivent presque en ligne n'en font qu'une.
+
+    > « le `k` : il y a toujours un point de trop, maintenant il est dans le
+    >   segment en bas à droite. » (l'auteur)
+
+    Six degrés d'écart entre deux morceaux d'une même jambe : ni un coin, ni une
+    courbe, juste une coupure que l'ajusteur n'a pas su défaire.
+    """
+    i = 0
+    while i < len(chem) - 1:
+        a, b = chem[i], chem[i + 1]
+        if a[1] or b[1]:
+            i += 1
+            continue
+        u, v = _versLe(a[0], a[2]), _versLe(b[0], b[2])
+        neuf = (a[0], [], b[2])
+        if (u != (0.0, 0.0) and v != (0.0, 0.0)
+                and u[0]*v[0] + u[1]*v[1] > ALIGNE
+                and (casiers is None or _sur_laxe(neuf, casiers, tol))):
+            chem[i:i + 2] = [neuf]
+            i = max(0, i - 1)
+        else:
+            i += 1
+    return chem
+
+
 def _coins_nets(chem):
     """★ **UN COIN EST UN POINT, PAS DEUX.**
 
@@ -1404,7 +1488,14 @@ def _coins_nets(chem):
             if a[1] or b[1]:
                 continue                      # deux droites, sinon on ne touche à rien
             u = _versLe(a[0], a[2])
-            t = _intersection(a[0], u, b[0], b[2])
+            # ⚠️ **ON PROLONGE LES DEUX VOISINS POUR LES FAIRE SE COUPER.** Au
+            #   sommet du `l`, la barre passe AU-DESSUS du haut de la hampe : les
+            #   deux droites ne se croisent qu'en dehors des segments, et le coin
+            #   restait fait de deux points là où il n'en faut qu'un.
+            v = _versLe(b[0], b[2])
+            bb = (b[0][0] - v[0] * COURT * 2, b[0][1] - v[1] * COURT * 2)
+            be = (b[2][0] + v[0] * COURT * 2, b[2][1] + v[1] * COURT * 2)
+            t = _intersection(a[0], u, bb, be)
             if t is None:
                 continue
             coin = (a[0][0] + u[0] * t, a[0][1] + u[1] * t)
@@ -1972,6 +2063,17 @@ def traits(ch, recette, points_du_trace, journal=None):
     #   quand l'encre s'annule. Vingt et une unités d'écart, qui n'existent dans
     #   aucune graisse réelle : c'est un artefact de l'effondrement, pas un trait
     #   du dessin. On aligne donc le point sur ce qu'il surplombe.
+    # ★ **UNE DERNIÈRE PASSE DE FUSION, UN PEU PLUS LARGE.** « L'`o` est déjà
+    #   très bien, mais le point central en haut pourrait être retiré en
+    #   déplaçant légèrement les poignées de ses voisins pour garder la même
+    #   courbe » (l'auteur) — c'est exactement ce que fait une fusion, et il ne
+    #   lui manquait qu'un peu d'air : la tolérance de l'ajustement est calée sur
+    #   la fidélité au dixième d'unité, quand retirer un point n'en coûte que
+    #   quelques-uns et se voit, lui, tout de suite.
+    large = TOLERANCE + MARGE_NUAGE + 2
+    ajustes = [_alignees(_tangence(_coins_nets(
+        _fusionne(list(c), TOLERANCE, casiers, large)), casiers, TOLERANCE),
+        casiers, TOLERANCE) for c in ajustes]
     for t, c in enumerate(points):
         if c is None or not ajustes[t]:
             continue

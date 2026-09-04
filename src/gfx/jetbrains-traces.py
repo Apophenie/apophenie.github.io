@@ -530,11 +530,23 @@ def recettes(M):
     #     de la largeur, et ne redescend que d'un sixième de la hauteur d'x.
     hautA = hx * 0.84
     panseA = hx * 0.56
+    # ★ **LA BOUCLE EST OUVERTE, ET ELLE S'ARRÊTE SUR LE PILIER.**
+    #
+    #   > « il devrait y avoir l'arc supérieur qui descend jusqu'au sol en
+    #   >   4 points (similaire aux `h` `m` `n`) et la boucle presque à
+    #   >   l'identique de l'actuel, mais qui arrive net à l'horizontal côté haut
+    #   >   pour s'arrêter à droite sur le pilier vertical. » (l'auteur)
+    #
+    #   Un ovale FERMÉ ne s'arrête nulle part : il flottait contre le pilier sans
+    #   le toucher, et son sommet arrivait de biais. La police, elle, la dessine
+    #   comme la panse d'un `b` — elle naît du pilier et s'y referme. Mêmes
+    #   comptes qu'avant (2 traits, 2 extrémités, 1 boucle), mais la boucle est
+    #   maintenant celle du GRAPHE, pas celle d'un tracé fermé.
     R['a'] = ([t(arc(o['x0'] + o['l'] * 0.16, hautA, futA - o['x0'] - o['l'] * 0.16,
                      hx - hautA, 0, 0, futA, hx) + ' L %s %s' % (r(futA), r(o['y0']))),
-               ovale((o['x0'] + futA) / 2, (o['y0'] + panseA) / 2,
-                     (futA - o['x0']) / 2, (panseA - o['y0']) / 2)],
-              [[0, 1, 'panse']])
+               t(arc(futA, panseA, futA - o['x0'], (panseA - o['y0']) / 2, 1, 1,
+                     futA, o['y0']))],
+              [[0, 1, 'naissance'], [0, 1, 'pied']])
 
     # ── `g` : panse ronde + descendante à crochet ─────────────────────────────
     o = b['g']
