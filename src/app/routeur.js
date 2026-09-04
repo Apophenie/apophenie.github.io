@@ -301,8 +301,21 @@ async function routeRangHerite(lecture) {
  * convienne : l'orage et les cornes sont la scénographie du 666, et il n'y a
  * pas de 666 ici.
  *
- * `urlCanonique` reste le hash courant : celui de la saisie. On ne le réécrit
- * pas, parce qu'il est déjà exact.
+ * ⚠️ **ET IL A SON LIEN CANONIQUE, comme n'importe quelle démonstration.**
+ * Il n'en avait pas : `urlCanonique` valait `null`, alors même que le
+ * commentaire d'à côté affirmait le contraire — « il reste le hash courant,
+ * déjà exact ». Conséquence visible en ligne : le bouton « Partager » de l'œuf
+ * était neutralisé et affichait au visiteur une phrase de mainteneur —
+ *   « Le lien canonique n'est pas disponible tant que le moteur n'est pas
+ *     branché » (relevé par l'auteur sur `##DGy75rYE2y3pbwrrGnmVWQ`)
+ * — alors que le moteur EST branché : c'est lui qui a lu ce lien pour arriver
+ * ici. La page la plus faite pour être partagée était la seule à ne pas
+ * pouvoir l'être.
+ *
+ * ★ Le lien ne se recopie pas depuis la barre d'adresse : on le RÉÉCRIT depuis
+ *   la saisie, comme toutes les autres routes. Un visiteur arrivé par la forme
+ *   longue (`#cheval/oiseau=pi`) partage alors la forme canonique compressée,
+ *   et non celle qu'il avait sous les yeux.
  */
 function montrerLOeuf(saisie) {
   const approche = approcheDeLOeuf();
@@ -312,7 +325,7 @@ function montrerLOeuf(saisie) {
     scenario: scenarioDeLOeuf(saisie),
     sourceScenario: 'oeuf',
     registre: 'sobre',
-    urlCanonique: null,
+    urlCanonique: pont.ecrireHash({ saisie }),
     urlAutreRegistre: null,
     bandeau: null,
     debug: false,

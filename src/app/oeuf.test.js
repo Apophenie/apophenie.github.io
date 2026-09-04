@@ -468,3 +468,39 @@ test('★ œuf — l’approche de façade ne se classe pas', () => {
   assert.equal(a.series, 0);
   assert.ok(a.titre, 'il a tout de même un titre : le Registre en affiche un');
 });
+
+/* ═══════════════════ 3. Le lien canonique, car il se partage ═══════════════ */
+
+/**
+ * ⚠️ **L'ŒUF SE PARTAGE — c'est même sa raison d'être.**
+ *
+ * > « sur cette page […] j'ai le message “Le lien canonique n'est pas disponible
+ * >   tant que le moteur n'est pas branché”, alors que ça devrait être branché
+ * >   non ? » (l'auteur)
+ *
+ * Le routeur donnait `urlCanonique: null` à l'œuf. `partage.js` en tire un
+ * bouton neutralisé et affiche cette phrase de mainteneur AU VISITEUR — alors
+ * que le moteur est branché : c'est lui qui vient de lire le lien pour arriver
+ * là. La page la plus faite pour être partagée était la seule à ne pas pouvoir
+ * l'être.
+ *
+ * Le test ne passe pas par le routeur, qui demande un DOM : il vérifie la seule
+ * chose dont dépendait la panne — que la grammaire sait écrire un lien pour
+ * chaque façon d'écrire l'œuf, et que ce lien se relit sur la même saisie.
+ */
+test('★ œuf — chaque écriture donne un lien canonique qui se relit', async () => {
+  const { ecrire, lire } = await import('../recherche/url.js');
+  for (const s of [
+    'cheval sur oiseau',
+    'cheval sur oiseau = pi',
+    'cheval/oiseau = Pi',
+    'CHEVAL / OISEAU = π',
+  ]) {
+    const url = ecrire({ saisie: s });
+    assert.ok(url && url.startsWith('#'),
+      `« ${s} » : aucun lien canonique, le bouton « Partager » resterait muet`);
+    const relu = lire(url);
+    assert.equal(relu.saisie, s, `« ${url} » ne se relit pas sur sa saisie`);
+    assert.ok(estOeuf(relu.saisie), `« ${url} » relu n’ouvre plus l’œuf`);
+  }
+});
