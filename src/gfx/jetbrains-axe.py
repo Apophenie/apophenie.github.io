@@ -412,11 +412,11 @@ PAS_AXE = 1.0
 #: n'améliore plus l'écart moyen à l'axe.
 PASSES = 4
 
-#: Le rayon dans lequel un trait DÉGÉNÉRÉ — le point du `i`, celui du `j` —
-#: ramasse ce qui lui revient. Le point de JetBrains Mono mesure quatre-vingt-dix
-#: unités de diamètre à la graisse Regular ; effondré il n'en fait plus que
-#: trente, et rien d'autre n'approche à moins de cent-cinquante.
-RAYON_POINT = 60.0
+
+#: La tolérance de contact du moteur (`visuel/glyphes.js › TOL`). La recopier
+#: n'est pas une redite : c'est elle qui décide si un bout compte comme libre,
+#: et un bout libre est le seul qu'on ait le droit de recaler sur un pli.
+TOL = 6.0
 
 
 def _dpoly(p, poly):
@@ -440,7 +440,7 @@ def _plat(ch):
       un produit scalaire suffit à les écarter, et rien d'autre n'était en jeu.
     """
     out = []
-    for segs in morceaux(axe(ch)):
+    for ci, segs in enumerate(morceaux(axe(ch))):
         brut = []
         for m in segs:
             brut += [evalue(m, k / 32) for k in range(32)]
@@ -451,7 +451,7 @@ def _plat(ch):
         for i, q in enumerate(pts):
             a, b = pts[(i - 2) % n], pts[(i + 2) % n]
             h = math.hypot(b[0] - a[0], b[1] - a[1]) or 1.0
-            out.append((q, ((b[0] - a[0]) / h, (b[1] - a[1]) / h)))
+            out.append((q, ((b[0] - a[0]) / h, (b[1] - a[1]) / h), ci))
     return out
 
 
@@ -527,6 +527,67 @@ def _ecart_a_laxe(lignes, casiers):
       suit.
     """
     return max((_pres(casiers, p) for l in lignes for p in l), default=0.0)
+
+
+#: Demi-fenêtre du test de demi-tour, en échantillons de `_plat` (un par unité).
+FENETRE_PLI = 6
+#: Au-delà, ce n'est plus un demi-tour mais un virage. Un pli est un
+#: RENVERSEMENT : le tracé revient sur lui-même, l'angle vaut cent quatre-vingts
+#: degrés à quelques unités près. Aucune courbure de lettre n'en approche.
+COS_PLI = -0.3
+
+
+def plis(nuage):
+    """★ **LES BOUTS DE LA LETTRE — là où l'axe effondré fait demi-tour.**
+
+    C'est la seule chose que le dessin dise SANS AMBIGUÏTÉ, et trois tentatives
+    de déduire la topologie l'ont confirmé à leurs dépens : un axe effondré est
+    un aller-retour, ses plis sont ses extrémités, et rien d'autre ne s'y
+    renverse. Le test échouait quand on lui demandait de distinguer un coin d'un
+    demi-tour ; on ne lui demande plus que le demi-tour.
+    """
+    pts = [p for p, _, _ in nuage]
+    n = len(pts)
+    if n < 3 * FENETRE_PLI:
+        return []
+    marque = []
+    for i in range(n):
+        a, b, c = pts[(i - FENETRE_PLI) % n], pts[i], pts[(i + FENETRE_PLI) % n]
+        u = (b[0] - a[0], b[1] - a[1])
+        v = (c[0] - b[0], c[1] - b[1])
+        hu, hv = math.hypot(*u) or 1.0, math.hypot(*v) or 1.0
+        marque.append((u[0] * v[0] + u[1] * v[1]) / (hu * hv) < COS_PLI)
+    out, i = [], 0
+    while i < n:
+        if not marque[i]:
+            i += 1
+            continue
+        j = i
+        while j + 1 < n and marque[j + 1]:
+            j += 1
+        out.append(pts[(i + j) // 2])
+        i = j + 1
+    return out
+
+
+#: Un bout déclaré ne se recale sur un pli que si le pli est à portée : au-delà,
+#: c'est qu'il appartient à un autre trait. Deux cents unités laissent passer
+#: l'erreur du `r` — son épaule était déclarée deux cents unités trop loin — sans
+#: laisser un `w` confondre deux branches, distantes de plus de trois cents.
+PORTEE_PLI = 210.0
+
+
+def _recale(guide, cible, versLaFin):
+    """Amène un bout du guide sur `cible`, en fondant l'écart sur toute sa
+    longueur — déplacer le seul dernier point y ferait un coude."""
+    n = len(guide) - 1
+    ref = guide[-1] if versLaFin else guide[0]
+    dx, dy = cible[0] - ref[0], cible[1] - ref[1]
+    if math.hypot(dx, dy) < 1e-9:
+        return list(guide)
+    return [(x + dx * (k / n if versLaFin else 1 - k / n),
+             y + dy * (k / n if versLaFin else 1 - k / n))
+            for k, (x, y) in enumerate(guide)]
 
 
 def _sans_intrus(lot):
@@ -872,7 +933,7 @@ def _pose(nuage, guides, coins):
     #    — parmi ceux dont la direction est compatible avec la sienne.
     tangentes = [[_direction(g, k) for k in range(len(g))] for g in guides]
     seaux = [[[] for _ in range(ABSCISSES + 1)] for _ in guides]
-    for p, u in nuage:
+    for p, u, _ in nuage:
         choix, meilleur = None, None
         for t, guide in enumerate(guides):
             for k, q in enumerate(guide):
@@ -953,33 +1014,90 @@ def traits(ch, recette, points_du_trace, journal=None):
     #   anneau minuscule — partait grossir le seau le plus proche de la hampe.
     #   Cent quatre-vingt-six unités plus bas, l'empattement du `i` s'en trouvait
     #   tiré vers le haut, et le `j` finissait à cent trente-deux unités de son
-    #   axe. On lui réserve ce qui l'entoure, et la hampe ne le voit plus.
+    #   axe.
+    #
+    # ★ **ET IL SE PREND PAR CONTOUR, PAS PAR RAYON.** Un point est un CONTOUR À
+    #   LUI SEUL — c'est exact, et ça ne demande aucun seuil. Le rayon, lui,
+    #   partait d'un repère que la recette pose au SOMMET de la boîte du signe et
+    #   non au centre du point : la moitié basse de l'anneau lui échappait de six
+    #   unités, repartait dans la hampe, et faisait monter le `i` et le `j` de
+    #   trente unités au-dessus de la hauteur d'x — un crochet en l'air, sur les
+    #   deux seules lettres qui en portent un.
     points, reste = [], list(nuage)
     for t, g in enumerate(guides):
         if max(math.dist(g[0], q) for q in g) >= 1e-6:
             points.append(None)
             continue
-        pris = [pu for pu in reste if math.dist(pu[0], g[0]) <= RAYON_POINT]
-        reste = [pu for pu in reste if pu not in pris]
-        lot = [p for p, _ in pris] or [g[0]]
+        proche = min(reste, key=lambda pu: math.dist(pu[0], g[0]), default=None)
+        if proche is None:
+            points.append(g[0])
+            continue
+        sien = proche[2]
+        lot = [pu[0] for pu in reste if pu[2] == sien]
+        reste = [pu for pu in reste if pu[2] != sien]
         points.append((sum(z[0] for z in lot) / len(lot),
                        sum(z[1] for z in lot) / len(lot)))
+
+    # ★ **LES BOUTS LIBRES SE RECALENT SUR LES PLIS DE L'AXE — avant tout le
+    #   reste.** Un bout qu'aucune jonction ne retient est une extrémité de la
+    #   lettre, et une extrémité de la lettre est un PLI de l'axe effondré : le
+    #   seul repère que le dessin donne sans ambiguïté. La recette, elle, peut se
+    #   tromper de deux cents unités — elle envoie l'épaule du `r` en haut à
+    #   droite (439, 452) quand la police l'arrête à mi-hauteur (395, 259) — et
+    #   un guide faux de deux cents unités ne se rattrape par aucune itération.
+    #   L'écart se fond sur toute la longueur du guide : déplacer le seul dernier
+    #   point y ferait un coude que la projection prendrait pour un relief.
+    liens = [set() for _ in decl]
+    for j in jonctions:
+        a, b = int(j[0]), int(j[1])
+        if 0 <= a < len(decl) and 0 <= b < len(decl):
+            liens[a].add(b)
+            liens[b].add(a)
+    # ⚠️ **MAIS TOUS LES PLIS NE SONT PAS DES BOUTS.** L'axe se renverse aussi
+    #   dans les carrefours — le `m` en montre trois qui n'appartiennent à aucune
+    #   extrémité, le `g` autant. Recaler dessus a fait passer le `m` de seize
+    #   unités d'écart à soixante-dix-huit et le `g` de douze à cent dix. On ne
+    #   sait pas dire lesquels sont vrais ; on n'a pas à le savoir. On pose la
+    #   lettre DEUX FOIS, avec et sans recalage, et on garde celle qui serre
+    #   l'axe de plus près. Le `r` y gagne cent unités, le `m` et le `g` n'y
+    #   perdent rien.
+    lespis = plis(reste)
+    recales = list(guides)
+    for t, g in enumerate(guides):
+        if points[t] is not None or not lespis:
+            continue
+        for versLaFin in (False, True):
+            bout = g[-1] if versLaFin else g[0]
+            if any(_dpoly(bout, guides[k]) <= TOL for k in liens[t]):
+                continue                       # ce bout-là est tenu par un voisin
+            cible = min(lespis, key=lambda q: math.dist(q, bout))
+            if math.dist(cible, bout) <= PORTEE_PLI:
+                g = _recale(g, cible, versLaFin)
+        recales[t] = g
 
     # ★ **ON REJOUE TANT QUE ÇA RAPPROCHE DE L'AXE, ET ON S'ARRÊTE DÈS QUE ÇA
     #   ÉLOIGNE.** Rejouer la projection sur sa propre sortie corrige la plupart
     #   des lettres — le `w` passe de vingt-six unités d'écart à six, le `z` de
     #   neuf à deux — mais DIVERGE sur celles dont la première passe est déjà
     #   fausse : le `j` s'éloignait de quatre-vingt-dix-sept à cent trente-deux.
-    #   Le critère d'arrêt n'a donc pas à être choisi, il se mesure : l'écart
-    #   moyen à l'axe, que `main` affiche lettre par lettre.
-    casiers = _grille([p for p, _ in reste])
-    lignes, meilleur = guides, None
-    for _ in range(PASSES):
-        essai = _pose(reste, [_echelonne(l) for l in lignes], coins)
-        note = _ecart_a_laxe(essai, casiers)
-        if meilleur is not None and note >= meilleur:
-            break
-        lignes, meilleur = essai, note
+    #   Le critère d'arrêt n'a donc pas à être choisi, il se mesure.
+    casiers = _grille([p for p, _, _ in reste])
+
+    def poser(depart):
+        lignes_, note_ = depart, None
+        for _ in range(PASSES):
+            essai = _pose(reste, [_echelonne(l) for l in lignes_], coins)
+            note = _ecart_a_laxe(essai, casiers)
+            if note_ is not None and note >= note_:
+                break
+            lignes_, note_ = essai, note
+        return lignes_, (note_ if note_ is not None else 1e18)
+
+    lignes, note = poser(guides)
+    if recales is not guides:
+        autres, autreNote = poser(recales)
+        if autreNote < note:
+            lignes, note = autres, autreNote
     for t, c in enumerate(points):
         if c is not None:
             lignes[t] = [c] * (ABSCISSES + 1)

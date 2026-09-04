@@ -537,9 +537,18 @@ def recettes(M):
     #   sur un `y`) : elle s'arrêtait bien au-dessus du jambage et rebroussait du
     #   mauvais côté. Le crochet part du bas du fût et s'ouvre vers la GAUCHE.
     crochetJ = (futJ - o['x0']) / 2
-    R['j'] = ([t(ligne(futJ, hx, futJ, o['y0'] + crochetJ)
-                 + ' A %s %s 0 0 0 %s %s' % (r(crochetJ), r(crochetJ),
-                                             r(o['x0']), r(o['y0'] + crochetJ))),
+    # ⚠️ **IL MANQUAIT SON EMPATTEMENT DE TÊTE**, et c'est un tiers de la lettre.
+    #   Le `j` de JetBrains Mono en a un, exactement comme le `i` : la source le
+    #   dessine de x=85 à x=435 sur la ligne de hauteur d'x. La recette partait du
+    #   haut du fût, si bien que la moitié gauche du signe n'était réclamée par
+    #   AUCUN trait — et la pose sur l'axe, obligée d'en rendre compte, repliait
+    #   la hampe en boucle : deux cent vingt-trois unités d'écart, le pire de
+    #   l'alphabet et de loin. Un trait manquant ne se rattrape par aucune
+    #   géométrie.
+    R['j'] = ([t('M %s %s L %s %s L %s %s' % (
+        r(o['x0']), r(hx), r(futJ), r(hx), r(futJ), r(o['y0'] + crochetJ))
+        + ' A %s %s 0 0 0 %s %s' % (r(crochetJ), r(crochetJ),
+                                    r(o['x0']), r(o['y0'] + crochetJ))),
                t(ligne(futJ, o['y1'], futJ, o['y1']))], [])
     o = b['l']
     milieuL = o['x0'] + (o['x1'] - o['x0']) * 0.42
