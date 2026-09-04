@@ -749,6 +749,55 @@ def _contacts(pa, pb, tol=8.0):
 TOLERANCE = 1.0
 
 
+def _fin_de_droite(P, a, b, guide):
+    """★ **UNE DROITE S'ARRÊTE OÙ LA MESURE LA QUITTE, PAS OÙ LA RECETTE LE DIT.**
+
+    > « la poignée en bas devrait être verticale et donc le point un peu plus
+    >   haut » (l'auteur, sur le `l`)
+
+    ⚠️ La recette est une LECTURE : elle dit « ici un fût droit, puis un virage »
+      mais elle place la frontière à vue. Sur le `l` elle la met à y = 45 quand
+      l'axe quitte la verticale à y = 90 ; sur le `t`, à y = 42 pour une tangence
+      à y = 82. Le fût rendu mordait donc de quarante-cinq unités sur le virage,
+      et la courbe qui reprenait derrière devait rattraper tout le retard d'un
+      coup : dix unités d'écart à l'axe et une poignée que la tangence ne pouvait
+      redresser qu'en s'écartant davantage.
+
+    On rogne donc le tronçon déclaré droit tant que ses points s'écartent de plus
+    d'une unité de la droite ajustée — et on refait l'ajustement après chaque
+    rognage, puisque les points rognés étaient précisément ceux qui la tiraient.
+    Ce qui est rogné n'est pas perdu : il revient au tronçon voisin, qui est
+    courbe, et c'est bien de la courbe.
+    """
+    # ⚠️ Le guide compte `ABSCISSES + 1` points, `P` peut en compter moins :
+    #   `_ajuste` retire les abscisses en doublon avant de découper. On borne
+    #   donc, faute de quoi le `b` et le `q` lèvent un IndexError.
+    b = min(b, len(P) - 1)
+    if guide is None or b - a < 4 or not _guide_droit(guide, a, b):
+        return None
+    mini = max(2, PART_DROITE * len(guide))
+    i, j = a, b
+    for _ in range(4):
+        droite = _droite_ajustee(P[i:j + 1], [True] * (j - i + 1))
+        if droite is None:
+            return None
+        declaree = _versLe(guide[i], guide[j])
+        if declaree != (0.0, 0.0):
+            mesuree = _versLe(droite[0], droite[1])
+            if abs(mesuree[0] * declaree[0] + mesuree[1] * declaree[1]) > ACCORD:
+                droite = _droite_orientee(P[i:j + 1], declaree) or droite
+        A, B = droite
+        i2, j2 = i, j
+        while j2 - i2 > mini and _dseg(P[i2], A, B) > GUIDE_DROIT:
+            i2 += 1
+        while j2 - i2 > mini and _dseg(P[j2], A, B) > GUIDE_DROIT:
+            j2 -= 1
+        if (i2, j2) == (i, j):
+            break
+        i, j = i2, j2
+    return (i, j) if (i, j) != (a, b) else None
+
+
 def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None, ferme=False):
     """Le moins de cubiques possible passant à moins de `tol` de `P`."""
     # ⚠️ Les abscisses sans mesure ont été bouchées en recopiant la voisine
@@ -790,6 +839,30 @@ def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None, ferme
              if all(abs(k - c) > 3 for c in coins)}
     coins = set(coins) | ajout
     bouts = sorted({0, len(P) - 1} | {i for i in coins if 0 < i < len(P) - 1})
+    # ★ **ET LA FRONTIÈRE DROITE/COURBE SE RECALE SUR LA MESURE.** On interroge
+    #   les tronçons que le GUIDE déclare droits — pas ceux que les coins ont
+    #   découpés : au pied du `l`, le coin de la barre tombe un point avant le
+    #   départ du fût, et le tronçon coin-à-coin n'était donc « pas droit », si
+    #   bien que `_fin_de_droite` ne s'y appliquait jamais.
+    # ⚠️ **ET LA BORNE RECALÉE REMPLACE SA VOISINE, elle ne s'y ajoute pas.**
+    #   Ajouter laissait deux ou trois points entre l'ancienne coupure et la
+    #   neuve — un moignon dont on ne tire ni droite ni courbe. C'est la même
+    #   frontière, mieux placée : elle prend la place de l'ancienne.
+    remplace, ajoute = {}, set()
+    interieur = [c for c in bouts if 0 < c < len(P) - 1]
+    for i, j in _runs_droits(guide):
+        borne = _fin_de_droite(P, i, j, guide)
+        if borne is None:
+            continue
+        for brut, net in zip((i, j), borne):
+            if brut == net or not (0 < net < len(P) - 1):
+                continue
+            voisin = min(interieur, key=lambda c: abs(c - brut), default=None)
+            if voisin is not None and abs(voisin - brut) <= 4:
+                remplace[voisin] = net
+            else:
+                ajoute.add(net)
+    bouts = sorted({remplace.get(c, c) for c in bouts} | ajoute)
     out = []
     for a, b in zip(bouts, bouts[1:]):
         tronc = P[a:b + 1]
@@ -1508,6 +1581,40 @@ def _symetrise(chemins, casiers, tol):
     return chemins
 
 
+def _recoud(chem):
+    """★ **UNE CHAÎNE NE SE COUPE PAS — et la mienne se coupait de sept unités.**
+
+    ⚠️ **C'EST LE DÉFAUT QUI RENDAIT TROIS PASSES INOPÉRANTES.** `_ajuste`
+      traite chaque tronçon SÉPARÉMENT ; quand la recette y déclare une droite,
+      `_droite_ajustee` la recale sur les points mesurés et rend deux bouts
+      NEUFS, qui n'ont plus aucune raison de tomber sur le premier point du
+      tronçon suivant. Onze lettres sortaient trouées — 6,9 unités au pied du
+      `l`, 6,8 à celui du `t`, 3,5 au `n`, 3,5 au `h`, 2,9 au `j`.
+
+    ⚠️ **ET `versD` LE CACHAIT.** Il n'écrit qu'un seul `M`, puis des `L`/`C`
+      qui repartent du POINT COURANT : le trou ne disparaissait pas, il devenait
+      en silence la première poignée de la courbe suivante.
+    ★ D'où le mystère : `_tangence` mesurait la poignée du `t` depuis le départ
+      DÉCLARÉ de la courbe, la rendait rigoureusement verticale, l'acceptait
+      (`_sur_laxe` à 4,9 unités pour 14,3 permises) — et le tracé rendu la
+      montrait à 6,1° de la verticale, parce que le lecteur, lui, la mesure
+      depuis la fin du fût. « La poignée devrait être verticale » (l'auteur) :
+      elle l'était dans les nombres, et le trou la couchait.
+
+    On recoud donc EXACTEMENT comme `versD` dessine — le morceau suivant repart
+    du point courant, ses poignées ne bougent pas. Le tracé rendu est au trait
+    près le même ; ce qui change, c'est que les passes d'après voient enfin ce
+    qui sera dessiné. Déplacer la poignée avec le point serait un autre choix,
+    et un mauvais : essayé, il éloigne le `h` de 6,1 à 8,8 unités de son axe et
+    le `l` de 8,2 à 10,1, parce que le trou refermé de force tire toute la
+    courbe hors de l'axe.
+    """
+    for i in range(len(chem) - 1):
+        a, b = chem[i], chem[i + 1]
+        if math.dist(a[2], b[0]) > 1e-9:
+            chem[i + 1] = (a[2], b[1], b[2])
+    return chem
+
 def _coins_nets(chem):
     """★ **UN COIN EST UN POINT, PAS DEUX.**
 
@@ -1623,16 +1730,16 @@ RASANT = math.cos(math.radians(20))
 PART_DROITE = 0.25
 
 
-def _bornes_droites(guide, n):
-    """Les indices où le guide cesse d'être droit, ou recommence à l'être."""
+def _runs_droits(guide):
+    """Les tronçons que le guide déclare DROITS, bornes comprises."""
     if guide is None or len(guide) < 5:
-        return set()
+        return []
     m = len(guide)
     # ⚠️ On ARRONDIT AU-DESSUS : `_guide_droit` compare à la même fraction,
     #   et quinze points contre quinze et quart suffisaient à faire échouer
     #   la jambe du `m` — un quart de point.
     mini = max(4, int(math.ceil(PART_DROITE * m)))
-    out, i = set(), 0
+    out, i = [], 0
     while i < m - mini:
         j = i + mini
         if not _guide_droit(guide, i, j):
@@ -1640,11 +1747,19 @@ def _bornes_droites(guide, n):
             continue
         while j + 1 < m and _guide_droit(guide, i, j + 1):
             j += 1
+        out.append((i, j))
+        i = j
+    return out
+
+
+def _bornes_droites(guide, n):
+    """Les indices où le guide cesse d'être droit, ou recommence à l'être."""
+    out = set()
+    for i, j in _runs_droits(guide):
         if i > 0:
             out.add(i)
-        if j < m - 1:
+        if j < len(guide) - 1:
             out.add(j)
-        i = j
     return {k for k in out if 0 < k < n - 1}
 
 
@@ -2130,8 +2245,11 @@ def traits(ch, recette, points_du_trace, journal=None):
     # ③ chaque trait est AJUSTÉ : le moins de cubiques possible à une unité près.
     #    Les coins du guide sont imposés comme bornes — un ajustement qui n'en
     #    saurait rien arrondirait le pied du `l` et le `z`.
-    ajustes = [_ajuste(ligne, TOLERANCE, coins[t], casiers, guides[t],
-                       not decl[t].get('ouvert', True))
+    # ⚠️ **ET LA CHAÎNE SE RECOUD AUSSITÔT.** `_ajuste` rend ses tronçons
+    #   séparément ; onze lettres en sortaient trouées, et le trou se lisait
+    #   ensuite comme une poignée (voir `_recoud`).
+    ajustes = [_recoud(_ajuste(ligne, TOLERANCE, coins[t], casiers, guides[t],
+                               not decl[t].get('ouvert', True)))
                for t, ligne in enumerate(lignes)]
 
     # ④ puis chaque bout que la recette pose en contact est TAILLÉ à sa rencontre.
@@ -2180,7 +2298,7 @@ def traits(ch, recette, points_du_trace, journal=None):
     #   s'était calée sur une droite que les passes suivantes ont ensuite
     #   redressée, si bien que la poignée du `t` et celle du `l` restaient à six
     #   degrés de la verticale. Le dernier mot revient à la géométrie FINALE.
-    ajustes = [_tangence(_coins_nets(list(c)), casiers, TOLERANCE)
+    ajustes = [_tangence(_recoud(_coins_nets(list(c))), casiers, TOLERANCE)
                for c in ajustes]
     if journal is not None:
         # ★ Ce que la projection a COÛTÉ : le pire écart du trait rendu à l'axe,
