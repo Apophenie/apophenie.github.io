@@ -113,6 +113,19 @@ MAIGRE = maigre()
 #: De l'unité de la police à celle du moteur : capitale sur capitale.
 ECHELLE = CAPITALE_CIBLE / float(DONNEES['capitale'])
 
+#: ★ **L'ÉTALON DE TOUTES LES DISTANCES DE FORME : LE FÛT.**
+#:
+#: > « fais-tu des correctifs au cas par cas ou une mise à jour des règles pour
+#: >   que ça marche aussi si je changeais de fonte ? » (l'auteur)
+#:
+#: Les seuils qui parlent de FORME — la saillie d'une encoche, la longueur d'un
+#: moignon, la portée d'un carrefour — n'ont de sens que rapportés à l'épaisseur
+#: du trait. Écrits en dur, ils dataient d'une police. Rapportés au fût, que la
+#: source DÉCLARE, ils suivent la police qu'on lui donne. Les seuils qui parlent
+#: de RENDU — la tolérance d'ajustement, le pas d'échantillonnage — restent
+#: absolus : ils se mesurent contre le cadre de dessin, pas contre l'encre.
+FUT = DONNEES['futs'][MAIGRE_B][1] * ECHELLE
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  ① Les encoches de jonction
@@ -123,13 +136,13 @@ ECHELLE = CAPITALE_CIBLE / float(DONNEES['capitale'])
 #: n'est pas un trait, c'est un détail d'encrage. Aucun trait du dessin ne
 #: descend sous quarante-huit unités — le plus court, le crochet du `l`, en fait
 #: cent quatre-vingts.
-SAILLIE = 26.0
-COTE = 48.0
+SAILLIE = 0.35 * FUT
+COTE = 0.65 * FUT
 
 #: Sous ce seuil, un nœud est SUR la droite de ses voisins : le retirer ne
 #: déplace pas le contour, il en retire seulement un point devenu inutile une
 #: fois l'encoche dégrafée.
-PLAT = 4.0
+PLAT = 0.055 * FUT
 
 
 def _dseg(p, a, b):
@@ -272,13 +285,13 @@ def versD(ms, ferme=False):
 PAS_NAPPE = 0.8
 #: Deux points du même contour ne se font face que s'ils sont assez loin l'un de
 #: l'autre le long du tracé — sinon un voisin immédiat passerait pour un vis-à-vis.
-ECART_MINI = 33.0
+ECART_MINI = 0.45 * FUT
 #: Au-delà, il n'y a pas de vis-à-vis : on est à une extrémité, où le contour se
 #: replie déjà sur lui-même et où le nœud est déjà sur l'axe. La valeur se
 #: déduit : à wght −275 le fût vertical est nul et l'horizontal a croisé de 1,25
 #: unité de police ; douze unités de moteur laissent de la marge aux jonctions
 #: sans jamais atteindre le bord opposé d'un autre trait.
-PORTEE = 12.0
+PORTEE = 0.16 * FUT
 #: ⚠️ **ET LE VIS-À-VIS DOIT ÊTRE EN FACE, PAS PLUS LOIN SUR LE MÊME TRAIT.**
 #:   Sur une barre effondrée, les deux bords sont CONFONDUS : n'importe quel
 #:   point de l'un est à une unité de l'autre, y compris trente unités plus loin.
@@ -482,7 +495,7 @@ DE_FACE_GUIDE = 0.5
 #: Au-delà de cet écart à la médiane du seau, un point n'appartient pas au même
 #: passage : les deux bords de l'aller-retour sont à une unité et demie l'un de
 #: l'autre, six laissent de la marge sans laisser entrer un trait voisin.
-INTRUS = 6.0
+INTRUS = 0.08 * FUT
 
 
 def _direction(guide, k):
@@ -609,7 +622,7 @@ def plis(nuage):
 #: c'est qu'il appartient à un autre trait. Deux cents unités laissent passer
 #: l'erreur du `r` — son épaule était déclarée deux cents unités trop loin — sans
 #: laisser un `w` confondre deux branches, distantes de plus de trois cents.
-PORTEE_PLI = 210.0
+PORTEE_PLI = 2.85 * FUT
 
 
 def _recale(guide, cible, versLaFin):
@@ -813,7 +826,7 @@ def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None):
 #: tronçon. Le repliage dérive jusqu'à huit unités près d'une pointe — c'est le
 #: coude du `y`, et c'est une erreur de ma méthode, pas du dessin. Douze le
 #: laissent passer ; un tronçon qui n'est pas droit s'en écarte de dizaines.
-ECART_DROITE = 12.0
+ECART_DROITE = 0.16 * FUT
 
 
 def _tronc_droit(tronc, casiers):
@@ -1033,7 +1046,7 @@ def _taille(chem, i, t, garderLeDebut):
 #: Sur quelle longueur, au bout d'un trait, on cherche la rencontre avec son
 #: voisin. Au-delà, un trait qui frôle un autre à mi-parcours — la hampe du `t`
 #: sous sa barre — s'y ferait couper.
-ZONE_JONCTION = 60.0
+ZONE_JONCTION = 0.8 * FUT
 
 #: Quelle part d'un morceau doit tomber sur du droit pour qu'on le tienne pour
 #: droit. Quatre points sur cinq : la zone de carrefour d'une diagonale de `y`
@@ -1173,7 +1186,7 @@ def rejoint(chemins, liens, attendus):
 #: Un morceau plus court que ça, coincé entre deux autres, n'est pas un trait :
 #: c'est le résidu d'un carrefour. Le plus court trait vrai de l'alphabet — le
 #: bras du `k` — en fait cent trente.
-COURT = 30.0
+COURT = 0.4 * FUT
 
 
 def _intersection(p, u, a, b):
