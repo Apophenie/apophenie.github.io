@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Glyphes — police, actuel, recette, squelette, axe, traits</title>
+<title>Glyphes — police, actuel, recette, axe, traits</title>
 <meta name="color-scheme" content="dark light">
 
 <!-- ★ HORS DU SITE, comme `debug.html` et `AB-testing.html`.
 
      Aucun lien n'y mène, `robots` la tient à l'écart, et elle ne propose aucun
      retour. Ce n'est pas une page du site : c'est l'instrument qui met UN MÊME
-     SIGNE sous six formes côte à côte, pour qu'un dessin se juge à l'œil
+     SIGNE sous cinq formes côte à côte, pour qu'un dessin se juge à l'œil
      plutôt qu'à l'argument.
 
-     ★ Elle s'appelait `AB-glyphes.html` quand elle opposait deux colonnes. Elle
-       en montre quatre : « tu peux renommer en glyphes.html puisqu'il n'y a pas
-       2 colonnes mais davantage » (l'auteur). Un A/B compare deux options ; ceci
-       est un banc d'essai. -->
+     ★ Elle s'appelait `AB-glyphes.html` quand elle opposait deux colonnes :
+       « tu peux renommer en glyphes.html puisqu'il n'y a pas 2 colonnes mais
+       davantage » (l'auteur). Un A/B compare deux options ; ceci est un banc
+       d'essai, et une colonne s'en retire dès qu'elle n'apprend plus rien. -->
 <meta name="robots" content="noindex, nofollow">
 
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -38,7 +38,7 @@
 }
 .gl__rangee {
   display: grid;
-  grid-template-columns: 2.2rem repeat(6, 1fr);
+  grid-template-columns: 2.2rem repeat(5, 1fr);
   align-items: start;
   gap: 1rem;
   padding: .75rem 0;

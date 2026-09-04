@@ -5,7 +5,7 @@
  * >   et version JetBrains, en minuscule et en majuscule ; comme ça je verrai
  * >   bien ce que j'en pense. » (l'auteur)
  *
- * Six colonnes par signe, et l'ordre n'est pas indifférent :
+ * Cinq colonnes par signe, et l'ordre n'est pas indifférent :
  *
  *  1. **LA POLICE** — la lettre écrite en JetBrains Mono, c'est-à-dire
  *     EXACTEMENT ce que la scène affiche sur sa ligne (`visuel/constants.js ›
@@ -16,39 +16,38 @@
  *     traçage dessine aujourd'hui pour `mtrb`, `mexb` et `mbob` ;
  *  3. **LA RECETTE** — le candidat produit par `src/gfx/jetbrains-traces.py`,
  *     qui pose des arcs elliptiques sur les mesures de la police ;
- *  4. **LE SQUELETTE** — celui que `src/gfx/jetbrains-squelette.py` EXTRAIT par
- *     érosion du contour réel ;
- *  5. **L'AXE** — la police extrapolée jusqu'à l'épaisseur nulle. Ni grille, ni
- *     amincissement, ni filtre : c'est JetBrains Mono elle-même, à une graisse
- *     qu'elle ne propose pas mais qu'elle décrit ;
- *  6. **LES TRAITS SUR L'AXE** — la topologie DÉCLARÉE par la recette, posée sur
- *     cet axe exact. La seule des six à porter des JONCTIONS, donc la seule
- *     dont les comptes soient utilisables — et la seule adoptable.
+ *  4. **L'AXE** — la police lue à la graisse où son encre s'annule. Ni grille,
+ *     ni amincissement, ni filtre, ni ré-échantillonnage : c'est JetBrains Mono
+ *     elle-même, à un poids qu'elle décrit sans l'exposer ;
+ *  5. **LES TRAITS SUR L'AXE** — la topologie DÉCLARÉE par la recette, TAILLÉE
+ *     dans cet axe exact. La seule des cinq à porter des JONCTIONS, donc la
+ *     seule dont les comptes soient utilisables — et la seule adoptable.
  *
- * ★ **ET LA SIXIÈME REND LES QUATRE PRÉCÉDENTES CADUQUES.**
+ * ★ **ET LA CINQUIÈME REND LES TROIS PRÉCÉDENTES CADUQUES.**
  *
  *   > « Si tu repars des sources de la font, as-tu ce qu'il faut plutôt que de
  *   >   chercher à le recréer ? » (l'auteur)
  *
- *   Oui — et sans même aller chercher les sources : le woff2 du dépôt est
- *   VARIABLE, et JetBrains Mono est MONOLINÉAIRE. L'axe médian est donc la
- *   limite de ses contours quand la graisse tend vers zéro, et cette limite se
- *   calcule (`src/gfx/jetbrains-axe.py`). Les colonnes 3 à 5 reconstruisent ce
- *   que la 6ᵉ se contente de LIRE ; on les garde pour ce qu'elles montrent —
- *   l'écart entre deviner, mesurer, et savoir.
+ *   Oui, mais pas comme on l'espérait : **les sources ne contiennent aucun
+ *   squelette** — `JetBrainsMono.glyphs` est dessiné au contour, sans un seul
+ *   attribut d'épaisseur. Elles contiennent mieux : trois masters
+ *   point-compatibles et LEURS FÛTS DÉCLARÉS. L'épaisseur s'annule à wght −275,
+ *   et à ce poids les deux bords d'un trait se rejoignent sur son axe. Voir
+ *   `src/gfx/jetbrains-axe.py`.
  *
- * ⚠️ La colonne « recalé sur les bords » a été retirée : « il n'y a rien à en
- *   tirer » (l'auteur), et c'était exact — elle déplaçait de deux unités un
- *   tracé déjà juste à deux unités près.
+ * ⚠️ Deux colonnes ont été retirées, et l'auteur avait raison les deux fois.
+ *   « Recalé sur les bords » : « il n'y a rien à en tirer » — elle déplaçait de
+ *   deux unités un tracé déjà juste à deux unités près. « Squelette », extrait
+ *   par érosion d'une image du contour : « la suite est mieux, sans aucun
+ *   doute » — une érosion passe par une grille, et une grille tremble.
  *
- * ★ **LA TROISIÈME DEVINE, LA QUATRIÈME MESURE, LA SIXIÈME LIT** — et c'est
- *   tout l'objet de les avoir côte à côte. Une recette décrit une courbe par un
- *   arc, qui n'a qu'un seul sens de courbure ; l'érosion suit l'axe du dessin,
- *   quel qu'il soit, mais à travers une grille ; l'extrapolation ne suit rien,
- *   elle relit la police à une graisse qu'elle n'expose pas.
+ * ★ **LA TROISIÈME DEVINE, LA QUATRIÈME LIT** — et c'est tout l'objet de les
+ *   avoir côte à côte. Une recette décrit une courbe par un arc, qui n'a qu'un
+ *   seul sens de courbure ; l'axe ne décrit rien, il interpole la police à un
+ *   poids qu'elle n'expose pas.
  *
- * ⚠️ Bas de casse seulement pour les quatre dernières : les capitales n'ont ni
- *   recette, ni squelette, ni axe engendré.
+ * ⚠️ Bas de casse seulement pour la dernière : les capitales n'ont pas de
+ *   recette, donc pas de topologie déclarée. Leur axe, lui, se lit aussi bien.
  *
  * ★ **LE DÉFAUT SE VOIT ENTRE LA 1ʳᵉ ET LA 2ᵈ COLONNE**, et c'est tout l'objet
  *   de la page : « le glyphe qui est mené dans la zone de traçage devrait
@@ -67,7 +66,6 @@ import { e, svg as s } from './dom.js';
 import { GLYPHES, METRIQUES } from '../moteur/tables/glyphes.js';
 import { setGlyphes, deriveGlyph } from '../visuel/glyphes.js';
 import { CANDIDATS, MESURES } from '../gfx/_glyphes-candidats.js';
-import { SQUELETTES } from '../gfx/_glyphes-squelette.js';
 import { AXES, TRAITS } from '../gfx/_glyphes-axe.js';
 
 setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
@@ -75,7 +73,7 @@ setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
 const MINUSCULES = [...'abcdefghijklmnopqrstuvwxyz'];
 const CAPITALES = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
 
-/* ★ **LA BOÎTE EST LA MÊME POUR LES SIX COLONNES**, et c'est ce qui rend la
+/* ★ **LA BOÎTE EST LA MÊME POUR LES CINQ COLONNES**, et c'est ce qui rend la
    page honnête : deux dessins à des échelles différentes se comparent mal, et
    un `viewBox` ajusté au contenu ferait paraître grand ce qui est petit. On
    fixe donc un cadre unique, assez large pour contenir les deux répertoires —
@@ -187,7 +185,6 @@ function case_(titre, traits, jonctions, teinte) {
 function rangee(c) {
   const actuel = GLYPHES[c];
   const candidat = CANDIDATS[c];
-  const squelette = SQUELETTES[c];
   const poses = TRAITS[c];
   return e('section.gl__rangee', {}, [
     e('h2.gl__lettre', { texte: c }),
@@ -198,32 +195,21 @@ function rangee(c) {
     candidat
       ? case_('recette', candidat.traits, candidat.jonctions, 'var(--rubric)')
       : e('div.gl__case.gl__case--vide', { texte: 'pas de recette' }),
-    /* ⚠️ Le squelette n'affiche PAS ses comptes : son découpage en traits n'est
-       pas fiable sur les lettres à panse tangente (`b d g p q`), où l'érosion
-       sème une échelle de faux carrefours. Le DESSIN, lui, l'est — et c'est ce
-       qu'on regarde ici. Afficher des comptes qu'on sait faux les ferait passer
-       pour un résultat. */
-    squelette
-      ? e('div.gl__case', {}, [
-        dessin(squelette, 'var(--line-ui)'),
-        e('div.gl__nom', { texte: 'squelette' }),
-        e('div.gl__comptes', { texte: `${squelette.length} branche(s)` }),
-      ])
-      : e('div.gl__case.gl__case--vide', { texte: 'pas de squelette' }),
-    /* ★ L'apparié, LUI, affiche ses comptes — et c'est toute la différence :
-       il a des jonctions, donc `deriveGlyph` sait les lire. Ils doivent
-       coïncider avec ceux de la recette, dont il reprend la topologie. */
-    /* ⚠️ L'axe BRUT n'affiche pas de comptes : son contour est un ALLER-RETOUR,
-       donc `deriveGlyph` y verrait une boucle par trait. C'est la colonne
-       suivante qui lui donne une topologie — non pas en la cherchant dans le
-       dessin, mais en l'y APPORTANT depuis la recette. */
+    /* ⚠️ L'axe n'affiche pas de comptes : son contour est un ALLER-RETOUR, donc
+       `deriveGlyph` y verrait une boucle par trait. C'est la colonne suivante
+       qui lui donne une topologie — non pas en la cherchant dans le dessin,
+       mais en l'y APPORTANT depuis la recette. */
     AXES[c]
       ? e('div.gl__case', {}, [
         dessin([{ d: AXES[c] }], 'var(--rubric-hi)'),
         e('div.gl__nom', { texte: 'axe de la police' }),
-        e('div.gl__comptes', { texte: 'extrapolé à graisse nulle' }),
+        e('div.gl__comptes', { texte: 'lu à l’encre nulle' }),
       ])
       : e('div.gl__case.gl__case--vide', { texte: 'pas d’axe' }),
+    /* ★ Les traits, EUX, affichent leurs comptes — et c'est toute la
+       différence : ils ont des jonctions, donc `deriveGlyph` sait les lire. Ils
+       doivent coïncider avec ceux de la recette, dont ils reprennent la
+       topologie. */
     poses
       ? case_('traits sur l’axe', poses.traits, poses.jonctions, 'var(--phos)')
       : e('div.gl__case.gl__case--vide', { texte: 'pas de traits' }),
@@ -233,13 +219,13 @@ function rangee(c) {
 function page() {
   return e('div.gl', {}, [
     e('header.gl__entete', {}, [
-      e('h1', { texte: 'Glyphes — police, actuel, recette, squelette, axe, traits' }),
+      e('h1', { texte: 'Glyphes — police, actuel, recette, axe, traits' }),
       e('p.gl__appel', {
         texte: 'La première colonne est ce que la SCÈNE affiche sur sa ligne ; la deuxième, '
           + 'ce que la zone de traçage dessine aujourd’hui. La troisième DEVINE la courbe '
-          + 'avec des arcs, la quatrième l’EXTRAIT du contour par érosion, la cinquième '
-          + 'ne reconstruit rien — c’est la police elle-même, extrapolée jusqu’à '
-          + 'l’épaisseur nulle —, et la sixième y pose la topologie que la recette déclare.',
+          + 'avec des arcs ; la quatrième ne reconstruit rien — c’est la police elle-même, '
+          + 'lue à la graisse où son encre s’annule, d’après les fûts que ses sources '
+          + 'déclarent —, et la cinquième y taille la topologie que la recette déclare.',
       }),
       e('p.gl__appel', {
         texte: `Sous chaque tracé : traits · extrémités · boucles — les trois comptes que `
