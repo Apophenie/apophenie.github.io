@@ -48,11 +48,33 @@ jobs:
         with:
           python-version: '3.12'
 
+      # ⚠️ **SANS `rsvg-convert`, LA CARTE DE PARTAGE DISPARAÎT EN SILENCE.**
+      # `vite.config.js › carteDePartage` produit `og-card.png` en rastérisant
+      # `favicon.svg`, et RETIRE ses balises `og:image` si l'outil manque —
+      # plutôt que de pointer dans le vide. C'est le bon comportement, mais il
+      # se paie : `ubuntu-latest` n'embarque pas librsvg, si bien que le site
+      # publié n'a JAMAIS eu de balise `og:image` alors que la construction
+      # locale en avait une. Aucune erreur, aucun test rouge, juste un
+      # avertissement dans un journal que personne ne lit.
+      #   « je viens de regarder […] la balise og-image n'est pas insérée dans
+      #     le header » (l'auteur)
+      # Le même outil sert à `apple-touch-icon.png`, qui se taisait pareillement.
+      - name: Installer librsvg (carte de partage et icône Apple)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq librsvg2-bin
+
       - name: Installer les dépendances
         run: bun install --frozen-lockfile
 
       - name: Tests puis build
         run: bun run check
+
+      # Le silence était le vrai défaut : on VÉRIFIE donc que la carte est là et
+      # que le HTML la déclare, plutôt que de faire confiance à l'étape d'avant.
+      - name: La carte de partage a-t-elle bien été produite ?
+        run: |
+          test -s dist/og-card.png
+          test -s dist/apple-touch-icon.png
+          grep -q '<meta property="og:image" content="https://' dist/index.html
 
       # Le logo, le favicon et le bloc CSS de `src/styles/` sont produits par un
       # générateur Python versionné (`src/gfx/logo-jost-trace.py`). Ils sont

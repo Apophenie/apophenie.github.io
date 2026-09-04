@@ -27,11 +27,22 @@ cache:
 
 # `bun run check` enchaîne les tests (node --test, sans build préalable) puis le
 # build. Les deux comptent : le site doit être vert ET constructible.
+#
+# ⚠️ **`rsvg-convert` EST INDISPENSABLE, ET SON ABSENCE NE SE VOIT PAS.**
+# `vite.config.js › carteDePartage` rastérise `favicon.svg` en `og-card.png`, et
+# RETIRE ses balises `og:image` si l'outil manque plutôt que de pointer dans le
+# vide. C'est le bon repli, mais il est muet : le site publié n'a jamais eu de
+# balise `og:image` alors que toute construction locale en avait une. On installe
+# donc l'outil, puis on VÉRIFIE que la carte est là — le silence était le défaut.
 verify:
   stage: verify
   script:
+    - apk add --no-cache rsvg-convert >/dev/null
     - bun install --frozen-lockfile
     - bun run check
+    - test -s dist/og-card.png
+    - test -s dist/apple-touch-icon.png
+    - grep -q '<meta property="og:image" content="https://' dist/index.html
   artifacts:
     paths:
       - dist/
