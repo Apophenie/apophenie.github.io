@@ -418,14 +418,35 @@ def recettes(M):
         fut = o['x0'] + M['fut'] / 2
         epaule = hx * 0.74
         if c == 'm':
-            milieu = (o['x0'] + o['x1']) / 2
-            # Le `m` a la même amorce que le `n` : son fût monte jusqu'en haut
-            # de la hauteur d'x, les deux arches naissent en dessous.
-            R[c] = ([t(ligne(fut, o['y0'], fut, hx)),
-                     t(arc(fut, epaule, (milieu - fut) / 2, hx * 0.28, 0, 0,
-                           milieu, epaule) + ' L %s %s' % (r(milieu), r(o['y0']))),
-                     t(arc(milieu, epaule, (o['x1'] - milieu) / 2, hx * 0.28, 0, 0,
-                           o['x1'], epaule) + ' L %s %s' % (r(o['x1']), r(o['y0'])))],
+            # ★ **LES DEUX ARCHES SONT LA MÊME, À UN ENTRAXE PRÈS.**
+            #
+            #   > « un trait vertical droit à gauche, un arc qui en part et
+            #   >   redescend droit au centre, et un second arc IDENTIQUE accolé
+            #   >   au premier. » (l'auteur)
+            #
+            #   La recette les décrivait par leurs BORDS — de `fut` au milieu de
+            #   la boîte, puis du milieu au bord droit —, et ces deux largeurs
+            #   diffèrent de deux unités parce que la boîte n'est pas centrée sur
+            #   les fûts. On les décrit donc par leur ENTRAXE : trois jambes
+            #   également espacées, deux arches rigoureusement superposables.
+            #   L'axe le confirme — il pose les trois jambes à 79,2 / 246,6 /
+            #   413,9, soit deux pas de 167,35 à un dixième d'unité près.
+            #
+            # ★ **ET LEUR NAISSANCE SE LIT DANS L'AXE, pas dans une fraction
+            #   commune à `n` et `m`.** Les deux lettres partageaient `epaule =
+            #   0,74 hx` et un rayon de `0,28 hx` : l'axe donne 306 pour le `n`
+            #   (arche large de 277) et 354 pour le `m` (arches de 167). Une
+            #   arche étroite naît plus haut et monte moins — c'est la même
+            #   ellipse aplatie, pas la même hauteur d'attaque.
+            droite = o['x1'] - M['fut'] / 2
+            pas = (droite - fut) / 2
+            epauleM = hx * 0.784
+            ryM = hx * 0.227
+            R[c] = ([t(ligne(fut, o['y0'], fut, hx))]
+                    + [t(arc(fut + k * pas, epauleM, pas / 2, ryM, 0, 0,
+                             fut + (k + 1) * pas, epauleM)
+                         + ' L %s %s' % (r(fut + (k + 1) * pas), r(o['y0'])))
+                       for k in (0, 1)],
                     [[0, 1, 'première arche'], [1, 2, 'seconde arche']])
         elif c == 'r':  # noqa: E501 — voir la note « LE FÛT S'ARRÊTE OÙ L'ARCHE NAÎT »
             # ⚠️ L'épaule montait à 535 pour une lettre qui plafonne à 460 : son
@@ -581,10 +602,43 @@ def recettes(M):
     #     droit fait un angle contre le pilier — la goutte d'eau. On la déclare
     #     donc fermée, et on pose sa COUTURE à ce coin : un tracé fermé se coupe
     #     là où il commence, et l'ajusteur n'y lisse rien.
+    # ★ **LA BOUCLE EST UNE GOUTTE D'EAU, PAS UN OVALE.**
+    #
+    #   > « le haut de la boucle arrive à la perpendiculaire sur la barre sur
+    #   >   l'original, ça devrait toujours être le cas à l'arrivée » —
+    #   > « ta boucle fermée était bien du moment qu'elle a un angle droit en
+    #   >   haut à droite, façon goutte d'eau. » (l'auteur)
+    #
+    #   Un ovale n'a ni angle ni côté droit : la boucle s'arrêtait vingt-trois
+    #   unités avant le pilier et son sommet y arrivait de biais. L'axe, lui, dit
+    #   exactement ce qu'il faut — il file droit de (200, 246) à (384, 241),
+    #   TOURNE À ANGLE DROIT contre le pilier, descend dessus jusqu'à (384, 137),
+    #   et de là s'échappe vers le bas. Quatre gestes, et le dernier est la
+    #   couture : le segment vertical qui longe le pilier EST dans la police, ce
+    #   n'est pas un artifice de fermeture.
+    #
+    #   Les trois cotes se lisent sur l'axe et non à vue : sommet à 0,534 hauteur
+    #   d'x (241 sur 452), retour au pilier à 0,304 (137), et la barre du haut
+    #   commence aux 38,5 % de la largeur de la boucle (200 pour 85 → 384).
+    #
+    # ⚠️ **ET LE CÔTÉ DROIT EST LA COUTURE, pas un `L` déclaré.** Écrit dans le
+    #   guide, il court SUR le pilier — deux traits, un seul brin d'axe, et la
+    #   projection le donne au pilier qui vient en premier. Mesuré : le côté de
+    #   la boucle sortait onze unités À DROITE du pilier. C'est le même piège que
+    #   la panse du `b`, et la même réponse : on l'affirme au dernier geste. On
+    #   pose donc la couture EXACTEMENT là où la police met son angle droit —
+    #   du pied de la boucle à son sommet, le long du pilier.
+    hautBoucle = hx * 0.534
+    basBoucle = hx * 0.304
+    gaucheA = o['x0'] + M['fut'] / 2
+    barreA = gaucheA + (futA - gaucheA) * 0.385
     R['a'] = ([t(arc(o['x0'] + o['l'] * 0.16, hautA, futA - o['x0'] - o['l'] * 0.16,
                      hx - hautA, 0, 0, futA, hx) + ' L %s %s' % (r(futA), r(o['y0']))),
-               ovale((o['x0'] + futA) / 2, (o['y0'] + panseA) / 2,
-                     (futA - o['x0']) / 2, (panseA - o['y0']) / 2)],
+               couture('M %s %s' % (r(futA), r(hautBoucle))
+                       + ' L %s %s' % (r(barreA), r(hautBoucle))
+                       + ' A %s %s 0 1 1 %s %s' % (r((futA - gaucheA) / 2),
+                                                   r((hautBoucle - o['y0']) / 2),
+                                                   r(futA), r(basBoucle)))],
               [[0, 1, 'panse']])
 
     # ── `g` : panse ronde + descendante à crochet ─────────────────────────────
@@ -678,11 +732,27 @@ def recettes(M):
     # geste que le creux du `u`, en asymétrique. Un quart de tour ne pouvait pas
     # le dire — il monte ou il descend, jamais les deux —, et le pied s'arrêtait
     # 111 unités au-dessus du sol.
-    rxT = (o['x1'] - futT) / 2
-    ryT = rxT * 0.62
+    # ★ **ET LE PIED FINIT PAR UN SEGMENT DROIT — un point de plus, exigé.**
+    #
+    #   > « la poignée horizontale devrait être plus à gauche et un point
+    #   >   supplémentaire devrait être à droite en bas pour finir le segment »
+    #   >   (l'auteur)
+    #
+    #   L'axe lu dans la police le dit mot pour mot : il quitte la verticale à
+    #   y = 82, tourne jusqu'à (292, −0,5) et file DROIT jusqu'à (396, 0). Un
+    #   quart de tour qui s'arrêterait au bord de la chasse écraserait ces cent
+    #   unités de droite dans sa dernière poignée — c'est exactement le défaut
+    #   que l'auteur décrit, et c'est le même geste que le pied du `l`, qui lui
+    #   déclarait déjà sa droite finale et sort juste.
+    #   Les deux rayons se lisent donc sur l'axe : le quart de tour finit à
+    #   x = 292 (soit 0,44 de ce qui reste de chasse) et naît à y = 82 (0,94 du
+    #   rayon horizontal), et non à 62 % comme l'arc précédent le supposait.
+    rxT = (o['x1'] - futT) * 0.44
+    ryT = rxT * 0.94
     R['t'] = ([t(ligne(futT, o['y1'], futT, o['y0'] + ryT)
                  + ' A %s %s 0 0 1 %s %s' % (r(rxT), r(ryT),
-                                             r(o['x1']), r(o['y0'] + ryT * 1.3))),
+                                             r(futT + rxT), r(o['y0']))
+                 + ' L %s %s' % (r(o['x1']), r(o['y0']))),
                t(ligne(o['x0'], hx, o['x1'], hx))],
               [[0, 1, 'barre']])
     o = b['f']

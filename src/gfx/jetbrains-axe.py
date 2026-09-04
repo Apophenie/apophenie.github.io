@@ -1148,6 +1148,11 @@ def _redresse(chem, tol, casiers, plafond):
     return out
 
 
+#: Le plafond de fusion « relatif » : on ne le fixe pas, on le lit sur les deux
+#: morceaux qu'on efface (voir `_fusionne`).
+RELATIF = object()
+
+
 def _fusionne(chem, tol, casiers, plafond):
     """★ **ON ESSAIE DE RETIRER CHAQUE POINT, ET ON NE LE GARDE QUE S'IL SERT.**
 
@@ -1162,6 +1167,41 @@ def _fusionne(chem, tol, casiers, plafond):
     i = 0
     while i < len(chem) - 1:
         a, b = chem[i], chem[i + 1]
+        # ★ **RETIRER UN POINT NE DOIT PAS COÛTER PLUS QUE CE QU'IL VAUT.**
+        #   La dernière passe travaillait sous un plafond FIXE de 4,3 unités :
+        #   elle ravalait le segment droit du pied du `t` dans son quart de tour
+        #   (4,1 unités d'écart au lieu de 0,9) et les sommets d'arche du `m`,
+        #   alors que les morceaux qu'elle remplaçait tenaient à moins d'une
+        #   unité de l'axe. Le plafond se lit donc sur ce qu'on efface, avec le
+        #   même budget qu'ailleurs : un point de moins vaut une unité d'écart,
+        #   pas quatre.
+        # ⚠️ **ET UNE DROITE LONGUE, CONFIRMÉE PAR L'AXE, NE SE FOND PAS DANS
+        #   UNE COURBE.**
+        #
+        #   > « un point supplémentaire devrait être à droite en bas pour finir
+        #   >   le segment » (l'auteur, sur le `t`)
+        #
+        #   `_ajuste` pose bien la droite finale du pied du `t` ; cette passe la
+        #   ravalait dans le quart de tour, et le point demandé disparaissait.
+        #   Trois conditions, pas une de moins : le morceau est DROIT, il est
+        #   LONG (plus de huit dixièmes de fût — en deçà c'est un moignon de
+        #   carrefour, comme celui qui traîne à la fourche du `k`), et l'AXE le
+        #   confirme droit. Sans la troisième, le `w` gagnait un point sur une
+        #   branche que l'axe montre courbe ; sans la deuxième, le `k` et le `m`
+        #   en gagnaient quatre.
+        if bool(a[1]) != bool(b[1]) and casiers is not None:
+            droit = a if not a[1] else b
+            if math.dist(droit[0], droit[2]) >= 0.8 * FUT:
+                echos = [evalue(droit, k / 24) for k in range(25)]
+                if (sum(_sur_droit(casiers, q) for q in echos)
+                        >= MAJORITE_DROITE * len(echos)):
+                    i += 1
+                    continue
+        plaf = plafond
+        if plafond is RELATIF:
+            plaf = (max(_pres(casiers, evalue(x, k / 8))
+                        for x in (a, b) for k in range(9)) + BUDGET_POINT
+                    if casiers is not None else None)
         P = ([evalue(a, k / 16) for k in range(17)]
              + [evalue(b, k / 16) for k in range(1, 17)])
         t1 = _versLe(a[0], a[1][0] if a[1] else a[2])
@@ -1173,12 +1213,12 @@ def _fusionne(chem, tol, casiers, plafond):
         bez = _moindres_carres(P, u, t1, t2)
         err, _ = _ecart_max(P, bez, u)
         for _ in range(4):
-            if _accepte(bez, err, tol, casiers, plafond):
+            if _accepte(bez, err, tol, casiers, plaf):
                 break
             u = _reparametre(P, bez, u)
             bez = _moindres_carres(P, u, t1, t2)
             err, _ = _ecart_max(P, bez, u)
-        if _accepte(bez, err, tol, casiers, plafond):
+        if _accepte(bez, err, tol, casiers, plaf):
             chem[i:i + 2] = [bez]
             i = max(0, i - 1)
         else:
@@ -1615,6 +1655,122 @@ def _recoud(chem):
             chem[i + 1] = (a[2], b[1], b[2])
     return chem
 
+def _translation(ga, gb, tol=2.5):
+    """Le décalage CONSTANT qui mène `ga` sur `gb`, ou None s'il n'y en a pas."""
+    if len(ga) != len(gb) or len(ga) < 3:
+        return None
+    dx = sum(b[0] - a[0] for a, b in zip(ga, gb)) / len(ga)
+    dy = sum(b[1] - a[1] for a, b in zip(ga, gb)) / len(ga)
+    if any(abs(b[0] - a[0] - dx) > tol or abs(b[1] - a[1] - dy) > tol
+           for a, b in zip(ga, gb)):
+        return None
+    return (dx, dy)
+
+
+def _decale(chem, d):
+    return [((m[0][0] + d[0], m[0][1] + d[1]),
+             [(c[0] + d[0], c[1] + d[1]) for c in m[1]],
+             (m[2][0] + d[0], m[2][1] + d[1])) for m in chem]
+
+
+def _ecart_chem(chem, casiers):
+    return max([0.0] + [_pres(casiers, evalue(m, k / 12))
+                        for m in chem for k in range(13)])
+
+
+def _jumelles(chemins, guides, casiers):
+    """★ **DEUX ARCHES IDENTIQUES SORTENT IDENTIQUES.**
+
+    > « un trait vertical droit à gauche, un arc qui en part et redescend droit
+    >   au centre, et un second arc IDENTIQUE accolé au premier. » (l'auteur)
+
+    Les deux arches du `m` sont le même dessin décalé d'un entraxe : la recette
+    les déclare superposables, et l'axe le confirme à une unité près — trois
+    jambes à 79,2 / 246,6 / 413,9, deux pas de 167,35. Rien ne les distingue, et
+    pourtant elles sortaient différentes : l'une en trois morceaux, l'autre en
+    deux, leurs jambes naissant à quarante unités d'écart. C'est que le carrefour
+    central appartient aux DEUX et que la projection y répartit ses points comme
+    elle peut ; chaque arche y reçoit une moitié de mesure, et pas la même.
+
+    ⚠️ **ON NE MOYENNE PAS, ON CHOISIT.** Moyenner deux tracés qui n'ont ni le
+      même nombre de morceaux ni les mêmes coupures n'a pas de sens. On garde
+      celle qui SERRE LE MIEUX SON AXE, et l'on pose l'autre dessus — le décalage
+      étant repris à la mesure, par descente sur chaque coordonnée, et non à la
+      déclaration : la recette dit qu'il y a un entraxe, l'axe dit lequel.
+    """
+    if casiers is None:
+        return chemins
+    poses = []
+    for i in range(len(guides)):
+        for j in range(len(guides)):
+            if i == j or not chemins[i] or not chemins[j]:
+                continue
+            d = _translation(guides[i], guides[j])
+            if d is None or math.hypot(d[0], d[1]) < 1.0:
+                continue
+            if _ecart_chem(chemins[i], casiers) > _ecart_chem(chemins[j], casiers):
+                continue                       # l'autre sens fera mieux
+            for _ in range(2):
+                for quelle in (0, 1):
+                    note, mieux = None, d
+                    for pas in range(-20, 21):
+                        dd = ((d[0] + pas * 0.5, d[1]) if quelle == 0
+                              else (d[0], d[1] + pas * 0.5))
+                        e = _ecart_chem(_decale(chemins[i], dd), casiers)
+                        if note is None or e < note:
+                            note, mieux = e, dd
+                    d = mieux
+            poses.append((j, _decale(chemins[i], d)))
+    for j, chem in poses:
+        chemins[j] = chem
+    return chemins
+
+#: Ce qu'un point de MOINS a le droit de coûter en fidélité à l'axe : une unité
+#: sur six cents. « Le point central en haut pourrait être retiré en déplaçant
+#: légèrement les poignées de ses voisins pour garder la même courbe »
+#: (l'auteur) — « la même courbe », donc à une unité près.
+MOINDRE_POINT = 1.0
+
+#: Ce qu'un point de PLUS doit rapporter pour être gardé.
+POINT_DE_PLUS = 0.25
+
+#: Ce qu'on accepte de payer, en écart à l'axe, pour retirer un point à la
+#: dernière passe de fusion.
+BUDGET_POINT = 2.6
+
+
+def _extremums(guide, fenetre=6):
+    """Les indices où le guide REBROUSSE en x ou en y — les extrema du dessin.
+
+    ★ Une police pose un point à chaque extremum ; c'est la convention, et
+      JetBrains Mono la suit. Le sommet d'une arche du `m` en est un.
+
+    ⚠️ **UN EXTREMUM EST UN POINT, PAS UNE PLAGE.** Le critère — la différence
+      change de signe sur une fenêtre — est vrai sur SIX abscisses d'affilée
+      autour du sommet, et l'arche du `m` sortait en onze morceaux au lieu de
+      trois. On réduit donc chaque plage à son point le plus extrême.
+    """
+    n = len(guide)
+    out = set()
+    for c in (0, 1):
+        marques = []
+        for k in range(fenetre, n - fenetre):
+            av = guide[k][c] - guide[k - fenetre][c]
+            ap = guide[k + fenetre][c] - guide[k][c]
+            if av * ap < 0 and abs(av) > 1.0 and abs(ap) > 1.0:
+                marques.append(k)
+        i = 0
+        while i < len(marques):
+            j = i
+            while j + 1 < len(marques) and marques[j + 1] == marques[j] + 1:
+                j += 1
+            plage = marques[i:j + 1]
+            k0 = plage[0]
+            sens = 1 if guide[k0][c] - guide[k0 - fenetre][c] > 0 else -1
+            out.add(max(plage, key=lambda k: sens * guide[k][c]))
+            i = j + 1
+    return out
+
 def _coins_nets(chem):
     """★ **UN COIN EST UN POINT, PAS DEUX.**
 
@@ -1726,8 +1882,19 @@ RASANT = math.cos(math.radians(20))
 
 
 #: Un tronçon droit du guide doit peser au moins ça pour valoir une coupure :
-#: un huitième du guide. En deçà, c'est un bout de courbe presque plat.
+#: un quart du guide. En deçà, c'est un bout de courbe presque plat — À MOINS
+#: qu'il ne soit droit EXACTEMENT (voir `_guide_droit`).
 PART_DROITE = 0.25
+
+#: La plus courte portée sur laquelle on consent à conclure « droite » : six
+#: abscisses sur soixante et une. En deçà, deux ou trois points alignés ne
+#: prouvent rien — `points_du_trace` échantillonne un arc en quarante-huit
+#: points, et deux points consécutifs d'une même corde sont exactement alignés.
+SONDE_DROITE = 6
+
+#: La flèche en deçà de laquelle une portée courte est tenue pour droite : deux
+#: centièmes d'unité sur six cents. Un `L` de la recette a une flèche NULLE.
+DROITE_EXACTE = 0.02
 
 
 def _runs_droits(guide):
@@ -1738,7 +1905,7 @@ def _runs_droits(guide):
     # ⚠️ On ARRONDIT AU-DESSUS : `_guide_droit` compare à la même fraction,
     #   et quinze points contre quinze et quart suffisaient à faire échouer
     #   la jambe du `m` — un quart de point.
-    mini = max(4, int(math.ceil(PART_DROITE * m)))
+    mini = max(4, SONDE_DROITE)
     out, i = [], 0
     while i < m - mini:
         j = i + mini
@@ -1774,12 +1941,27 @@ def _guide_droit(guide, a, b):
       quart du guide : en deçà, la platitude est celle d'une courbe, pas d'une
       droite.
     """
-    if b - a < max(2, PART_DROITE * len(guide)) or b >= len(guide):
+    if b - a < 2 or b >= len(guide):
         return False
     p, q = guide[a], guide[b]
     if math.dist(p, q) < 1e-9:
         return False
-    return all(_dseg(guide[i], p, q) < GUIDE_DROIT for i in range(a, b + 1))
+    fleche = max(_dseg(guide[i], p, q) for i in range(a, b + 1))
+    if b - a >= max(2, PART_DROITE * len(guide)):
+        return fleche < GUIDE_DROIT
+    # ★ **EN DEÇÀ D'UN QUART DU GUIDE, ON N'ACCEPTE QU'UNE DROITE EXACTE.**
+    #
+    #   > « un point supplémentaire devrait être à droite en bas pour finir le
+    #   >   segment » (l'auteur, sur le `t`)
+    #
+    #   Le pied du `t` finit par cent quatre unités de droite déclarée — 14 % du
+    #   guide, donc sous le seuil : elle se noyait dans le quart de tour et
+    #   sortait en une seule cubique, sans le point demandé. Or ce qui distingue
+    #   une VRAIE droite d'un arc plat n'est pas sa longueur, c'est sa flèche :
+    #   un `L` de la recette a une flèche NULLE, l'épaule du `r` — ellipse de
+    #   rayons 311 × 118 — en a quatre dixièmes d'unité sur la même portée. Deux
+    #   centièmes séparent les deux sans ambiguïté, et le seuil long ne bouge pas.
+    return b - a >= SONDE_DROITE and fleche < DROITE_EXACTE
 
 
 def _etendue(P):
@@ -2252,9 +2434,36 @@ def traits(ch, recette, points_du_trace, journal=None):
     # ⚠️ **ET LA CHAÎNE SE RECOUD AUSSITÔT.** `_ajuste` rend ses tronçons
     #   séparément ; onze lettres en sortaient trouées, et le trou se lisait
     #   ensuite comme une poignée (voir `_recoud`).
-    ajustes = [_recoud(_ajuste(ligne, TOLERANCE, coins[t], casiers, guides[t],
+    # ★ **ET L'ON COUPE AUX EXTREMA — quand ça rapporte, et pas autrement.**
+    #
+    #   > « Avec 10 points dont […] 2 avec des poignées symétriques sur le haut
+    #   >   des courbes » (l'auteur, sur le `m`)
+    #
+    #   Une police pose un point à chaque extremum, et JetBrains Mono le fait :
+    #   le sommet d'une arche en est un. Mais l'auteur demande AUSSI d'en retirer
+    #   — « le point central en haut [de l'`o`] pourrait être retiré » — et les
+    #   deux exigences ne se contredisent pas : un point se paie en fidélité.
+    #   On ajuste donc chaque trait DEUX FOIS, avec et sans les extrema, et l'on
+    #   tranche à la mesure : un point de MOINS passe s'il ne coûte pas une unité
+    #   d'écart ; un point de PLUS ne passe que s'il en fait gagner deux.
+    #   Mesuré, ça donne au `m` ses deux sommets d'arche (5 morceaux à 6,9 unités
+    #   → 7 à 4,6), au `p` un point qui le ramène de 11,7 à 9,5, et ça RETIRE
+    #   celui de l'`o` (5 → 4) et du `b` (6 → 5). Le `a` et le `g`, eux, gardent
+    #   leur version sans extrema : elle est deux fois plus fidèle.
+    def ajuster(t, ligne, marques):
+        return _recoud(_ajuste(ligne, TOLERANCE, marques, casiers, guides[t],
                                FERMES[t]))
-               for t, ligne in enumerate(lignes)]
+
+    ajustes = []
+    for t, ligne in enumerate(lignes):
+        sobre = ajuster(t, ligne, coins[t])
+        riche = ajuster(t, ligne, set(coins[t]) | _extremums(guides[t]))
+        es = _ecart_chem(sobre, casiers) if casiers is not None else 0.0
+        er = _ecart_chem(riche, casiers) if casiers is not None else 1e18
+        if len(riche) < len(sobre):
+            ajustes.append(riche if er <= es + MOINDRE_POINT else sobre)
+        else:
+            ajustes.append(riche if er < es - POINT_DE_PLUS else sobre)
 
     # ④ puis chaque bout que la recette pose en contact est TAILLÉ à sa rencontre.
     #    C'est le dernier geste, et il vient après l'ajustement : tailler avant
@@ -2275,6 +2484,11 @@ def traits(ch, recette, points_du_trace, journal=None):
                 for i, g in enumerate(guides)]
     cibles = [{k for k in voisins if not FERMES[k]} for voisins in liens]
     ajustes = [_coins_nets(list(c)) for c in ajustes]
+    # ★ Deux traits que la recette déclare superposables le redeviennent — les
+    #   deux arches du `m` (voir `_jumelles`). AVANT la taille : `rejoint`
+    #   recolle ensuite chaque arche à ce qu'elle touche, et les deux reçoivent
+    #   le même geste puisqu'elles sont dans la même position relative.
+    _jumelles(ajustes, guides, casiers)
     rejoint(ajustes, cibles, attendus, lespis)
     # ★ **LE POINT SURPLOMBE SA HAMPE — c'est une lecture, pas une mesure.**
     #
@@ -2294,9 +2508,8 @@ def traits(ch, recette, points_du_trace, journal=None):
     #   lui manquait qu'un peu d'air : la tolérance de l'ajustement est calée sur
     #   la fidélité au dixième d'unité, quand retirer un point n'en coûte que
     #   quelques-uns et se voit, lui, tout de suite.
-    large = TOLERANCE + MARGE_NUAGE + 2
     ajustes = [_alignees(_tangence(_coins_nets(
-        _fusionne(list(c), TOLERANCE, casiers, large)), casiers, TOLERANCE),
+        _fusionne(list(c), TOLERANCE, casiers, RELATIF)), casiers, TOLERANCE),
         casiers, TOLERANCE) for c in ajustes]
     _symetrise(ajustes, casiers, TOLERANCE)
     for t, c in enumerate(points):
@@ -2316,6 +2529,12 @@ def traits(ch, recette, points_du_trace, journal=None):
     #   degrés de la verticale. Le dernier mot revient à la géométrie FINALE.
     ajustes = [_tangence(_recoud(_coins_nets(list(c))), casiers, TOLERANCE)
                for c in ajustes]
+    # ⚠️ **ET LES JUMELLES SE REJOUENT EN DERNIER.** Posées avant la taille, les
+    #   deux arches du `m` repartaient identiques et se séparaient à nouveau :
+    #   la fusion finale rendait la première en UNE cubique symétrique et la
+    #   seconde en DEUX. Le dernier mot revient à la géométrie finale — c'est la
+    #   même règle que pour la tangence.
+    _jumelles(ajustes, guides, casiers)
     if journal is not None:
         # ★ Ce que la projection a COÛTÉ : le pire écart du trait rendu à l'axe,
         #   mesuré sur le tracé final et non sur les points qui l'ont produit.
