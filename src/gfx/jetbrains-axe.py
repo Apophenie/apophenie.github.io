@@ -497,6 +497,11 @@ DE_FACE_GUIDE = 0.5
 #: l'autre, six laissent de la marge sans laisser entrer un trait voisin.
 INTRUS = 0.08 * FUT
 
+#: La part de la population médiane qu'un seau doit atteindre pour compter comme
+#: une mesure. Un quart : les seaux d'un même trait se tiennent à peu près, et
+#: ceux qui tombent très en dessous sont des attributions parasites.
+QUORUM = 0.1
+
 
 def _direction(guide, k):
     a = guide[max(0, k - 1)]
@@ -772,6 +777,18 @@ def _ajuste(P, tol=TOLERANCE, coins=frozenset(), casiers=None, guide=None, ferme
     if math.dist(P[0], P[-1]) < 1e-6 * max(1.0, _etendue(P)):
         coins = set(coins) | {max(range(1, len(P) - 1),
                                   key=lambda i: math.dist(P[i], P[0]))}
+    # ★ **ON COUPE AUSSI LÀ OÙ LE GUIDE PASSE DE LA COURBE À LA DROITE.** Les
+    #   coins ne suffisent pas : l'arche du `m` rejoint sa jambe TANGENTIELLEMENT
+    #   — aucun angle, donc aucun coin — et la jambe, pourtant déclarée droite,
+    #   se retrouvait noyée dans le même tronçon que l'arc. Elle ne pouvait plus
+    #   être reconnue comme droite, et la portion contestée avec l'arche voisine
+    #   la faisait serpenter. Un changement de NATURE vaut un coin.
+    # ⚠️ Une borne trop proche d'un coin déjà déclaré ne coupe rien : elle
+    #   isole deux ou trois points, dont on ne tire aucune droite. Le `l` et le
+    #   `a` y perdaient seize unités.
+    ajout = {k for k in _bornes_droites(guide, len(P))
+             if all(abs(k - c) > 3 for c in coins)}
+    coins = set(coins) | ajout
     bouts = sorted({0, len(P) - 1} | {i for i in coins if 0 < i < len(P) - 1})
     out = []
     for a, b in zip(bouts, bouts[1:]):
@@ -1221,6 +1238,16 @@ def rejoint(chemins, liens, attendus, lespis=()):
                     continue
                 if not vrai:
                     continue
+                # ⚠️ **UNE INTERSECTION RASANTE NE VEUT RIEN DIRE.** Le haut de la
+                #   panse du `q` monte presque parallèlement à son fût : le point
+                #   où les deux droites se coupent est alors très loin et très
+                #   sensible, et le bout se faisait tirer vingt-sept unités plus
+                #   haut — jusqu'au sommet du fût, ce qui lui ôtait justement
+                #   l'extrémité libre que la police lui donne. En deçà de vingt
+                #   degrés, on ne se sert pas de l'intersection.
+                v = _versLe(a, b)
+                if abs(dire[0] * v[0] + dire[1] * v[1]) > RASANT:
+                    continue
                 if meilleur is None or abs(t) < abs(meilleur[1]):
                     meilleur = (0.0, t, (bout[0] + dire[0] * t, bout[1] + dire[1] * t))
                     reel = True
@@ -1374,6 +1401,37 @@ GUIDE_DROIT = 1.0
 #: pencher une droite d'un ou deux degrés ; une recette qui vise mal s'en écarte
 #: de cinq ou plus.
 ACCORD = math.cos(math.radians(3))
+
+#: |cos| au-delà duquel deux traits sont trop parallèles pour que leur point
+#: d'intersection ait un sens : vingt degrés.
+RASANT = math.cos(math.radians(20))
+
+
+#: Un tronçon droit du guide doit peser au moins ça pour valoir une coupure :
+#: un huitième du guide. En deçà, c'est un bout de courbe presque plat.
+PART_DROITE = 0.125
+
+
+def _bornes_droites(guide, n):
+    """Les indices où le guide cesse d'être droit, ou recommence à l'être."""
+    if guide is None or len(guide) < 5:
+        return set()
+    m = len(guide)
+    mini = max(4, int(PART_DROITE * m))
+    out, i = set(), 0
+    while i < m - mini:
+        j = i + mini
+        if not _guide_droit(guide, i, j):
+            i += 1
+            continue
+        while j + 1 < m and _guide_droit(guide, i, j + 1):
+            j += 1
+        if i > 0:
+            out.add(i)
+        if j < m - 1:
+            out.add(j)
+        i = j
+    return {k for k in out if 0 < k < n - 1}
 
 
 def _guide_droit(guide, a, b):
@@ -1670,10 +1728,19 @@ def _pose(nuage, guides, coins):
         if max(abs(q[0] - guide[0][0]) + abs(q[1] - guide[0][1]) for q in guide) < 1e-6:
             lignes.append(list(guide))          # un point : le `i`, le `j`
             continue
+        # ★ **UN SEAU QUI N'A QU'UN POINT NE MESURE RIEN.** Sur la première
+        #   arche du `m`, un seul point égaré — un point de fût attribué à
+        #   l'arche — occupait le seau numéro six pendant que ses voisins en
+        #   avaient vingt. L'interpolation le prenait pour une mesure et plongeait
+        #   sur neuf abscisses : c'est le zigzag central. On exige donc qu'un seau
+        #   pèse une fraction de ce que pèsent les autres, sans quoi on le traite
+        #   comme un trou.
+        pleins = sorted(len(lot) for lot in seaux[t] if lot)
+        quorum = max(2, QUORUM * pleins[len(pleins) // 2]) if pleins else 0
         mes = [None] * len(guide)
         for k in range(len(guide)):
             lot = seaux[t][k]
-            if lot:
+            if len(lot) >= quorum:
                 mes[k] = _sans_intrus(lot)
         # ⚠️ **UN TROU SE COMBLE ENTRE MESURES VOISINES, ET PAS AUTREMENT.** On a
         #   essayé d'y mettre le point d'axe le plus proche du guide : c'est

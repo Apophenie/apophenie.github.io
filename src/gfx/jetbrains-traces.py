@@ -447,13 +447,18 @@ def recettes(M):
         #   court, soit un `b` dont la panse ne rejoint pas le bord de la
         #   chasse).
         # ★ **LA PANSE SE REFERME SUR LE FÛT, exactement.** Ses deux bouts
-        #   flottaient à 6 % de la hauteur d'x des bords : le fût dépassait donc
-        #   des deux côtés, ce qui faisait DEUX extrémités libres là où la police
-        #   — et la table du dépôt — n'en comptent qu'une. Sur `b` et `d`, le bas
-        #   de la panse tombe sur le pied ; sur `p` et `q`, son haut tombe sur le
-        #   sommet du fût et son bas sur la ligne de base, le jambage restant la
-        #   seule extrémité libre.
-        pHaut = hx * 0.94 if c in 'bd' else hx
+        #   flottaient à 6 % de la hauteur d'x des bords : le fût dépassait des
+        #   deux côtés sans rien toucher.
+        #
+        # ⚠️ **MAIS SUR `p` ET `q`, ELLE NE MONTE PAS JUSQU'AU SOMMET DU FÛT.**
+        #   On l'y faisait aboutir pour retomber sur le compte d'extrémités de la
+        #   table du dépôt — une extrémité libre au lieu de deux. C'était une
+        #   triche, et elle se voyait : « comme pour `g`, tu sautes une extrémité »
+        #   (l'auteur). La police fait naître la panse SOUS le sommet, exactement
+        #   comme sur `b` et `d` ; le fût dépasse donc en haut ET en bas, et ces
+        #   deux bouts-là sont libres. `mtrb` et `mexb` s'en trouveront déplacés :
+        #   le dessin ne s'ajuste pas au barème.
+        pHaut = hx * 0.88
         pBas = o['y0'] if c in 'bd' else 0
         rx = abs((o['x1'] if gauche else o['x0']) - fut)
         cy = (pHaut - pBas) / 2
@@ -519,11 +524,28 @@ def recettes(M):
     #     sommet : c'est le seul point que la verticale du fût partage avec la
     #     panse. Un départ plus haut laissait une extrémité libre en l'air — un
     #     compte de plus, pour un contact que l'œil croyait voir.
-    R['g'] = ([ovale((o['x0'] + futG) / 2, hx / 2, (futG - o['x0']) / 2, hx / 2),
-               t(ligne(futG, hx / 2, futG, o['y0'] + o['l'] * 0.3)
+    # ★ **LE `g` EST BÂTI COMME LE `p`, PAS COMME UN OVALE PLUS UNE QUEUE.**
+    #
+    #   > « pour le `g`, j'ai l'impression que tu essaies encore de préserver le
+    #   >   nombre d'extrémités alors qu'il y en a une de plus à l'origine ; sans
+    #   >   ça, tu arriverais probablement à un résultat aussi propre que pour `b`
+    #   >   ou `d`. » (l'auteur)
+    #
+    #   C'était exact. On déclarait une panse FERMÉE — donc sans aucun bout — et
+    #   une queue attachée à son flanc droit : une seule extrémité libre. La
+    #   police, elle, dessine un fût droit qui descend de la hauteur d'x jusqu'au
+    #   crochet, et une panse qui naît sous son sommet et se referme dessus. Le
+    #   fût dépasse en haut : c'est la seconde extrémité, et l'axe la montre en
+    #   (385, 452).
+    pHautG = hx * 0.88
+    pBasG = hx * 0.06
+    R['g'] = ([t(ligne(futG, hx, futG, o['y0'] + o['l'] * 0.3)
                  + ' A %s %s 0 0 0 %s %s' % (r(o['l'] * 0.34), r(o['l'] * 0.28),
-                                             r(o['x0'] + o['l'] * 0.06), r(o['y0'] + o['l'] * 0.2)))],
-              [[0, 1, 'attache']])
+                                             r(o['x0'] + o['l'] * 0.06),
+                                             r(o['y0'] + o['l'] * 0.2))),
+               t(arc(futG, pHautG, futG - o['x0'], (pHautG - pBasG) / 2, 1, 1,
+                     futG, pBasG))],
+              [[0, 1, 'naissance'], [0, 1, 'pied']])
 
     # ── les empattées : `i`, `j`, `l`, `t`, `f` ───────────────────────────────
     o = b['i']
