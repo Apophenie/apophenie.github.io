@@ -3367,8 +3367,12 @@ def main():
 
     rec, points_du_trace = _recettes()
     ecarts = []
+    # ★ **LES CAPITALES PASSENT PAR LA MÊME CHAÎNE, SANS UNE LIGNE DE PLUS.**
+    #   `AXES` les couvrait déjà ; il ne leur manquait que des recettes, et
+    #   `jetbrains-traces.py` en a désormais vingt-six. Ce qui suit — projection,
+    #   ajustement, les quinze retouches — ne sait pas quelle casse il traite.
     poses = {ch: traits(ch, rec[ch], points_du_trace, ecarts)
-             for ch in BAS_DE_CASSE}
+             for ch in BAS_DE_CASSE + CAPITALES if ch in rec}
 
     # ★ **CE QUE LA POSE COÛTE, LETTRE PAR LETTRE — ET IL FAUT DEUX CHIFFRES.**
     #   `AXES` est exact ; `TRAITS` est projeté, et l'écart entre les deux dit ce

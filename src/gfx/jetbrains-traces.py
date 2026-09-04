@@ -60,6 +60,12 @@ CIBLE = RACINE / 'src' / 'moteur' / 'tables' / 'glyphes.js'
 # pas de la police — c'est l'unité du dessin, pas une mesure.
 CAPITALE_CIBLE = 600
 
+#: Les signes que l'on dérive : les vingt-six bas de casse, puis les vingt-six
+#: CAPITALES. Les secondes sont arrivées en second — leurs recettes existent
+#: depuis que l'auteur a demandé « est-ce que ça produit les majuscules
+#: proprement du premier coup ou non ? ».
+SIGNES = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
 
 def mesures():
     """Tout ce que la police dit, mis à l'échelle du repère du moteur."""
@@ -109,7 +115,8 @@ def _sans_le_point(boite, gs, cmap, k):
     depuis le bord droit d'une boîte que le point déborde de vingt unités. On
     mesure donc le `j` sur son seul corps, en écartant le contour du point.
     """
-    boites = {c: boite(c) for c in 'abcdefghijklmnopqrstuvwxyz'}
+    boites = {c: boite(c) for c in
+              'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'}
     for c in 'ij':
         subs = _contour(gs, cmap, c, k)
         if len(subs) < 2:
@@ -905,6 +912,277 @@ def recettes(M):
                t(ligne(o['x0'], o['y0'], o['x1'], o['y0']))],
               [[0, 1, 'haut'], [1, 2, 'bas']])
 
+    # ═══════════════════════════════════════════════════════════════════════
+    #  LES CAPITALES — la même méthode, sur l'autre moitié de l'alphabet
+    # ═══════════════════════════════════════════════════════════════════════
+    #
+    # > « est-ce que ça produit les majuscules proprement du premier coup ou
+    # >   non ? » (l'auteur)
+    #
+    # ★ **RIEN N'EST ADAPTÉ POUR ELLES.** Ces recettes disent la même chose que
+    #   celles des bas de casse et de la même façon : combien de traits, lesquels
+    #   se touchent, où le crayon se lève, et des points exprimés en fonction de
+    #   la BOÎTE MESURÉE de chaque signe. La chaîne de `jetbrains-axe.py`, elle,
+    #   n'a pas bougé d'une ligne — c'est tout l'intérêt de l'exercice.
+    #
+    # ★ **LE NOMBRE DE TRAITS SUIT LE CRITÈRE DE L'AUTEUR : le branchement.**
+    #   « Si ça représente le nombre de traits, `U` n'en a qu'un. » Un virage
+    #   n'est pas une levée de crayon ; un carrefour, si. Le `N`, le `M`, le `W`,
+    #   le `Z`, le `V`, le `U`, le `J`, le `L`, le `C`, le `S` sont donc d'UN SEUL
+    #   TENANT : leurs axes n'ont aucun point où trois brins se rencontrent.
+    #   ⚠️ Cela les met en désaccord avec `v`, `w` et `z` bas de casse, qui en
+    #     déclarent 2, 4 et 3 pour la même topologie. Le désaccord est signalé,
+    #     pas corrigé : l'invariant du dépôt interdit de changer un compte de
+    #     traits sans instruction.
+    #
+    # ⚠️ **DEUX LECTURES DE BORD, ET ELLES DIFFÈRENT.** L'axe d'un FÛT vertical
+    #   court à un demi-fût du bord de la boîte — 76,4 → 108,9 sur le `B`, 37 sur
+    #   32,5 mesurées. Le bout d'une BARRE horizontale, lui, ne rentre que de la
+    #   moitié de ça : 427,4 → 408,9 sur le `E`. L'effondrement ne retire pas la
+    #   même épaisseur à un flanc et à une terminaison plate. On écrit donc deux
+    #   entrées, `f2` et `f4`, plutôt qu'une seule qu'on saurait fausse.
+    f2 = M['fut'] / 2
+    f4 = M['fut'] / 4
+    cap = M['capitale']
+
+    def chevron(*pts):
+        """Une polyligne : le geste d'un `V`, d'un `N`, d'un `W`, d'un `Z`."""
+        return 'M %s %s' % (r(pts[0][0]), r(pts[0][1])) \
+            + ''.join(' L %s %s' % (r(x), r(y)) for x, y in pts[1:])
+
+    def panse(fut, xj, bord, yHaut, yBas, sens):
+        """Une panse de capitale : deux amorces horizontales et un demi-tour.
+
+        ★ Le `B`, le `D`, le `P` et le `R` attachent leur panse au fût par un
+          court segment HORIZONTAL, puis tournent — c'est ce que l'axe montre :
+          la panse du `B` part de (109, 599) et ne s'incurve qu'à partir de
+          (243, 599). Un demi-tour parti du fût lui-même passerait vingt unités
+          au-dessus de la barre du haut.
+        """
+        return 'M %s %s L %s %s A %s %s 0 1 %d %s %s L %s %s' % (
+            r(fut), r(yHaut), r(xj), r(yHaut),
+            r(abs(bord - xj)), r((yHaut - yBas) / 2), sens,
+            r(xj), r(yBas), r(fut), r(yBas))
+
+    # ── `A` : le chevron renversé, et sa barre ──────────────────────────────
+    o = b['A']
+    gA, dA, sA = o['x0'] + f2, o['x1'] - f2, (o['x0'] + o['x1']) / 2
+    # La barre se lit à 0,315 capitale (189 sur 600), et ses deux bouts sont sur
+    # les diagonales — on ne les pose pas, on les CALCULE à cette hauteur.
+    tA = 0.315
+    R['A'] = ([t(chevron((gA, o['y0']), (sA, o['y1']), (dA, o['y0']))),
+               t(ligne(gA + (sA - gA) * tA, o['y0'] + (o['y1'] - o['y0']) * tA,
+                       dA + (sA - dA) * tA, o['y0'] + (o['y1'] - o['y0']) * tA))],
+              [[0, 1, 'barre gauche'], [0, 1, 'barre droite']])
+
+    # ── `B` : un fût, deux panses ───────────────────────────────────────────
+    o = b['B']
+    gB = o['x0'] + f2
+    yB = o['y0'] + o['h'] * 0.507          # la taille, lue dans l'axe (304/600)
+    R['B'] = ([t(ligne(gB, o['y0'], gB, o['y1'])),
+               t(panse(gB, o['x0'] + o['l'] * 0.464, o['x0'] + o['l'] * 0.881,
+                       o['y1'], yB, 0)),
+               t(panse(gB, o['x0'] + o['l'] * 0.464, o['x0'] + o['l'] * 0.924,
+                       yB, o['y0'], 0))],
+              [[0, 1, 'haut'], [0, 1, 'taille haute'],
+               [0, 2, 'taille basse'], [0, 2, 'pied']])
+
+    # ── `C` : un seul demi-tour ouvert ──────────────────────────────────────
+    o = b['C']
+    R['C'] = ([t(demiTour(o['x1'] - f2, o['x0'] + f2,
+                          o['y0'] + o['h'] * 0.727, o['y0'] + o['h'] * 0.274,
+                          o['y1'], o['y0'], 1))], [])
+
+    # ── `D` : un fût, une panse à flanc droit ───────────────────────────────
+    o = b['D']
+    gD = o['x0'] + f2
+    R['D'] = ([t(ligne(gD, o['y0'], gD, o['y1'])),
+               t(panse(gD, o['x0'] + o['l'] * 0.390, o['x0'] + o['l'] * 0.909,
+                       o['y1'], o['y0'], 0))],
+              [[0, 1, 'haut'], [0, 1, 'pied']])
+
+    # ── `E` et `F` : un fût, ses barres ─────────────────────────────────────
+    for c in 'EF':
+        o = b[c]
+        g = o['x0'] + f2
+        yM = o['y0'] + o['h'] * (0.518 if c == 'E' else 0.512)
+        barres = [t(ligne(g, o['y1'], o['x1'] - f4, o['y1'])),
+                  t(ligne(g, yM, o['x0'] + o['l'] * 0.874, yM))]
+        jonc = [[0, 1, 'barre du haut'], [0, 2, 'barre du milieu']]
+        if c == 'E':
+            barres.append(t(ligne(g, o['y0'], o['x1'] - f4, o['y0'])))
+            jonc.append([0, 3, 'barre du bas'])
+        R[c] = ([t(ligne(g, o['y0'], g, o['y1']))] + barres, jonc)
+
+    # ── `G` : le `C`, plus sa barre et son montant ──────────────────────────
+    o = b['G']
+    dG = o['x1'] - f2
+    yG = o['y0'] + o['h'] * 0.468          # la barre, lue dans l'axe (280/616)
+    R['G'] = ([t(demiTour(dG, o['x0'] + f2,
+                          o['y0'] + o['h'] * 0.720, o['y0'] + o['h'] * 0.279,
+                          o['y1'], o['y0'], 1)
+                 + ' L %s %s' % (r(dG), r(yG))),
+               t(ligne(dG, yG, o['x0'] + o['l'] * 0.483, yG))],
+              [[0, 1, 'barre']])
+
+    # ── `H` : deux fûts, une barre ──────────────────────────────────────────
+    o = b['H']
+    gH, dH = o['x0'] + f2, o['x1'] - f2
+    yH = o['y0'] + o['h'] * 0.524
+    R['H'] = ([t(ligne(gH, o['y0'], gH, o['y1'])),
+               t(ligne(dH, o['y0'], dH, o['y1'])),
+               t(ligne(gH, yH, dH, yH))],
+              [[0, 2, 'naissance gauche'], [1, 2, 'naissance droite']])
+
+    # ── `I` : deux empattements et un fût ───────────────────────────────────
+    o = b['I']
+    sI = (o['x0'] + o['x1']) / 2
+    R['I'] = ([t(ligne(o['x0'] + f4, o['y1'], o['x1'] - f4, o['y1'])),
+               t(ligne(o['x0'] + f4, o['y0'], o['x1'] - f4, o['y0'])),
+               t(ligne(sI, o['y0'], sI, o['y1']))],
+              [[0, 2, 'empattement du haut'], [1, 2, 'empattement du bas']])
+
+    # ── `J` : un fût et son crochet, d'un seul tenant ───────────────────────
+    o = b['J']
+    gJ, dJ = o['x0'] + f2, o['x1'] - f2
+    yJ = o['y0'] + o['h'] * 0.263
+    R['J'] = ([t(ligne(dJ, o['y1'], dJ, yJ)
+                 + ' A %s %s 0 0 0 %s %s' % (r((dJ - gJ) / 2), r(yJ - o['y0']),
+                                             r(gJ), r(yJ)))], [])
+
+    # ── `K` : un fût, une amorce, un chevron ────────────────────────────────
+    o = b['K']
+    gK = o['x0'] + f2
+    yK = o['y0'] + o['h'] * 0.522
+    xK = o['x0'] + o['l'] * 0.539
+    R['K'] = ([t(ligne(gK, o['y0'], gK, o['y1'])),
+               t(ligne(gK, yK, xK, yK)),
+               t(chevron((o['x1'] - f2, o['y1']), (xK, yK), (o['x1'] - f2, o['y0'])))],
+              [[0, 1, 'naissance du bras'], [1, 2, 'fourche']])
+
+    # ── `L` : un seul trait ─────────────────────────────────────────────────
+    o = b['L']
+    R['L'] = ([t(chevron((o['x0'] + f2, o['y1']), (o['x0'] + f2, o['y0']),
+                         (o['x1'] - f4, o['y0'])))], [])
+
+    # ── `M` : un seul trait, quatre segments ────────────────────────────────
+    o = b['M']
+    gM, dM = o['x0'] + f2, o['x1'] - f2
+    R['M'] = ([t(chevron((gM, o['y0']), (gM, o['y1']),
+                         ((gM + dM) / 2, o['y0'] + o['h'] * 0.404),
+                         (dM, o['y1']), (dM, o['y0'])))], [])
+
+    # ── `N` : un seul trait, trois segments ─────────────────────────────────
+    o = b['N']
+    gN, dN = o['x0'] + f2, o['x1'] - f2
+    R['N'] = ([t(chevron((gN, o['y0']), (gN, o['y1']),
+                         (dN, o['y0']), (dN, o['y1'])))], [])
+
+    # ── `O` : un anneau ─────────────────────────────────────────────────────
+    o = b['O']
+    R['O'] = ([ovale((o['x0'] + o['x1']) / 2, (o['y0'] + o['y1']) / 2,
+                     o['l'] / 2 - f2, o['h'] / 2)], [])
+
+    # ── `P` : un fût, une panse ─────────────────────────────────────────────
+    o = b['P']
+    gP = o['x0'] + f2
+    R['P'] = ([t(ligne(gP, o['y0'], gP, o['y1'])),
+               t(panse(gP, o['x0'] + o['l'] * 0.503, o['x0'] + o['l'] * 0.930,
+                       o['y1'], o['y0'] + o['h'] * 0.487, 0))],
+              [[0, 1, 'haut'], [0, 1, 'pied de la panse']])
+
+    # ── `Q` : l'anneau et sa queue ──────────────────────────────────────────
+    o = b['Q']
+    # ⚠️ La boîte du `Q` descend au jambage à cause de sa QUEUE : son anneau,
+    #   lui, tient dans la capitale. On le mesure donc sur le haut de la boîte,
+    #   pas sur sa hauteur totale.
+    hautQ = o['y1']
+    basQ = hautQ - (b['O']['y1'] - b['O']['y0'])
+    cxQ, cyQ = (o['x0'] + o['x1']) / 2, (hautQ + basQ) / 2
+    rxQ, ryQ = o['l'] / 2 - f2, (hautQ - basQ) / 2
+    # ★ **LA QUEUE NAÎT SUR L'ANNEAU, et ce point se CALCULE.** Posée à vue —
+    #   0,668 de la chasse — elle tombait à vingt-quatre unités de l'anneau
+    #   déclaré : la recette annonçait donc deux extrémités libres là où la pose
+    #   n'en trouvait qu'une, et le contrôle des comptes le disait. On prend
+    #   l'ordonnée que l'axe donne (4,9 sur 616) et on résout l'abscisse SUR
+    #   l'ellipse, plutôt que d'écrire deux nombres qui ne se rencontrent pas.
+    yQ = basQ + (hautQ - basQ) * 0.021
+    xQ = cxQ + rxQ * max(0.0, 1 - ((yQ - cyQ) / ryQ) ** 2) ** 0.5
+    R['Q'] = ([ovale(cxQ, cyQ, rxQ, ryQ),
+               t(ligne(xQ, yQ, o['x1'] - f4, o['y0'] + f4))],
+              [[0, 1, 'queue']])
+
+    # ── `R` : un fût, une panse, une jambe ──────────────────────────────────
+    o = b['R']
+    gR = o['x0'] + f2
+    yR = o['y0'] + o['h'] * 0.486
+    R['R'] = ([t(ligne(gR, o['y0'], gR, o['y1'])),
+               t(panse(gR, o['x0'] + o['l'] * 0.483, o['x0'] + o['l'] * 0.932,
+                       o['y1'], yR, 0)),
+               t(ligne(o['x0'] + o['l'] * 0.476, yR, o['x1'] - f2, o['y0']))],
+              [[0, 1, 'haut'], [0, 1, 'taille'], [1, 2, 'naissance de la jambe']])
+
+    # ── `S` : un seul trait, deux inversions de courbure ────────────────────
+    o = b['S']
+    gS, dS = o['x0'] + f2, o['x1'] - f2
+    xS, yS = o['x0'] + o['l'] * 0.457, o['y0'] + o['h'] * 0.517
+    R['S'] = ([t('M %s %s' % (r(dS), r(o['y0'] + o['h'] * 0.735))
+                 + ' A %s %s 0 1 1 %s %s' % (r((dS - gS) / 2),
+                                             r((o['y1'] - yS) / 2), r(xS), r(yS))
+                 # ⚠️ **ET LA SECONDE INVERSE LE SENS** — c'est ce qui fait un `S`
+                 #   et non un `C` refermé : le premier demi-tour passe par la
+                 #   gauche, le second par la droite. Écrits dans le même sens,
+                 #   la panse du bas partait à x = −70 pour une lettre qui
+                 #   commence à 59.
+                 + ' A %s %s 0 1 0 %s %s' % (r((dS - gS) / 2),
+                                             r((yS - o['y0']) / 2),
+                                             r(gS), r(o['y0'] + o['h'] * 0.279)))],
+              [])
+
+    # ── `T` : une barre, un fût ─────────────────────────────────────────────
+    o = b['T']
+    sT = (o['x0'] + o['x1']) / 2
+    R['T'] = ([t(ligne(o['x0'] + f4, o['y1'], o['x1'] - f4, o['y1'])),
+               t(ligne(sT, o['y0'], sT, o['y1']))],
+              [[0, 1, 'barre']])
+
+    # ── `U` : un seul trait, comme le `u` ───────────────────────────────────
+    o = b['U']
+    gU, dU = o['x0'] + f2, o['x1'] - f2
+    yU = o['y0'] + o['h'] * 0.253
+    R['U'] = ([t('M %s %s L %s %s' % (r(gU), r(o['y1']), r(gU), r(yU))
+                 + ' A %s %s 0 0 1 %s %s' % (r((dU - gU) / 2), r(yU - o['y0']),
+                                             r(dU), r(yU))
+                 + ' L %s %s' % (r(dU), r(o['y1'])))], [])
+
+    # ── `V`, `W`, `X`, `Y`, `Z` : les diagonales ────────────────────────────
+    o = b['V']
+    R['V'] = ([t(chevron((o['x0'] + f2, o['y1']),
+                         ((o['x0'] + o['x1']) / 2, o['y0']),
+                         (o['x1'] - f2, o['y1'])))], [])
+    o = b['W']
+    gW, dW = o['x0'] + f2, o['x1'] - f2
+    R['W'] = ([t(chevron((gW, o['y1']),
+                         (o['x0'] + o['l'] * 0.271, o['y0']),
+                         (o['x0'] + o['l'] * 0.508, o['y0'] + o['h'] * 0.992),
+                         (o['x0'] + o['l'] * 0.738, o['y0']),
+                         (dW, o['y1'])))], [])
+    o = b['X']
+    gX, dX = o['x0'] + f2, o['x1'] - f2
+    R['X'] = ([t(ligne(gX, o['y0'], dX, o['y1'])),
+               t(ligne(gX, o['y1'], dX, o['y0']))],
+              [[0, 1, 'croisée']])
+    o = b['Y']
+    sY = (o['x0'] + o['x1']) / 2
+    yY = o['y0'] + o['h'] * 0.396
+    R['Y'] = ([t(chevron((o['x0'] + f2, o['y1']), (sY, yY), (o['x1'] - f2, o['y1']))),
+               t(ligne(sY, yY, sY, o['y0']))],
+              [[0, 1, 'fourche']])
+    o = b['Z']
+    gZ, dZ = o['x0'] + f4, o['x1'] - f4
+    R['Z'] = ([t(chevron((gZ, o['y1']), (dZ, o['y1']), (gZ, o['y0']), (dZ, o['y0'])))],
+              [])
+
     return R
 
 
@@ -1065,7 +1343,7 @@ def controler(R, M):
     #   tracé n'est plus en retrait, il est plus petit que sa lettre.
     retrait = M['fut']
     ecarts = []
-    for c in 'abcdefghijklmnopqrstuvwxyz':
+    for c in SIGNES:
         if c not in R:
             continue
         o = M['boites'][c]
@@ -1099,7 +1377,7 @@ def main():
           % (r(b['p']['y0']), r(b['b']['y1'])))
     print()
     R = recettes(m)
-    manquants = [c for c in 'abcdefghijklmnopqrstuvwxyz' if c not in R]
+    manquants = [c for c in SIGNES if c not in R]
     if manquants:
         sys.exit('recettes manquantes : ' + ' '.join(manquants))
 
@@ -1115,7 +1393,7 @@ def main():
                   % (c, r(b['x0']), r(b['x1']), r(b['y0']), r(b['y1']),
                      r(o['x0']), r(o['x1']), r(o['y0']), r(o['y1']), ', '.join(debords)))
     else:
-        print('  ✓ les vingt-six tracés tiennent dans la boîte de leur lettre.')
+        print('  ✓ les %d tracés tiennent dans la boîte de leur signe.' % len(R))
     print()
 
     # ★ La SORTIE est un module de comparaison, pas la table du moteur. Tant que
@@ -1130,7 +1408,7 @@ def main():
               " * fichier n'existe que pour la page de comparaison `glyphes.html`.",
               " */",
               "export const CANDIDATS = {"]
-    for c in 'abcdefghijklmnopqrstuvwxyz':
+    for c in SIGNES:
         traits, jonctions = R[c]
         lignes.append("  %s: { traits: [%s], jonctions: %s }," % (
             repr(c),

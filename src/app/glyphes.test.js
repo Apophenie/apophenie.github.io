@@ -91,7 +91,11 @@ test('★ glyphes — chaque teinte de tracé est bien une COULEUR', () => {
  *   parfaitement plausibles à l'œil, et faux. Vingt unités sur six cents, c'est
  *   déjà beaucoup ; au-delà, ce n'est plus la lettre.
  */
-const BAS_DE_CASSE = [...'abcdefghijklmnopqrstuvwxyz'];
+/* ★ **LES CINQUANTE-DEUX SIGNES, ET NON PLUS LES SEULS BAS DE CASSE.** Les
+   capitales ont désormais des recettes, elles passent par la même chaîne, et
+   elles tiennent les mêmes invariants — il n'y avait aucune raison de les tenir
+   hors du contrôle une fois qu'elles y étaient entrées. */
+const SIGNES = [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'];
 
 const comptes = (g) => deriveGlyph(g);
 
@@ -173,7 +177,7 @@ function couvertureDeLAxe(traits, axe) {
 }
 
 test('★ glyphes — les traits posés gardent les boucles et les traits déclarés', () => {
-  for (const c of BAS_DE_CASSE) {
+  for (const c of SIGNES) {
     assert.ok(TRAITS[c], `« ${c} » n'a pas de traits engendrés`);
     assert.ok(CANDIDATS[c], `« ${c} » n'a pas de recette`);
     const a = comptes(CANDIDATS[c]); const b = comptes(TRAITS[c]);
@@ -189,7 +193,7 @@ test('★ glyphes — les traits posés gardent les boucles et les traits décla
 
 test('★ glyphes — aucun trait ne s’éloigne de son axe', () => {
   const LIMITE = 20;
-  for (const c of BAS_DE_CASSE) {
+  for (const c of SIGNES) {
     const e = ecartALAxe(TRAITS[c].traits, AXES[c]);
     assert.ok(e < LIMITE,
       `« ${c} » : le trait posé s'écarte de ${e.toFixed(1)} unités de son axe `
@@ -215,7 +219,7 @@ test('★ glyphes — aucun trait ne s’éloigne de son axe', () => {
  */
 test('★ glyphes — l’axe est COUVERT, pas seulement longé', () => {
   const LIMITE = 24;
-  for (const c of BAS_DE_CASSE) {
+  for (const c of SIGNES) {
     const e = couvertureDeLAxe(TRAITS[c].traits, AXES[c]);
     assert.ok(e < LIMITE,
       `« ${c} » : l'axe reste à ${e.toFixed(1)} unités du tracé le plus proche `
@@ -224,11 +228,9 @@ test('★ glyphes — l’axe est COUVERT, pas seulement longé', () => {
   }
 });
 
-test('★ glyphes — l’axe couvre les deux répertoires, les traits le bas de casse', () => {
-  // Les capitales n'ont pas de recette, donc pas de topologie déclarée ; leur
-  // axe, lui, se lit aussi bien, et la page l'affiche.
+test('★ glyphes — l’axe et les traits couvrent les deux répertoires', () => {
   for (const c of [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ']) {
     assert.ok(AXES[c] && AXES[c].startsWith('M'), `« ${c} » n'a pas d'axe`);
   }
-  assert.equal(Object.keys(TRAITS).length, BAS_DE_CASSE.length);
+  assert.equal(Object.keys(TRAITS).length, SIGNES.length);
 });
