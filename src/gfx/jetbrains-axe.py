@@ -2113,6 +2113,10 @@ def traits(ch, recette, points_du_trace, journal=None):
     """Les traits DÉCLARÉS par `recette`, reposés sur l'axe EXACT de `ch`."""
     nuage = _plat(ch)
     decl, jonctions = recette
+    # Les boucles VRAIMENT fermées — celles dont l'axe décrit un tour complet,
+    # comme la panse du `a` ou l'`o`. Une panse à `couture` n'en est pas une :
+    # son guide est ouvert, seul le rendu se referme.
+    FERMES = [not d.get('ouvert', True) and not d.get('couture') for d in decl]
 
     guides = [_echelonne(points_du_trace(t['d'])) for t in decl]
     # ★ Les COINS restent ceux que la recette déclare : c'est une lecture du
@@ -2249,17 +2253,29 @@ def traits(ch, recette, points_du_trace, journal=None):
     #   séparément ; onze lettres en sortaient trouées, et le trou se lisait
     #   ensuite comme une poignée (voir `_recoud`).
     ajustes = [_recoud(_ajuste(ligne, TOLERANCE, coins[t], casiers, guides[t],
-                               not decl[t].get('ouvert', True)))
+                               FERMES[t]))
                for t, ligne in enumerate(lignes)]
 
     # ④ puis chaque bout que la recette pose en contact est TAILLÉ à sa rencontre.
     #    C'est le dernier geste, et il vient après l'ajustement : tailler avant
     #    laisserait l'ajusteur repousser une queue de l'autre côté du carrefour.
-    attendus = [tuple(any(_dpoly(g[bout], guides[k]) <= TOL for k in liens[i])
+    # ⚠️ **UNE BOUCLE VRAIMENT FERMÉE N'A PAS DE BOUT, ET NE SERT PAS DE CIBLE.**
+    #   `rejoint` taille chaque bout libre à sa rencontre ; un sous-chemin fermé
+    #   n'en a aucun — sa couture n'est pas une extrémité du dessin, c'est
+    #   l'endroit arbitraire où le tracé recommence. Il ne peut pas non plus
+    #   servir de voisin à tailler : sur une panse cousue au fût, tout point du
+    #   fût serait à zéro unité de la panse et « le plus proche » ne voudrait
+    #   plus rien dire.
+    # ★ Une panse à COUTURE, elle, se pose et se taille comme un trait OUVERT :
+    #   c'est ce qu'elle est jusqu'au dernier geste (voir `couture` dans
+    #   `jetbrains-traces.py`).
+    attendus = [(False, False) if FERMES[i] else
+                tuple(any(_dpoly(g[bout], guides[k]) <= TOL for k in liens[i])
                       for bout in (0, -1))
                 for i, g in enumerate(guides)]
+    cibles = [{k for k in voisins if not FERMES[k]} for voisins in liens]
     ajustes = [_coins_nets(list(c)) for c in ajustes]
-    rejoint(ajustes, liens, attendus, lespis)
+    rejoint(ajustes, cibles, attendus, lespis)
     # ★ **LE POINT SURPLOMBE SA HAMPE — c'est une lecture, pas une mesure.**
     #
     #   > « le point du `j` devrait surplomber la barre verticale en étant pile
@@ -2311,6 +2327,14 @@ def traits(ch, recette, points_du_trace, journal=None):
                 pire = max([pire] + [_pres(casiers, evalue(m, k / 12))
                                      for k in range(13)])
         journal.append((pire, ch))
+    # ★ **ET LA COUTURE SE POSE EN DERNIER**, quand on sait enfin où sont les
+    #   deux bouts de la panse : un segment droit du dernier point au premier.
+    #   « Sans chercher à éviter l'angle » (l'auteur) — il n'y a rien à lisser,
+    #   ce segment ne dessine pas, il ferme.
+    for t, chem in enumerate(ajustes):
+        if decl[t].get('couture') and len(chem) >= 2 \
+                and math.dist(chem[-1][2], chem[0][0]) > 1e-9:
+            chem.append((chem[-1][2], [], chem[0][0]))
     return ([{'d': versD(chem), 'ouvert': decl[t].get('ouvert', True)}
              for t, chem in enumerate(ajustes)], jonctions)
 

@@ -358,6 +358,27 @@ def recettes(M):
     def ferme(d):
         return {'d': d, 'ouvert': False}
 
+    def couture(d):
+        """★ **UNE BOUCLE REFERMÉE PAR UN SEGMENT SUPERPOSÉ.**
+
+        > « relie les 2 extrémités de la boucle par un segment superposé, sans
+        >   chercher à éviter l'angle. Ça sera simple et ça ferme la boucle pour
+        >   permettre des animations pertinentes pour la suite (colorer
+        >   l'intérieur de la boucle plutôt que d'y mettre un point quand il faut
+        >   compter les espaces clos pour `mbob` et `mboc`). » (l'auteur)
+
+        ⚠️ **ET CE SEGMENT NE SE MESURE PAS, IL S'AFFIRME.** Il court sur le fût,
+          où la police ne met qu'une seule masse d'encre : l'axe n'y a qu'un
+          brin, déjà réclamé par le fût lui-même. Écrit dans le guide, il
+          n'attire aucun point de l'axe, ses abscisses restent vides, et la
+          panse du `b` tombait de sept morceaux à deux — un moignon de trente
+          unités, à 4,1 unités de son axe, donc *bien noté*. C'est l'œil qui l'a
+          vu, pas le chiffre. Le guide reste donc OUVERT — la panse se pose et
+          se taille comme avant —, et la couture est ajoutée après coup, quand
+          on sait où sont ses deux bouts.
+        """
+        return {'d': d, 'ouvert': False, 'couture': True}
+
     def ovale(cx, cy, rx, ry):
         return ferme('M %s %s A %s %s 0 1 1 %s %s A %s %s 0 1 1 %s %s' % (
             r(cx), r(cy - ry), r(rx), r(ry), r(cx), r(cy + ry),
@@ -500,9 +521,28 @@ def recettes(M):
         #     l'écran est inversé une fois écrit ici — c'est le même piège que
         #     `helpers.braceD`, et c'est pourquoi le contrôle de boîte existe
         #     désormais : cette faute-là ne se lit pas, elle se mesure.
+        # ★ **LA PANSE EST UNE BOUCLE FERMÉE, refermée par un SEGMENT SUPERPOSÉ.**
+        #
+        #   > « relie les 2 extrémités de la boucle par un segment superposé,
+        #   >   sans chercher à éviter l'angle. Ça sera simple et ça ferme la
+        #   >   boucle pour permettre des animations pertinentes pour la suite
+        #   >   (colorer l'intérieur de la boucle plutôt que d'y mettre un point
+        #   >   quand il faut compter les espaces clos pour `mbob` et `mboc`). »
+        #   >   (l'auteur)
+        #
+        #   Le segment qui referme court SUR le fût, du pied de la panse à sa
+        #   naissance : c'est le seul chemin qui ne fabrique aucune forme
+        #   nouvelle, et c'est bien ce que la police dessine — les deux traits
+        #   s'y confondent en une seule masse d'encre.
+        #
+        # ⚠️ **ET IL NE RESTE QU'UNE SEULE JONCTION DÉCLARÉE.** `deriveGlyph`
+        #   compte `boucles = sous-chemins fermés + cycles du graphe des
+        #   jonctions` : une panse devenue fermée qui garderait ses DEUX
+        #   jonctions compterait deux boucles là où la lettre n'en a qu'une.
+        #   Deux traits, deux extrémités, une boucle — les comptes ne bougent pas.
         R[c] = ([t(ligne(fut, o['y0'], fut, haut)),
-                 t(arc(fut, pHaut, rx, cy, 1, 0 if gauche else 1, fut, pBas))],
-                [[0, 1, 'naissance'], [0, 1, 'pied']])
+                 couture(arc(fut, pHaut, rx, cy, 1, 0 if gauche else 1, fut, pBas))],
+                [[0, 1, 'panse']])
 
     # ── `a` : deux étages ─────────────────────────────────────────────────────
     o = b['a']
@@ -574,13 +614,15 @@ def recettes(M):
     #   (385, 452).
     pHautG = hx * 0.88
     pBasG = hx * 0.06
+    # ★ Même fermeture que `b d p q` : la panse est une BOUCLE, refermée par un
+    #   segment superposé au fût, et une seule jonction déclarée (voir ci-dessus).
     R['g'] = ([t(ligne(futG, hx, futG, o['y0'] + o['l'] * 0.3)
                  + ' A %s %s 0 0 0 %s %s' % (r(o['l'] * 0.34), r(o['l'] * 0.28),
                                              r(o['x0'] + o['l'] * 0.06),
                                              r(o['y0'] + o['l'] * 0.2))),
-               t(arc(futG, pHautG, futG - o['x0'], (pHautG - pBasG) / 2, 1, 1,
-                     futG, pBasG))],
-              [[0, 1, 'naissance'], [0, 1, 'pied']])
+               couture(arc(futG, pHautG, futG - o['x0'], (pHautG - pBasG) / 2, 1, 1,
+                           futG, pBasG))],
+              [[0, 1, 'panse']])
 
     # ── les empattées : `i`, `j`, `l`, `t`, `f` ───────────────────────────────
     o = b['i']
