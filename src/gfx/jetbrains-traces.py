@@ -94,8 +94,32 @@ def mesures():
         'capitale': CAPITALE_CIBLE,
         # Le fût : la barre verticale du « L », mesurée sur ses abscisses.
         'fut': 90 * k,
-        'boites': {c: boite(c) for c in 'abcdefghijklmnopqrstuvwxyz'},
+        'boites': _sans_le_point(boite, gs, cmap, k),
     }
+
+
+def _sans_le_point(boite, gs, cmap, k):
+    """★ **LA BOÎTE DU `j` INCLUAIT SON POINT, ET SON FÛT S'EN TROUVAIT DÉCALÉ.**
+
+    > « le point du `j` devrait surplomber la barre verticale en étant pile
+    >   au-dessus ; là, il est décalé vers la gauche. » (l'auteur)
+
+    Il ne l'était pas : la police pose le centre du point à 380 unités, et le fût
+    à 390 — dix unités, invisibles. Ce qui était décalé, c'est le FÛT, calculé
+    depuis le bord droit d'une boîte que le point déborde de vingt unités. On
+    mesure donc le `j` sur son seul corps, en écartant le contour du point.
+    """
+    boites = {c: boite(c) for c in 'abcdefghijklmnopqrstuvwxyz'}
+    for c in 'ij':
+        subs = _contour(gs, cmap, c, k)
+        if len(subs) < 2:
+            continue
+        corps = max(subs, key=lambda s: max(y for _, y in s) - min(y for _, y in s))
+        xs = [x for x, _ in corps]
+        ys = [y for _, y in corps]
+        boites[c] = {'x0': min(xs), 'x1': max(xs), 'y0': min(ys), 'y1': boites[c]['y1'],
+                     'l': max(xs) - min(xs), 'h': boites[c]['y1'] - min(ys)}
+    return boites
 
 
 def r(v):
@@ -636,10 +660,16 @@ def recettes(M):
     #   Le bras appartient à UNE branche ; l'autre naît de la fourche.
     epauleK = hx * 0.525
     fourcheK = futK + (o['x1'] - futK) * 0.376
+    # ★ **ET LES DEUX JAMBES SONT UNE SEULE LIGNE COUDÉE.** « Idéalement le `k`
+    #   devrait être : 1 segment vertical à gauche, 1 segment horizontal qui fait
+    #   le lien avec 1 ligne coudée à droite » (l'auteur). Les déclarer
+    #   séparément leur laissait deux coudes à onze unités l'un de l'autre — « un
+    #   point de trop au milieu droite, ou un raccord qui devrait se faire pile
+    #   au même endroit ». Une seule ligne, un seul coude.
     R['k'] = ([t(ligne(futK, o['y0'], futK, o['y1'])),
-               t(ligne(futK, epauleK, fourcheK, epauleK)
-                 + ' L %s %s' % (r(o['x1']), r(hx))),
-               t(ligne(fourcheK, epauleK, o['x1'], o['y0']))],
+               t(ligne(futK, epauleK, fourcheK, epauleK)),
+               t(ligne(o['x1'], hx, fourcheK, epauleK)
+                 + ' L %s %s' % (r(o['x1']), r(o['y0'])))],
               [[0, 1, 'naissance du bras'], [1, 2, 'fourche']])
 
     # ── les diagonales : `v w x y z` ──────────────────────────────────────────

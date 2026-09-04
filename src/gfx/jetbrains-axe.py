@@ -1059,8 +1059,15 @@ def _redresse(chem, tol, casiers, plafond):
         #   traits en une seule masse au croisement, et cette poignée de points
         #   courbes suffisait à faire douter d'une droite longue de six cents
         #   unités. Une droite qui tient dans la tolérance est une droite.
-        marquee = all(_sur_droit(casiers, evalue(m, k / 24)) for k in range(25))
-        if ecart < (seuil + MARGE_NUAGE if marquee else seuil):
+        # ⚠️ **ON NE REDRESSE QUE CE QUE LA SOURCE DÉCLARE DROIT.** On essayait
+        #   la corde partout, et on l'acceptait dès qu'elle tenait dans la
+        #   tolérance : sur une courbe douce découpée en petits morceaux, elle y
+        #   tient toujours, et l'épaule du `r` ressortait en polyligne de six
+        #   points — « propre, mais par segment et non pas courbe » (l'auteur).
+        #   Une courbe reste une courbe ; c'est la police qui dit laquelle est
+        #   droite, et elle le dit sans ambiguïté.
+        vus = [_sur_droit(casiers, evalue(m, k / 24)) for k in range(25)]
+        if sum(vus) >= MAJORITE_DROITE * len(vus) and ecart < seuil + MARGE_NUAGE:
             out.append(droite)
         else:
             out.append(m)
@@ -1217,6 +1224,8 @@ def rejoint(chemins, liens, attendus, lespis=()):
                     else _versLe(m[1][0] if m[1] else m[2], bout))
             if dire == (0.0, 0.0):
                 continue
+            if dire == (0.0, 0.0):
+                continue
             # ★ **PILE SUR L'AUTRE TRAIT — on calcule l'INTERSECTION, on ne
             #   l'approche pas.** « Le point au niveau de la fourche du `y`
             #   devrait être pile sur le trait de l'autre » (l'auteur) : il en
@@ -1251,6 +1260,23 @@ def rejoint(chemins, liens, attendus, lespis=()):
                 if meilleur is None or abs(t) < abs(meilleur[1]):
                     meilleur = (0.0, t, (bout[0] + dire[0] * t, bout[1] + dire[1] * t))
                     reel = True
+            if meilleur is None and m[1]:
+                # ★ **UN BOUT COURBE PEUT SE DÉPLACER DE TRAVERS, UNE DROITE NON.**
+                #   Déplacer latéralement le bout d'un segment droit le fait
+                #   pivoter — c'est ce qui penchait la barre du `d`. Une courbe,
+                #   elle, se TRANSLATE : on emmène la poignée voisine du même
+                #   déplacement et la tangente ne bouge pas. C'est ce qu'il faut
+                #   ici, car l'arche du `h` monte presque parallèlement à son fût
+                #   — l'intersection y est rasante, donc inutilisable — et elle
+                #   restait treize unités à gauche, débordant du fût.
+                #   ⚠️ Mais BRIÈVEMENT : translater une courbe l'emporte tout
+                #     entière, et vingt unités suffisent à décoller la panse du
+                #     `q` de son axe. On s'autorise le quart d'un fût, ce qui
+                #     couvre le débord de l'arche du `h` sans permettre à une
+                #     panse de venir chercher son fût de loin.
+                proche = min(voisins, key=lambda z: math.dist(z, bout))
+                if math.dist(proche, bout) <= 0.25 * FUT:
+                    meilleur = (0.0, 0.0, proche)
             if meilleur is None:
                 # ★ **À UNE POINTE, LE POINT DE RENCONTRE EST LE PLI DE L'AXE.**
                 #   C'est là que la police retourne son trait, et les deux
@@ -1287,6 +1313,10 @@ def rejoint(chemins, liens, attendus, lespis=()):
                 chem = taille
                 continue
             cible = meilleur[2]
+            # ⚠️ **ON DÉPLACE LE POINT, PAS LA POIGNÉE.** Emmener la poignée du
+            #   même écart translate toute la courbe : les panses du `d`, du `p`
+            #   et du `q` décollaient de leur axe de dix à vingt unités pour
+            #   gagner deux unités de contact. Le point bouge, la courbe reste.
             if garderLeDebut:
                 taille[-1] = (m[0], list(m[1]), cible)
             else:
@@ -1409,7 +1439,7 @@ RASANT = math.cos(math.radians(20))
 
 #: Un tronçon droit du guide doit peser au moins ça pour valoir une coupure :
 #: un huitième du guide. En deçà, c'est un bout de courbe presque plat.
-PART_DROITE = 0.125
+PART_DROITE = 0.25
 
 
 def _bornes_droites(guide, n):
@@ -1417,7 +1447,10 @@ def _bornes_droites(guide, n):
     if guide is None or len(guide) < 5:
         return set()
     m = len(guide)
-    mini = max(4, int(PART_DROITE * m))
+    # ⚠️ On ARRONDIT AU-DESSUS : `_guide_droit` compare à la même fraction,
+    #   et quinze points contre quinze et quart suffisaient à faire échouer
+    #   la jambe du `m` — un quart de point.
+    mini = max(4, int(math.ceil(PART_DROITE * m)))
     out, i = set(), 0
     while i < m - mini:
         j = i + mini
@@ -1435,8 +1468,17 @@ def _bornes_droites(guide, n):
 
 
 def _guide_droit(guide, a, b):
-    """Le guide déclare-t-il une DROITE sur ce tronçon ?"""
-    if b - a < 2 or b >= len(guide):
+    """Le guide déclare-t-il une DROITE sur ce tronçon ?
+
+    ⚠️ **UN ARC TRÈS PLAT PARAÎT DROIT SUR UNE PORTION COURTE.** L'épaule du `r`
+      est décrite par une ellipse de rayons 311 × 118 ; sur un huitième de sa
+      longueur, sa flèche ne fait pas une unité, et le test la déclarait droite.
+      Elle ressortait en polyligne de six points — « propre, mais par segment et
+      non pas courbe » (l'auteur). On exige donc qu'un tronçon droit pèse un
+      quart du guide : en deçà, la platitude est celle d'une courbe, pas d'une
+      droite.
+    """
+    if b - a < max(2, PART_DROITE * len(guide)) or b >= len(guide):
         return False
     p, q = guide[a], guide[b]
     if math.dist(p, q) < 1e-9:
@@ -1809,8 +1851,14 @@ def traits(ch, recette, points_du_trace, journal=None):
         sien = proche[2]
         lot = [pu[0] for pu in reste if pu[2] == sien]
         reste = [pu for pu in reste if pu[2] != sien]
-        points.append((sum(z[0] for z in lot) / len(lot),
-                       sum(z[1] for z in lot) / len(lot)))
+        # ⚠️ **LE CENTRE D'UN POINT EST CELUI DE SA BOÎTE, PAS DE SES POINTS.**
+        #   L'anneau effondré n'est pas parcouru à vitesse constante : sa moyenne
+        #   penche du côté où les échantillons se serrent, et le point du `j`
+        #   sortait dix-sept unités à gauche de sa hampe — « il devrait surplomber
+        #   la barre verticale en étant pile au-dessus » (l'auteur). Les extrêmes,
+        #   eux, ne dépendent d'aucune vitesse.
+        points.append(((min(z[0] for z in lot) + max(z[0] for z in lot)) / 2,
+                       (min(z[1] for z in lot) + max(z[1] for z in lot)) / 2))
 
     # ★ **LES BOUTS LIBRES SE RECALENT SUR LES PLIS DE L'AXE — avant tout le
     #   reste.** Un bout qu'aucune jonction ne retient est une extrémité de la
@@ -1913,6 +1961,26 @@ def traits(ch, recette, points_du_trace, journal=None):
                 for i, g in enumerate(guides)]
     ajustes = [_coins_nets(list(c)) for c in ajustes]
     rejoint(ajustes, liens, attendus, lespis)
+    # ★ **LE POINT SURPLOMBE SA HAMPE — c'est une lecture, pas une mesure.**
+    #
+    #   > « le point du `j` devrait surplomber la barre verticale en étant pile
+    #   >   au-dessus ; là il est décalé vers la gauche. » (l'auteur)
+    #
+    #   Sa hauteur se mesure ; son abscisse, non. La police pose le centre du
+    #   point à 380 unités À TOUTE GRAISSE — il n'a pas d'épaisseur, donc pas
+    #   d'axe qui bouge — tandis que l'axe de la hampe, lui, glisse jusqu'à 401
+    #   quand l'encre s'annule. Vingt et une unités d'écart, qui n'existent dans
+    #   aucune graisse réelle : c'est un artefact de l'effondrement, pas un trait
+    #   du dessin. On aligne donc le point sur ce qu'il surplombe.
+    for t, c in enumerate(points):
+        if c is None or not ajustes[t]:
+            continue
+        dessous = [q for k, chem in enumerate(ajustes) if k != t and points[k] is None
+                   for m in chem for q in (m[0], m[2])]
+        if not dessous:
+            continue
+        appui = min(dessous, key=lambda q: math.hypot(q[0] - c[0], (q[1] - c[1]) * 0.2))
+        ajustes[t] = [((appui[0], c[1]), [], (appui[0], c[1]))]
     # ⚠️ Et l'on renettoie APRÈS : la taille des bouts recrée elle-même de courts
     #   morceaux au ras du carrefour — c'est le « doublon » de l'épaule du `n`.
     ajustes = [_coins_nets(list(c)) for c in ajustes]
