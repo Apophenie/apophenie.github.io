@@ -381,7 +381,7 @@ test('★ œuf — au verdict, le π obtenu survit et l’énoncé vient à sa g
  * règle invoquée : quatre sans « = pi » — deux au numérateur, deux au
  * dénominateur — et CINQ avec.
  */
-test('★ œuf — le « pi » saisi a son atelier, comme « pie » et « bête à »', () => {
+test('★ œuf — le « pi » saisi a son atelier, comme « pis » et « bête à »', () => {
   const ateliers = (saisie) => {
     const sc = scenarioDeLOeuf(saisie);
     const tl = compile({ ...sc, steps: sc.steps.slice(0, 3) });

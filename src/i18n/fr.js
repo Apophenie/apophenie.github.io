@@ -291,7 +291,7 @@ export const fr = {
      ceux de n'importe quelle voie. Il n'a pas à savoir que celle-ci est fausse. */
   oeuf: {
     titre: 'Par la zoologie phonétique',
-    regle: 'Une vache est une bête à pie, un oiseau une bête à ailes\u202f: le reste s’entend.',
+    regle: 'Une vache est une bête à pis, un oiseau une bête à ailes\u202f: le reste s’entend.',
     commutation: 'Multiplication commutative',
     commutationDetail: 'Réagencement',
     qualification: 'Qualification animale',

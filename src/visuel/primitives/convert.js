@@ -4,7 +4,7 @@
  *
  * > « Une nouvelle accolade au-dessus indiquant "Qualification animale" ; vache
  * >   s'y déplace ; au niveau du compteur de l'accolade, vache se retrouve
- * >   suivi de "→ bête à pie" ; puis bête à pie vient prendre la place
+ * >   suivi de "→ bête à pis" ; puis bête à pis vient prendre la place
  * >   d'origine de vache (en adaptant la largeur de l'accolade et de la barre
  * >   de fraction) ; puis l'accolade s'efface avec "vache →". […] Et quand une
  * >   expression va à la pointe de l'accolade, elle y va centrée, puis ajoute
@@ -22,7 +22,7 @@
  * `8`. On voit alors une identité, et c'est bien ce qu'on veut voir.
  *
  * Une conversion par RÈGLE est autre chose. « Vache » ne devient pas « bête à
- * pie » : quelqu'un AFFIRME que l'un vaut l'autre, et c'est cette affirmation
+ * pis » : quelqu'un AFFIRME que l'un vaut l'autre, et c'est cette affirmation
  * qu'il faut montrer — sans quoi la substitution passe pour un fait. D'où
  * l'atelier : on sort l'expression de la ligne, on l'écrit à côté de sa
  * traduction sous le nom de la règle invoquée, et l'on ne remet dans la ligne
@@ -31,7 +31,7 @@
  * ★ **ET LA FLÈCHE N'EST PAS UN ÉGAL.** « Tu peux remplacer mes `=` par des
  *   flèches pour les conversions des accolades » (l'auteur). Un `=` est
  *   symétrique et se relit dans les deux sens ; `→` dit une DIRECTION, donc une
- *   règle appliquée. C'est plus honnête, et c'est plus exact : « bête à pie »
+ *   règle appliquée. C'est plus honnête, et c'est plus exact : « bête à pis »
  *   ne redonne pas « vache ».
  *
  * ═══════════════════════════════════════════════════════════════════════════
@@ -42,9 +42,9 @@
  *              ⌢‾‾‾‾‾‾‾‾‾‾⌢          ① l'accolade s'ouvre du côté demandé
  *            Qualification animale    …avec le nom de la RÈGLE
  *              V A C H E              ② l'expression y monte, centrée
- *              V A C H E → bête à pie ③ la flèche et la cible paraissent
- *      V A C H E → bête à pie         ④ l'attelage coulisse : la CIBLE se centre
- *              bête à pie             ⑤ la cible redescend prendre la place
+ *              V A C H E → bête à pis ③ la flèche et la cible paraissent
+ *      V A C H E → bête à pis         ④ l'attelage coulisse : la CIBLE se centre
+ *              bête à pis             ⑤ la cible redescend prendre la place
  *                                     ⑥ l'accolade et la source s'effacent
  * ```
  *
@@ -160,7 +160,7 @@ export function plan(ctx) {
 
   // Les jetons de la cible naissent hors flux, alignés à droite de la flèche,
   // avec leurs propres écarts (`gapBefore`) — c'est là que les espaces d'une
-  // expression comme « bête à pie » se posent.
+  // expression comme « bête à pis » se posent.
   let curseur = xFleche + wFleche / 2 + gap * 2;
   const poses = [];
   for (const spec of specs) {

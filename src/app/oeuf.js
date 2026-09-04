@@ -8,11 +8,11 @@
  *
  * La blague, pour qui la découvre :
  *
- *     CHEVAL        VACHE L       bête à pie L      β π L
+ *     CHEVAL        VACHE L       bête à pis L      β π L
  *     ──────   →    ──────   →    ────────────  →   ─────   →   π
  *     OISEAU        OISEAU        bête à ailes       β L
  *
- * `VACHE L` est l'anagramme de `CHEVAL` ; une vache est une bête à pie, un
+ * `VACHE L` est l'anagramme de `CHEVAL` ; une vache est une bête à pis, un
  * oiseau une bête à ailes ; lues à voix haute, ce sont *bêta pi L* et *bêta L*,
  * dont le quotient vaut π. Rien de tout cela n'est vrai, et c'est le propos du
  * site.
@@ -22,7 +22,7 @@
  * ★ **POURQUOI UN SCÉNARIO ÉCRIT À LA MAIN, ET POURQUOI C'EN EST UN VRAI.**
  *
  * Le moteur de recherche ne produira jamais ceci : il transforme des lettres en
- * nombres, et aucune de ses règles ne sait qu'une vache est une bête à pie.
+ * nombres, et aucune de ses règles ne sait qu'une vache est une bête à pis.
  * L'œuf est donc écrit, pas trouvé — c'est la seule chose du dépôt qui le soit.
  *
  * Mais il est écrit dans le MÊME format que les autres, et joué par le MÊME
@@ -132,7 +132,7 @@ const tok = (id, text, kind = 'letter') => ({ id, text, kind });
  *
  * > « N'oublie pas les espaces, leur absence nuit à la lisibilité. » (l'auteur)
  *
- * ★ **ET IL EN FAUT UN VRAI, PAS UN ÉCART.** « Bête à pie » se lit en trois
+ * ★ **ET IL EN FAUT UN VRAI, PAS UN ÉCART.** « Bête à pis » se lit en trois
  *   mots ; l'étape suivante en prend DEUX — « bête à » — pour en faire un β. Un
  *   écart de mise en page ne se désigne pas : on ne peut pas le nommer dans une
  *   liste de cibles, donc on ne pourrait pas le convertir avec ce qu'il sépare,
@@ -155,13 +155,20 @@ const casseDuL = (mots) => {
 
 /**
  * ★ **LES MOTS DU CALEMBOUR NE SE TRADUISENT PAS**, et c'est le seul texte du
- *   dépôt dont on puisse le dire. « Bête à pie » et « bête à ailes » ne valent
+ *   dépôt dont on puisse le dire. « Bête à pis » et « bête à ailes » ne valent
  *   que parce qu'ils s'entendent *bêta pi* et *bêta L* : traduits, ils cessent
  *   d'être une démonstration pour devenir une phrase sur des animaux. Les
  *   TITRES d'étape, eux, sont bien bilingues — ils décrivent le geste, et un
  *   anglophone a le droit de savoir ce qu'on prétend faire.
+ *
+ * ⚠️ Le calembour s'écrit « bête à **pis** » — l'organe de la vache, pas
+ *   l'oiseau noir et blanc. Les CITATIONS de l'auteur reproduites plus bas dans
+ *   ce fichier (et dans `oeuf.test.js`) gardent l'ancienne graphie « pie » :
+ *   ce sont des citations, on ne corrige pas la bouche de quelqu'un d'autre.
+ *   Un `grep pie` sur ce fichier doit donc encore trouver quatre lignes, et
+ *   c'est normal.
  */
-const MOT = Object.freeze({ bete: 'bête', a: 'à', pie: 'pie', ailes: 'ailes' });
+const MOT = Object.freeze({ bete: 'bête', a: 'à', pis: 'pis', ailes: 'ailes' });
 
 /** L'anagramme du numérateur, dans l'ordre où la scène va la ranger. */
 const anagramme = (mots) => {
@@ -259,7 +266,7 @@ function jetonsDeDepart(mots, pi) {
  * C'est `convert` qui joue ce geste (`visuel/primitives/convert.js`), et il est
  * ici employé SIX fois : deux qualifications, quatre synthèses. Le choix n'est
  * pas décoratif — un `substitute` aurait montré « vache » DEVENANT « bête à
- * pie », c'est-à-dire une identité ; l'atelier montre quelqu'un qui l'AFFIRME,
+ * pis », c'est-à-dire une identité ; l'atelier montre quelqu'un qui l'AFFIRME,
  * sous le nom de la règle invoquée. Sur une démonstration dont tout le propos
  * est que les règles sont fausses, la différence est le sujet même.
  *
@@ -338,13 +345,13 @@ function etapes(mots, pi) {
   const s2 = {
     id: 's_oeuf_2',
     title: dire('qualification'),
-    caption: `${anagramme(mots)} → ${MOT.bete} ${MOT.a} ${MOT.pie} · ${mots.oiseau} → ${MOT.bete} ${MOT.a} ${MOT.ailes}`,
+    caption: `${anagramme(mots)} → ${MOT.bete} ${MOT.a} ${MOT.pis} · ${mots.oiseau} → ${MOT.bete} ${MOT.a} ${MOT.ailes}`,
     ops: [
       {
         op: 'convert',
         targets: ['h3', 'h4', 'h0', 'h1', 'h2'],
         to: [
-          tok('qh0', MOT.bete), esp('qhs1'), tok('qh1', MOT.a), esp('qhs2'), tok('qh2', MOT.pie),
+          tok('qh0', MOT.bete), esp('qhs1'), tok('qh1', MOT.a), esp('qhs2'), tok('qh2', MOT.pis),
         ],
         label: dire('qualification'),
         sens: 'haut',
@@ -370,7 +377,7 @@ function etapes(mots, pi) {
   /* ③ La synthèse phonétique : ce qui s'ENTEND devient ce qui s'écrit.
         « bête à » se lit β — et c'est bien « bête à » et non « bête », la
         correction de l'auteur est phonétique : sans le « à », on entend *bêt*,
-        pas *bêta*. « pie » se lit π, « ailes » se lit L.
+        pas *bêta*. « pis » se lit π, « ailes » se lit L.
 
         Quatre ateliers, un par conversion : « une par une avec déplacement
         bête à → β puis redescente de β, ou remontée pour la partie sous la
@@ -415,7 +422,7 @@ function etapes(mots, pi) {
   const s3 = {
     id: 's_oeuf_3',
     title: dire('synthese'),
-    caption: `${MOT.bete} ${MOT.a} → β · ${MOT.pie} → π · ${MOT.ailes} → ${L}`,
+    caption: `${MOT.bete} ${MOT.a} → β · ${MOT.pis} → π · ${MOT.ailes} → ${L}`,
     ops: [
       {
         op: 'convert',
@@ -442,7 +449,7 @@ function etapes(mots, pi) {
          de l'énoncé — lui ouvrir une accolade lui donnerait une justification
          qu'il n'a pas.
 
-         ⚠️ Il se posait à `3400`, en plein milieu de l'atelier « pie → π »
+         ⚠️ Il se posait à `3400`, en plein milieu de l'atelier « pis → π »
            (2800 → 5200), et depuis que les rangs d'une fraction partagent l'axe
            du trait (`visuel/layout.js`), les deux gestes se contredisent : « pi »
            compte deux signes et « π » un seul, donc le membre de droite
