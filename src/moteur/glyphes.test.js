@@ -235,3 +235,62 @@ test('les extrémités libres sont localisées (le visuel y pose ses marqueurs)'
     assert.ok(p.trait >= 0 && p.trait < GLYPHES.H.traits.length);
   }
 });
+
+/**
+ * ★ **LA SECONDE LECTURE — Jost, et sa règle de traits à elle.**
+ *
+ * > « Considère côté Jost que tout tracé contigu sans repasser au même endroit
+ * >   reste un seul trait. Intègre une variante des opérateurs de compte des
+ * >   extrémités et des traits qui utilise Jost (pas besoin pour les boucles
+ * >   fermées puisqu'il n'y a pas de changement à cet endroit). » (l'auteur)
+ */
+test('★ la lecture Jost — trois comptes, et un seul invariant', async () => {
+  const j = await import('./tables/derivees-jost.js');
+  const { GLYPHES_JOST } = await import('./tables/glyphes-jost.js');
+  const somme = (t) => Object.values(t).reduce((a, b) => a + b, 0);
+
+  assert.equal(Object.keys(GLYPHES_JOST).length, 52);
+
+  // ★ **LES TRAITS SE DÉPLACENT BEAUCOUP** — c'est tout l'intérêt d'une seconde
+  //   lecture : 115 contre 82, parce que Jost dessine sans empattement ET
+  //   qu'elle ne lève le crayon qu'aux morceaux vraiment détachés.
+  assert.equal(somme(TRAITS_MAJ) + somme(TRAITS_MIN), 115);
+  assert.equal(somme(j.TRAITS_JOST_MAJ) + somme(j.TRAITS_JOST_MIN), 82);
+
+  // ⚠️ **LES EXTRÉMITÉS, PRESQUE PAS**, et c'est le résultat qui a démenti
+  //   l'hypothèse de départ : on cherchait « une variante avec moins
+  //   d'extrémités », on en gagne UNE sur cent vingt-deux. Un empattement coûte
+  //   des nœuds, pas des extrémités — c'est un coude dans le même trait.
+  assert.equal(somme(EXTREMITES_MAJ) + somme(EXTREMITES_MIN), 122);
+  assert.equal(somme(j.EXTREMITES_JOST_MAJ) + somme(j.EXTREMITES_JOST_MIN), 121);
+
+  // ★ **ET LES SEIZE BOUCLES NE BOUGENT PAS.** Quatrième vérification
+  //   indépendante de cet invariant, sur une police d'un dessin tout autre.
+  assert.equal(somme(BOUCLES_MAJ) + somme(BOUCLES_MIN), 16);
+  assert.equal(somme(j.BOUCLES_JOST_MAJ) + somme(j.BOUCLES_JOST_MIN), 16);
+});
+
+/**
+ * ⚠️ **CE QUI EST MONTRÉ DOIT ÊTRE CE QUI EST COMPTÉ (§0.3), et pour la lecture
+ *   eulérienne cela demande un PARCOURS, pas un nombre.**
+ *
+ * > « Il faudra montrer l'animation où 1 trait = tracé continu de ce trait d'un
+ * >   bout à l'autre, puis d'une autre couleur tracé suivant. » (l'auteur)
+ *
+ * La table Jost porte 91 sous-chemins pour 82 levées de crayon : animer les
+ * sous-chemins montrerait donc neuf gestes de trop. `parcoursDUnSeulGeste` rend
+ * les lots que le crayon parcourt réellement, et ce test tient les deux bouts —
+ * autant de lots que de levées, et pas un trait oublié en route.
+ */
+test('★ la lecture Jost — le parcours dit exactement ce que le compte annonce', async () => {
+  const j = await import('./tables/derivees-jost.js');
+  const { GLYPHES_JOST } = await import('./tables/glyphes-jost.js');
+  for (const [c, g] of Object.entries(GLYPHES_JOST)) {
+    const lots = j.parcoursDUnSeulGeste(g);
+    assert.equal(lots.length, j.levéesDeCrayon(g),
+      `« ${c} » : ${lots.length} gestes montrés pour ${j.levéesDeCrayon(g)} comptés`);
+    const vus = lots.flat();
+    assert.equal(new Set(vus).size, vus.length, `« ${c} » : un trait parcouru deux fois`);
+    assert.equal(vus.length, g.traits.length, `« ${c} » : un trait oublié en route`);
+  }
+});

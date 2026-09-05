@@ -243,6 +243,14 @@ export const NOMS = {
   'm.traitsMin': b('En traits de crayon, bas de casse', 'In pen strokes, lower case'),
   'm.extremitesMaj': b('En extrémités libres, capitales', 'In free ends, capitals'),
   'm.extremitesMin': b('En extrémités libres, bas de casse', 'In free ends, lower case'),
+  'm.traitsJostMaj': b('En traits d’un seul geste, capitales',
+    'In strokes drawn in one go, capitals'),
+  'm.traitsJostMin': b('En traits d’un seul geste, bas de casse',
+    'In strokes drawn in one go, lower case'),
+  'm.extremitesJostMaj': b('En extrémités sans empattement, capitales',
+    'In sans-serif free ends, capitals'),
+  'm.extremitesJostMin': b('En extrémités sans empattement, bas de casse',
+    'In sans-serif free ends, lower case'),
   'm.bouclesMaj': b('En boucles fermées, capitales', 'In closed loops, capitals'),
   'm.bouclesMin': b('En boucles fermées, bas de casse', 'In closed loops, lower case'),
   // ★ « spacialisation » et non « géographie » : c'est le mot de l'auteur, et il
@@ -526,6 +534,12 @@ export const TITRES_COURTS = {
   'm.azertyColonne': b('colonne AZERTY', 'AZERTY column'), // mazc
   'm.azertyRangee': b('rangée AZERTY', 'AZERTY row'), // mazr
   'm.bouclesMin': b('graphie hermétique', 'closed loops'), // mbob
+  // ★ La seconde lecture des glyphes doit se NOMMER comme telle : « traits »
+  //   tout court se confondrait avec `mtrb` dans l'énumération d'une carte.
+  'm.traitsJostMaj': b('traits d’un geste', 'strokes in one go'), // mtjc
+  'm.traitsJostMin': b('traits d’un geste', 'strokes in one go'), // mtjb
+  'm.extremitesJostMaj': b('extrémités sans empattement', 'sans-serif ends'), // mejc
+  'm.extremitesJostMin': b('extrémités sans empattement', 'sans-serif ends'), // mejb
   'm.bouclesMaj': b('graphie hermétique', 'closed loops'), // mboc
   'm.compterLesChiffres': b('dénombrement sériel', 'serial tally'), // mcc
   'm.chaldeen': b('numérologie chaldéenne', 'Chaldean numerology'), // mch
@@ -683,6 +697,14 @@ export const PRECISIONS = {
   'm.traitsMin': b('en traits de crayon, bas de casse', 'in pen strokes, lower case'),
   'm.extremitesMaj': b('en extrémités libres, capitales', 'in free ends, capitals'),
   'm.extremitesMin': b('en extrémités libres, bas de casse', 'in free ends, lower case'),
+  'm.traitsJostMaj': b('en traits d’un seul geste, capitales',
+    'in strokes drawn in one go, capitals'),
+  'm.traitsJostMin': b('en traits d’un seul geste, bas de casse',
+    'in strokes drawn in one go, lower case'),
+  'm.extremitesJostMaj': b('en extrémités sans empattement, capitales',
+    'in sans-serif free ends, capitals'),
+  'm.extremitesJostMin': b('en extrémités sans empattement, bas de casse',
+    'in sans-serif free ends, lower case'),
   'm.bouclesMaj': b('en boucles fermées, capitales', 'in closed loops, capitals'),
   'm.bouclesMin': b('en boucles fermées, bas de casse', 'in closed loops, lower case'),
   'm.azertyColonne': b('en spacialisation AZERTY', 'in AZERTY spatialisation'),

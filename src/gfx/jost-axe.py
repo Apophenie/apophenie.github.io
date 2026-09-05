@@ -56,10 +56,15 @@ os.environ.setdefault('NHLG_AXE_SOURCE', str(GFX / '_jost-source.json'))
 os.environ.setdefault('NHLG_AXE_TRACES', str(GFX / 'jost-traces.py'))
 os.environ.setdefault('NHLG_AXE_CIBLE', str(GFX / '_jost-axe.js'))
 
-if '--adopter' in sys.argv:
-    sys.exit('⚠️  Jost est une VARIANTE À L’ÉTUDE : elle ne s’adopte pas.\n'
-             '    `moteur/tables/glyphes.js` est l’arbitrage de l’auteur, et trois\n'
-             '    opérateurs du catalogue en facturent les comptes.')
+# ★ **`--adopter` ÉCRIT UNE TABLE SÉPARÉE, et ne touche jamais à celle du
+#   moteur.** Jost ne remplace pas JetBrains : elle la double. « Intègre une
+#   variante des opérateurs de compte des extrémités et des traits qui utilise
+#   Jost » (l'auteur) — deux tables, deux jeux d'opérateurs, et le lecteur
+#   choisit lequel il invoque. `moteur/tables/glyphes.js` reste l'arbitrage de
+#   l'auteur, et rien ici ne peut l'écrire.
+os.environ.setdefault(
+    'NHLG_AXE_TABLE',
+    str(GFX.parents[0] / 'moteur' / 'tables' / 'glyphes-jost.js'))
 
 # ★ `run_path` et non un `import` : `jetbrains-axe.py` porte un trait d'union,
 #   et surtout il doit s'exécuter comme un programme — `__name__ == '__main__'`

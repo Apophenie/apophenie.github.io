@@ -103,7 +103,14 @@ SOURCE = _chemin('NHLG_AXE_SOURCE', '_jetbrains-source.json')
 CIBLE = _chemin('NHLG_AXE_CIBLE', '_glyphes-axe.js')
 TRACES = _chemin('NHLG_AXE_TRACES', 'jetbrains-traces.py')
 #: La table du moteur, repeinte SEULEMENT sur `--adopter` (voir `adopter`).
-TABLE = RACINE / 'src' / 'moteur' / 'tables' / 'glyphes.js'
+# ⚠️ **LA TABLE ADOPTÉE SE PARAMÈTRE, comme la source et la cible.** Jost n'est
+#   pas une adoption de `glyphes.js` — trois opérateurs du catalogue en facturent
+#   les comptes, et cet arbitrage-là reste celui de l'auteur. C'est une table
+#   SÉPARÉE, qui nourrit des opérateurs séparés : « intègre une variante des
+#   opérateurs de compte des extrémités et des traits qui utilise Jost »
+#   (l'auteur).
+TABLE = pathlib.Path(os.environ['NHLG_AXE_TABLE']) if os.environ.get('NHLG_AXE_TABLE') \
+    else RACINE / 'src' / 'moteur' / 'tables' / 'glyphes.js'
 
 #: Le repère du moteur : la capitale vaut 600 (`glyphes.js › METRIQUES`).
 CAPITALE_CIBLE = 600
@@ -4196,16 +4203,19 @@ def adopter(poses):
     fichier, la tolérance, les métriques et le gel restent écrits à la main,
     parce qu'ils énoncent un CONTRAT et non une géométrie.
     """
-    # ⚠️ **UNE VARIANTE À L'ÉTUDE N'ADOPTE PAS, ET LE REFUS EST ICI.** Le
-    #   marqueur écrit dans `glyphes.js` nomme la chaîne qui l'a posé ; une
-    #   chaîne dérivée (Jost) porterait un autre nom de cible et ne doit même pas
-    #   pouvoir essayer. L'arbitrage appartient à l'auteur, pas à un `--adopter`
-    #   qu'on aurait tapé dans le mauvais terminal.
-    if CIBLE.name != '_glyphes-axe.js':
+    # ⚠️ **CE QUI EST INTERDIT, C'EST D'ÉCRIRE LA TABLE DE L'AUTRE.** Le refus
+    #   portait sur la chaîne — « seule `_glyphes-axe.js` adopte » —, et il était
+    #   trop large : il empêchait aussi Jost d'écrire SA PROPRE table, sans
+    #   laquelle il ne peut y avoir de variante d'opérateurs. Ce qu'il faut
+    #   garder est plus étroit et plus juste : une chaîne dérivée ne doit pas
+    #   pouvoir toucher `glyphes.js`, qui est l'arbitrage de l'auteur et dont
+    #   trois opérateurs du catalogue facturent les comptes. Elle écrit ailleurs,
+    #   sous un nom qu'elle a dû déclarer elle-même (`NHLG_AXE_TABLE`).
+    reference = CIBLE.name == '_glyphes-axe.js'
+    if not reference and TABLE.name == 'glyphes.js':
         raise SystemExit(
-            '--adopter est réservé à la chaîne de référence : %s n’est qu’une '
-            'variante à l’étude, son adoption est un arbitrage d’auteur'
-            % CIBLE.name)
+            '%s ne peut pas adopter dans glyphes.js : cette table-là est '
+            'l’arbitrage de l’auteur. Déclarez NHLG_AXE_TABLE.' % CIBLE.name)
     ouvre = '// ⟨engendré par src/gfx/jetbrains-axe.py --adopter⟩'
     ferme_ = '// ⟨/engendré⟩'
     texte = TABLE.read_text()
@@ -4226,7 +4236,13 @@ def adopter(poses):
     corps += [bloc(c) for c in BAS_DE_CASSE if c in poses]
     TABLE.write_text(texte[:i0] + ouvre + '\n' + '\n'.join(corps) + '\n  '
                      + texte[i1:])
-    print('  → src/moteur/tables/glyphes.js (%d glyphes ADOPTÉS)' % len(poses))
+    # ⚠️ **LE CHEMIN S'AFFICHE, IL NE SE RECOPIE PAS.** Écrit en dur, il annonçait
+    #   « glyphes.js » alors que Jost venait d'écrire `glyphes-jost.js` : de quoi
+    #   croire, trois secondes durant, que la table de l'auteur avait été
+    #   écrasée. Un message qui nomme un autre fichier que celui qu'on écrit est
+    #   pire qu'un message absent.
+    print('  → %s (%d glyphes ADOPTÉS)'
+          % (TABLE.relative_to(RACINE), len(poses)))
 
 
 def _js(s):

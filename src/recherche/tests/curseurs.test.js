@@ -466,14 +466,22 @@ test('fouille — elle finit la recherche là où le budget mordait', () => {
        bandeau). Depuis `D_MAX` 15 la première vaut vrai à peu près partout, y
        compris sur « a ». Ce n'est pas une panne, c'est un drapeau devenu muet :
        on mesure l'effet UTILE à sa place. */
+  /* ⚠️ **LE SEUIL S'EST DÉPLACÉ LE JOUR OÙ LE CATALOGUE A GRANDI**, et c'est
+     attendu : quatre opérateurs de plus — la lecture Jost des traits et des
+     extrémités — élargissent l'espace, si bien que la fouille 0 trouve déjà ce
+     que la fouille 1 apportait (3 221 → 3 280). Mesuré, il faut désormais DEUX
+     crans sur ce témoin : 3 280 → 3 280 → 4 277.
+     La propriété qu'on garde n'est donc plus « un cran suffit » — ce chiffre-là
+     dépend du catalogue et bougera encore — mais celle qui compte : **la
+     réglette sert**, et elle finit par ne plus rien ajouter. */
   const s = 'https://hope-hope-hope.fr/';
-  const court = moteur.enumerer(s, { fouille: 0 });
-  const long = moteur.enumerer(s, { fouille: 1 });
-  assert.ok(long.approches[0].score > court.approches[0].score,
-    `la tête doit s’améliorer : ${court.approches[0].score} → ${long.approches[0].score}`);
-  // Et un cran de plus n'ajoute plus rien : c'est ce qui rend la réglette
-  // honnête plutôt que magique.
-  assert.equal(voies(moteur.enumerer(s, { fouille: 2 })), voies(long),
+  const scores = [0, 1, 2, 3].map((f) => moteur.enumerer(s, { fouille: f }).approches[0].score);
+  assert.ok(scores[3] > scores[0],
+    `la fouille doit améliorer la tête : ${scores.join(' → ')}`);
+  // Et elle finit : au dernier cran, plus rien ne bouge. C'est ce qui rend la
+  // réglette honnête plutôt que magique.
+  assert.equal(voies(moteur.enumerer(s, { fouille: 4 })),
+    voies(moteur.enumerer(s, { fouille: 3 })),
     'au-delà, la recherche a fini');
 });
 

@@ -101,6 +101,11 @@ export const ORDRE_CANONIQUE = Object.freeze([
   'nm',
   'nlv', 'nlc', 'ma1', 'mz26', 'mpy', 'mch', 'mx6', 'msfr', 'msen', 'mt9',
   'mms', 'mmt', 'masc', 'masb', 'm7', 'm7F', 'mtrc', 'mtrb', 'mexc', 'mexb',
+  // ★ La SECONDE lecture des glyphes — Jost, et sa règle de traits à elle. Ils
+  //   se déclarent ici, entre les extrémités et les boucles, parce que c'est là
+  //   qu'ils sont écrits : le registre et l'ordre de déclaration doivent dire la
+  //   même chose (§4.1 règle 3).
+  'mtjc', 'mtjb', 'mejc', 'mejb',
   'mboc', 'mbob', 'mazc', 'mazr', 'mqwc', 'mqwr', 'maz4', 'mqw4', 'mhe', 'mgr', 'mln',
   'mlm', 'mrn', 'm0', 'mtc', 'm14', 'm14F', 'mr9', 'm36', 'mpf', 'm1s2',
   'mad', 'meg', 'mtri', 'mtal', 'mr39', 'mcc', 'mrd',

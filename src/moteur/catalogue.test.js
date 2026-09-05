@@ -166,6 +166,18 @@ const VECTEURS = [
   ['mtrb', T(HOPE), [2, 1, 2, 2]],
   ['mexc', T(HOPE), [4, 0, 1, 3]],
   ['mexb', T(HOPE), [3, 0, 2, 1]],
+  // ★ **LA SECONDE LECTURE, SUR LES MÊMES QUATRE LETTRES.** Jost dessine sans
+  //   empattement et compte ses traits d'un seul geste, ce qui se voit d'un coup
+  //   d'œil sur les capitales : `mtrc` rend [3,1,2,4] pour « HOPE », `mtjc` rend
+  //   [3,1,1,2] — le `P` de Jost se trace d'une traite (son fût et sa panse se
+  //   rejoignent aux deux bouts) et son `E` en deux gestes au lieu de quatre.
+  //   Les EXTRÉMITÉS, elles, se suivent de très près : [3,0,2,1] des deux côtés
+  //   en bas de casse. C'est tout l'enseignement de la variante — elle déplace
+  //   les traits, presque pas les extrémités.
+  ['mtjc', T(HOPE), [3, 1, 1, 2]],
+  ['mtjb', T(HOPE), [2, 1, 2, 1]],
+  ['mejc', T(HOPE), [4, 0, 1, 3]],
+  ['mejb', T(HOPE), [3, 0, 2, 1]],
   ['mboc', T(HOPE), [0, 1, 1, 0]],
   ['mbob', T(HOPE), [0, 1, 1, 1]],
   ['mazc', T(HOPE), [6, 9, 10, 3]],
@@ -373,8 +385,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 155);
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 155, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 159); // +4 : la lecture Jost des traits et des extrémités
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 159, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -384,7 +396,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 155, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 159, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

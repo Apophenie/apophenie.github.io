@@ -87,6 +87,7 @@ import {
   chiffreDeTouche, CHIFFRE_DE_TOUCHE, NOTE_AFNOR,
 } from '../tables/claviers.js';
 import { mesure as mesureGlyphe } from '../tables/derivees.js';
+import { mesureJost } from '../tables/derivees-jost.js';
 import { GLYPHES } from '../tables/glyphes.js';
 import {
   valeurHebreu, valeurGrec, NOTE_SOURCAGE, TRANSLIT_HEBREU, TRANSLIT_GREC,
@@ -2267,6 +2268,64 @@ const MAPPEURS_LETTRE = [
     notoriete: 0.40,
     geste: 'countStrokes', metrique: 'extremites', casse: 'min',
     fn: (c) => mesureGlyphe('extremites', 'min', pli(c).toLowerCase()),
+  },
+  // ★ **LA SECONDE LECTURE : JOST, ET SA RÈGLE DE TRAITS À ELLE.**
+  //
+  // > « Intègre une variante des opérateurs de compte des extrémités et des
+  // >   traits qui utilise Jost (pas besoin pour les boucles fermées puisqu'il
+  // >   n'y a pas de changement à cet endroit). » (l'auteur)
+  // > « C'est plutôt une bonne chose de pouvoir compter les traits de deux
+  // >   manières différentes, ça nous laisse plus d'options pour obtenir le
+  // >   résultat souhaité. »
+  //
+  // Deux choses les séparent des quatre d'au-dessus, et il faut les deux :
+  //  · **LE DESSIN** — Jost est une géométrique sans empattement, son `l` et son
+  //    `I` sont des barres nues ;
+  //  · **LA RÈGLE** — « tout tracé contigu sans repasser au même endroit reste un
+  //    seul trait », c'est-à-dire le chemin EULÉRIEN, quand JetBrains lève le
+  //    crayon à chaque angle aigu. Mesuré : 115 traits contre 82.
+  //
+  // ⚠️ Les BOUCLES ne sont pas doublées — l'auteur les en a exclues, et la
+  //   mesure lui donne raison : seize des deux côtés, les mêmes seize.
+  {
+    id: 'm.traitsJostMaj', code: 'mtjc',
+    libelle: bilingue('Traits d’un seul geste, en capitale',
+      'Strokes drawn in one go, in capitals'),
+    regle: bilingue('Combien de fois le crayon se lève quand tout tracé contigu se poursuit',
+      'How often the pen lifts when every joined-up stroke carries on'),
+    notoriete: 0.30, adHoc: 0.20,
+    geste: 'countStrokes', metrique: 'traits', casse: 'maj', police: 'jost',
+    fn: (c) => mesureJost('traits', 'maj', pli(c)),
+  },
+  {
+    id: 'm.traitsJostMin', code: 'mtjb',
+    libelle: bilingue('Traits d’un seul geste, en bas de casse',
+      'Strokes drawn in one go, in lower case'),
+    regle: bilingue('Combien de fois le crayon se lève quand tout tracé contigu se poursuit',
+      'How often the pen lifts when every joined-up stroke carries on'),
+    notoriete: 0.30, adHoc: 0.20,
+    geste: 'countStrokes', metrique: 'traits', casse: 'min', police: 'jost',
+    fn: (c) => mesureJost('traits', 'min', pli(c).toLowerCase()),
+  },
+  {
+    id: 'm.extremitesJostMaj', code: 'mejc',
+    libelle: bilingue('Extrémités libres d’une capitale sans empattement',
+      'Free ends of a sans-serif capital'),
+    regle: bilingue('Les bouts de trait qui ne rejoignent rien, sur un dessin géométrique',
+      'The stroke ends that meet nothing, on a geometric letterform'),
+    notoriete: 0.30, adHoc: 0.20,
+    geste: 'countStrokes', metrique: 'extremites', casse: 'maj', police: 'jost',
+    fn: (c) => mesureJost('extremites', 'maj', pli(c)),
+  },
+  {
+    id: 'm.extremitesJostMin', code: 'mejb',
+    libelle: bilingue('Extrémités libres d’une minuscule sans empattement',
+      'Free ends of a sans-serif small letter'),
+    regle: bilingue('Les bouts de trait qui ne rejoignent rien, sur un dessin géométrique',
+      'The stroke ends that meet nothing, on a geometric letterform'),
+    notoriete: 0.30, adHoc: 0.20,
+    geste: 'countStrokes', metrique: 'extremites', casse: 'min', police: 'jost',
+    fn: (c) => mesureJost('extremites', 'min', pli(c).toLowerCase()),
   },
   {
     id: 'm.bouclesMaj', code: 'mboc',
