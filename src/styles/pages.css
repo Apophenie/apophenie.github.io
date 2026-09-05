@@ -451,13 +451,28 @@
 /* Le titre d'une voie est une PHRASE, souvent longue : à 600 elle crie. Un
    cran en dessous des titres de section suffit à la poser. */
 .voie__titre { font-family: var(--oracle); font-size: var(--fs-lg); font-weight: 500; }
+/* ★ **UNE LIGNE PAR FRAGMENT.** « Fais une ligne pour chacun […] plutôt que tout
+   mettre à la suite » (l'auteur). Les étapes d'un fragment restent soudées par
+   leurs points médians ; ce sont les FRAGMENTS qui se séparent, et la colonne
+   les aligne au lieu de les nouer en un paragraphe où l'on ne savait plus si
+   « gématrie · morse · gématrie » était une voie en trois temps ou trois portées
+   traitées chacune à sa façon. */
 .voie__resume {
+  display: flex;
+  flex-direction: column;
+  gap: .12em;
   font-family: var(--machine);
   font-size: var(--fs-2xs);
   letter-spacing: 0;
   text-transform: none;
   color: var(--fg-2);
   overflow-wrap: anywhere;
+}
+/* Une puce discrète devant chaque ligne, mais SEULEMENT quand il y en a
+   plusieurs : sur une ligne unique elle annoncerait une liste qui n'existe pas. */
+.voie__resume > .voie__etape:not(:only-child)::before {
+  content: '· ';
+  opacity: .55;
 }
 /* ★ LES CINQ SCORES D'UNE CARTE — un global, quatre bruts.
 

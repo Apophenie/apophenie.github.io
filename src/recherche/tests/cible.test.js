@@ -696,3 +696,65 @@ test('★ NON-RÉGRESSION — une cible homogène ne connaît PAS la moisson de 
     }
   }
 });
+
+/**
+ * ★ **`mad` ET `mrd` TRAVAILLENT-ILS POUR AUTRE CHOSE QUE 666 ? — la mesure.**
+ *
+ * > « mad ou mrd sont-ils réellement capables d'optimiser pour autre chose que
+ * >   666 ? Ils ont un gros potentiel pour arriver à produire des séquences sur
+ * >   mesure. S'ils ne sont pas prêts pour ça, il va falloir les améliorer. »
+ * >   (l'auteur)
+ *
+ * ★ **OUI, ET PAR CONSTRUCTION.** Les deux sont déclarés `selonLaCible` et
+ *   lisent `butsDuPaquet(visee)` : ce qu'un paquet a le droit de viser est
+ *   l'ALPHABET DE LA CIBLE, augmenté du 9 quand — et seulement quand — c'est un
+ *   6 qu'on cherche et qu'un demi-tour peut le rendre. Sur une cible qui ne
+ *   demande que des zéros, ils ne sont même pas construits.
+ *
+ * Le témoin est « Sarah Kerrigan », personnage de StarCraft, visant la date de
+ * sortie du jeu — 31 mars 1998. Il a été choisi pour éprouver le moteur LOIN de
+ * son terrain : huit chiffres, cinq valeurs distinctes, un zéro en tête de
+ * groupe, et pas un seul 6.
+ *
+ * ⚠️ **ET IL MONTRE QUE LA LIMITE N'EST PAS DANS `mad` NI DANS `mrd`.** Mesuré :
+ *
+ *     Sarah Kerrigan → 98         12 voies · mrd 6
+ *     Sarah Kerrigan → 998        12 voies · mrd 7 · mad 1
+ *     Sarah Kerrigan → 1998       12 voies · mrd 6 · mad 1
+ *     Sarah Kerrigan → 31998       2 voies · mrd 2
+ *     Sarah Kerrigan → 031998      0 voie
+ *     Sarah Kerrigan → 31031998    0 voie  (même à fouille 4, douze secondes)
+ *     Sarah Kerrigan Queen of Blades → 31031998   1 voie
+ *
+ *   Les deux opérateurs sont donc largement employés hors 666 — jusqu'à sept
+ *   voies sur douze —, et ce qui s'épuise à partir de six chiffres est la
+ *   MATIÈRE : treize caractères ne suffisent pas à écrire huit chiffres imposés
+ *   dans l'ordre. Trente caractères y suffisent. Améliorer `mad` ou `mrd` ne
+ *   changerait rien à cette arithmétique-là.
+ */
+test('★ témoin Kerrigan — `mad` et `mrd` servent des cibles qui n’ont rien de 666', () => {
+  const r = moteur.resoudre('Sarah Kerrigan', { cible: '1998' });
+  assert.ok(r.approches.length >= 4, `${r.approches.length} voies vers 1998`);
+  const emploie = (code) => r.approches.filter(
+    (a) => new RegExp(`(^|[+,;:])${code}([+,;]|$)`).test(a.codes)).length;
+  // La cible `1998` ne contient aucun 6 : si ces deux-là ne savaient viser que
+  // lui, ils seraient absents. Ils sont au contraire majoritaires.
+  assert.ok(emploie('mrd') >= 1, '`mrd` ne sert aucune voie vers 1998');
+  assert.ok(emploie('mrd') + emploie('mad') >= 2,
+    '`mad` et `mrd` réunis ne servent qu’une voie vers 1998');
+  for (const a of r.approches) assert.equal(a.cible.texte, '1998');
+});
+
+test('★ témoin Kerrigan — la limite est la MATIÈRE, pas l’opérateur', () => {
+  /* Ce test échouerait si le moteur se mettait à rendre des voies là où il n'y
+     a pas de quoi les écrire — ou, à l'inverse, s'il perdait celles qu'il
+     trouve avec assez de matière. Les deux bornes se tiennent, et c'est le
+     couple qui a du sens : ni l'une ni l'autre seule ne dit où est le mur. */
+  const court = moteur.resoudre('Sarah Kerrigan', { cible: '31031998' });
+  assert.equal(court.approches.length, 0,
+    'treize caractères suffiraient à écrire huit chiffres imposés ?');
+  const long = moteur.resoudre('Sarah Kerrigan Queen of Blades', { cible: '31031998' });
+  assert.ok(long.approches.length >= 1,
+    'trente caractères ne suffisent plus à écrire la date de sortie de StarCraft');
+  for (const a of long.approches) assert.equal(a.cible.texte, '31031998');
+});

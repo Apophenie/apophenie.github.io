@@ -211,6 +211,14 @@ export const fr = {
        bon, et il vaut mieux le dire que plaisanter à côté. */
     aucuneVoieCible: 'Aucune voie ne mène à {cible} pour cette saisie. La maison ne garantit que le 666 ; le reste se mérite.',
     voieNumero: 'n° {rang}',
+    /* ★ **LE TITRE DE LA CARTE : LA CONVERSION QUI PORTE LA VOIE.** « Indique la
+       transformation lettre vers chiffre qui convertit le plus de caractères
+       parmi toutes les étapes effectuées » (l'auteur). Le compte est là parce
+       qu'il DÉPARTAGE : deux voies peuvent passer par la même gématrie sans y
+       faire passer le même nombre de lettres, et c'est cette différence-là qu'on
+       cherche en parcourant la liste. */
+    conversionTitre: '{methode} · {n} caractères',
+    conversionTitreUn: '{methode} · 1 caractère',
     /* Le compteur de séries, à cheval sur le bord DROIT du panneau — le
        pendant du numéro de rang. Deux écritures d'une seule information :
        le BADGE est un dessin (les points médians découpent les trois 6
@@ -224,7 +232,7 @@ export const fr = {
        de la voie : douze cartes offrant douze liens « Sobre » ne distingueraient
        rien dans la liste des liens d'un lecteur d'écran. */
     acces: {
-      voir: 'Voir la démonstration',
+      voir: 'Voir la démonstration animée',
       sobre: 'Sobre',
       sobreLabel: '{titre} — version sobre, sans mise en scène',
       scenique: 'Scénique',

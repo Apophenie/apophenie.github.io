@@ -1612,6 +1612,10 @@ function serialisable(resultat) {
       regle: a.regle, url: a.url, urlSobre: a.urlSobre, urlScenique: a.urlScenique,
       joker: a.joker, criteres: a.criteres,
       codes: a.codes,
+      // ★ La conversion lettre → chiffre qui porte la voie, et combien de
+      //   caractères elle a traités : c'est le titre de sa carte, et il se
+      //   calcule là où les états intermédiaires vivent (`score.js`).
+      conversion: a.conversion,
     })),
   };
 }

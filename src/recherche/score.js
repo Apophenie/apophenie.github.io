@@ -1274,7 +1274,53 @@ export function noter(approche, ctx) {
   };
   approche.L = L;
   approche.codes = chemins.map((c) => c.ops.map((o) => o.code).join('+')).join(',');
+  approche.conversion = conversionVedette(chemins);
   return approche;
+}
+
+/**
+ * ★ **LA CONVERSION QUI PORTE LA VOIE — celle qui traite le plus de lettres.**
+ *
+ * > « En titre de la carte, indique la transformation lettre vers chiffre qui
+ * >   convertit le plus de caractères parmi toutes les étapes effectuées. »
+ * >   (l'auteur)
+ *
+ * Une voie enchaîne des filtres, des découpages, des mesures ; une seule chose
+ * y fait vraiment passer du texte au nombre, et c'est le pas `TOKENS → NUMS`.
+ * Quand il y en a plusieurs — une portée en gématrie, une autre en morse —,
+ * celui qui gagne le titre est celui qui a converti le plus de caractères, et
+ * non le premier venu ni le plus notoire.
+ *
+ * ★ **ON COMPTE SUR L'ÉTAT D'ENTRÉE, PAS SUR LE FRAGMENT.** Un mappeur posé
+ *   après « on ne garde que les consonnes » n'en convertit que quatre sur onze,
+ *   et c'est bien quatre qu'il faut lui compter. `chemin.etats[i]` est
+ *   exactement l'état que l'opérateur `i` a reçu : la longueur de sa valeur est
+ *   le nombre de jetons qu'il a traités, sans qu'on ait à rejouer quoi que ce
+ *   soit.
+ *
+ * ⚠️ Rend `null` s'il n'y a aucun pas `TOKENS → NUMS` — une voie qui part d'une
+ *   date ou d'un nombre écrit n'en a pas, et il vaut mieux ne rien annoncer que
+ *   nommer une conversion qui n'a pas eu lieu.
+ */
+function conversionVedette(chemins) {
+  const totaux = new Map();
+  for (const c of chemins || []) {
+    (c.ops || []).forEach((op, i) => {
+      if (!op || op.from !== 'TOKENS' || op.to !== 'NUMS') return;
+      const avant = (c.etats || [])[i];
+      const n = avant && Array.isArray(avant.valeur) ? avant.valeur.length : 0;
+      totaux.set(op.code, (totaux.get(op.code) || 0) + n);
+    });
+  }
+  if (!totaux.size) return null;
+  // À égalité, le code le plus petit dans l'ordre du catalogue : le tri doit
+  // être total, sans quoi deux exécutions identiques pourraient différer.
+  let vedette = null;
+  for (const [code, n] of [...totaux].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))) {
+    vedette = { code, caracteres: n };
+    break;
+  }
+  return vedette;
 }
 
 /**

@@ -86,8 +86,14 @@ function carteVoie(approche, i, { surChoix, lienDisponible, cible, registres, cu
   const entete = [
     e('span.voie__numero', { texte: t('resultat.voieNumero', { rang }) }),
     compteurSeries(approche, cible),
-    e('span.voie__titre', { texte: titre }),
-    (() => { const m = enumererLesMethodes(approche); return m ? e('span.voie__resume', { texte: m }) : null; })(),
+    e('span.voie__titre', { texte: titreDeConversion(approche) || titre }),
+    ...(() => {
+      const lignes = enumererParFragment(approche);
+      if (!lignes.length) return [];
+      return [e('span.voie__resume', {}, lignes.map(
+        (l) => e('span.voie__etape', { texte: l }),
+      ))];
+    })(),
     scoresDeLaVoie(approche, curseurs),
   ];
   const note = approche.joker ? e('span.legende', { texte: t('resultat.jokerNote') }) : null;
@@ -102,10 +108,22 @@ function carteVoie(approche, i, { surChoix, lienDisponible, cible, registres, cu
   //   — et un panneau à une seule destination redevient un bouton entier, ce
   //   qui est justement ce que la règle « la carte est cliquable en entier »
   //   disait avant qu'il y en ait deux.
+  /* ★ **LE PIED DIT TOUJOURS LA MÊME CHOSE, quel que soit le nombre d'accès.**
+     > « Qu'on y arrive directement, ou en changeant les réglages ou la cible à
+     >   trouver, les tuiles de résultat doivent être structurées à l'identique.
+     >   Pas de "Démonstration" dans certains cas et d'autre chose d'autres
+     >   fois. » (l'auteur)
+     Le pied portait son intitulé UNIQUEMENT quand la cible avait deux registres
+     — c'est-à-dire pour 666 et pour lui seul. Partout ailleurs il se réduisait à
+     une flèche nue, si bien que la même carte changeait de forme selon la cible
+     qu'on venait de demander. L'intitulé est désormais constant ; ce qui varie,
+     et qui doit varier, c'est la rangée d'accès en dessous : une flèche quand il
+     n'y a qu'une destination, deux boutons quand il y a deux mises en scène. */
   const doubleAcces = registres.length > 1;
   if (!lienDisponible || !doubleAcces || !(approche.urlSobre && approche.urlScenique)) {
     const seul = lienDisponible && approche.urlSobre;
     const pied = e('span.voie__pied', {}, [
+      e('span.voie__pied-titre', { texte: t('resultat.acces.voir') }),
       e('span.voie__fleche', { texte: '▸', 'aria-hidden': 'true' }),
     ]);
     if (seul) {
@@ -173,20 +191,72 @@ function carteVoie(approche, i, { surChoix, lienDisponible, cible, registres, cu
  *   On ne dédoublonne pas globalement pour autant — revenir deux fois à la même
  *   méthode APRÈS un détour est un fait de la voie, et il se voit.
  */
-function enumererLesMethodes(approche) {
+/**
+ * ★ **UNE LIGNE PAR FRAGMENT, ET NON TOUT À LA SUITE.**
+ *
+ * > « Déjà quand il y a plusieurs fragments avec leur série d'actions séparée,
+ * >   fais une ligne pour chacun (une seule pour plusieurs groupés quand ils
+ * >   sont regroupés) dans la carte plutôt que tout mettre à la suite. »
+ * >   (l'auteur)
+ *
+ * `approche.codes` porte déjà la structure : les fragments y sont séparés par
+ * une virgule, les opérateurs d'un même fragment par un plus. Tout aplatir en
+ * une seule ligne effaçait cette information — on lisait « gématrie · morse ·
+ * gématrie » sans savoir si c'était une voie en trois temps ou trois portées
+ * traitées chacune à sa façon.
+ *
+ * ★ **ET DEUX FRAGMENTS TRAITÉS PAREIL NE FONT QU'UNE LIGNE.** Une moisson qui
+ *   applique la même méthode à trois portées écrirait trois fois la même chose ;
+ *   on les regroupe, ce qui est bien ce que l'auteur demande par « une seule
+ *   pour plusieurs groupés ». La répétition qui reste dit alors quelque chose :
+ *   deux lignes identiques ne subsistent que si elles sont séparées par une
+ *   troisième, différente, et cet ordre-là est un fait de la voie.
+ */
+function enumererParFragment(approche) {
   const codes = String((approche && approche.codes) || '');
-  if (!codes) return '';
-  const noms = [];
-  for (const brut of codes.split(/[+,;]/)) {
-    // Un fragment porte sa portée devant lui — `0.1:fr13` —, et la portée n'est
-    // pas une méthode : on ne garde que ce qui suit le deux-points.
-    const code = brut.includes(':') ? brut.slice(brut.lastIndexOf(':') + 1) : brut;
-    const nom = localiser(pont.titreCourtDuCode(code.trim()));
-    if (!nom) continue;
-    if (noms[noms.length - 1] === nom) continue;
-    noms.push(nom);
+  if (!codes) return [];
+  const lignes = [];
+  for (const morceau of codes.split(/[,;]/)) {
+    const noms = [];
+    for (const brut of morceau.split('+')) {
+      // Un fragment porte sa portée devant lui — `0.1:fr13` —, et la portée
+      // n'est pas une méthode : on ne garde que ce qui suit le deux-points.
+      const code = brut.includes(':') ? brut.slice(brut.lastIndexOf(':') + 1) : brut;
+      const nom = localiser(pont.titreCourtDuCode(code.trim()));
+      if (!nom || noms[noms.length - 1] === nom) continue;
+      noms.push(nom);
+    }
+    const ligne = noms.join(' · ');
+    if (ligne && lignes[lignes.length - 1] !== ligne) lignes.push(ligne);
   }
-  return noms.join(' · ');
+  return lignes;
+}
+
+/**
+ * ★ **LE TITRE DE LA CARTE : LA CONVERSION QUI PORTE LA VOIE.**
+ *
+ * > « En titre de la carte, indique la transformation lettre vers chiffre qui
+ * >   convertit le plus de caractères parmi toutes les étapes effectuées. »
+ * >   (l'auteur)
+ *
+ * Le titre littéraire — « Par gématrie anglaise sur les consonnes » — nomme la
+ * voie et la RACONTE ; il reste, il voyage jusqu'à la page d'animation. Mais en
+ * tête d'une carte qu'on parcourt pour choisir, ce qu'on veut savoir d'abord est
+ * par quoi les lettres sont devenues des nombres, et sur combien d'entre elles.
+ * `score.js › conversionVedette` le calcule là où les états intermédiaires
+ * vivent — un mappeur posé après un filtre ne convertit que ce qui reste.
+ *
+ * ⚠️ Rend `null` quand la voie n'a aucun pas `TOKENS → NUMS` : une saisie déjà
+ *   numérique n'en a pas, et la carte retombe alors sur son titre littéraire
+ *   plutôt que d'annoncer une conversion qui n'a pas eu lieu.
+ */
+function titreDeConversion(approche) {
+  const c = approche && approche.conversion;
+  if (!c || !c.code) return null;
+  const nom = localiser(pont.titreCourtDuCode(c.code));
+  if (!nom) return null;
+  return t(c.caracteres === 1 ? 'resultat.conversionTitreUn' : 'resultat.conversionTitre',
+    { methode: nom, n: c.caracteres });
 }
 
 /**

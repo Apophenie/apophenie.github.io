@@ -537,8 +537,11 @@ export const TITRES_COURTS = {
   'm.chiffreEnLettres': b('chiffre en lettres', 'digit in words'), // mlet
   'm.longueurToken': b('nombre de caractères', 'character count'), // mlm
   'm.longueurNom': b('nombre de caractères', 'character count'), // mln
-  'm.morseSignaux': b('signaux morse', 'Morse signals'), // mms
-  'm.morseTraits': b('traits morse', 'Morse dashes'), // mmt
+  // ⚠️ « signaux morse » se lit comme un nom composé bancal ; l'auteur veut
+  //   « signaux EN morse », qui dit l'ALPHABET dans lequel on lit et non une
+  //   espèce de signal. Même chose pour les traits.
+  'm.morseSignaux': b('signaux en morse', 'signals in Morse'), // mms
+  'm.morseTraits': b('traits en morse', 'dashes in Morse'), // mmt
   'm.plusFrequent': b('chiffre hégémonique', 'dominant digit'), // mpf
   'm.pythagore': b('numérologie pythagoricienne', 'Pythagorean numerology'), // mpy
   'm.qwertyRangee4': b('rangée QWERTY', 'QWERTY row'), // mqw4

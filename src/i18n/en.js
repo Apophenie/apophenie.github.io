@@ -171,13 +171,15 @@ export const en = {
        visits 3, 4, 5 and 6 and nothing else. */
     aucuneVoieCible: 'No path leads to {cible} for this query. The house only guarantees 666; the rest has to be earned.',
     voieNumero: 'no. {rang}',
+    conversionTitre: '{methode} · {n} characters',
+    conversionTitreUn: '{methode} · 1 character',
     /* Same information, two writings: the badge is a drawing, the sentence
        is what a screen reader announces. Nothing at all when n is 1. */
     voieSeriesBadge: '{n} × {cible}',
     voieSeries: '{n} runs of {cible}',
     voieSansTitre: 'Approach no. {rang}',
     acces: {
-      voir: 'See the demonstration',
+      voir: 'Watch the animated demonstration',
       sobre: 'Plain',
       sobreLabel: '{titre} — plain version, no staging',
       scenique: 'Staged',
