@@ -27,16 +27,33 @@ export const name = 'flip180';
  * ★ Le seul demi-tour que la typographie autorise (CONTRACTS §0.3 : « ce qui
  * est montré est ce qui est compté »).
  *
- * `9 → 6`, et rien d'autre. Le crossfade de la ligne 90° est un escamotage
- * assumé ; il le resterait tout autant si l'on faisait naître un 8 d'un 3, à
- * ceci près que la scène affirmerait alors quelque chose de faux sous couvert
- * de le montrer. La primitive refuse donc, bruyamment, plutôt que d'animer une
- * rotation qui ne prouve rien — comme `table` refuse de faire redescendre une
- * valeur absente de sa case et `keyboard` un chiffre que la touche ne porte pas.
+ * `9 → 6` et `6 → 9`, et rien d'autre. Le crossfade de la ligne 90° est un
+ * escamotage assumé ; il le resterait tout autant si l'on faisait naître un 8
+ * d'un 3, à ceci près que la scène affirmerait alors quelque chose de faux sous
+ * couvert de le montrer. La primitive refuse donc, bruyamment, plutôt que
+ * d'animer une rotation qui ne prouve rien — comme `table` refuse de faire
+ * redescendre une valeur absente de sa case et `keyboard` un chiffre que la
+ * touche ne porte pas.
  *
- * Le 6 ne se retourne pas : ce serait, disons, contre-productif.
+ * ★ **LA TABLE EST SYMÉTRIQUE, ET ELLE NE L'ÉTAIT PAS.**
+ *
+ * > « `mr9` par exemple est peu pertinent pour autre chose que des 6 (mais il
+ * >   pourrait être adapté pour convertir des 6 en 9 quand c'est 9 qui est
+ * >   visé). » (l'auteur)
+ *
+ * Elle ne portait que `9 → 6`, et la note disait « le 6 ne se retourne pas :
+ * ce serait, disons, contre-productif ». C'était vrai tant que le site ne visait
+ * que 666 — et c'est exactement le genre d'hypothèse que la cible libre a rendue
+ * fausse. Un 6 retourné DONNE un 9 : la géométrie est la même dans les deux
+ * sens, seul l'intérêt change. Refuser le sens montant, c'était refuser à `mr9`
+ * de servir une cible qui demande des 9, pour une raison qui n'était pas
+ * géométrique mais éditoriale.
+ *
+ * ⚠️ Le reste de la garde ne bouge PAS : un 8 ne devient toujours pas un 3, et
+ *   la valeur d'arrivée doit toujours venir du calcul et non d'une seconde
+ *   copie. On a élargi la table d'une entrée, pas ouvert la porte.
  */
-const DEMI_TOUR = Object.freeze({ 9: '6' });
+const DEMI_TOUR = Object.freeze({ 9: '6', 6: '9' });
 
 export function plan(ctx) {
   if (ctx.op.targets !== undefined) return planBloc(ctx);
@@ -50,8 +67,9 @@ export function plan(ctx) {
   const to = tokenSpec(ctx, ctx.op.to, 'to');
   const attendu = DEMI_TOUR[String(src.text)];
   if (attendu === undefined) {
-    fail(`${ctx.where}« target » porte « ${src.text} » : seul un 9 se retourne en 6. `
-      + 'Un demi-tour sur autre chose ne montrerait rien, il l’affirmerait.', { id: src.id });
+    fail(`${ctx.where}« target » porte « ${src.text} » : seuls un 9 et un 6 se `
+      + 'retournent l’un en l’autre. Un demi-tour sur autre chose ne montrerait '
+      + 'rien, il l’affirmerait.', { id: src.id });
   }
   if (String(to.text) !== attendu) {
     fail(`${ctx.where}« to.text » annonce « ${to.text} », mais « ${src.text} » retourné donne `
@@ -167,16 +185,24 @@ function planBloc(ctx) {
   for (const src of srcs) {
     const attendu = DEMI_TOUR[String(src.text)];
     if (attendu === undefined) {
-      fail(`${ctx.where}« targets » porte « ${src.text} » : seul un 9 se retourne en 6. `
-        + 'Un demi-tour sur autre chose ne montrerait rien, il l’affirmerait.', { id: src.id });
+      fail(`${ctx.where}« targets » porte « ${src.text} » : seuls un 9 et un 6 se `
+        + 'retournent l’un en l’autre. Un demi-tour sur autre chose ne montrerait '
+        + 'rien, il l’affirmerait.', { id: src.id });
     }
   }
   const specs = tos.map((t, k) => tokenSpec(ctx, t, `to[${k}]`));
-  for (const spec of specs) {
-    if (String(spec.text) !== '6') {
-      fail(`${ctx.where}« to » annonce « ${spec.text} » : un 9 retourné donne 6, et rien d’autre.`);
+  // ⚠️ **CHAQUE JETON RÉPOND DE SA PROPRE SOURCE.** La garde exigeait « 6 » pour
+  //   tout le bloc, ce qui suffisait tant que seuls les 9 tournaient. Depuis que
+  //   la table est symétrique, un bloc de 6 doit rendre des 9 — et surtout,
+  //   comparer chaque arrivée à SA source interdit un bloc panaché qui rendrait
+  //   n'importe quoi.
+  specs.forEach((spec, k) => {
+    const attendu = DEMI_TOUR[String(srcs[k].text)];
+    if (String(spec.text) !== attendu) {
+      fail(`${ctx.where}« to » annonce « ${spec.text} » : « ${srcs[k].text} » retourné `
+        + `donne ${attendu}, et rien d’autre.`);
     }
-  }
+  });
 
   // Les places d'AVANT, relevées avant que rien ne bouge : ce sont les deux
   // bouts de chaque arc, et le `reflow` de la fin les aurait effacées.

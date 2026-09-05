@@ -935,18 +935,66 @@ function rangementUtile(jetons) {
  *
  * @returns {number[]} les index à retourner, croissants
  */
-function triosDeNeuf(valeur) {
+function triosDeNeuf(valeur, chiffre = 9) {
   const out = [];
   let i = 0;
   while (i < valeur.length) {
-    if (valeur[i] !== 9) { i++; continue; }
+    if (valeur[i] !== chiffre) { i++; continue; }
     let j = i;
-    while (j < valeur.length && valeur[j] === 9) j++;
+    while (j < valeur.length && valeur[j] === chiffre) j++;
     const complets = Math.floor((j - i) / TRIO) * TRIO;
     for (let k = 0; k < complets; k++) out.push(i + k);
     i = j;
   }
   return out;
+}
+
+/**
+ * ★ **LE GESTE DU DEMI-TOUR — commun aux deux sens.**
+ *
+ * Il était écrit dans `mr9` et n'y connaissait que le 9. Depuis que `flip180`
+ * est symétrique, le même geste sert au demi-tour MONTANT (`mr6`, les 6 qui
+ * deviennent des 9) : seul change le chiffre qui tourne. On l'extrait plutôt
+ * que de le recopier — une seconde copie de trente lignes d'animation serait la
+ * garantie que les deux divergent au premier réglage.
+ *
+ * ★ **LES TRIPLÉS D'AFFILÉE SE RETOURNENT D'UN BLOC.** Le calcul ne change pas
+ *   d'un iota — chaque chiffre tourne un par un, et c'est `apply` qui le dit —,
+ *   mais le GESTE distingue : là où la ligne écrit déjà `999`, on ne retourne
+ *   pas trois chiffres, on retourne une image. `triosDeNeuf` marque les indices
+ *   concernés, et il le fait comme on lit : par plages contiguës, trois par
+ *   trois depuis la gauche, sans jamais entamer un quatrième chiffre esseulé.
+ */
+function stepsDuDemiTour(avant, apres, ctx, depuis, lib) {
+  const enTrio = new Set(triosDeNeuf(avant.valeur, depuis));
+  const ops = [];
+  const tournes = [];
+  let i = 0;
+  while (i < apres.valeur.length) {
+    if (apres.valeur[i] === avant.valeur[i]) { i++; continue; } // il ne bouge pas
+    if (enTrio.has(i)) {
+      const bloc = [i, i + 1, i + 2];
+      const nes = bloc.map((k) => token(nomToken(ctx, k), apres.valeur[k], 'number'));
+      for (const t of nes) tournes.push(t.id);
+      // `targets` et `to` dans l'ORDRE DE LA LIGNE : le miroir de la rotation
+      // est l'affaire de la primitive, pas la nôtre. Le modèle de ligne
+      // remplace ainsi place pour place, sans rien savoir du pivot.
+      ops.push({ op: 'flip180', targets: bloc.map((k) => ctx.ids[k]), to: nes });
+      i += TRIO;
+      continue;
+    }
+    const id = nomToken(ctx, i);
+    tournes.push(id);
+    ops.push({ op: 'flip180', target: ctx.ids[i], to: token(id, apres.valeur[i], 'number') });
+    i++;
+  }
+  if (!ops.length) return [];
+  // Le `pulse` final vient APRÈS le dernier demi-tour, jamais pendant : pendant,
+  // le jeton d'arrivée voit déjà son `scale` animé par le crossfade de
+  // `flip180` (même raison que dans `posts.js`).
+  ops.push({ op: 'pulse', targets: tournes, stagger: 60 });
+  const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
+  return [etape(ctx, dire(lib, ctx.langue), legende, enchainer(ops))];
 }
 
 /**
@@ -2701,45 +2749,9 @@ const AUTRES_MAPPEURS = [
      * 9 — et `src/recherche/scenario.js` une troisième, où l'on connaît encore
      * la valeur du jeton de départ.
      */
-    steps: (avant, apres, ctx) => {
-      // ★ **LES 999 D'AFFILÉE SE RETOURNENT D'UN BLOC.** Le calcul ne change
-      //   pas d'un iota — tous les 9 deviennent des 6, un par un, et c'est
-      //   `apply` qui le dit —, mais le GESTE, lui, distingue : là où la ligne
-      //   écrit déjà `999`, on ne retourne pas trois chiffres, on retourne une
-      //   image. `triosDeNeuf` marque les indices concernés, et il le fait
-      //   comme on lit : par plages contiguës, trois par trois depuis la
-      //   gauche, sans jamais entamer un quatrième 9 esseulé.
-      const enTrio = new Set(triosDeNeuf(avant.valeur));
-      const ops = [];
-      const neufs = [];
-      let i = 0;
-      while (i < apres.valeur.length) {
-        if (apres.valeur[i] === avant.valeur[i]) { i++; continue; } // pas un 9 : il ne bouge pas
-        if (enTrio.has(i)) {
-          const bloc = [i, i + 1, i + 2];
-          const nes = bloc.map((k) => token(nomToken(ctx, k), apres.valeur[k], 'number'));
-          for (const t of nes) neufs.push(t.id);
-          // `targets` et `to` dans l'ORDRE DE LA LIGNE : le miroir de la
-          // rotation est l'affaire de la primitive, pas la nôtre. Le modèle de
-          // ligne remplace ainsi place pour place, sans rien savoir du pivot.
-          ops.push({ op: 'flip180', targets: bloc.map((k) => ctx.ids[k]), to: nes });
-          i += TRIO;
-          continue;
-        }
-        const id = nomToken(ctx, i);
-        neufs.push(id);
-        ops.push({ op: 'flip180', target: ctx.ids[i], to: token(id, apres.valeur[i], 'number') });
-        i++;
-      }
-      if (!ops.length) return [];
-      // Le `pulse` final vient APRÈS le dernier demi-tour, jamais pendant :
-      // pendant, le jeton d'arrivée voit déjà son `scale` animé par le
-      // crossfade de `flip180` (même raison que dans `posts.js`).
-      ops.push({ op: 'pulse', targets: neufs, stagger: 60 });
-      const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
-      return [etape(ctx, dire(LIB_RETOURNER_9, ctx.langue), legende, enchainer(ops))];
-    },
+    steps: (avant, apres, ctx) => stepsDuDemiTour(avant, apres, ctx, 9, LIB_RETOURNER_9),
   }),
+
   // ★ « Trois 6 d'affilée » — une TROUVAILLE, et surtout pas un tri.
   //
   // ── Ce que ce n'est PAS ────────────────────────────────────────────────────
@@ -4173,7 +4185,6 @@ const AUTRES_MAPPEURS = [
     // Aucune étape : voir l'en-tête. Ce n'est pas un oubli, c'est le geste.
     steps: () => [],
   }),
-
   def({
     /**
      * ★ LE CHIFFRE ÉCRIT EN TOUTES LETTRES — et c'est le sens INVERSE de tout

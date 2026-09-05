@@ -185,21 +185,37 @@ test('la légende est DÉRIVÉE du calcul : les deux vecteurs, avant et après',
 
 // ───────────────────────── 4. le contrôle croisé : la compilation échoue
 
-test('★ `flip180` refuse tout demi-tour qui n’est pas 9 → 6', () => {
+/**
+ * ★ **LE DEMI-TOUR VA DANS LES DEUX SENS — et il n'en connaît que deux.**
+ *
+ * > « `mr9` pourrait être adapté pour convertir des 6 en 9 quand c'est 9 qui est
+ * >   visé. » (l'auteur)
+ *
+ * La table ne portait que `9 → 6`, et sa note disait « le 6 ne se retourne pas :
+ * ce serait, disons, contre-productif ». C'était une raison ÉDITORIALE — vraie
+ * tant que le site ne visait que 666 — déguisée en raison géométrique. Un 6
+ * retourné donne un 9, exactement comme un 9 retourné donne un 6.
+ *
+ * ⚠️ Le reste de la garde ne bouge pas d'un pouce : un 8 ne devient pas un 3, un
+ *   9 ne devient pas un 8, et la valeur d'arrivée doit toujours venir du calcul.
+ */
+test('★ `flip180` ne retourne que 9 ⇄ 6, dans les deux sens', () => {
   const scene = (from, to) => sc([{
     id: 'a', title: 'On retourne les 9',
     ops: [{ op: 'flip180', target: 't0', to: { id: 'r', text: to, kind: 'number' } }],
   }], [{ id: 't0', text: from, kind: 'number' }]);
 
-  assert.ok(compile(scene('9', '6')), 'le seul demi-tour que la typographie autorise');
+  assert.ok(compile(scene('9', '6')), 'les deux demi-tours que la typographie autorise');
+  assert.ok(compile(scene('6', '9')), 'et le sens montant, pour une cible qui veut des 9');
 
   // Un 9 qui donnerait autre chose qu'un 6 : la scène afficherait un résultat
   // que le calcul n'a pas produit. Échec, pas rendu silencieux.
   assert.throws(() => compile(scene('9', '8')), /retourné donne 6/);
   assert.throws(() => compile(scene('9', '9')), /retourné donne 6/);
-  // Et retourner autre chose qu'un 9 ne prouve rien — le 6 le premier.
-  assert.throws(() => compile(scene('6', '9')), /seul un 9 se retourne en 6/);
-  assert.throws(() => compile(scene('19', '16')), /seul un 9 se retourne en 6/);
+  assert.throws(() => compile(scene('6', '6')), /retourné donne 9/);
+  // Et retourner autre chose qu'un 9 ou un 6 ne prouve rien.
+  assert.throws(() => compile(scene('8', '3')), /se retournent l’un en l’autre/);
+  assert.throws(() => compile(scene('19', '16')), /se retournent l’un en l’autre/);
 
   // La rotation NUE, sans substitution, reste permise : elle n'affirme rien.
   assert.ok(compile(sc([{
