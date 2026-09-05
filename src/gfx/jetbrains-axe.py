@@ -68,6 +68,7 @@ Quatre gestes, dans cet ordre, et pas un de plus :
 import json
 import math
 import pathlib
+import re
 import sys
 
 RACINE = pathlib.Path(__file__).resolve().parents[2]
@@ -3307,6 +3308,203 @@ def _r_recollage(pose, chemins):
     return chemins
 
 
+#: Ce qu'une épure a le droit de coûter quand elle retire un point : un dixième
+#: d'unité sur six cents. Autant dire rien — l'épure ne doit RIEN acheter, elle
+#: ne retire que ce qui ne servait pas.
+JEU_EPURE = 0.1
+
+#: Ce qu'un recoupage aux sommets a le droit de perdre sur UNE des deux mesures
+#: quand l'autre y gagne davantage : un quart de la tolérance du moteur.
+JEU_QUADRANT = 1.5
+
+
+def _note_locale(pose, morceaux_, attendus):
+    """Ce qu'un bout de trait vaut, aux deux mesures, sans regarder le reste.
+
+    La note globale d'une lettre coûte une densification complète ; une épure en
+    essaie des dizaines par signe. On mesure donc le MÊME couple — fidélité à
+    l'axe, couverture de l'axe — mais sur le seul morceau qu'on touche et sur la
+    seule portion d'axe qu'il doit couvrir.
+    """
+    echant = [evalue(m, k / 24) for m in morceaux_ for k in range(25)]
+    fid = max((_pres(pose.casiers, p) for p in echant), default=0.0)
+    if not attendus:
+        return fid, 0.0
+    g = _grille(echant)
+    return fid, max(_pres(g, q) for q in attendus)
+
+
+def _tangentes_de(m):
+    """Les deux tangentes d'un morceau, AU FORMAT QUE `_cubiques` ATTEND.
+
+    ⚠️ **LA SECONDE POINTE À CONTRESENS DU PARCOURS, et ce n'est pas un détail.**
+      `_cubiques` reçoit en `t2` la direction qui va du point d'ARRIVÉE vers
+      l'intérieur du morceau — c'est visible dans sa propre récursion, qui passe
+      `(-tc[0], -tc[1])` au tronçon de gauche. Lui donner la direction de
+      parcours retourne la poignée : le premier quadrant du `c` sortait avec une
+      poignée d'arrivée à (162 ; 457) pour un point d'arrivée à (235 ; 457), et
+      la reconstruction mesurait 75,9 au lieu de 5,1. Le même défaut rendait la
+      fonte de l'épure presque toujours refusée, sans qu'on sache pourquoi.
+    """
+    def unit(a, b):
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        n = math.hypot(dx, dy)
+        return (dx / n, dy / n) if n > 1e-9 else (0.0, 0.0)
+    ctrl = list(m[1])
+    depart = unit(m[0], ctrl[0]) if ctrl else unit(m[0], m[2])
+    arrivee = unit(m[2], ctrl[-1]) if ctrl else unit(m[2], m[0])
+    return depart, arrivee
+
+
+def _sommets_droits(d):
+    """Les sommets d'un tracé de recette fait UNIQUEMENT de droites — sinon `None`."""
+    if re.search(r'[AaCcQqSsTtVvHh]', d):
+        return None
+    nb = [float(x) for x in re.findall(r'-?\d+(?:\.\d+)?', d)]
+    return [(nb[i], nb[i + 1]) for i in range(0, len(nb) - 1, 2)]
+
+
+def _r_polyligne(pose, chemins):
+    """★ **CE QUE LA RECETTE DÉCLARE DROIT ARRIVE DROIT. Sans arbitrage.**
+
+    > « S'il y a un trait droit à l'origine, il ne doit pas y avoir d'aspérité à
+    >   l'arrivée. » (l'auteur)
+    > « "w" : il y a un souci clair, trop présent pour passer dessus. »
+
+    ⚠️ **LE `w` EN DONNAIT LA DÉMONSTRATION, ET LA MESURE DISAIT LE CONTRAIRE.**
+      Deux de ses quatre branches sortaient en cubiques, dont une en S : ses
+      poignées partaient à x = 214 puis revenaient à x = 189. Redressée, cette
+      branche perdait 3,3 unités de couverture — la mesure la refusait donc, et
+      elle avait tort. La cause n'est pas dans la branche : c'est la POINTE du
+      `w` qui porte deux brins d'axe distants de treize unités, comme la jambe
+      centrale du `m`. La cubique ne suivait pas la lettre, elle compensait un
+      point de départ faux, et le S est le prix de cette compensation.
+
+    ★ **UNE DROITE N'EST PAS UNE HYPOTHÈSE, C'EST UNE DÉCLARATION**, au même
+      titre que le nombre de traits ou l'endroit où le crayon se lève. La police
+      donne la GÉOMÉTRIE — où passe la droite, jusqu'où elle va —, la recette dit
+      QUE c'en est une. Un tracé qui serpente autour d'une droite déclarée est
+      faux même quand il mesure mieux, parce qu'il fait dire à la police une
+      courbure qu'elle n'a pas.
+
+    Le compte de l'auteur le confirme lettre par lettre : `Z`, `Y`, `X`, `W`,
+    `V`, `T`, `N`, `M`, `L`, `K`, `I`, `H`, `F`, `E`, `A` et leurs bas de casse
+    ont tous **zéro poignée** à son budget — et ce sont exactement les signes
+    dont la recette n'est faite que de `ligne` et de `chevron`.
+
+    On garde les deux bouts du rendu — ils portent les contacts que les passes
+    précédentes ont établis — et, pour chaque sommet interne déclaré, le nœud
+    rendu qui en est le plus proche. Tout le reste s'en va.
+    """
+    chemins = [list(c) for c in chemins]
+    for t, chem in enumerate(chemins):
+        if pose.points[t] is not None or len(chem) < 1:
+            continue
+        sommets = _sommets_droits(pose.decl[t]['d'])
+        if sommets is None or len(sommets) < 2:
+            continue
+        noeuds = [chem[0][0]] + [m[2] for m in chem]
+        if len(noeuds) == len(sommets):
+            garde = noeuds
+        else:
+            garde = [noeuds[0]]
+            reste = list(range(1, len(noeuds) - 1))
+            for s in sommets[1:-1]:
+                if not reste:
+                    break
+                k = min(reste, key=lambda i: math.dist(noeuds[i], s))
+                garde.append(noeuds[k])
+                reste = [i for i in reste if i > k]
+            garde.append(noeuds[-1])
+        chemins[t] = [(a, [], b) for a, b in zip(garde, garde[1:])
+                      if math.dist(a, b) > 1e-9]
+    return chemins
+
+
+def _r_epure(pose, chemins):
+    """★ **LA PASSE DE NETTOYAGE — un point qui ne sert à rien s'en va.**
+
+    > « Plusieurs lettres ont des points en trop, je pense qu'une passe de
+    >   nettoyage serait utile. » (l'auteur, qui donne ensuite le nombre de
+    >   points et de poignées que chacune des cinquante-deux admet au plus)
+
+    ⚠️ **`_ajuste` REND DÉJÀ LE MINIMUM DE CUBIQUES, ET CE N'EST PAS SUFFISANT.**
+      Il travaille tronçon par tronçon, avant les quinze retouches ; celles qui
+      suivent recoupent, recollent et redressent, et chacune peut laisser un
+      nœud dont plus personne n'a besoin. Le `w` en portait la démonstration :
+      deux de ses quatre branches — QUATRE DROITES, dans toutes les fontes du
+      monde — sortaient en cubiques, dont une en S de trente unités de flèche.
+
+    Deux gestes, essayés dans cet ordre sur chaque morceau :
+
+     · **REDRESSER** — remplacer une cubique par sa corde. C'est le geste qui
+       rend au `w`, au `W`, au `V`, au `Y`, au `X` et à l'`A` leurs diagonales ;
+     · **FONDRE** — remplacer deux morceaux consécutifs par un seul, ajusté aux
+       mêmes tangentes de bouts. C'est celui qui retire les points en trop de
+       l'`O`, du `C`, du `Q` et du `g`.
+
+    ★ **ET LE JUGE EST CELUI DE TOUTE LA CHAÎNE : les deux mesures, et aucun
+      recul.** Une épure ne doit rien acheter. Elle n'est acceptée que si la
+      fidélité à l'axe ET la couverture de l'axe restent ce qu'elles étaient, à
+      un dixième d'unité près — ce qui rend le redressement du `w` légitime
+      (l'axe y est droit, la corde s'en RAPPROCHE) et interdit d'aplatir une
+      panse au prétexte qu'elle a un point de trop.
+    """
+    chemins = [list(c) for c in chemins]
+    for t, chem in enumerate(chemins):
+        if pose.points[t] is not None or len(chem) < 1:
+            continue                            # le point du `i`, du `j`
+        # ⚠️ **`brins` EST INDEXÉ PAR CONTOUR D'AXE, PAS PAR TRAIT.** Ce que CE
+        #   trait-là doit couvrir, c'est sa MESURE — la suite d'abscisses que la
+        #   projection lui a attribuée, et le seul étalon dont dispose une
+        #   retouche qui ne travaille que sur un trait.
+        attendus = pose.mesure[t] if t < len(pose.mesure) else []
+
+        # ① les cordes : une cubique qui ne courbe rien n'a pas à être une cubique
+        for i, m in enumerate(chem):
+            if not m[1]:
+                continue
+            avant = _note_locale(pose, [m], attendus)
+            droit = (m[0], [], m[2])
+            if _pas_pire(_note_locale(pose, [droit], attendus), avant):
+                chem[i] = droit
+
+        # ② les nœuds : deux morceaux qu'un seul remplace n'en font qu'un
+        i = 0
+        while i + 1 < len(chem):
+            fondu = _fond(chem[i], chem[i + 1])
+            if fondu is None:
+                i += 1
+                continue
+            avant = _note_locale(pose, [chem[i], chem[i + 1]], attendus)
+            if _pas_pire(_note_locale(pose, [fondu], attendus), avant):
+                chem[i:i + 2] = [fondu]
+            else:
+                i += 1
+    return chemins
+
+
+def _pas_pire(neuve, vieille):
+    return all(n <= v + JEU_EPURE for n, v in zip(neuve, vieille))
+
+
+def _fond(a, b):
+    """Un seul morceau à la place de deux, tangentes des bouts conservées.
+
+    ⚠️ On ne fond QUE si un unique cubique suffit : `_cubiques` sait subdiviser,
+      et une subdivision rendrait les deux morceaux qu'on voulait retirer.
+    """
+    if math.dist(a[2], b[0]) > 1e-6:
+        return None                             # la chaîne est rompue : on ne touche à rien
+    P = [evalue(a, k / 16) for k in range(16)] + [evalue(b, k / 16) for k in range(17)]
+    t1 = _tangentes_de(a)[0]
+    t2 = _tangentes_de(b)[1]
+    if t1 == (0.0, 0.0) or t2 == (0.0, 0.0):
+        return None
+    bez = _cubiques(P, t1, t2, TOLERANCE)
+    return bez[0] if bez and len(bez) == 1 else None
+
+
 def _r_contacts(pose, chemins):
     """★ **UNE JONCTION DÉCLARÉE DOIT MORDRE — TOUTES, PAS SEULEMENT CELLES DES
       JUMELLES.**
@@ -3329,6 +3527,352 @@ def _r_contacts(pose, chemins):
     """
     chemins = [list(c) for c in chemins]
     _recolle(chemins, pose.cibles, pose.attendus, set(range(len(chemins))))
+    return chemins
+
+
+#: ★ **LE BUDGET DE POINTS DE CHAQUE SIGNE, dicté par l'auteur** — rempli par
+#: `_recettes`, qui le lit dans `jetbrains-traces.py` où il est déclaré à côté
+#: des recettes. Une passe qui recoupe une courbe s'y mesure : c'est lui qui dit
+#: si elle a le droit d'ajouter un nœud, et non le tracé qu'elle remplace.
+BUDGET = {}
+
+
+def _compte(chemins):
+    """Nœuds DISTINCTS et poignées d'un jeu de traits — le compte de l'auteur."""
+    noeuds, poignees = set(), 0
+    for chem in chemins:
+        for m in chem:
+            noeuds.add(('%.1f,%.1f' % m[0], ))
+            noeuds.add(('%.1f,%.1f' % m[2], ))
+            poignees += len(m[1])
+    return len(noeuds), poignees
+
+
+#: Un nœud à moins d'un demi-fût d'un extremum du guide EST cet extremum.
+PRES_SOMMET = 0.5 * FUT
+
+
+def _cardinale(ancre, poignee):
+    """La poignée rabattue sur l'horizontale ou la verticale, longueur gardée."""
+    dx, dy = poignee[0] - ancre[0], poignee[1] - ancre[1]
+    L = math.hypot(dx, dy)
+    if L < 1e-9:
+        return poignee
+    if abs(dx) >= abs(dy):
+        return (ancre[0] + math.copysign(L, dx), ancre[1])
+    return (ancre[0], ancre[1] + math.copysign(L, dy))
+
+
+def _rebati(m, depart, arrivee, t1, t2):
+    """Le même morceau, mais partant et finissant ailleurs — poignées refaites."""
+    P = [evalue(m, k / 24) for k in range(25)]
+    P[0], P[-1] = depart, arrivee
+    if t1 == (0.0, 0.0) or t2 == (0.0, 0.0):
+        return None
+    bez = _cubiques(P, t1, t2, TOLERANCE)
+    return bez[0] if bez and len(bez) == 1 else None
+
+
+def _r_sommets(pose, chemins):
+    """★ **UN NŒUD DE COURBE SE POSE SUR LE SOMMET, PAS À CÔTÉ.**
+
+    ⚠️ **ET IL NE SUFFIT PAS D'AJOUTER UNE COUPURE À CHAQUE EXTREMUM : mesuré,
+      c'est un RECUL.** Rendre `_extremes` inconditionnel faisait passer les
+      lettres hors budget de trois à six et le `a` de 7,4 à 8,5 — parce qu'on
+      coupait EN PLUS là où l'ajustement coupait déjà, et que deux nœuds voisins
+      ne se refondent pas. Ce qu'il faut n'est pas un nœud de plus : c'est le
+      nœud existant, au bon endroit.
+
+    Le `c` avait le sien à (122 ; 353) quand son flanc gauche culmine vers
+    (108 ; 226) : quatorze unités à côté, et une poignée à quatorze degrés d'un
+    axe — obliquement, donc, sur une panse où l'auteur n'admet que des
+    verticales. On déplace le nœud sur le sommet et l'on REFAIT les poignées des
+    deux morceaux voisins : sans quoi on tirerait la courbe au lieu de la
+    recaler.
+
+    Le juge reste le même : deux mesures, aucun recul.
+    """
+    chemins = [list(c) for c in chemins]
+    for t, chem in enumerate(chemins):
+        if pose.points[t] is not None or len(chem) < 2:
+            continue
+        sommets = pose.sommets[t]
+        if not sommets:
+            continue
+        attendus = pose.mesure[t] if t < len(pose.mesure) else []
+        for i in range(len(chem) - 1):
+            a, b = chem[i], chem[i + 1]
+            if not a[1] and not b[1]:
+                continue                        # un coin entre deux droites
+            noeud = a[2]
+            cible = min(sommets, key=lambda s: math.dist(noeud, s))
+            d = math.dist(noeud, cible)
+            if d < 1.0 or d > PRES_SOMMET:
+                continue
+            na = _rebati(a, a[0], cible, *_tangentes_de(a)) if a[1] else (a[0], [], cible)
+            nb = _rebati(b, cible, b[2], *_tangentes_de(b)) if b[1] else (cible, [], b[2])
+            if na is None or nb is None:
+                continue
+            if _pas_pire(_note_locale(pose, [na, nb], attendus),
+                         _note_locale(pose, [a, b], attendus)):
+                chem[i], chem[i + 1] = na, nb
+    return chemins
+
+
+def _cap(mes, k, pas=4):
+    """La direction de la mesure autour de son point `k`."""
+    a = mes[max(0, k - pas)]
+    b = mes[min(len(mes) - 1, k + pas)]
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    n = math.hypot(dx, dy)
+    return (dx / n, dy / n) if n > 1e-9 else None
+
+
+def _un_cubique(P, t1, t2):
+    """LE cubique d'un quadrant — un seul, jamais deux.
+
+    ⚠️ **`_cubiques` EN RENDAIT TROIS PAR QUADRANT, et il avait ses raisons :**
+      il subdivise tant que la courbe n'est pas à sa tolérance des points
+      RELEVÉS, et un quart de panse relevée serpente de cinq unités. Mais ici on
+      ne cherche pas à coller au relevé : on cherche l'arc qu'un dessinateur
+      aurait tracé entre deux sommets, et il n'y en a qu'un. La subdivision est
+      précisément ce qu'on veut interdire — c'est elle qui pose les nœuds au
+      milieu des quadrants, là où les poignées deviennent obliques.
+    """
+    u = _parametres(P)
+    bez = _moindres_carres(P, u, t1, t2)
+    for _ in range(6):
+        u = _reparametre(P, bez, u)
+        bez = _moindres_carres(P, u, t1, t2)
+    return bez
+
+
+def _r_quadrants(pose, chemins):
+    """★ **UNE COURBE SE COUPE À SES SOMMETS, ET NULLE PART AILLEURS.**
+
+    ⚠️ **LE `c` N'AVAIT AUCUN NŒUD SUR SON SOMMET GAUCHE — il en avait DEUX
+      AUTOUR.** Son flanc culmine à (106 ; 243) ; le tracé posait ses nœuds à
+      (122 ; 353) et (120 ; 110), soit à cent unités de part et d'autre. Chacun
+      tombant au milieu d'un quadrant, sa tangente y était légitimement OBLIQUE —
+      quatorze degrés — et aucune passe ne pouvait la rabattre sans mentir. Le
+      défaut n'était pas dans les poignées, il était dans l'endroit où l'on
+      coupe : l'ajustement coupe là où son erreur est maximale, un dessinateur
+      coupe aux sommets.
+
+    On reconstruit donc chaque trait courbe sur les nœuds que la lettre dicte —
+    ses deux bouts et ses extrema — avec, à chaque sommet, la tangente cardinale
+    qui lui revient : horizontale à un sommet de hauteur, verticale à un sommet
+    de flanc. Entre deux nœuds, un cubique ajusté sur la mesure ; deux si la
+    mesure l'exige, et c'est alors que la lettre le demande.
+
+    ★ Le budget de l'auteur se lit comme une description de ce découpage : `o`
+      et `c` à quatre nœuds et quatre poignées doubles, c'est l'ovale en quatre
+      quadrants que toutes les fontes dessinent.
+    """
+    chemins = [list(c) for c in chemins]
+    for t, chem in enumerate(chemins):
+        if pose.points[t] is not None or not chem:
+            continue
+        if _sommets_droits(pose.decl[t]['d']) is not None:
+            continue                            # une polyligne n'a pas de quadrant
+        # ⚠️ **LES BOUCLES ATTENDENT ENCORE, ET LA CAUSE EST NOMMÉE.** La mesure
+        #   d'un trait fermé n'est pas lue CYCLIQUEMENT : ses deux bouts sont
+        #   deux points distincts — (259,2 ; −8,6) et (237,8 ; −8,9) pour l'`O` —
+        #   et le sommet qui tombe près de cette couture échappe à `_extremums`,
+        #   qui s'interdit les quatre premiers et derniers indices. Il manque
+        #   donc le BAS de l'ovale, et les quatre quadrants reconstruits sortent
+        #   à 18,5 au lieu de 4,3. Ce n'est pas un réglage à trouver, c'est une
+        #   lecture cyclique à écrire — et tant qu'elle ne l'est pas, l'`O`,
+        #   l'`o`, le `g` et le `Q` gardent leurs poignées obliques.
+        if pose.fermes[t] or pose.decl[t].get('couture'):
+            continue
+        mes = pose.mesure[t] if t < len(pose.mesure) else []
+        som = pose.sommets[t]
+        if len(mes) < 8 or not som:
+            continue
+        coupes = {0, len(mes) - 1}
+        cardinal = {}
+        for s in som:
+            k = min(range(len(mes)), key=lambda i: math.dist(mes[i], s))
+            if not (3 < k < len(mes) - 4):
+                continue
+            u = _cap(mes, k)
+            if u is None:
+                continue
+            coupes.add(k)
+            cardinal[k] = (math.copysign(1.0, u[0]), 0.0) if abs(u[0]) >= abs(u[1]) \
+                else (0.0, math.copysign(1.0, u[1]))
+        coupes = sorted(coupes)
+        if len(coupes) < 3:
+            continue                            # aucun sommet à imposer
+        # ⚠️ **AJUSTER À UNE UNITÉ ENTRE DEUX SOMMETS, C'EST SUIVRE LE BRUIT.**
+        #   `_cubiques` subdivise tant qu'il n'atteint pas sa tolérance : sur la
+        #   mesure du `c`, qui serpente de cinq unités, il rendait QUINZE
+        #   morceaux pour trois. On lui donne donc pour plafond l'écart que le
+        #   trait a DÉJÀ — on ne cherche pas mieux que ce qu'on remplace, on
+        #   cherche la même chose avec les nœuds au bon endroit.
+        actuelle = _note_locale(pose, chem, mes)
+        tol = max(TOLERANCE, actuelle[0])
+        neuf = []
+        for a, b in zip(coupes, coupes[1:]):
+            P = mes[a:b + 1]
+            if len(P) < 3:
+                neuf = None
+                break
+            t1 = cardinal.get(a) or _cap(mes, a)
+            t2 = cardinal.get(b) or _cap(mes, b)
+            if t1 is None or t2 is None:
+                neuf = None
+                break
+            t2 = (-t2[0], -t2[1])          # elle regarde vers l'intérieur
+            bez = _un_cubique(P, t1, t2)
+            if bez is None:
+                neuf = None
+                break
+            neuf.append(bez)
+        # ★ **ET C'EST LE BUDGET DE L'AUTEUR QUI DIT SI L'ON A LA PLACE.** Le
+        #   `c` sortait en trois morceaux, quatre points : recoupé à ses trois
+        #   sommets il en fait quatre, cinq points — et son budget en admet six.
+        #   Comparer au tracé qu'on remplace interdisait la seule correction
+        #   possible ; comparer au budget la permet là où elle tient, et la
+        #   refuse là où elle déborderait.
+        if not neuf:
+            continue
+        essai = list(chemins)
+        essai[t] = neuf
+        mp, mh = BUDGET.get(pose.ch, (0, 0))
+        pts, poi = _compte(essai)
+        if pts > mp or poi > mh:
+            continue
+        # ★ Les BOUTS restent ceux du tracé : les passes précédentes les ont
+        #   taillés à leurs rencontres, et la mesure, elle, va d'un bord à l'autre.
+        # ⚠️ **SAUF SUR UNE BOUCLE, où le « bout » n'est qu'une COUTURE.** L'`O`
+        #   la porte à (166,7 ; 14,1) quand sa mesure commence à (259,2 ; −8,6) :
+        #   y forcer le départ de la reconstruction tordait l'anneau entier, et
+        #   les quatre quadrants sortaient à 49 unités au lieu de 4,3. Une boucle
+        #   n'a pas de bouts à préserver — elle a un tour à fermer.
+        neuf[0] = (chem[0][0], neuf[0][1], neuf[0][2])
+        neuf[-1] = (neuf[-1][0], neuf[-1][1], chem[-1][2])
+        # ★ **ICI, ET ICI SEULEMENT, ON ACCEPTE DE PERDRE UN PEU SUR UNE MESURE.**
+        #   Le `c` recoupé à ses sommets gagne 2,6 unités de couverture et en
+        #   perd 0,9 de fidélité : le juge habituel — aucun recul, nulle part —
+        #   le refuse, et il a tort de le refuser. Couper aux sommets n'est pas
+        #   un compromis de mesure, c'est une CONVENTION DE DESSIN, celle que
+        #   toutes les fontes suivent et que l'auteur réclame nommément (« aucune
+        #   poignée oblique »). On exige donc que la somme des deux mesures
+        #   s'améliore, et qu'aucune ne recule de plus d'une unité et demie —
+        #   un quart de la tolérance du moteur, ce que l'œil ne distingue pas.
+        neuve = _note_locale(pose, neuf, mes)
+        if sum(neuve) < sum(actuelle) - JEU_EPURE \
+                and all(n <= v + JEU_QUADRANT for n, v in zip(neuve, actuelle)):
+            chemins[t] = neuf
+    return chemins
+
+
+def _r_cardinales(pose, chemins):
+    """★ **AUX EXTREMA, LES POIGNÉES SONT HORIZONTALES OU VERTICALES.**
+
+    > « q, p, d, b : poignées simples verticales, poignées symétriques
+    >   horizontales, AUCUNE poignée oblique. » — « G : aucune poignée en
+    >   diagonale. » — « c : poignées simples uniquement verticales, si poignées
+    >   doubles : uniquement symétriques horizontales. » (l'auteur)
+
+    C'est la convention de tous les dessinateurs de fontes, et JetBrains Mono la
+    suit : un nœud se pose au point le plus haut, le plus bas, le plus à gauche
+    ou le plus à droite d'une courbe, et la tangente y est nécessairement
+    perpendiculaire à cette direction-là. Une poignée oblique à un extremum ne
+    dit donc rien de la lettre — elle dit que l'ajustement a placé son nœud à
+    côté du sommet, ou qu'il a laissé filer la tangente de quelques degrés.
+
+    ⚠️ **ET SEULEMENT AUX EXTREMA.** Le `s` et le `S` ont un nœud central que
+      l'auteur veut justement OBLIQUE — « point central avec poignées symétriques
+      obliques » —, parce que c'est le point d'inflexion de la panse et non un
+      sommet. On ne rabat donc que ce qui est à moins d'un demi-fût d'un extremum
+      lu sur le guide, et l'on garde le reste tel quel.
+
+    Le juge est celui de toute la chaîne : deux mesures, aucun recul.
+    """
+    chemins = [list(c) for c in chemins]
+    for t, chem in enumerate(chemins):
+        if pose.points[t] is not None or not chem:
+            continue
+        sommets = pose.sommets[t]
+        if not sommets:
+            continue
+        attendus = pose.mesure[t] if t < len(pose.mesure) else []
+        for i, m in enumerate(chem):
+            if len(m[1]) != 2:
+                continue
+            neuf = list(m[1])
+            for k, ancre in ((0, m[0]), (1, m[2])):
+                if min(math.dist(ancre, s) for s in sommets) > PRES_SOMMET:
+                    continue
+                neuf[k] = _cardinale(ancre, m[1][k])
+            candidat = (m[0], neuf, m[2])
+            if candidat[1] != list(m[1]) and _pas_pire(
+                    _note_locale(pose, [candidat], attendus),
+                    _note_locale(pose, [m], attendus)):
+                chem[i] = candidat
+    return chemins
+
+
+def _r_soude(pose, chemins):
+    """★ **DEUX BOUTS QUI SE TOUCHENT SONT UN POINT, PAS DEUX.**
+
+    `_r_contacts` amène un bout à moins de trois unités de son voisin : le moteur
+    compte alors le contact, et c'est tout ce qu'on lui demandait. Mais l'ŒIL,
+    lui, voit deux nœuds — et le budget de l'auteur les compte : le `W` sortait à
+    sept points pour cinq admis, parce que sa troisième branche finissait à
+    (353,8 ; 4,0) et la quatrième commençait à (353,4 ; 7,0). Le `E` en avait
+    huit pour six, pour une unité d'écart entre le sommet de son fût et le
+    départ de sa barre.
+
+    On les pose donc au MÊME point, à mi-chemin : chacun bouge de la moitié d'un
+    écart déjà inférieur à la tolérance, ce qui coûte au pire une unité et demie
+    et ne peut pas défaire un contact — il devient exact.
+
+    ⚠️ Bout à BOUT seulement. La barre médiane du `E` touche le fût en plein
+      milieu : il n'y a là qu'un seul nœud, et rien à souder.
+    """
+    chemins = [list(c) for c in chemins]
+
+    def bout(t, fin):
+        chem = chemins[t]
+        return chem[-1][2] if fin else chem[0][0]
+
+    def pose_bout(t, fin, p):
+        chem = chemins[t]
+        if fin:
+            chem[-1] = (chem[-1][0], chem[-1][1], p)
+        else:
+            chem[0] = (p, chem[0][1], chem[0][2])
+
+    vus = set()
+    for j in pose.jonctions:
+        a, b = int(j[0]), int(j[1])
+        if not (0 <= a < len(chemins) and 0 <= b < len(chemins)):
+            continue
+        if pose.fermes[a] or pose.fermes[b] or not chemins[a] or not chemins[b]:
+            continue
+        if pose.points[a] is not None or pose.points[b] is not None:
+            continue
+        choix = None
+        for fa in (False, True):
+            for fb in (False, True):
+                if (a, fa) in vus or (b, fb) in vus:
+                    continue
+                d = math.dist(bout(a, fa), bout(b, fb))
+                if d < TOL and (choix is None or d < choix[0]):
+                    choix = (d, fa, fb)
+        if choix is None:
+            continue
+        _, fa, fb = choix
+        pa, pb = bout(a, fa), bout(b, fb)
+        milieu = ((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2)
+        pose_bout(a, fa, milieu)
+        pose_bout(b, fb, milieu)
+        vus.add((a, fa))
+        vus.add((b, fb))
     return chemins
 
 
@@ -3381,7 +3925,24 @@ RETOUCHES = [
     ('tangence', _r_tangence),
     ('jumelles', _r_jumelles),
     ('recollage', _r_recollage),
+    # ⚠️ **L'ÉPURE PASSE AVANT LES CONTACTS, ET C'EST L'ORDRE QUI COMPTE.**
+    #   Retirer un nœud déplace le bout du morceau voisin ; si le recollage était
+    #   déjà passé, la jonction qu'il venait d'assurer serait rompue. On nettoie,
+    #   PUIS on recolle, puis on ferme.
+    # ★ Les cardinales AVANT l'épure : une fonte de deux morceaux reprend les
+    #   tangentes de leurs bouts, et deux bouts déjà rabattus sur l'horizontale
+    #   ou la verticale donnent le cubique qu'un dessinateur aurait tracé. Après,
+    #   pour rattraper les nœuds que la fonte vient de déplacer.
+    ('sommets', _r_sommets),
+    ('quadrants', _r_quadrants),
+    ('cardinales', _r_cardinales),
+    ('polyligne', _r_polyligne),
+    ('épure', _r_epure),
+    ('cardinales', _r_cardinales),
     ('contacts', _r_contacts),
+    # ★ La soudure vient APRÈS le recollage : celui-ci amène le bout à portée du
+    #   moteur, celle-là le pose exactement dessus. L'un compte, l'autre se voit.
+    ('soude', _r_soude),
     ('couture', _r_couture),
 ]
 
@@ -3505,6 +4066,8 @@ def _recettes():
     argv, sys.argv = sys.argv, [sys.argv[0]]
     sp.loader.exec_module(mod)
     sys.argv = argv
+    global BUDGET
+    BUDGET = mod.BUDGET
     return mod.recettes(mod.mesures()), mod.points_du_trace
 
 

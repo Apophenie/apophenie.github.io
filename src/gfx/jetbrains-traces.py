@@ -67,6 +67,37 @@ CAPITALE_CIBLE = 600
 SIGNES = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 
+#: ★ **LE BUDGET DE CHAQUE SIGNE — combien de points, combien de poignées.**
+#:
+#: > « Plusieurs lettres ont des points en trop, je pense qu'une passe de
+#: >   nettoyage serait utile. Je te liste les lettres et le nombre de points
+#: >   max. » (l'auteur, qui donne ensuite les cinquante-deux)
+#:
+#: ⚠️ **QUAND AUCUNE POIGNÉE N'EST INDIQUÉE, LE MAXIMUM EST ZÉRO** — l'auteur l'a
+#:   confirmé, et c'est la moitié de l'information : les seize signes à zéro
+#:   poignée sont exactement ceux dont la recette n'est faite que de `ligne` et
+#:   de `chevron`. Une poignée sur l'un d'eux dit qu'une droite déclarée est
+#:   arrivée courbe.
+#:
+#: ★ **CE BUDGET EST UNE DÉCLARATION, au même titre que le nombre de traits.**
+#:   La recette dit où le crayon se lève ; le budget dit de combien de gestes la
+#:   lettre se décrit. Ni l'un ni l'autre ne se mesure sur la police — elle n'a
+#:   que des contours — et tous deux commandent à la pose. C'est pourquoi il vit
+#:   ici, à côté des recettes, et non dans le moteur d'ajustement.
+BUDGET = {
+    'A': (5, 0), 'B': (10, 8), 'C': (6, 8), 'D': (6, 4), 'E': (6, 0), 'F': (5, 0),
+    'G': (8, 8), 'H': (6, 0), 'I': (6, 0), 'J': (5, 4), 'K': (7, 0), 'L': (3, 0),
+    'M': (5, 0), 'N': (4, 0), 'O': (6, 8), 'P': (7, 4), 'Q': (8, 8), 'R': (9, 4),
+    'S': (7, 12), 'T': (4, 0), 'U': (5, 4), 'V': (3, 0), 'W': (5, 0), 'X': (4, 0),
+    'Y': (5, 0), 'Z': (4, 0),
+    'a': (8, 8), 'b': (8, 8), 'c': (6, 8), 'd': (8, 8), 'e': (7, 8), 'f': (6, 2),
+    'g': (10, 10), 'h': (6, 4), 'i': (7, 0), 'j': (7, 2), 'k': (7, 0), 'l': (5, 2),
+    'm': (10, 8), 'n': (6, 4), 'o': (6, 8), 'p': (8, 8), 'q': (8, 8), 'r': (6, 4),
+    's': (7, 12), 't': (6, 2), 'u': (5, 4), 'v': (3, 0), 'w': (5, 0), 'x': (4, 0),
+    'y': (4, 0), 'z': (4, 0),
+}
+
+
 def mesures():
     """Tout ce que la police dit, mis à l'échelle du repère du moteur."""
     f = TTFont(POLICE)
@@ -799,11 +830,27 @@ def recettes(M):
         + ' A %s %s 0 0 0 %s %s' % (r(crochetJ), r(crochetJ),
                                     r(o['x0']), r(o['y0'] + crochetJ))),
                t(ligne(futJ, o['y1'], futJ, o['y1']))], [])
+    # ⚠️ **LE PIED DU `l` N'EST PAS UN ANGLE DROIT, IL TOURNE — et la recette le
+    #   disait droit.** Tant que la pose avait le dernier mot, elle rattrapait
+    #   l'omission : elle rendait le quart de tour que la police dessine, et le
+    #   `l` sortait à 1,4 d'écart avec ses cinq points et ses deux poignées,
+    #   exactement le budget que l'auteur lui donne (« l 5 2 »). Mais dès qu'on
+    #   fait respecter les droites DÉCLARÉES — et il le faut, le `w` en dépend —
+    #   cette recette-là devient un mensonge : le quart de tour était écrasé en
+    #   diagonale, et le `l` passait de 1,4 à **64,8**. Une lettre sur cinquante-
+    #   deux dans ce cas, et c'est celle-là.
+    #   Les deux rayons se lisent sur l'axe : il quitte la hampe à y = 90,4 et
+    #   rejoint la barre à x = 293,7, soit 94,4 sur 90,4 — un quart de cercle,
+    #   à quatre unités près.
     o = b['l']
     milieuL = o['x0'] + (o['x1'] - o['x0']) * 0.42
-    R['l'] = ([t('M %s %s L %s %s L %s %s L %s %s' % (
-        r(o['x0']), r(o['y1']), r(milieuL), r(o['y1']), r(milieuL),
-        r(o['y0'] + o['l'] * 0.16), r(o['x1']), r(o['y0'] + o['l'] * 0.16)))], [])
+    rxL = (o['x1'] - milieuL) * 0.38
+    ryL = rxL * 0.96
+    R['l'] = ([t(ligne(o['x0'], o['y1'], milieuL, o['y1'])
+                 + ' L %s %s' % (r(milieuL), r(o['y0'] + ryL))
+                 + ' A %s %s 0 0 1 %s %s' % (r(rxL), r(ryL),
+                                             r(milieuL + rxL), r(o['y0']))
+                 + ' L %s %s' % (r(o['x1']), r(o['y0'])))], [])
     o = b['t']
     futT = o['x0'] + (o['x1'] - o['x0']) * 0.42
     # ⚠️ Le pied rebroussait vers le bas : le crochet pendait sous la ligne de

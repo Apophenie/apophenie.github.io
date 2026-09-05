@@ -26,7 +26,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { GLYPHES } from '../moteur/tables/glyphes.js';
-import { setGlyphes, deriveGlyph, flatten } from '../visuel/glyphes.js';
+import { setGlyphes, deriveGlyph, flatten, parsePath } from '../visuel/glyphes.js';
 import { CANDIDATS } from '../gfx/_glyphes-candidats.js';
 import { AXES, TRAITS } from '../gfx/_glyphes-axe.js';
 
@@ -233,4 +233,147 @@ test('★ glyphes — l’axe et les traits couvrent les deux répertoires', () 
     assert.ok(AXES[c] && AXES[c].startsWith('M'), `« ${c} » n'a pas d'axe`);
   }
   assert.equal(Object.keys(TRAITS).length, SIGNES.length);
+});
+
+/**
+ * ★ **LE BUDGET DE POINTS, DICTÉ LETTRE PAR LETTRE.**
+ *
+ * > « Plusieurs lettres ont des points en trop, je pense qu'une passe de
+ * >   nettoyage serait utile. Je te liste les lettres et le nombre de points
+ * >   max. » (l'auteur, qui donne ensuite les cinquante-deux)
+ *
+ * Ce n'est pas une préférence de style : un point de trop est un point que la
+ * lettre ne demandait pas, et il vient toujours de quelque part — d'une passe
+ * qui a coupé sans recoudre, d'un contact posé à trois unités au lieu de zéro,
+ * d'une droite rendue en deux morceaux. Le compte est donc un DÉTECTEUR, et
+ * c'est à ce titre qu'il est ici : il attrape des défauts que ni la fidélité ni
+ * la couverture ne voient, parce qu'un tracé peut être exact ET encombré.
+ *
+ * ⚠️ **QUAND AUCUNE POIGNÉE N'EST INDIQUÉE, LE MAXIMUM EST ZÉRO** — l'auteur l'a
+ *   confirmé, et c'est la moitié de l'information : les seize signes à zéro
+ *   poignée sont exactement ceux dont la recette n'est faite que de `ligne` et
+ *   de `chevron`. Une seule poignée sur l'un d'eux dit qu'une droite déclarée
+ *   est arrivée courbe.
+ *
+ * On compte les nœuds DISTINCTS — deux traits qui se rejoignent partagent leur
+ * bout, et ne comptent qu'un point, ce qui est bien ce que l'œil voit — et les
+ * poignées de Bézier une par une.
+ */
+const BUDGET = Object.freeze({
+  A: [5, 0], B: [10, 8], C: [6, 8], D: [6, 4], E: [6, 0], F: [5, 0], G: [8, 8],
+  H: [6, 0], I: [6, 0], J: [5, 4], K: [7, 0], L: [3, 0], M: [5, 0], N: [4, 0],
+  O: [6, 8], P: [7, 4], Q: [8, 8], R: [9, 4], S: [7, 12], T: [4, 0], U: [5, 4],
+  V: [3, 0], W: [5, 0], X: [4, 0], Y: [5, 0], Z: [4, 0],
+  a: [8, 8], b: [8, 8], c: [6, 8], d: [8, 8], e: [7, 8], f: [6, 2], g: [10, 10],
+  h: [6, 4], i: [7, 0], j: [7, 2], k: [7, 0], l: [5, 2], m: [10, 8], n: [6, 4],
+  o: [6, 8], p: [8, 8], q: [8, 8], r: [6, 4], s: [7, 12], t: [6, 2], u: [5, 4],
+  v: [3, 0], w: [5, 0], x: [4, 0], y: [4, 0], z: [4, 0],
+});
+
+/** Nœuds distincts et poignées d'un glyphe, tels que l'œil les compte. */
+function ossature(glyphe) {
+  const noeuds = new Set();
+  let poignees = 0;
+  for (const t of glyphe.traits) {
+    for (const { cmd, args } of parsePath(t.d)) {
+      const c = cmd.toUpperCase();
+      if (c === 'M' || c === 'L') noeuds.add(args.slice(-2).map((v) => v.toFixed(1)).join(','));
+      else if (c === 'C') { poignees += 2; noeuds.add(args.slice(4).map((v) => v.toFixed(1)).join(',')); }
+      else if (c === 'Q') { poignees += 1; noeuds.add(args.slice(2).map((v) => v.toFixed(1)).join(',')); }
+    }
+  }
+  return { points: noeuds.size, poignees };
+}
+
+/**
+ * ⚠️ **TROIS SIGNES N'Y SONT PAS ENCORE, ET CE SONT TROIS BOUCLES.** Ils sont
+ *   nommés plutôt que tolérés en silence : le contrôle reste STRICT sur les
+ *   quarante-neuf autres, et il échoue AUSSI si l'un de ces trois se met à
+ *   respecter son budget — auquel cas il faut le retirer d'ici, comme on retire
+ *   un écart de `derivees.js` quand le dessin rejoint la référence.
+ *
+ * La cause est commune et nommée : la mesure d'un trait fermé n'est pas lue
+ * cycliquement, si bien que le sommet tombant près de sa couture échappe à la
+ * détection des extrema, et qu'on ne peut pas recouper l'ovale en quadrants
+ * sans perdre son bas. Voir `jetbrains-axe.py › _r_quadrants`.
+ */
+const EN_ATTENTE = ['O', 'Q', 'g'];
+
+test('★ glyphes — le budget de points et de poignées, lettre par lettre', () => {
+  const trop = [];
+  for (const c of SIGNES) {
+    const [mp, mh] = BUDGET[c];
+    const { points, poignees } = ossature(TRAITS[c]);
+    const dedans = points <= mp && poignees <= mh;
+    if (EN_ATTENTE.includes(c)) {
+      assert.ok(!dedans, `« ${c} » tient désormais son budget : le retirer de EN_ATTENTE`);
+      continue;
+    }
+    if (points > mp) trop.push(`« ${c} » : ${points} points pour ${mp} admis`);
+    if (poignees > mh) {
+      trop.push(`« ${c} » : ${poignees} poignées pour ${mh} admises`
+        + (mh === 0 ? ' — la recette ne déclare que des droites' : ''));
+    }
+  }
+  assert.deepEqual(trop, [], `hors budget :\n  ${trop.join('\n  ')}`);
+});
+
+/**
+ * ★ **AUX EXTREMA, UNE POIGNÉE EST HORIZONTALE OU VERTICALE — jamais oblique.**
+ *
+ * > « q, p, d, b : poignées simples verticales, poignées symétriques
+ * >   horizontales, AUCUNE poignée oblique. » — « G : aucune poignée en
+ * >   diagonale. » — « c : poignées simples uniquement verticales, si poignées
+ * >   doubles : uniquement symétriques horizontales. » (l'auteur)
+ *
+ * C'est la convention de tous les dessinateurs de fontes, et JetBrains Mono la
+ * suit : un nœud se pose au point le plus haut, le plus bas, le plus à gauche ou
+ * le plus à droite d'une courbe, et la tangente y est perpendiculaire à cette
+ * direction-là. Une poignée oblique sur une panse ne décrit donc pas la lettre —
+ * elle dit que le nœud a été posé à côté du sommet.
+ *
+ * ⚠️ **LE `s` ET LE `S` SONT HORS DE CE CONTRÔLE, ET C'EST L'AUTEUR QUI LES EN
+ *   SORT** : « point central avec poignées symétriques OBLIQUES ». Leur nœud du
+ *   milieu est un point d'inflexion, pas un sommet — il n'a aucune raison d'être
+ *   cardinal. Le `a` et le `e`, dont l'auteur ne dit rien de la direction, en
+ *   sont également exclus.
+ *
+ * ⚠️ **CE TEST EST EN `todo`, ET SA CAUSE EST NOMMÉE.** Les traits OUVERTS sont
+ *   au propre — le `c` et le `e` ont été recoupés à leurs sommets. Les BOUCLES
+ *   ne le sont pas : la mesure d'un trait fermé n'est pas lue cycliquement, ses
+ *   deux bouts sont deux points distincts — (259,2 ; −8,6) et (237,8 ; −8,9)
+ *   pour l'`O` — et le sommet qui tombe près de cette couture échappe à la
+ *   détection des extrema. Il manque donc le BAS de l'ovale, et reconstruire
+ *   quand même les quatre quadrants fait passer l'`O` de 4,3 à 18,5. Ce n'est
+ *   pas un réglage à trouver, c'est une lecture cyclique à écrire ; le test
+ *   reste là, rouge et déclaré, pour qu'on ne l'oublie pas.
+ */
+const PANSES = [...'bcdgopqCGOQ'];
+const OBLIQUE = 12; // degrés tolérés autour d'un axe
+
+test('★ glyphes — les panses n’ont aucune poignée oblique',
+  { todo: 'les boucles fermées attendent une lecture CYCLIQUE de leur mesure' },
+  () => {
+  const fautes = [];
+  for (const c of PANSES) {
+    for (const t of TRAITS[c].traits) {
+      let x = 0; let y = 0;
+      for (const { cmd, args } of parsePath(t.d)) {
+        const k = cmd.toUpperCase();
+        if (k === 'M' || k === 'L') { [x, y] = args.slice(-2); continue; }
+        if (k !== 'C') { x = args[args.length - 2]; y = args[args.length - 1]; continue; }
+        for (const [ax, ay, bx, by] of [[x, y, args[0], args[1]],
+          [args[4], args[5], args[2], args[3]]]) {
+          const a = Math.abs(Math.atan2(by - ay, bx - ax) * 180 / Math.PI) % 90;
+          const ecart = Math.min(a, 90 - a);
+          if (ecart > OBLIQUE) {
+            fautes.push(`« ${c} » : poignée à ${ecart.toFixed(0)}° d'un axe `
+              + `(${ax.toFixed(0)},${ay.toFixed(0)} → ${bx.toFixed(0)},${by.toFixed(0)})`);
+          }
+        }
+        x = args[4]; y = args[5];
+      }
+    }
+  }
+  assert.deepEqual(fautes, [], `poignées obliques :\n  ${fautes.join('\n  ')}`);
 });
