@@ -2565,12 +2565,33 @@ def _bez1(q, t):
     return ((1 - t) * q[0][0] + t * q[1][0], (1 - t) * q[0][1] + t * q[1][1])
 
 
-def _echelonne(pts):
-    """Une polyligne ramenée à `ABSCISSES + 1` points équidistants."""
+#: ★ **CE QU'UNE ABSCISSE MESURE AU PIRE, DANS UN BAS DE CASSE QUI TOMBE
+#: JUSTE.** Le plus long guide des vingt-six minuscules est celui du `u` :
+#: 1 044 unités pour soixante abscisses, soit dix-sept unités chacune. C'est la
+#: densité à laquelle la chaîne est réglée sans le savoir — et les capitales, qui
+#: n'ont pas la même taille, tombaient à trente-quatre (le `M`) ou quarante (le
+#: `W`) parce qu'elles gardaient le même COMPTE. Le sommet d'un fût tombait alors
+#: au milieu d'un seau et sortait seize unités trop bas.
+PAS_ABSCISSE = 17.4
+
+
+def _echelonne(pts, densite=False):
+    """Une polyligne ramenée à des points équidistants.
+
+    ⚠️ **PLUS D'ABSCISSES N'EST PAS GRATUIT, et c'est pourquoi `densite` est un
+      ESSAI et non une correction.** Des abscisses plus serrées sont des seaux
+      plus maigres, donc des trous que le quorum refuse et que l'interpolation
+      comble : le `W` reculait de 7,5 à 13,4 et la couverture du `N` de 22,9 à
+      24,9 quand on l'imposait partout. On pose donc la lettre des deux façons
+      et l'on garde celle qui ne recule sur AUCUNE des deux mesures.
+    """
     s, longueur_ = _curviligne(pts)
+    n = ABSCISSES
+    if densite and longueur_ > 1e-9:
+        n = max(ABSCISSES, min(4 * ABSCISSES, int(longueur_ / PAS_ABSCISSE)))
     if longueur_ < 1e-9:
-        return [pts[0]] * (ABSCISSES + 1)
-    return [_au(pts, s, longueur_, k / ABSCISSES) for k in range(ABSCISSES + 1)]
+        return [pts[0]] * (n + 1)
+    return [_au(pts, s, longueur_, k / n) for k in range(n + 1)]
 
 
 #: L'écart QUADRATIQUE en deçà duquel deux guides se disputent le même brin :
@@ -2599,7 +2620,7 @@ def _pose(nuage, guides, coins):
     # ① chaque point de l'axe rejoint le trait, puis l'abscisse, les plus proches
     #    — parmi ceux dont la direction est compatible avec la sienne.
     tangentes = [[_direction(g, k) for k in range(len(g))] for g in guides]
-    seaux = [[[] for _ in range(ABSCISSES + 1)] for _ in guides]
+    seaux = [[[] for _ in range(len(g))] for g in guides]
     for p, u, _, _d in nuage:
         choix, meilleur = None, None
         for t, guide in enumerate(guides):
@@ -2718,13 +2739,17 @@ class Pose:
     l'autre. Chaque étape est une méthode ou une retouche nommée, et chacune
     rend un jeu de chemins qu'on peut mesurer, dessiner et comparer seul."""
 
-    def __init__(self, ch, recette, points_du_trace, trace=False, lues=False):
+    def __init__(self, ch, recette, points_du_trace, trace=False, lues=False,
+                 densite=False):
         self.ch = ch
         self.trace = trace
         #: Coupe-t-on aussi aux bornes LUES dans la source (`_frontieres`,
         #: `_extremes`) ? Ce n'est pas un réglage : `traits` pose la lettre des
         #: deux façons et garde celle qui ne recule sur AUCUNE des deux mesures.
         self.lues = lues
+        #: Les abscisses suivent-elles la LONGUEUR du guide plutôt qu'un compte
+        #: fixe ? Même règle que `lues` : c'est un essai, arbitré à la mesure.
+        self.densite = densite
         self.decl, self.jonctions = recette
         nuage = _plat(ch)
         # Les boucles VRAIMENT fermées — celles dont l'axe décrit un tour
@@ -2732,7 +2757,8 @@ class Pose:
         # pas une : son guide est ouvert, seul le rendu se referme.
         self.fermes = [not d.get('ouvert', True) and not d.get('couture')
                        for d in self.decl]
-        self.guides = [_echelonne(points_du_trace(t['d'])) for t in self.decl]
+        self.guides = [_echelonne(points_du_trace(t['d']), densite)
+                       for t in self.decl]
         # ★ Les COINS restent ceux que la recette déclare : c'est une lecture du
         #   dessin, et une passe de projection ne saurait ni les inventer ni les
         #   perdre. Seule la géométrie se corrige d'une passe à l'autre.
@@ -2894,7 +2920,9 @@ class Pose:
         """
         lignes, note = depart, None
         for _ in range(PASSES):
-            essai = _pose(self.reste, [_echelonne(l) for l in lignes], self.coins)
+            essai = _pose(self.reste,
+                          [_echelonne(l, self.densite) for l in lignes],
+                          self.coins)
             neuve = _ecart_a_laxe(essai, self.casiers)
             if note is not None and neuve >= note:
                 break
@@ -2919,7 +2947,7 @@ class Pose:
             lignes, note = autres, autreNote
         for t, c in enumerate(self.points):
             if c is not None:
-                lignes[t] = [c] * (ABSCISSES + 1)
+                lignes[t] = [c] * len(self.guides[t])
         #: ★ La MESURE de chaque trait, gardée : c'est le morceau d'axe que ce
         #: trait-là doit couvrir, et le seul étalon dont dispose une retouche qui
         #: ne travaille que sur un trait.
@@ -3423,21 +3451,44 @@ def traits(ch, recette, points_du_trace, journal=None, trace=False):
       pour le recalage sur les plis — et l'on ne garde la seconde que si elle ne
       recule sur AUCUNE des deux mesures. Aucune lettre ne peut alors être moins
       bonne qu'elle ne l'était ; huit le deviennent nettement plus.
+
+    ★ **ET DEPUIS, UNE SECONDE QUESTION SE POSE DE LA MÊME FAÇON : COMBIEN
+      D'ABSCISSES ?** Un compte fixe donne dix-sept unités par abscisse au pire
+      bas de casse et quarante au `W` — le sommet d'un fût y tombe au milieu d'un
+      seau. Les compter à la LONGUEUR corrige cela, et abîme ailleurs
+      (`_echelonne`). Deux questions indépendantes, donc quatre poses par signe,
+      et le même juge : on garde la meilleure qui ne recule sur AUCUNE des deux
+      mesures.
+      · « `npm run glyphes` passerait de quatre à huit minutes. » — « Aucune
+        importance, tu peux le faire. » (l'auteur)
     """
-    essais = []
+    reference, essais = None, []
     for lues in (False, True):
-        p = Pose(ch, recette, points_du_trace, trace, lues=lues)
-        c = p.applique(p.ajuste(p.projette()))
-        essais.append((p, c, (p.ecart(c), p.couverture(c))))
-    (pose, chemins, note), (autre, siens, sanote) = essais
-    lues = _domine(sanote, note)
-    if lues:
-        pose, chemins, note = autre, siens, sanote
+        for densite in (False, True):
+            p = Pose(ch, recette, points_du_trace, trace, lues=lues, densite=densite)
+            c = p.applique(p.ajuste(p.projette()))
+            note = (p.ecart(c), p.couverture(c))
+            if reference is None:
+                reference = note
+            essais.append((note, lues, densite, p, c))
+
+    # ⚠️ **« MEILLEURE » NE SE DÉCIDE PAS ENTRE VARIANTES, MAIS CONTRE LA
+    #   RÉFÉRENCE.** Trois essais dominent peut-être chacun le premier sans se
+    #   dominer entre eux — l'un gagne en fidélité, l'autre en couverture. On
+    #   part donc du réglage nu et l'on n'accepte qu'un essai qui l'améliore sans
+    #   reculer ; à égalité de mérite, le premier trouvé, ce qui rend le choix
+    #   déterministe et non dépendant de l'ordre des boucles.
+    choix = essais[0]
+    for essai in essais[1:]:
+        if _domine(essai[0], choix[0]):
+            choix = essai
+    note, lues, densite, pose, chemins = choix
     if trace:
-        print('  %s · bornes lues dans la source : %s — sans %.1f/%.1f · '
-              'avec %.1f/%.1f (fidélité/couverture)'
-              % (ch, 'GARDÉES' if lues else 'écartées',
-                 essais[0][2][0], essais[0][2][1], sanote[0], sanote[1]))
+        print('  %s · %s — nu %.1f/%.1f · retenu %.1f/%.1f (fidélité/couverture)'
+              % (ch,
+                 ('bornes lues' if lues else 'bornes déclarées')
+                 + (' + abscisses à la longueur' if densite else ''),
+                 reference[0], reference[1], note[0], note[1]))
     if journal is not None:
         journal.append((note[0], note[1], ch, lues))
     return pose.rendu(chemins)
@@ -3571,6 +3622,30 @@ def main():
     #   de `z` amputée de vingt-cinq unités a passé toutes les mesures. La
     #   COUVERTURE (de l'axe vers le tracé) est l'autre moitié, et elle est
     #   désormais bornée par `src/app/glyphes.test.js`.
+    # ⚠️ **CE QUI RESTE N'EST PLUS UN DÉFAUT DE POSE : C'EST UN PLANCHER, et il
+    #   tient à ce qu'un squelette FAIT à un carrefour.** Trois signes butent
+    #   dessus, et il vaut mieux le nommer que d'y user des passes :
+    #
+    #    · le `X` (9,4) — deux traits qui se croisent ne donnent pas un squelette
+    #      en croix mais en H : l'encre du carrefour est un losange, dont le
+    #      médian remonte à (251 ; 327) quand les diagonales se coupent à
+    #      (246 ; 305). Vingt-deux unités de pont, qu'aucune projection ne peut
+    #      ignorer puisque ses deux moitiés sont exactement parallèles aux deux
+    #      diagonales — le filtre de tangente les attribue donc, à juste titre ;
+    #    · le `r` (20,3 de couverture) — à la naissance de l'épaule, l'encre
+    #      s'élargit et le milieu part à gauche, jusqu'à x = 108,7 pour un fût
+    #      posé à 129,0. L'axe a RAISON — c'est bien le médian —, et c'est la
+    #      couverture qui exige trop : ce renflement n'appartient ni au fût ni à
+    #      l'épaule, et une lecture en deux traits ne peut pas le rendre ;
+    #    · le `m` (17,7) — sa jambe centrale porte DEUX brins, à 240,2 et 253,0,
+    #      parce que deux traits y fondent leur encre sans que le repliage y
+    #      ramène un brin unique. Douze unités et demie d'écart, par
+    #      construction, avant qu'on ait posé quoi que ce soit.
+    #
+    #   Les trois ont la même forme : l'axe médian d'un RACCORD n'est le tracé
+    #   d'aucun des traits qui s'y raccordent. On les mesure, on les borne
+    #   (`glyphes.test.js`, 20 et 24 unités), et l'on n'essaie pas de les faire
+    #   descendre en tordant un tracé juste.
     print('  fidélité (tracé→axe) et couverture (axe→tracé), en unités du '
           'moteur (capitale = 600) :')
     for pire, cov, ch, lues in sorted(ecarts):
