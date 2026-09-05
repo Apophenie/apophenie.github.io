@@ -67,13 +67,41 @@ Quatre gestes, dans cet ordre, et pas un de plus :
 
 import json
 import math
+import os
 import pathlib
 import re
 import sys
 
 RACINE = pathlib.Path(__file__).resolve().parents[2]
-SOURCE = RACINE / 'src' / 'gfx' / '_jetbrains-source.json'
-CIBLE = RACINE / 'src' / 'gfx' / '_glyphes-axe.js'
+GFX = RACINE / 'src' / 'gfx'
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  ★ **LA CHAÎNE EST PARAMÉTRÉE PAR SES TROIS FICHIERS, ET PAR RIEN D'AUTRE.**
+#
+#  > « fais-tu des correctifs au cas par cas ou une mise à jour des règles pour
+#  >   que ça marche aussi si je changeais de fonte ? » (l'auteur, plus haut,
+#  >   à propos des seuils rapportés au fût)
+#
+#  Ces quatre lignes sont la RÉPONSE MESURÉE à cette question. Tout ce que ce
+#  fichier sait d'une police tient dans l'extrait qu'il lit (`SOURCE`) et dans
+#  les recettes qu'il projette (`TRACES`) : pas un nom de police, pas un indice
+#  de nœud, pas une lettre en dur dans les 4 000 lignes qui suivent — le seul
+#  caractère cité par le code est le `'o'` des points de contrôle de Glyphs.
+#  `jost-axe.py` ne fait donc RIEN d'autre que poser ces trois variables.
+#
+#  ⚠️ **LES DÉFAUTS SONT CEUX DE JETBRAINS, ET C'EST LA CONDITION DU CHANGEMENT.**
+#    `npm run glyphes`, `glyphes.test.js` et l'habitude appellent ce script sans
+#    rien dans l'environnement ; il doit alors se comporter exactement comme
+#    avant. La variante ne s'obtient que par une demande explicite.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _chemin(cle, defaut):
+    return pathlib.Path(os.environ.get(cle, str(GFX / defaut)))
+
+
+SOURCE = _chemin('NHLG_AXE_SOURCE', '_jetbrains-source.json')
+CIBLE = _chemin('NHLG_AXE_CIBLE', '_glyphes-axe.js')
+TRACES = _chemin('NHLG_AXE_TRACES', 'jetbrains-traces.py')
 #: La table du moteur, repeinte SEULEMENT sur `--adopter` (voir `adopter`).
 TABLE = RACINE / 'src' / 'moteur' / 'tables' / 'glyphes.js'
 
@@ -86,7 +114,8 @@ CAPITALES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
 def charge():
     if not SOURCE.exists():
-        sys.exit('extrait absent : lancer d’abord src/gfx/jetbrains-source.py')
+        sys.exit('extrait absent (%s) : lancer d’abord le script `-source.py` '
+                 'de la police visée' % SOURCE.name)
     return json.loads(SOURCE.read_text(encoding='utf-8'))
 
 
@@ -4070,10 +4099,10 @@ def traits(ch, recette, points_du_trace, journal=None, trace=False):
 
 def _recettes():
     import importlib.util as iu
-    sp = iu.spec_from_file_location('jetbrains_traces',
-                                    str(RACINE / 'src' / 'gfx' / 'jetbrains-traces.py'))
+    nom = TRACES.stem.replace('-', '_')
+    sp = iu.spec_from_file_location(nom, str(TRACES))
     mod = iu.module_from_spec(sp)
-    sys.modules['jetbrains_traces'] = mod
+    sys.modules[nom] = mod
     argv, sys.argv = sys.argv, [sys.argv[0]]
     sp.loader.exec_module(mod)
     sys.argv = argv
@@ -4131,6 +4160,16 @@ def adopter(poses):
     fichier, la tolérance, les métriques et le gel restent écrits à la main,
     parce qu'ils énoncent un CONTRAT et non une géométrie.
     """
+    # ⚠️ **UNE VARIANTE À L'ÉTUDE N'ADOPTE PAS, ET LE REFUS EST ICI.** Le
+    #   marqueur écrit dans `glyphes.js` nomme la chaîne qui l'a posé ; une
+    #   chaîne dérivée (Jost) porterait un autre nom de cible et ne doit même pas
+    #   pouvoir essayer. L'arbitrage appartient à l'auteur, pas à un `--adopter`
+    #   qu'on aurait tapé dans le mauvais terminal.
+    if CIBLE.name != '_glyphes-axe.js':
+        raise SystemExit(
+            '--adopter est réservé à la chaîne de référence : %s n’est qu’une '
+            'variante à l’étude, son adoption est un arbitrage d’auteur'
+            % CIBLE.name)
     ouvre = '// ⟨engendré par src/gfx/jetbrains-axe.py --adopter⟩'
     ferme_ = '// ⟨/engendré⟩'
     texte = TABLE.read_text()
@@ -4231,10 +4270,11 @@ def main():
              sum(1 for e in ecarts if e[3])))
 
     lignes = [
-        "/* ⚠️ ENGENDRÉ par `src/gfx/jetbrains-axe.py` — ne pas éditer à la main.",
+        "/* ⚠️ ENGENDRÉ par `src/gfx/jetbrains-axe.py` sur `%s` — ne pas éditer" % SOURCE.name,
+        " * à la main.",
         " *",
-        " * L'AXE des lettres, lu dans les sources de JetBrains Mono : les trois",
-        " * masters déclarent leurs fûts, l'épaisseur s'annule à wght %s, et les deux" % r(MAIGRE),
+        " * L'AXE des lettres, lu dans les contours de %s : les deux graisses" % DONNEES['police'],
+        " * relevées donnent leurs fûts, l'épaisseur s'annule à wght %s, et les deux" % r(MAIGRE),
         " * bords d'un trait s'y rejoignent sur son axe. Ce n'est pas une",
         " * reconstruction — c'est la police à une graisse qu'elle décrit sans",
         " * l'exposer, repliée sur elle-même pour que les deux bords se confondent",
@@ -4262,8 +4302,8 @@ def main():
             _jonctions(jonc)))
     lignes.append('};')
     CIBLE.write_text('\n'.join(lignes) + '\n')
-    print('  → src/gfx/_glyphes-axe.js (%d axes, %d jeux de traits)'
-          % (len(axes), len(poses)))
+    print('  → src/gfx/%s (%d axes, %d jeux de traits)'
+          % (CIBLE.name, len(axes), len(poses)))
 
     if '--adopter' in sys.argv:
         adopter(poses)
