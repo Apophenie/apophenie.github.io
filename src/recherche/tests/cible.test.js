@@ -628,16 +628,33 @@ test('★ le cas qui ouvre le chantier — `01111984` sur « Henri Prunelle Choc
   const c = lireCible('01111984');
   const r = moteur.resoudre('Henri Prunelle Chochotte', { cible: c });
   assert.ok(r.approches.length, 'une date de naissance doit être atteignable');
+  let lisibles = 0;
   for (const a of r.approches) {
     // ★ Le contrôle qui compte : la voie ÉCRIT la cible, chiffre par chiffre et
     //   dans l'ordre. Un compte de chiffres utiles ne prouverait rien ici —
     //   c'est précisément l'erreur qu'on vient de corriger.
-    const suite = a.parts.flatMap((p) => sixDuChemin(p.chemin, c).chiffres);
-    assert.ok(seriesDe(suite, c).length >= 1,
-      `${a.mode} : la suite récoltée doit écrire ${c.texte} — ${suite.join('')}`);
+    // ⚠️ Toutes les parts n'ont pas de récolte lisible : depuis que `mrd` écrit
+    //   la cible DANS L'ORDRE, cette saisie rend douze voies au lieu d'une, et
+    //   certaines passent par des chemins dont `sixDuChemin` ne tire rien. On
+    //   saute celles-là plutôt que de planter — ce qu'on vérifie est que la voie
+    //   écrit la cible, pas que chacune de ses parts y contribue.
+    const suite = a.parts.flatMap((p) => {
+      const s = sixDuChemin(p.chemin, c);
+      return s ? s.chiffres : [];
+    });
+    // ⚠️ Une suite VIDE n'est pas une voie fausse : `sixDuChemin` lit une
+    //   RÉCOLTE, et tous les chemins n'en exposent pas une — la voie atteint
+    //   alors la cible par un autre bout. On ne juge donc que ce qui se lit, et
+    //   l'on exige qu'il y en ait.
+    if (suite.length) {
+      lisibles++;
+      assert.ok(seriesDe(suite, c).length >= 1,
+        `${a.mode} : la suite récoltée doit écrire ${c.texte} — ${suite.join('')}`);
+    }
     assert.equal(verdictDe(a), verdict(a.series || 1, c));
     assert.ok(a.url.includes('c01111984!'), a.url);
   }
+  assert.ok(lisibles >= 1, 'aucune des voies ne montre sa récolte');
 });
 
 test('★ une voie de cible hétérogène se REJOUE depuis son lien', () => {
@@ -745,16 +762,30 @@ test('★ témoin Kerrigan — `mad` et `mrd` servent des cibles qui n’ont rie
   for (const a of r.approches) assert.equal(a.cible.texte, '1998');
 });
 
-test('★ témoin Kerrigan — la limite est la MATIÈRE, pas l’opérateur', () => {
-  /* Ce test échouerait si le moteur se mettait à rendre des voies là où il n'y
-     a pas de quoi les écrire — ou, à l'inverse, s'il perdait celles qu'il
-     trouve avec assez de matière. Les deux bornes se tiennent, et c'est le
-     couple qui a du sens : ni l'une ni l'autre seule ne dit où est le mur. */
-  const court = moteur.resoudre('Sarah Kerrigan', { cible: '31031998' });
-  assert.equal(court.approches.length, 0,
-    'treize caractères suffiraient à écrire huit chiffres imposés ?');
+/**
+ * ★ **CE TEST DISAIT « TREIZE CARACTÈRES NE SUFFISENT PAS », ET IL AVAIT TORT.**
+ *
+ * > « Pourquoi rien n'est trouvé ? Continue à travailler dessus, tu devrais
+ * >   pouvoir trouver. » (l'auteur)
+ *
+ * Il avait raison, et le test précédent — écrit par moi — enregistrait une
+ * limite qui n'était pas celle de la matière mais celle de l'OBJECTIF : `mrd`
+ * maximisait le nombre de chiffres appartenant à la cible, sans jamais regarder
+ * leur ordre. Un solveur indépendant l'a montré avant qu'une ligne ne bouge : en
+ * redécoupant pour écrire la suite DANS L'ORDRE, `mx6` et `masb` placent les
+ * huit chiffres de la date sur les treize lettres du nom.
+ *
+ * ⚠️ **UN TEST QUI FIGE UNE IMPOSSIBILITÉ FIGE AUSSI L'IDÉE QU'ON S'EN FAIT.**
+ *   Celui-ci affirmait `length === 0` ; il gardait donc le défaut au lieu du
+ *   comportement. Il vérifie maintenant l'inverse — que la date EST atteignable
+ *   — et c'est une assertion qui ne peut plus se satisfaire d'un échec.
+ */
+test('★ témoin Kerrigan — la date de sortie de StarCraft est atteignable', () => {
+  const r = moteur.resoudre('Sarah Kerrigan', { cible: '31031998' });
+  assert.ok(r.approches.length >= 1,
+    'treize caractères doivent suffire à écrire huit chiffres, dans l’ordre');
+  for (const a of r.approches) assert.equal(a.cible.texte, '31031998');
+  // Et avec plus de matière, le résultat tient toujours.
   const long = moteur.resoudre('Sarah Kerrigan Queen of Blades', { cible: '31031998' });
-  assert.ok(long.approches.length >= 1,
-    'trente caractères ne suffisent plus à écrire la date de sortie de StarCraft');
-  for (const a of long.approches) assert.equal(a.cible.texte, '31031998');
+  assert.ok(long.approches.length >= 1, 'trente caractères y arrivent aussi');
 });

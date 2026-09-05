@@ -59,10 +59,19 @@ const CAPITALES = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
    Le repère du moteur a son ORIGINE EN BAS À GAUCHE ; SVG l'a en haut. On
    retourne d'un `scale(1,-1)` plutôt que de recalculer chaque point — c'est la
    convention de `visuel/assets.js › glyphToLocal`. */
-const GAUCHE = -40;
-const DROITE = 520;
-const BAS = -190;
-const HAUT = 660;
+/* ⚠️ **LE CADRE DE `glyphes.html` TRONQUAIT JOST, et c'est la rançon de vouloir
+   comparer deux pages à l'unité près.** JetBrains est une monospace : ses
+   cinquante-deux signes tiennent dans une avance unique de 493,2, et un cadre
+   de −40 à 520 les contient tous. Jost n'a aucune avance commune — son `W`
+   pousse à 794, son `J` descend à −113 —, si bien que les lettres larges
+   sortaient du `viewBox` et arrivaient COUPÉES. Un cadre qui ampute est pire
+   qu'un cadre à une autre échelle : il donne à voir un défaut de dessin là où
+   il n'y a qu'un défaut de fenêtre.
+   Les bornes sont donc celles des tracés eux-mêmes, marge ronde comprise. */
+const GAUCHE = -130;
+const DROITE = 820;
+const BAS = -210;
+const HAUT = 690;
 
 const reglure = (y, opacite) => s('line', {
   x1: GAUCHE, y1: -y, x2: DROITE, y2: -y,
@@ -159,10 +168,17 @@ const CORPS = METRIQUES.capitale / CAP_EM;
 
 const caseDeLaPolice = (c) => e('div.gl__case', {}, [
   cadre([
+    /* ★ **LE TEXTE SE POSE SUR L'ORIGINE DU GLYPHE, PAS AU MILIEU DU CADRE.**
+       Centrer n'avait de sens que pour une monospace, où l'avance est la même
+       pour tous : le milieu du cadre EST alors le milieu de chaque signe. Chez
+       Jost, centrer décalait chaque lettre de la moitié de l'écart entre son
+       avance propre et celle du cadre — jusqu'à deux cents unités —, et la
+       comparaison avec le tracé, lui posé sur l'origine, ne voulait plus rien
+       dire. On aligne donc les deux sur le même zéro. */
     s('text', {
-      x: (GAUCHE + DROITE) / 2,
+      x: 0,
       y: 0,
-      'text-anchor': 'middle',
+      'text-anchor': 'start',
       'font-size': CORPS.toFixed(1),
       'font-family': "'Jost', Futura, 'Century Gothic', sans-serif",
       fill: 'currentColor',

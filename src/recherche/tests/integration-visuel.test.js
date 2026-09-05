@@ -492,12 +492,21 @@ test('★ la chaîne du 27 août se rejoue sur les chiffres de l’auteur', () =
 
   // 2. le redécoupage : sa découpe à la main rend six 6 sur douze paquets ;
   //    l'optimisation en rend ONZE 6-ou-9 sur quinze signes, là où la ligne de
-  //    départ n'en portait que quatre. Le compte se lit désormais en 6 **et**
-  //    en 9 — « garder les 9 et les 6 (mr9 ou mr39 convertiront les 9 en 6) »
-  //    (l'auteur) —, et c'est ce qui a corrigé le calcul de cet opérateur.
+  //    départ n'en portait que quatre. Le compte se lit en 6 **et** en 9 —
+  //    « garder les 9 et les 6 (mr9 ou mr39 convertiront les 9 en 6) »
+  //    (l'auteur).
+  // ⚠️ **LA DÉCOUPE A CHANGÉ LE JOUR OÙ L'OBJECTIF EST DEVENU SÉQUENTIEL**, et
+  //    le RENDEMENT, lui, n'a pas bougé d'une unité : onze 6-ou-9 sur quinze
+  //    signes avant comme après, trois séries avant comme après. Maximiser le
+  //    nombre de chiffres utiles et maximiser ceux qu'on place dans l'ordre
+  //    donnent ici le même total par deux chemins différents — ce qui est
+  //    exactement ce qu'on attend sur une cible homogène, où les deux objectifs
+  //    se confondent. C'est le total qui est la propriété ; la découpe n'en est
+  //    qu'une réalisation, et la figer aurait interdit toute amélioration de
+  //    l'algorithme sans rien garantir de plus.
   const redec = chaine(avant, 'mrd');
   const gagnants = (vs) => vs.filter((v) => v === 6 || v === 9).length;
-  assert.deepEqual(redec.valeur, [1, 2, 6, 9, 6, 6, 9, 1, 5, 6, 9, 6, 9, 6, 9]);
+  assert.deepEqual(redec.valeur, [1, 2, 6, 9, 6, 6, 9, 1, 2, 9, 9, 6, 6, 9, 9]);
   assert.equal(gagnants(avant.valeur.join('').split('').map(Number)), 4,
     'la ligne de départ ne porte que trois 6 et un 9');
   assert.equal(gagnants(redec.valeur), 11, 'onze 6-ou-9, contre quatre au départ');

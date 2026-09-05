@@ -1128,7 +1128,15 @@ export function distinguerTitres(approches) {
       // Dernier recours : la suite des codes, unique par construction. On n'y
       // arrive que si deux lignes ont exactement les mêmes opérateurs sur les
       // mêmes fragments — auquel cas il n'y a plus rien à dire d'elles.
-      const codes = (a.parts || []).map((p) => p.chemin.ops.map((o) => o.code).join('+')).join(',');
+      // ⚠️ **ET IL FAUT UN RECOURS AU DERNIER RECOURS.** Une approche SANS
+      //   `parts` rendait ici une chaîne VIDE, donc aucune distinction : deux
+      //   telles voies gardaient le même titre, et le contrôle d'unicité
+      //   rougissait. Le défaut ne s'est vu que le jour où `mrd`, devenu
+      //   séquentiel, a fait remonter douze voies là où il n'y en avait qu'une.
+      //   `a.codes` porte la même information et ne manque jamais — c'est lui
+      //   que l'URL écrit.
+      const parParts = (a.parts || []).map((p) => p.chemin.ops.map((o) => o.code).join('+')).join(',');
+      const codes = parParts || String(a.codes || '');
       a.distinction = { fr: codes, en: codes };
     });
   }
@@ -1138,10 +1146,36 @@ export function distinguerTitres(approches) {
 /** Pose `titre` et `regle` bilingues sur chaque approche, titres rendus uniques. */
 export function nommer(approches) {
   distinguerTitres(approches);
+  for (const a of approches) a.titre = titreBilingue(a);
+
+  /* ⚠️ **LA CASCADE PEUT S'ARRÊTER SUR UN CRITÈRE QUI NE SÉPARE PAS.** Elle
+     attribue une distinction dès qu'un critère est renseigné, sans vérifier
+     qu'il rend le titre UNIQUE : deux moissons de six portées se sont retrouvées
+     toutes deux « traduit en anglais », avec pourtant des codes différents. Le
+     défaut dormait ; il s'est réveillé le jour où `mrd`, devenu séquentiel, a
+     fait remonter douze voies là où il n'y en avait qu'une.
+
+     On vérifie donc APRÈS coup — c'est la seule vérification qui porte sur ce
+     qu'on voulait, un titre unique, et non sur le moyen d'y arriver — et l'on
+     tranche les collisions restantes par les codes, qui ne manquent jamais. */
+  const parTitre = new Map();
   for (const a of approches) {
-    a.titre = titreBilingue(a);
-    a.regle = regleBilingue(a);
+    const cle = a.titre && a.titre.fr;
+    if (!parTitre.has(cle)) parTitre.set(cle, []);
+    parTitre.get(cle).push(a);
   }
+  for (const [, lot] of parTitre) {
+    if (lot.length < 2) continue;
+    for (const a of lot) {
+      const codes = String(a.codes || (a.parts || [])
+        .map((p) => p.chemin.ops.map((o) => o.code).join('+')).join(','));
+      if (!codes) continue;
+      a.distinction = { fr: codes, en: codes };
+      a.titre = titreBilingue(a);
+    }
+  }
+
+  for (const a of approches) a.regle = regleBilingue(a);
   return approches;
 }
 

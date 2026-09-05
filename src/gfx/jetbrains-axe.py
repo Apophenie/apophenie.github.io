@@ -3856,6 +3856,17 @@ def _r_cardinales(pose, chemins):
     return chemins
 
 
+#: ★ **JUSQU'OÙ DEUX BOUTS SE SOUDENT.** `TOL` — six unités — suffisait tant
+#: qu'on ne traitait qu'une police dont les recettes posaient déjà les contacts
+#: à portée du moteur. ⚠️ Le `Y` de Jost l'a démenti : sa queue partait à 9,2
+#: unités du sommet de son chevron, assez peu pour que `deriveGlyph` compte
+#: quand même le contact — donc sans qu'aucun garde-fou ne rougisse — et assez
+#: pour que l'œil voie un décrochement. « Il y a un problème d'alignement sur le
+#: Y » (l'auteur). On prend donc le seuil que `_recolle` utilise déjà, un
+#: demi-fût : ce que le recollage amène à portée, la soudure achève de poser.
+PORTEE_SOUDURE = 0.5 * FUT
+
+
 def _r_soude(pose, chemins):
     """★ **DEUX BOUTS QUI SE TOUCHENT SONT UN POINT, PAS DEUX.**
 
@@ -3902,9 +3913,34 @@ def _r_soude(pose, chemins):
                 if (a, fa) in vus or (b, fb) in vus:
                     continue
                 d = math.dist(bout(a, fa), bout(b, fb))
-                if d < TOL and (choix is None or d < choix[0]):
+                if d < PORTEE_SOUDURE and (choix is None or d < choix[0]):
                     choix = (d, fa, fb)
         if choix is None:
+            # ★ **UN BOUT PEUT REJOINDRE UN NŒUD, PAS SEULEMENT UN AUTRE BOUT.**
+            #   La queue du `Y` arrive sur le SOMMET de son chevron, qui est un
+            #   point interne du trait voisin : aucun couple bout-à-bout n'était
+            #   donc candidat, et les deux restaient à 9,2 unités l'un de
+            #   l'autre. Assez peu pour que `deriveGlyph` compte quand même le
+            #   contact — donc sans qu'aucun garde-fou ne rougisse — et assez
+            #   pour que l'œil voie un décrochement. « Il y a un problème
+            #   d'alignement sur le Y » (l'auteur).
+            #   On pose alors le bout SUR le nœud, et non à mi-chemin : le nœud
+            #   appartient à un trait qui ne demande rien, c'est au bout libre de
+            #   venir. La barre médiane du `E`, elle, ne bouge pas — le fût n'a
+            #   aucun nœud à sa hauteur, et le plus proche est à trois cents
+            #   unités, très au-delà du seuil.
+            for x, y in ((a, b), (b, a)):
+                noeuds = [chemins[y][0][0]] + [m[2] for m in chemins[y]]
+                for fx in (False, True):
+                    if (x, fx) in vus:
+                        continue
+                    px = bout(x, fx)
+                    cible = min(noeuds, key=lambda q: math.dist(px, q))
+                    d = math.dist(px, cible)
+                    if 1e-9 < d < PORTEE_SOUDURE:
+                        pose_bout(x, fx, cible)
+                        vus.add((x, fx))
+                        break
             continue
         _, fa, fb = choix
         pa, pb = bout(a, fa), bout(b, fb)

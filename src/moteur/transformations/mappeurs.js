@@ -1244,70 +1244,101 @@ const rapporte = (d, visee) => visee.utile(d)
 /** Les chiffres qu'un nombre écrit — la ligne ne porte jamais autre chose. */
 const chiffresDe = (n) => [...String(n)].map(Number);
 
+/**
+ * ★ **ÉCRIRE LA CIBLE DANS L'ORDRE — et non récolter ses chiffres en vrac.**
+ *
+ * > « `mrd` ou `mad` ne devraient pas chercher à produire n'importe quel chiffre
+ * >   cible, mais à les produire DANS L'ORDRE attendu. » (l'auteur)
+ *
+ * ⚠️ **L'ANCIEN OBJECTIF COMPTAIT SANS REGARDER OÙ.** `paye(d)` disait « ce
+ *   chiffre appartient à l'alphabet de la cible », et la programmation dynamique
+ *   maximisait ce compte-là. Sur `666` les deux objectifs se confondent — un
+ *   seul chiffre, tout 6 récolté est un 6 placé — et c'est ce qui a masqué la
+ *   différence pendant tout le temps où le site ne visait que lui. Sur
+ *   `31031998`, ils divergent complètement : récolter huit chiffres de
+ *   `{0,1,3,8,9}` ne prouve rien, il faut écrire 3 PUIS 1 PUIS 0 PUIS 3…
+ *
+ * ★ **ET C'EST BIEN CE QUE LE MOTEUR LIT** : `cible.js › seriesDe` parcourt le
+ *   vecteur en n'avançant son rang que sur le chiffre ATTENDU, ignorant tout le
+ *   reste. Une série est donc une SOUS-SUITE, pas un bloc contigu — l'objectif
+ *   d'ici doit être le même, sans quoi l'opérateur optimise une grandeur que
+ *   personne ne mesure.
+ *
+ * ★ **MESURÉ AVANT D'ÊTRE ÉCRIT.** Sur « Sarah Kerrigan » visant le 31 mars 1998
+ *   — date de sortie de StarCraft —, l'ancien objectif ne rendait AUCUNE voie,
+ *   même à fouille 4. Le nouveau écrit les huit chiffres : `mx6` et `masb` y
+ *   parviennent tous les deux, ce qu'un solveur indépendant a établi avant
+ *   qu'une ligne de cette fonction ne bouge.
+ *
+ * L'état de la programmation dynamique porte donc une seconde dimension : `pos`,
+ * le rang déjà atteint dans la cible. On maximise le nombre de chiffres ÉCRITS
+ * (séries complètes comprises), puis on départage au nombre de paquets, comme
+ * avant.
+ */
 function planRedecoupage(valeur, visee) {
   if (!valeur.length) return null;
   if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
-  // ★ Deux prédicats, et il faut bien les deux. `paye` dit « ce chiffre sert »
-  //   — la cible, ou le 9 qu'un demi-tour rendra ; `vise` dit « ce chiffre EST
-  //   la cible ». Le premier compte les gains, le second départage les ex æquo
-  //   (« à tout prendre, plus de 6 que de 9 »). Ils sont nommés ici plutôt que
-  //   passés en `filter` : `Array.prototype.filter` donne l'INDEX en second
-  //   argument, et `filter(rapporte)` remettrait un entier là où la visée
-  //   s'attend.
-  const paye = (d) => rapporte(d, visee);
-  const vise = (d) => visee.utile(d);
   const chiffres = [];
   valeur.forEach((v, i) => {
     for (const c of String(v)) chiffres.push({ v: Number(c), src: i });
   });
   const n = chiffres.length;
   // ★ **PLUS DE SEUIL BAS — c'est le BARÈME qui décide, plus la grammaire.**
-  //   « Au lieu d'un seuil unique je voudrais un malus dégressif : à 2 chiffres
-  //   malus maximum, à 20 chiffres malus négligeable, à 10 acceptable »
-  //   (l'auteur). Voir `elegance.js › degressiviteRedecoupage`. Un refus pur et
-  //   simple disait « cette règle n'existe pas ici », ce qui est faux : elle
-  //   existe, elle est juste CHÈRE sur une ligne courte — et le prix est
-  //   précisément ce que le barème sait exprimer.
+  //   « Au lieu d'un seuil unique je voudrais un malus dégressif » (l'auteur).
+  //   Voir `elegance.js › degressiviteRedecoupage`.
   if (n > CHIFFRES_REDECOUPE_MAX) return null;
 
-  // ── la programmation dynamique, de la fin vers le début
-  const meilleur = Array.from({ length: n + 1 }, () => null);
-  meilleur[n] = { gains: 0, six: 0, paquets: 0, coupe: 0, somme: 0, sortie: [] };
+  const suiteCible = visee.chiffres;
+  const L = suiteCible.length;
+
+  // ⚠️ **LE 9 AVANCE LE RANG D'UN 6, et l'oublier coûtait la découpe de
+  //   l'auteur.** `rapporte` le disait déjà pour l'ancien objectif : un 9 gardé
+  //   est un 6 acquis, à un demi-tour près, puisque `mr9` le rendra. Écrit sans
+  //   cette clause, le nouvel objectif rendait `362626266612` là où l'auteur
+  //   avait calculé `999991691662692` à la main — six 6 au lieu de quatre 6 et
+  //   sept 9, donc deux séries au lieu de trois. Le compte séquentiel était
+  //   juste, il était juste aveugle au demi-tour.
+  //   Le 9 ne vaut que là où la cible ne le demande PAS pour lui-même : sinon on
+  //   ne saurait plus si le rang qu'il fait avancer est le sien ou celui d'un 6.
+  const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
+  const colle = (d, p) => d === suiteCible[p]
+    || (parDemiTour && d === RETOURNABLE && suiteCible[p] === SIX_RETOURNE);
+
+  /** Ce qu'une sortie écrit, depuis le rang `pos` : le rang atteint et le gain. */
+  const avance = (sortie, pos) => {
+    let p = pos;
+    let gagne = 0;
+    for (const d of sortie) {
+      if (!colle(d, p)) continue;
+      p++;
+      gagne++;
+      if (p === L) p = 0;                 // une série de plus, on repart au rang 0
+    }
+    return { pos: p, gagne };
+  };
+
+  // ── la programmation dynamique, de la fin vers le début, à deux dimensions
+  const meilleur = Array.from({ length: n + 1 }, () => new Array(L).fill(null));
+  for (let p = 0; p < L; p++) meilleur[n][p] = { ecrits: 0, paquets: 0, coupe: 0, somme: 0, sortie: [] };
   for (let i = n - 1; i >= 0; i--) {
-    // Un chiffre qui sert déjà — de la cible, ou le 9 qu'un demi-tour rendra —
-    // reste seul dans son paquet : on ne l'absorbe jamais.
-    const large = paye(chiffres[i].v) ? 1 : PAQUET_MAX;
-    let somme = 0;
-    for (let L = 1; L <= large && i + L <= n; L++) {
-      // …et l'on ne va pas non plus le chercher plus loin dans le paquet.
-      if (L > 1 && paye(chiffres[i + L - 1].v)) break;
-      somme += chiffres[i + L - 1].v;
-      const suite = meilleur[i + L];
-      if (!suite) continue;
-      // Un paquet d'un seul chiffre le RECOPIE ; un paquet qui additionne écrit
-      // sa somme, chiffre à chiffre — `7+1+0+8` rend « 1 6 », pas « 7 ».
-      const sortie = L === 1 ? [chiffres[i].v] : chiffresDe(somme);
-      const gains = suite.gains + sortie.filter(paye).length;
-      const six = suite.six + sortie.filter(vise).length;
-      const paquets = suite.paquets + 1;
-      const cur = meilleur[i];
-      // Départage explicite, dans l'ordre dicté : plus de chiffres qui SERVENT,
-      // puis moins de paquets, puis — à tout prendre — plus de chiffres de la
-      // cible que de 9 à retourner, puis la coupe la plus courte, c'est-à-dire
-      // la première rencontrée, `L` étant croissant.
-      //
-      // ★ Le troisième critère est un ARBITRAGE, et il est gratuit sur
-      //   l'exemple de l'auteur (mesuré : la découpe ne bouge pas d'une coupe).
-      //   Un 9 gardé vaut un 6 « à un demi-tour près » — mais ce demi-tour est
-      //   un geste de plus, donc à égalité stricte le 6 vaut mieux. Le monter
-      //   plus haut dans la liste, en revanche, DÉFAIT sa découpe : mesuré, le
-      //   placer avant le compte de paquets rend `9999262691662692` là où il
-      //   écrit `999991691662692`. On ne le fait donc pas.
-      const meilleurQue = !cur || gains > cur.gains
-        || (gains === cur.gains && (paquets < cur.paquets
-          || (paquets === cur.paquets && six > cur.six)));
-      if (meilleurQue) {
-        meilleur[i] = { gains, six, paquets, coupe: L, somme, sortie };
+    for (let p = 0; p < L; p++) {
+      let somme = 0;
+      for (let k = 1; k <= PAQUET_MAX && i + k <= n; k++) {
+        somme += chiffres[i + k - 1].v;
+        // Un paquet d'un seul chiffre le RECOPIE ; un paquet qui additionne
+        // écrit sa somme, chiffre à chiffre — `7+1+0+8` rend « 1 6 », pas « 7 ».
+        const sortie = k === 1 ? [chiffres[i].v] : chiffresDe(somme);
+        const pas = avance(sortie, p);
+        const suite = meilleur[i + k][pas.pos];
+        if (!suite) continue;
+        const ecrits = suite.ecrits + pas.gagne;
+        const paquets = suite.paquets + 1;
+        const cur = meilleur[i][p];
+        // Départage : plus de chiffres ÉCRITS, puis moins de paquets, puis la
+        // coupe la plus courte — `k` étant croissant, c'est la première trouvée.
+        if (!cur || ecrits > cur.ecrits || (ecrits === cur.ecrits && paquets < cur.paquets)) {
+          meilleur[i][p] = { ecrits, paquets, coupe: k, somme, sortie };
+        }
       }
     }
   }
@@ -1319,18 +1350,23 @@ function planRedecoupage(valeur, visee) {
   for (const [src, k] of parSource) if (k > 1) multi.add(src);
 
   let i = 0;
+  let pos = 0;
   let groupes = 0;
   while (i < n) {
-    const b = meilleur[i];
+    const b = meilleur[i][pos];
     if (!b || !b.coupe) return null;
     paquets.push({ debut: i, fin: i + b.coupe, somme: b.somme, sortie: b.sortie });
     if (b.coupe > 1) groupes++;
+    pos = avance(b.sortie, pos).pos;
     i += b.coupe;
   }
   if (!groupes) return null;
-  const avant = chiffres.filter((c) => paye(c.v)).length;
-  const apres = paquets.reduce((t, p) => t + p.sortie.filter(paye).length, 0);
-  return apres > avant ? { chiffres, multi, paquets } : null;
+  // ⚠️ **ET LE GAIN SE MESURE DANS L'ORDRE, LUI AUSSI.** Comparer des comptes
+  //   de chiffres utiles laisserait passer un redécoupage qui en récolte plus
+  //   sans en placer un seul de mieux — exactement le défaut qu'on corrige.
+  const avantEcrits = avance(chiffres.map((c) => c.v), 0);
+  const apresEcrits = meilleur[0][0] ? meilleur[0][0].ecrits : 0;
+  return apresEcrits > avantEcrits.gagne ? { chiffres, multi, paquets } : null;
 }
 
 /** L'identifiant de scène du kᵉ chiffre — même règle que pour `mad`. */

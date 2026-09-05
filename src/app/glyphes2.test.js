@@ -330,7 +330,12 @@ function ossature(glyphe) {
  *     aucun tracé n'est massivement encombré, il reste une passe de recoupe aux
  *     sommets à faire porter sur les quarts de tour.
  */
-const EN_ATTENTE = ['f', 'j', 'n', 'r', 'u', 'B', 'D', 'G', 'J', 'P', 'U', 'Y'];
+// ★ Le `Y` en est SORTI le jour où la soudure a su poser un bout sur un NŒUD et
+//   plus seulement sur un autre bout : sa queue arrivait à 9,2 unités du sommet
+//   de son chevron, et ce décrochement lui coûtait un point de budget. C'est le
+//   mécanisme qui a fait son travail — le contrôle échoue AUSSI quand une
+//   exception n'a plus lieu d'être, et c'est lui qui a réclamé ce retrait.
+const EN_ATTENTE = ['f', 'j', 'n', 'r', 'u', 'B', 'D', 'G', 'J', 'P', 'U'];
 
 test('★ glyphes2 — le budget de points et de poignées, lettre par lettre', () => {
   const trop = [];
