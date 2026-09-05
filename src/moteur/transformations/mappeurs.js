@@ -490,11 +490,35 @@ function releveEcrit(valeur) {
  * être jouée.
  */
 function paritePorteuse(valeur, visee) {
-  const utiles = comptesParParite(valeur, visee);
-  if (utiles[0] === utiles[1]) return -1;
-  const p = utiles[0] > utiles[1] ? 0 : 1;
+  // ★ **ON CHOISIT LA PARITÉ QUI ÉCRIT, PAS CELLE QUI PORTE.**
+  //   « Repérer tous les opérateurs qui visent les chiffres indépendamment du
+  //   rang » (l'auteur). Celui-ci en était : il comparait deux COMPTES de
+  //   chiffres appartenant à l'alphabet, choisissait le plus gros, puis exigeait
+  //   du gagnant qu'il écrive la cible. Une parité qui portait cinq chiffres
+  //   utiles sans en placer un seul dans l'ordre l'emportait donc sur une parité
+  //   qui en portait quatre et écrivait la cible — et la règle se refusait à
+  //   elle-même, alors qu'elle avait de quoi s'appliquer.
+  //   On compte donc directement ce qui compte : combien de chiffres chaque
+  //   parité place DANS L'ORDRE.
+  const ecrits = [0, 1].map((p) => ecritsEnOrdre(valeur.filter((_, i) => i % 2 === p), visee));
+  if (ecrits[0] === ecrits[1]) return -1;   // ex æquo : un refus, pas un arbitrage
+  const p = ecrits[0] > ecrits[1] ? 0 : 1;
   const garde = valeur.filter((_, i) => i % 2 === p);
   return portePleinement(garde, visee) ? p : -1;
+}
+
+/** Combien de chiffres de la cible ce vecteur place DANS L'ORDRE — en sous-suite,
+ *  exactement comme `recherche/cible.js › seriesDe` les lit. */
+function ecritsEnOrdre(valeur, visee) {
+  const c = visee.chiffres;
+  let rang = 0;
+  let ecrits = 0;
+  for (const v of valeur) {
+    if (v !== c[rang]) continue;
+    rang = (rang + 1) % c.length;
+    ecrits++;
+  }
+  return ecrits;
 }
 
 /** Les chiffres utiles portés par chaque parité de rang — `[impaires, paires]`. */
@@ -1349,8 +1373,26 @@ function planRedecoupage(valeur, visee) {
   chiffres.forEach((c) => parSource.set(c.src, (parSource.get(c.src) || 0) + 1));
   for (const [src, k] of parSource) if (k > 1) multi.add(src);
 
+  // ★ **LA PORTÉE CHOISIT LE RANG OÙ ELLE ENTRE — « répartir les rangs dans les
+  //   branches quand c'est pertinent » (l'auteur).** Partir du rang 0 supposait
+  //   que chaque fragment écrive la cible depuis son début ; or une moisson
+  //   concatène plusieurs portées et les lit d'un trait
+  //   (`assemblage.js › compterMoisson`). Une portée qui tombe bien sur « 1998 »
+  //   n'a aucune raison de s'obliger à commencer par le 3 de `31031998` : le
+  //   fragment d'avant l'a peut-être déjà écrit.
+  //   La programmation dynamique connaît déjà chaque rang de départ — elle les
+  //   calcule tous —, il suffisait de ne plus lire la seule colonne zéro. À
+  //   égalité d'écrits, on garde le rang le plus petit : le repli sur zéro
+  //   reste exact quand rien ne le surpasse.
+  let depart = 0;
+  for (let p = 1; p < L; p++) {
+    const ici = meilleur[0][p];
+    const ref = meilleur[0][depart];
+    if (ici && (!ref || ici.ecrits > ref.ecrits)) depart = p;
+  }
+
   let i = 0;
-  let pos = 0;
+  let pos = depart;
   let groupes = 0;
   while (i < n) {
     const b = meilleur[i][pos];
@@ -1364,8 +1406,8 @@ function planRedecoupage(valeur, visee) {
   // ⚠️ **ET LE GAIN SE MESURE DANS L'ORDRE, LUI AUSSI.** Comparer des comptes
   //   de chiffres utiles laisserait passer un redécoupage qui en récolte plus
   //   sans en placer un seul de mieux — exactement le défaut qu'on corrige.
-  const avantEcrits = avance(chiffres.map((c) => c.v), 0);
-  const apresEcrits = meilleur[0][0] ? meilleur[0][0].ecrits : 0;
+  const avantEcrits = avance(chiffres.map((c) => c.v), depart);
+  const apresEcrits = meilleur[0][depart] ? meilleur[0][depart].ecrits : 0;
   return apresEcrits > avantEcrits.gagne ? { chiffres, multi, paquets } : null;
 }
 
