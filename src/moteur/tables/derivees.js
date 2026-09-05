@@ -408,35 +408,94 @@ const REF = {
  * **Écarts assumés** avec `research/moteur-arithmetique.md §3.4`.
  *
  * Le contrat exige que les tracés reproduisent la table de recherche, sommes de
- * contrôle comprises. Cinq bas de casse en sont géométriquement incapables :
- * la recherche y compte des extrémités qu'aucun tracé lisible ne peut produire
- * (ou l'inverse). Le principe du §0.3 — *ce que le spectateur voit est ce qui
- * est compté* — l'emporte : on garde le tracé juste et on documente l'écart.
+ * contrôle comprises. Quelques signes en sont géométriquement incapables : la
+ * recherche y compte des extrémités qu'aucun tracé lisible ne peut produire (ou
+ * l'inverse). Le principe du §0.3 — *ce que le spectateur voit est ce qui est
+ * compté* — l'emporte : on garde le tracé juste et on documente l'écart.
  *
- * ★ **LES CAPITALES NE SONT PLUS REPRODUITES À L'IDENTIQUE**, et c'est `M` et
- * `N` qui en sortent. Elles l'étaient « grâce aux fûts qui dépassent » : la
- * diagonale s'accrochait 45 unités sous le sommet, ce qui laissait à chaque fût
- * une pointe libre en haut, donc quatre. Quarante-cinq sur six cents, c'est
- * 7,5 % de la hauteur de capitale — invisible. « M n'a que deux extrémités
- * libres, contre 4 détectées » (l'auteur) : il lit le glyphe.
+ * ═══ CE QUI A CHANGÉ DE NATURE ═══
  *
- * Le §0.3 tranche dans ce sens, et il l'a déjà fait cinq fois ci-dessous : on
- * garde le tracé juste et l'on documente l'écart. Σ extMAJ passe donc de 58 à
- * 54.
+ * ★ **LES TRACÉS NE SONT PLUS DESSINÉS, ILS SONT RELEVÉS.** Les cinquante-deux
+ *   glyphes viennent maintenant de JetBrains Mono, lue à la graisse où son encre
+ *   s'annule, et non plus d'une capitale bâton composée à la main
+ *   (`src/gfx/jetbrains-axe.py --adopter`, et `tables/glyphes.js` pour le geste
+ *   d'adoption). La liste ci-dessous s'allonge donc, et il faut dire pourquoi
+ *   elle s'allonge sans se dégrader :
+ *
+ * · **AUCUNE BOUCLE NE BOUGE.** Seize boucles à la recherche, seize au relevé,
+ *   les mêmes seize. « Boucle fermée, ça ne devrait pas changer quelle que soit
+ *   la police ou presque » (l'auteur) : c'était une intuition, c'est vérifié sur
+ *   cinquante-deux signes d'une police que la recherche n'avait jamais vue ;
+ * · **QUATRE COMPTES DE TRAITS SEULEMENT** s'écartent, et deux d'entre eux sont
+ *   la même lettre dans les deux casses (`I`/`i`). Le nombre de traits est le
+ *   moins fragile des trois : il ne dépend pas de la police mais de la RECETTE,
+ *   qui déclare où le crayon se lève ;
+ * · **LES EXTRÉMITÉS, ELLES, SONT L'AFFAIRE DE LA POLICE**, et c'est là que
+ *   l'écart se creuse — douze bas de casse. « N'adapte pas le tracé pour
+ *   correspondre au compte que tu as. Le `i`, oui, il a une extrémité de plus,
+ *   c'est sur la police, n'essaie pas de tricher. Pareil pour g d b p q »
+ *   (l'auteur). Ces cinq-là sont donc ici, réclamées par leur auteur.
+ *
+ * ★ **ET UN ÉCART A DISPARU** : le `m`. Il valait 3 contre 4, parce que ses deux
+ *   arches naissaient au sommet du fût. Relevé sur la police, son fût monte
+ *   au-dessus de la première arche et le compte tombe sur celui de la recherche
+ *   sans qu'on l'ait cherché.
+ *
+ * ⚠️ **CHAQUE LIGNE D'ÉCART DÉPLACE DES SCORES.** `mtrb`, `mexb` et `mbob`
+ *   facturent ces trois comptes ; les sommes de contrôle passent de
+ *   61/53/58/54 à 62/53/56/66. C'est le prix, annoncé, de tracés qui
+ *   ressemblent enfin aux lettres qu'on affiche.
  */
 export const ECARTS = Object.freeze([
+  // ─── Le nombre de traits : quatre écarts, et ce sont des LECTURES ────────
+  Object.freeze({
+    table: 'TRAITS_MAJ', glyphe: 'I', recherche: 1, dessine: 3,
+    raison: 'la convention du dépôt voulait un « I sans empattement : une simple '
+      + 'verticale ». JetBrains Mono lui en donne deux, en haut et en bas, et ce '
+      + 'sont deux traits pleins que le spectateur voit — la convention tombe '
+      + 'devant la police, comme le §0.3 l’exige.',
+  }),
+  Object.freeze({
+    table: 'TRAITS_MAJ', glyphe: 'L', recherche: 2, dessine: 1,
+    raison: 'un angle droit ne fait pas lever le crayon. C’est la règle que les '
+      + 'vingt-six bas de casse validés suivent déjà — le « l » fait un trait '
+      + 'pour deux angles, le « k » un seul pour sa jambe coudée —, et le « L » '
+      + 'ne peut pas en suivre une autre.',
+  }),
+  Object.freeze({
+    table: 'TRAITS_MIN', glyphe: 'i', recherche: 2, dessine: 3,
+    raison: 'l’empattement du pied traverse la hampe de part en part : c’est un '
+      + 'trait à lui seul, exactement comme la barre du « t » (comptée à part par '
+      + 'la recherche). Restent la hampe et le point, soit trois.',
+  }),
+  Object.freeze({
+    table: 'TRAITS_MIN', glyphe: 'u', recherche: 2, dessine: 1,
+    raison: 'un demi-tour entre deux droites parallèles s’écrit sans lever le '
+      + 'crayon : « U n’en a qu’un » (l’auteur). Son axe le confirme sans qu’on '
+      + 'ait à en décider — deux plis, aucun point de branchement.',
+  }),
+
+  // ─── Les extrémités : là, c'est la POLICE qui décide ─────────────────────
+  Object.freeze({
+    table: 'EXTREMITES_MAJ', glyphe: 'I', recherche: 2, dessine: 4,
+    raison: 'ses deux empattements ont chacun deux bouts libres, et la hampe qui '
+      + 'les traverse n’en a aucun. Même compte que le « i » bas de casse, dont '
+      + 'il ne diffère que par le point.',
+  }),
   Object.freeze({
     table: 'EXTREMITES_MAJ', glyphe: 'M', recherche: 4, dessine: 2,
-    raison: 'les diagonales rejoignent le sommet des fûts, comme celles du « W » '
-      + '(compté 2 par la recherche). Les faire s’accrocher plus bas donnait deux '
-      + 'pointes de 45 unités que personne ne voit — un compte juste sur un '
-      + 'glyphe faux.',
+    raison: 'la recherche comptait quatre pointes, ce qui suppose des fûts '
+      + 'dépassant la naissance des diagonales. La police n’en donne pas : le '
+      + 'fût gauche monte à 584,1 et la diagonale part de là. Restent les deux '
+      + 'pieds. « M n’a que deux extrémités libres, contre 4 détectées » '
+      + '(l’auteur) — il lit le glyphe, et le relevé lui donne raison.',
   }),
   Object.freeze({
     table: 'EXTREMITES_MAJ', glyphe: 'N', recherche: 4, dessine: 2,
-    raison: 'même construction que le « M » : elles ne peuvent pas suivre deux '
-      + 'conventions. La diagonale part du sommet du fût gauche et arrive au pied '
-      + 'du droit ; restent libres le pied du gauche et le sommet du droit.',
+    raison: 'même construction que le « M », et même verdict du relevé : la '
+      + 'diagonale part du sommet du fût gauche et arrive au pied du droit, sans '
+      + 'qu’aucun des deux ne la dépasse. Restent libres le pied du gauche et le '
+      + 'sommet du droit.',
   }),
   Object.freeze({
     table: 'EXTREMITES_MIN', glyphe: 'h', recherche: 2, dessine: 3,
@@ -450,10 +509,56 @@ export const ECARTS = Object.freeze([
       + 'Le crochet du jambage ne supprime aucune pointe.',
   }),
   Object.freeze({
-    table: 'EXTREMITES_MIN', glyphe: 'm', recherche: 4, dessine: 3,
-    raison: 'les arches du « m » naissent au sommet du fût, comme celle du « n » '
-      + '(compté 2 par la recherche). Les deux lettres partagent la même '
-      + 'construction : elles ne peuvent pas suivre deux conventions.',
+    table: 'EXTREMITES_MIN', glyphe: 'n', recherche: 2, dessine: 3,
+    raison: 'même construction que le « h » ci-dessus, et le relevé le confirme : '
+      + 'le fût du « n » monte à 451,7 quand son arche naît à 305,6. Ce bout de '
+      + 'fût de cent-cinquante unités est une pointe, et elle se voit.',
+  }),
+  Object.freeze({
+    table: 'EXTREMITES_MIN', glyphe: 'r', recherche: 2, dessine: 3,
+    raison: '« q et r, tu sautes une extrémité » (l’auteur). Comme le « n », son '
+      + 'fût dépasse la naissance de l’épaule ; comme lui, il a donc trois '
+      + 'pointes — sommet du fût, pied du fût, bout de l’épaule.',
+  }),
+  Object.freeze({
+    table: 'EXTREMITES_MIN', glyphe: 'b', recherche: 1, dessine: 2,
+    raison: 'la panse rejoint la hampe là où leurs ENCRES fusionnent — entre 152 '
+      + 'et 300 — et non au pied de la hampe, qui descend seul jusqu’à la ligne '
+      + 'de base. Son sommet et son pied sont donc deux pointes libres. Vaut '
+      + 'aussi pour « d », « g », « p » et « q » : « le i, oui, il a une '
+      + 'extrémité de plus, c’est sur la police, n’essaie pas de tricher. Pareil '
+      + 'pour g d b p q » (l’auteur).',
+  }),
+  Object.freeze({
+    table: 'EXTREMITES_MIN', glyphe: 'd', recherche: 1, dessine: 2,
+    raison: 'symétrique du « b » : la panse quitte la hampe à 136,9 et la rejoint '
+      + 'à 300,1, laissant libres le pied et le sommet de la hampe. Réclamé '
+      + 'nommément par l’auteur avec « g d b p q ».',
+  }),
+  Object.freeze({
+    table: 'EXTREMITES_MIN', glyphe: 'g', recherche: 1, dessine: 2,
+    raison: 'sa panse est refermée sur elle-même et le jambage la traverse : '
+      + 'restent libres le crochet du jambage et le sommet du fût, que la panse '
+      + 'quitte à 305,8 sans aller jusqu’en haut. Réclamé nommément par l’auteur '
+      + 'avec « g d b p q ».',
+  }),
+  Object.freeze({
+    table: 'EXTREMITES_MIN', glyphe: 'i', recherche: 3, dessine: 4,
+    raison: 'les deux bouts de l’empattement du pied, le sommet de la hampe, et '
+      + 'le point : quatre. « Le i, oui, il a une extrémité de plus, c’est sur la '
+      + 'police, n’essaie pas de tricher » (l’auteur).',
+  }),
+  Object.freeze({
+    table: 'EXTREMITES_MIN', glyphe: 'p', recherche: 1, dessine: 2,
+    raison: 'le jambage descend sous la panse jusqu’à −148 et le fût monte à '
+      + '451,8 quand la panse le quitte à 349,3 : deux pointes. Réclamé '
+      + 'nommément par l’auteur avec « g d b p q ».',
+  }),
+  Object.freeze({
+    table: 'EXTREMITES_MIN', glyphe: 'q', recherche: 1, dessine: 2,
+    raison: 'symétrique du « p », même compte pour la même raison. Réclamé '
+      + 'nommément par l’auteur avec « g d b p q », et à nouveau avec « q et r, '
+      + 'tu sautes une extrémité ».',
   }),
   Object.freeze({
     table: 'EXTREMITES_MIN', glyphe: 't', recherche: 3, dessine: 4,
@@ -470,7 +575,7 @@ for (const e of ECARTS) REF[e.table][e.glyphe] = e.dessine;
 
 /** Sommes de contrôle attendues, après application des `ECARTS`. */
 export const SOMMES = Object.freeze({
-  trMAJ: 61, trMin: 53, extMAJ: 54, extMin: 57, bcMAJ: 8, bcMin: 8,
+  trMAJ: 62, trMin: 53, extMAJ: 56, extMin: 66, bcMAJ: 8, bcMin: 8,
 });
 
 /** Sommes de contrôle du contrat (CONTRACTS §0.3), pour mémoire et pour l'UI. */

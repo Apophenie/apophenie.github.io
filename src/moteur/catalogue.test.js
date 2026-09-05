@@ -28,9 +28,20 @@ const HOPE = ['h', 'o', 'p', 'e'];
 
 /**
  * ★ Registre gelé — `code`, état d'entrée, valeur de sortie attendue.
- * Les valeurs des mappeurs sont celles de `research §2.3` / `§3.1`, à une
- * exception documentée près : `mexb` (extrémités bas de casse) rend `3` pour le
- * `h`, conformément à l'écart assumé de `tables/derivees.js`.
+ * Les valeurs des mappeurs sont celles de `research §2.3` / `§3.1`, aux écarts
+ * assumés de `tables/derivees.js` près : `mexb` (extrémités bas de casse) rend
+ * `3` pour le `h` et `2` pour le `p`.
+ *
+ * ⚠️ **UN VECTEUR A BOUGÉ LE JOUR OÙ LES TRACÉS SONT DEVENUS DES RELEVÉS**, et
+ *   c'est exactement ce que ce registre existe pour dire : `mexb` sur « hope »
+ *   rendait `[3, 0, 1, 1]`, il rend `[3, 0, 2, 1]`. Le `p` a deux pointes dans
+ *   JetBrains Mono — son jambage descend sous la panse, son fût monte au-dessus
+ *   — là où le `p` dessiné à la main n'en avait qu'une. Un lien publié qui
+ *   passait par cet opérateur sur cette lettre ne rendra donc plus le même
+ *   nombre. C'est le prix, connu d'avance, de tracés qui ressemblent enfin aux
+ *   lettres affichées : « le glyphe qui est mené dans la zone de traçage devrait
+ *   correspondre à celui qui est tracé » (l'auteur). Les deux autres mappeurs de
+ *   glyphes — `mtrb` et `mbob` — rendent, eux, exactement ce qu'ils rendaient.
  */
 const VECTEURS = [
   ['fp', S('https://hope.fr'), 'hope.fr'],
@@ -154,7 +165,7 @@ const VECTEURS = [
   ['mtrc', T(HOPE), [3, 1, 2, 4]],
   ['mtrb', T(HOPE), [2, 1, 2, 2]],
   ['mexc', T(HOPE), [4, 0, 1, 3]],
-  ['mexb', T(HOPE), [3, 0, 1, 1]],
+  ['mexb', T(HOPE), [3, 0, 2, 1]],
   ['mboc', T(HOPE), [0, 1, 1, 0]],
   ['mbob', T(HOPE), [0, 1, 1, 1]],
   ['mazc', T(HOPE), [6, 9, 10, 3]],

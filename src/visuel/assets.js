@@ -16,7 +16,14 @@
 
 import { CAP_RATIO, FONT_SIZE, ADVANCE_RATIO, VIEWBOX } from './constants.js';
 
-export const GLYPH_BOX = { w: 400, h: 600 };
+/**
+ * ⚠️ **`w` EST L'AVANCE DE LA POLICE, PAS L'ÉTENDUE DE L'ENCRE — et il centre.**
+ *   `glyphToLocal` soustrait `w / 2` : une largeur fausse décale TOUS les
+ *   glyphes du même écart. Depuis que les tracés sont relevés sur JetBrains
+ *   Mono, ils sont centrés sur 246,6 — la moitié de son avance mise à l'échelle
+ *   — et non sur 200. Doit rester égal à `METRIQUES.largeur`.
+ */
+export const GLYPH_BOX = { w: 493.2, h: 600 };
 
 /**
  * Transformation statique repère-glyphe → repère local d'un nœud (centre en 0,0,

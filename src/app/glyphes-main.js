@@ -5,25 +5,36 @@
  * >   et version JetBrains, en minuscule et en majuscule ; comme ça je verrai
  * >   bien ce que j'en pense. » (l'auteur)
  *
- * Cinq colonnes par signe, et l'ordre n'est pas indifférent :
+ * Trois colonnes par signe, et l'ordre n'est pas indifférent :
  *
  *  1. **LA POLICE** — la lettre écrite en JetBrains Mono, c'est-à-dire
  *     EXACTEMENT ce que la scène affiche sur sa ligne (`visuel/constants.js ›
  *     FONT_FAMILY`). Ce n'est pas une image de référence, c'est le texte rendu
  *     par le navigateur : la comparaison porte donc sur le vrai, pas sur une
  *     copie que quelqu'un aurait extraite ;
- *  2. **LE TRACÉ ACTUEL** — `moteur/tables/glyphes.js`, celui que la zone de
- *     traçage dessine aujourd'hui pour `mtrb`, `mexb` et `mbob` ;
- *  3. **LA RECETTE** — le candidat produit par `src/gfx/jetbrains-traces.py`,
- *     qui pose des arcs elliptiques sur les mesures de la police ;
- *  4. **L'AXE** — la police lue à la graisse où son encre s'annule. Ni grille,
- *     ni amincissement, ni filtre, ni ré-échantillonnage : c'est JetBrains Mono
- *     elle-même, à un poids qu'elle décrit sans l'exposer ;
- *  5. **LES TRAITS SUR L'AXE** — la topologie DÉCLARÉE par la recette, TAILLÉE
- *     dans cet axe exact. La seule des cinq à porter des JONCTIONS, donc la
- *     seule dont les comptes soient utilisables — et la seule adoptable.
+ *  2. **LE TRACÉ RETENU** — `moteur/tables/glyphes.js`, celui que la zone de
+ *     traçage dessine et que `mtrb`, `mexb` et `mbob` facturent ;
+ *  3. **LE TRACÉ À L'ÉTUDE** — ce que la chaîne produit en l'état, points et
+ *     poignées apparents. C'est le candidat au prochain `--adopter`.
  *
- * ★ **ET LA CINQUIÈME REND LES TROIS PRÉCÉDENTES CADUQUES.**
+ * ★ **DEUX COLONNES INTERMÉDIAIRES ONT ÉTÉ RETIRÉES, ET C'EST LA PREUVE QUE LE
+ *   TRAVAIL A ABOUTI.** « La recette » posait des arcs elliptiques sur des
+ *   mesures ; « l'axe » montrait la police repliée à graisse nulle. Toutes deux
+ *   étaient des étapes de fabrication, utiles tant qu'on cherchait la méthode.
+ *   Depuis que la colonne 2 est elle-même un relevé, ce qui compte n'est plus
+ *   « d'où ça vient » mais « est-ce mieux que ce qui est en place » :
+ *
+ *   > « Supprime les colonnes intermédiaires que je puisse comparer la version
+ *   >   actuelle à celle que tu t'apprêtes à produire. » (l'auteur)
+ *
+ *   Deux autres avaient été retirées avant elles, et l'auteur avait raison les
+ *   deux fois. « Recalé sur les bords » : « il n'y a rien à en tirer » — elle
+ *   déplaçait de deux unités un tracé déjà juste à deux unités près.
+ *   « Squelette », extrait par érosion d'une image du contour : « la suite est
+ *   mieux, sans aucun doute » — une érosion passe par une grille, et une grille
+ *   tremble.
+ *
+ * ★ **CE QUE LA COLONNE 2 EST DEVENUE.**
  *
  *   > « Si tu repars des sources de la font, as-tu ce qu'il faut plutôt que de
  *   >   chercher à le recréer ? » (l'auteur)
@@ -32,53 +43,37 @@
  *   squelette** — `JetBrainsMono.glyphs` est dessiné au contour, sans un seul
  *   attribut d'épaisseur. Elles contiennent mieux : trois masters
  *   point-compatibles et LEURS FÛTS DÉCLARÉS. L'épaisseur s'annule à wght −275,
- *   et à ce poids les deux bords d'un trait se rejoignent sur son axe. Voir
- *   `src/gfx/jetbrains-axe.py`.
+ *   et à ce poids les deux bords d'un trait se rejoignent sur son axe. Les
+ *   cinquante-deux glyphes du moteur en sortent (`src/gfx/jetbrains-axe.py`), et
+ *   le défaut que cette page existait pour montrer — « le glyphe qui est mené
+ *   dans la zone de traçage devrait correspondre à celui qui est tracé »
+ *   (l'auteur) — n'est plus visible entre la 1ʳᵉ et la 2ᵈ colonne.
  *
- * ⚠️ Deux colonnes ont été retirées, et l'auteur avait raison les deux fois.
- *   « Recalé sur les bords » : « il n'y a rien à en tirer » — elle déplaçait de
- *   deux unités un tracé déjà juste à deux unités près. « Squelette », extrait
- *   par érosion d'une image du contour : « la suite est mieux, sans aucun
- *   doute » — une érosion passe par une grille, et une grille tremble.
- *
- * ★ **LA TROISIÈME DEVINE, LA QUATRIÈME LIT** — et c'est tout l'objet de les
- *   avoir côte à côte. Une recette décrit une courbe par un arc, qui n'a qu'un
- *   seul sens de courbure ; l'axe ne décrit rien, il interpole la police à un
- *   poids qu'elle n'expose pas.
- *
- * ⚠️ Bas de casse seulement pour la dernière : les capitales n'ont pas de
- *   recette, donc pas de topologie déclarée. Leur axe, lui, se lit aussi bien.
- *
- * ★ **LE DÉFAUT SE VOIT ENTRE LA 1ʳᵉ ET LA 2ᵈ COLONNE**, et c'est tout l'objet
- *   de la page : « le glyphe qui est mené dans la zone de traçage devrait
- *   correspondre à celui qui est tracé » (l'auteur). Un `a` qui entre en
- *   double-étage et ressort en lentille, un `l` qui entre avec un empattement et
- *   ressort en barre nue — la page le montre sans qu'on ait à l'affirmer.
- *
- * ⚠️ **LES COMPTES NE S'AFFICHENT QUE SOUS LES TRACÉS QUI EN ONT** — ceux qui
- *   portent des jonctions. C'est l'enjeu caché du redessin : `traits`,
- *   `extrémités` et `boucles` nourrissent trois opérateurs du catalogue, et un
- *   dessin plus juste qui changerait un compte déplacerait des scores. Les voir
- *   côte à côte dit d'un coup d'œil ce qu'un remplacement coûterait.
+ * ⚠️ **SOUS CHAQUE TRACÉ, SES TROIS COMPTES**, et c'est l'enjeu caché de tout
+ *   redessin : `traits`, `extrémités` et `boucles` nourrissent trois opérateurs
+ *   du catalogue, si bien qu'un dessin plus juste qui changerait un compte
+ *   DÉPLACERAIT des scores. Les voir côte à côte dit d'un coup d'œil ce qu'un
+ *   remplacement coûterait — l'adoption faite ici en a coûté un seul vecteur
+ *   gelé, `mexb` sur le `p`.
  */
 
 import { e, svg as s } from './dom.js';
 import { GLYPHES, METRIQUES } from '../moteur/tables/glyphes.js';
 import { setGlyphes, deriveGlyph, parsePath } from '../visuel/glyphes.js';
-import { CANDIDATS, MESURES } from '../gfx/_glyphes-candidats.js';
-import { AXES, TRAITS } from '../gfx/_glyphes-axe.js';
+import { MESURES } from '../gfx/_glyphes-candidats.js';
+import { TRAITS } from '../gfx/_glyphes-axe.js';
 
 setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
 
 const MINUSCULES = [...'abcdefghijklmnopqrstuvwxyz'];
 const CAPITALES = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
 
-/* ★ **LA BOÎTE EST LA MÊME POUR LES CINQ COLONNES**, et c'est ce qui rend la
+/* ★ **LA BOÎTE EST LA MÊME POUR LES TROIS COLONNES**, et c'est ce qui rend la
    page honnête : deux dessins à des échelles différentes se comparent mal, et
    un `viewBox` ajusté au contenu ferait paraître grand ce qui est petit. On
    fixe donc un cadre unique, assez large pour contenir les deux répertoires —
-   le repère du dépôt tient dans `0..400`, les candidats poussent jusqu'à 464 en
-   largeur et −148 en jambage.
+   l'avance du repère fait 493,2, l'encre pousse jusqu'à 442,8 en largeur et
+   −150 en jambage.
 
    Le repère du moteur a son ORIGINE EN BAS À GAUCHE ; SVG l'a en haut. On
    retourne d'un `scale(1,-1)` plutôt que de recalculer chaque point — c'est la
@@ -234,34 +229,18 @@ function case_(titre, traits, jonctions, teinte, ossature = false) {
 
 function rangee(c) {
   const actuel = GLYPHES[c];
-  const candidat = CANDIDATS[c];
   const poses = TRAITS[c];
   return e('section.gl__rangee', {}, [
     e('h2.gl__lettre', { texte: c }),
     caseDeLaPolice(c),
     actuel
-      ? case_('tracé actuel', actuel.traits, actuel.jonctions, 'var(--gold)')
+      ? case_('retenu', actuel.traits, actuel.jonctions, 'var(--gold)')
       : e('div.gl__case.gl__case--vide', { texte: 'aucun tracé' }),
-    candidat
-      ? case_('recette', candidat.traits, candidat.jonctions, 'var(--rubric)')
-      : e('div.gl__case.gl__case--vide', { texte: 'pas de recette' }),
-    /* ⚠️ L'axe n'affiche pas de comptes : son contour est un ALLER-RETOUR, donc
-       `deriveGlyph` y verrait une boucle par trait. C'est la colonne suivante
-       qui lui donne une topologie — non pas en la cherchant dans le dessin,
-       mais en l'y APPORTANT depuis la recette. */
-    AXES[c]
-      ? e('div.gl__case', {}, [
-        dessin([{ d: AXES[c] }], 'var(--rubric-hi)'),
-        e('div.gl__nom', { texte: 'axe de la police' }),
-        e('div.gl__comptes', { texte: 'lu à l’encre nulle' }),
-      ])
-      : e('div.gl__case.gl__case--vide', { texte: 'pas d’axe' }),
-    /* ★ Les traits, EUX, affichent leurs comptes — et c'est toute la
-       différence : ils ont des jonctions, donc `deriveGlyph` sait les lire. Ils
-       doivent coïncider avec ceux de la recette, dont ils reprennent la
-       topologie. */
+    /* ★ Les traits affichent leurs comptes — ils ont des jonctions, donc
+       `deriveGlyph` sait les lire. Ils doivent coïncider avec ceux de la
+       recette, dont ils reprennent la topologie. */
     poses
-      ? case_('traits sur l’axe', poses.traits, poses.jonctions, 'var(--phos)', true)
+      ? case_('à l’étude', poses.traits, poses.jonctions, 'var(--phos)', true)
       : e('div.gl__case.gl__case--vide', { texte: 'pas de traits' }),
   ]);
 }
@@ -269,13 +248,13 @@ function rangee(c) {
 function page() {
   return e('div.gl', {}, [
     e('header.gl__entete', {}, [
-      e('h1', { texte: 'Glyphes — police, actuel, recette, axe, traits' }),
+      e('h1', { texte: 'Glyphes — police, retenu, à l’étude' }),
       e('p.gl__appel', {
         texte: 'La première colonne est ce que la SCÈNE affiche sur sa ligne ; la deuxième, '
-          + 'ce que la zone de traçage dessine aujourd’hui. La troisième DEVINE la courbe '
-          + 'avec des arcs ; la quatrième ne reconstruit rien — c’est la police elle-même, '
-          + 'lue à la graisse où son encre s’annule, d’après les fûts que ses sources '
-          + 'déclarent —, et la cinquième y taille la topologie que la recette déclare.',
+          + 'ce que la zone de traçage dessine aujourd’hui — désormais relevé sur la police '
+          + 'et non plus dessiné à la main. La troisième est le prochain relevé, celui que '
+          + 'la chaîne produit en l’état, points et poignées apparents : c’est elle qu’il '
+          + 'faut regarder pour dire si le suivant vaut mieux que celui qui est en place.',
       }),
       e('p.gl__appel', {
         texte: `Sous chaque tracé : traits · extrémités · boucles — les trois comptes que `

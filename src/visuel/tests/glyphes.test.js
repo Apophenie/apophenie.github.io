@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 
 import { parsePath, flatten, endpointsOf, deriveGlyph, glyphOf, setGlyphes, peekGlyphes, polylineLength } from '../glyphes.js';
 import { GLYPHES } from '../fixtures/glyphes.js';
-import { fusedStrokes, glyphToLocal, SEGMENTS } from '../assets.js';
+import { fusedStrokes, glyphToLocal, GLYPH_BOX, SEGMENTS } from '../assets.js';
 
 // Table de référence (moteur-arithmetique §3.4) : traits / extrémités / boucles
 const REFERENCE = {
@@ -98,9 +98,17 @@ test('chaque segment déclare le trait continu auquel il appartient', () => {
   assert.equal(SEGMENTS.g.stroke, 'g');
 });
 
+/**
+ * ⚠️ **LE CENTRE N'EST PLUS 200 : C'EST 246,6.** Tant que la grille faisait
+ *   400 de large, son milieu était un chiffre rond. Les tracés étant maintenant
+ *   relevés sur JetBrains Mono, la largeur du repère est son AVANCE — 493,2 —
+ *   et c'est cette moitié-là qui recentre. On la lit dans `GLYPH_BOX` plutôt
+ *   que de l'écrire : un test qui recopie la constante qu'il vérifie ne vérifie
+ *   rien.
+ */
 test('glyphToLocal recentre et retourne l’axe y', () => {
-  const c = glyphToLocal({ x: 200, y: 300 }, 48);
+  const c = glyphToLocal({ x: GLYPH_BOX.w / 2, y: GLYPH_BOX.h / 2 }, 48);
   assert.deepEqual(c, { x: 0, y: 0 }, 'le centre de la grille est l’origine du nœud');
-  const haut = glyphToLocal({ x: 200, y: 600 }, 48);
+  const haut = glyphToLocal({ x: GLYPH_BOX.w / 2, y: GLYPH_BOX.h }, 48);
   assert.ok(haut.y < 0, 'y monte dans la grille glyphe, descend en SVG');
 });

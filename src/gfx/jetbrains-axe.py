@@ -73,6 +73,8 @@ import sys
 RACINE = pathlib.Path(__file__).resolve().parents[2]
 SOURCE = RACINE / 'src' / 'gfx' / '_jetbrains-source.json'
 CIBLE = RACINE / 'src' / 'gfx' / '_glyphes-axe.js'
+#: La table du moteur, repeinte SEULEMENT sur `--adopter` (voir `adopter`).
+TABLE = RACINE / 'src' / 'moteur' / 'tables' / 'glyphes.js'
 
 #: Le repère du moteur : la capitale vaut 600 (`glyphes.js › METRIQUES`).
 CAPITALE_CIBLE = 600
@@ -390,8 +392,81 @@ def _situe(ech, L, x, y):
     return L * bj / n, dx / m, dy / m
 
 
+def _boite(ch):
+    """La boîte du signe, lue dans les DEUX masters — leur union.
+
+    Rien de l'axe ne peut être dehors : l'axe est le lieu où l'encre s'annule,
+    et il n'y a pas d'encre hors du glyphe. On prend l'union des deux masters
+    plutôt que l'un d'eux, pour ne pas rogner un débord qu'une seule graisse
+    porterait.
+    """
+    x0 = y0 = float('inf')
+    x1 = y1 = float('-inf')
+    for maigre in (MAIGRE_A, MAIGRE_B):
+        for contour in DONNEES['glyphes'][ch][maigre]:
+            for (x, y, _t) in contour:
+                x0, x1 = min(x0, x * ECHELLE), max(x1, x * ECHELLE)
+                y0, y1 = min(y0, y * ECHELLE), max(y1, y * ECHELLE)
+    return x0, y0, x1, y1
+
+
 def axe(ch, journal=None):
-    return replie(effondre(ch, journal))
+    """★ **ET L'AXE NE SORT PAS DE SON SIGNE.**
+
+    > « À chaque fois que la font est plus fine que la largeur standard, tu
+    >   tombes au-delà de la barre à laquelle la boucle est tangente. »
+    > (l'auteur, sur la colonne « extrapolé à graisse nulle »)
+
+    ⚠️ **UNE POINTE FABRIQUE UNE MOUSTACHE, et le `N` la payait vingt-huit
+      unités.** Là où deux traits se joignent en angle aigu — le sommet du `N`,
+      celui du `A`, le creux du `M`, les pointes du `V`, du `W`, du `X` — le
+      vis-à-vis que cherche le repliage se dérobe, et le nœud part au-delà du
+      contour : l'axe du `N` montait à 614 et ses poignées à 633 pour une
+      capitale qui plafonne à 600. La lettre, elle, s'arrête bien à 600, si bien
+      que la COUVERTURE accusait le tracé d'un manque de 27,6 unités qui
+      n'existait pas. C'est l'axe qui avait tort.
+
+    On ramène donc chaque point dans la boîte de son signe. Sur un axe sain
+    c'est l'identité — rien n'y sort —, ce qui rend la correction sans risque :
+    elle ne peut mordre que là où le repliage a déjà échoué.
+    """
+    x0, y0, x1, y1 = _boite(ch)
+
+    # ⚠️ **ON NE RABAT QUE CE QUI DÉPASSE DE PLUS QUE LA TOLÉRANCE DU MOTEUR.**
+    #   Rabattre TOUT ce qui sort — fût-ce d'une unité — coûtait bien plus que
+    #   la moustache ne rapportait : la hampe du `l` culmine à 601,03 pour une
+    #   boîte à 600, ce qui est de la précision d'extrapolation et non un
+    #   défaut, et la rabattre faisait passer le `l` de 1,4 à 11,0 et le `z` de
+    #   0,6 à 8,8. Sous six unités, le moteur compte pareil ; au-delà, c'est une
+    #   moustache. Le seuil n'est donc pas un réglage de plus : c'est `TOL`, la
+    #   tolérance de contact que le dépôt utilise déjà partout.
+    def serre(v, lo, hi):
+        if v < lo - TOL:
+            return lo
+        return hi if v > hi + TOL else v
+
+    out = []
+    for contour in replie(effondre(ch, journal)):
+        serres = [(serre(x, x0, x1), serre(y, y0, y1), t) for (x, y, t) in contour]
+        # ⚠️ **RABATTRE DEUX NŒUDS SUR LA MÊME BORNE LES CONFOND, et un segment
+        #   nul dérègle l'ajustement bien plus qu'une unité de dépassement.** Le
+        #   `l` en a fait les frais : sa hampe montait à 601,03 juste au-dessus
+        #   d'un nœud à 600 — pas une moustache, de la précision. Rabattus tous
+        #   deux à 600, ils devenaient un doublon, et la barre du haut, ajustée
+        #   sur une longueur nulle, sortait OBLIQUE : le `l` passait de 1,4 à
+        #   11,0. On retire donc le second de deux nœuds sur-courbe confondus,
+        #   ses poignées avec lui.
+        propre, dernier = [], None
+        for (x, y, t) in serres:
+            if t != 'o' and dernier is not None and math.dist((x, y), dernier) < 1e-6:
+                while propre and propre[-1][2] == 'o':
+                    propre.pop()
+                continue
+            if t != 'o':
+                dernier = (x, y)
+            propre.append((x, y, t))
+        out.append(propre)
+    return out
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -430,6 +505,25 @@ PASSES = 4
 #: n'est pas une redite : c'est elle qui décide si un bout compte comme libre,
 #: et un bout libre est le seul qu'on ait le droit de recaler sur un pli.
 TOL = 6.0
+
+
+def _pas(m):
+    """Combien d'échantillons pour parcourir ce morceau au pas de deux unités.
+
+    ⚠️ **TREIZE POINTS PAR MORCEAU, C'EST UN POINT TOUS LES CINQUANTE SUR UN FÛT
+      DE CAPITALE — et « le plus proche » se met alors à mentir de vingt-cinq
+      unités.** Le recollage étendu à toutes les jonctions a fait plonger le `H`
+      de 0,6 à 10,9 : le bout de sa barre était à ZÉRO du fût, mais à vingt-cinq
+      de l'échantillon le plus proche, et se faisait tirer dessus. On
+      échantillonne donc au pas du tracé rendu — ce qu'on mesure est ce que le
+      moteur mesurera.
+
+    La corde majore mal une cubique très courbe, jamais de plus d'un facteur
+    deux ; douze échantillons restent le plancher, pour les morceaux minuscules.
+    """
+    corde = sum(math.dist(a, b) for a, b in zip([m[0]] + list(m[1]),
+                                                list(m[1]) + [m[2]]))
+    return max(12, min(400, int(corde / PAS_RENDU)))
 
 
 def _dpoly(p, poly):
@@ -1432,7 +1526,8 @@ def rejoint(chemins, liens, attendus, lespis=()):
     le `b`, le `q` et le `r` avaient perdu le leur, la panse s'étant écartée de
     plus de six unités en devenant droite.
     """
-    plats = [[evalue(m, k / 12) for m in c for k in range(13)] for c in chemins]
+    plats = [[evalue(m, k / _pas(m)) for m in c for k in range(_pas(m) + 1)]
+             for c in chemins]
     for u, chem in enumerate(chemins):
         if not chem or not liens[u]:
             continue
@@ -1999,7 +2094,8 @@ def _recolle(chemins, liens, attendus, quels, tol=TOL):
       seul point, contre douze unités d'écart à l'axe si l'on translatait toute
       l'arche.
     """
-    plats = [[evalue(m, k / 12) for m in c for k in range(13)] for c in chemins]
+    plats = [[evalue(m, k / _pas(m)) for m in c for k in range(_pas(m) + 1)]
+             for c in chemins]
     for u, chem in enumerate(chemins):
         if u not in quels or not chem or not liens[u]:
             continue
@@ -3183,6 +3279,31 @@ def _r_recollage(pose, chemins):
     return chemins
 
 
+def _r_contacts(pose, chemins):
+    """★ **UNE JONCTION DÉCLARÉE DOIT MORDRE — TOUTES, PAS SEULEMENT CELLES DES
+      JUMELLES.**
+
+    `_r_recollage` ne rattrapait que les traits que `_r_jumelles` venait de
+    déplacer, parce que c'est là qu'on avait vu le défaut. Mais la cause n'est
+    pas le jumelage : c'est que CHAQUE passe déplace des bouts, et qu'aucune ne
+    vérifie ensuite si le contact que la recette annonce tient encore.
+
+    ⚠️ Le `W` l'a montré : sa quatrième branche partait à 7,9 unités du bout de
+      la troisième — moins d'un demi-fût, invisible à l'œil, et une extrémité
+      libre de plus (4/3/0 au lieu de 4/2/0 pour un dessin identique à celui du
+      `w`, qui, lui, tombait juste). Le contrôle du dépôt ne mordait pas
+      dessus : il interdisait d'INVENTER un contact, pas d'en PERDRE un.
+
+    On repasse donc sur tous les traits en dernier, avec exactement le même
+    geste mesuré qu'aux jumelles : on ramène le bout jusqu'à la moitié de la
+    tolérance du moteur, pas dessus, pour ne pas payer en écart à l'axe ce
+    qu'on gagne en comptage.
+    """
+    chemins = [list(c) for c in chemins]
+    _recolle(chemins, pose.cibles, pose.attendus, set(range(len(chemins))))
+    return chemins
+
+
 def _r_couture(pose, chemins):
     """★ **ET LA COUTURE SE POSE EN DERNIER**, quand on sait enfin où sont les
     deux bouts de la panse : un segment droit du dernier point au premier.
@@ -3232,6 +3353,7 @@ RETOUCHES = [
     ('tangence', _r_tangence),
     ('jumelles', _r_jumelles),
     ('recollage', _r_recollage),
+    ('contacts', _r_contacts),
     ('couture', _r_couture),
 ]
 
@@ -3353,6 +3475,65 @@ def deroule(lettres):
             print('    %s = %s' % (ch, x['d']))
 
 
+def _jonctions(jonc):
+    """Les jonctions au format de `moteur/tables/glyphes.js`, LIBELLÉS COMPRIS.
+
+    ★ **LE TROISIÈME ÉLÉMENT NE SERT À AUCUN CALCUL, ET IL EST INDISPENSABLE.**
+      `deriveGlyph` l'ignore ; un lecteur, non. Le `B` déclare quatre jonctions
+      dont deux paires identiques — `[0, 1], [0, 1]` — et c'est justement cette
+      répétition qui FERME une boucle. Sans « haut » et « taille » à côté, la
+      ligne se lit comme une faute de frappe. Les recettes les portent depuis
+      toujours ; cette sortie-ci les jetait.
+    """
+    return '[' + ', '.join(
+        ('[%d, %d, %r]' % (int(j[0]), int(j[1]), j[2])) if len(j) > 2
+        else ('[%d, %d]' % (int(j[0]), int(j[1])))
+        for j in jonc) + ']'
+
+
+def adopter(poses):
+    """Poser les traits relevés DANS LA TABLE DU MOTEUR — `--adopter`.
+
+    ⚠️ **CE GESTE N'EST PAS DANS `npm run glyphes`, ET C'EST VOULU.** Regénérer
+      l'axe ne coûte rien : personne ne le lit qu'à travers `glyphes.html`.
+      Repeindre `moteur/tables/glyphes.js`, si : trois opérateurs du catalogue
+      facturent les traits, les extrémités et les boucles de ces tracés, si bien
+      qu'un dessin plus juste DÉPLACE des scores. L'adoption reste donc un
+      arbitrage explicite — « applique déjà l'état courant comme glyphes
+      retenues » (l'auteur) — et non l'effet de bord d'un build.
+
+    On ne réécrit que le bloc borné par les deux marqueurs : l'en-tête du
+    fichier, la tolérance, les métriques et le gel restent écrits à la main,
+    parce qu'ils énoncent un CONTRAT et non une géométrie.
+    """
+    ouvre = '// ⟨engendré par src/gfx/jetbrains-axe.py --adopter⟩'
+    ferme_ = '// ⟨/engendré⟩'
+    texte = TABLE.read_text()
+    i0, i1 = texte.find(ouvre), texte.find(ferme_)
+    if i0 < 0 or i1 < 0:
+        raise SystemExit('marqueurs absents de %s' % TABLE)
+
+    def bloc(ch):
+        t, jonc = poses[ch]
+        corps = ',\n      '.join(
+            ('t(%s)' if x['ouvert'] else 'ferme(%s)') % _js(x['d']) for x in t)
+        return ('  %s: {\n    traits: [\n      %s,\n    ],\n    jonctions: %s,\n  },'
+                % (ch, corps, _jonctions(jonc)))
+
+    corps = ['  // ─── CAPITALES ' + '─' * 60]
+    corps += [bloc(c) for c in CAPITALES if c in poses]
+    corps += ['', '  // ─── BAS DE CASSE ' + '─' * 57]
+    corps += [bloc(c) for c in BAS_DE_CASSE if c in poses]
+    TABLE.write_text(texte[:i0] + ouvre + '\n' + '\n'.join(corps) + '\n  '
+                     + texte[i1:])
+    print('  → src/moteur/tables/glyphes.js (%d glyphes ADOPTÉS)' % len(poses))
+
+
+def _js(s):
+    """Une chaîne littérale JavaScript entre apostrophes simples."""
+    return "'" + s.replace('\\', '\\\\').replace("'", "\\'") + "'"
+
+
 def main():
     if '--passes' in sys.argv:
         i = sys.argv.index('--passes')
@@ -3429,11 +3610,14 @@ def main():
             ch,
             ', '.join('{ d: %r, ouvert: %s }' % (x['d'], 'true' if x['ouvert'] else 'false')
                       for x in t),
-            '[' + ', '.join('[%d, %d]' % (int(j[0]), int(j[1])) for j in jonc) + ']'))
+            _jonctions(jonc)))
     lignes.append('};')
     CIBLE.write_text('\n'.join(lignes) + '\n')
     print('  → src/gfx/_glyphes-axe.js (%d axes, %d jeux de traits)'
           % (len(axes), len(poses)))
+
+    if '--adopter' in sys.argv:
+        adopter(poses)
 
 
 if __name__ == '__main__':

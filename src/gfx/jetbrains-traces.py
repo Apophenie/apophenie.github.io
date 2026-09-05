@@ -970,10 +970,14 @@ def recettes(M):
     # La barre se lit à 0,315 capitale (189 sur 600), et ses deux bouts sont sur
     # les diagonales — on ne les pose pas, on les CALCULE à cette hauteur.
     tA = 0.315
-    R['A'] = ([t(chevron((gA, o['y0']), (sA, o['y1']), (dA, o['y0']))),
+    # ⚠️ Le sommet du `A` est une POINTE : le crayon s'y lève, comme au fond du
+    #   `v` (voir la règle énoncée aux diagonales, plus bas). Deux diagonales,
+    #   donc — c'est aussi ce que compte `research §3.4`.
+    R['A'] = ([t(ligne(gA, o['y0'], sA, o['y1'])),
+               t(ligne(sA, o['y1'], dA, o['y0'])),
                t(ligne(gA + (sA - gA) * tA, o['y0'] + (o['y1'] - o['y0']) * tA,
                        dA + (sA - dA) * tA, o['y0'] + (o['y1'] - o['y0']) * tA))],
-              [[0, 1, 'barre gauche'], [0, 1, 'barre droite']])
+              [[0, 1, 'sommet'], [0, 2, 'barre gauche'], [1, 2, 'barre droite']])
 
     # ── `B` : un fût, deux panses ───────────────────────────────────────────
     o = b['B']
@@ -1065,18 +1069,30 @@ def recettes(M):
     R['L'] = ([t(chevron((o['x0'] + f2, o['y1']), (o['x0'] + f2, o['y0']),
                          (o['x1'] - f4, o['y0'])))], [])
 
-    # ── `M` : un seul trait, quatre segments ────────────────────────────────
+    # ── `M` : quatre traits — deux fûts et le chevron renversé ──────────────
+    #
+    # ★ **ET LES QUATRE GUIDES DURENT CE QUE LE `m` DURE.** Le `M` d'un seul
+    #   tenant mesurait 2 038 unités, soit trente-quatre par abscisse quand le
+    #   pire bas de casse en compte dix-sept : le sommet de ses fûts tombait au
+    #   milieu d'un seau et sortait seize unités trop bas. Découpé, chaque
+    #   morceau retrouve la densité des minuscules — la cohérence de lecture et
+    #   la précision sont ici la MÊME correction.
     o = b['M']
     gM, dM = o['x0'] + f2, o['x1'] - f2
-    R['M'] = ([t(chevron((gM, o['y0']), (gM, o['y1']),
-                         ((gM + dM) / 2, o['y0'] + o['h'] * 0.404),
-                         (dM, o['y1']), (dM, o['y0'])))], [])
+    sM = ((gM + dM) / 2, o['y0'] + o['h'] * 0.404)
+    R['M'] = ([t(ligne(gM, o['y0'], gM, o['y1'])),
+               t(ligne(gM, o['y1'], *sM)),
+               t(ligne(*sM, dM, o['y1'])),
+               t(ligne(dM, o['y1'], dM, o['y0']))],
+              [[0, 1, 'sommet gauche'], [1, 2, 'creux'], [2, 3, 'sommet droit']])
 
-    # ── `N` : un seul trait, trois segments ─────────────────────────────────
+    # ── `N` : trois traits — deux fûts et la diagonale ──────────────────────
     o = b['N']
     gN, dN = o['x0'] + f2, o['x1'] - f2
-    R['N'] = ([t(chevron((gN, o['y0']), (gN, o['y1']),
-                         (dN, o['y0']), (dN, o['y1'])))], [])
+    R['N'] = ([t(ligne(gN, o['y0'], gN, o['y1'])),
+               t(ligne(gN, o['y1'], dN, o['y0'])),
+               t(ligne(dN, o['y0'], dN, o['y1']))],
+              [[0, 1, 'sommet gauche'], [1, 2, 'pied droit']])
 
     # ── `O` : un anneau ─────────────────────────────────────────────────────
     o = b['O']
@@ -1156,17 +1172,43 @@ def recettes(M):
                  + ' L %s %s' % (r(dU), r(o['y1'])))], [])
 
     # ── `V`, `W`, `X`, `Y`, `Z` : les diagonales ────────────────────────────
+    #
+    # ★ **LE CRAYON SE LÈVE AUX POINTES, PAS AUX COINS — et cette règle-là n'est
+    #   pas une convenance, elle se LIT dans les vingt-six bas de casse que
+    #   l'auteur a validés un par un.** Le `v` fait deux traits, le `w` quatre,
+    #   le `z` trois : à chaque fois la direction REBROUSSE, et un scripteur qui
+    #   pousse sa plume ne peut pas rebrousser sans la lever. Le `l`, lui, fait
+    #   UN trait pour deux angles droits, et le `k` un seul pour sa jambe
+    #   coudée : on traverse un coin, on ne traverse pas une pointe.
+    #
+    # ⚠️ **LES CAPITALES DISAIENT LE CONTRAIRE DE LEURS MINUSCULES**, et sur les
+    #   trois lettres où la casse ne change RIEN au dessin : `V` 1 trait contre
+    #   `v` 2, `W` 1 contre 4, `Z` 1 contre 3. Un homographe qui se compte de
+    #   deux façons selon sa taille est une faute, pas une nuance — et c'est un
+    #   compte que trois opérateurs du catalogue facturent.
+    #
+    # ★ **ET DÉCOUPER N'EST PAS TRICHER.** Le nombre de traits n'est pas dans la
+    #   police : elle n'a que des contours. Il est dans la RECETTE, qui déclare
+    #   la lecture — où le crayon se lève, ce qui touche quoi. La géométrie, elle,
+    #   reste lue et n'est jamais retouchée : « n'adapte pas le tracé pour
+    #   correspondre au compte » (l'auteur) vise les EXTRÉMITÉS, que la police
+    #   décide seule.
     o = b['V']
-    R['V'] = ([t(chevron((o['x0'] + f2, o['y1']),
-                         ((o['x0'] + o['x1']) / 2, o['y0']),
-                         (o['x1'] - f2, o['y1'])))], [])
+    sV = (o['x0'] + o['x1']) / 2
+    R['V'] = ([t(ligne(o['x0'] + f2, o['y1'], sV, o['y0'])),
+               t(ligne(sV, o['y0'], o['x1'] - f2, o['y1']))],
+              [[0, 1, 'pointe']])
     o = b['W']
     gW, dW = o['x0'] + f2, o['x1'] - f2
-    R['W'] = ([t(chevron((gW, o['y1']),
-                         (o['x0'] + o['l'] * 0.271, o['y0']),
-                         (o['x0'] + o['l'] * 0.508, o['y0'] + o['h'] * 0.992),
-                         (o['x0'] + o['l'] * 0.738, o['y0']),
-                         (dW, o['y1'])))], [])
+    p1W = (o['x0'] + o['l'] * 0.271, o['y0'])
+    sW = (o['x0'] + o['l'] * 0.508, o['y0'] + o['h'] * 0.992)
+    p2W = (o['x0'] + o['l'] * 0.738, o['y0'])
+    R['W'] = ([t(ligne(gW, o['y1'], *p1W)),
+               t(ligne(*p1W, *sW)),
+               t(ligne(*sW, *p2W)),
+               t(ligne(*p2W, dW, o['y1']))],
+              [[0, 1, 'pointe gauche'], [1, 2, 'sommet médian'],
+               [2, 3, 'pointe droite']])
     o = b['X']
     gX, dX = o['x0'] + f2, o['x1'] - f2
     R['X'] = ([t(ligne(gX, o['y0'], dX, o['y1'])),
@@ -1175,13 +1217,21 @@ def recettes(M):
     o = b['Y']
     sY = (o['x0'] + o['x1']) / 2
     yY = o['y0'] + o['h'] * 0.396
-    R['Y'] = ([t(chevron((o['x0'] + f2, o['y1']), (sY, yY), (o['x1'] - f2, o['y1']))),
-               t(ligne(sY, yY, sY, o['y0']))],
-              [[0, 1, 'fourche']])
+    # ⚠️ **DEUX JONCTIONS POUR TROIS TRAITS, PAS TROIS.** Les trois branches du
+    #   `Y` se rejoignent au MÊME point ; les déclarer deux à deux fermerait un
+    #   cycle, et `deriveGlyph` compterait une boucle dans une lettre qui n'en a
+    #   aucune. Le graphe des jonctions doit rester un ARBRE — c'est ce que font
+    #   déjà le `H` et le `K`.
+    R['Y'] = ([t(ligne(o['x0'] + f2, o['y1'], sY, yY)),
+               t(ligne(sY, yY, sY, o['y0'])),
+               t(ligne(o['x1'] - f2, o['y1'], sY, yY))],
+              [[0, 1, 'fourche'], [1, 2, 'fourche']])
     o = b['Z']
     gZ, dZ = o['x0'] + f4, o['x1'] - f4
-    R['Z'] = ([t(chevron((gZ, o['y1']), (dZ, o['y1']), (gZ, o['y0']), (dZ, o['y0'])))],
-              [])
+    R['Z'] = ([t(ligne(gZ, o['y1'], dZ, o['y1'])),
+               t(ligne(dZ, o['y1'], gZ, o['y0'])),
+               t(ligne(gZ, o['y0'], dZ, o['y0']))],
+              [[0, 1, 'haut'], [1, 2, 'bas']])
 
     return R
 
