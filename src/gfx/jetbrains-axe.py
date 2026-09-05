@@ -3740,7 +3740,18 @@ def _r_quadrants(pose, chemins):
             continue
         essai = list(chemins)
         essai[t] = neuf
-        mp, mh = BUDGET.get(pose.ch, (0, 0))
+        # ⚠️ **UN BUDGET ABSENT VALAIT `(0, 0)`, ET DÉSACTIVAIT LA PASSE EN
+        #   SILENCE.** Tout tracé dépasse zéro nœud : la reconstruction était
+        #   refusée pour les cinquante-deux signes sans qu'aucune passe n'échoue
+        #   ni qu'aucun message ne paraisse. C'est très exactement la dégradation
+        #   silencieuse que le dépôt refuse partout ailleurs — et elle se serait
+        #   déclenchée au premier appel de `traits()` hors de `main`, puisque
+        #   c'est `_recettes()` qui remplit la table.
+        if pose.ch not in BUDGET:
+            raise SystemExit('jetbrains-axe : aucun budget pour « %s ». Il se déclare '
+                             'dans `jetbrains-traces.py › BUDGET`, et sans lui la passe '
+                             'des quadrants ne peut rien décider.' % pose.ch)
+        mp, mh = BUDGET[pose.ch]
         pts, poi = _compte(essai)
         if pts > mp or poi > mh:
             continue
