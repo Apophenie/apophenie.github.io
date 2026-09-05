@@ -1,7 +1,8 @@
-/* ⚠️ ENGENDRÉ par `src/gfx/jetbrains-axe.py` — ne pas éditer à la main.
+/* ⚠️ ENGENDRÉ par `src/gfx/jetbrains-axe.py` sur `_jetbrains-source.json` — ne pas éditer
+ * à la main.
  *
- * L'AXE des lettres, lu dans les sources de JetBrains Mono : les trois
- * masters déclarent leurs fûts, l'épaisseur s'annule à wght -275, et les deux
+ * L'AXE des lettres, lu dans les contours de JetBrains Mono : les deux graisses
+ * relevées donnent leurs fûts, l'épaisseur s'annule à wght -275, et les deux
  * bords d'un trait s'y rejoignent sur son axe. Ce n'est pas une
  * reconstruction — c'est la police à une graisse qu'elle décrit sans
  * l'exposer, repliée sur elle-même pour que les deux bords se confondent

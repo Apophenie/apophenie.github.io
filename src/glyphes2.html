@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glyphes ② — Jost : police, retenu, à l’étude</title>
+<meta name="color-scheme" content="dark light">
+
+<!-- ★ LA JUMELLE DE `glyphes.html`, BÂTIE SUR JOST.
+
+     Même banc d'essai, même trois colonnes, même cadre : ce qui change est la
+     police lue. `glyphes.html` montre ce que JetBrains Mono donne ; celle-ci
+     montre ce que Jost donne, et les deux se lisent côte à côte dans deux
+     onglets.
+
+     ★ POURQUOI UNE SECONDE PAGE PLUTÔT QU'UNE COLONNE DE PLUS. Une colonne
+       supplémentaire aurait fait cinq dessins par rangée, sur une page qui en
+       porte déjà cinquante-deux — et surtout la comparaison utile n'est pas
+       « Jost contre JetBrains » mais « Jost contre CE QUI EST RETENU », exactement
+       comme sur la page d'origine. Les deux pages posent donc la même question
+       à deux polices, et c'est la réponse qui se compare.
+
+     ⚠️ HORS DU SITE, comme `debug.html`, `AB-testing.html` et `glyphes.html` :
+       aucun lien n'y mène, `robots` la tient à l'écart, et elle ne propose
+       aucun retour. -->
+<meta name="robots" content="noindex, nofollow">
+
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles/tokens.css">
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/pages.css">
+
+<style>
+/* ★ La mise en page vit ICI et non dans `styles/`, pour la même raison que sur
+     `glyphes.html` : lui donner une feuille dans `src/styles/` la ferait charger
+     par les autres cibles pour rien, et elle finirait entretenue comme si elle
+     comptait. Les deux blocs sont volontairement identiques — deux bancs
+     d'essai qui ne se ressemblent pas ne se comparent pas. */
+.gl { max-width: 124rem; margin: 0 auto; padding: 2rem 1rem 6rem; }
+.gl__entete { margin-bottom: 2.5rem; }
+.gl__appel { color: var(--ink-soft, #9a9); max-width: 60ch; line-height: 1.5; }
+.gl__titre {
+  margin: 3rem 0 1rem; padding-bottom: .4rem;
+  border-bottom: 1px solid var(--rule, #444);
+}
+.gl__rangee {
+  display: grid;
+  grid-template-columns: 2.2rem repeat(3, 1fr);
+  align-items: start;
+  gap: 1rem;
+  padding: .75rem 0;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+.gl__lettre {
+  font-family: 'Jost', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 1.6rem; margin: 0; align-self: center; opacity: .65;
+}
+.gl__case { text-align: center; }
+.gl__dessin { width: 100%; max-width: 9rem; height: auto; display: block; margin: 0 auto; }
+.gl__nom { font-size: .78rem; opacity: .55; margin-top: .25rem; }
+.gl__comptes {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: .78rem; opacity: .8;
+}
+/* ★ Le gain — ou la perte — se voit d'un coup d'œil, et il est CHIFFRÉ. C'est
+     la raison d'être de la page : « une variante de mtrb/mexb/mbob avec MOINS
+     d'extrémités ». Un dessin plus beau qui coûterait une extrémité de plus
+     n'est pas le but ; un dessin qui en économise une doit se voir. */
+.gl__delta { font-size: .78rem; margin-top: .15rem; }
+.gl__delta--gain { color: var(--phos, #7fd); }
+.gl__delta--perte { color: var(--rubric-hi, #f97); }
+.gl__case--vide { align-self: center; font-size: .8rem; opacity: .35; font-style: italic; }
+</style>
+</head>
+<body>
+<main id="glyphes"></main>
+<script type="module" src="app/glyphes2-main.js"></script>
+</body>
+</html>
