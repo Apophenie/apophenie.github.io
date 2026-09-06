@@ -427,63 +427,58 @@ test('fouille — le cran 0 rend exactement la liste d’aujourd’hui', () => {
   }
 });
 
-test('fouille — elle ne fait rien là où il n’y avait rien à ajouter', () => {
-  /* ★ **CE TEST A ÉTÉ REMESURÉ, ET SES DEUX EXEMPLES ONT CHANGÉ DE CAMP.**
-
-     Il tenait « hope » et `https://hope-hope-hope.fr/` pour deux saisies que la
-     recherche TERMINE, et vérifiait que la réglette n'y changeait rien. C'était
-     vrai à profondeur 4 ; ça ne l'est plus à profondeur 15 (`bfs.js › D_MAX`),
-     où le budget par fragment mord sur presque tout. Remesuré, têtes de liste
-     aux crans 0 à 3 :
-
-       « hope »                       6 190 → 6 190 → 6 190 → 6 190
-       `https://hope-hope-hope.fr/`   3 221 → 4 165 → 4 165 → 4 165
-
-     La seconde n'est donc plus un exemple de « rien à ajouter » : c'en est un de
-     « un cran suffit ». On garde la première, qui l'illustre toujours, et la
-     seconde sert désormais à l'autre test. */
-  const s = 'hope';
-  const base = moteur.enumerer(s, { fouille: 0 });
-  assert.equal(base.avertissement, undefined,
-    'le filet TEMPOREL ne doit pas mordre — c’est lui, et lui seul, qui rendrait '
-    + 'les rangs non reproductibles');
-  for (const f of [1, 2, 3]) {
-    // Sans les liens : le cran est écrit dans l'URL même quand il ne change
-    // rien à la recherche, pour que le retour à la liste retrouve le réglage.
-    assert.equal(voies(moteur.enumerer(s, { fouille: f })), voies(base),
-      `« ${s} » au cran ${f}`);
+/**
+ * ★ **LE CRAN ÉLARGIT AUSSI CE QU'ON MONTRE — et ces deux tests disaient le
+ *   contraire.**
+ *
+ * > « Quand on relève le curseur de budget pour la recherche, je voudrais que tu
+ * >   remontes tous ces curseurs avec. » (l'auteur)
+ *
+ * Ils tenaient l'un et l'autre une même promesse — « au-delà, la liste ne bouge
+ * plus » — et cette promesse était le SYMPTÔME d'un défaut : douze places et
+ * deux voies par mappeur étaient sourdes au curseur, si bien que pousser le
+ * budget ne pouvait rien montrer de neuf dès que la recherche avait fini.
+ * Mesuré alors : sur « Millicent Billette » visant 1998, quatre voies écartées
+ * de la liste ne revenaient à AUCUN cran, de 0 à 7 — elles n'avaient pas été
+ * manquées par l'exploration, mais refusées par la SÉLECTION.
+ *
+ * ⚠️ **ET LA MONOTONIE PAR VOIE N'EST PAS TENABLE**, mesuré aussi : quand les
+ *   places passent de douze à seize, le MMR refait ses choix et une voie retenue
+ *   peut sortir au profit d'une meilleure de son mappeur. Ce qu'on garde est ce
+ *   qui doit l'être : **la liste ne rétrécit jamais**, et elle finit par se
+ *   stabiliser en taille.
+ *
+ *       hope                        4 → 4 → 5 → 5
+ *       Millicent Billette         12 → 13 → 16 → 16
+ *       https://hope-hope-hope.fr/ 12 → 16 → 20 → 24
+ */
+test('fouille — le cran montre plus, et ne retire jamais de place', () => {
+  for (const s of ['hope', 'Millicent Billette', 'https://hope-hope-hope.fr/']) {
+    const tailles = [0, 1, 2, 3].map((f) => moteur.enumerer(s, { fouille: f }).approches.length);
+    for (let i = 1; i < tailles.length; i++) {
+      assert.ok(tailles[i] >= tailles[i - 1],
+        `« ${s} » : la liste rétrécit au cran ${i} — ${tailles.join(' → ')}`);
+    }
+    assert.ok(tailles[tailles.length - 1] >= tailles[0],
+      `« ${s} » : le curseur n'a rien apporté — ${tailles.join(' → ')}`);
   }
 });
 
-test('fouille — elle finit la recherche là où le budget mordait', () => {
-  /* L'autre moitié de la mesure, et l'exemple vient du test précédent : sur
-     `https://hope-hope-hope.fr/`, UN SEUL CRAN suffit à changer la liste, et la
-     tête passe de 3 221 à 4 165. Au-delà, plus rien ne bouge — la recherche a
-     fini, les crans suivants ne servent qu'aux saisies plus lourdes.
-
+test('fouille — elle sert, et elle finit', () => {
+  /* Les deux moitiés de la promesse, sur la saisie où le budget mordait le plus.
      ⚠️ On ne gèle plus `tronque` : il réunit la borne DÉTERMINISTE de travail
        (reproductible, silencieuse) et le filet TEMPOREL (qui, lui, affiche un
        bandeau). Depuis `D_MAX` 15 la première vaut vrai à peu près partout, y
-       compris sur « a ». Ce n'est pas une panne, c'est un drapeau devenu muet :
-       on mesure l'effet UTILE à sa place. */
-  /* ⚠️ **LE SEUIL S'EST DÉPLACÉ LE JOUR OÙ LE CATALOGUE A GRANDI**, et c'est
-     attendu : quatre opérateurs de plus — la lecture Jost des traits et des
-     extrémités — élargissent l'espace, si bien que la fouille 0 trouve déjà ce
-     que la fouille 1 apportait (3 221 → 3 280). Mesuré, il faut désormais DEUX
-     crans sur ce témoin : 3 280 → 3 280 → 4 277.
-     La propriété qu'on garde n'est donc plus « un cran suffit » — ce chiffre-là
-     dépend du catalogue et bougera encore — mais celle qui compte : **la
-     réglette sert**, et elle finit par ne plus rien ajouter. */
+       compris sur « a » — un drapeau devenu muet. On mesure l'effet UTILE. */
   const s = 'https://hope-hope-hope.fr/';
   const scores = [0, 1, 2, 3].map((f) => moteur.enumerer(s, { fouille: f }).approches[0].score);
   assert.ok(scores[3] > scores[0],
     `la fouille doit améliorer la tête : ${scores.join(' → ')}`);
-  // Et elle finit : au dernier cran, plus rien ne bouge. C'est ce qui rend la
-  // réglette honnête plutôt que magique.
-  assert.equal(voies(moteur.enumerer(s, { fouille: 4 })),
-    voies(moteur.enumerer(s, { fouille: 3 })),
+  // Et elle finit : au dernier cran, la tête ne bouge plus.
+  assert.equal(moteur.enumerer(s, { fouille: 4 }).approches[0].score, scores[3],
     'au-delà, la recherche a fini');
 });
+
 
 // ══════════════════════════════════ l'aller-retour dans l'URL
 

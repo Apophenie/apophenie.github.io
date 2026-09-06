@@ -501,7 +501,10 @@ export function creerMoteur(catalogue, options = {}) {
     // devant une approche qui produit réellement trois 6.
     const jokers = approches.filter((a) => a.mode === 'JOKER');
     const honnetes = approches.filter((a) => a.mode !== 'JOKER');
-    const place = REGLAGES.MAX_APPROCHES - (jokers.length ? 1 : 0);
+    // ★ Les places viennent du CRAN, plus d'une constante : c'est ce qui rend le
+    //   curseur capable de montrer davantage, et pas seulement de chercher plus
+    //   longtemps (`config.js › reglagesDeBudget`).
+    const place = budgets.voies - (jokers.length ? 1 : 0);
     // ★ **EN MODE PERSONNALISÉ, LES DEUX RÉGIMES SONT DÉBRANCHÉS.**
     //
     //   `selectionner` réserve la 1ʳᵉ ligne au champion de l'ÉLÉGANCE et la 2ᵈ
@@ -520,8 +523,8 @@ export function creerMoteur(catalogue, options = {}) {
     //   places par `ordreTotal` — c'est-à-dire par le barème que le visiteur
     //   vient de régler.
     const retenues = (barèmeDElegance && !ponderation.personnalisee)
-      ? selectionner(honnetes, place)
-      : diversifier(honnetes, { limite: place, ponderation });
+      ? selectionner(honnetes, place, budgets.parMappeur)
+      : diversifier(honnetes, { limite: place, maxParMappeur: budgets.parMappeur, ponderation });
     if (jokers.length) retenues.push(jokers[0]);
     else if (!retenues.length) {
       const j = approcheJoker(saisie, ctxAssemblage);
@@ -1145,7 +1148,7 @@ export function avancementDe(compte) {
  * @param {number} limite
  * @returns {Object[]}
  */
-function selectionner(approches, limite) {
+function selectionner(approches, limite, maxParMappeur) {
   if (!approches.length || limite <= 0) return [];
   const tete = [];
   const prendre = (a, suggestion) => {
@@ -1216,7 +1219,10 @@ function selectionner(approches, limite) {
 
   const reste = diversifier(
     approches.filter((a) => !tete.includes(a)),
-    { limite: limite - tete.length, amorce: tete },
+    // ★ Le quota par mappeur suit le cran, comme les places : sans lui, élargir
+    //   la liste ne ferait qu'ajouter des voies d'autres méthodes, jamais les
+    //   variantes d'une même méthode que le curseur est censé faire remonter.
+    { limite: limite - tete.length, maxParMappeur, amorce: tete },
   );
   for (const a of reste) if (!a.suggestion) a.suggestion = 'mixte';
   return [...tete, ...reste];

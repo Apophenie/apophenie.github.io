@@ -195,8 +195,34 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
     budgetTotalMs: Math.min(BUDGET_MS_PLAFOND, BUDGET_TOTAL_MS * facteur),
     budgetMsFilet: Math.min(BUDGET_MS_PLAFOND, BUDGET_MS_FILET * facteur),
     dMax: Math.min(D_MAX_PLAFOND, D_MAX_BASE + Math.max(0, n - PUISSANCE_ENUMERATION) * 4),
+    // ★ **LE CRAN ÉLARGIT AUSSI CE QU'ON MONTRE, et pas seulement ce qu'on
+    //   cherche.** « Quand on relève le curseur de budget pour la recherche, je
+    //   voudrais que tu remontes tous ces curseurs avec » (l'auteur).
+    //
+    //   ⚠️ **PARCE QUE CHERCHER PLUS NE SUFFIT PAS À VOIR PLUS.** Mesuré sur
+    //     « Millicent Billette » visant 1998 : quatre voies écartées de la liste
+    //     ne reviennent à AUCUN cran, de 0 à 7 — la liste ne bouge pas d'une
+    //     ligne, parce qu'elles n'avaient pas été manquées par l'exploration
+    //     mais refusées par la SÉLECTION. Douze places, deux par mappeur : ces
+    //     deux nombres-là étaient sourds au curseur, si bien que pousser le
+    //     budget ne pouvait rien montrer de neuf dès que la recherche avait fini.
+    //
+    //   ★ **ET LA PROGRESSION EST DOUCE, non pas ×2 comme le facteur.** Le cran
+    //     7 vaut ×128 sur le travail ; appliqué aux places, il demanderait mille
+    //     cinq cents cartes. Ce qu'on élargit ici est une LISTE QU'ON LIT : on
+    //     ajoute quatre voies et un demi-mappeur par cran, ce qui mène de douze
+    //     places et deux voies par méthode à quarante et cinq — beaucoup, et
+    //     encore consultable.
+    voies: MAX_APPROCHES_BASE + 4 * n,
+    parMappeur: MAX_PAR_MAPPEUR_BASE + Math.floor(n / 2),
   };
 }
+
+/** Les douze places de la liste, au cran d'ouverture — `reglagesDeBudget` les
+ *  élargit ensuite. Le chiffre historique de `score.js › REGLAGES`. */
+export const MAX_APPROCHES_BASE = 12;
+/** Deux voies par mappeur principal au cran d'ouverture, même règle. */
+export const MAX_PAR_MAPPEUR_BASE = 2;
 
 /** « Durée à 128 s » — la borne haute du filet temporel, quel que soit le cran. */
 export const BUDGET_MS_PLAFOND = 128000;
