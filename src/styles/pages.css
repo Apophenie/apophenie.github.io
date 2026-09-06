@@ -474,6 +474,45 @@
   content: '· ';
   opacity: .55;
 }
+/* ★ **LA BARRE DE PAGES — dix voies à la fois, jamais plus.**
+   Le curseur de fouille mène jusqu'à deux cent cinquante-six places : les
+   dérouler d'un trait donnerait une colonne de plusieurs mètres. La barre est
+   donc sobre et se pose SOUS la grille, là où l'œil arrive quand il a fini de
+   lire — pas au-dessus, où elle ferait attendre. */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e2);
+  margin-top: var(--e3);
+  padding-top: var(--e2);
+  border-top: var(--rule) solid var(--line);
+}
+.pagination__pas {
+  font-family: var(--machine);
+  font-size: var(--fs-xs);
+  letter-spacing: .04em;
+  color: var(--fg);
+  background: transparent;
+  border: var(--rule) solid var(--line);
+  border-radius: var(--r1);
+  padding: var(--e1) var(--e2);
+  cursor: pointer;
+}
+.pagination__pas:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+/* Un bouton éteint DIT qu'il n'y a rien au-delà : on le laisse en place plutôt
+   que de le retirer, sans quoi la barre changerait de largeur à chaque page. */
+.pagination__pas:disabled { opacity: .35; cursor: default; }
+.pagination__etat {
+  font-family: var(--machine);
+  font-size: var(--fs-2xs);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  min-width: 9ch;
+  text-align: center;
+}
+
 /* ★ LES CINQ SCORES D'UNE CARTE — un global, quatre bruts.
 
    Le global est SEUL sur sa ligne et en chasse fixe : c'est le nombre qu'on

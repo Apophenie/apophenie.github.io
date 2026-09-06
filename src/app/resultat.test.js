@@ -493,3 +493,45 @@ test('★ carte — sans titre, la carte numérote au lieu d’annoncer « Démo
   assert.notEqual(titre.textContent, fr.demo.demonstration);
   assert.equal(titre.textContent, fr.resultat.voieSansTitre.replace('{rang}', '1'));
 });
+
+/**
+ * ★ **DIX VOIES PAR PAGE — parce que le curseur en promet deux cent cinquante-six.**
+ *
+ * > « Élargis le nombre de places de 40 à 250 ou 256 quand on arrive au palier 7
+ * >   (ce qui va impliquer une pagination des résultats, 10 par page max, donc
+ * >   25 pages max). » (l'auteur)
+ *
+ * ★ **TOUT EST DANS LE DOM, SEULE LA PAGE COURANTE EST VISIBLE.** On ne rappelle
+ *   pas le moteur pour tourner une page : les cartes sont construites une fois,
+ *   et changer de page bascule un attribut. C'est ce qui laisse le `Ctrl+F` du
+ *   navigateur — et un moteur d'indexation — trouver une voie qui n'est pas
+ *   affichée.
+ */
+test('★ pagination — dix voies par page, et pas de barre en deçà', () => {
+  // Sous onze voies : aucune barre. Une pagination à une page annonce un
+  // ailleurs qui n'existe pas.
+  const petite = rendre(Array.from({ length: 9 }, (_, k) => voie(k + 1, `V${k + 1}`, null)),
+    { podium: false });
+  assert.equal(tous(petite, 'pagination').length, 0, 'neuf voies ne se paginent pas');
+
+  const grande = rendre(Array.from({ length: 34 }, (_, k) => voie(k + 1, `V${k + 1}`, null)),
+    { podium: false });
+  const lots = tous(grande, 'voies');
+  assert.equal(lots.length, 4, '34 voies font quatre pages de dix au plus');
+  assert.equal(tous(lots[0], 'voie').length, 10);
+  assert.equal(tous(lots[3], 'voie').length, 4, 'la dernière page porte le reste');
+
+  // Une seule visible, les autres masquées — mais toutes présentes.
+  assert.equal(lots[0].getAttribute('hidden'), null, 'la première page est ouverte');
+  for (const lot of lots.slice(1)) {
+    assert.ok(lot.getAttribute('hidden') !== null,
+      'les autres pages sont masquées, pas absentes');
+  }
+  const total = lots.reduce((n, lot) => n + tous(lot, 'voie').length, 0);
+  assert.equal(total, 34, 'les trente-quatre cartes sont dans le DOM');
+
+  const barre = un(grande, 'pagination');
+  assert.ok(barre, 'la barre paraît au-delà de dix');
+  assert.ok(un(barre, 'pagination__etat').textContent.includes('4'),
+    'l’état annonce le nombre de pages');
+});

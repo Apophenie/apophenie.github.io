@@ -389,6 +389,75 @@ function libelleFragment(fragment) {
   return `${chemins} · ${nom === cle ? fragment.famille : nom}`;
 }
 
+/**
+ * ★ **DIX VOIES PAR PAGE — au-delà, la liste cesse d'être une liste.**
+ *
+ * > « Élargis le nombre de places de 40 à 250 ou 256 quand on arrive au palier 7
+ * >   (ce qui va impliquer une pagination des résultats, 10 par page max, donc
+ * >   25 pages max). » (l'auteur)
+ *
+ * Le curseur de fouille mène désormais jusqu'à deux cent cinquante-six places
+ * (`config.js › VOIES_PAR_CRAN`). Les dérouler d'un trait donnerait une colonne
+ * de plusieurs mètres où l'on ne retrouve rien — la pagination n'est pas ici un
+ * ornement, c'est ce qui rend le réglage utilisable.
+ *
+ * ★ **TOUT EST DÉJÀ DANS LE DOM, ET SEULE LA PAGE COURANTE EST VISIBLE.** On ne
+ *   recalcule rien, on ne rappelle pas le moteur : les cartes sont construites
+ *   une fois, et changer de page bascule un attribut. C'est ce qui garde la
+ *   navigation instantanée, et surtout ce qui laisse `Ctrl+F` du navigateur
+ *   trouver une voie qui n'est pas sur la page affichée — un moteur de recherche
+ *   la trouvera aussi.
+ *
+ * ⚠️ Sous onze voies, aucune barre : une pagination à une seule page annonce un
+ *   ailleurs qui n'existe pas.
+ */
+const VOIES_PAR_PAGE = 10;
+
+function grillePaginee(items, carte) {
+  if (!items.length) return [];
+  if (items.length <= VOIES_PAR_PAGE) return [e('div.voies', {}, items.map(carte))];
+
+  const pages = Math.ceil(items.length / VOIES_PAR_PAGE);
+  const lots = Array.from({ length: pages }, (_, k) => e('div.voies', {
+    'data-page': String(k + 1),
+    hidden: k === 0 ? undefined : 'hidden',
+  }, items.slice(k * VOIES_PAR_PAGE, (k + 1) * VOIES_PAR_PAGE).map(carte)));
+
+  let courante = 1;
+  const etat = e('span.pagination__etat', {
+    texte: t('resultat.pagination.etat', { page: 1, pages }),
+    'aria-live': 'polite',
+  });
+  const aller = (n) => {
+    courante = Math.min(pages, Math.max(1, n));
+    lots.forEach((lot, k) => {
+      if (k + 1 === courante) lot.removeAttribute('hidden');
+      else lot.setAttribute('hidden', 'hidden');
+    });
+    etat.textContent = t('resultat.pagination.etat', { page: courante, pages });
+    precedent.disabled = courante === 1;
+    suivant.disabled = courante === pages;
+    // Le haut de la liste, pas le haut de la page : on vient de changer de lot,
+    // pas de quitter la section.
+    lots[courante - 1].scrollIntoView({ block: 'nearest' });
+  };
+  const precedent = e('button.pagination__pas', {
+    type: 'button', texte: t('resultat.pagination.precedent'), disabled: true,
+    sur: { click: () => aller(courante - 1) },
+  });
+  const suivant = e('button.pagination__pas', {
+    type: 'button', texte: t('resultat.pagination.suivant'),
+    sur: { click: () => aller(courante + 1) },
+  });
+
+  return [
+    ...lots,
+    e('nav.pagination', { 'aria-label': t('resultat.pagination.titre') }, [
+      precedent, etat, suivant,
+    ]),
+  ];
+}
+
 function rangeeFragment(fragment, lienDisponible, chiffreParDefaut) {
   const contenu = [
     e('span.fragment__valeur', { texte: String(fragment.valeur ?? chiffreParDefaut) }),
@@ -844,7 +913,7 @@ export function pageResultat({
   // marque ne laisse rien au podium. `e()` ignore les `null`.
   const listeDesVoies = [
     places.length ? e('div.podium', {}, places.map((p) => socleDePodium(p.cle, carte(p)))) : null,
-    grille.length ? e('div.voies', {}, grille.map(carte)) : null,
+    ...grillePaginee(grille, carte),
   ];
 
   return e('div.page.page--etroite.resultat', {}, [

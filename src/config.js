@@ -213,28 +213,63 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
     //     ajoute quatre voies et un demi-mappeur par cran, ce qui mène de douze
     //     places et deux voies par méthode à quarante et cinq — beaucoup, et
     //     encore consultable.
-    voies: MAX_APPROCHES_BASE + 4 * n,
-    parMappeur: MAX_PAR_MAPPEUR_BASE + Math.floor(n / 2),
+    voies: VOIES_PAR_CRAN[n],
+    parMappeur: PAR_MAPPEUR_PAR_CRAN[n],
     // ★ **ET LA PÉNALITÉ DE REDONDANCE MONTE AVEC EUX** — « si le seuil est à
     //   350, j'aimerais qu'avec la profondeur de recherche on finisse vers
     //   910 » (l'auteur). Quatre-vingts points par cran, ce qui tombe
     //   exactement sur 910 au septième.
     //
-    //   ★ **PLUS DE PLACES SANS PLUS DE λ NE MONTRERAIT QUE DES VARIANTES.** Le
-    //     MMR retranche `λ × similarité` du score : à 350 ‰, deux voies de même
-    //     mappeur (600 ‰ de similarité) ne se coûtent que 210 points l'une à
-    //     l'autre, et quand on passe de douze à quarante places, ce sont
-    //     d'abord des cousines qui entrent. À 910, la même paire se coûte 546
-    //     points, et la liste va chercher ailleurs. Le curseur dit donc « plus
-    //     de voies ET plus différentes », ce qui est la seule façon d'occuper
-    //     quarante places sans lasser.
-    lambda: LAMBDA_MMR_BASE + 80 * n,
+    //   ⚠️ **ET LA PÉNALITÉ DESCEND, alors qu'elle montait la veille.** On avait
+    //     d'abord réglé λ de 350 à 910, en pensant qu'élargir les places sans
+    //     durcir la redondance ne ferait entrer que des cousines. Mesuré à cran
+    //     égal, l'effet a été QUASI NUL : listes identiques sur « Millicent
+    //     Billette » et « Henri Prunelle », et seulement ±1 à ±4 voies échangées
+    //     ailleurs — toutes des MOISSONS, seules assez semblables (900 à 1000 ‰,
+    //     car `similariteApproches` moyenne part à part) pour que λ pèse. Sur
+    //     une voie à un fragment, deux candidates diffèrent déjà de 300 à 600 ‰,
+    //     et 210 points de pénalité suffisaient à les départager.
+    //     λ ne réglait donc pas « combien de variété », mais « lesquelles » —
+    //     et à la marge.
+    //
+    //   ★ **ON INVERSE DONC LA PENTE, ET C'EST LE SENS QUI SERT LE PROPOS.**
+    //     « On va inverser la tendance : 350 au palier de départ, et entre 10 et
+    //     50 pour le palier 7 » (l'auteur). À quarante-cinq points par cran, on
+    //     finit à 35 ‰ : la pénalité s'efface, et les deux cent cinquante-six
+    //     places du bout peuvent enfin accueillir les VARIANTES d'une même
+    //     méthode — ce qu'un chercheur qui pousse le curseur à fond vient
+    //     précisément chercher. Le cran d'ouverture, lui, ne bouge pas d'un
+    //     point : la liste courte reste variée.
+    lambda: LAMBDA_MMR_BASE - 45 * n,
   };
 }
 
 /** La pénalité de redondance du MMR au cran d'ouverture, en pour-mille — le
- *  chiffre historique de `score.js › REGLAGES`. */
+ *  chiffre historique de `score.js › REGLAGES`. Elle DESCEND ensuite, jusqu'à
+ *  35 au cran 7 : voir le pavé ci-dessus. */
 export const LAMBDA_MMR_BASE = 350;
+
+/**
+ * ★ **LES PLACES, CRAN PAR CRAN — une table plutôt qu'une formule.**
+ *
+ * > « Élargis le nombre de places de 40 à 250 ou 256 quand on arrive au palier
+ * >   7 (ce qui va impliquer une pagination des résultats, 10 par page max,
+ * >   donc 25 pages max). » (l'auteur)
+ *
+ * La progression est géométrique de raison ≈ 1,55 — `12 × (256/12)^(n/7)` —, ce
+ * qui mène de douze places à deux cent cinquante-six sans palier brutal. Elle
+ * est ÉCRITE et non calculée : `Math.pow` sur des flottants rendrait des rangs
+ * dépendants d'un arrondi, là où le §4.4 exige un déterminisme strict, et une
+ * table de huit entiers se relit d'un coup d'œil.
+ */
+export const VOIES_PAR_CRAN = Object.freeze([12, 19, 29, 45, 70, 108, 168, 256]);
+
+/**
+ * Le quota par mappeur suit les places, à raison d'un huitième : sans lui, deux
+ * cent cinquante-six places ne pourraient pas se remplir — il n'existe qu'une
+ * trentaine de mappeurs, et cinq voies chacun n'en feraient que cent cinquante.
+ */
+export const PAR_MAPPEUR_PAR_CRAN = Object.freeze([2, 3, 4, 6, 9, 14, 21, 32]);
 
 /** Les douze places de la liste, au cran d'ouverture — `reglagesDeBudget` les
  *  élargit ensuite. Le chiffre historique de `score.js › REGLAGES`. */

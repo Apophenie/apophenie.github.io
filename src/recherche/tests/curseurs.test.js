@@ -671,35 +671,39 @@ test('★ curseurs — déterminisme : deux appels identiques rendent la même l
  * ★ **LE CRAN COMMANDE TROIS CHOSES, ET NON PLUS UNE SEULE.**
  *
  * > « Quand on relève le curseur de budget pour la recherche, je voudrais que tu
- * >   remontes tous ces curseurs avec. » — « Si le seuil est à 350, j'aimerais
- * >   qu'avec la profondeur de recherche on finisse vers 910 (>900 <1000). »
- * >   (l'auteur)
+ * >   remontes tous ces curseurs avec. » (l'auteur)
  *
  * Il ne réglait que le TRAVAIL — budget de temps, profondeur. Ce qui se MONTRE
  * lui était sourd : douze places, deux voies par mappeur, une pénalité de
- * redondance à 350 ‰, trois nombres fixes. Dès que la recherche avait fini,
- * pousser le curseur ne changeait plus rien à l'écran.
+ * redondance fixe. Mesuré alors : sur « Millicent Billette » visant 1998, quatre
+ * voies écartées ne revenaient à AUCUN cran, de 0 à 7 — elles n'avaient pas été
+ * manquées par l'exploration, mais refusées par la SÉLECTION.
  *
- * ★ **ET LES TROIS VONT ENSEMBLE, sans quoi le remède serait pire.** Élargir les
- *   places sans relever λ ne ferait entrer que des cousines : à 350 ‰, deux
- *   voies de même mappeur (600 ‰ de similarité) ne se coûtent que 210 points, et
- *   les vingt-huit places du cran 4 se rempliraient de variantes. À 910 ‰, la
- *   même paire se coûte 546 points, et la liste va chercher ailleurs.
+ * ⚠️ **ET LA PÉNALITÉ DESCEND, alors qu'on l'avait d'abord fait monter.** Réglée
+ *   de 350 à 910, son effet mesuré à cran égal fut QUASI NUL : listes
+ *   identiques sur deux saisies, ±1 à ±4 voies échangées sur les deux autres —
+ *   toutes des MOISSONS, seules assez semblables pour que λ pèse. λ ne réglait
+ *   pas « combien de variété » mais « lesquelles », et à la marge.
+ *   La pente est donc inversée : 350 à l'ouverture, **35 au cran 7**, pour que
+ *   les deux cent cinquante-six places du bout puissent accueillir les
+ *   VARIANTES d'une même méthode — ce qu'on vient chercher en poussant le
+ *   curseur à fond.
  */
-test('★ le cran élargit le travail, les places ET la diversité', () => {
+test('★ le cran élargit le travail et les places, et relâche la redondance', () => {
   const crans = [0, 1, 2, 3, 4, 5, 6, 7].map((n) => reglagesDeBudget(n));
   for (let i = 1; i < crans.length; i++) {
     const a = crans[i - 1];
     const b = crans[i];
     assert.ok(b.voies > a.voies, `cran ${i} : les places ne montent pas`);
-    assert.ok(b.parMappeur >= a.parMappeur, `cran ${i} : le quota par mappeur recule`);
-    assert.ok(b.lambda > a.lambda, `cran ${i} : la pénalité de redondance ne monte pas`);
+    assert.ok(b.parMappeur > a.parMappeur, `cran ${i} : le quota par mappeur ne monte pas`);
+    assert.ok(b.lambda < a.lambda, `cran ${i} : la pénalité de redondance ne descend pas`);
   }
   // Les bornes, telles que l'auteur les a posées.
-  assert.equal(crans[0].voies, 12);
-  assert.equal(crans[0].parMappeur, 2);
-  assert.equal(crans[0].lambda, 350);
-  assert.equal(crans[7].lambda, 910);
-  assert.ok(crans[7].lambda > 900 && crans[7].lambda < 1000,
-    'la pénalité finit entre 900 et 1000 pour-mille, jamais à saturation');
+  assert.deepEqual([crans[0].voies, crans[0].parMappeur, crans[0].lambda], [12, 2, 350]);
+  assert.equal(crans[7].voies, 256, 'deux cent cinquante-six places au bout du curseur');
+  assert.ok(crans[7].lambda >= 10 && crans[7].lambda <= 50,
+    `la pénalité finit entre 10 et 50 pour-mille, elle vaut ${crans[7].lambda}`);
+  // ⚠️ Elle ne doit jamais s'annuler : à zéro, le MMR ne serait plus qu'un tri,
+  //   et rien n'empêcherait vingt-cinq pages de la même méthode.
+  assert.ok(crans[7].lambda > 0, 'la redondance se relâche, elle ne disparaît pas');
 });

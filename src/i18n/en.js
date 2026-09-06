@@ -170,6 +170,12 @@ export const en = {
        the engine's last resort is the French wildcard, whose attractor cycle
        visits 3, 4, 5 and 6 and nothing else. */
     aucuneVoieCible: 'No path leads to {cible} for this query. The house only guarantees 666; the rest has to be earned.',
+    pagination: {
+      titre: 'Pages of paths',
+      etat: 'Page {page} of {pages}',
+      precedent: '‹ Previous',
+      suivant: 'Next ›',
+    },
     voieNumero: 'no. {rang}',
     conversionTitre: '{methode} · {n} characters',
     conversionTitreUn: '{methode} · 1 character',
