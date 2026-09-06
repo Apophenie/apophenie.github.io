@@ -1901,6 +1901,26 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
       if (!lignes[k] || !dUnSeulTenant(lignes[k], trio)) { tient = false; break; }
     }
     if (!tient) continue;
+    // ★ **QUATRIÈME CONDITION : IL DOIT RESTER QUELQUE CHOSE À FAIRE APRÈS.**
+    //
+    //   > « Deux étapes pour faire apparaître les cornes alors qu'il n'y a plus
+    //   >   rien d'autre que le verdict qui les aurait ajoutées : ce n'est pas
+    //   >   ce que j'appelle des ajouts précoces. S'il n'y a plus rien à faire
+    //   >   après, laisse le verdict faire plutôt que de les ajouter comme ça. »
+    //   >   (l'auteur)
+    //
+    //   Un couronnement ANTICIPÉ n'a de sens que s'il anticipe quelque chose :
+    //   il dit « ce 666 est déjà écrit, et ce qui suit ne le défera pas ». Posé
+    //   entre la dernière étape de calcul et le verdict, il ne devance plus
+    //   rien — il ajoute deux étapes pour montrer un instant plus tôt ce que le
+    //   verdict allait montrer de toute façon.
+    //
+    //   ⚠️ **ET C'EST LA POSITION D'INSERTION QU'ON JUGE, pas celle du trio.**
+    //     L'étape va en `complet + 1` ; il faut donc qu'un CALCUL occupe encore
+    //     un rang au-delà, c'est-à-dire `complet + 1 < finDeLaPreuve`. Les
+    //     autres couronnements ne comptent pas : ils ne transforment rien, et
+    //     trois cornes qui se regardent ne font pas une démonstration.
+    if (complet + 1 >= finDeLaPreuve) continue;
     poses.push({ rang, trio, apres: complet });
   }
   if (!poses.length) return 0;
