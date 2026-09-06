@@ -523,8 +523,10 @@ export function creerMoteur(catalogue, options = {}) {
     //   places par `ordreTotal` — c'est-à-dire par le barème que le visiteur
     //   vient de régler.
     const retenues = (barèmeDElegance && !ponderation.personnalisee)
-      ? selectionner(honnetes, place, budgets.parMappeur)
-      : diversifier(honnetes, { limite: place, maxParMappeur: budgets.parMappeur, ponderation });
+      ? selectionner(honnetes, place, budgets.parMappeur, budgets.lambda)
+      : diversifier(honnetes, {
+        limite: place, maxParMappeur: budgets.parMappeur, lambda: budgets.lambda, ponderation,
+      });
     if (jokers.length) retenues.push(jokers[0]);
     else if (!retenues.length) {
       const j = approcheJoker(saisie, ctxAssemblage);
@@ -1148,7 +1150,7 @@ export function avancementDe(compte) {
  * @param {number} limite
  * @returns {Object[]}
  */
-function selectionner(approches, limite, maxParMappeur) {
+function selectionner(approches, limite, maxParMappeur, lambda) {
   if (!approches.length || limite <= 0) return [];
   const tete = [];
   const prendre = (a, suggestion) => {
@@ -1222,7 +1224,7 @@ function selectionner(approches, limite, maxParMappeur) {
     // ★ Le quota par mappeur suit le cran, comme les places : sans lui, élargir
     //   la liste ne ferait qu'ajouter des voies d'autres méthodes, jamais les
     //   variantes d'une même méthode que le curseur est censé faire remonter.
-    { limite: limite - tete.length, maxParMappeur, amorce: tete },
+    { limite: limite - tete.length, maxParMappeur, lambda, amorce: tete },
   );
   for (const a of reste) if (!a.suggestion) a.suggestion = 'mixte';
   return [...tete, ...reste];

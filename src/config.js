@@ -215,8 +215,26 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
     //     encore consultable.
     voies: MAX_APPROCHES_BASE + 4 * n,
     parMappeur: MAX_PAR_MAPPEUR_BASE + Math.floor(n / 2),
+    // ★ **ET LA PÉNALITÉ DE REDONDANCE MONTE AVEC EUX** — « si le seuil est à
+    //   350, j'aimerais qu'avec la profondeur de recherche on finisse vers
+    //   910 » (l'auteur). Quatre-vingts points par cran, ce qui tombe
+    //   exactement sur 910 au septième.
+    //
+    //   ★ **PLUS DE PLACES SANS PLUS DE λ NE MONTRERAIT QUE DES VARIANTES.** Le
+    //     MMR retranche `λ × similarité` du score : à 350 ‰, deux voies de même
+    //     mappeur (600 ‰ de similarité) ne se coûtent que 210 points l'une à
+    //     l'autre, et quand on passe de douze à quarante places, ce sont
+    //     d'abord des cousines qui entrent. À 910, la même paire se coûte 546
+    //     points, et la liste va chercher ailleurs. Le curseur dit donc « plus
+    //     de voies ET plus différentes », ce qui est la seule façon d'occuper
+    //     quarante places sans lasser.
+    lambda: LAMBDA_MMR_BASE + 80 * n,
   };
 }
+
+/** La pénalité de redondance du MMR au cran d'ouverture, en pour-mille — le
+ *  chiffre historique de `score.js › REGLAGES`. */
+export const LAMBDA_MMR_BASE = 350;
 
 /** Les douze places de la liste, au cran d'ouverture — `reglagesDeBudget` les
  *  élargit ensuite. Le chiffre historique de `score.js › REGLAGES`. */

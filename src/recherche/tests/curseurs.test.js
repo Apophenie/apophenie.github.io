@@ -666,3 +666,40 @@ test('★ curseurs — déterminisme : deux appels identiques rendent la même l
     }
   }
 });
+
+/**
+ * ★ **LE CRAN COMMANDE TROIS CHOSES, ET NON PLUS UNE SEULE.**
+ *
+ * > « Quand on relève le curseur de budget pour la recherche, je voudrais que tu
+ * >   remontes tous ces curseurs avec. » — « Si le seuil est à 350, j'aimerais
+ * >   qu'avec la profondeur de recherche on finisse vers 910 (>900 <1000). »
+ * >   (l'auteur)
+ *
+ * Il ne réglait que le TRAVAIL — budget de temps, profondeur. Ce qui se MONTRE
+ * lui était sourd : douze places, deux voies par mappeur, une pénalité de
+ * redondance à 350 ‰, trois nombres fixes. Dès que la recherche avait fini,
+ * pousser le curseur ne changeait plus rien à l'écran.
+ *
+ * ★ **ET LES TROIS VONT ENSEMBLE, sans quoi le remède serait pire.** Élargir les
+ *   places sans relever λ ne ferait entrer que des cousines : à 350 ‰, deux
+ *   voies de même mappeur (600 ‰ de similarité) ne se coûtent que 210 points, et
+ *   les vingt-huit places du cran 4 se rempliraient de variantes. À 910 ‰, la
+ *   même paire se coûte 546 points, et la liste va chercher ailleurs.
+ */
+test('★ le cran élargit le travail, les places ET la diversité', () => {
+  const crans = [0, 1, 2, 3, 4, 5, 6, 7].map((n) => reglagesDeBudget(n));
+  for (let i = 1; i < crans.length; i++) {
+    const a = crans[i - 1];
+    const b = crans[i];
+    assert.ok(b.voies > a.voies, `cran ${i} : les places ne montent pas`);
+    assert.ok(b.parMappeur >= a.parMappeur, `cran ${i} : le quota par mappeur recule`);
+    assert.ok(b.lambda > a.lambda, `cran ${i} : la pénalité de redondance ne monte pas`);
+  }
+  // Les bornes, telles que l'auteur les a posées.
+  assert.equal(crans[0].voies, 12);
+  assert.equal(crans[0].parMappeur, 2);
+  assert.equal(crans[0].lambda, 350);
+  assert.equal(crans[7].lambda, 910);
+  assert.ok(crans[7].lambda > 900 && crans[7].lambda < 1000,
+    'la pénalité finit entre 900 et 1000 pour-mille, jamais à saturation');
+});
