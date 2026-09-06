@@ -421,6 +421,38 @@ const OBLIQUE_AU_RACCORD = 8; // degrés tolérés autour de la verticale du fû
  */
 const RACCORDS_EN_ATTENTE = new Set(['p:0', 'd:1']);
 
+/**
+ * ★ **ET LE `a` EST LE CONTRE-EXEMPLE, qu'il ne faut surtout pas « corriger ».**
+ *
+ * > « Sauf pour `a`, où il y a un contre-exemple : le raccord est à la
+ * >   perpendiculaire. Vérifie qu'il n'y a pas de régression à cet endroit non
+ * >   plus. » (l'auteur) — et déjà, en son temps : « le haut de la boucle arrive
+ * >   à la perpendiculaire sur la barre sur l'original ».
+ *
+ * Sa panse ne QUITTE pas la barre, elle l'ABORDE de face : son premier morceau
+ * est un segment horizontal (`L 202,28 245,85`), donc perpendiculaire au fût.
+ * La règle de tangence ne s'y applique pas — et c'est une garde qui la protège
+ * sans qu'on ait eu à la nommer : un segment droit n'a pas de poignée à tourner.
+ *
+ * ⚠️ Ce test existe parce que la protection est INDIRECTE. Le jour où la passe
+ *   apprendrait à tourner autre chose que des poignées de cubique, elle
+ *   redresserait ce segment sans qu'aucune autre mesure ne s'en émeuve — la
+ *   fidélité à l'axe ne bougerait que d'une fraction d'unité.
+ */
+test('★ glyphes — le `a` aborde sa barre de face, et non tangentiellement', () => {
+  const panse = TRAITS.a.traits[1];
+  assert.ok(panse, 'le `a` a bien une panse');
+  const [premier] = parsePath(panse.d).filter(({ cmd }) => cmd.toUpperCase() === 'L');
+  assert.ok(premier, 'le premier geste de la panse du `a` est un segment, pas une courbe');
+  const depart = parsePath(panse.d)[0].args;
+  const [bx, by] = premier.args.slice(-2);
+  const a = Math.abs(Math.atan2(by - depart[1], bx - depart[0]) * 180 / Math.PI);
+  const ecartHorizontale = Math.min(a, Math.abs(180 - a));
+  assert.ok(ecartHorizontale <= 2,
+    `le raccord du \u00ab a \u00bb est à ${ecartHorizontale.toFixed(0)}° de l'horizontale, `
+    + 'il doit aborder la barre perpendiculairement');
+});
+
 test('★ glyphes — une panse quitte son fût verticalement', () => {
   const fautes = [];
   for (const c of RACCORDS_DE_PANSE) {
