@@ -215,8 +215,27 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
     //   le faisceau qui borne, mesuré à +17 % de temps pour deux fois et demie
     //   la profondeur — et priverait la recherche de voies qu'elle sait déjà
     //   trouver. Le cran ne fait donc que REPOUSSER, jamais rétrécir.
-    budgetTotalMs: Math.min(BUDGET_MS_PLAFOND, BUDGET_TOTAL_MS * facteur),
-    budgetMsFilet: Math.min(BUDGET_MS_PLAFOND, BUDGET_MS_FILET * facteur),
+    // ★ **LES DEUX FILETS SUIVENT LE FACTEUR, SANS PLAFOND.**
+    //
+    //   > « Le filet temporel devrait être à 1000 × 2ⁿ. » (l'auteur)
+    //
+    //   Ils butaient sur 128 s — « augmentable jusqu'à ×128, en repoussant avec
+    //   profondeur max autour de 32 et durée à 128 s », l'arbitrage d'un temps
+    //   où le curseur s'arrêtait à sept. Le plafond mordait dès le cran 4 sur le
+    //   filet global et au cran 7 sur celui d'un fragment : à dix crans, il
+    //   aurait annulé les trois derniers.
+    //
+    //   ⚠️ **ET UN FILET QUI DÉCIDE N'EST PLUS UN FILET.** C'est la raison de
+    //     fond, et elle est écrite en tête de ce fichier : la borne qui tranche
+    //     doit être DÉTERMINISTE et se compter en applications d'opérateurs
+    //     (`bfs.js › BUDGET_TRAVAIL_TOTAL`), pas à l'horloge — sinon deux
+    //     exécutions de la même URL rendent deux listes (§4.4). Plafonner le
+    //     filet sous le budget de travail revenait à laisser la machine hôte
+    //     arbitrer. Mesuré : au cran 10, une URL demande 45 s de calcul là où le
+    //     filet global en accorde 10 240 — il ne se déclenche jamais, et c'est
+    //     exactement ce qu'on lui demande.
+    budgetTotalMs: BUDGET_TOTAL_MS * facteur,
+    budgetMsFilet: BUDGET_MS_FILET * facteur,
     dMax: Math.min(D_MAX_PLAFOND, D_MAX_BASE + Math.max(0, n - PUISSANCE_ENUMERATION) * 4),
     // ★ **LE CRAN ÉLARGIT AUSSI CE QU'ON MONTRE, et pas seulement ce qu'on
     //   cherche.** « Quand on relève le curseur de budget pour la recherche, je
@@ -333,7 +352,7 @@ export const LAMBDA_MMR_BASE = 350;
  * trente-six au dixième, soit quatre-vingt-quatorze pages.
  */
 export function placesDeLaListe(n) {
-  return Math.round(12.4 * (1.541 ** n));
+  return Math.round(20 * (1.5 ** n));
 }
 
 /**
@@ -345,7 +364,7 @@ export function placesDeLaListe(n) {
  * trente-deux, et poursuit jusqu'à cent sept.
  */
 export function voiesParMappeur(n) {
-  return Math.round(1.85 * (1.5 ** n));
+  return Math.round(2 * (1.5 ** n));
 }
 
 /**
@@ -360,7 +379,7 @@ export function voiesParMappeur(n) {
  * les crans. La loi reproduit EXACTEMENT les huit valeurs historiques.
  */
 export function largeurDAssemblage(n) {
-  return Math.round(8 * (1.172 ** n));
+  return Math.round(8 * (1.2 ** n));
 }
 
 /**
@@ -384,7 +403,7 @@ export function largeurDAssemblage(n) {
  *   l'atteindre, ce qu'aucune droite ne sait faire.
  */
 export function penaliteDeRedondance(n) {
-  return Math.round(Math.max(LAMBDA_MMR_BASE - 45 * n, 280 / (n + 1)));
+  return Math.round(LAMBDA_MMR_BASE * (0.77 ** n));
 }
 
 /**
@@ -398,22 +417,22 @@ export function penaliteDeRedondance(n) {
 export const REGLAGES_DU_CRAN = Object.freeze([
   Object.freeze({
     cle: 'voies', nom: 'Places de la liste',
-    formule: 'round(12,4 × 1,541ⁿ)', calcul: placesDeLaListe,
+    formule: 'round(20 × 1,5ⁿ)', calcul: placesDeLaListe,
     role: 'combien de voies la liste peut montrer',
   }),
   Object.freeze({
     cle: 'parMappeur', nom: 'Quota par mappeur',
-    formule: 'round(1,85 × 1,5ⁿ)', calcul: voiesParMappeur,
+    formule: 'round(2 × 1,5ⁿ)', calcul: voiesParMappeur,
     role: 'combien de voies une même méthode peut occuper',
   }),
   Object.freeze({
     cle: 'parFragment', nom: 'Largeur d’assemblage',
-    formule: 'round(8 × 1,172ⁿ)', calcul: largeurDAssemblage,
+    formule: 'round(8 × 1,2ⁿ)', calcul: largeurDAssemblage,
     role: 'combien de chemins et de vecteurs chaque fragment fournit',
   }),
   Object.freeze({
     cle: 'lambda', nom: 'Pénalité de redondance (‰)',
-    formule: 'max(350 − 45n, 280/(n+1))', calcul: penaliteDeRedondance,
+    formule: 'round(350 × 0,77ⁿ)', calcul: penaliteDeRedondance,
     role: 'ce que coûte à une voie de ressembler à une voisine',
   }),
   Object.freeze({
@@ -422,9 +441,14 @@ export const REGLAGES_DU_CRAN = Object.freeze([
     role: 'le multiplicateur déterministe des budgets d’exploration',
   }),
   Object.freeze({
-    cle: 'budgetMsFilet', nom: 'Filet temporel (ms)',
-    formule: 'min(128 000, 1 000 × 2ⁿ)', calcul: (n) => Math.min(BUDGET_MS_PLAFOND, BUDGET_MS_FILET * (2 ** n)),
-    role: 'la borne à l’horloge — plafonnée dès le cran 7',
+    cle: 'budgetMsFilet', nom: 'Filet d’un fragment (ms)',
+    formule: '1 000 × 2ⁿ', calcul: (n) => BUDGET_MS_FILET * (2 ** n),
+    role: 'la borne à l’horloge pour une portée — un filet, jamais un arbitre',
+  }),
+  Object.freeze({
+    cle: 'budgetTotalMs', nom: 'Filet global (ms)',
+    formule: '10 000 × 2ⁿ', calcul: (n) => BUDGET_TOTAL_MS * (2 ** n),
+    role: 'la borne à l’horloge pour la recherche entière',
   }),
   Object.freeze({
     cle: 'dMax', nom: 'Profondeur d’exploration',
@@ -440,8 +464,18 @@ export const MAX_APPROCHES_BASE = 12;
 /** Deux voies par mappeur principal au cran d'ouverture, même règle. */
 export const MAX_PAR_MAPPEUR_BASE = 2;
 
-/** « Durée à 128 s » — la borne haute du filet temporel, quel que soit le cran. */
-export const BUDGET_MS_PLAFOND = 128000;
+/**
+ * ⚠️ **PLUS DE PLAFOND SUR LES FILETS TEMPORELS — la constante est retirée, pas
+ *   mise en sommeil.**
+ *
+ * Elle valait 128 000 ms : « augmentable jusqu'à ×128, en repoussant avec
+ * profondeur max autour de 32 et durée à 128 s », l'arbitrage d'un temps où le
+ * curseur s'arrêtait à sept. « Le filet temporel devrait être à 1000 × 2ⁿ »
+ * (l'auteur) : les deux filets suivent désormais le facteur sans borne, et une
+ * constante qu'on garderait « au cas où » redeviendrait un plafond au premier
+ * `Math.min` distrait. Ce qui n'est plus appliqué ne doit plus exister —
+ * l'échec est bruyant, et c'est voulu (§4.3).
+ */
 
 /** « Profondeur max autour de 32 » — et celle du régime ordinaire. */
 export const D_MAX_BASE = 15;

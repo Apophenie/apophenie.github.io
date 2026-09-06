@@ -8,7 +8,9 @@ import { validerCatalogue, chercherSix, operateursExplorables, D_MAX, MAX_NODES,
 //   seul fichier que l'on vient changer sans lire le moteur. La recopier ici,
 //   c'était en fabriquer une seconde, et c'est exactement ce qui est arrivé :
 //   elle est restée à 1 000 ms pendant que la vraie passait à 5 000.
-import { BUDGET_TOTAL_MS } from '../../config.js';
+import {
+  BUDGET_TOTAL_MS, placesDeLaListe, PUISSANCE_DE_FOUILLE_DEFAUT,
+} from '../../config.js';
 import { construireBassin, statistiquesBassin, DISTANCE_MAX } from '../bassin.js';
 import { genererFragments, motifsRepetes, periodicite, tokeniser, zonesSignifiantes, structureUrl } from '../fragments.js';
 import {
@@ -677,11 +679,22 @@ test('garde-fou — MAX_NODES borne l’exploration', () => {
 
 // ══════════════════════════════════ sorties
 
-test('sortie — ≤ 12 approches diversifiées, ≤ 24 fragments', () => {
+/**
+ * ★ **LA BORNE VIENT DU CRAN, elle n'est plus un nombre écrit ici.**
+ *
+ * Elle valait douze — le chiffre du cran d'ouverture, à l'époque où il était une
+ * constante. « Places dans la liste : round(20 × 1,5ⁿ) » (l'auteur) : c'est
+ * désormais vingt à l'ouverture, et le test le DEMANDE à `config.js` plutôt que
+ * de le recopier. Un test qui répète une valeur réglable ne mesure plus le
+ * moteur, il mesure sa propre mémoire.
+ */
+test('sortie — pas plus de voies que de places, ≤ 24 fragments', () => {
   const m = creerMoteur(catalogue);
+  const places = placesDeLaListe(PUISSANCE_DE_FOUILLE_DEFAUT);
   for (const s of SAISIES_DETERMINISME) {
     const r = m.resoudre(s);
-    assert.ok(r.approches.length <= 12, `${s} : ${r.approches.length} approches`);
+    assert.ok(r.approches.length <= places,
+      `${s} : ${r.approches.length} approches pour ${places} places`);
     assert.ok(r.fragments.length <= 24, `${s} : ${r.fragments.length} fragments`);
   }
 });

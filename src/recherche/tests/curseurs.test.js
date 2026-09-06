@@ -25,7 +25,7 @@ import {
 import {
   reglagesDeBudget, normaliserPuissance, REGLAGES_DU_CRAN,
   PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX,
-  BUDGET_TOTAL_MS, BUDGET_MS_FILET, BUDGET_MS_PLAFOND, MAX_SERIES,
+  BUDGET_TOTAL_MS, BUDGET_MS_FILET, MAX_SERIES,
 } from '../../config.js';
 import { catalogue } from './_catalogue.js';
 
@@ -393,17 +393,16 @@ test('fouille — la réglette est bien 2^N, de 0 à 10, et le cran 0 est l’id
     const r = reglagesDeBudget(n);
     assert.equal(r.puissance, n);
     assert.equal(r.facteur, 2 ** n);
-    // ★ **PLAFONNÉ À 128 s**, et c'est l'auteur qui pose la borne : « augmentable
-    //   jusqu'à ×128, en repoussant avec profondeur max autour de 32 et durée à
-    //   128 s ». Multiplié tel quel, le cran 7 demanderait vingt et une minutes.
-    //   Le budget de TRAVAIL, lui, n'est pas plafonné : il est déterministe et se
-    //   dépense en applications d'opérateurs, alors que le temps est un FILET —
-    //   et un filet qui ne ferme jamais n'en est plus un.
-    assert.equal(r.budgetTotalMs, Math.min(BUDGET_MS_PLAFOND, BUDGET_TOTAL_MS * (2 ** n)));
-    // ⚠️ **LE FILET AUSSI EST PLAFONNÉ, et il touche sa butée PILE au cran 7** —
-    //   1 000 ms × 128 = 128 000. Le test l'ignorait sans mentir : il n'existait
-    //   pas de cran où la borne mordait. Le curseur poussé à dix l'a révélé.
-    assert.equal(r.budgetMsFilet, Math.min(BUDGET_MS_PLAFOND, BUDGET_MS_FILET * (2 ** n)));
+    // ★ Le budget de TRAVAIL comme les deux FILETS suivent le facteur, et rien
+    //   ne les borne : ce qui tranche est déterministe et se dépense en
+    //   applications d'opérateurs, jamais à l'horloge.
+    assert.equal(r.budgetTotalMs, BUDGET_TOTAL_MS * (2 ** n));
+    // ★ **PLUS AUCUN PLAFOND SUR LES DEUX FILETS** — « le filet temporel
+    //   devrait être à 1000 × 2ⁿ » (l'auteur). Ils butaient sur 128 s, ce qui
+    //   mordait dès le cran 4 sur le filet global : à dix crans, l'horloge
+    //   aurait arbitré une recherche que seule la borne DÉTERMINISTE doit
+    //   trancher (§4.4).
+    assert.equal(r.budgetMsFilet, BUDGET_MS_FILET * (2 ** n));
   }
   const zero = reglagesDeBudget(0);
   assert.equal(zero.facteur, 1, 'au défaut, pas un budget ne change de valeur');
@@ -708,10 +707,17 @@ test('★ le cran élargit le travail et les places, et relâche la redondance',
       `cran ${i} : la largeur d'assemblage ne monte pas`);
   }
   // Les bornes, telles que l'auteur les a posées.
-  assert.deepEqual([crans[0].voies, crans[0].parMappeur, crans[0].lambda], [12, 2, 350]);
-  assert.equal(crans[7].voies, 256, 'deux cent cinquante-six places au septième cran');
-  assert.ok(crans[7].lambda >= 10 && crans[7].lambda <= 50,
-    `la pénalité passe entre 10 et 50 pour-mille au cran 7, elle vaut ${crans[7].lambda}`);
+  assert.deepEqual([crans[0].voies, crans[0].parMappeur, crans[0].lambda], [20, 2, 350]);
+  // ★ **LES REPÈRES DE LA PÉNALITÉ SONT DONNÉS EN FOURCHETTES, et le test les
+  //   lit comme telles.** « Ça peut être 10 ou 25 au cran 10, ça peut être 100
+  //   ou 150 au cran 5, bref tu as l'idée » (l'auteur). Une géométrique unique
+  //   ne peut pas viser les deux centres à la fois — passer par 350 puis 125
+  //   demanderait un facteur 2,8 sur les cinq premiers crans, et 6,3 sur les
+  //   cinq suivants. `0,77ⁿ` tient les deux bords : 95 et 26.
+  assert.ok(crans[5].lambda >= 90 && crans[5].lambda <= 150,
+    `la pénalité vaut environ 100 à 150 au cran 5, elle vaut ${crans[5].lambda}`);
+  assert.ok(crans[10].lambda >= 10 && crans[10].lambda <= 30,
+    `la pénalité vaut environ 10 à 25 au cran 10, elle vaut ${crans[10].lambda}`);
   // ★ **ET LE CURSEUR VA MAINTENANT À DIX.** Les trois crans ajoutés ne
   //   pouvaient rien montrer tant que la génération plafonnait ; elle suit
   //   désormais, donc ils portent quelque chose.
@@ -734,42 +740,35 @@ test('★ le cran élargit le travail et les places, et relâche la redondance',
 });
 
 /**
- * ★ **CE QUE L'AUTEUR A ARBITRÉ, ET QUE LES FORMULES DOIVENT REPRODUIRE.**
+ * ★ **LES LOIS SONT DICTÉES, ET C'EST LE TEST QUI LES ÉNONCE.**
  *
- * > « Aucun des crans 0 à 7 ne devrait bouger, et l'ensemble des seuils qui
- * >   bougent entre 0 et 7 devraient bouger au-delà jusqu'à 10 — et pas avec une
- * >   table, avec une formule. » (l'auteur)
+ * > « Largeur d'assemblage, tu peux tenter round(8 × 1,2ⁿ) ; quota round(2 ×
+ * >   1,5ⁿ) ; places dans la liste round(20 × 1,5ⁿ). » (l'auteur)
  *
- * Les quatre lois de `config.js` sont AJUSTÉES sur les valeurs ci-dessous, qui
- * furent d'abord des tables écrites à la main. C'est ici qu'elles vivent
- * désormais, et c'est leur place : le code porte la LOI, le test porte
- * l'ARBITRAGE qu'elle doit honorer. Une loi retouchée sans que ces huit valeurs
- * soient revues casse ce test, et c'est exactement ce qu'on lui demande — un
- * lien `f5!` partagé hier doit rendre la même liste aujourd'hui.
+ * Le code porte la LOI, le test porte les VALEURS qu'elle doit rendre. Écrire
+ * les onze nombres ici n'est pas dupliquer la table qu'on vient de retirer :
+ * c'est la seule façon qu'un coefficient changé par inadvertance — un `1,2` qui
+ * devient `1,3` — se signale, au lieu de déplacer en silence toutes les listes
+ * du site.
  *
- * ⚠️ **UN SEUL ÉCART, ET IL EST INSCRIT ICI : le cran 6 des places, 168 → 166.**
- *   La suite 12, 19, 29, 45, 70, 108, 168, 256 n'est traversée par AUCUNE loi
- *   géométrique — ni `a·rⁿ`, ni `a·rⁿ+b`, ni `a·rⁿ+c·n`, sous aucun des trois
- *   arrondis. Le seul point fautif est ce 168 : en le retirant, quarante-sept
- *   lois passent par les sept autres, et toutes rendent 166. Deux places de
- *   moins sur un seul cran, contre une table qu'on ne peut pas prolonger.
+ * ★ **ET LES TROIS LOIS SONT SIMPLES, MAINTENANT QU'ON NE POURSUIT PLUS UNE
+ *   TABLE ARBITRÉE À LA MAIN.** L'ajustement précédent demandait des
+ *   coefficients à trois décimales (12,4 × 1,541ⁿ) pour retomber sur des
+ *   nombres posés un à un, et manquait quand même le cran 6. Des lois choisies
+ *   POUR ELLES-MÊMES s'écrivent avec un entier et une raison ronde.
  */
-test('★ les formules du cran reproduisent l’arbitrage de l’auteur, cran par cran', () => {
-  const HISTORIQUE = {
-    voies: [12, 19, 29, 45, 70, 108, 166, 256],
-    parMappeur: [2, 3, 4, 6, 9, 14, 21, 32],
-    parFragment: [8, 9, 11, 13, 15, 18, 21, 24],
-    lambda: [350, 305, 260, 215, 170, 125, 80, 35],
+test('★ les formules du cran rendent exactement les lois dictées', () => {
+  const ATTENDU = {
+    voies: [20, 30, 45, 68, 101, 152, 228, 342, 513, 769, 1153],
+    parMappeur: [2, 3, 5, 7, 10, 15, 23, 34, 51, 77, 115],
+    parFragment: [8, 10, 12, 14, 17, 20, 24, 29, 34, 41, 50],
+    lambda: [350, 270, 208, 160, 123, 95, 73, 56, 43, 33, 26],
   };
-  for (const [cle, attendu] of Object.entries(HISTORIQUE)) {
+  for (const [cle, attendu] of Object.entries(ATTENDU)) {
+    assert.equal(attendu.length, PUISSANCE_DE_FOUILLE_MAX + 1, `${cle} : un cran manque`);
     const rendu = attendu.map((_, n) => reglagesDeBudget(n)[cle]);
-    assert.deepEqual(rendu, attendu, `${cle} : la formule s’écarte de l’arbitrage`);
+    assert.deepEqual(rendu, attendu, `${cle} : la formule s’écarte de la loi dictée`);
   }
-  // ★ Et au-delà, la loi CONTINUE — c'est tout l'intérêt d'une formule : les
-  //   trois crans ajoutés se déduisent, ils ne s'inventent pas.
-  const dix = reglagesDeBudget(PUISSANCE_DE_FOUILLE_MAX);
-  assert.deepEqual(
-    [dix.voies, dix.parMappeur, dix.parFragment, dix.lambda], [936, 107, 39, 25]);
 });
 
 /**
