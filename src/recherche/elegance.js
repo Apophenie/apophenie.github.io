@@ -2165,7 +2165,7 @@ export function classeDeTransformation(op, avant) {
 // Lecture des états — tout est entier, tout est pur
 // ══════════════════════════════════════════════════════════════════════════════
 
-const estAlnum = (c) => /[0-9\p{L}]/u.test(c);
+export const estAlnum = (c) => /[0-9\p{L}]/u.test(c);
 
 /** Les valeurs d'un état, sous forme de tableau — un `NUM` en porte une. */
 function valeursDe(e) {
@@ -2608,16 +2608,42 @@ export function amplitudeArrondi(valeurs) {
  * final. C'est le même masque que le critère de couverture (§5), et pour la
  * même raison : personne ne reproche à une démonstration d'ignorer un protocole.
  */
-export function abandons(approche, ctx) {
+/**
+ * ★ **LES CARACTÈRES QUE LA DÉMONSTRATION GARDE VRAIMENT** — un masque, et deux
+ *   lecteurs.
+ *
+ * Il ne suffit pas qu'une portée COUVRE un caractère pour qu'elle s'en serve :
+ * un filtre le lit puis le jette. `survieDesCaracteres` sait remonter la chaîne
+ * de textes du chemin et dire lesquels sont encore là quand les nombres
+ * prennent le relais ; cette fonction en fait un masque sur la saisie entière.
+ *
+ * ★ **DEUX LECTEURS, ET C'EST TOUT L'ENJEU.** `abandons` s'en sert pour compter
+ *   ce qui a été jeté et le facturer au crédit d'élégance ; `score.js ›
+ *   couvertureApproche` s'en sert pour ne pas créditer une voie de caractères
+ *   qu'elle a écartés. Les deux DOIVENT lire le même masque : c'est la doctrine
+ *   « ce qui est montré est ce qui est compté » (§0.3), et deux marquages
+ *   parallèles auraient divergé au premier filtre ajouté.
+ *
+ * ★ **`couverts` EST RENDU À CÔTÉ DE `vus`, et ce n'est pas un doublon.** Un
+ *   caractère peut être SURVOLÉ par une portée sans être GARDÉ par le chemin :
+ *   c'est toute la différence que cette fonction sert à faire. Mais la
+ *   ponctuation jetée ne se reproche à personne (« personne ne reproche à une
+ *   méthode d'ignorer un point »), et pour le dire il faut savoir qu'elle était
+ *   au moins dans la portée. L'appelant tranche ; on ne préjuge pas ici.
+ *
+ * @returns {{vus: Uint8Array, couverts: Uint8Array, opaque: boolean}}
+ */
+export function caracteresRetenus(approche, ctx) {
   const saisie = String((ctx && ctx.saisie) || '');
-  const caracteres = [...saisie];
-  const masque = ctx && ctx.signifiants ? ctx.signifiants.masque : null;
-  const vus = new Uint8Array(caracteres.length);
-
+  const vus = new Uint8Array([...saisie].length);
+  const couverts = new Uint8Array(vus.length);
   let opaque = false;
-  for (const p of approche.parts || []) {
+  for (const p of (approche && approche.parts) || []) {
     const survie = survieDesCaracteres(p.chemin);
     const base = p.fragment && Number.isInteger(p.fragment.offset) ? p.fragment.offset : 0;
+    for (const [d, f] of intervallesDe(p.fragment)) {
+      for (let i = d; i < f && i < couverts.length; i++) if (i >= 0) couverts[i] = 1;
+    }
     if (survie.opaque) {
       // On ne sait plus qui vient d'où : on crédite la portée ENTIÈRE plutôt
       // que d'inventer des victimes. L'approche n'est pas punie de notre
@@ -2634,6 +2660,14 @@ export function abandons(approche, ctx) {
       if (g >= 0 && g < vus.length) vus[g] = 1;
     }
   }
+  return { vus, couverts, opaque };
+}
+
+export function abandons(approche, ctx) {
+  const saisie = String((ctx && ctx.saisie) || '');
+  const caracteres = [...saisie];
+  const masque = ctx && ctx.signifiants ? ctx.signifiants.masque : null;
+  const { vus, opaque } = caracteresRetenus(approche, ctx);
 
   // Les blocs de la saisie : suites maximales de lettres et de chiffres.
   const blocs = [];

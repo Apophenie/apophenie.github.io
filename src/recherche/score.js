@@ -13,7 +13,7 @@
 
 import { estDecret } from './titres.js';
 // ★ `elegance.js` n'importe RIEN : la dépendance est à sens unique, sans cycle.
-import { OPERATEURS_QUI_ECARTENT } from './elegance.js';
+import { OPERATEURS_QUI_ECARTENT, caracteresRetenus, estAlnum } from './elegance.js';
 import { normaliserCible, indexUtiles } from './cible.js';
 import { CODES_NON_FACTURES, MAX_SERIES } from '../config.js';
 import {
@@ -1444,18 +1444,55 @@ function nbSignifiants(fragment, ctx) {
   return n;
 }
 
+/**
+ * ★ **LA COUVERTURE COMPTE CE QUI SURVIT, PAS CE QUI EST SURVOLÉ.**
+ *
+ * > « La voie était classée "Exhaustivité 1000", or `fc` retire 5 des lettres —
+ * >   certes de manière élégante (faible pénalité), mais les retire quand même.
+ * >   L'exhaustivité ne peut être à 1000. » (l'auteur)
+ *
+ * Elle marquait l'INTERVALLE du fragment : dès qu'une portée couvrait un
+ * caractère, il était compté « utilisé », que le chemin le garde ou le jette.
+ * Sur `Capitalisme → fc+tca+mqwc+meg`, le fragment est le mot entier, donc onze
+ * caractères sur onze — et U valait mille alors que le filtre en jette cinq.
+ * L'exhaustivité, qui est la moyenne de U et du rendement, affichait 1000 pour
+ * une voie qui ne lisait que six lettres.
+ *
+ * ⚠️ **ET LE MOTEUR SAVAIT DÉJÀ.** Le bilan d'élégance portait le compte exact
+ *   — `abandons: { alnum: 5, signifiants: 11, lus: 6 }` — depuis le début. Ce
+ *   n'était pas une mesure à inventer, c'était un chiffre à BRANCHER : la même
+ *   fonction sert désormais aux deux (`elegance.js › caracteresRetenus`), si
+ *   bien qu'un filtre ne peut plus être facturé d'un côté et ignoré de l'autre.
+ *
+ * ⚠️ **MAIS LA PONCTUATION JETÉE NE SE REPROCHE À PERSONNE**, et l'oublier a
+ *   coûté cher : la première version de ce correctif punissait `fl` d'avoir
+ *   écarté les tirets de `hope-hope-hope.fr`. La voie que l'auteur a nommée
+ *   lui-même — `fl+tca+m14`, cinq séries de 666 — passait de 7 843 points à
+ *   moins de 1 885, et cédait la tête de liste à une voie EMPLOYANT UNE
+ *   FICELLE. Le masque des zones signifiantes ne distingue pas la ponctuation
+ *   (il n'écarte que le décor d'une URL) ; c'est `abandons` qui portait la
+ *   règle, et elle est reprise ici mot pour mot : « personne ne reproche à une
+ *   méthode d'ignorer un point ».
+ *
+ *   Un caractère compte donc comme utilisé s'il est ALNUM ET survivant, ou
+ *   simplement lu quand il n'est pas alnum.
+ *
+ * ★ Le repli `opaque` est conservé tel quel : quand la chaîne ne permet plus de
+ *   savoir quel caractère vient d'où, on crédite la portée entière plutôt que
+ *   d'inventer des victimes. Ne pas savoir n'est pas savoir que non.
+ */
 function couvertureApproche(approche, ctx) {
   const total = ctx.signifiants ? ctx.signifiants.total : 0;
   if (!total) return { utilises: 0, brut: MILLE };
   const masque = ctx.signifiants.masque;
-  const vu = new Uint8Array(masque.length);
-  for (const p of approche.parts) {
-    for (const [d, f] of intervallesDe(p.fragment)) {
-      for (let i = d; i < f; i++) if (i >= 0 && i < vu.length) vu[i] = 1;
-    }
-  }
+  const caracteres = [...String(ctx.saisie || '')];
+  const { vus, couverts } = caracteresRetenus(approche, ctx);
   let utilises = 0;
-  for (let i = 0; i < masque.length; i++) if (masque[i] && vu[i]) utilises++;
+  for (let i = 0; i < masque.length; i++) {
+    if (!masque[i]) continue;
+    const alnum = i < caracteres.length && estAlnum(caracteres[i]);
+    if (alnum ? vus[i] : couverts[i]) utilises++;
+  }
   return { utilises, brut: Math.floor((utilises * MILLE) / total) };
 }
 
