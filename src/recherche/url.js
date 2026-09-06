@@ -621,14 +621,19 @@ const RE_CURSEURS = /^p([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)!/;
 /**
  * Le marqueur de PUISSANCE DE FOUILLE — `f3!`.
  *
- * UN SEUL CHIFFRE : la réglette va de 0 à 7 (`config.js ›
- * PUISSANCE_DE_FOUILLE_MAX`). `f8!` et `f9!` sont bornés à 7, comme un curseur
- * poussé au-delà de sa butée ; `f12!` n'est pas un cran mais une faute de
- * frappe, et il échoue bruyamment plus loin (« fragment illisible ») plutôt que
- * de se faire deviner. Un chiffre de plus ne serait pas une tolérance, ce serait
- * une invention.
+ * UN OU DEUX CHIFFRES, depuis que la réglette va de 0 à **10** (`config.js ›
+ * PUISSANCE_DE_FOUILLE_MAX`). `f11!` et `f99!` sont bornés à 10, comme un
+ * curseur poussé au-delà de sa butée ; `f123!` n'est pas un cran mais une faute
+ * de frappe, et il échoue bruyamment plus loin (« fragment illisible ») plutôt
+ * que de se faire deviner. Un chiffre de plus ne serait pas une tolérance, ce
+ * serait une invention.
+ *
+ * ⚠️ **ET LES LIENS D'AVANT RESTENT LISIBLES**, puisque `[0-9]{1,2}` accepte
+ *   toujours la forme à un chiffre : un `f7!` partagé hier désigne le même cran
+ *   qu'aujourd'hui. C'est ce que le §4.4 exige d'un lien — il rend ce qu'il
+ *   promet, ou il ne promet rien.
  */
-const RE_FOUILLE = /^f([0-9])!/;
+const RE_FOUILLE = /^f([0-9]{1,2})!/;
 
 /**
  * Les quatre curseurs au cran par défaut, figés une fois.

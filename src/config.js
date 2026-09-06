@@ -157,7 +157,30 @@ export const TRANCHE_MS = 12;
  * qu'un lien qui ne la porterait pas rendrait autre chose que ce qu'on partage.
  */
 export const PUISSANCE_DE_FOUILLE_DEFAUT = 0;
-export const PUISSANCE_DE_FOUILLE_MAX = 7;
+
+/**
+ * ★ **LE CURSEUR VA JUSQU'À DIX, et c'est la levée du plafond de génération qui
+ *   l'a rendu utile.**
+ *
+ * > « Le plafond ne me semble pas trop haut. Au contraire. Peux-tu pousser le
+ * >   curseur pour qu'on puisse aller non pas jusqu'à 7 mais jusqu'à 10 ? »
+ * >   (l'auteur)
+ *
+ * Il s'est arrêté à sept tant que les crans du haut ne montraient RIEN de plus :
+ * la génération butait sur huit vecteurs par fragment quel que soit le cran, si
+ * bien qu'au-delà du point où la recherche avait fini, pousser ne faisait
+ * qu'attendre. Ce plafond suit désormais le cran, et les trois crans ajoutés
+ * portent quelque chose.
+ *
+ * ⚠️ **DEUX DES QUATRE BUDGETS SONT DÉJÀ À LEUR BUTÉE AVANT LE CRAN 8**, et
+ *   c'est voulu : le filet temporel plafonne à 128 s dès le cran 4, la
+ *   profondeur à 32 dès le cran 6 — deux bornes que l'auteur a posées au mot
+ *   près (« profondeur max autour de 32 et durée à 128 s »). Ce que les crans 8
+ *   à 10 élargissent réellement, c'est le budget de TRAVAIL — déterministe,
+ *   ×1024 au bout — et les trois tables ci-dessous. Un cran qui ne bougerait
+ *   plus rien serait un mensonge d'interface.
+ */
+export const PUISSANCE_DE_FOUILLE_MAX = 10;
 
 /**
  * Les budgets d'un cran de fouille.
@@ -213,8 +236,8 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
     //     ajoute quatre voies et un demi-mappeur par cran, ce qui mène de douze
     //     places et deux voies par méthode à quarante et cinq — beaucoup, et
     //     encore consultable.
-    voies: VOIES_PAR_CRAN[n],
-    parMappeur: PAR_MAPPEUR_PAR_CRAN[n],
+    voies: placesDeLaListe(n),
+    parMappeur: voiesParMappeur(n),
     // ★ **ET LA PÉNALITÉ DE REDONDANCE MONTE AVEC EUX** — « si le seuil est à
     //   350, j'aimerais qu'avec la profondeur de recherche on finisse vers
     //   910 » (l'auteur). Quatre-vingts points par cran, ce qui tombe
@@ -240,7 +263,7 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
     //     méthode — ce qu'un chercheur qui pousse le curseur à fond vient
     //     précisément chercher. Le cran d'ouverture, lui, ne bouge pas d'un
     //     point : la liste courte reste variée.
-    lambda: LAMBDA_MMR_BASE - 45 * n,
+    lambda: penaliteDeRedondance(n),
     // ⚠️ **LE VRAI GOULOT N'ÉTAIT PAS LÀ OÙ ON L'AVAIT CHERCHÉ, et l'auteur
     //   avait raison de vouloir instrumenter : « le cas n'est pas grave mais le
     //   symptôme l'est ».**
@@ -261,7 +284,7 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
     //     `MAX_VECTEURS_PAR_FRAGMENT`, huit vecteurs par fragment porteur, dans
     //     un autre générateur. Les deux suivent désormais ce réglage ; les
     //     quatre voies sont revenues, et la liste passe de 28 à 76 candidates.
-    parFragment: PAR_FRAGMENT_PAR_CRAN[n],
+    parFragment: largeurDAssemblage(n),
   };
 }
 
@@ -271,51 +294,145 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
 export const LAMBDA_MMR_BASE = 350;
 
 /**
- * ★ **LES PLACES, CRAN PAR CRAN — une table plutôt qu'une formule.**
+ * ★ **QUATRE FORMULES, ET PLUS UNE SEULE TABLE ÉCRITE À LA MAIN.**
+ *
+ * > « L'ensemble des seuils qui bougent entre 0 et 7 devraient bouger au-delà
+ * >   jusqu'à 10, et pas avec une table, avec une formule. Si par exemple, pour
+ * >   lambda, tu ne peux pas descendre en dessous de 0, prends une formule
+ * >   asymptotique. » (l'auteur)
+ *
+ * Les quatre réglages que le cran commande étaient huit entiers chacun, posés à
+ * la main. Une table ne se prolonge pas : allonger le curseur de sept à dix
+ * demandait d'inventer trois nombres de plus par réglage, sans rien qui dise
+ * s'ils sont à leur place. Une formule, elle, DIT la loi de croissance, et le
+ * onzième cran s'en déduit comme le troisième.
+ *
+ * ★ **ET LES PARAMÈTRES SONT AJUSTÉS SUR LES VALEURS HISTORIQUES, pas choisis.**
+ *   Chaque couple (a, r) ci-dessous est la solution d'un système : reproduire au
+ *   pour-mille près, arrondi compris, les huit valeurs que l'auteur avait
+ *   arbitrées. Trois des quatre y arrivent EXACTEMENT.
+ *
+ * ⚠️ **LA QUATRIÈME A UN ÉCART, ET IL EST DIT PLUTÔT QUE MASQUÉ : le cran 6 des
+ *   places passe de 168 à 166.** La table historique — 12, 19, 29, 45, 70, 108,
+ *   168, 256 — n'est PAS géométrique : aucune loi de la forme `a·rⁿ`, `a·rⁿ+b`,
+ *   `a·rⁿ+c·n` ni aucun des trois arrondis ne la traverse. Le seul point fautif
+ *   est ce 168 ; en le retirant, quarante-sept lois passent par les sept autres,
+ *   et toutes rendent 166 à sa place. Deux places de moins sur un seul cran,
+ *   contre une table figée pour toujours : l'échange est dit ici, il n'est pas
+ *   subi ailleurs.
+ */
+
+/**
+ * ★ **LES PLACES DE LA LISTE** — `round(12,4 × 1,541ⁿ)`.
  *
  * > « Élargis le nombre de places de 40 à 250 ou 256 quand on arrive au palier
- * >   7 (ce qui va impliquer une pagination des résultats, 10 par page max,
- * >   donc 25 pages max). » (l'auteur)
+ * >   7 (ce qui va impliquer une pagination des résultats, 10 par page max). »
  *
- * La progression est géométrique de raison ≈ 1,55 — `12 × (256/12)^(n/7)` —, ce
- * qui mène de douze places à deux cent cinquante-six sans palier brutal. Elle
- * est ÉCRITE et non calculée : `Math.pow` sur des flottants rendrait des rangs
- * dépendants d'un arrondi, là où le §4.4 exige un déterminisme strict, et une
- * table de huit entiers se relit d'un coup d'œil.
+ * Une croissance de 54,1 % par cran, ce qui mène de douze places à deux cent
+ * cinquante-six au septième — la borne que l'auteur a posée — et à neuf cent
+ * trente-six au dixième, soit quatre-vingt-quatorze pages.
  */
-export const VOIES_PAR_CRAN = Object.freeze([12, 19, 29, 45, 70, 108, 168, 256]);
+export function placesDeLaListe(n) {
+  return Math.round(12.4 * (1.541 ** n));
+}
 
 /**
- * Le quota par mappeur suit les places, à raison d'un huitième : sans lui, deux
- * cent cinquante-six places ne pourraient pas se remplir — il n'existe qu'une
+ * ★ **LE QUOTA PAR MAPPEUR** — `round(1,85 × 1,5ⁿ)`, une fois et demie par cran.
+ *
+ * Sans lui, les places du haut ne pourraient pas se remplir : il n'existe qu'une
  * trentaine de mappeurs, et cinq voies chacun n'en feraient que cent cinquante.
+ * La loi reproduit EXACTEMENT les huit valeurs historiques, de deux à
+ * trente-deux, et poursuit jusqu'à cent sept.
  */
-export const PAR_MAPPEUR_PAR_CRAN = Object.freeze([2, 3, 4, 6, 9, 14, 21, 32]);
+export function voiesParMappeur(n) {
+  return Math.round(1.85 * (1.5 ** n));
+}
 
 /**
- * ★ **COMBIEN DE CHEMINS PAR FRAGMENT L'ASSEMBLAGE GARDE — le plafond qui
- *   commande tous les autres.**
+ * ★ **LA LARGEUR D'ASSEMBLAGE** — `round(8 × 1,172ⁿ)`, le plafond qui commande
+ *   tous les autres.
  *
  * Une approche assemblée choisit un chemin dans chaque fragment : le nombre de
- * combinaisons possibles est donc `K^(nombre de parts)`. À huit, une moisson à
- * trois portées ne dispose que de cinq cent douze combinaisons AVANT
- * dédoublonnage, et il n'en survit que quelques dizaines — d'où les vingt-huit
- * candidates mesurées là où la liste en offrait deux cent cinquante-six.
- *
- * ⚠️ **ET C'EST UNE PUISSANCE, PAS UNE SOMME.** Doubler K multiplie les
- *   combinaisons par huit sur trois portées : la progression reste donc DOUCE —
- *   de huit à vingt-quatre — là où les places triplent.
- *
- * ⚠️ **LE COÛT EST RÉEL, ET IL EST À DIRE PLUTÔT QU'À TAIRE.** Sur une URL au
- *   cran 7, la résolution passe de 27,6 s à 63,9 s, pour 153 voies au lieu de
- *   la petite centaine d'avant. Le filet temporel ne l'abrège pas : il borne
- *   `chercherSix`, pas l'assemblage. Le cran 0 ne bouge PAS d'une milliseconde
- *   (3,1 s, douze voies, K à huit comme avant), et c'est ce qui rend l'échange
- *   acceptable — une minute au cran 7 est demandée par qui pousse le curseur à
- *   fond, jauge sous les yeux. La suite de recherche, elle, passe de 380 s à
- *   405 s : +7 %, et rien de rouge.
+ * combinaisons est donc `K^(nombre de parts)`, et 17,2 % de plus par cran suffit
+ * à tripler K sur la course entière. C'est LUI qui décide combien d'approches
+ * peuvent seulement EXISTER — vingt-huit candidates entraient dans une
+ * sélection qui en offrait deux cent cinquante-six tant qu'il valait huit à tous
+ * les crans. La loi reproduit EXACTEMENT les huit valeurs historiques.
  */
-export const PAR_FRAGMENT_PAR_CRAN = Object.freeze([8, 9, 11, 13, 15, 18, 21, 24]);
+export function largeurDAssemblage(n) {
+  return Math.round(8 * (1.172 ** n));
+}
+
+/**
+ * ★ **LA PÉNALITÉ DE REDONDANCE DU MMR** — `max(350 − 45n, 280/(n+1))`, en
+ *   pour-mille.
+ *
+ * > « 350 au palier de départ, et entre 10 et 50 pour le palier 7. » (l'auteur)
+ *
+ * La droite descend de quarante-cinq points par cran et tombe juste sur 35 au
+ * septième — l'arbitrage de l'auteur, au chiffre près. Prolongée telle quelle,
+ * elle passerait à **−100** au cran 10 : le MMR ne serait plus un compromis mais
+ * une PRIME à la redondance, puisqu'une pénalité négative récompense ce qu'elle
+ * devrait punir.
+ *
+ * ★ **D'OÙ LA BRANCHE HARMONIQUE, et pourquoi elle ne coupe pas la droite en
+ *   deux.** `280/(n+1)` vaut exactement 35 au cran 7 — les deux lois s'y
+ *   rejoignent —, reste SOUS la droite partout avant, et passe au-dessus dès
+ *   qu'elle devient négative. Le `max` suffit donc à les raccorder : une seule
+ *   expression, sans condition, exacte de 0 à 7, et asymptotique ensuite —
+ *   31, 28, 25 aux trois derniers crans. Elle tend vers zéro sans jamais
+ *   l'atteindre, ce qu'aucune droite ne sait faire.
+ */
+export function penaliteDeRedondance(n) {
+  return Math.round(Math.max(LAMBDA_MMR_BASE - 45 * n, 280 / (n + 1)));
+}
+
+/**
+ * ★ **CE QUE LE CRAN COMMANDE, décrit une fois pour toutes** — lu par
+ *   `app/pages/debug.js`, qui en dresse le tableau sans recopier un chiffre.
+ *
+ * Chaque entrée porte sa loi EN TEXTE et la FONCTION qui la calcule. La page de
+ * debug affiche la première et appelle la seconde : si elles divergeaient, c'est
+ * la table affichée qui aurait raison, et l'écart se verrait à l'œil.
+ */
+export const REGLAGES_DU_CRAN = Object.freeze([
+  Object.freeze({
+    cle: 'voies', nom: 'Places de la liste',
+    formule: 'round(12,4 × 1,541ⁿ)', calcul: placesDeLaListe,
+    role: 'combien de voies la liste peut montrer',
+  }),
+  Object.freeze({
+    cle: 'parMappeur', nom: 'Quota par mappeur',
+    formule: 'round(1,85 × 1,5ⁿ)', calcul: voiesParMappeur,
+    role: 'combien de voies une même méthode peut occuper',
+  }),
+  Object.freeze({
+    cle: 'parFragment', nom: 'Largeur d’assemblage',
+    formule: 'round(8 × 1,172ⁿ)', calcul: largeurDAssemblage,
+    role: 'combien de chemins et de vecteurs chaque fragment fournit',
+  }),
+  Object.freeze({
+    cle: 'lambda', nom: 'Pénalité de redondance (‰)',
+    formule: 'max(350 − 45n, 280/(n+1))', calcul: penaliteDeRedondance,
+    role: 'ce que coûte à une voie de ressembler à une voisine',
+  }),
+  Object.freeze({
+    cle: 'facteur', nom: 'Budget de travail (×)',
+    formule: '2ⁿ', calcul: (n) => 2 ** n,
+    role: 'le multiplicateur déterministe des budgets d’exploration',
+  }),
+  Object.freeze({
+    cle: 'budgetMsFilet', nom: 'Filet temporel (ms)',
+    formule: 'min(128 000, 1 000 × 2ⁿ)', calcul: (n) => Math.min(BUDGET_MS_PLAFOND, BUDGET_MS_FILET * (2 ** n)),
+    role: 'la borne à l’horloge — plafonnée dès le cran 7',
+  }),
+  Object.freeze({
+    cle: 'dMax', nom: 'Profondeur d’exploration',
+    formule: 'min(32, 15 + 4·max(0, n − 2))',
+    calcul: (n) => Math.min(D_MAX_PLAFOND, D_MAX_BASE + Math.max(0, n - PUISSANCE_ENUMERATION) * 4),
+    role: 'la longueur maximale d’un programme — plafonnée dès le cran 6',
+  }),
+]);
 
 /** Les douze places de la liste, au cran d'ouverture — `reglagesDeBudget` les
  *  élargit ensuite. Le chiffre historique de `score.js › REGLAGES`. */

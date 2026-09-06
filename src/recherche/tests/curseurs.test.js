@@ -23,7 +23,7 @@ import {
   ordreTotal, ordrePondere, rangPondere, rangConviction, RANG,
 } from '../score.js';
 import {
-  reglagesDeBudget, normaliserPuissance,
+  reglagesDeBudget, normaliserPuissance, REGLAGES_DU_CRAN,
   PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX,
   BUDGET_TOTAL_MS, BUDGET_MS_FILET, BUDGET_MS_PLAFOND, MAX_SERIES,
 } from '../../config.js';
@@ -386,9 +386,9 @@ test('curseurs — aucun score ne sature le plafond de 10 000', () => {
 
 // ══════════════════════════════════ la puissance de fouille
 
-test('fouille — la réglette est bien 2^N, de 0 à 7, et le cran 0 est l’identité', () => {
+test('fouille — la réglette est bien 2^N, de 0 à 10, et le cran 0 est l’identité', () => {
   assert.equal(PUISSANCE_DE_FOUILLE_DEFAUT, 0);
-  assert.equal(PUISSANCE_DE_FOUILLE_MAX, 7);
+  assert.equal(PUISSANCE_DE_FOUILLE_MAX, 10);
   for (let n = 0; n <= PUISSANCE_DE_FOUILLE_MAX; n++) {
     const r = reglagesDeBudget(n);
     assert.equal(r.puissance, n);
@@ -400,7 +400,10 @@ test('fouille — la réglette est bien 2^N, de 0 à 7, et le cran 0 est l’ide
     //   dépense en applications d'opérateurs, alors que le temps est un FILET —
     //   et un filet qui ne ferme jamais n'en est plus un.
     assert.equal(r.budgetTotalMs, Math.min(BUDGET_MS_PLAFOND, BUDGET_TOTAL_MS * (2 ** n)));
-    assert.equal(r.budgetMsFilet, BUDGET_MS_FILET * (2 ** n));
+    // ⚠️ **LE FILET AUSSI EST PLAFONNÉ, et il touche sa butée PILE au cran 7** —
+    //   1 000 ms × 128 = 128 000. Le test l'ignorait sans mentir : il n'existait
+    //   pas de cran où la borne mordait. Le curseur poussé à dix l'a révélé.
+    assert.equal(r.budgetMsFilet, Math.min(BUDGET_MS_PLAFOND, BUDGET_MS_FILET * (2 ** n)));
   }
   const zero = reglagesDeBudget(0);
   assert.equal(zero.facteur, 1, 'au défaut, pas un budget ne change de valeur');
@@ -534,7 +537,11 @@ test('url — les crans hors glissière sont bornés, un marqueur amputé est re
   assert.deepEqual(lu.curseurs, {
     simplicite: CURSEUR_MAX, exhaustivite: 0, quantite: 0, coherence: CURSEUR_MAX,
   });
-  assert.equal(lire('#f9!#3fq9KJ').fouille, PUISSANCE_DE_FOUILLE_MAX);
+  // ★ Deux chiffres depuis que la réglette va à dix — et la forme à un chiffre
+  //   des liens d'hier continue de désigner le même cran.
+  assert.equal(lire('#f9!#3fq9KJ').fouille, 9);
+  assert.equal(lire('#f10!#3fq9KJ').fouille, 10);
+  assert.equal(lire('#f99!#3fq9KJ').fouille, PUISSANCE_DE_FOUILLE_MAX);
   // Trois champs au lieu de quatre : on ne sait pas lequel manque, donc on ne
   // sait pas ce qu'on rejoue. Échec bruyant, jamais deviné.
   const ampute = lire('#p10.20.30!#3fq9KJ');
@@ -690,7 +697,7 @@ test('★ curseurs — déterminisme : deux appels identiques rendent la même l
  *   curseur à fond.
  */
 test('★ le cran élargit le travail et les places, et relâche la redondance', () => {
-  const crans = [0, 1, 2, 3, 4, 5, 6, 7].map((n) => reglagesDeBudget(n));
+  const crans = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => reglagesDeBudget(n));
   for (let i = 1; i < crans.length; i++) {
     const a = crans[i - 1];
     const b = crans[i];
@@ -702,18 +709,93 @@ test('★ le cran élargit le travail et les places, et relâche la redondance',
   }
   // Les bornes, telles que l'auteur les a posées.
   assert.deepEqual([crans[0].voies, crans[0].parMappeur, crans[0].lambda], [12, 2, 350]);
-  assert.equal(crans[7].voies, 256, 'deux cent cinquante-six places au bout du curseur');
+  assert.equal(crans[7].voies, 256, 'deux cent cinquante-six places au septième cran');
   assert.ok(crans[7].lambda >= 10 && crans[7].lambda <= 50,
-    `la pénalité finit entre 10 et 50 pour-mille, elle vaut ${crans[7].lambda}`);
+    `la pénalité passe entre 10 et 50 pour-mille au cran 7, elle vaut ${crans[7].lambda}`);
+  // ★ **ET LE CURSEUR VA MAINTENANT À DIX.** Les trois crans ajoutés ne
+  //   pouvaient rien montrer tant que la génération plafonnait ; elle suit
+  //   désormais, donc ils portent quelque chose.
+  assert.equal(crans.length, PUISSANCE_DE_FOUILLE_MAX + 1,
+    'une entrée par cran, pas une de moins — un cran sans réglage rendrait undefined');
   // ⚠️ Elle ne doit jamais s'annuler : à zéro, le MMR ne serait plus qu'un tri,
   //   et rien n'empêcherait vingt-cinq pages de la même méthode.
-  assert.ok(crans[7].lambda > 0, 'la redondance se relâche, elle ne disparaît pas');
+  // ⚠️ **UNE PÉNALITÉ NÉGATIVE SERAIT UNE PRIME À LA REDONDANCE**, et la droite
+  //   de 45 points par cran y menait tout droit (−100 au cran 10).
+  assert.ok(crans[PUISSANCE_DE_FOUILLE_MAX].lambda > 0,
+    'la redondance se relâche, elle ne disparaît pas et ne s’inverse jamais');
   // ★ **ET LA LARGEUR D'ASSEMBLAGE, qui était le VRAI plafond.** Élargir les
   //   places ne montrait rien de neuf tant que la génération butait sur huit
   //   vecteurs par fragment : mesuré au cran 7, vingt-huit candidates
   //   produites, vingt-huit retenues — la sélection ne rejetait rien.
   //   Le cran 0 garde le huit historique : la liste courte ne bouge pas.
   assert.equal(crans[0].parFragment, 8, 'le cran d’ouverture garde la largeur historique');
-  assert.ok(crans[7].parFragment >= 3 * crans[0].parFragment,
-    `la largeur triple au moins au bout, elle vaut ${crans[7].parFragment}`);
+  assert.ok(crans[PUISSANCE_DE_FOUILLE_MAX].parFragment >= 3 * crans[0].parFragment,
+    `la largeur triple au moins au bout, elle vaut ${crans[PUISSANCE_DE_FOUILLE_MAX].parFragment}`);
+});
+
+/**
+ * ★ **CE QUE L'AUTEUR A ARBITRÉ, ET QUE LES FORMULES DOIVENT REPRODUIRE.**
+ *
+ * > « Aucun des crans 0 à 7 ne devrait bouger, et l'ensemble des seuils qui
+ * >   bougent entre 0 et 7 devraient bouger au-delà jusqu'à 10 — et pas avec une
+ * >   table, avec une formule. » (l'auteur)
+ *
+ * Les quatre lois de `config.js` sont AJUSTÉES sur les valeurs ci-dessous, qui
+ * furent d'abord des tables écrites à la main. C'est ici qu'elles vivent
+ * désormais, et c'est leur place : le code porte la LOI, le test porte
+ * l'ARBITRAGE qu'elle doit honorer. Une loi retouchée sans que ces huit valeurs
+ * soient revues casse ce test, et c'est exactement ce qu'on lui demande — un
+ * lien `f5!` partagé hier doit rendre la même liste aujourd'hui.
+ *
+ * ⚠️ **UN SEUL ÉCART, ET IL EST INSCRIT ICI : le cran 6 des places, 168 → 166.**
+ *   La suite 12, 19, 29, 45, 70, 108, 168, 256 n'est traversée par AUCUNE loi
+ *   géométrique — ni `a·rⁿ`, ni `a·rⁿ+b`, ni `a·rⁿ+c·n`, sous aucun des trois
+ *   arrondis. Le seul point fautif est ce 168 : en le retirant, quarante-sept
+ *   lois passent par les sept autres, et toutes rendent 166. Deux places de
+ *   moins sur un seul cran, contre une table qu'on ne peut pas prolonger.
+ */
+test('★ les formules du cran reproduisent l’arbitrage de l’auteur, cran par cran', () => {
+  const HISTORIQUE = {
+    voies: [12, 19, 29, 45, 70, 108, 166, 256],
+    parMappeur: [2, 3, 4, 6, 9, 14, 21, 32],
+    parFragment: [8, 9, 11, 13, 15, 18, 21, 24],
+    lambda: [350, 305, 260, 215, 170, 125, 80, 35],
+  };
+  for (const [cle, attendu] of Object.entries(HISTORIQUE)) {
+    const rendu = attendu.map((_, n) => reglagesDeBudget(n)[cle]);
+    assert.deepEqual(rendu, attendu, `${cle} : la formule s’écarte de l’arbitrage`);
+  }
+  // ★ Et au-delà, la loi CONTINUE — c'est tout l'intérêt d'une formule : les
+  //   trois crans ajoutés se déduisent, ils ne s'inventent pas.
+  const dix = reglagesDeBudget(PUISSANCE_DE_FOUILLE_MAX);
+  assert.deepEqual(
+    [dix.voies, dix.parMappeur, dix.parFragment, dix.lambda], [936, 107, 39, 25]);
+});
+
+/**
+ * ★ **LA PAGE DE DEBUG DRESSE SA TABLE EN APPELANT LES FORMULES**, et ce test
+ *   vérifie que le registre qu'elle lit dit bien ce que la recherche emploie.
+ *
+ * > « Mets-moi dans debug un tableau avec la liste des métriques qui bougent,
+ * >   leur formule et une table avec leurs valeurs de 0 à 10 — mais table
+ * >   calculée d'après la formule, pas définie à la main. » (l'auteur)
+ */
+test('★ le registre des réglages du cran dit ce que les budgets font', () => {
+  for (const r of REGLAGES_DU_CRAN) {
+    assert.ok(r.nom && r.formule && r.role, `${r.cle} : entrée incomplète`);
+    assert.equal(typeof r.calcul, 'function', `${r.cle} : pas de calcul`);
+    for (let n = 0; n <= PUISSANCE_DE_FOUILLE_MAX; n++) {
+      const budget = reglagesDeBudget(n)[r.cle];
+      if (budget === undefined) continue;  // `facteur` mis à part, tout y est
+      assert.equal(r.calcul(n), budget,
+        `${r.cle} au cran ${n} : la table de debug annoncerait ${r.calcul(n)}, `
+        + `la recherche emploie ${budget}`);
+    }
+  }
+  // Les quatre réglages que le cran commande y sont tous, et pas seulement
+  // ceux qu'on a pensé à y mettre le jour où on a écrit la page.
+  const cles = new Set(REGLAGES_DU_CRAN.map((r) => r.cle));
+  for (const c of ['voies', 'parMappeur', 'parFragment', 'lambda']) {
+    assert.ok(cles.has(c), `${c} bouge avec le cran et manque au registre de debug`);
+  }
 });

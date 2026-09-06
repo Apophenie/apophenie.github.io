@@ -76,6 +76,10 @@ import {
 import {
   POIDS, BONUS, MALUS, PART_CRITERES, REGLAGES,
 } from '../../recherche/score.js';
+import {
+  REGLAGES_DU_CRAN, PUISSANCE_DE_FOUILLE_MAX, PUISSANCE_DE_FOUILLE_DEFAUT,
+  PUISSANCE_ACCUEIL, PUISSANCE_ENUMERATION,
+} from '../../config.js';
 // La découpe en jetons est celle de la recherche, pas une seconde : une portée
 // écrite ici et lue là-bas doit tomber sur les mêmes frontières.
 import { tokeniser } from '../../recherche/fragments.js';
@@ -164,6 +168,40 @@ function sousTable(objet) {
     e('tbody', {}, Object.entries(objet).map(([c, v]) => e('tr', {}, [
       e('td.dbg__cle', { texte: c }),
       e('td.dbg__val', { texte: ecrireValeur(v) ?? '…' }),
+    ]))),
+  ]);
+}
+
+/**
+ * ★ **CE QUE LE CURSEUR DE FOUILLE COMMANDE — la loi, puis ses valeurs.**
+ *
+ * > « Mets-moi dans debug un tableau avec la liste des métriques qui bougent,
+ * >   leur formule et une table avec leurs valeurs de 0 à 10 — mais table
+ * >   CALCULÉE d'après la formule, pas définie à la main. » (l'auteur)
+ *
+ * Chaque ligne appelle la fonction que `config.js` publie, cran par cran. Rien
+ * n'est recopié : changer un coefficient là-bas déplace cette table ici, et une
+ * formule qui ne dirait pas ce que fait son code se verrait à l'œil — le texte
+ * et les nombres viennent de la même entrée, mais l'un est écrit et l'autre
+ * mesuré.
+ */
+function reglagesDuCran() {
+  const crans = [...Array(PUISSANCE_DE_FOUILLE_MAX + 1).keys()];
+  const marque = (n) => (n === PUISSANCE_ACCUEIL ? ' ⌂' : '')
+    + (n === PUISSANCE_ENUMERATION ? ' ⁂' : '');
+  return e('table.dbg__table.dbg__table--crans', {}, [
+    e('thead', {}, [e('tr', {}, [
+      e('th', { texte: 'Réglage' }),
+      e('th', { texte: 'Formule' }),
+      ...crans.map((n) => e('th.dbg__val', { texte: `${n}${marque(n)}` })),
+    ])]),
+    e('tbody', {}, REGLAGES_DU_CRAN.map((r) => e('tr', {}, [
+      e('td.dbg__cle', { texte: r.nom, title: r.role }),
+      e('td', { texte: r.formule }),
+      // ⚠️ On APPELLE la formule, on ne relit pas une table : c'est toute la
+      //   demande. Un chiffre de cette ligne qui surprendrait est un chiffre
+      //   que la recherche emploie vraiment.
+      ...crans.map((n) => e('td.dbg__val', { texte: String(r.calcul(n)) })),
     ]))),
   ]);
 }
@@ -1811,5 +1849,17 @@ export function pageDebug() {
       e('p.dbg__note', { texte: ecrireValeur(PART_CRITERES) })),
 
     section('Les réglages du score', 'src/recherche/score.js › REGLAGES', tableDe(REGLAGES)),
+
+    section('Ce que le curseur de fouille commande, cran par cran',
+      'src/config.js › REGLAGES_DU_CRAN',
+      e('p.dbg__note', {
+        texte: `Le curseur va de ${PUISSANCE_DE_FOUILLE_DEFAUT} à ${PUISSANCE_DE_FOUILLE_MAX}. `
+          + 'Chaque colonne est CALCULÉE en appelant la formule de la ligne, jamais relue '
+          + 'd’une table : ce sont les nombres que la recherche emploie. ⌂ marque le cran '
+          + 'de l’accueil, ⁂ celui de l’énumération. Les deux dernières lignes butent sur '
+          + 'un plafond posé par l’auteur (« profondeur max autour de 32 et durée à 128 s »), '
+          + 'et cessent donc de monter avant le bout du curseur.',
+      }),
+      reglagesDuCran()),
   ]);
 }

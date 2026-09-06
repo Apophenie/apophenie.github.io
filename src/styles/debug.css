@@ -116,6 +116,12 @@
 .dbg__val { color: var(--phos); font-variant-numeric: tabular-nums lining-nums; }
 .dbg__code { color: var(--gold, var(--phos)); }
 
+/* Onze colonnes de chiffres : elles se lisent alignées, et à droite — c'est une
+   progression qu'on suit du regard, pas une liste d'étiquettes. */
+.dbg__table--crans td.dbg__val,
+.dbg__table--crans th.dbg__val { text-align: right; }
+.dbg__table--crans { display: block; overflow-x: auto; max-width: 100%; }
+
 .dbg__table--imbriquee { margin: 0; border: 0; }
 .dbg__table--imbriquee td { border-color: transparent; padding: 0 var(--e2) 0 0; }
 

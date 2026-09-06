@@ -397,7 +397,7 @@ function libelleFragment(fragment) {
  * >   25 pages max). » (l'auteur)
  *
  * Le curseur de fouille mène désormais jusqu'à deux cent cinquante-six places
- * (`config.js › VOIES_PAR_CRAN`). Les dérouler d'un trait donnerait une colonne
+ * (`config.js › placesDeLaListe`). Les dérouler d'un trait donnerait une colonne
  * de plusieurs mètres où l'on ne retrouve rien — la pagination n'est pas ici un
  * ornement, c'est ce qui rend le réglage utilisable.
  *

@@ -251,6 +251,17 @@ const MAX_CANDIDATS_PORTEE = 10;
  * pipeline complet est d'une seconde, et la saisie la plus lourde du banc en
  * consomme déjà l'essentiel — d'où des bornes serrées plutôt que généreuses. Ce
  * qu'elles coûtent malgré tout est mesuré dans `.planning/A-VENIR-retouches.md`.
+ *
+ * ⚠️ **CES QUATRE-LÀ NE SUIVENT PAS LE CRAN, et c'est un arbitrage assumé.**
+ *   Ils sont la TÊTE d'une liste dont l'ordre dépend de la largeur
+ *   d'assemblage : pousser le curseur de 7 à 10 change le quatuor de tête, et
+ *   sept voies retouchées bien réelles de « Millicent Billette » visant 1998 —
+ *   toutes des `0:frN;fc+tca+masb+mad` — disparaissent alors de la liste.
+ *   Jamais générées, pas écartées. Les faire suivre le cran les ramène toutes,
+ *   mais déplace du même coup les crans 1 à 7 — et « aucun des crans 0 à 7 ne
+ *   devrait bouger » (l'auteur). La stabilité des crans déjà publiés l'emporte
+ *   sur la monotonie des crans du haut ; l'écart est mesuré, il n'est pas
+ *   ignoré.
  */
 const MAX_JETONS_RETOUCHE = 6;
 const MAX_VECTEURS_RETOUCHES = 4;
@@ -2303,7 +2314,16 @@ export function assembler(saisie, fragments, parFrag, ctx) {
     const cle = f.texte.normalize('NFC');
     let v = canoniques.get(cle);
     if (v === undefined) {
-      v = normaliserChemins(parFrag.get(cle) || []).slice(0, kParFragment);
+      // ⚠️ **LE PLAFOND DE CANONICALISATION DOIT SUIVRE, sinon il tronque
+      //   AVANT le `slice`.** `normaliserChemins` s'arrête au défaut à vingt-
+      //   quatre — trois fois la largeur historique —, si bien qu'au cran 10 on
+      //   découperait trente-neuf chemins dans une liste qui n'en porterait
+      //   déjà plus que vingt-quatre : la largeur monterait sans rien apporter.
+      //   Le `max` est ce qui empêche d'y toucher AVANT : jusqu'au cran 7 la
+      //   largeur reste sous vingt-quatre, et le plafond historique s'applique
+      //   mot pour mot.
+      v = normaliserChemins(parFrag.get(cle) || [], Math.max(K_CANONISABLES, kParFragment))
+        .slice(0, kParFragment);
       canoniques.set(cle, v);
     }
     return v;
