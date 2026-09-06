@@ -448,6 +448,9 @@ export function creerMoteur(catalogue, options = {}) {
     //   `recherche.test.js`, qui reste le garde-fou.
     const ctxAssemblage = {
       saisie, jetons, signifiants, catalogue, cible: cbl, retouches: options.retouches !== false,
+      // ★ La largeur d'assemblage suit le cran : c'est elle qui décide combien
+      //   d'approches peuvent seulement EXISTER (`config.js`).
+      parFragment: budgets.parFragment,
     };
     let approches = assembler(saisie, frags, parFrag, ctxAssemblage);
 

@@ -146,6 +146,10 @@ export const MODES = ['MOISSON', 'RESONANCE', 'DIRECT', 'GROUPEMENT', 'CONVERGEN
  */
 export const SERIE = 3;
 
+// ⚠️ **CE HUIT ÉTAIT LE PLAFOND LE PLUS BAS DE TOUTE LA CHAÎNE, et le plus
+//   silencieux.** Il reste le défaut — une recherche qui n'annonce pas son cran
+//   travaille comme avant —, mais `ctx.parFragment` le relève désormais avec le
+//   curseur de fouille (`config.js › PAR_FRAGMENT_PAR_CRAN`).
 const K_PAR_FRAGMENT = 8;   // chemins retenus par fragment pour l'assemblage
 const MAX_PARTITIONS = 200; // garde-fou combinatoire
 const MAX_LIBRES = 12;      // C(12,3) = 220 combinaisons
@@ -2286,6 +2290,7 @@ export function normaliserChemins(chemins, plafond = K_CANONISABLES) {
  */
 export function assembler(saisie, fragments, parFrag, ctx) {
   const cbl = normaliserCible(ctx.cible);
+  const kParFragment = ctx.parFragment || K_PAR_FRAGMENT;
   const K = cbl.longueur;              // le nombre de parts d'une approche assemblée
   const approches = [];
   // Les chemins sont canonicalisés AVANT d'entrer dans un assemblage (N2/N3
@@ -2298,7 +2303,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
     const cle = f.texte.normalize('NFC');
     let v = canoniques.get(cle);
     if (v === undefined) {
-      v = normaliserChemins(parFrag.get(cle) || []).slice(0, K_PAR_FRAGMENT);
+      v = normaliserChemins(parFrag.get(cle) || []).slice(0, kParFragment);
       canoniques.set(cle, v);
     }
     return v;
@@ -2352,8 +2357,13 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   let vecteursEntiers = null;
   if (opsExplorables.length) {
     for (const f of porteuses) {
-      const vecteurs = vecteursDeSix(f.texte, opsExplorables, K, MAX_VECTEURS_PAR_FRAGMENT * 2, cbl)
-        .slice(0, MAX_VECTEURS_PAR_FRAGMENT);
+      // ★ **ET C'EST CE PLAFOND-CI QUI TENAIT TOUT LE RESTE.** Vingt-sept des
+      //   vingt-huit candidates mesurées sur « Millicent Billette » visant 1998
+      //   sont des GROUPEMENTS : elles ne viennent pas du BFS — aucun chemin de
+      //   `parFrag` ne porte seulement `mrd` — mais d'ici. Huit vecteurs par
+      //   fragment porteur, en dur, c'était la borne réelle de la liste entière.
+      const vecteurs = vecteursDeSix(f.texte, opsExplorables, K, kParFragment * 2, cbl)
+        .slice(0, kParFragment);
       if (f.entier || f.famille === 'entier') vecteursEntiers = vecteurs;
       for (const c of vecteurs) {
         approches.push(approche('GROUPEMENT', [{ fragment: f, chemin: c }]));

@@ -697,6 +697,8 @@ test('★ le cran élargit le travail et les places, et relâche la redondance',
     assert.ok(b.voies > a.voies, `cran ${i} : les places ne montent pas`);
     assert.ok(b.parMappeur > a.parMappeur, `cran ${i} : le quota par mappeur ne monte pas`);
     assert.ok(b.lambda < a.lambda, `cran ${i} : la pénalité de redondance ne descend pas`);
+    assert.ok(b.parFragment > a.parFragment,
+      `cran ${i} : la largeur d'assemblage ne monte pas`);
   }
   // Les bornes, telles que l'auteur les a posées.
   assert.deepEqual([crans[0].voies, crans[0].parMappeur, crans[0].lambda], [12, 2, 350]);
@@ -706,4 +708,12 @@ test('★ le cran élargit le travail et les places, et relâche la redondance',
   // ⚠️ Elle ne doit jamais s'annuler : à zéro, le MMR ne serait plus qu'un tri,
   //   et rien n'empêcherait vingt-cinq pages de la même méthode.
   assert.ok(crans[7].lambda > 0, 'la redondance se relâche, elle ne disparaît pas');
+  // ★ **ET LA LARGEUR D'ASSEMBLAGE, qui était le VRAI plafond.** Élargir les
+  //   places ne montrait rien de neuf tant que la génération butait sur huit
+  //   vecteurs par fragment : mesuré au cran 7, vingt-huit candidates
+  //   produites, vingt-huit retenues — la sélection ne rejetait rien.
+  //   Le cran 0 garde le huit historique : la liste courte ne bouge pas.
+  assert.equal(crans[0].parFragment, 8, 'le cran d’ouverture garde la largeur historique');
+  assert.ok(crans[7].parFragment >= 3 * crans[0].parFragment,
+    `la largeur triple au moins au bout, elle vaut ${crans[7].parFragment}`);
 });

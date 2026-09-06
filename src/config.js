@@ -241,6 +241,27 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
     //     précisément chercher. Le cran d'ouverture, lui, ne bouge pas d'un
     //     point : la liste courte reste variée.
     lambda: LAMBDA_MMR_BASE - 45 * n,
+    // ⚠️ **LE VRAI GOULOT N'ÉTAIT PAS LÀ OÙ ON L'AVAIT CHERCHÉ, et l'auteur
+    //   avait raison de vouloir instrumenter : « le cas n'est pas grave mais le
+    //   symptôme l'est ».**
+    //
+    //   Mesuré sur « Millicent Billette » visant 1998 au cran 7 — deux cent
+    //   cinquante-six places, λ à 35 : **28 candidates produites, 28 retenues**.
+    //   La sélection ne rejetait RIEN. Élargir les places et relâcher la
+    //   redondance ne pouvait donc rien montrer de neuf : ce qui plafonnait
+    //   était la GÉNÉRATION, et les quatre voies qu'on cherchait n'étaient
+    //   jamais CONSTRUITES.
+    //
+    //   ★ **ET L'ÉTAGE FAUTIF N'ÉTAIT PAS CELUI QU'ON ACCUSAIT D'ABORD.** On a
+    //     commencé par relever `assemblage.js › K_PAR_FRAGMENT` — les chemins du
+    //     BFS retenus par fragment : **aucun effet, 28 candidates encore**. La
+    //     trace suivante a dit pourquoi : sur ces vingt-huit, vingt-sept sont
+    //     des GROUPEMENTS, et pas un seul chemin du BFS ne porte `mrd`. Le
+    //     plafond qui commandait la liste entière était
+    //     `MAX_VECTEURS_PAR_FRAGMENT`, huit vecteurs par fragment porteur, dans
+    //     un autre générateur. Les deux suivent désormais ce réglage ; les
+    //     quatre voies sont revenues, et la liste passe de 28 à 76 candidates.
+    parFragment: PAR_FRAGMENT_PAR_CRAN[n],
   };
 }
 
@@ -270,6 +291,31 @@ export const VOIES_PAR_CRAN = Object.freeze([12, 19, 29, 45, 70, 108, 168, 256])
  * trentaine de mappeurs, et cinq voies chacun n'en feraient que cent cinquante.
  */
 export const PAR_MAPPEUR_PAR_CRAN = Object.freeze([2, 3, 4, 6, 9, 14, 21, 32]);
+
+/**
+ * ★ **COMBIEN DE CHEMINS PAR FRAGMENT L'ASSEMBLAGE GARDE — le plafond qui
+ *   commande tous les autres.**
+ *
+ * Une approche assemblée choisit un chemin dans chaque fragment : le nombre de
+ * combinaisons possibles est donc `K^(nombre de parts)`. À huit, une moisson à
+ * trois portées ne dispose que de cinq cent douze combinaisons AVANT
+ * dédoublonnage, et il n'en survit que quelques dizaines — d'où les vingt-huit
+ * candidates mesurées là où la liste en offrait deux cent cinquante-six.
+ *
+ * ⚠️ **ET C'EST UNE PUISSANCE, PAS UNE SOMME.** Doubler K multiplie les
+ *   combinaisons par huit sur trois portées : la progression reste donc DOUCE —
+ *   de huit à vingt-quatre — là où les places triplent.
+ *
+ * ⚠️ **LE COÛT EST RÉEL, ET IL EST À DIRE PLUTÔT QU'À TAIRE.** Sur une URL au
+ *   cran 7, la résolution passe de 27,6 s à 63,9 s, pour 153 voies au lieu de
+ *   la petite centaine d'avant. Le filet temporel ne l'abrège pas : il borne
+ *   `chercherSix`, pas l'assemblage. Le cran 0 ne bouge PAS d'une milliseconde
+ *   (3,1 s, douze voies, K à huit comme avant), et c'est ce qui rend l'échange
+ *   acceptable — une minute au cran 7 est demandée par qui pousse le curseur à
+ *   fond, jauge sous les yeux. La suite de recherche, elle, passe de 380 s à
+ *   405 s : +7 %, et rien de rouge.
+ */
+export const PAR_FRAGMENT_PAR_CRAN = Object.freeze([8, 9, 11, 13, 15, 18, 21, 24]);
 
 /** Les douze places de la liste, au cran d'ouverture — `reglagesDeBudget` les
  *  élargit ensuite. Le chiffre historique de `score.js › REGLAGES`. */
