@@ -27,6 +27,8 @@
  */
 
 import { glyphOf, deriveGlyph } from '../glyphes.js';
+import { GLYPHES_JOST } from '../../moteur/tables/glyphes-jost.js';
+import { parcoursDUnSeulGeste, levéesDeCrayon } from '../../moteur/tables/derivees-jost.js';
 import { glyphToLocal } from '../assets.js';
 import { tokenSpec } from './helpers.js';
 import { ouvrirEncart, poserCompteur, refermerEncart, ENCART } from './encart.js';
@@ -36,6 +38,12 @@ import { fail } from '../errors.js';
 export const name = 'countStrokes';
 
 const MODES = { traits: 'traits', extremites: 'extremites', boucles: 'boucles' };
+
+/** ★ Les teintes qui se succèdent d'un geste à l'autre — prises dans la palette,
+ *  jamais écrites en dur : une couleur littérale ici serait invisible dans un
+ *  thème et criarde dans l'autre. Elles tournent, parce qu'un `E` de quatre
+ *  gestes ne doit pas épuiser le nuancier. */
+const TEINTES_DU_GESTE = ['gold', 'phos', 'rubric', 'flamme'];
 
 export function plan(ctx) {
   const src = ctx.scene.live(ctx.op.target, `${ctx.where}« target » : `);
@@ -48,9 +56,28 @@ export function plan(ctx) {
     fail(`${ctx.where}« glyph » manquant : le token « ${src.id} » porte « ${src.text} », qui n'est pas un caractère unique.`);
   }
 
-  const glyph = glyphOf(ch, ctx.glyphes || undefined);
+  /* ★ **LA SECONDE LECTURE SE DESSINE COMME ELLE SE COMPTE.**
+     > « Il faudra montrer l'animation où 1 trait = tracé continu de ce trait d'un
+     >   bout à l'autre, puis d'une autre couleur tracé suivant. » (l'auteur)
+     ⚠️ Ce n'est pas une préférence d'affichage : la table Jost porte 91
+       sous-chemins pour 82 levées de crayon, et dessiner les sous-chemins
+       montrerait neuf gestes de plus que l'opérateur n'en facture — la
+       divergence même que le §0.3 interdit. On lit donc la table de Jost, et
+       l'on GROUPE ses sous-chemins par le parcours eulérien que
+       `parcoursDUnSeulGeste` calcule (Hierholzer). */
+  const jost = ctx.op.police === 'jost';
+  const glyph = jost
+    ? (GLYPHES_JOST[ch] || fail(`${ctx.where}« ${ch} » n'a pas de tracé dans la table Jost.`))
+    : glyphOf(ch, ctx.glyphes || undefined);
   const derived = deriveGlyph(glyph);
-  const count = derived[MODES[mode]];
+  // Les lots : un par levée de crayon. Hors Jost, chaque sous-chemin est son
+  // propre lot — c'est exactement l'ancien comportement, à l'octet près.
+  const lots = jost
+    ? parcoursDUnSeulGeste(glyph)
+    : derived.sub.map((_, i) => [i]);
+  const count = mode === 'traits' && jost
+    ? levéesDeCrayon(glyph)
+    : derived[MODES[mode]];
   if (ctx.op.count !== undefined && ctx.op.count !== count) {
     fail(`${ctx.where}« count » annonce ${ctx.op.count} pour « ${ch} » en mode « ${mode} », mais le tracé de référence en donne ${count} `
       + `(traits=${derived.traits}, extrémités=${derived.extremites}, boucles=${derived.boucles}). `
@@ -104,12 +131,29 @@ export function plan(ctx) {
   const compteur = `@compteur:${src.id}`;
 
   if (mode === 'traits') {
-    // Le glyphe s'écrit sous nos yeux : un trait, un cran de compteur.
+    // Le glyphe s'écrit sous nos yeux : un GESTE, un cran de compteur.
+    // ★ **UNE COULEUR PAR GESTE**, et c'est ce qui rend la règle de Jost
+    //   lisible : quand deux sous-chemins se tracent sans lever le crayon, ils
+    //   s'allument de la MÊME couleur et le compteur ne monte qu'une fois. Sur
+    //   la lecture de référence, chaque geste est un sous-chemin et la teinte
+    //   ne change qu'entre eux — le rendu d'hier, inchangé.
     poserCompteur(ctx, { id: compteur, centre: encart.centre, cote: encart.cote, total: count, debut, cadence });
-    traitIds.forEach((id, i) => {
-      const a = debut + i * cadence;
-      ctx.anim({ id, prop: 'stroke', to: ctx.palette.gold, at: a, dur: 1 });
-      ctx.anim({ id, prop: 'strokeDashoffset', from: 100, to: 0, at: a, dur: Math.max(1, cadence * 0.8), ease: EASE.fade });
+    lots.forEach((lot, k) => {
+      const a = debut + k * cadence;
+      const teinte = TEINTES_DU_GESTE[k % TEINTES_DU_GESTE.length];
+      const couleur = ctx.palette[teinte] || ctx.palette.gold;
+      // Les morceaux d'un même geste se suivent SANS TROU : le crayon ne se
+      // lève pas entre eux, la scène ne doit donc pas marquer de pause.
+      const part = Math.max(1, (cadence * 0.8) / lot.length);
+      lot.forEach((t, j) => {
+        const id = traitIds[t];
+        if (!id) return;
+        ctx.anim({ id, prop: 'stroke', to: couleur, at: a + j * part, dur: 1 });
+        ctx.anim({
+          id, prop: 'strokeDashoffset', from: 100, to: 0,
+          at: a + j * part, dur: part, ease: EASE.fade,
+        });
+      });
     });
   } else {
     // Le glyphe est d'abord écrit en entier, en retrait : c'est le support.

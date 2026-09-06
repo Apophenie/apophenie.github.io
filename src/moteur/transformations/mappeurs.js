@@ -1654,6 +1654,15 @@ function etapeMappeur(spec) {
           // Même pliage que `apply()` (`pli`, puis la casse de la méthode) :
           // c'est le glyphe COMPTÉ qui doit être le glyphe DESSINÉ.
           glyph: spec.casse === 'maj' ? pliCar(i) : pliCar(i).toLowerCase(),
+          // ★ **LA POLICE VOYAGE AVEC L'OP, et sans elle la scène mentirait.**
+          //   La lecture Jost compte les levées de crayon par le chemin EULÉRIEN
+          //   — 82 pour les cinquante-deux signes — quand sa table porte 91
+          //   sous-chemins. Dessiner les sous-chemins montrerait donc neuf gestes
+          //   de trop. `countStrokes` a besoin de savoir sur quelle table lire ET
+          //   selon quelle règle grouper : « 1 trait = tracé continu de ce trait
+          //   d'un bout à l'autre, puis d'une autre couleur tracé suivant »
+          //   (l'auteur).
+          ...(spec.police ? { police: spec.police } : {}),
           count: n,
           to,
         };
