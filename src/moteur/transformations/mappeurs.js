@@ -199,6 +199,7 @@ const LIB_REDUIRE_CHAQUE = bilingue('On réduit chaque nombre à un chiffre', 'R
 const LIB_ZEROS = bilingue('On retire les zéros', 'Drop the zeros');
 const REG_ZEROS = bilingue('Un zéro n’apporte rien à la somme', 'A zero brings nothing to the sum');
 const LIB_RETOURNER_9 = bilingue('On retourne les 9', 'Turn the 9s upside down');
+const LIB_RETOURNER_6 = bilingue('On retourne les 6', 'Turn the 6s upside down');
 /**
  * ★ **NOMMER LA CIBLE DANS UNE PHRASE**, sans jamais l'y écrire en dur.
  *
@@ -457,7 +458,34 @@ function vaguesDEffacement(valeur, gardee) {
 }
 
 /** Le vecteur écrit-il la cible d'affilée ? C'est le seul but que ces ficelles servent. */
-const portePleinement = (v, visee) => debutDeLaCible(v, visee) >= 0;
+/**
+ * ★ **LA CIBLE EST ÉCRITE — au sens où le MOTEUR l'entend, pas au sens strict.**
+ *
+ * ⚠️ **UN DÉSACCORD DE FOND, ET IL SE PAYAIT EN REFUS INVISIBLES.**
+ *   `debutDeLaCible` cherche la cible CONTIGUË : `valeur[i+k] === c[k]` sur toute
+ *   sa longueur, sans rien tolérer entre. Or `recherche/cible.js › seriesDe` —
+ *   qui est ce que le moteur MESURE, et donc ce qui décide si une voie compte —
+ *   la lit en SOUS-SUITE : il saute tout ce qui ne colle pas.
+ *
+ *   Les trois ficelles qui s'appuient là-dessus (`mpf`, `m1s2`, `mad`) se
+ *   refusaient donc à elles-mêmes dans des cas où le moteur les aurait comptées,
+ *   et le refus ne produit RIEN — pas même une trace. Une règle qui exige plus
+ *   que ce qui sera mesuré n'est pas prudente, elle est fausse.
+ *
+ * ★ On aligne donc le critère sur la mesure. Le repli est exact là où la cible
+ *   est écrite d'affilée — une suite contiguë est une sous-suite —, et il
+ *   n'ajoute que les cas où le moteur, lui, aurait dit oui.
+ */
+const portePleinement = (v, visee) => {
+  const c = visee.chiffres;
+  let rang = 0;
+  for (const d of v) {
+    if (d !== c[rang]) continue;
+    rang++;
+    if (rang === c.length) return true;
+  }
+  return false;
+};
 
 /** Le relevé écrit — `6 ×4 · 4 ×1` —, par ordre de PREMIÈRE apparition. */
 function releveEcrit(valeur) {
@@ -687,7 +715,7 @@ const SIX_RETOURNE = 6;
  * @param {number[]} entree  les chiffres consommés
  * @param {number[]} buts    ce que le paquet a le droit de viser
  */
-function paquetRecevable(entree, buts) {
+function paquetRecevable(entree, buts, colle = null) {
   if (entree.length < 2) return false;
   const somme = entree.reduce((a, b) => a + b, 0);
   const r = reduire(somme);
@@ -695,6 +723,20 @@ function paquetRecevable(entree, buts) {
   if (!buts.includes(r)) return false;
   // 2. et ne rien appauvrir — l'avertissement de l'auteur, compté.
   const sortie = chiffresDe(somme);
+  if (colle) {
+    /* ⚠️ **« NE RIEN APPAUVRIR » SE JUGEAIT SUR L'ALPHABET, ET C'EST TROP
+       LARGE.** Sur `31031998`, absorber un `1` était refusé parce que 1
+       appartient à la cible — même quand ce `1` arrivait à un rang où l'on
+       attendait un 3, c'est-à-dire quand il ne servait à RIEN. La clause
+       bloquait ainsi la totalité des paquets utiles : `mad` refusait toutes les
+       cibles hétérogènes, en silence.
+       Ce qu'il faut préserver n'est pas « un chiffre de la cible » mais « un
+       chiffre qui AURAIT SERVI ici » : le seul qui compte est celui du rang
+       courant, et lui seul est protégé. */
+    const perdus = entree.filter((d) => colle(d)).length;
+    const rendus = sortie.filter((d) => colle(d)).length;
+    return rendus >= perdus;
+  }
   for (const d of buts) {
     if (compte(sortie, d) < compte(entree, d)) return false;
   }
@@ -722,32 +764,59 @@ function planAdditionSelective(valeur, visee) {
   for (const [src, n] of parSource) if (n > 1) multi.add(src);
 
   const buts = butsDuPaquet(visee);
+  /* ★ **ON VISE LE CHIFFRE ATTENDU, PAS N'IMPORTE LEQUEL DE LA CIBLE.**
+     > « `mrd` ou `mad` ne devraient pas chercher à produire n'importe quel
+     >   chiffre cible, mais à les produire DANS L'ORDRE attendu. » (l'auteur)
+     La boucle parcourait `butsDuPaquet` — l'ALPHABET de la cible — et prenait le
+     premier paquet qui tombait sur l'un quelconque de ses chiffres. Sur `666`
+     les deux objectifs se confondent, un seul chiffre étant en jeu ; sur
+     `01111984`, viser « un 0, un 1, un 8 ou un 9, au choix » ne construit rien.
+     On suit donc le RANG, et il avance à chaque chiffre placé.
+     ⚠️ Le 9 avance le rang d'un 6 quand — et seulement quand — la cible veut des
+       6 sans vouloir de 9 : `mr9` le retournera. C'est la même clause exactement
+       que dans `planRedecoupage`, et l'omettre coûtait à celui-ci la découpe que
+       l'auteur avait calculée à la main. */
+  const suiteCible = visee.chiffres;
+  const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
+  let rang = 0;
+  const colle = (d) => d === suiteCible[rang]
+    || (parDemiTour && d === RETOURNABLE && suiteCible[rang] === SIX_RETOURNE);
+  const avancer = () => { rang = (rang + 1) % suiteCible.length; };
+
   const sortie = [];
   let i = 0;
   let additions = 0;
   while (i < chiffres.length) {
-    // ★ On cherche le paquet le plus COURT qui vise juste, puis, à défaut, le
-    //   plus court qui vise le suivant. Une passe par but plutôt qu'un
-    //   départage : le 6 ne se négocie pas contre un 9, il passe avant (« ou
-    //   les 9 à défaut »), et l'ordre de `butsDuPaquet` fixe ce « avant » une
-    //   fois pour toutes.
+    // ① Le chiffre est déjà celui qu'on attend : on ne l'absorbe pas.
+    if (colle(chiffres[i].v)) {
+      sortie.push({ v: chiffres[i].v, debut: i, fin: i + 1 });
+      avancer();
+      i++;
+      continue;
+    }
+    // ② Sinon, le paquet le plus COURT dont la réduction tombe sur le rang.
     let pris = 0;
     let valeur = 0;
-    for (const vise of buts) {
-      for (let L = 2; L <= PAQUET_ADDITION_MAX && i + L <= chiffres.length; L++) {
-        const entree = [];
-        for (let k = i; k < i + L; k++) entree.push(chiffres[k].v);
-        if (!paquetRecevable(entree, buts)) continue;
-        const somme = entree.reduce((a, b) => a + b, 0);
-        if (reduire(somme) !== vise) continue;
-        pris = L;
-        valeur = somme;
-        break;
-      }
-      if (pris) break;
+    for (let L = 2; L <= PAQUET_ADDITION_MAX && i + L <= chiffres.length; L++) {
+      const entree = [];
+      for (let k = i; k < i + L; k++) entree.push(chiffres[k].v);
+      if (!paquetRecevable(entree, buts, colle)) continue;
+      const somme = entree.reduce((a, b) => a + b, 0);
+      if (!colle(reduire(somme))) continue;
+      pris = L;
+      valeur = somme;
+      break;
     }
-    if (pris) { sortie.push({ v: valeur, debut: i, fin: i + pris }); i += pris; additions++; }
-    else { sortie.push({ v: chiffres[i].v, debut: i, fin: i + 1 }); i++; }
+    if (pris) {
+      sortie.push({ v: valeur, debut: i, fin: i + pris });
+      avancer();
+      i += pris;
+      additions++;
+    } else {
+      // ③ Rien à en tirer ici : le chiffre passe tel quel, le rang ne bouge pas.
+      sortie.push({ v: chiffres[i].v, debut: i, fin: i + 1 });
+      i++;
+    }
   }
   if (!additions) return null;
   // ★ Même exigence que les deux autres ficelles : le résultat doit ÉCRIRE la
@@ -4246,6 +4315,56 @@ const AUTRES_MAPPEURS = [
     },
   })),
 
+  // ★ **LE DEMI-TOUR MONTANT — les 6 qui deviennent des 9.**
+  //
+  // > « `mr9` peut effectivement servir à produire des 6 intermédiaires utiles
+  // >   pour d'autres cibles, ok pour le garder. `mr6` […] à ajouter. »
+  // >   (l'auteur)
+  //
+  // ⚠️ **UN CODE DE PLUS, PAS `mr9` RETOURNÉ.** Faire basculer `mr9` selon la
+  //   cible a été essayé et mesuré : sur `01111984` — une cible SANS 6 — la voie
+  //   qui atteignait la date disparaissait. `mr9` y sert donc en 9 → 6, contre
+  //   l'intuition, et le réorienter aurait rompu un lien publié autant qu'une
+  //   voie. Le registre est append-only pour exactement cette raison.
+  //
+  // ⚠️ **ET SON PREMIER AJOUT AVAIT ÉTÉ RETIRÉ**, faute d'en comprendre le coût :
+  //   il faisait tomber cette même voie à zéro, même à fouille 4. Ce qui a changé
+  //   depuis n'est pas `mr6` — c'est `mrd`, devenu séquentiel, qui rend
+  //   maintenant douze voies là où il n'y en avait qu'une : la marge existe.
+  //
+  // ★ **IL N'A AUCUN SENS POUR 666, ET IL LE DÉCLARE.** Retourner les 6 d'une
+  //   cible qui en demande, c'est défaire son propre travail. `selonLaCible` le
+  //   bâtit donc sur `999`, et `viser('666')` rend `null` : `classerPourCible`
+  //   le classe DESACTIVE, et `debug.html` l'affiche comme tel. C'est le premier
+  //   opérateur du catalogue dans ce cas.
+  selonLaCible((visee) => (visee.utile(9) ? {
+    id: 'm.retournerLesSix', code: 'mr6', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_RETOURNER_6,
+    regle: bilingue('Un 6 retourné d’un demi-tour donne un 9',
+      'Give a 6 a half-turn and it becomes a 9'),
+    // Mêmes chiffres que `mr9` : c'est la même ficelle, dans l'autre sens. La
+    // déclarer moins ad hoc parce qu'elle est neuve serait se donner raison.
+    notoriete: 0.25, adHoc: 0.35,
+    note: bilingue(
+      'On ne retourne que les 6. Retourner un 9 nous ramènerait d’où l’on vient. '
+      + 'Trois 6 côte à côte pivotent d’un seul bloc : 666 renversé, c’est 999.',
+      'Only the 6s get turned. Turning a 9 would take us right back. '
+      + 'Three 6s side by side pivot as one block: 666 upside down is 999.',
+    ),
+    apply: (valeur, traces) => {
+      // Même exigence que `mr9` : sans un seul 6, l'opérateur REFUSE au lieu de
+      // rendre son entrée. Un mappeur qui rend ce qu'il a reçu fabrique une
+      // étape que `scenario.js` saute, et le chemin porterait dans son URL un
+      // code que la démonstration ne montre nulle part.
+      if (!valeur.some((n) => n === 6)) return null;
+      const out = valeur.map((n) => (n === 6 ? 9 : n));
+      return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
+    },
+    exempleUtile: (etat) => triosDeNeuf(etat.valeur, 6).length > 0,
+    sortie: (avant, apres, ctx) => apres.valeur.map((v, i) => (v === avant.valeur[i]
+      ? ctx.ids[i] : nomToken(ctx, i))),
+    steps: (avant, apres, ctx) => stepsDuDemiTour(avant, apres, ctx, 6, LIB_RETOURNER_6),
+  } : null), { reference: '999' }),
   def({
     /**
      * ★ **UN CHIFFRE VAUT LUI-MÊME — et jusqu'ici, il n'avait pas de porte.**

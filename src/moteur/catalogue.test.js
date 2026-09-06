@@ -208,6 +208,11 @@ const VECTEURS = [
   // des 6, tout le reste est laissé strictement en place, y compris le −9 :
   // un demi-tour ne sait rien faire d'un signe.
   ['mr9', N([3, 9, 6, -9]), [3, 6, 6, -9]],
+  // ★ **L'ENTRÉE DU CATALOGUE EST CELLE BÂTIE SUR `999`**, sa visée de
+  //   référence : c'est elle que `PAR_CODE` porte, et c'est donc son geste que
+  //   le registre gèle — le miroir exact de `mr9` juste au-dessus. Ce que 666 en
+  //   fait est une autre question, et `classerPourCible` y répond DESACTIVE.
+  ['mr6', N([3, 9, 6, -9]), [3, 9, 9, -9]],
   // ★ « Trois 6 d'affilée » — le 666 est DÉJÀ écrit dans le vecteur, contigu ;
   // on le garde et l'on efface le reste. Ce n'est pas un tri : trois 6 dispersés
   // ne conviennent pas (voir le test dédié plus bas).
@@ -385,8 +390,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 159); // +4 : la lecture Jost des traits et des extrémités
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 159, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 160); // +4 Jost, +1 le demi-tour montant
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 160, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -396,7 +401,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 159, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 160, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

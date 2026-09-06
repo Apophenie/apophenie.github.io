@@ -109,6 +109,10 @@ export const ORDRE_CANONIQUE = Object.freeze([
   'mboc', 'mbob', 'mazc', 'mazr', 'mqwc', 'mqwr', 'maz4', 'mqw4', 'mhe', 'mgr', 'mln',
   'mlm', 'mrn', 'm0', 'mtc', 'm14', 'm14F', 'mr9', 'm36', 'mpf', 'm1s2',
   'mad', 'meg', 'mtri', 'mtal', 'mr39', 'mcc', 'mrd',
+  // ★ Le demi-tour MONTANT : les 6 qui deviennent des 9 quand c'est un 9 qu'on
+  //   cherche. Il ne remplace pas `mr9`, il le complète — un registre
+  //   append-only ajoute, il ne réoriente pas (§4.1).
+  'mr6',
   // La LECTURE, qui n'est pas une conversion : un chiffre vaut lui-même
   // (`mappeurs.js › m.chiffreTelQuel`). Implicite, comme `tca`.
   'm09',
@@ -223,9 +227,26 @@ function verifier(liste) {
         echec(`${ou} : « viser » doit être une fonction — c'est le canal par lequel la `
           + 'cible atteint un opérateur (commun.js › selonLaCible).');
       }
-      if (op.viser(VISEE_DEFAUT) !== op) {
-        echec(`${ou} : « viser(${VISEE_DEFAUT}) » ne rend pas l'opérateur du catalogue. `
-          + 'Le repli sur la cible par défaut doit être EXACT, jusqu\'à l\'identité.');
+      // ★ **LA RÉFÉRENCE N'EST PAS FORCÉMENT 666.** Un opérateur peut n'avoir
+      //   aucun sens pour la cible par défaut et servir ailleurs : `mr6`
+      //   retourne les 6 pour obtenir des 9, ce qui dessert 666 et sert 999. Il
+      //   se bâtit alors sur SA visée (`selonLaCible(..., { reference })`), et
+      //   c'est sur elle que le repli doit être exact. La promesse ne change pas
+      //   de nature — un opérateur se retrouve lui-même quand on lui montre la
+      //   cible sur laquelle il a été bâti —, elle cesse seulement de supposer
+      //   que cette cible est 666.
+      const reference = (op.visee && op.visee.texte) || VISEE_DEFAUT;
+      if (op.viser(reference) !== op) {
+        echec(`${ou} : « viser(${reference}) » ne rend pas l'opérateur du catalogue. `
+          + 'Le repli sur sa visée de référence doit être EXACT, jusqu\'à l\'identité.');
+      }
+      // ⚠️ **ET S'IL SE BÂTIT AILLEURS, IL DOIT SE TAIRE SUR 666.** Sans quoi il
+      //   serait construit sur une visée mais rendu pour une autre, et
+      //   `classerPourCible` l'annoncerait ADAPTE là où il ne l'est pas.
+      if (reference !== VISEE_DEFAUT && op.viser(VISEE_DEFAUT) !== null) {
+        echec(`${ou} : bâti sur ${reference}, il rend pourtant un opérateur pour `
+          + `${VISEE_DEFAUT}. Un opérateur qui sait viser la cible par défaut doit y `
+          + 'être bâti ; sinon il doit s\'y déclarer sans objet.');
       }
     }
   }

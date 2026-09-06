@@ -282,6 +282,7 @@ export const NOMS = {
   // d'un nombre isolé. Deux méthodes, deux noms — sans quoi une liste pourrait
   // porter deux fois la même ligne.
   'm.retournerLesNeuf': b('Par le retournement des 9', 'By flipping the 9s'),
+  'm.retournerLesSix': b('Par le retournement des 6', 'By flipping the 6s'),
   // ★ Les quatre du 27 août. Deux sont des vedettes possibles — le retournement
   //   par trios et le décompte des chiffres transforment vraiment ce qu'ils
   //   touchent — et deux sont de service (voir `MAPPEURS_DE_SERVICE`), mais
@@ -563,6 +564,9 @@ export const TITRES_COURTS = {
   'm.qwertyRangee': b('rangée QWERTY', 'QWERTY row'), // mqwr
   'm.retournerLesTrios': b('retournement', 'half-turn'), // mr39
   'm.retournerLesNeuf': b('retournement', 'half-turn'), // mr9
+  // ⚠️ Le même mot pour les deux sens serait un piège : sur une cible qui veut
+  //   des 9, l'énumération dirait « retournement » sans qu'on sache lequel.
+  'm.retournerLesSix': b('retournement des 6', 'flipping the 6s'), // mr6
   'm.redecoupageChoisi': b('additions futées', 'shrewd additions'), // mrd
   'm.reduireChaque': b('addition', 'addition'), // mrn
   'm.scrabbleEN': b('Scrabble EN', 'EN Scrabble'), // msen
@@ -728,6 +732,7 @@ export const PRECISIONS = {
   'm.reduireChaque': b('réduit chiffre à chiffre', 'reduced digit by digit'),
   'm.retirerZeros': b('sans les zéros', 'without the zeros'),
   'm.retournerLesNeuf': b('les 9 retournés', 'with the 9s flipped'),
+  'm.retournerLesSix': b('les 6 retournés', 'with the 6s flipped'),
   // ★ Les quatre du 27 août — mêmes précautions que pour les noms de vedette :
   //   le geste, jamais ce qu'il produit.
   'm.egalisation': b('égalisés', 'evened out'),

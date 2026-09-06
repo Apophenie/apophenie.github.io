@@ -347,8 +347,21 @@ test('★ la classification face à la cible est DÉRIVÉE, jamais recopiée', (
     assert.equal(o.visee, undefined, `${o.code} : pas de visée sans canal`);
   }
 
-  // 2. Le repli sur 666 est EXACT, jusqu'à l'identité.
-  for (const o of lisent) assert.equal(o.viser('666'), o, `${o.code} : viser(666) === lui-même`);
+  /* 2. Le repli sur SA VISÉE DE RÉFÉRENCE est EXACT, jusqu'à l'identité.
+     ★ **ET CETTE RÉFÉRENCE N'EST PLUS FORCÉMENT 666.** `mr6` retourne les 6
+       pour obtenir des 9 : il dessert la cible par défaut et sert `999`, donc
+       il se bâtit sur elle et se déclare SANS OBJET pour 666 — ce que
+       `classerPourCible` traduit en DESACTIVE. Exiger `viser('666') === lui`
+       de tout le monde revenait à interdire au catalogue tout opérateur qui
+       n'aurait pas d'usage pour la maison. */
+  for (const o of lisent) {
+    const reference = (o.visee && o.visee.texte) || '666';
+    assert.equal(o.viser(reference), o, `${o.code} : viser(${reference}) === lui-même`);
+    if (reference !== '666') {
+      assert.equal(o.viser('666'), null,
+        `${o.code} : bâti sur ${reference}, il doit se taire sur la cible par défaut`);
+    }
+  }
 
   // 3. Et l'ensemble explorable d'une cible EST celui que la classification
   //    annonce — les deux se lisent au même endroit, donc ils ne peuvent pas
@@ -675,12 +688,26 @@ test('★ maximiser un chiffre n’est PAS écrire un motif — la mesure', () =
   /* Le cœur du volet : sur une cible mêlée, les deux objectifs divergent, et
      l'ancien choisissait le mauvais. On le montre sans nommer aucun programme —
      on compare ce que les deux LECTURES rapportent. */
+  /* ⚠️ **LE TÉMOIN A CHANGÉ DE MODE, ET C'EST UN PROGRÈS.** Ce test exigeait une
+     MOISSON — « le seul mode capable d'enchaîner des portées » — parce qu'il
+     fallait alors coudre plusieurs fragments pour écrire huit chiffres. Depuis
+     que `mrd` vise DANS L'ORDRE, les douze voies remontées sont des GROUPEMENTS
+     à une seule part : un fragment suffit à écrire la date entière. Exiger le
+     mode reviendrait à exiger le détour dont on vient de se passer.
+     Ce qui est démontré ne change pas d'un mot : une voie qui écrit la cible
+     récolte des chiffres utiles qu'elle N'ÉCRIT PAS, et un algorithme qui
+     maximise la récolte ne la trouverait jamais. */
   const c = lireCible('01111984');
   const r = moteur.resoudre('Henri Prunelle Chochotte', { cible: c });
-  const moissons = r.approches.filter((a) => a.mode === 'MOISSON');
-  assert.ok(moissons.length, 'la moisson est le seul mode capable d’enchaîner des portées');
-  for (const a of moissons) {
-    const suite = a.parts.flatMap((p) => sixDuChemin(p.chemin, c).chiffres);
+  assert.ok(r.approches.length, 'la date doit rester atteignable');
+  let mesurees = 0;
+  for (const a of r.approches) {
+    const suite = (a.parts || []).flatMap((p) => {
+      const x = sixDuChemin(p.chemin, c);
+      return x ? x.chiffres : [];
+    });
+    if (!suite.length) continue;
+    mesurees++;
     const utiles = indexUtiles(suite, c).length;
     const ecrits = seriesDe(suite, c).length * c.longueur;
     assert.ok(ecrits >= 1, 'la voie écrit la cible');
@@ -690,6 +717,7 @@ test('★ maximiser un chiffre n’est PAS écrire un motif — la mesure', () =
     //   récolte davantage et n'en écrit aucun.
     assert.ok(utiles >= ecrits, `${utiles} récoltés, ${ecrits} écrits`);
   }
+  assert.ok(mesurees >= 1, 'aucune voie ne montre sa récolte');
 });
 
 test('★ NON-RÉGRESSION — une cible homogène ne connaît PAS la moisson de motif', () => {
@@ -788,4 +816,71 @@ test('★ témoin Kerrigan — la date de sortie de StarCraft est atteignable', 
   // Et avec plus de matière, le résultat tient toujours.
   const long = moteur.resoudre('Sarah Kerrigan Queen of Blades', { cible: '31031998' });
   assert.ok(long.approches.length >= 1, 'trente caractères y arrivent aussi');
+});
+
+/**
+ * ★ **`mad` VISE LE RANG, ET NON N'IMPORTE QUEL CHIFFRE DE LA CIBLE.**
+ *
+ * > « `mrd` ou `mad` ne devraient pas chercher à produire n'importe quel chiffre
+ * >   cible, mais à les produire DANS L'ORDRE attendu. » (l'auteur)
+ *
+ * Il refusait TOUTES les cibles hétérogènes, en silence, et pour deux raisons
+ * qui se cumulaient :
+ *
+ *  · il parcourait l'ALPHABET de la cible et prenait le premier paquet tombant
+ *    sur l'un quelconque de ses chiffres — sur `01111984`, viser « un 0, un 1,
+ *    un 8 ou un 9, au choix » ne construit rien ;
+ *  · sa clause « ne rien appauvrir » se jugeait elle aussi sur l'alphabet :
+ *    absorber un `1` était refusé parce que 1 appartient à la cible, MÊME quand
+ *    ce `1` arrivait à un rang où l'on attendait un 3. Elle bloquait ainsi la
+ *    totalité des paquets utiles.
+ */
+test('★ `mad` écrit une cible hétérogène, chiffre par chiffre et dans l’ordre', () => {
+  const mad = catalogue.find((o) => o.code === 'mad');
+  const essai = (cible, v) => {
+    const op = mad.viser(cible);
+    const r = op && op.apply(v, v.map(() => []));
+    return r ? r.valeur.join('') : null;
+  };
+  // Douze chiffres qui ne contiennent la date NULLE PART, et qui l'écrivent
+  // une fois redécoupés : 2+1=3, 1, 0, 2+1=3, 1, 4+5=9, 4+5=9, 8.
+  assert.equal(essai('31031998', [2, 1, 1, 0, 2, 1, 1, 4, 5, 4, 5, 8]), '31031998');
+  assert.equal(essai('1998', [1, 4, 5, 4, 5, 3, 5]), '1998');
+  // ★ Et le repli sur 666 est intact, à l'octet près : 5+1=6, 6, 4+2=6, 6.
+  assert.equal(essai('666', [5, 1, 6, 4, 2, 6]), '6666');
+});
+
+/**
+ * ★ **LE DEMI-TOUR MONTANT — `mr6`, et ce qu'il refuse.**
+ *
+ * > « `mr9` peut effectivement servir à produire des 6 intermédiaires utiles
+ * >   pour d'autres cibles, ok pour le garder. `mr6` […] à ajouter. » (l'auteur)
+ *
+ * Il n'a aucun sens pour 666 — retourner les 6 d'une cible qui en demande, c'est
+ * défaire son propre travail — et il le DÉCLARE : bâti sur `999`, il rend `null`
+ * pour la cible par défaut, ce que `classerPourCible` traduit en DESACTIVE.
+ * C'est le premier opérateur du catalogue dans ce cas.
+ */
+test('★ `mr6` tourne dans le sens que la cible demande, ou pas du tout', () => {
+  const mr6 = catalogue.find((o) => o.code === 'mr6');
+  const mr9 = catalogue.find((o) => o.code === 'mr9');
+  assert.ok(mr6 && mr9, 'les deux sens du demi-tour sont au catalogue');
+
+  // Là où la cible veut des 9, les 6 se retournent.
+  const vers9 = mr6.viser('999');
+  assert.ok(vers9, '`mr6` doit servir une cible qui demande des 9');
+  assert.deepEqual(vers9.apply([3, 9, 6, -9], [[], [], [], []]).valeur, [3, 9, 9, -9]);
+
+  // Là où elle n'en veut pas, il se déclare sans objet plutôt que de nuire.
+  for (const sourde of ['666', '111', '007']) {
+    assert.equal(mr6.viser(sourde), null, `« ${sourde} » n'a que faire du demi-tour montant`);
+  }
+  // ⚠️ **Et `mr9` N'A PAS ÉTÉ RÉORIENTÉ** : il ne lit même pas la cible — pas de
+  //   `viser` —, et descend toujours 9 → 6. Faire basculer son sens avait été
+  //   essayé, et mesuré : sur `01111984`, une cible SANS 6, la voie qui
+  //   atteignait la date disparaissait. Il y sert donc en 9 → 6, contre
+  //   l'intuition. Le registre est append-only pour cette raison-là : on ajoute
+  //   un code, on ne réoriente pas celui qui est publié.
+  assert.equal(typeof mr9.viser, 'undefined', '`mr9` ne lit pas la cible, et c’est voulu');
+  assert.deepEqual(mr9.apply([9, 6], [[], []]).valeur, [6, 6]);
 });

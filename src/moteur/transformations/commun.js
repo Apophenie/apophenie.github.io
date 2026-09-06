@@ -561,10 +561,28 @@ export const VISEE_666 = /** @type {Visee} */ (lireVisee(VISEE_DEFAUT));
  * `assemblage.js`) : deux descripteurs équivalents mais distincts suffiraient à
  * y faire diverger un classement, en silence.
  *
+ * ★ **UN OPÉRATEUR PEUT N'AVOIR AUCUN SENS POUR 666, et il a quand même sa
+ *   place au catalogue.** La garde disait « un opérateur qui ne sait pas viser
+ *   666 n'a rien à faire ici » — vrai tant que le site ne visait que lui, et
+ *   c'est exactement le genre d'hypothèse que la cible libre a rendue fausse.
+ *   Le demi-tour MONTANT — retourner les 6 pour obtenir des 9 — est le premier
+ *   cas : il dessert 666 et sert 999, et le refuser au catalogue reviendrait à
+ *   ne jamais pouvoir l'offrir à une cible qui le demande.
+ *
+ *   `reference` dit alors sur quelle visée bâtir l'entrée de catalogue.
+ *   `viser('666')` rendra `null` comme pour n'importe quelle cible sans objet,
+ *   et `classerPourCible` le classera **DESACTIVE** — ce qui est précisément ce
+ *   qu'on veut lire dans `debug.html` : « lit la cible, et sa règle n'a pas de
+ *   sens pour celle-ci ».
+ *
+ * ⚠️ La garde ne disparaît pas, elle se déplace : une fabrique qui refuse
+ *   jusqu'à sa PROPRE référence n'a construit aucun opérateur, et lève.
+ *
  * @param {(visee:Visee)=>Object|null} fabrique
- * @returns {Object} l'opérateur visant 666
+ * @param {{reference?: string}} [options] la visée sur laquelle bâtir l'entrée
+ * @returns {Object} l'opérateur visant `reference` (666 par défaut)
  */
-export function selonLaCible(fabrique) {
+export function selonLaCible(fabrique, options = {}) {
   const cache = new Map();
   const viser = (entree) => {
     const visee = lireVisee(entree);
@@ -575,10 +593,12 @@ export function selonLaCible(fabrique) {
     cache.set(visee.texte, op);
     return op;
   };
-  const defaut = viser(VISEE_666);
+  const reference = options.reference === undefined ? VISEE_666 : options.reference;
+  const defaut = viser(reference);
   if (!defaut) {
-    throw new Error('selonLaCible : la fabrique refuse la cible par défaut — un '
-      + 'opérateur qui ne sait pas viser 666 n’a rien à faire au catalogue.');
+    throw new Error('selonLaCible : la fabrique refuse sa propre visée de référence '
+      + `(${options.reference === undefined ? '666' : options.reference}) — elle ne `
+      + 'construit alors aucun opérateur, et il n’y a rien à mettre au catalogue.');
   }
   return defaut;
 }
