@@ -377,3 +377,77 @@ test('★ glyphes — les panses n’ont aucune poignée oblique',
   }
   assert.deepEqual(fautes, [], `poignées obliques :\n  ${fautes.join('\n  ')}`);
 });
+
+/**
+ * ★ **UNE PANSE QUITTE SON FÛT DANS LA DIRECTION DU FÛT — le garde-fou qui
+ *   manquait, et qui a laissé passer une régression silencieuse.**
+ *
+ * > « Regarde les p b d q de C : de souvenir leur raccord était en tangente, et
+ * >   ça n'a pas été conservé malheureusement. » — « Il y a donc bien eu
+ * >   régression silencieuse. » (l'auteur)
+ *
+ * ⚠️ **IL AVAIT RAISON, ET RIEN NE L'AURAIT DIT.** Mesuré entre la branche de
+ *   l'agent « C » et l'état d'aujourd'hui, l'angle à la verticale au raccord
+ *   fût/panse : le `p` est passé de **0° à 15°**. Aucun test ne mesurait cet
+ *   angle — ni la fidélité à l'axe ni la couverture ne le voient, un raccord
+ *   oblique restant à moins d'une unité de l'axe.
+ *
+ * ★ **ET LA CAUSE EST PLUS PROFONDE QUE LA PERTE.** Aucune des deux versions ne
+ *   tenait cette tangence par RÈGLE : `_tangence` aligne un morceau sur son
+ *   voisin DANS LE MÊME TRAIT, et le raccord d'une panse à son fût est
+ *   inter-traits. C l'obtenait tantôt (son `p` à 0°), tantôt pas (son `q` à
+ *   28°), au gré de la projection. Ce qui a disparu n'était donc pas une passe
+ *   qu'on aurait perdue au merge — c'était une chance qu'on n'a plus eue.
+ *   La règle est maintenant écrite (`jetbrains-axe.py › _r_tangence_jonction`),
+ *   et ce test est ce qui l'empêchera de se reperdre.
+ */
+const RACCORDS_DE_PANSE = [...'bdpq'];
+const OBLIQUE_AU_RACCORD = 8; // degrés tolérés autour de la verticale du fût
+
+/**
+ * ⚠️ **DEUX RACCORDS SUR HUIT N'Y SONT PAS ENCORE, et ils sont nommés.** Le
+ *   premier bout du `p` (15°) et le second du `d` (17°) tiennent au DÉCOUPAGE et
+ *   non à la tangence : chez l'agent « C », la panse du `p` était une SEULE
+ *   cubique à longues poignées — jusqu'à y = 509 pour un nœud à y = 311 —, si
+ *   bien qu'elle pouvait partir verticalement sans s'écarter. Découpée en
+ *   morceaux courts, la même verticale la tire hors de son axe de plus d'une
+ *   unité et demie, et la passe refuse à juste titre.
+ *
+ * ★ Le compte, lui, a doublé : **cinq raccords à 0° contre deux chez C**, et le
+ *   `q` — qui n'était tangent d'aucun côté — l'est maintenant des deux.
+ *
+ * Comme pour les budgets de `glyphes2`, ce test échoue AUSSI si l'une de ces
+ * deux exceptions se met à tenir : on la retire alors d'ici.
+ */
+const RACCORDS_EN_ATTENTE = new Set(['p:0', 'd:1']);
+
+test('★ glyphes — une panse quitte son fût verticalement', () => {
+  const fautes = [];
+  for (const c of RACCORDS_DE_PANSE) {
+    const panse = TRAITS[c].traits[1];
+    if (!panse) continue;
+    let x = 0; let y = 0; const bouts = [];
+    for (const { cmd, args } of parsePath(panse.d)) {
+      const k = cmd.toUpperCase();
+      if (k === 'M' || k === 'L') { [x, y] = args.slice(-2); continue; }
+      if (k !== 'C') continue;
+      if (!bouts.length) bouts.push([x, y, args[0], args[1]]);
+      bouts[1] = [args[4], args[5], args[2], args[3]];
+      x = args[4]; y = args[5];
+    }
+    bouts.filter(Boolean).forEach(([ax, ay, bx, by], k) => {
+      const a = Math.abs(Math.atan2(by - ay, bx - ax) * 180 / Math.PI);
+      const ecart = Math.min(Math.abs(90 - a), Math.abs(270 - a));
+      const dedans = ecart <= OBLIQUE_AU_RACCORD;
+      if (RACCORDS_EN_ATTENTE.has(`${c}:${k}`)) {
+        assert.ok(!dedans,
+          `« ${c} » raccord ${k} tient désormais la verticale : le retirer de RACCORDS_EN_ATTENTE`);
+        return;
+      }
+      if (!dedans) {
+        fautes.push(`« ${c} » : la panse quitte le fût à ${ecart.toFixed(0)}° de la verticale`);
+      }
+    });
+  }
+  assert.deepEqual(fautes, [], `raccords obliques :\n  ${fautes.join('\n  ')}`);
+});

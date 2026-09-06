@@ -3816,6 +3816,110 @@ def _r_quadrants(pose, chemins):
     return chemins
 
 
+def _r_tangence_jonction(pose, chemins):
+    """★ **UNE PANSE QUITTE SON FÛT DANS LA DIRECTION DU FÛT.**
+
+    > « Regarde les p b d q de C : de souvenir leur raccord était en tangente, et
+    >   ça n'a pas été conservé malheureusement. » (l'auteur)
+
+    ⚠️ **IL AVAIT RAISON POUR LE `p`, ET LA CAUSE EST PLUS LARGE QUE LUI.**
+      Mesuré, l'angle à la verticale au raccord fût/panse :
+
+          p   C 0° / 28°      main 15° / 28°     ← perdu
+          b   C 0° / 16°      main  0° /  0°     ← gagné
+          d   C 1° / 17°      main  1° / 17°     ← inchangé
+          q   C 28° / 27°     main 28° / 27°     ← inchangé
+
+      Aucune des deux versions ne le tenait par RÈGLE : `_tangence` aligne un
+      morceau sur son voisin DANS LE MÊME TRAIT, et le raccord d'une panse à son
+      fût est inter-traits — elle ne le voit pas. C l'obtenait tantôt (le `p`),
+      tantôt pas (le `q`), au gré de la projection. Ce qui a « disparu » n'était
+      donc pas une passe qu'on aurait perdue : c'était une chance qu'on n'a plus
+      eue, faute d'avoir jamais écrit la règle.
+
+    On l'écrit ici. Quand un bout de trait touche, à une jonction DÉCLARÉE, un
+    voisin qui est DROIT à cet endroit-là, sa poignée prend la direction de ce
+    voisin. C'est le même geste que `_tangence`, un cran plus haut : « un raccord
+    sans angle est un raccord tangent », y compris quand l'angle se joue entre
+    deux traits.
+
+    ⚠️ Seulement contre un voisin DROIT. Une panse qui rejoint une autre courbe
+      n'a pas de direction à emprunter, et lui en imposer une inventerait une
+      tangence que la police ne montre pas.
+    """
+    chemins = [list(c) for c in chemins]
+
+    def direction_droite(t, point):
+        """La direction du trait `t` s'il est droit près de `point` — sinon None.
+
+        ⚠️ **ON MESURE LA DISTANCE AU SEGMENT, PAS À SES BOUTS.** Cherchée aux
+          bouts, la règle ne mordait sur rien : la panse du `p` rejoint son fût à
+          y = 349, et le bout le plus proche de ce fût est à y = 452, soit cent
+          deux unités — très au-delà de toute portée. Un raccord se fait presque
+          toujours EN PLEIN MILIEU d'un trait, et c'est bien pour cela qu'il
+          fallait une passe à part.
+        """
+        for m in chemins[t]:
+            if m[1]:
+                continue                       # ce morceau est courbe
+            if _dseg(point, m[0], m[2]) > PORTEE_SOUDURE:
+                continue
+            dx, dy = m[2][0] - m[0][0], m[2][1] - m[0][1]
+            n = math.hypot(dx, dy)
+            if n > 1e-9:
+                return (dx / n, dy / n)
+        return None
+
+    for j in pose.jonctions:
+        a, b = int(j[0]), int(j[1])
+        if not (0 <= a < len(chemins) and 0 <= b < len(chemins)):
+            continue
+        for x, y in ((a, b), (b, a)):
+            chem = chemins[x]
+            if not chem or pose.points[x] is not None:
+                continue
+            attendus = pose.mesure[x] if x < len(pose.mesure) else []
+            for fin in (False, True):
+                m = chem[-1] if fin else chem[0]
+                if len(m[1]) != 2:
+                    continue               # un segment droit n'a pas de poignée à tourner
+                ancre = m[2] if fin else m[0]
+                u = direction_droite(y, ancre)
+                if u is None:
+                    continue
+                k = 1 if fin else 0
+                poignee = m[1][k]
+                L = math.dist(ancre, poignee)
+                if L < 1e-9:
+                    continue
+                # Le SENS : celui qui rapproche de la poignée d'aujourd'hui, pour
+                # ne pas retourner la courbe en voulant la redresser.
+                s = 1.0 if ((poignee[0] - ancre[0]) * u[0]
+                            + (poignee[1] - ancre[1]) * u[1]) >= 0 else -1.0
+                neuf = list(m[1])
+                neuf[k] = (ancre[0] + s * u[0] * L, ancre[1] + s * u[1] * L)
+                candidat = (m[0], neuf, m[2])
+                # ★ **CE N'EST PAS UN COMPROMIS DE MESURE, C'EST UNE
+                #   DÉCLARATION.** Une panse qui touche un fût vertical en part
+                #   verticalement : la police le fait ainsi, et un raccord
+                #   oblique est faux même quand il mesure mieux — exactement le
+                #   raisonnement qui vaut pour les droites déclarées. Le juge
+                #   « aucun recul » refusait la correction du `p` pour quelques
+                #   dixièmes d'unité, et c'est ainsi qu'un raccord à 15° avait
+                #   pu s'installer sans que rien ne proteste.
+                #   On borne quand même la casse : au-delà d'un jeu de quadrant,
+                #   ce n'est plus une tangence qu'on impose, c'est une courbe
+                #   qu'on tord.
+                avant = _note_locale(pose, [m], attendus)
+                apres = _note_locale(pose, [candidat], attendus)
+                if all(a <= v + JEU_QUADRANT for a, v in zip(apres, avant)):
+                    if fin:
+                        chem[-1] = candidat
+                    else:
+                        chem[0] = candidat
+    return chemins
+
+
 def _r_cardinales(pose, chemins):
     """★ **AUX EXTREMA, LES POIGNÉES SONT HORIZONTALES OU VERTICALES.**
 
@@ -4018,6 +4122,10 @@ RETOUCHES = [
     #   pour rattraper les nœuds que la fonte vient de déplacer.
     ('sommets', _r_sommets),
     ('quadrants', _r_quadrants),
+    # ★ La tangence INTER-TRAITS vient après les quadrants : ceux-ci déplacent
+    #   les nœuds, et c'est sur la géométrie FINALE que le raccord se juge — la
+    #   même raison qui fait rejouer `_tangence` en fin de course.
+    ('tangence de jonction', _r_tangence_jonction),
     ('cardinales', _r_cardinales),
     ('polyligne', _r_polyligne),
     ('épure', _r_epure),
