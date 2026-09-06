@@ -1349,3 +1349,55 @@ test('★ découpes d’adresse — la zone déclarée EST le texte rendu', () =
     }
   }
 });
+
+/**
+ * ★ **`mad` ET `mrd` JOUENT LA MÊME PARTIE, ET SUR LE MÊME TERRAIN.**
+ *
+ * > « Test de remonter `mad` pour qu'il soit en concurrence avec `mrd`. Vu d'ici
+ * >   j'ai l'impression que les deux font la même chose. » (l'auteur)
+ *
+ * Ils s'en approchent, sans se confondre — mesuré sur les mêmes entrées :
+ *
+ *     [5,1,6,4,2,6]  → 666        mad « 6 6 6 6 »      mrd « 6 6 6 6 »
+ *     [19,1,18,1,8]  → 1998       mad « 1 9 1 9 1 8 »  mrd « 1 9 2 9 8 »
+ *     [7,1,0,8,3,3]  → 666        mad refusé           mrd « 1 6 6 »
+ *
+ * `mad` est GLOUTON — il prend le premier paquet qui va —, `mrd` est OPTIMAL,
+ * par programmation dynamique. D'où des découpes différentes, et un `mad` qui
+ * refuse là où l'autre trouve.
+ *
+ * ⚠️ **MAIS ILS NE JOUAIENT PAS SUR LE MÊME TERRAIN, et c'était invisible.**
+ *   `mad` s'arrêtait à douze chiffres, `mrd` en accepte trente-six — sans que
+ *   rien ne justifie qu'additionner soit trois fois moins lisible que regrouper.
+ *   Sur une saisie de treize lettres, un mappeur rend vingt-sept chiffres, si
+ *   bien que `mad` refusait AVANT de regarder la cible : il n'apparaissait dans
+ *   aucune voie du corpus, et l'on pouvait croire le classement responsable.
+ *   Bornes alignées, il en gagne — mesuré : deux voies sur « Millicent Billette »
+ *   vers 1998, une sur « Sarah Kerrigan » vers 31031998 —, et il les prend à
+ *   `mrd`, qui passe de huit à cinq. C'est bien une concurrence.
+ */
+test('★ `mad` et `mrd` ont la même largeur — sinon l’un ne concourt pas', () => {
+  const mad = PAR_CODE.get('mad');
+  const mrd = PAR_CODE.get('mrd');
+  assert.ok(mad && mrd);
+
+  // Vingt-sept chiffres : ce que rend un mappeur sur treize lettres, et ce que
+  // `mad` refusait tout net. Les deux doivent maintenant l'accepter ou le
+  // refuser pour la MÊME raison — leur règle —, jamais pour leur largeur.
+  const long = Array.from({ length: 27 }, (_, i) => (i % 9) + 1);
+  const tenu = (op) => {
+    const r = op.apply(long, long.map(() => []));
+    return r !== null;
+  };
+  assert.equal(tenu(mad), tenu(mrd),
+    'l’un accepte une ligne de 27 chiffres et l’autre non : leurs bornes ont divergé');
+
+  // ★ Et ils ne font PAS la même chose : le glouton et l'optimal se séparent.
+  const N = (v) => v.map(() => []);
+  const v = [19, 1, 18, 1, 8];
+  const a = mad.viser('1998').apply(v, N(v));
+  const b = mrd.viser('1998').apply(v, N(v));
+  assert.ok(a && b, 'les deux savent écrire 1998 depuis cette ligne');
+  assert.notDeepEqual(a.valeur, b.valeur,
+    'le glouton et l’optimal rendent la même découpe : l’un des deux est de trop');
+});

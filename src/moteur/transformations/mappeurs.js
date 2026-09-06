@@ -614,8 +614,25 @@ function releveDesParites(valeur, langue, visee) {
  *
  * La largeur est bornée elle aussi (`CHIFFRES_MAX`) : au-delà, on n'additionne
  * plus, on bricole — et la scène deviendrait illisible.
+ *
+ * ⚠️ **DOUZE, C'ÉTAIT TROIS FOIS MOINS QUE `mrd`, SANS RAISON ÉCRITE.** Le
+ *   redécoupage accepte trente-six chiffres (`CHIFFRES_REDECOUPE_MAX`) et pose
+ *   des accolades exactement comme celui-ci ; rien ne justifiait qu'additionner
+ *   soit trois fois moins lisible que regrouper. La conséquence était mesurable
+ *   et invisible : sur une saisie de treize lettres, un mappeur rend vingt-sept
+ *   chiffres, et `mad` refusait AVANT même de regarder la cible. Il n'apparaît
+ *   dans aucune voie du corpus, et ce n'est pas le classement qui l'écarte —
+ *   c'est ce plafond.
+ *   « Test de remonter `mad` pour qu'il soit en concurrence avec `mrd` »
+ *   (l'auteur) : les deux bornes sont donc alignées, et ce qui les départage
+ *   redevient ce qui doit les départager — ce qu'ils écrivent.
  */
-const CHIFFRES_MAX = 12;
+// ⚠️ La valeur est écrite ici plutôt que reprise de `CHIFFRES_REDECOUPE_MAX`,
+//   déclaré six cents lignes plus bas : une `const` de module n'existe pas avant
+//   sa ligne, et l'y renvoyer levait « Cannot access before initialization » au
+//   chargement. Un test tient l'égalité, ce qui vaut mieux qu'un renvoi qui
+//   n'aurait pas compilé.
+const CHIFFRES_MAX = 36;
 
 /**
  * ★ **LES CHIFFRES QU'UNE SOMME SÉLECTIVE NE CONSOMME JAMAIS**, et pourquoi
