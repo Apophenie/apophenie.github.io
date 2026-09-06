@@ -1630,3 +1630,61 @@ test('★ clavier : la réglette de colonnes ne monte jamais dans la ligne', () 
       + `(${Math.round(basDeLaLigne(tokens))})`);
   }
 });
+
+
+/**
+ * ★ **UNE ÉGALISATION REND LES LARGEURS QU'ELLE A RÉSERVÉES.**
+ *
+ * > « `meg` crée des espaces entre les premiers 3 chiffres, mais pas entre les
+ * >   suivants. Ça devrait être homogène. » (l'auteur)
+ *
+ * `planEgalisation` réserve à chaque jeton la place de la valeur la plus large
+ * qu'il portera pendant les transferts — sans quoi un `8` qui devient `11`
+ * recouvre son voisin à mi-parcours. Mais la réservation se prenait au `Math.max`
+ * et ne se rendait jamais : le jeton passé par `10` restait large de deux
+ * caractères une fois revenu à `6`.
+ *
+ * Le cas est celui que l'auteur a envoyé — « Capitalisme » lu en colonnes
+ * QWERTY : `3 10 5 9 2 7 → 6 6 6 6 6 6`. Les écarts mesurés valaient
+ * **49,2 · 49,2 · 34,8 · 34,8 · 34,8** : les trois premiers chiffres écartés,
+ * les trois suivants collés, exactement ce qui se voyait à l'écran.
+ *
+ * ★ On mesure les ÉCARTS et non les largeurs : c'est ce qui se voit. Une
+ *   largeur juste avec un écart faux resterait un défaut d'affichage.
+ */
+test('égalisation — la ligne finale est régulière, quelle que soit la largeur traversée', () => {
+  const valeurs = [3, 10, 5, 9, 2, 7];
+  const tokens = valeurs.map((v, i) => ({ id: `x${i}`, text: String(v), kind: 'number' }));
+  const tl = compile({
+    version: 1,
+    tokens,
+    steps: [{
+      id: 's0',
+      title: 'On égalise',
+      ops: [{
+        op: 'group', targets: tokens.map((t) => t.id), egaliser: true,
+        symbol: '≡', label: 'Égalisation', resultat: [6, 6, 6, 6, 6, 6],
+      }],
+    }],
+  });
+  const noeud = (id) => tl.nodes.find((n) => n.id === id);
+  const abscisseFinale = (id) => {
+    const pistes = tl.anims
+      .filter((a) => a.id === id && a.prop === 'translate')
+      .sort((p, q) => (p.delay + p.duration) - (q.delay + q.duration));
+    const derniere = pistes[pistes.length - 1];
+    return derniere
+      ? derniere.keyframes[derniere.keyframes.length - 1].value.x
+      : noeud(id).base.translate.x;
+  };
+  const xs = tokens.map((t) => abscisseFinale(t.id));
+  const ecarts = xs.slice(1).map((x, i) => Math.round((x - xs[i]) * 10) / 10);
+  assert.deepEqual(new Set(ecarts).size, 1,
+    `la ligne égalisée doit être régulière, écarts mesurés : ${ecarts.join(' · ')}`);
+  // Et la régularité ne s'obtient pas en écartant TOUT le monde à la largeur du
+  // plus gros : tous portent un seul caractère, tous en occupent un seul.
+  for (const t of tokens) {
+    assert.equal(noeud(t.id).w, tl.metrics.advance,
+      `${t.id} porte un chiffre : il ne doit pas garder la place de deux`);
+  }
+});

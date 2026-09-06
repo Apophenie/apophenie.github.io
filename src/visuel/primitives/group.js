@@ -187,6 +187,28 @@ function planEgalisation(ctx, ids) {
   if (acc) {
     for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.12 });
   }
+  // ★ **ON REND LES LARGEURS RÉSERVÉES AVANT DE REPOSER LA LIGNE.**
+  //
+  //   > « `meg` crée des espaces entre les premiers 3 chiffres, mais pas entre
+  //   >   les suivants. Ça devrait être homogène. » (l'auteur)
+  //
+  //   La réservation ci-dessus est nécessaire — un jeton qui passera de `8` à
+  //   `11` doit avoir sa place avant de changer, sinon il recouvre son voisin à
+  //   mi-parcours — mais elle est prise au PLUS LARGE de tout le trajet, et
+  //   `Math.max` ne la rend jamais. Sur « Capitalisme », `3 10 5 9 2 7` réserve
+  //   deux caractères au deuxième jeton : une fois tout le monde à 6, ce jeton
+  //   restait large de deux, et les trois premiers chiffres s'espaçaient là où
+  //   les trois suivants se touchaient.
+  //
+  //   ★ **ET C'EST UNE ÉGALISATION : à la fin, tous portent le MÊME nombre**,
+  //     donc la même largeur. Rendre les réservations juste avant le reflow ne
+  //     demande donc aucun arbitrage — la largeur due est celle du texte que
+  //     chacun porte désormais, et `relayout` est synchrone, si bien que le
+  //     mouvement qu'il calcule est déjà celui de la ligne resserrée.
+  ids.forEach((id, i) => {
+    const node = ctx.scene.get(id);
+    node.w = [...String(nivelees[i])].length * ctx.metrics.advance;
+  });
   ctx.reflow({ at: T * 0.88, dur: T * 0.12, ease: EASE.move });
 }
 
