@@ -15,7 +15,7 @@ import { construireBassin, statistiquesBassin, DISTANCE_MAX } from '../bassin.js
 import { genererFragments, motifsRepetes, periodicite, tokeniser, zonesSignifiantes, structureUrl } from '../fragments.js';
 import {
   ordreTotal, comparerCodes, racineEntiere, critereCouverture, critereConcision, noter, maniere,
-  rangConviction, RANG,
+  rangConviction, RANG, REGLAGES,
 } from '../score.js';
 import { approcheJoker, normaliserChemin, compterMoisson, sixDuChemin, SERIE } from '../assemblage.js';
 import { BAREME, detailDuCredit } from '../elegance.js';
