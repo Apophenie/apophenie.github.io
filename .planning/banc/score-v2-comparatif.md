@@ -174,3 +174,82 @@ node .planning/banc/score-v2-banc.mjs src/recherche/score-v2-agent.js
 node .planning/banc/score-v2-banc.mjs src/recherche/score-v2-produit.js
 BANC_PAS=25 node .planning/banc/score-v2-banc.mjs src/recherche/score-v2-geometrique.js   # ~20 min (BigInt)
 ```
+
+---
+
+## Itération 2 — les trois arbitrages de l'auteur, mesurés
+
+> 1. « Pousser l'exhaustivité drastiquement, la rendre bien plus punitive sur
+>   les premières pertes. Ne pas refacturer chaque fragment regroupé côté
+>   simplicité ; pour les fragments différents, le plus lourd entier, puis la
+>   moitié du 2ᵈ, le quart du 3ᵉ. »
+> 2. « Sortir `meg` des bidouilles, ou le facturer une fois à l'usage — à toi de
+>   voir ce qui préserve le mieux les scores. »
+> 3. « Itère avec ça déjà. »
+
+Appliqué à la piste « repli » (`score-v2.js`), qui a désormais deux réglages
+balayables : `EXPOSANT_PERTE` (la courbe 1 − perte^e, en centièmes ; 100 =
+linéaire, 35 = très sévère) et `EGALISATION` (`cumulatif` = le barème actuel,
+`unique` = une fois, `aucune`). Et une correction de ma part : « perdre beaucoup
+rapidement » est 1 − perte^e avec e < 1, pas √R — √R est INDULGENTE sur les
+premières pertes. Les deux courbes concaves (lecture, rendement) partagent
+l'exposant.
+
+### La longueur repliée règle `hope-hope-hope.fr` à elle seule
+
+La moisson à sept séries en quatorze étapes passait de S 511 à **S 686** une
+fois ses fragments identiques comptés une fois et les autres au plus lourd +
+moitié + quart ; c'est encore loin des 955 du groupement à trois étapes, et
+l'exhaustivité ordinaire fait le reste (E 735 contre 963 sur la courbe
+linéaire). **Le groupement passe devant dans toutes les configurations
+essayées** — la sévérité de la courbe n'y est pour rien.
+
+### Le paradoxe de la sévérité
+
+| exposant | `meg` | mixte : têtes · accord · déplacées | 1ʳᵉ place (régime réglé · meilleur balayé) |
+|---|---|---|---|
+| 100 (linéaire) | cumulatif | **14/16 · 73,7 % · 8** | 7/16 · **10/16** (0/44/11/44) |
+| 100 | unique | 12/16 · 73,7 % · 12 | 5/16 · 8/16 |
+| 65 | cumulatif | 14/16 · 73,1 % · 11 | 8/16 · 10/16 |
+| **65** | **unique** (défaut) | **12/16 · 73,3 % · 12** | **6/16 · 8/16** |
+| 50 | cumulatif | 13/16 · 72,5 % · 16 | 6/16 · 10/16 |
+| 35 | cumulatif | 11/16 · 72,7 % · 25 | 6/16 · 8/16 |
+| 35 | unique | 11/16 · 73,4 % · 21 | 4/16 · 7/16 |
+
+(2ᵈ place : 7/8 partout.) Plus la courbe est sévère, moins le classement
+actuel est reproduit — parce que le moteur emploie U^1,5 et √R, deux courbes
+indulgentes sur les premières pertes, et que toute courbe plus dure s'en
+éloigne. À 35, des CONVERGENCES prennent la 1ʳᵉ place (`tca+m7F+cs+prn` relu
+trois fois devant `fl+tca+m14` sur `hope-hope-hope.fr`) : relire trois fois la
+même chaîne lit tout, et l'exhaustivité sévère les couronne.
+
+### `meg`
+
+Le barème actuel (« cumulatif », −200 par valeur) est ce qui reproduit le
+mieux le classement ; « unique » coûte une à deux têtes mixtes et deux à trois
+en 1ʳᵉ place à chaque réglage, « aucune » autant. Le défaut suit l'arbitrage de
+l'auteur (« unique »), au prix mesuré.
+
+### Ce que le défaut 65 / unique fait bouger (régimes 6/29/48/18 · 0/44/11/44 · Q seule)
+
+- Mixte, quatre têtes : `https://hope-hope-hope.fr/` (moisson 7× → `fl+tca+mpy+meg`, la cible de l'arbitrage), `La numérologie…` (moisson → `10:fr18;fc+tca+mt9+meg`), `Donald Trump` (moisson → `fl+tca+mqwc+meg`), `numherololgeek` (retouchée → non retouchée, même méthode : C 597 → 747, le prix unique de `meg` ne creuse plus l'écart).
+- 1ʳᵉ place, dix têtes : les partitions à trois méthodes cèdent à des groupements `meg` (hope URL, Henri Prunelle, Éléonore), et à l'inverse `hope`, `macron`, `Wikipedia`, `Le chat dort` cèdent à des partitions ou convergences qui lisent tout (E 1000, S ≈ 340). **Le régime « la plus belle » sans simplicité (0 %) ne tient pas : il couronne ce qui lit tout, quelle que soit sa longueur.** Le meilleur balayé (exhaustivité seule, 8/16) est dégénéré.
+- 2ᵈ place, une : Henri Prunelle, `fl+tca+mazc+meg` → `2:fatb;fl+tca+mpy+meg` (Q 894 → 916).
+
+### Ce que je retiens
+
+1. **L'arbitrage 1 est acquis sans forcer la courbe** : la longueur repliée
+   suffit, et le linéaire est ce qui reste le plus proche de l'actuel. Entre
+   65 et 100, c'est doctrine (concave) contre fidélité (deux têtes, quatre
+   lignes) ; le réglage est un nombre.
+2. **L'arbitrage 2 coûte ce qu'il coûte** — deux têtes mixtes, deux à trois en
+   1ʳᵉ place — et la mesure ne le recommande pas ; le défaut le suit quand
+   même parce que c'est une doctrine, pas un réglage.
+3. **La 1ʳᵉ place reste le problème**, et il est structurel : le mérite actuel
+   couronne des partitions à trois méthodes parce qu'il ne regarde ni la
+   simplicité ni la quantité ; le global à quatre axes ne peut les garder
+   qu'en mettant la simplicité à zéro, et alors il couronne aussi les
+   convergences. Le régime « la plus belle » doit dire ce qu'il veut :
+   « lit tout et propre » (les partitions restent) ou « court, propre, d'un
+   seul tenant » (les groupements prennent) — les deux ne sont pas conciliables
+   dans une moyenne, et ce n'est pas un défaut de la moyenne.

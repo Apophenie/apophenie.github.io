@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 const chemin = process.argv[2];
 if (!chemin) { console.error('usage : node score-v2-banc.mjs <module>'); process.exit(2); }
 const V = await import(pathToFileURL(resolve(chemin)).href);
+if (process.env.BANC_REGLAGES && typeof V.configurer === 'function') V.configurer(JSON.parse(process.env.BANC_REGLAGES));
 const M = await import(pathToFileURL(resolve('src/recherche/index.js')).href);
 const { catalogue } = await import(pathToFileURL(resolve('src/recherche/tests/_catalogue.js')).href);
 const { detailDuCredit } = await import(pathToFileURL(resolve('src/recherche/elegance.js')).href);

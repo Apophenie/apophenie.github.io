@@ -1,40 +1,58 @@
-═══ src/recherche/score-v2.js — 16 saisies, 237 voies ═══
+═══ src/recherche/score-v2.js — 16 saisies, 237 voies · balayage au pas 25 (6560 points) ═══
 
-── MIXTE avec REGIMES.mixte (5/30/45/20) : têtes 13/16 · accord 72.6 % · déplacées ≥3 : 13/169
-      https://hope-hope-hope.fr/   fr14+tca+m14+mpf,ffr3+tca+m14+mp   S511 E812 Q1000 C632 g=846
-                                   → fl+tca+mpy+meg                   S955 E983 Q1000 C597 g=912
-      Capitalisme                  fr6+tca+mpy+meg                    S955 E961 Q738 C504 g=769
-                                   → fr10+tca+mx6+mad                 S955 E890 Q731 C670 g=778
-      La numérologie est une sci   fr3+tca+m14,tca+m14,fr11+tca+m14   S558 E812 Q1000 C556 g=833
-                                   → fr18+tca+mx6+mrn,tca+m14,fr11+tc S362 E884 Q1000 C572 g=848
-   meilleur balayé (5/32/47/16) : têtes 14/16 · accord 73.6 % · déplacées ≥3 : 6/169
-      https://hope-hope-hope.fr/   fr14+tca+m14+mpf,ffr3+tca+m14+mp   S511 E812 Q1000 C632 g=857
-                                   → fl+tca+mpy+meg                   S955 E983 Q1000 C597 g=929
-      La numérologie est une sci   fr3+tca+m14,tca+m14,fr11+tca+m14   S558 E812 Q1000 C556 g=847
-                                   → fr18+tca+mx6+mrn,tca+m14,fr11+tc S362 E884 Q1000 C572 g=862
+── MIXTE avec REGIMES.mixte (6/29/48/18) : têtes 12/16 · accord 73.3 % · déplacées ≥3 : 12/169
+      https://hope-hope-hope.fr/   fr14+tca+m14+mpf,ffr3+tca+m14+mp   S686 E641 Q1000 C632 g=813
+                                   → fl+tca+mpy+meg                   S955 E892 Q1000 C766 g=925
+      La numérologie est une sci   fr3+tca+m14,tca+m14,fr11+tca+m14   S713 E659 Q1000 C556 g=806
+                                   → 10:fr18;fc+tca+mt9+meg           S955 E767 Q1000 C593 g=858
+      Donald Trump                 fr15+tca+mx6+mrn,fr3+tca+mhe+mrn   S442 E840 Q780 C694 g=762
+                                   → fl+tca+mqwc+meg                  S955 E840 Q753 C741 g=788
+      numherololgeek.1000i100.fr   0:fr10;fl+tca+mpy+meg              S955 E716 Q1000 C597 g=844
+                                   → fl+tca+mqwc+meg                  S955 E716 Q1000 C747 g=871
+   meilleur balayé (0/0/100/0) : têtes 16/16 · accord 69.5 % · déplacées ≥3 : 10/169
 
-── ELEGANCE avec REGIMES.elegance (7/57/0/36) : 12/16 conservées
-      https://hope-hope-hope.fr/   tca+mch+cs+prn,nc,fr13+nlc+pc9     S280 E998 Q141 C764 g=863
-                                   → tca+m7F+cs+prn,tca+m7F+cs+prn,tc S777 E961 Q221 C906 g=928
-      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S412 E924 Q560 C717 g=814
-                                   → fl+tca+m14                       S1000 E869 Q538 C879 g=882
-      macron                       fr13+tca+m14+meg                   S955 E1000 Q590 C533 g=830
-                                   → nd,tca+msfr+cp,fi+tca+mt9+cs     S307 E1000 Q70 C914 g=920
-      Wikipedia                    fr21+tca+mx6+mad                   S955 E961 Q723 C652 g=850
-                                   → tca+ma1+cs+prn,tca+msfr+cp+prn,f S256 E1000 Q70 C865 g=899
-   meilleur balayé (7/57/0/36) : 12/16
-      https://hope-hope-hope.fr/   tca+mch+cs+prn,nc,fr13+nlc+pc9     S280 E998 Q141 C764 g=863
-                                   → tca+m7F+cs+prn,tca+m7F+cs+prn,tc S777 E961 Q221 C906 g=928
-      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S412 E924 Q560 C717 g=814
-                                   → fl+tca+m14                       S1000 E869 Q538 C879 g=882
-      macron                       fr13+tca+m14+meg                   S955 E1000 Q590 C533 g=830
-                                   → nd,tca+msfr+cp,fi+tca+mt9+cs     S307 E1000 Q70 C914 g=920
-      Wikipedia                    fr21+tca+mx6+mad                   S955 E961 Q723 C652 g=850
-                                   → tca+ma1+cs+prn,tca+msfr+cp+prn,f S256 E1000 Q70 C865 g=899
+── ELEGANCE avec REGIMES.elegance (0/44/11/44) : 6/16 conservées
+      https://hope-hope-hope.fr/   tca+mch+cs+prn,nc,fr13+nlc+pc9     S338 E976 Q141 C764 g=789
+                                   → fl+tca+mpy+meg                   S955 E892 Q1000 C766 g=848
+      Capitalisme                  fr21+tca+mx6+mrd                   S955 E795 Q731 C652 g=724
+                                   → fr6+tca+mpy+meg                  S955 E868 Q738 C650 g=757
+      Le chat dort sur le tapis    2:ffr5;fl+tca+m14+meg              S955 E824 Q1000 C583 g=736
+                                   → nc,fc+nlc,fv+nlv                 S413 E802 Q141 C839 g=745
+      Donald Trump                 fatb+tca+mt9+mr9,fr3+tca+mhe+mrn   S442 E840 Q780 C723 g=781
+                                   → fl+tca+mqwc+meg                  S955 E840 Q753 C741 g=786
+      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S442 E779 Q560 C717 g=727
+                                   → fl+tca+mazc+meg                  S955 E900 Q894 C744 g=830
+      numherololgeek.1000i100.fr   nv,tca+cnjd+pc9,fr13+nlc+pc9       S373 E974 Q141 C710 g=764
+                                   → nv,flt+tca+mpy+mr9,flt+tca+mpy+m S519 E945 Q780 C706 g=820
+      hope                         tca+m14                            S1000 E837 Q205 C871 g=782
+                                   → fc+tca+ma1+cs+prn,nlc,tca+mexb+c S338 E1000 Q70 C873 g=840
+      macron                       fr13+tca+m14+meg                   S955 E1000 Q590 C664 g=805
+                                   → nd,tca+msfr+cp,fi+tca+mt9+cs     S373 E1000 Q70 C914 g=858
+      Wikipedia                    fr21+tca+mx6+mad                   S955 E868 Q723 C652 g=756
+                                   → tca+mpy+cs+prn,fd+fv+nlv,tca+mtr S338 E1000 Q70 C868 g=838
+      Éléonore à Nîmes             nl,tca+m7+cs,fc+nlc                S309 E876 Q141 C861 g=788
+                                   → 2:ffr4;fl+tca+m14+meg            S955 E968 Q1000 C583 g=800
+   meilleur balayé (0/100/0/0) : 8/16
+      hope-hope-hope.fr            fl+tca+m14                         S1000 E838 Q916 C879 g=838
+                                   → nc,nsp+mlet+nlc+pc9,fr13+nlc+pc9 S309 E1000 Q141 C500 g=1000
+      Capitalisme                  fr21+tca+mx6+mrd                   S955 E795 Q731 C652 g=795
+                                   → fr6+tca+mpy+meg                  S955 E868 Q738 C650 g=868
+      Donald Trump                 fatb+tca+mt9+mr9,fr3+tca+mhe+mrn   S442 E840 Q780 C723 g=840
+                                   → 0:fr21;fc+tca+mqwc+meg           S955 E862 Q753 C579 g=862
+      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S442 E779 Q560 C717 g=779
+                                   → fl+tca+mazc+meg                  S955 E900 Q894 C744 g=900
+      hope                         tca+m14                            S1000 E837 Q205 C871 g=837
+                                   → fc+tca+ma1+cs+prn,nlc,tca+mexb+c S338 E1000 Q70 C873 g=1000
+      Wikipedia                    fr21+tca+mx6+mad                   S955 E868 Q723 C652 g=868
+                                   → fr17+tca+mpy+meg                 S955 E1000 Q753 C645 g=1000
+      jean-michel                  fv+tca+ma1+cs,tca+mtc+cs,nd        S279 E859 Q141 C934 g=859
+                                   → 0:fr20;fl+tca+mazc+meg           S955 E881 Q753 C579 g=881
+      Éléonore à Nîmes             nl,tca+m7+cs,fc+nlc                S309 E876 Q141 C861 g=876
+                                   → 2:ffr4;fl+tca+m14+meg            S955 E968 Q1000 C583 g=968
 
 ── ABONDANCE avec REGIMES.abondance (0/0/100/0) : 7/8 conservées
-      Henri Prunelle               fl+tca+mazc+meg                    S955 E982 Q894 C579 g=894
-                                   → 2:fatb;fl+tca+mpy+meg            S955 E982 Q916 C597 g=916
+      Henri Prunelle               fl+tca+mazc+meg                    S955 E900 Q894 C744 g=894
+                                   → 2:fatb;fl+tca+mpy+meg            S955 E900 Q916 C597 g=916
    meilleur balayé (0/0/100/0) : 7/8
-      Henri Prunelle               fl+tca+mazc+meg                    S955 E982 Q894 C579 g=894
-                                   → 2:fatb;fl+tca+mpy+meg            S955 E982 Q916 C597 g=916
+      Henri Prunelle               fl+tca+mazc+meg                    S955 E900 Q894 C744 g=894
+                                   → 2:fatb;fl+tca+mpy+meg            S955 E900 Q916 C597 g=916
