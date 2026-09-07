@@ -2633,8 +2633,20 @@ export function amplitudeArrondi(valeurs) {
  *
  * @returns {{vus: Uint8Array, couverts: Uint8Array, opaque: boolean}}
  */
+/** Le cache de `caracteresRetenus` — hors de l'approche, pour ne rien ajouter à
+ *  un objet que le reste du moteur sérialise et compare. */
+const CACHE_RETENUS = new WeakMap();
+
 export function caracteresRetenus(approche, ctx) {
   const saisie = String((ctx && ctx.saisie) || '');
+  // ⚠️ **MÉMOÏSÉ, ET IL LE FAUT : `survieDesCaracteres` REJOUE L'ALIGNEMENT.**
+  //   Elle remonte tous les états du chemin et aligne chaque texte sur le
+  //   précédent — un glouton par part, par approche. Depuis que la couverture
+  //   la consulte, elle est appelée DEUX fois par approche notée, et la suite de
+  //   recherche est passée de 368 s à plus de 600 (elle n'y finissait plus).
+  //   Le résultat ne dépend que de l'approche et du texte lu : on le garde.
+  const memo = approche ? CACHE_RETENUS.get(approche) : null;
+  if (memo && memo.saisie === saisie) return memo.valeur;
   const vus = new Uint8Array([...saisie].length);
   const couverts = new Uint8Array(vus.length);
   let opaque = false;
@@ -2660,7 +2672,9 @@ export function caracteresRetenus(approche, ctx) {
       if (g >= 0 && g < vus.length) vus[g] = 1;
     }
   }
-  return { vus, couverts, opaque };
+  const valeur = { vus, couverts, opaque };
+  if (approche) CACHE_RETENUS.set(approche, { saisie, valeur });
+  return valeur;
 }
 
 export function abandons(approche, ctx) {
