@@ -1,0 +1,40 @@
+═══ src/recherche/score-v2.js — 16 saisies, 237 voies ═══
+
+── MIXTE avec REGIMES.mixte (5/30/45/20) : têtes 13/16 · accord 72.6 % · déplacées ≥3 : 13/169
+      https://hope-hope-hope.fr/   fr14+tca+m14+mpf,ffr3+tca+m14+mp   S511 E812 Q1000 C632 g=846
+                                   → fl+tca+mpy+meg                   S955 E983 Q1000 C597 g=912
+      Capitalisme                  fr6+tca+mpy+meg                    S955 E961 Q738 C504 g=769
+                                   → fr10+tca+mx6+mad                 S955 E890 Q731 C670 g=778
+      La numérologie est une sci   fr3+tca+m14,tca+m14,fr11+tca+m14   S558 E812 Q1000 C556 g=833
+                                   → fr18+tca+mx6+mrn,tca+m14,fr11+tc S362 E884 Q1000 C572 g=848
+   meilleur balayé (5/32/47/16) : têtes 14/16 · accord 73.6 % · déplacées ≥3 : 6/169
+      https://hope-hope-hope.fr/   fr14+tca+m14+mpf,ffr3+tca+m14+mp   S511 E812 Q1000 C632 g=857
+                                   → fl+tca+mpy+meg                   S955 E983 Q1000 C597 g=929
+      La numérologie est une sci   fr3+tca+m14,tca+m14,fr11+tca+m14   S558 E812 Q1000 C556 g=847
+                                   → fr18+tca+mx6+mrn,tca+m14,fr11+tc S362 E884 Q1000 C572 g=862
+
+── ELEGANCE avec REGIMES.elegance (7/57/0/36) : 12/16 conservées
+      https://hope-hope-hope.fr/   tca+mch+cs+prn,nc,fr13+nlc+pc9     S280 E998 Q141 C764 g=863
+                                   → tca+m7F+cs+prn,tca+m7F+cs+prn,tc S777 E961 Q221 C906 g=928
+      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S412 E924 Q560 C717 g=814
+                                   → fl+tca+m14                       S1000 E869 Q538 C879 g=882
+      macron                       fr13+tca+m14+meg                   S955 E1000 Q590 C533 g=830
+                                   → nd,tca+msfr+cp,fi+tca+mt9+cs     S307 E1000 Q70 C914 g=920
+      Wikipedia                    fr21+tca+mx6+mad                   S955 E961 Q723 C652 g=850
+                                   → tca+ma1+cs+prn,tca+msfr+cp+prn,f S256 E1000 Q70 C865 g=899
+   meilleur balayé (7/57/0/36) : 12/16
+      https://hope-hope-hope.fr/   tca+mch+cs+prn,nc,fr13+nlc+pc9     S280 E998 Q141 C764 g=863
+                                   → tca+m7F+cs+prn,tca+m7F+cs+prn,tc S777 E961 Q221 C906 g=928
+      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S412 E924 Q560 C717 g=814
+                                   → fl+tca+m14                       S1000 E869 Q538 C879 g=882
+      macron                       fr13+tca+m14+meg                   S955 E1000 Q590 C533 g=830
+                                   → nd,tca+msfr+cp,fi+tca+mt9+cs     S307 E1000 Q70 C914 g=920
+      Wikipedia                    fr21+tca+mx6+mad                   S955 E961 Q723 C652 g=850
+                                   → tca+ma1+cs+prn,tca+msfr+cp+prn,f S256 E1000 Q70 C865 g=899
+
+── ABONDANCE avec REGIMES.abondance (0/0/100/0) : 7/8 conservées
+      Henri Prunelle               fl+tca+mazc+meg                    S955 E982 Q894 C579 g=894
+                                   → 2:fatb;fl+tca+mpy+meg            S955 E982 Q916 C597 g=916
+   meilleur balayé (0/0/100/0) : 7/8
+      Henri Prunelle               fl+tca+mazc+meg                    S955 E982 Q894 C579 g=894
+                                   → 2:fatb;fl+tca+mpy+meg            S955 E982 Q916 C597 g=916
