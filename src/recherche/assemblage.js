@@ -42,9 +42,7 @@
 // hachage, O(nb de chemins), quasi gratuite.
 
 import { signature, comparerCodes, scorePartiel, maniere } from './score.js';
-import {
-  A_MERITER_SA_PLACE, OPERATEURS_QUI_ECARTENT, nbTriptyques, compterTraductionsDivergentes,
-} from './elegance.js';
+import { A_MERITER_SA_PLACE, nbTriptyques, compterTraductionsDivergentes } from './elegance.js';
 import {
   CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecrit, verdict as ecrireVerdict,
 } from './cible.js';
@@ -891,76 +889,6 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
       else break;
     }
   }
-  /* ★ **UN SIÈGE POUR LA VOIE SANS PERTE — la quatrième réserve.**
-
-     > « Je voudrais arriver à toujours proposer un chemin sans aucune perte,
-     >   même s'il ne remonte pas toujours en premier résultat ; si avec les
-     >   réglages je fais primer l'exhaustivité, alors il doit remonter. »
-     >   (l'auteur)
-
-     Le tri ci-dessus range par COMPTE, la réserve de qualité par netteté puis
-     brièveté, et une voie qui dissout TOUT (`mab`, l'absorption arithmétique)
-     est une ficelle aux yeux du faisceau (`A_MERITER_SA_PLACE`) : elle passe
-     derrière toute voie honnête à compte voisin, et le plafond la coupe avant
-     l'assemblage. Le barème ne peut alors plus rien pour elle — il ne la voit
-     jamais —, et les curseurs de l'écran de liste non plus.
-
-     ⚠️ MESURÉ sur « Donald Trump » visant 666 : `fl+tca+ma1+mab` rejouée par
-       son lien vaut 7 218 points (deux séries, rendement 1 000, rien de
-       jeté) ; la tête de liste en valait 4 077, et la liste ne la proposait
-       pas. Même relevé sur « Éléonore à Nîmes » visant 111 (7 186 contre
-       5 959) et sur « Le chat dort sur le tapis rouge » (7 113, trois séries).
-
-     On réserve donc UN siège — pas plus — à la meilleure voie dont la ligne
-     finale est la cible, écrite un nombre entier de fois, et rien d'autre,
-     et dont aucune étape n'ÉCARTE (`OPERATEURS_QUI_ECARTENT` : ce que `mpf`,
-     `m36` ou `m1s2` retirent est perdu ; ce que `mab` ou `meg` absorbent ou
-     réécrivent ne l'est pas — `dilue` ne fait pas la différence, il compte la
-     ligne la plus large traversée, et une absorption la traverse entière).
-     Le moins de ficelles d'abord — une voie honnête qui y parvient vaut
-     mieux —, puis LE PLUS DE CARACTÈRES LUS (`caracteresLus` : une voie qui ne
-     lit que les consonnes a perdu les voyelles avant même de compter —
-     mesuré, `fc+tca+masc+mab` passait devant `fl+tca+mch+mab` sur « Henri
-     Prunelle Chochotte »), puis le moins d'étapes, puis l'ordre des chemins.
-     Le siège est le DERNIER de la première moitié : c'est celle que l'appelant
-     garde (`assembler`, `.slice(0, kParFragment)`), et poser la réserve en
-     tête déplacerait toutes les autres d'un rang.
-
-     ★ Repli EXACT : sans une telle voie, ou si elle est déjà dans la première
-       moitié, rien ne bouge. Et l'élu est DISPENSÉ de « une ficelle qui
-       n'apporte rien n'est pas proposée » (`apporteQuelqueChose`) : cette
-       règle compare sur `dilue`, qui tient l'absorption pour du gaspillage —
-       précisément ce que l'auteur conteste —, et une voie honnête « au moins
-       aussi bonne » sur ces trois mesures peut très bien laisser un reliquat
-       au verdict. L'élu répond à une autre question ; c'est le barème qui le
-       classe. */
-  let elu = null;
-  {
-    const exactement = (c) => {
-      const v = c.etats[c.etats.length - 1].valeur;
-      return v.length > 0 && nbTriptyques(v, cbl) * cbl.longueur === v.length;
-    };
-    const ecarte = (c) => c.ops.some((o) => o && o.id && OPERATEURS_QUI_ECARTENT.has(o.id));
-    // ★ Les caractères lus AVANT le nombre de ficelles : « sans perte » se
-    //   juge d'abord sur la saisie. Mesuré sur « Éléonore à Nîmes » visant 111 :
-    //   `fi+tca+msfr` — les initiales, trois lettres sur quatorze — prenait le
-    //   siège de `fl+tca+mch+mab`, qui les lit toutes, parce qu'il est honnête.
-    const sansPerte = out
-      .filter((c) => !ecarte(c) && exactement(c))
-      .sort((a, b) => (caracteresLus(b, texte) - caracteresLus(a, texte))
-        || (nbFicelles(a) - nbFicelles(b))
-        || (a.ops.length - b.ops.length) || comparerChemins(a, b));
-    if (sansPerte.length) {
-      elu = sansPerte[0];
-      const fenetre = Math.max(1, Math.floor(plafond / 2));
-      const deja = tete.indexOf(elu);
-      if (deja < 0 || deja >= fenetre) {
-        if (deja >= 0) tete.splice(deja, 1);
-        tete.splice(Math.min(fenetre - 1, tete.length), 0, elu);
-        if (tete.length > plafond) tete.length = plafond;
-      }
-    }
-  }
   const mesureDe = (c) => {
     const fin = c.etats[c.etats.length - 1];
     return { six: six(c), dilue: dilue(c), trip: nbTriptyques(fin.valeur, cbl) };
@@ -975,7 +903,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   const finaux = [];
   const vusCan = new Set();
   for (const c of tete) {
-    if (c !== elu && !apporteQuelqueChose(c)) continue;
+    if (!apporteQuelqueChose(c)) continue;
     const n = normaliserChemin(c);
     const cle = cleTrace(n);
     if (vusCan.has(cle)) continue;

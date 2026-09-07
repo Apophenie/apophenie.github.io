@@ -119,11 +119,6 @@ export const ORDRE_CANONIQUE = Object.freeze([
   // Le seul opérateur qui REMONTE le courant : d'un nombre vers du texte
   // (`mappeurs.js › m.chiffreEnLettres`).
   'mlet',
-  // ★ L'ABSORPTION ARITHMÉTIQUE : la cible écrite exactement, sans rien jeter
-  //   (`mappeurs.js › m.absorption`). En fin de bloc, comme le veut
-  //   l'append-only — sa place naturelle serait à côté de `mrd`, sa place
-  //   juste est ici.
-  'mab',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

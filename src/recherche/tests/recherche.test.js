@@ -1328,17 +1328,7 @@ test('★ moisson — le « fr » reste en sept segments : 4 + 2, et rien à jet
  * valeur soit calculée pour être ensuite écartée. C'est la meilleure moisson
  * possible sur cette saisie, et elle doit se voir : rang 1, rendement plein.
  */
-/**
- * ★ **QUATRE DEPUIS L'ABSORPTION.** « Toujours proposer un chemin sans aucune
- *   perte, même s'il ne remonte pas toujours en premier résultat » (l'auteur).
- *   La 1ʳᵉ place reste la moisson à trois séries qui jette deux valeurs ; la
- *   vedette des séries — la 2ᵈ, « la plus fournie », retenue parce qu'elle en
- *   a plus — devient `2:fr15;fl+tca+masc+mab` : « Donald » réécrit en amont,
- *   tout lu d'un trait, les intrus fondus dans les chiffres de la cible, rien
- *   de jeté, quatre séries. Ce n'est pas une ficelle : elle absorbe, elle
- *   n'écarte pas.
- */
-test('★ « Donald Trump » : la vedette des séries en aligne quatre, sans rien jeter', () => {
+test('★ « Donald Trump » : la vedette des séries en aligne trois', () => {
   // ★ La 1ʳᵉ ligne revient à `t1+mw+mz` seul — « Donald » en quatorze segments,
   //   un 666 déjà formé, sans rien d'autre —, qui est plus élégant que la
   //   moisson à deux portées dès lors que le second 666 ne rapporte plus que
@@ -1346,12 +1336,9 @@ test('★ « Donald Trump » : la vedette des séries en aligne quatre, sans rie
   //   2ᵈ ligne, celle de la quantité, et c'est elle qu'on gèle ici.
   const tete = vedetteDesSeries(creerMoteur(catalogue).resoudre('Donald Trump'));
 
-  assert.equal(tete.mode, 'GROUPEMENT', `vedette : ${tete.mode} — ${tete.codes}`);
-  assert.equal(tete.series, 4, `${tete.series} séries — ${tete.codes}`);
-  assert.match(tete.codes, /\+mab$/, `la vedette absorbe, elle ne jette pas — ${tete.codes}`);
-  assert.equal(tete.parts.length, 1, 'tout lu d’un trait');
-  assert.equal(tete.bilan.jeteesAuTri, 0, 'rien de jeté au tri');
-  assert.equal(tete.criteres.R, 1000, 'tout ce qui est produit sert');
+  assert.equal(tete.mode, 'MOISSON', `rang 1 : ${tete.mode} — ${tete.codes}`);
+  assert.equal(tete.series, 3, `${tete.series} séries — ${tete.codes}`);
+  assert.deepEqual(tete.parts.map((p) => p.fragment.texte), ['Donald', 'Trump']);
 
   /* ⚠️ **CE TEST GELAIT UNE COMBINAISON NOMMÉE PAR L'AUTEUR, ET ELLE N'EST
      PLUS DANS LA LISTE.** Il exigeait `tca+m14+m36,fr13+tca+m14+m36` — «
@@ -1379,9 +1366,7 @@ test('★ « Donald Trump » : la vedette des séries en aligne quatre, sans rie
      calculées, `m36` en écartant cinq. Il vaut 818 sur celle-ci, qui garde
      davantage de ce qu'elle calcule — le rendement suit la voie, il ne
      décrit pas la saisie. */
-  // ★ 818 quand la vedette était la moisson qui jetait deux valeurs ; 1000
-  //   depuis que c'est l'absorption, qui ne jette rien.
-  assert.equal(tete.criteres.R, 1000, `rendement : ${tete.criteres.R}`);
+  assert.equal(tete.criteres.R, 818, `rendement : ${tete.criteres.R}`);
 
   /* ⚠️ **ET LE TITRE DE CE TEST N'EST PLUS EXACT : LES 666 NE SONT PLUS DÉJÀ
      FORMÉS.** L'ancienne vedette rendait `[[6,6,6],[6,6,6]]` — deux triplets
@@ -1397,17 +1382,13 @@ test('★ « Donald Trump » : la vedette des séries en aligne quatre, sans rie
      méritait le rang 1 et la voie de quantité le rang 2 ; tant que l'ordre des
      deux registres n'est pas tranché, on gèle ce qui EST, pas ce qu'on
      voudrait. */
-  /* ★ **PLUS RIEN À RASSEMBLER.** L'ancienne vedette rendait
-     `[[6,5,6,6,6,6],[6,6,6,8,6]]` — onze 6 pour trois séries, un 5 et un 8 à
-     écarter au verdict. L'absorption rend douze 6 d'un trait : quatre séries
-     nées alignées, et rien que le verdict ait à trier. C'est exactement ce que
-     l'auteur demandait — « obtenir non pas approximativement l'objectif mais
-     précisément l'objectif ». */
   const finaux = tete.parts.map((p) => p.chemin.etats[p.chemin.etats.length - 1].valeur);
-  assert.deepEqual(finaux, [Array(12).fill(6)], `douze 6 et rien d’autre — obtenu ${JSON.stringify(finaux)}`);
+  assert.deepEqual(finaux, [[6, 5, 6, 6, 6, 6], [6, 6, 6, 8, 6]]);
+
   const m = creerMoteur(catalogue);
   const sc = m.scenarioDe(tete, { saisie: 'Donald Trump' });
-  assert.ok(sc && sc.steps && sc.steps.length > 0, 'la vedette se met en scène');
+  assert.equal(sc.steps.some((st) => st.recolte), true,
+    'les 6 sont dispersés : la scène doit les rassembler, et le montrer');
 });
 
 /**
@@ -1466,10 +1447,7 @@ test('★ retouches — la recherche RETROUVE le geste décrit par l’auteur', 
   // de la seule que le même programme donne sans la retouche.
   assert.equal(voie.retouches.length, 1, 'un seul étage amont');
   assert.equal(voie.mode, 'GROUPEMENT');
-  // ★ Trois avant l'absorption, quatre depuis : la voie retouchée de tête est
-  //   `2:fr15;fl+tca+masc+mab`, qui ne jette rien. Le GESTE gelé — un mot
-  //   réécrit en amont, tout lu d'un trait — est le même.
-  assert.ok(voie.series >= 3, `${voie.series} séries — ${voie.codes}`);
+  assert.equal(voie.series, 3);
   assert.notEqual(voie.saisieRetouchee, 'Donald Trump');
 
   /* ★ **LE MOT RETOUCHÉ A CHANGÉ, LE GESTE NON.** Le test exigeait « Trump »,

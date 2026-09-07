@@ -694,23 +694,6 @@ export const CAS_ARBITRAGE = Object.freeze([
     },
   },
   {
-    id: 'absorption-donald-trump-2e-place',
-    place: 2,
-    titre: 'Donald Trump — 2ᵈ place : la moisson qui jette deux valeurs, ou l’absorption qui ne jette rien',
-    saisie: 'Donald Trump',
-    /* ★ « Toujours proposer un chemin sans aucune perte, même s'il ne remonte
-       pas toujours en premier résultat » (l'auteur). À gauche la moisson à
-       trois séries qui laissait un 5 et un 8 au verdict (R = 818) ; à droite
-       `2:fr15;fl+tca+masc+mab` — « Donald » réécrit en amont, tout lu d'un trait, les
-       intrus fondus dans les chiffres de la cible, rien de jeté (R = 1000),
-       quatre séries. La 1ʳᵉ place reste la moisson ; c'est « la plus fournie »
-       qui change de main, parce qu'elle en a une de plus et ne jette rien.
-       Deux tests de référence ont été actualisés en conséquence
-       (`elegance.test.js`, `recherche.test.js`). */
-    avant: '#sce!0:fatb+mt9+mr9,2:fr3+mhe+mrn#2HuP1G8mNg3sJWhqR',
-    apres: '#sce!2:fr15;fl+masc+mab#2HuP1G8mNg3sJWhqR',
-  },
-  {
     id: 'hope-place-1-brieve-ou-nommee',
     place: 1,
     titre: 'hope-hope-hope.fr — 1ʳᵉ place : la brève, ou celle que l’auteur a nommée',

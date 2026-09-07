@@ -1198,10 +1198,6 @@ export const BAREME = {
    * ici, une fois par le critère de concision.
    */
   REARRANGEMENT: 20,
-  /** Un chiffre absorbé par `mab` — réutilisé dans un chiffre de la cible et
-   *  restitué. Par chiffre : c'est le « malus de simplicité » de la voie sans
-   *  perte, étalonné au banc (`.planning/banc/sans-perte-banc.mjs`). */
-  ABSORPTION: 80,
 
   /**
    * 0. ★ **L'EFFACEMENT SANS MOTIF — le sommet de l'échelle**, par valeur
@@ -1432,7 +1428,6 @@ export const NATURE = Object.freeze({
   DECIMATION: { sens: -1, famille: 'elegance' },
   ADDITION_SELECTIVE: { sens: -1, famille: 'elegance' },
   REDECOUPAGE: { sens: -1, famille: 'elegance' },
-  ABSORPTION: { sens: -1, famille: 'absorption' },
   ECRITURE_EN_LETTRES: { sens: -1, famille: 'elegance' },
   REARRANGEMENT: { sens: -1, famille: 'elegance' },
 
@@ -1595,14 +1590,6 @@ const REECRITURES = new Set(['ecritureEnLettres']);
 const ABSORBENT_PAR_ADDITION = Object.freeze({
   'm.additionSelective': 'additionSelective',
   'm.redecoupageChoisi': 'redecoupage',
-  // ★ L'ABSORPTION ARITHMÉTIQUE (`mab`) — le redécoupage poussé jusqu'au bout :
-  //   elle coupe, additionne, réduit et multiplie pour que la ligne écrive la
-  //   cible EXACTEMENT, sans rien jeter. Elle paie au palier du redécoupage,
-  //   dilué par ses additions et dégressif avec la longueur, parce que c'est
-  //   le même geste — des coupes choisies —, poussé plus loin. Ce qu'elle
-  //   absorbe de plus que `mrd`, elle le paie donc au même tarif ; ce qu'elle
-  //   ne jette pas, aucun poste de rejet ne le lui compte, et c'est le point.
-  'm.absorption': 'redecoupage',
 });
 
 /**
@@ -1785,9 +1772,6 @@ export const A_MERITER_SA_PLACE = Object.freeze(new Set([
   ...Object.keys(FICELLES),
   ...UNIFORMISENT,
   'm.redecoupageChoisi',
-  // L'absorption fabrique la cible ENTIÈRE par construction : à plus forte
-  // raison que le redécoupage, elle doit mériter sa place.
-  'm.absorption',
 ]));
 
 /**
@@ -2502,7 +2486,6 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
     //   est diluée par le nombre d'additions qui se suivent (`dilution`).
     additionSelective: 0,
     redecoupage: 0,
-    absorptions: 0,
     // ★ le sommet de l'échelle, en attente d'un opérateur (voir le barème).
     effacementSansMotif: 0,
     // ★ le chiffre réécrit en toutes lettres — un forfait, par emploi.
@@ -2605,14 +2588,6 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       let chiffres = 0;
       for (const v of avant.valeur) chiffres += String(Math.abs(v)).length;
       const absorbes = Math.max(0, chiffres - apres.valeur.length);
-      // ★ LE PRIX DE L'ABSORPTION, à part : « malus de simplicité, bonus
-      //   d'exhaustivité » (l'auteur). Chaque chiffre absorbé par `mab` —
-      //   réutilisé dans un chiffre de la cible, puis restitué — est un geste
-      //   montré de plus, et se paie au poste `ABSORPTION`. Sans lui, la voie
-      //   sans perte prenait la tête PARTOUT au défaut, `hope-hope-hope.fr`
-      //   compris devant `fl+tca+m14` : le barème lui comptait quatre étapes là
-      //   où la scène en montre vingt-sept.
-      if (op.id === 'm.absorption') b.absorptions += absorbes;
       const poids = typeof op.additions === 'function'
         ? dilution(op.additions(avant.valeur)) : absorbes * 1000;
       // ★ Et le redécoupage, LUI SEUL, s'allège avec la longueur de la ligne :
@@ -2978,7 +2953,6 @@ export function bilanApproche(approche, ctx = {}) {
     // ★ en MILLIÈMES d'un chiffre absorbé : la peine est diluée (`dilution`).
     additionSelective: 0,
     redecoupage: 0,
-    absorptions: 0,
     // ★ le sommet de l'échelle, en attente d'un opérateur (voir le barème).
     effacementSansMotif: 0,
     // ★ le chiffre réécrit en toutes lettres — un forfait, par emploi.
@@ -3085,7 +3059,6 @@ export function bilanApproche(approche, ctx = {}) {
     b.decimation += bc.decimation;
     b.additionSelective += bc.additionSelective;
     b.redecoupage += bc.redecoupage;
-    b.absorptions += bc.absorptions || 0;
     b.effacementSansMotif += bc.effacementSansMotif;
     b.ecritureEnLettres += bc.ecritureEnLettres;
     b.rearrangement += bc.rearrangement;
@@ -3297,8 +3270,6 @@ export function detailDuCredit(b, poids) {
     //   elle ne descend jamais à zéro tant que le compteur bouge (`peine`).
     ['redécoupage choisi (millièmes)', 'REDECOUPAGE', b.redecoupage || 0,
       peine(B.REDECOUPAGE, b.redecoupage || 0)],
-    ['chiffre absorbé, réutilisé puis restitué', 'ABSORPTION', b.absorptions || 0,
-      B.ABSORPTION * (b.absorptions || 0)],
     ['un rang sur deux', 'DECIMATION', b.decimation, B.DECIMATION * b.decimation],
     ['addition sélective (millièmes)', 'ADDITION_SELECTIVE', b.additionSelective,
       peine(B.ADDITION_SELECTIVE, b.additionSelective)],
