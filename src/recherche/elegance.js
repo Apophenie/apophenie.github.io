@@ -2268,6 +2268,30 @@ function aboutissementLegitime(e, cible = CIBLE_DEFAUT) {
  * Une traduction, elle, change tout : on ne sait plus qui vient d'où, et
  * prétendre le savoir serait inventer une mesure.
  *
+ * ⚠️ **MAIS L'OPACITÉ EST LOCALE À L'ÉTAPE, et le suivi REPREND derrière.**
+ *
+ *   > « `fc` seul est facturé ; `fc` précédé d'une traduction ne l'est plus. »
+ *   > « Rendre l'opacité locale à l'étape : reprendre l'alignement après la
+ *   >   traduction sur le nouveau texte, plutôt que d'abandonner le suivi pour
+ *   >   tout le reste du chemin. » — « Oui, fais ça. » (l'auteur)
+ *
+ *   La première version ABANDONNAIT au premier échec d'alignement, et
+ *   l'appelant créditait alors la portée entière. Conséquence mesurée :
+ *   `hope → ffr+fc` rendait « sprr » — la moitié des lettres jetée — avec une
+ *   couverture pleine, parce que la traduction placée devant blanchissait tout
+ *   ce qui suivait. Une voie pouvait traduire d'abord, geste gratuit et
+ *   légitime, puis jeter sans que l'exhaustivité en sache rien.
+ *
+ *   Désormais une réécriture RÉPARTIT les origines : chaque caractère du texte
+ *   nouveau hérite d'une tranche des positions de l'ancien (`repartirOrigines`),
+ *   bloc à bloc quand les deux textes ont autant de mots, en proportion sinon.
+ *   Si tout le texte nouveau survit, toutes les origines survivent — la
+ *   traduction reste gratuite. Si un filtre en jette ensuite la moitié, la
+ *   moitié des origines tombe — en NOMBRE, fidèlement ; en POSITION,
+ *   approximativement, et c'est ce que le drapeau `opaque` continue de dire :
+ *   « la mesure est proportionnelle, pas exacte ». Il ne veut plus dire « on
+ *   n'a pas mesuré ».
+ *
  * @param {Object} chemin
  * @returns {{vivants:Set<number>, depart:string, opaque:boolean}}
  */
@@ -2275,7 +2299,13 @@ export function survieDesCaracteres(chemin) {
   const etats = (chemin && chemin.etats) || [];
   const premier = etats[0];
   const depart = premier && premier.type === 'STR' ? String(premier.valeur) : '';
-  let indices = Array.from({ length: [...depart].length }, (_, i) => i);
+  // `parts[j]` : ce que porte le j-ème caractère du texte courant — une liste
+  // de {paquet, poids}. Tant que rien n'a été réécrit, un caractère porte son
+  // propre paquet `[i]` au poids 1. Après une réécriture, les `m` caractères
+  // d'un mot nouveau se partagent le paquet du mot ancien, chacun pour 1/m :
+  // la somme des poids d'un paquet vaut 1 quand tout survit, et la part
+  // survivante d'un paquet dit quelle FRACTION de ses origines est encore là.
+  let parts = Array.from({ length: [...depart].length }, (_, i) => [{ paquet: [i], poids: 1 }]);
   let texte = [...depart];
   let opaque = false;
 
@@ -2291,11 +2321,112 @@ export function survieDesCaracteres(chemin) {
       continue;
     }
     const align = aligner(suite, texte);
-    if (!align) { opaque = true; break; }
-    indices = align.map((k) => indices[k]);
+    if (align) {
+      parts = align.map((k) => parts[k]);
+    } else {
+      opaque = true;
+      parts = repartirOrigines(parts, texte, suite);
+    }
     texte = suite;
   }
-  return { vivants: new Set(indices), depart, opaque };
+
+  // Ce qui survit, paquet par paquet : la fraction des poids encore portés,
+  // ramenée au nombre d'origines du paquet. Un paquet direct (`[i]`, poids 1)
+  // survit tout entier ou pas du tout — le cas ordinaire reste exact.
+  const survie = new Map();
+  for (const liste of parts) {
+    for (const { paquet, poids } of liste) survie.set(paquet, (survie.get(paquet) || 0) + poids);
+  }
+  const vivants = new Set();
+  for (const [paquet, poids] of survie) {
+    const k = Math.min(paquet.length, Math.round(Math.min(1, poids + 1e-9) * paquet.length));
+    for (let q = 0; q < k; q++) vivants.add(paquet[q]);
+  }
+  return { vivants, depart, opaque };
+}
+
+/**
+ * ★ **UNE RÉÉCRITURE RÉPARTIT SES ORIGINES, elle ne les perd pas.**
+ *
+ * `ancien` a été remplacé par `nouveau` sans être une sous-suite — traduction,
+ * conjugaison, synonyme. On ne sait pas quel caractère vient d'où ; on sait en
+ * revanche que le texte nouveau PORTE le texte ancien, tout entier. Les
+ * origines d'un mot ancien forment un PAQUET, et chacun des `m` caractères du
+ * mot nouveau en porte 1/m : si tous survivent, le paquet survit entier ; si un
+ * filtre en jette la moitié, la moitié du paquet tombe.
+ *
+ * ⚠️ **PONDÉRER, ET NON DISTRIBUER.** Le premier jet donnait à chaque caractère
+ *   nouveau une TRANCHE d'origines. Quand la réécriture allonge le texte —
+ *   « hope » → « espérer », quatre lettres vers sept —, plusieurs caractères
+ *   nouveaux partagent une même origine, et il suffit qu'un seul survive pour
+ *   qu'elle survive : `ffr+fc` jetait trois lettres sur sept et rendait
+ *   pourtant 4 survivants sur 4. Le poids règle cela : trois lettres sur sept
+ *   jetées, c'est 4/7 du paquet qui reste, soit deux origines sur quatre.
+ *
+ * ★ **BLOC À BLOC quand c'est possible, et c'est le cas qui compte.** « le chat
+ *   dort » → « the cat sleeps » : trois mots vers trois mots. Un filtre qui
+ *   rognera ensuite « cat » ne fera tomber que des origines de « chat ». Quand
+ *   les comptes de mots diffèrent, un seul paquet pour tout le texte — moins
+ *   fin, jamais faux en nombre. Les séparateurs anciens rejoignent le mot qui
+ *   les précède (le premier s'il n'y en a pas) : personne ne reproche à une
+ *   méthode d'ignorer un point, et ils suivent le sort de leur mot.
+ *
+ * @param {{paquet:number[], poids:number}[][]} parts  par position de `ancien`
+ * @param {string[]} ancien
+ * @param {string[]} nouveau
+ * @returns {{paquet:number[], poids:number}[][]} par position de `nouveau`
+ */
+function repartirOrigines(parts, ancien, nouveau) {
+  const blocsDe = (t) => {
+    const out = [];
+    let debut = -1;
+    for (let i = 0; i <= t.length; i++) {
+      const alnum = i < t.length && estAlnum(t[i]);
+      if (alnum && debut < 0) debut = i;
+      else if (!alnum && debut >= 0) { out.push([debut, i]); debut = -1; }
+    }
+    return out;
+  };
+  // Fusionne ce que portent des positions anciennes en UN paquet neuf : les
+  // origines réunies, et le poids de chaque origine ramené à sa survie. Une
+  // origine déjà réécrite arrive avec un poids < 1 si une part d'elle est
+  // tombée ; on en garde autant d'exemplaires que sa fraction le vaut.
+  const fusionner = (positions) => {
+    const poidsPar = new Map();
+    for (const i of positions) {
+      for (const { paquet, poids } of parts[i]) poidsPar.set(paquet, (poidsPar.get(paquet) || 0) + poids);
+    }
+    const paquet = [];
+    for (const [p, w] of poidsPar) {
+      const k = Math.min(p.length, Math.round(Math.min(1, w + 1e-9) * p.length));
+      for (let q = 0; q < k; q++) paquet.push(p[q]);
+    }
+    return paquet;
+  };
+  const partager = (paquet, m) => Array.from({ length: m }, () => [{ paquet, poids: 1 / m }]);
+
+  const A = blocsDe(ancien);
+  const B = blocsDe(nouveau);
+  if (!A.length || A.length !== B.length) {
+    const paquet = fusionner(ancien.map((_, i) => i));
+    return partager(paquet, nouveau.length);
+  }
+  // Chaque position ancienne va à son mot ; les séparateurs au mot précédent.
+  const motDe = new Array(ancien.length).fill(0);
+  let k = -1;
+  for (let i = 0; i < ancien.length; i++) {
+    if (k + 1 < A.length && i >= A[k + 1][0]) k++;
+    motDe[i] = Math.max(0, k);
+  }
+  const positionsParMot = A.map(() => []);
+  motDe.forEach((m, i) => positionsParMot[m].push(i));
+  const out = nouveau.map(() => []);
+  B.forEach(([d, f], j) => {
+    const paquet = fusionner(positionsParMot[j]);
+    const p = partager(paquet, f - d);
+    for (let q = d; q < f; q++) out[q] = p[q - d];
+  });
+  return out;
 }
 
 /**
@@ -2656,17 +2787,12 @@ export function caracteresRetenus(approche, ctx) {
     for (const [d, f] of intervallesDe(p.fragment)) {
       for (let i = d; i < f && i < couverts.length; i++) if (i >= 0) couverts[i] = 1;
     }
-    if (survie.opaque) {
-      // On ne sait plus qui vient d'où : on crédite la portée ENTIÈRE plutôt
-      // que d'inventer des victimes. L'approche n'est pas punie de notre
-      // ignorance — mais le drapeau part avec le bilan, pour qu'on sache que
-      // ce compte-là est un minorant.
-      opaque = true;
-      for (const [d, f] of intervallesDe(p.fragment)) {
-        for (let i = d; i < f && i < vus.length; i++) vus[i] = 1;
-      }
-      continue;
-    }
+    // ★ Plus de repli « portée entière » sur un chemin opaque : la survie
+    //   répartit désormais les origines à travers une réécriture
+    //   (`repartirOrigines`), si bien que `vivants` reste une mesure — en
+    //   nombre exacte, en position approchée. Le drapeau part avec le bilan
+    //   pour le dire ; il ne dispense plus de compter.
+    if (survie.opaque) opaque = true;
     for (const i of survie.vivants) {
       const g = base + i;
       if (g >= 0 && g < vus.length) vus[g] = 1;

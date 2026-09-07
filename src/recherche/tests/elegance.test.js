@@ -1302,6 +1302,60 @@ test('★ survie des caractères — bijection suivie, traduction déclarée OPA
 
   const traduit = chemin([etat('STR', 'hope'), etat('STR', 'espoir')], ['f.traduitFR']);
   assert.equal(survieDesCaracteres(traduit).opaque, true, 'on ne sait plus qui vient d’où : on le dit');
+  // ★ Mais on le dit SANS cesser de compter : une traduction seule ne fait
+  //   tomber personne — le mot nouveau porte le mot ancien tout entier.
+  assert.equal(survieDesCaracteres(traduit).vivants.size, 4, 'traduire ne jette rien');
+});
+
+/**
+ * ★ **L'OPACITÉ EST LOCALE À L'ÉTAPE : ce qui suit une traduction se facture.**
+ *
+ * > « `fc` seul est facturé ; `fc` précédé d'une traduction ne l'est plus. Une
+ * >   voie peut donc traduire d'abord — geste gratuit et légitime — puis jeter
+ * >   la moitié des lettres sans que l'exhaustivité en sache rien. » — « Oui,
+ * >   fais ça. » (l'auteur, sur la piste de l'opacité locale)
+ *
+ * La première version abandonnait le suivi au premier échec d'alignement, et
+ * l'appelant créditait la portée entière. Mesuré : `hope → ffr+fc` rendait
+ * « sprr » — trois lettres sur sept jetées — avec quatre survivants sur quatre.
+ *
+ * ⚠️ **ET LA MESURE EST PONDÉRÉE, PAS DISTRIBUÉE.** Répartir les origines par
+ *   tranches ne suffisait pas : « hope » → « espérer » allonge le texte, chaque
+ *   origine se retrouve portée par deux lettres, et il suffit qu'une survive.
+ *   Le poids règle cela — 4/7 du mot survit, donc 4/7 des origines, soit deux.
+ */
+test('★ survie des caractères — une traduction ne blanchit pas le filtre qui la suit', () => {
+  const seul = chemin([etat('STR', 'hope'), etat('STR', 'hp')], ['f.consonnes']);
+  assert.equal(survieDesCaracteres(seul).vivants.size, 2, 'fc seul : deux lettres sur quatre');
+
+  const derriere = chemin(
+    [etat('STR', 'hope'), etat('STR', 'espérer'), etat('STR', 'sprr')],
+    ['f.traduitFR', 'f.consonnes'],
+  );
+  const s = survieDesCaracteres(derriere);
+  assert.equal(s.opaque, true, 'la réécriture est dite');
+  assert.equal(s.vivants.size, 2,
+    'fc derrière une traduction : 4/7 du mot survit, donc deux origines sur quatre — pas quatre');
+
+  // Dans l'autre sens, la traduction RACCOURCIT : « espérer » → « hope » → « hp »,
+  // la moitié du mot nouveau survit, donc la moitié des sept origines.
+  const raccourci = chemin(
+    [etat('STR', 'espérer'), etat('STR', 'hope'), etat('STR', 'hp')],
+    ['f.traduitEN', 'f.consonnes'],
+  );
+  assert.equal(survieDesCaracteres(raccourci).vivants.size, 4, '2/4 de « hope », soit 3,5 → 4 sur 7');
+
+  // ★ Bloc à bloc : trois mots vers trois mots, et un filtre qui ne rogne que
+  //   le deuxième ne fait tomber que des origines du deuxième mot ancien.
+  const phrase = chemin(
+    [etat('STR', 'le chat dort'), etat('STR', 'the cat sleeps'), etat('STR', 'the ct sleeps')],
+    ['f.traduitEN', 'f.consonnes'],
+  );
+  const v = survieDesCaracteres(phrase).vivants;
+  // « le » = 0-1, « chat » = 3-6, « dort » = 8-11 ; « cat » perd une lettre sur
+  // trois, donc « chat » perd 1/3 × 4 = 1,33 → une origine.
+  for (const i of [0, 1, 8, 9, 10, 11]) assert.ok(v.has(i), `« le » et « dort » restent entiers (${i})`);
+  assert.equal([3, 4, 5, 6].filter((i) => v.has(i)).length, 3, '« chat » perd exactement une lettre');
 });
 
 // ══════════════════════════════════ déterminisme et rejouabilité (§4.4, §4.3)
