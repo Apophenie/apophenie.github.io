@@ -884,7 +884,13 @@ test('★ ficelles — aucune ne figure en tête des quatre cas de référence',
   const attendus = {
     'hope-hope-hope.fr': 6,
     'https://hope-hope-hope.fr/': 7,
-    'Donald Trump': 3,
+    // ★ Quatre depuis l'ABSORPTION (`mab`) : « toujours proposer un chemin sans
+    //   aucune perte, même s'il ne remonte pas toujours en premier résultat »
+    //   (l'auteur). La 1ʳᵉ place reste la moisson à trois séries qui jette
+    //   deux valeurs ; la 2ᵈ — « la plus fournie », retenue parce qu'elle en a
+    //   plus — devient `2:fr15;fl+tca+masc+mab`, quatre séries, rien de jeté.
+    //   Ce n'est pas une ficelle : elle absorbe, elle n'écarte pas.
+    'Donald Trump': 4,
     Macron: 2,
   };
   for (const [saisie, series] of Object.entries(attendus)) {
@@ -1564,7 +1570,12 @@ test('★ étalonnage — les quatre cas de référence gardent leur tête de li
   const attendu = [
     ['hope-hope-hope.fr', 'MOISSON', 6, null],
     ['https://hope-hope-hope.fr/', 'MOISSON', 7, null],
-    ['Donald Trump', 'MOISSON', 3, null],
+    /* ★ « Donald Trump » : quatre séries en GROUPEMENT depuis l'absorption
+       (`mab`) — `2:fr15;fl+tca+masc+mab`, rien de jeté. La moisson à trois
+       séries garde la 1ʳᵉ place ; c'est la 2ᵈ, « la plus fournie », qui
+       change de main, et à bon droit : elle en a une de plus et ne jette rien.
+       « Toujours proposer un chemin sans aucune perte » (l'auteur). */
+    ['Donald Trump', 'GROUPEMENT', 4, null],
     /* ★ **`Macron` : L'ARBITRAGE EST TRANCHÉ, ET IL VA À LA VOIE FOURNIE.**
 
        L'auteur avait d'abord nommé `tca+mt9+mpf` — « très peu d'étapes ». Puis,
@@ -1721,7 +1732,9 @@ test('★ nature — chaque poste du barème déclare son signe et sa famille', 
     //   tranché que ce curseur devait peser « tout ce qui est suppression, que
     //   ce soit au départ ou plus tard » : les cinq postes de l'abandon la
     //   portent désormais.
-    assert.ok(['socle', 'quantite', 'elegance', 'exhaustivite', 'reglage'].includes(n.famille),
+    // ★ `absorption` : la famille du poste `ABSORPTION` (`mab`), pesée à
+    //   l'inverse de la suppression par le curseur d'exhaustivité.
+    assert.ok(['socle', 'quantite', 'elegance', 'exhaustivite', 'absorption', 'reglage'].includes(n.famille),
       `${cle} : famille ${n.famille}`);
     // Un réglage n'est ni bonus ni malus, et réciproquement : les deux
     // propriétés se tiennent, et les confondre rendrait la table illisible.

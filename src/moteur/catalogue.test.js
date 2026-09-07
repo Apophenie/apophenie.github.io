@@ -267,6 +267,12 @@ const VECTEURS = [
   //   Le nom sort de `NOM_CHIFFRE_FR`, la table du joker `jnf` — une seule
   //   source pour les deux, donc jamais deux orthographes du même chiffre.
   ['mlet', U(7), 'sept'],
+  // ★ L'ABSORPTION ARITHMÉTIQUE : la cible écrite exactement, rien de jeté.
+  //   `64 5 6 64` s'éclate en `6 4 5 6 6 4`, découpé `6 · 456 · 64` : le
+  //   premier 6 reste, `4+5+6 = 15 → 6`, et `6 × 4 = 24 → 6` — la somme, la
+  //   réduction et le produit sur un seul vecteur, et `666` au bout sans
+  //   qu'un seul chiffre ne tombe.
+  ['mab', N([64, 5, 6, 64]), [6, 6, 6]],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],
@@ -339,6 +345,10 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   //   addition ne soit faite. Une triche qu'on cache est pire qu'une triche
   //   qu'on n'implémente pas (CONTRACTS §4.1, amendement des trois ficelles).
   mrd: 'partition',
+  //   L'absorption arithmétique montre d'abord sa découpe, pour la même raison
+  //   — et c'est la seule primitive qu'on lui impose : ce qui suit (sommes,
+  //   produits, différences, réductions) dépend de la ligne.
+  mab: 'partition',
 });
 
 /**
@@ -390,8 +400,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 160); // +4 Jost, +1 le demi-tour montant
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 160, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 161); // +4 Jost, +1 le demi-tour montant, +1 l'absorption
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 161, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -401,7 +411,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 160, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 161, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

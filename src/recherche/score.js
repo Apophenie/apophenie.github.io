@@ -596,6 +596,13 @@ export function ponderer(curseurs) {
       quantite: c.quantite * 10,
       elegance: c.coherence * 10,
       exhaustivite: poidsDeLaSuppression(c.exhaustivite),
+      // ★ L'ABSORPTION (`mab`) est l'INVERSE d'une suppression : réutiliser un
+      //   chiffre pour en dissoudre un autre plutôt que le jeter. Son prix suit
+      //   donc le curseur d'exhaustivité EN SENS CONTRAIRE — plein tarif au
+      //   défaut, nul quand l'exhaustivité est au plus haut, double quand elle
+      //   est à zéro. C'est le « bonus d'exhaustivité » de la voie sans perte
+      //   (l'auteur) : « si je fais primer l'exhaustivité, elle doit remonter ».
+      absorption: Math.max(0, 2 * MILLE - poidsDeLaSuppression(c.exhaustivite)),
     },
     pourcentages: pourcentagesDe(c),
     personnalisee,
@@ -1618,7 +1625,14 @@ export function rangPondere(approche, ponderation) {
   if (!approche) return RANG.SIMPLE;
   if (approche.mode === 'CONVERGENCE') return RANG.CONVERGENCE;
   const q = ponderation ? ponderation.curseurs.quantite : CURSEUR_DEFAUT;
-  if (q < CURSEUR_DEFAUT) return RANG.SIMPLE;
+  // ★ Le rang « séries disjointes d'abord » suit la même règle que le compte :
+  //   au défaut il s'applique comme dans `ordreTotal` ; dès que le visiteur
+  //   touche aux curseurs, il ne s'applique que s'il a RELEVÉ la quantité.
+  //   Sinon, pousser l'exhaustivité à 200 laissait une voie à huit séries qui
+  //   jette devant la voie sans perte à une série, quel que soit son score —
+  //   mesuré : #10 sur « Le chat dort sur le tapis rouge ».
+  const personnalisee = Boolean(ponderation && ponderation.personnalisee);
+  if (personnalisee ? q <= CURSEUR_DEFAUT : q < CURSEUR_DEFAUT) return RANG.SIMPLE;
   return (approche.series || 1) >= 2 ? RANG.SERIES : RANG.SIMPLE;
 }
 
@@ -1640,7 +1654,13 @@ export function rangPondere(approche, ponderation) {
  */
 export function ordrePondere(ponderation) {
   const q = ponderation ? ponderation.curseurs.quantite : CURSEUR_DEFAUT;
-  const compteAvantScore = q >= CURSEUR_DEFAUT;
+  // ★ Le compte des séries ne passe AVANT le score que si l'auteur a RELEVÉ la
+  //   quantité — pas dès qu'elle est au défaut. Sinon, pousser l'exhaustivité
+  //   à 200 ne remontait jamais la voie sans perte derrière une voie plus
+  //   fournie qui jette : « si je fais primer l'exhaustivité, alors il doit
+  //   remonter » (l'auteur). Mesuré avant : #10 sur « Le chat dort », #8 sur
+  //   « Éléonore à Nîmes », #4 sur `hope-hope-hope.fr`.
+  const compteAvantScore = q > CURSEUR_DEFAUT || !(ponderation && ponderation.personnalisee);
   return function ordre(a, b) {
     const ra = rangPondere(a, ponderation);
     const rb = rangPondere(b, ponderation);
@@ -1978,7 +1998,7 @@ export function diversifier(approches, options = {}) {
   const P = options.ponderation && options.ponderation.personnalisee ? options.ponderation : null;
   const ordre = P ? ordrePondere(P) : ordreTotal;
   const rangDe = P ? (a) => rangPondere(a, P) : rangConviction;
-  const compteAvantScore = !P || P.curseurs.quantite >= CURSEUR_DEFAUT;
+  const compteAvantScore = !P || P.curseurs.quantite > CURSEUR_DEFAUT;
 
   const restants = approches.slice().sort(ordre);
   // ★ L'AMORCE — les approches déjà retenues AILLEURS, que la sélection doit
