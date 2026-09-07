@@ -1519,6 +1519,377 @@ const idSomme = (plan, ctx, p, j) => (p.sortie.length < 2
 
 
 // ───────────────────────────────────────────────────────────────────────────
+// ★ L'ABSORPTION ARITHMÉTIQUE — rien n'est jeté, la cible est écrite EXACTEMENT
+// ───────────────────────────────────────────────────────────────────────────
+//
+// > « Sur des objectifs comme "Sarah Kerrigan" → 31031998, on n'arrive pas à
+// >   une exhaustivité parfaite. Il y a une phase de suppression des
+// >   encombrants qui fait perdre toute crédibilité à l'approche. […]
+// >   additionner les autres chiffres autant de fois que nécessaire pour les
+// >   dissoudre dans l'existant. » (l'auteur)
+//
+// `mrd` redécoupe pour écrire la cible LE PLUS SOUVENT POSSIBLE, et laisse le
+// reste au tri du verdict — qui le jette. Ici l'exigence est inverse : on
+// consomme TOUS les chiffres, et la ligne rendue est la cible, dans l'ordre,
+// une ou plusieurs fois d'affilée — ou bien `null`. Jamais « presque » (§0.3).
+//
+// ★ Les leviers, et l'arithmétique modulo 9 derrière chacun. Une racine
+//   numérique ne change pas quand on additionne ni quand on écrit une somme
+//   chiffre à chiffre : `n ≡ somme des chiffres de n (mod 9)`. D'où :
+//
+//  · SOMME — un paquet contigu dont la somme SE RÉDUIT au chiffre attendu.
+//    `3 + 4 + 5 = 12 → 3` : le 3 a absorbé 4 et 5, dont la racine vaut 9. Un
+//    chiffre `d` absorbe additivement tout groupe d'intrus de racine 9, et
+//    seulement ceux-là. ⚠️ Un 0 ne s'obtient ainsi qu'en n'additionnant que
+//    des 0 — la racine de tout ce qui est positif est positive.
+//  · ÉCRITURE — la somme, écrite chiffre à chiffre, ÉPELLE la suite attendue :
+//    `4 + 6 = 10` écrit « 1 0 ». C'est le geste de `mrd`, repris tel quel, et
+//    c'est par lui qu'un 0 de la cible peut naître d'une addition.
+//  · PRODUIT — le paquet se coupe en deux ou trois PARTS contiguës, chacune
+//    sommée, et les parts se MULTIPLIENT : le chiffre attendu multiplie ses
+//    voisins rassemblés et en ressort intact (`6 × 4 = 24 → 6`, `6 × 7 = 42 →
+//    6`, `3 × 4 = 12 → 3`) ; un 9 avale n'importe quoi (`9 × k` a toujours 9
+//    pour racine), un 0 aussi (`0 × k = 0`) ; et deux sommes d'intrus savent
+//    fabriquer le chiffre à elles seules (`(9 + 7 + 1) × (1 + 0) = 17 → 8`).
+//    C'est le premier levier qui CHANGE la classe modulo 9. Sans lui, une
+//    ligne dont la somme des chiffres n'est pas congrue à celle de la cible ne
+//    se plie jamais — et cela, aucune quantité d'additions n'y peut rien.
+//  · DIFFÉRENCE — deux parts voisines se soustraient (`5 − 5 = 0`, `9 − 1 = 8`).
+//    C'est le second levier, et le seul chemin vers un 0 quand la ligne n'en
+//    porte aucun : `01111984` commence par un 0, et une somme n'en écrit
+//    jamais un en tête.
+//
+// ★ Ce que la programmation dynamique cherche, dans cet ordre : le plus de
+//   SÉRIES (chaque série est autant de chiffres gardés tels quels, donc autant
+//   d'intrus de moins à dissoudre), puis le moins de GESTES à l'écran — c'est
+//   le « malus de simplicité » de l'auteur, compté en étapes montrées. Le
+//   départage est fixe (§4.4) : rang croissant, coupe croissante, une part
+//   avant deux avant trois — aucun ex æquo ne survit.
+//
+// ★ Contrôle croisé (§0.3) : `apply`, `additions`, `sortie` et `steps` relisent
+//   le MÊME plan. Les primitives recoupent ensuite chaque somme (`sum`), chaque
+//   éclatement (`reduce`) et chaque collage — un produit annoncé faux ne
+//   compile pas.
+
+/**
+ * La largeur maximale d'un paquet. Douze chiffres, le double de `PAQUET_MAX` :
+ * on dissout ici tout ce qui traîne entre deux chiffres de la cible, et une
+ * cible courte sur une ligne longue impose des paquets larges. Au-delà, la
+ * somme ne se lit plus d'un coup d'œil — et surtout la scène cesserait d'être
+ * vérifiable.
+ */
+const PAQUET_ABSORPTION_MAX = 12;
+
+/** Le plafond de chiffres, aligné sur `mad` et `mrd` (`CHIFFRES_MAX`). */
+const CHIFFRES_ABSORPTION_MAX = 36;
+
+const LIB_ABSORPTION = bilingue(
+  'On dissout les intrus dans les chiffres de la cible',
+  'Dissolve the intruders into the target digits',
+);
+
+/** Au plus trois PARTS par paquet : deux sommes et un produit se lisent encore. */
+const PARTS_MAX = 3;
+
+/** La racine numérique, mémoïsée : elle est relue des centaines de milliers de fois par plan. */
+const RACINES = new Map();
+const racineDe = (v) => {
+  let r = RACINES.get(v);
+  if (r === undefined) { r = reduire(v); RACINES.set(v, r); }
+  return r;
+};
+
+/**
+ * Tout ce qu'un segment de chiffres `chiffres[i..k)` sait VALOIR, et à quel
+ * prix — sans regarder la cible.
+ *
+ * Un segment se découpe en une, deux ou trois PARTS contiguës ; chaque part
+ * vaut la somme de ses chiffres, et le segment vaut le PRODUIT de ses parts —
+ * ou, à deux parts, leur DIFFÉRENCE quand elle n'est pas négative. Une seule
+ * part, c'est la somme tout court ; une part d'un seul chiffre, c'est ce
+ * chiffre. Le prix est le nombre de gestes à l'écran : une somme par part de
+ * deux chiffres ou plus, un produit ou une différence dès qu'il y a deux parts.
+ *
+ * ★ Pourquoi ces formes et rien d'autre. Ce sont les plus simples qui changent
+ *   de classe modulo 9 : les intrus se rassemblent (des sommes, le geste
+ *   banal), et le chiffre à garder — ou le 9, ou le 0 — les multiplie d'un seul
+ *   geste ; deux voisins égaux s'annulent (`5 − 5 = 0`, le seul chemin vers un
+ *   0 quand la ligne n'en porte pas). Un arbre d'opérations quelconque en
+ *   ferait un jeu de calcul mental que plus personne ne vérifie d'un coup d'œil.
+ *
+ * Une valeur n'est retenue qu'une fois, au prix le plus bas ; à prix égal, la
+ * première découpe trouvée l'emporte (une part, puis deux — produit avant
+ * différence —, puis trois, coupes croissantes) — c'est ce qui fixe le
+ * déterminisme (§4.4).
+ *
+ * @param {number[]} cumul  les sommes de préfixe : `cumul[q]` = somme des q premiers chiffres
+ * @returns {Array<{valeur:number, racine:number, cout:number, op:string|null, parts:number[][]}>}
+ *   `parts` : les bornes `[debut, fin)` de chaque part, absolues ; `op` : `'×'`,
+ *   `'−'` ou `null` pour une part seule.
+ */
+function valeursDuSegment(cumul, i, k) {
+  const somme = (a, b) => cumul[b] - cumul[a];
+  const vues = new Map();
+  const poser = (parts, op, valeur) => {
+    let cout = op ? 1 : 0;
+    for (const [a, b] of parts) if (b - a >= 2) cout++;
+    const cur = vues.get(valeur);
+    if (!cur || cout < cur.cout) vues.set(valeur, { valeur, racine: racineDe(valeur), cout, op, parts });
+  };
+  poser([[i, k]], null, somme(i, k));
+  for (let m1 = i + 1; m1 < k; m1++) {
+    const a = somme(i, m1);
+    const b = somme(m1, k);
+    poser([[i, m1], [m1, k]], '×', a * b);
+    if (a >= b) poser([[i, m1], [m1, k]], '−', a - b);
+    if (PARTS_MAX < 3) continue;
+    for (let m2 = m1 + 1; m2 < k; m2++) {
+      poser([[i, m1], [m1, m2], [m2, k]], '×', a * somme(m1, m2) * somme(m2, k));
+    }
+  }
+  return [...vues.values()];
+}
+
+const sommeDesChiffres = (v) => { let s = 0; for (let x = v; x > 0; x = Math.floor(x / 10)) s += x % 10; return s; };
+
+/** Le nombre de paliers d'une réduction — `paliersReduction` sans construire la liste. */
+function nbPaliers(depart) {
+  let n = 0;
+  for (let v = depart; v > 9; v = sommeDesChiffres(v)) n++;
+  return n;
+}
+
+/**
+ * Le plan d'absorption : la ligne éclatée, et sa découpe en paquets dont
+ * chacun devient — par sa recette — le ou les chiffres attendus.
+ *
+ * Deux issues pour chaque valeur qu'un segment sait prendre : se FONDRE — sa
+ * racine numérique est le chiffre attendu, et chaque palier de réduction est
+ * un geste — ou s'ÉCRIRE — ses chiffres, tels quels, épellent la suite
+ * attendue (« 4 + 6 = 10 » écrit « 1 0 », le geste de `mrd`). Un chiffre seul
+ * qui est déjà le bon ne coûte rien : il est GARDÉ.
+ *
+ * @param {number[]} valeur
+ * @param {import('./commun.js').Visee} visee
+ * @returns {{chiffres:Array<{v:number,src:number}>, multi:Set<number>,
+ *   paquets:Array<{debut:number,fin:number,recette:Object,chiffres:number[],sortie:number[]}>,
+ *   series:number}|null}
+ */
+function calculerPlanAbsorption(valeur, visee) {
+  if (!valeur.length) return null;
+  if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
+  const chiffres = [];
+  valeur.forEach((v, i) => {
+    for (const c of String(v)) chiffres.push({ v: Number(c), src: i });
+  });
+  const n = chiffres.length;
+  if (n > CHIFFRES_ABSORPTION_MAX) return null;
+  const T = visee.chiffres;
+  const L = T.length;
+  if (n < L) return null;
+  const cumul = [0];
+  for (const c of chiffres) cumul.push(cumul[cumul.length - 1] + c.v);
+
+  // ── la programmation dynamique, du début vers la fin, à deux dimensions :
+  //    `meilleur[i][j]` = le moins de gestes pour avoir consommé `i` chiffres
+  //    et écrit `j` chiffres de la cible (rang absolu, séries comprises).
+  //    Un paquet n'écrit jamais plus de chiffres qu'il n'en consomme, donc
+  //    `j ≤ i` et la table est carrée. Les valeurs d'un segment se calculent
+  //    une fois, à la première ligne qui en a besoin.
+  const meilleur = Array.from({ length: n + 1 }, () => new Array(n + 1).fill(null));
+  meilleur[0][0] = { cout: 0, i0: -1, j0: -1, recette: null };
+  const poser = (k, j2, cout, i, j, recette) => {
+    const cur = meilleur[k][j2];
+    if (!cur || cout < cur.cout) meilleur[k][j2] = { cout, i0: i, j0: j, recette };
+  };
+  for (let i = 0; i < n; i++) {
+    const segments = [];
+    for (let k = i + 1; k <= n && k - i <= PAQUET_ABSORPTION_MAX; k++) segments[k] = null;
+    for (let j = 0; j <= i; j++) {
+      const ici = meilleur[i][j];
+      if (!ici) continue;
+      const t = T[j % L];
+      for (let k = i + 1; k <= n && k - i <= PAQUET_ABSORPTION_MAX; k++) {
+        if (j + 1 > n) break;
+        if (k - i === 1) {
+          // Un chiffre seul : gardé s'il est le bon, rien sinon.
+          if (chiffres[i].v === t) poser(k, j + 1, ici.cout, i, j, { type: 'garde', valeur: t, parts: [[i, k]], op: null, ecrits: 1 });
+          continue;
+        }
+        if (segments[k] === null) segments[k] = valeursDuSegment(cumul, i, k);
+        for (const v of segments[k]) {
+          if (v.racine === t) {
+            const paliers = nbPaliers(v.valeur);
+            poser(k, j + 1, ici.cout + v.cout + paliers, i, j, { type: 'fond', valeur: v.valeur, parts: v.parts, op: v.op, ecrits: 1 });
+          }
+          if (v.valeur >= 10) {
+            // Les chiffres de la valeur épellent-ils la suite attendue ?
+            let x = v.valeur;
+            let m = 0;
+            for (let y = x; y > 0; y = Math.floor(y / 10)) m++;
+            if (m > L || j + m > n) continue;
+            let colle = true;
+            for (let q = m - 1; q >= 0 && colle; q--) { if (x % 10 !== T[(j + q) % L]) colle = false; x = Math.floor(x / 10); }
+            if (colle) poser(k, j + m, ici.cout + v.cout, i, j, { type: 'ecrit', valeur: v.valeur, parts: v.parts, op: v.op, ecrits: m });
+          }
+        }
+      }
+    }
+  }
+
+  // ── l'arrivée : tout consommé, et la cible écrite un nombre ENTIER de fois.
+  //    Le plus de séries d'abord ; à séries égales, le coût est déjà minimal.
+  let jFin = -1;
+  for (let j = L; j <= n; j += L) if (meilleur[n][j]) jFin = j;
+  if (jFin < 0) return null;
+  // Une ligne qui écrit déjà la cible n'a rien à absorber : l'opérateur REFUSE
+  // plutôt que de rendre son entrée (même règle que `mr9`, `m36`, `mrd`).
+  if (meilleur[n][jFin].cout === 0) return null;
+
+  const paquets = [];
+  for (let i = n, j = jFin; i > 0;) {
+    const b = meilleur[i][j];
+    const r = b.recette;
+    const t = T[b.j0 % L];
+    const recette = r.type === 'fond'
+      ? { ...r, paliers: paliersReduction(r.valeur, t) }
+      : (r.type === 'ecrit' ? { ...r, sortie: chiffresDe(r.valeur) } : { ...r, paliers: [] });
+    paquets.push({
+      debut: b.i0, fin: i, recette,
+      chiffres: chiffres.slice(b.i0, i).map((c) => c.v),
+      sortie: recette.type === 'ecrit' ? recette.sortie : [t],
+    });
+    i = b.i0;
+    j = b.j0;
+  }
+  paquets.reverse();
+
+  const multi = new Set();
+  const parSource = new Map();
+  chiffres.forEach((c) => parSource.set(c.src, (parSource.get(c.src) || 0) + 1));
+  for (const [src, k] of parSource) if (k > 1) multi.add(src);
+  return { chiffres, multi, paquets, series: jFin / L };
+}
+
+/**
+ * ★ Le plan est MÉMOÏSÉ par ligne et par cible. Il est pur et déterministe —
+ *   deux appels sur la même ligne rendent le même plan —, et il est relu
+ *   plusieurs fois par voie rendue (`apply`, `additions`, `sortie`, `steps`)
+ *   et des centaines de fois par recherche. La mémoire est bornée : au-delà,
+ *   on repart de zéro, ce qui ne change rien au résultat.
+ */
+const PLANS = new Map();
+const PLANS_MAX = 2048;
+function planAbsorption(valeur, visee) {
+  const cle = `${visee.texte}|${valeur.join(',')}`;
+  if (PLANS.has(cle)) return PLANS.get(cle);
+  const plan = calculerPlanAbsorption(valeur, visee);
+  if (PLANS.size >= PLANS_MAX) PLANS.clear();
+  PLANS.set(cle, plan);
+  return plan;
+}
+
+/**
+ * Les GESTES d'un paquet — les steps qu'il joue et les identifiants qu'il
+ * laisse sur la ligne. `steps` et `sortie` lisent tous deux cette fonction :
+ * il n'existe pas de seconde copie qui puisse diverger (§0.3).
+ *
+ * Dans l'ordre : chaque part de deux chiffres ou plus se somme (accolade,
+ * signes `+`, somme) ; s'il y a plusieurs parts, elles se multiplient ou se
+ * soustraient (signes `×` ou `−`, résultat sous l'accolade) ; puis la valeur
+ * se réduit palier par palier (`reduce`), ou s'écrit chiffre à chiffre
+ * (`substitute`) dans le même temps que le calcul qui l'a produite.
+ *
+ * Nommage des jetons créés (c'est l'émetteur qui nomme, §3) :
+ *  · `…c{k}` le kᵉ chiffre d'un nombre éclaté (`idChiffreRedecoupe`) ;
+ *  · `…p{j}x{q}x{t}` les signes `+` de la part q du paquet j ;
+ *  · `…s{j}x{q}` la somme de la part q ; `…m{j}x{t}` les signes `×` ou `−` ;
+ *  · `…x{j}` le produit ou la différence ; `…r{j}x{k}` le kᵉ palier de
+ *    réduction et `…d{j}x{k}x{t}` ses chiffres ; `…w{j}x{t}` les chiffres
+ *    d'une valeur écrite.
+ */
+function gestesDuPaquet(plan, ctx, p, j) {
+  const idc = (k) => idChiffreRedecoupe(plan, ctx, k);
+  const r = p.recette;
+  const titre = dire(LIB_ABSORPTION, ctx.langue);
+  const steps = [];
+  if (r.type === 'garde') return { steps, ids: [idc(p.debut)] };
+
+  // Ce que la valeur devient une fois calculée : ses chiffres écrits (`ecrit`),
+  // greffés sur le DERNIER geste de calcul.
+  const idsEcrits = r.type === 'ecrit' ? r.sortie.map((_, t) => `${ctx.cle}w${j}x${t}`) : null;
+  const ecrire = (source) => (idsEcrits ? [{
+    op: 'substitute',
+    pairs: [{ target: source, to: r.sortie.map((d, t) => token(idsEcrits[t], d, 'digit')) }],
+  }] : []);
+  const legendeEcrite = idsEcrits ? ` → ${r.sortie.join(' ')}` : '';
+
+  // ── 1. chaque part se somme
+  const facteurs = [];   // id du jeton qui porte la valeur de chaque part
+  const valeurs = [];    // et cette valeur
+  const dernierCalcul = r.parts.length === 1;
+  r.parts.forEach(([a, b], q) => {
+    const termes = [];
+    const vals = [];
+    for (let k = a; k < b; k++) { termes.push(idc(k)); vals.push(plan.chiffres[k].v); }
+    const s = vals.reduce((x, y) => x + y, 0);
+    valeurs.push(s);
+    if (termes.length === 1) { facteurs.push(termes[0]); return; }
+    const sId = `${ctx.cle}s${j}x${q}`;
+    const signes = termes.slice(1).map((_, t) => `${ctx.cle}p${j}x${q}x${t}`);
+    steps.push(etape(ctx, titre, `${vals.join(' + ')} = ${s}${dernierCalcul ? legendeEcrite : ''}`, enchainer([
+      { op: 'insertOperators', between: termes, ids: signes, glyph: '+' },
+      { op: 'sum', targets: termes, consume: signes, to: token(sId, s, 'number'), symbol: '+' },
+      ...(dernierCalcul ? ecrire(sId) : []),
+    ]), { id: `s_${ctx.cle}_p${j}x${q}` }));
+    facteurs.push(sId);
+  });
+
+  // ── 2. les parts se combinent : produit, ou différence
+  let porteur = facteurs[0];
+  if (facteurs.length >= 2) {
+    const xId = `${ctx.cle}x${j}`;
+    const signes = facteurs.slice(1).map((_, t) => `${ctx.cle}m${j}x${t}`);
+    const partiels = r.op === '−'
+      ? [valeurs[0], valeurs[0] - valeurs[1]]
+      : valeurs.reduce((acc, v) => [...acc, (acc.length ? acc[acc.length - 1] : 1) * v], []);
+    steps.push(etape(ctx, titre, `${valeurs.join(` ${r.op} `)} = ${r.valeur}${legendeEcrite}`, enchainer([
+      { op: 'insertOperators', between: facteurs, ids: signes, glyph: r.op },
+      {
+        op: 'sum',
+        targets: facteurs,
+        consume: signes,
+        to: token(xId, r.valeur, 'number'),
+        symbol: r.op,
+        // Le compteur ne compte pas une somme : il montre les résultats
+        // partiels. `sum` vérifie que le dernier est bien ce que `to` annonce.
+        partials: partiels,
+        depart: '',
+      },
+      ...ecrire(xId),
+    ]), { id: `s_${ctx.cle}_m${j}` }));
+    porteur = xId;
+  }
+  if (idsEcrits) return { steps, ids: idsEcrits };
+
+  // ── 3. la valeur se réduit, un palier par étape (comme `mrn`)
+  let texte = String(r.valeur);
+  r.paliers.forEach((v, k) => {
+    const rId = `${ctx.cle}r${j}x${k}`;
+    steps.push(etape(ctx, titre, `${texte} → ${[...texte].join(' + ')} → ${v}`, [{
+      op: 'reduce',
+      target: porteur,
+      digits: [...texte].map((d, t) => token(`${ctx.cle}d${j}x${k}x${t}`, d, 'digit')),
+      to: token(rId, v, 'number'),
+    }], { id: `s_${ctx.cle}_r${j}x${k}` }));
+    porteur = rId;
+    texte = String(v);
+  });
+  return { steps, ids: [porteur] };
+}
+
+
+// ───────────────────────────────────────────────────────────────────────────
 // La figure « sept segments » du Registre
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -4545,6 +4916,160 @@ const AUTRES_MAPPEURS = [
       }]))];
     },
   }),
+
+  // ★ **L'ABSORPTION ARITHMÉTIQUE — `mab`.** Voir le pavé au-dessus de
+  //   `planAbsorption`. Un code de plus, EN FIN de bloc des mappeurs
+  //   (append-only, §4.1) : `mrd` n'est pas réorienté, il est complété par un
+  //   opérateur qui répond à une autre question — non plus « combien de
+  //   chiffres de la cible peut-on écrire ? », mais « peut-on écrire la cible,
+  //   toute la cible, et RIEN qu'elle, sans jeter un seul chiffre ? ».
+  //
+  // ★ Il suit la cible, toutes les cibles : là où `mad` et `mrd` refusent
+  //   `000` (une somme ne retombe sur 0 qu'en n'additionnant que des 0), le
+  //   produit y répond — `0 × k = 0`. Une cible qui ne se laisse pas écrire sur
+  //   une ligne donnée est refusée PAR LIGNE (`apply` rend `null`), pas par
+  //   cible.
+  selonLaCible((visee) => ({
+    id: 'm.absorption', code: 'mab', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_ABSORPTION,
+    regle: (() => {
+      const cible = visee.texte;
+      const sinks = visee.alphabet.filter((d) => d === 0 || d === 9);
+      const exemple = sinks.length
+        ? (sinks.includes(9)
+          ? bilingue(' — et un 9 avale n’importe quoi : 9 × 14 = 126 → 9', ' — and a 9 swallows anything: 9 × 14 = 126 → 9')
+          : bilingue(' — et un 0 avale n’importe quoi : 0 × 14 = 0', ' — and a 0 swallows anything: 0 × 14 = 0'))
+        : bilingue('', '');
+      return bilingue(
+        'Chaque nombre s’écrit chiffre à chiffre, puis la ligne se découpe en autant de '
+        + `paquets qu’il faut de chiffres pour écrire ${cible}, dans l’ordre, sans rien jeter. `
+        + 'Chaque paquet se fond dans le chiffre attendu : par la somme, réduite à un chiffre '
+        + '(3 + 4 + 5 = 12 → 3) ; par la somme écrite telle quelle (4 + 6 = 10 écrit « 1 0 ») ; '
+        + `par le produit de ses parts, quand le chiffre attendu multiplie ses voisins et en ressort intact (6 × 4 = 24 → 6${exemple.fr}) ; `
+        + 'ou par la différence de deux parts voisines (5 − 5 = 0).',
+        'Every number is written out digit by digit, then the line is cut into exactly as many '
+        + `packets as there are digits to write ${cible}, in order, throwing nothing away. `
+        + 'Each packet melts into the expected digit: by its sum, reduced to one digit '
+        + '(3 + 4 + 5 = 12 → 3); by its sum written as is (4 + 6 = 10 spells “1 0”); '
+        + `by the product of its parts, when the expected digit multiplies its neighbours and comes out unchanged (6 × 4 = 24 → 6${exemple.en}); `
+        + 'or by the difference of two adjacent parts (5 − 5 = 0).',
+      );
+    })(),
+    // ★ Notoriété 0,15, sous `mrd` (0,20) : additionner des voisins est banal,
+    //   les réduire l'est aussi (racine numérique), les MULTIPLIER par le
+    //   chiffre qu'on veut garder ne se fait nulle part. AdHoc 0,49, le plus
+    //   haut du catalogue hors joker : chaque coupe, chaque somme et chaque
+    //   produit sont choisis en regardant la cible et rien d'autre. C'est le
+    //   prix de l'exhaustivité — le barème facture la simplicité perdue, et il
+    //   crédite ce qui est gardé : tout.
+    //
+    // ★ `cout: 2` — le MALUS DE SIMPLICITÉ de l'auteur, dans la seule grandeur
+    //   que le barème lit (`score.js › coutRendu`, la concision). `mad` et
+    //   `mrd` déclarent 1 en rendant plusieurs étapes ; celui-ci en rend au
+    //   moins deux par construction — la découpe, puis au moins une fusion —
+    //   et, mesuré, de vingt à quarante sur les cas de l'auteur. Déclarer 1
+    //   serait le faire passer pour une lecture.
+    notoriete: 0.15, adHoc: 0.49, cout: 2,
+    note: bilingue(
+      'La ficelle assumée de l’exhaustivité : rien ne tombe, tout se dissout. Le prix se lit '
+      + 'à l’écran — chaque accolade est une coupe choisie, chaque somme, chaque produit et '
+      + 'chaque différence un geste de plus —, et c’est le score qui le compte.',
+      'The trick that buys exhaustiveness: nothing falls, everything dissolves. The price is '
+      + 'on screen — every brace is a chosen cut, every sum, product and difference one more '
+      + 'move — and the score is what keeps count.',
+    ),
+    apply: (valeur, traces) => {
+      const plan = planAbsorption(valeur, visee);
+      if (!plan) return null;
+      const sortie = [];
+      const org = [];
+      for (const p of plan.paquets) {
+        const t = fusion(...plan.chiffres.slice(p.debut, p.fin).map((c) => traces[c.src] || []));
+        for (const d of p.sortie) { sortie.push(d); org.push(t); }
+      }
+      return { valeur: sortie, traces: org };
+    },
+    // ★ Ce que la triche fait VOIR — voir `additions` dans `commun.js` : le
+    //   nombre de termes de chaque addition montrée, dans l'ordre de lecture.
+    //   Les paliers de réduction en sont (on additionne les chiffres d'une
+    //   somme) ; un produit n'en est pas, et ne s'y compte pas.
+    additions: (valeur) => {
+      const plan = planAbsorption(valeur, visee);
+      if (!plan) return [];
+      const out = [];
+      for (const p of plan.paquets) {
+        const r = p.recette;
+        if (r.type === 'garde') continue;
+        for (const [a, b] of r.parts) if (b - a >= 2) out.push(b - a);
+        if (r.paliers) {
+          let v = r.valeur;
+          for (const palier of r.paliers) { out.push(String(v).length); v = palier; }
+        }
+      }
+      return out;
+    },
+    sortie: (avant, apres, ctx) => {
+      const plan = planAbsorption(avant.valeur, visee);
+      return plan ? plan.paquets.flatMap((p, j) => gestesDuPaquet(plan, ctx, p, j).ids) : [];
+    },
+    /**
+     * ★ TROIS TEMPS, ET CHAQUE GESTE DANS SA PROPRE ÉTAPE.
+     *
+     * 1. **On écrit chaque nombre chiffre à chiffre** — le step de `mrd`, émis
+     *    seulement s'il y a quelque chose à éclater.
+     * 2. **On découpe.** Les accolades de `partition` tombent sur la ligne :
+     *    autant de paquets que de chiffres à écrire. C'est la DÉCISION, et
+     *    elle se montre seule, avant le moindre calcul.
+     * 3. **Chaque paquet se fond**, une étape par geste (comme `mad` et `mrd`
+     *    depuis la consigne de l'auteur) : la somme des termes, puis chaque
+     *    palier de réduction, ou la somme des intrus puis le produit puis ses
+     *    paliers. Le Registre en garde une ligne par geste.
+     *
+     * ★ Aucune valeur ne disparaît en silence (§0.3) : tout chiffre entre dans
+     *   une somme ou un produit que la scène joue, et le moteur visuel refuse
+     *   d'afficher un calcul dont le résultat ne serait pas celui annoncé.
+     */
+    steps: (avant, apres, ctx) => {
+      const plan = planAbsorption(avant.valeur, visee);
+      if (!plan) return [];
+      const steps = [];
+      const idc = (k) => idChiffreRedecoupe(plan, ctx, k);
+
+      // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
+      const paires = [];
+      avant.valeur.forEach((v, i) => {
+        const ks = plan.chiffres.map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
+        if (ks.length < 2) return;
+        paires.push({ target: ctx.ids[i], to: ks.map((k) => token(idc(k), plan.chiffres[k].v, 'digit')) });
+      });
+      if (paires.length) {
+        const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
+        steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
+          enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
+      }
+
+      // ── 2. la découpe, seule dans son étape
+      const vus = plan.chiffres.map((c) => c.v).join(' ');
+      if (plan.paquets.length >= 2) {
+        const groupes = plan.paquets.map((p, j) => ({
+          targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
+          tag: `${ctx.cle}q${j}`,
+        }));
+        const decoupe = plan.paquets.map((p) => p.chiffres.join('')).join(' · ');
+        steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue), `${vus} → ${decoupe}`,
+          enchainer([{ op: 'partition', groups: groupes }]), { id: `s_${ctx.cle}_d` }));
+      }
+
+      // ── 3. chaque paquet se fond, geste par geste
+      plan.paquets.forEach((p, j) => { steps.push(...gestesDuPaquet(plan, ctx, p, j).steps); });
+
+      if (!steps.length) {
+        steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue),
+          `${vus} → ${apres.valeur.join(' ')}`, [], { id: `s_${ctx.cle}_d` }));
+      }
+      return steps;
+    },
+  })),
 ];
 
 /** Les dix caractères que « le tiret du 6 » sait convertir — exposé pour l'UI. */

@@ -76,7 +76,9 @@ test('curseurs — au défaut, la correspondance rend EXACTEMENT le barème du s
   //   autres quand l'auteur a tranché que ce curseur devait peser « tout ce qui
   //   est suppression, que ce soit au départ ou plus tard » — les cinq postes de
   //   l'abandon portent désormais cette famille (`elegance.js › NATURE`).
-  assert.deepEqual(p.poidsCredit, { quantite: 1000, elegance: 1000, exhaustivite: 1000 });
+  // ★ `absorption` : le prix de `mab`, à l'INVERSE de la suppression — 1000 au
+  //   défaut, nul quand l'exhaustivité est au plus haut (`score.js › ponderer`).
+  assert.deepEqual(p.poidsCredit, { quantite: 1000, elegance: 1000, exhaustivite: 1000, absorption: 1000 });
 });
 
 test('curseurs — la table couvre les six critères et rien d’autre', () => {

@@ -136,6 +136,10 @@ const MAPPEURS_DE_SERVICE = new Set([
   //   dernière retouche, et le redécoupage aurait en outre intitulé une voie
   //   entière du nom de sa triche.
   'm.triCroissant', 'm.redecoupageChoisi',
+  // ★ L'absorption (`mab`) est du même bois que le redécoupage, poussé
+  //   jusqu'au bout : elle relit ce qu'une autre méthode a écrit, sans rien
+  //   jeter. Elle ne nomme pas la voie non plus.
+  'm.absorption',
   // ★ Le tri alphabétique est du même bois : il RANGE, il ne conclut pas.
   'm.triAlphabetique',
   // ★ Et la LECTURE, plus radicalement encore : elle ne fait rien du tout.
@@ -302,6 +306,7 @@ export const NOMS = {
   'm.retournerLesTrios': b('Par le retournement des trios', 'By flipping the trios'),
   'm.compterLesChiffres': b('Par le décompte des chiffres', 'By tallying the digits'),
   'm.redecoupageChoisi': b('Par redécoupage choisi', 'By chosen recutting'),
+  'm.absorption': b('Par absorption sans perte', 'By lossless absorption'),
   // Jamais employé — il est mappeur de service — mais le registre des noms
   // est EXHAUSTIF, et un trou ici serait un trou le jour où la règle changerait.
   'm.chiffreTelQuel': b('Par la lecture des chiffres', 'By reading the digits'),
@@ -570,6 +575,9 @@ export const TITRES_COURTS = {
   //   des 9, l'énumération dirait « retournement » sans qu'on sache lequel.
   'm.retournerLesSix': b('retournement des 6', 'flipping the 6s'), // mr6
   'm.redecoupageChoisi': b('additions futées', 'shrewd additions'), // mrd
+  // ★ L'absorption : les chiffres en trop sont fondus dans ceux de la cible,
+  //   qui les restitue — rien de jeté (`mab`).
+  'm.absorption': b('absorption sans perte', 'lossless absorption'), // mab
   'm.reduireChaque': b('addition', 'addition'), // mrn
   'm.scrabbleEN': b('Scrabble EN', 'EN Scrabble'), // msen
   'm.scrabbleFR': b('Scrabble FR', 'FR Scrabble'), // msfr
@@ -743,6 +751,7 @@ export const PRECISIONS = {
   'm.retournerLesTrios': b('les trios retournés', 'with the trios flipped'),
   'm.compterLesChiffres': b('les chiffres comptés', 'with the digits tallied'),
   'm.redecoupageChoisi': b('redécoupé en paquets', 'recut into packets'),
+  'm.absorption': b('les intrus absorbés, rien de jeté', 'with the intruders absorbed, nothing dropped'),
   // ⚠️ Elle existe, mais ne devrait jamais servir : `m.chiffreTelQuel` est un
   //    mappeur de service, et deux voies ne se distinguent pas par le fait
   //    d'avoir lu leurs chiffres. Sans elle, `precisionDe` se rabattrait sur le
