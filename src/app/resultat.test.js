@@ -69,6 +69,9 @@ class Noeud {
 
 globalThis.document = {
   createElement: (b) => new Noeud(b),
+  // Le leste de poids d'un axe est un SVG en ligne : le faux DOM le sait,
+  // comme celui de `transport.test.js`.
+  createElementNS: (_ns, b) => new Noeud(b),
   createTextNode: (d) => ({ textContent: String(d) }),
 };
 
@@ -466,6 +469,40 @@ test('★ carte — cinq scores : un global pondéré, quatre bruts', () => {
   const g = valeur(global);
   assert.ok(g >= Math.min(...bruts) && g <= Math.max(...bruts),
     `le global ${g} sort de l’intervalle des axes [${Math.min(...bruts)}, ${Math.max(...bruts)}]`);
+});
+
+/**
+ * ★ **CHAQUE AXE PORTE SON POIDS — un leste, puis la part.**
+ *
+ * > « Chacune des 4 sous-métriques, juste après son score, suivie d'un picto de
+ * >   poids façon leste de balance ancienne, puis d'un pourcentage de
+ * >   pondération dans le score global. » (l'auteur)
+ *
+ * La part affichée est celle que le global de la carte emploie réellement
+ * (`pourcentagesDe`), donc les quatre font cent. Au défaut : quatre fois 25.
+ */
+test('★ carte — chaque axe est suivi d’un leste et de sa part, et les parts font cent', () => {
+  const a = {
+    ...voie(1, 'Par le chiffre Atbash', null),
+    codes: 'fatb+tca+mt9+mrn',
+    criteres: { N: 400, A: 700, H: 900, U: 1000, R: 800, L: 3, C: 600 },
+  };
+  const place = rendre([a], { podium: false });
+  const axes = tous(place, 'voie__score-axe');
+  assert.equal(axes.length, 4);
+  let total = 0;
+  for (const axe of axes) {
+    const poids = un(axe, 'voie__score-poids');
+    assert.ok(poids, 'le poids manque après la valeur');
+    // Le leste est un SVG : sa classe est un attribut, pas une entrée de `classList`.
+    assert.equal(balises(poids, 'svg').length, 1, 'le leste manque');
+    const part = un(poids, 'voie__score-part');
+    assert.ok(part && /\d+/.test(part.textContent), `la part n’est pas un nombre : ${part && part.textContent}`);
+    total += Number(part.textContent.match(/\d+/)[0]);
+    // La valeur reste lisible seule : le poids ne s'y mêle pas.
+    assert.ok(/^\d+$/.test(un(axe, 'voie__score-valeur').textContent));
+  }
+  assert.equal(total, 100, `les quatre parts font ${total}, pas cent`);
 });
 
 test('★ carte — « Voir la démonstration » coiffe les deux accès', () => {

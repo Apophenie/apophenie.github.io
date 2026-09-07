@@ -1,6 +1,6 @@
 /** Page de résultat — `…/##{b58}` */
 
-import { e } from '../dom.js';
+import { e, svg as s } from '../dom.js';
 import { logoEntete } from '../logo.js';
 import { guillemets, phraseApproches, abreger } from '../typo.js';
 import { t, localiser } from '../../i18n/index.js';
@@ -305,8 +305,45 @@ function scoresDeLaVoie(approche, curseurs) {
       e('span.voie__score-valeur', {
         texte: axes[axe] === null || axes[axe] === undefined ? '—' : String(axes[axe]),
       }),
+      poidsDeLAxe(axe, parts[axe] ?? 0),
     ]))),
   ]);
+}
+
+/**
+ * ★ **LE POIDS D'UN AXE, APRÈS SA VALEUR — un leste de balance, puis la part.**
+ *
+ * > « J'aimerais que chacune des 4 sous-métriques, juste après son score, soit
+ * >   suivie d'un picto de poids façon leste de mesure pour balance ancienne,
+ * >   puis d'un pourcentage de pondération dans le score global. Par exemple :
+ * >   "simplicité : 957 [P] 40 %". » (l'auteur)
+ *
+ * La part est CELLE QUE LE GLOBAL CI-DESSUS EMPLOIE — `pourcentagesDe(curseurs)`,
+ * la même table qui pondère la moyenne —, jamais un chiffre à part : au défaut,
+ * quatre fois 25 ; sous des curseurs personnalisés, leur répartition. Ce que
+ * le lecteur voit peser est ce qui pèse (§0.3).
+ *
+ * ⚠️ Elle ne dit PAS encore le régime du podium (élégance en 1ʳᵉ place,
+ *   abondance en 2ᵈ) : ces régimes classent sur d'autres grandeurs que les
+ *   quatre axes, et afficher ici une part qu'ils n'emploient pas serait un
+ *   mensonge de plus. Le jour où le score du moteur se décomposera sur les
+ *   quatre axes (voir `.planning/PROPOSITION-score-global.md`), la part variera
+ *   avec la place, et ce sera vrai.
+ */
+function poidsDeLAxe(axe, part) {
+  const leste = s('svg', {
+    class: 'voie__score-leste', viewBox: '0 0 16 16', 'aria-hidden': 'true', focusable: 'false',
+  }, [
+    // Un leste d'ancienne balance : un anneau, un col étroit, un corps trapu.
+    s('path', {
+      d: 'M6.6 1.2a1.4 1.4 0 0 1 2.8 0v.9h-.9v-.9a.5.5 0 0 0-1 0v.9h-.9z'
+        + 'M6.2 2.6h3.6l.6 2.2H5.6z'
+        + 'M4.2 5.6h7.6l1.5 8.2a.9.9 0 0 1-.9 1H3.6a.9.9 0 0 1-.9-1z',
+    }),
+  ]);
+  return e('span.voie__score-poids', {
+    title: t('resultat.scores.poids', { axe: t(`resultat.curseurs.${axe}`), n: part }),
+  }, [leste, e('span.voie__score-part', { texte: t('resultat.curseurs.part', { n: part }) })]);
 }
 
 /**

@@ -135,6 +135,7 @@ export const en = {
          to the search is taken from the ranking. */
     scores: {
       global: 'Overall score',
+      poids: 'share of {axe} in the overall score: {n}%',
     },
     curseurs: {
       titre: 'Tune what matters',

@@ -545,6 +545,11 @@
 .voie__score-axe { display: flex; align-items: baseline; gap: .4em; }
 .voie__score-nom { opacity: .72; }
 .voie__score-valeur { font-variant-numeric: tabular-nums; }
+/* ★ Le poids d'un axe dans le score global : un leste de balance ancienne, puis
+   la part en pour-cent. « simplicité : 957 [P] 40 % » (l'auteur). Le picto est
+   dessiné en ligne, à la taille du texte, et hérite de sa couleur. */
+.voie__score-poids { display: inline-flex; align-items: baseline; gap: .25em; opacity: .72; font-variant-numeric: tabular-nums; }
+.voie__score-leste { width: .8em; height: .8em; align-self: center; fill: currentColor; }
 
 .voie__pied {
   display: flex;

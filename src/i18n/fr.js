@@ -171,6 +171,7 @@ export const fr = {
          croire qu'on retire du classement ce qu'on donne à la recherche. */
     scores: {
       global: 'Score global',
+      poids: 'part de {axe} dans le score global\u202f: {n} %',
     },
     curseurs: {
       titre: 'Régler ce qui compte',
