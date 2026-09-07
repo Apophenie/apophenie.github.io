@@ -402,6 +402,10 @@ export function creerMoteur(catalogue, options = {}) {
       ctxRecherche.maxTravail = options.maxTravail
         ?? (epuise ? travailDeReserve : travailParFragment);
       ctxRecherche.budgetMs = options.budgetMs ?? budgets.budgetMsFilet;
+      // ★ La profondeur suit le cran ICI aussi, et pas seulement dans
+      //   l'énumération des trous : c'est ce que `debug.html` annonce comme
+      //   « ce que la recherche emploie », et il ne mentait qu'à cet endroit.
+      ctxRecherche.dMax = options.dMax ?? budgets.dMax;
       const avant = ctxRecherche.travail || 0;
       parFrag.set(cle, chercherSix(f.texte, ctxRecherche));
       travailRestant -= (ctxRecherche.travail || 0) - avant;

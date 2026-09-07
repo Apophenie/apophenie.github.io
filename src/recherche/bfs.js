@@ -789,10 +789,18 @@ export function chercherSix(fragment, ctx) {
   //   qu'on ait consulté 666 avant — exactement l'entropie que §4.4 interdit,
   //   et exactement le piège dans lequel la mémoïsation était déjà tombée une
   //   fois (voir la refacturation du coût, plus bas).
+  // ★ Et la PROFONDEUR, le FAISCEAU et la CIBLE entrent aussi dans la clé
+  //   (audit) : le même texte cherché au cran 3 pour la liste (dMax 19) et au
+  //   même cran pour les trous partageait une clé, et le jeu d'opérateurs
+  //   dépend de la cible (`operateursPourCible`) sans que ses buts le disent
+  //   toujours. Servir l'un pour l'autre est exactement l'entropie interdite.
   const cle = normaliserFragment(fragment)
     + '\u0000' + butsDe(ctx).map((b) => b.but).join('.')
     + '\u0000' + (ctx.maxTravail ?? BUDGET_TRAVAIL)
-    + '\u0000' + (ctx.maxNodes ?? MAX_NODES);
+    + '\u0000' + (ctx.maxNodes ?? MAX_NODES)
+    + '\u0000' + (ctx.dMax ?? D_MAX)
+    + '\u0000' + (ctx.pBeam ?? P_BEAM)
+    + '\u0000' + (ctx.cible && ctx.cible.texte ? ctx.cible.texte : '');
   const memo = cache.get(cle);
   // ── Un fragment déjà connu coûte zéro EN TEMPS, mais il est REFACTURÉ au
   // budget de travail, au tarif exact de la recherche qu'il économise.

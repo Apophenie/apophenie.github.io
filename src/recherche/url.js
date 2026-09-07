@@ -319,16 +319,16 @@
 // ── LA PUISSANCE DE FOUILLE, `f3!` — chercher 2^N fois plus loin ────────────
 //
 // La réglette de `config.js › reglagesDeBudget` multiplie tous les budgets de
-// recherche par 2^N, N de 0 à 7. Elle voyage pour la même raison que les
+// recherche par 2^N, N de 0 à 10. Elle voyage pour la même raison que les
 // curseurs, et c'en est même le cas le plus net : une liste obtenue en
-// fouillant cent vingt-huit fois plus contient des voies que la recherche
+// fouillant mille fois plus contient des voies que la recherche
 // ordinaire n'a jamais eu le temps d'atteindre. Un lien qui tairait le cran
 // rendrait une liste PLUS COURTE que celle qu'on partage — l'échec le plus
 // silencieux qui soit, puisque rien n'y paraîtrait cassé.
 //
-// ★ `f` pour fouille, un seul chiffre (0 à 7 tient dans un signe), le `!` qui
-// clôt. Le cran 0 est le défaut et ne s'écrit pas ; un cran au-delà de 7 est
-// borné à 7, pour la même raison qu'un curseur est borné à sa glissière.
+// ★ `f` pour fouille, un ou deux chiffres, le `!` qui clôt. Le cran 0 est le
+// défaut et ne s'écrit pas ; un cran au-delà de 10 est borné à 10, pour la même
+// raison qu'un curseur est borné à sa glissière.
 //
 // ★ **Les deux marqueurs valent la LISTE, pas la première voie.** `#p…!#texte`
 // et `#f3!#texte` rendent la page de résultats, même écrits en clair — à la

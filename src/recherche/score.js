@@ -15,7 +15,10 @@ import { estDecret } from './titres.js';
 // ★ `elegance.js` n'importe RIEN : la dépendance est à sens unique, sans cycle.
 import { OPERATEURS_QUI_ECARTENT, caracteresRetenus, estAlnum } from './elegance.js';
 import { normaliserCible, indexUtiles } from './cible.js';
-import { CODES_NON_FACTURES, MAX_SERIES } from '../config.js';
+import {
+  CODES_NON_FACTURES, MAX_SERIES, LAMBDA_MMR_BASE, voiesParMappeur, placesDeLaListe,
+  PUISSANCE_DE_FOUILLE_DEFAUT,
+} from '../config.js';
 import {
   bilanApproche, credit as creditDElegance, facteur as facteurDElegance,
   note as noteDElegance, estPur,
@@ -169,9 +172,14 @@ export const REGLAGES = {
   PALIERS_HOMOGENEITE: { memeMethodeEtFiltres: 1000, memeMethode: 900, memeMappeur: 600, memeFamille: 300, sinon: 50 },
   ELEGANCE: { petit: 1000, moyen: 850, grand: 650, enorme: 350, penaliteNegatif: [85, 100], bonusRemarquable: 100 },
   NOMBRES_REMARQUABLES: [7, 11, 13, 22, 33, 42, 44, 66, 99, 101, 666],
-  LAMBDA_MMR: 350,               // pour-mille — pénalité de redondance du N4
-  MAX_PAR_MAPPEUR: 2,
-  MAX_APPROCHES: 12,
+  // ★ Les trois réglages de la sélection sont ceux du CRAN D'OUVERTURE, lus
+  //   dans `config.js` — la seule maison des lois du curseur. L'audit avait
+  //   relevé trois « places de la liste » qui ne disaient plus la même chose
+  //   (12 ici, 12 dans une constante orpheline, 20 dans la loi) : une copie
+  //   diverge toujours, une lecture jamais.
+  LAMBDA_MMR: LAMBDA_MMR_BASE,   // pour-mille — pénalité de redondance du N4
+  MAX_PAR_MAPPEUR: voiesParMappeur(PUISSANCE_DE_FOUILLE_DEFAUT),
+  MAX_APPROCHES: placesDeLaListe(PUISSANCE_DE_FOUILLE_DEFAUT),
   MAX_FRAGMENTS: 24,
   // ── les deux réglages du CURSEUR DE QUANTITÉ (voir `facteurQuantite`)
   // ★ Le PLAFOND n'est plus ici : il vit dans `config.js › MAX_SERIES`, et il

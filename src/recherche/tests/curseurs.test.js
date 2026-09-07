@@ -690,10 +690,10 @@ test('★ curseurs — déterminisme : deux appels identiques rendent la même l
  *   identiques sur deux saisies, ±1 à ±4 voies échangées sur les deux autres —
  *   toutes des MOISSONS, seules assez semblables pour que λ pèse. λ ne réglait
  *   pas « combien de variété » mais « lesquelles », et à la marge.
- *   La pente est donc inversée : 350 à l'ouverture, **35 au cran 7**, pour que
- *   les deux cent cinquante-six places du bout puissent accueillir les
- *   VARIANTES d'une même méthode — ce qu'on vient chercher en poussant le
- *   curseur à fond.
+ *   La pente est donc inversée : 350 à l'ouverture, puis une géométrique de
+ *   raison 0,77 — **95 au cran 5, 26 au cran 10** —, pour que les places du
+ *   bout puissent accueillir les VARIANTES d'une même méthode — ce qu'on vient
+ *   chercher en poussant le curseur à fond.
  */
 test('★ le cran élargit le travail et les places, et relâche la redondance', () => {
   const crans = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => reglagesDeBudget(n));

@@ -149,7 +149,7 @@ export const SERIE = 3;
 // ⚠️ **CE HUIT ÉTAIT LE PLAFOND LE PLUS BAS DE TOUTE LA CHAÎNE, et le plus
 //   silencieux.** Il reste le défaut — une recherche qui n'annonce pas son cran
 //   travaille comme avant —, mais `ctx.parFragment` le relève désormais avec le
-//   curseur de fouille (`config.js › PAR_FRAGMENT_PAR_CRAN`).
+//   curseur de fouille (`config.js › largeurDAssemblage`).
 const K_PAR_FRAGMENT = 8;   // chemins retenus par fragment pour l'assemblage
 const MAX_PARTITIONS = 200; // garde-fou combinatoire
 const MAX_LIBRES = 12;      // C(12,3) = 220 combinaisons
@@ -788,7 +788,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   //   ⚠️⚠️ ET ELLES SONT ENTRELACÉES, pas ajoutées à la fin — c'est ce qui
   //     décide si la mesure sert à quelque chose. L'appelant demande `plafond`
   //     vecteurs puis n'en garde que la MOITIÉ (`assembler`, mode G :
-  //     `.slice(0, MAX_VECTEURS_PAR_FRAGMENT)`), si bien qu'une réserve posée en
+  //     `.slice(0, kParFragment)`), si bien qu'une réserve posée en
   //     queue était intégralement jetée une ligne plus loin. Un siège sur quatre
   //     doit valoir pour TOUT préfixe de la liste, pas pour la liste entière.
   // Ce que la voie POSE sur la ligne, une fois finie : les chiffres qui ne sont
@@ -1675,7 +1675,8 @@ const ETALONS_MAX = 4;
  *
  * @returns {Object[]} approches non notées
  */
-function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT) {
+function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
+  kParFragment = K_PAR_FRAGMENT) {
   const cbl = normaliserCible(cible);
   if (!jetons || jetons.length < 2) return [];
   const n = Math.min(jetons.length, MAX_JETONS_MOISSON);
@@ -1689,9 +1690,13 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT)
     const cle = `${debut}.${longueur}`;
     if (vues.has(cle)) return;
     vues.add(cle);
+    // ★ La largeur suit le cran ici aussi — l'audit a relevé que la MOISSON,
+    //   « le mode que l'auteur met en tête », restait à huit chemins par
+    //   portée quand le GROUPEMENT en recevait jusqu'à cinquante.
     const candidats = candidatsDePortee(
       texte, avecVecteurs ? ops : null,
-      normaliserChemins(cheminsDe(texte)).slice(0, K_PAR_FRAGMENT), cbl,
+      normaliserChemins(cheminsDe(texte), Math.max(K_CANONISABLES, kParFragment))
+        .slice(0, kParFragment), cbl,
     );
     if (!candidats.length) return;
     portees.push({ debut, longueur, texte, candidats });
@@ -2416,7 +2421,8 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    GROUPEMENT ne récolte que sous une seule méthode ; la moisson prend à
   //    chaque jeton ce qu'il sait donner, par le programme qui lui convient.
   if (opsExplorables.length) {
-    for (const a of moissons(saisie, ctx.jetons || [], fragments, parFrag, opsExplorables, cbl)) {
+    for (const a of moissons(saisie, ctx.jetons || [], fragments, parFrag, opsExplorables, cbl,
+      kParFragment)) {
       approches.push(a);
     }
   }
