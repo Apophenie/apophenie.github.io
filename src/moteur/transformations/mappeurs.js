@@ -1578,7 +1578,13 @@ const idSomme = (plan, ctx, p, j) => (p.sortie.length < 2
  * somme ne se lit plus d'un coup d'œil — et surtout la scène cesserait d'être
  * vérifiable.
  */
-const PAQUET_ABSORPTION_MAX = 12;
+// ⚠️ **SIX, ET NON DOUZE — mesuré.** À douze chiffres par paquet, la
+//   programmation dynamique passait 6,1 s dans `mab` sur « Le chat dort sur le
+//   tapis rouge » (3 860 lignes distinctes, les lignes de treize à dix-huit
+//   chiffres à 18 ms chacune), soit le temps de recherche DOUBLÉ ; à six,
+//   2,2 s, et les dix cas du banc gardent leur voie sans perte en tête. Un
+//   paquet de plus de six chiffres fondu d'un coup n'était pas un geste lisible.
+const PAQUET_ABSORPTION_MAX = 6;
 
 /** Le plafond de chiffres, aligné sur `mad` et `mrd` (`CHIFFRES_MAX`). */
 const CHIFFRES_ABSORPTION_MAX = 36;

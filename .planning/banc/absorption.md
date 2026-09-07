@@ -220,3 +220,6 @@ périmètre « ne touche pas à `score.js` » :
    (`index.js › selectionner`), mais gagnerait encore à compte supérieur, ce
    qui est la règle de l'auteur lui-même. `cout` (aujourd'hui 2) ne suffit
    pas : la concision pèse 150, il faudrait un facteur d'élégance sous 0,59.
+
+
+> **Note d'intégration (8 septembre)** : `PAQUET_ABSORPTION_MAX` est passé de 12 à 6 — le coût de la programmation dynamique doublait le temps de recherche à douze ; à six, il en prend un tiers de moins et les dix cas du banc commun (`sans-perte-banc.mjs`) gardent leur voie sans perte. Le poste `ABSORPTION` du barème (80 par chiffre absorbé, famille `absorption`, pesée à l'inverse de la suppression par le curseur d'exhaustivité) et la précédence des séries limitée à une quantité RELEVÉE en mode personnalisé ont été ajoutés après livraison.
