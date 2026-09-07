@@ -20,6 +20,12 @@
 .arb__cote-titre { font-size: 1rem; margin: 0 0 .3rem; letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
 .arb__voie { margin: 0 0 .2rem; font-family: ui-monospace, monospace; font-size: .85rem; }
 .arb__regle { margin: 0 0 .6rem; font-size: .85rem; opacity: .8; font-style: italic; }
+.arb__scores { margin: 0 0 .5rem; font-size: .78rem; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.arb__scores dt { display: inline; opacity: .7; }
+.arb__scores dd { display: inline; margin: 0 .8em 0 .25em; }
+.arb__scores-ligne { margin: 0; }
+.arb__scores-rang { font-weight: 600; }
+.arb__scores-ecart { color: #b00; }
 .arb__lien { display: block; margin-top: .6rem; font-size: .72rem; word-break: break-all; opacity: .65; }
 .arb__alerte { color: #b00; font-weight: 600; }
 

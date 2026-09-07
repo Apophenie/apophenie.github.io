@@ -105,7 +105,62 @@ export function pageArbitrage() {
    * d'URL → rejeu → scénario → lecteur. Aucun raccourci, sinon la page
    * montrerait autre chose que ce qu'un visiteur verrait.
    */
-  function composer(cote, hash) {
+  /**
+   * ★ **LES SCORES D'UNE VOIE, EN DIRECT ET TELS QUE RELEVÉS.**
+   *
+   * > « Mets-les en AB-testing.html avec leur score global, classement, et les
+   * >   4 sous-métriques affichées ainsi que les 6 métriques internes. »
+   * >   (l'auteur)
+   *
+   * Le global et les quatre axes sont RECALCULÉS ici par le même chemin que la
+   * carte de la liste (`pont.scoresParAxe`, `pont.pourcentagesDe` au défaut) ;
+   * les six critères sont lus sur l'approche rejouée. Les deux RANGS, eux, ne se
+   * calculent pas sur une voie seule — ils viennent de la liste entière, au
+   * moment du relevé —, donc ils sont ÉCRITS dans le cas (`mesure`), et le
+   * global relevé avec eux : si l'écran et le relevé divergeaient, la ligne
+   * « relevé » le dirait en rouge, plutôt que de laisser croire que la mesure
+   * tient encore.
+   */
+  function scoresDe(approche, mesure) {
+    const axes = pont.scoresParAxe(approche);
+    if (!axes) return e('span', {});
+    const parts = pont.pourcentagesDe(pont.CURSEURS_DEFAUT());
+    let somme = 0;
+    let poids = 0;
+    for (const axe of pont.CURSEURS()) {
+      if (axes[axe] === null || axes[axe] === undefined) continue;
+      somme += (parts[axe] ?? 0) * axes[axe];
+      poids += parts[axe] ?? 0;
+    }
+    const global = poids ? Math.round(somme / poids) : null;
+    const c = approche.criteres || {};
+    const paire = (nom, val) => [e('dt', { texte: nom }), e('dd', { texte: val === null || val === undefined ? '—' : String(val) })];
+    const ligne = (classe, paires) => e('dl.arb__scores-ligne' + (classe ? '.' + classe : ''), {}, paires.flat());
+    const bloc = e('div.arb__scores', {}, [
+      ligne('arb__scores-rang', [
+        paire('global', global),
+        paire('score moteur', approche.score),
+        ...(mesure ? [paire('rang moteur', mesure.rangMoteur), paire('rang par le global', mesure.rangGlobal)] : []),
+      ]),
+      ligne(null, [
+        paire('simplicité', axes.simplicite), paire('exhaustivité', axes.exhaustivite),
+        paire('quantité', axes.quantite), paire('cohérence', axes.coherence),
+      ]),
+      ligne(null, [
+        paire('H', c.H), paire('N', c.N), paire('U', c.U), paire('C', c.C), paire('A', c.A), paire('E', c.E),
+        paire('R', c.R), paire('séries', approche.series ?? (approche.bilan && approche.bilan.series)),
+      ]),
+    ]);
+    if (mesure && (mesure.global !== global || mesure.score !== approche.score)) {
+      bloc.append(e('p.arb__scores-ecart', {
+        texte: `⚠ relevé : global ${mesure.global}, score ${mesure.score} — l’écran dit autre chose : `
+          + 'le classement a bougé depuis la mesure, les rangs ci-dessus ne tiennent plus.',
+      }));
+    }
+    return bloc;
+  }
+
+  function composer(cote, hash, mesure = null) {
     const cadre = e('section.arb__cote', {}, [e('h2.arb__cote-titre', { texte: cote })]);
     let lecture = null;
     let rejeu = null;
@@ -148,6 +203,7 @@ export function pageArbitrage() {
     cadre.append(
       e('p.arb__voie', { texte: rejeu.approche.codes || '' }),
       regle ? e('p.arb__regle', { texte: regle }) : e('span', {}),
+      scoresDe(rejeu.approche, mesure),
       boite,
       transport.element,
       registre.element,
@@ -175,8 +231,16 @@ export function pageArbitrage() {
     // La saisie est la même des deux côtés : elle n'a pas à être répétée sous
     // chaque scène, elle titre le cas.
     scenes.append(e('p.arb__saisie', { texte: `« ${cas.saisie} »` }));
-    for (const [cote, hash] of [['Avant', cas.avant], ['Après', cas.apres]]) {
-      const vue = composer(cote, hash);
+    // ★ Un cas de CLASSEMENT n'oppose pas un avant et un après : il oppose la
+    //   tête que le moteur classe première à celle que le score global affiché
+    //   mettrait en tête. Les côtés sont nommés pour ce qu'ils sont.
+    const classement = cas.question === 'classement';
+    const cotes = classement
+      ? [['Tête du moteur', cas.avant, cas.mesure && cas.mesure.avant],
+        ['Tête par le score global', cas.apres, cas.mesure && cas.mesure.apres]]
+      : [['Avant', cas.avant, null], ['Après', cas.apres, null]];
+    for (const [cote, hash, mesure] of cotes) {
+      const vue = composer(cote, hash, mesure);
       scenesVivantes.push(vue);
       scenes.append(vue.element);
     }
