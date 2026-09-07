@@ -129,202 +129,568 @@
  *     caractères » et « la plus simple et la plus cohérente ».
  */
 export const CAS_ARBITRAGE = Object.freeze([
+  /* ★ **LES CAS DU SCORE V2 — la tête d'aujourd'hui contre la tête que le
+     score v2 mettrait à la même place.** « Avec ces derniers changements,
+     peux-tu actualiser les arbitrages à faire ? (en AB-testing) » (l'auteur).
+     Ils remplacent les neuf cas « score global » de la veille, que l'itération
+     a rendus obsolètes. Configuration mesurée : `score-v2.js` — courbe des
+     pertes à l'exposant 65, `meg` facturé une fois, bonus de motif 200/100,
+     régimes 6/29/48/18, 6/47/12/35, quantité seule. Chaque côté porte ses
+     quatre axes v2 et son global v2 (`mesure`) ; la page les affiche à côté
+     des scores d'aujourd'hui. Relevé du 7 septembre 2026. */
   {
-    id: 'global-https-hope-hope-hope-fr',
+    id: 'v2-elegance-https-hope-hope-hope-fr',
     place: 1,
-    titre: 'https://hope-hope-hope.fr/ — 1ʳᵉ place : celle du moteur, ou celle du score global affiché',
-    saisie: 'https://hope-hope-hope.fr/',
-    question: 'classement',
-    /* À gauche la tête que le MOTEUR classe première ; à droite celle que le
-       « score global » affiché sur les cartes mettrait en tête si l'on triait
-       dessus. Écart de global : +361 pour la droite ; écart de score
-       moteur : -483 pour la gauche. Relevé le 7 septembre 2026, sur
-       le commit qui suit l'audit global. */
+    regime: 'elegance',
+    question: 'v2',
+    titre: "https://hope-hope-hope.fr/ — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    saisie: "https://hope-hope-hope.fr/",
+    curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!0:mch+cs+prn,3.5:nc,9:fr13+nlc+pc9#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
     apres: '#sce!fl+mpy+meg#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
     mesure: {
-      avant: { rangMoteur: 1, rangGlobal: 15, score: 3280, global: 466, mode: 'PARTITION', series: 1,
-        axes: { simplicite: 348, exhaustivite: 912, quantite: 111, coherence: 491 },
-        criteres: { H: 133, N: 450, U: 912, C: 527, A: 506, E: 1000, R: null } },
-      apres: { rangMoteur: 4, rangGlobal: 1, score: 3763, global: 827, mode: 'GROUPEMENT', series: 6,
-        axes: { simplicite: 935, exhaustivite: 974, quantite: 667, coherence: 732 },
-        criteres: { H: 1000, N: 450, U: 1000, C: 880, A: 700, E: 1000, R: 947 } },
-    },
+       "avant": {
+        "rangMoteur": 1,
+        "rangV2": 9,
+        "score": 3280,
+        "globalV2": 765,
+        "axesV2": {
+         "simplicite": 338,
+         "exhaustivite": 976,
+         "quantite": 141,
+         "coherence": 764
+        },
+        "mode": "PARTITION",
+        "series": 1
+       },
+       "apres": {
+        "rangMoteur": 4,
+        "rangV2": 1,
+        "score": 3763,
+        "globalV2": 864,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 892,
+         "quantite": 1000,
+         "coherence": 766
+        },
+        "mode": "GROUPEMENT",
+        "series": 6
+       }
+      },
   },
   {
-    id: 'global-capitalisme',
+    id: 'v2-mixte-https-hope-hope-hope-fr',
+    place: 3,
+    regime: 'mixte',
+    question: 'v2',
+    titre: "https://hope-hope-hope.fr/ — 3ᵉ résultat — tête de la liste ordinaire : aujourd’hui, ou score v2",
+    saisie: "https://hope-hope-hope.fr/",
+    curseurs: {"simplicite": 25, "exhaustivite": 120, "quantite": 200, "coherence": 75},
+    avant: '#sce!0:fr14+m14+mpf,3+5+7:ffr3+m14+mpf,9:fr9+m7#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
+    apres: '#sce!fl+mpy+meg#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
+    mesure: {
+       "avant": {
+        "rangMoteur": 3,
+        "rangV2": 2,
+        "score": 1274,
+        "globalV2": 849,
+        "axesV2": {
+         "simplicite": 686,
+         "exhaustivite": 641,
+         "quantite": 1000,
+         "coherence": 832
+        },
+        "mode": "MOISSON",
+        "series": 7
+       },
+       "apres": {
+        "rangMoteur": 4,
+        "rangV2": 1,
+        "score": 3763,
+        "globalV2": 925,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 892,
+         "quantite": 1000,
+         "coherence": 766
+        },
+        "mode": "GROUPEMENT",
+        "series": 6
+       }
+      },
+  },
+  {
+    id: 'v2-elegance-capitalisme',
     place: 1,
-    titre: 'Capitalisme — 1ʳᵉ place : celle du moteur, ou celle du score global affiché',
-    saisie: 'Capitalisme',
-    question: 'classement',
-    /* À gauche la tête que le MOTEUR classe première ; à droite celle que le
-       « score global » affiché sur les cartes mettrait en tête si l'on triait
-       dessus. Écart de global : +39 pour la droite ; écart de score
-       moteur : +2028 pour la gauche. Relevé le 7 septembre 2026, sur
-       le commit qui suit l'audit global. */
+    regime: 'elegance',
+    question: 'v2',
+    titre: "Capitalisme — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    saisie: "Capitalisme",
+    curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!fr21+mx6+mrd#Hi75aotg77MXEgC',
     apres: '#sce!fr6+mpy+meg#Hi75aotg77MXEgC',
     mesure: {
-      avant: { rangMoteur: 1, rangGlobal: 5, score: 5264, global: 658, mode: 'GROUPEMENT', series: 3,
-        axes: { simplicite: 935, exhaustivite: 821, quantite: 333, coherence: 541 },
-        criteres: { H: 1000, N: 243, U: 1000, C: 880, A: 242, E: 922, R: 642 } },
-      apres: { rangMoteur: 2, rangGlobal: 1, score: 3236, global: 697, mode: 'GROUPEMENT', series: 3,
-        axes: { simplicite: 935, exhaustivite: 909, quantite: 333, coherence: 610 },
-        criteres: { H: 1000, N: 306, U: 1000, C: 880, A: 385, E: 1000, R: 818 } },
-    },
+       "avant": {
+        "rangMoteur": 1,
+        "rangV2": 5,
+        "score": 5264,
+        "globalV2": 746,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 795,
+         "quantite": 731,
+         "coherence": 652
+        },
+        "mode": "GROUPEMENT",
+        "series": 3
+       },
+       "apres": {
+        "rangMoteur": 2,
+        "rangV2": 1,
+        "score": 3236,
+        "globalV2": 781,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 868,
+         "quantite": 738,
+         "coherence": 650
+        },
+        "mode": "GROUPEMENT",
+        "series": 3
+       }
+      },
   },
   {
-    id: 'global-la-numerologie-est-une-scien',
-    place: 1,
-    titre: 'La numérologie est une science exacte, disent-ils — 1ʳᵉ place : celle du moteur, ou celle du score global affiché',
-    saisie: 'La numérologie est une science exacte, disent-ils',
-    question: 'classement',
-    /* À gauche la tête que le MOTEUR classe première ; à droite celle que le
-       « score global » affiché sur les cartes mettrait en tête si l'on triait
-       dessus. Écart de global : +348 pour la droite ; écart de score
-       moteur : -817 pour la gauche. Relevé le 7 septembre 2026, sur
-       le commit qui suit l'audit global. */
-    avant: '#sce!0.5:nl+prn,10:nl,13:nd#wapt1NMKMypvYVfgt71ycBNqoCxRYgzKbH5s8zEg4rQGFDT9JeyTt2n1jBUTTNMxFHfx',
+    id: 'v2-mixte-la-numerologie-est-une-s',
+    place: 3,
+    regime: 'mixte',
+    question: 'v2',
+    titre: "La numérologie est une science exacte, disent-ils — 3ᵉ résultat — tête de la liste ordinaire : aujourd’hui, ou score v2",
+    saisie: "La numérologie est une science exacte, disent-ils",
+    curseurs: {"simplicite": 25, "exhaustivite": 120, "quantite": 200, "coherence": 75},
+    avant: '#sce!0:fr3+m14,2+6+13:m14,4:fr11+m14,8:fr2+m14+mpf,10:fr10+m14+mpf,15:fatb+m14#wapt1NMKMypvYVfgt71ycBNqoCxRYgzKbH5s8zEg4rQGFDT9JeyTt2n1jBUTTNMxFHfx',
     apres: '#sce!10:fr18;fc+mt9+meg#wapt1NMKMypvYVfgt71ycBNqoCxRYgzKbH5s8zEg4rQGFDT9JeyTt2n1jBUTTNMxFHfx',
     mesure: {
-      avant: { rangMoteur: 1, rangGlobal: 14, score: 2412, global: 481, mode: 'LIBRE', series: 1,
-        axes: { simplicite: 604, exhaustivite: 478, quantite: 111, coherence: 731 },
-        criteres: { H: 400, N: 643, U: 478, C: 774, A: 1000, E: 1000, R: null } },
-      apres: { rangMoteur: 6, rangGlobal: 1, score: 3229, global: 829, mode: 'GROUPEMENT', series: 8,
-        axes: { simplicite: 935, exhaustivite: 764, quantite: 889, coherence: 727 },
-        criteres: { H: 1000, N: 437, U: 527, C: 880, A: 700, E: 1000, R: 1000 } },
-    },
+       "avant": {
+        "rangMoteur": 3,
+        "rangV2": 5,
+        "score": 1864,
+        "globalV2": 806,
+        "axesV2": {
+         "simplicite": 713,
+         "exhaustivite": 659,
+         "quantite": 1000,
+         "coherence": 556
+        },
+        "mode": "MOISSON",
+        "series": 9
+       },
+       "apres": {
+        "rangMoteur": 6,
+        "rangV2": 1,
+        "score": 3229,
+        "globalV2": 858,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 767,
+         "quantite": 1000,
+         "coherence": 593
+        },
+        "mode": "GROUPEMENT",
+        "series": 8
+       }
+      },
   },
   {
-    id: 'global-donald-trump',
+    id: 'v2-elegance-donald-trump',
     place: 1,
-    titre: 'Donald Trump — 1ʳᵉ place : celle du moteur, ou celle du score global affiché',
-    saisie: 'Donald Trump',
-    question: 'classement',
-    /* À gauche la tête que le MOTEUR classe première ; à droite celle que le
-       « score global » affiché sur les cartes mettrait en tête si l'on triait
-       dessus. Écart de global : +193 pour la droite ; écart de score
-       moteur : +630 pour la gauche. Relevé le 7 septembre 2026, sur
-       le commit qui suit l'audit global. */
+    regime: 'elegance',
+    question: 'v2',
+    titre: "Donald Trump — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    saisie: "Donald Trump",
+    curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!0:fatb+mt9+mr9,2:fr3+mhe+mrn#2HuP1G8mNg3sJWhqR',
-    apres: '#sce!fl+mazc+meg#2HuP1G8mNg3sJWhqR',
+    apres: '#sce!fl+mqwc+meg#2HuP1G8mNg3sJWhqR',
     mesure: {
-      avant: { rangMoteur: 1, rangGlobal: 8, score: 4077, global: 529, mode: 'MOISSON', series: 3,
-        axes: { simplicite: 463, exhaustivite: 847, quantite: 333, coherence: 474 },
-        criteres: { H: 300, N: 381, U: 876, C: 599, A: 390, E: 979, R: 818 } },
-      apres: { rangMoteur: 3, rangGlobal: 1, score: 3447, global: 722, mode: 'GROUPEMENT', series: 3,
-        axes: { simplicite: 935, exhaustivite: 909, quantite: 333, coherence: 709 },
-        criteres: { H: 1000, N: 387, U: 1000, C: 880, A: 700, E: 1000, R: 818 } },
-    },
+       "avant": {
+        "rangMoteur": 1,
+        "rangV2": 3,
+        "score": 4077,
+        "globalV2": 768,
+        "axesV2": {
+         "simplicite": 442,
+         "exhaustivite": 840,
+         "quantite": 780,
+         "coherence": 723
+        },
+        "mode": "MOISSON",
+        "series": 3
+       },
+       "apres": {
+        "rangMoteur": 4,
+        "rangV2": 1,
+        "score": 3447,
+        "globalV2": 802,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 840,
+         "quantite": 753,
+         "coherence": 741
+        },
+        "mode": "GROUPEMENT",
+        "series": 3
+       }
+      },
   },
   {
-    id: 'global-henri-prunelle',
+    id: 'v2-mixte-donald-trump',
+    place: 3,
+    regime: 'mixte',
+    question: 'v2',
+    titre: "Donald Trump — 3ᵉ résultat — tête de la liste ordinaire : aujourd’hui, ou score v2",
+    saisie: "Donald Trump",
+    curseurs: {"simplicite": 25, "exhaustivite": 120, "quantite": 200, "coherence": 75},
+    avant: '#sce!0:fr15+mx6+mrn,2:fr3+mhe+mrn#2HuP1G8mNg3sJWhqR',
+    apres: '#sce!fl+mqwc+meg#2HuP1G8mNg3sJWhqR',
+    mesure: {
+       "avant": {
+        "rangMoteur": 2,
+        "rangV2": 4,
+        "score": 3921,
+        "globalV2": 762,
+        "axesV2": {
+         "simplicite": 442,
+         "exhaustivite": 840,
+         "quantite": 780,
+         "coherence": 694
+        },
+        "mode": "MOISSON",
+        "series": 3
+       },
+       "apres": {
+        "rangMoteur": 4,
+        "rangV2": 1,
+        "score": 3447,
+        "globalV2": 788,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 840,
+         "quantite": 753,
+         "coherence": 741
+        },
+        "mode": "GROUPEMENT",
+        "series": 3
+       }
+      },
+  },
+  {
+    id: 'v2-elegance-henri-prunelle',
     place: 1,
-    titre: 'Henri Prunelle — 1ʳᵉ place : celle du moteur, ou celle du score global affiché',
-    saisie: 'Henri Prunelle',
-    question: 'classement',
-    /* À gauche la tête que le MOTEUR classe première ; à droite celle que le
-       « score global » affiché sur les cartes mettrait en tête si l'on triait
-       dessus. Écart de global : +285 pour la droite ; écart de score
-       moteur : -439 pour la gauche. Relevé le 7 septembre 2026, sur
-       le commit qui suit l'audit global. */
+    regime: 'elegance',
+    question: 'v2',
+    titre: "Henri Prunelle — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    saisie: "Henri Prunelle",
+    curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!0:mt9+cs+prn,2:fr20+mazc+mr9#TcguSXTd7SkC7z32JAG',
+    apres: '#sce!fl+mazc+meg#TcguSXTd7SkC7z32JAG',
+    mesure: {
+       "avant": {
+        "rangMoteur": 1,
+        "rangV2": 6,
+        "score": 3273,
+        "globalV2": 712,
+        "axesV2": {
+         "simplicite": 442,
+         "exhaustivite": 779,
+         "quantite": 560,
+         "coherence": 717
+        },
+        "mode": "MOISSON",
+        "series": 2
+       },
+       "apres": {
+        "rangMoteur": 2,
+        "rangV2": 1,
+        "score": 3660,
+        "globalV2": 847,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 900,
+         "quantite": 894,
+         "coherence": 744
+        },
+        "mode": "GROUPEMENT",
+        "series": 4
+       }
+      },
+  },
+  {
+    id: 'v2-abondance-henri-prunelle',
+    place: 2,
+    regime: 'abondance',
+    question: 'v2',
+    titre: "Henri Prunelle — 2ᵈ place — « la plus fournie » : aujourd’hui, ou score v2",
+    saisie: "Henri Prunelle",
+    curseurs: {"simplicite": 0, "exhaustivite": 0, "quantite": 200, "coherence": 0},
+    avant: '#sce!fl+mazc+meg#TcguSXTd7SkC7z32JAG',
     apres: '#sce!2:fatb;fl+mpy+meg#TcguSXTd7SkC7z32JAG',
     mesure: {
-      avant: { rangMoteur: 1, rangGlobal: 12, score: 3273, global: 483, mode: 'MOISSON', series: 2,
-        axes: { simplicite: 463, exhaustivite: 780, quantite: 222, coherence: 466 },
-        criteres: { H: 300, N: 368, U: 893, C: 599, A: 357, E: 1000, R: 666 } },
-      apres: { rangMoteur: 3, rangGlobal: 1, score: 3712, global: 768, mode: 'GROUPEMENT', series: 4,
-        axes: { simplicite: 935, exhaustivite: 962, quantite: 444, coherence: 732 },
-        criteres: { H: 1000, N: 450, U: 1000, C: 880, A: 700, E: 1000, R: 923 } },
-    },
+       "avant": {
+        "rangMoteur": 2,
+        "rangV2": 2,
+        "score": 3660,
+        "globalV2": 894,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 900,
+         "quantite": 894,
+         "coherence": 744
+        },
+        "mode": "GROUPEMENT",
+        "series": 4
+       },
+       "apres": {
+        "rangMoteur": 3,
+        "rangV2": 1,
+        "score": 3712,
+        "globalV2": 916,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 900,
+         "quantite": 916,
+         "coherence": 597
+        },
+        "mode": "GROUPEMENT",
+        "series": 4
+       }
+      },
   },
   {
-    id: 'global-numherololgeek-1000i100-fr',
+    id: 'v2-elegance-numherololgeek-1000i100-',
     place: 1,
-    titre: 'numherololgeek.1000i100.fr — 1ʳᵉ place : celle du moteur, ou celle du score global affiché',
-    saisie: 'numherololgeek.1000i100.fr',
-    question: 'classement',
-    /* À gauche la tête que le MOTEUR classe première ; à droite celle que le
-       « score global » affiché sur les cartes mettrait en tête si l'on triait
-       dessus. Écart de global : +293 pour la droite ; écart de score
-       moteur : +958 pour la gauche. Relevé le 7 septembre 2026, sur
-       le commit qui suit l'audit global. */
+    regime: 'elegance',
+    question: 'v2',
+    titre: "numherololgeek.1000i100.fr — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    saisie: "numherololgeek.1000i100.fr",
+    curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!0:nv,2.2:cnjd+pc9,5:fr13+nlc+pc9#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K',
-    apres: '#sce!2:flt;fl+mpy+meg#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K',
+    apres: '#sce!0:nv,2+3:flt+mpy+mr9#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K',
     mesure: {
-      avant: { rangMoteur: 1, rangGlobal: 19, score: 3891, global: 456, mode: 'PARTITION', series: 1,
-        axes: { simplicite: 387, exhaustivite: 886, quantite: 111, coherence: 441 },
-        criteres: { H: 133, N: 392, U: 886, C: 599, A: 378, E: 1000, R: null } },
-      apres: { rangMoteur: 2, rangGlobal: 1, score: 2933, global: 749, mode: 'GROUPEMENT', series: 5,
-        axes: { simplicite: 935, exhaustivite: 772, quantite: 556, coherence: 732 },
-        criteres: { H: 1000, N: 450, U: 830, C: 880, A: 700, E: 1000, R: 714 } },
-    },
+       "avant": {
+        "rangMoteur": 1,
+        "rangV2": 3,
+        "score": 3891,
+        "globalV2": 747,
+        "axesV2": {
+         "simplicite": 373,
+         "exhaustivite": 974,
+         "quantite": 141,
+         "coherence": 710
+        },
+        "mode": "PARTITION",
+        "series": 1
+       },
+       "apres": {
+        "rangMoteur": 9,
+        "rangV2": 1,
+        "score": 4417,
+        "globalV2": 816,
+        "axesV2": {
+         "simplicite": 519,
+         "exhaustivite": 945,
+         "quantite": 780,
+         "coherence": 706
+        },
+        "mode": "MOISSON",
+        "series": 3
+       }
+      },
   },
   {
-    id: 'global-wikipedia',
+    id: 'v2-mixte-numherololgeek-1000i100-',
+    place: 3,
+    regime: 'mixte',
+    question: 'v2',
+    titre: "numherololgeek.1000i100.fr — 3ᵉ résultat — tête de la liste ordinaire : aujourd’hui, ou score v2",
+    saisie: "numherololgeek.1000i100.fr",
+    curseurs: {"simplicite": 25, "exhaustivite": 120, "quantite": 200, "coherence": 75},
+    avant: '#sce!0:fr10;fl+mpy+meg#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K',
+    apres: '#sce!fl+mqwc+meg#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K',
+    mesure: {
+       "avant": {
+        "rangMoteur": 3,
+        "rangV2": 2,
+        "score": 3112,
+        "globalV2": 844,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 716,
+         "quantite": 1000,
+         "coherence": 597
+        },
+        "mode": "GROUPEMENT",
+        "series": 5
+       },
+       "apres": {
+        "rangMoteur": 6,
+        "rangV2": 1,
+        "score": 3061,
+        "globalV2": 871,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 716,
+         "quantite": 1000,
+         "coherence": 747
+        },
+        "mode": "GROUPEMENT",
+        "series": 5
+       }
+      },
+  },
+  {
+    id: 'v2-elegance-hope',
     place: 1,
-    titre: 'Wikipedia — 1ʳᵉ place : celle du moteur, ou celle du score global affiché',
-    saisie: 'Wikipedia',
-    question: 'classement',
-    /* À gauche la tête que le MOTEUR classe première ; à droite celle que le
-       « score global » affiché sur les cartes mettrait en tête si l'on triait
-       dessus. Écart de global : +35 pour la droite ; écart de score
-       moteur : +2456 pour la gauche. Relevé le 7 septembre 2026, sur
-       le commit qui suit l'audit global. */
+    regime: 'elegance',
+    question: 'v2',
+    titre: "hope — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    saisie: "hope",
+    curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
+    avant: '#sce!m14#3fq9KJ',
+    apres: '#sce!fc+ma1+cs+prn,nlc,mexb+cs#3fq9KJ',
+    mesure: {
+       "avant": {
+        "rangMoteur": 1,
+        "rangV2": 2,
+        "score": 7301,
+        "globalV2": 784,
+        "axesV2": {
+         "simplicite": 1000,
+         "exhaustivite": 837,
+         "quantite": 205,
+         "coherence": 871
+        },
+        "mode": "GROUPEMENT",
+        "series": 1
+       },
+       "apres": {
+        "rangMoteur": 3,
+        "rangV2": 1,
+        "score": 3393,
+        "globalV2": 807,
+        "axesV2": {
+         "simplicite": 338,
+         "exhaustivite": 1000,
+         "quantite": 70,
+         "coherence": 873
+        },
+        "mode": "CONVERGENCE",
+        "series": 1
+       }
+      },
+  },
+  {
+    id: 'v2-elegance-wikipedia',
+    place: 1,
+    regime: 'elegance',
+    question: 'v2',
+    titre: "Wikipedia — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    saisie: "Wikipedia",
+    curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!fr21+mx6+mad#27Xv14MeSfjBN',
     apres: '#sce!fr17+mpy+meg#27Xv14MeSfjBN',
     mesure: {
-      avant: { rangMoteur: 1, rangGlobal: 5, score: 6036, global: 685, mode: 'GROUPEMENT', series: 3,
-        axes: { simplicite: 935, exhaustivite: 909, quantite: 333, coherence: 564 },
-        criteres: { H: 1000, N: 256, U: 1000, C: 880, A: 326, E: 920, R: 818 } },
-      apres: { rangMoteur: 2, rangGlobal: 1, score: 3580, global: 720, mode: 'GROUPEMENT', series: 3,
-        axes: { simplicite: 935, exhaustivite: 1000, quantite: 333, coherence: 610 },
-        criteres: { H: 1000, N: 306, U: 1000, C: 880, A: 385, E: 1000, R: 1000 } },
-    },
+       "avant": {
+        "rangMoteur": 1,
+        "rangV2": 7,
+        "score": 6036,
+        "globalV2": 780,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 868,
+         "quantite": 723,
+         "coherence": 652
+        },
+        "mode": "GROUPEMENT",
+        "series": 3
+       },
+       "apres": {
+        "rangMoteur": 2,
+        "rangV2": 1,
+        "score": 3580,
+        "globalV2": 843,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 1000,
+         "quantite": 753,
+         "coherence": 645
+        },
+        "mode": "GROUPEMENT",
+        "series": 3
+       }
+      },
   },
   {
-    id: 'global-jean-michel',
+    id: 'v2-elegance-eleonore-a-nimes',
     place: 1,
-    titre: 'jean-michel — 1ʳᵉ place : celle du moteur, ou celle du score global affiché',
-    saisie: 'jean-michel',
-    question: 'classement',
-    /* À gauche la tête que le MOTEUR classe première ; à droite celle que le
-       « score global » affiché sur les cartes mettrait en tête si l'on triait
-       dessus. Écart de global : +244 pour la droite ; écart de score
-       moteur : -876 pour la gauche. Relevé le 7 septembre 2026, sur
-       le commit qui suit l'audit global. */
-    avant: '#sce!0:fv+ma1+cs,1:mtc+cs,2:nd#TPFErnfXxwkkeBD',
-    apres: '#sce!0:fr20;fl+mazc+meg#TPFErnfXxwkkeBD',
-    mesure: {
-      avant: { rangMoteur: 1, rangGlobal: 14, score: 2739, global: 488, mode: 'PARTITION', series: 1,
-        axes: { simplicite: 387, exhaustivite: 739, quantite: 111, coherence: 714 },
-        criteres: { H: 133, N: 793, U: 739, C: 599, A: 950, E: 1000, R: null } },
-      apres: { rangMoteur: 2, rangGlobal: 1, score: 3615, global: 732, mode: 'GROUPEMENT', series: 3,
-        axes: { simplicite: 935, exhaustivite: 950, quantite: 333, coherence: 709 },
-        criteres: { H: 1000, N: 387, U: 1000, C: 880, A: 700, E: 1000, R: 900 } },
-    },
-  },
-  {
-    id: 'global-eleonore-a-nimes',
-    place: 1,
-    titre: 'Éléonore à Nîmes — 1ʳᵉ place : celle du moteur, ou celle du score global affiché',
-    saisie: 'Éléonore à Nîmes',
-    question: 'classement',
-    /* À gauche la tête que le MOTEUR classe première ; à droite celle que le
-       « score global » affiché sur les cartes mettrait en tête si l'on triait
-       dessus. Écart de global : +376 pour la droite ; écart de score
-       moteur : -1134 pour la gauche. Relevé le 7 septembre 2026, sur
-       le commit qui suit l'audit global. */
+    regime: 'elegance',
+    question: 'v2',
+    titre: "Éléonore à Nîmes — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    saisie: "Éléonore à Nîmes",
+    curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!0:nl,2:m7+cs,4:fc+nlc#3j14d86Y9shVAUrGT6Cq5K2Rk2cA',
     apres: '#sce!2:ffr4;fl+m14+meg#3j14d86Y9shVAUrGT6Cq5K2Rk2cA',
     mesure: {
-      avant: { rangMoteur: 1, rangGlobal: 17, score: 2690, global: 453, mode: 'PARTITION', series: 1,
-        axes: { simplicite: 432, exhaustivite: 649, quantite: 111, coherence: 618 },
-        criteres: { H: 133, N: 562, U: 649, C: 681, A: 900, E: 1000, R: null } },
-      apres: { rangMoteur: 3, rangGlobal: 1, score: 3824, global: 829, mode: 'GROUPEMENT', series: 6,
-        axes: { simplicite: 935, exhaustivite: 1000, quantite: 667, coherence: 714 },
-        criteres: { H: 1000, N: 400, U: 1000, C: 880, A: 700, E: 1000, R: 1000 } },
+       "avant": {
+        "rangMoteur": 1,
+        "rangV2": 3,
+        "score": 2690,
+        "globalV2": 751,
+        "axesV2": {
+         "simplicite": 309,
+         "exhaustivite": 876,
+         "quantite": 141,
+         "coherence": 861
+        },
+        "mode": "PARTITION",
+        "series": 1
+       },
+       "apres": {
+        "rangMoteur": 3,
+        "rangV2": 1,
+        "score": 3824,
+        "globalV2": 835,
+        "axesV2": {
+         "simplicite": 955,
+         "exhaustivite": 968,
+         "quantite": 1000,
+         "coherence": 583
+        },
+        "mode": "GROUPEMENT",
+        "series": 6
+       }
+      },
+  },
+  {
+    id: 'v2-exception-hope-url-cran-1',
+    place: 1,
+    regime: 'elegance',
+    question: 'v2',
+    titre: 'https://hope-hope-hope.fr/ — l’exception des motifs répétés (voie fabriquée à partir du cran 1)',
+    saisie: 'https://hope-hope-hope.fr/',
+    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
+    /* ★ « Un bonus d'élégance spécifique pour trois fragments identiques
+       convertis groupés et plusieurs "-" convertis groupés » (l'auteur). À
+       gauche le groupement que la v2 met en tête au cran 0 ; à droite la
+       moisson « 3 × m14 + 2 tirets » que le bonus (200/100) porte en 1ʳᵉ place
+       — mais elle n'est FABRIQUÉE qu'à partir du cran 1 de fouille (rang
+       5 du moteur), pas au cran 0. Rejouée ici par son lien, elle se voit ;
+       à l'accueil, elle n'existe pas encore. */
+    avant: '#sce!f1!fl+mpy+meg#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
+    apres: '#sce!f1!0:fr14+m14+mpf,3+5+7:m14,4+6:mtc#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
+    mesure: {
+      avant: { rangMoteur: 4, rangV2: 2, score: null, globalV2: 864, axesV2: { simplicite: 955, exhaustivite: 892, quantite: 1000, coherence: 766 }, mode: 'GROUPEMENT', series: 6 },
+      apres: { rangMoteur: 5, rangV2: 1, score: null, globalV2: 876, axesV2: { simplicite: 473, exhaustivite: 836, quantite: 1000, coherence: 954 }, mode: 'MOISSON', series: 6 },
     },
   },
   {

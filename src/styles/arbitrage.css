@@ -26,6 +26,7 @@
 .arb__scores-ligne { margin: 0; }
 .arb__scores-rang { font-weight: 600; }
 .arb__scores-ecart { color: #b00; }
+.arb__scores-v2 { color: var(--phos, #6c6); }
 .arb__lien { display: block; margin-top: .6rem; font-size: .72rem; word-break: break-all; opacity: .65; }
 .arb__alerte { color: #b00; font-weight: 600; }
 

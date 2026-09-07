@@ -151,7 +151,20 @@ export function pageArbitrage() {
         paire('R', c.R), paire('séries', approche.series ?? (approche.bilan && approche.bilan.series)),
       ]),
     ]);
-    if (mesure && (mesure.global !== global || mesure.score !== approche.score)) {
+    if (mesure && mesure.axesV2) {
+      // ★ Les quatre axes du SCORE V2 et son global, tels que relevés par le
+      //   banc (`.planning/banc/score-v2-banc.mjs`) — une autre notation de la
+      //   même voie, à côté de celle d'aujourd'hui, pour que l'arbitrage se
+      //   fasse les deux sous les yeux.
+      const v = mesure.axesV2;
+      bloc.append(ligne('arb__scores-v2', [
+        paire('v2 global', mesure.globalV2), paire('v2 rang', mesure.rangV2),
+        paire('v2 simplicité', v.simplicite), paire('v2 exhaustivité', v.exhaustivite),
+        paire('v2 quantité', v.quantite), paire('v2 cohérence', v.coherence),
+      ]));
+    }
+    if (mesure && mesure.score !== null && mesure.score !== undefined && !mesure.axesV2
+      && (mesure.global !== global || mesure.score !== approche.score)) {
       bloc.append(e('p.arb__scores-ecart', {
         texte: `⚠ relevé : global ${mesure.global}, score ${mesure.score} — l’écran dit autre chose : `
           + 'le classement a bougé depuis la mesure, les rangs ci-dessus ne tiennent plus.',
@@ -235,10 +248,14 @@ export function pageArbitrage() {
     //   tête que le moteur classe première à celle que le score global affiché
     //   mettrait en tête. Les côtés sont nommés pour ce qu'ils sont.
     const classement = cas.question === 'classement';
-    const cotes = classement
-      ? [['Tête du moteur', cas.avant, cas.mesure && cas.mesure.avant],
-        ['Tête par le score global', cas.apres, cas.mesure && cas.mesure.apres]]
-      : [['Avant', cas.avant, null], ['Après', cas.apres, null]];
+    const v2 = cas.question === 'v2';
+    const cotes = v2
+      ? [['Aujourd’hui', cas.avant, cas.mesure && cas.mesure.avant],
+        ['Score v2', cas.apres, cas.mesure && cas.mesure.apres]]
+      : classement
+        ? [['Tête du moteur', cas.avant, cas.mesure && cas.mesure.avant],
+          ['Tête par le score global', cas.apres, cas.mesure && cas.mesure.apres]]
+        : [['Avant', cas.avant, null], ['Après', cas.apres, null]];
     for (const [cote, hash, mesure] of cotes) {
       const vue = composer(cote, hash, mesure);
       scenesVivantes.push(vue);

@@ -333,3 +333,34 @@ Trump cède à `meg`, et `hope` cède `tca+m14` à une partition qui lit tout �
 parce que la courbe concave fait payer 41 % le quatrième 6 que `[6,6,6,6]`
 laisse tomber (R = 3/4 → rendement 594). C'est le prix de « perdre beaucoup
 rapidement », et il se paie aussi sur la voie la plus simple qui soit.
+
+---
+
+## Les arbitrages à rendre — liste actualisée (7 septembre, après l'itération 3)
+
+Chacun est un cas d'`AB-testing.html` (préfixe `v2-`), la tête d'aujourd'hui à
+gauche, la tête v2 à droite, avec les quatre axes v2 et le global v2 de chaque
+côté. Les décisions déjà prises sont rappelées en tête ; ce qui suit est ce qui
+reste ouvert.
+
+**Acquis** : pas de classement caché (le rang est une prime de 200 dans la
+quantité) ; trois régimes = trois positions des curseurs ; fragments
+identiques comptés une fois, différents au plus lourd + moitié + quart ; `meg`
+facturé une fois (six têtes gagnées, listées ci-dessus) ; le bonus de motif
+répété à 200/100 dans la cohérence ; le régime « la plus belle » garde 6 % de
+simplicité (sinon il couronne des convergences).
+
+| # | arbitrage | ce que la mesure dit | cas |
+|---|---|---|---|
+| 1 | **La courbe du rendement** — concave (exposant 65) ou linéaire ? | À 65, `hope` perd sa 1ʳᵉ place `tca+m14` au profit d'une partition qui lit tout : le quatrième 6 de `[6,6,6,6]` coûte 41 %. Séparer la courbe du rendement de celle de la lecture (65 / 100) n'aide pas : 7 têtes de 1ʳᵉ place au lieu de 8. Linéaire partout : 8/16 et 10 lignes déplacées au lieu de 16. | `v2-elegance-hope` |
+| 2 | **La génération au cran 0** — élargir pour que l'exception se voie à l'accueil ? | La moisson « 3 × m14 + 2 tirets » n'est fabriquée qu'à partir du cran 1 (largeur 10 ; rang 5). Au cran 0 (largeur 8, vingt voies) elle n'existe pas. Élargir la largeur d'assemblage à 10 au cran 0 déplace les listes d'accueil. | `v2-exception-hope-url-cran-1` |
+| 3 | **« La plus belle » : partitions à trois méthodes, ou groupements courts ?** | Huit têtes sur seize changent : hope URL, Henri Prunelle, numherololgeek, Éléonore cèdent leurs partitions à des groupements `meg` ou à une moisson plus courte ; Capitalisme et Wikipedia cèdent `mrd`/`mad` à `meg` ; Donald Trump cède sa moisson. Aucune moyenne ne garde les partitions sans couronner aussi les convergences. | les huit `v2-elegance-*` |
+| 4 | **La liste ordinaire : quantité à 48 %** | 6/29/48/18 conserve 12 têtes sur 16 ; ton jeu 20/30/25/25 en conserve 11 et déplace 25 lignes au lieu de 16. Quatre têtes changent : hope URL (moisson 7× → groupement, l'arbitrage voulu), La numérologie (moisson → `meg`), Donald Trump (moisson → `meg`), numherololgeek (retouchée → non retouchée). | les quatre `v2-mixte-*` |
+| 5 | **La 2ᵈ place : quantité seule** | 7/8 ; le seul écart est Henri Prunelle, `meg` contre `meg`, à 22 points de quantité. | `v2-abondance-henri-prunelle` |
+
+Ce qui ne demande plus d'arbitrage mais du travail, une fois 1 à 5 tranchés :
+brancher `score-v2.js` dans `score.js › noter` (score = 10 × global), faire des
+trois régimes trois positions de curseurs lues par `selectionner`, afficher la
+part réelle du régime sur le leste de chaque carte, retirer `POIDS_DES_REGIMES`,
+`CORRESPONDANCE`, `facteurRendement`, `facteurQuantite`, `poidsDeLaSuppression`,
+les bonus et malus additifs, et réécrire les tests qui les gèlent.

@@ -89,6 +89,8 @@ export const REGLAGES = {
   //   linéaire : c'est la longueur repliée qui le fait, pas la sévérité.
   //   65 est la concavité que l'auteur demande, au prix mesuré ci-dessus.
   EXPOSANT_PERTE: 65,
+  // le rendement peut avoir sa propre courbe : `null` = la même que la lecture
+  EXPOSANT_RENDEMENT: null,
   // `meg` : 'cumulatif' (le barème actuel, −200 par valeur), 'unique' (une fois), 'aucune'
   // ⚠️ MESURÉ : le barème actuel (« cumulatif ») est ce qui reproduit le mieux
   //   le classement — « unique » coûte une à deux têtes à chaque réglage,
@@ -158,7 +160,7 @@ const puissanceCentiemes = (x, n) => {
   return Number(lo);
 };
 /** Ce qu'il reste après une perte, sur la courbe concave demandée : 1000 − 1000·(perte/1000)^e. */
-const apresPerte = (perte) => MILLE - puissanceCentiemes(borner(perte, 0, MILLE), REGLAGES.EXPOSANT_PERTE);
+const apresPerte = (perte, exposant = REGLAGES.EXPOSANT_PERTE) => MILLE - puissanceCentiemes(borner(perte, 0, MILLE), exposant);
 const fois = (x, [n, d]) => Math.floor((x * n) / d);
 
 /** Une somme de points du barème, restreinte à des postes, ramenée à [0 ; 1000] autour du socle. */
@@ -239,7 +241,7 @@ export function axesDe(a) {
   } else {
     lecture = c.U ?? MILLE;
   }
-  const rendement = apresPerte(MILLE - (c.R ?? MILLE));
+  const rendement = apresPerte(MILLE - (c.R ?? MILLE), REGLAGES.EXPOSANT_RENDEMENT ?? REGLAGES.EXPOSANT_PERTE);
   const pertesEnRoute = creditDes(lignes, POSTES.pertesEnRoute);
   const exhaustivite = Math.floor((R.POIDS_LECTURE * lecture + R.POIDS_RENDEMENT * rendement + R.POIDS_PERTES_EN_ROUTE * pertesEnRoute) / MILLE);
 
