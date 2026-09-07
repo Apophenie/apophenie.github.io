@@ -253,3 +253,83 @@ l'auteur (« unique »), au prix mesuré.
    « lit tout et propre » (les partitions restent) ou « court, propre, d'un
    seul tenant » (les groupements prennent) — les deux ne sont pas conciliables
    dans une moyenne, et ce n'est pas un défaut de la moyenne.
+
+---
+
+## Itération 3 — `meg` à découvert, et l'exception des motifs répétés
+
+> « Si `meg` perd quelques têtes avec le nouveau barème, ce n'est pas grave.
+>   S'il en gagne, montre-moi lesquelles. Pour hope-hope-hope, le seul moyen
+>   de s'en sortir va être une exception : un bonus d'élégance spécifique pour
+>   trois fragments identiques convertis groupés et plusieurs "-" convertis
+>   groupés — dans la cohérence, pour mettre tout le monde d'accord, en
+>   laissant l'alternative qui prend naturellement les devants en 3ᵉ résultat. »
+
+### Ce que `meg` gagne, du seul fait du barème « une fois »
+
+À réglage égal (exposant 65, sans bonus de motif), en passant de « cumulatif »
+à « unique » :
+
+| régime | saisie | avant | après |
+|---|---|---|---|
+| 1ʳᵉ place | https://hope-hope-hope.fr/ | `tca+m7F+cs+prn` ×3 (résonance) | **`fl+tca+mpy+meg`** |
+| 1ʳᵉ place | Capitalisme | `fr21+tca+mx6+mrd` | **`fr6+tca+mpy+meg`** |
+| 1ʳᵉ place | Donald Trump | `fatb+tca+mt9+mr9, fr3+tca+mhe+mrn` (moisson) | **`fl+tca+mqwc+meg`** |
+| 1ʳᵉ place | Henri Prunelle | `2:fatb;fl+tca+mpy+meg` | `fl+tca+mazc+meg` (meg contre meg) |
+| mixte | Donald Trump | `0:fr21;fc+tca+mqwc+meg` | `fl+tca+mqwc+meg` (meg contre meg) |
+| mixte | numherololgeek | `0:fr10;fl+tca+mpy+meg` | `fl+tca+mqwc+meg` (meg contre meg) |
+
+Trois vraies prises — une résonance, une voie `mrd`, une moisson — et trois
+départages entre variantes de `meg` (la retouche cesse de creuser l'écart).
+
+### L'exception, comme bonus de cohérence
+
+`bonusDesMotifs` groupe les parts d'une voie par (texte lu, programme) : un
+groupe d'au moins trois parts portant des lettres vaut `BONUS_MOTIF_TRIPLE`
+(200), un groupe d'au moins deux parts sans lettre ni chiffre — les tirets, le
+point — vaut `BONUS_SEPARATEURS_GROUPES` (100). Une fois chacun : c'est une
+figure, pas un compteur. La résonance en est le cas limite et quitte la
+quantité pour venir ici.
+
+⚠️ **Deux découvertes en chemin.**
+
+1. **La moisson à sept parts n'est pas « trois fragments identiques »** : ses
+   trois `hope` sont lus par trois programmes différents (`fr14+…+mpf`,
+   `ffr3+…+mpf`, `tca+m14`). Elle ne touche que le bonus des séparateurs, et
+   reste loin derrière (849 contre 925 en mixte). La voie qui a la forme
+   décrite existe — `fr14+tca+m14+mpf, tca+m14, tca+mtc, tca+m14, tca+mtc,
+   tca+m14`, rang 5 du moteur — **mais seulement à partir du cran 1 de
+   fouille** : au cran 0, vingt voies, elle n'est pas fabriquée. Si
+   l'exception doit se voir à l'accueil, c'est la génération qu'il faut
+   élargir, pas le barème.
+2. **Sans simplicité, « la plus belle » couronne des convergences et des
+   résonances d'un seul 666** — relire trois fois la même chaîne lit tout, et
+   le bonus sature la cohérence à 1000. Avec 6 % de simplicité dans le régime
+   (25/200/50/150), `fl+tca+m14` tient sur `hope-hope-hope.fr` (871 contre 859).
+
+### Ce que ça donne là où la voie existe (cran 3), bonus 200/100
+
+| voie | axes | mixte | élégance |
+|---|---|---|---|
+| moisson 3 × m14 + 2 tirets | S473 E836 Q1000 **C954** | 914, **2ᵉ** | **876, 1ʳᵉ** |
+| groupement `fl+tca+mpy+meg` | S955 E892 Q1000 C766 | **925, 1ʳᵉ** | 864, 2ᵉ |
+
+Exactement ce que l'auteur prévoyait : la moisson prend la 1ʳᵉ place, le
+groupement garde la tête de la liste ordinaire — le « 3ᵉ résultat » à l'écran.
+À 300/150 la cohérence sature et les deux se touchent (922 contre 925).
+
+### Le relevé complet avec ces défauts (exposant 65, `meg` unique, bonus 200/100, élégance 25/200/50/150)
+
+| régime | curseurs | têtes | accord | déplacées |
+|---|---|---|---|---|
+| mixte | 6/29/48/18 | 12/16 | 72,0 % | 16/169 |
+| élégance | 6/47/12/35 | 8/16 | — | — |
+| abondance | Q seule | 7/8 | — | — |
+
+Têtes de 1ʳᵉ place qui changent : les partitions à trois méthodes cèdent à
+des groupements `meg` (hope URL, Henri Prunelle, Éléonore, numherololgeek),
+`mrd` et `mad` cèdent à `meg` (Capitalisme, Wikipedia), la moisson de Donald
+Trump cède à `meg`, et `hope` cède `tca+m14` à une partition qui lit tout —
+parce que la courbe concave fait payer 41 % le quatrième 6 que `[6,6,6,6]`
+laisse tomber (R = 3/4 → rendement 594). C'est le prix de « perdre beaucoup
+rapidement », et il se paie aussi sur la voie la plus simple qui soit.

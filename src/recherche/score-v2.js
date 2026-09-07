@@ -100,11 +100,23 @@ export const REGLAGES = {
   // les prix relatifs du barème, ramenés à la lettre arrachée (26)
   PRIX_LETTRE: 26, PRIX_BLOC: 20, PRIX_BLOC_COURT: 10, PRIX_PONCTUATION: 5,
   // quantité
-  PRIME_DISJOINT: 200, PLAFOND_BAREME_QUANTITE: 300, DIVISEUR_BAREME_QUANTITE: 3, PRIME_RESONANCE: 80,
+  PRIME_DISJOINT: 200, PLAFOND_BAREME_QUANTITE: 300, DIVISEUR_BAREME_QUANTITE: 3,
   MALUS_DECRET: [40, 100], MALUS_CONVERGENCE: [50, 100],
   // cohérence
   POIDS_FAMILIARITE: 200, POIDS_SANS_BIDOUILLE: 120, POIDS_LISIBILITE: 100, POIDS_PROPRETE: 300,
   MALUS_JOKER: [45, 100],
+  // ★ L'EXCEPTION DE L'AUTEUR, comme bonus de cohérence : « un bonus d'élégance
+  //   spécifique pour trois fragments identiques convertis groupés, et plusieurs
+  //   "-" convertis groupés ». Un motif répété lu trois fois de la même façon
+  //   est une figure, pas une bidouille ; des séparateurs identiques convertis
+  //   ensemble aussi. La résonance (trois fois le même texte) en est le cas
+  //   limite et vient ici, plus dans la quantité.
+  //   Mesuré sur `https://hope-hope-hope.fr/` (cran 3, où la voie existe) : à
+  //   200/100 la moisson « 3 × m14 + 2 tirets » prend la 1ʳᵉ place (907 contre
+  //   848 au groupement) et le groupement garde la tête de la liste ordinaire
+  //   (925 contre 914) — « l'alternative qui prend naturellement les devants
+  //   en 3ᵉ résultat ». À 300/150 la cohérence sature et les deux se touchent.
+  BONUS_MOTIF_TRIPLE: 200, BONUS_SEPARATEURS_GROUPES: 100,
   // ★ Le PLANCHER d'un crédit du barème, hérité de `elegance.js › FACTEUR_PLANCHER`
   //   (520) : « un curseur ne doit jamais pouvoir annihiler une voie, seulement
   //   la reléguer ». Sans lui, six égalisations à −200 ramenaient la propreté
@@ -236,8 +248,7 @@ export function axesDe(a) {
   for (const l of lignes) if (POSTES.quantite.includes(l.cle)) gq += l.points;
   let quantite = Math.floor((MILLE * Math.min(series, MAX_SERIES)) / MAX_SERIES)
     + (series >= 2 && a.mode !== 'CONVERGENCE' ? R.PRIME_DISJOINT : 0)
-    + borner(Math.floor(gq / R.DIVISEUR_BAREME_QUANTITE), -R.PLAFOND_BAREME_QUANTITE, R.PLAFOND_BAREME_QUANTITE)
-    + (a.resonance ? R.PRIME_RESONANCE : 0);
+    + borner(Math.floor(gq / R.DIVISEUR_BAREME_QUANTITE), -R.PLAFOND_BAREME_QUANTITE, R.PLAFOND_BAREME_QUANTITE);
   quantite = borner(quantite, 0, MILLE);
   if (a.decret) quantite = fois(quantite, R.MALUS_DECRET);
   if (a.mode === 'CONVERGENCE') quantite = fois(quantite, R.MALUS_CONVERGENCE);
@@ -248,8 +259,42 @@ export function axesDe(a) {
     + R.POIDS_LISIBILITE * (c.E ?? MILLE) + R.POIDS_PROPRETE * proprete)
     / (R.POIDS_FAMILIARITE + R.POIDS_SANS_BIDOUILLE + R.POIDS_LISIBILITE + R.POIDS_PROPRETE));
   for (let i = 0; i < jokers; i++) coherence = fois(coherence, R.MALUS_JOKER);
+  coherence = borner(coherence + bonusDesMotifs(a), 0, MILLE);
 
   return { simplicite, exhaustivite, quantite, coherence };
+}
+
+/**
+ * ★ **LES MOTIFS CONVERTIS ENSEMBLE — l'exception, mesurée sur la géométrie.**
+ *
+ * Les parts d'une voie sont groupées par (texte lu, programme). Un groupe d'au
+ * moins trois parts portant des lettres ou des chiffres — `hope`, `hope`,
+ * `hope` lus par le même quatorze segments — vaut `BONUS_MOTIF_TRIPLE` ; un
+ * groupe d'au moins deux parts sans lettre ni chiffre — les tirets, le point —
+ * converties de la même façon vaut `BONUS_SEPARATEURS_GROUPES`. Chaque bonus
+ * ne se compte qu'une fois : c'est une figure, pas un compteur. La résonance
+ * du moteur (`a.resonance`) est le cas où TOUTES les parts forment un seul
+ * groupe ; elle tombe dans le premier cas.
+ */
+function bonusDesMotifs(a) {
+  const parts = a.parts || [];
+  if (parts.length < 2) return 0;
+  const groupes = new Map();
+  for (const p of parts) {
+    const texte = String(p.fragment && p.fragment.texte || '').normalize('NFC').toLowerCase();
+    const cle = texte + '|' + p.chemin.ops.map((o) => o.code).join('+');
+    const g = groupes.get(cle) || { n: 0, alnum: /[\p{L}\p{N}]/u.test(texte) };
+    g.n++; groupes.set(cle, g);
+  }
+  let bonus = 0;
+  let triple = false; let separateurs = false;
+  for (const g of groupes.values()) {
+    if (g.alnum && g.n >= 3) triple = true;
+    if (!g.alnum && g.n >= 2) separateurs = true;
+  }
+  if (triple) bonus += REGLAGES.BONUS_MOTIF_TRIPLE;
+  if (separateurs) bonus += REGLAGES.BONUS_SEPARATEURS_GROUPES;
+  return bonus;
 }
 
 /** La moyenne pondérée des quatre axes par les curseurs (0 à 200, 100 = neutre). Rien d'autre. */
@@ -274,6 +319,9 @@ export function globalDe(axes, curseurs) {
  */
 export const REGIMES = Object.freeze({
   mixte: Object.freeze({ simplicite: 25, exhaustivite: 120, quantite: 200, coherence: 75 }),
-  elegance: Object.freeze({ simplicite: 0, exhaustivite: 160, quantite: 40, coherence: 160 }),
+  // ★ De la SIMPLICITÉ dans « la plus belle », même peu : à zéro, ce régime
+  //   couronne des convergences (relire trois fois la même chaîne lit tout) et
+  //   des résonances d'un seul 666 devant `fl+tca+m14` — que l'auteur a nommée.
+  elegance: Object.freeze({ simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 }),
   abondance: Object.freeze({ simplicite: 0, exhaustivite: 0, quantite: 200, coherence: 0 }),
 });
