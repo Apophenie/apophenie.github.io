@@ -2144,7 +2144,9 @@ export function construireScenario(approche, ctx = {}) {
   // Le REGISTRE de mise en scène (`src/recherche/url.js`). Il ne touche qu'à
   // UNE chose dans ce module — les cornes —, et rien d'autre : ni les codes,
   // ni les valeurs, ni le verdict, ni le nombre de jetons. Une valeur inconnue
-  // vaut « scénique », comme dans la grammaire d'URL.
+  // vaut « scénique » ici — la grammaire d'URL, elle, replie sur « sobre »
+  // (`url.js › REGISTRE_DEFAUT`) ; sans effet tant que le routeur passe
+  // toujours le registre, mais que les deux replis diffèrent est dit.
   // ★ La CIBLE — la suite de chiffres que la démonstration doit écrire. Elle
   //   décide de ce qu'on récolte, de ce qu'on jette et de ce que le verdict
   //   annonce. `666` par défaut, et tout ce module se replie alors exactement
@@ -3491,11 +3493,10 @@ function citer(texte, langue) {
 /**
  * Les longueurs de série écrites en toutes lettres — « séries de trois ».
  *
- * ★ La table s'arrête à six, et ce n'est pas une paresse : `cible.js ›
- * MAX_CHIFFRES` plafonne une cible à six chiffres, donc une série ne peut pas
- * être plus longue. Au-delà, `recolterLegende` retombe sur le chiffre, ce qui
- * ne peut arriver que si ce plafond bouge — et l'on préfère « séries de 7 » à
- * un `undefined` dans le Registre.
+ * ★ La table s'arrête à six, et `cible.js › MAX_CHIFFRES` vaut dix : une
+ * cible de sept à dix chiffres est donc possible, et `recolterLegende` retombe
+ * alors sur le chiffre — « séries de 7 » plutôt qu'un `undefined` dans le
+ * Registre. C'est le repli prévu, pas un cas impossible.
  */
 const EN_LETTRES = Object.freeze({
   fr: ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six'],

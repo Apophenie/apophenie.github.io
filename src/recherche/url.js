@@ -732,8 +732,8 @@ export function lire(hash, options = {}) {
   //   d'adresse : la forme canonique reste unique, la lecture reste indulgente.
   //   C'est exactement la doctrine de §4.3.
   //
-  //   Le registre absent vaut « scénique » (règle de lecture héritée, voir
-  //   l'en-tête) ; la cible absente vaut 666 (la promesse du site).
+  //   Le registre absent vaut « sobre » (`REGISTRE_DEFAUT`) ; la cible absente
+  //   vaut 666 (la promesse du site).
   let registre = REGISTRE_DEFAUT;
   let registreEcrit = false;
   let cible = CIBLE_DEFAUT;

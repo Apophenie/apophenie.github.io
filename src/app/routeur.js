@@ -178,6 +178,12 @@ function routeEnumeration(lecture) {
     resultat: r,
     cible: r.cible || lecture.cible,
     surChoixSecours: (approche) => montrerDemonstrationLocale(r.saisie, approche, r),
+    // ★ Les réglages APPLIQUÉS, rendus par le moteur — pas ceux du défaut. Le
+    //   panneau se redessinait à 100/100/100/100 et fouille 0 sur un lien qui
+    //   disait `p200.0.0.0!` et `f5!` (audit).
+    curseurs: r.curseursEcrits ? r.curseurs : null,
+    fouille: r.fouille,
+    podium: !r.curseursEcrits,
   });
   rendre(enteteResultat(), contenu, { titre: r.saisie });
 }

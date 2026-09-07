@@ -329,7 +329,8 @@ export const BAREME = {
    * approche à trois parts a donc trois fois droit à ce minimum.
    *
    * ★ **Le réglage est BAS, et c'est délibéré : la longueur est DÉJÀ punie**
-   * par le critère de concision (`C = 0,88 ^ (L − 9)`, poids 0,150). Ce que
+   * par le critère de concision (`C = 0,88 ^ max(0, L − L*)`, `L* = 2` — voir
+   * `score.js › REGLAGES.L_IDEAL` —, poids 0,150). Ce que
    * l'élégance ajoute n'est pas une seconde peine, c'est la NUANCE que C ne sait
    * pas dire : qu'une addition de chiffres qui reboucle ne compte presque pas
    * (`ADDITION_EN_CHAINE`, ci-dessous, ~3,5 fois moins cher).
@@ -734,9 +735,15 @@ export const BAREME = {
    * arithmétiquement ». Seul l'ÉCARTEMENT compte : le rétrécissement d'un
    * vecteur (`m36`, `m0`) et le surplus que le verdict laisse tomber.
    *
-   * ★ **IL RESTE À 36 — et ce n'est pas un oubli, c'est une mesure.**
+   * ⚠️ **CE QUI SUIT EST L'HISTOIRE DU RÉGLAGE À 36, et il vaut 300 depuis
+   *   que l'auteur l'a fixé lui-même** (voir « Les trois tarifs sont ceux qu'il
+   *   a fixés », plus bas). Les trois mesures restent écrites parce qu'elles
+   *   disent ce qu'un alourdissement DÉPLACE — et c'est encore vrai : l'auteur
+   *   a tranché en connaissance de cause, pas contre elles.
    *
-   * L'échelle des abandons monte d'un facteur trois à chaque barreau :
+   * ★ **IL RESTAIT À 36 — et ce n'était pas un oubli, c'était une mesure.**
+   *
+   * L'échelle des abandons montait d'un facteur trois à chaque barreau :
    *
    *     ponctuation 5  →  bloc court 10  →  bloc entier 20  →  lettre arrachée 26
    *
@@ -1122,8 +1129,8 @@ export const BAREME = {
    *
    * (Le seuil de largeur de `mrd` a été réglé dans le même mouvement, et c'est
    * lui qui a fait le gros du travail — un tarif ne peut rien contre une voie
-   * qui est évincée AVANT le classement. Voir `CHIFFRES_REDECOUPE_MIN`,
-   * `transformations/mappeurs.js`.)
+   * qui est évincée AVANT le classement. Ce seuil unique a depuis cédé la
+   * place à une dégressivité — `degressiviteRedecoupage`, plus bas.)
    *
    * ★ Et sur l'exemple de l'auteur — ses 32 chiffres, sept additions —, la
    * dilution ramène le poids de **21 000** millièmes (le compte brut des
@@ -1230,7 +1237,7 @@ export const BAREME = {
    * `'effacementSansMotif'` : le décompte, la ligne de crédit et l'exemption de
    * `valeursJetees` suivent d'eux-mêmes (voir `ECARTEMENTS`).
    *
-   * ⚠️ **`VALEUR_JETEE` (36) n'est PAS touché**, et ce n'est pas un oubli. Ce
+   * ⚠️ **`VALEUR_JETEE` (300) n'est PAS touché**, et ce n'est pas un oubli. Ce
    * poste-là mesure le tri du VERDICT, qui n'est pas un opérateur, qui ne
    * figure dans aucune URL, et dont trois mesures écrites plus haut expliquent
    * pourquoi l'alourdir écrase la moisson et promeut les ficelles. Ce que
@@ -1384,9 +1391,9 @@ export const NATURE = Object.freeze({
    * chaîne : quatre pour la saisie qu'on n'a pas lue (`PORTEE_IGNOREE`,
    * `EFFACE_ALNUM`, `EFFACE_BLOC`, `EFFACE_BLOC_COURT`, `EFFACE_PONCTUATION`) et
    * un pour ce qu'on a calculé puis jeté (`VALEUR_JETEE`). Ils forment déjà une
-   * échelle cohérente — ponctuation 1, bloc court 2, bloc entier 8, lettre
-   * arrachée 26, valeur jetée 36 —, et le curseur ne fait que la hausser ou
-   * l'abaisser d'un bloc.
+   * échelle — ponctuation 5, bloc court 10, bloc entier 20, lettre arrachée 26,
+   * valeur jetée 300 (les valeurs vivent dans `NATURE`, pas ici) —, et le
+   * curseur ne fait que la hausser ou l'abaisser d'un bloc.
    *
    * ★ **CE QUI N'EN EST PAS, ET C'EST LE POINT.** Réduire deux caractères à un
    *   par une ADDITION ne supprime rien : `4 + 2 = 6` emporte tout ce qu'il
@@ -1504,9 +1511,9 @@ export const FICELLES = Object.freeze({
   //   (l'auteur). C'est le même mouvement que pour `mpf` et pour `m.egalisation`
   //   avant lui, et il se lit à la définition posée en tête de cette table : une
   //   ficelle ABOUTIT quel que soit le mot. Le redécoupage, lui, refuse de
-  //   s'appliquer dès qu'il ne gagne pas de 6-ou-9, et il refuse en deçà de
-  //   vingt-cinq chiffres — sur la quasi-totalité des saisies, il ne se propose
-  //   même pas.
+  //   s'appliquer dès qu'il ne gagne pas de 6-ou-9, et son crédit décroît
+  //   d'un septième par chiffre au-delà de deux (`degressiviteRedecoupage`) —
+  //   le seuil de vingt-cinq chiffres d'autrefois est devenu une pente.
   //
   //   Ce qu'il garde, et ce sont les deux moitiés de la phrase :
   //

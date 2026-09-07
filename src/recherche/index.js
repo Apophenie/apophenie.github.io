@@ -855,8 +855,11 @@ export function creerMoteur(catalogue, options = {}) {
     //   géométrie des portées disjointes. Une retouche ne rend pas de chiffre :
     //   la glisser là fabriquerait une PARTITION là où il n'y a qu'une
     //   préparation, et un mode faux se propagerait jusqu'au titre.
-    //   ⚠️ Conséquence assumée et NON tranchée : le barème ne voit donc pas ces
-    //   opérations-là (voir `.planning/A-VENIR-retouches.md`).
+    //   ★ Le barème les VOIT quand même — pas en tant que parts, mais par
+    //   `approche.retouches` : `elegance.js` facture leurs gestes au tarif
+    //   ordinaire et ajoute le palier `BAREME.RETOUCHE` (voir l'étage amont du
+    //   groupement, plus haut). La note « le barème ne voit pas ces
+    //   opérations-là » datait d'avant ce branchement (audit).
     approche.retouches = retouches;
     // La SAISIE que la démonstration lit n'est plus toujours celle qu'on a
     // tapée : le barème, la couverture et les portées se rapportent au texte
@@ -978,9 +981,20 @@ export function creerMoteur(catalogue, options = {}) {
     const jetons = tokeniser(saisie);
     // ★ La fouille de l'énumération est plus patiente que celle de l'accueil —
     //   voir `config.js › reglagesDeBudget` pour les deux régimes et leur
-    //   raison. La puissance vient du lien ou de la réglette ; à défaut, celle
-    //   d'ouverture.
-    const b = reglagesDeBudget(reglages.puissance ?? PUISSANCE_ENUMERATION);
+    //   raison. La puissance vient de la réglette, sinon du LIEN (`f<N>!`),
+    //   sinon celle d'ouverture.
+    //
+    //   ⚠️ **LE LIEN N'ÉTAIT PAS LU** (audit) : `lire('#f5!0:???…').fouille`
+    //     valait 5 et l'énumération tournait au cran 2, tandis que le panneau
+    //     se redessinait au défaut. Un lien à trous partagé ne rendait donc pas
+    //     la liste qu'on avait sous les yeux en le copiant.
+    const b = reglagesDeBudget(
+      reglages.puissance ?? (lecture.fouilleEcrite ? lecture.fouille : PUISSANCE_ENUMERATION),
+    );
+    // ★ Et les CURSEURS du lien classent la liste comme ils l'ont notée :
+    //   `rejouer` pondère chaque voie avec `lecture.curseurs`, il serait absurde
+    //   de les trier ensuite par le barème du défaut.
+    const ponderation = ponderer(lecture.curseurs);
     const ctxE = contexteBase(cbl, {
       dMax: b.dMax,
       maxTravail: BUDGET_TRAVAIL * b.facteur,
@@ -1053,25 +1067,47 @@ export function creerMoteur(catalogue, options = {}) {
       if (!r.ok) continue;
       const a = r.approche;
       if (ecart) {
-        const [n, d] = facteurDEcart(combi.reduce((t, c) => t + c.ecart, 0));
-        a.score = Math.floor((a.score * n) / d);
+        // ★ **LA PEINE SE PAIE TROU PAR TROU, pas sur la somme signée.** L'audit
+        //   l'a relevé : un 6 de trop sur un trou et un 6 manquant sur l'autre
+        //   s'annulaient — facteur 1, écart affiché 0 — là où le pavé ci-dessous
+        //   promet ×0,80 par 6 de trop ET ×0,25 par 6 manquant. Chaque part
+        //   paie la sienne, et les facteurs se multiplient.
+        let num = 1;
+        let den = 1;
+        for (const c of combi) {
+          if (!c.ecart) continue;
+          const [n, d] = facteurDEcart(c.ecart);
+          num *= n;
+          den *= d;
+        }
+        a.score = Math.floor((a.score * num) / den);
+        // Le signe dit le sens DOMINANT (un manque est négatif, et les liens à
+        // « trop de ? » le lisent ainsi) ; l'absolu dit la distance réelle.
         a.ecartCommande = combi.reduce((t, c) => t + c.ecart, 0);
+        a.ecartAbsolu = ecart;
       }
       approches.push(a);
     }
     if (!approches.length) {
       return { ok: false, raison: 'commande sans réponse', bandeau: BANDEAUX.formatInconnu };
     }
-    approches.sort(ordreTotal);
+    approches.sort(ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal);
     approches.forEach((a, i) => { a.rang = i + 1; });
     return {
       ok: true,
       saisie,
       cible: cbl,
-      approches: approches.slice(0, REGLAGES.MAX_APPROCHES),
+      // ★ Les places suivent le cran, comme pour la liste ordinaire — la
+      //   douzaine en dur d'avant ignorait la réglette (audit).
+      approches: approches.slice(0, b.voies),
       commande: true,
       puissance: b.puissance,
       facteur: b.facteur,
+      // ★ Rendus pour que la page se dessine avec les réglages APPLIQUÉS, pas
+      //   avec le défaut : le routeur les transmet à `pageResultat`.
+      curseurs: ponderation.curseurs,
+      curseursEcrits: Boolean(lecture.curseursEcrits),
+      fouille: b.puissance,
     };
   }
 

@@ -82,7 +82,9 @@ export function pageDemonstration(ctx) {
      construction, et il serait absurde de lui rendre l'orage du verdict. Une
      seule source de vérité, plutôt que deux drapeaux qui pourraient se
      contredire. `ctx.registre` n'est qu'un repli — un scénario de secours n'en
-     porte pas. */
+     porte pas — et le dernier repli, « scénique », diffère de celui de la
+     grammaire d'URL (« sobre ») ; le routeur passant toujours le registre, il
+     ne s'exerce jamais, mais l'écart est dit. */
   const scenique = (scenario.registre || ctx.registre || 'scenique') !== 'sobre';
 
   /* ─────────────────────────── la scène ─────────────────────────── */

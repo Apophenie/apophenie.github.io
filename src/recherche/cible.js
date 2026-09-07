@@ -34,7 +34,7 @@
 //
 // ── La longueur est bornée à six, et ce n'est pas un réglage ────────────────
 //
-// `assemblage.js › MAX_SERIES` plafonne déjà à six le nombre de séries montrées
+// `config.js › MAX_SERIES` plafonne déjà (à neuf) le nombre de séries montrées
 // d'un coup, « parce que la scène doit rester lisible et le verdict tenir sur
 // une ligne ». Une cible de plus de six chiffres pose exactement le même
 // problème par l'autre bout, et elle en pose un second : les modes qui

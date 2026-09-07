@@ -65,7 +65,7 @@
  */
 
 import {
-  CATALOGUE, PAR_ID, appliquer, operateursActifs, classerPourCible, CLASSES_CIBLE,
+  CATALOGUE, PAR_ID, appliquer, operateursActifs, classerPourCible, CLASSES_CIBLE, comparerCodes,
 } from '../../moteur/catalogue.js';
 import { lireCible, normaliserCible, MAX_CHIFFRES, TEXTE_DEFAUT } from '../../recherche/cible.js';
 import { operateursExplorables, operateursPourCible } from '../../recherche/bfs.js';
@@ -1211,7 +1211,9 @@ function tableauDesOperateurs(ops, avecEtat) {
     ...EN_TETE.slice(1), 'cible', ...(avecEtat ? ['état'] : []), 'particularités'];
 
   const lignes = [...ops]
-    .sort((a, b) => String(a.code).localeCompare(String(b.code), 'en'))
+    // §4.4 règle 4 : pas de `localeCompare`, même pour un tri d'affichage —
+    // `comparerCodes` compare en unités de code, comme partout ailleurs.
+    .sort((a, b) => comparerCodes(String(a.code), String(b.code)))
     .map((op) => {
       const parts = particularitesDe(op);
       // ★ LA COLONNE « CIBLE » SE REDESSINE AVEC LE CHAMP. C'est ce que l'auteur

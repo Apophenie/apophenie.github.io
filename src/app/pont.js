@@ -171,7 +171,11 @@ export const bandeaux = () => M.BANDEAUX || {};
 /* ─────────────────────────────── La cible ───────────────────────────────── */
 
 /** Le plafond de longueur d'une cible, relayé depuis `src/recherche/cible.js`. */
-export const MAX_CHIFFRES = () => M.MAX_CHIFFRES || 6;
+// ⚠️ Les replis ci-dessous ne servent que si le moteur manque ; ils avaient
+//   déjà divergé une fois (6 pour 10, 7 pour 10 — audit). Ils recopient la
+//   valeur vraie du jour ; c'est une copie, et une copie diverge — la vraie
+//   source est `cible.js › MAX_CHIFFRES` et `config.js › PUISSANCE_DE_FOUILLE_MAX`.
+export const MAX_CHIFFRES = () => M.MAX_CHIFFRES || 10;
 
 /**
  * ★ **LE PANNEAU DE RÉGLAGES, ET SON REPLI.**
@@ -187,7 +191,7 @@ export const CURSEURS = () => M.CURSEURS || [];
 export const CURSEUR_DEFAUT = () => M.CURSEUR_DEFAUT ?? 100;
 export const CURSEUR_MAX = () => M.CURSEUR_MAX ?? 200;
 export const CURSEURS_DEFAUT = () => M.CURSEURS_DEFAUT || {};
-export const PUISSANCE_MAX = () => M.PUISSANCE_DE_FOUILLE_MAX ?? 7;
+export const PUISSANCE_MAX = () => M.PUISSANCE_DE_FOUILLE_MAX ?? 10;
 export const PUISSANCE_DEFAUT = () => M.PUISSANCE_DE_FOUILLE_DEFAUT ?? 0;
 export const pourcentagesDe = (c) => (M.pourcentagesDe ? M.pourcentagesDe(c) : {});
 /** Les quatre scores BRUTS d'une voie, avant toute pondération. */

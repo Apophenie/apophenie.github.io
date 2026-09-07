@@ -20,6 +20,10 @@ import { BUDGET_MS, BUDGET_MS_FILET, BUDGET_TOTAL_MS } from '../config.js';
 //   Le barème COMPTE le mélange, ce module le REFUSE — mais tous deux doivent
 //   appeler « famille » la même chose (`elegance.js`, l'en-tête de la fonction).
 import { familleDeConvention } from './elegance.js';
+// ★ Le signalement d'une exception d'opérateur — une fois par code — vit avec
+//   le catalogue, qui l'emploie dans `appliquer` : un seul journal pour les deux
+//   chemins d'application. `catalogue.js` n'importe rien de la recherche.
+import { signalerException } from '../moteur/catalogue.js';
 
 /**
  * ★ **SIX GESTES, ET C'EST L'ARBITRAGE DE L'AUTEUR** — quatre auparavant.
@@ -173,7 +177,8 @@ export const FRAGMENTS_GARANTIS = 12; // = MAX_LIBRES de assemblage.js
  *  · débit observé 2 137 à 4 868 unités/ms selon la forme de la saisie ;
  *  · pire temps de la phase de recherche à 1 000 000 : 411 ms ;
  *  · plafond par fragment à 420 000 : 197 ms au débit le plus lent ;
- *  · les filets sont réglés à ~5× et ~7× ces valeurs (1 000 ms et 3 000 ms),
+ *  · les filets sont réglés bien au-dessus (1 000 ms par fragment et 10 000 ms
+ *    pour la recherche entière, `config.js`, ×2ⁿ avec le cran),
  *    de sorte qu'une machine plusieurs fois plus lente — ou plusieurs fois
  *    plus chargée — rende encore exactement le même classement ;
  *  · aucune des 19 saisies du corpus ne déclenche de filet, ni au repos, ni
@@ -284,8 +289,12 @@ export function appliquerOp(op, e) {
   let brut;
   try {
     brut = op.apply(e.valeur, e.traces);
-  } catch {
-    // Le contrat interdit les exceptions (§2.2) ; on ne fait pas confiance pour autant.
+  } catch (err) {
+    // Le contrat interdit les exceptions (§2.2) ; on ne fait pas confiance pour
+    // autant — mais on le DIT, une fois par code (`catalogue.js ›
+    // signalerException`) : un opérateur qui disparaît de toutes les recherches
+    // sans une ligne de journal est une dégradation silencieuse (audit).
+    signalerException(op, err, e);
     return null;
   }
   if (brut === null || brut === undefined) return null;
@@ -424,7 +433,8 @@ export function validerCatalogue(catalogue) {
  * existe : « tous explorables », disait l'auteur, mais il avait lui-même posé la
  * condition — « on peut assouplir le budget temps en insérant une jauge de
  * progression pour la phase de recherche ». Elle existe (`src/app/travailleur.js`,
- * `src/recherche/tranches.js`), le budget est à 5 000 ms, et la recherche ne
+ * `src/recherche/tranches.js`), le filet global est à 10 000 ms (`config.js ›
+ * BUDGET_TOTAL_MS`), et la recherche ne
  * bloque plus le fil principal : la condition est remplie, la liste se vide.
  *
  * Ce qu'elle retenait, et qui est maintenant assumé :

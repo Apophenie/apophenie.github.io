@@ -23,7 +23,7 @@
 //      « trois voies convergent ». C'est LE RÉSULTAT : l'annoncer au-dessus
 //      d'une démonstration qu'on n'a pas encore ouverte en divulgue la chute.
 //      L'information n'est pas perdue pour autant — elle est REMONTÉE dans le
-//      LISTING, où elle sert à choisir (le compteur « n × 6⋅6⋅6 » à cheval sur
+//      LISTING, où elle sert à choisir (le compteur « n × 666 » à cheval sur
 //      le bord droit du panneau, `src/app/pages/resultat.js`) et où elle ne
 //      gâche rien, puisqu'on n'a encore rien vu. Elle ne redescend jamais dans
 //      le titre, qui suit la voie jusque dans la page d'animation.
@@ -68,6 +68,8 @@
  * d'où cette lecture locale, tolérante à une chaîne nue (même convention que
  * `scenario.js`).
  */
+import { normaliserCible, seriesDe } from './cible.js';
+
 export const LANGUE_DEFAUT = 'fr';
 
 export function dire(texte, langue = LANGUE_DEFAUT) {
@@ -876,10 +878,21 @@ export function estDecret(approche) {
   const parts = approche && approche.parts;
   if (!parts || !parts.length) return false;
   if (parts.length === 1) {
-    // Une part unique ne décrète rien dans deux cas : elle atteint 666 d'un
-    // seul tenant, ou son vecteur final porte déjà les trois 6 — trois 6
-    // calculés, pas un 6 recopié (mode GROUPEMENT, `assemblage.js`).
-    return !atteint666(parts[0].chemin) && !porteTroisSix(parts[0].chemin);
+    // Une part unique ne décrète rien dans deux cas : elle atteint LA CIBLE
+    // d'un seul tenant, ou son vecteur final porte déjà une série entière —
+    // des chiffres calculés, pas un chiffre recopié (mode GROUPEMENT,
+    // `assemblage.js`).
+    //
+    // ⚠️ **LA CIBLE, ET NON 666 EN DUR.** L'audit l'a relevé : ce test était
+    //   resté câblé sur 666 quand `deduireMode` était devenu relatif à la
+    //   cible, si bien que sur `111` ou `777` TOUTE voie à part unique qui
+    //   écrivait la cible d'un seul vecteur était déclarée « décret » et son
+    //   score divisé par 2,5 — mesuré : 4 GROUPEMENT sur 4 décrétés pour
+    //   `hope → 111`, 8 sur 8 pour `777`, 0 sur 2 pour `666`. La liste
+    //   affichait « 3 × 111 » sur une voie que le barème punissait comme un 6
+    //   recopié trois fois : ce qui est montré n'était pas ce qui est compté.
+    const cbl = normaliserCible(approche.cible);
+    return !atteintLaCible(parts[0].chemin, cbl) && !porteUneSerie(parts[0].chemin, cbl);
   }
   const cle = (p) => `${p.fragment.offset}.${p.fragment.longueur} `
     + p.chemin.ops.map((o) => o.code).join('+');
@@ -887,24 +900,24 @@ export function estDecret(approche) {
   return parts.every((p) => cle(p) === premier);
 }
 
-function atteint666(chemin) {
+function atteintLaCible(chemin, cbl) {
   const fin = chemin.etats[chemin.etats.length - 1];
-  return fin && fin.type === 'NUM' && fin.valeur === 666;
+  return Boolean(fin && fin.type === 'NUM' && cbl.nombre !== null && fin.valeur === cbl.nombre);
 }
 
 /**
- * L'état final est-il un vecteur portant au moins trois 6 ?
+ * L'état final est-il un vecteur portant au moins une série entière de la
+ * cible — lue comme `assemblage.js › serieDeSix` la lit, en sous-séquence
+ * (`cible.js › seriesDe`) ?
  *
- * Le critère est recalculé ici plutôt qu'importé d'`assemblage.js` : `score.js`
- * importe ce module, `assemblage.js` importe `score.js`, et refermer le triangle
- * créerait un cycle. Trois lignes valent mieux qu'un cycle.
+ * Le critère est lu dans `cible.js` plutôt que dans `assemblage.js` :
+ * `score.js` importe ce module, `assemblage.js` importe `score.js`, et
+ * refermer le triangle créerait un cycle. `cible.js` n'importe rien.
  */
-function porteTroisSix(chemin) {
+function porteUneSerie(chemin, cbl) {
   const fin = chemin && chemin.etats && chemin.etats[chemin.etats.length - 1];
   if (!fin || fin.type !== 'NUMS') return false;
-  let n = 0;
-  for (const x of fin.valeur) if (x === 6) n++;
-  return n >= 3;
+  return seriesDe(fin.valeur, cbl, 1).length >= 1;
 }
 
 // ══════════════════════════════════ le titre

@@ -397,6 +397,29 @@ const construire = {
  * @param {object} etat
  * @returns {object|null} le nouvel état, ou `null`
  */
+/**
+ * ★ **UNE EXCEPTION D'OPÉRATEUR SE SIGNALE — une fois par code, et sans faire
+ *   tomber la recherche.**
+ *
+ * Le contrat interdit les exceptions (§2.2) ; on ne les laisse pas remonter
+ * pour autant, parce qu'une erreur dans un opérateur ne doit pas priver le
+ * visiteur de toute la liste. Mais un `catch` muet en faisait une DÉGRADATION
+ * SILENCIEUSE (audit) : l'opérateur disparaissait de toutes les recherches sans
+ * qu'aucune trace ne le dise, et seul le vecteur témoin de `catalogue.test.js`
+ * pouvait le voir — sur ses entrées à lui. Ici on journalise la première
+ * occurrence par code, avec l'entrée qui l'a provoquée ; les suivantes se
+ * taisent, pour que le journal reste lisible.
+ */
+const EXCEPTIONS_SIGNALEES = new Set();
+export function signalerException(op, err, entree) {
+  const code = (op && op.code) || (op && op.id) || '?';
+  if (EXCEPTIONS_SIGNALEES.has(code)) return;
+  EXCEPTIONS_SIGNALEES.add(code);
+  const apercu = String(entree && entree.valeur !== undefined ? entree.valeur : entree).slice(0, 40);
+  console.error(`[NumHeroLOLgeek] l’opérateur ${code} a levé une exception sur « ${apercu} » — `
+    + 'il est traité comme inapplicable, ce que le contrat (§2.2) interdit :', err);
+}
+
 export function appliquer(op, etat) {
   if (!op || typeof op.apply !== 'function') return null;
   if (!estType(etat, op.from)) return null;
@@ -404,9 +427,8 @@ export function appliquer(op, etat) {
   let brut;
   try {
     brut = op.apply(etat.valeur, traces);
-  } catch {
-    // Le contrat interdit les exceptions ; on ne les laisse pas remonter pour
-    // autant : une erreur d'opérateur ne doit pas faire tomber la recherche.
+  } catch (err) {
+    signalerException(op, err, etat);
     return null;
   }
   if (brut === null || brut === undefined) return null;

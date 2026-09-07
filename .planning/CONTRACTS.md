@@ -3330,10 +3330,18 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
 ## 5. Contrat du moteur de recherche
 
 - BFS exhaustif sur états **canonicalisés**, faisceau de **12 chemins par état**.
-- `D_MAX = 4` en avant, + 2 niveaux gratuits par le **bassin d'attraction** précalculé
+- `D_MAX = 15` en avant au cran d'ouverture (relevé de 4, voir `bfs.js` — c'est le
+  faisceau qui borne, pas la profondeur ; mesuré : aucune voie n'emploie plus de 6
+  opérateurs), repoussé jusqu'à 32 par le curseur de fouille (`config.js ›
+  reglagesDeBudget`), + 2 niveaux gratuits par le **bassin d'attraction** précalculé
   (test O(1) dès qu'un `NUM` est produit).
-- Garde-fous : `MAX_NODES = 20 000`, `BUDGET_MS = 250` par fragment, mémoïsation par
-  fragment normalisé, `N_FRAG_MAX = 64`.
+- Garde-fous : `MAX_NODES = 20 000`, mémoïsation par fragment normalisé (la clé porte
+  le texte, les buts, les plafonds, la profondeur, le faisceau et la cible),
+  `N_FRAG_MAX = 64`. La borne qui TRANCHE est déterministe (`BUDGET_TRAVAIL`, en
+  applications d'opérateurs) ; les filets temporels — 1 000 ms par fragment et
+  10 000 ms pour la recherche entière au cran 0, ×2ⁿ ensuite sans plafond — ne
+  doivent jamais décider. `BUDGET_MS = 250` ne vaut que pour un appel direct à
+  `chercherSix`.
 - Score de conviction à 6 critères pondérés : homogénéité **0,25** · notoriété **0,20** ·
   couverture **0,18** · concision **0,15** · anti-ad-hoc **0,12** · élégance **0,10**,
   avec bonus/malus de `research/heuristique.md §4.7`.

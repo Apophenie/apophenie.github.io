@@ -6,6 +6,7 @@ import {
 } from '../url.js';
 import { encoderTexte, LIMITE_SAISIE } from '../base58.js';
 import { catalogue } from './_catalogue.js';
+import { reglagesDeBudget, PUISSANCE_ENUMERATION } from '../../config.js';
 import { creerMoteur } from '../index.js';
 
 const B58_HOPE = encoderTexte('hope');                       // 3fq9KJ
@@ -926,6 +927,60 @@ test('★ commande — une suite de « ? » se lit comme un programme à trouver
  * >   juste un malus de score. S'il y en a moins, c'est un énorme malus, mais
  * >   mieux vaut des résultats que aucun. » (l'auteur)
  */
+/**
+ * ★ **L'ÉNUMÉRATION LIT LES RÉGLAGES DU LIEN — la fouille ET les curseurs.**
+ *
+ * L'audit l'a relevé : `f<N>!` n'était pas lu (un lien à trous au cran 5
+ * tournait au cran 2), la liste était triée par le barème du défaut même sous
+ * `p…!`, coupée à douze places quelle que soit la réglette, et la page se
+ * redessinait avec quatre curseurs à 100 et la fouille à 0. Un lien à trous
+ * partagé ne rendait donc pas la liste qu'on avait sous les yeux en le copiant.
+ */
+test('★ commande — l’énumération applique la fouille et les curseurs du lien, et le dit', () => {
+  const m = creerMoteur(catalogue, { filetTemporel: false });
+  const texte = encoderTexte('Le chat dort');
+  const auDefaut = m.enumererLesTrous(lire(`#sce!0:???,2:?#${texte}`));
+  assert.ok(auDefaut.ok, auDefaut.detail || auDefaut.raison);
+  assert.equal(auDefaut.puissance, PUISSANCE_ENUMERATION, 'sans marqueur : le cran de l’énumération');
+  assert.equal(auDefaut.fouille, PUISSANCE_ENUMERATION);
+  assert.equal(auDefaut.curseursEcrits, false);
+
+  const fouille5 = m.enumererLesTrous(lire(`#f5!0:???,2:?#${texte}`));
+  assert.ok(fouille5.ok, fouille5.detail || fouille5.raison);
+  assert.equal(fouille5.puissance, 5, 'le cran du lien est celui qui tourne');
+  assert.equal(fouille5.fouille, 5, '…et il est rendu, pour que la page le dessine');
+  assert.ok(fouille5.approches.length <= reglagesDeBudget(5).voies,
+    'les places suivent le cran, plus une douzaine en dur');
+
+  const pondere = m.enumererLesTrous(lire(`#p200.0.0.0!0:???,2:?#${texte}`));
+  assert.ok(pondere.ok, pondere.detail || pondere.raison);
+  assert.equal(pondere.curseursEcrits, true);
+  assert.equal(pondere.curseurs.simplicite, 200, 'les curseurs appliqués sont rendus');
+  // Et la liste est CLASSÉE par ces curseurs : décroissante sur le score
+  // pondéré qu'elle affiche, pas sur celui du barème par défaut.
+  const scores = pondere.approches.map((a) => a.score);
+  for (let i = 1; i < scores.length; i++) {
+    assert.ok(scores[i] <= scores[i - 1], `rang ${i + 1} (${scores[i]}) passe devant le rang ${i} (${scores[i - 1]})`);
+  }
+});
+
+/**
+ * ★ **UN SURPLUS ET UN MANQUE NE S'ANNULENT PAS.** L'audit l'a relevé : la peine
+ * lisait la somme SIGNÉE des écarts, si bien que « +1 sur un trou, −1 sur
+ * l'autre » payait un facteur 1 et s'affichait à écart 0, là où le pavé promet
+ * ×0,80 par 6 de trop ET ×0,25 par 6 manquant. Chaque part paie la sienne.
+ */
+test('★ commande — l’écart se paie trou par trou, et l’absolu est publié', () => {
+  const m = creerMoteur(catalogue, { filetTemporel: false });
+  const r = m.enumererLesTrous(lire('#sce!0.1:???????????,2.1:tca+m14#2HuP1G8mNg3sJWhqR'));
+  assert.ok(r.ok);
+  for (const a of r.approches) {
+    if (!a.ecartCommande) continue;
+    assert.ok(Number.isInteger(a.ecartAbsolu) && a.ecartAbsolu >= Math.abs(a.ecartCommande),
+      `« ${a.codes} » : l’absolu (${a.ecartAbsolu}) ne peut pas être sous le signé (${a.ecartCommande})`);
+  }
+});
+
 test('★ commande — l’énumération classe le compte juste devant l’à-peu-près', () => {
   const m = creerMoteur(catalogue, { filetTemporel: false });
 

@@ -9,7 +9,7 @@ import { validerCatalogue, chercherSix, operateursExplorables, D_MAX, MAX_NODES,
 //   c'était en fabriquer une seconde, et c'est exactement ce qui est arrivé :
 //   elle est restée à 1 000 ms pendant que la vraie passait à 5 000.
 import {
-  BUDGET_TOTAL_MS, placesDeLaListe, PUISSANCE_DE_FOUILLE_DEFAUT,
+  BUDGET_TOTAL_MS, placesDeLaListe, voiesParMappeur, PUISSANCE_DE_FOUILLE_DEFAUT,
 } from '../../config.js';
 import { construireBassin, statistiquesBassin, DISTANCE_MAX } from '../bassin.js';
 import { genererFragments, motifsRepetes, periodicite, tokeniser, zonesSignifiantes, structureUrl } from '../fragments.js';
@@ -695,13 +695,17 @@ test('sortie — pas plus de voies que de places, ≤ 24 fragments', () => {
     const r = m.resoudre(s);
     assert.ok(r.approches.length <= places,
       `${s} : ${r.approches.length} approches pour ${places} places`);
-    assert.ok(r.fragments.length <= 24, `${s} : ${r.fragments.length} fragments`);
+    assert.ok(r.fragments.length <= REGLAGES.MAX_FRAGMENTS,
+      `${s} : ${r.fragments.length} fragments pour ${REGLAGES.MAX_FRAGMENTS}`);
   }
 });
 
-test('diversité N4 — au plus 2 approches par mappeur principal', () => {
+test('diversité N4 — pas plus d’approches par mappeur principal que le quota du cran', () => {
   const m = creerMoteur(catalogue);
   const r = m.resoudre('https://hope-hope-hope.fr/');
+  // Le quota est lu dans `config.js`, pas recopié : « 2 » était la valeur du
+  // cran d'ouverture le jour où le test a été écrit (audit).
+  const quota = voiesParMappeur(PUISSANCE_DE_FOUILLE_DEFAUT);
   const compte = new Map();
   for (const a of r.approches) {
     if (a.joker) continue;
@@ -709,7 +713,7 @@ test('diversité N4 — au plus 2 approches par mappeur principal', () => {
     if (!op) continue;
     compte.set(op.id, (compte.get(op.id) || 0) + 1);
   }
-  for (const [id, n] of compte) assert.ok(n <= 2, `${id} apparaît ${n} fois`);
+  for (const [id, n] of compte) assert.ok(n <= quota, `${id} apparaît ${n} fois pour un quota de ${quota}`);
 });
 
 test('anti-doublons — aucune approche ne montre deux fois le même spectacle', () => {

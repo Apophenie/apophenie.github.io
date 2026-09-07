@@ -704,7 +704,7 @@ export function facteurRendement(rendement, exhaustivite = CURSEUR_DEFAUT) {
  *                      nombre, et le 666 unique cesse alors d'être pénalisé.
  *
  * Le PLAFOND de référence est `config.js › MAX_SERIES`, celui-là même que
- * `assemblage.js › MAX_SERIES` (six) : c'est le plus grand nombre de 666 que le
+ * `config.js › MAX_SERIES` (neuf) : c'est le plus grand nombre de 666 que le
  * moteur montre d'un coup, donc le seul repère qui ne dépende pas de la saisie.
  *
  * @param {number} series      le nombre de 666 alignés (au moins 1)
@@ -908,7 +908,7 @@ export function critereNotoriete(ops) {
 }
 
 /**
- * C — concision : 0,88 ^ max(0, L − 9), L = nombre d'étapes rendues.
+ * C — concision : 0,88 ^ max(0, L − L*), L = nombre d'étapes rendues, L* = `REGLAGES.L_IDEAL` (2).
  *
  * Tabulée : le faisceau du BFS l'appelle une fois par préfixe créé (~10⁶ fois
  * sur une phrase de neuf mots), et sa boucle est en O(L). Le cache est invalidé

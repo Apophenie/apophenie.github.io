@@ -1542,20 +1542,15 @@ test('★ classements — les trois sont des ordres TOTAUX et STRICTS', () => {
  * qu'aucun d'eux ne perde sa tête de liste — « une régression sur l'un de ces
  * quatre est un échec, pas un arbitrage » (l'auteur).
  */
-/* ⚠️ **EN ATTENTE D'ARBITRAGE — `todo`, et surtout pas supprimé.**
+/* ★ **L'ARBITRAGE EST TOMBÉ, et le drapeau `todo` avec lui.**
 
-   Ce test échoue, et il a RAISON d'échouer : il gèle une préférence que
-   l'auteur a exprimée et que le barème actuel ne rend pas. Le dégeler
-   effacerait la préférence ; le laisser rouge bloque la PUBLICATION, car la
-   chaîne d'intégration enchaîne `bun run check` — les tests, puis le build — et
-   refuse de mettre en ligne un site rouge. Un arbitrage ouvert n'est pourtant
-   pas une régression : le site fonctionne, c'est son classement qui attend une
-   décision.
-
-   `todo` dit exactement cela : le test s'exécute, son échec est RAPPORTÉ dans la
-   sortie, et il ne fait pas tomber la suite. Le jour où l'arbitrage tombe, on
-   retire le drapeau — et si le test passe entre-temps, `node:test` le signale
-   comme « todo réussi », ce qui est précisément l'alerte qu'on veut. */
+   Ce test a été `todo` : il gelait une préférence que l'auteur avait exprimée et
+   que le barème d'alors ne rendait pas — le laisser rouge aurait bloqué la
+   publication (`bun run check` refuse de mettre en ligne un site rouge), le
+   dégeler aurait effacé la préférence. Le barème a fini par la rendre, le test
+   passe, et le drapeau a été retiré. Le pavé qui annonçait encore un `todo`
+   au-dessus d'un test vert mentait (audit) ; il dit désormais ce qui s'est
+   passé. */
 test('★ étalonnage — les quatre cas de référence gardent leur tête de liste', () => {
   const m = creerMoteur(catalogue, { filetTemporel: false });
   /* ★ **LES COMPTES ONT MONTÉ D'UNE SÉRIE, ET « Donald Trump » A CHANGÉ DE

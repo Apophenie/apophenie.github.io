@@ -17,7 +17,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { NOMS, QUALIFIANTS, PRECISIONS, precisionDe, titreApproche, distinguerTitres } from '../titres.js';
+import {
+  NOMS, QUALIFIANTS, PRECISIONS, precisionDe, titreApproche, distinguerTitres, estDecret,
+} from '../titres.js';
 import { creerMoteur } from '../index.js';
 import { catalogue } from './_catalogue.js';
 import { CATALOGUE } from '../../moteur/catalogue.js';
@@ -257,4 +259,33 @@ test('titres — `precisionDe` a toujours quelque chose à dire', () => {
     assert.ok(p && (typeof p === 'string' || p.fr), `${op.code} : aucune forme courte`);
   }
   assert.equal(precisionDe(null), null);
+});
+
+
+/**
+ * ★ **UN DÉCRET SE JUGE PAR RAPPORT À LA CIBLE, pas à 666.**
+ *
+ * L'audit l'a relevé : `estDecret` était resté câblé sur 666 quand
+ * `assemblage.js › deduireMode` était devenu relatif à la cible. Sur `111` ou
+ * `777`, toute voie à part unique qui écrivait la cible d'un seul vecteur était
+ * déclarée « décret » — score divisé par 2,5, bonus « sans pirouette » retiré —
+ * alors que la liste affichait « 3 × 111 » sur elle. Mesuré : 4 GROUPEMENT sur
+ * 4 décrétés pour `hope → 111`, 8 sur 8 pour `777`, 0 sur 2 pour `666`.
+ *
+ * Ce qui est montré doit être ce qui est compté (§0.3) : un GROUPEMENT n'est
+ * jamais un décret, quelle que soit la cible.
+ */
+test('★ décret — un GROUPEMENT n’est jamais décrété, sur 666 comme sur 111 ou 777', () => {
+  const m = creerMoteur(catalogue, { filetTemporel: false });
+  for (const cible of ['666', '111', '777', '13']) {
+    const r = m.resoudre('hope', { cible });
+    const groupements = r.approches.filter((a) => a.mode === 'GROUPEMENT');
+    for (const a of groupements) {
+      assert.equal(estDecret(a), false,
+        `cible ${cible} : « ${a.codes} » écrit ${a.series} × ${cible} et serait puni comme un décret`);
+    }
+  }
+  // Et le vrai décret reste un décret : un seul chiffre, recopié.
+  const decrets = m.resoudre('hope', { cible: '111' }).approches.filter((a) => a.mode === 'DECRET');
+  for (const a of decrets) assert.equal(estDecret(a), true, `« ${a.codes} » est un décret et doit le rester`);
 });
