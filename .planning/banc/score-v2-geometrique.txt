@@ -1,0 +1,43 @@
+═══ src/recherche/score-v2-geometrique.js — 16 saisies, 237 voies · balayage au pas 25 (6560 points) ═══
+
+── MIXTE avec REGIMES.mixte (8/23/62/8) : têtes 14/16 · accord 70.9 % · déplacées ≥3 : 9/169
+      Millicent Billette           0:fr1;fl+tca+mqwc+meg              S934 E786 Q536 C397 g=597
+                                   → 0:fr25;fl+tca+mqwc+meg           S934 E806 Q545 C367 g=603
+      https://hope-hope-hope.fr/   fr14+tca+m14+mpf,ffr3+tca+m14+mp   S429 E362 Q747 C597 g=595
+                                   → fl+tca+mpy+meg                   S934 E764 Q635 C414 g=660
+   meilleur balayé (0/13/88/0) : têtes 15/16 · accord 68.5 % · déplacées ≥3 : 7/169
+      Millicent Billette           0:fr1;fl+tca+mqwc+meg              S934 E786 Q536 C397 g=562
+                                   → 0:fr25;fl+tca+mqwc+meg           S934 E806 Q545 C367 g=572
+
+── ELEGANCE avec REGIMES.elegance (7/53/13/27) : 10/16 conservées
+      https://hope-hope-hope.fr/   tca+mch+cs+prn,nc,fr13+nlc+pc9     S347 E886 Q94 C743 g=588
+                                   → fl+tca+mpy+meg                   S934 E764 Q635 C414 g=641
+      La numérologie est une sci   nl+prn,nl,nd                       S483 E479 Q94 C859 g=450
+                                   → fl+tca+masc+mrn                  S934 E513 Q397 C805 g=581
+      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S463 E664 Q244 C707 g=576
+                                   → 2:fatb;fl+tca+mpy+meg            S934 E808 Q446 C410 g=628
+      numherololgeek.1000i100.fr   nv,tca+cnjd+pc9,fr13+nlc+pc9       S387 E874 Q94 C669 g=572
+                                   → nv,flt+tca+mpy+mr9,flt+tca+mpy+m S453 E781 Q361 C664 g=650
+      jean-michel                  fv+tca+ma1+cs,tca+mtc+cs,nd        S290 E553 Q94 C907 g=477
+                                   → 0:fr20;fl+tca+mazc+meg           S934 E779 Q351 C391 g=589
+      Éléonore à Nîmes             nl,tca+m7+cs,fc+nlc                S323 E588 Q94 C823 g=483
+                                   → 2:ffr4;fl+tca+m14+meg            S934 E856 Q641 C401 g=676
+   meilleur balayé (0/40/40/20) : 10/16
+      https://hope-hope-hope.fr/   tca+mch+cs+prn,nc,fr13+nlc+pc9     S347 E886 Q94 C743 g=348
+                                   → fr14+tca+m14+mpf,ffr3+tca+m14+mp S267 E550 Q747 C598 g=632
+      La numérologie est une sci   nl+prn,nl,nd                       S483 E479 Q94 C859 g=280
+                                   → fr18+tca+mx6+mrn,fr18+tca+mx6+mr S165 E572 Q928 C564 g=692
+      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S463 E664 Q244 C707 g=450
+                                   → 2:fatb;fl+tca+mpy+meg            S934 E808 Q446 C410 g=556
+      numherololgeek.1000i100.fr   nv,tca+cnjd+pc9,fr13+nlc+pc9       S387 E874 Q94 C669 g=339
+                                   → nv,flt+tca+mpy+mr9,flt+tca+mpy+m S453 E781 Q361 C664 g=555
+      jean-michel                  fv+tca+ma1+cs,tca+mtc+cs,nd        S290 E553 Q94 C907 g=300
+                                   → 0:fr20;fl+tca+mazc+meg           S934 E779 Q351 C391 g=493
+      Éléonore à Nîmes             nl,tca+m7+cs,fc+nlc                S323 E588 Q94 C823 g=302
+                                   → 2:ffr4;fl+tca+m14+meg            S934 E856 Q641 C401 g=655
+
+── ABONDANCE avec REGIMES.abondance (0/30/60/10) : 7/8 conservées
+      Éléonore à Nîmes             2:fen5;fl+tca+m14+meg              S934 E833 Q641 C372 g=656
+                                   → 2:ffr4;fl+tca+m14+meg            S934 E856 Q641 C401 g=667
+   meilleur balayé (0/0/100/0) : 8/8
+code 0

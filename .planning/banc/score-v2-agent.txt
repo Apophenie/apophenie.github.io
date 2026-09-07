@@ -1,0 +1,52 @@
+═══ src/recherche/score-v2-agent.js — 16 saisies, 237 voies ═══
+
+── MIXTE avec REGIMES.mixte (6/13/63/19) : têtes 12/16 · accord 74.3 % · déplacées ≥3 : 7/169
+      Millicent Billette           0:fr1;fl+tca+mqwc+meg              S750 E648 Q745 C583 g=703
+                                   → 0:fr25;fl+tca+mqwc+meg           S750 E692 Q745 C583 g=708
+      https://hope-hope-hope.fr/   fr14+tca+m14+mpf,ffr3+tca+m14+mp   S229 E369 Q881 C558 g=716
+                                   → fl+tca+mpy+meg                   S857 E725 Q816 C775 g=800
+      Donald Trump                 fr15+tca+mx6+mrn,fr3+tca+mhe+mrn   S180 E565 Q577 C606 g=556
+                                   → fl+tca+mazc+meg                  S857 E620 Q577 C751 g=633
+      numherololgeek.1000i100.fr   0:fr10;fl+tca+mpy+meg              S750 E416 Q745 C602 g=677
+                                   → fl+tca+mqwc+meg                  S857 E382 Q745 C755 g=709
+   meilleur balayé (0/0/100/0) : têtes 16/16 · accord 66.3 % · déplacées ≥3 : 0/169
+
+── ELEGANCE avec REGIMES.elegance (5/26/16/53) : 8/16 conservées
+      Millicent Billette           0:fatb;fl+tca+mazc+meg             S750 E648 Q745 C583 g=634
+                                   → 0:fr25;fl+tca+mqwc+meg           S750 E692 Q745 C583 g=646
+      https://hope-hope-hope.fr/   tca+mch+cs+prn,nc,fr13+nlc+pc9     S72 E911 Q333 C658 g=642
+                                   → fl+tca+mpy+meg                   S857 E725 Q816 C775 g=773
+      Capitalisme                  fr21+tca+mx6+mrd                   S857 E434 Q577 C599 g=566
+                                   → fr6+tca+mpy+meg                  S857 E700 Q577 C655 g=665
+      Donald Trump                 fatb+tca+mt9+mr9,fr3+tca+mhe+mrn   S180 E565 Q577 C641 g=587
+                                   → fl+tca+mazc+meg                  S857 E620 Q577 C751 g=695
+      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S180 E417 Q471 C641 g=531
+                                   → fl+tca+mazc+meg                  S857 E784 Q666 C753 g=753
+      numherololgeek.1000i100.fr   nv,tca+cnjd+pc9,fr13+nlc+pc9       S79 E900 Q333 C618 g=619
+                                   → fl+tca+mqwc+meg                  S857 E382 Q745 C755 g=661
+      Wikipedia                    fr21+tca+mx6+mad                   S857 E575 Q577 C606 g=606
+                                   → fr17+tca+mpy+meg                 S857 E1000 Q577 C652 g=743
+      Éléonore à Nîmes             nl,tca+m7+cs,fc+nlc                S88 E600 Q333 C777 g=624
+                                   → 2:ffr4;fl+tca+m14+meg            S750 E886 Q816 C603 g=719
+   meilleur balayé (0/0/100/0) : 8/16
+      https://hope-hope-hope.fr/   tca+mch+cs+prn,nc,fr13+nlc+pc9     S72 E911 Q333 C658 g=333
+                                   → fr14+tca+m14+mpf,ffr3+tca+m14+mp S169 E553 Q881 C611 g=881
+      hope-hope-hope.fr            fl+tca+m14                         S1000 E596 Q666 C861 g=666
+                                   → ffr3+tca+m14+mpf,tca+mtc,ffr3+tc S173 E440 Q816 C644 g=816
+      La numérologie est une sci   nl+prn,nl,nd                       S300 E546 Q333 C819 g=333
+                                   → fr18+tca+mx6+mrn,fr18+tca+mx6+mr S92 E466 Q1000 C502 g=1000
+      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S180 E417 Q471 C641 g=471
+                                   → fl+tca+mazc+meg                  S857 E784 Q666 C753 g=666
+      numherololgeek.1000i100.fr   nv,tca+cnjd+pc9,fr13+nlc+pc9       S79 E900 Q333 C618 g=333
+                                   → 2:flt;fl+tca+mpy+meg             S750 E417 Q745 C604 g=745
+      hope                         tca+m14                            S1000 E647 Q333 C828 g=333
+                                   → ffr3+tca+m14+meg                 S857 E474 Q471 C681 g=471
+      jean-michel                  fv+tca+ma1+cs,tca+mtc+cs,nd        S79 E553 Q333 C855 g=333
+                                   → 0:fr20;fl+tca+mazc+meg           S750 E667 Q577 C578 g=577
+      Éléonore à Nîmes             nl,tca+m7+cs,fc+nlc                S88 E600 Q333 C777 g=333
+                                   → 2:fen5;fl+tca+m14+meg            S750 E806 Q816 C603 g=816
+
+── ABONDANCE avec REGIMES.abondance (0/19/77/4) : 7/8 conservées
+      Éléonore à Nîmes             2:fen5;fl+tca+m14+meg              S750 E806 Q816 C603 g=806
+                                   → 2:ffr4;fl+tca+m14+meg            S750 E886 Q816 C603 g=821
+   meilleur balayé (0/0/100/0) : 8/8

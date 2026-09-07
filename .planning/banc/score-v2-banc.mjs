@@ -9,6 +9,7 @@ if (!chemin) { console.error('usage : node score-v2-banc.mjs <module>'); process
 const V = await import(pathToFileURL(resolve(chemin)).href);
 const M = await import(pathToFileURL(resolve('src/recherche/index.js')).href);
 const { catalogue } = await import(pathToFileURL(resolve('src/recherche/tests/_catalogue.js')).href);
+const { detailDuCredit } = await import(pathToFileURL(resolve('src/recherche/elegance.js')).href);
 const m = M.creerMoteur(catalogue, { filetTemporel: false });
 const CAS = ['Millicent Billette', 'https://hope-hope-hope.fr/', 'hope-hope-hope.fr', 'Capitalisme',
   'Le chat dort sur le tapis rouge', 'La numérologie est une science exacte, disent-ils', 'Donald Trump',
@@ -17,10 +18,17 @@ const CAS = ['Millicent Billette', 'https://hope-hope-hope.fr/', 'hope-hope-hope
 const listes = [];
 for (const s of CAS) {
   const r = m.resoudre(s);
+  // La piste « produit » lit `a.detail` posé par l'appelant ; on le pose pour toutes.
+  for (const a of r.approches) if (!a.detail && a.bilan) a.detail = detailDuCredit(a.bilan);
   const l = r.approches.filter((a) => a.mode !== 'JOKER').map((a, i) => ({ a, rang: i + 1, ax: V.axesDe(a) }));
   listes.push({ s, l, elegante: l.find((x) => x.a.suggestion === 'elegance'), fournie: l.find((x) => x.a.suggestion === 'triptyques') });
 }
-const g = (x, cur) => V.globalDe(x.ax, cur);
+// ★ Les globaux d'un point de grille sont calculés UNE fois par voie : le
+//   balayage en demandait des milliers par point (tris, paires), et la piste
+//   géométrique — racine S-ième en BigInt — ne tenait plus dans le temps.
+let memoCur = null; const memo = new Map();
+const g = (x, cur) => { if (cur !== memoCur) { memoCur = cur; memo.clear(); } let v = memo.get(x); if (v === undefined) { v = V.globalDe(x.ax, cur); memo.set(x, v); } return v; };
+const PAS = Number(process.env.BANC_PAS || 20);
 const axesTxt = (x) => `S${x.ax.simplicite} E${x.ax.exhaustivite} Q${x.ax.quantite} C${x.ax.coherence}`;
 // ── régime mixte : la liste hors podium, référence = ordre actuel
 const mixte = (cur) => {
@@ -48,10 +56,10 @@ const podium = (cur, quoi) => {
   }
   return { ok, n, ch };
 };
-const grille = []; for (let s = 0; s <= 200; s += 20) for (let e = 0; e <= 200; e += 20) for (let q = 0; q <= 200; q += 20) for (let c = 0; c <= 200; c += 20) if (s + e + q + c > 0) grille.push({ simplicite: s, exhaustivite: e, quantite: q, coherence: c });
+const grille = []; for (let s = 0; s <= 200; s += PAS) for (let e = 0; e <= 200; e += PAS) for (let q = 0; q <= 200; q += PAS) for (let c = 0; c <= 200; c += PAS) if (s + e + q + c > 0) grille.push({ simplicite: s, exhaustivite: e, quantite: q, coherence: c });
 const parts = (cur) => { const t = V.AXES.reduce((a, k) => a + cur[k], 0); return V.AXES.map((k) => `${Math.round(100 * cur[k] / t)}`).join('/'); };
 const montrer = (ch) => { for (const c of ch) console.log(`      ${c.s.slice(0, 26).padEnd(28)} ${c.avant.a.codes.slice(0, 32).padEnd(34)} ${axesTxt(c.avant)} g=${g(c.avant, c.cur)}\n      ${''.padEnd(28)} → ${c.apres.a.codes.slice(0, 32).padEnd(32)} ${axesTxt(c.apres)} g=${g(c.apres, c.cur)}`); };
-console.log(`═══ ${chemin} — ${listes.length} saisies, ${listes.reduce((t, x) => t + x.l.length, 0)} voies ═══`);
+console.log(`═══ ${chemin} — ${listes.length} saisies, ${listes.reduce((t, x) => t + x.l.length, 0)} voies · balayage au pas ${PAS} (${grille.length} points) ═══`);
 const r0 = mixte(V.REGIMES.mixte);
 console.log(`\n── MIXTE avec REGIMES.mixte (${parts(V.REGIMES.mixte)}) : têtes ${r0.tetes}/${r0.n} · accord ${(100 * r0.accord).toFixed(1)} % · déplacées ≥3 : ${r0.deplacees}/${r0.lignes}`); montrer(r0.ch);
 let best = null; for (const cur of grille) { const r = mixte(cur); const sc = r.tetes * 3 + r.accord * 100 - r.deplacees; if (!best || sc > best.sc) best = { cur, ...r, sc }; }

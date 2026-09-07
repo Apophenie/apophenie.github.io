@@ -1,0 +1,28 @@
+═══ src/recherche/score-v2-produit.js — 16 saisies, 237 voies · balayage au pas 20 (14640 points) ═══
+
+── MIXTE avec REGIMES.mixte (0/29/57/14) : têtes 14/16 · accord 69.5 % · déplacées ≥3 : 19/169
+      https://hope-hope-hope.fr/   fr14+tca+m14+mpf,ffr3+tca+m14+mp   S462 E522 Q872 C278 g=687
+                                   → fl+tca+mpy+meg                   S938 E669 Q857 C349 g=731
+      numherololgeek.1000i100.fr   0:fr10;fl+tca+mpy+meg              S938 E428 Q836 C349 g=650
+                                   → nv,flt+tca+mpy+mr9,flt+tca+mpy+m S726 E769 Q759 C625 g=743
+   meilleur balayé (0/0/100/0) : têtes 16/16 · accord 66.3 % · déplacées ≥3 : 0/169
+
+── ELEGANCE avec REGIMES.elegance (13/50/13/25) : 13/16 conservées
+      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S774 E607 Q673 C651 g=647
+                                   → fl+tca+m14                       S1000 E540 Q673 C824 g=685
+      Wikipedia                    fr21+tca+mx6+mad                   S938 E787 Q759 C484 g=727
+                                   → fr17+tca+mpy+meg                 S938 E1000 Q759 C288 g=784
+      Éléonore à Nîmes             nl,tca+m7+cs,fc+nlc                S825 E622 Q450 C622 g=626
+                                   → 2:ffr4;fl+tca+m14+meg            S938 E824 Q857 C329 g=719
+   meilleur balayé (13/50/13/25) : 13/16
+      Henri Prunelle               tca+mt9+cs+prn,fr20+tca+mazc+mr9   S774 E607 Q673 C651 g=647
+                                   → fl+tca+m14                       S1000 E540 Q673 C824 g=685
+      Wikipedia                    fr21+tca+mx6+mad                   S938 E787 Q759 C484 g=727
+                                   → fr17+tca+mpy+meg                 S938 E1000 Q759 C288 g=784
+      Éléonore à Nîmes             nl,tca+m7+cs,fc+nlc                S825 E622 Q450 C622 g=626
+                                   → 2:ffr4;fl+tca+m14+meg            S938 E824 Q857 C329 g=719
+
+── ABONDANCE avec REGIMES.abondance (0/20/80/0) : 7/8 conservées
+      Éléonore à Nîmes             2:fen5;fl+tca+m14+meg              S938 E733 Q857 C329 g=832
+                                   → 2:ffr4;fl+tca+m14+meg            S938 E824 Q857 C329 g=850
+   meilleur balayé (0/0/100/0) : 8/8
