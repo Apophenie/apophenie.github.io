@@ -1255,7 +1255,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
  * @param {Object[]} ops           opérateurs explorables
  * @returns {Object[]} approches GROUPEMENT portant `retouches` et `saisieRetouchee`
  */
-function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAUT) {
+function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAUT, progres = null) {
   const cbl = normaliserCible(cible);
   const mots = jetons.filter((j) => j.genre === 'W').slice(0, MAX_JETONS_RETOUCHE);
   if (!mots.length) return [];
@@ -1267,7 +1267,13 @@ function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAU
 
   const out = [];
   const vus = new Set();
+  /* ★ Le rapport de progression : ce mode pèse 814 à 1 168 ms (voir
+     `assembler`), et il calcule longtemps avant de produire sa première
+     approche. Sans rapport ICI, la jauge restait immobile toute sa durée. */
+  let motsVus = 0;
   for (const j of mots) {
+    motsVus += 1;
+    if (progres) progres(motsVus / Math.max(1, mots.length));
     const iJeton = jetons.indexOf(j);
     const depart = etat('STR', j.texte, [[0, j.texte.length]]);
     for (const f of retoucheurs) {
@@ -1448,7 +1454,7 @@ function fragmentsAVecteur(fragments, ctx) {
  * @param {Object[]} bruts  chemins du fragment, triés, déjà dédoublonnés par trace
  * @returns {Object[][]} trios, les plus convaincants d'abord
  */
-function convergences(bruts, cible = CIBLE_DEFAUT) {
+function convergences(bruts, cible = CIBLE_DEFAUT, progres = null) {
   const c = normaliserCible(cible);
   // Manière → chiffre atteint → chemins. Le second niveau est ce que la cible
   // impose : sur `13`, la manière qui rend 1 et celle qui rend 3 ne sont pas
@@ -1470,7 +1476,12 @@ function convergences(bruts, cible = CIBLE_DEFAUT) {
   if (manieres.length < c.longueur) return [];
   // Canonicalisation des seuls élus, puis re-déduplication : deux chemins d'une
   // même manière peuvent s'effondrer l'un sur l'autre une fois le décor retiré.
+  let manieresVues = 0;
   for (const m of manieres) {
+    // Même raison que pour les retouches : la convergence coûte 775 à 1 431 ms
+    // et ne rendait la main qu'entre deux fragments.
+    manieresVues += 1;
+    if (progres) progres(manieresVues / Math.max(1, manieres.length));
     const parChiffre = parManiere.get(m);
     for (const [v, liste] of parChiffre) {
       const vus = new Set();
@@ -2587,6 +2598,35 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   const cbl = normaliserCible(ctx.cible);
   const kParFragment = ctx.parFragment || K_PAR_FRAGMENT;
   const K = cbl.longueur;              // le nombre de parts d'une approche assemblée
+  /* ★ **CE QUE L'ASSEMBLAGE DIT DE LUI-MÊME PENDANT QU'IL TRAVAILLE.**
+
+     > « Maintenant que la recherche prend plus de temps, la barre de
+     >   progression en 3 étapes n'est plus assez précise. Il faut qu'on la voie
+     >   avancer progressivement, et idéalement qu'elle indique sommairement ce
+     >   qu'elle fait. » (l'auteur)
+
+     Mesuré avant de toucher à quoi que ce soit : l'assemblage pèse 37 à 60 %
+     du temps d'une recherche — 449 ms sur `hope`, 2 841 sur « Le chat dort sur
+     le tapis rouge » — et il n'émettait RIEN. La jauge finissait sa course sur
+     les fragments, puis restait figée la moitié de l'attente. Ce n'était pas
+     une jauge trop grossière, c'était une jauge qui s'arrêtait avant la fin.
+
+     Et le temps n'est pas réparti : deux modes le prennent presque tout — le
+     groupement sous retouche (814 / 1 168 ms) et la convergence (775 / 1 431).
+     Les six autres tiennent dans quelques millisecondes. Les poids ci-dessous
+     viennent de cette mesure, pas d'une intuition.
+
+     ⚠️ **UN CALLBACK, ET PAS UN `yield`.** `assembler` est appelé DEPUIS le
+       générateur de résolution : il ne peut pas rendre la main lui-même. Mais
+       dans le navigateur, tout ceci tourne dans un travailleur — l'interface
+       n'est pas bloquée, un simple rapport posté suffit à faire avancer la
+       barre. Le callback est en LECTURE SEULE : il ne peut rien changer au
+       résultat, et son absence ne change rien non plus. */
+  const POIDS = { avant: 6, retouche: 45, convergence: 49 };
+  const progres = typeof ctx.surProgres === 'function' ? ctx.surProgres : null;
+  let faitAvant = 0;
+  const dire = (part) => { if (progres) progres(Math.min(1, Math.max(0, part))); };
+
   const approches = [];
   // Les chemins sont canonicalisés AVANT d'entrer dans un assemblage (N2/N3
   // ci-dessus) : c'est ce qui empêche « voyelles → compter » et « lettres →
@@ -2688,11 +2728,18 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //
   //   `ctx.retouches === false` les tait encore, pour que le banc puisse
   //   comparer les deux classements sans toucher au moteur.
+  dire(POIDS.avant / 100);
   if (ctx.retouches && vecteursEntiers && vecteursEntiers.length) {
-    for (const a of groupementsRetouches(saisie, ctx.jetons || [], vecteursEntiers, opsExplorables, cbl)) {
+    // Le générateur ne dit pas combien il produira : on rapporte sur ce qu'on a
+    // vu passer, borné à la part du mode. Une barre qui n'avance plus vaut
+    // mieux qu'une barre qui dépasse ce qu'elle a promis.
+    for (const a of groupementsRetouches(saisie, ctx.jetons || [], vecteursEntiers, opsExplorables, cbl,
+      (part) => dire((POIDS.avant + POIDS.retouche * part) / 100))) {
       approches.push(a);
     }
   }
+  faitAvant = POIDS.avant + POIDS.retouche;
+  dire(faitAvant / 100);
 
   // ── mode I : MOISSON — les 6 de portées DISJOINTES, groupés par trois.
   //    C'est le mode que l'auteur met en tête : « privilégie celle qui donne le
@@ -2721,9 +2768,16 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    du même comptage. Mesuré sur « Millicent » : huit chemins → une seule
   //    manière ; la liste entière → deux. (Deux, pas trois : voir le rapport —
   //    ce mode n'est pas universel.)
+  let vusH = 0;
   for (const f of fragments) {
+    // La part du mode se répartit entre les fragments ; chaque fragment
+    // rapporte À L'INTÉRIEUR de la sienne, par manière examinée.
+    const debutF = faitAvant + (POIDS.convergence * vusH) / Math.max(1, fragments.length);
+    const largeurF = POIDS.convergence / Math.max(1, fragments.length);
+    vusH += 1;
+    dire(debutF / 100);
     if (!f.entier && f.famille !== 'entier') continue;
-    for (const suite of convergences(cheminsBruts(f), cbl)) {
+    for (const suite of convergences(cheminsBruts(f), cbl, (part) => dire((debutF + largeurF * part) / 100))) {
       approches.push(approche('CONVERGENCE', suite.map((c) => ({ fragment: f, chemin: c }))));
     }
   }
@@ -2799,6 +2853,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   // fabriquer un par accident — trois occurrences d'un motif qui retombent sur
   // la même portée, une partition dégénérée —, ce filtre est la garantie qu'il
   // n'atteindra jamais la liste.
+  dire(1);
   return dedupliquerApproches(approches).filter((a) => a.mode !== 'DECRET');
 }
 

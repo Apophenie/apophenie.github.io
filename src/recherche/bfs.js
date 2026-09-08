@@ -933,6 +933,8 @@ function rechercheBrute(fragment, ctx) {
   const t0 = filet ? maintenant() : 0;
   let noeuds = 1;
   let travail = 0;      // applications pondérées — borne primaire, déterministe
+  // En lecture seule, et facultatif : voir plus bas, dans la boucle des états.
+  const surProgres = typeof ctx.surProgres === 'function' ? ctx.surProgres : null;
   let tronque = false;
   let tronqueTemps = false; // ★ le filet de sécurité s'est déclenché : c'est un DÉFAUT
 
@@ -957,6 +959,17 @@ function rechercheBrute(fragment, ctx) {
       // normaux, l'horloge ne devant jamais avoir l'occasion de le faire.
       if (travail >= maxTravail) { tronque = true; break; }
       if (filet && maintenant() - t0 > budgetMs) { tronque = true; tronqueTemps = true; break; }
+      /* ★ **CE QUE LA RECHERCHE DIT D'ELLE-MÊME EN COURS DE ROUTE.**
+
+         Un fragment long tenait la jauge immobile pendant toute sa recherche —
+         853 ms sur `hope`, qui n'a qu'un fragment et ne rapportait donc qu'à la
+         fin. Le budget de travail est déjà compté ici, à l'unité près : il
+         fait un dénominateur honnête, et il ne coûte rien de le publier.
+
+         ⚠️ **UN RAPPORT TOUS LES 256 NŒUDS, PAS À CHAQUE ÉTAT.** C'est une
+           boucle chaude ; y poster un message par nœud coûterait plus cher que
+           ce qu'elle calcule. Le masque binaire est exact et sans division. */
+      if (surProgres && (noeuds & 0xff) === 0) surProgres(maxTravail > 0 ? travail / maxTravail : 0);
       const src = etats.get(k);
       const cleSrc = cleEtat(src.etat);
       const cheminsSrc = src.chemins;

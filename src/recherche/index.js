@@ -342,6 +342,42 @@ export function creerMoteur(catalogue, options = {}) {
     //   et une unité, par exemple) et que la boucle saute le doublon sans rien
     //   chercher — le compter ferait une jauge qui s'arrête à 90 % sur les
     //   saisies à motif répété, c'est-à-dire précisément celles du site.
+    /* ★ **LE CANAL DE PROGRESSION, ouvert avant la première recherche.**
+       Il ne sert qu'à dire où l'on en est ; il est facultatif, en lecture seule,
+       et son absence ne change rien au calcul. Voir `avancementDe` pour les
+       phases et leurs poids mesurés. */
+    /* ⚠️ **LE GARDE-FOU ANTI-RECUL EST ICI, ET NON PAR FRAGMENT.** Mesuré : avec
+         un compteur remis à zéro à chaque fragment, la fraction publiée passait
+         de 11 % à 5 % en cours de route. La jauge, elle, ne recule jamais
+         (`jauge-recherche.js`), si bien que le défaut ne se voyait pas — il
+         faisait simplement disparaître des rapports, donc stagner la barre.
+         Un rapport qui ment n'est pas moins grave parce que l'affichage le
+         rattrape. */
+    const canal = typeof optionsResolution.surAvancement === 'function'
+      ? optionsResolution.surAvancement : null;
+    /* ⚠️ **DEUX CHEMINS MÈNENT À LA JAUGE, ET LA MONOTONIE DOIT VALOIR POUR LES
+         DEUX.** Le `yield` de la boucle des fragments remonte par le dérouleur,
+         les rapports intra-fragment et ceux de l'assemblage par ce canal-ci. Un
+         garde-fou posé sur le second laissait donc passer les reculs du premier
+         — mesuré, trois par recherche sur « Le chat dort sur le tapis rouge ».
+         `marquer` est le passage obligé : il borne la fraction par le plus haut
+         déjà annoncé, quel que soit le chemin emprunté. */
+    let plusHaut = 0;
+    const marquer = (avancement) => {
+      const fraction = Math.max(plusHaut, avancement.fraction);
+      plusHaut = fraction;
+      return { ...avancement, fraction };
+    };
+    // Un rapport par millième : au-delà, on poste des messages que la barre ne
+    // peut pas distinguer.
+    let dernierMillieme = -1;
+    const publier = canal ? (avancement) => {
+      const a = marquer(avancement);
+      const m = Math.floor(a.fraction * 1000);
+      if (m <= dernierMillieme) return;
+      dernierMillieme = m;
+      canal(a);
+    } : null;
     const ordre = ordreDeRecherche(frags);
     const aChercher = new Set(ordre.map((f) => f.texte.normalize('NFC'))).size;
     // ★ Le PLAFOND de travail, réserve comprise — le dénominateur honnête de la
@@ -406,6 +442,12 @@ export function creerMoteur(catalogue, options = {}) {
       //   l'énumération des trous : c'est ce que `debug.html` annonce comme
       //   « ce que la recherche emploie », et il ne mentait qu'à cet endroit.
       ctxRecherche.dMax = options.dMax ?? budgets.dMax;
+      // Le fragment EN COURS avance la jauge à l'intérieur de sa propre part :
+      // sans cela, une saisie d'un seul fragment ne bouge qu'à la fin.
+      ctxRecherche.surProgres = publier ? (p) => {
+        const part = (cherches + Math.min(1, Math.max(0, p))) / Math.max(1, aChercher);
+        publier(avancementDe({ phase: 'fragments', part, fragments: cherches, fragmentsTotal: aChercher }));
+      } : null;
       const avant = ctxRecherche.travail || 0;
       parFrag.set(cle, chercherSix(f.texte, ctxRecherche));
       travailRestant -= (ctxRecherche.travail || 0) - avant;
@@ -420,14 +462,15 @@ export function creerMoteur(catalogue, options = {}) {
       //      les `FRAGMENTS_GARANTIS` premiers. Annoncer l'ancien total ferait
       //      une jauge qui s'arrête à 40 % — et le dénominateur ne fait que
       //      rétrécir, donc la jauge ne recule jamais.
-      const pause = yield avancementDe({
+      const pause = yield marquer(avancementDe({
+        phase: 'fragments',
         fragments: cherches,
         fragmentsTotal: travailRestant > 0
           ? aChercher
           : Math.min(aChercher, Math.max(FRAGMENTS_GARANTIS, cherches)),
         travail: travailTotal - travailRestant,
         travailTotal: plafondTravail,
-      });
+      }));
       // Le temps rendu à l'appelant n'est pas du temps de recherche : on recule
       // l'origine du filet d'autant (voir `tranches.js`, qui mesure la pause).
       // Conduit d'un trait, `pause` vaut zéro et rien ne bouge.
@@ -456,7 +499,21 @@ export function creerMoteur(catalogue, options = {}) {
       //   d'approches peuvent seulement EXISTER (`config.js`).
       parFragment: budgets.parFragment,
     };
+    /* ★ **L'ASSEMBLAGE REND COMPTE DE LUI-MÊME** — voir `assemblage.js`, où la
+         mesure est écrite. Il ne peut pas `yield` : il est appelé DEPUIS ce
+         générateur. Mais tout ceci tourne dans un travailleur, dont l'interface
+         n'attend pas : le rapport se poste directement sur le canal que
+         l'appelant fournit (`surAvancement`), et l'absence de canal ne change
+         rien au calcul.
+
+       ⚠️ **AU PLUS UN RAPPORT PAR CENTIÈME**, sans quoi le groupement sous
+         retouche en posterait un par approche produite — des centaines de
+         messages pour une barre qui ne bouge pas d'un pixel. */
+    ctxAssemblage.surProgres = publier ? (part) => {
+      publier(avancementDe({ phase: 'assemblage', part, fragments: cherches, fragmentsTotal: cherches }));
+    } : null;
     let approches = assembler(saisie, frags, parFrag, ctxAssemblage);
+    if (publier) publier(avancementDe({ phase: 'classement', part: 0, fragments: cherches, fragmentsTotal: cherches }));
 
     if (!approches.length) {
       const j = approcheJoker(saisie, ctxAssemblage); // garantie absolue (§5.3)
@@ -1182,11 +1239,54 @@ export function creerMoteur(catalogue, options = {}) {
  *
  * @param {{fragments:number, fragmentsTotal:number, travail:number, travailTotal:number}} compte
  */
+/* ★ **LES TROIS PHASES, ET LEURS POIDS SONT MESURÉS.**
+
+   > « Il faut qu'on la voie avancer progressivement, et idéalement qu'elle
+   >   indique sommairement ce qu'elle fait, le temps écoulé et le temps restant
+   >   estimé. » (l'auteur)
+
+   Relevé sur quatre saisies, en millisecondes — chercher les fragments,
+   assembler, noter puis classer :
+
+   | saisie | fragments | assemblage | notation + tri |
+   |---|---|---|---|
+   | `hope` | 761 | 449 | 27 |
+   | `Donald Trump` | 1 492 | 1 429 | 18 |
+   | `Le chat dort sur le tapis rouge` | 1 755 | 2 841 | 218 |
+   | `https://hope-hope-hope.fr/` | 1 188 | 1 661 | 47 |
+
+   L'assemblage pèse donc autant que la recherche elle-même, et il était MUET :
+   la jauge atteignait son maximum, puis ne bougeait plus pendant la moitié de
+   l'attente. Les poids ci-dessous sont la moyenne de ces quatre relevés.
+
+   ⚠️ **CE SONT DES POIDS, PAS DES PROMESSES.** Une saisie peut faire mentir la
+     moyenne — `hope` passe 62 % de son temps sur les fragments, « Le chat » 37 %.
+     La jauge ne recule jamais (`jauge-recherche.js`), donc le pire cas est une
+     barre qui ralentit, jamais une barre qui revient en arrière. */
+export const PHASES = Object.freeze(['fragments', 'assemblage', 'classement']);
+export const POIDS_DES_PHASES = Object.freeze({ fragments: 48, assemblage: 50, classement: 2 });
+
+/** La part [0,1] déjà acquise quand une phase commence. */
+function seuilDeLaPhase(phase) {
+  let cumul = 0;
+  for (const p of PHASES) {
+    if (p === phase) return cumul / 100;
+    cumul += POIDS_DES_PHASES[p];
+  }
+  return cumul / 100;
+}
+
 export function avancementDe(compte) {
   const parFragments = compte.fragmentsTotal > 0 ? compte.fragments / compte.fragmentsTotal : 1;
   const parTravail = compte.travailTotal > 0 ? compte.travail / compte.travailTotal : 0;
-  const fraction = Math.min(1, Math.max(0, parFragments, parTravail));
-  return { ...compte, fraction };
+  // La part accomplie DANS la phase : celle que l'appelant donne, ou celle que
+  // le compte des fragments dicte.
+  const locale = compte.part !== undefined
+    ? Math.min(1, Math.max(0, compte.part))
+    : Math.min(1, Math.max(0, parFragments, parTravail));
+  const phase = compte.phase || 'fragments';
+  const fraction = Math.min(1, seuilDeLaPhase(phase) + (POIDS_DES_PHASES[phase] ?? 0) * locale / 100);
+  return { ...compte, phase, fraction };
 }
 
 /**

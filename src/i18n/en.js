@@ -365,6 +365,14 @@ export const en = {
     label: 'Search progress',
     demarrage: 'Searching…',
     etat: '{pourcent}% — fragment {faits} of {total}',
+    etatPhase: '{pourcent}% — {phase} · {ecoule} elapsed, {restant} left',
+    etatPhaseSansReste: '{pourcent}% — {phase} · {ecoule} elapsed',
+    phases: {
+      fragments: 'reading the pieces',
+      assemblage: 'assembling the paths',
+      classement: 'ranking the results',
+    },
+    secondes: '{n}s',
     termine: 'Search complete.',
   },
 
