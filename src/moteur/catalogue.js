@@ -124,6 +124,11 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   l'append-only — sa place naturelle serait à côté de `mrd`, sa place
   //   juste est ici.
   'mab',
+  // ★ Le redécoupage EXACT — la variante de `mrd` qui couvre toute la ligne et
+  //   rend la cible sans un chiffre de plus (`mappeurs.js › m.redecoupageExact`).
+  //   EN FIN DE BLOC, comme le veut l'append-only (§4.1) : sa place naturelle
+  //   serait à côté de `mrd`, sa place juste est ici.
+  'mrdE',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

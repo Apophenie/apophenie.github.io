@@ -1603,6 +1603,11 @@ const ABSORBENT_PAR_ADDITION = Object.freeze({
   //   absorbe de plus que `mrd`, elle le paie donc au même tarif ; ce qu'elle
   //   ne jette pas, aucun poste de rejet ne le lui compte, et c'est le point.
   'm.absorption': 'redecoupage',
+  // ★ Le redécoupage EXACT (`mrdE`) fait le même geste que `mrd`, passe après
+  //   passe : il se paie au même palier, par chiffre absorbé, dilué par ses
+  //   additions et dégressif avec la longueur de la ligne. Ce qu'il a de plus
+  //   — ne rien laisser — se lit ailleurs, sur le reliquat et le rendement.
+  'm.redecoupageExact': 'redecoupage',
 });
 
 /**
@@ -1788,6 +1793,17 @@ export const A_MERITER_SA_PLACE = Object.freeze(new Set([
   // L'absorption fabrique la cible ENTIÈRE par construction : à plus forte
   // raison que le redécoupage, elle doit mériter sa place.
   'm.absorption',
+  // ★ Le redécoupage exact aussi : le siège réservé à la voie sans perte
+  //   (`assemblage.js › vecteursDeSix`) le fait entrer dans la liste quand il
+  //   le mérite ; il n'a plus besoin d'être dispensé.
+  'm.redecoupageExact',
+  // ★ Le redécoupage EXACT (`mrdE`) n'y est PAS, et c'est mesuré. Il ne
+  //   produit rien « en masse » : il écrit la cible exactement ou il se tait,
+  //   et sa récolte est bornée par la somme de la ligne (invariant modulo
+  //   neuf). L'y mettre le rangeait derrière toute voie honnête qui porte
+  //   les chiffres de la cible sans l'écrire, et le siège de qualité ne lui
+  //   revenait jamais : sur « Millicent Billette » visant 1998, quatre voies
+  //   exactes existaient et aucune n'atteignait la liste.
 ]));
 
 /**
@@ -2612,7 +2628,10 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       //   sans perte prenait la tête PARTOUT au défaut, `hope-hope-hope.fr`
       //   compris devant `fl+tca+m14` : le barème lui comptait quatre étapes là
       //   où la scène en montre vingt-sept.
-      if (op.id === 'm.absorption') b.absorptions += absorbes;
+      // ★ Le redécoupage EXACT (`mrdE`) absorbe aussi — par sommes et racines
+      //   seulement — et paie le même poste : sans lui, une voie à une série
+      //   passait devant `fl+tca+m14` et devant `fr13+tca+m14+meg`.
+      if (op.id === 'm.absorption' || op.id === 'm.redecoupageExact') b.absorptions += absorbes;
       const poids = typeof op.additions === 'function'
         ? dilution(op.additions(avant.valeur)) : absorbes * 1000;
       // ★ Et le redécoupage, LUI SEUL, s'allège avec la longueur de la ligne :
