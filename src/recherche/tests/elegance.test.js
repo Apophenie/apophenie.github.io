@@ -32,7 +32,7 @@ import {
 import { creerMoteur } from '../index.js';
 import { ordreElegance, ordreTriptyques, ordreTotal, POIDS_DES_REGIMES } from '../score.js';
 import { zonesSignifiantes } from '../fragments.js';
-import { jalonsDesCornes } from '../scenario.js';
+import { jalonsDesCornes, suivreLaLigne, dUnSeulTenant } from '../scenario.js';
 import { lire } from '../url.js';
 import { catalogue, operateur } from './_catalogue.js';
 import { natureOperandes } from '../../moteur/transformations/combinateurs.js';
@@ -1506,8 +1506,8 @@ test('★ cornes — la scène ne couronne rien que le bilan n’ait compté', (
       assert.ok(series >= jalons.couronnements.length,
         `« ${s} » ${a.codes} : ${jalons.couronnements.length} couronnements pour `
         + `${series} séries annoncées`);
-      /* ⚠️ **L'ÉGALITÉ ÉTAIT EXACTE, ELLE EST DEVENUE UNE INÉGALITÉ** — et le
-           sens de l'inégalité est tout ce qui compte.
+      /* ⚠️ **L'ÉGALITÉ ÉTAIT EXACTE, ELLE EST DEVENUE UNE INÉGALITÉ VÉRIFIÉE** —
+           et c'est plus strict que l'égalité, pas moins.
 
          Les calculs se montrent désormais EN LARGEUR : on fait ce qui part des
          chiffres de départ sur tous les paquets, puis ce qui dépend du premier
@@ -1527,12 +1527,71 @@ test('★ cornes — la scène ne couronne rien que le bilan n’ait compté', (
          Ce que ce test défend n'a pas bougé, et c'est son titre : la scène ne
          couronne RIEN que le bilan n'ait compté. L'inverse — le bilan compte
          plus que la scène ne couronne — n'est pas un mensonge : c'est le
-         verdict qui prend le relais. */
+         verdict qui prend le relais.
+
+         ★ **MAIS UNE INÉGALITÉ NUE ACCEPTERAIT AUSSI UN COURONNEMENT MANQUANT
+           POUR UNE MAUVAISE RAISON**, c'est-à-dire un bogue. Chaque trio non
+           couronné doit donc être EXPLICABLE, et par l'un des trois cas que
+           l'auteur a nommés :
+
+           > « Si les 666 ne sont assemblés qu'à la fin, laisse le verdict
+           >   faire. Si 666 apparaît plus tôt, n'est pas remanié — aucun des 6
+           >   concernés n'est réutilisé pour absorber d'autres choses — et
+           >   correspond à un triptyque conservé à la fin, alors le couronner
+           >   de manière anticipée. Dans tous les autres cas, laisser faire le
+           >   verdict. » (l'auteur)
+
+           Ce test refait le raisonnement avec les mêmes primitives que
+           `scenario.js` — `suivreLaLigne`, `dUnSeulTenant` — mais son propre
+           enchaînement. Le jour où l'un des deux dérive, c'est ici que ça
+           rougira. */
       if (a.parts.length === 1) {
-        assert.ok(a.bilan.triptyquesContigus + (a.bilan.triptyquesRepetes || 0)
-          >= jalons.couronnements.length,
+        const auBilan = a.bilan.triptyquesContigus + (a.bilan.triptyquesRepetes || 0);
+        assert.ok(auBilan >= jalons.couronnements.length,
           `« ${s} » ${a.codes} : la scène couronne ${jalons.couronnements.length} trios `
-          + `pour ${a.bilan.triptyquesContigus + (a.bilan.triptyquesRepetes || 0)} au bilan`);
+          + `pour ${auBilan} au bilan`);
+
+      }
+
+      /* ★ **ET CECI VAUT POUR TOUTE APPROCHE, PAS SEULEMENT LES PORTÉES
+           UNIQUES.** Première version de ce contrôle : il était enfermé dans le
+           `if` ci-dessus, et la preuve par le contraire l'a démasqué — en
+           rétablissant l'ancienne règle de couronnement, il restait vert. Les
+           trios qu'il devait attraper vivent dans les MOISSONS, à plusieurs
+           portées, que ce `if` écartait. Un test qu'on ne peut pas faire
+           échouer ne teste rien. */
+      {
+        // Les trios du verdict, dans l'ordre : l'op `reveal` les porte.
+        const reveal = sc.steps.flatMap((st) => st.ops || []).find((o) => o.op === 'reveal');
+        const aReveler = (reveal && reveal.targets) || [];
+        const serie = (reveal && reveal.serie) || 3;
+        if (aReveler.length && aReveler.length % serie === 0) {
+          const lignes = suivreLaLigne(sc.tokens, sc.steps);
+          const iVerdict = sc.steps.findIndex((st) => (st.ops || []).some((o) => o.op === 'reveal'));
+          const fin = iVerdict < 0 ? sc.steps.length : iVerdict;
+          const couronnes = new Set(jalons.couronnements.flatMap((c) => c.jetons));
+          for (let rang = 0; rang * serie < aReveler.length; rang++) {
+            const trio = aReveler.slice(rang * serie, rang * serie + serie);
+            if (trio.every((id) => couronnes.has(id))) continue;   // couronné : rien à expliquer
+            // L'instant du RASSEMBLEMENT : les trois présents et d'un seul tenant.
+            let quand = -1;
+            for (let k = 0; k < lignes.length; k++) {
+              if (!lignes[k]) break;
+              if (trio.every((id) => lignes[k].ids.includes(id)) && dUnSeulTenant(lignes[k], trio)) {
+                quand = k; break;
+              }
+            }
+            const jamaisRassemble = quand < 0;
+            const auDernierCalcul = quand >= 0 && quand + 1 >= fin;
+            let remanie = false;
+            for (let k = quand + 1; quand >= 0 && k < fin; k++) {
+              if (!lignes[k] || !dUnSeulTenant(lignes[k], trio)) { remanie = true; break; }
+            }
+            assert.ok(jamaisRassemble || auDernierCalcul || remanie,
+              `« ${s} » ${a.codes} : le trio ${rang} est rassemblé à l’étape ${quand} sur ${fin}, `
+              + 'il tient jusqu’au bout, et pourtant il n’est pas couronné');
+          }
+        }
       }
     }
   }

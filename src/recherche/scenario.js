@@ -1707,7 +1707,11 @@ export function placeDuCouronnement(steps, iCornes) {
  * @param {{ids:string[], frontieres:Set<string>}} ligne
  * @param {string[]} trio
  */
-function dUnSeulTenant(ligne, trio) {
+/* ★ Exporté pour que `elegance.test.js` puisse REDIRE la doctrine des cornes
+   sans relire ce fichier : un test qui recalcule la règle avec les mêmes
+   primitives, mais son propre raisonnement, attrape ce qu'un test qui se
+   contente de compter laisse passer. */
+export function dUnSeulTenant(ligne, trio) {
   const r = trio.map((id) => ligne.ids.indexOf(id));
   if (r.some((x) => x < 0)) return false;
   for (let k = 1; k < r.length; k++) {
@@ -1858,39 +1862,50 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
   for (let rang = 0; rang * serie < aReveler.length; rang++) {
     const trio = aReveler.slice(rang * serie, rang * serie + serie);
     if (trio.some((id) => deja.has(id))) continue;
-    // ★ L'INSTANT, et il n'y en a QU'UN : celui où le trio est au complet.
-    //
-    // Non pas « le premier step où les trois se touchent », mais « le step où
-    // le troisième arrive » — et l'on regarde alors s'il arrive CONTRE les deux
-    // autres. La nuance n'est pas de rythme, elle est de nature, et c'est
-    // exactement celle que le vocabulaire tient depuis le début
-    // (CONTRACTS §3.1, amendement `horns`) :
-    //
-    //  · trois 6 déjà côte à côte au moment où le dernier paraît, c'est un 666
-    //    qu'on CONSTATE — « on ne le fabrique pas, on le lit » ;
-    //  · trois 6 qui ne se touchent qu'après qu'on a ôté ce qui les séparait,
-    //    c'est un 666 qu'on RASSEMBLE — l'autre geste, celui qui s'avoue une
-    //    fois, juste avant le verdict, et qui coûte au score.
-    //
-    // Chercher « le premier step où ils se touchent » confondrait les deux : sur
-    // `https://hope-hope-hope.fr/`, une série ne devient contiguë qu'au moment
-    // où « On ne garde que les 6 » fait tomber ce qui l'encombrait. Y planter
-    // des cornes, ce serait couronner le tri en prétendant l'avoir trouvé —
-    // et, accessoirement, glisser une étape entre le tri et le verdict, que ce
-    // module s'interdit par ailleurs.
+    /* ★ **L'INSTANT : celui où le trio est RASSEMBLÉ.**
+
+       > « Si 666 apparaît plus tôt, n'est pas remanié (aucun des 6 concernés
+       >   n'est réutilisé pour absorber d'autres choses) et correspond à un
+       >   triptyque conservé à la fin, alors le couronner de manière anticipée.
+       >   Dans tous les autres cas, laisser faire le verdict. »
+       > « Au moment où il est rassemblé, si ce n'est pas à la dernière étape,
+       >   il est pertinent de le couronner (par exemple sur un `mtri`). »
+       >   (l'auteur)
+
+       ⚠️ **CE MODULE CHERCHAIT AUTRE CHOSE, ET C'EST UN REVIREMENT.** Il
+         retenait « le step où le TROISIÈME ARRIVE », puis regardait s'il
+         arrivait contre les deux autres — sans quoi il renonçait pour de bon.
+         L'argument était la distinction entre CONSTATER un 666 déjà écrit et le
+         RASSEMBLER en ôtant ce qui le séparait, le second étant réputé n'avoir
+         sa place qu'au verdict.
+
+         La distinction reste vraie, et elle se paie toujours au score ; mais
+         elle ne dit pas QUAND montrer. Un `mtri` qui range la ligne et met
+         trois 6 côte à côte les a bel et bien mis côte à côte : s'il reste des
+         calculs après, et si plus rien ne les sépare ni ne les consomme d'ici
+         la fin, les couronner n'anticipe rien de faux — c'est même tout ce
+         qu'anticiper veut dire.
+
+       Mesuré sur les dix-neuf saisies du corpus, 558 trios : 149 étaient déjà
+       couronnés, 245 s'assemblent au dernier calcul (le verdict les prend), 84
+       ne se rassemblent jamais, 70 se rassemblent trop tard — et **10 se
+       rassemblent à temps et tiennent**. Ce sont ceux-là que cette boucle
+       manquait. */
     let complet = -1;
     for (let k = 0; k < lignes.length; k++) {
       // La ligne a perdu le fil : plus rien n'est démontrable au-delà, et l'on
       // ne couronne jamais au jugé (voir `suivreLaLigne`).
       if (!lignes[k]) break;
-      if (trio.every((id) => lignes[k].ids.includes(id))) { complet = k; break; }
+      // ★ Les trois présents ET d'un seul tenant — trois rangs consécutifs ne
+      //   font pas un 666 si une frontière de groupe passe entre deux d'entre
+      //   eux (voir `suivreLaLigne`, « LES FRONTIÈRES DE GROUPE », et les deux
+      //   cornes fautives que l'auteur a relevées).
+      if (trio.every((id) => lignes[k].ids.includes(id)) && dUnSeulTenant(lignes[k], trio)) {
+        complet = k;
+        break;
+      }
     }
     if (complet < 0) continue;
-    // ★ DEUXIÈME CONDITION : d'un seul tenant, et pas seulement à la suite.
-    //   Trois rangs consécutifs ne font pas un 666 si une frontière de groupe
-    //   passe entre deux d'entre eux — voir `suivreLaLigne`, « LES FRONTIÈRES
-    //   DE GROUPE », et les deux cornes fautives que l'auteur a relevées.
-    if (!dUnSeulTenant(lignes[complet], trio)) continue;
     // ★ TROISIÈME CONDITION : et ça TIENT jusqu'au bout.
     //
     //   « Seuls les 666 non séparés reçoivent des cornes anticipées, et encore,
