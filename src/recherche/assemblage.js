@@ -245,6 +245,9 @@ const MAX_CANDIDATS_PORTEE = 10;
 /** Combien de vecteurs déjà calculés on retente avec l'absorption additive
  *  quand le faisceau n'en a produit aucune (voir le rattrapage, plus bas). */
 const RATTRAPAGE_ADDITIF_MAX = 40;
+// Les chaînes qu'on accepte de relire sous une substitution. Douze, mesuré :
+// au-delà, le gain tombe à zéro et le coût continue de monter.
+const RATTRAPAGE_SUBSTITUTION_MAX = 12;
 
 /**
  * Bornes de l'étage des RETOUCHES (voir `groupementsRetouches`).
@@ -1034,16 +1037,96 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
       const dejaAdditive = out.some((c) => !ecarte(c) && exactement(c)
         && c.ops.some((o) => o && o.id === 'm.redecoupageExact'));
       if (!dejaAdditive) {
+        const vierge = (c) => !c.ops.some((o) => o && o.id
+          && (o.id === 'm.redecoupageExact' || o.id === 'm.absorption'
+            || Object.prototype.hasOwnProperty.call(FICELLES, o.id)));
         for (const c of out.slice(0, RATTRAPAGE_ADDITIF_MAX)) {
           const fin = c.etats[c.etats.length - 1];
           if (!fin || fin.type !== 'NUMS') continue;
-          if (c.ops.some((o) => o && o.id
-            && (o.id === 'm.redecoupageExact' || o.id === 'm.absorption'
-              || Object.prototype.hasOwnProperty.call(FICELLES, o.id)))) continue;
+          if (!vierge(c)) continue;
           for (const op of additifs) {
             const suite = appliquerOp(op, fin);
             if (!suite) continue;
             retenir(c.ops.concat([op]), c.etats.concat([suite]));
+          }
+        }
+
+        /* ★ **RELIRE AUTREMENT CE QU'ON A DÉJÀ CHOISI : une substitution
+             glissée AU MILIEU d'une chaîne qui marchait presque.**
+
+           > « Selon comment tu convertis Sarah Kerrigan (gématrie, 14
+           >   segments…), la séquence chiffrée n'est pas la même. Du coup,
+           >   dans le lot, il devrait y avoir des chemins qui mènent au
+           >   résultat par addition sans surplus. » (l'auteur)
+
+           Encore raison, et la mesure le confirme : sur « Sarah Kerrigan »
+           visant 31031998, `fl+fr2+tca+masc+mrdE` écrit `[3 1 0 3 1 9 9 8]`
+           par sommes seules, sans rien jeter. Le faisceau ne la fabriquait
+           pas, parce que son premier étage n'applique jamais QU'UN filtre.
+
+           ⚠️ **ON N'ÉLARGIT PAS L'ÉTAGE 1 POUR AUTANT.** Mesuré : y autoriser
+             tous les couples sélection × substitution fait passer le pipeline
+             de ~1 s à 12-27 s ET dégrade le résultat — sur « Henri Prunelle
+             Chochotte », la voie sans perte DISPARAÎT, noyée sous 450 bases
+             que le faisceau élague au petit bonheur. Payer quinze fois plus
+             cher pour trouver moins, c'est le contraire d'une recherche.
+
+           On garde donc la sélection trouvée par le faisceau et on se
+           contente de la RELIRE : pour les quelques meilleures chaînes, on
+           insère une substitution (un César, un Atbash — tout filtre qui
+           conserve la longueur) juste après les filtres de tête, on rejoue la
+           suite telle quelle, et l'on tente l'absorption additive au bout.
+           Borné, et seulement quand le rattrapage simple n'a rien donné. */
+        const additifTrouve = () => out.some((c) => !ecarte(c) && exactement(c)
+          && c.ops.some((o) => o && o.id === 'm.redecoupageExact'));
+        if (!additifTrouve()) {
+          const substitutions = [];
+          for (const c of out.slice(0, 1)) {
+            const d = c.etats[0];
+            if (!d || d.type !== 'STR') break;
+            for (const o of ops) {
+              if (o.from !== 'STR' || o.to !== 'STR') continue;
+              const r = appliquerOp(o, d);
+              if (r === null) continue;
+              // Substituer, c'est remplacer un caractère par un autre : la
+              // longueur ne bouge pas. Sélectionner en retire. On le lit sur
+              // le résultat, le catalogue n'a pas à le déclarer.
+              if ([...String(r.valeur)].length !== [...String(d.valeur)].length) continue;
+              if (String(r.valeur) === String(d.valeur)) continue;
+              substitutions.push(o);
+            }
+          }
+          for (const c of out.slice(0, RATTRAPAGE_SUBSTITUTION_MAX)) {
+            if (!vierge(c) || !c.etats.length) continue;
+            let k = 0;
+            while (k < c.ops.length && c.ops[k] && c.ops[k].from === 'STR'
+              && c.ops[k].to === 'STR') k += 1;
+            for (const g of substitutions) {
+              const suite = c.ops.slice(0, k).concat([g], c.ops.slice(k));
+              const etats = [c.etats[0]];
+              let e = c.etats[0];
+              for (const o of suite) {
+                e = appliquerOp(o, e);
+                if (e === null) break;
+                etats.push(e);
+              }
+              // ⚠️ **À CHAQUE ÉTAPE CHIFFRÉE DU REJEU, PAS SEULEMENT AU BOUT.**
+              //   La chaîne d'origine finit souvent par un redécoupage à elle
+              //   (`mrd`) ; y coller l'absorption additive donne un autre
+              //   chemin que celui qu'on cherche. La voie mesurée sur
+              //   « Sarah Kerrigan » est `fl+fr2+tca+masc+mrdE` : elle S'ARRÊTE
+              //   au mappeur et absorbe là. On tente donc chaque préfixe qui
+              //   passe par la substitution insérée.
+              for (let i = k + 1; i < etats.length; i += 1) {
+                if (etats[i].type !== 'NUMS') continue;
+                for (const op of additifs) {
+                  const bout = appliquerOp(op, etats[i]);
+                  if (!bout) continue;
+                  retenir(suite.slice(0, i).concat([op]), etats.slice(0, i + 1).concat([bout]));
+                }
+              }
+            }
+            if (additifTrouve()) break;
           }
         }
       }
