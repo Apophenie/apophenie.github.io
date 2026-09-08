@@ -331,14 +331,33 @@ function scoresDeLaVoie(approche, curseurs) {
  *   avec la place, et ce sera vrai.
  */
 function poidsDeLAxe(axe, part) {
+  /* ★ **UN TRACÉ ORIGINAL, ET C'EST UNE QUESTION DE LICENCE.**
+
+     > « Soit utiliser `fa-weight-hanging`, gratuit mais pas libre, soit
+     >   trouver ou faire l'équivalent compatible AGPL. » (l'auteur)
+
+     Le site est sous AGPL v3 et n'embarque aucune fonte d'icônes ; emprunter à
+     Font Awesome obligerait à traîner sa mention CC BY sur chaque page pour
+     douze pixels. Le poids ci-dessous a donc la GÉOMÉTRIE de l'original — un
+     anneau circulaire évidé posé sur un corps évasé — mais ses coordonnées
+     sont dessinées ici, comme les glyphes du reste du projet.
+
+     ★ **ET IL SE LIT MIEUX QUE L'ORIGINAL À LA TAILLE OÙ ON L'EMPLOIE.**
+       Rasterisés à 16 px et comparés au pixel (`rsvg-convert` puis un relevé
+       du canal alpha), les deux tracés ne disent pas la même chose : celui de
+       Font Awesome, dessiné pour une grille de 640, voit son trou se refermer
+       et rend un bloc plein ; celui-ci garde deux montants et un trou de deux
+       pixels, parce que l'anneau y est proportionnellement plus grand et le
+       trou plus large. Quatre autres variantes ont été écartées de la même
+       façon — dont une anse ouverte qui laissait, entre l'anse et le corps, un
+       vide d'une ligne et demie : à la taille du texte, on lisait deux taches. */
   const leste = s('svg', {
     class: 'voie__score-leste', viewBox: '0 0 16 16', 'aria-hidden': 'true', focusable: 'false',
   }, [
-    // Un leste d'ancienne balance : un anneau, un col étroit, un corps trapu.
     s('path', {
-      d: 'M6.6 1.2a1.4 1.4 0 0 1 2.8 0v.9h-.9v-.9a.5.5 0 0 0-1 0v.9h-.9z'
-        + 'M6.2 2.6h3.6l.6 2.2H5.6z'
-        + 'M4.2 5.6h7.6l1.5 8.2a.9.9 0 0 1-.9 1H3.6a.9.9 0 0 1-.9-1z',
+      'fill-rule': 'evenodd',
+      d: 'M8 0.8a3 3 0 0 0-2.6 4.5H4.9C3.9 5.3 3 6 2.75 6.95L0.75 13.5A1.4 1.4 0 0 0 2.1 15.3h11.8'
+        + 'a1.4 1.4 0 0 0 1.35-1.8l-2-6.55C13 6 12.1 5.3 11.1 5.3h-0.5A3 3 0 0 0 8 0.8zM8 2.4a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8z',
     }),
   ]);
   return e('span.voie__score-poids', {

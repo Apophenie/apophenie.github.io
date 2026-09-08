@@ -43,7 +43,7 @@
 
 import { signature, comparerCodes, scorePartiel, maniere } from './score.js';
 import {
-  A_MERITER_SA_PLACE, OPERATEURS_QUI_ECARTENT, nbTriptyques, compterTraductionsDivergentes,
+  A_MERITER_SA_PLACE, OPERATEURS_QUI_ECARTENT, FICELLES, nbTriptyques, compterTraductionsDivergentes,
 } from './elegance.js';
 import {
   CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecrit, verdict as ecrireVerdict,
@@ -972,7 +972,24 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
        aussi bonne » sur ces trois mesures peut très bien laisser un reliquat
        au verdict. L'élu répond à une autre question ; c'est le barème qui le
        classe. */
-  let elu = null;
+  // ★ **DEUX ÉLUS, ET LE SECOND EST LA VOIE PUREMENT ADDITIVE.**
+  //
+  //   > « Là où l'addition peut, en davantage d'étapes que `mab`, la voie par
+  //   >   addition apparaît-elle ? » (l'auteur)
+  //
+  //   Elle n'apparaissait pas : le siège était UNIQUE et se tranchait au plus
+  //   court, donc `mab` — qui dispose du produit et de la différence — le
+  //   prenait chaque fois que les deux existaient. Mesuré sur
+  //   `hope-hope-hope.fr` : `fl+ma1+mrdE+mr9` écrit 666 sans rien jeter
+  //   (score 3 552) et n'était proposée à AUCUN cran, parce que
+  //   `fl+ma1+mab` (3 684) tenait le siège avec une étape de moins.
+  //
+  //   L'auteur a demandé les deux — « une approche addition uniquement, EN PLUS
+  //   de `mab`, pas à la place » —, et le lecteur a le droit de voir laquelle
+  //   il préfère. On réserve donc un second siège à la meilleure voie sans
+  //   perte dont aucune étape n'emploie l'absorption : elle ne passe que par
+  //   des sommes et des racines, quitte à y mettre une étape de plus.
+  const elus = [];
   {
     const exactement = (c) => {
       const v = c.etats[c.etats.length - 1].valeur;
@@ -988,16 +1005,33 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
       .sort((a, b) => (caracteresLus(b, texte) - caracteresLus(a, texte))
         || (nbFicelles(a) - nbFicelles(b))
         || (a.ops.length - b.ops.length) || comparerChemins(a, b));
-    if (sansPerte.length) {
-      elu = sansPerte[0];
-      const fenetre = Math.max(1, Math.floor(plafond / 2));
-      const deja = tete.indexOf(elu);
-      if (deja < 0 || deja >= fenetre) {
-        if (deja >= 0) tete.splice(deja, 1);
-        tete.splice(Math.min(fenetre - 1, tete.length), 0, elu);
-        if (tete.length > plafond) tete.length = plafond;
-      }
-    }
+    // Le meilleur toutes méthodes, puis le meilleur qui n'absorbe que par
+    // additions — le second n'est retenu que s'il diffère du premier.
+    // ⚠️ **ET SANS AUCUNE FICELLE.** Le second siège cherche la voie « addition
+    //   uniquement » ; une ficelle qui absorbe — `mad` — n'en est pas une, et
+    //   le tri par caractères lus la faisait passer devant. Mesuré sur
+    //   « Macron » : `fatb+tca+mms+mad` prenait la 1ʳᵉ place, et le garde-fou
+    //   des quatre cas de référence rougissait à bon droit.
+    //   ⚠️ Sur les VRAIES ficelles du barème (`FICELLES`), et non sur
+    //     `nbFicelles` — qui compte `A_MERITER_SA_PLACE`, où le redécoupage
+    //     exact figure lui aussi : s'en servir ici excluait précisément la voie
+    //     qu'on cherche.
+    const additive = sansPerte.find((c) => !c.ops.some((o) => o && o.id
+      && (o.id === 'm.absorption' || Object.prototype.hasOwnProperty.call(FICELLES, o.id))));
+    for (const c of [sansPerte[0], additive]) if (c && !elus.includes(c)) elus.push(c);
+    // ⚠️ Les places visées sont les DERNIÈRES de la première moitié, et jamais
+    //   négatives : sur une liste courte (`plafond` à deux), `fenetre - 1 - rang`
+    //   passait sous zéro et `splice` insérait alors depuis la FIN — la voie
+    //   sans perte de `hope` disparaissait au lieu d'être posée.
+    const fenetre = Math.max(1, Math.floor(plafond / 2));
+    elus.forEach((c, rang) => {
+      const deja = tete.indexOf(c);
+      if (deja >= 0 && deja < fenetre) return;
+      if (deja >= 0) tete.splice(deja, 1);
+      const place = Math.max(0, Math.min(fenetre - 1 - rang, tete.length));
+      tete.splice(place, 0, c);
+      if (tete.length > plafond) tete.length = plafond;
+    });
   }
   const mesureDe = (c) => {
     const fin = c.etats[c.etats.length - 1];
@@ -1013,7 +1047,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   const finaux = [];
   const vusCan = new Set();
   for (const c of tete) {
-    if (c !== elu && !apporteQuelqueChose(c)) continue;
+    if (!elus.includes(c) && !apporteQuelqueChose(c)) continue;
     const n = normaliserChemin(c);
     const cle = cleTrace(n);
     if (vusCan.has(cle)) continue;

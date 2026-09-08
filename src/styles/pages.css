@@ -549,7 +549,9 @@
    la part en pour-cent. « simplicité : 957 [P] 40 % » (l'auteur). Le picto est
    dessiné en ligne, à la taille du texte, et hérite de sa couleur. */
 .voie__score-poids { display: inline-flex; align-items: baseline; gap: .25em; opacity: .72; font-variant-numeric: tabular-nums; }
-.voie__score-leste { width: .8em; height: .8em; align-self: center; fill: currentColor; }
+/* ★ 0,95 em et non 0,8 : à la taille du texte, la silhouette du poids se
+   lit ; en dessous, l'anneau se referme et le picto devient une tache. */
+.voie__score-leste { width: .95em; height: .95em; align-self: center; fill: currentColor; flex: none; }
 
 .voie__pied {
   display: flex;

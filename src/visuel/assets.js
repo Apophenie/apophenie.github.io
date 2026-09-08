@@ -458,6 +458,9 @@ export function keyboardValue(key, mesure) {
   switch (mesure) {
     case 'colonne': return key.colonne;
     case 'rangee': return key.rangee === 0 ? null : key.rangee;
+    // ★ Chiffres compris : la rangée des chiffres vaut 1, les lettres 2, 3, 4 —
+    //   la convention de `maz4` et `mqw4` (`clavier:4rangees`).
+    case 'rangee4': return key.rangee + 1;
     default: return key.rangee === 0 && key.digit !== null ? Number(key.digit) : null;
   }
 }

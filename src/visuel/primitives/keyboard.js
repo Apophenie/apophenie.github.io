@@ -25,6 +25,7 @@
  * | `'touche'`  | une touche              | le chiffre de la touche     |
  * | `'colonne'` | toute la colonne        | **l'index de la réglette**  |
  * | `'rangee'`  | toute la rangée         | le numéro en marge          |
+ * | `'rangee4'` | toute la rangée         | le numéro, chiffres compris |
  *
  * ★ Le piège de la colonne. Le `p` est en **colonne 10** alors que la touche
  * au-dessus de lui porte `0`. Faire descendre le label de la touche du dessus
@@ -34,6 +35,16 @@
  *
  * ★ La rangée se montre **sans** la rangée de chiffres : la mesure vaut 1, 2 ou
  * 3, et afficher une quatrième rangée au-dessus laisserait croire qu'elle compte.
+ *
+ * ★ **SAUF POUR `'rangee4'`, OÙ ELLE COMPTE JUSTEMENT** — `maz4` et `mqw4`
+ *   annoncent « 1 pour les chiffres, puis 2, 3, 4 en descendant », et le
+ *   clavier doit donc la MONTRER. Sans cette mesure, ces deux opérateurs
+ *   émettaient `'rangee'`, la primitive lisait la rangée des lettres, et le
+ *   contrôle croisé refusait la voie : « `to.text` annonce 3, mais le clavier
+ *   montre 1 ». Le refus était juste — deux conventions se disputaient le même
+ *   mot —, et il est resté invisible tant que ces voies n'atteignaient pas les
+ *   listes. Elles y entrent depuis que la voie sans perte a son siège
+ *   (`assemblage.js › vecteursDeSix`), et le bug avec elles.
  *
  * ## Contrôle croisé
  *
@@ -63,8 +74,8 @@ import { bboxOf } from '../layout.js';
 
 export const name = 'keyboard';
 
-/** Les trois mesures — vocabulaire fermé. */
-export const MESURES = Object.freeze(['touche', 'colonne', 'rangee']);
+/** Les quatre mesures — vocabulaire fermé. */
+export const MESURES = Object.freeze(['touche', 'colonne', 'rangee', 'rangee4']);
 
 /** Marge verticale laissée libre par la caméra, en unités viewBox. */
 const PAD = 36;
@@ -91,6 +102,8 @@ export function plan(ctx) {
 
   const layout = normalizeLayout(ctx.op.layout);
   // La rangée de chiffres est retirée quand c'est la RANGÉE qu'on mesure.
+  // `rangee` cache la rangée des chiffres, `rangee4` la montre : c'est elle
+  // qui porte le 1 de sa numérotation.
   const rows = mesure === 'rangee' ? 'lettres' : 'toutes';
   const geo = keyboardGeometry({ layout, rows });
   const label = ctx.op.key ?? src.text;
@@ -214,7 +227,10 @@ export function plan(ctx) {
   if (replier) replierDecor(ctx, board, fin);
 }
 
-const DIT = Object.freeze({ touche: 'le chiffre', colonne: 'la colonne', rangee: 'la rangée' });
+const DIT = Object.freeze({
+  touche: 'le chiffre', colonne: 'la colonne', rangee: 'la rangée',
+  rangee4: 'la rangée, chiffres compris',
+});
 
 /**
  * L'identité du décor — le DESSIN, et le nom sous lequel il est annoncé.
