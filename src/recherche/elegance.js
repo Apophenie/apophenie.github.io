@@ -2893,9 +2893,18 @@ export function motsAbandonnes(approche, ctx) {
     }
   }
   const justifiees = classesJustifiees(mots, abandonne);
-  // Les caractères abandonnés, rangés selon ce qu'ils forment : un mot outil
-  // dont la règle est tenue, un mot outil dont elle ne l'est pas, un mot plein.
-  const compte = { regleTenue: 0, regleRompue: 0, motPlein: 0, classes: [...justifiees].sort() };
+  /* Les caractères abandonnés, rangés selon ce qu'ils forment : un mot outil
+     dont la règle est tenue, un mot outil dont elle ne l'est pas, un mot plein.
+
+     ⚠️ **TROIS ENTIERS, ET RIEN D'AUTRE.** Une première version publiait aussi
+       la liste des classes justifiées — un tableau de chaînes — dans le bilan.
+       `elegance.test.js › tout ce que l'élégance produit est ENTIER` l'a
+       refusée, et il a raison : le bilan est ce que le score consomme, et §4.4
+       veut que tout y soit entier, donc comparable et reproductible sans
+       arrondi. Les classes se recalculent quand on aura à les NOMMER à l'écran
+       (`classesJustifiees` est pur et rapide) ; elles n'ont rien à faire dans
+       un relevé de points. */
+  const compte = { regleTenue: 0, regleRompue: 0, motPlein: 0 };
   for (let i = 0; i < mots.length; i++) {
     if (!abandonne[i]) continue;
     const cl = classeDuMot(mots[i]);
@@ -3280,7 +3289,9 @@ export function bilanApproche(approche, ctx = {}) {
   }
 
   b.abandons = abandons(approche, ctx);
-  b.motsAbandonnes = motsAbandonnes(approche, ctx);
+  // Versés DANS `abandons`, qui est la seule poche du bilan à porter un objet —
+  // et le test du déterminisme la connaît nommément.
+  Object.assign(b.abandons, motsAbandonnes(approche, ctx));
   // La cible voyage avec le bilan : `detailDuCredit` en a besoin, et elle doit
   // y arriver par le bilan plutôt que par un second argument — deux chemins
   // pour une même valeur, c'est deux occasions de diverger.

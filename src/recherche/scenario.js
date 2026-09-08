@@ -1371,6 +1371,14 @@ export function suivreLaLigne(tokens, steps) {
           // pour ce qui n'appartient à aucun groupe. La frontière du tout
           // premier jeton de la ligne est remise à zéro là-bas : elle
           // n'espacerait rien, elle décentrerait tout.
+          //
+          // ⚠️ **SAUF MUETTE : elle n'écarte alors RIEN.** `visible: false` ne
+          //   pose que les groupes — pas d'accolade, pas de `gapBefore`, pas de
+          //   reflow. Ce rejeu MODÉLISE le geste visuel ; continuer d'y déclarer
+          //   des frontières inventerait un écart que la scène ne trace pas, et
+          //   c'est exactement ce que `integration-visuel.test.js` a attrapé :
+          //   cinq frontières annoncées ici contre zéro à l'écran.
+          if (o.visible === false) break;
           for (const g of o.groups || []) {
             const cibles = ids(g && g.targets);
             if (!cibles || !cibles.length) { perdu = true; break; }

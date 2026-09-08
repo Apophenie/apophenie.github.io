@@ -269,7 +269,7 @@ export function axesDe(a) {
       //   écarté : « ignorer un mot sur deux est inacceptable » ne souffre pas
       //   qu'on le justifie après coup. La règle allège la lettre éparse et le
       //   bloc court — le `.fr` —, pas le mot.
-      const ma = R.PRIX_MOT_OUTIL !== null ? a.bilan && a.bilan.motsAbandonnes : null;
+      const ma = R.PRIX_MOT_OUTIL !== null && ab.regleTenue !== undefined ? ab : null;
       // Les mots entiers : soit ventilés par leur NATURE quand on sait la lire,
       // soit au prix du mot ignoré comme avant. Les deux comptes portent sur la
       // même matière — un caractère est dans un mot entièrement abandonné, ou

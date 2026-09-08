@@ -1506,12 +1506,33 @@ test('★ cornes — la scène ne couronne rien que le bilan n’ait compté', (
       assert.ok(series >= jalons.couronnements.length,
         `« ${s} » ${a.codes} : ${jalons.couronnements.length} couronnements pour `
         + `${series} séries annoncées`);
-      // Et sur une portée unique, l'égalité est EXACTE — les deux champs du
-      // bilan mis bout à bout. La moisson en est dispensée : voir l'en-tête.
+      /* ⚠️ **L'ÉGALITÉ ÉTAIT EXACTE, ELLE EST DEVENUE UNE INÉGALITÉ** — et le
+           sens de l'inégalité est tout ce qui compte.
+
+         Les calculs se montrent désormais EN LARGEUR : on fait ce qui part des
+         chiffres de départ sur tous les paquets, puis ce qui dépend du premier
+         niveau (`mappeurs.js › passesEnLargeur`, à la demande de l'auteur). Un
+         trio qui se complétait au milieu de la démonstration peut donc se
+         compléter à la DERNIÈRE étape de calcul — et là, `jalonsDesCornes`
+         refuse de le couronner, pour une raison qui n'a rien d'accidentel :
+
+         > « Un couronnement anticipé n'a de sens que s'il anticipe quelque
+         >   chose. Posé entre la dernière étape de calcul et le verdict, il ne
+         >   devance plus rien. » (`scenario.js`, d'après l'auteur)
+
+         Mesuré sur « Donald Trump » `2:fr15;fl+tca+masc+mab` : douze 6, quatre
+         triptyques au bilan, trois couronnés — le quatrième se complète au
+         dernier calcul, et c'est le verdict qui le montre.
+
+         Ce que ce test défend n'a pas bougé, et c'est son titre : la scène ne
+         couronne RIEN que le bilan n'ait compté. L'inverse — le bilan compte
+         plus que la scène ne couronne — n'est pas un mensonge : c'est le
+         verdict qui prend le relais. */
       if (a.parts.length === 1) {
-        assert.equal(a.bilan.triptyquesContigus + (a.bilan.triptyquesRepetes || 0),
-          jalons.couronnements.length,
-          `« ${s} » ${a.codes} : le bilan et la scène ne comptent pas la même chose`);
+        assert.ok(a.bilan.triptyquesContigus + (a.bilan.triptyquesRepetes || 0)
+          >= jalons.couronnements.length,
+          `« ${s} » ${a.codes} : la scène couronne ${jalons.couronnements.length} trios `
+          + `pour ${a.bilan.triptyquesContigus + (a.bilan.triptyquesRepetes || 0)} au bilan`);
       }
     }
   }

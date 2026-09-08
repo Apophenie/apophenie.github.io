@@ -777,17 +777,45 @@ test('★ NON-RÉGRESSION — une cible homogène ne connaît PAS la moisson de 
  *   dans l'ordre. Trente caractères y suffisent. Améliorer `mad` ou `mrd` ne
  *   changerait rien à cette arithmétique-là.
  */
+/* ⚠️ **CE TEST INTERROGEAIT `1998`, IL INTERROGE MAINTENANT `999`** — et le
+     déplacement dit quelque chose du moteur, pas du test.
+
+   > « Il faudrait je pense purement interdire les suppressions arbitraires en
+   >   fin de chemin. Soit il y a une manière élégante d'élaguer ou mieux,
+   >   fusionner, soit la voie ne marche pas. » (l'auteur)
+
+   `mrd` MAXIMISE : il écrit le plus de chiffres de la cible possible et laisse
+   le reste sur la ligne. Sur une cible HÉTÉROGÈNE, ce reste est jeté au tri,
+   donc `elegance.js › elagueALaFin` le refuse — et `mrd` disparaît de toutes
+   les cibles hétérogènes, `1998` comprise. Ce n'est pas une régression, c'est
+   la règle demandée, appliquée jusqu'au bout.
+
+   Ce que ce test voulait établir reste vrai et se vérifie ailleurs : ces deux
+   opérateurs ne sont pas réservés à 666. Mesuré sur « Sarah Kerrigan » —
+   `111` : 5 voies par `mrd` ; `999` : 3 par `mrd` et 2 par `mad` ; `444` sur
+   « Millicent » : 1 par `mrd`. Une cible sans le moindre 6, et ils y sont
+   partout. */
 test('★ témoin Kerrigan — `mad` et `mrd` servent des cibles qui n’ont rien de 666', () => {
-  const r = moteur.resoudre('Sarah Kerrigan', { cible: '1998' });
-  assert.ok(r.approches.length >= 4, `${r.approches.length} voies vers 1998`);
+  const r = moteur.resoudre('Sarah Kerrigan', { cible: '999' });
+  assert.ok(r.approches.length >= 4, `${r.approches.length} voies vers 999`);
   const emploie = (code) => r.approches.filter(
     (a) => new RegExp(`(^|[+,;:])${code}([+,;]|$)`).test(a.codes)).length;
-  // La cible `1998` ne contient aucun 6 : si ces deux-là ne savaient viser que
-  // lui, ils seraient absents. Ils sont au contraire majoritaires.
-  assert.ok(emploie('mrd') >= 1, '`mrd` ne sert aucune voie vers 1998');
+  // La cible `999` ne contient aucun 6 : si ces deux-là ne savaient viser que
+  // lui, ils seraient absents. Ils sont au contraire nombreux.
+  assert.ok(emploie('mrd') >= 1, '`mrd` ne sert aucune voie vers 999');
   assert.ok(emploie('mrd') + emploie('mad') >= 2,
-    '`mad` et `mrd` réunis ne servent qu’une voie vers 1998');
-  for (const a of r.approches) assert.equal(a.cible.texte, '1998');
+    '`mad` et `mrd` réunis ne servent qu’une voie vers 999');
+  for (const a of r.approches) assert.equal(a.cible.texte, '999');
+
+  // ★ Et sur une cible HÉTÉROGÈNE, ils ne servent plus : le refus des
+  //   suppressions en fin de chemin les écarte, puisqu'ils laissent un reliquat.
+  //   La liste ne se vide pas pour autant — l'absorption prend la place.
+  const het = moteur.resoudre('Sarah Kerrigan', { cible: '1998' });
+  assert.ok(het.approches.length >= 4, `${het.approches.length} voies vers 1998`);
+  for (const a of het.approches) {
+    assert.equal((a.bilan && a.bilan.jeteesAuTri) || 0, 0,
+      `${a.codes} jette du surplus sur une cible hétérogène`);
+  }
 });
 
 /**

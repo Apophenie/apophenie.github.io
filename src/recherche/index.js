@@ -371,11 +371,18 @@ export function creerMoteur(catalogue, options = {}) {
     // Un rapport par millième : au-delà, on poste des messages que la barre ne
     // peut pas distinguer.
     let dernierMillieme = -1;
+    let dernierePhase = null;
     const publier = canal ? (avancement) => {
       const a = marquer(avancement);
-      const m = Math.floor(a.fraction * 1000);
-      if (m <= dernierMillieme) return;
-      dernierMillieme = m;
+      const m = Math.round(a.fraction * 1000);
+      // ★ **UN CHANGEMENT DE PHASE PASSE TOUJOURS**, même sans gain de fraction.
+      //   « Idéalement qu'elle indique sommairement ce qu'elle fait » : passer
+      //   de l'assemblage au classement EST une information, et la retenir au
+      //   motif que la barre n'avance pas laissait la jauge annoncer
+      //   « assemblage des voies » jusqu'au dernier instant.
+      if (m <= dernierMillieme && a.phase === dernierePhase) return;
+      dernierMillieme = Math.max(dernierMillieme, m);
+      dernierePhase = a.phase;
       canal(a);
     } : null;
     const ordre = ordreDeRecherche(frags);
@@ -1285,8 +1292,15 @@ export function avancementDe(compte) {
     ? Math.min(1, Math.max(0, compte.part))
     : Math.min(1, Math.max(0, parFragments, parTravail));
   const phase = compte.phase || 'fragments';
-  const fraction = Math.min(1, seuilDeLaPhase(phase) + (POIDS_DES_PHASES[phase] ?? 0) * locale / 100);
-  return { ...compte, phase, fraction };
+  /* ⚠️ **EN MILLIÈMES ENTIERS, PUIS UNE SEULE DIVISION.** §4.4 veut de
+     l'arithmétique entière, et ce n'est pas une coquetterie : `0,9 × 0,48` rend
+     `0,43200000000000005` ou `0,432` selon l'ordre où on multiplie, et deux
+     chemins qui devraient donner la même jauge donnaient deux nombres
+     différents. Le millième est la précision utile — la barre s'affiche au
+     pour-cent — et il est exact. */
+  const mille = Math.min(1000, Math.round(seuilDeLaPhase(phase) * 1000)
+    + Math.round((POIDS_DES_PHASES[phase] ?? 0) * locale * 10));
+  return { ...compte, phase, fraction: mille / 1000 };
 }
 
 /**

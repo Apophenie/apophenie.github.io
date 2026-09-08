@@ -1478,19 +1478,35 @@ test('★ `mrdE` — le redécoupage exact ne laisse rien, ou ne fait rien', () 
   assert.equal(op.viser('000'), null, 'viser 000 n’a pas de sens : des sommes ne font pas des zéros');
   assert.equal(op.viser('666'), op, 'le repli sur 666 est l’identité');
 
-  // ── la mise en scène : la découpe, puis une étape par addition
+  /* ── la mise en scène : une étape par addition, le découpage MUET en tête
+
+     ⚠️ **LA DÉCOUPE N'A PLUS D'ÉTAPE À ELLE**, et c'est une consigne :
+
+     > « Plutôt que de pré-découper visuellement et d'afficher les accolades
+     >   pour chaque segment, ne fais la découpe visuelle que sur le moment de
+     >   l'opération impliquant ces chiffres. »
+     > « `partition` n'a que l'affichage à changer : ça devient une étape
+     >   invisible, mais techniquement elle fait la même chose. » (l'auteur)
+
+     Le partitionnement demeure — il pose les groupes, c'est de la structure —
+     mais il se glisse en tête du premier calcul de sa passe, avec
+     `visible: false`. Le gel porte donc sur DEUX étapes au lieu de quatre, et
+     l'op `partition` ouvre chacune d'elles. Ce qui n'a pas bougé : une étape
+     par addition, et la seconde passe qui se nomme. */
   const entree = N([5, 8, 7, 1]);
   const vise = op.viser('66');
   const apres = appliquer(vise, entree);
   const ctx = { ids: ['t0', 't1', 't2', 't3'], cle: 'e0', langue: 'fr' };
   const steps = etapes(vise, entree, apres, ctx);
   assert.deepEqual(steps.map((s) => s.ops.map((o) => o.op)), [
-    ['partition'], ['insertOperators', 'sum', 'substitute'],
-    ['partition'], ['insertOperators', 'sum'],
-  ], 'deux passes : découpe, addition écrite chiffre à chiffre ; découpe, addition');
+    ['partition', 'insertOperators', 'sum', 'substitute'],
+    ['partition', 'insertOperators', 'sum'],
+  ], 'deux passes, une étape par addition, le découpage en tête de chacune');
+  assert.ok(steps.every((x) => x.ops[0].op !== 'partition' || x.ops[0].visible === false),
+    'le découpage est MUET : il ne trace rien, il pose les groupes');
   assert.deepEqual(steps.map((s) => s.caption),
-    ['5 8 7 1 → 5 · 871', '8 + 7 + 1 = 16 → 1 6', '5 1 6 → 51 · 6', '5 + 1 = 6']);
-  assert.ok(steps[2].title.includes('seconde passe'), 'la seconde passe se nomme');
+    ['8 + 7 + 1 = 16 → 1 6', '5 + 1 = 6']);
+  assert.ok(steps[1].title.includes('seconde passe'), 'la seconde passe se nomme');
   assert.deepEqual(vise.sortie(entree, apres, ctx), ['e0q1s0', 'e0q0s1x1'],
     'le 6 de gauche naît en seconde passe, celui de droite est l’unité du 16');
   // ── et la racine se montre par un `reduce`, comme `mrn`

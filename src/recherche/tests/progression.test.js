@@ -16,7 +16,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { creerMoteur, creerCanal, avancementDe } from '../index.js';
+import { creerMoteur, creerCanal, avancementDe, POIDS_DES_PHASES } from '../index.js';
 import { deroulerParTranches, rendreLaMain } from '../tranches.js';
 import { installerTravailleur, dansUnTravailleur } from '../travailleur.js';
 import { catalogue } from './_catalogue.js';
@@ -54,24 +54,46 @@ test('progressif — une saisie vide ou trop longue rend la main sans jamais s�
 
 /* ═══════════════════ 2. L'avancement ne ment pas ════════════════════════ */
 
-test('avancementDe — le maximum des deux rapports, borné à 1', () => {
+/* ★ **LA FRACTION COUVRE TOUTE LA RECHERCHE, PLUS SEULEMENT LES FRAGMENTS.**
+
+   > « Maintenant que la recherche prend plus de temps, la barre de progression
+   >   en 3 étapes n'est plus assez précise. » (l'auteur)
+
+   Ce test gelait un contrat où `fraction` valait la part des fragments cherchés,
+   et rien d'autre. Il était juste, et il cachait le vrai défaut : mesuré,
+   l'assemblage pèse 37 à 60 % du temps et n'émettait rien — la jauge finissait
+   sa course sur les fragments puis restait figée la moitié de l'attente.
+
+   `fraction` rapporte désormais l'avancement aux TROIS phases, pondérées par
+   leur coût relevé (`index.js › POIDS_DES_PHASES`, 48 / 50 / 2). Ce qui n'a pas
+   changé, et que ce test continue de tenir : à l'intérieur d'une phase, c'est
+   le maximum des deux rapports qui décide, et rien ne sort de [0, 1]. */
+test('avancementDe — le maximum des deux rapports, dans la part de sa phase', () => {
+  const P = POIDS_DES_PHASES.fragments / 100;
   // Sur une saisie courte, ce sont les FRAGMENTS qui décident.
   assert.equal(avancementDe({
     fragments: 1, fragmentsTotal: 2, travail: 1000, travailTotal: 1000000,
-  }).fraction, 0.5);
+  }).fraction, 0.5 * P);
   // Sur une saisie longue, c'est le TRAVAIL qui approche sa borne en premier —
   // et la jauge doit le dire, sinon elle irait tranquillement jusqu'à 20 % puis
   // sauterait à la fin.
   assert.equal(avancementDe({
     fragments: 4, fragmentsTotal: 20, travail: 900000, travailTotal: 1000000,
-  }).fraction, 0.9);
-  // Jamais au-delà de 1, même si une borne est dépassée.
+  }).fraction, 0.9 * P);
+  // Jamais au-delà de sa phase, même si une borne est dépassée.
   assert.equal(avancementDe({
     fragments: 3, fragmentsTotal: 2, travail: 2000000, travailTotal: 1000000,
-  }).fraction, 1);
+  }).fraction, P);
   // Un dénominateur nul ne produit ni NaN ni Infinity.
   const nul = avancementDe({ fragments: 0, fragmentsTotal: 0, travail: 0, travailTotal: 0 });
-  assert.equal(nul.fraction, 1);
+  assert.equal(nul.fraction, P);
+  // ★ Une phase déclarée part de sa propre marche, et `part` prime sur le compte.
+  assert.equal(avancementDe({ phase: 'assemblage', part: 0 }).fraction, P);
+  assert.equal(avancementDe({ phase: 'assemblage', part: 1 }).fraction,
+    P + POIDS_DES_PHASES.assemblage / 100);
+  // ★ Et l'ordre des phases est un ordre : la dernière ne recule pas sur l'avant-dernière.
+  assert.ok(avancementDe({ phase: 'classement', part: 0 }).fraction
+    >= avancementDe({ phase: 'assemblage', part: 1 }).fraction);
 });
 
 test('progressif — l’avancement croît, reste dans [0, 1] et compte de vrais fragments', async () => {
@@ -84,19 +106,30 @@ test('progressif — l’avancement croît, reste dans [0, 1] et compte de vrais
     // c'est le pire cas de découpe, donc celui qu'il faut vérifier.
     trancheMs: 0,
   });
+  // ★ Bien plus de trois paliers désormais : la recherche rapporte aussi PENDANT
+  //   un fragment et pendant l'assemblage. Mesuré : de 15 à 40 par recherche,
+  //   contre trois avant.
   assert.ok(releves.length >= 3, `attendu plusieurs paliers, reçu ${releves.length}`);
   let precedent = -1;
   for (const a of releves) {
     assert.ok(a.fraction >= precedent, `la jauge recule : ${precedent} → ${a.fraction}`);
     assert.ok(a.fraction >= 0 && a.fraction <= 1, `fraction hors bornes : ${a.fraction}`);
-    assert.ok(a.fragments >= 1 && a.fragments <= a.fragmentsTotal,
+    // ⚠️ `fragments` peut valoir zéro : un rapport émis PENDANT la recherche du
+    //   premier fragment ne peut pas prétendre en avoir fini un. Ce qu'on exige,
+    //   c'est qu'il ne dépasse jamais son total.
+    assert.ok(a.fragments >= 0 && a.fragments <= a.fragmentsTotal,
       `${a.fragments} fragments sur ${a.fragmentsTotal}`);
     precedent = a.fraction;
   }
   const dernier = releves[releves.length - 1];
-  assert.equal(dernier.fragments, dernier.fragmentsTotal,
-    'tous les fragments annoncés ont été cherchés : la jauge doit finir pleine');
-  assert.equal(dernier.fraction, 1);
+  assert.equal(dernier.phase, 'classement',
+    'le dernier rapport est celui du classement : les fragments et l’assemblage sont finis');
+  // ★ **ET IL NE VAUT PAS 1.** La barre se remplit à la fin par `achever()`
+  //   (`app/jauge-recherche.js`), pas par un rapport : tant que le moteur parle,
+  //   c'est qu'il travaille encore. Un rapport à 100 % serait le mensonge que la
+  //   section suivante interdit.
+  assert.ok(dernier.fraction < 1, `le dernier rapport annonce ${dernier.fraction}`);
+  assert.ok(dernier.fraction > 0.9, `et il est tout de même presque au bout : ${dernier.fraction}`);
 });
 
 test('progressif — la jauge n’atteint 100 % qu’au dernier fragment, jamais avant', async () => {
@@ -109,9 +142,14 @@ test('progressif — la jauge n’atteint 100 % qu’au dernier fragment, jamais
   await m.resoudreProgressif('La numérologie est une science exacte, disent-ils', {
     filetTemporel: false, surAvancement: (a) => releves.push(a), trancheMs: 0,
   });
+  // ★ Le contrat s'est DURCI : aucun rapport ne vaut 1, pas même le dernier.
+  //   La barre n'est remplie que par `achever()`, quand il n'y a plus rien à
+  //   faire — voir le test précédent.
   const pleins = releves.filter((a) => a.fraction >= 1);
-  assert.equal(pleins.length, 1, `la jauge est restée pleine ${pleins.length} paliers durant`);
-  assert.equal(pleins[0], releves[releves.length - 1]);
+  assert.equal(pleins.length, 0, `${pleins.length} rapports annoncent une jauge pleine`);
+  // Et le dernier reste le plus haut : la progression est monotone jusqu'au bout.
+  const maxi = Math.max(...releves.map((a) => a.fraction));
+  assert.equal(releves[releves.length - 1].fraction, maxi);
 });
 
 test('progressif — le total annoncé ne compte pas deux fois le même fragment', async () => {

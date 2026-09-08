@@ -448,6 +448,18 @@ export const fr = {
     label: 'Avancement de la recherche',
     demarrage: 'Recherche en cours…',
     etat: '{pourcent} % — fragment {faits} sur {total}',
+    // ★ Ce que la jauge dit depuis qu'elle sait NOMMER ce qu'elle fait.
+    //   L'espace avant le pour-cent est une FINE INSÉCABLE, comme partout
+    //   ailleurs dans ce fichier : c'est la typographie française, et un
+    //   pour-cent qui passe à la ligne tout seul se remarque.
+    etatPhase: '{pourcent} % — {phase} · {ecoule} écoulées, {restant} restantes',
+    etatPhaseSansReste: '{pourcent} % — {phase} · {ecoule} écoulées',
+    phases: {
+      fragments: 'lecture des morceaux',
+      assemblage: 'assemblage des voies',
+      classement: 'classement des résultats',
+    },
+    secondes: '{n} s',
     termine: 'Recherche terminée.',
   },
 
