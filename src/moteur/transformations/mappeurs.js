@@ -897,6 +897,12 @@ const LIB_REDECOUPAGE = bilingue(
   'On redécoupe en paquets qui tombent sur 6',
   'Recut into packets that land on 6',
 );
+// ★ Le redécoupage EXACT (`mrdE`) : la ligne entière se fond dans la cible.
+const LIB_REDECOUPAGE_EXACT = bilingue(
+  'On fond les intrus dans la cible, sans rien perdre',
+  'Melt the intruders into the target, losing nothing',
+);
+const LIB_SECONDE_PASSE = bilingue(' (seconde passe)', ' (second pass)');
 const LIB_EN_LETTRES = bilingue(
   'On écrit le chiffre en toutes lettres',
   'Write the digit out in French words',
@@ -1516,6 +1522,452 @@ const idsPaquet = (plan, ctx, p, j) => (p.fin - p.debut < 2
 /** Le jeton où la SOMME d'un paquet atterrit, avant de s'écrire chiffre à chiffre. */
 const idSomme = (plan, ctx, p, j) => (p.sortie.length < 2
   ? idsPaquet(plan, ctx, p, j)[0] : `${ctx.cle}t${j}`);
+
+
+// ───────────────────────────────────────────────────────────────────────────
+// ★ LE REDÉCOUPAGE EXACT — toute la ligne, rien de perdu, la cible et rien
+//   d'autre (`mrdE`)
+// ───────────────────────────────────────────────────────────────────────────
+//
+// > « Je voudrais que tu retravailles `mrd` (ou que tu en fasses une variante)
+// >   avec pour objectif d'obtenir non pas approximativement l'objectif mais
+// >   précisément l'objectif — donc d'additionner les autres chiffres autant de
+// >   fois que nécessaire pour les dissoudre dans l'existant. […] Malus de
+// >   simplicité, bonus d'exhaustivité. » (l'auteur)
+//
+// `mrd` MAXIMISE : il écrit le plus de chiffres de la cible possible et laisse
+// le reste sur la ligne, que le verdict jette ensuite — « une phase de
+// suppression des encombrants qui fait perdre toute crédibilité ». Celui-ci
+// EXIGE : son plan couvre toute la ligne et rend la cible, dans l'ordre, sans
+// un chiffre de plus. Quand c'est impossible, il rend `null` — jamais « presque
+// la cible ».
+//
+// ── Les trois leviers, et ce que chacun permet ──────────────────────────────
+//
+//  1. **le paquet remplacé par sa somme** (comme `mrd`) : `5 + 1 → 6`, et une
+//     somme qui déborde s'écrit chiffre à chiffre — `7 + 8 = 15 → « 1 5 »` ;
+//  2. **la racine numérique d'un paquet dont la somme dépasse neuf** (comme
+//     `mrn`) : `9 + 3 + 3 = 15 → 1 + 5 → 6`. C'est ce qui rend `d + 9k → d` :
+//     un chiffre de la cible peut ABSORBER des intrus dont la somme est un
+//     multiple de neuf, et ressortir intact — « réutiliser les chiffres de la
+//     cible du moment qu'on les restitue en ayant absorbé les intrus » ;
+//  3. **plusieurs passes** : quand une passe ne suffit pas, le résultat de la
+//     première est redécoupé par une seconde. Chaque passe est une découpe et
+//     des additions montrées — c'est le malus de simplicité voulu.
+//
+// ── Ce que le multi-passes permet EXACTEMENT ────────────────────────────────
+//
+//  · **fondre des intrus entre eux avant de les fondre dans la cible** : un
+//    paquet de six est le plus large qu'on sache lire (`PAQUET_MAX`) ; douze
+//    intrus autour d'un chiffre se fondent en deux racines à la première passe,
+//    puis dans le chiffre à la seconde ;
+//  · **partager une somme entre deux voisins** : `5 8 7 1` ne s'écrit pas `6 6`
+//    en une passe (aucune coupe ne tombe juste), mais `8 + 7 = 15 → « 1 5 »` à
+//    la première passe, puis `5 + 1 → 6` et `5 + 1 → 6` à la seconde. Le
+//    « 1 » sert au 6 de gauche, le « 5 » à celui de droite.
+//
+// ── Quand c'est impossible, et pourquoi c'est SÛR ───────────────────────────
+//
+//  ★ **L'invariant modulo neuf.** Remplacer un paquet par sa somme, l'écrire
+//    chiffre à chiffre, la réduire à sa racine : les trois gestes conservent la
+//    somme des chiffres de la ligne MODULO NEUF. Aucune suite de passes ne peut
+//    donc écrire une cible dont la somme n'est pas congrue à celle de la ligne.
+//    Le « reliquat » (`somme − somme de la cible`, mod 9) doit être nul — et
+//    c'est ce que l'opérateur vérifie AVANT de chercher : huit lignes sur neuf
+//    sont refusées en un calcul. Avec la clause du demi-tour, un 6 attendu se
+//    contente aussi d'une somme ≡ 0 (un 9, que `mr9` retournera) : le reliquat
+//    tolère alors les multiples de trois sur `666`.
+//  · **Trop court** : chaque chiffre de la cible consomme au moins un chiffre
+//    de la ligne. Une ligne de deux chiffres n'écrit jamais `111`.
+//  · **Trop large** : un chiffre de la cible absorbe au plus douze voisins
+//    (`CONTENU_EXACT_MAX`), soit deux passes de six ; un paquet partagé ne
+//    dépasse pas six ; la ligne ne dépasse pas trente-six chiffres
+//    (`CHIFFRES_REDECOUPE_MAX`). Au-delà, refus — le plan n'est pas cherché.
+//  · **Le zéro** : un 0 de la cible ne naît que de zéros, puisqu'une somme de
+//    chiffres n'est nulle que si tous le sont.
+//
+// Tout ce qui DÉCIDE est calculé ici, une fois, et relu par `apply`, `sortie`,
+// `additions` et `steps` (CONTRACTS §0.3). Le plan est mémoïsé par ligne et par
+// cible : la recherche appelle `apply` sur chaque état `NUMS` rencontré.
+
+/** Un chiffre de la cible absorbe au plus douze voisins — deux passes de six. */
+const CONTENU_EXACT_MAX = 12;
+
+/** La racine numérique — 0 reste 0, sinon `1 + (n − 1) mod 9`. */
+const racineNumerique = (n) => (n === 0 ? 0 : 1 + ((n - 1) % 9));
+
+/** L'état « rien ne pend » de la programmation dynamique. */
+const RIEN = -1;
+
+/**
+ * Les résidus modulo neuf qu'une suite de `m` cibles peut totaliser.
+ *
+ * Un chiffre attendu `t` vaut `t` — ou 0 quand c'est un 6 et que le demi-tour
+ * est de mise (un 9 posé à sa place). Les résidus d'une série sont la somme
+ * de ces choix ; ceux de `m` séries, la somme de `m` séries.
+ */
+function residusDesSeries(suite, parDemiTour, m) {
+  let serie = new Set([0]);
+  for (const t of suite) {
+    const suivant = new Set();
+    for (const r of serie) {
+      suivant.add((r + t) % 9);
+      if (parDemiTour && t === SIX_RETOURNE) suivant.add(r % 9);
+    }
+    serie = suivant;
+  }
+  const out = [];
+  let total = new Set([0]);
+  for (let k = 1; k <= m; k++) {
+    const suivant = new Set();
+    for (const a of total) for (const b of serie) suivant.add((a + b) % 9);
+    total = suivant;
+    out.push(total);
+  }
+  return out;
+}
+
+/**
+ * La programmation dynamique du redécoupage exact.
+ *
+ * Chaque chiffre de la cible reçoit une PLAGE de chiffres voisins (0 à 12), et
+ * éventuellement un PAQUET PARTAGÉ à sa droite (2 à 6 chiffres dont la somme
+ * déborde) : la dizaine de ce paquet rejoint la plage, l'unité PEND et rejoint
+ * la plage suivante. Une plage se replie en un chiffre — sa somme si elle
+ * tient, sa racine sinon — ou, quand elle tient en un paquet, s'écrit
+ * chiffre à chiffre sur DEUX rangs de la cible.
+ *
+ * L'état est `(i, p, pend)` : `i` chiffres consommés, `p` rangs de la cible
+ * écrits, `pend` l'unité qui attend (ou `RIEN`). On minimise, dans cet ordre :
+ * le travail de seconde passe (paquets partagés et plages trop larges), les
+ * demi-tours (un 9 posé pour un 6), le nombre d'additions. Parcours en ordre
+ * fixe, remplacement sur strict mieux : déterministe (§4.4).
+ *
+ * @returns {{plages:Array, m:number, F:number}|null}
+ */
+function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus) {
+  const n = chiffres.length;
+  const L = suite.length;
+  const N = mMax * L;
+  const colle = (d, p) => d === suite[p % L]
+    || (parDemiTour && d === RETOURNABLE && suite[p % L] === SIX_RETOURNE);
+  const demiTour = (d, p) => (d === suite[p % L] ? 0 : 1);
+  const pre = [0];
+  for (const c of chiffres) pre.push(pre[pre.length - 1] + c.v);
+
+  const PEND = 11;
+  const cle = (i, p, pend) => ((i * (N + 1)) + p) * PEND + (pend + 1);
+  const cout = new Array((n + 1) * (N + 1) * PEND).fill(Infinity);
+  const depuis = new Array((n + 1) * (N + 1) * PEND).fill(null);
+  // Le coût est un entier lexicographique : demi-tours ≫ seconde passe ≫
+  // additions. Un 9 posé pour un 6 appelle un `mr9` que la recherche doit
+  // encore trouver ; une seconde passe reste dans l'opérateur. On préfère donc
+  // repasser plutôt que de laisser un 9.
+  const COUT_DEMI = 1000000;
+  const COUT_F = 1000;
+  cout[cle(0, 0, RIEN)] = 0;
+
+  // L'origine n'est construite QUE sur un strict mieux : la boucle essaie des
+  // centaines de milliers de transitions, en allouer une par essai coûtait
+  // quatre fois le temps de la recherche elle-même.
+  let o = null; // la transition en cours, écrite avant chaque `poser`
+  const poser = (k, c, mode, ecrit) => {
+    if (c < cout[k]) {
+      cout[k] = c;
+      depuis[k] = { i: o.i, p: o.p, pend: o.pend, w: o.w, sw: o.sw, a: o.a, b: o.b, mode, ecrit };
+    }
+  };
+
+  for (let i = 0; i <= n; i++) {
+    for (let p = 0; p < N; p++) {
+      for (let pend = RIEN; pend <= 9; pend++) {
+        const k0 = cle(i, p, pend);
+        const c0 = cout[k0];
+        if (c0 === Infinity) continue;
+        const wMax = Math.min(CONTENU_EXACT_MAX, n - i);
+        for (let w = 0; w <= wMax; w++) {
+          const i2 = i + w;
+          const sommeContenu = pre[i2] - pre[i];
+          // ── sans paquet partagé, puis avec un paquet de 2 à 6 chiffres
+          for (let sw = 0; sw <= PAQUET_MAX; sw++) {
+            if (sw === 1) continue;
+            const i3 = i2 + sw;
+            if (i3 > n) break;
+            let a = 0;
+            let b = RIEN;
+            if (sw) {
+              const sp = pre[i3] - pre[i2];
+              if (sp < 10) continue;
+              a = Math.floor(sp / 10);
+              b = sp % 10;
+            }
+            const extras = (pend >= 0 ? 1 : 0) + (sw ? 1 : 0);
+            const c = extras + w;
+            if (c === 0) continue;
+            const s = (pend >= 0 ? pend : 0) + sommeContenu + a;
+            const sousPlies = c > PAQUET_MAX;
+            // Ce que la plage coûte en seconde passe et en additions.
+            const F = (sw ? 1 : 0) + ((sousPlies || (extras && c >= 2)) ? 1 : 0);
+            const additions = (sw ? 1 : 0) + (c >= 2 ? 1 : 0)
+              + (sousPlies ? Math.floor(w / PAQUET_MAX) + ((w % PAQUET_MAX) >= 2 ? 1 : 0) : 0);
+            const base = c0 + F * COUT_F + additions;
+            o = { i, p, pend, w, sw, a, b };
+            if (c === 1) {
+              // Un seul item : il est recopié tel quel, il doit DÉJÀ coller.
+              if (!colle(s, p)) continue;
+              poser(cle(i3, p + 1, b), base + demiTour(s, p) * COUT_DEMI, 'copie', [s]);
+              continue;
+            }
+            // Le repli en un chiffre : la somme, ou sa racine.
+            const r = s <= 9 ? s : racineNumerique(s);
+            if (colle(r, p)) {
+              poser(cle(i3, p + 1, b), base + demiTour(r, p) * COUT_DEMI, s <= 9 ? 'somme' : 'racine', [r]);
+            }
+            // L'écriture chiffre à chiffre, sur deux rangs — un seul paquet.
+            if (s >= 10 && !sousPlies && p + 2 <= N) {
+              const d0 = Math.floor(s / 10);
+              const d1 = s % 10;
+              if (s < 100 && colle(d0, p) && colle(d1, p + 1)) {
+                poser(cle(i3, p + 2, b),
+                  base + (demiTour(d0, p) + demiTour(d1, p + 1)) * COUT_DEMI, 'eclate', [d0, d1]);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ── le meilleur nombre de séries : le moins de demi-tours, puis le moins de
+  //    seconde passe, puis le PLUS de séries, puis le moins d'additions.
+  let choix = null;
+  for (let m = 1; m <= mMax; m++) {
+    if (!residus[m - 1].has(pre[n] % 9)) continue;
+    const k = cle(n, m * L, RIEN);
+    if (cout[k] === Infinity) continue;
+    const demi = Math.floor(cout[k] / COUT_DEMI);
+    const F = Math.floor((cout[k] % COUT_DEMI) / COUT_F);
+    const additions = cout[k] % COUT_F;
+    const mieux = !choix || demi < choix.demi
+      || (demi === choix.demi && (F < choix.F
+        || (F === choix.F && (m > choix.m || (m === choix.m && additions < choix.additions)))));
+    if (mieux) choix = { m, demi, F, additions, k };
+  }
+  if (!choix) return null;
+
+  const plages = [];
+  let k = choix.k;
+  while (k !== cle(0, 0, RIEN)) {
+    const o = depuis[k];
+    if (!o) throw new Error('redécoupage exact : chaîne de reconstruction rompue.');
+    plages.push(o);
+    k = cle(o.i, o.p, o.pend);
+  }
+  plages.reverse();
+  return { plages, m: choix.m, F: choix.F };
+}
+
+/**
+ * Le plan complet : les plages de la programmation dynamique, réalisées en
+ * une ou deux passes de paquets.
+ *
+ * ── Ce que le plan rend ─────────────────────────────────────────────────────
+ *
+ * `{ chiffres, multi, passes, sortie }` — `chiffres` la ligne éclatée
+ * (`{v, src}`), `multi` les nombres vraiment éclatés, `passes` la liste des
+ * passes, chacune `{ entree, paquets }` où `entree` est la ligne de chiffres
+ * qu'elle reçoit et chaque paquet `{ debut, fin, mode, somme, sortie, paliers,
+ * od, of }` — `mode` parmi `copie` (un chiffre laissé tel quel), `somme` (la
+ * somme tient en un chiffre), `eclate` (la somme s'écrit chiffre à chiffre),
+ * `racine` (la somme se réduit, `paliers` en donne les étapes) ; `od`/`of` la
+ * plage de chiffres d'origine dont le paquet descend, pour les traces.
+ */
+function planRedecoupageExact(valeur, visee) {
+  if (!valeur.length) return null;
+  if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
+  const chiffres = [];
+  valeur.forEach((v, i) => {
+    for (const c of String(v)) chiffres.push({ v: Number(c), src: i });
+  });
+  const n = chiffres.length;
+  if (n > CHIFFRES_REDECOUPE_MAX) return null;
+  const suite = visee.chiffres;
+  const L = suite.length;
+  const mMax = Math.floor(n / L);
+  if (mMax < 1) return null;
+  const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
+
+  // ★ L'invariant modulo neuf, AVANT toute recherche.
+  const residus = residusDesSeries(suite, parDemiTour, mMax);
+  const total = chiffres.reduce((t, c) => t + c.v, 0);
+  if (!residus.some((r) => r.has(total % 9))) return null;
+
+  const trouve = chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus);
+  if (!trouve) return null;
+
+  const multi = new Set();
+  const parSource = new Map();
+  chiffres.forEach((c) => parSource.set(c.src, (parSource.get(c.src) || 0) + 1));
+  for (const [src, k] of parSource) if (k > 1) multi.add(src);
+
+  // ── la réalisation en passes ─────────────────────────────────────────────
+  const paquetDe = (entree, debut, fin, od, of) => {
+    const w = fin - debut;
+    const somme = entree.slice(debut, fin).reduce((t, v) => t + v, 0);
+    if (w === 1) return { debut, fin, mode: 'copie', somme, sortie: [entree[debut]], paliers: [], od, of };
+    if (somme <= 9) return { debut, fin, mode: 'somme', somme, sortie: [somme], paliers: [], od, of };
+    const r = racineNumerique(somme);
+    return { debut, fin, mode: 'racine', somme, sortie: [r], paliers: paliersReduction(somme, r), od, of };
+  };
+  const eclateDe = (entree, debut, fin, od, of) => {
+    const somme = entree.slice(debut, fin).reduce((t, v) => t + v, 0);
+    return { debut, fin, mode: 'eclate', somme, sortie: chiffresDe(somme), paliers: [], od, of };
+  };
+
+  const entree1 = chiffres.map((c) => c.v);
+  const paquets1 = [];
+  // Ce qu'une plage laisse à finir en seconde passe : ses items, repérés par
+  // (paquet de première passe, rang dans sa sortie).
+  const aFinir = [];
+  let precedent = null; // le paquet partagé qui précède, pour l'unité pendue
+  for (const pl of trouve.plages) {
+    const i2 = pl.i + pl.w;
+    const i3 = i2 + pl.sw;
+    const extras = (pl.pend >= 0 ? 1 : 0) + (pl.sw ? 1 : 0);
+    const c = extras + pl.w;
+    const items = [];
+    if (pl.pend >= 0) {
+      // ⚠️ `precedent` peut valoir 0 — le paquet partagé ouvre la ligne.
+      if (precedent === null) throw new Error('redécoupage exact : une unité pend sans paquet partagé.');
+      items.push({ j: precedent, t: 1 });
+    }
+    if (!extras && c <= PAQUET_MAX) {
+      // Une plage nue qui tient en un paquet : elle se replie dès la première passe.
+      if (pl.w === 1) paquets1.push(paquetDe(entree1, pl.i, i2, pl.i, i2));
+      else if (pl.mode === 'eclate') paquets1.push(eclateDe(entree1, pl.i, i2, pl.i, i2));
+      else paquets1.push(paquetDe(entree1, pl.i, i2, pl.i, i2));
+    } else {
+      // Le contenu passe en seconde passe : recopié s'il tient, sous-replié sinon.
+      const sousPlier = c > PAQUET_MAX;
+      let d = pl.i;
+      while (d < i2) {
+        const f = sousPlier ? Math.min(i2, d + PAQUET_MAX) : d + 1;
+        paquets1.push(paquetDe(entree1, d, f, d, f));
+        items.push({ j: paquets1.length - 1, t: 0 });
+        d = f;
+      }
+    }
+    if (pl.sw) {
+      paquets1.push(eclateDe(entree1, i2, i3, i2, i3));
+      precedent = paquets1.length - 1;
+      items.push({ j: precedent, t: 0 });
+    } else {
+      precedent = null;
+    }
+    if (items.length >= 2) aFinir.push({ items, mode: pl.mode, ecrit: pl.ecrit });
+  }
+  const passes = [{ entree: entree1, paquets: paquets1 }];
+
+  if (aFinir.length) {
+    // La ligne de seconde passe, et où chaque sortie de première passe atterrit.
+    const entree2 = [];
+    const origine2 = []; // le paquet de première passe d'où vient chaque position
+    const position = new Map();
+    paquets1.forEach((p, j) => p.sortie.forEach((v, t) => {
+      position.set(`${j}:${t}`, entree2.length);
+      entree2.push(v);
+      origine2.push(p);
+    }));
+    const paquets2 = [];
+    let curseur = 0;
+    const recopierJusqua = (fin) => {
+      while (curseur < fin) {
+        const p1 = origine2[curseur];
+        paquets2.push(paquetDe(entree2, curseur, curseur + 1, p1.od, p1.of));
+        curseur++;
+      }
+    };
+    for (const fin of aFinir) {
+      const debut = position.get(`${fin.items[0].j}:${fin.items[0].t}`);
+      const dernier = fin.items[fin.items.length - 1];
+      const apres = position.get(`${dernier.j}:${dernier.t}`) + 1;
+      if (debut === undefined || apres - debut !== fin.items.length) {
+        throw new Error('redécoupage exact : les items d’une plage ne sont pas contigus en seconde passe.');
+      }
+      recopierJusqua(debut);
+      const od = Math.min(...fin.items.map((it) => paquets1[it.j].od));
+      const of = Math.max(...fin.items.map((it) => paquets1[it.j].of));
+      const paquet = fin.mode === 'eclate'
+        ? eclateDe(entree2, debut, apres, od, of) : paquetDe(entree2, debut, apres, od, of);
+      if (paquet.sortie.join('') !== fin.ecrit.join('')) {
+        throw new Error(`redécoupage exact : la seconde passe écrit « ${paquet.sortie.join(' ')} » `
+          + `au lieu de « ${fin.ecrit.join(' ')} ».`);
+      }
+      paquets2.push(paquet);
+      curseur = apres;
+    }
+    recopierJusqua(entree2.length);
+    passes.push({ entree: entree2, paquets: paquets2 });
+  }
+
+  // ★ Le contrôle final : ce qui sort est la cible, `m` fois, au demi-tour près.
+  const derniere = passes[passes.length - 1];
+  const sortie = derniere.paquets.flatMap((p) => p.sortie);
+  const attendu = trouve.plages.flatMap((pl) => pl.ecrit);
+  if (sortie.join('') !== attendu.join('') || sortie.length !== trouve.m * L) {
+    throw new Error(`redécoupage exact : la sortie « ${sortie.join(' ')} » n’est pas celle du plan « ${attendu.join(' ')} ».`);
+  }
+  for (let k = 0; k < sortie.length; k++) {
+    const t = suite[k % L];
+    if (sortie[k] !== t && !(parDemiTour && sortie[k] === RETOURNABLE && t === SIX_RETOURNE)) {
+      throw new Error(`redécoupage exact : le rang ${k} écrit ${sortie[k]} au lieu de ${t}.`);
+    }
+  }
+  // Un plan qui ne fait rien n'est pas un plan : au moins une addition.
+  if (!passes.some((ps) => ps.paquets.some((p) => p.fin - p.debut >= 2))) return null;
+  return { chiffres, multi, passes, sortie, series: trouve.m };
+}
+
+/** Mémoïsation bornée du plan exact, par cible : la recherche le redemande sur chaque état `NUMS`. */
+function memoPlanExact(visee) {
+  const memo = new Map();
+  return (valeur) => {
+    const k = valeur.join(',');
+    if (memo.has(k)) return memo.get(k);
+    if (memo.size >= 512) memo.clear();
+    const plan = planRedecoupageExact(valeur, visee);
+    memo.set(k, plan);
+    return plan;
+  };
+}
+
+/** Les identifiants de la ligne que la passe `q` reçoit. */
+function idsEntreeExacte(plan, ctx, q, sortiesPrecedentes) {
+  if (q === 0) {
+    return plan.chiffres.map((c, k) => (plan.multi.has(c.src) ? `${ctx.cle}c${k}` : ctx.ids[c.src]));
+  }
+  return sortiesPrecedentes;
+}
+
+/** Les identifiants que le jᵉ paquet de la passe `q` ÉCRIT. */
+function idsSortieExacte(ctx, q, j, paquet, idsEntree) {
+  if (paquet.mode === 'copie') return [idsEntree[paquet.debut]];
+  if (paquet.mode === 'eclate') return paquet.sortie.map((_, t) => `${ctx.cle}q${q}s${j}x${t}`);
+  return [`${ctx.cle}q${q}s${j}`];
+}
+
+/** Le jeton où la somme du paquet atterrit, avant d'être écrite ou réduite. */
+const idSommeExacte = (ctx, q, j, paquet) => (paquet.mode === 'somme'
+  ? `${ctx.cle}q${q}s${j}` : `${ctx.cle}q${q}t${j}`);
+
+/** Les identifiants de la ligne finale d'un plan exact — ce que `sortie` rend. */
+function idsFinalesExactes(plan, ctx) {
+  let ids = idsEntreeExacte(plan, ctx, 0, null);
+  plan.passes.forEach((passe, q) => {
+    ids = passe.paquets.flatMap((p, j) => idsSortieExacte(ctx, q, j, p, ids));
+  });
+  return ids;
+}
 
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -4545,6 +4997,187 @@ const AUTRES_MAPPEURS = [
       }]))];
     },
   }),
+
+  // ★ **LE REDÉCOUPAGE EXACT — la variante de `mrd` qui ne laisse rien.**
+  //
+  // > « Je voudrais arriver à toujours proposer un chemin sans aucune perte,
+  // >   même s'il ne remonte pas toujours en premier résultat ; si avec les
+  // >   réglages je fais primer l'exhaustivité, alors il doit remonter. »
+  // >   (l'auteur)
+  //
+  // `mrd` reste tel quel : un registre append-only ajoute, il ne réoriente pas
+  // (§4.1). Celui-ci est un code NEUF, EN FIN de bloc — sa place naturelle
+  // serait à côté de `mrd`, sa place juste est ici, après `mlet`, pour ne pas
+  // décaler l'ordre d'exploration de ce qui suit. Voir `planRedecoupageExact`
+  // pour ce qu'il fait, et quand il refuse.
+  //
+  // Il suit la cible comme `mrd`, et refuse la même : une somme de chiffres
+  // ne retombe sur 0 qu'en n'additionnant que des 0.
+  selonLaCible((visee) => (butsDuPaquet(visee).every((d) => d === 0) ? null : (() => {
+    const planDe = memoPlanExact(visee);
+    return {
+      id: 'm.redecoupageExact', code: 'mrdE', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+      libelle: LIB_REDECOUPAGE_EXACT,
+      regle: (() => {
+        const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
+        const defaut = parDemiTour
+          ? bilingue(` — un 9, qu’un demi-tour rendra, vaut un ${SIX_RETOURNE}`,
+            ` — a 9, which a half-turn will settle, counts as a ${SIX_RETOURNE}`)
+          : bilingue('', '');
+        return bilingue(
+          'Chaque nombre s’écrit chiffre à chiffre, puis la ligne ENTIÈRE se redécoupe en '
+          + `paquets qui écrivent ${visee.texte} dans l’ordre, et rien d’autre : chaque paquet `
+          + 'est remplacé par sa somme, réduite à un chiffre si elle déborde — un chiffre de la '
+          + 'cible absorbe ainsi des voisins dont la somme est un multiple de neuf, et ressort '
+          + `intact. Si une passe ne suffit pas, une seconde redécoupe le résultat${defaut.fr}. `
+          + 'Quand la ligne ne peut pas s’écrire exactement, on n’écrit rien.',
+          'Every number is written out digit by digit, then the WHOLE line is recut into packets '
+          + `that spell ${visee.texte} in order, and nothing else: each packet is replaced by its `
+          + 'sum, reduced to one digit when it overflows — a target digit thereby absorbs '
+          + 'neighbours whose sum is a multiple of nine, and comes out intact. When one pass is '
+          + `not enough, a second one recuts the result${defaut.en}. When the line cannot be `
+          + 'spelt exactly, nothing is written.',
+        );
+      })(),
+      // ★ Notoriété 0,15, sous `mrd` (0,20) : redécouper est déjà inconnu ;
+      //   redécouper jusqu'à ce que TOUT tombe juste, en repassant, l'est
+      //   davantage. AdHoc 0,49, entre `mrd` (0,48) et le joker (0,50) : il ne
+      //   se contente pas de regarder le chiffre qu'on cherche, il refuse tout
+      //   résultat qui ne serait pas la cible. On ne peut pas être plus taillé
+      //   pour elle — c'est ce qu'il paie en conviction, et ce qu'il rachète en
+      //   exhaustivité : rien n'est jeté, ni en route, ni au verdict.
+      notoriete: 0.15, adHoc: 0.49,
+      // ★ Le coût est celui d'UNE passe — comme `mrd`. La seconde passe se voit
+      //   dans le nombre d'étapes et se paie au barème par ses additions
+      //   (`elegance.js › ABSORBENT_PAR_ADDITION`) : le malus de simplicité est
+      //   celui du geste réellement joué, pas un forfait.
+      note: bilingue(
+        'La même triche que le redécoupage, poussée jusqu’au bout : on ne garde pas les '
+        + 'paquets qui tombent bien en jetant le reste, on fond le reste dans les paquets — '
+        + 'quitte à repasser. Le prix : plus d’additions à l’écran ; le gain : la ligne entière '
+        + 'y passe, et le verdict n’écarte rien.',
+        'The same cheat as the recut, taken to its end: instead of keeping the packets that '
+        + 'land well and dropping the rest, the rest is melted into the packets — repeating if '
+        + 'needed. The price: more additions on screen; the gain: the whole line goes in, and '
+        + 'the verdict discards nothing.',
+      ),
+      apply: (valeur, traces) => {
+        const plan = planDe(valeur);
+        if (!plan) return null;
+        const derniere = plan.passes[plan.passes.length - 1];
+        const sortie = [];
+        const org = [];
+        for (const p of derniere.paquets) {
+          const t = fusion(...plan.chiffres.slice(p.od, p.of).map((c) => traces[c.src] || []));
+          for (const d of p.sortie) { sortie.push(d); org.push(t); }
+        }
+        return { valeur: sortie, traces: org };
+      },
+      // ★ Toutes les additions, passe après passe, dans l'ordre de lecture —
+      //   c'est ce que le barème dilue (`commun.js › additions`).
+      additions: (valeur) => {
+        const plan = planDe(valeur);
+        return plan ? plan.passes.flatMap((ps) => ps.paquets
+          .filter((p) => p.fin - p.debut >= 2).map((p) => p.fin - p.debut)) : [];
+      },
+      sortie: (avant, apres, ctx) => {
+        const plan = planDe(avant.valeur);
+        return plan ? idsFinalesExactes(plan, ctx) : [];
+      },
+      /**
+       * ★ LA MÊME MISE EN SCÈNE QUE `mrd`, PASSE APRÈS PASSE.
+       *
+       * 1. **Chiffre à chiffre**, une fois, pour les nombres à plusieurs chiffres.
+       * 2. **Pour chaque passe** : la DÉCOUPE d'abord (`partition`, une accolade
+       *    par paquet — c'est la décision, et c'est elle qui triche), puis UNE
+       *    ÉTAPE PAR ADDITION : les signes `+`, la somme ; et si elle déborde,
+       *    soit elle s'écrit chiffre à chiffre (`substitute`, comme `mrd`), soit
+       *    elle se réduit à sa racine (`reduce`, comme `mrn`, un palier par
+       *    geste). Rien ne disparaît sans avoir été additionné sous les yeux.
+       *
+       * Contrôle croisé (§0.3) : `apply`, `sortie`, `additions` et `steps`
+       * relisent le MÊME plan mémoïsé ; `sum` recoupe chaque somme, `reduce`
+       * chaque éclatement, `recherche/scenario.js` l'ensemble une troisième fois.
+       */
+      steps: (avant, apres, ctx) => {
+        const plan = planDe(avant.valeur);
+        if (!plan) return [];
+        const steps = [];
+        let ids = idsEntreeExacte(plan, ctx, 0, null);
+
+        // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
+        const paires = [];
+        avant.valeur.forEach((v, i) => {
+          const ks = plan.chiffres.map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
+          if (ks.length < 2) return;
+          paires.push({ target: ctx.ids[i], to: ks.map((k) => token(ids[k], plan.chiffres[k].v, 'digit')) });
+        });
+        if (paires.length) {
+          const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
+          steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
+            enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
+        }
+
+        // ── 2. les passes
+        plan.passes.forEach((passe, q) => {
+          const titre = dire(LIB_REDECOUPAGE_EXACT, ctx.langue)
+            + (q > 0 ? dire(LIB_SECONDE_PASSE, ctx.langue) : '');
+          const vus = passe.entree.join(' ');
+          const groupes = passe.paquets.map((p, j) => ({
+            targets: ids.slice(p.debut, p.fin),
+            tag: `${ctx.cle}q${q}g${j}`,
+          }));
+          if (groupes.length >= 2) {
+            const decoupe = passe.paquets
+              .map((p) => passe.entree.slice(p.debut, p.fin).join('')).join(' · ');
+            steps.push(etape(ctx, titre, `${vus} → ${decoupe}`,
+              enchainer([{ op: 'partition', groups: groupes }]), { id: `s_${ctx.cle}_q${q}d` }));
+          }
+          passe.paquets.forEach((p, j) => {
+            if (p.fin - p.debut < 2) return;
+            const termes = ids.slice(p.debut, p.fin);
+            const valeurs = passe.entree.slice(p.debut, p.fin);
+            const signes = termes.slice(1).map((_, t) => `${ctx.cle}q${q}p${j}x${t}`);
+            const sorties = idsSortieExacte(ctx, q, j, p, ids);
+            const somme = idSommeExacte(ctx, q, j, p);
+            const ops = [
+              { op: 'insertOperators', between: termes, ids: signes, glyph: '+' },
+              { op: 'sum', targets: termes, consume: signes, to: token(somme, p.somme, 'number'), symbol: '+' },
+            ];
+            let legende = `${valeurs.join(' + ')} = ${p.somme}`;
+            if (p.mode === 'eclate') {
+              ops.push({
+                op: 'substitute',
+                pairs: [{ target: somme, to: p.sortie.map((d, t) => token(sorties[t], d, 'digit')) }],
+              });
+              legende += ` → ${p.sortie.join(' ')}`;
+            } else if (p.mode === 'racine') {
+              // Un `reduce` par palier, comme `mrn` : le moteur visuel ne
+              // boucle jamais, et il refuse une somme qui ne tombe pas juste.
+              let source = somme;
+              let texte = String(p.somme);
+              p.paliers.forEach((v, k) => {
+                const dernier = k === p.paliers.length - 1;
+                const cible = dernier ? sorties[0] : `${ctx.cle}q${q}r${j}p${k}`;
+                ops.push({
+                  op: 'reduce',
+                  target: source,
+                  digits: [...texte].map((d, t) => token(`${ctx.cle}q${q}r${j}k${k}x${t}`, d, 'digit')),
+                  to: token(cible, v, 'number'),
+                });
+                legende += ` → ${[...texte].join(' + ')} → ${v}`;
+                source = cible;
+                texte = String(v);
+              });
+            }
+            steps.push(etape(ctx, titre, legende, enchainer(ops), { id: `s_${ctx.cle}_q${q}p${j}` }));
+          });
+          ids = passe.paquets.flatMap((p, j) => idsSortieExacte(ctx, q, j, p, ids));
+        });
+        return steps;
+      },
+    };
+  })())),
 ];
 
 /** Les dix caractères que « le tiret du 6 » sait convertir — exposé pour l'UI. */

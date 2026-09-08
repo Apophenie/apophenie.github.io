@@ -1590,6 +1590,11 @@ const REECRITURES = new Set(['ecritureEnLettres']);
 const ABSORBENT_PAR_ADDITION = Object.freeze({
   'm.additionSelective': 'additionSelective',
   'm.redecoupageChoisi': 'redecoupage',
+  // ★ Le redécoupage EXACT (`mrdE`) fait le même geste que `mrd`, passe après
+  //   passe : il se paie au même palier, par chiffre absorbé, dilué par ses
+  //   additions et dégressif avec la longueur de la ligne. Ce qu'il a de plus
+  //   — ne rien laisser — se lit ailleurs, sur le reliquat et le rendement.
+  'm.redecoupageExact': 'redecoupage',
 });
 
 /**
@@ -1772,6 +1777,13 @@ export const A_MERITER_SA_PLACE = Object.freeze(new Set([
   ...Object.keys(FICELLES),
   ...UNIFORMISENT,
   'm.redecoupageChoisi',
+  // ★ Le redécoupage EXACT (`mrdE`) n'y est PAS, et c'est mesuré. Il ne
+  //   produit rien « en masse » : il écrit la cible exactement ou il se tait,
+  //   et sa récolte est bornée par la somme de la ligne (invariant modulo
+  //   neuf). L'y mettre le rangeait derrière toute voie honnête qui porte
+  //   les chiffres de la cible sans l'écrire, et le siège de qualité ne lui
+  //   revenait jamais : sur « Millicent Billette » visant 1998, quatre voies
+  //   exactes existaient et aucune n'atteignait la liste.
 ]));
 
 /**

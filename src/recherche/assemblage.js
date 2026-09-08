@@ -798,7 +798,44 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   //   il ne trouve pas `type === 'NUMS'` — et la netteté se réduisait alors à
   //   « le vecteur le plus court », ce qui donne le même classement sur les cas
   //   mesurés et le mauvais partout ailleurs (`[1,2,3]` valait `[6,6,6]`).
-  const nettete = (c) => c.etats[c.etats.length - 1].valeur.length - six(c);
+  // ★ **NETTE, C'EST-À-DIRE : LE VERDICT N'A RIEN À JETER.** La netteté se
+  //   comptait en chiffres HORS ALPHABET, et sur une cible homogène c'est la
+  //   même chose à un détail près ; sur une cible mêlée, ce n'est plus la même
+  //   chose du tout. `fc+tca+masb+mrn` rend `19992889988` sur « Millicent
+  //   Billette » visant 1998 — onze chiffres, tous de l'alphabet, NETTETÉ ZÉRO —
+  //   et le verdict en jette sept. Une voie qui rend `1998` tout rond ne
+  //   pouvait donc pas passer devant elle au siège de qualité, alors que c'est
+  //   précisément elle que ce siège existe pour retenir.
+  //
+  //   On compte donc ce que le VERDICT écartera : la largeur moins les séries
+  //   qu'il gardera (`cible.js › seriesDe`, plafonnées comme au verdict). C'est
+  //   la même grandeur que `elegance.js › bilanApproche › jeteesAuTri`, lue
+  //   ici sur le seul vecteur, avant l'assemblage. Zéro veut toujours dire
+  //   « il ne reste que 666 » — et, désormais, « rien que 666 » : un quatrième
+  //   6 qui tombera au tri ne rend plus la ligne nette.
+  const nettete = (c) => {
+    const v = c.etats[c.etats.length - 1].valeur;
+    return v.length - Math.min(seriesDe(v, cbl).length, MAX_SERIES) * cbl.longueur;
+  };
+  // ★ **ET « NE PAS SUPPRIMER DE CARACTÈRES » SE LIT AVANT LA BRIÈVETÉ.** Le
+  //   critère de l'auteur cité plus haut a deux moitiés, et la seconde n'était
+  //   pas lue : entre deux voies nettes de même longueur, le départage tombait
+  //   sur la dilution puis sur les codes, si bien que `fc+tca+mqwc+mrdE` — les
+  //   consonnes seules — passait devant `fl+tca+mt9+mrdE`, qui lit toutes les
+  //   lettres et rend le même `1998`. On compte ce que la voie a LU : les jetons
+  //   que le mappeur reçoit — la largeur du dernier état `TOKENS` du chemin.
+  //   Plus est mieux.
+  //
+  //   ⚠️ Pas les traces : dans ce monde-ci elles sont GROSSIÈRES — la portée
+  //     entière sur le premier caractère, rien sur les autres
+  //     (`bfs.js › appliquerOp`, « tolérant sur la forme ») —, et la
+  //     couverture réelle n'est recalculée que par `score.js`, sur le programme
+  //     rejoué. Mesurer l'étendue ici rendait zéro pour tout le monde.
+  const lues = (c) => {
+    let n = 0;
+    for (const e of c.etats) if (e.type === 'TOKENS' && e.valeur.length > n) n = e.valeur.length;
+    return n;
+  };
   const RESERVE_QUALITE = Math.max(1, Math.floor(plafond / 4));
   // ★ On CANONICALISE en marchant, et il le faut : `fmaj+tca+mt9+mpf` et
   //   `fmin+tca+mt9+mpf` montrent exactement ce que montre `tca+mt9+mpf` — la
@@ -811,6 +848,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     const candidats = out
       .filter((c) => ecrit(c.etats[c.etats.length - 1].valeur, cbl))
       .sort((a, b) => (nbFicelles(a) - nbFicelles(b)) || (nettete(a) - nettete(b))
+        || (lues(b) - lues(a))
         || (a.ops.length - b.ops.length) || (dilue(a) - dilue(b)) || comparerChemins(a, b));
     // ⚠️ La canonicalisation est CHÈRE (`normaliserChemin` rejoue le programme
     //   une fois par étape candidate) et la boucle ci-dessous ne s'arrête que

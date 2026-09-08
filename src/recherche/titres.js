@@ -136,6 +136,9 @@ const MAPPEURS_DE_SERVICE = new Set([
   //   dernière retouche, et le redécoupage aurait en outre intitulé une voie
   //   entière du nom de sa triche.
   'm.triCroissant', 'm.redecoupageChoisi',
+  // ★ Le redécoupage EXACT (`mrdE`) est le même geste que `mrd`, poussé jusqu'au
+  //   bout : il relit, il ne convertit pas. Même sort.
+  'm.redecoupageExact',
   // ★ Le tri alphabétique est du même bois : il RANGE, il ne conclut pas.
   'm.triAlphabetique',
   // ★ Et la LECTURE, plus radicalement encore : elle ne fait rien du tout.
@@ -302,6 +305,7 @@ export const NOMS = {
   'm.retournerLesTrios': b('Par le retournement des trios', 'By flipping the trios'),
   'm.compterLesChiffres': b('Par le décompte des chiffres', 'By tallying the digits'),
   'm.redecoupageChoisi': b('Par redécoupage choisi', 'By chosen recutting'),
+  'm.redecoupageExact': b('Par redécoupage exact', 'By exact recutting'),
   // Jamais employé — il est mappeur de service — mais le registre des noms
   // est EXHAUSTIF, et un trou ici serait un trou le jour où la règle changerait.
   'm.chiffreTelQuel': b('Par la lecture des chiffres', 'By reading the digits'),
@@ -570,6 +574,7 @@ export const TITRES_COURTS = {
   //   des 9, l'énumération dirait « retournement » sans qu'on sache lequel.
   'm.retournerLesSix': b('retournement des 6', 'flipping the 6s'), // mr6
   'm.redecoupageChoisi': b('additions futées', 'shrewd additions'), // mrd
+  'm.redecoupageExact': b('additions sans reste', 'additions with no remainder'), // mrdE
   'm.reduireChaque': b('addition', 'addition'), // mrn
   'm.scrabbleEN': b('Scrabble EN', 'EN Scrabble'), // msen
   'm.scrabbleFR': b('Scrabble FR', 'FR Scrabble'), // msfr
@@ -743,6 +748,7 @@ export const PRECISIONS = {
   'm.retournerLesTrios': b('les trios retournés', 'with the trios flipped'),
   'm.compterLesChiffres': b('les chiffres comptés', 'with the digits tallied'),
   'm.redecoupageChoisi': b('redécoupé en paquets', 'recut into packets'),
+  'm.redecoupageExact': b('tout fondu dans la cible', 'everything melted into the target'),
   // ⚠️ Elle existe, mais ne devrait jamais servir : `m.chiffreTelQuel` est un
   //    mappeur de service, et deux voies ne se distinguent pas par le fait
   //    d'avoir lu leurs chiffres. Sans elle, `precisionDe` se rabattrait sur le

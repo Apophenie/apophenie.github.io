@@ -267,6 +267,12 @@ const VECTEURS = [
   //   Le nom sort de `NOM_CHIFFRE_FR`, la table du joker `jnf` — une seule
   //   source pour les deux, donc jamais deux orthographes du même chiffre.
   ['mlet', U(7), 'sept'],
+  // ★ Le redécoupage EXACT : toute la ligne, et la cible sans un chiffre de
+  //   plus. `6 · 5+1 · 9+3+3` — le 6 reste seul, `5+1` fait 6, et `9+3+3 = 15`
+  //   se RÉDUIT à 6 (racine numérique) : un chiffre de la cible qui absorbe
+  //   des voisins dont la somme est un multiple de neuf ressort intact. Aucun
+  //   chiffre n'est laissé de côté.
+  ['mrdE', N([6, 5, 1, 9, 3, 3]), [6, 6, 6]],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],
@@ -339,6 +345,9 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   //   addition ne soit faite. Une triche qu'on cache est pire qu'une triche
   //   qu'on n'implémente pas (CONTRACTS §4.1, amendement des trois ficelles).
   mrd: 'partition',
+  // Le redécoupage EXACT montre sa découpe de la même façon — une accolade par
+  // paquet, avant la moindre addition —, et la seconde passe la remontre.
+  mrdE: 'partition',
 });
 
 /**
@@ -390,8 +399,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 160); // +4 Jost, +1 le demi-tour montant
-  assert.equal(new Set(ORDRE_CANONIQUE).size, 160, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 161); // +4 Jost, +1 le demi-tour montant, +1 le redécoupage exact
+  assert.equal(new Set(ORDRE_CANONIQUE).size, 161, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -401,7 +410,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 160, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 161, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -1400,4 +1409,73 @@ test('★ `mad` et `mrd` ont la même largeur — sinon l’un ne concourt pas',
   assert.ok(a && b, 'les deux savent écrire 1998 depuis cette ligne');
   assert.notDeepEqual(a.valeur, b.valeur,
     'le glouton et l’optimal rendent la même découpe : l’un des deux est de trop');
+});
+
+/**
+ * ★ **LE REDÉCOUPAGE EXACT (`mrdE`) — toute la ligne, la cible, et rien d'autre.**
+ *
+ * > « Obtenir non pas approximativement l'objectif mais précisément l'objectif
+ * >   — donc additionner les autres chiffres autant de fois que nécessaire pour
+ * >   les dissoudre dans l'existant. » (l'auteur)
+ *
+ * Ce que ce test gèle, dans l'ordre : l'exactitude (la sortie EST la cible,
+ * répétée ou non, jamais « presque ») ; la racine numérique comme levier
+ * (`d + 9k → d`) ; la seconde passe et le partage d'une somme entre deux
+ * voisins ; les refus — l'invariant modulo neuf, la ligne trop courte, la ligne
+ * qui n'a rien à additionner — ; et la mise en scène, une étape par addition.
+ */
+test('★ `mrdE` — le redécoupage exact ne laisse rien, ou ne fait rien', () => {
+  const op = PAR_CODE.get('mrdE');
+  const sur = (cible, v) => { const r = appliquer(op.viser(cible), N(v)); return r && r.valeur; };
+
+  // ── exactitude : le vecteur du gel, et ce qu'il montre
+  assert.deepEqual(sur('666', [6, 5, 1, 9, 3, 3]), [6, 6, 6]);
+  assert.deepEqual(op.additions([6, 5, 1, 9, 3, 3]), [2, 3], 'deux additions : 5+1, puis 9+3+3');
+  // ── la racine numérique : un chiffre de la cible absorbe des voisins ≡ 0 (mod 9)
+  assert.deepEqual(sur('111', [1, 1, 1, 9]), [1, 1, 1], '1 + 9 = 10 → 1 : le 1 ressort intact');
+  assert.deepEqual(sur('31031998', [3, 9, 1, 0, 3, 1, 9, 9, 8, 4, 5]), [3, 1, 0, 3, 1, 9, 9, 8],
+    'les intrus 9, 4 et 5 se fondent : 3+9 = 12 → 3, 8+4+5 = 17 → 8');
+  // ── la seconde passe et le partage : `5 8 7 1` ne s'écrit pas `66` d'une coupe
+  assert.deepEqual(sur('66', [5, 8, 7, 1]), [6, 6]);
+  assert.deepEqual(op.viser('66').additions([5, 8, 7, 1]), [3, 2],
+    '8+7+1 = 16 → « 1 6 » d’abord, puis 5+1 = 6 en seconde passe');
+  // ── plusieurs séries quand la ligne le permet, et jamais un chiffre de plus
+  assert.deepEqual(sur('666', [6, 6, 6, 6, 5, 1, 6]), [6, 6, 6, 6, 6, 6],
+    'sept chiffres, somme 36 : deux séries, et le 5+1 fait le sixième 6');
+  // ── le demi-tour ne sert qu'à défaut : à sommes égales, on repasse plutôt
+  //    que de poser un 9 (l'ordre du coût : demi-tours, puis seconde passe).
+  assert.deepEqual(sur('666', [12, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5]),
+    [6, 6, 6, 9, 6, 6, 6, 9, 6], 'deux 9 posés, parce qu’aucune découpe n’en évite un');
+
+  // ── les refus, chacun pour sa raison
+  assert.equal(sur('666', [8, 15, 16, 5]), null, 'somme 26 ≢ 0, 3 ou 6 (mod 9) : l’invariant refuse');
+  assert.equal(sur('31031998', [3, 1, 0, 3, 1, 9, 9, 8]), null, 'déjà la cible : rien à additionner');
+  assert.equal(sur('111', [1, 2]), null, 'deux chiffres n’écrivent pas trois');
+  assert.equal(sur('666', [6, 6, 6]), null, 'rien à faire, donc rien à montrer');
+  assert.equal(sur('01111984', [5, 5, 1, 1, 1, 9, 8, 4]), null,
+    'un 0 en tête ne naît d’aucune addition : la cible est hors d’atteinte');
+  assert.equal(op.viser('000'), null, 'viser 000 n’a pas de sens : des sommes ne font pas des zéros');
+  assert.equal(op.viser('666'), op, 'le repli sur 666 est l’identité');
+
+  // ── la mise en scène : la découpe, puis une étape par addition
+  const entree = N([5, 8, 7, 1]);
+  const vise = op.viser('66');
+  const apres = appliquer(vise, entree);
+  const ctx = { ids: ['t0', 't1', 't2', 't3'], cle: 'e0', langue: 'fr' };
+  const steps = etapes(vise, entree, apres, ctx);
+  assert.deepEqual(steps.map((s) => s.ops.map((o) => o.op)), [
+    ['partition'], ['insertOperators', 'sum', 'substitute'],
+    ['partition'], ['insertOperators', 'sum'],
+  ], 'deux passes : découpe, addition écrite chiffre à chiffre ; découpe, addition');
+  assert.deepEqual(steps.map((s) => s.caption),
+    ['5 8 7 1 → 5 · 871', '8 + 7 + 1 = 16 → 1 6', '5 1 6 → 51 · 6', '5 + 1 = 6']);
+  assert.ok(steps[2].title.includes('seconde passe'), 'la seconde passe se nomme');
+  assert.deepEqual(vise.sortie(entree, apres, ctx), ['e0q1s0', 'e0q0s1x1'],
+    'le 6 de gauche naît en seconde passe, celui de droite est l’unité du 16');
+  // ── et la racine se montre par un `reduce`, comme `mrn`
+  const r = etapes(op, N([6, 5, 1, 9, 3, 3]), appliquer(op, N([6, 5, 1, 9, 3, 3])),
+    { ids: ['t0', 't1', 't2', 't3', 't4', 't5'], cle: 'e0', langue: 'fr' });
+  const racine = r.find((s) => s.ops.some((o) => o.op === 'reduce'));
+  assert.ok(racine, 'la réduction 15 → 6 est un geste, pas une affirmation');
+  assert.equal(racine.caption, '9 + 3 + 3 = 15 → 1 + 5 → 6');
 });
