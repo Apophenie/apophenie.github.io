@@ -68,6 +68,30 @@ export function plan(ctx) {
     }
   }
 
+  /* ★ **LE DÉCOUPAGE MUET — `visible: false`.**
+
+     > « `partition` n'a que l'affichage à changer : ça devient une étape
+     >   invisible, mais techniquement elle fait la même chose. » (l'auteur)
+
+     Le geste faisait trois choses : poser le `group` de chaque token, écarter
+     les frontières, tracer les accolades numérotées. Les deux dernières
+     ANNONCENT le découpage avant qu'aucun calcul ne le justifie — c'est ce que
+     l'auteur ne veut plus voir. La première est de la structure, elle ne se
+     voit pas et elle doit rester : c'est elle qui rend le vocabulaire des
+     groupes disponible à ce qui suit.
+
+     Muette, la partition ne touche donc ni au `gapBefore`, ni au flux, ni au
+     tracé : elle ne coûte pas une image et ne se lit nulle part. Ce qui la
+     rendait visible reviendra là où il est dû — sous l'accolade que `sum`
+     trace sur ses propres termes, au moment où il s'en sert. */
+  if (ctx.op.visible === false) {
+    for (const g of groupes) {
+      if (!g.tag) continue;
+      for (const id of g.ids) ctx.scene.get(id).group = g.tag;
+    }
+    return;
+  }
+
   const T = ctx.dur;
   const gap = ctx.layoutOpts.gap;
   const serre = typeof ctx.op.tighten === 'number' ? ctx.op.tighten : 0.7;

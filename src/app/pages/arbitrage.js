@@ -151,19 +151,19 @@ export function pageArbitrage() {
         paire('R', c.R), paire('séries', approche.series ?? (approche.bilan && approche.bilan.series)),
       ]),
     ]);
-    if (mesure && mesure.axesV2) {
-      // ★ Les quatre axes du SCORE V2 et son global, tels que relevés par le
-      //   banc (`.planning/banc/score-v2-banc.mjs`) — une autre notation de la
-      //   même voie, à côté de celle d'aujourd'hui, pour que l'arbitrage se
-      //   fasse les deux sous les yeux.
-      const v = mesure.axesV2;
-      bloc.append(ligne('arb__scores-v2', [
-        paire('v2 global', mesure.globalV2), paire('v2 rang', mesure.rangV2),
-        paire('v2 simplicité', v.simplicite), paire('v2 exhaustivité', v.exhaustivite),
-        paire('v2 quantité', v.quantite), paire('v2 cohérence', v.coherence),
-      ]));
-    }
-    if (mesure && mesure.score !== null && mesure.score !== undefined && !mesure.axesV2
+    /* ⚠️ **UNE SEULE NOTATION À L'ÉCRAN, ET C'EST CELLE DU MOTEUR.**
+
+       > « Pas besoin de mentionner v2. Il y a ce qui est branché dans le
+       >   moteur, et ce qu'on envisage de mettre à la place. » (l'auteur)
+
+       Une seconde ligne portait les axes d'un barème d'étude, préfixés « v2 »,
+       à côté de ceux d'aujourd'hui. Elle demandait au lecteur d'arbitrer entre
+       deux notations en même temps qu'entre deux voies, et elle vieillissait
+       seule : ces nombres venaient d'un relevé daté, que rien ne rafraîchit
+       quand le moteur bouge. Ce qui s'arbitre ici, ce sont DEUX VOIES ; elles
+       se lisent toutes deux au barème en place, et le jour où un autre barème
+       prend sa place, c'est lui qu'on lira. */
+    if (mesure && mesure.score !== null && mesure.score !== undefined
       && (mesure.global !== global || mesure.score !== approche.score)) {
       bloc.append(e('p.arb__scores-ecart', {
         texte: `⚠ relevé : global ${mesure.global}, score ${mesure.score} — l’écran dit autre chose : `
@@ -248,10 +248,12 @@ export function pageArbitrage() {
     //   tête que le moteur classe première à celle que le score global affiché
     //   mettrait en tête. Les côtés sont nommés pour ce qu'ils sont.
     const classement = cas.question === 'classement';
-    const v2 = cas.question === 'v2';
-    const cotes = v2
+    // Les deux côtés d'un cas de barème : la tête d'aujourd'hui, et celle qui
+    // prendrait sa place. Ce ne sont pas deux notations, ce sont deux voies.
+    const barème = cas.question === 'bareme';
+    const cotes = barème
       ? [['Aujourd’hui', cas.avant, cas.mesure && cas.mesure.avant],
-        ['Score v2', cas.apres, cas.mesure && cas.mesure.apres]]
+        ['Ce qu’on mettrait à la place', cas.apres, cas.mesure && cas.mesure.apres]]
       : classement
         ? [['Tête du moteur', cas.avant, cas.mesure && cas.mesure.avant],
           ['Tête par le score global', cas.apres, cas.mesure && cas.mesure.apres]]

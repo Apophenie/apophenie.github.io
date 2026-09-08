@@ -129,21 +129,29 @@
  *     caractères » et « la plus simple et la plus cohérente ».
  */
 export const CAS_ARBITRAGE = Object.freeze([
-  /* ★ **LES CAS DU SCORE V2 — la tête d'aujourd'hui contre la tête que le
-     score v2 mettrait à la même place.** « Avec ces derniers changements,
-     peux-tu actualiser les arbitrages à faire ? (en AB-testing) » (l'auteur).
-     Ils remplacent les neuf cas « score global » de la veille, que l'itération
-     a rendus obsolètes. Configuration mesurée : `score-v2.js` — courbe des
-     pertes à l'exposant 65, `meg` facturé une fois, bonus de motif 200/100,
-     régimes 6/29/48/18, 6/47/12/35, quantité seule. Chaque côté porte ses
-     quatre axes v2 et son global v2 (`mesure`) ; la page les affiche à côté
-     des scores d'aujourd'hui. Relevé du 7 septembre 2026. */
+  /* ★ **LES CAS DE BARÈME — la tête d'aujourd'hui contre celle qu'on mettrait
+       à sa place.**
+
+     > « Pas besoin de mentionner v2. Il y a ce qui est branché dans le moteur,
+     >   et ce qu'on envisage de mettre à la place. » (l'auteur)
+
+     Chaque cas oppose DEUX VOIES, et rien d'autre. Les deux se lisent au
+     barème en place, avec les mêmes axes et le même global : ce qu'on arbitre,
+     c'est laquelle mérite la place, pas laquelle de deux notations a raison.
+     Le jour où un autre barème est branché, ces mêmes cas se relisent avec lui
+     sans qu'on ait à toucher une ligne.
+
+     ⚠️ **LES RELEVÉS VIEILLISSENT, ET LA PAGE LE DIT.** `mesure` garde le rang
+       et le score du jour où le cas a été posé ; quand l'écran affiche autre
+       chose, un avertissement rouge le signale (`arbitrage.js ›
+       arb__scores-ecart`) plutôt que de laisser croire à un classement qui
+       n'existe plus. */
   {
     id: 'v2-elegance-https-hope-hope-hope-fr',
     place: 1,
     regime: 'elegance',
-    question: 'v2',
-    titre: "https://hope-hope-hope.fr/ — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "https://hope-hope-hope.fr/ — 1ʳᵉ place — « la plus belle » : celle d’aujourd’hui, ou l’autre",
     saisie: "https://hope-hope-hope.fr/",
     curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!0:mch+cs+prn,3.5:nc,9:fr13+nlc+pc9#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
@@ -151,29 +159,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 1,
-        "rangV2": 9,
         "score": 3280,
-        "globalV2": 765,
-        "axesV2": {
-         "simplicite": 338,
-         "exhaustivite": 976,
-         "quantite": 141,
-         "coherence": 764
-        },
         "mode": "PARTITION",
         "series": 1
        },
        "apres": {
         "rangMoteur": 4,
-        "rangV2": 1,
         "score": 3763,
-        "globalV2": 864,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 892,
-         "quantite": 1000,
-         "coherence": 766
-        },
         "mode": "GROUPEMENT",
         "series": 6
        }
@@ -183,8 +175,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-mixte-https-hope-hope-hope-fr',
     place: 3,
     regime: 'mixte',
-    question: 'v2',
-    titre: "https://hope-hope-hope.fr/ — 3ᵉ résultat — tête de la liste ordinaire : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "https://hope-hope-hope.fr/ — 3ᵉ résultat — tête de la liste ordinaire : celle d’aujourd’hui, ou l’autre",
     saisie: "https://hope-hope-hope.fr/",
     curseurs: {"simplicite": 25, "exhaustivite": 120, "quantite": 200, "coherence": 75},
     avant: '#sce!0:fr14+m14+mpf,3+5+7:ffr3+m14+mpf,9:fr9+m7#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
@@ -192,29 +184,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 3,
-        "rangV2": 2,
         "score": 1274,
-        "globalV2": 849,
-        "axesV2": {
-         "simplicite": 686,
-         "exhaustivite": 641,
-         "quantite": 1000,
-         "coherence": 832
-        },
         "mode": "MOISSON",
         "series": 7
        },
        "apres": {
         "rangMoteur": 4,
-        "rangV2": 1,
         "score": 3763,
-        "globalV2": 925,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 892,
-         "quantite": 1000,
-         "coherence": 766
-        },
         "mode": "GROUPEMENT",
         "series": 6
        }
@@ -224,8 +200,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-elegance-capitalisme',
     place: 1,
     regime: 'elegance',
-    question: 'v2',
-    titre: "Capitalisme — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "Capitalisme — 1ʳᵉ place — « la plus belle » : celle d’aujourd’hui, ou l’autre",
     saisie: "Capitalisme",
     curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!fr21+mx6+mrd#Hi75aotg77MXEgC',
@@ -233,29 +209,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 1,
-        "rangV2": 5,
         "score": 5264,
-        "globalV2": 746,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 795,
-         "quantite": 731,
-         "coherence": 652
-        },
         "mode": "GROUPEMENT",
         "series": 3
        },
        "apres": {
         "rangMoteur": 2,
-        "rangV2": 1,
         "score": 3236,
-        "globalV2": 781,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 868,
-         "quantite": 738,
-         "coherence": 650
-        },
         "mode": "GROUPEMENT",
         "series": 3
        }
@@ -265,8 +225,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-mixte-la-numerologie-est-une-s',
     place: 3,
     regime: 'mixte',
-    question: 'v2',
-    titre: "La numérologie est une science exacte, disent-ils — 3ᵉ résultat — tête de la liste ordinaire : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "La numérologie est une science exacte, disent-ils — 3ᵉ résultat — tête de la liste ordinaire : celle d’aujourd’hui, ou l’autre",
     saisie: "La numérologie est une science exacte, disent-ils",
     curseurs: {"simplicite": 25, "exhaustivite": 120, "quantite": 200, "coherence": 75},
     avant: '#sce!0:fr3+m14,2+6+13:m14,4:fr11+m14,8:fr2+m14+mpf,10:fr10+m14+mpf,15:fatb+m14#wapt1NMKMypvYVfgt71ycBNqoCxRYgzKbH5s8zEg4rQGFDT9JeyTt2n1jBUTTNMxFHfx',
@@ -274,29 +234,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 3,
-        "rangV2": 5,
         "score": 1864,
-        "globalV2": 806,
-        "axesV2": {
-         "simplicite": 713,
-         "exhaustivite": 659,
-         "quantite": 1000,
-         "coherence": 556
-        },
         "mode": "MOISSON",
         "series": 9
        },
        "apres": {
         "rangMoteur": 6,
-        "rangV2": 1,
         "score": 3229,
-        "globalV2": 858,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 767,
-         "quantite": 1000,
-         "coherence": 593
-        },
         "mode": "GROUPEMENT",
         "series": 8
        }
@@ -306,8 +250,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-elegance-donald-trump',
     place: 1,
     regime: 'elegance',
-    question: 'v2',
-    titre: "Donald Trump — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "Donald Trump — 1ʳᵉ place — « la plus belle » : celle d’aujourd’hui, ou l’autre",
     saisie: "Donald Trump",
     curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!0:fatb+mt9+mr9,2:fr3+mhe+mrn#2HuP1G8mNg3sJWhqR',
@@ -315,29 +259,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 1,
-        "rangV2": 3,
         "score": 4077,
-        "globalV2": 768,
-        "axesV2": {
-         "simplicite": 442,
-         "exhaustivite": 840,
-         "quantite": 780,
-         "coherence": 723
-        },
         "mode": "MOISSON",
         "series": 3
        },
        "apres": {
         "rangMoteur": 4,
-        "rangV2": 1,
         "score": 3447,
-        "globalV2": 802,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 840,
-         "quantite": 753,
-         "coherence": 741
-        },
         "mode": "GROUPEMENT",
         "series": 3
        }
@@ -347,8 +275,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-mixte-donald-trump',
     place: 3,
     regime: 'mixte',
-    question: 'v2',
-    titre: "Donald Trump — 3ᵉ résultat — tête de la liste ordinaire : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "Donald Trump — 3ᵉ résultat — tête de la liste ordinaire : celle d’aujourd’hui, ou l’autre",
     saisie: "Donald Trump",
     curseurs: {"simplicite": 25, "exhaustivite": 120, "quantite": 200, "coherence": 75},
     avant: '#sce!0:fr15+mx6+mrn,2:fr3+mhe+mrn#2HuP1G8mNg3sJWhqR',
@@ -356,29 +284,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 2,
-        "rangV2": 4,
         "score": 3921,
-        "globalV2": 762,
-        "axesV2": {
-         "simplicite": 442,
-         "exhaustivite": 840,
-         "quantite": 780,
-         "coherence": 694
-        },
         "mode": "MOISSON",
         "series": 3
        },
        "apres": {
         "rangMoteur": 4,
-        "rangV2": 1,
         "score": 3447,
-        "globalV2": 788,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 840,
-         "quantite": 753,
-         "coherence": 741
-        },
         "mode": "GROUPEMENT",
         "series": 3
        }
@@ -388,8 +300,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-elegance-henri-prunelle',
     place: 1,
     regime: 'elegance',
-    question: 'v2',
-    titre: "Henri Prunelle — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "Henri Prunelle — 1ʳᵉ place — « la plus belle » : celle d’aujourd’hui, ou l’autre",
     saisie: "Henri Prunelle",
     curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!0:mt9+cs+prn,2:fr20+mazc+mr9#TcguSXTd7SkC7z32JAG',
@@ -397,29 +309,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 1,
-        "rangV2": 6,
         "score": 3273,
-        "globalV2": 712,
-        "axesV2": {
-         "simplicite": 442,
-         "exhaustivite": 779,
-         "quantite": 560,
-         "coherence": 717
-        },
         "mode": "MOISSON",
         "series": 2
        },
        "apres": {
         "rangMoteur": 2,
-        "rangV2": 1,
         "score": 3660,
-        "globalV2": 847,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 900,
-         "quantite": 894,
-         "coherence": 744
-        },
         "mode": "GROUPEMENT",
         "series": 4
        }
@@ -429,8 +325,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-abondance-henri-prunelle',
     place: 2,
     regime: 'abondance',
-    question: 'v2',
-    titre: "Henri Prunelle — 2ᵈ place — « la plus fournie » : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "Henri Prunelle — 2ᵈ place — « la plus fournie » : celle d’aujourd’hui, ou l’autre",
     saisie: "Henri Prunelle",
     curseurs: {"simplicite": 0, "exhaustivite": 0, "quantite": 200, "coherence": 0},
     avant: '#sce!fl+mazc+meg#TcguSXTd7SkC7z32JAG',
@@ -438,29 +334,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 2,
-        "rangV2": 2,
         "score": 3660,
-        "globalV2": 894,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 900,
-         "quantite": 894,
-         "coherence": 744
-        },
         "mode": "GROUPEMENT",
         "series": 4
        },
        "apres": {
         "rangMoteur": 3,
-        "rangV2": 1,
         "score": 3712,
-        "globalV2": 916,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 900,
-         "quantite": 916,
-         "coherence": 597
-        },
         "mode": "GROUPEMENT",
         "series": 4
        }
@@ -470,8 +350,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-elegance-numherololgeek-1000i100-',
     place: 1,
     regime: 'elegance',
-    question: 'v2',
-    titre: "numherololgeek.1000i100.fr — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "numherololgeek.1000i100.fr — 1ʳᵉ place — « la plus belle » : celle d’aujourd’hui, ou l’autre",
     saisie: "numherololgeek.1000i100.fr",
     curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!0:nv,2.2:cnjd+pc9,5:fr13+nlc+pc9#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K',
@@ -479,29 +359,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 1,
-        "rangV2": 3,
         "score": 3891,
-        "globalV2": 747,
-        "axesV2": {
-         "simplicite": 373,
-         "exhaustivite": 974,
-         "quantite": 141,
-         "coherence": 710
-        },
         "mode": "PARTITION",
         "series": 1
        },
        "apres": {
         "rangMoteur": 9,
-        "rangV2": 1,
         "score": 4417,
-        "globalV2": 816,
-        "axesV2": {
-         "simplicite": 519,
-         "exhaustivite": 945,
-         "quantite": 780,
-         "coherence": 706
-        },
         "mode": "MOISSON",
         "series": 3
        }
@@ -511,8 +375,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-mixte-numherololgeek-1000i100-',
     place: 3,
     regime: 'mixte',
-    question: 'v2',
-    titre: "numherololgeek.1000i100.fr — 3ᵉ résultat — tête de la liste ordinaire : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "numherololgeek.1000i100.fr — 3ᵉ résultat — tête de la liste ordinaire : celle d’aujourd’hui, ou l’autre",
     saisie: "numherololgeek.1000i100.fr",
     curseurs: {"simplicite": 25, "exhaustivite": 120, "quantite": 200, "coherence": 75},
     avant: '#sce!0:fr10;fl+mpy+meg#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K',
@@ -520,29 +384,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 3,
-        "rangV2": 2,
         "score": 3112,
-        "globalV2": 844,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 716,
-         "quantite": 1000,
-         "coherence": 597
-        },
         "mode": "GROUPEMENT",
         "series": 5
        },
        "apres": {
         "rangMoteur": 6,
-        "rangV2": 1,
         "score": 3061,
-        "globalV2": 871,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 716,
-         "quantite": 1000,
-         "coherence": 747
-        },
         "mode": "GROUPEMENT",
         "series": 5
        }
@@ -552,8 +400,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-elegance-hope',
     place: 1,
     regime: 'elegance',
-    question: 'v2',
-    titre: "hope — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "hope — 1ʳᵉ place — « la plus belle » : celle d’aujourd’hui, ou l’autre",
     saisie: "hope",
     curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!m14#3fq9KJ',
@@ -561,29 +409,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 1,
-        "rangV2": 2,
         "score": 7301,
-        "globalV2": 784,
-        "axesV2": {
-         "simplicite": 1000,
-         "exhaustivite": 837,
-         "quantite": 205,
-         "coherence": 871
-        },
         "mode": "GROUPEMENT",
         "series": 1
        },
        "apres": {
         "rangMoteur": 3,
-        "rangV2": 1,
         "score": 3393,
-        "globalV2": 807,
-        "axesV2": {
-         "simplicite": 338,
-         "exhaustivite": 1000,
-         "quantite": 70,
-         "coherence": 873
-        },
         "mode": "CONVERGENCE",
         "series": 1
        }
@@ -593,8 +425,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-elegance-wikipedia',
     place: 1,
     regime: 'elegance',
-    question: 'v2',
-    titre: "Wikipedia — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "Wikipedia — 1ʳᵉ place — « la plus belle » : celle d’aujourd’hui, ou l’autre",
     saisie: "Wikipedia",
     curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!fr21+mx6+mad#27Xv14MeSfjBN',
@@ -602,29 +434,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 1,
-        "rangV2": 7,
         "score": 6036,
-        "globalV2": 780,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 868,
-         "quantite": 723,
-         "coherence": 652
-        },
         "mode": "GROUPEMENT",
         "series": 3
        },
        "apres": {
         "rangMoteur": 2,
-        "rangV2": 1,
         "score": 3580,
-        "globalV2": 843,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 1000,
-         "quantite": 753,
-         "coherence": 645
-        },
         "mode": "GROUPEMENT",
         "series": 3
        }
@@ -634,8 +450,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-elegance-eleonore-a-nimes',
     place: 1,
     regime: 'elegance',
-    question: 'v2',
-    titre: "Éléonore à Nîmes — 1ʳᵉ place — « la plus belle » : aujourd’hui, ou score v2",
+    question: 'bareme',
+    titre: "Éléonore à Nîmes — 1ʳᵉ place — « la plus belle » : celle d’aujourd’hui, ou l’autre",
     saisie: "Éléonore à Nîmes",
     curseurs: {"simplicite": 25, "exhaustivite": 200, "quantite": 50, "coherence": 150},
     avant: '#sce!0:nl,2:m7+cs,4:fc+nlc#3j14d86Y9shVAUrGT6Cq5K2Rk2cA',
@@ -643,29 +459,13 @@ export const CAS_ARBITRAGE = Object.freeze([
     mesure: {
        "avant": {
         "rangMoteur": 1,
-        "rangV2": 3,
         "score": 2690,
-        "globalV2": 751,
-        "axesV2": {
-         "simplicite": 309,
-         "exhaustivite": 876,
-         "quantite": 141,
-         "coherence": 861
-        },
         "mode": "PARTITION",
         "series": 1
        },
        "apres": {
         "rangMoteur": 3,
-        "rangV2": 1,
         "score": 3824,
-        "globalV2": 835,
-        "axesV2": {
-         "simplicite": 955,
-         "exhaustivite": 968,
-         "quantite": 1000,
-         "coherence": 583
-        },
         "mode": "GROUPEMENT",
         "series": 6
        }
@@ -675,13 +475,22 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: 'v2-exception-hope-url-cran-1',
     place: 1,
     regime: 'elegance',
-    question: 'v2',
+    question: 'bareme',
     titre: 'https://hope-hope-hope.fr/ — l’exception des motifs répétés (voie fabriquée à partir du cran 1)',
     saisie: 'https://hope-hope-hope.fr/',
     curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
-    /* ★ « Un bonus d'élégance spécifique pour trois fragments identiques
+    /* ⚠️ **CET ARBITRAGE EST CADUC — mesuré le 8 septembre 2026.**
+       La question posée était : faut-il élargir la génération au cran 0 pour
+       que la moisson à motifs répétés se voie dès l'accueil ? Elle ne se pose
+       plus : **la voie est déjà au rang 2 au cran 0**, largeur d'assemblage
+       inchangée (8), sur `hope-hope-hope.fr` comme sur `https://…`. Élargir à
+       10 ne déplace aucune tête des dix-neuf saisies du corpus, et ne change
+       pas le temps — 14,7 / 14,6 / 13,7 / 19,2 s en alternant les deux
+       largeurs, la variance de charge domine. Le cas reste ici pour mémoire.
+
+       ★ « Un bonus d'élégance spécifique pour trois fragments identiques
        convertis groupés et plusieurs "-" convertis groupés » (l'auteur). À
-       gauche le groupement que la v2 met en tête au cran 0 ; à droite la
+       gauche le groupement qui tenait la tête au cran 0 ; à droite la
        moisson « 3 × m14 + 2 tirets » que le bonus (200/100) porte en 1ʳᵉ place
        — mais elle n'est FABRIQUÉE qu'à partir du cran 1 de fouille (rang
        5 du moteur), pas au cran 0. Rejouée ici par son lien, elle se voit ;
@@ -689,8 +498,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!f1!fl+mpy+meg#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
     apres: '#sce!f1!0:fr14+m14+mpf,3+5+7:m14,4+6:mtc#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
     mesure: {
-      avant: { rangMoteur: 4, rangV2: 2, score: null, globalV2: 864, axesV2: { simplicite: 955, exhaustivite: 892, quantite: 1000, coherence: 766 }, mode: 'GROUPEMENT', series: 6 },
-      apres: { rangMoteur: 5, rangV2: 1, score: null, globalV2: 876, axesV2: { simplicite: 473, exhaustivite: 836, quantite: 1000, coherence: 954 }, mode: 'MOISSON', series: 6 },
+      avant: { rangMoteur: 4, score: null, mode: 'GROUPEMENT', series: 6 },
+      apres: { rangMoteur: 5, score: null, mode: 'MOISSON', series: 6 },
     },
   },
   {

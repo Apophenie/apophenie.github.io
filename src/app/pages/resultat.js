@@ -338,26 +338,63 @@ function poidsDeLAxe(axe, part) {
 
      Le site est sous AGPL v3 et n'embarque aucune fonte d'icônes ; emprunter à
      Font Awesome obligerait à traîner sa mention CC BY sur chaque page pour
-     douze pixels. Le poids ci-dessous a donc la GÉOMÉTRIE de l'original — un
-     anneau circulaire évidé posé sur un corps évasé — mais ses coordonnées
-     sont dessinées ici, comme les glyphes du reste du projet.
+     douze pixels. Le poids ci-dessous est donc dessiné ici, comme les glyphes
+     du reste du projet.
 
-     ★ **ET IL SE LIT MIEUX QUE L'ORIGINAL À LA TAILLE OÙ ON L'EMPLOIE.**
-       Rasterisés à 16 px et comparés au pixel (`rsvg-convert` puis un relevé
-       du canal alpha), les deux tracés ne disent pas la même chose : celui de
-       Font Awesome, dessiné pour une grille de 640, voit son trou se refermer
-       et rend un bloc plein ; celui-ci garde deux montants et un trou de deux
-       pixels, parce que l'anneau y est proportionnellement plus grand et le
-       trou plus large. Quatre autres variantes ont été écartées de la même
-       façon — dont une anse ouverte qui laissait, entre l'anse et le corps, un
-       vide d'une ligne et demie : à la taille du texte, on lisait deux taches. */
+     ★ **ET SA MASSE EST UN TRAPÈZE, PAS UN CORPS ÉVASÉ.**
+
+       > « Le site utilise des traits sans bord arrondi, les poids devraient
+       >   être plus anguleux aussi. Tu peux garder le rond de l'accroche
+       >   au-dessus, mais la masse, elle, est un trapèze. » (l'auteur)
+
+       Le premier tracé copiait la géométrie de `fa-weight-hanging` : un corps
+       évasé aux quatre coins arrondis, qui jurait avec un site dont aucun
+       trait n'est adouci. Quatre segments droits disent la même chose et la
+       disent dans la langue du reste.
+
+     ⚠️ **ON COMPLÈTE LA FORME, ON NE LA CREUSE PAS** — et c'est la construction
+       qui l'assure, pas l'œil.
+
+       > « La forme d'origine est déjà un trapèze dans ses zones planes, mais
+       >   aux bords arrondis. Si tu étends les droites pour trouver leur
+       >   intersection, tu enlèveras l'arrondi sans retirer de matière. Là, tu
+       >   creuses dans la forme d'origine au lieu de la compléter. » (l'auteur)
+
+       Deux trapèzes ont été essayés en passant par les POINTS DE TANGENCE des
+       congés — c'est-à-dire par l'intérieur des arcs —, et les deux rendaient
+       une masse visiblement plus maigre. Le sommet d'un coin arrondi n'est pas
+       sur l'arc : il est là où les deux droites se coupent, en dehors.
+
+       Les côtés obliques du corps d'origine vont de (2,75 ; 6,95) à
+       (0,75 ; 13,5) : une pente de −0,3053 en x par unité de y. Prolongés
+       jusqu'aux deux plans — le haut à y = 5,3, le bas à y = 15,3 —, ils
+       donnent 3,25 et 12,75 en haut, 0,2 et 15,8 en bas. Ce sont les quatre
+       sommets ci-dessous, et ils ne doivent rien à l'appréciation.
+
+       Relevé au pixel : le tracé rend la même silhouette que le corps évasé,
+       à ceci près qu'il GAGNE de la matière aux quatre coins — la base est
+       pleine sur toute la largeur du cadre là où l'original s'y rétractait.
+
+     ★ **Le trou de l'anneau, lui, est une mesure.** Rasterisé et relevé au
+       canal alpha (`rsvg-convert`, puis le canal séparé), un anneau trop fin se
+       referme aux petites tailles et rend une tache pleine. Le picto s'affiche
+       à `.95em` (`pages.css`), soit une quinzaine de pixels selon la fonte, et
+       le trou y tient. Une variante à l'anneau plus large tenait mieux à douze
+       pixels, mais son cerclage se déchirait à quinze — deux montants inégaux
+       et un bord mangé : elle a été écartée sur la même mesure.
+
+     ⚠️ **`nonzero`, ET C'EST STRUCTUREL.** Sous `evenodd`, l'anneau et le
+       trapèze s'ANNULENT là où ils se chevauchent : le picto se creusait d'une
+       encoche à la jonction, juste sous l'accroche. Les trois contours sont
+       donc orientés — trapèze et cercle extérieur dans un sens, le trou dans
+       l'autre — et la règle par défaut les additionne. */
   const leste = s('svg', {
     class: 'voie__score-leste', viewBox: '0 0 16 16', 'aria-hidden': 'true', focusable: 'false',
   }, [
     s('path', {
-      'fill-rule': 'evenodd',
-      d: 'M8 0.8a3 3 0 0 0-2.6 4.5H4.9C3.9 5.3 3 6 2.75 6.95L0.75 13.5A1.4 1.4 0 0 0 2.1 15.3h11.8'
-        + 'a1.4 1.4 0 0 0 1.35-1.8l-2-6.55C13 6 12.1 5.3 11.1 5.3h-0.5A3 3 0 0 0 8 0.8zM8 2.4a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8z',
+      d: 'M3.25 5.3H12.75L15.8 15.3H0.2Z'
+        + 'M8 0.8a3 3 0 1 1 0 6 3 3 0 1 1 0-6z'
+        + 'M8 2.4a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 1 0 0-2.8z',
     }),
   ]);
   return e('span.voie__score-poids', {

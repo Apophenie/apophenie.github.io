@@ -1847,8 +1847,29 @@ function gestesDuPaquet(plan, ctx, p, j) {
   const idc = (k) => idChiffreRedecoupe(plan, ctx, k);
   const r = p.recette;
   const titre = dire(LIB_ABSORPTION, ctx.langue);
-  const steps = [];
-  if (r.type === 'garde') return { steps, ids: [idc(p.debut)] };
+  /* ★ **CHAQUE GESTE DIT DE QUELLE FAMILLE IL EST, ET DE QUEL RANG.**
+
+     > « Va de gauche à droite pour faire les calculs comme un opérateur
+     >   classique, puis repasse sur celles qui en ont besoin jusqu'au
+     >   résultat ; l'itération doit se faire APRÈS un parcours de gauche à
+     >   droite, ça paraîtra plus légitime. »
+     > « S'il y a d'autres opérations à faire que des additions, fais un
+     >   parcours addition de gauche à droite, puis s'il y a des soustractions
+     >   fais un parcours soustraction… un changement d'opérateur coûte cher,
+     >   il faut le faire le moins souvent possible. » (l'auteur)
+
+     Le paquet ne décide donc plus de l'ordre où ses gestes se jouent : il les
+     ÉTIQUETTE, et `passesEnLargeur` les rassemble avec ceux des autres
+     paquets. Un geste ne connaît que sa famille et son rang dans cette
+     famille ; l'ordonnancement est ailleurs, en un seul endroit, pour les
+     trois mappeurs qui absorbent. */
+  const gestes = [];
+  // `niveau` = la profondeur de dépendance : 0 pour ce qui se calcule
+  // directement sur les chiffres de départ, 1 pour ce qui a besoin d'un
+  // résultat de niveau 0, et ainsi de suite. `ou` = la position dans la ligne,
+  // qui départage deux gestes du même niveau.
+  const pousser = (famille, niveau, ou, step) => gestes.push({ famille, niveau, ou, step });
+  if (r.type === 'garde') return { gestes, steps: [], ids: [idc(p.debut)] };
 
   // Ce que la valeur devient une fois calculée : ses chiffres écrits (`ecrit`),
   // greffés sur le DERNIER geste de calcul.
@@ -1862,6 +1883,7 @@ function gestesDuPaquet(plan, ctx, p, j) {
   // ── 1. chaque part se somme
   const facteurs = [];   // id du jeton qui porte la valeur de chaque part
   const valeurs = [];    // et cette valeur
+  const niveauDesFacteurs = []; // −1 quand le facteur est un chiffre de départ
   const dernierCalcul = r.parts.length === 1;
   r.parts.forEach(([a, b], q) => {
     const termes = [];
@@ -1869,10 +1891,13 @@ function gestesDuPaquet(plan, ctx, p, j) {
     for (let k = a; k < b; k++) { termes.push(idc(k)); vals.push(plan.chiffres[k].v); }
     const s = vals.reduce((x, y) => x + y, 0);
     valeurs.push(s);
-    if (termes.length === 1) { facteurs.push(termes[0]); return; }
+    // Un terme unique n'est pas un calcul : le chiffre EST déjà là, et ce qui
+    // s'en sert reste donc au niveau du départ.
+    if (termes.length === 1) { facteurs.push(termes[0]); niveauDesFacteurs.push(-1); return; }
     const sId = `${ctx.cle}s${j}x${q}`;
     const signes = termes.slice(1).map((_, t) => `${ctx.cle}p${j}x${q}x${t}`);
-    steps.push(etape(ctx, titre, `${vals.join(' + ')} = ${s}${dernierCalcul ? legendeEcrite : ''}`, enchainer([
+    niveauDesFacteurs.push(0);
+    pousser('addition', 0, a, etape(ctx, titre, `${vals.join(' + ')} = ${s}${dernierCalcul ? legendeEcrite : ''}`, enchainer([
       { op: 'insertOperators', between: termes, ids: signes, glyph: '+' },
       { op: 'sum', targets: termes, consume: signes, to: token(sId, s, 'number'), symbol: '+' },
       ...(dernierCalcul ? ecrire(sId) : []),
@@ -1882,13 +1907,15 @@ function gestesDuPaquet(plan, ctx, p, j) {
 
   // ── 2. les parts se combinent : produit, ou différence
   let porteur = facteurs[0];
+  let niveauPorteur = niveauDesFacteurs.length ? niveauDesFacteurs[0] : -1;
   if (facteurs.length >= 2) {
     const xId = `${ctx.cle}x${j}`;
     const signes = facteurs.slice(1).map((_, t) => `${ctx.cle}m${j}x${t}`);
     const partiels = r.op === '−'
       ? [valeurs[0], valeurs[0] - valeurs[1]]
       : valeurs.reduce((acc, v) => [...acc, (acc.length ? acc[acc.length - 1] : 1) * v], []);
-    steps.push(etape(ctx, titre, `${valeurs.join(` ${r.op} `)} = ${r.valeur}${legendeEcrite}`, enchainer([
+    niveauPorteur = 1 + Math.max(...niveauDesFacteurs);
+    pousser(r.op === '−' ? 'difference' : 'produit', niveauPorteur, p.debut, etape(ctx, titre, `${valeurs.join(` ${r.op} `)} = ${r.valeur}${legendeEcrite}`, enchainer([
       { op: 'insertOperators', between: facteurs, ids: signes, glyph: r.op },
       {
         op: 'sum',
@@ -1905,13 +1932,14 @@ function gestesDuPaquet(plan, ctx, p, j) {
     ]), { id: `s_${ctx.cle}_m${j}` }));
     porteur = xId;
   }
-  if (idsEcrits) return { steps, ids: idsEcrits };
+  if (idsEcrits) return { gestes, steps: gestes.map((g) => g.step), ids: idsEcrits };
 
   // ── 3. la valeur se réduit, un palier par étape (comme `mrn`)
   let texte = String(r.valeur);
   r.paliers.forEach((v, k) => {
     const rId = `${ctx.cle}r${j}x${k}`;
-    steps.push(etape(ctx, titre, `${texte} → ${[...texte].join(' + ')} → ${v}`, [{
+    niveauPorteur += 1;
+    pousser('reduction', niveauPorteur, p.debut, etape(ctx, titre, `${texte} → ${[...texte].join(' + ')} → ${v}`, [{
       op: 'reduce',
       target: porteur,
       digits: [...texte].map((d, t) => token(`${ctx.cle}d${j}x${k}x${t}`, d, 'digit')),
@@ -1920,7 +1948,92 @@ function gestesDuPaquet(plan, ctx, p, j) {
     porteur = rId;
     texte = String(v);
   });
-  return { steps, ids: [porteur] };
+  return { gestes, steps: gestes.map((g) => g.step), ids: [porteur] };
+}
+
+/**
+ * ★ **UN PARCOURS PAR FAMILLE, DE GAUCHE À DROITE, ET L'ITÉRATION ENSUITE.**
+ *
+ * L'ordre d'avant traitait un paquet ENTIÈREMENT — sa somme, son produit, ses
+ * paliers — avant de passer au suivant. Un lecteur y voyait le programme
+ * s'acharner sur un morceau pendant que le reste attendait, et changer
+ * d'opération à chaque morceau : sur cinq paquets, jusqu'à quinze changements.
+ *
+ * Ici, chaque famille fait son parcours complet avant que la suivante commence,
+ * et à l'intérieur d'une famille on va de gauche à droite, rang par rang : on
+ * additionne tout ce qui s'additionne, PUIS on soustrait tout ce qui se
+ * soustrait, PUIS on multiplie, PUIS on réduit — quatre changements
+ * d'opérateur au plus, quel que soit le nombre de paquets.
+ *
+ * ⚠️ **L'ORDRE DES FAMILLES N'EST PAS UN GOÛT, C'EST UNE DÉPENDANCE.** La
+ *   combinaison d'un paquet a besoin de toutes ses sommes ; ses paliers ont
+ *   besoin de sa combinaison. Additions d'abord et réductions en dernier n'est
+ *   donc pas négociable — ce qui l'est, entre les deux, c'est l'ordre de la
+ *   différence et du produit, et il est fixé pour que deux exécutions rendent
+ *   la même scène (§4.4).
+ */
+/**
+ * ★ **LE DÉCOUPAGE RESTE, IL SE TAIT** — voir `visuel/primitives/partition.js`.
+ *
+ * > « `partition` n'a que l'affichage à changer : ça devient une étape
+ * >   invisible, mais techniquement elle fait la même chose. » (l'auteur)
+ *
+ * Le partitionnement est de la structure : il pose le `group` de chaque jeton
+ * et rend le vocabulaire des groupes disponible à ce qui suit. Le supprimer
+ * appauvrirait la scène sans rien gagner. Ce qu'on lui retire, c'est l'annonce
+ * — les accolades tracées d'avance et l'écartement qui montrait la réponse
+ * avant le premier calcul.
+ *
+ * ⚠️ **ET PAS D'ÉTAPE À LUI.** Une étape où rien ne bouge paraîtrait quand même
+ *   dans Le Registre, qui est l'équivalent accessible OBLIGATOIRE de la scène
+ *   (§6) : on y lirait « on découpe » sans que rien ne se voie. L'op muette se
+ *   glisse donc en tête du PREMIER calcul, là où le découpage commence
+ *   réellement à servir.
+ */
+function glisserLeDecoupage(steps, groupes) {
+  if (!steps.length || !groupes || groupes.length < 2) return steps;
+  steps[0].ops = [{ op: 'partition', groups: groupes, visible: false }, ...(steps[0].ops || [])];
+  return steps;
+}
+
+/**
+ * ★ **EN LARGEUR, ET PAS EN PROFONDEUR.**
+ *
+ * > « Au lieu de faire tous les calculs d'un paquet avant de passer au suivant
+ * >   — un parcours en profondeur —, on fait le ou les calculs qui se font
+ * >   directement à partir des chiffres de départ, sur TOUS les paquets, puis
+ * >   ceux impliquant les résultats du premier niveau, etc. : un parcours en
+ * >   largeur. » (l'auteur)
+ *
+ * Les calculs ne changent pas, la recherche non plus — c'est l'ordre où on les
+ * MONTRE. L'ordre d'avant s'acharnait sur un morceau pendant que le reste
+ * attendait ; celui-ci balaie la ligne entière à chaque niveau, comme on pose
+ * une opération.
+ *
+ * ⚠️ **UN GESTE NE PEUT PAS PRÉCÉDER CE DONT IL DÉPEND**, et c'est le `niveau`
+ *   qui le garantit : il vaut 0 pour ce qui se calcule sur les chiffres de
+ *   départ, et un de plus que le plus profond de ses opérandes sinon. Trier par
+ *   niveau croissant respecte donc toutes les dépendances par construction,
+ *   sans qu'on ait à les vérifier une à une.
+ *
+ * ★ **À NIVEAU ÉGAL, ON GROUPE PAR OPÉRATEUR** — l'autre consigne de l'auteur :
+ *   « un changement d'opérateur coûte cher, il faut le faire le moins souvent
+ *   possible ». Deux gestes de même niveau sont indépendants ; les ranger par
+ *   famille ne viole donc aucune dépendance, et évite d'alterner soustraction
+ *   et produit dans une même passe. À famille égale, la position dans la ligne
+ *   tranche — de gauche à droite, comme on lit.
+ */
+const ORDRE_DES_FAMILLES = Object.freeze(['addition', 'difference', 'produit', 'reduction']);
+
+function passesEnLargeur(parPaquet) {
+  const tous = [];
+  for (const q of parPaquet) for (const g of q.gestes) tous.push(g);
+  // ⚠️ Trois clés ENTIÈRES, aucune comparaison de texte : deux exécutions
+  //   doivent rendre exactement la même scène (§4.4).
+  tous.sort((a, b) => (a.niveau - b.niveau)
+    || (ORDRE_DES_FAMILLES.indexOf(a.famille) - ORDRE_DES_FAMILLES.indexOf(b.famille))
+    || (a.ou - b.ou));
+  return tous.map((g) => g.step);
 }
 
 
@@ -5118,22 +5231,31 @@ const AUTRES_MAPPEURS = [
          gardait qu'une ligne. Or il est l'équivalent accessible OBLIGATOIRE de
          la scène (§6) — ce qui se voit en six temps doit s'y lire en six lignes.
 
-         ★ **LA DÉCOUPE RESTE SEULE DANS SA PROPRE ÉTAPE**, et c'est le bon
-           découpage plutôt qu'un découpage commode : elle n'additionne rien, elle
-           ANNONCE les paquets. La coller à la première addition ferait commencer
-           un calcul dans l'étape qui pose la question. */
+         ⚠️ **LA DÉCOUPE AVAIT SA PROPRE ÉTAPE, ELLE N'EN A PLUS** — et c'est
+           l'auteur qui a retourné l'argument.
+
+           > « Plutôt que de pré-découper visuellement et d'afficher les
+           >   accolades pour chaque segment, ne fais la découpe visuelle que
+           >   sur le moment de l'opération impliquant ces chiffres, et affiche
+           >   l'accolade correspondante à ce moment-là. » (l'auteur)
+
+           Ce qui était écrit ici — « elle n'additionne rien, elle ANNONCE les
+           paquets », « la coller à la première addition ferait commencer un
+           calcul dans l'étape qui pose la question » — se défendait. Mais
+           annoncer les paquets, c'est montrer d'un coup le résultat du
+           découpage, donc la réponse, avant d'avoir rien calculé : le lecteur
+           voit le programme savoir où couper sans savoir pourquoi. L'accolade
+           que `sum` trace sur ses propres termes, au moment où il les
+           additionne, dit la même chose et la dit en la justifiant.
+
+           La décomposition « une étape par addition », elle, ne bouge pas :
+           c'est l'autre consigne, et elle reste entière. */
       const vus = plan.chiffres.map((c) => c.v).join(' ');
-      const groupes = plan.paquets.map((p, j) => ({
+      const groupesMuets = plan.paquets.map((p, j) => ({
         targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
         tag: `${ctx.cle}q${j}`,
       }));
-      if (groupes.length >= 2) {
-        const decoupe = plan.paquets
-          .map((p) => plan.chiffres.slice(p.debut, p.fin).map((c) => c.v).join('')).join(' · ');
-        steps.push(etape(ctx, dire(LIB_REDECOUPAGE, ctx.langue),
-          `${vus} → ${decoupe}`, enchainer([{ op: 'partition', groups: groupes }]),
-          { id: `s_${ctx.cle}_d` }));
-      }
+      const avantLesCalculs = steps.length;
 
       plan.paquets.forEach((p, j) => {
         if (p.fin - p.debut < 2) return;
@@ -5172,6 +5294,7 @@ const AUTRES_MAPPEURS = [
           `${valeurs.join(' + ')} = ${p.somme}${eclate}`, enchainer(ops),
           { id: `s_${ctx.cle}_p${j}` }));
       });
+      glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
 
       // Un redécoupage sans aucun paquet à additionner n'existe pas
       // (`planRedecoupage` exige `groupes`), mais un relevé d'ensemble reste dû
@@ -5529,20 +5652,29 @@ const AUTRES_MAPPEURS = [
           enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
       }
 
-      // ── 2. la découpe, seule dans son étape
-      const vus = plan.chiffres.map((c) => c.v).join(' ');
-      if (plan.paquets.length >= 2) {
-        const groupes = plan.paquets.map((p, j) => ({
-          targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
-          tag: `${ctx.cle}q${j}`,
-        }));
-        const decoupe = plan.paquets.map((p) => p.chiffres.join('')).join(' · ');
-        steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue), `${vus} → ${decoupe}`,
-          enchainer([{ op: 'partition', groups: groupes }]), { id: `s_${ctx.cle}_d` }));
-      }
+      /* ── 2. LES CALCULS, PAR PASSES — et plus aucune découpe d'avance.
 
-      // ── 3. chaque paquet se fond, geste par geste
-      plan.paquets.forEach((p, j) => { steps.push(...gestesDuPaquet(plan, ctx, p, j).steps); });
+         > « Plutôt que de pré-découper visuellement et d'afficher les
+         >   accolades pour chaque segment, ne fais la découpe visuelle que
+         >   sur le moment de l'opération impliquant ces chiffres, et affiche
+         >   l'accolade correspondante à ce moment-là. » (l'auteur)
+
+         L'étape qui posait TOUTES les accolades avant le moindre calcul a
+         disparu. Elle ne servait qu'à annoncer le découpage — ses `tag` n'ont
+         jamais été lus par personne (aucun sélecteur `{group}` dans ce
+         fichier) —, et annoncer le découpage, c'est montrer la réponse avant
+         de la calculer. Chaque `sum` trace déjà son accolade sur ses propres
+         opérandes, au moment où il s'en sert : c'est là qu'elle est due.
+
+         Reste l'ordre, et il est maintenant en un seul endroit. */
+      const vus = plan.chiffres.map((c) => c.v).join(' ');
+      const groupes = plan.paquets.map((p, j) => ({
+        targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
+        tag: `${ctx.cle}q${j}`,
+      }));
+      steps.push(...glisserLeDecoupage(
+        passesEnLargeur(plan.paquets.map((p, j) => gestesDuPaquet(plan, ctx, p, j))), groupes,
+      ));
 
       if (!steps.length) {
         steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue),
@@ -5677,17 +5809,19 @@ const AUTRES_MAPPEURS = [
         plan.passes.forEach((passe, q) => {
           const titre = dire(LIB_REDECOUPAGE_EXACT, ctx.langue)
             + (q > 0 ? dire(LIB_SECONDE_PASSE, ctx.langue) : '');
-          const vus = passe.entree.join(' ');
-          const groupes = passe.paquets.map((p, j) => ({
+          /* ★ **PAS DE DÉCOUPE D'AVANCE ICI NON PLUS** — voir `mab`. La passe
+               annonçait ses paquets tous ensemble avant de calculer quoi que
+               ce soit ; chaque somme trace son accolade sur ses propres
+               termes, au moment où elle s'en sert, et c'est assez.
+             ⚠️ Ce qui reste vrai et qu'on ne touche pas : la passe ENTIÈRE se
+               joue de gauche à droite avant que la suivante commence. C'est
+               déjà l'ordre que l'auteur demande — « l'itération doit se faire
+               après un parcours de gauche à droite ». */
+          const groupesMuets = passe.paquets.map((p, j) => ({
             targets: ids.slice(p.debut, p.fin),
             tag: `${ctx.cle}q${q}g${j}`,
           }));
-          if (groupes.length >= 2) {
-            const decoupe = passe.paquets
-              .map((p) => passe.entree.slice(p.debut, p.fin).join('')).join(' · ');
-            steps.push(etape(ctx, titre, `${vus} → ${decoupe}`,
-              enchainer([{ op: 'partition', groups: groupes }]), { id: `s_${ctx.cle}_q${q}d` }));
-          }
+          const avantLesCalculs = steps.length;
           passe.paquets.forEach((p, j) => {
             if (p.fin - p.debut < 2) return;
             const termes = ids.slice(p.debut, p.fin);
@@ -5727,6 +5861,7 @@ const AUTRES_MAPPEURS = [
             }
             steps.push(etape(ctx, titre, legende, enchainer(ops), { id: `s_${ctx.cle}_q${q}p${j}` }));
           });
+          glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
           ids = passe.paquets.flatMap((p, j) => idsSortieExacte(ctx, q, j, p, ids));
         });
         return steps;
@@ -5849,20 +5984,29 @@ const AUTRES_MAPPEURS = [
           enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
       }
 
-      // ── 2. la découpe, seule dans son étape
-      const vus = plan.chiffres.map((c) => c.v).join(' ');
-      if (plan.paquets.length >= 2) {
-        const groupes = plan.paquets.map((p, j) => ({
-          targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
-          tag: `${ctx.cle}q${j}`,
-        }));
-        const decoupe = plan.paquets.map((p) => p.chiffres.join('')).join(' · ');
-        steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue), `${vus} → ${decoupe}`,
-          enchainer([{ op: 'partition', groups: groupes }]), { id: `s_${ctx.cle}_d` }));
-      }
+      /* ── 2. LES CALCULS, PAR PASSES — et plus aucune découpe d'avance.
 
-      // ── 3. chaque paquet se fond, geste par geste
-      plan.paquets.forEach((p, j) => { steps.push(...gestesDuPaquet(plan, ctx, p, j).steps); });
+         > « Plutôt que de pré-découper visuellement et d'afficher les
+         >   accolades pour chaque segment, ne fais la découpe visuelle que
+         >   sur le moment de l'opération impliquant ces chiffres, et affiche
+         >   l'accolade correspondante à ce moment-là. » (l'auteur)
+
+         L'étape qui posait TOUTES les accolades avant le moindre calcul a
+         disparu. Elle ne servait qu'à annoncer le découpage — ses `tag` n'ont
+         jamais été lus par personne (aucun sélecteur `{group}` dans ce
+         fichier) —, et annoncer le découpage, c'est montrer la réponse avant
+         de la calculer. Chaque `sum` trace déjà son accolade sur ses propres
+         opérandes, au moment où il s'en sert : c'est là qu'elle est due.
+
+         Reste l'ordre, et il est maintenant en un seul endroit. */
+      const vus = plan.chiffres.map((c) => c.v).join(' ');
+      const groupes = plan.paquets.map((p, j) => ({
+        targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
+        tag: `${ctx.cle}q${j}`,
+      }));
+      steps.push(...glisserLeDecoupage(
+        passesEnLargeur(plan.paquets.map((p, j) => gestesDuPaquet(plan, ctx, p, j))), groupes,
+      ));
 
       if (!steps.length) {
         steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue),
@@ -5968,20 +6112,29 @@ const AUTRES_MAPPEURS = [
           enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
       }
 
-      // ── 2. la découpe, seule dans son étape
-      const vus = plan.chiffres.map((c) => c.v).join(' ');
-      if (plan.paquets.length >= 2) {
-        const groupes = plan.paquets.map((p, j) => ({
-          targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
-          tag: `${ctx.cle}q${j}`,
-        }));
-        const decoupe = plan.paquets.map((p) => p.chiffres.join('')).join(' · ');
-        steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue), `${vus} → ${decoupe}`,
-          enchainer([{ op: 'partition', groups: groupes }]), { id: `s_${ctx.cle}_d` }));
-      }
+      /* ── 2. LES CALCULS, PAR PASSES — et plus aucune découpe d'avance.
 
-      // ── 3. chaque paquet se fond, geste par geste
-      plan.paquets.forEach((p, j) => { steps.push(...gestesDuPaquet(plan, ctx, p, j).steps); });
+         > « Plutôt que de pré-découper visuellement et d'afficher les
+         >   accolades pour chaque segment, ne fais la découpe visuelle que
+         >   sur le moment de l'opération impliquant ces chiffres, et affiche
+         >   l'accolade correspondante à ce moment-là. » (l'auteur)
+
+         L'étape qui posait TOUTES les accolades avant le moindre calcul a
+         disparu. Elle ne servait qu'à annoncer le découpage — ses `tag` n'ont
+         jamais été lus par personne (aucun sélecteur `{group}` dans ce
+         fichier) —, et annoncer le découpage, c'est montrer la réponse avant
+         de la calculer. Chaque `sum` trace déjà son accolade sur ses propres
+         opérandes, au moment où il s'en sert : c'est là qu'elle est due.
+
+         Reste l'ordre, et il est maintenant en un seul endroit. */
+      const vus = plan.chiffres.map((c) => c.v).join(' ');
+      const groupes = plan.paquets.map((p, j) => ({
+        targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
+        tag: `${ctx.cle}q${j}`,
+      }));
+      steps.push(...glisserLeDecoupage(
+        passesEnLargeur(plan.paquets.map((p, j) => gestesDuPaquet(plan, ctx, p, j))), groupes,
+      ));
 
       if (!steps.length) {
         steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue),
