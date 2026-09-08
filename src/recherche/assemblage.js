@@ -242,6 +242,10 @@ const MAX_JETONS_MOISSON = 24;      // portées atomiques soumises à l'énumér
  */
 const MAX_CANDIDATS_PORTEE = 10;
 
+/** Combien de vecteurs déjà calculés on retente avec l'absorption additive
+ *  quand le faisceau n'en a produit aucune (voir le rattrapage, plus bas). */
+const RATTRAPAGE_ADDITIF_MAX = 40;
+
 /**
  * Bornes de l'étage des RETOUCHES (voir `groupementsRetouches`).
  *
@@ -1000,13 +1004,58 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     //   juge d'abord sur la saisie. Mesuré sur « Éléonore à Nîmes » visant 111 :
     //   `fi+tca+msfr` — les initiales, trois lettres sur quatorze — prenait le
     //   siège de `fl+tca+mch+mab`, qui les lit toutes, parce qu'il est honnête.
+    /* ★ **UN RATTRAPAGE, PARCE QUE LE FAISCEAU NE FABRIQUE PAS TOUT.**
+
+       > « Selon comment tu convertis, la séquence chiffrée n'est pas la même.
+       >   Du coup, dans le lot, il devrait y avoir des chemins qui mènent au
+       >   résultat par addition sans surplus. Ils sont juste plus difficiles à
+       >   calculer, j'imagine. » (l'auteur)
+
+       Il avait raison, et la mesure lui donne raison deux fois. Sur « Donald
+       Trump », `mrdE` accepte SEIZE des lignes que les mappeurs produisent, et
+       l'une d'elles — `fl+tca+mx6+mrdE` — écrit `[6 6 6 6 6 6]` d'un trait,
+       deux séries, rien de jeté (score 3 602). Elle n'était proposée à aucun
+       cran : le faisceau du BFS l'avait élaguée avant l'assemblage, et un
+       siège ne peut élire que ce qu'on lui présente.
+
+       On tente donc l'absorption additive SUR PLACE, à la fin de la
+       fabrication : pour chaque vecteur déjà calculé, une application de
+       `mrdE`, et l'on garde ce qui écrit la cible exactement. C'est borné —
+       une application par vecteur, sur les vecteurs qu'on a déjà —, et cela ne
+       s'exécute que si aucune voie additive sans perte n'est ressortie du
+       faisceau. */
+    const additifs = (ops || [])
+      .filter((o) => o && o.id === 'm.redecoupageExact');
+    if (additifs.length) {
+      // ⚠️ La question n'est pas « une voie sans perte existe-t-elle » — `meg`
+      //   en fournit souvent une — mais « en existe-t-il une PAR ADDITION ».
+      //   Le premier critère, trop large, éteignait le rattrapage six fois sur
+      //   sept sur « Donald Trump ».
+      const dejaAdditive = out.some((c) => !ecarte(c) && exactement(c)
+        && c.ops.some((o) => o && o.id === 'm.redecoupageExact'));
+      if (!dejaAdditive) {
+        for (const c of out.slice(0, RATTRAPAGE_ADDITIF_MAX)) {
+          const fin = c.etats[c.etats.length - 1];
+          if (!fin || fin.type !== 'NUMS') continue;
+          if (c.ops.some((o) => o && o.id
+            && (o.id === 'm.redecoupageExact' || o.id === 'm.absorption'
+              || Object.prototype.hasOwnProperty.call(FICELLES, o.id)))) continue;
+          for (const op of additifs) {
+            const suite = appliquerOp(op, fin);
+            if (!suite) continue;
+            retenir(c.ops.concat([op]), c.etats.concat([suite]));
+          }
+        }
+      }
+    }
     const sansPerte = out
       .filter((c) => !ecarte(c) && exactement(c))
       .sort((a, b) => (caracteresLus(b, texte) - caracteresLus(a, texte))
         || (nbFicelles(a) - nbFicelles(b))
         || (a.ops.length - b.ops.length) || comparerChemins(a, b));
     // Le meilleur toutes méthodes, puis le meilleur qui n'absorbe que par
-    // additions — le second n'est retenu que s'il diffère du premier.
+    // additions — l'absorption additive d'abord, à défaut toute voie sans
+    // ficelle ni absorption. Le second n'est retenu que s'il diffère du premier.
     // ⚠️ **ET SANS AUCUNE FICELLE.** Le second siège cherche la voie « addition
     //   uniquement » ; une ficelle qui absorbe — `mad` — n'en est pas une, et
     //   le tri par caractères lus la faisait passer devant. Mesuré sur
@@ -1016,8 +1065,11 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     //     `nbFicelles` — qui compte `A_MERITER_SA_PLACE`, où le redécoupage
     //     exact figure lui aussi : s'en servir ici excluait précisément la voie
     //     qu'on cherche.
-    const additive = sansPerte.find((c) => !c.ops.some((o) => o && o.id
-      && (o.id === 'm.absorption' || Object.prototype.hasOwnProperty.call(FICELLES, o.id))));
+    const honnete = (c) => !c.ops.some((o) => o && o.id
+      && (o.id === 'm.absorption' || Object.prototype.hasOwnProperty.call(FICELLES, o.id)));
+    const additive = sansPerte.find((c) => honnete(c)
+      && c.ops.some((o) => o && o.id === 'm.redecoupageExact'))
+      || sansPerte.find(honnete);
     for (const c of [sansPerte[0], additive]) if (c && !elus.includes(c)) elus.push(c);
     // ⚠️ Les places visées sont les DERNIÈRES de la première moitié, et jamais
     //   négatives : sur une liste courte (`plafond` à deux), `fenetre - 1 - rang`
