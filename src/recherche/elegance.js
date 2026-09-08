@@ -91,6 +91,7 @@
 // (adHoc 0,35, aucun palier) et pour `c.moyenne` (adHoc bas, palier `ARRONDI`).
 
 import { CIBLE_DEFAUT, normaliserCible, indexUtiles } from './cible.js';
+import { classeDuMot, classesJustifiees } from './mots-outils.js';
 
 /**
  * Trois 6 font un 666 (`assemblage.js › SERIE`) — pour la cible PAR DÉFAUT.
@@ -2859,11 +2860,58 @@ export function caracteresRetenus(approche, ctx) {
   return valeur;
 }
 
+/* ★ **LES MOTS QU'ON LAISSE DE CÔTÉ : lesquels, et de quel droit.**
+
+   > « Ne jamais écarter un nom ou un mot rare, alors qu'ignorer un mot
+   >   extrêmement commun est moins grave. […] Cependant chaque suppression
+   >   doit être justifiée par une règle : on ne peut pas supprimer `le` mais
+   >   garder `la`. » (l'auteur)
+
+   `abandons` sait déjà QUELLE FORME a la perte (lettre éparse, mot entier) et,
+   depuis peu, POURQUOI elle a lieu (une règle du programme, ou rien). Il lui
+   manquait la NATURE de ce qu'on abandonne, et c'est un fait de langue, pas de
+   géométrie : `age` et `les` font trois lettres, l'un est un nom et l'autre un
+   article. Voir `mots-outils.js` pour l'inventaire et pour la vérification de
+   la règle — une classe n'excuse un abandon que si elle est abandonnée TOUT
+   ENTIÈRE. */
+export function motsAbandonnes(approche, ctx) {
+  const saisie = String((ctx && ctx.saisie) || '');
+  const caracteres = [...saisie];
+  const { vus } = caracteresRetenus(approche, ctx);
+  const mots = [];
+  const abandonne = [];
+  let debut = -1;
+  for (let i = 0; i <= caracteres.length; i++) {
+    const alnum = i < caracteres.length && estAlnum(caracteres[i]);
+    if (alnum && debut < 0) debut = i;
+    else if (!alnum && debut >= 0) {
+      let unVu = false;
+      for (let k = debut; k < i; k++) if (vus[k]) unVu = true;
+      mots.push(caracteres.slice(debut, i).join(''));
+      abandonne.push(!unVu);
+      debut = -1;
+    }
+  }
+  const justifiees = classesJustifiees(mots, abandonne);
+  // Les caractères abandonnés, rangés selon ce qu'ils forment : un mot outil
+  // dont la règle est tenue, un mot outil dont elle ne l'est pas, un mot plein.
+  const compte = { regleTenue: 0, regleRompue: 0, motPlein: 0, classes: [...justifiees].sort() };
+  for (let i = 0; i < mots.length; i++) {
+    if (!abandonne[i]) continue;
+    const cl = classeDuMot(mots[i]);
+    const n = [...mots[i]].length;
+    if (!cl) compte.motPlein += n;
+    else if (justifiees.has(cl)) compte.regleTenue += n;
+    else compte.regleRompue += n;
+  }
+  return compte;
+}
+
 export function abandons(approche, ctx) {
   const saisie = String((ctx && ctx.saisie) || '');
   const caracteres = [...saisie];
   const masque = ctx && ctx.signifiants ? ctx.signifiants.masque : null;
-  const { vus, opaque } = caracteresRetenus(approche, ctx);
+  const { vus, couverts, opaque } = caracteresRetenus(approche, ctx);
 
   // Les blocs de la saisie : suites maximales de lettres et de chiffres.
   const blocs = [];
@@ -2877,7 +2925,32 @@ export function abandons(approche, ctx) {
   // ★ `signifiants` / `lus` : la PROPORTION, et pas seulement le compte. Voir
   //   `PORTEE_IGNOREE` — ignorer six lettres sur douze n'est pas le même geste
   //   qu'en ignorer six sur deux cents.
-  const a = { alnum: 0, bloc: 0, blocCourt: 0, ponctuation: 0, signifiants: 0, lus: 0, opaque };
+  /* ★ **DEUX QUESTIONS, PAS UNE : ce qu'on abandonne, et POURQUOI.**
+
+     > « En pratique, ignorer un mot sur deux (Donald Trump) est inacceptable ;
+     >   ignorer un `.fr` ou les voyelles est bien plus acceptable. »
+     > « Le coût élevé par lettre était plutôt pour les suppressions
+     >   arbitraires. Dès qu'une suppression est justifiée / élégante, elle
+     >   devient moins grave. » (l'auteur)
+
+     Les quatre postes historiques (`alnum`, `bloc`, `blocCourt`,
+     `ponctuation`) répondent à la première : la FORME de ce qu'on laisse. Ils
+     ne disent rien de la seconde, et c'est ce qui manquait — le barème facture
+     26 la voyelle qu'un `fc` écarte selon sa règle, et 20 le caractère d'un mot
+     qu'on n'a jamais regardé.
+
+     La cause, elle, est déjà calculée : `caracteresRetenus` rend `couverts`, à
+     côté de `vus`. Un caractère COUVERT par une portée puis absent du résultat
+     a été écarté PAR UNE OPÉRATION du programme — une règle que le lecteur
+     voit écrite. Un caractère jamais couvert n'a pas été écarté : il n'a pas
+     été regardé, et c'est le mot ignoré.
+
+     On compte donc les deux, croisés avec la forme. Les totaux historiques ne
+     bougent pas d'un caractère — le barème en place lit les mêmes nombres ;
+     ces compteurs-ci sont là pour qui veut faire la différence. */
+  const a = { alnum: 0, bloc: 0, blocCourt: 0, ponctuation: 0, signifiants: 0, lus: 0, opaque,
+    alnumEcarte: 0, alnumHorsPortee: 0, blocEcarte: 0, blocHorsPortee: 0,
+    blocCourtEcarte: 0, blocCourtHorsPortee: 0, ponctuationEcarte: 0, ponctuationHorsPortee: 0 };
   const dansUnBlocEntier = new Uint8Array(caracteres.length);
   for (const [d, f] of blocs) {
     let unVu = false;
@@ -2893,15 +2966,19 @@ export function abandons(approche, ctx) {
 
   for (let i = 0; i < caracteres.length; i++) {
     if (masque && !masque[i]) continue; // gratuit : ni compté ni reproché
-    if (!estAlnum(caracteres[i])) { if (!vus[i]) a.ponctuation++; continue; }
+    const parUneRegle = !!(couverts && couverts[i]);
+    if (!estAlnum(caracteres[i])) {
+      if (!vus[i]) { a.ponctuation++; if (parUneRegle) a.ponctuationEcarte++; else a.ponctuationHorsPortee++; }
+      continue;
+    }
     // ★ Le dénominateur de la proportion : la matière que l'auteur a tapée et
     //   que la démonstration AURAIT PU lire. La ponctuation n'en fait pas
     //   partie — personne ne reproche à une méthode d'ignorer un point.
     a.signifiants++;
     if (vus[i]) { a.lus++; continue; }
-    if (dansUnBlocEntier[i] === 2) a.blocCourt++;
-    else if (dansUnBlocEntier[i] === 1) a.bloc++;
-    else a.alnum++;
+    if (dansUnBlocEntier[i] === 2) { a.blocCourt++; if (parUneRegle) a.blocCourtEcarte++; else a.blocCourtHorsPortee++; }
+    else if (dansUnBlocEntier[i] === 1) { a.bloc++; if (parUneRegle) a.blocEcarte++; else a.blocHorsPortee++; }
+    else { a.alnum++; if (parUneRegle) a.alnumEcarte++; else a.alnumHorsPortee++; }
   }
   return a;
 }
@@ -3203,6 +3280,7 @@ export function bilanApproche(approche, ctx = {}) {
   }
 
   b.abandons = abandons(approche, ctx);
+  b.motsAbandonnes = motsAbandonnes(approche, ctx);
   // La cible voyage avec le bilan : `detailDuCredit` en a besoin, et elle doit
   // y arriver par le bilan plutôt que par un second argument — deux chemins
   // pour une même valeur, c'est deux occasions de diverger.

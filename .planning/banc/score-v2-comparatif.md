@@ -364,3 +364,126 @@ trois régimes trois positions de curseurs lues par `selectionner`, afficher la
 part réelle du régime sur le leste de chaque carte, retirer `POIDS_DES_REGIMES`,
 `CORRESPONDANCE`, `facteurRendement`, `facteurQuantite`, `poidsDeLaSuppression`,
 les bonus et malus additifs, et réécrire les tests qui les gèlent.
+
+---
+
+## Itération 4 — la cause de la perte, et non plus seulement sa forme (8 septembre)
+
+> « En pratique, ignorer un mot sur deux (Donald Trump) est inacceptable ;
+>   ignorer un `.fr` ou les voyelles est bien plus acceptable. »
+> « Le coût élevé par lettre était plutôt pour les suppressions arbitraires.
+>   Dès qu'une suppression est justifiée / élégante, elle devient moins grave. »
+> « Concave, mais avec plus d'écart entre les pertes élégantes et celles
+>   arbitraires — peut-être concave 80 suffira. » (l'auteur)
+
+⚠️ **LES CHIFFRES DES ITÉRATIONS 1 À 3 NE SONT PLUS COMPARABLES À CEUX-CI.**
+Les listes du moteur ont changé le 8 septembre (relecture sous substitution,
+refus des suppressions en fin de chemin) : 244 voies au lieu de 237, et le
+régime « abondance » compte 13 cas au lieu de 8. Tout ce tableau-ci est
+remesuré sur les listes du jour.
+
+### Le barème disait l'inverse de la doctrine
+
+L'échelle héritée facture **26** la lettre éparse et **20** le caractère d'un mot
+entier abandonné. Elle punit donc le plus ce que l'auteur juge acceptable — les
+voyelles qu'un `fc` écarte — et le moins ce qu'il juge inacceptable — un mot
+qu'on n'a jamais regardé. L'inverser suffit à gagner de la fidélité (accord
+73,7 → 74,9 %, lignes déplacées 36 → 31), mais efface la seconde moitié de la
+doctrine : une lettre arrachée SANS règle doit rester chère.
+
+### La cause était déjà calculée, personne ne la lisait
+
+`caracteresRetenus` rend `couverts` à côté de `vus`. Un caractère couvert par
+une portée puis absent du résultat a été écarté **par une opération du
+programme** — une règle écrite, que le lecteur peut vérifier. Un caractère
+jamais couvert n'a pas été écarté : il n'a pas été regardé. `abandons` croise
+désormais les deux (`alnumEcarte` / `alnumHorsPortee`, etc.) ; les totaux
+historiques ne bougent pas d'un caractère.
+
+Sur `hope-hope-hope.fr`, la séparation est parfaite : `fc+tca+ma1+cs+prn…` perd
+six lettres, **toutes par règle** ; `fr21+tca+masc+mrdE` perd huit caractères,
+**tous hors portée**.
+
+### Trois prix, et la mesure les préfère (exposant 80)
+
+| prix règle / lettre / mot / bloc court | 25/25/25/25 | 6/29/48/18 |
+|---|---|---|
+| — (échelle actuelle 26/20/10) | 8 têtes · 74,4 % · 36 déplacées | 10 · 70,2 % · 18 |
+| **10 / 26 / 50 / 10** | 8 · **75,3 %** · **30** | 10 · 69,7 % · **15** |
+| 8 / 26 / 60 / 10 | 8 · 75,2 % · 32 | 10 · 70,0 % · 16 |
+| 13 / 26 / 40 / 12 | 7 · 74,8 % · 30 | 10 · 68,7 % · 22 |
+| 5 / 30 / 78 / 10 | 8 · 74,7 % · 36 | 10 · 70,1 % · 18 |
+
+**La doctrine ne coûte pas de fidélité, elle en gagne.** Et elle se voit :
+`fc+tca+mqwc+meg` (trois lettres par règle) monte de 6 à 5 sur Donald Trump,
+`fr5+tca+mx6+mab` (six caractères d'un mot ignoré) descend de 7 à 10 ; sur
+`hope-hope-hope.fr`, les deux voies `fc` bondissent de 14 à 9 et de 15 à 10.
+
+⚠️ Le bloc entier reste au prix du MOT IGNORÉ même quand une règle l'a écarté :
+« ignorer un mot sur deux est inacceptable » ne souffre pas qu'on le justifie
+après coup.
+
+### La courbe : 80 est bien le point d'équilibre
+
+| exposant | 25/25/25/25 | 6/29/48/18 | élégance |
+|---|---|---|---|
+| 65 | 7 têtes · 40 déplacées | 10 · 18 | 6/16 |
+| **80** | 8 · 36 | 10 · **14** | 6/16 |
+| 100 | 9 · 32 | 10 · 18 | 5/16 |
+
+### Les curseurs : 25/25/25/25 coûte deux têtes
+
+Contre `6/29/48/18` : 8 têtes au lieu de 10, et deux fois plus de lignes
+déplacées (30 contre 15 avec les prix par cause). C'est le prix de la lisibilité
+— quatre parts égales sur le leste — et c'est un arbitrage, pas une erreur.
+
+### L'arbitrage n° 2 est CADUC
+
+La moisson multi-parts à trois `m14` + les tirets est **déjà au rang 2 au cran
+0**, largeur d'assemblage inchangée (8) — mesuré sur `hope-hope-hope.fr` et
+`https://hope-hope-hope.fr/`. Le relevé du 7 septembre (« rang 5, seulement à
+partir du cran 1 ») est périmé. Élargir à 10 ne change aucune tête sur les dix-
+neuf saisies du corpus, et le temps ne bouge pas : 14,7 / 14,6 / 13,7 / 19,2 s
+en alternant les deux largeurs — la variance de charge domine l'effet.
+
+### Rejouer
+
+```
+BANC_REGLAGES='{"EXPOSANT_PERTE":80}' BANC_CURSEURS='25/25/25/25,6/29/48/18' \
+  BANC_CAUSE='10/26/50/10/5' node .planning/banc/score-v2-point.mjs
+```
+
+### La NATURE du mot ignoré, et la règle qui l'excuse
+
+> « Ignorer un mot (non couvert) → grave. Ignorer un petit mot de liaison → pas
+>   grave (`de`, `les`, `.fr`…). Mais entre `hope` et `avec`, ou `age` et
+>   `les`, ce n'est pas le nombre de caractères qui distingue, c'est un
+>   dictionnaire grammatical. […] Cependant chaque suppression doit être
+>   justifiée par une règle : on ne peut pas supprimer `le` mais garder `la`. »
+>   (l'auteur)
+
+`mots-outils.js` porte six classes fermées — articles, prépositions,
+conjonctions, verbes être et avoir, extensions de domaine, protocoles — et une
+vérification : **une classe n'excuse un abandon que si TOUS ses membres présents
+dans la saisie sont abandonnés**, comptés par occurrence et non par forme (« le
+chat mange le poisson » ne peut pas perdre un `le` sur deux). Ce qui n'est dans
+aucune classe est un nom : plein tarif.
+
+Vérifié :
+
+| saisie | voie | abandons | rang |
+|---|---|---|---|
+| la souris est mangee par le chat | `fr3+tca+mpy+meg` | 10 car. sous **3 règles tenues** `[articles, auxiliaires, prepositions]` + 10 car. de mots pleins | 7 → 7 |
+| la souris est mangee par le chat | `fr15+tca+mx6+mrn,…` | 2 car. **règle rompue** | 9 → 11 ▼ |
+| le chat mange la souris | `nc,nlc+pc9,nl` | 2 car. **règle rompue** | 18 → 20 ▼ |
+| hope-hope-hope.fr | `fl+tca+mazc+mr9` | 2 car. sous `[tld]` | 11 → 9 ▲ |
+
+Sur le corpus du banc l'effet global est NUL (30 lignes déplacées, 75,0-75,2 %
+d'accord, comme sans la nature) — ce corpus est fait de noms propres et d'URL,
+où il n'y a presque pas de mots outils. La règle ne se paie donc rien et ne se
+voit que là où elle a du sens : les phrases.
+
+⚠️ **Ce qui reste à trancher ici** : le prix du mot outil sous règle tenue. 8,
+10 et 15 se valent sur le corpus (75,0 / 75,1 / 75,2 %) ; à 15 les lignes
+déplacées de la liste ordinaire montent de 15 à 22. Le défaut mesuré le moins
+perturbant est **8**.

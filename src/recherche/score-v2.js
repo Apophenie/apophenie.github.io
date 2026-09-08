@@ -101,6 +101,30 @@ export const REGLAGES = {
   POIDS_LECTURE: 400, POIDS_RENDEMENT: 400, POIDS_PERTES_EN_ROUTE: 200,
   // les prix relatifs du barème, ramenés à la lettre arrachée (26)
   PRIX_LETTRE: 26, PRIX_BLOC: 20, PRIX_BLOC_COURT: 10, PRIX_PONCTUATION: 5,
+  /* ★ **CE QUI EST ÉCARTÉ PAR UNE RÈGLE COÛTE MOINS QUE CE QU'ON N'A PAS
+       REGARDÉ** — et un MOT entier laissé de côté coûte plus que tout.
+
+     > « Ignorer un mot sur deux (Donald Trump) est inacceptable ; ignorer un
+     >   `.fr` ou les voyelles est bien plus acceptable. »
+     > « Le coût élevé par lettre était plutôt pour les suppressions
+     >   arbitraires. Dès qu'une suppression est justifiée / élégante, elle
+     >   devient moins grave. » (l'auteur)
+
+     `elegance.js › abandons` croise désormais la forme et la cause. Trois prix
+     suffisent à dire la doctrine : la règle énoncée (un `fc` qui laisse les
+     voyelles — le lecteur voit la règle et peut la vérifier), la lettre qu'on
+     n'a jamais regardée, et le MOT qu'on n'a jamais regardé.
+
+     `null` débranche la distinction et rend le calcul d'avant, pour que le banc
+     mesure l'un contre l'autre sans changer de module. */
+  PRIX_ECARTE_PAR_REGLE: null,
+  PRIX_MOT_IGNORE: null,
+  /* ★ **UN MOT OUTIL DONT LA RÈGLE EST TENUE** — voir `mots-outils.js`.
+     `le` et `la` ensemble, tous les `.fr`, tous les `par` : une classe
+     abandonnée TOUT ENTIÈRE est une règle énoncée, et se paie comme telle. La
+     même classe à moitié abandonnée reste au prix du mot ignoré : « on ne peut
+     pas supprimer `le` mais garder `la` ». */
+  PRIX_MOT_OUTIL: null,
   // quantité
   PRIME_DISJOINT: 200, PLAFOND_BAREME_QUANTITE: 300, DIVISEUR_BAREME_QUANTITE: 3,
   MALUS_DECRET: [40, 100], MALUS_CONVERGENCE: [50, 100],
@@ -235,7 +259,29 @@ export function axesDe(a) {
     // la PERTE de lecture, au prix relatif du barème : lettre arrachée 26, bloc 20,
     // bloc court 10, ponctuation 5 — la ponctuation ignorée entre dans la matière
     // à son prix, « même minime »
-    const perdu = ab.alnum * R.PRIX_LETTRE + ab.bloc * R.PRIX_BLOC + ab.blocCourt * R.PRIX_BLOC_COURT + ab.ponctuation * R.PRIX_PONCTUATION;
+    let perdu;
+    if (R.PRIX_ECARTE_PAR_REGLE === null || ab.alnumEcarte === undefined) {
+      perdu = ab.alnum * R.PRIX_LETTRE + ab.bloc * R.PRIX_BLOC + ab.blocCourt * R.PRIX_BLOC_COURT + ab.ponctuation * R.PRIX_PONCTUATION;
+    } else {
+      const regle = R.PRIX_ECARTE_PAR_REGLE;
+      const mot = R.PRIX_MOT_IGNORE ?? R.PRIX_BLOC;
+      // ⚠️ Le bloc entier reste au prix du MOT IGNORÉ même quand une règle l'a
+      //   écarté : « ignorer un mot sur deux est inacceptable » ne souffre pas
+      //   qu'on le justifie après coup. La règle allège la lettre éparse et le
+      //   bloc court — le `.fr` —, pas le mot.
+      const ma = R.PRIX_MOT_OUTIL !== null ? a.bilan && a.bilan.motsAbandonnes : null;
+      // Les mots entiers : soit ventilés par leur NATURE quand on sait la lire,
+      // soit au prix du mot ignoré comme avant. Les deux comptes portent sur la
+      // même matière — un caractère est dans un mot entièrement abandonné, ou
+      // il est épars dans un mot qu'on lit — et ne se recoupent donc pas.
+      const motsEntiers = ma
+        ? ma.regleTenue * R.PRIX_MOT_OUTIL + (ma.regleRompue + ma.motPlein) * mot
+        : (ab.blocEcarte + ab.blocHorsPortee) * mot
+          + ab.blocCourtEcarte * regle + ab.blocCourtHorsPortee * R.PRIX_BLOC_COURT;
+      perdu = ab.alnumEcarte * regle + ab.alnumHorsPortee * R.PRIX_LETTRE
+        + motsEntiers
+        + ab.ponctuation * R.PRIX_PONCTUATION;
+    }
     const matiere = ab.signifiants * R.PRIX_LETTRE + ab.ponctuation * R.PRIX_PONCTUATION;
     lecture = apresPerte(Math.floor((perdu * MILLE) / matiere));
   } else {
