@@ -1603,6 +1603,8 @@ const ABSORBENT_PAR_ADDITION = Object.freeze({
   //   absorbe de plus que `mrd`, elle le paie donc au même tarif ; ce qu'elle
   //   ne jette pas, aucun poste de rejet ne le lui compte, et c'est le point.
   'm.absorption': 'redecoupage',
+  'm.absorptionProduit': 'redecoupage',
+  'm.absorptionDifference': 'redecoupage',
   // ★ Le redécoupage EXACT (`mrdE`) fait le même geste que `mrd`, passe après
   //   passe : il se paie au même palier, par chiffre absorbé, dilué par ses
   //   additions et dégressif avec la longueur de la ligne. Ce qu'il a de plus
@@ -1793,6 +1795,8 @@ export const A_MERITER_SA_PLACE = Object.freeze(new Set([
   // L'absorption fabrique la cible ENTIÈRE par construction : à plus forte
   // raison que le redécoupage, elle doit mériter sa place.
   'm.absorption',
+  'm.absorptionProduit',
+  'm.absorptionDifference',
   // ★ Le redécoupage exact aussi : le siège réservé à la voie sans perte
   //   (`assemblage.js › vecteursDeSix`) le fait entrer dans la liste quand il
   //   le mérite ; il n'a plus besoin d'être dispensé.
@@ -2631,7 +2635,8 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       // ★ Le redécoupage EXACT (`mrdE`) absorbe aussi — par sommes et racines
       //   seulement — et paie le même poste : sans lui, une voie à une série
       //   passait devant `fl+tca+m14` et devant `fr13+tca+m14+meg`.
-      if (op.id === 'm.absorption' || op.id === 'm.redecoupageExact') b.absorptions += absorbes;
+      if (op.id === 'm.absorption' || op.id === 'm.absorptionProduit'
+        || op.id === 'm.absorptionDifference' || op.id === 'm.redecoupageExact') b.absorptions += absorbes;
       const poids = typeof op.additions === 'function'
         ? dilution(op.additions(avant.valeur)) : absorbes * 1000;
       // ★ Et le redécoupage, LUI SEUL, s'allège avec la longueur de la ligne :

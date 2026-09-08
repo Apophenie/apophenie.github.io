@@ -1639,7 +1639,27 @@ const racineDe = (v) => {
  *   `parts` : les bornes `[debut, fin)` de chaque part, absolues ; `op` : `'×'`,
  *   `'−'` ou `null` pour une part seule.
  */
-function valeursDuSegment(cumul, i, k) {
+/**
+ * ★ **LES OPÉRATIONS AUTORISÉES SONT UN PARAMÈTRE, et c'est ce qui distingue
+ *   les trois absorptions.**
+ *
+ * > « Tu peux faire une variante de `mrdE` qui ne fait QUE des multiplications,
+ * >   et une autre qui ne fait QUE des soustractions. C'est la sélection ad hoc
+ * >   de l'opération que fait `mab` qui fait ficelle. » (l'auteur)
+ *
+ * Le socle est le même pour les trois — un paquet vaut la somme de ses
+ * chiffres, réduite par sa racine numérique si elle dépasse neuf —, et c'est ce
+ * qui reste quand on n'autorise rien de plus : `mrdE`, l'addition seule. Chaque
+ * variante ajoute UNE opération à ce socle, et une seule : `mabx` le produit,
+ * `mabd` la différence. `mab` les a toutes, et c'est précisément ce qu'on lui
+ * reproche — choisir au cas par cas laquelle appliquer est une ficelle, alors
+ * qu'annoncer « ici on multiplie » et s'y tenir n'en est pas une.
+ */
+const OPERATIONS_TOUTES = Object.freeze(new Set(['×', '−']));
+const OPERATIONS_PRODUIT = Object.freeze(new Set(['×']));
+const OPERATIONS_DIFFERENCE = Object.freeze(new Set(['−']));
+
+function valeursDuSegment(cumul, i, k, autorisees = OPERATIONS_TOUTES) {
   const somme = (a, b) => cumul[b] - cumul[a];
   const vues = new Map();
   const poser = (parts, op, valeur) => {
@@ -1652,9 +1672,9 @@ function valeursDuSegment(cumul, i, k) {
   for (let m1 = i + 1; m1 < k; m1++) {
     const a = somme(i, m1);
     const b = somme(m1, k);
-    poser([[i, m1], [m1, k]], '×', a * b);
-    if (a >= b) poser([[i, m1], [m1, k]], '−', a - b);
-    if (PARTS_MAX < 3) continue;
+    if (autorisees.has('×')) poser([[i, m1], [m1, k]], '×', a * b);
+    if (autorisees.has('−') && a >= b) poser([[i, m1], [m1, k]], '−', a - b);
+    if (PARTS_MAX < 3 || !autorisees.has('×')) continue;
     for (let m2 = m1 + 1; m2 < k; m2++) {
       poser([[i, m1], [m1, m2], [m2, k]], '×', a * somme(m1, m2) * somme(m2, k));
     }
@@ -1687,7 +1707,7 @@ function nbPaliers(depart) {
  *   paquets:Array<{debut:number,fin:number,recette:Object,chiffres:number[],sortie:number[]}>,
  *   series:number}|null}
  */
-function calculerPlanAbsorption(valeur, visee) {
+function calculerPlanAbsorption(valeur, visee, autorisees = OPERATIONS_TOUTES) {
   if (!valeur.length) return null;
   if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
   const chiffres = [];
@@ -1728,7 +1748,7 @@ function calculerPlanAbsorption(valeur, visee) {
           if (chiffres[i].v === t) poser(k, j + 1, ici.cout, i, j, { type: 'garde', valeur: t, parts: [[i, k]], op: null, ecrits: 1 });
           continue;
         }
-        if (segments[k] === null) segments[k] = valeursDuSegment(cumul, i, k);
+        if (segments[k] === null) segments[k] = valeursDuSegment(cumul, i, k, autorisees);
         for (const v of segments[k]) {
           if (v.racine === t) {
             const paliers = nbPaliers(v.valeur);
@@ -1792,10 +1812,13 @@ function calculerPlanAbsorption(valeur, visee) {
  */
 const PLANS = new Map();
 const PLANS_MAX = 2048;
-function planAbsorption(valeur, visee) {
-  const cle = `${visee.texte}|${valeur.join(',')}`;
+function planAbsorption(valeur, visee, autorisees = OPERATIONS_TOUTES) {
+  // ★ Les opérations autorisées entrent dans la clé : trois absorptions
+  //   partagent ce cache, et servir le plan de l'une pour l'autre montrerait un
+  //   produit là où l'opérateur promet une différence.
+  const cle = `${visee.texte}|${[...autorisees].join('')}|${valeur.join(',')}`;
   if (PLANS.has(cle)) return PLANS.get(cle);
-  const plan = calculerPlanAbsorption(valeur, visee);
+  const plan = calculerPlanAbsorption(valeur, visee, autorisees);
   if (PLANS.size >= PLANS_MAX) PLANS.clear();
   PLANS.set(cle, plan);
   return plan;
@@ -5529,6 +5552,7 @@ const AUTRES_MAPPEURS = [
     },
   })),
 
+
   // ★ **LE REDÉCOUPAGE EXACT — la variante de `mrd` qui ne laisse rien.**
   //
   // > « Je voudrais arriver à toujours proposer un chemin sans aucune perte,
@@ -5709,6 +5733,263 @@ const AUTRES_MAPPEURS = [
       },
     };
   })())),
+
+  /* ★ **DEUX VARIANTES MONO-OPÉRATION — et c'est l'auteur qui pose le principe.**
+
+     > « Tu peux faire une variante de `mrdE` qui ne fait QUE des
+     >   multiplications, et une autre qui ne fait QUE des soustractions. C'est
+     >   la sélection ad hoc de l'opération que fait `mab` qui fait ficelle. »
+
+     La distinction est juste, et elle se lit dans l'adHoc : `mab` regarde la
+     cible pour choisir, paquet par paquet, s'il vaut mieux sommer, multiplier
+     ou soustraire — trois libertés qu'il exerce au cas par cas (0,49, le plus
+     haut du catalogue hors joker). `mabx` et `mabd` annoncent leur opération
+     dans leur nom et s'y tiennent : un paquet vaut sa somme, ou bien — coupé en
+     deux — le produit, respectivement la différence, de ses moitiés. Le socle
+     additif reste celui de `mrdE` ; chacune n'ajoute qu'UNE opération, et
+     toujours la même. 0,42 plutôt que 0,49.
+
+     Elles partagent tout le reste avec `mab` — le plan, la mise en scène, le
+     refus net quand la ligne ne peut pas écrire la cible — parce que c'est
+     exactement le même geste, à la liberté près. */
+  selonLaCible((visee) => ({
+    id: 'm.absorptionProduit', code: 'mabx', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: bilingue('Absorption par produits', 'Absorption by products'),
+    regle: bilingue('Chaque paquet vaut la somme de ses chiffres — ou, quand il est coupé en deux, le PRODUIT des deux moitiés —, réduit par sa racine numérique. Une seule opération en plus de l’addition, annoncée d’avance.', 'Each packet is the sum of its digits — or, when split in two, the PRODUCT of the halves — reduced by its digital root. One operation beyond addition, announced up front.'),
+    // ★ Notoriété 0,15, sous `mrd` (0,20) : additionner des voisins est banal,
+    //   les réduire l'est aussi (racine numérique), les MULTIPLIER par le
+    //   chiffre qu'on veut garder ne se fait nulle part. AdHoc 0,49, le plus
+    //   haut du catalogue hors joker : chaque coupe, chaque somme et chaque
+    //   produit sont choisis en regardant la cible et rien d'autre. C'est le
+    //   prix de l'exhaustivité — le barème facture la simplicité perdue, et il
+    //   crédite ce qui est gardé : tout.
+    //
+    // ★ `cout: 2` — le MALUS DE SIMPLICITÉ de l'auteur, dans la seule grandeur
+    //   que le barème lit (`score.js › coutRendu`, la concision). `mad` et
+    //   `mrd` déclarent 1 en rendant plusieurs étapes ; celui-ci en rend au
+    //   moins deux par construction — la découpe, puis au moins une fusion —
+    //   et, mesuré, de vingt à quarante sur les cas de l'auteur. Déclarer 1
+    //   serait le faire passer pour une lecture.
+    notoriete: 0.18, adHoc: 0.42, cout: 2,
+    note: bilingue(
+      'La ficelle assumée de l’exhaustivité : rien ne tombe, tout se dissout. Le prix se lit '
+      + 'à l’écran — chaque accolade est une coupe choisie, chaque somme, chaque produit et '
+      + 'chaque différence un geste de plus —, et c’est le score qui le compte.',
+      'The trick that buys exhaustiveness: nothing falls, everything dissolves. The price is '
+      + 'on screen — every brace is a chosen cut, every sum, product and difference one more '
+      + 'move — and the score is what keeps count.',
+    ),
+    apply: (valeur, traces) => {
+      const plan = planAbsorption(valeur, visee, OPERATIONS_PRODUIT);
+      if (!plan) return null;
+      const sortie = [];
+      const org = [];
+      for (const p of plan.paquets) {
+        const t = fusion(...plan.chiffres.slice(p.debut, p.fin).map((c) => traces[c.src] || []));
+        for (const d of p.sortie) { sortie.push(d); org.push(t); }
+      }
+      return { valeur: sortie, traces: org };
+    },
+    // ★ Ce que la triche fait VOIR — voir `additions` dans `commun.js` : le
+    //   nombre de termes de chaque addition montrée, dans l'ordre de lecture.
+    //   Les paliers de réduction en sont (on additionne les chiffres d'une
+    //   somme) ; un produit n'en est pas, et ne s'y compte pas.
+    additions: (valeur) => {
+      const plan = planAbsorption(valeur, visee, OPERATIONS_PRODUIT);
+      if (!plan) return [];
+      const out = [];
+      for (const p of plan.paquets) {
+        const r = p.recette;
+        if (r.type === 'garde') continue;
+        for (const [a, b] of r.parts) if (b - a >= 2) out.push(b - a);
+        if (r.paliers) {
+          let v = r.valeur;
+          for (const palier of r.paliers) { out.push(String(v).length); v = palier; }
+        }
+      }
+      return out;
+    },
+    sortie: (avant, apres, ctx) => {
+      const plan = planAbsorption(avant.valeur, visee, OPERATIONS_PRODUIT);
+      return plan ? plan.paquets.flatMap((p, j) => gestesDuPaquet(plan, ctx, p, j).ids) : [];
+    },
+    /**
+     * ★ TROIS TEMPS, ET CHAQUE GESTE DANS SA PROPRE ÉTAPE.
+     *
+     * 1. **On écrit chaque nombre chiffre à chiffre** — le step de `mrd`, émis
+     *    seulement s'il y a quelque chose à éclater.
+     * 2. **On découpe.** Les accolades de `partition` tombent sur la ligne :
+     *    autant de paquets que de chiffres à écrire. C'est la DÉCISION, et
+     *    elle se montre seule, avant le moindre calcul.
+     * 3. **Chaque paquet se fond**, une étape par geste (comme `mad` et `mrd`
+     *    depuis la consigne de l'auteur) : la somme des termes, puis chaque
+     *    palier de réduction, ou la somme des intrus puis le produit puis ses
+     *    paliers. Le Registre en garde une ligne par geste.
+     *
+     * ★ Aucune valeur ne disparaît en silence (§0.3) : tout chiffre entre dans
+     *   une somme ou un produit que la scène joue, et le moteur visuel refuse
+     *   d'afficher un calcul dont le résultat ne serait pas celui annoncé.
+     */
+    steps: (avant, apres, ctx) => {
+      const plan = planAbsorption(avant.valeur, visee, OPERATIONS_PRODUIT);
+      if (!plan) return [];
+      const steps = [];
+      const idc = (k) => idChiffreRedecoupe(plan, ctx, k);
+
+      // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
+      const paires = [];
+      avant.valeur.forEach((v, i) => {
+        const ks = plan.chiffres.map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
+        if (ks.length < 2) return;
+        paires.push({ target: ctx.ids[i], to: ks.map((k) => token(idc(k), plan.chiffres[k].v, 'digit')) });
+      });
+      if (paires.length) {
+        const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
+        steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
+          enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
+      }
+
+      // ── 2. la découpe, seule dans son étape
+      const vus = plan.chiffres.map((c) => c.v).join(' ');
+      if (plan.paquets.length >= 2) {
+        const groupes = plan.paquets.map((p, j) => ({
+          targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
+          tag: `${ctx.cle}q${j}`,
+        }));
+        const decoupe = plan.paquets.map((p) => p.chiffres.join('')).join(' · ');
+        steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue), `${vus} → ${decoupe}`,
+          enchainer([{ op: 'partition', groups: groupes }]), { id: `s_${ctx.cle}_d` }));
+      }
+
+      // ── 3. chaque paquet se fond, geste par geste
+      plan.paquets.forEach((p, j) => { steps.push(...gestesDuPaquet(plan, ctx, p, j).steps); });
+
+      if (!steps.length) {
+        steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue),
+          `${vus} → ${apres.valeur.join(' ')}`, [], { id: `s_${ctx.cle}_d` }));
+      }
+      return steps;
+    },
+  })),
+  selonLaCible((visee) => ({
+    id: 'm.absorptionDifference', code: 'mabd', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: bilingue('Absorption par différences', 'Absorption by differences'),
+    regle: bilingue('Chaque paquet vaut la somme de ses chiffres — ou, quand il est coupé en deux, la DIFFÉRENCE des deux moitiés —, réduit par sa racine numérique. Une seule opération en plus de l’addition, annoncée d’avance.', 'Each packet is the sum of its digits — or, when split in two, the DIFFERENCE of the halves — reduced by its digital root. One operation beyond addition, announced up front.'),
+    // ★ Notoriété 0,15, sous `mrd` (0,20) : additionner des voisins est banal,
+    //   les réduire l'est aussi (racine numérique), les MULTIPLIER par le
+    //   chiffre qu'on veut garder ne se fait nulle part. AdHoc 0,49, le plus
+    //   haut du catalogue hors joker : chaque coupe, chaque somme et chaque
+    //   produit sont choisis en regardant la cible et rien d'autre. C'est le
+    //   prix de l'exhaustivité — le barème facture la simplicité perdue, et il
+    //   crédite ce qui est gardé : tout.
+    //
+    // ★ `cout: 2` — le MALUS DE SIMPLICITÉ de l'auteur, dans la seule grandeur
+    //   que le barème lit (`score.js › coutRendu`, la concision). `mad` et
+    //   `mrd` déclarent 1 en rendant plusieurs étapes ; celui-ci en rend au
+    //   moins deux par construction — la découpe, puis au moins une fusion —
+    //   et, mesuré, de vingt à quarante sur les cas de l'auteur. Déclarer 1
+    //   serait le faire passer pour une lecture.
+    notoriete: 0.18, adHoc: 0.42, cout: 2,
+    note: bilingue(
+      'La ficelle assumée de l’exhaustivité : rien ne tombe, tout se dissout. Le prix se lit '
+      + 'à l’écran — chaque accolade est une coupe choisie, chaque somme, chaque produit et '
+      + 'chaque différence un geste de plus —, et c’est le score qui le compte.',
+      'The trick that buys exhaustiveness: nothing falls, everything dissolves. The price is '
+      + 'on screen — every brace is a chosen cut, every sum, product and difference one more '
+      + 'move — and the score is what keeps count.',
+    ),
+    apply: (valeur, traces) => {
+      const plan = planAbsorption(valeur, visee, OPERATIONS_DIFFERENCE);
+      if (!plan) return null;
+      const sortie = [];
+      const org = [];
+      for (const p of plan.paquets) {
+        const t = fusion(...plan.chiffres.slice(p.debut, p.fin).map((c) => traces[c.src] || []));
+        for (const d of p.sortie) { sortie.push(d); org.push(t); }
+      }
+      return { valeur: sortie, traces: org };
+    },
+    // ★ Ce que la triche fait VOIR — voir `additions` dans `commun.js` : le
+    //   nombre de termes de chaque addition montrée, dans l'ordre de lecture.
+    //   Les paliers de réduction en sont (on additionne les chiffres d'une
+    //   somme) ; un produit n'en est pas, et ne s'y compte pas.
+    additions: (valeur) => {
+      const plan = planAbsorption(valeur, visee, OPERATIONS_DIFFERENCE);
+      if (!plan) return [];
+      const out = [];
+      for (const p of plan.paquets) {
+        const r = p.recette;
+        if (r.type === 'garde') continue;
+        for (const [a, b] of r.parts) if (b - a >= 2) out.push(b - a);
+        if (r.paliers) {
+          let v = r.valeur;
+          for (const palier of r.paliers) { out.push(String(v).length); v = palier; }
+        }
+      }
+      return out;
+    },
+    sortie: (avant, apres, ctx) => {
+      const plan = planAbsorption(avant.valeur, visee, OPERATIONS_DIFFERENCE);
+      return plan ? plan.paquets.flatMap((p, j) => gestesDuPaquet(plan, ctx, p, j).ids) : [];
+    },
+    /**
+     * ★ TROIS TEMPS, ET CHAQUE GESTE DANS SA PROPRE ÉTAPE.
+     *
+     * 1. **On écrit chaque nombre chiffre à chiffre** — le step de `mrd`, émis
+     *    seulement s'il y a quelque chose à éclater.
+     * 2. **On découpe.** Les accolades de `partition` tombent sur la ligne :
+     *    autant de paquets que de chiffres à écrire. C'est la DÉCISION, et
+     *    elle se montre seule, avant le moindre calcul.
+     * 3. **Chaque paquet se fond**, une étape par geste (comme `mad` et `mrd`
+     *    depuis la consigne de l'auteur) : la somme des termes, puis chaque
+     *    palier de réduction, ou la somme des intrus puis le produit puis ses
+     *    paliers. Le Registre en garde une ligne par geste.
+     *
+     * ★ Aucune valeur ne disparaît en silence (§0.3) : tout chiffre entre dans
+     *   une somme ou un produit que la scène joue, et le moteur visuel refuse
+     *   d'afficher un calcul dont le résultat ne serait pas celui annoncé.
+     */
+    steps: (avant, apres, ctx) => {
+      const plan = planAbsorption(avant.valeur, visee, OPERATIONS_DIFFERENCE);
+      if (!plan) return [];
+      const steps = [];
+      const idc = (k) => idChiffreRedecoupe(plan, ctx, k);
+
+      // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
+      const paires = [];
+      avant.valeur.forEach((v, i) => {
+        const ks = plan.chiffres.map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
+        if (ks.length < 2) return;
+        paires.push({ target: ctx.ids[i], to: ks.map((k) => token(idc(k), plan.chiffres[k].v, 'digit')) });
+      });
+      if (paires.length) {
+        const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
+        steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
+          enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
+      }
+
+      // ── 2. la découpe, seule dans son étape
+      const vus = plan.chiffres.map((c) => c.v).join(' ');
+      if (plan.paquets.length >= 2) {
+        const groupes = plan.paquets.map((p, j) => ({
+          targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
+          tag: `${ctx.cle}q${j}`,
+        }));
+        const decoupe = plan.paquets.map((p) => p.chiffres.join('')).join(' · ');
+        steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue), `${vus} → ${decoupe}`,
+          enchainer([{ op: 'partition', groups: groupes }]), { id: `s_${ctx.cle}_d` }));
+      }
+
+      // ── 3. chaque paquet se fond, geste par geste
+      plan.paquets.forEach((p, j) => { steps.push(...gestesDuPaquet(plan, ctx, p, j).steps); });
+
+      if (!steps.length) {
+        steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue),
+          `${vus} → ${apres.valeur.join(' ')}`, [], { id: `s_${ctx.cle}_d` }));
+      }
+      return steps;
+    },
+  })),
 ];
 
 /** Les dix caractères que « le tiret du 6 » sait convertir — exposé pour l'UI. */

@@ -279,6 +279,15 @@ const VECTEURS = [
   //   des voisins dont la somme est un multiple de neuf ressort intact. Aucun
   //   chiffre n'est laissé de côté.
   ['mrdE', N([6, 5, 1, 9, 3, 3]), [6, 6, 6]],
+  // ★ Les deux absorptions mono-opération, sur la même ligne que `mab` :
+  //   `6 · 456 · 64` — le 6 reste, `4+5+6 = 15 → 6`, puis `6 × 4 = 24 → 6`
+  //   pour le produit ; la différence prend une autre coupe.
+  ['mabx', N([64, 5, 6, 64]), [6, 6, 6]],
+  // ★ La différence a besoin d'une autre ligne — et c'est tout le propos de la
+  //   séparer du produit : `9−3 = 6` trois fois, là où le produit ne saurait
+  //   rien faire de `9 3`. Une opération annoncée d'avance ne s'applique pas
+  //   partout, et c'est ce qui la distingue d'une sélection ad hoc.
+  ['mabd', N([9, 3, 9, 3, 9, 3]), [6, 6, 6]],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],
@@ -358,6 +367,8 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   // Le redécoupage EXACT montre sa découpe de la même façon — une accolade par
   // paquet, avant la moindre addition —, et la seconde passe la remontre.
   mrdE: 'partition',
+  mabx: 'partition',
+  mabd: 'partition',
 });
 
 /**
@@ -409,8 +420,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 162); // +4 Jost, +1 le demi-tour montant, +1 l'absorption, +1 le redécoupage exact
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 162, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 164); // +4 Jost, +1 le demi-tour montant, +1 l'absorption, +1 le redécoupage exact
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 164, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -420,7 +431,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 162, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 164, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

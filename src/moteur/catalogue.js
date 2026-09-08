@@ -129,6 +129,9 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   EN FIN DE BLOC, comme le veut l'append-only (§4.1) : sa place naturelle
   //   serait à côté de `mrd`, sa place juste est ici.
   'mrdE',
+  // ★ Les deux absorptions MONO-OPÉRATION — produit, puis différence. En fin de
+  //   bloc, append-only (§4.1).
+  'mabx', 'mabd',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',
