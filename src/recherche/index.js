@@ -40,7 +40,7 @@ import {
   reglagesDeBudget, normaliserPuissance, PUISSANCE_ENUMERATION,
   PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX,
 } from '../config.js';
-import { emploieUneFicelle } from './elegance.js';
+import { emploieUneFicelle, elagueALaFin } from './elegance.js';
 import { indexUtiles } from './cible.js';
 
 import { construireScenario } from './scenario.js';
@@ -494,6 +494,34 @@ export function creerMoteur(catalogue, options = {}) {
       return c;
     };
     for (const a of approches) { noter(a, contexteDe(a)); marquerLesCodes(a); }
+
+    /* ★ **LE REFUS DES SUPPRESSIONS EN FIN DE CHEMIN** — voir
+         `elegance.js › elagueALaFin` pour ce qu'on refuse et pourquoi la cible
+         homogène en est exemptée.
+
+       Le refus tombe ICI, après la notation et avant le tri : il lui faut le
+       bilan, et il ne doit pas être un rang de plus dans le classement. Une
+       approche qui produit treize chiffres et n'en montre que huit ne descend
+       pas la liste — elle n'y est pas.
+
+       ⚠️ **ET QUAND IL NE RESTE RIEN, IL NE RESTE RIEN.** Le joker est repêché
+         s'il existe — c'est la garantie du §5.3, et c'est la voie assumée comme
+         telle (§0.4). Mais il n'existe QUE pour 666 (`assemblage.js ›
+         approcheJoker`), et le refus, lui, ne mord que hors de 666 : les deux
+         ne se croisent presque jamais. Alors la liste reste VIDE, et la page le
+         dit (`resultat.js › resultat.aucuneVoieCible`).
+         Retomber ici sur les voies qu'on vient de refuser serait exactement la
+         dégradation silencieuse que §2.2 interdit — mesuré sur
+         `hope → 31031998`, où c'est précisément ce qui se produisait : quatre
+         lettres, treize chiffres calculés, huit montrés, et l'approche
+         « refusée » servie en tête comme si de rien n'était. */
+    const cibleHomogene = cbl.alphabet.length === 1;
+    const tenables = approches.filter((a) => !elagueALaFin(a.bilan, cibleHomogene));
+    if (tenables.length !== approches.length) {
+      const j = tenables.length ? null : approcheJoker(saisie, ctxAssemblage);
+      if (j) { noter(j, contexteDe(j)); marquerLesCodes(j); tenables.push(j); }
+      approches = tenables;
+    }
     // ★ Le comparateur du mode personnalisé — au défaut, `ordrePondere` rend un
     //   ordre identique à `ordreTotal`, mais on prend `ordreTotal` lui-même pour
     //   qu'aucune indirection ne s'interpose sur le chemin par défaut.

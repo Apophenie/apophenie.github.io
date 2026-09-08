@@ -3406,6 +3406,47 @@ export function note(c) {
  * séparateur EST ce qui sépare ; le compter contre l'approche interdirait
  * l'exception au moment même où on l'accorde.
  */
+/* ★ **LA SUPPRESSION EN FIN DE CHEMIN — interdite là où elle recopie la
+     réponse, tolérée là où elle énonce une règle.**
+
+   > « Sur 666 la suppression par `mpf` marche bien […] mais sur les cibles
+   >   hétérogènes, ça ne marche pas. […] Il faudrait je pense purement
+   >   interdire les suppressions arbitraires en fin de chemin. Soit il y a une
+   >   manière élégante d'élaguer ou mieux, fusionner, soit la voie ne marche
+   >   pas. » (l'auteur)
+
+   La distinction est la sienne, et elle tient debout. Garder trois 6 parmi
+   quinze, c'est appliquer une règle qui vaudrait pour n'importe quelle valeur
+   — et le barème la fait payer (`MAJORITE`, `MAJORITE_TACITE`). Garder les
+   huit chiffres d'une date parmi treize, dans l'ordre, c'est recopier la
+   réponse : aucune règle ne désigne CE sous-ensemble-là, sinon la réponse
+   elle-même. On ne la fait plus payer, on la refuse.
+
+   ⚠️ **CE N'EST PAS UN MALUS DE PLUS, C'EST UN REFUS** — voir
+     `index.js › resoudre`. Une approche ainsi écartée ne descend pas dans la
+     liste : elle n'y figure pas.
+
+   Mesuré sur le corpus (`.planning/banc/fin-de-chemin-banc.mjs`, 72 couples
+   saisie × cible) : 78 % des voies subsistent, cinq têtes changent, toutes sur
+   cibles hétérogènes, et TOUTES remplacent un élagage (`mrd`) par une fusion
+   (`mab`, `mrdE`) — « ou mieux, fusionner », littéralement. Aucun des cas de
+   référence en 666 ne bouge. Une seule liste se vide, `hope → 31031998` :
+   quatre lettres pour huit chiffres, la voie ne marche pas, et c'est la
+   réponse juste.
+
+   Les deux réglages plus larges ont été mesurés puis écartés : interdire tout
+   `jeteesAuTri` quelle que soit la cible fait tomber `fl+tca+m14` sur
+   `hope-hope-hope.fr` — un cas de référence — au profit d'une voie à ficelles ;
+   n'interdire que le `reliquatHorsCible` le fait tomber aussi.
+
+   @param {Object} b  le bilan de l'approche
+   @param {boolean} cibleHomogene  la cible ne s'écrit qu'avec un seul chiffre
+   @returns {boolean} vrai si l'approche se termine en jetant du surplus */
+export function elagueALaFin(b, cibleHomogene) {
+  if (cibleHomogene) return false;
+  return ((b && b.jeteesAuTri) || 0) > 0;
+}
+
 export function estPur(b) {
   const a = b.abandons || {};
   // ★ Une portée RÉÉCRITE avant lecture sort de la définition, et sans
