@@ -487,3 +487,57 @@ voit que là où elle a du sens : les phrases.
 10 et 15 se valent sur le corpus (75,0 / 75,1 / 75,2 %) ; à 15 les lignes
 déplacées de la liste ordinaire montent de 15 à 22. Le défaut mesuré le moins
 perturbant est **8**.
+
+## Relevé du 9 septembre 2026 — les seize cas d'`AB-testing`, remesurés
+
+> « Re-mesure et actualise, inutile de garder les scores obsolètes. » (l'auteur)
+
+Rejoués au cran et aux curseurs de chaque cas. « rang global » = la place que
+la voie occuperait si la liste était triée par le score global affiché.
+
+| cas | voies | côté | rang moteur | global (rang) | score | mode | séries |
+|---|---|---|---|---|---|---|---|
+| `v2-elegance-https-hope-hope-hope-fr` | 20 | avant | 11 | 466 (16) | 3760 | PARTITION | 1 |
+| `v2-elegance-https-hope-hope-hope-fr` | 20 | apres | — | — | — | **plus dans la liste** | — |
+| `v2-mixte-https-hope-hope-hope-fr` | 20 | avant | 2 | 587 (6) | 2137 | MOISSON | 7 |
+| `v2-mixte-https-hope-hope-hope-fr` | 20 | apres | 3 | 827 (1) | 4447 | GROUPEMENT | 6 |
+| `v2-elegance-capitalisme` | 6 | avant | — | — | — | **plus dans la liste** | — |
+| `v2-elegance-capitalisme` | 6 | apres | 4 | 697 (2) | 2600 | GROUPEMENT | 3 |
+| `v2-mixte-la-numerologie-est-une-s` | 20 | avant | — | — | — | **plus dans la liste** | — |
+| `v2-mixte-la-numerologie-est-une-s` | 20 | apres | 1 | 829 (1) | 2720 | GROUPEMENT | 8 |
+| `v2-elegance-donald-trump` | 14 | avant | 4 | 529 (12) | 2866 | MOISSON | 3 |
+| `v2-elegance-donald-trump` | 14 | apres | 6 | 722 (3) | 2810 | GROUPEMENT | 3 |
+| `v2-mixte-donald-trump` | 14 | avant | 5 | 520 (14) | 2202 | MOISSON | 3 |
+| `v2-mixte-donald-trump` | 14 | apres | 3 | 722 (2) | 2337 | GROUPEMENT | 3 |
+| `v2-elegance-henri-prunelle` | 14 | avant | — | — | — | **plus dans la liste** | — |
+| `v2-elegance-henri-prunelle` | 14 | apres | 5 | 763 (2) | 3033 | GROUPEMENT | 4 |
+| `v2-abondance-henri-prunelle` | 14 | avant | 3 | 763 (3) | 4400 | GROUPEMENT | 4 |
+| `v2-abondance-henri-prunelle` | 14 | apres | 1 | 768 (1) | 4462 | GROUPEMENT | 4 |
+| `v2-elegance-numherololgeek-1000i100-` | 20 | avant | 2 | 456 (19) | 3872 | PARTITION | 1 |
+| `v2-elegance-numherololgeek-1000i100-` | 20 | apres | 1 | 542 (17) | 4113 | MOISSON | 3 |
+| `v2-mixte-numherololgeek-1000i100-` | 20 | avant | 1 | 744 (1) | 1952 | GROUPEMENT | 5 |
+| `v2-mixte-numherololgeek-1000i100-` | 20 | apres | 5 | 738 (5) | 1915 | GROUPEMENT | 5 |
+| `v2-elegance-hope` | 5 | avant | 1 | 704 (1) | 6204 | GROUPEMENT | 1 |
+| `v2-elegance-hope` | 5 | apres | 4 | 523 (4) | 3382 | CONVERGENCE | 1 |
+| `v2-elegance-wikipedia` | 9 | avant | — | — | — | **plus dans la liste** | — |
+| `v2-elegance-wikipedia` | 9 | apres | 3 | 720 (1) | 3179 | GROUPEMENT | 3 |
+| `v2-elegance-eleonore-a-nimes` | 17 | avant | 6 | 453 (17) | 1995 | PARTITION | 1 |
+| `v2-elegance-eleonore-a-nimes` | 17 | apres | 3 | 829 (1) | 2999 | GROUPEMENT | 6 |
+| `v2-exception-hope-url-cran-1` | 29 | avant | — | — | — | **plus dans la liste** | — |
+| `v2-exception-hope-url-cran-1` | 29 | apres | — | — | — | **plus dans la liste** | — |
+| `absorption-donald-trump-2e-place` | 14 | avant | 1 | 529 (11) | 4077 | MOISSON | 3 |
+| `absorption-donald-trump-2e-place` | 14 | apres | 2 | 743 (1) | 4272 | GROUPEMENT | 4 |
+| `hope-place-1-brieve-ou-nommee` | 20 | avant | — | — | — | **plus dans la liste** | — |
+| `hope-place-1-brieve-ou-nommee` | 20 | apres | — | — | — | **plus dans la liste** | — |
+
+**Sept cas sur seize ont perdu au moins un de leurs deux côtés** : la voie
+n'est plus proposée au cran et aux réglages du cas. Le lien la rejoue toujours
+(§4.3), mais la comparaison est périmée — la page le dit maintenant en rouge.
+
+Rejouer : `node .planning/banc/arbitrage-remesure.mjs`. Il lit `CAS_ARBITRAGE`,
+rejoue chaque saisie au cran et aux curseurs du cas, et retrouve les voies par
+leur URL — **préfixes de réglage retirés**, car une même démonstration s'écrit
+`#sce!fl+mpy+meg#…` ou `#sce!p25.200.50.150!fl+mpy+meg#…` selon le contexte où
+le lien a été relevé. Sans cette normalisation, les seize cas paraissaient
+absents.
+

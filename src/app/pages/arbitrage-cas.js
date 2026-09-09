@@ -157,19 +157,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!0:mch+cs+prn,3.5:nc,9:fr13+nlc+pc9#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
     apres: '#sce!fl+mpy+meg#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
     mesure: {
-       "avant": {
-        "rangMoteur": 1,
-        "score": 3280,
-        "mode": "PARTITION",
-        "series": 1
-       },
-       "apres": {
-        "rangMoteur": 4,
-        "score": 3763,
-        "mode": "GROUPEMENT",
-        "series": 6
-       }
-      },
+      avant: { rangMoteur: 11, rangGlobal: 16, global: 466, score: 3760, mode: 'PARTITION', series: 1 },
+      apres: { absente: true },
+    },
   },
   {
     id: 'v2-mixte-https-hope-hope-hope-fr',
@@ -182,19 +172,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!0:fr14+m14+mpf,3+5+7:ffr3+m14+mpf,9:fr9+m7#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
     apres: '#sce!fl+mpy+meg#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
     mesure: {
-       "avant": {
-        "rangMoteur": 3,
-        "score": 1274,
-        "mode": "MOISSON",
-        "series": 7
-       },
-       "apres": {
-        "rangMoteur": 4,
-        "score": 3763,
-        "mode": "GROUPEMENT",
-        "series": 6
-       }
-      },
+      avant: { rangMoteur: 2, rangGlobal: 6, global: 587, score: 2137, mode: 'MOISSON', series: 7 },
+      apres: { rangMoteur: 3, rangGlobal: 1, global: 827, score: 4447, mode: 'GROUPEMENT', series: 6 },
+    },
   },
   {
     id: 'v2-elegance-capitalisme',
@@ -207,19 +187,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!fr21+mx6+mrd#Hi75aotg77MXEgC',
     apres: '#sce!fr6+mpy+meg#Hi75aotg77MXEgC',
     mesure: {
-       "avant": {
-        "rangMoteur": 1,
-        "score": 5264,
-        "mode": "GROUPEMENT",
-        "series": 3
-       },
-       "apres": {
-        "rangMoteur": 2,
-        "score": 3236,
-        "mode": "GROUPEMENT",
-        "series": 3
-       }
-      },
+      avant: { absente: true },
+      apres: { rangMoteur: 4, rangGlobal: 2, global: 697, score: 2600, mode: 'GROUPEMENT', series: 3 },
+    },
   },
   {
     id: 'v2-mixte-la-numerologie-est-une-s',
@@ -232,19 +202,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!0:fr3+m14,2+6+13:m14,4:fr11+m14,8:fr2+m14+mpf,10:fr10+m14+mpf,15:fatb+m14#wapt1NMKMypvYVfgt71ycBNqoCxRYgzKbH5s8zEg4rQGFDT9JeyTt2n1jBUTTNMxFHfx',
     apres: '#sce!10:fr18;fc+mt9+meg#wapt1NMKMypvYVfgt71ycBNqoCxRYgzKbH5s8zEg4rQGFDT9JeyTt2n1jBUTTNMxFHfx',
     mesure: {
-       "avant": {
-        "rangMoteur": 3,
-        "score": 1864,
-        "mode": "MOISSON",
-        "series": 9
-       },
-       "apres": {
-        "rangMoteur": 6,
-        "score": 3229,
-        "mode": "GROUPEMENT",
-        "series": 8
-       }
-      },
+      avant: { absente: true },
+      apres: { rangMoteur: 1, rangGlobal: 1, global: 829, score: 2720, mode: 'GROUPEMENT', series: 8 },
+    },
   },
   {
     id: 'v2-elegance-donald-trump',
@@ -257,19 +217,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!0:fatb+mt9+mr9,2:fr3+mhe+mrn#2HuP1G8mNg3sJWhqR',
     apres: '#sce!fl+mqwc+meg#2HuP1G8mNg3sJWhqR',
     mesure: {
-       "avant": {
-        "rangMoteur": 1,
-        "score": 4077,
-        "mode": "MOISSON",
-        "series": 3
-       },
-       "apres": {
-        "rangMoteur": 4,
-        "score": 3447,
-        "mode": "GROUPEMENT",
-        "series": 3
-       }
-      },
+      avant: { rangMoteur: 4, rangGlobal: 12, global: 529, score: 2866, mode: 'MOISSON', series: 3 },
+      apres: { rangMoteur: 6, rangGlobal: 3, global: 722, score: 2810, mode: 'GROUPEMENT', series: 3 },
+    },
   },
   {
     id: 'v2-mixte-donald-trump',
@@ -282,19 +232,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!0:fr15+mx6+mrn,2:fr3+mhe+mrn#2HuP1G8mNg3sJWhqR',
     apres: '#sce!fl+mqwc+meg#2HuP1G8mNg3sJWhqR',
     mesure: {
-       "avant": {
-        "rangMoteur": 2,
-        "score": 3921,
-        "mode": "MOISSON",
-        "series": 3
-       },
-       "apres": {
-        "rangMoteur": 4,
-        "score": 3447,
-        "mode": "GROUPEMENT",
-        "series": 3
-       }
-      },
+      avant: { rangMoteur: 5, rangGlobal: 14, global: 520, score: 2202, mode: 'MOISSON', series: 3 },
+      apres: { rangMoteur: 3, rangGlobal: 2, global: 722, score: 2337, mode: 'GROUPEMENT', series: 3 },
+    },
   },
   {
     id: 'v2-elegance-henri-prunelle',
@@ -307,19 +247,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!0:mt9+cs+prn,2:fr20+mazc+mr9#TcguSXTd7SkC7z32JAG',
     apres: '#sce!fl+mazc+meg#TcguSXTd7SkC7z32JAG',
     mesure: {
-       "avant": {
-        "rangMoteur": 1,
-        "score": 3273,
-        "mode": "MOISSON",
-        "series": 2
-       },
-       "apres": {
-        "rangMoteur": 2,
-        "score": 3660,
-        "mode": "GROUPEMENT",
-        "series": 4
-       }
-      },
+      avant: { absente: true },
+      apres: { rangMoteur: 5, rangGlobal: 2, global: 763, score: 3033, mode: 'GROUPEMENT', series: 4 },
+    },
   },
   {
     id: 'v2-abondance-henri-prunelle',
@@ -332,19 +262,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!fl+mazc+meg#TcguSXTd7SkC7z32JAG',
     apres: '#sce!2:fatb;fl+mpy+meg#TcguSXTd7SkC7z32JAG',
     mesure: {
-       "avant": {
-        "rangMoteur": 2,
-        "score": 3660,
-        "mode": "GROUPEMENT",
-        "series": 4
-       },
-       "apres": {
-        "rangMoteur": 3,
-        "score": 3712,
-        "mode": "GROUPEMENT",
-        "series": 4
-       }
-      },
+      avant: { rangMoteur: 3, rangGlobal: 3, global: 763, score: 4400, mode: 'GROUPEMENT', series: 4 },
+      apres: { rangMoteur: 1, rangGlobal: 1, global: 768, score: 4462, mode: 'GROUPEMENT', series: 4 },
+    },
   },
   {
     id: 'v2-elegance-numherololgeek-1000i100-',
@@ -357,19 +277,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!0:nv,2.2:cnjd+pc9,5:fr13+nlc+pc9#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K',
     apres: '#sce!0:nv,2+3:flt+mpy+mr9#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K',
     mesure: {
-       "avant": {
-        "rangMoteur": 1,
-        "score": 3891,
-        "mode": "PARTITION",
-        "series": 1
-       },
-       "apres": {
-        "rangMoteur": 9,
-        "score": 4417,
-        "mode": "MOISSON",
-        "series": 3
-       }
-      },
+      avant: { rangMoteur: 2, rangGlobal: 19, global: 456, score: 3872, mode: 'PARTITION', series: 1 },
+      apres: { rangMoteur: 1, rangGlobal: 17, global: 542, score: 4113, mode: 'MOISSON', series: 3 },
+    },
   },
   {
     id: 'v2-mixte-numherololgeek-1000i100-',
@@ -382,19 +292,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!0:fr10;fl+mpy+meg#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K',
     apres: '#sce!fl+mqwc+meg#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K',
     mesure: {
-       "avant": {
-        "rangMoteur": 3,
-        "score": 3112,
-        "mode": "GROUPEMENT",
-        "series": 5
-       },
-       "apres": {
-        "rangMoteur": 6,
-        "score": 3061,
-        "mode": "GROUPEMENT",
-        "series": 5
-       }
-      },
+      avant: { rangMoteur: 1, rangGlobal: 1, global: 744, score: 1952, mode: 'GROUPEMENT', series: 5 },
+      apres: { rangMoteur: 5, rangGlobal: 5, global: 738, score: 1915, mode: 'GROUPEMENT', series: 5 },
+    },
   },
   {
     id: 'v2-elegance-hope',
@@ -407,19 +307,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!m14#3fq9KJ',
     apres: '#sce!fc+ma1+cs+prn,nlc,mexb+cs#3fq9KJ',
     mesure: {
-       "avant": {
-        "rangMoteur": 1,
-        "score": 7301,
-        "mode": "GROUPEMENT",
-        "series": 1
-       },
-       "apres": {
-        "rangMoteur": 3,
-        "score": 3393,
-        "mode": "CONVERGENCE",
-        "series": 1
-       }
-      },
+      avant: { rangMoteur: 1, rangGlobal: 1, global: 704, score: 6204, mode: 'GROUPEMENT', series: 1 },
+      apres: { rangMoteur: 4, rangGlobal: 4, global: 523, score: 3382, mode: 'CONVERGENCE', series: 1 },
+    },
   },
   {
     id: 'v2-elegance-wikipedia',
@@ -432,19 +322,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!fr21+mx6+mad#27Xv14MeSfjBN',
     apres: '#sce!fr17+mpy+meg#27Xv14MeSfjBN',
     mesure: {
-       "avant": {
-        "rangMoteur": 1,
-        "score": 6036,
-        "mode": "GROUPEMENT",
-        "series": 3
-       },
-       "apres": {
-        "rangMoteur": 2,
-        "score": 3580,
-        "mode": "GROUPEMENT",
-        "series": 3
-       }
-      },
+      avant: { absente: true },
+      apres: { rangMoteur: 3, rangGlobal: 1, global: 720, score: 3179, mode: 'GROUPEMENT', series: 3 },
+    },
   },
   {
     id: 'v2-elegance-eleonore-a-nimes',
@@ -457,19 +337,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!0:nl,2:m7+cs,4:fc+nlc#3j14d86Y9shVAUrGT6Cq5K2Rk2cA',
     apres: '#sce!2:ffr4;fl+m14+meg#3j14d86Y9shVAUrGT6Cq5K2Rk2cA',
     mesure: {
-       "avant": {
-        "rangMoteur": 1,
-        "score": 2690,
-        "mode": "PARTITION",
-        "series": 1
-       },
-       "apres": {
-        "rangMoteur": 3,
-        "score": 3824,
-        "mode": "GROUPEMENT",
-        "series": 6
-       }
-      },
+      avant: { rangMoteur: 6, rangGlobal: 17, global: 453, score: 1995, mode: 'PARTITION', series: 1 },
+      apres: { rangMoteur: 3, rangGlobal: 1, global: 829, score: 2999, mode: 'GROUPEMENT', series: 6 },
+    },
   },
   {
     id: 'v2-exception-hope-url-cran-1',
@@ -498,8 +368,8 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: '#sce!f1!fl+mpy+meg#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
     apres: '#sce!f1!0:fr14+m14+mpf,3+5+7:m14,4+6:mtc#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk',
     mesure: {
-      avant: { rangMoteur: 4, score: null, mode: 'GROUPEMENT', series: 6 },
-      apres: { rangMoteur: 5, score: null, mode: 'MOISSON', series: 6 },
+      avant: { absente: true },
+      apres: { absente: true },
     },
   },
   {
@@ -518,6 +388,10 @@ export const CAS_ARBITRAGE = Object.freeze([
        (`elegance.test.js`, `recherche.test.js`). */
     avant: '#sce!0:fatb+mt9+mr9,2:fr3+mhe+mrn#2HuP1G8mNg3sJWhqR',
     apres: '#sce!2:fr15;fl+masc+mab#2HuP1G8mNg3sJWhqR',
+    mesure: {
+      avant: { rangMoteur: 1, rangGlobal: 11, global: 529, score: 4077, mode: 'MOISSON', series: 3 },
+      apres: { rangMoteur: 2, rangGlobal: 1, global: 743, score: 4272, mode: 'GROUPEMENT', series: 4 },
+    },
   },
   {
     id: 'hope-place-1-brieve-ou-nommee',
@@ -540,5 +414,9 @@ export const CAS_ARBITRAGE = Object.freeze([
          il en reste un, non identifié. */
     avant: '#sce!fl+tca+m14#yvQYkzhNVYJT8wM8jhvJxSM',
     apres: '#sce!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
+    mesure: {
+      avant: { absente: true },
+      apres: { absente: true },
+    },
   },
 ]);

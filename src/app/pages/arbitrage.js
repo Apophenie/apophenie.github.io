@@ -163,7 +163,18 @@ export function pageArbitrage() {
        quand le moteur bouge. Ce qui s'arbitre ici, ce sont DEUX VOIES ; elles
        se lisent toutes deux au barème en place, et le jour où un autre barème
        prend sa place, c'est lui qu'on lira. */
-    if (mesure && mesure.score !== null && mesure.score !== undefined
+    /* ★ **UNE VOIE QUI A QUITTÉ LA LISTE DOIT SE VOIR** — sans quoi l'arbitrage
+         se rend sur une comparaison qui n'existe plus. Au dernier relevé, sept
+         des seize cas avaient perdu au moins un de leurs deux côtés : les
+         listes ont changé, et la voie n'est plus proposée au cran et aux
+         curseurs du cas. Le lien reste rejouable — c'est la garantie du §4.3 —
+         mais le classement ne la contient plus. */
+    if (mesure && mesure.absente) {
+      bloc.append(e('p.arb__scores-ecart', {
+        texte: '⚠ cette voie n’est plus proposée dans la liste, au cran et aux réglages de ce cas. '
+          + 'Le lien la rejoue toujours ; l’arbitrage, lui, porte sur une comparaison périmée.',
+      }));
+    } else if (mesure && mesure.score !== null && mesure.score !== undefined
       && (mesure.global !== global || mesure.score !== approche.score)) {
       bloc.append(e('p.arb__scores-ecart', {
         texte: `⚠ relevé : global ${mesure.global}, score ${mesure.score} — l’écran dit autre chose : `
