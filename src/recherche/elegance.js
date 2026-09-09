@@ -91,7 +91,7 @@
 // (adHoc 0,35, aucun palier) et pour `c.moyenne` (adHoc bas, palier `ARRONDI`).
 
 import { CIBLE_DEFAUT, normaliserCible, indexUtiles } from './cible.js';
-import { classeDuMot, classesJustifiees } from './mots-outils.js';
+import { classeDuMot, classesJustifiees } from '../moteur/tables/mots-outils.js';
 
 /**
  * Trois 6 font un 666 (`assemblage.js › SERIE`) — pour la cible PAR DÉFAUT.

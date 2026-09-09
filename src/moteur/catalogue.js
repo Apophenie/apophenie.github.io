@@ -94,6 +94,12 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   l'ordre du registre est l'ordre d'exploration et qu'on ne décale pas
   //   vingt-quatre chiffres de César pour une commodité de lecture.
   'fch',
+  // ★ Les quatre retraits GRAMMATICAUX, en fin de bloc comme le veut
+  //   l'append-only (§4.1) : articles, prépositions, conjonctions, puis être et
+  //   avoir. Les deux autres classes que l'auteur nommait — extensions de
+  //   domaine et protocoles — sont déjà `ftld`, `fp` et `fw` : on n'en refait
+  //   pas de doublons (`tables/mots-outils.js`).
+  'fart', 'fprp', 'fcnj', 'faux',
   'tca', 'tm', 'tsp', 'tsy', 'tch', 'nl', 'nv', 'nc', 'nd', 'nsp',
   // Les quatre compteurs PRÉCIS, derrière celui qui compte tout
   // (`mappeurs.js`) : les barres, les points, les espaces, les tirets.

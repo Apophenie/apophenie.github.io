@@ -474,6 +474,13 @@ export const TITRES_COURTS = {
   'f.avantSlash': b('extrait .../', 'extracts .../'), // fav
   'f.chiffres': b('chiffres seulement', 'digits only'), // fch
   'f.consonnes': b('consonnes', 'consonants'), // fc
+  // ★ Les quatre retraits grammaticaux : la forme courte NOMME la classe, elle
+  //   n'énumère pas. « sans les articles » se lit ; « sans le, la, les, un… »
+  //   remplirait la ligne de la voie à lui seul.
+  'f.articles': b('sans les articles', 'without the articles'), // fart
+  'f.prepositions': b('sans les prépositions', 'without the prepositions'), // fprp
+  'f.conjonctions': b('sans les conjonctions', 'without the conjunctions'), // fcnj
+  'f.auxiliaires': b('sans être ni avoir', 'without be or have'), // faux
   'f.chemin': b('chemin /.../', 'path /.../'), // fchm
   'f.dedoublonne': b('dédoublonnage', 'de-duplication'), // fd
   'f.dedoublonne2': b('dédoublonnage', 'de-duplication'), // fd2
@@ -646,6 +653,10 @@ export const PRECISIONS = {
   'f.voyelles': b('sur les voyelles', 'on the vowels'),
   'f.voyellesY': b('sur les voyelles, Y compris', 'on the vowels, Y included'),
   'f.consonnes': b('sur les consonnes', 'on the consonants'),
+  'f.articles': b('sans les articles', 'without the articles'),
+  'f.prepositions': b('sans les prépositions', 'without the prepositions'),
+  'f.conjonctions': b('sans les conjonctions', 'without the conjunctions'),
+  'f.auxiliaires': b('sans être ni avoir', 'without be or have'),
   'f.dedoublonne': b('sans les doublons', 'without the duplicates'),
   // Les quatre cadets disent la MÊME chose : c'est la même règle, et la place
   // où le survivant retombe n'a pas à encombrer le titre d'une voie.

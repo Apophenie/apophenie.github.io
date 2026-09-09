@@ -16,6 +16,7 @@
 
 import { LETTRES, VOYELLES, VOYELLES_Y, sansAccents, atbash, cesar } from '../tables/alphabet.js';
 import { DICO_EN_FR, DICO_FR_EN } from '../tables/traduction.js';
+import { CLASSES, formeNue } from '../tables/mots-outils.js';
 import { bilingue, dire } from '../i18n.js';
 import {
   def, apparier, sortieCreee, sortieConservee, etape, token, fusion, enchainer, nomToken,
@@ -177,6 +178,30 @@ function parite(valeur) {
     if (indices.length % 2 === 1) gardes.add(indices[indices.length - 1]);
   }
   return (_, i) => gardes.has(i);
+}
+
+/**
+ * Les intervalles `[début, fin)` des mots de `valeur` qui appartiennent à une
+ * classe grammaticale — voir `tables/mots-outils.js`.
+ *
+ * ⚠️ Un « mot » est ici une suite maximale de lettres et de chiffres, comme
+ *   partout ailleurs dans le projet (`elegance.js › abandons`). Deux découpages
+ *   différents feraient dire à l'opérateur et au barème deux choses différentes
+ *   du même texte.
+ */
+function zonesDeLaClasse(valeur, classe) {
+  const cs = [...String(valeur)];
+  const zones = [];
+  let debut = -1;
+  for (let i = 0; i <= cs.length; i++) {
+    const alnum = i < cs.length && /[0-9\p{L}]/u.test(cs[i]);
+    if (alnum && debut < 0) debut = i;
+    else if (!alnum && debut >= 0) {
+      if (classe.mots.has(formeNue(cs.slice(debut, i).join('')))) zones.push([debut, i]);
+      debut = -1;
+    }
+  }
+  return zones;
 }
 
 function garder(valeur, traces, predicat) {
@@ -1446,6 +1471,52 @@ const brut = [
   //   déclaration doit être celui du registre (§4.1 règle 3), et le registre
   //   est append-only. Le lire ici, loin de `fl`, est le prix de cette règle —
   //   et le commentaire ci-dessus est ce qui rachète la distance.
+
+  /* ★ **LES QUATRE RETRAITS GRAMMATICAUX — une classe, une règle.**
+
+     > « Comme pour supprimer les voyelles, pour supprimer les articles il
+     >   faudra indiquer "articles non signifiants", les désigner par des
+     >   accolades, puis les supprimer. Et si c'est autre chose que des articles
+     >   qu'on supprime, il faudra une règle qui désigne cet autre chose de
+     >   manière crédible. »
+     > « Ce n'est pas une question de tournure active ou passive, mais de
+     >   généricité du verbe : "Le chat EST dans la cuisine" — `est` peut
+     >   sauter ; "Le chat MANGE dans la cuisine" — `mange` ne peut pas.
+     >   "J'AI un chat" — `ai` peut sauter ; "J'AIME un chat" — `aime` doit être
+     >   conservé. » (l'auteur)
+
+     Le barème savait déjà pardonner l'abandon d'un mot outil, à condition que
+     TOUTE sa classe soit abandonnée (`elegance.js › motsAbandonnes`). Mais
+     pardonner n'est pas montrer : le lecteur voyait un mot disparaître sans que
+     rien ne dise de quel droit. Ces quatre-là le disent, et le disent AVANT —
+     leur libellé est la règle, et la scène des filtres pose l'accolade sur ce
+     qui part avant de l'effacer (`etapeRetrait`).
+
+     ⚠️ **UNE CLASSE ENTIÈRE, JAMAIS UN MOT.** C'est ce qui les sépare d'une
+       suppression arbitraire : « on ne peut pas supprimer `le` mais garder
+       `la` ». L'opérateur ne choisit rien — il applique un inventaire fermé
+       (`tables/mots-outils.js`), le même que celui du barème, si bien qu'un mot
+       ne peut pas être outil pour l'un et plein pour l'autre.
+
+     ⚠️ **ET LES DEUX AUTRES CLASSES EXISTAIENT DÉJÀ.** L'auteur en citait six ;
+       les extensions de domaine et les protocoles sont `ftld`, `fp` et `fw`,
+       déclarés bien avant. On n'en refait pas de doublons. */
+  ...CLASSES.filter((c) => c.filtre).map((c) => ({
+    id: `f.${c.cle}`, code: c.filtre.code, famille: 'filtre', from: 'STR', to: 'STR',
+    libelle: c.filtre.libelle,
+    regle: c.filtre.regle,
+    // Notoriété moyenne : « mots vides » est une notion courante, mais savoir
+    // QUELLE classe on retire demande une grammaire. Aucun `adHoc` : la règle
+    // est énoncée, fermée, et vérifiable mot à mot — c'est exactement le
+    // contraire d'un choix ajusté à la réponse.
+    notoriete: 0.55, commute: true,
+    apply(valeur, traces) {
+      const zones = zonesDeLaClasse(valeur, c);
+      if (!zones.length) return null;
+      return garder(valeur, traces, (_, i) => !zones.some(([d, f]) => i >= d && i < f));
+    },
+    couverture: (valeur) => zonesDeLaClasse(valeur, c),
+  })),
 ];
 
 /** Première barre oblique qui ne fait pas partie d'un « :// ». */

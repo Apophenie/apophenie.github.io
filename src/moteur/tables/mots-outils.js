@@ -38,6 +38,14 @@
  *   comme « hope-hope-hope.fr ». Un mot qui est outil dans l'une des deux
  *   langues l'est ici.
  *
+ * ⚠️ **CE FICHIER EST DU CÔTÉ MOTEUR, ET IL LE FAUT.** Il a d'abord vécu dans
+ *   `src/recherche/`, où seul le barème le lisait. Depuis que quatre filtres
+ *   l'emploient — `f.articles`, `f.prepositions`, `f.conjonctions`,
+ *   `f.auxiliaires` —, il doit être ici : le moteur ne dépend jamais de la
+ *   recherche, l'inverse est permis (CONTRACTS §1). Les deux côtés lisent donc
+ *   le MÊME inventaire, et un mot ne peut pas être outil pour l'opérateur et
+ *   plein pour le barème.
+ *
  * ⚠️ **DÉTERMINISME (§4.4).** Listes gelées, comparaison sur une forme
  *   normalisée sans `localeCompare` : minuscules ASCII et diacritiques
  *   retirés, pour que `À` et `a` tombent au même endroit à chaque exécution et
@@ -95,11 +103,50 @@ const PROTOCOLES = ['http', 'https', 'ftp', 'www', 'mailto', 'file'];
  *   premier de la liste gagne. Ce qui compte n'est pas de trancher juste en
  *   linguistique — c'est que la règle affichée soit la même à chaque fois.
  */
+/* ★ **QUATRE CLASSES PORTENT UN FILTRE, DEUX N'EN PORTENT PAS.**
+
+   Les extensions de domaine et les protocoles ont déjà leurs opérateurs —
+   `ftld`, `fp`, `fw`, déclarés bien avant ce fichier. On ne fabrique pas de
+   doublons : `filtre` reste absent pour ces deux-là, et `filtres.js` ne
+   déclare que celles qui en portent un.
+
+   Le libellé EST la règle que le lecteur verra à l'écran, juste avant que les
+   mots disparaissent sous l'accolade. Il doit donc se lire comme une phrase et
+   nommer une catégorie, jamais une liste. */
 export const CLASSES = Object.freeze([
-  Object.freeze({ cle: 'articles', regle: { fr: 'les articles et déterminants', en: 'articles and determiners' }, mots: Object.freeze(new Set(ARTICLES.map(formeNue))) }),
-  Object.freeze({ cle: 'prepositions', regle: { fr: 'les prépositions', en: 'prepositions' }, mots: Object.freeze(new Set(PREPOSITIONS.map(formeNue))) }),
-  Object.freeze({ cle: 'conjonctions', regle: { fr: 'les conjonctions', en: 'conjunctions' }, mots: Object.freeze(new Set(CONJONCTIONS.map(formeNue))) }),
-  Object.freeze({ cle: 'auxiliaires', regle: { fr: 'les verbes être et avoir', en: 'the verbs to be and to have' }, mots: Object.freeze(new Set(AUXILIAIRES.map(formeNue))) }),
+  Object.freeze({ cle: 'articles', regle: { fr: 'les articles et déterminants', en: 'articles and determiners' },
+    filtre: {
+      code: 'fart',
+      libelle: { fr: 'On ignore les articles', en: 'Ignore the articles' },
+      regle: { fr: '« le », « la », « un »… annoncent le nom, ils ne le portent pas',
+        en: '"the", "a", "this"… announce the noun, they do not carry it' },
+    }, mots: Object.freeze(new Set(ARTICLES.map(formeNue))) }),
+  Object.freeze({ cle: 'prepositions', regle: { fr: 'les prépositions', en: 'prepositions' },
+    filtre: {
+      code: 'fprp',
+      libelle: { fr: 'On ignore les prépositions', en: 'Ignore the prepositions' },
+      regle: { fr: '« de », « par », « avec »… relient, et ne disent rien d’eux-mêmes',
+        en: '"of", "by", "with"… link, and say nothing of themselves' },
+    }, mots: Object.freeze(new Set(PREPOSITIONS.map(formeNue))) }),
+  Object.freeze({ cle: 'conjonctions', regle: { fr: 'les conjonctions', en: 'conjunctions' },
+    filtre: {
+      code: 'fcnj',
+      libelle: { fr: 'On ignore les conjonctions', en: 'Ignore the conjunctions' },
+      regle: { fr: '« et », « ou », « mais »… nouent la phrase sans rien y ajouter',
+        en: '"and", "or", "but"… tie the sentence without adding to it' },
+    }, mots: Object.freeze(new Set(CONJONCTIONS.map(formeNue))) }),
+  Object.freeze({ cle: 'auxiliaires', regle: { fr: 'les verbes être et avoir', en: 'the verbs to be and to have' },
+    filtre: {
+      code: 'faux',
+      /* ★ « Ce n'est pas une question de tournure active ou passive, mais de
+         GÉNÉRICITÉ DU VERBE : "Le chat EST dans la cuisine" — `est` peut
+         sauter ; "Le chat MANGE dans la cuisine" — `mange` ne peut pas. »
+         (l'auteur). D'où l'inventaire fermé d'être et d'avoir : `aime`,
+         `mange`, `dort` n'y sont pas et n'y seront jamais. */
+      libelle: { fr: 'On ignore être et avoir', en: 'Ignore to be and to have' },
+      regle: { fr: '« est », « a », « était »… portent le temps, pas le sens',
+        en: '"is", "has", "was"… carry tense, not meaning' },
+    }, mots: Object.freeze(new Set(AUXILIAIRES.map(formeNue))) }),
   Object.freeze({ cle: 'tld', regle: { fr: 'les extensions de domaine', en: 'domain extensions' }, mots: Object.freeze(new Set(TLD.map(formeNue))) }),
   Object.freeze({ cle: 'protocoles', regle: { fr: 'les protocoles et sous-domaines', en: 'protocols and subdomains' }, mots: Object.freeze(new Set(PROTOCOLES.map(formeNue))) }),
 ]);
