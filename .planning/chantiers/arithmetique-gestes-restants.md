@@ -1,0 +1,112 @@
+# Les gestes arithmétiques — ce qui est livré, et ce qui manque encore
+
+## Livré
+
+| opérateur | codes | sortie sur `135` (ou `23`) |
+|---|---|---|
+| modulo, diviseur dissous / gardé | `mmod`, `mmoc` | `[3]` · `[3, 5]` |
+| division, avec / sans le reste | `mdiv`, `mdvq` | `[2, 3]` · `[2]` |
+| division décimale, 1 / 2 / 3 décimales | `mdc1`, `mdc2`, `mdc3` | sur `23` : `[0,6]` · `[0,6,6]` · `[0,6,6,6]` |
+
+## ⚠️ Ce que la mise en scène ne tient pas encore
+
+L'auteur a décrit trois gestes précis ; deux d'entre eux ne sont rendus qu'en
+partie, et il faut le savoir avant de les regarder à l'écran.
+
+1. **Le compteur sous la pointe** (division entière). « B est retranché à A :
+   part de A, passe au niveau de B, avant de descendre en dessous de l'accolade
+   où 1 est ajouté. » Aujourd'hui on voit le dividende décroître par paquets,
+   mais le quotient ne se compte pas sous les yeux : il se pose à la fin.
+   **Pourquoi ça a échoué** : placer un jeton sous la pointe demande la position
+   verticale des opérandes, qui n'existe pas quand le plan s'écrit
+   (`scene.pos()` rend `y: null`). `accumulate` sait poser un total, mais il le
+   fait avancer au rythme des opérandes VOLÉS, pas des retraits — le compteur
+   ne compterait pas ce qu'on lui demande.
+   **Piste** : un mode d'`accumulate` où le total avance sur un événement
+   fourni, ou une position déduite de l'accolade (`tracerAccolade` connaît sa
+   pointe) plutôt que des jetons.
+
+2. **La potence** (division décimale). « Une barre verticale entre A et B et une
+   barre horizontale sous B qui s'arrête sur la barre verticale », le quotient
+   s'écrivant chiffre à chiffre dessous, puis « ,0 » inséré des deux côtés.
+   C'est une primitive à part entière, de l'ampleur de `fraction` (~300 lignes).
+   Ce qu'on montre à la place dit le même calcul avec l'accolade : partie
+   entière, puis reste ×10, un tour par décimale. La vérité y est, la forme
+   scolaire non. `rule.js` sait déjà tracer une barre qui suit son contenu — ce
+   serait le point de départ pour la barre horizontale.
+
+3. **La variante « l'accolade rétrécit »** (division avec reste). L'auteur en
+   décrivait deux mises en scène ; une seule est rendue. La seconde — « `/B`
+   disparaît, l'accolade rétrécit pour ne laisser que le reste, puis le compteur
+   remonte avant le reste en ré-étirant l'accolade » — n'a pas été faite : deux
+   opérateurs qui rendent la MÊME sortie et ne diffèrent que par l'animation
+   seraient des doublons au registre. À traiter comme une option de la
+   primitive, si la distinction vaut d'être montrée.
+
+## Ce que ces chantiers ont appris
+
+### ⚠️ Une seule cause, quatre symptômes
+
+`apply` rendait un TABLEAU NU au lieu de `{valeur, traces}`.
+
+`bfs.js › appliquerOp` tolère les deux formes — « tolérant sur la forme du
+retour de `apply` », dit son commentaire — mais `catalogue.js › appliquer` passe
+`brut.valeur` à la fabrique d'état, qui reçoit `undefined` et rend `null`. Vu du
+catalogue, l'opérateur refusait donc PARTOUT, alors qu'il marchait parfaitement
+vu du BFS. En cascade :
+
+- « ces opérateurs ne sont jouables sur aucune saisie témoin » — `programmePour`
+  passe par `appliquer` ;
+- « aucun step, mais les jetons changent d'identité » — le test demande les
+  steps sur un `apres` obtenu par `appliquer` ;
+- « chaque scénario émis compile » et « la ligne rejouée » — mêmes causes en
+  aval.
+
+**Chercher la cause commune avant de traiter les symptômes** : j'ai d'abord
+corrigé trois tables de titres et un témoin, ce qui était nécessaire mais ne
+réglait rien.
+
+### Les cinq déclarations d'un opérateur neuf
+
+1. le registre `ORDRE_CANONIQUE`, en fin de bloc de sa famille (append-only) ;
+2. un vecteur témoin dans `catalogue.test.js` (le gel), et les trois compteurs ;
+3. `titres.js` : la forme courte, `PRECISIONS`, ET le nom de VEDETTE — trois
+   tables distinctes, trois tests distincts ;
+4. une saisie témoin d'où le geste est atteignable (`debug.js`) ;
+5. `def({...})` dès le départ : le catalogue exige `cout`, `sortie`, `outil`
+   bilingue et `note`, et les découvrir un par un en heurtant la validation est
+   du temps perdu.
+
+### Deux bornes mesurées
+
+- **`MAX_TRANSFERTS` = 18** (`visuel/primitives/helpers.js`). Un geste qui montre
+  chaque paquet partir n'est jouable que pour de petits quotients : `135 % 5` en
+  demande vingt-sept et le moteur visuel refuse, à raison. L'opérateur refuse
+  donc AVANT, plutôt que de fabriquer une voie injouable.
+- **`NOEUDS_EXEMPLE` = 4500 par piste** (`app/pages/debug.js`). Sur une saisie
+  longue, le niveau 2 de l'arbre est tronqué avant d'atteindre les états
+  intéressants : `Capitalisme` mène pourtant à `tca+mz26+mmod` en trois codes,
+  mais son arbre n'y arrive pas. D'où le témoin `Sept`, court exprès.
+
+### Le geste, et ce qu'il ne fait pas
+
+`group` en mode `modulo` ANIME les paquets ; il n'écrit pas le résultat. Comme
+l'égalisation, l'émetteur pose sa valeur par un `substitute` explicite. Sans
+lui, le jeton gardait `13` après un `13 % 5`, et l'étape suivante calculait sur
+un nombre que la scène n'affichait plus — c'est le `sum` d'un scénario voisin
+qui l'a dit, en refusant un calcul juste posé sur une ligne fausse.
+
+### L'ordre de déclaration est celui du registre
+
+Écrire un opérateur neuf au-dessus d'un autre déjà enregistré, même pour la
+lisibilité, fait refuser le catalogue au chargement (§4.1 règle 3) — mesuré deux
+fois en ajoutant les divisions au-dessus des modulos. Le registre est
+append-only ; le fichier suit.
+
+### Élargir le catalogue révèle des défauts ailleurs
+
+Les trois divisions décimales ont fait remonter une voie de moisson qui récolte
+seize six et n'en montre que quinze, sur « Le chat dort sur le tapis rouge ».
+Le défaut était préexistant : le contrôle « on ne récolte que ce qu'on montre »
+ne valait que pour la variante groupée. Un catalogue plus large est aussi un
+test plus large.
