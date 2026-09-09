@@ -141,6 +141,8 @@ export const ORDRE_CANONIQUE = Object.freeze([
   // ★ Les deux MODULOS — le reste seul, puis le reste avec son diviseur gardé
   //   comme catalyseur. En fin de bloc mappeur, append-only (§4.1).
   'mmod', 'mmoc',
+  // ★ Les deux DIVISIONS — quotient et reste, puis le quotient seul.
+  'mdiv', 'mdvq',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

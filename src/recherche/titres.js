@@ -312,6 +312,8 @@ export const NOMS = {
   /* ★ Les deux modulos. Ils NOMMENT la voie, eux : « ce qui reste quand on a
      retiré autant de fois qu'on pouvait » est une manière de lire un nombre, et
      le lecteur qui la voit dans un titre sait à quoi s'attendre. */
+  'm.division': b('Par division', 'By division'),
+  'm.divisionEntiere': b('Par division, le reste perdu', 'By division, dropping the remainder'),
   'm.modulo': b('Par ce qui reste', 'By what is left over'),
   'm.moduloCatalyseur': b('Par ce qui reste, la mesure gardée', 'By what is left, keeping the measure'),
   'm.absorption': b('Par absorption sans perte', 'By lossless absorption'),
@@ -482,6 +484,8 @@ export const TITRES_COURTS = {
   // ★ Les quatre retraits grammaticaux : la forme courte NOMME la classe, elle
   //   n'énumère pas. « sans les articles » se lit ; « sans le, la, les, un… »
   //   remplirait la ligne de la voie à lui seul.
+  'm.division': b('division et reste', 'division and remainder'), // mdiv
+  'm.divisionEntiere': b('division entière', 'integer division'), // mdvq
   'm.modulo': b('reste modulo', 'modulo remainder'), // mmod
   'm.moduloCatalyseur': b('reste, diviseur gardé', 'remainder, divisor kept'), // mmoc
   'f.articles': b('sans les articles', 'without the articles'), // fart
@@ -660,6 +664,8 @@ export const PRECISIONS = {
   'f.voyelles': b('sur les voyelles', 'on the vowels'),
   'f.voyellesY': b('sur les voyelles, Y compris', 'on the vowels, Y included'),
   'f.consonnes': b('sur les consonnes', 'on the consonants'),
+  'm.division': b('par division', 'by division'),
+  'm.divisionEntiere': b('par division entière', 'by integer division'),
   'm.modulo': b('par le reste', 'by the remainder'),
   'm.moduloCatalyseur': b('par le reste, diviseur gardé', 'by the remainder, divisor kept'),
   'f.articles': b('sans les articles', 'without the articles'),

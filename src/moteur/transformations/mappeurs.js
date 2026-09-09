@@ -1844,6 +1844,35 @@ function planAbsorption(valeur, visee, autorisees = OPERATIONS_TOUTES) {
  *    d'une valeur écrite.
  */
 /**
+ * Le plan d'une division : même découpe que le modulo — `135` se lit `13 / 5`.
+ * `avecReste` décide de ce qui demeure : le quotient suivi du reste
+ * (« 13/5 → 23 », l'auteur), ou le quotient seul.
+ */
+function planDivision(valeur, avecReste) {
+  const paquets = [];
+  const sortie = [];
+  let uneDivision = false;
+  for (let i = 0; i < valeur.length; i++) {
+    const s = String(valeur[i]);
+    if (s.length < 2) { paquets.push({ i, divise: false }); sortie.push(valeur[i]); continue; }
+    const b = Number(s[s.length - 1]);
+    const a = Number(s.slice(0, -1));
+    if (b === 0) return null;
+    const q = Math.floor(a / b);
+    // Le geste montre chaque retrait : au-delà de dix-huit, la scène refuse
+    // (`visuel/primitives/helpers.js › MAX_TRANSFERTS`).
+    if (q > 18) return null;
+    const reste = a - q * b;
+    paquets.push({ i, divise: true, valeur: valeur[i], a, b, q, reste });
+    sortie.push(q);
+    if (avecReste) sortie.push(reste);
+    uneDivision = true;
+  }
+  if (!uneDivision) return null;
+  return { paquets, sortie };
+}
+
+/**
  * Le plan d'un modulo : chaque nombre à DEUX CHIFFRES au moins se lit
  * `tête % dernier chiffre`. Rend `null` quand il n'y a rien à faire, ou quand
  * le geste ne serait pas jouable — jamais « à peu près ».
@@ -6289,6 +6318,102 @@ const AUTRES_MAPPEURS = [
       return steps;
     },
   })),
+
+  /* ★ **LA DIVISION — le quotient se compte, il ne se décrète pas.**
+
+     > « Tu pourrais même avoir un opérateur de division qui part mettons de
+     >   "135" → 13/5 → 23 (13/5 = 2 et reste 3), mais sa variante qui ignore le
+     >   reste […] est envisageable. » (l'auteur)
+
+     Même découpe que le modulo — le dernier chiffre divise ce qui précède —, et
+     même famille de dernier recours : « l'addition prime largement ». `mdiv`
+     garde le quotient ET le reste côte à côte, `mdvq` le quotient seul.
+
+     ⚠️ **APRÈS LES MODULOS, ET PAS AVANT.** L'ordre de déclaration doit être
+       celui du registre (§4.1 règle 3), et le registre est append-only : `mmod`
+       et `mmoc` y étaient déjà. Les écrire au-dessus, même pour la lecture,
+       fait refuser le catalogue au chargement — mesuré. */
+  ...[
+    { code: 'mdiv', avecReste: true, id: 'm.division',
+      libelle: bilingue('On divise, quotient et reste', 'Divide, quotient and remainder'),
+      regle: bilingue('Le dernier chiffre se retire autant de fois qu’il tient ; on garde le compte, puis ce qui reste',
+        'The last digit is taken out as often as it fits; keep the count, then what is left') },
+    { code: 'mdvq', avecReste: false, id: 'm.divisionEntiere',
+      libelle: bilingue('On divise, le reste est perdu', 'Divide, dropping the remainder'),
+      regle: bilingue('Même retrait, mais seul le compte demeure : ce qui restait s’efface avec l’accolade',
+        'Same removal, but only the count remains: what was left goes with the brace') },
+  ].map(({ code, avecReste, id, libelle, regle }) => def({
+    id, code, famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle, regle, outil: libelle,
+    notoriete: 0.35, adHoc: 0.45, cout: 2,
+    apply(valeur, traces) {
+      const plan = planDivision(valeur, avecReste);
+      if (!plan) return null;
+      const org = [];
+      for (const p of plan.paquets) {
+        const t = (traces && traces[p.i]) || [];
+        org.push(t);
+        if (p.divise && avecReste) org.push(t);
+      }
+      return { valeur: plan.sortie, traces: org };
+    },
+    sortie: (avant, apres, ctx) => {
+      const plan = planDivision(avant.valeur, avecReste);
+      if (!plan) return [];
+      const ids = [];
+      for (const p of plan.paquets) {
+        if (!p.divise) { ids.push(ctx.ids[p.i]); continue; }
+        ids.push(`${ctx.cle}q${p.i}`);
+        if (avecReste) ids.push(`${ctx.cle}s${p.i}`);
+      }
+      return ids;
+    },
+    steps: (avant, apres, ctx) => {
+      const plan = planDivision(avant.valeur, avecReste);
+      if (!plan) return [];
+      const steps = [];
+      const titre = dire(libelle, ctx.langue);
+      for (const p of plan.paquets) {
+        if (!p.divise) continue;
+        const idA = `${ctx.cle}a${p.i}`;
+        const idB = `${ctx.cle}b${p.i}`;
+        const idQ = `${ctx.cle}q${p.i}`;
+        const idS = `${ctx.cle}s${p.i}`;
+        // ① le nombre s'ouvre sur `A / B`.
+        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} / ${p.b}`, enchainer([{
+          op: 'substitute',
+          pairs: [{ target: ctx.ids[p.i], to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')] }],
+        }]), { id: `s_${ctx.cle}_do${p.i}` }));
+        // ② on retire tant qu'on peut, puis le compte se pose — avec le reste,
+        //    ou sans lui. Le `group` ANIME, le `substitute` ÉCRIT.
+        const legende = avecReste
+          ? `${p.a} / ${p.b} = ${p.q}, reste ${p.reste}`
+          : `${p.a} / ${p.b} = ${p.q}`;
+        steps.push(etape(ctx, titre, legende, enchainer([
+          {
+            op: 'group',
+            targets: [idA, idB],
+            division: true,
+            gardeLeReste: avecReste,
+            symbol: '÷',
+            resultat: avecReste ? [p.q, p.reste] : [p.q],
+          },
+          {
+            op: 'substitute',
+            pairs: [{
+              target: idA,
+              to: avecReste
+                ? [token(idQ, p.q, 'number'), token(idS, p.reste, 'number')]
+                : [token(idQ, p.q, 'number')],
+            }],
+          },
+          { op: 'drop', targets: [idB], mode: 'erase' },
+        ]), { id: `s_${ctx.cle}_dd${p.i}` }));
+      }
+      return steps;
+    },
+  })),
+
 ];
 
 /** Les dix caractères que « le tiret du 6 » sait convertir — exposé pour l'UI. */

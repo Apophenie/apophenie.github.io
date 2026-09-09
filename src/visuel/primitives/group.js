@@ -82,6 +82,7 @@ export function plan(ctx) {
   //   du plus grand au plus petit, et la ligne reste une ligne de nombres.
   if (ctx.op.egaliser) { planEgalisation(ctx, ids); return; }
   if (ctx.op.modulo) { planModulo(ctx, ids); return; }
+  if (ctx.op.division) { planDivision(ctx, ids); return; }
 
   const shape = ctx.op.shape || 'brace';
   if (shape !== 'brace' && shape !== 'box') {
@@ -223,6 +224,93 @@ function planModulo(ctx, ids) {
     for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.12 });
   }
   ctx.reflow({ at: T * 0.9, dur: T * 0.1, ease: EASE.move });
+}
+
+/**
+ * ★ **LA DIVISION — on retire tant qu'on peut, et l'on compte les retraits.**
+ *
+ * > « `A/B`, avec le divisé entre les deux, pas en vertical. Une accolade en
+ * >   dessous avec le symbole division. Puis B est retranché à A : part de A,
+ * >   passe au niveau de B, avant de descendre en dessous de l'accolade où 1
+ * >   est ajouté — la valeur de B est retranchée à A et se déplace comme les 1
+ * >   de `meg`. Le processus est répété jusqu'à ce que A < B. » (l'auteur)
+ *
+ * Le quotient ne tombe pas du ciel : il se COMPTE, un retrait à la fois, sous
+ * la pointe de l'accolade. C'est ce qui distingue ce geste d'un résultat posé —
+ * on voit pourquoi le quotient vaut ce qu'il vaut.
+ *
+ * ⚠️ **CE GESTE ANIME, IL N'ÉCRIT PAS** — même partage qu'avec le modulo et
+ *   l'égalisation. L'émetteur pose le quotient (et le reste, s'il le garde) par
+ *   un `substitute` explicite. La leçon a coûté cher une fois : un jeton qui
+ *   garde sa valeur d'avant fait calculer l'étape suivante sur une ligne que la
+ *   scène n'affiche plus, et c'est un `sum` voisin qui finit par le dire.
+ */
+function planDivision(ctx, ids) {
+  const valeurs = ids.map((id) => numberOf(ctx.scene.live(id, ctx.where).text, ctx, id));
+  if (valeurs.length !== 2) {
+    fail(`${ctx.where}une division demande EXACTEMENT deux nombres, le dividende et le diviseur.`);
+  }
+  const [a, b] = valeurs;
+  if (!Number.isInteger(a) || !Number.isInteger(b) || b <= 0 || a < 0) {
+    fail(`${ctx.where}division ${a} / ${b} : on ne divise que des entiers, par un diviseur strictement positif.`);
+  }
+  const quotient = Math.floor(a / b);
+  const reste = a - quotient * b;
+  if (quotient > MAX_TRANSFERTS) {
+    fail(`${ctx.where}division ${a} / ${b} : ${quotient} retraits, le geste serait interminable.`);
+  }
+  const gardeLeReste = ctx.op.gardeLeReste === true;
+  const attendu = gardeLeReste ? [quotient, reste] : [quotient];
+  const dits = ctx.op.resultat;
+  if (Array.isArray(dits) && dits.join(',') !== attendu.join(',')) {
+    fail(`${ctx.where}incohérence : ${a} / ${b} donne ${attendu.join(', ')}, `
+      + `mais l'émetteur annonce ${dits.join(', ')}. Le moteur visuel refuse d'afficher un calcul faux.`);
+  }
+
+  const T = ctx.dur;
+  const acc = tracerAccolade(ctx, ids, {
+    shape: 'brace', tighten: 0.66,
+    symbol: ctx.op.symbol || '÷', label: ctx.op.label || null,
+    promet: false, marquer: false,
+    at: 0, dur: T * 0.24,
+  });
+
+  /* ★ **LE DIVIDENDE DÉCROÎT, ET C'EST TOUT CE QUE CE GESTE MONTRE.**
+     Chaque retrait ôte `B` à `A` ; on le voit partir, comme un `1` de `meg`,
+     mais il vaut `B`. Le quotient — combien de fois on a pu le faire — est posé
+     par l'émetteur juste après, sous la même accolade.
+
+     ⚠️ **LE COMPTEUR SOUS LA POINTE A ÉTÉ ESSAYÉ, PUIS RETIRÉ.** Le placer
+       demande la position verticale des jetons, et elle n'existe pas encore
+       quand ce plan s'écrit : `scene.pos()` rend `y: null`, et la scène refuse —
+       « le nœud se peindrait à l'origine ». Le faire poser par `accumulate`
+       marcherait, mais `accumulate` fait avancer son total au rythme des
+       OPÉRANDES volés, pas des retraits : le compteur n'aurait pas compté ce
+       qu'on lui demande de compter. Un chiffre qui monte sans qu'on voie
+       pourquoi vaut moins que pas de chiffre du tout. */
+  const transferts = [];
+  let restant = a;
+  for (let k = 0; k < quotient; k++) {
+    restant -= b;
+    transferts.push({ de: 0, vers: 1, source: restant, cible: b, montant: b });
+  }
+  const paliers = new Map();
+  ids.forEach((id, i) => paliers.set(id, [{ k: 0, text: String(valeurs[i]) }]));
+  transferts.forEach((tr, k) => {
+    paliers.get(ids[0]).push({ k: k + 1, text: String(tr.source), role: 'de' });
+    paliers.get(ids[1]).push({ k: k + 1, text: String(tr.cible), role: 'vers' });
+  });
+  for (const [id, ps] of paliers) {
+    const large = Math.max(...ps.map((p) => [...p.text].length));
+    const node = ctx.scene.get(id);
+    node.w = Math.max(node.w, large * ctx.metrics.advance);
+  }
+  if (transferts.length) {
+    jouerTransferts(ctx, { operands: ids, transferts, paliers, at: T * 0.28, dur: T * 0.5 });
+  }
+  if (acc) {
+    for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.12 });
+  }
 }
 
 function planEgalisation(ctx, ids) {
