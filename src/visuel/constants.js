@@ -81,6 +81,9 @@ export const OP_NAMES = Object.freeze([
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
   'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse', 'fraction',
   'rule', 'convert', 'insert',
+  // ★ La division POSÉE, à la potence — la seule disposition où l'on voit
+  //   pourquoi le quotient s'écrit de gauche à droite, et où tombe la virgule.
+  'potence',
 ]);
 
 /**
@@ -134,6 +137,11 @@ export const DEFAULT_DUR = Object.freeze({
   fraction: 7000,
   // Le trait de fraction ne fait que suivre : il n'est jamais le sujet, il
   // s'ajuste pendant qu'autre chose se passe. Court, donc, et discret.
+  /* ★ La potence : six temps, et le plus long du vocabulaire. On y pose deux
+     barres, on écrit le quotient chiffre à chiffre, on descend sous la virgule,
+     puis tout s'efface — c'est une leçon entière, et elle s'adresse à quelqu'un
+     qui ne sait pas encore diviser. La bâcler serait manquer son seul but. */
+  potence: 8000,
   rule: 700,
   // L'atelier de conversion : six temps, dont trois qui se lisent (l'expression
   // montée, la flèche, la cible centrée). Aussi long qu'une somme, parce que

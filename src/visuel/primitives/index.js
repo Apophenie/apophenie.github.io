@@ -55,6 +55,7 @@ import * as shift from './shift.js';
 import * as collapse from './collapse.js';
 import * as fraction from './fraction.js';
 import * as rule from './rule.js';
+import * as potence from './potence.js';
 import * as convert from './convert.js';
 import * as insert from './insert.js';
 
@@ -64,7 +65,7 @@ export const PRIMITIVES = Object.freeze({
   highlight, dim, drop, substitute, move, group, insertOperators,
   sum, reduce, flip180, sevenSeg, fourteenSeg, countStrokes, keyboard,
   annotate, pulse, reveal, wait, partition, table, horns, merge, shift, collapse, fraction,
-  rule, convert, insert,
+  rule, convert, insert, potence,
 });
 
 // Garde-fou de chargement : la table des primitives et le vocabulaire déclaré

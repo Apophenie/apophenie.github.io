@@ -213,7 +213,23 @@ test('déterminisme — une horloge hostile écourte, mais ne ment jamais', () =
   // fois plus lente que celle de l’étalonnage. Là, le filet DOIT mordre — c’est
   // sa raison d’être. Ce qu’il n’a pas le droit de faire, c’est de rendre une
   // liste différente sans le dire (CONTRACTS §4.3).
-  const complet = creerMoteur(catalogue).resoudre('Le chat dort sur le tapis rouge');
+  /* ⚠️ **UN BUDGET EXPLICITE, ET GÉNÉREUX — sinon ce test mesure la MACHINE.**
+
+     L'assertion d'en dessous — « au repos, aucune troncature temporelle » —
+     supposait que la machine soit au repos. Elle ne l'est pas quand la suite
+     tourne : `node --test` exécute les fichiers en parallèle, et cette saisie
+     demande déjà quelque quatre secondes seule, pour un filet à cinq. La marge
+     tenait tant que la suite était courte ; elle a sauté quand le catalogue et
+     les scénarios se sont allongés — deux exécutions rouges d'affilée, vertes
+     dès que le fichier tourne seul.
+
+     Un test de DÉTERMINISME qui dépend de la vitesse de la machine est un
+     contresens (§4.4). On lui donne donc le budget qu'il lui faut pour que la
+     question posée soit la bonne : « avec un budget suffisant, le filet ne mord
+     pas ». Ce qui suit — l'horloge absurde, qui DOIT mordre — est inchangé,
+     et c'est là qu'est le sujet. */
+  const complet = creerMoteur(catalogue).resoudre('Le chat dort sur le tapis rouge',
+    { budgetTotalMs: 120000 });
   const ecourte = creerMoteur(catalogue, { maintenant: horlogeFactice(7) })
     .resoudre('Le chat dort sur le tapis rouge');
 

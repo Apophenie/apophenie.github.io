@@ -410,6 +410,9 @@ const OPS_AUTORISEES = new Set([
   'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
   'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse', 'fraction',
+  // ★ La division POSÉE — la potence de l'école primaire, seule disposition où
+  //   l'on voit pourquoi le quotient s'écrit de gauche à droite.
+  'potence',
 ]);
 
 test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {

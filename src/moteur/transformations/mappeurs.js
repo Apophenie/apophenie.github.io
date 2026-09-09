@@ -1844,10 +1844,9 @@ function planAbsorption(valeur, visee, autorisees = OPERATIONS_TOUTES) {
  *    d'une valeur écrite.
  */
 /**
- * ★ **LA DIVISION QUI DESCEND SOUS LA VIRGULE.**
+ * ★ **LA DIVISION QUI DESCEND SOUS LA VIRGULE — posée à la potence.**
  *
- * > « On décale A sur la gauche pour insérer ",0" à sa droite […] puis on
- * >   extrait B du reste A,0 comme si c'était le nombre ×10 […] on continue
+ * > « On décale A sur la gauche pour insérer ",0" à sa droite […] on continue
  * >   jusqu'à ce que ça tombe juste ou jusqu'à épuisement du nombre de chiffres
  * >   après la virgule choisi (1, 2 ou 3), puis A et B disparaissent […] et le
  * >   nombre sous B prend leur place en perdant sa virgule. » (l'auteur)
@@ -1855,6 +1854,18 @@ function planAbsorption(valeur, visee, autorisees = OPERATIONS_TOUTES) {
  * `2 / 3` à trois décimales donne `0,666`, qui perd sa virgule et devient
  * `0 6 6 6`. Et l'on s'arrête dès que ça tombe juste : `13 / 5` vaut `2,6`,
  * même quand on autorisait trois décimales.
+ *
+ * ⚠️ **CHIFFRE PAR CHIFFRE, COMME LA POTENCE L'ÉCRIT.** Une première version
+ *   rendait la partie entière d'un bloc — `105 / 5` donnait `[21]`. La potence,
+ *   elle, écrit `2` puis `1` : deux chiffres, posés l'un après l'autre sous la
+ *   barre. Le moteur doit rendre CE QUE LA SCÈNE MONTRE (§0.3), donc des
+ *   chiffres.
+ *
+ * ⚠️ **ET CE DÉROULÉ EST CALCULÉ DEUX FOIS.** Ici pour le moteur,
+ *   `visuel/primitives/potence.js › derouleDeLaDivision` pour la scène — le
+ *   moteur ne dépend jamais du visuel (§1). Ce n'est pas un doublon subi :
+ *   c'est le contrôle croisé, et la potence REFUSE de peindre si les deux
+ *   suites de chiffres diffèrent.
  */
 function planDecimales(valeur, decimales) {
   const paquets = [];
@@ -1866,27 +1877,30 @@ function planDecimales(valeur, decimales) {
     const b = Number(s[s.length - 1]);
     const a = Number(s.slice(0, -1));
     if (b === 0) return null;
-    const entier = Math.floor(a / b);
-    // Le geste montre chaque retrait, y compris sous la virgule : chaque tour
-    // doit rester jouable (`visuel/primitives/helpers.js › MAX_TRANSFERTS`).
-    if (entier > 18) return null;
-    let reste = a - entier * b;
+    const chiffresA = [...String(a)];
     const chiffres = [];
-    const tours = [];
-    for (let k = 0; k < decimales && reste !== 0; k++) {
-      const dix = reste * 10;
-      const c = Math.floor(dix / b);
-      if (c > 18) return null;
-      const suivant = dix - c * b;
-      tours.push({ dix, chiffre: c, reste: suivant });
+    let courant = 0;
+    // Un chiffre de quotient par chiffre du dividende, zéro de tête compris —
+    // « 0×5 dans 1 de 105 » (l'auteur). Voir `potence.js › derouleDeLaDivision`,
+    // qui doit rendre exactement la même suite, et le vérifie.
+    for (let k = 0; k < chiffresA.length; k++) {
+      courant = courant * 10 + Number(chiffresA[k]);
+      const c = Math.floor(courant / b);
       chiffres.push(c);
-      reste = suivant;
+      courant -= c * b;
     }
-    // Une division qui tombe juste du premier coup n'a rien à montrer sous la
-    // virgule : c'est une division entière, et `mdiv` la fait déjà.
-    if (!chiffres.length) return null;
-    paquets.push({ i, divise: true, valeur: valeur[i], a, b, entier, resteInitial: a - entier * b, tours, chiffres });
-    sortie.push(entier, ...chiffres);
+    const entiers = chiffres.length;
+    for (let k = 0; k < decimales && courant !== 0; k++) {
+      courant *= 10;
+      const c = Math.floor(courant / b);
+      chiffres.push(c);
+      courant -= c * b;
+    }
+    // Une division qui tombe juste n'a rien à montrer sous la virgule : c'est
+    // une division entière, et `mdiv` la fait déjà.
+    if (chiffres.length === entiers) return null;
+    paquets.push({ i, divise: true, valeur: valeur[i], a, b, chiffres, entiers });
+    sortie.push(...chiffres);
     uneDivision = true;
   }
   if (!uneDivision) return null;
@@ -6464,32 +6478,29 @@ const AUTRES_MAPPEURS = [
     },
   })),
 
-  /* ★ **LES TROIS DIVISIONS DÉCIMALES — une, deux ou trois décimales.**
+  /* ★ **LES TROIS DIVISIONS DÉCIMALES — posées à la potence.**
 
-     ⚠️ **LA MISE EN SCÈNE N'EST PAS LA POTENCE DEMANDÉE, ET IL FAUT LE DIRE.**
-       L'auteur décrit une potence : « une barre verticale entre A et B et une
-       barre horizontale sous B qui s'arrête sur la barre verticale », le
-       quotient s'écrivant chiffre à chiffre sous B, puis « ,0 » inséré des deux
-       côtés. C'est une primitive à part entière, de l'ampleur de `fraction`, et
-       elle n'est pas écrite.
+     > « La priorité est que ce soit limpide, même pour des gens qui ne
+     >   comprennent pas grand-chose aux maths : niveau primaire, c'est très
+     >   bien. » (l'auteur)
 
-       Ce qu'on montre à la place dit le MÊME calcul avec l'accolade des autres
-       divisions : la partie entière se retire d'abord, puis le reste est
-       multiplié par dix — c'est le « ,0 » — et l'on recommence, un tour par
-       décimale. Chaque chiffre du quotient se voit donc naître d'un retrait,
-       ce qui est l'essentiel (§0.3) ; ce qui manque est la FORME du geste
-       scolaire, pas sa vérité. */
+     D'où la potence, et pas l'accolade des autres divisions. Une première
+     version montrait le même calcul en trois temps d'accolade — partie entière,
+     reste ×10, un tour par décimale — et c'était juste, mais ça n'apprenait
+     rien : trois fois le même geste ne dit pas pourquoi le quotient s'écrit de
+     gauche à droite, ni où tombe la virgule. La division posée, elle, se
+     reconnaît (`visuel/primitives/potence.js`). */
   ...[1, 2, 3].map((decimales) => def({
     id: `m.divisionDecimale${decimales}`,
     code: `mdc${decimales}`,
     famille: 'mappeur', from: 'NUMS', to: 'NUMS',
-    libelle: bilingue(`On divise, ${decimales === 1 ? 'une décimale' : `${decimales === 2 ? 'deux' : 'trois'} décimales`}`,
-      `Divide, ${decimales} decimal${decimales > 1 ? 's' : ''}`),
-    regle: bilingue('On continue sous la virgule, en multipliant le reste par dix, '
+    libelle: bilingue(`On pose la division, ${decimales === 1 ? 'une décimale' : `${decimales === 2 ? 'deux' : 'trois'} décimales`}`,
+      `Long division, ${decimales} decimal${decimales > 1 ? 's' : ''}`),
+    regle: bilingue('On continue sous la virgule, en abaissant un zéro, '
       + 'jusqu’à ce que ça tombe juste ou que les décimales soient épuisées ; la virgule ne se garde pas',
-      'Keep going below the decimal point, multiplying the remainder by ten, until it comes out even '
+      'Keep going below the decimal point, bringing down a zero, until it comes out even '
       + 'or the decimals run out; the point itself is not kept'),
-    outil: bilingue('Division décimale', 'Decimal division'),
+    outil: bilingue('La potence', 'The long division bracket'),
     // Plus cher que la division entière : on descend sous la virgule, ce qu'un
     // numérologue ne fait pas sans raison. Et c'est du dernier recours.
     notoriete: 0.30, adHoc: 0.55, cout: 3,
@@ -6499,8 +6510,8 @@ const AUTRES_MAPPEURS = [
       const org = [];
       for (const p of plan.paquets) {
         const t = (traces && traces[p.i]) || [];
-        org.push(t);
-        if (p.divise) for (let k = 0; k < p.chiffres.length; k++) org.push(t);
+        if (!p.divise) { org.push(t); continue; }
+        for (let k = 0; k < p.chiffres.length; k++) org.push(t);
       }
       return { valeur: plan.sortie, traces: org };
     },
@@ -6510,7 +6521,6 @@ const AUTRES_MAPPEURS = [
       const ids = [];
       for (const p of plan.paquets) {
         if (!p.divise) { ids.push(ctx.ids[p.i]); continue; }
-        ids.push(`${ctx.cle}e${p.i}`);
         for (let k = 0; k < p.chiffres.length; k++) ids.push(`${ctx.cle}c${p.i}x${k}`);
       }
       return ids;
@@ -6519,59 +6529,27 @@ const AUTRES_MAPPEURS = [
       const plan = planDecimales(avant.valeur, decimales);
       if (!plan) return [];
       const steps = [];
-      const titre = dire(bilingue('Division décimale', 'Decimal division'), ctx.langue);
+      const titre = dire(bilingue('La potence', 'Long division'), ctx.langue);
       for (const p of plan.paquets) {
         if (!p.divise) continue;
         const idA = `${ctx.cle}a${p.i}`;
         const idB = `${ctx.cle}b${p.i}`;
-        const idE = `${ctx.cle}e${p.i}`;
-        const reste = (k) => `${ctx.cle}r${p.i}x${k}`;
-        // ① le nombre s'ouvre sur `A / B`.
-        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} / ${p.b}`, enchainer([{
+        // ① le nombre s'ouvre : dividende à gauche, diviseur à droite.
+        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} ÷ ${p.b}`, enchainer([{
           op: 'substitute',
           pairs: [{ target: ctx.ids[p.i], to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')] }],
-        }]), { id: `s_${ctx.cle}_co${p.i}` }));
-        // ② la partie entière, comme une division ordinaire — le diviseur reste,
-        //    on en aura besoin à chaque tour.
-        steps.push(etape(ctx, titre, `${p.a} / ${p.b} = ${p.entier}, reste ${p.resteInitial}`, enchainer([
-          {
-            op: 'group', targets: [idA, idB], division: true, gardeLeReste: true,
-            symbol: '÷', resultat: [p.entier, p.resteInitial],
-          },
-          {
-            op: 'substitute',
-            pairs: [{ target: idA, to: [token(idE, p.entier, 'number'), token(reste(0), p.resteInitial, 'number')] }],
-          },
-        ]), { id: `s_${ctx.cle}_ce${p.i}` }));
-        // ③ un tour par décimale : le reste prend un zéro — c'est le « ,0 » —
-        //    puis on retire encore.
-        p.tours.forEach((t, k) => {
-          const idDix = `${ctx.cle}x${p.i}x${k}`;
-          const idC = `${ctx.cle}c${p.i}x${k}`;
-          steps.push(etape(ctx, titre, `${t.dix / 10} → ${t.dix}`, enchainer([{
-            op: 'substitute',
-            pairs: [{ target: reste(k), to: [token(idDix, t.dix, 'number')] }],
-          }]), { id: `s_${ctx.cle}_cz${p.i}x${k}` }));
-          const dernier = k === p.tours.length - 1;
-          steps.push(etape(ctx, titre, `${t.dix} / ${p.b} = ${t.chiffre}${t.reste ? `, reste ${t.reste}` : ''}`, enchainer([
-            {
-              op: 'group', targets: [idDix, idB], division: true, gardeLeReste: true,
-              symbol: '÷', resultat: [t.chiffre, t.reste],
-            },
-            {
-              op: 'substitute',
-              pairs: [{
-                target: idDix,
-                to: dernier
-                  ? [token(idC, t.chiffre, 'number')]
-                  : [token(idC, t.chiffre, 'number'), token(reste(k + 1), t.reste, 'number')],
-              }],
-            },
-            // Au dernier tour, le diviseur a fini son office ; ce qui restait
-            // s'en va avec lui, puisque la virgule ne se garde pas.
-            ...(dernier ? [{ op: 'drop', targets: [idB], mode: 'erase' }] : []),
-          ]), { id: `s_${ctx.cle}_cd${p.i}x${k}` }));
-        });
+        }]), { id: `s_${ctx.cle}_po${p.i}` }));
+        // ② la potence : les deux barres, le quotient chiffre à chiffre, la
+        //    virgule à sa place, puis tout s'efface sauf le quotient.
+        const entiers = p.chiffres.slice(0, p.entiers).join('');
+        const apresVirgule = p.chiffres.slice(p.entiers).join('');
+        steps.push(etape(ctx, titre, `${p.a} ÷ ${p.b} = ${entiers},${apresVirgule}`, [{
+          op: 'potence',
+          dividende: idA,
+          diviseur: idB,
+          decimales,
+          to: p.chiffres.map((c, k) => token(`${ctx.cle}c${p.i}x${k}`, c, 'digit')),
+        }], { id: `s_${ctx.cle}_pp${p.i}` }));
       }
       return steps;
     },

@@ -499,6 +499,40 @@ export const vocabulaire = {
         { op: 'wait', dur: 900 },
       ],
     },
+    {
+      /* ★ **LA POTENCE — la division posée de l'école primaire.**
+
+         Elle vient APRÈS le C.Q.F.D., et c'est voulu : ce parcours n'est pas une
+         démonstration mais un banc, et la potence a besoin de deux nombres à
+         elle. L'insérer au milieu de la chaîne consommait un jeton dont l'étape
+         suivante avait besoin — le compilateur l'a refusé, à raison.
+
+         `13 ÷ 5` à une décimale : on écrit `0` (5 ne tient pas dans 1), puis
+         `2` (5 tient deux fois dans 13, il reste 3), puis la virgule, puis `6`
+         (5 tient six fois dans 30). Le quotient redescend en deux chiffres,
+         sans sa virgule. */
+      id: 'p13',
+      title: 'potence',
+      caption: 'la division posée : le quotient s’écrit chiffre à chiffre, puis on descend sous la virgule',
+      ops: [
+        {
+          op: 'substitute',
+          pairs: [{ target: 'ab6b', to: [{ id: 'po0', text: '13', kind: 'number' }, { id: 'po1', text: '5', kind: 'number' }] }],
+        },
+        {
+          op: 'potence',
+          dividende: 'po0',
+          diviseur: 'po1',
+          decimales: 1,
+          to: [
+            { id: 'poq0', text: '0', kind: 'digit' },
+            { id: 'poq1', text: '2', kind: 'digit' },
+            { id: 'poq2', text: '6', kind: 'digit' },
+          ],
+          at: 1150,
+        },
+      ],
+    },
   ],
 };
 
