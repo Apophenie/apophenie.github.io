@@ -316,6 +316,7 @@ export const NOMS = {
   'm.divisionDecimale2': b('Par division décimale', 'By decimal division'),
   'm.divisionDecimale3': b('Par division décimale', 'By decimal division'),
   'm.division': b('Par division', 'By division'),
+  'm.divisionResteDabord': b('Par division, le reste devant', 'By division, remainder first'),
   'm.divisionEntiere': b('Par division, le reste perdu', 'By division, dropping the remainder'),
   'm.modulo': b('Par ce qui reste', 'By what is left over'),
   'm.moduloCatalyseur': b('Par ce qui reste, la mesure gardée', 'By what is left, keeping the measure'),
@@ -491,6 +492,7 @@ export const TITRES_COURTS = {
   'm.divisionDecimale2': b('division à 2 déc.', '2-decimal division'), // mdc2
   'm.divisionDecimale3': b('division à 3 déc.', '3-decimal division'), // mdc3
   'm.division': b('division et reste', 'division and remainder'), // mdiv
+  'm.divisionResteDabord': b('division, reste devant', 'division, remainder first'), // mdvr
   'm.divisionEntiere': b('division entière', 'integer division'), // mdvq
   'm.modulo': b('reste modulo', 'modulo remainder'), // mmod
   'm.moduloCatalyseur': b('reste, diviseur gardé', 'remainder, divisor kept'), // mmoc
@@ -674,6 +676,7 @@ export const PRECISIONS = {
   'm.divisionDecimale2': b('par division décimale', 'by decimal division'),
   'm.divisionDecimale3': b('par division décimale', 'by decimal division'),
   'm.division': b('par division', 'by division'),
+  'm.divisionResteDabord': b('par division, le reste devant', 'by division, remainder first'),
   'm.divisionEntiere': b('par division entière', 'by integer division'),
   'm.modulo': b('par le reste', 'by the remainder'),
   'm.moduloCatalyseur': b('par le reste, diviseur gardé', 'by the remainder, divisor kept'),

@@ -5,13 +5,14 @@
 | opérateur | codes | sortie sur `135` (ou `23`) |
 |---|---|---|
 | modulo, diviseur dissous / gardé | `mmod`, `mmoc` | `[3]` · `[3, 5]` |
-| division, avec / sans le reste | `mdiv`, `mdvq` | `[2, 3]` · `[2]` |
+| division, compte devant / reste devant / sans reste | `mdiv`, `mdvr`, `mdvq` | `[2, 3]` · `[3, 2]` · `[2]` |
 | division décimale, 1 / 2 / 3 décimales | `mdc1`, `mdc2`, `mdc3` | sur `23` : `[0,6]` · `[0,6,6]` · `[0,6,6,6]` |
 
 ## ⚠️ Ce que la mise en scène ne tient pas encore
 
-L'auteur a décrit trois gestes précis ; **la potence est faite**, deux restent
-en partie, et il faut le savoir avant de les regarder à l'écran.
+L'auteur a décrit trois gestes précis ; **la potence et le reste-devant sont
+faits**, un seul reste en partie, et il faut le savoir avant de le regarder à
+l'écran.
 
 1. **Le compteur sous la pointe** (division entière). « B est retranché à A :
    part de A, passe au niveau de B, avant de descendre en dessous de l'accolade
@@ -32,13 +33,18 @@ en partie, et il faut le savoir avant de les regarder à l'écran.
    — « 0×5 dans 1 de 105 » — parce que c'est le premier geste qu'on apprend et
    que la colonne des restes serait illisible sans lui.
 
-3. **La variante « l'accolade rétrécit »** (division avec reste). L'auteur en
-   décrivait deux mises en scène ; une seule est rendue. La seconde — « `/B`
-   disparaît, l'accolade rétrécit pour ne laisser que le reste, puis le compteur
-   remonte avant le reste en ré-étirant l'accolade » — n'a pas été faite : deux
-   opérateurs qui rendent la MÊME sortie et ne diffèrent que par l'animation
-   seraient des doublons au registre. À traiter comme une option de la
-   primitive, si la distinction vaut d'être montrée.
+3. ~~**La variante « l'accolade rétrécit »**~~ — **FAITE**, et j'avais mal lu.
+
+   > « Le résultat n'est pas le même : 13/5 → 23, 13/5 → 32. » (l'auteur)
+
+   Je les croyais identiques à l'animation près, donc doublons au registre. Ce
+   sont deux NOMBRES : `mdiv` fait remonter le compte avant le reste (`2 3`),
+   `mdvr` le laisse à sa place et pose le compte après lui (`3 2`). La suite du
+   programme ne lit pas ces deux lignes pareil.
+
+   ⚠️ Ce qui reste ici : les deux gestes se distinguent aujourd'hui par
+     l'ORDRE des jetons posés, pas encore par l'accolade qui rétrécit puis se
+     ré-étire. La différence se voit, mais elle ne se raconte pas.
 
 ## Ce que ces chantiers ont appris
 

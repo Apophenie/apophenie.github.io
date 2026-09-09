@@ -1912,7 +1912,7 @@ function planDecimales(valeur, decimales) {
  * `avecReste` décide de ce qui demeure : le quotient suivi du reste
  * (« 13/5 → 23 », l'auteur), ou le quotient seul.
  */
-function planDivision(valeur, avecReste) {
+function planDivision(valeur, avecReste, resteDAbord = false) {
   const paquets = [];
   const sortie = [];
   let uneDivision = false;
@@ -1928,8 +1928,11 @@ function planDivision(valeur, avecReste) {
     if (q > 18) return null;
     const reste = a - q * b;
     paquets.push({ i, divise: true, valeur: valeur[i], a, b, q, reste });
-    sortie.push(q);
-    if (avecReste) sortie.push(reste);
+    // L'ordre EST le résultat : « 13/5 → 23 » ou « 13/5 → 32 » selon que le
+    // compte remonte avant le reste, ou vient se placer après lui.
+    if (avecReste && resteDAbord) sortie.push(reste, q);
+    else if (avecReste) sortie.push(q, reste);
+    else sortie.push(q);
     uneDivision = true;
   }
   if (!uneDivision) return null;
@@ -6406,12 +6409,12 @@ const AUTRES_MAPPEURS = [
       libelle: bilingue('On divise, le reste est perdu', 'Divide, dropping the remainder'),
       regle: bilingue('Même retrait, mais seul le compte demeure : ce qui restait s’efface avec l’accolade',
         'Same removal, but only the count remains: what was left goes with the brace') },
-  ].map(({ code, avecReste, id, libelle, regle }) => def({
+  ].map(({ code, avecReste, resteDAbord = false, id, libelle, regle }) => def({
     id, code, famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle, regle, outil: libelle,
     notoriete: 0.35, adHoc: 0.45, cout: 2,
     apply(valeur, traces) {
-      const plan = planDivision(valeur, avecReste);
+      const plan = planDivision(valeur, avecReste, resteDAbord);
       if (!plan) return null;
       const org = [];
       for (const p of plan.paquets) {
@@ -6422,18 +6425,19 @@ const AUTRES_MAPPEURS = [
       return { valeur: plan.sortie, traces: org };
     },
     sortie: (avant, apres, ctx) => {
-      const plan = planDivision(avant.valeur, avecReste);
+      const plan = planDivision(avant.valeur, avecReste, resteDAbord);
       if (!plan) return [];
       const ids = [];
       for (const p of plan.paquets) {
         if (!p.divise) { ids.push(ctx.ids[p.i]); continue; }
-        ids.push(`${ctx.cle}q${p.i}`);
-        if (avecReste) ids.push(`${ctx.cle}s${p.i}`);
+        if (avecReste && resteDAbord) ids.push(`${ctx.cle}s${p.i}`, `${ctx.cle}q${p.i}`);
+        else if (avecReste) ids.push(`${ctx.cle}q${p.i}`, `${ctx.cle}s${p.i}`);
+        else ids.push(`${ctx.cle}q${p.i}`);
       }
       return ids;
     },
     steps: (avant, apres, ctx) => {
-      const plan = planDivision(avant.valeur, avecReste);
+      const plan = planDivision(avant.valeur, avecReste, resteDAbord);
       if (!plan) return [];
       const steps = [];
       const titre = dire(libelle, ctx.langue);
@@ -6452,6 +6456,7 @@ const AUTRES_MAPPEURS = [
         //    ou sans lui. Le `group` ANIME, le `substitute` ÉCRIT.
         const legende = avecReste
           ? `${p.a} / ${p.b} = ${p.q}, reste ${p.reste}`
+            + (resteDAbord ? ` → ${p.reste} ${p.q}` : ` → ${p.q} ${p.reste}`)
           : `${p.a} / ${p.b} = ${p.q}`;
         steps.push(etape(ctx, titre, legende, enchainer([
           {
@@ -6459,15 +6464,22 @@ const AUTRES_MAPPEURS = [
             targets: [idA, idB],
             division: true,
             gardeLeReste: avecReste,
+            resteDAbord,
             symbol: '÷',
-            resultat: avecReste ? [p.q, p.reste] : [p.q],
+            resultat: avecReste
+              ? (resteDAbord ? [p.reste, p.q] : [p.q, p.reste])
+              : [p.q],
           },
           {
             op: 'substitute',
             pairs: [{
               target: idA,
+              // ★ L'ordre où les jetons se posent EST le résultat : le compte
+              //   remonte avant le reste, ou vient se placer après lui.
               to: avecReste
-                ? [token(idQ, p.q, 'number'), token(idS, p.reste, 'number')]
+                ? (resteDAbord
+                  ? [token(idS, p.reste, 'number'), token(idQ, p.q, 'number')]
+                  : [token(idQ, p.q, 'number'), token(idS, p.reste, 'number')])
                 : [token(idQ, p.q, 'number')],
             }],
           },
@@ -6554,6 +6566,84 @@ const AUTRES_MAPPEURS = [
       return steps;
     },
   })),
+
+  ...[
+    /* ★ **LE RESTE D'ABORD — et c'est un AUTRE nombre, pas une autre animation.**
+
+       > « Le résultat n'est pas le même : 13/5 → 23, 13/5 → 32. » (l'auteur)
+
+       `mdiv` fait remonter le compte AVANT le reste ; celui-ci le laisse à sa
+       place et pose le compte APRÈS lui. Sur `135`, l'un écrit `2 3`, l'autre
+       `3 2` — deux lignes que la suite du programme ne lira pas pareil. */
+    { code: 'mdvr', avecReste: true, resteDAbord: true, id: 'm.divisionResteDabord',
+      libelle: bilingue('On divise, le reste devant', 'Divide, remainder first'),
+      regle: bilingue('Le reste demeure où il était, et le compte des retraits vient se placer après lui',
+        'The remainder stays where it was, and the count of removals comes after it') },
+  ].map(({ code, avecReste, resteDAbord = false, id, libelle, regle }) => def({
+    id, code, famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle, regle, outil: libelle,
+    notoriete: 0.35, adHoc: 0.45, cout: 2,
+    apply(valeur, traces) {
+      const plan = planDivision(valeur, avecReste, resteDAbord);
+      if (!plan) return null;
+      const org = [];
+      for (const p of plan.paquets) {
+        const t = (traces && traces[p.i]) || [];
+        org.push(t);
+        if (p.divise && avecReste) org.push(t);
+      }
+      return { valeur: plan.sortie, traces: org };
+    },
+    sortie: (avant, apres, ctx) => {
+      const plan = planDivision(avant.valeur, avecReste, resteDAbord);
+      if (!plan) return [];
+      const ids = [];
+      for (const p of plan.paquets) {
+        if (!p.divise) { ids.push(ctx.ids[p.i]); continue; }
+        ids.push(`${ctx.cle}s${p.i}`, `${ctx.cle}q${p.i}`);
+      }
+      return ids;
+    },
+    steps: (avant, apres, ctx) => {
+      const plan = planDivision(avant.valeur, avecReste, resteDAbord);
+      if (!plan) return [];
+      const steps = [];
+      const titre = dire(libelle, ctx.langue);
+      for (const p of plan.paquets) {
+        if (!p.divise) continue;
+        const idA = `${ctx.cle}a${p.i}`;
+        const idB = `${ctx.cle}b${p.i}`;
+        const idQ = `${ctx.cle}q${p.i}`;
+        const idS = `${ctx.cle}s${p.i}`;
+        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} / ${p.b}`, enchainer([{
+          op: 'substitute',
+          pairs: [{ target: ctx.ids[p.i], to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')] }],
+        }]), { id: `s_${ctx.cle}_ro${p.i}` }));
+        steps.push(etape(ctx, titre,
+          `${p.a} / ${p.b} = ${p.q}, reste ${p.reste} → ${p.reste} ${p.q}`, enchainer([
+            {
+              op: 'group',
+              targets: [idA, idB],
+              division: true,
+              gardeLeReste: true,
+              resteDAbord: true,
+              symbol: '÷',
+              resultat: [p.reste, p.q],
+            },
+            {
+              op: 'substitute',
+              pairs: [{
+                target: idA,
+                to: [token(idS, p.reste, 'number'), token(idQ, p.q, 'number')],
+              }],
+            },
+            { op: 'drop', targets: [idB], mode: 'erase' },
+          ]), { id: `s_${ctx.cle}_rd${p.i}` }));
+      }
+      return steps;
+    },
+  })),
+
 
 
 ];

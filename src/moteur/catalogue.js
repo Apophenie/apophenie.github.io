@@ -145,6 +145,9 @@ export const ORDRE_CANONIQUE = Object.freeze([
   'mdiv', 'mdvq',
   // ★ Les TROIS divisions décimales — une, deux, trois décimales.
   'mdc1', 'mdc2', 'mdc3',
+  // ★ La division qui laisse le RESTE DEVANT — « 13/5 → 32 » et non « 23 ».
+  //   Un autre nombre, pas une autre animation (l'auteur).
+  'mdvr',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

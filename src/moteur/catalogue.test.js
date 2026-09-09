@@ -315,6 +315,10 @@ const VECTEURS = [
   ['mdc1', N([23]), [0, 6]],
   ['mdc2', N([23]), [0, 6, 6]],
   ['mdc3', N([23]), [0, 6, 6, 6]],
+  /* ★ La division qui laisse le RESTE DEVANT. « Le résultat n'est pas le même :
+     13/5 → 23, 13/5 → 32 » (l'auteur) — deux gestes, deux lignes, deux nombres,
+     et non deux animations d'un même résultat. */
+  ['mdvr', N([135]), [3, 2]],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],
@@ -450,8 +454,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 175); // …+2 divisions, +3 décimales (mdc1..3)
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 175, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 176); // …+3 décimales, +1 reste devant (mdvr)
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 176, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -461,7 +465,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 175, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 176, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

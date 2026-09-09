@@ -260,7 +260,21 @@ function planDivision(ctx, ids) {
     fail(`${ctx.where}division ${a} / ${b} : ${quotient} retraits, le geste serait interminable.`);
   }
   const gardeLeReste = ctx.op.gardeLeReste === true;
-  const attendu = gardeLeReste ? [quotient, reste] : [quotient];
+  /* ★ **DEUX FAÇONS DE GARDER LE RESTE, ET CE NE SONT PAS DEUX ANIMATIONS DU
+       MÊME RÉSULTAT** — j'avais cru le contraire, l'auteur a tranché :
+
+     > « Le résultat n'est pas le même : 13/5 → 23, 13/5 → 32. » (l'auteur)
+
+     · `quotient` d'abord — « l'accolade rétrécit pour ne laisser que le reste,
+       puis le compteur remonte AVANT le reste en ré-étirant l'accolade » ;
+     · `reste` d'abord — « le reste de A reste, le compteur sous l'accolade
+       vient se placer JUSTE APRÈS le reste ».
+
+     Deux gestes, deux lignes, deux nombres. */
+  const resteDAbord = ctx.op.resteDAbord === true;
+  const attendu = gardeLeReste
+    ? (resteDAbord ? [reste, quotient] : [quotient, reste])
+    : [quotient];
   const dits = ctx.op.resultat;
   if (Array.isArray(dits) && dits.join(',') !== attendu.join(',')) {
     fail(`${ctx.where}incohérence : ${a} / ${b} donne ${attendu.join(', ')}, `
