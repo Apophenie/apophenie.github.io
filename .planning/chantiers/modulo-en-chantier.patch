@@ -1,0 +1,351 @@
+diff --git a/src/moteur/catalogue.js b/src/moteur/catalogue.js
+index dcfecc3..a422f1c 100644
+--- a/src/moteur/catalogue.js
++++ b/src/moteur/catalogue.js
+@@ -138,6 +138,9 @@ export const ORDRE_CANONIQUE = Object.freeze([
+   // ★ Les deux absorptions MONO-OPÉRATION — produit, puis différence. En fin de
+   //   bloc, append-only (§4.1).
+   'mabx', 'mabd',
++  // ★ Les deux MODULOS — le reste seul, puis le reste avec son diviseur gardé
++  //   comme catalyseur. En fin de bloc mappeur, append-only (§4.1).
++  'mmod', 'mmoc',
+   'cs', 'cst', 'cp',
+   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
+   'cal', 'cali', 'cmm',
+diff --git a/src/moteur/catalogue.test.js b/src/moteur/catalogue.test.js
+index 126a859..e914ed1 100644
+--- a/src/moteur/catalogue.test.js
++++ b/src/moteur/catalogue.test.js
+@@ -297,6 +297,12 @@ const VECTEURS = [
+   //   rien faire de `9 3`. Une opération annoncée d'avance ne s'applique pas
+   //   partout, et c'est ce qui la distingue d'une sélection ad hoc.
+   ['mabd', N([9, 3, 9, 3, 9, 3]), [6, 6, 6]],
++  /* ★ Les deux modulos. La découpe est celle de l'auteur : le DERNIER chiffre
++     est le diviseur, tout ce qui précède est le dividende — `135` se lit
++     `13 % 5`, et le reste est 3. Le catalyseur garde son diviseur sur la ligne,
++     l'autre le dissout. */
++  ['mmod', N([135]), [3]],
++  ['mmoc', N([135]), [3, 5]],
+   ['cs', N([8, 15, 16, 5]), 44],
+   ['cst', N([8, 15, 16, 5]), -28],
+   ['cp', N([8, 15, 16, 5]), 9600],
+@@ -429,8 +435,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
+ //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
+ //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
+ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
+-  assert.equal(ORDRE_CANONIQUE.length, 168); // …+4 les retraits grammaticaux (fart, fprp, fcnj, faux)
+-    assert.equal(new Set(ORDRE_CANONIQUE).size, 168, 'aucun code alloué deux fois');
++  assert.equal(ORDRE_CANONIQUE.length, 170); // …+4 retraits grammaticaux, +2 modulos (mmod, mmoc)
++    assert.equal(new Set(ORDRE_CANONIQUE).size, 170, 'aucun code alloué deux fois');
+   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
+     'le registre et l’ordre de déclaration disent la même chose');
+   for (const code of ORDRE_CANONIQUE) {
+@@ -440,7 +446,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
+   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
+   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
+   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
+-  assert.equal(new Set(replies).size, 168, 'deux codes ne diffèrent jamais par la seule casse');
++  assert.equal(new Set(replies).size, 170, 'deux codes ne diffèrent jamais par la seule casse');
+ });
+ 
+ test('le code p9 est réservé au retournement du 9', () => {
+diff --git a/src/moteur/langues.test.js b/src/moteur/langues.test.js
+index 7e9b2eb..d9ef1ad 100644
+--- a/src/moteur/langues.test.js
++++ b/src/moteur/langues.test.js
+@@ -43,7 +43,7 @@ const CHAMPS_AFFICHES = ['libelle', 'regle', 'note', 'gabarit', 'outil'];
+ const NOTATIONS = new Set(['flt:regle', 'nv:regle', 'ma1:regle', 'mz26:regle', 'masc:regle', 'masb:regle']);
+ 
+ test('★ toute chaîne affichable du catalogue porte ses deux langues', () => {
+-  assert.equal(CATALOGUE.length, 168, 'le catalogue publié compte 168 opérateurs');
++  assert.equal(CATALOGUE.length, 170, 'le catalogue publié compte 170 opérateurs');
+   for (const op of CATALOGUE) {
+     assert.ok(estBilingue(op.libelle), `${op.code} (${op.id}) : « libelle » n’est pas bilingue`);
+     assert.ok(estBilingue(op.regle), `${op.code} (${op.id}) : « regle » n’est pas bilingue`);
+diff --git a/src/moteur/transformations/mappeurs.js b/src/moteur/transformations/mappeurs.js
+index 0fdcbed..ae3732f 100644
+--- a/src/moteur/transformations/mappeurs.js
++++ b/src/moteur/transformations/mappeurs.js
+@@ -1843,6 +1843,37 @@ function planAbsorption(valeur, visee, autorisees = OPERATIONS_TOUTES) {
+  *    réduction et `…d{j}x{k}x{t}` ses chiffres ; `…w{j}x{t}` les chiffres
+  *    d'une valeur écrite.
+  */
++/**
++ * Le plan d'un modulo : chaque nombre à DEUX CHIFFRES au moins se lit
++ * `tête % dernier chiffre`. Rend `null` quand il n'y a rien à faire, ou quand
++ * le geste ne serait pas jouable — jamais « à peu près ».
++ */
++function planModulo(valeur, garde) {
++  const paquets = [];
++  const sortie = [];
++  let uneDivision = false;
++  for (let i = 0; i < valeur.length; i++) {
++    const s = String(valeur[i]);
++    if (s.length < 2) { paquets.push({ i, divise: false }); sortie.push(valeur[i]); continue; }
++    const b = Number(s[s.length - 1]);
++    const a = Number(s.slice(0, -1));
++    // Un diviseur nul ne mesure rien ; c'est un refus, pas un cas limite.
++    if (b === 0) return null;
++    const q = Math.floor(a / b);
++    // La scène montre chaque paquet partir : au-delà, elle serait interminable
++    // (`visuel/primitives/helpers.js › MAX_TRANSFERTS`). On refuse ici plutôt
++    // que de fabriquer une voie que le moteur visuel rejettera.
++    if (q > 18) return null;
++    const reste = a - q * b;
++    paquets.push({ i, divise: true, valeur: valeur[i], a, b, reste, q });
++    sortie.push(reste);
++    if (garde) sortie.push(b);
++    uneDivision = true;
++  }
++  if (!uneDivision) return null;
++  return { paquets, sortie };
++}
++
+ function gestesDuPaquet(plan, ctx, p, j) {
+   const idc = (k) => idChiffreRedecoupe(plan, ctx, k);
+   const r = p.recette;
+@@ -6143,6 +6174,96 @@ const AUTRES_MAPPEURS = [
+       return steps;
+     },
+   })),
++
++  /* ★ **LE MODULO — ce qui RESTE quand on a retiré autant de fois que possible.**
++
++     > « Modulo est implémentable aussi : 135 → 13 % 5 → 3. »
++     > « Une accolade de modulo se forme, façon `meg` ; B absorbe autant de fois
++     >   sa valeur que A la contient, jusqu'à ce que 0 ≤ A < B. Là, deux
++     >   variantes de l'opérateur : l'une dissout B dans l'accolade et fait
++     >   disparaître l'accolade dans le processus, l'autre garde B, qui n'a
++     >   servi que de catalyseur sans être consommé. » (l'auteur)
++
++     La découpe est celle que l'auteur donne : le DERNIER chiffre est le
++     diviseur, tout ce qui précède est le dividende. `135` se lit `13 % 5`, et
++     rien dans ce découpage ne regarde la cible — c'est ce qui le distingue
++     d'une ficelle.
++
++     ⚠️ **CE SONT DES OPÉRATEURS DE DERNIER RECOURS.** « En gardant en tête que
++       c'est du dernier recours, l'addition prime largement » (l'auteur). D'où
++       une notoriété basse et un `adHoc` réel : prendre le dernier chiffre pour
++       diviseur est un choix, défendable mais choisi.
++
++     ⚠️ **ET LE GESTE A UNE LONGUEUR MAXIMALE.** La scène montre chaque paquet
++       partir ; au-delà de dix-huit (`helpers.js › MAX_TRANSFERTS`), elle
++       deviendrait interminable et le moteur visuel refuserait. L'opérateur
++       refuse donc AVANT, plutôt que de produire une voie qu'on ne saurait pas
++       jouer — mesuré : `135 % 5` demande vingt-sept paquets et tombe ici. */
++  ...[
++    { code: 'mmod', garde: false, id: 'm.modulo',
++      libelle: bilingue('On ne garde que le reste', 'Keep only the remainder'),
++      regle: bilingue('Le dernier chiffre se retire du reste autant de fois qu’il y tient ; '
++        + 'ce qui reste est plus petit que lui',
++        'The last digit is taken out as many times as it fits; what is left is smaller than it') },
++    { code: 'mmoc', garde: true, id: 'm.moduloCatalyseur',
++      libelle: bilingue('On retire, et le diviseur demeure', 'Take out, and the divisor stays'),
++      regle: bilingue('Même retrait, mais le dernier chiffre n’est pas consommé : il a servi de mesure',
++        'Same removal, but the last digit is not consumed: it served as a measure') },
++  ].map(({ code, garde, id, libelle, regle }) => def({
++    id, code, famille: 'mappeur', from: 'NUMS', to: 'NUMS',
++    libelle, regle,
++    // L'objet montré n'a pas de nom propre — il n'y a ni réglette ni clavier,
++    // juste une accolade et des paquets qui s'en vont. Le libellé fait donc
++    // office de nom, comme le prévoit le repli du catalogue.
++    outil: libelle,
++    // Le geste montre chaque paquet partir : il coûte deux étapes par nombre
++    // divisé, l'ouverture puis les retraits.
++    notoriete: 0.30, adHoc: 0.45, cout: 2,
++    apply(valeur) {
++      const plan = planModulo(valeur, garde);
++      return plan && plan.sortie;
++    },
++    // Ce qui reste sur la ligne, dans l'ordre : les nombres intacts à leur
++    // place, et pour chaque nombre divisé le jeton qui porte son reste — suivi
++    // du diviseur quand il n'a servi que de mesure.
++    sortie: (avant, apres, ctx) => {
++      const plan = planModulo(avant.valeur, garde);
++      if (!plan) return [];
++      const ids = [];
++      for (const p of plan.paquets) {
++        if (!p.divise) { ids.push(ctx.ids[p.i]); continue; }
++        ids.push(`${ctx.cle}a${p.i}`);
++        if (garde) ids.push(`${ctx.cle}b${p.i}`);
++      }
++      return ids;
++    },
++    steps: (avant, apres, ctx) => {
++      const plan = planModulo(avant.valeur, garde);
++      if (!plan) return [];
++      const steps = [];
++      const titre = dire(libelle, ctx.langue);
++      for (const p of plan.paquets) {
++        if (!p.divise) continue;
++        const idA = `${ctx.cle}a${p.i}`;
++        const idB = `${ctx.cle}b${p.i}`;
++        // ① le nombre s'ouvre : le dernier chiffre se détache, c'est le diviseur.
++        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} % ${p.b}`, enchainer([{
++          op: 'substitute',
++          pairs: [{ target: ctx.ids[p.i], to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')] }],
++        }]), { id: `s_${ctx.cle}_o${p.i}` }));
++        // ② les paquets partent, un par un, jusqu'à ce qu'il en reste moins qu'un.
++        steps.push(etape(ctx, titre, `${p.a} % ${p.b} = ${p.reste}`, [{
++          op: 'group',
++          targets: [idA, idB],
++          modulo: true,
++          garderLeDiviseur: garde,
++          symbol: '%',
++          resultat: garde ? [p.reste, p.b] : [p.reste],
++        }], { id: `s_${ctx.cle}_m${p.i}` }));
++      }
++      return steps;
++    },
++  })),
+ ];
+ 
+ /** Les dix caractères que « le tiret du 6 » sait convertir — exposé pour l'UI. */
+diff --git a/src/recherche/titres.js b/src/recherche/titres.js
+index b6c49b1..6736754 100644
+--- a/src/recherche/titres.js
++++ b/src/recherche/titres.js
+@@ -477,6 +477,8 @@ export const TITRES_COURTS = {
+   // ★ Les quatre retraits grammaticaux : la forme courte NOMME la classe, elle
+   //   n'énumère pas. « sans les articles » se lit ; « sans le, la, les, un… »
+   //   remplirait la ligne de la voie à lui seul.
++  'm.modulo': b('reste modulo', 'modulo remainder'), // mmod
++  'm.moduloCatalyseur': b('reste, diviseur gardé', 'remainder, divisor kept'), // mmoc
+   'f.articles': b('sans les articles', 'without the articles'), // fart
+   'f.prepositions': b('sans les prépositions', 'without the prepositions'), // fprp
+   'f.conjonctions': b('sans les conjonctions', 'without the conjunctions'), // fcnj
+@@ -653,6 +655,8 @@ export const PRECISIONS = {
+   'f.voyelles': b('sur les voyelles', 'on the vowels'),
+   'f.voyellesY': b('sur les voyelles, Y compris', 'on the vowels, Y included'),
+   'f.consonnes': b('sur les consonnes', 'on the consonants'),
++  'm.modulo': b('par le reste', 'by the remainder'),
++  'm.moduloCatalyseur': b('par le reste, diviseur gardé', 'by the remainder, divisor kept'),
+   'f.articles': b('sans les articles', 'without the articles'),
+   'f.prepositions': b('sans les prépositions', 'without the prepositions'),
+   'f.conjonctions': b('sans les conjonctions', 'without the conjunctions'),
+diff --git a/src/visuel/primitives/group.js b/src/visuel/primitives/group.js
+index a8e6b9d..05c6d7c 100644
+--- a/src/visuel/primitives/group.js
++++ b/src/visuel/primitives/group.js
+@@ -81,6 +81,7 @@ export function plan(ctx) {
+   //   répartition homogène » (l'auteur). L'accolade se ferme, les `1` passent
+   //   du plus grand au plus petit, et la ligne reste une ligne de nombres.
+   if (ctx.op.egaliser) { planEgalisation(ctx, ids); return; }
++  if (ctx.op.modulo) { planModulo(ctx, ids); return; }
+ 
+   const shape = ctx.op.shape || 'brace';
+   if (shape !== 'brace' && shape !== 'box') {
+@@ -131,6 +132,94 @@ function planRamassage(ctx, ids) {
+ }
+ 
+ /** L'accolade qui nivelle sans rien ramasser : `c.egalisation`. */
++/**
++ * ★ **LE MODULO — « B absorbe autant de fois sa valeur que A la contient ».**
++ *
++ * > « Une accolade de modulo se forme, façon `meg` ; B absorbe autant de fois
++ * >   sa valeur que A la contient, jusqu'à ce que 0 ≤ A < B. Là, deux
++ * >   variantes : l'une dissout B dans l'accolade et fait disparaître
++ * >   l'accolade dans le processus, l'autre garde B, qui n'a servi que de
++ * >   catalyseur sans être consommé. » (l'auteur)
++ *
++ * Le geste est celui de l'égalisation — des paquets qui quittent un nombre pour
++ * en rejoindre un autre —, à ceci près que ce qui voyage vaut B et non 1, et
++ * que le voyage s'arrête sur une condition d'arrêt arithmétique, pas sur un
++ * équilibre. `garderLeDiviseur` distingue les deux variantes : le catalyseur
++ * reste sur la ligne, l'absorbé s'efface avec l'accolade.
++ *
++ * ⚠️ **CONTRÔLE CROISÉ.** On ne fait pas confiance à l'émetteur : le nombre de
++ *   paquets, le reste et l'invariant `A = k·B + r` sont recalculés ici, et
++ *   `resultat` doit correspondre. Le moteur visuel refuse d'afficher un calcul
++ *   faux (§0.3), et un modulo faux est exactement le genre de chose qu'on ne
++ *   verrait pas.
++ */
++function planModulo(ctx, ids) {
++  const valeurs = ids.map((id) => numberOf(ctx.scene.live(id, ctx.where).text, ctx, id));
++  if (valeurs.length !== 2) {
++    fail(`${ctx.where}un modulo demande EXACTEMENT deux nombres, le dividende et le diviseur.`);
++  }
++  const [a, b] = valeurs;
++  if (!Number.isInteger(a) || !Number.isInteger(b) || b <= 0 || a < 0) {
++    fail(`${ctx.where}modulo ${a} % ${b} : on ne divise que des entiers, par un diviseur strictement positif.`);
++  }
++  const paquets = Math.floor(a / b);
++  const reste = a - paquets * b;
++  if (reste < 0 || reste >= b) {
++    fail(`${ctx.where}modulo ${a} % ${b} : le reste ${reste} n'est pas dans [0, ${b}[.`);
++  }
++  if (paquets > MAX_TRANSFERTS) {
++    fail(`${ctx.where}modulo ${a} % ${b} : ${paquets} paquets, le geste serait interminable.`);
++  }
++  const garde = ctx.op.garderLeDiviseur === true;
++  const attendu = garde ? [reste, b] : [reste];
++  const dits = ctx.op.resultat;
++  if (Array.isArray(dits) && dits.join(',') !== attendu.join(',')) {
++    fail(`${ctx.where}incohérence : ${a} % ${b} laisse ${attendu.join(', ')}, `
++      + `mais l'émetteur annonce ${dits.join(', ')}. Le moteur visuel refuse d'afficher un calcul faux.`);
++  }
++
++  const T = ctx.dur;
++  const acc = tracerAccolade(ctx, ids, {
++    shape: 'brace', tighten: 0.66,
++    symbol: ctx.op.symbol || '%', label: ctx.op.label || null,
++    promet: false, marquer: false,
++    at: 0, dur: T * 0.28,
++  });
++  // Chaque paquet part de A et rejoint B ; A décroît de B à chaque fois, B ne
++  // bouge pas — il absorbe sans grossir, c'est ce qui en fait un diviseur.
++  const transferts = [];
++  let restant = a;
++  for (let k = 0; k < paquets; k++) {
++    restant -= b;
++    transferts.push({ de: 0, vers: 1, source: restant, cible: b, montant: b });
++  }
++  // Les largeurs réservées, comme pour l'égalisation : un jeton qui rétrécit de
++  // `135` à `5` ne doit pas faire danser ses voisins en cours de route.
++  const paliers = new Map();
++  ids.forEach((id, i) => paliers.set(id, [{ k: 0, text: String(valeurs[i]) }]));
++  transferts.forEach((tr, k) => {
++    paliers.get(ids[0]).push({ k: k + 1, text: String(tr.source), role: 'de' });
++    paliers.get(ids[1]).push({ k: k + 1, text: String(tr.cible), role: 'vers' });
++  });
++  for (const [id, ps] of paliers) {
++    const large = Math.max(...ps.map((p) => [...p.text].length));
++    const node = ctx.scene.get(id);
++    node.w = Math.max(node.w, large * ctx.metrics.advance);
++  }
++  if (transferts.length) {
++    jouerTransferts(ctx, { operands: ids, transferts, paliers, at: T * 0.28, dur: T * 0.52 });
++  }
++  // Le diviseur : dissous dans l'accolade, ou gardé sur la ligne.
++  if (!garde) {
++    ctx.anim({ id: ids[1], prop: 'opacity', to: 0, at: T * 0.82, dur: T * 0.12 });
++    ctx.scene.kill(ids[1], ctx.where);
++  }
++  if (acc) {
++    for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.12 });
++  }
++  ctx.reflow({ at: T * 0.9, dur: T * 0.1, ease: EASE.move });
++}
++
+ function planEgalisation(ctx, ids) {
+   const valeurs = ids.map((id) => numberOf(ctx.scene.live(id, ctx.where).text, ctx, id));
+   if (valeurs.length < 2) {
+diff --git a/src/visuel/primitives/helpers.js b/src/visuel/primitives/helpers.js
+index 78f80c4..125510e 100644
+--- a/src/visuel/primitives/helpers.js
++++ b/src/visuel/primitives/helpers.js
+@@ -554,7 +554,13 @@ export function jouerTransferts(ctx, spec) {
+     const dst = ctx.scene.pos(operands[tr.vers]);
+     const id = ctx.gensym('unite');
+     ctx.scene.create({
+-      id, role: 'text', text: '1', kind: 'digit', inFlow: false,
++      /* ★ **CE QUI VOYAGE N'EST PAS TOUJOURS UN `1`.** L'égalisation passe des
++         unités ; le modulo passe des PAQUETS de la valeur du diviseur — « B
++         absorbe autant de fois sa valeur que A la contient » (l'auteur). Le
++         montant est donc porté par le transfert, et vaut 1 quand il se tait,
++         ce qui laisse `meg` exactement où il était. */
++      id, role: 'text', text: tr.montant === undefined ? '1' : String(tr.montant),
++      kind: 'digit', inFlow: false,
+       base: { opacity: 0, scale: 0.5, fill: ctx.palette.gold },
+     }, { where: ctx.where });
+     ctx.scene.place(id, exigerPoint(ctx, { x: src.x, y: src.y },
