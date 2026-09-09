@@ -2137,10 +2137,26 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
     // sont donc là, déjà calculés.
     const moisson = compterMoisson(parts, cbl);
     if (!moisson) continue;
-    // ★ La variante groupée n'est retenue que si elle ne laisse RIEN sur le
-    //   carreau — voir plus haut. La sobre, elle, sort de `reduireLeSurplus` et
-    //   n'a pas à se justifier une seconde fois.
-    if (groupee && moisson.six !== moisson.series * cbl.longueur) continue;
+    /* ★ **AUCUNE VARIANTE NE RÉCOLTE PLUS QU'ELLE NE MONTRE.**
+
+       Ce contrôle ne valait que pour la variante GROUPÉE : « la sobre sort de
+       `reduireLeSurplus` et n'a pas à se justifier une seconde fois ». Elle le
+       doit, et une voie l'a prouvé — sur « Le chat dort sur le tapis rouge »,
+       `tca+mexc+cp, tca+m7+cmx, fen2+tca+m14+mpf, fr3+tca+m14, fr14+tca+m14+mpf,
+       tca+m14+mpf` récolte SEIZE six et n'en montre que quinze.
+
+       `elaguerLaMoisson` ne pouvait rien : il coupe en QUEUE, et le six
+       surnuméraire tombait à l'intérieur de la dernière portée — la retirer en
+       aurait perdu trois pour en économiser un. Reste donc à ne pas produire
+       l'approche, ce que la doctrine dit déjà : « mieux vaut ne pas produire le
+       déchet que le pénaliser après coup ».
+
+       ⚠️ Ce durcissement n'écarte rien de ce qui passait : le test
+         `★ moisson — on ne récolte que ce qu'on montre` exige cette égalité de
+         TOUTES les moissons retenues, donc toutes celles d'hier la
+         respectaient. Il n'a fallu élargir le catalogue pour qu'une voie
+         fautive remonte assez haut pour être vue. */
+    if (moisson.six !== moisson.series * cbl.longueur) continue;
     const cout = parts.reduce((s, p) => s + p.chemin.ops.reduce((t, o) => t + (o.cout || 0), 0), 0);
     // ★ Une variante homogène qui récolte MOINS que la moisson maximale et
     // coûte DAVANTAGE n'apporte rien : elle demande plus de temps de scène pour

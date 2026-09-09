@@ -143,6 +143,8 @@ export const ORDRE_CANONIQUE = Object.freeze([
   'mmod', 'mmoc',
   // ★ Les deux DIVISIONS — quotient et reste, puis le quotient seul.
   'mdiv', 'mdvq',
+  // ★ Les TROIS divisions décimales — une, deux, trois décimales.
+  'mdc1', 'mdc2', 'mdc3',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

@@ -312,6 +312,9 @@ export const NOMS = {
   /* ★ Les deux modulos. Ils NOMMENT la voie, eux : « ce qui reste quand on a
      retiré autant de fois qu'on pouvait » est une manière de lire un nombre, et
      le lecteur qui la voit dans un titre sait à quoi s'attendre. */
+  'm.divisionDecimale1': b('Par division décimale', 'By decimal division'),
+  'm.divisionDecimale2': b('Par division décimale', 'By decimal division'),
+  'm.divisionDecimale3': b('Par division décimale', 'By decimal division'),
   'm.division': b('Par division', 'By division'),
   'm.divisionEntiere': b('Par division, le reste perdu', 'By division, dropping the remainder'),
   'm.modulo': b('Par ce qui reste', 'By what is left over'),
@@ -484,6 +487,9 @@ export const TITRES_COURTS = {
   // ★ Les quatre retraits grammaticaux : la forme courte NOMME la classe, elle
   //   n'énumère pas. « sans les articles » se lit ; « sans le, la, les, un… »
   //   remplirait la ligne de la voie à lui seul.
+  'm.divisionDecimale1': b('division à 1 déc.', '1-decimal division'), // mdc1
+  'm.divisionDecimale2': b('division à 2 déc.', '2-decimal division'), // mdc2
+  'm.divisionDecimale3': b('division à 3 déc.', '3-decimal division'), // mdc3
   'm.division': b('division et reste', 'division and remainder'), // mdiv
   'm.divisionEntiere': b('division entière', 'integer division'), // mdvq
   'm.modulo': b('reste modulo', 'modulo remainder'), // mmod
@@ -664,6 +670,9 @@ export const PRECISIONS = {
   'f.voyelles': b('sur les voyelles', 'on the vowels'),
   'f.voyellesY': b('sur les voyelles, Y compris', 'on the vowels, Y included'),
   'f.consonnes': b('sur les consonnes', 'on the consonants'),
+  'm.divisionDecimale1': b('par division décimale', 'by decimal division'),
+  'm.divisionDecimale2': b('par division décimale', 'by decimal division'),
+  'm.divisionDecimale3': b('par division décimale', 'by decimal division'),
   'm.division': b('par division', 'by division'),
   'm.divisionEntiere': b('par division entière', 'by integer division'),
   'm.modulo': b('par le reste', 'by the remainder'),
