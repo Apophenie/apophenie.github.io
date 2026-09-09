@@ -10,8 +10,8 @@
 
 ## ⚠️ Ce que la mise en scène ne tient pas encore
 
-L'auteur a décrit trois gestes précis ; deux d'entre eux ne sont rendus qu'en
-partie, et il faut le savoir avant de les regarder à l'écran.
+L'auteur a décrit trois gestes précis ; **la potence est faite**, deux restent
+en partie, et il faut le savoir avant de les regarder à l'écran.
 
 1. **Le compteur sous la pointe** (division entière). « B est retranché à A :
    part de A, passe au niveau de B, avant de descendre en dessous de l'accolade
@@ -26,14 +26,11 @@ partie, et il faut le savoir avant de les regarder à l'écran.
    fourni, ou une position déduite de l'accolade (`tracerAccolade` connaît sa
    pointe) plutôt que des jetons.
 
-2. **La potence** (division décimale). « Une barre verticale entre A et B et une
-   barre horizontale sous B qui s'arrête sur la barre verticale », le quotient
-   s'écrivant chiffre à chiffre dessous, puis « ,0 » inséré des deux côtés.
-   C'est une primitive à part entière, de l'ampleur de `fraction` (~300 lignes).
-   Ce qu'on montre à la place dit le même calcul avec l'accolade : partie
-   entière, puis reste ×10, un tour par décimale. La vérité y est, la forme
-   scolaire non. `rule.js` sait déjà tracer une barre qui suit son contenu — ce
-   serait le point de départ pour la barre horizontale.
+2. ~~**La potence**~~ — **ÉCRITE** (`visuel/primitives/potence.js`). Les deux
+   barres, le quotient chiffre à chiffre, la virgule à sa place, puis tout
+   s'efface et le quotient rejoint la ligne sans elle. Le zéro de tête s'écrit
+   — « 0×5 dans 1 de 105 » — parce que c'est le premier geste qu'on apprend et
+   que la colonne des restes serait illisible sans lui.
 
 3. **La variante « l'accolade rétrécit »** (division avec reste). L'auteur en
    décrivait deux mises en scène ; une seule est rendue. La seconde — « `/B`
@@ -110,3 +107,14 @@ seize six et n'en montre que quinze, sur « Le chat dort sur le tapis rouge ».
 Le défaut était préexistant : le contrôle « on ne récolte que ce qu'on montre »
 ne valait que pour la variante groupée. Un catalogue plus large est aussi un
 test plus large.
+
+### Un test de déterminisme peut mesurer la machine sans le dire
+
+`recherche.test.js › une horloge hostile` exigeait qu'aucune troncature
+temporelle n'ait lieu « au repos », sur une saisie de quatre secondes pour un
+filet à cinq. `node --test` exécutant les fichiers en PARALLÈLE, la machine
+n'est jamais au repos pendant la suite : la marge tenait par chance, et elle a
+sauté quand le catalogue et les scénarios se sont allongés. Symptôme trompeur —
+rouge dans la suite, vert seul — qu'il faut savoir distinguer d'une régression :
+mesurer le temps de recherche AVANT et APRÈS (il était inchangé) et relancer le
+fichier isolé.
