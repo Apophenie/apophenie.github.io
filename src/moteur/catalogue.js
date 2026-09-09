@@ -138,6 +138,9 @@ export const ORDRE_CANONIQUE = Object.freeze([
   // ★ Les deux absorptions MONO-OPÉRATION — produit, puis différence. En fin de
   //   bloc, append-only (§4.1).
   'mabx', 'mabd',
+  // ★ Les deux MODULOS — le reste seul, puis le reste avec son diviseur gardé
+  //   comme catalyseur. En fin de bloc mappeur, append-only (§4.1).
+  'mmod', 'mmoc',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

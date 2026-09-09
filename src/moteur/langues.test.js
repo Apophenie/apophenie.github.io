@@ -43,7 +43,7 @@ const CHAMPS_AFFICHES = ['libelle', 'regle', 'note', 'gabarit', 'outil'];
 const NOTATIONS = new Set(['flt:regle', 'nv:regle', 'ma1:regle', 'mz26:regle', 'masc:regle', 'masb:regle']);
 
 test('★ toute chaîne affichable du catalogue porte ses deux langues', () => {
-  assert.equal(CATALOGUE.length, 168, 'le catalogue publié compte 168 opérateurs');
+  assert.equal(CATALOGUE.length, 170, 'le catalogue publié compte 170 opérateurs');
   for (const op of CATALOGUE) {
     assert.ok(estBilingue(op.libelle), `${op.code} (${op.id}) : « libelle » n’est pas bilingue`);
     assert.ok(estBilingue(op.regle), `${op.code} (${op.id}) : « regle » n’est pas bilingue`);

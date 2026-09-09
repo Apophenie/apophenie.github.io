@@ -81,6 +81,7 @@ export function plan(ctx) {
   //   répartition homogène » (l'auteur). L'accolade se ferme, les `1` passent
   //   du plus grand au plus petit, et la ligne reste une ligne de nombres.
   if (ctx.op.egaliser) { planEgalisation(ctx, ids); return; }
+  if (ctx.op.modulo) { planModulo(ctx, ids); return; }
 
   const shape = ctx.op.shape || 'brace';
   if (shape !== 'brace' && shape !== 'box') {
@@ -131,6 +132,99 @@ function planRamassage(ctx, ids) {
 }
 
 /** L'accolade qui nivelle sans rien ramasser : `c.egalisation`. */
+/**
+ * ★ **LE MODULO — « B absorbe autant de fois sa valeur que A la contient ».**
+ *
+ * > « Une accolade de modulo se forme, façon `meg` ; B absorbe autant de fois
+ * >   sa valeur que A la contient, jusqu'à ce que 0 ≤ A < B. Là, deux
+ * >   variantes : l'une dissout B dans l'accolade et fait disparaître
+ * >   l'accolade dans le processus, l'autre garde B, qui n'a servi que de
+ * >   catalyseur sans être consommé. » (l'auteur)
+ *
+ * Le geste est celui de l'égalisation — des paquets qui quittent un nombre pour
+ * en rejoindre un autre —, à ceci près que ce qui voyage vaut B et non 1, et
+ * que le voyage s'arrête sur une condition d'arrêt arithmétique, pas sur un
+ * équilibre. `garderLeDiviseur` distingue les deux variantes : le catalyseur
+ * reste sur la ligne, l'absorbé s'efface avec l'accolade.
+ *
+ * ⚠️ **CONTRÔLE CROISÉ.** On ne fait pas confiance à l'émetteur : le nombre de
+ *   paquets, le reste et l'invariant `A = k·B + r` sont recalculés ici, et
+ *   `resultat` doit correspondre. Le moteur visuel refuse d'afficher un calcul
+ *   faux (§0.3), et un modulo faux est exactement le genre de chose qu'on ne
+ *   verrait pas.
+ */
+function planModulo(ctx, ids) {
+  const valeurs = ids.map((id) => numberOf(ctx.scene.live(id, ctx.where).text, ctx, id));
+  if (valeurs.length !== 2) {
+    fail(`${ctx.where}un modulo demande EXACTEMENT deux nombres, le dividende et le diviseur.`);
+  }
+  const [a, b] = valeurs;
+  if (!Number.isInteger(a) || !Number.isInteger(b) || b <= 0 || a < 0) {
+    fail(`${ctx.where}modulo ${a} % ${b} : on ne divise que des entiers, par un diviseur strictement positif.`);
+  }
+  const paquets = Math.floor(a / b);
+  const reste = a - paquets * b;
+  if (reste < 0 || reste >= b) {
+    fail(`${ctx.where}modulo ${a} % ${b} : le reste ${reste} n'est pas dans [0, ${b}[.`);
+  }
+  if (paquets > MAX_TRANSFERTS) {
+    fail(`${ctx.where}modulo ${a} % ${b} : ${paquets} paquets, le geste serait interminable.`);
+  }
+  const garde = ctx.op.garderLeDiviseur === true;
+  const attendu = garde ? [reste, b] : [reste];
+  const dits = ctx.op.resultat;
+  if (Array.isArray(dits) && dits.join(',') !== attendu.join(',')) {
+    fail(`${ctx.where}incohérence : ${a} % ${b} laisse ${attendu.join(', ')}, `
+      + `mais l'émetteur annonce ${dits.join(', ')}. Le moteur visuel refuse d'afficher un calcul faux.`);
+  }
+
+  const T = ctx.dur;
+  const acc = tracerAccolade(ctx, ids, {
+    shape: 'brace', tighten: 0.66,
+    symbol: ctx.op.symbol || '%', label: ctx.op.label || null,
+    promet: false, marquer: false,
+    at: 0, dur: T * 0.28,
+  });
+  // Chaque paquet part de A et rejoint B ; A décroît de B à chaque fois, B ne
+  // bouge pas — il absorbe sans grossir, c'est ce qui en fait un diviseur.
+  const transferts = [];
+  let restant = a;
+  for (let k = 0; k < paquets; k++) {
+    restant -= b;
+    transferts.push({ de: 0, vers: 1, source: restant, cible: b, montant: b });
+  }
+  // Les largeurs réservées, comme pour l'égalisation : un jeton qui rétrécit de
+  // `135` à `5` ne doit pas faire danser ses voisins en cours de route.
+  const paliers = new Map();
+  ids.forEach((id, i) => paliers.set(id, [{ k: 0, text: String(valeurs[i]) }]));
+  transferts.forEach((tr, k) => {
+    paliers.get(ids[0]).push({ k: k + 1, text: String(tr.source), role: 'de' });
+    paliers.get(ids[1]).push({ k: k + 1, text: String(tr.cible), role: 'vers' });
+  });
+  for (const [id, ps] of paliers) {
+    const large = Math.max(...ps.map((p) => [...p.text].length));
+    const node = ctx.scene.get(id);
+    node.w = Math.max(node.w, large * ctx.metrics.advance);
+  }
+  if (transferts.length) {
+    jouerTransferts(ctx, { operands: ids, transferts, paliers, at: T * 0.28, dur: T * 0.52 });
+  }
+  /* ⚠️ **CE GESTE NE POSE PAS LE RÉSULTAT, ET C'EST VOULU.**
+     `jouerTransferts` anime les paliers ; il ne réécrit pas le jeton. Comme
+     l'égalisation, le modulo laisse donc l'émetteur poser sa valeur par un
+     `substitute` explicite — voir `mappeurs.js › m.modulo`.
+
+     Mesuré, faute de quoi : le jeton gardait `13` après un `13 % 5`, et l'étape
+     SUIVANTE calculait sur un nombre que la scène n'affichait plus. C'est le
+     `sum` d'un scénario voisin qui l'a dit — « la somme vaut 18, mais `to.text`
+     annonce autre chose ». Le contrôle croisé a fait exactement son travail :
+     il a refusé un calcul juste posé sur une ligne fausse. */
+  if (acc) {
+    for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.12 });
+  }
+  ctx.reflow({ at: T * 0.9, dur: T * 0.1, ease: EASE.move });
+}
+
 function planEgalisation(ctx, ids) {
   const valeurs = ids.map((id) => numberOf(ctx.scene.live(id, ctx.where).text, ctx, id));
   if (valeurs.length < 2) {

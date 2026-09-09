@@ -1843,6 +1843,37 @@ function planAbsorption(valeur, visee, autorisees = OPERATIONS_TOUTES) {
  *    réduction et `…d{j}x{k}x{t}` ses chiffres ; `…w{j}x{t}` les chiffres
  *    d'une valeur écrite.
  */
+/**
+ * Le plan d'un modulo : chaque nombre à DEUX CHIFFRES au moins se lit
+ * `tête % dernier chiffre`. Rend `null` quand il n'y a rien à faire, ou quand
+ * le geste ne serait pas jouable — jamais « à peu près ».
+ */
+function planModulo(valeur, garde) {
+  const paquets = [];
+  const sortie = [];
+  let uneDivision = false;
+  for (let i = 0; i < valeur.length; i++) {
+    const s = String(valeur[i]);
+    if (s.length < 2) { paquets.push({ i, divise: false }); sortie.push(valeur[i]); continue; }
+    const b = Number(s[s.length - 1]);
+    const a = Number(s.slice(0, -1));
+    // Un diviseur nul ne mesure rien ; c'est un refus, pas un cas limite.
+    if (b === 0) return null;
+    const q = Math.floor(a / b);
+    // La scène montre chaque paquet partir : au-delà, elle serait interminable
+    // (`visuel/primitives/helpers.js › MAX_TRANSFERTS`). On refuse ici plutôt
+    // que de fabriquer une voie que le moteur visuel rejettera.
+    if (q > 18) return null;
+    const reste = a - q * b;
+    paquets.push({ i, divise: true, valeur: valeur[i], a, b, reste, q });
+    sortie.push(reste);
+    if (garde) sortie.push(b);
+    uneDivision = true;
+  }
+  if (!uneDivision) return null;
+  return { paquets, sortie };
+}
+
 function gestesDuPaquet(plan, ctx, p, j) {
   const idc = (k) => idChiffreRedecoupe(plan, ctx, k);
   const r = p.recette;
@@ -6139,6 +6170,121 @@ const AUTRES_MAPPEURS = [
       if (!steps.length) {
         steps.push(etape(ctx, dire(LIB_ABSORPTION, ctx.langue),
           `${vus} → ${apres.valeur.join(' ')}`, [], { id: `s_${ctx.cle}_d` }));
+      }
+      return steps;
+    },
+  })),
+
+  /* ★ **LE MODULO — ce qui RESTE quand on a retiré autant de fois que possible.**
+
+     > « Modulo est implémentable aussi : 135 → 13 % 5 → 3. »
+     > « Une accolade de modulo se forme, façon `meg` ; B absorbe autant de fois
+     >   sa valeur que A la contient, jusqu'à ce que 0 ≤ A < B. Là, deux
+     >   variantes de l'opérateur : l'une dissout B dans l'accolade et fait
+     >   disparaître l'accolade dans le processus, l'autre garde B, qui n'a
+     >   servi que de catalyseur sans être consommé. » (l'auteur)
+
+     La découpe est celle que l'auteur donne : le DERNIER chiffre est le
+     diviseur, tout ce qui précède est le dividende. `135` se lit `13 % 5`, et
+     rien dans ce découpage ne regarde la cible — c'est ce qui le distingue
+     d'une ficelle.
+
+     ⚠️ **CE SONT DES OPÉRATEURS DE DERNIER RECOURS.** « En gardant en tête que
+       c'est du dernier recours, l'addition prime largement » (l'auteur). D'où
+       une notoriété basse et un `adHoc` réel : prendre le dernier chiffre pour
+       diviseur est un choix, défendable mais choisi.
+
+     ⚠️ **ET LE GESTE A UNE LONGUEUR MAXIMALE.** La scène montre chaque paquet
+       partir ; au-delà de dix-huit (`helpers.js › MAX_TRANSFERTS`), elle
+       deviendrait interminable et le moteur visuel refuserait. L'opérateur
+       refuse donc AVANT, plutôt que de produire une voie qu'on ne saurait pas
+       jouer — mesuré : `135 % 5` demande vingt-sept paquets et tombe ici. */
+  ...[
+    { code: 'mmod', garde: false, id: 'm.modulo',
+      libelle: bilingue('On ne garde que le reste', 'Keep only the remainder'),
+      regle: bilingue('Le dernier chiffre se retire du reste autant de fois qu’il y tient ; '
+        + 'ce qui reste est plus petit que lui',
+        'The last digit is taken out as many times as it fits; what is left is smaller than it') },
+    { code: 'mmoc', garde: true, id: 'm.moduloCatalyseur',
+      libelle: bilingue('On retire, et le diviseur demeure', 'Take out, and the divisor stays'),
+      regle: bilingue('Même retrait, mais le dernier chiffre n’est pas consommé : il a servi de mesure',
+        'Same removal, but the last digit is not consumed: it served as a measure') },
+  ].map(({ code, garde, id, libelle, regle }) => def({
+    id, code, famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle, regle,
+    // L'objet montré n'a pas de nom propre — il n'y a ni réglette ni clavier,
+    // juste une accolade et des paquets qui s'en vont. Le libellé fait donc
+    // office de nom, comme le prévoit le repli du catalogue.
+    outil: libelle,
+    // Le geste montre chaque paquet partir : il coûte deux étapes par nombre
+    // divisé, l'ouverture puis les retraits.
+    notoriete: 0.30, adHoc: 0.45, cout: 2,
+    /* ⚠️ **RENDRE `{valeur, traces}`, ET PAS UN TABLEAU NU.** `bfs.js ›
+       appliquerOp` tolère les deux formes ; `catalogue.js › appliquer` non — il
+       passe `brut.valeur` à la fabrique, qui reçoit `undefined` et rend `null`.
+       L'opérateur paraissait alors REFUSER partout, et tout le reste suivait :
+       pas d'exemple trouvé, pas de steps (le test les demande sur un `apres`
+       obtenu par `appliquer`), donc « aucun step mais les jetons changent ».
+       Une seule cause, quatre symptômes. */
+    apply(valeur, traces) {
+      const plan = planModulo(valeur, garde);
+      if (!plan) return null;
+      // Chaque sortie garde la trace du nombre dont elle vient : le reste comme
+      // le diviseur sortent du même nombre d'origine.
+      const org = [];
+      for (const p of plan.paquets) {
+        const t = (traces && traces[p.i]) || [];
+        org.push(t);
+        if (p.divise && garde) org.push(t);
+      }
+      return { valeur: plan.sortie, traces: org };
+    },
+    // Ce qui reste sur la ligne, dans l'ordre : les nombres intacts à leur
+    // place, et pour chaque nombre divisé le jeton qui porte son reste — suivi
+    // du diviseur quand il n'a servi que de mesure.
+    sortie: (avant, apres, ctx) => {
+      const plan = planModulo(avant.valeur, garde);
+      if (!plan) return [];
+      const ids = [];
+      for (const p of plan.paquets) {
+        if (!p.divise) { ids.push(ctx.ids[p.i]); continue; }
+        ids.push(`${ctx.cle}r${p.i}`);
+        if (garde) ids.push(`${ctx.cle}b${p.i}`);
+      }
+      return ids;
+    },
+    steps: (avant, apres, ctx) => {
+      const plan = planModulo(avant.valeur, garde);
+      if (!plan) return [];
+      const steps = [];
+      const titre = dire(libelle, ctx.langue);
+      for (const p of plan.paquets) {
+        if (!p.divise) continue;
+        const idA = `${ctx.cle}a${p.i}`;
+        const idB = `${ctx.cle}b${p.i}`;
+        // ① le nombre s'ouvre : le dernier chiffre se détache, c'est le diviseur.
+        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} % ${p.b}`, enchainer([{
+          op: 'substitute',
+          pairs: [{ target: ctx.ids[p.i], to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')] }],
+        }]), { id: `s_${ctx.cle}_o${p.i}` }));
+        // ② les paquets partent, un par un, jusqu'à ce qu'il en reste moins
+        //    qu'un — puis le reste se pose, et le diviseur s'efface ou demeure.
+        //    ⚠️ Le `group` ANIME ; c'est le `substitute` qui ÉCRIT. Sans lui, le
+        //      jeton garderait sa valeur d'avant et l'étape suivante calculerait
+        //      sur un nombre que la scène n'affiche plus.
+        const idR = `${ctx.cle}r${p.i}`;
+        steps.push(etape(ctx, titre, `${p.a} % ${p.b} = ${p.reste}`, enchainer([
+          {
+            op: 'group',
+            targets: [idA, idB],
+            modulo: true,
+            garderLeDiviseur: garde,
+            symbol: '%',
+            resultat: garde ? [p.reste, p.b] : [p.reste],
+          },
+          { op: 'substitute', pairs: [{ target: idA, to: [token(idR, p.reste, 'number')] }] },
+          ...(garde ? [] : [{ op: 'drop', targets: [idB], mode: 'erase' }]),
+        ]), { id: `s_${ctx.cle}_m${p.i}` }));
       }
       return steps;
     },

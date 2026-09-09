@@ -309,6 +309,11 @@ export const NOMS = {
   'm.retournerLesTrios': b('Par le retournement des trios', 'By flipping the trios'),
   'm.compterLesChiffres': b('Par le décompte des chiffres', 'By tallying the digits'),
   'm.redecoupageChoisi': b('Par redécoupage choisi', 'By chosen recutting'),
+  /* ★ Les deux modulos. Ils NOMMENT la voie, eux : « ce qui reste quand on a
+     retiré autant de fois qu'on pouvait » est une manière de lire un nombre, et
+     le lecteur qui la voit dans un titre sait à quoi s'attendre. */
+  'm.modulo': b('Par ce qui reste', 'By what is left over'),
+  'm.moduloCatalyseur': b('Par ce qui reste, la mesure gardée', 'By what is left, keeping the measure'),
   'm.absorption': b('Par absorption sans perte', 'By lossless absorption'),
   'm.absorptionProduit': b('Par absorption en produits', 'By absorption through products'),
   'm.absorptionDifference': b('Par absorption en différences', 'By absorption through differences'),
@@ -477,6 +482,8 @@ export const TITRES_COURTS = {
   // ★ Les quatre retraits grammaticaux : la forme courte NOMME la classe, elle
   //   n'énumère pas. « sans les articles » se lit ; « sans le, la, les, un… »
   //   remplirait la ligne de la voie à lui seul.
+  'm.modulo': b('reste modulo', 'modulo remainder'), // mmod
+  'm.moduloCatalyseur': b('reste, diviseur gardé', 'remainder, divisor kept'), // mmoc
   'f.articles': b('sans les articles', 'without the articles'), // fart
   'f.prepositions': b('sans les prépositions', 'without the prepositions'), // fprp
   'f.conjonctions': b('sans les conjonctions', 'without the conjunctions'), // fcnj
@@ -653,6 +660,8 @@ export const PRECISIONS = {
   'f.voyelles': b('sur les voyelles', 'on the vowels'),
   'f.voyellesY': b('sur les voyelles, Y compris', 'on the vowels, Y included'),
   'f.consonnes': b('sur les consonnes', 'on the consonants'),
+  'm.modulo': b('par le reste', 'by the remainder'),
+  'm.moduloCatalyseur': b('par le reste, diviseur gardé', 'by the remainder, divisor kept'),
   'f.articles': b('sans les articles', 'without the articles'),
   'f.prepositions': b('sans les prépositions', 'without the prepositions'),
   'f.conjonctions': b('sans les conjonctions', 'without the conjunctions'),

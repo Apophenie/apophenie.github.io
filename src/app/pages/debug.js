@@ -268,6 +268,17 @@ export const TEMOINS_COMPLEMENTAIRES = Object.freeze([
   //   n'en contient aucune. Il lui faut les deux matières à la fois, pour qu'on
   //   VOIE ce qui part et ce qui reste.
   'Les 7 nains',
+  /* ★ **UN MOT COURT QUI DONNE DE GRANDS NOMBRES**, et c'est pour ça qu'il est
+     là. Les gestes qui découpent un nombre en deux — le modulo, et la division
+     après lui — n'ont rien à montrer sur une ligne de chiffres isolés : il leur
+     faut des nombres à DEUX chiffres. `Sept` en donne dès `tca+mz26`
+     (S=8, E=22, P=11, T=7), et `22 % 2` se lit d'un coup d'œil.
+
+     ⚠️ **ET IL EST COURT EXPRÈS.** Les témoins longs saturent les 4 500 nœuds
+       de `NOEUDS_EXEMPLE` avant d'atteindre les états intéressants : mesuré,
+       `Capitalisme` mène pourtant à `tca+mz26+mmod` en trois codes, mais son
+       arbre est tronqué avant. Un mot de quatre lettres passe. */
+  'Sept',
   // La même adresse que la vitrine, mais AU MILIEU D'UNE PHRASE : ce qui se
   // joue dessus se joue sous les yeux de « voir » et de « demain », qui ne
   // bougent pas. C'est le seul témoin qui montre la frontière d'un geste.

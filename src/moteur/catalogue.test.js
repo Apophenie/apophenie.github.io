@@ -297,6 +297,12 @@ const VECTEURS = [
   //   rien faire de `9 3`. Une opération annoncée d'avance ne s'applique pas
   //   partout, et c'est ce qui la distingue d'une sélection ad hoc.
   ['mabd', N([9, 3, 9, 3, 9, 3]), [6, 6, 6]],
+  /* ★ Les deux modulos. La découpe est celle de l'auteur : le DERNIER chiffre
+     est le diviseur, tout ce qui précède est le dividende — `135` se lit
+     `13 % 5`, et le reste est 3. Le catalyseur garde son diviseur sur la ligne,
+     l'autre le dissout. */
+  ['mmod', N([135]), [3]],
+  ['mmoc', N([135]), [3, 5]],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],
@@ -429,8 +435,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 168); // …+4 les retraits grammaticaux (fart, fprp, fcnj, faux)
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 168, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 170); // …+4 retraits grammaticaux, +2 modulos (mmod, mmoc)
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 170, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -440,7 +446,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 168, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 170, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

@@ -554,7 +554,13 @@ export function jouerTransferts(ctx, spec) {
     const dst = ctx.scene.pos(operands[tr.vers]);
     const id = ctx.gensym('unite');
     ctx.scene.create({
-      id, role: 'text', text: '1', kind: 'digit', inFlow: false,
+      /* ★ **CE QUI VOYAGE N'EST PAS TOUJOURS UN `1`.** L'égalisation passe des
+         unités ; le modulo passe des PAQUETS de la valeur du diviseur — « B
+         absorbe autant de fois sa valeur que A la contient » (l'auteur). Le
+         montant est donc porté par le transfert, et vaut 1 quand il se tait,
+         ce qui laisse `meg` exactement où il était. */
+      id, role: 'text', text: tr.montant === undefined ? '1' : String(tr.montant),
+      kind: 'digit', inFlow: false,
       base: { opacity: 0, scale: 0.5, fill: ctx.palette.gold },
     }, { where: ctx.where });
     ctx.scene.place(id, exigerPoint(ctx, { x: src.x, y: src.y },
