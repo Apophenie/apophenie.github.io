@@ -1566,6 +1566,38 @@ const brut = [
     //   `etapeRetrait` sur le geste qui désigne avant d'effacer : un filtre qui
     //   ne saurait pas nommer ce qu'il jette n'y a pas droit.
     mentionDuRejet: c.filtre.mention,
+    /* ★ **UNIQUEMENT DANS LA CHAÎNE D'ORIGINE.**
+
+       > « Ne l'autorise qu'au départ, pas après transformation de lettres pour
+       >   d'autres. Par exemple : `fr` → `am`, puis `am` verbe être en anglais
+       >   — ce qui est ton exemple pour `faux`, et il ne me va pas. Suppression
+       >   uniquement dans la chaîne d'origine. » (l'auteur)
+
+       Le mot outil s'écarte parce qu'il EST un mot outil de la saisie. Un `am`
+       né d'une traduction de `fr` n'est le verbe « être » de personne, et
+       l'écarter au nom de la grammaire serait l'arrangement même qu'on
+       reproche aux numérologues.
+
+       ⚠️ Ça n'interdit PAS d'enchaîner ces filtres entre eux : retirer des
+         caractères ne mue rien. « Ce type de filtre peut s'enchaîner sans
+         problème » (l'auteur), et le barème les compte de moins en moins cher
+         (`elegance.js`). */
+    admet: (etat) => etat.mue !== true,
+    /* ★ **LA CLASSE EST PUBLIÉE, pour que le barème n'ait pas à lire des codes.**
+
+       > « Ce type de filtre (grammaticaux) peut s'enchaîner sans problème ; le
+       >   coût des filtres de même classe devrait être divisé par 2 puis 4. »
+       >   (l'auteur)
+
+       Retirer les articles PUIS les prépositions n'est pas deux décisions : la
+       seconde suit la première, elle applique la même doctrine — « on ne garde
+       que ce qui porte le sens » — et le lecteur qui a admis la première admet
+       la seconde sans effort. La remise est là pour dire ça.
+
+       C'est `score.js › longueurRendue` qui l'applique ; il lui faut savoir
+       QUELLES étapes se ressemblent, et le déduire d'une liste de codes serait
+       exactement ce que le projet s'interdit. */
+    classeGrammaticale: c.cle,
     // Notoriété moyenne : « mots vides » est une notion courante, mais savoir
     // QUELLE classe on retire demande une grammaire. Aucun `adHoc` : la règle
     // est énoncée, fermée, et vérifiable mot à mot — c'est exactement le
@@ -1758,6 +1790,15 @@ export const FILTRES = Object.freeze(brut.map((spec) => {
     // dessus : la scène et le catalogue doivent lire la MÊME chaîne, pas deux
     // replis qui se ressemblent.
     outil: reste.outil || outilDuChiffrement(reste) || reste.libelle,
+    /* ★ **QUI MUE LE DIT, et personne n'a de liste à tenir.**
+
+       Un filtre qui REMPLACE change une lettre pour une autre : c'est
+       exactement ce que `remplace` déclare déjà, et c'est exactement ce dont
+       les retraits grammaticaux ont besoin de se protéger (`etat.js › mue`).
+       On le republie donc sous son nom d'état, plutôt que d'énumérer quelque
+       part les traductions, les césars, l'atbash et le leet — une liste qu'il
+       aurait fallu penser à compléter au premier chiffrement suivant. */
+    mue: remplace === true,
     // ★ Le NOMMAGE suit la même règle que le geste : une découpe d'adresse lit
     //   ses bornes, elle ne recherche pas son résultat dans la saisie. Voir
     //   `sortieDecoupee` — c'est la moitié du correctif qui manquait.

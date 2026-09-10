@@ -496,10 +496,10 @@ export const TITRES_COURTS = {
   'm.divisionEntiere': b('division entière', 'integer division'), // mdvq
   'm.modulo': b('reste modulo', 'modulo remainder'), // mmod
   'm.moduloCatalyseur': b('reste, diviseur gardé', 'remainder, divisor kept'), // mmoc
-  'f.articles': b('sans les articles', 'without the articles'), // fart
-  'f.prepositions': b('sans les prépositions', 'without the prepositions'), // fprp
-  'f.conjonctions': b('sans les conjonctions', 'without the conjunctions'), // fcnj
-  'f.auxiliaires': b('sans être ni avoir', 'without be or have'), // faux
+  'f.articles': b('sans articles', 'without articles'), // fart
+  'f.prepositions': b('sans prépositions', 'without prepositions'), // fprp
+  'f.conjonctions': b('sans conjonctions', 'without conjunctions'), // fcnj
+  'f.auxiliaires': b('sans auxiliaires', 'without auxiliaries'), // faux
   'f.chemin': b('chemin /.../', 'path /.../'), // fchm
   'f.dedoublonne': b('dédoublonnage', 'de-duplication'), // fd
   'f.dedoublonne2': b('dédoublonnage', 'de-duplication'), // fd2
@@ -680,10 +680,10 @@ export const PRECISIONS = {
   'm.divisionEntiere': b('par division entière', 'by integer division'),
   'm.modulo': b('par le reste', 'by the remainder'),
   'm.moduloCatalyseur': b('par le reste, diviseur gardé', 'by the remainder, divisor kept'),
-  'f.articles': b('sans les articles', 'without the articles'),
-  'f.prepositions': b('sans les prépositions', 'without the prepositions'),
-  'f.conjonctions': b('sans les conjonctions', 'without the conjunctions'),
-  'f.auxiliaires': b('sans être ni avoir', 'without be or have'),
+  'f.articles': b('sans articles', 'without articles'),
+  'f.prepositions': b('sans prépositions', 'without prepositions'),
+  'f.conjonctions': b('sans conjonctions', 'without conjunctions'),
+  'f.auxiliaires': b('sans auxiliaires', 'without auxiliaries'),
   'f.dedoublonne': b('sans les doublons', 'without the duplicates'),
   // Les quatre cadets disent la MÊME chose : c'est la même règle, et la place
   // où le survivant retombe n'a pas à encombrer le titre d'une voie.

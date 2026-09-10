@@ -412,11 +412,17 @@ export const JOKER = PAR_ID.get('j.nomFrancais');
 // Application
 // ───────────────────────────────────────────────────────────────────────────
 
+/* ⚠️ Le troisième argument est le drapeau de MUTATION (`etat.js › mue`). Ces
+   quatre lambdas ne le relayaient pas — elles avaient été écrites pour une
+   signature à deux —, si bien que le drapeau se perdait à chaque application et
+   qu'aucun état n'était jamais mué. Symptôme : `ffr+fart` passait, alors que
+   c'est précisément le cas qu'on interdit. Une fabrique qu'on enveloppe doit
+   relayer TOUT ce qu'on lui passe. */
 const construire = {
-  STR: (v, t) => str(v, t),
-  TOKENS: (v, t) => tokens(v, t),
-  NUMS: (v, t) => nums(v, t),
-  NUM: (v, t) => num(v, (t && t[0]) || []),
+  STR: (v, t, mue) => str(v, t, mue),
+  TOKENS: (v, t, mue) => tokens(v, t, mue),
+  NUMS: (v, t, mue) => nums(v, t, mue),
+  NUM: (v, t, mue) => num(v, (t && t[0]) || [], mue),
 };
 
 /**
@@ -452,6 +458,15 @@ export function signalerException(op, err, entree) {
 export function appliquer(op, etat) {
   if (!op || typeof op.apply !== 'function') return null;
   if (!estType(etat, op.from)) return null;
+  /* ★ **UN OPÉRATEUR PEUT REFUSER UN ÉTAT POUR AUTRE CHOSE QUE SA VALEUR.**
+
+     `from` dit de quel TYPE il part ; `admet` dit de quel état il part. Les
+     quatre retraits grammaticaux s'en servent : ils n'écartent un mot outil que
+     dans la chaîne telle qu'elle a été saisie, jamais après qu'une traduction ou
+     un chiffrement a fait d'une lettre une autre (`etat.mue`). Sans cette porte,
+     la condition aurait dû vivre dans `apply`, qui ne reçoit que la valeur — et
+     elle y aurait été invisible au catalogue comme au BFS. */
+  if (typeof op.admet === 'function' && !op.admet(etat)) return null;
   const traces = tracesDe(etat);
   let brut;
   try {
@@ -463,7 +478,8 @@ export function appliquer(op, etat) {
   if (brut === null || brut === undefined) return null;
   const fabrique = construire[op.to];
   if (!fabrique) return null;
-  const suivant = fabrique(brut.valeur, brut.traces);
+  // La mutation se PROPAGE : une fois les lettres changées, elles le restent.
+  const suivant = fabrique(brut.valeur, brut.traces, etat.mue === true || op.mue === true);
   return estEtat(suivant) ? suivant : null;
 }
 

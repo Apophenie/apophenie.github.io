@@ -196,11 +196,17 @@ function planModulo(ctx, ids) {
   }
 
   const T = ctx.dur;
+  /* ★ **L'ACCOLADE NE RALENTIT PAS AVEC LES RETRAITS.** Le geste dure ce que
+     ses paquets exigent — et l'auteur les veut lents —, mais « la vitesse pour
+     tracer l'accolade devrait être la même qu'ailleurs, à savoir très rapide.
+     Ce n'est pas ça qui donne la lisibilité ». Elle est donc BORNÉE, et tout le
+     temps qu'elle ne prend pas revient aux paquets, qui eux ont à montrer. */
+  const tAcc = Math.min(600, T * 0.28);
   const acc = tracerAccolade(ctx, ids, {
     shape: 'brace', tighten: 0.66,
     symbol: ctx.op.symbol || '%', label: ctx.op.label || null,
     promet: false, marquer: false,
-    at: 0, dur: T * 0.28,
+    at: 0, dur: tAcc,
   });
   // Chaque paquet part de A et rejoint B ; A décroît de B à chaque fois, B ne
   // bouge pas — il absorbe sans grossir, c'est ce qui en fait un diviseur.
@@ -224,7 +230,7 @@ function planModulo(ctx, ids) {
     node.w = Math.max(node.w, large * ctx.metrics.advance);
   }
   if (transferts.length) {
-    jouerTransferts(ctx, { operands: operandes, transferts, paliers, at: T * 0.28, dur: T * 0.52 });
+    jouerTransferts(ctx, { operands: operandes, transferts, paliers, at: tAcc, dur: T - tAcc - Math.min(1600, T * 0.2) });
   }
   /* ⚠️ **CE GESTE NE POSE PAS LE RÉSULTAT, ET C'EST VOULU.**
      `jouerTransferts` anime les paliers ; il ne réécrit pas le jeton. Comme
@@ -376,6 +382,22 @@ function planDivision(ctx, ids) {
     role: 'text', inFlow: false, ...espacementDe(ctx, idA),
     base: { opacity: 0, fill: ctx.palette.phos },
   }, { where: ctx.where });
+  /* ⚠️ **LA LARGEUR EST CELLE DU COMPTE FINAL, pas celle du zéro de départ.**
+
+     > « Quand tu insères le quotient à la fin, l'espace que tu lui donnes a
+     >   l'air un peu juste, ça donne des chiffres collés les uns aux autres —
+     >   ou alors c'est que tu ne t'adaptes pas au nombre de chiffres. »
+     >   (l'auteur)
+
+     C'était bien cela. Le jeton naît en portant `0` — il doit partir de zéro —,
+     et la scène mesure sa place sur ce qu'il porte à l'instant de sa création.
+     Le canal discret change ensuite le TEXTE, jamais la mise en page : un
+     quotient à deux chiffres se retrouvait dans la case d'un seul, collé à son
+     voisin. On réserve donc dès maintenant la place du nombre qu'il DEVIENDRA. */
+  ctx.scene.get(specQ.id).w = Math.max(
+    ctx.scene.get(specQ.id).w,
+    [...specQ.text].length * ctx.metrics.advance,
+  );
   ctx.scene.place(specQ.id, exigerPoint(ctx, ancre,
     'le compte des retraits, sous la pointe de l’accolade', specQ.id));
   ctx.anim({ id: specQ.id, prop: 'opacity', to: 1, at: tAcc, dur: Math.max(1, tRet * 0.1) });

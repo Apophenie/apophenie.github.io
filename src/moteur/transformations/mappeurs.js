@@ -1944,6 +1944,32 @@ function planDivision(valeur, avecReste, resteDAbord = false) {
  * `tête % dernier chiffre`. Rend `null` quand il n'y a rien à faire, ou quand
  * le geste ne serait pas jouable — jamais « à peu près ».
  */
+/* ★ **LE RYTHME D'UN RETRAIT — six fois plus lent qu'à la première livraison.**
+
+   > « C'est trop rapide, même en ×0,25 je peine à suivre. Rends l'extraction
+   >   des chiffres six fois plus lente (mais sans ralentir la partie
+   >   accolade). » (l'auteur)
+
+   Le geste se joue en trois temps de nature différente, et un seul DÉMONTRE
+   quelque chose. L'accolade ANNONCE : elle doit se tirer vite, comme partout
+   ailleurs. La fin RANGE. Entre les deux, les retraits sont le calcul lui-même,
+   et c'est là que l'œil doit pouvoir suivre.
+
+   D'où trois durées séparées plutôt qu'une seule mise à l'échelle : allonger
+   `dur` globalement aurait ralenti l'accolade dans la même proportion — c'est
+   exactement l'erreur qu'`accumulate` avait déjà corrigée pour la somme
+   (« la vitesse pour tracer l'accolade devrait être la même qu'ailleurs »).
+   `group.js › planDivision` borne donc l'accolade et la fin, et rend tout le
+   reste aux retraits. */
+const DIVISION_ACCOLADE = 600;
+const DIVISION_FIN = 1600;
+const DIVISION_PAR_RETRAIT = 1800;
+
+/** La durée d'un geste de division ou de modulo : ce qu'il a de paquets à montrer. */
+function dureeDesRetraits(paquets) {
+  return DIVISION_ACCOLADE + DIVISION_FIN + Math.max(1, paquets) * DIVISION_PAR_RETRAIT;
+}
+
 /**
  * ★ **UN SEUL OPÉRATEUR DE DIVISION, TROIS DÉCLARATIONS.**
  *
@@ -2028,13 +2054,33 @@ function operateurDeDivision({ code, id, avecReste, resteDAbord = false, suffixe
            deux nombres posés côte à côte sans rien qui dise ce qu'on leur fait,
            et l'accolade devait porter à elle seule un `÷` qui n'arrivait
            qu'après. Le signe est là dès l'ouverture ; l'accolade le confirme. */
-        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} / ${p.b}`, enchainer([{
-          op: 'substitute',
-          pairs: [{
-            target: ctx.ids[p.i],
-            to: [token(idA, p.a, 'number'), token(idD, '/', 'operator'), token(idB, p.b, 'number')],
-          }],
-        }]), { id: `s_${ctx.cle}_${suffixe}o${p.i}` }));
+        /* ⚠️ **DEUX OPS, ET C'EST TOUT LE CORRECTIF.**
+
+           > « Tu effaces les chiffres pour les remettre avec l'opérateur entre
+           >   eux. Ça ne va pas. Espace-les pour insérer l'opérateur mais ne
+           >   les efface pas. » (l'auteur)
+
+           `substitute` sait déjà ne RIEN faire paraître quand il éclate : si
+           les textes des nés mis bout à bout refont celui de la source, il
+           bascule en une milliseconde, « ce qui est peint avant l'est encore
+           après ». Mais `13` + `/` + `5` ne refait pas `135` — la condition
+           tombait, et le geste retombait sur le fondu croisé qu'il évite
+           justement.
+
+           On sépare donc ce qui n'est pas la même chose : `135` s'ÉCLATE en
+           `13` et `5`, sans transition puisque rien ne change à l'écran ; puis
+           `insertOperators` ÉCARTE les deux et fait paraître le signe dans la
+           place ainsi réservée. */
+        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} / ${p.b}`, enchainer([
+          {
+            op: 'substitute',
+            pairs: [{
+              target: ctx.ids[p.i],
+              to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')],
+            }],
+          },
+          { op: 'insertOperators', between: [idA, idB], glyph: '/', ids: [idD] },
+        ]), { id: `s_${ctx.cle}_${suffixe}o${p.i}` }));
         const legende = avecReste
           ? `${p.a} / ${p.b} = ${p.q}, reste ${p.reste}`
             + (resteDAbord ? ` → ${p.reste} ${p.q}` : ` → ${p.q} ${p.reste}`)
@@ -2054,6 +2100,7 @@ function operateurDeDivision({ code, id, avecReste, resteDAbord = false, suffixe
              avant le reste, ou vient se placer après lui. */
         steps.push(etape(ctx, titre, legende, enchainer([{
           op: 'group',
+          dur: dureeDesRetraits(p.q),
           targets: [idA, idD, idB],
           dividende: idA,
           diviseur: idB,
@@ -6501,13 +6548,18 @@ const AUTRES_MAPPEURS = [
            « A%B, une accolade de modulo se forme » (l'auteur) : le `%` s'écrit
            entre les deux nombres. Sans lui on lisait « 13 5 », deux nombres
            côte à côte, et rien ne disait ce qu'on allait leur faire. */
-        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} % ${p.b}`, enchainer([{
-          op: 'substitute',
-          pairs: [{
-            target: ctx.ids[p.i],
-            to: [token(idA, p.a, 'number'), token(idP, '%', 'operator'), token(idB, p.b, 'number')],
-          }],
-        }]), { id: `s_${ctx.cle}_o${p.i}` }));
+        // Même correctif que la division : on ÉCLATE (rien ne change à l'écran,
+        // donc rien ne clignote), puis on ÉCARTE pour insérer le signe.
+        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} % ${p.b}`, enchainer([
+          {
+            op: 'substitute',
+            pairs: [{
+              target: ctx.ids[p.i],
+              to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')],
+            }],
+          },
+          { op: 'insertOperators', between: [idA, idB], glyph: '%', ids: [idP] },
+        ]), { id: `s_${ctx.cle}_o${p.i}` }));
         // ② les paquets partent, un par un, jusqu'à ce qu'il en reste moins
         //    qu'un — puis le reste se pose, et le diviseur s'efface ou demeure.
         //    ⚠️ Le `group` ANIME ; c'est le `substitute` qui ÉCRIT. Sans lui, le
@@ -6532,6 +6584,7 @@ const AUTRES_MAPPEURS = [
         steps.push(etape(ctx, titre, `${p.a} % ${p.b} = ${p.reste}`, retirerAccolade(enchainer([
           {
             op: 'group',
+            dur: dureeDesRetraits(Math.floor(p.a / p.b)),
             targets: [idA, idP, idB],
             dividende: idA,
             diviseur: idB,

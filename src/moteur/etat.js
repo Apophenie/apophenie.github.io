@@ -84,6 +84,30 @@ export const etendue = (traces) => normaliserTraces(traces)
 // Constructeurs
 // ───────────────────────────────────────────────────────────────────────────
 
+/* ★ **`mue` — LES LETTRES ONT-ELLES ÉTÉ CHANGÉES POUR D'AUTRES ?**
+
+   > « Pour les retraits d'articles, de verbes et compagnie, ne l'autorise qu'au
+   >   départ, pas après transformation de lettres pour d'autres. Par exemple :
+   >   `fr` → `am`, puis `am` verbe être en anglais — ce qui est ton exemple pour
+   >   `faux`, et il ne me va pas. Suppression uniquement dans la chaîne
+   >   d'origine. » (l'auteur)
+
+   Un mot outil s'écarte parce qu'il est un mot outil DE LA SAISIE. Quand une
+   traduction a fait de `fr` un `am`, cet `am` n'est le verbe « être » de
+   personne : c'est un accident de conversion, et l'écarter au nom de la
+   grammaire serait exactement l'arrangement que tout le site reproche aux
+   numérologues.
+
+   Le drapeau se PROPAGE : dès qu'un opérateur a remplacé des lettres, tout ce
+   qui suit est mué. Un opérateur qui se contente d'en RETIRER ne mue rien —
+   `fart` puis `fprp` reste permis, et l'auteur le demande : « ce type de filtre
+   peut s'enchaîner sans problème ».
+
+   ⚠️ Il entre dans la clé de canonicalisation du BFS (`bfs.js › calculerCle`) :
+     deux chemins qui aboutissent au même texte, l'un par mutation et l'autre
+     non, ne sont PAS le même état — l'un peut encore perdre ses articles,
+     l'autre non. Les confondre reviendrait à autoriser par la bande ce qu'on
+     vient d'interdire. */
 function geler(etat) {
   Object.freeze(etat.traces);
   if (Array.isArray(etat.valeur)) Object.freeze(etat.valeur);
@@ -98,7 +122,7 @@ function geler(etat) {
  * @param {string} valeur
  * @param {Array<Array<[number,number]>>} [origines] un jeu d'intervalles par caractère
  */
-export function str(valeur, origines = null) {
+export function str(valeur, origines = null, mue = false) {
   if (typeof valeur !== 'string') return null;
   const org = origines ? origines.map(normaliserTraces) : null;
   if (org && org.length !== [...valeur].length) return null;
@@ -107,11 +131,12 @@ export function str(valeur, origines = null) {
     valeur,
     traces: org ? normaliserTraces(org.flat()) : [],
     origines: org,
+    mue: mue === true,
   });
 }
 
 /** @param {string[]} valeur */
-export function tokens(valeur, origines = null) {
+export function tokens(valeur, origines = null, mue = false) {
   if (!Array.isArray(valeur) || valeur.some((v) => typeof v !== 'string')) return null;
   const org = origines ? origines.map(normaliserTraces) : null;
   if (org && org.length !== valeur.length) return null;
@@ -120,11 +145,12 @@ export function tokens(valeur, origines = null) {
     valeur: valeur.slice(),
     traces: org ? normaliserTraces(org.flat()) : [],
     origines: org,
+    mue: mue === true,
   });
 }
 
 /** @param {number[]} valeur */
-export function nums(valeur, origines = null) {
+export function nums(valeur, origines = null, mue = false) {
   if (!Array.isArray(valeur) || valeur.some((v) => !numValide(v))) return null;
   const org = origines ? origines.map(normaliserTraces) : null;
   if (org && org.length !== valeur.length) return null;
@@ -133,17 +159,19 @@ export function nums(valeur, origines = null) {
     valeur: valeur.slice(),
     traces: org ? normaliserTraces(org.flat()) : [],
     origines: org,
+    mue: mue === true,
   });
 }
 
 /** @param {number} valeur — hors `[-10⁶, 10⁶]` ⇒ `null` (CONTRACTS §2.3). */
-export function num(valeur, traces = []) {
+export function num(valeur, traces = [], mue = false) {
   if (!numValide(valeur)) return null;
   return geler({
     type: 'NUM',
     valeur,
     traces: normaliserTraces(traces),
     origines: null,
+    mue: mue === true,
   });
 }
 

@@ -1012,8 +1012,44 @@ export function longueurRendue(chemins) {
     prefixe++;
   }
   let L = 0;
-  for (let i = 0; i < prefixe; i++) L += coutRendu(premier[i]);
-  for (const c of chemins) for (let i = prefixe; i < c.ops.length; i++) L += coutRendu(c.ops[i]);
+  /* ★ **LES RETRAITS GRAMMATICAUX SE FONT UNE REMISE ENTRE EUX.**
+
+     > « Ce type de filtre (grammaticaux) peut s'enchaîner sans problème ; le
+     >   coût des filtres de même classe devrait être divisé par 2 puis 4. »
+     >   (l'auteur)
+
+     Écarter les articles puis les prépositions n'est pas deux décisions : la
+     seconde applique la même doctrine que la première, et le lecteur qui a
+     admis l'une admet l'autre sans effort neuf. Le plein tarif ne se justifie
+     que pour la première — celle qui INTRODUIT la règle.
+
+     Le rang se compte PAR CHEMIN, en repartant du préfixe commun : deux
+     fragments qui perdent chacun leurs articles montrent le même geste deux
+     fois, pas un geste puis sa remise.
+
+     ⚠️ **DIVISER PAR UNE PUISSANCE DE DEUX EST EXACT** — c'est la seule raison
+       pour laquelle ce calcul a le droit d'être flottant. `1/2`, `1/4`, `1/8`
+       tombent juste au bit près en IEEE 754 ; c'est `0,9 × 0,48` qui ne tombe
+       pas juste, et c'est pour ce genre de produit que le projet est passé aux
+       millièmes entiers. La règle du déterminisme (§4.4) n'interdit pas les
+       fractions : elle interdit celles dont le résultat dépend de l'ordre des
+       opérations. Aucun risque ici, et le rang est borné par quatre — il n'y a
+       que quatre classes fermées. */
+  const remise = (op, rang) => coutRendu(op) / (2 ** rang);
+  let rangPrefixe = 0;
+  for (let i = 0; i < prefixe; i++) {
+    const op = premier[i];
+    if (op.classeGrammaticale) { L += remise(op, rangPrefixe); rangPrefixe++; }
+    else L += coutRendu(op);
+  }
+  for (const c of chemins) {
+    let rang = rangPrefixe;
+    for (let i = prefixe; i < c.ops.length; i++) {
+      const op = c.ops[i];
+      if (op.classeGrammaticale) { L += remise(op, rang); rang++; }
+      else L += coutRendu(op);
+    }
+  }
   return L;
 }
 

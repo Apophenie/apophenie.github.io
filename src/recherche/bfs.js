@@ -221,7 +221,7 @@ const TYPES = new Set(['STR', 'TOKENS', 'NUMS', 'NUM']);
  * la boucle chaude monomorphe.
  */
 export function etat(type, valeur, traces = []) {
-  return { type, valeur, traces, _k: null };
+  return { type, valeur, traces, mue: false, _k: null };
 }
 
 /**
@@ -243,12 +243,17 @@ export function cleEtat(e) {
 }
 
 function calculerCle(e) {
+  // ★ Le drapeau de mutation fait PARTIE de l'identité de l'état : « hope » venu
+  //   d'une traduction et « hope » venu de la saisie ne permettent pas les mêmes
+  //   suites (voir `etat.js › mue`). Le préfixe est un seul caractère, choisi
+  //   pour ne rien coûter aux clés de la très grande majorité des états.
+  const m = e.mue === true ? '~' : '';
   switch (e.type) {
-    case 'STR': return 'STR|' + e.valeur;
-    case 'NUM': return 'NUM|' + e.valeur;
-    case 'TOKENS': return 'TOKENS|' + e.valeur.join('\u0000');
-    case 'NUMS': return 'NUMS|' + e.valeur.join(',');
-    default: return e.type + '|' + JSON.stringify(e.valeur);
+    case 'STR': return m + 'STR|' + e.valeur;
+    case 'NUM': return m + 'NUM|' + e.valeur;
+    case 'TOKENS': return m + 'TOKENS|' + e.valeur.join('\u0000');
+    case 'NUMS': return m + 'NUMS|' + e.valeur.join(',');
+    default: return m + e.type + '|' + JSON.stringify(e.valeur);
   }
 }
 
@@ -286,6 +291,9 @@ function valeurValide(type, v) {
  */
 export function appliquerOp(op, e) {
   if (op.from !== e.type) return null;
+  // Même porte que `catalogue.js › appliquer` : un opérateur peut refuser un
+  // état pour autre chose que son type — voir `etat.js`, le drapeau `mue`.
+  if (typeof op.admet === 'function' && !op.admet(e)) return null;
   let brut;
   try {
     brut = op.apply(e.valeur, e.traces);
@@ -314,7 +322,16 @@ export function appliquerOp(op, e) {
       if (Array.isArray(c) && c.length) traces = decalerTraces(c, e.traces);
     } catch { /* couverture optionnelle : on garde les traces héritées */ }
   }
-  return { type: op.to, valeur, traces, _k: null };
+  return {
+    type: op.to,
+    valeur,
+    traces,
+    // La mutation se propage, et elle entre dans la clé : deux chemins qui
+    // aboutissent au même texte, l'un par mutation et l'autre non, ne sont pas
+    // le même état (`etat.js`).
+    mue: e.mue === true || op.mue === true,
+    _k: null,
+  };
 }
 
 /** Traduit des intervalles relatifs au fragment en intervalles de la saisie d'origine. */

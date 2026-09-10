@@ -131,22 +131,84 @@ test('la scène des filtres grammaticaux compile sans animation concurrente', ()
  * > « Pour la division : `A/B` (avec le divisé entre les deux, pas en vertical
  * >   comme cheval sur oiseau = π). » (l'auteur)
  */
-test('★ la division ouvre sur A / B — et le signe est un JETON de la ligne', () => {
+/**
+ * ⚠️ **ET LE SIGNE S'INSÈRE, IL NE REMPLACE PAS.**
+ *
+ * > « Tu effaces les chiffres pour les remettre avec l'opérateur entre eux. Ça
+ * >   ne va pas. Espace-les pour insérer l'opérateur mais ne les efface pas. »
+ * >   (l'auteur)
+ *
+ * `substitute` sait ne rien faire paraître quand il ÉCLATE : si les textes des
+ * nés mis bout à bout refont celui de la source, il bascule en une milliseconde.
+ * Poser `13`, `/` et `5` d'un coup cassait cette condition — `13/5` ne refait
+ * pas `135` — et le geste retombait sur le fondu croisé.
+ *
+ * C'est cette PROPRIÉTÉ qu'on gèle ici, pas la liste des jetons : tant que les
+ * textes posés se recollent en la source, aucun chiffre ne peut clignoter.
+ */
+test('★ la division ouvre sur A / B — et les chiffres ne s’effacent JAMAIS', () => {
   for (const code of ['mdiv', 'mdvq', 'mdvr']) {
     const { steps } = jouer(code, nums([135]), jetonsNums([135]));
-    const ouverture = opsDe(steps).find((o) => o.op === 'substitute');
+    const ops = opsDe(steps);
+    const ouverture = ops.find((o) => o.op === 'substitute');
     const poses = ouverture.pairs[0].to.map((t) => t.text);
-    assert.deepEqual(poses, ['13', '/', '5'],
-      `${code} : on lit « 13 / 5 », pas deux nombres posés côte à côte`);
+    assert.deepEqual(poses, ['13', '5'], `${code} : le nombre se scinde`);
+    assert.equal(poses.join(''), '135',
+      `${code} : les nés recollés REFONT la source — c'est ce qui interdit le fondu`);
+    const signe = ops.find((o) => o.op === 'insertOperators');
+    assert.ok(signe, `${code} : le signe s'insère par une op dédiée`);
+    assert.equal(signe.glyph, '/', 'et c\'est bien le divisé');
+    assert.deepEqual(signe.between, ouverture.pairs[0].to.map((t) => t.id),
+      'il se pose ENTRE les deux, en les écartant');
+    assert.ok(signe.at > ouverture.at, 'après la scission, jamais pendant');
   }
 });
 
 test('★ le modulo ouvre sur A % B, même règle', () => {
   for (const code of ['mmod', 'mmoc']) {
     const { steps } = jouer(code, nums([135]), jetonsNums([135]));
-    const ouverture = opsDe(steps).find((o) => o.op === 'substitute');
-    assert.deepEqual(ouverture.pairs[0].to.map((t) => t.text), ['13', '%', '5']);
+    const ops = opsDe(steps);
+    const ouverture = ops.find((o) => o.op === 'substitute');
+    assert.deepEqual(ouverture.pairs[0].to.map((t) => t.text), ['13', '5']);
+    const signe = ops.find((o) => o.op === 'insertOperators');
+    assert.ok(signe && signe.glyph === '%', `${code} : le pour-cent est un jeton inséré`);
   }
+});
+
+/**
+ * > « C'est trop rapide, même en ×0,25 je peine à suivre. Rends l'extraction des
+ * >   chiffres six fois plus lente (mais sans ralentir la partie accolade). »
+ * >   (l'auteur)
+ */
+test('★ un retrait dure ~1,8 s, et l’accolade reste rapide', () => {
+  const { tl } = jouer('mdiv', nums([135]), jetonsNums([135]));
+  const paquets = tl.anims.filter((a) => a.id.startsWith('@retrait:') && a.prop === 'translate');
+  assert.equal(paquets.length, 2, 'deux retraits');
+  for (const p of paquets) {
+    assert.ok(p.duration > 1500, `un retrait dure ${Math.round(p.duration)} ms — l'œil doit suivre`);
+  }
+  const trait = tl.anims.find((a) => a.id.startsWith('@group:') && a.prop === 'strokeDashoffset');
+  assert.ok(trait && trait.duration < 700,
+    'l\'accolade ANNONCE, elle ne démontre pas : elle se tire vite');
+});
+
+/**
+ * > « Quand tu insères le quotient à la fin, l'espace que tu lui donnes a l'air
+ * >   un peu juste, ça donne des chiffres collés les uns aux autres — ou alors
+ * >   c'est que tu ne t'adaptes pas au nombre de chiffres. » (l'auteur)
+ *
+ * C'était cela : le jeton naît en portant `0`, et la scène mesure sa place sur ce
+ * qu'il porte À SA CRÉATION. Le canal discret change le texte, jamais la mise en
+ * page.
+ */
+test('★ la place du compte est celle du nombre qu’il DEVIENDRA', () => {
+  const large = (v) => {
+    const { tl } = jouer('mdiv', nums([v]), jetonsNums([v]));
+    return tl.nodes.find((n) => n.id === 'x0q0').w;
+  };
+  //  `135` → 13 / 5 = 2 (un chiffre) ; `101` → 10 / 1 = 10 (deux chiffres).
+  assert.ok(large(101) > large(135) * 1.5,
+    'un quotient à deux chiffres réserve deux fois la place d\'un seul');
 });
 
 // ───────────────────── 3. le compte se fabrique sous la pointe
