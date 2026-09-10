@@ -181,24 +181,57 @@ export function plan(ctx) {
   }
 
   if (mode === 'boucles') {
-    // Chaque boucle s'éclaire, une par une — et ce sont bien les traits qui la
-    // composent qui changent de couleur, pas un badge posé à côté.
+    /* ★ **C'EST L'INTÉRIEUR QUI S'ALLUME, puis qui rentre dans le compteur.**
+
+       > « Plutôt que de désigner la boucle par un point (qui n'est pas toujours
+       >   bien placé, en plus), fais s'allumer l'intérieur de la ou des boucles,
+       >   puis déplace-les en les rétrécissant, comme pour les faire rentrer
+       >   dans le compteur. » (l'auteur)
+
+       Le disque posé au barycentre avait deux défauts, et le second est le
+       grave. Il tombait à côté dès que la panse n'était pas ronde — le
+       barycentre d'un `a` n'est pas dans son trou. Et surtout il DÉSIGNAIT une
+       boucle au lieu de la MONTRER : un point à côté d'une forme ne dit pas ce
+       qui, dans cette forme, est fermé.
+
+       La surface, elle, le dit d'elle-même. Ce qui est peint EST la boucle : si
+       le tracé ne se referme pas, il n'y a rien à remplir, et l'œil le voit
+       aussi bien que l'algorithme. Le glyphe sait déjà se peindre plein —
+       `data.plein` existe pour les segments d'afficheur (`dom.js`), qui portent
+       leur épaisseur dans leur forme — et on le réemploie tel quel.
+
+       ⚠️ **LE VOYAGE ARRIVE PILE QUAND LE COMPTEUR MONTE.** `poserCompteur`
+         égrène à `debut + cadence × 0,6 + i × cadence` : « l'œil a vu la chose
+         s'allumer avant que le nombre bouge ». La surface part donc à 30 % de
+         son cran et se pose à 60 % — le chiffre monte au moment où elle entre,
+         et non pendant qu'elle vole. */
+    const posCompteur = { x: encart.centre.x + fs * ENCART.compteurX, y: encart.centre.y };
     derived.boucleGroupes.forEach((membres, i) => {
       const a = debut + i * cadence;
       for (const k of membres) {
         ctx.anim({ id: traitIds[k], prop: 'stroke', to: ctx.palette.gold, at: a, dur: Math.max(1, cadence * 0.7) });
       }
-      const halo = `@boucle:${src.id}:${i}`;
-      const pts = membres.flatMap((k) => derived.sub[k].points);
-      const c = centre(pts);
-      const p = local(c);
+      // La surface fermée, chaînée en un seul contour (voir `contourFerme`).
+
+      const plein = `@boucle:${src.id}:${i}`;
       ctx.scene.create({
-        id: halo, role: 'marker', inFlow: false, w: 0, data: { r: 10 },
-        base: { opacity: 0.5, scale: 0, fill: ctx.palette.gold },
+        id: plein,
+        role: 'glyph',
+        inFlow: false,
+        w: 0,
+        data: { d: contourFerme(membres.map((k) => derived.sub[k].d)), plein: true, scale: zoom },
+        base: { opacity: 0, scale: 1, fill: ctx.palette.gold },
       }, { where: ctx.where });
-      ctx.scene.place(halo, { x: encart.centre.x + p.x, y: encart.centre.y + p.y });
-      ctx.anim({ id: halo, prop: 'scale', values: [0, 1.3, 1], offsets: [0, 0.55, 1], at: a, dur: Math.max(1, cadence * 0.85), ease: EASE.pop });
-      montres.push(halo);
+      ctx.scene.place(plein, encart.centre);
+      // ① elle s'allume, là où elle est, dans le tracé qu'on regarde.
+      ctx.anim({ id: plein, prop: 'opacity', to: 0.85, at: a, dur: Math.max(1, cadence * 0.28), ease: EASE.enter });
+      // ② puis elle rentre dans le compteur, en rétrécissant.
+      const part = a + cadence * 0.30;
+      const vol = Math.max(1, cadence * 0.30);
+      ctx.anim({ id: plein, prop: 'translate', to: posCompteur, at: part, dur: vol, ease: EASE.move });
+      ctx.anim({ id: plein, prop: 'scale', to: 0.12, at: part, dur: vol, ease: EASE.move });
+      ctx.anim({ id: plein, prop: 'opacity', to: 0, at: part + vol * 0.7, dur: vol * 0.3 });
+      montres.push(plein);
     });
   }
 
@@ -206,10 +239,27 @@ export function plan(ctx) {
   refermerEncart(ctx, { src, to, compteur, encart, montres, at: T * 0.86, dur: T * 0.14 });
 }
 
-/** Barycentre d'un nuage de points, en unités glyphe. */
-function centre(points) {
-  if (!points.length) return { x: 200, y: 300 };
-  let sx = 0; let sy = 0;
-  for (const p of points) { sx += p.x; sy += p.y; }
-  return { x: sx / points.length, y: sy / points.length };
+/**
+ * ★ **UN SEUL CONTOUR FERMÉ, à partir des arcs qui composent la boucle.**
+ *
+ * Concaténer les `d` tels quels donne autant de SOUS-CHEMINS que d'arcs. Le
+ * remplissage SVG ferme alors chacun d'eux par une corde, et l'on peint des
+ * lunules au lieu de la panse : sur un `A`, dont la boucle est faite de trois
+ * segments, on aurait obtenu trois fuseaux plats et rien au milieu.
+ *
+ * On remplace donc le `M` de tête de chaque arc SUIVANT par un `L` — le crayon
+ * ne se relève pas, il rejoint le point de départ de l'arc d'après — et l'on
+ * ferme par `Z`. Les trois segments du `A` redeviennent son triangle ; un `o`,
+ * qui n'a qu'un seul arc, n'est pas touché.
+ *
+ * ⚠️ **CELA SUPPOSE QUE LES ARCS SE SUIVENT.** S'ils étaient donnés dans le
+ *   désordre, le contour se croiserait et le remplissage `nonzero` laisserait
+ *   des trous — ce serait visible, et c'est ce qui compte : la surface peinte
+ *   EST la boucle, donc une boucle mal chaînée se voit au lieu de se cacher
+ *   derrière un point posé au barycentre.
+ */
+function contourFerme(tracés) {
+  if (!tracés.length) return '';
+  const parts = tracés.map((d, i) => (i === 0 ? d.trim() : d.trim().replace(/^M/, 'L')));
+  return `${parts.join(' ')} Z`;
 }
