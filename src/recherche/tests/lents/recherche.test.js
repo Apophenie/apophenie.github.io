@@ -1542,8 +1542,22 @@ test('★ retouches — l’étage amont est PAYÉ, et il ne peut plus être gra
 
      Deux choses, et elles sont distinctes : le palier propre à l'étage, et le
      prix ORDINAIRE des gestes de la retouche, qui n'était compté nulle part. */
+  /* ⚠️ **TROIS SAISIES, ET LA TROISIÈME EST ARRIVÉE PAR LA MESURE** — exactement
+     comme au test suivant, et pour la même raison. Il n'y en avait que deux ;
+     le jour où les retraits grammaticaux ont cessé de s'appliquer après une
+     mutation (`etat.js › mue`) et où leur classe s'est fait une remise
+     (`score.js › longueurRendue`), le classement a bougé et l'échantillon est
+     tombé à deux voies retouchées. Le test n'échouait sur aucune de ses
+     assertions : il échouait sur sa TAILLE.
+
+     « Un garde-fou qui rougit parce qu'il n'a plus rien à regarder ne dit rien
+     du code ; on lui redonne de quoi regarder plutôt que d'abaisser le seuil. »
+     C'est ce que dit déjà le test d'à côté, et c'est ce qu'on refait ici :
+     « Emmanuel Macron » en porte deux à lui seul, l'échantillon remonte à
+     quatre. Baisser `vues >= 3` aurait été rendre le garde-fou complaisant au
+     moment précis où il servait. */
   let vues = 0;
-  for (const s of ['Donald Trump', 'Marie Curie']) {
+  for (const s of ['Donald Trump', 'Emmanuel Macron', 'Marie Curie']) {
     for (const a of AVEC_RETOUCHES().resoudre(s).approches) {
       if (!a.retouches || !a.retouches.length) continue;
       vues++;
