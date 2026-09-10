@@ -1353,6 +1353,34 @@ export function suivreLaLigne(tokens, steps) {
     ligne.splice(Math.max(0, Math.min(place, ligne.length)), 0, to.id);
     return true;
   };
+  /**
+   * ★ **UN GESTE PEUT RENDRE PLUSIEURS JETONS À LA PLACE DE SES OPÉRANDES.**
+   *
+   * La division en rend deux — le compte et le reste, dans l'ordre que
+   * l'opérateur choisit (`13 / 5` → `2 3` ou `3 2`). Le geste est celui
+   * d'`accumulate` pour tout le reste : on relève la place du premier opérande,
+   * on consomme ce qui est embrassé et les signes qui s'y trouvent, et les
+   * résultats entrent DANS CET ORDRE à la place relevée — c'est ce que fait
+   * `visuel/primitives/group.js › planDivision` avec `enterFlow(id, place + k)`.
+   */
+  const accumulerPlusieurs = (operandes, consomme, tos) => {
+    if (!operandes || !operandes.length) return false;
+    const neufs = (Array.isArray(tos) ? tos : [tos])
+      .filter((t) => t && typeof t.id === 'string').map((t) => t.id);
+    if (!neufs.length) return false;
+    const rangs = operandes.map((id) => ligne.indexOf(id));
+    if (rangs.some((r) => r < 0)) return false;
+    const lo = Math.min(...rangs);
+    const hi = Math.max(...rangs);
+    const absorbes = ligne.slice(lo + 1, hi).filter((id) => signes.has(id));
+    const morts = new Set([...operandes, ...(consomme || []), ...absorbes]);
+    const place = rangs[0];
+    heriterEcart(operandes[0], neufs);
+    for (const id of morts) frontieres.delete(id);
+    ligne = ligne.filter((id) => !morts.has(id));
+    ligne.splice(Math.max(0, Math.min(place, ligne.length)), 0, ...neufs);
+    return true;
+  };
 
   for (const st of steps) {
     for (const o of (st && st.ops) || []) {
@@ -1515,7 +1543,29 @@ export function suivreLaLigne(tokens, steps) {
           // le geste d'une somme. Sans `to`, elle ne fait que l'entourer.
           if (o.to === undefined) break;
           const embrasses = ids(o.targets);
-          if (!embrasses || !accumuler(embrasses, [], o.to)) perdu = true;
+          // La division rend DEUX jetons — le compte et le reste — quand les
+          // autres accolades n'en rendent qu'un. Même geste, une liste au lieu
+          // d'un descripteur.
+          if (!embrasses || !accumulerPlusieurs(embrasses, [], o.to)) perdu = true;
+          break;
+        }
+        /* ★ **LA POTENCE CONSOMME SES DEUX OPÉRANDES ET POSE SON QUOTIENT.**
+
+           Le geste d'`accumulate`, à ceci près qu'il rend un chiffre par rang
+           du quotient — `13 ÷ 5` à une décimale en rend trois (`0`, `2`, `6`),
+           la virgule ne se gardant pas.
+
+           ⚠️ **CE `case` MANQUAIT, et le rejeu se PERDAIT sur toute voie qui
+             pose une division.** Le `default` déclare la ligne perdue dès qu'il
+             croise une op qu'il ne connaît pas — ce qui est la bonne
+             prudence —, mais personne ne s'en apercevait : aucune saisie témoin
+             ne menait à `mdc*` dans un scénario dont on vérifie la ligne. Le
+             contrôle croisé était donc muet là où il aurait dû parler. */
+        case 'potence': {
+          const dividende = ids(o.dividende) || [];
+          const diviseur = ids(o.diviseur) || [];
+          if (dividende.length !== 1 || diviseur.length !== 1
+            || !accumulerPlusieurs([...dividende, ...diviseur], [], o.to)) perdu = true;
           break;
         }
         case 'insertOperators': {

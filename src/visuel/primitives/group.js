@@ -58,6 +58,7 @@
 import {
   targetsOf, tracerAccolade, tokenSpec, accumulate, numberOf,
   nivellementDe, MAX_TRANSFERTS, jouerTransferts,
+  espacementDe, exigerPoint, suivreLesAccolades,
 } from './helpers.js';
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
@@ -67,11 +68,6 @@ export const name = 'group';
 export function plan(ctx) {
   const ids = targetsOf(ctx);
 
-  // L'accolade qui tient sa promesse elle-même : décompte ou nivellement.
-  if (ctx.op.to !== undefined) {
-    planRamassage(ctx, ids);
-    return;
-  }
 
   // ★ L'ÉGALISATION — niveler, et s'arrêter là.
   //
@@ -82,7 +78,18 @@ export function plan(ctx) {
   //   du plus grand au plus petit, et la ligne reste une ligne de nombres.
   if (ctx.op.egaliser) { planEgalisation(ctx, ids); return; }
   if (ctx.op.modulo) { planModulo(ctx, ids); return; }
+  // ⚠️ **LA DIVISION SE RECONNAÎT AVANT LE RAMASSAGE, et l'ordre compte.** Elle
+  //   porte un `to` comme un décompte, mais ce `to` est une LISTE et sa
+  //   fabrication est tout autre : le compte se construit sous la pointe au
+  //   rythme des retraits. Testé après, `planRamassage` l'attrapait au passage
+  //   et se plaignait d'un « to » sans « id » — la liste n'en étant pas un.
   if (ctx.op.division) { planDivision(ctx, ids); return; }
+
+  // L'accolade qui tient sa promesse elle-même : décompte ou nivellement.
+  if (ctx.op.to !== undefined) {
+    planRamassage(ctx, ids);
+    return;
+  }
 
   const shape = ctx.op.shape || 'brace';
   if (shape !== 'brace' && shape !== 'box') {
@@ -155,10 +162,19 @@ function planRamassage(ctx, ids) {
  *   verrait pas.
  */
 function planModulo(ctx, ids) {
-  const valeurs = ids.map((id) => numberOf(ctx.scene.live(id, ctx.where).text, ctx, id));
-  if (valeurs.length !== 2) {
-    fail(`${ctx.where}un modulo demande EXACTEMENT deux nombres, le dividende et le diviseur.`);
+  /* ★ **LE SIGNE `%` EST UN JETON, il n'est pas seulement sous la pointe.**
+     « A%B, une accolade de modulo se forme, façon `meg` » (l'auteur) : le signe
+     s'écrit ENTRE les deux nombres, comme le `/` de la division. L'accolade le
+     redit sous sa pointe ; elle ne le remplace pas. C'est pourquoi le geste ne
+     lit plus `ids` comme une paire mais demande qui divise qui. */
+  const idA = typeof ctx.op.dividende === 'string' ? ctx.op.dividende : ids[0];
+  const idB = typeof ctx.op.diviseur === 'string' ? ctx.op.diviseur : ids[ids.length - 1];
+  if (idA === idB || !ids.includes(idA) || !ids.includes(idB)) {
+    fail(`${ctx.where}un modulo demande un dividende et un diviseur DISTINCTS, tous deux `
+      + 'embrassés par l’accolade.');
   }
+  const operandes = [idA, idB];
+  const valeurs = operandes.map((id) => numberOf(ctx.scene.live(id, ctx.where).text, ctx, id));
   const [a, b] = valeurs;
   if (!Number.isInteger(a) || !Number.isInteger(b) || b <= 0 || a < 0) {
     fail(`${ctx.where}modulo ${a} % ${b} : on ne divise que des entiers, par un diviseur strictement positif.`);
@@ -197,10 +213,10 @@ function planModulo(ctx, ids) {
   // Les largeurs réservées, comme pour l'égalisation : un jeton qui rétrécit de
   // `135` à `5` ne doit pas faire danser ses voisins en cours de route.
   const paliers = new Map();
-  ids.forEach((id, i) => paliers.set(id, [{ k: 0, text: String(valeurs[i]) }]));
+  operandes.forEach((id, i) => paliers.set(id, [{ k: 0, text: String(valeurs[i]) }]));
   transferts.forEach((tr, k) => {
-    paliers.get(ids[0]).push({ k: k + 1, text: String(tr.source), role: 'de' });
-    paliers.get(ids[1]).push({ k: k + 1, text: String(tr.cible), role: 'vers' });
+    paliers.get(idA).push({ k: k + 1, text: String(tr.source), role: 'de' });
+    paliers.get(idB).push({ k: k + 1, text: String(tr.cible), role: 'vers' });
   });
   for (const [id, ps] of paliers) {
     const large = Math.max(...ps.map((p) => [...p.text].length));
@@ -208,7 +224,7 @@ function planModulo(ctx, ids) {
     node.w = Math.max(node.w, large * ctx.metrics.advance);
   }
   if (transferts.length) {
-    jouerTransferts(ctx, { operands: ids, transferts, paliers, at: T * 0.28, dur: T * 0.52 });
+    jouerTransferts(ctx, { operands: operandes, transferts, paliers, at: T * 0.28, dur: T * 0.52 });
   }
   /* ⚠️ **CE GESTE NE POSE PAS LE RÉSULTAT, ET C'EST VOULU.**
      `jouerTransferts` anime les paliers ; il ne réécrit pas le jeton. Comme
@@ -220,8 +236,15 @@ function planModulo(ctx, ids) {
      `sum` d'un scénario voisin qui l'a dit — « la somme vaut 18, mais `to.text`
      annonce autre chose ». Le contrôle croisé a fait exactement son travail :
      il a refusé un calcul juste posé sur une ligne fausse. */
+  /* ★ **L'ACCOLADE PEUT TENIR AU-DELÀ DE CE GESTE.**
+     « L'une dissout B dans l'accolade et fait disparaître l'accolade dans le
+     processus » (l'auteur) : la dissolution est un `drop` qui suit, dans le
+     même step, et l'accolade doit encore être là pour qu'on voie le diviseur
+     tomber dedans. L'émetteur dit donc quand elle s'en va (`retirerAccolade`) ;
+     faute de quoi elle part avec ce geste-ci, comme avant. */
   if (acc) {
-    for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.12 });
+    const part = typeof ctx.op.fadeAt === 'number' ? ctx.op.fadeAt : T * 0.88;
+    for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: part, dur: 300 });
   }
   ctx.reflow({ at: T * 0.9, dur: T * 0.1, ease: EASE.move });
 }
@@ -239,18 +262,30 @@ function planModulo(ctx, ids) {
  * la pointe de l'accolade. C'est ce qui distingue ce geste d'un résultat posé —
  * on voit pourquoi le quotient vaut ce qu'il vaut.
  *
- * ⚠️ **CE GESTE ANIME, IL N'ÉCRIT PAS** — même partage qu'avec le modulo et
- *   l'égalisation. L'émetteur pose le quotient (et le reste, s'il le garde) par
- *   un `substitute` explicite. La leçon a coûté cher une fois : un jeton qui
- *   garde sa valeur d'avant fait calculer l'étape suivante sur une ligne que la
- *   scène n'affiche plus, et c'est un `sum` voisin qui finit par le dire.
+ * ⚠️ **CE GESTE ÉCRIT SON RÉSULTAT** — contrairement au modulo et à
+ *   l'égalisation, qui laissent l'émetteur poser leur valeur par un
+ *   `substitute`. Il le faut : le compte se FABRIQUE sous la pointe, cran par
+ *   cran, et le nombre qui entre dans la ligne doit être celui-là même, pas un
+ *   homonyme rallumé au même endroit une fois le compteur éteint. Le rejeu le
+ *   sait (`recherche/scenario.js › case 'group'`).
+ *
+ * ⚠️ **LE COMPTEUR SOUS LA POINTE AVAIT ÉTÉ DÉCLARÉ IMPOSSIBLE, ET IL NE
+ *   L'ÉTAIT PAS.** La note d'alors disait que « placer un jeton sous la pointe
+ *   demande la position verticale des jetons, et elle n'existe pas quand ce
+ *   plan s'écrit ». C'est faux : `tracerAccolade` REND le point où tombe son
+ *   résultat (`acc.resultat`) — c'est par lui que toute somme pose sa case
+ *   depuis toujours. La bonne conclusion aurait été de le lire, pas de renoncer
+ *   au geste que l'auteur avait décrit.
  */
 function planDivision(ctx, ids) {
-  const valeurs = ids.map((id) => numberOf(ctx.scene.live(id, ctx.where).text, ctx, id));
-  if (valeurs.length !== 2) {
-    fail(`${ctx.where}une division demande EXACTEMENT deux nombres, le dividende et le diviseur.`);
+  const idA = typeof ctx.op.dividende === 'string' ? ctx.op.dividende : ids[0];
+  const idB = typeof ctx.op.diviseur === 'string' ? ctx.op.diviseur : ids[ids.length - 1];
+  if (idA === idB || !ids.includes(idA) || !ids.includes(idB)) {
+    fail(`${ctx.where}une division demande un dividende et un diviseur DISTINCTS, tous deux `
+      + 'embrassés par l’accolade.');
   }
-  const [a, b] = valeurs;
+  const a = numberOf(ctx.scene.live(idA, ctx.where).text, ctx, idA);
+  const b = numberOf(ctx.scene.live(idB, ctx.where).text, ctx, idB);
   if (!Number.isInteger(a) || !Number.isInteger(b) || b <= 0 || a < 0) {
     fail(`${ctx.where}division ${a} / ${b} : on ne divise que des entiers, par un diviseur strictement positif.`);
   }
@@ -265,66 +300,230 @@ function planDivision(ctx, ids) {
 
      > « Le résultat n'est pas le même : 13/5 → 23, 13/5 → 32. » (l'auteur)
 
-     · `quotient` d'abord — « l'accolade rétrécit pour ne laisser que le reste,
+     · le COMPTE d'abord — « l'accolade rétrécit pour ne laisser que le reste,
        puis le compteur remonte AVANT le reste en ré-étirant l'accolade » ;
-     · `reste` d'abord — « le reste de A reste, le compteur sous l'accolade
+     · le RESTE d'abord — « le reste de A reste, le compteur sous l'accolade
        vient se placer JUSTE APRÈS le reste ».
 
-     Deux gestes, deux lignes, deux nombres. */
+     Deux gestes, deux lignes, deux nombres — et les deux se voient ici, à
+     l'accolade qui se resserre ou non avant que le compte ne remonte. */
   const resteDAbord = ctx.op.resteDAbord === true;
   const attendu = gardeLeReste
     ? (resteDAbord ? [reste, quotient] : [quotient, reste])
     : [quotient];
-  const dits = ctx.op.resultat;
-  if (Array.isArray(dits) && dits.join(',') !== attendu.join(',')) {
+
+  /* ★ **CE GESTE ÉCRIT SON RÉSULTAT, et c'est un changement de contrat.**
+
+     Il ANIMAIT seulement, et l'émetteur posait la valeur par un `substitute`
+     qui suivait. Le compte, lui, se fabrique SOUS LA POINTE, un retrait à la
+     fois — « B est retranché à A : part de A, passe au niveau de B, avant de
+     descendre en dessous de l'accolade où 1 est ajouté » (l'auteur). Un
+     `substitute` qui aurait reposé ce même nombre juste après aurait effacé le
+     compteur pour en rallumer un autre au même endroit : le raccord se voyait,
+     et surtout le nombre qu'on venait de voir se construire n'était pas celui
+     qui entrait dans la ligne.
+
+     C'est le geste d'`accumulate`, et le rejeu le modélise comme tel
+     (`recherche/scenario.js › case 'group'`, `accumulerPlusieurs`). */
+  const specs = (Array.isArray(ctx.op.to) ? ctx.op.to : [ctx.op.to])
+    .map((t, i) => tokenSpec(ctx, t, `to[${i}]`));
+  if (specs.length !== attendu.length
+    || specs.some((t, i) => t.text !== String(attendu[i]))) {
     fail(`${ctx.where}incohérence : ${a} / ${b} donne ${attendu.join(', ')}, `
-      + `mais l'émetteur annonce ${dits.join(', ')}. Le moteur visuel refuse d'afficher un calcul faux.`);
+      + `mais l'émetteur annonce ${specs.map((t) => t.text).join(', ')}. `
+      + 'Le moteur visuel refuse d’afficher un calcul faux.');
   }
+  const specQ = specs[resteDAbord ? 1 : 0];
+  const specS = gardeLeReste ? specs[resteDAbord ? 0 : 1] : null;
 
   const T = ctx.dur;
+  const fs = ctx.metrics.fontSize;
+  const tAcc = Math.min(600, T * 0.2);
+  const tFin = Math.min(1600, T * 0.34);
+  const tRet = Math.max(1, T - tAcc - tFin);
+  const tFin0 = tAcc + tRet;
+
   const acc = tracerAccolade(ctx, ids, {
     shape: 'brace', tighten: 0.66,
     symbol: ctx.op.symbol || '÷', label: ctx.op.label || null,
+    // Elle ne PROMET rien : ce n'est pas un `substitute` qui viendra se poser
+    // sous sa pointe, c'est ce geste-ci qui y fabrique son compte.
     promet: false, marquer: false,
-    at: 0, dur: T * 0.24,
+    at: 0, dur: tAcc,
   });
-
-  /* ★ **LE DIVIDENDE DÉCROÎT, ET C'EST TOUT CE QUE CE GESTE MONTRE.**
-     Chaque retrait ôte `B` à `A` ; on le voit partir, comme un `1` de `meg`,
-     mais il vaut `B`. Le quotient — combien de fois on a pu le faire — est posé
-     par l'émetteur juste après, sous la même accolade.
-
-     ⚠️ **LE COMPTEUR SOUS LA POINTE A ÉTÉ ESSAYÉ, PUIS RETIRÉ.** Le placer
-       demande la position verticale des jetons, et elle n'existe pas encore
-       quand ce plan s'écrit : `scene.pos()` rend `y: null`, et la scène refuse —
-       « le nœud se peindrait à l'origine ». Le faire poser par `accumulate`
-       marcherait, mais `accumulate` fait avancer son total au rythme des
-       OPÉRANDES volés, pas des retraits : le compteur n'aurait pas compté ce
-       qu'on lui demande de compter. Un chiffre qui monte sans qu'on voie
-       pourquoi vaut moins que pas de chiffre du tout. */
-  const transferts = [];
-  let restant = a;
-  for (let k = 0; k < quotient; k++) {
-    restant -= b;
-    transferts.push({ de: 0, vers: 1, source: restant, cible: b, montant: b });
+  const ancre = acc ? acc.resultat : null;
+  if (!ancre) {
+    fail(`${ctx.where}division ${a} / ${b} : l’accolade n’a pas pu être tracée, `
+      + 'le compte n’aurait nulle part où se former.');
   }
-  const paliers = new Map();
-  ids.forEach((id, i) => paliers.set(id, [{ k: 0, text: String(valeurs[i]) }]));
-  transferts.forEach((tr, k) => {
-    paliers.get(ids[0]).push({ k: k + 1, text: String(tr.source), role: 'de' });
-    paliers.get(ids[1]).push({ k: k + 1, text: String(tr.cible), role: 'vers' });
-  });
-  for (const [id, ps] of paliers) {
-    const large = Math.max(...ps.map((p) => [...p.text].length));
-    const node = ctx.scene.get(id);
+
+  // --- les largeurs réservées ---------------------------------------------
+  // Le dividende décroît de `13` à `3` : le canal discret change le TEXTE,
+  // jamais la mise en page, et un jeton qui rétrécit en cours de route ferait
+  // danser ses voisins. On réserve donc la plus large des valeurs qu'il prendra.
+  {
+    const large = Math.max(...Array.from({ length: quotient + 1 },
+      (_, k) => String(a - k * b).length));
+    const node = ctx.scene.get(idA);
     node.w = Math.max(node.w, large * ctx.metrics.advance);
   }
-  if (transferts.length) {
-    jouerTransferts(ctx, { operands: ids, transferts, paliers, at: T * 0.28, dur: T * 0.5 });
+
+  // --- le compte, sous la pointe, qui part de zéro -------------------------
+  const posA = ctx.scene.pos(idA);
+  const posB = ctx.scene.pos(idB);
+  ctx.scene.create({
+    id: specQ.id, text: '0', kind: specQ.kind, group: specQ.group,
+    role: 'text', inFlow: false, ...espacementDe(ctx, idA),
+    base: { opacity: 0, fill: ctx.palette.phos },
+  }, { where: ctx.where });
+  ctx.scene.place(specQ.id, exigerPoint(ctx, ancre,
+    'le compte des retraits, sous la pointe de l’accolade', specQ.id));
+  ctx.anim({ id: specQ.id, prop: 'opacity', to: 1, at: tAcc, dur: Math.max(1, tRet * 0.1) });
+  ctx.anim({
+    id: specQ.id, prop: 'scale', values: [0.8, 1.12, 1], offsets: [0, 0.7, 1],
+    at: tAcc, dur: Math.max(1, tRet * 0.15), ease: EASE.pop,
+  });
+
+  // --- les retraits : un paquet de B par tour ------------------------------
+  /* ★ **LE PAQUET VAUT `B` EN PARTANT ET `1` EN ARRIVANT.**
+     C'est le trajet que l'auteur décrit, et le changement de valeur en son
+     milieu est ce qui le rend lisible : on RETIRE cinq, et ça COMPTE pour un.
+     Sans ce basculement, un `5` qui atterrit sur un compteur affichant `2` le
+     ferait lire comme un `+5`. */
+  const pas = tRet / (quotient + 0.35);
+  const arrivees = [];
+  for (let k = 0; k < quotient; k++) {
+    const at = tAcc + k * pas;
+    const dur = Math.max(1, pas * 1.2);
+    arrivees.push(at + dur);
+    const id = ctx.gensym('retrait');
+    ctx.scene.create({
+      id, role: 'text', text: String(b), kind: 'digit', inFlow: false,
+      base: { opacity: 0, scale: 0.5, fill: ctx.palette.gold },
+    }, { where: ctx.where });
+    ctx.scene.place(id, exigerPoint(ctx, { x: posA.x, y: posA.y },
+      'le paquet retranché au dividende', id));
+    const chemin = [
+      ...pointsDArc(posA, posB, fs * 0.9, 3),
+      ...pointsDArc(posB, ancre, 0, 3).slice(1),
+    ];
+    ctx.anim({ id, prop: 'translate', values: chemin, at, dur, ease: EASE.linear });
+    ctx.anim({ id, prop: 'opacity', values: [0, 1, 1, 0], offsets: [0, 0.12, 0.88, 1], at, dur });
+    ctx.anim({ id, prop: 'scale', values: [0.5, 0.62, 0.5], offsets: [0, 0.5, 1], at, dur });
+    ctx.discrete({
+      id, channel: 'text', at, dur,
+      render: (x) => (x < 0.5 ? String(b) : '1'),
+    });
   }
-  if (acc) {
-    for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.12 });
+
+  // Le dividende décroît AU DÉPART de chaque paquet — pas à son arrivée : ce
+  // qui a quitté le nombre n'est plus en lui, il est dans le paquet qui vole.
+  if (quotient) {
+    const seuils = [];
+    for (let k = 0; k < quotient; k++) {
+      seuils.push({ u: (k + 0.20) / (quotient + 0.35), text: String(a - (k + 1) * b) });
+    }
+    ctx.discrete({
+      id: idA, channel: 'text', at: tAcc, dur: Math.max(1, tRet),
+      render: (x) => {
+        let out = String(a);
+        for (const s of seuils) if (x >= s.u) out = s.text;
+        return out;
+      },
+    });
   }
+
+  // Le compteur suit les ATTERRISSAGES, un cran chacun. Fonction pure de `t`,
+  // donc exacte au scrubbing, en avant comme en arrière.
+  {
+    const span = Math.max(1, (tFin0 + tFin) - tAcc);
+    const bornes = arrivees.map((t) => (t - tAcc) / span);
+    ctx.discrete({
+      id: specQ.id, channel: 'text', at: tAcc, dur: span,
+      render: (x) => {
+        let n = 0;
+        while (n < bornes.length && x >= bornes[n]) n++;
+        return String(n);
+      },
+    });
+  }
+
+  // --- le reste demeure : il prend le relais du dividende, sans bouger -----
+  //
+  // Le dividende AFFICHE déjà le reste — le canal discret l'y a mené. Le jeton
+  // de sortie naît donc exactement sur lui, avec le même texte : rien ne bouge
+  // à l'écran, mais la ligne cesse de porter un jeton dont l'identité disait
+  // « le dividende » alors qu'il montre le reste.
+  if (specS) {
+    ctx.scene.create({
+      id: specS.id, text: specS.text, kind: specS.kind, group: specS.group,
+      role: 'text', inFlow: false, ...espacementDe(ctx, idA),
+      base: { opacity: 0, fill: ctx.palette.fg },
+    }, { where: ctx.where });
+    ctx.scene.place(specS.id, exigerPoint(ctx, { x: posA.x, y: posA.y },
+      'le reste, à la place du dividende', specS.id));
+    ctx.anim({ id: specS.id, prop: 'opacity', to: 1, at: tFin0, dur: 1 });
+    ctx.anim({ id: idA, prop: 'opacity', to: 0, at: tFin0, dur: 1 });
+  }
+
+  // --- ce qui se dissout DANS l'accolade -----------------------------------
+  //
+  // « Seul /B disparaît, dissous dans l'accolade » (l'auteur). Dissoudre n'est
+  // pas effacer sur place : le diviseur et son signe DESCENDENT vers la pointe,
+  // là où leur travail a laissé le compte, et s'éteignent en chemin.
+  const dissous = ids.filter((id) => id !== idA && id !== specS?.id);
+  if (!specS) dissous.push(idA);
+  const tDis = Math.max(1, tFin * 0.45);
+  for (const id of dissous) {
+    ctx.anim({ id, prop: 'translate', to: { x: ancre.x, y: ancre.y }, at: tFin0, dur: tDis, ease: EASE.move });
+    ctx.anim({ id, prop: 'scale', to: 0.65, at: tFin0, dur: tDis });
+    ctx.anim({ id, prop: 'opacity', to: 0, at: tFin0 + tDis * 0.55, dur: tDis * 0.45 });
+  }
+
+  // --- l'accolade se resserre sur ce qui reste -----------------------------
+  //
+  // C'est ici que `mdiv` et `mdvr` cessent de se ressembler : le premier
+  // rétrécit l'accolade sur le seul reste avant que le compte ne remonte
+  // DEVANT lui ; le second la laisse telle quelle, le compte venant se poser
+  // APRÈS le reste.
+  if (specS && !resteDAbord) {
+    ctx.scene.poserAccolade(acc.id, [specS.id]);
+    // ⚠️ **EXACTEMENT PENDANT LA DISSOLUTION, ni avant ni après.** Le
+    //   resserrement et le ré-étirement animent le même tracé ; s'ils se
+    //   chevauchent, ne serait-ce que de trente millisecondes, le compilateur
+    //   signale deux animations concurrentes — et il a raison, on ne saurait
+    //   pas dire où l'accolade est à cet instant. Elle se resserre donc
+    //   pendant que `/B` descend, et pas une milliseconde de plus.
+    suivreLesAccolades(ctx, { at: tFin0, dur: tDis });
+  }
+
+  // --- le compte remonte dans la ligne, l'accolade s'en va -----------------
+  const place = ctx.scene.flowIndex(idA);
+  for (const id of ids) ctx.scene.kill(id, ctx.where);
+  const ordre = specs.map((t) => t.id);
+  ordre.forEach((id, k) => {
+    ctx.scene.enterFlow(id, place < 0 ? undefined : place + k, ctx.where);
+  });
+  const tRem = Math.max(1, tFin - tDis);
+  ctx.reflow({ at: tFin0 + tDis, dur: tRem, ease: EASE.move });
+  // ★ ET L'ACCOLADE SE RÉ-ÉTIRE SUR LA LIGNE NEUVE avant de s'effacer — elle
+  //   embrasse ce qu'elle a produit, le temps qu'on le lise. `ctx.reflow` a
+  //   déjà recalculé les positions, `suivreLesAccolades` les lit.
+  ctx.scene.poserAccolade(acc.id, ordre);
+  suivreLesAccolades(ctx, { at: tFin0 + tDis, dur: tRem });
+  for (const id of acc.ids) {
+    ctx.anim({ id, prop: 'opacity', to: 0, at: tFin0 + tDis + tRem * 0.55, dur: Math.max(1, tRem * 0.45) });
+  }
+}
+
+/** Points d'une trajectoire courbe de `a` à `b` — quadratique, sommet en haut. */
+function pointsDArc(a, b, hauteur, n) {
+  const c = { x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - hauteur };
+  const pt = (t) => ({
+    x: Math.round(((1 - t) * (1 - t) * a.x + 2 * t * (1 - t) * c.x + t * t * b.x) * 100) / 100,
+    y: Math.round(((1 - t) * (1 - t) * a.y + 2 * t * (1 - t) * c.y + t * t * b.y) * 100) / 100,
+  });
+  return Array.from({ length: n + 1 }, (_, i) => pt(i / n));
 }
 
 function planEgalisation(ctx, ids) {

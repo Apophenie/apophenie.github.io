@@ -1944,6 +1944,135 @@ function planDivision(valeur, avecReste, resteDAbord = false) {
  * `tête % dernier chiffre`. Rend `null` quand il n'y a rien à faire, ou quand
  * le geste ne serait pas jouable — jamais « à peu près ».
  */
+/**
+ * ★ **UN SEUL OPÉRATEUR DE DIVISION, TROIS DÉCLARATIONS.**
+ *
+ * `mdiv`, `mdvq` et `mdvr` ne diffèrent que par deux booléens — garde-t-on le
+ * reste, et passe-t-il devant le compte. Tout le reste est commun : la découpe
+ * (le dernier chiffre divise ce qui précède), les traces, la liste de sortie,
+ * et la chorégraphie en deux temps.
+ *
+ * ⚠️ **POURQUOI CETTE FABRIQUE EXISTE.** Le registre est append-only, et `mdvr`
+ *   est arrivé après les divisions décimales : il doit donc être DÉCLARÉ après
+ *   elles (§4.1 règle 3), loin de ses deux jumeaux. Le code, lui, n'a aucune
+ *   raison d'être écrit deux fois — et il l'a été, si bien qu'une correction
+ *   apportée aux deux premiers ne touchait pas le troisième. C'est exactement
+ *   ce qui est arrivé au signe `/` et au compte sous la pointe.
+ *
+ * @param {{code:string, id:string, avecReste:boolean, resteDAbord?:boolean,
+ *          suffixe:string, libelle:object, regle:object}} spec
+ */
+function operateurDeDivision({ code, id, avecReste, resteDAbord = false, suffixe, libelle, regle }) {
+  return def({
+    id, code, famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle, regle, outil: libelle,
+    notoriete: 0.35, adHoc: 0.45, cout: 2,
+    /* ★ **UN EXEMPLE QUI NE DIVISE QU'UNE FOIS NE MONTRE RIEN.**
+
+       La page de debug choisissait `11 → 1 / 1` sur `https://reinfocovid.fr/` :
+       un seul retrait, un reste nul, et le geste — les paquets qui partent, le
+       compte qui monte d'un cran à chaque fois — ne se voyait pas. C'est
+       exactement le cas que `exempleUtile` existe pour écarter : « un exemple
+       qui n'exerce pas le geste n'en est pas un » (`app/pages/debug.js`).
+
+       On demande donc DEUX retraits au moins, et un reste non nul quand
+       l'opérateur le garde — faute de quoi `mdiv` et `mdvr` produiraient la
+       même ligne à l'écran. C'est une PRÉFÉRENCE : si aucun état ne la
+       satisfait, la page rend quand même le meilleur des autres. */
+    exempleUtile(etat) {
+      const plan = planDivision(etat.valeur, avecReste, resteDAbord);
+      if (!plan) return false;
+      return plan.paquets.some((p) => p.divise && p.q >= 2 && (!avecReste || p.reste > 0));
+    },
+    apply(valeur, traces) {
+      const plan = planDivision(valeur, avecReste, resteDAbord);
+      if (!plan) return null;
+      const org = [];
+      for (const p of plan.paquets) {
+        const t = (traces && traces[p.i]) || [];
+        org.push(t);
+        if (p.divise && avecReste) org.push(t);
+      }
+      return { valeur: plan.sortie, traces: org };
+    },
+    sortie: (avant, apres, ctx) => {
+      const plan = planDivision(avant.valeur, avecReste, resteDAbord);
+      if (!plan) return [];
+      const ids = [];
+      for (const p of plan.paquets) {
+        if (!p.divise) { ids.push(ctx.ids[p.i]); continue; }
+        if (avecReste && resteDAbord) ids.push(`${ctx.cle}s${p.i}`, `${ctx.cle}q${p.i}`);
+        else if (avecReste) ids.push(`${ctx.cle}q${p.i}`, `${ctx.cle}s${p.i}`);
+        else ids.push(`${ctx.cle}q${p.i}`);
+      }
+      return ids;
+    },
+    steps: (avant, apres, ctx) => {
+      const plan = planDivision(avant.valeur, avecReste, resteDAbord);
+      if (!plan) return [];
+      const steps = [];
+      const titre = dire(libelle, ctx.langue);
+      for (const p of plan.paquets) {
+        if (!p.divise) continue;
+        const idA = `${ctx.cle}a${p.i}`;
+        const idD = `${ctx.cle}d${p.i}`;
+        const idB = `${ctx.cle}b${p.i}`;
+        const idQ = `${ctx.cle}q${p.i}`;
+        const idS = `${ctx.cle}s${p.i}`;
+        /* ① le nombre s'ouvre sur `A / B` — **et le signe est un jeton**.
+
+           > « Pour la division : `A/B`, avec le divisé ENTRE LES DEUX, pas en
+           >   vertical comme cheval sur oiseau = π. » (l'auteur)
+
+           Il manquait, et son absence se payait deux fois : on lisait « 13 5 »,
+           deux nombres posés côte à côte sans rien qui dise ce qu'on leur fait,
+           et l'accolade devait porter à elle seule un `÷` qui n'arrivait
+           qu'après. Le signe est là dès l'ouverture ; l'accolade le confirme. */
+        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} / ${p.b}`, enchainer([{
+          op: 'substitute',
+          pairs: [{
+            target: ctx.ids[p.i],
+            to: [token(idA, p.a, 'number'), token(idD, '/', 'operator'), token(idB, p.b, 'number')],
+          }],
+        }]), { id: `s_${ctx.cle}_${suffixe}o${p.i}` }));
+        const legende = avecReste
+          ? `${p.a} / ${p.b} = ${p.q}, reste ${p.reste}`
+            + (resteDAbord ? ` → ${p.reste} ${p.q}` : ` → ${p.q} ${p.reste}`)
+          : `${p.a} / ${p.b} = ${p.q}`;
+        /* ② on retire tant qu'on peut, et LE COMPTE SE FABRIQUE sous la pointe.
+           Un seul geste : l'accolade, les paquets qui partent de `A`, passent au
+           niveau de `B` et descendent s'ajouter au compteur, la dissolution de
+           `/B` dans l'accolade, puis la remontée dans la ligne.
+
+           ⚠️ **PLUS DE `substitute` NI DE `drop` DERRIÈRE.** Le compte n'est pas
+             un nombre qu'on pose une fois le geste fini : c'est le geste qui le
+             fabrique. Le reposer ensuite éteignait le compteur pour en rallumer
+             un autre au même endroit — et le nombre qu'on venait de voir se
+             construire n'était pas celui qui entrait dans la ligne.
+
+           ★ L'ordre où les jetons entrent EST le résultat : le compte remonte
+             avant le reste, ou vient se placer après lui. */
+        steps.push(etape(ctx, titre, legende, enchainer([{
+          op: 'group',
+          targets: [idA, idD, idB],
+          dividende: idA,
+          diviseur: idB,
+          division: true,
+          gardeLeReste: avecReste,
+          resteDAbord,
+          symbol: '÷',
+          to: avecReste
+            ? (resteDAbord
+              ? [token(idS, p.reste, 'number'), token(idQ, p.q, 'number')]
+              : [token(idQ, p.q, 'number'), token(idS, p.reste, 'number')])
+            : [token(idQ, p.q, 'number')],
+        }]), { id: `s_${ctx.cle}_${suffixe}d${p.i}` }));
+      }
+      return steps;
+    },
+  });
+}
+
 function planModulo(valeur, garde) {
   const paquets = [];
   const sortie = [];
@@ -6315,6 +6444,15 @@ const AUTRES_MAPPEURS = [
     // Le geste montre chaque paquet partir : il coûte deux étapes par nombre
     // divisé, l'ouverture puis les retraits.
     notoriete: 0.30, adHoc: 0.45, cout: 2,
+    // ★ Même exigence que les divisions : un modulo qui ne retire qu'un paquet
+    //   ne montre pas ce qu'est un modulo, et un reste nul ne montre pas
+    //   davantage ce qu'on garde. Voir `operateurDeDivision › exempleUtile`.
+    exempleUtile(etat) {
+      const plan = planModulo(etat.valeur, garde);
+      if (!plan) return false;
+      return plan.paquets.some((p) => p.divise && p.reste > 0
+        && Math.floor(p.a / p.b) >= 2);
+    },
     /* ⚠️ **RENDRE `{valeur, traces}`, ET PAS UN TABLEAU NU.** `bfs.js ›
        appliquerOp` tolère les deux formes ; `catalogue.js › appliquer` non — il
        passe `brut.valeur` à la fabrique, qui reçoit `undefined` et rend `null`.
@@ -6357,11 +6495,18 @@ const AUTRES_MAPPEURS = [
       for (const p of plan.paquets) {
         if (!p.divise) continue;
         const idA = `${ctx.cle}a${p.i}`;
+        const idP = `${ctx.cle}p${p.i}`;
         const idB = `${ctx.cle}b${p.i}`;
-        // ① le nombre s'ouvre : le dernier chiffre se détache, c'est le diviseur.
+        /* ① le nombre s'ouvre sur `A % B` — **et le signe est un jeton**.
+           « A%B, une accolade de modulo se forme » (l'auteur) : le `%` s'écrit
+           entre les deux nombres. Sans lui on lisait « 13 5 », deux nombres
+           côte à côte, et rien ne disait ce qu'on allait leur faire. */
         steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} % ${p.b}`, enchainer([{
           op: 'substitute',
-          pairs: [{ target: ctx.ids[p.i], to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')] }],
+          pairs: [{
+            target: ctx.ids[p.i],
+            to: [token(idA, p.a, 'number'), token(idP, '%', 'operator'), token(idB, p.b, 'number')],
+          }],
         }]), { id: `s_${ctx.cle}_o${p.i}` }));
         // ② les paquets partent, un par un, jusqu'à ce qu'il en reste moins
         //    qu'un — puis le reste se pose, et le diviseur s'efface ou demeure.
@@ -6369,18 +6514,35 @@ const AUTRES_MAPPEURS = [
         //      jeton garderait sa valeur d'avant et l'étape suivante calculerait
         //      sur un nombre que la scène n'affiche plus.
         const idR = `${ctx.cle}r${p.i}`;
-        steps.push(etape(ctx, titre, `${p.a} % ${p.b} = ${p.reste}`, enchainer([
+        /* ★ **CE QUI SE DISSOUT DANS L'ACCOLADE TOMBE ; il ne s'efface pas sur
+             place.**
+
+           > « Deux variantes : l'une DISSOUT B dans l'accolade et fait
+           >   disparaître l'accolade dans le processus, l'autre GARDE B, qui
+           >   n'a servi que de catalyseur sans être consommé. » (l'auteur)
+
+           Le `drop` en mode chute fait exactement cela : le jeton descend vers
+           l'accolade, rétrécit, s'éteint, la ligne se referme et l'accolade se
+           resserre avec elle (`drop.js › suivreLesAccolades`). Un effacement
+           sur place, lui, ne disait pas OÙ le diviseur passait — il s'évaporait.
+
+           Et le `%` tombe dans les deux cas : le catalyseur demeure, le signe
+           de l'opération n'a plus rien à annoncer une fois l'opération faite. */
+        const chute = garde ? [idP] : [idP, idB];
+        steps.push(etape(ctx, titre, `${p.a} % ${p.b} = ${p.reste}`, retirerAccolade(enchainer([
           {
             op: 'group',
-            targets: [idA, idB],
+            targets: [idA, idP, idB],
+            dividende: idA,
+            diviseur: idB,
             modulo: true,
             garderLeDiviseur: garde,
             symbol: '%',
             resultat: garde ? [p.reste, p.b] : [p.reste],
           },
           { op: 'substitute', pairs: [{ target: idA, to: [token(idR, p.reste, 'number')] }] },
-          ...(garde ? [] : [{ op: 'drop', targets: [idB], mode: 'erase' }]),
-        ]), { id: `s_${ctx.cle}_m${p.i}` }));
+          { op: 'drop', targets: chute, mode: 'fall' },
+        ])), { id: `s_${ctx.cle}_m${p.i}` }));
       }
       return steps;
     },
@@ -6409,86 +6571,7 @@ const AUTRES_MAPPEURS = [
       libelle: bilingue('On divise, le reste est perdu', 'Divide, dropping the remainder'),
       regle: bilingue('Même retrait, mais seul le compte demeure : ce qui restait s’efface avec l’accolade',
         'Same removal, but only the count remains: what was left goes with the brace') },
-  ].map(({ code, avecReste, resteDAbord = false, id, libelle, regle }) => def({
-    id, code, famille: 'mappeur', from: 'NUMS', to: 'NUMS',
-    libelle, regle, outil: libelle,
-    notoriete: 0.35, adHoc: 0.45, cout: 2,
-    apply(valeur, traces) {
-      const plan = planDivision(valeur, avecReste, resteDAbord);
-      if (!plan) return null;
-      const org = [];
-      for (const p of plan.paquets) {
-        const t = (traces && traces[p.i]) || [];
-        org.push(t);
-        if (p.divise && avecReste) org.push(t);
-      }
-      return { valeur: plan.sortie, traces: org };
-    },
-    sortie: (avant, apres, ctx) => {
-      const plan = planDivision(avant.valeur, avecReste, resteDAbord);
-      if (!plan) return [];
-      const ids = [];
-      for (const p of plan.paquets) {
-        if (!p.divise) { ids.push(ctx.ids[p.i]); continue; }
-        if (avecReste && resteDAbord) ids.push(`${ctx.cle}s${p.i}`, `${ctx.cle}q${p.i}`);
-        else if (avecReste) ids.push(`${ctx.cle}q${p.i}`, `${ctx.cle}s${p.i}`);
-        else ids.push(`${ctx.cle}q${p.i}`);
-      }
-      return ids;
-    },
-    steps: (avant, apres, ctx) => {
-      const plan = planDivision(avant.valeur, avecReste, resteDAbord);
-      if (!plan) return [];
-      const steps = [];
-      const titre = dire(libelle, ctx.langue);
-      for (const p of plan.paquets) {
-        if (!p.divise) continue;
-        const idA = `${ctx.cle}a${p.i}`;
-        const idB = `${ctx.cle}b${p.i}`;
-        const idQ = `${ctx.cle}q${p.i}`;
-        const idS = `${ctx.cle}s${p.i}`;
-        // ① le nombre s'ouvre sur `A / B`.
-        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} / ${p.b}`, enchainer([{
-          op: 'substitute',
-          pairs: [{ target: ctx.ids[p.i], to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')] }],
-        }]), { id: `s_${ctx.cle}_do${p.i}` }));
-        // ② on retire tant qu'on peut, puis le compte se pose — avec le reste,
-        //    ou sans lui. Le `group` ANIME, le `substitute` ÉCRIT.
-        const legende = avecReste
-          ? `${p.a} / ${p.b} = ${p.q}, reste ${p.reste}`
-            + (resteDAbord ? ` → ${p.reste} ${p.q}` : ` → ${p.q} ${p.reste}`)
-          : `${p.a} / ${p.b} = ${p.q}`;
-        steps.push(etape(ctx, titre, legende, enchainer([
-          {
-            op: 'group',
-            targets: [idA, idB],
-            division: true,
-            gardeLeReste: avecReste,
-            resteDAbord,
-            symbol: '÷',
-            resultat: avecReste
-              ? (resteDAbord ? [p.reste, p.q] : [p.q, p.reste])
-              : [p.q],
-          },
-          {
-            op: 'substitute',
-            pairs: [{
-              target: idA,
-              // ★ L'ordre où les jetons se posent EST le résultat : le compte
-              //   remonte avant le reste, ou vient se placer après lui.
-              to: avecReste
-                ? (resteDAbord
-                  ? [token(idS, p.reste, 'number'), token(idQ, p.q, 'number')]
-                  : [token(idQ, p.q, 'number'), token(idS, p.reste, 'number')])
-                : [token(idQ, p.q, 'number')],
-            }],
-          },
-          { op: 'drop', targets: [idB], mode: 'erase' },
-        ]), { id: `s_${ctx.cle}_dd${p.i}` }));
-      }
-      return steps;
-    },
-  })),
+  ].map((spec) => operateurDeDivision({ ...spec, suffixe: 'd' })),
 
   /* ★ **LES TROIS DIVISIONS DÉCIMALES — posées à la potence.**
 
@@ -6516,6 +6599,14 @@ const AUTRES_MAPPEURS = [
     // Plus cher que la division entière : on descend sous la virgule, ce qu'un
     // numérologue ne fait pas sans raison. Et c'est du dernier recours.
     notoriete: 0.30, adHoc: 0.55, cout: 3,
+    // ★ Une potence n'apprend rien si elle tombe juste au premier coup : il
+    //   faut qu'on descende sous la virgule, sinon la barre et le quotient
+    //   chiffre à chiffre se jouent pour un résultat entier.
+    exempleUtile(etat) {
+      const plan = planDecimales(etat.valeur, decimales);
+      if (!plan) return false;
+      return plan.paquets.some((p) => p.divise && p.chiffres.length > p.entiers);
+    },
     apply(valeur, traces) {
       const plan = planDecimales(valeur, decimales);
       if (!plan) return null;
@@ -6579,73 +6670,7 @@ const AUTRES_MAPPEURS = [
       libelle: bilingue('On divise, le reste devant', 'Divide, remainder first'),
       regle: bilingue('Le reste demeure où il était, et le compte des retraits vient se placer après lui',
         'The remainder stays where it was, and the count of removals comes after it') },
-  ].map(({ code, avecReste, resteDAbord = false, id, libelle, regle }) => def({
-    id, code, famille: 'mappeur', from: 'NUMS', to: 'NUMS',
-    libelle, regle, outil: libelle,
-    notoriete: 0.35, adHoc: 0.45, cout: 2,
-    apply(valeur, traces) {
-      const plan = planDivision(valeur, avecReste, resteDAbord);
-      if (!plan) return null;
-      const org = [];
-      for (const p of plan.paquets) {
-        const t = (traces && traces[p.i]) || [];
-        org.push(t);
-        if (p.divise && avecReste) org.push(t);
-      }
-      return { valeur: plan.sortie, traces: org };
-    },
-    sortie: (avant, apres, ctx) => {
-      const plan = planDivision(avant.valeur, avecReste, resteDAbord);
-      if (!plan) return [];
-      const ids = [];
-      for (const p of plan.paquets) {
-        if (!p.divise) { ids.push(ctx.ids[p.i]); continue; }
-        ids.push(`${ctx.cle}s${p.i}`, `${ctx.cle}q${p.i}`);
-      }
-      return ids;
-    },
-    steps: (avant, apres, ctx) => {
-      const plan = planDivision(avant.valeur, avecReste, resteDAbord);
-      if (!plan) return [];
-      const steps = [];
-      const titre = dire(libelle, ctx.langue);
-      for (const p of plan.paquets) {
-        if (!p.divise) continue;
-        const idA = `${ctx.cle}a${p.i}`;
-        const idB = `${ctx.cle}b${p.i}`;
-        const idQ = `${ctx.cle}q${p.i}`;
-        const idS = `${ctx.cle}s${p.i}`;
-        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} / ${p.b}`, enchainer([{
-          op: 'substitute',
-          pairs: [{ target: ctx.ids[p.i], to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')] }],
-        }]), { id: `s_${ctx.cle}_ro${p.i}` }));
-        steps.push(etape(ctx, titre,
-          `${p.a} / ${p.b} = ${p.q}, reste ${p.reste} → ${p.reste} ${p.q}`, enchainer([
-            {
-              op: 'group',
-              targets: [idA, idB],
-              division: true,
-              gardeLeReste: true,
-              resteDAbord: true,
-              symbol: '÷',
-              resultat: [p.reste, p.q],
-            },
-            {
-              op: 'substitute',
-              pairs: [{
-                target: idA,
-                to: [token(idS, p.reste, 'number'), token(idQ, p.q, 'number')],
-              }],
-            },
-            { op: 'drop', targets: [idB], mode: 'erase' },
-          ]), { id: `s_${ctx.cle}_rd${p.i}` }));
-      }
-      return steps;
-    },
-  })),
-
-
-
+  ].map((spec) => operateurDeDivision({ ...spec, suffixe: 'r' })),
 ];
 
 /** Les dix caractères que « le tiret du 6 » sait convertir — exposé pour l'UI. */

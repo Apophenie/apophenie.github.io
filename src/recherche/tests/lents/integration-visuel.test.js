@@ -13,13 +13,13 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { creerMoteur } from '../index.js';
-import { suivreLaLigne } from '../scenario.js';
-import { lire as lireUrl } from '../url.js';
-import { encoderTexte } from '../base58.js';
-import { catalogue } from './_catalogue.js';
-import { PAR_CODE, appliquer } from '../../moteur/catalogue.js';
-import { depuisSaisie, nums } from '../../moteur/etat.js';
+import { creerMoteur } from '../../index.js';
+import { suivreLaLigne } from '../../scenario.js';
+import { lire as lireUrl } from '../../url.js';
+import { encoderTexte } from '../../base58.js';
+import { catalogue } from '../_catalogue.js';
+import { PAR_CODE, appliquer } from '../../../moteur/catalogue.js';
+import { depuisSaisie, nums } from '../../../moteur/etat.js';
 
 let compile = null;
 let TOKEN_GAP = 6;
@@ -28,11 +28,11 @@ let setGlyphes = null;
 let GLYPHES = null;
 let Scene = null;
 try {
-  ({ compile, REPEAT_SPEED } = await import('../../visuel/compile.js'));
-  ({ setGlyphes } = await import('../../visuel/glyphes.js'));
-  ({ GLYPHES } = await import('../../moteur/tables/glyphes.js'));
-  ({ Scene } = await import('../../visuel/scene.js'));
-  ({ TOKEN_GAP } = await import('../../visuel/constants.js'));
+  ({ compile, REPEAT_SPEED } = await import('../../../visuel/compile.js'));
+  ({ setGlyphes } = await import('../../../visuel/glyphes.js'));
+  ({ GLYPHES } = await import('../../../moteur/tables/glyphes.js'));
+  ({ Scene } = await import('../../../visuel/scene.js'));
+  ({ TOKEN_GAP } = await import('../../../visuel/constants.js'));
   setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
 } catch {
   compile = null;
@@ -211,8 +211,8 @@ test('intégration — l’émission générique ne produit AUCUN avertissement'
  */
 test('★ intégration — les deux copies du vocabulaire d’ops coïncident',
   { skip: compile ? false : 'src/visuel/ absent' }, async () => {
-    const { OP_NAMES } = await import('../../visuel/constants.js');
-    const { VOCABULAIRE } = await import('../scenario.js');
+    const { OP_NAMES } = await import('../../../visuel/constants.js');
+    const { VOCABULAIRE } = await import('../../scenario.js');
     assert.deepEqual([...VOCABULAIRE].sort(), [...OP_NAMES].sort());
   });
 
@@ -243,7 +243,7 @@ test('★ intégration — la figure quatorze segments traverse elle aussi le co
   });
 
 test('intégration — le scénario passe aussi la validation statique du moteur visuel', { skip: compile ? false : 'src/visuel/ absent' }, async () => {
-  const { validateScenario } = await import('../../visuel/scenario.js');
+  const { validateScenario } = await import('../../../visuel/scenario.js');
   const m = creerMoteur(catalogue);
   const r = m.resoudre('https://hope-hope-hope.fr/');
   for (const a of r.approches) {
@@ -426,8 +426,8 @@ test('intégration — la ligne rejouée par le moteur de recherche est celle du
  */
 test('★ intégration — les quatre transformations du 27 août se MONTRENT',
   { skip: compile ? false : 'src/visuel/ absent' }, async () => {
-    const { lire } = await import('../url.js');
-    const { encoderTexte } = await import('../base58.js');
+    const { lire } = await import('../../url.js');
+    const { encoderTexte } = await import('../../base58.js');
     const m = creerMoteur(catalogue);
 
     const cas = [

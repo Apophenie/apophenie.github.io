@@ -1,28 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { creerMoteur, creerCanal } from '../index.js';
-import { lire } from '../url.js';
-import { encoderTexte } from '../base58.js';
-import { validerCatalogue, chercherSix, operateursExplorables, D_MAX, MAX_NODES, BUDGET_MS, N_FRAG_MAX } from '../bfs.js';
+import { creerMoteur, creerCanal } from '../../index.js';
+import { lire } from '../../url.js';
+import { encoderTexte } from '../../base58.js';
+import { validerCatalogue, chercherSix, operateursExplorables, D_MAX, MAX_NODES, BUDGET_MS, N_FRAG_MAX } from '../../bfs.js';
 // ★ La borne du budget global se LIT là où elle se règle — `src/config.js`, le
 //   seul fichier que l'on vient changer sans lire le moteur. La recopier ici,
 //   c'était en fabriquer une seconde, et c'est exactement ce qui est arrivé :
 //   elle est restée à 1 000 ms pendant que la vraie passait à 5 000.
 import {
   BUDGET_TOTAL_MS, placesDeLaListe, voiesParMappeur, PUISSANCE_DE_FOUILLE_DEFAUT,
-} from '../../config.js';
-import { construireBassin, statistiquesBassin, DISTANCE_MAX } from '../bassin.js';
-import { genererFragments, motifsRepetes, periodicite, tokeniser, zonesSignifiantes, structureUrl } from '../fragments.js';
+} from '../../../config.js';
+import { construireBassin, statistiquesBassin, DISTANCE_MAX } from '../../bassin.js';
+import { genererFragments, motifsRepetes, periodicite, tokeniser, zonesSignifiantes, structureUrl } from '../../fragments.js';
 import {
   ordreTotal, comparerCodes, racineEntiere, critereCouverture, critereConcision, noter, maniere,
   rangConviction, RANG, REGLAGES,
-} from '../score.js';
-import { approcheJoker, normaliserChemin, compterMoisson, sixDuChemin, SERIE } from '../assemblage.js';
-import { BAREME, detailDuCredit } from '../elegance.js';
-import { estDecret, titreApproche } from '../titres.js';
-import { catalogue, source, horlogeFactice, demarrerCharge, arreterCharge } from './_catalogue.js';
-import { fr } from '../../i18n/fr.js';
-import { en } from '../../i18n/en.js';
+} from '../../score.js';
+import { approcheJoker, normaliserChemin, compterMoisson, sixDuChemin, SERIE } from '../../assemblage.js';
+import { BAREME, detailDuCredit } from '../../elegance.js';
+import { estDecret, titreApproche } from '../../titres.js';
+import { catalogue, source, horlogeFactice, demarrerCharge, arreterCharge } from '../_catalogue.js';
+import { fr } from '../../../i18n/fr.js';
+import { en } from '../../../i18n/en.js';
 
 test(`catalogue de test employé : ${source}`, () => {
   assert.deepEqual(validerCatalogue(catalogue), [], 'le catalogue doit respecter CONTRACTS.md §2.2');

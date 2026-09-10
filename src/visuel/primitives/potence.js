@@ -33,8 +33,9 @@
  * ```
  *      13 │ 5          ①  la barre verticale sépare, la barre horizontale
  *     ────┼───             se pose sous le diviseur seul
- *         │ 0          ②  5 ne tient pas dans 1 : on écrit 0
- *         │ 02         ③  5 tient 2 fois dans 13 : on écrit 2, il reste 3
+ *         │ 0          ②  5 ne tient pas dans 1 : rien ne part, on écrit 0
+ *         │ 02         ③  deux « 5 » quittent 13 et tombent sous la barre,
+ *                          le chiffre monte 0 → 1 → 2 ; il reste 3
  *     3,0 │ 02,        ④  le reste prend « ,0 » — et le quotient sa virgule
  *         │ 02,6       ⑤  5 tient 6 fois dans 30 : on écrit 6
  *                      ⑥  tout s'efface, le quotient descend sans sa virgule
@@ -203,13 +204,73 @@ export function plan(ctx) {
     }, { where: ctx.where });
     const x = barreX + fs * 0.75 + chiffres.length * ctx.metrics.advance
       + (tour.decimal ? ctx.metrics.advance * 0.55 : 0);
-    ctx.scene.place(spec.id, { x, y: barreY + fs * 0.92 });
-    ctx.anim({ id: spec.id, prop: 'opacity', to: 1, at: debut, dur: parTour * 0.5, ease: EASE.enter });
-    ctx.anim({ id: spec.id, prop: 'scale', to: 1, at: debut, dur: parTour * 0.5, ease: EASE.enter });
+    const place = { x, y: barreY + fs * 0.92 };
+    ctx.scene.place(spec.id, place);
+    ctx.anim({ id: spec.id, prop: 'opacity', to: 1, at: debut, dur: parTour * 0.22, ease: EASE.enter });
+    ctx.anim({ id: spec.id, prop: 'scale', to: 1, at: debut, dur: parTour * 0.22, ease: EASE.enter });
     chiffres.push(spec.id);
+
+    /* ★ **LE CHIFFRE SE COMPTE, IL NE SE POSE PAS.**
+
+       > « La valeur B est EXTRAITE autant de fois qu'elle se trouve dans le
+       >   premier chiffre de A et INCRÉMENTE D'1 PAR EXEMPLAIRE le premier
+       >   chiffre sous B. » (l'auteur)
+
+       C'est le même geste que la division à l'accolade, et pour la même
+       raison : un chiffre qui paraît tout fait n'apprend rien. Ici, on voit
+       partir du dividende autant d'exemplaires de `B` que le quotient en
+       compte, et le chiffre monter d'un cran à chaque atterrissage. Quand il
+       n'en part aucun — « 5 ne tient pas dans 1 » —, le chiffre reste à zéro,
+       et ce zéro-là est justement celui qu'il faut voir s'écrire. */
+    const debutVol = debut + parTour * 0.18;
+    const finVol = debut + parTour * 0.74;
+    const n = tour.chiffre;
+    const arrivees = [];
+    for (let e = 0; e < n; e++) {
+      const at = debutVol + (finVol - debutVol) * (e / n);
+      const dur = Math.max(1, (finVol - debutVol) / n * 1.1);
+      arrivees.push(at + dur);
+      const id = ctx.gensym('potpaquet');
+      ctx.scene.create({
+        id, role: 'text', text: String(b), kind: 'digit', inFlow: false,
+        base: { opacity: 0, scale: 0.5, fill: ctx.palette.gold },
+      }, { where: ctx.where });
+      ctx.scene.place(id, { x: posA.x, y: ligneY });
+      ctx.anim({
+        id,
+        prop: 'translate',
+        values: [
+          { x: posA.x, y: ligneY },
+          { x: (posA.x + place.x) / 2, y: ligneY + fs * 0.4 },
+          { x: place.x, y: place.y },
+        ],
+        at,
+        dur,
+        ease: EASE.linear,
+      });
+      ctx.anim({ id, prop: 'opacity', values: [0, 1, 1, 0], offsets: [0, 0.15, 0.85, 1], at, dur });
+      ctx.anim({ id, prop: 'scale', values: [0.5, 0.62, 0.5], offsets: [0, 0.5, 1], at, dur });
+    }
+    // Le chiffre du quotient suit les atterrissages, un cran chacun.
+    {
+      const span = Math.max(1, parTour);
+      const bornes = arrivees.map((t) => (t - debut) / span);
+      ctx.discrete({
+        id: spec.id,
+        channel: 'text',
+        at: debut,
+        dur: span,
+        render: (u) => {
+          let compte = 0;
+          while (compte < bornes.length && u >= bornes[compte]) compte++;
+          return String(compte);
+        },
+      });
+    }
+
     /* Le reste, à gauche : le dividende porte ce qui reste à diviser. Le texte
-       bascule à mi-course, quand le chiffre du quotient a fini de paraître —
-       on lit d'abord « combien de fois », puis « ce qui reste ». */
+       bascule quand le dernier exemplaire est posé — on lit d'abord « combien
+       de fois », puis « ce qui reste ». */
     const avant = tour.decimal ? `${tour.courantAvant / 10},0` : String(tour.courantAvant);
     const apres = String(tour.reste);
     ctx.discrete({
@@ -217,7 +278,7 @@ export function plan(ctx) {
       channel: 'text',
       at: debut,
       dur: Math.max(1, parTour),
-      render: (u) => (u < 0.55 ? avant : apres),
+      render: (u) => (u < 0.80 ? avant : apres),
     });
   });
 

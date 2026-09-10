@@ -16,10 +16,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { creerMoteur, creerCanal, avancementDe, POIDS_DES_PHASES } from '../index.js';
-import { deroulerParTranches, rendreLaMain } from '../tranches.js';
-import { installerTravailleur, dansUnTravailleur } from '../travailleur.js';
-import { catalogue } from './_catalogue.js';
+import { creerMoteur, creerCanal, avancementDe, POIDS_DES_PHASES } from '../../index.js';
+import { deroulerParTranches, rendreLaMain } from '../../tranches.js';
+import { installerTravailleur, dansUnTravailleur } from '../../travailleur.js';
+import { catalogue } from '../_catalogue.js';
 
 /** Une saisie qui donne PLUSIEURS fragments : sans quoi il n'y a qu'un seul
  *  palier d'avancement et rien à observer. */

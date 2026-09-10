@@ -14,14 +14,14 @@ import assert from 'node:assert/strict';
 import {
   lireCible, normaliserCible, seriesDe, indexUtiles, ecrit, verdict,
   CIBLE_DEFAUT, TEXTE_DEFAUT, MAX_CHIFFRES,
-} from '../cible.js';
-import { lire, ecrire, REGISTRE_DEFAUT, registreEffectif, registresDisponibles, autreRegistre } from '../url.js';
-import { creerMoteur } from '../index.js';
-import { operateursPourCible, operateursExplorables } from '../bfs.js';
-import { serieDeSix, sixDuChemin, compterMoisson, verdictDe } from '../assemblage.js';
-import { nbTriptyques, finDuTriptyque } from '../elegance.js';
-import { catalogue } from './_catalogue.js';
-import { encoderTexte } from '../base58.js';
+} from '../../cible.js';
+import { lire, ecrire, REGISTRE_DEFAUT, registreEffectif, registresDisponibles, autreRegistre } from '../../url.js';
+import { creerMoteur } from '../../index.js';
+import { operateursPourCible, operateursExplorables } from '../../bfs.js';
+import { serieDeSix, sixDuChemin, compterMoisson, verdictDe } from '../../assemblage.js';
+import { nbTriptyques, finDuTriptyque } from '../../elegance.js';
+import { catalogue } from '../_catalogue.js';
+import { encoderTexte } from '../../base58.js';
 
 const moteur = creerMoteur(catalogue, { filetTemporel: false });
 

@@ -1,17 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { creerMoteur } from '../index.js';
+import { creerMoteur } from '../../index.js';
 import {
   construireScenario, validerScenario, VOCABULAIRE, DUREE_MIN, elementsDe, validerFormeOp,
   placeDuCouronnement, jalonsDesCornes, suivreLaLigne, lesPlusCentraux, titreDeRecolte,
-} from '../scenario.js';
-import { etat } from '../bfs.js';
-import { approcheJoker } from '../assemblage.js';
-import { OPERATEURS_QUI_ECARTENT } from '../elegance.js';
-import { catalogue, operateur } from './_catalogue.js';
-import { lireCible } from '../cible.js';
-import { lire as lireUrl } from '../url.js';
-import { encoderTexte } from '../base58.js';
+} from '../../scenario.js';
+import { etat } from '../../bfs.js';
+import { approcheJoker } from '../../assemblage.js';
+import { OPERATEURS_QUI_ECARTENT } from '../../elegance.js';
+import { catalogue, operateur } from '../_catalogue.js';
+import { lireCible } from '../../cible.js';
+import { lire as lireUrl } from '../../url.js';
+import { encoderTexte } from '../../base58.js';
 
 /**
  * ★ **UNE VOIE NOMMÉE SE REJOUE PAR SON LIEN, ELLE NE SE CHERCHE PAS DANS LA

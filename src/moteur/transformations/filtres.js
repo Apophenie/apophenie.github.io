@@ -243,6 +243,61 @@ function etapeRetrait(op) {
       return [etape(ctx, titre, regle, [{ op: 'move', targets: restants }])];
     }
 
+    /* ★ **DÉSIGNER CE QUI PART — la règle AVANT la disparition.**
+
+       > « Comme pour supprimer les voyelles, pour supprimer les articles il
+       >   faudra indiquer "articles non signifiants", les désigner par des
+       >   accolades, puis les supprimer. Et si c'est autre chose que des
+       >   articles qu'on supprime, il faudra une règle qui désigne cet autre
+       >   chose de manière crédible. » (l'auteur)
+
+       Le tamis d'en dessous nomme ce qu'on RETIENT — « voyelles » —, et il le
+       peut parce que ce qu'il retient est une catégorie. Ici c'est l'inverse :
+       ce qui reste après avoir ôté les articles n'a pas de nom, mais ce qui
+       part en a un. L'accolade se pose donc SUR LES MOTS QUI S'EN VONT, et
+       elle porte leur classe.
+
+       ⚠️ **UNE ACCOLADE PAR MOT, ET NON UNE POUR TOUS.** Sur « Le chat dort
+         sur le tapis rouge », les deux articles sont aux deux bouts : une
+         accolade unique embrasserait toute la phrase et affirmerait que « chat
+         dort sur le tapis » est un article. On regroupe donc les rejetés en
+         zones CONTIGUËS — chacune est un mot —, et chacune reçoit la sienne.
+
+       ⚠️ **`tighten: 0`, et ce n'est pas un détail de mise en page.** Le
+         resserrement d'une accolade appelle `ctx.reflow` ; deux accolades dans
+         le même step en appelleraient deux, et le compilateur refuse deux
+         animations concurrentes de `translate` sur les mêmes jetons. Il n'y a
+         d'ailleurs rien à resserrer : les lettres d'un mot sont déjà jointes.
+
+       Le retrait est alors un seul temps (`regroup: true`) : les mots
+       s'effacent où ils sont, la ligne se referme, les accolades s'en vont
+       avec eux. */
+    if (op.mentionDuRejet) {
+      const nom = dire(op.mentionDuRejet, ctx.langue);
+      const zones = [];
+      ctx.ids.forEach((id, i) => {
+        if (gardes.has(i)) return;
+        const derniere = zones[zones.length - 1];
+        if (derniere && derniere.fin === i - 1) { derniere.ids.push(id); derniere.fin = i; }
+        else zones.push({ ids: [id], fin: i });
+      });
+      const POSE = 1300;      // le trait se tire, le nom se lit
+      const RETRAIT = 2000;   // les mots s'effacent, la ligne se referme
+      return [etape(ctx, titre, regle, [
+        ...zones.map((z) => ({
+          op: 'group',
+          targets: z.ids,
+          label: nom,
+          tighten: 0,
+          promet: false,
+          at: 0,
+          dur: POSE,
+          fadeAt: POSE + RETRAIT - 300,
+        })),
+        { op: 'drop', targets: perdus, mode: 'erase', regroup: true, at: POSE, dur: RETRAIT },
+      ], { id: `s_${ctx.cle}_0`, hold: 300 })];
+    }
+
     // ★ LE TAMIS, quand le filtre DIT ce qu'il retient — ET IL A DEUX FORMES.
     //
     //   Un filtre nommé — les consonnes, les voyelles, les lettres — sait de
@@ -1489,8 +1544,9 @@ const brut = [
      TOUTE sa classe soit abandonnée (`elegance.js › motsAbandonnes`). Mais
      pardonner n'est pas montrer : le lecteur voyait un mot disparaître sans que
      rien ne dise de quel droit. Ces quatre-là le disent, et le disent AVANT —
-     leur libellé est la règle, et la scène des filtres pose l'accolade sur ce
-     qui part avant de l'effacer (`etapeRetrait`).
+     leur libellé est la règle, et la scène pose une accolade SUR CHAQUE MOT
+     QUI PART, portant sa classe en toutes lettres, avant de l'effacer
+     (`etapeRetrait`, chemin `mentionDuRejet`).
 
      ⚠️ **UNE CLASSE ENTIÈRE, JAMAIS UN MOT.** C'est ce qui les sépare d'une
        suppression arbitraire : « on ne peut pas supprimer `le` mais garder
@@ -1505,6 +1561,11 @@ const brut = [
     id: `f.${c.cle}`, code: c.filtre.code, famille: 'filtre', from: 'STR', to: 'STR',
     libelle: c.filtre.libelle,
     regle: c.filtre.regle,
+    // ★ Ce que l'accolade ÉCRIT sous les mots qu'elle embrasse — « articles non
+    //   signifiants ». C'est ce champ, et lui seul, qui fait basculer
+    //   `etapeRetrait` sur le geste qui désigne avant d'effacer : un filtre qui
+    //   ne saurait pas nommer ce qu'il jette n'y a pas droit.
+    mentionDuRejet: c.filtre.mention,
     // Notoriété moyenne : « mots vides » est une notion courante, mais savoir
     // QUELLE classe on retire demande une grammaire. Aucun `adHoc` : la règle
     // est énoncée, fermée, et vérifiable mot à mot — c'est exactement le

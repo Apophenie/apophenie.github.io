@@ -28,14 +28,14 @@ import {
   detailDuCredit, dilution, emploieUneFicelle,
   facteur, note, estPur, amplitudeArrondi, finDuTriptyque, nbTriptyques,
   classeDeTransformation, survieDesCaracteres, compterTraductionsDivergentes,
-} from '../elegance.js';
-import { creerMoteur } from '../index.js';
-import { ordreElegance, ordreTriptyques, ordreTotal, POIDS_DES_REGIMES } from '../score.js';
-import { zonesSignifiantes } from '../fragments.js';
-import { jalonsDesCornes, suivreLaLigne, dUnSeulTenant } from '../scenario.js';
-import { lire } from '../url.js';
-import { catalogue, operateur } from './_catalogue.js';
-import { natureOperandes } from '../../moteur/transformations/combinateurs.js';
+} from '../../elegance.js';
+import { creerMoteur } from '../../index.js';
+import { ordreElegance, ordreTriptyques, ordreTotal, POIDS_DES_REGIMES } from '../../score.js';
+import { zonesSignifiantes } from '../../fragments.js';
+import { jalonsDesCornes, suivreLaLigne, dUnSeulTenant } from '../../scenario.js';
+import { lire } from '../../url.js';
+import { catalogue, operateur } from '../_catalogue.js';
+import { natureOperandes } from '../../../moteur/transformations/combinateurs.js';
 
 // ══════════════════════════════════ outils de fabrication
 

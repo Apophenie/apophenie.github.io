@@ -32,14 +32,14 @@ import { fileURLToPath } from 'node:url';
 import {
   programmePour, sensDesPaliers, mesurerLesPaliers, saisiesTemoins, PROFONDEUR_EXEMPLE,
   TERMES_IDEAUX, PHRASES_DE_CLASSE,
-} from './pages/debug.js';
+} from '../pages/debug.js';
 import {
   CATALOGUE, appliquer, PAR_CODE, operateursActifs, classerPourCible, CLASSES_CIBLE,
-} from '../moteur/catalogue.js';
-import { titreCourtDe } from '../recherche/titres.js';
-import { depuisSaisie, signature } from '../moteur/etat.js';
-import { creerMoteur } from '../recherche/index.js';
-import { BAREME, NATURE, FICELLES, detailDuCredit } from '../recherche/elegance.js';
+} from '../../moteur/catalogue.js';
+import { titreCourtDe } from '../../recherche/titres.js';
+import { depuisSaisie, signature } from '../../moteur/etat.js';
+import { creerMoteur } from '../../recherche/index.js';
+import { BAREME, NATURE, FICELLES, detailDuCredit } from '../../recherche/elegance.js';
 
 const ici = dirname(fileURLToPath(import.meta.url));
 const lire = (p) => readFileSync(resolve(ici, p), 'utf8');
@@ -52,7 +52,7 @@ const sansCommentaires = (src) => src
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/(^|[^:])\/\/.*$/gm, '$1');
 
-const SOURCE = sansCommentaires(lire('./pages/debug.js'));
+const SOURCE = sansCommentaires(lire('../pages/debug.js'));
 
 /* ═══════════ 1. La page ne recopie ni le catalogue ni le barème ═══════════ */
 

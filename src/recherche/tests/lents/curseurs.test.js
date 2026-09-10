@@ -14,20 +14,20 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { creerMoteur, creerCanal } from '../index.js';
-import { lire, ecrire } from '../url.js';
+import { creerMoteur, creerCanal } from '../../index.js';
+import { lire, ecrire } from '../../url.js';
 import {
   POIDS, CURSEURS, CURSEUR_DEFAUT, CURSEUR_MAX, CURSEURS_DEFAUT, CORRESPONDANCE,
   ponderer, normaliserCurseurs, pourcentagesDe, auDefaut,
   facteurRendement, facteurQuantite, racineEntiere, REGLAGES,
   ordreTotal, ordrePondere, rangPondere, rangConviction, RANG,
-} from '../score.js';
+} from '../../score.js';
 import {
   reglagesDeBudget, normaliserPuissance, REGLAGES_DU_CRAN,
   PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX,
   BUDGET_TOTAL_MS, BUDGET_MS_FILET, MAX_SERIES,
-} from '../../config.js';
-import { catalogue } from './_catalogue.js';
+} from '../../../config.js';
+import { catalogue } from '../_catalogue.js';
 
 // Le filet temporel est débranché : ces tests comparent deux classements, et un
 // classement écourté à l'horloge ne se compare à rien (`bfs.js`, en-tête).

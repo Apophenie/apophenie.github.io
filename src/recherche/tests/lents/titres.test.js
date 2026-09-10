@@ -19,10 +19,10 @@ import assert from 'node:assert/strict';
 
 import {
   NOMS, QUALIFIANTS, PRECISIONS, precisionDe, titreApproche, distinguerTitres, estDecret,
-} from '../titres.js';
-import { creerMoteur } from '../index.js';
-import { catalogue } from './_catalogue.js';
-import { CATALOGUE } from '../../moteur/catalogue.js';
+} from '../../titres.js';
+import { creerMoteur } from '../../index.js';
+import { catalogue } from '../_catalogue.js';
+import { CATALOGUE } from '../../../moteur/catalogue.js';
 
 const SAISIES = [
   'hope-hope-hope.fr', 'https://hope-hope-hope.fr/', 'Millicent', 'Macron',

@@ -118,6 +118,7 @@ export const CLASSES = Object.freeze([
     filtre: {
       code: 'fart',
       libelle: { fr: 'On ignore les articles', en: 'Ignore the articles' },
+      mention: { fr: 'articles non signifiants', en: 'meaningless articles' },
       regle: { fr: '« le », « la », « un »… annoncent le nom, ils ne le portent pas',
         en: '"the", "a", "this"… announce the noun, they do not carry it' },
     }, mots: Object.freeze(new Set(ARTICLES.map(formeNue))) }),
@@ -125,6 +126,7 @@ export const CLASSES = Object.freeze([
     filtre: {
       code: 'fprp',
       libelle: { fr: 'On ignore les prépositions', en: 'Ignore the prepositions' },
+      mention: { fr: 'prépositions non signifiantes', en: 'meaningless prepositions' },
       regle: { fr: '« de », « par », « avec »… relient, et ne disent rien d’eux-mêmes',
         en: '"of", "by", "with"… link, and say nothing of themselves' },
     }, mots: Object.freeze(new Set(PREPOSITIONS.map(formeNue))) }),
@@ -132,6 +134,7 @@ export const CLASSES = Object.freeze([
     filtre: {
       code: 'fcnj',
       libelle: { fr: 'On ignore les conjonctions', en: 'Ignore the conjunctions' },
+      mention: { fr: 'conjonctions non signifiantes', en: 'meaningless conjunctions' },
       regle: { fr: '« et », « ou », « mais »… nouent la phrase sans rien y ajouter',
         en: '"and", "or", "but"… tie the sentence without adding to it' },
     }, mots: Object.freeze(new Set(CONJONCTIONS.map(formeNue))) }),
@@ -144,6 +147,7 @@ export const CLASSES = Object.freeze([
          (l'auteur). D'où l'inventaire fermé d'être et d'avoir : `aime`,
          `mange`, `dort` n'y sont pas et n'y seront jamais. */
       libelle: { fr: 'On ignore être et avoir', en: 'Ignore to be and to have' },
+      mention: { fr: 'verbes non signifiants', en: 'meaningless verbs' },
       regle: { fr: '« est », « a », « était »… portent le temps, pas le sens',
         en: '"is", "has", "was"… carry tense, not meaning' },
     }, mots: Object.freeze(new Set(AUXILIAIRES.map(formeNue))) }),
