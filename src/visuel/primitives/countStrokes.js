@@ -224,7 +224,7 @@ export function plan(ctx) {
       }, { where: ctx.where });
       ctx.scene.place(plein, encart.centre);
       // ① elle s'allume, là où elle est, dans le tracé qu'on regarde.
-      ctx.anim({ id: plein, prop: 'opacity', to: 0.85, at: a, dur: Math.max(1, cadence * 0.28), ease: EASE.enter });
+      ctx.anim({ id: plein, prop: 'opacity', to: 0.85, at: a, dur: Math.max(1, cadence * 0.28), ease: EASE.pop });
       // ② puis elle rentre dans le compteur, en rétrécissant.
       const part = a + cadence * 0.30;
       const vol = Math.max(1, cadence * 0.30);

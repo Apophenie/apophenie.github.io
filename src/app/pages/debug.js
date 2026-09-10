@@ -283,6 +283,28 @@ export const TEMOINS_COMPLEMENTAIRES = Object.freeze([
   // joue dessus se joue sous les yeux de « voir » et de « demain », qui ne
   // bougent pas. C'est le seul témoin qui montre la frontière d'un geste.
   Object.freeze({ texte: 'voir https://reinfocovid.fr/ demain', zone: 'https://reinfocovid.fr/' }),
+  /* ★ **UNE PHRASE QUI PORTE LES QUATRE CLASSES GRAMMATICALES, telle quelle.**
+
+     `fart`, `fprp`, `fcnj` et `faux` n'écartent un mot outil que dans la chaîne
+     TELLE QU'ELLE A ÉTÉ SAISIE (`etat.js › mue`) : depuis que la règle existe,
+     ils ne peuvent plus se rabattre sur un état traduit ou chiffré où le hasard
+     aurait fait paraître un `am` ou un `on`. Or aucun témoin ne portait de
+     préposition, de conjonction ni d'auxiliaire français — ils trouvaient donc
+     leur exemple par cette porte-là, exactement celle qu'on vient de fermer.
+
+     Elle est COURTE, pour la même raison que `Sept` : les témoins longs
+     saturent les 4 500 nœuds de `NOEUDS_EXEMPLE` avant d'atteindre les états
+     intéressants. Et elle porte un chiffre au milieu des lettres, ce qui la rend
+     utile à d'autres gestes que ces quatre-là.
+
+       « Le » et « le » → articles ·  « sur » → préposition
+       « et » → conjonction        ·  « est » → auxiliaire
+
+     ⚠️ Un opérateur qui perd son unique exemple ne se signale nulle part
+       ailleurs : la page de debug dirait « aucun exemple trouvé » et personne ne
+       la regarde tous les jours. C'est `debug.test.js › chaque opérateur a un
+       exemple` qui l'a dit, et c'est sa raison d'être. */
+  'Le 6 est sur le mur et il rit',
 ]);
 
 /* ⚠️ CE QU'ON N'AJOUTE PAS ICI, ET POURQUOI : « voir 99922969 demain ».
