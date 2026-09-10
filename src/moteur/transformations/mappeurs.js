@@ -1896,9 +1896,25 @@ function planDecimales(valeur, decimales) {
       chiffres.push(c);
       courant -= c * b;
     }
-    // Une division qui tombe juste n'a rien à montrer sous la virgule : c'est
-    // une division entière, et `mdiv` la fait déjà.
-    if (chiffres.length === entiers) return null;
+    /* ⚠️ **UNE DIVISION QUI TOMBE JUSTE A QUELQUE CHOSE À MONTRER, et le refus
+         d'ici privait le catalogue de l'exemple même que l'auteur cite.**
+
+       Le commentaire d'avant disait : « une division qui tombe juste n'a rien à
+       montrer sous la virgule : c'est une division entière, et `mdiv` la fait
+       déjà ». La conclusion ne suit pas de la prémisse.
+
+       > « 105/5 devrait donner 021, réunis ou séparés, peu importe. […] Le zéro
+       >   initial bien de 105/5 : 0×5 dans 1 de 105. » (l'auteur)
+
+       `mdiv` sur `105` rend DEUX jetons — le quotient `2` et le reste `0`. La
+       potence en rend TROIS — `0`, `2`, `1` —, parce qu'elle écrit un chiffre
+       par rang du dividende et non un quotient d'un bloc. Ce ne sont pas deux
+       mises en scène d'un même nombre : ce sont deux lignes différentes, et
+       celle que l'auteur a nommée était injouable.
+
+       ★ Les trois `mdc*` coïncident alors, faute de décimale à montrer. Ce n'est
+         pas un doublon au registre — ils divergent partout ailleurs — et la
+         canonicalisation du BFS n'explore l'état commun qu'une fois. */
     paquets.push({ i, divise: true, valeur: valeur[i], a, b, chiffres, entiers });
     sortie.push(...chiffres);
     uneDivision = true;

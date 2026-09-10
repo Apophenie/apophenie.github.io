@@ -5,7 +5,7 @@
  * >   qui s'arrête sur la barre verticale. La valeur B est extraite autant de
  * >   fois qu'elle se trouve dans le premier chiffre de A et incrémente d'1 par
  * >   exemplaire le premier chiffre sous B. Quand le premier chiffre de A < B
- * >   on inclut le 2ⁿᵈ chiffre de A et on refait de même […] jusqu'à ce que
+ * >   ON INCLUT LE 2ⁿᵈ CHIFFRE DE A et on refait de même […] jusqu'à ce que
  * >   A < B, à ce moment-là ON DÉCALE A SUR LA GAUCHE POUR INSÉRER ",0" à sa
  * >   droite, avant la barre verticale qui le sépare de B, ET ON FAIT DE MÊME
  * >   SOUS B (on ajoute ",0"), puis on extrait B du reste A,0 comme si c'était
@@ -30,46 +30,48 @@
  * exactement là. Un enfant de primaire la reconnaît ; une accolade qui répète
  * le même geste trois fois ne lui apprend rien.
  *
- * ★ **CE QUI EST MONTRÉ, DANS L'ORDRE** — `13 ÷ 5`, une décimale
+ * ★ **CE QUI EST MONTRÉ, DANS L'ORDRE** — `105 ÷ 5`, puis `13 ÷ 5`
  *
  * ```
- *      13 │ 5          ①  on ÉCARTE A et B (on ne les efface pas) pour loger
- *     ────┼────            la barre verticale ; l'horizontale se pose sous B
- *      13 │ 0          ②  50 ne tient pas dans 13 : rien ne part, on écrit 0
- *       3 │ 02         ③  deux « 5 » quittent 13 — 13, 8, 3 — et le chiffre
- *                          sous la barre monte 0 → 1 → 2 à chaque atterrissage
- *     3,0 │ 02,0       ④  A GLISSE À GAUCHE, « ,0 » s'inscrit à sa droite,
- *                          et « ,0 » s'inscrit de même sous la barre
- *     0,0 │ 02,6       ⑤  six « 0,5 » quittent 3,0 — 2,5 … 0,0 — et le zéro
- *                          décimal monte jusqu'à 6
- *                      ⑥  tout s'efface, le quotient descend sans sa virgule
+ *      1̲0̶5̶ │ 5        ②  seul le PREMIER chiffre est en jeu, le reste est
+ *     ─────┼─────         estompé : 5 ne tient pas dans 1, on écrit 0
+ *      1̲0̲5̶ │ 02       ③  le 2ᵉ chiffre entre en jeu ; deux « 5 » s'en vont,
+ *                          la zone passe de 10 à 05 puis 00
+ *      0̲0̲5̲ │ 021      ④  le 3ᵉ entre à son tour, un « 5 » s'en va
+ *
+ *      3̲,̲0̲ │ 02,0     ⑤  (13 ÷ 5) A GLISSE À GAUCHE, « ,0 » s'inscrit à sa
+ *                          droite — et « ,0 » s'inscrit de même sous la barre
+ *      0̲,̲0̲ │ 02,6     ⑥  six « 5 » quittent la zone : 3,0 … 0,0
+ *                      ⑦  tout s'efface, le quotient descend sans sa virgule
  * ```
  *
- * ★ **LA COLONNE DE GAUCHE MONTRE CE QU'IL RESTE À DIVISER, EN ENTIER.**
+ * ★ **LA ZONE EN JEU EST DÉSIGNÉE PAR L'ESTOMPAGE, et le paquet vaut `B`.**
  *
- * Une version antérieure y écrivait le dividende PARTIEL — `1`, puis `13`, puis
- * `3` : le nombre grandissait avant de rapetisser, et le « 1 » réapparaissait au
- * milieu du geste. C'est le défaut que l'auteur a nommé sur la division à
- * l'accolade — « tu effaces les chiffres pour les remettre […] ça ne va pas » —
- * et il vaut ici : **rien ne s'efface pour reparaître ailleurs**. La colonne
- * porte donc la valeur restante vraie, du premier au dernier tour, et elle ne
- * fait que décroître.
+ * > « La solution est soit de flouter tout ce qui n'est pas en jeu (donc "5"
+ * >   dans "105" quand on enlève 5 au niveau des dizaines), soit de mettre une
+ * >   accolade au-dessus des chiffres concernés et de la déplacer au fur et à
+ * >   mesure que le calcul avance. » (l'auteur)
  *
- * ⚠️ **CONSÉQUENCE : LE PAQUET EMPORTE CE QU'IL EMPORTE.** Si la colonne montre
- *   `105` et qu'on travaille la colonne des dizaines, ce n'est pas `5` qui la
- *   quitte, c'est `50` — sans quoi le nombre affiché mentirait sur ce qu'on lui
- *   retire (§0.3, « ce qui est montré est ce qui est compté »). Aux unités le
- *   paquet vaut donc `B` tout court, aux dizaines `B0`, sous la virgule `0,B` :
- *   c'est ce qui explique, sans un mot, POURQUOI le chiffre du quotient s'écrit
- *   dans cette colonne-là. Et comme à l'accolade, il vaut `1` en arrivant :
- *   on retire cinquante, ça compte pour un.
+ * C'est l'estompage qui a été retenu : la scène porte déjà deux barres, une
+ * colonne, un quotient et une virgule — une accolade mobile y ajouterait un
+ * cinquième objet en mouvement, alors que l'estompage fait porter l'information
+ * par les chiffres eux-mêmes.
  *
- * ★ **LA COLONNE EST CALÉE À DROITE, contre la barre.** C'est la discipline de
- *   la potence : les unités sous les unités. Elle se paie d'un saut de position
- *   instantané (1 ms) à chaque fois que le nombre perd un chiffre — invisible,
- *   puisque ce sont les COLONNES qui ne bougent pas —, et elle rend le geste
- *   demandé par l'auteur littéral : insérer « ,0 » à droite, c'est pousser A
- *   d'une colonne vers la gauche.
+ * ⚠️ **ET C'EST CE QUI RÉSOUT LA CONTRADICTION.** Une version intermédiaire
+ *   affichait à gauche la valeur restante ENTIÈRE (`105`, `55`, `5`) ; il
+ *   fallait alors faire voler des paquets de `50` pour ne pas mentir sur la
+ *   soustraction. L'auteur a tranché : le paquet vaut `B`, toujours. La ligne
+ *   ne prétend donc plus montrer un nombre unique — elle montre un dividende
+ *   dont une partie seulement est en jeu, et c'est dans CETTE zone que `B` est
+ *   retiré. La ligne entière, elle, continue de se lire comme le reste vrai
+ *   (`105` → `055` → `005` → `000`), ce que le contrôle croisé vérifie.
+ *
+ * ★ **RIEN NE BOUGE, RIEN NE S'EFFACE.** Chaque chiffre garde sa colonne du
+ *   début à la fin ; seuls changent son opacité (il entre en jeu) et sa valeur
+ *   (on lui retire `B`). Le défaut nommé par l'auteur sur la division à
+ *   l'accolade — « tu effaces les chiffres pour les remettre […] ça ne va
+ *   pas » — n'a donc pas d'équivalent ici : la ligne ne se réécrit jamais, et
+ *   ce qu'elle vaut ne fait que décroître.
  *
  * ⚠️ **LA VIRGULE NE SE GARDE PAS**, et ce n'est pas un oubli : la ligne du
  *   site ne porte que des chiffres. `2,6` redescend en `2` et `6`, deux jetons
@@ -80,9 +82,7 @@
  * ⚠️ **LE CALCUL EST REFAIT ICI, PAS RELU.** L'émetteur annonce les jetons du
  *   quotient ; cette primitive divise elle-même et refuse si les deux ne
  *   coïncident pas. C'est la règle du moteur visuel (§0.3) : il ne peint pas un
- *   calcul faux, même si on le lui demande poliment. Et la colonne de gauche
- *   est vérifiée de même : la valeur restante, obtenue en retirant les paquets
- *   un à un, doit tomber sur le reste annoncé par le déroulé.
+ *   calcul faux, même si on le lui demande poliment.
  */
 
 import { tokenSpec, numberOf } from './helpers.js';
@@ -113,18 +113,21 @@ export const name = 'potence';
  *   la compréhension se joue.
  */
 const TEMPO = Object.freeze({
-  BARRES: 760,      // ① l'écart, puis les deux traits
-  POSE: 300,        //   le chiffre du quotient paraît, à zéro
+  BARRES: 760,      // ① l'écart, les deux traits, et l'estompage
+  POSE: 300,        //   le chiffre entre en jeu, celui du quotient paraît à zéro
   PAS: 700,         // ⚠️ UN EXEMPLAIRE TOUTES LES 700 ms — le cœur du geste
   REPOS: 640,       //   le temps de lire un zéro dont personne n'est parti
   RESPIRE: 240,     //   après le dernier atterrissage
-  INSERTION: 620,   // ④ A glisse à gauche, « ,0 » s'inscrit
-  EFFACEMENT: 640,  // ⑥ les barres et les opérandes s'en vont
+  INSERTION: 620,   // ⑤ A glisse à gauche, « ,0 » s'inscrit
+  EFFACEMENT: 640,  // ⑦ les barres et les opérandes s'en vont
   DESCENTE: 840,    //   le quotient rejoint la ligne
 });
 
 /** La part du pas que dure le vol d'un exemplaire — le reste est du silence. */
 const PART_DU_VOL = 0.92;
+
+/** Ce que vaut l'opacité d'un chiffre qui n'est PAS en jeu. */
+const ESTOMPE = 0.3;
 
 /**
  * ⚠️ **UNE POTENCE DE SOIXANTE-DIX RETRAITS NE PEUT PAS DURER UNE MINUTE.**
@@ -149,13 +152,17 @@ const HAUT_VERTICAL = 0.85;
 const BAS_VERTICAL = 2.05;
 
 /**
- * Le déroulé d'une division posée : ce qu'on écrit au quotient, et ce qui reste
- * à gauche, tour par tour.
+ * Le déroulé d'une division posée : ce qu'on écrit au quotient, quel dividende
+ * PARTIEL on travaille, et ce qui en reste, tour par tour.
  *
  * On avance chiffre par chiffre sur le dividende — c'est ce qui fait apparaître
  * les zéros intercalaires du quotient —, puis, une fois le dividende épuisé, on
  * ajoute des zéros décimaux tant qu'il reste quelque chose et qu'on n'a pas
  * épuisé les décimales permises.
+ *
+ * `courantAvant` est exactement ce que la ZONE EN JEU affiche au début du tour,
+ * et `reste` ce qu'elle affiche à la fin : la scène n'a rien à recalculer, elle
+ * n'a qu'à l'écrire dans les colonnes qu'il faut.
  */
 export function derouleDeLaDivision(a, b, decimales) {
   const tours = [];
@@ -188,20 +195,15 @@ export function derouleDeLaDivision(a, b, decimales) {
 }
 
 /**
- * Le nombre `v`, lu à l'échelle 10⁻ᵈ, écrit comme la colonne l'écrit.
- * `formate(30, 1)` → `3,0` ; `formate(20, 3)` → `0,020` ; `formate(0, 1)` → `0,0`.
+ * Ce que la LIGNE ENTIÈRE affiche à un instant donné, chiffres seuls, virgule
+ * exclue : la zone en jeu (complétée de zéros à gauche, comme au tableau) suivie
+ * des chiffres pas encore descendus.
+ *
+ * @param {number} zone   la valeur travaillée à cet instant
+ * @param {number} large  le nombre de colonnes qu'elle occupe
+ * @param {string} queue  les chiffres du dividende encore estompés
  */
-export function formate(v, d) {
-  const s = String(v);
-  if (d === 0) return s;
-  const plein = s.padStart(d + 1, '0');
-  return `${plein.slice(0, plein.length - d)},${plein.slice(plein.length - d)}`;
-}
-
-/** La partie entière de ce que la colonne écrit — ce que porte le jeton `A`. */
-const partieEntiere = (v, d) => (d === 0 ? String(v) : formate(v, d).split(',')[0]);
-/** Le jᵉ chiffre après la virgule (j de 1 à d). */
-const chiffreDecimal = (v, d, j) => formate(v, d).split(',')[1][j - 1];
+export const ligneAffichee = (zone, large, queue) => String(zone).padStart(large, '0') + queue;
 
 export function plan(ctx) {
   const idA = ctx.scene.resolve(ctx.op.dividende, `${ctx.where}« dividende » : `)[0];
@@ -232,40 +234,46 @@ export function plan(ctx) {
   const T = ctx.dur;
   const fs = ctx.metrics.fontSize;
   const av = ctx.metrics.advance;
+  const chiffresA = [...String(a)];
+  const L = chiffresA.length;
   const entiers = tours.filter((t) => !t.decimal).length;
 
-  /* ── LA COLONNE DE GAUCHE, TOUR PAR TOUR ──────────────────────────────────
-     Ce que la colonne montre au début du tour, ce que chaque exemplaire lui
-     retire, et ce qu'il en reste à la fin. Tout est tenu en ENTIERS, à
-     l'échelle du dernier rang affiché (10⁻ᵈ) : `3,0` est le nombre 30 avec
-     d = 1, et lui retirer un « 0,5 » c'est lui retirer 5. La virgule n'est
-     qu'une marque de rang — « comme si c'était le nombre ×10 » (l'auteur). */
-  const colonne = [];
+  /* ── LE PLAN DE LA LIGNE, TOUR PAR TOUR ───────────────────────────────────
+     Quelles colonnes sont en jeu, quelle valeur elles portent, et ce que la
+     ligne entière vaut alors. C'est le seul endroit où l'on parle d'arithmétique
+     ; tout ce qui suit ne fait que placer, éclairer et animer. */
+  const plans = [];
   {
-    let reste = a;
-    let d = 0;
+    let reste = a;    // la valeur restante VRAIE, à l'échelle 10⁻ᵈ
+    let d = 0;        // décimales abaissées
     tours.forEach((tour, i) => {
       if (tour.decimal) { reste *= 10; d += 1; }          // « on rajoute un 0 »
-      const rang = tour.decimal ? 0 : entiers - 1 - i;    // colonnes depuis la droite
-      const emporte = b * (tour.decimal ? 1 : 10 ** rang);
-      const debut = reste;
-      reste -= tour.chiffre * emporte;
-      if (reste < 0) {
-        fail(`${ctx.where}potence ${a} ÷ ${b} : le tour ${i + 1} retirerait plus qu'il n'y a.`);
+      // les colonnes en jeu : le préfixe du dividende, plus les décimales
+      // abaissées ; elles s'étendent d'exactement une colonne par tour.
+      const large = tour.decimal ? L + d : i + 1;
+      const queue = tour.decimal ? '' : chiffresA.slice(i + 1).join('');
+      /* ★ **CE QUE LE PAQUET RETIRE À LA ZONE, ET CE QU'IL RETIRE À LA LIGNE.**
+         Il vaut `B` — c'est ce que l'auteur a tranché, et c'est ce qu'on voit
+         voler. Retiré dans la colonne des dizaines, il fait perdre `B0` à la
+         ligne : ce n'est pas une contradiction, c'est la définition même des
+         colonnes, et c'est ce qui explique pourquoi le chiffre du quotient
+         s'écrit à ce rang-là. */
+      const pasDeLaLigne = b * (tour.decimal ? 1 : 10 ** (L - 1 - i));
+      /* ⚠️ **CONTRÔLE CROISÉ (§0.3) : CE QUI EST ÉCRIT EST CE QUI EST COMPTÉ.**
+         À chaque exemplaire près, la ligne affichée — zone complétée de zéros,
+         suivie des chiffres estompés — doit se lire exactement comme la valeur
+         restante. Deux chemins de calcul, une seule vérité ; sinon la scène
+         montrerait un nombre que le calcul ne produit pas. */
+      for (let p = 0; p <= tour.chiffre; p++) {
+        const affiche = Number(ligneAffichee(tour.courantAvant - p * b, large, queue));
+        if (affiche !== reste - p * pasDeLaLigne) {
+          fail(`${ctx.where}potence ${a} ÷ ${b} : au tour ${i + 1}, après ${p} retrait(s), `
+            + `la ligne montrerait ${affiche} quand il reste ${reste - p * pasDeLaLigne}. `
+            + 'Le moteur visuel refuse d’afficher un calcul faux.');
+        }
       }
-      /* ⚠️ **DEUX CALCULS, UNE SEULE VÉRITÉ.** `derouleDeLaDivision` suit le
-         dividende PARTIEL (la méthode de l'écolier) ; la colonne, elle, suit la
-         valeur restante ENTIÈRE en lui retirant les paquets un à un. Les deux
-         ne parlent du MÊME nombre qu'une fois le dividende épuisé — au dernier
-         tour entier, puis à chaque décimale — et là ils doivent tomber
-         d'accord, sans quoi la scène montrerait un nombre que le calcul ne
-         produit pas (§0.3). */
-      if ((tour.decimal || i === entiers - 1) && reste !== tour.reste) {
-        fail(`${ctx.where}potence ${a} ÷ ${b} : au tour ${i + 1} la colonne tombe sur `
-          + `${reste} quand le déroulé annonce ${tour.reste}. Le moteur visuel refuse `
-          + 'd’afficher un calcul faux.');
-      }
-      colonne.push({ tour, d, rang, emporte, debut, fin: reste });
+      reste -= tour.chiffre * pasDeLaLigne;
+      plans.push({ tour, d, large });
     });
   }
 
@@ -275,10 +283,10 @@ export function plan(ctx) {
   const pas = exemplaires
     ? Math.min(TEMPO.PAS, Math.max(PAS_PLANCHER, BUDGET_EXTRACTION / exemplaires))
     : TEMPO.PAS;
-  const dureeDuTour = (c) => (c.tour.decimal ? TEMPO.INSERTION : 0) + TEMPO.POSE
-    + (c.tour.chiffre ? c.tour.chiffre * pas + TEMPO.RESPIRE : TEMPO.REPOS);
+  const dureeDuTour = (tour) => (tour.decimal ? TEMPO.INSERTION : 0) + TEMPO.POSE
+    + (tour.chiffre ? tour.chiffre * pas + TEMPO.RESPIRE : TEMPO.REPOS);
   const naturel = TEMPO.BARRES + TEMPO.EFFACEMENT + TEMPO.DESCENTE
-    + colonne.reduce((s, c) => s + dureeDuTour(c), 0);
+    + tours.reduce((s, t) => s + dureeDuTour(t), 0);
   // La durée annoncée est un plancher, jamais un plafond : si elle est plus
   // large que nécessaire, le geste s'y étend ; si elle est trop courte, c'est
   // elle qui cède — le compilateur déduit la durée du step de l'étendue réelle.
@@ -312,18 +320,19 @@ export function plan(ctx) {
   }
   const largeurA = ctx.scene.get(idA).w;
   const largeurB = noeudB.w;
-  const bordDroit = posA.x + largeurA / 2;   // le bord droit de la colonne de gauche
+  const bordDroit = posA.x + largeurA / 2;   // le bord droit du dividende
   const gaucheB = posB.x - largeurB / 2;
   const barreX = (bordDroit + gaucheB) / 2;
   const barreY = ligneY + fs * SOUS_LA_LIGNE;
 
   /* Les colonnes de la potence, comptées depuis la droite : la colonne 0 est
-     celle qui touche la barre. C'est le repère de TOUT ce qui s'écrit à gauche —
-     et c'est pourquoi rien n'y bouge quand un chiffre de tête disparaît. */
+     celle qui touche la barre. Aucun chiffre n'en change jamais — c'est le
+     repère qui rend le geste lisible, et ce qui permet d'estomper plutôt que
+     de déplacer. Seule l'insertion d'une décimale pousse tout le monde d'une
+     colonne vers la gauche, parce que l'auteur l'a demandé ainsi. */
   const colonneX = (rang) => bordDroit - (rang + 0.5) * av;
-  // Le centre du jeton `A` : il porte la partie entière, calée à droite, juste
-  // avant la virgule et les décimales quand il y en a.
-  const centreEntier = (longueur, d) => bordDroit - (d > 0 ? (d + 1) * av : 0) - (longueur * av) / 2;
+  const xEntier = (c, d) => colonneX((L - 1 - c) + (d > 0 ? d + 1 : 0));
+  const xDecimale = (k, d) => colonneX(d - k);
 
   // Le quotient s'écrit sous la barre, à partir du bord gauche de B — une
   // colonne par chiffre, plus une pour la virgule. La barre horizontale DOIT
@@ -341,7 +350,7 @@ export function plan(ctx) {
     base: { opacity: 0 },
   }, { where: ctx.where });
   ctx.scene.place(idVert, { x: barreX, y: ligneY });
-  ctx.anim({ id: idVert, prop: 'opacity', to: 1, at: ms(TEMPO.BARRES) * 0.15, dur: ms(TEMPO.BARRES) * 0.4, ease: EASE.fade });
+  ctx.anim({ id: idVert, prop: 'opacity', to: 1, at: ms(TEMPO.BARRES) * 0.12, dur: ms(TEMPO.BARRES) * 0.35, ease: EASE.fade });
 
   const idHoriz = ctx.gensym('pothoriz');
   ctx.scene.create({
@@ -350,40 +359,79 @@ export function plan(ctx) {
     base: { opacity: 0 },
   }, { where: ctx.where });
   ctx.scene.place(idHoriz, { x: barreX + longueurBarre / 2, y: barreY });
-  ctx.anim({ id: idHoriz, prop: 'opacity', to: 1, at: ms(TEMPO.BARRES) * 0.5, dur: ms(TEMPO.BARRES) * 0.45, ease: EASE.fade });
+  ctx.anim({ id: idHoriz, prop: 'opacity', to: 1, at: ms(TEMPO.BARRES) * 0.3, dur: ms(TEMPO.BARRES) * 0.35, ease: EASE.fade });
 
-  /* ── ② à ⑤ LE CALCUL ─────────────────────────────────────────────────────
-     À gauche, la colonne perd ce qui la quitte. À droite, sous la barre, le
-     quotient se COMPTE, chiffre par chiffre — et la virgule paraît des deux
-     côtés au même instant, parce que c'est le même geste. */
+  /* ── ② LE DIVIDENDE S'OUVRE EN COLONNES, ET S'ESTOMPE ─────────────────────
+
+     Un jeton porte UN texte et une seule opacité ; désigner « le premier
+     chiffre de A » demande donc une colonne par chiffre. Elles naissent à la
+     place EXACTE des glyphes qu'elles reprennent — même chasse, même ligne de
+     base, opacité pleine — et le jeton du dividende se réduit au même instant à
+     son premier chiffre. Rien ne bouge, rien ne clignote : à l'image, il ne se
+     passe rien du tout, jusqu'à ce que les colonnes qui ne sont pas en jeu
+     s'estompent. C'est ce fondu-là, et lui seul, qui se voit.
+
+     ⚠️ Le partage a lieu APRÈS l'écart : tant que la ligne se réagence, les
+       glyphes de A n'ont pas de place fixe où poser des colonnes. */
+  const tPartage = ms(TEMPO.BARRES) * 0.5;
+  const colonnesA = [idA];
+  for (let c = 1; c < L; c++) {
+    const id = ctx.gensym('potchiffre');
+    ctx.scene.create({
+      id, role: 'text', text: chiffresA[c], kind: 'digit', inFlow: false, base: { opacity: 0 },
+    }, { where: ctx.where });
+    ctx.scene.place(id, { x: xEntier(c, 0), y: ligneY });
+    // il paraît sans transition, exactement là où le glyphe était déjà…
+    ctx.anim({ id, prop: 'opacity', to: 1, at: tPartage, dur: 1, ease: EASE.linear });
+    // …puis il recule dans l'ombre : il n'est pas encore en jeu.
+    ctx.anim({
+      id, prop: 'opacity', to: ESTOMPE,
+      at: tPartage + 1, dur: Math.max(1, ms(TEMPO.BARRES) * 0.45), ease: EASE.fade,
+    });
+    colonnesA.push(id);
+  }
+  if (L > 1) {
+    // le jeton du dividende ne garde que sa première colonne : il saute d'une
+    // demi-chasse pour que SON chiffre ne bouge pas d'un pixel.
+    ctx.place(idA, { x: xEntier(0, 0), y: ligneY }, { at: tPartage, dur: 1, ease: EASE.linear });
+  }
+
+  /* ── ③ à ⑥ LE CALCUL ─────────────────────────────────────────────────────
+     À gauche, la zone en jeu s'étend d'une colonne par tour et perd `B` par
+     exemplaire. À droite, sous la barre, le quotient se COMPTE, chiffre par
+     chiffre — et la virgule paraît des deux côtés au même instant, parce que
+     c'est le même geste. */
   const chiffres = [];       // les jetons du quotient, dans l'ordre de lecture
-  const decimalesA = [];     // les chiffres après la virgule, colonne de gauche
+  const decimalesA = [];     // les zéros abaissés, colonne de gauche
   let idVirgA = null;        // la virgule de la colonne de gauche
   let idVirgQ = null;        // celle du quotient
-  let longueurA = String(a).length;
   let t = ms(TEMPO.BARRES);
 
-  colonne.forEach((c, i) => {
+  plans.forEach((p, i) => {
     const spec = sorties[i];
-    const d = c.d;
+    const { tour, d, large } = p;
+    // l'instant où le chiffre du quotient paraît : le début du tour, sauf sous
+    // la virgule, où il s'inscrit AVEC elle (voir plus bas).
+    let apparition = t;
 
-    /* ④ **LE DÉCALAGE, ET C'EST UN DÉPLACEMENT, PAS UN CHANGEMENT DE TEXTE.**
+    /* ⑤ **LE DÉCALAGE, ET C'EST UN DÉPLACEMENT, PAS UN CHANGEMENT DE TEXTE.**
 
        > « On décale A sur la gauche pour insérer ",0" à sa droite, avant la
        >   barre verticale qui le sépare de B, et on fait de même sous B. »
 
-       La version précédente réécrivait simplement le texte du jeton : rien ne
+       Une version précédente réécrivait simplement le texte du jeton : rien ne
        glissait, rien ne s'insérait, et « 3 » devenait « 3,0 » d'un coup, à
-       cheval sur la barre. Ici la colonne garde son bord droit contre la
-       barre : A recule d'une colonne (de deux, la première fois, pour la
-       virgule ET le zéro), et ce qui s'inscrit à sa droite naît à sa place. */
-    if (c.tour.decimal) {
+       cheval sur la barre. Ici la ligne garde son bord droit contre la barre :
+       tout le dividende recule d'une colonne (de deux, la première fois, pour
+       la virgule ET le zéro), et ce qui s'inscrit à sa droite naît à sa place. */
+    if (tour.decimal) {
       const glisse = ms(TEMPO.INSERTION);
-      ctx.place(idA, { x: centreEntier(longueurA, d), y: ligneY }, { at: t, dur: glisse, ease: EASE.move });
-      // la virgule et les décimales déjà écrites reculent d'une colonne
+      colonnesA.forEach((id, c) => {
+        ctx.place(id, { x: xEntier(c, d), y: ligneY }, { at: t, dur: glisse, ease: EASE.move });
+      });
       if (idVirgA) ctx.place(idVirgA, { x: colonneX(d), y: ligneY }, { at: t, dur: glisse, ease: EASE.move });
-      decimalesA.forEach((dec, k) => {
-        ctx.place(dec, { x: colonneX(d - 1 - k), y: ligneY }, { at: t, dur: glisse, ease: EASE.move });
+      decimalesA.forEach((id, k) => {
+        ctx.place(id, { x: xDecimale(k + 1, d), y: ligneY }, { at: t, dur: glisse, ease: EASE.move });
       });
       if (!idVirgA) {
         idVirgA = ctx.gensym('potvirga');
@@ -393,13 +441,15 @@ export function plan(ctx) {
         ctx.scene.place(idVirgA, { x: colonneX(d), y: ligneY });
         ctx.anim({ id: idVirgA, prop: 'opacity', to: 1, at: t + glisse * 0.35, dur: glisse * 0.65, ease: EASE.fade });
       }
-      // le zéro qu'on abaisse — il naît à zéro et c'est de lui qu'on retirera
+      /* Le zéro qu'on abaisse — « on rajoute un 0 de plus, ce qui donne
+         "0,A0" ». Il naît EN JEU, à pleine encre : c'est de lui qu'on va
+         retirer `B`. */
       const idZero = ctx.gensym('potdec');
       ctx.scene.create({
         id: idZero, role: 'text', text: '0', kind: 'digit', inFlow: false,
         base: { opacity: 0, scale: 0.7 },
       }, { where: ctx.where });
-      ctx.scene.place(idZero, { x: colonneX(0), y: ligneY });
+      ctx.scene.place(idZero, { x: xDecimale(d, d), y: ligneY });
       ctx.anim({ id: idZero, prop: 'opacity', to: 1, at: t + glisse * 0.35, dur: glisse * 0.65, ease: EASE.fade });
       ctx.anim({ id: idZero, prop: 'scale', to: 1, at: t + glisse * 0.35, dur: glisse * 0.65, ease: EASE.pop });
       decimalesA.push(idZero);
@@ -412,7 +462,23 @@ export function plan(ctx) {
         ctx.scene.place(idVirgQ, { x: quotientX(entiers), y: quotientY });
         ctx.anim({ id: idVirgQ, prop: 'opacity', to: 1, at: t + glisse * 0.35, dur: glisse * 0.65, ease: EASE.fade });
       }
+      // ★ « ON FAIT DE MÊME SOUS B (on ajoute ",0") » : la virgule ET le zéro.
+      //   Le chiffre du quotient de ce tour-ci EST ce zéro-là — il paraît donc
+      //   avec la virgule, et non un temps plus tard : c'est un seul geste, des
+      //   deux côtés de la barre.
+      apparition = t + glisse * 0.35;
       t += glisse;
+    }
+
+    /* ★ **LE CHIFFRE SUIVANT ENTRE EN JEU — c'est un ÉCLAIRAGE, pas un
+       déplacement.** « Quand le premier chiffre de A < B, on inclut le 2ⁿᵈ
+       chiffre de A » : le chiffre était là depuis le début, estompé ; il passe
+       à pleine encre, dans sa colonne, sans avoir bougé d'un pixel. */
+    if (!tour.decimal && i > 0) {
+      ctx.anim({
+        id: colonnesA[i], prop: 'opacity', to: 1,
+        at: t, dur: Math.max(1, ms(TEMPO.POSE) * 0.9), ease: EASE.fade,
+      });
     }
 
     // --- le chiffre du quotient : il paraît À ZÉRO, et il montera seul -------
@@ -423,17 +489,17 @@ export function plan(ctx) {
       base: { opacity: 0, scale: 0.7 },
     }, { where: ctx.where });
     ctx.scene.place(spec.id, place);
-    ctx.anim({ id: spec.id, prop: 'opacity', to: 1, at: t, dur: ms(TEMPO.POSE) * 0.8, ease: EASE.fade });
-    ctx.anim({ id: spec.id, prop: 'scale', to: 1, at: t, dur: ms(TEMPO.POSE) * 0.8, ease: EASE.pop });
+    const poseQ = Math.max(1, ms(TEMPO.POSE) * 0.8);
+    ctx.anim({ id: spec.id, prop: 'opacity', to: 1, at: apparition, dur: poseQ, ease: EASE.fade });
+    ctx.anim({ id: spec.id, prop: 'scale', to: 1, at: apparition, dur: poseQ, ease: EASE.pop });
     chiffres.push(spec.id);
 
     const debutTour = t;
     const depart0 = t + ms(TEMPO.POSE);
-    const n = c.tour.chiffre;
+    const n = tour.chiffre;
     const finTour = n
       ? depart0 + n * ms(pas) + ms(TEMPO.RESPIRE)
       : depart0 + ms(TEMPO.REPOS);
-    const span = Math.max(1, finTour - debutTour);
 
     /* ★ **LE CHIFFRE SE COMPTE, IL NE SE POSE PAS.**
 
@@ -443,9 +509,10 @@ export function plan(ctx) {
 
        C'est le même geste que la division à l'accolade, et pour la même
        raison : un chiffre qui paraît tout fait n'apprend rien. Quand il n'en
-       part aucun — « 50 ne tient pas dans 13 » —, le chiffre reste à zéro, et
+       part aucun — « 5 ne tient pas dans 1 » —, le chiffre reste à zéro, et
        ce zéro-là est justement celui qu'il faut voir s'écrire ; c'est pourquoi
        un tour vide prend quand même son temps. */
+    const departX = tour.decimal ? xDecimale(d, d) : xEntier(i, d);
     const atterrissages = [];
     for (let e = 0; e < n; e++) {
       const at = depart0 + e * ms(pas);
@@ -453,17 +520,16 @@ export function plan(ctx) {
       atterrissages.push(at + vol);
 
       const id = ctx.gensym('potpaquet');
-      const emporte = formate(c.emporte, d);
       ctx.scene.create({
-        id, role: 'text', text: emporte, kind: 'digit', inFlow: false,
+        id, role: 'text', text: String(b), kind: 'digit', inFlow: false,
         base: { opacity: 0, scale: 0.5, fill: ctx.palette.gold },
       }, { where: ctx.where });
-      ctx.scene.place(id, { x: colonneX(c.rang), y: ligneY });
+      ctx.scene.place(id, { x: departX, y: ligneY });
       ctx.anim({
         id,
         prop: 'translate',
         values: [
-          { x: colonneX(c.rang), y: ligneY },
+          { x: departX, y: ligneY },
           { x: barreX, y: ligneY - fs * 0.42 },
           { x: posB.x, y: ligneY + fs * 0.12 },
           { x: place.x, y: place.y },
@@ -474,53 +540,43 @@ export function plan(ctx) {
       });
       ctx.anim({ id, prop: 'opacity', values: [0, 1, 1, 0], offsets: [0, 0.12, 0.86, 1], at, dur: vol });
       ctx.anim({ id, prop: 'scale', values: [0.55, 0.68, 0.55], offsets: [0, 0.5, 1], at, dur: vol });
-      /* Il vaut ce qu'il emporte en partant, `1` en arrivant : on retire
-         cinquante, ça compte pour un. Même bascule qu'à l'accolade, et pour la
-         même raison — un « 50 » qui atterrit sur un compteur affichant `1` se
-         lirait comme un `+50`. */
+      /* Il vaut `B` en partant — la valeur qu'on retire à la zone — et `1` en
+         arrivant : on retire cinq, ça compte pour un. Même bascule qu'à
+         l'accolade, et pour la même raison : sans elle, un « 5 » qui atterrit
+         sur un compteur affichant `1` se lirait comme un `+5`. */
       ctx.discrete({
         id, channel: 'text', at, dur: vol,
-        render: (u) => (u < 0.55 ? emporte : '1'),
+        render: (u) => (u < 0.55 ? String(b) : '1'),
       });
-
-      /* La colonne est calée à droite : quand elle perd un chiffre de tête, ce
-         sont ses COLONNES qui restent en place, donc le jeton doit sauter d'une
-         demi-chasse. Un saut d'une milliseconde, à l'instant exact du départ —
-         rien ne se voit bouger, et tout reste aligné. */
-      const apres = c.debut - (e + 1) * c.emporte;
-      const longueur = partieEntiere(apres, d).length;
-      if (longueur !== longueurA) {
-        longueurA = longueur;
-        ctx.place(idA, { x: centreEntier(longueurA, d), y: ligneY }, { at, dur: 1, ease: EASE.linear });
-      }
     }
 
-    // combien d'exemplaires sont PARTIS à l'instant u — la colonne se vide au
-    // départ, pas à l'arrivée : ce qui a quitté le nombre n'est plus en lui.
-    const departs = atterrissages.map((_, e) => (depart0 + e * ms(pas) - debutTour) / span);
+    /* La zone en jeu perd `B` AU DÉPART de chaque exemplaire — pas à son
+       arrivée : ce qui a quitté le nombre n'est plus en lui. Chaque colonne
+       rend son propre chiffre, fonction pure du temps ; le premier tour prend
+       son canal dès le partage, pour qu'aucun jeton ne montre un instant le
+       texte qu'il avait avant d'être partagé. */
+    const debutCanal = i === 0 ? tPartage : debutTour;
+    const span = Math.max(1, finTour - debutCanal);
+    const departs = atterrissages.map((_, e) => (depart0 + e * ms(pas) - debutCanal) / span);
     const partis = (u) => {
       let k = 0;
       while (k < departs.length && u >= departs[k]) k++;
       return k;
     };
-    const valeur = (u) => c.debut - partis(u) * c.emporte;
-
-    ctx.discrete({
-      id: idA, channel: 'text', at: debutTour, dur: span,
-      render: (u) => partieEntiere(valeur(u), d),
-    });
-    decimalesA.forEach((dec, k) => {
+    const texte = (u) => ligneAffichee(tour.courantAvant - partis(u) * b, large, '');
+    const enJeu = tour.decimal ? [...colonnesA, ...decimalesA] : colonnesA.slice(0, i + 1);
+    enJeu.forEach((id, c) => {
       ctx.discrete({
-        id: dec, channel: 'text', at: debutTour, dur: span,
-        render: (u) => chiffreDecimal(valeur(u), d, k + 1),
+        id, channel: 'text', at: debutCanal, dur: span, render: (u) => texte(u)[c],
       });
     });
 
     // Le chiffre du quotient suit les ATTERRISSAGES, un cran chacun. Fonction
     // pure de `t`, donc exacte au scrubbing, en avant comme en arrière.
-    const bornes = atterrissages.map((x) => (x - debutTour) / span);
+    const spanQ = Math.max(1, finTour - apparition);
+    const bornes = atterrissages.map((x) => (x - apparition) / spanQ);
     ctx.discrete({
-      id: spec.id, channel: 'text', at: debutTour, dur: span,
+      id: spec.id, channel: 'text', at: apparition, dur: spanQ,
       render: (u) => {
         let compte = 0;
         while (compte < bornes.length && u >= bornes[compte]) compte++;
@@ -531,14 +587,14 @@ export function plan(ctx) {
     t = finTour;
   });
 
-  /* ── ⑥ TOUT S'EFFACE, SAUF LE QUOTIENT ───────────────────────────────────
+  /* ── ⑦ TOUT S'EFFACE, SAUF LE QUOTIENT ───────────────────────────────────
      « Puis A et B disparaissent avec les deux barres et le nombre sous B prend
      leur place en perdant sa virgule DANS LE DÉPLACEMENT. » — la virgule du
      quotient ne s'en va donc pas avec le reste : elle s'éteint pendant que les
      chiffres montent, et l'écart qu'elle laissait se referme de lui-même. */
   const tEffacement = ms(TEMPO.EFFACEMENT);
   const tDescente = ms(TEMPO.DESCENTE);
-  const aEffacer = [idVert, idHoriz, idA, idB, ...decimalesA];
+  const aEffacer = [idVert, idHoriz, ...colonnesA, idB, ...decimalesA];
   if (idVirgA) aEffacer.push(idVirgA);
   for (const id of aEffacer) {
     ctx.anim({ id, prop: 'opacity', to: 0, at: t, dur: tEffacement });
