@@ -552,6 +552,14 @@ function inventaire(o) {
       // n'est désigné par personne, la primitive le balaie sur la ligne.
       supprimes.push(...normaliserCibles(o.surnumeraires));
       break;
+    // La potence pose les chiffres du quotient — le `default` les voyait déjà —
+    // et CONSOMME ses deux opérandes, ce que le `default` ignorait : sans cette
+    // ligne, le dividende et le diviseur restaient « disponibles » pour
+    // `essayerCatalogue` après avoir disparu de la scène.
+    case 'potence':
+      ajouter(o.to);
+      supprimes.push(...normaliserCibles(o.dividende), ...normaliserCibles(o.diviseur));
+      break;
     default:
       ajouter(o.to);
       break;
@@ -3297,6 +3305,71 @@ export function validerFormeOp(o) {
       return typeof o.text === 'string' && o.text.trim() ? null : '« text » non vide obligatoire';
     case 'wait':
       return null;
+    /* ⚠️ **LES QUATRE DERNIERS GESTES DU VOCABULAIRE N'AVAIENT PAS LEUR CAS
+         ICI** — `rule`, `convert`, `insert` et `potence` —, et ce `switch`
+         est un SECOND vocabulaire, que personne ne recoupait avec le premier.
+
+       > « mdc1 mdc2 mdc3 : il n'y a toujours pas de potence visible ni
+       >   d'animation, juste un remplacement sommaire. Pourquoi ? » (l'auteur)
+
+       Parce qu'ici. `potence` figure bien dans `VOCABULAIRE` ; mais faute de
+       cas, elle tombait dans le `default` ci-dessous, qui la déclarait « hors
+       vocabulaire ». `essayerCatalogue` rejetait alors les steps de l'opérateur
+       ENTIERS et rejouait la conversion en substitution générique : un nombre
+       remplacé par d'autres, sans barres, sans retraits, sans rien. L'avertis-
+       sement était émis — mais dans `sc.avertissements`, qu'aucune page
+       n'affiche.
+
+       Tout ce qui avait été vérifié l'était à côté : la primitive compilait,
+       ses steps compilaient, la ligne se rejouait. Rien ne passait par
+       `construireScenario`, c'est-à-dire par le seul chemin que le site prend.
+       C'est ce que `gestes-decrits.test.js` exige désormais, et il exige aussi
+       que les deux vocabulaires restent d'accord.
+
+       ★ `rule`, `convert` et `insert` ne sont émis aujourd'hui que par l'œuf,
+         qui construit son scénario à la main et ne passe pas par ici : aucun
+         défaut visible. Le premier opérateur du catalogue qui en émettrait un
+         serait tombé dans le même trou. Leurs cas lisent ce que leurs
+         primitives exigent (`visuel/primitives/<geste>.js`). */
+    case 'potence': {
+      if (!chaine(o.dividende)) return '« dividende » doit être un identifiant';
+      if (!chaine(o.diviseur)) return '« diviseur » doit être un identifiant';
+      if (o.dividende === o.diviseur) return '« dividende » et « diviseur » doivent être distincts';
+      if (!Array.isArray(o.to) || !o.to.length || !o.to.every(tok)) {
+        return '« to » doit lister les chiffres du quotient, chacun {id, text}';
+      }
+      if (o.decimales !== undefined
+        && !(Number.isInteger(o.decimales) && o.decimales >= 0 && o.decimales <= 3)) {
+        return '« decimales » doit être un entier de 0 à 3';
+      }
+      return null;
+    }
+    case 'rule':
+      if (!chaine(o.id)) return '« id » manquant : « rule » redimensionne un trait déjà posé';
+      if (o.couvre === undefined && o.to === undefined) {
+        return '« rule » demande « couvre » (ce que le trait sépare) ou « to » (une largeur)';
+      }
+      if (o.couvre !== undefined && !cibles(o.couvre)) return '« couvre » mal formé';
+      if (o.to !== undefined && !(typeof o.to === 'number' && o.to > 0)) {
+        return '« to » doit être une largeur positive';
+      }
+      return null;
+    case 'convert':
+      if (!cibles(o.targets)) return '« targets » : rien à convertir';
+      if (o.to !== undefined && !(Array.isArray(o.to) && o.to.length && o.to.every(tok))) {
+        return '« to » doit lister les jetons de l’expression obtenue';
+      }
+      return null;
+    case 'insert': {
+      if (!Array.isArray(o.tokens) || !o.tokens.length || !o.tokens.every(tok)) {
+        return '« tokens » doit lister les jetons qui entrent';
+      }
+      const reperes = [o.avant, o.apres].filter((x) => x !== undefined);
+      if (reperes.length !== 1 || !chaine(reperes[0])) {
+        return '« insert » demande « avant » OU « apres » — un seul des deux';
+      }
+      return null;
+    }
     default:
       return `op « ${o.op} » hors vocabulaire`;
   }

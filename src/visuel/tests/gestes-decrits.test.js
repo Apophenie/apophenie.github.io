@@ -389,3 +389,68 @@ test('les gestes arithmétiques tiennent sur les cas limites du témoin', () => 
     }
   }
 });
+
+// ───────────────────── 7. le chemin que le site prend VRAIMENT
+
+/**
+ * ★ **UN GESTE QUI COMPILE PEUT NE JAMAIS ÊTRE JOUÉ.**
+ *
+ * > « mdc1 mdc2 mdc3 : il n'y a toujours pas de potence visible ni d'animation,
+ * >   juste un remplacement sommaire. Pourquoi ? » (l'auteur)
+ *
+ * La primitive compilait, les steps de l'opérateur compilaient, la ligne se
+ * rejouait — trois vérifications vertes. Aucune ne passait par
+ * `construireScenario`, et c'est là que `validerFormeOp` déclarait la potence
+ * « hors vocabulaire » : les steps étaient rejetés ENTIERS et remplacés par une
+ * substitution générique. L'avertissement existait, dans `sc.avertissements`,
+ * qu'aucune page n'affiche.
+ *
+ * Ces deux tests-ci passent par le seul chemin qui compte : celui du site.
+ */
+import { construireScenario, validerFormeOp, VOCABULAIRE } from '../../recherche/scenario.js';
+import { depuisSaisie } from '../../moteur/etat.js';
+
+/** Une approche d'un seul fragment, construite comme le site la reçoit. */
+function approcheSur(saisie, codes) {
+  const ops = codes.map((c) => PAR_CODE.get(c));
+  const etats = [depuisSaisie(saisie)];
+  for (const op of ops) {
+    const suivant = appliquer(op, etats[etats.length - 1]);
+    assert.ok(suivant, `${codes.join('+')} doit s'appliquer à « ${saisie} »`);
+    etats.push(suivant);
+  }
+  const n = [...saisie].length;
+  return { mode: 'DECRET', parts: [{
+    fragment: { texte: saisie, offset: 0, longueur: n, intervalles: [[0, n]], famille: 'entier' },
+    chemin: { ops, etats },
+  }] };
+}
+
+/**
+ * ⚠️ **DEUX VOCABULAIRES, ET ILS DOIVENT DIRE LA MÊME CHOSE.** `VOCABULAIRE`
+ *   liste les gestes admis ; le `switch` de `validerFormeOp` en est un second,
+ *   dont le `default` rejette tout ce qu'il ne nomme pas. Les quatre derniers
+ *   gestes ajoutés au premier manquaient au second.
+ */
+test('★ tout geste du vocabulaire a son cas dans validerFormeOp', () => {
+  for (const geste of VOCABULAIRE) {
+    const grief = validerFormeOp({ op: geste });
+    assert.ok(!/hors vocabulaire/.test(grief || ''),
+      `« ${geste} » est dans VOCABULAIRE mais validerFormeOp le déclare hors vocabulaire`);
+  }
+});
+
+test('★ par le chemin du site, aucun geste arithmétique ne retombe sur le rendu générique', () => {
+  const attendu = {
+    'tca+masb+mdc1': 'potence', 'tca+masb+mdc2': 'potence', 'tca+masb+mdc3': 'potence',
+    'tca+masb+mdiv': 'group', 'tca+masb+mdvq': 'group', 'tca+masb+mdvr': 'group',
+    'tca+masb+mmod': 'group', 'tca+masb+mmoc': 'group',
+  };
+  for (const [programme, geste] of Object.entries(attendu)) {
+    const sc = construireScenario(approcheSur('Sept', programme.split('+')), { saisie: 'Sept' });
+    assert.equal(sc.avertissements, undefined,
+      `${programme} : ${(sc.avertissements || []).join(' | ')}`);
+    const gestes = new Set(sc.steps.flatMap((s) => (s.ops || []).map((o) => o.op)));
+    assert.ok(gestes.has(geste), `${programme} : le geste « ${geste} » doit être JOUÉ, pas remplacé`);
+  }
+});
