@@ -34,6 +34,14 @@ test('cible-mot — « Zerg » s’écrit ZERG : chaque voie se rejoue, se compi
     assert.equal(moteur.rejouer(lire(a.url)).approche.url, a.url, `${a.url} se rejoue`);
     const sc = moteur.scenarioDe(a, { saisie: 'Zerg', cible: r.cible });
     assert.equal(sc.result, 'ZERG', a.url);
+    // ★ Juste et compilable ne suffit pas : un geste rejeté est remplacé EN
+    //   SILENCE par une substitution générique, et seul `avertissements` le
+    //   dit (la potence de `mdc*` a disparu ainsi, sous trois tests verts).
+    assert.equal(sc.avertissements, undefined, `${a.url} : ${(sc.avertissements || []).join(' | ')}`);
+    // Et la réglette à rebours est JOUÉE au verdict : une case par lettre,
+    // dans l'ordre du mot.
+    const relus = sc.steps.flatMap((st) => st.ops).filter((o) => o.op === 'table' && o.ordre === '1a26');
+    assert.equal(relus.map((o) => o.to.text).join(''), 'ZERG', `${a.url} : réglette de m1a absente ou incomplète`);
     assert.doesNotThrow(() => compile(sc), a.url);
   }
 });

@@ -129,6 +129,11 @@ test('cible-mot — le verdict relit les rangs sur la réglette, PUIS révèle l
   assert.ok(approche, 'le lien se rejoue');
   const sc = moteur.scenarioDe(approche, { saisie: 'Zerg', cible: lecture.cible });
   assert.equal(sc.result, 'ZERG');
+  // ★ Un geste REJETÉ ne fait rien échouer : `essayerCatalogue` le remplace en
+  //   silence par une substitution générique, la scène compile et le résultat
+  //   est juste. Seul `avertissements` le dit — c'est ainsi que la potence de
+  //   `mdc*` a disparu du site sous trois vérifications vertes.
+  assert.equal(sc.avertissements, undefined, (sc.avertissements || []).join(' | '));
   const n = sc.steps.length;
   const reveal = sc.steps[n - 1].ops.find((o) => o.op === 'reveal');
   assert.ok(reveal, 'le dernier pas est le verdict');
