@@ -85,62 +85,66 @@ test('cible-mot — un signe qu’aucune relecture n’écrit : aucune voie, et 
   assert.ok(r.avertissement && r.avertissement.fr, 'la raison est écrite, pas devinée');
 });
 
-/* ══════════════════════ 2. Les quatre exemples de l'auteur ══════════════════════
+/* ══════════════════════ 2. Les exemples de l'auteur ══════════════════════
  *
- * « Sarah Kerrigan → Zerg, → Terran, → Ghost, → Fantome. »
+ * « Sarah Kerrigan → Zerg, → Terran, → Ghost, → Fantome. » Puis : « j'ai
+ * testé avec d'autres mots […] et aucune route ».
  *
- * ★ ZERG et GHOST sont ATTEINTS — par les coordonnées de clavier (`mcaz`,
- *   `mcqw`), la relecture que l'auteur a proposée. « Zerg » vaut `21314152`
- *   en AZERTY (`13314152` en QWERTY), « Ghost » `5262912251` dans les deux :
- *   des cibles chiffrées ordinaires, que le moteur écrit par l'absorption
- *   (`mab`, `mrdE`) — par exemple `fl+masb+mrdE`, les lettres de la saisie en
- *   codes ASCII du bas de casse, fondues dans la cible sans rien jeter.
+ * ★ ZERG, GHOST, TERRAN — et DIABLE, qu'aucune relecture n'ouvrait avant les
+ *   relectures par paires — sont ATTEINTS. Ce qui les ouvre est toujours la même
+ *   chose : une relecture dont la suite inverse est faite de CHIFFRES de 0 à 9
+ *   (coordonnées de clavier, rang sur deux chiffres, carré de Polybe,
+ *   multi-tap), que l'outillage chiffré sait écrire — par l'absorption, le plus
+ *   souvent : `fl+masc+mab`, les lettres de la saisie en codes ASCII, fondus
+ *   sans perte dans la suite visée.
  *
- * ★ TERRAN et FANTOME restent hors de portée, et ce n'est pas faute d'avoir
- *   cherché. Mesuré, avant et après les relectures :
- *
- *   · RÉAGENCEMENT + FILTRE : « Sarah Kerrigan » n'a ni T, ni O, ni F, ni M.
- *   · CHIFFREMENT PUIS RETRAIT NOMMÉ (les 25 césars et l'atbash, sur la saisie
- *     entière ou un seul mot, puis jusqu'à six filtres nommés) : les lettres de
- *     TERRAN apparaissent — `fr1` sur « Sarah » donne « Tbsbi Kerrigan », T,
- *     E, R, R, A, N dans l'ordre —, mais aucun retrait nommé n'ôte le surplus :
- *     sept lettres de trop au plus près. Celles de FANTOME n'apparaissent
- *     jamais toutes (il manque O et M). ZERG, par cette famille, garde quatre
- *     lettres de trop au mieux (« Z Kerigan »), GHOST n'est jamais dans l'ordre.
- *   · LES RELECTURES : en rangs, `20 5 18 18 1 14` et `6 1 14 20 15 13 5` —
- *     des valeurs au-delà de 9, que les opérateurs d'absorption ne visent pas ;
- *     en coordonnées, douze et quatorze chiffres (une colonne 10 pour le M de
- *     Fantome en AZERTY) : au-delà de dix, les modes à fragments ne peuvent
- *     plus les écrire, et aucun vecteur ne tombe juste.
- *
- * Ce qu'il faudrait ajouter : une absorption qui vise des VALEURS (des rangs
- *   de 1 à 26) et non des chiffres — la généralisation de `mab`/`mrdE`, qui
- *   ouvrirait les relectures par le rang ; ou une relecture plus compacte (un
- *   seul chiffre par lettre, au prix de l'injectivité). Aucune ne se décrète
- *   ici.
+ * ★ FANTOME reste hors de portée depuis « Sarah Kerrigan », et c'est la LONGUEUR
+ *   qui l'arrête : sept lettres font quatorze chiffres dans toutes les
+ *   relectures, et mesuré sur le corpus (`.planning/banc/cibles-mots-banc.mjs`)
+ *   la réussite tombe de 96 % à dix chiffres à 16 % à quatorze. Les modes qui
+ *   assemblent des fragments en ont douze au plus ; restent les voies d'un seul
+ *   vecteur, et aucune ne tombe juste ici. Il faudrait écrire un texte long
+ *   par TRONÇONS — une portée par morceau de la suite —, ce que l'assemblage ne
+ *   sait pas encore faire.
  */
-test('cible-mot — Sarah Kerrigan → Zerg, par les coordonnées de clavier', () => {
+test('cible-mot — Sarah Kerrigan → Zerg, par les coordonnées de clavier entre autres', () => {
   const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Zerg' });
   assert.ok(r.approches.length >= 1, 'aucune voie vers Zerg');
-  assert.ok(r.approches.some((a) => ['mcaz', 'mcqw'].includes(a.relecture.code)));
+  assert.ok(r.approches.some((a) => ['mcaz', 'mcqw'].includes(a.relecture.code)),
+    'la relecture que l’auteur a proposée garde ses voies à côté des paires');
   for (const a of r.approches) assert.match(a.url, new RegExp(`#${encoderTexte('Zerg')}$`));
   verifierVoies('Sarah Kerrigan', r, 'zerg');
 });
 
-test('cible-mot — Sarah Kerrigan → Ghost, par les coordonnées de clavier', () => {
+test('cible-mot — Sarah Kerrigan → Ghost', () => {
   const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Ghost' });
   assert.ok(r.approches.length >= 1, 'aucune voie vers Ghost');
   verifierVoies('Sarah Kerrigan', r, 'ghost');
 });
 
-for (const mot of ['Terran', 'Fantome']) {
-  test(`cible-mot — Sarah Kerrigan → ${mot}`, {
-    todo: 'inatteignable par une voie honnête avec le catalogue actuel — voir le pavé au-dessus',
-  }, () => {
-    const r = moteur.resoudre('Sarah Kerrigan', { cible: mot });
-    assert.ok(r.approches.length >= 1, `aucune voie vers ${mot}`);
-  });
-}
+test('cible-mot — Sarah Kerrigan → Terran, douze chiffres', () => {
+  const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Terran' });
+  assert.ok(r.approches.length >= 1, 'aucune voie vers Terran');
+  verifierVoies('Sarah Kerrigan', r, 'terran');
+});
+
+test('cible-mot — Sarah Kerrigan → Diable, que seules les relectures par paires ouvrent', () => {
+  const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Diable' });
+  assert.ok(r.approches.length >= 1, 'aucune voie vers Diable');
+  assert.ok(r.approches.every((a) => ['m1a2', 'mpol', 'mtap'].includes(a.relecture.code)),
+    'ni le rang ni le clavier n’y mènent : ce sont les paires qui l’ouvrent');
+  // Le diagnostic dit, relecture par relecture, ce qui a été tenté.
+  const clavier = r.relectures.find((x) => x.code === 'mcaz');
+  assert.equal(clavier.voies, 0);
+  verifierVoies('Sarah Kerrigan', r, 'diable');
+});
+
+test('cible-mot — Sarah Kerrigan → Fantome', {
+  todo: 'quatorze chiffres dans toutes les relectures — voir le pavé au-dessus',
+}, () => {
+  const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Fantome' });
+  assert.ok(r.approches.length >= 1, 'aucune voie vers Fantome');
+});
 
 /* ══════════════════════ 3. Non-régression des cibles chiffrées ══════════════════════
  *

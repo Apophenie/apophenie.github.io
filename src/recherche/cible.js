@@ -87,8 +87,9 @@
 //   par le barème d'écart (`ECARTS`, plus bas) — la hiérarchie de l'auteur,
 //   chiffrée.
 //
-// ⚠️ Deux des quatre exemples de l'auteur restent hors de portée — Terran et
-//   Fantome : voir `tests/lents/cible-mot.test.js`, qui dit pourquoi.
+// ⚠️ Un des quatre exemples de l'auteur reste hors de portée — Fantome ; Terran
+//   est atteint, par le clavier comme par les paires : voir
+//   `tests/lents/cible-mot.test.js`, qui dit pourquoi.
 
 /**
  * Le plafond de longueur — voir l'en-tête.
