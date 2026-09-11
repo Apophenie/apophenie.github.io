@@ -24,6 +24,7 @@ import { construireScenario } from '../scenario.js';
 import { operateursPourCible, operateursExplorables, appliquerOp, etat } from '../bfs.js';
 import { catalogue } from './_catalogue.js';
 import { compile } from '../../visuel/compile.js';
+import { plafondDAbsorption, VISEE_LONGUE } from '../../moteur/transformations/mappeurs.js';
 
 const B58_SK = encoderTexte('Sarah Kerrigan');
 const B58 = (t) => encoderTexte(t);
@@ -281,6 +282,31 @@ test('cible-mot — le rejeu refuse ce qu’il ne sait pas relire, en le disant'
   const impossible = moteur.rejouer(lire(`#so!m1a!ma1#${B58('Zerg')}#reine des lames`));
   assert.equal(impossible.ok, false);
   assert.equal(impossible.bandeau, BANDEAUX.relectureImpossible);
+});
+
+/**
+ * ★ UNE VISÉE LONGUE, UNE LIGNE LONGUE — `mappeurs.js › plafondDAbsorption`.
+ * L'absorption n'écrit qu'un chiffre visé pour trois ou quatre chiffres de
+ * ligne ; à trente-six chiffres de ligne, quatorze chiffres visés (sept lettres
+ * relues par paires) étaient hors d'atteinte par construction.
+ */
+test('cible-mot — le plafond d’absorption suit la visée, et seulement au-delà des cibles chiffrées', () => {
+  assert.equal(VISEE_LONGUE, MAX_CHIFFRES,
+    'le moteur ne lit pas la recherche : le seuil est recopié, et ce test tient l’égalité');
+  for (let l = 1; l <= MAX_CHIFFRES; l++) assert.equal(plafondDAbsorption(l), 36, `visée de ${l} : rien ne bouge`);
+  assert.equal(plafondDAbsorption(14), 70);
+  assert.equal(plafondDAbsorption(22), 110);
+});
+
+test('cible-mot — FANTOME depuis une adresse : soixante-dix chiffres de ligne pour quatorze visés, rejoués', () => {
+  const saisie = 'https://hope-hope-hope.fr/';
+  const { sc, approche } = scene(`#so!mtap!fl+masc+mab#${B58(saisie)}#${B58('Fantome')}`);
+  assert.equal(approche.relecture.code, 'mtap');
+  assert.equal(approche.cible.texte, '33216281636132', 'le multi-tap : la touche, puis le nombre d’appuis');
+  assert.equal(sc.result, 'fantome');
+  const relus = sc.steps.filter((s) => s.code === 'mtap').flatMap((s) => s.ops)
+    .filter((o) => o.to && /^[a-z]$/.test(String(o.to.text))).map((o) => o.to.text);
+  assert.equal(relus.join(''), 'fantome', 'la relecture est jouée, lettre par lettre');
 });
 
 test('cible-mot — sans l’opérateur qui relit, le scénario refuse plutôt que de décréter', () => {

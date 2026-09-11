@@ -1597,6 +1597,41 @@ const PAQUET_ABSORPTION_MAX = 6;
 /** Le plafond de chiffres, aligné sur `mad` et `mrd` (`CHIFFRES_MAX`). */
 const CHIFFRES_ABSORPTION_MAX = 36;
 
+/**
+ * ★ **UNE VISÉE LONGUE DEMANDE UNE LIGNE LONGUE — le plafond suit la visée,
+ *   au-delà de dix chiffres.**
+ *
+ * > « J'ai testé avec d'autres mots que Zerg, Terran… et aucune route. »
+ * >   (l'auteur)
+ *
+ * MESURÉ, et c'est une loi plus qu'un réglage : consommer TOUTE la ligne en
+ * paquets qui tombent chacun sur le chiffre attendu n'écrit, au plus, qu'un
+ * chiffre de la visée pour trois ou quatre chiffres de la ligne. Un chiffre
+ * seul n'est gardé que s'il est déjà le bon ; un paquet de deux n'a que trois
+ * valeurs (somme, produit, différence) ; il faut des paquets larges pour avoir
+ * le choix. Sur les trente-six chiffres de « Sarah Kerrigan » en ASCII, les
+ * nombres de chiffres qu'on sait écrire tombent entre 7 et 11 — quelle que soit
+ * la visée. À trente-six, une visée de quatorze chiffres (sept lettres relues
+ * par paires) était donc hors d'atteinte PAR CONSTRUCTION, et c'est ce que le
+ * banc des mots mesurait sans le nommer : 96 % de réussite à dix chiffres,
+ * 16 % à quatorze.
+ *
+ * Le plafond vaut donc cinq chiffres de ligne par chiffre visé, pour les
+ * visées de PLUS DE DIX chiffres — plus longues que toute cible chiffrée que le
+ * site accepte (`recherche/cible.js › MAX_CHIFFRES`, qu'un test tient égal à
+ * `VISEE_LONGUE`) : seules les relectures d'un texte y arrivent. En deçà, rien
+ * ne bouge, ni pour 666 ni pour aucune cible chiffrée, au chiffre près.
+ *
+ * ⚠️ Ce que ça coûte : une ligne plus longue à l'écran — des paquets de six
+ *   au plus, comme avant, mais davantage de paquets — et une programmation
+ *   dynamique en n² sur la ligne. La largeur d'un paquet, elle, reste six.
+ */
+export const VISEE_LONGUE = 10;
+const LIGNE_PAR_CHIFFRE_VISE = 5;
+export const plafondDAbsorption = (longueurVisee) => (longueurVisee > VISEE_LONGUE
+  ? Math.max(CHIFFRES_ABSORPTION_MAX, LIGNE_PAR_CHIFFRE_VISE * longueurVisee)
+  : CHIFFRES_ABSORPTION_MAX);
+
 const LIB_ABSORPTION = bilingue(
   'On dissout les intrus dans les chiffres de la cible',
   'Dissolve the intruders into the target digits',
@@ -1717,7 +1752,7 @@ function calculerPlanAbsorption(valeur, visee, autorisees = OPERATIONS_TOUTES) {
     for (const c of String(v)) chiffres.push({ v: Number(c), src: i });
   });
   const n = chiffres.length;
-  if (n > CHIFFRES_ABSORPTION_MAX) return null;
+  if (n > plafondDAbsorption(visee.chiffres.length)) return null;
   const T = visee.chiffres;
   const L = T.length;
   if (n < L) return null;
