@@ -27,6 +27,35 @@ const ICI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..
 const charger = (rel) => import(pathToFileURL(path.join(ICI, rel)).href);
 const { creerMoteur } = await charger('src/recherche/index.js');
 const { catalogue } = await charger('src/recherche/tests/_catalogue.js');
+const { normaliserCatalogue, appliquerOp, etat } = await charger('src/recherche/bfs.js');
+const { plafondDAbsorption } = await charger('src/moteur/transformations/mappeurs.js');
+
+/**
+ * ★ LA MATIÈRE D'UNE SAISIE — la plus longue ligne de chiffres qu'une lecture
+ * « filtre, découpe, mappeur » en tire. L'absorption, par où passent presque
+ * toutes les voies vers une cible longue, n'écrit qu'un chiffre visé pour trois
+ * ou quatre chiffres de ligne (`mappeurs.js › plafondDAbsorption`) : c'est ce
+ * qui départage un échec de CAPACITÉ d'un échec de découpe.
+ */
+const OPS = normaliserCatalogue(catalogue).filter((o) => o && !o.deprecated);
+function matiere(saisie) {
+  const e0 = etat('STR', saisie, [...saisie].map((_, i) => [i]));
+  let max = 0;
+  for (const f of [null, ...OPS.filter((o) => o.from === 'STR' && o.to === 'STR')]) {
+    const e1 = f ? appliquerOp(f, e0) : e0;
+    if (!e1) continue;
+    for (const d of OPS.filter((o) => o.from === 'STR' && o.to === 'TOKENS')) {
+      const e2 = appliquerOp(d, e1);
+      if (!e2) continue;
+      for (const m of OPS.filter((o) => o.from === 'TOKENS' && o.to === 'NUMS')) {
+        const e3 = appliquerOp(m, e2);
+        if (e3 && e3.type === 'NUMS') max = Math.max(max, e3.valeur.reduce((s, x) => s + String(x).length, 0));
+      }
+    }
+  }
+  return max;
+}
+const MATIERE = new Map();
 
 /**
  * Trente mots, choisis pour leur DIVERSITÉ et non pour tomber juste : de trois à
@@ -105,23 +134,32 @@ for (const c of codes) {
   const unique = seule.filter((l) => l.relectures.filter((x) => x.voies > 0).length === 1);
   console.log(`   ${c.padEnd(6)} ${pct(seule.length, lignes.length)}, dont ${unique.length} qu'elle est seule à ouvrir`);
 }
-// La famille d'un échec : ce qui bloque, relecture par relecture.
-const famille = (x) => {
-  if (x.nature === 'valeurs') return 'des valeurs au-delà de 9 (les absorptions ne s’y appliquent pas)';
-  if (x.longueur > 10) return `plus de dix chiffres (${x.longueur})`;
-  return 'dix chiffres au plus, et pourtant aucune voie';
+// La famille d'un échec : ce qui bloque. Pour une suite de chiffres (la cible
+// elle-même, ou la plus courte des relectures chiffrées), la CAPACITÉ d'abord :
+// la plus longue ligne de la saisie, bornée au plafond d'absorption, face aux
+// trois chiffres de ligne qu'il faut au moins par chiffre visé.
+const capacite = (saisie, L) => {
+  if (!MATIERE.has(saisie)) MATIERE.set(saisie, matiere(saisie));
+  return Math.min(MATIERE.get(saisie), plafondDAbsorption(L));
 };
-console.log('\nÉCHECS, par famille de la meilleure relecture tentée :');
+const familleDeLongueur = (L, saisie) => (capacite(saisie, L) < 3 * L
+  ? 'capacité : moins de trois chiffres de ligne par chiffre visé'
+  : 'la ligne suffit, et aucune découpe ne tombe juste');
+console.log('\nÉCHECS, par famille (visés / chiffres de ligne au plus) :');
 const familles = {};
 for (const l of lignes.filter((x) => x.voies === 0)) {
   let f;
-  if (!l.relectures.length) f = `aucune relecture : ${l.signesSansRelecture.map((s) => `« ${s} »`).join(', ')}`;
+  let L = null;
+  if (corpus === CHIFFRES) L = l.mot.length;
+  else if (!l.relectures.length) f = `aucune relecture : ${l.signesSansRelecture.map((s) => `« ${s} »`).join(', ')}`;
   else {
     const chiffrees = l.relectures.filter((x) => x.nature === 'chiffres');
-    const meilleure = chiffrees.length ? chiffrees.reduce((a, b) => (b.longueur < a.longueur ? b : a)) : l.relectures[0];
-    f = famille(meilleure);
+    if (chiffrees.length) L = chiffrees.reduce((a, b) => (b.longueur < a.longueur ? b : a)).longueur;
+    else f = 'des valeurs au-delà de 9 (les absorptions ne s’y appliquent pas)';
   }
-  (familles[f] = familles[f] || []).push(`${l.mot} ← ${l.saisie.slice(0, 14)}`);
+  if (L !== null) f = familleDeLongueur(L, l.saisie);
+  const detail = L !== null ? ` (${L}/${capacite(l.saisie, L)})` : '';
+  (familles[f] = familles[f] || []).push(`${l.mot} ← ${l.saisie.slice(0, 14)}${detail}`);
 }
 for (const [f, liste] of Object.entries(familles).sort((a, b) => b[1].length - a[1].length)) {
   console.log(`   ${String(liste.length).padStart(3)}  ${f}`);
