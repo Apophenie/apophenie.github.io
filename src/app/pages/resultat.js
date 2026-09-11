@@ -260,6 +260,35 @@ function titreDeConversion(approche) {
 }
 
 /**
+ * ★ **LE DIAGNOSTIC D'UNE RECHERCHE VERS UN TEXTE** — sous « aucune voie ».
+ *
+ * > « J'ai testé avec d'autres mots que Zerg, Terran… et aucune route. »
+ * >   (l'auteur)
+ *
+ * « Aucune route » ne dit pas POURQUOI. Le moteur le sait (`index.js ›
+ * deroulerTexte`) : un texte se cherche par ses relectures, chacune donne une
+ * suite de chiffres à la recherche, et celle-ci y trouve — ou non — des voies.
+ * On le montre tel quel, relecture par relecture ; ou, si aucune ne s'applique,
+ * les signes qu'aucune ne sait écrire. Rien d'interprété : ce qui a été tenté.
+ */
+function diagnosticDuTexte(resultat) {
+  const signes = resultat && resultat.signesSansRelecture;
+  if (signes && signes.length) {
+    return e('p.legende', {
+      texte: t('resultat.diagnosticSignes', { signes: signes.map((s) => guillemets(s)).join(', ') }),
+    });
+  }
+  const rels = resultat && resultat.relectures;
+  if (!rels || !rels.length) return null;
+  const cle = (n) => (n === 1 ? 'resultat.diagnosticRelectureUne'
+    : (n ? 'resultat.diagnosticRelecture' : 'resultat.diagnosticRelectureAucune'));
+  const liste = rels.map((r) => t(cle(r.voies), {
+    methode: localiser(pont.titreCourtDuCode(r.code)) || r.code, suite: r.cible, n: r.voies,
+  })).join(' · ');
+  return e('p.legende', { texte: t('resultat.diagnosticRelectures', { liste }) });
+}
+
+/**
  * ★ **LES CINQ SCORES D'UNE CARTE — un pondéré, quatre bruts.**
  *
  * > « Puis un score global qui est la synthèse pondérée selon les 4 réglages.
@@ -979,6 +1008,7 @@ export function pageResultat({
           ? t('resultat.aucuneVoieCible', { cible: texteCible })
           : t('resultat.aucuneVoie'),
       }),
+      diagnosticDuTexte(resultat),
     ])
     : null;
 

@@ -82,7 +82,9 @@ import { IMPLICITE_DEPUIS } from '../config.js';
 import {
   CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES, MAX_SIGNES_TEXTE,
 } from './cible.js';
-import { relecturesPour, relecturePour, RELECTURE_PAR_DEFAUT } from './conversions.js';
+import {
+  relecturesPour, relecturePour, signesSansRelecture, RELECTURE_PAR_DEFAUT,
+} from './conversions.js';
 import { deroulerParTranches } from './tranches.js';
 
 export { LIMITE_SAISIE, BANDEAUX, REGLAGES };
@@ -811,15 +813,24 @@ export function creerMoteur(catalogue, options = {}) {
       pourcentages: ponderation.pourcentages,
       poids: ponderation.poids,
       fouille,
-      // Les relectures TENTÉES, et ce que chacune écrirait : c'est ce qui dit,
-      // quand la liste est vide, si c'est la recherche qui a échoué ou le texte
-      // qui ne se laisse relire par aucune.
+      // ★ LE DIAGNOSTIC — les relectures TENTÉES, la suite chiffrée que chacune
+      //   a donnée à la recherche, et combien de voies celle-ci y a trouvées
+      //   (`voies`, rempli plus bas). C'est ce qui dit, quand la liste est
+      //   vide, si c'est la recherche qui a échoué — et sur quelle suite — ou
+      //   le texte qui ne se laisse relire par aucune.
       relectures: relectures.map((r) => ({
-        code: r.code, cible: r.cible.texte, produit: r.produit, ecart: r.ecart,
+        code: r.code, cible: r.cible.texte, nature: r.cible.nature, longueur: r.cible.longueur,
+        produit: r.produit, ecart: r.ecart, voies: null,
       })),
     };
     if (!saisie.length) return { ...base, approches: [] };
-    if (!relectures.length) return { ...base, approches: [], avertissement: BANDEAUX.aucuneRelecture };
+    if (!relectures.length) {
+      // Les signes qu'aucune relecture ne sait écrire — ce qui bloque, nommé.
+      return {
+        ...base, approches: [], avertissement: BANDEAUX.aucuneRelecture,
+        signesSansRelecture: signesSansRelecture(mot, ops),
+      };
+    }
 
     const canal = typeof optionsResolution.surAvancement === 'function'
       ? optionsResolution.surAvancement : null;
@@ -842,6 +853,7 @@ export function creerMoteur(catalogue, options = {}) {
         pas = sous.next(pause);
       }
       const r = pas.value;
+      base.relectures[k].voies = (r.approches || []).length;
       if (r.tronque) tronque = true;
       if (r.tronqueTemps) tronqueTemps = true;
       if (r.avertissement) avertissement = r.avertissement;
@@ -2019,6 +2031,11 @@ function serialisable(resultat) {
     tronque: resultat.tronque,
     tronqueTemps: resultat.tronqueTemps,
     avertissement: resultat.avertissement,
+    // ★ Le DIAGNOSTIC d'une recherche vers un texte — ce que chaque relecture a
+    //   visé et trouvé, ou les signes qu'aucune ne sait écrire. Sans lui, la
+    //   page ne saurait dire que « aucune route », sans dire pourquoi.
+    relectures: resultat.relectures,
+    signesSansRelecture: resultat.signesSansRelecture,
     approches: (resultat.approches || []).map((a) => ({
       rang: a.rang, mode: a.mode, score: a.score, scoreAjuste: a.scoreAjuste,
       // ★ La LIAISON par son code — l'opérateur lui-même ne traverse pas.

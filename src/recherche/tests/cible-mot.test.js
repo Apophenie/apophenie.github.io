@@ -22,8 +22,10 @@ import { encoderTexte } from '../base58.js';
 import { creerMoteur } from '../index.js';
 import { construireScenario } from '../scenario.js';
 import { operateursPourCible, operateursExplorables, appliquerOp, etat } from '../bfs.js';
+import { liaisons } from '../assemblage.js';
 import { catalogue } from './_catalogue.js';
 import { compile } from '../../visuel/compile.js';
+import { plafondDAbsorption, VISEE_LONGUE } from '../../moteur/transformations/mappeurs.js';
 
 const B58_SK = encoderTexte('Sarah Kerrigan');
 const B58 = (t) => encoderTexte(t);
@@ -117,7 +119,7 @@ test('cible-mot — le barème d’écart : la hiérarchie de l’auteur, chiffr
 
 test('cible-mot — les relectures du catalogue, et leur inverse CALCULÉ sur l’opérateur', () => {
   const ops = operateursDeRelecture(catalogue);
-  assert.deepEqual(ops.map((o) => o.code), ['m1a', 'mcaz', 'mcqw']);
+  assert.deepEqual(ops.map((o) => o.code), ['m1a', 'mcaz', 'mcqw', 'm1a2', 'mpol', 'mtap']);
   assert.equal(RELECTURE_PAR_DEFAUT, 'm1a');
   const par = Object.fromEntries(ops.map((o) => [o.code, o]));
   assert.deepEqual([...inverseDe(par.m1a).get('z')], [26]);
@@ -125,7 +127,8 @@ test('cible-mot — les relectures du catalogue, et leur inverse CALCULÉ sur l�
   assert.deepEqual([...inverseDe(par.mcqw).get('z')], [1, 3]);
   for (const op of ops) {
     const inverse = inverseDe(op);
-    assert.equal(inverse.size, 26, `${op.code} : les vingt-six lettres, chacune une fois`);
+    // Le carré de Polybe a vingt-cinq cases : il n'écrit jamais j.
+    assert.equal(inverse.size, op.code === 'mpol' ? 25 : 26, `${op.code} : chaque lettre, une fois`);
     // L'aller-retour est exact : ce que l'inverse donne, l'opérateur le relit.
     for (const [lettre, valeurs] of inverse) {
       const e = appliquerOp(op, etat('NUMS', [...valeurs], []));
@@ -140,9 +143,12 @@ test('cible-mot — les relectures d’un texte : cibles sous-jacentes, écrit r
     ['m1a', '26.5.18.7', 'valeurs', 'zerg', 970],
     ['mcaz', '21314152', 'chiffres', 'zerg', 970],
     ['mcqw', '13314152', 'chiffres', 'zerg', 970],
+    ['m1a2', '26051807', 'chiffres', 'zerg', 970],
+    ['mpol', '55154222', 'chiffres', 'zerg', 970],
+    ['mtap', '94327341', 'chiffres', 'zerg', 970],
   ]);
   const fantome = relecturesPour(lireCible('Fantôme'), catalogue);
-  assert.ok(fantome.length === 3 && fantome.every((r) => r.produit === 'fantome' && r.ecart.facteur === 902));
+  assert.ok(fantome.length === 6 && fantome.every((r) => r.produit === 'fantome' && r.ecart.facteur === 902));
   assert.equal(fantome.find((r) => r.code === 'mcaz').cible.nature, 'valeurs', 'le M est en colonne 10 en AZERTY');
   assert.deepEqual(relecturesPour(lireCible('reine des lames'), catalogue), [],
     'aucune relecture n’écrit l’espace : pas de voie, et c’est la recherche qui le dit');
@@ -277,6 +283,63 @@ test('cible-mot — le rejeu refuse ce qu’il ne sait pas relire, en le disant'
   const impossible = moteur.rejouer(lire(`#so!m1a!ma1#${B58('Zerg')}#reine des lames`));
   assert.equal(impossible.ok, false);
   assert.equal(impossible.bandeau, BANDEAUX.relectureImpossible);
+});
+
+/**
+ * ★ UNE VISÉE LONGUE, UNE LIGNE LONGUE — `mappeurs.js › plafondDAbsorption`.
+ * L'absorption n'écrit qu'un chiffre visé pour trois ou quatre chiffres de
+ * ligne ; à trente-six chiffres de ligne, quatorze chiffres visés (sept lettres
+ * relues par paires) étaient hors d'atteinte par construction.
+ */
+test('cible-mot — le plafond d’absorption suit la visée, et seulement au-delà de dix chiffres', () => {
+  assert.equal(VISEE_LONGUE, 10, 'l’ancien plafond des cibles chiffrées : en deçà, rien ne bouge');
+  assert.ok(MAX_CHIFFRES > VISEE_LONGUE, 'une cible chiffrée longue profite de la même règle qu’un mot');
+  for (let l = 1; l <= VISEE_LONGUE; l++) assert.equal(plafondDAbsorption(l), 36, `visée de ${l} : rien ne bouge`);
+  assert.equal(plafondDAbsorption(14), 70);
+  assert.equal(plafondDAbsorption(MAX_CHIFFRES), 5 * MAX_CHIFFRES);
+});
+
+/**
+ * ★ La cible SOUS-JACENTE d'une relecture passe par tout l'assemblage, y compris
+ *   la LIAISON — et elle n'est pas toujours une suite de chiffres. « Diable » en
+ *   rangs vaut `4.9.1.2.12.5` : la liaison doit s'en retirer, et le dire.
+ */
+test('cible-mot — la liaison se retire devant une cible de VALEURS, sans exploser', () => {
+  const rangs = cibleDeValeurs([4, 9, 1, 2, 12, 5]);
+  assert.equal(rangs.nature, 'valeurs');
+  const mots = [
+    { texte: 'Sarah', famille: 'unite', offset: 0, longueur: 5, tokenDebut: 0, tokenLong: 1 },
+    { texte: 'Kerrigan', famille: 'unite', offset: 6, longueur: 8, tokenDebut: 2, tokenLong: 1 },
+  ];
+  assert.deepEqual(liaisons(mots, { catalogue, cache: new Map() }, rangs), []);
+  // Et elle travaille toujours sur une cible chiffrée : « James Bond » vaut 007.
+  const james = [
+    { texte: 'James', famille: 'unite', offset: 0, longueur: 5, tokenDebut: 0, tokenLong: 1 },
+    { texte: 'Bond', famille: 'unite', offset: 6, longueur: 4, tokenDebut: 2, tokenLong: 1 },
+  ];
+  assert.ok(liaisons(james, { catalogue, cache: new Map() }, lireCible('007')).length >= 1,
+    'la liaison de l’auteur reste trouvée');
+});
+
+test('cible-mot — une cible chiffrée de vingt chiffres se lit ; au-delà, elle est refusée', () => {
+  const c = lireCible('12345678901234567890');
+  assert.equal(c.nature, 'chiffres');
+  assert.equal(c.longueur, 20);
+  assert.equal(c.nombre, null, 'au-delà de 2⁵³, `Number` arrondit : pas de nombre plutôt qu’un faux');
+  assert.equal(lireCible('9007199254740991').nombre, 9007199254740991, 'le plus grand entier sûr se garde');
+  assert.equal(lireCible('9007199254740993').nombre, null);
+  assert.equal(lireCible('1'.repeat(21)), null);
+});
+
+test('cible-mot — FANTOME depuis une adresse : soixante-dix chiffres de ligne pour quatorze visés, rejoués', () => {
+  const saisie = 'https://hope-hope-hope.fr/';
+  const { sc, approche } = scene(`#so!mtap!fl+masc+mab#${B58(saisie)}#${B58('Fantome')}`);
+  assert.equal(approche.relecture.code, 'mtap');
+  assert.equal(approche.cible.texte, '33216281636132', 'le multi-tap : la touche, puis le nombre d’appuis');
+  assert.equal(sc.result, 'fantome');
+  const relus = sc.steps.filter((s) => s.code === 'mtap').flatMap((s) => s.ops)
+    .filter((o) => o.to && /^[a-z]$/.test(String(o.to.text))).map((o) => o.to.text);
+  assert.equal(relus.join(''), 'fantome', 'la relecture est jouée, lettre par lettre');
 });
 
 test('cible-mot — sans l’opérateur qui relit, le scénario refuse plutôt que de décréter', () => {

@@ -338,6 +338,10 @@ const VECTEURS = [
   //   tête, `7` sans.
   ['mdl0', N([126, 18]), [0, 0, 7]],
   ['mdlc', N([126, 18]), [7]],
+  // ★ LES RELECTURES PAR PAIRES — deux petits chiffres pour une lettre.
+  ['m1a2', N([2, 6, 0, 5, 1, 8, 0, 7]), ['z', 'e', 'r', 'g']],
+  ['mpol', N([5, 5, 1, 5, 4, 2, 2, 2]), ['z', 'e', 'r', 'g']],
+  ['mtap', N([9, 4, 3, 2, 7, 3, 4, 1]), ['z', 'e', 'r', 'g']],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],
@@ -424,6 +428,9 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   // La touche désignée par deux nombres se montre sur le clavier, ses deux
   // repères dessinés (mesure « coordonnees »).
   mcaz: 'keyboard', mcqw: 'keyboard',
+  // Les relectures par paires : on colle la paire, puis la case de la table
+  // rend sa lettre.
+  m1a2: 'table', mpol: 'table', mtap: 'table',
 });
 
 /**
@@ -478,8 +485,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 184); // …+1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc)
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 184, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 187); // …+1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 187, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -489,7 +496,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 184, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 187, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -1281,13 +1288,18 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
           // Le contrôle croisé n'est pas `count` mais la TABLE elle-même : elle
           // voyage dans l'op, dérivée de la fonction de l'opérateur, et la
           // primitive refuse de faire redescendre une valeur qui n'y est pas.
-          assert.ok(Array.isArray(o.entries) && o.entries.length >= 26,
+          // ★ Vingt-cinq au moins, et non vingt-six : le carré de Polybe a vingt-cinq
+          //   cases, i et j dans la même — sa table est COMPLÈTE, elle n'a pas de
+          //   vingt-sixième case à montrer.
+          assert.ok(Array.isArray(o.entries) && o.entries.length >= 25,
             `${code} : « entries » manquant — la conversion serait affirmée, pas montrée`);
           const cases = new Map(o.entries.map((e) => [e.char, String(e.value)]));
           // ★ À REBOURS (`ordre: '1a26'`, `m1a`), les rôles s'échangent et rien
           //   d'autre : c'est un RANG qui monte chercher sa case, une LETTRE qui
           //   en redescend. Le contrôle est le même, retourné — pas relâché.
-          const aRebours = o.ordre === '1a26';
+          // ★ Et toute table qui RELIT une lettre — les relectures par paires
+          //   (`m1a2`, `mpol`, `mtap`) — est à rebours de la même façon.
+          const aRebours = o.ordre === '1a26' || /^[a-z]$/.test(String(o.to && o.to.text));
           assert.match(String(o.letter), aRebours ? /^\d+$/ : /^[A-Z]$/,
             `${code} : « letter » manquant ou non replié`);
           assert.match(String(o.to && o.to.text), aRebours ? /^[a-z]$/ : /^\d+$/,
@@ -1660,4 +1672,34 @@ test('mcaz, mcqw — la colonne puis la rangée, et l’aller-retour avec mazc/m
   assert.equal(appliquer(az, N([0, 1])), null, 'les colonnes se comptent depuis 1');
   assert.equal(appliquer(az, N([1, 4])), null, 'trois rangées de lettres, pas quatre');
   assert.equal(appliquer(az, N([2, 1])).mue, true, 'ce ne sont pas les lettres de la saisie');
+});
+
+/* ★ LES RELECTURES PAR PAIRES — `m1a2`, `mpol`, `mtap`. Chaque paire relue
+   redonne sa lettre, et seules les paires de la table se relisent. */
+test('m1a2, mpol, mtap — deux chiffres, une lettre : la table entière, et rien d’autre', () => {
+  const lettres = 'abcdefghijklmnopqrstuvwxyz';
+  for (const [code, attendu, horsTable] of [
+    ['m1a2', 26, [[2, 7], [0, 0]]],
+    ['mpol', 25, [[6, 1], [1, 6], [0, 1]]],
+    ['mtap', 26, [[1, 1], [2, 4], [7, 5]]],
+  ]) {
+    const op = PAR_CODE.get(code);
+    assert.equal(operateursActifs().includes(op), false, `${code} : inactif en recherche`);
+    const ecrites = new Set();
+    for (let a = 0; a <= 9; a++) {
+      for (let b = 0; b <= 9; b++) {
+        const e = appliquer(op, N([a, b]));
+        if (e) ecrites.add(e.valeur[0]);
+      }
+    }
+    assert.equal(ecrites.size, attendu, `${code} : ${attendu} lettres, chacune par une seule paire`);
+    for (const l of ecrites) assert.ok(lettres.includes(l), `${code} : « ${l} » en bas de casse`);
+    for (const [a, b] of horsTable) assert.equal(appliquer(op, N([a, b])), null, `${code} : ${a} ${b} hors table`);
+    assert.equal(appliquer(op, N([2, 1, 3])), null, `${code} : deux chiffres par lettre, pas trois`);
+    assert.equal(appliquer(op, N([12, 1])), null, `${code} : des chiffres, pas des nombres`);
+  }
+  // Le carré confond i et j, et le dit : il ne relit JAMAIS un j.
+  assert.deepEqual([...appliquer(PAR_CODE.get('mpol'), N([2, 4])).valeur], ['i']);
+  // Le multi-tap : quatre appuis sur le 7, c'est s.
+  assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([7, 4])).valeur], ['s']);
 });

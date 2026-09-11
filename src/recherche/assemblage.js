@@ -425,7 +425,17 @@ function tableDeValeurs(texte, explorables, combinateurs, cbl, cache) {
  * @returns {Object[]} approches non notées, mode `OPERATION`
  */
 export function liaisons(fragments, ctx, cbl) {
-  if (!ctx || !ctx.catalogue || cbl.defaut || cbl.nature === 'mot') return [];
+  // ★ UNE LIAISON ÉCRIT DES CHIFFRES, ET RIEN D'AUTRE. Un texte ne se cherche
+  //   pas tel quel (`nature === 'mot'`) ; et la cible SOUS-JACENTE d'une
+  //   relecture peut être une suite de VALEURS — « 4.9.1.2.12.5 », les rangs de
+  //   « Diable » —, que la potence ne sait pas viser : elle pose un quotient
+  //   chiffre à chiffre, pas des nombres de deux chiffres.
+  //   ⚠️ Le refus était SILENCIEUX et accidentel : `Number('4.9.1.2.12.5')`
+  //     vaut NaN, les bornes de l'intervalle valaient NaN, et la recherche n'y
+  //     trouvait rien sans que personne l'ait décidé. En entiers exacts, le
+  //     même appel LÈVE — c'est ce qui l'a révélé. On le refuse donc ici, en le
+  //     disant, plutôt que par un NaN qui traverse trois calculs.
+  if (!ctx || !ctx.catalogue || cbl.defaut || cbl.nature !== 'chiffres') return [];
   const lieurs = normaliserCatalogue(ctx.catalogue).filter((o) => o && o.liaison);
   if (!lieurs.length) return [];
   const mots = fragments.filter((f) => f.famille === 'unite').sort((a, b) => a.offset - b.offset);
@@ -434,7 +444,12 @@ export function liaisons(fragments, ctx, cbl) {
   const combinateurs = explorables.filter((o) => o.from === 'NUMS' && o.to === 'NUM');
   const tables = mots.map((f) => tableDeValeurs(f.texte, explorables, combinateurs, cbl, ctx.cache));
   const attendu = cbl.chiffres.join('');
-  const N = Number(cbl.texte);
+  // ★ EN ENTIERS EXACTS (BigInt) : une cible de vingt chiffres dépasse 2⁵³, et
+  //   `N · b` en flottant arrondirait l'intervalle — donc manquerait des A, en
+  //   silence. Les bornes se calculent exactement ; seules celles qui tiennent
+  //   dans un entier sûr peuvent contenir une valeur de table.
+  const N = BigInt(cbl.texte);
+  const SUR = BigInt(Number.MAX_SAFE_INTEGER);
 
   const candidats = [];
   const vus = new Set();
@@ -460,11 +475,13 @@ export function liaisons(fragments, ctx, cbl) {
       // 2. deux programmes : pour chaque B, les A qui écrivent la cible
       for (const [b, cBs] of TB.parValeur) {
         if (b <= 0) continue;
+        const B = BigInt(b);
         for (let k = 0; k <= 3; k++) {
-          const p = 10 ** k;
-          const lo = Math.ceil((N * b) / p);
-          const hi = Math.floor(((N + 1) * b - 1) / p);
-          for (const a of dansIntervalle(TA.valeursTriees, lo, hi)) {
+          const p = 10n ** BigInt(k);
+          const lo = (N * B + p - 1n) / p;         // ⌈N·b / 10ᵏ⌉
+          const hi = ((N + 1n) * B - 1n) / p;      // ⌊((N+1)·b − 1) / 10ᵏ⌋
+          if (lo > SUR) continue;
+          for (const a of dansIntervalle(TA.valeursTriees, Number(lo), Number(hi > SUR ? SUR : hi))) {
             if (ecrit(a, b)) retenir(i, op, TA.parValeur.get(a)[0], cBs[0], false);
           }
         }

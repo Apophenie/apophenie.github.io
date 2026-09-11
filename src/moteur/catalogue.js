@@ -164,6 +164,10 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   la ligne assemblée (« James Bond » → 126 ÷ 18 → 007). Inactifs en
   //   recherche ordinaire. En fin de bloc mappeur, append-only (§4.1).
   'mdl0', 'mdlc',
+  // ★ LES RELECTURES PAR PAIRES — deux petits chiffres pour une lettre : le
+  //   rang sur deux chiffres, le carré de Polybe, le multi-tap du téléphone.
+  //   Inactives en recherche. En fin de bloc mappeur, append-only (§4.1).
+  'm1a2', 'mpol', 'mtap',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

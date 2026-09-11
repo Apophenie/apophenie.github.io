@@ -949,7 +949,7 @@ export function sensDesPaliers() {
    `viser` vient de corriger dans `bfs.js` : elle mentirait au premier opérateur
    ajouté, et cette page est justement celle qui devrait le voir.
 
-   ★ **ET LE CHANGEMENT DE CIBLE SE VOIT.** Un champ, dix chiffres au plus, et
+   ★ **ET LE CHANGEMENT DE CIBLE SE VOIT.** Un champ, `MAX_CHIFFRES` au plus, et
    la page se relit : les compteurs, la colonne « cible » des deux tableaux
    d'opérateurs et la RÈGLE de chacun. C'est le seul moyen de vérifier ce que
    §0.3 exige — qu'un opérateur adapté annonce ce qu'il fera, et non ce qu'il
