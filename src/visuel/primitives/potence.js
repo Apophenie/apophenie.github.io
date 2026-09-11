@@ -66,12 +66,19 @@
  *   retiré. La ligne entière, elle, continue de se lire comme le reste vrai
  *   (`105` → `055` → `005` → `000`), ce que le contrôle croisé vérifie.
  *
- * ★ **RIEN NE BOUGE, RIEN NE S'EFFACE.** Chaque chiffre garde sa colonne du
- *   début à la fin ; seuls changent son opacité (il entre en jeu) et sa valeur
- *   (on lui retire `B`). Le défaut nommé par l'auteur sur la division à
- *   l'accolade — « tu effaces les chiffres pour les remettre […] ça ne va
- *   pas » — n'a donc pas d'équivalent ici : la ligne ne se réécrit jamais, et
- *   ce qu'elle vaut ne fait que décroître.
+ * ★ **RIEN NE CHANGE DE COLONNE, RIEN NE S'EFFACE.** Chaque chiffre garde sa
+ *   colonne du début à la fin ; seuls changent son opacité (il entre en jeu) et
+ *   sa valeur (on lui retire `B`). Quand la ligne s'écarte pour faire place à
+ *   la potence ou à un « ,0 », le dividende se déplace D'UN BLOC — ses colonnes
+ *   ne bougent jamais les unes par rapport aux autres. Le défaut nommé par
+ *   l'auteur sur la division à l'accolade — « tu effaces les chiffres pour les
+ *   remettre […] ça ne va pas » — n'a donc pas d'équivalent ici : la ligne ne
+ *   se réécrit jamais, et ce qu'elle vaut ne fait que décroître.
+ *
+ * ★ **LA POTENCE OCCUPE LA LIGNE, ELLE NE S'Y SUPERPOSE PAS.** Voir « la place
+ *   de la potence, dans la ligne » : le dividende, l'air de la barre et une
+ *   cale sous B réservent leur largeur dans le flux, et les voisins la cèdent
+ *   le temps du calcul, puis se referment sur le quotient.
  *
  * ⚠️ **LA VIRGULE NE SE GARDE PAS**, et ce n'est pas un oubli : la ligne du
  *   site ne porte que des chiffres. `2,6` redescend en `2` et `6`, deux jetons
@@ -85,7 +92,7 @@
  *   calcul faux, même si on le lui demande poliment.
  */
 
-import { tokenSpec, numberOf } from './helpers.js';
+import { tokenSpec, numberOf, espacementDe } from './helpers.js';
 import { filetD } from '../layout.js';
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
@@ -293,64 +300,163 @@ export function plan(ctx) {
   const etire = T > naturel ? T / naturel : 1;
   const ms = (x) => x * etire;
 
-  /* ── ① L'ÉCART, PUIS LES DEUX BARRES ──────────────────────────────────────
+  /* ── LA PLACE DE LA POTENCE, DANS LA LIGNE ────────────────────────────────
 
-     > « Espace-les pour insérer l'opérateur mais ne les efface pas. » (l'auteur)
+     > « Elle n'isole pas ce sur quoi elle travaille du reste. La barre
+     >   horizontale de la potence devrait faire la longueur nécessaire pour
+     >   accueillir le diviseur au-dessus (et du vide, pas des chiffres qui n'ont
+     >   rien à voir) et le résultat à venir en dessous. De même quand ,0 est
+     >   ajouté au nombre divisé, il faut pousser ce qui précède pour faire la
+     >   place, et que jamais 2 chiffres ne se superposent sur la ligne de
+     >   base. » (l'auteur)
 
-     ⚠️ **ET LA BARRE ÉTAIT DESSINÉE SUR LE DIVIDENDE.** Elle se posait au
-       milieu des CENTRES de A et de B ; sur `13 │ 5`, ce milieu tombe dans le
-       « 3 ». On écarte donc les deux jetons d'abord, et la barre se pose au
-       milieu de l'INTERVALLE — entre le bord droit de A et le bord gauche de
-       B —, où elle ne mord sur rien. */
+     ⚠️ **LA POTENCE SE DESSINAIT PAR-DESSUS LA LIGNE.** Ses barres, ses
+       colonnes et son quotient vivent hors flux ; seuls A et B y étaient, à leur
+       largeur de jetons. Les voisins de B se retrouvaient donc AU-DESSUS de la
+       barre horizontale, et le « ,0 » grandissait sur le voisin de gauche.
+
+     ★ **ELLE RÉSERVE MAINTENANT SA PLACE, ET LES VOISINS LA LUI CÈDENT.** Trois
+       réglages de flux, et rien d'autre — c'est le `reflow` qui fait suivre les
+       voisins, exactement comme pour n'importe quel jeton qui grandit :
+
+       · le jeton A devient la PLACE DU DIVIDENDE : sa largeur est celle de
+         toutes ses colonnes — chiffres, virgule et décimales abaissées. Il
+         grandit à chaque « ,0 », et la ligne s'écarte autour de lui ;
+       · l'écart devant B est l'air de la barre verticale ;
+       · une CALE invisible suit B, de la largeur de ce qui reste de la barre
+         horizontale au-delà de B : au-dessus de la barre, il n'y a que B et du
+         vide, et le quotient final a sa place en dessous avant même que son
+         premier chiffre ne s'écrive.
+
+       Quand le quotient redescend, A, B et la cale quittent le flux, et la
+       ligne se referme sur lui.
+
+     ★ **TOUT CE QUI EST HORS FLUX SUIT UN DES DEUX BORDS.** Ce qui est à gauche
+       de la barre (les colonnes du dividende) suit le bord gauche de A ; ce qui
+       est à droite (les barres, le quotient) suit B. Un « ,0 » qui fait grandir
+       A écarte donc les deux côtés de la barre l'un de l'autre, du même
+       mouvement que les voisins — et rien ne peut passer sur rien. */
+  const noeudA = ctx.scene.get(idA);
   const noeudB = ctx.scene.get(idB);
-  noeudB.gapBefore = Math.max(noeudB.gapBefore || 0, fs * ECART_BARRE);
-  ctx.reflow({ at: 0, dur: ms(TEMPO.BARRES) * 0.5, ease: EASE.move });
+  const largeurB = noeudB.w;
+  const ecart = Math.max(noeudB.gapBefore ?? ctx.layoutOpts.gap, fs * ECART_BARRE);
+  // la barre couvre le plus large des deux : le diviseur au-dessus, le quotient
+  // FINAL en dessous (une colonne par chiffre, plus une pour la virgule).
+  const colonnesQuotient = tours.length + (entiers < tours.length ? 1 : 0);
+  const sousLaBarre = Math.max(largeurB, colonnesQuotient * av);
+  const longueurBarre = ecart / 2 + sousLaBarre + DEBORD;
+  // la cale : du bord droit de B au bout de la barre, plus le même air qu'à
+  // gauche de la barre verticale — le voisin ne touche pas le trait.
+  const largeurCale = sousLaBarre + DEBORD + ecart / 2 - largeurB;
 
-  const posA = ctx.scene.pos(idA);
-  const posB = ctx.scene.pos(idB);
-  if (!posA || !Number.isFinite(posA.x) || !posB || !Number.isFinite(posB.x)) {
+  const posA0 = ctx.scene.pos(idA);
+  const posB0 = ctx.scene.pos(idB);
+  if (!posA0 || !Number.isFinite(posA0.x) || !posB0 || !Number.isFinite(posB0.x)) {
     fail(`${ctx.where}potence : le dividende et le diviseur doivent être posés sur la ligne.`);
   }
   // ★ La ligne de base vient des JETONS, pas d'une constante : c'est la seule
   //   façon que la potence se pose là où le calcul est, quelle que soit la
   //   hauteur qu'a prise la scène au-dessus.
-  const ligneY = Number.isFinite(posA.y) ? posA.y : posB.y;
+  const ligneY = Number.isFinite(posA0.y) ? posA0.y : posB0.y;
   if (!Number.isFinite(ligneY)) {
     fail(`${ctx.where}potence : la ligne de base n'est pas mesurable — les jetons ne sont pas encore placés.`);
   }
-  const largeurA = ctx.scene.get(idA).w;
-  const largeurB = noeudB.w;
-  const bordDroit = posA.x + largeurA / 2;   // le bord droit du dividende
-  const gaucheB = posB.x - largeurB / 2;
-  const barreX = (bordDroit + gaucheB) / 2;
   const barreY = ligneY + fs * SOUS_LA_LIGNE;
-
-  /* Les colonnes de la potence, comptées depuis la droite : la colonne 0 est
-     celle qui touche la barre. Aucun chiffre n'en change jamais — c'est le
-     repère qui rend le geste lisible, et ce qui permet d'estomper plutôt que
-     de déplacer. Seule l'insertion d'une décimale pousse tout le monde d'une
-     colonne vers la gauche, parce que l'auteur l'a demandé ainsi. */
-  const colonneX = (rang) => bordDroit - (rang + 0.5) * av;
-  const xEntier = (c, d) => colonneX((L - 1 - c) + (d > 0 ? d + 1 : 0));
-  const xDecimale = (k, d) => colonneX(d - k);
-
-  // Le quotient s'écrit sous la barre, à partir du bord gauche de B — une
-  // colonne par chiffre, plus une pour la virgule. La barre horizontale DOIT
-  // le couvrir : c'est elle qui dit « ceci est le résultat ».
-  const colonnesQuotient = tours.length + (entiers < tours.length ? 1 : 0);
-  const quotientX = (col) => gaucheB + (col + 0.5) * av;
   const quotientY = barreY + fs * SOUS_LA_BARRE;
-  const finQuotient = gaucheB + colonnesQuotient * av;
-  const longueurBarre = Math.max(largeurB + 2 * DEBORD, finQuotient + DEBORD - barreX);
 
+  /* Les repères, relus sur le flux à chaque fois qu'on en a besoin : ils
+     bougent quand la ligne s'écarte, et tout ce qu'on crée APRÈS doit naître
+     à la bonne place, pas à celle d'avant. */
+  const gaucheA = () => ctx.scene.pos(idA).x - noeudA.w / 2;
+  const xEntier = (c) => gaucheA() + (c + 0.5) * av;
+  const xVirguleA = () => gaucheA() + (L + 0.5) * av;
+  const xDecimale = (k) => gaucheA() + (L + k + 0.5) * av;
+  const gaucheB = () => ctx.scene.pos(idB).x - largeurB / 2;
+  const barreX = () => gaucheB() - ecart / 2;
+  const quotientX = (col) => gaucheB() + (col + 0.5) * av;
+
+  const aGauche = [];   // hors flux, suit le bord gauche de A
+  const aDroite = [];   // hors flux, suit B
+  /**
+   * Fait suivre aux nœuds hors flux le mouvement que le `reflow` vient de
+   * donner aux deux bords — mêmes instant, durée et courbe, donc aucun écart
+   * possible entre un chiffre et sa colonne, ni entre la barre et B.
+   */
+  const suivre = (avantA, avantB, spec) => {
+    const dA = gaucheA() - avantA;
+    const dB = ctx.scene.pos(idB).x - avantB;
+    const deplacer = (ids, dx) => {
+      if (Math.abs(dx) < 0.01) return;
+      for (const id of ids) {
+        const p = ctx.scene.pos(id);
+        ctx.place(id, { x: p.x + dx, y: p.y }, spec);
+      }
+    };
+    deplacer(aGauche, dA);
+    deplacer(aDroite, dB);
+  };
+
+  /* ── ① LE DIVIDENDE S'OUVRE EN COLONNES ───────────────────────────────────
+
+     Un jeton porte UN texte et une seule opacité ; désigner « le premier
+     chiffre de A » demande donc une colonne par chiffre. Elles naissent à la
+     place EXACTE des glyphes qu'elles reprennent — même chasse, même ligne de
+     base — et, au même instant, le jeton A cesse d'écrire quoi que ce soit :
+     il n'est plus que la place du dividende dans la ligne. À l'image il ne se
+     passe rien, jusqu'à ce que les colonnes hors jeu s'estompent.
+
+     ⚠️ **LE JETON SE TAIT, IL NE S'EFFACE PAS.** Le vider par le canal discret
+       est instantané et exact au scrubbing ; un fondu croisé entre A et ses
+       colonnes aurait superposé, le temps d'une milliseconde, deux fois les
+       mêmes chiffres au même endroit. */
+  const colonnesA = [];
+  for (let c = 0; c < L; c++) {
+    const id = ctx.gensym('potchiffre');
+    ctx.scene.create({
+      id, role: 'text', text: chiffresA[c], kind: 'digit', inFlow: false, base: { opacity: 0 },
+    }, { where: ctx.where });
+    ctx.scene.place(id, { x: posA0.x + (c - (L - 1) / 2) * av, y: ligneY });
+    ctx.anim({ id, prop: 'opacity', to: 1, at: 0, dur: 1, ease: EASE.linear });
+    colonnesA.push(id);
+    aGauche.push(id);
+  }
+  ctx.discrete({ id: idA, channel: 'text', at: 0, dur: 1, render: () => '' });
+
+  /* ── ② LA PLACE SE RÉSERVE : l'écart de la barre, la cale sous B ──────────
+
+     > « Espace-les pour insérer l'opérateur mais ne les efface pas. » (l'auteur)
+
+     ⚠️ **ET LA BARRE ÉTAIT DESSINÉE SUR LE DIVIDENDE.** Elle se posait au
+       milieu des CENTRES de A et de B ; sur `13 │ 5`, ce milieu tombe dans le
+       « 3 ». Elle se pose désormais au milieu de l'ÉCART réservé devant B, où
+       elle ne mord sur rien. */
+  noeudA.w = L * av;
+  noeudB.gapBefore = ecart;
+  const idCale = ctx.gensym('potcale');
+  ctx.scene.create({
+    id: idCale, role: 'text', text: '', kind: 'space', inFlow: true,
+    insertAt: ctx.scene.flowIndex(idB) + 1, w: largeurCale, gapBefore: 0,
+    base: { opacity: 0 },
+  }, { where: ctx.where });
+  const tEcart = ms(TEMPO.BARRES) * 0.5;
+  {
+    const avantA = gaucheA();
+    const avantB = ctx.scene.pos(idB).x;
+    ctx.reflow({ at: 0, dur: tEcart, ease: EASE.move });
+    suivre(avantA, avantB, { at: 0, dur: tEcart, ease: EASE.move });
+  }
+
+  // Les barres paraissent une fois la place faite — pas pendant que la ligne
+  // s'écarte encore, où la verticale traverserait un chiffre en chemin.
   const idVert = ctx.gensym('potvert');
   ctx.scene.create({
     id: idVert, role: 'filet', inFlow: false, w: 1,
     data: { d: `M 0 ${-fs * HAUT_VERTICAL} V ${fs * BAS_VERTICAL}` },
     base: { opacity: 0 },
   }, { where: ctx.where });
-  ctx.scene.place(idVert, { x: barreX, y: ligneY });
-  ctx.anim({ id: idVert, prop: 'opacity', to: 1, at: ms(TEMPO.BARRES) * 0.12, dur: ms(TEMPO.BARRES) * 0.35, ease: EASE.fade });
+  ctx.scene.place(idVert, { x: barreX(), y: ligneY });
+  ctx.anim({ id: idVert, prop: 'opacity', to: 1, at: tEcart, dur: ms(TEMPO.BARRES) * 0.3, ease: EASE.fade });
+  aDroite.push(idVert);
 
   const idHoriz = ctx.gensym('pothoriz');
   ctx.scene.create({
@@ -358,42 +464,17 @@ export function plan(ctx) {
     data: { d: filetD(longueurBarre / 2) },
     base: { opacity: 0 },
   }, { where: ctx.where });
-  ctx.scene.place(idHoriz, { x: barreX + longueurBarre / 2, y: barreY });
-  ctx.anim({ id: idHoriz, prop: 'opacity', to: 1, at: ms(TEMPO.BARRES) * 0.3, dur: ms(TEMPO.BARRES) * 0.35, ease: EASE.fade });
+  ctx.scene.place(idHoriz, { x: barreX() + longueurBarre / 2, y: barreY });
+  ctx.anim({ id: idHoriz, prop: 'opacity', to: 1, at: tEcart + ms(TEMPO.BARRES) * 0.15, dur: ms(TEMPO.BARRES) * 0.3, ease: EASE.fade });
+  aDroite.push(idHoriz);
 
-  /* ── ② LE DIVIDENDE S'OUVRE EN COLONNES, ET S'ESTOMPE ─────────────────────
-
-     Un jeton porte UN texte et une seule opacité ; désigner « le premier
-     chiffre de A » demande donc une colonne par chiffre. Elles naissent à la
-     place EXACTE des glyphes qu'elles reprennent — même chasse, même ligne de
-     base, opacité pleine — et le jeton du dividende se réduit au même instant à
-     son premier chiffre. Rien ne bouge, rien ne clignote : à l'image, il ne se
-     passe rien du tout, jusqu'à ce que les colonnes qui ne sont pas en jeu
-     s'estompent. C'est ce fondu-là, et lui seul, qui se voit.
-
-     ⚠️ Le partage a lieu APRÈS l'écart : tant que la ligne se réagence, les
-       glyphes de A n'ont pas de place fixe où poser des colonnes. */
-  const tPartage = ms(TEMPO.BARRES) * 0.5;
-  const colonnesA = [idA];
-  for (let c = 1; c < L; c++) {
-    const id = ctx.gensym('potchiffre');
-    ctx.scene.create({
-      id, role: 'text', text: chiffresA[c], kind: 'digit', inFlow: false, base: { opacity: 0 },
-    }, { where: ctx.where });
-    ctx.scene.place(id, { x: xEntier(c, 0), y: ligneY });
-    // il paraît sans transition, exactement là où le glyphe était déjà…
-    ctx.anim({ id, prop: 'opacity', to: 1, at: tPartage, dur: 1, ease: EASE.linear });
-    // …puis il recule dans l'ombre : il n'est pas encore en jeu.
+  // Et ce qui n'est pas en jeu recule dans l'ombre : seul le premier chiffre
+  // du dividende reste à pleine encre.
+  for (const id of colonnesA.slice(1)) {
     ctx.anim({
       id, prop: 'opacity', to: ESTOMPE,
-      at: tPartage + 1, dur: Math.max(1, ms(TEMPO.BARRES) * 0.45), ease: EASE.fade,
+      at: tEcart, dur: Math.max(1, ms(TEMPO.BARRES) * 0.45), ease: EASE.fade,
     });
-    colonnesA.push(id);
-  }
-  if (L > 1) {
-    // le jeton du dividende ne garde que sa première colonne : il saute d'une
-    // demi-chasse pour que SON chiffre ne bouge pas d'un pixel.
-    ctx.place(idA, { x: xEntier(0, 0), y: ligneY }, { at: tPartage, dur: 1, ease: EASE.linear });
   }
 
   /* ── ③ à ⑥ LE CALCUL ─────────────────────────────────────────────────────
@@ -414,32 +495,35 @@ export function plan(ctx) {
     // la virgule, où il s'inscrit AVEC elle (voir plus bas).
     let apparition = t;
 
-    /* ⑤ **LE DÉCALAGE, ET C'EST UN DÉPLACEMENT, PAS UN CHANGEMENT DE TEXTE.**
+    /* ⑤ **ON POUSSE, PUIS ON INSÈRE.**
 
        > « On décale A sur la gauche pour insérer ",0" à sa droite, avant la
-       >   barre verticale qui le sépare de B, et on fait de même sous B. »
+       >   barre verticale qui le sépare de B » — « il faut pousser ce qui
+       >   précède pour faire la place » (l'auteur)
 
-       Une version précédente réécrivait simplement le texte du jeton : rien ne
-       glissait, rien ne s'insérait, et « 3 » devenait « 3,0 » d'un coup, à
-       cheval sur la barre. Ici la ligne garde son bord droit contre la barre :
-       tout le dividende recule d'une colonne (de deux, la première fois, pour
-       la virgule ET le zéro), et ce qui s'inscrit à sa droite naît à sa place. */
+       La place du dividende grandit d'abord (de deux colonnes la première fois,
+       pour la virgule ET le zéro ; d'une ensuite) : la ligne s'écarte, ce qui
+       précède A recule avec lui, la barre et ce qui la suit s'éloignent. Et
+       c'est seulement QUAND LA PLACE EST FAITE que « ,0 » s'y inscrit — le
+       faire paraître pendant la poussée l'aurait posé, un instant, sur le
+       dernier chiffre encore en chemin. */
     if (tour.decimal) {
       const glisse = ms(TEMPO.INSERTION);
-      colonnesA.forEach((id, c) => {
-        ctx.place(id, { x: xEntier(c, d), y: ligneY }, { at: t, dur: glisse, ease: EASE.move });
-      });
-      if (idVirgA) ctx.place(idVirgA, { x: colonneX(d), y: ligneY }, { at: t, dur: glisse, ease: EASE.move });
-      decimalesA.forEach((id, k) => {
-        ctx.place(id, { x: xDecimale(k + 1, d), y: ligneY }, { at: t, dur: glisse, ease: EASE.move });
-      });
+      const avantA = gaucheA();
+      const avantB = ctx.scene.pos(idB).x;
+      noeudA.w = (L + d + 1) * av;
+      ctx.reflow({ at: t, dur: glisse, ease: EASE.move });
+      suivre(avantA, avantB, { at: t, dur: glisse, ease: EASE.move });
+      const inscrit = t + glisse;
+      const fondu = Math.max(1, ms(TEMPO.POSE) * 0.8);
       if (!idVirgA) {
         idVirgA = ctx.gensym('potvirga');
         ctx.scene.create({
           id: idVirgA, role: 'text', text: ',', kind: 'punct', inFlow: false, base: { opacity: 0 },
         }, { where: ctx.where });
-        ctx.scene.place(idVirgA, { x: colonneX(d), y: ligneY });
-        ctx.anim({ id: idVirgA, prop: 'opacity', to: 1, at: t + glisse * 0.35, dur: glisse * 0.65, ease: EASE.fade });
+        ctx.scene.place(idVirgA, { x: xVirguleA(), y: ligneY });
+        ctx.anim({ id: idVirgA, prop: 'opacity', to: 1, at: inscrit, dur: fondu, ease: EASE.fade });
+        aGauche.push(idVirgA);
       }
       /* Le zéro qu'on abaisse — « on rajoute un 0 de plus, ce qui donne
          "0,A0" ». Il naît EN JEU, à pleine encre : c'est de lui qu'on va
@@ -449,10 +533,11 @@ export function plan(ctx) {
         id: idZero, role: 'text', text: '0', kind: 'digit', inFlow: false,
         base: { opacity: 0, scale: 0.7 },
       }, { where: ctx.where });
-      ctx.scene.place(idZero, { x: xDecimale(d, d), y: ligneY });
-      ctx.anim({ id: idZero, prop: 'opacity', to: 1, at: t + glisse * 0.35, dur: glisse * 0.65, ease: EASE.fade });
-      ctx.anim({ id: idZero, prop: 'scale', to: 1, at: t + glisse * 0.35, dur: glisse * 0.65, ease: EASE.pop });
+      ctx.scene.place(idZero, { x: xDecimale(d), y: ligneY });
+      ctx.anim({ id: idZero, prop: 'opacity', to: 1, at: inscrit, dur: fondu, ease: EASE.fade });
+      ctx.anim({ id: idZero, prop: 'scale', to: 1, at: inscrit, dur: fondu, ease: EASE.pop });
       decimalesA.push(idZero);
+      aGauche.push(idZero);
       // « et on fait de même sous B » : la virgule du quotient, au même instant
       if (!idVirgQ) {
         idVirgQ = ctx.gensym('potvirg');
@@ -460,14 +545,15 @@ export function plan(ctx) {
           id: idVirgQ, role: 'text', text: ',', kind: 'punct', inFlow: false, base: { opacity: 0 },
         }, { where: ctx.where });
         ctx.scene.place(idVirgQ, { x: quotientX(entiers), y: quotientY });
-        ctx.anim({ id: idVirgQ, prop: 'opacity', to: 1, at: t + glisse * 0.35, dur: glisse * 0.65, ease: EASE.fade });
+        ctx.anim({ id: idVirgQ, prop: 'opacity', to: 1, at: inscrit, dur: fondu, ease: EASE.fade });
+        aDroite.push(idVirgQ);
       }
       // ★ « ON FAIT DE MÊME SOUS B (on ajoute ",0") » : la virgule ET le zéro.
       //   Le chiffre du quotient de ce tour-ci EST ce zéro-là — il paraît donc
       //   avec la virgule, et non un temps plus tard : c'est un seul geste, des
       //   deux côtés de la barre.
-      apparition = t + glisse * 0.35;
-      t += glisse;
+      apparition = inscrit;
+      t = inscrit;
     }
 
     /* ★ **LE CHIFFRE SUIVANT ENTRE EN JEU — c'est un ÉCLAIRAGE, pas un
@@ -486,6 +572,8 @@ export function plan(ctx) {
     const place = { x: quotientX(col), y: quotientY };
     ctx.scene.create({
       id: spec.id, role: 'text', text: spec.text, kind: spec.kind || 'digit', inFlow: false,
+      // le premier chiffre reprendra dans la ligne l'espacement du dividende
+      ...(i === 0 ? espacementDe(ctx, idA) : {}),
       base: { opacity: 0, scale: 0.7 },
     }, { where: ctx.where });
     ctx.scene.place(spec.id, place);
@@ -493,6 +581,7 @@ export function plan(ctx) {
     ctx.anim({ id: spec.id, prop: 'opacity', to: 1, at: apparition, dur: poseQ, ease: EASE.fade });
     ctx.anim({ id: spec.id, prop: 'scale', to: 1, at: apparition, dur: poseQ, ease: EASE.pop });
     chiffres.push(spec.id);
+    aDroite.push(spec.id);
 
     const debutTour = t;
     const depart0 = t + ms(TEMPO.POSE);
@@ -512,7 +601,7 @@ export function plan(ctx) {
        part aucun — « 5 ne tient pas dans 1 » —, le chiffre reste à zéro, et
        ce zéro-là est justement celui qu'il faut voir s'écrire ; c'est pourquoi
        un tour vide prend quand même son temps. */
-    const departX = tour.decimal ? xDecimale(d, d) : xEntier(i, d);
+    const departX = tour.decimal ? xDecimale(d) : xEntier(i);
     const atterrissages = [];
     for (let e = 0; e < n; e++) {
       const at = depart0 + e * ms(pas);
@@ -530,8 +619,8 @@ export function plan(ctx) {
         prop: 'translate',
         values: [
           { x: departX, y: ligneY },
-          { x: barreX, y: ligneY - fs * 0.42 },
-          { x: posB.x, y: ligneY + fs * 0.12 },
+          { x: barreX(), y: ligneY - fs * 0.42 },
+          { x: ctx.scene.pos(idB).x, y: ligneY + fs * 0.12 },
           { x: place.x, y: place.y },
         ],
         at,
@@ -552,12 +641,9 @@ export function plan(ctx) {
 
     /* La zone en jeu perd `B` AU DÉPART de chaque exemplaire — pas à son
        arrivée : ce qui a quitté le nombre n'est plus en lui. Chaque colonne
-       rend son propre chiffre, fonction pure du temps ; le premier tour prend
-       son canal dès le partage, pour qu'aucun jeton ne montre un instant le
-       texte qu'il avait avant d'être partagé. */
-    const debutCanal = i === 0 ? tPartage : debutTour;
-    const span = Math.max(1, finTour - debutCanal);
-    const departs = atterrissages.map((_, e) => (depart0 + e * ms(pas) - debutCanal) / span);
+       rend son propre chiffre, fonction pure du temps. */
+    const span = Math.max(1, finTour - debutTour);
+    const departs = atterrissages.map((_, e) => (depart0 + e * ms(pas) - debutTour) / span);
     const partis = (u) => {
       let k = 0;
       while (k < departs.length && u >= departs[k]) k++;
@@ -567,7 +653,7 @@ export function plan(ctx) {
     const enJeu = tour.decimal ? [...colonnesA, ...decimalesA] : colonnesA.slice(0, i + 1);
     enJeu.forEach((id, c) => {
       ctx.discrete({
-        id, channel: 'text', at: debutCanal, dur: span, render: (u) => texte(u)[c],
+        id, channel: 'text', at: debutTour, dur: span, render: (u) => texte(u)[c],
       });
     });
 
@@ -599,24 +685,41 @@ export function plan(ctx) {
   for (const id of aEffacer) {
     ctx.anim({ id, prop: 'opacity', to: 0, at: t, dur: tEffacement });
   }
-  if (idVirgQ) {
-    ctx.anim({ id: idVirgQ, prop: 'opacity', to: 0, at: t + tEffacement, dur: tDescente * 0.6 });
-  }
 
-  /* ★ **LE QUOTIENT REJOINT LA LIGNE, ET C'EST LUI QUI RESTE.**
+  /* ★ **LE QUOTIENT REJOINT LA LIGNE, ET LA LIGNE SE REFERME.**
      Les chiffres étaient hors flux le temps du calcul — ils appartenaient à la
      potence, pas à la démonstration. Ils y entrent maintenant, à la place que
-     le dividende occupait, et la ligne se referme sur eux.
+     le dividende occupait ; A, B et la cale en sortent, et les voisins
+     reviennent sur ce qu'il reste — le temps de la potence est fini.
 
      ⚠️ **LA PLACE SE LIT AVANT LA MISE À MORT.** `flowIndex` d'un jeton retiré
        du flux rend `-1` : le quotient s'ajoutait alors EN FIN DE LIGNE. Cela ne
        se voyait pas tant que la division était le dernier nombre de la ligne —
        et se serait vu au premier `7 135`. */
   const rang = ctx.scene.flowIndex(idA);
-  for (const id of aEffacer) ctx.scene.kill(id, ctx.where);
+  for (const id of [...aEffacer, idA, idCale]) {
+    if (ctx.scene.get(id).alive) ctx.scene.kill(id, ctx.where);
+  }
   if (idVirgQ) ctx.scene.kill(idVirgQ, ctx.where);
   chiffres.forEach((id, i) => {
     ctx.scene.enterFlow(id, rang >= 0 ? rang + i : undefined, ctx.where);
   });
-  ctx.reflow({ at: t + tEffacement, dur: tDescente, ease: EASE.move });
+  const montee = { at: t + tEffacement, dur: tDescente, ease: EASE.move };
+  ctx.reflow(montee);
+
+  /* ★ **LA VIRGULE SE PERD DANS LE DÉPLACEMENT — littéralement.**
+
+     ⚠️ Elle s'éteignait sur place pendant que les chiffres montaient : le
+       chiffre qui la suit lui passait DESSUS, à mi-course. Elle voyage donc
+       entre les deux chiffres qu'elle sépare, toujours à mi-chemin d'eux, et
+       rétrécit jusqu'à rien sur la même courbe qu'eux : l'espace qui se referme
+       et sa largeur décroissent ensemble, si bien qu'elle y tient à chaque
+       instant — et qu'à l'arrivée il n'en reste rien. */
+  if (idVirgQ) {
+    const avant = ctx.scene.pos(chiffres[entiers - 1]);
+    const apres = ctx.scene.pos(chiffres[entiers]);
+    ctx.place(idVirgQ, { x: (avant.x + apres.x) / 2, y: (avant.y + apres.y) / 2 }, montee);
+    ctx.anim({ id: idVirgQ, prop: 'scale', to: 0, ...montee });
+    ctx.anim({ id: idVirgQ, prop: 'opacity', to: 0, ...montee });
+  }
 }
