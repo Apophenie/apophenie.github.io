@@ -425,7 +425,17 @@ function tableDeValeurs(texte, explorables, combinateurs, cbl, cache) {
  * @returns {Object[]} approches non notées, mode `OPERATION`
  */
 export function liaisons(fragments, ctx, cbl) {
-  if (!ctx || !ctx.catalogue || cbl.defaut || cbl.nature === 'mot') return [];
+  // ★ UNE LIAISON ÉCRIT DES CHIFFRES, ET RIEN D'AUTRE. Un texte ne se cherche
+  //   pas tel quel (`nature === 'mot'`) ; et la cible SOUS-JACENTE d'une
+  //   relecture peut être une suite de VALEURS — « 4.9.1.2.12.5 », les rangs de
+  //   « Diable » —, que la potence ne sait pas viser : elle pose un quotient
+  //   chiffre à chiffre, pas des nombres de deux chiffres.
+  //   ⚠️ Le refus était SILENCIEUX et accidentel : `Number('4.9.1.2.12.5')`
+  //     vaut NaN, les bornes de l'intervalle valaient NaN, et la recherche n'y
+  //     trouvait rien sans que personne l'ait décidé. En entiers exacts, le
+  //     même appel LÈVE — c'est ce qui l'a révélé. On le refuse donc ici, en le
+  //     disant, plutôt que par un NaN qui traverse trois calculs.
+  if (!ctx || !ctx.catalogue || cbl.defaut || cbl.nature !== 'chiffres') return [];
   const lieurs = normaliserCatalogue(ctx.catalogue).filter((o) => o && o.liaison);
   if (!lieurs.length) return [];
   const mots = fragments.filter((f) => f.famille === 'unite').sort((a, b) => a.offset - b.offset);

@@ -22,6 +22,7 @@ import { encoderTexte } from '../base58.js';
 import { creerMoteur } from '../index.js';
 import { construireScenario } from '../scenario.js';
 import { operateursPourCible, operateursExplorables, appliquerOp, etat } from '../bfs.js';
+import { liaisons } from '../assemblage.js';
 import { catalogue } from './_catalogue.js';
 import { compile } from '../../visuel/compile.js';
 import { plafondDAbsorption, VISEE_LONGUE } from '../../moteur/transformations/mappeurs.js';
@@ -296,6 +297,28 @@ test('cible-mot — le plafond d’absorption suit la visée, et seulement au-de
   for (let l = 1; l <= VISEE_LONGUE; l++) assert.equal(plafondDAbsorption(l), 36, `visée de ${l} : rien ne bouge`);
   assert.equal(plafondDAbsorption(14), 70);
   assert.equal(plafondDAbsorption(MAX_CHIFFRES), 5 * MAX_CHIFFRES);
+});
+
+/**
+ * ★ La cible SOUS-JACENTE d'une relecture passe par tout l'assemblage, y compris
+ *   la LIAISON — et elle n'est pas toujours une suite de chiffres. « Diable » en
+ *   rangs vaut `4.9.1.2.12.5` : la liaison doit s'en retirer, et le dire.
+ */
+test('cible-mot — la liaison se retire devant une cible de VALEURS, sans exploser', () => {
+  const rangs = cibleDeValeurs([4, 9, 1, 2, 12, 5]);
+  assert.equal(rangs.nature, 'valeurs');
+  const mots = [
+    { texte: 'Sarah', famille: 'unite', offset: 0, longueur: 5, tokenDebut: 0, tokenLong: 1 },
+    { texte: 'Kerrigan', famille: 'unite', offset: 6, longueur: 8, tokenDebut: 2, tokenLong: 1 },
+  ];
+  assert.deepEqual(liaisons(mots, { catalogue, cache: new Map() }, rangs), []);
+  // Et elle travaille toujours sur une cible chiffrée : « James Bond » vaut 007.
+  const james = [
+    { texte: 'James', famille: 'unite', offset: 0, longueur: 5, tokenDebut: 0, tokenLong: 1 },
+    { texte: 'Bond', famille: 'unite', offset: 6, longueur: 4, tokenDebut: 2, tokenLong: 1 },
+  ];
+  assert.ok(liaisons(james, { catalogue, cache: new Map() }, lireCible('007')).length >= 1,
+    'la liaison de l’auteur reste trouvée');
 });
 
 test('cible-mot — une cible chiffrée de vingt chiffres se lit ; au-delà, elle est refusée', () => {
