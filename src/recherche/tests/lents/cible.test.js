@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 
 import {
   lireCible, normaliserCible, seriesDe, indexUtiles, ecrit, verdict,
-  CIBLE_DEFAUT, TEXTE_DEFAUT, MAX_CHIFFRES,
+  CIBLE_DEFAUT, TEXTE_DEFAUT, MAX_CHIFFRES, MAX_SIGNES_TEXTE,
 } from '../../cible.js';
 import { lire, ecrire, REGISTRE_DEFAUT, registreEffectif, registresDisponibles, autreRegistre } from '../../url.js';
 import { creerMoteur } from '../../index.js';
@@ -54,25 +54,32 @@ test('cible — les cinq exemples de l’auteur se lisent tous', () => {
   assert.equal(lireCible('13').longueur, 2, 'ni longueur trois, ni chiffre répété');
 });
 
-test('cible — ce qui n’est pas une suite de chiffres est refusé', () => {
-  /* ⚠️ La liste portait « 1234567 » comme exemple de suite TROP LONGUE. Sept
-     chiffres l'étaient quand le plafond valait six ; ils ne le sont plus depuis
-     qu'il vaut dix (`cible.js › MAX_CHIFFRES`, relevé pour les dates de
-     naissance). Un littéral qui dépend d'une constante sans la nommer se périme
-     en silence : la longueur excessive est éprouvée deux lignes plus bas, DÉRIVÉE
-     du plafond, et cette liste-ci ne garde que ce qui n'est pas une suite de
-     chiffres — ce qu'annonce son titre. */
-  for (const mauvais of ['', '  ', 'six', '6,6', '6.6', '-6', '6 6', null, undefined, {}]) {
+test('cible — ce qui n’est ni une suite de chiffres ni un texte est refusé', () => {
+  // ★ La liste a RÉTRÉCI le jour où les textes sont devenus des cibles
+  //   (`cible.js`, « la cible textuelle ») : « six », « 6,6 », « 6 6 », « -6 »
+  //   ou « s1x » y figuraient comme « pas une suite de chiffres » — ce sont
+  //   aujourd'hui des textes visés tels quels. Ce qui reste refusé n'est
+  //   refusé que pour sa FORME : vide, trop long, pas une chaîne.
+  for (const mauvais of ['', '  ', null, undefined, {}, 'a'.repeat(MAX_SIGNES_TEXTE + 1)]) {
     assert.equal(lireCible(mauvais), null, JSON.stringify(mauvais));
   }
+  for (const texte of ['six', 's1x', '6,6', '6.6', '-6', '6 6']) {
+    const c = lireCible(texte);
+    assert.equal(c.nature, 'mot', texte);
+    assert.equal(c.texte, texte, `${texte} : visé tel quel`);
+  }
   assert.equal(lireCible('9'.repeat(MAX_CHIFFRES)).longueur, MAX_CHIFFRES, 'le plafond est atteignable');
-  assert.equal(lireCible('9'.repeat(MAX_CHIFFRES + 1)), null, 'et il est un plafond');
+  assert.equal(lireCible('9'.repeat(MAX_CHIFFRES + 1)), null,
+    'et il est un plafond : trop de chiffres ne font pas un texte');
 });
 
 test('cible — normaliserCible ne rend JAMAIS null : le moteur ne reste pas bredouille', () => {
   assert.equal(normaliserCible(undefined), CIBLE_DEFAUT);
   assert.equal(normaliserCible('').texte, TEXTE_DEFAUT);
-  assert.equal(normaliserCible('pas une cible').texte, TEXTE_DEFAUT);
+  // « pas une cible » en est une depuis que les textes le sont : l'illisible,
+  // c'est ce que `lireCible` refuse — et c'est lui qui retombe sur 666.
+  assert.equal(normaliserCible('a'.repeat(MAX_SIGNES_TEXTE + 1)).texte, TEXTE_DEFAUT);
+  assert.equal(normaliserCible({}).texte, TEXTE_DEFAUT);
   assert.equal(normaliserCible('111').texte, '111');
   // Une cible déjà lue n'est pas relue.
   const c = lireCible('13');
@@ -199,7 +206,9 @@ test('url — le marqueur de cible se lit, et il n’est pas écrit au défaut',
     saisie: 'hope', cible: '111',
     fragments: [{ portee: null, resonance: null, codes: ['nd'] }],
   });
-  assert.equal(vise, `#so!c111!nd#${B58}`);
+  // ★ La cible passe derrière un TROISIÈME `#`, en base58 marqué `~` (`url.js`,
+  //   « la cible passe derrière un troisième `#` ») ; `c111!` reste lu, plus écrit.
+  assert.equal(vise, `#so!nd#${B58}#~${encoderTexte('111')}`);
   const l = lire(vise);
   assert.equal(l.forme, 'canonique');
   assert.equal(l.cible.texte, '111');
@@ -232,7 +241,9 @@ test('url — `#c111!#…` est la PAGE DE RÉSULTATS pour 111', () => {
   assert.equal(r.saisie, 'hope');
   assert.equal(r.cible.texte, '111');
   // Et c'est bien ce que `ecrire` produit sans programme.
-  assert.equal(ecrire({ saisie: 'hope', cible: '111' }), `#c111!#${B58}`);
+  // …et `ecrire` en produit la forme d'aujourd'hui, qui est aussi la liste.
+  assert.equal(ecrire({ saisie: 'hope', cible: '111' }), `##${B58}#~${encoderTexte('111')}`);
+  assert.equal(lire(`##${B58}#~${encoderTexte('111')}`).forme, 'resultats');
   assert.equal(ecrire({ saisie: 'hope' }), `##${B58}`, 'la cible par défaut ne s’écrit pas');
 });
 
@@ -277,7 +288,7 @@ test('★ registre — une cible sans emblème replie « scénique » sur « sob
     saisie: 'hope', cible: '111', registre: 'scenique',
     fragments: [{ portee: null, resonance: null, codes: ['nd'] }],
   });
-  assert.equal(ecrit111, `#so!c111!nd#${B58}`);
+  assert.equal(ecrit111, `#so!nd#${B58}#~${encoderTexte('111')}`);
   assert.equal(lire(ecrit111).registre, 'sobre');
 });
 
@@ -403,7 +414,9 @@ test('★ le moteur atteint les cinq cibles de l’auteur', () => {
     assert.ok(r.approches.length, `aucune voie pour ${texte}`);
     assert.equal(r.cible.texte, texte);
     for (const a of r.approches) {
-      assert.ok(a.url.includes(`c${texte}!`), `l’URL porte la cible : ${a.url}`);
+      // Le lien porte la cible — derrière le troisième `#` désormais (`url.js`) :
+      // on vérifie ce qu'il DIT, pas comment il l'écrit.
+      assert.equal(lire(a.url).cible.texte, texte, `l’URL porte la cible : ${a.url}`);
       assert.equal(verdictDe(a), verdict(a.series || 1, c), `verdict de ${texte}`);
     }
   }
@@ -665,7 +678,7 @@ test('★ le cas qui ouvre le chantier — `01111984` sur « Henri Prunelle Choc
         `${a.mode} : la suite récoltée doit écrire ${c.texte} — ${suite.join('')}`);
     }
     assert.equal(verdictDe(a), verdict(a.series || 1, c));
-    assert.ok(a.url.includes('c01111984!'), a.url);
+    assert.equal(lire(a.url).cible.texte, '01111984', a.url);
   }
   assert.ok(lisibles >= 1, 'aucune des voies ne montre sa récolte');
 });

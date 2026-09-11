@@ -108,9 +108,10 @@
  * pas celle qu'il DESSINE — si `to.text` diffère de la case, la compilation
  * échoue.
  *
- * ★ Une exception, et c'est la seule : l'alphabet. Pour `ordre: 'a1z26'` ou
- * `'z26a1'`, le rang se **recalcule ici** (`alphabetValue`), sans rien croire
- * du scénario ; et si l'émetteur fournit tout de même ses `entries`, elles sont
+ * ★ Une exception, et c'est la seule : l'alphabet. Pour `ordre: 'a1z26'`,
+ * `'z26a1'` ou `'1a26'` (la même réglette lue à rebours : le rang en tête, la
+ * lettre dessous), la table se **recalcule ici** (`alphabetEntries`), sans rien
+ * croire du scénario ; et si l'émetteur fournit tout de même ses `entries`, elles sont
  * confrontées à cet oracle case par case.
  *
  * ## Caméra
@@ -167,7 +168,7 @@ export function plan(ctx) {
   const op = ctx.op;
 
   if (op.ordre !== undefined && !ALPHABET_ORDRES.includes(op.ordre)) {
-    fail(`${ctx.where}« ordre » = ${JSON.stringify(op.ordre)} — les deux numérotations modélisées sont ${ALPHABET_ORDRES.join(' et ')}.`);
+    fail(`${ctx.where}« ordre » = ${JSON.stringify(op.ordre)} — les numérotations modélisées sont ${ALPHABET_ORDRES.join(', ')}.`);
   }
   if (op.disposition !== undefined && !DISPOSITIONS.includes(op.disposition)) {
     fail(`${ctx.where}« disposition » = ${JSON.stringify(op.disposition)} — les mises en page modélisées sont ${DISPOSITIONS.join(', ')}. `
@@ -441,6 +442,9 @@ function verifierModulo(ctx, op, geo) {
  * fabrique lui-même la réglette, et si l'émetteur a joint la sienne, la
  * moindre divergence fait échouer la compilation.
  */
+/** Ce que chaque numérotation affirme, dit comme on le lirait sur la réglette. */
+const DIT_L_ORDRE = Object.freeze({ a1z26: 'A=1 … Z=26', z26a1: 'Z=1 … A=26', '1a26': '1=a … 26=z' });
+
 function entreesDe(ctx) {
   const op = ctx.op;
   const fournies = Array.isArray(op.entries) ? op.entries : null;
@@ -462,7 +466,7 @@ function entreesDe(ctx) {
     for (const e of oracle) {
       const v = dit.get(e.char);
       if (v !== undefined && v !== String(e.value)) {
-        fail(`${ctx.where}la table annoncée donne « ${e.char} = ${v} », mais la réglette ${ordre === 'z26a1' ? 'Z=1 … A=26' : 'A=1 … Z=26'} montre ${e.value}. `
+        fail(`${ctx.where}la table annoncée donne « ${e.char} = ${v} », mais la réglette ${DIT_L_ORDRE[ordre]} montre ${e.value}. `
           + 'Le moteur visuel refuse de dessiner autre chose que le rang qu’il sait recalculer.');
       }
     }

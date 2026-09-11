@@ -116,6 +116,7 @@ export function preparer() {
       M.normaliserCible = rech.normaliserCible;
       M.CIBLE_DEFAUT = rech.CIBLE_DEFAUT;
       M.MAX_CHIFFRES = rech.MAX_CHIFFRES;
+      M.MAX_SIGNES_TEXTE = rech.MAX_SIGNES_TEXTE;
       // ★ Le PANNEAU DE RÉGLAGES de la liste : les noms des curseurs, leurs
       //   bornes, leur défaut, et les deux fonctions qui traduisent des
       //   positions en pourcentages. L'écran ne doit pas connaître le découpage
@@ -176,6 +177,8 @@ export const bandeaux = () => M.BANDEAUX || {};
 //   valeur vraie du jour ; c'est une copie, et une copie diverge — la vraie
 //   source est `cible.js › MAX_CHIFFRES` et `config.js › PUISSANCE_DE_FOUILLE_MAX`.
 export const MAX_CHIFFRES = () => M.MAX_CHIFFRES || 10;
+/** Le plafond d'un TEXTE visé (`cible.js › MAX_SIGNES_TEXTE`). */
+export const MAX_SIGNES_TEXTE = () => M.MAX_SIGNES_TEXTE || 20;
 
 /**
  * ★ **LE PANNEAU DE RÉGLAGES, ET SON REPLI.**
@@ -206,12 +209,15 @@ export const lireCible = (texte) => (M.lireCible ? M.lireCible(texte) : null);
 /** La cible, normalisée — 666 quand elle manque ou qu'elle est illisible. */
 export const normaliserCible = (x) => (M.normaliserCible ? M.normaliserCible(x) : null);
 
-/** L'écriture d'une cible, quelle que soit la forme sous laquelle elle arrive.
+/** L'écriture d'une cible TELLE QU'ON LA MONTRE, quelle que soit la forme sous
+ *  laquelle elle arrive : `666`, `007`, ou `ZERG` pour un mot (`cible.js ›
+ *  affichage`). Ce qui la relit (`lireCible`) plie casse et accents : la rendre
+ *  en capitales ne change donc pas la cible qu'on redemande ni le lien écrit.
  *  Sans moteur chargé, on n'invente pas : la page affichera ce qu'elle a. */
 export function texteCible(x) {
-  if (x && typeof x === 'object' && typeof x.texte === 'string') return x.texte;
+  if (x && typeof x === 'object' && typeof x.texte === 'string') return x.affichage ?? x.texte;
   const c = normaliserCible(x);
-  return c ? c.texte : (typeof x === 'string' && x ? x : '666');
+  return c ? (c.affichage ?? c.texte) : (typeof x === 'string' && x ? x : '666');
 }
 
 /* Le registre de mise en scene, relaye tel quel depuis `src/recherche/url.js`.

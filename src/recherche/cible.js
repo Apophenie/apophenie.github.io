@@ -50,6 +50,45 @@
 // tel quel — la cible ne modifie NI le catalogue NI le barème, elle change
 // seulement ce qu'on y cherche. Si `000` rend peu de voies, c'est un fait sur
 // la saisie, pas un défaut à corriger en truquant la mesure.
+//
+// ── LA CIBLE TEXTUELLE — « Sarah Kerrigan → Zerg » ──────────────────────────
+//
+// « Je voudrais la possibilité d'aller d'une saisie (lettre, chiffre...) vers
+// une autre qui n'est pas nécessairement des chiffres. » (l'auteur)
+//
+// Une cible peut donc être un TEXTE — n'importe lequel : « Zerg », « Fantôme »,
+// « reine des lames ». Il est visé sous sa forme EXACTE, casse et accents
+// compris : « casse et accents doivent être pris en compte pour maximiser
+// exhaustivité et cohérence » (l'auteur).
+//
+// ★ **Un texte ne se cherche pas : ce sont ses RELECTURES qui se cherchent.**
+//   Le moteur sait écrire des suites de chiffres. Pour écrire un mot, il écrit
+//   les chiffres qu'un opérateur « chiffres → lettre » relira en ce mot : `m1a`
+//   (le rang dans l'alphabet), `mcaz` et `mcqw` (la touche désignée par sa
+//   colonne et sa rangée). Chaque relecture donne UNE cible chiffrée
+//   sous-jacente — « Zerg » vaut `26 5 18 7` en rangs, `21314152` en
+//   coordonnées AZERTY —, et l'inverse n'est jamais recopié : il se CALCULE sur
+//   l'opérateur lui-même (`conversions.js`). « Produire un mappage inverse
+//   "objectif vers chiffres" avec chacun des opérateurs chiffre→lettre et
+//   fournir la séquence de chiffres produite comme objectif pour notre
+//   outillage actuel » (l'auteur) : c'est littéralement ce qui se passe, puis
+//   les listes des relectures sont fusionnées (`index.js › deroulerTexte`).
+//
+// ★ **Ce qu'on peut viser n'est borné que par la RECHERCHE, pas par le
+//   format.** Un texte d'au plus `MAX_SIGNES_TEXTE` signes, sans caractère de
+//   commande, est une cible — espaces, traits d'union et apostrophes compris,
+//   puisque l'URL la porte en base58. S'il contient un signe qu'aucune
+//   relecture ne sait écrire (une espace, un « œ »), il n'a simplement pas de
+//   voie, et la liste le dit.
+//
+// ★ **L'écart de forme se PAIE, il n'interdit pas.** Les relectures écrivent en
+//   bas de casse et sans accent : viser « Fantôme » par elles rend « fantome ».
+//   La voie reste montrée, sous son vrai verdict, et son score est multiplié
+//   par le barème d'écart (`ECARTS`, plus bas) — la hiérarchie de l'auteur,
+//   chiffrée.
+//
+// ⚠️ Deux des quatre exemples de l'auteur restent hors de portée — Terran et
+//   Fantome : voir `tests/lents/cible-mot.test.js`, qui dit pourquoi.
 
 /**
  * Le plafond de longueur — voir l'en-tête.
@@ -76,6 +115,10 @@
  * Dix plutôt que huit : une date de naissance s'écrit `01012000` en huit
  * chiffres, mais aussi `0101200019` ou `19012000` selon les usages, et deux
  * chiffres de marge ne coûtent rien puisque la combinatoire décroît.
+ *
+ * ★ Il ne borne PAS un texte visé — voir `MAX_SIGNES_TEXTE`. Un texte ne se
+ * cherche pas lui-même : ce sont ses relectures qui se cherchent, et leurs
+ * cibles sous-jacentes n'ont pas de plafond (`cibleDeValeurs`).
  */
 export const MAX_CHIFFRES = 10;
 
@@ -87,17 +130,22 @@ const RE_CIBLE = /^[0-9]+$/;
 /**
  * @typedef {Object} Cible
  * @property {string} texte        l'écriture décimale, zéros de tête compris
- * @property {number[]} chiffres   les chiffres, gelés
+ * @property {number[]} chiffres   les chiffres (ou les valeurs), gelés — VIDE pour un texte :
+ *                                 ce sont ses relectures qui en ont
  * @property {number} longueur     `chiffres.length` — la longueur d'une série
  * @property {number[]} alphabet   les chiffres DISTINCTS, croissants, gelés
  * @property {boolean} homogene    un seul chiffre distinct (`666`, `111`, `000`)
  * @property {boolean} defaut      vaut-elle `666` ?
  * @property {number|null} nombre  l'entier, ou `null` si l'écriture ne le retrouve pas
+ * @property {'chiffres'|'valeurs'|'mot'} nature  des chiffres décimaux ; une suite de valeurs
+ *                                 (la cible sous-jacente d'une relecture) ; un texte visé
+ * @property {string} affichage    ce qu'on MONTRE : l'écriture, telle quelle
  */
 
 /**
- * Lit une cible écrite. Rend `null` sur tout ce qui n'est pas une suite de
- * chiffres décimaux non vide et d'au plus `MAX_CHIFFRES` signes.
+ * Lit une cible écrite. Rend `null` sur tout ce qui n'est ni une suite de
+ * chiffres décimaux non vide et d'au plus `MAX_CHIFFRES` signes, ni un TEXTE
+ * d'au plus `MAX_SIGNES_TEXTE` signes (voir l'en-tête, « la cible textuelle »).
  *
  * ★ **Aucune tolérance, et c'est délibéré.** On pourrait accepter les espaces,
  * les points médians, ou un `6·6·6` recopié depuis l'ancien pied de panneau.
@@ -107,6 +155,11 @@ const RE_CIBLE = /^[0-9]+$/;
  * champ de saisie de la page de listing filtre au clavier ; ce qui arrive ici
  * est déjà propre, ou n'est pas une cible.
  *
+ * ⚠️ **Un texte se lit TEL QUEL** — NFC, blancs de bord retirés, et rien
+ * d'autre. « Fantôme » et « fantome » sont deux cibles : l'écart entre ce
+ * qu'une voie écrit et ce qu'on vise se PAIE au barème (`ecartDeForme`), il ne
+ * se replie pas en silence sur une forme voisine.
+ *
  * @param {string|number|number[]|Cible} entree
  * @returns {Cible|null}
  */
@@ -114,6 +167,10 @@ export function lireCible(entree) {
   if (entree && typeof entree === 'object' && Array.isArray(entree.chiffres)) {
     return /** @type {Cible} */ (entree); // déjà lue : on ne la relit pas
   }
+  // ★ Un objet qui n'est pas une cible déjà lue n'en devient pas une en passant
+  //   par `String` : « [object Object] » serait un TEXTE parfaitement visable,
+  //   depuis que les textes le sont. On refuse, comme avant.
+  if (entree !== null && typeof entree === 'object' && !Array.isArray(entree)) return null;
   let texte;
   if (Array.isArray(entree)) {
     if (!entree.every((d) => Number.isInteger(d) && d >= 0 && d <= 9)) return null;
@@ -121,7 +178,10 @@ export function lireCible(entree) {
   } else {
     texte = String(entree ?? '').trim();
   }
-  if (!RE_CIBLE.test(texte)) return null;
+  // Ce qui n'est pas une suite de chiffres peut encore être un TEXTE — sauf un
+  // tableau, qui ne porte que des chiffres. Une suite de chiffres trop longue,
+  // elle, n'est pas un texte : elle est refusée juste en dessous.
+  if (!RE_CIBLE.test(texte)) return Array.isArray(entree) ? null : lireMot(texte);
   if (texte.length > MAX_CHIFFRES) return null;
 
   const chiffres = Object.freeze([...texte].map(Number));
@@ -140,6 +200,105 @@ export function lireCible(entree) {
     homogene: alphabet.length === 1,
     defaut: texte === TEXTE_DEFAUT,
     nombre,
+    nature: 'chiffres',
+    affichage: texte,
+  });
+}
+
+/**
+ * ★ LE PLIAGE — ce qu'une relecture sait écrire d'une lettre : sa forme de
+ * base, sans diacritique, en bas de casse.
+ *
+ * Il ne sert plus à confondre deux cibles — l'auteur veut la forme exacte —,
+ * il sert à chercher, pour chaque signe de la cible, ce qu'un opérateur de
+ * relecture écrirait à sa place. L'écart qui reste se paie (`ecartDeForme`).
+ * `toLowerCase` et non `toLocaleLowerCase` : aucune source d'entropie (§4.4
+ * règle 4).
+ */
+export function plierMot(texte) {
+  return String(texte ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
+/**
+ * Le plafond d'un TEXTE visé, en signes.
+ *
+ * Il n'a rien de la combinatoire qui borne les chiffres : un texte ne se
+ * cherche pas lui-même. Il borne ce qui se LIT — le verdict d'un texte de vingt
+ * signes tient encore sur une ligne — et la recherche, puisque chaque signe
+ * coûte une ou deux valeurs à la cible sous-jacente.
+ */
+export const MAX_SIGNES_TEXTE = 20;
+
+const RE_COMMANDE = /\p{Cc}/u;
+
+/**
+ * Lit une cible écrite en TEXTE, telle quelle. `null` si elle est vide, trop
+ * longue, ou porte un caractère de commande — qu'aucun champ ne produit, et
+ * qu'aucune scène ne sait montrer.
+ *
+ * ★ `chiffres` est VIDE : un texte ne s'écrit pas en chiffres, ce sont ses
+ *   relectures qui en ont (`conversions.js`). Le laisser entrer tel quel dans la
+ *   recherche chiffrée ne viserait rien — `index.js` l'en empêche, bruyamment.
+ * @returns {Cible|null}
+ */
+function lireMot(brut) {
+  const texte = String(brut ?? '').normalize('NFC').trim();
+  const signes = [...texte];
+  if (!signes.length || signes.length > MAX_SIGNES_TEXTE || RE_COMMANDE.test(texte)) return null;
+  return Object.freeze({
+    texte,
+    chiffres: Object.freeze([]),
+    longueur: signes.length,
+    alphabet: Object.freeze([]),
+    homogene: false,
+    defaut: false,
+    nombre: null,
+    nature: 'mot',
+    affichage: texte,
+  });
+}
+
+/**
+ * ★ LA CIBLE SOUS-JACENTE d'une relecture — une suite de valeurs que la
+ * recherche chiffrée sait viser.
+ *
+ * Faite de chiffres décimaux, c'est une cible chiffrée ORDINAIRE, et tout le
+ * moteur s'y applique — y compris les opérateurs qui lisent la cible (`mab`,
+ * `mrd`…) : c'est ce qui a ouvert ZERG et GHOST en coordonnées de clavier.
+ * Sinon — un rang de 26, une colonne de 10 —, c'est une suite de VALEURS : même
+ * lecture de gauche à droite (`seriesDe`), mais les opérateurs visés, qui
+ * raisonnent en chiffres décimaux, s'en retirent d'eux-mêmes (`lireVisee`
+ * refuse l'écriture `26.5.18.7`).
+ *
+ * ★ **Jamais la cible par défaut, jamais un nombre.** `fff` vaut `6 6 6` en
+ *   rangs, et n'a pas pour autant droit aux cornes, au joker ni aux réponses
+ *   dédiées : ce sont les promesses du 666, pas celles d'une relecture. Et le
+ *   mode DIRECT est fermé (`nombre: null`) : une relecture lit ses valeurs une
+ *   à une, et lire 123 comme 1, 2, 3 serait déjà une démonstration.
+ *
+ * ★ Pas de plafond : au-delà de dix valeurs, les modes qui assemblent douze
+ *   fragments au plus ne peuvent plus l'écrire, et il reste les voies d'un
+ *   seul vecteur. C'est la recherche qui le dit, pas un refus de principe.
+ *
+ * @param {number[]} valeurs  entiers positifs ou nuls
+ * @returns {Cible|null}
+ */
+export function cibleDeValeurs(valeurs) {
+  if (!Array.isArray(valeurs) || !valeurs.length
+    || !valeurs.every((v) => Number.isInteger(v) && v >= 0)) return null;
+  const chiffres = Object.freeze([...valeurs]);
+  const alphabet = Object.freeze([...new Set(chiffres)].sort((a, b) => a - b));
+  const decimale = chiffres.every((v) => v <= 9);
+  return Object.freeze({
+    texte: decimale ? chiffres.join('') : chiffres.join('.'),
+    chiffres,
+    longueur: chiffres.length,
+    alphabet,
+    homogene: alphabet.length === 1,
+    defaut: false,
+    nombre: null,
+    nature: decimale ? 'chiffres' : 'valeurs',
+    affichage: decimale ? chiffres.join('') : chiffres.join(' '),
   });
 }
 
@@ -160,6 +319,114 @@ export function normaliserCible(entree) {
 
 /** Deux cibles sont-elles la même ? (comparaison sur l'écriture, qui est canonique) */
 export const memeCible = (a, b) => normaliserCible(a).texte === normaliserCible(b).texte;
+
+/** La cible est-elle un TEXTE ? (voir l'en-tête, « la cible textuelle ») */
+export const estMot = (entree) => normaliserCible(entree).nature === 'mot';
+
+/**
+ * L'écriture qu'on MONTRE : `666`, `007`, ou `Zerg`. Une cible reçue d'ailleurs
+ * sans `affichage` — un objet fabriqué à la main — se montre par son écriture.
+ */
+export const ecritureDe = (entree) => {
+  const c = normaliserCible(entree);
+  return c.affichage ?? c.texte;
+};
+
+// ═════════════════════════════════ l'écart de forme
+
+/**
+ * ★ LE BARÈME D'ÉCART DE FORME — ce que coûte de rendre un texte qui n'est pas
+ *   exactement la cible. Des millièmes du score, multiplicatifs et entiers.
+ *
+ * > « Casse et accents doivent être pris en compte pour maximiser exhaustivité
+ * >   et cohérence. Ceci dit, le coût pour une version sans accent doit être
+ * >   faible, et le coût pour une casse différente mais homogène (Fantome
+ * >   FANTOME fantome, pas FaNtOMe) doit être faible aussi. Passer entièrement
+ * >   en majuscule une saisie qui ne l'était pas est ce qui doit coûter le plus
+ * >   cher après une casse hétérogène (sauf première lettre majuscule qui coûte
+ * >   très peu comme écart). » (l'auteur)
+ *
+ * Du moins cher au plus cher, ce que la voie ÉCRIT face à ce qu'on VISE :
+ *
+ *   | écart       | exemple (écrit → visé)  | facteur |
+ *   |-------------|-------------------------|---------|
+ *   | aucun       | Zerg → Zerg             |   1,000 |
+ *   | initiale    | zerg → Zerg             |   0,970 |
+ *   | accents     | fantome → fantôme       |   0,930 |
+ *   | casse       | zerg → ZERG             |   0,900 |
+ *   | capitales   | ZERG → Zerg             |   0,650 |
+ *   | mêlée       | zErG → Zerg             |   0,400 |
+ *
+ * Les écarts se CUMULENT par produit : « fantome » pour « Fantôme » paie
+ * l'accent ET l'initiale, 0,930 × 0,970 ≈ 0,902.
+ *
+ * ⚠️ **À VALIDER PAR L'AUTEUR**, et sur deux points précis :
+ *   · les valeurs, qui ne sont qu'une traduction chiffrée de son ordre ;
+ *   · la LECTURE de « passer entièrement en majuscule une saisie qui ne l'était
+ *     pas » : « la saisie » est lue comme la CIBLE saisie dans le champ. Écrire
+ *     ZERG pour « Zerg » coûte cher ; écrire zerg pour « ZERG » est une casse
+ *     homogène, qui coûte peu. Le passage en capitales est donc asymétrique,
+ *     et c'est ce qui concilie « FANTOME » dans la liste des casses bon marché
+ *     avec « tout en majuscules » dans celle des chères.
+ */
+export const ECARTS = Object.freeze({
+  initiale: Object.freeze({
+    facteur: 970, dit: Object.freeze({ fr: 'à la capitale initiale près', en: 'but for the initial capital' }),
+  }),
+  accents: Object.freeze({
+    facteur: 930, dit: Object.freeze({ fr: 'aux accents près', en: 'but for the accents' }),
+  }),
+  casse: Object.freeze({
+    facteur: 900, dit: Object.freeze({ fr: 'à la casse près', en: 'but for the case' }),
+  }),
+  capitales: Object.freeze({
+    facteur: 650, dit: Object.freeze({ fr: 'tout en capitales', en: 'all in capitals' }),
+  }),
+  melee: Object.freeze({
+    facteur: 400, dit: Object.freeze({ fr: 'en casse mêlée', en: 'in mixed case' }),
+  }),
+});
+
+const sansAccents = (s) => s.normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
+
+/**
+ * L'écart entre ce qu'une voie ÉCRIT et le texte VISÉ. `null` s'ils ne sont pas
+ * le même texte au pliage près : ce n'est plus un écart, c'est un autre mot.
+ *
+ * ★ Il se mesure sur ce qui est RÉELLEMENT écrit, pas sur la méthode : deux
+ *   relectures qui écrivent la même chose paient la même chose.
+ * @returns {{natures:string[], facteur:number}|null}
+ */
+export function ecartDeForme(produit, vise) {
+  const p = String(produit ?? '').normalize('NFC');
+  const v = String(vise ?? '').normalize('NFC');
+  if (plierMot(p) !== plierMot(v) || [...p].length !== [...v].length) return null;
+  const natures = [];
+  // Les accents d'abord : ils se lisent à casse égale.
+  if (p.toLowerCase() !== v.toLowerCase()) natures.push('accents');
+  // Puis la casse, accents retirés des deux côtés.
+  const pa = [...sansAccents(p)];
+  const va = [...sansAccents(v)];
+  if (pa.join('') !== va.join('')) {
+    const reste = (s) => s.slice(1).join('');
+    const tout = pa.join('');
+    if (reste(pa) === reste(va)) natures.push('initiale');
+    else if (tout === tout.toUpperCase()) natures.push('capitales');
+    else if (tout === tout.toLowerCase()
+      || (pa[0] === pa[0].toUpperCase() && reste(pa) === reste(pa).toLowerCase())) natures.push('casse');
+    else natures.push('melee');
+  }
+  let facteur = 1000;
+  for (const n of natures) facteur = Math.round((facteur * ECARTS[n].facteur) / 1000);
+  return Object.freeze({ natures: Object.freeze(natures), facteur });
+}
+
+/** L'écart dit en toutes lettres — « à la capitale initiale près ». */
+export function libelleEcart(ecart, langue = 'fr') {
+  if (!ecart || !ecart.natures || !ecart.natures.length) return '';
+  const l = langue === 'en' ? 'en' : 'fr';
+  return ecart.natures.map((n) => ECARTS[n].dit[l]).join(l === 'en' ? ' and ' : ' et ');
+}
 
 // ═════════════════════════════════ écrire la cible dans un vecteur
 
@@ -243,10 +510,11 @@ export const ecrit = (valeurs, cible) => seriesDe(valeurs, cible, 1).length === 
 /**
  * Le verdict à afficher : `666`, ou `666 666` quand il y a de quoi.
  * L'écriture est celle de la cible, zéros de tête compris — c'est bien pour ça
- * qu'une cible est une CHAÎNE et pas un nombre.
+ * qu'une cible est une CHAÎNE et pas un nombre. Un mot s'y écrit en capitales,
+ * comme la réglette le rend (`affichage`).
  */
 export function verdict(nSeries, cible) {
   const c = normaliserCible(cible);
   const n = Math.max(1, nSeries || 1);
-  return Array.from({ length: n }, () => c.texte).join(' ');
+  return Array.from({ length: n }, () => c.affichage ?? c.texte).join(' ');
 }

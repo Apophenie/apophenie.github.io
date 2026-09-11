@@ -2,10 +2,11 @@
 // Grammaire d'URL : lecture tolérante, écriture toujours canonique.
 // CONTRACTS.md §4.2, §4.3, §4.4.
 //
-//   url        := {chemin} '#' [approche] '#' saisie
+//   url        := {chemin} '#' [approche] '#' saisie ['#' cible]
 //              |  {chemin} '#' saisie                 // un seul `#`, voir plus bas
 //   approche   := marqueur* (retouche ';')* fragment (',' fragment)*
-//   marqueur   := registre '!' | 'c' chiffre+ '!'
+//   marqueur   := registre '!' | relecture '!'
+//               |  'c' chiffre+ '!' | 'c' lettre+ '!'   // la cible : LUE, plus écrite
 //               |  'p' cran '.' cran '.' cran '.' cran '!'   // les 4 curseurs
 //               |  'f' chiffre '!'                           // puissance de fouille
 //   registre   := 'so' | 'sce'        (formes longues encore LUES, plus écrites)
@@ -19,6 +20,8 @@
 //              // s'écrit pas et se réinsère à la lecture — voir
 //              // `CODE_DECOUPE_IMPLICITE`.
 //   saisie     := b58(texte) | texte           // le b58 gagne, voir plus bas
+//   cible      := '~' b58(texte) | texte       // `~` : base58, sinon en clair ; absente ⇒ 666
+//   relecture  := code d'un opérateur « chiffres → lettre » (`m1a`, `mcaz`…)
 //
 // `+` sépare les OPÉRATIONS d'un même fragment (arbitrage utilisateur) — et,
 // AVANT le `:`, les PORTÉES qui se partagent ce programme. Les deux régions sont
@@ -276,6 +279,61 @@
 // ambiguïté qui n'existe pas, et — surtout — CHANGERAIT la forme canonique de
 // tous les liens déjà partagés, que `canoniser()` réécrit à chaque ouverture.
 // Le marqueur ne paraît donc que là où il dit quelque chose.
+//
+// ★ **LA CIBLE PASSE DERRIÈRE UN TROISIÈME `#`, EN BASE58** — `#…#<saisie>#<cible>`.
+//
+// > « czerg! → par défaut, encode en b58 comme la partie après le 2nd # pour
+// >   que les objectifs contenant des espaces ou autre passent bien, et pour
+// >   maximiser l'effet de surprise. D'ailleurs c'est peut-être quelque chose
+// >   qui serait plus pertinent à mettre derrière un 3ème # que en c...! en
+// >   début de programme. Et en acceptant aussi bien la version b58 que la
+// >   version en clair, mais la version en clair n'est pas générée dans l'url
+// >   quand on saisit l'objectif dans le champ dédié. » (l'auteur)
+//
+// ★ Toutes les cibles y passent, chiffrées comme textuelles : une seule place,
+//   une seule règle. `ecrire()` n'écrit plus jamais `c111!` ; il écrit
+//   `##<b58 de la saisie>#~<b58 de « 111 »>`. Le défaut 666 n'écrit toujours
+//   RIEN : les liens de la cible du site sont ceux d'avant, au caractère près.
+// ★ **Aucun lien existant ne change de sens.** Trois segments étaient refusés
+//   (« format inconnu ») : le troisième ne prend la place de rien. Et `c111!`
+//   reste LU — seule l'écriture change, et `canoniser()` réécrit la barre
+//   d'adresse à la nouvelle forme dès l'ouverture.
+// ★ **BASE58 OU CLAIR : UN MARQUEUR, `~`, ET PAS LA RÈGLE DE LA SAISIE.** Le
+//   site écrit `#~<base58>` ; tout ce qui ne commence pas par `~` est le
+//   texte en clair, tel quel. Déterministe, et sans angle mort.
+//
+//   On a d'abord repris la règle de la saisie — du base58 s'il n'emploie que
+//   les 58 signes, décode en UTF-8 valide et ne rend aucun caractère de
+//   commande. MESURÉ, elle échoue sur l'exemple même de l'auteur : « Zerg »
+//   écrit en clair se relit en base58, et vise « a6u » ; « 777 » vise « P: ».
+//   Une cible est un mot COURT, précisément la longueur où l'angle mort de la
+//   saisie se concentre (quatre, cinq ou huit signes, voir plus haut). Et le
+//   mal n'est pas réparable dans l'autre sens : « 3K1xi2 », que le site écrit
+//   pour Zerg, est aussi un texte en clair parfaitement lisible — aucune
+//   règle SANS marqueur ne départage les deux lectures sans casser l'une.
+//
+//   Le marqueur va donc du côté de la MACHINE, qui l'écrit sans effort, et
+//   pas du côté de la main : `#Zerg` tapé à la main vise bien Zerg. `~` n'est
+//   pas dans l'alphabet base58 et reste tel quel dans une URL (RFC 3986,
+//   `unreserved`). La saisie, elle, garde sa règle : la changer changerait le
+//   sens de liens déjà écrits.
+//
+//   ⚠️ Écart assumé avec la lettre de la demande — « encode en b58 comme la
+//     partie après le 2nd # » : c'est bien du base58, et c'est bien ce que le
+//     site écrit par défaut ; il porte un signe de plus pour ne jamais être lu
+//     de travers.
+// ★ Une cible écrite DEUX fois — un `c…!` et un troisième segment — qui ne
+//   désignent pas la même chose est refusée, avec son bandeau : deviner
+//   laquelle on voulait serait un repli muet.
+//
+// ★ **LA RELECTURE, `mcaz!`** — un texte se vise par ses relectures
+//   (`conversions.js`), et une voie dit laquelle la termine : le code de
+//   l'opérateur « chiffres → lettre », en marqueur. Comme le registre, il
+//   préfixe l'approche entière : il relit la ligne assemblée, jamais un
+//   fragment. La grammaire ne sait pas quels codes relisent ; c'est le rejeu
+//   qui refuse un code qui ne relit rien, ou une relecture sans texte visé
+//   (`index.js › rejouer`). Un lien qui vise un texte sans nommer de relecture
+//   se relit par le rang dans l'alphabet (`m1a`).
 
 // ── LES QUATRE CURSEURS, `p100.100.100.100!` — partager une liste PONDÉRÉE ──
 //
@@ -408,7 +466,9 @@
 
 import { encoderTexte, decoderTexte, estBase58, LIMITE_SAISIE } from './base58.js';
 import { normaliserCatalogue } from './bfs.js';
-import { lireCible, normaliserCible, CIBLE_DEFAUT, MAX_CHIFFRES } from './cible.js';
+import {
+  lireCible, normaliserCible, CIBLE_DEFAUT, MAX_CHIFFRES, MAX_SIGNES_TEXTE,
+} from './cible.js';
 import { CURSEURS, normaliserCurseurs, auDefaut } from './score.js';
 import { CODE_DECOUPE_IMPLICITE, CODE_LECTURE_IMPLICITE, CODES_IMPLICITES } from '../config.js';
 import { PUISSANCE_DE_FOUILLE_DEFAUT, normaliserPuissance } from '../config.js';
@@ -603,8 +663,21 @@ const RE_REGISTRE = /^(so|sce|sobre|scenique)!/;
  * bien un marqueur de cible, simplement une cible ILLISIBLE, et il vaut mieux
  * le dire (bandeau + repli sur la page de résultats, §4.3) que la laisser
  * passer pour un fragment et échouer plus loin sur « code inconnu ».
+ *
+ * ★ Ou un MOT — `czerg!`. `\p{L}` et non `[a-z]` : « Fantôme » arrive avec son
+ * accent et sa capitale, et c'est `lireCible` qui plie. Refuser ici laisserait
+ * le lien échouer plus loin sur un « fragment illisible », qui ne dirait pas
+ * que c'était une cible.
  */
-const RE_CIBLE = /^c([0-9]+)!/;
+const RE_CIBLE = /^c([0-9]+|\p{L}+)!/u;
+
+/**
+ * Le marqueur de RELECTURE — `mcaz!`, `m1a!` : l'opérateur « chiffres →
+ * lettre » qui relit la ligne assemblée en texte. Seule la famille des
+ * mappeurs peut en fournir ; lesquels le peuvent vraiment, c'est le catalogue
+ * qui le sait (`index.js › rejouer`).
+ */
+const RE_RELECTURE = /^(m[0-9a-z]+[A-Z]?)!/;
 
 /**
  * Le marqueur des QUATRE CURSEURS — `p100.100.100.100!`.
@@ -693,6 +766,7 @@ export function lire(hash, options = {}) {
     curseurs: CURSEURS_DEFAUT_URL, curseursEcrits: false,
     fouille: PUISSANCE_DE_FOUILLE_DEFAUT, fouilleEcrite: false,
     rangs: null, bandeau: null, raison: null,
+    relecture: null,
   };
   if (typeof hash !== 'string') return { ...vide, raison: 'hash absent' };
 
@@ -708,15 +782,17 @@ export function lire(hash, options = {}) {
   //   d'abord, décoder ensuite, c'est l'ordre que le navigateur lui-même
   //   applique — le fragment commence au premier `#` NON échappé.
   const parts = brut.split('#').map(depourcenter);
-  if (parts.length > 2) {
+  // ★ TROIS segments au plus : le troisième est la CIBLE (voir l'en-tête).
+  if (parts.length > 3) {
     return { ...vide, raison: 'format inconnu', bandeau: BANDEAUX.formatInconnu };
   }
   // ★ UN SEUL `#` : il n'y a pas d'approche, tout est saisie. C'est la forme
   //   qu'on écrit de mémoire — `#Donald Trump` —, et elle vaut « cherche, puis
   //   montre ». Elle ne peut porter aucun marqueur : `#so!Machin` est une
   //   saisie qui commence par « so! », pas un registre sans saisie.
-  let approche = parts.length === 2 ? parts[0] : '';
-  const texteSaisie = parts[parts.length - 1];
+  let approche = parts.length >= 2 ? parts[0] : '';
+  const texteSaisie = parts.length === 3 ? parts[1] : parts[parts.length - 1];
+  const segmentCible = parts.length === 3 ? parts[2] : null;
 
   // ★ Les MARQUEURS se détachent AVANT tout le reste : ils préfixent l'approche
   //   entière, ils n'appartiennent à aucun fragment. Deux existent — le
@@ -742,12 +818,20 @@ export function lire(hash, options = {}) {
   let curseursEcrits = false;
   let fouille = PUISSANCE_DE_FOUILLE_DEFAUT;
   let fouilleEcrite = false;
+  let relecture = null;
   for (;;) {
     const mReg = registreEcrit ? null : RE_REGISTRE.exec(approche);
     if (mReg) {
       registre = REGISTRE_DU_MOT[mReg[1]];
       registreEcrit = true;
       approche = approche.slice(mReg[0].length);
+      continue;
+    }
+    // ★ LA RELECTURE — voir l'en-tête. Comme le registre, une seule fois.
+    const mRel = relecture ? null : RE_RELECTURE.exec(approche);
+    if (mRel) {
+      relecture = mRel[1];
+      approche = approche.slice(mRel[0].length);
       continue;
     }
     const mCib = cibleEcrite ? null : RE_CIBLE.exec(approche);
@@ -787,6 +871,30 @@ export function lire(hash, options = {}) {
       continue;
     }
     break;
+  }
+
+  // ★ LA CIBLE DERRIÈRE LE TROISIÈME `#` — base58 d'abord, clair à défaut, la
+  //   règle de la saisie (voir l'en-tête). Illisible, elle est refusée avec son
+  //   bandeau, jamais repliée sur 666.
+  if (segmentCible !== null) {
+    // `~` : du base58, qui DOIT se décoder ; sinon le texte en clair (voir
+    // l'en-tête — la règle de la saisie échoue sur « Zerg »).
+    const texteCible = segmentCible.startsWith('~')
+      ? texteBase58(segmentCible.slice(1))
+      : segmentCible.trim().normalize('NFC');
+    const lue = texteCible ? lireCible(texteCible) : null;
+    if (!lue) {
+      return { ...vide, raison: `cible illisible : ${segmentCible}`, bandeau: BANDEAUX.cibleIllisible };
+    }
+    if (cibleEcrite && lue.texte !== cible.texte) {
+      return { ...vide, raison: 'deux cibles', bandeau: BANDEAUX.cibleEnDouble };
+    }
+    cible = lue;
+    cibleEcrite = true;
+  }
+  // Une relecture sans texte à relire ne désigne rien.
+  if (relecture && cible.nature !== 'mot') {
+    return { ...vide, raison: 'relecture sans texte', bandeau: BANDEAUX.relectureSansTexte };
   }
 
   // Le base58 d'abord, le texte en clair à défaut (voir l'en-tête).
@@ -1008,6 +1116,8 @@ export function lire(hash, options = {}) {
     registre: registreEffectif(registre, cible),
     registreDemande: registre,
     registreEcrit, cible, cibleEcrite,
+    // La relecture qui termine une voie vers un TEXTE (voir l'en-tête).
+    relecture,
     // ★ Une voie rejouée porte les curseurs de la liste dont elle vient : le
     //   score affiché sous elle est celui de cette liste-là (`index.js ›
     //   rejouer`). La fouille, elle, ne change rien à un rejeu — il n'y a pas de
@@ -1141,7 +1251,21 @@ export const BANDEAUX = {
   //   une version manquante pour un opérateur présent.
   regleRefusee: (code) => `La règle « ${code} » ne s’applique pas à cette valeur : `
     + 'la démonstration s’arrête là.',
-  cibleIllisible: `Ce lien vise une suite que le moteur ne sait pas viser : au plus ${MAX_CHIFFRES} chiffres.`,
+  cibleIllisible: `Ce lien vise une cible illisible : au plus ${MAX_CHIFFRES} chiffres, ou un texte `
+    + `d’au plus ${MAX_SIGNES_TEXTE} signes.`,
+  // ★ Deux cibles dans un même lien — un `c…!` et un troisième segment — qui ne
+  //   disent pas la même chose : on ne choisit pas à la place du lien.
+  cibleEnDouble: 'Ce lien nomme deux cibles différentes : il ne dit pas laquelle viser.',
+  // ★ Une RELECTURE sans texte à relire, ou qui n'écrit pas ce texte-là.
+  relectureSansTexte: 'Ce lien relit des chiffres en lettres, mais ne vise aucun texte.',
+  relectureImpossible: 'Ce lien relit des chiffres en lettres d’une façon qui n’écrit pas ce texte-là.',
+  // ★ Affiché par la liste, donc traduit (comme `rechercheTronquee`).
+  aucuneRelecture: {
+    fr: 'Aucune relecture du catalogue ne sait écrire cette cible : l’un de ses signes '
+      + 'n’a pas de chiffres qui le donnent.',
+    en: 'No read-back in the catalogue can write this target: one of its characters has '
+      + 'no digits that yield it.',
+  },
   formatInconnu: 'Ce lien a été créé par une autre version du site.',
   lienIllisible: 'Ce lien est illisible : la saisie n’a pas pu être décodée.',
   // Seul bandeau du moteur : le filet de sécurité temporel a mordu. Le
@@ -1210,14 +1334,19 @@ export const BANDEAUX = {
  *          curseurs?:Object, fouille?:number}} demonstration
  * @returns {string} le fragment d'URL complet, `#…#…`
  */
-export function ecrire({ saisie, fragments, retouches, registre, cible, curseurs, fouille }) {
+export function ecrire({
+  saisie, fragments, retouches, registre, cible, relecture, curseurs, fouille,
+}) {
   const b58 = encoderTexte(saisie);
-  const reglages = marqueurCible(cible) + marqueurCurseurs(curseurs) + marqueurFouille(fouille);
+  const reglages = marqueurCurseurs(curseurs) + marqueurFouille(fouille);
+  // ★ La CIBLE derrière un troisième `#`, en base58 — rien au défaut 666.
+  const queue = queueCible(cible);
   // Une page de RÉSULTATS n'a pas de programme, donc rien à préparer : une
   // retouche sans fragment à nourrir ne désigne aucune démonstration, et on ne
   // l'écrit pas plutôt que d'écrire un lien qui ne se relit pas.
-  if (!fragments || !fragments.length) return `#${reglages}#${b58}`;
-  return `#${marqueur(registre, cible)}${reglages}${ecrireRetouches(retouches)}${ecrireApproche(fragments)}#${b58}`;
+  if (!fragments || !fragments.length) return `#${reglages}#${b58}${queue}`;
+  return `#${marqueur(registre, cible)}${marqueurRelecture(relecture)}${reglages}`
+    + `${ecrireRetouches(retouches)}${ecrireApproche(fragments)}#${b58}${queue}`;
 }
 
 /**
@@ -1241,10 +1370,22 @@ function marqueur(registre, cible) {
   return `${MOT_URL[registreEffectif(registre, cible)]}!`;
 }
 
-/** Le préfixe de cible — vide au défaut, `c111!` sinon. */
-function marqueurCible(cible) {
+/**
+ * La queue de CIBLE — rien au défaut, `#~<b58 de l'écriture>` sinon. Le
+ * marqueur `c111!` n'est plus ÉCRIT, il reste lu (voir l'en-tête).
+ */
+function queueCible(cible) {
   const c = normaliserCible(cible);
-  return c.defaut ? '' : `c${c.texte}!`;
+  return c.defaut ? '' : `#~${encoderTexte(c.texte)}`;
+}
+
+/** Le préfixe de relecture — `mcaz!`, ou rien. Un code mal formé est une faute. */
+function marqueurRelecture(relecture) {
+  if (relecture === undefined || relecture === null) return '';
+  if (typeof relecture !== 'string' || !RE_RELECTURE.test(`${relecture}!`)) {
+    throw new Error(`url : « ${relecture} » n'est pas un code de relecture`);
+  }
+  return `${relecture}!`;
 }
 
 /**

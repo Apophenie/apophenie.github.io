@@ -697,7 +697,9 @@ function buildKeyboard(node, fs, palette) {
     }
   }
 
-  if (mesure === 'colonne') {
+  // ★ La mesure « coordonnees » dessine les DEUX repères : c'est leur
+  //   croisement qui désigne la touche (`primitives/keyboard.js`).
+  if (mesure === 'colonne' || mesure === 'coordonnees') {
     for (const t of geo.ruler) {
       g.appendChild(keyLabel(String(t.n), t.cx, t.cy, fs * 0.38, palette.gold));
     }
@@ -707,7 +709,7 @@ function buildKeyboard(node, fs, palette) {
       fill: 'none', stroke: palette.gold, 'stroke-width': 1, opacity: 0.4,
     }));
   }
-  if (mesure === 'rangee') {
+  if (mesure === 'rangee' || mesure === 'coordonnees') {
     for (const t of geo.rowLabels) {
       g.appendChild(keyLabel(String(t.n), t.cx, t.cy, fs * 0.44, palette.gold));
     }

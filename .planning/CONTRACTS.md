@@ -3191,6 +3191,72 @@ et portent le même programme, donc elles se groupent désormais. Sa suite de
 chiffres, elle, est inchangée — c'est justement ce que la règle « seulement des
 voisines » garantit.
 
+> *Amendement — LA CIBLE TEXTUELLE : un texte visé, ses RELECTURES, et la cible
+> derrière un troisième `#`.*
+>
+> « Je voudrais la possibilité d'aller d'une saisie (lettre, chiffre...) vers une
+> autre qui n'est pas nécessairement des chiffres. […] Exemple : Sarah Kerrigan →
+> Zerg, mais aussi Sarah Kerrigan → Terran, → Ghost, → Fantome. » (l'auteur)
+>
+> ★ **Modèle** (`recherche/cible.js`). Une cible est une suite de chiffres (au
+> plus 10) ou un TEXTE (au plus 20 signes, sans caractère de commande), visé
+> sous sa forme EXACTE : casse et accents comptent (arbitrage de l'auteur).
+> Espaces, traits d'union, apostrophes sont des cibles ; ce qui ne peut pas
+> s'écrire le dit la recherche, pas le format.
+>
+> ★ **Un texte ne se cherche pas : ses RELECTURES se cherchent**
+> (`recherche/conversions.js`). Un opérateur de relecture va des chiffres aux
+> lettres et déclare son domaine (`relecture: { domaine }`) ; son inverse est
+> CALCULÉ sur `apply`, jamais recopié, et une relecture non injective refuse de
+> se charger. Chaque relecture fait du texte une cible chiffrée sous-jacente —
+> « Zerg » : `26 5 18 7` en rangs, `21314152` en coordonnées AZERTY —, que le
+> pipeline chiffré, INCHANGÉ, cherche ; les listes sont ensuite fusionnées
+> (`index.js › deroulerTexte`). Faite de chiffres décimaux, la cible
+> sous-jacente est une cible chiffrée ordinaire, et les opérateurs qui lisent la
+> cible (`mab`, `mrdE`…) y travaillent ; faite de valeurs au-delà de 9, ils s'en
+> retirent d'eux-mêmes. Elle n'est jamais la cible par défaut ni un nombre (pas
+> de cornes, de joker ni de mode DIRECT pour une relecture).
+>
+> ★ **Registre §4.1 — trois relectures, en fin de bloc mappeur, INACTIVES en
+> recherche** (explorées, elles changeraient la dépense du budget, donc la liste
+> des cibles chiffrées) :
+>
+> | code | `from → to` | ce qu'elle lit | geste |
+> |---|---|---|---|
+> | `m1a` | NUMS → TOKENS | un rang, 1 à 26 → sa lettre | réglette de `ma1` lue à rebours (`ordre: '1a26'`, recalculée par le moteur visuel) |
+> | `mcaz` | NUMS → TOKENS | colonne, rangée → la touche AZERTY | clavier, mesure `coordonnees` : les deux nombres montent vers leurs repères, la touche au croisement s'allume, sa lettre redescend |
+> | `mcqw` | NUMS → TOKENS | idem, en QWERTY | idem |
+>
+> Toutes écrivent en BAS DE CASSE (une lettre relue n'a pas de casse à elle) et
+> leurs lettres sont MUÉES. `mcaz`/`mcqw` gardent exactement la convention de
+> `mazc`/`mazr` et `mqwc`/`mqwr` — un test vérifie l'aller-retour sur les
+> vingt-six lettres. C'est le VERDICT d'une voie vers un texte qui joue la
+> relecture, sur la ligne rassemblée, avant de révéler le texte écrit
+> (`scenario.js`).
+>
+> ★ **L'écart de forme se PAIE** (`cible.js › ECARTS`), en millièmes du score,
+> multiplicatifs : initiale 970, accents 930, casse homogène 900, tout en
+> capitales (quand la cible ne l'était pas) 650, casse mêlée 400. Le verdict
+> annonce ce qui est ÉCRIT (« zerg ») et dit l'écart (« à la capitale initiale
+> près »). Valeurs à valider par l'auteur.
+>
+> ★ **Grammaire** : `url := {chemin} '#' [approche] '#' saisie ['#' cible]`,
+> `cible := '~' b58(texte) | texte`, et le marqueur `relecture '!'` (`mcaz!`) en
+> tête de l'approche. Le site écrit toujours `#~<base58>` ; sans `~`, le segment
+> est le texte en clair. La règle de la saisie — le base58 gagne — a été
+> MESURÉE et écartée pour la cible : « Zerg » en clair s'y relisait « a6u », et
+> « 777 » « P: ». Le défaut 666 n'écrit toujours rien. `c111!` et `czerg!`
+> restent LUS, plus écrits ; deux cibles contradictoires dans un même lien sont
+> refusées (`BANDEAUX.cibleEnDouble`).
+>
+> ⚠️ **Mesuré, exemple par exemple** : ZERG et GHOST sont atteints depuis
+> « Sarah Kerrigan » par les coordonnées de clavier (par exemple
+> `#so!mcaz!fl+masb+mrdE#…#~…` : les lettres, leurs codes ASCII du bas de casse,
+> fondus sans perte dans `21314152`, puis relus en z, e, r, g) ; TERRAN et
+> FANTOME ne le sont pas — ni par chiffrement et retraits nommés, ni par aucune
+> relecture. `tests/lents/cible-mot.test.js` les porte en `todo`, avec ce qu'il
+> faudrait ajouter.
+
 ### 4.3 Lecture tolérante, écriture canonique
 
 | Forme lue | Comportement |

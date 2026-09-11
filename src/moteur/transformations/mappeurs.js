@@ -6740,7 +6740,220 @@ const AUTRES_MAPPEURS = [
       regle: bilingue('Le reste demeure où il était, et le compte des retraits vient se placer après lui',
         'The remainder stays where it was, and the count of removals comes after it') },
   ].map((spec) => operateurDeDivision({ ...spec, suffixe: 'r' })),
+
+  // ★ LE RANG QUI REDEVIENT LETTRE — `m1a`. La fabrique est déclarée juste en
+  //   dessous : c'est le hissage des déclarations de fonction qui la rend
+  //   appelable ici, avant sa ligne.
+  operateurRangEnLettre(),
+  // ★ UNE TOUCHE DÉSIGNÉE PAR DEUX NOMBRES — `mcaz`, `mcqw`. Même hissage.
+  operateurCoordonnees('azerty'),
+  operateurCoordonnees('qwerty'),
 ];
+
+/**
+ * ★ **LE RANG QUI REDEVIENT LETTRE — `m1a`, l'inverse exact de `ma1`.**
+ *
+ * > « … ou par conversion en chiffres puis conversion chiffre vers lettre
+ * >   quand nécessaire. » (l'auteur)
+ *
+ * Le catalogue allait des lettres aux nombres d'une quarantaine de manières, et
+ * n'en revenait que par `mlet`, qui ÉCRIT un chiffre (7 → « sept »). Il
+ * manquait le retour que tout le monde connaît : 26 est la vingt-sixième
+ * lettre, c'est z. C'est la réglette de `ma1` lue dans l'autre sens — et elle
+ * se MONTRE dans l'autre sens : le nombre monte vers sa case, la lettre en
+ * redescend, un rang à la fois. `ordre: '1a26'` fait recalculer la réglette par
+ * le moteur visuel, comme pour `ma1` : il ne croit pas la table qu'on lui passe.
+ *
+ * ★ **UNE RELECTURE** (`relecture.domaine`) : un opérateur qui va des chiffres
+ *   aux lettres et dont la recherche calcule l'inverse pour viser un texte
+ *   (`recherche/conversions.js`). Le domaine est ce que l'inverse parcourt :
+ *   les vingt-six rangs.
+ *
+ * ★ **EN BAS DE CASSE.** Une lettre relue n'a pas de casse à elle : le rang de
+ *   Z est celui de z. La forme neutre est la minuscule — celle qu'on écrit —,
+ *   et c'est aussi celle qui coûte le moins d'écart face à un texte visé
+ *   ordinaire : « zerg » pour « Zerg » ne paie que la capitale initiale
+ *   (`recherche/cible.js › ECARTS`), là que « ZERG » paierait le passage en
+ *   capitales, le plus cher après la casse mêlée.
+ *
+ * ★ **De 1 à 26, sans tour de l'alphabet.** Lire 27 comme a serait une seconde
+ *   règle — un modulo — cachée dans la première. Mesuré avant de trancher : sur
+ *   les quatre exemples de l'auteur, le tour de l'alphabet n'ouvre pas une voie
+ *   de plus.
+ *
+ * ★ **INACTIF EN RECHERCHE** (`actifParDefaut: false`), et c'est la condition
+ *   de la non-régression. Exploré, il ferait passer toute ligne de rangs par
+ *   des lettres, puis par quarante mappeurs de plus : le budget de travail se
+ *   dépenserait autrement, et la liste de 666 changerait. C'est le VERDICT d'une
+ *   cible textuelle qui l'emploie (`recherche/scenario.js`). Il reste
+ *   exécutable — un opérateur inactif n'est pas un opérateur caché.
+ *
+ * ★ Les lettres qu'il écrit sont MUÉES (`etat.js › mue`) : ce ne sont pas celles
+ *   de la saisie, et aucun retrait grammatical ne doit pouvoir les lire.
+ *
+ * ★ Notoriété 0,85 : la table de `ma1` (0,90), lue à rebours — un cran de
+ *   moins, parce qu'on apprend « a = 1 » et qu'on recompte « 26 = ? » sur ses
+ *   doigts. AdHoc 0,30 : on ne relit des rangs en lettres que parce qu'on
+ *   cherche un mot.
+ */
+function operateurRangEnLettre() {
+  const libelle = bilingue('Chaque rang redevient sa lettre', 'Each rank turns back into its letter');
+  const regle = bilingue('1=a, 2=b, … 26=z', '1=a, 2=b, … 26=z');
+  const outil = bilingue('Réglette alphabétique, lue à rebours', 'Alphabet ruler, read backwards');
+  const lettres = [...LETTRES].map((c) => c.toLowerCase());
+  // La table MONTRÉE est celle qu'`apply` lit : les vingt-six lettres de
+  // `LETTRES`, numérotées par leur place. Une seule source.
+  const table = Object.freeze(lettres.map((c, i) => Object.freeze({ char: String(i + 1), value: c })));
+  const idDe = (ctx, i) => `${ctx.cle}_l${i}`;
+  return def({
+    id: 'm.rangEnLettre', code: 'm1a', famille: 'mappeur', from: 'NUMS', to: 'TOKENS',
+    libelle, regle, outil,
+    notoriete: 0.85, adHoc: 0.3,
+    actifParDefaut: false,
+    mue: true,
+    relecture: Object.freeze({
+      domaine: Object.freeze([Object.freeze(lettres.map((_, i) => i + 1))]),
+    }),
+    note: bilingue(
+      'La réglette de « a=1 », lue dans l’autre sens. Rien au-delà de 26, '
+      + 'car recommencer l’alphabet serait une seconde règle.',
+      'The “a=1” ruler, read the other way round. Nothing past 26, since '
+      + 'starting the alphabet over would be a second rule.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      const out = [];
+      for (const n of valeur) {
+        if (!Number.isInteger(n) || n < 1 || n > lettres.length) return null;
+        out.push(lettres[n - 1]);
+      }
+      return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
+    },
+    sortie: (avant, apres, ctx) => apres.valeur.map((_, i) => idDe(ctx, i)),
+    // ★ Un aller-retour par rang, jamais groupé — la règle de `table`
+    //   (`visuel/primitives/table.js`) : on doit voir QUEL nombre a donné QUELLE
+    //   lettre. La réglette monte au premier, reste montée, se replie au dernier.
+    steps: (avant, apres, ctx) => {
+      const titre = dire(libelle, ctx.langue);
+      const dit = dire(regle, ctx.langue);
+      const nomOutil = dire(outil, ctx.langue);
+      const dernier = apres.valeur.length - 1;
+      return apres.valeur.map((lettre, i) => etape(ctx, titre, `${dit} : ${avant.valeur[i]} → ${lettre}`, [{
+        op: 'table',
+        disposition: 'reglette',
+        titre: nomOutil,
+        ordre: '1a26',
+        entries: table.map((e) => ({ ...e })),
+        target: ctx.ids[i],
+        letter: String(avant.valeur[i]),
+        to: token(idDe(ctx, i), lettre, 'letter'),
+        montre: i === 0,
+        retire: i === dernier,
+      }], { id: `s_${ctx.cle}_${i}` }));
+    },
+  });
+}
+
+/**
+ * ★ **UNE TOUCHE DÉSIGNÉE PAR DEUX NOMBRES — `mcaz`, `mcqw`.**
+ *
+ * > « Désigner une touche du clavier par deux nombres, un pour l'abscisse un
+ * >   pour l'ordonnée me semble un bon opérateur pour produire des lettres. »
+ * >   (l'auteur)
+ *
+ * C'est le trajet inverse de `mazc` + `mazr` (et de `mqwc` + `mqwr`), et il en
+ * garde EXACTEMENT la convention — colonne de 1 à 10 depuis la gauche, rangée
+ * de 1 à 3 depuis le haut, lettres seules —, parce qu'il lit la même table
+ * (`tables/claviers.js`) : la touche relue ici est celle que `mazc` et `mazr`
+ * mesureraient. Deux nombres par lettre : `2 1` est z en AZERTY, `1 3` en
+ * QWERTY.
+ *
+ * ★ La colonne D'ABORD : c'est l'ordre d'un repère — l'abscisse, puis
+ *   l'ordonnée —, celui que l'auteur nomme.
+ * ★ C'est une RELECTURE (voir `m1a`) : son domaine est la grille des touches,
+ *   dix colonnes sur trois rangées, et la recherche en calcule l'inverse. C'est
+ *   par elle que ZERG et GHOST deviennent atteignables depuis « Sarah
+ *   Kerrigan » : leurs coordonnées sont des cibles chiffrées ordinaires, que le
+ *   moteur sait écrire (`recherche/conversions.js`).
+ * ★ En bas de casse : c'est ce qu'écrit une touche qu'on frappe sans Maj.
+ * ★ INACTIF en recherche et MUÉ, pour les raisons de `m1a`.
+ * ★ Notoriété 0,55 : le repère de la bataille navale, pas celui de l'école.
+ *   AdHoc 0,35 : on ne repère une touche par ses coordonnées que pour écrire un
+ *   mot qu'on a choisi.
+ */
+function operateurCoordonnees(disposition) {
+  const azerty = disposition === 'azerty';
+  const rangees = azerty ? AZERTY : QWERTY;
+  const nom = azerty ? 'AZERTY' : 'QWERTY';
+  const exemple = azerty ? '2, 1 → z' : '1, 3 → z';
+  const libelle = bilingue(`Deux nombres désignent une touche, en ${nom}`,
+    `Two numbers point at a key, on ${nom}`);
+  const regle = bilingue(`La colonne, puis la rangée — ${exemple}`, `Column, then row — ${exemple}`);
+  const outil = bilingue(`Clavier ${nom}, en colonnes et rangées`, `${nom} keyboard, in columns and rows`);
+  const colonnes = Math.max(...rangees.map((r) => r.length));
+  const idDe = (ctx, i) => `${ctx.cle}_l${i}`;
+  return def({
+    id: azerty ? 'm.coordonneesAzerty' : 'm.coordonneesQwerty',
+    code: azerty ? 'mcaz' : 'mcqw',
+    famille: 'mappeur', from: 'NUMS', to: 'TOKENS',
+    libelle, regle, outil,
+    notoriete: 0.55, adHoc: 0.35,
+    actifParDefaut: false,
+    mue: true,
+    relecture: Object.freeze({
+      domaine: Object.freeze([
+        Object.freeze(Array.from({ length: colonnes }, (_, i) => i + 1)),
+        Object.freeze(Array.from({ length: rangees.length }, (_, i) => i + 1)),
+      ]),
+    }),
+    note: bilingue(
+      'La convention de la colonne et de la rangée de la touche, lue à l’envers '
+      + '— deux nombres pour une lettre, la colonne d’abord.',
+      'The key-column and key-row convention, read backwards — two numbers for '
+      + 'one letter, the column first.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length || valeur.length % 2) return null;
+      const out = [];
+      const tr = [];
+      for (let i = 0; i < valeur.length; i += 2) {
+        const x = valeur[i];
+        const y = valeur[i + 1];
+        if (!Number.isInteger(x) || !Number.isInteger(y) || x < 1 || y < 1) return null;
+        const rang = rangees[y - 1];
+        const touche = rang && rang[x - 1];
+        if (!touche) return null;
+        out.push(touche);
+        tr.push(fusion(traces[i] || [], traces[i + 1] || []));
+      }
+      return { valeur: out, traces: tr };
+    },
+    sortie: (avant, apres, ctx) => apres.valeur.map((_, i) => idDe(ctx, i)),
+    // ★ Une touche par step, jamais groupées : on doit voir QUELLE paire a
+    //   désigné QUELLE touche. Le clavier monte à la première, reste monté, se
+    //   replie à la dernière — le décor se mutualise, le geste non.
+    steps: (avant, apres, ctx) => {
+      const titre = dire(libelle, ctx.langue);
+      const dit = dire(regle, ctx.langue);
+      const nomOutil = dire(outil, ctx.langue);
+      const dernier = apres.valeur.length - 1;
+      return apres.valeur.map((lettre, i) => {
+        const x = avant.valeur[2 * i];
+        const y = avant.valeur[2 * i + 1];
+        return etape(ctx, titre, `${dit} · (${x}, ${y}) → ${lettre}`, [{
+          op: 'keyboard',
+          layout: disposition,
+          mesure: 'coordonnees',
+          titre: nomOutil,
+          targets: [ctx.ids[2 * i], ctx.ids[2 * i + 1]],
+          to: token(idDe(ctx, i), lettre, 'letter'),
+          montre: i === 0,
+          retire: i === dernier,
+        }], { id: `s_${ctx.cle}_${i}` });
+      });
+    },
+  });
+}
 
 /** Les dix caractères que « le tiret du 6 » sait convertir — exposé pour l'UI. */
 export const TOUCHES_CHIFFREES = Object.freeze(Object.keys(CHIFFRE_DE_TOUCHE));
