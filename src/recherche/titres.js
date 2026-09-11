@@ -593,8 +593,8 @@ export const TITRES_COURTS = {
   'm.hebreu': b('gématrie hébraïque', 'Hebrew gematria'), // mhe
   'm.chiffreEnLettres': b('chiffre en lettres', 'digit in words'), // mlet
   'm.rangEnLettre': b('rang en lettre', 'rank to letter'), // m1a
-  'm.coordonneesAzerty': b('touche AZERTY par coordonnées', 'AZERTY key by coordinates'), // mcaz
-  'm.coordonneesQwerty': b('touche QWERTY par coordonnées', 'QWERTY key by coordinates'), // mcqw
+  'm.coordonneesAzerty': b('coordonnées AZERTY', 'AZERTY coordinates'), // mcaz
+  'm.coordonneesQwerty': b('coordonnées QWERTY', 'QWERTY coordinates'), // mcqw
   'm.longueurToken': b('nombre de caractères', 'character count'), // mlm
   'm.longueurNom': b('nombre de caractères', 'character count'), // mln
   // ⚠️ « signaux morse » se lit comme un nom composé bancal ; l'auteur veut
