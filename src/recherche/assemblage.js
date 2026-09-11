@@ -562,6 +562,57 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     const r = appliquerOp(f, depart);
     if (r !== null) bases.push({ ops: [f], etats: [depart, r], etat: r });
   }
+  /* ★ **LES RETRAITS GRAMMATICAUX S'EMPILENT — et eux seuls.**
+
+     > « Je me demande juste si plusieurs filtres grammaticaux peuvent
+     >   s'enchaîner, ou si l'algo de recherche limite les étapes trop fort pour
+     >   que ça ait lieu. » (l'auteur)
+
+     Ils ne le pouvaient pas, et ce n'était pas la profondeur (`D_MAX` vaut 15) :
+     c'était la FORME. Cet étage appliquait « la saisie nue, puis chaque filtre »
+     — UN filtre —, et l'étage 2 bis le dit en toutes lettres : « un filtre est
+     déjà passé : on n'empile pas ». Mesuré sur « Le jardin sur le rocher de la
+     maison » : `fart+fprp+tm+mlm` écrit `[6 6 6]` en quatre gestes, et la
+     recherche ne le proposait à aucun rang.
+
+     ⚠️ **ET LA REMISE DE CLASSE ÉTAIT LETTRE MORTE.** `score.js ›
+       longueurRendue` compte le deuxième filtre grammatical pour moitié —
+       l'auteur l'a demandé —, mais aucune voie réellement trouvée n'en portait
+       deux. On avait tarifé un chemin qui n'existait pas.
+
+     ★ **POURQUOI CEUX-LÀ, ET PAS TOUS LES FILTRES.** Empiler deux filtres
+       quelconques, c'est superposer deux choix : on garde les lettres, puis
+       les voyelles de ce qui reste. Les retraits grammaticaux, eux, appliquent
+       une SEULE doctrine — « on ne garde que ce qui porte le sens » — à quatre
+       inventaires fermés : écarter les articles puis les prépositions n'est pas
+       une seconde décision, c'est la même poursuivie. C'est aussi ce qui
+       justifie leur remise.
+
+     ★ **L'ORDRE DU REGISTRE, ET RIEN QUE LUI.** Ils commutent : `fart+fprp` et
+       `fprp+fart` écartent les mêmes mots. On ne déroule donc que les suites
+       CROISSANTES dans l'ordre du catalogue — une par combinaison, jamais ses
+       permutations —, ce qui garde l'énumération déterministe (§4.4) et
+       divise son coût par le nombre d'ordres possibles.
+
+     ★ **CE QUE ÇA COÛTE, MESURÉ** : rien du tout là où la saisie ne porte aucun
+       mot outil — `hope-hope-hope.fr`, `Donald Trump`, `Capitalisme`,
+       `Sarah Kerrigan` n'en ajoutent pas une base —, un enchaînement sur une
+       phrase ordinaire, onze au pire sur une phrase qui porte les quatre
+       classes. La déduplication de l'étage 2 fait le reste. */
+  const grammaticaux = filtres.filter((f) => f.classeGrammaticale);
+  const empiler = (base, depuis) => {
+    for (let i = depuis; i < grammaticaux.length; i++) {
+      const g = grammaticaux[i];
+      const r = appliquerOp(g, base.etat);
+      if (r === null) continue;
+      const suite = { ops: base.ops.concat(g), etats: base.etats.concat([r]), etat: r };
+      bases.push(suite);
+      empiler(suite, i + 1);
+    }
+  };
+  for (const b of bases.filter((x) => x.ops.length === 1 && x.ops[0].classeGrammaticale)) {
+    empiler(b, grammaticaux.indexOf(b.ops[0]) + 1);
+  }
 
   // Étage 2 — les découpes, dédoublonnées sur les jetons obtenus.
   const jetons = new Map();
