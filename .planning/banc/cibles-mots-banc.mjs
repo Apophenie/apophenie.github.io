@@ -96,7 +96,16 @@ export const CHIFFRES = (() => {
 
 const choix = process.env.BANC_SAISIES;
 const saisies = choix ? choix.split(',').map((i) => SAISIES[Number(i)]) : SAISIES;
-const corpus = process.env.BANC_CORPUS === 'chiffres' ? CHIFFRES : MOTS;
+const tout = process.env.BANC_CORPUS === 'chiffres' ? CHIFFRES : MOTS;
+// ★ `BANC_CIBLES=Oxyde,Sphinx` — reprendre une partie du corpus, et rien d'autre.
+//   Une campagne longue tient plusieurs gigaoctets de cache et peut se faire
+//   tuer en chemin ; les résultats ne dépendant que du couple, on reprend là où
+//   l'on s'est arrêté au lieu de tout refaire.
+const cibles = process.env.BANC_CIBLES;
+const corpus = cibles ? cibles.split(',').filter((c) => tout.includes(c)) : tout;
+if (cibles && corpus.length !== cibles.split(',').length) {
+  throw new Error(`BANC_CIBLES : ${cibles.split(',').filter((c) => !tout.includes(c)).join(', ')} n’est pas du corpus`);
+}
 const moteur = creerMoteur(catalogue, { filetTemporel: false });
 
 const lignes = [];
