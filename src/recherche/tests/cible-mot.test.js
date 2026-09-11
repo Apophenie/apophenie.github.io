@@ -1,9 +1,9 @@
-/** La CIBLE TEXTUELLE — viser un mot (`cible.js`, « la cible textuelle »).
+/** La CIBLE TEXTUELLE — viser un texte (`cible.js`, « la cible textuelle »).
  *
- *  Ce fichier est de ROUTINE : rien n'y cherche. Il vérifie la lecture d'une
- *  cible écrite en lettres, son écriture dans l'URL, et le verdict d'une voie
- *  REJOUÉE — c'est-à-dire ce qu'un lien partagé montrera. Les recherches
- *  complètes, et les quatre exemples de l'auteur, sont dans
+ *  ROUTINE : rien n'y cherche. La lecture d'une cible, le barème d'écart de
+ *  forme, les relectures et leur inverse CALCULÉ, l'URL (le troisième `#`), et
+ *  le verdict d'une voie REJOUÉE — c'est-à-dire ce qu'un lien partagé montrera.
+ *  Les recherches, et les quatre exemples de l'auteur, sont dans
  *  `lents/cible-mot.test.js`.
  */
 
@@ -11,149 +11,267 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  lireCible, memeCible, verdict, estMot, ecritureDe, MAX_CHIFFRES, CIBLE_DEFAUT,
+  lireCible, memeCible, verdict, estMot, ecritureDe, ecartDeForme, libelleEcart, cibleDeValeurs,
+  ECARTS, MAX_CHIFFRES, MAX_SIGNES_TEXTE, CIBLE_DEFAUT,
 } from '../cible.js';
+import {
+  relecturesPour, inverseDe, operateursDeRelecture, RELECTURE_PAR_DEFAUT,
+} from '../conversions.js';
 import { lire, ecrire, BANDEAUX } from '../url.js';
 import { encoderTexte } from '../base58.js';
 import { creerMoteur } from '../index.js';
 import { construireScenario } from '../scenario.js';
-import { operateursPourCible, operateursExplorables } from '../bfs.js';
+import { operateursPourCible, operateursExplorables, appliquerOp, etat } from '../bfs.js';
 import { catalogue } from './_catalogue.js';
 import { compile } from '../../visuel/compile.js';
 
-const B58_ZERG = encoderTexte('Zerg');
+const B58_SK = encoderTexte('Sarah Kerrigan');
+const B58 = (t) => encoderTexte(t);
 
 /* ══════════════════════════ 1. La cible, valeur ══════════════════════════ */
 
-test('cible-mot — un mot est une suite de RANGS, et se montre en capitales', () => {
+test('cible-mot — un texte se vise TEL QUEL, casse et accents compris', () => {
   const c = lireCible('Zerg');
   assert.equal(c.nature, 'mot');
-  assert.equal(c.texte, 'zerg', 'l’écriture canonique : bas de casse, sans accent');
-  assert.deepEqual([...c.chiffres], [26, 5, 18, 7]);
-  assert.deepEqual([...c.alphabet], [5, 7, 18, 26]);
-  assert.equal(c.longueur, 4);
-  assert.equal(c.homogene, false, 'un mot est, en général, une cible hétérogène');
+  assert.equal(c.texte, 'Zerg', 'ni pliée, ni capitalisée : la forme exacte');
+  assert.equal(c.affichage, 'Zerg');
+  assert.deepEqual([...c.chiffres], [], 'un texte ne s’écrit pas en chiffres : ce sont ses relectures');
+  assert.equal(c.nombre, null);
   assert.equal(c.defaut, false);
-  assert.equal(c.nombre, null, 'un mot n’a pas d’écriture décimale : pas de mode DIRECT');
-  assert.equal(c.affichage, 'ZERG', 'les capitales que la réglette fait descendre');
   assert.equal(estMot(c), true);
-  assert.equal(ecritureDe(c), 'ZERG');
-  assert.equal(verdict(2, c), 'ZERG ZERG');
-});
-
-test('cible-mot — casse et accents ne comptent pas : une seule cible, une seule écriture', () => {
-  for (const [a, b] of [['Fantôme', 'fantome'], ['FANTOME', 'Fantôme'], ['ZERG', 'zerg'], [' Zerg ', 'zErG']]) {
-    assert.ok(memeCible(a, b), `${a} ≡ ${b}`);
-    assert.equal(lireCible(a).texte, lireCible(b).texte);
+  assert.equal(ecritureDe(c), 'Zerg');
+  assert.equal(verdict(2, c), 'Zerg Zerg');
+  assert.equal(lireCible('Fantôme').texte, 'Fantôme');
+  assert.equal(memeCible('Fantôme', 'fantome'), false, 'deux cibles — l’écart se paie, il ne se replie pas');
+  assert.equal(memeCible('ZERG', 'Zerg'), false);
+  assert.equal(memeCible(' Zerg ', 'Zerg'), true, 'seuls les blancs de bord tombent');
+  // Le format ne borne plus que la longueur : espaces, trait d'union et
+  // apostrophe sont des cibles — c'est la recherche qui dira si on les atteint.
+  for (const t of ['reine des lames', 'porte-malheur', 'aujourd’hui', 'c3po', 'œuvre']) {
+    assert.equal(lireCible(t).texte, t, t);
   }
-  assert.equal(lireCible('Fantôme').texte, 'fantome');
-  assert.equal(lireCible('Fantôme').affichage, 'FANTOME');
 });
 
-test('cible-mot — ce qui n’est pas UN mot de A à Z est refusé', () => {
-  for (const mauvais of [
-    'c3po', 'reine des lames', 'porte-malheur', 'aujourd’hui', 'œuvre', 'straße',
-    'a'.repeat(MAX_CHIFFRES + 1),
-  ]) {
-    assert.equal(lireCible(mauvais), null, mauvais);
+test('cible-mot — ce qui n’est pas une cible : vide, trop long, commande', () => {
+  for (const mauvais of ['', '   ', 'a'.repeat(MAX_SIGNES_TEXTE + 1), 'abc']) {
+    assert.equal(lireCible(mauvais), null, JSON.stringify(mauvais));
   }
-  assert.equal(lireCible('a'.repeat(MAX_CHIFFRES)).longueur, MAX_CHIFFRES,
-    'le plafond est celui des chiffres : c’est la longueur d’une série');
+  assert.equal(lireCible('9'.repeat(MAX_CHIFFRES + 1)), null,
+    'une suite de chiffres trop longue n’est pas un texte : elle est refusée');
+  assert.equal(lireCible('a'.repeat(MAX_SIGNES_TEXTE)).longueur, MAX_SIGNES_TEXTE, 'le plafond est atteignable');
 });
 
-test('cible-mot — les cibles chiffrées sont intactes, et « a » n’est pas « 1 »', () => {
+test('cible-mot — les cibles chiffrées sont intactes', () => {
   const c = lireCible('007');
   assert.equal(c.nature, 'chiffres');
   assert.equal(c.texte, '007');
-  assert.equal(c.affichage, '007', 'une suite de chiffres se montre comme elle s’écrit');
+  assert.equal(c.affichage, '007');
   assert.equal(CIBLE_DEFAUT.texte, '666');
-  assert.equal(CIBLE_DEFAUT.nature, 'chiffres');
   assert.equal(verdict(1, CIBLE_DEFAUT), '666');
-  assert.equal(lireCible([6, 6, 6]).texte, '666', 'un tableau ne porte que des chiffres');
-  assert.deepEqual([...lireCible('a').chiffres], [...lireCible('1').chiffres], 'la même valeur visée…');
-  assert.equal(memeCible('a', '1'), false, '…mais pas la même cible : l’une se relit en lettre, l’autre non');
+  assert.equal(lireCible([6, 6, 6]).texte, '666');
 });
 
-/* ══════════════════════════ 2. La cible dans l'URL ══════════════════════════ */
+test('cible-mot — la cible SOUS-JACENTE : des chiffres si elle peut, des valeurs sinon', () => {
+  const chiffres = cibleDeValeurs([2, 1, 3, 1, 4, 1, 5, 2]);
+  assert.equal(chiffres.nature, 'chiffres');
+  assert.equal(chiffres.texte, '21314152');
+  assert.equal(chiffres.nombre, null, 'une relecture lit ses valeurs une à une : pas de mode DIRECT');
+  const six = cibleDeValeurs([6, 6, 6]);
+  assert.equal(six.texte, '666');
+  assert.equal(six.defaut, false, '« fff » en rangs n’a droit ni aux cornes ni au joker du 666');
+  const valeurs = cibleDeValeurs([26, 5, 18, 7]);
+  assert.equal(valeurs.nature, 'valeurs');
+  assert.equal(valeurs.texte, '26.5.18.7');
+  assert.deepEqual([...valeurs.chiffres], [26, 5, 18, 7]);
+  assert.equal(cibleDeValeurs([]), null);
+  assert.equal(cibleDeValeurs([1, -2]), null);
+});
 
-test('url — `czerg!` : un mot en tête de l’approche, lu plié, écrit canonique', () => {
-  for (const h of [`#czerg!#${B58_ZERG}`, `#cZerg!#${B58_ZERG}`, `#cZERG!#${B58_ZERG}`]) {
-    const l = lire(h);
-    assert.equal(l.cible.texte, 'zerg', h);
-    assert.equal(l.cibleEcrite, true, h);
-    assert.equal(l.bandeau, null, h);
+/* ══════════════════════════ 2. Le barème d'écart ══════════════════════════ */
+
+test('cible-mot — le barème d’écart : la hiérarchie de l’auteur, chiffrée', () => {
+  for (const [ecrit, vise, facteur, natures] of [
+    ['Zerg', 'Zerg', 1000, []],
+    ['zerg', 'Zerg', 970, ['initiale']],
+    ['fantome', 'fantôme', 930, ['accents']],
+    ['zerg', 'ZERG', 900, ['casse']],
+    ['Zerg', 'ZERG', 900, ['casse']],
+    ['ZERG', 'Zerg', 650, ['capitales']],
+    ['zErG', 'Zerg', 400, ['melee']],
+    ['fantome', 'Fantôme', 902, ['accents', 'initiale']],
+  ]) {
+    const e = ecartDeForme(ecrit, vise);
+    assert.equal(e.facteur, facteur, `${ecrit} pour ${vise}`);
+    assert.deepEqual([...e.natures], natures, `${ecrit} pour ${vise}`);
   }
-  // Un accent arrive DÉCODÉ (`url.js › decoder`) : c'est `lireCible` qui plie.
-  assert.equal(lire(`#cfantôme!#${B58_ZERG}`).cible.texte, 'fantome');
-  assert.equal(ecrire({ saisie: 'Zerg', cible: 'ZERG' }), `#czerg!#${B58_ZERG}`);
-  assert.equal(ecrire({ saisie: 'Zerg', cible: 'Fantôme' }), `#cfantome!#${B58_ZERG}`);
-  const r = lire(ecrire({ saisie: 'Zerg', cible: 'zerg' }));
-  assert.equal(r.cible.texte, 'zerg', 'ce qu’on écrit se relit à l’identique');
-  assert.equal(r.saisie, 'Zerg');
+  assert.equal(ecartDeForme('zerg', 'Terran'), null, 'un autre mot n’est pas un écart');
+  // L'ORDRE, qui est ce que l'auteur a dicté : du moins cher au plus cher.
+  const f = ['initiale', 'accents', 'casse', 'capitales', 'melee'].map((n) => ECARTS[n].facteur);
+  for (let i = 1; i < f.length; i++) assert.ok(f[i] < f[i - 1], `${f[i]} < ${f[i - 1]}`);
+  assert.equal(libelleEcart(ecartDeForme('fantome', 'Fantôme')),
+    'aux accents près et à la capitale initiale près');
+  assert.equal(libelleEcart(ecartDeForme('Zerg', 'Zerg')), '');
 });
 
-test('url — une cible illisible le dit, et les liens chiffrés ne bougent pas', () => {
-  const trop = lire(`#c${'a'.repeat(MAX_CHIFFRES + 1)}!#${B58_ZERG}`);
-  assert.equal(trop.bandeau, BANDEAUX.cibleIllisible, 'refusée, pas repliée en silence sur 666');
-  assert.equal(ecrire({ saisie: 'Zerg' }), `##${B58_ZERG}`, 'le défaut n’écrit toujours rien');
-  assert.equal(ecrire({ saisie: 'Zerg', cible: '111' }), `#c111!#${B58_ZERG}`);
-  // Sans `!`, pas de marqueur : `cs` reste la somme, comme avant.
-  const somme = lire(`#cs+mch#${B58_ZERG}`);
-  assert.equal(somme.cibleEcrite, false);
-  assert.equal(somme.cible.defaut, true);
+/* ══════════════════════════ 3. Les relectures ══════════════════════════ */
+
+test('cible-mot — les relectures du catalogue, et leur inverse CALCULÉ sur l’opérateur', () => {
+  const ops = operateursDeRelecture(catalogue);
+  assert.deepEqual(ops.map((o) => o.code), ['m1a', 'mcaz', 'mcqw']);
+  assert.equal(RELECTURE_PAR_DEFAUT, 'm1a');
+  const par = Object.fromEntries(ops.map((o) => [o.code, o]));
+  assert.deepEqual([...inverseDe(par.m1a).get('z')], [26]);
+  assert.deepEqual([...inverseDe(par.mcaz).get('z')], [2, 1]);
+  assert.deepEqual([...inverseDe(par.mcqw).get('z')], [1, 3]);
+  for (const op of ops) {
+    const inverse = inverseDe(op);
+    assert.equal(inverse.size, 26, `${op.code} : les vingt-six lettres, chacune une fois`);
+    // L'aller-retour est exact : ce que l'inverse donne, l'opérateur le relit.
+    for (const [lettre, valeurs] of inverse) {
+      const e = appliquerOp(op, etat('NUMS', [...valeurs], []));
+      assert.deepEqual([...e.valeur], [lettre], `${op.code} : ${valeurs.join(' ')}`);
+    }
+  }
 });
 
-/* ══════════════════════════ 3. La recherche, sans chercher ══════════════════════════ */
+test('cible-mot — les relectures d’un texte : cibles sous-jacentes, écrit réel, écart payé', () => {
+  const zerg = relecturesPour(lireCible('Zerg'), catalogue);
+  assert.deepEqual(zerg.map((r) => [r.code, r.cible.texte, r.cible.nature, r.produit, r.ecart.facteur]), [
+    ['m1a', '26.5.18.7', 'valeurs', 'zerg', 970],
+    ['mcaz', '21314152', 'chiffres', 'zerg', 970],
+    ['mcqw', '13314152', 'chiffres', 'zerg', 970],
+  ]);
+  const fantome = relecturesPour(lireCible('Fantôme'), catalogue);
+  assert.ok(fantome.length === 3 && fantome.every((r) => r.produit === 'fantome' && r.ecart.facteur === 902));
+  assert.equal(fantome.find((r) => r.code === 'mcaz').cible.nature, 'valeurs', 'le M est en colonne 10 en AZERTY');
+  assert.deepEqual(relecturesPour(lireCible('reine des lames'), catalogue), [],
+    'aucune relecture n’écrit l’espace : pas de voie, et c’est la recherche qui le dit');
+});
 
-test('cible-mot — les opérateurs qui lisent la cible se retirent, et `m1a` n’est jamais exploré', () => {
-  const tous = operateursExplorables(catalogue);
-  const lisent = tous.filter((op) => typeof op.viser === 'function');
-  assert.ok(lisent.length > 0, 'il y en a, et c’est d’eux qu’on parle');
-  // Ils raisonnent en chiffres décimaux : face à un mot, `lireVisee` refuse, et
-  // ils se désactivent d'eux-mêmes. Rien n'est adapté, rien n'est inventé.
-  assert.deepEqual(
-    operateursPourCible(catalogue, lireCible('zerg')).map((op) => op.code),
-    tous.filter((op) => typeof op.viser !== 'function').map((op) => op.code),
+test('cible-mot — face à une relecture chiffrée, les opérateurs qui lisent la cible TRAVAILLENT', () => {
+  const [rangs, azerty] = relecturesPour(lireCible('Zerg'), catalogue);
+  const lisent = (cbl) => operateursPourCible(catalogue, cbl)
+    .filter((op) => typeof op.viser === 'function').map((op) => op.code);
+  assert.ok(lisent(azerty.cible).includes('mab'),
+    'des coordonnées sont des chiffres : l’absorption s’y applique — c’est elle qui ouvre ZERG');
+  assert.deepEqual(lisent(rangs.cible), [], 'des rangs de 26 ne sont pas des chiffres : ils se retirent');
+  const explorables = operateursExplorables(catalogue).map((op) => op.code);
+  for (const code of ['m1a', 'mcaz', 'mcqw']) {
+    assert.equal(explorables.includes(code), false, `${code} : le verdict le joue, la recherche ne l’explore pas`);
+  }
+});
+
+/* ══════════════════════════ 4. L'URL ══════════════════════════ */
+
+test('url — la cible derrière un troisième `#` : `~` pour le base58, sinon en clair', () => {
+  assert.equal(lire(`##${B58_SK}#~${B58('Zerg')}`).cible.texte, 'Zerg');
+  assert.equal(lire(`##${B58_SK}#Zerg`).cible.texte, 'Zerg',
+    'en clair — et c’est précisément ce que la règle de la saisie aurait lu « a6u »');
+  assert.equal(lire(`##${B58_SK}#~${B58('Fantôme')}`).cible.texte, 'Fantôme');
+  assert.equal(lire(`##${B58_SK}#reine des lames`).cible.texte, 'reine des lames');
+  assert.equal(lire(`##${B58_SK}#111`).cible.texte, '111');
+  const r = lire(`##${B58_SK}#~${B58('Zerg')}`);
+  assert.equal(r.forme, 'resultats');
+  assert.equal(r.cibleEcrite, true);
+});
+
+test('url — l’écriture : toujours `~` + base58, et rien au défaut', () => {
+  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: 'Zerg' }), `##${B58_SK}#~${B58('Zerg')}`);
+  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: '111' }), `##${B58_SK}#~${B58('111')}`);
+  assert.equal(ecrire({ saisie: 'Sarah Kerrigan' }), `##${B58_SK}`, 'les liens de 666 sont ceux d’avant');
+  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: '666' }), `##${B58_SK}`);
+  assert.equal(
+    ecrire({ saisie: 'Sarah Kerrigan', fragments: [{ portee: null, resonance: null, codes: ['fl', 'tca', 'masb', 'mrdE'] }],
+      registre: 'sobre', cible: 'Zerg', relecture: 'mcaz' }),
+    `#so!mcaz!fl+masb+mrdE#${B58_SK}#~${B58('Zerg')}`,
   );
-  assert.equal(tous.some((op) => op.code === 'm1a'), false,
-    'inactif : c’est le verdict qui le joue, la recherche ne l’explore pas');
 });
 
-/* ══════════════════════════ 4. Le verdict d'un mot ══════════════════════════ */
+test('url — les anciens marqueurs restent LUS, et deux cibles contradictoires sont refusées', () => {
+  assert.equal(lire(`#c111!#${B58_SK}`).cible.texte, '111');
+  assert.equal(lire(`#czerg!#${B58_SK}`).cible.texte, 'zerg');
+  assert.equal(lire(`#c111!#${B58_SK}#111`).bandeau, null, 'deux fois la même : rien à trancher');
+  assert.equal(lire(`#c111!#${B58_SK}#Zerg`).bandeau, BANDEAUX.cibleEnDouble);
+  assert.equal(lire(`##${B58_SK}#~0OIl`).bandeau, BANDEAUX.cibleIllisible, '`~` promet du base58');
+  assert.equal(lire(`##${B58_SK}#${'a'.repeat(MAX_SIGNES_TEXTE + 1)}`).bandeau, BANDEAUX.cibleIllisible);
+  assert.equal(lire(`#a#b#c#d`).bandeau, BANDEAUX.formatInconnu, 'trois segments au plus');
+});
+
+test('url — le marqueur de relecture : lu, écrit, et refusé sans texte', () => {
+  const l = lire(`#so!mcaz!fl+masb+mrdE#${B58_SK}#Zerg`);
+  assert.equal(l.forme, 'canonique');
+  assert.equal(l.relecture, 'mcaz');
+  assert.equal(
+    ecrire({ saisie: l.saisie, fragments: l.fragments, registre: 'sobre', cible: l.cible, relecture: l.relecture }),
+    `#so!mcaz!fl+masb+mrdE#${B58_SK}#~${B58('Zerg')}`,
+    'ce qui se lit se réécrit à l’identique — en base58',
+  );
+  assert.equal(lire(`#so!mcaz!fl+masb+mab#${B58_SK}#111`).bandeau, BANDEAUX.relectureSansTexte);
+  assert.throws(() => ecrire({ saisie: 'x', fragments: [{ portee: null, resonance: null, codes: ['nl'] }],
+    cible: 'Zerg', relecture: 'pas un code' }), /relecture/);
+});
+
+/* ══════════════════════════ 5. Le verdict d'une voie rejouée ══════════════════════════ */
 
 const moteur = creerMoteur(catalogue, { filetTemporel: false });
 
-test('cible-mot — le verdict relit les rangs sur la réglette, PUIS révèle le mot', () => {
-  const lecture = lire(`#so!czerg!ma1#${B58_ZERG}`);
-  const { approche } = moteur.rejouer(lecture);
-  assert.ok(approche, 'le lien se rejoue');
-  const sc = moteur.scenarioDe(approche, { saisie: 'Zerg', cible: lecture.cible });
-  assert.equal(sc.result, 'ZERG');
+/** Rejoue un lien, construit sa scène, et vérifie qu'aucun geste n'a été remplacé en silence. */
+function scene(hash) {
+  const lecture = lire(hash);
+  const rejeu = moteur.rejouer(lecture);
+  assert.equal(rejeu.ok, true, `${hash} : ${rejeu.raison || ''}`);
+  const sc = moteur.scenarioDe(rejeu.approche, { saisie: lecture.saisie, cible: lecture.cible });
   // ★ Un geste REJETÉ ne fait rien échouer : `essayerCatalogue` le remplace en
-  //   silence par une substitution générique, la scène compile et le résultat
-  //   est juste. Seul `avertissements` le dit — c'est ainsi que la potence de
-  //   `mdc*` a disparu du site sous trois vérifications vertes.
+  //   silence par une substitution générique. Seul `avertissements` le dit.
   assert.equal(sc.avertissements, undefined, (sc.avertissements || []).join(' | '));
+  assert.doesNotThrow(() => compile(sc), hash);
+  return { sc, approche: rejeu.approche };
+}
+
+test('cible-mot — ZERG par les coordonnées AZERTY : deux nombres, une touche, une lettre', () => {
+  const { sc, approche } = scene(`#so!mcaz!fl+masb+mrdE#${B58_SK}#~${B58('Zerg')}`);
+  assert.equal(approche.relecture.code, 'mcaz');
+  assert.equal(approche.cible.texte, '21314152', 'la voie écrit les coordonnées — c’est la cible sous-jacente');
+  assert.equal(sc.result, 'zerg', 'le verdict annonce ce qui est ÉCRIT');
   const n = sc.steps.length;
-  const reveal = sc.steps[n - 1].ops.find((o) => o.op === 'reveal');
-  assert.ok(reveal, 'le dernier pas est le verdict');
-  // Les quatre pas qui le précèdent relisent chacun UN rang, dans l'ordre du mot.
+  const verdictStep = sc.steps[n - 1];
+  assert.equal(verdictStep.caption, 'zerg — à la capitale initiale près', 'et dit l’écart qu’il a payé');
+  const reveal = verdictStep.ops.find((o) => o.op === 'reveal');
   const relus = sc.steps.slice(n - 5, n - 1).map((st) => st.ops[0]);
-  assert.deepEqual(relus.map((o) => [o.op, o.ordre, o.letter, o.to.text]), [
-    ['table', '1a26', '26', 'Z'], ['table', '1a26', '5', 'E'],
-    ['table', '1a26', '18', 'R'], ['table', '1a26', '7', 'G'],
+  assert.deepEqual(relus.map((o) => [o.op, o.mesure, o.layout, o.to.text]), [
+    ['keyboard', 'coordonnees', 'azerty', 'z'], ['keyboard', 'coordonnees', 'azerty', 'e'],
+    ['keyboard', 'coordonnees', 'azerty', 'r'], ['keyboard', 'coordonnees', 'azerty', 'g'],
   ]);
-  assert.deepEqual(reveal.targets, relus.map((o) => o.to.id),
-    'ce qu’on révèle, ce sont les lettres qu’on vient de voir descendre');
-  // Et la scène compile : le moteur visuel recalcule la réglette et la confronte.
-  assert.doesNotThrow(() => compile(sc));
+  assert.ok(relus.every((o) => o.targets.length === 2), 'chaque lettre part de DEUX nombres');
+  assert.deepEqual(reveal.targets, relus.map((o) => o.to.id), 'on révèle les lettres qu’on vient de voir descendre');
+  assert.equal(reveal.serie, 4, 'une série du verdict est un exemplaire du TEXTE, pas de ses huit chiffres');
 });
 
-test('cible-mot — sans l’opérateur qui relit les rangs, le scénario refuse plutôt que de décréter', () => {
-  const lecture = lire(`#so!czerg!ma1#${B58_ZERG}`);
+test('cible-mot — la réglette lue à rebours relit des rangs, et la forme exacte ne paie rien', () => {
+  const { sc } = scene(`#so!m1a!ma1#${B58('Zerg')}#zerg`);
+  assert.equal(sc.result, 'zerg');
+  assert.equal(sc.steps[sc.steps.length - 1].caption, 'zerg', 'forme exacte : aucun écart à dire');
+  const relus = sc.steps.flatMap((s) => s.ops).filter((o) => o.op === 'table' && o.ordre === '1a26');
+  assert.deepEqual(relus.map((o) => [o.letter, o.to.text]), [['26', 'z'], ['5', 'e'], ['18', 'r'], ['7', 'g']]);
+});
+
+test('cible-mot — le rejeu refuse ce qu’il ne sait pas relire, en le disant', () => {
+  const inconnu = moteur.rejouer(lire(`#so!m36!ma1#${B58('Zerg')}#Zerg`));
+  assert.equal(inconnu.ok, false);
+  assert.equal(inconnu.bandeau, BANDEAUX.codeInconnu, '`m36` ne relit rien');
+  const impossible = moteur.rejouer(lire(`#so!m1a!ma1#${B58('Zerg')}#reine des lames`));
+  assert.equal(impossible.ok, false);
+  assert.equal(impossible.bandeau, BANDEAUX.relectureImpossible);
+});
+
+test('cible-mot — sans l’opérateur qui relit, le scénario refuse plutôt que de décréter', () => {
+  const lecture = lire(`#so!mcaz!fl+masb+mrdE#${B58_SK}#Zerg`);
   const { approche } = moteur.rejouer(lecture);
   assert.throws(
-    () => construireScenario(approche, { saisie: 'Zerg', cible: lecture.cible }),
-    /n’a pas été fourni/,
+    () => construireScenario(approche, {
+      saisie: 'Sarah Kerrigan', cible: approche.cible,
+      relecture: { code: 'mcaz', mot: 'Zerg', op: null, ecart: approche.ecartDeForme },
+    }),
+    /n’a pas fourni/,
   );
 });

@@ -443,7 +443,7 @@ function verifierModulo(ctx, op, geo) {
  * moindre divergence fait échouer la compilation.
  */
 /** Ce que chaque numérotation affirme, dit comme on le lirait sur la réglette. */
-const DIT_L_ORDRE = Object.freeze({ a1z26: 'A=1 … Z=26', z26a1: 'Z=1 … A=26', '1a26': '1=A … 26=Z' });
+const DIT_L_ORDRE = Object.freeze({ a1z26: 'A=1 … Z=26', z26a1: 'Z=1 … A=26', '1a26': '1=a … 26=z' });
 
 function entreesDe(ctx) {
   const op = ctx.op;

@@ -116,6 +116,7 @@ export function preparer() {
       M.normaliserCible = rech.normaliserCible;
       M.CIBLE_DEFAUT = rech.CIBLE_DEFAUT;
       M.MAX_CHIFFRES = rech.MAX_CHIFFRES;
+      M.MAX_SIGNES_TEXTE = rech.MAX_SIGNES_TEXTE;
       // ★ Le PANNEAU DE RÉGLAGES de la liste : les noms des curseurs, leurs
       //   bornes, leur défaut, et les deux fonctions qui traduisent des
       //   positions en pourcentages. L'écran ne doit pas connaître le découpage
@@ -176,6 +177,8 @@ export const bandeaux = () => M.BANDEAUX || {};
 //   valeur vraie du jour ; c'est une copie, et une copie diverge — la vraie
 //   source est `cible.js › MAX_CHIFFRES` et `config.js › PUISSANCE_DE_FOUILLE_MAX`.
 export const MAX_CHIFFRES = () => M.MAX_CHIFFRES || 10;
+/** Le plafond d'un TEXTE visé (`cible.js › MAX_SIGNES_TEXTE`). */
+export const MAX_SIGNES_TEXTE = () => M.MAX_SIGNES_TEXTE || 20;
 
 /**
  * ★ **LE PANNEAU DE RÉGLAGES, ET SON REPLI.**

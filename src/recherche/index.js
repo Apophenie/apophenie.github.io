@@ -80,12 +80,13 @@ import {
 } from './url.js';
 import { IMPLICITE_DEPUIS } from '../config.js';
 import {
-  CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES, CODE_RANG_EN_LETTRE,
+  CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES, MAX_SIGNES_TEXTE,
 } from './cible.js';
+import { relecturesPour, relecturePour, RELECTURE_PAR_DEFAUT } from './conversions.js';
 import { deroulerParTranches } from './tranches.js';
 
 export { LIMITE_SAISIE, BANDEAUX, REGLAGES };
-export { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES };
+export { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES, MAX_SIGNES_TEXTE };
 // ★ Tout ce que le PANNEAU DE RÉGLAGES de la liste a besoin de savoir, réexporté
 //   ici : l'écran ne doit pas avoir à connaître le découpage interne du moteur
 //   pour dessiner quatre curseurs et une réglette. Les noms, les bornes, le
@@ -183,11 +184,11 @@ export function creerMoteur(catalogue, options = {}) {
     if (pbs.length) throw new Error('catalogue non conforme (CONTRACTS §2.2) :\n  - ' + pbs.join('\n  - '));
   }
   const ops = normaliserCatalogue(catalogue);
-  // ★ L'opérateur qui relit un rang en lettre — le dernier geste de toute voie
-  //   vers un MOT (`cible.js`, la cible textuelle). Pris ici, par son code, et
-  //   passé au scénario : `scenario.js` ne dépend pas du catalogue. Absent d'un
-  //   catalogue de test, il manque — et le scénario d'une cible-mot le dira.
-  const rangEnLettre = ops.find((o) => o && o.code === CODE_RANG_EN_LETTRE) || null;
+  // ★ Les opérateurs par code — c'est par là que le rejeu et le scénario d'un
+  //   TEXTE visé retrouvent sa relecture (`conversions.js`), le code étant
+  //   écrit dans le lien. `scenario.js` ne dépend pas du catalogue : il reçoit
+  //   l'opérateur, jamais le module.
+  const opParCode = new Map(ops.filter(Boolean).map((o) => [o.code, o]));
   const cache = new Map();
   const maintenant = options.maintenant || (() => performance.now());
 
@@ -213,7 +214,16 @@ export function creerMoteur(catalogue, options = {}) {
   // chiffres (§4.4 règle 3 : l'ordre d'itération décide du classement).
   const tablesDe = (cbl) => cbl.alphabet.map((but) => ({ but, table: bassinPour(but) }));
 
-  const contexteBase = (cbl, sur = {}) => ({
+  // ★ Un TEXTE ne se cherche pas : ce sont ses relectures qui se cherchent
+  //   (`deroulerTexte`). Qu'il arrive jusqu'ici, c'est qu'un chemin l'a laissé
+  //   passer — et le chercher tel quel ne viserait RIEN (ses `chiffres` sont
+  //   vides), en silence. On le dit.
+  const garderTexteHorsRecherche = (cbl) => {
+    if (cbl && cbl.nature === 'mot') {
+      throw new Error(`recherche : le texte « ${cbl.texte} » se cherche par ses relectures, pas tel quel`);
+    }
+  };
+  const contexteBase = (cbl, sur = {}) => (garderTexteHorsRecherche(cbl), {
     catalogue,
     operateurs: operateursPourCible(catalogue, cbl),
     bassin,
@@ -270,6 +280,8 @@ export function creerMoteur(catalogue, options = {}) {
    */
   function* deroulerResolution(saisieBrute, optionsResolution = {}) {
     const cbl = normaliserCible(optionsResolution.cible ?? options.cible);
+    // ★ Un TEXTE visé se cherche par ses relectures — voir `deroulerTexte`.
+    if (cbl.nature === 'mot') return yield* deroulerTexte(saisieBrute, cbl, optionsResolution);
     const ponderation = ponderer(optionsResolution.curseurs ?? options.curseurs);
     const fouille = normaliserPuissance(optionsResolution.fouille ?? options.fouille);
     const budgets = reglagesDeBudget(fouille);
@@ -662,6 +674,10 @@ export function creerMoteur(catalogue, options = {}) {
         nbJetons: lu === saisie ? jetons.length : tokeniser(lu).length,
       });
       const retouches = retouchesDe(a);
+      // Ce qui fait le lien, gardé à part : une voie trouvée sur une RELECTURE
+      // réécrit le sien vers le texte visé (`versLeTexte`), sans repasser par
+      // une URL qu'il faudrait relire.
+      a.lien = { fragments: descripteurs, retouches };
       //   ★ Et les CURSEURS et la FOUILLE, quand ils ne sont pas au défaut : le
       //   score que la voie rejouée affichera est celui de CETTE liste-ci, donc
       //   il dépend d'eux (`url.js`, en-tête). Au défaut, `ecrire()` n'écrit
@@ -742,6 +758,126 @@ export function creerMoteur(catalogue, options = {}) {
   }
 
   /**
+   * ★ **VISER UN TEXTE — chercher chacune de ses relectures, puis fusionner.**
+   *
+   * Un texte ne se cherche pas : le moteur écrit des chiffres. Chaque relecture
+   * du catalogue (`conversions.js`) en fait une cible chiffrée sous-jacente, et
+   * c'est `deroulerResolution` — le pipeline chiffré, INCHANGÉ — qui la
+   * cherche. Ce qui est propre au texte tient ici, en trois gestes :
+   *
+   *   1. une recherche par relecture, poussée par le MÊME générateur : ses
+   *      points d'arrêt remontent tels quels, la jauge remise à l'échelle de
+   *      leur nombre (la k-ième couvre la k-ième tranche, et ne recule pas) ;
+   *   2. chaque voie trouvée devient une voie vers le TEXTE (`versLeTexte`) :
+   *      sa relecture est nommée, son lien réécrit, son score payé de l'écart
+   *      de forme (`cible.js › ECARTS`) ;
+   *   3. une seule liste, classée par l'ordre du site et coupée à ses places.
+   *
+   * ⚠️ **Ce qui est perdu à la fusion, et dit.** Les deux lignes réservées —
+   *   champions de l'élégance et des triptyques (`selectionner`) — sont
+   *   choisies DANS chaque relecture ; la liste fusionnée est ensuite classée
+   *   par l'ordre total, qui ne les connaît pas. Sur un texte, elles peuvent
+   *   donc descendre. Une fusion qui garderait la réservation reste à écrire.
+   * ⚠️ **Le temps** : une recherche par relecture, trois aujourd'hui. Deux
+   *   relectures qui visent la même suite (GHOST en AZERTY et en QWERTY ont les
+   *   mêmes coordonnées) se servent du cache de fragments sans rien refaire.
+   * ★ La liste des FRAGMENTS n'est pas rendue : ses pastilles disent le chiffre
+   *   qu'un morceau vaut, et un chiffre de la cible sous-jacente n'est pas un
+   *   signe du texte. La montrer mentirait sur ce qu'on cherche.
+   */
+  function* deroulerTexte(saisieBrute, mot, optionsResolution) {
+    const ponderation = ponderer(optionsResolution.curseurs ?? options.curseurs);
+    const fouille = normaliserPuissance(optionsResolution.fouille ?? options.fouille);
+    const saisie = String(saisieBrute ?? '').normalize('NFC');
+    const relectures = relecturesPour(mot, ops);
+    const base = {
+      saisie,
+      cible: mot,
+      dedie: null,
+      vide: !saisie.length,
+      fragments: [],
+      urlResultats: ecrire({ saisie, cible: mot, curseurs: ponderation.curseurs, fouille }),
+      curseurs: ponderation.curseurs,
+      pourcentages: ponderation.pourcentages,
+      poids: ponderation.poids,
+      fouille,
+      // Les relectures TENTÉES, et ce que chacune écrirait : c'est ce qui dit,
+      // quand la liste est vide, si c'est la recherche qui a échoué ou le texte
+      // qui ne se laisse relire par aucune.
+      relectures: relectures.map((r) => ({
+        code: r.code, cible: r.cible.texte, produit: r.produit, ecart: r.ecart,
+      })),
+    };
+    if (!saisie.length) return { ...base, approches: [] };
+    if (!relectures.length) return { ...base, approches: [], avertissement: BANDEAUX.aucuneRelecture };
+
+    const canal = typeof optionsResolution.surAvancement === 'function'
+      ? optionsResolution.surAvancement : null;
+    const n = relectures.length;
+    const approches = [];
+    let tronque = false;
+    let tronqueTemps = false;
+    let avertissement;
+    for (let k = 0; k < n; k++) {
+      const rel = relectures[k];
+      const echelle = (a) => ({ ...a, fraction: (k + Math.min(1, Math.max(0, (a && a.fraction) || 0))) / n });
+      const sous = deroulerResolution(saisieBrute, {
+        ...optionsResolution,
+        cible: rel.cible,
+        surAvancement: canal ? (a) => canal(echelle(a)) : undefined,
+      });
+      let pas = sous.next();
+      while (!pas.done) {
+        const pause = yield echelle(pas.value);
+        pas = sous.next(pause);
+      }
+      const r = pas.value;
+      if (r.tronque) tronque = true;
+      if (r.tronqueTemps) tronqueTemps = true;
+      if (r.avertissement) avertissement = r.avertissement;
+      for (const a of r.approches || []) {
+        // Le joker est une propriété du français et du 6 (§0.4) : il ne relit
+        // rien, et n'a rien à faire sous l'annonce d'un texte.
+        if (a.mode === 'JOKER') continue;
+        versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
+        approches.push(a);
+      }
+    }
+    approches.sort(ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal);
+    const retenues = approches.slice(0, reglagesDeBudget(fouille).voies);
+    nommer(retenues);
+    retenues.forEach((a, i) => { a.rang = i + 1; });
+    return {
+      ...base,
+      approches: retenues,
+      tronque,
+      tronqueTemps,
+      ...(avertissement ? { avertissement } : {}),
+    };
+  }
+
+  /**
+   * Une voie trouvée sur une relecture devient une voie vers le TEXTE : on
+   * nomme sa relecture, on paie son écart de forme, on réécrit ses liens — le
+   * texte derrière le troisième `#`, la relecture en marqueur (`url.js`).
+   */
+  function versLeTexte(a, rel, saisie, curseurs, fouille) {
+    a.relecture = Object.freeze({ code: rel.code, mot: rel.mot.texte });
+    a.ecartDeForme = rel.ecart;
+    a.produit = rel.produit;
+    // L'écart se PAIE, entier sur entier : aucun flottant ne décide d'un rang.
+    a.score = Math.round((a.score * rel.ecart.facteur) / 1000);
+    const lien = a.lien || {};
+    const commun = {
+      saisie, fragments: lien.fragments, retouches: lien.retouches,
+      cible: rel.mot, relecture: rel.code, curseurs, fouille,
+    };
+    a.urlSobre = ecrire({ ...commun, registre: 'sobre' });
+    a.urlScenique = ecrire({ ...commun, registre: 'scenique' });
+    a.url = a.urlScenique;
+  }
+
+  /**
    * ★ LA VERSION SYNCHRONE, ET ELLE LE RESTE (CONTRACTS §5).
    *
    * Des centaines de tests et le banc de mesure appellent `moteur.resoudre(x)`
@@ -814,7 +950,25 @@ export function creerMoteur(catalogue, options = {}) {
     const saisie = lecture.saisie;
     // La cible vient du LIEN, et de nulle part ailleurs — comme le registre.
     // Un lien sans marqueur vise 666, c'est `url.js` qui le résout.
-    const cbl = normaliserCible(lecture.cible);
+    let cbl = normaliserCible(lecture.cible);
+    // ★ UN TEXTE SE REJOUE PAR SA RELECTURE, celle que le lien nomme
+    //   (`mcaz!`) — le rang dans l'alphabet s'il n'en nomme aucune. Tout le
+    //   reste du rejeu se fait sur la cible chiffrée SOUS-JACENTE, exactement
+    //   comme la recherche l'a trouvée ; seul le lien et le verdict revoient le
+    //   texte.
+    let rel = null;
+    if (cbl.nature === 'mot') {
+      const code = lecture.relecture || RELECTURE_PAR_DEFAUT;
+      const op = opParCode.get(code);
+      if (!op || !op.relecture) {
+        return { ok: false, raison: `relecture inconnue : ${code}`, bandeau: BANDEAUX.codeInconnu };
+      }
+      rel = relecturePour(cbl, op);
+      if (!rel) return { ok: false, raison: 'relecture impossible', bandeau: BANDEAUX.relectureImpossible };
+      cbl = rel.cible;
+    } else if (lecture.relecture) {
+      return { ok: false, raison: 'relecture sans texte', bandeau: BANDEAUX.relectureSansTexte };
+    }
     // ★ **LA TABLE DES CODES SUIT LA CIBLE DU LIEN**, et il le faut absolument.
     //
     //   Un code ne dit pas TOUT ce qu'un opérateur fait : six d'entre eux lisent
@@ -1007,8 +1161,17 @@ export function creerMoteur(catalogue, options = {}) {
       : lecture.fragments;
     // Et les réglages voyagent avec, à l'identique : un lien réécrit doit rester
     // le même lien, et la voie doit pouvoir ramener vers SA liste.
+    // ★ Une voie vers un TEXTE : même écart payé que dans la liste, et un lien
+    //   qui vise le texte, pas sa cible sous-jacente (`versLeTexte`).
+    if (rel) {
+      approche.relecture = Object.freeze({ code: rel.code, mot: rel.mot.texte });
+      approche.ecartDeForme = rel.ecart;
+      approche.produit = rel.produit;
+      approche.score = Math.round((approche.score * rel.ecart.facteur) / 1000);
+    }
     const lien = {
-      saisie, fragments: fragmentsEcrits, retouches: lecture.retouches, cible: cbl,
+      saisie, fragments: fragmentsEcrits, retouches: lecture.retouches, cible: rel ? rel.mot : cbl,
+      relecture: rel ? rel.code : undefined,
       curseurs: lecture.curseurs, fouille: lecture.fouille,
     };
     approche.urlSobre = ecrire({ ...lien, registre: 'sobre' });
@@ -1021,6 +1184,16 @@ export function creerMoteur(catalogue, options = {}) {
     // La langue traverse jusqu'aux `steps()` du catalogue : sans elle, les libellés
     // repartent en français quelle que soit l'interface (CONTRACTS §0.4, bilinguisme).
     const langue = ctx.langue || 'fr';
+    // ★ Une voie vers un TEXTE se termine par sa RELECTURE, jouée au verdict
+    //   (`scenario.js`). L'opérateur est pris ici, par le code que la voie
+    //   porte ; la cible du scénario est la cible chiffrée SOUS-JACENTE — c'est
+    //   elle que la voie écrit —, quoi que l'appelant ait passé.
+    const rel = approche.relecture ? {
+      code: approche.relecture.code,
+      mot: approche.relecture.mot,
+      op: opParCode.get(approche.relecture.code) || null,
+      ecart: approche.ecartDeForme || null,
+    } : null;
     return construireScenario(approche, {
       saisie: ctx.saisie || approche.saisie,
       langue,
@@ -1031,10 +1204,8 @@ export function creerMoteur(catalogue, options = {}) {
       registre: ctx.registre,
       // La CIBLE traverse jusqu'au scénario : c'est elle qui décide de la
       // longueur d'une série au verdict, et des libellés qui nommaient « 6 ».
-      cible: ctx.cible || approche.cible,
-      // Le verdict d'une cible écrite en lettres relit ses rangs par cet
-      // opérateur-là (`scenario.js`, « la cible textuelle »).
-      rangEnLettre,
+      cible: rel ? approche.cible : (ctx.cible || approche.cible),
+      relecture: rel,
       methode: ctx.methode || {
         id: approche.rang ?? 1,
         label: titreApproche(approche, langue),
@@ -1043,7 +1214,7 @@ export function creerMoteur(catalogue, options = {}) {
       // Le verdict n'est plus forcément « 666 » : un GROUPEMENT dont le vecteur
       // porte douze 6 en aligne quatre séries, et l'annoncer « 666 » reviendrait
       // à cacher les trois quarts de ce qu'on vient de montrer (`verdictDe`).
-      resultat: ctx.resultat || verdictDe(approche),
+      resultat: rel ? undefined : (ctx.resultat || verdictDe(approche)),
     });
   }
 
@@ -1819,6 +1990,9 @@ function serialisable(resultat) {
       //   caractères elle a traités : c'est le titre de sa carte, et il se
       //   calcule là où les états intermédiaires vivent (`score.js`).
       conversion: a.conversion,
+      // ★ Et, pour une voie vers un TEXTE, la relecture qui la termine, ce
+      //   qu'elle écrit réellement et l'écart payé (`cible.js › ECARTS`).
+      relecture: a.relecture, produit: a.produit, ecartDeForme: a.ecartDeForme,
     })),
   };
 }

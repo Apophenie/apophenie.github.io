@@ -152,6 +152,10 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   toute voie vers un MOT (`recherche/cible.js`, la cible textuelle). Inactif
   //   en recherche. En fin de bloc mappeur, append-only (§4.1).
   'm1a',
+  // ★ UNE TOUCHE DÉSIGNÉE PAR DEUX NOMBRES — colonne, puis rangée : l'inverse de
+  //   `mazc`+`mazr` et de `mqwc`+`mqwr`. Deux relectures de plus pour un texte
+  //   visé. Inactives en recherche. En fin de bloc mappeur, append-only (§4.1).
+  'mcaz', 'mcqw',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

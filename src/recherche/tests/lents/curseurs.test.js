@@ -523,13 +523,14 @@ test('url — les marqueurs se lisent dans n’importe quel ordre, et s’écriv
     assert.equal(lu.fouille, 2, h);
     assert.equal(lu.cible.texte, '111', h);
   }
-  // Une seule forme écrite : registre, cible, curseurs, fouille.
+  // Une seule forme écrite : registre, curseurs, fouille — et la cible derrière
+  // le troisième `#`, en base58 marqué `~` (`url.js`) ; `c111!` reste lu.
   assert.equal(
     ecrire({
       saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['tca', 'm36'] }],
       registre: 'sobre', cible: '111', curseurs: attendu, fouille: 2,
     }),
-    '#so!c111!p10.20.30.40!f2!m36#3fq9KJ',
+    '#so!p10.20.30.40!f2!m36#3fq9KJ#~HXLk',
   );
 });
 

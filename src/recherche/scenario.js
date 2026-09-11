@@ -52,7 +52,7 @@ import { rendreValeur, etat as etatDe, appliquerOp } from './bfs.js';
 import { titreApproche, regleApproche } from './titres.js';
 import { serieDeSix, sixDuChemin, compterMoisson } from './assemblage.js';
 import {
-  CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecritureDe, CODE_RANG_EN_LETTRE,
+  CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecritureDe, libelleEcart,
 } from './cible.js';
 
 /**
@@ -527,7 +527,9 @@ function inventaire(o) {
         supprimes.push(...normaliserCibles(o.targets));
       } else {
         ajouter(o.to);
-        if (o.to) supprimes.push(...normaliserCibles(o.target));
+        // `targets` : la mesure « coordonnees » du clavier consomme DEUX jetons
+        // — la colonne et la rangée — pour une lettre (`mcaz`, `mcqw`).
+        if (o.to) supprimes.push(...normaliserCibles(o.targets ?? o.target));
       }
       break;
     case 'table':
@@ -1490,6 +1492,23 @@ export function suivreLaLigne(tokens, steps) {
             const arrivees = o.to.flatMap((t) => nes(t));
             if (!cibles || cibles.length !== arrivees.length
               || !remplacerPlusieurs(cibles, arrivees)) { perdu = true; }
+            break;
+          }
+          // ★ DEUX JETONS POUR UNE LETTRE — `keyboard`, mesure « coordonnees »
+          //   (`mcaz`, `mcqw`) : la lettre prend la place de la COLONNE, et la
+          //   rangée quitte la ligne. C'est ce que fait la primitive — elle pose
+          //   la lettre à la place de la colonne et retire les deux.
+          if (o.op === 'keyboard' && o.mesure === 'coordonnees') {
+            const deux = ids(o.targets);
+            const lettre = nes(o.to);
+            if (!deux || deux.length !== 2 || lettre.length !== 1 || !remplacer(deux[0], lettre)) {
+              perdu = true;
+              break;
+            }
+            const k = ligne.indexOf(deux[1]);
+            if (k < 0) { perdu = true; break; }
+            frontieres.delete(deux[1]);
+            ligne.splice(k, 1);
             break;
           }
           const arrivee = nes(o.to);
@@ -2968,44 +2987,53 @@ export function construireScenario(approche, ctx = {}) {
   //   exploser, et les jetons qu'elle révèle ne sont même pas ceux d'avant.
   if (!verdictRecolte) surnumeraires = [];
 
-  // ★ **LA CIBLE TEXTUELLE — les rangs redeviennent des lettres, et on le VOIT.**
+  // ★ **LA RELECTURE — les chiffres redeviennent le texte visé, et on le VOIT.**
   //
-  //   Une voie vers un mot écrit des RANGS (`cible.js`, l'en-tête) : `26 5 18 7`
-  //   pour ZERG. Révéler ces nombres sous l'annonce « ZERG » décréterait la
-  //   dernière conversion au lieu de la montrer. Elle se joue donc ici, sur la
-  //   ligne déjà rassemblée dans l'ordre du verdict, par l'opérateur du
-  //   catalogue (`m1a`) — ses étapes, sa réglette, ses contrôles croisés : la
-  //   scène ne réinvente pas la table.
+  //   Une voie vers un texte écrit des CHIFFRES : ceux qu'un opérateur de
+  //   relecture relira en lettres (`conversions.js`) — `21314152` pour « Zerg »
+  //   en coordonnées AZERTY, `26 5 18 7` en rangs. Révéler ces chiffres sous
+  //   l'annonce d'un mot décréterait la dernière conversion au lieu de la
+  //   montrer. Elle se joue donc ici, sur la ligne déjà rassemblée dans l'ordre
+  //   du verdict, par l'opérateur du catalogue lui-même — ses étapes, sa
+  //   réglette ou son clavier, ses contrôles croisés : la scène ne réinvente
+  //   pas la table.
   //
-  //   ⚠️ L'opérateur vient de l'APPELANT (`ctx.rangEnLettre`, que `index.js ›
-  //     scenarioDe` prend dans le catalogue) : ce module ne dépend pas du moteur
-  //     arithmétique, il code contre le contrat. Sans lui, on refuse de rendre
-  //     plutôt que de révéler des nombres sous l'annonce d'un mot.
-  //   ⚠️ Les surnuméraires restent des nombres : ils explosent au verdict sans
+  //   ⚠️ L'opérateur vient de l'APPELANT (`ctx.relecture`, que `index.js ›
+  //     scenarioDe` prend dans le catalogue) : ce module ne dépend pas du
+  //     moteur arithmétique, il code contre le contrat. Sans lui, on refuse de
+  //     rendre plutôt que de révéler des chiffres sous l'annonce d'un texte.
+  //   ⚠️ Les surnuméraires restent des chiffres : ils explosent au verdict sans
   //     avoir été relus, puisqu'ils n'écrivent rien.
-  const relireEnLettres = (ids) => {
-    const op = ctx.rangEnLettre;
+  //   ★ Le verdict annonce ce qui a été ÉCRIT, pas la cible — « zerg », et non
+  //     « Zerg ». L'écart qui les sépare est dit à côté, dans les mots du barème
+  //     (`cible.js › ECARTS`) : c'est lui que la note a payé.
+  let resultatVerdict = ctx.resultat || ecritureCible;
+  let legendeVerdict = resultatVerdict;
+  let serieVerdict = cible.longueur;
+  if (ctx.relecture) {
+    const rel = ctx.relecture;
+    const op = rel.op;
     if (!op || typeof op.steps !== 'function' || typeof op.apply !== 'function') {
       throw new ErreurRendu(
-        `la cible ${ecritureCible} s’écrit en lettres, et l’opérateur qui relit un rang en lettre `
-        + `(${CODE_RANG_EN_LETTRE}) n’a pas été fourni : on ne révèle pas des nombres sous l’annonce d’un mot`,
+        `le texte visé « ${rel.mot} » se relit par ${rel.code || '?'}, que l’appelant n’a pas fourni : `
+        + 'on ne révèle pas des chiffres sous l’annonce d’un texte',
         null,
       );
     }
-    const valeurs = ids.map((id) => valeursRevelees.get(id));
+    const valeurs = aReveler.map((id) => valeursRevelees.get(id));
     if (!valeurs.every(Number.isInteger)) {
-      throw new ErreurRendu(`le verdict de ${ecritureCible} ne sait pas quel rang porte chacun de ses jetons`, op);
+      throw new ErreurRendu(`le verdict de « ${rel.mot} » ne sait pas quelle valeur porte chacun de ses jetons`, op);
     }
     const avant = etatDe('NUMS', valeurs, []);
     const apres = appliquerOp(op, avant);
     if (!apres) {
-      throw new ErreurRendu(`la ligne révélée porte « ${valeurs.join(' ')} », et ${op.code} n’y lit pas `
-        + `que des rangs de 1 à 26 : elle n’écrit pas ${ecritureCible}`, op);
+      throw new ErreurRendu(`la ligne révélée porte « ${valeurs.join(' ')} », et ${op.code} ne sait pas `
+        + `la relire : elle n’écrit pas « ${rel.mot} »`, op);
     }
-    const emis = essayerCatalogue(op, avant, apres, ids.map((id) => [id]), alloc, avertissements,
+    const emis = essayerCatalogue(op, avant, apres, aReveler.map((id) => [id]), alloc, avertissements,
       `x${nCle++}`, langue);
     if (!emis) {
-      throw new ErreurRendu(`la réglette de ${op.code} n’a pas pu être montrée — `
+      throw new ErreurRendu(`la relecture ${op.code} n’a pas pu être montrée — `
         + `${avertissements[avertissements.length - 1] || 'sans motif'}`, op);
     }
     for (const st of emis.steps) {
@@ -3017,9 +3045,16 @@ export function construireScenario(approche, ctx = {}) {
         code: op.code,
       });
     }
-    return emis.courants.map((c) => c[0]);
-  };
-  if (cible.nature === 'mot') aReveler = relireEnLettres(aReveler);
+    aReveler = emis.courants.map((c) => c[0]);
+    // Une série du verdict, c'est un exemplaire du TEXTE — pas de ses chiffres.
+    serieVerdict = [...rel.mot].length;
+    const lettres = apres.valeur;
+    const ecrits = [];
+    for (let i = 0; i < lettres.length; i += serieVerdict) ecrits.push(lettres.slice(i, i + serieVerdict).join(''));
+    resultatVerdict = ecrits.join(' ');
+    const ecart = libelleEcart(rel.ecart, langue);
+    legendeVerdict = ecart ? `${resultatVerdict} — ${ecart}` : resultatVerdict;
+  }
 
   if (aReveler.length > 1) {
     // Pas de `move` ici : `reveal` efface lui-même les jetons écartés et laisse
@@ -3039,16 +3074,16 @@ export function construireScenario(approche, ctx = {}) {
     //   qui explosent une fois la ligne rassemblée (voir `lesPlusCentraux` et
     //   `visuel/primitives/reveal.js`). Le champ n'est écrit que s'il y en a :
     //   un verdict qui n'a rien de trop reste le scénario d'hier, à l'octet.
-    nouvelleEtape(MOTS.verdict[langue], ctx.resultat || ecritureCible, [
+    nouvelleEtape(MOTS.verdict[langue], legendeVerdict, [
       {
-        op: 'reveal', targets: aReveler, at: 250, stagger: 150, serie: cible.longueur,
+        op: 'reveal', targets: aReveler, at: 250, stagger: 150, serie: serieVerdict,
         ...(surnumeraires.length ? { surnumeraires } : {}),
       },
     ], { hold: 1200 });
   } else {
-    nouvelleEtape(MOTS.verdict[langue], ctx.resultat || ecritureCible, [
-      { op: 'reveal', targets: aReveler, serie: cible.longueur },
-      { op: 'annotate', anchor: aReveler, text: ctx.resultat || ecritureCible, place: 'below', at: 400 },
+    nouvelleEtape(MOTS.verdict[langue], legendeVerdict, [
+      { op: 'reveal', targets: aReveler, serie: serieVerdict },
+      { op: 'annotate', anchor: aReveler, text: resultatVerdict, place: 'below', at: 400 },
     ]);
   }
 
@@ -3090,7 +3125,7 @@ export function construireScenario(approche, ctx = {}) {
       label: (ctx.methode && ctx.methode.label) || titreApproche(approche, langue),
       rule: (ctx.methode && ctx.methode.rule) || regleApproche(approche, langue),
     },
-    result: ctx.resultat || ecritureCible,
+    result: resultatVerdict,
     tokens,
     steps,
   };
@@ -3256,7 +3291,14 @@ export function validerFormeOp(o) {
         ? null : `« ids », s'il est fourni, doit contenir exactement ${n} identifiant(s)`;
     }
     case 'keyboard': {
-      if (!chaine(o.target)) return '« target » manquant';
+      // ★ La mesure « coordonnees » part de DEUX jetons — la colonne, puis la
+      //   rangée — et rend toujours la lettre de la touche (`mcaz`, `mcqw`).
+      if (o.mesure === 'coordonnees') {
+        if (!Array.isArray(o.targets) || o.targets.length !== 2 || !o.targets.every(chaine)) {
+          return '« targets » doit désigner la colonne, puis la rangée';
+        }
+        if (!tok(o.to)) return '« to » doit être {id, text} : la touche désignée rend sa lettre';
+      } else if (!chaine(o.target)) return '« target » manquant';
       // Même décor mutualisé, même contrôle que la table (`formeDeDecor`).
       const decor = formeDeDecor(o);
       if (decor) return decor;

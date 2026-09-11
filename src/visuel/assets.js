@@ -702,7 +702,10 @@ export function alphabetEntries(ordre = 'a1z26') {
   const o = normalizeOrdre(ordre);
   // À rebours, la clé est le rang et la valeur la lettre : c'est le nombre qui
   // cherche sa case. Le rang se recalcule ici comme dans l'autre sens.
-  if (o === '1a26') return [...ALPHABET].map((char, i) => ({ char: String(i + 1), value: char }));
+  // La lettre est en BAS DE CASSE : c'est celle que `m1a` écrit, et une case
+  // qui annoncerait « Z » au-dessus d'un « z » qui descend dirait autre chose
+  // que ce qu'on voit.
+  if (o === '1a26') return [...ALPHABET].map((char, i) => ({ char: String(i + 1), value: char.toLowerCase() }));
   return [...ALPHABET].map((char) => ({ char, value: alphabetValue(char, o) }));
 }
 

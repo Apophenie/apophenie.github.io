@@ -165,10 +165,21 @@ export const name = 'reveal';
  */
 const SERIE = 3;
 
+/**
+ * La plus longue série qu'un verdict découpe.
+ *
+ * ★ VINGT, et non plus neuf : un texte visé a jusqu'à vingt signes
+ *   (`recherche/cible.js › MAX_SIGNES_TEXTE`), et un verdict qui retombe en
+ *   trios sur un mot de dix lettres le découperait là où rien ne l'est. La
+ *   borne à neuf mordait déjà les cibles chiffrées de dix chiffres, qui se
+ *   découpaient par trois sans qu'aucun test ne le voie.
+ */
+const SERIE_MAX = 20;
+
 /** La longueur de série demandée par l'op, bornée à ce qui a un sens. */
 function serieDe(op) {
   const n = op && Number(op.serie);
-  return Number.isInteger(n) && n >= 1 && n <= 9 ? n : SERIE;
+  return Number.isInteger(n) && n >= 1 && n <= SERIE_MAX ? n : SERIE;
 }
 
 /** Part de la hauteur de scène occupée par la hauteur de capitale du verdict. */

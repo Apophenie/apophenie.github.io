@@ -220,6 +220,10 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
     fragments: lecture.fragments,
     registre,
     cible,
+    // ★ La RELECTURE aussi : une voie vers un texte se termine par elle
+    //   (`mcaz!`), et la barre d'adresse réécrite sans elle rejouerait une
+    //   autre démonstration — ou aucune.
+    relecture: lecture.relecture,
   };
   const urlCanonique = pont.ecrireHash(clef);
   // L'autre mise en scène de la MÊME voie : le même programme, l'autre

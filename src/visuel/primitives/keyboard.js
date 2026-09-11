@@ -26,6 +26,11 @@
  * | `'colonne'` | toute la colonne        | **l'index de la réglette**  |
  * | `'rangee'`  | toute la rangée         | le numéro en marge          |
  * | `'rangee4'` | toute la rangée         | le numéro, chiffres compris |
+ * | `'coordonnees'` | la touche, au croisement de ses deux repères | **sa lettre** |
+ *
+ * ★ `'coordonnees'` est la seule qui parte de DEUX jetons et rende une lettre :
+ *   le trajet inverse de la colonne et de la rangée (`mcaz`, `mcqw`). Voir
+ *   `planCoordonnees`, en fin de fichier.
  *
  * ★ Le piège de la colonne. Le `p` est en **colonne 10** alors que la touche
  * au-dessus de lui porte `0`. Faire descendre le label de la touche du dessus
@@ -67,20 +72,25 @@ import { tokenSpec, ancreVue } from './helpers.js';
 // ★ Le geste — monter le décor, allumer la touche, faire passer le caractère
 //   PAR-DESSUS, faire redescendre le nombre — est écrit une seule fois, et
 //   `table` l'appelle aussi. C'est CE geste-ci qui a servi de modèle.
-import { monterDecor, allerRetour, replierDecor, substituerSeul, decorEnLAir } from './decor.js';
+import {
+  monterDecor, allerRetour, replierDecor, substituerSeul, decorEnLAir, TEMPS,
+} from './decor.js';
 import { keyboardGeometry, findKey, keyboardValue, normalizeLayout } from '../assets.js';
 import { fail } from '../errors.js';
 import { bboxOf } from '../layout.js';
+import { EASE } from '../constants.js';
 
 export const name = 'keyboard';
 
 /** Les quatre mesures — vocabulaire fermé. */
-export const MESURES = Object.freeze(['touche', 'colonne', 'rangee', 'rangee4']);
+export const MESURES = Object.freeze(['touche', 'colonne', 'rangee', 'rangee4', 'coordonnees']);
 
 /** Marge verticale laissée libre par la caméra, en unités viewBox. */
 const PAD = 36;
 
 export function plan(ctx) {
+  // ★ La seule mesure qui part de DEUX jetons : elle a son propre plan.
+  if (ctx.op.mesure === 'coordonnees') return planCoordonnees(ctx);
   const src = ctx.scene.live(ctx.op.target, `${ctx.where}« target » : `);
   const to = ctx.op.to === undefined || ctx.op.to === null ? null : tokenSpec(ctx, ctx.op.to, 'to');
 
@@ -229,7 +239,7 @@ export function plan(ctx) {
 
 const DIT = Object.freeze({
   touche: 'le chiffre', colonne: 'la colonne', rangee: 'la rangée',
-  rangee4: 'la rangée, chiffres compris',
+  rangee4: 'la rangée, chiffres compris', coordonnees: 'la touche désignée',
 });
 
 /**
@@ -257,3 +267,105 @@ function haloDe(geo, key, mesure) {
   return { cx: key.cx, cy: key.cy, w: key.w, h: key.h };
 }
 
+
+/**
+ * ★ **LA TOUCHE DÉSIGNÉE PAR DEUX NOMBRES** — la mesure « coordonnees », le
+ *   trajet inverse de « colonne » et de « rangée » (`mcaz`, `mcqw`).
+ *
+ * > « Désigner une touche du clavier par deux nombres, un pour l'abscisse un
+ * >   pour l'ordonnée. » (l'auteur)
+ *
+ * Deux nombres montent : la COLONNE vers sa graduation sur la réglette du haut,
+ * la RANGÉE vers son numéro en marge gauche. La touche qui est à leur croisée
+ * s'allume, et c'est SA lettre qui redescend, à la place des deux nombres. Les
+ * deux repères sont dessinés ensemble : sans eux, « (2, 1) » serait une
+ * affirmation, et c'est leur croisement qui la prouve.
+ *
+ * ★ Le clavier se montre SANS la rangée des chiffres, comme en mesure
+ *   « rangée » : la rangée 1 est celle des lettres du haut, et une quatrième
+ *   rangée au-dessus laisserait croire qu'elle compte.
+ *
+ * Contrôle croisé : la touche est RELUE sur la géométrie à partir des deux
+ * nombres affichés dans la ligne ; si `to.text` n'est pas sa lettre, la
+ * compilation échoue. Ce qu'on voit désigner est ce qui a été calculé.
+ */
+function planCoordonnees(ctx) {
+  const op = ctx.op;
+  if (op.layout !== undefined && !['azerty', 'qwerty'].includes(op.layout)) {
+    fail(`${ctx.where}« layout » = ${JSON.stringify(op.layout)} — les deux dispositions modélisées sont « azerty » et « qwerty ».`);
+  }
+  if (op.titre !== undefined && typeof op.titre !== 'string') {
+    fail(`${ctx.where}« titre » doit être une chaîne — le nom de l'outil, déjà traduit, tel que le catalogue le porte.`);
+  }
+  if (!Array.isArray(op.targets) || op.targets.length !== 2) {
+    fail(`${ctx.where}« targets » : la mesure « coordonnees » part de DEUX jetons — la colonne, puis la rangée.`);
+  }
+  const col = ctx.scene.live(op.targets[0], `${ctx.where}« targets[0] » (la colonne) : `);
+  const lig = ctx.scene.live(op.targets[1], `${ctx.where}« targets[1] » (la rangée) : `);
+  if (op.to === undefined || op.to === null) {
+    fail(`${ctx.where}« to » manquant : la touche désignée doit rendre sa lettre.`);
+  }
+  const to = tokenSpec(ctx, op.to, 'to');
+  const titre = typeof op.titre === 'string' ? op.titre.trim() : '';
+  const layout = normalizeLayout(op.layout);
+  const geo = keyboardGeometry({ layout, rows: 'lettres' });
+  const x = Number(col.text);
+  const y = Number(lig.text);
+  const key = geo.keys.find((k) => k.colonne === x && k.rangee === y);
+  if (!key) {
+    fail(`${ctx.where}(${col.text}, ${lig.text}) ne désigne aucune touche de lettre en ${layout.toUpperCase()}.`);
+  }
+  if (String(to.text) !== key.char) {
+    fail(`${ctx.where}« to.text » annonce « ${to.text} », mais la touche (${x}, ${y}) porte « ${key.char} » `
+      + `en ${layout.toUpperCase()}. Le moteur visuel refuse d’afficher autre chose que ce qui est désigné.`);
+  }
+
+  // Placement : sous la ligne, comme les autres mesures — en tenant compte de
+  // la réglette des colonnes, qui dépasse AU-DESSUS du clavier (voir `plan`).
+  const vue = ancreVue(ctx);
+  const debordHaut = geo.keyH * 0.7;
+  const vivants = ctx.scene.flow.filter((id) => {
+    const n = ctx.scene.get(id);
+    return n && n.alive && ctx.scene.positions.has(id);
+  });
+  const flux = bboxOf(vivants, ctx.scene.positions, ctx.metrics, 0);
+  const bas = flux ? Math.max(vue.y, flux.y + flux.h) : vue.y;
+  const boardPos = { x: vue.x, y: bas + ctx.metrics.fontSize * 0.9 + geo.height / 2 + debordHaut };
+
+  const board = idClavier(layout, 'lettres', 'coordonnees', titre);
+  const deployer = !decorEnLAir(ctx, board) || op.montre === true;
+  const replier = op.retire !== false;
+  const t0 = monterDecor(ctx, {
+    id: board, role: 'keyboard', titre, data: { geo, mesure: 'coordonnees', layout },
+    pos: boardPos, width: geo.width, deployer,
+    encombrement: {
+      // La réglette dépasse en haut, la marge des rangées à gauche : la caméra
+      // doit faire tenir les DEUX repères, puisque c'est leur croisement qu'on lit.
+      haut: boardPos.y - geo.height / 2 - debordHaut,
+      bas: boardPos.y + geo.height / 2,
+      largeur: geo.width + geo.keyW,
+      pad: PAD,
+    },
+  });
+
+  const graduation = geo.ruler[x - 1];
+  const numero = geo.rowLabels[y - 1];
+  const keyPos = { x: boardPos.x + key.cx, y: boardPos.y + key.cy };
+  const T = ctx.dur;
+  // La RANGÉE part en même temps que la colonne, vers son numéro en marge, et
+  // s'y éteint. C'est la colonne qui porte le geste jusqu'au bout : la lettre
+  // redescend à SA place, et la ligne se referme sur la rangée partie.
+  ctx.anim({
+    id: lig.id, prop: 'translate', to: { x: boardPos.x + numero.cx, y: boardPos.y + numero.cy },
+    at: t0, dur: T * TEMPS.VOL, ease: EASE.move,
+  });
+  ctx.anim({ id: lig.id, prop: 'opacity', to: 0, at: t0 + T * TEMPS.EFFACE, dur: T * TEMPS.EFFACE_DUR });
+  const fin = allerRetour(ctx, {
+    src: col, to, t0, kind: 'letter',
+    case: { id: `@key:${col.id}`, w: key.w, h: key.h, rx: 6, x: keyPos.x, y: keyPos.y },
+    arrivee: { x: boardPos.x + graduation.cx, y: boardPos.y + graduation.cy },
+    source: keyPos,
+  });
+  ctx.scene.kill(lig.id, ctx.where);
+  if (replier) replierDecor(ctx, board, fin);
+}

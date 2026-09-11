@@ -272,8 +272,8 @@ export const fr = {
       porteesTexte: 'portées groupées : plusieurs places voisines qui se partagent un même programme.',
       registre: '#so!…#…  ·  #sce!…#…',
       registreTexte: 'registre de mise en scène, en tête de l’approche. Absent, il vaut « sobre » : le spectacle se demande.',
-      cible: '#c111!…#…  ·  #c007!…#…',
-      cibleTexte: 'cible visée — des chiffres, ou un mot (#czerg!…#…) —, en tête de l’approche. Absente, c’est 666 — la maison ne se renie pas.',
+      cible: '#…#…#…',
+      cibleTexte: 'la cible — des chiffres, ou n’importe quel texte —, derrière le troisième #, en base58 (le texte en clair se lit aussi). Absente, c’est 666 — la maison ne se renie pas.',
       copier: 'Copier le lien de cette page',
     },
     /* ★ LA COMMANDE DE CIBLE, en pied de listing. « Trop diabolique pour
@@ -289,14 +289,14 @@ export const fr = {
       appel: 'Quels calculs permettent d’obtenir :',
       raccourciLabel: 'Chercher les voies menant à {cible}',
       ou: 'ou la valeur de votre choix',
-      champLabel: 'Suite de chiffres, ou mot, à viser',
+      champLabel: 'Suite de chiffres, ou texte, à viser',
       // ★ Un exemple ne peut pas servir d'invite ici : « 111 » se lisait comme
       //   la valeur DÉJÀ inscrite, et les raccourcis juste à côté en proposent
       //   déjà cinq. L'invite dit ce qu'on attend, pas ce qu'on pourrait vouloir.
-      champInvite: 'nombre ou mot souhaité…',
-      champAide: 'Un mot, ou une suite de chiffres, {max} signes au plus. Un mot se lit sans casse ni accent, des chiffres avec leurs zéros de tête : « 007 » n’est pas « 7 ».',
+      champInvite: 'nombre ou texte souhaité…',
+      champAide: 'Une suite de chiffres, {max} au plus et zéros de tête compris (« 007 » n’est pas « 7 »), ou n’importe quel texte de {maxTexte} signes au plus, visé tel quel, casse et accents compris.',
       calculer: 'Calculer',
-      invalide: 'Un mot sans espace, ou une suite de chiffres, {max} signes au plus.',
+      invalide: 'Une suite de chiffres ({max} au plus), ou un texte de {maxTexte} signes au plus.',
       courante: 'Cible actuelle : {cible}',
     },
   },

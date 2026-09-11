@@ -75,7 +75,11 @@ test('url — un lien ne renvoie JAMAIS silencieusement ailleurs', () => {
     // c'est un lien qui ne porte AUCUNE saisie — ni base58, ni texte.
     ['#ma1#', 'saisie vide'],
     ['#ma1#   ', 'saisie faite de blancs'],
-    [`#ma1#${B58_HOPE}#trop`, 'trois segments'],
+    // ⚠️ `#ma1#<b58>#trop` a QUITTÉ cette liste : trois segments, c'est
+    // désormais la cible derrière le troisième `#` (voir `url.js`, « la cible
+    // passe derrière un troisième `#` ») — ici, le texte « trop ». Ce qui reste
+    // invalide, c'est un QUATRIÈME segment, qui ne désigne rien.
+    [`#ma1#${B58_HOPE}#Zerg#trop`, 'quatre segments'],
     [`#0.:ma1#${B58_HOPE}`, 'portée incomplète'],
   ];
   for (const [hash, quoi] of cas) {

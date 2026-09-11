@@ -798,6 +798,7 @@ function commandeDeCible({ saisie, cible, texteCible, curseurs, fouille }) {
   if (!lien(CIBLES_EN_VITRINE[0])) return null;
 
   const max = pont.MAX_CHIFFRES();
+  const maxTexte = pont.MAX_SIGNES_TEXTE();
   const defaut = !cible || cible.defaut;
 
   // La cible COURANTE sort de la vitrine : « demandez les calculs pour obtenir
@@ -806,12 +807,12 @@ function commandeDeCible({ saisie, cible, texteCible, curseurs, fouille }) {
 
   const champ = e('input.champ.champ--cible', {
     type: 'text',
-    // ★ Des chiffres, OU un mot (`cible.js`, la cible textuelle). Le clavier
-    //   numérique ne s'impose donc plus : il aurait fermé la moitié de ce que
-    //   le champ accepte.
+    // ★ Des chiffres, OU n'importe quel texte (`cible.js`, la cible textuelle).
+    //   Plus de motif au clavier : un texte peut porter une espace, un trait
+    //   d'union, un accent — c'est la RECHERCHE qui dira s'il est atteignable,
+    //   pas le champ. `lireCible` refuse ce qui n'est ni l'un ni l'autre.
     inputmode: 'text',
-    pattern: `[0-9]{1,${max}}|\\p{L}{1,${max}}`,
-    maxlength: String(max),
+    maxlength: String(Math.max(max, maxTexte)),
     autocomplete: 'off',
     id: 'cible-libre',
     name: 'cible',
@@ -862,7 +863,7 @@ function commandeDeCible({ saisie, cible, texteCible, curseurs, fouille }) {
     ]))),
     e('p.commande-cible__ou', { texte: t('resultat.cible.ou') }),
     formulaire,
-    e('p.legende#cible-aide', { texte: t('resultat.cible.champAide', { max }) }),
+    e('p.legende#cible-aide', { texte: t('resultat.cible.champAide', { max, maxTexte }) }),
     // Ce que le visiteur regarde en ce moment. Discret, mais présent : sur une
     // page calée sur 007, la vitrine ne montre plus 007, et rien ne dirait
     // autrement d'où l'on part.
