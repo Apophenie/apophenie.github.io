@@ -48,7 +48,8 @@ import {
   A_MERITER_SA_PLACE, OPERATEURS_QUI_ECARTENT, FICELLES, nbTriptyques, compterTraductionsDivergentes,
 } from './elegance.js';
 import {
-  CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecrit, verdict as ecrireVerdict,
+  CIBLE_DEFAUT, CIBLE_LONGUE, normaliserCible, seriesDe, indexUtiles, ecrit,
+  verdict as ecrireVerdict,
 } from './cible.js';
 import {
   appliquerOp, etat, normaliserCatalogue, operateursPourCible,
@@ -871,14 +872,52 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     vus.add(cle);
     out.push(chemin);
   };
+  /* ★ **UN SECOND RAFFINAGE, QUAND LE SECOND ABSORBE ET QUE LA VISÉE EST LONGUE.**
+
+     > « Certaines de tes conversions changent une lettre en 3 chiffres […] tu
+     >   peux donc augmenter le nombre de chiffres à volonté […] et la matière
+     >   tu vas l'avoir. » (l'auteur)
+
+     MESURÉ, et ce n'était pas la matière : la plus longue ligne de « Sarah
+     Kerrigan » fait trente-six chiffres avec ou sans raffinage — aucun
+     opérateur ne multiplie les nombres entre eux, et un produit est
+     log-additif, donc il n'allonge rien (les treize codes ASCII multipliés font
+     vingt-sept chiffres au lieu de trente-six). Ce qui manquait était la FORME :
+     cette fonction déroulait « filtre, découpe, mappeur, raffinage », un seul
+     raffinage, si bien qu'un geste qui RANGE ou qui GONFLE la ligne ne pouvait
+     jamais être suivi d'une absorption. `fl+tca+masb+mtri+mab` — les codes
+     ASCII rangés par ordre croissant, puis dissous — écrit les quatorze
+     chiffres de « Fantome », et aucune recherche ne pouvait le trouver.
+
+     ★ Le second doit ABSORBER (`op.absorbe`, déclaré par l'opérateur) : il
+       consomme toute la ligne et n'écrit que la cible, donc ce qui le précède
+       ne décide de rien. Deux gestes qui choisissent, eux, resteraient deux
+       décisions superposées — c'est la doctrine de l'étage 2 bis.
+     ★ Seulement pour une VISÉE LONGUE (`cible.js › CIBLE_LONGUE`) : en deçà,
+       666 compris, pas une ligne de cet étage ne change.
+     ⚠️ Deux raffinages qui rendent la MÊME ligne ne sont pas deux matières :
+       on ne tente l'absorption qu'une fois par ligne obtenue, le premier
+       rencontré dans l'ordre du catalogue (§4.4 règle 3), comme l'étage 2. */
+  const viseeLongue = cbl.longueur > CIBLE_LONGUE;
+  const absorbants = raffineurs.filter((o) => o.absorbe);
   for (const j of jetons.values()) {
     for (const m of mappeurs) {
       const v = appliquerOp(m, j.etat);
       if (v === null) continue;
       retenir(j.ops.concat(m), j.etats.concat([v]));
+      const lignesVues = viseeLongue ? new Set([cleEtat(v)]) : null;
       for (const r of raffineurs) {
         const w = appliquerOp(r, v);
-        if (w !== null) retenir(j.ops.concat(m, r), j.etats.concat([v, w]));
+        if (w === null) continue;
+        retenir(j.ops.concat(m, r), j.etats.concat([v, w]));
+        if (!viseeLongue || r.absorbe || w.type !== 'NUMS') continue;
+        const k = cleEtat(w);
+        if (lignesVues.has(k)) continue;
+        lignesVues.add(k);
+        for (const a of absorbants) {
+          const x = appliquerOp(a, w);
+          if (x !== null) retenir(j.ops.concat(m, r, a), j.etats.concat([v, w, x]));
+        }
       }
     }
   }

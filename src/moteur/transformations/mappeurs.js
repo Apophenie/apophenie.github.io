@@ -972,9 +972,43 @@ const LIB_EN_LETTRES = bilingue(
  *   (`elegance.js › REARRANGEMENT`), et une étape qui ne rapporte pas plus
  *   qu'elle ne coûte ne survit pas au classement.
  */
+/**
+ * ★ LA VISÉE LONGUE — au-delà de dix chiffres.
+ *
+ * Dix était le plafond des cibles chiffrées avant qu'il passe à vingt
+ * (`recherche/cible.js › MAX_CHIFFRES`, et `CIBLE_LONGUE` qu'un test tient égal
+ * à celui-ci) : rien de ce que le site a déjà publié n'est au-dessus. C'est
+ * donc la frontière qui permet d'élargir ce qu'on s'autorise pour les visées
+ * longues en garantissant qu'en deçà, 666 compris, pas un chemin de code ne
+ * change.
+ */
+export const VISEE_LONGUE = 10;
+
 function triRassemble(valeur, visee) {
   const ordre = ordreCroissant(valeur);
   if (!ordre.some((src, i) => valeur[src] !== valeur[i])) return false;
+  /* ★ **ET LE GARDE-FOU SE REMET À L'ÉCHELLE — une troisième fois.**
+
+     L'en-tête raconte qu'il disait TROIS quand on visait `13`, qui en demande
+     deux. La même erreur revient par l'autre bout : « atteindre au moins une
+     série » réclame QUATORZE valeurs identiques côte à côte pour une visée de
+     quatorze chiffres — les sept lettres d'un mot relu par paires. Autant dire
+     jamais : l'opérateur était mort pour toute visée longue, sans que rien le
+     dise.
+
+     Or rassembler n'est pas la seule façon de servir. Une absorption
+     (`op.absorbe`) consomme la ligne ENTIÈRE : ce qu'elle demande à un tri
+     n'est pas d'aligner des valeurs égales, c'est de présenter la ligne dans un
+     autre ordre — `fl+tca+masb+mtri+mab` écrit les quatorze chiffres de
+     « Fantome » là où la ligne non rangée n'écrit rien.
+
+     Au-delà de dix chiffres visés, la condition redevient donc l'invariant
+     honnête, celui de la ligne au-dessus : le tri doit DÉPLACER quelque chose,
+     sans quoi il fabriquerait une étape que la scène sauterait. Ce qui empêche
+     un rangement gratuit de survivre reste le barème, qui le facture
+     (`elegance.js › REARRANGEMENT`) — « `mtri` n'était pas gratuit, l'opération
+     ne sera retenue que si elle est rentable » (l'auteur). */
+  if (visee.longueur > VISEE_LONGUE) return true;
   const plusLongue = (v) => plagesDe(v).reduce((m, p) => Math.max(m, p.compte), 0);
   const avant = plusLongue(valeur);
   const apres = plusLongue(ordre.map((i) => valeur[i]));
@@ -1632,7 +1666,6 @@ const CHIFFRES_ABSORPTION_MAX = 36;
  *   au plus, comme avant, mais davantage de paquets — et une programmation
  *   dynamique en n² sur la ligne. La largeur d'un paquet, elle, reste six.
  */
-export const VISEE_LONGUE = 10;
 const LIGNE_PAR_CHIFFRE_VISE = 5;
 export const plafondDAbsorption = (longueurVisee) => (longueurVisee > VISEE_LONGUE
   ? Math.max(CHIFFRES_ABSORPTION_MAX, LIGNE_PAR_CHIFFRE_VISE * longueurVisee)
@@ -6007,6 +6040,17 @@ const AUTRES_MAPPEURS = [
   //   cible.
   selonLaCible((visee) => ({
     id: 'm.absorption', code: 'mab', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    /**
+     * ★ **ELLE ABSORBE** — elle consomme la ligne ENTIÈRE et n'écrit que la
+     * cible. C'est ce que ce champ déclare, et il est lu par la recherche
+     * (`assemblage.js › vecteursDeSix`) pour savoir ce qui peut CLORE un
+     * programme : un geste qui range ou qui gonfle la ligne peut la précéder,
+     * puisqu'il ne décide de rien — c'est elle qui écrit. Déclaré ici plutôt
+     * que reconnu là-bas sur une liste de codes : une liste de codes serait un
+     * second vocabulaire, et c'est ainsi qu'un opérateur finit par être oublié
+     * en silence.
+     */
+    absorbe: true,
     libelle: LIB_ABSORPTION,
     regle: (() => {
       const cible = visee.texte;
@@ -6176,6 +6220,7 @@ const AUTRES_MAPPEURS = [
     const planDe = memoPlanExact(visee);
     return {
       id: 'm.redecoupageExact', code: 'mrdE', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+      absorbe: true, // voir `mab` : elle consomme toute la ligne et n'écrit que la cible
       libelle: LIB_REDECOUPAGE_EXACT,
       regle: (() => {
         const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
@@ -6384,6 +6429,7 @@ const AUTRES_MAPPEURS = [
      exactement le même geste, à la liberté près. */
   selonLaCible((visee) => ({
     id: 'm.absorptionProduit', code: 'mabx', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    absorbe: true, // voir `mab`
     libelle: bilingue('Absorption par produits', 'Absorption by products'),
     regle: bilingue('Chaque paquet vaut la somme de ses chiffres — ou, quand il est coupé en deux, le PRODUIT des deux moitiés —, réduit par sa racine numérique. Une seule opération en plus de l’addition, annoncée d’avance.', 'Each packet is the sum of its digits — or, when split in two, the PRODUCT of the halves — reduced by its digital root. One operation beyond addition, announced up front.'),
     // ★ Notoriété 0,15, sous `mrd` (0,20) : additionner des voisins est banal,
@@ -6512,6 +6558,7 @@ const AUTRES_MAPPEURS = [
   })),
   selonLaCible((visee) => ({
     id: 'm.absorptionDifference', code: 'mabd', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    absorbe: true, // voir `mab`
     libelle: bilingue('Absorption par différences', 'Absorption by differences'),
     regle: bilingue('Chaque paquet vaut la somme de ses chiffres — ou, quand il est coupé en deux, la DIFFÉRENCE des deux moitiés —, réduit par sa racine numérique. Une seule opération en plus de l’addition, annoncée d’avance.', 'Each packet is the sum of its digits — or, when split in two, the DIFFERENCE of the halves — reduced by its digital root. One operation beyond addition, announced up front.'),
     // ★ Notoriété 0,15, sous `mrd` (0,20) : additionner des voisins est banal,
