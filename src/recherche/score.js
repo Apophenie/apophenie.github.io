@@ -1213,6 +1213,11 @@ export function noter(approche, ctx) {
   const chemins = approche.parts.map((p) => p.chemin);
   const tousOps = [];
   for (const c of chemins) tousOps.push(...c.ops);
+  // ★ La LIAISON — l'opérateur qui réunit les parts sur la ligne assemblée
+  //   (`=mdl0!`) — se paie comme toute opération : sa notoriété, son côté
+  //   ad hoc. Taire l'étape qui fabrique le résultat la ferait passer pour
+  //   gratuite.
+  if (approche.liaison && approche.liaison.op) tousOps.push(approche.liaison.op);
 
   const H = critereHomogeneite(chemins);
   const N = critereNotoriete(tousOps.length ? tousOps : [{ notoriete: 0 }]);

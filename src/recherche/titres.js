@@ -315,6 +315,14 @@ export const NOMS = {
   'm.divisionDecimale1': b('Par division décimale', 'By decimal division'),
   'm.divisionDecimale2': b('Par division décimale', 'By decimal division'),
   'm.divisionDecimale3': b('Par division décimale', 'By decimal division'),
+  // ★ Les mêmes, zéros de tête écrits (`md0*`) : « 126 ÷ 18 » s'y lit `0 0 7`.
+  'm.divisionDecimaleZero1': b('Par division décimale à zéros de tête', 'By decimal division with leading zeros'),
+  'm.divisionDecimaleZero2': b('Par division décimale à zéros de tête', 'By decimal division with leading zeros'),
+  'm.divisionDecimaleZero3': b('Par division décimale à zéros de tête', 'By decimal division with leading zeros'),
+  // ★ La division de DEUX nombres de la ligne — « James Bond » → 126 ÷ 18.
+  'm.divisionDeDeuxZero': b('Par division d’un nombre par l’autre, zéros de tête compris',
+    'By dividing one number by the other, leading zeros kept'),
+  'm.divisionDeDeux': b('Par division d’un nombre par l’autre', 'By dividing one number by the other'),
   'm.division': b('Par division', 'By division'),
   'm.divisionResteDabord': b('Par division, le reste devant', 'By division, remainder first'),
   'm.divisionEntiere': b('Par division, le reste perdu', 'By division, dropping the remainder'),
@@ -494,6 +502,11 @@ export const TITRES_COURTS = {
   'm.divisionDecimale1': b('division à 1 déc.', '1-decimal division'), // mdc1
   'm.divisionDecimale2': b('division à 2 déc.', '2-decimal division'), // mdc2
   'm.divisionDecimale3': b('division à 3 déc.', '3-decimal division'), // mdc3
+  'm.divisionDecimaleZero1': b('division à 1 déc., 0 devant', '1-dec. division, leading 0'), // md01
+  'm.divisionDecimaleZero2': b('division à 2 déc., 0 devant', '2-dec. division, leading 0'), // md02
+  'm.divisionDecimaleZero3': b('division à 3 déc., 0 devant', '3-dec. division, leading 0'), // md03
+  'm.divisionDeDeuxZero': b('division de deux, 0 devant', 'two-number div., leading 0'), // mdl0
+  'm.divisionDeDeux': b('division de deux nombres', 'two-number division'), // mdlc
   'm.division': b('division et reste', 'division and remainder'), // mdiv
   'm.divisionResteDabord': b('division, reste devant', 'division, remainder first'), // mdvr
   'm.divisionEntiere': b('division entière', 'integer division'), // mdvq
@@ -681,6 +694,12 @@ export const PRECISIONS = {
   'm.divisionDecimale1': b('par division décimale', 'by decimal division'),
   'm.divisionDecimale2': b('par division décimale', 'by decimal division'),
   'm.divisionDecimale3': b('par division décimale', 'by decimal division'),
+  'm.divisionDecimaleZero1': b('par division décimale à zéros de tête', 'by decimal division with leading zeros'),
+  'm.divisionDecimaleZero2': b('par division décimale à zéros de tête', 'by decimal division with leading zeros'),
+  'm.divisionDecimaleZero3': b('par division décimale à zéros de tête', 'by decimal division with leading zeros'),
+  'm.divisionDeDeuxZero': b('par division d’un nombre par l’autre, zéros de tête compris',
+    'by dividing one number by the other, leading zeros kept'),
+  'm.divisionDeDeux': b('par division d’un nombre par l’autre', 'by dividing one number by the other'),
   'm.division': b('par division', 'by division'),
   'm.divisionResteDabord': b('par division, le reste devant', 'by division, remainder first'),
   'm.divisionEntiere': b('par division entière', 'by integer division'),
@@ -1020,12 +1039,30 @@ export function titreBilingue(approche) {
   const part = partPrincipale(approche);
   if (!part) return b('Démonstration', 'Demonstration');
   const chemin = part.chemin;
+  /* ★ **UNE VOIE À LIAISON SE NOMME PAR SA LIAISON.** « James Bond » vaut 007
+     parce que 126 est divisé par 18 : c'est la division qui fait la méthode,
+     les deux conversions ne font que lui fournir ses nombres. La vedette est
+     donc l'opérateur qui réunit les parts (`approche.liaison`) ; le qualifiant
+     reste celui de la part principale, qui dit comment les nombres sont venus. */
+  const lieur = approche.liaison && approche.liaison.op;
+  if (lieur) {
+    const nom = NOMS[lieur.id] || lieur.libelle || b('Démonstration', 'Demonstration');
+    const tetePart = vedette(chemin);
+    const q = tetePart ? (NOMS[tetePart.id] ? minuscule(NOMS[tetePart.id]) : null) : null;
+    return assembler(nom, approche.distinction, q);
+  }
   const tete = vedette(chemin);
   const nom = (tete && NOMS[tete.id])
     || (tete && tete.libelle)
     || b('Démonstration', 'Demonstration');
   const q = tete ? qualifiant(chemin, tete.id) : null;
   return assembler(nom, approche.distinction, q);
+}
+
+/** Une forme de NOMS ramenée au bas de casse initial, pour servir de qualifiant. */
+function minuscule(nom) {
+  const bas = (t) => (t ? t.charAt(0).toLowerCase() + t.slice(1) : t);
+  return b(bas(dire(nom, 'fr')), bas(dire(nom, 'en')));
 }
 
 /**
@@ -1091,6 +1128,13 @@ export function regleApproche(approche, langue = LANGUE_DEFAUT) {
       const r = dire(o.regle, langue);
       if (r && !regles.includes(r)) regles.push(r);
     }
+  }
+  // ★ La LIAISON en dernier : elle se joue après les parts, sur la ligne qu'elles
+  //   ont assemblée — la taire annoncerait deux nombres là où l'on montre 007.
+  const lieur = approche.liaison && approche.liaison.op;
+  if (lieur) {
+    const r = dire(lieur.regle, langue);
+    if (r && !regles.includes(r)) regles.push(r);
   }
   return regles.join(' · ');
 }

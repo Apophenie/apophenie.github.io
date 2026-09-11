@@ -22,6 +22,7 @@
 //   saisie     := ':' texte | b58(texte) | texte  // `:` : en clair ; sinon base58, clair à défaut
 //   cible      := ':' texte | b58(texte) | texte  // la MÊME règle ; absente ⇒ 666
 //   relecture  := code d'un opérateur « chiffres → lettre » (`m1a`, `mcaz`…)
+//   liaison    := '=' code d'un opérateur de LIAISON '!'   // `=mdl0!` : voir plus bas
 //
 // `+` sépare les OPÉRATIONS d'un même fragment (arbitrage utilisateur) — et,
 // AVANT le `:`, les PORTÉES qui se partagent ce programme. Les deux régions sont
@@ -686,6 +687,28 @@ const RE_CIBLE = /^c([0-9]+|\p{L}+)!/u;
 const RE_RELECTURE = /^(m[0-9a-z]+[A-Z]?)!/;
 
 /**
+ * ★ **LE MARQUEUR DE LIAISON — `=mdl0!` : un opérateur joué sur la ligne
+ * ASSEMBLÉE.**
+ *
+ * > « "James Bond" : James converti en un nombre qui, divisé par le nombre issu
+ * >   de Bond, donne pile 007. » (l'auteur)
+ *
+ * Les fragments d'une voie écrivent chacun leur morceau de cible, et rien ne
+ * les réunit que le verdict. Une voie à liaison fait autrement : chaque part
+ * rend un NOMBRE, et un opérateur les réunit après coup — `126 ÷ 18`. Le lien
+ * doit le dire, et il le dit en tête, comme la relecture : c'est un geste sur
+ * la ligne entière, pas dans une part.
+ *
+ * ★ **Pourquoi `=` devant, et pas le code nu.** Un code nu `m…!` se lit déjà
+ *   comme une RELECTURE (`RE_RELECTURE`), et `c…!` comme une CIBLE. Le signe
+ *   dit « ceci réunit ce qui suit » ; il est légal tel quel dans un fragment
+ *   d'URL (`sub-delims`, RFC 3986 §3.4), et n'apparaît nulle part ailleurs dans
+ *   la grammaire. Quels codes le peuvent vraiment, c'est le catalogue qui le
+ *   sait (`index.js › rejouer`, `op.liaison`).
+ */
+const RE_LIAISON = /^=(m[0-9a-z]+[A-Z]?)!/;
+
+/**
  * Le marqueur des QUATRE CURSEURS — `p100.100.100.100!`.
  *
  * Les quatre champs sont EXIGÉS : un marqueur amputé ne dit pas lequel de ses
@@ -762,7 +785,7 @@ const REGISTRE_DU_MOT = Object.freeze({
  */
 export function lire(hash, options = {}) {
   const vide = {
-    forme: 'invalide', saisie: null, saisieBrute: false, fragments: null, retouches: [],
+    forme: 'invalide', saisie: null, saisieBrute: false, fragments: null, retouches: [], liaison: null,
     registre: null, registreEcrit: false,
     cible: CIBLE_DEFAUT, cibleEcrite: false, registreDemande: null,
     // ★ Les deux réglages de recherche sont TOUJOURS rendus, résolus, sur toutes
@@ -825,6 +848,7 @@ export function lire(hash, options = {}) {
   let fouille = PUISSANCE_DE_FOUILLE_DEFAUT;
   let fouilleEcrite = false;
   let relecture = null;
+  let liaison = null;
   for (;;) {
     const mReg = registreEcrit ? null : RE_REGISTRE.exec(approche);
     if (mReg) {
@@ -838,6 +862,13 @@ export function lire(hash, options = {}) {
     if (mRel) {
       relecture = mRel[1];
       approche = approche.slice(mRel[0].length);
+      continue;
+    }
+    // ★ LA LIAISON — voir `RE_LIAISON`. Une seule fois, elle aussi.
+    const mLia = liaison ? null : RE_LIAISON.exec(approche);
+    if (mLia) {
+      liaison = mLia[1];
+      approche = approche.slice(mLia[0].length);
       continue;
     }
     const mCib = cibleEcrite ? null : RE_CIBLE.exec(approche);
@@ -1121,6 +1152,8 @@ export function lire(hash, options = {}) {
     registreEcrit, cible, cibleEcrite,
     // La relecture qui termine une voie vers un TEXTE (voir l'en-tête).
     relecture,
+    // L'opérateur qui réunit les parts sur la ligne assemblée (`RE_LIAISON`).
+    liaison,
     // ★ Une voie rejouée porte les curseurs de la liste dont elle vient : le
     //   score affiché sous elle est celui de cette liste-là (`index.js ›
     //   rejouer`). La fouille, elle, ne change rien à un rejeu — il n'y a pas de
@@ -1279,6 +1312,7 @@ export const BANDEAUX = {
   // ★ Une RELECTURE sans texte à relire, ou qui n'écrit pas ce texte-là.
   relectureSansTexte: 'Ce lien relit des chiffres en lettres, mais ne vise aucun texte.',
   relectureImpossible: 'Ce lien relit des chiffres en lettres d’une façon qui n’écrit pas ce texte-là.',
+  liaisonImpossible: 'Ce lien réunit ses résultats d’une façon qui n’écrit pas la cible.',
   // ★ Affiché par la liste, donc traduit (comme `rechercheTronquee`).
   aucuneRelecture: {
     fr: 'Aucune relecture du catalogue ne sait écrire cette cible : l’un de ses signes '
@@ -1355,7 +1389,7 @@ export const BANDEAUX = {
  * @returns {string} le fragment d'URL complet, `#…#…`
  */
 export function ecrire({
-  saisie, fragments, retouches, registre, cible, relecture, curseurs, fouille,
+  saisie, fragments, retouches, registre, cible, relecture, liaison, curseurs, fouille,
 }) {
   const b58 = encoderTexte(saisie);
   const reglages = marqueurCurseurs(curseurs) + marqueurFouille(fouille);
@@ -1365,7 +1399,7 @@ export function ecrire({
   // retouche sans fragment à nourrir ne désigne aucune démonstration, et on ne
   // l'écrit pas plutôt que d'écrire un lien qui ne se relit pas.
   if (!fragments || !fragments.length) return `#${reglages}#${b58}${queue}`;
-  return `#${marqueur(registre, cible)}${marqueurRelecture(relecture)}${reglages}`
+  return `#${marqueur(registre, cible)}${marqueurRelecture(relecture)}${marqueurLiaison(liaison)}${reglages}`
     + `${ecrireRetouches(retouches)}${ecrireApproche(fragments)}#${b58}${queue}`;
 }
 
@@ -1398,6 +1432,15 @@ function marqueur(registre, cible) {
 function queueCible(cible) {
   const c = normaliserCible(cible);
   return c.defaut ? '' : `#${encoderTexte(c.texte)}`;
+}
+
+/** Le préfixe de liaison — `=mdl0!`, ou rien. Un code mal formé est une faute. */
+function marqueurLiaison(liaison) {
+  if (liaison === undefined || liaison === null) return '';
+  if (typeof liaison !== 'string' || !RE_LIAISON.test(`=${liaison}!`)) {
+    throw new Error(`url : « ${liaison} » n'est pas un code de liaison`);
+  }
+  return `=${liaison}!`;
 }
 
 /** Le préfixe de relecture — `mcaz!`, ou rien. Un code mal formé est une faute. */

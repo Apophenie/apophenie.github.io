@@ -319,6 +319,168 @@ function approche(mode, parts, extra = {}) {
   return { mode, parts, resonance: false, ...extra };
 }
 
+// ══════════════════════════════════ la LIAISON : deux mots, deux nombres, une division
+
+/**
+ * ★ **« JAMES BOND » VAUT 007 — deux résultats réunis sur la ligne assemblée.**
+ *
+ * > « Un exemple que je trouverais magistral : "James Bond" : James converti en
+ * >   un nombre qui, divisé par le nombre issu de Bond, donne pile 007. »
+ * >   (l'auteur)
+ *
+ * Tous les autres modes demandent à chaque part d'ÉCRIRE un morceau de la
+ * cible. Ici aucune ne le fait : « James » rend 126, « Bond » rend 18, et c'est
+ * un opérateur de LIAISON (`op.liaison`, `mappeurs.js › operateurDivisionDeDeux`)
+ * qui les réunit — `126 ÷ 18` posé à la potence, `0 0 7`.
+ *
+ * ★ **POURQUOI PAS LE BFS.** Il ne rend que des chemins qui finissent sur un
+ *   chiffre de la cible (`bfs.js › rechercheBrute`), et 126 n'en est pas un ;
+ *   MESURÉ en visant 126 exprès, même à seize fois le budget, il n'atteint pas
+ *   `fr21+tca+mx6+cali` — le balayage des César le noie. On déroule donc la même
+ *   forme fermée que le groupement (`vecteursDeSix` : filtre, découpe, mappeur,
+ *   raffinage), suivie d'un combinateur `NUMS → NUM` : c'est exhaustif sur cette
+ *   forme, sans horloge, et la TABLE qui en sort — valeur → programmes — ne
+ *   dépend que du mot et de la cible. Elle se garde dans le cache du moteur.
+ *
+ * ★ **LA JOINTURE N'ESSAIE PAS TOUTES LES PAIRES.** Deux mille valeurs de part et
+ *   d'autre feraient quatre millions de divisions. Mais une potence qui écrit la
+ *   cible `C` (lue comme l'entier `N`) avec `k` décimales vérifie
+ *   `A·10ᵏ ∈ [N·B, (N+1)·B)` — les zéros de tête ne changent pas la valeur lue.
+ *   Pour chaque `B`, les `A` possibles tiennent donc dans un intervalle, qu'on
+ *   cherche par dichotomie ; chacun est ensuite VÉRIFIÉ par l'opérateur lui-même,
+ *   qui seul sait ce qu'il écrit.
+ *
+ * ★ **LE MÊME PROGRAMME D'ABORD.** « Idéalement selon la même méthode » (le
+ *   README) : les paires qui lisent les deux mots de la même façon passent
+ *   devant, et ce sont elles que la jointure cherche en premier —
+ *   `fr21+tca+mx6+cali` sur « James » et sur « Bond ».
+ *
+ * ⚠️ **LES BORNES, ET CE QU'ELLES COÛTENT.** Une table coûte une à deux secondes
+ *   à froid par mot (mesuré : 1,9 s + 0,7 s pour « James », 0,7 s + 0,5 s pour
+ *   « Bond »). La liaison ne se cherche donc que pour une cible chiffrée
+ *   DEMANDÉE — jamais pour le 666 par défaut, dont chaque recherche paierait le
+ *   prix —, sur deux ou trois mots, par paires voisines, dans l'ordre de
+ *   lecture. Élargir est une décision à mesurer, pas une ligne à changer.
+ */
+const LIAISON_MOTS_MAX = 3;
+const LIAISON_PAR_VALEUR = 3;
+const LIAISON_VOIES = 6;
+
+/** Les valeurs d'une liste TRIÉE qui tombent dans `[lo, hi]`. */
+function dansIntervalle(tries, lo, hi) {
+  let g = 0;
+  let d = tries.length;
+  while (g < d) {
+    const m = (g + d) >> 1;
+    if (tries[m] < lo) g = m + 1; else d = m;
+  }
+  const out = [];
+  for (let i = g; i < tries.length && tries[i] <= hi; i++) out.push(tries[i]);
+  return out;
+}
+
+/** Deux chemins, le plus court d'abord, puis l'ordre des codes (§4.4). */
+function comparerLiaison(a, b) {
+  return a.ops.length - b.ops.length
+    || comparerCodes(a.ops.map((o) => o.code), b.ops.map((o) => o.code));
+}
+
+/**
+ * Ce qu'un mot SAIT donner comme nombre entier : valeur → ses meilleurs
+ * programmes, et programme → sa valeur. Gardée dans le cache du moteur.
+ */
+function tableDeValeurs(texte, explorables, combinateurs, cbl, cache) {
+  const cle = `liaison|${cbl.texte}|${texte.normalize('NFC')}`;
+  if (cache && cache.has(cle)) return cache.get(cle);
+  const vecteurs = vecteursDeSix(texte, explorables, 0, 1e6, cbl, { miseEnForme: false, tousLesReglages: true });
+  const parCodes = new Map();
+  const parValeur = new Map();
+  for (const c of vecteurs) {
+    const fin = c.etats[c.etats.length - 1];
+    for (const o of combinateurs) {
+      const e = appliquerOp(o, fin);
+      if (!e || e.type !== 'NUM' || !Number.isInteger(e.valeur) || e.valeur < 0) continue;
+      const chemin = { ops: [...c.ops, o], etats: [...c.etats, e], valeur: e.valeur, cout: (c.cout || 0) + 1 };
+      const codes = chemin.ops.map((x) => x.code).join('+');
+      if (!parCodes.has(codes)) parCodes.set(codes, chemin);
+      const l = parValeur.get(e.valeur) || [];
+      l.push(chemin);
+      l.sort(comparerLiaison);
+      if (l.length > LIAISON_PAR_VALEUR) l.length = LIAISON_PAR_VALEUR;
+      parValeur.set(e.valeur, l);
+    }
+  }
+  const table = { parCodes, parValeur, valeursTriees: [...parValeur.keys()].sort((x, y) => x - y) };
+  if (cache) cache.set(cle, table);
+  return table;
+}
+
+/**
+ * Les approches à LIAISON d'une saisie : deux mots voisins, un opérateur qui
+ * réunit leurs nombres et écrit EXACTEMENT la cible.
+ *
+ * @param {Object[]} fragments
+ * @param {{catalogue:Object, cache?:Map}} ctx
+ * @param {Object} cbl  la cible normalisée
+ * @returns {Object[]} approches non notées, mode `OPERATION`
+ */
+export function liaisons(fragments, ctx, cbl) {
+  if (!ctx || !ctx.catalogue || cbl.defaut || cbl.nature === 'mot') return [];
+  const lieurs = normaliserCatalogue(ctx.catalogue).filter((o) => o && o.liaison);
+  if (!lieurs.length) return [];
+  const mots = fragments.filter((f) => f.famille === 'unite').sort((a, b) => a.offset - b.offset);
+  if (mots.length < 2 || mots.length > LIAISON_MOTS_MAX) return [];
+  const explorables = operateursPourCible(ctx.catalogue, cbl);
+  const combinateurs = explorables.filter((o) => o.from === 'NUMS' && o.to === 'NUM');
+  const tables = mots.map((f) => tableDeValeurs(f.texte, explorables, combinateurs, cbl, ctx.cache));
+  const attendu = cbl.chiffres.join('');
+  const N = Number(cbl.texte);
+
+  const candidats = [];
+  const vus = new Set();
+  const retenir = (i, op, cA, cB, meme) => {
+    const cle = `${i}|${op.code}|${cA.ops.map((o) => o.code).join('+')}|${cB.ops.map((o) => o.code).join('+')}`;
+    if (vus.has(cle)) return;
+    vus.add(cle);
+    candidats.push({ i, op, cA, cB, meme });
+  };
+  for (let i = 0; i + 1 < mots.length; i++) {
+    const TA = tables[i];
+    const TB = tables[i + 1];
+    for (const op of lieurs) {
+      const ecrit = (a, b) => {
+        const r = op.apply([a, b], []);
+        return Boolean(r) && r.valeur.join('') === attendu;
+      };
+      // 1. le même programme sur les deux mots
+      for (const [codes, cA] of TA.parCodes) {
+        const cB = TB.parCodes.get(codes);
+        if (cB && ecrit(cA.valeur, cB.valeur)) retenir(i, op, cA, cB, true);
+      }
+      // 2. deux programmes : pour chaque B, les A qui écrivent la cible
+      for (const [b, cBs] of TB.parValeur) {
+        if (b <= 0) continue;
+        for (let k = 0; k <= 3; k++) {
+          const p = 10 ** k;
+          const lo = Math.ceil((N * b) / p);
+          const hi = Math.floor(((N + 1) * b - 1) / p);
+          for (const a of dansIntervalle(TA.valeursTriees, lo, hi)) {
+            if (ecrit(a, b)) retenir(i, op, TA.parValeur.get(a)[0], cBs[0], false);
+          }
+        }
+      }
+    }
+  }
+  candidats.sort((x, y) => (x.meme === y.meme ? 0 : x.meme ? -1 : 1)
+    || (x.cA.ops.length + x.cB.ops.length) - (y.cA.ops.length + y.cB.ops.length)
+    || comparerLiaison(x.cA, y.cA) || comparerLiaison(x.cB, y.cB)
+    || comparerCodes([x.op.code], [y.op.code]));
+  return candidats.slice(0, LIAISON_VOIES).map((c) => approche('OPERATION', [
+    { fragment: mots[c.i], chemin: c.cA },
+    { fragment: mots[c.i + 1], chemin: c.cB },
+  ], { liaison: Object.freeze({ code: c.op.code, op: c.op }) }));
+}
+
 // ══════════════════════════════════ le GROUPEMENT : des 6 par paquets de trois
 
 /**
@@ -770,13 +932,52 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   //     morceau et `fr9` sur un autre les trouve toujours, ce sont deux listes
   //     de vecteurs distinctes. Ce qu'on refuse, c'est onze candidats
   //     interchangeables pour le même morceau.
-  const formeDe = (c) => (c.ops || []).map((o) => (Number.isFinite(o.decalage)
-    ? String(o.code).replace(/\d+$/, '') : o.code)).join('+');
+  //   ★ Un réglage qui n'est pas un nombre se DÉCLARE aussi : `reglageDe` nomme
+  //     la méthode dont l'opérateur n'est qu'un réglage — la potence avec ou sans
+  //     zéros de tête (`mdc3`, `md03`) en a une seule. Lue en premier, comme le
+  //     décalage : rien n'est deviné sur le code.
+  //   ⚠️ Pas `forme` : ce nom existe déjà sur les tables à glissière (`fr*`,
+  //     `fatb`) et à réglette (`flt`), où il nomme la forme DESSINÉE. Le lire ici
+  //     faisait de l'Atbash un « réglage » des César.
+  const formeDe = (c) => (c.ops || []).map((o) => {
+    if (typeof o.reglageDe === 'string' && o.reglageDe) return o.reglageDe;
+    return Number.isFinite(o.decalage) ? String(o.code).replace(/\d+$/, '') : o.code;
+  }).join('+');
   if (miseEnForme) {
     const formes = new Set();
     const garde = [];
     for (const c of out) {
       const f = formeDe(c);
+      if (formes.has(f)) continue;
+      formes.add(f);
+      garde.push(c);
+    }
+    out.length = 0;
+    out.push(...garde);
+  } else if (options.tousLesReglages !== true) {
+    /* ★ **DANS LA MATIÈRE AUSSI, UNE FORME DÉCLARÉE NE PREND QU'UNE PLACE — et
+       ICI, avant la coupe, pas après.** Les décalages de César y restent
+       distincts (c'est parmi eux que la moisson choisit le moins gaspilleur) ;
+       mais deux réglages d'un opérateur qui DÉCLARE sa `forme` — la potence
+       avec ou sans zéros de tête — ne sont pas deux matières.
+
+       ⚠️ MESURÉ : les deux réglages occupaient deux des vingt places de la
+         portée `https`, et `fr14+tca+m14+mpf` tombait sous le plafond ; la
+         moisson de `https://hope-hope-hope.fr/` passait de sept séries à six,
+         et retirer l'une OU l'autre famille les lui rendait
+         (`elegance.test.js › étalonnage`, `› ficelles`). Un premier correctif
+         posé plus loin, dans `candidatsDePortee`, n'y changeait rien : la coupe
+         avait déjà eu lieu.
+
+       ★ Le champ lu est `reglageDe`, jamais `forme` (voir `formeDe`, plus haut).
+       ★ La liste vient d'être triée : le réglage gardé est le meilleur. Les
+         tables de la LIAISON demandent `tousLesReglages` : elles veulent tout
+         ce qu'un mot sait donner, et 18 par `md03` n'est pas 18 par `mdc3`. */
+    const formes = new Set();
+    const garde = [];
+    for (const c of out) {
+      if (!c.ops.some((o) => typeof o.reglageDe === 'string' && o.reglageDe)) { garde.push(c); continue; }
+      const f = c.ops.map((o) => (typeof o.reglageDe === 'string' && o.reglageDe ? o.reglageDe : o.code)).join('+');
       if (formes.has(f)) continue;
       formes.add(f);
       garde.push(c);
@@ -3004,11 +3205,17 @@ export function assembler(saisie, fragments, parFrag, ctx) {
     melange(mode, groupe);
   }
 
+  // ── mode OPERATION : deux mots, deux nombres, une LIAISON (`liaisons`)
+  approches.push(...liaisons(fragments, ctx, cbl));
+
   // Le mode est RECALCULÉ à partir de la géométrie des fragments, jamais laissé
   // au générateur qui a produit l'approche : c'est ce qui garantit qu'une URL
   // rejouée retrouve exactement le même score que la liste d'origine (le mode
-  // porte un malus, et il n'est pas transporté par l'URL).
-  for (const a of approches) Object.assign(a, deduireMode(a.parts, ctx));
+  // porte un malus, et il n'est pas transporté par l'URL). La LIAISON, elle, est
+  // transportée (`=mdl0!`) : le rejeu la passe au même endroit.
+  for (const a of approches) {
+    Object.assign(a, deduireMode(a.parts, a.liaison ? { ...ctx, liaison: a.liaison.op } : ctx));
+  }
   // Le décret est jeté ICI, et non pénalisé plus loin : il n'est plus une
   // approche faible, il n'est plus une approche. Un générateur peut encore en
   // fabriquer un par accident — trois occurrences d'un motif qui retombent sur
@@ -3033,6 +3240,10 @@ export function deduireMode(parts, ctx) {
   const cbl = normaliserCible(ctx && ctx.cible);
   const avec = (r) => ({ ...r, cible: cbl });
   if (parts.some((p) => p.chemin.ops.some((o) => o.isJoker))) return avec({ mode: 'JOKER', resonance: false });
+  // ★ LA LIAISON prime sur la géométrie : deux parts qui rendent chacune un
+  //   nombre, réunies par un opérateur sur la ligne assemblée. Ni partition ni
+  //   moisson — aucune part n'écrit la cible à elle seule.
+  if (ctx && ctx.liaison) return avec({ mode: 'OPERATION', resonance: false });
   if (parts.length === 1) {
     const chemin = parts[0].chemin;
     const fin = chemin.etats[chemin.etats.length - 1];

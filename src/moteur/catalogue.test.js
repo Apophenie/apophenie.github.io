@@ -312,9 +312,12 @@ const VECTEURS = [
      `23 → 2/3 → 0,666 → 0 6 6 6`. La virgule ne se garde pas. On s'arrête dès
      que ça tombe juste — `135` vaut `2,6` même quand trois décimales sont
      permises. */
-  ['mdc1', N([23]), [0, 6]],
-  ['mdc2', N([23]), [0, 6, 6]],
-  ['mdc3', N([23]), [0, 6, 6, 6]],
+  // ★ SANS zéro initial depuis que l'auteur a doublé la famille : `2 ÷ 3` ne
+  //   s'écrit plus `0 6 6 6` mais `6 6 6`. Le gel CHANGE ici, et c'est voulu —
+  //   l'ancien comportement a pris les codes `md0*`, gelés plus bas.
+  ['mdc1', N([23]), [6]],
+  ['mdc2', N([23]), [6, 6]],
+  ['mdc3', N([23]), [6, 6, 6]],
   /* ★ La division qui laisse le RESTE DEVANT. « Le résultat n'est pas le même :
      13/5 → 23, 13/5 → 32 » (l'auteur) — deux gestes, deux lignes, deux nombres,
      et non deux animations d'un même résultat. */
@@ -325,6 +328,16 @@ const VECTEURS = [
   // ★ UNE TOUCHE DÉSIGNÉE PAR DEUX NOMBRES — colonne, puis rangée.
   ['mcaz', N([2, 1, 3, 1, 4, 1, 5, 2]), ['z', 'e', 'r', 'g']],
   ['mcqw', N([1, 3, 3, 1, 4, 1, 5, 2]), ['z', 'e', 'r', 'g']],
+  // ★ LA POTENCE AVEC SES ZÉROS DE TÊTE — ce que `mdc*` rendait avant que
+  //   l'auteur ne double la famille : `2 ÷ 3` s'écrit `0 6 6 6`, « 0×3 dans 2 ».
+  ['md01', N([23]), [0, 6]],
+  ['md02', N([23]), [0, 6, 6]],
+  ['md03', N([23]), [0, 6, 6, 6]],
+  // ★ LA DIVISION DE DEUX NOMBRES — le vecteur même de l'auteur : « James »
+  //   donne 126, « Bond » 18, et 126 ÷ 18 s'écrit `0 0 7` avec ses zéros de
+  //   tête, `7` sans.
+  ['mdl0', N([126, 18]), [0, 0, 7]],
+  ['mdlc', N([126, 18]), [7]],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],
@@ -465,8 +478,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 179); // …+1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw)
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 179, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 184); // …+1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc)
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 184, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -476,7 +489,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 179, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 184, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

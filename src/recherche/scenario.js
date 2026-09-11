@@ -3015,6 +3015,66 @@ export function construireScenario(approche, ctx = {}) {
   //   ★ Le verdict annonce ce qui a été ÉCRIT, pas la cible — « zerg », et non
   //     « Zerg ». L'écart qui les sépare est dit à côté, dans les mots du barème
   //     (`cible.js › ECARTS`) : c'est lui que la note a payé.
+  /* ★ **LA LIAISON — deux résultats n'en font qu'un, et on le VOIT.**
+
+     > « "James Bond" : James converti en un nombre qui, divisé par le nombre
+     >   issu de Bond, donne pile 007. » (l'auteur)
+
+     Une voie à LIAISON ne fait pas écrire la cible à ses parts : chacune rend
+     un nombre — 126, 18 —, et c'est un opérateur joué sur la ligne ASSEMBLÉE
+     qui les réunit (`recherche/assemblage.js › liaisons`). Il se joue ici,
+     comme la relecture et pour les mêmes raisons : sur la ligne déjà rangée
+     dans l'ordre du verdict, par l'opérateur du catalogue lui-même — sa
+     potence, ses contrôles croisés. Révéler « 126 18 » sous l'annonce de
+     « 007 » décréterait la division au lieu de la montrer.
+
+     ★ AVANT la relecture : une liaison produit des CHIFFRES, qu'une relecture
+       pourrait encore lire en lettres. Les valeurs des jetons neufs sont donc
+       reportées dans `valeursRevelees`.
+     ⚠️ L'opérateur vient de l'APPELANT (`ctx.liaison`), comme la relecture : ce
+       module ne dépend pas du moteur arithmétique. Sans lui, on refuse. */
+  if (ctx.liaison) {
+    const lia = ctx.liaison;
+    const op = lia.op;
+    if (!op || typeof op.steps !== 'function' || typeof op.apply !== 'function') {
+      throw new ErreurRendu(
+        `la voie se lie par ${lia.code || '?'}, que l’appelant n’a pas fourni : `
+        + 'on ne révèle pas deux résultats sous l’annonce d’un seul',
+        null,
+      );
+    }
+    const valeurs = aReveler.map((id) => valeursRevelees.get(id));
+    if (valeurs.length !== 2 || !valeurs.every(Number.isInteger)) {
+      throw new ErreurRendu(`la liaison ${op.code} réunit DEUX résultats, et la ligne en porte `
+        + `${valeurs.length} (${valeurs.join(' ')})`, op);
+    }
+    const avant = etatDe('NUMS', valeurs, []);
+    const apres = appliquerOp(op, avant);
+    if (!apres) {
+      throw new ErreurRendu(`la ligne révélée porte « ${valeurs.join(' ')} », et ${op.code} ne sait pas `
+        + 'la réunir', op);
+    }
+    const emis = essayerCatalogue(op, avant, apres, aReveler.map((id) => [id]), alloc, avertissements,
+      `x${nCle++}`, langue);
+    if (!emis) {
+      throw new ErreurRendu(`la liaison ${op.code} n’a pas pu être montrée — `
+        + `${avertissements[avertissements.length - 1] || 'sans motif'}`, op);
+    }
+    for (const st of emis.steps) {
+      poserBloc({
+        titre: st.title || dire(op.libelle, langue),
+        legende: st.caption ?? null,
+        ops: st.ops,
+        hold: st.hold,
+        code: op.code,
+      });
+    }
+    aReveler = emis.courants.map((c) => c[0]);
+    aReveler.forEach((id, k) => valeursRevelees.set(id, apres.valeur[k]));
+    // Rien n'est de trop : la division écrit exactement ce qu'elle rend.
+    surnumeraires = [];
+  }
+
   let resultatVerdict = ctx.resultat || ecritureCible;
   let legendeVerdict = resultatVerdict;
   let serieVerdict = cible.longueur;
