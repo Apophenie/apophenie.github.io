@@ -211,6 +211,13 @@ export const fr = {
        (`assemblage.js › approcheJoker`). Viser 111 peut donc échouer pour de
        bon, et il vaut mieux le dire que plaisanter à côté. */
     aucuneVoieCible: 'Aucune voie ne mène à {cible} pour cette saisie. La maison ne garantit que le 666 ; le reste se mérite.',
+    /* ★ Le DIAGNOSTIC d'une recherche vers un texte, sous « aucune voie » :
+       ce que chaque relecture a visé, et ce qu'elle y a trouvé. */
+    diagnosticRelectures: 'Ce que la recherche a visé, relecture par relecture — {liste}.',
+    diagnosticRelecture: '{methode}, {suite} — {n} voies',
+    diagnosticRelectureUne: '{methode}, {suite} — une voie',
+    diagnosticRelectureAucune: '{methode}, {suite} — aucune voie',
+    diagnosticSignes: 'Aucune relecture ne sait écrire {signes} — la recherche n’avait rien à viser.',
     pagination: {
       titre: 'Pages de voies',
       etat: 'Page {page} sur {pages}',

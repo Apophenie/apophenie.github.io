@@ -23,8 +23,16 @@ import { compile } from '../../../visuel/compile.js';
 const moteur = creerMoteur(catalogue, { filetTemporel: false });
 
 /** Les gestes de RELECTURE joués au verdict : la réglette à rebours ou le clavier. */
-const relus = (sc) => sc.steps.flatMap((s) => s.ops)
-  .filter((o) => (o.op === 'table' && o.ordre === '1a26') || (o.op === 'keyboard' && o.mesure === 'coordonnees'));
+/**
+ * Les gestes de RELECTURE joués au verdict — lus par le CODE que chaque étape
+ * porte (`scenario.js › poserBloc`), pas par la forme de l'op : un César joué en
+ * retouche rend lui aussi des lettres, et ce n'est pas une relecture. On garde,
+ * dans ces étapes-là, les ops qui rendent une lettre : la case d'une table
+ * (réglette à rebours, relectures par paires) ou la touche désignée.
+ */
+const RELECTURES = new Set(['m1a', 'mcaz', 'mcqw', 'm1a2', 'mpol', 'mtap']);
+const relus = (sc) => sc.steps.filter((s) => RELECTURES.has(s.code)).flatMap((s) => s.ops)
+  .filter((o) => o.to && /^[a-z]$/.test(String(o.to.text)));
 
 /**
  * Toute voie vers un texte, vérifiée de bout en bout : le lien se rejoue à

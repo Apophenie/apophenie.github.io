@@ -2031,6 +2031,11 @@ function serialisable(resultat) {
     tronque: resultat.tronque,
     tronqueTemps: resultat.tronqueTemps,
     avertissement: resultat.avertissement,
+    // ★ Le DIAGNOSTIC d'une recherche vers un texte — ce que chaque relecture a
+    //   visé et trouvé, ou les signes qu'aucune ne sait écrire. Sans lui, la
+    //   page ne saurait dire que « aucune route », sans dire pourquoi.
+    relectures: resultat.relectures,
+    signesSansRelecture: resultat.signesSansRelecture,
     approches: (resultat.approches || []).map((a) => ({
       rang: a.rang, mode: a.mode, score: a.score, scoreAjuste: a.scoreAjuste,
       // ★ La LIAISON par son code — l'opérateur lui-même ne traverse pas.

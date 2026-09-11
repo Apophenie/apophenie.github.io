@@ -171,6 +171,13 @@ export const en = {
        the engine's last resort is the French wildcard, whose attractor cycle
        visits 3, 4, 5 and 6 and nothing else. */
     aucuneVoieCible: 'No path leads to {cible} for this query. The house only guarantees 666; the rest has to be earned.',
+    /* ★ The DIAGNOSTIC of a search for a text, under “no path”: what each
+       read-back aimed at, and what it found there. */
+    diagnosticRelectures: 'What the search aimed at, read-back by read-back — {liste}.',
+    diagnosticRelecture: '{methode}, {suite} — {n} paths',
+    diagnosticRelectureUne: '{methode}, {suite} — one path',
+    diagnosticRelectureAucune: '{methode}, {suite} — no path',
+    diagnosticSignes: 'No read-back can write {signes} — the search had nothing to aim at.',
     pagination: {
       titre: 'Pages of paths',
       etat: 'Page {page} of {pages}',
