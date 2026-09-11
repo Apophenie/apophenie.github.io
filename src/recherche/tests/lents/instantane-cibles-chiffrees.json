@@ -43,12 +43,6 @@
    "GROUPEMENT"
   ],
   [
-   "#sce!fc+mt9+meg#XeuapD1GiUPu7gDywGH",
-   2787,
-   2,
-   "GROUPEMENT"
-  ],
-  [
    "#sce!2:fr24+mpy+meg#XeuapD1GiUPu7gDywGH",
    2492,
    2,
@@ -63,12 +57,6 @@
   [
    "#sce!0:fr15+ma1+mdc3#XeuapD1GiUPu7gDywGH",
    1654,
-   2,
-   "GROUPEMENT"
-  ],
-  [
-   "#sce!0:fr9+masb+mdc2#XeuapD1GiUPu7gDywGH",
-   1417,
    2,
    "GROUPEMENT"
   ],
@@ -97,8 +85,14 @@
    "GROUPEMENT"
   ],
   [
-   "#sce!fl+mx6+mrn#XeuapD1GiUPu7gDywGH",
-   1891,
+   "#sce!fv+mx6+mpf#XeuapD1GiUPu7gDywGH",
+   2364,
+   1,
+   "GROUPEMENT"
+  ],
+  [
+   "#sce!0:fr7+mazc+mpf#XeuapD1GiUPu7gDywGH",
+   2099,
    1,
    "GROUPEMENT"
   ],
@@ -111,43 +105,49 @@
  ],
  "Sarah Kerrigan → 13": [
   [
-   "#so!c13!0:nm,2:nv#XeuapD1GiUPu7gDywGH",
-   6775,
+   "#so!fl+tm+mlm+mmoc#XeuapD1GiUPu7gDywGH#4kA",
+   7154,
    1,
-   "MOISSON"
-  ],
-  [
-   "#so!c13!fl+masb+mab#XeuapD1GiUPu7gDywGH",
-   3569,
-   6,
    "GROUPEMENT"
   ],
   [
-   "#so!c13!2:mx6+mrdE#XeuapD1GiUPu7gDywGH",
+   "#so!2:mx6+mrdE#XeuapD1GiUPu7gDywGH#4kA",
    2948,
    3,
    "GROUPEMENT"
   ],
   [
-   "#so!c13!fl+ma1+mrdE#XeuapD1GiUPu7gDywGH",
+   "#so!2:mlm+mad#XeuapD1GiUPu7gDywGH#4kA",
+   3958,
+   2,
+   "GROUPEMENT"
+  ],
+  [
+   "#so!0:nm,2:nv#XeuapD1GiUPu7gDywGH#4kA",
+   6775,
+   1,
+   "MOISSON"
+  ],
+  [
+   "#so!fl+ma1+mrdE#XeuapD1GiUPu7gDywGH#4kA",
    3753,
    1,
    "GROUPEMENT"
   ],
   [
-   "#so!c13!fi+mtrc#XeuapD1GiUPu7gDywGH",
+   "#so!fi+mtrc#XeuapD1GiUPu7gDywGH#4kA",
    3419,
    1,
    "GROUPEMENT"
   ],
   [
-   "#so!c13!0:mt9+mrdE#XeuapD1GiUPu7gDywGH",
+   "#so!0:mt9+mrdE#XeuapD1GiUPu7gDywGH#4kA",
    2910,
    1,
    "GROUPEMENT"
   ],
   [
-   "#so!c13!2:fi+masb+mdiv#XeuapD1GiUPu7gDywGH",
+   "#so!2:fi+masb+mdiv#XeuapD1GiUPu7gDywGH#4kA",
    2669,
    1,
    "GROUPEMENT"
@@ -155,19 +155,37 @@
  ],
  "Sarah Kerrigan → 007": [
   [
-   "#so!c007!fc+ma1+mdvq+mrdE#XeuapD1GiUPu7gDywGH",
-   2836,
+   "#so!fl+msfr+mab#XeuapD1GiUPu7gDywGH#HBnW",
+   3668,
    1,
    "GROUPEMENT"
   ],
   [
-   "#so!c007!2:masb+mabx#XeuapD1GiUPu7gDywGH",
+   "#so!2:masb+mabx#XeuapD1GiUPu7gDywGH#HBnW",
    2942,
    2,
    "GROUPEMENT"
   ],
   [
-   "#so!c007!0:fr25+ma1+mdvq+mrdE#XeuapD1GiUPu7gDywGH",
+   "#so!2:m7+mab#XeuapD1GiUPu7gDywGH#HBnW",
+   2980,
+   1,
+   "GROUPEMENT"
+  ],
+  [
+   "#so!fc+ma1+mdvq+mrdE#XeuapD1GiUPu7gDywGH#HBnW",
+   2836,
+   1,
+   "GROUPEMENT"
+  ],
+  [
+   "#so!0:mgr+mab#XeuapD1GiUPu7gDywGH#HBnW",
+   2784,
+   1,
+   "GROUPEMENT"
+  ],
+  [
+   "#so!0:fr25+ma1+mdvq+mrdE#XeuapD1GiUPu7gDywGH#HBnW",
    2450,
    1,
    "GROUPEMENT"
@@ -297,86 +315,86 @@
  ],
  "Donald Trump → 111": [
   [
-   "#so!c111!fl+mlm#2HuP1G8mNg3sJWhqR",
+   "#so!fl+mlm#2HuP1G8mNg3sJWhqR#HXLk",
    8128,
    3,
    "GROUPEMENT"
   ],
   [
-   "#so!c111!fl+masb+mrd#2HuP1G8mNg3sJWhqR",
+   "#so!fl+masb+mrd#2HuP1G8mNg3sJWhqR#HXLk",
    6156,
    6,
    "GROUPEMENT"
   ],
   [
-   "#so!c111!2:fr1;fl+masb+mad#2HuP1G8mNg3sJWhqR",
+   "#so!2:fr1;fl+masb+mad#2HuP1G8mNg3sJWhqR#HXLk",
    3138,
    6,
    "GROUPEMENT"
   ],
   [
-   "#so!c111!2:fr8+masc+mrdE#2HuP1G8mNg3sJWhqR",
-   2749,
-   3,
-   "GROUPEMENT"
-  ],
-  [
-   "#so!c111!0:fr23+masc+mdiv#2HuP1G8mNg3sJWhqR",
-   2305,
-   3,
-   "GROUPEMENT"
-  ],
-  [
-   "#so!c111!2:fr5+mx6+mrd#2HuP1G8mNg3sJWhqR",
+   "#so!2:fr5+mx6+mrd#2HuP1G8mNg3sJWhqR#HXLk",
    2232,
    3,
    "GROUPEMENT"
   ],
   [
-   "#so!c111!0:fr22+mx6+mrd#2HuP1G8mNg3sJWhqR",
+   "#so!0:fr22+mx6+mrd#2HuP1G8mNg3sJWhqR#HXLk",
    2207,
    3,
    "GROUPEMENT"
   ],
   [
-   "#so!c111!fc+mlm#2HuP1G8mNg3sJWhqR",
+   "#so!fc+mlm#2HuP1G8mNg3sJWhqR#HXLk",
    6347,
    2,
    "GROUPEMENT"
   ],
   [
-   "#so!c111!fl+mmt#2HuP1G8mNg3sJWhqR",
+   "#so!fl+mmt#2HuP1G8mNg3sJWhqR#HXLk",
    5747,
    2,
    "GROUPEMENT"
   ],
   [
-   "#so!c111!fl+mazr+mpf#2HuP1G8mNg3sJWhqR",
+   "#so!0:fatb+mtjc#2HuP1G8mNg3sJWhqR#HXLk",
+   4125,
+   2,
+   "GROUPEMENT"
+  ],
+  [
+   "#so!fl+mazr+mpf#2HuP1G8mNg3sJWhqR#HXLk",
    3502,
    2,
    "GROUPEMENT"
   ],
   [
-   "#so!c111!fl+mboc+m0#2HuP1G8mNg3sJWhqR",
+   "#so!fl+mboc+m0#2HuP1G8mNg3sJWhqR#HXLk",
    2928,
    2,
    "GROUPEMENT"
   ],
   [
-   "#so!c111!fl+ma1+mrdE#2HuP1G8mNg3sJWhqR",
+   "#so!fl+ma1+mrdE#2HuP1G8mNg3sJWhqR#HXLk",
    3753,
    1,
    "GROUPEMENT"
   ],
   [
-   "#so!c111!2:fr11+ma1+mrdE#2HuP1G8mNg3sJWhqR",
-   2701,
+   "#so!2:ma1+mab#2HuP1G8mNg3sJWhqR#HXLk",
+   2903,
    1,
    "GROUPEMENT"
   ],
   [
-   "#so!c111!2:msfr+mpf#2HuP1G8mNg3sJWhqR",
+   "#so!2:msfr+mpf#2HuP1G8mNg3sJWhqR#HXLk",
    2515,
+   1,
+   "GROUPEMENT"
+  ],
+  [
+   "#so!2:msen+mpf#2HuP1G8mNg3sJWhqR#HXLk",
+   2510,
    1,
    "GROUPEMENT"
   ]

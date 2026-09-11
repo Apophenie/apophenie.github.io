@@ -115,7 +115,7 @@ test('cible-mot — Sarah Kerrigan → Zerg, par les coordonnées de clavier', (
   const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Zerg' });
   assert.ok(r.approches.length >= 1, 'aucune voie vers Zerg');
   assert.ok(r.approches.some((a) => ['mcaz', 'mcqw'].includes(a.relecture.code)));
-  for (const a of r.approches) assert.match(a.url, new RegExp(`#~${encoderTexte('Zerg')}$`));
+  for (const a of r.approches) assert.match(a.url, new RegExp(`#${encoderTexte('Zerg')}$`));
   verifierVoies('Sarah Kerrigan', r, 'zerg');
 });
 
@@ -136,9 +136,20 @@ for (const mot of ['Terran', 'Fantome']) {
 
 /* ══════════════════════ 3. Non-régression des cibles chiffrées ══════════════════════
  *
- * L'instantané a été pris sur `main` (commit 75e5bc3), AVANT la première ligne
- * de ce chantier : pour chaque couple, la liste entière — lien, score, séries,
- * mode —, dans l'ordre.
+ * L'instantané fixe, pour chaque couple, la liste entière — lien, score,
+ * séries, mode —, dans l'ordre.
+ *
+ * ★ **IL A ÉTÉ RÉGÉNÉRÉ UNE FOIS, et voici pourquoi.** Pris d'abord sur `main`
+ *   (75e5bc3), avant la première ligne de ce chantier, il a tenu à l'identique
+ *   après la fusion des deux branches — vérifié sur 7d39c32, dans un worktree
+ *   jetable. Il a rougi ensuite pour UNE raison, démontrée : la correction du
+ *   siège chassé de la réserve de qualité (`assemblage.js`), appliquée partout
+ *   sur décision de l'auteur — « il me semblerait pertinent de le corriger
+ *   partout ». Quatre couples sur cinq ont changé, et deux têtes de liste avec
+ *   eux : Sarah Kerrigan → 13 (la moisson `nm,nv` cède à `fl+tm+mlm+mmoc`) et
+ *   → 007 (`fc+ma1+mdvq+mrdE` cède à `fl+msfr+mab`). Ce n'était pas une
+ *   régression de la cible textuelle : c'était une évolution VOULUE du
+ *   classement, exactement le cas prévu plus bas.
  *
  * ★ Les liens des cibles autres que 666 s'écrivent désormais autrement : la
  *   cible est passée derrière un troisième `#` (`url.js`). On compare donc le

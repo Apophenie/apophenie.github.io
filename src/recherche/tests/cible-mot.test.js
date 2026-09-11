@@ -163,50 +163,65 @@ test('cible-mot — face à une relecture chiffrée, les opérateurs qui lisent 
 
 /* ══════════════════════════ 4. L'URL ══════════════════════════ */
 
-test('url — la cible derrière un troisième `#` : `~` pour le base58, sinon en clair', () => {
-  assert.equal(lire(`##${B58_SK}#~${B58('Zerg')}`).cible.texte, 'Zerg');
-  assert.equal(lire(`##${B58_SK}#Zerg`).cible.texte, 'Zerg',
-    'en clair — et c’est précisément ce que la règle de la saisie aurait lu « a6u »');
-  assert.equal(lire(`##${B58_SK}#~${B58('Fantôme')}`).cible.texte, 'Fantôme');
-  assert.equal(lire(`##${B58_SK}#reine des lames`).cible.texte, 'reine des lames');
-  assert.equal(lire(`##${B58_SK}#111`).cible.texte, '111');
-  const r = lire(`##${B58_SK}#~${B58('Zerg')}`);
+/**
+ * > « `#:` pour une cible (ou une saisie) en clair, `#` seul pour le b58, et
+ * >   applique ça aussi bien pour l'objectif que la saisie initiale. La version
+ * >   sans `:` ne fallback sur du clair que s'il y a des caractères hors b58
+ * >   dedans. » (l'auteur)
+ */
+test('url — `:` pour le clair, rien pour le base58, et la même règle pour la saisie et la cible', () => {
+  // Le site écrit le base58 NU.
+  assert.equal(lire(`##${B58_SK}#${B58('Zerg')}`).cible.texte, 'Zerg');
+  assert.equal(lire(`##${B58_SK}#${B58('Fantôme')}`).cible.texte, 'Fantôme');
+  // `:` : la main écrit en clair, et le `:` n'appartient pas au texte.
+  assert.equal(lire(`##${B58_SK}#:Zerg`).cible.texte, 'Zerg');
+  assert.equal(lire(`##${B58_SK}#:111`).cible.texte, '111');
+  // Sans `:`, un texte qui n'emploie que les 58 signes SE LIT EN BASE58 — c'est voulu.
+  assert.notEqual(lire(`##${B58_SK}#Zerg`).cible.texte, 'Zerg',
+    '« Zerg » sans « : » se relit en base58 : pour du clair, on écrit « : »');
+  // Le repli sur le clair ne joue que pour ce qui ne PEUT PAS être du base58.
+  assert.equal(lire(`##${B58_SK}#reine des lames`).cible.texte, 'reine des lames',
+    'un espace n’est pas un signe base58 : repli sur le clair');
+  // Et la même règle vaut pour la SAISIE.
+  assert.equal(lire(`##:Sarah Kerrigan#${B58('Zerg')}`).saisie, 'Sarah Kerrigan');
+  assert.equal(lire(`##:Zerg`).saisie, 'Zerg', 'une saisie en clair, `:` retiré');
+  const r = lire(`##${B58_SK}#${B58('Zerg')}`);
   assert.equal(r.forme, 'resultats');
   assert.equal(r.cibleEcrite, true);
 });
 
-test('url — l’écriture : toujours `~` + base58, et rien au défaut', () => {
-  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: 'Zerg' }), `##${B58_SK}#~${B58('Zerg')}`);
-  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: '111' }), `##${B58_SK}#~${B58('111')}`);
+test('url — l’écriture : toujours le base58 nu, et rien au défaut', () => {
+  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: 'Zerg' }), `##${B58_SK}#${B58('Zerg')}`);
+  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: '111' }), `##${B58_SK}#${B58('111')}`);
   assert.equal(ecrire({ saisie: 'Sarah Kerrigan' }), `##${B58_SK}`, 'les liens de 666 sont ceux d’avant');
   assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: '666' }), `##${B58_SK}`);
   assert.equal(
     ecrire({ saisie: 'Sarah Kerrigan', fragments: [{ portee: null, resonance: null, codes: ['fl', 'tca', 'masb', 'mrdE'] }],
       registre: 'sobre', cible: 'Zerg', relecture: 'mcaz' }),
-    `#so!mcaz!fl+masb+mrdE#${B58_SK}#~${B58('Zerg')}`,
+    `#so!mcaz!fl+masb+mrdE#${B58_SK}#${B58('Zerg')}`,
   );
 });
 
 test('url — les anciens marqueurs restent LUS, et deux cibles contradictoires sont refusées', () => {
   assert.equal(lire(`#c111!#${B58_SK}`).cible.texte, '111');
   assert.equal(lire(`#czerg!#${B58_SK}`).cible.texte, 'zerg');
-  assert.equal(lire(`#c111!#${B58_SK}#111`).bandeau, null, 'deux fois la même : rien à trancher');
-  assert.equal(lire(`#c111!#${B58_SK}#Zerg`).bandeau, BANDEAUX.cibleEnDouble);
-  assert.equal(lire(`##${B58_SK}#~0OIl`).bandeau, BANDEAUX.cibleIllisible, '`~` promet du base58');
-  assert.equal(lire(`##${B58_SK}#${'a'.repeat(MAX_SIGNES_TEXTE + 1)}`).bandeau, BANDEAUX.cibleIllisible);
+  assert.equal(lire(`#c111!#${B58_SK}#:111`).bandeau, null, 'deux fois la même : rien à trancher');
+  assert.equal(lire(`#c111!#${B58_SK}#:Zerg`).bandeau, BANDEAUX.cibleEnDouble);
+  assert.equal(lire(`##${B58_SK}#:`).bandeau, BANDEAUX.cibleIllisible, 'un « : » qui n’annonce rien');
+  assert.equal(lire(`##${B58_SK}#:${'a'.repeat(MAX_SIGNES_TEXTE + 1)}`).bandeau, BANDEAUX.cibleIllisible);
   assert.equal(lire(`#a#b#c#d`).bandeau, BANDEAUX.formatInconnu, 'trois segments au plus');
 });
 
 test('url — le marqueur de relecture : lu, écrit, et refusé sans texte', () => {
-  const l = lire(`#so!mcaz!fl+masb+mrdE#${B58_SK}#Zerg`);
+  const l = lire(`#so!mcaz!fl+masb+mrdE#${B58_SK}#:Zerg`);
   assert.equal(l.forme, 'canonique');
   assert.equal(l.relecture, 'mcaz');
   assert.equal(
     ecrire({ saisie: l.saisie, fragments: l.fragments, registre: 'sobre', cible: l.cible, relecture: l.relecture }),
-    `#so!mcaz!fl+masb+mrdE#${B58_SK}#~${B58('Zerg')}`,
+    `#so!mcaz!fl+masb+mrdE#${B58_SK}#${B58('Zerg')}`,
     'ce qui se lit se réécrit à l’identique — en base58',
   );
-  assert.equal(lire(`#so!mcaz!fl+masb+mab#${B58_SK}#111`).bandeau, BANDEAUX.relectureSansTexte);
+  assert.equal(lire(`#so!mcaz!fl+masb+mab#${B58_SK}#:111`).bandeau, BANDEAUX.relectureSansTexte);
   assert.throws(() => ecrire({ saisie: 'x', fragments: [{ portee: null, resonance: null, codes: ['nl'] }],
     cible: 'Zerg', relecture: 'pas un code' }), /relecture/);
 });
@@ -229,7 +244,7 @@ function scene(hash) {
 }
 
 test('cible-mot — ZERG par les coordonnées AZERTY : deux nombres, une touche, une lettre', () => {
-  const { sc, approche } = scene(`#so!mcaz!fl+masb+mrdE#${B58_SK}#~${B58('Zerg')}`);
+  const { sc, approche } = scene(`#so!mcaz!fl+masb+mrdE#${B58_SK}#${B58('Zerg')}`);
   assert.equal(approche.relecture.code, 'mcaz');
   assert.equal(approche.cible.texte, '21314152', 'la voie écrit les coordonnées — c’est la cible sous-jacente');
   assert.equal(sc.result, 'zerg', 'le verdict annonce ce qui est ÉCRIT');
@@ -265,7 +280,7 @@ test('cible-mot — le rejeu refuse ce qu’il ne sait pas relire, en le disant'
 });
 
 test('cible-mot — sans l’opérateur qui relit, le scénario refuse plutôt que de décréter', () => {
-  const lecture = lire(`#so!mcaz!fl+masb+mrdE#${B58_SK}#Zerg`);
+  const lecture = lire(`#so!mcaz!fl+masb+mrdE#${B58_SK}#:Zerg`);
   const { approche } = moteur.rejouer(lecture);
   assert.throws(
     () => construireScenario(approche, {

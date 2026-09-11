@@ -208,7 +208,7 @@ test('url — le marqueur de cible se lit, et il n’est pas écrit au défaut',
   });
   // ★ La cible passe derrière un TROISIÈME `#`, en base58 marqué `~` (`url.js`,
   //   « la cible passe derrière un troisième `#` ») ; `c111!` reste lu, plus écrit.
-  assert.equal(vise, `#so!nd#${B58}#~${encoderTexte('111')}`);
+  assert.equal(vise, `#so!nd#${B58}#${encoderTexte('111')}`);
   const l = lire(vise);
   assert.equal(l.forme, 'canonique');
   assert.equal(l.cible.texte, '111');
@@ -242,8 +242,8 @@ test('url — `#c111!#…` est la PAGE DE RÉSULTATS pour 111', () => {
   assert.equal(r.cible.texte, '111');
   // Et c'est bien ce que `ecrire` produit sans programme.
   // …et `ecrire` en produit la forme d'aujourd'hui, qui est aussi la liste.
-  assert.equal(ecrire({ saisie: 'hope', cible: '111' }), `##${B58}#~${encoderTexte('111')}`);
-  assert.equal(lire(`##${B58}#~${encoderTexte('111')}`).forme, 'resultats');
+  assert.equal(ecrire({ saisie: 'hope', cible: '111' }), `##${B58}#${encoderTexte('111')}`);
+  assert.equal(lire(`##${B58}#${encoderTexte('111')}`).forme, 'resultats');
   assert.equal(ecrire({ saisie: 'hope' }), `##${B58}`, 'la cible par défaut ne s’écrit pas');
 });
 
@@ -288,7 +288,7 @@ test('★ registre — une cible sans emblème replie « scénique » sur « sob
     saisie: 'hope', cible: '111', registre: 'scenique',
     fragments: [{ portee: null, resonance: null, codes: ['nd'] }],
   });
-  assert.equal(ecrit111, `#so!nd#${B58}#~${encoderTexte('111')}`);
+  assert.equal(ecrit111, `#so!nd#${B58}#${encoderTexte('111')}`);
   assert.equal(lire(ecrit111).registre, 'sobre');
 });
 

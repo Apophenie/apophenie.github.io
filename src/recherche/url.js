@@ -19,8 +19,8 @@
 //              // `tca` (« un caractère, un jeton ») est IMPLICITE : il ne
 //              // s'écrit pas et se réinsère à la lecture — voir
 //              // `CODE_DECOUPE_IMPLICITE`.
-//   saisie     := b58(texte) | texte           // le b58 gagne, voir plus bas
-//   cible      := '~' b58(texte) | texte       // `~` : base58, sinon en clair ; absente ⇒ 666
+//   saisie     := ':' texte | b58(texte) | texte  // `:` : en clair ; sinon base58, clair à défaut
+//   cible      := ':' texte | b58(texte) | texte  // la MÊME règle ; absente ⇒ 666
 //   relecture  := code d'un opérateur « chiffres → lettre » (`m1a`, `mcaz`…)
 //
 // `+` sépare les OPÉRATIONS d'un même fragment (arbitrage utilisateur) — et,
@@ -292,36 +292,42 @@
 //
 // ★ Toutes les cibles y passent, chiffrées comme textuelles : une seule place,
 //   une seule règle. `ecrire()` n'écrit plus jamais `c111!` ; il écrit
-//   `##<b58 de la saisie>#~<b58 de « 111 »>`. Le défaut 666 n'écrit toujours
+//   `##<b58 de la saisie>#<b58 de « 111 »>`. Le défaut 666 n'écrit toujours
 //   RIEN : les liens de la cible du site sont ceux d'avant, au caractère près.
 // ★ **Aucun lien existant ne change de sens.** Trois segments étaient refusés
 //   (« format inconnu ») : le troisième ne prend la place de rien. Et `c111!`
 //   reste LU — seule l'écriture change, et `canoniser()` réécrit la barre
 //   d'adresse à la nouvelle forme dès l'ouverture.
-// ★ **BASE58 OU CLAIR : UN MARQUEUR, `~`, ET PAS LA RÈGLE DE LA SAISIE.** Le
-//   site écrit `#~<base58>` ; tout ce qui ne commence pas par `~` est le
-//   texte en clair, tel quel. Déterministe, et sans angle mort.
+// ★ **BASE58 OU CLAIR : `:` POUR LE CLAIR, RIEN POUR LE BASE58 — et la MÊME
+//   règle pour la saisie et pour la cible.**
 //
-//   On a d'abord repris la règle de la saisie — du base58 s'il n'emploie que
-//   les 58 signes, décode en UTF-8 valide et ne rend aucun caractère de
-//   commande. MESURÉ, elle échoue sur l'exemple même de l'auteur : « Zerg »
-//   écrit en clair se relit en base58, et vise « a6u » ; « 777 » vise « P: ».
-//   Une cible est un mot COURT, précisément la longueur où l'angle mort de la
-//   saisie se concentre (quatre, cinq ou huit signes, voir plus haut). Et le
-//   mal n'est pas réparable dans l'autre sens : « 3K1xi2 », que le site écrit
-//   pour Zerg, est aussi un texte en clair parfaitement lisible — aucune
-//   règle SANS marqueur ne départage les deux lectures sans casser l'une.
+//   > « `#:` pour une cible (ou une saisie) en clair, `#` seul pour le b58, et
+//   >   applique ça aussi bien pour l'objectif que la saisie initiale. La
+//   >   version sans `:` ne fallback sur du clair que s'il y a des caractères
+//   >   hors b58 dedans. Concrètement, en clair le `:` initial est ignoré. »
+//   >   (l'auteur)
 //
-//   Le marqueur va donc du côté de la MACHINE, qui l'écrit sans effort, et
-//   pas du côté de la main : `#Zerg` tapé à la main vise bien Zerg. `~` n'est
-//   pas dans l'alphabet base58 et reste tel quel dans une URL (RFC 3986,
-//   `unreserved`). La saisie, elle, garde sa règle : la changer changerait le
-//   sens de liens déjà écrits.
+//   Le site écrit toujours le base58 NU : c'est lui qui cache la cible dans le
+//   lien, « pour maximiser l'effet de surprise ». Le `:` sert à qui tape un
+//   lien à la main : `#:Zerg` vise Zerg, et le `:` n'appartient pas au texte.
+//   Il ne peut pas se confondre avec du base58 : il n'est pas dans l'alphabet.
 //
-//   ⚠️ Écart assumé avec la lettre de la demande — « encode en b58 comme la
-//     partie après le 2nd # » : c'est bien du base58, et c'est bien ce que le
-//     site écrit par défaut ; il porte un signe de plus pour ne jamais être lu
-//     de travers.
+//   ⚠️ **SANS `:`, UN TEXTE QUI N'EMPLOIE QUE LES 58 SIGNES SE LIT EN BASE58.**
+//     « Zerg » tapé tel quel se relit « a6u », « 777 » se relit « P: » — c'est
+//     voulu : pour du clair qui pourrait passer pour du base58, on écrit `:`.
+//     Le repli sur le clair ne joue que pour ce qui ne PEUT PAS être du base58
+//     (un espace, un accent, un `0`, un `O`, un `I`, un `l`…) ou ne se décode
+//     pas en texte lisible — c'est l'ancienne règle de la saisie, gardée pour
+//     qu'aucun lien déjà écrit ne change de sens.
+//
+//   ⚠️ Une saisie EN CLAIR qui commence elle-même par `:` perd ce signe : pour
+//     viser « :-) », on écrit `#::-)`. C'est le prix d'un marqueur d'un seul
+//     caractère, et il ne touche que ce cas.
+//
+//   ⚠️ Un premier jet marquait l'inverse — `~` devant le BASE58, le clair nu —
+//     pour ne jamais lire « Zerg » de travers. L'auteur a préféré que la forme
+//     écrite par la machine soit la forme nue et que ce soit la main qui porte
+//     le signe. `~` n'a été écrit par aucune version publiée : rien à relire.
 // ★ Une cible écrite DEUX fois — un `c…!` et un troisième segment — qui ne
 //   désignent pas la même chose est refusée, avec son bandeau : deviner
 //   laquelle on voulait serait un repli muet.
@@ -873,15 +879,12 @@ export function lire(hash, options = {}) {
     break;
   }
 
-  // ★ LA CIBLE DERRIÈRE LE TROISIÈME `#` — base58 d'abord, clair à défaut, la
-  //   règle de la saisie (voir l'en-tête). Illisible, elle est refusée avec son
-  //   bandeau, jamais repliée sur 666.
+  // ★ LA CIBLE DERRIÈRE LE TROISIÈME `#` — la règle de la saisie, à la lettre :
+  //   `:` en clair, sinon base58, clair à défaut (voir l'en-tête). Illisible,
+  //   elle est refusée avec son bandeau, jamais repliée sur 666.
   if (segmentCible !== null) {
-    // `~` : du base58, qui DOIT se décoder ; sinon le texte en clair (voir
-    // l'en-tête — la règle de la saisie échoue sur « Zerg »).
-    const texteCible = segmentCible.startsWith('~')
-      ? texteBase58(segmentCible.slice(1))
-      : segmentCible.trim().normalize('NFC');
+    const lu = lireSegmentTexte(segmentCible);
+    const texteCible = lu ? lu.texte : null;
     const lue = texteCible ? lireCible(texteCible) : null;
     if (!lue) {
       return { ...vide, raison: `cible illisible : ${segmentCible}`, bandeau: BANDEAUX.cibleIllisible };
@@ -1159,8 +1162,25 @@ const RE_COMMANDE = /[\u0000-\u001F\u007F-\u009F]/;
  * @returns {{saisie:string, brute:boolean}|null}  `null` si rien à chercher.
  */
 function lireSaisie(segment) {
+  const lu = lireSegmentTexte(segment);
+  return lu ? { saisie: lu.texte, brute: lu.brute } : null;
+}
+
+/**
+ * ★ **UN SEGMENT DE TEXTE — la saisie ou la cible, lues par la MÊME règle.**
+ *   `:` en tête : le texte en clair, `:` retiré. Sinon le base58, s'il se
+ *   décode ; le clair à défaut. Voir l'en-tête, « BASE58 OU CLAIR ».
+ *
+ * @param {string} segment
+ * @returns {{texte:string, brute:boolean}|null}  `null` si rien à lire.
+ */
+function lireSegmentTexte(segment) {
+  if (segment.startsWith(':')) {
+    const clair = segment.slice(1).trim().normalize('NFC');
+    return clair ? { texte: clair, brute: true } : null;
+  }
   const decode = texteBase58(segment);
-  if (decode !== null) return { saisie: decode, brute: false };
+  if (decode !== null) return { texte: decode, brute: false };
   // ★ On COUPE les blancs de bord, comme le fait le champ d'accueil avant de
   //   chercher (`pages/accueil.js › aller`). Sans cela, `#Macron ` et `#Macron`
   //   seraient deux saisies différentes pour un œil qui ne voit pas l'espace,
@@ -1169,7 +1189,7 @@ function lireSaisie(segment) {
   //   quoi un « é » recopié depuis un traitement de texte ne donnerait pas le
   //   même résultat qu'un « é » tapé au clavier.
   const brute = segment.trim().normalize('NFC');
-  return brute ? { saisie: brute, brute: true } : null;
+  return brute ? { texte: brute, brute: true } : null;
 }
 
 /** Le texte porté par un segment base58, ou `null` si ce n'en est pas un. */
@@ -1371,12 +1391,13 @@ function marqueur(registre, cible) {
 }
 
 /**
- * La queue de CIBLE — rien au défaut, `#~<b58 de l'écriture>` sinon. Le
- * marqueur `c111!` n'est plus ÉCRIT, il reste lu (voir l'en-tête).
+ * La queue de CIBLE — rien au défaut, `#<b58 de l'écriture>` sinon : la forme
+ * nue, comme la saisie (voir l'en-tête, « BASE58 OU CLAIR »). Le marqueur
+ * `c111!` n'est plus ÉCRIT, il reste lu.
  */
 function queueCible(cible) {
   const c = normaliserCible(cible);
-  return c.defaut ? '' : `#~${encoderTexte(c.texte)}`;
+  return c.defaut ? '' : `#${encoderTexte(c.texte)}`;
 }
 
 /** Le préfixe de relecture — `mcaz!`, ou rien. Un code mal formé est une faute. */

@@ -1281,16 +1281,19 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
             quatrième de chaque quatre, par construction. Une réserve dont les
             curseurs règlent la taille doit tenir les sièges qu'elle annonce.
 
-         ⚠️ **AU DÉFAUT, LE COMPORTEMENT HISTORIQUE EST GARDÉ, les deux sièges
-           perdus compris** — et c'est une information pour l'auteur, pas un
-           oubli. Appliquée au défaut, cette règle change 28 listes sur 29 au
-           banc (`.planning/banc/sieges-banc.mjs`) et NEUF premières places, qui
-           passent toutes à une voie d'absorption (`mab`, `mad`) : Millicent,
-           Wikipedia, apophenie, satan, le jardin, « La numérologie… », Henri
-           Prunelle, « Les 7 nains », « Le 6 est sur le mur ». C'est ce que
-           « EN PLUS, pas à la place » veut dire au pied de la lettre ; c'est
-           aussi un changement de tête que seul l'auteur peut vouloir. Pour
-           l'appliquer partout, retirer `pilotee &&` ci-dessous. */
+         ★ **ET C'EST CORRIGÉ PARTOUT, curseurs par défaut compris** — sur
+           décision de l'auteur : « pour ce qui est du bug corrigé seulement avec
+           curseur personnalisé, il me semblerait pertinent de le corriger
+           partout ».
+
+           La correction n'a d'abord été appliquée qu'aux curseurs touchés, pour
+           ne pas changer seule la tête de liste : au défaut, elle change 28
+           listes sur 29 au banc (`.planning/banc/sieges-banc.mjs`) et NEUF
+           premières places, qui passent toutes à une voie d'absorption (`mab`,
+           `mad`) — Millicent, Wikipedia, apophenie, satan, le jardin, « La
+           numérologie… », Henri Prunelle, « Les 7 nains », « Le 6 est sur le
+           mur ». C'est ce que « EN PLUS, pas à la place » veut dire au pied de
+           la lettre, et l'auteur l'a voulu. */
     const protege = (x) => elus.includes(x) || parLaQualite.includes(x) || parLeMotif.includes(x);
     elus.forEach((c, rang) => {
       const deja = tete.indexOf(c);
@@ -1298,7 +1301,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
       if (deja >= 0) tete.splice(deja, 1);
       const place = Math.max(0, Math.min(fenetre - 1 - rang, tete.length));
       tete.splice(place, 0, c);
-      if (pilotee && tete.length > fenetre && protege(tete[fenetre])) {
+      if (tete.length > fenetre && protege(tete[fenetre])) {
         let j = fenetre - 1;
         while (j >= 0 && protege(tete[j])) j--;
         if (j >= 0) {
