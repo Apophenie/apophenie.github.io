@@ -103,6 +103,24 @@ export function relecturePour(mot, op) {
   return Object.freeze({ code: op.code, op, mot, cible, produit, ecart });
 }
 
+/**
+ * ★ LE DIAGNOSTIC DES SIGNES — ceux du texte qu'AUCUNE relecture ne sait
+ * écrire, dans l'ordre où ils paraissent, chacun une fois. Une espace, un « œ »,
+ * un « j » pour qui n'aurait que le carré de Polybe : c'est ce qui bloque, et
+ * le dire vaut mieux qu'une liste vide sans raison.
+ * @returns {string[]}
+ */
+export function signesSansRelecture(mot, catalogue) {
+  const inverses = operateursDeRelecture(catalogue).map(inverseDe);
+  const out = [];
+  for (const signe of (mot && mot.texte) || '') {
+    const plie = plierMot(signe);
+    if (inverses.some((inv) => inv.has(plie)) || out.includes(signe)) continue;
+    out.push(signe);
+  }
+  return out;
+}
+
 /** Toutes les relectures d'un texte, dans l'ordre du catalogue. */
 export function relecturesPour(mot, catalogue) {
   const out = [];
