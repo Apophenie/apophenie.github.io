@@ -98,14 +98,16 @@ test('cible-mot — un signe qu’aucune relecture n’écrit : aucune voie, et 
  *   souvent : `fl+masc+mab`, les lettres de la saisie en codes ASCII, fondus
  *   sans perte dans la suite visée.
  *
- * ★ FANTOME reste hors de portée depuis « Sarah Kerrigan », et c'est la LONGUEUR
- *   qui l'arrête : sept lettres font quatorze chiffres dans toutes les
- *   relectures, et mesuré sur le corpus (`.planning/banc/cibles-mots-banc.mjs`)
- *   la réussite tombe de 96 % à dix chiffres à 16 % à quatorze. Les modes qui
- *   assemblent des fragments en ont douze au plus ; restent les voies d'un seul
- *   vecteur, et aucune ne tombe juste ici. Il faudrait écrire un texte long
- *   par TRONÇONS — une portée par morceau de la suite —, ce que l'assemblage ne
- *   sait pas encore faire.
+ * ★ FANTOME reste hors de portée depuis « Sarah Kerrigan », et c'est la
+ *   LONGUEUR DE LA LIGNE qui l'arrête, pas celle du mot : sept lettres font
+ *   quatorze chiffres dans toutes les relectures, et l'absorption — par où
+ *   passent toutes ces voies — n'écrit qu'un chiffre visé pour trois ou quatre
+ *   chiffres de ligne (`mappeurs.js › plafondDAbsorption`, qui porte la mesure).
+ *   Les lignes de « Sarah Kerrigan » font trente-six chiffres au plus (l'ASCII
+ *   de treize lettres) : de sept à onze chiffres écrits, jamais quatorze.
+ *   Depuis une saisie plus longue, Fantome est atteint (`https://hope-hope-hope.fr/`,
+ *   voir la routine). Écrire par TRONÇONS — une portée par morceau — n'y
+ *   changerait rien : découper la ligne n'ajoute pas un chiffre à la matière.
  */
 test('cible-mot — Sarah Kerrigan → Zerg, par les coordonnées de clavier entre autres', () => {
   const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Zerg' });
