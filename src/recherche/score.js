@@ -319,6 +319,26 @@ export function comparerCodes(a, b) {
  * de vouloir dire « trier autrement ». Le curseur qui agit sur l'exploration
  * existe, il s'appelle la PUISSANCE DE FOUILLE (`config.js`), et il est
  * séparé pour cette raison exacte.
+ *
+ * ── ★ AMENDEMENT — CE QU'ILS TOUCHENT DÉSORMAIS : LA RÉSERVE DE QUALITÉ ────
+ *
+ * > « Idéalement, c'est les curseurs qui priorisent quelles voies méritent
+ * >   d'être finalisées, donc il faudrait inclure du score intermédiaire
+ * >   pondéré pour arbitrer ça. » (l'auteur)
+ *
+ * L'auteur revient ici sur la phrase ci-dessus, et pour une raison mesurée : un
+ * pré-tri aveugle aux curseurs décidait quelles voies le barème aurait le droit
+ * de juger, si bien que « repondérer » ne pouvait trier que ce que ce pré-tri
+ * avait laissé passer (`score-intermediaire.js`, en-tête : `fart+fprp+tm+mlm`,
+ * 7 317 points, jamais présentée au barème aux crans 0 à 2).
+ *
+ * Le faisceau du BFS reste tel quel — c'est lui qui explore. Ce qui écoute les
+ * curseurs est la RÉSERVE DE QUALITÉ de `assemblage.js › vecteursDeSix`, qui
+ * décide quels vecteurs d'un fragment sont FINALISÉS : son ordre (une note
+ * pondérée) et sa taille (le partage des sièges). Conséquence assumée : hors
+ * défaut, deux réglages de curseurs peuvent désormais classer des voies
+ * différentes, et non plus seulement les mêmes dans un autre ordre. Au défaut,
+ * rien ne bouge — le pré-tri historique est gardé au bit près.
  */
 
 /** Les quatre curseurs, dans l'ordre où l'auteur les a nommés. */

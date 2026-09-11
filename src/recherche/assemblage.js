@@ -41,7 +41,9 @@
 // index de chemins par SIGNATURE DE MÉTHODE : une intersection de tables de
 // hachage, O(nb de chemins), quasi gratuite.
 
-import { signature, comparerCodes, scorePartiel, maniere } from './score.js';
+import {
+  signature, comparerCodes, scorePartiel, maniere, normaliserCurseurs, auDefaut,
+} from './score.js';
 import {
   A_MERITER_SA_PLACE, OPERATEURS_QUI_ECARTENT, FICELLES, nbTriptyques, compterTraductionsDivergentes,
 } from './elegance.js';
@@ -57,6 +59,9 @@ import {
 // du texte tapé. `fragments.js` ne dépend que de `bfs.js` — aucun cycle.
 import { tokeniser } from './fragments.js';
 import { MAX_SERIES } from '../config.js';
+import {
+  axesIntermediaires, noteDeQualite, partDesSieges, siegeDeQualite, reserveDeQualite,
+} from './score-intermediaire.js';
 
 /**
  * Modes d'assemblage, du plus convaincant au moins :
@@ -896,7 +901,40 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     for (const e of c.etats) if (e.type === 'TOKENS' && e.valeur.length > n) n = e.valeur.length;
     return n;
   };
-  const RESERVE_QUALITE = Math.max(1, Math.floor(plafond / 4));
+  /* ★ **LA RÉSERVE OBÉIT AUX CURSEURS — son ordre ET sa taille.**
+
+     > « Idéalement, c'est les curseurs qui priorisent quelles voies méritent
+     >   d'être finalisées […]. Le nombre de sièges en cours de recherche devrait
+     >   donc être dynamique en fonction des critères de recherche. » (l'auteur)
+
+     Le pré-tri lexicographique ci-dessous décidait seul — ficelles, netteté,
+     jetons lus, longueur —, et son troisième critère comptait des JETONS, pas
+     des caractères. Mesuré sur « Le jardin sur le rocher de la maison » :
+     `fart+fprp+tm+mlm` (trois mots, 7 317 points au barème) sortait 14ᵉ sur
+     16 derrière des voies en `tca` qui lisent vingt-neuf jetons, et la coupe à
+     huit par fragment l'éliminait avant que le barème ne la voie.
+
+     Dès que le visiteur a touché aux curseurs, la réserve se range par
+     `score-intermediaire.js › noteDeQualite` — simplicité, exhaustivité,
+     cohérence, pondérées par leurs trois curseurs —, et l'ancien pré-tri ne
+     sert plus qu'à départager les ex æquo. Sa TAILLE suit le partage des sièges
+     entre quantité et qualité (`partDesSieges`).
+
+     ⚠️ **AU DÉFAUT, LE PRÉ-TRI HISTORIQUE, AU BIT PRÈS** — la doctrine de
+       `score.js › noter` : une pondération n'agit que si elle se déclare
+       personnalisée. Et ce n'est pas une prudence de principe, c'est MESURÉ.
+       Rangée par la note à parts égales, la réserve changeait 27 listes sur
+       29 au banc (`.planning/banc/sieges-banc.mjs`) et six premières places —
+       et `tca+mt9+mpf` quittait la liste de `Macron`, l'un des quatre cas de
+       référence, la voie que l'auteur tient pour la plus élégante du corpus. La note ne voit pas
+       ce que le barème lui paie (le triptyque contigu, la propreté) : elle ne
+       se calcule que sur un chemin, et ces postes-là sur une approche assemblée.
+       Le pré-tri historique, lui, a été réglé sur ce cas précis. Le partage des
+       sièges vaut un sur quatre au défaut : l'entrelacement est celui d'avant. */
+  const curseurs = normaliserCurseurs(options.curseurs);
+  const pilotee = !auDefaut(curseurs);
+  const part = partDesSieges(curseurs);
+  const RESERVE_QUALITE = reserveDeQualite(plafond, part);
   // ★ On CANONICALISE en marchant, et il le faut : `fmaj+tca+mt9+mpf` et
   //   `fmin+tca+mt9+mpf` montrent exactement ce que montre `tca+mt9+mpf` — la
   //   capitale ne change rien au compte de segments —, et sans cette passe ils
@@ -904,10 +942,22 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   //   trois lignes plus bas. Le coût est borné par la réserve, pas par le
   //   faisceau : on ne canonicalise que jusqu'à l'avoir remplie.
   const parLaQualite = [];
-  if (miseEnForme) {
+  if (miseEnForme && RESERVE_QUALITE > 0) {
+    // La note se calcule une fois par candidat : le tri la redemande à chaque
+    // comparaison.
+    const notes = new Map();
+    const noteDe = (c) => {
+      let n = notes.get(c);
+      if (n === undefined) {
+        n = noteDeQualite(axesIntermediaires(c, depart.valeur, cbl), curseurs);
+        notes.set(c, n);
+      }
+      return n;
+    };
     const candidats = out
       .filter((c) => ecrit(c.etats[c.etats.length - 1].valeur, cbl))
-      .sort((a, b) => (nbFicelles(a) - nbFicelles(b)) || (nettete(a) - nettete(b))
+      .sort((a, b) => (pilotee ? noteDe(b) - noteDe(a) : 0)
+        || (nbFicelles(a) - nbFicelles(b)) || (nettete(a) - nettete(b))
         || (lues(b) - lues(a))
         || (a.ops.length - b.ops.length) || (dilue(a) - dilue(b)) || comparerChemins(a, b));
     // ⚠️ La canonicalisation est CHÈRE (`normaliserChemin` rejoue le programme
@@ -978,9 +1028,11 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     let iQte = 0;
     let iQal = 0;
     while (tete.length < plafond && (iQte < parLaQuantite.length || iQal < parLaQualite.length)) {
-      // Un siège sur quatre à la qualité — le quatrième —, et le tour revient à
-      // la quantité dès que la réserve est épuisée (et réciproquement).
-      const auTourDeLaQualite = (tete.length + 1) % 4 === 0;
+      // Les sièges de la qualité tombent là où sa part cumulée franchit un
+      // entier (`siegeDeQualite`) — au défaut, le quatrième de chaque quatre,
+      // comme avant —, et le tour revient à la quantité dès que la réserve est
+      // épuisée (et réciproquement).
+      const auTourDeLaQualite = siegeDeQualite(tete.length + 1, part);
       if (auTourDeLaQualite && iQal < parLaQualite.length) tete.push(parLaQualite[iQal++]);
       else if (iQte < parLaQuantite.length) tete.push(parLaQuantite[iQte++]);
       else if (iQal < parLaQualite.length) tete.push(parLaQualite[iQal++]);
@@ -1210,12 +1262,50 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     //   passait sous zéro et `splice` insérait alors depuis la FIN — la voie
     //   sans perte de `hope` disparaissait au lieu d'être posée.
     const fenetre = Math.max(1, Math.floor(plafond / 2));
+    /* ★ **QUAND LES CURSEURS PILOTENT, UN ÉLU PREND LA PLACE D'UN SIÈGE DE
+         QUANTITÉ — jamais celle d'un siège réservé, ni celle de l'autre élu.**
+
+         Poser un élu au bout de la première moitié en repousse le dernier
+         occupant hors de ce que l'assemblage garde, quel qu'il soit. Deux
+         sièges promis s'y perdent, et chacun contredit une consigne écrite plus
+         haut :
+
+          · le SECOND élu repousse le PREMIER. Posé en `fenetre − 2`, il décale
+            d'un cran celui qu'on vient de poser en `fenetre − 1`, qui sort. Or
+            l'auteur a demandé la voie additive « EN PLUS de `mab`, pas à la
+            place » — et c'est « à la place » que le code fait, chaque fois que
+            les deux élus sont neufs. MESURÉ sur « Le jardin sur le rocher de la
+            maison » : `tm+mlm+mab`, qui lit toute la saisie, sort juste après la
+            coupe, chassé par `fl+tca+msen+mrdE` ;
+          · l'élu repousse le dernier siège de la RÉSERVE — au défaut, le
+            quatrième de chaque quatre, par construction. Une réserve dont les
+            curseurs règlent la taille doit tenir les sièges qu'elle annonce.
+
+         ⚠️ **AU DÉFAUT, LE COMPORTEMENT HISTORIQUE EST GARDÉ, les deux sièges
+           perdus compris** — et c'est une information pour l'auteur, pas un
+           oubli. Appliquée au défaut, cette règle change 28 listes sur 29 au
+           banc (`.planning/banc/sieges-banc.mjs`) et NEUF premières places, qui
+           passent toutes à une voie d'absorption (`mab`, `mad`) : Millicent,
+           Wikipedia, apophenie, satan, le jardin, « La numérologie… », Henri
+           Prunelle, « Les 7 nains », « Le 6 est sur le mur ». C'est ce que
+           « EN PLUS, pas à la place » veut dire au pied de la lettre ; c'est
+           aussi un changement de tête que seul l'auteur peut vouloir. Pour
+           l'appliquer partout, retirer `pilotee &&` ci-dessous. */
+    const protege = (x) => elus.includes(x) || parLaQualite.includes(x) || parLeMotif.includes(x);
     elus.forEach((c, rang) => {
       const deja = tete.indexOf(c);
       if (deja >= 0 && deja < fenetre) return;
       if (deja >= 0) tete.splice(deja, 1);
       const place = Math.max(0, Math.min(fenetre - 1 - rang, tete.length));
       tete.splice(place, 0, c);
+      if (pilotee && tete.length > fenetre && protege(tete[fenetre])) {
+        let j = fenetre - 1;
+        while (j >= 0 && protege(tete[j])) j--;
+        if (j >= 0) {
+          const [cede] = tete.splice(j, 1);
+          tete.splice(fenetre, 0, cede);
+        }
+      }
       if (tete.length > plafond) tete.length = plafond;
     });
   }
@@ -2773,7 +2863,8 @@ export function assembler(saisie, fragments, parFrag, ctx) {
       //   sont des GROUPEMENTS : elles ne viennent pas du BFS — aucun chemin de
       //   `parFrag` ne porte seulement `mrd` — mais d'ici. Huit vecteurs par
       //   fragment porteur, en dur, c'était la borne réelle de la liste entière.
-      const vecteurs = vecteursDeSix(f.texte, opsExplorables, K, kParFragment * 2, cbl)
+      const vecteurs = vecteursDeSix(f.texte, opsExplorables, K, kParFragment * 2, cbl,
+        { curseurs: ctx.curseurs })
         .slice(0, kParFragment);
       if (f.entier || f.famille === 'entier') vecteursEntiers = vecteurs;
       for (const c of vecteurs) {

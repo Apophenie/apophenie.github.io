@@ -3432,6 +3432,27 @@ README les veut pour le débogage) mais ne sont plus **l'identité** d'une démo
   >   et le scénario porte alors `result: "666 666 666 666"` (plafond `MAX_SERIES`,
   >   pour que la scène reste lisible — porté à 6 par l'amendement « MOISSON »).
   >
+  >   ★ *Amendement — LA RÉSERVE DE QUALITÉ ÉCOUTE LES CURSEURS.* « Idéalement,
+  >   c'est les curseurs qui priorisent quelles voies méritent d'être
+  >   finalisées, donc il faudrait inclure du score intermédiaire pondéré pour
+  >   arbitrer ça […]. Le nombre de sièges en cours de recherche devrait donc
+  >   être dynamique en fonction des critères de recherche. » (l'auteur)
+  >   L'énumération rend plus de vecteurs que l'assemblage n'en garde ; ceux qui
+  >   passent sont choisis par deux files — la QUANTITÉ (compte de 6) et une
+  >   RÉSERVE DE QUALITÉ. Hors défaut, la réserve se range par une note pondérée
+  >   calculable sur un chemin seul (`score-intermediaire.js`, la structure de
+  >   la piste « repli » du score v2 : brièveté ; lecture et rendement ;
+  >   familiarité, absence de bidouille, lisibilité), et sa part des sièges
+  >   vaut `(s + e + c) / (s + e + c + 9·q)` — un sur quatre au défaut. Au
+  >   défaut, le pré-tri historique est gardé au bit près : rangée par la note à
+  >   parts égales, la réserve changeait 27 des 29 listes du banc et retirait
+  >   `tca+mt9+mpf` de celle de `Macron`. Un caractère écarté par un filtre,
+  >   fût-ce par une règle grammaticale, n'est jamais compté comme lu. Hors
+  >   défaut, les deux sièges de la voie sans perte ne chassent plus qu'un siège
+  >   de quantité — ni l'un l'autre, ni un siège de la réserve ; au défaut, ils
+  >   se chassent encore (le corriger change neuf premières places du banc :
+  >   arbitrage ouvert).
+  >
   >   ★ *Amendement — le NUMÉRATEUR du rendement est ce que le VERDICT garde.*
   >   ⚠️ **Ceci modifie `score.js`, donc le classement.** `[6,6,6,6]` valait
   >   ×1,00 alors que le quatrième 6 tombe : le verdict compte des séries de

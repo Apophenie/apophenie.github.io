@@ -505,6 +505,10 @@ export function creerMoteur(catalogue, options = {}) {
       // ★ La largeur d'assemblage suit le cran : c'est elle qui décide combien
       //   d'approches peuvent seulement EXISTER (`config.js`).
       parFragment: budgets.parFragment,
+      // ★ Les curseurs descendent jusqu'à la réserve de qualité de
+      //   `assemblage.js › vecteursDeSix` : ce sont eux qui décident quelles
+      //   voies méritent d'être finalisées (`score-intermediaire.js`).
+      curseurs: ponderation.curseurs,
     };
     /* ★ **L'ASSEMBLAGE REND COMPTE DE LUI-MÊME** — voir `assemblage.js`, où la
          mesure est écrite. Il ne peut pas `yield` : il est appelé DEPUIS ce
