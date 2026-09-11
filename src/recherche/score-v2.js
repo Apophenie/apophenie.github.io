@@ -174,7 +174,7 @@ const MILLE = 1000;
 const borner = (x, a, b) => (x < a ? a : x > b ? b : x);
 const racineEntiere = (n) => { if (n <= 0) return 0; let x = Math.floor(Math.sqrt(n)); while (x * x > n) x--; while ((x + 1) * (x + 1) <= n) x++; return x; };
 /** ⌊1000 · (x/1000)^(n/100)⌋ en entiers : racine centième d'un BigInt par dichotomie. */
-const puissanceCentiemes = (x, n) => {
+export const puissanceCentiemes = (x, n) => {
   if (x <= 0) return 0; if (x >= MILLE) return MILLE; if (n === 100) return x;
   if (n === 50) return racineEntiere(x * MILLE);
   // r^100 = x^n · 1000^(100−n)  →  r = racine 100-ième
