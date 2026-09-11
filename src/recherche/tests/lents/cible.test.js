@@ -54,7 +54,7 @@ test('cible — les cinq exemples de l’auteur se lisent tous', () => {
   assert.equal(lireCible('13').longueur, 2, 'ni longueur trois, ni chiffre répété');
 });
 
-test('cible — ce qui n’est pas une suite de chiffres est refusé', () => {
+test('cible — ce qui n’est ni une suite de chiffres ni un mot est refusé', () => {
   /* ⚠️ La liste portait « 1234567 » comme exemple de suite TROP LONGUE. Sept
      chiffres l'étaient quand le plafond valait six ; ils ne le sont plus depuis
      qu'il vaut dix (`cible.js › MAX_CHIFFRES`, relevé pour les dates de
@@ -62,9 +62,15 @@ test('cible — ce qui n’est pas une suite de chiffres est refusé', () => {
      en silence : la longueur excessive est éprouvée deux lignes plus bas, DÉRIVÉE
      du plafond, et cette liste-ci ne garde que ce qui n'est pas une suite de
      chiffres — ce qu'annonce son titre. */
-  for (const mauvais of ['', '  ', 'six', '6,6', '6.6', '-6', '6 6', null, undefined, {}]) {
+  for (const mauvais of ['', '  ', 's1x', '6,6', '6.6', '-6', '6 6', null, undefined, {}]) {
     assert.equal(lireCible(mauvais), null, JSON.stringify(mauvais));
   }
+  // ★ « six » figurait dans cette liste tant qu'une cible ne pouvait être faite
+  //   que de chiffres. C'est désormais un MOT (`cible.js`, la cible textuelle),
+  //   et il vise ses LETTRES — S, I, X —, pas le chiffre qu'il nomme : lire
+  //   « six » comme 6 serait déjà une démonstration, pas une lecture.
+  assert.equal(lireCible('six').nature, 'mot');
+  assert.deepEqual([...lireCible('six').chiffres], [19, 9, 24]);
   assert.equal(lireCible('9'.repeat(MAX_CHIFFRES)).longueur, MAX_CHIFFRES, 'le plafond est atteignable');
   assert.equal(lireCible('9'.repeat(MAX_CHIFFRES + 1)), null, 'et il est un plafond');
 });
