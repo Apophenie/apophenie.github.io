@@ -92,7 +92,9 @@
  *   calcul faux, même si on le lui demande poliment.
  */
 
-import { tokenSpec, numberOf, espacementDe } from './helpers.js';
+import {
+  tokenSpec, numberOf, espacementDe, tracerAccolade, suivreLesAccolades,
+} from './helpers.js';
 import { filetD } from '../layout.js';
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
@@ -202,6 +204,39 @@ export function derouleDeLaDivision(a, b, decimales) {
 }
 
 /**
+ * Quels tours ÉCRIVENT un chiffre au quotient.
+ *
+ * > « Double les opérateurs, une version avec 0 initial quand le premier
+ * >   chiffre est inférieur au diviseur (ce qui peut inclure un diviseur sur
+ * >   plusieurs chiffres) et une version sans 0 initial. » (l'auteur)
+ *
+ * ★ **CE QUI EST « INITIAL », ET CE QUI NE L'EST PAS — tranché ici.**
+ *
+ *   · Un zéro initial est celui qu'on écrit parce que la zone en jeu est encore
+ *     plus petite que le diviseur : les tours ENTIERS qui précèdent le premier
+ *     chiffre non nul. Sans zéro initial, on ne les écrit pas — c'est la
+ *     division posée des manuels, où l'on « prend assez de chiffres » avant
+ *     d'écrire quoi que ce soit. `126 ÷ 18` s'écrit `0 0 7` avec, `7` sans.
+ *   · Un zéro APRÈS la virgule n'est jamais initial : `1 ÷ 20` vaut `0,05`, et
+ *     ôter le zéro des centièmes écrirait `0,5` — un autre nombre. Il reste.
+ *   · Quand TOUTE la partie entière est nulle, elle disparaît en entier : `1 ÷ 2`
+ *     écrit `,5` sous la barre et rend `5` à la ligne ; `2 ÷ 3` à trois
+ *     décimales rend `666`. La virgule, elle, reste sous la barre le temps du
+ *     calcul : elle dit que ces chiffres-là sont des décimales.
+ *   · Un quotient NUL de bout en bout (`3 ÷ 5` sans décimale) écrit son dernier
+ *     zéro : une division rend toujours au moins un chiffre.
+ *
+ * @returns {boolean[]} un drapeau par tour
+ */
+export function toursEcrits(tours, zeroInitial = true) {
+  if (zeroInitial) return tours.map(() => true);
+  const entiers = tours.filter((t) => !t.decimal).length;
+  let premier = tours.findIndex((t) => !t.decimal && t.chiffre !== 0);
+  if (premier < 0) premier = tours.some((t) => t.decimal) ? entiers : entiers - 1;
+  return tours.map((t, i) => t.decimal || i >= premier);
+}
+
+/**
  * Ce que la LIGNE ENTIÈRE affiche à un instant donné, chiffres seuls, virgule
  * exclue : la zone en jeu (complétée de zéros à gauche, comme au tableau) suivie
  * des chiffres pas encore descendus.
@@ -229,9 +264,14 @@ export function plan(ctx) {
   if (!sorties.length) fail(`${ctx.where}une potence rend au moins un chiffre : « to » est vide.`);
 
   const tours = derouleDeLaDivision(a, b, decimales);
+  // Avec ou sans zéro initial — voir `toursEcrits`. Par défaut AVEC : c'est ce
+  // que la potence a toujours écrit, et un scénario qui ne dit rien ne change
+  // pas de sens.
+  const zeroInitial = ctx.op.zeroInitial !== false;
+  const ecrits = toursEcrits(tours, zeroInitial);
   // ⚠️ Contrôle croisé : les chiffres qu'on va écrire au quotient sont-ils ceux
   //   que l'émetteur annonce ? On compare chiffre à chiffre, pas le total.
-  const attendus = tours.map((t) => String(t.chiffre));
+  const attendus = tours.filter((_, i) => ecrits[i]).map((t) => String(t.chiffre));
   const dits = sorties.map((s) => s.text);
   if (attendus.join(',') !== dits.join(',')) {
     fail(`${ctx.where}incohérence : ${a} ÷ ${b} s'écrit ${attendus.join(' ')} à la potence, `
@@ -338,11 +378,15 @@ export function plan(ctx) {
        mouvement que les voisins — et rien ne peut passer sur rien. */
   const noeudA = ctx.scene.get(idA);
   const noeudB = ctx.scene.get(idB);
+  // L'espacement que A tenait de la ligne : le premier chiffre du quotient le
+  // reprendra en y rentrant. On le lit AVANT de l'élargir pour la potence.
+  const espacementOriginal = espacementDe(ctx, idA);
   const largeurB = noeudB.w;
   const ecart = Math.max(noeudB.gapBefore ?? ctx.layoutOpts.gap, fs * ECART_BARRE);
   // la barre couvre le plus large des deux : le diviseur au-dessus, le quotient
   // FINAL en dessous (une colonne par chiffre, plus une pour la virgule).
-  const colonnesQuotient = tours.length + (entiers < tours.length ? 1 : 0);
+  const entiersEcrits = tours.filter((t, i) => !t.decimal && ecrits[i]).length;
+  const colonnesQuotient = ecrits.filter(Boolean).length + (entiers < tours.length ? 1 : 0);
   const sousLaBarre = Math.max(largeurB, colonnesQuotient * av);
   const longueurBarre = ecart / 2 + sousLaBarre + DEBORD;
   // la cale : du bord droit de B au bout de la barre, plus le même air qu'à
@@ -432,6 +476,13 @@ export function plan(ctx) {
        elle ne mord sur rien. */
   noeudA.w = L * av;
   noeudB.gapBefore = ecart;
+  // ★ **LA ZONE SE DÉTACHE DE CE QUI LA PRÉCÈDE.** « Sinon un espacement juste
+  //   avant peut faire l'affaire » (l'auteur) : on fait les deux. L'accolade
+  //   s'arrête à mi-chemin entre ce qu'elle embrasse et le premier voisin
+  //   qu'elle exclut (`boiteEmbrassee`) ; sans air devant A, elle mordrait
+  //   presque sur lui. Sur un premier jeton de ligne, cet écart est une marge
+  //   de tête, que le flux ignore.
+  noeudA.gapBefore = Math.max(noeudA.gapBefore ?? ctx.layoutOpts.gap, ecart);
   const idCale = ctx.gensym('potcale');
   ctx.scene.create({
     id: idCale, role: 'text', text: '', kind: 'space', inFlow: true,
@@ -468,6 +519,30 @@ export function plan(ctx) {
   ctx.anim({ id: idHoriz, prop: 'opacity', to: 1, at: tEcart + ms(TEMPO.BARRES) * 0.15, dur: ms(TEMPO.BARRES) * 0.3, ease: EASE.fade });
   aDroite.push(idHoriz);
 
+  /* ★ **L'ACCOLADE DIT CE QUI EST DIVISÉ PAR QUOI.**
+
+     > « Il manque une accolade au-dessus de la zone concernée : qu'est-ce qui
+     >   est divisé par quoi, pour distinguer du reste de la ligne. » (l'auteur)
+
+     Au-dessus de la ligne — une accolade qui DÉSIGNE s'y pose (`sens: 'haut'`) —,
+     elle embrasse la place du dividende, le diviseur et la cale : toute la
+     largeur que la potence occupe, et rien d'autre. Son symbole est `÷`.
+
+     ⚠️ Elle se trace APRÈS l'écart : `tracerAccolade` recalcule le flux, et sur
+       une ligne déjà réagencée ce calcul ne trouve rien à déplacer — il ne peut
+       donc pas contredire le mouvement de la ligne. Elle ne PROMET rien sous
+       sa pointe (le quotient s'écrit sous la barre, pas là) et ne marque pas
+       les nombres : l'écart est déjà fait. */
+  const accolade = tracerAccolade(ctx, [idA, idB, idCale], {
+    shape: 'brace', sens: 'haut', symbol: '÷',
+    label: typeof ctx.op.label === 'string' ? ctx.op.label : null,
+    promet: false, marquer: false,
+    at: tEcart, dur: ms(TEMPO.BARRES) * 0.5,
+  });
+  if (!accolade) {
+    fail(`${ctx.where}potence ${a} ÷ ${b} : l’accolade de la zone n’a pas pu être tracée.`);
+  }
+
   // Et ce qui n'est pas en jeu recule dans l'ombre : seul le premier chiffre
   // du dividende reste à pleine encre.
   for (const id of colonnesA.slice(1)) {
@@ -488,9 +563,12 @@ export function plan(ctx) {
   let idVirgQ = null;        // celle du quotient
   let t = ms(TEMPO.BARRES);
 
+  let rangEcrit = 0;         // le prochain jeton de `to` à écrire
   plans.forEach((p, i) => {
-    const spec = sorties[i];
     const { tour, d, large } = p;
+    // Un rang où rien ne tient, sans zéro initial : on le MONTRE — le chiffre
+    // entre en jeu, rien ne part — mais on n'écrit rien sous la barre.
+    const spec = ecrits[i] ? sorties[rangEcrit++] : null;
     // l'instant où le chiffre du quotient paraît : le début du tour, sauf sous
     // la virgule, où il s'inscrit AVEC elle (voir plus bas).
     let apparition = t;
@@ -514,6 +592,8 @@ export function plan(ctx) {
       noeudA.w = (L + d + 1) * av;
       ctx.reflow({ at: t, dur: glisse, ease: EASE.move });
       suivre(avantA, avantB, { at: t, dur: glisse, ease: EASE.move });
+      // l'accolade s'élargit avec la zone, sur la même courbe
+      suivreLesAccolades(ctx, { at: t, dur: glisse });
       const inscrit = t + glisse;
       const fondu = Math.max(1, ms(TEMPO.POSE) * 0.8);
       if (!idVirgA) {
@@ -544,7 +624,7 @@ export function plan(ctx) {
         ctx.scene.create({
           id: idVirgQ, role: 'text', text: ',', kind: 'punct', inFlow: false, base: { opacity: 0 },
         }, { where: ctx.where });
-        ctx.scene.place(idVirgQ, { x: quotientX(entiers), y: quotientY });
+        ctx.scene.place(idVirgQ, { x: quotientX(entiersEcrits), y: quotientY });
         ctx.anim({ id: idVirgQ, prop: 'opacity', to: 1, at: inscrit, dur: fondu, ease: EASE.fade });
         aDroite.push(idVirgQ);
       }
@@ -568,20 +648,24 @@ export function plan(ctx) {
     }
 
     // --- le chiffre du quotient : il paraît À ZÉRO, et il montera seul -------
-    const col = i + (i >= entiers ? 1 : 0);   // la virgule occupe une colonne
+    // Sa colonne compte les chiffres ÉCRITS, plus la virgule une fois passée.
+    const col = chiffres.length + (tour.decimal ? 1 : 0);
     const place = { x: quotientX(col), y: quotientY };
-    ctx.scene.create({
-      id: spec.id, role: 'text', text: spec.text, kind: spec.kind || 'digit', inFlow: false,
-      // le premier chiffre reprendra dans la ligne l'espacement du dividende
-      ...(i === 0 ? espacementDe(ctx, idA) : {}),
-      base: { opacity: 0, scale: 0.7 },
-    }, { where: ctx.where });
-    ctx.scene.place(spec.id, place);
-    const poseQ = Math.max(1, ms(TEMPO.POSE) * 0.8);
-    ctx.anim({ id: spec.id, prop: 'opacity', to: 1, at: apparition, dur: poseQ, ease: EASE.fade });
-    ctx.anim({ id: spec.id, prop: 'scale', to: 1, at: apparition, dur: poseQ, ease: EASE.pop });
-    chiffres.push(spec.id);
-    aDroite.push(spec.id);
+    if (spec) {
+      ctx.scene.create({
+        id: spec.id, role: 'text', text: spec.text, kind: spec.kind || 'digit', inFlow: false,
+        // le premier chiffre écrit reprendra dans la ligne l'espacement que le
+        // dividende tenait AVANT la potence — pas l'air qu'elle y a ajouté
+        ...(chiffres.length === 0 ? espacementOriginal : {}),
+        base: { opacity: 0, scale: 0.7 },
+      }, { where: ctx.where });
+      ctx.scene.place(spec.id, place);
+      const poseQ = Math.max(1, ms(TEMPO.POSE) * 0.8);
+      ctx.anim({ id: spec.id, prop: 'opacity', to: 1, at: apparition, dur: poseQ, ease: EASE.fade });
+      ctx.anim({ id: spec.id, prop: 'scale', to: 1, at: apparition, dur: poseQ, ease: EASE.pop });
+      chiffres.push(spec.id);
+      aDroite.push(spec.id);
+    }
 
     const debutTour = t;
     const depart0 = t + ms(TEMPO.POSE);
@@ -659,16 +743,18 @@ export function plan(ctx) {
 
     // Le chiffre du quotient suit les ATTERRISSAGES, un cran chacun. Fonction
     // pure de `t`, donc exacte au scrubbing, en avant comme en arrière.
-    const spanQ = Math.max(1, finTour - apparition);
-    const bornes = atterrissages.map((x) => (x - apparition) / spanQ);
-    ctx.discrete({
-      id: spec.id, channel: 'text', at: apparition, dur: spanQ,
-      render: (u) => {
-        let compte = 0;
-        while (compte < bornes.length && u >= bornes[compte]) compte++;
-        return String(compte);
-      },
-    });
+    if (spec) {
+      const spanQ = Math.max(1, finTour - apparition);
+      const bornes = atterrissages.map((x) => (x - apparition) / spanQ);
+      ctx.discrete({
+        id: spec.id, channel: 'text', at: apparition, dur: spanQ,
+        render: (u) => {
+          let compte = 0;
+          while (compte < bornes.length && u >= bornes[compte]) compte++;
+          return String(compte);
+        },
+      });
+    }
 
     t = finTour;
   });
@@ -680,8 +766,12 @@ export function plan(ctx) {
      chiffres montent, et l'écart qu'elle laissait se referme de lui-même. */
   const tEffacement = ms(TEMPO.EFFACEMENT);
   const tDescente = ms(TEMPO.DESCENTE);
-  const aEffacer = [idVert, idHoriz, ...colonnesA, idB, ...decimalesA];
+  const aEffacer = [idVert, idHoriz, ...colonnesA, idB, ...decimalesA, ...accolade.ids];
   if (idVirgA) aEffacer.push(idVirgA);
+  // Sans partie entière écrite (`1 ÷ 2` sans zéro initial), la virgule n'a rien
+  // entre quoi se perdre : elle s'en va avec la potence.
+  const virguleEnChemin = idVirgQ && entiersEcrits > 0;
+  if (idVirgQ && !virguleEnChemin) aEffacer.push(idVirgQ);
   for (const id of aEffacer) {
     ctx.anim({ id, prop: 'opacity', to: 0, at: t, dur: tEffacement });
   }
@@ -700,7 +790,7 @@ export function plan(ctx) {
   for (const id of [...aEffacer, idA, idCale]) {
     if (ctx.scene.get(id).alive) ctx.scene.kill(id, ctx.where);
   }
-  if (idVirgQ) ctx.scene.kill(idVirgQ, ctx.where);
+  if (virguleEnChemin) ctx.scene.kill(idVirgQ, ctx.where);
   chiffres.forEach((id, i) => {
     ctx.scene.enterFlow(id, rang >= 0 ? rang + i : undefined, ctx.where);
   });
@@ -715,9 +805,9 @@ export function plan(ctx) {
        rétrécit jusqu'à rien sur la même courbe qu'eux : l'espace qui se referme
        et sa largeur décroissent ensemble, si bien qu'elle y tient à chaque
        instant — et qu'à l'arrivée il n'en reste rien. */
-  if (idVirgQ) {
-    const avant = ctx.scene.pos(chiffres[entiers - 1]);
-    const apres = ctx.scene.pos(chiffres[entiers]);
+  if (virguleEnChemin) {
+    const avant = ctx.scene.pos(chiffres[entiersEcrits - 1]);
+    const apres = ctx.scene.pos(chiffres[entiersEcrits]);
     ctx.place(idVirgQ, { x: (avant.x + apres.x) / 2, y: (avant.y + apres.y) / 2 }, montee);
     ctx.anim({ id: idVirgQ, prop: 'scale', to: 0, ...montee });
     ctx.anim({ id: idVirgQ, prop: 'opacity', to: 0, ...montee });

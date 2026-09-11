@@ -315,6 +315,10 @@ export const NOMS = {
   'm.divisionDecimale1': b('Par division décimale', 'By decimal division'),
   'm.divisionDecimale2': b('Par division décimale', 'By decimal division'),
   'm.divisionDecimale3': b('Par division décimale', 'By decimal division'),
+  // ★ Les mêmes, zéros de tête écrits (`md0*`) : « 126 ÷ 18 » s'y lit `0 0 7`.
+  'm.divisionDecimaleZero1': b('Par division décimale à zéros de tête', 'By decimal division with leading zeros'),
+  'm.divisionDecimaleZero2': b('Par division décimale à zéros de tête', 'By decimal division with leading zeros'),
+  'm.divisionDecimaleZero3': b('Par division décimale à zéros de tête', 'By decimal division with leading zeros'),
   'm.division': b('Par division', 'By division'),
   'm.divisionResteDabord': b('Par division, le reste devant', 'By division, remainder first'),
   'm.divisionEntiere': b('Par division, le reste perdu', 'By division, dropping the remainder'),
@@ -494,6 +498,9 @@ export const TITRES_COURTS = {
   'm.divisionDecimale1': b('division à 1 déc.', '1-decimal division'), // mdc1
   'm.divisionDecimale2': b('division à 2 déc.', '2-decimal division'), // mdc2
   'm.divisionDecimale3': b('division à 3 déc.', '3-decimal division'), // mdc3
+  'm.divisionDecimaleZero1': b('division à 1 déc., zéros de tête', '1-decimal division, leading zeros'), // md01
+  'm.divisionDecimaleZero2': b('division à 2 déc., zéros de tête', '2-decimal division, leading zeros'), // md02
+  'm.divisionDecimaleZero3': b('division à 3 déc., zéros de tête', '3-decimal division, leading zeros'), // md03
   'm.division': b('division et reste', 'division and remainder'), // mdiv
   'm.divisionResteDabord': b('division, reste devant', 'division, remainder first'), // mdvr
   'm.divisionEntiere': b('division entière', 'integer division'), // mdvq
@@ -681,6 +688,9 @@ export const PRECISIONS = {
   'm.divisionDecimale1': b('par division décimale', 'by decimal division'),
   'm.divisionDecimale2': b('par division décimale', 'by decimal division'),
   'm.divisionDecimale3': b('par division décimale', 'by decimal division'),
+  'm.divisionDecimaleZero1': b('par division décimale à zéros de tête', 'by decimal division with leading zeros'),
+  'm.divisionDecimaleZero2': b('par division décimale à zéros de tête', 'by decimal division with leading zeros'),
+  'm.divisionDecimaleZero3': b('par division décimale à zéros de tête', 'by decimal division with leading zeros'),
   'm.division': b('par division', 'by division'),
   'm.divisionResteDabord': b('par division, le reste devant', 'by division, remainder first'),
   'm.divisionEntiere': b('par division entière', 'by integer division'),

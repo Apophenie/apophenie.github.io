@@ -319,7 +319,9 @@ test('★ mmod dissout son diviseur, mmoc le garde — et le % tombe dans les de
  * >   B. » (l'auteur)
  */
 test('★ à la potence aussi, chaque chiffre du quotient se compte', () => {
-  const { tl } = jouer('mdc1', nums([135]), jetonsNums([135]));
+  // `md01` : la potence qui ÉCRIT ses zéros de tête. `mdc1` ne les écrit plus
+  // depuis que l'auteur a doublé la famille — voir le test suivant.
+  const { tl } = jouer('md01', nums([135]), jetonsNums([135]));
   // 13 ÷ 5 = 0 puis 2, puis 6 après la virgule.
   const attendu = { x0c0x0: '0', x0c0x1: '2', x0c0x2: '6' };
   for (const [id, fin] of Object.entries(attendu)) {
@@ -332,8 +334,25 @@ test('★ à la potence aussi, chaque chiffre du quotient se compte', () => {
   assert.equal(canal(tl, 'x0c0x0').render(0.99), '0', '5 ne tient pas dans 1');
 });
 
+/**
+ * > « Une version avec 0 initial quand le premier chiffre est inférieur au
+ * >   diviseur […] et une version sans 0 initial. » (l'auteur)
+ *
+ * Sans zéro initial, le rang où rien ne tient se JOUE — le chiffre entre en jeu,
+ * rien ne part — mais n'écrit rien sous la barre : `13 ÷ 5` rend `2 6`.
+ */
+test('★ sans zéro initial, le rang où rien ne tient n’écrit rien', () => {
+  const { tl, steps } = jouer('mdc1', nums([135]), jetonsNums([135]));
+  const pot = opsDe(steps).find((o) => o.op === 'potence');
+  assert.equal(pot.zeroInitial, false);
+  assert.deepEqual(pot.to.map((t) => t.text), ['2', '6'], '13 ÷ 5 à une décimale, sans zéro devant');
+  assert.equal(canal(tl, 'x0c0x0').render(1), '2');
+  assert.equal(canal(tl, 'x0c0x1').render(1), '6');
+  assert.equal(canal(tl, 'x0c0x2'), undefined, 'aucun troisième chiffre : le zéro n’est pas écrit');
+});
+
 test('la potence compile sans animation concurrente, à une comme à trois décimales', () => {
-  for (const [code, v] of [['mdc1', [135]], ['mdc3', [23]]]) {
+  for (const [code, v] of [['mdc1', [135]], ['mdc3', [23]], ['md01', [135]], ['md03', [23]]]) {
     const { tl } = jouer(code, nums(v), jetonsNums(v));
     assert.deepEqual(tl.warnings, [], `${code} : rien ne se contredit`);
   }
@@ -353,7 +372,7 @@ test('la potence compile sans animation concurrente, à une comme à trois déci
  * exactement celle que l'opérateur déclare produire.
  */
 test('★ la ligne rejouée est celle que l’opérateur déclare — les huit gestes', () => {
-  for (const code of ['mmod', 'mmoc', 'mdiv', 'mdvq', 'mdvr', 'mdc1', 'mdc2', 'mdc3']) {
+  for (const code of ['mmod', 'mmoc', 'mdiv', 'mdvq', 'mdvr', 'mdc1', 'mdc2', 'mdc3', 'md01', 'md02', 'md03']) {
     const o = PAR_CODE.get(code);
     const avant = nums([135]);
     const apres = appliquer(o, avant);
@@ -373,7 +392,7 @@ test('les gestes arithmétiques tiennent sur les cas limites du témoin', () => 
   // `39` : le quotient vaut zéro (3 ÷ 9). `105` : le reste vaut zéro.
   // `12` : les deux à la fois. Aucun ne doit produire de geste incohérent.
   for (const v of [[39], [105], [12], [7, 135]]) {
-    for (const code of ['mmod', 'mmoc', 'mdiv', 'mdvq', 'mdvr', 'mdc1', 'mdc3']) {
+    for (const code of ['mmod', 'mmoc', 'mdiv', 'mdvq', 'mdvr', 'mdc1', 'mdc3', 'md01', 'md03']) {
       const o = PAR_CODE.get(code);
       const avant = nums(v);
       const apres = appliquer(o, avant);
@@ -443,6 +462,7 @@ test('★ tout geste du vocabulaire a son cas dans validerFormeOp', () => {
 test('★ par le chemin du site, aucun geste arithmétique ne retombe sur le rendu générique', () => {
   const attendu = {
     'tca+masb+mdc1': 'potence', 'tca+masb+mdc2': 'potence', 'tca+masb+mdc3': 'potence',
+    'tca+masb+md01': 'potence', 'tca+masb+md02': 'potence', 'tca+masb+md03': 'potence',
     'tca+masb+mdiv': 'group', 'tca+masb+mdvq': 'group', 'tca+masb+mdvr': 'group',
     'tca+masb+mmod': 'group', 'tca+masb+mmoc': 'group',
   };

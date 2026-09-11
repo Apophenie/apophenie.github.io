@@ -156,6 +156,10 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   `mazc`+`mazr` et de `mqwc`+`mqwr`. Deux relectures de plus pour un texte
   //   visé. Inactives en recherche. En fin de bloc mappeur, append-only (§4.1).
   'mcaz', 'mcqw',
+  // ★ LA POTENCE AVEC SES ZÉROS DE TÊTE — « 0×5 dans 1 de 105 ». C'est ce que
+  //   `mdc*` écrivait jusqu'ici ; l'auteur a doublé la famille, et `mdc*` ne les
+  //   écrit plus. En fin de bloc mappeur, append-only (§4.1).
+  'md01', 'md02', 'md03',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

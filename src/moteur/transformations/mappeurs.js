@@ -1867,7 +1867,7 @@ function planAbsorption(valeur, visee, autorisees = OPERATIONS_TOUTES) {
  *   c'est le contrôle croisé, et la potence REFUSE de peindre si les deux
  *   suites de chiffres diffèrent.
  */
-function planDecimales(valeur, decimales) {
+function planDecimales(valeur, decimales, zeroInitial = true) {
   const paquets = [];
   const sortie = [];
   let uneDivision = false;
@@ -1915,8 +1915,25 @@ function planDecimales(valeur, decimales) {
        ★ Les trois `mdc*` coïncident alors, faute de décimale à montrer. Ce n'est
          pas un doublon au registre — ils divergent partout ailleurs — et la
          canonicalisation du BFS n'explore l'état commun qu'une fois. */
-    paquets.push({ i, divise: true, valeur: valeur[i], a, b, chiffres, entiers });
-    sortie.push(...chiffres);
+    /* ★ **AVEC OU SANS ZÉRO INITIAL** — même règle, mot pour mot, que
+       `visuel/primitives/potence.js › toursEcrits`, et c'est le contrôle croisé
+       qui l'exige : la potence refuse de peindre si les deux suites diffèrent.
+       Seuls les zéros de tête de la PARTIE ENTIÈRE tombent ; une partie
+       entière toute nulle tombe en entier s'il y a des décimales (`2 ÷ 3` →
+       `666`), et garde son dernier zéro sinon. Un zéro après la virgule n'est
+       jamais initial : l'ôter changerait le nombre. */
+    let premier = 0;
+    if (!zeroInitial) {
+      premier = chiffres.findIndex((c, k) => k < entiers && c !== 0);
+      if (premier < 0) premier = chiffres.length > entiers ? entiers : entiers - 1;
+    }
+    const ecrits = chiffres.slice(premier);
+    const entiersEcrits = Math.max(0, entiers - premier);
+    paquets.push({
+      i, divise: true, valeur: valeur[i], a, b, chiffres: ecrits, entiers: entiersEcrits,
+      decimalesVues: chiffres.length - entiers, quotient: chiffres.slice(0, entiers),
+    });
+    sortie.push(...ecrits);
     uneDivision = true;
   }
   if (!uneDivision) return null;
@@ -6654,78 +6671,10 @@ const AUTRES_MAPPEURS = [
      rien : trois fois le même geste ne dit pas pourquoi le quotient s'écrit de
      gauche à droite, ni où tombe la virgule. La division posée, elle, se
      reconnaît (`visuel/primitives/potence.js`). */
-  ...[1, 2, 3].map((decimales) => def({
-    id: `m.divisionDecimale${decimales}`,
-    code: `mdc${decimales}`,
-    famille: 'mappeur', from: 'NUMS', to: 'NUMS',
-    libelle: bilingue(`On pose la division, ${decimales === 1 ? 'une décimale' : `${decimales === 2 ? 'deux' : 'trois'} décimales`}`,
-      `Long division, ${decimales} decimal${decimales > 1 ? 's' : ''}`),
-    regle: bilingue('On continue sous la virgule, en abaissant un zéro, '
-      + 'jusqu’à ce que ça tombe juste ou que les décimales soient épuisées ; la virgule ne se garde pas',
-      'Keep going below the decimal point, bringing down a zero, until it comes out even '
-      + 'or the decimals run out; the point itself is not kept'),
-    outil: bilingue('La potence', 'The long division bracket'),
-    // Plus cher que la division entière : on descend sous la virgule, ce qu'un
-    // numérologue ne fait pas sans raison. Et c'est du dernier recours.
-    notoriete: 0.30, adHoc: 0.55, cout: 3,
-    // ★ Une potence n'apprend rien si elle tombe juste au premier coup : il
-    //   faut qu'on descende sous la virgule, sinon la barre et le quotient
-    //   chiffre à chiffre se jouent pour un résultat entier.
-    exempleUtile(etat) {
-      const plan = planDecimales(etat.valeur, decimales);
-      if (!plan) return false;
-      return plan.paquets.some((p) => p.divise && p.chiffres.length > p.entiers);
-    },
-    apply(valeur, traces) {
-      const plan = planDecimales(valeur, decimales);
-      if (!plan) return null;
-      const org = [];
-      for (const p of plan.paquets) {
-        const t = (traces && traces[p.i]) || [];
-        if (!p.divise) { org.push(t); continue; }
-        for (let k = 0; k < p.chiffres.length; k++) org.push(t);
-      }
-      return { valeur: plan.sortie, traces: org };
-    },
-    sortie: (avant, apres, ctx) => {
-      const plan = planDecimales(avant.valeur, decimales);
-      if (!plan) return [];
-      const ids = [];
-      for (const p of plan.paquets) {
-        if (!p.divise) { ids.push(ctx.ids[p.i]); continue; }
-        for (let k = 0; k < p.chiffres.length; k++) ids.push(`${ctx.cle}c${p.i}x${k}`);
-      }
-      return ids;
-    },
-    steps: (avant, apres, ctx) => {
-      const plan = planDecimales(avant.valeur, decimales);
-      if (!plan) return [];
-      const steps = [];
-      const titre = dire(bilingue('La potence', 'Long division'), ctx.langue);
-      for (const p of plan.paquets) {
-        if (!p.divise) continue;
-        const idA = `${ctx.cle}a${p.i}`;
-        const idB = `${ctx.cle}b${p.i}`;
-        // ① le nombre s'ouvre : dividende à gauche, diviseur à droite.
-        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} ÷ ${p.b}`, enchainer([{
-          op: 'substitute',
-          pairs: [{ target: ctx.ids[p.i], to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')] }],
-        }]), { id: `s_${ctx.cle}_po${p.i}` }));
-        // ② la potence : les deux barres, le quotient chiffre à chiffre, la
-        //    virgule à sa place, puis tout s'efface sauf le quotient.
-        const entiers = p.chiffres.slice(0, p.entiers).join('');
-        const apresVirgule = p.chiffres.slice(p.entiers).join('');
-        steps.push(etape(ctx, titre, `${p.a} ÷ ${p.b} = ${entiers},${apresVirgule}`, [{
-          op: 'potence',
-          dividende: idA,
-          diviseur: idB,
-          decimales,
-          to: p.chiffres.map((c, k) => token(`${ctx.cle}c${p.i}x${k}`, c, 'digit')),
-        }], { id: `s_${ctx.cle}_pp${p.i}` }));
-      }
-      return steps;
-    },
-  })),
+  // ★ SANS zéro initial depuis que l'auteur a doublé la famille : « une
+  //   version avec 0 initial […] et une version sans ». La version AVEC a pris
+  //   des codes neufs, `md01`…`md03`, en fin de bloc (append-only).
+  ...[1, 2, 3].map((decimales) => operateurDecimal(decimales, false)),
 
   ...[
     /* ★ **LE RESTE D'ABORD — et c'est un AUTRE nombre, pas une autre animation.**
@@ -6748,7 +6697,138 @@ const AUTRES_MAPPEURS = [
   // ★ UNE TOUCHE DÉSIGNÉE PAR DEUX NOMBRES — `mcaz`, `mcqw`. Même hissage.
   operateurCoordonnees('azerty'),
   operateurCoordonnees('qwerty'),
+  // ★ LA POTENCE AVEC SES ZÉROS DE TÊTE — `md01`, `md02`, `md03`. « 0×5 dans 1
+  //   de 105 » (l'auteur) : c'est ce que `mdc*` écrivait jusqu'ici. En fin de
+  //   bloc mappeur, append-only (§4.1) — sa place naturelle serait à côté de
+  //   `mdc*`, sa place juste est ici. Même fabrique, hissée plus bas.
+  ...[1, 2, 3].map((decimales) => operateurDecimal(decimales, true)),
 ];
+
+/**
+ * ★ **LES DIVISIONS DÉCIMALES — posées à la potence, avec ou sans zéro initial.**
+ *
+ * > « La priorité est que ce soit limpide, même pour des gens qui ne
+ * >   comprennent pas grand-chose aux maths : niveau primaire, c'est très
+ * >   bien. » (l'auteur)
+ *
+ * D'où la potence, et pas l'accolade des autres divisions. Une première
+ * version montrait le même calcul en trois temps d'accolade — partie entière,
+ * reste ×10, un tour par décimale — et c'était juste, mais ça n'apprenait
+ * rien : trois fois le même geste ne dit pas pourquoi le quotient s'écrit de
+ * gauche à droite, ni où tombe la virgule. La division posée, elle, se
+ * reconnaît (`visuel/primitives/potence.js`).
+ *
+ * > « Double les opérateurs, une version avec 0 initial quand le premier
+ * >   chiffre est inférieur au diviseur (ce qui peut inclure un diviseur sur
+ * >   plusieurs chiffres) et une version sans 0 initial. md03 pour la version
+ * >   avec zéro initial par exemple, et mdc3 pour celle sans. » (l'auteur)
+ *
+ * ⚠️ **`mdc*` A CHANGÉ DE RÉSULTAT, et c'est la décision de l'auteur.** Sur
+ *   `23`, `mdc3` rendait `0 6 6 6` ; il rend `6 6 6`. L'ancien comportement
+ *   n'est pas perdu : il s'appelle `md03`. Les liens qui employaient `mdc*`
+ *   rejouent désormais la version sans zéro.
+ *
+ * ★ **UNE FABRIQUE, DEUX FAMILLES.** Écrire deux fois la même déclaration
+ *   aurait fait diverger les deux au premier correctif — c'est exactement ce qui
+ *   est arrivé à `mdvr`, recopié loin de ses jumeaux (`operateurDeDivision`).
+ *   Hissée comme `operateurRangEnLettre`, elle est appelable depuis les deux
+ *   places que le registre impose.
+ */
+function operateurDecimal(decimales, zeroInitial) {
+  const nombre = decimales === 1 ? 'une décimale' : `${decimales === 2 ? 'deux' : 'trois'} décimales`;
+  const number = `${decimales} decimal${decimales > 1 ? 's' : ''}`;
+  return def({
+    id: zeroInitial ? `m.divisionDecimaleZero${decimales}` : `m.divisionDecimale${decimales}`,
+    code: zeroInitial ? `md0${decimales}` : `mdc${decimales}`,
+    famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: zeroInitial
+      ? bilingue(`On pose la division en écrivant ses zéros de tête, ${nombre}`,
+        `Long division, leading zeros written, ${number}`)
+      : bilingue(`On pose la division, ${nombre}`, `Long division, ${number}`),
+    regle: zeroInitial
+      ? bilingue('Tant que le diviseur ne tient pas dans ce qu’on a pris, on écrit 0 ; puis on continue '
+        + 'sous la virgule jusqu’à ce que ça tombe juste ou que les décimales soient épuisées ; la virgule ne se garde pas',
+      'While the divisor does not fit into what has been taken, write 0; then keep going below the decimal point '
+        + 'until it comes out even or the decimals run out; the point itself is not kept')
+      : bilingue('On prend assez de chiffres pour que le diviseur y tienne, sans écrire de zéro devant ; puis on '
+        + 'continue sous la virgule jusqu’à ce que ça tombe juste ou que les décimales soient épuisées ; la virgule ne se garde pas',
+      'Take enough digits for the divisor to fit, writing no zero in front; then keep going below the decimal point '
+        + 'until it comes out even or the decimals run out; the point itself is not kept'),
+    outil: bilingue('La potence', 'The long division bracket'),
+    // Plus cher que la division entière : on descend sous la virgule, ce qu'un
+    // numérologue ne fait pas sans raison. Et c'est du dernier recours. Écrire
+    // des zéros de tête est un cran plus ad hoc que les taire : c'est ce qui
+    // fabrique `007`, et ça se paie.
+    notoriete: 0.30, adHoc: zeroInitial ? 0.6 : 0.55, cout: 3,
+    // ★ Une potence n'apprend rien si elle tombe juste au premier coup : il
+    //   faut qu'on descende sous la virgule, sinon la barre et le quotient
+    //   chiffre à chiffre se jouent pour un résultat entier.
+    exempleUtile(etat) {
+      const plan = planDecimales(etat.valeur, decimales, zeroInitial);
+      if (!plan) return false;
+      return plan.paquets.some((p) => p.divise && p.decimalesVues > 0);
+    },
+    apply(valeur, traces) {
+      const plan = planDecimales(valeur, decimales, zeroInitial);
+      if (!plan) return null;
+      const org = [];
+      for (const p of plan.paquets) {
+        const t = (traces && traces[p.i]) || [];
+        if (!p.divise) { org.push(t); continue; }
+        for (let k = 0; k < p.chiffres.length; k++) org.push(t);
+      }
+      return { valeur: plan.sortie, traces: org };
+    },
+    sortie: (avant, apres, ctx) => {
+      const plan = planDecimales(avant.valeur, decimales, zeroInitial);
+      if (!plan) return [];
+      const ids = [];
+      for (const p of plan.paquets) {
+        if (!p.divise) { ids.push(ctx.ids[p.i]); continue; }
+        for (let k = 0; k < p.chiffres.length; k++) ids.push(`${ctx.cle}c${p.i}x${k}`);
+      }
+      return ids;
+    },
+    steps: (avant, apres, ctx) => {
+      const plan = planDecimales(avant.valeur, decimales, zeroInitial);
+      if (!plan) return [];
+      const steps = [];
+      const titre = dire(bilingue('La potence', 'Long division'), ctx.langue);
+      for (const p of plan.paquets) {
+        if (!p.divise) continue;
+        const idA = `${ctx.cle}a${p.i}`;
+        const idB = `${ctx.cle}b${p.i}`;
+        // ① le nombre s'ouvre : dividende à gauche, diviseur à droite.
+        steps.push(etape(ctx, titre, `${p.valeur} → ${p.a} ÷ ${p.b}`, enchainer([{
+          op: 'substitute',
+          pairs: [{ target: ctx.ids[p.i], to: [token(idA, p.a, 'number'), token(idB, p.b, 'number')] }],
+        }]), { id: `s_${ctx.cle}_po${p.i}` }));
+        // ② la potence : les deux barres, le quotient chiffre à chiffre, la
+        //    virgule à sa place, puis tout s'efface sauf le quotient.
+        steps.push(etape(ctx, titre, `${p.a} ÷ ${p.b} = ${valeurLisible(p)}`, [{
+          op: 'potence',
+          dividende: idA,
+          diviseur: idB,
+          decimales,
+          zeroInitial,
+          to: p.chiffres.map((c, k) => token(`${ctx.cle}c${p.i}x${k}`, c, 'digit')),
+        }], { id: `s_${ctx.cle}_pp${p.i}` }));
+      }
+      return steps;
+    },
+  });
+}
+
+/**
+ * La valeur d'une division telle qu'on la lit — `13 ÷ 5 = 2,6`, `2 ÷ 3 = 0,666` —
+ * et non telle que la potence l'écrit, zéros de tête compris ou non : la légende
+ * dit ce que vaut la division, la scène montre comment on l'a posée.
+ */
+function valeurLisible(p) {
+  const entiere = String(Number(p.quotient.join('') || '0'));
+  const apres = p.chiffres.slice(p.chiffres.length - p.decimalesVues).join('');
+  return apres ? `${entiere},${apres}` : entiere;
+}
 
 /**
  * ★ **LE RANG QUI REDEVIENT LETTRE — `m1a`, l'inverse exact de `ma1`.**
