@@ -1561,31 +1561,38 @@ test('★ `mrdE` — le redécoupage exact ne laisse rien, ou ne fait rien', () 
 
      Le partitionnement demeure — il pose les groupes, c'est de la structure —
      mais il se glisse en tête du premier calcul de sa passe, avec
-     `visible: false`. Le gel porte donc sur DEUX étapes au lieu de quatre, et
-     l'op `partition` ouvre chacune d'elles. Ce qui n'a pas bougé : une étape
-     par addition, et la seconde passe qui se nomme. */
+     `visible: false`. Ce qui n'a pas bougé : une étape par addition, et la
+     seconde passe qui se nomme.
+
+     ★ **ET CHAQUE ADDITION NE PORTE PLUS QUE DEUX TERMES** — « ne fais les
+     opérations qu'entre deux valeurs » (l'auteur). `8 + 7 + 1` se montre
+     `8 + 7 = 15`, puis `15 + 1 = 16`, et c'est la dernière paire qui écrit la
+     somme ENTIÈRE chiffre à chiffre. Le gel porte donc sur TROIS étapes au
+     lieu de deux ; la sortie, elle, n'a pas bougé d'un identifiant. */
   const entree = N([5, 8, 7, 1]);
   const vise = op.viser('66');
   const apres = appliquer(vise, entree);
   const ctx = { ids: ['t0', 't1', 't2', 't3'], cle: 'e0', langue: 'fr' };
   const steps = etapes(vise, entree, apres, ctx);
   assert.deepEqual(steps.map((s) => s.ops.map((o) => o.op)), [
-    ['partition', 'insertOperators', 'sum', 'substitute'],
     ['partition', 'insertOperators', 'sum'],
-  ], 'deux passes, une étape par addition, le découpage en tête de chacune');
+    ['insertOperators', 'sum', 'substitute'],
+    ['partition', 'insertOperators', 'sum'],
+  ], 'deux passes, une étape par paire, le découpage en tête de chacune');
   assert.ok(steps.every((x) => x.ops[0].op !== 'partition' || x.ops[0].visible === false),
     'le découpage est MUET : il ne trace rien, il pose les groupes');
   assert.deepEqual(steps.map((s) => s.caption),
-    ['8 + 7 + 1 = 16 → 1 6', '5 + 1 = 6']);
-  assert.ok(steps[1].title.includes('seconde passe'), 'la seconde passe se nomme');
+    ['8 + 7 = 15', '15 + 1 = 16 → 1 6', '5 + 1 = 6']);
+  assert.ok(steps[2].title.includes('seconde passe'), 'la seconde passe se nomme');
   assert.deepEqual(vise.sortie(entree, apres, ctx), ['e0q1s0', 'e0q0s1x1'],
     'le 6 de gauche naît en seconde passe, celui de droite est l’unité du 16');
-  // ── et la racine se montre par un `reduce`, comme `mrn`
+  // ── et la racine se montre par un `reduce`, comme `mrn` — sur la somme
+  //    ENTIÈRE du paquet, que la dernière paire vient de former
   const r = etapes(op, N([6, 5, 1, 9, 3, 3]), appliquer(op, N([6, 5, 1, 9, 3, 3])),
     { ids: ['t0', 't1', 't2', 't3', 't4', 't5'], cle: 'e0', langue: 'fr' });
   const racine = r.find((s) => s.ops.some((o) => o.op === 'reduce'));
   assert.ok(racine, 'la réduction 15 → 6 est un geste, pas une affirmation');
-  assert.equal(racine.caption, '9 + 3 + 3 = 15 → 1 + 5 → 6');
+  assert.equal(racine.caption, '12 + 3 = 15 → 1 + 5 → 6');
 });
 
 /* ★ LE RANG QUI REDEVIENT LETTRE — `m1a` (la cible textuelle). Ses refus, et sa

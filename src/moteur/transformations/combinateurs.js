@@ -8,6 +8,7 @@
 
 import {
   def, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade, ordreCroissant,
+  passesBinaires, opsDuGesteBinaire,
 } from './commun.js';
 import { bilingue, dire } from '../i18n.js';
 import { NUM_MIN, NUM_MAX } from '../etat.js';
@@ -65,9 +66,105 @@ function titreEtape(spec, valeurs, langue) {
   return gabarit.replace('%s', dire(MOT_OPERANDES[natureOperandes(valeurs)], langue));
 }
 
+/**
+ * ★ **LA SOMME, LE PRODUIT ET LA SOUSTRACTION EN CHAÎNE, DEUX VALEURS À LA FOIS.**
+ *
+ * > « Ne fais les opérations qu'entre deux valeurs. […] Pour les soustractions,
+ * >   plutôt que 5−2−1, fais d'abord 2+1, puis 5−3. » (l'auteur)
+ *
+ * Au-delà de deux termes, l'agrégation ne se montre plus sous une seule
+ * accolade : elle se déroule par passes binaires (`commun.js ›
+ * passesBinaires`) — `8 + 15` et `16 + 5`, puis `23 + 21`. Une étape par
+ * paire, comme les additions de `mad` et de `mrd` : Le Registre en garde une
+ * ligne chacune.
+ *
+ * ★ **La soustraction en chaîne REGROUPE ce qu'elle retranche** : `5 − 2 − 1`
+ *   devient `2 + 1 = 3`, puis `5 − 3 = 2`. Le premier terme attend sur la
+ *   ligne que tout ce qui lui sera ôté soit sommé ; il n'y a plus qu'une
+ *   soustraction, et elle est binaire.
+ *
+ * ⚠️ **Le résultat est celui d'`apply`, au chiffre près** : l'arbre y aboutit
+ *   et on le vérifie, et `sum` le recoupe une deuxième fois à la compilation.
+ *
+ * Deux termes ou moins : le geste d'avant, qui est déjà binaire.
+ */
+function etapeBinaire(spec) {
+  return (avant, apres, ctx) => {
+    const vs = avant.valeur;
+    const sortie = nomsTokens(ctx, 1)[0];
+    const titre = titreEtape(spec, vs, ctx.langue);
+    const termes = ctx.ids.map((id, i) => ({ id, v: vs[i] }));
+    const steps = [];
+    const poser = (g, lecture, options) => {
+      steps.push(etape(ctx, titre, `${g.gauche.v} ${lecture} ${g.droite.v} = ${g.resultat.v}`,
+        enchainer(opsDuGesteBinaire(g, options)), { id: `s_${ctx.cle}_b${steps.length}` }));
+    };
+    const exiger = (obtenu) => {
+      if (String(obtenu) !== String(apres.valeur)) {
+        throw new Error(`${spec.code} : les paires rendent ${obtenu}, le calcul annonce ${apres.valeur}.`);
+      }
+    };
+    if (spec.binaire === 'soustraction') {
+      // ── ce qu'on retranche se somme d'abord, par paires…
+      const retires = termes.slice(1);
+      let total = retires[0];
+      if (retires.length > 1) {
+        const arbre = passesBinaires(retires, {
+          combiner: (x, y) => x + y,
+          nommer: (k) => `${ctx.cle}i${k}`,
+          racine: `${ctx.cle}retire`,
+        });
+        const quoi = dire(bilingue('à retrancher', 'to subtract'), ctx.langue);
+        for (const g of arbre.gestes) {
+          poser(g, '+', { signe: `${ctx.cle}op${g.k}`, glyph: '+', symbol: '+', label: quoi });
+        }
+        total = arbre.racine;
+      }
+      // ── …puis UNE soustraction, entre le premier terme et ce total.
+      const g = {
+        k: 0, dernier: true, gauche: termes[0], droite: total,
+        resultat: { id: sortie, v: termes[0].v - total.v },
+      };
+      exiger(g.resultat.v);
+      poser(g, '−', {
+        signe: `${ctx.cle}moins`, glyph: '−', symbol: spec.symbole || '−',
+        // Deux paliers, deux atterrissages : le premier se pose, le total le
+        // retranche — le compteur de l'écart (`c.maxMoinsMin`).
+        partials: [termes[0].v, g.resultat.v],
+      });
+    } else {
+      const produit = spec.binaire === 'produit';
+      const arbre = passesBinaires(termes, {
+        combiner: produit ? (x, y) => x * y : (x, y) => x + y,
+        nommer: (k) => `${ctx.cle}i${k}`,
+        racine: sortie,
+      });
+      exiger(arbre.racine.v);
+      for (const g of arbre.gestes) {
+        poser(g, spec.lecture || '+', {
+          signe: `${ctx.cle}op${g.k}`,
+          glyph: spec.glyphe,
+          symbol: spec.symbole || 'Σ',
+          // Un produit ne se compte pas depuis zéro : le compteur montre le
+          // premier facteur, puis le produit — `sum` vérifie le dernier.
+          ...(produit ? { partials: [g.gauche.v, g.resultat.v], depart: '' } : {}),
+        });
+      }
+    }
+    // La dernière paire garde l'identifiant de l'étape d'avant, et sa tenue :
+    // c'est elle qui rend le résultat du combinateur.
+    const fin = steps[steps.length - 1];
+    fin.id = `s_${ctx.cle}`;
+    fin.hold = 500;
+    return steps;
+  };
+}
+
 /** Étape d'agrégation : opérateurs intercalés, puis accumulation. */
 function etapeAgregation(spec) {
+  const binaire = spec.binaire ? etapeBinaire(spec) : null;
   return (avant, apres, ctx) => {
+    if (binaire && Array.isArray(avant.valeur) && avant.valeur.length > 2) return binaire(avant, apres, ctx);
     const sortie = nomsTokens(ctx, 1);
     const partiels = spec.partiels ? spec.partiels(avant.valeur) : null;
     const ops = [];
@@ -728,7 +825,7 @@ const agregations = [
     libelle: bilingue('On additionne', 'Add them up'),
     gabarit: bilingue('On additionne les %s', 'Add up the %s'),
     regle: bilingue('La somme des valeurs', 'The sum of the values'),
-    notoriete: 1.00, glyphe: '+', lecture: '+',
+    notoriete: 1.00, glyphe: '+', lecture: '+', binaire: 'somme',
     calcul: (vs) => vs.reduce((a, b) => a + b, 0),
     partiels: partielsSomme,
   },
@@ -739,7 +836,7 @@ const agregations = [
     gabarit: bilingue('On soustrait les %s à la chaîne', 'Subtract the %s along the chain'),
     regle: bilingue('Le premier moins tous les autres — les tirets sont des moins',
       'The first one minus all the others — the dashes are minus signs'),
-    notoriete: 0.45, adHoc: 0.15, glyphe: (i) => '−', lecture: '−',
+    notoriete: 0.45, adHoc: 0.15, glyphe: (i) => '−', lecture: '−', binaire: 'soustraction',
     calcul: (vs) => vs.slice(1).reduce((a, b) => a - b, vs[0]),
     partiels: (vs) => vs.reduce((acc, v, i) => [...acc, i === 0 ? v : acc[acc.length - 1] - v], [0]),
     minimum: 2,
@@ -750,7 +847,7 @@ const agregations = [
     libelle: bilingue('On multiplie', 'Multiply them'),
     gabarit: bilingue('On multiplie les %s', 'Multiply the %s'),
     regle: bilingue('Le produit des valeurs', 'The product of the values'),
-    notoriete: 0.60, glyphe: '×', lecture: '×',
+    notoriete: 0.60, glyphe: '×', lecture: '×', binaire: 'produit',
     calcul: (vs) => vs.reduce((a, b) => a * b, 1),
     partiels: (vs) => vs.reduce((acc, v) => [...acc, acc[acc.length - 1] * v], [1]),
     minimum: 2,
@@ -1082,8 +1179,10 @@ const agregations = [
     geste: 'selection', minimum: 2,
   },
 ].map((spec) => {
-  const { calcul, minimum = 1, geste, cibles, glyphe, lecture, partiels, ...reste } = spec;
-  const base = { ...reste, glyphe, lecture, partiels };
+  // ★ `binaire` ne descend qu'au geste : c'est de la mise en scène, et le
+  //   descripteur publié (`def`) n'a pas à le connaître.
+  const { calcul, minimum = 1, geste, cibles, glyphe, lecture, partiels, binaire, ...reste } = spec;
+  const base = { ...reste, glyphe, lecture, partiels, binaire };
   return def({
     ...reste,
     famille: 'combinateur',

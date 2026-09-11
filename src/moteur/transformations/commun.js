@@ -36,6 +36,14 @@
  * plan de découpe, le sait. Il le dit donc, plutôt que de laisser le barème le
  * deviner : une seule source, comme partout ailleurs (CONTRACTS §0.3).
  *
+ * ⚠️ **Il compte les PAQUETS, pas les gestes binaires qui les montrent.**
+ * Depuis que les calculs se jouent deux valeurs à la fois (`passesBinaires`),
+ * un paquet de quatre chiffres s'affiche en trois additions de deux termes —
+ * mais `additions` dit toujours `4`. C'est voulu : le changer changerait le
+ * barème, donc les listes, alors que seule la mise en scène devait bouger.
+ * Faire suivre le barème (« plus il y en a, moins la triche se verra ») est
+ * un arbitrage de l'auteur, pas une conséquence.
+ *
  * ★ **Pur, déterministe, sans exception**, comme `apply` — c'est le même plan,
  * relu. Un opérateur qui ne le porte pas n'est pas fautif : le barème retombe
  * alors sur le compte brut des chiffres absorbés, c'est-à-dire sur la peine
@@ -338,6 +346,116 @@ export function retirerAccolade(ops) {
   const acc = ops.find((o) => o.op === 'group');
   if (acc) acc.fadeAt = Math.max(0, finDe(ops) - (acc.at || 0) - 300);
   return ops;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// ★ DEUX VALEURS À LA FOIS — les calculs montrés par passes binaires
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * ★ **UN CALCUL À PLUS DE DEUX TERMES SE MONTRE PAR PAIRES, PASSE APRÈS PASSE.**
+ *
+ * > « Pour rendre plus discrète la sélection opportuniste : ne fais que des
+ * >   calculs entre 2 nombres, jamais entre plus (pas de 5+3+8+2 : fais d'abord
+ * >   5+3 puis 8+2, et à la passe suivante tu pourras faire 8+10 […]). Pareil
+ * >   pour les multiplications. […] Bref, ne fais les opérations qu'entre deux
+ * >   valeurs. » (l'auteur)
+ *
+ * Une accolade qui embrasse quatre chiffres d'un coup AFFICHE le paquet : on
+ * voit le programme savoir d'avance où couper. Deux chiffres à la fois, c'est
+ * le geste de n'importe quelle addition posée — et le paquet ne se lit plus
+ * qu'après coup, quand les paires se sont rejointes.
+ *
+ * ── Le parcours ─────────────────────────────────────────────────────────────
+ *
+ * Une RÉDUCTION EN ARBRE, déroulée par niveaux : à chaque passe, les valeurs
+ * encore sur la ligne s'apparient de gauche à droite (`5+3`, `8+2`) ; une
+ * valeur sans voisin à la fin de la passe attend la suivante telle quelle. La
+ * passe suivante apparie les résultats (`8+10`). `n` termes font `n − 1`
+ * gestes en ⌈log₂ n⌉ passes — le moins de passes possible, et chaque geste
+ * n'embrasse que deux voisins de la ligne.
+ *
+ * ★ **Le `niveau` de chaque geste est celui que `passesEnLargeur` attend**
+ *   (`mappeurs.js`) : un de plus que le plus profond de ses deux opérandes,
+ *   un chiffre de départ valant −1. Trier par niveau respecte donc toutes les
+ *   dépendances par construction — la même garantie qu'avant, à une paire près.
+ *
+ * ── Ce qui ne change pas : le résultat ──────────────────────────────────────
+ *
+ * ⚠️ **Les valeurs intermédiaires restent des NOMBRES** : `8 + 10 = 18`, et non
+ *   `10 → 1 0` puis `8 + 1`, `9 + 0`. Ce n'est pas un goût, c'est ce que les
+ *   opérateurs CALCULENT : une somme de paquet est annoncée telle quelle dans
+ *   la légende (« 5 + 3 + 8 + 2 = 18 »), puis s'écrit chiffre à chiffre
+ *   (`mrd`, `mrdE` en mode « éclate », l'écriture de `mab`) ou se réduit
+ *   (`reduce`). Éclater les résultats partiels écrirait « 9 » là où
+ *   l'opérateur écrit « 1 8 » — un calcul faux, que `sum` refuserait. Et même
+ *   là où la racine numérique le tolérerait, on n'afficherait jamais la somme
+ *   que l'opérateur annonce : on montrerait un autre calcul que le sien.
+ *
+ * @param {Array<{id:string, v:number, niveau?:number, ou?:number}>} termes
+ *   dans l'ordre de la ligne ; `niveau` vaut −1 pour un chiffre de départ,
+ *   `ou` la position qui départage deux gestes d'un même niveau.
+ * @param {{combiner:(a:number,b:number)=>number, nommer:(k:number)=>string, racine:string}} spec
+ *   `nommer(k)` nomme le résultat du kᵉ geste (dans l'ordre de l'arbre) ; le
+ *   dernier — la racine — prend `racine`, l'identifiant que l'opérateur
+ *   publie déjà dans sa `sortie`.
+ * @returns {{gestes:Array<{k:number, niveau:number, ou:number, dernier:boolean,
+ *   gauche:{id:string,v:number}, droite:{id:string,v:number}, resultat:{id:string,v:number}}>,
+ *   racine:{id:string, v:number, niveau:number, ou:number}}}
+ */
+export function passesBinaires(termes, { combiner, nommer, racine }) {
+  let ligne = termes.map((t, i) => ({
+    id: t.id, v: t.v, niveau: t.niveau ?? -1, ou: t.ou ?? i,
+  }));
+  const gestes = [];
+  const total = ligne.length - 1;
+  while (ligne.length > 1) {
+    const suivante = [];
+    for (let i = 0; i < ligne.length; i += 2) {
+      // Sans voisin à droite : il attend la passe suivante, sans rien faire.
+      if (i + 1 >= ligne.length) { suivante.push(ligne[i]); continue; }
+      const gauche = ligne[i];
+      const droite = ligne[i + 1];
+      const k = gestes.length;
+      const dernier = k === total - 1;
+      const resultat = {
+        id: dernier ? racine : nommer(k),
+        v: combiner(gauche.v, droite.v),
+        niveau: 1 + Math.max(gauche.niveau, droite.niveau),
+        ou: gauche.ou,
+      };
+      gestes.push({ k, niveau: resultat.niveau, ou: gauche.ou, dernier, gauche, droite, resultat });
+      suivante.push(resultat);
+    }
+    ligne = suivante;
+  }
+  return { gestes, racine: ligne[0] };
+}
+
+/**
+ * Les deux ops d'un geste binaire : le signe paraît ENTRE les deux valeurs,
+ * puis elles descendent sous la pointe et le résultat remonte à leur place.
+ *
+ * `partials` et `depart` suivent la convention de `sum` : sans eux, le
+ * compteur additionne ; un produit ou une différence les fournit, et `sum`
+ * vérifie que le dernier est bien ce que `to` annonce.
+ */
+export function opsDuGesteBinaire(g, {
+  signe, glyph, symbol, partials = null, depart = null, label = null,
+}) {
+  return [
+    { op: 'insertOperators', between: [g.gauche.id, g.droite.id], ids: [signe], glyph },
+    {
+      op: 'sum',
+      targets: [g.gauche.id, g.droite.id],
+      consume: [signe],
+      to: token(g.resultat.id, g.resultat.v, 'number'),
+      symbol,
+      ...(label ? { label } : {}),
+      ...(partials ? { partials } : {}),
+      ...(depart !== null ? { depart } : {}),
+    },
+  ];
 }
 
 // ───────────────────────────────────────────────────────────────────────────
