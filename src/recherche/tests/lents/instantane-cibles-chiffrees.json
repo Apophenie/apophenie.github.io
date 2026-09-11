@@ -32,13 +32,13 @@
   ],
   [
    "#sce!0:fr3+mz26+mdc3#XeuapD1GiUPu7gDywGH",
-   2067,
+   2333,
    3,
    "GROUPEMENT"
   ],
   [
    "#sce!0:fr9+masb+mdc3#XeuapD1GiUPu7gDywGH",
-   1537,
+   1646,
    3,
    "GROUPEMENT"
   ],
@@ -56,7 +56,7 @@
   ],
   [
    "#sce!0:fr15+ma1+mdc3#XeuapD1GiUPu7gDywGH",
-   1654,
+   1867,
    2,
    "GROUPEMENT"
   ],
@@ -129,6 +129,36 @@
    "MOISSON"
   ],
   [
+   "#so!=mdlc!0+2:fr20+ma1+cme#XeuapD1GiUPu7gDywGH#4kA",
+   5747,
+   null,
+   "OPERATION"
+  ],
+  [
+   "#so!=mdlc!0+2:fr20+mx6+cme#XeuapD1GiUPu7gDywGH#4kA",
+   5470,
+   null,
+   "OPERATION"
+  ],
+  [
+   "#so!=mdlc!0+2:fr4+masc+mdvr+cal#XeuapD1GiUPu7gDywGH#4kA",
+   5166,
+   null,
+   "OPERATION"
+  ],
+  [
+   "#so!=mdl0!0:masc+cmn,2:m14F+cmx#XeuapD1GiUPu7gDywGH#4kA",
+   4709,
+   null,
+   "OPERATION"
+  ],
+  [
+   "#so!=mdlc!0:masb+cme,2:mazc+cmx#XeuapD1GiUPu7gDywGH#4kA",
+   4708,
+   null,
+   "OPERATION"
+  ],
+  [
    "#so!fl+ma1+mrdE#XeuapD1GiUPu7gDywGH#4kA",
    3753,
    1,
@@ -155,10 +185,10 @@
  ],
  "Sarah Kerrigan → 007": [
   [
-   "#so!fl+msfr+mab#XeuapD1GiUPu7gDywGH#HBnW",
-   3668,
-   1,
-   "GROUPEMENT"
+   "#so!=mdl0!0+2:fatb+mexc+cs#XeuapD1GiUPu7gDywGH#HBnW",
+   6055,
+   null,
+   "OPERATION"
   ],
   [
    "#so!2:masb+mabx#XeuapD1GiUPu7gDywGH#HBnW",
@@ -167,10 +197,46 @@
    "GROUPEMENT"
   ],
   [
+   "#so!=mdlc!0+2:fr14+mt9+cp#XeuapD1GiUPu7gDywGH#HBnW",
+   5691,
+   null,
+   "OPERATION"
+  ],
+  [
+   "#so!=mdlc!0+2:fr1+m7+cp#XeuapD1GiUPu7gDywGH#HBnW",
+   5664,
+   null,
+   "OPERATION"
+  ],
+  [
+   "#so!=mdlc!0+2:fr10+m14F+cp#XeuapD1GiUPu7gDywGH#HBnW",
+   5626,
+   null,
+   "OPERATION"
+  ],
+  [
+   "#so!=mdlc!0+2:fr1+mazc+cp#XeuapD1GiUPu7gDywGH#HBnW",
+   5618,
+   null,
+   "OPERATION"
+  ],
+  [
+   "#so!fl+msfr+mab#XeuapD1GiUPu7gDywGH#HBnW",
+   3668,
+   1,
+   "GROUPEMENT"
+  ],
+  [
    "#so!2:m7+mab#XeuapD1GiUPu7gDywGH#HBnW",
    2980,
    1,
    "GROUPEMENT"
+  ],
+  [
+   "#so!=mdlc!0+2:fc+ma1+cp#XeuapD1GiUPu7gDywGH#HBnW",
+   2922,
+   null,
+   "OPERATION"
   ],
   [
    "#so!fc+ma1+mdvq+mrdE#XeuapD1GiUPu7gDywGH#HBnW",
@@ -181,12 +247,6 @@
   [
    "#so!0:mgr+mab#XeuapD1GiUPu7gDywGH#HBnW",
    2784,
-   1,
-   "GROUPEMENT"
-  ],
-  [
-   "#so!0:fr25+ma1+mdvq+mrdE#XeuapD1GiUPu7gDywGH#HBnW",
-   2450,
    1,
    "GROUPEMENT"
   ]
@@ -212,13 +272,13 @@
   ],
   [
    "#sce!fv+masc+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
-   1758,
+   2028,
    3,
    "GROUPEMENT"
   ],
   [
    "#sce!0.5:fv+masc+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
-   1728,
+   1994,
    3,
    "GROUPEMENT"
   ],
@@ -230,19 +290,19 @@
   ],
   [
    "#sce!0.5:fc+ma1+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
-   1824,
+   2040,
    2,
    "GROUPEMENT"
   ],
   [
    "#sce!0.5:fl+ma1+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
-   1608,
+   1855,
    2,
    "GROUPEMENT"
   ],
   [
    "#sce!0:fr2+masb+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
-   1333,
+   1499,
    2,
    "GROUPEMENT"
   ],
@@ -302,7 +362,7 @@
   ],
   [
    "#sce!6:fr12+mz26+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
-   1816,
+   2032,
    1,
    "GROUPEMENT"
   ],
@@ -315,10 +375,10 @@
  ],
  "Donald Trump → 111": [
   [
-   "#so!fl+mlm#2HuP1G8mNg3sJWhqR#HXLk",
-   8128,
-   3,
-   "GROUPEMENT"
+   "#so!=mdlc!0+2:masc+mrn+cal#2HuP1G8mNg3sJWhqR#HXLk",
+   5907,
+   null,
+   "OPERATION"
   ],
   [
    "#so!fl+masb+mrd#2HuP1G8mNg3sJWhqR#HXLk",
@@ -330,6 +390,12 @@
    "#so!2:fr1;fl+masb+mad#2HuP1G8mNg3sJWhqR#HXLk",
    3138,
    6,
+   "GROUPEMENT"
+  ],
+  [
+   "#so!fl+mlm#2HuP1G8mNg3sJWhqR#HXLk",
+   8128,
+   3,
    "GROUPEMENT"
   ],
   [
@@ -375,10 +441,40 @@
    "GROUPEMENT"
   ],
   [
+   "#so!=mdlc!0+2:masc+cal#2HuP1G8mNg3sJWhqR#HXLk",
+   6047,
+   null,
+   "OPERATION"
+  ],
+  [
+   "#so!=mdlc!0+2:fr1+mpy+cal#2HuP1G8mNg3sJWhqR#HXLk",
+   5663,
+   null,
+   "OPERATION"
+  ],
+  [
+   "#so!=mdlc!0+2:fr2+m14+cal#2HuP1G8mNg3sJWhqR#HXLk",
+   5588,
+   null,
+   "OPERATION"
+  ],
+  [
+   "#so!=mdlc!0+2:mz26+mmod+cmm#2HuP1G8mNg3sJWhqR#HXLk",
+   5519,
+   null,
+   "OPERATION"
+  ],
+  [
    "#so!fl+ma1+mrdE#2HuP1G8mNg3sJWhqR#HXLk",
    3753,
    1,
    "GROUPEMENT"
+  ],
+  [
+   "#so!=mdlc!0+2:fr19+mqwr+cp#2HuP1G8mNg3sJWhqR#HXLk",
+   2933,
+   null,
+   "OPERATION"
   ],
   [
    "#so!2:ma1+mab#2HuP1G8mNg3sJWhqR#HXLk",

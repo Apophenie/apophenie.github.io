@@ -392,7 +392,7 @@ function comparerLiaison(a, b) {
 function tableDeValeurs(texte, explorables, combinateurs, cbl, cache) {
   const cle = `liaison|${cbl.texte}|${texte.normalize('NFC')}`;
   if (cache && cache.has(cle)) return cache.get(cle);
-  const vecteurs = vecteursDeSix(texte, explorables, 0, 1e6, cbl, { miseEnForme: false });
+  const vecteurs = vecteursDeSix(texte, explorables, 0, 1e6, cbl, { miseEnForme: false, tousLesReglages: true });
   const parCodes = new Map();
   const parValeur = new Map();
   for (const c of vecteurs) {
@@ -932,12 +932,15 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   //     morceau et `fr9` sur un autre les trouve toujours, ce sont deux listes
   //     de vecteurs distinctes. Ce qu'on refuse, c'est onze candidats
   //     interchangeables pour le même morceau.
-  //   ★ Un réglage qui n'est pas un nombre se DÉCLARE aussi : `forme` nomme la
-  //     méthode dont l'opérateur n'est qu'un réglage — la potence avec ou sans
+  //   ★ Un réglage qui n'est pas un nombre se DÉCLARE aussi : `reglageDe` nomme
+  //     la méthode dont l'opérateur n'est qu'un réglage — la potence avec ou sans
   //     zéros de tête (`mdc3`, `md03`) en a une seule. Lue en premier, comme le
   //     décalage : rien n'est deviné sur le code.
+  //   ⚠️ Pas `forme` : ce nom existe déjà sur les tables à glissière (`fr*`,
+  //     `fatb`) et à réglette (`flt`), où il nomme la forme DESSINÉE. Le lire ici
+  //     faisait de l'Atbash un « réglage » des César.
   const formeDe = (c) => (c.ops || []).map((o) => {
-    if (typeof o.forme === 'string' && o.forme) return o.forme;
+    if (typeof o.reglageDe === 'string' && o.reglageDe) return o.reglageDe;
     return Number.isFinite(o.decalage) ? String(o.code).replace(/\d+$/, '') : o.code;
   }).join('+');
   if (miseEnForme) {
@@ -945,6 +948,36 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     const garde = [];
     for (const c of out) {
       const f = formeDe(c);
+      if (formes.has(f)) continue;
+      formes.add(f);
+      garde.push(c);
+    }
+    out.length = 0;
+    out.push(...garde);
+  } else if (options.tousLesReglages !== true) {
+    /* ★ **DANS LA MATIÈRE AUSSI, UNE FORME DÉCLARÉE NE PREND QU'UNE PLACE — et
+       ICI, avant la coupe, pas après.** Les décalages de César y restent
+       distincts (c'est parmi eux que la moisson choisit le moins gaspilleur) ;
+       mais deux réglages d'un opérateur qui DÉCLARE sa `forme` — la potence
+       avec ou sans zéros de tête — ne sont pas deux matières.
+
+       ⚠️ MESURÉ : les deux réglages occupaient deux des vingt places de la
+         portée `https`, et `fr14+tca+m14+mpf` tombait sous le plafond ; la
+         moisson de `https://hope-hope-hope.fr/` passait de sept séries à six,
+         et retirer l'une OU l'autre famille les lui rendait
+         (`elegance.test.js › étalonnage`, `› ficelles`). Un premier correctif
+         posé plus loin, dans `candidatsDePortee`, n'y changeait rien : la coupe
+         avait déjà eu lieu.
+
+       ★ Le champ lu est `reglageDe`, jamais `forme` (voir `formeDe`, plus haut).
+       ★ La liste vient d'être triée : le réglage gardé est le meilleur. Les
+         tables de la LIAISON demandent `tousLesReglages` : elles veulent tout
+         ce qu'un mot sait donner, et 18 par `md03` n'est pas 18 par `mdc3`. */
+    const formes = new Set();
+    const garde = [];
+    for (const c of out) {
+      if (!c.ops.some((o) => typeof o.reglageDe === 'string' && o.reglageDe)) { garde.push(c); continue; }
+      const f = c.ops.map((o) => (typeof o.reglageDe === 'string' && o.reglageDe ? o.reglageDe : o.code)).join('+');
       if (formes.has(f)) continue;
       formes.add(f);
       garde.push(c);

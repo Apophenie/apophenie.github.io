@@ -6781,7 +6781,7 @@ function operateurDivisionDeDeux(zeroInitial) {
       'The first result is divided by the second at the long-division bracket, with no zero in front, '
         + 'going below the decimal point up to three decimals'),
     outil: bilingue('La potence', 'The long division bracket'),
-    forme: 'mddl',
+    reglageDe: 'mddl',
     notoriete: 0.30, adHoc: zeroInitial ? 0.6 : 0.55, cout: 3,
     actifParDefaut: false,
     liaison: true,
@@ -6863,16 +6863,23 @@ function operateurDecimal(decimales, zeroInitial) {
       'Take enough digits for the divisor to fit, writing no zero in front; then keep going below the decimal point '
         + 'until it comes out even or the decimals run out; the point itself is not kept'),
     outil: bilingue('La potence', 'The long division bracket'),
-    /* ★ **UNE FORME, DEUX RÉGLAGES.** Écrire ou taire les zéros de tête est un
-       RÉGLAGE de la potence, pas une autre méthode : `fl+tca+masc+mdc3` et
+    /* ★ **UNE MÉTHODE, DEUX RÉGLAGES.** Écrire ou taire les zéros de tête est
+       un RÉGLAGE de la potence, pas une autre méthode : `fl+tca+masc+mdc3` et
        `fl+tca+masc+md03` sont la même division posée. Le pré-tri des vecteurs
        n'en garde donc que la meilleure (`recherche/assemblage.js › formeDe`),
        exactement comme il ne garde qu'un décalage de César par morceau.
+
+       ⚠️ Le champ s'appelle `reglageDe`, et SURTOUT PAS `forme` : `forme` existe
+         déjà sur les tables à glissière et à réglette (`fr1`…`fr25`, `fatb`,
+         `flt`), où il nomme la forme DESSINÉE de la table. Le premier jet
+         réemployait ce nom, et l'Atbash se retrouvait « réglage » des César —
+         `lents/cible-mot.test.js` l'a vu, deux moissons sans rapport avec la
+         potence apparaissant sur « Sarah Kerrigan ».
        MESURÉ : sans cela, les deux prenaient deux des huit places finalisées
        sur « Le jardin sur le rocher de la maison », et chassaient la voie sans
        perte `tm+mlm+mab` que l'auteur veut voir remonter
        (`score-intermediaire.test.js`). */
-    forme: `mdd${decimales}`,
+    reglageDe: `mdd${decimales}`,
     // Plus cher que la division entière : on descend sous la virgule, ce qu'un
     // numérologue ne fait pas sans raison. Et c'est du dernier recours. Écrire
     // des zéros de tête est un cran plus ad hoc que les taire : c'est ce qui

@@ -157,6 +157,22 @@ for (const mot of ['Terran', 'Fantome']) {
  *   au lien d'aujourd'hui : même programme, même saisie, même cible, seule
  *   l'écriture a changé. Pour 666, les deux sont identiques au caractère près.
  *
+ * ★ **IL A ÉTÉ RÉGÉNÉRÉ UNE SECONDE FOIS, et voici pourquoi.** Branche
+ *   `potence-zero-initial`, sur deux décisions de l'auteur : la potence `mdc*`
+ *   n'écrit plus ses zéros de tête (l'ancien comportement a pris les codes
+ *   `md0*`), et deux mots peuvent se LIER par une division (`=mdl0!`, « James
+ *   Bond » → 007). Les cinq couples ont changé, et UNIQUEMENT par là :
+ *   - les voies `…+mdc3` changent de score (Sarah Kerrigan → 666, hope → 666) ;
+ *   - des voies à liaison entrent en tête des cibles demandées (Sarah
+ *     Kerrigan → 13 et → 007, Donald Trump → 111) ;
+ *   - ce qui tombe du bas d'une liste pleine en conséquence.
+ *   PROUVÉ deux fois, dans des worktrees jetables : l'ancienne potence rétablie
+ *   à l'identique (code, id, coût, sans `md0*` ni `mdl*`) rend cet instantané au
+ *   caractère près ; et un bilan entrée par entrée ne laisse AUCUNE différence
+ *   qui ne touche la potence ou la liaison. Ce bilan a d'abord trouvé deux
+ *   moissons sans rapport : c'était un défaut (un champ `forme` réemployé, voir
+ *   `assemblage.js › formeDe`), corrigé AVANT de régénérer.
+ *
  * ⚠️ C'est un fil tendu, pas une spécification. Une évolution VOULUE du barème
  *   ou du classement le fera rougir : c'est alors l'instantané qu'on régénère.
  */
@@ -168,6 +184,8 @@ const reecrire = (url) => {
   return ecrire({
     saisie: l.saisie, fragments: l.fragments, retouches: l.retouches,
     registre: l.registre, cible: l.cible, curseurs: l.curseurs, fouille: l.fouille,
+    // la LIAISON (`=mdl0!`) fait partie du lien : la taire le réécrirait faux
+    liaison: l.liaison,
   });
 };
 for (const [couple, attendu] of Object.entries(INSTANTANE)) {

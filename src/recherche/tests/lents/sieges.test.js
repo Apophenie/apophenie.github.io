@@ -55,8 +55,19 @@ test('★ défaut — rien ne bouge : la voie grammaticale reste hors de la list
 test('★ curseurs personnalisés — les deux voies sans perte sont proposées ensemble', () => {
   const r = moteur.resoudre(JARDIN, { fouille: 0, curseurs: { simplicite: 200 } });
   const liste = codes(r);
-  assert.ok(liste.includes('tm+mlm+mab'), `la voie sans perte par absorption : ${liste.join('  ')}`);
-  assert.ok(liste.includes('fl+tca+msen+mrdE'), `la voie sans perte par addition : ${liste.join('  ')}`);
+  const dit = liste.join('  ');
+  /* ★ **LA VOIE SANS PERTE EST DÉSORMAIS HONNÊTE.** C'était `tm+mlm+mab`, une
+     absorption. Depuis que la potence `mdc*` n'écrit plus ses zéros de tête
+     (décision de l'auteur), `fr1+tsy+mlm+mdc2` écrit `6 6 6` d'un trait, sans
+     ficelle ni rien de jeté — et les règles de l'auteur la préfèrent : « le
+     moins de ficelles d'abord », « une ficelle qui n'apporte rien n'est pas
+     proposée ». Preuve et démonstration : `score-intermediaire.test.js`, où la
+     même liste, rendue à l'ancienne potence, retrouve `tm+mlm+mab`. */
+  assert.ok(liste.includes('fr1+tsy+mlm+mdc2'), `la voie sans perte : ${dit}`);
+  assert.ok(liste.includes('fl+tca+msen+mrdE'), `la voie sans perte par addition : ${dit}`);
+  // « Une approche addition uniquement, EN PLUS de `mab`, pas à la place » :
+  // l'absorption reste proposée.
+  assert.ok(liste.some((c) => c.endsWith('+mab')), `une absorption reste proposée : ${dit}`);
 });
 
 /**

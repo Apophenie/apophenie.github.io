@@ -502,10 +502,10 @@ export const TITRES_COURTS = {
   'm.divisionDecimale1': b('division à 1 déc.', '1-decimal division'), // mdc1
   'm.divisionDecimale2': b('division à 2 déc.', '2-decimal division'), // mdc2
   'm.divisionDecimale3': b('division à 3 déc.', '3-decimal division'), // mdc3
-  'm.divisionDecimaleZero1': b('division à 1 déc., zéros de tête', '1-decimal division, leading zeros'), // md01
-  'm.divisionDecimaleZero2': b('division à 2 déc., zéros de tête', '2-decimal division, leading zeros'), // md02
-  'm.divisionDecimaleZero3': b('division à 3 déc., zéros de tête', '3-decimal division, leading zeros'), // md03
-  'm.divisionDeDeuxZero': b('division de deux nombres, zéros de tête', 'two-number division, leading zeros'), // mdl0
+  'm.divisionDecimaleZero1': b('division à 1 déc., 0 devant', '1-dec. division, leading 0'), // md01
+  'm.divisionDecimaleZero2': b('division à 2 déc., 0 devant', '2-dec. division, leading 0'), // md02
+  'm.divisionDecimaleZero3': b('division à 3 déc., 0 devant', '3-dec. division, leading 0'), // md03
+  'm.divisionDeDeuxZero': b('division de deux, 0 devant', 'two-number div., leading 0'), // mdl0
   'm.divisionDeDeux': b('division de deux nombres', 'two-number division'), // mdlc
   'm.division': b('division et reste', 'division and remainder'), // mdiv
   'm.divisionResteDabord': b('division, reste devant', 'division, remainder first'), // mdvr
