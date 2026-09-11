@@ -555,8 +555,15 @@ export const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 /** Colonnes par défaut d'une réglette : deux rangées de treize tiennent en largeur. */
 export const ALPHABET_COLS = 13;
 
-/** Ordres de numérotation modélisés — vocabulaire fermé. */
-export const ALPHABET_ORDRES = Object.freeze(['a1z26', 'z26a1']);
+/**
+ * Ordres de numérotation modélisés — vocabulaire fermé.
+ *
+ * ★ `1a26` est la réglette `a1z26` LUE À REBOURS : la case porte le rang en
+ *   tête et la lettre dessous, et c'est le nombre qui monte vers elle (`m1a`,
+ *   la cible textuelle). Ce n'est pas une troisième numérotation, c'est la même
+ *   dans l'autre sens — et elle a droit au même oracle.
+ */
+export const ALPHABET_ORDRES = Object.freeze(['a1z26', 'z26a1', '1a26']);
 
 /**
  * Mises en page modélisées — vocabulaire fermé.
@@ -663,7 +670,7 @@ export const TEINTES = Object.freeze(['valeur']);
 
 /** Ordre demandé, ramené au vocabulaire fermé (défaut : A=1). */
 export function normalizeOrdre(ordre) {
-  return ordre === 'z26a1' ? 'z26a1' : 'a1z26';
+  return ordre === 'z26a1' || ordre === '1a26' ? ordre : 'a1z26';
 }
 
 /** Mise en page demandée, ramenée au vocabulaire fermé (défaut : réglette). */
@@ -693,6 +700,9 @@ export function alphabetValue(letter, ordre = 'a1z26') {
 /** Les 26 correspondances de la réglette alphabétique, dans l'ordre demandé. */
 export function alphabetEntries(ordre = 'a1z26') {
   const o = normalizeOrdre(ordre);
+  // À rebours, la clé est le rang et la valeur la lettre : c'est le nombre qui
+  // cherche sa case. Le rang se recalcule ici comme dans l'autre sens.
+  if (o === '1a26') return [...ALPHABET].map((char, i) => ({ char: String(i + 1), value: char }));
   return [...ALPHABET].map((char) => ({ char, value: alphabetValue(char, o) }));
 }
 

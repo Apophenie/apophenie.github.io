@@ -79,7 +79,9 @@ import {
   lire, ecrire, descripteursDe, retouchesDe, ecrireRetouches, BANDEAUX, RE_A_TROUVER,
 } from './url.js';
 import { IMPLICITE_DEPUIS } from '../config.js';
-import { CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES } from './cible.js';
+import {
+  CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES, CODE_RANG_EN_LETTRE,
+} from './cible.js';
 import { deroulerParTranches } from './tranches.js';
 
 export { LIMITE_SAISIE, BANDEAUX, REGLAGES };
@@ -181,6 +183,11 @@ export function creerMoteur(catalogue, options = {}) {
     if (pbs.length) throw new Error('catalogue non conforme (CONTRACTS §2.2) :\n  - ' + pbs.join('\n  - '));
   }
   const ops = normaliserCatalogue(catalogue);
+  // ★ L'opérateur qui relit un rang en lettre — le dernier geste de toute voie
+  //   vers un MOT (`cible.js`, la cible textuelle). Pris ici, par son code, et
+  //   passé au scénario : `scenario.js` ne dépend pas du catalogue. Absent d'un
+  //   catalogue de test, il manque — et le scénario d'une cible-mot le dira.
+  const rangEnLettre = ops.find((o) => o && o.code === CODE_RANG_EN_LETTRE) || null;
   const cache = new Map();
   const maintenant = options.maintenant || (() => performance.now());
 
@@ -1025,6 +1032,9 @@ export function creerMoteur(catalogue, options = {}) {
       // La CIBLE traverse jusqu'au scénario : c'est elle qui décide de la
       // longueur d'une série au verdict, et des libellés qui nommaient « 6 ».
       cible: ctx.cible || approche.cible,
+      // Le verdict d'une cible écrite en lettres relit ses rangs par cet
+      // opérateur-là (`scenario.js`, « la cible textuelle »).
+      rangEnLettre,
       methode: ctx.methode || {
         id: approche.rang ?? 1,
         label: titreApproche(approche, langue),

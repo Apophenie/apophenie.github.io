@@ -148,6 +148,10 @@ export const ORDRE_CANONIQUE = Object.freeze([
   // ★ La division qui laisse le RESTE DEVANT — « 13/5 → 32 » et non « 23 ».
   //   Un autre nombre, pas une autre animation (l'auteur).
   'mdvr',
+  // ★ LE RANG QUI REDEVIENT LETTRE — l'inverse de `ma1`, et le dernier geste de
+  //   toute voie vers un MOT (`recherche/cible.js`, la cible textuelle). Inactif
+  //   en recherche. En fin de bloc mappeur, append-only (§4.1).
+  'm1a',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

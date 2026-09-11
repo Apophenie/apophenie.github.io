@@ -40,10 +40,14 @@ const CHAMPS_AFFICHES = ['libelle', 'regle', 'note', 'gabarit', 'outil'];
  * notation, pas de la prose. Toute autre égalité fr/en est une traduction
  * oubliée.
  */
-const NOTATIONS = new Set(['flt:regle', 'nv:regle', 'ma1:regle', 'mz26:regle', 'masc:regle', 'masb:regle']);
+const NOTATIONS = new Set([
+  'flt:regle', 'nv:regle', 'ma1:regle', 'mz26:regle', 'masc:regle', 'masb:regle',
+  // La réglette de `ma1`, lue à rebours (`m1a`) : la même notation, retournée.
+  'm1a:regle',
+]);
 
 test('★ toute chaîne affichable du catalogue porte ses deux langues', () => {
-  assert.equal(CATALOGUE.length, 176, 'le catalogue publié compte 176 opérateurs');
+  assert.equal(CATALOGUE.length, 177, 'le catalogue publié compte 177 opérateurs');
   for (const op of CATALOGUE) {
     assert.ok(estBilingue(op.libelle), `${op.code} (${op.id}) : « libelle » n’est pas bilingue`);
     assert.ok(estBilingue(op.regle), `${op.code} (${op.id}) : « regle » n’est pas bilingue`);

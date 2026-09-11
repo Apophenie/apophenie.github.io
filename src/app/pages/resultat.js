@@ -806,8 +806,11 @@ function commandeDeCible({ saisie, cible, texteCible, curseurs, fouille }) {
 
   const champ = e('input.champ.champ--cible', {
     type: 'text',
-    inputmode: 'numeric',
-    pattern: `[0-9]{1,${max}}`,
+    // ★ Des chiffres, OU un mot (`cible.js`, la cible textuelle). Le clavier
+    //   numérique ne s'impose donc plus : il aurait fermé la moitié de ce que
+    //   le champ accepte.
+    inputmode: 'text',
+    pattern: `[0-9]{1,${max}}|\\p{L}{1,${max}}`,
     maxlength: String(max),
     autocomplete: 'off',
     id: 'cible-libre',

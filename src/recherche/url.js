@@ -5,7 +5,7 @@
 //   url        := {chemin} '#' [approche] '#' saisie
 //              |  {chemin} '#' saisie                 // un seul `#`, voir plus bas
 //   approche   := marqueur* (retouche ';')* fragment (',' fragment)*
-//   marqueur   := registre '!' | 'c' chiffre+ '!'
+//   marqueur   := registre '!' | 'c' chiffre+ '!' | 'c' lettre+ '!'  // cible
 //               |  'p' cran '.' cran '.' cran '.' cran '!'   // les 4 curseurs
 //               |  'f' chiffre '!'                           // puissance de fouille
 //   registre   := 'so' | 'sce'        (formes longues encore LUES, plus écrites)
@@ -276,6 +276,16 @@
 // ambiguïté qui n'existe pas, et — surtout — CHANGERAIT la forme canonique de
 // tous les liens déjà partagés, que `canoniser()` réécrit à chaque ouverture.
 // Le marqueur ne paraît donc que là où il dit quelque chose.
+//
+// ★ **ET LA CIBLE PEUT ÊTRE UN MOT** — `czerg!`, `cfantome!` (`cible.js`, « la
+// cible textuelle »). Même lettre, même `!`, même place : ce qui distingue un
+// mot d'une suite de chiffres est la matière entre les deux, et les deux
+// matières ne se recouvrent pas. Aucun lien existant ne change de sens — un
+// `c` suivi de lettres et d'un `!` n'était rien jusqu'ici, puisque `!` ne
+// s'écrit que dans les marqueurs. La lecture plie casse et accents (`cZerg!`,
+// ou `cfant%C3%B4me!` qui arrive décodé, visent `zerg` et `fantome`) ;
+// l'écriture est toujours `c` + bas de casse sans accent, et `canoniser()`
+// l'impose à la barre d'adresse comme le reste.
 
 // ── LES QUATRE CURSEURS, `p100.100.100.100!` — partager une liste PONDÉRÉE ──
 //
@@ -603,8 +613,13 @@ const RE_REGISTRE = /^(so|sce|sobre|scenique)!/;
  * bien un marqueur de cible, simplement une cible ILLISIBLE, et il vaut mieux
  * le dire (bandeau + repli sur la page de résultats, §4.3) que la laisser
  * passer pour un fragment et échouer plus loin sur « code inconnu ».
+ *
+ * ★ Ou un MOT — `czerg!`. `\p{L}` et non `[a-z]` : « Fantôme » arrive avec son
+ * accent et sa capitale, et c'est `lireCible` qui plie. Refuser ici laisserait
+ * le lien échouer plus loin sur un « fragment illisible », qui ne dirait pas
+ * que c'était une cible.
  */
-const RE_CIBLE = /^c([0-9]+)!/;
+const RE_CIBLE = /^c([0-9]+|\p{L}+)!/u;
 
 /**
  * Le marqueur des QUATRE CURSEURS — `p100.100.100.100!`.
@@ -1141,7 +1156,8 @@ export const BANDEAUX = {
   //   une version manquante pour un opérateur présent.
   regleRefusee: (code) => `La règle « ${code} » ne s’applique pas à cette valeur : `
     + 'la démonstration s’arrête là.',
-  cibleIllisible: `Ce lien vise une suite que le moteur ne sait pas viser : au plus ${MAX_CHIFFRES} chiffres.`,
+  cibleIllisible: `Ce lien vise une cible que le moteur ne sait pas viser : au plus ${MAX_CHIFFRES} chiffres, `
+    + `ou un seul mot d’au plus ${MAX_CHIFFRES} lettres.`,
   formatInconnu: 'Ce lien a été créé par une autre version du site.',
   lienIllisible: 'Ce lien est illisible : la saisie n’a pas pu être décodée.',
   // Seul bandeau du moteur : le filet de sécurité temporel a mordu. Le

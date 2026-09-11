@@ -46,12 +46,14 @@
 // font que supprimer). Sinon on retombe sur le rendu générique ci-dessous, et on
 // le signale dans `scenario.avertissements`.
 
-import { rendreValeur } from './bfs.js';
+import { rendreValeur, etat as etatDe, appliquerOp } from './bfs.js';
 // Le titre et la règle d'une approche vivent dans `titres.js` (voir la note en
 // fin de fichier) ; on les importe pour continuer à les ré-exporter d'ici.
 import { titreApproche, regleApproche } from './titres.js';
 import { serieDeSix, sixDuChemin, compterMoisson } from './assemblage.js';
-import { CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles } from './cible.js';
+import {
+  CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecritureDe, CODE_RANG_EN_LETTRE,
+} from './cible.js';
 
 /**
  * Une chaîne affichable du catalogue est un couple `{fr, en}` (voir
@@ -2225,6 +2227,8 @@ export function construireScenario(approche, ctx = {}) {
   //   annonce. `666` par défaut, et tout ce module se replie alors exactement
   //   sur ce qu'il faisait avant qu'elle existe.
   const cible = normaliserCible(ctx.cible || approche.cible);
+  // Ce qu'on MONTRE de la cible : `666`, ou `ZERG` pour un mot (`cible.js`).
+  const ecritureCible = ecritureDe(cible);
   // ★ Et la mise en scène se REPLIE sur « sobre » dès que la cible n'a pas
   //   d'emblème. Les cornes sont celles du 666 ; il n'y a rien à jouer au-dessus
   //   d'un 111 tant que l'auréole n'est pas dessinée
@@ -2819,6 +2823,11 @@ export function construireScenario(approche, ctx = {}) {
 
   let finaux = resultats.filter(Boolean);
   if (!finaux.length) throw new ErreurRendu('aucun résultat à révéler', null);
+  // La VALEUR de chaque jeton qu'on pourrait révéler — `resultats` et
+  // `valeursFinales` avancent du même pas. Une cible écrite en lettres en a
+  // besoin au dernier moment : c'est ce rang-là que la réglette relira.
+  const valeursRevelees = new Map();
+  resultats.forEach((id, i) => { if (id) valeursRevelees.set(id, valeursFinales[i]); });
 
   // ── LA RÉCOLTE de la moisson, en un seul geste et à la toute fin ──────────
   //
@@ -2908,6 +2917,7 @@ export function construireScenario(approche, ctx = {}) {
     }));
     nouvelleEtape(MOTS.resonance[langue], MOTS.resonanceLegende[langue],
       [{ op: 'substitute', pairs: [{ target: source, to: copies }], stagger: 140 }]);
+    copies.forEach((c, k) => valeursRevelees.set(c.id, cible.chiffres[k]));
     aReveler = copies.map((c) => c.id);
   }
 
@@ -2958,6 +2968,59 @@ export function construireScenario(approche, ctx = {}) {
   //   exploser, et les jetons qu'elle révèle ne sont même pas ceux d'avant.
   if (!verdictRecolte) surnumeraires = [];
 
+  // ★ **LA CIBLE TEXTUELLE — les rangs redeviennent des lettres, et on le VOIT.**
+  //
+  //   Une voie vers un mot écrit des RANGS (`cible.js`, l'en-tête) : `26 5 18 7`
+  //   pour ZERG. Révéler ces nombres sous l'annonce « ZERG » décréterait la
+  //   dernière conversion au lieu de la montrer. Elle se joue donc ici, sur la
+  //   ligne déjà rassemblée dans l'ordre du verdict, par l'opérateur du
+  //   catalogue (`m1a`) — ses étapes, sa réglette, ses contrôles croisés : la
+  //   scène ne réinvente pas la table.
+  //
+  //   ⚠️ L'opérateur vient de l'APPELANT (`ctx.rangEnLettre`, que `index.js ›
+  //     scenarioDe` prend dans le catalogue) : ce module ne dépend pas du moteur
+  //     arithmétique, il code contre le contrat. Sans lui, on refuse de rendre
+  //     plutôt que de révéler des nombres sous l'annonce d'un mot.
+  //   ⚠️ Les surnuméraires restent des nombres : ils explosent au verdict sans
+  //     avoir été relus, puisqu'ils n'écrivent rien.
+  const relireEnLettres = (ids) => {
+    const op = ctx.rangEnLettre;
+    if (!op || typeof op.steps !== 'function' || typeof op.apply !== 'function') {
+      throw new ErreurRendu(
+        `la cible ${ecritureCible} s’écrit en lettres, et l’opérateur qui relit un rang en lettre `
+        + `(${CODE_RANG_EN_LETTRE}) n’a pas été fourni : on ne révèle pas des nombres sous l’annonce d’un mot`,
+        null,
+      );
+    }
+    const valeurs = ids.map((id) => valeursRevelees.get(id));
+    if (!valeurs.every(Number.isInteger)) {
+      throw new ErreurRendu(`le verdict de ${ecritureCible} ne sait pas quel rang porte chacun de ses jetons`, op);
+    }
+    const avant = etatDe('NUMS', valeurs, []);
+    const apres = appliquerOp(op, avant);
+    if (!apres) {
+      throw new ErreurRendu(`la ligne révélée porte « ${valeurs.join(' ')} », et ${op.code} n’y lit pas `
+        + `que des rangs de 1 à 26 : elle n’écrit pas ${ecritureCible}`, op);
+    }
+    const emis = essayerCatalogue(op, avant, apres, ids.map((id) => [id]), alloc, avertissements,
+      `x${nCle++}`, langue);
+    if (!emis) {
+      throw new ErreurRendu(`la réglette de ${op.code} n’a pas pu être montrée — `
+        + `${avertissements[avertissements.length - 1] || 'sans motif'}`, op);
+    }
+    for (const st of emis.steps) {
+      poserBloc({
+        titre: st.title || dire(op.libelle, langue),
+        legende: st.caption ?? null,
+        ops: st.ops,
+        hold: st.hold,
+        code: op.code,
+      });
+    }
+    return emis.courants.map((c) => c[0]);
+  };
+  if (cible.nature === 'mot') aReveler = relireEnLettres(aReveler);
+
   if (aReveler.length > 1) {
     // Pas de `move` ici : `reveal` efface lui-même les jetons écartés et laisse
     // le layout recentrer ce qui reste. Un `move ... to: 'front'` ne ferait plus
@@ -2976,16 +3039,16 @@ export function construireScenario(approche, ctx = {}) {
     //   qui explosent une fois la ligne rassemblée (voir `lesPlusCentraux` et
     //   `visuel/primitives/reveal.js`). Le champ n'est écrit que s'il y en a :
     //   un verdict qui n'a rien de trop reste le scénario d'hier, à l'octet.
-    nouvelleEtape(MOTS.verdict[langue], ctx.resultat || cible.texte, [
+    nouvelleEtape(MOTS.verdict[langue], ctx.resultat || ecritureCible, [
       {
         op: 'reveal', targets: aReveler, at: 250, stagger: 150, serie: cible.longueur,
         ...(surnumeraires.length ? { surnumeraires } : {}),
       },
     ], { hold: 1200 });
   } else {
-    nouvelleEtape(MOTS.verdict[langue], ctx.resultat || cible.texte, [
+    nouvelleEtape(MOTS.verdict[langue], ctx.resultat || ecritureCible, [
       { op: 'reveal', targets: aReveler, serie: cible.longueur },
-      { op: 'annotate', anchor: aReveler, text: ctx.resultat || cible.texte, place: 'below', at: 400 },
+      { op: 'annotate', anchor: aReveler, text: ctx.resultat || ecritureCible, place: 'below', at: 400 },
     ]);
   }
 
@@ -3027,7 +3090,7 @@ export function construireScenario(approche, ctx = {}) {
       label: (ctx.methode && ctx.methode.label) || titreApproche(approche, langue),
       rule: (ctx.methode && ctx.methode.rule) || regleApproche(approche, langue),
     },
-    result: ctx.resultat || cible.texte,
+    result: ctx.resultat || ecritureCible,
     tokens,
     steps,
   };
@@ -3655,8 +3718,8 @@ export function titreDeRecolte(cible, majoritaire, langue, sacrifies = false) {
        `aJeter` n'est pas vide. Une étape qui n'ôte rien n'a jamais lieu. */
   if (sacrifies) {
     return langue === 'en'
-      ? `Keep only whole ${cbl.texte}s`
-      : `On ne garde que les ${cbl.texte} complets`;
+      ? `Keep only whole ${ecritureDe(cbl)}s`
+      : `On ne garde que les ${ecritureDe(cbl)} complets`;
   }
   if (cbl.homogene) {
     return langue === 'en'
@@ -3664,8 +3727,8 @@ export function titreDeRecolte(cible, majoritaire, langue, sacrifies = false) {
       : `On ne garde que les ${cbl.chiffres[0]}`;
   }
   return langue === 'en'
-    ? `Keep only what spells out ${cbl.texte}`
-    : `On ne garde que ce qui écrit ${cbl.texte}`;
+    ? `Keep only what spells out ${ecritureDe(cbl)}`
+    : `On ne garde que ce qui écrit ${ecritureDe(cbl)}`;
   }
 
 /**
@@ -3794,7 +3857,7 @@ const MOTS = Object.freeze({
     if (cbl.longueur === 1) {
       return en
         ? `${series > 1 ? `${series} of them` : 'Just the one'} — ${reste}`
-        : `${series > 1 ? `${series} fois le ${cbl.texte}` : `Un seul ${cbl.texte}`} — ${reste}`;
+        : `${series > 1 ? `${series} fois le ${ecritureDe(cbl)}` : `Un seul ${ecritureDe(cbl)}`} — ${reste}`;
     }
     const bloc = EN_LETTRES[en ? 'en' : 'fr'][cbl.longueur] || String(cbl.longueur);
     return en

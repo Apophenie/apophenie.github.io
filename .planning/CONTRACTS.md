@@ -3191,6 +3191,44 @@ et portent le même programme, donc elles se groupent désormais. Sa suite de
 chiffres, elle, est inchangée — c'est justement ce que la règle « seulement des
 voisines » garantit.
 
+> *Amendement — LA CIBLE TEXTUELLE, `czerg!`.*
+>
+> « Je voudrais la possibilité d'aller d'une saisie (lettre, chiffre...) vers une
+> autre qui n'est pas nécessairement des chiffres. […] Exemple : Sarah Kerrigan →
+> Zerg, mais aussi Sarah Kerrigan → Terran, → Ghost, → Fantome. » (l'auteur)
+>
+> ★ **Grammaire.** `marqueur := … | 'c' lettre+ '!'`. Même lettre, même `!`, même
+> place que `c111!` ; les deux matières ne se recouvrent pas, et aucun lien
+> existant ne change de sens (un `c` suivi de lettres et d'un `!` n'était rien).
+> Lecture pliée — casse et accents : `cFantôme!` vise `fantome` —, écriture
+> canonique en bas de casse sans accent. Un mot mêlé de chiffres, plusieurs mots,
+> un signe hors A…Z après pliage : cible illisible, avec son bandeau (§4.3).
+>
+> ★ **Modèle** (`recherche/cible.js`). Un mot est une suite de RANGS — `zerg`
+> vaut `26 5 18 7` —, et le moteur la vise comme il vise `007` : mêmes fragments,
+> mêmes bassins, même assemblage, même refus des suppressions en fin de chemin
+> (un mot est une cible hétérogène). Les opérateurs qui lisent la cible (`viser`)
+> raisonnent en chiffres décimaux ; face à un mot ils se désactivent d'eux-mêmes,
+> parce que `lireVisee` refuse une écriture qui n'est pas faite de chiffres.
+> L'affichage est en capitales (`ZERG`), celles que la réglette rend.
+>
+> ★ **Registre §4.1 : `m1a`, « chaque rang redevient sa lettre »**, en fin de
+> bloc mappeur (`NUMS → TOKENS`). L'inverse de `ma1`, montré par la même réglette
+> lue à rebours (`ordre: '1a26'`, que le moteur visuel recalcule comme il
+> recalcule `a1z26`). De 1 à 26 exactement : pas de tour de l'alphabet, qui
+> serait un modulo caché. **Inactif en recherche** — exploré, il aurait changé la
+> dépense du budget, donc la liste des cibles chiffrées. C'est le VERDICT d'une
+> cible-mot qui le joue, sur la ligne rassemblée, avant de révéler le mot
+> (`scenario.js`) ; il ne s'écrit pas dans les liens, puisqu'il est la dernière
+> étape de toute voie vers un mot.
+>
+> ⚠️ **Mesuré, et c'est la réponse honnête à la demande** : avec le catalogue
+> actuel, AUCUN des quatre exemples de l'auteur n'est atteignable — ni par un
+> programme d'un seul tenant, ni mot par mot, ni en anagramme exact, ni par
+> l'assemblage aux rangs. « Sarah Kerrigan » n'a ni Z, ni T, ni O, et aucune
+> conversion du catalogue ne les fait tomber juste. `tests/lents/cible-mot.test.js`
+> les porte en `todo`, avec ce qu'il faudrait ajouter pour qu'ils le deviennent.
+
 ### 4.3 Lecture tolérante, écriture canonique
 
 | Forme lue | Comportement |

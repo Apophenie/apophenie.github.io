@@ -6740,7 +6740,104 @@ const AUTRES_MAPPEURS = [
       regle: bilingue('Le reste demeure où il était, et le compte des retraits vient se placer après lui',
         'The remainder stays where it was, and the count of removals comes after it') },
   ].map((spec) => operateurDeDivision({ ...spec, suffixe: 'r' })),
+
+  // ★ LE RANG QUI REDEVIENT LETTRE — `m1a`. La fabrique est déclarée juste en
+  //   dessous : c'est le hissage des déclarations de fonction qui la rend
+  //   appelable ici, avant sa ligne.
+  operateurRangEnLettre(),
 ];
+
+/**
+ * ★ **LE RANG QUI REDEVIENT LETTRE — `m1a`, l'inverse exact de `ma1`.**
+ *
+ * > « … ou par conversion en chiffres puis conversion chiffre vers lettre
+ * >   quand nécessaire. » (l'auteur)
+ *
+ * Le catalogue allait des lettres aux nombres d'une quarantaine de manières, et
+ * n'en revenait que par `mlet`, qui ÉCRIT un chiffre (7 → « sept »). Il
+ * manquait le retour que tout le monde connaît : 26 est la vingt-sixième
+ * lettre, c'est Z. C'est la réglette de `ma1` lue dans l'autre sens — et elle
+ * se MONTRE dans l'autre sens : le nombre monte vers sa case, la lettre en
+ * redescend, un rang à la fois. `ordre: '1a26'` fait recalculer la réglette par
+ * le moteur visuel, comme pour `ma1` : il ne croit pas la table qu'on lui passe.
+ *
+ * ★ **De 1 à 26, sans tour de l'alphabet.** Lire 27 comme A serait une seconde
+ *   règle — un modulo — cachée dans la première. Mesuré avant de trancher : sur
+ *   les quatre exemples de l'auteur, le tour de l'alphabet n'ouvre pas une voie
+ *   de plus. Il n'aurait donc coûté qu'une ficelle.
+ *
+ * ★ **INACTIF EN RECHERCHE** (`actifParDefaut: false`), et c'est la condition
+ *   de la non-régression. Exploré, il ferait passer toute ligne de rangs par
+ *   des lettres, puis par quarante mappeurs de plus : le budget de travail se
+ *   dépenserait autrement, et la liste de 666 changerait. Il n'a d'ailleurs rien
+ *   à faire au milieu d'une voie : c'est le VERDICT d'une cible écrite en
+ *   lettres qui l'emploie (`recherche/scenario.js`), sur les rangs que la voie a
+ *   écrits. Il reste exécutable, dans un lien comme ailleurs — un opérateur
+ *   inactif n'est pas un opérateur caché.
+ *
+ * ★ Les lettres qu'il écrit sont MUÉES (`etat.js › mue`) : ce ne sont pas celles
+ *   de la saisie, et aucun retrait grammatical ne doit pouvoir les lire comme
+ *   des mots de la phrase tapée.
+ *
+ * ★ Notoriété 0,85 : la table de `ma1` (0,90), lue à rebours — un cran de
+ *   moins, parce qu'on apprend « A = 1 » et qu'on recompte « 26 = ? » sur ses
+ *   doigts. AdHoc 0,30 : on ne relit des rangs en lettres que parce qu'on
+ *   cherche un mot.
+ */
+function operateurRangEnLettre() {
+  const libelle = bilingue('Chaque rang redevient sa lettre', 'Each rank turns back into its letter');
+  const regle = bilingue('1=A, 2=B, … 26=Z', '1=A, 2=B, … 26=Z');
+  const outil = bilingue('Réglette alphabétique, lue à rebours', 'Alphabet ruler, read backwards');
+  // La table MONTRÉE est celle qu'`apply` lit : les vingt-six lettres de
+  // `LETTRES`, numérotées par leur place. Une seule source, donc aucune
+  // divergence possible entre la case allumée et la lettre écrite.
+  const table = Object.freeze([...LETTRES].map((c, i) => Object.freeze({ char: String(i + 1), value: c })));
+  const idDe = (ctx, i) => `${ctx.cle}_l${i}`;
+  return def({
+    id: 'm.rangEnLettre', code: 'm1a', famille: 'mappeur', from: 'NUMS', to: 'TOKENS',
+    libelle, regle, outil,
+    notoriete: 0.85, adHoc: 0.3,
+    actifParDefaut: false,
+    mue: true,
+    note: bilingue(
+      'La réglette de « A=1 », lue dans l’autre sens. Rien au-delà de 26, '
+      + 'car recommencer l’alphabet serait une seconde règle.',
+      'The “A=1” ruler, read the other way round. Nothing past 26, since '
+      + 'starting the alphabet over would be a second rule.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      const out = [];
+      for (const n of valeur) {
+        if (!Number.isInteger(n) || n < 1 || n > LETTRES.length) return null;
+        out.push(LETTRES[n - 1]);
+      }
+      return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
+    },
+    sortie: (avant, apres, ctx) => apres.valeur.map((_, i) => idDe(ctx, i)),
+    // ★ Un aller-retour par rang, jamais groupé — la règle de `table`
+    //   (`visuel/primitives/table.js`) : on doit voir QUEL nombre a donné QUELLE
+    //   lettre. La réglette monte au premier, reste montée, se replie au dernier.
+    steps: (avant, apres, ctx) => {
+      const titre = dire(libelle, ctx.langue);
+      const dit = dire(regle, ctx.langue);
+      const nomOutil = dire(outil, ctx.langue);
+      const dernier = apres.valeur.length - 1;
+      return apres.valeur.map((lettre, i) => etape(ctx, titre, `${dit} : ${avant.valeur[i]} → ${lettre}`, [{
+        op: 'table',
+        disposition: 'reglette',
+        titre: nomOutil,
+        ordre: '1a26',
+        entries: table.map((e) => ({ ...e })),
+        target: ctx.ids[i],
+        letter: String(avant.valeur[i]),
+        to: token(idDe(ctx, i), lettre, 'letter'),
+        montre: i === 0,
+        retire: i === dernier,
+      }], { id: `s_${ctx.cle}_${i}` }));
+    },
+  });
+}
 
 /** Les dix caractères que « le tiret du 6 » sait convertir — exposé pour l'UI. */
 export const TOUCHES_CHIFFREES = Object.freeze(Object.keys(CHIFFRE_DE_TOUCHE));

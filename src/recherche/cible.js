@@ -50,6 +50,56 @@
 // tel quel — la cible ne modifie NI le catalogue NI le barème, elle change
 // seulement ce qu'on y cherche. Si `000` rend peu de voies, c'est un fait sur
 // la saisie, pas un défaut à corriger en truquant la mesure.
+//
+// ── LA CIBLE TEXTUELLE — « Sarah Kerrigan → Zerg » ──────────────────────────
+//
+// « Je voudrais la possibilité d'aller d'une saisie (lettre, chiffre...) vers
+// une autre qui n'est pas nécessairement des chiffres. Ça peut se faire par
+// simple réagencement + filtre dans certains cas, ou par conversion en chiffres
+// puis conversion chiffre vers lettre quand nécessaire. » (l'auteur)
+//
+// Une cible peut donc être un MOT. Et un mot n'est pas ici une autre espèce de
+// cible : c'est une suite de RANGS alphabétiques. `zerg` s'écrit `26 5 18 7`
+// exactement comme `007` s'écrit `0 0 7` ; le champ `chiffres` porte ces rangs,
+// et `nature` dit qu'il s'agit d'un mot.
+//
+// ★ **Les rangs, et pas un second moteur — parce que c'est mesuré.** Nourri des
+//   rangs, le pipeline existant (fragments, bassins, assemblage, barème, URL)
+//   trouve sans une ligne de plus `Zerg → zerg` par `tca+ma1`, et même quatre
+//   lectures convergentes de « Zerg » qui rendent Z, E, R et G ; il trouve la
+//   portée « Sarah » de « Sarah Kerrigan → sarah ». Tout ce que le site sait
+//   faire pour écrire `007` sert à écrire un mot — y compris le refus des
+//   suppressions en fin de chemin (`elegance.js › elagueALaFin`) : un mot est
+//   une cible hétérogène, on n'y garde pas « les lettres qui arrangent ».
+//
+// ★ **Le retour aux lettres est MONTRÉ, pas décrété.** Les voies écrivent des
+//   rangs ; le verdict les fait passer un à un par la réglette alphabétique lue
+//   à rebours (`m1a`, « 26 → Z ») avant de révéler le mot. C'est un opérateur
+//   du catalogue, avec sa table et ses étapes — mais il n'est pas exploré : il
+//   est la dernière étape de TOUTE voie vers un mot, et le laisser entrer dans
+//   la recherche aurait changé ce qu'on explore pour les cibles chiffrées
+//   (`mappeurs.js › operateurRangEnLettre`).
+//
+// ★ **Casse et accents ne comptent pas** : « Fantôme », « FANTOME » et
+//   « fantome » sont une seule cible, `fantome`. La réglette a vingt-six cases,
+//   sans casse ni accent — `ma1` plie déjà « é » sur « e » —, et une cible qui
+//   distinguerait `ô` de `o` promettrait ce qu'aucun rang ne sait écrire.
+//   L'écriture canonique est en bas de casse sans accent : c'est elle qui
+//   voyage dans l'URL (`czerg!`). L'AFFICHAGE est en capitales — celles que la
+//   réglette fait descendre au verdict, pour qu'on n'annonce pas « zerg »
+//   au-dessus d'un « ZERG ».
+//
+// ★ **Ce qui n'est PAS une cible** : un mot mêlé de chiffres (`c3po`), plusieurs
+//   mots (`reine des lames`), un trait d'union ou une apostrophe, une lettre que
+//   le pliage ne ramène pas dans A…Z (`œ`, `ß`). On refuse, et l'URL le dit
+//   (`url.js › BANDEAUX.cibleIllisible`) : deviner une cible, c'est en viser
+//   une autre.
+//
+// ⚠️ **Les quatre exemples de l'auteur restent hors de portée**, et ce n'est pas
+//   ce module qui y peut quelque chose : « Sarah Kerrigan » n'a ni Z, ni T, ni
+//   O, et aucune conversion du catalogue ne les fait tomber juste. Mesuré de
+//   quatre façons — voir `tests/lents/cible-mot.test.js`, qui les porte en
+//   `todo` avec ce qu'il faudrait ajouter.
 
 /**
  * Le plafond de longueur — voir l'en-tête.
@@ -76,6 +126,9 @@
  * Dix plutôt que huit : une date de naissance s'écrit `01012000` en huit
  * chiffres, mais aussi `0101200019` ou `19012000` selon les usages, et deux
  * chiffres de marge ne coûtent rien puisque la combinatoire décroît.
+ *
+ * ★ Il borne aussi un MOT, à dix lettres, et pour la même raison : c'est la
+ * longueur d'une série, quel que soit l'alphabet dans lequel elle s'écrit.
  */
 export const MAX_CHIFFRES = 10;
 
@@ -87,17 +140,20 @@ const RE_CIBLE = /^[0-9]+$/;
 /**
  * @typedef {Object} Cible
  * @property {string} texte        l'écriture décimale, zéros de tête compris
- * @property {number[]} chiffres   les chiffres, gelés
+ * @property {number[]} chiffres   les chiffres, gelés — pour un MOT, ses rangs (a=1 … z=26)
  * @property {number} longueur     `chiffres.length` — la longueur d'une série
  * @property {number[]} alphabet   les chiffres DISTINCTS, croissants, gelés
  * @property {boolean} homogene    un seul chiffre distinct (`666`, `111`, `000`)
  * @property {boolean} defaut      vaut-elle `666` ?
  * @property {number|null} nombre  l'entier, ou `null` si l'écriture ne le retrouve pas
+ * @property {'chiffres'|'mot'} nature  une suite de chiffres, ou un mot (voir l'en-tête)
+ * @property {string} affichage    ce qu'on MONTRE : l'écriture, en capitales pour un mot
  */
 
 /**
- * Lit une cible écrite. Rend `null` sur tout ce qui n'est pas une suite de
- * chiffres décimaux non vide et d'au plus `MAX_CHIFFRES` signes.
+ * Lit une cible écrite. Rend `null` sur tout ce qui n'est ni une suite de
+ * chiffres décimaux non vide et d'au plus `MAX_CHIFFRES` signes, ni un MOT
+ * d'au plus `MAX_CHIFFRES` lettres (voir l'en-tête, « la cible textuelle »).
  *
  * ★ **Aucune tolérance, et c'est délibéré.** On pourrait accepter les espaces,
  * les points médians, ou un `6·6·6` recopié depuis l'ancien pied de panneau.
@@ -106,6 +162,11 @@ const RE_CIBLE = /^[0-9]+$/;
  * une même cible et une question de plus à trancher à chaque comparaison. Le
  * champ de saisie de la page de listing filtre au clavier ; ce qui arrive ici
  * est déjà propre, ou n'est pas une cible.
+ *
+ * ⚠️ **Le pliage d'un mot n'est pas une tolérance.** « Fantôme » et « FANTOME »
+ * ne sont pas deux écritures d'une même cible qu'on accepterait par
+ * indulgence : ce sont deux saisies d'une cible qui n'a qu'une écriture, parce
+ * que la réglette n'a ni casse ni accent. L'écriture canonique reste unique.
  *
  * @param {string|number|number[]|Cible} entree
  * @returns {Cible|null}
@@ -121,7 +182,9 @@ export function lireCible(entree) {
   } else {
     texte = String(entree ?? '').trim();
   }
-  if (!RE_CIBLE.test(texte)) return null;
+  // Ce qui n'est pas une suite de chiffres peut encore être un MOT — sauf un
+  // tableau, qui ne porte que des chiffres.
+  if (!RE_CIBLE.test(texte)) return Array.isArray(entree) ? null : lireMot(texte);
   if (texte.length > MAX_CHIFFRES) return null;
 
   const chiffres = Object.freeze([...texte].map(Number));
@@ -140,6 +203,48 @@ export function lireCible(entree) {
     homogene: alphabet.length === 1,
     defaut: texte === TEXTE_DEFAUT,
     nombre,
+    nature: 'chiffres',
+    affichage: texte,
+  });
+}
+
+/**
+ * ★ LE PLIAGE — ce qui fait de « Fantôme », « FANTOME » et « fantome » une
+ * seule cible : décomposition canonique, diacritiques retirés, bas de casse.
+ * Exactement ce que la réglette sait écrire. `toLowerCase` et non
+ * `toLocaleLowerCase` : aucune source d'entropie (§4.4 règle 4).
+ */
+export function plierMot(texte) {
+  return String(texte ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
+const RE_MOT = /^[a-z]+$/;
+
+/**
+ * Lit une cible écrite en LETTRES — un mot, et un seul. `null` sur tout le
+ * reste : plusieurs mots, un chiffre mêlé, un signe que le pliage ne ramène pas
+ * dans A…Z, plus de `MAX_CHIFFRES` lettres.
+ *
+ * ★ `chiffres` porte les RANGS : c'est ce que les voies écrivent, et ce que
+ *   `seriesDe`, les bassins et l'assemblage comparent. `nombre` vaut `null` :
+ *   un mot n'a pas d'écriture décimale, le mode DIRECT ne le concerne pas.
+ * @returns {Cible|null}
+ */
+function lireMot(brut) {
+  const texte = plierMot(brut);
+  if (!RE_MOT.test(texte) || texte.length > MAX_CHIFFRES) return null;
+  const chiffres = Object.freeze([...texte].map((c) => c.charCodeAt(0) - 96));
+  const alphabet = Object.freeze([...new Set(chiffres)].sort((a, b) => a - b));
+  return Object.freeze({
+    texte,
+    chiffres,
+    longueur: chiffres.length,
+    alphabet,
+    homogene: alphabet.length === 1,
+    defaut: false,
+    nombre: null,
+    nature: 'mot',
+    affichage: texte.toUpperCase(),
   });
 }
 
@@ -160,6 +265,27 @@ export function normaliserCible(entree) {
 
 /** Deux cibles sont-elles la même ? (comparaison sur l'écriture, qui est canonique) */
 export const memeCible = (a, b) => normaliserCible(a).texte === normaliserCible(b).texte;
+
+/** La cible est-elle un MOT ? (voir l'en-tête, « la cible textuelle ») */
+export const estMot = (entree) => normaliserCible(entree).nature === 'mot';
+
+/**
+ * L'écriture qu'on MONTRE : `666`, `007`, ou `ZERG` pour un mot. Une cible
+ * reçue d'ailleurs sans `affichage` — un objet fabriqué à la main — se montre
+ * par son écriture, qui est la même pour des chiffres.
+ */
+export const ecritureDe = (entree) => {
+  const c = normaliserCible(entree);
+  return c.affichage ?? c.texte;
+};
+
+/**
+ * Le code de l'opérateur qui relit un rang en lettre — `m1a`. Le verdict d'une
+ * cible-mot le joue (`scenario.js`), et `index.js` le prend dans le catalogue
+ * qu'on lui a donné : la recherche ne dépend pas du moteur arithmétique, elle
+ * en connaît le contrat, et un code est alloué à vie (§4.1).
+ */
+export const CODE_RANG_EN_LETTRE = 'm1a';
 
 // ═════════════════════════════════ écrire la cible dans un vecteur
 
@@ -243,10 +369,11 @@ export const ecrit = (valeurs, cible) => seriesDe(valeurs, cible, 1).length === 
 /**
  * Le verdict à afficher : `666`, ou `666 666` quand il y a de quoi.
  * L'écriture est celle de la cible, zéros de tête compris — c'est bien pour ça
- * qu'une cible est une CHAÎNE et pas un nombre.
+ * qu'une cible est une CHAÎNE et pas un nombre. Un mot s'y écrit en capitales,
+ * comme la réglette le rend (`affichage`).
  */
 export function verdict(nSeries, cible) {
   const c = normaliserCible(cible);
   const n = Math.max(1, nSeries || 1);
-  return Array.from({ length: n }, () => c.texte).join(' ');
+  return Array.from({ length: n }, () => c.affichage ?? c.texte).join(' ');
 }

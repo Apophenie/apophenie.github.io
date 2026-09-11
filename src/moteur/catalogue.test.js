@@ -319,6 +319,8 @@ const VECTEURS = [
      13/5 → 23, 13/5 → 32 » (l'auteur) — deux gestes, deux lignes, deux nombres,
      et non deux animations d'un même résultat. */
   ['mdvr', N([135]), [3, 2]],
+  // ★ LE RANG QUI REDEVIENT LETTRE — l'inverse de `ma1`, rien au-delà de 26.
+  ['m1a', N([26, 5, 18, 7]), ['Z', 'E', 'R', 'G']],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],
@@ -400,6 +402,8 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   mrdE: 'partition',
   mabx: 'partition',
   mabd: 'partition',
+  // Le rang qui redevient lettre se montre sur la réglette, lue à rebours.
+  m1a: 'table',
 });
 
 /**
@@ -454,8 +458,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 176); // …+3 décimales, +1 reste devant (mdvr)
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 176, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 177); // …+3 décimales, +1 reste devant (mdvr), +1 rang en lettre (m1a)
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 177, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -465,7 +469,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 176, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 177, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -1250,10 +1254,15 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
           assert.ok(Array.isArray(o.entries) && o.entries.length >= 26,
             `${code} : « entries » manquant — la conversion serait affirmée, pas montrée`);
           const cases = new Map(o.entries.map((e) => [e.char, String(e.value)]));
-          assert.match(String(o.letter), /^[A-Z]$/, `${code} : « letter » manquant ou non replié`);
-          assert.match(String(o.to && o.to.text), /^\d+$/,
+          // ★ À REBOURS (`ordre: '1a26'`, `m1a`), les rôles s'échangent et rien
+          //   d'autre : c'est un RANG qui monte chercher sa case, une LETTRE qui
+          //   en redescend. Le contrôle est le même, retourné — pas relâché.
+          const aRebours = o.ordre === '1a26';
+          assert.match(String(o.letter), aRebours ? /^\d+$/ : /^[A-Z]$/,
+            `${code} : « letter » manquant ou non replié`);
+          assert.match(String(o.to && o.to.text), aRebours ? /^[A-Z]$/ : /^\d+$/,
             `${code} : « to.text » manquant — c'est lui qui fait échouer la compilation `
-            + 'si la table montrait autre chose que le nombre annoncé');
+            + 'si la table montrait autre chose que la valeur annoncée');
           assert.equal(cases.get(o.letter), String(o.to.text),
             `${code} : la table montrée et le nombre annoncé divergent sur « ${o.letter} »`);
         } else if (attendue === 'keyboard') {
@@ -1549,4 +1558,35 @@ test('★ `mrdE` — le redécoupage exact ne laisse rien, ou ne fait rien', () 
   const racine = r.find((s) => s.ops.some((o) => o.op === 'reduce'));
   assert.ok(racine, 'la réduction 15 → 6 est un geste, pas une affirmation');
   assert.equal(racine.caption, '9 + 3 + 3 = 15 → 1 + 5 → 6');
+});
+
+/* ★ LE RANG QUI REDEVIENT LETTRE — `m1a` (la cible textuelle). Ses refus, et sa
+   place hors de la recherche : c'est elle qui garantit que viser un mot ne
+   change rien à ce qu'on trouve pour 666. */
+test('m1a — de 1 à 26, et rien d’autre : pas de tour de l’alphabet', () => {
+  const op = PAR_CODE.get('m1a');
+  assert.deepEqual([...appliquer(op, N([1, 26])).valeur], ['A', 'Z']);
+  assert.equal(appliquer(op, N([0])), null, 'zéro n’a pas de lettre');
+  assert.equal(appliquer(op, N([27])), null, '27 n’est pas A : ce serait un modulo caché');
+  assert.equal(appliquer(op, N([5, 27, 7])), null, 'un seul rang illisible, et la ligne ne se lit pas');
+  assert.equal(appliquer(op, N([-3])), null);
+});
+
+test('m1a — inactif en recherche, exécutable partout, et ses lettres sont muées', () => {
+  const op = PAR_CODE.get('m1a');
+  assert.equal(operateursActifs().includes(op), false,
+    'exploré, il changerait la dépense du budget — donc la liste — des cibles chiffrées');
+  const avant = N([26, 5, 18, 7]);
+  const lettres = appliquer(op, avant);
+  assert.equal(lettres.mue, true, 'ce ne sont pas les lettres de la saisie');
+  // Sa réglette est celle que le moteur visuel sait recalculer, à rebours.
+  const steps = etapes(op, avant, lettres, { ids: ['a', 'b', 'c', 'd'], cle: 'k' });
+  assert.equal(steps.length, 4, 'un aller-retour par rang, jamais groupé');
+  const t = steps[0].ops[0];
+  assert.equal(t.op, 'table');
+  assert.equal(t.ordre, '1a26');
+  assert.equal(t.letter, '26', 'c’est le NOMBRE qui monte chercher sa case');
+  assert.equal(t.to.text, 'Z');
+  assert.equal(t.montre, true);
+  assert.equal(steps[3].ops[0].retire, true);
 });
