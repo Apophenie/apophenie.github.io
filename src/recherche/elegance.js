@@ -3244,6 +3244,32 @@ export function bilanApproche(approche, ctx = {}) {
   b.couronnementTot = poidsTot ? Math.floor(sommeTot / poidsTot) : 0;
   b.parts = parts.length;
 
+  /* ★ **LA LIAISON : ce que le verdict montre, c'est ce qu'elle écrit.**
+
+     Une voie à liaison (`=mdl0!`) ne demande à aucune part d'écrire la cible :
+     « James » rend 126, « Bond » 18, et c'est la division qui écrit `0 0 7`.
+     Compter les valeurs des parts comme « montrées » les faisait passer pour
+     JETÉES AU TRI — deux valeurs qui ne sont pas des chiffres de la cible —, et
+     l'élagage final (`elagueALaFin`) retirait la voie de toute liste visant une
+     cible non homogène. MESURÉ sur « James Bond » visant 007 : six voies
+     fabriquées, zéro proposée.
+
+     Or rien n'est jeté : les deux nombres sont CONSOMMÉS par la division, et le
+     verdict montre ce qu'elle écrit. On recompte donc sur SA ligne — rejouée
+     par l'opérateur, pas crue sur parole —, et la liaison se paie comme une
+     transformation de plus. */
+  const lieur = approche && approche.liaison && approche.liaison.op;
+  if (lieur) {
+    const valeurs = parts.map((p) => p.chemin.etats[p.chemin.etats.length - 1].valeur);
+    const lue = typeof lieur.apply === 'function' ? lieur.apply(valeurs, []) : null;
+    const chiffres = lue ? lue.valeur : [];
+    const tient = chiffres.length > 0 && chiffres.join('') === cbl.chiffres.join('');
+    b.transformations += 1;
+    b.six = tient ? cbl.longueur : 0;
+    b.montrees = chiffres.length;
+    if (tient) b.triptyquesContigus = Math.max(b.triptyquesContigus, 1);
+  }
+
   // ── ★ Ce que le verdict laisse tomber : « ne garder artificiellement que les
   //    6 ». Le compte gardé est celui du verdict — `series × 3`, plafonné aux 6
   //    réellement récoltés —, exactement comme `score.js › rendementSix`, et il

@@ -160,6 +160,10 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   `mdc*` écrivait jusqu'ici ; l'auteur a doublé la famille, et `mdc*` ne les
   //   écrit plus. En fin de bloc mappeur, append-only (§4.1).
   'md01', 'md02', 'md03',
+  // ★ LA DIVISION DE DEUX NOMBRES DE LA LIGNE — un opérateur de LIAISON, joué sur
+  //   la ligne assemblée (« James Bond » → 126 ÷ 18 → 007). Inactifs en
+  //   recherche ordinaire. En fin de bloc mappeur, append-only (§4.1).
+  'mdl0', 'mdlc',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

@@ -1867,6 +1867,59 @@ function planAbsorption(valeur, visee, autorisees = OPERATIONS_TOUTES) {
  *   c'est le contrôle croisé, et la potence REFUSE de peindre si les deux
  *   suites de chiffres diffèrent.
  */
+/**
+ * Les chiffres qu'une potence ÉCRIT pour `a ÷ b` — le calcul, une fois pour
+ * toutes, et partagé : la division d'un nombre par son dernier chiffre
+ * (`mdc*`, `md0*`) et celle de deux nombres de la ligne (`mdl0`, `mdlc`) posent
+ * la même potence, et ne doivent pas pouvoir diverger au premier correctif.
+ *
+ * Un chiffre de quotient par chiffre du dividende, zéro de tête compris —
+ * « 0×5 dans 1 de 105 » (l'auteur) —, puis les décimales tant qu'il reste
+ * quelque chose et qu'on ne les a pas épuisées. Voir `potence.js ›
+ * derouleDeLaDivision`, qui doit rendre exactement la même suite, et le
+ * vérifie.
+ *
+ * @returns {{chiffres:number[], entiers:number, decimalesVues:number, quotient:number[]}}
+ *   `chiffres` : ce qui est écrit ; `entiers` : combien d'entre eux sont avant
+ *   la virgule ; `quotient` : la partie entière COMPLÈTE, zéros compris.
+ */
+function chiffresDePotence(a, b, decimales, zeroInitial) {
+  const chiffresA = [...String(a)];
+  const chiffres = [];
+  let courant = 0;
+  for (let k = 0; k < chiffresA.length; k++) {
+    courant = courant * 10 + Number(chiffresA[k]);
+    const c = Math.floor(courant / b);
+    chiffres.push(c);
+    courant -= c * b;
+  }
+  const entiers = chiffres.length;
+  for (let k = 0; k < decimales && courant !== 0; k++) {
+    courant *= 10;
+    const c = Math.floor(courant / b);
+    chiffres.push(c);
+    courant -= c * b;
+  }
+    /* ★ **AVEC OU SANS ZÉRO INITIAL** — même règle, mot pour mot, que
+     `visuel/primitives/potence.js › toursEcrits`, et c'est le contrôle croisé
+     qui l'exige : la potence refuse de peindre si les deux suites diffèrent.
+     Seuls les zéros de tête de la PARTIE ENTIÈRE tombent ; une partie
+     entière toute nulle tombe en entier s'il y a des décimales (`2 ÷ 3` →
+     `666`), et garde son dernier zéro sinon. Un zéro après la virgule n'est
+     jamais initial : l'ôter changerait le nombre. */
+  let premier = 0;
+  if (!zeroInitial) {
+    premier = chiffres.findIndex((c, k) => k < entiers && c !== 0);
+    if (premier < 0) premier = chiffres.length > entiers ? entiers : entiers - 1;
+  }
+  const ecrits = chiffres.slice(premier);
+  const entiersEcrits = Math.max(0, entiers - premier);
+  return {
+    chiffres: ecrits, entiers: entiersEcrits,
+    decimalesVues: chiffres.length - entiers, quotient: chiffres.slice(0, entiers),
+  };
+}
+
 function planDecimales(valeur, decimales, zeroInitial = true) {
   const paquets = [];
   const sortie = [];
@@ -1877,25 +1930,6 @@ function planDecimales(valeur, decimales, zeroInitial = true) {
     const b = Number(s[s.length - 1]);
     const a = Number(s.slice(0, -1));
     if (b === 0) return null;
-    const chiffresA = [...String(a)];
-    const chiffres = [];
-    let courant = 0;
-    // Un chiffre de quotient par chiffre du dividende, zéro de tête compris —
-    // « 0×5 dans 1 de 105 » (l'auteur). Voir `potence.js › derouleDeLaDivision`,
-    // qui doit rendre exactement la même suite, et le vérifie.
-    for (let k = 0; k < chiffresA.length; k++) {
-      courant = courant * 10 + Number(chiffresA[k]);
-      const c = Math.floor(courant / b);
-      chiffres.push(c);
-      courant -= c * b;
-    }
-    const entiers = chiffres.length;
-    for (let k = 0; k < decimales && courant !== 0; k++) {
-      courant *= 10;
-      const c = Math.floor(courant / b);
-      chiffres.push(c);
-      courant -= c * b;
-    }
     /* ⚠️ **UNE DIVISION QUI TOMBE JUSTE A QUELQUE CHOSE À MONTRER, et le refus
          d'ici privait le catalogue de l'exemple même que l'auteur cite.**
 
@@ -1915,25 +1949,9 @@ function planDecimales(valeur, decimales, zeroInitial = true) {
        ★ Les trois `mdc*` coïncident alors, faute de décimale à montrer. Ce n'est
          pas un doublon au registre — ils divergent partout ailleurs — et la
          canonicalisation du BFS n'explore l'état commun qu'une fois. */
-    /* ★ **AVEC OU SANS ZÉRO INITIAL** — même règle, mot pour mot, que
-       `visuel/primitives/potence.js › toursEcrits`, et c'est le contrôle croisé
-       qui l'exige : la potence refuse de peindre si les deux suites diffèrent.
-       Seuls les zéros de tête de la PARTIE ENTIÈRE tombent ; une partie
-       entière toute nulle tombe en entier s'il y a des décimales (`2 ÷ 3` →
-       `666`), et garde son dernier zéro sinon. Un zéro après la virgule n'est
-       jamais initial : l'ôter changerait le nombre. */
-    let premier = 0;
-    if (!zeroInitial) {
-      premier = chiffres.findIndex((c, k) => k < entiers && c !== 0);
-      if (premier < 0) premier = chiffres.length > entiers ? entiers : entiers - 1;
-    }
-    const ecrits = chiffres.slice(premier);
-    const entiersEcrits = Math.max(0, entiers - premier);
-    paquets.push({
-      i, divise: true, valeur: valeur[i], a, b, chiffres: ecrits, entiers: entiersEcrits,
-      decimalesVues: chiffres.length - entiers, quotient: chiffres.slice(0, entiers),
-    });
-    sortie.push(...ecrits);
+    const q = chiffresDePotence(a, b, decimales, zeroInitial);
+    paquets.push({ i, divise: true, valeur: valeur[i], a, b, ...q });
+    sortie.push(...q.chiffres);
     uneDivision = true;
   }
   if (!uneDivision) return null;
@@ -6702,7 +6720,97 @@ const AUTRES_MAPPEURS = [
   //   bloc mappeur, append-only (§4.1) — sa place naturelle serait à côté de
   //   `mdc*`, sa place juste est ici. Même fabrique, hissée plus bas.
   ...[1, 2, 3].map((decimales) => operateurDecimal(decimales, true)),
+  // ★ LA DIVISION DE DEUX NOMBRES DE LA LIGNE — `mdl0` (zéros de tête), `mdlc`
+  //   (sans). Des opérateurs de LIAISON : ils se jouent sur la ligne assemblée,
+  //   jamais dans une part. Hissés plus bas. En fin de bloc mappeur,
+  //   append-only (§4.1).
+  operateurDivisionDeDeux(true),
+  operateurDivisionDeDeux(false),
 ];
+
+/**
+ * ★ **DIVISER UN RÉSULTAT PAR UN AUTRE — « James Bond » vaut 007.**
+ *
+ * > « Un exemple que je trouverais magistral : "James Bond" : James converti en
+ * >   un nombre qui, divisé par le nombre issu de Bond, donne pile 007. »
+ * >   (l'auteur)
+ *
+ * `mdc*` et `md0*` divisent UN nombre par son dernier chiffre (`135` → `13 ÷ 5`).
+ * Celui-ci divise le PREMIER nombre de la ligne par le SECOND — `126 ÷ 18` —,
+ * posé à la même potence : `0 0 7` avec les zéros de tête, `7` sans.
+ *
+ * ★ **UN OPÉRATEUR DE LIAISON** (`liaison: true`). Il ne travaille pas dans un
+ *   fragment : chaque mot est cherché pour lui-même, rend son nombre, et c'est
+ *   la ligne ASSEMBLÉE — deux nombres, ni plus ni moins — qu'il divise. Le lien
+ *   le porte en tête (`=mdl0!`, `recherche/url.js`), comme une relecture ; la
+ *   recherche le trouve par une jointure des tables de valeurs des deux mots
+ *   (`recherche/assemblage.js › liaisons`), et la scène le joue après les
+ *   parts, avant le verdict (`recherche/scenario.js`).
+ *
+ * ★ **INACTIF EN RECHERCHE ORDINAIRE** (`actifParDefaut: false`), comme `m1a` :
+ *   laissé au faisceau, il diviserait n'importe quelle paire de nombres
+ *   rencontrée en chemin — un geste de liaison qui ne lie rien.
+ *
+ * ★ Jusqu'à TROIS décimales, et l'on s'arrête dès que ça tombe juste : c'est
+ *   `md03` / `mdc3` sur deux nombres. `126 ÷ 18` tombe juste au premier coup.
+ */
+function operateurDivisionDeDeux(zeroInitial) {
+  const DECIMALES = 3;
+  const lire = (valeur) => {
+    if (!Array.isArray(valeur) || valeur.length !== 2) return null;
+    const [a, b] = valeur;
+    if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b <= 0) return null;
+    return { a, b, ...chiffresDePotence(a, b, DECIMALES, zeroInitial) };
+  };
+  return def({
+    id: zeroInitial ? 'm.divisionDeDeuxZero' : 'm.divisionDeDeux',
+    code: zeroInitial ? 'mdl0' : 'mdlc',
+    famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: zeroInitial
+      ? bilingue('On pose la division du premier nombre par le second, zéros de tête écrits',
+        'Long division of the first number by the second, leading zeros written')
+      : bilingue('On pose la division du premier nombre par le second',
+        'Long division of the first number by the second'),
+    regle: zeroInitial
+      ? bilingue('Le premier résultat est divisé par le second à la potence ; tant que le diviseur ne tient pas '
+        + 'dans ce qu’on a pris, on écrit 0, et l’on descend sous la virgule jusqu’à trois décimales',
+      'The first result is divided by the second at the long-division bracket; while the divisor does not fit, '
+        + 'write 0, and go below the decimal point up to three decimals')
+      : bilingue('Le premier résultat est divisé par le second à la potence, sans zéro devant, '
+        + 'et l’on descend sous la virgule jusqu’à trois décimales',
+      'The first result is divided by the second at the long-division bracket, with no zero in front, '
+        + 'going below the decimal point up to three decimals'),
+    outil: bilingue('La potence', 'The long division bracket'),
+    forme: 'mddl',
+    notoriete: 0.30, adHoc: zeroInitial ? 0.6 : 0.55, cout: 3,
+    actifParDefaut: false,
+    liaison: true,
+    apply(valeur, traces) {
+      const q = lire(valeur);
+      if (!q) return null;
+      const t = [...((traces && traces[0]) || []), ...((traces && traces[1]) || [])];
+      return { valeur: q.chiffres, traces: q.chiffres.map(() => t) };
+    },
+    sortie: (avant, apres, ctx) => {
+      const q = lire(avant.valeur);
+      return q ? q.chiffres.map((_, k) => `${ctx.cle}c${k}`) : [];
+    },
+    steps: (avant, apres, ctx) => {
+      const q = lire(avant.valeur);
+      if (!q) return [];
+      const titre = dire(bilingue('La potence', 'Long division'), ctx.langue);
+      // Pas de coupe : le dividende et le diviseur sont déjà deux jetons.
+      return [etape(ctx, titre, `${q.a} ÷ ${q.b} = ${valeurLisible(q)}`, [{
+        op: 'potence',
+        dividende: ctx.ids[0],
+        diviseur: ctx.ids[1],
+        decimales: DECIMALES,
+        zeroInitial,
+        to: q.chiffres.map((c, k) => token(`${ctx.cle}c${k}`, c, 'digit')),
+      }], { id: `s_${ctx.cle}_pl` })];
+    },
+  });
+}
 
 /**
  * ★ **LES DIVISIONS DÉCIMALES — posées à la potence, avec ou sans zéro initial.**

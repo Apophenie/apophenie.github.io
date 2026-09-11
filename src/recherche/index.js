@@ -528,6 +528,10 @@ export function creerMoteur(catalogue, options = {}) {
       //   `assemblage.js › vecteursDeSix` : ce sont eux qui décident quelles
       //   voies méritent d'être finalisées (`score-intermediaire.js`).
       curseurs: ponderation.curseurs,
+      // ★ Le cache du moteur, pour les tables de valeurs des LIAISONS : ce que
+      //   « James » sait donner ne dépend ni de la cible ni de la recherche, et
+      //   se calcule une fois par session (`assemblage.js › liaisons`).
+      cache,
     };
     /* ★ **L'ASSEMBLAGE REND COMPTE DE LUI-MÊME** — voir `assemblage.js`, où la
          mesure est écrite. Il ne peut pas `yield` : il est appelé DEPUIS ce
@@ -681,14 +685,16 @@ export function creerMoteur(catalogue, options = {}) {
       // Ce qui fait le lien, gardé à part : une voie trouvée sur une RELECTURE
       // réécrit le sien vers le texte visé (`versLeTexte`), sans repasser par
       // une URL qu'il faudrait relire.
-      a.lien = { fragments: descripteurs, retouches };
+      // La LIAISON voyage avec le lien (`=mdl0!`), comme les retouches.
+      const liaison = a.liaison ? a.liaison.code : undefined;
+      a.lien = { fragments: descripteurs, retouches, liaison };
       //   ★ Et les CURSEURS et la FOUILLE, quand ils ne sont pas au défaut : le
       //   score que la voie rejouée affichera est celui de CETTE liste-ci, donc
       //   il dépend d'eux (`url.js`, en-tête). Au défaut, `ecrire()` n'écrit
       //   rien de plus et les liens sont ceux d'avant, au caractère près.
       const reglages = { curseurs: ponderation.curseurs, fouille };
-      a.urlSobre = ecrire({ saisie, retouches, fragments: descripteurs, registre: 'sobre', cible: cbl, ...reglages });
-      a.urlScenique = ecrire({ saisie, retouches, fragments: descripteurs, registre: 'scenique', cible: cbl, ...reglages });
+      a.urlSobre = ecrire({ saisie, retouches, liaison, fragments: descripteurs, registre: 'sobre', cible: cbl, ...reglages });
+      a.urlScenique = ecrire({ saisie, retouches, liaison, fragments: descripteurs, registre: 'scenique', cible: cbl, ...reglages });
       // `url` reste le lien de référence de la voie — la version scénique,
       // celle que le site montre par défaut (voir `url.js`, le registre).
       a.url = a.urlScenique;
@@ -873,7 +879,7 @@ export function creerMoteur(catalogue, options = {}) {
     a.score = Math.round((a.score * rel.ecart.facteur) / 1000);
     const lien = a.lien || {};
     const commun = {
-      saisie, fragments: lien.fragments, retouches: lien.retouches,
+      saisie, fragments: lien.fragments, retouches: lien.retouches, liaison: lien.liaison,
       cible: rel.mot, relecture: rel.code, curseurs, fouille,
     };
     a.urlSobre = ecrire({ ...commun, registre: 'sobre' });
@@ -972,6 +978,15 @@ export function creerMoteur(catalogue, options = {}) {
       cbl = rel.cible;
     } else if (lecture.relecture) {
       return { ok: false, raison: 'relecture sans texte', bandeau: BANDEAUX.relectureSansTexte };
+    }
+    // ★ LA LIAISON que le lien nomme (`=mdl0!`) : un opérateur du catalogue qui
+    //   DÉCLARE réunir deux résultats (`op.liaison`), et aucun autre.
+    let lia = null;
+    if (lecture.liaison) {
+      lia = opParCode.get(lecture.liaison) || null;
+      if (!lia || !lia.liaison) {
+        return { ok: false, raison: `liaison inconnue : ${lecture.liaison}`, bandeau: BANDEAUX.codeInconnu };
+      }
     }
     // ★ **LA TABLE DES CODES SUIT LA CIBLE DU LIEN**, et il le faut absolument.
     //
@@ -1105,7 +1120,20 @@ export function creerMoteur(catalogue, options = {}) {
     // Le mode n'est pas transporté par l'URL : on le redéduit de la géométrie
     // des fragments, exactement comme le fait `assembler`. C'est ce qui garantit
     // qu'un lien rejoué affiche le même score que la liste dont il est issu.
-    const approche = { parts, ...deduireMode(parts, { saisie: texte, jetons, cible: cbl }) };
+    /* ★ **UNE LIAISON SE VÉRIFIE, ELLE NE SE CROIT PAS.** Deux parts qui rendent
+       chacune un entier, l'opérateur appliqué à la paire, et la ligne qu'il
+       écrit doit être EXACTEMENT la cible : sinon le lien promettait « 007 »
+       et la scène montrerait autre chose (§4.3). */
+    if (lia) {
+      const valeurs = parts.map((p) => p.chemin.etats[p.chemin.etats.length - 1]);
+      const entiers = valeurs.every((e) => e && e.type === 'NUM' && Number.isInteger(e.valeur));
+      const lue = parts.length === 2 && entiers ? lia.apply(valeurs.map((e) => e.valeur), []) : null;
+      if (!lue || lue.valeur.join('') !== cbl.chiffres.join('')) {
+        return { ok: false, raison: 'liaison qui n’écrit pas la cible', bandeau: BANDEAUX.liaisonImpossible };
+      }
+    }
+    const approche = { parts, ...deduireMode(parts, { saisie: texte, jetons, cible: cbl, liaison: lia }) };
+    if (lia) approche.liaison = Object.freeze({ code: lia.code, op: lia });
     // ★ Les RETOUCHES voyagent À CÔTÉ des parts, jamais dedans. `parts` a un
     //   sens précis partout ailleurs — « un morceau qui rend un chiffre » — et
     //   c'est sur lui que se lisent le mode, la moisson, le verdict et la
@@ -1176,6 +1204,7 @@ export function creerMoteur(catalogue, options = {}) {
     const lien = {
       saisie, fragments: fragmentsEcrits, retouches: lecture.retouches, cible: rel ? rel.mot : cbl,
       relecture: rel ? rel.code : undefined,
+      liaison: lia ? lia.code : undefined,
       curseurs: lecture.curseurs, fouille: lecture.fouille,
     };
     approche.urlSobre = ecrire({ ...lien, registre: 'sobre' });
@@ -1210,6 +1239,11 @@ export function creerMoteur(catalogue, options = {}) {
       // longueur d'une série au verdict, et des libellés qui nommaient « 6 ».
       cible: rel ? approche.cible : (ctx.cible || approche.cible),
       relecture: rel,
+      // ★ La LIAISON se joue après les parts, avant la relecture (`scenario.js`).
+      liaison: approche.liaison ? {
+        code: approche.liaison.code,
+        op: approche.liaison.op || opParCode.get(approche.liaison.code) || null,
+      } : null,
       methode: ctx.methode || {
         id: approche.rang ?? 1,
         label: titreApproche(approche, langue),
@@ -1648,7 +1682,12 @@ function valeurFinaleDe(chemin) {
  * différents, que la déduplication voit déjà (`dedupliquerApproches`).
  */
 function marquerLesCodes(approche) {
-  if (!approche || !approche.retouches || !approche.retouches.length) return;
+  if (!approche) return;
+  // ★ La LIAISON se lit dans les codes comme dans le lien : `=mdl0!` devant.
+  //   Deux voies dont les parts coïncident mais dont l'une les divise ne sont
+  //   pas la même voie, et l'ordre total doit pouvoir le dire (§4.4-1).
+  if (approche.liaison) approche.codes = `=${approche.liaison.code}!${approche.codes}`;
+  if (!approche.retouches || !approche.retouches.length) return;
   approche.codes = ecrireRetouches(retouchesDe(approche)) + approche.codes;
 }
 
@@ -1982,6 +2021,8 @@ function serialisable(resultat) {
     avertissement: resultat.avertissement,
     approches: (resultat.approches || []).map((a) => ({
       rang: a.rang, mode: a.mode, score: a.score, scoreAjuste: a.scoreAjuste,
+      // ★ La LIAISON par son code — l'opérateur lui-même ne traverse pas.
+      liaison: a.liaison ? a.liaison.code : undefined,
       // ★ L'élégance et la suggestion qui a valu sa place à la ligne : ce sont
       //   des grandeurs d'affichage au même titre que le score, et elles se
       //   recalculent depuis les parts, donc un lien rejoué les retrouve.

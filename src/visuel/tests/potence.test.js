@@ -37,6 +37,7 @@ import { setGlyphes } from '../glyphes.js';
 import { GLYPHES } from '../fixtures/glyphes.js';
 import { CompileError } from '../errors.js';
 import { resolveDiscrete } from '../clock.js';
+import { lecteur } from './_lecteur.js';
 import { derouleDeLaDivision, ligneAffichee } from '../primitives/potence.js';
 import { PAR_CODE, appliquer } from '../../moteur/catalogue.js';
 import { depuisSaisie } from '../../moteur/etat.js';
@@ -155,84 +156,8 @@ const canaux = (tl, id) => tl.discrete
   .filter((d) => d.id === id && d.channel === 'text')
   .sort((x, y) => x.at - y.at);
 
-// ───────────────────── l'évaluateur : ce que la scène montre à l'instant t
-
-/**
- * Une courbe `cubic-bezier` évaluée comme le navigateur l'évalue. Il en faut
- * une vraie : deux jetons qui glissent sur des courbes différentes peuvent se
- * croiser en chemin même s'ils sont en règle aux deux bouts, et c'est
- * précisément ce que l'auteur ne veut voir à AUCUN instant.
- */
-function courbe(easing) {
-  const m = /cubic-bezier\(([^)]+)\)/.exec(easing || '');
-  if (!m) return (p) => p;
-  const [x1, y1, x2, y2] = m[1].split(',').map(Number);
-  const bez = (a, b, s) => 3 * a * s * (1 - s) ** 2 + 3 * b * s * s * (1 - s) + s ** 3;
-  return (p) => {
-    let lo = 0;
-    let hi = 1;
-    for (let k = 0; k < 40; k++) {
-      const mi = (lo + hi) / 2;
-      if (bez(x1, x2, mi) < p) lo = mi; else hi = mi;
-    }
-    return bez(y1, y2, (lo + hi) / 2);
-  };
-}
-
-const melange = (a, b, q) => (typeof a === 'number'
-  ? a + (b - a) * q
-  : { x: a.x + (b.x - a.x) * q, y: a.y + (b.y - a.y) * q });
-
-/** Fabrique un lecteur de la timeline, indexé une fois pour toutes. */
-function lecteur(tl) {
-  const parCanal = new Map();
-  for (const a of tl.anims) {
-    const k = `${a.id}::${a.prop}`;
-    if (!parCanal.has(k)) parCanal.set(k, []);
-    parCanal.get(k).push(a);
-  }
-  for (const l of parCanal.values()) l.sort((x, y) => x.delay - y.delay);
-  const noeuds = new Map(tl.nodes.map((n) => [n.id, n]));
-
-  const valeur = (id, prop, t) => {
-    let v = noeuds.get(id).base[prop];
-    for (const a of parCanal.get(`${id}::${prop}`) || []) {
-      if (a.delay > t) break;
-      const fr = a.keyframes;
-      if (t >= a.delay + a.duration) { v = fr[fr.length - 1].value; continue; }
-      const q = courbe(a.easing)((t - a.delay) / a.duration);
-      let i = 0;
-      while (i < fr.length - 2 && q > fr[i + 1].offset) i++;
-      const span = fr[i + 1].offset - fr[i].offset || 1;
-      v = melange(fr[i].value, fr[i + 1].value, (q - fr[i].offset) / span);
-    }
-    return v;
-  };
-
-  /** Les jetons VISIBLES à l'instant t, avec leur boîte. */
-  const visibles = (t) => {
-    const textes = resolveDiscrete(tl.discreteIndex, t);
-    const out = [];
-    for (const n of tl.nodes) {
-      if (n.role !== 'text') continue;
-      const o = valeur(n.id, 'opacity', t) ?? 1;
-      if (!(o > 0.1)) continue;
-      const r = textes.get(`${n.id}::text`);
-      const texte = r ? r.value : n.text;
-      if (!texte) continue;
-      const p = valeur(n.id, 'translate', t);
-      if (!p) continue;
-      const s = valeur(n.id, 'scale', t) ?? 1;
-      const demi = ([...texte].length * tl.metrics.advance * s) / 2;
-      out.push({
-        id: n.id, texte, x: p.x, y: p.y, opacite: o,
-        g: p.x - demi, d: p.x + demi, h: tl.metrics.fontSize * s,
-      });
-    }
-    return out;
-  };
-  return { valeur, visibles };
-}
+// L'évaluateur de timeline vit dans `_lecteur.js` : le même œil sert à la
+// potence nue et à la potence au bout d'une vraie voie (`liaison.test.js`).
 
 // ───────────────────── 1. la ligne de gauche
 
