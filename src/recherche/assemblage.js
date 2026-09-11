@@ -770,8 +770,14 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   //     morceau et `fr9` sur un autre les trouve toujours, ce sont deux listes
   //     de vecteurs distinctes. Ce qu'on refuse, c'est onze candidats
   //     interchangeables pour le même morceau.
-  const formeDe = (c) => (c.ops || []).map((o) => (Number.isFinite(o.decalage)
-    ? String(o.code).replace(/\d+$/, '') : o.code)).join('+');
+  //   ★ Un réglage qui n'est pas un nombre se DÉCLARE aussi : `forme` nomme la
+  //     méthode dont l'opérateur n'est qu'un réglage — la potence avec ou sans
+  //     zéros de tête (`mdc3`, `md03`) en a une seule. Lue en premier, comme le
+  //     décalage : rien n'est deviné sur le code.
+  const formeDe = (c) => (c.ops || []).map((o) => {
+    if (typeof o.forme === 'string' && o.forme) return o.forme;
+    return Number.isFinite(o.decalage) ? String(o.code).replace(/\d+$/, '') : o.code;
+  }).join('+');
   if (miseEnForme) {
     const formes = new Set();
     const garde = [];

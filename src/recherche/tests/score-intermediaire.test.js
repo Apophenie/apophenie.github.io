@@ -140,7 +140,40 @@ test('★ réserve — exhaustivité et cohérence à 150 : la voie grammaticale
 test('★ élus — curseurs personnalisés : les deux voies sans perte sont gardées ensemble', () => {
   for (const x of [{ simplicite: 200 }, { exhaustivite: 200 }, { coherence: 150 }]) {
     const garde = vecteurs(x).slice(0, 8).map(codesDe);
-    assert.ok(garde.includes('tm+mlm+mab'), `${JSON.stringify(x ?? {})} : ${garde.join('  ')}`);
-    assert.ok(garde.includes('fl+tca+msen+mrdE'), `${JSON.stringify(x ?? {})} : ${garde.join('  ')}`);
+    const dit = `${JSON.stringify(x ?? {})} : ${garde.join('  ')}`;
+    /* ★ **L'ÉLU SANS PERTE EST DÉSORMAIS UNE VOIE HONNÊTE.** Il s'appelait
+       `tm+mlm+mab` — une absorption, donc une ficelle. Depuis que la potence
+       `mdc*` n'écrit plus ses zéros de tête (décision de l'auteur),
+       `fr1+tsy+mlm+mdc2` écrit `6 6 6` d'un trait là où elle écrivait
+       `6 0 6 6` : une voie SANS FICELLE qui rend la cible sans rien jeter. Les
+       règles de l'auteur la préfèrent — « le moins de ficelles d'abord » pour
+       l'élu, « une ficelle qui n'apporte rien n'est pas proposée » pour
+       l'absorption qu'elle rend superflue. La preuve est le test suivant :
+       rendue à l'ancien comportement, la même liste retrouve `tm+mlm+mab`. */
+    assert.ok(garde.includes('fr1+tsy+mlm+mdc2'), `la voie sans perte : ${dit}`);
+    assert.ok(garde.includes('fl+tca+msen+mrdE'), `la voie additive : ${dit}`);
+    // « Une approche addition uniquement, EN PLUS de `mab`, pas à la place » :
+    // l'absorption reste proposée.
+    assert.ok(garde.some((c) => c.endsWith('+mab')), `une absorption reste proposée : ${dit}`);
+  }
+});
+
+/**
+ * ★ **LA PREUVE QUE SEUL LE SENS DE `mdc*` A CHANGÉ.** Retirer `mdc*` des
+ * explorables et garder `md0*` — la potence à zéros de tête, c'est-à-dire ce
+ * que `mdc*` faisait avant — rend exactement l'ancienne liste, `tm+mlm+mab`
+ * compris. Deux choses sont tenues par là : l'élu a changé pour la raison dite
+ * au test précédent et pour nulle autre, et `md0*` ne prend pas un siège de
+ * plus à côté de `mdc*` (`assemblage.js › formeDe` : une forme, deux réglages).
+ */
+test('élus — rendue à l’ancienne potence, la liste retrouve l’absorption sans perte', () => {
+  const OPS_ANCIENNE = OPS.filter((o) => !/^mdc\d$/.test(o.code));
+  for (const x of [{ simplicite: 200 }, { exhaustivite: 200 }, { coherence: 150 }]) {
+    const garde = vecteursDeSix(JARDIN, OPS_ANCIENNE, 3, 16, '666', { curseurs: x })
+      .slice(0, 8).map(codesDe);
+    assert.ok(garde.includes('tm+mlm+mab'), `${JSON.stringify(x)} : ${garde.join('  ')}`);
+    assert.ok(garde.includes('fl+tca+msen+mrdE'), `${JSON.stringify(x)} : ${garde.join('  ')}`);
+    assert.equal(garde.filter((c) => /\+md0\d$/.test(c) && c.startsWith('fl+tca+masc+')).length, 2,
+      'une potence par nombre de décimales, pas une par réglage');
   }
 });
