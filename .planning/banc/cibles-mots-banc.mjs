@@ -43,13 +43,36 @@ export const SAISIES = [
   'Sarah Kerrigan', 'Donald Trump', 'Le chat dort sur le tapis rouge', 'https://hope-hope-hope.fr/',
 ];
 
+/**
+ * ★ LE CORPUS DES CHIFFRES — `BANC_CORPUS=chiffres`. « Il faudrait aussi
+ * étendre les cibles numériques au-delà de 12 » (l'auteur). Trois suites par
+ * longueur, de dix à vingt chiffres, tirées d'un générateur congruentiel à
+ * graine fixe : ni `Math.random`, ni des suites choisies pour tomber juste.
+ * Aucun zéro de tête, pour que la longueur soit celle qu'on annonce.
+ */
+export const LONGUEURS = [10, 12, 14, 16, 18, 20];
+export const CHIFFRES = (() => {
+  let s = 20260911;
+  const suivant = () => { s = (s * 1103515245 + 12345) % 2147483648; return s; };
+  const out = [];
+  for (const l of LONGUEURS) {
+    for (let k = 0; k < 3; k++) {
+      let t = String(1 + (suivant() % 9));
+      while (t.length < l) t += String(suivant() % 10);
+      out.push(t);
+    }
+  }
+  return out;
+})();
+
 const choix = process.env.BANC_SAISIES;
 const saisies = choix ? choix.split(',').map((i) => SAISIES[Number(i)]) : SAISIES;
+const corpus = process.env.BANC_CORPUS === 'chiffres' ? CHIFFRES : MOTS;
 const moteur = creerMoteur(catalogue, { filetTemporel: false });
 
 const lignes = [];
 for (const saisie of saisies) {
-  for (const mot of MOTS) {
+  for (const mot of corpus) {
     const t0 = performance.now();
     const r = moteur.resoudre(saisie, { cible: mot });
     const ms = Math.round(performance.now() - t0);

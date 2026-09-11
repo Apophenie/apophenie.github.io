@@ -176,7 +176,7 @@ export const bandeaux = () => M.BANDEAUX || {};
 //   déjà divergé une fois (6 pour 10, 7 pour 10 — audit). Ils recopient la
 //   valeur vraie du jour ; c'est une copie, et une copie diverge — la vraie
 //   source est `cible.js › MAX_CHIFFRES` et `config.js › PUISSANCE_DE_FOUILLE_MAX`.
-export const MAX_CHIFFRES = () => M.MAX_CHIFFRES || 10;
+export const MAX_CHIFFRES = () => M.MAX_CHIFFRES || 20;
 /** Le plafond d'un TEXTE visé (`cible.js › MAX_SIGNES_TEXTE`). */
 export const MAX_SIGNES_TEXTE = () => M.MAX_SIGNES_TEXTE || 20;
 

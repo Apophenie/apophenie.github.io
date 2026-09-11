@@ -434,7 +434,12 @@ export function liaisons(fragments, ctx, cbl) {
   const combinateurs = explorables.filter((o) => o.from === 'NUMS' && o.to === 'NUM');
   const tables = mots.map((f) => tableDeValeurs(f.texte, explorables, combinateurs, cbl, ctx.cache));
   const attendu = cbl.chiffres.join('');
-  const N = Number(cbl.texte);
+  // ★ EN ENTIERS EXACTS (BigInt) : une cible de vingt chiffres dépasse 2⁵³, et
+  //   `N · b` en flottant arrondirait l'intervalle — donc manquerait des A, en
+  //   silence. Les bornes se calculent exactement ; seules celles qui tiennent
+  //   dans un entier sûr peuvent contenir une valeur de table.
+  const N = BigInt(cbl.texte);
+  const SUR = BigInt(Number.MAX_SAFE_INTEGER);
 
   const candidats = [];
   const vus = new Set();
@@ -460,11 +465,13 @@ export function liaisons(fragments, ctx, cbl) {
       // 2. deux programmes : pour chaque B, les A qui écrivent la cible
       for (const [b, cBs] of TB.parValeur) {
         if (b <= 0) continue;
+        const B = BigInt(b);
         for (let k = 0; k <= 3; k++) {
-          const p = 10 ** k;
-          const lo = Math.ceil((N * b) / p);
-          const hi = Math.floor(((N + 1) * b - 1) / p);
-          for (const a of dansIntervalle(TA.valeursTriees, lo, hi)) {
+          const p = 10n ** BigInt(k);
+          const lo = (N * B + p - 1n) / p;         // ⌈N·b / 10ᵏ⌉
+          const hi = ((N + 1n) * B - 1n) / p;      // ⌊((N+1)·b − 1) / 10ᵏ⌋
+          if (lo > SUR) continue;
+          for (const a of dansIntervalle(TA.valeursTriees, Number(lo), Number(hi > SUR ? SUR : hi))) {
             if (ecrit(a, b)) retenir(i, op, TA.parValeur.get(a)[0], cBs[0], false);
           }
         }

@@ -120,8 +120,23 @@
  * ★ Il ne borne PAS un texte visé — voir `MAX_SIGNES_TEXTE`. Un texte ne se
  * cherche pas lui-même : ce sont ses relectures qui se cherchent, et leurs
  * cibles sous-jacentes n'ont pas de plafond (`cibleDeValeurs`).
+ *
+ * ★ **IL VAUT 20.** « Il faudrait aussi étendre les cibles numériques au-delà
+ *   de 12, ça faciliterait les cibles textuelles dans la foulée » (l'auteur).
+ *   Ce qui retenait une cible longue n'était ni ce plafond ni la combinatoire
+ *   des fragments, mais l'ABSORPTION : elle n'écrit qu'un chiffre visé pour
+ *   trois ou quatre chiffres de ligne, et une ligne s'arrêtait à trente-six
+ *   chiffres (`mappeurs.js › plafondDAbsorption`, qui porte la mesure). Le
+ *   plafond de ligne suit désormais la visée au-delà de dix chiffres ; une cible
+ *   chiffrée de onze à vingt chiffres se cherche donc comme la cible
+ *   sous-jacente d'un mot, par le même chemin. Vingt : un mot de dix lettres
+ *   relu par paires, un numéro de téléphone avec son indicatif, deux dates.
+ *   Au-delà, c'est la recherche qui ne suit plus — voir le banc
+ *   (`.planning/banc/cibles-mots-banc.mjs`, corpus des chiffres).
+ *   ⚠️ En deçà de onze chiffres, rien ne bouge : c'est ce que tient
+ *   l'instantané des cibles chiffrées (`tests/lents/cible-mot.test.js`).
  */
-export const MAX_CHIFFRES = 10;
+export const MAX_CHIFFRES = 20;
 
 /** L'écriture de la cible par défaut. Toute la promesse du site tient ici. */
 export const TEXTE_DEFAUT = '666';
@@ -190,8 +205,10 @@ export function lireCible(entree) {
   // ★ Le nombre n'existe que si l'écriture décimale le RETROUVE. `007` et `000`
   //   n'en ont donc pas : c'est ce qui interdit au mode DIRECT de prétendre
   //   qu'un `NUM` valant 7 démontre `007`.
+  //   Et seulement s'il est un entier SÛR : au-delà de 2⁵³, `Number` arrondit,
+  //   et un nombre arrondi n'est plus celui qu'on a demandé.
   const n = Number(texte);
-  const nombre = String(n) === texte ? n : null;
+  const nombre = Number.isSafeInteger(n) && String(n) === texte ? n : null;
 
   return Object.freeze({
     texte,

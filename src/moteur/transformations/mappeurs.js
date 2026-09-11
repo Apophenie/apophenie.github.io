@@ -226,8 +226,12 @@ const LIB_RETOURNER_6 = bilingue('On retourne les 6', 'Turn the 6s upside down')
 const NOMBRE_EN = Object.freeze([
   'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
 ]);
-/** `dix` complète `NOM_CHIFFRE_FR`, qui s'arrête à neuf — une cible va jusqu'à dix chiffres. */
-const nombreEcrit = (n) => bilingue(n === 10 ? 'dix' : NOM_CHIFFRE_FR[n], NOMBRE_EN[n] || String(n));
+/**
+ * `dix` complète `NOM_CHIFFRE_FR`, qui s'arrête à neuf. Au-delà — une cible va
+ * jusqu'à vingt chiffres —, le nombre s'écrit en chiffres, dans les deux
+ * langues : « 12 1 » plutôt qu'un `undefined` dans la règle.
+ */
+const nombreEcrit = (n) => bilingue(n === 10 ? 'dix' : (NOM_CHIFFRE_FR[n] ?? String(n)), NOMBRE_EN[n] || String(n));
 /** Une majuscule d'initiale, en unités de code — pas d'`Intl` (CONTRACTS §4.4). */
 const capitale = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -1617,10 +1621,12 @@ const CHIFFRES_ABSORPTION_MAX = 36;
  * 16 % à quatorze.
  *
  * Le plafond vaut donc cinq chiffres de ligne par chiffre visé, pour les
- * visées de PLUS DE DIX chiffres — plus longues que toute cible chiffrée que le
- * site accepte (`recherche/cible.js › MAX_CHIFFRES`, qu'un test tient égal à
- * `VISEE_LONGUE`) : seules les relectures d'un texte y arrivent. En deçà, rien
- * ne bouge, ni pour 666 ni pour aucune cible chiffrée, au chiffre près.
+ * visées de PLUS DE DIX chiffres. Dix, c'était le plafond des cibles chiffrées
+ * quand cette mesure a été faite ; il est passé à vingt
+ * (`recherche/cible.js › MAX_CHIFFRES`), et le seuil, lui, reste à dix : c'est
+ * lui qui garantit qu'en deçà rien ne bouge, ni pour 666 ni pour aucune cible
+ * chiffrée d'avant, au chiffre près. Au-dessus, relectures d'un texte et cibles
+ * chiffrées longues passent par la même règle.
  *
  * ⚠️ Ce que ça coûte : une ligne plus longue à l'écran — des paquets de six
  *   au plus, comme avant, mais davantage de paquets — et une programmation

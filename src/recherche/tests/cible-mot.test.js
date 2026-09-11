@@ -290,12 +290,22 @@ test('cible-mot — le rejeu refuse ce qu’il ne sait pas relire, en le disant'
  * ligne ; à trente-six chiffres de ligne, quatorze chiffres visés (sept lettres
  * relues par paires) étaient hors d'atteinte par construction.
  */
-test('cible-mot — le plafond d’absorption suit la visée, et seulement au-delà des cibles chiffrées', () => {
-  assert.equal(VISEE_LONGUE, MAX_CHIFFRES,
-    'le moteur ne lit pas la recherche : le seuil est recopié, et ce test tient l’égalité');
-  for (let l = 1; l <= MAX_CHIFFRES; l++) assert.equal(plafondDAbsorption(l), 36, `visée de ${l} : rien ne bouge`);
+test('cible-mot — le plafond d’absorption suit la visée, et seulement au-delà de dix chiffres', () => {
+  assert.equal(VISEE_LONGUE, 10, 'l’ancien plafond des cibles chiffrées : en deçà, rien ne bouge');
+  assert.ok(MAX_CHIFFRES > VISEE_LONGUE, 'une cible chiffrée longue profite de la même règle qu’un mot');
+  for (let l = 1; l <= VISEE_LONGUE; l++) assert.equal(plafondDAbsorption(l), 36, `visée de ${l} : rien ne bouge`);
   assert.equal(plafondDAbsorption(14), 70);
-  assert.equal(plafondDAbsorption(22), 110);
+  assert.equal(plafondDAbsorption(MAX_CHIFFRES), 5 * MAX_CHIFFRES);
+});
+
+test('cible-mot — une cible chiffrée de vingt chiffres se lit ; au-delà, elle est refusée', () => {
+  const c = lireCible('12345678901234567890');
+  assert.equal(c.nature, 'chiffres');
+  assert.equal(c.longueur, 20);
+  assert.equal(c.nombre, null, 'au-delà de 2⁵³, `Number` arrondit : pas de nombre plutôt qu’un faux');
+  assert.equal(lireCible('9007199254740991').nombre, 9007199254740991, 'le plus grand entier sûr se garde');
+  assert.equal(lireCible('9007199254740993').nombre, null);
+  assert.equal(lireCible('1'.repeat(21)), null);
 });
 
 test('cible-mot — FANTOME depuis une adresse : soixante-dix chiffres de ligne pour quatorze visés, rejoués', () => {
