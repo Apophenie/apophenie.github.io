@@ -117,7 +117,7 @@ test('cible-mot — le barème d’écart : la hiérarchie de l’auteur, chiffr
 
 test('cible-mot — les relectures du catalogue, et leur inverse CALCULÉ sur l’opérateur', () => {
   const ops = operateursDeRelecture(catalogue);
-  assert.deepEqual(ops.map((o) => o.code), ['m1a', 'mcaz', 'mcqw']);
+  assert.deepEqual(ops.map((o) => o.code), ['m1a', 'mcaz', 'mcqw', 'm1a2', 'mpol', 'mtap']);
   assert.equal(RELECTURE_PAR_DEFAUT, 'm1a');
   const par = Object.fromEntries(ops.map((o) => [o.code, o]));
   assert.deepEqual([...inverseDe(par.m1a).get('z')], [26]);
@@ -125,7 +125,8 @@ test('cible-mot — les relectures du catalogue, et leur inverse CALCULÉ sur l�
   assert.deepEqual([...inverseDe(par.mcqw).get('z')], [1, 3]);
   for (const op of ops) {
     const inverse = inverseDe(op);
-    assert.equal(inverse.size, 26, `${op.code} : les vingt-six lettres, chacune une fois`);
+    // Le carré de Polybe a vingt-cinq cases : il n'écrit jamais j.
+    assert.equal(inverse.size, op.code === 'mpol' ? 25 : 26, `${op.code} : chaque lettre, une fois`);
     // L'aller-retour est exact : ce que l'inverse donne, l'opérateur le relit.
     for (const [lettre, valeurs] of inverse) {
       const e = appliquerOp(op, etat('NUMS', [...valeurs], []));
@@ -140,9 +141,12 @@ test('cible-mot — les relectures d’un texte : cibles sous-jacentes, écrit r
     ['m1a', '26.5.18.7', 'valeurs', 'zerg', 970],
     ['mcaz', '21314152', 'chiffres', 'zerg', 970],
     ['mcqw', '13314152', 'chiffres', 'zerg', 970],
+    ['m1a2', '26051807', 'chiffres', 'zerg', 970],
+    ['mpol', '55154222', 'chiffres', 'zerg', 970],
+    ['mtap', '94327341', 'chiffres', 'zerg', 970],
   ]);
   const fantome = relecturesPour(lireCible('Fantôme'), catalogue);
-  assert.ok(fantome.length === 3 && fantome.every((r) => r.produit === 'fantome' && r.ecart.facteur === 902));
+  assert.ok(fantome.length === 6 && fantome.every((r) => r.produit === 'fantome' && r.ecart.facteur === 902));
   assert.equal(fantome.find((r) => r.code === 'mcaz').cible.nature, 'valeurs', 'le M est en colonne 10 en AZERTY');
   assert.deepEqual(relecturesPour(lireCible('reine des lames'), catalogue), [],
     'aucune relecture n’écrit l’espace : pas de voie, et c’est la recherche qui le dit');

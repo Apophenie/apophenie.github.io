@@ -343,6 +343,9 @@ export const NOMS = {
   'm.rangEnLettre': b('Par la réglette lue à rebours', 'By the ruler read backwards'),
   'm.coordonneesAzerty': b('Par les coordonnées AZERTY', 'By AZERTY coordinates'),
   'm.coordonneesQwerty': b('Par les coordonnées QWERTY', 'By QWERTY coordinates'),
+  'm.rangDeuxChiffres': b('Par le rang en deux chiffres', 'By the two-digit rank'),
+  'm.polybe': b('Par le carré de Polybe', 'By the Polybius square'),
+  'm.multiTap': b('Par les appuis du téléphone', 'By phone key presses'),
   // ★ `m36` ne nomme rien et ne DOIT rien nommer : il souligne un 666 déjà écrit,
   // c'est-à-dire le résultat. Il est écarté des vedettes (`MAPPEURS_DE_SERVICE`)
   // et son nom de repli reste muet sur ce qu'il montre.
@@ -608,6 +611,9 @@ export const TITRES_COURTS = {
   'm.rangEnLettre': b('rang en lettre', 'rank to letter'), // m1a
   'm.coordonneesAzerty': b('coordonnées AZERTY', 'AZERTY coordinates'), // mcaz
   'm.coordonneesQwerty': b('coordonnées QWERTY', 'QWERTY coordinates'), // mcqw
+  'm.rangDeuxChiffres': b('rang en deux chiffres', 'two-digit rank'), // m1a2
+  'm.polybe': b('carré de Polybe', 'Polybius square'), // mpol
+  'm.multiTap': b('appuis du téléphone', 'phone key presses'), // mtap
   'm.longueurToken': b('nombre de caractères', 'character count'), // mlm
   'm.longueurNom': b('nombre de caractères', 'character count'), // mln
   // ⚠️ « signaux morse » se lit comme un nom composé bancal ; l'auteur veut
@@ -838,6 +844,9 @@ export const PRECISIONS = {
   'm.rangEnLettre': b('chaque rang relu en lettre', 'each rank read back as a letter'),
   'm.coordonneesAzerty': b('chaque paire relue en touche AZERTY', 'each pair read back as an AZERTY key'),
   'm.coordonneesQwerty': b('chaque paire relue en touche QWERTY', 'each pair read back as a QWERTY key'),
+  'm.rangDeuxChiffres': b('chaque paire lue comme un rang', 'each pair read as a rank'),
+  'm.polybe': b('chaque paire lue dans le carré', 'each pair read in the square'),
+  'm.multiTap': b('chaque paire lue en appuis', 'each pair read as key presses'),
   // ★ Muet sur ce qu'il souligne — voir `MAPPEURS_DE_SERVICE`. « 666 déjà
   // écrit » serait exact et divulguerait la chute d'une ligne de la liste.
   'm.troisSixDAffilee': b('avec le trio souligné', 'with the trio underlined'),

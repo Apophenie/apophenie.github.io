@@ -75,7 +75,9 @@ import {
   A1Z26, Z26A1, PYTHAGORE, CHALDEEN, ENGLISH_X6, NOM_LETTRE_FR, NOM_CHIFFRE_FR,
   VOYELLES, sansAccents, estLettre, valeur as valeurTable, LETTRES,
 } from '../tables/alphabet.js';
-import { SCRABBLE_FR, SCRABBLE_EN, T9, MORSE, morseSignaux, morseTraits } from '../tables/jeux.js';
+import {
+  SCRABBLE_FR, SCRABBLE_EN, T9, T9_GROUPES, MORSE, morseSignaux, morseTraits,
+} from '../tables/jeux.js';
 import {
   segmentsDe, compteSegments, compteTraitsFusionnes, MENTION_SEG7, SEG7_APPROXIMATIONS,
 } from '../tables/seg7.js';
@@ -6824,6 +6826,56 @@ const AUTRES_MAPPEURS = [
   //   append-only (§4.1).
   operateurDivisionDeDeux(true),
   operateurDivisionDeDeux(false),
+  // ★ LES RELECTURES PAR PAIRES — deux petits chiffres pour une lettre. Voir
+  //   la fabrique, plus bas (même hissage) : le rang sur deux chiffres, le
+  //   carré de Polybe, le multi-tap du téléphone.
+  operateurParPaires({
+    id: 'm.rangDeuxChiffres', code: 'm1a2',
+    libelle: bilingue('Deux chiffres font un rang, le rang une lettre', 'Two digits make a rank, the rank a letter'),
+    regle: bilingue('01=a, 02=b, … 26=z', '01=a, 02=b, … 26=z'),
+    outil: bilingue('Réglette alphabétique, rangs à deux chiffres', 'Alphabet ruler, two-digit ranks'),
+    note: bilingue(
+      'Le rang de la lettre, écrit sur deux chiffres, zéro compris : e est 05. '
+      + 'Rien au-delà de 26.',
+      'The letter’s rank, written with two digits, zero included: e is 05. Nothing past 26.',
+    ),
+    notoriete: 0.8, adHoc: 0.3, colonnes: 13,
+    couples: [...LETTRES].map((c, i) => [`${Math.floor((i + 1) / 10)}${(i + 1) % 10}`, c.toLowerCase()]),
+  }),
+  operateurParPaires({
+    id: 'm.polybe', code: 'mpol',
+    libelle: bilingue('Le carré de Polybe : une ligne, une colonne, une lettre',
+      'The Polybius square: a row, a column, a letter'),
+    regle: bilingue('La ligne, puis la colonne, de 1 à 5 — 1 1 = a, 2 4 = i',
+      'Row, then column, 1 to 5 — 1 1 = a, 2 4 = i'),
+    outil: bilingue('Carré de Polybe', 'Polybius square'),
+    note: bilingue(
+      'Le chiffrement de l’historien grec : vingt-cinq cases, et i et j dans la même. '
+      + 'Relu, le carré écrit donc i, jamais j.',
+      'The Greek historian’s cipher: twenty-five cells, i and j sharing one. Read back, '
+      + 'the square therefore writes i, never j.',
+    ),
+    notoriete: 0.45, adHoc: 0.35, colonnes: 5,
+    couples: ['abcde', 'fghik', 'lmnop', 'qrstu', 'vwxyz']
+      .flatMap((ligne, r) => [...ligne].map((c, k) => [`${r + 1}${k + 1}`, c])),
+  }),
+  operateurParPaires({
+    id: 'm.multiTap', code: 'mtap',
+    libelle: bilingue('La touche et le nombre d’appuis, sur un téléphone',
+      'The key and the number of presses, on a phone'),
+    regle: bilingue('La touche, puis les appuis — 7 4 = s, quatre fois sur le 7',
+      'Key, then presses — 7 4 = s, four times on the 7'),
+    outil: bilingue('Clavier de téléphone, en appuis', 'Phone keypad, in presses'),
+    note: bilingue(
+      'Le multi-tap des téléphones d’avant la saisie prédictive : on appuie sur la touche '
+      + 'autant de fois que le rang de la lettre sur elle. 7777 s’écrit ici 7 4.',
+      'The multi-tap of phones before predictive text: press the key as many times as the '
+      + 'letter’s place on it. 7777 is written here as 7 4.',
+    ),
+    notoriete: 0.6, adHoc: 0.35, colonnes: 13,
+    couples: Object.entries(T9_GROUPES)
+      .flatMap(([touche, lettres]) => [...lettres].map((c, k) => [`${touche}${k + 1}`, c.toLowerCase()])),
+  }),
 ];
 
 /**
@@ -7254,6 +7306,102 @@ function operateurCoordonnees(disposition) {
           retire: i === dernier,
         }], { id: `s_${ctx.cle}_${i}` });
       });
+    },
+  });
+}
+
+/**
+ * ★ **LES RELECTURES PAR PAIRES — deux PETITS chiffres pour une lettre.**
+ *
+ * > « Il y a des progrès à faire pour des conversions de n'importe quelle
+ * >   saisie vers un objectif non numérique. » (l'auteur)
+ *
+ * MESURÉ avant d'en écrire une ligne, sur un corpus de trente mots et quatre
+ * saisies (`.planning/banc/cibles-mots-banc.mjs`) : ce qui rend un mot
+ * atteignable, c'est que sa relecture inverse soit une suite de CHIFFRES — de 0
+ * à 9, que l'outillage chiffré atteint, absorptions comprises (`mab`, `mrdE`).
+ * Le rang d'`m1a` va jusqu'à 26 et n'a ouvert aucun couple ; les coordonnées de
+ * clavier ouvrent les mots courts, mais le M d'AZERTY vaut 10. Chaque
+ * convention qui relit une lettre par deux chiffres de 0 à 9 donne une cible
+ * de plus, donc une chance de plus : c'est l'objet de cette fabrique.
+ *
+ * ★ **LE GESTE, deux temps par lettre, avec des primitives qui existent.** On
+ *   COLLE la paire — « 2 4 » devient « 24 », les espaces se résorbent
+ *   (`merge`, qui vérifie que le collage est la concaténation exacte) —, puis
+ *   la case « 24 » de la table s'allume et la lettre en redescend (`table`,
+ *   qui refuse une lettre qui n'est pas celle de la case). La table MONTRÉE est
+ *   `couples`, celle qu'`apply` lit : une seule source.
+ * ★ **UNE RELECTURE** (`relecture.domaine`) : le premier chiffre parcourt ce
+ *   que les clés commencent par, le second ce qu'elles finissent par ; la
+ *   recherche calcule l'inverse sur `apply` (`recherche/conversions.js`), et
+ *   refuserait une table qui écrirait une lettre de deux façons.
+ * ★ En bas de casse, INACTIVE en recherche et MUÉE — pour les raisons de `m1a`.
+ */
+function operateurParPaires({
+  id, code, libelle, regle, outil, note, notoriete, adHoc, colonnes, couples,
+}) {
+  const parCle = new Map(couples);
+  const table = Object.freeze(couples.map(([cle, lettre]) => Object.freeze({ char: cle, value: lettre })));
+  const premiers = [...new Set(couples.map(([cle]) => Number(cle[0])))].sort((a, b) => a - b);
+  const seconds = [...new Set(couples.map(([cle]) => Number(cle[1])))].sort((a, b) => a - b);
+  const idColle = (ctx, i) => `${ctx.cle}_p${i}`;
+  const idLettre = (ctx, i) => `${ctx.cle}_l${i}`;
+  return def({
+    id, code, famille: 'mappeur', from: 'NUMS', to: 'TOKENS',
+    libelle, regle, outil, note, notoriete, adHoc,
+    actifParDefaut: false,
+    mue: true,
+    relecture: Object.freeze({
+      domaine: Object.freeze([Object.freeze(premiers), Object.freeze(seconds)]),
+    }),
+    apply: (valeur, traces) => {
+      if (!valeur.length || valeur.length % 2) return null;
+      const out = [];
+      const tr = [];
+      for (let i = 0; i < valeur.length; i += 2) {
+        const a = valeur[i];
+        const b = valeur[i + 1];
+        if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || a > 9 || b < 0 || b > 9) return null;
+        const lettre = parCle.get(`${a}${b}`);
+        if (!lettre) return null;
+        out.push(lettre);
+        tr.push(fusion(traces[i] || [], traces[i + 1] || []));
+      }
+      return { valeur: out, traces: tr };
+    },
+    sortie: (avant, apres, ctx) => apres.valeur.map((_, i) => idLettre(ctx, i)),
+    // ★ Un collage puis une case, lettre par lettre — jamais groupés. La table
+    //   monte à la première lettre, reste montée pendant les collages, se
+    //   replie à la dernière : le décor se mutualise, le geste non.
+    steps: (avant, apres, ctx) => {
+      const titre = dire(libelle, ctx.langue);
+      const dit = dire(regle, ctx.langue);
+      const nomOutil = dire(outil, ctx.langue);
+      const dernier = apres.valeur.length - 1;
+      const steps = [];
+      apres.valeur.forEach((lettre, i) => {
+        const a = avant.valeur[2 * i];
+        const b = avant.valeur[2 * i + 1];
+        const cle = `${a}${b}`;
+        steps.push(etape(ctx, titre, `${dit} · ${a} ${b} → ${cle}`, [{
+          op: 'merge',
+          targets: [ctx.ids[2 * i], ctx.ids[2 * i + 1]],
+          to: token(idColle(ctx, i), cle, 'number'),
+        }], { id: `s_${ctx.cle}_c${i}` }));
+        steps.push(etape(ctx, titre, `${dit} · ${cle} → ${lettre}`, [{
+          op: 'table',
+          disposition: 'reglette',
+          titre: nomOutil,
+          colonnes,
+          entries: table.map((e) => ({ ...e })),
+          target: idColle(ctx, i),
+          letter: cle,
+          to: token(idLettre(ctx, i), lettre, 'letter'),
+          montre: i === 0,
+          retire: i === dernier,
+        }], { id: `s_${ctx.cle}_${i}` }));
+      });
+      return steps;
     },
   });
 }
