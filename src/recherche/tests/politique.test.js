@@ -16,7 +16,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { profilDeCible, CIBLE_LONGUE, cibleDeValeurs, lireCible } from '../cible.js';
-import { politique } from '../politique.js';
+import { politique, gesteUtile } from '../politique.js';
+import { normaliserCatalogue, appliquerOp, etat } from '../bfs.js';
+import { catalogue } from './_catalogue.js';
 
 /* ══════════════════════ 1. Le verrou du 666 ══════════════════════ */
 
@@ -121,4 +123,44 @@ test('★ politique — le profil est une fonction pure de la cible', () => {
   assert.equal(politique(a), politique(b), 'et la politique aussi');
   assert.throws(() => politique(null), /profil de cible/, 'échec bruyant, pas de repli muet');
   assert.throws(() => politique({}), /profil de cible/);
+});
+
+/* ══════════════════════ 4. L'utilité d'un geste ══════════════════════
+ *
+ * ★ CETTE RÈGLE VIENT DU MOTEUR, où elle a été recalibrée TROIS FOIS — une
+ *   constante 3, puis `visee.longueur`, puis libre au-delà de dix. Elle est
+ *   arrivée ici parce qu'elle n'est pas un fait sur la cible mais un jugement
+ *   sur ce qui vaut la peine d'être cherché. Les vecteurs ci-dessous sont ceux
+ *   que `moteur/catalogue.test.js` tenait avant le déplacement.
+ */
+
+const tri = (cible) => normaliserCatalogue(catalogue)
+  .find((o) => o && o.code === 'mtri').viser(cible);
+
+test('★ politique — le tri ne se joue que s’il RASSEMBLE (visée courte)', () => {
+  const op = tri('666');
+  // Ranger sans réunir : le moteur range, la politique refuse.
+  assert.deepEqual(op.apply([3, 1, 2], [[], [], []]).valeur, [1, 2, 3],
+    'l’opérateur, lui, sait ranger');
+  assert.equal(gesteUtile(op, [3, 1, 2], [1, 2, 3]), false,
+    'trois valeurs distinctes : ranger ne réunit personne');
+  assert.equal(gesteUtile(op, [6, 6, 6, 4, 1], [1, 4, 6, 6, 6]), false,
+    'la plage de trois existe DÉJÀ : le tri ne s’en attribue pas le mérite');
+  assert.equal(gesteUtile(op, [6, 4, 6, 1, 6], [1, 4, 6, 6, 6]), true,
+    'trois 6 dispersés, réunis : là, il sert');
+  // Et la porte unique de la recherche l’applique : le tri inutile n’existe pas.
+  assert.equal(appliquerOp(op, etat('NUMS', [3, 1, 2], [[], [], []])), null,
+    'appliquerOp refuse le geste que la politique juge inutile');
+  assert.ok(appliquerOp(op, etat('NUMS', [6, 4, 6, 1, 6], [[], [], [], [], []])),
+    'et laisse passer celui qui rassemble');
+});
+
+test('★ politique — au-delà de dix chiffres visés, ranger suffit', () => {
+  const op = tri('12345678901234');
+  assert.equal(gesteUtile(op, [3, 1, 2], [1, 2, 3]), true,
+    'une visée de quatorze ne peut pas demander quatorze valeurs identiques');
+  assert.equal(gesteUtile({ utilite: 'rassemble' }, [3, 1, 2], [1, 2, 3]), true,
+    'sans visée lisible, on ne juge pas : l’invariant du moteur a déjà parlé');
+  assert.equal(gesteUtile({ code: 'mrn' }, [3, 1, 2], [1, 2, 3]), true,
+    'un opérateur qui ne déclare aucune utilité n’est pas jugé');
 });

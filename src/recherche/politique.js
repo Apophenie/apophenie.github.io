@@ -41,6 +41,47 @@
 //   rangée dans la mauvaise boîte sans qu'on le voie.
 
 /**
+ * ★ **LA POLITIQUE D'UTILITÉ D'UN GESTE — ce qui a été recalibré trois fois.**
+ *
+ * Le tri croissant (`mtri`) portait sa propre condition d'utilité : le
+ * rangement devait RASSEMBLER — la plus longue plage de valeurs identiques
+ * devait augmenter et atteindre la longueur de la visée. Elle a été recalibrée
+ * trois fois (une constante 3, puis `visee.longueur`, puis libre au-delà de
+ * dix), et pour une raison de fond : ce n'est pas un fait sur la cible, c'est
+ * un JUGEMENT sur ce qui vaut la peine d'être cherché. Donc une politique.
+ *
+ * L'opérateur garde l'invariant honnête — un tri qui ne déplace rien n'est pas
+ * une étape — et DÉCLARE de quelle politique il relève (`op.utilite`). La règle
+ * est ici, avec les autres, et `bfs.js › appliquerOp` la consulte : c'est la
+ * porte unique par laquelle la recherche applique un opérateur (les seules
+ * applications directes du projet concernent les opérateurs de LIAISON).
+ *
+ * ⚠️ **À COMPORTEMENT CONSTANT.** La condition ci-dessous est celle qui était
+ *   écrite dans le moteur, au caractère près, `VISEE_LONGUE` y compris — c'est
+ *   le même dix que `CIBLE_LONGUE`, et un test tient l'égalité. Ce qui change
+ *   est l'ENDROIT, pas la règle.
+ *
+ * @param {Object} op        l'opérateur, avec sa visée s'il en a une
+ * @param {*} avant          la valeur d'entrée
+ * @param {*} apres          la valeur rendue par `apply`
+ * @returns {boolean} le geste mérite-t-il d'être joué ?
+ */
+export function gesteUtile(op, avant, apres) {
+  if (!op || op.utilite !== 'rassemble') return true;
+  const visee = op.visee;
+  // Sans visée lisible, on ne juge pas : l'invariant du moteur a déjà parlé.
+  if (!visee || typeof visee.longueur !== 'number') return true;
+  if (visee.longueur > CIBLE_LONGUE) return true;
+  if (!Array.isArray(avant) || !Array.isArray(apres)) return true;
+  const plusLongue = (v) => plagesDe(v).reduce((m, p) => Math.max(m, p.compte), 0);
+  const gagne = plusLongue(apres);
+  return gagne > plusLongue(avant) && gagne >= visee.longueur;
+}
+
+import { CIBLE_LONGUE } from './cible.js';
+import { plagesDe } from '../moteur/transformations/mappeurs.js';
+
+/**
  * @typedef {Object} Politique
  * @property {boolean} joker            le terminateur français a-t-il cours ? (§5.3)
  * @property {boolean} reponsesDediees  les réponses écrites d'avance (666 seulement)

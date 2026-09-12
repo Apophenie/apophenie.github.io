@@ -989,35 +989,18 @@ const LIB_EN_LETTRES = bilingue(
  */
 export const VISEE_LONGUE = 10;
 
-function triRassemble(valeur, visee) {
+function triDeplace(valeur) {
   const ordre = ordreCroissant(valeur);
-  if (!ordre.some((src, i) => valeur[src] !== valeur[i])) return false;
-  /* ★ **ET LE GARDE-FOU SE REMET À L'ÉCHELLE — une troisième fois.**
-
-     L'en-tête raconte qu'il disait TROIS quand on visait `13`, qui en demande
-     deux. La même erreur revient par l'autre bout : « atteindre au moins une
-     série » réclame QUATORZE valeurs identiques côte à côte pour une visée de
-     quatorze chiffres — les sept lettres d'un mot relu par paires. Autant dire
-     jamais : l'opérateur était mort pour toute visée longue, sans que rien le
-     dise.
-
-     Or rassembler n'est pas la seule façon de servir. Une absorption
-     (`op.absorbe`) consomme la ligne ENTIÈRE : ce qu'elle demande à un tri
-     n'est pas d'aligner des valeurs égales, c'est de présenter la ligne dans un
-     autre ordre — `fl+tca+masb+mtri+mab` écrit les quatorze chiffres de
-     « Fantome » là où la ligne non rangée n'écrit rien.
-
-     Au-delà de dix chiffres visés, la condition redevient donc l'invariant
-     honnête, celui de la ligne au-dessus : le tri doit DÉPLACER quelque chose,
-     sans quoi il fabriquerait une étape que la scène sauterait. Ce qui empêche
-     un rangement gratuit de survivre reste le barème, qui le facture
-     (`elegance.js › REARRANGEMENT`) — « `mtri` n'était pas gratuit, l'opération
-     ne sera retenue que si elle est rentable » (l'auteur). */
-  if (visee.longueur > VISEE_LONGUE) return true;
-  const plusLongue = (v) => plagesDe(v).reduce((m, p) => Math.max(m, p.compte), 0);
-  const avant = plusLongue(valeur);
-  const apres = plusLongue(ordre.map((i) => valeur[i]));
-  return apres > avant && apres >= visee.longueur;
+  /* ★ **L'INVARIANT HONNÊTE, ET LUI SEUL RESTE ICI.**
+     Un mappeur qui rend son entrée fabrique une étape que `scenario.js` saute
+     en silence, et l'URL porterait alors un code que la démonstration ne montre
+     nulle part : ça, c'est un fait sur le GESTE, et le moteur le tient.
+     Savoir si un tri SERT à quelque chose — s'il rassemble assez pour qu'une
+     méthode écrive la cible — est un jugement d'UTILITÉ, donc une politique de
+     recherche. Il a été recalibré trois fois tant qu'il vivait ici ; il vit
+     désormais dans `recherche/politique.js › gesteUtile`, avec les autres, et
+     l'opérateur se contente de DÉCLARER qu'il y est soumis (`utilite`). */
+  return ordre.some((src, i) => valeur[src] !== valeur[i]);
 }
 
 /**
@@ -1041,7 +1024,12 @@ function ordreAlphabetique(jetons) {
 }
 
 /**
- * ★ MÊME EXIGENCE QUE `triRassemble`, UN CRAN PLUS TÔT DANS LA CHAÎNE.
+ * ★ MÊME EXIGENCE QUE CELLE DU TRI CROISSANT, UN CRAN PLUS TÔT DANS LA CHAÎNE.
+ *
+ * ⚠️ Celle du tri croissant a quitté le moteur — c'était un jugement d'utilité,
+ *   donc une politique de recherche (`recherche/politique.js › gesteUtile`).
+ *   Celle-ci reste ici, et ce n'est pas une incohérence : elle porte sur des
+ *   JETONS, pas sur des nombres, et ce qu'elle exige n'a jamais été recalibré.
  *
  * « S'il devrait y avoir un tri, il faudrait le faire en premier : classer les
  * lettres par ordre alphabétique en une étape, pour faire apparaître ensuite le
@@ -1180,7 +1168,7 @@ function stepsDuDemiTour(avant, apres, ctx, depuis, lib) {
  * Et c'est ce qui fait du couple `tri croissant` + `on compte les chiffres` une
  * suite qui a du sens : trier RASSEMBLE les plages, compter les nomme.
  */
-function plagesDe(valeur) {
+export function plagesDe(valeur) {
   const out = [];
   let i = 0;
   while (i < valeur.length) {
@@ -5330,7 +5318,13 @@ const AUTRES_MAPPEURS = [
   // naissance. Il exigeait donc trois valeurs identiques pour écrire une cible
   // qui en demande deux, et son propre commentaire affirmait le contraire (« et
   // cette condition ne dit pas un mot du 6 […] même pour `13` »).
-  // Voir `triRassemble`, où le repli sur `666` reste exact.
+  //
+  // ★ **ET C'EST POUR CELA QUE LA CONDITION A QUITTÉ LE MOTEUR.** Trois fois
+  //   recalibrée ici, elle n'y était pas à sa place : « ce tri sert-il à
+  //   quelque chose ? » est un jugement de la RECHERCHE
+  //   (`recherche/politique.js › gesteUtile`, qui porte la règle et son
+  //   histoire). L'opérateur garde l'invariant — un tri qui ne déplace rien
+  //   n'est pas une étape — et déclare de quelle politique il relève.
   selonLaCible((visee) => ({
     id: 'm.triCroissant', code: 'mtri', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle: LIB_TRI_CROISSANT,
@@ -5359,6 +5353,12 @@ const AUTRES_MAPPEURS = [
     // contigu ce qui ne l'était pas est précisément ce que `TRIPTYQUE_CONTIGU`
     // récompense de n'avoir pas eu à faire.
     notoriete: 0.65, adHoc: 0.20,
+    // ★ **IL DÉCLARE ÊTRE SOUMIS À UNE POLITIQUE D'UTILITÉ** — « rassemble » :
+    //   la recherche ne le joue que si le rangement rapproche assez de valeurs
+    //   égales pour qu'une méthode écrive la cible (`recherche/politique.js ›
+    //   gesteUtile`). Le moteur ne sait pas ce que la règle dit, et surtout pas
+    //   qui l'applique : il dit seulement de laquelle il relève.
+    utilite: 'rassemble',
     note: bilingue(
       'Ranger n’est pas trier au sens du site : rien n’est écarté, rien n’est choisi. '
       + 'Mais l’ordre de lecture, lui, ne survit pas — et c’est ce que le score facture.',
@@ -5371,7 +5371,7 @@ const AUTRES_MAPPEURS = [
       // entrée fabrique une étape que `scenario.js` saute silencieusement, et
       // l'URL porterait alors un code que la démonstration ne montre nulle
       // part.
-      if (!triRassemble(valeur, visee)) return null;
+      if (!triDeplace(valeur)) return null;
       const ordre = ordreCroissant(valeur);
       return {
         valeur: ordre.map((i) => valeur[i]),
