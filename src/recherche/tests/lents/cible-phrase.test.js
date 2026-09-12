@@ -40,7 +40,9 @@ test('cible-phrase — tous les signes ont une relecture, et une seule relecture
   // ⚠️ Mais d'un BLOC, ce sont cinquante-sept chiffres : mesuré, aucune voie —
   //   la plus longue ligne que la saisie donne fait 89 chiffres, et l'absorption
   //   n'écrit qu'un chiffre visé pour trois ou quatre.
-  assert.deepEqual(r.relectures.map((x) => [x.code, x.longueur]), [['masi', 57]]);
+  //   Le téléphone, lui, l'APPROCHE sans sa ponctuation : trente-deux chiffres,
+  //   aucune voie d'un bloc non plus.
+  assert.deepEqual(r.relectures.map((x) => [x.code, x.longueur]), [['mtap', 32], ['masi', 57]]);
 });
 
 /**

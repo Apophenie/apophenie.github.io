@@ -165,6 +165,25 @@ test('cible-mot — les relectures d’un texte : cibles sous-jacentes, écrit r
     'aucune relecture n’écrit le « œ » : pas de voie, et c’est la recherche qui le dit');
 });
 
+/* ★ LA PONCTUATION OMISE — un écart de forme, payé, et rien de plus. */
+test('cible-mot — la ponctuation omise se paie, et elle seule', () => {
+  const e = ecartDeForme('cest de la merde', "C'est de la merde !");
+  assert.deepEqual([...e.natures], ['ponctuation', 'initiale']);
+  assert.equal(e.facteur, Math.round((ECARTS.ponctuation.facteur * ECARTS.initiale.facteur) / 1000));
+  assert.ok(ECARTS.ponctuation.facteur < 1000, 'l’exacte passe devant l’approchée de même note');
+  assert.equal(libelleEcart(e), 'à la ponctuation près et à la capitale initiale près');
+  assert.equal(ecartDeForme('cest de la', "C'est de la merde !"), null, 'un mot manquant n’est pas un écart');
+  assert.equal(ecartDeForme('cest de la merde', 'Cest de la merde').facteur, ECARTS.initiale.facteur,
+    'sans ponctuation visée, rien à payer pour elle');
+  // Les relectures de la phrase : le téléphone l'APPROCHE (pas de ponctuation),
+  // la table ASCII l'écrit EXACTEMENT. Jamais les deux pour un même code.
+  const rel = relecturesPour(lireCible("C'est de la merde !"), catalogue);
+  assert.deepEqual(rel.map((r) => [r.code, r.cible.longueur, r.produit, Boolean(r.ponctuationOmise), r.ecart.facteur]), [
+    ['mtap', 32, 'cest de la merde', true, e.facteur],
+    ['masi', 57, "C'est de la merde !", false, 1000],
+  ]);
+});
+
 test('cible-mot — face à une relecture chiffrée, les opérateurs qui lisent la cible TRAVAILLENT', () => {
   const [rangs, azerty] = relecturesPour(lireCible('Zerg'), catalogue);
   const lisent = (cbl) => operateursPourCible(catalogue, cbl)

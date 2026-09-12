@@ -3137,7 +3137,9 @@ export function construireScenario(approche, ctx = {}) {
     }
     aReveler = emis.courants.map((c) => c[0]);
     // Une série du verdict, c'est un exemplaire du TEXTE — pas de ses chiffres.
-    serieVerdict = [...rel.mot].length;
+    // ★ …et un exemplaire se mesure sur ce qui est ÉCRIT : une relecture qui
+    //   omet la ponctuation écrit moins de signes que le texte visé.
+    serieVerdict = [...(rel.produit || rel.mot)].length;
     const lettres = apres.valeur;
     const ecrits = [];
     for (let i = 0; i < lettres.length; i += serieVerdict) ecrits.push(lettres.slice(i, i + serieVerdict).join(''));

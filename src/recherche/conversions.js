@@ -28,7 +28,7 @@
 //   reste de la recherche (CONTRACTS §1).
 
 import { normaliserCatalogue, appliquerOp, etat } from './bfs.js';
-import { cibleDeValeurs, plierMot, ecartDeForme } from './cible.js';
+import { cibleDeValeurs, plierMot, ecartDeForme, sansPonctuation } from './cible.js';
 
 /**
  * La relecture qu'on suppose quand un lien vise un texte sans en nommer : le
@@ -95,11 +95,15 @@ const valeursDuSigne = (inverse, signe) => inverse.get(signe) || inverse.get(pli
  *   « z », jamais « Z » ni « ẑ ». Ce qu'elle écrit n'est donc pas toujours ce
  *   qu'on vise, et l'écart se mesure sur le texte obtenu, pas sur l'intention.
  */
-export function relecturePour(mot, op) {
+export function relecturePour(mot, op, { ponctuationOmise = false } = {}) {
   if (!mot || typeof mot.texte !== 'string') return null;
+  // ★ LA PONCTUATION OMISE : on relit le texte sans elle, et l'écart se mesure
+  //   toujours sur le texte VISÉ — c'est lui qui dit ce qui manque.
+  const texte = ponctuationOmise ? sansPonctuation(mot.texte) : mot.texte;
+  if (!texte || (ponctuationOmise && texte === mot.texte)) return null;
   const inverse = inverseDe(op);
   const valeurs = [];
-  for (const signe of mot.texte) {
+  for (const signe of texte) {
     const v = valeursDuSigne(inverse, signe);
     if (!v) return null;
     valeurs.push(...v);
@@ -110,7 +114,22 @@ export function relecturePour(mot, op) {
   const produit = ecrit.valeur.join('');
   const ecart = ecartDeForme(produit, mot.texte);
   if (!ecart) return null;
-  return Object.freeze({ code: op.code, op, mot, cible, produit, ecart });
+  return Object.freeze({
+    code: op.code, op, mot, cible, produit, ecart, ...(ponctuationOmise ? { ponctuationOmise: true } : {}),
+  });
+}
+
+/**
+ * ★ LA RELECTURE QU'UN LIEN DÉSIGNE — l'exacte si elle existe, sinon l'approchée.
+ *
+ * Un lien ne dit que le CODE (`mtap!`). Il n'est pas ambigu pour autant : pour
+ * un texte et un opérateur donnés, `relecturesPour` ne produit JAMAIS les deux
+ * — l'approchée n'est tentée que si l'exacte n'existe pas. Le rejeu refait le
+ * même choix, dans le même ordre (`index.js › rejouer`).
+ */
+export function relectureDuLien(mot, op) {
+  return relecturePour(mot, op) || (op && op.relecture && !op.relecture.reserve
+    ? relecturePour(mot, op, { ponctuationOmise: true }) : null);
 }
 
 /**
@@ -150,7 +169,10 @@ export function relecturesPour(mot, catalogue) {
   const out = [];
   for (const op of ops) {
     if (op.relecture.reserve && !besoinDeReserve) continue;
-    const r = relecturePour(mot, op);
+    // ★ Une relecture ORDINAIRE qui n'écrit pas la ponctuation vise le texte
+    //   sans elle, et paie l'écart (`cible.js › ECARTS.ponctuation`). Une
+    //   relecture de réserve, elle, existe justement pour l'écrire.
+    const r = relectureDuLien(mot, op);
     if (r) out.push(r);
   }
   return out;

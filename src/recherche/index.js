@@ -85,7 +85,7 @@ import {
 import { politique } from './politique.js';
 
 import {
-  relecturesPour, relecturePour, signesSansRelecture, RELECTURE_PAR_DEFAUT,
+  relecturesPour, relecturePour, relectureDuLien, signesSansRelecture, RELECTURE_PAR_DEFAUT,
 } from './conversions.js';
 import { deroulerParTranches } from './tranches.js';
 
@@ -1148,7 +1148,8 @@ export function creerMoteur(catalogue, options = {}) {
       if (!op || !op.relecture) {
         return { ok: false, raison: `relecture inconnue : ${code}`, bandeau: BANDEAUX.codeInconnu };
       }
-      rel = relecturePour(cbl, op);
+      // ★ L'exacte, sinon l'approchée (ponctuation omise) — le même choix que la liste.
+      rel = relectureDuLien(cbl, op);
       if (!rel) return { ok: false, raison: 'relecture impossible', bandeau: BANDEAUX.relectureImpossible };
       cbl = rel.cible;
     } else if (lecture.relecture) {
@@ -1401,6 +1402,9 @@ export function creerMoteur(catalogue, options = {}) {
       mot: approche.relecture.mot,
       op: opParCode.get(approche.relecture.code) || null,
       ecart: approche.ecartDeForme || null,
+      // ★ Ce que la relecture ÉCRIT réellement : sans la ponctuation omise, il
+      //   n'a pas la longueur du texte visé, et c'est lui que le verdict découpe.
+      produit: approche.produit || null,
     } : null;
     return construireScenario(approche, {
       saisie: ctx.saisie || approche.saisie,
