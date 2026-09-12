@@ -927,9 +927,62 @@ export function chercherSix(fragment, ctx) {
     return memo;
   }
 
+  // ★ **LE RÉEMPLOI D'UNE RECHERCHE FAITE SOUS UN BUDGET PLUS PETIT** — voir
+  //   `reemployable`. La famille regroupe les recherches du même fragment qui
+  //   ne diffèrent que par le budget de travail et la profondeur.
+  const famille = '\u0001' + normaliserFragment(fragment)
+    + '\u0000' + butsDe(ctx).map((b) => b.but).join('.')
+    + '\u0000' + (ctx.maxNodes ?? MAX_NODES)
+    + '\u0000' + (ctx.pBeam ?? P_BEAM)
+    + '\u0000' + (ctx.cible && ctx.cible.texte ? ctx.cible.texte : '');
+  const deLaFamille = cache.get(famille);
+  if (deLaFamille !== undefined) {
+    const maxTravail = ctx.maxTravail ?? BUDGET_TRAVAIL;
+    const dMax = ctx.dMax ?? D_MAX;
+    for (const faite of deLaFamille) {
+      if (!reemployable(faite[COUT], maxTravail, dMax)) continue;
+      cache.set(cle, faite);
+      comptabiliser(ctx, faite[COUT]);
+      return faite;
+    }
+  }
+
   const resultats = rechercheBrute(fragment, ctx);
   cache.set(cle, resultats);
+  if (deLaFamille !== undefined) deLaFamille.push(resultats);
+  else cache.set(famille, [resultats]);
   return resultats;
+}
+
+/**
+ * ★ **UNE RECHERCHE FAITE VAUT-ELLE CELLE QU'ON DEMANDE ?** — la condition,
+ * prouvée sur `rechercheBrute` et rien d'autre.
+ *
+ * Le budget de travail et la profondeur n'y sont que des ARRÊTS : l'un coupe
+ * la boucle quand le travail l'atteint, l'autre borne les niveaux et désigne le
+ * dernier (où l'on n'applique plus que les opérateurs qui atterrissent). Le
+ * reste — l'ordre du catalogue, le faisceau, `MAX_NODES` — ne les lit pas.
+ * Une recherche faite sous (B, D) est donc EXACTEMENT celle qu'on ferait sous
+ * (B′ ≥ B, D′ ≥ D) si aucun de ces deux arrêts n'a joué :
+ *
+ *   · le travail dépensé est resté sous B — le test `travail >= B` n'a jamais
+ *     été vrai, et `travail >= B′` ne l'aurait pas été davantage ;
+ *   · si D′ > D, elle n'a pas atteint le niveau D − 1 — sans quoi ce niveau,
+ *     « dernier » sous D, ne l'est plus sous D′ et s'explore autrement ;
+ *   · le filet temporel n'a pas mordu — il dépend de la machine.
+ *
+ * C'est ce qui rend la recherche cumulative abordable (`index.js ›
+ * deroulerResolution`) : d'un cran au suivant, un fragment arrêté par
+ * `MAX_NODES` ou par l'épuisement de sa frontière n'est pas recherché deux fois.
+ * Le travail qu'on lui impute reste celui qu'il a coûté — le budget global
+ * décompte donc exactement ce qu'une recherche neuve aurait décompté.
+ */
+export function reemployable(cout, maxTravail, dMax) {
+  if (!cout || cout.tronqueTemps || cout.maxTravail === undefined) return false;
+  if (cout.maxTravail > maxTravail || cout.dMax > dMax) return false;
+  if (cout.travail >= cout.maxTravail) return false;
+  if (dMax > cout.dMax && cout.profondeur >= cout.dMax - 1) return false;
+  return true;
 }
 
 /**
@@ -1032,11 +1085,13 @@ function rechercheBrute(fragment, ctx) {
   const surProgres = typeof ctx.surProgres === 'function' ? ctx.surProgres : null;
   let tronque = false;
   let tronqueTemps = false; // ★ le filet de sécurité s'est déclenché : c'est un DÉFAUT
+  let profondeur = -1;      // le dernier niveau entamé — voir `reemployable`
 
   for (let d = 0; d < dMax; d++) {
     if (!frontiere.length) break;
     if (noeuds >= maxNodes || travail >= maxTravail) { tronque = true; break; }
     if (filet && maintenant() - t0 > budgetMs) { tronque = true; tronqueTemps = true; break; }
+    profondeur = d;
     const suivante = [];
     // ── Coupe du dernier niveau. Les états créés à la dernière extension ne
     // seront jamais étendus : seuls comptent ceux qui sont DÉJÀ un but, c'est-à-
@@ -1154,7 +1209,7 @@ function rechercheBrute(fragment, ctx) {
   // le budget global doit être dépensé de la même façon sur un moteur neuf et
   // sur un moteur qui a déjà servi, sans quoi le classement dépendrait des
   // saisies précédentes.
-  const cout = { travail, noeuds, tronque, tronqueTemps };
+  const cout = { travail, noeuds, tronque, tronqueTemps, profondeur, maxTravail, dMax };
   comptabiliser(ctx, cout);
 
   // Dernier compactage : le tableau peut porter jusqu'au double de la borne.
