@@ -1335,18 +1335,45 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   }
   const tete = [...parLeMotif.slice(0, plafond)];
   {
-    const parLaQuantite = out.filter((c) => !parLaQualite.includes(c) && !tete.includes(c));
+    /* ★ **UNE PROMOTION NE COÛTE PAS SA PLACE — la réserve n'EXCLUT plus de la
+         quantité.**
+
+       MESURÉ, et c'est la cause d'une violation d'invariant : la réserve de
+       qualité se dimensionne sur le plafond (`reserveDeQualite`), donc elle
+       s'agrandit quand le cran monte. Un candidat qui entrait par la QUANTITÉ à
+       la largeur d'avant s'y trouve PROMU à la largeur suivante — et la
+       quantité l'excluait alors. Or les sièges de qualité sont rares (un sur
+       quatre au défaut) : promu, il est servi bien plus tard, et il tombe hors
+       de la tête. Sur « Jim » visant 666, `fr17+tca+mz26+mdc3` — cinquième de
+       la quantité, retenu au cran 0 — devient cinquième de la réserve au cran 1
+       et disparaît, alors qu'il vaut 2 803 et que la liste garde des voies à
+       1 912.
+
+       La réserve GARANTIT des places à la qualité ; elle n'a jamais eu pour
+       rôle d'en retirer. Un candidat réservé garde donc son rang de quantité,
+       et l'on saute simplement ce qui est déjà pris. */
+    const parLaQuantite = out.filter((c) => !tete.includes(c));
+    const pris = new Set(tete);
     let iQte = 0;
     let iQal = 0;
-    while (tete.length < plafond && (iQte < parLaQuantite.length || iQal < parLaQualite.length)) {
+    const suivant = (liste, i) => {
+      let k = i;
+      while (k < liste.length && pris.has(liste[k])) k++;
+      return k;
+    };
+    const poser = (c) => { tete.push(c); pris.add(c); };
+    while (tete.length < plafond) {
+      iQte = suivant(parLaQuantite, iQte);
+      iQal = suivant(parLaQualite, iQal);
+      if (iQte >= parLaQuantite.length && iQal >= parLaQualite.length) break;
       // Les sièges de la qualité tombent là où sa part cumulée franchit un
       // entier (`siegeDeQualite`) — au défaut, le quatrième de chaque quatre,
       // comme avant —, et le tour revient à la quantité dès que la réserve est
       // épuisée (et réciproquement).
       const auTourDeLaQualite = siegeDeQualite(tete.length + 1, part);
-      if (auTourDeLaQualite && iQal < parLaQualite.length) tete.push(parLaQualite[iQal++]);
-      else if (iQte < parLaQuantite.length) tete.push(parLaQuantite[iQte++]);
-      else if (iQal < parLaQualite.length) tete.push(parLaQualite[iQal++]);
+      if (auTourDeLaQualite && iQal < parLaQualite.length) poser(parLaQualite[iQal++]);
+      else if (iQte < parLaQuantite.length) poser(parLaQuantite[iQte++]);
+      else if (iQal < parLaQualite.length) poser(parLaQualite[iQal++]);
       else break;
     }
   }

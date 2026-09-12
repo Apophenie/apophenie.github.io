@@ -221,6 +221,17 @@ test('cible-mot — Sarah Kerrigan → Fantome, rangé puis dissous', () => {
  *   moissons sans rapport : c'était un défaut (un champ `forme` réemployé, voir
  *   `assemblage.js › formeDe`), corrigé AVANT de régénérer.
  *
+ * ★ **IL A ÉTÉ RÉGÉNÉRÉ UNE TROISIÈME FOIS, et voici pourquoi.** La MONOTONIE
+ *   du curseur (`tests/lents/monotonie.test.js`) : la réserve de qualité
+ *   retirait de la file de quantité les candidats qu'elle promouvait, si bien
+ *   qu'un vecteur retenu à une largeur disparaissait à la suivante. Le
+ *   correctif — une promotion ne coûte plus sa place — a été arbitré par
+ *   l'auteur « partout, cran 0 compris ». Un seul couple de cet instantané en
+ *   bouge, `hope-hope-hope.fr → 666`, à tête inchangée (`fl+m14`, 7 843) : trois
+ *   voies sortent (2 028, 1 855, 1 619), trois entrent (2 275, 7 581, 3 409).
+ *   Les quatre autres couples sont identiques au caractère près. Le détail des
+ *   autres saisies déplacées est dans le message du commit qui l'applique.
+ *
  * ⚠️ C'est un fil tendu, pas une spécification. Une évolution VOULUE du barème
  *   ou du classement le fera rougir : c'est alors l'instantané qu'on régénère.
  */
