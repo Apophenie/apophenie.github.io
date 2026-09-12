@@ -127,3 +127,21 @@ test('cible-phrase — « https://reinfocovid.fr/ » → « C’est de la merde 
   assert.equal(r.relectures.find((x) => x.code === 'masi').horsDuCran, true);
   verifierVoies(r, 'cest de la merde');
 });
+
+/* ★ LA RAMPE, VUE DU CRAN 2 : la table ASCII entre, en quatre segments, et la voie
+     EXACTE passe devant les approchées — mesuré : 2 347 contre 2 006 et 1 564. */
+test('cible-phrase — « C’est de la merde ! » exacte au cran 2, devant l’approchée', () => {
+  const r = moteur.resoudre(SAISIE, { cible: PHRASE, fouille: 2 });
+  const exactes = r.approches.filter((a) => a.relecture.code === 'masi');
+  const approchees = r.approches.filter((a) => a.relecture.code === 'mtap');
+  assert.ok(exactes.length >= 1, 'aucune voie exacte au cran 2');
+  assert.ok(approchees.length >= 1, 'l’approchée ne disparaît pas quand le cran monte');
+  for (const a of exactes) {
+    assert.equal(a.mode, 'PHRASE', a.url);
+    assert.equal(a.parts.length, 4, `${a.url} : quatre segments`);
+    assert.equal(a.ecartDeForme.facteur, 1000, `${a.url} : rien à payer`);
+  }
+  assert.equal(r.approches[0].relecture.code, 'masi', 'la voie exacte en tête');
+  verifierVoies({ ...r, approches: exactes }, PHRASE);
+  verifierVoies({ ...r, approches: approchees }, 'cest de la merde');
+});
