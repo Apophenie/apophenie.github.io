@@ -42,10 +42,31 @@
  *   dans le message du commit qui l'applique ; l'instantané des cibles
  *   chiffrées a été régénéré dans le même mouvement.
  *
- * ⚠️ **ET IL NE SUFFIT PAS** : les deux CONVERGENCE perdues par « Sarah
- *   Kerrigan » entre les crans 2 et 3 ne reviennent pas. Leur cause est un
- *   cran plus loin — les trios de manières distinctes se choisissent sur des
- *   vecteurs qui, eux, ont changé.
+ * ⚠️ **LA SECONDE CAUSE, PROUVÉE — ET PAS RÉPARABLE SUR PLACE.** Les deux
+ *   CONVERGENCE perdues par « Sarah Kerrigan » entre les crans 2 et 3
+ *   (`fc+nd, fl+mt9+cs+prn, fl+mboc+cs` et `fd+nc, fv+mt9+cp+prn,
+ *   fc+m7F+cs+prn`) ne manquent PAS de matière : au cran 3, leurs six chemins
+ *   sont tous encore dans les chemins bruts (rangs 1/32/77 et 2/102/140).
+ *   C'est l'assemblage GLOUTON des trios qui les recombine (`assemblage.js ›
+ *   convergences`) :
+ *
+ *   · il prend, pour chaque case, « la première manière libre » dans l'ordre
+ *     d'APPARITION des manières — or la manière `jeu` saute de la 6ᵉ à la 2ᵉ
+ *     place au cran 3, parce qu'un chemin `fi+msen+cs` arrive plus tôt ;
+ *   · il garde, par manière et par chiffre, les TROIS premiers chemins — et
+ *     `code` comme `geometrie` voient un nouveau venu passer devant.
+ *
+ *   Deux rotations qui se composent : au cran 2 il rendait exactement ces deux
+ *   trios, au cran 3 il en rend trois autres, faits des mêmes chemins autrement
+ *   appariés.
+ *
+ *   ⚠️ Un correctif local a été MESURÉ et écarté : énumérer les trios dans un
+ *     ordre canonique au-delà du cran 0. Il ne rend pas les deux voies (la
+ *     perte glisse vers la sélection finale, inondée : « Jim » 8 → 30 voies au
+ *     cran 1), et il CRÉE des violations là où il n'y en avait plus — « Jim »
+ *     0 → 1 perd de nouveau une voie, « hope-hope-hope.fr » 0 → 1 en perd
+ *     quatre. La seconde cause touche donc à la capacité de la sélection, pas
+ *     seulement à l'étage des trios ; c'est un chantier en soi.
  */
 
 import test from 'node:test';
@@ -76,7 +97,7 @@ test('★ monotonie — une voie trouvée au cran 0 reste trouvée au cran 1', (
 });
 
 test('★ monotonie — une voie trouvée au cran 2 reste trouvée au cran 3', {
-  todo: 'seconde cause : les trios de CONVERGENCE se choisissent sur des vecteurs qui ont changé',
+  todo: 'seconde cause : l’assemblage glouton des trios de CONVERGENCE les recombine — voir le pavé',
 }, () => {
   assert.deepEqual(perduesEntre('Sarah Kerrigan', '666', 2, 3), [],
     'Sarah Kerrigan → 666 : le cran 3 perd ce que le cran 2 avait trouvé');
