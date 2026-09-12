@@ -173,6 +173,11 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   réservé à la passe de dernier recours (`recherche/assemblage.js`, le
   //   drapeau `gonfle`). En fin de bloc mappeur, append-only (§4.1).
   'mcar',
+  // ★ LA PUISSANCE et la FACTORIELLE, de la même famille que le carré : elles
+  //   ne cherchent pas à tomber juste, elles donnent de la matière. Inactives en
+  //   recherche, réservées au dernier recours, et bornées au domaine exact.
+  //   En fin de bloc mappeur, append-only (§4.1).
+  'mpui', 'mfac',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',
