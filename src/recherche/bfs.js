@@ -556,6 +556,75 @@ export function operateursPourCible(catalogue, cible) {
   return out;
 }
 
+/**
+ * ★ **CE QUI SE RETIRE DEVANT UNE CIBLE, ET QUI LE DISAIT À PERSONNE.**
+ *
+ * Dix opérateurs lisent la cible (`selonLaCible`), et chacun a le droit de se
+ * retirer quand sa règle n'a pas de sens pour elle — « le plus fréquent
+ * l'emporte » ne veut rien dire pour `13`, « un 6 retourné donne un 9 » ne sert
+ * qu'à une cible qui porte un 9. Ce droit n'est pas en cause. Ce qui l'était,
+ * c'est le SILENCE : `operateursPourCible` les laissait tomber sans un mot, et
+ * sur la cible sous-jacente d'un mot relu par les rangs (`26.5.18.7`) ce sont
+ * DIX opérateurs qui disparaissent d'un coup — toute la famille des
+ * absorptions — sans que la réponse en dise rien. L'échec bruyant est un
+ * contrat (§2.2), pas une préférence.
+ *
+ * ⚠️ **ET IL Y A UN SECOND CAS, PLUS SOURNOIS.** `operateursPourCible`
+ *   court-circuite pour la cible par défaut et rend le catalogue tel quel ;
+ *   or une entrée de catalogue peut être bâtie sur une AUTRE visée que celle
+ *   qu'on cherche (`selonLaCible`, option `reference`) : sous une recherche
+ *   666, `mr6` est joué avec sa règle de 999 et retourne les 6 en 9. Le
+ *   résultat n'en souffre pas — un tel chemin n'écrit pas 666 et tombe au
+ *   verdict — mais c'est du budget dépensé, et c'est exactement ce que
+ *   `debug.html` promet de ne jamais laisser passer. On le DIT ici ; le
+ *   corriger changerait ce qu'explore chaque recherche du site, et cela se
+ *   mesure avant de se décider.
+ *
+ * @param {Object} catalogue
+ * @param {import('./cible.js').Cible} cible
+ * @returns {Array<{code:string, id:string, etat:string, dit:string}>}
+ */
+export function operateursRetires(catalogue, cible) {
+  const out = [];
+  if (!cible) return out;
+  const vueDuDefaut = cible.defaut !== false;
+  const ecriture = cible.texte ?? cible.chiffres;
+  const dautreCible = (op, visee) => ({
+    code: op.code,
+    id: op.id,
+    etat: 'REGLE_D_UNE_AUTRE_CIBLE',
+    dit: `joué avec la règle de ${visee.texte}`,
+  });
+  for (const op of operateursExplorables(catalogue)) {
+    if (typeof op.viser !== 'function') continue;
+    /* ★ **QUAND ON NE FILTRE PAS, RIEN N'EST RETIRÉ** — et c'est bien le
+         problème : sous la cible par défaut, l'entrée du catalogue est explorée
+         TELLE QUELLE, même si sa règle a été bâtie sur une autre visée. Dire
+         « retiré » ici serait faux deux fois : l'opérateur joue, et il joue
+         autre chose que ce qu'on cherche. */
+    if (vueDuDefaut) {
+      const visee = op.visee;
+      if (visee && typeof visee.texte === 'string' && typeof cible.texte === 'string'
+        && visee.texte !== cible.texte) out.push(dautreCible(op, visee));
+      continue;
+    }
+    const vise = op.viser(ecriture);
+    if (!vise) {
+      out.push({
+        code: op.code,
+        id: op.id,
+        etat: 'RETIRE',
+        dit: 'sa règle n’a pas de sens pour cette cible',
+      });
+      continue;
+    }
+    const visee = vise.visee;
+    if (visee && typeof visee.texte === 'string' && typeof cible.texte === 'string'
+      && visee.texte !== cible.texte) out.push(dautreCible(vise, visee));
+  }
+  return out;
+}
+
 // ─────────────────────────────────────────────────────────── chemins
 
 /**

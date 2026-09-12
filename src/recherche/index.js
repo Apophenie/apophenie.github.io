@@ -17,7 +17,7 @@
 import { LIMITE_SAISIE, encoderTexte } from './base58.js';
 import {
   chercherSix, normaliserCatalogue, validerCatalogue,
-  appliquerOp, etat, operateursPourCible,
+  appliquerOp, etat, operateursPourCible, operateursRetires,
   N_FRAG_MAX, FRAGMENTS_GARANTIS,
   // ⚠️ Les deux filets TEMPORELS (`BUDGET_TOTAL_MS`, `BUDGET_MS_FILET`) ne se
   //   lisent plus ici mais dans `config.js › reglagesDeBudget`, qui les rend
@@ -83,6 +83,7 @@ import {
   CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES, MAX_SIGNES_TEXTE, profilDeCible,
 } from './cible.js';
 import { politique } from './politique.js';
+
 import {
   relecturesPour, relecturePour, signesSansRelecture, RELECTURE_PAR_DEFAUT,
 } from './conversions.js';
@@ -876,6 +877,12 @@ export function creerMoteur(catalogue, options = {}) {
       // positions telles qu'elles ont été comprises (bornées), les pourcentages
       // affichés, les six poids qui en découlent, et le cran de fouille.
       ...reglagesRendus,
+      /* ★ **CE QUI S'EST RETIRÉ DEVANT CETTE CIBLE, ET POURQUOI** — dix
+           opérateurs lisent la cible et ont le droit de se retirer ; ils
+           n'ont pas le droit de le faire sans le dire (`bfs.js ›
+           operateursRetires`). Sur la cible sous-jacente d'un mot relu par
+           les rangs, ce sont DIX absences d'un coup. */
+      operateursRetires: operateursRetires(catalogue, cbl),
       tronque: tronqueTravail || tronqueTemps,
       tronqueTemps,
       ...(avertissement ? { avertissement } : {}),
@@ -934,6 +941,9 @@ export function creerMoteur(catalogue, options = {}) {
       relectures: relectures.map((r) => ({
         code: r.code, cible: r.cible.texte, nature: r.cible.nature, longueur: r.cible.longueur,
         produit: r.produit, ecart: r.ecart, voies: null,
+        // ★ Ce qui se retire devant CETTE cible sous-jacente : sur une suite de
+        //   valeurs (les rangs), toute la famille des absorptions s'en va.
+        operateursRetires: operateursRetires(catalogue, r.cible),
       })),
     };
     if (!saisie.length) return { ...base, approches: [] };
@@ -2183,6 +2193,7 @@ function serialisable(resultat) {
     //   page ne saurait dire que « aucune route », sans dire pourquoi.
     relectures: resultat.relectures,
     signesSansRelecture: resultat.signesSansRelecture,
+    operateursRetires: resultat.operateursRetires,
     approches: (resultat.approches || []).map((a) => ({
       rang: a.rang, mode: a.mode, score: a.score, scoreAjuste: a.scoreAjuste,
       // ★ La LIAISON par son code — l'opérateur lui-même ne traverse pas.
