@@ -121,6 +121,13 @@ test('cible-mot — un signe qu’aucune relecture n’écrit : aucune voie, et 
  *     Les deux sont levés pour les visées longues seulement (`cible.js ›
  *     CIBLE_LONGUE`), et rien ne bouge en deçà.
  *
+ *   ★ **ET C'EST UN DERNIER RECOURS.** « Si des solutions courtes et élégantes
+ *     sont trouvées, pas besoin de chercher les options longues et bancales,
+ *     mais si rien n'est trouvé, approfondir avec le budget temps disponible
+ *     est pertinent » (l'auteur). La seconde passe ne se déroule donc que si
+ *     AUCUNE relecture n'a rendu de voie — Fantome la déclenche, Diable non, et
+ *     le test de Diable le vérifie.
+ *
  * ★ Ce qui reste vrai de la capacité : elle borne, mais plus haut qu'annoncé.
  *   PROTOSS (14 chiffres) et NUMÉROLOGIE (22) n'ont toujours pas de voie depuis
  *   cette saisie-là ; le banc les classe, et dit lequel des deux murs il touche.
@@ -146,20 +153,22 @@ test('cible-mot — Sarah Kerrigan → Terran, douze chiffres', () => {
   verifierVoies('Sarah Kerrigan', r, 'terran');
 });
 
-test('cible-mot — Sarah Kerrigan → Diable, par les paires, puis par ce qui range et gonfle', () => {
+test('cible-mot — Sarah Kerrigan → Diable, que seules les relectures par paires ouvrent', () => {
   const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Diable' });
   assert.ok(r.approches.length >= 1, 'aucune voie vers Diable');
-  assert.ok(r.approches.some((a) => ['m1a2', 'mpol', 'mtap'].includes(a.relecture.code)),
-    'les relectures par paires l’ouvrent — elles ont été écrites pour ça');
-  /* ★ Et le QWERTY s'y est mis, par le SECOND RAFFINAGE : douze chiffres, donc
-     une visée longue, donc « ranger ou gonfler, puis dissoudre » est déroulé
-     (`assemblage.js › vecteursDeSix`). Aucune de ces voies n'existait quand ce
-     test affirmait que seules les paires y menaient. */
-  assert.ok(r.approches.some((a) => /(mtri|mdc3|md03|meg)\+mab/.test(a.url)),
-    'un geste qui ne décide de rien précède l’absorption, et c’est elle qui écrit');
+  assert.ok(r.approches.every((a) => ['m1a2', 'mpol', 'mtap'].includes(a.relecture.code)),
+    'ni le rang ni le clavier n’y mènent : ce sont les paires qui l’ouvrent');
+  /* ★ **ET AUCUNE VOIE DE DERNIER RECOURS ICI** — c'est tout l'objet de la
+     règle : « si des solutions courtes et élégantes sont trouvées, pas besoin
+     de chercher les options longues et bancales » (l'auteur). Diable a ses sept
+     voies courtes, donc la seconde passe de `vecteursDeSix` n'est jamais
+     déroulée. Mesuré : déclenchée sans condition, elle en ajoutait deux par le
+     QWERTY (`fl+masc+mdc3+mab`) et coûtait un tiers de temps en plus. */
+  assert.ok(r.approches.every((a) => !/(mtri|mdc3|md03|meg)\+mab/.test(a.url)),
+    'rien n’a été gonflé ni rangé : la liste courte se suffit');
   // Le diagnostic dit, relecture par relecture, ce qui a été tenté.
-  const azerty = r.relectures.find((x) => x.code === 'mcaz');
-  assert.equal(azerty.voies, 0, 'l’AZERTY, lui, n’a toujours aucune voie');
+  const clavier = r.relectures.find((x) => x.code === 'mcaz');
+  assert.equal(clavier.voies, 0);
   verifierVoies('Sarah Kerrigan', r, 'diable');
 });
 
