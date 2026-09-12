@@ -309,7 +309,9 @@ test('cible-mot — les opérateurs qui ABSORBENT sont déclarés, et ce sont ce
 });
 
 test('cible-mot — le plafond d’absorption suit la visée, et seulement au-delà de dix chiffres', () => {
-  assert.equal(CIBLE_LONGUE, VISEE_LONGUE, 'la recherche et le moteur nomment le même dix');
+  // Une seule source désormais (`moteur/transformations/commun.js`) : la
+  // recherche relaie la constante du moteur, elle n'en tient plus de copie.
+  assert.equal(CIBLE_LONGUE, VISEE_LONGUE, 'un seul dix, relayé — plus deux copies');
   assert.equal(VISEE_LONGUE, 10, 'l’ancien plafond des cibles chiffrées : en deçà, rien ne bouge');
   assert.ok(MAX_CHIFFRES > VISEE_LONGUE, 'une cible chiffrée longue profite de la même règle qu’un mot');
   for (let l = 1; l <= VISEE_LONGUE; l++) assert.equal(plafondDAbsorption(l), 36, `visée de ${l} : rien ne bouge`);

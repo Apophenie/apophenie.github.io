@@ -624,6 +624,25 @@ export function def(spec) {
 export const VISEE_DEFAUT = '666';
 
 /**
+ * ★ **LA VISÉE LONGUE — au-delà de dix chiffres, et c'est UNE SEULE source.**
+ *
+ * Dix était le plafond des cibles chiffrées avant qu'il passe à vingt
+ * (`recherche/cible.js › MAX_CHIFFRES`) : rien de ce que le site a publié n'est
+ * au-dessus. C'est donc la frontière qui permet d'élargir ce qu'on s'autorise
+ * pour les visées longues en garantissant qu'en deçà — 666 compris — pas un
+ * chemin de code ne change.
+ *
+ * ⚠️ **ELLE ÉTAIT ÉCRITE DEUX FOIS**, une dans le moteur (`mappeurs.js`), une
+ *   dans la recherche (`cible.js › CIBLE_LONGUE`), avec un test pour tenir
+ *   l'égalité. Un test qui surveille deux copies est un aveu : la valeur n'a
+ *   qu'une raison d'être, elle n'a donc qu'un endroit. Elle vit ici, dans le
+ *   module des visées, parce que c'est une propriété d'une VISÉE — et
+ *   `recherche/cible.js` la relaie sous son nom d'ici (la recherche a le droit
+ *   de lire le moteur ; l'inverse jamais, §1).
+ */
+export const VISEE_LONGUE = 10;
+
+/**
  * @typedef {Object} Visee
  * @property {string} texte       l'écriture, zéros de tête compris
  * @property {number[]} chiffres  les chiffres, gelés

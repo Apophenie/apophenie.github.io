@@ -103,7 +103,7 @@ import { decouperMots } from './filtres.js';
 import { estSeparateur } from './tokeniseurs.js';
 import {
   def, selonLaCible, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade,
-  ordreCroissant, passesBinaires, opsDuGesteBinaire,
+  ordreCroissant, passesBinaires, opsDuGesteBinaire, VISEE_LONGUE,
 } from './commun.js';
 import { opComptage } from './combinateurs.js';
 import { bilingue, dire } from '../i18n.js';
@@ -977,17 +977,11 @@ const LIB_EN_LETTRES = bilingue(
  *   (`elegance.js › REARRANGEMENT`), et une étape qui ne rapporte pas plus
  *   qu'elle ne coûte ne survit pas au classement.
  */
-/**
- * ★ LA VISÉE LONGUE — au-delà de dix chiffres.
- *
- * Dix était le plafond des cibles chiffrées avant qu'il passe à vingt
- * (`recherche/cible.js › MAX_CHIFFRES`, et `CIBLE_LONGUE` qu'un test tient égal
- * à celui-ci) : rien de ce que le site a déjà publié n'est au-dessus. C'est
- * donc la frontière qui permet d'élargir ce qu'on s'autorise pour les visées
- * longues en garantissant qu'en deçà, 666 compris, pas un chemin de code ne
- * change.
- */
-export const VISEE_LONGUE = 10;
+// ★ La VISÉE LONGUE vit dans `commun.js`, avec les visées : une seule source
+//   (elle était écrite deux fois, ici et dans la recherche, avec un test pour
+//   tenir l'égalité — un test qui surveille deux copies est un aveu).
+//   Réexportée sous ce nom, qui est celui que les tests lisaient.
+export { VISEE_LONGUE };
 
 function triDeplace(valeur) {
   const ordre = ordreCroissant(valeur);
