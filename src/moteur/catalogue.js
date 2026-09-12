@@ -178,6 +178,11 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   recherche, réservées au dernier recours, et bornées au domaine exact.
   //   En fin de bloc mappeur, append-only (§4.1).
   'mpui', 'mfac',
+  // ★ LE CODE ASCII QUI REDEVIENT SIGNE — trois chiffres pour un signe, casse et
+  //   ponctuation comprises. Une relecture de réserve : cherchée seulement pour
+  //   un texte qu'aucune autre n'écrit. Inactive en recherche. En fin de bloc
+  //   mappeur, append-only (§4.1).
+  'masi',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

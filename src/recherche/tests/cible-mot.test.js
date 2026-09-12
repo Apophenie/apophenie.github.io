@@ -119,18 +119,21 @@ test('cible-mot — le barème d’écart : la hiérarchie de l’auteur, chiffr
 
 test('cible-mot — les relectures du catalogue, et leur inverse CALCULÉ sur l’opérateur', () => {
   const ops = operateursDeRelecture(catalogue);
-  assert.deepEqual(ops.map((o) => o.code), ['m1a', 'mcaz', 'mcqw', 'm1a2', 'mpol', 'mtap']);
+  assert.deepEqual(ops.map((o) => o.code), ['m1a', 'mcaz', 'mcqw', 'm1a2', 'mpol', 'mtap', 'masi']);
   assert.equal(RELECTURE_PAR_DEFAUT, 'm1a');
   const par = Object.fromEntries(ops.map((o) => [o.code, o]));
   assert.deepEqual([...inverseDe(par.m1a).get('z')], [26]);
   assert.deepEqual([...inverseDe(par.mcaz).get('z')], [2, 1]);
   assert.deepEqual([...inverseDe(par.mcqw).get('z')], [1, 3]);
   assert.deepEqual([...inverseDe(par.mtap).get(' ')], [0, 1]);
+  // La table ASCII écrit la casse et la ponctuation, sur trois chiffres.
+  assert.deepEqual([...inverseDe(par.masi).get('C')], [0, 6, 7]);
+  assert.deepEqual([...inverseDe(par.masi).get("'")], [0, 3, 9]);
   for (const op of ops) {
     const inverse = inverseDe(op);
     // Le carré de Polybe a vingt-cinq cases : il n'écrit jamais j. Le multi-tap
     // en a vingt-sept : l'espace est sur le 0.
-    const tailles = { mpol: 25, mtap: 27 };
+    const tailles = { mpol: 25, mtap: 27, masi: 95 };
     assert.equal(inverse.size, tailles[op.code] ?? 26, `${op.code} : chaque lettre, une fois`);
     // L'aller-retour est exact : ce que l'inverse donne, l'opérateur le relit.
     for (const [lettre, valeurs] of inverse) {

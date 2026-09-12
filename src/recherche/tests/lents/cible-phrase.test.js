@@ -31,12 +31,16 @@ const moteur = creerMoteur(catalogue, { filetTemporel: false });
 const SAISIE = 'https://reinfocovid.fr/';
 const PHRASE = "C'est de la merde !";
 
-test('cible-phrase — ce qui bloque est dit : l’apostrophe et le point d’exclamation', () => {
-  // ★ L'ESPACE n'y est plus : le multi-tap l'écrit, sur le 0.
-  assert.deepEqual(signesSansRelecture(lireCible(PHRASE), catalogue), ["'", '!']);
+test('cible-phrase — tous les signes ont une relecture, et une seule relecture les écrit tous : ASCII', () => {
+  // ★ L'ESPACE s'écrit sur le 0 du téléphone ; l'apostrophe et le point
+  //   d'exclamation, par la table ASCII (`masi`), la seule qui les écrive en
+  //   chiffres. Plus aucun signe ne bloque.
+  assert.deepEqual(signesSansRelecture(lireCible(PHRASE), catalogue), []);
   const r = moteur.resoudre(SAISIE, { cible: PHRASE });
-  assert.equal(r.approches.length, 0);
-  assert.ok(r.avertissement && r.avertissement.fr, 'le refus est écrit, pas silencieux');
+  // ⚠️ Mais d'un BLOC, ce sont cinquante-sept chiffres : mesuré, aucune voie —
+  //   la plus longue ligne que la saisie donne fait 89 chiffres, et l'absorption
+  //   n'écrit qu'un chiffre visé pour trois ou quatre.
+  assert.deepEqual(r.relectures.map((x) => [x.code, x.longueur]), [['masi', 57]]);
 });
 
 /**
@@ -71,6 +75,18 @@ test('cible-phrase — « de la merde » d’un bloc : l’espace sur le 0 du t�
   assert.deepEqual([...new Set(r.approches.map((a) => a.relecture.code))], ['mtap']);
   for (const a of r.approches) assert.equal(a.ecartDeForme.facteur, 1000, a.url);
   verifierVoies(r, 'de la merde');
+});
+
+/* ★ LA PONCTUATION, et la casse avec : « C'est » ne se relit que par la table
+     ASCII (`masi`), trois chiffres par signe — 067 039 101 115 116. Quinze
+     chiffres d'un bloc : mesuré, six voies au cran 0, sans aucun écart de forme,
+     puisque la table écrit la capitale ET l'apostrophe. */
+test('cible-phrase — « C’est » : l’apostrophe et la capitale, par la table ASCII', () => {
+  const r = moteur.resoudre(SAISIE, { cible: "C'est" });
+  assert.ok(r.approches.length >= 1, 'aucune voie vers « C’est »');
+  assert.deepEqual([...new Set(r.approches.map((a) => a.relecture.code))], ['masi']);
+  for (const a of r.approches) assert.equal(a.ecartDeForme.facteur, 1000, a.url);
+  verifierVoies(r, "C'est");
 });
 
 test('cible-phrase — le mot seul est atteint : « merde », et chaque voie se rejoue', () => {

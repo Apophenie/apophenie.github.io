@@ -342,6 +342,7 @@ const VECTEURS = [
   ['m1a2', N([2, 6, 0, 5, 1, 8, 0, 7]), ['z', 'e', 'r', 'g']],
   ['mpol', N([5, 5, 1, 5, 4, 2, 2, 2]), ['z', 'e', 'r', 'g']],
   ['mtap', N([9, 4, 3, 2, 7, 3, 4, 1]), ['z', 'e', 'r', 'g']],
+  ['masi', N([1, 2, 2, 1, 0, 1, 1, 1, 4, 1, 0, 3]), ['z', 'e', 'r', 'g']],
   // Le carré : trois chiffres deviennent cinq, et c'est tout ce qu'on lui demande.
   ['mcar', N([115, 97, 114]), [13225, 9409, 12996]],
   // La puissance regarde le PREMIER CHIFFRE du nombre suivant — 5², puis 2⁵,
@@ -438,6 +439,8 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   // Les relectures par paires : on colle la paire, puis la case de la table
   // rend sa lettre.
   m1a2: 'table', mpol: 'table', mtap: 'table',
+  // Le code ASCII : on colle les trois chiffres, puis la case rend son signe.
+  masi: 'table',
 });
 
 /**
@@ -492,8 +495,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 190); // …+1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 190, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 191); // …+1 code ASCII en signe (masi), +1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 191, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -503,7 +506,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 190, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 191, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -1716,4 +1719,23 @@ test('m1a2, mpol, mtap — deux chiffres, une lettre : la table entière, et rie
   assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([7, 4])).valeur], ['s']);
   // Et un appui sur le 0, c'est l'espace — la seule chose que ce clavier écrit hors des lettres.
   assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([0, 1])).valeur], [' ']);
+});
+
+/* ★ LE CODE ASCII EN SIGNE — `masi`. Trois chiffres par signe, les 95 imprimables,
+   casse et ponctuation comprises ; rien en dessous de 32, rien au-dessus de 126. */
+test('masi — trois chiffres, un signe : les 95 imprimables, et rien d’autre', () => {
+  const op = PAR_CODE.get('masi');
+  assert.equal(operateursActifs().includes(op), false, 'masi : inactif en recherche');
+  assert.equal(op.relecture.reserve, true, 'masi : une relecture de réserve');
+  const ecrits = new Set();
+  for (let n = 0; n <= 199; n++) {
+    const e = appliquer(op, N([Math.floor(n / 100), Math.floor(n / 10) % 10, n % 10]));
+    if (e) ecrits.add(e.valeur[0]);
+  }
+  assert.equal(ecrits.size, 95);
+  assert.deepEqual([...appliquer(op, N([0, 6, 7, 0, 3, 9, 0, 3, 3, 0, 3, 2])).valeur], ['C', "'", '!', ' ']);
+  assert.equal(appliquer(op, N([0, 3, 1])), null, '31 est un caractère de commande');
+  assert.equal(appliquer(op, N([1, 2, 7])), null, '127 aussi');
+  assert.equal(appliquer(op, N([6, 7])), null, 'trois chiffres par signe, pas deux');
+  assert.equal(appliquer(op, N([67, 0, 0])), null, 'des chiffres, pas des nombres');
 });

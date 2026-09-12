@@ -77,20 +77,30 @@ export function inverseDe(op) {
 }
 
 /**
+ * Les valeurs qui écrivent UN signe : le signe TEL QUEL s'il est dans la table,
+ * sinon sa forme pliée. `undefined` si ni l'un ni l'autre.
+ *
+ * ★ Tel quel d'abord : la table ASCII (`masi`) écrit « C » et « c », et plier
+ *   d'office lui ferait payer une casse qu'elle sait écrire. Les autres tables
+ *   n'ont que des bas de casse : pour elles, rien ne change.
+ */
+const valeursDuSigne = (inverse, signe) => inverse.get(signe) || inverse.get(plierMot(signe));
+
+/**
  * La relecture d'un texte par UN opérateur : la cible sous-jacente, ce qu'elle
  * écrira réellement, et l'écart de forme qui sépare les deux. `null` si un
  * signe du texte n'a pas de valeurs qui l'écrivent.
  *
- * ★ Chaque signe est cherché PLIÉ (`plierMot`) : une relecture écrit « z »,
- *   jamais « Z » ni « ẑ ». Ce qu'elle écrit n'est donc pas toujours ce qu'on
- *   vise, et l'écart se mesure sur le texte obtenu, pas sur l'intention.
+ * ★ Chaque signe est cherché tel quel, puis PLIÉ (`plierMot`) : le rang écrit
+ *   « z », jamais « Z » ni « ẑ ». Ce qu'elle écrit n'est donc pas toujours ce
+ *   qu'on vise, et l'écart se mesure sur le texte obtenu, pas sur l'intention.
  */
 export function relecturePour(mot, op) {
   if (!mot || typeof mot.texte !== 'string') return null;
   const inverse = inverseDe(op);
   const valeurs = [];
   for (const signe of mot.texte) {
-    const v = inverse.get(plierMot(signe));
+    const v = valeursDuSigne(inverse, signe);
     if (!v) return null;
     valeurs.push(...v);
   }
@@ -114,17 +124,32 @@ export function signesSansRelecture(mot, catalogue) {
   const inverses = operateursDeRelecture(catalogue).map(inverseDe);
   const out = [];
   for (const signe of (mot && mot.texte) || '') {
-    const plie = plierMot(signe);
-    if (inverses.some((inv) => inv.has(plie)) || out.includes(signe)) continue;
+    if (inverses.some((inv) => valeursDuSigne(inv, signe)) || out.includes(signe)) continue;
     out.push(signe);
   }
   return out;
 }
 
-/** Toutes les relectures d'un texte, dans l'ordre du catalogue. */
+/**
+ * Toutes les relectures d'un texte, dans l'ordre du catalogue.
+ *
+ * ★ **LES RELECTURES DE RÉSERVE** (`relecture.reserve`, la table ASCII) ne sont
+ *   tentées que si le texte porte un signe qu'AUCUNE relecture ordinaire
+ *   n'écrit — une apostrophe, un point d'exclamation. « Si des solutions courtes
+ *   et élégantes sont trouvées, pas besoin de chercher les options longues et
+ *   bancales » (l'auteur) : trois chiffres par signe, c'est une option longue,
+ *   et un mot que le rang ou le téléphone savent écrire n'a pas à la payer.
+ *   C'est ce qui laisse « Zerg », « Fantôme » ou « de la merde » exactement où
+ *   ils étaient.
+ */
 export function relecturesPour(mot, catalogue) {
+  const ops = operateursDeRelecture(catalogue);
+  const ordinaires = ops.filter((op) => !op.relecture.reserve).map(inverseDe);
+  const signes = [...((mot && mot.texte) || '')];
+  const besoinDeReserve = signes.some((s) => !ordinaires.some((inv) => valeursDuSigne(inv, s)));
   const out = [];
-  for (const op of operateursDeRelecture(catalogue)) {
+  for (const op of ops) {
+    if (op.relecture.reserve && !besoinDeReserve) continue;
     const r = relecturePour(mot, op);
     if (r) out.push(r);
   }
