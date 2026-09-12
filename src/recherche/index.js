@@ -228,6 +228,13 @@ export const SEGMENTS_AU_CRAN_0 = 2;
  */
 export const FOUILLE_QUI_CREUSE_TOUJOURS = 5;
 
+/** ★ Le passage d'un cran au suivant (`deroulerResolution`) : un symbole, pour
+ *  qu'aucun appelant ne le pose par mégarde dans ses options. */
+const PRECEDENT = Symbol('cranPrecedent');
+
+/** Combien d'états de cran le moteur garde pour ne pas refaire une montée. */
+const MEMO_DES_CRANS = 24;
+
 export function creerMoteur(catalogue, options = {}) {
   /* ★ **LE SEUIL EST UN RÉGLAGE DE MESURE, ET RIEN D'AUTRE.**
    *
@@ -250,6 +257,15 @@ export function creerMoteur(catalogue, options = {}) {
   const opParCode = new Map(ops.filter(Boolean).map((o) => [o.code, o]));
   const cache = new Map();
   const maintenant = options.maintenant || (() => performance.now());
+  /* ★ **CE QU'UN CRAN A LAISSÉ AU SUIVANT** — voir `deroulerResolution`, la
+       recherche cumulative. `etatsDesResultats` relie une réponse à ses
+       candidats et à ses voies retenues sans rien publier de plus (un
+       `WeakMap` ne voyage ni en `postMessage` ni en `JSON`) ; `memoDesCrans`
+       garde des COPIES de ces états, pour qu'une recherche au cran n qui suit
+       une recherche au cran n−1 sur la même question ne refasse pas les crans
+       inférieurs. Borné : c'est un raccourci, pas une archive. */
+  const etatsDesResultats = new WeakMap();
+  const memoDesCrans = new Map();
 
   // ★ UN BASSIN PAR CHIFFRE VISÉ, construit à la demande et gardé.
   //
@@ -303,6 +319,118 @@ export function creerMoteur(catalogue, options = {}) {
   });
 
   /**
+   * ★ **LA RECHERCHE CUMULATIVE — une voie trouvée à un cran reste trouvée à
+   * tous les crans supérieurs.**
+   *
+   * > « Mon intention est que plus le curseur augmente, plus on élargisse les
+   * >   recherches. » (l'auteur) — et l'invariant qu'elle en a tiré est ABSOLU.
+   *
+   * Aucun réglage local ne le tenait : mesuré sur sept couples, même SANS
+   * sélection (places illimitées, quota levé), les candidats d'un cran perdaient
+   * 41 programmes que le cran précédent avait construits — les listes de trois
+   * chemins par manière, les plafonds d'assemblage, la réserve de qualité se
+   * remplissent autrement quand la matière grossit. Ordre stable des trios,
+   * quota compté autrement, places doublées, têtes classées par le score : les
+   * quatre ont été mesurés, aucun ne rend l'invariant (voir `monotonie.test.js`).
+   *
+   * La construction qui le rend PAR CONSTRUCTION est celle-ci : le cran n
+   * reprend les candidats de tous les crans inférieurs (ceux du cran n−1, qui
+   * contiennent déjà les siens), et sa sélection part des voies retenues au
+   * cran n−1 avant de compléter ses places. Les places croissent d'au moins dix
+   * par cran (`config.js › placesDeLaListe`) : il y a toujours de quoi garder
+   * le précédent — et si ce n'était plus le cas, `placesLibres` le dit fort.
+   *
+   * ★ **LE CRAN 0 N'A PAS DE CRAN INFÉRIEUR** : il passe tel quel, au
+   *   caractère près.
+   * ★ **DIRECT OU CRAN PAR CRAN, LA MÊME LISTE** : le cran n se calcule
+   *   toujours depuis le cran 0 ; le mémo ne fait que sauter les crans déjà
+   *   calculés, sur des copies qui ne bougent plus.
+   * ⚠️ **LE PRIX** : les crans 0 à n−1 se déroulent avant le cran n. Ce qui
+   *   se réemploie est dit dans `bfs.js › chercherSix`.
+   * ★ **LA JAUGE** couvre toute la montée : chaque cran y pèse son facteur 2ᵏ
+   *   (celui des budgets), et elle ne recule pas d'un cran au suivant.
+   */
+  function* deroulerResolution(saisieBrute, optionsResolution = {}) {
+    const fouille = normaliserPuissance(optionsResolution.fouille ?? options.fouille);
+    if (fouille === 0) {
+      const r = yield* deroulerUnCran(saisieBrute, optionsResolution);
+      memoriserLeCran(saisieBrute, optionsResolution, 0, r);
+      return r;
+    }
+    let depart = 0;
+    let precedent = null;
+    for (let k = fouille - 1; k >= 0; k--) {
+      const e = memoDesCrans.get(cleDuCran(saisieBrute, optionsResolution, k));
+      if (e) { depart = k + 1; precedent = e; break; }
+    }
+    const canal = typeof optionsResolution.surAvancement === 'function'
+      ? optionsResolution.surAvancement : null;
+    const total = (1 << (fouille + 1)) - (1 << depart);
+    let fait = 0;
+    let plusHaut = 0;
+    let tronque = precedent ? precedent.tronque : false;
+    let tronqueTemps = false;
+    let resultat = null;
+    for (let k = depart; k <= fouille; k++) {
+      const poids = 1 << k;
+      const echelle = (a) => {
+        if (!a || typeof a.fraction !== 'number') return a;
+        const f = (fait + poids * Math.min(1, Math.max(0, a.fraction))) / total;
+        plusHaut = Math.max(plusHaut, Math.min(1, f));
+        return { ...a, fraction: plusHaut };
+      };
+      const sous = deroulerUnCran(saisieBrute, {
+        ...optionsResolution,
+        fouille: k,
+        [PRECEDENT]: precedent,
+        surAvancement: canal ? (a) => canal(echelle(a)) : undefined,
+      });
+      let pas = sous.next();
+      while (!pas.done) {
+        const pause = yield echelle(pas.value);
+        pas = sous.next(pause);
+      }
+      resultat = pas.value;
+      fait += poids;
+      if (resultat.tronque) tronque = true;
+      if (resultat.tronqueTemps) tronqueTemps = true;
+      // ⚠️ Un filet temporel qui a mordu rend la suite dépendante de la
+      //   machine : on cumule quand même, mais on ne mémorise plus rien.
+      precedent = memoriserLeCran(saisieBrute, optionsResolution, k, resultat, tronque, tronqueTemps);
+    }
+    // Ce qu'un cran inférieur a subi, la réponse le porte : sa liste en dépend.
+    if (tronque) resultat.tronque = true;
+    if (tronqueTemps) {
+      resultat.tronqueTemps = true;
+      if (!resultat.avertissement) resultat.avertissement = BANDEAUX.rechercheTronquee;
+    }
+    return resultat;
+  }
+
+  /** La clé d'un cran : tout ce qui décide de sa liste, et rien d'autre. */
+  function cleDuCran(saisieBrute, optionsResolution, k) {
+    const cbl = normaliserCible(optionsResolution.cible ?? options.cible);
+    const { curseurs } = ponderer(optionsResolution.curseurs ?? options.curseurs);
+    return [
+      String(saisieBrute ?? '').normalize('NFC'), cbl.nature, cbl.texte, JSON.stringify(curseurs), k,
+      optionsResolution.profond === true, optionsResolution.dernierRecours !== false,
+    ].join('\u0000');
+  }
+
+  /** Garde une COPIE de l'état d'un cran, et la rend : c'est elle qui sert au suivant. */
+  function memoriserLeCran(saisieBrute, optionsResolution, k, resultat, tronque = false, tronqueTemps = false) {
+    const etat = etatsDesResultats.get(resultat);
+    if (!etat) return null;
+    const copie = copierEtat({ ...etat, tronque: tronque || !!resultat.tronque });
+    if (tronqueTemps || resultat.tronqueTemps) return copie;
+    const cle = cleDuCran(saisieBrute, optionsResolution, k);
+    memoDesCrans.delete(cle);
+    memoDesCrans.set(cle, copie);
+    while (memoDesCrans.size > MEMO_DES_CRANS) memoDesCrans.delete(memoDesCrans.keys().next().value);
+    return copie;
+  }
+
+  /**
    * Pipeline complet, DÉROULÉ PAS À PAS. Ne rend JAMAIS la main bredouille (§5)
    * — **quand la cible vaut 666**. Voir `assemblage.js › approcheJoker` : le
    * dernier recours du site est une propriété du français, pas des chiffres.
@@ -337,7 +465,7 @@ export function creerMoteur(catalogue, options = {}) {
    * @param {{cible?:import('./cible.js').Cible|string, curseurs?:Object,
    *   fouille?:number}} [optionsResolution]
    */
-  function* deroulerResolution(saisieBrute, optionsResolution = {}) {
+  function* deroulerUnCran(saisieBrute, optionsResolution = {}) {
     const cbl = normaliserCible(optionsResolution.cible ?? options.cible);
     /* ★ **LE PROFIL DE LA CIBLE, ET CE QU'IL AUTORISE** — `cible.js ›
          profilDeCible` nomme les faits, `politique.js` en tire ce qu'on
@@ -349,6 +477,8 @@ export function creerMoteur(catalogue, options = {}) {
     const ponderation = ponderer(optionsResolution.curseurs ?? options.curseurs);
     const fouille = normaliserPuissance(optionsResolution.fouille ?? options.fouille);
     const budgets = reglagesDeBudget(fouille);
+    // ★ L'état du cran inférieur (`deroulerResolution`) — `null` au cran 0.
+    const precedent = optionsResolution[PRECEDENT] || null;
     // Ce que l'écran de liste doit retrouver dans TOUTE réponse, y compris les
     // deux replis ci-dessous : sans quoi le panneau de réglages perdrait ses
     // positions sur une saisie vide ou trop longue.
@@ -621,6 +751,17 @@ export function creerMoteur(catalogue, options = {}) {
     /** Le passage à la phase de CLASSEMENT — annoncé après chaque assemblage,
      *  car un dernier recours en déroule un second et repasse par ici : le
      *  dernier rapport d'une recherche doit toujours être celui du classement. */
+    /** L'identité d'une voie d'un cran à l'autre : son programme, sans le cran
+     *  ni les curseurs — exactement ce que son lien rejoue. */
+    const cleDeProgramme = (a) => {
+      const lu = a.saisieRetouchee || saisie;
+      return ecrire({
+        saisie, cible: cbl, registre: 'scenique',
+        retouches: retouchesDe(a),
+        liaison: a.liaison ? a.liaison.code : undefined,
+        fragments: descripteursDe(a, { nbJetons: lu === saisie ? jetons.length : tokeniser(lu).length }),
+      });
+    };
     const annoncerLeClassement = () => {
       if (publier) publier(avancementDe({ phase: 'classement', part: 0, fragments: cherches, fragmentsTotal: cherches }));
     };
@@ -636,7 +777,11 @@ export function creerMoteur(catalogue, options = {}) {
      */
     const finaliser = (brutes) => {
       let liste = brutes;
-      if (!liste.length) {
+      // ★ Les candidats du cran inférieur, en copies : les réponses déjà rendues
+      //   ne bougent pas quand celle-ci renumérote ses rangs.
+      const anciens = precedent ? copierEtat(precedent) : null;
+      const dejaDesCandidats = !!(anciens && anciens.candidats.length);
+      if (!liste.length && !dejaDesCandidats) {
         const j = approcheJoker(saisie, ctxAssemblage); // garantie absolue (§5.3)
         if (j) liste = [j];
       }
@@ -696,10 +841,13 @@ export function creerMoteur(catalogue, options = {}) {
       const cibleHomogene = regles.tolereLesSuppressions;
       const tenables = liste.filter((a) => !elagueALaFin(a.bilan, cibleHomogene));
       if (tenables.length !== liste.length) {
-        const j = tenables.length ? null : approcheJoker(saisie, ctxAssemblage);
+        const j = tenables.length || dejaDesCandidats ? null : approcheJoker(saisie, ctxAssemblage);
         if (j) { noter(j, contexteDe(j)); marquerLesCodes(j); tenables.push(j); }
         liste = tenables;
       }
+      // ★ LA CUMULATION : les candidats du cran inférieur d'abord, puis ceux de
+      //   ce cran qu'il n'avait pas — un même programme n'est compté qu'une fois.
+      if (anciens) liste = fusionnerLesCrans(anciens.candidats, liste, cleDeProgramme);
       // ★ Le comparateur du mode personnalisé — au défaut, `ordrePondere` rend un
       //   ordre identique à `ordreTotal`, mais on prend `ordreTotal` lui-même pour
       //   qu'aucune indirection ne s'interpose sur le chemin par défaut.
@@ -735,11 +883,21 @@ export function creerMoteur(catalogue, options = {}) {
       //   donc classée avec les MÊMES critères, et le MMR (§4.8) garnit les douze
       //   places par `ordreTotal` — c'est-à-dire par le barème que le visiteur
       //   vient de régler.
+      // ★ Les voies retenues au cran inférieur sont GARDÉES : la sélection part
+      //   d'elles et complète (`selectionner`, `completerLaSelection`).
+      const gardees = anciens ? anciens.retenues.filter((a) => a.mode !== 'JOKER') : [];
       const retenues = (barèmeDElegance && !ponderation.personnalisee)
-        ? selectionner(honnetes, place, budgets.parMappeur, budgets.lambda)
-        : diversifier(honnetes, {
-          limite: place, maxParMappeur: budgets.parMappeur, lambda: budgets.lambda, ponderation,
-        });
+        ? selectionner(honnetes, place, budgets.parMappeur, budgets.lambda, gardees)
+        : completerLaSelection(gardees, diversifier(
+          gardees.length ? honnetes.filter((a) => !gardees.includes(a)) : honnetes,
+          {
+            limite: placesLibres(place, gardees.length),
+            maxParMappeur: budgets.parMappeur,
+            lambda: budgets.lambda,
+            ponderation,
+            ...(gardees.length ? { amorce: gardees } : {}),
+          },
+        ), ordreDeLaListe);
       if (jokers.length) retenues.push(jokers[0]);
       else if (!retenues.length) {
         const j = approcheJoker(saisie, ctxAssemblage);
@@ -787,7 +945,10 @@ export function creerMoteur(catalogue, options = {}) {
         a.url = a.urlScenique;
         a.joker = a.mode === 'JOKER';
       });
-      return retenues;
+      // Ce que le cran suivant reprendra : tout ce qui a été classé, et les
+      // voies retenues (le joker de secours compris, qui n'était pas classé).
+      const candidats = liste.concat(retenues.filter((a) => !liste.includes(a)));
+      return { retenues, candidats };
     };
 
     /* ★ **LE DERNIER RECOURS — et il se déclenche sur une liste MAIGRE.**
@@ -815,16 +976,17 @@ export function creerMoteur(catalogue, options = {}) {
          profonde changerait alors l'ordre pour rien. */
     const brutes = assembler(saisie, frags, parFrag, ctxAssemblage);
     annoncerLeClassement();
-    let retenues = finaliser(brutes);
+    let passe = finaliser(brutes);
     // ★ Le cran de fouille passe outre le plancher : voir `FOUILLE_QUI_CREUSE_TOUJOURS`.
     const creuserQuoiQuIlArrive = fouille >= FOUILLE_QUI_CREUSE_TOUJOURS;
-    if ((retenues.length < voiesAvantDeCreuser || creuserQuoiQuIlArrive)
+    if ((passe.retenues.length < voiesAvantDeCreuser || creuserQuoiQuIlArrive)
       && !ctxAssemblage.profond && optionsResolution.dernierRecours !== false) {
       const creusees = assembler(saisie, frags, parFrag, { ...ctxAssemblage, profond: true });
       annoncerLeClassement();
-      const profondes = finaliser(creusees);
-      if (profondes.length > retenues.length) retenues = profondes;
+      const profonde = finaliser(creusees);
+      if (profonde.retenues.length > passe.retenues.length) passe = profonde;
     }
+    const retenues = passe.retenues;
 
     const listeFragments = [];
     for (const f of frags) {
@@ -871,7 +1033,7 @@ export function creerMoteur(catalogue, options = {}) {
     //    seulement, la liste dépend de la charge de la machine : on le DIT,
     //    plutôt que de laisser un rang varier en silence (§4.3).
     const avertissement = tronqueTemps ? BANDEAUX.rechercheTronquee : undefined;
-    return {
+    const resultat = {
       saisie,
       cible: cbl,
       dedie,
@@ -899,6 +1061,8 @@ export function creerMoteur(catalogue, options = {}) {
       tronqueTemps,
       ...(avertissement ? { avertissement } : {}),
     };
+    etatsDesResultats.set(resultat, { candidats: passe.candidats, retenues });
+    return resultat;
   }
 
   /**
@@ -1055,8 +1219,9 @@ export function creerMoteur(catalogue, options = {}) {
             const echelleSeg = (a) => echelle({
               ...a, fraction: (sIdx + Math.min(1, Math.max(0, (a && a.fraction) || 0))) / segs.length,
             });
-            const sousSeg = deroulerResolution(saisieBrute, {
+            const sousSeg = deroulerUnCran(saisieBrute, {
               ...optionsResolution,
+              [PRECEDENT]: null,
               cible: segs[sIdx].cible,
               profond,
               dernierRecours: false,
@@ -1080,8 +1245,9 @@ export function creerMoteur(catalogue, options = {}) {
           }
           continue;
         }
-        const sous = deroulerResolution(saisieBrute, {
+        const sous = deroulerUnCran(saisieBrute, {
           ...optionsResolution,
+          [PRECEDENT]: null,
           cible: rel.cible,
           profond,
           // ★ Le dernier recours se décide sur le TEXTE, pas sur une relecture :
@@ -1110,7 +1276,25 @@ export function creerMoteur(catalogue, options = {}) {
       }
       return trouvees;
     }
-    let approches = yield* balayer(false);
+    /* ★ **LA CUMULATION, POUR UN TEXTE AUSSI** (`deroulerResolution`) : la
+         liste fusionnée du cran inférieur d'abord, puis ce que ce cran-ci trouve
+         en plus — segments compris, puisque c'est la voie composée qui est
+         gardée. Les copies reprennent leur lien au cran courant. */
+    const precedent = optionsResolution[PRECEDENT] || null;
+    const anciens = precedent ? copierEtat(precedent) : null;
+    const cleDuTexte = (a) => ecrire({
+      saisie, cible: mot, relecture: a.relecture.code, registre: 'scenique',
+      fragments: (a.lien || {}).fragments, retouches: (a.lien || {}).retouches, liaison: (a.lien || {}).liaison,
+    });
+    if (anciens) {
+      for (const a of anciens.candidats) {
+        const rel = relectures.find((r) => r.code === a.relecture.code);
+        if (!rel) throw new Error(`recherche cumulative : la relecture ${a.relecture.code} a disparu d'un cran à l'autre`);
+        relierAuTexte(a, rel, saisie, ponderation.curseurs, fouille);
+      }
+    }
+    const fusionner = (trouvees) => (anciens ? fusionnerLesCrans(anciens.candidats, trouvees, cleDuTexte) : trouvees);
+    let approches = fusionner(yield* balayer(false));
     /* ★ **LE DERNIER RECOURS D'UN TEXTE — quand AUCUNE relecture n'a rien
          rendu.** « Si des solutions courtes et élégantes sont trouvées, pas
          besoin de chercher les options longues et bancales, mais si rien n'est
@@ -1119,19 +1303,31 @@ export function creerMoteur(catalogue, options = {}) {
          aucune refait le tour de ses relectures en s'autorisant, cette fois, de
          ranger ou de gonfler la ligne avant de la dissoudre. */
     if (approches.length < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS) {
-      approches = yield* balayer(true);
+      approches = fusionner(yield* balayer(true));
     }
-    approches.sort(ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal);
-    const retenues = approches.slice(0, reglagesDeBudget(fouille).voies);
+    const ordreDuTexte = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
+    approches.sort(ordreDuTexte);
+    const places = reglagesDeBudget(fouille).voies;
+    let retenues;
+    if (anciens) {
+      const gardees = new Set(anciens.retenues);
+      const libres = placesLibres(places, gardees.size);
+      retenues = completerLaSelection(anciens.retenues,
+        approches.filter((a) => !gardees.has(a)).slice(0, libres), ordreDuTexte);
+    } else {
+      retenues = approches.slice(0, places);
+    }
     nommer(retenues);
     retenues.forEach((a, i) => { a.rang = i + 1; });
-    return {
+    const resultat = {
       ...base,
       approches: retenues,
       tronque,
       tronqueTemps,
       ...(avertissement ? { avertissement } : {}),
     };
+    etatsDesResultats.set(resultat, { candidats: approches, retenues });
+    return resultat;
   }
 
   /**
@@ -1145,6 +1341,11 @@ export function creerMoteur(catalogue, options = {}) {
     a.produit = rel.produit;
     // L'écart se PAIE, entier sur entier : aucun flottant ne décide d'un rang.
     a.score = Math.round((a.score * rel.ecart.facteur) / 1000);
+    relierAuTexte(a, rel, saisie, curseurs, fouille);
+  }
+
+  /** Les liens d'une voie vers le texte, au cran et aux curseurs donnés. */
+  function relierAuTexte(a, rel, saisie, curseurs, fouille) {
     const lien = a.lien || {};
     const commun = {
       saisie, fragments: lien.fragments, retouches: lien.retouches, liaison: lien.liaison,
@@ -1847,7 +2048,7 @@ export function avancementDe(compte) {
  * @param {number} limite
  * @returns {Object[]}
  */
-function selectionner(approches, limite, maxParMappeur, lambda) {
+function selectionner(approches, limite, maxParMappeur, lambda, gardees = []) {
   if (!approches.length || limite <= 0) return [];
   const tete = [];
   const prendre = (a, suggestion) => {
@@ -1916,15 +2117,80 @@ function selectionner(approches, limite, maxParMappeur, lambda) {
     prendre(fournie, 'triptyques');
   }
 
+  // ★ LES VOIES GARDÉES du cran inférieur (`deroulerResolution`) : elles
+  //   entrent d'office, comptent dans le quota et dans la redondance comme
+  //   l'amorce, et le MMR ne complète que les places qui restent. Sans voie
+  //   gardée — le cran 0 —, rien de ce qui suit ne change.
+  const enTete = new Set(tete);
+  const aGarder = gardees.filter((a) => !enTete.has(a));
+  const gardeesSet = new Set(aGarder);
   const reste = diversifier(
-    approches.filter((a) => !tete.includes(a)),
+    approches.filter((a) => !enTete.has(a) && !gardeesSet.has(a)),
     // ★ Le quota par mappeur suit le cran, comme les places : sans lui, élargir
     //   la liste ne ferait qu'ajouter des voies d'autres méthodes, jamais les
     //   variantes d'une même méthode que le curseur est censé faire remonter.
-    { limite: limite - tete.length, maxParMappeur, lambda, amorce: tete },
+    {
+      limite: placesLibres(limite - tete.length, aGarder.length),
+      maxParMappeur,
+      lambda,
+      amorce: aGarder.length ? [...tete, ...aGarder] : tete,
+    },
   );
-  for (const a of reste) if (!a.suggestion) a.suggestion = 'mixte';
-  return [...tete, ...reste];
+  const suite = completerLaSelection(aGarder, reste, ordreTotal);
+  for (const a of suite) if (!a.suggestion) a.suggestion = 'mixte';
+  return [...tete, ...suite];
+}
+
+/**
+ * ★ Les places que laissent les voies gardées — et l'ÉCHEC BRUYANT si elles ne
+ * tiennent plus : un cran qui ne peut pas contenir le précédent violerait
+ * l'invariant en silence.
+ */
+function placesLibres(places, gardees) {
+  const libres = places - gardees;
+  if (gardees > 0 && libres < 0) {
+    throw new Error(`recherche cumulative : ${gardees} voies à garder pour ${places} places — le cran ne contient plus le précédent`);
+  }
+  return libres;
+}
+
+/** Les voies gardées et celles qui complètent, rangées par l'ordre de la liste. */
+function completerLaSelection(gardees, choisies, ordre) {
+  if (!gardees.length) return choisies;
+  return [...gardees, ...choisies].sort(ordre);
+}
+
+/**
+ * Les candidats de deux crans : ceux du cran inférieur d'abord, puis ceux du
+ * cran courant dont le programme est neuf.
+ */
+function fusionnerLesCrans(anciens, nouveaux, cle) {
+  const vus = new Set(anciens.map(cle));
+  return anciens.concat(nouveaux.filter((a) => !vus.has(cle(a))));
+}
+
+/**
+ * Une COPIE de l'état d'un cran — les voies copiées en surface, une fois
+ * chacune, les retenues pointant sur les mêmes copies que les candidats. Ce
+ * qu'un cran réécrit sur ses voies (rang, titre, liens, suggestion) ne touche
+ * ainsi jamais une réponse déjà rendue.
+ */
+function copierEtat(etat) {
+  const copies = new Map();
+  const copie = (a) => {
+    let c = copies.get(a);
+    if (!c) {
+      c = { ...a };
+      delete c.suggestion;
+      copies.set(a, c);
+    }
+    return c;
+  };
+  return {
+    candidats: etat.candidats.map(copie),
+    retenues: etat.retenues.map(copie),
+    tronque: !!etat.tronque,
+  };
 }
 
 /**
