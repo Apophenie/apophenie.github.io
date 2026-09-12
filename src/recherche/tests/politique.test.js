@@ -219,3 +219,31 @@ test('★ retraits — sous 666, `mr6` est joué avec la règle d’une autre ci
   assert.deepEqual(appliquerOp(op, etat('NUMS', [6, 6, 6], [[], [], []])).valeur, [9, 9, 9],
     'et sous 666, il retourne les 6 en 9 — mesuré, pas supposé');
 });
+
+/* ══════════════ 6. Les modes hors jeu, et l'annonce qu'ils en font ══════════════
+ *
+ * ★ Deux modes demandent autant de portées que la cible a de chiffres : la
+ *   PARTITION des morceaux contigus, le LIBRE des disjoints parmi les douze
+ *   meilleurs. Au-delà, ils ne rendent rien — et ne le disaient pas. Sur une
+ *   cible de quatorze chiffres, deux des neuf modes du site sont hors jeu par
+ *   construction.
+ */
+
+test('★ modes — ce qui ne peut pas s’appliquer le dit', async () => {
+  const { creerMoteur } = await import('../index.js');
+  const moteur = creerMoteur(catalogue, { filetTemporel: false });
+  const court = moteur.resoudre('Jim', { cible: '666' });
+  const dits = (r) => r.modesImpossibles.map((m) => m.mode).sort();
+  // « Jim » est un seul mot : trois morceaux contigus, il n'en offre qu'un.
+  assert.deepEqual(dits(court), ['PARTITION']);
+  assert.match(court.modesImpossibles[0].dit, /morceaux contigus/);
+  // Quatorze chiffres visés : les deux modes s'annoncent hors jeu.
+  const longue = moteur.resoudre('Sarah Kerrigan', { cible: '12345678901234' });
+  assert.deepEqual(dits(longue), ['LIBRE', 'PARTITION']);
+  for (const m of longue.modesImpossibles) {
+    assert.match(m.dit, /il faudrait 14/, 'l’annonce dit COMBIEN il en faudrait');
+  }
+  // Et une cible qui les laisse jouer n'annonce rien pour eux.
+  const phrase = moteur.resoudre('Le chat dort sur le tapis rouge', { cible: '13' });
+  assert.equal(phrase.modesImpossibles.length, 0, 'deux morceaux, la phrase en a de reste');
+});

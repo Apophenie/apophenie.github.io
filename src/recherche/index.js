@@ -595,6 +595,9 @@ export function creerMoteur(catalogue, options = {}) {
       //   et chacune doit alors s'autoriser le geste de plus dès le premier
       //   assemblage, sans refaire celui qui vient d'échouer.
       profond: optionsResolution.profond === true,
+      // ★ Ce que l'assemblage sait ne PAS pouvoir jouer, et qu'il dira
+      //   (`assemblage.js`, les modes à autant de portées que de chiffres).
+      modesImpossibles: [],
     };
     /* ★ **L'ASSEMBLAGE REND COMPTE DE LUI-MÊME** — voir `assemblage.js`, où la
          mesure est écrite. Il ne peut pas `yield` : il est appelé DEPUIS ce
@@ -883,6 +886,9 @@ export function creerMoteur(catalogue, options = {}) {
            operateursRetires`). Sur la cible sous-jacente d'un mot relu par
            les rangs, ce sont DIX absences d'un coup. */
       operateursRetires: operateursRetires(catalogue, cbl),
+      /* ★ Les modes hors jeu par construction — dédoublonnés, parce qu'un
+           dernier recours rejoue l'assemblage et le redirait. */
+      modesImpossibles: [...new Map(ctxAssemblage.modesImpossibles.map((m) => [m.mode, m])).values()],
       tronque: tronqueTravail || tronqueTemps,
       tronqueTemps,
       ...(avertissement ? { avertissement } : {}),
@@ -2194,6 +2200,7 @@ function serialisable(resultat) {
     relectures: resultat.relectures,
     signesSansRelecture: resultat.signesSansRelecture,
     operateursRetires: resultat.operateursRetires,
+    modesImpossibles: resultat.modesImpossibles,
     approches: (resultat.approches || []).map((a) => ({
       rang: a.rang, mode: a.mode, score: a.score, scoreAjuste: a.scoreAjuste,
       // ★ La LIAISON par son code — l'opérateur lui-même ne traverse pas.

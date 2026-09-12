@@ -3306,6 +3306,35 @@ export function assembler(saisie, fragments, parFrag, ctx) {
     return [...index[0].keys()].filter((s) => index.every((idx) => idx.has(s))).sort();
   };
 
+  /* ★ **UN MODE QUI NE PEUT PAS S'APPLIQUER LE DIT.**
+   *
+   * Deux modes demandent AUTANT DE PORTÉES QUE LA CIBLE A DE CHIFFRES : la
+   * PARTITION en veut des contiguës qui couvrent la saisie, le LIBRE des
+   * disjointes parmi les douze meilleures (`MAX_LIBRES`). Au-delà, ils ne
+   * rendent rien — et ne rendaient rien SANS LE DIRE : sur une cible de
+   * quatorze chiffres, deux des neuf modes du site sont hors jeu par
+   * construction, et la réponse n'en disait pas un mot. L'échec bruyant vaut
+   * aussi pour ce qui ne s'applique pas (§2.2).
+   *
+   * ⚠️ On ne CORRIGE rien ici : ces bornes sont ce qu'elles sont — un mode qui
+   *   assemble quatorze morceaux disjoints n'aurait ni sens ni scène. On
+   *   l'annonce, c'est tout. */
+  if (Array.isArray(ctx.modesImpossibles)) {
+    const portees = fragments.filter((f) => f.famille !== 'entier' && f.intervalles.length === 1).length;
+    if (K > portees) {
+      ctx.modesImpossibles.push({
+        mode: 'PARTITION',
+        dit: `il faudrait ${K} morceaux contigus, la saisie n’en offre que ${portees}`,
+      });
+    }
+    if (K > MAX_LIBRES) {
+      ctx.modesImpossibles.push({
+        mode: 'LIBRE',
+        dit: `il faudrait ${K} portées disjointes, et l’énumération n’en retient que ${MAX_LIBRES}`,
+      });
+    }
+  }
+
   // ── mode B : PARTITION contiguë couvrante, jointe sur signature
   for (const groupe of partitionsContigues(fragments, ctx, K)) {
     const index = groupe.map((f, i) => indexer(cheminsDe(f), cbl.chiffres[i]));
