@@ -20,6 +20,7 @@ import { BUDGET_MS, BUDGET_MS_FILET, BUDGET_TOTAL_MS } from '../config.js';
 //   Le barème COMPTE le mélange, ce module le REFUSE — mais tous deux doivent
 //   appeler « famille » la même chose (`elegance.js`, l'en-tête de la fonction).
 import { familleDeConvention } from './elegance.js';
+import { gesteUtile } from './politique.js';
 // ★ Le signalement d'une exception d'opérateur — une fois par code — vit avec
 //   le catalogue, qui l'emploie dans `appliquer` : un seul journal pour les deux
 //   chemins d'application. `catalogue.js` n'importe rien de la recherche.
@@ -314,6 +315,14 @@ export function appliquerOp(op, e) {
     if (Array.isArray(brut.traces)) traces = brut.traces;
   }
   if (!valeurValide(op.to, valeur)) return null;
+  /* ★ **LA POLITIQUE D'UTILITÉ — un geste qui ne sert à rien n'est pas joué.**
+     Certains opérateurs déclarent relever d'un jugement d'utilité (`op.utilite`)
+     que la RECHERCHE porte, et non le moteur : le tri croissant ne se joue que
+     s'il rassemble assez pour qu'une méthode écrive la cible
+     (`politique.js › gesteUtile`, qui porte la règle et son histoire). C'est ici
+     qu'elle s'applique, parce que c'est la porte unique par laquelle la
+     recherche applique un opérateur. */
+  if (!gesteUtile(op, e.valeur, valeur)) return null;
 
   // Affinage de la couverture pour les opérateurs partant d'une chaîne.
   if (e.type === 'STR' && typeof op.couverture === 'function' && traces === e.traces) {

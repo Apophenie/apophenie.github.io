@@ -577,13 +577,15 @@ test('★ les quatre transformations du 27 août — ce qu’elles font, et ce q
     [3, 4, 4, 5, 5, 6, 6, 6, 9, 9, 9], 'l’exemple de l’auteur');
   // Un vecteur déjà rangé n'a rien à montrer.
   assert.equal(sortie('mtri', [1, 2, 3]), null, 'déjà croissant : rien à déplacer');
-  // ★ Et surtout : le tri doit RASSEMBLER. Il ne se joue pas pour promener des
-  //   valeurs qui ne se rejoignent pas — c'est ce que l'auteur lui demande,
-  //   « faire apparaître 666 contigu », et rien d'autre.
-  assert.equal(sortie('mtri', [3, 1, 2]), null,
-    'trois valeurs distinctes : ranger ne réunit personne');
-  assert.equal(sortie('mtri', [6, 6, 6, 4, 1]), null,
-    'la plage de trois existe DÉJÀ : c’est le travail de mz, pas celui du tri');
+  /* ★ **CE QUE LE TRI DOIT RASSEMBLER N'EST PLUS JUGÉ ICI.** « Ranger ne réunit
+       personne » et « la plage existe déjà » sont des jugements d'UTILITÉ —
+       est-ce que ce geste vaut la peine d'être cherché ? —, et c'est une
+       politique de recherche : elle a été recalibrée trois fois tant qu'elle
+       vivait dans le moteur. Elle est tenue par
+       `recherche/tests/politique.test.js`, sur les mêmes vecteurs. Le moteur, lui,
+       garde l'invariant : un tri qui ne déplace rien n'est pas une étape. */
+  assert.deepEqual(sortie('mtri', [3, 1, 2]), [1, 2, 3],
+    'le moteur range : c’est la recherche qui dira si ça valait la peine');
   assert.deepEqual(sortie('mtri', [6, 4, 6, 1, 6]), [1, 4, 6, 6, 6],
     'trois 6 dispersés, réunis — et le départage à valeur égale suit l’ordre de lecture');
 
