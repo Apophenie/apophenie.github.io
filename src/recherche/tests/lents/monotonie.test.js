@@ -42,6 +42,27 @@
  *   dans le message du commit qui l'applique ; l'instantané des cibles
  *   chiffrées a été régénéré dans le même mouvement.
  *
+ * ★ **CE QUE LE CORRECTIF A FAIT À « Wok → 666 », et pourquoi.** La seule
+ *   substitution qui baissait la qualité — `fatb+mz26+mdc3` (4 791) sortie,
+ *   `fc+ma1+mdc3` (2 852) entrée — a été tracée siège par siège, à largeur
+ *   ÉGALE (la tête de huit vecteurs du fragment « Wok ») :
+ *
+ *   · ce n'est PAS la capacité de la liste : Wok publie huit voies pour vingt
+ *     places ;
+ *   · ce n'est PAS un défaut du correctif, ni des doublons (supposé, puis
+ *     réfuté : les huit sièges sont huit vecteurs distincts une fois
+ *     canonicalisés) ;
+ *   · c'est que la tête respecte ENFIN l'ordre de quantité. `fatb+mz26+mdc3`
+ *     n'y est que DIXIÈME ; il n'y entrait avant que parce que l'ancien défaut
+ *     retirait les quatre candidats réservés de la quantité, libérant des
+ *     sièges. Aujourd'hui `fc+ma1+mdc3` (5ᵉ en quantité) et `tca+ma1+mdc3`
+ *     (6ᵉ) occupent leur rang.
+ *
+ *   Le vrai sujet est donc en amont : la tête se classe par COMPTE de chiffres
+ *   utiles, pas par le score final — d'où une voie à 2 852 devant une voie à
+ *   4 791. C'est le même mal que celui des trios : des fenêtres de
+ *   présélection classées sur un critère qui n'est pas celui de la liste.
+ *
  * ⚠️ **LA SECONDE CAUSE, PROUVÉE — ET PAS RÉPARABLE SUR PLACE.** Les deux
  *   CONVERGENCE perdues par « Sarah Kerrigan » entre les crans 2 et 3
  *   (`fc+nd, fl+mt9+cs+prn, fl+mboc+cs` et `fd+nc, fv+mt9+cp+prn,
