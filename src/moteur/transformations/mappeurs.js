@@ -1635,6 +1635,13 @@ const idSomme = (plan, ctx, p, j) => (p.sortie.length < 2
 //   chiffres à 18 ms chacune), soit le temps de recherche DOUBLÉ ; à six,
 //   2,2 s, et les dix cas du banc gardent leur voie sans perte en tête. Un
 //   paquet de plus de six chiffres fondu d'un coup n'était pas un geste lisible.
+/* ★ **CE SIX N'EST PAS UNE POLITIQUE DE RECHERCHE, ET IL RESTE ICI.**
+   Le profil de cible (`recherche/politique.js`) dit ce qu'on s'AUTORISE à
+   chercher ; celui-ci dit ce qu'un spectateur sait LIRE — « un paquet de plus
+   de six chiffres fondu d'un coup n'était pas un geste lisible ». Une limite
+   de scène ne se paramètre pas par cible : elle vaudrait la même chose pour
+   666 et pour un mot de sept lettres. Même raison pour `MAX_SERIES`
+   (`config.js`) et pour `PARTS_MAX`. */
 const PAQUET_ABSORPTION_MAX = 6;
 
 /** Le plafond de chiffres, aligné sur `mad` et `mrd` (`CHIFFRES_MAX`). */

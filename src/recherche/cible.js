@@ -354,6 +354,70 @@ export const memeCible = (a, b) => normaliserCible(a).texte === normaliserCible(
 export const estMot = (entree) => normaliserCible(entree).nature === 'mot';
 
 /**
+ * ★ **LE PROFIL D'UNE CIBLE — les faits, une fois pour toutes.**
+ *
+ * > « Je pense qu'il faudrait pouvoir filtrer/paramétrer la recherche : cible
+ * >   666 […] ; cible à plusieurs chiffres identiques […] ; cible en chiffres,
+ * >   hétérogène […] ; cible en lettres […]. » (l'auteur)
+ *
+ * Treize réglages de la recherche se décidaient déjà sur la cible, chacun en
+ * relisant l'objet à sa façon — `cbl.defaut` ici, `cbl.alphabet.length === 1`
+ * là, `cbl.nature !== 'chiffres'` ailleurs. Six d'entre eux ont été recalibrés
+ * au moins une fois, et le tri trois fois : c'est ce que coûte une règle
+ * réécrite à cinq endroits.
+ *
+ * Cette fonction ne décide RIEN. Elle nomme les faits sur lesquels la recherche
+ * décide (`politique.js`), et elle les nomme une seule fois :
+ *
+ *   · `nature`   — des chiffres, des valeurs (la cible sous-jacente d'une
+ *                  relecture), ou un texte ;
+ *   · `defaut`   — est-ce 666, celle dont tout le site porte les promesses ;
+ *   · `homogene` — un seul chiffre distinct (666, 111, 000) ;
+ *   · `longue`   — au-delà de `CIBLE_LONGUE`, le plafond historique des cibles
+ *                  chiffrées : rien de ce qui a été publié n'est au-dessus ;
+ *   · `classe`   — un NOM pour les cinq cas de l'auteur. Il sert aux rapports
+ *                  et aux tests, jamais à décider : une politique se lit sur
+ *                  les faits, pas sur une étiquette, sans quoi un cas limite
+ *                  (une cible de VALEURS homogène) tomberait dans la mauvaise
+ *                  boîte sans qu'on le voie.
+ *
+ * ★ **FONCTION PURE DE LA CIBLE.** Ni horloge, ni état de machine, ni réglage
+ *   de l'appelant : deux exécutions, ici ou ailleurs, rendent le même profil —
+ *   c'est ce qui interdit à un profil de devenir une porte dérobée (§4.4).
+ *
+ * @param {Cible|string|number|number[]} entree
+ * @returns {{classe:string, nature:string, longueur:number, homogene:boolean,
+ *   defaut:boolean, longue:boolean}}
+ */
+const PROFILS = new WeakMap();
+
+export function profilDeCible(entree) {
+  const c = normaliserCible(entree);
+  // Les cibles sont gelées et partagées : le profil d'une cible donnée se
+  // calcule une fois. C'est une mémoïsation, pas un état — même cible, même
+  // profil, et rien d'autre n'entre dans le calcul.
+  const memo = PROFILS.get(c);
+  if (memo) return memo;
+  const longue = c.nature !== 'mot' && c.longueur > CIBLE_LONGUE;
+  const classe = (() => {
+    if (c.nature === 'mot') return 'texte';
+    if (c.defaut) return '666';
+    if (c.homogene) return 'homogene';
+    return longue ? 'chiffresLongue' : 'chiffres';
+  })();
+  const profil = Object.freeze({
+    classe,
+    nature: c.nature,
+    longueur: c.longueur,
+    homogene: c.homogene,
+    defaut: c.defaut,
+    longue,
+  });
+  PROFILS.set(c, profil);
+  return profil;
+}
+
+/**
  * L'écriture qu'on MONTRE : `666`, `007`, ou `Zerg`. Une cible reçue d'ailleurs
  * sans `affichage` — un objet fabriqué à la main — se montre par son écriture.
  */

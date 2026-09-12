@@ -588,4 +588,9 @@ export const CODES_NON_FACTURES = Object.freeze([...CODES_IMPLICITES, 'ccat']);
  * que `assemblage.js` importe `score.js` — le chemin inverse fermerait un cycle
  * — et que `config.js` n'importe rien.
  */
+/* ★ **NI UNE POLITIQUE, NI UN RÉGLAGE DE CIBLE.** `recherche/politique.js` dit
+   ce qu'on s'autorise à chercher selon le profil de la cible ; ce plafond-ci
+   dit ce que la SCÈNE sait montrer d'un coup, et il vaut la même chose pour
+   toutes les cibles. Le laisser entrer dans un profil reviendrait à faire
+   dépendre la lisibilité de ce qu'on vise. */
 export const MAX_SERIES = 9;

@@ -80,8 +80,9 @@ import {
 } from './url.js';
 import { IMPLICITE_DEPUIS } from '../config.js';
 import {
-  CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES, MAX_SIGNES_TEXTE,
+  CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES, MAX_SIGNES_TEXTE, profilDeCible,
 } from './cible.js';
+import { politique } from './politique.js';
 import {
   relecturesPour, relecturePour, signesSansRelecture, RELECTURE_PAR_DEFAUT,
 } from './conversions.js';
@@ -331,8 +332,13 @@ export function creerMoteur(catalogue, options = {}) {
    */
   function* deroulerResolution(saisieBrute, optionsResolution = {}) {
     const cbl = normaliserCible(optionsResolution.cible ?? options.cible);
+    /* ★ **LE PROFIL DE LA CIBLE, ET CE QU'IL AUTORISE** — `cible.js ›
+         profilDeCible` nomme les faits, `politique.js` en tire ce qu'on
+         s'autorise. Treize réglages relisaient la cible chacun à sa façon ;
+         ceux qui se rangent naturellement se lisent désormais ici. */
+    const regles = politique(profilDeCible(cbl));
     // ★ Un TEXTE visé se cherche par ses relectures — voir `deroulerTexte`.
-    if (cbl.nature === 'mot') return yield* deroulerTexte(saisieBrute, cbl, optionsResolution);
+    if (regles.parRelectures) return yield* deroulerTexte(saisieBrute, cbl, optionsResolution);
     const ponderation = ponderer(optionsResolution.curseurs ?? options.curseurs);
     const fouille = normaliserPuissance(optionsResolution.fouille ?? options.fouille);
     const budgets = reglagesDeBudget(fouille);
@@ -366,7 +372,7 @@ export function creerMoteur(catalogue, options = {}) {
     //   liste qui vise 111, et « Six vaut six, il vous en manque deux » est
     //   faux si l'on cherche `6`. Le gag est une propriété du couple
     //   (saisie, cible), et la moitié de ce couple vient de changer.
-    const dedie = cbl.defaut ? (REPONSES_DEDIEES.get(saisie.toLowerCase().trim()) || null) : null;
+    const dedie = regles.reponsesDediees ? (REPONSES_DEDIEES.get(saisie.toLowerCase().trim()) || null) : null;
     const ctxRecherche = contexteBase(cbl);
     const signifiants = zonesSignifiantes(saisie);
     const jetons = tokeniser(saisie);
@@ -677,7 +683,7 @@ export function creerMoteur(catalogue, options = {}) {
            `hope → 31031998`, où c'est précisément ce qui se produisait : quatre
            lettres, treize chiffres calculés, huit montrés, et l'approche
            « refusée » servie en tête comme si de rien n'était. */
-      const cibleHomogene = cbl.alphabet.length === 1;
+      const cibleHomogene = regles.tolereLesSuppressions;
       const tenables = liste.filter((a) => !elagueALaFin(a.bilan, cibleHomogene));
       if (tenables.length !== liste.length) {
         const j = tenables.length ? null : approcheJoker(saisie, ctxAssemblage);

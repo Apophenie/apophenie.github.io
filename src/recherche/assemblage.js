@@ -48,9 +48,10 @@ import {
   A_MERITER_SA_PLACE, OPERATEURS_QUI_ECARTENT, FICELLES, nbTriptyques, compterTraductionsDivergentes,
 } from './elegance.js';
 import {
-  CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecrit,
+  CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecrit, profilDeCible,
   verdict as ecrireVerdict,
 } from './cible.js';
+import { politique } from './politique.js';
 import {
   appliquerOp, etat, normaliserCatalogue, operateursPourCible,
   cleEtat, cleTrace, rendreValeur, codeAvant,
@@ -436,7 +437,7 @@ export function liaisons(fragments, ctx, cbl) {
   //     trouvait rien sans que personne l'ait décidé. En entiers exacts, le
   //     même appel LÈVE — c'est ce qui l'a révélé. On le refuse donc ici, en le
   //     disant, plutôt que par un NaN qui traverse trois calculs.
-  if (!ctx || !ctx.catalogue || cbl.defaut || cbl.nature !== 'chiffres') return [];
+  if (!ctx || !ctx.catalogue || !politique(profilDeCible(cbl)).liaison) return [];
   const lieurs = normaliserCatalogue(ctx.catalogue).filter((o) => o && o.liaison);
   if (!lieurs.length) return [];
   const mots = fragments.filter((f) => f.famille === 'unite').sort((a, b) => a.offset - b.offset);
@@ -1324,7 +1325,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
        toujours aussi démunie. On ne retombe sur une ficelle que si aucune voie
        honnête ne sait donner ce chiffre-là. */
   const parLeMotif = [];
-  if (!cbl.homogene) {
+  if (politique(profilDeCible(cbl)).siegeParChiffre) {
     const donne = (x, d) => !parLeMotif.includes(x)
       && x.etats[x.etats.length - 1].valeur.includes(d);
     for (const d of cbl.alphabet) {
@@ -2506,7 +2507,7 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
     //   homogène, elle n'est même pas calculée : les deux objectifs y sont le
     //   même à la division près, et la seconde ne rendrait que des doublons que
     //   `signatures` jetterait.
-    if (!cbl.homogene) {
+    if (politique(profilDeCible(cbl)).moissonDuMotif) {
       const { choix: motif } = moissonDuMotif(parDebut, n, accepte, cbl);
       if (motif.length >= 2) variantes.push({ accepte, retenu: reduireLeSurplus(motif, accepte, cbl) });
     }
@@ -3141,7 +3142,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //   un même chiffre. Il ne peut donc pas écrire `007` : ce serait un autre
   //   mode, portant un autre nom. Sur une cible homogène, le programme doit en
   //   outre rendre CE chiffre-là, ce qui ne filtre rien quand il n'y en a qu'un.
-  if (cbl.homogene) {
+  if (politique(profilDeCible(cbl)).resonance) {
     for (const [, occ] of parMotif) {
       if (occ.length < K) continue;
       const groupe = occ.slice(0, K);
@@ -3407,7 +3408,7 @@ export function deduireMode(parts, ctx) {
 
   const textes = parts.map((p) => p.fragment.texte.toLowerCase());
   const memeTexte = new Set(textes).size === 1;
-  if (memeTexte && cbl.homogene && parts.length >= cbl.longueur
+  if (memeTexte && politique(profilDeCible(cbl)).resonance && parts.length >= cbl.longueur
     && compterOccurrences(ctx.saisie, textes[0]) >= parts.length) {
     return avec({ mode: 'RESONANCE', resonance: true });
   }
