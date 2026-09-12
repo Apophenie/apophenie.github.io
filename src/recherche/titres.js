@@ -147,7 +147,8 @@ const MAPPEURS_DE_SERVICE = new Set([
   //   ce qu'une autre méthode a calculé, pour donner de la matière à dissoudre.
   //   Vedette, il aurait nommé « par le carré » des voies dont le carré n'est
   //   que l'intendance — et il n'est joué qu'en dernier recours.
-  'm.carre',
+  //   La puissance et la factorielle sont du même bois, et pour la même raison.
+  'm.carre', 'm.puissanceChiffreSuivant', 'm.factorielle',
   // ★ Le tri alphabétique est du même bois : il RANGE, il ne conclut pas.
   'm.triAlphabetique',
   // ★ Et la LECTURE, plus radicalement encore : elle ne fait rien du tout.
@@ -355,6 +356,8 @@ export const NOMS = {
   //   nom-ci ne devrait donc jamais paraître. Il existe parce que la famille
   //   `mappeur` l'exige, et parce qu'un titre vide serait pire qu'un titre juste.
   'm.carre': b('Par les carrés', 'By squares'),
+  'm.puissanceChiffreSuivant': b('Par les puissances', 'By powers'),
+  'm.factorielle': b('Par les factorielles', 'By factorials'),
   // ★ `m36` ne nomme rien et ne DOIT rien nommer : il souligne un 666 déjà écrit,
   // c'est-à-dire le résultat. Il est écarté des vedettes (`MAPPEURS_DE_SERVICE`)
   // et son nom de repli reste muet sur ce qu'il montre.
@@ -619,6 +622,8 @@ export const TITRES_COURTS = {
   'm.chiffreEnLettres': b('chiffre en lettres', 'digit in words'), // mlet
   'm.rangEnLettre': b('rang en lettre', 'rank to letter'), // m1a
   'm.carre': b('carré', 'square'), // mcar
+  'm.puissanceChiffreSuivant': b('puissance', 'power'), // mpui
+  'm.factorielle': b('factorielle', 'factorial'), // mfac
   'm.coordonneesAzerty': b('coordonnées AZERTY', 'AZERTY coordinates'), // mcaz
   'm.coordonneesQwerty': b('coordonnées QWERTY', 'QWERTY coordinates'), // mcqw
   'm.rangDeuxChiffres': b('rang en deux chiffres', 'two-digit rank'), // m1a2
@@ -836,6 +841,8 @@ export const PRECISIONS = {
   'm.egalisation': b('égalisés', 'evened out'),
   'm.triCroissant': b('rangé par ordre croissant', 'sorted in ascending order'),
   'm.carre': b('chaque nombre au carré', 'every number squared'),
+  'm.puissanceChiffreSuivant': b('chaque nombre au chiffre suivant', 'every number to the next digit'),
+  'm.factorielle': b('chaque nombre en factorielle', 'every number as a factorial'),
   'm.triAlphabetique': b('les lettres rangées dans l’ordre', 'with the letters put in order'),
   'm.retournerLesTrios': b('les trios retournés', 'with the trios flipped'),
   'm.compterLesChiffres': b('les chiffres comptés', 'with the digits tallied'),

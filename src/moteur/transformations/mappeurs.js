@@ -88,6 +88,11 @@ import {
   AZERTY, QWERTY, colonne, rangee, rangeeDepuisLesChiffres,
   chiffreDeTouche, CHIFFRE_DE_TOUCHE, NOTE_AFNOR,
 } from '../tables/claviers.js';
+// ★ LE DOMAINE DU MOTEUR — `[-10⁶, 10⁶]`. Les trois opérateurs qui gonflent la
+//   ligne (`mcar`, `mpui`, `mfac`) doivent refuser EUX-MÊMES au-delà : un état
+//   hors bornes est rejeté par `etat.js`, sans un mot, et un opérateur dont le
+//   résultat disparaît en silence est exactement ce que §2.2 interdit.
+import { NUM_MAX } from '../etat.js';
 import { mesure as mesureGlyphe } from '../tables/derivees.js';
 import { mesureJost } from '../tables/derivees-jost.js';
 import { GLYPHES } from '../tables/glyphes.js';
@@ -4126,12 +4131,83 @@ function etapeLongueurMot() {
 }
 
 const LIB_CARRE = bilingue('On élève chaque nombre au carré', 'Square every number');
+const LIB_PUISSANCE = bilingue('On élève chaque nombre au chiffre suivant',
+  'Raise every number to the next digit');
+const LIB_FACTORIELLE = bilingue('On prend la factorielle de chaque nombre',
+  'Take the factorial of every number');
+
+/** Le premier chiffre d'un nombre — « le chiffre suivant » de la ligne. */
+const premierChiffre = (v) => Number(String(v)[0]);
 
 /**
- * La plus grande racine dont le carré reste un entier EXACT : au-delà de 2⁵³,
- * un produit s'arrondit, et un nombre arrondi n'est plus celui qu'on montre.
+ * `a` puissance `e`, ou `null` si le résultat sort du domaine EXACT. On
+ * multiplie pas à pas plutôt que d'appeler `**` : c'est le seul moyen de voir
+ * le débordement AVANT qu'il arrondisse (`2 ** 60` ne dit pas qu'il ment).
  */
-const RACINE_SURE = Math.floor(Math.sqrt(Number.MAX_SAFE_INTEGER));
+function puissanceSure(a, e) {
+  let r = 1;
+  for (let k = 0; k < e; k++) {
+    r *= a;
+    if (r > NUM_MAX) return null;
+  }
+  return r;
+}
+
+/** `n!`, ou `null` dès que le produit sort du domaine exact (19! le dépasse). */
+function factorielleSure(n) {
+  let r = 1;
+  for (let k = 2; k <= n; k++) {
+    r *= k;
+    if (r > NUM_MAX) return null;
+  }
+  return r;
+}
+
+/**
+ * ★ **LE GESTE D'UN PRODUIT MONTRÉ** — une seule source pour les trois
+ * opérateurs qui gonflent la ligne (`mcar`, `mpui`, `mfac`).
+ *
+ * ① les facteurs s'écrivent à la place du nombre, séparés par des `×` — la
+ *    multiplication est POSÉE avant d'être faite ;
+ * ② ils se rejoignent, et le produit s'écrit à leur place.
+ *
+ * Le `collapse` ANIME, le `substitute` ÉCRIT — même règle que la division
+ * (`mmod`) : sans lui, le jeton garderait sa valeur d'avant et l'étape suivante
+ * calculerait sur un nombre que la scène n'affiche plus. Rien n'est décrété :
+ * ce que la ligne montre est exactement ce que `apply` a calculé.
+ */
+function etapesDuProduit(ctx, i, facteurs, resultat, titre) {
+  const ids = facteurs.map((_, k) => `${ctx.cle}_${i}f${k}`);
+  const signes = facteurs.slice(1).map((_, k) => `${ctx.cle}_${i}x${k}`);
+  // Les jetons dans l'ordre de la ligne : facteur, signe, facteur, signe…
+  const membres = ids.flatMap((id, k) => (k ? [signes[k - 1], id] : [id]));
+  const pose = facteurs.join(' × ');
+  return [
+    etape(ctx, titre, `${facteurs[0]} → ${pose}`, enchainer([
+      {
+        op: 'substitute',
+        pairs: [{ target: ctx.ids[i], to: facteurs.map((f, k) => token(ids[k], f, 'number')) }],
+      },
+      { op: 'insertOperators', between: ids, glyphs: signes.map(() => '×'), ids: signes },
+    ]), { id: `s_${ctx.cle}_${i}o` }),
+    etape(ctx, titre, `${pose} = ${resultat}`, enchainer([
+      { op: 'collapse', mode: 'fusion', familles: [{ membres, garde: ids[0] }] },
+      {
+        op: 'substitute',
+        pairs: [{ target: ids[0], to: [token(nomToken(ctx, i), resultat, 'number')] }],
+      },
+    ]), { id: `s_${ctx.cle}_${i}c`, hold: 300 }),
+  ];
+}
+
+/**
+ * La plus grande racine dont le carré tient dans le DOMAINE DU MOTEUR.
+ *
+ * ⚠️ Ce n'est pas 2⁵³ : le moteur borne ses nombres à 10⁶ (`etat.js`), et un
+ * résultat au-delà ferait refuser l'état SANS UN MOT — le calcul aurait eu
+ * lieu, la ligne aurait disparu. On refuse donc ici, là où on sait le dire.
+ */
+const RACINE_SURE = Math.floor(Math.sqrt(NUM_MAX));
 
 const AUTRES_MAPPEURS = [
   def({
@@ -4186,8 +4262,10 @@ const AUTRES_MAPPEURS = [
     },
     // La sortie n'invente d'identifiant que pour les nombres qui CHANGENT :
     // un nombre déjà réduit garde le sien, et aucun step ne le touche.
-    sortie: (avant, apres, ctx) => apres.valeur.map((v, i) => (v === avant.valeur[i]
-      ? ctx.ids[i] : nomToken(ctx, i))),
+    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
+    // changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
+      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
     /**
      * Un `reduce` par PALIER et un step par palier (research visuel §4.8) : le
      * moteur visuel ne boucle jamais tout seul, et `reduce` refuse d'afficher
@@ -4392,8 +4470,10 @@ const AUTRES_MAPPEURS = [
     // Seuls les 9 reçoivent un identifiant neuf. Les autres gardent le leur :
     // aucun step ne les touche, et un renommage sans geste ferait croire au
     // pont qu'un jeton a été remplacé alors qu'il n'a pas bougé.
-    sortie: (avant, apres, ctx) => apres.valeur.map((v, i) => (v === avant.valeur[i]
-      ? ctx.ids[i] : nomToken(ctx, i))),
+    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
+    // changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
+      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
     /**
      * ★ Un seul step, et les 9 s'y retournent L'UN APRÈS L'AUTRE.
      *
@@ -5432,8 +5512,10 @@ const AUTRES_MAPPEURS = [
     // Seuls les 9 retournés reçoivent un identifiant neuf — même règle que
     // `mr9` : les autres n'ont pas bougé, et un renommage sans geste ferait
     // croire au pont qu'un jeton a été remplacé.
-    sortie: (avant, apres, ctx) => apres.valeur.map((v, i) => (v === avant.valeur[i]
-      ? ctx.ids[i] : nomToken(ctx, i))),
+    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
+    // changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
+      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
     /**
      * ★ UN SEUL STEP, ET LES TRIOS SE RETOURNENT L'UN APRÈS L'AUTRE.
      *
@@ -5866,8 +5948,10 @@ const AUTRES_MAPPEURS = [
       return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
     },
     exempleUtile: (etat) => triosDeNeuf(etat.valeur, 6).length > 0,
-    sortie: (avant, apres, ctx) => apres.valeur.map((v, i) => (v === avant.valeur[i]
-      ? ctx.ids[i] : nomToken(ctx, i))),
+    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
+    // changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
+      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
     steps: (avant, apres, ctx) => stepsDuDemiTour(avant, apres, ctx, 6, LIB_RETOURNER_6),
   } : null), { reference: '999' }),
   def({
@@ -7028,8 +7112,10 @@ const AUTRES_MAPPEURS = [
       return { valeur: valeur.map((v) => v * v), traces: valeur.map((_, i) => traces[i] || []) };
     },
     // Un nombre qui ne bouge pas garde son identifiant : aucune étape ne le touche.
-    sortie: (avant, apres, ctx) => apres.valeur.map((v, i) => (v === avant.valeur[i]
-      ? ctx.ids[i] : nomToken(ctx, i))),
+    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
+    // changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
+      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
     /**
      * ★ DEUX TEMPS PAR NOMBRE, ET LE CALCUL SE VOIT.
      *
@@ -7043,28 +7129,140 @@ const AUTRES_MAPPEURS = [
      */
     steps: (avant, apres, ctx) => {
       const titre = dire(LIB_CARRE, ctx.langue);
-      const steps = [];
-      avant.valeur.forEach((v, i) => {
-        if (v * v === v) return;
-        const idA = `${ctx.cle}_${i}a`;
-        const idB = `${ctx.cle}_${i}b`;
-        const idX = `${ctx.cle}_${i}x`;
-        steps.push(etape(ctx, titre, `${v} → ${v} × ${v}`, enchainer([
-          {
-            op: 'substitute',
-            pairs: [{ target: ctx.ids[i], to: [token(idA, v, 'number'), token(idB, v, 'number')] }],
-          },
-          { op: 'insertOperators', between: [idA, idB], glyph: '×', ids: [idX] },
-        ]), { id: `s_${ctx.cle}_${i}o` }));
-        steps.push(etape(ctx, titre, `${v} × ${v} = ${v * v}`, enchainer([
-          { op: 'collapse', mode: 'fusion', familles: [{ membres: [idA, idX, idB], garde: idA }] },
-          {
-            op: 'substitute',
-            pairs: [{ target: idA, to: [token(nomToken(ctx, i), v * v, 'number')] }],
-          },
-        ]), { id: `s_${ctx.cle}_${i}c`, hold: 300 }));
+      return avant.valeur.flatMap((v, i) => (v * v === v
+        ? [] : etapesDuProduit(ctx, i, [v, v], v * v, titre)));
+    },
+  }),
+  /* ★ **LA PUISSANCE — `mpui`, chaque nombre élevé au CHIFFRE SUIVANT.**
+   *
+   * > « Puissance le chiffre suivant (ou un nombre même). » (l'auteur)
+   *
+   * Les deux lectures ont été MESURÉES sur le banc, en gain marginal par-dessus
+   * le carré. Sur le corpus chiffré elles ouvrent autant de couples (sept
+   * chacune) ; sur les lignes absorbables, l'exposant-CHIFFRE l'emporte
+   * nettement — 136 lignes contre 104 —, parce qu'un exposant-nombre sort
+   * presque toujours du domaine exact (97 à la puissance 114 n'a pas de sens
+   * ici). C'est donc le chiffre suivant, qui est aussi la formulation de
+   * l'auteur : le premier chiffre du nombre d'après, et le dernier nombre
+   * regarde le premier.
+   *
+   * ★ **CE QU'ELLE REFUSE, ET POURQUOI.**
+   *   · un exposant NUL — `n⁰ = 1` est une convention, pas un calcul, et on ne
+   *     saurait pas le MONTRER (rien à multiplier) ;
+   *   · tout résultat hors du DOMAINE DU MOTEUR (`etat.js`, 10⁶) : 115³ le
+   *     dépasse déjà, et un résultat que l'état refuserait ensuite en silence
+   *     n'a rien à faire ici ;
+   *   · une ligne qu'elle ne changerait pas (tous les exposants valant 1).
+   *
+   * ★ Notoriété 0,70 : une puissance s'apprend au collège, mais « au chiffre
+   *   suivant » est une convention de la maison. AdHoc 0,15 : elle ne regarde
+   *   pas la cible. Inactive en recherche, gonflante — voir `mcar`.
+   */
+  def({
+    id: 'm.puissanceChiffreSuivant', code: 'mpui', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_PUISSANCE,
+    regle: bilingue(
+      'Chaque nombre est élevé à la puissance du premier chiffre du nombre suivant ; le '
+      + 'dernier regarde le premier. 5 puis 34 donne 5³ = 125.',
+      'Every number is raised to the power of the first digit of the next one; the last looks '
+      + 'at the first. 5 then 34 gives 5³ = 125.',
+    ),
+    notoriete: 0.70, adHoc: 0.15, cout: 1,
+    actifParDefaut: false,
+    gonfle: true,
+    note: bilingue(
+      'Elle ne cherche pas à tomber juste : elle donne de la matière, et beaucoup. Jouée '
+      + 'seulement quand rien d’autre n’a été trouvé, et refusée dès qu’un résultat cesse '
+      + 'd’être exact.',
+      'It does not aim to land right: it provides material, and plenty of it. Played only when '
+      + 'nothing else was found, and refused as soon as a result stops being exact.',
+    ),
+    apply: (valeur, traces) => {
+      if (valeur.length < 2) return null; // il faut un « suivant »
+      if (!valeur.every((v) => Number.isInteger(v) && v >= 0)) return null;
+      const exposants = valeur.map((_, i) => premierChiffre(valeur[(i + 1) % valeur.length]));
+      if (exposants.some((e) => e === 0)) return null;
+      const out = [];
+      for (let i = 0; i < valeur.length; i++) {
+        const p = puissanceSure(valeur[i], exposants[i]);
+        if (p === null) return null;
+        out.push(p);
+      }
+      if (out.every((v, i) => v === valeur[i])) return null;
+      return { valeur: out, traces: valeur.map((_, i) => traces[i] || []) };
+    },
+    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
+    // changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
+      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
+    steps: (avant, apres, ctx) => {
+      const titre = dire(LIB_PUISSANCE, ctx.langue);
+      return avant.valeur.flatMap((v, i) => {
+        if (apres.valeur[i] === v) return [];
+        const e = premierChiffre(avant.valeur[(i + 1) % avant.valeur.length]);
+        return etapesDuProduit(ctx, i, Array.from({ length: e }, () => v), apres.valeur[i], titre);
       });
-      return steps;
+    },
+  }),
+  /* ★ **LA FACTORIELLE — `mfac`.**
+   *
+   * `n!` s'écrit comme il se calcule : `4 → 4 × 3 × 2 × 1 → 24`. Elle donne
+   * moins de matière que les deux autres (61 lignes absorbables contre 71 pour
+   * le carré et 136 pour la puissance) et n'ouvre AUCUN mot de plus une fois le
+   * carré présent ; elle ouvre en revanche trois cibles chiffrées que ni le
+   * carré ni la puissance n'atteignent. C'est ce qui la justifie, et rien de
+   * plus.
+   *
+   * ★ **CE QU'ELLE REFUSE.**
+   *   · un ZÉRO sur la ligne : `0! = 1` est une convention, et il n'y a rien à
+   *     multiplier sous les yeux du spectateur ;
+   *   · au-delà de 9, le produit sort du domaine du moteur (10! dépasse 10⁶) —
+   *     elle ne s'applique donc qu'aux lignes de chiffres, ce qui est assumé ;
+   *   · une ligne qu'elle ne changerait pas — 1! et 2! valent 1 et 2.
+   *
+   * ★ Notoriété 0,55 : le point d'exclamation se reconnaît, mais il n'est pas
+   *   de tous les jours. AdHoc 0,15 : elle ne regarde pas la cible.
+   */
+  def({
+    id: 'm.factorielle', code: 'mfac', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_FACTORIELLE,
+    regle: bilingue(
+      'Chaque nombre est multiplié par tous ceux qui le précèdent jusqu’à 1 : 4 devient '
+      + '4 × 3 × 2 × 1 = 24.',
+      'Every number is multiplied by all those below it down to 1: 4 becomes 4 × 3 × 2 × 1 = 24.',
+    ),
+    notoriete: 0.55, adHoc: 0.15, cout: 1,
+    actifParDefaut: false,
+    gonfle: true,
+    note: bilingue(
+      'La plus vite bornée des trois : au-delà de neuf, le produit sort du domaine du '
+      + 'moteur et la ligne est refusée.',
+      'The soonest bounded of the three: past nine the product leaves the engine’s range and '
+      + 'the line is refused.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      if (!valeur.every((v) => Number.isInteger(v) && v >= 1)) return null;
+      const out = [];
+      for (const v of valeur) {
+        const f = factorielleSure(v);
+        if (f === null) return null;
+        out.push(f);
+      }
+      if (out.every((v, i) => v === valeur[i])) return null;
+      return { valeur: out, traces: valeur.map((_, i) => traces[i] || []) };
+    },
+    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
+    // changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
+      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
+    steps: (avant, apres, ctx) => {
+      const titre = dire(LIB_FACTORIELLE, ctx.langue);
+      return avant.valeur.flatMap((v, i) => {
+        if (apres.valeur[i] === v) return [];
+        const facteurs = Array.from({ length: v }, (_, k) => v - k);
+        return etapesDuProduit(ctx, i, facteurs, apres.valeur[i], titre);
+      });
     },
   }),
 ];
