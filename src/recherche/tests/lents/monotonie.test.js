@@ -6,9 +6,12 @@
  * >   possibles, mais dans ce cas, mieux vaut élargir le nombre de résultats
  * >   pour en faire effectivement un invariant. » (l'auteur)
  *
- * ★ **CES DEUX TESTS SONT `todo`, ET C'EST UNE LACUNE MESURÉE, PAS UN OUBLI.**
- *   L'invariant est violé aujourd'hui, la CAUSE est établie, et le correctif
- *   attend un arbitrage parce qu'il déplace le cran 0 (voir plus bas).
+ * ★ **LA PREMIÈRE CAUSE EST RÉPARÉE, LA SECONDE NE L'EST PAS ENCORE.** Ces
+ *   tests étaient `todo` et échouaient sur le code d'avant — vérifié : « le cran
+ *   1 perd ce que le cran 0 avait trouvé », « 8 places → 10 places, on perd ».
+ *   Le correctif les rend verts, et l'auteur l'a arbitré : « applique le
+ *   correctif partout, cran 0 compris ». Reste la transition 2 → 3 de « Sarah
+ *   Kerrigan », qui relève d'une autre cause et garde son `todo`.
  *
  * ── CE QUI EST PROUVÉ ───────────────────────────────────────────────────────
  *
@@ -34,11 +37,10 @@
  *   « Sarah Kerrigan » et « hope », et « Jim → 666 » ne perd plus rien du cran
  *   0 au cran 1.
  *
- * ⚠️ **POURQUOI IL N'EST PAS APPLIQUÉ** : il déplace le CRAN 0 — sept saisies
- *   sur vingt changent (treize voies ajoutées, treize retirées ; `zz` et `Wok`
- *   en perdent une nette), et `hope-hope-hope.fr → 666`, qui est dans
- *   l'instantané, bouge. Ce n'est donc pas un correctif, c'est un arbitrage :
- *   il appartient à l'auteur de dire si la monotonie vaut ce déplacement.
+ * ★ **IL EST APPLIQUÉ, et il a déplacé le CRAN 0** — l'auteur l'a accepté en
+ *   connaissance de cause. Le détail nominatif, couple par couple, est écrit
+ *   dans le message du commit qui l'applique ; l'instantané des cibles
+ *   chiffrées a été régénéré dans le même mouvement.
  *
  * ⚠️ **ET IL NE SUFFIT PAS** : les deux CONVERGENCE perdues par « Sarah
  *   Kerrigan » entre les crans 2 et 3 ne reviennent pas. Leur cause est un
@@ -59,22 +61,28 @@ const moteur = creerMoteur(catalogue, { filetTemporel: false });
 /** Le programme d'une voie, marqueur de cran retiré : c'est lui qu'on suit. */
 const programme = (a) => a.url.split('#')[1].replace(/(^|!)f\d+!/, '$1');
 
-test('★ monotonie — une voie trouvée à un cran reste trouvée au cran suivant', {
-  todo: 'violé : la promotion dans la réserve de qualité coûte sa place — voir le pavé',
-}, () => {
-  for (const [saisie, cible, bas, haut] of [['Jim', '666', 0, 1], ['Sarah Kerrigan', '666', 2, 3]]) {
-    const liste = (fouille) => moteur.resoudre(saisie, { cible, fouille }).approches.map(programme);
-    const avant = liste(bas);
-    const apres = liste(haut);
-    const perdues = avant.filter((p) => !apres.includes(p));
-    assert.deepEqual(perdues, [],
-      `${saisie} → ${cible} : le cran ${haut} perd ce que le cran ${bas} avait trouvé`);
-  }
+/** Ce que le cran `haut` a perdu de ce que le cran `bas` avait trouvé. */
+function perduesEntre(saisie, cible, bas, haut) {
+  const liste = (fouille) => moteur.resoudre(saisie, { cible, fouille }).approches.map(programme);
+  const apres = liste(haut);
+  return liste(bas).filter((p) => !apres.includes(p));
+}
+
+test('★ monotonie — une voie trouvée au cran 0 reste trouvée au cran 1', () => {
+  // La transition qui a PROUVÉ la première cause : `fr17+tca+mz26+mdc3`, promu
+  // dans la réserve de qualité, y perdait sa place.
+  assert.deepEqual(perduesEntre('Jim', '666', 0, 1), [],
+    'Jim → 666 : le cran 1 perd ce que le cran 0 avait trouvé');
 });
 
-test('★ monotonie — la sélection à K+1 places contient celle à K', {
-  todo: 'violé : la composition des files change avec la largeur — voir le pavé',
+test('★ monotonie — une voie trouvée au cran 2 reste trouvée au cran 3', {
+  todo: 'seconde cause : les trios de CONVERGENCE se choisissent sur des vecteurs qui ont changé',
 }, () => {
+  assert.deepEqual(perduesEntre('Sarah Kerrigan', '666', 2, 3), [],
+    'Sarah Kerrigan → 666 : le cran 3 perd ce que le cran 2 avait trouvé');
+});
+
+test('★ monotonie — la sélection à K+1 places contient celle à K', () => {
   const cbl = normaliserCible('666');
   const ops = operateursPourCible(catalogue, cbl);
   for (const texte of ['Jim', 'Sarah Kerrigan', 'hope']) {

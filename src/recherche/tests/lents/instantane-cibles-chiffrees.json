@@ -271,12 +271,6 @@
    "GROUPEMENT"
   ],
   [
-   "#sce!fv+masc+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
-   2028,
-   3,
-   "GROUPEMENT"
-  ],
-  [
    "#sce!0.5:fv+masc+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
    1994,
    3,
@@ -289,14 +283,14 @@
    "GROUPEMENT"
   ],
   [
-   "#sce!0.5:fc+ma1+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
-   2040,
+   "#sce!6:fr13+masc+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
+   2275,
    2,
    "GROUPEMENT"
   ],
   [
-   "#sce!0.5:fl+ma1+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
-   1855,
+   "#sce!0.5:fc+ma1+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
+   2040,
    2,
    "GROUPEMENT"
   ],
@@ -315,6 +309,12 @@
   [
    "#sce!×3:m7F+cs+prn#yvQYkzhNVYJT8wM8jhvJxSM",
    7589,
+   null,
+   "RESONANCE"
+  ],
+  [
+   "#sce!×3:ma1+cp+prn#yvQYkzhNVYJT8wM8jhvJxSM",
+   7581,
    null,
    "RESONANCE"
   ],
@@ -349,6 +349,12 @@
    "GROUPEMENT"
   ],
   [
+   "#sce!0.5:fi+mazc#yvQYkzhNVYJT8wM8jhvJxSM",
+   3409,
+   1,
+   "GROUPEMENT"
+  ],
+  [
    "#sce!×3:fv+mpy+cmo#yvQYkzhNVYJT8wM8jhvJxSM",
    3383,
    null,
@@ -365,12 +371,6 @@
    2032,
    1,
    "GROUPEMENT"
-  ],
-  [
-   "#sce!1+3+5:nsp+mlet+nlc+pc9#yvQYkzhNVYJT8wM8jhvJxSM",
-   1619,
-   null,
-   "SIX_OFFERT"
   ]
  ],
  "Donald Trump → 111": [
