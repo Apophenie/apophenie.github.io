@@ -572,7 +572,12 @@ export function creerMoteur(catalogue, options = {}) {
     ctxAssemblage.surProgres = publier ? (part) => {
       publier(avancementDe({ phase: 'assemblage', part, fragments: cherches, fragmentsTotal: cherches }));
     } : null;
-    if (publier) publier(avancementDe({ phase: 'classement', part: 0, fragments: cherches, fragmentsTotal: cherches }));
+    /** Le passage à la phase de CLASSEMENT — annoncé après chaque assemblage,
+     *  car un dernier recours en déroule un second et repasse par ici : le
+     *  dernier rapport d'une recherche doit toujours être celui du classement. */
+    const annoncerLeClassement = () => {
+      if (publier) publier(avancementDe({ phase: 'classement', part: 0, fragments: cherches, fragmentsTotal: cherches }));
+    };
 
     /**
      * ★ **DE L'ASSEMBLAGE BRUT À LA LISTE** — la queue du pipeline, en une
@@ -762,10 +767,14 @@ export function creerMoteur(catalogue, options = {}) {
          qu'ajouter — un fragment qui sait déjà écrire la cible ne creuse pas —,
          mais l'égalité arrive (rien de plus à trouver), et reprendre la liste
          profonde changerait alors l'ordre pour rien. */
-    let retenues = finaliser(assembler(saisie, frags, parFrag, ctxAssemblage));
+    const brutes = assembler(saisie, frags, parFrag, ctxAssemblage);
+    annoncerLeClassement();
+    let retenues = finaliser(brutes);
     if (retenues.length < VOIES_AVANT_DE_CREUSER
       && !ctxAssemblage.profond && optionsResolution.dernierRecours !== false) {
-      const profondes = finaliser(assembler(saisie, frags, parFrag, { ...ctxAssemblage, profond: true }));
+      const creusees = assembler(saisie, frags, parFrag, { ...ctxAssemblage, profond: true });
+      annoncerLeClassement();
+      const profondes = finaliser(creusees);
       if (profondes.length > retenues.length) retenues = profondes;
     }
 
