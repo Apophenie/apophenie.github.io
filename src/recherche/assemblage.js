@@ -48,7 +48,7 @@ import {
   A_MERITER_SA_PLACE, OPERATEURS_QUI_ECARTENT, FICELLES, nbTriptyques, compterTraductionsDivergentes,
 } from './elegance.js';
 import {
-  CIBLE_DEFAUT, CIBLE_LONGUE, normaliserCible, seriesDe, indexUtiles, ecrit,
+  CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecrit,
   verdict as ecrireVerdict,
 } from './cible.js';
 import {
@@ -893,8 +893,9 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
        consomme toute la ligne et n'écrit que la cible, donc ce qui le précède
        ne décide de rien. Deux gestes qui choisissent, eux, resteraient deux
        décisions superposées — c'est la doctrine de l'étage 2 bis.
-     ★ Seulement pour une VISÉE LONGUE (`cible.js › CIBLE_LONGUE`) : en deçà,
-       666 compris, pas une ligne de cet étage ne change.
+     ★ Quelle que soit la CIBLE, 666 compris : ce qui décide n'est pas sa
+       longueur, c'est que la recherche soit revenue les mains presque vides
+       (voir plus bas, et `index.js › VOIES_AVANT_DE_CREUSER`).
      ⚠️ Deux raffinages qui rendent la MÊME ligne ne sont pas deux matières :
        on ne tente l'absorption qu'une fois par ligne obtenue, le premier
        rencontré dans l'ordre du catalogue (§4.4 règle 3), comme l'étage 2. */
@@ -907,6 +908,9 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
         if (!secondRaffinage) retenir(j.ops.concat(m), j.etats.concat([v]));
         const lignesVues = secondRaffinage ? new Set([cleEtat(v)]) : null;
         for (const r of raffineurs) {
+          // ★ Un raffinage qui GONFLE n'a rien à faire dans le premier déroulé :
+          //   il n'existe que pour le dernier recours (voir `assembler`).
+          if (!secondRaffinage && r.gonfle) continue;
           const w = appliquerOp(r, v);
           if (w === null) continue;
           if (!secondRaffinage) {
@@ -954,13 +958,14 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
        sur les mêmes états ; et elle ne se déroule que sur une liste vide, donc
        jamais en concurrence avec une réponse qui existe.
 
-     ⚠️ **ET LE VERROU DE LONGUEUR RESTE, comme GARDE DE NON-RÉGRESSION.** En
-       deçà de onze chiffres visés (`cible.js › CIBLE_LONGUE`), la seconde passe
-       ne s'ouvre pas : 666 et les cibles chiffrées d'avant ne bougent pas d'un
-       caractère, ce que tient l'instantané. Ce n'est pas le déclencheur — c'est
-       ce qui protège l'existant, et le lever est une décision qui se mesure
-       (des voies neuves apparaîtraient là où une liste est aujourd'hui vide, y
-       compris sur 666).
+     ★ **LE VERROU DE LONGUEUR EST LEVÉ** — « oui lève » (l'auteur). Il bornait
+       cette passe aux visées de plus de dix chiffres, pour garantir que rien ne
+       bougeait en deçà ; c'était une garde de non-régression, pas une règle. La
+       règle est le MANQUE : une saisie qui ne sait pas écrire 666 a le même
+       droit qu'un mot de sept lettres à ce qu'on creuse pour elle. Ce qui
+       protège encore l'existant n'est plus une borne mais le seuil lui-même :
+       une liste bien fournie ne déclenche rien, donc les voies courtes de 666
+       restent exactement ce qu'elles étaient.
 
      ⚠️ Même en passe profonde, un fragment qui sait DÉJÀ écrire la cible ne
        creuse pas : il a sa voie courte, elle lui suffit. « Rien trouvé » se lit
@@ -968,9 +973,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
        les vecteurs qui ne font que CONTRIBUER (c'est la matière de la moisson),
        et sur une cible longue presque toute ligne en porte. */
   const ecritLaCible = (c) => ecrit(c.etats[c.etats.length - 1].valeur, cbl);
-  if (options.profond === true && cbl.longueur > CIBLE_LONGUE && !out.some(ecritLaCible)) {
-    derouler(true);
-  }
+  if (options.profond === true && !out.some(ecritLaCible)) derouler(true);
   // ★ LA QUALITÉ SE CONSULTE AVANT LE PLAFOND, PAS APRÈS.
   //
   //   Le tri rangeait : plus de 6 d'abord, puis le moins dilué, puis le moins
@@ -3162,6 +3165,17 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    demande l'auteur : « quand tu arrives à faire autant de 6, plutôt que de
   //    les réduire à trois, regroupe-les par trois ».
   const opsExplorables = ctx.catalogue ? operateursPourCible(ctx.catalogue, cbl) : [];
+  /* ★ **LES OPÉRATEURS QUI GONFLENT LA LIGNE N'EXISTENT QUE POUR LE DERNIER
+       RECOURS.** Ils se déclarent (`op.gonfle`) et sont INACTIFS en recherche
+       (`actifParDefaut: false`), donc ni le faisceau ni la première passe ne les
+       voient jamais : « ces opérateurs ne servent que la passe de dernier
+       recours, ils ne doivent pas polluer les voies courtes » (l'auteur). On ne
+       les ajoute à la matière que lorsque `index.js` a posé `profond`, et
+       `vecteursDeSix` les refuse encore dans son premier déroulé. */
+  const opsGonflantes = ctx.profond === true && ctx.catalogue
+    ? normaliserCatalogue(ctx.catalogue).filter((o) => o && o.gonfle && !o.deprecated)
+    : [];
+  const opsPourVecteurs = opsExplorables.concat(opsGonflantes);
   const porteuses = fragmentsAVecteur(fragments, ctx);
   // Les vecteurs du fragment qui couvre TOUT, gardés pour l'étage des retouches
   // ci-dessous : on ne les recalcule pas, on les rejoue sur un texte réécrit.
@@ -3173,7 +3187,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
       //   sont des GROUPEMENTS : elles ne viennent pas du BFS — aucun chemin de
       //   `parFrag` ne porte seulement `mrd` — mais d'ici. Huit vecteurs par
       //   fragment porteur, en dur, c'était la borne réelle de la liste entière.
-      const vecteurs = vecteursDeSix(f.texte, opsExplorables, K, kParFragment * 2, cbl,
+      const vecteurs = vecteursDeSix(f.texte, opsPourVecteurs, K, kParFragment * 2, cbl,
         // ★ `profond` — la seconde passe de dernier recours, posée par
         //   `index.js` quand un premier assemblage n'a rien rendu.
         { curseurs: ctx.curseurs, profond: ctx.profond === true })

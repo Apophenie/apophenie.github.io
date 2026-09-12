@@ -4125,6 +4125,14 @@ function etapeLongueurMot() {
   };
 }
 
+const LIB_CARRE = bilingue('On élève chaque nombre au carré', 'Square every number');
+
+/**
+ * La plus grande racine dont le carré reste un entier EXACT : au-delà de 2⁵³,
+ * un produit s'arrondit, et un nombre arrondi n'est plus celui qu'on montre.
+ */
+const RACINE_SURE = Math.floor(Math.sqrt(Number.MAX_SAFE_INTEGER));
+
 const AUTRES_MAPPEURS = [
   def({
     id: 'm.longueurToken', code: 'mlm', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
@@ -6963,6 +6971,101 @@ const AUTRES_MAPPEURS = [
     notoriete: 0.6, adHoc: 0.35, colonnes: 13,
     couples: Object.entries(T9_GROUPES)
       .flatMap(([touche, lettres]) => [...lettres].map((c, k) => [`${touche}${k + 1}`, c.toLowerCase()])),
+  }),
+  /* ★ **LE CARRÉ — `mcar`, et il ne sert QU'AU DERNIER RECOURS.**
+   *
+   * > « Certaines de tes conversions changent une lettre en 3 chiffres […] tu
+   * >   peux donc augmenter le nombre de chiffres à volonté. » (l'auteur)
+   *
+   * MESURÉ, et c'est ce qui l'a fait écrire : une absorption n'écrit qu'un
+   * chiffre visé pour trois ou quatre chiffres de ligne, et la multiplication de
+   * deux nombres n'en crée aucun (un produit est log-additif : 115 × 97 fait
+   * cinq chiffres, comme `115 97`). Le CARRÉ, lui, en crée — 115 × 115 fait
+   * cinq chiffres là où 115 en a trois. Sur « Sarah Kerrigan » visant PROTOSS,
+   * qui n'a aucune voie, les lignes passent de 36 à 62 chiffres et six d'entre
+   * elles deviennent absorbables ; sur `q` visant 666, quatre.
+   *
+   * ★ **INACTIF EN RECHERCHE** (`actifParDefaut: false`), et c'est la consigne :
+   *   « ces opérateurs ne servent que la passe de dernier recours, ils ne
+   *   doivent pas polluer les voies courtes ». Il se DÉCLARE gonflant
+   *   (`gonfle`), et c'est ce que l'assemblage lit pour l'ajouter à sa seconde
+   *   passe, et là seulement (`recherche/assemblage.js › vecteursDeSix`) — une
+   *   liste de codes dans la recherche serait un second vocabulaire.
+   *
+   * ★ **BORNÉ, ET IL REFUSE PLUTÔT QUE D'ARRONDIR.** Au-delà de `RACINE_SURE`,
+   *   le carré sort du domaine exact et `Number` arrondirait : la ligne entière
+   *   est refusée. Et un carré qui ne change rien — 0 et 1 sont leurs propres
+   *   carrés — est refusé aussi, pour la raison qui vaut pour `mr9`, `m36` et
+   *   `mtri` : un mappeur qui rend son entrée fabrique une étape que la scène
+   *   saute, et l'URL porterait un code que la démonstration ne montre pas.
+   *
+   * ★ Notoriété 0,85 : élever au carré s'apprend au collège. AdHoc 0,10 : il ne
+   *   regarde ni la cible ni ce qu'on cherche — il multiplie, et il multiplierait
+   *   pareil pour n'importe quelle visée. Ce qu'il coûte se paie ailleurs, au
+   *   barème : deux gestes par nombre, et une ligne deux fois plus longue à
+   *   dissoudre ensuite.
+   */
+  def({
+    id: 'm.carre', code: 'mcar', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle: LIB_CARRE,
+    regle: bilingue(
+      'Chaque nombre est multiplié par lui-même : 115 devient 13 225.',
+      'Every number is multiplied by itself: 115 becomes 13,225.',
+    ),
+    notoriete: 0.85, adHoc: 0.10, cout: 1,
+    actifParDefaut: false,
+    gonfle: true,
+    note: bilingue(
+      'Il ne cherche pas à tomber juste : il donne de la matière. On ne le joue que '
+      + 'lorsque rien d’autre n’a été trouvé, et ce qu’il allonge, il faudra le dissoudre.',
+      'It does not aim to land right: it provides material. It is played only when nothing '
+      + 'else was found, and whatever it lengthens must then be dissolved.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      if (!valeur.every((v) => Number.isInteger(v) && v >= 0 && v <= RACINE_SURE)) return null;
+      if (valeur.every((v) => v * v === v)) return null;
+      return { valeur: valeur.map((v) => v * v), traces: valeur.map((_, i) => traces[i] || []) };
+    },
+    // Un nombre qui ne bouge pas garde son identifiant : aucune étape ne le touche.
+    sortie: (avant, apres, ctx) => apres.valeur.map((v, i) => (v === avant.valeur[i]
+      ? ctx.ids[i] : nomToken(ctx, i))),
+    /**
+     * ★ DEUX TEMPS PAR NOMBRE, ET LE CALCUL SE VOIT.
+     *
+     * ① le nombre s'ouvre en DEUX exemplaires et le signe `×` s'écrit entre eux
+     *    — c'est la multiplication, posée avant d'être faite ;
+     * ② les trois jetons se rejoignent, et le produit s'écrit à leur place.
+     *
+     * Le `collapse` ANIME, le `substitute` ÉCRIT — même règle que la division
+     * (`mmod`) : sans lui, le jeton garderait sa valeur d'avant et l'étape
+     * suivante calculerait sur un nombre que la scène n'affiche plus.
+     */
+    steps: (avant, apres, ctx) => {
+      const titre = dire(LIB_CARRE, ctx.langue);
+      const steps = [];
+      avant.valeur.forEach((v, i) => {
+        if (v * v === v) return;
+        const idA = `${ctx.cle}_${i}a`;
+        const idB = `${ctx.cle}_${i}b`;
+        const idX = `${ctx.cle}_${i}x`;
+        steps.push(etape(ctx, titre, `${v} → ${v} × ${v}`, enchainer([
+          {
+            op: 'substitute',
+            pairs: [{ target: ctx.ids[i], to: [token(idA, v, 'number'), token(idB, v, 'number')] }],
+          },
+          { op: 'insertOperators', between: [idA, idB], glyph: '×', ids: [idX] },
+        ]), { id: `s_${ctx.cle}_${i}o` }));
+        steps.push(etape(ctx, titre, `${v} × ${v} = ${v * v}`, enchainer([
+          { op: 'collapse', mode: 'fusion', familles: [{ membres: [idA, idX, idB], garde: idA }] },
+          {
+            op: 'substitute',
+            pairs: [{ target: idA, to: [token(nomToken(ctx, i), v * v, 'number')] }],
+          },
+        ]), { id: `s_${ctx.cle}_${i}c`, hold: 300 }));
+      });
+      return steps;
+    },
   }),
 ];
 

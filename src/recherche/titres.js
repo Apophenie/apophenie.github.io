@@ -143,6 +143,11 @@ const MAPPEURS_DE_SERVICE = new Set([
   // ★ Le redécoupage EXACT (`mrdE`) est le même geste que `mrd`, poussé jusqu'au
   //   bout : il relit, il ne convertit pas. Même sort.
   'm.redecoupageExact',
+  // ★ Le CARRÉ (`mcar`) ne convertit rien non plus : il multiplie par lui-même
+  //   ce qu'une autre méthode a calculé, pour donner de la matière à dissoudre.
+  //   Vedette, il aurait nommé « par le carré » des voies dont le carré n'est
+  //   que l'intendance — et il n'est joué qu'en dernier recours.
+  'm.carre',
   // ★ Le tri alphabétique est du même bois : il RANGE, il ne conclut pas.
   'm.triAlphabetique',
   // ★ Et la LECTURE, plus radicalement encore : elle ne fait rien du tout.
@@ -346,6 +351,10 @@ export const NOMS = {
   'm.rangDeuxChiffres': b('Par le rang en deux chiffres', 'By the two-digit rank'),
   'm.polybe': b('Par le carré de Polybe', 'By the Polybius square'),
   'm.multiTap': b('Par les appuis du téléphone', 'By phone key presses'),
+  // ★ Le carré est un mappeur DE SERVICE : il ne passe jamais vedette, et ce
+  //   nom-ci ne devrait donc jamais paraître. Il existe parce que la famille
+  //   `mappeur` l'exige, et parce qu'un titre vide serait pire qu'un titre juste.
+  'm.carre': b('Par les carrés', 'By squares'),
   // ★ `m36` ne nomme rien et ne DOIT rien nommer : il souligne un 666 déjà écrit,
   // c'est-à-dire le résultat. Il est écarté des vedettes (`MAPPEURS_DE_SERVICE`)
   // et son nom de repli reste muet sur ce qu'il montre.
@@ -609,6 +618,7 @@ export const TITRES_COURTS = {
   'm.hebreu': b('gématrie hébraïque', 'Hebrew gematria'), // mhe
   'm.chiffreEnLettres': b('chiffre en lettres', 'digit in words'), // mlet
   'm.rangEnLettre': b('rang en lettre', 'rank to letter'), // m1a
+  'm.carre': b('carré', 'square'), // mcar
   'm.coordonneesAzerty': b('coordonnées AZERTY', 'AZERTY coordinates'), // mcaz
   'm.coordonneesQwerty': b('coordonnées QWERTY', 'QWERTY coordinates'), // mcqw
   'm.rangDeuxChiffres': b('rang en deux chiffres', 'two-digit rank'), // m1a2
@@ -825,6 +835,7 @@ export const PRECISIONS = {
   //   le geste, jamais ce qu'il produit.
   'm.egalisation': b('égalisés', 'evened out'),
   'm.triCroissant': b('rangé par ordre croissant', 'sorted in ascending order'),
+  'm.carre': b('chaque nombre au carré', 'every number squared'),
   'm.triAlphabetique': b('les lettres rangées dans l’ordre', 'with the letters put in order'),
   'm.retournerLesTrios': b('les trios retournés', 'with the trios flipped'),
   'm.compterLesChiffres': b('les chiffres comptés', 'with the digits tallied'),

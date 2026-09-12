@@ -80,7 +80,7 @@ import {
 } from './url.js';
 import { IMPLICITE_DEPUIS } from '../config.js';
 import {
-  CIBLE_DEFAUT, CIBLE_LONGUE, normaliserCible, lireCible, MAX_CHIFFRES, MAX_SIGNES_TEXTE,
+  CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES, MAX_SIGNES_TEXTE,
 } from './cible.js';
 import {
   relecturesPour, relecturePour, signesSansRelecture, RELECTURE_PAR_DEFAUT,
@@ -180,6 +180,25 @@ export async function chargerCatalogue(specificateur = '../moteur/catalogue.js')
  *   bouge avec la charge de la machine, ce qui ne veut rien dire. C'est une
  *   option EXPLICITE : l'appelant qui ne demande rien garde son filet.
  */
+/**
+ * ★ **EN DESSOUS DE CINQ VOIES, ON CREUSE** — le seuil du dernier recours.
+ *
+ * > « En dessous de 5, creuse. » (l'auteur)
+ *
+ * La seconde passe de l'assemblage (`assemblage.js › vecteursDeSix`) ne
+ * s'ouvrait que sur une liste VIDE. Cinq, parce qu'une liste d'une ou deux
+ * voies n'est pas une liste : le visiteur n'a rien à comparer, et c'est
+ * exactement le cas où une voie longue et bancale vaut mieux que le vide. Une
+ * liste bien fournie, elle, ne déclenche rien — c'est ce qui garantit que les
+ * voies courtes de 666 ne bougent pas.
+ *
+ * ⚠️ Ce n'est PAS le nombre de lignes affichées (`budgets.voies`, douze au
+ *   cran 0) : c'est un plancher de diversité, et il ne dépend pas du cran de
+ *   fouille. Le lier aux places afficherait la même liste en creusant douze fois
+ *   plus souvent.
+ */
+export const VOIES_AVANT_DE_CREUSER = 5;
+
 export function creerMoteur(catalogue, options = {}) {
   if (options.valider !== false) {
     const pbs = validerCatalogue(catalogue);
@@ -553,182 +572,211 @@ export function creerMoteur(catalogue, options = {}) {
     ctxAssemblage.surProgres = publier ? (part) => {
       publier(avancementDe({ phase: 'assemblage', part, fragments: cherches, fragmentsTotal: cherches }));
     } : null;
-    let approches = assembler(saisie, frags, parFrag, ctxAssemblage);
-    /* ★ **LE DERNIER RECOURS — et il ne se déclenche que sur une liste VIDE.**
+    /** Le passage à la phase de CLASSEMENT — annoncé après chaque assemblage,
+     *  car un dernier recours en déroule un second et repasse par ici : le
+     *  dernier rapport d'une recherche doit toujours être celui du classement. */
+    const annoncerLeClassement = () => {
+      if (publier) publier(avancementDe({ phase: 'classement', part: 0, fragments: cherches, fragmentsTotal: cherches }));
+    };
+
+    /**
+     * ★ **DE L'ASSEMBLAGE BRUT À LA LISTE** — la queue du pipeline, en une
+     * fonction parce qu'elle se joue DEUX fois quand la première passe rend une
+     * liste maigre (voir le dernier recours, plus bas) : notation, refus des
+     * suppressions en fin de chemin, tri, sélection, titres, liens.
+     *
+     * ⚠️ Elle ne partage rien entre deux appels : chaque assemblage rend ses
+     *   propres approches, et tout ce qu'on écrit ici est écrit SUR elles.
+     */
+    const finaliser = (brutes) => {
+      let liste = brutes;
+      if (!liste.length) {
+        const j = approcheJoker(saisie, ctxAssemblage); // garantie absolue (§5.3)
+        if (j) liste = [j];
+      }
+
+      // ★ `elegance: false` débranche le BARÈME D'ÉLÉGANCE — le facteur sur le
+      //   score et la sélection à trois objectifs — sans débrancher la mesure :
+      //   `approche.bilan` et `approche.elegance` restent publiés. C'est ce qui
+      //   permet au banc de mesurer l'avant et l'après d'une seule exécution
+      //   (`.planning/banc/classement.mjs --avant`). Réservé à la mesure.
+      const barèmeDElegance = options.elegance !== false;
+      // ★ La pondération descend jusqu'à `noter` par le CONTEXTE, comme la cible et
+      //   les zones signifiantes : c'est une propriété de la question posée, pas
+      //   une propriété de l'approche. Au défaut elle se déclare non personnalisée
+      //   et `noter` ne change pas une ligne de branche.
+      const ctxScore = {
+        saisie, signifiants, elegance: barèmeDElegance, cible: cbl, ponderation,
+      };
+      // ★ Une approche RETOUCHÉE se note sur le texte qu'elle lit réellement, pas
+      //   sur celui qu'on a tapé. Ses portions, sa couverture et le barème
+      //   d'élégance comptent tous en positions de caractères, et la retouche peut
+      //   allonger ou raccourcir ce qu'elle touche : la noter sur la saisie
+      //   d'origine décalerait le masque des zones signifiantes d'autant.
+      //   Le calcul n'est fait QUE pour ces approches-là, et mémoïsé par texte :
+      //   `zonesSignifiantes` refait un parse d'URL à chaque appel.
+      const ctxRetouche = new Map();
+      const contexteDe = (a) => {
+        if (!a.saisieRetouchee || a.saisieRetouchee === saisie) return ctxScore;
+        let c = ctxRetouche.get(a.saisieRetouchee);
+        if (!c) {
+          c = { ...ctxScore, saisie: a.saisieRetouchee, signifiants: zonesSignifiantes(a.saisieRetouchee) };
+          ctxRetouche.set(a.saisieRetouchee, c);
+        }
+        return c;
+      };
+      for (const a of liste) { noter(a, contexteDe(a)); marquerLesCodes(a); }
+
+      /* ★ **LE REFUS DES SUPPRESSIONS EN FIN DE CHEMIN** — voir
+           `elegance.js › elagueALaFin` pour ce qu'on refuse et pourquoi la cible
+           homogène en est exemptée.
+
+         Le refus tombe ICI, après la notation et avant le tri : il lui faut le
+         bilan, et il ne doit pas être un rang de plus dans le classement. Une
+         approche qui produit treize chiffres et n'en montre que huit ne descend
+         pas la liste — elle n'y est pas.
+
+         ⚠️ **ET QUAND IL NE RESTE RIEN, IL NE RESTE RIEN.** Le joker est repêché
+           s'il existe — c'est la garantie du §5.3, et c'est la voie assumée comme
+           telle (§0.4). Mais il n'existe QUE pour 666 (`assemblage.js ›
+           approcheJoker`), et le refus, lui, ne mord que hors de 666 : les deux
+           ne se croisent presque jamais. Alors la liste reste VIDE, et la page le
+           dit (`resultat.js › resultat.aucuneVoieCible`).
+           Retomber ici sur les voies qu'on vient de refuser serait exactement la
+           dégradation silencieuse que §2.2 interdit — mesuré sur
+           `hope → 31031998`, où c'est précisément ce qui se produisait : quatre
+           lettres, treize chiffres calculés, huit montrés, et l'approche
+           « refusée » servie en tête comme si de rien n'était. */
+      const cibleHomogene = cbl.alphabet.length === 1;
+      const tenables = liste.filter((a) => !elagueALaFin(a.bilan, cibleHomogene));
+      if (tenables.length !== liste.length) {
+        const j = tenables.length ? null : approcheJoker(saisie, ctxAssemblage);
+        if (j) { noter(j, contexteDe(j)); marquerLesCodes(j); tenables.push(j); }
+        liste = tenables;
+      }
+      // ★ Le comparateur du mode personnalisé — au défaut, `ordrePondere` rend un
+      //   ordre identique à `ordreTotal`, mais on prend `ordreTotal` lui-même pour
+      //   qu'aucune indirection ne s'interpose sur le chemin par défaut.
+      const ordreDeLaListe = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
+      liste.sort(ordreDeLaListe);
+
+      // Le joker est affiché et assumé, en bas de liste (§0.4). Il n'est plus le
+      // seul : le DÉCRET — un unique 6 recopié trois fois — porte désormais son
+      // propre malus (`MALUS.decret`, ×0,40), si bien que le classement suffit à
+      // le renvoyer en fond de liste sans qu'on ait à l'y pousser à la main. Ce
+      // qui compte, et qui est vérifié plus bas, c'est qu'il ne passe JAMAIS
+      // devant une approche qui produit réellement trois 6.
+      const jokers = liste.filter((a) => a.mode === 'JOKER');
+      const honnetes = liste.filter((a) => a.mode !== 'JOKER');
+      // ★ Les places viennent du CRAN, plus d'une constante : c'est ce qui rend le
+      //   curseur capable de montrer davantage, et pas seulement de chercher plus
+      //   longtemps (`config.js › reglagesDeBudget`).
+      const place = budgets.voies - (jokers.length ? 1 : 0);
+      // ★ **EN MODE PERSONNALISÉ, LES DEUX RÉGIMES SONT DÉBRANCHÉS.**
+      //
+      //   `selectionner` réserve la 1ʳᵉ ligne au champion de l'ÉLÉGANCE et la 2ᵈ
+      //   au champion des TRIPTYQUES, chacune jugée sur un crédit repondéré à elle
+      //   (`score.js › POIDS_DES_REGIMES`). C'est la réponse du site à une
+      //   question que l'auteur avait posée AVANT les curseurs : « ce n'est pas un
+      //   tri unique ». Les curseurs sont l'autre réponse à la même question —
+      //   celle où c'est le visiteur qui dit ce qu'il cherche.
+      //
+      //   Les faire cohabiter n'aurait pas de sens : trois lignes calculées avec
+      //   trois pondérations différentes, dont deux que le visiteur n'a pas
+      //   demandées, au-dessus de neuf qui obéissent à ses curseurs. Il pousserait
+      //   « quantité » à fond et verrait toujours, en tête, la voie que le régime
+      //   « élégance » a choisie. Dès qu'un curseur bouge, la liste entière est
+      //   donc classée avec les MÊMES critères, et le MMR (§4.8) garnit les douze
+      //   places par `ordreTotal` — c'est-à-dire par le barème que le visiteur
+      //   vient de régler.
+      const retenues = (barèmeDElegance && !ponderation.personnalisee)
+        ? selectionner(honnetes, place, budgets.parMappeur, budgets.lambda)
+        : diversifier(honnetes, {
+          limite: place, maxParMappeur: budgets.parMappeur, lambda: budgets.lambda, ponderation,
+        });
+      if (jokers.length) retenues.push(jokers[0]);
+      else if (!retenues.length) {
+        const j = approcheJoker(saisie, ctxAssemblage);
+        if (j) { noter(j, ctxScore); retenues.push(j); }
+      }
+
+      // Les titres sont posés en une passe sur la LISTE, pas approche par
+      // approche : c'est la seule façon de garantir que deux lignes ne portent
+      // pas le même nom (`titres.js → distinguerTitres`). La distinction se pose
+      // sur l'approche, jamais sur la chaîne rendue, pour que `src/app/pont.js`
+      // recompose exactement le même titre en changeant de langue.
+      nommer(retenues);
+      retenues.forEach((a, i) => {
+        a.rang = i + 1;
+        // ★ DEUX liens par voie, pas un — le panneau de la liste en offre deux
+        //   boutons (« sobre » / « scénique »). Ce sont deux MISES EN SCÈNE de la
+        //   même voie : mêmes codes, même verdict, même score, même rang. Le
+        //   registre n'entre ni dans `descripteursDe`, ni dans la notation, ni
+        //   dans la déduplication — il n'appartient pas au programme (`url.js`).
+        //   ★ Et les RETOUCHES entrent dans le lien au même titre que les
+        //   fragments : sans elles, le lien rejouerait le programme sur le texte
+        //   TAPÉ, donc une autre démonstration que celle qu'on affiche (§4.3).
+        //   ⚠️ Les descripteurs des fragments se comptent en jetons du texte
+        //   RETOUCHÉ : c'est lui que les portées désignent (`index.js › rejouer`).
+        const lu = a.saisieRetouchee || saisie;
+        const descripteurs = descripteursDe(a, {
+          nbJetons: lu === saisie ? jetons.length : tokeniser(lu).length,
+        });
+        const retouches = retouchesDe(a);
+        // Ce qui fait le lien, gardé à part : une voie trouvée sur une RELECTURE
+        // réécrit le sien vers le texte visé (`versLeTexte`), sans repasser par
+        // une URL qu'il faudrait relire.
+        // La LIAISON voyage avec le lien (`=mdl0!`), comme les retouches.
+        const liaison = a.liaison ? a.liaison.code : undefined;
+        a.lien = { fragments: descripteurs, retouches, liaison };
+        //   ★ Et les CURSEURS et la FOUILLE, quand ils ne sont pas au défaut : le
+        //   score que la voie rejouée affichera est celui de CETTE liste-ci, donc
+        //   il dépend d'eux (`url.js`, en-tête). Au défaut, `ecrire()` n'écrit
+        //   rien de plus et les liens sont ceux d'avant, au caractère près.
+        const reglages = { curseurs: ponderation.curseurs, fouille };
+        a.urlSobre = ecrire({ saisie, retouches, liaison, fragments: descripteurs, registre: 'sobre', cible: cbl, ...reglages });
+        a.urlScenique = ecrire({ saisie, retouches, liaison, fragments: descripteurs, registre: 'scenique', cible: cbl, ...reglages });
+        // `url` reste le lien de référence de la voie — la version scénique,
+        // celle que le site montre par défaut (voir `url.js`, le registre).
+        a.url = a.urlScenique;
+        a.joker = a.mode === 'JOKER';
+      });
+      return retenues;
+    };
+
+    /* ★ **LE DERNIER RECOURS — et il se déclenche sur une liste MAIGRE.**
 
        > « Si des solutions courtes et élégantes sont trouvées, pas besoin de
        >   chercher les options longues et bancales, mais si rien n'est trouvé,
        >   approfondir avec le budget temps disponible est pertinent. »
-       >   (l'auteur)
+       >   « En dessous de 5, creuse. » (l'auteur)
 
        L'assemblage redéroule alors sa forme fermée en s'autorisant un geste de
        plus — ranger ou gonfler la ligne AVANT de la dissoudre
-       (`assemblage.js › vecteursDeSix`, la seconde passe). Il ne relance
-       AUCUNE recherche de fragment : les chemins du faisceau sont déjà là, et
-       c'est le budget de travail déjà dépensé qui décide de ce qu'ils
-       contiennent. Une recherche qui a trouvé quoi que ce soit ne passe jamais
-       par ici : elle ne perd ni une milliseconde, ni une place de liste.
+       (`assemblage.js › vecteursDeSix`, la seconde passe). Il ne relance AUCUNE
+       recherche de fragment : les chemins du faisceau sont déjà là, et c'est le
+       budget de travail déjà dépensé qui décide de ce qu'ils contiennent.
 
-       ⚠️ Borné aux visées de plus de dix chiffres (`CIBLE_LONGUE`), ce qui
-         garantit que 666 et les cibles chiffrées d'avant ne bougent pas — voir
-         le pavé de `vecteursDeSix`, qui porte la mesure. */
-    if (!approches.length && cbl.longueur > CIBLE_LONGUE
+       ★ **LE COMPTE EST CELUI DES VOIES RETENUES, pas des approches
+         assemblées**, et ça n'est pas un détail : sur `q` visant 666,
+         l'assemblage rend de quoi ne pas creuser alors que la liste affichée
+         compte DEUX lignes. C'est la liste que le visiteur a sous les yeux qui
+         décide, donc on finalise, on compte, et on recommence s'il le faut.
+
+       ⚠️ **ET ON NE GARDE LA PASSE PROFONDE QUE SI ELLE APPORTE.** Elle ne peut
+         qu'ajouter — un fragment qui sait déjà écrire la cible ne creuse pas —,
+         mais l'égalité arrive (rien de plus à trouver), et reprendre la liste
+         profonde changerait alors l'ordre pour rien. */
+    const brutes = assembler(saisie, frags, parFrag, ctxAssemblage);
+    annoncerLeClassement();
+    let retenues = finaliser(brutes);
+    if (retenues.length < VOIES_AVANT_DE_CREUSER
       && !ctxAssemblage.profond && optionsResolution.dernierRecours !== false) {
-      approches = assembler(saisie, frags, parFrag, { ...ctxAssemblage, profond: true });
+      const creusees = assembler(saisie, frags, parFrag, { ...ctxAssemblage, profond: true });
+      annoncerLeClassement();
+      const profondes = finaliser(creusees);
+      if (profondes.length > retenues.length) retenues = profondes;
     }
-    if (publier) publier(avancementDe({ phase: 'classement', part: 0, fragments: cherches, fragmentsTotal: cherches }));
-
-    if (!approches.length) {
-      const j = approcheJoker(saisie, ctxAssemblage); // garantie absolue (§5.3)
-      if (j) approches = [j];
-    }
-
-    // ★ `elegance: false` débranche le BARÈME D'ÉLÉGANCE — le facteur sur le
-    //   score et la sélection à trois objectifs — sans débrancher la mesure :
-    //   `approche.bilan` et `approche.elegance` restent publiés. C'est ce qui
-    //   permet au banc de mesurer l'avant et l'après d'une seule exécution
-    //   (`.planning/banc/classement.mjs --avant`). Réservé à la mesure.
-    const barèmeDElegance = options.elegance !== false;
-    // ★ La pondération descend jusqu'à `noter` par le CONTEXTE, comme la cible et
-    //   les zones signifiantes : c'est une propriété de la question posée, pas
-    //   une propriété de l'approche. Au défaut elle se déclare non personnalisée
-    //   et `noter` ne change pas une ligne de branche.
-    const ctxScore = {
-      saisie, signifiants, elegance: barèmeDElegance, cible: cbl, ponderation,
-    };
-    // ★ Une approche RETOUCHÉE se note sur le texte qu'elle lit réellement, pas
-    //   sur celui qu'on a tapé. Ses portions, sa couverture et le barème
-    //   d'élégance comptent tous en positions de caractères, et la retouche peut
-    //   allonger ou raccourcir ce qu'elle touche : la noter sur la saisie
-    //   d'origine décalerait le masque des zones signifiantes d'autant.
-    //   Le calcul n'est fait QUE pour ces approches-là, et mémoïsé par texte :
-    //   `zonesSignifiantes` refait un parse d'URL à chaque appel.
-    const ctxRetouche = new Map();
-    const contexteDe = (a) => {
-      if (!a.saisieRetouchee || a.saisieRetouchee === saisie) return ctxScore;
-      let c = ctxRetouche.get(a.saisieRetouchee);
-      if (!c) {
-        c = { ...ctxScore, saisie: a.saisieRetouchee, signifiants: zonesSignifiantes(a.saisieRetouchee) };
-        ctxRetouche.set(a.saisieRetouchee, c);
-      }
-      return c;
-    };
-    for (const a of approches) { noter(a, contexteDe(a)); marquerLesCodes(a); }
-
-    /* ★ **LE REFUS DES SUPPRESSIONS EN FIN DE CHEMIN** — voir
-         `elegance.js › elagueALaFin` pour ce qu'on refuse et pourquoi la cible
-         homogène en est exemptée.
-
-       Le refus tombe ICI, après la notation et avant le tri : il lui faut le
-       bilan, et il ne doit pas être un rang de plus dans le classement. Une
-       approche qui produit treize chiffres et n'en montre que huit ne descend
-       pas la liste — elle n'y est pas.
-
-       ⚠️ **ET QUAND IL NE RESTE RIEN, IL NE RESTE RIEN.** Le joker est repêché
-         s'il existe — c'est la garantie du §5.3, et c'est la voie assumée comme
-         telle (§0.4). Mais il n'existe QUE pour 666 (`assemblage.js ›
-         approcheJoker`), et le refus, lui, ne mord que hors de 666 : les deux
-         ne se croisent presque jamais. Alors la liste reste VIDE, et la page le
-         dit (`resultat.js › resultat.aucuneVoieCible`).
-         Retomber ici sur les voies qu'on vient de refuser serait exactement la
-         dégradation silencieuse que §2.2 interdit — mesuré sur
-         `hope → 31031998`, où c'est précisément ce qui se produisait : quatre
-         lettres, treize chiffres calculés, huit montrés, et l'approche
-         « refusée » servie en tête comme si de rien n'était. */
-    const cibleHomogene = cbl.alphabet.length === 1;
-    const tenables = approches.filter((a) => !elagueALaFin(a.bilan, cibleHomogene));
-    if (tenables.length !== approches.length) {
-      const j = tenables.length ? null : approcheJoker(saisie, ctxAssemblage);
-      if (j) { noter(j, contexteDe(j)); marquerLesCodes(j); tenables.push(j); }
-      approches = tenables;
-    }
-    // ★ Le comparateur du mode personnalisé — au défaut, `ordrePondere` rend un
-    //   ordre identique à `ordreTotal`, mais on prend `ordreTotal` lui-même pour
-    //   qu'aucune indirection ne s'interpose sur le chemin par défaut.
-    const ordreDeLaListe = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
-    approches.sort(ordreDeLaListe);
-
-    // Le joker est affiché et assumé, en bas de liste (§0.4). Il n'est plus le
-    // seul : le DÉCRET — un unique 6 recopié trois fois — porte désormais son
-    // propre malus (`MALUS.decret`, ×0,40), si bien que le classement suffit à
-    // le renvoyer en fond de liste sans qu'on ait à l'y pousser à la main. Ce
-    // qui compte, et qui est vérifié plus bas, c'est qu'il ne passe JAMAIS
-    // devant une approche qui produit réellement trois 6.
-    const jokers = approches.filter((a) => a.mode === 'JOKER');
-    const honnetes = approches.filter((a) => a.mode !== 'JOKER');
-    // ★ Les places viennent du CRAN, plus d'une constante : c'est ce qui rend le
-    //   curseur capable de montrer davantage, et pas seulement de chercher plus
-    //   longtemps (`config.js › reglagesDeBudget`).
-    const place = budgets.voies - (jokers.length ? 1 : 0);
-    // ★ **EN MODE PERSONNALISÉ, LES DEUX RÉGIMES SONT DÉBRANCHÉS.**
-    //
-    //   `selectionner` réserve la 1ʳᵉ ligne au champion de l'ÉLÉGANCE et la 2ᵈ
-    //   au champion des TRIPTYQUES, chacune jugée sur un crédit repondéré à elle
-    //   (`score.js › POIDS_DES_REGIMES`). C'est la réponse du site à une
-    //   question que l'auteur avait posée AVANT les curseurs : « ce n'est pas un
-    //   tri unique ». Les curseurs sont l'autre réponse à la même question —
-    //   celle où c'est le visiteur qui dit ce qu'il cherche.
-    //
-    //   Les faire cohabiter n'aurait pas de sens : trois lignes calculées avec
-    //   trois pondérations différentes, dont deux que le visiteur n'a pas
-    //   demandées, au-dessus de neuf qui obéissent à ses curseurs. Il pousserait
-    //   « quantité » à fond et verrait toujours, en tête, la voie que le régime
-    //   « élégance » a choisie. Dès qu'un curseur bouge, la liste entière est
-    //   donc classée avec les MÊMES critères, et le MMR (§4.8) garnit les douze
-    //   places par `ordreTotal` — c'est-à-dire par le barème que le visiteur
-    //   vient de régler.
-    const retenues = (barèmeDElegance && !ponderation.personnalisee)
-      ? selectionner(honnetes, place, budgets.parMappeur, budgets.lambda)
-      : diversifier(honnetes, {
-        limite: place, maxParMappeur: budgets.parMappeur, lambda: budgets.lambda, ponderation,
-      });
-    if (jokers.length) retenues.push(jokers[0]);
-    else if (!retenues.length) {
-      const j = approcheJoker(saisie, ctxAssemblage);
-      if (j) { noter(j, ctxScore); retenues.push(j); }
-    }
-
-    // Les titres sont posés en une passe sur la LISTE, pas approche par
-    // approche : c'est la seule façon de garantir que deux lignes ne portent
-    // pas le même nom (`titres.js → distinguerTitres`). La distinction se pose
-    // sur l'approche, jamais sur la chaîne rendue, pour que `src/app/pont.js`
-    // recompose exactement le même titre en changeant de langue.
-    nommer(retenues);
-    retenues.forEach((a, i) => {
-      a.rang = i + 1;
-      // ★ DEUX liens par voie, pas un — le panneau de la liste en offre deux
-      //   boutons (« sobre » / « scénique »). Ce sont deux MISES EN SCÈNE de la
-      //   même voie : mêmes codes, même verdict, même score, même rang. Le
-      //   registre n'entre ni dans `descripteursDe`, ni dans la notation, ni
-      //   dans la déduplication — il n'appartient pas au programme (`url.js`).
-      //   ★ Et les RETOUCHES entrent dans le lien au même titre que les
-      //   fragments : sans elles, le lien rejouerait le programme sur le texte
-      //   TAPÉ, donc une autre démonstration que celle qu'on affiche (§4.3).
-      //   ⚠️ Les descripteurs des fragments se comptent en jetons du texte
-      //   RETOUCHÉ : c'est lui que les portées désignent (`index.js › rejouer`).
-      const lu = a.saisieRetouchee || saisie;
-      const descripteurs = descripteursDe(a, {
-        nbJetons: lu === saisie ? jetons.length : tokeniser(lu).length,
-      });
-      const retouches = retouchesDe(a);
-      // Ce qui fait le lien, gardé à part : une voie trouvée sur une RELECTURE
-      // réécrit le sien vers le texte visé (`versLeTexte`), sans repasser par
-      // une URL qu'il faudrait relire.
-      // La LIAISON voyage avec le lien (`=mdl0!`), comme les retouches.
-      const liaison = a.liaison ? a.liaison.code : undefined;
-      a.lien = { fragments: descripteurs, retouches, liaison };
-      //   ★ Et les CURSEURS et la FOUILLE, quand ils ne sont pas au défaut : le
-      //   score que la voie rejouée affichera est celui de CETTE liste-ci, donc
-      //   il dépend d'eux (`url.js`, en-tête). Au défaut, `ecrire()` n'écrit
-      //   rien de plus et les liens sont ceux d'avant, au caractère près.
-      const reglages = { curseurs: ponderation.curseurs, fouille };
-      a.urlSobre = ecrire({ saisie, retouches, liaison, fragments: descripteurs, registre: 'sobre', cible: cbl, ...reglages });
-      a.urlScenique = ecrire({ saisie, retouches, liaison, fragments: descripteurs, registre: 'scenique', cible: cbl, ...reglages });
-      // `url` reste le lien de référence de la voie — la version scénique,
-      // celle que le site montre par défaut (voir `url.js`, le registre).
-      a.url = a.urlScenique;
-      a.joker = a.mode === 'JOKER';
-    });
 
     const listeFragments = [];
     for (const f of frags) {
@@ -923,7 +971,7 @@ export function creerMoteur(catalogue, options = {}) {
          (l'auteur). Un mot qui a ses voies ne paie donc rien ; un mot qui n'en a
          aucune refait le tour de ses relectures en s'autorisant, cette fois, de
          ranger ou de gonfler la ligne avant de la dissoudre. */
-    if (!approches.length && relectures.some((r) => r.cible.longueur > CIBLE_LONGUE)) {
+    if (approches.length < VOIES_AVANT_DE_CREUSER) {
       approches = yield* balayer(true);
     }
     approches.sort(ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal);
