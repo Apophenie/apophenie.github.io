@@ -88,16 +88,24 @@ test('cible-phrase — « de la merde » d’un bloc : l’espace sur le 0 du t�
   verifierVoies(r, 'de la merde');
 });
 
-/* ★ LA PONCTUATION, et la casse avec : « C'est » ne se relit que par la table
-     ASCII (`masi`), trois chiffres par signe — 067 039 101 115 116. Quinze
-     chiffres d'un bloc : mesuré, six voies au cran 0, sans aucun écart de forme,
-     puisque la table écrit la capitale ET l'apostrophe. */
-test('cible-phrase — « C’est » : l’apostrophe et la capitale, par la table ASCII', () => {
+/* ★ LA PONCTUATION, et la casse avec : « C'est » ne s'écrit EXACTEMENT que par la
+     table ASCII (`masi`), trois chiffres par signe — 067 039 101 115 116. Les six
+     relectures ordinaires l'APPROCHENT (« cest », à la ponctuation et à la
+     capitale près, ×0,825).
+     ⚠️ MESURÉ, et c'est un arbitrage ouvert : l'exacte n'est PAS en tête. Les
+     approchées partent d'une note plus haute — deux chiffres par signe au lieu
+     de trois, des programmes plus courts — et la meilleure fait 3 845 contre
+     3 561 pour l'exacte, huitième. Et comme elles fournissent plus de cinq voies,
+     le dernier recours ne se déclenche plus : ASCII rend une voie, pas six. */
+test('cible-phrase — « C’est » : exacte par la table ASCII, approchée par les autres', () => {
   const r = moteur.resoudre(SAISIE, { cible: "C'est" });
-  assert.ok(r.approches.length >= 1, 'aucune voie vers « C’est »');
-  assert.deepEqual([...new Set(r.approches.map((a) => a.relecture.code))], ['masi']);
-  for (const a of r.approches) assert.equal(a.ecartDeForme.facteur, 1000, a.url);
-  verifierVoies(r, "C'est");
+  const exactes = r.approches.filter((a) => a.relecture.code === 'masi');
+  const approchees = r.approches.filter((a) => a.relecture.code !== 'masi');
+  assert.ok(exactes.length >= 1, 'aucune voie exacte vers « C’est »');
+  for (const a of exactes) assert.equal(a.ecartDeForme.facteur, 1000, a.url);
+  for (const a of approchees) assert.deepEqual([...a.ecartDeForme.natures], ['ponctuation', 'initiale'], a.url);
+  verifierVoies({ ...r, approches: exactes }, "C'est");
+  verifierVoies({ ...r, approches: approchees }, 'cest');
 });
 
 test('cible-phrase — le mot seul est atteint : « merde », et chaque voie se rejoue', () => {
