@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 
 import { profilDeCible, CIBLE_LONGUE, cibleDeValeurs, lireCible } from '../cible.js';
 import { politique, gesteUtile } from '../politique.js';
-import { normaliserCatalogue, appliquerOp, etat } from '../bfs.js';
+import { normaliserCatalogue, appliquerOp, etat, operateursRetires } from '../bfs.js';
 import { catalogue } from './_catalogue.js';
 
 /* ══════════════════════ 1. Le verrou du 666 ══════════════════════ */
@@ -163,4 +163,87 @@ test('★ politique — au-delà de dix chiffres visés, ranger suffit', () => {
     'sans visée lisible, on ne juge pas : l’invariant du moteur a déjà parlé');
   assert.equal(gesteUtile({ code: 'mrn' }, [3, 1, 2], [1, 2, 3]), true,
     'un opérateur qui ne déclare aucune utilité n’est pas jugé');
+});
+
+/* ══════════════════ 5. Ce qui se retire, et qui le dit ══════════════════
+ *
+ * ★ Dix opérateurs lisent la cible et ont le DROIT de se retirer quand leur
+ *   règle n'a pas de sens pour elle — « le plus fréquent l'emporte » ne veut
+ *   rien dire pour `13`. Ils n'ont pas le droit de le faire en silence :
+ *   l'échec bruyant est un contrat (§2.2). Avant, `operateursPourCible` les
+ *   laissait tomber sans un mot.
+ */
+
+test('★ retraits — une cible mêlée fait se retirer `mpf` et `mr6`, et ça se dit', () => {
+  const retires = operateursRetires(catalogue, lireCible('13'));
+  assert.deepEqual(retires.map((x) => x.code).sort(), ['mpf', 'mr6']);
+  for (const x of retires) {
+    assert.equal(x.etat, 'RETIRE');
+    assert.match(x.dit, /règle/, 'un retrait dit sa raison');
+    assert.ok(x.id, 'et se nomme');
+  }
+  // « 111 » est homogène : « le plus fréquent » y a un sens, le demi-tour non.
+  assert.deepEqual(operateursRetires(catalogue, lireCible('111')).map((x) => x.code), ['mr6']);
+  // « 999 » porte un 9 : personne ne se retire.
+  assert.deepEqual(operateursRetires(catalogue, lireCible('999')), []);
+});
+
+test('★ retraits — sur la cible sous-jacente d’un mot, dix opérateurs s’en vont', () => {
+  const rangs = cibleDeValeurs([26, 5, 18, 7]);
+  const retires = operateursRetires(catalogue, rangs);
+  assert.equal(retires.length, 10, 'toute la famille qui lit la cible');
+  assert.ok(retires.every((x) => x.etat === 'RETIRE'));
+  for (const code of ['mab', 'mrdE', 'mabx', 'mabd']) {
+    assert.ok(retires.some((x) => x.code === code), `${code} se retire devant une suite de valeurs`);
+  }
+});
+
+/**
+ * ⚠️ **ET LE CAS SOURNOIS : sous 666, `mr6` JOUE, avec la règle de 999.**
+ *
+ * `operateursPourCible` court-circuite pour la cible par défaut et rend le
+ * catalogue tel quel ; l'entrée de `mr6` est bâtie sur `999` (`selonLaCible`,
+ * option `reference`), si bien qu'une recherche vers 666 explore un opérateur
+ * qui retourne les 6 en 9. Le résultat n'en souffre pas — un tel chemin n'écrit
+ * pas 666 et tombe au verdict —, mais c'est du budget dépensé à chaque
+ * recherche du site. Le diagnostic le DIT ; le corriger changerait ce
+ * qu'explore 666, et cela se mesure avant de se décider.
+ */
+test('★ retraits — sous 666, `mr6` est joué avec la règle d’une autre cible', () => {
+  const sous666 = operateursRetires(catalogue, lireCible('666'));
+  assert.deepEqual(sous666.map((x) => x.code), ['mr6']);
+  assert.equal(sous666[0].etat, 'REGLE_D_UNE_AUTRE_CIBLE');
+  assert.match(sous666[0].dit, /règle de 999/);
+  const op = normaliserCatalogue(catalogue).find((o) => o && o.code === 'mr6');
+  assert.equal(op.visee.texte, '999', 'son entrée de catalogue est bâtie sur 999');
+  assert.deepEqual(appliquerOp(op, etat('NUMS', [6, 6, 6], [[], [], []])).valeur, [9, 9, 9],
+    'et sous 666, il retourne les 6 en 9 — mesuré, pas supposé');
+});
+
+/* ══════════════ 6. Les modes hors jeu, et l'annonce qu'ils en font ══════════════
+ *
+ * ★ Deux modes demandent autant de portées que la cible a de chiffres : la
+ *   PARTITION des morceaux contigus, le LIBRE des disjoints parmi les douze
+ *   meilleurs. Au-delà, ils ne rendent rien — et ne le disaient pas. Sur une
+ *   cible de quatorze chiffres, deux des neuf modes du site sont hors jeu par
+ *   construction.
+ */
+
+test('★ modes — ce qui ne peut pas s’appliquer le dit', async () => {
+  const { creerMoteur } = await import('../index.js');
+  const moteur = creerMoteur(catalogue, { filetTemporel: false });
+  const court = moteur.resoudre('Jim', { cible: '666' });
+  const dits = (r) => r.modesImpossibles.map((m) => m.mode).sort();
+  // « Jim » est un seul mot : trois morceaux contigus, il n'en offre qu'un.
+  assert.deepEqual(dits(court), ['PARTITION']);
+  assert.match(court.modesImpossibles[0].dit, /morceaux contigus/);
+  // Quatorze chiffres visés : les deux modes s'annoncent hors jeu.
+  const longue = moteur.resoudre('Sarah Kerrigan', { cible: '12345678901234' });
+  assert.deepEqual(dits(longue), ['LIBRE', 'PARTITION']);
+  for (const m of longue.modesImpossibles) {
+    assert.match(m.dit, /il faudrait 14/, 'l’annonce dit COMBIEN il en faudrait');
+  }
+  // Et une cible qui les laisse jouer n'annonce rien pour eux.
+  const phrase = moteur.resoudre('Le chat dort sur le tapis rouge', { cible: '13' });
+  assert.equal(phrase.modesImpossibles.length, 0, 'deux morceaux, la phrase en a de reste');
 });

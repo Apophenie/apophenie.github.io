@@ -136,11 +136,20 @@
  *   ⚠️ En deçà de onze chiffres, rien ne bouge : c'est ce que tient
  *   l'instantané des cibles chiffrées (`tests/lents/cible-mot.test.js`).
  */
+import { VISEE_LONGUE } from '../moteur/transformations/commun.js';
+
 export const MAX_CHIFFRES = 20;
 
 /**
- * ★ LA VISÉE LONGUE — au-delà de dix chiffres, et c'est le même dix que
- * `mappeurs.js › VISEE_LONGUE` (un test tient l'égalité).
+ * ★ LA VISÉE LONGUE — au-delà de dix chiffres.
+ *
+ * ⚠️ **C'EST LA CONSTANTE DU MOTEUR, RELAYÉE — plus une copie.** Elle était
+ *   écrite deux fois, ici et dans `mappeurs.js`, avec un test pour tenir
+ *   l'égalité ; elle vit désormais dans `moteur/transformations/commun.js`,
+ *   avec les visées, parce que c'est une propriété d'une VISÉE. La recherche a
+ *   le droit de lire le moteur ; l'inverse jamais (§1). Ce nom-ci reste parce
+ *   que c'est sous lui que la recherche la lit — et parce qu'un profil de cible
+ *   (`profilDeCible`) répond désormais à sa place : `profil.longue`.
  *
  * Dix, c'était le plafond des cibles chiffrées avant qu'il passe à vingt : rien
  * de ce que le site a déjà publié n'est au-dessus. C'est donc la frontière qui
@@ -148,7 +157,7 @@ export const MAX_CHIFFRES = 20;
  * l'absorption, la forme des programmes explorés — en garantissant qu'en deçà,
  * 666 compris, pas un chemin de code ne change.
  */
-export const CIBLE_LONGUE = 10;
+export const CIBLE_LONGUE = VISEE_LONGUE;
 
 /** L'écriture de la cible par défaut. Toute la promesse du site tient ici. */
 export const TEXTE_DEFAUT = '666';
