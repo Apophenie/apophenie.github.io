@@ -200,6 +200,15 @@ export async function chargerCatalogue(specificateur = '../moteur/catalogue.js')
 export const VOIES_AVANT_DE_CREUSER = 5;
 
 export function creerMoteur(catalogue, options = {}) {
+  /* ★ **LE SEUIL EST UN RÉGLAGE DE MESURE, ET RIEN D'AUTRE.**
+   *
+   * `creerMoteur(catalogue, { voiesAvantDeCreuser: 3 })` déplace le plancher
+   * pour un banc qui veut chiffrer ce que le seuil coûte et rapporte. Au défaut
+   * il vaut `VOIES_AVANT_DE_CREUSER`, et pas une recherche du site ne change.
+   * Il vit ici plutôt que dans un `if` de banc parce qu'un banc qui recopie la
+   * règle mesure sa copie ; celui-ci mesure le moteur. */
+  const voiesAvantDeCreuser = Number.isInteger(options.voiesAvantDeCreuser)
+    && options.voiesAvantDeCreuser >= 0 ? options.voiesAvantDeCreuser : VOIES_AVANT_DE_CREUSER;
   if (options.valider !== false) {
     const pbs = validerCatalogue(catalogue);
     if (pbs.length) throw new Error('catalogue non conforme (CONTRACTS §2.2) :\n  - ' + pbs.join('\n  - '));
@@ -770,7 +779,7 @@ export function creerMoteur(catalogue, options = {}) {
     const brutes = assembler(saisie, frags, parFrag, ctxAssemblage);
     annoncerLeClassement();
     let retenues = finaliser(brutes);
-    if (retenues.length < VOIES_AVANT_DE_CREUSER
+    if (retenues.length < voiesAvantDeCreuser
       && !ctxAssemblage.profond && optionsResolution.dernierRecours !== false) {
       const creusees = assembler(saisie, frags, parFrag, { ...ctxAssemblage, profond: true });
       annoncerLeClassement();
@@ -971,7 +980,7 @@ export function creerMoteur(catalogue, options = {}) {
          (l'auteur). Un mot qui a ses voies ne paie donc rien ; un mot qui n'en a
          aucune refait le tour de ses relectures en s'autorisant, cette fois, de
          ranger ou de gonfler la ligne avant de la dissoudre. */
-    if (approches.length < VOIES_AVANT_DE_CREUSER) {
+    if (approches.length < voiesAvantDeCreuser) {
       approches = yield* balayer(true);
     }
     approches.sort(ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal);
