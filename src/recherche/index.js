@@ -199,6 +199,27 @@ export async function chargerCatalogue(specificateur = '../moteur/catalogue.js')
  */
 export const VOIES_AVANT_DE_CREUSER = 5;
 
+/**
+ * ★ **AU CRAN 5 ET AU-DELÀ, ON CREUSE QUOI QU'IL ARRIVE.**
+ *
+ * > « Si tu as moyen de prédire si la seconde passe a des chances de trouver de
+ * >   nouveaux cas qui surpasseraient les existants, ça vaut le coup de
+ * >   l'activer quoi qu'il arrive quand on pousse le curseur de profondeur de
+ * >   recherche à 5 et plus. » (l'auteur)
+ *
+ * Le curseur de fouille dit déjà « cherche plus loin, je paierai le temps »
+ * (`config.js › reglagesDeBudget`, les quatre budgets multipliés par 2ⁿ). À
+ * partir du cran 5 — trente-deux fois le budget nominal —, celui qui l'a poussé
+ * ne demande plus la liste la plus courte : il demande tout ce qu'on sait
+ * trouver. Le plancher de voies (`VOIES_AVANT_DE_CREUSER`) cesse donc de
+ * décider, et la seconde passe se déroule même sous une liste pleine.
+ *
+ * ⚠️ Les crans 0 à 4 ne bougent pas d'un cheveu — et le cran 0 est celui du
+ *   site. Ce n'est pas une porte dérobée pour changer les listes publiées : il
+ *   faut avoir poussé le curseur pour en voir la couleur.
+ */
+export const FOUILLE_QUI_CREUSE_TOUJOURS = 5;
+
 export function creerMoteur(catalogue, options = {}) {
   /* ★ **LE SEUIL EST UN RÉGLAGE DE MESURE, ET RIEN D'AUTRE.**
    *
@@ -779,7 +800,9 @@ export function creerMoteur(catalogue, options = {}) {
     const brutes = assembler(saisie, frags, parFrag, ctxAssemblage);
     annoncerLeClassement();
     let retenues = finaliser(brutes);
-    if (retenues.length < voiesAvantDeCreuser
+    // ★ Le cran de fouille passe outre le plancher : voir `FOUILLE_QUI_CREUSE_TOUJOURS`.
+    const creuserQuoiQuIlArrive = fouille >= FOUILLE_QUI_CREUSE_TOUJOURS;
+    if ((retenues.length < voiesAvantDeCreuser || creuserQuoiQuIlArrive)
       && !ctxAssemblage.profond && optionsResolution.dernierRecours !== false) {
       const creusees = assembler(saisie, frags, parFrag, { ...ctxAssemblage, profond: true });
       annoncerLeClassement();
@@ -980,7 +1003,7 @@ export function creerMoteur(catalogue, options = {}) {
          (l'auteur). Un mot qui a ses voies ne paie donc rien ; un mot qui n'en a
          aucune refait le tour de ses relectures en s'autorisant, cette fois, de
          ranger ou de gonfler la ligne avant de la dissoudre. */
-    if (approches.length < voiesAvantDeCreuser) {
+    if (approches.length < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS) {
       approches = yield* balayer(true);
     }
     approches.sort(ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal);
