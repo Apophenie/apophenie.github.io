@@ -133,6 +133,67 @@ export function relectureDuLien(mot, op) {
 }
 
 /**
+ * ★ **UNE PHRASE EN SEGMENTS — quand elle est trop longue pour un bloc.**
+ *
+ * > « Tu peux effectivement utiliser des séparateurs par mots, mais tu peux
+ * >   aussi faire tout d'un coup pour éviter de faire des conversions
+ * >   différentes de partout. » (l'auteur)
+ *
+ * D'un BLOC d'abord — une relecture, une cible, une ligne. MESURÉ depuis
+ * « https://reinfocovid.fr/ » : un bloc de 22 chiffres a sept voies, de 26 dix ;
+ * à 32 et 38 chiffres, AUCUNE, aux crans 0, 3 et 5. La cause est la matière : la
+ * plus longue ligne que la saisie donne fait 89 chiffres (`fl+masb+mcar`), et
+ * l'absorption n'écrit qu'un chiffre visé pour trois ou quatre de ligne ; sur
+ * 72 chiffres, elle accepte une visée de 22 et refuse 32.
+ *
+ * Au-delà de `LONGUEUR_D_UN_BLOC`, la cible se découpe donc AUX MOTS — chaque
+ * segment commence par son espace —, en segments d'au plus
+ * `CHIFFRES_PAR_SEGMENT` chiffres, remplis dans l'ordre. Chaque segment est une
+ * cible chiffrée ordinaire, cherchée à part ; la voie les enchaîne, et UNE SEULE
+ * relecture relit la ligne entière au verdict (`index.js › deroulerTexte`). Les
+ * conversions ne changent donc pas en cours de phrase : c'est la préférence de
+ * l'auteur, tenue même quand le bloc ne l'est pas.
+ *
+ * ★ Fonction PURE de la relecture : la liste et le rejeu d'un lien découpent de
+ *   la même façon, sans que l'URL ait à porter le découpage.
+ * @returns {Array<{texte:string, cible:Object}>|null}  `null` : un bloc suffit,
+ *   ou le texte ne se découpe pas (un mot plus long qu'un segment).
+ */
+export const LONGUEUR_D_UN_BLOC = 26;
+export const CHIFFRES_PAR_SEGMENT = 22;
+
+export function segmentsDe(rel) {
+  if (!rel || !rel.cible || !rel.op || rel.cible.longueur <= LONGUEUR_D_UN_BLOC) return null;
+  const texte = rel.ponctuationOmise ? sansPonctuation(rel.mot.texte) : rel.mot.texte;
+  const inverse = inverseDe(rel.op);
+  const morceaux = texte.split(' ').map((m, i) => (i === 0 ? m : ` ${m}`)).filter((m) => m.length);
+  const segments = [];
+  let courant = null;
+  for (const m of morceaux) {
+    const valeurs = [];
+    for (const signe of m) {
+      const v = valeursDuSigne(inverse, signe);
+      if (!v) return null;
+      valeurs.push(...v);
+    }
+    if (valeurs.length > CHIFFRES_PAR_SEGMENT) return null;
+    if (courant && courant.valeurs.length + valeurs.length <= CHIFFRES_PAR_SEGMENT) {
+      courant.texte += m;
+      courant.valeurs.push(...valeurs);
+    } else {
+      courant = { texte: m, valeurs };
+      segments.push(courant);
+    }
+  }
+  if (segments.length < 2) return null;
+  const bout = segments.flatMap((sg) => sg.valeurs).join('.');
+  if (bout !== rel.cible.chiffres.join('.')) {
+    throw new Error(`segments de « ${rel.mot.texte} » (${rel.code}) : ils n'écrivent pas la cible entière`);
+  }
+  return Object.freeze(segments.map((sg) => Object.freeze({ texte: sg.texte, cible: cibleDeValeurs(sg.valeurs) })));
+}
+
+/**
  * ★ LE DIAGNOSTIC DES SIGNES — ceux du texte qu'AUCUNE relecture ne sait
  * écrire, dans l'ordre où ils paraissent, chacun une fois. Une espace, un « œ »,
  * un « j » pour qui n'aurait que le carré de Polybe : c'est ce qui bloque, et

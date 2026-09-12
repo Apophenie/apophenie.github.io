@@ -991,6 +991,9 @@ function qualifiant(chemin, idVedette) {
 export function estDecret(approche) {
   const parts = approche && approche.parts;
   if (!parts || !parts.length) return false;
+  // ★ Une PHRASE EN SEGMENTS ne recopie rien : deux parts au même programme y
+  //   écrivent deux segments différents (`conversions.js › segmentsDe`).
+  if (Array.isArray(approche.segments)) return false;
   if (parts.length === 1) {
     // Une part unique ne décrète rien dans deux cas : elle atteint LA CIBLE
     // d'un seul tenant, ou son vecteur final porte déjà une série entière —

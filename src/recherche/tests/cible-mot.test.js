@@ -16,6 +16,7 @@ import {
 } from '../cible.js';
 import {
   relecturesPour, inverseDe, operateursDeRelecture, RELECTURE_PAR_DEFAUT,
+  segmentsDe, LONGUEUR_D_UN_BLOC, CHIFFRES_PAR_SEGMENT,
 } from '../conversions.js';
 import { lire, ecrire, BANDEAUX } from '../url.js';
 import { encoderTexte } from '../base58.js';
@@ -182,6 +183,25 @@ test('cible-mot — la ponctuation omise se paie, et elle seule', () => {
     ['mtap', 32, 'cest de la merde', true, e.facteur],
     ['masi', 57, "C'est de la merde !", false, 1000],
   ]);
+});
+
+/* ★ UNE PHRASE EN SEGMENTS — d'un bloc tant qu'elle tient, aux mots au-delà. */
+test('cible-mot — une phrase trop longue pour un bloc se découpe aux mots, et la découpe réécrit la cible', () => {
+  const [tel, ascii] = relecturesPour(lireCible("C'est de la merde !"), catalogue);
+  const tSeg = segmentsDe(tel);
+  const aSeg = segmentsDe(ascii);
+  // Le téléphone approche en deux segments, la table ASCII écrit exactement en quatre.
+  assert.deepEqual(tSeg.map((sg) => sg.texte), ['Cest de la', ' merde']);
+  assert.deepEqual(aSeg.map((sg) => sg.texte), ["C'est", ' de la', ' merde', ' !']);
+  for (const [rel, segs] of [[tel, tSeg], [ascii, aSeg]]) {
+    assert.equal(segs.flatMap((sg) => sg.cible.chiffres).join(''), rel.cible.chiffres.join(''),
+      `${rel.code} : bout à bout, les segments écrivent la cible entière`);
+    for (const sg of segs) assert.ok(sg.cible.longueur <= CHIFFRES_PAR_SEGMENT, `${rel.code} : « ${sg.texte} »`);
+  }
+  // Ce qui tient d'un bloc reste un bloc : « de la merde » fait 22 chiffres.
+  const [bloc] = relecturesPour(lireCible('de la merde'), catalogue);
+  assert.ok(bloc.cible.longueur <= LONGUEUR_D_UN_BLOC);
+  assert.equal(segmentsDe(bloc), null);
 });
 
 test('cible-mot — face à une relecture chiffrée, les opérateurs qui lisent la cible TRAVAILLENT', () => {

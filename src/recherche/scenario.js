@@ -2308,9 +2308,14 @@ export function construireScenario(approche, ctx = {}) {
 
   const partsUniques = [];
   const vues = new Set();
-  for (const p of approche.parts) {
+  // ★ Une PHRASE EN SEGMENTS n'a pas de parts identiques : deux parts au même
+  //   programme y écrivent deux segments différents, et chacune se montre.
+  const segments = Array.isArray(ctx.segments) && ctx.segments.length === approche.parts.length
+    ? ctx.segments : null;
+  for (const [rangPart, p] of approche.parts.entries()) {
     const portee = p.fragment ? p.fragment.intervalles.map((iv) => iv.join('.')).join('|') : '';
-    const cle = portee + '' + p.chemin.ops.map((o) => o.code).join('+');
+    const cle = portee + '' + p.chemin.ops.map((o) => o.code).join('+')
+      + (segments ? `#${rangPart}` : '');
     if (vues.has(cle)) continue;
     vues.add(cle);
     partsUniques.push(p);
@@ -2656,8 +2661,10 @@ export function construireScenario(approche, ctx = {}) {
   const paquets = [];
   {
     const parSignature = new Map();
-    for (const g of groupes) {
-      const sig = signatureChemin(g.part.chemin);
+    for (const [rangGroupe, g] of groupes.entries()) {
+      // ★ Les segments d'une phrase se jouent chacun à son tour, dans l'ordre :
+      //   ils n'écrivent pas la même chose, même sous le même programme.
+      const sig = signatureChemin(g.part.chemin) + (segments ? `#${rangGroupe}` : '');
       if (!parSignature.has(sig)) {
         const neuf = [];
         parSignature.set(sig, neuf);
@@ -2852,8 +2859,10 @@ export function construireScenario(approche, ctx = {}) {
     //    ce qui reste s'assemble par trois. Sans cette récolte, le verdict
     //    révélait le premier nombre venu en annonçant « 666 » — c'est-à-dire
     //    qu'il décrétait, ce que ce mode existe précisément pour ne plus faire.
+    // ★ Un segment de phrase se récolte sur SON segment, pas sur la cible entière.
     const recolte = recolterLesSix(
-      g, chemin, poserBloc, langue, moisson, moisson ? rejets : null, cible,
+      g, chemin, poserBloc, langue, moisson, moisson ? rejets : null,
+      segments ? segments[indexPart].cible : cible,
     );
     if (recolte) {
       resultats.push(...recolte.ids);

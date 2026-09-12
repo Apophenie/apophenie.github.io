@@ -3419,6 +3419,12 @@ export function deduireMode(parts, ctx) {
   const cbl = normaliserCible(ctx && ctx.cible);
   const avec = (r) => ({ ...r, cible: cbl });
   if (parts.some((p) => p.chemin.ops.some((o) => o.isJoker))) return avec({ mode: 'JOKER', resonance: false });
+  // ★ LA PHRASE EN SEGMENTS — chaque part écrit UN segment de la cible, dans
+  //   l'ordre (`conversions.js › segmentsDe`). Ni convergence ni décret : deux
+  //   parts au même programme visent deux segments différents. Une série.
+  if (ctx && Array.isArray(ctx.segments) && ctx.segments.length === parts.length) {
+    return avec({ mode: 'PHRASE', resonance: false, series: 1 });
+  }
   // ★ LA LIAISON prime sur la géométrie : deux parts qui rendent chacune un
   //   nombre, réunies par un opérateur sur la ligne assemblée. Ni partition ni
   //   moisson — aucune part n'écrit la cible à elle seule.
