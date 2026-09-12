@@ -106,7 +106,16 @@ const corpus = cibles ? cibles.split(',').filter((c) => tout.includes(c)) : tout
 if (cibles && corpus.length !== cibles.split(',').length) {
   throw new Error(`BANC_CIBLES : ${cibles.split(',').filter((c) => !tout.includes(c)).join(', ')} n’est pas du corpus`);
 }
-const moteur = creerMoteur(catalogue, { filetTemporel: false });
+/**
+ * ★ `BANC_SEUIL=3` — le plancher du DERNIER RECOURS, pour chiffrer ce qu'il
+ * coûte et ce qu'il rapporte (`recherche/index.js › voiesAvantDeCreuser`).
+ * Absent, le banc mesure le moteur tel qu'il est.
+ */
+const seuil = process.env.BANC_SEUIL;
+const moteur = creerMoteur(catalogue, {
+  filetTemporel: false,
+  ...(seuil === undefined ? {} : { voiesAvantDeCreuser: Number(seuil) }),
+});
 
 const lignes = [];
 for (const saisie of saisies) {
@@ -116,6 +125,9 @@ for (const saisie of saisies) {
     const ms = Math.round(performance.now() - t0);
     const ligne = {
       saisie, mot, voies: r.approches.length, ms,
+      // Les liens, dans l'ordre de la liste : c'est ce qui permet de dire si une
+      // voie neuve entre dans les cinq premières ou reste en fond de liste.
+      urls: r.approches.map((a) => a.url),
       relectures: (r.relectures || []).map((x) => ({
         code: x.code, cible: x.cible, nature: x.nature, longueur: x.longueur, voies: x.voies,
       })),
