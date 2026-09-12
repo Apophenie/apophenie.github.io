@@ -1690,7 +1690,8 @@ test('m1a2, mpol, mtap — deux chiffres, une lettre : la table entière, et rie
   for (const [code, attendu, horsTable] of [
     ['m1a2', 26, [[2, 7], [0, 0]]],
     ['mpol', 25, [[6, 1], [1, 6], [0, 1]]],
-    ['mtap', 26, [[1, 1], [2, 4], [7, 5]]],
+    // ★ 27 pour le multi-tap : ses 26 lettres, et l'ESPACE sur le 0 (un appui).
+    ['mtap', 27, [[1, 1], [2, 4], [7, 5], [0, 2]]],
   ]) {
     const op = PAR_CODE.get(code);
     assert.equal(operateursActifs().includes(op), false, `${code} : inactif en recherche`);
@@ -1702,7 +1703,9 @@ test('m1a2, mpol, mtap — deux chiffres, une lettre : la table entière, et rie
       }
     }
     assert.equal(ecrites.size, attendu, `${code} : ${attendu} lettres, chacune par une seule paire`);
-    for (const l of ecrites) assert.ok(lettres.includes(l), `${code} : « ${l} » en bas de casse`);
+    for (const l of ecrites) {
+      assert.ok(lettres.includes(l) || (code === 'mtap' && l === ' '), `${code} : « ${l} » en bas de casse`);
+    }
     for (const [a, b] of horsTable) assert.equal(appliquer(op, N([a, b])), null, `${code} : ${a} ${b} hors table`);
     assert.equal(appliquer(op, N([2, 1, 3])), null, `${code} : deux chiffres par lettre, pas trois`);
     assert.equal(appliquer(op, N([12, 1])), null, `${code} : des chiffres, pas des nombres`);
@@ -1711,4 +1714,6 @@ test('m1a2, mpol, mtap — deux chiffres, une lettre : la table entière, et rie
   assert.deepEqual([...appliquer(PAR_CODE.get('mpol'), N([2, 4])).valeur], ['i']);
   // Le multi-tap : quatre appuis sur le 7, c'est s.
   assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([7, 4])).valeur], ['s']);
+  // Et un appui sur le 0, c'est l'espace — la seule chose que ce clavier écrit hors des lettres.
+  assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([0, 1])).valeur], [' ']);
 });

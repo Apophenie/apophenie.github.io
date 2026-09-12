@@ -125,10 +125,13 @@ test('cible-mot — les relectures du catalogue, et leur inverse CALCULÉ sur l�
   assert.deepEqual([...inverseDe(par.m1a).get('z')], [26]);
   assert.deepEqual([...inverseDe(par.mcaz).get('z')], [2, 1]);
   assert.deepEqual([...inverseDe(par.mcqw).get('z')], [1, 3]);
+  assert.deepEqual([...inverseDe(par.mtap).get(' ')], [0, 1]);
   for (const op of ops) {
     const inverse = inverseDe(op);
-    // Le carré de Polybe a vingt-cinq cases : il n'écrit jamais j.
-    assert.equal(inverse.size, op.code === 'mpol' ? 25 : 26, `${op.code} : chaque lettre, une fois`);
+    // Le carré de Polybe a vingt-cinq cases : il n'écrit jamais j. Le multi-tap
+    // en a vingt-sept : l'espace est sur le 0.
+    const tailles = { mpol: 25, mtap: 27 };
+    assert.equal(inverse.size, tailles[op.code] ?? 26, `${op.code} : chaque lettre, une fois`);
     // L'aller-retour est exact : ce que l'inverse donne, l'opérateur le relit.
     for (const [lettre, valeurs] of inverse) {
       const e = appliquerOp(op, etat('NUMS', [...valeurs], []));
@@ -150,8 +153,13 @@ test('cible-mot — les relectures d’un texte : cibles sous-jacentes, écrit r
   const fantome = relecturesPour(lireCible('Fantôme'), catalogue);
   assert.ok(fantome.length === 6 && fantome.every((r) => r.produit === 'fantome' && r.ecart.facteur === 902));
   assert.equal(fantome.find((r) => r.code === 'mcaz').cible.nature, 'valeurs', 'le M est en colonne 10 en AZERTY');
-  assert.deepEqual(relecturesPour(lireCible('reine des lames'), catalogue), [],
-    'aucune relecture n’écrit l’espace : pas de voie, et c’est la recherche qui le dit');
+  // ★ L'ESPACE a une relecture : le 0 du téléphone. « reine des lames » ne se
+  //   relit donc plus que par lui — trente chiffres, l'espace valant 0 1.
+  assert.deepEqual(relecturesPour(lireCible('reine des lames'), catalogue)
+    .map((r) => [r.code, r.cible.texte, r.produit]),
+  [['mtap', '733243623201313274015321613274', 'reine des lames']]);
+  assert.deepEqual(relecturesPour(lireCible('cœur'), catalogue), [],
+    'aucune relecture n’écrit le « œ » : pas de voie, et c’est la recherche qui le dit');
 });
 
 test('cible-mot — face à une relecture chiffrée, les opérateurs qui lisent la cible TRAVAILLENT', () => {

@@ -31,11 +31,46 @@ const moteur = creerMoteur(catalogue, { filetTemporel: false });
 const SAISIE = 'https://reinfocovid.fr/';
 const PHRASE = "C'est de la merde !";
 
-test('cible-phrase — ce qui bloque est dit : l’apostrophe, l’espace, le point d’exclamation', () => {
-  assert.deepEqual(signesSansRelecture(lireCible(PHRASE), catalogue), ["'", ' ', '!']);
+test('cible-phrase — ce qui bloque est dit : l’apostrophe et le point d’exclamation', () => {
+  // ★ L'ESPACE n'y est plus : le multi-tap l'écrit, sur le 0.
+  assert.deepEqual(signesSansRelecture(lireCible(PHRASE), catalogue), ["'", '!']);
   const r = moteur.resoudre(SAISIE, { cible: PHRASE });
   assert.equal(r.approches.length, 0);
   assert.ok(r.avertissement && r.avertissement.fr, 'le refus est écrit, pas silencieux');
+});
+
+/**
+ * Toute voie vers une phrase, vérifiée par le CHEMIN RÉEL : le lien se rejoue à
+ * l'identique, la scène n'a aucun geste remplacé en silence, la relecture est
+ * JOUÉE et écrit ce que le verdict annonce — espaces compris —, et le moteur
+ * visuel compile.
+ */
+function verifierVoies(r, ecrit) {
+  for (const a of r.approches) {
+    const rejeu = moteur.rejouer(lire(a.url));
+    assert.equal(rejeu.ok, true, `${a.url} : ${rejeu.raison || ''}`);
+    assert.equal(rejeu.approche.url, a.url, `${a.url} se rejoue à l’identique`);
+    const sc = moteur.scenarioDe(a, { saisie: SAISIE, cible: r.cible });
+    assert.equal(sc.avertissements, undefined, `${a.url} : ${(sc.avertissements || []).join(' | ')}`);
+    assert.equal(sc.result, ecrit, a.url);
+    const relus = sc.steps.filter((st) => st.code === a.relecture.code).flatMap((st) => st.ops)
+      .filter((o) => o.op !== 'merge' && o.to && typeof o.to.text === 'string').map((o) => o.to.text);
+    assert.equal(relus.join(''), ecrit, `${a.url} : la relecture est jouée, signe par signe`);
+    assert.doesNotThrow(() => compile(sc), a.url);
+  }
+}
+
+/* ★ L'ESPACE, et rien de plus : « de la merde » se vise D'UN BLOC — une seule
+     relecture pour toute la phrase. Le multi-tap l'écrit (0 1 pour l'espace) en
+     vingt-deux chiffres, et la recherche chiffrée les atteint : mesuré, sept
+     voies au cran 0, toutes par le téléphone (les autres relectures n'ont pas
+     d'espace). */
+test('cible-phrase — « de la merde » d’un bloc : l’espace sur le 0 du téléphone', () => {
+  const r = moteur.resoudre(SAISIE, { cible: 'de la merde' });
+  assert.ok(r.approches.length >= 1, 'aucune voie vers « de la merde »');
+  assert.deepEqual([...new Set(r.approches.map((a) => a.relecture.code))], ['mtap']);
+  for (const a of r.approches) assert.equal(a.ecartDeForme.facteur, 1000, a.url);
+  verifierVoies(r, 'de la merde');
 });
 
 test('cible-phrase — le mot seul est atteint : « merde », et chaque voie se rejoue', () => {

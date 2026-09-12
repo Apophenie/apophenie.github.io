@@ -7044,18 +7044,31 @@ const AUTRES_MAPPEURS = [
     id: 'm.multiTap', code: 'mtap',
     libelle: bilingue('La touche et le nombre d’appuis, sur un téléphone',
       'The key and the number of presses, on a phone'),
-    regle: bilingue('La touche, puis les appuis — 7 4 = s, quatre fois sur le 7',
-      'Key, then presses — 7 4 = s, four times on the 7'),
+    regle: bilingue('La touche, puis les appuis — 7 4 = s, quatre fois sur le 7 ; 0 1 = l’espace',
+      'Key, then presses — 7 4 = s, four times on the 7; 0 1 = a space'),
     outil: bilingue('Clavier de téléphone, en appuis', 'Phone keypad, in presses'),
     note: bilingue(
       'Le multi-tap des téléphones d’avant la saisie prédictive : on appuie sur la touche '
-      + 'autant de fois que le rang de la lettre sur elle. 7777 s’écrit ici 7 4.',
+      + 'autant de fois que le rang de la lettre sur elle. 7777 s’écrit ici 7 4. '
+      + 'L’espace est sur le 0, d’un appui. La ponctuation n’y est pas : son ordre '
+      + 'sur la touche 1 change d’un téléphone à l’autre.',
       'The multi-tap of phones before predictive text: press the key as many times as the '
-      + 'letter’s place on it. 7777 is written here as 7 4.',
+      + 'letter’s place on it. 7777 is written here as 7 4. The space is on 0, one press. '
+      + 'Punctuation is left out: its order on key 1 differs from one phone to the next.',
     ),
     notoriete: 0.6, adHoc: 0.35, colonnes: 13,
-    couples: Object.entries(T9_GROUPES)
-      .flatMap(([touche, lettres]) => [...lettres].map((c, k) => [`${touche}${k + 1}`, c.toLowerCase()])),
+    /* ★ **L'ESPACE, SUR LE 0.** La norme ITU-T E.161 ne fixe que les lettres ;
+         l'espace sur la touche 0, d'un appui, est ce que disent les notices
+         (Nokia 3310 : « To type in a space press 0 »). La ponctuation de la
+         touche 1, elle, n'a pas d'ordre commun — la mettre ici serait
+         l'inventer. Une phrase se relit donc par le téléphone à la
+         ponctuation près (`recherche/cible.js › ecartDeForme`). En fin de
+         table : les lettres gardent leurs cases. */
+    couples: [
+      ...Object.entries(T9_GROUPES)
+        .flatMap(([touche, lettres]) => [...lettres].map((c, k) => [`${touche}${k + 1}`, c.toLowerCase()])),
+      ['01', ' ', bilingue('espace', 'space')],
+    ],
   }),
   /* ★ **LE CARRÉ — `mcar`, et il ne sert QU'AU DERNIER RECOURS.**
    *
@@ -7730,8 +7743,12 @@ function operateurCoordonnees(disposition) {
 function operateurParPaires({
   id, code, libelle, regle, outil, note, notoriete, adHoc, colonnes, couples,
 }) {
-  const parCle = new Map(couples);
-  const table = Object.freeze(couples.map(([cle, lettre]) => Object.freeze({ char: cle, value: lettre })));
+  const parCle = new Map(couples.map(([cle, lettre]) => [cle, lettre]));
+  // ★ Une case peut porter une NOTE (bilingue) : celle de l'espace, dont la
+  //   valeur ne se voit pas. Elle est traduite au moment de montrer la table.
+  const table = Object.freeze(couples.map(([cle, lettre, note]) => Object.freeze({
+    char: cle, value: lettre, ...(note ? { note } : {}),
+  })));
   const premiers = [...new Set(couples.map(([cle]) => Number(cle[0])))].sort((a, b) => a - b);
   const seconds = [...new Set(couples.map(([cle]) => Number(cle[1])))].sort((a, b) => a - b);
   const idColle = (ctx, i) => `${ctx.cle}_p${i}`;
@@ -7778,15 +7795,15 @@ function operateurParPaires({
           targets: [ctx.ids[2 * i], ctx.ids[2 * i + 1]],
           to: token(idColle(ctx, i), cle, 'number'),
         }], { id: `s_${ctx.cle}_c${i}` }));
-        steps.push(etape(ctx, titre, `${dit} · ${cle} → ${lettre}`, [{
+        steps.push(etape(ctx, titre, `${dit} · ${cle} → ${lettre === ' ' ? '␣' : lettre}`, [{
           op: 'table',
           disposition: 'reglette',
           titre: nomOutil,
           colonnes,
-          entries: table.map((e) => ({ ...e })),
+          entries: table.map((e) => ({ ...e, ...(e.note ? { note: dire(e.note, ctx.langue) } : {}) })),
           target: idColle(ctx, i),
           letter: cle,
-          to: token(idLettre(ctx, i), lettre, 'letter'),
+          to: token(idLettre(ctx, i), lettre, lettre === ' ' ? 'space' : 'letter'),
           montre: i === 0,
           retire: i === dernier,
         }], { id: `s_${ctx.cle}_${i}` }));

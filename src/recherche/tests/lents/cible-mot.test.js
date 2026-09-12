@@ -79,7 +79,10 @@ test('cible-mot — casse et accents : la même recherche, un écart payé autre
 });
 
 test('cible-mot — un signe qu’aucune relecture n’écrit : aucune voie, et la liste dit pourquoi', () => {
-  const r = moteur.resoudre('Sarah Kerrigan', { cible: 'reine des lames' });
+  // ★ « reine des lames » servait d'exemple : l'ESPACE n'avait aucune relecture.
+  //   Le multi-tap l'écrit désormais (0 1). Le « œ », lui, n'est sur aucune
+  //   table — ni rang, ni clavier, ni téléphone.
+  const r = moteur.resoudre('Sarah Kerrigan', { cible: 'cœur' });
   assert.equal(r.approches.length, 0);
   assert.deepEqual(r.relectures, []);
   assert.ok(r.avertissement && r.avertissement.fr, 'la raison est écrite, pas devinée');
