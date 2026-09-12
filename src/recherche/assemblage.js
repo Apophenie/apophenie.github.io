@@ -908,6 +908,9 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
         if (!secondRaffinage) retenir(j.ops.concat(m), j.etats.concat([v]));
         const lignesVues = secondRaffinage ? new Set([cleEtat(v)]) : null;
         for (const r of raffineurs) {
+          // ★ Un raffinage qui GONFLE n'a rien à faire dans le premier déroulé :
+          //   il n'existe que pour le dernier recours (voir `assembler`).
+          if (!secondRaffinage && r.gonfle) continue;
           const w = appliquerOp(r, v);
           if (w === null) continue;
           if (!secondRaffinage) {
@@ -3162,6 +3165,17 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    demande l'auteur : « quand tu arrives à faire autant de 6, plutôt que de
   //    les réduire à trois, regroupe-les par trois ».
   const opsExplorables = ctx.catalogue ? operateursPourCible(ctx.catalogue, cbl) : [];
+  /* ★ **LES OPÉRATEURS QUI GONFLENT LA LIGNE N'EXISTENT QUE POUR LE DERNIER
+       RECOURS.** Ils se déclarent (`op.gonfle`) et sont INACTIFS en recherche
+       (`actifParDefaut: false`), donc ni le faisceau ni la première passe ne les
+       voient jamais : « ces opérateurs ne servent que la passe de dernier
+       recours, ils ne doivent pas polluer les voies courtes » (l'auteur). On ne
+       les ajoute à la matière que lorsque `index.js` a posé `profond`, et
+       `vecteursDeSix` les refuse encore dans son premier déroulé. */
+  const opsGonflantes = ctx.profond === true && ctx.catalogue
+    ? normaliserCatalogue(ctx.catalogue).filter((o) => o && o.gonfle && !o.deprecated)
+    : [];
+  const opsPourVecteurs = opsExplorables.concat(opsGonflantes);
   const porteuses = fragmentsAVecteur(fragments, ctx);
   // Les vecteurs du fragment qui couvre TOUT, gardés pour l'étage des retouches
   // ci-dessous : on ne les recalcule pas, on les rejoue sur un texte réécrit.
@@ -3173,7 +3187,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
       //   sont des GROUPEMENTS : elles ne viennent pas du BFS — aucun chemin de
       //   `parFrag` ne porte seulement `mrd` — mais d'ici. Huit vecteurs par
       //   fragment porteur, en dur, c'était la borne réelle de la liste entière.
-      const vecteurs = vecteursDeSix(f.texte, opsExplorables, K, kParFragment * 2, cbl,
+      const vecteurs = vecteursDeSix(f.texte, opsPourVecteurs, K, kParFragment * 2, cbl,
         // ★ `profond` — la seconde passe de dernier recours, posée par
         //   `index.js` quand un premier assemblage n'a rien rendu.
         { curseurs: ctx.curseurs, profond: ctx.profond === true })

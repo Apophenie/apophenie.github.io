@@ -168,6 +168,11 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   rang sur deux chiffres, le carré de Polybe, le multi-tap du téléphone.
   //   Inactives en recherche. En fin de bloc mappeur, append-only (§4.1).
   'm1a2', 'mpol', 'mtap',
+  // ★ LE CARRÉ — il ne cherche pas à tomber juste, il donne de la MATIÈRE :
+  //   115 × 115 fait cinq chiffres là où 115 en a trois. Inactif en recherche,
+  //   réservé à la passe de dernier recours (`recherche/assemblage.js`, le
+  //   drapeau `gonfle`). En fin de bloc mappeur, append-only (§4.1).
+  'mcar',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',
