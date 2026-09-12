@@ -80,7 +80,7 @@ import {
 } from './url.js';
 import { IMPLICITE_DEPUIS } from '../config.js';
 import {
-  CIBLE_DEFAUT, normaliserCible, lireCible, MAX_CHIFFRES, MAX_SIGNES_TEXTE,
+  CIBLE_DEFAUT, CIBLE_LONGUE, normaliserCible, lireCible, MAX_CHIFFRES, MAX_SIGNES_TEXTE,
 } from './cible.js';
 import {
   relecturesPour, relecturePour, signesSansRelecture, RELECTURE_PAR_DEFAUT,
@@ -534,6 +534,11 @@ export function creerMoteur(catalogue, options = {}) {
       //   « James » sait donner ne dépend ni de la cible ni de la recherche, et
       //   se calcule une fois par session (`assemblage.js › liaisons`).
       cache,
+      // ★ Le DERNIER RECOURS, quand l'appelant l'a déjà décidé : un texte visé
+      //   refait le tour de ses relectures en passe profonde (`deroulerTexte`),
+      //   et chacune doit alors s'autoriser le geste de plus dès le premier
+      //   assemblage, sans refaire celui qui vient d'échouer.
+      profond: optionsResolution.profond === true,
     };
     /* ★ **L'ASSEMBLAGE REND COMPTE DE LUI-MÊME** — voir `assemblage.js`, où la
          mesure est écrite. Il ne peut pas `yield` : il est appelé DEPUIS ce
@@ -549,6 +554,28 @@ export function creerMoteur(catalogue, options = {}) {
       publier(avancementDe({ phase: 'assemblage', part, fragments: cherches, fragmentsTotal: cherches }));
     } : null;
     let approches = assembler(saisie, frags, parFrag, ctxAssemblage);
+    /* ★ **LE DERNIER RECOURS — et il ne se déclenche que sur une liste VIDE.**
+
+       > « Si des solutions courtes et élégantes sont trouvées, pas besoin de
+       >   chercher les options longues et bancales, mais si rien n'est trouvé,
+       >   approfondir avec le budget temps disponible est pertinent. »
+       >   (l'auteur)
+
+       L'assemblage redéroule alors sa forme fermée en s'autorisant un geste de
+       plus — ranger ou gonfler la ligne AVANT de la dissoudre
+       (`assemblage.js › vecteursDeSix`, la seconde passe). Il ne relance
+       AUCUNE recherche de fragment : les chemins du faisceau sont déjà là, et
+       c'est le budget de travail déjà dépensé qui décide de ce qu'ils
+       contiennent. Une recherche qui a trouvé quoi que ce soit ne passe jamais
+       par ici : elle ne perd ni une milliseconde, ni une place de liste.
+
+       ⚠️ Borné aux visées de plus de dix chiffres (`CIBLE_LONGUE`), ce qui
+         garantit que 666 et les cibles chiffrées d'avant ne bougent pas — voir
+         le pavé de `vecteursDeSix`, qui porte la mesure. */
+    if (!approches.length && cbl.longueur > CIBLE_LONGUE
+      && !ctxAssemblage.profond && optionsResolution.dernierRecours !== false) {
+      approches = assembler(saisie, frags, parFrag, { ...ctxAssemblage, profond: true });
+    }
     if (publier) publier(avancementDe({ phase: 'classement', part: 0, fragments: cherches, fragmentsTotal: cherches }));
 
     if (!approches.length) {
@@ -835,35 +862,69 @@ export function creerMoteur(catalogue, options = {}) {
     const canal = typeof optionsResolution.surAvancement === 'function'
       ? optionsResolution.surAvancement : null;
     const n = relectures.length;
-    const approches = [];
     let tronque = false;
     let tronqueTemps = false;
     let avertissement;
-    for (let k = 0; k < n; k++) {
-      const rel = relectures[k];
-      const echelle = (a) => ({ ...a, fraction: (k + Math.min(1, Math.max(0, (a && a.fraction) || 0))) / n });
-      const sous = deroulerResolution(saisieBrute, {
-        ...optionsResolution,
-        cible: rel.cible,
-        surAvancement: canal ? (a) => canal(echelle(a)) : undefined,
-      });
-      let pas = sous.next();
-      while (!pas.done) {
-        const pause = yield echelle(pas.value);
-        pas = sous.next(pause);
+    /* ⚠️ **LA JAUGE NE RECULE PAS, MÊME À DEUX BALAYAGES.** Le second reprend
+         les relectures à zéro ; publier sa fraction brute ferait retomber la
+         barre de 100 % à 20 %. On borne donc par le plus haut déjà annoncé, ici
+         comme `deroulerResolution` le fait pour ses propres rapports. */
+    let plusHaut = 0;
+    const echelleDe = (k) => (a) => {
+      const brute = (k + Math.min(1, Math.max(0, (a && a.fraction) || 0))) / n;
+      plusHaut = Math.max(plusHaut, brute);
+      return { ...a, fraction: plusHaut };
+    };
+    /**
+     * Un balayage : une recherche par relecture, fusionnées. `profond` dit si
+     * l'assemblage s'autorise le geste de plus (`assemblage.js ›
+     * vecteursDeSix`, la seconde passe).
+     */
+    function* balayer(profond) {
+      const trouvees = [];
+      for (let k = 0; k < n; k++) {
+        const rel = relectures[k];
+        const echelle = echelleDe(k);
+        const sous = deroulerResolution(saisieBrute, {
+          ...optionsResolution,
+          cible: rel.cible,
+          profond,
+          // ★ Le dernier recours se décide sur le TEXTE, pas sur une relecture :
+          //   une recherche qui n'a rien trouvé sur le carré de Polybe n'a pas à
+          //   creuser si le multi-tap, lui, a des voies. C'est ici qu'on le sait.
+          dernierRecours: false,
+          surAvancement: canal ? (a) => canal(echelle(a)) : undefined,
+        });
+        let pas = sous.next();
+        while (!pas.done) {
+          const pause = yield echelle(pas.value);
+          pas = sous.next(pause);
+        }
+        const r = pas.value;
+        base.relectures[k].voies = (r.approches || []).length;
+        if (r.tronque) tronque = true;
+        if (r.tronqueTemps) tronqueTemps = true;
+        if (r.avertissement) avertissement = r.avertissement;
+        for (const a of r.approches || []) {
+          // Le joker est une propriété du français et du 6 (§0.4) : il ne relit
+          // rien, et n'a rien à faire sous l'annonce d'un texte.
+          if (a.mode === 'JOKER') continue;
+          versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
+          trouvees.push(a);
+        }
       }
-      const r = pas.value;
-      base.relectures[k].voies = (r.approches || []).length;
-      if (r.tronque) tronque = true;
-      if (r.tronqueTemps) tronqueTemps = true;
-      if (r.avertissement) avertissement = r.avertissement;
-      for (const a of r.approches || []) {
-        // Le joker est une propriété du français et du 6 (§0.4) : il ne relit
-        // rien, et n'a rien à faire sous l'annonce d'un texte.
-        if (a.mode === 'JOKER') continue;
-        versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
-        approches.push(a);
-      }
+      return trouvees;
+    }
+    let approches = yield* balayer(false);
+    /* ★ **LE DERNIER RECOURS D'UN TEXTE — quand AUCUNE relecture n'a rien
+         rendu.** « Si des solutions courtes et élégantes sont trouvées, pas
+         besoin de chercher les options longues et bancales, mais si rien n'est
+         trouvé, approfondir avec le budget temps disponible est pertinent »
+         (l'auteur). Un mot qui a ses voies ne paie donc rien ; un mot qui n'en a
+         aucune refait le tour de ses relectures en s'autorisant, cette fois, de
+         ranger ou de gonfler la ligne avant de la dissoudre. */
+    if (!approches.length && relectures.some((r) => r.cible.longueur > CIBLE_LONGUE)) {
+      approches = yield* balayer(true);
     }
     approches.sort(ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal);
     const retenues = approches.slice(0, reglagesDeBudget(fouille).voies);

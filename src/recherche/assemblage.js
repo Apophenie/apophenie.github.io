@@ -48,7 +48,8 @@ import {
   A_MERITER_SA_PLACE, OPERATEURS_QUI_ECARTENT, FICELLES, nbTriptyques, compterTraductionsDivergentes,
 } from './elegance.js';
 import {
-  CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecrit, verdict as ecrireVerdict,
+  CIBLE_DEFAUT, CIBLE_LONGUE, normaliserCible, seriesDe, indexUtiles, ecrit,
+  verdict as ecrireVerdict,
 } from './cible.js';
 import {
   appliquerOp, etat, normaliserCatalogue, operateursPourCible,
@@ -871,16 +872,104 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     vus.add(cle);
     out.push(chemin);
   };
-  for (const j of jetons.values()) {
-    for (const m of mappeurs) {
-      const v = appliquerOp(m, j.etat);
-      if (v === null) continue;
-      retenir(j.ops.concat(m), j.etats.concat([v]));
-      for (const r of raffineurs) {
-        const w = appliquerOp(r, v);
-        if (w !== null) retenir(j.ops.concat(m, r), j.etats.concat([v, w]));
+  /* ★ **UN SECOND RAFFINAGE, QUAND LE SECOND ABSORBE ET QUE LA VISÉE EST LONGUE.**
+
+     > « Certaines de tes conversions changent une lettre en 3 chiffres […] tu
+     >   peux donc augmenter le nombre de chiffres à volonté […] et la matière
+     >   tu vas l'avoir. » (l'auteur)
+
+     MESURÉ, et ce n'était pas la matière : la plus longue ligne de « Sarah
+     Kerrigan » fait trente-six chiffres avec ou sans raffinage — aucun
+     opérateur ne multiplie les nombres entre eux, et un produit est
+     log-additif, donc il n'allonge rien (les treize codes ASCII multipliés font
+     vingt-sept chiffres au lieu de trente-six). Ce qui manquait était la FORME :
+     cette fonction déroulait « filtre, découpe, mappeur, raffinage », un seul
+     raffinage, si bien qu'un geste qui RANGE ou qui GONFLE la ligne ne pouvait
+     jamais être suivi d'une absorption. `fl+tca+masb+mtri+mab` — les codes
+     ASCII rangés par ordre croissant, puis dissous — écrit les quatorze
+     chiffres de « Fantome », et aucune recherche ne pouvait le trouver.
+
+     ★ Le second doit ABSORBER (`op.absorbe`, déclaré par l'opérateur) : il
+       consomme toute la ligne et n'écrit que la cible, donc ce qui le précède
+       ne décide de rien. Deux gestes qui choisissent, eux, resteraient deux
+       décisions superposées — c'est la doctrine de l'étage 2 bis.
+     ★ Seulement pour une VISÉE LONGUE (`cible.js › CIBLE_LONGUE`) : en deçà,
+       666 compris, pas une ligne de cet étage ne change.
+     ⚠️ Deux raffinages qui rendent la MÊME ligne ne sont pas deux matières :
+       on ne tente l'absorption qu'une fois par ligne obtenue, le premier
+       rencontré dans l'ordre du catalogue (§4.4 règle 3), comme l'étage 2. */
+  const absorbants = raffineurs.filter((o) => o.absorbe);
+  const derouler = (secondRaffinage) => {
+    for (const j of jetons.values()) {
+      for (const m of mappeurs) {
+        const v = appliquerOp(m, j.etat);
+        if (v === null) continue;
+        if (!secondRaffinage) retenir(j.ops.concat(m), j.etats.concat([v]));
+        const lignesVues = secondRaffinage ? new Set([cleEtat(v)]) : null;
+        for (const r of raffineurs) {
+          const w = appliquerOp(r, v);
+          if (w === null) continue;
+          if (!secondRaffinage) {
+            retenir(j.ops.concat(m, r), j.etats.concat([v, w]));
+            continue;
+          }
+          if (r.absorbe || w.type !== 'NUMS') continue;
+          const k = cleEtat(w);
+          if (lignesVues.has(k)) continue;
+          lignesVues.add(k);
+          for (const a of absorbants) {
+            const x = appliquerOp(a, w);
+            if (x !== null) retenir(j.ops.concat(m, r, a), j.etats.concat([v, w, x]));
+          }
+        }
       }
     }
+  };
+  derouler(false);
+  /* ★ **LA SECONDE PASSE EST UN DERNIER RECOURS, ET C'EST LA RECHERCHE QUI LE
+       DÉCIDE — pas cette fonction, et pas la longueur de la cible.**
+
+     > « Si des solutions courtes et élégantes sont trouvées, pas besoin de
+     >   chercher les options longues et bancales, mais si rien n'est trouvé,
+     >   approfondir avec le budget temps disponible est pertinent. » (l'auteur)
+
+     Une recherche qui a déjà des voies ne paie donc RIEN pour celle-ci : ni
+     temps, ni place en tête de liste. C'est `index.js` qui pose `profond` —
+     après un premier assemblage RESTÉ VIDE, et lui seul est en position de le
+     savoir : creuser fragment par fragment ferait creuser sous une liste déjà
+     pleine, pour y ajouter des voies bancales dont personne n'a besoin
+     (mesuré : « Sarah Kerrigan → Diable » passait de 7 voies à 9, pour un tiers
+     de temps en plus, alors que ses 7 voies courtes existaient).
+
+     Ce que la passe ajoute alors est une ligne RANGÉE ou GONFLÉE avant d'être
+     dissoute — un geste qui ne décide de rien, suivi d'une absorption qui
+     consomme tout. Ces voies-là arrivent derrière par construction : le barème
+     facture le rangement (`elegance.js › REARRANGEMENT`) et l'absorption est la
+     ficelle la plus chère du catalogue. Elles n'ont pas à être belles ; elles
+     ont à exister quand il n'y a rien d'autre.
+
+     ★ **AUCUNE HORLOGE ICI, et c'est voulu** (§4.4) : ce qui borne la recherche
+       est le TRAVAIL. La seconde passe ne relance AUCUNE recherche de fragment
+       — les chemins du faisceau sont déjà là —, elle redéroule la forme fermée
+       sur les mêmes états ; et elle ne se déroule que sur une liste vide, donc
+       jamais en concurrence avec une réponse qui existe.
+
+     ⚠️ **ET LE VERROU DE LONGUEUR RESTE, comme GARDE DE NON-RÉGRESSION.** En
+       deçà de onze chiffres visés (`cible.js › CIBLE_LONGUE`), la seconde passe
+       ne s'ouvre pas : 666 et les cibles chiffrées d'avant ne bougent pas d'un
+       caractère, ce que tient l'instantané. Ce n'est pas le déclencheur — c'est
+       ce qui protège l'existant, et le lever est une décision qui se mesure
+       (des voies neuves apparaîtraient là où une liste est aujourd'hui vide, y
+       compris sur 666).
+
+     ⚠️ Même en passe profonde, un fragment qui sait DÉJÀ écrire la cible ne
+       creuse pas : il a sa voie courte, elle lui suffit. « Rien trouvé » se lit
+       ici sur ce qui ÉCRIT la cible, pas sur la récolte — `retenir` garde aussi
+       les vecteurs qui ne font que CONTRIBUER (c'est la matière de la moisson),
+       et sur une cible longue presque toute ligne en porte. */
+  const ecritLaCible = (c) => ecrit(c.etats[c.etats.length - 1].valeur, cbl);
+  if (options.profond === true && cbl.longueur > CIBLE_LONGUE && !out.some(ecritLaCible)) {
+    derouler(true);
   }
   // ★ LA QUALITÉ SE CONSULTE AVANT LE PLAFOND, PAS APRÈS.
   //
@@ -3085,7 +3174,9 @@ export function assembler(saisie, fragments, parFrag, ctx) {
       //   `parFrag` ne porte seulement `mrd` — mais d'ici. Huit vecteurs par
       //   fragment porteur, en dur, c'était la borne réelle de la liste entière.
       const vecteurs = vecteursDeSix(f.texte, opsExplorables, K, kParFragment * 2, cbl,
-        { curseurs: ctx.curseurs })
+        // ★ `profond` — la seconde passe de dernier recours, posée par
+        //   `index.js` quand un premier assemblage n'a rien rendu.
+        { curseurs: ctx.curseurs, profond: ctx.profond === true })
         .slice(0, kParFragment);
       if (f.entier || f.famille === 'entier') vecteursEntiers = vecteurs;
       for (const c of vecteurs) {

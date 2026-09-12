@@ -98,16 +98,39 @@ test('cible-mot — un signe qu’aucune relecture n’écrit : aucune voie, et 
  *   souvent : `fl+masc+mab`, les lettres de la saisie en codes ASCII, fondus
  *   sans perte dans la suite visée.
  *
- * ★ FANTOME reste hors de portée depuis « Sarah Kerrigan », et c'est la
- *   LONGUEUR DE LA LIGNE qui l'arrête, pas celle du mot : sept lettres font
- *   quatorze chiffres dans toutes les relectures, et l'absorption — par où
- *   passent toutes ces voies — n'écrit qu'un chiffre visé pour trois ou quatre
- *   chiffres de ligne (`mappeurs.js › plafondDAbsorption`, qui porte la mesure).
- *   Les lignes de « Sarah Kerrigan » font trente-six chiffres au plus (l'ASCII
- *   de treize lettres) : de sept à onze chiffres écrits, jamais quatorze.
- *   Depuis une saisie plus longue, Fantome est atteint (`https://hope-hope-hope.fr/`,
- *   voir la routine). Écrire par TRONÇONS — une portée par morceau — n'y
- *   changerait rien : découper la ligne n'ajoute pas un chiffre à la matière.
+ * ★ FANTOME EST ATTEINT depuis « Sarah Kerrigan » — `fl+masb+mtri+mab`, relu
+ *   par le rang sur deux chiffres : les codes ASCII des treize lettres, rangés
+ *   du plus petit au plus grand, puis dissous dans les quatorze chiffres visés.
+ *
+ *   ⚠️ **CE PAVÉ A DIT UNE FAUSSETÉ, ET VOICI LAQUELLE.** Il affirmait que la
+ *     MATIÈRE manquait : trente-six chiffres de ligne au plus, et l'absorption
+ *     n'en écrit qu'un pour trois ou quatre. Le premier chiffre est exact, le
+ *     second aussi — et la conclusion était fausse. « La matière, tu vas
+ *     l'avoir » (l'auteur) : mesuré, la plus longue ligne fait bien trente-six
+ *     chiffres, rangée ou non (aucun opérateur ne multiplie les nombres entre
+ *     eux, et un produit est log-additif : il n'allonge rien). Ce qui manquait
+ *     n'était pas la quantité, c'était l'ARRANGEMENT — et deux verrous de FORME
+ *     l'interdisaient :
+ *
+ *     · `vecteursDeSix` ne déroulait qu'UN raffinage, si bien que « ranger puis
+ *       absorber » n'était jamais essayé ;
+ *     · `mtri` exigeait de rassembler une série ENTIÈRE de valeurs identiques —
+ *       quatorze valeurs égales côte à côte pour une visée de quatorze — donc
+ *       il refusait toute ligne, toujours.
+ *
+ *     Les deux sont levés pour les visées longues seulement (`cible.js ›
+ *     CIBLE_LONGUE`), et rien ne bouge en deçà.
+ *
+ *   ★ **ET C'EST UN DERNIER RECOURS.** « Si des solutions courtes et élégantes
+ *     sont trouvées, pas besoin de chercher les options longues et bancales,
+ *     mais si rien n'est trouvé, approfondir avec le budget temps disponible
+ *     est pertinent » (l'auteur). La seconde passe ne se déroule donc que si
+ *     AUCUNE relecture n'a rendu de voie — Fantome la déclenche, Diable non, et
+ *     le test de Diable le vérifie.
+ *
+ * ★ Ce qui reste vrai de la capacité : elle borne, mais plus haut qu'annoncé.
+ *   PROTOSS (14 chiffres) et NUMÉROLOGIE (22) n'ont toujours pas de voie depuis
+ *   cette saisie-là ; le banc les classe, et dit lequel des deux murs il touche.
  */
 test('cible-mot — Sarah Kerrigan → Zerg, par les coordonnées de clavier entre autres', () => {
   const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Zerg' });
@@ -135,17 +158,28 @@ test('cible-mot — Sarah Kerrigan → Diable, que seules les relectures par pai
   assert.ok(r.approches.length >= 1, 'aucune voie vers Diable');
   assert.ok(r.approches.every((a) => ['m1a2', 'mpol', 'mtap'].includes(a.relecture.code)),
     'ni le rang ni le clavier n’y mènent : ce sont les paires qui l’ouvrent');
+  /* ★ **ET AUCUNE VOIE DE DERNIER RECOURS ICI** — c'est tout l'objet de la
+     règle : « si des solutions courtes et élégantes sont trouvées, pas besoin
+     de chercher les options longues et bancales » (l'auteur). Diable a ses sept
+     voies courtes, donc la seconde passe de `vecteursDeSix` n'est jamais
+     déroulée. Mesuré : déclenchée sans condition, elle en ajoutait deux par le
+     QWERTY (`fl+masc+mdc3+mab`) et coûtait un tiers de temps en plus. */
+  assert.ok(r.approches.every((a) => !/(mtri|mdc3|md03|meg)\+mab/.test(a.url)),
+    'rien n’a été gonflé ni rangé : la liste courte se suffit');
   // Le diagnostic dit, relecture par relecture, ce qui a été tenté.
   const clavier = r.relectures.find((x) => x.code === 'mcaz');
   assert.equal(clavier.voies, 0);
   verifierVoies('Sarah Kerrigan', r, 'diable');
 });
 
-test('cible-mot — Sarah Kerrigan → Fantome', {
-  todo: 'quatorze chiffres dans toutes les relectures — voir le pavé au-dessus',
-}, () => {
+test('cible-mot — Sarah Kerrigan → Fantome, rangé puis dissous', () => {
   const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Fantome' });
   assert.ok(r.approches.length >= 1, 'aucune voie vers Fantome');
+  // Le geste que les deux verrous interdisaient : un rangement, PUIS une
+  // absorption — deux raffinages, ce que la forme fermée ne déroulait pas.
+  assert.ok(r.approches.some((a) => /mtri\+mab/.test(a.url)),
+    'la voie attendue range les codes ASCII avant de les dissoudre');
+  verifierVoies('Sarah Kerrigan', r, 'fantome');
 });
 
 /* ══════════════════════ 3. Non-régression des cibles chiffrées ══════════════════════

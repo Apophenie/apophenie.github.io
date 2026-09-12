@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 
 import {
   lireCible, memeCible, verdict, estMot, ecritureDe, ecartDeForme, libelleEcart, cibleDeValeurs,
-  ECARTS, MAX_CHIFFRES, MAX_SIGNES_TEXTE, CIBLE_DEFAUT,
+  ECARTS, MAX_CHIFFRES, MAX_SIGNES_TEXTE, CIBLE_DEFAUT, CIBLE_LONGUE,
 } from '../cible.js';
 import {
   relecturesPour, inverseDe, operateursDeRelecture, RELECTURE_PAR_DEFAUT,
@@ -291,7 +291,25 @@ test('cible-mot — le rejeu refuse ce qu’il ne sait pas relire, en le disant'
  * ligne ; à trente-six chiffres de ligne, quatorze chiffres visés (sept lettres
  * relues par paires) étaient hors d'atteinte par construction.
  */
+/**
+ * ★ CE QUI ABSORBE LE DÉCLARE — la recherche ne tient pas une liste de codes
+ *   (`assemblage.js › vecteursDeSix`, le second raffinage). Un cinquième
+ *   opérateur d'absorption entrerait dans la forme sans qu'on touche à la
+ *   recherche ; et s'il oubliait le champ, ce test le dirait.
+ */
+test('cible-mot — les opérateurs qui ABSORBENT sont déclarés, et ce sont ceux-là', () => {
+  const absorbants = operateursExplorables(catalogue).filter((o) => o.absorbe).map((o) => o.code);
+  assert.deepEqual(absorbants, ['mab', 'mrdE', 'mabx', 'mabd']);
+  for (const code of absorbants) {
+    const op = operateursExplorables(catalogue).find((o) => o.code === code);
+    assert.equal(op.from, 'NUMS');
+    assert.equal(op.to, 'NUMS');
+    assert.equal(typeof op.viser, 'function', 'elle écrit la cible : elle la lit');
+  }
+});
+
 test('cible-mot — le plafond d’absorption suit la visée, et seulement au-delà de dix chiffres', () => {
+  assert.equal(CIBLE_LONGUE, VISEE_LONGUE, 'la recherche et le moteur nomment le même dix');
   assert.equal(VISEE_LONGUE, 10, 'l’ancien plafond des cibles chiffrées : en deçà, rien ne bouge');
   assert.ok(MAX_CHIFFRES > VISEE_LONGUE, 'une cible chiffrée longue profite de la même règle qu’un mot');
   for (let l = 1; l <= VISEE_LONGUE; l++) assert.equal(plafondDAbsorption(l), 36, `visée de ${l} : rien ne bouge`);

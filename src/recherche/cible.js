@@ -138,6 +138,18 @@
  */
 export const MAX_CHIFFRES = 20;
 
+/**
+ * ★ LA VISÉE LONGUE — au-delà de dix chiffres, et c'est le même dix que
+ * `mappeurs.js › VISEE_LONGUE` (un test tient l'égalité).
+ *
+ * Dix, c'était le plafond des cibles chiffrées avant qu'il passe à vingt : rien
+ * de ce que le site a déjà publié n'est au-dessus. C'est donc la frontière qui
+ * permet d'élargir la recherche pour les visées longues — la ligne de
+ * l'absorption, la forme des programmes explorés — en garantissant qu'en deçà,
+ * 666 compris, pas un chemin de code ne change.
+ */
+export const CIBLE_LONGUE = 10;
+
 /** L'écriture de la cible par défaut. Toute la promesse du site tient ici. */
 export const TEXTE_DEFAUT = '666';
 
