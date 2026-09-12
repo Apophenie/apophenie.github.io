@@ -16,6 +16,7 @@ import {
 } from '../cible.js';
 import {
   relecturesPour, inverseDe, operateursDeRelecture, RELECTURE_PAR_DEFAUT,
+  segmentsDe, LONGUEUR_D_UN_BLOC, CHIFFRES_PAR_SEGMENT,
 } from '../conversions.js';
 import { lire, ecrire, BANDEAUX } from '../url.js';
 import { encoderTexte } from '../base58.js';
@@ -119,16 +120,22 @@ test('cible-mot — le barème d’écart : la hiérarchie de l’auteur, chiffr
 
 test('cible-mot — les relectures du catalogue, et leur inverse CALCULÉ sur l’opérateur', () => {
   const ops = operateursDeRelecture(catalogue);
-  assert.deepEqual(ops.map((o) => o.code), ['m1a', 'mcaz', 'mcqw', 'm1a2', 'mpol', 'mtap']);
+  assert.deepEqual(ops.map((o) => o.code), ['m1a', 'mcaz', 'mcqw', 'm1a2', 'mpol', 'mtap', 'masi']);
   assert.equal(RELECTURE_PAR_DEFAUT, 'm1a');
   const par = Object.fromEntries(ops.map((o) => [o.code, o]));
   assert.deepEqual([...inverseDe(par.m1a).get('z')], [26]);
   assert.deepEqual([...inverseDe(par.mcaz).get('z')], [2, 1]);
   assert.deepEqual([...inverseDe(par.mcqw).get('z')], [1, 3]);
+  assert.deepEqual([...inverseDe(par.mtap).get(' ')], [0, 1]);
+  // La table ASCII écrit la casse et la ponctuation, sur trois chiffres.
+  assert.deepEqual([...inverseDe(par.masi).get('C')], [0, 6, 7]);
+  assert.deepEqual([...inverseDe(par.masi).get("'")], [0, 3, 9]);
   for (const op of ops) {
     const inverse = inverseDe(op);
-    // Le carré de Polybe a vingt-cinq cases : il n'écrit jamais j.
-    assert.equal(inverse.size, op.code === 'mpol' ? 25 : 26, `${op.code} : chaque lettre, une fois`);
+    // Le carré de Polybe a vingt-cinq cases : il n'écrit jamais j. Le multi-tap
+    // en a vingt-sept : l'espace est sur le 0.
+    const tailles = { mpol: 25, mtap: 27, masi: 95 };
+    assert.equal(inverse.size, tailles[op.code] ?? 26, `${op.code} : chaque lettre, une fois`);
     // L'aller-retour est exact : ce que l'inverse donne, l'opérateur le relit.
     for (const [lettre, valeurs] of inverse) {
       const e = appliquerOp(op, etat('NUMS', [...valeurs], []));
@@ -150,8 +157,51 @@ test('cible-mot — les relectures d’un texte : cibles sous-jacentes, écrit r
   const fantome = relecturesPour(lireCible('Fantôme'), catalogue);
   assert.ok(fantome.length === 6 && fantome.every((r) => r.produit === 'fantome' && r.ecart.facteur === 902));
   assert.equal(fantome.find((r) => r.code === 'mcaz').cible.nature, 'valeurs', 'le M est en colonne 10 en AZERTY');
-  assert.deepEqual(relecturesPour(lireCible('reine des lames'), catalogue), [],
-    'aucune relecture n’écrit l’espace : pas de voie, et c’est la recherche qui le dit');
+  // ★ L'ESPACE a une relecture : le 0 du téléphone. « reine des lames » ne se
+  //   relit donc plus que par lui — trente chiffres, l'espace valant 0 1.
+  assert.deepEqual(relecturesPour(lireCible('reine des lames'), catalogue)
+    .map((r) => [r.code, r.cible.texte, r.produit]),
+  [['mtap', '733243623201313274015321613274', 'reine des lames']]);
+  assert.deepEqual(relecturesPour(lireCible('cœur'), catalogue), [],
+    'aucune relecture n’écrit le « œ » : pas de voie, et c’est la recherche qui le dit');
+});
+
+/* ★ LA PONCTUATION OMISE — un écart de forme, payé, et rien de plus. */
+test('cible-mot — la ponctuation omise se paie, et elle seule', () => {
+  const e = ecartDeForme('cest de la merde', "C'est de la merde !");
+  assert.deepEqual([...e.natures], ['ponctuation', 'initiale']);
+  assert.equal(e.facteur, Math.round((ECARTS.ponctuation.facteur * ECARTS.initiale.facteur) / 1000));
+  assert.ok(ECARTS.ponctuation.facteur < 1000, 'l’exacte passe devant l’approchée de même note');
+  assert.equal(libelleEcart(e), 'à la ponctuation près et à la capitale initiale près');
+  assert.equal(ecartDeForme('cest de la', "C'est de la merde !"), null, 'un mot manquant n’est pas un écart');
+  assert.equal(ecartDeForme('cest de la merde', 'Cest de la merde').facteur, ECARTS.initiale.facteur,
+    'sans ponctuation visée, rien à payer pour elle');
+  // Les relectures de la phrase : le téléphone l'APPROCHE (pas de ponctuation),
+  // la table ASCII l'écrit EXACTEMENT. Jamais les deux pour un même code.
+  const rel = relecturesPour(lireCible("C'est de la merde !"), catalogue);
+  assert.deepEqual(rel.map((r) => [r.code, r.cible.longueur, r.produit, Boolean(r.ponctuationOmise), r.ecart.facteur]), [
+    ['mtap', 32, 'cest de la merde', true, e.facteur],
+    ['masi', 57, "C'est de la merde !", false, 1000],
+  ]);
+});
+
+/* ★ UNE PHRASE EN SEGMENTS — d'un bloc tant qu'elle tient, aux mots au-delà. */
+test('cible-mot — une phrase trop longue pour un bloc se découpe aux mots, et la découpe réécrit la cible', () => {
+  const [tel, ascii] = relecturesPour(lireCible("C'est de la merde !"), catalogue);
+  const tSeg = segmentsDe(tel);
+  const aSeg = segmentsDe(ascii);
+  // Le téléphone approche en deux segments, la table ASCII écrit exactement en quatre.
+  assert.deepEqual(tSeg.map((sg) => sg.texte), ['Cest de la', ' merde']);
+  assert.deepEqual(aSeg.map((sg) => sg.texte), ["C'est", ' de la', ' merde', ' !']);
+  for (const [rel, segs] of [[tel, tSeg], [ascii, aSeg]]) {
+    assert.equal(segs.flatMap((sg) => sg.cible.chiffres).join(''), rel.cible.chiffres.join(''),
+      `${rel.code} : bout à bout, les segments écrivent la cible entière`);
+    for (const sg of segs) assert.ok(sg.cible.longueur <= CHIFFRES_PAR_SEGMENT, `${rel.code} : « ${sg.texte} »`);
+  }
+  // Ce qui tient d'un bloc reste un bloc : « de la merde » fait 22 chiffres.
+  const [bloc] = relecturesPour(lireCible('de la merde'), catalogue);
+  assert.ok(bloc.cible.longueur <= LONGUEUR_D_UN_BLOC);
+  assert.equal(segmentsDe(bloc), null);
 });
 
 test('cible-mot — face à une relecture chiffrée, les opérateurs qui lisent la cible TRAVAILLENT', () => {

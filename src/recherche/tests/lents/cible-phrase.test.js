@@ -1,20 +1,33 @@
 /** Une PHRASE visée — « https://reinfocovid.fr/ » → « C'est de la merde ! ».
  *
- *  Le couple est de l'auteur. Il dit ce que la cible textuelle ne sait pas
- *  encore faire : viser plus d'un mot.
+ *  Le couple est de l'autrice. Il dit ce que la cible textuelle devait apprendre :
+ *  viser plus d'un mot, ponctuation comprise.
  *
- *  ★ MESURÉ, et ce n'est pas la ponctuation seule qui bloque : trois signes
- *    n'ont aucune relecture — l'apostrophe, le point d'exclamation, et
- *    l'ESPACE. Une cible textuelle est donc aujourd'hui un mot unique : « de la
- *    merde » est refusée pour la même raison. Le refus est immédiat, et il est
- *    dit (`conversions.js › signesSansRelecture`).
+ *  ★ LES SIGNES. L'ESPACE s'écrit sur le 0 du téléphone (`mtap`, un appui) ;
+ *    l'apostrophe et le point d'exclamation, par la table ASCII (`masi`, trois
+ *    chiffres par signe), la seule convention sourcée qui les écrive en
+ *    chiffres de 0 à 9. Mesuré : en AZERTY fr(basic) le « ! » et le « m » sont
+ *    en colonne 10 ; en QWERTY US l'apostrophe est en colonne 11 et le « ! »
+ *    demande Maj ; la touche 1 du téléphone n'a pas d'ordre commun.
  *
- *  ★ Le mot seul, lui, est atteint : « merde » depuis la même saisie a des voies
- *    qui se rejouent. Ce qui manque n'est pas la matière, c'est la phrase.
+ *  ★ D'UN BLOC, CE N'EST PAS ATTEIGNABLE. Relue d'un trait, la phrase fait 38
+ *    chiffres au téléphone (avec une ponctuation qu'il n'a pas), 32 sans la
+ *    ponctuation, 57 en ASCII. Mesuré en visant ces suites telles quelles : 22
+ *    chiffres → 7 voies, 26 → 10, 32 et 38 → AUCUNE, aux crans 0, 3 et 5. La
+ *    cause est la MATIÈRE : la plus longue ligne que la saisie donne fait 72
+ *    chiffres (`fl+masc+mcar`) ou 89 (`fl+masb+mcar`), et sur 72 chiffres
+ *    l'absorption accepte une visée de 22 et refuse 32.
  *
- *  ⚠️ Même sans ponctuation ni espaces, « Cestdelamerde » fait treize lettres,
- *    soit vingt-six chiffres relus par paires : au-delà de `MAX_CHIFFRES`. Une
- *    phrase se visera donc mot par mot, ou pas du tout.
+ *  ★ EN SEGMENTS, ELLE L'EST. Au-delà de 26 chiffres, la cible se découpe aux
+ *    mots en segments d'au plus 22 (`conversions.js › segmentsDe`) ; chaque
+ *    segment est cherché à part, les voies d'une même portée s'enchaînent, et
+ *    UNE relecture relit la ligne entière au verdict. Le téléphone APPROCHE la
+ *    phrase en deux segments (« cest de la » + « merde »), au prix de la
+ *    ponctuation et de la capitale ; la table ASCII l'écrit EXACTEMENT en quatre.
+ *
+ *  ★ LA RAMPE. Un segment est une recherche : le cran 0 s'en autorise deux, et
+ *    chaque cran un de plus. Au cran 0, l'approximation ; à partir du cran 2,
+ *    la voie exacte aussi — et elle ne paie aucun écart.
  */
 
 import test from 'node:test';
@@ -23,7 +36,7 @@ import assert from 'node:assert/strict';
 import { creerMoteur } from '../../index.js';
 import { lire } from '../../url.js';
 import { lireCible } from '../../cible.js';
-import { signesSansRelecture } from '../../conversions.js';
+import { signesSansRelecture, relecturesPour, segmentsDe } from '../../conversions.js';
 import { catalogue } from '../_catalogue.js';
 import { compile } from '../../../visuel/compile.js';
 
@@ -31,11 +44,68 @@ const moteur = creerMoteur(catalogue, { filetTemporel: false });
 const SAISIE = 'https://reinfocovid.fr/';
 const PHRASE = "C'est de la merde !";
 
-test('cible-phrase — ce qui bloque est dit : l’apostrophe, l’espace, le point d’exclamation', () => {
-  assert.deepEqual(signesSansRelecture(lireCible(PHRASE), catalogue), ["'", ' ', '!']);
-  const r = moteur.resoudre(SAISIE, { cible: PHRASE });
-  assert.equal(r.approches.length, 0);
-  assert.ok(r.avertissement && r.avertissement.fr, 'le refus est écrit, pas silencieux');
+test('cible-phrase — tous les signes ont une relecture : le téléphone approche, ASCII écrit, en segments', () => {
+  const mot = lireCible(PHRASE);
+  assert.deepEqual(signesSansRelecture(mot, catalogue), []);
+  const rel = relecturesPour(mot, catalogue);
+  assert.deepEqual(rel.map((r) => [r.code, r.cible.longueur, r.produit]),
+    [['mtap', 32, 'cest de la merde'], ['masi', 57, PHRASE]]);
+  assert.deepEqual(rel.map((r) => segmentsDe(r).map((sg) => sg.texte)),
+    [['Cest de la', ' merde'], ["C'est", ' de la', ' merde', ' !']]);
+});
+
+/**
+ * Toute voie vers une phrase, vérifiée par le CHEMIN RÉEL : le lien se rejoue à
+ * l'identique, la scène n'a aucun geste remplacé en silence, la relecture est
+ * JOUÉE et écrit ce que le verdict annonce — espaces compris —, et le moteur
+ * visuel compile.
+ */
+function verifierVoies(r, ecrit) {
+  for (const a of r.approches) {
+    const rejeu = moteur.rejouer(lire(a.url));
+    assert.equal(rejeu.ok, true, `${a.url} : ${rejeu.raison || ''}`);
+    assert.equal(rejeu.approche.url, a.url, `${a.url} se rejoue à l’identique`);
+    const sc = moteur.scenarioDe(a, { saisie: SAISIE, cible: r.cible });
+    assert.equal(sc.avertissements, undefined, `${a.url} : ${(sc.avertissements || []).join(' | ')}`);
+    assert.equal(sc.result, ecrit, a.url);
+    const relus = sc.steps.filter((st) => st.code === a.relecture.code).flatMap((st) => st.ops)
+      .filter((o) => o.op !== 'merge' && o.to && typeof o.to.text === 'string').map((o) => o.to.text);
+    assert.equal(relus.join(''), ecrit, `${a.url} : la relecture est jouée, signe par signe`);
+    assert.doesNotThrow(() => compile(sc), a.url);
+  }
+}
+
+/* ★ L'ESPACE, et rien de plus : « de la merde » se vise D'UN BLOC — une seule
+     relecture pour toute la phrase. Le multi-tap l'écrit (0 1 pour l'espace) en
+     vingt-deux chiffres, et la recherche chiffrée les atteint : mesuré, sept
+     voies au cran 0, toutes par le téléphone (les autres relectures n'ont pas
+     d'espace). */
+test('cible-phrase — « de la merde » d’un bloc : l’espace sur le 0 du téléphone', () => {
+  const r = moteur.resoudre(SAISIE, { cible: 'de la merde' });
+  assert.ok(r.approches.length >= 1, 'aucune voie vers « de la merde »');
+  assert.deepEqual([...new Set(r.approches.map((a) => a.relecture.code))], ['mtap']);
+  for (const a of r.approches) assert.equal(a.ecartDeForme.facteur, 1000, a.url);
+  verifierVoies(r, 'de la merde');
+});
+
+/* ★ LA PONCTUATION, et la casse avec : « C'est » ne s'écrit EXACTEMENT que par la
+     table ASCII (`masi`), trois chiffres par signe — 067 039 101 115 116. Les six
+     relectures ordinaires l'APPROCHENT (« cest », à la ponctuation et à la
+     capitale près, ×0,825).
+     ⚠️ MESURÉ, et c'est un arbitrage ouvert : l'exacte n'est PAS en tête. Les
+     approchées partent d'une note plus haute — deux chiffres par signe au lieu
+     de trois, des programmes plus courts — et la meilleure fait 3 845 contre
+     3 561 pour l'exacte, huitième. Et comme elles fournissent plus de cinq voies,
+     le dernier recours ne se déclenche plus : ASCII rend une voie, pas six. */
+test('cible-phrase — « C’est » : exacte par la table ASCII, approchée par les autres', () => {
+  const r = moteur.resoudre(SAISIE, { cible: "C'est" });
+  const exactes = r.approches.filter((a) => a.relecture.code === 'masi');
+  const approchees = r.approches.filter((a) => a.relecture.code !== 'masi');
+  assert.ok(exactes.length >= 1, 'aucune voie exacte vers « C’est »');
+  for (const a of exactes) assert.equal(a.ecartDeForme.facteur, 1000, a.url);
+  for (const a of approchees) assert.deepEqual([...a.ecartDeForme.natures], ['ponctuation', 'initiale'], a.url);
+  verifierVoies({ ...r, approches: exactes }, "C'est");
+  verifierVoies({ ...r, approches: approchees }, 'cest');
 });
 
 test('cible-phrase — le mot seul est atteint : « merde », et chaque voie se rejoue', () => {
@@ -52,9 +122,34 @@ test('cible-phrase — le mot seul est atteint : « merde », et chaque voie se 
   }
 });
 
-test('cible-phrase — « https://reinfocovid.fr/ » → « C’est de la merde ! »', {
-  todo: 'une cible textuelle ne vise qu’un mot : ni espace, ni apostrophe, ni point d’exclamation — voir le pavé',
-}, () => {
+test('cible-phrase — « https://reinfocovid.fr/ » → « C’est de la merde ! » : approchée au cran 0', () => {
   const r = moteur.resoudre(SAISIE, { cible: PHRASE });
-  assert.ok(r.approches.length >= 1, 'aucune voie vers la phrase');
+  assert.ok(r.approches.length >= 1, 'aucune voie vers la phrase au cran 0');
+  for (const a of r.approches) {
+    assert.equal(a.relecture.code, 'mtap', `${a.url} : au cran 0, le téléphone`);
+    assert.equal(a.mode, 'PHRASE', a.url);
+    assert.equal(a.parts.length, 2, `${a.url} : deux segments`);
+    assert.deepEqual([...a.ecartDeForme.natures], ['ponctuation', 'initiale'], a.url);
+  }
+  // L'exacte n'est pas cherchée à ce cran : c'est dit, pas tu.
+  assert.equal(r.relectures.find((x) => x.code === 'masi').horsDuCran, true);
+  verifierVoies(r, 'cest de la merde');
+});
+
+/* ★ LA RAMPE, VUE DU CRAN 2 : la table ASCII entre, en quatre segments, et la voie
+     EXACTE passe devant les approchées — mesuré : 2 347 contre 2 006 et 1 564. */
+test('cible-phrase — « C’est de la merde ! » exacte au cran 2, devant l’approchée', () => {
+  const r = moteur.resoudre(SAISIE, { cible: PHRASE, fouille: 2 });
+  const exactes = r.approches.filter((a) => a.relecture.code === 'masi');
+  const approchees = r.approches.filter((a) => a.relecture.code === 'mtap');
+  assert.ok(exactes.length >= 1, 'aucune voie exacte au cran 2');
+  assert.ok(approchees.length >= 1, 'l’approchée ne disparaît pas quand le cran monte');
+  for (const a of exactes) {
+    assert.equal(a.mode, 'PHRASE', a.url);
+    assert.equal(a.parts.length, 4, `${a.url} : quatre segments`);
+    assert.equal(a.ecartDeForme.facteur, 1000, `${a.url} : rien à payer`);
+  }
+  assert.equal(r.approches[0].relecture.code, 'masi', 'la voie exacte en tête');
+  verifierVoies({ ...r, approches: exactes }, PHRASE);
+  verifierVoies({ ...r, approches: approchees }, 'cest de la merde');
 });

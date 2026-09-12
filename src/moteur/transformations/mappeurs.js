@@ -7044,18 +7044,31 @@ const AUTRES_MAPPEURS = [
     id: 'm.multiTap', code: 'mtap',
     libelle: bilingue('La touche et le nombre d’appuis, sur un téléphone',
       'The key and the number of presses, on a phone'),
-    regle: bilingue('La touche, puis les appuis — 7 4 = s, quatre fois sur le 7',
-      'Key, then presses — 7 4 = s, four times on the 7'),
+    regle: bilingue('La touche, puis les appuis — 7 4 = s, quatre fois sur le 7 ; 0 1 = l’espace',
+      'Key, then presses — 7 4 = s, four times on the 7; 0 1 = a space'),
     outil: bilingue('Clavier de téléphone, en appuis', 'Phone keypad, in presses'),
     note: bilingue(
       'Le multi-tap des téléphones d’avant la saisie prédictive : on appuie sur la touche '
-      + 'autant de fois que le rang de la lettre sur elle. 7777 s’écrit ici 7 4.',
+      + 'autant de fois que le rang de la lettre sur elle. 7777 s’écrit ici 7 4. '
+      + 'L’espace est sur le 0, d’un appui. La ponctuation n’y est pas : son ordre '
+      + 'sur la touche 1 change d’un téléphone à l’autre.',
       'The multi-tap of phones before predictive text: press the key as many times as the '
-      + 'letter’s place on it. 7777 is written here as 7 4.',
+      + 'letter’s place on it. 7777 is written here as 7 4. The space is on 0, one press. '
+      + 'Punctuation is left out: its order on key 1 differs from one phone to the next.',
     ),
     notoriete: 0.6, adHoc: 0.35, colonnes: 13,
-    couples: Object.entries(T9_GROUPES)
-      .flatMap(([touche, lettres]) => [...lettres].map((c, k) => [`${touche}${k + 1}`, c.toLowerCase()])),
+    /* ★ **L'ESPACE, SUR LE 0.** La norme ITU-T E.161 ne fixe que les lettres ;
+         l'espace sur la touche 0, d'un appui, est ce que disent les notices
+         (Nokia 3310 : « To type in a space press 0 »). La ponctuation de la
+         touche 1, elle, n'a pas d'ordre commun — la mettre ici serait
+         l'inventer. Une phrase se relit donc par le téléphone à la
+         ponctuation près (`recherche/cible.js › ecartDeForme`). En fin de
+         table : les lettres gardent leurs cases. */
+    couples: [
+      ...Object.entries(T9_GROUPES)
+        .flatMap(([touche, lettres]) => [...lettres].map((c, k) => [`${touche}${k + 1}`, c.toLowerCase()])),
+      ['01', ' ', bilingue('espace', 'space')],
+    ],
   }),
   /* ★ **LE CARRÉ — `mcar`, et il ne sert QU'AU DERNIER RECOURS.**
    *
@@ -7266,6 +7279,9 @@ const AUTRES_MAPPEURS = [
       });
     },
   }),
+  // ★ LE CODE ASCII QUI REDEVIENT SIGNE — `masi`, trois chiffres pour un signe.
+  //   La fabrique est plus bas (hissage). En fin de bloc mappeur, append-only.
+  operateurAsciiEnSigne(),
 ];
 
 /**
@@ -7730,8 +7746,12 @@ function operateurCoordonnees(disposition) {
 function operateurParPaires({
   id, code, libelle, regle, outil, note, notoriete, adHoc, colonnes, couples,
 }) {
-  const parCle = new Map(couples);
-  const table = Object.freeze(couples.map(([cle, lettre]) => Object.freeze({ char: cle, value: lettre })));
+  const parCle = new Map(couples.map(([cle, lettre]) => [cle, lettre]));
+  // ★ Une case peut porter une NOTE (bilingue) : celle de l'espace, dont la
+  //   valeur ne se voit pas. Elle est traduite au moment de montrer la table.
+  const table = Object.freeze(couples.map(([cle, lettre, note]) => Object.freeze({
+    char: cle, value: lettre, ...(note ? { note } : {}),
+  })));
   const premiers = [...new Set(couples.map(([cle]) => Number(cle[0])))].sort((a, b) => a - b);
   const seconds = [...new Set(couples.map(([cle]) => Number(cle[1])))].sort((a, b) => a - b);
   const idColle = (ctx, i) => `${ctx.cle}_p${i}`;
@@ -7778,15 +7798,139 @@ function operateurParPaires({
           targets: [ctx.ids[2 * i], ctx.ids[2 * i + 1]],
           to: token(idColle(ctx, i), cle, 'number'),
         }], { id: `s_${ctx.cle}_c${i}` }));
-        steps.push(etape(ctx, titre, `${dit} · ${cle} → ${lettre}`, [{
+        steps.push(etape(ctx, titre, `${dit} · ${cle} → ${lettre === ' ' ? '␣' : lettre}`, [{
           op: 'table',
           disposition: 'reglette',
           titre: nomOutil,
           colonnes,
-          entries: table.map((e) => ({ ...e })),
+          entries: table.map((e) => ({ ...e, ...(e.note ? { note: dire(e.note, ctx.langue) } : {}) })),
           target: idColle(ctx, i),
           letter: cle,
-          to: token(idLettre(ctx, i), lettre, 'letter'),
+          to: token(idLettre(ctx, i), lettre, lettre === ' ' ? 'space' : 'letter'),
+          montre: i === 0,
+          retire: i === dernier,
+        }], { id: `s_${ctx.cle}_${i}` }));
+      });
+      return steps;
+    },
+  });
+}
+
+/**
+ * ★ **LE CODE ASCII QUI REDEVIENT SIGNE — `masi`, trois chiffres pour un signe.**
+ *
+ * > « Il faut pouvoir générer des espaces et caractères autres, ça peut être via
+ * >   la table ASCII, ça peut être via la position sur le clavier. » (l'auteur)
+ *
+ * L'inverse de `masc` et `masb`, étendu aux quatre-vingt-quinze signes
+ * imprimables : de l'espace (32) au tilde (126). Chaque code s'écrit sur TROIS
+ * chiffres, zéro compris — C est 067, l'apostrophe 039, le point
+ * d'exclamation 033 —, si bien qu'une ligne de chiffres se relit sans
+ * ambiguïté, trois par trois.
+ *
+ * ★ **POURQUOI ELLE, ET PAS LE CLAVIER NI LA TOUCHE 1 DU TÉLÉPHONE.** Mesuré sur
+ *   « C'est de la merde ! » : c'est la seule convention SOURCÉE qui écrive
+ *   l'apostrophe et le point d'exclamation en CHIFFRES de 0 à 9 — ce que
+ *   l'outillage chiffré sait viser. En AZERTY (`fr(basic)`), le « ! » est en
+ *   colonne 10 de la rangée du bas, comme le « m » ; en QWERTY US, l'apostrophe
+ *   est en colonne 11 et le « ! » demande Maj. La touche 1 du téléphone n'a
+ *   pas d'ordre commun. ASCII est une norme, et elle a une table.
+ *
+ * ★ **ELLE ÉCRIT LA CASSE.** « C » est 067 et « c » 099 : une voie par ASCII ne
+ *   paie donc aucun écart de casse. Pas d'accents ni de « œ », qu'ASCII n'a pas.
+ *
+ * ★ **UNE RELECTURE DE RÉSERVE** (`relecture.reserve`). Trois chiffres par signe,
+ *   c'est cinquante pour cent de plus que les relectures par paires : elle n'est
+ *   cherchée que pour un texte qui porte un signe qu'aucune autre n'écrit
+ *   (`recherche/conversions.js`). Sur « Zerg », rien ne change.
+ *
+ * ★ Le GESTE, deux temps par signe, comme les relectures par paires : les trois
+ *   chiffres se COLLENT (« 0 6 7 » devient « 067 »), puis la case s'allume et
+ *   le signe en redescend. La table montée est la table ASCII imprimable, en
+ *   seize colonnes — celles de toutes les tables ASCII, un rang par seizaine.
+ * ★ INACTIVE en recherche et MUÉE, pour les raisons de `m1a`.
+ * ★ Notoriété 0,45 : celle de `masc` et `masb`. AdHoc 0,35 : on ne relit des
+ *   codes en signes que pour écrire un texte choisi.
+ */
+function operateurAsciiEnSigne() {
+  const libelle = bilingue('Trois chiffres font un code ASCII, le code un signe',
+    'Three digits make an ASCII code, the code a character');
+  const regle = bilingue('067 = C, 101 = e, 039 = ’, 032 = l’espace',
+    '067 = C, 101 = e, 039 = ’, 032 = a space');
+  const outil = bilingue('Table ASCII, de 32 à 126', 'ASCII table, 32 to 126');
+  const NOTE_ESPACE = bilingue('espace', 'space');
+  const PREMIER = 32;
+  const DERNIER = 126;
+  const cleDe = (n) => String(n).padStart(3, '0');
+  const table = Object.freeze(Array.from({ length: DERNIER - PREMIER + 1 }, (_, k) => {
+    const n = PREMIER + k;
+    const c = String.fromCharCode(n);
+    return Object.freeze({ char: cleDe(n), value: c, ...(c === ' ' ? { note: NOTE_ESPACE } : {}) });
+  }));
+  const genre = (c) => (c === ' ' ? 'space' : /^[0-9]$/.test(c) ? 'digit'
+    : /^[a-zA-Z]$/.test(c) ? 'letter' : 'punct');
+  const idColle = (ctx, i) => `${ctx.cle}_p${i}`;
+  const idSigne = (ctx, i) => `${ctx.cle}_l${i}`;
+  const chiffres = Object.freeze([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  return def({
+    id: 'm.asciiEnSigne', code: 'masi', famille: 'mappeur', from: 'NUMS', to: 'TOKENS',
+    libelle, regle, outil,
+    notoriete: 0.45, adHoc: 0.35,
+    actifParDefaut: false,
+    mue: true,
+    relecture: Object.freeze({
+      domaine: Object.freeze([Object.freeze([0, 1]), chiffres, chiffres]),
+      reserve: true,
+    }),
+    note: bilingue(
+      'Le code décimal ASCII sur trois chiffres, zéro compris : C est 067. Les '
+      + 'quatre-vingt-quinze signes imprimables, de l’espace au tilde — ni accent ni « œ », '
+      + 'qu’ASCII n’a pas.',
+      'The decimal ASCII code on three digits, zero included: C is 067. The ninety-five '
+      + 'printable characters, from space to tilde — no accents, which ASCII lacks.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length || valeur.length % 3) return null;
+      const out = [];
+      const tr = [];
+      for (let i = 0; i < valeur.length; i += 3) {
+        const [a, b, c] = [valeur[i], valeur[i + 1], valeur[i + 2]];
+        if (![a, b, c].every((d) => Number.isInteger(d) && d >= 0 && d <= 9)) return null;
+        const n = a * 100 + b * 10 + c;
+        if (n < PREMIER || n > DERNIER) return null;
+        out.push(String.fromCharCode(n));
+        tr.push(fusion(fusion(traces[i] || [], traces[i + 1] || []), traces[i + 2] || []));
+      }
+      return { valeur: out, traces: tr };
+    },
+    sortie: (avant, apres, ctx) => apres.valeur.map((_, i) => idSigne(ctx, i)),
+    // ★ Un collage puis une case, signe par signe — jamais groupés. La table
+    //   monte au premier signe, reste montée pendant les collages, se replie au
+    //   dernier : le décor se mutualise, le geste non.
+    steps: (avant, apres, ctx) => {
+      const titre = dire(libelle, ctx.langue);
+      const dit = dire(regle, ctx.langue);
+      const nomOutil = dire(outil, ctx.langue);
+      const dernier = apres.valeur.length - 1;
+      const entries = table.map((e) => ({ ...e, ...(e.note ? { note: dire(e.note, ctx.langue) } : {}) }));
+      const steps = [];
+      apres.valeur.forEach((signe, i) => {
+        const trio = [0, 1, 2].map((k) => avant.valeur[3 * i + k]);
+        const cle = trio.join('');
+        steps.push(etape(ctx, titre, `${dit} · ${trio.join(' ')} → ${cle}`, [{
+          op: 'merge',
+          targets: [0, 1, 2].map((k) => ctx.ids[3 * i + k]),
+          to: token(idColle(ctx, i), cle, 'number'),
+        }], { id: `s_${ctx.cle}_c${i}` }));
+        steps.push(etape(ctx, titre, `${dit} · ${cle} → ${signe === ' ' ? '␣' : signe}`, [{
+          op: 'table',
+          disposition: 'reglette',
+          titre: nomOutil,
+          colonnes: 16,
+          entries: entries.map((e) => ({ ...e })),
+          target: idColle(ctx, i),
+          letter: cle,
+          to: token(idSigne(ctx, i), signe, genre(signe)),
           montre: i === 0,
           retire: i === dernier,
         }], { id: `s_${ctx.cle}_${i}` }));

@@ -85,7 +85,7 @@ import {
 import { politique } from './politique.js';
 
 import {
-  relecturesPour, relecturePour, signesSansRelecture, RELECTURE_PAR_DEFAUT,
+  relecturesPour, relecturePour, relectureDuLien, signesSansRelecture, RELECTURE_PAR_DEFAUT, segmentsDe,
 } from './conversions.js';
 import { deroulerParTranches } from './tranches.js';
 
@@ -200,6 +200,12 @@ export async function chargerCatalogue(specificateur = '../moteur/catalogue.js')
  *   plus souvent.
  */
 export const VOIES_AVANT_DE_CREUSER = 5;
+
+/**
+ * ★ Combien de SEGMENTS une phrase peut demander au cran 0 — voir la rampe de
+ * `deroulerTexte`. Chaque cran en ajoute un.
+ */
+export const SEGMENTS_AU_CRAN_0 = 2;
 
 /**
  * ★ **AU CRAN 5 ET AU-DELÀ, ON CREUSE QUOI QU'IL ARRIVE.**
@@ -971,6 +977,54 @@ export function creerMoteur(catalogue, options = {}) {
          les relectures à zéro ; publier sa fraction brute ferait retomber la
          barre de 100 % à 20 %. On borne donc par le plus haut déjà annoncé, ici
          comme `deroulerResolution` le fait pour ses propres rapports. */
+    /* ★ **LA RAMPE — combien de segments ce cran s'autorise.**
+         « Le cran 0 a peu de chances de trouver l'approche précise et se
+         contente de l'approximation » (l'auteur). Un segment, c'est une
+         recherche : au cran 0, deux au plus — le téléphone approche « C'est de
+         la merde ! » en deux ; la table ASCII, qui l'écrit exactement, en
+         demande quatre, et n'est cherchée qu'à partir du cran 2. Plus le curseur
+         monte, plus la recherche s'élargit. */
+    const segmentsAutorises = SEGMENTS_AU_CRAN_0 + fouille;
+    const jetonsDeLaSaisie = tokeniser(saisie);
+    const ctxNote = {
+      saisie, signifiants: zonesSignifiantes(saisie), ponderation,
+    };
+    /** Une voie d'un segment se compose si elle l'écrit d'un seul vecteur, sans rien d'autre. */
+    const estUnSegment = (a) => a.parts.length === 1 && a.mode === 'GROUPEMENT' && (a.series || 1) === 1
+      && !a.liaison && !(a.retouches && a.retouches.length);
+    const porteeDe = (a) => a.parts[0].fragment.intervalles.map((iv) => iv.join('.')).join('|');
+    /**
+     * ★ **COMPOSER UNE PHRASE** — pour chaque portée que TOUS les segments ont
+     *   su écrire, la meilleure voie de chacun, enchaînées. Même portée pour
+     *   toutes les parts : c'est la saisie entière (ou le même morceau) relue une
+     *   fois par segment, et la scène la recopie d'abord, en le montrant.
+     */
+    function composer(rel, segs, voiesParSegment) {
+      const meilleures = voiesParSegment.map((voies) => {
+        const m = new Map();
+        for (const a of voies) if (estUnSegment(a) && !m.has(porteeDe(a))) m.set(porteeDe(a), a);
+        return m;
+      });
+      const out = [];
+      for (const [cle] of meilleures[0]) {
+        if (!meilleures.every((m) => m.has(cle))) continue;
+        const parts = meilleures.map((m) => m.get(cle).parts[0]);
+        const approche = {
+          parts,
+          ...deduireMode(parts, { saisie, jetons: jetonsDeLaSaisie, cible: rel.cible, segments: segs }),
+        };
+        approche.segments = segs;
+        approche.retouches = [];
+        approche.saisie = saisie;
+        noter(approche, { ...ctxNote, cible: rel.cible });
+        marquerLesCodes(approche);
+        approche.lien = {
+          fragments: descripteursDe(approche, { nbJetons: jetonsDeLaSaisie.length }), retouches: [],
+        };
+        out.push(approche);
+      }
+      return out;
+    }
     let plusHaut = 0;
     const echelleDe = (k) => (a) => {
       const brute = (k + Math.min(1, Math.max(0, (a && a.fraction) || 0))) / n;
@@ -987,6 +1041,45 @@ export function creerMoteur(catalogue, options = {}) {
       for (let k = 0; k < n; k++) {
         const rel = relectures[k];
         const echelle = echelleDe(k);
+        const segs = segmentsDe(rel);
+        if (segs) {
+          base.relectures[k].segments = segs.map((sg) => sg.texte);
+          if (segs.length > segmentsAutorises) {
+            // Hors de ce cran : dit, pas tu.
+            base.relectures[k].horsDuCran = true;
+            base.relectures[k].voies = 0;
+            continue;
+          }
+          const voiesParSegment = [];
+          for (let sIdx = 0; sIdx < segs.length; sIdx++) {
+            const echelleSeg = (a) => echelle({
+              ...a, fraction: (sIdx + Math.min(1, Math.max(0, (a && a.fraction) || 0))) / segs.length,
+            });
+            const sousSeg = deroulerResolution(saisieBrute, {
+              ...optionsResolution,
+              cible: segs[sIdx].cible,
+              profond,
+              dernierRecours: false,
+              surAvancement: canal ? (a) => canal(echelleSeg(a)) : undefined,
+            });
+            let pasSeg = sousSeg.next();
+            while (!pasSeg.done) {
+              const pause = yield echelleSeg(pasSeg.value);
+              pasSeg = sousSeg.next(pause);
+            }
+            const rs = pasSeg.value;
+            if (rs.tronque) tronque = true;
+            if (rs.tronqueTemps) tronqueTemps = true;
+            voiesParSegment.push(rs.approches || []);
+          }
+          const composees = composer(rel, segs, voiesParSegment);
+          base.relectures[k].voies = composees.length;
+          for (const a of composees) {
+            versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
+            trouvees.push(a);
+          }
+          continue;
+        }
         const sous = deroulerResolution(saisieBrute, {
           ...optionsResolution,
           cible: rel.cible,
@@ -1148,7 +1241,8 @@ export function creerMoteur(catalogue, options = {}) {
       if (!op || !op.relecture) {
         return { ok: false, raison: `relecture inconnue : ${code}`, bandeau: BANDEAUX.codeInconnu };
       }
-      rel = relecturePour(cbl, op);
+      // ★ L'exacte, sinon l'approchée (ponctuation omise) — le même choix que la liste.
+      rel = relectureDuLien(cbl, op);
       if (!rel) return { ok: false, raison: 'relecture impossible', bandeau: BANDEAUX.relectureImpossible };
       cbl = rel.cible;
     } else if (lecture.relecture) {
@@ -1183,11 +1277,25 @@ export function creerMoteur(catalogue, options = {}) {
     //   propre règle désactive pour cette cible ne rentre pas dans la table, et
     //   `executerProgramme` refuse alors le programme — bruyamment, plutôt que
     //   de jouer une règle qui n'a pas de sens.
-    const parCode = new Map();
-    for (const o of ops) {
-      const vise = typeof o.viser === 'function' ? o.viser(cbl.texte) : o;
-      if (vise) parCode.set(o.code, vise);
-    }
+    const tableDesCodes = (visee) => {
+      const table = new Map();
+      for (const o of ops) {
+        const vise = typeof o.viser === 'function' ? o.viser(visee.texte) : o;
+        if (vise) table.set(o.code, vise);
+      }
+      return table;
+    };
+    const parCode = tableDesCodes(cbl);
+    // ★ **UNE PHRASE EN SEGMENTS** (`conversions.js › segmentsDe`) : le découpage
+    //   se refait sur la relecture, et chaque part lit les opérateurs qui visent
+    //   SON segment — `mab` n'absorbe pas vers la phrase entière. Il ne s'applique
+    //   qu'à un lien qui a exactement une part par segment ; tout autre lien se
+    //   rejoue comme avant.
+    const segs = rel ? segmentsDe(rel) : null;
+    const enSegments = Boolean(segs) && lecture.fragments.length === segs.length && !lia
+      && !(lecture.retouches || []).length
+      && lecture.fragments.every((d) => !d.resonance && !(d.codes.length === 1 && /^\?+$/.test(d.codes[0])));
+    const tablesDesSegments = enSegments ? segs.map((sg) => tableDesCodes(sg.cible)) : null;
 
     // ── ÉTAGE AMONT : les RETOUCHES (`2.1:fr13;…`, voir `url.js`) ───────────
     //
@@ -1239,7 +1347,7 @@ export function creerMoteur(catalogue, options = {}) {
     const ctxRejeu = contexteBase(cbl);
     let commandes = false;
 
-    for (const desc of lecture.fragments) {
+    for (const [rangDesc, desc] of lecture.fragments.entries()) {
       let portees = [];
       if (desc.resonance) {
         const rep = motifsRepetes(jetons)[0];
@@ -1282,7 +1390,8 @@ export function creerMoteur(catalogue, options = {}) {
           }
         } else {
           const journal = [];
-          chemin = executerProgramme(fragment.texte, desc.codes, parCode, journal);
+          chemin = executerProgramme(fragment.texte, desc.codes,
+            tablesDesSegments ? tablesDesSegments[rangDesc] : parCode, journal);
           if (!chemin) {
             const d = diagnostic(journal);
             return { ok: false, raison: 'programme inapplicable', bandeau: d.bandeau, detail: d.detail };
@@ -1307,7 +1416,11 @@ export function creerMoteur(catalogue, options = {}) {
         return { ok: false, raison: 'liaison qui n’écrit pas la cible', bandeau: BANDEAUX.liaisonImpossible };
       }
     }
-    const approche = { parts, ...deduireMode(parts, { saisie: texte, jetons, cible: cbl, liaison: lia }) };
+    const approche = {
+      parts,
+      ...deduireMode(parts, { saisie: texte, jetons, cible: cbl, liaison: lia, segments: enSegments ? segs : undefined }),
+    };
+    if (enSegments) approche.segments = segs;
     if (lia) approche.liaison = Object.freeze({ code: lia.code, op: lia });
     // ★ Les RETOUCHES voyagent À CÔTÉ des parts, jamais dedans. `parts` a un
     //   sens précis partout ailleurs — « un morceau qui rend un chiffre » — et
@@ -1401,6 +1514,9 @@ export function creerMoteur(catalogue, options = {}) {
       mot: approche.relecture.mot,
       op: opParCode.get(approche.relecture.code) || null,
       ecart: approche.ecartDeForme || null,
+      // ★ Ce que la relecture ÉCRIT réellement : sans la ponctuation omise, il
+      //   n'a pas la longueur du texte visé, et c'est lui que le verdict découpe.
+      produit: approche.produit || null,
     } : null;
     return construireScenario(approche, {
       saisie: ctx.saisie || approche.saisie,
@@ -1414,6 +1530,8 @@ export function creerMoteur(catalogue, options = {}) {
       // longueur d'une série au verdict, et des libellés qui nommaient « 6 ».
       cible: rel ? approche.cible : (ctx.cible || approche.cible),
       relecture: rel,
+      // ★ Une PHRASE EN SEGMENTS : chaque part se récolte sur le sien.
+      segments: approche.segments || null,
       // ★ La LIAISON se joue après les parts, avant la relecture (`scenario.js`).
       liaison: approche.liaison ? {
         code: approche.liaison.code,

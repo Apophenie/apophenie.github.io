@@ -473,6 +473,17 @@ export const ecritureDe = (entree) => {
  *     avec « tout en majuscules » dans celle des chères.
  */
 export const ECARTS = Object.freeze({
+  /* ★ **LA PONCTUATION OMISE** — « Cest de la merde » pour « C'est de la merde ! ».
+       « Écart de forme ok au prix d'une perte d'exhaustivité » (l'auteur) : une
+       relecture qui n'écrit pas la ponctuation (le rang, le téléphone) peut
+       viser le texte SANS elle, et la voie la paie. Plus cher que la casse, parce
+       qu'un signe manque au lieu d'être autrement dessiné ; moins cher que les
+       capitales. ⚠️ À VALIDER PAR L'AUTEUR, comme le reste du barème. Ce qui est
+       tenu, c'est l'ordre : la voie qui écrit vraiment la ponctuation passe
+       devant une voie approchée de même note. */
+  ponctuation: Object.freeze({
+    facteur: 850, dit: Object.freeze({ fr: 'à la ponctuation près', en: 'but for the punctuation' }),
+  }),
   initiale: Object.freeze({
     facteur: 970, dit: Object.freeze({ fr: 'à la capitale initiale près', en: 'but for the initial capital' }),
   }),
@@ -493,6 +504,16 @@ export const ECARTS = Object.freeze({
 const sansAccents = (s) => s.normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
 
 /**
+ * Un texte SANS sa ponctuation — ce qu'une relecture qui ne l'écrit pas peut
+ * viser à la place (`conversions.js`). Les signes de ponctuation Unicode (`\p{P}`)
+ * tombent, les espaces qu'ils laissent doublées se resserrent, les bords
+ * s'effacent : « C'est de la merde ! » devient « Cest de la merde ».
+ */
+export function sansPonctuation(texte) {
+  return String(texte ?? '').normalize('NFC').replace(/\p{P}/gu, '').replace(/ {2,}/g, ' ').trim();
+}
+
+/**
  * L'écart entre ce qu'une voie ÉCRIT et le texte VISÉ. `null` s'ils ne sont pas
  * le même texte au pliage près : ce n'est plus un écart, c'est un autre mot.
  *
@@ -502,9 +523,16 @@ const sansAccents = (s) => s.normalize('NFD').replace(/\p{M}/gu, '').normalize('
  */
 export function ecartDeForme(produit, vise) {
   const p = String(produit ?? '').normalize('NFC');
-  const v = String(vise ?? '').normalize('NFC');
-  if (plierMot(p) !== plierMot(v) || [...p].length !== [...v].length) return null;
+  let v = String(vise ?? '').normalize('NFC');
   const natures = [];
+  if (plierMot(p) !== plierMot(v) || [...p].length !== [...v].length) {
+    // ★ La ponctuation omise est un écart, pas un autre texte — mais SEULEMENT
+    //   elle : un mot manquant, une lettre de trop, restent un autre texte.
+    const nu = sansPonctuation(v);
+    if (!nu || nu === v || plierMot(p) !== plierMot(nu) || [...p].length !== [...nu].length) return null;
+    natures.push('ponctuation');
+    v = nu;
+  }
   // Les accents d'abord : ils se lisent à casse égale.
   if (p.toLowerCase() !== v.toLowerCase()) natures.push('accents');
   // Puis la casse, accents retirés des deux côtés.

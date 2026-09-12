@@ -28,7 +28,7 @@
 //   reste de la recherche (CONTRACTS §1).
 
 import { normaliserCatalogue, appliquerOp, etat } from './bfs.js';
-import { cibleDeValeurs, plierMot, ecartDeForme } from './cible.js';
+import { cibleDeValeurs, plierMot, ecartDeForme, sansPonctuation } from './cible.js';
 
 /**
  * La relecture qu'on suppose quand un lien vise un texte sans en nommer : le
@@ -77,20 +77,34 @@ export function inverseDe(op) {
 }
 
 /**
+ * Les valeurs qui écrivent UN signe : le signe TEL QUEL s'il est dans la table,
+ * sinon sa forme pliée. `undefined` si ni l'un ni l'autre.
+ *
+ * ★ Tel quel d'abord : la table ASCII (`masi`) écrit « C » et « c », et plier
+ *   d'office lui ferait payer une casse qu'elle sait écrire. Les autres tables
+ *   n'ont que des bas de casse : pour elles, rien ne change.
+ */
+const valeursDuSigne = (inverse, signe) => inverse.get(signe) || inverse.get(plierMot(signe));
+
+/**
  * La relecture d'un texte par UN opérateur : la cible sous-jacente, ce qu'elle
  * écrira réellement, et l'écart de forme qui sépare les deux. `null` si un
  * signe du texte n'a pas de valeurs qui l'écrivent.
  *
- * ★ Chaque signe est cherché PLIÉ (`plierMot`) : une relecture écrit « z »,
- *   jamais « Z » ni « ẑ ». Ce qu'elle écrit n'est donc pas toujours ce qu'on
- *   vise, et l'écart se mesure sur le texte obtenu, pas sur l'intention.
+ * ★ Chaque signe est cherché tel quel, puis PLIÉ (`plierMot`) : le rang écrit
+ *   « z », jamais « Z » ni « ẑ ». Ce qu'elle écrit n'est donc pas toujours ce
+ *   qu'on vise, et l'écart se mesure sur le texte obtenu, pas sur l'intention.
  */
-export function relecturePour(mot, op) {
+export function relecturePour(mot, op, { ponctuationOmise = false } = {}) {
   if (!mot || typeof mot.texte !== 'string') return null;
+  // ★ LA PONCTUATION OMISE : on relit le texte sans elle, et l'écart se mesure
+  //   toujours sur le texte VISÉ — c'est lui qui dit ce qui manque.
+  const texte = ponctuationOmise ? sansPonctuation(mot.texte) : mot.texte;
+  if (!texte || (ponctuationOmise && texte === mot.texte)) return null;
   const inverse = inverseDe(op);
   const valeurs = [];
-  for (const signe of mot.texte) {
-    const v = inverse.get(plierMot(signe));
+  for (const signe of texte) {
+    const v = valeursDuSigne(inverse, signe);
     if (!v) return null;
     valeurs.push(...v);
   }
@@ -100,7 +114,83 @@ export function relecturePour(mot, op) {
   const produit = ecrit.valeur.join('');
   const ecart = ecartDeForme(produit, mot.texte);
   if (!ecart) return null;
-  return Object.freeze({ code: op.code, op, mot, cible, produit, ecart });
+  return Object.freeze({
+    code: op.code, op, mot, cible, produit, ecart, ...(ponctuationOmise ? { ponctuationOmise: true } : {}),
+  });
+}
+
+/**
+ * ★ LA RELECTURE QU'UN LIEN DÉSIGNE — l'exacte si elle existe, sinon l'approchée.
+ *
+ * Un lien ne dit que le CODE (`mtap!`). Il n'est pas ambigu pour autant : pour
+ * un texte et un opérateur donnés, `relecturesPour` ne produit JAMAIS les deux
+ * — l'approchée n'est tentée que si l'exacte n'existe pas. Le rejeu refait le
+ * même choix, dans le même ordre (`index.js › rejouer`).
+ */
+export function relectureDuLien(mot, op) {
+  return relecturePour(mot, op) || (op && op.relecture && !op.relecture.reserve
+    ? relecturePour(mot, op, { ponctuationOmise: true }) : null);
+}
+
+/**
+ * ★ **UNE PHRASE EN SEGMENTS — quand elle est trop longue pour un bloc.**
+ *
+ * > « Tu peux effectivement utiliser des séparateurs par mots, mais tu peux
+ * >   aussi faire tout d'un coup pour éviter de faire des conversions
+ * >   différentes de partout. » (l'auteur)
+ *
+ * D'un BLOC d'abord — une relecture, une cible, une ligne. MESURÉ depuis
+ * « https://reinfocovid.fr/ » : un bloc de 22 chiffres a sept voies, de 26 dix ;
+ * à 32 et 38 chiffres, AUCUNE, aux crans 0, 3 et 5. La cause est la matière : la
+ * plus longue ligne que la saisie donne fait 89 chiffres (`fl+masb+mcar`), et
+ * l'absorption n'écrit qu'un chiffre visé pour trois ou quatre de ligne ; sur
+ * 72 chiffres, elle accepte une visée de 22 et refuse 32.
+ *
+ * Au-delà de `LONGUEUR_D_UN_BLOC`, la cible se découpe donc AUX MOTS — chaque
+ * segment commence par son espace —, en segments d'au plus
+ * `CHIFFRES_PAR_SEGMENT` chiffres, remplis dans l'ordre. Chaque segment est une
+ * cible chiffrée ordinaire, cherchée à part ; la voie les enchaîne, et UNE SEULE
+ * relecture relit la ligne entière au verdict (`index.js › deroulerTexte`). Les
+ * conversions ne changent donc pas en cours de phrase : c'est la préférence de
+ * l'auteur, tenue même quand le bloc ne l'est pas.
+ *
+ * ★ Fonction PURE de la relecture : la liste et le rejeu d'un lien découpent de
+ *   la même façon, sans que l'URL ait à porter le découpage.
+ * @returns {Array<{texte:string, cible:Object}>|null}  `null` : un bloc suffit,
+ *   ou le texte ne se découpe pas (un mot plus long qu'un segment).
+ */
+export const LONGUEUR_D_UN_BLOC = 26;
+export const CHIFFRES_PAR_SEGMENT = 22;
+
+export function segmentsDe(rel) {
+  if (!rel || !rel.cible || !rel.op || rel.cible.longueur <= LONGUEUR_D_UN_BLOC) return null;
+  const texte = rel.ponctuationOmise ? sansPonctuation(rel.mot.texte) : rel.mot.texte;
+  const inverse = inverseDe(rel.op);
+  const morceaux = texte.split(' ').map((m, i) => (i === 0 ? m : ` ${m}`)).filter((m) => m.length);
+  const segments = [];
+  let courant = null;
+  for (const m of morceaux) {
+    const valeurs = [];
+    for (const signe of m) {
+      const v = valeursDuSigne(inverse, signe);
+      if (!v) return null;
+      valeurs.push(...v);
+    }
+    if (valeurs.length > CHIFFRES_PAR_SEGMENT) return null;
+    if (courant && courant.valeurs.length + valeurs.length <= CHIFFRES_PAR_SEGMENT) {
+      courant.texte += m;
+      courant.valeurs.push(...valeurs);
+    } else {
+      courant = { texte: m, valeurs };
+      segments.push(courant);
+    }
+  }
+  if (segments.length < 2) return null;
+  const bout = segments.flatMap((sg) => sg.valeurs).join('.');
+  if (bout !== rel.cible.chiffres.join('.')) {
+    throw new Error(`segments de « ${rel.mot.texte} » (${rel.code}) : ils n'écrivent pas la cible entière`);
+  }
+  return Object.freeze(segments.map((sg) => Object.freeze({ texte: sg.texte, cible: cibleDeValeurs(sg.valeurs) })));
 }
 
 /**
@@ -114,18 +204,36 @@ export function signesSansRelecture(mot, catalogue) {
   const inverses = operateursDeRelecture(catalogue).map(inverseDe);
   const out = [];
   for (const signe of (mot && mot.texte) || '') {
-    const plie = plierMot(signe);
-    if (inverses.some((inv) => inv.has(plie)) || out.includes(signe)) continue;
+    if (inverses.some((inv) => valeursDuSigne(inv, signe)) || out.includes(signe)) continue;
     out.push(signe);
   }
   return out;
 }
 
-/** Toutes les relectures d'un texte, dans l'ordre du catalogue. */
+/**
+ * Toutes les relectures d'un texte, dans l'ordre du catalogue.
+ *
+ * ★ **LES RELECTURES DE RÉSERVE** (`relecture.reserve`, la table ASCII) ne sont
+ *   tentées que si le texte porte un signe qu'AUCUNE relecture ordinaire
+ *   n'écrit — une apostrophe, un point d'exclamation. « Si des solutions courtes
+ *   et élégantes sont trouvées, pas besoin de chercher les options longues et
+ *   bancales » (l'auteur) : trois chiffres par signe, c'est une option longue,
+ *   et un mot que le rang ou le téléphone savent écrire n'a pas à la payer.
+ *   C'est ce qui laisse « Zerg », « Fantôme » ou « de la merde » exactement où
+ *   ils étaient.
+ */
 export function relecturesPour(mot, catalogue) {
+  const ops = operateursDeRelecture(catalogue);
+  const ordinaires = ops.filter((op) => !op.relecture.reserve).map(inverseDe);
+  const signes = [...((mot && mot.texte) || '')];
+  const besoinDeReserve = signes.some((s) => !ordinaires.some((inv) => valeursDuSigne(inv, s)));
   const out = [];
-  for (const op of operateursDeRelecture(catalogue)) {
-    const r = relecturePour(mot, op);
+  for (const op of ops) {
+    if (op.relecture.reserve && !besoinDeReserve) continue;
+    // ★ Une relecture ORDINAIRE qui n'écrit pas la ponctuation vise le texte
+    //   sans elle, et paie l'écart (`cible.js › ECARTS.ponctuation`). Une
+    //   relecture de réserve, elle, existe justement pour l'écrire.
+    const r = relectureDuLien(mot, op);
     if (r) out.push(r);
   }
   return out;
