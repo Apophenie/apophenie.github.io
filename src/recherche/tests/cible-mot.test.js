@@ -360,6 +360,49 @@ test('cible-mot — FANTOME depuis une adresse : soixante-dix chiffres de ligne 
   assert.equal(relus.join(''), 'fantome', 'la relecture est jouée, lettre par lettre');
 });
 
+/**
+ * ★ **LE DÉCOR RESTE MONTÉ TOUTE LA RELECTURE.**
+ *
+ * > « Comme pour les autres tables, quand plusieurs conversions chiffres/nombre
+ * >   vers lettre sont faites d'affilée, tu devrais afficher la table et la
+ * >   garder affichée tout le long du processus. » (l'auteur)
+ *
+ * Le sens lettre → nombre le faisait déjà. Le sens INVERSE ne le faisait qu'à
+ * moitié : le rang et le clavier montaient une fois, mais les relectures par
+ * PAIRES intercalent un collage entre deux cases, et ce geste cassait la série
+ * — quatre montées et quatre descentes pour écrire « zerg »
+ * (`scenario.js`, la passe qui mutualise les décors).
+ */
+test('cible-mot — une seule montée de table pour toute une relecture par paires', () => {
+  const { sc } = scene(`#so!m1a2!fl+masb+mab#${B58_SK}#${B58('Zerg')}`);
+  const cases = sc.steps.filter((s) => s.code === 'm1a2')
+    .flatMap((s) => (s.ops || []).filter((o) => o.op === 'table'));
+  assert.equal(cases.length, 4, 'quatre lettres, quatre cases allumées');
+  assert.deepEqual(cases.map((o) => o.to.text), ['z', 'e', 'r', 'g']);
+  assert.deepEqual(cases.map((o) => Boolean(o.montre)), [true, false, false, false]);
+  assert.deepEqual(cases.map((o) => Boolean(o.retire)), [false, false, false, true]);
+  // ★ Et la table MONTRÉE est celle que l'opérateur applique : chaque case
+  //   désigne son couple dans les entrées qu'elle affiche.
+  for (const o of cases) {
+    const entree = (o.entries || []).find((e) => e.char === o.letter);
+    assert.ok(entree, `« ${o.letter} » ne figure pas dans la table montrée`);
+    assert.equal(entree.value, o.to.text, 'la case montrée est celle qui descend');
+  }
+  // ★ Deux tables DIFFÉRENTES dans la même scène gardent chacune la leur :
+  //   l'ASCII des lettres se replie avant que le rang sur deux chiffres monte.
+  const toutes = sc.steps.flatMap((s) => (s.ops || []).filter((o) => o.op === 'table'));
+  assert.equal(toutes.filter((o) => o.montre).length, 2);
+  assert.equal(toutes.filter((o) => o.retire).length, 2);
+});
+
+test('cible-mot — le clavier aussi : une montée, une descente pour quatre touches', () => {
+  const { sc } = scene(`#so!mcaz!fl+masb+mrdE#${B58_SK}#${B58('Zerg')}`);
+  const touches = sc.steps.flatMap((s) => (s.ops || []).filter((o) => o.op === 'keyboard'));
+  assert.equal(touches.length, 4);
+  assert.deepEqual(touches.map((o) => Boolean(o.montre)), [true, false, false, false]);
+  assert.deepEqual(touches.map((o) => Boolean(o.retire)), [false, false, false, true]);
+});
+
 test('cible-mot — sans l’opérateur qui relit, le scénario refuse plutôt que de décréter', () => {
   const lecture = lire(`#so!mcaz!fl+masb+mrdE#${B58_SK}#:Zerg`);
   const { approche } = moteur.rejouer(lecture);

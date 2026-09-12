@@ -885,10 +885,32 @@ function mutualiserDecor(steps) {
     const membres = [i];
     let j = i + 1;
     let enAttente = [];
+    /* ★ **UN GESTE DE LA MÊME RELECTURE NE FAIT PAS TOMBER SON DÉCOR.**
+     *
+     * > « Comme pour les autres tables, quand plusieurs conversions
+     * >   chiffres/nombre vers lettre sont faites d'affilée, tu devrais afficher
+     * >   la table et la garder affichée tout le long du processus. » (l'auteur)
+     *
+     * Les relectures par paires (`m1a2`, `mpol`, `mtap`) intercalent un COLLAGE
+     * entre deux cases : « 2 4 » devient « 24 », puis la case s'allume. Ce
+     * collage n'a pas de décor à lui, mais il touche la ligne — il n'était donc
+     * pas traversable, la série cassait à chaque lettre, et la table montait et
+     * se repliait QUATRE fois pour écrire « zerg ». Mesuré sur la scène réelle
+     * de « Sarah Kerrigan → Zerg » avant ce correctif : quatre montées, quatre
+     * descentes, là où le rang (`m1a`) et le clavier (`mcaz`) n'en font qu'une.
+     *
+     * On traverse donc aussi les étapes qui portent le CODE de l'opérateur dont
+     * le décor est monté : ce sont ses propres gestes, et son commentaire le dit
+     * déjà (« la table monte à la première lettre, reste montée pendant les
+     * collages, se replie à la dernière »). Une étape d'un AUTRE opérateur, elle,
+     * referme la série comme avant — deux relectures qui se suivent replient
+     * l'ancienne table avant de déployer la neuve. */
+    const codeDuDecor = typeof steps[i].code === 'string' && steps[i].code ? steps[i].code : null;
     while (j < steps.length) {
       const c = cleDecor(steps[j]);
       if (c === cle) { membres.push(j); enAttente = []; j++; continue; }
-      if (c === null && traversable(steps[j])) { enAttente.push(j); j++; continue; }
+      const sien = codeDuDecor !== null && steps[j].code === codeDuDecor;
+      if (c === null && (traversable(steps[j]) || sien)) { enAttente.push(j); j++; continue; }
       break;
     }
     const dernier = membres[membres.length - 1];
