@@ -228,6 +228,11 @@ test('★ monotonie — la rampe des retouches n’ôte rien à la liste des anc
   const manquantes = [];
   for (const [saisie, cible, cran] of [
     ['Donald Trump', '111', 3], ['Sarah Kerrigan', '666', 3], ['Emmanuel Macron', '666', 2],
+    // ⚠️ Un TEXTE aussi — mais en garde, pas en preuve : la rampe simple n'y
+    //   ôtait rien de mesuré. C'est le seul texte du relevé où la rampe ajoute
+    //   (une voie au cran 3) ; la phrase en segments de reinfocovid, elle, est
+    //   identique avec et sans rampe aux crans 0 à 3.
+    ['Sarah Kerrigan', 'Zerg', 3],
   ]) {
     const avecRampe = moteur.resoudre(saisie, { cible, fouille: cran }).approches.map(programme);
     for (const a of fixe.resoudre(saisie, { cible, fouille: cran }).approches) {

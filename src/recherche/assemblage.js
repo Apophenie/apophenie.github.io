@@ -1808,6 +1808,7 @@ function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAU
       if (apres === null || apres.type !== 'STR' || !apres.valeur.length
         || apres.valeur === j.texte) continue;
       const texte = saisie.slice(0, j.offset) + apres.valeur + saisie.slice(j.offset + j.longueur);
+      const motHorsGardes = motsVus > MAX_JETONS_RETOUCHE;
       tete.forEach((c, i) => {
         const rejoue = rejouerOps(texte, c.ops);
         if (!rejoue) return;
@@ -1820,7 +1821,7 @@ function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAU
         const cle = texte + ' ' + cleTrace(rejoue);
         if (vus.has(cle)) return;
         vus.add(cle);
-        out.push(approche('GROUPEMENT', [{
+        const retouchee = approche('GROUPEMENT', [{
           fragment: {
             texte, offset: 0, longueur: texte.length,
             intervalles: [[0, texte.length]], tokenDebut: 0, tokenLong: tokeniser(texte).length,
@@ -1838,7 +1839,12 @@ function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAU
           }],
           saisie,
           saisieRetouchee: texte,
-        }));
+        });
+        // ★ Née au-delà des gardes historiques (six mots, quatre vecteurs) :
+        //   `index.js › finaliser` la sélectionne à part, pour que la rampe
+        //   n'ôte rien à ce que les anciennes gardes auraient montré.
+        if (gardes.horsGardes && (motHorsGardes || i >= MAX_VECTEURS_RETOUCHES)) gardes.horsGardes.add(retouchee);
+        out.push(retouchee);
       });
     }
   }
@@ -3294,7 +3300,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
     // mieux qu'une barre qui dépasse ce qu'elle a promis.
     for (const a of groupementsRetouches(saisie, ctx.jetons || [], vecteursEntiers, opsExplorables, cbl,
       (part) => dire((POIDS.avant + POIDS.retouche * part) / 100),
-      { mots: ctx.motsRetouches, vecteurs: ctx.vecteursRetouches })) {
+      { mots: ctx.motsRetouches, vecteurs: ctx.vecteursRetouches, horsGardes: ctx.horsGardesHistoriques })) {
       approches.push(a);
     }
   }

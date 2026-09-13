@@ -325,6 +325,15 @@ export const LAMBDA_MMR_BASE = 350;
  * mots montent comme la largeur d'assemblage (×1,2 par cran) : une saisie en a
  * rarement plus de six, la loi ne sert qu'aux longues. Les vecteurs montent plus
  * vite, parce que c'est EUX qui décident de ce qui est rejoué.
+ *
+ * ★ **×1,32 ET PAS ×1,2 — tranché au temps réel, pas au nombre de rejeux.**
+ *   Mesuré séquentiellement, machine seule, sur neuf couples, double sélection
+ *   en place (`index.js › finaliser`), contre les anciennes gardes :
+ *     cran 3 — ×1,2 : 313 voies pour ×0,992 du temps ; ×1,32 : 336 pour ×0,994 ;
+ *     cran 5 — ×1,2 : 481 voies pour ×1,005 ; ×1,32 : 561 pour ×1,010.
+ *   Les anciennes gardes en donnent 274 et 391. L'écart de temps est dans le
+ *   bruit ; ×1,32 rejoue 35 % de programmes de plus (41 330 contre 30 684,
+ *   crans 0 à 5) et rapporte 71 % de voies de plus (345 contre 202).
  */
 export const MOTS_RETOUCHES_BASE = 6;
 export const VECTEURS_RETOUCHES_BASE = 4;

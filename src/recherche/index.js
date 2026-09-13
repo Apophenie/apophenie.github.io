@@ -279,6 +279,11 @@ export function creerMoteur(catalogue, options = {}) {
        pas les crans inférieurs. Borné : c'est un raccourci, pas une archive. */
   const etatsDesResultats = new WeakMap();
   const memoDesCrans = new Map();
+  /* ★ La double sélection (`finaliser`) : les voies qu'ont retenues les
+       anciennes gardes, et leur compte par liste. Deux registres du moteur, pour
+       qu'aucun champ neuf ne voyage sur les voies. */
+  const auxAnciennesGardes = new WeakSet();
+  const comptesDesAnciennesGardes = new WeakMap();
 
   // ★ UN BASSIN PAR CHIFFRE VISÉ, construit à la demande et gardé.
   //
@@ -747,6 +752,9 @@ export function creerMoteur(catalogue, options = {}) {
       //   d'approches peuvent seulement EXISTER (`config.js`).
       parFragment: budgets.parFragment,
       // ★ Les gardes de l'étage des retouches suivent le cran (`config.js`).
+      // ★ Ce que la rampe fait naître au-delà des gardes historiques — voir
+      //   `finaliser`, la double sélection. Partagé avec la passe profonde.
+      horsGardesHistoriques: new WeakSet(),
       motsRetouches: rampeDesRetouches ? budgets.motsRetouches : MAX_JETONS_RETOUCHE,
       vecteursRetouches: rampeDesRetouches ? budgets.vecteursRetouches : MAX_VECTEURS_RETOUCHES,
       // ★ Les curseurs descendent jusqu'à la réserve de qualité de
@@ -899,16 +907,45 @@ export function creerMoteur(catalogue, options = {}) {
       //   donc classée avec les MÊMES critères, et le MMR (§4.8) garnit les douze
       //   places par `ordreTotal` — c'est-à-dire par le barème que le visiteur
       //   vient de régler.
-      const retenues = (barèmeDElegance && !ponderation.personnalisee)
-        ? selectionner(honnetes, place, budgets.parMappeur, budgets.lambda)
-        : diversifier(honnetes, {
+      const parLesRegimes = barèmeDElegance && !ponderation.personnalisee;
+      const choisir = (candidates) => (parLesRegimes
+        ? selectionner(candidates, place, budgets.parMappeur, budgets.lambda)
+        : diversifier(candidates, {
           limite: place, maxParMappeur: budgets.parMappeur, lambda: budgets.lambda, ponderation,
-        });
+        }));
+      /* ★ **LA DOUBLE SÉLECTION — la rampe des retouches n'ôte rien.**
+           > « Mieux vaut élargir le nombre de résultats pour en faire
+           >   effectivement un invariant. » (l'auteur)
+           La liste réunit la sélection faite avec les anciennes gardes (six
+           mots, quatre vecteurs — exactement la liste d'avant la rampe) et celle
+           faite avec la rampe. Mesuré sur la rampe simple : les retouchées de
+           plus prenaient places et quota, et chassaient `fl+mtjc+mtri` (4 854)
+           de « Donald Trump » visant 111 au cran 3. Sans rien au-delà des
+           gardes — le cran 0 —, une seule sélection, celle d'avant.
+           ⚠️ La sélection de la rampe passe AVANT celle des anciennes gardes :
+           les deux posent leur suggestion et leur score ajusté sur les voies, et
+           c'est la seconde qui doit avoir le dernier mot sur celles qu'elle
+           garde. */
+      const horsGardes = ctxAssemblage.horsGardesHistoriques;
+      const historiques = horsGardes ? honnetes.filter((a) => !horsGardes.has(a)) : honnetes;
+      const deLaRampe = historiques.length !== honnetes.length ? choisir(honnetes) : null;
+      let retenues = choisir(historiques);
       if (jokers.length) retenues.push(jokers[0]);
       else if (!retenues.length) {
         const j = approcheJoker(saisie, ctxAssemblage);
         if (j) { noter(j, ctxScore); retenues.push(j); }
       }
+      const compteDesAnciennesGardes = retenues.length;
+      for (const a of retenues) auxAnciennesGardes.add(a);
+      if (deLaRampe) {
+        const enPlus = deLaRampe.filter((a) => !retenues.includes(a));
+        if (enPlus.length) {
+          const jokersRetenus = retenues.filter((a) => a.mode === 'JOKER');
+          const union = retenues.filter((a) => a.mode !== 'JOKER').concat(enPlus);
+          retenues = (parLesRegimes ? rangerParRegimes(union) : union.sort(ordreDeLaListe)).concat(jokersRetenus);
+        }
+      }
+      comptesDesAnciennesGardes.set(retenues, compteDesAnciennesGardes);
 
       // Les titres sont posés en une passe sur la LISTE, pas approche par
       // approche : c'est la seule façon de garantir que deux lignes ne portent
@@ -1017,14 +1054,18 @@ export function creerMoteur(catalogue, options = {}) {
     const brutes = assembler(saisie, frags, parFrag, ctxAssemblage);
     annoncerLeClassement();
     let retenues = finaliser(brutes);
+    // ★ La décision de creuser se fonde sur la sélection des ANCIENNES gardes
+    //   (`finaliser`, la double sélection) : c'est elle que la liste d'avant la
+    //   rampe comptait, et la rampe ne doit pas changer quelle passe est gardée.
+    const compter = (liste) => comptesDesAnciennesGardes.get(liste) ?? liste.length;
     // ★ Le cran de fouille passe outre le plancher : voir `FOUILLE_QUI_CREUSE_TOUJOURS`.
     const creuserQuoiQuIlArrive = fouille >= FOUILLE_QUI_CREUSE_TOUJOURS;
-    if ((retenues.length < voiesAvantDeCreuser || creuserQuoiQuIlArrive)
+    if ((compter(retenues) < voiesAvantDeCreuser || creuserQuoiQuIlArrive)
       && !ctxAssemblage.profond && optionsResolution.dernierRecours !== false) {
       const creusees = assembler(saisie, frags, parFrag, { ...ctxAssemblage, profond: true });
       annoncerLeClassement();
       const profondes = finaliser(creusees);
-      if (profondes.length > retenues.length) retenues = profondes;
+      if (compter(profondes) > compter(retenues)) retenues = profondes;
     }
     // ★ L'UNION AVEC LE CRAN INFÉRIEUR — après la sélection de ce cran, qui ne
     //   l'a pas vue (`deroulerResolution`).
@@ -1257,6 +1298,25 @@ export function creerMoteur(catalogue, options = {}) {
       }
       return out;
     }
+    /**
+     * ★ **LA DOUBLE COMPOSITION — la rampe des retouches n'ôte rien à une
+     * phrase non plus.** Chaque segment rend une liste doublement sélectionnée
+     * (`finaliser`) ; composer sur elle seule changerait « la meilleure voie par
+     * portée » dès qu'une voie de la rampe passe devant, et une phrase que les
+     * anciennes gardes composaient pourrait ne plus l'être. On compose donc sur
+     * les voies des anciennes gardes — exactement la composition d'avant la
+     * rampe —, puis sur toutes, et on réunit. Sans voie de la rampe dans aucun
+     * segment, une seule composition, celle d'avant.
+     */
+    function composerDeuxFois(rel, segs, voiesParSegment) {
+      const anciennes = composer(rel, segs,
+        voiesParSegment.map((voies) => voies.filter((a) => auxAnciennesGardes.has(a))));
+      for (const a of anciennes) auxAnciennesGardes.add(a);
+      if (voiesParSegment.every((voies) => voies.every((a) => auxAnciennesGardes.has(a)))) return anciennes;
+      const cle = (a) => JSON.stringify(a.lien.fragments);
+      const vus = new Set(anciennes.map(cle));
+      return anciennes.concat(composer(rel, segs, voiesParSegment).filter((a) => !vus.has(cle(a))));
+    }
     let plusHaut = 0;
     const echelleDe = (k) => (a) => {
       const brute = (k + Math.min(1, Math.max(0, (a && a.fraction) || 0))) / n;
@@ -1307,7 +1367,7 @@ export function creerMoteur(catalogue, options = {}) {
             if (rs.tronqueTemps) tronqueTemps = true;
             voiesParSegment.push(rs.approches || []);
           }
-          const composees = segmentsHorsDuCran ? [] : composer(rel, segs, voiesParSegment);
+          const composees = segmentsHorsDuCran ? [] : composerDeuxFois(rel, segs, voiesParSegment);
           base.relectures[k].voies = composees.length;
           for (const a of composees) {
             versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
@@ -1391,7 +1451,8 @@ export function creerMoteur(catalogue, options = {}) {
          ponctuation comptent pour le plancher. Mesuré sur « C'est » : vingt
          approchées rendaient le seuil muet, et la table ASCII n'y livrait
          qu'une voie au lieu de six. */
-    const exactes = approches.filter((a) => !ometLaPonctuation(a)).length;
+    // ★ Comptées sur les voies des ANCIENNES gardes : la rampe ne décide pas de creuser.
+    const exactes = approches.filter((a) => auxAnciennesGardes.has(a) && !ometLaPonctuation(a)).length;
     if (exactes < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS) {
       approches = yield* balayer(true);
     }
@@ -1400,7 +1461,13 @@ export function creerMoteur(catalogue, options = {}) {
     // ★ La règle d'ordre passe AVANT tout le reste — voir `score.js › ordreDExactitude`.
     const ordreDuTexte = (a, b) => exactitude(a, b) || ordreDeLaListe(a, b);
     approches.sort(ordreDuTexte);
-    let retenues = approches.slice(0, reglagesDeBudget(fouille).voies);
+    /* ★ **LA DOUBLE COUPE** (`finaliser`, la double sélection) : les places
+         prises parmi les voies des anciennes gardes — la liste d'avant la
+         rampe —, réunies à celles prises parmi toutes. */
+    const placesDuTexte = reglagesDeBudget(fouille).voies;
+    let retenues = approches.filter((a) => auxAnciennesGardes.has(a)).slice(0, placesDuTexte);
+    const deLaRampe = approches.slice(0, placesDuTexte).filter((a) => !retenues.includes(a));
+    if (deLaRampe.length) retenues = retenues.concat(deLaRampe).sort(ordreDuTexte);
     /* ★ **L'UNION AVEC LE CRAN INFÉRIEUR, POUR UN TEXTE AUSSI**
          (`deroulerResolution`) : la liste de ce cran, telle qu'il la coupe seul,
          plus les voies du cran inférieur qu'elle n'a pas — segments compris,

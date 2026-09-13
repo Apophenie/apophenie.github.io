@@ -66,6 +66,14 @@ import { signalerException } from '../moteur/catalogue.js';
      atteignables, pas la quantité de nœuds visités. Mesuré sur le corpus au
      moment du relèvement — à consigner ici si le chiffre bouge. */
 export const D_MAX = 15;
+/* ⚠️ **P_BEAM ET MAX_NODES NE SUIVENT PAS LE CRAN, et c'est mesuré.** Au cran 5,
+   avant la recherche cumulative, les desserrer coûtait deux à quatre fois le
+   temps de la recherche et faisait PERDRE des voies — un faisceau plus large
+   laisse passer davantage de préfixes médiocres, qui épuisent le budget de
+   travail avant les bons — ou n'en apportait qu'une. Le cran élargit le budget
+   de travail, la largeur d'assemblage et les gardes de retouche
+   (`config.js › REGLAGES_DU_CRAN`) ; ces deux bornes-ci restent là où
+   l'exploration est la plus rentable. */
 export const P_BEAM = 12;      // chemins conservés par état canonique
 export const MAX_NODES = 20000;
 export { BUDGET_MS };          // par fragment
@@ -91,6 +99,10 @@ export const N_FRAG_MAX = 64;
  * croissants, l'ordre déjà utilisé partout ailleurs. Le compactage est amorti
  * (une fois par lot de 400) et l'ordre reste strictement déterministe.
  */
+/* ⚠️ Fixe au même titre que `P_BEAM` et `MAX_NODES`, pour la même mesure : au
+   cran 5, la relever coûtait deux à quatre fois le temps pour une voie de plus
+   au mieux — la sélection finale ne manquait pas de candidats, elle en avait
+   déjà trop pour ses places. */
 export const MAX_RESULTATS = 400;
 /** Où le tableau se compacte : le double, pour n'amortir qu'un tri par lot. */
 const MARGE_RESULTATS = 2;
