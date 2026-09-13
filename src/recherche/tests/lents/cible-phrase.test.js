@@ -89,23 +89,33 @@ test('cible-phrase — « de la merde » d’un bloc : l’espace sur le 0 du t�
 });
 
 /* ★ LA PONCTUATION, et la casse avec : « C'est » ne s'écrit EXACTEMENT que par la
-     table ASCII (`masi`), trois chiffres par signe — 067 039 101 115 116. Les six
-     relectures ordinaires l'APPROCHENT (« cest », à la ponctuation et à la
-     capitale près, ×0,825).
-     ⚠️ MESURÉ, et c'est un arbitrage ouvert : l'exacte n'est PAS en tête. Les
-     approchées partent d'une note plus haute — deux chiffres par signe au lieu
-     de trois, des programmes plus courts — et la meilleure fait 3 845 contre
-     3 561 pour l'exacte, huitième. Et comme elles fournissent plus de cinq voies,
-     le dernier recours ne se déclenche plus : ASCII rend une voie, pas six. */
-test('cible-phrase — « C’est » : exacte par la table ASCII, approchée par les autres', () => {
+     table ASCII (`masi`), trois chiffres par signe — 067 039 101 115 116. Les
+     relectures ordinaires l'APPROCHENT (« cest », à la ponctuation près).
+     ★ ARBITRÉ, « ça dépend des curseurs » (l'autrice) :
+       · au DÉFAUT, toute exacte passe devant toute approchée (`score.js ›
+         ordreDExactitude`), et l'approximation ne suffit plus à s'arrêter de
+         creuser. MESURÉ : 6 exactes aux rangs 1 à 6 (1 seule, 8ᵉ, avant) ;
+       · SIMPLICITÉ 200, EXHAUSTIVITÉ 0 : la règle se replie et l'approchée
+         remonte en tête — la première exacte est 6ᵉ ;
+       · EXHAUSTIVITÉ 200, SIMPLICITÉ 0 : les exactes en tête, comme au défaut. */
+test('cible-phrase — « C’est » : l’exacte devant toute approchée au défaut, et les curseurs la déplacent', () => {
+  const exacte = (a) => !a.ecartDeForme.natures.includes('ponctuation');
   const r = moteur.resoudre(SAISIE, { cible: "C'est" });
-  const exactes = r.approches.filter((a) => a.relecture.code === 'masi');
-  const approchees = r.approches.filter((a) => a.relecture.code !== 'masi');
-  assert.ok(exactes.length >= 1, 'aucune voie exacte vers « C’est »');
-  for (const a of exactes) assert.equal(a.ecartDeForme.facteur, 1000, a.url);
-  for (const a of approchees) assert.deepEqual([...a.ecartDeForme.natures], ['ponctuation', 'initiale'], a.url);
+  const exactes = r.approches.filter(exacte);
+  const approchees = r.approches.filter((a) => !exacte(a));
+  assert.ok(exactes.length >= 6, `${exactes.length} exactes : le creusement doit les rendre toutes`);
+  const premiereApprochee = r.approches.findIndex((a) => !exacte(a));
+  assert.ok(premiereApprochee === -1 || r.approches.slice(premiereApprochee).every((a) => !exacte(a)),
+    'une exacte derrière une approchée');
+  for (const a of exactes) assert.equal(a.relecture.code, 'masi', a.url);
+  for (const a of approchees) assert.equal(a.ecartDeForme.facteur, Math.round((500 * 970) / 1000), a.url);
   verifierVoies({ ...r, approches: exactes }, "C'est");
   verifierVoies({ ...r, approches: approchees }, 'cest');
+
+  const simple = moteur.resoudre(SAISIE, {
+    cible: "C'est", curseurs: { simplicite: 200, exhaustivite: 0, quantite: 100, coherence: 100 },
+  });
+  assert.equal(exacte(simple.approches[0]), false, 'la simplicité qui domine laisse ressortir l’approchée');
 });
 
 test('cible-phrase — le mot seul est atteint : « merde », et chaque voie se rejoue', () => {

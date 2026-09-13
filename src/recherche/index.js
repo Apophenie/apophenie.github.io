@@ -35,6 +35,7 @@ import {
   noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, REGLAGES,
   ponderer, normaliserCurseurs, pourcentagesDe, scoresParAxe,
   CURSEURS, CURSEUR_DEFAUT, CURSEUR_MAX, CURSEURS_DEFAUT, CORRESPONDANCE,
+  facteurDEcartAuxCurseurs, ordreDExactitude, ometLaPonctuation,
 } from './score.js';
 import {
   reglagesDeBudget, normaliserPuissance, PUISSANCE_ENUMERATION,
@@ -1310,10 +1311,19 @@ export function creerMoteur(catalogue, options = {}) {
          (l'auteur). Un mot qui a ses voies ne paie donc rien ; un mot qui n'en a
          aucune refait le tour de ses relectures en s'autorisant, cette fois, de
          ranger ou de gonfler la ligne avant de la dissoudre. */
-    if (approches.length < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS) {
+    /* ★ **UNE APPROXIMATION NE SUFFIT PAS À S'ARRÊTER.** « Tant qu'aucune voie
+         exacte n'existe, on creuse » : seules les voies qui écrivent la
+         ponctuation comptent pour le plancher. Mesuré sur « C'est » : vingt
+         approchées rendaient le seuil muet, et la table ASCII n'y livrait
+         qu'une voie au lieu de six. */
+    const exactes = approches.filter((a) => !ometLaPonctuation(a)).length;
+    if (exactes < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS) {
       approches = yield* balayer(true);
     }
-    const ordreDuTexte = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
+    const ordreDeLaListe = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
+    const exactitude = ordreDExactitude(ponderation.curseurs);
+    // ★ La règle d'ordre passe AVANT tout le reste — voir `score.js › ordreDExactitude`.
+    const ordreDuTexte = (a, b) => exactitude(a, b) || ordreDeLaListe(a, b);
     approches.sort(ordreDuTexte);
     let retenues = approches.slice(0, reglagesDeBudget(fouille).voies);
     /* ★ **L'UNION AVEC LE CRAN INFÉRIEUR, POUR UN TEXTE AUSSI**
@@ -1356,10 +1366,13 @@ export function creerMoteur(catalogue, options = {}) {
    */
   function versLeTexte(a, rel, saisie, curseurs, fouille) {
     a.relecture = Object.freeze({ code: rel.code, mot: rel.mot.texte });
-    a.ecartDeForme = rel.ecart;
+    // ★ L'écart se repaie AUX CURSEURS : la ponctuation omise en dépend
+    //   (`score.js › facteurPonctuation`).
+    const facteur = facteurDEcartAuxCurseurs(rel.ecart, curseurs);
+    a.ecartDeForme = Object.freeze({ ...rel.ecart, facteur });
     a.produit = rel.produit;
     // L'écart se PAIE, entier sur entier : aucun flottant ne décide d'un rang.
-    a.score = Math.round((a.score * rel.ecart.facteur) / 1000);
+    a.score = Math.round((a.score * facteur) / 1000);
     relierAuTexte(a, rel, saisie, curseurs, fouille);
   }
 
@@ -1705,9 +1718,10 @@ export function creerMoteur(catalogue, options = {}) {
     //   qui vise le texte, pas sa cible sous-jacente (`versLeTexte`).
     if (rel) {
       approche.relecture = Object.freeze({ code: rel.code, mot: rel.mot.texte });
-      approche.ecartDeForme = rel.ecart;
+      const facteur = facteurDEcartAuxCurseurs(rel.ecart, lecture.curseurs);
+      approche.ecartDeForme = Object.freeze({ ...rel.ecart, facteur });
       approche.produit = rel.produit;
-      approche.score = Math.round((approche.score * rel.ecart.facteur) / 1000);
+      approche.score = Math.round((approche.score * facteur) / 1000);
     }
     const lien = {
       saisie, fragments: fragmentsEcrits, retouches: lecture.retouches, cible: rel ? rel.mot : cbl,

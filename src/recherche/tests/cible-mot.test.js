@@ -18,6 +18,7 @@ import {
   relecturesPour, inverseDe, operateursDeRelecture, RELECTURE_PAR_DEFAUT,
   segmentsDe, LONGUEUR_D_UN_BLOC, CHIFFRES_PAR_SEGMENT,
 } from '../conversions.js';
+import { facteurPonctuation, ordreDExactitude, facteurDEcartAuxCurseurs } from '../score.js';
 import { lire, ecrire, BANDEAUX } from '../url.js';
 import { encoderTexte } from '../base58.js';
 import { creerMoteur } from '../index.js';
@@ -183,6 +184,21 @@ test('cible-mot — la ponctuation omise se paie, et elle seule', () => {
     ['mtap', 32, 'cest de la merde', true, e.facteur],
     ['masi', 57, "C'est de la merde !", false, 1000],
   ]);
+});
+
+/* ★ LA PONCTUATION OMISE DÉPEND DES CURSEURS — « ça dépend des curseurs » (l'autrice). */
+test('cible-mot — la ponctuation omise : règle d’ordre au défaut, relâchée par la simplicité, durcie par l’exhaustivité', () => {
+  const C = (simplicite, exhaustivite) => ({ simplicite, exhaustivite, quantite: 100, coherence: 100 });
+  assert.equal(facteurPonctuation(undefined), 500, 'au défaut : ×0,5');
+  assert.equal(facteurPonctuation(C(200, 0)), 1000, 'la simplicité au plus haut : rien à payer');
+  assert.equal(facteurPonctuation(C(0, 200)), 100, 'l’exhaustivité au plus haut : ×0,1');
+  assert.ok(facteurPonctuation(C(150, 100)) > 500 && facteurPonctuation(C(100, 150)) < 500, 'monotone des deux côtés');
+  const exacte = { ecartDeForme: { natures: ['initiale'] } };
+  const approchee = { ecartDeForme: { natures: ['ponctuation', 'initiale'] } };
+  assert.ok(ordreDExactitude(undefined)(approchee, exacte) > 0, 'au défaut, l’exacte d’abord');
+  assert.ok(ordreDExactitude(C(0, 200))(approchee, exacte) > 0, 'l’exhaustivité qui domine garde la règle');
+  assert.equal(ordreDExactitude(C(200, 0))(approchee, exacte), 0, 'la simplicité qui domine la replie');
+  assert.equal(facteurDEcartAuxCurseurs({ natures: ['ponctuation', 'initiale'] }, undefined), Math.round((500 * 970) / 1000));
 });
 
 /* ★ UNE PHRASE EN SEGMENTS — d'un bloc tant qu'elle tient, aux mots au-delà. */
