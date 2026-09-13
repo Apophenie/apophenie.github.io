@@ -156,3 +156,37 @@ test('une recherche coiffée par une plus récente se retire sans peindre', asyn
   assert.equal(await vieille, null, 'la demande dépassée rend null, jamais un résultat périmé');
   assert.equal((await neuve).saisie, 'hope');
 });
+
+test('une liste provisoire est remise à sa recherche sans la clore, et ne se demande que si on la montre', async () => {
+  // Le travailleur de doublure poste une liste PROVISOIRE avant le résultat,
+  // quand la demande en réclame — c'est l'ordre du vrai canal (`creerCanal`).
+  const avecProvisoire = () => {
+    const ne = travailleurFactice();
+    const poster = ne.worker.postMessage.bind(ne.worker);
+    ne.worker.postMessage = (m) => {
+      if (m.type === 'resoudre' && m.provisoires) {
+        queueMicrotask(() => ne.worker.onmessage({ data: {
+          type: 'provisoire', generation: m.generation, cran: 0, fouille: 1,
+          saisie: m.saisie, approches: [{ rang: 1, url: '#provisoire' }],
+        } }));
+      }
+      poster(m);
+    };
+    return ne;
+  };
+  let ne = null;
+  const fond = creerRechercheEnFond({ ouvrir: () => (ne = avecProvisoire()) });
+  await fond.pret();
+
+  const listes = [];
+  const r = await fond.chercher('hope', null, { surListe: (l) => listes.push(l) });
+  assert.equal(r.type, 'resultat', 'la liste provisoire n’a pas clos la recherche');
+  assert.equal(listes.length, 1);
+  assert.equal(listes[0].cran, 0);
+  const demandes = () => ne.worker.recus.filter((m) => m.type === 'resoudre');
+  assert.equal(demandes().at(-1).provisoires, true);
+
+  await fond.chercher('hope', null);
+  assert.equal('provisoires' in demandes().at(-1), false,
+    'sans personne pour les montrer, les listes provisoires ne se demandent pas');
+});

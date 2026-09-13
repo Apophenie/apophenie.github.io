@@ -924,7 +924,7 @@ function commandeDeCible({ saisie, cible, texteCible, curseurs, fouille }) {
  */
 export function pageResultat({
   saisie, resultat, cible, surChoixSecours, podium = true,
-  curseurs = null, fouille = undefined,
+  curseurs = null, fouille = undefined, provisoire = null,
 }) {
   const secours = resultat.source === 'secours';
   const approches = resultat.approches || [];
@@ -942,6 +942,28 @@ export function pageResultat({
   const registres = pont.registresDisponibles(cibleObjet || texteCible);
 
   const bandeaux = [];
+  /* ★ **UNE LISTE PROVISOIRE LE DIT, EN TÊTE ET EN TOUTES LETTRES.**
+     > « Du moment que l'UI indique clairement que la recherche est encore en
+     >   cours et que le classement est provisoire. » (l'autrice)
+     `provisoire` porte le cran de la liste montrée, le cran demandé et la
+     jauge de la recherche, qui continue de courir ici. La liste elle-même est
+     rendue par le même code que la finale : elle ne diffère que par ce bandeau
+     et par `aria-busy` sur la section des voies. Ses liens sont déjà ceux de
+     la liste finale (`recherche/index.js › listeProvisoire`). */
+  if (provisoire) {
+    bandeaux.push(e('div.bandeau.bandeau--provisoire', { role: 'status' }, [
+      e('span.bandeau__marque', { texte: '◌', 'aria-hidden': 'true' }),
+      e('div.bandeau__corps', {}, [
+        e('strong.bandeau__titre', { texte: t('attente.provisoire.titre') }),
+        e('span', {
+          texte: t('attente.provisoire.texte', {
+            facteur: 2 ** (provisoire.cran ?? 0), demande: 2 ** (provisoire.fouille ?? 0),
+          }),
+        }),
+        provisoire.jauge ? provisoire.jauge.element : null,
+      ]),
+    ]));
+  }
   if (secours) {
     bandeaux.push(e('p.bandeau', {}, [
       e('span.bandeau__marque', { texte: '△', 'aria-hidden': 'true' }),
@@ -1068,7 +1090,7 @@ export function pageResultat({
      */
     e('div.resultat__corps', {}, [
       e('div.resultat__flux', {}, [
-        e('section.section', {}, [
+        e('section.section', provisoire ? { 'aria-busy': 'true' } : {}, [
           e('h2.h2-machine', { texte: t('resultat.voiesTitre') }),
           ...(aucune ? [aucune] : listeDesVoies),
         ]),

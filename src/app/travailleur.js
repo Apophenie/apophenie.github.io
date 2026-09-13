@@ -172,6 +172,8 @@ export function creerRechercheEnFond(options = {}) {
     const demande = enCours.get(message.generation);
     if (!demande) return;   // une génération périmée : on l'ignore, elle n'a plus de destinataire
     if (message.type === 'avancement') { demande.surAvancement(message); return; }
+    // ★ Une liste PROVISOIRE ne clôt rien : la recherche continue, la demande reste ouverte.
+    if (message.type === 'provisoire') { demande.surListe(message); return; }
     enCours.delete(message.generation);
     if (message.type === 'resultat') demande.tenir(message);
     else demande.rompre(new Error(message.message || 'recherche impossible'));
@@ -266,6 +268,7 @@ export function creerRechercheEnFond(options = {}) {
         enCours.set(mienne, {
           tenir, rompre,
           surAvancement: reglages.surAvancement || (() => {}),
+          surListe: reglages.surListe || (() => {}),
         });
         // ★ Les RÉGLAGES DE L'ÉCRAN DE LISTE voyagent avec la demande, au même
         //   titre que la cible : les quatre curseurs disent comment CLASSER, la
@@ -280,6 +283,8 @@ export function creerRechercheEnFond(options = {}) {
           cible: cible || undefined,
           ...(reglages.curseurs ? { curseurs: reglages.curseurs } : {}),
           ...(reglages.fouille === undefined ? {} : { fouille: reglages.fouille }),
+          // ★ Les listes provisoires ne se demandent que si quelqu'un les montre.
+          ...(reglages.surListe ? { provisoires: true } : {}),
         });
       });
     },

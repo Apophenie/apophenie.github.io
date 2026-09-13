@@ -397,6 +397,24 @@ export function creerMoteur(catalogue, options = {}) {
     }
     const canal = typeof optionsResolution.surAvancement === 'function'
       ? optionsResolution.surAvancement : null;
+    /* ★ **LES LISTES PROVISOIRES — la liste d'un cran inférieur, montrée pendant
+         que le cran demandé se calcule.** Facultatif, en lecture seule, comme
+         `surAvancement` : son absence ne change rien au calcul, et sa présence
+         non plus — il ne reçoit que des COPIES. Il n'est appelé qu'entre deux
+         crans, jamais au milieu d'une exploration.
+       ★ Chaque liste est celle, cumulative, du cran k, ses liens réécrits AU
+         CRAN DEMANDÉ : une voie de la liste provisoire porte exactement le lien
+         qu'elle aura dans la liste finale, où la cumulation la garde. */
+    const surListe = typeof optionsResolution.surListe === 'function' ? optionsResolution.surListe : null;
+    const montrer = surListe ? (reponse, retenues, k) => {
+      surListe(listeProvisoire(saisieBrute, optionsResolution, reponse, retenues, fouille),
+        { cran: k, fouille });
+    } : null;
+    // Un cran déjà en mémoire se montre tout de suite, avant tout calcul.
+    if (montrer && precedent && precedent.reponse) {
+      montrer(precedent.reponse, copierEtat(precedent).retenues
+        .map((a, i) => ({ ...a, suggestion: precedent.suggestions[i] })), depart - 1);
+    }
     const total = (1 << (fouille + 1)) - (1 << depart);
     let fait = 0;
     let plusHaut = 0;
@@ -429,6 +447,7 @@ export function creerMoteur(catalogue, options = {}) {
       // ⚠️ Un filet temporel qui a mordu rend la suite dépendante de la
       //   machine : on cumule quand même, mais on ne mémorise plus rien.
       precedent = memoriserLeCran(saisieBrute, optionsResolution, k, resultat, tronque, tronqueTemps);
+      if (montrer && k < fouille) montrer(resultat, resultat.approches, k);
     }
     // Ce qu'un cran inférieur a subi, la réponse le porte : sa liste en dépend.
     if (tronque) resultat.tronque = true;
@@ -450,11 +469,69 @@ export function creerMoteur(catalogue, options = {}) {
     ].join('\u0000');
   }
 
+  /**
+   * ★ **UNE LISTE PROVISOIRE — la liste du cran k, telle que la page peut la
+   * montrer pendant que le cran demandé se calcule.**
+   *
+   * Des COPIES : la réponse du cran k reste intacte, elle sert au cran suivant.
+   * Les liens des voies sont réécrits au cran DEMANDÉ, par la même recette que
+   * `unirAuCranInferieur` et `relierAuTexte` — la liste finale les contiendra
+   * au caractère près, puisque la cumulation garde ces voies. Le lien de la
+   * liste est celui de la liste demandée : le copier pendant la recherche mène
+   * à la liste qui se calcule, pas à une étape.
+   *
+   * ⚠️ **ÉCHEC BRUYANT.** Avant de réécrire, la recette est rejouée au cran
+   *   d'origine et doit rendre le lien que la voie porte déjà. Si elle ne le
+   *   rend pas, c'est que la recette a divergé de celle du moteur, et une liste
+   *   provisoire montrerait des liens qui ne rejouent peut-être pas ce qu'ils
+   *   montrent : on jette plutôt que de le risquer.
+   * ★ La liste des FRAGMENTS n'est pas reprise : ses liens portent le cran
+   *   d'origine et ne se réécrivent pas sans relire l'URL. Elle arrive avec la
+   *   liste finale, sous les voies.
+   */
+  function listeProvisoire(saisieBrute, optionsResolution, reponse, retenues, fouille) {
+    const saisie = String(saisieBrute ?? '').normalize('NFC');
+    const cbl = normaliserCible(optionsResolution.cible ?? options.cible);
+    const { curseurs } = ponderer(optionsResolution.curseurs ?? options.curseurs);
+    const lienA = (a, f, registre) => ecrire({
+      saisie,
+      cible: cbl,
+      retouches: a.lien.retouches,
+      liaison: a.lien.liaison,
+      fragments: a.lien.fragments,
+      ...(a.relecture ? { relecture: a.relecture.code } : {}),
+      curseurs,
+      fouille: f,
+      registre,
+    });
+    const approches = retenues.map((a) => {
+      if (!a.lien) throw new Error(`liste provisoire : la voie « ${a.codes} » n'a pas de lien à réécrire`);
+      if (lienA(a, reponse.fouille, 'sobre') !== a.urlSobre || lienA(a, reponse.fouille, 'scenique') !== a.urlScenique) {
+        throw new Error(`liste provisoire : la réécriture du lien de « ${a.codes} » ne rend pas celui du moteur`);
+      }
+      const urlSobre = lienA(a, fouille, 'sobre');
+      const urlScenique = lienA(a, fouille, 'scenique');
+      return { ...a, urlSobre, urlScenique, url: urlScenique };
+    });
+    return {
+      ...reponse,
+      approches,
+      fragments: [],
+      fouille,
+      urlResultats: ecrire({ saisie, cible: cbl, curseurs, fouille }),
+    };
+  }
+
   /** Garde une COPIE de la liste d'un cran, et la rend : c'est elle qui sert au suivant. */
   function memoriserLeCran(saisieBrute, optionsResolution, k, resultat, tronque = false, tronqueTemps = false) {
     const etat = etatsDesResultats.get(resultat);
     if (!etat) return null;
     const copie = copierEtat({ ...etat, tronque: tronque || !!resultat.tronque });
+    // ★ Ce qu'il faut pour MONTRER ce cran plus tard (`listeProvisoire`) : la
+    //   réponse sans ses voies, et les suggestions que `copierEtat` retire.
+    const { approches, ...reponse } = resultat;
+    copie.reponse = reponse;
+    copie.suggestions = (approches || []).map((a) => a.suggestion);
     if (tronqueTemps || resultat.tronqueTemps) return copie;
     const cle = cleDuCran(saisieBrute, optionsResolution, k);
     memoDesCrans.delete(cle);
@@ -2703,6 +2780,15 @@ export function creerCanal(moteur, poster) {
           ...optionsDe(message),
           annule: () => generation !== mienne,
           surAvancement: (a) => envoyer({ type: 'avancement', generation: mienne, ...a }),
+          // ★ Les LISTES PROVISOIRES ne voyagent que sur demande : « Révéler »
+          //   n'ouvre que la première voie de la liste finale, et sérialiser
+          //   des listes que personne ne lira coûterait pour rien.
+          ...(message.provisoires ? {
+            surListe: (liste, info) => {
+              if (generation !== mienne) return;
+              envoyer({ type: 'provisoire', generation: mienne, cran: info.cran, ...serialisable(liste) });
+            },
+          } : {}),
         });
         // `null` : une recherche plus récente l'a coiffée. On ne poste rien —
         // un résultat périmé qui arrive après le neuf est pire qu'un silence.
