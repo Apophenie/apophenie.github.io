@@ -472,8 +472,8 @@ export const fr = {
 
   attente: {
     surtitre: 'Les arcanes se dévoilent',
-    texte: 'Le moteur explore les voies une par une. Tout est calculé ici : rien '
-      + 'ne part sur le réseau, et c’est aussi pour ça que ça prend un instant.',
+    texte: 'Recherche de trajectoire en cours. Tout est calculé ici : rien ne part '
+      + 'sur le réseau. C’est aussi pour ça que ça prend du temps.',
   },
 
   bandeaux: {

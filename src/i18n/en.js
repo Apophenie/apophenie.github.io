@@ -385,8 +385,8 @@ export const en = {
 
   attente: {
     surtitre: 'The arcana are unfolding',
-    texte: 'The engine is walking the paths one by one. Everything is computed here: '
-      + 'nothing goes over the network, which is also why it takes a moment.',
+    texte: 'Trajectory search in progress. Everything is computed here: nothing goes '
+      + 'over the network. That is also why it takes time.',
   },
 
   bandeaux: {
