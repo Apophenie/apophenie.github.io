@@ -633,7 +633,7 @@ export const TITRES_COURTS = {
   'm.polybe': b('carré de Polybe', 'Polybius square'), // mpol
   'm.multiTap': b('appuis du téléphone', 'phone key presses'), // mtap
   'm.asciiEnSigne': b('table ASCII', 'ASCII table'), // masi
-  'm.asciiDeChaqueSigne': b('code ASCII de chaque signe', 'ASCII code of every character'), // mast
+  'm.asciiDeChaqueSigne': b('code ASCII de chaque signe', 'ASCII code of each sign'), // mast
   'm.eclatement': b('éclatement en chiffres', 'split into digits'), // mecl
   'm.longueurToken': b('nombre de caractères', 'character count'), // mlm
   'm.longueurNom': b('nombre de caractères', 'character count'), // mln

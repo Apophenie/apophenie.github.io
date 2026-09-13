@@ -169,7 +169,8 @@ test('cible-phrase — « https://reinfocovid.fr/ » → « C’est de la merde 
   const tete = r.approches[0];
   assert.equal(tete.relecture.code, 'masi', 'la voie exacte en tête');
   assert.equal(tete.ecartDeForme.facteur, 1000, 'rien à payer');
-  assert.deepEqual(tete.parts[0].chemin.ops.map((o) => o.code).join('+'), 'mast+mcar+mecl+mcar+mab');
+  // `tca` est implicite : il est dans le chemin, pas dans le lien (`url.js`).
+  assert.deepEqual(tete.parts[0].chemin.ops.map((o) => o.code).join('+'), 'tca+mast+mcar+mecl+mcar+mab');
   for (const a of r.approches) {
     assert.equal(a.parts.length, 1, `${a.url} : un seul bloc, pas de segments`);
   }
