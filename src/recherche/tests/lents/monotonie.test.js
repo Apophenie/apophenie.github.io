@@ -216,6 +216,32 @@ test('★ monotonie — aucune baisse : la liste cumulative contient ce que le c
   assert.deepEqual(manquantes, []);
 });
 
+/* ★ AUCUNE BAISSE PAR LA RAMPE DES RETOUCHES : à cran égal, la liste avec la
+     rampe contient celle des anciennes gardes (six mots, quatre vecteurs), voie
+     pour voie. Rouge sur la rampe simple — mesuré : `fl+mtjc+mtri` (4 854)
+     sortait de « Donald Trump » visant 111 au cran 3, `fc+mt9+cmo,…` (3 547)
+     de « Sarah Kerrigan » au cran 3, `fl+masc+mab` (3 596) de « Emmanuel
+     Macron » au cran 2 — ; vert par la double sélection (`index.js ›
+     finaliser`). */
+test('★ monotonie — la rampe des retouches n’ôte rien à la liste des anciennes gardes', () => {
+  const fixe = creerMoteur(catalogue, { filetTemporel: false, rampeDesRetouches: false });
+  const manquantes = [];
+  for (const [saisie, cible, cran] of [
+    ['Donald Trump', '111', 3], ['Sarah Kerrigan', '666', 3], ['Emmanuel Macron', '666', 2],
+    // ⚠️ Un TEXTE aussi — mais en garde, pas en preuve : la rampe simple n'y
+    //   ôtait rien de mesuré. C'est le seul texte du relevé où la rampe ajoute
+    //   (une voie au cran 3) ; la phrase en segments de reinfocovid, elle, est
+    //   identique avec et sans rampe aux crans 0 à 3.
+    ['Sarah Kerrigan', 'Zerg', 3],
+  ]) {
+    const avecRampe = moteur.resoudre(saisie, { cible, fouille: cran }).approches.map(programme);
+    for (const a of fixe.resoudre(saisie, { cible, fouille: cran }).approches) {
+      if (!avecRampe.includes(programme(a))) manquantes.push(`${saisie} → ${cible}, cran ${cran} : ${programme(a)} (${a.score})`);
+    }
+  }
+  assert.deepEqual(manquantes, []);
+});
+
 /* ⚠️ Vert avant la cumulation aussi, et pour cause : il n'y avait pas de mémo
      des crans. C'est lui qu'il garde désormais — une montée cran par cran ne
      doit pas rendre une autre liste qu'un calcul direct. */
