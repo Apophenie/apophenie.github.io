@@ -474,3 +474,181 @@ test('★ par le chemin du site, aucun geste arithmétique ne retombe sur le ren
     assert.ok(gestes.has(geste), `${programme} : le geste « ${geste} » doit être JOUÉ, pas remplacé`);
   }
 });
+
+// ───────────────────── 8. le carré : l'accolade d'abord, le calcul dessous
+
+/**
+ * > « L'animation pour les carrés est à corriger : sous le nombre, accolade
+ * >   avec un symbole de mise au carré. Une fois l'accolade affichée, l'espace
+ * >   s'élargit pour dupliquer le nombre et ajouter l'opérateur de
+ * >   multiplication entre les deux. Le tout descend sous l'accolade pour
+ * >   afficher le résultat en dessous de l'accolade, puis le résultat vient
+ * >   prendre son espace sur la ligne principale, puis l'accolade disparaît. »
+ * >   (l'autrice)
+ *
+ * Le geste d'avant compilait et se rejouait, et il ne montrait rien de cela :
+ * pas d'accolade, et le nombre s'effaçait pour en reposer deux. Ces tests-ci
+ * lisent la TIMELINE, temps par temps, sur le nombre du MILIEU d'une ligne de
+ * trois — celui dont l'écartement pousse des deux côtés.
+ */
+import { lecteur } from './_lecteur.js';
+import { creerMoteur } from '../../recherche/index.js';
+import { lire as lireLien } from '../../recherche/url.js';
+import { CATALOGUE } from '../../moteur/catalogue.js';
+
+const LIGNE_CARRE = [7, 115, 1];
+
+test('★ le carré se joue dans l’ordre décrit : accolade, écart, double et ×, descente, produit, remontée, retrait', () => {
+  const { steps, tl } = jouer('mcar', nums(LIGNE_CARRE), jetonsNums(LIGNE_CARRE));
+  assert.deepEqual(tl.warnings, [], 'rien ne se contredit');
+  assert.equal(steps.length, 3, 'un geste par nombre, un nombre à la fois');
+  const pas = tl.steps[1];
+  const fen = (a) => a.delay >= pas.t0 && a.delay < pas.t0 + pas.duration;
+  const anims = (id, prop) => tl.anims.filter((a) => a.id === id && a.prop === prop && fen(a));
+  const noeud = (pred) => tl.nodes.find(pred);
+  const lire = lecteur(tl);
+  const fin = (a) => a.delay + a.duration;
+  const arrivee = (a) => a.keyframes[a.keyframes.length - 1].value;
+
+  // ① l'accolade, sous le nombre SEUL, avec son symbole et ses mots.
+  const accolade = noeud((n) => n.role === 'bracket' && anims(n.id, 'strokeDashoffset').length);
+  assert.ok(accolade, 'une accolade se tire');
+  const trace = anims(accolade.id, 'strokeDashoffset')[0];
+  const largeur115 = noeud((n) => n.id === 't1').w;
+  assert.ok(accolade.w < largeur115 * 1.5, 'elle n’embrasse d’abord que le nombre');
+  const suiveurs = tl.nodes.filter((n) => n.data && n.data.suit === accolade.id).map((n) => n.text);
+  assert.deepEqual(suiveurs.sort(), ['au carré', '²'].sort(), 'le symbole, et les mots qui le disent');
+
+  // ② l'espace s'élargit : le double naît SUR l'original et glisse à sa place.
+  const double = noeud((n) => n.id.startsWith('@double') && n.text === '115');
+  const fois = noeud((n) => n.id.startsWith('@fois') && fen({ delay: anims(n.id, 'opacity')[0]?.delay ?? -1 }));
+  assert.ok(double && fois && fois.text === '×', 'le double et le signe existent');
+  const ecart = anims(double.id, 'translate')[0];
+  assert.ok(ecart.delay >= fin(trace), 'l’écart ne commence qu’une fois l’accolade tirée');
+  const departDouble = ecart.keyframes[0].value;
+  const n115 = lire.valeur('t1', 'translate', ecart.delay);
+  assert.ok(Math.abs(departDouble.x - n115.x) < 0.5, 'le double part de l’original : c’est un dédoublement');
+  const parait = (id) => anims(id, 'opacity').find((a) => arrivee(a) === 1);
+  assert.ok(parait(double.id).delay >= ecart.delay, 'le double paraît pendant que l’espace s’ouvre');
+  assert.ok(parait(fois.id).delay > parait(double.id).delay, 'le nombre se dédouble, PUIS le signe s’écrit');
+
+  // L'original ne s'efface pas pour être redessiné : il ne change jamais de
+  // texte, et ne pâlit qu'au moment où l'expression se résout en son produit.
+  assert.equal(canal(tl, 't1'), undefined, 'le texte de 115 ne change pas');
+  const descentes = ['t1', fois.id, double.id].map((id) => anims(id, 'translate')
+    .find((a) => arrivee(a).y > n115.y));
+  assert.ok(descentes.every(Boolean), 'les trois descendent');
+  const D = descentes[0].delay;
+  assert.ok(descentes.every((a) => a.delay === D), '③ d’un bloc, au même instant');
+  assert.ok(D >= fin(parait(fois.id)), '…une fois « 115 × 115 » écrit');
+  const Y = arrivee(descentes[0]).y;
+  assert.ok(descentes.every((a) => arrivee(a).y === Y), 'à la même hauteur : l’expression reste lisible');
+  const efface115 = anims('t1', 'opacity');
+  assert.equal(efface115.length, 1, 'l’original ne pâlit qu’une fois');
+  assert.ok(efface115[0].delay > fin(descentes[0]), 'et seulement sous l’accolade, en se résolvant');
+
+  // ④ le produit paraît SOUS l'accolade, à la hauteur où l'expression est descendue.
+  const produit = noeud((n) => n.id === 'x0_1');
+  assert.equal(produit.text, '13225', 'le produit que l’opérateur calcule');
+  assert.ok(produit.w >= 5 * tl.metrics.advance - 0.01, 'sa place est celle de ses CINQ chiffres');
+  const P = parait('x0_1').delay;
+  assert.ok(P > D, 'il paraît après la descente');
+  assert.ok(Math.abs(lire.valeur('x0_1', 'translate', P).y - Y) < 0.5, 'là où l’expression est descendue');
+  const yAccolade = lire.valeur(accolade.id, 'translate', P).y;
+  assert.ok(Y > yAccolade, 'c’est-à-dire SOUS l’accolade');
+
+  // ⑤ il remonte prendre sa place, et l'accolade s'efface EN MÊME TEMPS.
+  const remontee = anims('x0_1', 'translate').find((a) => Math.abs(arrivee(a).y - n115.y) < 0.5);
+  assert.ok(remontee && remontee.delay > P, 'le produit remonte sur la ligne');
+  for (const id of tl.nodes.filter((n) => n.id === accolade.id || (n.data && n.data.suit === accolade.id)).map((n) => n.id)) {
+    const retrait = anims(id, 'opacity').find((a) => arrivee(a) === 0);
+    assert.ok(retrait, `« ${id} » se retire`);
+    assert.equal(retrait.delay, remontee.delay, 'l’accolade s’efface pendant que le produit remonte');
+  }
+});
+
+/**
+ * > « Jamais deux jetons superposés sur la ligne de base. »
+ *
+ * Échantillonné sur toute la scène, à la hauteur de la ligne : ni le double
+ * qui sort de l'original, ni le signe qui paraît entre eux, ni le produit qui
+ * remonte ne recouvrent un voisin. Sous l'accolade, l'expression se RÉSOUT en
+ * son produit — ce n'est pas la ligne.
+ */
+test('★ le carré ne superpose jamais deux jetons sur la ligne, à aucun instant', () => {
+  for (const valeurs of [LIGNE_CARRE, [1, 0, 999], [23, 5]]) {
+    const { tl } = jouer('mcar', nums(valeurs), jetonsNums(valeurs));
+    assert.deepEqual(tl.warnings, [], `${valeurs} : ${tl.warnings.join(' | ')}`);
+    const lire = lecteur(tl);
+    const yLigne = lire.valeur('t0', 'translate', 0).y;
+    const fs = tl.metrics.fontSize;
+    const N = 1500;
+    for (let k = 0; k <= N; k++) {
+      const t = (tl.total * k) / N;
+      const vus = lire.visibles(t).filter((j) => Math.abs(j.y - yLigne) < fs * 0.25);
+      for (let i = 0; i < vus.length; i++) {
+        for (let j = i + 1; j < vus.length; j++) {
+          const recouvre = Math.min(vus[i].d, vus[j].d) - Math.max(vus[i].g, vus[j].g);
+          assert.ok(recouvre <= 0.5, `${valeurs}, t = ${Math.round(t)} : « ${vus[i].texte} » (${vus[i].id}) `
+            + `et « ${vus[j].texte} » (${vus[j].id}) se chevauchent de ${recouvre.toFixed(1)}`);
+        }
+      }
+    }
+  }
+});
+
+/**
+ * > « 1² est à faire aussi par cohérence, même si le résultat est 1 comme le
+ * >   point de départ. » (l'autrice)
+ */
+test('★ 1² et 0² se jouent aussi — seule la ligne où rien ne change reste refusée', () => {
+  const valeurs = [1, 0, 3];
+  const { o, apres, steps, tl } = jouer('mcar', nums(valeurs), jetonsNums(valeurs));
+  assert.deepEqual(steps.map((s) => s.caption), ['1² = 1 × 1 = 1', '0² = 0 × 0 = 0', '3² = 3 × 3 = 9']);
+  assert.deepEqual(tl.warnings, []);
+  const tokens = jetonsNums(valeurs);
+  const ctx = { ids: tokens.map((t) => t.id), cle: 'x0', langue: 'fr' };
+  const lignes = suivreLaLigne(tokens, steps);
+  assert.deepEqual(lignes[lignes.length - 1].ids, o.sortie(nums(valeurs), apres, ctx),
+    'la ligne rejouée est celle que l’opérateur déclare');
+  assert.equal(appliquer(o, nums([1, 0, 1])), null, 'une ligne que le carré ne change pas est refusée, comme avant');
+});
+
+test('le carré refuse d’afficher un produit faux', () => {
+  const faux = {
+    version: 1, tokens: jetonsNums([12]),
+    steps: [{ id: 's0', title: 'carré', ops: [{
+      op: 'group', at: 0, dur: 5400, targets: ['t0'], carre: true, symbol: '²',
+      to: { id: 'r0', text: '145', kind: 'number' },
+    }] }],
+  };
+  assert.throws(() => compile(faux), /144/, '12 × 12 vaut 144, pas 145');
+});
+
+/**
+ * ★ **PAR LE CHEMIN DU SITE, et sur une vraie voie.** « Sarah Kerrigan » vers
+ *   « Protoss » passe par le carré (`fl+ma1+mcar+mab`) : le lien se rejoue sans
+ *   recherche, et la scène doit JOUER treize carrés — les trois `1` compris —
+ *   sans qu'aucun ne retombe sur le rendu générique.
+ */
+const VOIE_PROTOSS = '#so!m1a2!fl+ma1+mcar+mab#XeuapD1GiUPu7gDywGH#43pRnWYXE2';
+
+test('★ par le chemin du site, le carré est joué — et sur la voie « Sarah Kerrigan » → « Protoss »', () => {
+  const sc = construireScenario(approcheSur('Sept', ['tca', 'masb', 'mcar']), { saisie: 'Sept' });
+  assert.equal(sc.avertissements, undefined, (sc.avertissements || []).join(' | '));
+  assert.equal(sc.steps.filter((s) => (s.ops || []).some((o) => o.op === 'group' && o.carre)).length, 4,
+    'quatre lettres, quatre carrés');
+
+  const moteur = creerMoteur(CATALOGUE, { filetTemporel: false });
+  const lecture = lireLien(VOIE_PROTOSS);
+  const rejeu = moteur.rejouer(lecture);
+  assert.ok(rejeu.ok, rejeu.raison);
+  const vraie = moteur.scenarioDe(rejeu.approche, {
+    saisie: lecture.saisie, langue: 'fr', registre: lecture.registre, cible: lecture.cible,
+  });
+  assert.equal(vraie.avertissements, undefined, (vraie.avertissements || []).join(' | '));
+  const carres = vraie.steps.filter((s) => (s.ops || []).some((o) => o.op === 'group' && o.carre));
+  assert.equal(carres.length, 13, 'SARAHKERRIGAN : treize nombres, treize carrés');
+  assert.deepEqual(carres.slice(0, 2).map((s) => s.caption), ['19² = 19 × 19 = 361', '1² = 1 × 1 = 1']);
+  assert.deepEqual(compile(vraie).warnings, [], 'la scène entière compile sans animation concurrente');
+});

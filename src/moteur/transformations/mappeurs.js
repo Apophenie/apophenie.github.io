@@ -4120,6 +4120,11 @@ function etapeLongueurMot() {
 }
 
 const LIB_CARRE = bilingue('On élève chaque nombre au carré', 'Square every number');
+/* ★ Ce que porte l'accolade du carré, sous son `²` : le symbole seul, sous une
+   pointe, se lirait comme une marque égarée ; les mots le confirment. */
+const MENTION_CARRE = bilingue('au carré', 'squared');
+/** Un carré se joue en cinq temps (`visuel/primitives/group.js › planCarre`). */
+const DUREE_CARRE = 5400;
 const LIB_PUISSANCE = bilingue('On élève chaque nombre au chiffre suivant',
   'Raise every number to the next digit');
 const LIB_FACTORIELLE = bilingue('On prend la factorielle de chaque nombre',
@@ -7100,7 +7105,7 @@ const AUTRES_MAPPEURS = [
    * ★ Notoriété 0,85 : élever au carré s'apprend au collège. AdHoc 0,10 : il ne
    *   regarde ni la cible ni ce qu'on cherche — il multiplie, et il multiplierait
    *   pareil pour n'importe quelle visée. Ce qu'il coûte se paie ailleurs, au
-   *   barème : deux gestes par nombre, et une ligne deux fois plus longue à
+   *   barème : un geste par nombre, et une ligne deux fois plus longue à
    *   dissoudre ensuite.
    */
   def({
@@ -7125,26 +7130,47 @@ const AUTRES_MAPPEURS = [
       if (valeur.every((v) => v * v === v)) return null;
       return { valeur: valeur.map((v) => v * v), traces: valeur.map((_, i) => traces[i] || []) };
     },
-    // Un nombre qui ne bouge pas garde son identifiant : aucune étape ne le touche.
-    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
-    // changé, et la ligne garde ses jetons.
-    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
-      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
+    // ★ TOUT NOMBRE EST RÉÉCRIT, 0 et 1 compris : chacun reçoit son geste (voir
+    //   `steps`), donc son jeton neuf. `apres` vaut `null` quand l'opérateur a
+    //   REFUSÉ la ligne : il n'a alors rien changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((_, i) => nomToken(ctx, i)) : ctx.ids),
     /**
-     * ★ DEUX TEMPS PAR NOMBRE, ET LE CALCUL SE VOIT.
+     * ★ UN GESTE PAR NOMBRE, UN NOMBRE À LA FOIS — et l'accolade d'abord.
      *
-     * ① le nombre s'ouvre en DEUX exemplaires et le signe `×` s'écrit entre eux
-     *    — c'est la multiplication, posée avant d'être faite ;
-     * ② les trois jetons se rejoignent, et le produit s'écrit à leur place.
+     * > « Sous le nombre, accolade avec un symbole de mise au carré. Une fois
+     * >   l'accolade affichée, l'espace s'élargit pour dupliquer le nombre et
+     * >   ajouter l'opérateur de multiplication entre les deux. Le tout descend
+     * >   sous l'accolade pour afficher le résultat en dessous de l'accolade,
+     * >   puis le résultat vient prendre son espace sur la ligne principale,
+     * >   puis l'accolade disparaît. » (l'autrice)
      *
-     * Le `collapse` ANIME, le `substitute` ÉCRIT — même règle que la division
-     * (`mmod`) : sans lui, le jeton garderait sa valeur d'avant et l'étape
-     * suivante calculerait sur un nombre que la scène n'affiche plus.
+     * C'est une seule op — `group` en mode `carre` —, parce que l'accolade doit
+     * tenir du premier temps au dernier et qu'elle ne franchit pas une
+     * frontière de step. La primitive recalcule le produit et refuse un `to`
+     * qui ne l'égale pas.
+     *
+     * ★ **UN NOMBRE À LA FOIS**, comme la division et le modulo : une accolade
+     *   par nombre, qui s'efface avant que la suivante ne se tire. Toutes
+     *   ensemble, cinq expressions descendraient en même temps sous cinq
+     *   accolades — « une chose à la fois, et tant pis pour la durée ».
+     *
+     * ★ **0 ET 1 AUSSI.** « 1² est à faire aussi par cohérence, même si le
+     *   résultat est 1 comme le point de départ » (l'autrice). Ils étaient
+     *   sautés ; ils ne le sont plus. `apply` ne refuse toujours que la ligne où
+     *   PLUS RIEN ne change (tous à 0 ou 1) : celle-là, la scène la sauterait.
      */
     steps: (avant, apres, ctx) => {
       const titre = dire(LIB_CARRE, ctx.langue);
-      return avant.valeur.flatMap((v, i) => (v * v === v
-        ? [] : etapesDuProduit(ctx, i, [v, v], v * v, titre)));
+      const mention = dire(MENTION_CARRE, ctx.langue);
+      return avant.valeur.map((v, i) => etape(ctx, titre, `${v}² = ${v} × ${v} = ${v * v}`, enchainer([{
+        op: 'group',
+        dur: DUREE_CARRE,
+        targets: [ctx.ids[i]],
+        carre: true,
+        symbol: '²',
+        label: mention,
+        to: token(nomToken(ctx, i), v * v, 'number'),
+      }]), { id: `s_${ctx.cle}_${i}q`, hold: 300 }));
     },
   }),
   /* ★ **LA PUISSANCE — `mpui`, chaque nombre élevé au CHIFFRE SUIVANT.**
