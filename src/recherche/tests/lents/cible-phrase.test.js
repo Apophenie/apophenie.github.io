@@ -29,9 +29,10 @@
  *  ★ MESURÉ : sans recopie, les segments n'atteignent pas la phrase depuis
  *    « https://reinfocovid.fr/ » — ses portions productives ne se suivent pas.
  *
- *  ★ LE BLOC GONFLÉ L'ATTEINT. Toute la saisie, ponctuation comprise, en ASCII
- *    (`mast`), carrée, absorbée, relue par le téléphone — tenté en passe
- *    profonde pour toute phrase trop longue (`index.js › deroulerTexte`).
+ *  ★ LE BLOC GONFLÉ L'ATTEINT, EXACTE. Toute la saisie, ponctuation comprise, en
+ *    ASCII (`mast`), carrée, éclatée en chiffres (`mecl`), carrée encore,
+ *    absorbée, relue par la table ASCII — tenté en passe profonde pour toute
+ *    phrase trop longue (`index.js › deroulerTexte`).
  *
  *  ★ LA RAMPE. Un segment est une recherche : le cran 0 s'en autorise deux, et
  *    chaque cran un de plus (arbitré : les seuils restent tels quels).
@@ -67,8 +68,12 @@ test('cible-phrase — tous les signes ont une relecture : le téléphone approc
  * JOUÉE et écrit ce que le verdict annonce — espaces compris —, et le moteur
  * visuel compile.
  */
-function verifierVoies(r, ecrit, saisie = SAISIE) {
+function verifierVoies(r, attendu, saisie = SAISIE) {
   for (const a of r.approches) {
+    // ★ Le texte attendu peut dépendre de la relecture (exacte ou approchée), et
+    //   un GROUPEMENT peut l'écrire plusieurs fois : une série par exemplaire.
+    const unExemplaire = typeof attendu === 'function' ? attendu(a) : attendu;
+    const ecrit = Array.from({ length: a.series || 1 }, () => unExemplaire).join(' ');
     const rejeu = moteur.rejouer(lire(a.url));
     assert.equal(rejeu.ok, true, `${a.url} : ${rejeu.raison || ''}`);
     assert.equal(rejeu.approche.url, a.url, `${a.url} se rejoue à l’identique`);
@@ -79,7 +84,10 @@ function verifierVoies(r, ecrit, saisie = SAISIE) {
     assert.ok(!sc.steps.some((st) => /recopi/i.test(st.title || '')), `${a.url} : la scène recopie la saisie`);
     const relus = sc.steps.filter((st) => st.code === a.relecture.code).flatMap((st) => st.ops)
       .filter((o) => o.op !== 'merge' && o.to && typeof o.to.text === 'string').map((o) => o.to.text);
-    assert.equal(relus.join(''), ecrit, `${a.url} : la relecture est jouée, signe par signe`);
+    // Plusieurs séries : les exemplaires se suivent sur la ligne relue, sans blanc
+    // entre eux — c'est le verdict qui les sépare.
+    const relusAttendus = Array.from({ length: a.series || 1 }, () => unExemplaire).join('');
+    assert.equal(relus.join(''), relusAttendus, `${a.url} : la relecture est jouée, signe par signe`);
     assert.doesNotThrow(() => compile(sc), a.url);
   }
 }
@@ -143,45 +151,62 @@ test('cible-phrase — le mot seul est atteint : « merde », et chaque voie se 
 
 /* ★ LE BLOC GONFLÉ — « rassemble tous les morceaux avant de faire gonfler
      l'ensemble » (l'autrice). Sans recopie, les SEGMENTS n'atteignent pas la
-     phrase depuis cette saisie (ses portions productives ne se suivent pas). Le
-     BLOC, lui, l'atteint : toute la saisie, ponctuation comprise, codée en ASCII
-     (`mast`, 63 chiffres), carrée (`mcar`, 109), absorbée (`mab`) dans les 32
-     chiffres de la phrase relue au téléphone — une seule relecture.
-     MESURÉ, et c'est la matière qui décidait, pas un plafond : sans la
-     ponctuation, la ligne carrée ne fait que 89 chiffres et l'absorption n'écrit
-     que 29 des 32 ; `plafondDAbsorption` (160) n'était pas atteint.
-     ⚠️ C'est l'APPROCHÉE (« cest de la merde », ponctuation et capitale près) :
-     la voie exacte ASCII demande 57 chiffres, que 109 de ligne n'écrivent pas
-     (43 au plus) — voir le rapport. */
-test('cible-phrase — « https://reinfocovid.fr/ » → « C’est de la merde ! » : le bloc gonflé, sans recopie', () => {
+     phrase depuis cette saisie ; le BLOC l'atteint, d'une seule relecture.
+     ★ EXACTE : toute la saisie en ASCII, ponctuation comprise (`mast`, 63
+       chiffres), carrée (`mcar`, 109), éclatée en chiffres (`mecl`), carrée une
+       seconde fois (143), absorbée (`mab`) dans les 57 chiffres de la phrase
+       relue par la table ASCII (`masi`). MESURÉ : `mast+mcar+mecl+mcar+mab`,
+       3 375, en tête — aucun écart de forme.
+     ★ APPROCHÉE : les mêmes lignes relues au téléphone (32 chiffres), derrière,
+       à la ponctuation et à la capitale près. Au cran 0 : 17 voies en tout.
+     MESURÉ, et c'était la matière qui décidait, pas un plafond : sans la
+       ponctuation la ligne carrée fait 89 chiffres (29 des 32 écrits) ; sans
+       l'éclatement, un second carré sort du domaine 10⁶ et 109 chiffres
+       n'écrivent que 43 des 57. */
+test('cible-phrase — « https://reinfocovid.fr/ » → « C’est de la merde ! » exacte : le bloc gonflé deux fois, sans recopie', () => {
   const r = moteur.resoudre(SAISIE, { cible: PHRASE });
   assert.ok(r.approches.length >= 1, 'aucune voie vers la phrase');
+  const tete = r.approches[0];
+  assert.equal(tete.relecture.code, 'masi', 'la voie exacte en tête');
+  assert.equal(tete.ecartDeForme.facteur, 1000, 'rien à payer');
+  assert.deepEqual(tete.parts[0].chemin.ops.map((o) => o.code).join('+'), 'mast+mcar+mecl+mcar+mab');
   for (const a of r.approches) {
-    assert.equal(a.relecture.code, 'mtap', `${a.url} : une seule relecture, le téléphone`);
     assert.equal(a.parts.length, 1, `${a.url} : un seul bloc, pas de segments`);
-    assert.ok(a.parts[0].chemin.ops.some((o) => o.code === 'mast'), `${a.url} : la ponctuation dans la ligne`);
-    assert.ok(a.parts[0].chemin.ops.some((o) => o.gonfle), `${a.url} : la ligne gonflée`);
   }
   assert.deepEqual(r.relectures.map((x) => [x.code, x.voies]), [['mtap', 0], ['masi', 0]],
     'aucune voie par segments : la phrase vient du bloc');
-  verifierVoies(r, 'cest de la merde');
+  const exacte = (a) => !a.ecartDeForme.natures.includes('ponctuation');
+  const premiereApprochee = r.approches.findIndex((a) => !exacte(a));
+  assert.ok(r.approches.slice(premiereApprochee).every((a) => !exacte(a)), 'une exacte derrière une approchée');
+  verifierVoies(r, (a) => (exacte(a) ? PHRASE : 'cest de la merde'));
 });
 
-/* ★ LE BLOC ET LES SEGMENTS, CÔTE À CÔTE, sur une saisie qui a la matière :
-     « Reinfocovid, désinformation garantie ». Mesuré au cran 0 : sept voies par
-     le bloc gonflé (en tête), trois par segments sur deux portions disjointes. */
-test('cible-phrase — « Reinfocovid, désinformation garantie » → « C’est de la merde ! » : le bloc et les segments', () => {
+/* ★ LE BLOC ET LES SEGMENTS, sur une saisie qui a la matière : « Reinfocovid,
+     désinformation garantie ».
+     MESURÉ au cran 0 : vingt voies, toutes par le BLOC — l'exacte ASCII en tête
+     (`fl+mz26+mcar+mecl+mcar+mab`, 3 410), les approchées du téléphone derrière.
+     Les SEGMENTS sont toujours composés (trois, sur deux portions disjointes,
+     873 au mieux), mais aucun n'entre dans les vingt places : les approchées du
+     bloc gonflé deux fois les devancent (1 204 pour la vingtième). Ils ne sont
+     pas perdus — le diagnostic les compte, et leur lien se rejoue. */
+test('cible-phrase — « Reinfocovid, désinformation garantie » → « C’est de la merde ! » : le bloc en tête, les segments composés', () => {
   const saisie = 'Reinfocovid, désinformation garantie';
   const r = moteur.resoudre(saisie, { cible: PHRASE });
-  const blocs = r.approches.filter((a) => a.parts.length === 1);
-  const segments = r.approches.filter((a) => a.mode === 'PHRASE');
-  assert.ok(blocs.length >= 1, 'aucune voie par le bloc');
-  assert.ok(segments.length >= 1, 'aucune voie par segments');
-  for (const a of segments) {
-    const [p, q] = a.parts.map((x) => x.fragment);
-    assert.ok(p.offset + p.longueur <= q.offset, `${a.url} : portions disjointes et ordonnées`);
-  }
-  verifierVoies(r, 'cest de la merde', saisie);
+  assert.equal(r.approches[0].relecture.code, 'masi', 'l’exacte ASCII en tête');
+  assert.equal(r.approches[0].ecartDeForme.facteur, 1000);
+  assert.ok(r.relectures.find((x) => x.code === 'mtap').voies >= 1, 'les segments sont composés');
+  verifierVoies(r, (a) => (a.ecartDeForme.natures.includes('ponctuation') ? 'cest de la merde' : PHRASE), saisie);
+  // Le lien d'une voie par segments, deux portions disjointes, se rejoue toujours.
+  const lien = ecrire({
+    saisie, cible: lireCible(PHRASE), relecture: 'mtap', registre: 'sobre',
+    fragments: [
+      { portee: { offset: 0, longueur: 1 }, resonance: null, codes: ['mazc', 'mpui', 'mab'] },
+      { portee: { offset: 3, longueur: 1 }, resonance: null, codes: ['fr6', 'ma1', 'mab'] },
+    ],
+  });
+  const rejeu = moteur.rejouer(lire(lien));
+  assert.equal(rejeu.ok, true, rejeu.raison);
+  assert.equal(rejeu.approche.mode, 'PHRASE');
 });
 
 /* ★ LA DUPLICATION EST REFUSÉE, et un lien déjà écrit ne la fait pas revenir :

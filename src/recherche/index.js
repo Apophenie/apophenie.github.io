@@ -1268,14 +1268,16 @@ export function creerMoteur(catalogue, options = {}) {
         const segs = segmentsDe(rel);
         if (segs) {
           base.relectures[k].segments = segs.map((sg) => sg.texte);
-          if (segs.length > segmentsAutorises) {
-            // Hors de ce cran : dit, pas tu.
+          // ★ Hors de ce cran, les SEGMENTS se taisent — dit, pas tu. Le BLOC, lui,
+          //   reste tenté en passe profonde : c'est une seule recherche, et c'est
+          //   par lui que l'exacte ASCII arrive (voir plus bas).
+          const segmentsHorsDuCran = segs.length > segmentsAutorises;
+          if (segmentsHorsDuCran) {
             base.relectures[k].horsDuCran = true;
             base.relectures[k].voies = 0;
-            continue;
           }
           const voiesParSegment = [];
-          for (let sIdx = 0; sIdx < segs.length; sIdx++) {
+          for (let sIdx = 0; !segmentsHorsDuCran && sIdx < segs.length; sIdx++) {
             const echelleSeg = (a) => echelle({
               ...a, fraction: (sIdx + Math.min(1, Math.max(0, (a && a.fraction) || 0))) / segs.length,
             });
@@ -1297,7 +1299,7 @@ export function creerMoteur(catalogue, options = {}) {
             if (rs.tronqueTemps) tronqueTemps = true;
             voiesParSegment.push(rs.approches || []);
           }
-          const composees = composer(rel, segs, voiesParSegment);
+          const composees = segmentsHorsDuCran ? [] : composer(rel, segs, voiesParSegment);
           base.relectures[k].voies = composees.length;
           for (const a of composees) {
             versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);

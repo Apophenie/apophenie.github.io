@@ -7383,6 +7383,10 @@ const AUTRES_MAPPEURS = [
   //   d'une PHRASE visée d'un bloc. Fabrique plus bas (hissage). Fin de bloc,
   //   append-only (§4.1).
   operateurAsciiDeChaqueSigne(),
+  // ★ ÉCLATER LES NOMBRES EN CHIFFRES — `mecl`, pour gonfler une seconde fois
+  //   la matière d'une phrase. Fabrique plus bas (hissage). Fin de bloc,
+  //   append-only (§4.1).
+  operateurEclatement(),
 ];
 
 /**
@@ -8128,6 +8132,80 @@ function operateurAsciiDeChaqueSigne() {
           retire: i === dernier,
         }], { id: `s_${ctx.cle}_${i}` });
       });
+    },
+  });
+}
+
+/**
+ * ★ **ÉCLATER LES NOMBRES EN CHIFFRES — `mecl`.**
+ *
+ * > « Oui, les deux, en dernier recours. » (l'autrice, sur l'éclatement et les
+ * >   deux gonflants à la suite)
+ *
+ * MESURÉ, et c'est ce qui l'a fait écrire : « https://reinfocovid.fr/ » en ASCII
+ * de chaque signe, carré, fait 109 chiffres de ligne — assez pour la phrase au
+ * téléphone (32), pas pour l'exacte ASCII (57 : 43 au plus). Un second carré
+ * sortirait du domaine du moteur (13 924² > 10⁶). Éclaté en chiffres PUIS carré,
+ * chaque chiffre reste sous 81 : 143 chiffres, et l'absorption écrit les 57.
+ *
+ * ★ Il ne crée AUCUN chiffre : 13 924 devient 1 3 9 2 4, les mêmes chiffres dans
+ *   le même ordre. Il rend seulement chaque chiffre à nouveau calculable.
+ * ★ Il refuse une ligne qu'il ne changerait pas (que des chiffres seuls) : un
+ *   opérateur qui rend son entrée fabrique une étape vide (même raison que `mcar`).
+ * ★ **INACTIF EN RECHERCHE**, et réservé à la MATIÈRE D'UNE PHRASE
+ *   (`eclate`) : l'assemblage ne l'emploie qu'entre deux gonflants, en passe
+ *   profonde, pour le bloc d'une phrase (`recherche/assemblage.js ›
+ *   vecteursDeSix`).
+ * ★ Le GESTE est celui qu'emploient déjà les absorptions : chaque nombre à
+ *   plusieurs chiffres se remplace par ses chiffres, côte à côte (`substitute`,
+ *   un jeton vers plusieurs — la primitive vérifie que les chiffres recomposent
+ *   le nombre). Un nombre d'un seul chiffre ne bouge pas.
+ * ★ Notoriété 0,90 : écrire un nombre chiffre à chiffre, tout le monde le fait.
+ *   AdHoc 0,20 : il ne regarde pas la cible, il prépare la matière.
+ */
+function operateurEclatement() {
+  const libelle = bilingue('On éclate chaque nombre en ses chiffres', 'Split every number into its digits');
+  const regle = bilingue('13 924 devient 1 3 9 2 4 : les mêmes chiffres, chacun à part',
+    '13,924 becomes 1 3 9 2 4: the same digits, each on its own');
+  const idChiffreDe = (ctx, i, k) => `${ctx.cle}_e${i}_${k}`;
+  return def({
+    id: 'm.eclatement', code: 'mecl', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle, regle,
+    notoriete: 0.90, adHoc: 0.20, cout: 1,
+    actifParDefaut: false,
+    eclate: true,
+    note: bilingue(
+      'Il ne crée aucun chiffre : il rend chacun à nouveau calculable. Joué seulement pour '
+      + 'donner de la matière à une phrase, entre deux gonflements.',
+      'It creates no digit: it makes each one computable again. Played only to give a sentence '
+      + 'material, between two inflations.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      if (!valeur.every((v) => Number.isInteger(v) && v >= 0)) return null;
+      if (valeur.every((v) => v <= 9)) return null;
+      const out = [];
+      const tr = [];
+      valeur.forEach((v, i) => {
+        for (const c of String(v)) { out.push(Number(c)); tr.push(traces[i] || []); }
+      });
+      return { valeur: out, traces: tr };
+    },
+    sortie: (avant, apres, ctx) => avant.valeur.flatMap((v, i) => (v <= 9
+      ? [ctx.ids[i]]
+      : [...String(v)].map((_, k) => idChiffreDe(ctx, i, k)))),
+    steps: (avant, apres, ctx) => {
+      const pairs = [];
+      avant.valeur.forEach((v, i) => {
+        if (v <= 9) return;
+        pairs.push({
+          target: ctx.ids[i],
+          to: [...String(v)].map((c, k) => token(idChiffreDe(ctx, i, k), c, 'digit')),
+        });
+      });
+      if (!pairs.length) return [];
+      return [etape(ctx, dire(libelle, ctx.langue), `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`,
+        enchainer([{ op: 'substitute', pairs }]), { id: `s_${ctx.cle}_ecl` })];
     },
   });
 }

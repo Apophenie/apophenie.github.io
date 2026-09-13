@@ -744,12 +744,16 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   const rangements = [];
   const mappeurs = [];
   const raffineurs = [];
+  // ★ Les ÉCLATEURS (`op.eclate`, `mecl`) : ni raffinage ni absorption — ils ne
+  //   servent qu'entre deux gonflements, pour la matière d'une phrase.
+  const eclateurs = [];
   const nonRanges = [];
   for (const o of ops) {
     if (o.from === 'STR' && o.to === 'STR') filtres.push(o);
     else if (o.from === 'STR' && o.to === 'TOKENS') decoupes.push(o);
     else if (o.from === 'TOKENS' && o.to === 'TOKENS') rangements.push(o);
     else if (o.from === 'TOKENS' && o.to === 'NUMS') mappeurs.push(o);
+    else if (o.from === 'NUMS' && o.to === 'NUMS' && o.eclate) eclateurs.push(o);
     else if (o.from === 'NUMS' && o.to === 'NUMS') raffineurs.push(o);
     else if (o.to !== 'NUM') nonRanges.push(o.code);
   }
@@ -941,6 +945,31 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
           for (const a of absorbants) {
             const x = appliquerOp(a, w);
             if (x !== null) retenir(j.ops.concat(m, r, a), j.etats.concat([v, w, x]));
+          }
+          /* ★ **DEUX GONFLEMENTS À LA SUITE — pour la seule matière d'une phrase.**
+               « Oui, les deux, en dernier recours » (l'autrice). Un gonflant, puis
+               un éclatement en chiffres, puis un second gonflant, puis
+               l'absorption : c'est ce qui porte « https://reinfocovid.fr/ » à 143
+               chiffres de ligne, assez pour les 57 de « C'est de la merde ! » en
+               ASCII. Seulement quand `index.js` cherche le bloc d'une phrase
+               (`options.matiereDePhrase`), et seulement sur un premier gonflant :
+               rien ne change pour 666 ni pour aucune cible chiffrée. */
+          if (!options.matiereDePhrase || !r.gonfle) continue;
+          for (const e of eclateurs) {
+            const y = appliquerOp(e, w);
+            if (y === null) continue;
+            for (const r2 of raffineurs) {
+              if (!r2.gonfle) continue;
+              const z = appliquerOp(r2, y);
+              if (z === null || z.type !== 'NUMS') continue;
+              const k2 = cleEtat(z);
+              if (lignesVues.has(k2)) continue;
+              lignesVues.add(k2);
+              for (const a of absorbants) {
+                const x = appliquerOp(a, z);
+                if (x !== null) retenir(j.ops.concat(m, r, e, r2, a), j.etats.concat([v, w, y, z, x]));
+              }
+            }
           }
         }
       }
@@ -3221,7 +3250,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
        (`ctx.matiereDePhrase`), en passe profonde. Aucune autre cible ne la voit. */
   const opsGonflantes = ctx.profond === true && ctx.catalogue
     ? normaliserCatalogue(ctx.catalogue).filter((o) => o && !o.deprecated
-      && (o.gonfle || (ctx.matiereDePhrase === true && o.matiereDePhrase)))
+      && (o.gonfle || (ctx.matiereDePhrase === true && (o.matiereDePhrase || o.eclate))))
     : [];
   const opsPourVecteurs = opsExplorables.concat(opsGonflantes);
   const porteuses = fragmentsAVecteur(fragments, ctx);
@@ -3238,7 +3267,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
       const vecteurs = vecteursDeSix(f.texte, opsPourVecteurs, K, kParFragment * 2, cbl,
         // ★ `profond` — la seconde passe de dernier recours, posée par
         //   `index.js` quand un premier assemblage n'a rien rendu.
-        { curseurs: ctx.curseurs, profond: ctx.profond === true })
+        { curseurs: ctx.curseurs, profond: ctx.profond === true, matiereDePhrase: ctx.matiereDePhrase === true })
         .slice(0, kParFragment);
       if (f.entier || f.famille === 'entier') vecteursEntiers = vecteurs;
       for (const c of vecteurs) {

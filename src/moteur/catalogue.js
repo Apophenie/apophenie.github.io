@@ -187,6 +187,10 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   phrase visée d'un bloc. Inactif, réservé à cette passe. Fin de bloc
   //   mappeur, append-only (§4.1).
   'mast',
+  // ★ ÉCLATER LES NOMBRES EN CHIFFRES — entre deux gonflements, pour la matière
+  //   d'une phrase. Inactif, réservé au bloc d'une phrase en passe profonde.
+  //   Fin de bloc mappeur, append-only (§4.1).
+  'mecl',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

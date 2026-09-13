@@ -354,6 +354,7 @@ export const NOMS = {
   'm.multiTap': b('Par les appuis du téléphone', 'By phone key presses'),
   'm.asciiEnSigne': b('Par la table ASCII', 'By the ASCII table'),
   'm.asciiDeChaqueSigne': b('Par le code ASCII de chaque signe', 'By the ASCII code of every character'),
+  'm.eclatement': b('En éclatant les nombres', 'By splitting the numbers'),
   // ★ Le carré est un mappeur DE SERVICE : il ne passe jamais vedette, et ce
   //   nom-ci ne devrait donc jamais paraître. Il existe parce que la famille
   //   `mappeur` l'exige, et parce qu'un titre vide serait pire qu'un titre juste.
@@ -633,6 +634,7 @@ export const TITRES_COURTS = {
   'm.multiTap': b('appuis du téléphone', 'phone key presses'), // mtap
   'm.asciiEnSigne': b('table ASCII', 'ASCII table'), // masi
   'm.asciiDeChaqueSigne': b('code ASCII de chaque signe', 'ASCII code of every character'), // mast
+  'm.eclatement': b('éclatement en chiffres', 'split into digits'), // mecl
   'm.longueurToken': b('nombre de caractères', 'character count'), // mlm
   'm.longueurNom': b('nombre de caractères', 'character count'), // mln
   // ⚠️ « signaux morse » se lit comme un nom composé bancal ; l'auteur veut
@@ -871,6 +873,7 @@ export const PRECISIONS = {
   'm.multiTap': b('chaque paire lue en appuis', 'each pair read as key presses'),
   'm.asciiEnSigne': b('chaque trio lu dans la table ASCII', 'each triple read in the ASCII table'),
   'm.asciiDeChaqueSigne': b('ponctuation comprise', 'punctuation included'),
+  'm.eclatement': b('en éclatant les nombres', 'splitting the numbers'),
   // ★ Muet sur ce qu'il souligne — voir `MAPPEURS_DE_SERVICE`. « 666 déjà
   // écrit » serait exact et divulguerait la chute d'une ligne de la liste.
   'm.troisSixDAffilee': b('avec le trio souligné', 'with the trio underlined'),

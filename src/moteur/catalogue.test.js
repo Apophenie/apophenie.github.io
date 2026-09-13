@@ -344,6 +344,7 @@ const VECTEURS = [
   ['mtap', N([9, 4, 3, 2, 7, 3, 4, 1]), ['z', 'e', 'r', 'g']],
   ['masi', N([1, 2, 2, 1, 0, 1, 1, 1, 4, 1, 0, 3]), ['z', 'e', 'r', 'g']],
   ['mast', T([...'fr/']), [102, 114, 47]],
+  ['mecl', N([13924, 7, 25]), [1, 3, 9, 2, 4, 7, 2, 5]],
   // Le carré : trois chiffres deviennent cinq, et c'est tout ce qu'on lui demande.
   ['mcar', N([115, 97, 114]), [13225, 9409, 12996]],
   // La puissance regarde le PREMIER CHIFFRE du nombre suivant — 5², puis 2⁵,
@@ -498,8 +499,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 192); // …+1 code ASCII de chaque signe (mast), +1 code ASCII en signe (masi), +1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 192, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 193); // …+1 éclatement en chiffres (mecl), +1 code ASCII de chaque signe (mast), +1 code ASCII en signe (masi), +1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 193, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -509,7 +510,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 192, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 193, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -1724,6 +1725,22 @@ test('m1a2, mpol, mtap — deux chiffres, une lettre : la table entière, et rie
   assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([7, 4])).valeur], ['s']);
   // Et un appui sur le 1, c'est l'espace — la seule chose que ce clavier écrit hors des lettres.
   assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([1, 1])).valeur], [' ']);
+});
+
+/* ★ ÉCLATER LES NOMBRES EN CHIFFRES — `mecl`. Aucun chiffre créé, un geste montré. */
+test('mecl — chaque nombre éclate en ses chiffres, et le geste le montre', () => {
+  const op = PAR_CODE.get('mecl');
+  assert.equal(operateursActifs().includes(op), false, 'mecl : inactif en recherche');
+  assert.equal(op.eclate, true);
+  const entree = N([13924, 7, 25]);
+  const apres = appliquer(op, entree);
+  assert.deepEqual([...apres.valeur], [1, 3, 9, 2, 4, 7, 2, 5]);
+  assert.equal(appliquer(op, N([1, 7, 0])), null, 'que des chiffres seuls : rien à éclater');
+  const steps = etapes(op, entree, apres, { ids: ['t0', 't1', 't2'], cle: 'e0' });
+  const subs = steps.flatMap((st) => st.ops).filter((o) => o.op === 'substitute');
+  assert.equal(subs.length, 1);
+  assert.deepEqual(subs[0].pairs.map((pr) => [pr.target, pr.to.map((t) => t.text).join('')]),
+    [['t0', '13924'], ['t2', '25']], 'le 7 ne bouge pas, les chiffres recomposent chaque nombre');
 });
 
 /* ★ LE CODE ASCII DE CHAQUE SIGNE — `mast`, la matière d'une phrase. */
