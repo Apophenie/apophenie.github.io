@@ -188,7 +188,11 @@ test('cible-phrase — « https://reinfocovid.fr/ » → « C’est de la merde 
      Les SEGMENTS sont toujours composés (trois, sur deux portions disjointes,
      873 au mieux), mais aucun n'entre dans les vingt places : les approchées du
      bloc gonflé deux fois les devancent (1 204 pour la vingtième). Ils ne sont
-     pas perdus — le diagnostic les compte, et leur lien se rejoue. */
+     pas perdus — le diagnostic les compte, et leur lien se rejoue.
+     ★ ARBITRÉ, et c'est VOULU : « on laisse le score décider » (l'autrice).
+       Aucune place n'est réservée aux segments quand le bloc gonflé les devance
+       — meilleur segment à 873, vingtième place à 1 204. Ce test ne doit donc
+       pas exiger de voie par segments dans la liste. */
 test('cible-phrase — « Reinfocovid, désinformation garantie » → « C’est de la merde ! » : le bloc en tête, les segments composés', () => {
   const saisie = 'Reinfocovid, désinformation garantie';
   const r = moteur.resoudre(saisie, { cible: PHRASE });
