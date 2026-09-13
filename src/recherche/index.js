@@ -30,6 +30,7 @@ import { construireBassin } from './bassin.js';
 import { genererFragments, zonesSignifiantes, tokeniser, motifsRepetes } from './fragments.js';
 import {
   assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe, vecteursDeSix,
+  MAX_JETONS_RETOUCHE, MAX_VECTEURS_RETOUCHES,
 } from './assemblage.js';
 import {
   noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, REGLAGES,
@@ -250,6 +251,10 @@ export function creerMoteur(catalogue, options = {}) {
    * sans les crans inférieurs (`deroulerResolution`). C'est l'étalon du
    * « aucune baisse de qualité » : la liste cumulative doit la contenir. */
   const cumulatif = options.cumulatif !== false;
+  /* ★ **`rampeDesRetouches: false` — RÉGLAGE DE MESURE AUSSI.** Il garde les
+   * gardes de retouche à leurs valeurs historiques (six mots, quatre vecteurs)
+   * à tous les crans : c'est l'étalon du « la rampe n'ôte rien ». */
+  const rampeDesRetouches = options.rampeDesRetouches !== false;
   if (options.valider !== false) {
     const pbs = validerCatalogue(catalogue);
     if (pbs.length) throw new Error('catalogue non conforme (CONTRACTS §2.2) :\n  - ' + pbs.join('\n  - '));
@@ -737,8 +742,8 @@ export function creerMoteur(catalogue, options = {}) {
       //   d'approches peuvent seulement EXISTER (`config.js`).
       parFragment: budgets.parFragment,
       // ★ Les gardes de l'étage des retouches suivent le cran (`config.js`).
-      motsRetouches: budgets.motsRetouches,
-      vecteursRetouches: budgets.vecteursRetouches,
+      motsRetouches: rampeDesRetouches ? budgets.motsRetouches : MAX_JETONS_RETOUCHE,
+      vecteursRetouches: rampeDesRetouches ? budgets.vecteursRetouches : MAX_VECTEURS_RETOUCHES,
       // ★ Les curseurs descendent jusqu'à la réserve de qualité de
       //   `assemblage.js › vecteursDeSix` : ce sont eux qui décident quelles
       //   voies méritent d'être finalisées (`score-intermediaire.js`).
