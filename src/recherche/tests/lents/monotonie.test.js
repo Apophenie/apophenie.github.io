@@ -31,17 +31,22 @@
  *   25 — et cette dernière ôte deux voies à « Wok » au cran 0 sans ramener
  *   celle à 4 791.
  *
- * ⚠️ **CE QUE LA CUMULATION COÛTE EN QUALITÉ, et où.** Mesuré crans 0 à 5 sur
- *   les sept couples : 25 listes sur 42 bougent au-dessus du cran 0, et 21
- *   substitutions baissent la qualité — TOUTES sur « hope-hope-hope.fr ». Les
- *   candidats des crans inférieurs entrent en concurrence dans le MMR et
- *   épuisent des quotas : `0:ffr4;fl+m14+meg` (4 914) sort aux crans 1 et 2,
- *   `fl+m14+mpf` (7 084) et `fl+m14+meg` (6 803) au cran 5. Deux autres façons
- *   de garder ont été mesurées : ajouter les gardées à la sélection ordinaire
- *   (15 baisses, mais la liste dépasse ses places aux crans 1 à 3) et les
- *   sortir du quota (27 baisses). La retenue est la seule qui tient les places.
- *   La tête de « hope » aux crans 3 à 5 reste celle du cran 2 (2 442) au lieu
- *   de `fl+m14` (7 843), qui reste dans la liste.
+ * ★ **AUCUNE BAISSE DE QUALITÉ — la liste du cran n est l'UNION des
+ *   sélections des crans 0 à n.** Chaque cran sélectionne seul, sur ses
+ *   candidats, avec son quota et ses places ; les voies du cran inférieur
+ *   s'ajoutent sans rien lui prendre, et la liste s'allonge d'autant. C'est la
+ *   règle de l'auteur : « mieux vaut élargir le nombre de résultats pour en
+ *   faire effectivement un invariant ».
+ *
+ *   ⚠️ Trois constructions l'ont précédée, mesurées crans 0 à 5 sur les sept
+ *   couples, et toutes baissaient la qualité sur « hope-hope-hope.fr » :
+ *   garder puis compléter les places (21 baisses — les reprises épuisaient
+ *   places et quota, `fl+m14+mpf` à 7 084 sortait au cran 5) ; sélection
+ *   ordinaire puis reprises manquantes, sur une réserve où les candidats des
+ *   crans inférieurs concouraient (15 baisses — ce sont ces candidats portés
+ *   qui prenaient les places du MMR) ; reprises hors quota (27). Le test
+ *   « aucune baisse » ci-dessous compare la liste cumulative à la liste que
+ *   le cran sélectionne seul (`creerMoteur(…, { cumulatif: false })`).
  *
  *   Le récit qui suit est celui des deux causes telles qu'elles avaient été
  *   prouvées ; la cumulation les rend inoffensives sans les supprimer.
@@ -185,6 +190,23 @@ test('★ monotonie — du cran 0 au cran 5, aucune voie perdue sur les sept cou
      voies composées, tient aussi pour les segments. */
 test('★ monotonie — une phrase visée en segments ne perd rien du cran 0 au cran 3', () => {
   assert.deepEqual(pertesDuBalayage([['https://reinfocovid.fr/', "C'est de la merde !"]], 0, 3), []);
+});
+
+/* ★ AUCUNE BAISSE : ce que le cran sélectionne seul est dans sa liste
+     cumulative, voie pour voie — là où les trois constructions précédentes
+     chassaient des voies à 4 914, 7 084 et 6 803. */
+test('★ monotonie — aucune baisse : la liste cumulative contient ce que le cran sélectionne seul', () => {
+  const seul = creerMoteur(catalogue, { filetTemporel: false, cumulatif: false });
+  const manquantes = [];
+  for (const [saisie, cible] of [['hope-hope-hope.fr', '666'], ['Donald Trump', '111']]) {
+    for (let f = 0; f <= 5; f++) {
+      const cumul = moteur.resoudre(saisie, { cible, fouille: f }).approches.map(programme);
+      for (const a of seul.resoudre(saisie, { cible, fouille: f }).approches) {
+        if (!cumul.includes(programme(a))) manquantes.push(`${saisie} → ${cible}, cran ${f} : ${programme(a)} (${a.score})`);
+      }
+    }
+  }
+  assert.deepEqual(manquantes, []);
 });
 
 /* ⚠️ Vert avant la cumulation aussi, et pour cause : il n'y avait pas de mémo
