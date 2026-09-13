@@ -6,12 +6,50 @@
  * >   possibles, mais dans ce cas, mieux vaut élargir le nombre de résultats
  * >   pour en faire effectivement un invariant. » (l'auteur)
  *
- * ★ **LA PREMIÈRE CAUSE EST RÉPARÉE, LA SECONDE NE L'EST PAS ENCORE.** Ces
- *   tests étaient `todo` et échouaient sur le code d'avant — vérifié : « le cran
- *   1 perd ce que le cran 0 avait trouvé », « 8 places → 10 places, on perd ».
- *   Le correctif les rend verts, et l'auteur l'a arbitré : « applique le
- *   correctif partout, cran 0 compris ». Reste la transition 2 → 3 de « Sarah
- *   Kerrigan », qui relève d'une autre cause et garde son `todo`.
+ * ★ **L'INVARIANT TIENT PAR CONSTRUCTION : LA RECHERCHE EST CUMULATIVE.**
+ *   Le cran n reprend les candidats des crans inférieurs et sa sélection part
+ *   des voies retenues au cran n−1 (`index.js › deroulerResolution`). L'auteur
+ *   l'a choisie au prix mesuré (×1,8 à ×2,1 au cran 2, ×3 à ×4,3 au cran 5,
+ *   avant réemploi). Vérifié rouge sur le code d'avant : 27 voies perdues du
+ *   cran 0 au cran 5 sur les sept couples du balayage, dont les deux
+ *   CONVERGENCE de « Sarah Kerrigan » entre les crans 2 et 3.
+ *
+ * ── POURQUOI AUCUN CORRECTIF LOCAL N'A SUFFI — mesuré avant de choisir ──────
+ *
+ * ★ **Les CANDIDATS eux-mêmes n'étaient pas emboîtés.** Places illimitées et
+ *   quota levé, donc SANS sélection, les crans 0 à 3 perdaient encore 41
+ *   programmes sur neuf transitions. Les listes de trois chemins par manière
+ *   changent d'un cran à l'autre (au cran 3, `jeu` remplace `msfr` par
+ *   `msen`, `geometrie` et `code` voient entrer un nouveau venu), et ce ne sont
+ *   pas que des trios : « hope-hope-hope.fr » perd des assemblages à plusieurs
+ *   portées.
+ * ★ **Les quatre leviers locaux, mesurés sur 21 transitions (25 pertes au
+ *   départ)** : trios en ordre stable et croissant, 27 à 30 ; toutes les
+ *   combinaisons de trios, 26 plafonnées, 101 sans plafond ; quota compté sur
+ *   toutes les parties, 24, ou propre aux convergences, 30 ; places doublées,
+ *   28 ; pénalité de redondance figée, 25 ; têtes classées par le score final,
+ *   25 — et cette dernière ôte deux voies à « Wok » au cran 0 sans ramener
+ *   celle à 4 791.
+ *
+ * ★ **AUCUNE BAISSE DE QUALITÉ — la liste du cran n est l'UNION des
+ *   sélections des crans 0 à n.** Chaque cran sélectionne seul, sur ses
+ *   candidats, avec son quota et ses places ; les voies du cran inférieur
+ *   s'ajoutent sans rien lui prendre, et la liste s'allonge d'autant. C'est la
+ *   règle de l'auteur : « mieux vaut élargir le nombre de résultats pour en
+ *   faire effectivement un invariant ».
+ *
+ *   ⚠️ Trois constructions l'ont précédée, mesurées crans 0 à 5 sur les sept
+ *   couples, et toutes baissaient la qualité sur « hope-hope-hope.fr » :
+ *   garder puis compléter les places (21 baisses — les reprises épuisaient
+ *   places et quota, `fl+m14+mpf` à 7 084 sortait au cran 5) ; sélection
+ *   ordinaire puis reprises manquantes, sur une réserve où les candidats des
+ *   crans inférieurs concouraient (15 baisses — ce sont ces candidats portés
+ *   qui prenaient les places du MMR) ; reprises hors quota (27). Le test
+ *   « aucune baisse » ci-dessous compare la liste cumulative à la liste que
+ *   le cran sélectionne seul (`creerMoteur(…, { cumulatif: false })`).
+ *
+ *   Le récit qui suit est celui des deux causes telles qu'elles avaient été
+ *   prouvées ; la cumulation les rend inoffensives sans les supprimer.
  *
  * ── CE QUI EST PROUVÉ ───────────────────────────────────────────────────────
  *
@@ -117,11 +155,74 @@ test('★ monotonie — une voie trouvée au cran 0 reste trouvée au cran 1', (
     'Jim → 666 : le cran 1 perd ce que le cran 0 avait trouvé');
 });
 
-test('★ monotonie — une voie trouvée au cran 2 reste trouvée au cran 3', {
-  todo: 'seconde cause : l’assemblage glouton des trios de CONVERGENCE les recombine — voir le pavé',
-}, () => {
+test('★ monotonie — une voie trouvée au cran 2 reste trouvée au cran 3', () => {
   assert.deepEqual(perduesEntre('Sarah Kerrigan', '666', 2, 3), [],
     'Sarah Kerrigan → 666 : le cran 3 perd ce que le cran 2 avait trouvé');
+});
+
+/** Les sept couples du balayage : ceux où la mesure avait trouvé des pertes. */
+const COUPLES_DU_BALAYAGE = [
+  ['Jim', '666'], ['Sarah Kerrigan', '666'], ['hope-hope-hope.fr', '666'], ['Wok', '666'],
+  ['zz', '666'], ['Sarah Kerrigan', '13'], ['Donald Trump', '111'],
+];
+
+/** Ce qui se perd d'un cran au suivant, de `bas` à `haut`, nommé. */
+function pertesDuBalayage(couples, bas, haut) {
+  const pertes = [];
+  for (const [saisie, cible] of couples) {
+    let avant = null;
+    for (let f = bas; f <= haut; f++) {
+      const ici = moteur.resoudre(saisie, { cible, fouille: f }).approches.map(programme);
+      if (avant) for (const p of avant) if (!ici.includes(p)) pertes.push(`${saisie} → ${cible}, cran ${f - 1} → ${f} : ${p}`);
+      avant = ici;
+    }
+  }
+  return pertes;
+}
+
+test('★ monotonie — du cran 0 au cran 5, aucune voie perdue sur les sept couples', () => {
+  assert.deepEqual(pertesDuBalayage(COUPLES_DU_BALAYAGE, 0, 5), []);
+});
+
+/* ⚠️ Ce test-ci était DÉJÀ vert avant la cumulation : cette phrase ne perdait
+     rien du cran 0 au cran 3. Il ne prouve donc pas la réparation — il garde
+     que la cumulation, qui passe par la liste fusionnée d'un texte et par ses
+     voies composées, tient aussi pour les segments. */
+test('★ monotonie — une phrase visée en segments ne perd rien du cran 0 au cran 3', () => {
+  assert.deepEqual(pertesDuBalayage([['https://reinfocovid.fr/', "C'est de la merde !"]], 0, 3), []);
+});
+
+/* ★ AUCUNE BAISSE : ce que le cran sélectionne seul est dans sa liste
+     cumulative, voie pour voie — là où les trois constructions précédentes
+     chassaient des voies à 4 914, 7 084 et 6 803. */
+test('★ monotonie — aucune baisse : la liste cumulative contient ce que le cran sélectionne seul', () => {
+  const seul = creerMoteur(catalogue, { filetTemporel: false, cumulatif: false });
+  const manquantes = [];
+  for (const [saisie, cible] of [['hope-hope-hope.fr', '666'], ['Donald Trump', '111']]) {
+    for (let f = 0; f <= 5; f++) {
+      const cumul = moteur.resoudre(saisie, { cible, fouille: f }).approches.map(programme);
+      for (const a of seul.resoudre(saisie, { cible, fouille: f }).approches) {
+        if (!cumul.includes(programme(a))) manquantes.push(`${saisie} → ${cible}, cran ${f} : ${programme(a)} (${a.score})`);
+      }
+    }
+  }
+  assert.deepEqual(manquantes, []);
+});
+
+/* ⚠️ Vert avant la cumulation aussi, et pour cause : il n'y avait pas de mémo
+     des crans. C'est lui qu'il garde désormais — une montée cran par cran ne
+     doit pas rendre une autre liste qu'un calcul direct. */
+test('★ monotonie — le cran n direct rend la liste de la montée cran par cran', () => {
+  const direct = creerMoteur(catalogue, { filetTemporel: false });
+  const signature = (r) => r.approches.map((a) => `${a.rang}:${a.url}:${a.score}:${a.suggestion ?? ''}`);
+  for (const [saisie, cible, cran] of [['Sarah Kerrigan', '666', 3], ['https://reinfocovid.fr/', "C'est de la merde !", 2]]) {
+    for (let f = 0; f < cran; f++) moteur.resoudre(saisie, { cible, fouille: f });
+    assert.deepEqual(
+      signature(direct.resoudre(saisie, { cible, fouille: cran })),
+      signature(moteur.resoudre(saisie, { cible, fouille: cran })),
+      `${saisie} → ${cible} au cran ${cran}`,
+    );
+  }
 });
 
 test('★ monotonie — la sélection à K+1 places contient celle à K', () => {
