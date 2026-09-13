@@ -268,19 +268,17 @@ const RATTRAPAGE_SUBSTITUTION_MAX = 12;
  * consomme déjà l'essentiel — d'où des bornes serrées plutôt que généreuses. Ce
  * qu'elles coûtent malgré tout est mesuré dans `.planning/A-VENIR-retouches.md`.
  *
- * ⚠️ **CES QUATRE-LÀ NE SUIVENT PAS LE CRAN, et c'est un arbitrage assumé.**
- *   Ils sont la TÊTE d'une liste dont l'ordre dépend de la largeur
- *   d'assemblage : pousser le curseur de 7 à 10 change le quatuor de tête, et
- *   sept voies retouchées bien réelles de « Millicent Billette » visant 1998 —
- *   toutes des `0:frN;fc+tca+masb+mad` — disparaissent alors de la liste.
- *   Jamais générées, pas écartées. Les faire suivre le cran les ramène toutes,
- *   mais déplace du même coup les crans 1 à 7 — et « aucun des crans 0 à 7 ne
- *   devrait bouger » (l'auteur). La stabilité des crans déjà publiés l'emporte
- *   sur la monotonie des crans du haut ; l'écart est mesuré, il n'est pas
- *   ignoré.
+ * ★ **ELLES SUIVENT LE CRAN** — `config.js › motsARetoucher`,
+ *   `vecteursARetoucher`, et ces deux constantes n'en sont plus que la valeur au
+ *   cran 0 (vérifié égales par `lents/curseurs.test.js`). Elles avaient été laissées fixes
+ *   parce qu'en suivant le cran elles changeaient le quatuor de tête et faisaient
+ *   disparaître sept voies retouchées de « Millicent Billette » visant 1998 aux
+ *   crans du haut. La recherche cumulative a retiré l'objection : la liste d'un
+ *   cran est l'union des sélections des crans inférieurs (`index.js ›
+ *   deroulerResolution`), une voie montrée plus bas ne peut plus disparaître.
  */
-const MAX_JETONS_RETOUCHE = 6;
-const MAX_VECTEURS_RETOUCHES = 4;
+export const MAX_JETONS_RETOUCHE = 6;
+export const MAX_VECTEURS_RETOUCHES = 4;
 
 /** L'opérateur « trois 6 d'affilée » — voir `prefererLeTriptyqueMontre`. */
 const ID_TRIPTYQUE = 'm.troisSixDAffilee';
@@ -1737,12 +1735,12 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
  * @param {Object[]} ops           opérateurs explorables
  * @returns {Object[]} approches GROUPEMENT portant `retouches` et `saisieRetouchee`
  */
-function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAUT, progres = null) {
+function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAUT, progres = null, gardes = {}) {
   const cbl = normaliserCible(cible);
-  const mots = jetons.filter((j) => j.genre === 'W').slice(0, MAX_JETONS_RETOUCHE);
+  const mots = jetons.filter((j) => j.genre === 'W').slice(0, gardes.mots ?? MAX_JETONS_RETOUCHE);
   if (!mots.length) return [];
   const retoucheurs = ops.filter((o) => o.from === 'STR' && o.to === 'STR');
-  const tete = vecteurs.slice(0, MAX_VECTEURS_RETOUCHES);
+  const tete = vecteurs.slice(0, gardes.vecteurs ?? MAX_VECTEURS_RETOUCHES);
   // Le compte de séries AVANT retouche, mesuré une fois par vecteur : c'est le
   // seuil que la retouche doit battre.
   const avant = tete.map((c) => { const s = serieDeSix(c, cbl); return s ? s.series : 0; });
@@ -3246,7 +3244,8 @@ export function assembler(saisie, fragments, parFrag, ctx) {
     // vu passer, borné à la part du mode. Une barre qui n'avance plus vaut
     // mieux qu'une barre qui dépasse ce qu'elle a promis.
     for (const a of groupementsRetouches(saisie, ctx.jetons || [], vecteursEntiers, opsExplorables, cbl,
-      (part) => dire((POIDS.avant + POIDS.retouche * part) / 100))) {
+      (part) => dire((POIDS.avant + POIDS.retouche * part) / 100),
+      { mots: ctx.motsRetouches, vecteurs: ctx.vecteursRetouches })) {
       approches.push(a);
     }
   }

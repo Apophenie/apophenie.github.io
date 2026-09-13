@@ -736,6 +736,9 @@ export function creerMoteur(catalogue, options = {}) {
       // ★ La largeur d'assemblage suit le cran : c'est elle qui décide combien
       //   d'approches peuvent seulement EXISTER (`config.js`).
       parFragment: budgets.parFragment,
+      // ★ Les gardes de l'étage des retouches suivent le cran (`config.js`).
+      motsRetouches: budgets.motsRetouches,
+      vecteursRetouches: budgets.vecteursRetouches,
       // ★ Les curseurs descendent jusqu'à la réserve de qualité de
       //   `assemblage.js › vecteursDeSix` : ce sont eux qui décident quelles
       //   voies méritent d'être finalisées (`score-intermediaire.js`).

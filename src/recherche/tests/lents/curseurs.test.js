@@ -27,6 +27,7 @@ import {
   PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX,
   BUDGET_TOTAL_MS, BUDGET_MS_FILET, MAX_SERIES,
 } from '../../../config.js';
+import { MAX_JETONS_RETOUCHE, MAX_VECTEURS_RETOUCHES } from '../../assemblage.js';
 import { catalogue } from '../_catalogue.js';
 
 // Le filet temporel est débranché : ces tests comparent deux classements, et un
@@ -708,7 +709,14 @@ test('★ le cran élargit le travail et les places, et relâche la redondance',
     assert.ok(b.lambda < a.lambda, `cran ${i} : la pénalité de redondance ne descend pas`);
     assert.ok(b.parFragment > a.parFragment,
       `cran ${i} : la largeur d'assemblage ne monte pas`);
+    // ★ Les gardes de retouche aussi — une rampe, pas une marche.
+    assert.ok(b.motsRetouches > a.motsRetouches, `cran ${i} : les mots à retoucher ne montent pas`);
+    assert.ok(b.vecteursRetouches > a.vecteursRetouches, `cran ${i} : les vecteurs rejoués ne montent pas`);
   }
+  // ★ Au cran 0, les gardes de retouche valent les bornes historiques de
+  //   l'étage : c'est ce qui garde le cran 0 au caractère près.
+  assert.equal(crans[0].motsRetouches, MAX_JETONS_RETOUCHE, 'le cran 0 garde les six mots');
+  assert.equal(crans[0].vecteursRetouches, MAX_VECTEURS_RETOUCHES, 'le cran 0 garde les quatre vecteurs');
   // Les bornes, telles que l'auteur les a posées.
   assert.deepEqual([crans[0].voies, crans[0].parMappeur, crans[0].lambda], [20, 2, 350]);
   // ★ **LES REPÈRES DE LA PÉNALITÉ SONT DONNÉS EN FOURCHETTES, et le test les
@@ -766,6 +774,8 @@ test('★ les formules du cran rendent exactement les lois dictées', () => {
     parMappeur: [2, 3, 5, 7, 10, 15, 23, 34, 51, 77, 115],
     parFragment: [8, 10, 12, 14, 17, 20, 24, 29, 34, 41, 50],
     lambda: [350, 270, 208, 160, 123, 95, 73, 56, 43, 33, 26],
+    motsRetouches: [6, 7, 9, 10, 12, 15, 18, 21, 26, 31, 37],
+    vecteursRetouches: [4, 5, 7, 9, 12, 16, 21, 28, 37, 49, 64],
   };
   for (const [cle, attendu] of Object.entries(ATTENDU)) {
     assert.equal(attendu.length, PUISSANCE_DE_FOUILLE_MAX + 1, `${cle} : un cran manque`);
@@ -797,7 +807,7 @@ test('★ le registre des réglages du cran dit ce que les budgets font', () => 
   // Les quatre réglages que le cran commande y sont tous, et pas seulement
   // ceux qu'on a pensé à y mettre le jour où on a écrit la page.
   const cles = new Set(REGLAGES_DU_CRAN.map((r) => r.cle));
-  for (const c of ['voies', 'parMappeur', 'parFragment', 'lambda']) {
+  for (const c of ['voies', 'parMappeur', 'parFragment', 'lambda', 'motsRetouches', 'vecteursRetouches']) {
     assert.ok(cles.has(c), `${c} bouge avec le cran et manque au registre de debug`);
   }
 });

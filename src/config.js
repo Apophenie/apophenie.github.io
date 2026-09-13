@@ -301,6 +301,12 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
     //     un autre générateur. Les deux suivent désormais ce réglage ; les
     //     quatre voies sont revenues, et la liste passe de 28 à 76 candidates.
     parFragment: largeurDAssemblage(n),
+    // ★ **LES GARDES DE RETOUCHE SUIVENT LE CRAN** (`assemblage.js ›
+    //   groupementsRetouches`) — les mots qu'on accepte de réécrire et les
+    //   vecteurs de tête qu'on rejoue sur le texte réécrit. Au cran 0, six et
+    //   quatre, les valeurs d'avant au caractère près.
+    motsRetouches: motsARetoucher(n),
+    vecteursRetouches: vecteursARetoucher(n),
   };
 }
 
@@ -308,6 +314,21 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
  *  chiffre historique de `score.js › REGLAGES`. Elle DESCEND ensuite, de 23 %
  *  par cran, jusqu'à 26 au cran 10 (`penaliteDeRedondance`). */
 export const LAMBDA_MMR_BASE = 350;
+
+/**
+ * ★ **LES GARDES DE RETOUCHE, en rampe du cran 0 au cran 10.**
+ *
+ * > « Des rampes, pas des marches. » (l'auteur)
+ *
+ * Six mots, quatre vecteurs au cran 0 — les bornes historiques de
+ * `assemblage.js › groupementsRetouches`, qui y restent au caractère près. Les
+ * mots montent comme la largeur d'assemblage (×1,2 par cran) : une saisie en a
+ * rarement plus de six, la loi ne sert qu'aux longues. Les vecteurs montent plus
+ * vite, parce que c'est EUX qui décident de ce qui est rejoué.
+ */
+export const MOTS_RETOUCHES_BASE = 6;
+export const VECTEURS_RETOUCHES_BASE = 4;
+export const LOI_VECTEURS_RETOUCHES = 1.32;
 
 /**
  * ★ **QUATRE FORMULES, ET PLUS UNE SEULE TABLE ÉCRITE À LA MAIN.**
@@ -394,6 +415,14 @@ export function largeurDAssemblage(n) {
  * 2,8 puis 6,3 —, et `0,77ⁿ` tient les deux bords : 95 au cran 5, 26 au cran
  * 10. Elle tend vers zéro sans jamais l'atteindre.
  */
+export function motsARetoucher(n) {
+  return Math.round(MOTS_RETOUCHES_BASE * (1.2 ** n));
+}
+
+export function vecteursARetoucher(n) {
+  return Math.round(VECTEURS_RETOUCHES_BASE * (LOI_VECTEURS_RETOUCHES ** n));
+}
+
 export function penaliteDeRedondance(n) {
   return Math.round(LAMBDA_MMR_BASE * (0.77 ** n));
 }
@@ -421,6 +450,16 @@ export const REGLAGES_DU_CRAN = Object.freeze([
     cle: 'parFragment', nom: 'Largeur d’assemblage',
     formule: 'round(8 × 1,2ⁿ)', calcul: largeurDAssemblage,
     role: 'combien de chemins et de vecteurs chaque fragment fournit',
+  }),
+  Object.freeze({
+    cle: 'motsRetouches', nom: 'Mots à retoucher',
+    formule: 'round(6 × 1,2ⁿ)', calcul: motsARetoucher,
+    role: 'combien de mots de la saisie l’étage des retouches accepte de réécrire',
+  }),
+  Object.freeze({
+    cle: 'vecteursRetouches', nom: 'Vecteurs rejoués sous retouche',
+    formule: 'round(4 × 1,32ⁿ)', calcul: vecteursARetoucher,
+    role: 'combien de vecteurs de tête sont rejoués sur le texte retouché',
   }),
   Object.freeze({
     cle: 'lambda', nom: 'Pénalité de redondance (‰)',
