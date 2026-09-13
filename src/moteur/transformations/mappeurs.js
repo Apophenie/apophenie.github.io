@@ -7027,30 +7027,31 @@ const AUTRES_MAPPEURS = [
     id: 'm.multiTap', code: 'mtap',
     libelle: bilingue('La touche et le nombre d’appuis, sur un téléphone',
       'The key and the number of presses, on a phone'),
-    regle: bilingue('La touche, puis les appuis — 7 4 = s, quatre fois sur le 7 ; 0 1 = l’espace',
-      'Key, then presses — 7 4 = s, four times on the 7; 0 1 = a space'),
+    regle: bilingue('La touche, puis les appuis — 7 4 = s, quatre fois sur le 7 ; 1 1 = l’espace',
+      'Key, then presses — 7 4 = s, four times on the 7; 1 1 = a space'),
     outil: bilingue('Clavier de téléphone, en appuis', 'Phone keypad, in presses'),
     note: bilingue(
       'Le multi-tap des téléphones d’avant la saisie prédictive : on appuie sur la touche '
       + 'autant de fois que le rang de la lettre sur elle. 7777 s’écrit ici 7 4. '
-      + 'L’espace est sur le 0, d’un appui. La ponctuation n’y est pas : son ordre '
-      + 'sur la touche 1 change d’un téléphone à l’autre.',
+      + 'L’espace est sur le 1, d’un appui. La ponctuation n’y est pas : aucune notice '
+      + 'n’en donne l’ordre sur la touche 1, elle passe par la table ASCII.',
       'The multi-tap of phones before predictive text: press the key as many times as the '
-      + 'letter’s place on it. 7777 is written here as 7 4. The space is on 0, one press. '
-      + 'Punctuation is left out: its order on key 1 differs from one phone to the next.',
+      + 'letter’s place on it. 7777 is written here as 7 4. The space is on 1, one press. '
+      + 'Punctuation is left out: no manual gives its order on key 1, it goes through the ASCII table.',
     ),
     notoriete: 0.6, adHoc: 0.35, colonnes: 13,
-    /* ★ **L'ESPACE, SUR LE 0.** La norme ITU-T E.161 ne fixe que les lettres ;
-         l'espace sur la touche 0, d'un appui, est ce que disent les notices
-         (Nokia 3310 : « To type in a space press 0 »). La ponctuation de la
-         touche 1, elle, n'a pas d'ordre commun — la mettre ici serait
-         l'inventer. Une phrase se relit donc par le téléphone à la
-         ponctuation près (`recherche/cible.js › ecartDeForme`). En fin de
-         table : les lettres gardent leurs cases. */
+    /* ★ **L'ESPACE, SUR LE 1** — « " " sur la touche 1 » (l'autrice). La norme
+         ITU-T E.161 ne fixe que les lettres, et aucune notice trouvée ne donne
+         l'ordre de la ponctuation sur la touche 1 (Nokia 3310 : l'espace sur le
+         0, la ponctuation par une liste) : la ponctuation passe donc par la
+         table ASCII (`masi`, `mast`), et la touche 1 ne porte que l'espace.
+         ⚠️ La table a porté l'espace sur le 0 pendant un jour, jamais publiée :
+         voir le commit qui l'a déplacé. En fin de table : les lettres gardent
+         leurs cases. */
     couples: [
       ...Object.entries(T9_GROUPES)
         .flatMap(([touche, lettres]) => [...lettres].map((c, k) => [`${touche}${k + 1}`, c.toLowerCase()])),
-      ['01', ' ', bilingue('espace', 'space')],
+      ['11', ' ', bilingue('espace', 'space')],
     ],
   }),
   /* ★ **LE CARRÉ — `mcar`, et il ne sert QU'AU DERNIER RECOURS.**
@@ -7378,6 +7379,14 @@ const AUTRES_MAPPEURS = [
   // ★ LE CODE ASCII QUI REDEVIENT SIGNE — `masi`, trois chiffres pour un signe.
   //   La fabrique est plus bas (hissage). En fin de bloc mappeur, append-only.
   operateurAsciiEnSigne(),
+  // ★ LE CODE ASCII DE CHAQUE SIGNE — `mast`, ponctuation comprise : la matière
+  //   d'une PHRASE visée d'un bloc. Fabrique plus bas (hissage). Fin de bloc,
+  //   append-only (§4.1).
+  operateurAsciiDeChaqueSigne(),
+  // ★ ÉCLATER LES NOMBRES EN CHIFFRES — `mecl`, pour gonfler une seconde fois
+  //   la matière d'une phrase. Fabrique plus bas (hissage). Fin de bloc,
+  //   append-only (§4.1).
+  operateurEclatement(),
 ];
 
 /**
@@ -8032,6 +8041,171 @@ function operateurAsciiEnSigne() {
         }], { id: `s_${ctx.cle}_${i}` }));
       });
       return steps;
+    },
+  });
+}
+
+/**
+ * ★ **LE CODE ASCII DE CHAQUE SIGNE — `mast`, ponctuation comprise.**
+ *
+ * > « Rassemble tous les morceaux avant de faire gonfler l'ensemble pour avoir
+ * >   assez de matière : https :// reinfocovid . fr / — 6 morceaux à convertir
+ * >   en chiffres, puis les chiffres à rassembler, et à faire gonfler […] puis
+ * >   à convertir en lettres et caractères spéciaux avec une méthode de
+ * >   conversion commune à l'ensemble. » (l'autrice)
+ *
+ * MESURÉ, et c'est ce qui l'a fait écrire : sur « https://reinfocovid.fr/ »,
+ * AUCUN mappeur du catalogue n'accepte `://`, `.` ni `/` — `masc` et `masb` ne
+ * codent que les lettres. Les trois morceaux de ponctuation restaient donc hors
+ * de la ligne. Codés, ils la portent de 53 à 63 chiffres, et de 89 à 109 une
+ * fois carrés : assez pour que l'absorption écrive les 32 chiffres de la phrase
+ * relue au téléphone, là où 89 n'en écrivaient que 29.
+ *
+ * ★ Le code du signe TEL QUEL, de l'espace (32) au tilde (126) : « h » vaut 104
+ *   et « H » 72, « : » 58, « / » 47. C'est l'inverse de `masi`, à la même table.
+ * ★ **INACTIF EN RECHERCHE**, et réservé à la MATIÈRE D'UNE PHRASE
+ *   (`matiereDePhrase`) : la recherche ne le propose qu'au bloc d'une phrase
+ *   trop longue, en passe profonde (`recherche/index.js › deroulerTexte`). Ni 666
+ *   ni aucune cible chiffrée ne le voient.
+ * ★ Le GESTE : la table ASCII montée, un aller-retour par signe. La case se
+ *   désigne par son CODE, pas par le signe : la table porte « h » et « H », que
+ *   la primitive confondrait si elle cherchait la lettre.
+ * ★ Notoriété 0,45 et adHoc 0,35 : ceux de `masi`, dont c'est l'aller.
+ */
+function operateurAsciiDeChaqueSigne() {
+  const libelle = bilingue('Chaque signe devient son code ASCII', 'Each character becomes its ASCII code');
+  const regle = bilingue('h = 104, H = 72, : = 58, / = 47, l’espace = 32',
+    'h = 104, H = 72, : = 58, / = 47, a space = 32');
+  const outil = bilingue('Table ASCII, de 32 à 126', 'ASCII table, 32 to 126');
+  const NOTE_ESPACE = bilingue('espace', 'space');
+  const PREMIER = 32;
+  const DERNIER = 126;
+  const table = Object.freeze(Array.from({ length: DERNIER - PREMIER + 1 }, (_, k) => {
+    const n = PREMIER + k;
+    const c = String.fromCharCode(n);
+    return Object.freeze({ char: String(n), value: n, label: c, ...(c === ' ' ? { note: NOTE_ESPACE } : {}) });
+  }));
+  return def({
+    id: 'm.asciiDeChaqueSigne', code: 'mast', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    libelle, regle, outil,
+    notoriete: 0.45, adHoc: 0.35,
+    actifParDefaut: false,
+    matiereDePhrase: true,
+    note: bilingue(
+      'Le code décimal ASCII de chaque signe, lettres, chiffres et ponctuation : de l’espace (32) '
+      + 'au tilde (126). Ni accent ni « œ », qu’ASCII n’a pas.',
+      'The decimal ASCII code of every character, letters, digits and punctuation: from space (32) '
+      + 'to tilde (126). No accents, which ASCII lacks.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      const out = [];
+      for (const tok of valeur) {
+        const chars = [...String(tok)];
+        if (chars.length !== 1) return null;
+        const n = chars[0].charCodeAt(0);
+        if (n < PREMIER || n > DERNIER) return null;
+        out.push(n);
+      }
+      return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
+    },
+    sortie: (avant, apres, ctx) => nomsTokens(ctx, apres.valeur.length),
+    steps: (avant, apres, ctx) => {
+      const titre = dire(libelle, ctx.langue);
+      const dit = dire(regle, ctx.langue);
+      const nomOutil = dire(outil, ctx.langue);
+      const sortie = nomsTokens(ctx, apres.valeur.length);
+      const entries = table.map((e) => ({ ...e, ...(e.note ? { note: dire(e.note, ctx.langue) } : {}) }));
+      const dernier = apres.valeur.length - 1;
+      return apres.valeur.map((n, i) => {
+        const signe = String(avant.valeur[i]);
+        return etape(ctx, titre, `${dit} : ${signe === ' ' ? '␣' : signe} → ${n}`, [{
+          op: 'table',
+          disposition: 'reglette',
+          titre: nomOutil,
+          colonnes: 16,
+          entries: entries.map((e) => ({ ...e })),
+          target: ctx.ids[i],
+          letter: String(n),
+          to: token(sortie[i], n, 'number'),
+          montre: i === 0,
+          retire: i === dernier,
+        }], { id: `s_${ctx.cle}_${i}` });
+      });
+    },
+  });
+}
+
+/**
+ * ★ **ÉCLATER LES NOMBRES EN CHIFFRES — `mecl`.**
+ *
+ * > « Oui, les deux, en dernier recours. » (l'autrice, sur l'éclatement et les
+ * >   deux gonflants à la suite)
+ *
+ * MESURÉ, et c'est ce qui l'a fait écrire : « https://reinfocovid.fr/ » en ASCII
+ * de chaque signe, carré, fait 109 chiffres de ligne — assez pour la phrase au
+ * téléphone (32), pas pour l'exacte ASCII (57 : 43 au plus). Un second carré
+ * sortirait du domaine du moteur (13 924² > 10⁶). Éclaté en chiffres PUIS carré,
+ * chaque chiffre reste sous 81 : 143 chiffres, et l'absorption écrit les 57.
+ *
+ * ★ Il ne crée AUCUN chiffre : 13 924 devient 1 3 9 2 4, les mêmes chiffres dans
+ *   le même ordre. Il rend seulement chaque chiffre à nouveau calculable.
+ * ★ Il refuse une ligne qu'il ne changerait pas (que des chiffres seuls) : un
+ *   opérateur qui rend son entrée fabrique une étape vide (même raison que `mcar`).
+ * ★ **INACTIF EN RECHERCHE**, et réservé à la MATIÈRE D'UNE PHRASE
+ *   (`eclate`) : l'assemblage ne l'emploie qu'entre deux gonflants, en passe
+ *   profonde, pour le bloc d'une phrase (`recherche/assemblage.js ›
+ *   vecteursDeSix`).
+ * ★ Le GESTE est celui qu'emploient déjà les absorptions : chaque nombre à
+ *   plusieurs chiffres se remplace par ses chiffres, côte à côte (`substitute`,
+ *   un jeton vers plusieurs — la primitive vérifie que les chiffres recomposent
+ *   le nombre). Un nombre d'un seul chiffre ne bouge pas.
+ * ★ Notoriété 0,90 : écrire un nombre chiffre à chiffre, tout le monde le fait.
+ *   AdHoc 0,20 : il ne regarde pas la cible, il prépare la matière.
+ */
+function operateurEclatement() {
+  const libelle = bilingue('On éclate chaque nombre en ses chiffres', 'Split every number into its digits');
+  const regle = bilingue('13 924 devient 1 3 9 2 4 : les mêmes chiffres, chacun à part',
+    '13,924 becomes 1 3 9 2 4: the same digits, each on its own');
+  const idChiffreDe = (ctx, i, k) => `${ctx.cle}_e${i}_${k}`;
+  return def({
+    id: 'm.eclatement', code: 'mecl', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle, regle,
+    notoriete: 0.90, adHoc: 0.20, cout: 1,
+    actifParDefaut: false,
+    eclate: true,
+    note: bilingue(
+      'Il ne crée aucun chiffre : il rend chacun à nouveau calculable. Joué seulement pour '
+      + 'donner de la matière à une phrase, entre deux gonflements.',
+      'It creates no digit: it makes each one computable again. Played only to give a sentence '
+      + 'material, between two inflations.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      if (!valeur.every((v) => Number.isInteger(v) && v >= 0)) return null;
+      if (valeur.every((v) => v <= 9)) return null;
+      const out = [];
+      const tr = [];
+      valeur.forEach((v, i) => {
+        for (const c of String(v)) { out.push(Number(c)); tr.push(traces[i] || []); }
+      });
+      return { valeur: out, traces: tr };
+    },
+    sortie: (avant, apres, ctx) => avant.valeur.flatMap((v, i) => (v <= 9
+      ? [ctx.ids[i]]
+      : [...String(v)].map((_, k) => idChiffreDe(ctx, i, k)))),
+    steps: (avant, apres, ctx) => {
+      const pairs = [];
+      avant.valeur.forEach((v, i) => {
+        if (v <= 9) return;
+        pairs.push({
+          target: ctx.ids[i],
+          to: [...String(v)].map((c, k) => token(idChiffreDe(ctx, i, k), c, 'digit')),
+        });
+      });
+      if (!pairs.length) return [];
+      return [etape(ctx, dire(libelle, ctx.langue), `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`,
+        enchainer([{ op: 'substitute', pairs }]), { id: `s_${ctx.cle}_ecl` })];
     },
   });
 }

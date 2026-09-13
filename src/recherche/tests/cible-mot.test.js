@@ -18,12 +18,13 @@ import {
   relecturesPour, inverseDe, operateursDeRelecture, RELECTURE_PAR_DEFAUT,
   segmentsDe, LONGUEUR_D_UN_BLOC, CHIFFRES_PAR_SEGMENT,
 } from '../conversions.js';
+import { facteurPonctuation, ordreDExactitude, facteurDEcartAuxCurseurs } from '../score.js';
 import { lire, ecrire, BANDEAUX } from '../url.js';
 import { encoderTexte } from '../base58.js';
 import { creerMoteur } from '../index.js';
 import { construireScenario } from '../scenario.js';
 import { operateursPourCible, operateursExplorables, appliquerOp, etat } from '../bfs.js';
-import { liaisons } from '../assemblage.js';
+import { liaisons, segmentsSansCopie } from '../assemblage.js';
 import { catalogue } from './_catalogue.js';
 import { compile } from '../../visuel/compile.js';
 import { plafondDAbsorption, VISEE_LONGUE } from '../../moteur/transformations/mappeurs.js';
@@ -126,14 +127,14 @@ test('cible-mot — les relectures du catalogue, et leur inverse CALCULÉ sur l�
   assert.deepEqual([...inverseDe(par.m1a).get('z')], [26]);
   assert.deepEqual([...inverseDe(par.mcaz).get('z')], [2, 1]);
   assert.deepEqual([...inverseDe(par.mcqw).get('z')], [1, 3]);
-  assert.deepEqual([...inverseDe(par.mtap).get(' ')], [0, 1]);
+  assert.deepEqual([...inverseDe(par.mtap).get(' ')], [1, 1]);
   // La table ASCII écrit la casse et la ponctuation, sur trois chiffres.
   assert.deepEqual([...inverseDe(par.masi).get('C')], [0, 6, 7]);
   assert.deepEqual([...inverseDe(par.masi).get("'")], [0, 3, 9]);
   for (const op of ops) {
     const inverse = inverseDe(op);
     // Le carré de Polybe a vingt-cinq cases : il n'écrit jamais j. Le multi-tap
-    // en a vingt-sept : l'espace est sur le 0.
+    // en a vingt-sept : l'espace est sur le 1.
     const tailles = { mpol: 25, mtap: 27, masi: 95 };
     assert.equal(inverse.size, tailles[op.code] ?? 26, `${op.code} : chaque lettre, une fois`);
     // L'aller-retour est exact : ce que l'inverse donne, l'opérateur le relit.
@@ -158,10 +159,10 @@ test('cible-mot — les relectures d’un texte : cibles sous-jacentes, écrit r
   assert.ok(fantome.length === 6 && fantome.every((r) => r.produit === 'fantome' && r.ecart.facteur === 902));
   assert.equal(fantome.find((r) => r.code === 'mcaz').cible.nature, 'valeurs', 'le M est en colonne 10 en AZERTY');
   // ★ L'ESPACE a une relecture : le 0 du téléphone. « reine des lames » ne se
-  //   relit donc plus que par lui — trente chiffres, l'espace valant 0 1.
+  //   relit donc plus que par lui — trente chiffres, l'espace valant 1 1.
   assert.deepEqual(relecturesPour(lireCible('reine des lames'), catalogue)
     .map((r) => [r.code, r.cible.texte, r.produit]),
-  [['mtap', '733243623201313274015321613274', 'reine des lames']]);
+  [['mtap', '733243623211313274115321613274', 'reine des lames']]);
   assert.deepEqual(relecturesPour(lireCible('cœur'), catalogue), [],
     'aucune relecture n’écrit le « œ » : pas de voie, et c’est la recherche qui le dit');
 });
@@ -183,6 +184,32 @@ test('cible-mot — la ponctuation omise se paie, et elle seule', () => {
     ['mtap', 32, 'cest de la merde', true, e.facteur],
     ['masi', 57, "C'est de la merde !", false, 1000],
   ]);
+});
+
+/* ★ LA PONCTUATION OMISE DÉPEND DES CURSEURS — « ça dépend des curseurs » (l'autrice). */
+test('cible-mot — la ponctuation omise : règle d’ordre au défaut, relâchée par la simplicité, durcie par l’exhaustivité', () => {
+  const C = (simplicite, exhaustivite) => ({ simplicite, exhaustivite, quantite: 100, coherence: 100 });
+  assert.equal(facteurPonctuation(undefined), 500, 'au défaut : ×0,5');
+  assert.equal(facteurPonctuation(C(200, 0)), 1000, 'la simplicité au plus haut : rien à payer');
+  assert.equal(facteurPonctuation(C(0, 200)), 100, 'l’exhaustivité au plus haut : ×0,1');
+  assert.ok(facteurPonctuation(C(150, 100)) > 500 && facteurPonctuation(C(100, 150)) < 500, 'monotone des deux côtés');
+  const exacte = { ecartDeForme: { natures: ['initiale'] } };
+  const approchee = { ecartDeForme: { natures: ['ponctuation', 'initiale'] } };
+  assert.ok(ordreDExactitude(undefined)(approchee, exacte) > 0, 'au défaut, l’exacte d’abord');
+  assert.ok(ordreDExactitude(C(0, 200))(approchee, exacte) > 0, 'l’exhaustivité qui domine garde la règle');
+  assert.equal(ordreDExactitude(C(200, 0))(approchee, exacte), 0, 'la simplicité qui domine la replie');
+  assert.equal(facteurDEcartAuxCurseurs({ natures: ['ponctuation', 'initiale'] }, undefined), Math.round((500 * 970) / 1000));
+});
+
+/* ★ UNE PHRASE NE RECOPIE JAMAIS LA SAISIE — « dupliquer l'original est très
+     maladroit et à éviter (voire interdire) » (l'autrice). La règle est
+     structurelle : portées disjointes, dans l'ordre du texte. */
+test('cible-mot — des segments de phrase : portées disjointes et ordonnées, sinon refusés', () => {
+  const part = (offset, longueur) => ({ fragment: { offset, longueur, intervalles: [[offset, offset + longueur]] } });
+  assert.equal(segmentsSansCopie([part(0, 5), part(8, 11)]), true, 'https puis reinfocovid');
+  assert.equal(segmentsSansCopie([part(0, 23), part(0, 23)]), false, 'la saisie entière relue deux fois');
+  assert.equal(segmentsSansCopie([part(0, 22), part(8, 11)]), false, 'un chevauchement, même partiel');
+  assert.equal(segmentsSansCopie([part(8, 11), part(0, 5)]), false, 'le premier segment doit venir en premier');
 });
 
 /* ★ UNE PHRASE EN SEGMENTS — d'un bloc tant qu'elle tient, aux mots au-delà. */

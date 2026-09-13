@@ -14,7 +14,7 @@
 import { estDecret } from './titres.js';
 // ★ `elegance.js` n'importe RIEN : la dépendance est à sens unique, sans cycle.
 import { OPERATEURS_QUI_ECARTENT, caracteresRetenus, estAlnum } from './elegance.js';
-import { normaliserCible, indexUtiles } from './cible.js';
+import { normaliserCible, indexUtiles, ECARTS } from './cible.js';
 import {
   CODES_NON_FACTURES, MAX_SERIES, LAMBDA_MMR_BASE, voiesParMappeur, placesDeLaListe,
   PUISSANCE_DE_FOUILLE_DEFAUT,
@@ -748,6 +748,76 @@ export function facteurQuantite(series, quantite = CURSEUR_DEFAUT) {
     : (s - 1) * (CURSEUR_DEFAUT - q);        // il y en a trop : on paie l'abondance
   const peine = Math.floor((REGLAGES.PAS_DE_QUANTITE * ecart) / CURSEUR_DEFAUT);
   return borner(MILLE - peine, REGLAGES.PLANCHER_DE_QUANTITE, MILLE);
+}
+
+/**
+ * ★ **LA PONCTUATION OMISE, PORTÉE PAR LES CURSEURS.**
+ *
+ * > « Toujours pareil, ça dépend des curseurs. Par défaut je dirais soit
+ * >   l'exacte devant toute approchée, soit ×0,7, soit même ×0,5. Après, quand
+ * >   on personnalise les curseurs, selon que l'exhaustivité domine ou non, ça
+ * >   me semblerait logique que les approximations puissent ressortir. »
+ * >   (l'autrice)
+ *
+ * Deux leviers, sur le modèle exact du rang des séries (`rangPondere`) : une
+ * RÈGLE D'ORDRE qui tient au défaut, et un FACTEUR qui prend le relais quand le
+ * visiteur la replie.
+ *
+ * ★ **POURQUOI UNE RÈGLE D'ORDRE, ET PAS SEULEMENT ×0,5.** Un facteur ne
+ *   garantit rien : il suffit qu'une voie exacte parte deux fois plus bas
+ *   qu'une approchée pour que l'approchée passe devant. MESURÉ sur « C'est » :
+ *   l'exacte ASCII part de 3 561, l'approchée de tête de 4 661 avant écart —
+ *   ×0,5 l'y met à 2 261, mais rien n'empêche une autre saisie d'inverser. La
+ *   règle, elle, le garantit, et c'est la forme la plus simple qui le fasse.
+ *
+ * ★ **LE DIFFÉRENTIEL SIMPLICITÉ − EXHAUSTIVITÉ décide**, parce que c'est
+ *   l'arbitrage même : écrire moins pour faire court, ou tout écrire.
+ *   · exhaustivité ≥ simplicité (le défaut compris) — la règle tient : toute
+ *     voie exacte passe devant toute approchée. Le facteur départage les
+ *     approchées entre elles, et se durcit avec l'écart : ×0,5 à égalité,
+ *     ×0,1 quand l'exhaustivité est au plus haut et la simplicité à zéro.
+ *   · simplicité > exhaustivité — la règle est REPLIÉE, et les approximations
+ *     peuvent ressortir : le facteur remonte de ×0,5 vers ×1,0.
+ *
+ * Entiers seulement (§4.4).
+ */
+export const PONCTUATION_AU_DEFAUT = 500;
+const PONCTUATION_AU_PLUS_DUR = 100;
+
+function differentielSimplicite(curseurs) {
+  const c = normaliserCurseurs(curseurs);
+  return positionDe(c.simplicite) - positionDe(c.exhaustivite);
+}
+
+/** Le facteur d'une ponctuation omise, en pour-mille, selon les curseurs. */
+export function facteurPonctuation(curseurs) {
+  const d = differentielSimplicite(curseurs);
+  if (d >= 0) return PONCTUATION_AU_DEFAUT + Math.floor(((MILLE - PONCTUATION_AU_DEFAUT) * d) / CURSEUR_MAX);
+  return PONCTUATION_AU_DEFAUT + Math.trunc(((PONCTUATION_AU_DEFAUT - PONCTUATION_AU_PLUS_DUR) * d) / CURSEUR_MAX);
+}
+
+/** L'écart de forme d'une voie, repayé aux curseurs donnés — seule la ponctuation en dépend. */
+export function facteurDEcartAuxCurseurs(ecart, curseurs) {
+  if (!ecart || !Array.isArray(ecart.natures)) return MILLE;
+  let f = MILLE;
+  for (const n of ecart.natures) {
+    const facteur = n === 'ponctuation' ? facteurPonctuation(curseurs) : ECARTS[n].facteur;
+    f = Math.round((f * facteur) / MILLE);
+  }
+  return f;
+}
+
+/** La voie omet-elle de la ponctuation ? */
+export const ometLaPonctuation = (a) => Boolean(a && a.ecartDeForme
+  && Array.isArray(a.ecartDeForme.natures) && a.ecartDeForme.natures.includes('ponctuation'));
+
+/**
+ * La règle d'ordre : `0` quand elle est repliée ou que les deux voies se valent
+ * sur ce point, sinon l'exacte d'abord. À placer AVANT le comparateur de la liste.
+ */
+export function ordreDExactitude(curseurs) {
+  const tient = differentielSimplicite(curseurs) <= 0;
+  return (a, b) => (tient ? Number(ometLaPonctuation(a)) - Number(ometLaPonctuation(b)) : 0);
 }
 
 // ══════════════════════════════════ signature de méthode (§4.2)
