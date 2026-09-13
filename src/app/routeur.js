@@ -188,7 +188,7 @@ async function routeResultat(saisie, {
        avant celle du cran demandé, et elle y sera tout entière. On la montre
        donc, marquée provisoire, jauge comprise, et la suivante la remplace sur
        place (`repeindre`). */
-  let provisoireMontree = false;
+  let jaugeMontree = null;   // la jauge de la première liste provisoire, s'il y en a eu une
   const page = (resultat, provisoire) => pageDeResultat(saisie, resultat, {
     bandeau, cible, curseurs, fouille, personnalise, provisoire,
   });
@@ -197,16 +197,19 @@ async function routeResultat(saisie, {
     fouille,
     surListe: (liste, jauge) => {
       const contenu = page(liste, { cran: liste.cran, fouille: liste.fouille, jauge });
-      if (provisoireMontree) { repeindre(contenu, { titre: saisie }); return; }
-      provisoireMontree = true;
+      if (jaugeMontree) { repeindre(contenu, { titre: saisie }); return; }
+      jaugeMontree = jauge;
       regionDAnnonce().textContent = '';
       rendre(enteteResultat(), contenu, { titre: saisie });
     },
   });
   if (!resultat) return;
-  const contenu = page(resultat, null);
-  if (provisoireMontree) repeindre(contenu, { titre: saisie, annonce: t('attente.provisoire.termine') });
-  else rendre(enteteResultat(), contenu, { titre: saisie });
+  if (!jaugeMontree) { rendre(enteteResultat(), page(resultat, null), { titre: saisie }); return; }
+  // ★ Après une liste provisoire, le bandeau reste à sa place et dit « terminée »
+  //   (`pages/resultat.js`) : le retirer ferait remonter la liste sous les yeux.
+  repeindre(page(resultat, {
+    termine: true, cran: resultat.fouille, fouille: resultat.fouille, jauge: jaugeMontree,
+  }), { titre: saisie, annonce: t('attente.provisoire.termine') });
 }
 
 /** La page de liste d'une recherche — provisoire ou finale, c'est la même. */

@@ -608,4 +608,17 @@ test('★ provisoire — le bandeau dit que ça cherche encore, porte la jauge, 
   const finale = rendre([voie(1, 'A', 'elegance', 2), voie(2, 'B', null)]);
   assert.equal(un(finale, 'bandeau--provisoire'), null);
   assert.equal([...parcourir(finale)].filter((n) => n.getAttribute('aria-busy') === 'true').length, 0);
+
+  // ★ Après une liste provisoire, la finale garde la place du bandeau et dit
+  //   « terminée » : un bandeau qui disparaît remontait la liste de 169 px.
+  const apres = rendre([voie(1, 'A', 'elegance', 2), voie(2, 'B', null)], {
+    provisoire: { termine: true, cran: 3, fouille: 3, jauge },
+  });
+  const fin = un(apres, 'bandeau--termine');
+  assert.ok(fin, 'la finale d’une recherche progressive garde son bandeau');
+  assert.equal(un(apres, 'bandeau--provisoire'), null, 'la finale ne se dit plus provisoire');
+  assert.equal(apres.enfants.indexOf(fin), 0, 'à la même place que le bandeau provisoire');
+  assert.ok(fin.textContent.includes(fr.attente.provisoire.termine) || fin.textContent.includes(en.attente.provisoire.termine));
+  assert.equal(fin.getAttribute('role'), null, 'la fin s’annonce une seule fois, par la région vivante du routeur');
+  assert.equal([...parcourir(apres)].filter((n) => n.getAttribute('aria-busy') === 'true').length, 0);
 });

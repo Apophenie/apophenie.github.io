@@ -482,6 +482,7 @@ export const fr = {
       texte: 'Voici les voies déjà trouvées avec la fouille ×{facteur}. La fouille ×{demande} '
         + 'se poursuit : elle peut en ajouter et changer leur ordre. Les liens restent valables.',
       termine: 'Recherche terminée — classement définitif.',
+      complet: 'La liste est complète pour la fouille ×{demande} ; les voies montrées en chemin y sont toutes.',
     },
   },
 
