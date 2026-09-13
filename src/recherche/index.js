@@ -29,13 +29,14 @@ import {
 import { construireBassin } from './bassin.js';
 import { genererFragments, zonesSignifiantes, tokeniser, motifsRepetes } from './fragments.js';
 import {
-  assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe, vecteursDeSix,
+  assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe, vecteursDeSix, segmentsSansCopie,
   MAX_JETONS_RETOUCHE, MAX_VECTEURS_RETOUCHES,
 } from './assemblage.js';
 import {
   noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, REGLAGES,
   ponderer, normaliserCurseurs, pourcentagesDe, scoresParAxe,
   CURSEURS, CURSEUR_DEFAUT, CURSEUR_MAX, CURSEURS_DEFAUT, CORRESPONDANCE,
+  facteurDEcartAuxCurseurs, ordreDExactitude, ometLaPonctuation,
 } from './score.js';
 import {
   reglagesDeBudget, normaliserPuissance, PUISSANCE_ENUMERATION,
@@ -207,6 +208,9 @@ export const VOIES_AVANT_DE_CREUSER = 5;
  * `deroulerTexte`. Chaque cran en ajoute un.
  */
 export const SEGMENTS_AU_CRAN_0 = 2;
+
+/** Combien de suites de portées une phrase compose au plus, par relecture. */
+export const COMPOSITIONS_MAX = 24;
 
 /**
  * ★ **AU CRAN 5 ET AU-DELÀ, ON CREUSE QUOI QU'IL ARRIVE.**
@@ -437,6 +441,7 @@ export function creerMoteur(catalogue, options = {}) {
     return [
       String(saisieBrute ?? '').normalize('NFC'), cbl.nature, cbl.texte, JSON.stringify(curseurs), k,
       optionsResolution.profond === true, optionsResolution.dernierRecours !== false,
+      optionsResolution.matiereDePhrase === true,
     ].join('\u0000');
   }
 
@@ -757,6 +762,9 @@ export function creerMoteur(catalogue, options = {}) {
       //   et chacune doit alors s'autoriser le geste de plus dès le premier
       //   assemblage, sans refaire celui qui vient d'échouer.
       profond: optionsResolution.profond === true,
+      // ★ LA MATIÈRE D'UNE PHRASE — posée par `deroulerTexte` pour le bloc d'une
+      //   phrase trop longue, et par lui seul.
+      matiereDePhrase: optionsResolution.matiereDePhrase === true,
       // ★ Ce que l'assemblage sait ne PAS pouvoir jouer, et qu'il dira
       //   (`assemblage.js`, les modes à autant de portées que de chiffres).
       modesImpossibles: [],
@@ -1192,21 +1200,47 @@ export function creerMoteur(catalogue, options = {}) {
       && !a.liaison && !(a.retouches && a.retouches.length);
     const porteeDe = (a) => a.parts[0].fragment.intervalles.map((iv) => iv.join('.')).join('|');
     /**
-     * ★ **COMPOSER UNE PHRASE** — pour chaque portée que TOUS les segments ont
-     *   su écrire, la meilleure voie de chacun, enchaînées. Même portée pour
-     *   toutes les parts : c'est la saisie entière (ou le même morceau) relue une
-     *   fois par segment, et la scène la recopie d'abord, en le montrant.
+     * ★ **COMPOSER UNE PHRASE — SANS JAMAIS RECOPIER LA SAISIE.**
+     *
+     * > « Évite de recopier la saisie ; les opérateurs carré, factorielle &
+     * >   compagnie sont là pour produire la matière quand nécessaire. Dupliquer
+     * >   l'original est très maladroit et à éviter (voire interdire). »
+     * >   (l'autrice)
+     *
+     * Chaque segment prend SA portion de la saisie : des portées deux à deux
+     * disjointes, dans l'ordre du texte (`assemblage.js › segmentsSansCopie`).
+     * La première version composait sur la MÊME portée relue une fois par
+     * segment, et la scène recopiait la saisie : c'est désormais refusé. Le
+     * surplus de matière vient des opérateurs gonflants, que la passe profonde
+     * autorise (`vecteursDeSix`).
+     *
+     * Pour chaque segment on garde la meilleure voie de chaque portée ; on
+     * énumère ensuite les suites de portées croissantes et disjointes, dans
+     * l'ordre lexicographique des portées — aucun tri sur une note, donc rien
+     * d'entropique (§4.4) —, bornées à `COMPOSITIONS_MAX`.
      */
     function composer(rel, segs, voiesParSegment) {
       const meilleures = voiesParSegment.map((voies) => {
         const m = new Map();
         for (const a of voies) if (estUnSegment(a) && !m.has(porteeDe(a))) m.set(porteeDe(a), a);
-        return m;
+        return [...m.values()].sort((x, y) => x.parts[0].fragment.offset - y.parts[0].fragment.offset
+          || x.parts[0].fragment.longueur - y.parts[0].fragment.longueur);
       });
+      const suites = [];
+      const pile = [];
+      const descendre = (k, fin) => {
+        if (suites.length >= COMPOSITIONS_MAX) return;
+        if (k === segs.length) { suites.push(pile.slice()); return; }
+        for (const a of meilleures[k]) {
+          if (a.parts[0].fragment.offset < fin) continue;
+          pile.push(a.parts[0]);
+          if (segmentsSansCopie(pile)) descendre(k + 1, a.parts[0].fragment.offset + a.parts[0].fragment.longueur);
+          pile.pop();
+        }
+      };
+      descendre(0, 0);
       const out = [];
-      for (const [cle] of meilleures[0]) {
-        if (!meilleures.every((m) => m.has(cle))) continue;
-        const parts = meilleures.map((m) => m.get(cle).parts[0]);
+      for (const parts of suites) {
         const approche = {
           parts,
           ...deduireMode(parts, { saisie, jetons: jetonsDeLaSaisie, cible: rel.cible, segments: segs }),
@@ -1242,14 +1276,16 @@ export function creerMoteur(catalogue, options = {}) {
         const segs = segmentsDe(rel);
         if (segs) {
           base.relectures[k].segments = segs.map((sg) => sg.texte);
-          if (segs.length > segmentsAutorises) {
-            // Hors de ce cran : dit, pas tu.
+          // ★ Hors de ce cran, les SEGMENTS se taisent — dit, pas tu. Le BLOC, lui,
+          //   reste tenté en passe profonde : c'est une seule recherche, et c'est
+          //   par lui que l'exacte ASCII arrive (voir plus bas).
+          const segmentsHorsDuCran = segs.length > segmentsAutorises;
+          if (segmentsHorsDuCran) {
             base.relectures[k].horsDuCran = true;
             base.relectures[k].voies = 0;
-            continue;
           }
           const voiesParSegment = [];
-          for (let sIdx = 0; sIdx < segs.length; sIdx++) {
+          for (let sIdx = 0; !segmentsHorsDuCran && sIdx < segs.length; sIdx++) {
             const echelleSeg = (a) => echelle({
               ...a, fraction: (sIdx + Math.min(1, Math.max(0, (a && a.fraction) || 0))) / segs.length,
             });
@@ -1271,11 +1307,43 @@ export function creerMoteur(catalogue, options = {}) {
             if (rs.tronqueTemps) tronqueTemps = true;
             voiesParSegment.push(rs.approches || []);
           }
-          const composees = composer(rel, segs, voiesParSegment);
+          const composees = segmentsHorsDuCran ? [] : composer(rel, segs, voiesParSegment);
           base.relectures[k].voies = composees.length;
           for (const a of composees) {
             versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
             trouvees.push(a);
+          }
+          /* ★ **LE BLOC GONFLÉ — la phrase d'un seul tenant, en passe profonde.**
+               « Rassemble tous les morceaux avant de faire gonfler l'ensemble »
+               (l'autrice) : toute la saisie, ponctuation comprise, en une ligne
+               (`mast`), gonflée, absorbée, relue par UNE relecture. Tenté en
+               passe profonde seulement : sans gonflant, un bloc de plus de 26
+               chiffres n'a jamais rendu de voie (mesuré aux crans 0, 3 et 5). */
+          if (profond) {
+            const echelleBloc = (a) => echelle({ ...a, fraction: Math.min(1, Math.max(0, (a && a.fraction) || 0)) });
+            const sousBloc = deroulerUnCran(saisieBrute, {
+              ...optionsResolution,
+              [PRECEDENT]: null,
+              cible: rel.cible,
+              profond: true,
+              matiereDePhrase: true,
+              dernierRecours: false,
+              surAvancement: canal ? (a) => canal(echelleBloc(a)) : undefined,
+            });
+            let pasBloc = sousBloc.next();
+            while (!pasBloc.done) {
+              const pause = yield echelleBloc(pasBloc.value);
+              pasBloc = sousBloc.next(pause);
+            }
+            const rb = pasBloc.value;
+            if (rb.tronque) tronque = true;
+            if (rb.tronqueTemps) tronqueTemps = true;
+            const blocs = (rb.approches || []).filter((a) => a.mode !== 'JOKER');
+            base.relectures[k].voiesDuBloc = blocs.length;
+            for (const a of blocs) {
+              versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
+              trouvees.push(a);
+            }
           }
           continue;
         }
@@ -1318,10 +1386,19 @@ export function creerMoteur(catalogue, options = {}) {
          (l'auteur). Un mot qui a ses voies ne paie donc rien ; un mot qui n'en a
          aucune refait le tour de ses relectures en s'autorisant, cette fois, de
          ranger ou de gonfler la ligne avant de la dissoudre. */
-    if (approches.length < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS) {
+    /* ★ **UNE APPROXIMATION NE SUFFIT PAS À S'ARRÊTER.** « Tant qu'aucune voie
+         exacte n'existe, on creuse » : seules les voies qui écrivent la
+         ponctuation comptent pour le plancher. Mesuré sur « C'est » : vingt
+         approchées rendaient le seuil muet, et la table ASCII n'y livrait
+         qu'une voie au lieu de six. */
+    const exactes = approches.filter((a) => !ometLaPonctuation(a)).length;
+    if (exactes < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS) {
       approches = yield* balayer(true);
     }
-    const ordreDuTexte = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
+    const ordreDeLaListe = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
+    const exactitude = ordreDExactitude(ponderation.curseurs);
+    // ★ La règle d'ordre passe AVANT tout le reste — voir `score.js › ordreDExactitude`.
+    const ordreDuTexte = (a, b) => exactitude(a, b) || ordreDeLaListe(a, b);
     approches.sort(ordreDuTexte);
     let retenues = approches.slice(0, reglagesDeBudget(fouille).voies);
     /* ★ **L'UNION AVEC LE CRAN INFÉRIEUR, POUR UN TEXTE AUSSI**
@@ -1364,10 +1441,13 @@ export function creerMoteur(catalogue, options = {}) {
    */
   function versLeTexte(a, rel, saisie, curseurs, fouille) {
     a.relecture = Object.freeze({ code: rel.code, mot: rel.mot.texte });
-    a.ecartDeForme = rel.ecart;
+    // ★ L'écart se repaie AUX CURSEURS : la ponctuation omise en dépend
+    //   (`score.js › facteurPonctuation`).
+    const facteur = facteurDEcartAuxCurseurs(rel.ecart, curseurs);
+    a.ecartDeForme = Object.freeze({ ...rel.ecart, facteur });
     a.produit = rel.produit;
     // L'écart se PAIE, entier sur entier : aucun flottant ne décide d'un rang.
-    a.score = Math.round((a.score * rel.ecart.facteur) / 1000);
+    a.score = Math.round((a.score * facteur) / 1000);
     relierAuTexte(a, rel, saisie, curseurs, fouille);
   }
 
@@ -1648,7 +1728,16 @@ export function creerMoteur(catalogue, options = {}) {
       parts,
       ...deduireMode(parts, { saisie: texte, jetons, cible: cbl, liaison: lia, segments: enSegments ? segs : undefined }),
     };
-    if (enSegments) approche.segments = segs;
+    if (enSegments) {
+      // ★ **REFUSÉ, ET BRUYAMMENT : une phrase qui recopie la saisie.** Un lien
+      //   écrit avant cette règle — ou à la main — dont deux segments relisent
+      //   les mêmes caractères ne se rejoue pas : il montrerait une duplication
+      //   que l'autrice interdit.
+      if (!segmentsSansCopie(parts)) {
+        return { ok: false, raison: 'segments qui recopient la saisie', bandeau: BANDEAUX.formatInconnu };
+      }
+      approche.segments = segs;
+    }
     if (lia) approche.liaison = Object.freeze({ code: lia.code, op: lia });
     // ★ Les RETOUCHES voyagent À CÔTÉ des parts, jamais dedans. `parts` a un
     //   sens précis partout ailleurs — « un morceau qui rend un chiffre » — et
@@ -1713,9 +1802,10 @@ export function creerMoteur(catalogue, options = {}) {
     //   qui vise le texte, pas sa cible sous-jacente (`versLeTexte`).
     if (rel) {
       approche.relecture = Object.freeze({ code: rel.code, mot: rel.mot.texte });
-      approche.ecartDeForme = rel.ecart;
+      const facteur = facteurDEcartAuxCurseurs(rel.ecart, lecture.curseurs);
+      approche.ecartDeForme = Object.freeze({ ...rel.ecart, facteur });
       approche.produit = rel.produit;
-      approche.score = Math.round((approche.score * rel.ecart.facteur) / 1000);
+      approche.score = Math.round((approche.score * facteur) / 1000);
     }
     const lien = {
       saisie, fragments: fragmentsEcrits, retouches: lecture.retouches, cible: rel ? rel.mot : cbl,

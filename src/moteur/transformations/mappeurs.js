@@ -4120,10 +4120,29 @@ function etapeLongueurMot() {
 }
 
 const LIB_CARRE = bilingue('On élève chaque nombre au carré', 'Square every number');
+/* ★ Ce que porte l'accolade du carré, sous son `²` : le symbole seul, sous une
+   pointe, se lirait comme une marque égarée ; les mots le confirment. */
+const MENTION_CARRE = bilingue('au carré', 'squared');
+/** Un carré se joue en cinq temps (`visuel/primitives/group.js › planCarre`). */
+const DUREE_CARRE = 5400;
 const LIB_PUISSANCE = bilingue('On élève chaque nombre au chiffre suivant',
   'Raise every number to the next digit');
+/* ★ Ce que porte l'accolade de la puissance. Entre « puissance », « pow » et
+   « ** », le mot : les deux autres sont des écritures de programmeur, que le
+   public du site ne lit pas comme une opération. */
+const MENTION_PUISSANCE = bilingue('puissance', 'power');
+/** Miroirs du découpage de `visuel/primitives/produits.js` (EXPOSANTS, PUISSANCE). */
+const dureeExposants = (n) => 300 + 1500 * n;
+const dureePuissance = (e) => 600 + 300 + 1800 * e + 1400;
+/** L'exposant écrit en exposant : `5³`. */
+const enExposant = (n) => [...String(n)].map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(c)]).join('');
 const LIB_FACTORIELLE = bilingue('On prend la factorielle de chaque nombre',
   'Take the factorial of every number');
+/** Le titre que l'autrice a écrit, centré sous la ligne. */
+const TITRE_FACTORIELLE = bilingue('Factorielle !', 'Factorial!');
+/** Miroir du découpage de `visuel/primitives/produits.js › FACTORIELLE`. */
+const dureeFactorielle = (n, annonce, dernier) => (annonce ? 1800 : 0) + 1000 + 250 * (n - 1)
+  + 1500 * (n - 1) + (n === 1 ? 1200 : 0) + 700 + (dernier ? 1000 : 0);
 
 /** Le premier chiffre d'un nombre — « le chiffre suivant » de la ligne. */
 const premierChiffre = (v) => Number(String(v)[0]);
@@ -4152,42 +4171,6 @@ function factorielleSure(n) {
   return r;
 }
 
-/**
- * ★ **LE GESTE D'UN PRODUIT MONTRÉ** — une seule source pour les trois
- * opérateurs qui gonflent la ligne (`mcar`, `mpui`, `mfac`).
- *
- * ① les facteurs s'écrivent à la place du nombre, séparés par des `×` — la
- *    multiplication est POSÉE avant d'être faite ;
- * ② ils se rejoignent, et le produit s'écrit à leur place.
- *
- * Le `collapse` ANIME, le `substitute` ÉCRIT — même règle que la division
- * (`mmod`) : sans lui, le jeton garderait sa valeur d'avant et l'étape suivante
- * calculerait sur un nombre que la scène n'affiche plus. Rien n'est décrété :
- * ce que la ligne montre est exactement ce que `apply` a calculé.
- */
-function etapesDuProduit(ctx, i, facteurs, resultat, titre) {
-  const ids = facteurs.map((_, k) => `${ctx.cle}_${i}f${k}`);
-  const signes = facteurs.slice(1).map((_, k) => `${ctx.cle}_${i}x${k}`);
-  // Les jetons dans l'ordre de la ligne : facteur, signe, facteur, signe…
-  const membres = ids.flatMap((id, k) => (k ? [signes[k - 1], id] : [id]));
-  const pose = facteurs.join(' × ');
-  return [
-    etape(ctx, titre, `${facteurs[0]} → ${pose}`, enchainer([
-      {
-        op: 'substitute',
-        pairs: [{ target: ctx.ids[i], to: facteurs.map((f, k) => token(ids[k], f, 'number')) }],
-      },
-      { op: 'insertOperators', between: ids, glyphs: signes.map(() => '×'), ids: signes },
-    ]), { id: `s_${ctx.cle}_${i}o` }),
-    etape(ctx, titre, `${pose} = ${resultat}`, enchainer([
-      { op: 'collapse', mode: 'fusion', familles: [{ membres, garde: ids[0] }] },
-      {
-        op: 'substitute',
-        pairs: [{ target: ids[0], to: [token(nomToken(ctx, i), resultat, 'number')] }],
-      },
-    ]), { id: `s_${ctx.cle}_${i}c`, hold: 300 }),
-  ];
-}
 
 /**
  * La plus grande racine dont le carré tient dans le DOMAINE DU MOTEUR.
@@ -7044,30 +7027,31 @@ const AUTRES_MAPPEURS = [
     id: 'm.multiTap', code: 'mtap',
     libelle: bilingue('La touche et le nombre d’appuis, sur un téléphone',
       'The key and the number of presses, on a phone'),
-    regle: bilingue('La touche, puis les appuis — 7 4 = s, quatre fois sur le 7 ; 0 1 = l’espace',
-      'Key, then presses — 7 4 = s, four times on the 7; 0 1 = a space'),
+    regle: bilingue('La touche, puis les appuis — 7 4 = s, quatre fois sur le 7 ; 1 1 = l’espace',
+      'Key, then presses — 7 4 = s, four times on the 7; 1 1 = a space'),
     outil: bilingue('Clavier de téléphone, en appuis', 'Phone keypad, in presses'),
     note: bilingue(
       'Le multi-tap des téléphones d’avant la saisie prédictive : on appuie sur la touche '
       + 'autant de fois que le rang de la lettre sur elle. 7777 s’écrit ici 7 4. '
-      + 'L’espace est sur le 0, d’un appui. La ponctuation n’y est pas : son ordre '
-      + 'sur la touche 1 change d’un téléphone à l’autre.',
+      + 'L’espace est sur le 1, d’un appui. La ponctuation n’y est pas : aucune notice '
+      + 'n’en donne l’ordre sur la touche 1, elle passe par la table ASCII.',
       'The multi-tap of phones before predictive text: press the key as many times as the '
-      + 'letter’s place on it. 7777 is written here as 7 4. The space is on 0, one press. '
-      + 'Punctuation is left out: its order on key 1 differs from one phone to the next.',
+      + 'letter’s place on it. 7777 is written here as 7 4. The space is on 1, one press. '
+      + 'Punctuation is left out: no manual gives its order on key 1, it goes through the ASCII table.',
     ),
     notoriete: 0.6, adHoc: 0.35, colonnes: 13,
-    /* ★ **L'ESPACE, SUR LE 0.** La norme ITU-T E.161 ne fixe que les lettres ;
-         l'espace sur la touche 0, d'un appui, est ce que disent les notices
-         (Nokia 3310 : « To type in a space press 0 »). La ponctuation de la
-         touche 1, elle, n'a pas d'ordre commun — la mettre ici serait
-         l'inventer. Une phrase se relit donc par le téléphone à la
-         ponctuation près (`recherche/cible.js › ecartDeForme`). En fin de
-         table : les lettres gardent leurs cases. */
+    /* ★ **L'ESPACE, SUR LE 1** — « " " sur la touche 1 » (l'autrice). La norme
+         ITU-T E.161 ne fixe que les lettres, et aucune notice trouvée ne donne
+         l'ordre de la ponctuation sur la touche 1 (Nokia 3310 : l'espace sur le
+         0, la ponctuation par une liste) : la ponctuation passe donc par la
+         table ASCII (`masi`, `mast`), et la touche 1 ne porte que l'espace.
+         ⚠️ La table a porté l'espace sur le 0 pendant un jour, jamais publiée :
+         voir le commit qui l'a déplacé. En fin de table : les lettres gardent
+         leurs cases. */
     couples: [
       ...Object.entries(T9_GROUPES)
         .flatMap(([touche, lettres]) => [...lettres].map((c, k) => [`${touche}${k + 1}`, c.toLowerCase()])),
-      ['01', ' ', bilingue('espace', 'space')],
+      ['11', ' ', bilingue('espace', 'space')],
     ],
   }),
   /* ★ **LE CARRÉ — `mcar`, et il ne sert QU'AU DERNIER RECOURS.**
@@ -7100,7 +7084,7 @@ const AUTRES_MAPPEURS = [
    * ★ Notoriété 0,85 : élever au carré s'apprend au collège. AdHoc 0,10 : il ne
    *   regarde ni la cible ni ce qu'on cherche — il multiplie, et il multiplierait
    *   pareil pour n'importe quelle visée. Ce qu'il coûte se paie ailleurs, au
-   *   barème : deux gestes par nombre, et une ligne deux fois plus longue à
+   *   barème : un geste par nombre, et une ligne deux fois plus longue à
    *   dissoudre ensuite.
    */
   def({
@@ -7125,26 +7109,47 @@ const AUTRES_MAPPEURS = [
       if (valeur.every((v) => v * v === v)) return null;
       return { valeur: valeur.map((v) => v * v), traces: valeur.map((_, i) => traces[i] || []) };
     },
-    // Un nombre qui ne bouge pas garde son identifiant : aucune étape ne le touche.
-    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
-    // changé, et la ligne garde ses jetons.
-    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
-      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
+    // ★ TOUT NOMBRE EST RÉÉCRIT, 0 et 1 compris : chacun reçoit son geste (voir
+    //   `steps`), donc son jeton neuf. `apres` vaut `null` quand l'opérateur a
+    //   REFUSÉ la ligne : il n'a alors rien changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((_, i) => nomToken(ctx, i)) : ctx.ids),
     /**
-     * ★ DEUX TEMPS PAR NOMBRE, ET LE CALCUL SE VOIT.
+     * ★ UN GESTE PAR NOMBRE, UN NOMBRE À LA FOIS — et l'accolade d'abord.
      *
-     * ① le nombre s'ouvre en DEUX exemplaires et le signe `×` s'écrit entre eux
-     *    — c'est la multiplication, posée avant d'être faite ;
-     * ② les trois jetons se rejoignent, et le produit s'écrit à leur place.
+     * > « Sous le nombre, accolade avec un symbole de mise au carré. Une fois
+     * >   l'accolade affichée, l'espace s'élargit pour dupliquer le nombre et
+     * >   ajouter l'opérateur de multiplication entre les deux. Le tout descend
+     * >   sous l'accolade pour afficher le résultat en dessous de l'accolade,
+     * >   puis le résultat vient prendre son espace sur la ligne principale,
+     * >   puis l'accolade disparaît. » (l'autrice)
      *
-     * Le `collapse` ANIME, le `substitute` ÉCRIT — même règle que la division
-     * (`mmod`) : sans lui, le jeton garderait sa valeur d'avant et l'étape
-     * suivante calculerait sur un nombre que la scène n'affiche plus.
+     * C'est une seule op — `group` en mode `carre` —, parce que l'accolade doit
+     * tenir du premier temps au dernier et qu'elle ne franchit pas une
+     * frontière de step. La primitive recalcule le produit et refuse un `to`
+     * qui ne l'égale pas.
+     *
+     * ★ **UN NOMBRE À LA FOIS**, comme la division et le modulo : une accolade
+     *   par nombre, qui s'efface avant que la suivante ne se tire. Toutes
+     *   ensemble, cinq expressions descendraient en même temps sous cinq
+     *   accolades — « une chose à la fois, et tant pis pour la durée ».
+     *
+     * ★ **0 ET 1 AUSSI.** « 1² est à faire aussi par cohérence, même si le
+     *   résultat est 1 comme le point de départ » (l'autrice). Ils étaient
+     *   sautés ; ils ne le sont plus. `apply` ne refuse toujours que la ligne où
+     *   PLUS RIEN ne change (tous à 0 ou 1) : celle-là, la scène la sauterait.
      */
     steps: (avant, apres, ctx) => {
       const titre = dire(LIB_CARRE, ctx.langue);
-      return avant.valeur.flatMap((v, i) => (v * v === v
-        ? [] : etapesDuProduit(ctx, i, [v, v], v * v, titre)));
+      const mention = dire(MENTION_CARRE, ctx.langue);
+      return avant.valeur.map((v, i) => etape(ctx, titre, `${v}² = ${v} × ${v} = ${v * v}`, enchainer([{
+        op: 'group',
+        dur: DUREE_CARRE,
+        targets: [ctx.ids[i]],
+        carre: true,
+        symbol: '²',
+        label: mention,
+        to: token(nomToken(ctx, i), v * v, 'number'),
+      }]), { id: `s_${ctx.cle}_${i}q`, hold: 300 }));
     },
   }),
   /* ★ **LA PUISSANCE — `mpui`, chaque nombre élevé au CHIFFRE SUIVANT.**
@@ -7205,17 +7210,67 @@ const AUTRES_MAPPEURS = [
       if (out.every((v, i) => v === valeur[i])) return null;
       return { valeur: out, traces: valeur.map((_, i) => traces[i] || []) };
     },
-    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
-    // changé, et la ligne garde ses jetons.
-    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
-      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
+    // ★ TOUT NOMBRE EST RÉÉCRIT, même celui que la puissance ne change pas (un
+    //   exposant 1, une base 0 ou 1) : chacun reçoit son geste, comme 1² au carré.
+    //   `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors
+    //   rien changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((_, i) => nomToken(ctx, i)) : ctx.ids),
+    /**
+     * ★ LES EXPOSANTS D'ABORD, PUIS UN PRODUIT PAR NOMBRE.
+     *
+     * > « mettons 53 → accolade "puissance" → l'exposant monte et rétrécit pour
+     * >   former un exposant → une copie (façon meg) de la valeur passe par
+     * >   l'exposant et le décrémente puis descend au compteur sous l'accolade
+     * >   → la copie suivante fait de même mais hérite de l'opérateur "×" […]
+     * >   → quand l'exposant arrive à 1, la valeur n'est plus copiée mais
+     * >   déplacée vers l'exposant qui est décrémenté à 0 puis disparaît
+     * >   pendant que la valeur descend et forme le résultat final sous
+     * >   l'accolade → le résultat remonte pendant que l'exposant disparaît… »
+     * >   (l'autrice)
+     *
+     * ⚠️ **POURQUOI LES EXPOSANTS SE FORMENT TOUS AVANT LE PREMIER CALCUL.**
+     *   L'exposant est le premier chiffre du nombre SUIVANT, et le dernier
+     *   regarde le premier. Joué nombre après nombre, le dernier irait chercher
+     *   son exposant sur un premier nombre déjà élevé — `5` devenu `125` — et
+     *   la scène montrerait un autre calcul que celui d'`apply`, qui lit la
+     *   ligne de départ. Aucun ordre ne l'évite : la dépendance est circulaire.
+     *   Chaque copie monte donc d'abord de son chiffre et se pose en exposant ;
+     *   puis chaque nombre, sous son accolade, passe par le sien.
+     *
+     * Ce sont des modes de `group` (`visuel/primitives/produits.js`) : le
+     * premier relit les chiffres sur la ligne, le second relit l'exposant posé
+     * et refuse un produit faux. Les exposants portent un nom d'émetteur, parce
+     * qu'ils vivent d'une étape à l'autre.
+     *
+     * ★ Tous les nombres, même ceux que la puissance ne change pas : un
+     *   exposant 1 montre la base passer par lui et redescendre seule.
+     */
     steps: (avant, apres, ctx) => {
       const titre = dire(LIB_PUISSANCE, ctx.langue);
-      return avant.valeur.flatMap((v, i) => {
-        if (apres.valeur[i] === v) return [];
-        const e = premierChiffre(avant.valeur[(i + 1) % avant.valeur.length]);
-        return etapesDuProduit(ctx, i, Array.from({ length: e }, () => v), apres.valeur[i], titre);
-      });
+      const mention = dire(MENTION_PUISSANCE, ctx.langue);
+      const n = avant.valeur.length;
+      const exposant = (i) => `${ctx.cle}_e${i}`;
+      const exposants = avant.valeur.map((_, i) => premierChiffre(avant.valeur[(i + 1) % n]));
+      return [
+        etape(ctx, titre, avant.valeur.map((v, i) => `${v}${enExposant(exposants[i])}`).join(' '), enchainer([{
+          op: 'group',
+          dur: dureeExposants(n),
+          targets: ctx.ids,
+          exposants: ctx.ids.map((id, i) => ({ base: id, source: ctx.ids[(i + 1) % n], id: exposant(i) })),
+        }]), { id: `s_${ctx.cle}_px`, hold: 200 }),
+        ...avant.valeur.map((v, i) => {
+          const facteurs = Array.from({ length: exposants[i] }, () => v).join(' × ');
+          return etape(ctx, titre, `${v}${enExposant(exposants[i])} = ${facteurs} = ${apres.valeur[i]}`, enchainer([{
+            op: 'group',
+            dur: dureePuissance(exposants[i]),
+            targets: [ctx.ids[i]],
+            puissance: true,
+            exposant: exposant(i),
+            label: mention,
+            to: token(nomToken(ctx, i), apres.valeur[i], 'number'),
+          }]), { id: `s_${ctx.cle}_${i}p`, hold: 300 });
+        }),
+      ];
     },
   }),
   /* ★ **LA FACTORIELLE — `mfac`.**
@@ -7266,22 +7321,72 @@ const AUTRES_MAPPEURS = [
       if (out.every((v, i) => v === valeur[i])) return null;
       return { valeur: out, traces: valeur.map((_, i) => traces[i] || []) };
     },
-    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
-    // changé, et la ligne garde ses jetons.
-    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
-      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
+    // ★ TOUT NOMBRE EST RÉÉCRIT, 1! et 2! compris : chacun reçoit son geste,
+    //   comme 1² au carré. `apres` vaut `null` quand l'opérateur a REFUSÉ la
+    //   ligne : il n'a alors rien changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((_, i) => nomToken(ctx, i)) : ctx.ids),
+    /**
+     * ★ LA COLONNE SE DÉPLIE, PUIS SE REPLIE EN MULTIPLIANT — un nombre à la fois.
+     *
+     * > « 1. mets les "!" associés à chaque chiffre où factorielle va être
+     * >   appliquée, et "Factorielle !" est affiché comme un titre centré sous
+     * >   la ligne principale. 2. le premier chiffre en factorielle déplie
+     * >   verticalement chaque n−1 … 1, centré sur la ligne principale […]
+     * >   3. les multiplications s'effectuent les unes après les autres : le
+     * >   1er chiffre descend sur le 2ᵈ en embarquant l'opérateur au passage et
+     * >   la fusion fait apparaître le résultat […] le tout en remontant
+     * >   progressivement les lignes pour maintenir le centrage, afin que la
+     * >   dernière fusion aboutisse sur la ligne principale. 4. on reprend 2.
+     * >   puis 3. pour chaque chiffre […] et on déplace le titre […] pour qu'il
+     * >   ne recouvre pas les calculs en cours. 5. une fois toute la ligne
+     * >   passée en factorielle, le titre peut disparaître. » (l'autrice)
+     *
+     * Une op par nombre — `group` en mode `factorielle`
+     * (`visuel/primitives/produits.js`) —, donc une légende et un cadrage par
+     * nombre. La première pose les « ! » et le titre, la dernière retire le
+     * titre : ils portent un nom d'émetteur parce qu'ils vivent d'une étape à
+     * l'autre.
+     *
+     * « Chiffre » s'entend « nombre de la ligne » : `apply` refuse tout ce qui
+     * dépasse 9 (10! sort du domaine du moteur), si bien que ce sont toujours
+     * des chiffres.
+     */
     steps: (avant, apres, ctx) => {
       const titre = dire(LIB_FACTORIELLE, ctx.langue);
-      return avant.valeur.flatMap((v, i) => {
-        if (apres.valeur[i] === v) return [];
-        const facteurs = Array.from({ length: v }, (_, k) => v - k);
-        return etapesDuProduit(ctx, i, facteurs, apres.valeur[i], titre);
+      const n = avant.valeur.length;
+      const titreFac = { id: `${ctx.cle}_ft`, text: dire(TITRE_FACTORIELLE, ctx.langue) };
+      const point = (i) => `${ctx.cle}_fb${i}`;
+      const rangees = 2 * Math.max(...avant.valeur) - 1;
+      return avant.valeur.map((v, i) => {
+        const annonce = i === 0;
+        const dernier = i === n - 1;
+        const facteurs = Array.from({ length: v }, (_, k) => k + 1).join(' × ');
+        const legende = v === 1 ? '1! = 1' : `${v}! = ${facteurs} = ${apres.valeur[i]}`;
+        return etape(ctx, titre, legende, enchainer([{
+          op: 'group',
+          dur: dureeFactorielle(v, annonce, dernier),
+          targets: [ctx.ids[i]],
+          factorielle: true,
+          titre: titreFac,
+          point: point(i),
+          ...(annonce ? { annonce: ctx.ids.map((id, j) => ({ cible: id, id: point(j) })), rangees } : {}),
+          ...(dernier ? { dernier: true } : {}),
+          to: token(nomToken(ctx, i), apres.valeur[i], 'number'),
+        }]), { id: `s_${ctx.cle}_${i}f`, hold: 300 });
       });
     },
   }),
   // ★ LE CODE ASCII QUI REDEVIENT SIGNE — `masi`, trois chiffres pour un signe.
   //   La fabrique est plus bas (hissage). En fin de bloc mappeur, append-only.
   operateurAsciiEnSigne(),
+  // ★ LE CODE ASCII DE CHAQUE SIGNE — `mast`, ponctuation comprise : la matière
+  //   d'une PHRASE visée d'un bloc. Fabrique plus bas (hissage). Fin de bloc,
+  //   append-only (§4.1).
+  operateurAsciiDeChaqueSigne(),
+  // ★ ÉCLATER LES NOMBRES EN CHIFFRES — `mecl`, pour gonfler une seconde fois
+  //   la matière d'une phrase. Fabrique plus bas (hissage). Fin de bloc,
+  //   append-only (§4.1).
+  operateurEclatement(),
 ];
 
 /**
@@ -7936,6 +8041,171 @@ function operateurAsciiEnSigne() {
         }], { id: `s_${ctx.cle}_${i}` }));
       });
       return steps;
+    },
+  });
+}
+
+/**
+ * ★ **LE CODE ASCII DE CHAQUE SIGNE — `mast`, ponctuation comprise.**
+ *
+ * > « Rassemble tous les morceaux avant de faire gonfler l'ensemble pour avoir
+ * >   assez de matière : https :// reinfocovid . fr / — 6 morceaux à convertir
+ * >   en chiffres, puis les chiffres à rassembler, et à faire gonfler […] puis
+ * >   à convertir en lettres et caractères spéciaux avec une méthode de
+ * >   conversion commune à l'ensemble. » (l'autrice)
+ *
+ * MESURÉ, et c'est ce qui l'a fait écrire : sur « https://reinfocovid.fr/ »,
+ * AUCUN mappeur du catalogue n'accepte `://`, `.` ni `/` — `masc` et `masb` ne
+ * codent que les lettres. Les trois morceaux de ponctuation restaient donc hors
+ * de la ligne. Codés, ils la portent de 53 à 63 chiffres, et de 89 à 109 une
+ * fois carrés : assez pour que l'absorption écrive les 32 chiffres de la phrase
+ * relue au téléphone, là où 89 n'en écrivaient que 29.
+ *
+ * ★ Le code du signe TEL QUEL, de l'espace (32) au tilde (126) : « h » vaut 104
+ *   et « H » 72, « : » 58, « / » 47. C'est l'inverse de `masi`, à la même table.
+ * ★ **INACTIF EN RECHERCHE**, et réservé à la MATIÈRE D'UNE PHRASE
+ *   (`matiereDePhrase`) : la recherche ne le propose qu'au bloc d'une phrase
+ *   trop longue, en passe profonde (`recherche/index.js › deroulerTexte`). Ni 666
+ *   ni aucune cible chiffrée ne le voient.
+ * ★ Le GESTE : la table ASCII montée, un aller-retour par signe. La case se
+ *   désigne par son CODE, pas par le signe : la table porte « h » et « H », que
+ *   la primitive confondrait si elle cherchait la lettre.
+ * ★ Notoriété 0,45 et adHoc 0,35 : ceux de `masi`, dont c'est l'aller.
+ */
+function operateurAsciiDeChaqueSigne() {
+  const libelle = bilingue('Chaque signe devient son code ASCII', 'Each character becomes its ASCII code');
+  const regle = bilingue('h = 104, H = 72, : = 58, / = 47, l’espace = 32',
+    'h = 104, H = 72, : = 58, / = 47, a space = 32');
+  const outil = bilingue('Table ASCII, de 32 à 126', 'ASCII table, 32 to 126');
+  const NOTE_ESPACE = bilingue('espace', 'space');
+  const PREMIER = 32;
+  const DERNIER = 126;
+  const table = Object.freeze(Array.from({ length: DERNIER - PREMIER + 1 }, (_, k) => {
+    const n = PREMIER + k;
+    const c = String.fromCharCode(n);
+    return Object.freeze({ char: String(n), value: n, label: c, ...(c === ' ' ? { note: NOTE_ESPACE } : {}) });
+  }));
+  return def({
+    id: 'm.asciiDeChaqueSigne', code: 'mast', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    libelle, regle, outil,
+    notoriete: 0.45, adHoc: 0.35,
+    actifParDefaut: false,
+    matiereDePhrase: true,
+    note: bilingue(
+      'Le code décimal ASCII de chaque signe, lettres, chiffres et ponctuation : de l’espace (32) '
+      + 'au tilde (126). Ni accent ni « œ », qu’ASCII n’a pas.',
+      'The decimal ASCII code of every character, letters, digits and punctuation: from space (32) '
+      + 'to tilde (126). No accents, which ASCII lacks.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      const out = [];
+      for (const tok of valeur) {
+        const chars = [...String(tok)];
+        if (chars.length !== 1) return null;
+        const n = chars[0].charCodeAt(0);
+        if (n < PREMIER || n > DERNIER) return null;
+        out.push(n);
+      }
+      return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
+    },
+    sortie: (avant, apres, ctx) => nomsTokens(ctx, apres.valeur.length),
+    steps: (avant, apres, ctx) => {
+      const titre = dire(libelle, ctx.langue);
+      const dit = dire(regle, ctx.langue);
+      const nomOutil = dire(outil, ctx.langue);
+      const sortie = nomsTokens(ctx, apres.valeur.length);
+      const entries = table.map((e) => ({ ...e, ...(e.note ? { note: dire(e.note, ctx.langue) } : {}) }));
+      const dernier = apres.valeur.length - 1;
+      return apres.valeur.map((n, i) => {
+        const signe = String(avant.valeur[i]);
+        return etape(ctx, titre, `${dit} : ${signe === ' ' ? '␣' : signe} → ${n}`, [{
+          op: 'table',
+          disposition: 'reglette',
+          titre: nomOutil,
+          colonnes: 16,
+          entries: entries.map((e) => ({ ...e })),
+          target: ctx.ids[i],
+          letter: String(n),
+          to: token(sortie[i], n, 'number'),
+          montre: i === 0,
+          retire: i === dernier,
+        }], { id: `s_${ctx.cle}_${i}` });
+      });
+    },
+  });
+}
+
+/**
+ * ★ **ÉCLATER LES NOMBRES EN CHIFFRES — `mecl`.**
+ *
+ * > « Oui, les deux, en dernier recours. » (l'autrice, sur l'éclatement et les
+ * >   deux gonflants à la suite)
+ *
+ * MESURÉ, et c'est ce qui l'a fait écrire : « https://reinfocovid.fr/ » en ASCII
+ * de chaque signe, carré, fait 109 chiffres de ligne — assez pour la phrase au
+ * téléphone (32), pas pour l'exacte ASCII (57 : 43 au plus). Un second carré
+ * sortirait du domaine du moteur (13 924² > 10⁶). Éclaté en chiffres PUIS carré,
+ * chaque chiffre reste sous 81 : 143 chiffres, et l'absorption écrit les 57.
+ *
+ * ★ Il ne crée AUCUN chiffre : 13 924 devient 1 3 9 2 4, les mêmes chiffres dans
+ *   le même ordre. Il rend seulement chaque chiffre à nouveau calculable.
+ * ★ Il refuse une ligne qu'il ne changerait pas (que des chiffres seuls) : un
+ *   opérateur qui rend son entrée fabrique une étape vide (même raison que `mcar`).
+ * ★ **INACTIF EN RECHERCHE**, et réservé à la MATIÈRE D'UNE PHRASE
+ *   (`eclate`) : l'assemblage ne l'emploie qu'entre deux gonflants, en passe
+ *   profonde, pour le bloc d'une phrase (`recherche/assemblage.js ›
+ *   vecteursDeSix`).
+ * ★ Le GESTE est celui qu'emploient déjà les absorptions : chaque nombre à
+ *   plusieurs chiffres se remplace par ses chiffres, côte à côte (`substitute`,
+ *   un jeton vers plusieurs — la primitive vérifie que les chiffres recomposent
+ *   le nombre). Un nombre d'un seul chiffre ne bouge pas.
+ * ★ Notoriété 0,90 : écrire un nombre chiffre à chiffre, tout le monde le fait.
+ *   AdHoc 0,20 : il ne regarde pas la cible, il prépare la matière.
+ */
+function operateurEclatement() {
+  const libelle = bilingue('On éclate chaque nombre en ses chiffres', 'Split every number into its digits');
+  const regle = bilingue('13 924 devient 1 3 9 2 4 : les mêmes chiffres, chacun à part',
+    '13,924 becomes 1 3 9 2 4: the same digits, each on its own');
+  const idChiffreDe = (ctx, i, k) => `${ctx.cle}_e${i}_${k}`;
+  return def({
+    id: 'm.eclatement', code: 'mecl', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+    libelle, regle,
+    notoriete: 0.90, adHoc: 0.20, cout: 1,
+    actifParDefaut: false,
+    eclate: true,
+    note: bilingue(
+      'Il ne crée aucun chiffre : il rend chacun à nouveau calculable. Joué seulement pour '
+      + 'donner de la matière à une phrase, entre deux gonflements.',
+      'It creates no digit: it makes each one computable again. Played only to give a sentence '
+      + 'material, between two inflations.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      if (!valeur.every((v) => Number.isInteger(v) && v >= 0)) return null;
+      if (valeur.every((v) => v <= 9)) return null;
+      const out = [];
+      const tr = [];
+      valeur.forEach((v, i) => {
+        for (const c of String(v)) { out.push(Number(c)); tr.push(traces[i] || []); }
+      });
+      return { valeur: out, traces: tr };
+    },
+    sortie: (avant, apres, ctx) => avant.valeur.flatMap((v, i) => (v <= 9
+      ? [ctx.ids[i]]
+      : [...String(v)].map((_, k) => idChiffreDe(ctx, i, k)))),
+    steps: (avant, apres, ctx) => {
+      const pairs = [];
+      avant.valeur.forEach((v, i) => {
+        if (v <= 9) return;
+        pairs.push({
+          target: ctx.ids[i],
+          to: [...String(v)].map((c, k) => token(idChiffreDe(ctx, i, k), c, 'digit')),
+        });
+      });
+      if (!pairs.length) return [];
+      return [etape(ctx, dire(libelle, ctx.langue), `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`,
+        enchainer([{ op: 'substitute', pairs }]), { id: `s_${ctx.cle}_ecl` })];
     },
   });
 }

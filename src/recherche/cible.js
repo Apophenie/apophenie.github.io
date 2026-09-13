@@ -478,11 +478,12 @@ export const ECARTS = Object.freeze({
        relecture qui n'écrit pas la ponctuation (le rang, le téléphone) peut
        viser le texte SANS elle, et la voie la paie. Plus cher que la casse, parce
        qu'un signe manque au lieu d'être autrement dessiné ; moins cher que les
-       capitales. ⚠️ À VALIDER PAR L'AUTEUR, comme le reste du barème. Ce qui est
-       tenu, c'est l'ordre : la voie qui écrit vraiment la ponctuation passe
-       devant une voie approchée de même note. */
+       capitales. ★ ARBITRÉ : « ça dépend des curseurs » (l'autrice). Ce facteur-ci
+       est celui du DÉFAUT (×0,5, l'une des deux valeurs qu'elle a données) ;
+       la liste le recalcule selon les curseurs et pose une règle d'ordre
+       (`score.js › facteurPonctuation`, `ordreDExactitude`). */
   ponctuation: Object.freeze({
-    facteur: 850, dit: Object.freeze({ fr: 'à la ponctuation près', en: 'but for the punctuation' }),
+    facteur: 500, dit: Object.freeze({ fr: 'à la ponctuation près', en: 'but for the punctuation' }),
   }),
   initiale: Object.freeze({
     facteur: 970, dit: Object.freeze({ fr: 'à la capitale initiale près', en: 'but for the initial capital' }),

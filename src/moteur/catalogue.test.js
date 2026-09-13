@@ -343,6 +343,8 @@ const VECTEURS = [
   ['mpol', N([5, 5, 1, 5, 4, 2, 2, 2]), ['z', 'e', 'r', 'g']],
   ['mtap', N([9, 4, 3, 2, 7, 3, 4, 1]), ['z', 'e', 'r', 'g']],
   ['masi', N([1, 2, 2, 1, 0, 1, 1, 1, 4, 1, 0, 3]), ['z', 'e', 'r', 'g']],
+  ['mast', T([...'fr/']), [102, 114, 47]],
+  ['mecl', N([13924, 7, 25]), [1, 3, 9, 2, 4, 7, 2, 5]],
   // Le carré : trois chiffres deviennent cinq, et c'est tout ce qu'on lui demande.
   ['mcar', N([115, 97, 114]), [13225, 9409, 12996]],
   // La puissance regarde le PREMIER CHIFFRE du nombre suivant — 5², puis 2⁵,
@@ -441,6 +443,8 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   m1a2: 'table', mpol: 'table', mtap: 'table',
   // Le code ASCII : on colle les trois chiffres, puis la case rend son signe.
   masi: 'table',
+  // Le code ASCII de chaque signe : une case par signe, désignée par son code.
+  mast: 'table',
 });
 
 /**
@@ -495,8 +499,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 191); // …+1 code ASCII en signe (masi), +1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 191, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 193); // …+1 éclatement en chiffres (mecl), +1 code ASCII de chaque signe (mast), +1 code ASCII en signe (masi), +1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 193, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -506,7 +510,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 191, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 193, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -1312,7 +1316,9 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
           // ★ Et toute table qui RELIT une lettre — les relectures par paires
           //   (`m1a2`, `mpol`, `mtap`) — est à rebours de la même façon.
           const aRebours = o.ordre === '1a26' || /^[a-z]$/.test(String(o.to && o.to.text));
-          assert.match(String(o.letter), aRebours ? /^\d+$/ : /^[A-Z]$/,
+          // ★ `mast` désigne sa case par le CODE : sa table porte « h » et « H ».
+          const parCode = code === 'mast';
+          assert.match(String(o.letter), aRebours || parCode ? /^\d+$/ : /^[A-Z]$/,
             `${code} : « letter » manquant ou non replié`);
           assert.match(String(o.to && o.to.text), aRebours ? /^[a-z]$/ : /^\d+$/,
             `${code} : « to.text » manquant — c'est lui qui fait échouer la compilation `
@@ -1693,8 +1699,8 @@ test('m1a2, mpol, mtap — deux chiffres, une lettre : la table entière, et rie
   for (const [code, attendu, horsTable] of [
     ['m1a2', 26, [[2, 7], [0, 0]]],
     ['mpol', 25, [[6, 1], [1, 6], [0, 1]]],
-    // ★ 27 pour le multi-tap : ses 26 lettres, et l'ESPACE sur le 0 (un appui).
-    ['mtap', 27, [[1, 1], [2, 4], [7, 5], [0, 2]]],
+    // ★ 27 pour le multi-tap : ses 26 lettres, et l'ESPACE sur le 1 (un appui).
+    ['mtap', 27, [[1, 2], [2, 4], [7, 5], [0, 1]]],
   ]) {
     const op = PAR_CODE.get(code);
     assert.equal(operateursActifs().includes(op), false, `${code} : inactif en recherche`);
@@ -1717,8 +1723,48 @@ test('m1a2, mpol, mtap — deux chiffres, une lettre : la table entière, et rie
   assert.deepEqual([...appliquer(PAR_CODE.get('mpol'), N([2, 4])).valeur], ['i']);
   // Le multi-tap : quatre appuis sur le 7, c'est s.
   assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([7, 4])).valeur], ['s']);
-  // Et un appui sur le 0, c'est l'espace — la seule chose que ce clavier écrit hors des lettres.
-  assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([0, 1])).valeur], [' ']);
+  // Et un appui sur le 1, c'est l'espace — la seule chose que ce clavier écrit hors des lettres.
+  assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([1, 1])).valeur], [' ']);
+});
+
+/* ★ ÉCLATER LES NOMBRES EN CHIFFRES — `mecl`. Aucun chiffre créé, un geste montré. */
+test('mecl — chaque nombre éclate en ses chiffres, et le geste le montre', () => {
+  const op = PAR_CODE.get('mecl');
+  assert.equal(operateursActifs().includes(op), false, 'mecl : inactif en recherche');
+  assert.equal(op.eclate, true);
+  const entree = N([13924, 7, 25]);
+  const apres = appliquer(op, entree);
+  assert.deepEqual([...apres.valeur], [1, 3, 9, 2, 4, 7, 2, 5]);
+  assert.equal(appliquer(op, N([1, 7, 0])), null, 'que des chiffres seuls : rien à éclater');
+  const steps = etapes(op, entree, apres, { ids: ['t0', 't1', 't2'], cle: 'e0' });
+  const subs = steps.flatMap((st) => st.ops).filter((o) => o.op === 'substitute');
+  assert.equal(subs.length, 1);
+  assert.deepEqual(subs[0].pairs.map((pr) => [pr.target, pr.to.map((t) => t.text).join('')]),
+    [['t0', '13924'], ['t2', '25']], 'le 7 ne bouge pas, les chiffres recomposent chaque nombre');
+});
+
+/* ★ LE CODE ASCII DE CHAQUE SIGNE — `mast`, la matière d'une phrase. */
+test('mast — chaque signe imprimable devient son code, ponctuation comprise', () => {
+  const op = PAR_CODE.get('mast');
+  assert.equal(operateursActifs().includes(op), false, 'mast : inactif en recherche');
+  assert.equal(op.matiereDePhrase, true);
+  assert.deepEqual([...appliquer(op, T([...'https://reinfocovid.fr/'])).valeur].slice(0, 8),
+    [104, 116, 116, 112, 115, 58, 47, 47]);
+  assert.deepEqual([...appliquer(op, T(['H', 'h', ' '])).valeur], [72, 104, 32]);
+  assert.equal(appliquer(op, T(['é'])), null, 'ASCII n’a pas d’accent');
+  assert.equal(appliquer(op, T(['ab'])), null, 'un signe par jeton');
+  // ★ La case se désigne par son CODE, et son ÉTIQUETTE est le signe à l'écran —
+  //   c'est ce que le pont vérifie (`recherche/scenario.js`, contrôle de `table`).
+  const entree = T(['h', 'H', ':']);
+  const apres = appliquer(op, entree);
+  const steps = etapes(op, entree, apres, { ids: ['t0', 't1', 't2'], cle: 'e0' });
+  const tables = steps.flatMap((st) => st.ops).filter((o) => o.op === 'table');
+  assert.equal(tables.length, 3, 'un aller-retour par signe');
+  tables.forEach((o, i) => {
+    const caseDesignee = o.entries.find((e) => e.char === o.letter);
+    assert.equal(caseDesignee.label, entree.valeur[i], `la case ${o.letter} s'écrit « ${entree.valeur[i]} »`);
+    assert.equal(String(caseDesignee.value), o.to.text);
+  });
 });
 
 /* ★ LE CODE ASCII EN SIGNE — `masi`. Trois chiffres par signe, les 95 imprimables,

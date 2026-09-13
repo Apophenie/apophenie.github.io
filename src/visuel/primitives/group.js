@@ -59,8 +59,10 @@ import {
   targetsOf, tracerAccolade, tokenSpec, accumulate, numberOf,
   nivellementDe, MAX_TRANSFERTS, jouerTransferts,
   espacementDe, exigerPoint, suivreLesAccolades,
+  boiteEmbrassee, ECART_TERMES, COLLE_AU_SIGNE,
 } from './helpers.js';
-import { EASE } from '../constants.js';
+import { EASE, progressionDe } from '../constants.js';
+import { planExposants, planPuissance, planFactorielle } from './produits.js';
 import { fail } from '../errors.js';
 
 export const name = 'group';
@@ -84,6 +86,15 @@ export function plan(ctx) {
   //   rythme des retraits. Testé après, `planRamassage` l'attrapait au passage
   //   et se plaignait d'un « to » sans « id » — la liste n'en étant pas un.
   if (ctx.op.division) { planDivision(ctx, ids); return; }
+  // Le carré porte un `to` lui aussi : même raison de le reconnaître avant.
+  if (ctx.op.carre) { planCarre(ctx, ids); return; }
+  // La puissance : les exposants se forment, puis chaque produit se fabrique
+  // sous son accolade (`produits.js`).
+  if (ctx.op.exposants) { planExposants(ctx, ids); return; }
+  if (ctx.op.puissance) { planPuissance(ctx, ids); return; }
+  // La factorielle n'a pas d'accolade : un titre en tient lieu, et la colonne
+  // se déplie sous le nombre (`produits.js`).
+  if (ctx.op.factorielle) { planFactorielle(ctx, ids); return; }
 
   // L'accolade qui tient sa promesse elle-même : décompte ou nivellement.
   if (ctx.op.to !== undefined) {
@@ -537,6 +548,225 @@ function planDivision(ctx, ids) {
     ctx.anim({ id, prop: 'opacity', to: 0, at: tFin0 + tDis + tRem * 0.55, dur: Math.max(1, tRem * 0.45) });
   }
 }
+
+/**
+ * ★ **LE CARRÉ — l'accolade d'abord, le calcul dessous, le produit remonte.**
+ *
+ * > « Sous le nombre, accolade avec un symbole de mise au carré. Une fois
+ * >   l'accolade affichée, l'espace s'élargit pour dupliquer le nombre et
+ * >   ajouter l'opérateur de multiplication entre les deux. Le tout descend
+ * >   sous l'accolade pour afficher le résultat en dessous de l'accolade, puis
+ * >   le résultat vient prendre son espace sur la ligne principale, puis
+ * >   l'accolade disparaît. » (l'autrice)
+ *
+ * Cinq temps, et UN SEUL geste : l'accolade doit tenir de bout en bout, or elle
+ * ne survit pas à la frontière d'un step (`scene.oublierAncres`).
+ *
+ * ```
+ *    115              ① l'accolade se tire sous le nombre : « ² · au carré »
+ *    115 ×115         ② l'espace s'élargit : le double glisse hors de
+ *                        l'original, le × paraît entre eux, l'accolade s'étire
+ *    ⌣‾‾‾‾‾‾‾‾⌣
+ *     115 ×115        ③ l'expression descend d'un bloc sous l'accolade
+ *      13225          ④ elle s'y resserre en son produit, qu'on lit là
+ *    13225            ⑤ le produit remonte prendre sa place, l'accolade s'efface
+ * ```
+ *
+ * C'était auparavant deux steps sans accolade — un `substitute` qui effaçait
+ * le nombre pour en poser deux, puis un `collapse` : l'original disparaissait,
+ * et rien ne disait « au carré » avant que le produit ne tombe.
+ *
+ * ⚠️ **L'ORIGINAL NE S'EFFACE PAS.** Même exigence que pour la division —
+ *   « espace-les pour insérer l'opérateur mais ne les efface pas » : le `115`
+ *   de la ligne est celui qui descend. Seul le DOUBLE naît, sur lui, invisible,
+ *   et ne paraît qu'une fois dégagé : jamais deux jetons l'un sur l'autre.
+ *
+ * ⚠️ **LA PLACE DU PRODUIT EST CELLE DE SON TEXTE.** Le jeton naît en portant
+ *   le produit — pas le nombre de départ —, et la ligne se referme sur sa
+ *   largeur réelle : `13225` n'est pas logé dans la case de `115`.
+ *
+ * ⚠️ **CONTRÔLE CROISÉ.** Le produit est recalculé ici sur le texte que la
+ *   ligne porte, et `to.text` doit l'égaler : le moteur visuel refuse
+ *   d'afficher un calcul faux.
+ *
+ * ★ **ZÉRO ET UN AUSSI.** « 1² est à faire aussi par cohérence, même si le
+ *   résultat est 1 comme le point de départ » (l'autrice). Rien ici ne les
+ *   distingue : `1 × 1` s'écrit, descend, et rend `1`.
+ */
+function planCarre(ctx, ids) {
+  if (ids.length !== 1) {
+    fail(`${ctx.where}un carré s'élève sur UN nombre, et l'accolade en embrasse ${ids.length} : `
+      + 'l’émetteur joue un geste par nombre.');
+  }
+  const idN = ids[0];
+  const source = ctx.scene.live(idN, ctx.where);
+  const n = numberOf(source.text, ctx, idN);
+  if (!Number.isInteger(n) || n < 0) {
+    fail(`${ctx.where}carré de « ${source.text} » : on n'élève au carré que des entiers positifs ou nuls.`);
+  }
+  const produit = n * n;
+  if (!Number.isSafeInteger(produit)) {
+    fail(`${ctx.where}carré de ${n} : ${produit} sort des entiers exacts.`);
+  }
+  const to = tokenSpec(ctx, ctx.op.to, 'to');
+  if (!to.kind || to.kind === 'letter') to.kind = 'number';
+  if (to.text !== String(produit)) {
+    fail(`${ctx.where}incohérence : ${n} × ${n} = ${produit}, mais l'émetteur annonce « ${to.text} ». `
+      + 'Le moteur visuel refuse d’afficher un calcul faux.');
+  }
+  const rang = ctx.scene.flowIndex(idN);
+  if (rang < 0) fail(`${ctx.where}« ${idN} » n'est pas dans la ligne : il n'y a pas d'espace à élargir.`);
+
+  // --- la découpe du temps --------------------------------------------------
+  // L'accolade est BORNÉE comme partout (« la vitesse pour tracer l'accolade
+  // devrait être la même qu'ailleurs, à savoir très rapide ») ; tout le reste
+  // se partage entre ce qui a quelque chose à montrer.
+  const T = ctx.dur;
+  const tAcc = Math.min(600, T * 0.12);
+  const reste = Math.max(1, T - tAcc);
+  const tOuv = reste * CARRE.OUVERTURE;
+  const tLit = reste * CARRE.LECTURE;
+  const tDes = reste * CARRE.DESCENTE;
+  const tFus = reste * CARRE.FUSION;
+  const tRes = reste * CARRE.RESULTAT;
+  const tRem = reste * CARRE.REMONTEE;
+  const t1 = tAcc;                 // l'espace s'élargit
+  const t2 = t1 + tOuv + tLit;     // l'expression descend
+  const t3 = t2 + tDes;            // elle se resserre en son produit
+  const t4 = t3 + tFus + tRes;     // le produit remonte, l'accolade s'efface
+
+  // --- ① l'accolade, sous le nombre seul ------------------------------------
+  const acc = tracerAccolade(ctx, [idN], {
+    shape: 'brace', tighten: 0,
+    symbol: ctx.op.symbol || '²', label: ctx.op.label || null,
+    // Elle ne PROMET rien à un `substitute` : c'est ce geste-ci qui pose le
+    // produit sous sa pointe. Et elle n'écarte rien : un nombre seul ne se
+    // confond avec personne.
+    promet: false, marquer: false,
+    at: 0, dur: tAcc,
+  });
+  if (!acc) {
+    fail(`${ctx.where}carré de ${n} : l’accolade n’a pas pu être tracée, le calcul n’aurait nulle part où se lire.`);
+  }
+
+  // --- ② l'espace s'élargit : le double, puis le signe ----------------------
+  // Le double entre dans la ligne JUSTE APRÈS l'original, et naît SUR lui : le
+  // reflow qui fait la place le fait glisser jusqu'à la sienne, et c'est ce
+  // glissement qui se lit « le nombre se dédouble ». Le signe prend place entre
+  // eux, avec les écarts de tout signe de la maison : l'écart de terme devant
+  // lui, presque rien entre lui et le nombre qu'il gouverne.
+  const posN = ctx.scene.pos(idN);
+  const idDouble = ctx.gensym('double');
+  const idFois = ctx.gensym('fois');
+  const gap = ctx.layoutOpts.gap;
+  ctx.scene.create({
+    id: idDouble, text: source.text, kind: source.kind || 'number',
+    role: 'text', inFlow: true, insertAt: rang + 1, gapBefore: gap * COLLE_AU_SIGNE,
+    base: { opacity: 0 },
+  }, { where: ctx.where });
+  ctx.scene.place(idDouble, exigerPoint(ctx, { x: posN.x, y: posN.y },
+    'le double du nombre, né sur l’original', idDouble));
+  ctx.scene.create({
+    id: idFois, text: '×', kind: 'operator',
+    role: 'text', inFlow: true, insertAt: rang + 1, gapBefore: gap * ECART_TERMES,
+    base: { opacity: 0, scale: 0.5, fill: ctx.palette.phos },
+  }, { where: ctx.where });
+  const membres = [idN, idFois, idDouble];
+  const tPlace = Math.max(1, tOuv * 0.6);
+  ctx.reflow({ at: t1, dur: tPlace, ease: EASE.move });
+
+  /* ⚠️ **CHACUN NE PARAÎT QU'UNE FOIS DÉGAGÉ — et c'est pourquoi le signe n'est
+       pas posé par `insertOperatorTokens`.** Celui-ci allume ses signes à 35 %
+       de son geste quand son reflow court jusqu'à 60 % : mesuré sur `115`, le
+       `×` paraissait sur un original qui ne s'était pas encore écarté, et le
+       double sortait de l'original encore à moitié dessus. « Jamais deux jetons
+       superposés sur la ligne de base » : on calcule donc, sur les places de
+       départ et d'arrivée, l'instant où chacun ne recouvre plus personne, et il
+       paraît à cet instant-là — le double d'abord, le signe ensuite. */
+  const depart = new Map([[idN, posN], [idDouble, posN]]);
+  const boiteA = (id, p) => {
+    const b = ctx.scene.pos(id);
+    const a = depart.get(id) || b;
+    const x = a.x + (b.x - a.x) * p;
+    const demi = ctx.scene.get(id).w / 2;
+    return [x - demi, x + demi];
+  };
+  const degageDe = (id, autres, p) => autres.every((autre) => {
+    const [g1, d1] = boiteA(id, p);
+    const [g2, d2] = boiteA(autre, p);
+    return Math.min(d1, d2) - Math.max(g1, g2) <= 0;
+  });
+  // La progression où le jeton se dégage, puis l'instant où le reflow l'atteint.
+  const courbe = progressionDe(EASE.move);
+  const instantDe = (id, autres) => {
+    let p = 1;
+    for (let k = 0; k <= 100; k++) {
+      if (degageDe(id, autres, k / 100)) { p = k / 100; break; }
+    }
+    let u = 1;
+    for (let k = 0; k <= 200; k++) {
+      if (courbe(k / 200) >= p) { u = k / 200; break; }
+    }
+    return t1 + u * tPlace;
+  };
+  const tDouble = instantDe(idDouble, [idN]);
+  const tFois = Math.max(instantDe(idFois, [idN, idDouble]), tDouble + tOuv * 0.1);
+  ctx.anim({ id: idDouble, prop: 'opacity', to: 1, at: tDouble, dur: Math.max(1, tOuv * 0.3) });
+  ctx.anim({ id: idFois, prop: 'opacity', to: 1, at: tFois, dur: Math.max(1, tOuv * 0.3) });
+  ctx.anim({ id: idFois, prop: 'scale', to: 1, at: tFois, dur: Math.max(1, tOuv * 0.3), ease: EASE.pop });
+  // L'accolade s'étire sur l'expression, au rythme de l'écartement.
+  ctx.scene.poserAccolade(acc.id, membres);
+  suivreLesAccolades(ctx, { at: t1, dur: tPlace });
+
+  // --- ③ l'expression descend d'un bloc sous l'accolade ---------------------
+  // Même translation verticale pour les trois : les écarts sont conservés, et
+  // « 115 ×115 » se lit encore en arrivant sous la pointe.
+  const boite = boiteEmbrassee(ctx, membres);
+  const ancre = exigerPoint(ctx, { x: boite ? boite.cx : NaN, y: acc.resultat.y },
+    'le point, sous l’accolade, où le produit se lit', to.id);
+  for (const id of membres) {
+    const p = ctx.scene.pos(id);
+    ctx.anim({ id, prop: 'translate', to: { x: p.x, y: ancre.y }, at: t2, dur: Math.max(1, tDes), ease: EASE.move });
+  }
+
+  // --- ④ elle s'y resserre en son produit -----------------------------------
+  for (const id of membres) {
+    ctx.anim({ id, prop: 'translate', to: { x: ancre.x, y: ancre.y }, at: t3, dur: Math.max(1, tFus), ease: EASE.move });
+    ctx.anim({ id, prop: 'scale', to: 0.65, at: t3, dur: Math.max(1, tFus) });
+    ctx.anim({ id, prop: 'opacity', to: 0, at: t3 + tFus * 0.55, dur: Math.max(1, tFus * 0.45) });
+  }
+  ctx.scene.create({
+    id: to.id, text: to.text, kind: to.kind, group: to.group,
+    role: 'text', inFlow: false, ...espacementDe(ctx, idN),
+    base: { opacity: 0, fill: ctx.palette.phos },
+  }, { where: ctx.where });
+  ctx.scene.place(to.id, ancre);
+  const tPop = t3 + tFus * 0.6;
+  ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: tPop, dur: Math.max(1, tFus * 0.3) });
+  ctx.anim({
+    id: to.id, prop: 'scale', values: [0.8, 1.12, 1], offsets: [0, 0.7, 1],
+    at: tPop, dur: Math.max(1, tFus * 0.4), ease: EASE.pop,
+  });
+
+  // --- ⑤ le produit remonte à la place du nombre, l'accolade s'efface -------
+  // Il entre dans le flux à l'index qu'occupait l'original : le reflow le fait
+  // monter ET referme la ligne sur sa largeur réelle, en un seul mouvement.
+  for (const id of membres) ctx.scene.kill(id, ctx.where);
+  ctx.scene.enterFlow(to.id, rang, ctx.where);
+  ctx.reflow({ at: t4, dur: Math.max(1, tRem), ease: EASE.move });
+  // L'accolade suit ce qu'elle a produit pendant qu'elle s'éteint — le même
+  // temps que la remontée, comme à la fin de la division.
+  ctx.scene.poserAccolade(acc.id, [to.id]);
+  suivreLesAccolades(ctx, { at: t4, dur: Math.max(1, tRem) });
+  for (const id of acc.ids) {
+    ctx.anim({ id, prop: 'opacity', to: 0, at: t4, dur: Math.max(1, tRem * 0.5) });
+  }
+}
+
+/** La part de chaque temps du carré, accolade mise à part. */
+const CARRE = Object.freeze({
+  OUVERTURE: 0.22, LECTURE: 0.08, DESCENTE: 0.16, FUSION: 0.16, RESULTAT: 0.12, REMONTEE: 0.26,
+});
 
 /** Points d'une trajectoire courbe de `a` à `b` — quadratique, sommet en haut. */
 function pointsDArc(a, b, hauteur, n) {

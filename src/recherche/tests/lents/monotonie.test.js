@@ -187,9 +187,16 @@ test('★ monotonie — du cran 0 au cran 5, aucune voie perdue sur les sept cou
 /* ⚠️ Ce test-ci était DÉJÀ vert avant la cumulation : cette phrase ne perdait
      rien du cran 0 au cran 3. Il ne prouve donc pas la réparation — il garde
      que la cumulation, qui passe par la liste fusionnée d'un texte et par ses
-     voies composées, tient aussi pour les segments. */
+     voies composées, tient aussi pour les segments.
+   ★ SA SAISIE A CHANGÉ : depuis que les segments ne recopient plus la saisie,
+     « https://reinfocovid.fr/ » n'a plus aucune voie vers la phrase, et le test
+     serait vert sur des listes vides. « Reinfocovid, désinformation garantie »
+     en a (`tests/lents/cible-phrase.test.js`). */
 test('★ monotonie — une phrase visée en segments ne perd rien du cran 0 au cran 3', () => {
-  assert.deepEqual(pertesDuBalayage([['https://reinfocovid.fr/', "C'est de la merde !"]], 0, 3), []);
+  const saisie = 'Reinfocovid, désinformation garantie';
+  assert.ok(moteur.resoudre(saisie, { cible: "C'est de la merde !" }).approches.length >= 1,
+    'une liste vide rendrait ce test muet');
+  assert.deepEqual(pertesDuBalayage([[saisie, "C'est de la merde !"]], 0, 3), []);
 });
 
 /* ★ AUCUNE BAISSE : ce que le cran sélectionne seul est dans sa liste

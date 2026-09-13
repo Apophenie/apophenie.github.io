@@ -3660,7 +3660,17 @@ function validerArithmetiqueOp(o, ctxOp) {
     for (const e of o.entries || []) table.set(String(e.char).toUpperCase(), String(e.value));
     const source = valeurDe(o.target);
     const lettre = String(o.letter ?? source ?? '').toUpperCase();
-    if (source !== null && o.letter !== undefined && plier(String(source)) !== lettre) {
+    // ★ UNE CASE DÉSIGNÉE PAR SON CODE (`mast`, dont la table porte « h » ET
+    //   « H ») : c'est alors l'ÉTIQUETTE de la case qui doit être le jeton à
+    //   l'écran, à la casse près — « 104 » n'est licite que si sa case s'écrit
+    //   « h » et que la ligne porte « h ».
+    //   ⚠️ En PLUS du pliage, pas à sa place : `masb` étiquette ses cases en bas
+    //   de casse (« s ») sur une clé en capitale (« S »), et la ligne porte « S ».
+    const caseDesignee = o.letter !== undefined
+      ? (o.entries || []).find((e) => e && String(e.char) === String(o.letter) && e.label !== undefined)
+      : undefined;
+    const parSonEtiquette = Boolean(caseDesignee) && source !== null && String(caseDesignee.label) === String(source);
+    if (source !== null && o.letter !== undefined && plier(String(source)) !== lettre && !parSonEtiquette) {
       return `« table » enverrait « ${lettre} » dans la table alors que la ligne porte « ${source} »`;
     }
     if (o.to && table.size) {
