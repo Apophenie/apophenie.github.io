@@ -62,7 +62,7 @@ import {
   boiteEmbrassee, ECART_TERMES, COLLE_AU_SIGNE,
 } from './helpers.js';
 import { EASE, progressionDe } from '../constants.js';
-import { planExposants, planPuissance } from './produits.js';
+import { planExposants, planPuissance, planFactorielle } from './produits.js';
 import { fail } from '../errors.js';
 
 export const name = 'group';
@@ -92,6 +92,9 @@ export function plan(ctx) {
   // sous son accolade (`produits.js`).
   if (ctx.op.exposants) { planExposants(ctx, ids); return; }
   if (ctx.op.puissance) { planPuissance(ctx, ids); return; }
+  // La factorielle n'a pas d'accolade : un titre en tient lieu, et la colonne
+  // se déplie sous le nombre (`produits.js`).
+  if (ctx.op.factorielle) { planFactorielle(ctx, ids); return; }
 
   // L'accolade qui tient sa promesse elle-même : décompte ou nivellement.
   if (ctx.op.to !== undefined) {

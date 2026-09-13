@@ -829,3 +829,240 @@ test('★ par le chemin du site, la puissance est jouée — « Donald Trump » 
   assert.equal(gestes('puissance')[0].caption, '6⁶ = 6 × 6 × 6 × 6 × 6 × 6 = 46656');
   assert.deepEqual(compile(sc).warnings, [], 'la scène entière compile sans animation concurrente');
 });
+
+// ───────────────────── 10. la factorielle : la colonne se déplie et se replie
+
+/**
+ * > « Pour factorielle, le calcul étant moins connu, on va procéder
+ * >   différemment : 1. mets les "!" associés à chaque chiffre où factorielle
+ * >   va être appliquée, et "Factorielle !" est affiché comme un titre centré
+ * >   sous la ligne principale. 2. le premier chiffre en factorielle déplie
+ * >   verticalement chaque n−1 … 1, centré sur la ligne principale (donc pour
+ * >   5! L1: 1, L2: ×, L3: 2, L4: ×, L5: 3, L6: ×, L7: 4, L8: ×, L9: 5, avec L5
+ * >   qui reste au niveau de la ligne principale) 3. les multiplications
+ * >   s'effectuent les unes après les autres : le 1er chiffre descend sur le 2ᵈ
+ * >   en embarquant l'opérateur au passage et la fusion fait apparaître le
+ * >   résultat, puis ce résultat descend sur le chiffre suivant en embarquant
+ * >   l'opérateur… le tout en remontant progressivement les lignes pour
+ * >   maintenir le centrage, afin que la dernière fusion aboutisse sur la ligne
+ * >   principale. 4. on reprend 2. puis 3. pour chaque chiffre à passer en
+ * >   factorielle, et on déplace le titre "Factorielle !" vers la droite ou la
+ * >   gauche pour qu'il ne recouvre pas les calculs en cours. 5. une fois toute
+ * >   la ligne passée en factorielle, le titre peut disparaître. » (l'autrice)
+ */
+const LIGNE_FACTORIELLE = [3, 1, 5];
+
+/** Les colonnes d'une scène : où chacune se tient, et quand. */
+function colonnesDe(steps, tl) {
+  const lire = lecteur(tl);
+  const out = [];
+  steps.forEach((s, i) => {
+    const op = (s.ops || []).find((o) => o.op === 'group' && o.factorielle);
+    if (!op) return;
+    const pas = tl.steps[i];
+    // Le résultat NAÎT sur l'axe de la colonne. Relu à la fin de l'étape, il
+    // serait décalé : le « ! » rend sa place, et la ligne centrée se recentre.
+    const naissance = tl.anims.find((a) => a.id === op.to.id && a.prop === 'opacity');
+    out.push({
+      op, pas, t0: pas.t0, t1: pas.t0 + pas.duration,
+      x: lire.valeur(op.to.id, 'translate', naissance.delay).x,
+      // La case réservée au nombre : la colonne entière tient dedans.
+      w: tl.nodes.find((n) => n.id === op.targets[0]).w,
+    });
+  });
+  return out;
+}
+
+test('★ la factorielle se joue dans l’ordre décrit : « ! » et titre, dépli centré, fusions qui remontent, titre retiré', () => {
+  const { steps, tl } = jouer('mfac', nums(LIGNE_FACTORIELLE), jetonsNums(LIGNE_FACTORIELLE));
+  assert.deepEqual(tl.warnings, [], 'rien ne se contredit');
+  assert.deepEqual(steps.map((s) => s.caption), ['3! = 1 × 2 × 3 = 6', '1! = 1', '5! = 1 × 2 × 3 × 4 × 5 = 120'],
+    'un nombre par étape, et sa légende');
+  const lire = lecteur(tl);
+  const fs = tl.metrics.fontSize;
+  const pas = fs * 0.9;
+  const fin = (a) => a.delay + a.duration;
+  const arrivee = (a) => a.keyframes[a.keyframes.length - 1].value;
+  const dans = (st) => (a) => a.delay >= st.t0 && a.delay < st.t0 + st.duration;
+  const anims = (id, prop, st) => tl.anims.filter((a) => a.id === id && a.prop === prop && (!st || dans(st)(a)));
+  const noeud = (id) => tl.nodes.find((n) => n.id === id);
+  const parait = (id, st) => anims(id, 'opacity', st).find((a) => arrivee(a) === 1);
+  const yLigne = lire.valeur('t0', 'translate', 0).y;
+  const [pas3, , pas5] = tl.steps;
+
+  // 1. les « ! » de TOUS les nombres, et le titre centré sous la ligne.
+  const points = ['x0_fb0', 'x0_fb1', 'x0_fb2'];
+  assert.deepEqual(points.map((id) => noeud(id).text), ['!', '!', '!']);
+  const premierDepli = tl.anims.filter((a) => a.id.startsWith('@facteur') && a.prop === 'translate')
+    .reduce((m, a) => Math.min(m, a.delay), Infinity);
+  for (const [k, id] of points.entries()) {
+    assert.ok(fin(parait(id, pas3)) <= premierDepli, `le « ! » de ${LIGNE_FACTORIELLE[k]} est posé avant le premier dépli`);
+    const p = lire.valeur(id, 'translate', fin(parait(id, pas3)));
+    const n = lire.valeur(`t${k}`, 'translate', fin(parait(id, pas3)));
+    assert.ok(Math.abs(p.y - n.y) < 0.5 && p.x > n.x, 'accolé à droite de son nombre');
+  }
+  const titre = noeud('x0_ft');
+  assert.equal(titre.text, 'Factorielle !');
+  const tTitre = fin(parait('x0_ft', pas3));
+  assert.ok(tTitre <= premierDepli, 'le titre est là avant le premier dépli');
+  const pTitre = lire.valeur('x0_ft', 'translate', tTitre);
+  assert.ok(pTitre.y > yLigne + fs, 'sous la ligne principale');
+  assert.ok(Math.abs(pTitre.x - tl.layoutOpts.centerX) < 0.5, 'centré');
+
+  // 2. le dépli de 5 : 1 × 2 × 3 × 4 × 5, le 3 au niveau de la ligne.
+  const col5 = colonnesDe(steps, tl)[2];
+  const efface5 = anims('x0_fb2', 'opacity', pas5).find((a) => arrivee(a) === 0);
+  const facteurs = tl.nodes.filter((n) => n.id.startsWith('@facteur') && anims(n.id, 'translate', pas5).length);
+  assert.deepEqual(facteurs.map((n) => n.text), ['1', '2', '3', '4'], 'n − 1 … 1 sortent du nombre');
+  const depli = anims(facteurs[0].id, 'translate', pas5)[0];
+  assert.ok(efface5.delay < depli.delay, 'le « ! » de 5 s’efface quand son calcul commence');
+  const rang = (id) => Math.round((arrivee(anims(id, 'translate', pas5)[0]).y - yLigne) / pas);
+  assert.deepEqual(facteurs.map((n) => rang(n.id)), [-4, -2, 0, 2], 'L1 : 1, L3 : 2, L5 : 3 sur la ligne, L7 : 4');
+  assert.equal(rang('t2'), 4, 'L9 : le 5 lui-même, en bas');
+  const signes = tl.nodes.filter((n) => n.id.startsWith('@fois') && dans(pas5)(parait(n.id) || { delay: -1 }));
+  assert.deepEqual(signes.map((n) => Math.round((lire.valeur(n.id, 'translate', fin(parait(n.id, pas5))).y - yLigne) / pas)),
+    [-3, -1, 1, 3], 'les × aux rangs pairs de l’autrice : L2, L4, L6, L8');
+  assert.ok(signes.every((n) => parait(n.id, pas5).delay >= fin(depli)), 'une fois les facteurs posés');
+  // Le titre s'est écarté : il ne recouvre pas la colonne.
+  const xTitre = lire.valeur('x0_ft', 'translate', depli.delay + depli.duration).x;
+  assert.ok(Math.abs(xTitre - col5.x) >= (titre.w + noeud('x0_2').w) / 2, 'le titre s’écarte de la colonne en cours');
+
+  // 3. les fusions, une paire à la fois : 2, 6, 24, puis 120 sur la ligne.
+  const produits = tl.nodes.filter((n) => (n.id.startsWith('@produit') || n.id === 'x0_2') && parait(n.id, pas5));
+  assert.deepEqual(produits.map((n) => n.text), ['2', '6', '24', '120'], '1 × 2, puis 2 × 3, puis 6 × 4, puis 24 × 5');
+  const apparitions = produits.map((n) => parait(n.id, pas5).delay);
+  for (let k = 1; k < apparitions.length; k++) assert.ok(apparitions[k] > apparitions[k - 1], 'les unes après les autres');
+  // Le premier descend sur le suivant, et embarque le × au passage.
+  const descente = anims(facteurs[0].id, 'translate', pas5)[1];
+  assert.equal(Math.round((arrivee(descente).y - arrivee(depli).y) / pas), 2, 'le 1 descend de deux rangs, sur le 2');
+  const embarque = anims(signes[0].id, 'translate', pas5)[0];
+  assert.ok(embarque.delay > descente.delay && fin(embarque) <= fin(descente) + 1, 'le × part AU PASSAGE du 1');
+  assert.ok(arrivee(embarque).x < arrivee(descente).x, '… accolé à sa gauche');
+  // Après chaque fusion, la colonne remonte d'un rang ; la dernière aboutit sur la ligne.
+  for (const [k, n] of produits.entries()) {
+    const montee = anims(n.id, 'translate', pas5)[0];
+    assert.ok(montee && montee.delay > apparitions[k], `${n.text} remonte après sa fusion`);
+  }
+  const yFinal = lire.valeur('x0_2', 'translate', col5.t1 - 1).y;
+  assert.ok(Math.abs(yFinal - yLigne) < 0.5, 'la dernière fusion aboutit sur la ligne principale');
+  assert.ok(noeud('x0_2').w >= 3 * tl.metrics.advance - 0.01, '120 a la place de ses trois chiffres');
+
+  // 5. la ligne entière est passée : le titre disparaît, la caméra revient.
+  const retrait = anims('x0_ft', 'opacity', pas5).find((a) => arrivee(a) === 0);
+  assert.ok(retrait && retrait.delay >= apparitions[3], 'le titre s’en va après le dernier résultat');
+  assert.equal(lire.valeur('@camera', 'scale', col5.t1 + 1), 1, 'la caméra revient à son repos');
+});
+
+/**
+ * ★ **JAMAIS DEUX JETONS L'UN SUR L'AUTRE, ET LE TITRE NE COUVRE RIEN.**
+ *
+ * Hors de la colonne en cours, personne ne recouvre personne — les voisins de
+ * la ligne, les « ! », la colonne contre ses voisins. DANS la colonne, les
+ * fusions sont le geste : le 1 tombe sur le 2. Le titre, lui, ne touche aucun
+ * jeton visible, à aucun instant. Et la plus haute colonne tient dans le cadre :
+ * `Ice` rend `9 3 5`, et 9! se déplie sur dix-sept rangs.
+ */
+function verifierFactorielle(nom, steps, tl) {
+  assert.deepEqual(tl.warnings, [], `${nom} : ${tl.warnings.join(' | ')}`);
+  const lire = lecteur(tl);
+  const fs = tl.metrics.fontSize;
+  const av = tl.metrics.advance;
+  const { centerY, viewBox } = tl.layoutOpts;
+  const colonnes = colonnesDe(steps, tl);
+  const idTitre = colonnes[0].op.titre.id;
+  const titre = tl.nodes.find((n) => n.id === idTitre);
+  const debut = colonnes[0].t0;
+  const fin = colonnes[colonnes.length - 1].t1;
+  const N = 2500;
+  for (let k = 0; k <= N; k++) {
+    const t = debut + ((fin - debut) * k) / N;
+    const col = colonnes.find((c) => t >= c.t0 && t <= c.t1);
+    const vus = lire.visibles(t);
+    const dansCol = (j) => Math.abs(j.x - col.x) < col.w / 2 + 1;
+    for (let i = 0; i < vus.length; i++) {
+      for (let j = i + 1; j < vus.length; j++) {
+        const [p, q] = [vus[i], vus[j]];
+        if (dansCol(p) && dansCol(q)) continue;
+        if (Math.abs(p.y - q.y) >= ((p.h + q.h) / 2) * 0.8) continue;
+        const recouvre = Math.min(p.d, q.d) - Math.max(p.g, q.g);
+        assert.ok(recouvre <= 0.5, `${nom}, t = ${Math.round(t)} : « ${p.texte} » (${p.id}) `
+          + `et « ${q.texte} » (${q.id}) se chevauchent de ${recouvre.toFixed(1)}`);
+      }
+    }
+    const pt = lire.valeur(idTitre, 'translate', t);
+    if ((lire.valeur(idTitre, 'opacity', t) ?? 1) > 0.1 && pt) {
+      const h = fs * 0.62;
+      for (const q of vus) {
+        const rx = Math.min(pt.x + titre.w / 2, q.d) - Math.max(pt.x - titre.w / 2, q.g);
+        const ry = Math.min(pt.y + h / 2, q.y + q.h / 2) - Math.max(pt.y - h / 2, q.y - q.h / 2);
+        assert.ok(!(rx > 0.5 && ry > 0.5), `${nom}, t = ${Math.round(t)} : le titre couvre « ${q.texte} » (${q.id})`);
+      }
+    }
+    const zoom = lire.valeur('@camera', 'scale', t) ?? 1;
+    for (const q of vus) {
+      const haut = centerY + zoom * (q.y - q.h / 2 - centerY);
+      const bas = centerY + zoom * (q.y + q.h / 2 - centerY);
+      assert.ok(haut >= viewBox.y && bas <= viewBox.y + viewBox.h,
+        `${nom}, t = ${Math.round(t)} : « ${q.texte} » (${q.id}) sort du cadre (${haut.toFixed(0)} → ${bas.toFixed(0)})`);
+    }
+  }
+}
+
+/** « Ice » par le chemin du site : `tca`, `ma1`, `mfac` — 9 3 5. */
+function scenarioIce() {
+  const sc = construireScenario(approcheSur('Ice', ['tca', 'ma1', 'mfac']), { saisie: 'Ice' });
+  return { sc, tl: compile(sc) };
+}
+
+test('★ la factorielle ne superpose rien hors de la colonne, le titre ne couvre rien, et 9! tient dans le cadre', () => {
+  const { steps, tl } = jouer('mfac', nums(LIGNE_FACTORIELLE), jetonsNums(LIGNE_FACTORIELLE));
+  verifierFactorielle('3 1 5', steps, tl);
+  const { sc, tl: tlIce } = scenarioIce();
+  verifierFactorielle('Ice', sc.steps, tlIce);
+  // (480 − 2 casses) / (16 interlignes + 1 casse) ≈ 0,52 : la caméra recule de moitié.
+  assert.ok(tlIce.anims.some((a) => a.id === '@camera' && a.prop === 'scale' && a.keyframes.at(-1).value < 0.6),
+    'dix-sept rangs : la caméra recule pour les faire tenir');
+});
+
+test('★ 1! et 2! se jouent aussi, la colonne réduite à ce qu’elle est', () => {
+  const valeurs = [1, 2, 3];
+  const { o, apres, steps, tl } = jouer('mfac', nums(valeurs), jetonsNums(valeurs));
+  assert.deepEqual(steps.map((s) => s.caption), ['1! = 1', '2! = 1 × 2 = 2', '3! = 1 × 2 × 3 = 6']);
+  const [pas1, pas2] = tl.steps;
+  const dans = (st) => (n) => tl.anims.some((a) => a.id === n.id && a.delay >= st.t0 && a.delay < st.t0 + st.duration);
+  assert.equal(tl.nodes.filter((n) => n.id.startsWith('@facteur')).filter(dans(pas1)).length, 0,
+    '1! : aucun facteur à déplier, le 1 est sa propre colonne');
+  assert.equal(tl.nodes.filter((n) => n.id.startsWith('@facteur')).filter(dans(pas2)).length, 1, '2! : le 1, au-dessus du 2');
+  const tokens = jetonsNums(valeurs);
+  const lignes = suivreLaLigne(tokens, steps);
+  assert.deepEqual(lignes[lignes.length - 1].ids,
+    o.sortie(nums(valeurs), apres, { ids: tokens.map((t) => t.id), cle: 'x0', langue: 'fr' }),
+    'la ligne rejouée est celle que la factorielle déclare');
+});
+
+test('la factorielle refuse d’afficher un résultat faux', () => {
+  const faux = {
+    version: 1, tokens: jetonsNums([5]),
+    steps: [{ id: 's0', title: 'factorielle', ops: [{
+      op: 'group', at: 0, dur: 10000, targets: ['t0'], factorielle: true,
+      titre: { id: 'ft', text: 'Factorielle !' }, point: 'fb0', annonce: [{ cible: 't0', id: 'fb0' }], dernier: true,
+      to: { id: 'r0', text: '121', kind: 'number' },
+    }] }],
+  };
+  assert.throws(() => compile(faux), /120/, '5! vaut 120, pas 121');
+});
+
+/**
+ * ★ **PAR LE CHEMIN DU SITE.** Aucune voie de l'instantané chiffré ne passe par
+ *   `mfac`, et la seule que sa mesure d'origine annonçait n'est nommée nulle
+ *   part : la scène est donc construite par le catalogue, sur une vraie saisie,
+ *   par `construireScenario` — le chemin qui avait laissé passer la potence.
+ */
+test('★ par le chemin du site, la factorielle est jouée et rien ne retombe sur le rendu générique', () => {
+  const { sc, tl } = scenarioIce();
+  assert.equal(sc.avertissements, undefined, (sc.avertissements || []).join(' | '));
+  const gestes = sc.steps.filter((s) => (s.ops || []).some((o) => o.op === 'group' && o.factorielle));
+  assert.deepEqual(gestes.map((s) => s.caption),
+    ['9! = 1 × 2 × 3 × 4 × 5 × 6 × 7 × 8 × 9 = 362880', '3! = 1 × 2 × 3 = 6', '5! = 1 × 2 × 3 × 4 × 5 = 120']);
+  assert.deepEqual(tl.warnings, [], 'la scène entière compile sans animation concurrente');
+});

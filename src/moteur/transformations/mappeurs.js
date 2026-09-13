@@ -4138,6 +4138,11 @@ const dureePuissance = (e) => 600 + 300 + 1800 * e + 1400;
 const enExposant = (n) => [...String(n)].map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(c)]).join('');
 const LIB_FACTORIELLE = bilingue('On prend la factorielle de chaque nombre',
   'Take the factorial of every number');
+/** Le titre que l'autrice a écrit, centré sous la ligne. */
+const TITRE_FACTORIELLE = bilingue('Factorielle !', 'Factorial!');
+/** Miroir du découpage de `visuel/primitives/produits.js › FACTORIELLE`. */
+const dureeFactorielle = (n, annonce, dernier) => (annonce ? 1800 : 0) + 1000 + 250 * (n - 1)
+  + 1500 * (n - 1) + (n === 1 ? 1200 : 0) + 700 + (dernier ? 1000 : 0);
 
 /** Le premier chiffre d'un nombre — « le chiffre suivant » de la ligne. */
 const premierChiffre = (v) => Number(String(v)[0]);
@@ -4166,42 +4171,6 @@ function factorielleSure(n) {
   return r;
 }
 
-/**
- * ★ **LE GESTE D'UN PRODUIT MONTRÉ** — une seule source pour les trois
- * opérateurs qui gonflent la ligne (`mcar`, `mpui`, `mfac`).
- *
- * ① les facteurs s'écrivent à la place du nombre, séparés par des `×` — la
- *    multiplication est POSÉE avant d'être faite ;
- * ② ils se rejoignent, et le produit s'écrit à leur place.
- *
- * Le `collapse` ANIME, le `substitute` ÉCRIT — même règle que la division
- * (`mmod`) : sans lui, le jeton garderait sa valeur d'avant et l'étape suivante
- * calculerait sur un nombre que la scène n'affiche plus. Rien n'est décrété :
- * ce que la ligne montre est exactement ce que `apply` a calculé.
- */
-function etapesDuProduit(ctx, i, facteurs, resultat, titre) {
-  const ids = facteurs.map((_, k) => `${ctx.cle}_${i}f${k}`);
-  const signes = facteurs.slice(1).map((_, k) => `${ctx.cle}_${i}x${k}`);
-  // Les jetons dans l'ordre de la ligne : facteur, signe, facteur, signe…
-  const membres = ids.flatMap((id, k) => (k ? [signes[k - 1], id] : [id]));
-  const pose = facteurs.join(' × ');
-  return [
-    etape(ctx, titre, `${facteurs[0]} → ${pose}`, enchainer([
-      {
-        op: 'substitute',
-        pairs: [{ target: ctx.ids[i], to: facteurs.map((f, k) => token(ids[k], f, 'number')) }],
-      },
-      { op: 'insertOperators', between: ids, glyphs: signes.map(() => '×'), ids: signes },
-    ]), { id: `s_${ctx.cle}_${i}o` }),
-    etape(ctx, titre, `${pose} = ${resultat}`, enchainer([
-      { op: 'collapse', mode: 'fusion', familles: [{ membres, garde: ids[0] }] },
-      {
-        op: 'substitute',
-        pairs: [{ target: ids[0], to: [token(nomToken(ctx, i), resultat, 'number')] }],
-      },
-    ]), { id: `s_${ctx.cle}_${i}c`, hold: 300 }),
-  ];
-}
 
 /**
  * La plus grande racine dont le carré tient dans le DOMAINE DU MOTEUR.
@@ -7351,16 +7320,58 @@ const AUTRES_MAPPEURS = [
       if (out.every((v, i) => v === valeur[i])) return null;
       return { valeur: out, traces: valeur.map((_, i) => traces[i] || []) };
     },
-    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
-    // changé, et la ligne garde ses jetons.
-    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
-      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
+    // ★ TOUT NOMBRE EST RÉÉCRIT, 1! et 2! compris : chacun reçoit son geste,
+    //   comme 1² au carré. `apres` vaut `null` quand l'opérateur a REFUSÉ la
+    //   ligne : il n'a alors rien changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((_, i) => nomToken(ctx, i)) : ctx.ids),
+    /**
+     * ★ LA COLONNE SE DÉPLIE, PUIS SE REPLIE EN MULTIPLIANT — un nombre à la fois.
+     *
+     * > « 1. mets les "!" associés à chaque chiffre où factorielle va être
+     * >   appliquée, et "Factorielle !" est affiché comme un titre centré sous
+     * >   la ligne principale. 2. le premier chiffre en factorielle déplie
+     * >   verticalement chaque n−1 … 1, centré sur la ligne principale […]
+     * >   3. les multiplications s'effectuent les unes après les autres : le
+     * >   1er chiffre descend sur le 2ᵈ en embarquant l'opérateur au passage et
+     * >   la fusion fait apparaître le résultat […] le tout en remontant
+     * >   progressivement les lignes pour maintenir le centrage, afin que la
+     * >   dernière fusion aboutisse sur la ligne principale. 4. on reprend 2.
+     * >   puis 3. pour chaque chiffre […] et on déplace le titre […] pour qu'il
+     * >   ne recouvre pas les calculs en cours. 5. une fois toute la ligne
+     * >   passée en factorielle, le titre peut disparaître. » (l'autrice)
+     *
+     * Une op par nombre — `group` en mode `factorielle`
+     * (`visuel/primitives/produits.js`) —, donc une légende et un cadrage par
+     * nombre. La première pose les « ! » et le titre, la dernière retire le
+     * titre : ils portent un nom d'émetteur parce qu'ils vivent d'une étape à
+     * l'autre.
+     *
+     * « Chiffre » s'entend « nombre de la ligne » : `apply` refuse tout ce qui
+     * dépasse 9 (10! sort du domaine du moteur), si bien que ce sont toujours
+     * des chiffres.
+     */
     steps: (avant, apres, ctx) => {
       const titre = dire(LIB_FACTORIELLE, ctx.langue);
-      return avant.valeur.flatMap((v, i) => {
-        if (apres.valeur[i] === v) return [];
-        const facteurs = Array.from({ length: v }, (_, k) => v - k);
-        return etapesDuProduit(ctx, i, facteurs, apres.valeur[i], titre);
+      const n = avant.valeur.length;
+      const titreFac = { id: `${ctx.cle}_ft`, text: dire(TITRE_FACTORIELLE, ctx.langue) };
+      const point = (i) => `${ctx.cle}_fb${i}`;
+      const rangees = 2 * Math.max(...avant.valeur) - 1;
+      return avant.valeur.map((v, i) => {
+        const annonce = i === 0;
+        const dernier = i === n - 1;
+        const facteurs = Array.from({ length: v }, (_, k) => k + 1).join(' × ');
+        const legende = v === 1 ? '1! = 1' : `${v}! = ${facteurs} = ${apres.valeur[i]}`;
+        return etape(ctx, titre, legende, enchainer([{
+          op: 'group',
+          dur: dureeFactorielle(v, annonce, dernier),
+          targets: [ctx.ids[i]],
+          factorielle: true,
+          titre: titreFac,
+          point: point(i),
+          ...(annonce ? { annonce: ctx.ids.map((id, j) => ({ cible: id, id: point(j) })), rangees } : {}),
+          ...(dernier ? { dernier: true } : {}),
+          to: token(nomToken(ctx, i), apres.valeur[i], 'number'),
+        }]), { id: `s_${ctx.cle}_${i}f`, hold: 300 });
       });
     },
   }),

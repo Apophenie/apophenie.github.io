@@ -1,15 +1,15 @@
 /**
- * Les produits répétés — la PUISSANCE (et la factorielle, qui suit).
+ * Les produits répétés — la PUISSANCE et la FACTORIELLE.
  *
  * Ce fichier n'est PAS une primitive (comme `afficheur.js` ou `decor.js`) : ce
- * sont des modes de `group`, qui les appelle sur `op.exposants` et
- * `op.puissance`. Le vocabulaire reste fermé ; seul le remplissage change.
+ * sont des modes de `group`, qui les appelle sur `op.exposants`,
+ * `op.puissance` et `op.factorielle`. Le vocabulaire reste fermé ; seul le remplissage change.
  */
 
 import {
   tracerAccolade, tokenSpec, numberOf, espacementDe, exigerPoint, suivreLesAccolades,
 } from './helpers.js';
-import { EASE } from '../constants.js';
+import { EASE, CAMERA_ID, progressionDe } from '../constants.js';
 import { fail } from '../errors.js';
 
 /**
@@ -331,5 +331,322 @@ export function planPuissance(ctx, ids) {
   suivreLesAccolades(ctx, { at: t3, dur: Math.max(1, tFin) });
   for (const id of acc.ids) {
     ctx.anim({ id, prop: 'opacity', to: 0, at: t3, dur: Math.max(1, tFin * 0.5) });
+  }
+}
+
+/**
+ * Le découpage nominal d'une factorielle, en ms — miroir dans
+ * `mappeurs.js › dureeFactorielle`. Réparti au prorata, comme la puissance.
+ */
+const FACTORIELLE = Object.freeze({
+  ANNONCE: 1800, DEPLI: 1000, DEPLI_PAR_FACTEUR: 250, FUSION: 1500, UN: 1200, FIN: 700, CLOTURE: 1000,
+});
+/** L'interligne de la colonne, en casses : au-delà de ce qui sépare deux lignes lisibles. */
+const INTERLIGNE = 0.9;
+/** Le × embarqué rétrécit : il accompagne le nombre, il ne s'aligne pas avec lui. */
+const ECHELLE_FOIS_EMBARQUE = 0.6;
+/** Le titre, sous la ligne principale : sa hauteur et sa taille. */
+const TITRE_SOUS_LA_LIGNE = 1.7;
+const TITRE_TAILLE = 0.62;
+/** Au-delà, la colonne ne tiendrait plus à l'écran, même en reculant la caméra. */
+const FACTEURS_MAX = 12;
+
+/** La hauteur, sur la scène, du rang `r` d'une colonne de `R` rangs centrée sur la ligne. */
+const rangY = (ligneY, r, R, pas) => ligneY + (r - (R - 1) / 2) * pas;
+
+/**
+ * ★ **LA FACTORIELLE — la colonne se déplie, et se replie en multipliant.**
+ *
+ * > « Pour factorielle, le calcul étant moins connu, on va procéder
+ * >   différemment :
+ * >   1. mets les "!" associés à chaque chiffre où factorielle va être
+ * >      appliquée, et "Factorielle !" est affiché comme un titre centré sous
+ * >      la ligne principale.
+ * >   2. le premier chiffre en factorielle déplie verticalement chaque n−1 … 1,
+ * >      centré sur la ligne principale (donc pour 5! L1: 1, L2: ×, L3: 2,
+ * >      L4: ×, L5: 3, L6: ×, L7: 4, L8: ×, L9: 5, avec L5 qui reste au niveau
+ * >      de la ligne principale)
+ * >   3. les multiplications s'effectuent les unes après les autres : le 1er
+ * >      chiffre descend sur le 2ᵈ en embarquant l'opérateur au passage et la
+ * >      fusion fait apparaître le résultat, puis ce résultat descend sur le
+ * >      chiffre suivant en embarquant l'opérateur… le tout en remontant
+ * >      progressivement les lignes pour maintenir le centrage, afin que la
+ * >      dernière fusion aboutisse sur la ligne principale.
+ * >   4. on reprend 2. puis 3. pour chaque chiffre à passer en factorielle, et
+ * >      on déplace le titre "Factorielle !" vers la droite ou la gauche pour
+ * >      qu'il ne recouvre pas les calculs en cours.
+ * >   5. une fois toute la ligne passée en factorielle, le titre peut
+ * >      disparaître. » (l'autrice)
+ *
+ * UN nombre par op, donc par étape — la légende dit « 5! = 1 × 2 × 3 × 4 × 5
+ * = 120 », et le défilement suit le nombre en cours. Ce qui vit d'une étape à
+ * l'autre — le titre et les « ! » — porte un nom d'émetteur : la première op
+ * les pose (`annonce`), la dernière retire le titre (`dernier`).
+ *
+ * ★ **LA COLONNE EST CENTRÉE SUR LA LIGNE**, et la caméra recule le temps de
+ *   la ligne pour qu'elle tienne : elle recule autour du centre de la scène,
+ *   qui est la hauteur de la ligne, si bien que rien ne se décale.
+ *
+ * ⚠️ **LA PLACE DU RÉSULTAT EST RÉSERVÉE AVANT LE DÉPLI** : la case du nombre
+ *   s'élargit à la largeur de sa factorielle. Les produits intermédiaires sont
+ *   plus étroits, et la dernière fusion aboutit dans une case déjà à sa taille.
+ *
+ * ⚠️ **CONTRÔLE CROISÉ.** Le nombre est relu sur la ligne, chaque fusion est
+ *   recalculée par paires, et `to.text` doit égaler le dernier produit.
+ */
+export function planFactorielle(ctx, ids) {
+  if (ids.length !== 1) {
+    fail(`${ctx.where}une factorielle se déplie sur UN nombre, et l'op en désigne ${ids.length}.`);
+  }
+  const idN = ids[0];
+  const noeudN = ctx.scene.live(idN, ctx.where);
+  const n = numberOf(noeudN.text, ctx, idN);
+  if (!Number.isInteger(n) || n < 1 || n > FACTEURS_MAX) {
+    fail(`${ctx.where}factorielle de « ${noeudN.text} » : il faut un entier de 1 à ${FACTEURS_MAX} — `
+      + 'au-delà, la colonne ne tiendrait pas à l’écran.');
+  }
+  const produits = [];
+  for (let k = 2, p = 1; k <= n; k++) { p *= k; produits.push(p); }
+  const f = produits.length ? produits[produits.length - 1] : 1;
+  const to = tokenSpec(ctx, ctx.op.to, 'to');
+  if (!to.kind || to.kind === 'letter') to.kind = 'number';
+  if (to.text !== String(f)) {
+    fail(`${ctx.where}incohérence : ${n}! = ${f}, mais l'émetteur annonce « ${to.text} ». `
+      + 'Le moteur visuel refuse d’afficher un calcul faux.');
+  }
+  const titre = ctx.op.titre;
+  if (!titre || typeof titre.id !== 'string' || titre.id.startsWith('@') || typeof titre.text !== 'string') {
+    fail(`${ctx.where}« titre » doit être le {id, text} du titre de la factorielle.`);
+  }
+  const annonce = Array.isArray(ctx.op.annonce) ? ctx.op.annonce : null;
+  const dernier = ctx.op.dernier === true;
+  const rang = ctx.scene.flowIndex(idN);
+  if (rang < 0) fail(`${ctx.where}« ${idN} » n'est pas dans la ligne.`);
+
+  const fs = ctx.metrics.fontSize;
+  const av = ctx.metrics.advance;
+  const gap = ctx.layoutOpts.gap;
+  const pas = fs * INTERLIGNE;
+  const R = 2 * n - 1;
+  const T = ctx.dur;
+  const nominal = (annonce ? FACTORIELLE.ANNONCE : 0) + FACTORIELLE.DEPLI
+    + FACTORIELLE.DEPLI_PAR_FACTEUR * (n - 1) + FACTORIELLE.FUSION * (n - 1)
+    + (n === 1 ? FACTORIELLE.UN : 0) + FACTORIELLE.FIN + (dernier ? FACTORIELLE.CLOTURE : 0);
+  const u = T / nominal;
+  const tAnn = annonce ? FACTORIELLE.ANNONCE * u : 0;
+  const tDep = (FACTORIELLE.DEPLI + FACTORIELLE.DEPLI_PAR_FACTEUR * (n - 1)) * u;
+  const tFus = FACTORIELLE.FUSION * u;
+  const tUn = n === 1 ? FACTORIELLE.UN * u : 0;
+  const tFin = FACTORIELLE.FIN * u;
+  const tClo = dernier ? FACTORIELLE.CLOTURE * u : 0;
+  const tB = tAnn;                              // le dépli
+  const tC = tB + tDep;                         // les fusions
+  const tD = tC + (n - 1) * tFus + tUn;         // la case se referme
+  const camera = ctx.scene.get(CAMERA_ID);
+  const repos = camera.base.scale ?? 1;
+
+  // --- 1. l'annonce : les « ! », le titre, la caméra qui recule ------------
+  if (annonce) {
+    const reserve = av + 4;
+    const poses = annonce.map((a, j) => {
+      const where = `${ctx.where}annonce[${j}] : `;
+      if (!a || typeof a.cible !== 'string' || typeof a.id !== 'string' || a.id.startsWith('@')) {
+        fail(`${where}il faut la « cible » et l'« id » d'émetteur de chaque « ! ».`);
+      }
+      const cible = ctx.scene.live(a.cible, where);
+      const r = ctx.scene.flowIndex(a.cible);
+      if (r < 0) fail(`${where}« ${a.cible} » n'est pas dans la ligne.`);
+      const voisinId = ctx.scene.flow[r + 1];
+      const voisin = voisinId ? ctx.scene.get(voisinId) : null;
+      const ecart0 = voisin ? voisin.gapBefore : undefined;
+      const g0 = voisin ? (ecart0 ?? gap) : gap;
+      return { a, cible, voisin, voisinId, ecart0, g0 };
+    });
+    // Tous les écarts d'abord, un seul reflow : les « ! » se posent sur la
+    // ligne telle qu'elle sera.
+    for (const p of poses) if (p.voisin) p.voisin.gapBefore = p.g0 + reserve;
+    ctx.reflow({ at: 0, dur: tAnn * 0.35, ease: EASE.move });
+    const cadence = poses.length > 1 ? (tAnn * 0.3) / (poses.length - 1) : 0;
+    poses.forEach((p, j) => {
+      const decalage = { dx: p.cible.w / 2 + p.g0 / 2 + reserve / 2, dy: 0 };
+      const pc = ctx.scene.pos(p.a.cible);
+      ctx.scene.create({
+        id: p.a.id, role: 'text', text: '!', kind: 'operator', inFlow: false,
+        data: { suit: p.a.cible, decalage, voisin: p.voisinId || null, ecart0: p.ecart0 },
+        base: { opacity: 0, scale: 0.5, fill: ctx.palette.phos },
+      }, { where: ctx.where });
+      ctx.scene.place(p.a.id, exigerPoint(ctx, { x: pc.x + decalage.dx, y: pc.y }, 'le « ! » de la factorielle', p.a.id));
+      const at = tAnn * 0.35 + j * cadence;
+      ctx.anim({ id: p.a.id, prop: 'opacity', to: 1, at, dur: tAnn * 0.2 });
+      ctx.anim({ id: p.a.id, prop: 'scale', to: 1, at, dur: tAnn * 0.2, ease: EASE.pop });
+    });
+    // Le titre, centré sous la ligne — au milieu de la VUE, qui peut défiler.
+    const largeurTitre = av * TITRE_TAILLE * [...titre.text].length * 1.07;
+    const ligneY = ctx.scene.pos(idN).y;
+    ctx.scene.create({
+      id: titre.id, role: 'label', text: titre.text, inFlow: false, w: largeurTitre,
+      data: { scale: TITRE_TAILLE },
+      base: { opacity: 0, fill: ctx.palette.fg },
+    }, { where: ctx.where });
+    ctx.scene.place(titre.id, exigerPoint(ctx,
+      { x: ctx.layoutOpts.centerX - (ctx.pan ? ctx.pan.x : 0), y: ligneY + fs * TITRE_SOUS_LA_LIGNE },
+      'le titre de la factorielle', titre.id));
+    ctx.anim({ id: titre.id, prop: 'opacity', to: 1, at: tAnn * 0.55, dur: tAnn * 0.3 });
+    // La caméra recule juste assez pour la plus haute des colonnes de la ligne.
+    const rangees = Number.isInteger(ctx.op.rangees) && ctx.op.rangees > 0 ? ctx.op.rangees : R;
+    const hauteur = (rangees - 1) * pas + fs;
+    const zoom = Math.min(1, (ctx.layoutOpts.viewBox.h - 2 * fs) / hauteur);
+    if (zoom < 0.999) {
+      ctx.anim({ id: CAMERA_ID, prop: 'scale', to: Math.round(repos * zoom * 1000) / 1000, at: 0, dur: tAnn * 0.6, ease: EASE.move });
+    }
+  }
+
+  const noeudTitre = ctx.scene.live(titre.id, `${ctx.where}titre : `);
+  const idPoint = ctx.op.point;
+  const noeudPoint = typeof idPoint === 'string' ? ctx.scene.live(idPoint, `${ctx.where}point : `) : null;
+  if (!noeudPoint || !noeudPoint.data || noeudPoint.data.suit !== idN) {
+    fail(`${ctx.where}« point » doit désigner le « ! » posé sur « ${idN} » par l'annonce.`);
+  }
+
+  // --- 2. le dépli -----------------------------------------------------------
+  // Le « ! » a dit ce qui allait se passer : il s'efface quand ça commence.
+  ctx.anim({ id: idPoint, prop: 'opacity', to: 0, at: tB, dur: tDep * 0.15 });
+  // La case prend la largeur de la factorielle — ou celle, plus grande, d'un
+  // produit intermédiaire flanqué du × qu'il embarque : la fusion qui passe au
+  // niveau de la ligne ne doit pas mordre sur le voisin.
+  // ⚠️ MESURÉ sur `3 1 5` : réservée à la seule largeur de 120, la case laissait
+  //   le × embarqué par « 24 » dépasser à gauche et toucher le « 1 » voisin.
+  const largeurFois = av * ECHELLE_FOIS_EMBARQUE;
+  const embarques = n > 1 ? [1, ...produits.slice(0, n - 2)] : [];
+  const largeurCase = Math.max([...to.text].length * av,
+    ...embarques.map((v) => [...String(v)].length * av + 2 * (largeurFois + 2)));
+  if (largeurCase > noeudN.w) {
+    noeudN.w = largeurCase;
+    ctx.reflow({ at: tB + tDep * 0.08, dur: tDep * 0.22, ease: EASE.move });
+  }
+  const pN = ctx.scene.pos(idN);
+  const ligneY = pN.y;
+  // Le titre s'écarte de la colonne, du côté où la vue a de la place.
+  {
+    const vueX = pN.x + (ctx.pan ? ctx.pan.x : 0);
+    const cote = vueX < ctx.layoutOpts.centerX ? 1 : -1;
+    const x = pN.x + cote * (noeudN.w / 2 + noeudTitre.w / 2 + av);
+    ctx.place(titre.id, { x, y: ctx.scene.pos(titre.id).y, w: noeudTitre.w }, { at: tB, dur: tDep * 0.3, ease: EASE.move });
+  }
+  // La colonne, de haut en bas : 1, ×, 2, ×, … , n — n est le nombre de la ligne.
+  const colonne = [];
+  const yDe = new Map();
+  const tDepli = tB + tDep * 0.35;
+  const dDepli = tDep * 0.45;
+  const courbe = progressionDe(EASE.move);
+  let uVisible = 1;
+  for (let k = 0; k <= 200; k++) if (courbe(k / 200) >= 0.47) { uVisible = k / 200; break; }
+  for (let k = 1; k <= n; k++) {
+    const y = rangY(ligneY, 2 * (k - 1), R, pas);
+    let id = idN;
+    if (k < n) {
+      id = ctx.gensym('facteur');
+      ctx.scene.create({
+        id, role: 'text', text: String(k), kind: 'number', inFlow: false,
+        base: { opacity: 0 },
+      }, { where: ctx.where });
+      ctx.scene.place(id, pN);
+      // Il ne paraît qu'une fois dégagé de ceux qui se déplient avec lui.
+      ctx.anim({ id, prop: 'opacity', to: 1, at: tDepli + dDepli * uVisible, dur: dDepli * 0.3 });
+    }
+    if (R > 1) ctx.anim({ id, prop: 'translate', to: { x: pN.x, y }, at: tDepli, dur: dDepli, ease: EASE.move });
+    yDe.set(id, y);
+    colonne.push(id);
+    if (k < n) {
+      const fid = ctx.gensym('fois');
+      const yf = rangY(ligneY, 2 * k - 1, R, pas);
+      ctx.scene.create({
+        id: fid, role: 'text', text: '×', kind: 'operator', inFlow: false,
+        base: { opacity: 0, fill: ctx.palette.phos },
+      }, { where: ctx.where });
+      ctx.scene.place(fid, { x: pN.x, y: yf });
+      ctx.anim({ id: fid, prop: 'opacity', to: 1, at: tDepli + dDepli + tDep * 0.05 + k * (tDep * 0.1) / n, dur: tDep * 0.08 });
+      yDe.set(fid, yf);
+      colonne.push(fid);
+    }
+  }
+  if (n === 1) {
+    // 1! : la colonne est réduite à ce qu'elle est — le 1 lui-même.
+    ctx.anim({ id: idN, prop: 'scale', values: [1, 1.15, 1], offsets: [0, 0.5, 1], at: tC, dur: tUn * 0.6, ease: EASE.pop });
+  }
+
+  // --- 3. les fusions, une paire à la fois ------------------------------------
+  const deplacer = (id, y, at, dur) => {
+    ctx.anim({ id, prop: 'translate', to: { x: pN.x, y }, at, dur, ease: EASE.move });
+    yDe.set(id, y);
+  };
+  let uMoitie = 0.5;
+  for (let k = 0; k <= 200; k++) if (courbe(k / 200) >= 0.5) { uMoitie = k / 200; break; }
+  let valeur = 1;
+  for (let k = 1; k < n; k++) {
+    const at = tC + (k - 1) * tFus;
+    const [a1, x1, a2] = colonne;
+    const yA2 = yDe.get(a2);
+    const dDesc = tFus * 0.4;
+    // Le premier descend sur le suivant…
+    deplacer(a1, yA2, at, dDesc);
+    // … et embarque le × au passage, accolé à sa gauche.
+    const largeurA1 = [...String(valeur)].length * av;
+    const tEmb = at + dDesc * uMoitie;
+    ctx.anim({
+      id: x1, prop: 'translate', to: { x: pN.x - (largeurA1 / 2 + largeurFois / 2 + 2), y: yA2 },
+      at: tEmb, dur: at + dDesc - tEmb, ease: EASE.move,
+    });
+    ctx.anim({ id: x1, prop: 'scale', to: ECHELLE_FOIS_EMBARQUE, at: tEmb, dur: at + dDesc - tEmb, ease: EASE.move });
+    // La fusion : le produit paraît où ils se sont rejoints.
+    valeur *= k + 1;
+    if (valeur !== produits[k - 1]) fail(`${ctx.where}${n}! : la fusion ${k} rendrait ${valeur}.`);
+    const tFu = at + dDesc;
+    for (const id of [a1, x1, a2]) {
+      ctx.anim({ id, prop: 'opacity', to: 0, at: tFu, dur: tFus * 0.2 });
+      ctx.anim({ id, prop: 'scale', to: id === x1 ? ECHELLE_FOIS_EMBARQUE * 0.8 : 0.8, at: tFu, dur: tFus * 0.2 });
+    }
+    const final = k === n - 1;
+    const pid = final ? to.id : ctx.gensym('produit');
+    ctx.scene.create({
+      id: pid, text: String(valeur), kind: 'number', group: final ? to.group : null,
+      role: 'text', inFlow: false, ...(final ? espacementDe(ctx, idN) : {}),
+      base: { opacity: 0, fill: ctx.palette.phos },
+    }, { where: ctx.where });
+    ctx.scene.place(pid, { x: pN.x, y: yA2 });
+    ctx.anim({ id: pid, prop: 'opacity', to: 1, at: tFu + tFus * 0.08, dur: tFus * 0.15 });
+    ctx.anim({ id: pid, prop: 'scale', values: [0.8, 1.15, 1], offsets: [0, 0.6, 1], at: tFu + tFus * 0.08, dur: tFus * 0.25, ease: EASE.pop });
+    yDe.set(pid, yA2);
+    // … et la colonne remonte d'un rang : elle reste centrée sur la ligne.
+    const reste = [pid, ...colonne.slice(3)];
+    for (const id of reste) deplacer(id, yDe.get(id) - pas, tFu + tFus * 0.3, tFus * 0.3);
+    colonne.splice(0, colonne.length, ...reste);
+    if (final) ctx.scene.place(pid, { x: pN.x, y: yDe.get(pid) });
+  }
+
+  // --- la case se referme sur le résultat, le « ! » rend sa place ------------
+  if (n === 1) {
+    ctx.scene.create({
+      id: to.id, text: to.text, kind: to.kind, group: to.group,
+      role: 'text', inFlow: false, ...espacementDe(ctx, idN),
+      base: { opacity: 0, fill: ctx.palette.phos },
+    }, { where: ctx.where });
+    ctx.scene.place(to.id, pN);
+    ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: tD - tUn * 0.3, dur: tUn * 0.25 });
+    ctx.anim({ id: idN, prop: 'opacity', to: 0, at: tD - tUn * 0.3, dur: tUn * 0.25 });
+  }
+  ctx.scene.kill(idN, ctx.where);
+  ctx.scene.kill(idPoint, ctx.where);
+  ctx.scene.enterFlow(to.id, rang, ctx.where);
+  const { voisin, ecart0 } = noeudPoint.data;
+  const noeudVoisin = voisin ? ctx.scene.get(voisin) : null;
+  if (noeudVoisin && noeudVoisin.alive) noeudVoisin.gapBefore = ecart0;
+  ctx.reflow({ at: tD, dur: tFin, ease: EASE.move });
+
+  // --- 5. la ligne entière est passée : le titre s'en va, la caméra revient --
+  if (dernier) {
+    ctx.anim({ id: titre.id, prop: 'opacity', to: 0, at: tD + tFin, dur: tClo * 0.6 });
+    ctx.scene.kill(titre.id, ctx.where);
+    ctx.anim({ id: CAMERA_ID, prop: 'scale', to: repos, at: tD + tFin, dur: tClo * 0.8, ease: EASE.move });
   }
 }
