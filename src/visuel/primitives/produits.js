@@ -19,12 +19,33 @@ import { fail } from '../errors.js';
  * répartit la durée qu'on lui donne au prorata de ces poids.
  */
 const EXPOSANTS = Object.freeze({ OUVERTURE: 300, PAR_EXPOSANT: 1500 });
-const PUISSANCE = Object.freeze({ ACCOLADE: 600, SOUFFLE: 300, VOL: 1800, FIN: 1400 });
+const PUISSANCE = Object.freeze({ POSE: 600, ACCOLADE: 600, SOUFFLE: 300, VOL: 1800, FIN: 1400 });
 /** L'exposant est un chiffre rétréci ; la copie qui voyage, un demi-chiffre (façon `meg`). */
 const ECHELLE_EXPOSANT = 0.55;
 const ECHELLE_COPIE = 0.5;
 /** De combien l'exposant se pose au-dessus de la ligne, en casses. */
 const HAUTEUR_EXPOSANT = 0.5;
+/**
+ * ★ **CE QUI ATTEND SON TOUR ATTEND SUSPENDU — hors de la ligne.**
+ *
+ * L'exposant et le « ! » sont formés pour tous les nombres avant le premier
+ * calcul, et vivent donc d'une étape à l'autre. Leur place sur la ligne, elle,
+ * ne s'ouvre QUE pendant l'étape du nombre qui les emploie, et s'y referme.
+ *
+ * ⚠️ **C'EST UNE FRONTIÈRE, SINON.** Ils réservaient leur place dès leur
+ *   formation, en élargissant l'écart devant le nombre suivant — et cet écart
+ *   survivait aux frontières d'étape. Or un écart plus large que l'ordinaire
+ *   est une FRONTIÈRE de groupe pour le modèle de ligne de la recherche
+ *   (`recherche/scenario.js › suivreLaLigne`), qui ne l'avait pas calculée :
+ *   entre deux étapes, la scène montrait une ligne découpée que le moteur ne
+ *   comptait pas. Mesuré par `recherche/tests/lents/integration-visuel.test.js`
+ *   sur « 42 » (`tca+mtal+m7+mpui+mab`), et par la même mesure sur `mfac`.
+ */
+const SUSPENSION = 0.95;
+/** La hauteur à laquelle l'exposant voyage, au-dessus de ceux déjà suspendus. */
+const VOL_HAUT = 1.5;
+/** Le « ! » suspendu est plus petit que le « ! » posé. */
+const ECHELLE_POINT_SUSPENDU = 0.6;
 
 /**
  * La place qu'un exposant réserve après sa base : de quoi le poser, ET de quoi
@@ -52,8 +73,9 @@ const reserveDe = (ctx, texteBase) => Math.max(
  *   étape à l'autre : ils portent le nom que l'émetteur leur donne, et ils sont
  *   ACCROCHÉS à leur base (`data.suit`) — un reflow qui la déplace les emmène.
  *
- * ⚠️ **LEUR PLACE EST RÉSERVÉE** : l'écart qui suit la base s'élargit, et il
- *   est rendu par la puissance, quand le produit entre dans la ligne.
+ * ⚠️ **ILS ATTENDENT SUSPENDUS**, au-dessus du bord droit de leur base, et ne
+ *   touchent pas à la ligne : leur place ne s'ouvre qu'avec la puissance de
+ *   leur base (voir `SUSPENSION`).
  */
 export function planExposants(ctx, ids) {
   const liste = ctx.op.exposants;
@@ -62,7 +84,6 @@ export function planExposants(ctx, ids) {
   }
   const fs = ctx.metrics.fontSize;
   const av = ctx.metrics.advance;
-  const gap = ctx.layoutOpts.gap;
   const T = ctx.dur;
   const u = T / (EXPOSANTS.OUVERTURE + EXPOSANTS.PAR_EXPOSANT * liste.length);
   const tOuv = EXPOSANTS.OUVERTURE * u;
@@ -92,29 +113,21 @@ export function planExposants(ctx, ids) {
     // Relevée AVANT que l'espace ne s'ouvre : c'est de là que la copie part.
     const pS = ctx.scene.pos(spec.source);
     const depart = { x: pS.x - ([...source.text].length * av) / 2 + av / 2, y: pS.y };
-    const monte = { x: depart.x, y: depart.y - fs * 0.9 };
-
-    const voisinId = ctx.scene.flow[rang + 1];
-    const voisin = voisinId ? ctx.scene.get(voisinId) : null;
-    const reserve = reserveDe(ctx, base.text);
-    const ecart0 = voisin ? voisin.gapBefore : undefined;
-    const g0 = voisin ? (ecart0 ?? gap) : gap;
-    if (voisin) voisin.gapBefore = g0 + reserve;
-    ctx.reflow({ at: at + pas * 0.25, dur: pas * 0.3, ease: EASE.move });
+    const monte = { x: depart.x, y: depart.y - fs * VOL_HAUT };
 
     const pB = ctx.scene.pos(spec.base);
-    const decalage = { dx: base.w / 2 + g0 / 2 + reserve / 2, dy: -fs * HAUTEUR_EXPOSANT };
+    const decalage = { dx: base.w / 2, dy: -fs * SUSPENSION };
     const pose = { x: pB.x + decalage.dx, y: pB.y + decalage.dy };
     ctx.scene.create({
       id: spec.id, role: 'text', text: chiffre, kind: 'digit', inFlow: false,
       // Accroché à sa base : ce qui la déplace l'emmène, à l'écart déclaré.
-      data: { suit: spec.base, decalage, voisin: voisinId || null, ecart0, reserve },
+      data: { suit: spec.base, decalage },
       base: { opacity: 0, fill: ctx.palette.gold },
     }, { where: ctx.where });
     ctx.scene.place(spec.id, exigerPoint(ctx, depart, 'la copie du premier chiffre du nombre suivant', spec.id));
     // Elle monte au-dessus du chiffre et ne s'allume qu'une fois dégagée ; elle
-    // voyage en HAUTEUR en rétrécissant, puis descend à la verticale dans
-    // l'écart réservé.
+    // voyage en HAUTEUR en rétrécissant — au-dessus des exposants déjà
+    // suspendus —, puis descend se suspendre au-dessus de sa base.
     // ⚠️ Le trajet direct glissait presque à hauteur d'exposant, et l'exposant
     //   du dernier nombre — qui vient du premier, tout à gauche — passait sur
     //   sa propre base avant de se poser. Mesuré sur `5 34 2`.
@@ -123,7 +136,7 @@ export function planExposants(ctx, ids) {
       id: spec.id, prop: 'translate', values: [depart, monte, auDessus, pose], offsets: [0, 0.25, 0.8, 1],
       at, dur: pas * 0.9, ease: EASE.linear,
     });
-    ctx.anim({ id: spec.id, prop: 'opacity', values: [0, 0, 1, 1], offsets: [0, 0.23, 0.3, 1], at, dur: pas * 0.9 });
+    ctx.anim({ id: spec.id, prop: 'opacity', values: [0, 0, 1, 1], offsets: [0, 0.2, 0.28, 1], at, dur: pas * 0.9 });
     ctx.anim({
       id: spec.id, prop: 'scale', values: [1, 1, ECHELLE_EXPOSANT, ECHELLE_EXPOSANT], offsets: [0, 0.25, 0.8, 1],
       at, dur: pas * 0.9, ease: EASE.linear,
@@ -145,6 +158,7 @@ export function planExposants(ctx, ids) {
  * >   l'exposant disparaît… » (l'autrice)
  *
  * ```
+ *     5  34             ⓪ la place de l'exposant s'ouvre, l'exposant suspendu s'y pose
  *     5³ 34             ① l'accolade « puissance » se tire sous la base
  *     5² 34   ↓5        ② une copie de 5 passe par l'exposant (3→2) et descend : compteur 5
  *     5¹ 34   ↓×5       ③ la suivante (2→1) hérite du × : 5 × 5 → 25
@@ -198,19 +212,41 @@ export function planPuissance(ctx, ids) {
   const fs = ctx.metrics.fontSize;
   const av = ctx.metrics.advance;
   const T = ctx.dur;
-  const u = T / (PUISSANCE.ACCOLADE + PUISSANCE.SOUFFLE + PUISSANCE.VOL * e + PUISSANCE.FIN);
+  const u = T / (PUISSANCE.POSE + PUISSANCE.ACCOLADE + PUISSANCE.SOUFFLE + PUISSANCE.VOL * e + PUISSANCE.FIN);
+  const tPose = PUISSANCE.POSE * u;
   const tAcc = PUISSANCE.ACCOLADE * u;
   const pas = PUISSANCE.VOL * u;
   const tFin = PUISSANCE.FIN * u;
-  const t2 = tAcc + PUISSANCE.SOUFFLE * u;   // les voyages commencent
-  const t3 = t2 + e * pas;                    // le produit remonte
+  const t2 = tPose + tAcc + PUISSANCE.SOUFFLE * u;   // les voyages commencent
+  const t3 = t2 + e * pas;                            // le produit remonte
+
+  // --- ⓪ la place de l'exposant s'ouvre, et il y descend -------------------
+  // L'écart qui suit la base s'élargit de ce qu'il faut à l'exposant ET aux
+  // copies qui descendront par là. Il est rendu à la fin de CETTE étape : aucun
+  // écart ne franchit une frontière d'étape (voir `SUSPENSION`).
+  const gap = ctx.layoutOpts.gap;
+  const voisinId = ctx.scene.flow[rang + 1];
+  const voisin = voisinId ? ctx.scene.get(voisinId) : null;
+  const reserve = reserveDe(ctx, base.text);
+  const ecart0 = voisin ? voisin.gapBefore : undefined;
+  const g0 = voisin ? (ecart0 ?? gap) : gap;
+  noeudE.data.decalage = { dx: base.w / 2 + g0 / 2 + reserve / 2, dy: -fs * HAUTEUR_EXPOSANT };
+  if (voisin) voisin.gapBefore = g0 + reserve;
+  // Si la base bouge, le reflow emmène l'exposant à son nouvel écart ; sinon,
+  // on l'y descend — le même mouvement, jamais deux.
+  ctx.reflow({ at: 0, dur: tPose, ease: EASE.move });
+  {
+    const b = ctx.scene.pos(idB);
+    const d = noeudE.data.decalage;
+    ctx.place(idE, { x: b.x + d.dx, y: b.y + d.dy }, { at: 0, dur: tPose, ease: EASE.move });
+  }
 
   // --- ① l'accolade, sous la base seule -----------------------------------
   const acc = tracerAccolade(ctx, [idB], {
     shape: 'brace', tighten: 0,
     symbol: ctx.op.symbol || null, label: ctx.op.label || null,
     promet: false, marquer: false,
-    at: 0, dur: tAcc,
+    at: tPose, dur: tAcc,
   });
   if (!acc) fail(`${ctx.where}puissance de ${v} : l’accolade n’a pas pu être tracée.`);
 
@@ -323,9 +359,7 @@ export function planPuissance(ctx, ids) {
   ctx.scene.kill(idB, ctx.where);
   ctx.scene.kill(idE, ctx.where);
   ctx.scene.enterFlow(to.id, rang, ctx.where);
-  const { voisin, ecart0 } = noeudE.data;
-  const noeudVoisin = voisin ? ctx.scene.get(voisin) : null;
-  if (noeudVoisin && noeudVoisin.alive) noeudVoisin.gapBefore = ecart0;
+  if (voisin && voisin.alive) voisin.gapBefore = ecart0;
   ctx.reflow({ at: t3, dur: Math.max(1, tFin), ease: EASE.move });
   ctx.scene.poserAccolade(acc.id, [to.id]);
   suivreLesAccolades(ctx, { at: t3, dur: Math.max(1, tFin) });
@@ -339,7 +373,7 @@ export function planPuissance(ctx, ids) {
  * `mappeurs.js › dureeFactorielle`. Réparti au prorata, comme la puissance.
  */
 const FACTORIELLE = Object.freeze({
-  ANNONCE: 1800, DEPLI: 1000, DEPLI_PAR_FACTEUR: 250, FUSION: 1500, UN: 1200, FIN: 700, CLOTURE: 1000,
+  ANNONCE: 1800, POSE: 700, DEPLI: 1000, DEPLI_PAR_FACTEUR: 250, FUSION: 1500, UN: 1200, FIN: 700, CLOTURE: 1000,
 });
 /** L'interligne de la colonne, en casses : au-delà de ce qui sépare deux lignes lisibles. */
 const INTERLIGNE = 0.9;
@@ -429,56 +463,47 @@ export function planFactorielle(ctx, ids) {
   const pas = fs * INTERLIGNE;
   const R = 2 * n - 1;
   const T = ctx.dur;
-  const nominal = (annonce ? FACTORIELLE.ANNONCE : 0) + FACTORIELLE.DEPLI
+  const nominal = (annonce ? FACTORIELLE.ANNONCE : 0) + FACTORIELLE.POSE + FACTORIELLE.DEPLI
     + FACTORIELLE.DEPLI_PAR_FACTEUR * (n - 1) + FACTORIELLE.FUSION * (n - 1)
     + (n === 1 ? FACTORIELLE.UN : 0) + FACTORIELLE.FIN + (dernier ? FACTORIELLE.CLOTURE : 0);
   const u = T / nominal;
   const tAnn = annonce ? FACTORIELLE.ANNONCE * u : 0;
+  const tPose = FACTORIELLE.POSE * u;
   const tDep = (FACTORIELLE.DEPLI + FACTORIELLE.DEPLI_PAR_FACTEUR * (n - 1)) * u;
   const tFus = FACTORIELLE.FUSION * u;
   const tUn = n === 1 ? FACTORIELLE.UN * u : 0;
   const tFin = FACTORIELLE.FIN * u;
   const tClo = dernier ? FACTORIELLE.CLOTURE * u : 0;
-  const tB = tAnn;                              // le dépli
+  const tB = tAnn + tPose;                      // le dépli
   const tC = tB + tDep;                         // les fusions
   const tD = tC + (n - 1) * tFus + tUn;         // la case se referme
   const camera = ctx.scene.get(CAMERA_ID);
   const repos = camera.base.scale ?? 1;
 
   // --- 1. l'annonce : les « ! », le titre, la caméra qui recule ------------
+  // ★ Les « ! » paraissent SUSPENDUS au-dessus de leur nombre : chacun ne
+  //   descend à côté du sien qu'à l'étape de ce nombre, qui lui fait sa place
+  //   et la referme (voir `SUSPENSION`).
   if (annonce) {
-    const reserve = av + 4;
-    const poses = annonce.map((a, j) => {
+    const cadence = annonce.length > 1 ? (tAnn * 0.3) / (annonce.length - 1) : 0;
+    annonce.forEach((a, j) => {
       const where = `${ctx.where}annonce[${j}] : `;
       if (!a || typeof a.cible !== 'string' || typeof a.id !== 'string' || a.id.startsWith('@')) {
         fail(`${where}il faut la « cible » et l'« id » d'émetteur de chaque « ! ».`);
       }
-      const cible = ctx.scene.live(a.cible, where);
-      const r = ctx.scene.flowIndex(a.cible);
-      if (r < 0) fail(`${where}« ${a.cible} » n'est pas dans la ligne.`);
-      const voisinId = ctx.scene.flow[r + 1];
-      const voisin = voisinId ? ctx.scene.get(voisinId) : null;
-      const ecart0 = voisin ? voisin.gapBefore : undefined;
-      const g0 = voisin ? (ecart0 ?? gap) : gap;
-      return { a, cible, voisin, voisinId, ecart0, g0 };
-    });
-    // Tous les écarts d'abord, un seul reflow : les « ! » se posent sur la
-    // ligne telle qu'elle sera.
-    for (const p of poses) if (p.voisin) p.voisin.gapBefore = p.g0 + reserve;
-    ctx.reflow({ at: 0, dur: tAnn * 0.35, ease: EASE.move });
-    const cadence = poses.length > 1 ? (tAnn * 0.3) / (poses.length - 1) : 0;
-    poses.forEach((p, j) => {
-      const decalage = { dx: p.cible.w / 2 + p.g0 / 2 + reserve / 2, dy: 0 };
-      const pc = ctx.scene.pos(p.a.cible);
+      ctx.scene.live(a.cible, where);
+      if (ctx.scene.flowIndex(a.cible) < 0) fail(`${where}« ${a.cible} » n'est pas dans la ligne.`);
+      const decalage = { dx: 0, dy: -fs * SUSPENSION };
+      const pc = ctx.scene.pos(a.cible);
       ctx.scene.create({
-        id: p.a.id, role: 'text', text: '!', kind: 'operator', inFlow: false,
-        data: { suit: p.a.cible, decalage, voisin: p.voisinId || null, ecart0: p.ecart0 },
-        base: { opacity: 0, scale: 0.5, fill: ctx.palette.phos },
+        id: a.id, role: 'text', text: '!', kind: 'operator', inFlow: false,
+        data: { suit: a.cible, decalage },
+        base: { opacity: 0, scale: 0.4, fill: ctx.palette.phos },
       }, { where: ctx.where });
-      ctx.scene.place(p.a.id, exigerPoint(ctx, { x: pc.x + decalage.dx, y: pc.y }, 'le « ! » de la factorielle', p.a.id));
+      ctx.scene.place(a.id, exigerPoint(ctx, { x: pc.x + decalage.dx, y: pc.y + decalage.dy }, 'le « ! » de la factorielle', a.id));
       const at = tAnn * 0.35 + j * cadence;
-      ctx.anim({ id: p.a.id, prop: 'opacity', to: 1, at, dur: tAnn * 0.2 });
-      ctx.anim({ id: p.a.id, prop: 'scale', to: 1, at, dur: tAnn * 0.2, ease: EASE.pop });
+      ctx.anim({ id: a.id, prop: 'opacity', to: 1, at, dur: tAnn * 0.2 });
+      ctx.anim({ id: a.id, prop: 'scale', to: ECHELLE_POINT_SUSPENDU, at, dur: tAnn * 0.2, ease: EASE.pop });
     });
     // Le titre, centré sous la ligne — au milieu de la VUE, qui peut défiler.
     const largeurTitre = av * TITRE_TAILLE * [...titre.text].length * 1.07;
@@ -507,6 +532,36 @@ export function planFactorielle(ctx, ids) {
   if (!noeudPoint || !noeudPoint.data || noeudPoint.data.suit !== idN) {
     fail(`${ctx.where}« point » doit désigner le « ! » posé sur « ${idN} » par l'annonce.`);
   }
+
+  // --- 1 bis. le « ! » de ce nombre descend à côté de lui -------------------
+  // Sa place s'ouvre maintenant, et se refermera à la fin de cette étape.
+  const reserve = av + 4;
+  const voisinId = ctx.scene.flow[rang + 1];
+  const voisin = voisinId ? ctx.scene.get(voisinId) : null;
+  const ecart0 = voisin ? voisin.gapBefore : undefined;
+  const g0 = voisin ? (ecart0 ?? gap) : gap;
+  if (voisin) voisin.gapBefore = g0 + reserve;
+  // ① la place s'ouvre — le « ! » suspendu suit son nombre s'il bouge ;
+  const dOuvre = tPose * 0.3;
+  ctx.reflow({ at: tAnn, dur: dOuvre, ease: EASE.move });
+  // ② puis il glisse à sa hauteur jusqu'au-dessus de la place, et y descend à
+  //    la verticale en grandissant.
+  // ⚠️ En ligne droite, il descendait en diagonale PAR-DESSUS son nombre :
+  //   mesuré sur `1!`, le « ! » recouvrait le « 1 » de quatorze unités.
+  const suspendu = ctx.scene.pos(idPoint);
+  noeudPoint.data.decalage = { dx: noeudN.w / 2 + g0 / 2 + reserve / 2, dy: 0 };
+  const b = ctx.scene.pos(idN);
+  const place = { x: b.x + noeudPoint.data.decalage.dx, y: b.y };
+  const dPose = tPose * 0.45;
+  ctx.anim({
+    id: idPoint, prop: 'translate', values: [suspendu, { x: place.x, y: suspendu.y }, place], offsets: [0, 0.45, 1],
+    at: tAnn + dOuvre, dur: dPose, ease: EASE.linear,
+  });
+  ctx.scene.place(idPoint, place);
+  ctx.anim({
+    id: idPoint, prop: 'scale', values: [ECHELLE_POINT_SUSPENDU, ECHELLE_POINT_SUSPENDU, 1], offsets: [0, 0.45, 1],
+    at: tAnn + dOuvre, dur: dPose, ease: EASE.linear,
+  });
 
   // --- 2. le dépli -----------------------------------------------------------
   // Le « ! » a dit ce qui allait se passer : il s'efface quand ça commence.
@@ -638,9 +693,7 @@ export function planFactorielle(ctx, ids) {
   ctx.scene.kill(idN, ctx.where);
   ctx.scene.kill(idPoint, ctx.where);
   ctx.scene.enterFlow(to.id, rang, ctx.where);
-  const { voisin, ecart0 } = noeudPoint.data;
-  const noeudVoisin = voisin ? ctx.scene.get(voisin) : null;
-  if (noeudVoisin && noeudVoisin.alive) noeudVoisin.gapBefore = ecart0;
+  if (voisin && voisin.alive) voisin.gapBefore = ecart0;
   ctx.reflow({ at: tD, dur: tFin, ease: EASE.move });
 
   // --- 5. la ligne entière est passée : le titre s'en va, la caméra revient --

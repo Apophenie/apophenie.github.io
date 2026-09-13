@@ -4133,7 +4133,7 @@ const LIB_PUISSANCE = bilingue('On élève chaque nombre au chiffre suivant',
 const MENTION_PUISSANCE = bilingue('puissance', 'power');
 /** Miroirs du découpage de `visuel/primitives/produits.js` (EXPOSANTS, PUISSANCE). */
 const dureeExposants = (n) => 300 + 1500 * n;
-const dureePuissance = (e) => 600 + 300 + 1800 * e + 1400;
+const dureePuissance = (e) => 600 + 600 + 300 + 1800 * e + 1400;
 /** L'exposant écrit en exposant : `5³`. */
 const enExposant = (n) => [...String(n)].map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(c)]).join('');
 const LIB_FACTORIELLE = bilingue('On prend la factorielle de chaque nombre',
@@ -4141,7 +4141,7 @@ const LIB_FACTORIELLE = bilingue('On prend la factorielle de chaque nombre',
 /** Le titre que l'autrice a écrit, centré sous la ligne. */
 const TITRE_FACTORIELLE = bilingue('Factorielle !', 'Factorial!');
 /** Miroir du découpage de `visuel/primitives/produits.js › FACTORIELLE`. */
-const dureeFactorielle = (n, annonce, dernier) => (annonce ? 1800 : 0) + 1000 + 250 * (n - 1)
+const dureeFactorielle = (n, annonce, dernier) => (annonce ? 1800 : 0) + 700 + 1000 + 250 * (n - 1)
   + 1500 * (n - 1) + (n === 1 ? 1200 : 0) + 700 + (dernier ? 1000 : 0);
 
 /** Le premier chiffre d'un nombre — « le chiffre suivant » de la ligne. */
