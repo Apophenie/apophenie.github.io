@@ -24,7 +24,7 @@ import { encoderTexte } from '../base58.js';
 import { creerMoteur } from '../index.js';
 import { construireScenario } from '../scenario.js';
 import { operateursPourCible, operateursExplorables, appliquerOp, etat } from '../bfs.js';
-import { liaisons } from '../assemblage.js';
+import { liaisons, segmentsSansCopie } from '../assemblage.js';
 import { catalogue } from './_catalogue.js';
 import { compile } from '../../visuel/compile.js';
 import { plafondDAbsorption, VISEE_LONGUE } from '../../moteur/transformations/mappeurs.js';
@@ -199,6 +199,17 @@ test('cible-mot — la ponctuation omise : règle d’ordre au défaut, relâch�
   assert.ok(ordreDExactitude(C(0, 200))(approchee, exacte) > 0, 'l’exhaustivité qui domine garde la règle');
   assert.equal(ordreDExactitude(C(200, 0))(approchee, exacte), 0, 'la simplicité qui domine la replie');
   assert.equal(facteurDEcartAuxCurseurs({ natures: ['ponctuation', 'initiale'] }, undefined), Math.round((500 * 970) / 1000));
+});
+
+/* ★ UNE PHRASE NE RECOPIE JAMAIS LA SAISIE — « dupliquer l'original est très
+     maladroit et à éviter (voire interdire) » (l'autrice). La règle est
+     structurelle : portées disjointes, dans l'ordre du texte. */
+test('cible-mot — des segments de phrase : portées disjointes et ordonnées, sinon refusés', () => {
+  const part = (offset, longueur) => ({ fragment: { offset, longueur, intervalles: [[offset, offset + longueur]] } });
+  assert.equal(segmentsSansCopie([part(0, 5), part(8, 11)]), true, 'https puis reinfocovid');
+  assert.equal(segmentsSansCopie([part(0, 23), part(0, 23)]), false, 'la saisie entière relue deux fois');
+  assert.equal(segmentsSansCopie([part(0, 22), part(8, 11)]), false, 'un chevauchement, même partiel');
+  assert.equal(segmentsSansCopie([part(8, 11), part(0, 5)]), false, 'le premier segment doit venir en premier');
 });
 
 /* ★ UNE PHRASE EN SEGMENTS — d'un bloc tant qu'elle tient, aux mots au-delà. */

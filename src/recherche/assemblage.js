@@ -577,6 +577,22 @@ function uneValeurParJeton(chemin, fin) {
   return true;
 }
 
+/**
+ * ★ Des segments de phrase qui ne recopient rien : portées deux à deux
+ * disjointes, et chacune APRÈS la précédente dans le texte — le verdict lit la
+ * ligne dans l'ordre de la saisie, donc le premier segment doit y venir en
+ * premier.
+ */
+export function segmentsSansCopie(parts) {
+  if (!Array.isArray(parts) || !parts.length) return false;
+  if (!parts.every((p) => p.fragment && Array.isArray(p.fragment.intervalles))) return false;
+  if (!porteesDisjointes(parts)) return false;
+  for (let i = 1; i < parts.length; i++) {
+    if (parts[i].fragment.offset < parts[i - 1].fragment.offset + parts[i - 1].fragment.longueur) return false;
+  }
+  return true;
+}
+
 /** Deux fragments se recouvrent-ils, ne serait-ce que d'un caractère ? */
 function porteesDisjointes(parts) {
   for (let i = 0; i < parts.length; i++) {
@@ -3422,7 +3438,11 @@ export function deduireMode(parts, ctx) {
   // ★ LA PHRASE EN SEGMENTS — chaque part écrit UN segment de la cible, dans
   //   l'ordre (`conversions.js › segmentsDe`). Ni convergence ni décret : deux
   //   parts au même programme visent deux segments différents. Une série.
-  if (ctx && Array.isArray(ctx.segments) && ctx.segments.length === parts.length) {
+  //   ★ Et sur des portées DISJOINTES, rangées dans l'ordre du texte : « éviter
+  //   de recopier la saisie » (l'autrice). Deux segments sur les mêmes
+  //   caractères ne sont pas une phrase — ce mode ne les nomme pas.
+  if (ctx && Array.isArray(ctx.segments) && ctx.segments.length === parts.length
+    && segmentsSansCopie(parts)) {
     return avec({ mode: 'PHRASE', resonance: false, series: 1 });
   }
   // ★ LA LIAISON prime sur la géométrie : deux parts qui rendent chacune un

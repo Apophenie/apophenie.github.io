@@ -29,7 +29,7 @@ import {
 import { construireBassin } from './bassin.js';
 import { genererFragments, zonesSignifiantes, tokeniser, motifsRepetes } from './fragments.js';
 import {
-  assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe, vecteursDeSix,
+  assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe, vecteursDeSix, segmentsSansCopie,
 } from './assemblage.js';
 import {
   noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, REGLAGES,
@@ -207,6 +207,9 @@ export const VOIES_AVANT_DE_CREUSER = 5;
  * `deroulerTexte`. Chaque cran en ajoute un.
  */
 export const SEGMENTS_AU_CRAN_0 = 2;
+
+/** Combien de suites de portées une phrase compose au plus, par relecture. */
+export const COMPOSITIONS_MAX = 24;
 
 /**
  * ★ **AU CRAN 5 ET AU-DELÀ, ON CREUSE QUOI QU'IL ARRIVE.**
@@ -1185,21 +1188,47 @@ export function creerMoteur(catalogue, options = {}) {
       && !a.liaison && !(a.retouches && a.retouches.length);
     const porteeDe = (a) => a.parts[0].fragment.intervalles.map((iv) => iv.join('.')).join('|');
     /**
-     * ★ **COMPOSER UNE PHRASE** — pour chaque portée que TOUS les segments ont
-     *   su écrire, la meilleure voie de chacun, enchaînées. Même portée pour
-     *   toutes les parts : c'est la saisie entière (ou le même morceau) relue une
-     *   fois par segment, et la scène la recopie d'abord, en le montrant.
+     * ★ **COMPOSER UNE PHRASE — SANS JAMAIS RECOPIER LA SAISIE.**
+     *
+     * > « Évite de recopier la saisie ; les opérateurs carré, factorielle &
+     * >   compagnie sont là pour produire la matière quand nécessaire. Dupliquer
+     * >   l'original est très maladroit et à éviter (voire interdire). »
+     * >   (l'autrice)
+     *
+     * Chaque segment prend SA portion de la saisie : des portées deux à deux
+     * disjointes, dans l'ordre du texte (`assemblage.js › segmentsSansCopie`).
+     * La première version composait sur la MÊME portée relue une fois par
+     * segment, et la scène recopiait la saisie : c'est désormais refusé. Le
+     * surplus de matière vient des opérateurs gonflants, que la passe profonde
+     * autorise (`vecteursDeSix`).
+     *
+     * Pour chaque segment on garde la meilleure voie de chaque portée ; on
+     * énumère ensuite les suites de portées croissantes et disjointes, dans
+     * l'ordre lexicographique des portées — aucun tri sur une note, donc rien
+     * d'entropique (§4.4) —, bornées à `COMPOSITIONS_MAX`.
      */
     function composer(rel, segs, voiesParSegment) {
       const meilleures = voiesParSegment.map((voies) => {
         const m = new Map();
         for (const a of voies) if (estUnSegment(a) && !m.has(porteeDe(a))) m.set(porteeDe(a), a);
-        return m;
+        return [...m.values()].sort((x, y) => x.parts[0].fragment.offset - y.parts[0].fragment.offset
+          || x.parts[0].fragment.longueur - y.parts[0].fragment.longueur);
       });
+      const suites = [];
+      const pile = [];
+      const descendre = (k, fin) => {
+        if (suites.length >= COMPOSITIONS_MAX) return;
+        if (k === segs.length) { suites.push(pile.slice()); return; }
+        for (const a of meilleures[k]) {
+          if (a.parts[0].fragment.offset < fin) continue;
+          pile.push(a.parts[0]);
+          if (segmentsSansCopie(pile)) descendre(k + 1, a.parts[0].fragment.offset + a.parts[0].fragment.longueur);
+          pile.pop();
+        }
+      };
+      descendre(0, 0);
       const out = [];
-      for (const [cle] of meilleures[0]) {
-        if (!meilleures.every((m) => m.has(cle))) continue;
-        const parts = meilleures.map((m) => m.get(cle).parts[0]);
+      for (const parts of suites) {
         const approche = {
           parts,
           ...deduireMode(parts, { saisie, jetons: jetonsDeLaSaisie, cible: rel.cible, segments: segs }),
@@ -1653,7 +1682,16 @@ export function creerMoteur(catalogue, options = {}) {
       parts,
       ...deduireMode(parts, { saisie: texte, jetons, cible: cbl, liaison: lia, segments: enSegments ? segs : undefined }),
     };
-    if (enSegments) approche.segments = segs;
+    if (enSegments) {
+      // ★ **REFUSÉ, ET BRUYAMMENT : une phrase qui recopie la saisie.** Un lien
+      //   écrit avant cette règle — ou à la main — dont deux segments relisent
+      //   les mêmes caractères ne se rejoue pas : il montrerait une duplication
+      //   que l'autrice interdit.
+      if (!segmentsSansCopie(parts)) {
+        return { ok: false, raison: 'segments qui recopient la saisie', bandeau: BANDEAUX.formatInconnu };
+      }
+      approche.segments = segs;
+    }
     if (lia) approche.liaison = Object.freeze({ code: lia.code, op: lia });
     // ★ Les RETOUCHES voyagent À CÔTÉ des parts, jamais dedans. `parts` a un
     //   sens précis partout ailleurs — « un morceau qui rend un chiffre » — et
