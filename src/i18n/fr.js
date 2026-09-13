@@ -474,6 +474,16 @@ export const fr = {
     surtitre: 'Les arcanes se dévoilent',
     texte: 'Recherche de trajectoire en cours. Tout est calculé ici : rien ne part '
       + 'sur le réseau. C’est aussi pour ça que ça prend du temps.',
+    /* ★ La LISTE PROVISOIRE — celle d'un cran inférieur, montrée pendant que
+       le cran demandé se calcule (`pages/resultat.js`). Elle dit trois choses :
+       que ça cherche encore, que l'ordre peut changer, et que les liens tiennent. */
+    provisoire: {
+      titre: 'Recherche en cours — classement provisoire',
+      texte: 'Voici les voies déjà trouvées avec la fouille ×{facteur}. La fouille ×{demande} '
+        + 'se poursuit : elle peut en ajouter et changer leur ordre. Les liens restent valables.',
+      termine: 'Recherche terminée — classement définitif.',
+      complet: 'La liste est complète pour la fouille ×{demande} ; les voies montrées en chemin y sont toutes.',
+    },
   },
 
   bandeaux: {

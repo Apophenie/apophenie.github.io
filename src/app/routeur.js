@@ -99,10 +99,67 @@ async function chercherEnMontrant(saisie, cible, reglages = {}) {
     // La jauge n'est plus la nôtre dès qu'une autre route est partie : on cesse
     // de l'alimenter plutôt que d'écrire dans un élément détaché du document.
     surAvancement: (a) => { if (estCourante(jeton)) jauge.avancer(a); },
+    // ★ Les listes PROVISOIRES, pour qui sait les montrer — avec la jauge, que
+    //   la page provisoire reprend à son compte : la recherche continue.
+    ...(reglages.surListe ? {
+      surListe: (liste) => { if (estCourante(jeton)) reglages.surListe(liste, jauge); },
+    } : {}),
   });
   if (resultat === null || !estCourante(jeton)) return null;
   jauge.achever();
   return resultat;
+}
+
+/**
+ * ★ **REPEINDRE SANS FAIRE SAUTER LA PAGE** — une liste provisoire remplacée par
+ * la suivante, ou par la finale.
+ *
+ * `rendre` remonte en haut et pose le focus sur le titre : c'est juste quand on
+ * ARRIVE sur une page, et c'est un saut brutal quand on est en train de la
+ * lire. Ici, trois gestes à la place :
+ *
+ *   · la liste reste là où l'œil l'a laissée : le haut du corps de la page est
+ *     relevé avant, et la page défile d'autant après — ce qui change au-dessus
+ *     (le bandeau provisoire qui s'en va) ne décale pas ce qu'on lisait ;
+ *   · le focus n'est déplacé que s'il était dans ce qu'on remplace, et il va
+ *     d'abord au même lien dans la nouvelle liste — une voie gardée garde son
+ *     lien, au caractère près (`recherche/index.js › listeProvisoire`) ;
+ *   · la fin se dit au lecteur d'écran par une région vivante posée hors de
+ *     `#app`, dès la première liste provisoire : une région créée au moment
+ *     d'annoncer ne serait pas lue.
+ */
+function repeindre(contenu, { titre, annonce = null } = {}) {
+  const app = qs('#app');
+  const repere = (racine) => (racine && racine.querySelector ? racine.querySelector('.resultat__flux') : null);
+  const avant = repere(app);
+  const hautAvant = avant ? avant.getBoundingClientRect().top : null;
+  const actif = document.activeElement;
+  const focusDedans = Boolean(actif && actif !== document.body && app.contains(actif));
+  const lienActif = focusDedans && actif.getAttribute ? actif.getAttribute('href') : null;
+  remplir(app, [contenu]);
+  poserTitre(titre);
+  const apres = repere(app);
+  if (hautAvant !== null && apres) window.scrollBy(0, apres.getBoundingClientRect().top - hautAvant);
+  if (focusDedans) {
+    const memeLien = lienActif
+      ? [...app.querySelectorAll('a[href]')].find((a) => a.getAttribute('href') === lienActif) : null;
+    const cible = memeLien || qs('#app h1');
+    if (cible) {
+      if (!memeLien) cible.setAttribute('tabindex', '-1');
+      cible.focus({ preventScroll: true });
+    }
+  }
+  if (annonce !== null) regionDAnnonce().textContent = annonce;
+}
+
+/** La région vivante des recherches progressives, créée au premier besoin. */
+function regionDAnnonce() {
+  let region = document.getElementById('annonce-recherche');
+  if (!region) {
+    region = e('div#annonce-recherche.visuellement-cachee', { role: 'status', 'aria-live': 'polite' });
+    document.body.appendChild(region);
+  }
+  return region;
 }
 
 async function routeResultat(saisie, {
@@ -126,11 +183,43 @@ async function routeResultat(saisie, {
        classe pas et n'a pas de barème. Un `##…&111` sur cette phrase mène au
        même endroit, et c'est juste — il n'y a rien à viser dans une blague. */
   if (estOeuf(saisie)) { montrerLOeuf(saisie); return; }
-  const resultat = await chercherEnMontrant(saisie, cible, { curseurs, fouille });
+  /* ★ **LA LISTE SE MONTRE AVANT D'ÊTRE FINIE.** Au-dessus du cran 0, la
+       recherche est cumulative : la liste de chaque cran inférieur est prête
+       avant celle du cran demandé, et elle y sera tout entière. On la montre
+       donc, marquée provisoire, jauge comprise, et la suivante la remplace sur
+       place (`repeindre`). */
+  let jaugeMontree = null;   // la jauge de la première liste provisoire, s'il y en a eu une
+  const page = (resultat, provisoire) => pageDeResultat(saisie, resultat, {
+    bandeau, cible, curseurs, fouille, personnalise, provisoire,
+  });
+  const resultat = await chercherEnMontrant(saisie, cible, {
+    curseurs,
+    fouille,
+    surListe: (liste, jauge) => {
+      const contenu = page(liste, { cran: liste.cran, fouille: liste.fouille, jauge });
+      if (jaugeMontree) { repeindre(contenu, { titre: saisie }); return; }
+      jaugeMontree = jauge;
+      regionDAnnonce().textContent = '';
+      rendre(enteteResultat(), contenu, { titre: saisie });
+    },
+  });
   if (!resultat) return;
+  if (!jaugeMontree) { rendre(enteteResultat(), page(resultat, null), { titre: saisie }); return; }
+  // ★ Après une liste provisoire, le bandeau reste à sa place et dit « terminée »
+  //   (`pages/resultat.js`) : le retirer ferait remonter la liste sous les yeux.
+  repeindre(page(resultat, {
+    termine: true, cran: resultat.fouille, fouille: resultat.fouille, jauge: jaugeMontree,
+  }), { titre: saisie, annonce: t('attente.provisoire.termine') });
+}
+
+/** La page de liste d'une recherche — provisoire ou finale, c'est la même. */
+function pageDeResultat(saisie, resultat, {
+  bandeau, cible, curseurs, fouille, personnalise, provisoire,
+}) {
   const contenu = pageResultat({
     saisie,
     resultat,
+    provisoire,
     // ★ **PAS DE PODIUM QUAND LA PONDÉRATION EST PERSONNALISÉE.** « Quand une
     //   pondération personnalisée est utilisée pour la recherche, tous les
     //   résultats sont avec les mêmes critères, pas de 1ᵉʳ et 2ᵉ voie calculés
@@ -151,7 +240,7 @@ async function routeResultat(saisie, {
       e('span', { texte: bandeau }),
     ]), contenu.firstChild);
   }
-  rendre(enteteResultat(), contenu, { titre: saisie });
+  return contenu;
 }
 
 /**

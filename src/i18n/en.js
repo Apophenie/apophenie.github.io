@@ -387,6 +387,13 @@ export const en = {
     surtitre: 'The arcana are unfolding',
     texte: 'Trajectory search in progress. Everything is computed here: nothing goes '
       + 'over the network. That is also why it takes time.',
+    provisoire: {
+      titre: 'Search in progress — provisional ranking',
+      texte: 'These are the paths already found with dig ×{facteur}. Dig ×{demande} is still '
+        + 'running: it may add paths and change their order. Links stay valid.',
+      termine: 'Search complete — final ranking.',
+      complet: 'The list is complete for dig ×{demande}; every path shown along the way is still in it.',
+    },
   },
 
   bandeaux: {

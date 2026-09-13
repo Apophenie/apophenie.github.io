@@ -330,7 +330,15 @@ export async function resoudreEnFond(saisie, cible, reglages = {}) {
     try {
       // `reglages` porte déjà `surAvancement` ; il porte désormais aussi les
       // curseurs et la fouille, que `travailleur.js` place dans le message.
-      const brut = await executantCourant.chercher(saisie, texteDeLaCible, reglages);
+      // ★ Une liste PROVISOIRE se traduit comme la finale : la page la rend avec
+      //   le même code, et ses titres doivent être dans la langue affichée.
+      const reglagesDuFond = typeof reglages.surListe === 'function' ? {
+        ...reglages,
+        surListe: (liste) => reglages.surListe({
+          ...liste, approches: (liste.approches || []).map(traduireApproche), source: 'moteur',
+        }),
+      } : reglages;
+      const brut = await executantCourant.chercher(saisie, texteDeLaCible, reglagesDuFond);
       if (brut === null) return null;    // coiffée : quelqu'un d'autre peindra
       return {
         ...brut,

@@ -924,7 +924,7 @@ function commandeDeCible({ saisie, cible, texteCible, curseurs, fouille }) {
  */
 export function pageResultat({
   saisie, resultat, cible, surChoixSecours, podium = true,
-  curseurs = null, fouille = undefined,
+  curseurs = null, fouille = undefined, provisoire = null,
 }) {
   const secours = resultat.source === 'secours';
   const approches = resultat.approches || [];
@@ -942,6 +942,38 @@ export function pageResultat({
   const registres = pont.registresDisponibles(cibleObjet || texteCible);
 
   const bandeaux = [];
+  /* ★ **UNE LISTE PROVISOIRE LE DIT, EN TÊTE ET EN TOUTES LETTRES.**
+     > « Du moment que l'UI indique clairement que la recherche est encore en
+     >   cours et que le classement est provisoire. » (l'autrice)
+     `provisoire` porte le cran de la liste montrée, le cran demandé et la
+     jauge de la recherche, qui continue de courir ici. La liste elle-même est
+     rendue par le même code que la finale : elle ne diffère que par ce bandeau
+     et par `aria-busy` sur la section des voies. Ses liens sont déjà ceux de
+     la liste finale (`recherche/index.js › listeProvisoire`).
+     ★ **ET LA FINALE GARDE LA PLACE DU BANDEAU** (`provisoire.termine`) : il
+     dit alors « recherche terminée », jauge pleine. Mesuré au navigateur, un
+     bandeau qui disparaît remontait toute la liste de 169 px sous les yeux de
+     qui la lisait en haut de page — là où aucun défilement ne peut compenser. */
+  if (provisoire) {
+    const termine = provisoire.termine === true;
+    const facteur = 2 ** (provisoire.cran ?? 0);
+    const demande = 2 ** (provisoire.fouille ?? 0);
+    bandeaux.push(e(`div.bandeau.${termine ? 'bandeau--termine' : 'bandeau--provisoire'}`,
+      // La fin s'annonce par la région vivante du routeur : un second `status` la redirait.
+      termine ? {} : { role: 'status' }, [
+        e('span.bandeau__marque', { texte: termine ? '●' : '◌', 'aria-hidden': 'true' }),
+        e('div.bandeau__corps', {}, [
+          e('strong.bandeau__titre', { texte: t(termine ? 'attente.provisoire.termine' : 'attente.provisoire.titre') }),
+          e('span', {
+            texte: termine
+              ? t('attente.provisoire.complet', { demande })
+              : t('attente.provisoire.texte', { facteur, demande }),
+          }),
+          provisoire.jauge ? provisoire.jauge.element : null,
+        ]),
+      ]));
+  }
+  const occupee = Boolean(provisoire && provisoire.termine !== true);
   if (secours) {
     bandeaux.push(e('p.bandeau', {}, [
       e('span.bandeau__marque', { texte: '△', 'aria-hidden': 'true' }),
@@ -1068,7 +1100,7 @@ export function pageResultat({
      */
     e('div.resultat__corps', {}, [
       e('div.resultat__flux', {}, [
-        e('section.section', {}, [
+        e('section.section', occupee ? { 'aria-busy': 'true' } : {}, [
           e('h2.h2-machine', { texte: t('resultat.voiesTitre') }),
           ...(aucune ? [aucune] : listeDesVoies),
         ]),
