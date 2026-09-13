@@ -1698,8 +1698,8 @@ test('m1a2, mpol, mtap — deux chiffres, une lettre : la table entière, et rie
   for (const [code, attendu, horsTable] of [
     ['m1a2', 26, [[2, 7], [0, 0]]],
     ['mpol', 25, [[6, 1], [1, 6], [0, 1]]],
-    // ★ 27 pour le multi-tap : ses 26 lettres, et l'ESPACE sur le 0 (un appui).
-    ['mtap', 27, [[1, 1], [2, 4], [7, 5], [0, 2]]],
+    // ★ 27 pour le multi-tap : ses 26 lettres, et l'ESPACE sur le 1 (un appui).
+    ['mtap', 27, [[1, 2], [2, 4], [7, 5], [0, 1]]],
   ]) {
     const op = PAR_CODE.get(code);
     assert.equal(operateursActifs().includes(op), false, `${code} : inactif en recherche`);
@@ -1722,8 +1722,8 @@ test('m1a2, mpol, mtap — deux chiffres, une lettre : la table entière, et rie
   assert.deepEqual([...appliquer(PAR_CODE.get('mpol'), N([2, 4])).valeur], ['i']);
   // Le multi-tap : quatre appuis sur le 7, c'est s.
   assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([7, 4])).valeur], ['s']);
-  // Et un appui sur le 0, c'est l'espace — la seule chose que ce clavier écrit hors des lettres.
-  assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([0, 1])).valeur], [' ']);
+  // Et un appui sur le 1, c'est l'espace — la seule chose que ce clavier écrit hors des lettres.
+  assert.deepEqual([...appliquer(PAR_CODE.get('mtap'), N([1, 1])).valeur], [' ']);
 });
 
 /* ★ LE CODE ASCII DE CHAQUE SIGNE — `mast`, la matière d'une phrase. */

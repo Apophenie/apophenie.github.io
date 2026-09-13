@@ -7027,30 +7027,31 @@ const AUTRES_MAPPEURS = [
     id: 'm.multiTap', code: 'mtap',
     libelle: bilingue('La touche et le nombre d’appuis, sur un téléphone',
       'The key and the number of presses, on a phone'),
-    regle: bilingue('La touche, puis les appuis — 7 4 = s, quatre fois sur le 7 ; 0 1 = l’espace',
-      'Key, then presses — 7 4 = s, four times on the 7; 0 1 = a space'),
+    regle: bilingue('La touche, puis les appuis — 7 4 = s, quatre fois sur le 7 ; 1 1 = l’espace',
+      'Key, then presses — 7 4 = s, four times on the 7; 1 1 = a space'),
     outil: bilingue('Clavier de téléphone, en appuis', 'Phone keypad, in presses'),
     note: bilingue(
       'Le multi-tap des téléphones d’avant la saisie prédictive : on appuie sur la touche '
       + 'autant de fois que le rang de la lettre sur elle. 7777 s’écrit ici 7 4. '
-      + 'L’espace est sur le 0, d’un appui. La ponctuation n’y est pas : son ordre '
-      + 'sur la touche 1 change d’un téléphone à l’autre.',
+      + 'L’espace est sur le 1, d’un appui. La ponctuation n’y est pas : aucune notice '
+      + 'n’en donne l’ordre sur la touche 1, elle passe par la table ASCII.',
       'The multi-tap of phones before predictive text: press the key as many times as the '
-      + 'letter’s place on it. 7777 is written here as 7 4. The space is on 0, one press. '
-      + 'Punctuation is left out: its order on key 1 differs from one phone to the next.',
+      + 'letter’s place on it. 7777 is written here as 7 4. The space is on 1, one press. '
+      + 'Punctuation is left out: no manual gives its order on key 1, it goes through the ASCII table.',
     ),
     notoriete: 0.6, adHoc: 0.35, colonnes: 13,
-    /* ★ **L'ESPACE, SUR LE 0.** La norme ITU-T E.161 ne fixe que les lettres ;
-         l'espace sur la touche 0, d'un appui, est ce que disent les notices
-         (Nokia 3310 : « To type in a space press 0 »). La ponctuation de la
-         touche 1, elle, n'a pas d'ordre commun — la mettre ici serait
-         l'inventer. Une phrase se relit donc par le téléphone à la
-         ponctuation près (`recherche/cible.js › ecartDeForme`). En fin de
-         table : les lettres gardent leurs cases. */
+    /* ★ **L'ESPACE, SUR LE 1** — « " " sur la touche 1 » (l'autrice). La norme
+         ITU-T E.161 ne fixe que les lettres, et aucune notice trouvée ne donne
+         l'ordre de la ponctuation sur la touche 1 (Nokia 3310 : l'espace sur le
+         0, la ponctuation par une liste) : la ponctuation passe donc par la
+         table ASCII (`masi`, `mast`), et la touche 1 ne porte que l'espace.
+         ⚠️ La table a porté l'espace sur le 0 pendant un jour, jamais publiée :
+         voir le commit qui l'a déplacé. En fin de table : les lettres gardent
+         leurs cases. */
     couples: [
       ...Object.entries(T9_GROUPES)
         .flatMap(([touche, lettres]) => [...lettres].map((c, k) => [`${touche}${k + 1}`, c.toLowerCase()])),
-      ['01', ' ', bilingue('espace', 'space')],
+      ['11', ' ', bilingue('espace', 'space')],
     ],
   }),
   /* ★ **LE CARRÉ — `mcar`, et il ne sert QU'AU DERNIER RECOURS.**

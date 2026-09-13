@@ -3,7 +3,7 @@
  *  Le couple est de l'autrice. Il dit ce que la cible textuelle devait apprendre :
  *  viser plus d'un mot, ponctuation comprise.
  *
- *  ★ LES SIGNES. L'ESPACE s'écrit sur le 0 du téléphone (`mtap`, un appui) ;
+ *  ★ LES SIGNES. L'ESPACE s'écrit sur le 1 du téléphone (`mtap`, un appui) ;
  *    l'apostrophe et le point d'exclamation, par la table ASCII (`masi`, trois
  *    chiffres par signe), la seule convention sourcée qui les écrive en
  *    chiffres de 0 à 9. Mesuré : en AZERTY fr(basic) le « ! » et le « m » sont
@@ -85,11 +85,11 @@ function verifierVoies(r, ecrit, saisie = SAISIE) {
 }
 
 /* ★ L'ESPACE, et rien de plus : « de la merde » se vise D'UN BLOC — une seule
-     relecture pour toute la phrase. Le multi-tap l'écrit (0 1 pour l'espace) en
-     vingt-deux chiffres, et la recherche chiffrée les atteint : mesuré, sept
+     relecture pour toute la phrase. Le multi-tap l'écrit (1 1 pour l'espace) en
+     vingt-deux chiffres, et la recherche chiffrée les atteint : mesuré, onze
      voies au cran 0, toutes par le téléphone (les autres relectures n'ont pas
      d'espace). */
-test('cible-phrase — « de la merde » d’un bloc : l’espace sur le 0 du téléphone', () => {
+test('cible-phrase — « de la merde » d’un bloc : l’espace sur le 1 du téléphone', () => {
   const r = moteur.resoudre(SAISIE, { cible: 'de la merde' });
   assert.ok(r.approches.length >= 1, 'aucune voie vers « de la merde »');
   assert.deepEqual([...new Set(r.approches.map((a) => a.relecture.code))], ['mtap']);
