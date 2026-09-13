@@ -899,7 +899,8 @@ test('★ la factorielle se joue dans l’ordre décrit : « ! » et titre, dép
     assert.ok(fin(parait(id, pas3)) <= premierDepli, `le « ! » de ${LIGNE_FACTORIELLE[k]} est posé avant le premier dépli`);
     const p = lire.valeur(id, 'translate', fin(parait(id, pas3)));
     const n = lire.valeur(`t${k}`, 'translate', fin(parait(id, pas3)));
-    assert.ok(Math.abs(p.y - n.y) < 0.5 && p.x > n.x, 'accolé à droite de son nombre');
+    assert.ok(Math.abs(p.x - n.x) < 0.5 && p.y < n.y - fs * 0.5,
+      'suspendu au-dessus de son nombre : sa place ne s’ouvrira qu’à l’étape de ce nombre');
   }
   const titre = noeud('x0_ft');
   assert.equal(titre.text, 'Factorielle !');
@@ -916,6 +917,9 @@ test('★ la factorielle se joue dans l’ordre décrit : « ! » et titre, dép
   assert.deepEqual(facteurs.map((n) => n.text), ['1', '2', '3', '4'], 'n − 1 … 1 sortent du nombre');
   const depli = anims(facteurs[0].id, 'translate', pas5)[0];
   assert.ok(efface5.delay < depli.delay, 'le « ! » de 5 s’efface quand son calcul commence');
+  const pose5 = lire.valeur('x0_fb2', 'translate', efface5.delay);
+  const n5 = lire.valeur('t2', 'translate', efface5.delay);
+  assert.ok(Math.abs(pose5.y - n5.y) < 0.5 && pose5.x > n5.x, '… après être descendu à côté de lui');
   const rang = (id) => Math.round((arrivee(anims(id, 'translate', pas5)[0]).y - yLigne) / pas);
   assert.deepEqual(facteurs.map((n) => rang(n.id)), [-4, -2, 0, 2], 'L1 : 1, L3 : 2, L5 : 3 sur la ligne, L7 : 4');
   assert.equal(rang('t2'), 4, 'L9 : le 5 lui-même, en bas');
@@ -1065,4 +1069,65 @@ test('★ par le chemin du site, la factorielle est jouée et rien ne retombe su
   assert.deepEqual(gestes.map((s) => s.caption),
     ['9! = 1 × 2 × 3 × 4 × 5 × 6 × 7 × 8 × 9 = 362880', '3! = 1 × 2 × 3 = 6', '5! = 1 × 2 × 3 × 4 × 5 = 120']);
   assert.deepEqual(tl.warnings, [], 'la scène entière compile sans animation concurrente');
+});
+
+// ───────────────────── 11. les frontières de la ligne survivent aux trois gestes
+
+/**
+ * ★ **CE QUI EST MONTRÉ ENTRE DEUX ÉTAPES EST CE QUE LA RECHERCHE COMPTE.**
+ *
+ * `recherche/scenario.js › suivreLaLigne` rejoue la ligne — ses jetons ET ses
+ * frontières de groupe, ces écarts plus larges que l'ordinaire qui décident où
+ * trois 6 se touchent. Le test lent `integration-visuel.test.js` le vérifie sur
+ * les voies du jeu d'essai, et il a rougi : la puissance réservait la place de
+ * ses exposants en élargissant l'écart devant le nombre suivant, et cet écart
+ * survivait d'une étape à l'autre — une frontière que la scène montrait et que
+ * le moteur ne comptait pas. La factorielle faisait de même avec ses « ! ».
+ *
+ * Aucune voie de ce jeu d'essai ne passe par `mcar` ni `mfac`, et le cas fautif
+ * n'y a pas de groupe. On le mesure donc ici, pour les trois gestes, sur une
+ * ligne DÉCOUPÉE en deux groupes : à l'entrée de chaque étape, la scène et le
+ * rejeu portent les mêmes jetons et les mêmes frontières.
+ */
+import { Scene } from '../scene.js';
+import { TOKEN_GAP } from '../constants.js';
+
+/** La ligne à l'entrée de chaque étape, relevée sur la vraie scène (même mouchard que le test lent). */
+function releverLaLigne(sc) {
+  const releves = [];
+  const original = Scene.prototype.oublierAncres;
+  Scene.prototype.oublierAncres = function mouchard() {
+    releves.push({
+      ids: this.flow.slice(),
+      frontieres: this.flow.filter((id) => (this.get(id).gapBefore ?? 0) > TOKEN_GAP).sort(),
+    });
+    return original.call(this);
+  };
+  try { compile(sc); } finally { Scene.prototype.oublierAncres = original; }
+  return releves;
+}
+
+test('★ carré, puissance, factorielle : sur une ligne groupée, la scène et le rejeu gardent les mêmes frontières', () => {
+  const valeurs = [3, 2, 4, 1];
+  for (const code of ['mcar', 'mpui', 'mfac']) {
+    const tokens = jetonsNums(valeurs);
+    const o = PAR_CODE.get(code);
+    const avant = nums(valeurs);
+    const apres = appliquer(o, avant);
+    const steps = [
+      { id: 's_decoupe', title: 'découpe', ops: [{ op: 'partition', at: 0, groups: [{ targets: ['t0', 't1'] }, { targets: ['t2', 't3'] }] }] },
+      ...o.steps(avant, apres, { ids: tokens.map((t) => t.id), cle: 'x0', langue: 'fr' }),
+      { id: 's_fin', title: 'fin', ops: [{ op: 'wait', at: 0 }] },
+    ];
+    const releves = releverLaLigne({ version: 1, tokens, steps });
+    const rejeu = suivreLaLigne(tokens, steps);
+    assert.deepEqual(releves[1].frontieres, ['t2'], `${code} : la découpe ouvre bien une frontière devant le second groupe`);
+    for (let i = 0; i + 1 < steps.length; i++) {
+      assert.ok(rejeu[i], `${code} : le rejeu ne se perd pas après « ${steps[i].id} »`);
+      assert.deepEqual(rejeu[i].ids, releves[i + 1].ids, `${code} : jetons après « ${steps[i].id} »`);
+      assert.deepEqual([...rejeu[i].frontieres].sort(), releves[i + 1].frontieres,
+        `${code} : frontières après « ${steps[i].id} »`);
+    }
+    assert.deepEqual(releves.at(-1).frontieres, ['x0_2'], `${code} : le résultat du second groupe hérite de sa frontière`);
+  }
 });
