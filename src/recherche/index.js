@@ -436,6 +436,7 @@ export function creerMoteur(catalogue, options = {}) {
     return [
       String(saisieBrute ?? '').normalize('NFC'), cbl.nature, cbl.texte, JSON.stringify(curseurs), k,
       optionsResolution.profond === true, optionsResolution.dernierRecours !== false,
+      optionsResolution.matiereDePhrase === true,
     ].join('\u0000');
   }
 
@@ -753,6 +754,9 @@ export function creerMoteur(catalogue, options = {}) {
       //   et chacune doit alors s'autoriser le geste de plus dès le premier
       //   assemblage, sans refaire celui qui vient d'échouer.
       profond: optionsResolution.profond === true,
+      // ★ LA MATIÈRE D'UNE PHRASE — posée par `deroulerTexte` pour le bloc d'une
+      //   phrase trop longue, et par lui seul.
+      matiereDePhrase: optionsResolution.matiereDePhrase === true,
       // ★ Ce que l'assemblage sait ne PAS pouvoir jouer, et qu'il dira
       //   (`assemblage.js`, les modes à autant de portées que de chiffres).
       modesImpossibles: [],
@@ -1298,6 +1302,38 @@ export function creerMoteur(catalogue, options = {}) {
           for (const a of composees) {
             versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
             trouvees.push(a);
+          }
+          /* ★ **LE BLOC GONFLÉ — la phrase d'un seul tenant, en passe profonde.**
+               « Rassemble tous les morceaux avant de faire gonfler l'ensemble »
+               (l'autrice) : toute la saisie, ponctuation comprise, en une ligne
+               (`mast`), gonflée, absorbée, relue par UNE relecture. Tenté en
+               passe profonde seulement : sans gonflant, un bloc de plus de 26
+               chiffres n'a jamais rendu de voie (mesuré aux crans 0, 3 et 5). */
+          if (profond) {
+            const echelleBloc = (a) => echelle({ ...a, fraction: Math.min(1, Math.max(0, (a && a.fraction) || 0)) });
+            const sousBloc = deroulerUnCran(saisieBrute, {
+              ...optionsResolution,
+              [PRECEDENT]: null,
+              cible: rel.cible,
+              profond: true,
+              matiereDePhrase: true,
+              dernierRecours: false,
+              surAvancement: canal ? (a) => canal(echelleBloc(a)) : undefined,
+            });
+            let pasBloc = sousBloc.next();
+            while (!pasBloc.done) {
+              const pause = yield echelleBloc(pasBloc.value);
+              pasBloc = sousBloc.next(pause);
+            }
+            const rb = pasBloc.value;
+            if (rb.tronque) tronque = true;
+            if (rb.tronqueTemps) tronqueTemps = true;
+            const blocs = (rb.approches || []).filter((a) => a.mode !== 'JOKER');
+            base.relectures[k].voiesDuBloc = blocs.length;
+            for (const a of blocs) {
+              versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
+              trouvees.push(a);
+            }
           }
           continue;
         }

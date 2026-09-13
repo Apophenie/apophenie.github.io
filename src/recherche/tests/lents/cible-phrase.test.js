@@ -26,9 +26,12 @@
  *    maladroit et à éviter (voire interdire) », l'autrice) ; la matière qui
  *    manque vient des gonflants (carré, puissance, factorielle).
  *
- *  ★ MESURÉ : sans recopie, « https://reinfocovid.fr/ » n'atteint plus la
- *    phrase — ses portions productives ne se suivent pas dans le bon ordre. Le
- *    mécanisme est tenu sur « Reinfocovid, désinformation garantie ».
+ *  ★ MESURÉ : sans recopie, les segments n'atteignent pas la phrase depuis
+ *    « https://reinfocovid.fr/ » — ses portions productives ne se suivent pas.
+ *
+ *  ★ LE BLOC GONFLÉ L'ATTEINT. Toute la saisie, ponctuation comprise, en ASCII
+ *    (`mast`), carrée, absorbée, relue par le téléphone — tenté en passe
+ *    profonde pour toute phrase trop longue (`index.js › deroulerTexte`).
  *
  *  ★ LA RAMPE. Un segment est une recherche : le cran 0 s'en autorise deux, et
  *    chaque cran un de plus (arbitré : les seuils restent tels quels).
@@ -138,40 +141,43 @@ test('cible-phrase — le mot seul est atteint : « merde », et chaque voie se 
   }
 });
 
-/* ★ SANS RECOPIE, LA PHRASE N'EST PLUS ATTEINTE DEPUIS CETTE SAISIE — mesuré, pas
-     décidé. Chaque segment doit être écrit par SA portion, et les portions se
-     suivent dans le texte. « https://reinfocovid.fr/ » n'en a que trois qui
-     portent des lettres : `https` (5), `reinfocovid` (11), `fr` (2).
-     MESURÉ (vecteurs qui écrivent le segment, sans / avec les gonflants) :
-       téléphone, « Cest de la » (20 chiffres) : https 0/0, reinfocovid 0/10, fr 0/0 ;
-                  « merde » (12 chiffres)      : https 0/5, reinfocovid 2/2, fr 0/0.
-       Aucune suite ordonnée : ce qui écrit le premier segment (reinfocovid)
-       laisse après lui `fr`, qui n'écrit rien.
-       ASCII, quatre segments (15, 18, 18, 6) : `https` n'écrit que « ! », `fr`
-       rien — quatre portions productives n'existent pas.
-     La première version l'atteignait en relisant la saisie ENTIÈRE une fois par
-     segment : c'est cette duplication que l'autrice interdit. */
-test('cible-phrase — « https://reinfocovid.fr/ » → « C’est de la merde ! » : aucune voie sans recopie, aux crans 0 et 2', () => {
-  for (const fouille of [0, 2]) {
-    const r = moteur.resoudre(SAISIE, { cible: PHRASE, fouille });
-    assert.deepEqual(r.approches.map((a) => a.url), [], `cran ${fouille}`);
-    assert.deepEqual(r.relectures.map((x) => [x.code, x.voies]), [['mtap', 0], ['masi', 0]], `cran ${fouille}`);
+/* ★ LE BLOC GONFLÉ — « rassemble tous les morceaux avant de faire gonfler
+     l'ensemble » (l'autrice). Sans recopie, les SEGMENTS n'atteignent pas la
+     phrase depuis cette saisie (ses portions productives ne se suivent pas). Le
+     BLOC, lui, l'atteint : toute la saisie, ponctuation comprise, codée en ASCII
+     (`mast`, 63 chiffres), carrée (`mcar`, 109), absorbée (`mab`) dans les 32
+     chiffres de la phrase relue au téléphone — une seule relecture.
+     MESURÉ, et c'est la matière qui décidait, pas un plafond : sans la
+     ponctuation, la ligne carrée ne fait que 89 chiffres et l'absorption n'écrit
+     que 29 des 32 ; `plafondDAbsorption` (160) n'était pas atteint.
+     ⚠️ C'est l'APPROCHÉE (« cest de la merde », ponctuation et capitale près) :
+     la voie exacte ASCII demande 57 chiffres, que 109 de ligne n'écrivent pas
+     (43 au plus) — voir le rapport. */
+test('cible-phrase — « https://reinfocovid.fr/ » → « C’est de la merde ! » : le bloc gonflé, sans recopie', () => {
+  const r = moteur.resoudre(SAISIE, { cible: PHRASE });
+  assert.ok(r.approches.length >= 1, 'aucune voie vers la phrase');
+  for (const a of r.approches) {
+    assert.equal(a.relecture.code, 'mtap', `${a.url} : une seule relecture, le téléphone`);
+    assert.equal(a.parts.length, 1, `${a.url} : un seul bloc, pas de segments`);
+    assert.ok(a.parts[0].chemin.ops.some((o) => o.code === 'mast'), `${a.url} : la ponctuation dans la ligne`);
+    assert.ok(a.parts[0].chemin.ops.some((o) => o.gonfle), `${a.url} : la ligne gonflée`);
   }
+  assert.deepEqual(r.relectures.map((x) => [x.code, x.voies]), [['mtap', 0], ['masi', 0]],
+    'aucune voie par segments : la phrase vient du bloc');
+  verifierVoies(r, 'cest de la merde');
 });
 
-/* ★ LE MÉCANISME, SUR UNE SAISIE QUI A LA MATIÈRE : « Reinfocovid, désinformation
-     garantie ». Mesuré au cran 0 : trois voies, chacune sur deux portions
-     disjointes — `0:mazc+mpui+mab,3:fr6+ma1+mab` (873) en tête. La matière du
-     premier segment vient du GONFLANT (`mpui`), comme le veut l'autrice. La
-     scène découpe la saisie en deux morceaux, joue chacun à son tour, puis la
-     relecture unique du téléphone. */
-test('cible-phrase — « Reinfocovid, désinformation garantie » → « C’est de la merde ! » : deux portions, aucune recopie', () => {
+/* ★ LE BLOC ET LES SEGMENTS, CÔTE À CÔTE, sur une saisie qui a la matière :
+     « Reinfocovid, désinformation garantie ». Mesuré au cran 0 : sept voies par
+     le bloc gonflé (en tête), trois par segments sur deux portions disjointes. */
+test('cible-phrase — « Reinfocovid, désinformation garantie » → « C’est de la merde ! » : le bloc et les segments', () => {
   const saisie = 'Reinfocovid, désinformation garantie';
   const r = moteur.resoudre(saisie, { cible: PHRASE });
-  assert.ok(r.approches.length >= 1, 'aucune voie sans recopie');
-  for (const a of r.approches) {
-    assert.equal(a.mode, 'PHRASE', a.url);
-    assert.equal(a.parts.length, 2, a.url);
+  const blocs = r.approches.filter((a) => a.parts.length === 1);
+  const segments = r.approches.filter((a) => a.mode === 'PHRASE');
+  assert.ok(blocs.length >= 1, 'aucune voie par le bloc');
+  assert.ok(segments.length >= 1, 'aucune voie par segments');
+  for (const a of segments) {
     const [p, q] = a.parts.map((x) => x.fragment);
     assert.ok(p.offset + p.longueur <= q.offset, `${a.url} : portions disjointes et ordonnées`);
   }

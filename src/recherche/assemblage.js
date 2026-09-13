@@ -3216,8 +3216,12 @@ export function assembler(saisie, fragments, parFrag, ctx) {
        recours, ils ne doivent pas polluer les voies courtes » (l'auteur). On ne
        les ajoute à la matière que lorsque `index.js` a posé `profond`, et
        `vecteursDeSix` les refuse encore dans son premier déroulé. */
+  /* ★ **ET LA MATIÈRE D'UNE PHRASE** (`op.matiereDePhrase`, le code ASCII de
+       chaque signe) : seulement quand `index.js` cherche le BLOC d'une phrase
+       (`ctx.matiereDePhrase`), en passe profonde. Aucune autre cible ne la voit. */
   const opsGonflantes = ctx.profond === true && ctx.catalogue
-    ? normaliserCatalogue(ctx.catalogue).filter((o) => o && o.gonfle && !o.deprecated)
+    ? normaliserCatalogue(ctx.catalogue).filter((o) => o && !o.deprecated
+      && (o.gonfle || (ctx.matiereDePhrase === true && o.matiereDePhrase)))
     : [];
   const opsPourVecteurs = opsExplorables.concat(opsGonflantes);
   const porteuses = fragmentsAVecteur(fragments, ctx);

@@ -7282,6 +7282,10 @@ const AUTRES_MAPPEURS = [
   // ★ LE CODE ASCII QUI REDEVIENT SIGNE — `masi`, trois chiffres pour un signe.
   //   La fabrique est plus bas (hissage). En fin de bloc mappeur, append-only.
   operateurAsciiEnSigne(),
+  // ★ LE CODE ASCII DE CHAQUE SIGNE — `mast`, ponctuation comprise : la matière
+  //   d'une PHRASE visée d'un bloc. Fabrique plus bas (hissage). Fin de bloc,
+  //   append-only (§4.1).
+  operateurAsciiDeChaqueSigne(),
 ];
 
 /**
@@ -7936,6 +7940,97 @@ function operateurAsciiEnSigne() {
         }], { id: `s_${ctx.cle}_${i}` }));
       });
       return steps;
+    },
+  });
+}
+
+/**
+ * ★ **LE CODE ASCII DE CHAQUE SIGNE — `mast`, ponctuation comprise.**
+ *
+ * > « Rassemble tous les morceaux avant de faire gonfler l'ensemble pour avoir
+ * >   assez de matière : https :// reinfocovid . fr / — 6 morceaux à convertir
+ * >   en chiffres, puis les chiffres à rassembler, et à faire gonfler […] puis
+ * >   à convertir en lettres et caractères spéciaux avec une méthode de
+ * >   conversion commune à l'ensemble. » (l'autrice)
+ *
+ * MESURÉ, et c'est ce qui l'a fait écrire : sur « https://reinfocovid.fr/ »,
+ * AUCUN mappeur du catalogue n'accepte `://`, `.` ni `/` — `masc` et `masb` ne
+ * codent que les lettres. Les trois morceaux de ponctuation restaient donc hors
+ * de la ligne. Codés, ils la portent de 53 à 63 chiffres, et de 89 à 109 une
+ * fois carrés : assez pour que l'absorption écrive les 32 chiffres de la phrase
+ * relue au téléphone, là où 89 n'en écrivaient que 29.
+ *
+ * ★ Le code du signe TEL QUEL, de l'espace (32) au tilde (126) : « h » vaut 104
+ *   et « H » 72, « : » 58, « / » 47. C'est l'inverse de `masi`, à la même table.
+ * ★ **INACTIF EN RECHERCHE**, et réservé à la MATIÈRE D'UNE PHRASE
+ *   (`matiereDePhrase`) : la recherche ne le propose qu'au bloc d'une phrase
+ *   trop longue, en passe profonde (`recherche/index.js › deroulerTexte`). Ni 666
+ *   ni aucune cible chiffrée ne le voient.
+ * ★ Le GESTE : la table ASCII montée, un aller-retour par signe. La case se
+ *   désigne par son CODE, pas par le signe : la table porte « h » et « H », que
+ *   la primitive confondrait si elle cherchait la lettre.
+ * ★ Notoriété 0,45 et adHoc 0,35 : ceux de `masi`, dont c'est l'aller.
+ */
+function operateurAsciiDeChaqueSigne() {
+  const libelle = bilingue('Chaque signe devient son code ASCII', 'Each character becomes its ASCII code');
+  const regle = bilingue('h = 104, H = 72, : = 58, / = 47, l’espace = 32',
+    'h = 104, H = 72, : = 58, / = 47, a space = 32');
+  const outil = bilingue('Table ASCII, de 32 à 126', 'ASCII table, 32 to 126');
+  const NOTE_ESPACE = bilingue('espace', 'space');
+  const PREMIER = 32;
+  const DERNIER = 126;
+  const table = Object.freeze(Array.from({ length: DERNIER - PREMIER + 1 }, (_, k) => {
+    const n = PREMIER + k;
+    const c = String.fromCharCode(n);
+    return Object.freeze({ char: String(n), value: n, label: c, ...(c === ' ' ? { note: NOTE_ESPACE } : {}) });
+  }));
+  return def({
+    id: 'm.asciiDeChaqueSigne', code: 'mast', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    libelle, regle, outil,
+    notoriete: 0.45, adHoc: 0.35,
+    actifParDefaut: false,
+    matiereDePhrase: true,
+    note: bilingue(
+      'Le code décimal ASCII de chaque signe, lettres, chiffres et ponctuation : de l’espace (32) '
+      + 'au tilde (126). Ni accent ni « œ », qu’ASCII n’a pas.',
+      'The decimal ASCII code of every character, letters, digits and punctuation: from space (32) '
+      + 'to tilde (126). No accents, which ASCII lacks.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      const out = [];
+      for (const tok of valeur) {
+        const chars = [...String(tok)];
+        if (chars.length !== 1) return null;
+        const n = chars[0].charCodeAt(0);
+        if (n < PREMIER || n > DERNIER) return null;
+        out.push(n);
+      }
+      return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
+    },
+    sortie: (avant, apres, ctx) => nomsTokens(ctx, apres.valeur.length),
+    steps: (avant, apres, ctx) => {
+      const titre = dire(libelle, ctx.langue);
+      const dit = dire(regle, ctx.langue);
+      const nomOutil = dire(outil, ctx.langue);
+      const sortie = nomsTokens(ctx, apres.valeur.length);
+      const entries = table.map((e) => ({ ...e, ...(e.note ? { note: dire(e.note, ctx.langue) } : {}) }));
+      const dernier = apres.valeur.length - 1;
+      return apres.valeur.map((n, i) => {
+        const signe = String(avant.valeur[i]);
+        return etape(ctx, titre, `${dit} : ${signe === ' ' ? '␣' : signe} → ${n}`, [{
+          op: 'table',
+          disposition: 'reglette',
+          titre: nomOutil,
+          colonnes: 16,
+          entries: entries.map((e) => ({ ...e })),
+          target: ctx.ids[i],
+          letter: String(n),
+          to: token(sortie[i], n, 'number'),
+          montre: i === 0,
+          retire: i === dernier,
+        }], { id: `s_${ctx.cle}_${i}` });
+      });
     },
   });
 }
