@@ -652,3 +652,180 @@ test('★ par le chemin du site, le carré est joué — et sur la voie « Sarah
   assert.deepEqual(carres.slice(0, 2).map((s) => s.caption), ['19² = 19 × 19 = 361', '1² = 1 × 1 = 1']);
   assert.deepEqual(compile(vraie).warnings, [], 'la scène entière compile sans animation concurrente');
 });
+
+// ───────────────────── 9. la puissance : la valeur passe par l'exposant
+
+/**
+ * > « Pour puissance, mettons 53 → accolade "puissance" ou "pow" ou "**" dans
+ * >   l'accolade → l'exposant monte et rétrécit pour former un exposant → une
+ * >   copie (façon meg) de la valeur passe par l'exposant et le décrémente puis
+ * >   descend au compteur sous l'accolade → la copie suivante fait de même mais
+ * >   hérite de l'opérateur "×" quand elle descend après avoir décrémenté
+ * >   l'exposant → quand l'exposant arrive à 1, la valeur n'est plus copiée mais
+ * >   déplacée vers l'exposant qui est décrémenté à 0 puis disparaît pendant
+ * >   que la valeur descend et forme le résultat final sous l'accolade → le
+ * >   résultat remonte pendant que l'exposant disparaît… » (l'autrice)
+ *
+ * Témoin : `5 34 2`. Les exposants sont 3 (de 34), 2 (de 2) et 5 (le dernier
+ * regarde le premier) : 125, 1156, 32.
+ */
+const LIGNE_PUISSANCE = [5, 34, 2];
+
+test('★ la puissance se joue dans l’ordre décrit : exposant formé, copies par l’exposant, base déplacée, produit remonté', () => {
+  const { steps, tl } = jouer('mpui', nums(LIGNE_PUISSANCE), jetonsNums(LIGNE_PUISSANCE));
+  assert.deepEqual(tl.warnings, [], 'rien ne se contredit');
+  assert.deepEqual(steps.map((s) => s.caption),
+    ['5³ 34² 2⁵', '5³ = 5 × 5 × 5 = 125', '34² = 34 × 34 = 1156', '2⁵ = 2 × 2 × 2 × 2 × 2 = 32'],
+    'les exposants d’abord, puis un produit par nombre');
+  const lire = lecteur(tl);
+  const fs = tl.metrics.fontSize;
+  const av = tl.metrics.advance;
+  const fin = (a) => a.delay + a.duration;
+  const arrivee = (a) => a.keyframes[a.keyframes.length - 1].value;
+  const [ouverture, pas5] = tl.steps;
+  const dans = (pas) => (a) => a.delay >= pas.t0 && a.delay < pas.t0 + pas.duration;
+  const anims = (id, prop, pas) => tl.anims.filter((a) => a.id === id && a.prop === prop && dans(pas)(a));
+  const noeud = (id) => tl.nodes.find((n) => n.id === id);
+
+  // ① les exposants : une COPIE du premier chiffre du suivant, qui en part.
+  assert.deepEqual(['x0_e0', 'x0_e1', 'x0_e2'].map((id) => noeud(id).text), ['3', '2', '5']);
+  const vol3 = anims('x0_e0', 'translate', ouverture)[0];
+  const p34 = lire.valeur('t1', 'translate', vol3.delay);
+  assert.ok(Math.abs(vol3.keyframes[0].value.x - (p34.x - av / 2)) < 0.5, 'le 3 part du premier chiffre de 34');
+  assert.ok(vol3.keyframes[1].value.y < p34.y - fs * 0.8, 'il MONTE au-dessus de lui avant d’aller se poser');
+  assert.equal(canal(tl, 't1'), undefined, '34 reste en place : il sera élevé à son tour');
+  const pose = arrivee(vol3);
+  const p5 = lire.valeur('t0', 'translate', fin(vol3));
+  assert.ok(pose.x > p5.x && pose.y < p5.y, 'posé en haut à droite de la base');
+  assert.equal(lire.valeur('x0_e0', 'scale', fin(vol3)), 0.55, 'et rétréci');
+  assert.ok(fin(vol3) <= pas5.t0, 'tous les exposants sont formés avant le premier calcul');
+
+  // ② l'accolade « puissance », avant tout voyage.
+  const accolade = tl.nodes.find((n) => n.role === 'bracket' && anims(n.id, 'strokeDashoffset', pas5).length);
+  assert.ok(accolade, 'une accolade se tire sous la base');
+  assert.deepEqual(tl.nodes.filter((n) => n.data && n.data.suit === accolade.id).map((n) => n.text), ['puissance']);
+  const trace = anims(accolade.id, 'strokeDashoffset', pas5)[0];
+
+  // ③ deux copies de 5, puis la base elle-même : chacune passe par l'exposant.
+  const copies = tl.nodes.filter((n) => n.id.startsWith('@copie') && n.text === '5');
+  assert.equal(copies.length, 2, 'e − 1 copies : la dernière fois, la valeur n’est plus copiée');
+  const vols = [...copies.map((c) => anims(c.id, 'translate', pas5)[0]),
+    anims('t0', 'translate', pas5).find((a) => a.keyframes.length === 4)];
+  assert.ok(vols.every(Boolean), 'trois voyages');
+  assert.ok(vols[0].delay >= fin(trace), 'les voyages commencent une fois l’accolade tirée');
+  for (let k = 1; k < 3; k++) assert.ok(vols[k].delay >= fin(vols[k - 1]) - 1, 'un voyage à la fois');
+  for (const v of vols) {
+    // L'exposant a suivi sa base quand les suivants ont élargi la ligne : on
+    // le lit là où il est À L'INSTANT du voyage, pas là où il s'est posé.
+    const ici = lire.valeur('x0_e0', 'translate', v.delay);
+    const passe = v.keyframes[1].value;
+    assert.ok(Math.abs(passe.x - ici.x) < 0.5 && Math.abs(passe.y - ici.y) < 0.5, 'chacun PASSE PAR l’exposant');
+    assert.ok(arrivee(v).y > p5.y + fs, 'puis descend sous l’accolade');
+  }
+  const signes = tl.nodes.filter((n) => n.id.startsWith('@fois') && anims(n.id, 'translate', pas5).length);
+  assert.equal(signes.length, 2, 'la première copie descend seule, les suivantes héritent du ×');
+  assert.ok(anims(signes[0].id, 'translate', pas5)[0].delay > vols[1].delay, 'le × naît au passage de la deuxième');
+
+  // L'exposant décompte ; le compteur fusionne une paire à la fois.
+  const echantillons = (d) => {
+    const vus = [];
+    for (let k = 0; k <= 500; k++) { const r = d.render(k / 500); if (vus[vus.length - 1] !== r) vus.push(r); }
+    return vus;
+  };
+  assert.deepEqual(echantillons(canal(tl, 'x0_e0')), ['3', '2', '1', '0'], '3 → 2 → 1 → 0');
+  assert.deepEqual(echantillons(canal(tl, 'x0_0')), ['', '5', '25', '125'], '5, puis 5 × 5, puis 25 × 5');
+
+  // ④ le produit remonte PENDANT que l'exposant disparaît ; l'accolade part avec.
+  const remontee = anims('x0_0', 'translate', pas5).find((a) => Math.abs(arrivee(a).y - p5.y) < 0.5);
+  assert.ok(remontee && remontee.delay >= fin(vols[2]) - 1, 'le produit remonte après la dernière arrivée');
+  const efface = anims('x0_e0', 'opacity', pas5).find((a) => arrivee(a) === 0);
+  assert.ok(efface.delay < remontee.delay && fin(efface) > remontee.delay,
+    'l’exposant, passé à 0, s’efface pendant la descente et jusque dans la remontée');
+  const retrait = anims(accolade.id, 'opacity', pas5).find((a) => arrivee(a) === 0);
+  assert.equal(retrait.delay, remontee.delay, 'l’accolade s’efface pendant que le produit remonte');
+  assert.ok(noeud('x0_0').w >= 3 * av - 0.01, 'le produit a la place de ses trois chiffres');
+});
+
+/**
+ * Sur la LIGNE, personne ne recouvre personne ; l'exposant posé ne recouvre ni
+ * sa base ni son voisin. Les copies et les × qui voyagent sont exclus, comme
+ * les paquets de la potence : elles se DÉTACHENT de leur nombre, c'est le
+ * geste de `meg`.
+ */
+test('★ la puissance ne superpose rien sur la ligne, et l’exposant posé a sa place', () => {
+  for (const valeurs of [LIGNE_PUISSANCE, [1, 10, 23], [115, 2]]) {
+    const { tl } = jouer('mpui', nums(valeurs), jetonsNums(valeurs));
+    assert.deepEqual(tl.warnings, [], `${valeurs} : ${tl.warnings.join(' | ')}`);
+    const lire = lecteur(tl);
+    const yLigne = lire.valeur('t0', 'translate', 0).y;
+    const hExposant = yLigne - tl.metrics.fontSize * 0.5;
+    const N = 2000;
+    for (let k = 0; k <= N; k++) {
+      const t = (tl.total * k) / N;
+      const vus = lire.visibles(t);
+      const ligne = vus.filter((j) => !/^@(copie|fois)|_e\d+$/.test(j.id) && Math.abs(j.y - yLigne) < 12);
+      const poses = vus.filter((j) => /_e\d+$/.test(j.id) && Math.abs(j.y - hExposant) < 1);
+      const surLaLigne = vus.filter((j) => !j.id.startsWith('@') && !/_e\d+$/.test(j.id) && Math.abs(j.y - yLigne) < 1);
+      const paires = [
+        ...ligne.flatMap((p, i) => ligne.slice(i + 1).map((q) => [p, q])),
+        ...poses.flatMap((p) => surLaLigne.map((q) => [p, q])),
+      ];
+      for (const [p, q] of paires) {
+        if (Math.abs(p.y - q.y) >= ((p.h + q.h) / 2) * 0.8) continue;
+        const recouvre = Math.min(p.d, q.d) - Math.max(p.g, q.g);
+        assert.ok(recouvre <= 0.5, `${valeurs}, t = ${Math.round(t)} : « ${p.texte} » (${p.id}) `
+          + `et « ${q.texte} » (${q.id}) se chevauchent de ${recouvre.toFixed(1)}`);
+      }
+    }
+  }
+});
+
+test('★ un exposant 1 se joue aussi, et la ligne rejouée est celle que la puissance déclare', () => {
+  const valeurs = [1, 10, 23];
+  const { o, apres, steps, tl } = jouer('mpui', nums(valeurs), jetonsNums(valeurs));
+  assert.deepEqual(steps.map((s) => s.caption), ['1¹ 10² 23¹', '1¹ = 1 = 1', '10² = 10 × 10 = 100', '23¹ = 23 = 23']);
+  assert.equal(tl.nodes.filter((n) => n.id.startsWith('@copie')).length, 1, 'seul 10² copie sa valeur');
+  const tokens = jetonsNums(valeurs);
+  const lignes = suivreLaLigne(tokens, steps);
+  assert.deepEqual(lignes[lignes.length - 1].ids,
+    o.sortie(nums(valeurs), apres, { ids: tokens.map((t) => t.id), cle: 'x0', langue: 'fr' }));
+});
+
+test('la puissance refuse d’afficher un produit faux', () => {
+  const faux = {
+    version: 1, tokens: jetonsNums([5, 3]),
+    steps: [
+      { id: 's0', title: 'exposants', ops: [{
+        op: 'group', at: 0, dur: 3300, targets: ['t0', 't1'],
+        exposants: [{ base: 't0', source: 't1', id: 'e0' }, { base: 't1', source: 't0', id: 'e1' }],
+      }] },
+      { id: 's1', title: 'puissance', ops: [{
+        op: 'group', at: 0, dur: 7700, targets: ['t0'], puissance: true, exposant: 'e0',
+        to: { id: 'r0', text: '126', kind: 'number' },
+      }] },
+    ],
+  };
+  assert.throws(() => compile(faux), /125/, '5 × 5 × 5 vaut 125, pas 126');
+});
+
+/**
+ * ★ **PAR LE CHEMIN DU SITE, sur la voie qui a fait écrire la puissance** :
+ *   « Donald Trump » → « Numérologie », `fl+m14+mpui+mab`.
+ */
+const VOIE_NUMEROLOGIE = '#so!m1a2!fl+m14+mpui+mab#2HuP1G8mNg3sJWhqR#2UsgadwLteDHprQ5i';
+
+test('★ par le chemin du site, la puissance est jouée — « Donald Trump » → « Numérologie »', () => {
+  const moteur = creerMoteur(CATALOGUE, { filetTemporel: false });
+  const lecture = lireLien(VOIE_NUMEROLOGIE);
+  const rejeu = moteur.rejouer(lecture);
+  assert.ok(rejeu.ok, rejeu.raison);
+  const sc = moteur.scenarioDe(rejeu.approche, {
+    saisie: lecture.saisie, langue: 'fr', registre: lecture.registre, cible: lecture.cible,
+  });
+  assert.equal(sc.avertissements, undefined, (sc.avertissements || []).join(' | '));
+  const gestes = (drapeau) => sc.steps.filter((s) => (s.ops || []).some((o) => o.op === 'group' && o[drapeau]));
+  assert.equal(gestes('exposants').length, 1, 'les onze exposants se forment en une étape');
+  assert.equal(gestes('puissance').length, 11, 'DONALDTRUMP : onze nombres, onze puissances');
+  assert.equal(gestes('puissance')[0].caption, '6⁶ = 6 × 6 × 6 × 6 × 6 × 6 = 46656');
+  assert.deepEqual(compile(sc).warnings, [], 'la scène entière compile sans animation concurrente');
+});

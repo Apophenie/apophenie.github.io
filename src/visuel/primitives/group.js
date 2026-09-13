@@ -62,6 +62,7 @@ import {
   boiteEmbrassee, ECART_TERMES, COLLE_AU_SIGNE,
 } from './helpers.js';
 import { EASE, progressionDe } from '../constants.js';
+import { planExposants, planPuissance } from './produits.js';
 import { fail } from '../errors.js';
 
 export const name = 'group';
@@ -87,6 +88,10 @@ export function plan(ctx) {
   if (ctx.op.division) { planDivision(ctx, ids); return; }
   // Le carré porte un `to` lui aussi : même raison de le reconnaître avant.
   if (ctx.op.carre) { planCarre(ctx, ids); return; }
+  // La puissance : les exposants se forment, puis chaque produit se fabrique
+  // sous son accolade (`produits.js`).
+  if (ctx.op.exposants) { planExposants(ctx, ids); return; }
+  if (ctx.op.puissance) { planPuissance(ctx, ids); return; }
 
   // L'accolade qui tient sa promesse elle-même : décompte ou nivellement.
   if (ctx.op.to !== undefined) {

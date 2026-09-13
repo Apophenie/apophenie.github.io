@@ -4127,6 +4127,15 @@ const MENTION_CARRE = bilingue('au carré', 'squared');
 const DUREE_CARRE = 5400;
 const LIB_PUISSANCE = bilingue('On élève chaque nombre au chiffre suivant',
   'Raise every number to the next digit');
+/* ★ Ce que porte l'accolade de la puissance. Entre « puissance », « pow » et
+   « ** », le mot : les deux autres sont des écritures de programmeur, que le
+   public du site ne lit pas comme une opération. */
+const MENTION_PUISSANCE = bilingue('puissance', 'power');
+/** Miroirs du découpage de `visuel/primitives/produits.js` (EXPOSANTS, PUISSANCE). */
+const dureeExposants = (n) => 300 + 1500 * n;
+const dureePuissance = (e) => 600 + 300 + 1800 * e + 1400;
+/** L'exposant écrit en exposant : `5³`. */
+const enExposant = (n) => [...String(n)].map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[Number(c)]).join('');
 const LIB_FACTORIELLE = bilingue('On prend la factorielle de chaque nombre',
   'Take the factorial of every number');
 
@@ -7231,17 +7240,67 @@ const AUTRES_MAPPEURS = [
       if (out.every((v, i) => v === valeur[i])) return null;
       return { valeur: out, traces: valeur.map((_, i) => traces[i] || []) };
     },
-    // `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors rien
-    // changé, et la ligne garde ses jetons.
-    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
-      ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
+    // ★ TOUT NOMBRE EST RÉÉCRIT, même celui que la puissance ne change pas (un
+    //   exposant 1, une base 0 ou 1) : chacun reçoit son geste, comme 1² au carré.
+    //   `apres` vaut `null` quand l'opérateur a REFUSÉ la ligne : il n'a alors
+    //   rien changé, et la ligne garde ses jetons.
+    sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((_, i) => nomToken(ctx, i)) : ctx.ids),
+    /**
+     * ★ LES EXPOSANTS D'ABORD, PUIS UN PRODUIT PAR NOMBRE.
+     *
+     * > « mettons 53 → accolade "puissance" → l'exposant monte et rétrécit pour
+     * >   former un exposant → une copie (façon meg) de la valeur passe par
+     * >   l'exposant et le décrémente puis descend au compteur sous l'accolade
+     * >   → la copie suivante fait de même mais hérite de l'opérateur "×" […]
+     * >   → quand l'exposant arrive à 1, la valeur n'est plus copiée mais
+     * >   déplacée vers l'exposant qui est décrémenté à 0 puis disparaît
+     * >   pendant que la valeur descend et forme le résultat final sous
+     * >   l'accolade → le résultat remonte pendant que l'exposant disparaît… »
+     * >   (l'autrice)
+     *
+     * ⚠️ **POURQUOI LES EXPOSANTS SE FORMENT TOUS AVANT LE PREMIER CALCUL.**
+     *   L'exposant est le premier chiffre du nombre SUIVANT, et le dernier
+     *   regarde le premier. Joué nombre après nombre, le dernier irait chercher
+     *   son exposant sur un premier nombre déjà élevé — `5` devenu `125` — et
+     *   la scène montrerait un autre calcul que celui d'`apply`, qui lit la
+     *   ligne de départ. Aucun ordre ne l'évite : la dépendance est circulaire.
+     *   Chaque copie monte donc d'abord de son chiffre et se pose en exposant ;
+     *   puis chaque nombre, sous son accolade, passe par le sien.
+     *
+     * Ce sont des modes de `group` (`visuel/primitives/produits.js`) : le
+     * premier relit les chiffres sur la ligne, le second relit l'exposant posé
+     * et refuse un produit faux. Les exposants portent un nom d'émetteur, parce
+     * qu'ils vivent d'une étape à l'autre.
+     *
+     * ★ Tous les nombres, même ceux que la puissance ne change pas : un
+     *   exposant 1 montre la base passer par lui et redescendre seule.
+     */
     steps: (avant, apres, ctx) => {
       const titre = dire(LIB_PUISSANCE, ctx.langue);
-      return avant.valeur.flatMap((v, i) => {
-        if (apres.valeur[i] === v) return [];
-        const e = premierChiffre(avant.valeur[(i + 1) % avant.valeur.length]);
-        return etapesDuProduit(ctx, i, Array.from({ length: e }, () => v), apres.valeur[i], titre);
-      });
+      const mention = dire(MENTION_PUISSANCE, ctx.langue);
+      const n = avant.valeur.length;
+      const exposant = (i) => `${ctx.cle}_e${i}`;
+      const exposants = avant.valeur.map((_, i) => premierChiffre(avant.valeur[(i + 1) % n]));
+      return [
+        etape(ctx, titre, avant.valeur.map((v, i) => `${v}${enExposant(exposants[i])}`).join(' '), enchainer([{
+          op: 'group',
+          dur: dureeExposants(n),
+          targets: ctx.ids,
+          exposants: ctx.ids.map((id, i) => ({ base: id, source: ctx.ids[(i + 1) % n], id: exposant(i) })),
+        }]), { id: `s_${ctx.cle}_px`, hold: 200 }),
+        ...avant.valeur.map((v, i) => {
+          const facteurs = Array.from({ length: exposants[i] }, () => v).join(' × ');
+          return etape(ctx, titre, `${v}${enExposant(exposants[i])} = ${facteurs} = ${apres.valeur[i]}`, enchainer([{
+            op: 'group',
+            dur: dureePuissance(exposants[i]),
+            targets: [ctx.ids[i]],
+            puissance: true,
+            exposant: exposant(i),
+            label: mention,
+            to: token(nomToken(ctx, i), apres.valeur[i], 'number'),
+          }]), { id: `s_${ctx.cle}_${i}p`, hold: 300 });
+        }),
+      ];
     },
   }),
   /* ★ **LA FACTORIELLE — `mfac`.**
