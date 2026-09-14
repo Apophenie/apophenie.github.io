@@ -26,8 +26,9 @@ import { catalogue } from '../../src/recherche/tests/_catalogue.js';
 import { CAS_ARBITRAGE } from '../../src/app/pages/arbitrage-cas.js';
 
 const m = creerMoteur(catalogue, { filetTemporel: false });
-const parts = pourcentagesDe(CURSEURS_DEFAUT);
-/* Le global tel que la page le calcule : les quatre axes, aux parts du défaut. */
+/* Le global tel que la liste et la page l'affichent : les quatre axes, pondérés
+   par les curseurs du cas (`resultat.js › scoresDeLaVoie`). */
+let parts = pourcentagesDe(CURSEURS_DEFAUT);
 const globalDe = (a) => {
   const ax = scoresParAxe(a);
   if (!ax) return null;
@@ -51,6 +52,7 @@ for (const cas of CAS_ARBITRAGE) {
   const lectures = { avant: lire(cas.avant), apres: lire(cas.apres) };
   const fouille = Math.max(lectures.avant.fouille ?? 0, lectures.apres.fouille ?? 0);
   const curseurs = cas.curseurs || CURSEURS_DEFAUT;
+  parts = pourcentagesDe(curseurs);
   const t0 = Date.now();
   const r = m.resoudre(cas.saisie, { curseurs, fouille });
   const duree = Date.now() - t0;

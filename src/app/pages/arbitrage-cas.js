@@ -105,8 +105,33 @@
  *    question a reçu sa réponse ; si elle revient, elle reviendra avec des cas
  *    remesurés.
  *
- * ★ **CE QUI RESTE OUVERT : RIEN.** La liste est vide, et la page le dit
- *   (« Aucun arbitrage en attente », `arbitrage.js`).
+ * ★ **CE QUI EST OUVERT : HUIT CAS, UNE SEULE QUESTION — LE RANG OU LE SCORE
+ *   GLOBAL ?** L'autrice a demandé à les voir (« oui, les 8 cas sur la page »).
+ *
+ *   Le moteur ne classe pas sa liste sur le « Score global » qu'affichent les
+ *   cartes. Il la classe d'abord par RANG DE CONVICTION (`score.js ›
+ *   ordreTotal` ; aux curseurs personnalisés, sa variante `ordrePondere`), puis
+ *   par son score interne (six critères, élégance, rendement). Le global, lui,
+ *   est la moyenne des quatre axes pondérée par les curseurs, sans rang. Les
+ *   deux désignent souvent la même tête, pas toujours.
+ *
+ *   Chaque cas oppose, à la 1ʳᵉ place et aux curseurs « élégance » de l'étude
+ *   v2 (`p25.200.50.150!`) :
+ *     · À GAUCHE, la voie qui serait en tête si l'on triait par le global
+ *       affiché ;
+ *     · À DROITE, la tête actuelle du moteur.
+ *   À ces curseurs la quantité est sous le défaut : le rang des séries est
+ *   replié, seules les convergences restent derrière, et c'est donc surtout le
+ *   SCORE du moteur contre le GLOBAL qui se départagent ici.
+ *
+ *   Ce qu'on arbitre, en regardant : la tête doit-elle suivre le score global
+ *   affiché, ou le classement du moteur ? Un avis « à gauche » sur ces cas dit
+ *   « trier par le global » ; un avis « à droite », « garder le rang ».
+ *
+ *   Mesurés le 14 septembre 2026 sur `47e770d` par
+ *   `.planning/banc/arbitrage-rang-ou-score.mjs`. Les huit saisies proposées
+ *   étaient toutes en désaccord ; aucune n'a été écartée. Les seize liens se
+ *   rejouent à l'identique (codes, score, axes).
  *
  * ⚠️ Les trois `todo` de moisson qui rougissent encore ne portent PAS sur ce
  *   classement-là : ils gèlent la COMPOSITION de la récolte (les trois « hope »
@@ -137,10 +162,156 @@
  *  · `curseurs` — ceux de la liste mesurée ; absents : le défaut du site.
  *  · `avant`, `apres` — liens en forme canonique d'aujourd'hui : sans `so!`,
  *    seul `sce!` s'écrit. Le banc les rejoue et les compare à la liste.
- *  · `mesure` — `{ avant, apres }` : `rangMoteur`, `rangGlobal`, `global`,
- *    `score`, `mode`, `series`, ou `{ absente: true }`, relevés par le banc.
+ *  · `mesure` — `{ commit, date, avant, apres }` : `rangMoteur`, `rangGlobal`,
+ *    `global` (pondéré par les curseurs du cas, comme la liste l'affiche),
+ *    `score`, `mode`, `series`, `axes`, ou `{ absente: true }`, relevés par le banc.
  *
  * ★ À l'écran, ce que le moteur fait aujourd'hui est à DROITE et l'autre voie à
  *   gauche, quel que soit le type de cas (`arbitrage.js › montrer`).
  */
-export const CAS_ARBITRAGE = Object.freeze([]);
+export const CAS_ARBITRAGE = Object.freeze([
+  {
+    id: "rang-ou-score-hope",
+    place: 1,
+    question: 'classement',
+    titre: "hope — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
+    saisie: "hope",
+    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
+    // à droite, la tête du moteur : `ffr2+tca+ma1+mab`
+    avant: "#sce!p25.200.50.150!ffr2+ma1+mab#3fq9KJ",
+    // à gauche, la tête au score global affiché : `tca+m14`
+    apres: "#sce!p25.200.50.150!m14#3fq9KJ",
+    mesure: {
+      commit: '47e770d',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 3, global: 752, score: 6660, mode: "GROUPEMENT", series: 1, axes: { simplicite: 877, exhaustivite: 1000, quantite: 111, coherence: 617 } },
+      apres: { rangMoteur: 2, rangGlobal: 1, global: 775, score: 6204, mode: "GROUPEMENT", series: 1, axes: { simplicite: 1000, exhaustivite: 875, quantite: 111, coherence: 830 } },
+    },
+  },
+  {
+    id: "rang-ou-score-donald-trump",
+    place: 1,
+    question: 'classement',
+    titre: "Donald Trump — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
+    saisie: "Donald Trump",
+    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
+    // à droite, la tête du moteur : `fl+tca+ma1+mab`
+    avant: "#sce!p25.200.50.150!fl+ma1+mab#2HuP1G8mNg3sJWhqR",
+    // à gauche, la tête au score global affiché : `2:fr15;fl+tca+masc+mab`
+    apres: "#sce!p25.200.50.150!2:fr15;fl+masc+mab#2HuP1G8mNg3sJWhqR",
+    mesure: {
+      commit: '47e770d',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 3, global: 788, score: 6738, mode: "GROUPEMENT", series: 2, axes: { simplicite: 877, exhaustivite: 1000, quantite: 222, coherence: 683 } },
+      apres: { rangMoteur: 4, rangGlobal: 1, global: 803, score: 5199, mode: "GROUPEMENT", series: 4, axes: { simplicite: 877, exhaustivite: 1000, quantite: 444, coherence: 650 } },
+    },
+  },
+  {
+    id: "rang-ou-score-eleonore-a-nimes",
+    place: 1,
+    question: 'classement',
+    titre: "Éléonore à Nîmes — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
+    saisie: "Éléonore à Nîmes",
+    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
+    // à droite, la tête du moteur : `fl+tca+ma1+mab`
+    avant: "#sce!p25.200.50.150!fl+ma1+mab#3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
+    // à gauche, la tête au score global affiché : `2:ffr4;fl+tca+m14+meg`
+    apres: "#sce!p25.200.50.150!2:ffr4;fl+m14+meg#3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
+    mesure: {
+      commit: '47e770d',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 3, global: 788, score: 6738, mode: "GROUPEMENT", series: 2, axes: { simplicite: 877, exhaustivite: 1000, quantite: 222, coherence: 683 } },
+      apres: { rangMoteur: 5, rangGlobal: 1, global: 856, score: 2999, mode: "GROUPEMENT", series: 6, axes: { simplicite: 935, exhaustivite: 1000, quantite: 667, coherence: 714 } },
+    },
+  },
+  {
+    id: "rang-ou-score-capitalisme",
+    place: 1,
+    question: 'classement',
+    titre: "Capitalisme — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
+    saisie: "Capitalisme",
+    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
+    // à droite, la tête du moteur : `tca+ma1+mab`
+    avant: "#sce!p25.200.50.150!ma1+mab#Hi75aotg77MXEgC",
+    // à gauche, la tête au score global affiché : `0:fr13;tca+ma1+mab`
+    apres: "#sce!p25.200.50.150!0:fr13;ma1+mab#Hi75aotg77MXEgC",
+    mesure: {
+      commit: '47e770d',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 2, global: 776, score: 6999, mode: "GROUPEMENT", series: 1, axes: { simplicite: 935, exhaustivite: 1000, quantite: 111, coherence: 675 } },
+      apres: { rangMoteur: 5, rangGlobal: 1, global: 789, score: 4696, mode: "GROUPEMENT", series: 2, axes: { simplicite: 935, exhaustivite: 1000, quantite: 222, coherence: 675 } },
+    },
+  },
+  {
+    id: "rang-ou-score-wikipedia",
+    place: 1,
+    question: 'classement',
+    titre: "Wikipedia — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
+    saisie: "Wikipedia",
+    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
+    // à droite, la tête du moteur : `tca+mt9+mab`
+    avant: "#sce!p25.200.50.150!mt9+mab#27Xv14MeSfjBN",
+    // à gauche, la tête au score global affiché : `fr17+tca+mpy+meg`
+    apres: "#sce!p25.200.50.150!fr17+mpy+meg#27Xv14MeSfjBN",
+    mesure: {
+      commit: '47e770d',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 4, global: 771, score: 6934, mode: "GROUPEMENT", series: 1, axes: { simplicite: 935, exhaustivite: 1000, quantite: 111, coherence: 663 } },
+      apres: { rangMoteur: 3, rangGlobal: 1, global: 780, score: 3179, mode: "GROUPEMENT", series: 3, axes: { simplicite: 935, exhaustivite: 1000, quantite: 333, coherence: 610 } },
+    },
+  },
+  {
+    id: "rang-ou-score-henri-prunelle",
+    place: 1,
+    question: 'classement',
+    titre: "Henri Prunelle — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
+    saisie: "Henri Prunelle",
+    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
+    // à droite, la tête du moteur : `fl+tca+msfr+mad`
+    avant: "#sce!p25.200.50.150!fl+msfr+mad#TcguSXTd7SkC7z32JAG",
+    // à gauche, la tête au score global affiché : `fl+tca+mazc+meg`
+    apres: "#sce!p25.200.50.150!fl+mazc+meg#TcguSXTd7SkC7z32JAG",
+    mesure: {
+      commit: '47e770d',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 2, global: 803, score: 7423, mode: "GROUPEMENT", series: 1, axes: { simplicite: 935, exhaustivite: 1000, quantite: 111, coherence: 753 } },
+      apres: { rangMoteur: 3, rangGlobal: 1, global: 810, score: 3033, mode: "GROUPEMENT", series: 4, axes: { simplicite: 935, exhaustivite: 962, quantite: 444, coherence: 709 } },
+    },
+  },
+  {
+    id: "rang-ou-score-numherololgeek",
+    place: 1,
+    question: 'classement',
+    titre: "numherololgeek.1000i100.fr — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
+    saisie: "numherololgeek.1000i100.fr",
+    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
+    // à droite, la tête du moteur : `nv,flt+tca+mpy+mr9,flt+tca+mpy+mr9`
+    avant: "#sce!p25.200.50.150!0:nv,2+3:flt+mpy+mr9#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
+    // à gauche, la tête au score global affiché : `2:flt;fl+tca+ma1+mab`
+    apres: "#sce!p25.200.50.150!2:flt;fl+ma1+mab#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
+    mesure: {
+      commit: '47e770d',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 4, global: 657, score: 4113, mode: "MOISSON", series: 3, axes: { simplicite: 454, exhaustivite: 889, quantite: 333, coherence: 491 } },
+      apres: { rangMoteur: 3, rangGlobal: 1, global: 762, score: 2923, mode: "GROUPEMENT", series: 3, axes: { simplicite: 877, exhaustivite: 915, quantite: 333, coherence: 683 } },
+    },
+  },
+  {
+    id: "rang-ou-score-https-hope-hope-hope-fr",
+    place: 1,
+    question: 'classement',
+    titre: "https://hope-hope-hope.fr/ — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
+    saisie: "https://hope-hope-hope.fr/",
+    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
+    // à droite, la tête du moteur : `tca+m7F+cs+prn,tca+m7F+cs+prn,tca+m7F+cs+prn`
+    avant: "#sce!p25.200.50.150!×3:m7F+cs+prn#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk",
+    // à gauche, la tête au score global affiché : `fl+tca+m14`
+    apres: "#sce!p25.200.50.150!3.5:fl+m14#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk",
+    mesure: {
+      commit: '47e770d',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 7, global: 638, score: 7694, mode: "RESONANCE", series: null, axes: { simplicite: 677, exhaustivite: 591, quantite: 111, coherence: 876 } },
+      apres: { rangMoteur: 5, rangGlobal: 1, global: 818, score: 6355, mode: "GROUPEMENT", series: 4, axes: { simplicite: 1000, exhaustivite: 873, quantite: 444, coherence: 841 } },
+    },
+  },
+]);
