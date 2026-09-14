@@ -400,6 +400,20 @@ hr.filet-double {
 .bandeau__titre { color: var(--fg); font-weight: 600; }
 .bandeau--provisoire .jauge-recherche,
 .bandeau--termine .jauge-recherche { margin-top: var(--e1); }
+/* L'ADIEU du bandeau « terminée » (`app/defilement.js`) : il pâlit, puis se
+   replie — la liste remonte en glissant au lieu de sauter. */
+.bandeau--adieu {
+  overflow: hidden;
+  opacity: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top-width: 0;
+  border-bottom-width: 0;
+  transition: opacity .3s ease, height .45s ease .3s, margin .45s ease .3s,
+    padding .45s ease .3s, border-width .45s ease .3s;
+}
+@media (prefers-reduced-motion: reduce) { .bandeau--adieu { transition: none; } }
 
 /* ───────────────────────────── Interrupteurs ─────────────────────────────── */
 

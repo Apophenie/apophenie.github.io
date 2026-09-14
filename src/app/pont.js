@@ -278,6 +278,8 @@ export function resoudre(saisie, cible, reglages = {}) {
         cible,
         ...(reglages.curseurs ? { curseurs: reglages.curseurs } : {}),
         ...(reglages.fouille === undefined ? {} : { fouille: reglages.fouille }),
+        // ★ Le repli de « Révéler » cherche sous la même borne que le travailleur.
+        ...(reglages.reveler === true ? { pourReveler: true } : {}),
       });
       return { ...r, approches: (r.approches || []).map(traduireApproche), source: 'moteur' };
     } catch (err) {

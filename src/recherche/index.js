@@ -40,7 +40,7 @@ import {
 } from './score.js';
 import {
   reglagesDeBudget, normaliserPuissance, PUISSANCE_ENUMERATION,
-  PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX,
+  PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX, BORNE_MOISSON_REVELER, CRAN_RAPIDE,
 } from '../config.js';
 import { emploieUneFicelle, elagueALaFin } from './elegance.js';
 import { indexUtiles } from './cible.js';
@@ -237,6 +237,14 @@ export const FOUILLE_QUI_CREUSE_TOUJOURS = 5;
  *  qu'aucun appelant ne le pose par mégarde dans ses options. */
 const PRECEDENT = Symbol('cranPrecedent');
 
+/** ★ Le CRAN RAPIDE (−1, `config.js › CRAN_RAPIDE`) : un symbole aussi. Il n'a
+ *  pas de lien et ne se demande pas — c'est la montée qui le pose. */
+const RAPIDE = Symbol('cranRapide');
+
+/** ★ Les LISTES PROVISOIRES D'UN TEXTE, relecture par relecture
+ *  (`deroulerTexte`) — posé par la montée, qui seule sait les réécrire. */
+const SUR_RELECTURE = Symbol('surRelecture');
+
 /** Combien d'états de cran le moteur garde pour ne pas refaire une montée. */
 const MEMO_DES_CRANS = 24;
 
@@ -255,6 +263,10 @@ export function creerMoteur(catalogue, options = {}) {
    * sans les crans inférieurs (`deroulerResolution`). C'est l'étalon du
    * « aucune baisse de qualité » : la liste cumulative doit la contenir. */
   const cumulatif = options.cumulatif !== false;
+  /* ★ **`cranRapide: false` — RÉGLAGE DE MESURE, lui aussi.** La montée part
+   * alors du cran 0, comme avant le cran rapide : c'est l'étalon du « le temps
+   * du cran 0 n'explose pas » et du bilan de ce qui entre au cran 0. */
+  const avecCranRapide = options.cranRapide !== false;
   /* ★ **`rampeDesRetouches: false` — RÉGLAGE DE MESURE AUSSI.** Il garde les
    * gardes de retouche à leurs valeurs historiques (six mots, quatre vecteurs)
    * à tous les crans : c'est l'étalon du « la rampe n'ôte rien ». */
@@ -384,14 +396,18 @@ export function creerMoteur(catalogue, options = {}) {
   function* deroulerResolution(saisieBrute, optionsResolution = {}) {
     const fouille = normaliserPuissance(optionsResolution.fouille ?? options.fouille);
     if (!cumulatif) return yield* deroulerUnCran(saisieBrute, optionsResolution);
-    if (fouille === 0) {
-      const r = yield* deroulerUnCran(saisieBrute, optionsResolution);
-      memoriserLeCran(saisieBrute, optionsResolution, 0, r);
-      return r;
-    }
-    let depart = 0;
+    /* ★ **LA MONTÉE PART DU CRAN RAPIDE (−1)** — `config.js › CRAN_RAPIDE`.
+         Le cran 0 n'est plus le premier : sa liste est l'union de sa sélection
+         et de celle du cran −1, par la même règle que les autres crans. Le cran
+         0 publié gagne donc les voies rapides qui lui manquaient, et rien n'en
+         sort (arbitrage de l'autrice). */
+    const bas = avecCranRapide ? CRAN_RAPIDE.cran : 0;
+    /* ★ Le poids d'un cran dans la jauge : celui de ses budgets, le cran rapide
+         pesant la moitié du cran 0. */
+    const poidsDu = (k) => (k < 0 ? 1 : 2 ** (k + 1));
+    let depart = bas;
     let precedent = null;
-    for (let k = fouille - 1; k >= 0; k--) {
+    for (let k = fouille - 1; k >= bas; k--) {
       const e = memoDesCrans.get(cleDuCran(saisieBrute, optionsResolution, k));
       if (e) { depart = k + 1; precedent = e; break; }
     }
@@ -407,6 +423,10 @@ export function creerMoteur(catalogue, options = {}) {
          qu'elle aura dans la liste finale, où la cumulation la garde. */
     const surListe = typeof optionsResolution.surListe === 'function' ? optionsResolution.surListe : null;
     const montrer = surListe ? (reponse, retenues, k) => {
+      // ★ Une liste VIDE ne se montre pas : sous un bandeau « provisoire », la
+      //   page dirait « aucune voie » — mesuré sur la phrase de reinfocovid,
+      //   dont le cran rapide ne trouve rien. Rien à montrer, rien d'annoncé.
+      if (!retenues.length) return;
       surListe(listeProvisoire(saisieBrute, optionsResolution, reponse, retenues, fouille),
         { cran: k, fouille });
     } : null;
@@ -415,14 +435,15 @@ export function creerMoteur(catalogue, options = {}) {
       montrer(precedent.reponse, copierEtat(precedent).retenues
         .map((a, i) => ({ ...a, suggestion: precedent.suggestions[i] })), depart - 1);
     }
-    const total = (1 << (fouille + 1)) - (1 << depart);
+    let total = 0;
+    for (let k = depart; k <= fouille; k++) total += poidsDu(k);
     let fait = 0;
     let plusHaut = 0;
     let tronque = precedent ? precedent.tronque : false;
     let tronqueTemps = false;
     let resultat = null;
     for (let k = depart; k <= fouille; k++) {
-      const poids = 1 << k;
+      const poids = poidsDu(k);
       const echelle = (a) => {
         if (!a || typeof a.fraction !== 'number') return a;
         const f = (fait + poids * Math.min(1, Math.max(0, a.fraction))) / total;
@@ -431,8 +452,17 @@ export function creerMoteur(catalogue, options = {}) {
       };
       const sous = deroulerUnCran(saisieBrute, {
         ...optionsResolution,
-        fouille: k,
+        fouille: Math.max(0, k),
+        [RAPIDE]: k < 0,
         [PRECEDENT]: precedent,
+        /* ★ **ET, POUR UN TEXTE, RELECTURE PAR RELECTURE** — dans le cran même.
+             Celles-là ne sont PAS des crans : une voie qu'elles montrent peut
+             sortir de la liste finale (arbitrage de l'autrice). Leurs liens sont
+             réécrits comme les autres, et se rejouent à l'identique. */
+        [SUR_RELECTURE]: surListe ? (reponse, retenues, detail) => {
+          surListe(listeProvisoire(saisieBrute, optionsResolution, reponse, retenues, fouille),
+            { cran: k, fouille, intra: true, ...detail });
+        } : undefined,
         surAvancement: canal ? (a) => canal(echelle(a)) : undefined,
       });
       let pas = sous.next();
@@ -458,6 +488,24 @@ export function creerMoteur(catalogue, options = {}) {
     return resultat;
   }
 
+  /**
+   * ★ **LA BORNE DE LA MOISSON D'UNE RECHERCHE** — celle qu'on demande, sinon
+   * celle de « Révéler », sinon aucune.
+   *
+   * > « Révéler sous 5 s : borne sur l'assemblage, pour Révéler SEUL. La liste
+   * >   énumérée et ses liens ne changent pas. » (l'autrice)
+   *
+   * Une borne de TRAVAIL, jamais d'horloge (§4.4) : la même saisie rend la même
+   * première voie sur toutes les machines. Le lien de cette voie est un lien
+   * ordinaire — un programme —, qui se rejoue à l'identique hors de Révéler.
+   */
+  function borneDeLaMoisson(optionsResolution) {
+    if (Number.isFinite(optionsResolution.borneAssemblage)) return optionsResolution.borneAssemblage;
+    // ★ Le cran rapide borne sa moisson comme Révéler (`config.js › CRAN_RAPIDE`).
+    if (optionsResolution[RAPIDE] === true) return CRAN_RAPIDE.borneMoisson;
+    return optionsResolution.pourReveler === true ? BORNE_MOISSON_REVELER : undefined;
+  }
+
   /** La clé d'un cran : tout ce qui décide de sa liste, et rien d'autre. */
   function cleDuCran(saisieBrute, optionsResolution, k) {
     const cbl = normaliserCible(optionsResolution.cible ?? options.cible);
@@ -466,6 +514,8 @@ export function creerMoteur(catalogue, options = {}) {
       String(saisieBrute ?? '').normalize('NFC'), cbl.nature, cbl.texte, JSON.stringify(curseurs), k,
       optionsResolution.profond === true, optionsResolution.dernierRecours !== false,
       optionsResolution.matiereDePhrase === true,
+      // ★ Une liste bornée ne sert JAMAIS de cran inférieur à une liste qui ne l'est pas.
+      borneDeLaMoisson(optionsResolution) ?? '',
     ].join('\u0000');
   }
 
@@ -587,6 +637,9 @@ export function creerMoteur(catalogue, options = {}) {
     const ponderation = ponderer(optionsResolution.curseurs ?? options.curseurs);
     const fouille = normaliserPuissance(optionsResolution.fouille ?? options.fouille);
     const budgets = reglagesDeBudget(fouille);
+    // ★ Le CRAN RAPIDE (−1) : les budgets du cran 0, le travail divisé, sans passe profonde.
+    const rapide = optionsResolution[RAPIDE] === true;
+    const diviseurDeTravail = rapide ? CRAN_RAPIDE.diviseurDeTravail : 1;
     // ★ La liste du cran inférieur (`deroulerResolution`) — `null` au cran 0.
     const precedent = optionsResolution[PRECEDENT] || null;
     // Ce que l'écran de liste doit retrouver dans TOUTE réponse, y compris les
@@ -652,9 +705,10 @@ export function creerMoteur(catalogue, options = {}) {
     //   PRIORITAIRES et ne sont PAS multipliées : le banc de mesure qui fixe un
     //   budget le fixe pour de bon, sinon deux réglages se battraient en silence.
     const budgetTotal = options.budgetTotalMs ?? budgets.budgetTotalMs;
-    const travailTotal = options.budgetTravailTotal ?? BUDGET_TRAVAIL_TOTAL * budgets.facteur;
-    const travailParFragment = BUDGET_TRAVAIL * budgets.facteur;
-    const travailDeReserve = BUDGET_TRAVAIL_RESERVE * budgets.facteur;
+    const travailTotal = options.budgetTravailTotal
+      ?? Math.floor((BUDGET_TRAVAIL_TOTAL * budgets.facteur) / diviseurDeTravail);
+    const travailParFragment = Math.floor((BUDGET_TRAVAIL * budgets.facteur) / diviseurDeTravail);
+    const travailDeReserve = Math.floor((BUDGET_TRAVAIL_RESERVE * budgets.facteur) / diviseurDeTravail);
     let cherches = 0;
     let travailRestant = travailTotal;
     let tronqueTravail = false;  // borne déterministe atteinte : reproductible
@@ -832,6 +886,9 @@ export function creerMoteur(catalogue, options = {}) {
       // ★ Ce que la rampe fait naître au-delà des gardes historiques — voir
       //   `finaliser`, la double sélection. Partagé avec la passe profonde.
       horsGardesHistoriques: new WeakSet(),
+      // ★ La BORNE DE TRAVAIL de la moisson (`assemblage.js › moissons`) —
+      //   absente au défaut : la liste du site ne la connaît pas.
+      borneAssemblage: borneDeLaMoisson(optionsResolution),
       motsRetouches: rampeDesRetouches ? budgets.motsRetouches : MAX_JETONS_RETOUCHE,
       vecteursRetouches: rampeDesRetouches ? budgets.vecteursRetouches : MAX_VECTEURS_RETOUCHES,
       // ★ Les curseurs descendent jusqu'à la réserve de qualité de
@@ -1138,7 +1195,7 @@ export function creerMoteur(catalogue, options = {}) {
     // ★ Le cran de fouille passe outre le plancher : voir `FOUILLE_QUI_CREUSE_TOUJOURS`.
     const creuserQuoiQuIlArrive = fouille >= FOUILLE_QUI_CREUSE_TOUJOURS;
     if ((compter(retenues) < voiesAvantDeCreuser || creuserQuoiQuIlArrive)
-      && !ctxAssemblage.profond && optionsResolution.dernierRecours !== false) {
+      && !ctxAssemblage.profond && optionsResolution.dernierRecours !== false && !rapide) {
       const creusees = assembler(saisie, frags, parFrag, { ...ctxAssemblage, profond: true });
       annoncerLeClassement();
       const profondes = finaliser(creusees);
@@ -1482,6 +1539,7 @@ export function creerMoteur(catalogue, options = {}) {
               trouvees.push(a);
             }
           }
+          montrerRelecture(trouvees, k, profond);
           continue;
         }
         const sous = deroulerUnCran(saisieBrute, {
@@ -1512,10 +1570,82 @@ export function creerMoteur(catalogue, options = {}) {
           versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
           trouvees.push(a);
         }
+        montrerRelecture(trouvees, k, profond);
       }
       return trouvees;
     }
+    /* ★ **LA COUPE D'UNE LISTE DE TEXTE** — l'ordre du texte, la double coupe
+         aux places du cran, l'union avec le cran inférieur, les titres et les
+         rangs. Une seule fonction pour la liste finale et pour les listes
+         provisoires d'une relecture : elles ne peuvent pas se classer
+         autrement. Les provisoires la reçoivent sur des COPIES (`copies`) — la
+         liste finale se coupe plus tard sur les mêmes voies, et `nommer` écrit
+         sur ce qu'on lui donne. */
+    const ordreDeLaListe = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
+    const exactitude = ordreDExactitude(ponderation.curseurs);
+    // ★ La règle d'ordre passe AVANT tout le reste — voir `score.js › ordreDExactitude`.
+    const ordreDuTexte = (a, b) => exactitude(a, b) || ordreDeLaListe(a, b);
+    const placesDuTexte = reglagesDeBudget(fouille).voies;
+    const precedent = optionsResolution[PRECEDENT] || null;
+    const cleDuTexte = (a) => ecrire({
+      saisie, cible: mot, relecture: a.relecture.code, registre: 'scenique',
+      fragments: (a.lien || {}).fragments, retouches: (a.lien || {}).retouches, liaison: (a.lien || {}).liaison,
+    });
+    function couper(trouvees, copies) {
+      const triees = trouvees.slice().sort(ordreDuTexte);
+      /* ★ **LA DOUBLE COUPE** (`finaliser`, la double sélection) : les places
+           prises parmi les voies des anciennes gardes — la liste d'avant la
+           rampe —, réunies à celles prises parmi toutes. */
+      let retenues = triees.filter((a) => auxAnciennesGardes.has(a)).slice(0, placesDuTexte);
+      const deLaRampe = triees.slice(0, placesDuTexte).filter((a) => !retenues.includes(a));
+      if (deLaRampe.length) retenues = retenues.concat(deLaRampe).sort(ordreDuTexte);
+      if (copies) retenues = retenues.map((a) => ({ ...a }));
+      /* ★ **L'UNION AVEC LE CRAN INFÉRIEUR, POUR UN TEXTE AUSSI**
+           (`deroulerResolution`) : la liste de ce cran, telle qu'il la coupe seul,
+           plus les voies du cran inférieur qu'elle n'a pas — segments compris,
+           puisque c'est la voie composée qui est reprise. Leurs liens sont
+           réécrits au cran courant. */
+      if (precedent) {
+        const vus = new Set(retenues.map(cleDuTexte));
+        const reprises = copierEtat(precedent).retenues.filter((a) => !vus.has(cleDuTexte(a)));
+        for (const a of reprises) {
+          const rel = relectures.find((r) => r.code === a.relecture.code);
+          if (!rel) throw new Error(`recherche cumulative : la relecture ${a.relecture.code} a disparu d'un cran à l'autre`);
+          relierAuTexte(a, rel, saisie, ponderation.curseurs, fouille);
+        }
+        if (reprises.length) retenues = retenues.concat(reprises).sort(ordreDuTexte);
+      }
+      nommer(retenues);
+      retenues.forEach((a, i) => { a.rang = i + 1; });
+      return retenues;
+    }
+    /* ★ **LES LISTES PROVISOIRES D'UN TEXTE, RELECTURE PAR RELECTURE.**
+         > « La liste s'enrichit à chaque relecture terminée, sous le bandeau
+         >   provisoire. Une voie affichée peut sortir de la liste finale, et son
+         >   lien reste valide. » (l'autrice)
+         Une liste par relecture qui APPORTE : rien n'est montré tant qu'aucune
+         voie n'est trouvée, ni deux fois de suite la même liste. Pendant la
+         passe profonde, la liste montrée garde les voies du premier balayage —
+         la passe profonde repart de zéro, et la liste ne doit pas rétrécir sous
+         les yeux avant d'avoir de quoi grandir. */
+    const surRelecture = typeof optionsResolution[SUR_RELECTURE] === 'function'
+      ? optionsResolution[SUR_RELECTURE] : null;
+    let premierBalayage = [];
+    let dejaMontrees = 0;
+    function montrerRelecture(trouvees, k, profond) {
+      if (!surRelecture) return;
+      let union = trouvees;
+      if (profond && premierBalayage.length) {
+        const vues = new Set(trouvees.map((a) => a.urlScenique));
+        union = trouvees.concat(premierBalayage.filter((a) => !vues.has(a.urlScenique)));
+      }
+      if (!union.length || union.length === dejaMontrees) return;
+      dejaMontrees = union.length;
+      surRelecture({ ...base, tronque, tronqueTemps }, couper(union, true),
+        { relecture: relectures[k].code, balayage: profond ? 'profond' : 'premier' });
+    }
     let approches = yield* balayer(false);
+    premierBalayage = approches;
     /* ★ **LE DERNIER RECOURS D'UN TEXTE — quand AUCUNE relecture n'a rien
          rendu.** « Si des solutions courtes et élégantes sont trouvées, pas
          besoin de chercher les options longues et bancales, mais si rien n'est
@@ -1530,43 +1660,12 @@ export function creerMoteur(catalogue, options = {}) {
          qu'une voie au lieu de six. */
     // ★ Comptées sur les voies des ANCIENNES gardes : la rampe ne décide pas de creuser.
     const exactes = approches.filter((a) => auxAnciennesGardes.has(a) && !ometLaPonctuation(a)).length;
-    if (exactes < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS) {
+    // ★ Le cran rapide (−1) ne creuse jamais : c'est tout ce qui le distingue d'un texte au cran 0.
+    if (optionsResolution[RAPIDE] !== true
+      && (exactes < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS)) {
       approches = yield* balayer(true);
     }
-    const ordreDeLaListe = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
-    const exactitude = ordreDExactitude(ponderation.curseurs);
-    // ★ La règle d'ordre passe AVANT tout le reste — voir `score.js › ordreDExactitude`.
-    const ordreDuTexte = (a, b) => exactitude(a, b) || ordreDeLaListe(a, b);
-    approches.sort(ordreDuTexte);
-    /* ★ **LA DOUBLE COUPE** (`finaliser`, la double sélection) : les places
-         prises parmi les voies des anciennes gardes — la liste d'avant la
-         rampe —, réunies à celles prises parmi toutes. */
-    const placesDuTexte = reglagesDeBudget(fouille).voies;
-    let retenues = approches.filter((a) => auxAnciennesGardes.has(a)).slice(0, placesDuTexte);
-    const deLaRampe = approches.slice(0, placesDuTexte).filter((a) => !retenues.includes(a));
-    if (deLaRampe.length) retenues = retenues.concat(deLaRampe).sort(ordreDuTexte);
-    /* ★ **L'UNION AVEC LE CRAN INFÉRIEUR, POUR UN TEXTE AUSSI**
-         (`deroulerResolution`) : la liste de ce cran, telle qu'il la coupe seul,
-         plus les voies du cran inférieur qu'elle n'a pas — segments compris,
-         puisque c'est la voie composée qui est reprise. Leurs liens sont
-         réécrits au cran courant. */
-    const precedent = optionsResolution[PRECEDENT] || null;
-    if (precedent) {
-      const cleDuTexte = (a) => ecrire({
-        saisie, cible: mot, relecture: a.relecture.code, registre: 'scenique',
-        fragments: (a.lien || {}).fragments, retouches: (a.lien || {}).retouches, liaison: (a.lien || {}).liaison,
-      });
-      const vus = new Set(retenues.map(cleDuTexte));
-      const reprises = copierEtat(precedent).retenues.filter((a) => !vus.has(cleDuTexte(a)));
-      for (const a of reprises) {
-        const rel = relectures.find((r) => r.code === a.relecture.code);
-        if (!rel) throw new Error(`recherche cumulative : la relecture ${a.relecture.code} a disparu d'un cran à l'autre`);
-        relierAuTexte(a, rel, saisie, ponderation.curseurs, fouille);
-      }
-      if (reprises.length) retenues = retenues.concat(reprises).sort(ordreDuTexte);
-    }
-    nommer(retenues);
-    retenues.forEach((a, i) => { a.rang = i + 1; });
+    const retenues = couper(approches, false);
     const resultat = {
       ...base,
       approches: retenues,
@@ -2748,6 +2847,8 @@ export function creerCanal(moteur, poster) {
     // tait garde le barème et le budget du site.
     ...(message.curseurs ? { curseurs: message.curseurs } : {}),
     ...(message.fouille === undefined ? {} : { fouille: message.fouille }),
+    // ★ « Révéler » : la première voie seule, sous la borne de la moisson.
+    ...(message.reveler === true ? { pourReveler: true } : {}),
   });
   return {
     get generation() { return generation; },
@@ -2786,7 +2887,12 @@ export function creerCanal(moteur, poster) {
           ...(message.provisoires ? {
             surListe: (liste, info) => {
               if (generation !== mienne) return;
-              envoyer({ type: 'provisoire', generation: mienne, cran: info.cran, ...serialisable(liste) });
+              envoyer({
+                type: 'provisoire', generation: mienne, cran: info.cran,
+                // ★ Une liste d'une RELECTURE, dans le cran : la page le dit autrement.
+                ...(info.intra ? { intra: true, relecture: info.relecture } : {}),
+                ...serialisable(liste),
+              });
             },
           } : {}),
         });

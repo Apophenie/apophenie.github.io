@@ -391,6 +391,11 @@ export const en = {
       titre: 'Search in progress — provisional ranking',
       texte: 'These are the paths already found with dig ×{facteur}. Dig ×{demande} is still '
         + 'running: it may add paths and change their order. Links stay valid.',
+      texteRapide: 'These are the first paths, found by a quick search. Dig ×{demande} is still '
+        + 'running: it may add paths and change their order. Links stay valid.',
+      texteEnCours: 'These are the paths found so far. The search goes on reading by reading, '
+        + 'and the final list may add some, drop some and change their order. Links stay valid.',
+      completReclasse: 'The list is complete for dig ×{demande}. Some paths shown along the way may have given up their place.',
       termine: 'Search complete — final ranking.',
       complet: 'The list is complete for dig ×{demande}; every path shown along the way is still in it.',
     },

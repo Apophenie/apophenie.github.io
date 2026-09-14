@@ -533,6 +533,57 @@ export const PUISSANCE_ACCUEIL = 0;      // ×1, le budget historique
 export const PUISSANCE_ENUMERATION = 2;  // ×4, l'ouverture de l'énumération
 
 /**
+ * ★ **LA BORNE DE LA MOISSON DE « RÉVÉLER »** — en travail pesé, jamais en
+ * temps (`assemblage.js › moissons`, `recherche/index.js › borneDeLaMoisson`).
+ *
+ * > « Révéler sous 5 s : borne sur l'assemblage, pour Révéler SEUL. La liste
+ * >   énumérée et ses liens ne changent pas. Seule la première voie ouverte
+ * >   par Révéler peut être un peu moins bonne sur les saisies longues. »
+ * >   (l'autrice)
+ *
+ * MESURÉ, machine libre, cran 0 : sur une phrase de 113 signes la moisson
+ * dépense 4,5 s à énumérer les vecteurs de ses mots un par un. Au-delà de la
+ * borne, un mot garde les chemins de la recherche de fragments et n'en énumère
+ * plus d'autres.
+ *
+ * ★ **POURQUOI 320 000, ET PAS UN CHIFFRE ROND D'À CÔTÉ.** Deux transitions
+ *   mesurées encadrent la valeur :
+ *   · `hope-hope-hope.fr` perd sa tête (7 843 → 3 058) dès que son troisième
+ *     « hope » n'énumère plus — il commence à 294 490 ;
+ *   · « Reinfocovid, désinformation garantie » reste au-dessus de 5 s tant que
+ *     « désinformation » énumère — il commence à 356 514.
+ *   Entre les deux, sur les vingt-huit saisies du banc (`.planning/banc/
+ *   progressif-banc.mjs`), une seule tête change.
+ */
+export const BORNE_MOISSON_REVELER = 320000;
+
+/**
+ * ★ **LE CRAN RAPIDE (−1) — la liste qui se montre en premier.**
+ *
+ * > « Afficher les premiers résultats en 1 à 5 s même très bancals, et
+ * >   améliorer au fur et à mesure, donc un cran "−1" priorité vitesse au
+ * >   dépend de la qualité. » (l'autrice)
+ *
+ * Il est CUMULATIF comme les autres : −1 ⊂ 0 ⊂ 1…, et le cran 0 publié gagne
+ * les voies du cran −1 qui lui manquent (arbitrage de l'autrice). Il n'a pas de
+ * lien à lui : ce n'est jamais un réglage qu'on demande, c'est l'étape par
+ * laquelle toute recherche commence (`recherche/index.js › deroulerResolution`).
+ *
+ * Ce qu'il coupe, et rien d'autre — ses places, son quota et sa sélection sont
+ * ceux du cran 0 :
+ *   · `diviseurDeTravail` — les trois budgets de travail de la recherche de
+ *     fragments divisés d'autant (entiers : 250 000, 105 000, 10 000) ;
+ *   · pas de passe profonde, ni pour un chiffre ni pour un texte ;
+ *   · `borneMoisson` — la borne de la moisson, en travail pesé
+ *     (`assemblage.js › moissons`).
+ */
+export const CRAN_RAPIDE = Object.freeze({
+  cran: -1,
+  diviseurDeTravail: 4,
+  borneMoisson: BORNE_MOISSON_REVELER,
+});
+
+/**
  * Un cran, ramené à un entier de [0, PUISSANCE_DE_FOUILLE_MAX].
  * Ce qui n'est pas un nombre vaut le défaut : un réglage absent n'est pas un
  * réglage à zéro par hasard, c'est un réglage qu'on n'a pas touché — et zéro se
