@@ -36,7 +36,6 @@ setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
  * @type {Record<string, string>}
  */
 const A_TRAITER = {
-  mpui: 'puissance : l’accolade s’efface pendant que le produit remonte',
   cmo: 'fraction : l’accolade s’efface pendant que le quotient remonte',
   cmod: 'fraction : l’accolade s’efface pendant que le quotient remonte',
   cme: 'fraction : l’accolade s’efface pendant que le quotient remonte',

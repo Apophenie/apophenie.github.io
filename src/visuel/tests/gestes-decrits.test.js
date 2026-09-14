@@ -779,7 +779,9 @@ test('★ la puissance se joue dans l’ordre décrit : exposant formé, copies 
   assert.ok(efface.delay < remontee.delay && fin(efface) > remontee.delay,
     'l’exposant, passé à 0, s’efface pendant la descente et jusque dans la remontée');
   const retrait = anims(accolade.id, 'opacity', pas5).find((a) => arrivee(a) === 0);
-  assert.equal(retrait.delay, remontee.delay, 'l’accolade s’efface pendant que le produit remonte');
+  // ★ La fin en deux temps, commune à tout geste à accolade : le produit se pose,
+  //   PUIS l'accolade s'efface (`helpers.js › finirSousAccolade`).
+  assert.ok(retrait.delay >= fin(remontee) - 1, 'l’accolade ne s’efface qu’APRÈS la remontée du produit');
   assert.ok(noeud('x0_0').w >= 3 * av - 0.01, 'le produit a la place de ses trois chiffres');
 });
 
