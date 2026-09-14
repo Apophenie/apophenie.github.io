@@ -36,10 +36,6 @@ setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
  * @type {Record<string, string>}
  */
 const A_TRAITER = {
-  fart: 'retraits grammaticaux : leur fin est écrite à la main, hors de `retirerAccolade`',
-  fprp: 'retraits grammaticaux : leur fin est écrite à la main, hors de `retirerAccolade`',
-  fcnj: 'retraits grammaticaux : leur fin est écrite à la main, hors de `retirerAccolade`',
-  faux: 'retraits grammaticaux : leur fin est écrite à la main, hors de `retirerAccolade`',
   mdiv: 'division : l’accolade s’efface pendant que le compte remonte',
   mdvq: 'division : l’accolade s’efface pendant que le compte remonte',
   mdvr: 'division : l’accolade s’efface pendant que le compte remonte',

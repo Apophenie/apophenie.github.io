@@ -269,9 +269,11 @@ function etapeRetrait(op) {
          animations concurrentes de `translate` sur les mêmes jetons. Il n'y a
          d'ailleurs rien à resserrer : les lettres d'un mot sont déjà jointes.
 
-       Le retrait est alors un seul temps (`regroup: true`) : les mots
-       s'effacent où ils sont, la ligne se referme, les accolades s'en vont
-       avec eux. */
+       ★ **LE RETRAIT FINIT EN DEUX TEMPS**, comme tout geste à accolade
+         (`commun.js › retirerAccolade`) : les mots s'effacent où ils sont,
+         PUIS les accolades s'en vont, et la ligne se referme en même temps
+         qu'elles. Elles s'effaçaient pendant la fermeture de la ligne, avant
+         même que le dernier mot soit parti. */
     if (op.mentionDuRejet) {
       const nom = dire(op.mentionDuRejet, ctx.langue);
       const zones = [];
@@ -281,8 +283,9 @@ function etapeRetrait(op) {
         if (derniere && derniere.fin === i - 1) { derniere.ids.push(id); derniere.fin = i; }
         else zones.push({ ids: [id], fin: i });
       });
-      const POSE = 1300;      // le trait se tire, le nom se lit
-      const RETRAIT = 2000;   // les mots s'effacent, la ligne se referme
+      const POSE = 1300;        // le trait se tire, le nom se lit
+      const EFFACEMENT = 1400;  // les mots s'effacent, sur place
+      const FERMETURE = 900;    // PUIS les accolades s'en vont et la ligne se referme
       return [etape(ctx, titre, regle, [
         ...zones.map((z) => ({
           op: 'group',
@@ -292,9 +295,10 @@ function etapeRetrait(op) {
           promet: false,
           at: 0,
           dur: POSE,
-          fadeAt: POSE + RETRAIT - 300,
+          fadeAt: POSE + EFFACEMENT,
         })),
-        { op: 'drop', targets: perdus, mode: 'erase', regroup: true, at: POSE, dur: RETRAIT },
+        { op: 'drop', targets: perdus, mode: 'erase', regroup: false, at: POSE, dur: EFFACEMENT },
+        { op: 'move', at: POSE + EFFACEMENT, dur: FERMETURE },
       ], { id: `s_${ctx.cle}_0`, hold: 300 })];
     }
 
