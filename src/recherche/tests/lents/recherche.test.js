@@ -1209,6 +1209,51 @@ test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de 
   assert.ok(fr.chemin.etats.at(-1).valeur.toString().includes('6'), 'et il rapporte du 6');
 });
 
+/* ⚠️ **DÉFAUT CONNU — `todo`, en attendant le feu vert d'un correctif.**
+
+   « Les deux sont tellement bien […] celle que tu veux en 1ᵉʳ résultat, mais
+   l'autre doit être en 3ᵉ » (l'autrice). La 1ʳᵉ est tenue (`fl+m14`) ; l'autre,
+   la voie groupée (#sce!0+2+4:m14,1+3:mtc+cs,6:m7+cs), SE REJOUE mais n'est plus
+   PRODUITE, à aucun cran de −1 à 2.
+
+   Bissecté : absente depuis 996d5b3, « les vingt-cinq césars sont explorés ».
+   Retirer les 23 césars sans nom du catalogue la rend, sur ce commit, à la
+   2ᵈ place (×5, 4 251) — et sur `main`, à la 1ʳᵉ. Les césars ne la battent pas :
+   leurs variantes OCCUPENT les fenêtres dont la moisson a besoin (mesuré par
+   sonde dans `assemblage.js`, cran 0) :
+
+    1. `candidatsDePortee` demande au plus 20 vecteurs bruts (MAX_CANDIDATS_PORTEE
+       × 2) AVANT d'écarter ficelles et chemins sans 6. Sur « hope », les césars
+       y entrent à zéro 6 (`fr23+masc+mdc3`…) et `m14` (4 six, 18ᵉ sans eux)
+       sort de la fenêtre ;
+    2. `retenirLesCandidats` garde 10 programmes par portée, du plus fourni au
+       moins : sur « fr », dix programmes à DEUX 6 (`mpy+mr9` et neuf césars) —
+       plus aucun à un seul. La variante alignée sur `m14` récolte alors seize 6
+       pour quinze montrés, et tombe comme surnuméraire ;
+    3. `uniformiserLesProgrammes` ne tire ses étalons que des programmes de la
+       moisson SOBRE : dès qu'elle ne porte plus `m14` sur un « hope », la
+       variante groupée n'est même pas essayée.
+
+   Lever un seul verrou ne suffit pas, et les prototypes mesurés (fenêtre ×4,
+   plafond des bruts, un siège par palier de 6, étalons partagés) déplacent tous
+   la liste de hope sans rendre la voie : le correctif est à arbitrer. */
+test('★ moisson — la voie groupée de `hope-hope-hope.fr` est produite, 3ᵉ au cran 0', { todo: 'défaut : absente depuis 996d5b3 — les césars sans nom saturent les fenêtres de candidats de portée' }, () => {
+  const moteur = creerMoteur(catalogue, { filetTemporel: false });
+  const programme = (p) => p.chemin.ops.map((o) => o.code).filter((c) => c !== 'tca').join('+');
+  const groupee = (a) => {
+    const parts = a.parts || [];
+    return parts.filter((p) => p.fragment.texte === 'hope' && programme(p) === 'm14').length === 3
+      && parts.filter((p) => p.fragment.texte === '-' && /^mtc(\+cs)?$/.test(programme(p))).length === 2
+      && parts.some((p) => p.fragment.texte === 'fr');
+  };
+  for (const fouille of [0, 1, 2]) {
+    const r = moteur.resoudre('hope-hope-hope.fr', { fouille });
+    const i = r.approches.findIndex(groupee);
+    assert.ok(i >= 0, `cran ${fouille} : la voie groupée est absente des ${r.approches.length} voies`);
+    if (fouille === 0) assert.equal(i + 1, 3, `cran 0 : la voie groupée est ${i + 1}ᵉ — ${r.approches[i].codes}`);
+  }
+});
+
 /**
  * ★ « Si en rajoutant https:// devant tu arrives à 666 de plus, ça donnerait
  * 6 × 666, ce serait l'apothéose ! » — l'auteur. Le schéma en donne exactement
