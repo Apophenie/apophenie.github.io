@@ -589,10 +589,11 @@ test('★ le carré se joue dans l’ordre de l’autrice : accolade, double sor
   assert.ok(remontee && remontee.delay > P, 'le résultat remonte sur la ligne principale');
 
   // ⑥ … PUIS l'accolade disparaît, et l'espace se réajuste.
-  // ★ Le TRACÉ n'embrasse que ce qui est encore là : l'expression quitte la ligne
-  //   en descendant, et il s'en va avec elle. « au carré » attend la fin.
+  // ★ L'expression descend d'un bloc SOUS la pointe : elle ne quitte pas
+  //   l'accolade (l'autrice). Le tracé reste jusqu'à la remontée du résultat,
+  //   PUIS s'efface avec « au carré ».
   const retraitTrace = anims(accolade.id, 'opacity').find((a) => arrivee(a) === 0);
-  assert.ok(retraitTrace && Math.abs(retraitTrace.delay - D) < 1, 'le tracé s’en va quand l’expression quitte la ligne');
+  assert.ok(retraitTrace && retraitTrace.delay >= fin(remontee) - 1, 'le tracé reste jusqu’à la remontée du résultat');
   for (const n of suiveurs) {
     const retrait = anims(n.id, 'opacity').find((a) => arrivee(a) === 0);
     assert.ok(retrait, `« ${n.id} » se retire`);

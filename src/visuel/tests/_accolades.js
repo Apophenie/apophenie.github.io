@@ -49,6 +49,17 @@
  * commence après le premier de ces départs et avant la fin de l'action. Un
  * jeton du milieu qui part ne change pas l'étendue : rien n'est exigé.
  *
+ * ★ **DESCENDRE SOUS LA POINTE N'EST PAS QUITTER.**
+ *
+ * « N'embrasse que ce qui est encore là » vise ce qui QUITTE l'accolade
+ * (l'autrice). Une expression qui descend D'UN BLOC sous sa pointe — le
+ * « 115 × 115 » du carré — ne la quitte pas : le tracé RESTE. On la
+ * reconnaît sur la timeline : plusieurs jetons partent au même instant, du
+ * même déplacement, et arrivent plus bas que le tracé. Ceux-là ne comptent pas
+ * comme partis, et le tracé ne doit ni se resserrer ni s'effacer pendant leur
+ * descente. Des opérandes qui descendent UN PAR UN au compteur — ceux d'une
+ * somme — la quittent, eux.
+ *
  * **Le resserrement** : le départ des déplacements horizontaux des jetons de la
  * ligne de sortie qui durent encore à la fin de l'action. Un élargissement
  * fini avant la fin de l'action — l'espace qui s'ouvre au début du carré — n'en
@@ -164,7 +175,35 @@ export function finsDesAccolades(tl, lignes) {
           return d0.length ? Math.min(...d0.map(debut)) : null;
         };
         const limite = tEff === null ? tAction : Math.min(tEff, tAction);
-        const partis = couverts.filter((id) => !sortie.has(id))
+        // Une descente D'UN BLOC sous la pointe : même instant, même déplacement,
+        // plusieurs jetons, et une arrivée plus basse que le tracé.
+        const blocDe = (id) => {
+          const yLigne = lire.valeur(id, 'translate', tTire).y;
+          const a = anims.find((x) => x.id === id && x.prop === 'translate' && x.delay >= tTire - TOLERANCE_MS
+            && arrivee(x).y > yLigne + 1);
+          if (!a || !(arrivee(a).y > base.y)) return null;
+          const dx = arrivee(a).x - a.keyframes[0].value.x;
+          const dy = arrivee(a).y - a.keyframes[0].value.y;
+          const freres = anims.filter((x) => x.id !== id && x.prop === 'translate' && texte(x.id)
+            && Math.abs(x.delay - a.delay) < 1
+            && Math.abs((arrivee(x).x - x.keyframes[0].value.x) - dx) < 1
+            && Math.abs((arrivee(x).y - x.keyframes[0].value.y) - dy) < 1);
+          return freres.length ? a : null;
+        };
+        const descentes = couverts.filter((id) => !sortie.has(id)).map((id) => blocDe(id)).filter(Boolean);
+        for (const a of descentes) {
+          const bouge = tl.discrete.some((r) => r.id === acc.id && r.channel === 'd'
+            && r.at >= a.delay - 50 && r.at < a.delay + a.duration)
+            || tl.anims.some((x) => x.id === acc.id && x.prop === 'opacity' && arrivee(x) === 0
+              && x.delay >= a.delay - 50 && x.delay < a.delay + a.duration);
+          if (bouge) {
+            suiviManquant = `le tracé s’efface ou se resserre à ${Math.round(a.delay - t0)} ms, alors que l’expression `
+              + 'descend d’un bloc SOUS sa pointe : elle ne quitte pas l’accolade';
+          }
+        }
+        if (suiviManquant) break;
+        const enBloc = new Set(couverts.filter((id) => blocDe(id)));
+        const partis = couverts.filter((id) => !sortie.has(id) && !enBloc.has(id))
           .map((id) => ({ id, t: departDe(id) }))
           .filter((x) => x.t !== null && x.t < limite - TOLERANCE_MS);
         if (!partis.length) continue;

@@ -716,10 +716,10 @@ function planCarre(ctx, ids) {
   const ancre = exigerPoint(ctx, { x: boite ? boite.cx : NaN, y: acc.resultat.y },
     'le point, sous l’accolade, où le produit se lit', to.id);
   const ligneY = posN.y;
-  // ★ « N'embrasse que ce qui est encore là » : l'expression quitte la ligne tout
-  //   entière, et le tracé s'en va pendant qu'elle descend. « au carré » reste,
-  //   et attend la fin, comme le symbole d'une somme.
-  quitterLAccolade(ctx, membres, { at: t4, dur: d('DESCENTE') });
+  // ★ L'expression DESCEND D'UN BLOC SOUS LA POINTE : elle ne quitte pas
+  //   l'accolade. « N'embrasse que ce qui est encore là » vise ce qui la QUITTE
+  //   (l'autrice) ; le tracé reste donc jusqu'à la remontée du résultat, et la
+  //   fin se fait en deux temps, comme le carré qu'elle avait validé.
   for (const id of membres) {
     const p = ctx.scene.pos(id);
     ctx.anim({ id, prop: 'translate', to: { x: p.x, y: ancre.y }, at: t4, dur: d('DESCENTE'), ease: EASE.move });
@@ -751,7 +751,7 @@ function planCarre(ctx, ids) {
   for (const id of membres) ctx.scene.kill(id, ctx.where);
   ctx.scene.enterFlow(to.id, rang, ctx.where);
   ctx.reflow({ at: t6, dur: d('RETRAIT'), ease: EASE.move });
-  // Ce qui reste de l'accolade — la légende, le tracé s'il n'est pas déjà parti — s'éteint.
+  // L'accolade — son tracé et « au carré » — s'éteint.
   for (const id of acc.ids) {
     if (ctx.scene.get(id).data && ctx.scene.get(id).data.retiree) continue;
     ctx.anim({ id, prop: 'opacity', to: 0, at: t6, dur: d('RETRAIT') * 0.6 });
