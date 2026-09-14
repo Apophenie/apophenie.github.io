@@ -8,6 +8,7 @@
 
 import {
   tracerAccolade, tokenSpec, numberOf, espacementDe, exigerPoint, suivreLesAccolades,
+  reserverLaPlace, occuperLaPlace, rangDansLaPlace, finirSousAccolade,
 } from './helpers.js';
 import { EASE, CAMERA_ID, progressionDe } from '../constants.js';
 import { fail } from '../errors.js';
@@ -334,7 +335,7 @@ export function planPuissance(ctx, ids) {
   });
   // À 0, il s'efface — pendant que la valeur descend, et jusqu'à la remontée.
   const tZero = passages[passages.length - 1];
-  ctx.anim({ id: idE, prop: 'opacity', to: 0, at: tZero, dur: Math.max(1, t3 + tFin * 0.5 - tZero) });
+  ctx.anim({ id: idE, prop: 'opacity', to: 0, at: tZero, dur: Math.max(1, t3 + tFin * 0.55 - tZero) });
 
   // Le compteur fusionne avec chaque arrivée : une paire à la fois.
   ctx.discrete({
@@ -356,16 +357,18 @@ export function planPuissance(ctx, ids) {
   });
 
   // --- ⑤ le produit remonte, l'écart est rendu, l'accolade s'efface --------
+  // ★ Le produit remonte dans la place gardée de la base — l'exposant s'efface
+  //   pendant ce temps, comme l'autrice l'a décrit —, PUIS l'accolade s'efface
+  //   et la ligne se referme, écart de l'exposant rendu (`finirSousAccolade`).
+  const garde = reserverLaPlace(ctx, [idB]);
   ctx.scene.kill(idB, ctx.where);
   ctx.scene.kill(idE, ctx.where);
-  ctx.scene.enterFlow(to.id, rang, ctx.where);
+  ctx.scene.enterFlow(to.id, garde ? rangDansLaPlace(ctx, garde) : rang, ctx.where);
+  occuperLaPlace(ctx, garde, [to.id]);
+  const tMonte = tFin * 0.55;
+  ctx.reflow({ at: t3, dur: Math.max(1, tMonte), ease: EASE.move });
   if (voisin && voisin.alive) voisin.gapBefore = ecart0;
-  ctx.reflow({ at: t3, dur: Math.max(1, tFin), ease: EASE.move });
-  ctx.scene.poserAccolade(acc.id, [to.id]);
-  suivreLesAccolades(ctx, { at: t3, dur: Math.max(1, tFin) });
-  for (const id of acc.ids) {
-    ctx.anim({ id, prop: 'opacity', to: 0, at: t3, dur: Math.max(1, tFin * 0.5) });
-  }
+  finirSousAccolade(ctx, { at: t3 + tMonte, dur: Math.max(1, tFin - tMonte) });
 }
 
 /**

@@ -94,6 +94,7 @@
 
 import {
   tokenSpec, numberOf, espacementDe, tracerAccolade, suivreLesAccolades,
+  reserverLaPlace, occuperLaPlace, rangDansLaPlace, finirSousAccolade,
 } from './helpers.js';
 import { filetD } from '../layout.js';
 import { EASE } from '../constants.js';
@@ -766,7 +767,8 @@ export function plan(ctx) {
      chiffres montent, et l'écart qu'elle laissait se referme de lui-même. */
   const tEffacement = ms(TEMPO.EFFACEMENT);
   const tDescente = ms(TEMPO.DESCENTE);
-  const aEffacer = [idVert, idHoriz, ...colonnesA, idB, ...decimalesA, ...accolade.ids];
+  // L'accolade n'en est plus : elle s'efface APRÈS que le quotient a pris sa place.
+  const aEffacer = [idVert, idHoriz, ...colonnesA, idB, ...decimalesA];
   if (idVirgA) aEffacer.push(idVirgA);
   // Sans partie entière écrite (`1 ÷ 2` sans zéro initial), la virgule n'a rien
   // entre quoi se perdre : elle s'en va avec la potence.
@@ -787,13 +789,18 @@ export function plan(ctx) {
        se voyait pas tant que la division était le dernier nombre de la ligne —
        et se serait vu au premier `7 135`. */
   const rang = ctx.scene.flowIndex(idA);
+  // ★ LA PLACE DE « A B » EST GARDÉE pendant que le quotient la prend : les
+  //   voisins ne reviennent qu'une fois l'accolade effacée.
+  const garde = reserverLaPlace(ctx, [idA, idB, idCale]);
   for (const id of [...aEffacer, idA, idCale]) {
     if (ctx.scene.get(id).alive) ctx.scene.kill(id, ctx.where);
   }
   if (virguleEnChemin) ctx.scene.kill(idVirgQ, ctx.where);
+  const rang0 = garde ? rangDansLaPlace(ctx, garde) : rang;
   chiffres.forEach((id, i) => {
-    ctx.scene.enterFlow(id, rang >= 0 ? rang + i : undefined, ctx.where);
+    ctx.scene.enterFlow(id, rang0 >= 0 ? rang0 + i : undefined, ctx.where);
   });
+  occuperLaPlace(ctx, garde, chiffres);
   const montee = { at: t + tEffacement, dur: tDescente, ease: EASE.move };
   ctx.reflow(montee);
 
@@ -812,4 +819,9 @@ export function plan(ctx) {
     ctx.anim({ id: idVirgQ, prop: 'scale', to: 0, ...montee });
     ctx.anim({ id: idVirgQ, prop: 'opacity', to: 0, ...montee });
   }
+
+  /* ★ **PUIS L'ACCOLADE S'EFFACE, ET LA LIGNE SE REFERME** — la fin commune de
+       tout geste à accolade (`helpers.js › finirSousAccolade`). Elle s'effaçait
+       avec A, B et les barres, avant que le quotient n'ait pris sa place. */
+  finirSousAccolade(ctx, { at: t + tEffacement + tDescente, dur: tDescente * 0.8 });
 }

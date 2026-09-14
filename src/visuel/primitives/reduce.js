@@ -189,19 +189,12 @@ export function plan(ctx) {
 
   // --- 4. et l'accolade se retire, une fois le résultat rendu à la ligne ----
   //
-  // ★ `accumulate` ne retire QUE l'accolade qu'il a tracée lui-même ; celle-ci
-  //   vient d'ailleurs (voir le pavé du temps 0), et sans ce retrait elle
-  //   restait à l'écran pour le reste de la démonstration. « Renvoyer le
-  //   résultat sur la ligne principale et seulement à ce moment, disparaître »
-  //   (l'auteur) : `accumulate` publie sa remontée en dernier quart de sa
-  //   fenêtre, on part donc de là — jamais avant que le résultat ne soit posé.
-  if (accolade) {
-    const retrait = T0 + T1 + T2 + T3 * 0.82;
-    const fondu = Math.max(1, ctx.dur - retrait);
-    for (const id of accolade.ids) {
-      ctx.anim({ id, prop: 'opacity', to: 0, at: retrait, dur: fondu, ease: EASE.fade });
-    }
-  }
+  // « Renvoyer le résultat sur la ligne principale et seulement à ce moment,
+  // disparaître » (l'auteur). C'est désormais la fin COMMUNE de tout geste à
+  // accolade (`helpers.js › finirSousAccolade`), et `accumulate` la joue lui-même,
+  // accolade existante comprise : le résultat remonte dans sa place gardée, PUIS
+  // l'accolade s'efface et la ligne se referme. Retirer l'accolade ici encore
+  // l'effaçait deux fois, et le compilateur signalait deux fondus concurrents.
 
   const shown = res.partials[res.partials.length - 1];
   if (String(shown) !== to.text) {

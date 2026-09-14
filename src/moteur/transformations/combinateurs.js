@@ -307,17 +307,21 @@ export const POIDS_RAMASSAGE = Object.freeze({
   effacement0: 380, effacement1: 90,
   vol0: 620, vol1: 260,
   remontee: 760,
+  retrait: 700,
 });
 
 /** Durée d'un ramassage, d'après ce qu'il aura à montrer. */
-export function dureeRamassage({ voler = 0, effacer = 0, doubles = 0, transferts = 0 } = {}) {
+export function dureeRamassage({ voler = 0, effacer = 0, doubles = 0, transferts = 0, garderPlace = false } = {}) {
   const P = POIDS_RAMASSAGE;
   return P.accolade
     + (doubles ? P.doubles : 0)
     + (transferts ? P.nivellement0 + transferts * P.nivellement1 : 0)
     + (effacer ? P.effacement0 + effacer * P.effacement1 : 0)
     + P.vol0 + voler * P.vol1
-    + P.remontee;
+    + P.remontee
+    // Un ramassage qui GARDE la place ne joue pas sa fin : l'enchaînement la joue
+    // (`commun.js › retirerAccolade`) — même règle que `helpers.js › poidsRamassage`.
+    + (garderPlace ? 0 : P.retrait);
 }
 
 /**
@@ -664,7 +668,8 @@ function etapeDistincts(spec) {
         label: titre,
         accolade: 'existante',
         to: token(sortie[0], apres.valeur, 'number'),
-        dur: dureeRamassage({ voler: compte.length }),
+        // Il garde la place : la fin se joue après lui (`retirerAccolade`).
+        dur: dureeRamassage({ voler: compte.length, garderPlace: true }),
       },
     ]);
     return [etape(ctx, titre, `${dire(spec.regle, ctx.langue)} : ${apres.valeur}`,

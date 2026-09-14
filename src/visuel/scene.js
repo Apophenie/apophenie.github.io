@@ -39,6 +39,9 @@ export class Scene {
     //   parcourir (`primitives/helpers.js › suivreLesAccolades`).
     this.accolades = new Map(); // id de l'accolade → les jetons qu'elle embrasse
     this.suiveurs = new Map(); // jeton → nœuds de décor qui lui sont ACCROCHÉS
+    // Les places tenues dans la ligne pendant qu'une action sous accolade se
+    // termine (`primitives/helpers.js › reserverLaPlace`). Rendues dans l'étape.
+    this.placesGardees = [];
 
     // Nœud caméra : c'est lui qu'on zoome/déplace, jamais l'attribut viewBox.
     this.nodes.set(CAMERA_ID, makeNode({

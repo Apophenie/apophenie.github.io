@@ -32,7 +32,9 @@
  * (`helpers.accumulate`), dont c'est le même contrat (CONTRACTS §3.1).
  */
 
-import { tokenSpec, espacementDe, exigerPoint } from './helpers.js';
+import {
+  tokenSpec, espacementDe, exigerPoint, reserverLaPlace, occuperLaPlace, rangDansLaPlace,
+} from './helpers.js';
 import { EASE, colorForKind } from '../constants.js';
 import { charCenter } from '../layout.js';
 import { fail } from '../errors.js';
@@ -71,6 +73,11 @@ export function plan(ctx) {
 
   // 1. mutation du modèle : les nouveaux tokens prennent la place de l'ancien.
   for (const j of jobs) {
+    /* ★ `garderPlace` — le remplaçant GARDE LA PLACE de sa source tant que
+       l'action sous l'accolade n'est pas finie : la ligne ne se referme qu'après
+       l'effacement de l'accolade (`commun.js › retirerAccolade`,
+       `helpers.js › finirSousAccolade`). */
+    j.place = ctx.op.garderPlace === true ? reserverLaPlace(ctx, [j.src.id]) : null;
     const idx = ctx.scene.flowIndex(j.src.id);
     /* ★ **UN ÉCLATEMENT N'EST PAS UN REMPLACEMENT — c'est le MÊME dessin.**
      *
@@ -185,6 +192,7 @@ export function plan(ctx) {
       ]);
     }
     ctx.scene.kill(j.src.id, ctx.where);
+    if (j.place && !j.ancre) occuperLaPlace(ctx, j.place, j.tos.map((t) => t.id));
   }
 
   // 2. FLIP des voisins vers le layout d'arrivée. Sous une accolade, ce premier
@@ -240,9 +248,10 @@ export function plan(ctx) {
   aRentrer.sort((a, b) => a.rang - b.rang);
   let dernier = -1;
   for (const j of aRentrer) {
-    const base = j.gauche ? ctx.scene.flowIndex(j.gauche) + 1 : 0;
+    const base = j.place ? rangDansLaPlace(ctx, j.place) : (j.gauche ? ctx.scene.flowIndex(j.gauche) + 1 : 0);
     const index = Math.max(base, dernier + 1);
     ctx.scene.enterFlow(j.tos[0].id, index, ctx.where);
+    if (j.place) occuperLaPlace(ctx, j.place, [j.tos[0].id]);
     dernier = index;
   }
   ctx.reflow({ at: ctx.dur * 0.56, dur: ctx.dur * 0.44, ease: EASE.move });

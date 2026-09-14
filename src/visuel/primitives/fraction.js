@@ -55,6 +55,7 @@
 import {
   tokenSpec, targetsOf, numberOf, exigerPoint, espacementDe,
   braceD, suivreLaZone, ACCOLADE,
+  reserverLaPlace, occuperLaPlace, rangDansLaPlace, refermerLaLigne,
 } from './helpers.js';
 import { bboxOf } from '../layout.js';
 import { EASE } from '../constants.js';
@@ -381,23 +382,34 @@ export function plan(ctx) {
   ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: relais, dur: Math.max(1, tRes * 0.15) });
   ctx.anim({ id: resultat, prop: 'opacity', to: 0, at: relais, dur: Math.max(1, tRes * 0.15) });
 
+  // ★ LE QUOTIENT REMONTE DANS LA PLACE GARDÉE : la ligne tient la largeur de
+  //   la fraction pendant qu'il remonte, et ne se referme qu'à la fin
+  //   (`helpers.js › finirSousAccolade`, la règle commune des deux temps).
+  const garde = reserverLaPlace(ctx, [...operandes, ...signes].filter((id) => ctx.scene.flowIndex(id) >= 0));
   for (const id of [...operandes, ...signes]) ctx.scene.kill(id, ctx.where);
-  ctx.scene.enterFlow(to.id, tete < 0 ? undefined : tete, ctx.where);
-  const remontee = { at: t6 + tRes * 0.4, dur: Math.max(1, tRes * 0.45), ease: EASE.move };
-  ctx.place(to.id, { x: boite.cx, y: ligneY }, remontee);
-  ctx.reflow(remontee);
+  ctx.scene.enterFlow(to.id, garde ? rangDansLaPlace(ctx, garde) : (tete < 0 ? undefined : tete), ctx.where);
+  occuperLaPlace(ctx, garde, [to.id]);
+  ctx.reflow({ at: t6 + tRes * 0.4, dur: Math.max(1, tRes * 0.3), ease: EASE.move });
 
-  // ★ L'ACCOLADE SUIT SA ZONE JUSQU'AU BOUT, et c'est le dernier geste. Elle
-  //   embrassait trois nombres, elle n'en embrasse plus qu'un : garder sa
-  //   largeur, ne serait-ce que le temps d'un fondu, ce serait désigner du vide
-  //   (voir `helpers.suivreLaZone`). Elle se referme sur le quotient, PUIS
-  //   s'efface — « redimensionnement et effacement » (l'auteur), dans cet
-  //   ordre.
+  // ★ L'ACCOLADE SUIT SA ZONE JUSQU'AU BOUT. Elle embrassait trois nombres,
+  //   elle n'en embrasse plus qu'un : garder sa largeur, ne serait-ce que le
+  //   temps d'un fondu, ce serait désigner du vide (voir
+  //   `helpers.suivreLaZone`). Elle se referme sur le quotient, PUIS s'efface —
+  //   « redimensionnement et effacement » (l'auteur), dans cet ordre — et c'est
+  //   seulement alors que la ligne se referme.
+  //
+  //   ⚠️ Elle s'effaçait PENDANT la remontée du quotient : la fin en deux temps
+  //     la repousse après.
   suivreLaZone(ctx, { id: accolade, shape: 'brace', sources: [to.id] },
-    { at: t6 + tRes * 0.45, dur: Math.max(1, tRes * 0.42) });
+    { at: t6 + tRes * 0.7, dur: Math.max(1, tRes * 0.13) });
+  const tRetrait = t6 + tRes * 0.83;
   for (const id of [accolade, symbole]) {
-    ctx.anim({ id, prop: 'opacity', to: 0, at: t6 + tRes * 0.62, dur: Math.max(1, tRes * 0.38) });
+    ctx.anim({ id, prop: 'opacity', to: 0, at: tRetrait, dur: Math.max(1, tRes * 0.17) });
+    const n = ctx.scene.get(id);
+    n.data = n.data || {};
+    n.data.retiree = true;
   }
+  refermerLaLigne(ctx, { at: tRetrait, dur: Math.max(1, tRes * 0.17) });
 }
 
 /**
