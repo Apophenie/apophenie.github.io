@@ -235,6 +235,16 @@ test('cible-mot — Sarah Kerrigan → Fantome, rangé puis dissous', () => {
  *   Les quatre autres couples sont identiques au caractère près. Le détail des
  *   autres saisies déplacées est dans le message du commit qui l'applique.
  *
+ * ★ **IL A ÉTÉ RÉGÉNÉRÉ UNE QUATRIÈME FOIS, et voici pourquoi.** Le CRAN RAPIDE
+ *   (−1, `config.js › CRAN_RAPIDE`) : la recherche cumulative part désormais du
+ *   cran −1, et la liste du cran 0 est l'union de sa sélection et de celle du
+ *   cran −1 — « le cran 0 publié change : il gagne les voies du cran −1 qui lui
+ *   manquent, union, rien ne sort » (arbitrage de l'autrice). Un seul couple
+ *   bouge, `hope-hope-hope.fr → 666`, à tête inchangée (`fl+m14`, 7 843) :
+ *   20 → 26 voies, six RÉSONANCES entrent (6 369, 6 327, 5 885, 5 885, 5 382,
+ *   4 699), aucune ne sort. Les quatre autres couples sont identiques au
+ *   caractère près.
+ *
  * ⚠️ C'est un fil tendu, pas une spécification. Une évolution VOULUE du barème
  *   ou du classement le fera rougir : c'est alors l'instantané qu'on régénère.
  */

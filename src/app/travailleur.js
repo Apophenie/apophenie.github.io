@@ -285,6 +285,9 @@ export function creerRechercheEnFond(options = {}) {
           ...(reglages.fouille === undefined ? {} : { fouille: reglages.fouille }),
           // ★ Les listes provisoires ne se demandent que si quelqu'un les montre.
           ...(reglages.surListe ? { provisoires: true } : {}),
+          // ★ « Révéler » n'ouvre que la première voie : il cherche sous la borne
+          //   de la moisson (`recherche/index.js › BORNE_MOISSON_REVELER`).
+          ...(reglages.reveler === true ? { reveler: true } : {}),
         });
       });
     },

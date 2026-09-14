@@ -697,6 +697,19 @@ export function verdictDe(approche, cible = approche && approche.cible) {
  * @param {number} [plafond] chemins canonicalisés puis rendus
  * @returns {Object[]} chemins finissant sur un `NUMS` à ≥ minSix six, les meilleurs d'abord
  */
+/** La clé d'une liste d'opérateurs pour le mémo de `vecteursDeSix` : ses codes,
+ *  dans l'ordre. Calculée une fois par liste — la même liste revient à chaque
+ *  mot d'une moisson. */
+const clesDesOps = new WeakMap();
+function cleDesOps(ops) {
+  let cle = clesDesOps.get(ops);
+  if (cle === undefined) {
+    cle = ops.map((o) => o.code).join('+');
+    clesDesOps.set(ops, cle);
+  }
+  return cle;
+}
+
 export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS_PAR_FRAGMENT * 2,
   cible = CIBLE_DEFAUT, options = {}) {
   // ★ **DEUX APPELANTS, DEUX QUESTIONS** — et un seul des deux veut un faisceau
@@ -715,6 +728,27 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   //     montrés — un déchet que la variante supprimée savait éviter.
   const miseEnForme = options.miseEnForme !== false;
   const cbl = normaliserCible(cible);
+  /* ★ **LE MÉMO DU MOTEUR** (`options.memo`, le cache de `creerMoteur`).
+       Cette fonction ne lit que ses arguments : la même question rend la même
+       réponse. La recherche cumulative la pose pourtant plusieurs fois — le
+       cran rapide (−1), puis le cran 0, puis les suivants énumèrent les mêmes
+       vecteurs des mêmes mots, quel que soit leur budget de fragments. Mesuré
+       sur une phrase de 113 signes : 4,5 s de moisson, refaits à chaque cran.
+       ★ Le TRAVAIL est refacturé au compteur à chaque réemploi, au tarif exact
+         du déroulé qu'il économise — comme `bfs.js › chercherSix` : la borne de
+         la moisson décide pareil, que le mémo serve ou non (§4.4). */
+  const memo = options.memo instanceof Map ? options.memo : null;
+  const cleMemo = memo ? JSON.stringify(['vecteursDeSix', String(texte).normalize('NFC'), cbl.texte, minSix,
+    plafond, miseEnForme, options.profond === true, options.matiereDePhrase === true,
+    options.curseurs ?? null, cleDesOps(ops)]) : null;
+  if (memo) {
+    const deja = memo.get(cleMemo);
+    if (deja) {
+      if (options.compteur) options.compteur.travail += deja.travail;
+      return deja.chemins.slice();
+    }
+  }
+  const compte = { travail: 0 };
   // ★ Deux exigences, et non deux seuils. Le GROUPEMENT veut de quoi ÉCRIRE la
   //   cible à lui seul ; la MOISSON veut au moins un chiffre utile, parce
   //   qu'elle additionne ce que chaque portée rapporte. Sur `666` avec
@@ -922,6 +956,10 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   const derouler = (secondRaffinage) => {
     for (const j of jetons.values()) {
       for (const m of mappeurs) {
+        // ★ Le TRAVAIL de l'étage 3 — c'est lui qui coûte (`moissons`, la borne).
+        //   Pesé par la LONGUEUR de ce qu'on lit : mesuré, « désinformation »
+        //   coûte deux fois « garantie » pour le même nombre d'applications.
+        compte.travail += Math.max(1, j.etat.valeur.length);
         const v = appliquerOp(m, j.etat);
         if (v === null) continue;
         if (!secondRaffinage) retenir(j.ops.concat(m), j.etats.concat([v]));
@@ -930,6 +968,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
           // ★ Un raffinage qui GONFLE n'a rien à faire dans le premier déroulé :
           //   il n'existe que pour le dernier recours (voir `assembler`).
           if (!secondRaffinage && r.gonfle) continue;
+          compte.travail += Math.max(1, v.valeur.length);
           const w = appliquerOp(r, v);
           if (w === null) continue;
           if (!secondRaffinage) {
@@ -1714,7 +1753,9 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     vusCan.add(cle);
     finaux.push(n);
   }
-  return finaux;
+  if (options.compteur) options.compteur.travail += compte.travail;
+  if (memo) memo.set(cleMemo, { chemins: finaux, travail: compte.travail });
+  return memo ? finaux.slice() : finaux;
 }
 
 /**
@@ -2074,7 +2115,7 @@ function convergences(bruts, cible = CIBLE_DEFAUT, progres = null) {
  * Les programmes qu'une portée peut rendre, du plus fourni en 6 au moins.
  * @returns {Array<{six:number, total:number, chemin:Object, maniere:string}>}
  */
-function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT) {
+function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT, compteur = null, memo = null) {
   const cbl = normaliserCible(cible);
   const vus = new Set();
   const out = [];
@@ -2107,7 +2148,7 @@ function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT) {
   if (ops && ops.length) {
     // `miseEnForme: false` — on veut ici la MATIÈRE, pas une sélection : voir
     // l'en-tête de `vecteursDeSix`, « deux appelants, deux questions ».
-    const bruts = vecteursDeSix(texte, ops, 1, MAX_CANDIDATS_PORTEE * 2, cbl, { miseEnForme: false });
+    const bruts = vecteursDeSix(texte, ops, 1, MAX_CANDIDATS_PORTEE * 2, cbl, { miseEnForme: false, compteur, memo });
     for (const c of bruts) ajouter(c);
   }
   for (const c of chemins || []) ajouter(c);
@@ -2497,11 +2538,23 @@ const ETALONS_MAX = 4;
  * @returns {Object[]} approches non notées
  */
 function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
-  kParFragment = K_PAR_FRAGMENT) {
+  kParFragment = K_PAR_FRAGMENT, borneTravail = Infinity, memo = null) {
   const cbl = normaliserCible(cible);
   if (!jetons || jetons.length < 2) return [];
   const n = Math.min(jetons.length, MAX_JETONS_MOISSON);
   const cheminsDe = (texte) => parFrag.get(texte.normalize('NFC')) || [];
+
+  /* ★ **LA BORNE DE TRAVAIL DE LA MOISSON** — `borneTravail`, en applications
+       de mappeurs et de raffinages (`vecteursDeSix`, l'étage 3).
+       MESURÉ sur une phrase de 113 signes : la moisson y dépense 4,5 s sur les
+       vecteurs de ses dix-huit jetons, un par un — la saisie entière, d'un
+       tenant, n'en coûte que 0,26 s. Au-delà de la borne, une portée garde les
+       chemins que la recherche de fragments lui a déjà trouvés, et n'en
+       énumère plus d'autres. La décision se prend AVANT chaque portée, jamais
+       au milieu d'un déroulé : un vecteur commencé est fini, et l'ensemble
+       exploré ne dépend que de la saisie (§4.4). Infinie au défaut : la liste
+       du site ne la connaît pas. */
+  const compteur = { travail: 0 };
 
   // ── 1 & 2. les portées et leurs programmes
   const portees = [];
@@ -2511,13 +2564,14 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
     const cle = `${debut}.${longueur}`;
     if (vues.has(cle)) return;
     vues.add(cle);
+    const enumerer = avecVecteurs && compteur.travail < borneTravail;
     // ★ La largeur suit le cran ici aussi — l'audit a relevé que la MOISSON,
     //   « le mode que l'auteur met en tête », restait à huit chemins par
     //   portée quand le GROUPEMENT en recevait jusqu'à cinquante.
     const candidats = candidatsDePortee(
-      texte, avecVecteurs ? ops : null,
+      texte, enumerer ? ops : null,
       normaliserChemins(cheminsDe(texte), Math.max(K_CANONISABLES, kParFragment))
-        .slice(0, kParFragment), cbl,
+        .slice(0, kParFragment), cbl, compteur, memo,
     );
     if (!candidats.length) return;
     portees.push({ debut, longueur, texte, candidats });
@@ -3271,7 +3325,10 @@ export function assembler(saisie, fragments, parFrag, ctx) {
       const vecteurs = vecteursDeSix(f.texte, opsPourVecteurs, K, kParFragment * 2, cbl,
         // ★ `profond` — la seconde passe de dernier recours, posée par
         //   `index.js` quand un premier assemblage n'a rien rendu.
-        { curseurs: ctx.curseurs, profond: ctx.profond === true, matiereDePhrase: ctx.matiereDePhrase === true })
+        {
+          curseurs: ctx.curseurs, profond: ctx.profond === true, matiereDePhrase: ctx.matiereDePhrase === true,
+          memo: ctx.cache instanceof Map ? ctx.cache : null,
+        })
         .slice(0, kParFragment);
       if (f.entier || f.famille === 'entier') vecteursEntiers = vecteurs;
       for (const c of vecteurs) {
@@ -3314,7 +3371,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    chaque jeton ce qu'il sait donner, par le programme qui lui convient.
   if (opsExplorables.length) {
     for (const a of moissons(saisie, ctx.jetons || [], fragments, parFrag, opsExplorables, cbl,
-      kParFragment)) {
+      kParFragment, ctx.borneAssemblage ?? Infinity, ctx.cache instanceof Map ? ctx.cache : null)) {
       approches.push(a);
     }
   }

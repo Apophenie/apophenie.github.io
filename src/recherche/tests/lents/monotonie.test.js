@@ -184,6 +184,34 @@ test('★ monotonie — du cran 0 au cran 5, aucune voie perdue sur les sept cou
   assert.deepEqual(pertesDuBalayage(COUPLES_DU_BALAYAGE, 0, 5), []);
 });
 
+/** La liste du CRAN RAPIDE (−1) d'un couple : il n'a pas de lien, on la lit
+ *  donc là où la montée la montre — la liste provisoire du cran −1.
+ *  ⚠️ Une liste VIDE ne se montre pas (`deroulerResolution › montrer`) : sur la
+ *  phrase de reinfocovid, le cran rapide ne trouve rien, et −1 ⊂ 0 y est vrai
+ *  sans rien prouver. Les sept couples, eux, en ont une — c'est exigé. */
+function listeRapide(saisie, cible) {
+  let rapide = null;
+  const r = moteur.resoudre(saisie, {
+    cible, fouille: 0, surListe: (liste, info) => { if (info.cran === -1 && !info.intra) rapide = liste; },
+  });
+  return { rapide: rapide ? rapide.approches.map(programme) : null, cran0: r.approches.map(programme) };
+}
+
+/* ★ LE CRAN RAPIDE EST UN CRAN COMME LES AUTRES : −1 ⊂ 0. « Toute voie montrée
+     au cran −1 reste dans la liste finale, comme entre les autres crans »
+     (l'autrice). */
+test('★ monotonie — du cran rapide (−1) au cran 0, aucune voie perdue sur les sept couples et la phrase', () => {
+  const pertes = [];
+  for (const [saisie, cible] of [...COUPLES_DU_BALAYAGE, ['Reinfocovid, désinformation garantie', "C'est de la merde !"]]) {
+    const { rapide, cran0 } = listeRapide(saisie, cible);
+    if (COUPLES_DU_BALAYAGE.some(([s, c]) => s === saisie && c === cible)) {
+      assert.ok(rapide && rapide.length, `${saisie} → ${cible} : le cran rapide n’a rien montré, ce test serait muet`);
+    }
+    for (const p of rapide || []) if (!cran0.includes(p)) pertes.push(`${saisie} → ${cible}, cran −1 → 0 : ${p}`);
+  }
+  assert.deepEqual(pertes, []);
+});
+
 /* ⚠️ Ce test-ci était DÉJÀ vert avant la cumulation : cette phrase ne perdait
      rien du cran 0 au cran 3. Il ne prouve donc pas la réparation — il garde
      que la cumulation, qui passe par la liste fusionnée d'un texte et par ses
