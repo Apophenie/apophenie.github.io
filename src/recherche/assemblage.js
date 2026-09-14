@@ -1831,6 +1831,40 @@ function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAU
   // seuil que la retouche doit battre.
   const avant = tete.map((c) => { const s = serieDeSix(c, cbl); return s ? s.series : 0; });
 
+  /* ★ **LE MÉMO DU MOTEUR** (`gardes.memo`, le cache de `creerMoteur`).
+       MESURÉ au profileur sur le paragraphe « Lorem ipsum… » du test de budget :
+       depuis le cran rapide (−1), cet étage tournait DEUX fois à l'identique —
+       au cran −1, puis au cran 0, sur les mêmes vecteurs de la saisie entière
+       (ceux-là ne dépendent pas du budget de fragments) —, et passait de 323 à
+       653 ms. Il ne lit que ses arguments : la même question rend la même
+       réponse.
+       ★ Des COPIES, dans les deux sens : les approches rendues sont notées puis
+         classées en place (`noter`, `finaliser`), et un cran ne doit rien
+         écrire sur les voies d'un autre. On garde un gabarit intact, on rend
+         une copie, et la marque « hors des gardes historiques » est reposée
+         sur la copie. */
+  const memo = gardes.memo instanceof Map ? gardes.memo : null;
+  const cleMemo = memo ? JSON.stringify(['groupementsRetouches', String(saisie).normalize('NFC'), cbl.texte,
+    gardes.mots ?? MAX_JETONS_RETOUCHE, gardes.vecteurs ?? MAX_VECTEURS_RETOUCHES, cleDesOps(ops),
+    tete.map((c) => c.ops.map((o) => o.code).join('+'))]) : null;
+  const copier = (a) => ({
+    ...a,
+    parts: a.parts.map((p) => ({ ...p })),
+    ...(Array.isArray(a.retouches) ? { retouches: a.retouches.map((r) => ({ ...r })) } : {}),
+  });
+  if (memo) {
+    const deja = memo.get(cleMemo);
+    if (deja) {
+      if (progres) progres(1);
+      return deja.map(({ gabarit, horsGardes }) => {
+        const c = copier(gabarit);
+        if (horsGardes && gardes.horsGardes) gardes.horsGardes.add(c);
+        return c;
+      });
+    }
+  }
+  const gabarits = [];
+
   const out = [];
   const vus = new Set();
   /* ★ Le rapport de progression : ce mode pèse 814 à 1 168 ms (voir
@@ -1884,11 +1918,14 @@ function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAU
         // ★ Née au-delà des gardes historiques (six mots, quatre vecteurs) :
         //   `index.js › finaliser` la sélectionne à part, pour que la rampe
         //   n'ôte rien à ce que les anciennes gardes auraient montré.
-        if (gardes.horsGardes && (motHorsGardes || i >= MAX_VECTEURS_RETOUCHES)) gardes.horsGardes.add(retouchee);
+        const horsGardes = motHorsGardes || i >= MAX_VECTEURS_RETOUCHES;
+        if (gardes.horsGardes && horsGardes) gardes.horsGardes.add(retouchee);
+        if (memo) gabarits.push({ gabarit: copier(retouchee), horsGardes });
         out.push(retouchee);
       });
     }
   }
+  if (memo) memo.set(cleMemo, gabarits);
   return out;
 }
 
@@ -3357,7 +3394,11 @@ export function assembler(saisie, fragments, parFrag, ctx) {
     // mieux qu'une barre qui dépasse ce qu'elle a promis.
     for (const a of groupementsRetouches(saisie, ctx.jetons || [], vecteursEntiers, opsExplorables, cbl,
       (part) => dire((POIDS.avant + POIDS.retouche * part) / 100),
-      { mots: ctx.motsRetouches, vecteurs: ctx.vecteursRetouches, horsGardes: ctx.horsGardesHistoriques })) {
+      {
+        mots: ctx.motsRetouches, vecteurs: ctx.vecteursRetouches, horsGardes: ctx.horsGardesHistoriques,
+        // ★ Le cache du moteur : cet étage ne se refait pas d'un cran au suivant.
+        memo: ctx.cache instanceof Map ? ctx.cache : null,
+      })) {
       approches.push(a);
     }
   }
