@@ -507,7 +507,10 @@ test('★ scénario — une étape qui ne transforme rien à l’écran est saut
   // numéros contigus dans Le Registre (qui numérote par index).
   assert.deepEqual(sc.steps.map((s) => s.id), sc.steps.map((_, i) => `s${i}`));
   // Et la démonstration commence bien par la conversion, pas par un vide.
-  assert.match(sc.steps[0].title, /alphabet/i);
+  // ★ Le titre d'étape est désormais le TITRE COURT de l'opérateur (« Position
+  //   alphabétique », arbitrage de l'autrice) : on reconnaît la conversion à sa
+  //   racine, sans épingler une formulation que la table peut changer.
+  assert.match(sc.steps[0].title, /alphab/i);
 });
 
 test('scénario — steps() incohérent : repli générique + avertissement, jamais d’échec', () => {
