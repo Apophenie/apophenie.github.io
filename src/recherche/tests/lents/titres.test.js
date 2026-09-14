@@ -18,7 +18,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  NOMS, QUALIFIANTS, PRECISIONS, precisionDe, titreApproche, distinguerTitres, estDecret,
+  NOMS, QUALIFIANTS, PRECISIONS, precisionDe, titreApproche, distinguerTitres, estDecret, conversionDe,
 } from '../../titres.js';
 import { creerMoteur } from '../../index.js';
 import { catalogue } from '../_catalogue.js';
@@ -196,6 +196,34 @@ test('★ titres — la typographie française des tables', () => {
       assert.ok(v.fr.includes('«' + FINE) || v.fr.includes('« '), `${chemin} : chevron sans espace — ${v.fr}`);
     }
   }
+});
+
+/**
+ * ★ **LE TITRE NOMME LA CONVERSION LETTRE → NOMBRE, QUAND ELLE EXISTE.**
+ *
+ * > « Ce que je t'ai demandé, c'est de mettre en titre le titre de la phase qui
+ * >   convertit lettre en nombre (quand elle existe). » (l'autrice)
+ *
+ * Et c'est la MÊME conversion que celle du titre de la carte
+ * (`approche.conversion`, lue par `app/pages/resultat.js › titreDeConversion`).
+ * ⚠️ Une voie à LIAISON se nomme encore par sa liaison — exception tenue par
+ *   `tests/liaison.test.js`, soumise à l'arbitrage de l'autrice.
+ */
+test('★ titres — le titre nomme la conversion lettre → nombre, la même que la carte', () => {
+  let nommees = 0;
+  for (const t of tousLesTitres()) {
+    const a = t.approche;
+    const conversion = conversionDe(a);
+    assert.equal(conversion ? conversion.code : null, a.conversion ? a.conversion.code : null,
+      `« ${t.saisie} » : la carte et le titre ne lisent pas la même conversion`);
+    if (!conversion || a.liaison) continue;
+    nommees++;
+    for (const langue of ['fr', 'en']) {
+      assert.ok(t[langue].startsWith(NOMS[conversion.op.id][langue]),
+        `« ${t.saisie} » (${langue}) : « ${t[langue]} » ne nomme pas sa conversion ${conversion.code}`);
+    }
+  }
+  assert.ok(nommees >= 40, `seulement ${nommees} titres nommés par leur conversion`);
 });
 
 /* ═══════════════════ 3. l'unicité, sous tension ═══════════════════ */
