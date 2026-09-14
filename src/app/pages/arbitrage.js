@@ -143,10 +143,15 @@ export function pageArbitrage() {
    * « relevé » le dirait en rouge, plutôt que de laisser croire que la mesure
    * tient encore.
    */
-  function scoresDe(approche, mesure) {
+  /* ★ **LE GLOBAL SE PONDÈRE PAR LES CURSEURS DU LIEN**, comme la carte de la
+       liste le pondère par ceux que le lecteur a posés (`resultat.js ›
+       scoresDeLaVoie`). Au défaut, un cas aux curseurs « élégance » aurait
+       affiché un autre global que celui de sa liste, et l'avertissement rouge
+       aurait crié à un écart qui n'existe pas. */
+  function scoresDe(approche, mesure, curseurs = null) {
     const axes = pont.scoresParAxe(approche);
     if (!axes) return e('span', {});
-    const parts = pont.pourcentagesDe(pont.CURSEURS_DEFAUT());
+    const parts = pont.pourcentagesDe(curseurs || pont.CURSEURS_DEFAUT());
     let somme = 0;
     let poids = 0;
     for (const axe of pont.CURSEURS()) {
@@ -249,7 +254,7 @@ export function pageArbitrage() {
     cadre.append(
       e('p.arb__voie', { texte: rejeu.approche.codes || '' }),
       regle ? e('p.arb__regle', { texte: regle }) : e('span', {}),
-      scoresDe(rejeu.approche, mesure),
+      scoresDe(rejeu.approche, mesure, lecture.curseurs),
       boite,
       transport.element,
       registre.element,
