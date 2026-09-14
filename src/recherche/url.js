@@ -43,7 +43,7 @@
 // lien mort. La tolérance est en LECTURE SEULE — `ecrire()` ne produit que du
 // base58, et `canoniser()` réécrit la barre d'adresse dès l'ouverture : un lien
 // tapé à la main se convertit tout seul en lien partageable, exactement comme
-// `sobre!` s'abrège en `so!` sans qu'on ait rien demandé.
+// le `so!` d'un lien sobre disparaît sans qu'on ait rien demandé.
 //
 // ★ **QUATRE FORMES, et ce qui les distingue est le NOMBRE DE `#`** :
 //
@@ -52,7 +52,7 @@
 //     #c111!sce!#Donald Trump    recherche visant 111, puis animation scénique
 //     #c111!#Donald Trump        idem, registre par défaut — la MAIN
 //     #c111!#<b58>               la LISTE des voies visant 111 — la MACHINE
-//     #so!tca+m36#Donald Trump   aucune recherche : CE programme, sur ce texte
+//     #tca+m36#Donald Trump      aucune recherche : CE programme, sur ce texte
 //
 // La première est le geste de « Révéler » (`pages/accueil.js`) : on cherche et
 // on montre, sans passer par la liste. La troisième est la même chose avec des
@@ -67,7 +67,8 @@
 // listing), et l'écriture ne change pas ; et sans elle il n'existerait aucune
 // façon de demander l'énumération pour une autre cible que 666. Le registre,
 // lui, n'est jamais écrit sans programme : `#so!#…` ne dénotait rien, il dénote
-// désormais l'animation. La frontière est celle qui était déjà argumentée plus
+// désormais l'animation — et c'est la seule place où `so!`, qui ne s'écrit
+// plus, change encore le sens d'un lien. La frontière est celle qui était déjà argumentée plus
 // bas, mot pour mot — le registre dit comment MONTRER une démonstration, et une
 // liste n'en montre aucune ; la cible dit ce qu'on CHERCHE, et une liste est le
 // résultat d'une recherche.
@@ -205,7 +206,7 @@
 //      vient de l'écrire. Une abréviation qu'on ne peut pas garder n'est pas
 //      une abréviation.
 //   2. La forme canonique de cette grammaire est déjà, partout, la plus
-//      courte : `sobre!` s'abrège en `so!`, `c666!` ne s'écrit pas, une portée
+//      courte : `so!` ne s'écrit pas, `c666!` ne s'écrit pas, une portée
 //      qui couvre tout ne s'écrit pas — et `×3:` abrège déjà, mot pour mot,
 //      « le même programme sur trois places ». Le groupe est ce même geste sur
 //      des places quelconques ; l'écrire autrement ferait deux règles là où il
@@ -270,16 +271,15 @@
 // 111.
 //
 // ★ **L'ABSENCE DE MARQUEUR VAUT 666, ET LE MARQUEUR N'EST PAS ÉCRIT QUAND IL
-// VAUT 666.** C'est la seule différence avec le registre, et elle est
-// délibérée. `ecrire()` pose TOUJOURS `sce!` ou `so!`, même au défaut, parce
-// que ce défaut-là avait été tranché entre deux lectures également
-// défendables : il fallait qu'un lien cesse d'en dépendre. Ici, il n'y a rien
-// à trancher — 666 est la promesse du site, elle est écrite dans son titre, et
-// aucun lien existant n'a jamais voulu dire autre chose. Écrire `c666!` sur
-// chaque lien coûterait six signes à la totalité des URL pour lever une
-// ambiguïté qui n'existe pas, et — surtout — CHANGERAIT la forme canonique de
-// tous les liens déjà partagés, que `canoniser()` réécrit à chaque ouverture.
-// Le marqueur ne paraît donc que là où il dit quelque chose.
+// VAUT 666.** Le registre suit désormais la même règle : `so!` ne s'écrit
+// plus, seul `sce!` paraît (voir « `so!` NE S'ÉCRIT PLUS », plus bas). Pour la
+// cible, il n'y a jamais rien eu à trancher — 666 est la promesse du site,
+// elle est écrite dans son titre, et aucun lien existant n'a jamais voulu dire
+// autre chose. Écrire `c666!` sur chaque lien coûterait six signes à la
+// totalité des URL pour lever une ambiguïté qui n'existe pas, et — surtout —
+// CHANGERAIT la forme canonique de tous les liens déjà partagés, que
+// `canoniser()` réécrit à chaque ouverture. Le marqueur ne paraît donc que là
+// où il dit quelque chose.
 //
 // ★ **LA CIBLE PASSE DERRIÈRE UN TROISIÈME `#`, EN BASE58** — `#…#<saisie>#<cible>`.
 //
@@ -446,6 +446,46 @@
 // clos : ce qui vient d'être levé porte sur les LIENS, pas sur la grammaire.
 // Aucun code ne change de sens ici, aucun n'est réattribué.
 //
+// ── `so!` NE S'ÉCRIT PLUS : seul `sce!` se mentionne ──────────────────────
+//
+// « so! inutile de le mettre, c'est l'implicite par défaut, c'est quand c'est
+// sce! qu'il faut le mentionner. » (l'autrice)
+//
+// ★ **Ce qui est décidé.** `ecrire()` n'écrit le registre que lorsqu'il vaut
+// « scénique ». Un lien sobre ne porte aucun marqueur de registre, exactement
+// comme un lien qui vise 666 ne porte aucune cible. La règle est la même pour
+// les deux marqueurs, les curseurs et la fouille : **au défaut, rien**.
+//
+// ★ **Ce que ça défait.** `ecrire()` posait jusqu'ici `so!` même au défaut,
+// parce que ce défaut avait été tranché entre deux lectures également
+// défendables — il avait basculé de « scénique » à « sobre » — et qu'il
+// fallait qu'un lien cesse d'en dépendre. L'autrice juge que la question est
+// close : « sobre » est l'implicite, le spectacle est ce qu'on demande, et
+// trois signes répétés sur chaque lien ne disent rien à qui les lit.
+//
+// ⚠️ **LE RISQUE, ASSUMÉ.** Un lien sobre dépend désormais de `REGISTRE_DEFAUT`.
+// Si le défaut rebasculait un jour, tous les liens sans marqueur — ceux que le
+// site écrit à partir d'aujourd'hui — changeraient de mise en scène en
+// silence. Le programme, le verdict et le score ne bougeraient pas (le
+// registre n'y touche pas, voir plus haut) : c'est le costume qui changerait,
+// pas la démonstration. Qui voudrait rebasculer devra donc réécrire `so!`, ou
+// accepter ce changement pour tous les liens partagés dans l'intervalle.
+//
+// ★ **LA LECTURE NE CHANGE PAS D'UN SIGNE.** La version publiée écrivait `so!`,
+// et ses liens existent. `so!` (et `sobre!`) restent LUS, et rendent la même
+// lecture que la forme sans marqueur — à `registreEcrit` près, qui dit ce que
+// le lien portait. `canoniser()` réécrit la barre d'adresse sans `so!` dès
+// l'ouverture, comme elle réécrivait `sobre!` en `so!`.
+//
+// ⚠️ **UNE PLACE OÙ `so!` DIT ENCORE QUELQUE CHOSE : sans programme.**
+// `#so!#<b58>` vaut « cherche, puis montre la PREMIÈRE voie » — un registre
+// demande une démonstration —, alors que `##<b58>` vaut la LISTE. Retirer
+// `so!` de là changerait la page. Ce n'est pas un lien que le site écrit :
+// `ecrire()` ne pose jamais de registre sans programme (la liste n'en porte
+// pas, et « Révéler » mène au lien de la voie elle-même, donc à un programme).
+// Mais la main peut l'écrire, et il garde son sens : `#so!#…`,
+// `#so!p…!#…` et `#so!#…#<cible>` restent la première voie.
+//
 // ── ET UN REGISTRE QU'ON NE SAIT PAS JOUER RETOMBE SUR « SOBRE » ──────────
 //
 // « Quand `bo!`, `ma!` ou `sce!` est utilisé dans un cas non supporté → repli
@@ -460,8 +500,9 @@
 // neutre — on montre la démonstration, sans la costumer.
 //
 // ★ Le repli est fait à la LECTURE **et** à l'ÉCRITURE, sans quoi l'aller-retour
-// mentirait : `ecrire({registre:'scenique', cible:'111'})` rend `so!`, et
-// relire `so!` rend « sobre ». Une forme canonique, une seule lecture.
+// mentirait : `ecrire({registre:'scenique', cible:'111'})` n'écrit AUCUN
+// marqueur de registre, et relire un lien sans marqueur rend « sobre ». Une
+// forme canonique, une seule lecture.
 // `lecture.registreDemande` conserve ce que le lien portait, pour qui voudrait
 // le dire à l'écran — mais le site ne l'affiche pas : ce n'est pas une erreur
 // du visiteur, c'est un décor que nous n'avons pas encore dessiné.
@@ -652,7 +693,8 @@ export const registresDisponibles = (cible) =>
   (miseEnSceneDisponible(cible) ? REGISTRES : ['sobre']);
 
 /**
- * ★ La forme longue est encore LUE, jamais écrite.
+ * ★ La forme longue est encore LUE, jamais écrite — et `so!` non plus ne
+ * s'écrit plus : seul `sce!` sort d'`ecrire()` (voir l'en-tête).
  *
  * Elle n'aura vécu qu'une version — la 1.2.0, publiée quelques heures —, mais
  * les liens de cette fenêtre-là existent. Les relire coûte deux alternatives
@@ -1344,16 +1386,13 @@ export const BANDEAUX = {
 // ══════════════════════════════════ écriture canonique
 
 /**
- * ★ Le registre est écrit EN TOUTES LETTRES, même quand il vaut le défaut.
+ * ★ Le registre n'est écrit QUE s'il vaut « scénique » — `sce!` ; « sobre »,
+ * le défaut, ne s'écrit pas. Voir l'en-tête, « `so!` NE S'ÉCRIT PLUS ». Le
+ * registre écrit est celui qu'on JOUERA — replié sur « sobre » si la cible n'a
+ * pas d'emblème, donc sans marqueur —, de sorte que relire ce qu'on vient
+ * d'écrire rende exactement ce qu'on a écrit.
  *
- * Un lien qui se tait sur sa mise en scène dépend d'une règle de lecture, et
- * une règle de lecture peut être discutée, oubliée, ou lue de travers dix ans
- * plus tard. Trois caractères achètent une chose : plus jamais de lien ambigu.
- * Et le registre écrit est celui qu'on JOUERA — replié sur « sobre » si la
- * cible n'a pas d'emblème —, de sorte que relire ce qu'on vient d'écrire rende
- * exactement ce qu'on a écrit.
- *
- * La page de RÉSULTATS, elle, n'en porte pas : elle ne montre aucune
+ * La page de RÉSULTATS n'en porte jamais : elle ne montre aucune
  * démonstration, il n'y a rien à mettre en scène.
  *
  * ★ La CIBLE, elle, n'est écrite QUE si elle diffère de 666 — voir l'en-tête.
@@ -1399,8 +1438,17 @@ export function ecrire({
   // retouche sans fragment à nourrir ne désigne aucune démonstration, et on ne
   // l'écrit pas plutôt que d'écrire un lien qui ne se relit pas.
   if (!fragments || !fragments.length) return `#${reglages}#${b58}${queue}`;
+  const approche = ecrireApproche(fragments);
+  // ★ Un programme VIDE est une faute, et bruyante. Du temps où `so!` s'écrivait
+  //   toujours, `{codes: []}` rendait `#so!#…`, qui se relit « la première
+  //   voie » : un lien qui en montrait une autre, en silence. Sans marqueur, il
+  //   rendrait `##…`, qui se relit « la liste » : une autre page, en silence.
+  //   Aucune des deux n'est ce qu'on a demandé d'écrire.
+  if (approche === '') {
+    throw new Error('url : une démonstration sans programme ne s’écrit pas — la liste s’écrit sans fragments');
+  }
   return `#${marqueur(registre, cible)}${marqueurRelecture(relecture)}${marqueurLiaison(liaison)}${reglages}`
-    + `${ecrireRetouches(retouches)}${ecrireApproche(fragments)}#${b58}${queue}`;
+    + `${ecrireRetouches(retouches)}${approche}#${b58}${queue}`;
 }
 
 /**
@@ -1419,9 +1467,12 @@ export function ecrireRetouches(retouches) {
 }
 
 /** Le préfixe de registre, normalisé — et REPLIÉ sur ce que la cible sait jouer,
- *  faute de quoi l'aller-retour mentirait (voir l'en-tête). */
+ *  faute de quoi l'aller-retour mentirait (voir l'en-tête). RIEN au défaut :
+ *  `so!` ne s'écrit plus, seul `sce!` paraît (voir l'en-tête, « `so!` NE
+ *  S'ÉCRIT PLUS »). */
 function marqueur(registre, cible) {
-  return `${MOT_URL[registreEffectif(registre, cible)]}!`;
+  const r = registreEffectif(registre, cible);
+  return r === REGISTRE_DEFAUT ? '' : `${MOT_URL[r]}!`;
 }
 
 /**

@@ -198,7 +198,7 @@ test('url — le marqueur de cible se lit, et il n’est pas écrit au défaut',
   //   n'en porte pas. C'est ce qui garantit que la forme canonique de tous les
   //   liens existants est inchangée, au caractère près.
   const nu = ecrire({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['nd'] }] });
-  assert.equal(nu, `#so!nd#${B58}`, 'aucun `c666!` dans une URL ordinaire');
+  assert.equal(nu, `#nd#${B58}`, 'aucun `c666!` dans une URL ordinaire');
   assert.equal(lire(nu).cible.texte, '666');
   assert.equal(lire(nu).cibleEcrite, false);
 
@@ -208,7 +208,7 @@ test('url — le marqueur de cible se lit, et il n’est pas écrit au défaut',
   });
   // ★ La cible passe derrière un TROISIÈME `#`, en base58 marqué `~` (`url.js`,
   //   « la cible passe derrière un troisième `#` ») ; `c111!` reste lu, plus écrit.
-  assert.equal(vise, `#so!nd#${B58}#${encoderTexte('111')}`);
+  assert.equal(vise, `#nd#${B58}#${encoderTexte('111')}`);
   const l = lire(vise);
   assert.equal(l.forme, 'canonique');
   assert.equal(l.cible.texte, '111');
@@ -288,7 +288,7 @@ test('★ registre — une cible sans emblème replie « scénique » sur « sob
     saisie: 'hope', cible: '111', registre: 'scenique',
     fragments: [{ portee: null, resonance: null, codes: ['nd'] }],
   });
-  assert.equal(ecrit111, `#so!nd#${B58}#${encoderTexte('111')}`);
+  assert.equal(ecrit111, `#nd#${B58}#${encoderTexte('111')}`, 'le scénique replié n’écrit AUCUN registre');
   assert.equal(lire(ecrit111).registre, 'sobre');
 });
 

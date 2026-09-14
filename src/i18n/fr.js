@@ -277,8 +277,8 @@ export const fr = {
       // devant un « + » placé avant le « : » qu'aucune ligne n'explique.
       portees: '#0.1+2.1+4.1:ma1+cs#…',
       porteesTexte: 'portées groupées : plusieurs places voisines qui se partagent un même programme.',
-      registre: '#so!…#…  ·  #sce!…#…',
-      registreTexte: 'registre de mise en scène, en tête de l’approche. Absent, il vaut « sobre » : le spectacle se demande.',
+      registre: '#sce!…#…',
+      registreTexte: 'registre scénique, en tête de l’approche. Absent, c’est « sobre » : le spectacle se demande, la sobriété ne s’écrit pas.',
       cible: '#…#…#…',
       cibleTexte: 'la cible — des chiffres, ou n’importe quel texte —, derrière le troisième #, en base58 (le texte en clair se lit aussi). Absente, c’est 666 — la maison ne se renie pas.',
       copier: 'Copier le lien de cette page',
