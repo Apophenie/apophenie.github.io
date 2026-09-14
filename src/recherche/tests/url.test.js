@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   lire, ecrire, ecrireApproche, descripteursDe, retouchesDe, canoniser, autreRegistre,
-  BANDEAUX, RE_CODE,
+  registreEffectif, BANDEAUX, RE_CODE,
 } from '../url.js';
 import { encoderTexte, LIMITE_SAISIE } from '../base58.js';
 import { catalogue } from './_catalogue.js';
@@ -104,14 +104,14 @@ test('url — écriture canonique : aller-retour exact', () => {
     { portee: null, resonance: null, codes: ['nv'] },
   ];
   const s = ecrire({ saisie: 'hope', fragments: frags });
-  // Le registre est TOUJOURS écrit, même quand il vaut le défaut : plus jamais
-  // de lien ambigu (`url.js`, « écriture canonique »).
-  assert.equal(s, `#so!0.3:fp+ma1+cs,nv#${B58_HOPE}`);
+  // « Sobre » est le défaut, et le défaut ne s'écrit pas : seul `sce!` paraît
+  // (`url.js`, « `so!` NE S'ÉCRIT PLUS »).
+  assert.equal(s, `#0.3:fp+ma1+cs,nv#${B58_HOPE}`);
   const r = lire(s);
   assert.equal(r.saisie, 'hope');
   assert.deepEqual(r.fragments, frags);
   assert.equal(r.registre, 'sobre');
-  assert.equal(r.registreEcrit, true);
+  assert.equal(r.registreEcrit, false);
 });
 
 /* ═══════════ les PORTÉES GROUPÉES — un programme, plusieurs places ═══════ */
@@ -129,14 +129,15 @@ test('url — écriture canonique : aller-retour exact', () => {
 //   CODE_DECOUPE_IMPLICITE`). Un lien qui le porte reste LU — c'est vérifié
 //   plus bas —, mais la forme canonique, celle que `canoniser()` remet dans la
 //   barre d'adresse, s'en passe.
-const GROUPE = 'so!0+2+4:m14,1+3:mtc+cs,6:mpy+mr9';
+// ★ Sans `so!` non plus : le registre sobre est le défaut et ne s'écrit plus.
+const GROUPE = '0+2+4:m14,1+3:mtc+cs,6:mpy+mr9';
 // ★ La forme dépliée est celle de l'ORDRE DU TEXTE, et non celle de l'ordre
 //   des groupes : une ligne groupée déclare se lire de gauche à droite, et le
 //   dépliage l'y remet (`url.js › lireFragments`). C'est ce qui rend la
 //   factorisation neutre — sans quoi `0.1+2.1:A,1.1:B` dirait 0, 2, 1.
 // ★ Sans `tca`, comme `GROUPE` : les deux formes se comparent, elles doivent
 //   donc s'écrire dans le même alphabet.
-const DEPLIE = 'so!0:m14,1:mtc+cs,2:m14,'
+const DEPLIE = '0:m14,1:mtc+cs,2:m14,'
   + '3:mtc+cs,4:m14,6:mpy+mr9';
 
 test('★ portées groupées — la forme de l’auteur se lit, et se déplie', () => {
@@ -383,7 +384,7 @@ test('★ url — aller-retour d’une retouche, au caractère près', () => {
      défaut, réinséré à la lecture (`url.js › CODE_DECOUPE_IMPLICITE`). Les liens
      qui le PORTENT restent lisibles — ceux d'hier le font —, mais la forme
      canonique s'en passe. Ce qui est comparé ici est une ÉCRITURE, donc sans. */
-  const lien = `#so!2:fr13;fl+mtal+m14+mpf#${encoderTexte('Donald Trump')}`;
+  const lien = `#2:fr13;fl+mtal+m14+mpf#${encoderTexte('Donald Trump')}`;
   const r = lire(lien);
   assert.equal(ecrire({
     saisie: r.saisie, retouches: r.retouches, fragments: r.fragments, registre: r.registre,
@@ -401,7 +402,7 @@ test('★ url — sans retouche, l’écriture est INCHANGÉE au caractère prè
      défaut, réinséré à la lecture (`url.js › CODE_DECOUPE_IMPLICITE`). Les liens
      qui le PORTENT restent lisibles — ceux d'hier le font —, mais la forme
      canonique s'en passe. Ce qui est comparé ici est une ÉCRITURE, donc sans. */
-  const attendu = `#so!m14+m36#${B58_HOPE}`;
+  const attendu = `#m14+m36#${B58_HOPE}`;
   assert.equal(ecrire({ saisie: 'hope', fragments: frags, registre: 'sobre' }), attendu);
   assert.equal(ecrire({ saisie: 'hope', fragments: frags, registre: 'sobre', retouches: [] }), attendu);
   assert.ok(!attendu.includes(';'));
@@ -427,7 +428,7 @@ test('★ url — la lecture des chiffres se tait, elle aussi, et se réinsère 
   // L'écriture : les deux implicites tombent, le reste ne bouge pas.
   const frags = [{ portee: null, resonance: null, codes: ['tca', 'm09', 'm36'] }];
   assert.equal(ecrire({ saisie: '12345666', fragments: frags, registre: 'sobre' }),
-    `#so!m36#${chiffres}`);
+    `#m36#${chiffres}`);
 
   // La lecture : les deux se remettent, dans cet ordre, et à leur place.
   const r = lire(`#m36#${chiffres}`);
@@ -525,9 +526,9 @@ test('url — canoniser() réécrit la barre d’adresse par replaceState', () =
     history: { replaceState: (...a) => appels.push(a) },
   };
   const frag = canoniser({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['nd'] }] }, faux);
-  assert.equal(frag, `#so!nd#${B58_HOPE}`);
+  assert.equal(frag, `#nd#${B58_HOPE}`);
   assert.equal(appels.length, 1);
-  assert.equal(appels[0][2], `/numherololgeek/#so!nd#${B58_HOPE}`);
+  assert.equal(appels[0][2], `/numherololgeek/#nd#${B58_HOPE}`);
   // Idempotent : si le hash est déjà canonique, on n’empile rien.
   faux.location.hash = frag;
   canoniser({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['nd'] }] }, faux);
@@ -600,6 +601,165 @@ test('registre — la page de résultats n’en porte pas : rien à mettre en sc
   assert.equal(lire(`##${B58_HOPE}`).registre, null);
 });
 
+/* ═══════════ `so!` NE S'ÉCRIT PLUS — seul `sce!` se mentionne ═══════════ */
+
+/**
+ * ★ « so! inutile de le mettre, c'est l'implicite par défaut, c'est quand c'est
+ *   sce! qu'il faut le mentionner. » (l'autrice)
+ *
+ * Toutes les formes qu'`ecrire()` produit, croisées : avec ou sans programme,
+ * sans cible / cible chiffrée / cible textuelle, registre absent / sobre /
+ * scénique, avec ou sans curseurs et fouille, et — avec un programme — sans
+ * étage, avec une retouche, avec une liaison, avec une relecture. Chaque forme
+ * est relue en base58 (ce que le site écrit) et en clair (ce que la main tape).
+ *
+ * Trois choses sont tenues pour chacune :
+ *   1. `so!` n'est jamais écrit, `sce!` l'est exactement quand on le JOUERA ;
+ *   2. `lire(ecrire(x))` redonne `x`, et réécrire ce qu'on a lu est un point fixe ;
+ *   3. la forme que la version publiée écrivait — la même, AVEC `so!` — se
+ *      relit à l'identique (à `registreEcrit` près, qui dit ce que le lien
+ *      portait), et se réécrit sans `so!`.
+ *
+ * ⚠️ Et la seule place où `so!` change encore le sens : SANS programme.
+ * `ecrire()` n'y a jamais posé de registre, donc rien n'a été retiré ; mais
+ * `#so!#…` écrit à la main vaut la première voie, là où `##…` vaut la liste.
+ */
+test('★ registre — `so!` ne s’écrit plus, et chaque forme se relit comme sa forme avec `so!`', () => {
+  const SAISIE = 'Donald Trump';
+  const PROGRAMME = [
+    { portee: { offset: 0, longueur: 1 }, resonance: null, codes: ['m14'] },
+    { portee: { offset: 2, longueur: 1 }, resonance: null, codes: ['m36'] },
+  ];
+  const RETOUCHE = [{ portee: { offset: 2, longueur: 1 }, resonance: null, codes: ['fr13'] }];
+  const REGLAGES = { curseurs: { simplicite: 10, exhaustivite: 20, quantite: 30, coherence: 40 }, fouille: 2 };
+  const avecSo = (hash) => `#so!${hash.slice(1)}`;
+  const enClair = (hash) => { const p = hash.split('#'); p[2] = `:${SAISIE}`; return p.join('#'); };
+  const sansTrace = ({ registreEcrit, ...lecture }) => lecture;
+  const champs = (l) => ({
+    saisie: l.saisie, fragments: l.fragments, retouches: l.retouches, registre: l.registre,
+    cible: l.cible, relecture: l.relecture, liaison: l.liaison, curseurs: l.curseurs, fouille: l.fouille,
+  });
+
+  let vues = 0;
+  for (const avecProgramme of [false, true]) {
+    for (const cible of [undefined, '111', 'Zerg']) {
+      for (const registre of [undefined, 'sobre', 'scenique']) {
+        for (const reglages of [{}, REGLAGES]) {
+          const etages = !avecProgramme ? [{}] : [
+            {}, { retouches: RETOUCHE }, { liaison: 'mdl0' },
+            ...(cible === 'Zerg' ? [{ relecture: 'mcaz' }] : []),
+          ];
+          for (const etage of etages) {
+            const x = {
+              saisie: SAISIE, cible, registre, ...reglages, ...etage,
+              ...(avecProgramme ? { fragments: PROGRAMME } : {}),
+            };
+            const s = ecrire(x);
+            const nom = `${JSON.stringify(x)} → ${s}`;
+            const joue = registreEffectif(registre, cible);
+            vues++;
+
+            // 1. `so!` jamais écrit ; `sce!` exactement quand on le jouera.
+            assert.doesNotMatch(s, /so!/, nom);
+            assert.equal(s.startsWith('#sce!'), avecProgramme && joue === 'scenique', nom);
+
+            // 2. L'aller-retour.
+            const l = lire(s);
+            assert.equal(l.forme, avecProgramme ? 'canonique' : 'resultats', nom);
+            assert.equal(l.saisie, SAISIE, nom);
+            assert.equal(l.cible.texte, cible ?? '666', nom);
+            assert.equal(l.registre, avecProgramme ? joue : null, nom);
+            assert.equal(l.registreEcrit, avecProgramme && joue === 'scenique', nom);
+            assert.equal(l.fouille, reglages.fouille ?? 0, nom);
+            if (reglages.curseurs) assert.deepEqual(l.curseurs, reglages.curseurs, nom);
+            if (avecProgramme) {
+              assert.deepEqual(l.fragments, PROGRAMME, nom);
+              assert.deepEqual(l.retouches, etage.retouches ?? [], nom);
+              assert.equal(l.liaison, etage.liaison ?? null, nom);
+              assert.equal(l.relecture, etage.relecture ?? null, nom);
+            }
+            assert.equal(ecrire(champs(l)), s, `${nom} : pas un point fixe`);
+
+            if (avecProgramme && joue === 'sobre') {
+              // 3. La forme publiée, avec `so!`, en base58 comme en clair.
+              for (const forme of [s, enClair(s)]) {
+                const ancienne = lire(avecSo(forme));
+                assert.equal(ancienne.registreEcrit, true, avecSo(forme));
+                assert.deepEqual(sansTrace(ancienne), sansTrace(lire(forme)),
+                  `${avecSo(forme)} ne se relit pas comme ${forme}`);
+                assert.equal(ecrire(champs(ancienne)), s, `${avecSo(forme)} ne se canonise pas sans so!`);
+              }
+            }
+            if (!avecProgramme) {
+              // ⚠️ Sans programme, `so!` n'est PAS retirable : il demande la
+              // première voie. La forme écrite (base58) est la liste ; en clair,
+              // elle ne devient la première voie que si une cible est écrite.
+              assert.equal(lire(avecSo(s)).forme, 'premiere', avecSo(s));
+              assert.equal(lire(avecSo(enClair(s))).forme, 'premiere', avecSo(enClair(s)));
+              assert.equal(lire(enClair(s)).forme, cible === undefined ? 'resultats' : 'premiere', enClair(s));
+            }
+          }
+        }
+      }
+    }
+  }
+  assert.equal(vues, 78, 'le tableau des combinaisons a changé de taille');
+});
+
+test('★ registre — le scénique replié n’écrit aucun marqueur, et l’aller-retour reste fidèle', () => {
+  const fragments = [{ portee: null, resonance: null, codes: ['nd'] }];
+  const s = ecrire({ saisie: 'hope', fragments, registre: 'scenique', cible: '111' });
+  assert.equal(s, `#nd#${B58_HOPE}#${encoderTexte('111')}`, '111 n’a pas d’emblème : rien à écrire');
+  const l = lire(s);
+  assert.equal(l.registre, 'sobre');
+  assert.equal(ecrire({ saisie: l.saisie, fragments: l.fragments, registre: l.registre, cible: l.cible }), s);
+  // Le lien publié portait `so!` : il se relit pareil, et se réécrit sans.
+  const publie = lire(`#so!nd#${B58_HOPE}#${encoderTexte('111')}`);
+  assert.equal(publie.registre, 'sobre');
+  assert.equal(ecrire({ saisie: publie.saisie, fragments: publie.fragments, registre: publie.registre, cible: publie.cible }), s);
+  // Et le `sce!` écrit à la main sur 111 se canonise de même.
+  const demande = lire(`#sce!nd#${B58_HOPE}#${encoderTexte('111')}`);
+  assert.equal(demande.registreDemande, 'scenique');
+  assert.equal(ecrire({ saisie: demande.saisie, fragments: demande.fragments, registre: demande.registre, cible: demande.cible }), s);
+});
+
+test('★ registre — canoniser() retire le `so!` d’un lien publié', () => {
+  const appels = [];
+  const faux = {
+    location: { pathname: '/numherololgeek/', search: '', hash: `#so!p10.20.30.40!f2!m36#${B58_HOPE}` },
+    history: { replaceState: (...a) => appels.push(a) },
+  };
+  const lu = lire(faux.location.hash);
+  assert.equal(lu.forme, 'canonique');
+  const frag = canoniser({
+    saisie: lu.saisie, fragments: lu.fragments, registre: lu.registre, curseurs: lu.curseurs, fouille: lu.fouille,
+  }, faux);
+  assert.equal(frag, `#p10.20.30.40!f2!m36#${B58_HOPE}`);
+  assert.equal(appels.length, 1);
+  assert.equal(appels[0][2], `/numherololgeek/#p10.20.30.40!f2!m36#${B58_HOPE}`);
+});
+
+test('★ registre — un texte qui commence par « so! » reste une saisie', () => {
+  // Un seul `#` : pas d'approche, donc pas de marqueur. Rien n'a changé ici.
+  const l = lire('#so!Machin');
+  assert.equal(l.forme, 'premiere');
+  assert.equal(l.saisie, 'so!Machin');
+  assert.equal(l.registreEcrit, false);
+  const b58 = lire(`#${encoderTexte('so!Machin')}`);
+  assert.equal(b58.saisie, 'so!Machin');
+  // Et une saisie « so!Machin » s'écrit en base58 : aucun `!` ne sort dans le lien.
+  assert.equal(ecrire({ saisie: 'so!Machin' }), `##${encoderTexte('so!Machin')}`);
+});
+
+test('★ url — une démonstration sans programme ne s’écrit pas : l’échec est bruyant', () => {
+  // `#so!#…` hier (la première voie), `##…` sans le garde (la liste) : deux
+  // pages différentes de ce qu'on demandait, et aucune ne le disait.
+  for (const registre of ['sobre', 'scenique']) {
+    assert.throws(() => ecrire({ saisie: 'hope', registre, fragments: [{ portee: null, resonance: null, codes: [] }] }),
+      /sans programme/);
+  }
+});
+
 test('registre — aller-retour exact dans les deux registres', () => {
   const frags = [{ portee: { offset: 0, longueur: 1 }, resonance: null, codes: ['tca', 'm14', 'm36'] }];
   for (const registre of ['sobre', 'scenique']) {
@@ -647,14 +807,19 @@ test('url — accents : la saisie survit à l’aller-retour dans l’URL', () =
  * publiée quelques heures —, mais les liens de cette fenêtre-là existent. Les
  * relire coûte deux alternatives ; les casser coûterait un lien mort.
  */
-test('★ registre — la forme longue se relit, la forme brève s’écrit', () => {
-  for (const [long, bref, attendu] of [['sobre', 'so', 'sobre'], ['scenique', 'sce', 'scenique']]) {
+test('★ registre — la forme longue se relit, la forme brève s’écrit — et « sobre » ne s’écrit pas', () => {
+  // `so!` ne s'écrit plus du tout (`url.js`, « `so!` NE S'ÉCRIT PLUS ») : le
+  // préfixe attendu du sobre est donc l'absence de marqueur.
+  for (const [long, bref, attendu, prefixe] of [
+    ['sobre', 'so', 'sobre', '#ma1#'],
+    ['scenique', 'sce', 'scenique', '#sce!ma1#'],
+  ]) {
     assert.equal(lire(`#${long}!ma1+cs+prn#${B58_HOPE}`).registre, attendu,
       `« ${long}! » n’est plus compris : les liens de la 1.2.0 sont morts`);
     assert.equal(lire(`#${bref}!ma1+cs+prn#${B58_HOPE}`).registre, attendu);
     // Et c'est la forme brève qui sort, quelle que soit celle qui est entrée.
     const ecrit = ecrire({ saisie: 'hope', fragments: [{ codes: ['ma1'] }], registre: attendu });
-    assert.ok(ecrit.startsWith(`#${bref}!`), `écrit « ${ecrit} », attendu le préfixe « ${bref}! »`);
+    assert.ok(ecrit.startsWith(prefixe), `écrit « ${ecrit} », attendu le préfixe « ${prefixe} »`);
     assert.doesNotMatch(ecrit, new RegExp(`^#${long}!`), 'la forme longue est encore écrite');
   }
 });
@@ -815,11 +980,11 @@ test('saisie en clair — le plafond de saisie vaut aussi pour le texte brut', (
  * quand on passe par l'interface du site » (l'auteur). La tolérance est en
  * lecture ; `canoniser()` fait le reste, et un lien tapé à la main se change
  * tout seul en lien partageable dès qu'on l'ouvre — exactement le mécanisme qui
- * abrège `sobre!` en `so!`.
+ * retire le `so!` d'un lien sobre.
  */
 test('★ saisie en clair — l’écriture reste en base58, la barre d’adresse se corrige', () => {
   const frags = [{ portee: null, resonance: null, codes: ['tca', 'm36'] }];
-  assert.equal(ecrire({ saisie: 'Macron', fragments: frags }), `#so!m36#${encoderTexte('Macron')}`);
+  assert.equal(ecrire({ saisie: 'Macron', fragments: frags }), `#m36#${encoderTexte('Macron')}`);
   assert.equal(ecrire({ saisie: 'Donald Trump' }), `##${encoderTexte('Donald Trump')}`);
 
   const appels = [];
@@ -830,7 +995,8 @@ test('★ saisie en clair — l’écriture reste en base58, la barre d’adress
   const lu = lire(faux.location.hash);
   canoniser({ saisie: lu.saisie, fragments: lu.fragments, registre: lu.registre }, faux);
   assert.equal(appels.length, 1, 'un lien tapé à la main n’est pas laissé en l’état');
-  assert.equal(appels[0][2], `/numherololgeek/#so!m36#${encoderTexte('Macron')}`);
+  assert.equal(appels[0][2], `/numherololgeek/#m36#${encoderTexte('Macron')}`,
+    'le clair devient base58, `tca` et `so!` tombent');
 });
 
 /**
