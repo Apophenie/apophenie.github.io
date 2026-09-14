@@ -60,6 +60,19 @@
  * côté). Quand toutes les sources partent et qu'un résultat arrive, c'est cette
  * fermeture qui tient lieu de suivi.
  *
+ * ★ **LE RÉSULTAT SE POSE DANS L'ACCOLADE, jamais à côté.**
+ *
+ * > « L'accolade devrait anticiper le contenu qui arrive : elle désigne
+ * >   l'opération en cours, résultat compris, donc la place qui est faite pour
+ * >   le résultat est à compter à l'intérieur de l'accolade, pour que le
+ * >   résultat vienne se loger dedans plutôt que dehors. » (l'autrice)
+ *
+ * Pour chaque résultat qui se pose sur la ligne sous une accolade : à
+ * l'instant où il se pose, sa boîte est contenue dans l'étendue du tracé (à une
+ * chasse près) ; et un instant avant — la moitié de sa pose, 150 ms au plus —,
+ * le tracé couvrait DÉJÀ cette place. Un tracé qui court rattraper un résultat
+ * posé à côté de lui ne la tient pas.
+ *
  * ★ **DESCENDRE SOUS LA POINTE N'EST PAS QUITTER.**
  *
  * « N'embrasse que ce qui est encore là » vise ce qui QUITTE l'accolade
@@ -308,6 +321,51 @@ export function finsDesAccolades(tl, lignes) {
       }
     }
 
+    // ── Le résultat se pose-t-il DANS le tracé ? ─────────────────────────────
+    let logementManque = null;
+    const demiLargeurA = (acc, t) => {
+      const chemins = tl.discrete.filter((r) => r.id === acc.id && r.channel === 'd' && r.at <= t)
+        .sort((x, y) => x.at - y.at);
+      const r = chemins.length ? chemins[chemins.length - 1] : null;
+      const chemin = r ? r.render(r.dur ? Math.min(1, Math.max(0, (t - r.at) / r.dur)) : 1) : (acc.data && acc.data.d);
+      const m = /^M\s*(-?[\d.]+)/.exec(String(chemin || ''));
+      return m ? Math.abs(Number(m[1])) : null;
+    };
+    for (const id of tAction === null ? [] : nouveaux) {
+      if (!sousLAccolade(id)) continue;
+      const yFinal = (lire.valeur(id, 'translate', t1 - 0.5) || {}).y;
+      if (yFinal === undefined) continue;
+      const poses = anims.filter((a) => a.id === id && debut(a) < borne - TOLERANCE_MS && (
+        (a.prop === 'translate' && Math.abs(arrivee(a).y - a.keyframes[0].value.y) > 1 && Math.abs(arrivee(a).y - yFinal) < 1)
+        || (a.prop === 'opacity' && arrivee(a) >= 0.9)));
+      if (!poses.length) continue;
+      const pose = poses.reduce((m, a) => (a.delay + a.duration > m.delay + m.duration ? a : m));
+      const tPose = pose.delay + pose.duration;
+      const p = lire.valeur(id, 'translate', tPose);
+      const w = noeuds.get(id).w;
+      const acc = accolades.find((a) => {
+        const base = a.base && a.base.translate;
+        return base && p && p.x >= base.x - a.w / 2 && p.x <= base.x + a.w / 2
+          && (lire.valeur(a.id, 'opacity', tPose) ?? 1) > 0.1;
+      });
+      if (!acc) continue;
+      const couvre = (t) => {
+        const c = lire.valeur(acc.id, 'translate', t);
+        const demi = demiLargeurA(acc, t);
+        return c && demi !== null && c.x - demi <= p.x - w / 2 + av && c.x + demi >= p.x + w / 2 - av;
+      };
+      const instantAvant = tPose - Math.min(150, pose.duration * 0.5);
+      if (!couvre(tPose)) {
+        logementManque = `« ${noeuds.get(id).text} » se pose à ${Math.round(tPose - t0)} ms HORS du tracé de l’accolade`;
+        break;
+      }
+      if (!couvre(instantAvant)) {
+        logementManque = `le tracé ne couvrait pas la place de « ${noeuds.get(id).text} » un instant avant qu’il s’y pose `
+          + `(${Math.round(tPose - t0)} ms) : il court le rattraper`;
+        break;
+      }
+    }
+
     let faute = null;
     if (tAction === null) {
       faute = null; // rien ne se passe sous l'accolade : il n'y a pas de fin à ordonner
@@ -328,6 +386,7 @@ export function finsDesAccolades(tl, lignes) {
     }
     if (!faute && suiviManquant) faute = suiviManquant;
     if (!faute && fermetureManquee) faute = fermetureManquee;
+    if (!faute && logementManque) faute = logementManque;
     out.push({ etape: i, id: st.id, action: tAction, effacement: tEff, resserrement: tSerre, duree: st.duration, faute });
   });
   return out;

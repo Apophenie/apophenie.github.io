@@ -7,7 +7,7 @@
 
 import {
   tracerAccolade, tokenSpec, numberOf, espacementDe, exigerPoint,
-  reserverLaPlace, poserDansLaPlace, suivreSesSources, finirSousAccolade,
+  reserverLaPlace, poserDansLaPlace, suivreLaZone, finirSousAccolade,
 } from './helpers.js';
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
@@ -142,7 +142,12 @@ export function planDenombrement(ctx, ids) {
   ctx.scene.place(specValeur.id, { x: p0.x, y: p0.y });
   const garde = reserverLaPlace(ctx, ids);
   for (const id of ids) ctx.scene.kill(id, ctx.where);
-  const monte = poserDansLaPlace(ctx, garde, [specCompte.id, specValeur.id], { at: t3, dur: tRemontee, rang: rangs[0] });
+  // ★ L'accolade anticipe : la place de « compte valeur » est dans le tracé AVANT
+  //   que le compte ne remonte s'y mettre devant — les exemplaires, qui ne
+  //   fusionnent que pendant la remontée, y restent aussi (`anticiperLaPlace`).
+  const monte = poserDansLaPlace(ctx, garde, [specCompte.id, specValeur.id], {
+    at: t3, dur: tRemontee, rang: rangs[0], garder: ids,
+  });
   // Les exemplaires se rejoignent là où l'unique exemplaire se pose, et s'y fondent.
   const cible = ctx.scene.pos(specValeur.id);
   for (const id of ids) {
@@ -151,8 +156,13 @@ export function planDenombrement(ctx, ids) {
     ctx.anim({ id, prop: 'opacity', values: [1, 1, 0], offsets: [0, 0.7, 1], at: monte.at, dur: monte.dur });
   }
   ctx.anim({ id: specValeur.id, prop: 'opacity', values: [0, 0, 1], offsets: [0, 0.7, 1], at: monte.at, dur: monte.dur });
-  // Le tracé n'embrasse que ce qui est encore là : il se resserre sur l'exemplaire unique.
-  suivreSesSources(ctx, acc.id, [specValeur.id], { at: monte.at, dur: monte.dur });
+  // Le tracé n'embrasse que ce qui est encore là : les exemplaires qui fusionnent en
+  // sortent, et il se resserre sur « compte valeur » — la place du compte y reste,
+  // puisqu'il y est attendu. Il ne se resserrait que sur l'exemplaire, et le compte
+  // se posait devant, HORS du tracé.
+  ctx.scene.poserAccolade(acc.id, [specCompte.id, specValeur.id]);
+  suivreLaZone(ctx, { id: acc.id, shape: 'brace', sources: [specCompte.id, specValeur.id] },
+    { at: monte.at, dur: monte.dur });
 
   // --- ④ PUIS la légende s'efface, et la ligne se referme ---------------------
   finirSousAccolade(ctx, { at: monte.at + monte.dur, dur: tFin });

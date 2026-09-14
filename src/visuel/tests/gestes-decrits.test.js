@@ -1294,7 +1294,13 @@ test('★ mcc dénombre série par série : accolade, un « 1 » par exemplaire,
   }
   assert.ok((lire.valeur('x0v0', 'opacity', fin(remontee)) ?? 0) > 0.9, 'il n’en reste qu’un');
   const resserre = tl.discrete.find((r) => r.id === accolade.id && r.channel === 'd' && Math.abs(r.at - remontee.delay) < 1);
-  assert.ok(resserre, 'le tracé se resserre sur l’exemplaire qui reste');
+  assert.ok(resserre, 'le tracé se resserre pendant que les exemplaires fusionnent');
+  // ★ Et il anticipe : « compte valeur » se pose DANS l'accolade (l'autrice).
+  const pCompte = lire.valeur('x0n0', 'translate', fin(remontee));
+  const cAcc = lire.valeur(accolade.id, 'translate', fin(remontee));
+  const demi = Math.abs(Number(/^M\s*(-?[\d.]+)/.exec(resserre.render(1))[1]));
+  const wCompte = tl.nodes.find((n) => n.id === 'x0n0').w;
+  assert.ok(cAcc.x - demi <= pCompte.x - wCompte / 2 + 1, 'le compte se pose dans le tracé, pas devant lui');
 
   // ④ PUIS la légende s'efface.
   const retrait = anims(legende[0].id, 'opacity').find((a) => arrivee(a) === 0);
