@@ -32,9 +32,22 @@
  *   dernière op de l'étape qui a commencé avant l'effacement.
  *
  * **L'effacement** : le premier départ d'opacité vers 0 d'une pièce
- * d'accolade. Seule exception, et elle est DÉCLARÉE sur le nœud : le tracé
- * d'une somme, qui s'efface au rythme de ses sources (`suitSesSources`,
- * arbitrage de l'auteur, voir `helpers.js › accumulate`).
+ * d'accolade qui attend la fin — le symbole, la légende, et le tracé s'il est
+ * encore là. Le tracé qui SUIT SES SOURCES (`suitSesSources`) peut s'effacer
+ * plus tôt : c'est la règle.
+ *
+ * ★ **LE TRACÉ SUIT SES SOURCES — et c'est son ABSENCE qui est une faute.**
+ *
+ * > « Je crois que c'est l'exception qui devrait être la règle, donc oui pour
+ * >   la garder et même la généraliser ! » (l'autrice)
+ *
+ * Les sources d'une accolade : les jetons de la ligne d'entrée que son tracé
+ * couvre quand il se tire. Quand certaines partent pendant l'action — elles
+ * s'effacent, ou quittent la hauteur de la ligne —, et que ce qui reste n'a
+ * plus la même étendue (ou qu'il ne reste rien), le tracé doit le montrer
+ * dans la foulée : un resserrement (canal `d`) ou son effacement, qui
+ * commence après le premier de ces départs et avant la fin de l'action. Un
+ * jeton du milieu qui part ne change pas l'étendue : rien n'est exigé.
  *
  * **Le resserrement** : le départ des déplacements horizontaux des jetons de la
  * ligne de sortie qui durent encore à la fin de l'action. Un élargissement
@@ -43,6 +56,7 @@
  */
 
 import { DUREE_OP } from '../../moteur/transformations/commun.js';
+import { lecteur } from './_lecteur.js';
 
 /** Unités de temps tolérées : les arrondis de compilation. */
 export const TOLERANCE_MS = 1;
@@ -58,6 +72,7 @@ export const TOLERANCE_MS = 1;
  */
 export function finsDesAccolades(tl, lignes) {
   const noeuds = new Map(tl.nodes.map((n) => [n.id, n]));
+  const lire = lecteur(tl);
   const out = [];
   tl.steps.forEach((st, i) => {
     const t0 = st.t0;
@@ -120,6 +135,60 @@ export function finsDesAccolades(tl, lignes) {
       && fin(a) > tAction + TOLERANCE_MS);
     const tSerre = serre.length ? Math.min(...serre.map(debut)) : null;
 
+    // ── Le tracé suit-il ses sources ? ───────────────────────────────────────
+    let suiviManquant = null;
+    if (tAction !== null) {
+      for (const acc of accolades) {
+        const trace = anims.filter((a) => a.id === acc.id && a.prop === 'strokeDashoffset')[0];
+        const tTire = trace ? trace.delay : t0;
+        const base = acc.base && acc.base.translate;
+        if (!base) continue;
+        const g = base.x - acc.w / 2 - 1;
+        const d = base.x + acc.w / 2 + 1;
+        // Ses sources : ce qui est VISIBLE sous son tracé quand il se tire. Un jeton
+        // déjà parti — les opérandes d'une somme posés sous la pointe, avant que
+        // l'accolade suivante de la même étape ne se tire au même endroit — n'en est
+        // pas une.
+        const couverts = [...entree].filter((id) => {
+          if (!texte(id)) return false;
+          if (!((lire.valeur(id, 'opacity', tTire) ?? 1) > 0.1)) return false;
+          const p = lire.valeur(id, 'translate', tTire);
+          return p && p.x >= g && p.x <= d;
+        });
+        if (!couverts.length) continue;
+        const departDe = (id) => {
+          const yLigne = lire.valeur(id, 'translate', tTire).y;
+          const d0 = anims.filter((a) => a.id === id && a.delay >= tTire - TOLERANCE_MS && (
+            (a.prop === 'opacity' && arrivee(a) < 0.1)
+            || (a.prop === 'translate' && a.keyframes.some((k) => Math.abs(k.value.y - yLigne) > 1))));
+          return d0.length ? Math.min(...d0.map(debut)) : null;
+        };
+        const limite = tEff === null ? tAction : Math.min(tEff, tAction);
+        const partis = couverts.filter((id) => !sortie.has(id))
+          .map((id) => ({ id, t: departDe(id) }))
+          .filter((x) => x.t !== null && x.t < limite - TOLERANCE_MS);
+        if (!partis.length) continue;
+        const xDe = (id) => lire.valeur(id, 'translate', tTire).x;
+        const partisIds = new Set(partis.map((x) => x.id));
+        const restent = couverts.filter((id) => !partisIds.has(id));
+        const etendue = (ids) => (ids.length ? [Math.min(...ids.map(xDe)), Math.max(...ids.map(xDe))] : null);
+        const avant = etendue(couverts);
+        const apres = etendue(restent);
+        const change = !apres || Math.abs(apres[0] - avant[0]) > 1 || Math.abs(apres[1] - avant[1]) > 1;
+        if (!change) continue;
+        const premier = Math.min(...partis.map((x) => x.t));
+        const suit = tl.discrete.some((r) => r.id === acc.id && r.channel === 'd'
+          && r.at - t0 >= premier - 50 && r.at - t0 < tAction)
+          || tl.anims.some((a) => a.id === acc.id && a.prop === 'opacity' && arrivee(a) === 0
+            && debut(a) >= premier - 50 && debut(a) < tAction);
+        if (!suit) {
+          suiviManquant = `le tracé ne suit pas ses sources : ${partis.length} jeton(s) partent dès ${Math.round(premier)} ms, `
+            + 'et il garde leur place';
+          break;
+        }
+      }
+    }
+
     let faute = null;
     if (tAction === null) {
       faute = null; // rien ne se passe sous l'accolade : il n'y a pas de fin à ordonner
@@ -138,6 +207,7 @@ export function finsDesAccolades(tl, lignes) {
     } else if (tSerre !== null && tSerre + TOLERANCE_MS < tEff) {
       faute = `la ligne se resserre à ${Math.round(tSerre)} ms, avant l’effacement de l’accolade (${Math.round(tEff)} ms)`;
     }
+    if (!faute && suiviManquant) faute = suiviManquant;
     out.push({ etape: i, id: st.id, action: tAction, effacement: tEff, resserrement: tSerre, duree: st.duration, faute });
   });
   return out;

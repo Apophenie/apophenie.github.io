@@ -286,8 +286,12 @@ test('★ mdiv resserre son accolade sur le reste ; mdvr ne la touche pas', () =
   };
   assert.equal(resserrements('mdiv'), 2,
     'elle se resserre sur le reste, puis se ré-étire sur la ligne neuve');
-  assert.equal(resserrements('mdvr'), 1,
-    'elle ne fait que s’étendre pour accueillir le compte posé après le reste');
+  // ★ Depuis que le tracé suit ses sources (« l'exception devient la règle »,
+  //   l'autrice), `mdvr` se resserre AUSSI sur son reste quand `/B` se dissout,
+  //   puis s'étend sur le compte posé après lui : c'est l'ORDRE du compte, devant
+  //   ou derrière le reste, qui distingue les deux divisions.
+  assert.equal(resserrements('mdvr'), 2,
+    'elle se resserre sur le reste quand /B se dissout, puis s’étend sur le compte posé après lui');
 });
 
 // ───────────────────── 4. dissoudre, ou demeurer
@@ -585,10 +589,14 @@ test('★ le carré se joue dans l’ordre de l’autrice : accolade, double sor
   assert.ok(remontee && remontee.delay > P, 'le résultat remonte sur la ligne principale');
 
   // ⑥ … PUIS l'accolade disparaît, et l'espace se réajuste.
-  for (const n of [accolade, ...suiveurs]) {
+  // ★ Le TRACÉ n'embrasse que ce qui est encore là : l'expression quitte la ligne
+  //   en descendant, et il s'en va avec elle. « au carré » attend la fin.
+  const retraitTrace = anims(accolade.id, 'opacity').find((a) => arrivee(a) === 0);
+  assert.ok(retraitTrace && Math.abs(retraitTrace.delay - D) < 1, 'le tracé s’en va quand l’expression quitte la ligne');
+  for (const n of suiveurs) {
     const retrait = anims(n.id, 'opacity').find((a) => arrivee(a) === 0);
     assert.ok(retrait, `« ${n.id} » se retire`);
-    assert.ok(retrait.delay >= fin(remontee), `« ${n.text || 'l’accolade'} » ne s’efface qu’APRÈS la remontée`);
+    assert.ok(retrait.delay >= fin(remontee), `« ${n.text} » ne s’efface qu’APRÈS la remontée`);
   }
   const resserrement = anims('t2', 'translate').find((a) => a.delay >= fin(remontee));
   assert.ok(resserrement && arrivee(resserrement).x < resserrement.keyframes[0].value.x,
@@ -779,9 +787,13 @@ test('★ la puissance se joue dans l’ordre décrit : exposant formé, copies 
   assert.ok(efface.delay < remontee.delay && fin(efface) > remontee.delay,
     'l’exposant, passé à 0, s’efface pendant la descente et jusque dans la remontée');
   const retrait = anims(accolade.id, 'opacity', pas5).find((a) => arrivee(a) === 0);
-  // ★ La fin en deux temps, commune à tout geste à accolade : le produit se pose,
-  //   PUIS l'accolade s'efface (`helpers.js › finirSousAccolade`).
-  assert.ok(retrait.delay >= fin(remontee) - 1, 'l’accolade ne s’efface qu’APRÈS la remontée du produit');
+  // ★ Le tracé suit ses sources : il s'en va quand la base ELLE-MÊME part, au
+  //   dernier passage. La légende attend la fin en deux temps : le produit se
+  //   pose, PUIS « puissance » s'efface (`helpers.js › finirSousAccolade`).
+  assert.ok(Math.abs(retrait.delay - vols[2].delay) < 1, 'le tracé s’en va quand la base elle-même part');
+  const legende = tl.nodes.find((n) => n.data && n.data.suit === accolade.id);
+  const retraitLegende = anims(legende.id, 'opacity', pas5).find((a) => arrivee(a) === 0);
+  assert.ok(retraitLegende.delay >= fin(remontee) - 1, '« puissance » ne s’efface qu’APRÈS la remontée du produit');
   assert.ok(noeud('x0_0').w >= 3 * av - 0.01, 'le produit a la place de ses trois chiffres');
 });
 
@@ -1169,4 +1181,130 @@ test('★ carré, puissance, factorielle : sur une ligne groupée, la scène et 
     }
     assert.deepEqual(releves.at(-1).frontieres, ['x0_2'], `${code} : le résultat du second groupe hérite de sa frontière`);
   }
+});
+
+// ───────────────────── 12. un résultat plus large ouvre sa place avant de remonter
+
+/**
+ * > « Juste avant que le résultat remonte, l'espace s'élargit à sa largeur
+ * >   réelle. Il se pose sans bousculer, puis l'accolade s'efface et la ligne se
+ * >   réajuste. » (la décision de l'autrice)
+ *
+ * `5 34 2` : 5 élevé au cube rend « 125 », trois chiffres pour un. Le nombre
+ * suivant, `34`, doit s'écarter AVANT que le produit ne remonte, et rester
+ * immobile pendant qu'il remonte. Il le bousculait en chemin.
+ */
+test('★ un résultat plus large que sa place l’ouvre AVANT de remonter, et se pose sans bousculer', () => {
+  const valeurs = [5, 34, 2];
+  const { tl } = jouer('mpui', nums(valeurs), jetonsNums(valeurs));
+  assert.deepEqual(tl.warnings, []);
+  const pas = tl.steps[1];
+  const dans = (a) => a.delay >= pas.t0 && a.delay < pas.t0 + pas.duration;
+  const arrivee = (a) => a.keyframes[a.keyframes.length - 1].value;
+  const fin = (a) => a.delay + a.duration;
+  const lire = lecteur(tl);
+  const yLigne = lire.valeur('t0', 'translate', 0).y;
+  const remontee = tl.anims.find((a) => a.id === 'x0_0' && a.prop === 'translate' && dans(a)
+    && Math.abs(arrivee(a).y - yLigne) < 0.5 && a.keyframes[0].value.y > yLigne + 1);
+  assert.ok(remontee, 'le produit remonte sur la ligne');
+  const voisin = tl.anims.filter((a) => a.id === 't1' && a.prop === 'translate' && dans(a));
+  const pendant = voisin.filter((a) => a.delay < fin(remontee) - 1 && fin(a) > remontee.delay + 1);
+  assert.deepEqual(pendant.map((a) => [a.delay, fin(a)]), [], '34 ne bouge pas pendant que 125 remonte');
+  const avant = voisin.filter((a) => fin(a) <= remontee.delay + 1 && arrivee(a).x > a.keyframes[0].value.x + 1);
+  assert.ok(avant.length, '34 s’est écarté, juste avant, pour faire la place de 125');
+  const base = tl.anims.find((a) => a.id === 't0' && a.prop === 'translate' && dans(a) && a.keyframes.length === 4);
+  assert.ok(avant.some((a) => a.delay >= fin(base) - 1), '… une fois la base partie sous l’accolade');
+});
+
+// ───────────────────── 13. le dénombrement sériel de mcc
+
+/**
+ * > « Il va falloir retravailler mcc : au lieu de tout faire à la fois,
+ * >   accolade par accolade. Accolade avec en dessous "Dénombrement sériel". Un
+ * >   1 descend de chaque chiffre dans l'accolade pour atteindre le nombre
+ * >   d'exemplaires dans le compteur sous l'accolade, puis ce compte remonte se
+ * >   mettre devant pendant que les différents exemplaires sont fusionnés. »
+ * >   (l'autrice)
+ *
+ * Témoin : `6 6 6 6 4 4` → `4 6 2 4`. Deux séries, deux étapes.
+ */
+const LIGNE_SERIES = [6, 6, 6, 6, 4, 4];
+
+test('★ mcc dénombre série par série : accolade, un « 1 » par exemplaire, compte devant, exemplaires fondus, PUIS retrait', () => {
+  const { o, apres, steps, tl } = jouer('mcc', nums(LIGNE_SERIES), jetonsNums(LIGNE_SERIES));
+  assert.deepEqual(apres.valeur, [4, 6, 2, 4], 'ce que l’opérateur calcule ne change pas');
+  assert.deepEqual(tl.warnings, [], 'rien ne se contredit');
+  assert.equal(steps.length, 2, 'une accolade à la fois : une étape par série');
+  assert.deepEqual(steps.map((s) => s.caption), ['6 6 6 6 → 4 6', '4 4 → 2 4']);
+  const pas = tl.steps[0];
+  const dans = (a) => a.delay >= pas.t0 && a.delay < pas.t0 + pas.duration;
+  const anims = (id, prop) => tl.anims.filter((a) => a.id === id && a.prop === prop && dans(a));
+  const fin = (a) => a.delay + a.duration;
+  const arrivee = (a) => a.keyframes[a.keyframes.length - 1].value;
+  const lire = lecteur(tl);
+  const serie = ['t0', 't1', 't2', 't3'];
+  const yLigne = lire.valeur('t0', 'translate', 0).y;
+
+  // ① l'accolade, sous la série seule, « Dénombrement sériel ».
+  const accolade = tl.nodes.find((n) => n.role === 'bracket' && anims(n.id, 'strokeDashoffset').length);
+  assert.ok(accolade, 'une accolade se tire');
+  const trace = anims(accolade.id, 'strokeDashoffset')[0];
+  const legende = tl.nodes.filter((n) => n.data && n.data.suit === accolade.id);
+  assert.deepEqual(legende.map((n) => n.text), ['Dénombrement sériel']);
+  const xs = serie.map((id) => lire.valeur(id, 'translate', trace.delay).x);
+  const pAcc = lire.valeur(accolade.id, 'translate', fin(trace));
+  assert.ok(pAcc.x > xs[0] && pAcc.x < xs[3] && accolade.w < (xs[3] - xs[0]) + 3 * tl.metrics.advance,
+    'elle embrasse les quatre 6, et eux seuls');
+
+  // ② de chaque exemplaire, un « 1 » descend dans le compteur ; il compte 1, 2, 3, 4.
+  const uns = tl.nodes.filter((n) => n.id.startsWith('@un') && n.text === '1' && anims(n.id, 'translate').length);
+  assert.equal(uns.length, 4, 'un « 1 » par exemplaire');
+  const vols = uns.map((n) => anims(n.id, 'translate')[0]);
+  vols.forEach((v, k) => {
+    assert.ok(Math.abs(v.keyframes[0].value.x - xs[k]) < 0.5, `le ${k + 1}ᵉ « 1 » part de son exemplaire`);
+    assert.ok(arrivee(v).y > yLigne + tl.metrics.fontSize, '… et descend sous l’accolade');
+    if (k) assert.ok(v.delay >= fin(vols[k - 1]) - 1, 'un à la fois');
+  });
+  assert.ok(vols[0].delay >= fin(trace) - 1, 'une fois l’accolade tirée');
+  const compteur = canal(tl, 'x0n0');
+  const vus = [];
+  for (let k = 0; k <= 400; k++) { const r = compteur.render(k / 400); if (vus.at(-1) !== r) vus.push(r); }
+  assert.deepEqual(vus, ['', '1', '2', '3', '4'], 'le compteur avance d’un cran par « 1 » arrivé');
+  assert.ok(Math.abs(lire.valeur('x0n0', 'translate', fin(vols[3])).y - arrivee(vols[3]).y) < 0.5, 'il est sous l’accolade');
+
+  // ③ le compte remonte DEVANT, pendant que les exemplaires fusionnent.
+  const remontee = anims('x0n0', 'translate').find((a) => Math.abs(arrivee(a).y - yLigne) < 0.5);
+  assert.ok(remontee && remontee.delay >= fin(vols[3]) - 1, 'le compte remonte après le dernier « 1 »');
+  const posCompte = arrivee(remontee);
+  const posValeur = lire.valeur('x0v0', 'translate', fin(remontee));
+  assert.ok(posCompte.x < posValeur.x, 'le compte se met DEVANT l’exemplaire');
+  for (const id of serie) {
+    const fusion = anims(id, 'translate').find((a) => Math.abs(arrivee(a).x - posValeur.x) < 0.5);
+    assert.ok(fusion, `« ${id} » rejoint l’exemplaire unique`);
+    assert.ok(Math.abs(fusion.delay - remontee.delay) < 1, '… PENDANT que le compte remonte');
+    assert.equal(arrivee(anims(id, 'opacity').at(-1)), 0, '… et s’y fond');
+  }
+  assert.ok((lire.valeur('x0v0', 'opacity', fin(remontee)) ?? 0) > 0.9, 'il n’en reste qu’un');
+  const resserre = tl.discrete.find((r) => r.id === accolade.id && r.channel === 'd' && Math.abs(r.at - remontee.delay) < 1);
+  assert.ok(resserre, 'le tracé se resserre sur l’exemplaire qui reste');
+
+  // ④ PUIS la légende s'efface.
+  const retrait = anims(legende[0].id, 'opacity').find((a) => arrivee(a) === 0);
+  assert.ok(retrait && retrait.delay >= fin(remontee) - 1, '« Dénombrement sériel » ne s’efface qu’après');
+
+  // La ligne rejouée est celle que l'opérateur déclare.
+  const tokens = jetonsNums(LIGNE_SERIES);
+  const lignes = suivreLaLigne(tokens, steps);
+  assert.deepEqual(lignes.at(-1).ids, o.sortie(nums(LIGNE_SERIES), apres, { ids: tokens.map((t) => t.id), cle: 'x0', langue: 'fr' }));
+});
+
+test('le dénombrement sériel refuse un compte faux', () => {
+  const faux = {
+    version: 1, tokens: jetonsNums([6, 6, 6]),
+    steps: [{ id: 's0', title: 'dénombrement', ops: [{
+      op: 'group', at: 0, dur: 5000, targets: ['t0', 't1', 't2'], denombrement: true, label: 'Dénombrement sériel',
+      to: [{ id: 'n0', text: '4', kind: 'number' }, { id: 'v0', text: '6', kind: 'number' }],
+    }] }],
+  };
+  assert.throws(() => compile(faux), /3 6/, 'trois 6 s’écrivent « 3 6 », pas « 4 6 »');
 });

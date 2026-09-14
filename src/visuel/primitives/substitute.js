@@ -33,7 +33,8 @@
  */
 
 import {
-  tokenSpec, espacementDe, exigerPoint, reserverLaPlace, occuperLaPlace, rangDansLaPlace,
+  tokenSpec, espacementDe, exigerPoint, reserverLaPlace, occuperLaPlace, rangDansLaPlace, ouvrirLaPlace,
+  suivreSesSources,
 } from './helpers.js';
 import { EASE, colorForKind } from '../constants.js';
 import { charCenter } from '../layout.js';
@@ -187,8 +188,11 @@ export function plan(ctx) {
     for (const [idAcc, sources] of ctx.scene.accolades) {
       const k = sources.indexOf(j.src.id);
       if (k < 0) continue;
+      // Sous la pointe, le remplaçant ne prend pas la place dans l'accolade : la source
+      // la QUITTE (`suivreSesSources`, plus bas).
+      if (j.ancre) (j.quittees = j.quittees || []).push(idAcc);
       ctx.scene.poserAccolade(idAcc, [
-        ...sources.slice(0, k), ...j.tos.map((t) => t.id), ...sources.slice(k + 1),
+        ...sources.slice(0, k), ...(j.ancre ? [] : j.tos.map((t) => t.id)), ...sources.slice(k + 1),
       ]);
     }
     ctx.scene.kill(j.src.id, ctx.where);
@@ -216,6 +220,9 @@ export function plan(ctx) {
       continue;
     }
     ctx.anim({ id: j.src.id, prop: 'opacity', to: 0, at, dur: ctx.dur * 0.55 });
+    for (const idAcc of j.quittees || []) {
+      suivreSesSources(ctx, idAcc, ctx.scene.accolades.get(idAcc) || [], { at, dur: ctx.dur * 0.55 });
+    }
     ctx.anim({ id: j.src.id, prop: 'scale', to: 0.85, at, dur: ctx.dur * 0.55 });
     if (ctx.scene.has(halo)) ctx.anim({ id: halo, prop: 'opacity', to: 0, at, dur: ctx.dur * 0.4 });
     j.tos.forEach((to, k) => {
@@ -246,6 +253,14 @@ export function plan(ctx) {
   //   un même point d'insertion s'y rangent l'un après l'autre.
   const aRentrer = jobs.filter((j) => j.ancre);
   aRentrer.sort((a, b) => a.rang - b.rang);
+  // ★ Un remplaçant plus large que sa place l'ouvre D'ABORD : les voisins
+  //   s'écartent, PUIS il remonte (`helpers.js › ouvrirLaPlace`).
+  let montee = { at: ctx.dur * 0.56, dur: ctx.dur * 0.44, ease: EASE.move };
+  if (aRentrer.map((j) => ouvrirLaPlace(ctx, j.place, [j.tos[0].id])).some(Boolean)) {
+    const ouverture = ctx.dur * 0.44 * 0.4;
+    ctx.reflow({ at: ctx.dur * 0.56, dur: ouverture, ease: EASE.move });
+    montee = { at: ctx.dur * 0.56 + ouverture, dur: ctx.dur * 0.44 - ouverture, ease: EASE.move };
+  }
   let dernier = -1;
   for (const j of aRentrer) {
     const base = j.place ? rangDansLaPlace(ctx, j.place) : (j.gauche ? ctx.scene.flowIndex(j.gauche) + 1 : 0);
@@ -254,7 +269,7 @@ export function plan(ctx) {
     if (j.place) occuperLaPlace(ctx, j.place, [j.tos[0].id]);
     dernier = index;
   }
-  ctx.reflow({ at: ctx.dur * 0.56, dur: ctx.dur * 0.44, ease: EASE.move });
+  ctx.reflow(montee);
 }
 
 /** Accepte `target: 'id'` ou `targets: ['id']` (une seule source par paire). */

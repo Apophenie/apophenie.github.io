@@ -95,6 +95,7 @@
 import {
   tokenSpec, numberOf, espacementDe, tracerAccolade, suivreLesAccolades,
   reserverLaPlace, occuperLaPlace, rangDansLaPlace, finirSousAccolade,
+  quitterLAccolade, poserDansLaPlace,
 } from './helpers.js';
 import { filetD } from '../layout.js';
 import { EASE } from '../constants.js';
@@ -777,6 +778,9 @@ export function plan(ctx) {
   for (const id of aEffacer) {
     ctx.anim({ id, prop: 'opacity', to: 0, at: t, dur: tEffacement });
   }
+  // A et B disparaissent : ils quittent l'accolade, et son tracé s'en va avec eux
+  // (`suivreSesSources`). Le symbole attend que le quotient ait pris sa place.
+  quitterLAccolade(ctx, [idA, idB, idCale], { at: t, dur: tEffacement });
 
   /* ★ **LE QUOTIENT REJOINT LA LIGNE, ET LA LIGNE SE REFERME.**
      Les chiffres étaient hors flux le temps du calcul — ils appartenaient à la
@@ -796,13 +800,9 @@ export function plan(ctx) {
     if (ctx.scene.get(id).alive) ctx.scene.kill(id, ctx.where);
   }
   if (virguleEnChemin) ctx.scene.kill(idVirgQ, ctx.where);
-  const rang0 = garde ? rangDansLaPlace(ctx, garde) : rang;
-  chiffres.forEach((id, i) => {
-    ctx.scene.enterFlow(id, rang0 >= 0 ? rang0 + i : undefined, ctx.where);
-  });
-  occuperLaPlace(ctx, garde, chiffres);
-  const montee = { at: t + tEffacement, dur: tDescente, ease: EASE.move };
-  ctx.reflow(montee);
+  // Un quotient plus large que « A B » ouvre sa place avant de monter.
+  const pose = poserDansLaPlace(ctx, garde, chiffres, { at: t + tEffacement, dur: tDescente, rang });
+  const montee = { at: pose.at, dur: pose.dur, ease: EASE.move };
 
   /* ★ **LA VIRGULE SE PERD DANS LE DÉPLACEMENT — littéralement.**
 

@@ -27,7 +27,9 @@
  * sinon un `seek()` en arrière ne pourrait pas le faire revenir.
  */
 
-import { targetsOf, effacerSurPlace, suivreLesAccolades } from './helpers.js';
+import { targetsOf, effacerSurPlace, suivreLesAccolades,
+  quitterLAccolade,
+} from './helpers.js';
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
 
@@ -51,6 +53,9 @@ export function plan(ctx) {
   }
 
   const fall = ctx.dur * 0.55;
+  // Ce qui tombe quitte l'accolade : le tracé se resserre sur ce qui reste, avant
+  // que la ligne ne se referme (`suivreSesSources`).
+  quitterLAccolade(ctx, ids, { at: 0, dur: Math.max(1, regroup ? fall * 0.6 : fall) });
   ids.forEach((id, i) => {
     const at = i * ctx.stagger;
     const pos = ctx.scene.pos(id);
@@ -88,7 +93,12 @@ export function plan(ctx) {
  * appartient à `drop` : le rapprochement facultatif des survivants.
  */
 function planEffacement(ctx, ids, regroup) {
-  const fin = effacerSurPlace(ctx, ids, { at: 0, dur: ctx.dur });
+  // Ce qui s'efface quitte l'accolade, au rythme de l'effacement : chaque jeton à
+  // son tour, pas toute la phrase d'un coup (`suivreSesSources`).
+  const fin = effacerSurPlace(ctx, ids, {
+    at: 0, dur: ctx.dur,
+    auDepart: (id, t, dur) => quitterLAccolade(ctx, [id], { at: t, dur }),
+  });
   if (regroup) {
     const bouge = { at: fin, dur: ctx.dur * 0.4, ease: EASE.move };
     ctx.reflow(bouge);
