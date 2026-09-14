@@ -61,7 +61,7 @@ import {
   espacementDe, exigerPoint, suivreLesAccolades,
   boiteEmbrassee, ECART_TERMES, COLLE_AU_SIGNE,
   reserverLaPlace, occuperLaPlace, rangDansLaPlace, finirSousAccolade,
-  quitterLAccolade, suivreSesSources, poserDansLaPlace,
+  quitterLAccolade, suivreSesSources, poserDansLaPlace, suivreLaZone,
 } from './helpers.js';
 import { EASE, progressionDe } from '../constants.js';
 import { planExposants, planPuissance, planFactorielle } from './produits.js';
@@ -535,7 +535,7 @@ function planDivision(ctx, ids) {
   // ⚠️ **EXACTEMENT PENDANT LA DISSOLUTION, ni avant ni après.** Le
   //   resserrement et le ré-étirement animent le même tracé ; s'ils se
   //   chevauchent, le compilateur signale deux animations concurrentes.
-  suivreSesSources(ctx, acc.id, specS ? [specS.id] : [], { at: tFin0, dur: tDis });
+  suivreSesSources(ctx, acc.id, specS ? [specS.id] : [], { at: tFin0, dur: tDis, resultatAttendu: true, vers: [specQ.id] });
 
   // --- le compte remonte dans la place gardée, PUIS l'accolade s'en va -------
   // ★ La ligne garde la largeur de « A / B » pendant que le compte remonte : il
@@ -553,8 +553,12 @@ function planDivision(ctx, ids) {
   //   embrasse ce qu'elle a produit, le temps qu'on le lise. `ctx.reflow` a
   //   déjà recalculé les positions, `suivreLesAccolades` les lit.
   if (!ctx.scene.get(acc.id).data.traceEffacee) {
+    // Le tracé se referme sur le compte arrivé — sans reste compris (`mdvq`) —,
+    // et ne le fera pas une seconde fois à la fin (`refermerSurLesResultats`).
     ctx.scene.poserAccolade(acc.id, ordre);
     suivreLesAccolades(ctx, monte);
+    ctx.scene.get(acc.id).data.fermeeSurResultat = true;
+    ctx.scene.get(acc.id).data.attendResultat = false;
   }
   // ★ PUIS l'accolade s'efface, et la ligne se referme sur le compte.
   finirSousAccolade(ctx, { at: tFin0 + tDis + tRem, dur: tRetrait });
@@ -654,7 +658,7 @@ function planCarre(ctx, ids) {
   const t4 = t3 + d('SIGNE') + d('LECTURE');     // ④ la descente
   const t4b = t4 + d('DESCENTE');                //    la fusion
   const t5 = t4b + d('FUSION') + d('RESULTAT');  // ⑤ la remontée
-  const t6 = t5 + d('REMONTEE');                 // ⑥ l'accolade s'efface, la ligne se réajuste
+  const t6 = t5 + d('REMONTEE') + d('REFERME');                 // ⑥ l'accolade s'efface, la ligne se réajuste
 
   // --- ① l'accolade, sous le nombre seul, « au carré » ------------------------
   const acc = tracerAccolade(ctx, [idN], {
@@ -716,10 +720,10 @@ function planCarre(ctx, ids) {
   const ancre = exigerPoint(ctx, { x: boite ? boite.cx : NaN, y: acc.resultat.y },
     'le point, sous l’accolade, où le produit se lit', to.id);
   const ligneY = posN.y;
-  // ★ « N'embrasse que ce qui est encore là » : l'expression quitte la ligne tout
-  //   entière, et le tracé s'en va pendant qu'elle descend. « au carré » reste,
-  //   et attend la fin, comme le symbole d'une somme.
-  quitterLAccolade(ctx, membres, { at: t4, dur: d('DESCENTE') });
+  // ★ L'expression DESCEND D'UN BLOC SOUS LA POINTE : elle ne quitte pas
+  //   l'accolade. « N'embrasse que ce qui est encore là » vise ce qui la QUITTE
+  //   (l'autrice) ; le tracé reste donc jusqu'à la remontée du résultat, et la
+  //   fin se fait en deux temps, comme le carré qu'elle avait validé.
   for (const id of membres) {
     const p = ctx.scene.pos(id);
     ctx.anim({ id, prop: 'translate', to: { x: p.x, y: ancre.y }, at: t4, dur: d('DESCENTE'), ease: EASE.move });
@@ -746,12 +750,16 @@ function planCarre(ctx, ids) {
   // L'expression éteinte tient encore sa place dans le flux : la ligne ne bouge
   // pas pendant que le résultat remonte, à la verticale, au milieu de cette place.
   ctx.place(to.id, { x: ancre.x, y: ligneY }, { at: t5, dur: d('REMONTEE'), ease: EASE.move });
+  // ★ Le résultat arrivé compte comme « encore là » : le tracé se referme sur
+  //   lui, PUIS il s'efface avec « au carré » (la règle de tout geste à accolade).
+  ctx.scene.poserAccolade(acc.id, [to.id]);
+  suivreLaZone(ctx, { id: acc.id, shape: 'brace', sources: [to.id] }, { at: t5 + d('REMONTEE'), dur: d('REFERME') });
 
   // --- ⑥ PUIS l'accolade disparaît, et la ligne se réajuste ------------------
   for (const id of membres) ctx.scene.kill(id, ctx.where);
   ctx.scene.enterFlow(to.id, rang, ctx.where);
   ctx.reflow({ at: t6, dur: d('RETRAIT'), ease: EASE.move });
-  // Ce qui reste de l'accolade — la légende, le tracé s'il n'est pas déjà parti — s'éteint.
+  // L'accolade — son tracé et « au carré » — s'éteint.
   for (const id of acc.ids) {
     if (ctx.scene.get(id).data && ctx.scene.get(id).data.retiree) continue;
     ctx.anim({ id, prop: 'opacity', to: 0, at: t6, dur: d('RETRAIT') * 0.6 });
@@ -761,7 +769,7 @@ function planCarre(ctx, ids) {
 /** La part de chaque temps du carré, accolade mise à part. */
 const CARRE = Object.freeze({
   GLISSADE: 0.16, SIGNE: 0.07, LECTURE: 0.07, DESCENTE: 0.13, FUSION: 0.14,
-  RESULTAT: 0.09, REMONTEE: 0.15, RETRAIT: 0.19,
+  RESULTAT: 0.09, REMONTEE: 0.15, REFERME: 0.07, RETRAIT: 0.12,
 });
 
 /** Points d'une trajectoire courbe de `a` à `b` — quadratique, sommet en haut. */

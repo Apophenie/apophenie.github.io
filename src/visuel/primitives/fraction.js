@@ -308,7 +308,9 @@ export function plan(ctx) {
     ctx.anim({ id, prop: 'opacity', to: 0, at: a + d * 0.62, dur: d * 0.38 });
     // Le terme quitte l'accolade : elle se resserre sur ceux qui restent, à sa
     // hauteur, et s'efface avec le dernier (`suivreSesSources`).
-    suivreSesSources(ctx, accolade, operandes.slice(i + 1), { at: a, dur: Math.max(1, Math.min(cadence, d)), garderY: true });
+    suivreSesSources(ctx, accolade, operandes.slice(i + 1), {
+      at: a, dur: Math.max(1, Math.min(cadence, d)), garderY: true, resultatAttendu: true, vers: [resultat],
+    });
     // Le signe qui ouvrait ce terme s'en va avec lui — il n'a plus rien à
     // séparer (voir `helpers.accumulate`, même règle).
     const sid = signes[i - 1];

@@ -589,10 +589,16 @@ test('★ le carré se joue dans l’ordre de l’autrice : accolade, double sor
   assert.ok(remontee && remontee.delay > P, 'le résultat remonte sur la ligne principale');
 
   // ⑥ … PUIS l'accolade disparaît, et l'espace se réajuste.
-  // ★ Le TRACÉ n'embrasse que ce qui est encore là : l'expression quitte la ligne
-  //   en descendant, et il s'en va avec elle. « au carré » attend la fin.
+  // ★ L'expression descend d'un bloc SOUS la pointe : elle ne quitte pas
+  //   l'accolade (l'autrice). Le tracé reste jusqu'à la remontée du résultat,
+  //   PUIS s'efface avec « au carré ».
   const retraitTrace = anims(accolade.id, 'opacity').find((a) => arrivee(a) === 0);
-  assert.ok(retraitTrace && Math.abs(retraitTrace.delay - D) < 1, 'le tracé s’en va quand l’expression quitte la ligne');
+  assert.ok(retraitTrace && retraitTrace.delay >= fin(remontee) - 1, 'le tracé reste jusqu’à la remontée du résultat');
+  // ★ Le résultat arrivé compte comme « encore là » : le tracé se referme sur lui,
+  //   PUIS s'efface.
+  const referme = tl.discrete.find((r) => r.id === accolade.id && r.channel === 'd'
+    && r.at >= fin(remontee) - 1 && r.at < retraitTrace.delay);
+  assert.ok(referme, 'le tracé se referme sur 13225 une fois arrivé, PUIS s’efface');
   for (const n of suiveurs) {
     const retrait = anims(n.id, 'opacity').find((a) => arrivee(a) === 0);
     assert.ok(retrait, `« ${n.id} » se retire`);
@@ -787,10 +793,12 @@ test('★ la puissance se joue dans l’ordre décrit : exposant formé, copies 
   assert.ok(efface.delay < remontee.delay && fin(efface) > remontee.delay,
     'l’exposant, passé à 0, s’efface pendant la descente et jusque dans la remontée');
   const retrait = anims(accolade.id, 'opacity', pas5).find((a) => arrivee(a) === 0);
-  // ★ Le tracé suit ses sources : il s'en va quand la base ELLE-MÊME part, au
-  //   dernier passage. La légende attend la fin en deux temps : le produit se
-  //   pose, PUIS « puissance » s'efface (`helpers.js › finirSousAccolade`).
-  assert.ok(Math.abs(retrait.delay - vols[2].delay) < 1, 'le tracé s’en va quand la base elle-même part');
+  // ★ La base part au dernier passage, mais un résultat va arriver sous
+  //   l'accolade : le tracé l'attend, se referme sur le produit arrivé, PUIS
+  //   s'efface avec « puissance » (la règle de tout geste à accolade).
+  assert.ok(retrait.delay >= fin(remontee) - 1, 'le tracé attend le produit, et ne s’efface qu’après sa remontée');
+  assert.ok(tl.discrete.some((r) => r.id === accolade.id && r.channel === 'd'
+    && r.at >= fin(remontee) - 1 && r.at <= retrait.delay + 1), 'le tracé se referme sur le produit arrivé, PUIS s’efface');
   const legende = tl.nodes.find((n) => n.data && n.data.suit === accolade.id);
   const retraitLegende = anims(legende.id, 'opacity', pas5).find((a) => arrivee(a) === 0);
   assert.ok(retraitLegende.delay >= fin(remontee) - 1, '« puissance » ne s’efface qu’APRÈS la remontée du produit');
@@ -1307,4 +1315,62 @@ test('le dénombrement sériel refuse un compte faux', () => {
     }] }],
   };
   assert.throws(() => compile(faux), /3 6/, 'trois 6 s’écrivent « 3 6 », pas « 4 6 »');
+});
+
+// ───────────────────── 14. le tracé se referme sur le résultat arrivé, PUIS s'efface
+
+/**
+ * > Pour la fraction et la division sans reste, le résultat qui arrive sous
+ * > l'accolade compte comme « encore là » : le tracé se referme sur lui, PUIS
+ * > s'efface avec le symbole et la légende. Et la règle est la même partout.
+ * > (la décision de l'autrice)
+ *
+ * Le tracé de la fraction s'effaçait avec son dernier terme, celui de `mdvq`
+ * avec la dissolution de « 13 / 5 » : ni l'un ni l'autre ne se refermait sur
+ * ce qui arrivait. `mdiv` et `mdvr` se ré-étiraient déjà sur la ligne neuve.
+ */
+test('★ fraction et divisions : le tracé se referme sur le résultat arrivé, PUIS s’efface', () => {
+  const cas = [
+    ['cmo', [8, 15, 16, 5], ['x0_1']],
+    ['mdvq', [135], ['x0q0']],
+    ['mdiv', [135], ['x0q0', 'x0s0']],
+    ['mdvr', [135], ['x0s0', 'x0q0']],
+  ];
+  for (const [code, valeurs, resultats] of cas) {
+    const { tl } = jouer(code, nums(valeurs), jetonsNums(valeurs));
+    assert.deepEqual(tl.warnings, [], `${code} : ${tl.warnings.join(' | ')}`);
+    const lire = lecteur(tl);
+    const yLigne = lire.valeur('t0', 'translate', 0).y;
+    const pas = tl.steps[tl.steps.length - 1];
+    const dans = (a) => a.delay >= pas.t0 && a.delay < pas.t0 + pas.duration;
+    const fin = (a) => a.delay + a.duration;
+    const arrivee = (a) => a.keyframes[a.keyframes.length - 1].value;
+    const accolade = tl.nodes.find((n) => n.role === 'bracket' && n.data && n.data.shape === 'brace'
+      && tl.anims.some((a) => a.id === n.id && dans(a)));
+    const fondu = tl.anims.find((a) => a.id === accolade.id && a.prop === 'opacity' && arrivee(a) === 0 && dans(a));
+    assert.ok(fondu, `${code} : le tracé s’efface`);
+    const remontees = resultats.map((id) => tl.anims.filter((a) => a.id === id && a.prop === 'translate' && dans(a)
+      && Math.abs(arrivee(a).y - yLigne) < 0.5 && Math.abs(a.keyframes[0].value.y - yLigne) > 1).at(-1))
+      // Le reste d'une division ne remonte pas : il prend sur place le relais du dividende.
+      .filter(Boolean);
+    assert.ok(remontees.length, `${code} : le résultat remonte sur la ligne`);
+    const arrive = Math.max(...remontees.map(fin));
+    assert.ok(fondu.delay >= arrive - 1, `${code} : le tracé ne s’efface qu’une fois le résultat arrivé`);
+    const debutRemontee = Math.min(...remontees.map((a) => a.delay));
+    const referme = tl.discrete.filter((r) => r.id === accolade.id && r.channel === 'd'
+      && r.at >= debutRemontee - 1 && r.at <= fondu.delay + 1);
+    assert.ok(referme.length, `${code} : le tracé se referme sur le résultat, entre son arrivée et son effacement`);
+    const m = /^M\s*(-?[\d.]+)/.exec(referme.at(-1).render(1));
+    const demi = Math.abs(Number(m[1]));
+    const p = lire.valeur(accolade.id, 'translate', fondu.delay);
+    const boites = resultats.map((id) => {
+      const q = lire.valeur(id, 'translate', fondu.delay);
+      const w = tl.nodes.find((n) => n.id === id).w;
+      return [q.x - w / 2, q.x + w / 2];
+    });
+    const g = Math.min(...boites.map((b) => b[0]));
+    const d = Math.max(...boites.map((b) => b[1]));
+    assert.ok(p.x - demi <= g + 1 && p.x + demi >= d - 1 && 2 * demi <= (d - g) + 2 * tl.metrics.advance,
+      `${code} : au moment de s’effacer, le tracé couvre le résultat, et lui seul`);
+  }
 });

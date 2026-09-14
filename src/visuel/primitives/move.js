@@ -17,7 +17,7 @@
  */
 
 import { EASE } from '../constants.js';
-import { suivreLesAccolades, rendreLesPlaces } from './helpers.js';
+import { suivreLesAccolades, rendreLesPlaces, refermerSurLesResultats } from './helpers.js';
 import { demiEllipse } from './ellipse.js';
 import { fail } from '../errors.js';
 
@@ -137,7 +137,18 @@ export function plan(ctx) {
   };
   // Le `move` nu est la fermeture d'un enchaînement : il rend les places gardées
   // (`helpers.js › rendreLesPlaces`) avant de refermer la ligne.
-  if (!Array.isArray(op.order) && op.targets === undefined) rendreLesPlaces(ctx);
+  if (!Array.isArray(op.order) && op.targets === undefined) {
+    // ★ `attendre` : l'enchaînement a posé un résultat sous l'accolade. Le tracé
+    //   se referme d'abord sur lui, PUIS la ligne se referme pendant qu'il s'efface
+    //   (`commun.js › retirerAccolade`).
+    if (typeof op.attendre === 'number' && op.attendre > 0) {
+      const attente = Math.min(op.attendre, ctx.dur * 0.5);
+      refermerSurLesResultats(ctx, { at: 0, dur: attente });
+      bouge.at = attente;
+      bouge.dur = Math.max(1, ctx.dur - attente);
+    }
+    rendreLesPlaces(ctx);
+  }
   const moved = ctx.reflow(bouge);
   // Ce qu'une accolade embrasse vient peut-être de changer de largeur : elle
   // suit, sinon elle désignerait autre chose que ce qu'elle a promis.

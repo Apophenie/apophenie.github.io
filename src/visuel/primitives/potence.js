@@ -780,7 +780,7 @@ export function plan(ctx) {
   }
   // A et B disparaissent : ils quittent l'accolade, et son tracé s'en va avec eux
   // (`suivreSesSources`). Le symbole attend que le quotient ait pris sa place.
-  quitterLAccolade(ctx, [idA, idB, idCale], { at: t, dur: tEffacement });
+  quitterLAccolade(ctx, [idA, idB, idCale], { at: t, dur: tEffacement, resultatAttendu: true });
 
   /* ★ **LE QUOTIENT REJOINT LA LIGNE, ET LA LIGNE SE REFERME.**
      Les chiffres étaient hors flux le temps du calcul — ils appartenaient à la
