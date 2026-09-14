@@ -505,10 +505,13 @@ export const POIDS_RAMASSAGE = Object.freeze({
   effacement0: 380, effacement1: 90,
   vol0: 620, vol1: 260,
   remontee: 760,
+  // ★ Le temps de la FIN : l'accolade s'efface, la ligne se referme — APRÈS
+  //   la remontée (`finirSousAccolade`).
+  retrait: 700,
 });
 
 /** Le budget de chaque phase, d'après ce que le geste a à montrer. */
-export function poidsRamassage({ voler = 0, effacer = 0, doubles = 0, transferts = 0 } = {}) {
+export function poidsRamassage({ voler = 0, effacer = 0, doubles = 0, transferts = 0, garderPlace = false } = {}) {
   const P = POIDS_RAMASSAGE;
   return {
     accolade: P.accolade,
@@ -517,6 +520,7 @@ export function poidsRamassage({ voler = 0, effacer = 0, doubles = 0, transferts
     effacement: effacer ? P.effacement0 + effacer * P.effacement1 : 0,
     vol: P.vol0 + voler * P.vol1,
     remontee: P.remontee,
+    retrait: garderPlace ? 0 : P.retrait,
   };
 }
 
@@ -689,6 +693,7 @@ export function accumulate(ctx, spec) {
   const poids = poidsRamassage({
     voler: voler.length, effacer: effacer.length,
     doubles: doubles.length, transferts: transferts.length,
+    garderPlace: spec.garderPlace === true,
   });
   /* ★ **L'ACCOLADE NE S'ÉTIRE PAS AVEC LE RESTE.**
 
@@ -715,6 +720,7 @@ export function accumulate(ctx, spec) {
   const tEff = poids.effacement * u;
   const tVol = poids.vol * u;
   const tRem = poids.remontee * u;
+  const tRet = poids.retrait * u;
   const tA = t0 + tAcc;          // fin de l'accolade
   const tB = tA + tDup;          // fin des doublons
   const tC = tB + tNiv;          // fin du nivellement
@@ -930,31 +936,38 @@ export function accumulate(ctx, spec) {
     },
   });
 
-  // --- 6. l'accolade se retire, le résultat remonte dans la ligne ----------
-  const retrait = tD;
+  // --- 6. le résultat remonte, PUIS l'accolade s'efface et la ligne se referme
   if (acc) {
     // ★ Le TRACÉ de l'accolade s'en va AU RYTHME DE SES SOURCES.
     //
     // Il tenait jusqu'au bout, à sa place de départ, alors que les opérandes
-    // s'étaient envolés un à un : on voyait « 15 −  ⌣_______⌣  − 3444.fr »,
-    // une accolade pleinement tracée sous un trou, à côté de la ligne au lieu
-    // d'être autour. Une accolade n'embrasse que ce qui est encore là : elle se
-    // défait donc exactement pendant le vol, et il ne reste sous la pointe que
-    // ce qui doit y rester — le symbole et le résultat.
+    // s'étaient envolés un à un : on voyait « 15 −  ⌣_______⌣  − 3444.fr », une
+    // accolade pleinement tracée sous un trou. Une accolade n'embrasse que ce
+    // qui est encore là : elle se défait donc exactement pendant le vol, et il
+    // ne reste sous la pointe que ce qui doit y rester — le symbole et le
+    // résultat.
     //
-    // Le défaut ne se voyait pas en pause aux instants où le résultat paraît
-    // (l'accolade y est encore pleine) : il ne se lit qu'entre 30 % et 75 % de
-    // la somme, c'est-à-dire en lecture.
+    // ⚠️ **C'EST LA SEULE PIÈCE D'ACCOLADE QUI S'EFFACE AVANT LA FIN DE
+    //   L'ACTION**, et c'est un arbitrage de l'auteur antérieur à la règle des
+    //   deux temps : elle est marquée (`suitSesSources`) pour que la garde
+    //   (`tests/_accolades.js`) la reconnaisse au lieu de l'ignorer en silence.
+    //   Le symbole et la légende, eux, attendent la fin.
     ctx.anim({ id: acc.id, prop: 'opacity', to: 0, at: debutVol, dur: Math.max(1, tVol) });
-    for (const id of acc.ids) {
-      if (id === acc.id) continue;
-      ctx.anim({ id, prop: 'opacity', to: 0, at: retrait, dur: Math.max(1, tRem * 0.5) });
-    }
+    const trace = ctx.scene.get(acc.id);
+    trace.data.retiree = true;
+    trace.data.suitSesSources = true;
   }
+  // ★ **LE RÉSULTAT REMONTE DANS LA PLACE GARDÉE.** Les consommés quittent la
+  //   ligne, mais leur largeur reste tenue : le résultat se pose au milieu, les
+  //   voisins ne bougent pas. La ligne ne se referme qu'après l'accolade.
+  const place = reserverLaPlace(ctx, [...operands, ...consume].filter((id) => ctx.scene.flowIndex(id) >= 0));
   const consumed = [...operands, ...consume, ...copies];
   for (const id of consumed) ctx.scene.kill(id, ctx.where);
-  ctx.scene.enterFlow(to.id, firstIdx < 0 ? undefined : firstIdx, ctx.where);
+  ctx.scene.enterFlow(to.id, place ? rangDansLaPlace(ctx, place) : (firstIdx < 0 ? undefined : firstIdx), ctx.where);
+  occuperLaPlace(ctx, place, [to.id]);
   ctx.reflow({ at: tD + tRem * 0.1, dur: Math.max(1, tRem * 0.9), ease: EASE.move });
+  // `garderPlace` : l'émetteur ferme lui-même l'enchaînement (`retirerAccolade`).
+  if (!spec.garderPlace) finirSousAccolade(ctx, { at: tD + tRem, dur: Math.max(1, tRet) });
 
   return { partials, resultPos: ctx.scene.pos(to.id), brace: acc, transferts };
 }
@@ -1328,6 +1341,185 @@ export function suivreLesAccolades(ctx, spec = {}) {
     if (!pos) continue;
     suivreLaZone(ctx, { id, shape: 'brace', sources }, spec);
   }
+}
+
+/**
+ * ★ **LA FIN D'UN GESTE À ACCOLADE — EN DEUX TEMPS, TOUJOURS.**
+ *
+ * > « Sur les autres opérations, est-ce en 2 temps ou en simultané ? En tout
+ * >   cas il faut que le comportement soit cohérent. » (l'autrice, à propos du
+ * >   carré : le résultat remonte d'abord, PUIS l'accolade disparaît et
+ * >   l'espace se réajuste)
+ *
+ * La règle, pour tout geste qui pose une accolade :
+ *
+ *  1. **l'action sous l'accolade se termine entièrement** — le résultat est
+ *     posé sur la ligne, ou les jetons écartés sont partis ;
+ *  2. **PUIS l'accolade s'efface** ;
+ *  3. **et la ligne se réajuste** — elle se referme, ou s'élargit, sur ce qui
+ *     reste ; jamais avant que l'accolade ne commence à s'effacer.
+ *
+ * Trois outils la portent, pour que chaque geste la tienne de la même façon :
+ *
+ *  · `reserverLaPlace` / `occuperLaPlace` — tant que l'action dure, ce qui
+ *    remplace des jetons de la ligne entre dans le flux EN GARDANT LEUR PLACE :
+ *    deux cales invisibles l'encadrent et tiennent la largeur de ce qui est
+ *    parti. Le résultat se pose au milieu, et les voisins ne bougent pas ;
+ *  · `rendreLesPlaces` — les cales s'en vont, chacun reprend son écart ;
+ *  · `finirSousAccolade` — les accolades du step s'effacent, et la ligne se
+ *    referme au même instant : c'est la fin du carré, écrite une fois.
+ *
+ * ⚠️ **UNE PLACE GARDÉE NE FRANCHIT JAMAIS UNE FRONTIÈRE D'ÉTAPE.** Les cales
+ *   sont des jetons du flux : le modèle de ligne de la recherche ne les connaît
+ *   pas (`recherche/scenario.js › suivreLaLigne`). Tout geste qui en réserve
+ *   les rend dans la même étape — `finirSousAccolade`, ou le `move` qui ferme
+ *   l'enchaînement (`commun.js › retirerAccolade`).
+ */
+
+/** Le premier et le dernier rang, dans le flux, d'une liste de jetons. */
+function bornesDansLeFlux(ctx, ids) {
+  const rangs = ids.map((id) => ctx.scene.flowIndex(id)).filter((r) => r >= 0);
+  if (!rangs.length) return null;
+  return { debut: Math.min(...rangs), fin: Math.max(...rangs) };
+}
+
+/**
+ * Réserve la place qu'occupent `sources` dans la ligne, AVANT qu'on ne les
+ * retire. Deux cales encadrent la zone ; la gauche en porte toute la largeur,
+ * et l'écart qui la précédait.
+ *
+ * @returns {?{gauche:string, droite:string, largeur:number, resultats:object[]}}
+ */
+export function reserverLaPlace(ctx, sources) {
+  const bornes = bornesDansLeFlux(ctx, sources);
+  if (!bornes) return null;
+  const premier = ctx.scene.flow[bornes.debut];
+  const dernier = ctx.scene.flow[bornes.fin];
+  const pG = ctx.scene.pos(premier);
+  const pD = ctx.scene.pos(dernier);
+  if (!pG || !pD) return null;
+  const largeur = (pD.x + ctx.scene.get(dernier).w / 2) - (pG.x - ctx.scene.get(premier).w / 2);
+  const noeudPremier = ctx.scene.get(premier);
+  const gauche = ctx.gensym('place');
+  const droite = ctx.gensym('place');
+  ctx.scene.create({
+    id: gauche, role: 'text', text: '', kind: 'space', inFlow: true, insertAt: bornes.debut,
+    w: Math.max(0, largeur),
+    ...(noeudPremier.gapBefore !== undefined ? { gapBefore: noeudPremier.gapBefore } : {}),
+    ...(noeudPremier.breakBefore !== undefined ? { breakBefore: noeudPremier.breakBefore } : {}),
+    base: { opacity: 0 },
+  }, { where: ctx.where });
+  ctx.scene.create({
+    id: droite, role: 'text', text: '', kind: 'space', inFlow: true,
+    insertAt: ctx.scene.flowIndex(dernier) + 1, w: 0, gapBefore: 0,
+    base: { opacity: 0 },
+  }, { where: ctx.where });
+  // Les cales naissent là où sont leurs voisins : elles ne se déplacent jamais
+  // d'elles-mêmes, et une position de départ évite qu'un premier reflow ne les
+  // fasse « venir » de l'origine.
+  ctx.scene.place(gauche, { x: pG.x - noeudPremier.w / 2 + Math.max(0, largeur) / 2, y: pG.y, w: Math.max(0, largeur) });
+  ctx.scene.place(droite, { x: pD.x + ctx.scene.get(dernier).w / 2, y: pD.y, w: 0 });
+  const place = { gauche, droite, largeur: Math.max(0, largeur), resultats: [] };
+  ctx.scene.placesGardees.push(place);
+  return place;
+}
+
+/** Le rang, dans le flux, où entre ce qui prend une place réservée. */
+export function rangDansLaPlace(ctx, place) {
+  return ctx.scene.flowIndex(place.gauche) + 1;
+}
+
+/**
+ * Pose `resultats` — déjà entrés dans le flux, entre les deux cales — au MILIEU
+ * de la place gardée. Leur écart de tête passe à la cale gauche le temps de la
+ * garde, et leur sera rendu.
+ */
+export function occuperLaPlace(ctx, place, resultats) {
+  if (!place || !resultats.length) return;
+  const gap = ctx.layoutOpts.gap;
+  const noeuds = resultats.map((id) => ctx.scene.live(id, ctx.where));
+  let largeur = 0;
+  noeuds.forEach((n, k) => {
+    place.resultats.push({ id: n.id, gapBefore: n.gapBefore, breakBefore: n.breakBefore });
+    if (k === 0) {
+      n.gapBefore = 0;
+      n.breakBefore = undefined;
+    } else {
+      largeur += n.gapBefore ?? gap;
+    }
+    largeur += n.w;
+  });
+  const reste = Math.max(0, place.largeur - largeur);
+  ctx.scene.get(place.gauche).w = reste / 2;
+  ctx.scene.get(place.droite).w = reste / 2;
+}
+
+/** Les cales s'en vont, chacun reprend son écart : la ligne est prête à se refermer. */
+export function rendreLesPlaces(ctx) {
+  const places = ctx.scene.placesGardees;
+  if (!places.length) return false;
+  for (const place of places) {
+    for (const id of [place.gauche, place.droite]) {
+      const n = ctx.scene.get(id);
+      if (n && n.alive) ctx.scene.kill(id, ctx.where);
+    }
+    for (const r of place.resultats) {
+      const n = ctx.scene.get(r.id);
+      if (!n) continue;
+      n.gapBefore = r.gapBefore;
+      n.breakBefore = r.breakBefore;
+    }
+  }
+  places.length = 0;
+  return true;
+}
+
+/**
+ * Efface les accolades du step qui ne le sont pas encore — tracé, symbole,
+ * légende —, à partir de `at`. Une pièce déjà effacée par son geste
+ * (`data.retiree`) n'est pas effacée deux fois.
+ */
+export function retirerLesAccolades(ctx, spec) {
+  const at = spec.at ?? 0;
+  const dur = Math.max(1, spec.dur ?? 300);
+  for (const [id] of ctx.scene.accolades) {
+    const noeud = ctx.scene.get(id);
+    if (!noeud) continue;
+    for (const pid of [id, ...ctx.scene.accrochesA(id)]) {
+      const p = ctx.scene.get(pid);
+      if (!p || (p.data && p.data.retiree)) continue;
+      ctx.anim({ id: pid, prop: 'opacity', to: 0, at, dur });
+      p.data = p.data || {};
+      p.data.retiree = true;
+    }
+  }
+}
+
+/** La ligne se réajuste : les places gardées sont rendues, et elle se referme. */
+export function refermerLaLigne(ctx, spec) {
+  rendreLesPlaces(ctx);
+  const bouge = { at: spec.at ?? 0, dur: Math.max(1, spec.dur ?? ctx.dur), ease: spec.ease || EASE.move };
+  const moved = ctx.reflow(bouge);
+  // Seules les accolades qui RESTENT suivent la ligne : celle qu'on vient
+  // d'effacer n'a plus de zone à désigner, et la redessiner pendant son fondu
+  // ajouterait un mouvement que personne ne lit.
+  for (const [id, sources] of ctx.scene.accolades) {
+    const noeud = ctx.scene.get(id);
+    if (!noeud || !noeud.alive || (noeud.data && noeud.data.retiree) || !ctx.scene.pos(id)) continue;
+    suivreLaZone(ctx, { id, shape: 'brace', sources }, bouge);
+  }
+  return moved;
+}
+
+/**
+ * ★ **LA FIN, ÉCRITE UNE FOIS** : les accolades s'effacent et la ligne se
+ *   referme, au même instant. À appeler une fois l'action terminée.
+ */
+export function finirSousAccolade(ctx, spec) {
+  const at = spec.at ?? 0;
+  const dur = Math.max(1, spec.dur ?? 600);
+  retirerLesAccolades(ctx, { at, dur: dur * 0.6 });
+  refermerLaLigne(ctx, { at, dur });
 }
 
 /**

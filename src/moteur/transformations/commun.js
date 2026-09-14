@@ -341,11 +341,53 @@ export function finDe(ops) {
   return fin;
 }
 
-/** Programme le retrait de l'accolade d'une suite enchaînée, si elle existe. */
-export function retirerAccolade(ops) {
+/**
+ * ★ **LA FIN D'UN ENCHAÎNEMENT À ACCOLADE — EN DEUX TEMPS.**
+ *
+ * > « Sur les autres opérations, est-ce en 2 temps ou en simultané ? En tout
+ * >   cas il faut que le comportement soit cohérent. » (l'autrice)
+ *
+ * La règle est celle du carré : l'action sous l'accolade se termine entièrement
+ * (le résultat posé, les jetons partis), PUIS l'accolade s'efface, et la ligne
+ * se réajuste — jamais avant (`visuel/primitives/helpers.js ›
+ * finirSousAccolade`).
+ *
+ * L'accolade s'effaçait pendant les 300 dernières millisecondes de
+ * l'enchaînement, c'est-à-dire PENDANT son dernier mouvement ; et la ligne se
+ * refermait à l'intérieur des gestes eux-mêmes — le `drop` qui regroupe, le
+ * `substitute` dont le résultat remonte en poussant ses voisins. On sépare donc :
+ *
+ *  · pendant l'action, rien ne referme la ligne : les `drop` ne regroupent
+ *    plus, et ce qui remplace des jetons (`substitute`, `sum`, le décompte d'un
+ *    `group`) GARDE LEUR PLACE ;
+ *  · l'accolade s'efface quand l'action est finie (`fadeAt`) ;
+ *  · au même instant, un `move` nu referme la ligne — celui qui fermait déjà
+ *    l'enchaînement s'il y en a un, sinon un `move` ajouté.
+ *
+ * `refermer: false` quand la ligne se referme à une AUTRE étape (le partage
+ * d'un filtre, dont le rapprochement est un temps à part) : l'accolade
+ * s'efface alors à la fin de l'action, et rien d'autre.
+ */
+export function retirerAccolade(ops, { refermer = true } = {}) {
   const acc = ops.find((o) => o.op === 'group');
-  if (acc) acc.fadeAt = Math.max(0, finDe(ops) - (acc.at || 0) - 300);
-  return ops;
+  if (!acc) return ops;
+  const dernier = ops[ops.length - 1];
+  const fermeture = refermer && dernier && dernier !== acc && dernier.op === 'move'
+    && !Array.isArray(dernier.order) && dernier.targets === undefined ? dernier : null;
+  const action = fermeture ? ops.slice(0, -1) : ops;
+  for (const o of action) {
+    if (o === acc) continue;
+    if (o.op === 'drop') o.regroup = false;
+    if (o.op === 'substitute' || o.op === 'sum' || (o.op === 'group' && o.to !== undefined)) o.garderPlace = true;
+  }
+  const fin = finDe(action);
+  acc.fadeAt = Math.max(0, fin - (acc.at || 0));
+  if (!refermer) return ops;
+  if (fermeture) {
+    fermeture.at = fin;
+    return ops;
+  }
+  return [...ops, { op: 'move', at: fin }];
 }
 
 // ───────────────────────────────────────────────────────────────────────────

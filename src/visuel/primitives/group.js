@@ -60,6 +60,7 @@ import {
   nivellementDe, MAX_TRANSFERTS, jouerTransferts,
   espacementDe, exigerPoint, suivreLesAccolades,
   boiteEmbrassee, ECART_TERMES, COLLE_AU_SIGNE,
+  reserverLaPlace, occuperLaPlace, rangDansLaPlace, finirSousAccolade,
 } from './helpers.js';
 import { EASE, progressionDe } from '../constants.js';
 import { planExposants, planPuissance, planFactorielle } from './produits.js';
@@ -136,6 +137,8 @@ export function plan(ctx) {
   if (acc && typeof ctx.op.fadeAt === 'number') {
     for (const id of acc.ids) {
       ctx.anim({ id, prop: 'opacity', to: 0, at: ctx.op.fadeAt, dur: 300 });
+      // Effacée par l'émetteur : la fin commune (`finirSousAccolade`) ne l'efface pas deux fois.
+      ctx.scene.get(id).data.retiree = true;
     }
   }
 }
@@ -908,6 +911,7 @@ function planDecompte(ctx, ids, to, symbol, label) {
     // quand un geste l'a posée avant lui dans le même step (`c.compteTokensDistincts`
     // rapproche les exemplaires identiques avant de compter ce qui reste).
     accoladeExistante: ctx.op.accolade === 'existante',
+    garderPlace: ctx.op.garderPlace === true,
     doubles,
     doublesLabel: typeof ctx.op.doublesLabel === 'string' ? ctx.op.doublesLabel : null,
     symbol,
@@ -970,6 +974,7 @@ function planNivellement(ctx, ids, to, symbol, label) {
     // elle accueille. Elle reste donc vide jusqu'au premier arrivé.
     partials: gagnants.map(() => moyenne),
     depart: '',
+    garderPlace: ctx.op.garderPlace === true,
     symbol,
     label,
   });

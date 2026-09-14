@@ -399,7 +399,10 @@ function etapeRetrait(op) {
         }
       }
 
-      const premier = etape(ctx, titre, regle, retirerAccolade(corps),
+      // ★ Après un PARTAGE, la ligne ne se referme pas ici : le rapprochement est
+      //   l'étape suivante, à part. L'accolade s'efface à la fin de l'action, et
+      //   rien d'autre (`commun.js › retirerAccolade`, `refermer: false`).
+      const premier = etape(ctx, titre, regle, retirerAccolade(corps, { refermer: monteDuBlanc }),
         { id: `s_${ctx.cle}_0`, hold: 300 });
       if (monteDuBlanc) return [premier];
       // Après un partage, le comblement reste un temps À PART — c'est la
