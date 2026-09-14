@@ -41,7 +41,7 @@ const lienJamesBond = ({ cible = '007', liaison = 'mdl0' } = {}) => ecrire({
 
 test('★ le lien porte sa liaison en tête, et se relit tel quel', () => {
   const url = lienJamesBond();
-  assert.match(url, /^#so!=mdl0!0\+2:fr21\+mx6\+cali#/, 'le marqueur `=mdl0!` en tête, `tca` implicite');
+  assert.match(url, /^#=mdl0!0\+2:fr21\+mx6\+cali#/, 'le marqueur `=mdl0!` en tête, `tca` et `so!` implicites');
   const l = lire(url);
   assert.equal(l.forme, 'canonique');
   assert.equal(l.liaison, 'mdl0');

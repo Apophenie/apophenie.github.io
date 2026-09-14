@@ -3179,10 +3179,11 @@ Exemples :
 #c111!#3fq9KJ                                  page de résultats, mais pour 111
 #Donald Trump                                  cherche, puis montre la 1ʳᵉ voie
 #c111!sce!#Donald Trump                        idem, avec les réglages du lien
-#so!tca+m36#Donald Trump                       ce programme, sur cette saisie en clair
-#so!c007!0.1+2.1:tca+mboc+cp,6.1:tca+mms+cs#…   une voie qui écrit 007
-#so!0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+mpy+mr9#…   trois groupes, six places
-#so!2.1:fr13;fl+tca+mtal+m14+mpf#2HuP1G8mNg3sJWhqR   on chiffre « Trump », puis on lit tout
+#tca+m36#Donald Trump                          ce programme, sur cette saisie en clair
+#c007!0.1+2.1:tca+mboc+cp,6.1:tca+mms+cs#…      une voie qui écrit 007
+#0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+mpy+mr9#…   trois groupes, six places
+#2.1:fr13;fl+tca+mtal+m14+mpf#2HuP1G8mNg3sJWhqR      on chiffre « Trump », puis on lit tout
+#sce!2.1:fr13;fl+tca+mtal+m14+mpf#2HuP1G8mNg3sJWhqR  la même, mise en scène : seul `sce!` s'écrit
 ```
 
 ⚠️ L'exemple 007 ci-dessus s'écrivait `0.1:tca+mboc+cp,2.1:tca+mboc+cp,…` avant
@@ -3271,7 +3272,8 @@ voisines » garantit.
 | `#0.1+2.1:P;…#…` (groupe dans une retouche) | Refusée, bandeau explicite : un groupe y aurait l'air parallèle et serait séquentiel — même règle que pour `×3:`. |
 | `#c111!…#…` (marqueur de cible) | Rejouée sur la cible demandée. Absent ⇒ 666 (§4.2, amendement « LA CIBLE »). |
 | `#c1234567!…#…` (cible illisible) | Bandeau explicite : jamais un repli muet sur 666. |
-| `#sce!c111!…#…` (registre sans emblème) | **Replié sur `so!`**, à la lecture comme à l'écriture. Mêmes étapes, même verdict : ce qui manque est un DESSIN. |
+| `#sce!c111!…#…` (registre sans emblème) | **Replié sur « sobre »**, à la lecture comme à l'écriture — donc réécrit SANS marqueur de registre. Mêmes étapes, même verdict : ce qui manque est un DESSIN. |
+| `#so!…#…` (marqueur sobre, écrit par la version publiée) | **Lu exactement comme la forme sans marqueur** ; la barre d'adresse est réécrite sans `so!`, qui ne s'écrit plus — seul `sce!` se mentionne (`url.js`, « `so!` NE S'ÉCRIT PLUS »). ⚠️ Sans programme, `#so!#…` garde son sens : la 1ʳᵉ voie, et non la liste. |
 | Code inconnu / portée hors bornes / format inconnu | Bandeau explicite + repli sur la page de résultats. |
 
 **Un lien ne renvoie jamais silencieusement vers une autre démonstration :** soit il

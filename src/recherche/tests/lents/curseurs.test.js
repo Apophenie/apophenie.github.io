@@ -531,7 +531,7 @@ test('url — les marqueurs se lisent dans n’importe quel ordre, et s’écriv
       saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['tca', 'm36'] }],
       registre: 'sobre', cible: '111', curseurs: attendu, fouille: 2,
     }),
-    '#so!p10.20.30.40!f2!m36#3fq9KJ#HXLk',
+    '#p10.20.30.40!f2!m36#3fq9KJ#HXLk',
   );
 });
 

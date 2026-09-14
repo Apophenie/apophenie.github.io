@@ -112,7 +112,7 @@ const voie = (rang, titre, suggestion, series = 1) => ({
   titre: { fr: titre, en: titre },
   suggestion,
   series,
-  urlSobre: `#so!x#${rang}`,
+  urlSobre: `#x#${rang}`,
   urlScenique: `#sce!x#${rang}`,
 });
 
@@ -523,7 +523,7 @@ test('★ carte — « Voir la démonstration » coiffe les deux accès', () => 
  *   sur une chaîne pleine. La carte porte donc son propre repli, qui distingue.
  */
 test('★ carte — sans titre, la carte numérote au lieu d’annoncer « Démonstration »', () => {
-  const a = { rang: 3, series: 1, codes: 'fatb', urlSobre: '#so!x#3', urlScenique: '#sce!x#3' };
+  const a = { rang: 3, series: 1, codes: 'fatb', urlSobre: '#x#3', urlScenique: '#sce!x#3' };
   const place = rendre([a], { podium: false });
   const titre = un(place, 'voie__titre');
   assert.ok(titre, 'la carte porte un titre');
