@@ -35,7 +35,9 @@ setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
  * Les gestes qui ne tiennent pas encore la règle, et pourquoi.
  * @type {Record<string, string>}
  */
-const A_TRAITER = {};
+const A_TRAITER = {
+  mcc: 'le compte se pose devant l’exemplaire, hors du tracé resserré sur l’exemplaire seul (commit suivant)',
+};
 
 function jetonsDe(etat) {
   const elements = etat.type === 'STR' ? [...etat.valeur]

@@ -1258,12 +1258,14 @@ export function suivreLaZone(ctx, acc, spec = {}) {
     const n = ctx.scene.get(id);
     return n && n.alive;
   });
-  if (sources.length < 1) return;
-  const cible = boiteEmbrassee(ctx, sources);
-  if (!cible) return;
+  if (sources.length < 1 && !spec.boite) return false;
+  // `boite` : une zone donnée d'avance — la place faite pour un résultat
+  // qui n'est pas encore là (`anticiperLaPlace`).
+  const cible = spec.boite || boiteEmbrassee(ctx, sources);
+  if (!cible) return false;
 
   const depart = ctx.scene.pos(acc.id);
-  if (!depart) return;
+  if (!depart) return false;
   /* ⚠️ **DEUX SUIVIS D'UNE MÊME ACCOLADE NE SE CHEVAUCHENT PAS.** Depuis que le
      tracé suit ses sources (`suivreSesSources`), deux mécanismes la déplacent :
      les départs de ses sources, et la ligne qui se referme. Le second attend la
@@ -1281,7 +1283,6 @@ export function suivreLaZone(ctx, acc, spec = {}) {
   // entrerait en conflit avec celles qui, elles, ont quelque chose à dire.
   const bougeX = Math.abs(cible.cx - depart.x) > 0.5;
   const change = Math.abs(cible.w - (depart.w || 0)) > 0.5;
-  if (!bougeX && !change) return;
 
   // Le sens est celui du TRACÉ, relu sur le nœud : c'est lui qui sait de quel
   // côté de la ligne il vit, et l'appelant — `suivreLesAccolades` balaie un
@@ -1290,6 +1291,9 @@ export function suivreLaZone(ctx, acc, spec = {}) {
   const anchorY = (s > 0 ? cible.y + cible.h : cible.y) + s * (BRAS + 6);
   // `garderY` : l'accolade se resserre sur place, à sa hauteur (`suivreSesSources`).
   const yCible = spec.garderY ? depart.y : anchorY;
+  // Un tracé descendu vers un compteur sous la pointe remonte sous la ligne
+  // quand la zone y revient : c'est un mouvement aussi.
+  if (!bougeX && !change && Math.abs(yCible - depart.y) <= 0.5) return false;
   if (bougeX || Math.abs(yCible - depart.y) > 0.5) {
     ctx.place(acc.id, { x: cible.cx, y: yCible, w: cible.w }, { at, dur, ease: EASE.move });
   }
@@ -1311,7 +1315,7 @@ export function suivreLaZone(ctx, acc, spec = {}) {
   if (!spec.garderY && ctx.scene.ancreDe(sources[0])) {
     ctx.scene.poserAncre(sources, { x: cible.cx, y: anchorY + s * (POINTE + ctx.metrics.fontSize * 1.44) });
   }
-  if (!change) return;
+  if (!change) return true;
   const w0 = depart.w || cible.w;
   const w1 = cible.w;
   // ★ LA MÊME COURBE QUE LA LIGNE, et c'est tout le correctif du « ça rame ».
@@ -1327,6 +1331,7 @@ export function suivreLaZone(ctx, acc, spec = {}) {
     dur,
     render: (x) => braceD((w0 + (w1 - w0) * courbe(x)) / 2, s),
   });
+  return true;
 }
 
 /**
@@ -1516,7 +1521,16 @@ export function poserDansLaPlace(ctx, place, resultats, spec) {
   if (ouvrirLaPlace(ctx, place, resultats)) {
     const dOuv = Math.max(1, dur * (spec.ouverture ?? 0.4));
     ctx.reflow({ at, dur: dOuv, ease: EASE.move });
+    // Le tracé s'étend AVEC la place qui s'ouvre (`anticiperLaPlace`).
+    anticiperLaPlace(ctx, place, resultats, { at, dur: dOuv, garder: spec.garder });
     monte = { at: at + dOuv, dur: Math.max(1, dur - dOuv) };
+  } else {
+    // La place est déjà là : si le tracé ne la couvre pas, il s'étend d'abord,
+    // PUIS le résultat remonte s'y loger.
+    const dAnt = Math.max(1, dur * (spec.anticipation ?? 0.3));
+    if (anticiperLaPlace(ctx, place, resultats, { at, dur: dAnt, garder: spec.garder })) {
+      monte = { at: at + dAnt, dur: Math.max(1, dur - dAnt) };
+    }
   }
   const rang = place ? rangDansLaPlace(ctx, place) : spec.rang;
   resultats.forEach((id, k) => {
@@ -1526,6 +1540,68 @@ export function poserDansLaPlace(ctx, place, resultats, spec) {
   ctx.reflow({ at: monte.at, dur: monte.dur, ease: spec.ease || EASE.move });
   if (place) ctx.scene.resultatsArrives.push({ ids: resultats.slice(), accolades: place.accolades });
   return monte;
+}
+
+/**
+ * ★ **L'ACCOLADE ANTICIPE LE RÉSULTAT QUI ARRIVE.**
+ *
+ * > « Elle désigne l'opération en cours, résultat compris, donc la place qui
+ * >   est faite pour le résultat est à compter à l'intérieur de l'accolade, pour
+ * >   que le résultat vienne se loger dedans plutôt que dehors. » (l'autrice)
+ *
+ * Dès que la place d'un résultat est ouverte sur la ligne, elle fait partie de
+ * ce que l'accolade embrasse : le tracé s'étend pour la couvrir AVANT que le
+ * résultat n'arrive. Les sources qui partent en sont sorties
+ * (`suivreSesSources`) ; la place réservée, elle, compte comme « là », puisque
+ * le résultat y est attendu.
+ *
+ * La place du résultat : au milieu de la place gardée, de la largeur des
+ * résultats. S'y ajoutent ce qui est encore embrassé sur la ligne, et ce que
+ * l'appelant demande de garder (`garder` : les exemplaires de `mcc`, qui ne
+ * fusionnent que pendant la remontée).
+ *
+ * @returns {boolean} le tracé a-t-il dû bouger ?
+ */
+export function anticiperLaPlace(ctx, place, resultats, spec = {}) {
+  if (!place || !place.accolades || !place.accolades.length) return false;
+  const pG = ctx.scene.pos(place.gauche);
+  if (!pG) return false;
+  const largeur = largeurDes(ctx, resultats);
+  const gaucheDeLaPlace = pG.x - ctx.scene.get(place.gauche).w / 2;
+  const centre = gaucheDeLaPlace + place.largeur / 2;
+  let x0 = centre - largeur / 2;
+  let x1 = centre + largeur / 2;
+  const fs = ctx.metrics.fontSize;
+  const ajouter = (id) => {
+    const p = ctx.scene.pos(id);
+    const n = ctx.scene.get(id);
+    if (!p || !n) return;
+    x0 = Math.min(x0, p.x - n.w / 2);
+    x1 = Math.max(x1, p.x + n.w / 2);
+  };
+  for (const id of spec.garder || []) ajouter(id);
+  let bouge = false;
+  for (const idAcc of place.accolades) {
+    const trace = ctx.scene.get(idAcc);
+    if (!trace || !trace.alive || (trace.data && trace.data.traceEffacee)) continue;
+    let g = x0;
+    let d = x1;
+    // Ce qui est encore embrassé sur la ligne reste dans l'accolade.
+    for (const id of ctx.scene.accolades.get(idAcc) || []) {
+      const n = ctx.scene.get(id);
+      const p = ctx.scene.pos(id);
+      if (!n || !n.alive || !p || ctx.scene.flowIndex(id) < 0) continue;
+      g = Math.min(g, p.x - n.w / 2);
+      d = Math.max(d, p.x + n.w / 2);
+    }
+    const boite = {
+      x: g - DEBORD_ACCOLADE, y: pG.y - fs / 2 - DEBORD_ACCOLADE,
+      w: d - g + 2 * DEBORD_ACCOLADE, h: fs + 2 * DEBORD_ACCOLADE,
+      cx: (g + d) / 2, cy: pG.y,
+    };
+    if (suivreLaZone(ctx, { id: idAcc, shape: 'brace', sources: [] }, { at: spec.at, dur: spec.dur, boite })) bouge = true;
+  }
+  return bouge;
 }
 
 /** Les cales s'en vont, chacun reprend son écart : la ligne est prête à se refermer. */

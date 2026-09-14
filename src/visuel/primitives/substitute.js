@@ -33,7 +33,7 @@
  */
 
 import {
-  tokenSpec, espacementDe, exigerPoint, reserverLaPlace, occuperLaPlace, rangDansLaPlace, ouvrirLaPlace,
+  tokenSpec, espacementDe, exigerPoint, reserverLaPlace, occuperLaPlace, rangDansLaPlace, ouvrirLaPlace, anticiperLaPlace,
   suivreSesSources,
 } from './helpers.js';
 import { EASE, colorForKind } from '../constants.js';
@@ -261,7 +261,15 @@ export function plan(ctx) {
   if (aRentrer.map((j) => ouvrirLaPlace(ctx, j.place, [j.tos[0].id])).some(Boolean)) {
     const ouverture = ctx.dur * 0.44 * 0.4;
     ctx.reflow({ at: ctx.dur * 0.56, dur: ouverture, ease: EASE.move });
+    for (const j of aRentrer) anticiperLaPlace(ctx, j.place, [j.tos[0].id], { at: ctx.dur * 0.56, dur: ouverture });
     montee = { at: ctx.dur * 0.56 + ouverture, dur: ctx.dur * 0.44 - ouverture, ease: EASE.move };
+  } else {
+    // ★ L'accolade anticipe : elle s'étend sur la place du remplaçant, PUIS il y
+    //   remonte (`helpers.js › anticiperLaPlace`).
+    const anticipation = ctx.dur * 0.44 * 0.3;
+    const etendue = aRentrer.map((j) => anticiperLaPlace(ctx, j.place, [j.tos[0].id],
+      { at: ctx.dur * 0.56, dur: anticipation })).some(Boolean);
+    if (etendue) montee = { at: ctx.dur * 0.56 + anticipation, dur: ctx.dur * 0.44 - anticipation, ease: EASE.move };
   }
   let dernier = -1;
   for (const j of aRentrer) {
