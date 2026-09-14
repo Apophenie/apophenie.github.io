@@ -65,6 +65,7 @@ import {
 } from './helpers.js';
 import { EASE, progressionDe } from '../constants.js';
 import { planExposants, planPuissance, planFactorielle } from './produits.js';
+import { planDenombrement } from './series.js';
 import { fail } from '../errors.js';
 
 export const name = 'group';
@@ -97,6 +98,8 @@ export function plan(ctx) {
   // La factorielle n'a pas d'accolade : un titre en tient lieu, et la colonne
   // se déplie sous le nombre (`produits.js`).
   if (ctx.op.factorielle) { planFactorielle(ctx, ids); return; }
+  // Le dénombrement sériel : une série, une accolade, un compte (`series.js`).
+  if (ctx.op.denombrement) { planDenombrement(ctx, ids); return; }
 
   // L'accolade qui tient sa promesse elle-même : décompte ou nivellement.
   if (ctx.op.to !== undefined) {

@@ -436,7 +436,8 @@ test('★ intégration — les quatre transformations du 27 août se MONTRENT',
       // classement qui peut légitimement bouger.
       ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mtri', 'mtri', 'move'],
       ['Le chat dort sur le tapis rouge', 'fl+tca+mx6+mrn+mr9', 'mr9', 'flip180'],
-      ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mtri+mcc', 'mcc', 'substitute'],
+      // `mcc` dénombre désormais série par série, sous une accolade (`group`).
+      ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mtri+mcc', 'mcc', 'group'],
       ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mrd', 'mrd', 'partition'],
       // ★ La médiane, dans ses DEUX formes — c'est la parité du compte qui
       //   décide, et les deux doivent tenir. « Le chat dort » donne quatre

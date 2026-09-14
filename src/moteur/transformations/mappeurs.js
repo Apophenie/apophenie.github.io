@@ -4126,6 +4126,10 @@ const LIB_CARRE = bilingue('On élève chaque nombre au carré', 'Square every n
 const MENTION_CARRE = bilingue('au carré', 'squared');
 /** Un carré se joue en six temps (`visuel/primitives/group.js › planCarre`). */
 const DUREE_CARRE = 6200;
+/* Ce que porte l'accolade du dénombrement de `mcc`, les mots de l'autrice. */
+const MENTION_DENOMBREMENT = bilingue('Dénombrement sériel', 'Serial count');
+/** Miroir du découpage de `visuel/primitives/series.js › DENOMBREMENT`. */
+const dureeDenombrement = (compte) => 600 + 700 * compte + 200 + 1400 + 700;
 const LIB_PUISSANCE = bilingue('On élève chaque nombre au chiffre suivant',
   'Raise every number to the next digit');
 /* ★ Ce que porte l'accolade de la puissance. Entre « puissance », « pow » et
@@ -5611,54 +5615,48 @@ const AUTRES_MAPPEURS = [
     sortie: (avant, apres, ctx) => plagesDe(avant.valeur)
       .flatMap((_, j) => [`${ctx.cle}n${j}`, `${ctx.cle}v${j}`]),
     /**
-     * ★ ON MONTRE LES PLAGES AVANT DE LES COMPTER.
+     * ★ ACCOLADE PAR ACCOLADE : UNE SÉRIE, UN DÉNOMBREMENT.
      *
-     * Trois gestes, dans cet ordre, et chacun dit une moitié de la règle :
+     * > « Il va falloir retravailler mcc : au lieu de tout faire à la fois,
+     * >   accolade par accolade. Accolade avec en dessous "Dénombrement
+     * >   sériel". Un 1 descend de chaque chiffre dans l'accolade pour atteindre
+     * >   le nombre d'exemplaires dans le compteur sous l'accolade, puis ce
+     * >   compte remonte se mettre devant pendant que les différents exemplaires
+     * >   sont fusionnés. » (l'autrice)
      *
-     *  1. `partition` — les plages s'écartent les unes des autres et chacune
-     *     reçoit son accolade, qui porte son décompte (`×3`). C'est là que la
-     *     lecture se voit : trois 6 d'affilée forment UNE plage, trois 6
-     *     dispersés en forment trois. Sur une ligne d'une seule plage,
-     *     `partition` refuserait de découper (« découper en un seul morceau ne
-     *     découpe rien ») : c'est l'accolade simple du `group` qui prend le
-     *     relais ;
-     *  2. `substitute` — le premier signe de chaque plage devient le couple
-     *     « décompte valeur » ;
-     *  3. `drop` — le reste de la plage tombe, puisqu'il vient d'être compté.
+     * Le geste d'avant découpait toutes les plages d'un coup (`partition`,
+     * légendes « ×3 »), écrivait « compte valeur » à la place du premier
+     * exemplaire et faisait tomber les autres : les accolades s'effaçaient AVANT
+     * que les comptes ne s'écrivent, et le compte n'était pas compté, il était
+     * posé.
+     *
+     * Désormais, une étape par série, de gauche à droite : l'op `group` en mode
+     * `denombrement` (`visuel/primitives/series.js`) tire l'accolade, fait
+     * descendre un « 1 » de chaque exemplaire dans le compteur, remonte le
+     * compte DEVANT la série pendant que ses exemplaires fusionnent, puis
+     * s'efface. La primitive relit la série et refuse un compte faux.
      *
      * ★ Contrôle croisé (CONTRACTS §0.3) : `apply`, `sortie` et `steps`
-     * appellent le MÊME `plagesDe` sur le MÊME vecteur ; les accolades, les
-     * couples substitués et les valeurs calculées sortent tous de cette unique
-     * lecture, et il n'existe pas de seconde copie qui puisse diverger.
+     * appellent le MÊME `plagesDe` sur le MÊME vecteur ; la sortie reste « le
+     * compte, puis la valeur » — exactement ce que le geste pose.
      */
     steps: (avant, apres, ctx) => {
       const plages = plagesDe(avant.valeur);
       if (!plages.length) return [];
-      const ops = [];
-      const groupes = plages.map((p, j) => ({
-        targets: ctx.ids.slice(p.debut, p.fin),
-        tag: `${ctx.cle}g${j}`,
-        label: `×${p.compte}`,
-      }));
-      if (groupes.length >= 2) ops.push({ op: 'partition', groups: groupes });
-      else ops.push({ op: 'group', targets: ctx.ids, label: `×${plages[0].compte}`, tighten: 0 });
-      ops.push({
-        op: 'substitute',
-        pairs: plages.map((p, j) => ({
-          target: ctx.ids[p.debut],
+      const titre = dire(LIB_COMPTER_LES_CHIFFRES, ctx.langue);
+      const mention = dire(MENTION_DENOMBREMENT, ctx.langue);
+      return plages.map((p, j) => etape(ctx, titre,
+        `${avant.valeur.slice(p.debut, p.fin).join(' ')} → ${p.compte} ${p.valeur}`, enchainer([{
+          op: 'group',
+          dur: dureeDenombrement(p.compte),
+          targets: ctx.ids.slice(p.debut, p.fin),
+          denombrement: true,
+          label: mention,
           to: [
             token(`${ctx.cle}n${j}`, p.compte, 'number'),
             token(`${ctx.cle}v${j}`, p.valeur, 'number'),
           ],
-        })),
-        stagger: 60,
-      });
-      const comptes = [];
-      for (const p of plages) for (let k = p.debut + 1; k < p.fin; k++) comptes.push(ctx.ids[k]);
-      if (comptes.length) ops.push({ op: 'drop', targets: comptes, mode: 'fall', stagger: 40 });
-      const legende = `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`;
-      return [etape(ctx, dire(LIB_COMPTER_LES_CHIFFRES, ctx.langue), legende,
-        retirerAccolade(enchainer(ops)))];
+        }]), { id: `s_${ctx.cle}_c${j}`, hold: 250 }));
     },
   }),
 
