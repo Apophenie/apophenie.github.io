@@ -96,6 +96,7 @@ async function chercherEnMontrant(saisie, cible, reglages = {}) {
     // Les réglages de l'écran de liste, quand il y en a — voir `routeResultat`.
     ...(reglages.curseurs ? { curseurs: reglages.curseurs } : {}),
     ...(reglages.fouille === undefined ? {} : { fouille: reglages.fouille }),
+    ...(reglages.reveler === true ? { reveler: true } : {}),
     // La jauge n'est plus la nôtre dès qu'une autre route est partie : on cesse
     // de l'alimenter plutôt que d'écrire dans un élément détaché du document.
     surAvancement: (a) => { if (estCourante(jeton)) jauge.avancer(a); },
@@ -360,7 +361,8 @@ function routeDemonstration(lecture, { bandeau = null } = {}) {
  * conduite que la forme héritée juste en dessous, pour la même raison.
  */
 async function routePremiereVoie(lecture) {
-  const resultat = await chercherEnMontrant(lecture.saisie, lecture.cible);
+  // ★ Le geste de « Révéler » : la première voie, sous la borne de la moisson.
+  const resultat = await chercherEnMontrant(lecture.saisie, lecture.cible, { reveler: true });
   if (!resultat) return;
   const premiere = (resultat.approches || [])[0];
   // Aucune voie : la page de résultats sait le dire (réponse dédiée, saisie

@@ -533,6 +533,31 @@ export const PUISSANCE_ACCUEIL = 0;      // ×1, le budget historique
 export const PUISSANCE_ENUMERATION = 2;  // ×4, l'ouverture de l'énumération
 
 /**
+ * ★ **LA BORNE DE LA MOISSON DE « RÉVÉLER »** — en travail pesé, jamais en
+ * temps (`assemblage.js › moissons`, `recherche/index.js › borneDeLaMoisson`).
+ *
+ * > « Révéler sous 5 s : borne sur l'assemblage, pour Révéler SEUL. La liste
+ * >   énumérée et ses liens ne changent pas. Seule la première voie ouverte
+ * >   par Révéler peut être un peu moins bonne sur les saisies longues. »
+ * >   (l'autrice)
+ *
+ * MESURÉ, machine libre, cran 0 : sur une phrase de 113 signes la moisson
+ * dépense 4,5 s à énumérer les vecteurs de ses mots un par un. Au-delà de la
+ * borne, un mot garde les chemins de la recherche de fragments et n'en énumère
+ * plus d'autres.
+ *
+ * ★ **POURQUOI 320 000, ET PAS UN CHIFFRE ROND D'À CÔTÉ.** Deux transitions
+ *   mesurées encadrent la valeur :
+ *   · `hope-hope-hope.fr` perd sa tête (7 843 → 3 058) dès que son troisième
+ *     « hope » n'énumère plus — il commence à 294 490 ;
+ *   · « Reinfocovid, désinformation garantie » reste au-dessus de 5 s tant que
+ *     « désinformation » énumère — il commence à 356 514.
+ *   Entre les deux, sur les vingt-huit saisies du banc (`.planning/banc/
+ *   progressif-banc.mjs`), une seule tête change.
+ */
+export const BORNE_MOISSON_REVELER = 320000;
+
+/**
  * Un cran, ramené à un entier de [0, PUISSANCE_DE_FOUILLE_MAX].
  * Ce qui n'est pas un nombre vaut le défaut : un réglage absent n'est pas un
  * réglage à zéro par hasard, c'est un réglage qu'on n'a pas touché — et zéro se

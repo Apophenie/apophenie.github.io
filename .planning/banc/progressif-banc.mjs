@@ -197,6 +197,22 @@ function banMoins1() {
   }
 }
 
+/* ═════════════ 1 bis. RÉVÉLER SOUS SA BORNE — avant / après ═══════════════ */
+
+function banRevelerBorne() {
+  console.log('\n═══ RÉVÉLER SOUS SA BORNE — `pourReveler`, contre la liste sans borne ═══');
+  for (const saisie of REVELER) {
+    const libre = mesurer(saisie);
+    const borne = mesurer(saisie, {}, { pourReveler: true });
+    const a = premiere(libre.r);
+    const b = premiere(borne.r);
+    const meme = a && b && a.codes === b.codes;
+    console.log(saisie.slice(0, 43).padEnd(44), ms(libre.total).padStart(6), '→', ms(borne.total).padStart(6),
+      meme ? '| même 1ʳᵉ voie' : `| 1ʳᵉ voie CHANGE : ${decrire(a)}  →  ${decrire(b)}`);
+  }
+}
+
 if (quoi === 'reveler' || quoi === 'tout') banReveler();
+if (quoi === 'reveler-borne') banRevelerBorne();
 if (quoi === 'texte' || quoi === 'tout') banTexte();
 if (quoi === 'moins1' || quoi === 'tout') banMoins1();

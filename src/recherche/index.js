@@ -40,7 +40,7 @@ import {
 } from './score.js';
 import {
   reglagesDeBudget, normaliserPuissance, PUISSANCE_ENUMERATION,
-  PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX,
+  PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX, BORNE_MOISSON_REVELER,
 } from '../config.js';
 import { emploieUneFicelle, elagueALaFin } from './elegance.js';
 import { indexUtiles } from './cible.js';
@@ -458,6 +458,22 @@ export function creerMoteur(catalogue, options = {}) {
     return resultat;
   }
 
+  /**
+   * ★ **LA BORNE DE LA MOISSON D'UNE RECHERCHE** — celle qu'on demande, sinon
+   * celle de « Révéler », sinon aucune.
+   *
+   * > « Révéler sous 5 s : borne sur l'assemblage, pour Révéler SEUL. La liste
+   * >   énumérée et ses liens ne changent pas. » (l'autrice)
+   *
+   * Une borne de TRAVAIL, jamais d'horloge (§4.4) : la même saisie rend la même
+   * première voie sur toutes les machines. Le lien de cette voie est un lien
+   * ordinaire — un programme —, qui se rejoue à l'identique hors de Révéler.
+   */
+  function borneDeLaMoisson(optionsResolution) {
+    if (Number.isFinite(optionsResolution.borneAssemblage)) return optionsResolution.borneAssemblage;
+    return optionsResolution.pourReveler === true ? BORNE_MOISSON_REVELER : undefined;
+  }
+
   /** La clé d'un cran : tout ce qui décide de sa liste, et rien d'autre. */
   function cleDuCran(saisieBrute, optionsResolution, k) {
     const cbl = normaliserCible(optionsResolution.cible ?? options.cible);
@@ -466,6 +482,8 @@ export function creerMoteur(catalogue, options = {}) {
       String(saisieBrute ?? '').normalize('NFC'), cbl.nature, cbl.texte, JSON.stringify(curseurs), k,
       optionsResolution.profond === true, optionsResolution.dernierRecours !== false,
       optionsResolution.matiereDePhrase === true,
+      // ★ Une liste bornée ne sert JAMAIS de cran inférieur à une liste qui ne l'est pas.
+      borneDeLaMoisson(optionsResolution) ?? '',
     ].join('\u0000');
   }
 
@@ -832,6 +850,9 @@ export function creerMoteur(catalogue, options = {}) {
       // ★ Ce que la rampe fait naître au-delà des gardes historiques — voir
       //   `finaliser`, la double sélection. Partagé avec la passe profonde.
       horsGardesHistoriques: new WeakSet(),
+      // ★ La BORNE DE TRAVAIL de la moisson (`assemblage.js › moissons`) —
+      //   absente au défaut : la liste du site ne la connaît pas.
+      borneAssemblage: borneDeLaMoisson(optionsResolution),
       motsRetouches: rampeDesRetouches ? budgets.motsRetouches : MAX_JETONS_RETOUCHE,
       vecteursRetouches: rampeDesRetouches ? budgets.vecteursRetouches : MAX_VECTEURS_RETOUCHES,
       // ★ Les curseurs descendent jusqu'à la réserve de qualité de
@@ -2748,6 +2769,8 @@ export function creerCanal(moteur, poster) {
     // tait garde le barème et le budget du site.
     ...(message.curseurs ? { curseurs: message.curseurs } : {}),
     ...(message.fouille === undefined ? {} : { fouille: message.fouille }),
+    // ★ « Révéler » : la première voie seule, sous la borne de la moisson.
+    ...(message.reveler === true ? { pourReveler: true } : {}),
   });
   return {
     get generation() { return generation; },

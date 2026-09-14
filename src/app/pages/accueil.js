@@ -172,7 +172,10 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
     const jauge = creerJaugeRecherche();
     remplir(zoneJauge, [jauge.element]);
 
-    const resultat = await pont.resoudreEnFond(saisie, null, { surAvancement: jauge.avancer });
+    // ★ `reveler` : on n'ouvre que la PREMIÈRE voie, et elle doit venir en 5 s au
+    //   plus — la moisson des saisies longues se borne (`recherche/index.js ›
+    //   BORNE_MOISSON_REVELER`). La liste énumérée, elle, ne la connaît pas.
+    const resultat = await pont.resoudreEnFond(saisie, null, { surAvancement: jauge.avancer, reveler: true });
     // `null` : une recherche plus récente est partie (deux clics, deux Entrées).
     // C'est elle qui mènera quelque part ; celle-ci se retire sans rien toucher.
     if (resultat === null) return;

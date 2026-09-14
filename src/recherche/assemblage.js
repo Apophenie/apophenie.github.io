@@ -922,6 +922,10 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   const derouler = (secondRaffinage) => {
     for (const j of jetons.values()) {
       for (const m of mappeurs) {
+        // ★ Le TRAVAIL de l'étage 3 — c'est lui qui coûte (`moissons`, la borne).
+        //   Pesé par la LONGUEUR de ce qu'on lit : mesuré, « désinformation »
+        //   coûte deux fois « garantie » pour le même nombre d'applications.
+        if (options.compteur) options.compteur.travail += Math.max(1, j.etat.valeur.length);
         const v = appliquerOp(m, j.etat);
         if (v === null) continue;
         if (!secondRaffinage) retenir(j.ops.concat(m), j.etats.concat([v]));
@@ -930,6 +934,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
           // ★ Un raffinage qui GONFLE n'a rien à faire dans le premier déroulé :
           //   il n'existe que pour le dernier recours (voir `assembler`).
           if (!secondRaffinage && r.gonfle) continue;
+          if (options.compteur) options.compteur.travail += Math.max(1, v.valeur.length);
           const w = appliquerOp(r, v);
           if (w === null) continue;
           if (!secondRaffinage) {
@@ -2074,7 +2079,7 @@ function convergences(bruts, cible = CIBLE_DEFAUT, progres = null) {
  * Les programmes qu'une portée peut rendre, du plus fourni en 6 au moins.
  * @returns {Array<{six:number, total:number, chemin:Object, maniere:string}>}
  */
-function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT) {
+function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT, compteur = null) {
   const cbl = normaliserCible(cible);
   const vus = new Set();
   const out = [];
@@ -2107,7 +2112,7 @@ function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT) {
   if (ops && ops.length) {
     // `miseEnForme: false` — on veut ici la MATIÈRE, pas une sélection : voir
     // l'en-tête de `vecteursDeSix`, « deux appelants, deux questions ».
-    const bruts = vecteursDeSix(texte, ops, 1, MAX_CANDIDATS_PORTEE * 2, cbl, { miseEnForme: false });
+    const bruts = vecteursDeSix(texte, ops, 1, MAX_CANDIDATS_PORTEE * 2, cbl, { miseEnForme: false, compteur });
     for (const c of bruts) ajouter(c);
   }
   for (const c of chemins || []) ajouter(c);
@@ -2497,11 +2502,23 @@ const ETALONS_MAX = 4;
  * @returns {Object[]} approches non notées
  */
 function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
-  kParFragment = K_PAR_FRAGMENT) {
+  kParFragment = K_PAR_FRAGMENT, borneTravail = Infinity) {
   const cbl = normaliserCible(cible);
   if (!jetons || jetons.length < 2) return [];
   const n = Math.min(jetons.length, MAX_JETONS_MOISSON);
   const cheminsDe = (texte) => parFrag.get(texte.normalize('NFC')) || [];
+
+  /* ★ **LA BORNE DE TRAVAIL DE LA MOISSON** — `borneTravail`, en applications
+       de mappeurs et de raffinages (`vecteursDeSix`, l'étage 3).
+       MESURÉ sur une phrase de 113 signes : la moisson y dépense 4,5 s sur les
+       vecteurs de ses dix-huit jetons, un par un — la saisie entière, d'un
+       tenant, n'en coûte que 0,26 s. Au-delà de la borne, une portée garde les
+       chemins que la recherche de fragments lui a déjà trouvés, et n'en
+       énumère plus d'autres. La décision se prend AVANT chaque portée, jamais
+       au milieu d'un déroulé : un vecteur commencé est fini, et l'ensemble
+       exploré ne dépend que de la saisie (§4.4). Infinie au défaut : la liste
+       du site ne la connaît pas. */
+  const compteur = { travail: 0 };
 
   // ── 1 & 2. les portées et leurs programmes
   const portees = [];
@@ -2511,13 +2528,14 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
     const cle = `${debut}.${longueur}`;
     if (vues.has(cle)) return;
     vues.add(cle);
+    const enumerer = avecVecteurs && compteur.travail < borneTravail;
     // ★ La largeur suit le cran ici aussi — l'audit a relevé que la MOISSON,
     //   « le mode que l'auteur met en tête », restait à huit chemins par
     //   portée quand le GROUPEMENT en recevait jusqu'à cinquante.
     const candidats = candidatsDePortee(
-      texte, avecVecteurs ? ops : null,
+      texte, enumerer ? ops : null,
       normaliserChemins(cheminsDe(texte), Math.max(K_CANONISABLES, kParFragment))
-        .slice(0, kParFragment), cbl,
+        .slice(0, kParFragment), cbl, compteur,
     );
     if (!candidats.length) return;
     portees.push({ debut, longueur, texte, candidats });
@@ -3314,7 +3332,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    chaque jeton ce qu'il sait donner, par le programme qui lui convient.
   if (opsExplorables.length) {
     for (const a of moissons(saisie, ctx.jetons || [], fragments, parFrag, opsExplorables, cbl,
-      kParFragment)) {
+      kParFragment, ctx.borneAssemblage ?? Infinity)) {
       approches.push(a);
     }
   }
