@@ -381,13 +381,19 @@ export function retirerAccolade(ops, { refermer = true } = {}) {
     if (o.op === 'substitute' || o.op === 'sum' || (o.op === 'group' && o.to !== undefined)) o.garderPlace = true;
   }
   const fin = finDe(action);
-  acc.fadeAt = Math.max(0, fin - (acc.at || 0));
+  // ★ Un résultat posé sous l'accolade — ce qui garde la place — : le tracé se
+  //   referme d'abord sur lui (`move › attendre`), PUIS l'accolade s'efface.
+  const REFERME = 300;
+  const attendre = refermer && action.some((o) => o.garderPlace) ? REFERME : 0;
+  acc.fadeAt = Math.max(0, fin + attendre - (acc.at || 0));
   if (!refermer) return ops;
+  const fermer = attendre ? { attendre, dur: DUREE_OP.move + attendre } : {};
   if (fermeture) {
     fermeture.at = fin;
+    Object.assign(fermeture, fermer);
     return ops;
   }
-  return [...ops, { op: 'move', at: fin }];
+  return [...ops, { op: 'move', at: fin, ...fermer }];
 }
 
 // ───────────────────────────────────────────────────────────────────────────

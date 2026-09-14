@@ -49,6 +49,17 @@
  * commence après le premier de ces départs et avant la fin de l'action. Un
  * jeton du milieu qui part ne change pas l'étendue : rien n'est exigé.
  *
+ * ★ **LE TRACÉ SE REFERME SUR LE RÉSULTAT ARRIVÉ, PUIS S'EFFACE.**
+ *
+ * Le résultat qui arrive sous l'accolade compte comme « encore là » (la
+ * décision de l'autrice). Ses RÉSULTATS : les jetons nouveaux de la ligne de
+ * sortie qui se trouvent sous le tracé quand il commence à s'effacer — avec les
+ * survivants qui y restent (le diviseur gardé d'un modulo). Quand il y en a :
+ * aucun ne doit encore arriver après le début de l'effacement du tracé, et, à
+ * cet instant, le tracé les couvre, et eux seuls (à une chasse près de chaque
+ * côté). Quand toutes les sources partent et qu'un résultat arrive, c'est cette
+ * fermeture qui tient lieu de suivi.
+ *
  * ★ **DESCENDRE SOUS LA POINTE N'EST PAS QUITTER.**
  *
  * « N'embrasse que ce qui est encore là » vise ce qui QUITTE l'accolade
@@ -146,6 +157,23 @@ export function finsDesAccolades(tl, lignes) {
       && fin(a) > tAction + TOLERANCE_MS);
     const tSerre = serre.length ? Math.min(...serre.map(debut)) : null;
 
+    const av = tl.metrics.advance;
+    const nouveaux = [...sortie].filter((id) => !entree.has(id) && texte(id));
+    const couvreAuFondu = (acc, ids, t) => ids.filter((id) => {
+      const base = acc.base && acc.base.translate;
+      const p = lire.valeur(id, 'translate', t);
+      return base && p && p.x >= base.x - acc.w / 2 && p.x <= base.x + acc.w / 2;
+    });
+    // Un résultat SOUS l'accolade est animé par les ops ouvertes avant son
+    // effacement : ce qu'une op suivante écrit ensuite (le relevé d'identité de
+    // `meg`, le « 16 → 1 6 » après une somme) n'en est pas un.
+    const sousLAccolade = (id) => anims.some((a) => a.id === id && debut(a) < borne - TOLERANCE_MS);
+    const resultatsSous = (acc, t) => couvreAuFondu(acc, nouveaux, t).filter(sousLAccolade);
+    const fonduDuTrace = (acc) => {
+      const f = anims.filter((a) => a.id === acc.id && a.prop === 'opacity' && arrivee(a) === 0);
+      return f.length ? Math.min(...f.map((a) => a.delay)) : null;
+    };
+
     // ── Le tracé suit-il ses sources ? ───────────────────────────────────────
     let suiviManquant = null;
     if (tAction !== null) {
@@ -215,6 +243,14 @@ export function finsDesAccolades(tl, lignes) {
         const apres = etendue(restent);
         const change = !apres || Math.abs(apres[0] - avant[0]) > 1 || Math.abs(apres[1] - avant[1]) > 1;
         if (!change) continue;
+        // Toutes les sources parties, un résultat arrive : c'est la fermeture sur
+        // lui qui tient lieu de suivi (vérifiée plus bas).
+        // Toutes les sources s'en vont — y compris celles qui restent encore un
+        // moment — et un résultat arrive : c'est la fermeture sur lui qui tient
+        // lieu de suivi (la potence : A et B disparaissent, le quotient vient).
+        const tF = fonduDuTrace(acc);
+        const toutesParties = couverts.every((id) => !sortie.has(id));
+        if (toutesParties && tF !== null && resultatsSous(acc, tF).length) continue;
         const premier = Math.min(...partis.map((x) => x.t));
         const suit = tl.discrete.some((r) => r.id === acc.id && r.channel === 'd'
           && r.at - t0 >= premier - 50 && r.at - t0 < tAction)
@@ -225,6 +261,50 @@ export function finsDesAccolades(tl, lignes) {
             + 'et il garde leur place';
           break;
         }
+      }
+    }
+
+    // ── Se referme-t-il sur le résultat arrivé ? ────────────────────────────
+    let fermetureManquee = null;
+    for (const acc of accolades) {
+      if (tAction === null) break;
+      const tF = fonduDuTrace(acc);
+      if (tF === null) continue;
+      const resultats = resultatsSous(acc, tF);
+      if (!resultats.length) continue;
+      const survivants = couvreAuFondu(acc, [...sortie].filter((id) => entree.has(id) && texte(id)), tF);
+      const arrive = (a) => (a.prop === 'translate' && Math.abs(arrivee(a).y - a.keyframes[0].value.y) > 1)
+        || (a.prop === 'opacity' && arrivee(a) >= 0.9);
+      const tardives = resultats.flatMap((id) => anims.filter((a) => a.id === id && arrive(a)
+        && a.delay + a.duration > tF + TOLERANCE_MS));
+      if (tardives.length) {
+        fermetureManquee = `le tracé s’efface à ${Math.round(tF - t0)} ms, avant que le résultat ne soit arrivé`;
+        break;
+      }
+      const chemins = tl.discrete.filter((r) => r.id === acc.id && r.channel === 'd' && r.at <= tF + TOLERANCE_MS)
+        .sort((x, y) => x.at - y.at);
+      // Le tracé tel qu'il est À L'INSTANT de l'effacement : un suivi qui commence à
+      // cet instant (la ligne qui se referme) n'a pas encore bougé.
+      const dernier = chemins.length ? chemins[chemins.length - 1] : null;
+      const avance = dernier && dernier.dur ? Math.min(1, Math.max(0, (tF - dernier.at) / dernier.dur)) : 1;
+      const chemin = dernier ? dernier.render(avance) : (acc.data && acc.data.d);
+      const m = /^M\s*(-?[\d.]+)/.exec(String(chemin || ''));
+      if (!m) continue;
+      const demi = Math.abs(Number(m[1]));
+      const pT = lire.valeur(acc.id, 'translate', tF);
+      const boites = [...resultats, ...survivants].map((id) => {
+        const p = lire.valeur(id, 'translate', tF);
+        const w = noeuds.get(id).w;
+        return [p.x - w / 2, p.x + w / 2];
+      });
+      const gR = Math.min(...boites.map((b) => b[0]));
+      const dR = Math.max(...boites.map((b) => b[1]));
+      const gT = pT.x - demi;
+      const dT = pT.x + demi;
+      if (gT > gR + 1 || dT < dR - 1 || (dT - gT) > (dR - gR) + 2 * av) {
+        fermetureManquee = `le tracé ne se referme pas sur le résultat avant de s’effacer : il couvre `
+          + `${Math.round(dT - gT)} unités pour un résultat de ${Math.round(dR - gR)}`;
+        break;
       }
     }
 
@@ -247,6 +327,7 @@ export function finsDesAccolades(tl, lignes) {
       faute = `la ligne se resserre à ${Math.round(tSerre)} ms, avant l’effacement de l’accolade (${Math.round(tEff)} ms)`;
     }
     if (!faute && suiviManquant) faute = suiviManquant;
+    if (!faute && fermetureManquee) faute = fermetureManquee;
     out.push({ etape: i, id: st.id, action: tAction, effacement: tEff, resserrement: tSerre, duree: st.duration, faute });
   });
   return out;

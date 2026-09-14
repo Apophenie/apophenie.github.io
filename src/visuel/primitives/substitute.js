@@ -221,7 +221,9 @@ export function plan(ctx) {
     }
     ctx.anim({ id: j.src.id, prop: 'opacity', to: 0, at, dur: ctx.dur * 0.55 });
     for (const idAcc of j.quittees || []) {
-      suivreSesSources(ctx, idAcc, ctx.scene.accolades.get(idAcc) || [], { at, dur: ctx.dur * 0.55 });
+      suivreSesSources(ctx, idAcc, ctx.scene.accolades.get(idAcc) || [], {
+        at, dur: ctx.dur * 0.55, resultatAttendu: true, vers: j.tos.map((t) => t.id),
+      });
     }
     ctx.anim({ id: j.src.id, prop: 'scale', to: 0.85, at, dur: ctx.dur * 0.55 });
     if (ctx.scene.has(halo)) ctx.anim({ id: halo, prop: 'opacity', to: 0, at, dur: ctx.dur * 0.4 });
@@ -266,7 +268,10 @@ export function plan(ctx) {
     const base = j.place ? rangDansLaPlace(ctx, j.place) : (j.gauche ? ctx.scene.flowIndex(j.gauche) + 1 : 0);
     const index = Math.max(base, dernier + 1);
     ctx.scene.enterFlow(j.tos[0].id, index, ctx.where);
-    if (j.place) occuperLaPlace(ctx, j.place, [j.tos[0].id]);
+    if (j.place) {
+      occuperLaPlace(ctx, j.place, [j.tos[0].id]);
+      ctx.scene.resultatsArrives.push({ ids: [j.tos[0].id], accolades: j.place.accolades });
+    }
     dernier = index;
   }
   ctx.reflow(montee);

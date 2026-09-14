@@ -541,7 +541,11 @@ test('l’accolade se défait avec ses sources : jamais tracée sous un trou', (
     const t = t0 + T * u;
     const trait = valeurA(tl, accolade.id, 'opacity', t);
     if (trait <= 0.3) continue;
-    const vivantes = sources.filter((id) => valeurA(tl, id, 'opacity', t) > 0.3);
+    // ★ Le résultat qui arrive sous l'accolade compte comme « encore là » (la
+    //   décision de l'autrice) : quand le dernier terme est parti, le tracé
+    //   l'attend et se referme sur lui. Il n'est donc jamais tracé sous un trou
+    //   tant que ses sources OU son résultat sont là.
+    const vivantes = [...sources, 'q'].filter((id) => valeurA(tl, id, 'opacity', t) > 0.3);
     assert.ok(vivantes.length,
       `à ${Math.round(u * 100)} % de la somme, l’accolade est tracée (opacité ${trait.toFixed(2)}) alors qu’elle n’embrasse plus rien`);
     // et son axe reste dans l'étendue de ce qu'elle embrasse encore

@@ -45,6 +45,9 @@ export class Scene {
     // L'instant, dans l'étape, où chaque accolade a fini de suivre sa zone
     // (`primitives/helpers.js › suivreLaZone`) : deux suivis ne se chevauchent pas.
     this.zonesJusqua = new Map();
+    // Les résultats qui viennent de prendre leur place, et les accolades qui les
+    // attendent (`primitives/helpers.js › refermerSurLesResultats`).
+    this.resultatsArrives = [];
 
     // Nœud caméra : c'est lui qu'on zoome/déplace, jamais l'attribut viewBox.
     this.nodes.set(CAMERA_ID, makeNode({
@@ -296,7 +299,7 @@ export class Scene {
    * Oublie les ancres. Appelé à chaque nouveau step : une accolade ne promet
    * que pour le geste en cours, et le step suivant repart d'une page nette.
    */
-  oublierAncres() { this.ancres.clear(); this.accolades.clear(); this.zonesJusqua.clear(); }
+  oublierAncres() { this.ancres.clear(); this.accolades.clear(); this.zonesJusqua.clear(); this.resultatsArrives.length = 0; }
 
   /** Une accolade vient d'être tracée : elle embrasse `sources`. */
   poserAccolade(id, sources) { this.accolades.set(id, [...sources]); }

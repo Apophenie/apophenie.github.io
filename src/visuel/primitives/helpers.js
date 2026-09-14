@@ -844,7 +844,7 @@ export function accumulate(ctx, spec) {
       ctx.anim({ id, prop: 'opacity', to: 0, at: a, dur: fondu, ease: EASE.fade });
       ctx.anim({ id, prop: 'scale', to: 0.82, at: a, dur: fondu, ease: EASE.fade });
       // Ce qui ne compte pas quitte l'accolade : le tracé se resserre sur ce qui reste.
-      quitterLAccolade(ctx, [id], { at: a, dur: Math.max(1, cadence || fondu) });
+      quitterLAccolade(ctx, [id], { at: a, dur: Math.max(1, cadence || fondu), resultatAttendu: true, vers: [to.id] });
       });
   }
 
@@ -886,7 +886,9 @@ export function accumulate(ctx, spec) {
     arrivees.push(a + vol);
     // ★ Le terme part vers le compteur, avec son signe : il quitte l'accolade, et le
     //   tracé se resserre sur ce qui reste — il s'efface avec le dernier.
-    quitterLAccolade(ctx, [id, ...(attelage.get(id) || [])], { at: a, dur: Math.max(1, cadence || vol) });
+    quitterLAccolade(ctx, [id, ...(attelage.get(id) || [])], {
+      at: a, dur: Math.max(1, cadence || vol), resultatAttendu: true, vers: [to.id],
+    });
     ctx.anim({ id, prop: 'translate', to: { x: ancre.x, y: ancre.y }, at: a, dur: vol, ease: EASE.move });
     ctx.anim({ id, prop: 'scale', to: 0.65, at: a, dur: vol });
     ctx.anim({ id, prop: 'opacity', to: 0, at: a + vol * 0.6, dur: vol * 0.4 });
@@ -1422,7 +1424,14 @@ export function reserverLaPlace(ctx, sources) {
   // fasse « venir » de l'origine.
   ctx.scene.place(gauche, { x: pG.x - noeudPremier.w / 2 + Math.max(0, largeur) / 2, y: pG.y, w: Math.max(0, largeur) });
   ctx.scene.place(droite, { x: pD.x + ctx.scene.get(dernier).w / 2, y: pD.y, w: 0 });
-  const place = { gauche, droite, largeur: Math.max(0, largeur), resultats: [] };
+  // Les accolades qui se refermeront sur ce qui prendra la place : celles qui
+  // embrassent ce qu'elle remplace, et celles qui attendent un résultat.
+  const remplaces = new Set(sources);
+  const accolades = [...ctx.scene.accolades].filter(([id, srcs]) => {
+    const nd = ctx.scene.get(id);
+    return nd && nd.alive && ((nd.data && nd.data.attendResultat) || srcs.some((s) => remplaces.has(s)));
+  }).map(([id]) => id);
+  const place = { gauche, droite, largeur: Math.max(0, largeur), resultats: [], accolades };
   ctx.scene.placesGardees.push(place);
   return place;
 }
@@ -1515,6 +1524,7 @@ export function poserDansLaPlace(ctx, place, resultats, spec) {
   });
   occuperLaPlace(ctx, place, resultats);
   ctx.reflow({ at: monte.at, dur: monte.dur, ease: spec.ease || EASE.move });
+  if (place) ctx.scene.resultatsArrives.push({ ids: resultats.slice(), accolades: place.accolades });
   return monte;
 }
 
@@ -1576,14 +1586,57 @@ export function refermerLaLigne(ctx, spec) {
 }
 
 /**
+ * ★ **LE TRACÉ SE REFERME SUR LE RÉSULTAT ARRIVÉ, PUIS S'EFFACE.**
+ *
+ * > Pour la fraction et la division sans reste, « le résultat qui arrive sous
+ * > l'accolade compte comme encore là : le tracé se referme sur lui, PUIS
+ * > s'efface avec le symbole et la légende ». Et la règle est la même
+ * > partout : le tracé suit les sources qui partent, puis se referme sur le
+ * > résultat arrivé, puis s'efface. (la décision de l'autrice)
+ *
+ * Les accolades à refermer sont celles que la place gardée a retenues
+ * (`reserverLaPlace`) : celles qui embrassaient ce qu'elle remplace, et celles
+ * dont toutes les sources sont parties en attendant un résultat
+ * (`suivreSesSources`, `resultatAttendu`). Une accolade déjà refermée par son
+ * geste (le ré-étirement de la division) ne l'est pas deux fois.
+ *
+ * @returns {number} le nombre d'accolades refermées
+ */
+export function refermerSurLesResultats(ctx, spec = {}) {
+  const at = spec.at ?? 0;
+  const dur = Math.max(1, spec.dur ?? 300);
+  let n = 0;
+  for (const arrivee of ctx.scene.resultatsArrives) {
+    const ids = arrivee.ids.filter((id) => {
+      const nd = ctx.scene.get(id);
+      return nd && nd.alive && ctx.scene.pos(id);
+    });
+    if (!ids.length) continue;
+    for (const idAcc of arrivee.accolades) {
+      const trace = ctx.scene.get(idAcc);
+      if (!trace || !trace.alive || !trace.data || trace.data.traceEffacee || trace.data.fermeeSurResultat) continue;
+      if (ctx.scene.accolades.has(idAcc)) ctx.scene.poserAccolade(idAcc, ids);
+      suivreLaZone(ctx, { id: idAcc, shape: 'brace', sources: ids }, { at, dur });
+      trace.data.attendResultat = false;
+      trace.data.fermeeSurResultat = true;
+      n++;
+    }
+  }
+  ctx.scene.resultatsArrives.length = 0;
+  return n;
+}
+
+/**
  * ★ **LA FIN, ÉCRITE UNE FOIS** : les accolades s'effacent et la ligne se
  *   referme, au même instant. À appeler une fois l'action terminée.
  */
 export function finirSousAccolade(ctx, spec) {
   const at = spec.at ?? 0;
   const dur = Math.max(1, spec.dur ?? 600);
-  retirerLesAccolades(ctx, { at, dur: dur * 0.6 });
-  refermerLaLigne(ctx, { at, dur });
+  // Le tracé se referme d'abord sur le résultat arrivé, s'il y en a un à embrasser.
+  const referme = refermerSurLesResultats(ctx, { at, dur: dur * 0.35 }) ? dur * 0.35 : 0;
+  retirerLesAccolades(ctx, { at: at + referme, dur: (dur - referme) * 0.6 });
+  refermerLaLigne(ctx, { at: at + referme, dur: dur - referme });
 }
 
 /**
@@ -1619,6 +1672,22 @@ export function suivreSesSources(ctx, idAccolade, restantes, spec = {}) {
   });
   if (ctx.scene.accolades.has(idAccolade)) ctx.scene.poserAccolade(idAccolade, presentes);
   if (!presentes.length) {
+    // ★ Un résultat va arriver sous l'accolade : il comptera comme « encore là ».
+    //   Le tracé l'attend, et se refermera sur lui (`refermerSurLesResultats`).
+    if (spec.resultatAttendu) {
+      trace.data.attendResultat = true;
+      // `vers` : le résultat attend déjà sous la pointe (le compteur d'une somme).
+      // Le tracé glisse vers lui, à sa hauteur, plutôt que de rester au-dessus de
+      // la place que la dernière source vient de quitter.
+      const attendu = (spec.vers || []).filter((id) => {
+        const n = ctx.scene.get(id);
+        return n && n.alive && ctx.scene.pos(id);
+      });
+      if (attendu.length) {
+        suivreLaZone(ctx, { id: idAccolade, shape: 'brace', sources: attendu }, { at, dur, garderY: true });
+      }
+      return;
+    }
     ctx.anim({ id: idAccolade, prop: 'opacity', to: 0, at, dur });
     trace.data.traceEffacee = true;
     trace.data.retiree = true;
