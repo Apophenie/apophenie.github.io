@@ -704,32 +704,48 @@ test('garde-fou — MAX_NODES borne l’exploration', () => {
  * de le recopier. Un test qui répète une valeur réglable ne mesure plus le
  * moteur, il mesure sa propre mémoire.
  */
-test('sortie — pas plus de voies que de places, ≤ 24 fragments', () => {
+/* ★ **LES PLACES VALENT PAR SÉLECTION, ET LE CRAN 0 EN RÉUNIT DEUX.** Depuis le
+     cran rapide (−1, `config.js › CRAN_RAPIDE`), la liste du cran 0 est l'union
+     de sa sélection et de celle du cran −1 : « l'union allonge la liste, rien
+     n'en sort » (arbitrage de l'autrice). Chaque sélection tient ses places —
+     vérifié sans le cran rapide —, et l'union n'en tient jamais plus de deux
+     fois. */
+test('sortie — pas plus de voies que de places par sélection, ≤ 24 fragments', () => {
   const m = creerMoteur(catalogue);
+  const seule = creerMoteur(catalogue, { cranRapide: false });
   const places = placesDeLaListe(PUISSANCE_DE_FOUILLE_DEFAUT);
   for (const s of SAISIES_DETERMINISME) {
+    const sel = seule.resoudre(s);
+    assert.ok(sel.approches.length <= places,
+      `${s} : ${sel.approches.length} approches pour ${places} places, dans une seule sélection`);
     const r = m.resoudre(s);
-    assert.ok(r.approches.length <= places,
-      `${s} : ${r.approches.length} approches pour ${places} places`);
+    assert.ok(r.approches.length <= 2 * places,
+      `${s} : ${r.approches.length} approches pour deux sélections de ${places} places`);
     assert.ok(r.fragments.length <= REGLAGES.MAX_FRAGMENTS,
       `${s} : ${r.fragments.length} fragments pour ${REGLAGES.MAX_FRAGMENTS}`);
   }
 });
 
-test('diversité N4 — pas plus d’approches par mappeur principal que le quota du cran', () => {
-  const m = creerMoteur(catalogue);
-  const r = m.resoudre('https://hope-hope-hope.fr/');
+/* ★ **LE QUOTA VAUT PAR SÉLECTION** — la même règle que les places, juste au-dessus :
+     le cran 0 réunit sa sélection et celle du cran rapide, chacune sous quota. */
+test('diversité N4 — pas plus d’approches par mappeur principal que le quota, par sélection', () => {
   // Le quota est lu dans `config.js`, pas recopié : « 2 » était la valeur du
   // cran d'ouverture le jour où le test a été écrit (audit).
   const quota = voiesParMappeur(PUISSANCE_DE_FOUILLE_DEFAUT);
-  const compte = new Map();
-  for (const a of r.approches) {
-    if (a.joker) continue;
-    const op = a.parts[0].chemin.ops.find((o) => o.famille === 'mappeur' || o.famille === 'mesure');
-    if (!op) continue;
-    compte.set(op.id, (compte.get(op.id) || 0) + 1);
-  }
-  for (const [id, n] of compte) assert.ok(n <= quota, `${id} apparaît ${n} fois pour un quota de ${quota}`);
+  const compter = (r) => {
+    const compte = new Map();
+    for (const a of r.approches) {
+      if (a.joker) continue;
+      const op = a.parts[0].chemin.ops.find((o) => o.famille === 'mappeur' || o.famille === 'mesure');
+      if (!op) continue;
+      compte.set(op.id, (compte.get(op.id) || 0) + 1);
+    }
+    return compte;
+  };
+  const seule = compter(creerMoteur(catalogue, { cranRapide: false }).resoudre('https://hope-hope-hope.fr/'));
+  for (const [id, n] of seule) assert.ok(n <= quota, `${id} apparaît ${n} fois pour un quota de ${quota}, dans une seule sélection`);
+  const union = compter(creerMoteur(catalogue).resoudre('https://hope-hope-hope.fr/'));
+  for (const [id, n] of union) assert.ok(n <= 2 * quota, `${id} apparaît ${n} fois pour deux sélections sous un quota de ${quota}`);
 });
 
 test('anti-doublons — aucune approche ne montre deux fois le même spectacle', () => {

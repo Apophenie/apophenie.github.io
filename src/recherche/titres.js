@@ -1213,6 +1213,56 @@ export function regleBilingue(approche) {
  * @param {Object[]} approches liste ordonnée, mutée en place
  * @returns {Object[]} la même liste
  */
+/** Le nom court d'un opérateur, dans une langue — rien s'il n'a pas de forme
+ *  courte : un `libelle` de catalogue est une phrase de Registre, et un titre
+ *  n'en porte jamais (`tests/lents/titres.test.js`). */
+const courtDe = (o, langue) => (PRECISIONS[o.id] ? dire(PRECISIONS[o.id], langue) : '');
+
+/**
+ * ★ **UNE RÈGLE QU'AUCUN HOMONYME NE PORTE — par son NOM, pas par son code.**
+ *
+ * La cascade de `distinguerTitres` cherche un opérateur propre par son
+ * IDENTIFIANT. Deux identifiants peuvent pourtant se dire pareil : `fen3` et
+ * `fen5` sont tous deux « traduit en anglais ». Mesuré sur « Le chat dort sur
+ * le tapis rouge », depuis le cran rapide (−1) : deux moissons reçoivent cette
+ * même distinction, la vérification de `nommer` les voit toujours homonymes, et
+ * la tête de liste se nommait par sa suite de codes. On cherche donc ici une
+ * règle dont le NOM n'appartient qu'à cette ligne.
+ */
+function distinctionParUneRegleSeule(a, groupe) {
+  const ailleurs = new Set();
+  for (const x of groupe) if (x !== a) for (const o of opsDe(x)) ailleurs.add(courtDe(o, 'fr'));
+  const propre = opsDe(a).find((o) => courtDe(o, 'fr') && courtDe(o, 'en') && !ailleurs.has(courtDe(o, 'fr')));
+  return propre ? { fr: courtDe(propre, 'fr'), en: courtDe(propre, 'en') } : null;
+}
+
+/**
+ * ★ **LE MOT OÙ LES PROGRAMMES DIVERGENT.** Deux moissons peuvent porter les
+ * mêmes noms de règles, sur les mêmes mots, en même nombre de portées — et
+ * différer par ce que chaque mot reçoit. On nomme le premier mot dont le
+ * programme n'appartient qu'à cette ligne, et ce qu'il y reçoit : « « Le »
+ * traduit en anglais, aux lettres distinctes, par complément à neuf ». Plus
+ * long qu'un nom, mais ça se lit ; une suite de codes, non.
+ */
+function distinctionParLeMot(a, groupe) {
+  const programme = (p) => p.chemin.ops.map((o) => o.id).join('>');
+  const divergente = (a.parts || []).find((p) => groupe.every((x) => x === a || !(x.parts || []).some(
+    (q) => q.fragment.offset === p.fragment.offset && q.fragment.longueur === p.fragment.longueur
+      && programme(q) === programme(p),
+  )));
+  if (!divergente) return null;
+  /* ⚠️ **UNE SEULE RÈGLE, ET PAS LE FINISSEUR.** Tout le programme du mot
+       redisait ce que le titre porte déjà — mesuré : « … par complément à neuf,
+       au complément à neuf ». On nomme la première règle du mot qui a une forme
+       courte et qui n'est pas un finisseur (`p.*`, le qualifiant du titre). */
+  const nommee = divergente.chemin.ops.find((o) => !o.id.startsWith('p.') && courtDe(o, 'fr') && courtDe(o, 'en'));
+  if (!nommee) return null;
+  return {
+    fr: `« ${divergente.fragment.texte} » ${courtDe(nommee, 'fr')}`,
+    en: `“${divergente.fragment.texte}” ${courtDe(nommee, 'en')}`,
+  };
+}
+
 export function distinguerTitres(approches) {
   for (const a of approches) a.distinction = null;
   const groupes = new Map();
@@ -1316,6 +1366,10 @@ export function distinguerTitres(approches) {
         };
         return;
       }
+      // ★ Avant le dernier recours : le mot où les programmes divergent
+      //   (`distinctionParLeMot`).
+      const parLeMot = distinctionParLeMot(a, groupe);
+      if (parLeMot) { a.distinction = parLeMot; return; }
       // Dernier recours : la suite des codes, unique par construction. On n'y
       // arrive que si deux lignes ont exactement les mêmes opérateurs sur les
       // mêmes fragments — auquel cas il n'y a plus rien à dire d'elles.
@@ -1355,8 +1409,30 @@ export function nommer(approches) {
     if (!parTitre.has(cle)) parTitre.set(cle, []);
     parTitre.get(cle).push(a);
   }
-  for (const [, lot] of parTitre) {
-    if (lot.length < 2) continue;
+  /* ★ **AVANT LES CODES, DEUX RECOURS QUI SE LISENT** — une règle dont le NOM
+       n'appartient qu'à la ligne, puis le mot où les programmes divergent. Ils
+       ne jouent QUE sur les titres encore homonymes : un titre déjà unique ne
+       bouge pas d'une lettre. Les codes restent le dernier mot, si ces deux-là
+       se croisent encore. */
+  const trancher = (lot) => {
+    for (const a of lot) {
+      const lisible = distinctionParUneRegleSeule(a, lot) || distinctionParLeMot(a, lot);
+      if (!lisible) continue;
+      a.distinction = lisible;
+      a.titre = titreBilingue(a);
+    }
+  };
+  const homonymes = (liste) => {
+    const parNom = new Map();
+    for (const a of liste) {
+      const cle = a.titre && a.titre.fr;
+      if (!parNom.has(cle)) parNom.set(cle, []);
+      parNom.get(cle).push(a);
+    }
+    return [...parNom.values()].filter((lot) => lot.length >= 2);
+  };
+  for (const lot of homonymes(approches)) trancher(lot);
+  for (const lot of homonymes(approches)) {
     for (const a of lot) {
       const codes = String(a.codes || (a.parts || [])
         .map((p) => p.chemin.ops.map((o) => o.code).join('+')).join(','));
