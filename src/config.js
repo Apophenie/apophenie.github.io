@@ -615,8 +615,17 @@ export const CODES_IMPLICITES = Object.freeze([CODE_DECOUPE_IMPLICITE, CODE_LECT
  * pas deviner lequel un lien voulait. Il s'écrit donc, et ne se paie pas —
  * « le rendre gratuit ou 0,99 de notoriété et qui ne compte pas comme une
  * étape » (l'auteur).
+ *
+ * ★ **`mecl` rejoint `ccat`, et pour la même raison.** « `mecl` à faire en
+ *   invisible, voire implicite, coût réduit voire nul » (l'autrice). Éclater
+ *   13 225 en 1 3 2 2 5 n'affirme rien : les mêmes chiffres, dans le même ordre,
+ *   seulement découpés autrement. Il ne se facture donc pas comme une étape
+ *   (`score.js › coutRendu`). Mais il n'est PAS implicite : il va de `NUMS` à
+ *   `NUMS`, où la carré, la puissance et la factorielle ont la même signature —
+ *   aucune porte de type ne le désigne, et le taire obligerait la relecture à le
+ *   deviner. Il s'écrit donc dans les liens, comme `ccat`.
  */
-export const CODES_NON_FACTURES = Object.freeze([...CODES_IMPLICITES, 'ccat']);
+export const CODES_NON_FACTURES = Object.freeze([...CODES_IMPLICITES, 'ccat', 'mecl']);
 
 /**
  * ★ **LE PLAFOND DES SÉRIES — au plus « 666 » neuf fois.**

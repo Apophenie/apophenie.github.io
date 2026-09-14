@@ -1732,6 +1732,10 @@ test('mecl — chaque nombre éclate en ses chiffres, et le geste le montre', ()
   const op = PAR_CODE.get('mecl');
   assert.equal(operateursActifs().includes(op), false, 'mecl : inactif en recherche');
   assert.equal(op.eclate, true);
+  // ★ Sans étape, comme `tca` : la scène joue son geste en ouverture du suivant.
+  assert.equal(op.sansEtape, true);
+  assert.equal(op.notoriete, 1, 'il n’affirme rien : la notoriété de `m09`');
+  assert.equal(op.adHoc, 0, 'il ne regarde pas la cible');
   const entree = N([13924, 7, 25]);
   const apres = appliquer(op, entree);
   assert.deepEqual([...apres.valeur], [1, 3, 9, 2, 4, 7, 2, 5]);
