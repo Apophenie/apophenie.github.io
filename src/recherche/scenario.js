@@ -2418,7 +2418,11 @@ export function construireScenario(approche, ctx = {}) {
     if (emis) {
       return {
         blocs: emis.steps.map((st) => ({
-          titre: st.title || titreOp,
+          // ★ Le TITRE COURT de l'opérateur et son complément — la forme unique
+          //   des noms de conversion, au Registre comme au titre de la voie
+          //   (`titreDEtape`). Le titre de l'étape du catalogue ne sert plus
+          //   que de repli, pour un opérateur sans titre court.
+          titre: titreDEtape(op, langue) || st.title || titreOp,
           legende: st.caption ?? null,
           // ★ LA PROVENANCE — le code de l'opérateur qui a produit ce bloc.
           //   Elle ne change rien à ce qui est joué ; elle dit seulement QUI
@@ -2433,7 +2437,7 @@ export function construireScenario(approche, ctx = {}) {
           // Elle voyage avec le libellé : c'est de l'équivalent accessible, pas
           // du geste (CONTRACTS §6). Voir `figureSeg7` dans `mappeurs.js`.
           figure: st.figure ?? null,
-          ops: st.ops,
+          ops: renommerLOutil(st.ops, op, langue),
           hold: st.hold,
         })),
         courants: emis.courants,
@@ -2449,7 +2453,10 @@ export function construireScenario(approche, ctx = {}) {
         op,
       );
     }
-    return { blocs: g.blocs.map((b) => ({ ...b, code: op.code, hold: undefined })), courants: g.courants };
+    return {
+      blocs: g.blocs.map((b) => ({ ...b, titre: titreDEtape(op, langue) || b.titre, code: op.code, hold: undefined })),
+      courants: g.courants,
+    };
   };
 
   /* ★ **UN OPÉRATEUR SANS ÉTAPE OUVRE LA SUIVANTE** (`op.sansEtape`, `mecl`).
@@ -3122,9 +3129,9 @@ export function construireScenario(approche, ctx = {}) {
     }
     for (const st of emis.steps) {
       poserBloc({
-        titre: st.title || dire(op.libelle, langue),
+        titre: titreDEtape(op, langue) || st.title || dire(op.libelle, langue),
         legende: st.caption ?? null,
-        ops: st.ops,
+        ops: renommerLOutil(st.ops, op, langue),
         hold: st.hold,
         code: op.code,
       });
@@ -3166,9 +3173,9 @@ export function construireScenario(approche, ctx = {}) {
     }
     for (const st of emis.steps) {
       poserBloc({
-        titre: st.title || dire(op.libelle, langue),
+        titre: titreDEtape(op, langue) || st.title || dire(op.libelle, langue),
         legende: st.caption ?? null,
-        ops: st.ops,
+        ops: renommerLOutil(st.ops, op, langue),
         hold: st.hold,
         code: op.code,
       });
@@ -3747,6 +3754,45 @@ function validerArithmetiqueOp(o, ctxOp) {
  * générique et on le signale : mieux vaut une démonstration plus sobre qu'une
  * page qui échoue au clic.
  */
+/**
+ * ★ **LE TITRE D'UNE ÉTAPE D'OPÉRATEUR — le titre court, et son complément.**
+ *
+ * > « Les titres des étapes du Registre passent aussi au titre court. » (l'autrice)
+ *
+ * « Code ASCII de la capitale » devient « Code ASCII (capitales) » : le titre
+ * court de l'opérateur (`titres.js › TITRES_COURTS`, jamais réécrit), capitale
+ * initiale, avec le complément DÉRIVÉ de son réglage (`titreCourtComplet`) — le
+ * Registre a la place de le porter. La légende de l'étape, elle, garde la
+ * phrase entière : c'est elle qui explique, le titre ne fait que nommer.
+ *
+ * ⚠️ Les étapes que le SCÉNARIO pose lui-même — la retouche, la récolte, le
+ *   verdict, le découpage — ne viennent d'aucun opérateur et gardent leur titre
+ *   (`MOTS`). Un opérateur sans titre court (les implicites, `tca`, `m09`) garde
+ *   celui du catalogue : `null` ici.
+ * @returns {?string}
+ */
+function titreDEtape(op, langue) {
+  const complet = op ? titreCourtComplet(op) : null;
+  const texte = complet ? dire(complet, langue) : '';
+  return texte ? texte.charAt(0).toUpperCase() + texte.slice(1) : null;
+}
+
+/**
+ * ★ **LE NOM DE L'OUTIL SOUS LE DÉCOR suit la même forme.** La scène affiche
+ * sous une réglette, un clavier ou un afficheur le nom que l'opérateur déclare
+ * (`op.outil`, « Chiffre de César (13) », « Afficheur 14 segments »). Il nomme
+ * la même méthode que le titre de l'étape : deux noms pour une seule chose se
+ * contrediraient à l'écran. Seul le champ `titre` égal au nom de l'outil est
+ * remplacé — un titre de décor qui dit autre chose (un résultat intermédiaire,
+ * une factorielle) reste tel quel.
+ */
+function renommerLOutil(ops, op, langue) {
+  const nom = titreDEtape(op, langue);
+  const outil = op && op.outil ? dire(op.outil, langue) : null;
+  if (!nom || !outil || !Array.isArray(ops)) return ops;
+  return ops.map((o) => (o && typeof o.titre === 'string' && o.titre === outil ? { ...o, titre: nom } : o));
+}
+
 function essayerCatalogue(op, avant, apres, courants, alloc, avertissements, cle, langue = LANGUE_DEFAUT) {
   const ctxOp = {
     ids: courants.map((c) => c[0]),
