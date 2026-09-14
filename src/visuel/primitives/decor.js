@@ -363,9 +363,24 @@ function cadrage(ctx, encombrement) {
   const hauteur = Math.max(1, bas - haut);
   const auto = Math.min(1, o.maxWidth / encombrement.largeur, (o.viewBox.h - 2 * encombrement.pad) / hauteur);
   const zoom = typeof ctx.op.zoom === 'number' ? ctx.op.zoom : round(auto);
-  // `translate` s'applique AVANT `scale` (ordre CSS des propriétés
-  // individuelles) : il subit donc le facteur, d'où la division.
-  const dy = round((o.centerY - (haut + bas) / 2) / zoom);
+  /* ★ **LE RECENTRAGE SUBIT LE RECUL — il ne s'y DIVISE pas.**
+
+     Un point `p` de la scène se peint en `T + C + s·(p − C)` : le `translate`
+     de la caméra porte le maillon EXTÉRIEUR de sa chaîne (`dom.js ›
+     enchainer`), le `scale` le maillon intérieur, autour du centre `C`. Le
+     translate n'est donc PAS multiplié par le recul — MESURÉ au navigateur sur
+     la chaîne réelle : recul 0,5 et translate −100 peignent le centre en 140,
+     pas en 190.
+
+     Pour amener le milieu de l'encombrement au centre, il faut
+     `T = s · (C − milieu)`. Ce code divisait par `s` au lieu de multiplier, sur
+     la foi d'un « translate s'applique avant scale » qui décrit l'écriture CSS,
+     pas la composition : le décalage était trop grand d'un facteur 1/s². Sur la
+     réglette ASCII (recul 0,537), la vue montait 3,5 fois trop haut, et la ligne
+     sortait de 405 unités par le haut — « ça sort de l'écran vers le haut »
+     (l'autrice). Tout décor monté par ce module en souffrait : claviers,
+     tables, carré de Polybe. Garde : `tests/cadre.test.js`. */
+  const dy = round(zoom * (o.centerY - (haut + bas) / 2));
   return { zoom, dy };
 }
 
