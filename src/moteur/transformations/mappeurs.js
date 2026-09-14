@@ -4120,11 +4120,12 @@ function etapeLongueurMot() {
 }
 
 const LIB_CARRE = bilingue('On élève chaque nombre au carré', 'Square every number');
-/* ★ Ce que porte l'accolade du carré, sous son `²` : le symbole seul, sous une
-   pointe, se lirait comme une marque égarée ; les mots le confirment. */
+/* ★ Ce que porte l'accolade du carré : les mots, et eux seuls. « Pas besoin de ²
+   qui n'est pas lisible sans un nombre avant pour se rendre compte qu'il est en
+   exposant » (l'autrice). */
 const MENTION_CARRE = bilingue('au carré', 'squared');
-/** Un carré se joue en cinq temps (`visuel/primitives/group.js › planCarre`). */
-const DUREE_CARRE = 5400;
+/** Un carré se joue en six temps (`visuel/primitives/group.js › planCarre`). */
+const DUREE_CARRE = 6200;
 const LIB_PUISSANCE = bilingue('On élève chaque nombre au chiffre suivant',
   'Raise every number to the next digit');
 /* ★ Ce que porte l'accolade de la puissance. Entre « puissance », « pow » et
@@ -7146,7 +7147,6 @@ const AUTRES_MAPPEURS = [
         dur: DUREE_CARRE,
         targets: [ctx.ids[i]],
         carre: true,
-        symbol: '²',
         label: mention,
         to: token(nomToken(ctx, i), v * v, 'number'),
       }]), { id: `s_${ctx.cle}_${i}q`, hold: 300 }));
