@@ -746,3 +746,61 @@ test('★ surnuméraire — « Donald Trump » : le 6 de trop explose au verdict
     assert.equal(six.length, 7);
     assert.equal(six.indexOf(verdict.surnumeraires[0]), 3, 'et le 6 de trop est au milieu');
   });
+
+/**
+ * ★ **LA LIGNE PRINCIPALE NE QUITTE JAMAIS L'ÉCRAN — sur les vraies voies.**
+ *
+ * > « Il y a plusieurs animations buggées (sort de l'écran vers le haut). »
+ * > (l'autrice)
+ *
+ * La garde de routine (`visuel/tests/cadre.test.js`) joue chaque opérateur
+ * SEUL. Les défauts de cadrage, eux, naissent souvent quand plusieurs décors se
+ * succèdent — une réglette montée puis mutualisée, un clavier après une table,
+ * une colonne de factorielle, un verdict sur deux rangs. On regarde donc ici
+ * toutes les voies du jeu d'essai, plus quelques liens qui mettent en scène les
+ * décors qu'aucune recherche du jeu d'essai ne sort, à la mise en scène du site
+ * (`scenographie`). La définition de « la ligne est à l'écran » est celle de
+ * `visuel/tests/_cadre.js`, et elle seule.
+ */
+test('★ intégration — la ligne principale reste à l’écran sur toutes les voies du jeu d’essai',
+  { skip: compile ? false : 'src/visuel/ absent' }, async () => {
+    const { compilerEnRelevant, sortiesDeCadre, dire } = await import('../../../visuel/tests/_cadre.js');
+    const m = creerMoteur(catalogue);
+    const scenes = [];
+    for (const s of SAISIES) {
+      const r = m.resoudre(s);
+      for (const a of r.approches) {
+        let sc;
+        try { sc = m.scenarioDe(a, { saisie: r.saisie }); } catch { continue; }
+        scenes.push([`${s} #${a.rang} (${a.codes})`, sc]);
+      }
+    }
+    // Les décors que le classement ne met pas en tête : la factorielle en haute
+    // colonne, la potence, la division, les trios, la retouche.
+    const liens = [
+      ['Ice', 'tca+ma1+mfac'],
+      ['Sept', 'tca+masb+mdc2'],
+      ['Sept', 'tca+masb+mdiv'],
+      ['Capitalisme', 'tca+masb+mrd+mr9'],
+      ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mtri+mcc'],
+      ['Le chat dort sur le tapis rouge', 'fl+tca+mx6+mrn+mr9'],
+      ['Donald Trump', 'so!2:fr13;fl+tca+mtal+m14+mpf'],
+    ];
+    for (const [saisie, prog] of liens) {
+      const r = m.rejouer(lireUrl(`#${prog}#${encoderTexte(saisie)}`, { catalogue }));
+      assert.ok(r.ok, `${saisie} ${prog} : ${r.raison || 'rejeu impossible'}`);
+      scenes.push([`${saisie} #${prog}`, m.scenarioDe(r.approche, { saisie })]);
+    }
+    const fautes = [];
+    let etapes = 0;
+    for (const [nom, sc] of scenes) {
+      const { tl, lignes } = compilerEnRelevant(sc, { scenographie: true });
+      etapes += tl.steps.length;
+      // 40 ms : les sorties mesurées durent des centaines de millisecondes, et
+      // ce test rejoue près de trois mille étapes.
+      for (const s of sortiesDeCadre(tl, lignes, { pas: 40 })) fautes.push(`${nom} — ${dire(s)}`);
+    }
+    assert.ok(etapes > 2000, `seulement ${etapes} étapes regardées : la mesure ne mesure rien`);
+    assert.deepEqual(fautes, [], `${fautes.length} sortie(s) de cadre :\n  ${fautes.join('\n  ')}`);
+    console.log(`    ${scenes.length} scènes, ${etapes} étapes : la ligne ne quitte jamais le cadre`);
+  });

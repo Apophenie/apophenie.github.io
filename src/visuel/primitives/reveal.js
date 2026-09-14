@@ -150,7 +150,7 @@
 import { targetsOf, ensureHalo } from './helpers.js';
 import { poserLesCornes, effriterLesCornes } from './horns.js';
 import { exploser } from './explosion.js';
-import { EASE } from '../constants.js';
+import { EASE, progressionDe } from '../constants.js';
 
 export const name = 'reveal';
 
@@ -1149,8 +1149,55 @@ function zoomDuVerdict(ctx, ids, series, rangs) {
       / Math.max(1, hauteurNominale + capitale * (lignes - 1) * INTERLIGNE)
     : (ctx.layoutOpts.viewBox.h * AIR_VERTICAL) / Math.max(1, hauteurNominale);
   const parLaLargeur = (ctx.layoutOpts.maxWidth * AIR_HORIZONTAL) / Math.max(1, largeur);
-  const z = Math.min(bloc, parLaLargeur, ZOOM_MAX);
+  const z = Math.min(bloc, parLaLargeur, ZOOM_MAX, zoomQuiTientAuRebond(ctx, ids, lignes));
   return Math.max(1, Math.round(z * 1000) / 1000);
+}
+
+/** Le plus haut point de `EASE.pop` — le rebond du verdict, lu sur la courbe. */
+const REBOND = (() => {
+  const u = progressionDe(EASE.pop);
+  let max = 1;
+  for (let k = 0; k <= 1000; k++) max = Math.max(max, u(k / 1000));
+  return max;
+})();
+
+/**
+ * ★ **LE VERDICT TIENT DANS LE CADRE AU SOMMET DE SON REBOND, et pas seulement
+ *   au repos.**
+ *
+ * `bloc` borne la taille AU REPOS. Mais l'agrandissement se joue sur `EASE.pop`,
+ * qui dépasse sa valeur d'arrivée (de `REBOND − 1`, ≈ 5 % du trajet) avant d'y
+ * revenir, et `centrerLeBloc` descend en même temps la ligne pour centrer le bloc
+ * « cornes + chiffres ». Les deux se cumulent vers le BAS : MESURÉ sur
+ * `https://www.example.com/path/to/page` #4, quatre 666 sur deux rangs, ×3,76 —
+ * le rang du bas finissait à 4 unités du bord au repos, et le rebond le poussait
+ * 6,7 unités au-delà (garde : `recherche/tests/lents/integration-visuel.test.js`).
+ *
+ * Toutes les positions partent de la ligne unique, au centre de la vue, et
+ * rejoignent leur place du même `u(t)` : un bord de ligne vaut donc, au sommet,
+ *
+ *     C ± REBOND · G · (report₀ ± demi-bloc₀)  ±  corps/2 · (1 + (G − 1) · REBOND)
+ *
+ * où `report₀` et `demi-bloc₀` sont les décalages NOMINAUX (avant ×G) du centre
+ * des rangs et de leur rang extrême. Cette borne-ci est linéaire en `G` : on la
+ * résout, et la plus serrée de toutes gagne. Elle ne mord que sur les verdicts
+ * qui sortaient ; les autres gardent l'air qu'on leur avait donné.
+ */
+function zoomQuiTientAuRebond(ctx, ids, lignes) {
+  const vb = ctx.layoutOpts.viewBox;
+  const C = vb.y + vb.h / 2;
+  const capitale = hauteurDeCapitale(ctx);
+  const demiCorps = ctx.metrics.fontSize / 2;
+  const report0 = Math.max(0, debordDuDecor(ctx, ids) - capitale / 2) / 2;
+  const demiBloc0 = (capitale * INTERLIGNE * (lignes - 1)) / 2;
+  // Ce que le corps gagne au rebond sans dépendre de G : demiCorps · (1 − REBOND).
+  const fixe = demiCorps * (1 - REBOND);
+  let z = Infinity;
+  const bas = REBOND * (report0 + demiBloc0 + demiCorps);
+  if (bas > 0) z = Math.min(z, (vb.y + vb.h - C - fixe) / bas);
+  const haut = REBOND * (demiBloc0 - report0 + demiCorps);
+  if (haut > 0) z = Math.min(z, (C - vb.y - fixe) / haut);
+  return z;
 }
 
 /**
