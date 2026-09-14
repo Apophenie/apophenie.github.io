@@ -558,6 +558,32 @@ export const PUISSANCE_ENUMERATION = 2;  // ×4, l'ouverture de l'énumération
 export const BORNE_MOISSON_REVELER = 320000;
 
 /**
+ * ★ **LE CRAN RAPIDE (−1) — la liste qui se montre en premier.**
+ *
+ * > « Afficher les premiers résultats en 1 à 5 s même très bancals, et
+ * >   améliorer au fur et à mesure, donc un cran "−1" priorité vitesse au
+ * >   dépend de la qualité. » (l'autrice)
+ *
+ * Il est CUMULATIF comme les autres : −1 ⊂ 0 ⊂ 1…, et le cran 0 publié gagne
+ * les voies du cran −1 qui lui manquent (arbitrage de l'autrice). Il n'a pas de
+ * lien à lui : ce n'est jamais un réglage qu'on demande, c'est l'étape par
+ * laquelle toute recherche commence (`recherche/index.js › deroulerResolution`).
+ *
+ * Ce qu'il coupe, et rien d'autre — ses places, son quota et sa sélection sont
+ * ceux du cran 0 :
+ *   · `diviseurDeTravail` — les trois budgets de travail de la recherche de
+ *     fragments divisés d'autant (entiers : 250 000, 105 000, 10 000) ;
+ *   · pas de passe profonde, ni pour un chiffre ni pour un texte ;
+ *   · `borneMoisson` — la borne de la moisson, en travail pesé
+ *     (`assemblage.js › moissons`).
+ */
+export const CRAN_RAPIDE = Object.freeze({
+  cran: -1,
+  diviseurDeTravail: 4,
+  borneMoisson: BORNE_MOISSON_REVELER,
+});
+
+/**
  * Un cran, ramené à un entier de [0, PUISSANCE_DE_FOUILLE_MAX].
  * Ce qui n'est pas un nombre vaut le défaut : un réglage absent n'est pas un
  * réglage à zéro par hasard, c'est un réglage qu'on n'a pas touché — et zéro se

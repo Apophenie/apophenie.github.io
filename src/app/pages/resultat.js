@@ -967,7 +967,10 @@ export function pageResultat({
           e('span', {
             texte: termine
               ? t('attente.provisoire.complet', { demande })
-              : t('attente.provisoire.texte', { facteur, demande }),
+              // ★ Le cran RAPIDE (−1) n'a pas de facteur lisible : il se dit en mots.
+              : (provisoire.cran ?? 0) < 0
+                ? t('attente.provisoire.texteRapide', { demande })
+                : t('attente.provisoire.texte', { facteur, demande }),
           }),
           provisoire.jauge ? provisoire.jauge.element : null,
         ]),

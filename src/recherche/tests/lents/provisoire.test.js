@@ -55,7 +55,8 @@ test('★ provisoire — tout lien d’une liste provisoire se rejoue à l’ide
   for (const [saisie, cible, fouille] of CAS) {
     const moteur = creerMoteur(catalogue, { filetTemporel: false });
     const { r, provisoires } = chercher(moteur, saisie, { cible, fouille });
-    assert.equal(provisoires.length, fouille, `${saisie} → ${cible} : une liste par cran inférieur`);
+    // ★ Une liste par cran inférieur, cran rapide (−1) compris.
+    assert.equal(provisoires.length, fouille + 1, `${saisie} → ${cible} : une liste par cran inférieur`);
     const finales = new Map(r.approches.map((a) => [a.urlSobre, a]));
     for (const { liste, info } of provisoires) {
       const ou = `${saisie} → ${cible}, cran ${info.cran} sur ${info.fouille}`;
@@ -90,10 +91,11 @@ test('provisoire — écouter les listes provisoires ne change pas la liste fina
 test('provisoire — chaque cran inférieur se montre, dans l’ordre, avant la liste demandée', () => {
   const moteur = creerMoteur(catalogue, { filetTemporel: false });
   const { provisoires } = chercher(moteur, 'hope', { fouille: 2 });
-  assert.deepEqual(provisoires.map((p) => p.info), [{ cran: 0, fouille: 2 }, { cran: 1, fouille: 2 }]);
+  assert.deepEqual(provisoires.map((p) => p.info),
+    [{ cran: -1, fouille: 2 }, { cran: 0, fouille: 2 }, { cran: 1, fouille: 2 }]);
   // La liste montrée au cran k EST la liste du cran k — ses liens mis à part.
   const cran1 = creerMoteur(catalogue, { filetTemporel: false }).resoudre('hope', { fouille: 1 });
-  assert.deepEqual(provisoires[1].liste.approches.map((a) => `${a.rang}:${a.codes}:${a.score}:${a.suggestion ?? ''}`),
+  assert.deepEqual(provisoires[2].liste.approches.map((a) => `${a.rang}:${a.codes}:${a.score}:${a.suggestion ?? ''}`),
     cran1.approches.map((a) => `${a.rang}:${a.codes}:${a.score}:${a.suggestion ?? ''}`));
   // Et une liste déjà rendue ne bouge plus quand le cran suivant se calcule.
   const avant = signature(provisoires[0].liste);
@@ -116,13 +118,16 @@ test('provisoire — un cran déjà en mémoire se montre avant tout nouveau cal
   assert.deepEqual(listes[0].info, { cran: 1, fouille: 2 });
   // Depuis la mémoire ou depuis le calcul : la même liste, suggestions comprises.
   const neuf = chercher(creerMoteur(catalogue, { filetTemporel: false }), 'hope', { fouille: 2 });
-  assert.deepEqual(signature(listes[0].liste), signature(neuf.provisoires[1].liste));
+  assert.deepEqual(signature(listes[0].liste), signature(neuf.provisoires[2].liste));
 });
 
-test('provisoire — au cran 0, ni en mode non cumulatif, aucune liste provisoire', () => {
-  assert.equal(chercher(creerMoteur(catalogue, { filetTemporel: false }), 'hope', { fouille: 0 }).provisoires.length, 0);
+test('provisoire — au cran 0, la liste du cran rapide se montre ; en mode non cumulatif, rien', () => {
+  const auCran0 = chercher(creerMoteur(catalogue, { filetTemporel: false }), 'hope', { fouille: 0 }).provisoires;
+  assert.deepEqual(auCran0.map((p) => p.info), [{ cran: -1, fouille: 0 }]);
   assert.equal(chercher(creerMoteur(catalogue, { filetTemporel: false, cumulatif: false }), 'hope', { fouille: 1 })
     .provisoires.length, 0);
+  assert.equal(chercher(creerMoteur(catalogue, { filetTemporel: false, cranRapide: false }), 'hope', { fouille: 0 })
+    .provisoires.length, 0, 'sans cran rapide, le cran 0 est le premier : rien à montrer avant');
 });
 
 /* ═══════════════════════════ 3. Le protocole ═════════════════════════════ */

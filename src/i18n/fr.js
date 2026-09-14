@@ -481,6 +481,9 @@ export const fr = {
       titre: 'Recherche en cours — classement provisoire',
       texte: 'Voici les voies déjà trouvées avec la fouille ×{facteur}. La fouille ×{demande} '
         + 'se poursuit : elle peut en ajouter et changer leur ordre. Les liens restent valables.',
+      // ★ La liste du cran RAPIDE (−1) : pas de facteur à nommer, il vaut moins d'un.
+      texteRapide: 'Voici les premières voies, trouvées par une recherche rapide. La fouille ×{demande} '
+        + 'se poursuit : elle peut en ajouter et changer leur ordre. Les liens restent valables.',
       termine: 'Recherche terminée — classement définitif.',
       complet: 'La liste est complète pour la fouille ×{demande} ; les voies montrées en chemin y sont toutes.',
     },

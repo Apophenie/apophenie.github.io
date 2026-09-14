@@ -605,6 +605,13 @@ test('★ provisoire — le bandeau dit que ça cherche encore, porte la jauge, 
   assert.equal(occupees.length, 1, 'la section des voies est marquée occupée');
   assert.equal(tous(page, 'voie').length, 2, 'la liste provisoire se rend comme la finale');
 
+  // ★ Le CRAN RAPIDE (−1) n'a pas de facteur lisible — « ×0,5 » serait absurde : il se dit en mots.
+  const rapide = rendre([voie(1, 'A', 'elegance', 2)], { provisoire: { cran: -1, fouille: 0, jauge } });
+  const texteRapide = un(rapide, 'bandeau--provisoire').textContent;
+  assert.ok(!texteRapide.includes('×0.5') && !texteRapide.includes('×0,5'), texteRapide);
+  assert.ok(texteRapide.includes(fr.attente.provisoire.texteRapide.slice(0, 20))
+    || texteRapide.includes(en.attente.provisoire.texteRapide.slice(0, 20)), texteRapide);
+
   const finale = rendre([voie(1, 'A', 'elegance', 2), voie(2, 'B', null)]);
   assert.equal(un(finale, 'bandeau--provisoire'), null);
   assert.equal([...parcourir(finale)].filter((n) => n.getAttribute('aria-busy') === 'true').length, 0);

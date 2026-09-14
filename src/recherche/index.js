@@ -40,7 +40,7 @@ import {
 } from './score.js';
 import {
   reglagesDeBudget, normaliserPuissance, PUISSANCE_ENUMERATION,
-  PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX, BORNE_MOISSON_REVELER,
+  PUISSANCE_DE_FOUILLE_DEFAUT, PUISSANCE_DE_FOUILLE_MAX, BORNE_MOISSON_REVELER, CRAN_RAPIDE,
 } from '../config.js';
 import { emploieUneFicelle, elagueALaFin } from './elegance.js';
 import { indexUtiles } from './cible.js';
@@ -237,6 +237,10 @@ export const FOUILLE_QUI_CREUSE_TOUJOURS = 5;
  *  qu'aucun appelant ne le pose par mégarde dans ses options. */
 const PRECEDENT = Symbol('cranPrecedent');
 
+/** ★ Le CRAN RAPIDE (−1, `config.js › CRAN_RAPIDE`) : un symbole aussi. Il n'a
+ *  pas de lien et ne se demande pas — c'est la montée qui le pose. */
+const RAPIDE = Symbol('cranRapide');
+
 /** Combien d'états de cran le moteur garde pour ne pas refaire une montée. */
 const MEMO_DES_CRANS = 24;
 
@@ -255,6 +259,10 @@ export function creerMoteur(catalogue, options = {}) {
    * sans les crans inférieurs (`deroulerResolution`). C'est l'étalon du
    * « aucune baisse de qualité » : la liste cumulative doit la contenir. */
   const cumulatif = options.cumulatif !== false;
+  /* ★ **`cranRapide: false` — RÉGLAGE DE MESURE, lui aussi.** La montée part
+   * alors du cran 0, comme avant le cran rapide : c'est l'étalon du « le temps
+   * du cran 0 n'explose pas » et du bilan de ce qui entre au cran 0. */
+  const avecCranRapide = options.cranRapide !== false;
   /* ★ **`rampeDesRetouches: false` — RÉGLAGE DE MESURE AUSSI.** Il garde les
    * gardes de retouche à leurs valeurs historiques (six mots, quatre vecteurs)
    * à tous les crans : c'est l'étalon du « la rampe n'ôte rien ». */
@@ -384,14 +392,18 @@ export function creerMoteur(catalogue, options = {}) {
   function* deroulerResolution(saisieBrute, optionsResolution = {}) {
     const fouille = normaliserPuissance(optionsResolution.fouille ?? options.fouille);
     if (!cumulatif) return yield* deroulerUnCran(saisieBrute, optionsResolution);
-    if (fouille === 0) {
-      const r = yield* deroulerUnCran(saisieBrute, optionsResolution);
-      memoriserLeCran(saisieBrute, optionsResolution, 0, r);
-      return r;
-    }
-    let depart = 0;
+    /* ★ **LA MONTÉE PART DU CRAN RAPIDE (−1)** — `config.js › CRAN_RAPIDE`.
+         Le cran 0 n'est plus le premier : sa liste est l'union de sa sélection
+         et de celle du cran −1, par la même règle que les autres crans. Le cran
+         0 publié gagne donc les voies rapides qui lui manquaient, et rien n'en
+         sort (arbitrage de l'autrice). */
+    const bas = avecCranRapide ? CRAN_RAPIDE.cran : 0;
+    /* ★ Le poids d'un cran dans la jauge : celui de ses budgets, le cran rapide
+         pesant la moitié du cran 0. */
+    const poidsDu = (k) => (k < 0 ? 1 : 2 ** (k + 1));
+    let depart = bas;
     let precedent = null;
-    for (let k = fouille - 1; k >= 0; k--) {
+    for (let k = fouille - 1; k >= bas; k--) {
       const e = memoDesCrans.get(cleDuCran(saisieBrute, optionsResolution, k));
       if (e) { depart = k + 1; precedent = e; break; }
     }
@@ -415,14 +427,15 @@ export function creerMoteur(catalogue, options = {}) {
       montrer(precedent.reponse, copierEtat(precedent).retenues
         .map((a, i) => ({ ...a, suggestion: precedent.suggestions[i] })), depart - 1);
     }
-    const total = (1 << (fouille + 1)) - (1 << depart);
+    let total = 0;
+    for (let k = depart; k <= fouille; k++) total += poidsDu(k);
     let fait = 0;
     let plusHaut = 0;
     let tronque = precedent ? precedent.tronque : false;
     let tronqueTemps = false;
     let resultat = null;
     for (let k = depart; k <= fouille; k++) {
-      const poids = 1 << k;
+      const poids = poidsDu(k);
       const echelle = (a) => {
         if (!a || typeof a.fraction !== 'number') return a;
         const f = (fait + poids * Math.min(1, Math.max(0, a.fraction))) / total;
@@ -431,7 +444,8 @@ export function creerMoteur(catalogue, options = {}) {
       };
       const sous = deroulerUnCran(saisieBrute, {
         ...optionsResolution,
-        fouille: k,
+        fouille: Math.max(0, k),
+        [RAPIDE]: k < 0,
         [PRECEDENT]: precedent,
         surAvancement: canal ? (a) => canal(echelle(a)) : undefined,
       });
@@ -471,6 +485,8 @@ export function creerMoteur(catalogue, options = {}) {
    */
   function borneDeLaMoisson(optionsResolution) {
     if (Number.isFinite(optionsResolution.borneAssemblage)) return optionsResolution.borneAssemblage;
+    // ★ Le cran rapide borne sa moisson comme Révéler (`config.js › CRAN_RAPIDE`).
+    if (optionsResolution[RAPIDE] === true) return CRAN_RAPIDE.borneMoisson;
     return optionsResolution.pourReveler === true ? BORNE_MOISSON_REVELER : undefined;
   }
 
@@ -605,6 +621,9 @@ export function creerMoteur(catalogue, options = {}) {
     const ponderation = ponderer(optionsResolution.curseurs ?? options.curseurs);
     const fouille = normaliserPuissance(optionsResolution.fouille ?? options.fouille);
     const budgets = reglagesDeBudget(fouille);
+    // ★ Le CRAN RAPIDE (−1) : les budgets du cran 0, le travail divisé, sans passe profonde.
+    const rapide = optionsResolution[RAPIDE] === true;
+    const diviseurDeTravail = rapide ? CRAN_RAPIDE.diviseurDeTravail : 1;
     // ★ La liste du cran inférieur (`deroulerResolution`) — `null` au cran 0.
     const precedent = optionsResolution[PRECEDENT] || null;
     // Ce que l'écran de liste doit retrouver dans TOUTE réponse, y compris les
@@ -670,9 +689,10 @@ export function creerMoteur(catalogue, options = {}) {
     //   PRIORITAIRES et ne sont PAS multipliées : le banc de mesure qui fixe un
     //   budget le fixe pour de bon, sinon deux réglages se battraient en silence.
     const budgetTotal = options.budgetTotalMs ?? budgets.budgetTotalMs;
-    const travailTotal = options.budgetTravailTotal ?? BUDGET_TRAVAIL_TOTAL * budgets.facteur;
-    const travailParFragment = BUDGET_TRAVAIL * budgets.facteur;
-    const travailDeReserve = BUDGET_TRAVAIL_RESERVE * budgets.facteur;
+    const travailTotal = options.budgetTravailTotal
+      ?? Math.floor((BUDGET_TRAVAIL_TOTAL * budgets.facteur) / diviseurDeTravail);
+    const travailParFragment = Math.floor((BUDGET_TRAVAIL * budgets.facteur) / diviseurDeTravail);
+    const travailDeReserve = Math.floor((BUDGET_TRAVAIL_RESERVE * budgets.facteur) / diviseurDeTravail);
     let cherches = 0;
     let travailRestant = travailTotal;
     let tronqueTravail = false;  // borne déterministe atteinte : reproductible
@@ -1159,7 +1179,7 @@ export function creerMoteur(catalogue, options = {}) {
     // ★ Le cran de fouille passe outre le plancher : voir `FOUILLE_QUI_CREUSE_TOUJOURS`.
     const creuserQuoiQuIlArrive = fouille >= FOUILLE_QUI_CREUSE_TOUJOURS;
     if ((compter(retenues) < voiesAvantDeCreuser || creuserQuoiQuIlArrive)
-      && !ctxAssemblage.profond && optionsResolution.dernierRecours !== false) {
+      && !ctxAssemblage.profond && optionsResolution.dernierRecours !== false && !rapide) {
       const creusees = assembler(saisie, frags, parFrag, { ...ctxAssemblage, profond: true });
       annoncerLeClassement();
       const profondes = finaliser(creusees);
@@ -1551,7 +1571,9 @@ export function creerMoteur(catalogue, options = {}) {
          qu'une voie au lieu de six. */
     // ★ Comptées sur les voies des ANCIENNES gardes : la rampe ne décide pas de creuser.
     const exactes = approches.filter((a) => auxAnciennesGardes.has(a) && !ometLaPonctuation(a)).length;
-    if (exactes < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS) {
+    // ★ Le cran rapide (−1) ne creuse jamais : c'est tout ce qui le distingue d'un texte au cran 0.
+    if (optionsResolution[RAPIDE] !== true
+      && (exactes < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS)) {
       approches = yield* balayer(true);
     }
     const ordreDeLaListe = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
