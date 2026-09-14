@@ -245,6 +245,15 @@ test('cible-mot — Sarah Kerrigan → Fantome, rangé puis dissous', () => {
  *   4 699), aucune ne sort. Les quatre autres couples sont identiques au
  *   caractère près.
  *
+ * ★ **IL A ÉTÉ RÉGÉNÉRÉ UNE CINQUIÈME FOIS, et voici pourquoi.** UNE PLACE PAR
+ *   FAMILLE DE RÉGLAGES (`assemblage.js › moissons`, la réunion) : « les 25
+ *   césars comptent pour UNE famille » (l'autrice), et « une voie ne sort
+ *   jamais pour une moins bonne ». La moisson récolte aussi sur une fenêtre par
+ *   famille, et ce qu'elle seule fabrique s'AJOUTE. Un seul couple bouge,
+ *   `hope-hope-hope.fr → 666`, à tête inchangée (`fl+m14`, 7 843) : 26 → 27
+ *   voies, une MOISSON ×6 entre au rang 3 (1 399), aucune ne sort, aucun score
+ *   ne change. Les quatre autres couples sont identiques au caractère près.
+ *
  * ⚠️ C'est un fil tendu, pas une spécification. Une évolution VOULUE du barème
  *   ou du classement le fera rougir : c'est alors l'instantané qu'on régénère.
  */
