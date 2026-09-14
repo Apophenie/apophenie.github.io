@@ -214,6 +214,29 @@ test('cible-phrase — « Reinfocovid, désinformation garantie » → « C’es
   assert.equal(rejeu.approche.mode, 'PHRASE');
 });
 
+/* ★ LE BLOC GONFLÉ D'UNE PHRASE PART EN TÊTE — « pour les phrases, le bloc gonflé
+     se lance dès le premier balayage » (l'autrice). Sans lui, aucune voie
+     n'existe au premier balayage de cette phrase : la première liste
+     provisoire du cran 0 doit donc venir d'un bloc, et la liste finale ne pas
+     en être changée (même ensemble, mêmes scores que sans les listes). */
+test('cible-phrase — le bloc gonflé d’une phrase se montre avant le premier balayage', () => {
+  const avecListes = creerMoteur(catalogue, { filetTemporel: false });
+  const vues = [];
+  const r = avecListes.resoudre(SAISIE, {
+    cible: PHRASE,
+    surListe: (liste, info) => { if (info.intra && info.cran === 0) vues.push(liste); },
+  });
+  assert.ok(vues.length >= 1, 'aucune liste provisoire au cran 0');
+  const premiere = vues[0];
+  assert.ok(premiere.approches.length >= 1);
+  for (const a of premiere.approches) {
+    assert.equal(a.parts.length, 1, `${a.url} : la première liste montre le bloc, pas des segments`);
+    assert.ok(a.parts[0].chemin.ops.some((o) => o.gonfle), `${a.url} : une voie du bloc gonflé`);
+  }
+  const sans = creerMoteur(catalogue, { filetTemporel: false }).resoudre(SAISIE, { cible: PHRASE });
+  assert.deepEqual(r.approches.map((a) => [a.url, a.score]), sans.approches.map((a) => [a.url, a.score]));
+});
+
 /* ★ LA DUPLICATION EST REFUSÉE, et un lien déjà écrit ne la fait pas revenir :
      `fl+masc+mcar+mab,fl+mx6+mab` relisait deux fois la saisie entière — c'est
      la voie que la première version publiait. */
