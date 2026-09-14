@@ -49,7 +49,7 @@
 import { rendreValeur, etat as etatDe, appliquerOp } from './bfs.js';
 // Le titre et la règle d'une approche vivent dans `titres.js` (voir la note en
 // fin de fichier) ; on les importe pour continuer à les ré-exporter d'ici.
-import { titreApproche, regleApproche } from './titres.js';
+import { titreApproche, regleApproche, titreRegistre, titreCourtComplet } from './titres.js';
 import { serieDeSix, sixDuChemin, compterMoisson } from './assemblage.js';
 import {
   CIBLE_DEFAUT, normaliserCible, seriesDe, indexUtiles, ecritureDe, libelleEcart,
@@ -4157,7 +4157,7 @@ const MOTS = Object.freeze({
 // l'ancienne version d'ici concaténait trois libellés d'opérateurs. Ce module
 // n'en garde que le point d'entrée, parce que `src/app/pont.js` le charge ici
 // pour recomposer les titres à chaque changement de langue.
-export { titreApproche, regleApproche };
+export { titreApproche, regleApproche, titreRegistre, titreCourtComplet };
 
 // ══════════════════════════════════ validation des 8 invariants (§7.1 visuel)
 

@@ -255,9 +255,11 @@ export function pageDemonstration(ctx) {
      réglage de plancher (15 images/seconde par défaut). */
   const debrancherRegisseur = scenique ? brancherLeRegisseur(sceneSvg) : () => {};
 
+  // ★ Le REGISTRE a la place d'un titre « un peu plus long » (l'autrice) : le
+  //   titre court de la conversion ET son complément (« Code ASCII (capitales) »).
   const titreMethode = t('demo.methode', {
     rang: approche.rang ?? 1,
-    titre: titreApproche(approche) || t('demo.sansTitre'),
+    titre: localiser(approche.titreRegistre) || titreApproche(approche) || t('demo.sansTitre'),
   });
   /* ★ LE RIDEAU SE LÈVE SUR N'IMPORTE QUELLE COMMANDE, PAS SEULEMENT SUR LUI.
 

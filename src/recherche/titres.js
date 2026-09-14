@@ -1086,24 +1086,33 @@ export function titreBilingue(approche) {
      les deux conversions ne font que lui fournir ses nombres. La vedette est
      donc l'opérateur qui réunit les parts (`approche.liaison`) ; le qualifiant
      reste celui de la part principale, qui dit comment les nombres sont venus. */
+  /* ★ **LA VOIE SE NOMME PAR SA CONVERSION, SOUS SON TITRE COURT.**
+       > « Ce que je t'ai demandé, c'est de mettre en titre le titre de la phase
+       >   qui convertit lettre en nombre (quand elle existe). »
+       > « Je ne suis pas sûr qu'il y ait besoin de 3 formes. Si tu peux
+       >   harmoniser sur le titre court (et le garder court) ça serait
+       >   parfait. » (l'autrice)
+       Le titre est le TITRE COURT (`TITRES_COURTS`) de la conversion qui a
+       converti le plus de caractères — la même que la carte du listing —, avec
+       une capitale, sans qualifiant ni complément : il reste court. Le
+       complément (« (3) », « (capitales) ») ne vient qu'au Registre
+       (`titreRegistre`), sur les lignes d'étapes de la carte, ou quand il faut
+       séparer deux homonymes (`distinguerTitres`).
+       ★ **UNE VOIE À LIAISON AUSSI** — revirement décidé par l'autrice : « James
+         Bond » → 007 prend le nom de sa conversion ; la division reste visible
+         dans l'énumération des étapes.
+       Sans conversion (une voie qui part de chiffres), la vedette d'avant. */
+  const conversion = conversionDe(approche);
+  const court = conversion ? titreCourtDe(conversion.op) : null;
+  if (court && dire(court, 'fr') && dire(court, 'en')) {
+    return assembler(capitaliser(court), approche.distinction, null);
+  }
   const lieur = approche.liaison && approche.liaison.op;
   if (lieur) {
     const nom = NOMS[lieur.id] || lieur.libelle || b('Démonstration', 'Demonstration');
     const tetePart = vedette(chemin);
     const q = tetePart ? (NOMS[tetePart.id] ? minuscule(NOMS[tetePart.id]) : null) : null;
     return assembler(nom, approche.distinction, q);
-  }
-  /* ★ **LA VOIE SE NOMME PAR SA CONVERSION LETTRE → NOMBRE.**
-       > « Ce que je t'ai demandé, c'est de mettre en titre le titre de la phase
-       >   qui convertit lettre en nombre (quand elle existe). » (l'autrice)
-       Le titre est celui de la conversion qui a converti le plus de caractères
-       (`conversionVedette`, la MÊME que le titre de la carte du listing), et son
-       qualifiant se lit sur la part qui la porte. Sans conversion — une voie qui
-       compte, ou qui part de chiffres —, la vedette d'avant nomme la voie. */
-  const conversion = conversionDe(approche);
-  if (conversion) {
-    const nomConversion = NOMS[conversion.op.id] || conversion.op.libelle || b('Démonstration', 'Demonstration');
-    return assembler(nomConversion, approche.distinction, qualifiant(conversion.part.chemin, conversion.op.id));
   }
   const tete = vedette(chemin);
   const nom = (tete && NOMS[tete.id])
@@ -1138,19 +1147,115 @@ export function titreBilingue(approche) {
  *   date n'en a pas, et il vaut mieux ne rien annoncer que nommer une conversion
  *   qui n'a pas eu lieu.
  */
+/**
+ * ★ **CE QUI CONVERTIT DES LETTRES EN NOMBRE** — une table (`TOKENS → NUMS`),
+ * et, depuis l'arbitrage de l'autrice, un COMPTAGE : « un comptage est une
+ * conversion ». Les mesures (`n.*`, `STR → NUM` : consonnes, voyelles,
+ * lettres…) et les deux compteurs de jetons (`cnj`, `cnjd`) concourent au
+ * nombre de caractères convertis comme les tables. La lecture implicite des
+ * chiffres (`m09`) n'en est pas une : elle ne convertit aucune lettre.
+ */
+function convertitDesLettres(op) {
+  if (!op || op.code === CODE_LECTURE_IMPLICITE) return false;
+  if (op.from === 'TOKENS' && op.to === 'NUMS') return true;
+  return op.famille === 'mesure' || op.id === 'c.compteTokens' || op.id === 'c.compteTokensDistincts';
+}
+
 export function conversionVedette(chemins) {
   const totaux = new Map();
   for (const c of chemins || []) {
     (c.ops || []).forEach((op, i) => {
-      if (!op || op.from !== 'TOKENS' || op.to !== 'NUMS' || op.code === CODE_LECTURE_IMPLICITE) return;
+      if (!convertitDesLettres(op)) return;
       const avant = (c.etats || [])[i];
-      const n = avant && Array.isArray(avant.valeur) ? avant.valeur.length : 0;
+      const valeur = avant && avant.valeur;
+      const n = Array.isArray(valeur) ? valeur.length : (typeof valeur === 'string' ? [...valeur].length : 0);
       totaux.set(op.code, (totaux.get(op.code) || 0) + n);
     });
   }
   if (!totaux.size) return null;
   const [code, caracteres] = [...totaux].sort((a, c) => c[1] - a[1] || (a[0] < c[0] ? -1 : 1))[0];
   return { code, caracteres };
+}
+
+/** Une forme bilingue, capitale initiale — « gématrie anglaise » → « Gématrie anglaise ». */
+function capitaliser(forme) {
+  const haut = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
+  return b(haut(dire(forme, 'fr')), haut(dire(forme, 'en')));
+}
+
+/**
+ * ★ **LE COMPLÉMENT DISTINCTIF D'UN OPÉRATEUR — DÉRIVÉ, JAMAIS ÉCRIT.**
+ *
+ * > « Aux endroits où le titre peut être un peu plus long (Registre par
+ * >   exemple) avoir un complément distinctif (par exemple (3) ou (13) pour
+ * >   distinguer les différents Césars) serait pertinent. » (l'autrice)
+ *
+ * Le titre court est la propriété de l'autrice (corrigé à la main) : le
+ * complément ne s'y écrit pas, il se LIT sur ce que l'opérateur porte. Les
+ * familles traitées, et d'où vient chacune :
+ *
+ *   · les Césars ................ `op.decalage`            « (3) », « (13) »
+ *   · les traductions ........... `op.acception`           « (2) »
+ *   · les dédoublonnages ........ `op.rang` (`f.dedoublonne*`)  « (3) »
+ *   · les rangées de clavier .... `op.convention`          « (4 rangées) »
+ *   · les paires de casse ....... le suffixe `Maj` / `Min` de l'identifiant
+ *                                 (aucun champ ne la porte) « (capitales) »
+ *   · les voyelles, Y compris ... `f.voyellesY`            « (Y compris) »
+ *
+ * Rend `null` pour tout le reste : un opérateur sans paramètre n'a rien à
+ * distinguer de lui-même.
+ */
+export function complementDe(op) {
+  if (!op) return null;
+  const nombre = (n) => b(String(n), String(n));
+  // ⚠️ Les CÉSARS seuls : l'alternance porte aussi un `decalage` (0 ou 1, le
+  //   signe de départ), et « alternance +-+- (0) » ne distinguerait rien que
+  //   son titre court ne dise déjà.
+  if (Number.isInteger(op.decalage) && /^f\.(cesar\d+|rot13)$/.test(op.id)) return nombre(op.decalage);
+  if (Number.isInteger(op.acception)) return nombre(op.acception);
+  if (/^f\.dedoublonne\d*$/.test(op.id) && Number.isInteger(op.rang)) return nombre(op.rang);
+  const rangees = typeof op.convention === 'string' && /^clavier:(\d+)rangees$/.exec(op.convention);
+  if (rangees) return b(`${rangees[1]} rangées`, `${rangees[1]} rows`);
+  if (/Maj$/.test(op.id)) return b('capitales', 'capitals');
+  if (/Min$/.test(op.id)) return b('bas de casse', 'lower case');
+  if (op.id === 'f.voyellesY') return b('Y compris', 'Y included');
+  return null;
+}
+
+/**
+ * Le titre court d'un opérateur, suivi de son complément entre parenthèses —
+ * « César (3) », « code ASCII (capitales) ».
+ *
+ * ⚠️ **SANS REDIRE CE QUE LE TITRE COURT PORTE DÉJÀ.** Tant qu'un titre court
+ *   écrit lui-même son paramètre (« César 3 »), le complément se tait : « César
+ *   3 (3) » ne distinguerait rien de plus. Le jour où il ne l'écrit plus, le
+ *   complément paraît de lui-même.
+ * @returns {?{fr:string, en:string}} `null` si l'opérateur n'a pas de titre court
+ */
+export function titreCourtComplet(op) {
+  const court = titreCourtDe(op);
+  if (!court || !dire(court, 'fr')) return null;
+  const complement = complementDe(op);
+  if (!complement) return court;
+  const porteDeja = (langue) => {
+    const c = dire(complement, langue);
+    const t = dire(court, langue);
+    return /^\d+$/.test(c) ? new RegExp(`(^|\\D)${c}(\\D|$)`).test(t) : t.includes(c);
+  };
+  if (porteDeja('fr')) return court;
+  return b(`${dire(court, 'fr')} (${dire(complement, 'fr')})`, `${dire(court, 'en')} (${dire(complement, 'en')})`);
+}
+
+/**
+ * ★ **LE TITRE DU REGISTRE — le titre court, et son complément.** Le Registre a
+ * la place d'un titre « un peu plus long » (l'autrice) : il nomme la conversion
+ * avec ce qui la distingue de ses sœurs. Sans conversion, le titre de la voie.
+ */
+export function titreRegistre(approche, langue = LANGUE_DEFAUT) {
+  const conversion = conversionDe(approche);
+  const complet = conversion ? titreCourtComplet(conversion.op) : null;
+  if (complet && dire(complet, 'en')) return dire(capitaliser(complet), langue);
+  return titreApproche(approche, langue);
 }
 
 /**
@@ -1202,9 +1307,19 @@ function assembler(nom, precision, qualif) {
        par sa conversion, les homonymes sont plus nombreux, et chaque soudure
        bancale se voyait. Un dernier membre se lit quel que soit le fragment :
        « Par le code ASCII, bas de casse, traduit en anglais ». */
-  if (retenir(nom)) morceaux.push([' ', nom]);
+  /* ★ **UN COMPLÉMENT ENTRE PARENTHÈSES** (`precision.parentheses`) : deux voies
+       dont les conversions ne diffèrent que par leur paramètre — « Code ASCII
+       (capitales) » et « Code ASCII (bas de casse) ». Il colle au nom, et ne
+       redit pas le titre en second membre. */
+  let nomRendu = nom;
+  let membre = precision;
+  if (precision && precision.parentheses) {
+    nomRendu = b(`${dire(nom, 'fr')} (${dire(precision, 'fr')})`, `${dire(nom, 'en')} (${dire(precision, 'en')})`);
+    membre = null;
+  }
+  if (retenir(nomRendu)) morceaux.push([' ', nomRendu]);
   if (retenir(qualif)) morceaux.push([', ', qualif]);
-  if (retenir(precision)) morceaux.push([', ', precision]);
+  if (retenir(membre)) morceaux.push([', ', membre]);
 
   for (const langue of ['fr', 'en']) {
     let texte = '';
@@ -1294,7 +1409,11 @@ export function regleBilingue(approche) {
 /** Le nom court d'un opérateur, dans une langue — rien s'il n'a pas de forme
  *  courte : un `libelle` de catalogue est une phrase de Registre, et un titre
  *  n'en porte jamais (`tests/lents/titres.test.js`). */
-const courtDe = (o, langue) => (PRECISIONS[o.id] ? dire(PRECISIONS[o.id], langue) : '');
+const courtDe = (o, langue) => {
+  // ★ Le TITRE COURT et son complément (« traduction EN (5) ») — la forme unique.
+  const complet = titreCourtComplet(o);
+  return complet ? dire(complet, langue) || '' : '';
+};
 
 /**
  * ★ **LE MOT OÙ LES PROGRAMMES DIVERGENT — la forme des homonymes.**
@@ -1354,8 +1473,30 @@ export function distinguerTitres(approches) {
       return autres;
     });
     groupe.forEach((a, i) => {
+      /* ★ **D'ABORD LA CONVERSION ELLE-MÊME.** Si elle n'appartient qu'à cette
+           ligne et porte un complément, c'est la vraie différence : « Graphie
+           tracée (bas de casse) » plutôt que « Graphie tracée, traduction FR
+           (3) », qui nommait le premier filtre venu. */
+      const saConversionPropre = conversionDe(a);
+      if (saConversionPropre && !ailleurs[i].has(saConversionPropre.op.id) && complementDe(saConversionPropre.op)) {
+        a.distinction = { ...complementDe(saConversionPropre.op), parentheses: true };
+        return;
+      }
       const propre = opsDe(a).find((o) => !ailleurs[i].has(o.id));
-      if (propre) { a.distinction = precisionDe(propre); return; }
+      if (propre) {
+        // ★ La conversion elle-même, ne différant de sa sœur que par son
+        //   paramètre : son complément, entre parenthèses (`assembler`).
+        const saConversion = conversionDe(a);
+        const complement = complementDe(propre);
+        if (saConversion && saConversion.op.id === propre.id && complement) {
+          a.distinction = { ...complement, parentheses: true };
+          return;
+        }
+        // ★ Sinon la règle propre, sous son TITRE COURT et son complément
+        //   (« César (3) »), en dernier membre.
+        a.distinction = titreCourtComplet(propre) || precisionDe(propre);
+        return;
+      }
       // Rien en propre parce qu'on est le PLUS DÉPOUILLÉ du groupe : les autres
       // ajoutent un filtre, une pirouette, et nous non. C'est une différence
       // parfaitement nommable — « la règle seule » —, et il ne peut y en avoir
@@ -1396,7 +1537,7 @@ export function distinguerTitres(approches) {
       for (const o of opsDe(a)) {
         if (commun.has(o.id) || vus.has(o.id)) continue;
         vus.add(o.id);
-        propres.push(precisionDe(o));
+        propres.push(titreCourtComplet(o) || precisionDe(o));
       }
       /* ⚠️ **UNE SEULE RÈGLE, PAS LA LISTE.** Nommer tout ce qui varie rendait,
            sur une moisson, une distinction de douze règles : « Par gématrie

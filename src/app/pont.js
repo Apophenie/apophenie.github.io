@@ -100,6 +100,10 @@ export function preparer() {
     if (ok(sc) && typeof sc.titreApproche === 'function') {
       M.titreApproche = sc.titreApproche;
       M.regleApproche = sc.regleApproche;
+      // ★ La forme UNIQUE des noms de conversion : le titre court, et son
+      //   complément là où la place le permet (Registre, lignes d'étapes).
+      M.titreRegistre = sc.titreRegistre;
+      M.titreCourtComplet = sc.titreCourtComplet;
     }
 
     /* ── 2. Le moteur de recherche (dépend du catalogue arithmétique) ── */
@@ -139,6 +143,14 @@ export function preparer() {
         // eux-mêmes ne traversent jamais le travailleur — seuls les codes le
         // font, parce qu'eux sont des chaînes.
         M.titreCourtDuCode = (code) => rech.titreCourtDuCode(code, catalogue);
+        // ★ Le titre court ET son complément (« César (3) ») : les lignes
+        //   d'étapes d'une carte ont la place de distinguer les Césars.
+        const operateurs = Array.isArray(catalogue) ? catalogue
+          : (catalogue && Array.isArray(catalogue.operateurs) ? catalogue.operateurs : []);
+        M.titreCompletDuCode = (code) => {
+          const op = operateurs.find((o) => o && o.code === code);
+          return op && M.titreCourtComplet ? M.titreCourtComplet(op) : M.titreCourtDuCode(code);
+        };
         M.creerCanal = rech.creerCanal;
         etat.recherche = 'branché';
       } catch (err) {
@@ -201,6 +213,8 @@ export const pourcentagesDe = (c) => (M.pourcentagesDe ? M.pourcentagesDe(c) : {
 export const scoresParAxe = (a) => (M.scoresParAxe ? M.scoresParAxe(a) : null);
 /** La forme courte d'un CODE, pour l'énumération d'une carte. */
 export const titreCourtDuCode = (code) => (M.titreCourtDuCode ? M.titreCourtDuCode(code) : null);
+/** La forme courte d'un CODE et son complément distinctif (« César (3) »). */
+export const titreCompletDuCode = (code) => (M.titreCompletDuCode ? M.titreCompletDuCode(code) : titreCourtDuCode(code));
 export const normaliserCurseurs = (c) => (M.normaliserCurseurs ? M.normaliserCurseurs(c) : c);
 
 /** Lecture d'une cible saisie : `null` si ce n'en est pas une. */
@@ -395,7 +409,13 @@ function traduireApproche(approche) {
   if (!Array.isArray(approche.parts)) return approche;
   const l = langue();
   try {
-    return { ...approche, titre: M.titreApproche(approche, l), regle: M.regleApproche(approche, l) };
+    return {
+      ...approche,
+      titre: M.titreApproche(approche, l),
+      regle: M.regleApproche(approche, l),
+      // ★ Le titre du REGISTRE : le titre court et son complément (`titres.js`).
+      ...(M.titreRegistre ? { titreRegistre: M.titreRegistre(approche, l) } : {}),
+    };
   } catch { return approche; }
 }
 

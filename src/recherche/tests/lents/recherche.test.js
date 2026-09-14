@@ -1195,7 +1195,7 @@ test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de 
   // (`distinguerTitres`), donc elle bouge dès qu'une voie entre ou sort du classement.
   // Figer la ligne complète ferait échouer ce test pour une raison qui n'est pas la
   // sienne.
-  assert.match(tete.titre.fr, /^En quatorze segments\b/, `titre : ${tete.titre.fr}`);
+  assert.match(tete.titre.fr, /^14 segments\b/, `titre : ${tete.titre.fr}`);
   assert.ok(!/666|série/.test(tete.titre.fr), 'un titre ne divulgue jamais son résultat');
   // Les trois ingrédients demandés, et rien d'autre.
   const programmes = tete.parts.map((p) => p.chemin.ops.map((o) => o.code).join('+'));
@@ -1247,7 +1247,7 @@ test('★ moisson — `https://hope-hope-hope.fr/` atteint les six séries', { t
   // Le titre est le même que sans le préfixe `https://`, et c'est normal : la
   // méthode n'a pas changé, seule la récolte a grossi. C'est exactement ce que
   // le titre ne doit plus dire.
-  assert.match(tete.titre.fr, /^En quatorze segments\b/, `titre : ${tete.titre.fr}`);
+  assert.match(tete.titre.fr, /^14 segments\b/, `titre : ${tete.titre.fr}`);
   // Le préfixe apporte bien trois 6 de plus, et sur SA propre portée.
   const sans = vedetteDesSeries(creerMoteur(catalogue).resoudre('hope-hope-hope.fr'));
   assert.equal(tete.series - sans.series, 1, 'une série de plus, exactement');
