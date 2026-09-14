@@ -498,7 +498,28 @@ import { CATALOGUE } from '../../moteur/catalogue.js';
 
 const LIGNE_CARRE = [7, 115, 1];
 
-test('★ le carré se joue dans l’ordre décrit : accolade, écart, double et ×, descente, produit, remontée, retrait', () => {
+/**
+ * > « Il y a tous les ingrédients mais pas dans le bon ordre. » (l'autrice)
+ * >
+ * > 1. « l'accolade sur le nombre unique avec "au carré" sous l'accolade, pas
+ * >    besoin de ² qui n'est pas lisible sans un nombre avant pour se rendre
+ * >    compte qu'il est en exposant. »
+ * > 2. « l'espace dans l'accolade s'étire et le nombre est dupliqué, pas en le
+ * >    faisant apparaître du néant, mais depuis le nombre existant. »
+ * > 3. « Dès que le 2ᵈ nombre est en place, l'opérateur de multiplication
+ * >    apparaît entre les deux. »
+ * > 4. « les deux nombres et l'opérateur descendent pour fusionner sous
+ * >    l'accolade et former le résultat »
+ * > 5. « le résultat remonte sur la ligne principale »
+ * > 6. « l'accolade disparaît et l'espace se réajuste si besoin sur la ligne
+ * >    principale »
+ *
+ * Le geste précédent avait les six ingrédients, et trois dans le désordre : un
+ * `²` sous la pointe, un double qui ne s'allumait qu'une fois dégagé — vu de
+ * l'écran, il surgissait du néant —, et une accolade qui s'effaçait PENDANT la
+ * remontée au lieu d'après.
+ */
+test('★ le carré se joue dans l’ordre de l’autrice : accolade, double sorti de l’original, ×, descente, fusion, remontée, PUIS retrait', () => {
   const { steps, tl } = jouer('mcar', nums(LIGNE_CARRE), jetonsNums(LIGNE_CARRE));
   assert.deepEqual(tl.warnings, [], 'rien ne se contredit');
   assert.equal(steps.length, 3, 'un geste par nombre, un nombre à la fois');
@@ -509,62 +530,69 @@ test('★ le carré se joue dans l’ordre décrit : accolade, écart, double et
   const lire = lecteur(tl);
   const fin = (a) => a.delay + a.duration;
   const arrivee = (a) => a.keyframes[a.keyframes.length - 1].value;
+  const opacite = (id, t) => lire.valeur(id, 'opacity', t) ?? 1;
 
-  // ① l'accolade, sous le nombre SEUL, avec son symbole et ses mots.
+  // ① l'accolade, sous le nombre SEUL, avec « au carré » — et rien d'autre.
   const accolade = noeud((n) => n.role === 'bracket' && anims(n.id, 'strokeDashoffset').length);
   assert.ok(accolade, 'une accolade se tire');
   const trace = anims(accolade.id, 'strokeDashoffset')[0];
-  const largeur115 = noeud((n) => n.id === 't1').w;
-  assert.ok(accolade.w < largeur115 * 1.5, 'elle n’embrasse d’abord que le nombre');
-  const suiveurs = tl.nodes.filter((n) => n.data && n.data.suit === accolade.id).map((n) => n.text);
-  assert.deepEqual(suiveurs.sort(), ['au carré', '²'].sort(), 'le symbole, et les mots qui le disent');
+  assert.ok(accolade.w < noeud((n) => n.id === 't1').w * 1.5, 'elle n’embrasse d’abord que le nombre');
+  const suiveurs = tl.nodes.filter((n) => n.data && n.data.suit === accolade.id);
+  assert.deepEqual(suiveurs.map((n) => n.text), ['au carré'], '« au carré » sous l’accolade, sans ² : il n’est lisible qu’après un nombre');
 
-  // ② l'espace s'élargit : le double naît SUR l'original et glisse à sa place.
+  // ② le double sort de l'original, VISIBLE dès le départ, pendant que l'espace s'étire.
   const double = noeud((n) => n.id.startsWith('@double') && n.text === '115');
-  const fois = noeud((n) => n.id.startsWith('@fois') && fen({ delay: anims(n.id, 'opacity')[0]?.delay ?? -1 }));
-  assert.ok(double && fois && fois.text === '×', 'le double et le signe existent');
-  const ecart = anims(double.id, 'translate')[0];
-  assert.ok(ecart.delay >= fin(trace), 'l’écart ne commence qu’une fois l’accolade tirée');
-  const departDouble = ecart.keyframes[0].value;
-  const n115 = lire.valeur('t1', 'translate', ecart.delay);
-  assert.ok(Math.abs(departDouble.x - n115.x) < 0.5, 'le double part de l’original : c’est un dédoublement');
-  const parait = (id) => anims(id, 'opacity').find((a) => arrivee(a) === 1);
-  assert.ok(parait(double.id).delay >= ecart.delay, 'le double paraît pendant que l’espace s’ouvre');
-  assert.ok(parait(fois.id).delay > parait(double.id).delay, 'le nombre se dédouble, PUIS le signe s’écrit');
+  assert.ok(double, 'le nombre est dupliqué');
+  const glissade = anims(double.id, 'translate')[0];
+  assert.ok(glissade.delay >= fin(trace), 'le double ne part qu’une fois l’accolade tirée');
+  const n115 = lire.valeur('t1', 'translate', glissade.delay);
+  assert.ok(Math.abs(glissade.keyframes[0].value.x - n115.x) < 0.5
+    && Math.abs(glissade.keyframes[0].value.y - n115.y) < 0.5, 'il part de l’original');
+  assert.ok(opacite(double.id, glissade.delay + 1) > 0.9, 'et il est VISIBLE dès sa sortie : il ne surgit pas du néant');
+  assert.ok(arrivee(glissade).x > n115.x, 'il glisse vers la droite, jusqu’à sa place');
+  const etirement = tl.discrete.find((d) => d.id === accolade.id && d.channel === 'd'
+    && d.at >= pas.t0 && d.at < pas.t0 + pas.duration);
+  assert.ok(etirement && etirement.at === glissade.delay, 'l’accolade s’étire avec l’espace, pendant la glissade');
 
-  // L'original ne s'efface pas pour être redessiné : il ne change jamais de
-  // texte, et ne pâlit qu'au moment où l'expression se résout en son produit.
+  // ③ le × n'apparaît qu'une fois le double arrivé, entre les deux.
+  const fois = noeud((n) => n.id.startsWith('@fois') && anims(n.id, 'opacity').length);
+  assert.ok(fois && fois.text === '×', 'le signe existe');
+  const parait = (id) => anims(id, 'opacity').find((a) => arrivee(a) === 1);
+  assert.ok(opacite(fois.id, glissade.delay + glissade.duration / 2) < 0.1, 'invisible pendant la glissade');
+  assert.ok(parait(fois.id).delay >= fin(glissade), 'il apparaît dès que le second nombre est en place, pas avant');
+  const xFois = lire.valeur(fois.id, 'translate', fin(parait(fois.id))).x;
+  assert.ok(xFois > lire.valeur('t1', 'translate', fin(glissade)).x && xFois < arrivee(glissade).x, 'entre les deux');
+
+  // ④ les trois descendent d'un bloc et fusionnent sous l'accolade.
   assert.equal(canal(tl, 't1'), undefined, 'le texte de 115 ne change pas');
-  const descentes = ['t1', fois.id, double.id].map((id) => anims(id, 'translate')
-    .find((a) => arrivee(a).y > n115.y));
+  const yLigne = n115.y;
+  const descentes = ['t1', fois.id, double.id].map((id) => anims(id, 'translate').find((a) => arrivee(a).y > yLigne));
   assert.ok(descentes.every(Boolean), 'les trois descendent');
   const D = descentes[0].delay;
-  assert.ok(descentes.every((a) => a.delay === D), '③ d’un bloc, au même instant');
-  assert.ok(D >= fin(parait(fois.id)), '…une fois « 115 × 115 » écrit');
+  assert.ok(descentes.every((a) => a.delay === D), 'd’un bloc, au même instant');
+  assert.ok(D >= fin(parait(fois.id)), '… une fois « 115 × 115 » écrit');
   const Y = arrivee(descentes[0]).y;
-  assert.ok(descentes.every((a) => arrivee(a).y === Y), 'à la même hauteur : l’expression reste lisible');
-  const efface115 = anims('t1', 'opacity');
-  assert.equal(efface115.length, 1, 'l’original ne pâlit qu’une fois');
-  assert.ok(efface115[0].delay > fin(descentes[0]), 'et seulement sous l’accolade, en se résolvant');
-
-  // ④ le produit paraît SOUS l'accolade, à la hauteur où l'expression est descendue.
   const produit = noeud((n) => n.id === 'x0_1');
   assert.equal(produit.text, '13225', 'le produit que l’opérateur calcule');
   assert.ok(produit.w >= 5 * tl.metrics.advance - 0.01, 'sa place est celle de ses CINQ chiffres');
   const P = parait('x0_1').delay;
   assert.ok(P > D, 'il paraît après la descente');
   assert.ok(Math.abs(lire.valeur('x0_1', 'translate', P).y - Y) < 0.5, 'là où l’expression est descendue');
-  const yAccolade = lire.valeur(accolade.id, 'translate', P).y;
-  assert.ok(Y > yAccolade, 'c’est-à-dire SOUS l’accolade');
+  assert.ok(Y > lire.valeur(accolade.id, 'translate', P).y, 'c’est-à-dire SOUS l’accolade');
 
-  // ⑤ il remonte prendre sa place, et l'accolade s'efface EN MÊME TEMPS.
-  const remontee = anims('x0_1', 'translate').find((a) => Math.abs(arrivee(a).y - n115.y) < 0.5);
-  assert.ok(remontee && remontee.delay > P, 'le produit remonte sur la ligne');
-  for (const id of tl.nodes.filter((n) => n.id === accolade.id || (n.data && n.data.suit === accolade.id)).map((n) => n.id)) {
-    const retrait = anims(id, 'opacity').find((a) => arrivee(a) === 0);
-    assert.ok(retrait, `« ${id} » se retire`);
-    assert.equal(retrait.delay, remontee.delay, 'l’accolade s’efface pendant que le produit remonte');
+  // ⑤ le résultat remonte sur la ligne…
+  const remontee = anims('x0_1', 'translate').find((a) => Math.abs(arrivee(a).y - yLigne) < 0.5);
+  assert.ok(remontee && remontee.delay > P, 'le résultat remonte sur la ligne principale');
+
+  // ⑥ … PUIS l'accolade disparaît, et l'espace se réajuste.
+  for (const n of [accolade, ...suiveurs]) {
+    const retrait = anims(n.id, 'opacity').find((a) => arrivee(a) === 0);
+    assert.ok(retrait, `« ${n.id} » se retire`);
+    assert.ok(retrait.delay >= fin(remontee), `« ${n.text || 'l’accolade'} » ne s’efface qu’APRÈS la remontée`);
   }
+  const resserrement = anims('t2', 'translate').find((a) => a.delay >= fin(remontee));
+  assert.ok(resserrement && arrivee(resserrement).x < resserrement.keyframes[0].value.x,
+    'l’espace se réajuste ensuite : le voisin revient vers le résultat');
 });
 
 /**
@@ -588,6 +616,15 @@ test('★ le carré ne superpose jamais deux jetons sur la ligne, à aucun insta
       const vus = lire.visibles(t).filter((j) => Math.abs(j.y - yLigne) < fs * 0.25);
       for (let i = 0; i < vus.length; i++) {
         for (let j = i + 1; j < vus.length; j++) {
+          // ★ Le double SORT de son original, visible : partir exactement sur lui
+          //   est le dédoublement même (« depuis le nombre existant », l'autrice),
+          //   comme les paquets de la potence naissent sur leur chiffre. Ce seul
+          //   recouvrement-là est voulu ; contre tout autre jeton, il est exclu.
+          //   Les témoins n'ont pas deux nombres au même texte : le texte suffit
+          //   à désigner l'original.
+          const double = [vus[i], vus[j]].find((v) => v.id.startsWith('@double'));
+          const autre = double === vus[i] ? vus[j] : vus[i];
+          if (double && !autre.id.startsWith('@') && autre.texte === double.texte) continue;
           const recouvre = Math.min(vus[i].d, vus[j].d) - Math.max(vus[i].g, vus[j].g);
           assert.ok(recouvre <= 0.5, `${valeurs}, t = ${Math.round(t)} : « ${vus[i].texte} » (${vus[i].id}) `
             + `et « ${vus[j].texte} » (${vus[j].id}) se chevauchent de ${recouvre.toFixed(1)}`);

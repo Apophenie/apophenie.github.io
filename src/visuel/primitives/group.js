@@ -550,48 +550,61 @@ function planDivision(ctx, ids) {
 }
 
 /**
- * ★ **LE CARRÉ — l'accolade d'abord, le calcul dessous, le produit remonte.**
+ * ★ **LE CARRÉ — dans l'ordre de l'autrice, six temps.**
  *
- * > « Sous le nombre, accolade avec un symbole de mise au carré. Une fois
- * >   l'accolade affichée, l'espace s'élargit pour dupliquer le nombre et
- * >   ajouter l'opérateur de multiplication entre les deux. Le tout descend
- * >   sous l'accolade pour afficher le résultat en dessous de l'accolade, puis
- * >   le résultat vient prendre son espace sur la ligne principale, puis
- * >   l'accolade disparaît. » (l'autrice)
- *
- * Cinq temps, et UN SEUL geste : l'accolade doit tenir de bout en bout, or elle
- * ne survit pas à la frontière d'un step (`scene.oublierAncres`).
+ * > « Il y a tous les ingrédients mais pas dans le bon ordre. » (l'autrice)
  *
  * ```
- *    115              ① l'accolade se tire sous le nombre : « ² · au carré »
- *    115 ×115         ② l'espace s'élargit : le double glisse hors de
- *                        l'original, le × paraît entre eux, l'accolade s'étire
+ *    115                ① l'accolade se tire sous le nombre seul : « au carré »
+ *    115→115            ② l'espace s'étire, le double SORT de l'original et glisse
+ *    115 ×115           ③ le second arrivé, le × apparaît entre les deux
  *    ⌣‾‾‾‾‾‾‾‾⌣
- *     115 ×115        ③ l'expression descend d'un bloc sous l'accolade
- *      13225          ④ elle s'y resserre en son produit, qu'on lit là
- *    13225            ⑤ le produit remonte prendre sa place, l'accolade s'efface
+ *     13225             ④ les trois descendent et fusionnent sous l'accolade
+ *    13225              ⑤ le résultat remonte sur la ligne, à la place gardée
+ *    13225              ⑥ PUIS l'accolade disparaît et la ligne se réajuste
  * ```
  *
- * C'était auparavant deux steps sans accolade — un `substitute` qui effaçait
- * le nombre pour en poser deux, puis un `collapse` : l'original disparaissait,
- * et rien ne disait « au carré » avant que le produit ne tombe.
+ * ① > « l'accolade sur le nombre unique avec "au carré" sous l'accolade, pas
+ *   >   besoin de ² qui n'est pas lisible sans un nombre avant pour se rendre
+ *   >   compte qu'il est en exposant. »
  *
- * ⚠️ **L'ORIGINAL NE S'EFFACE PAS.** Même exigence que pour la division —
- *   « espace-les pour insérer l'opérateur mais ne les efface pas » : le `115`
- *   de la ligne est celui qui descend. Seul le DOUBLE naît, sur lui, invisible,
- *   et ne paraît qu'une fois dégagé : jamais deux jetons l'un sur l'autre.
+ * ② > « l'espace dans l'accolade s'étire et le nombre est dupliqué, pas en le
+ *   >   faisant apparaître du néant, mais depuis le nombre existant. »
  *
- * ⚠️ **LA PLACE DU PRODUIT EST CELLE DE SON TEXTE.** Le jeton naît en portant
- *   le produit — pas le nombre de départ —, et la ligne se referme sur sa
- *   largeur réelle : `13225` n'est pas logé dans la case de `115`.
+ *   ⚠️ **LE DOUBLE EST VISIBLE DÈS SA SORTIE.** Il ne s'allumait qu'une fois
+ *     dégagé de l'original, pour qu'aucun jeton n'en recouvre un autre — et vu
+ *     de l'écran, il surgissait du néant. Il part désormais exactement SUR
+ *     l'original : deux textes identiques à la même place ne se lisent que
+ *     comme un seul nombre, et c'est en glissant qu'il s'en détache. C'est le
+ *     geste même du dédoublement, comme les paquets de la potence naissent sur
+ *     le chiffre dont on les retire.
  *
- * ⚠️ **CONTRÔLE CROISÉ.** Le produit est recalculé ici sur le texte que la
- *   ligne porte, et `to.text` doit l'égaler : le moteur visuel refuse
- *   d'afficher un calcul faux.
+ *   ★ **ET IL GLISSE DANS DU VIDE.** L'espace s'ouvre PENDANT la glissade, par
+ *     le même reflow et sur la même courbe : le voisin s'écarte du même
+ *     mouvement que le double avance. L'écart entre eux varie linéairement
+ *     entre deux positions qui ne se chevauchent pas — il ne peut donc pas
+ *     devenir négatif en chemin. L'accolade s'étire sur ce même temps.
  *
- * ★ **ZÉRO ET UN AUSSI.** « 1² est à faire aussi par cohérence, même si le
- *   résultat est 1 comme le point de départ » (l'autrice). Rien ici ne les
- *   distingue : `1 × 1` s'écrit, descend, et rend `1`.
+ * ③ > « Dès que le 2ᵈ nombre est en place, l'opérateur de multiplication
+ *   >   apparaît entre les deux. » — pas avant, pas pendant la glissade.
+ *
+ * ④ la descente et la fusion, inchangées : même translation verticale pour les
+ *   trois, puis ils se resserrent en leur produit, qu'on lit sous l'accolade.
+ *
+ * ⑤ > « le résultat remonte sur la ligne principale » — à la verticale, au
+ *   milieu de la place que tenait l'expression, qui est GARDÉE : le produit a
+ *   au plus deux fois les chiffres du nombre, il tient dans « N × N ».
+ *
+ * ⑥ > « l'accolade disparaît et l'espace se réajuste si besoin sur la ligne
+ *   >   principale » — APRÈS la remontée. La ligne se referme alors sur la
+ *   largeur réelle du produit.
+ *
+ * ⚠️ **CONTRÔLE CROISÉ.** Le produit est recalculé sur le texte que la ligne
+ *   porte, et `to.text` doit l'égaler : le moteur visuel refuse d'afficher un
+ *   calcul faux.
+ *
+ * ★ **ZÉRO ET UN AUSSI.** « 1² est à faire aussi par cohérence » (l'autrice) :
+ *   rien ici ne les distingue.
  */
 function planCarre(ctx, ids) {
   if (ids.length !== 1) {
@@ -620,25 +633,24 @@ function planCarre(ctx, ids) {
   // --- la découpe du temps --------------------------------------------------
   // L'accolade est BORNÉE comme partout (« la vitesse pour tracer l'accolade
   // devrait être la même qu'ailleurs, à savoir très rapide ») ; tout le reste
-  // se partage entre ce qui a quelque chose à montrer.
+  // se partage entre les temps qui ont quelque chose à montrer.
   const T = ctx.dur;
   const tAcc = Math.min(600, T * 0.12);
   const reste = Math.max(1, T - tAcc);
-  const tOuv = reste * CARRE.OUVERTURE;
-  const tLit = reste * CARRE.LECTURE;
-  const tDes = reste * CARRE.DESCENTE;
-  const tFus = reste * CARRE.FUSION;
-  const tRes = reste * CARRE.RESULTAT;
-  const tRem = reste * CARRE.REMONTEE;
-  const t1 = tAcc;                 // l'espace s'élargit
-  const t2 = t1 + tOuv + tLit;     // l'expression descend
-  const t3 = t2 + tDes;            // elle se resserre en son produit
-  const t4 = t3 + tFus + tRes;     // le produit remonte, l'accolade s'efface
+  const d = (k) => Math.max(1, reste * CARRE[k]);
+  const t2 = tAcc;                               // ② le double sort, l'espace s'étire
+  const t3 = t2 + d('GLISSADE');                 // ③ le × apparaît
+  const t4 = t3 + d('SIGNE') + d('LECTURE');     // ④ la descente
+  const t4b = t4 + d('DESCENTE');                //    la fusion
+  const t5 = t4b + d('FUSION') + d('RESULTAT');  // ⑤ la remontée
+  const t6 = t5 + d('REMONTEE');                 // ⑥ l'accolade s'efface, la ligne se réajuste
 
-  // --- ① l'accolade, sous le nombre seul ------------------------------------
+  // --- ① l'accolade, sous le nombre seul, « au carré » ------------------------
   const acc = tracerAccolade(ctx, [idN], {
     shape: 'brace', tighten: 0,
-    symbol: ctx.op.symbol || '²', label: ctx.op.label || null,
+    // Pas de symbole par défaut : « ² n'est pas lisible sans un nombre avant »
+    // (l'autrice). Les mots suffisent, et ils prennent la place du symbole.
+    symbol: ctx.op.symbol || null, label: ctx.op.label || null,
     // Elle ne PROMET rien à un `substitute` : c'est ce geste-ci qui pose le
     // produit sous sa pointe. Et elle n'écarte rien : un nombre seul ne se
     // confond avec personne.
@@ -649,12 +661,10 @@ function planCarre(ctx, ids) {
     fail(`${ctx.where}carré de ${n} : l’accolade n’a pas pu être tracée, le calcul n’aurait nulle part où se lire.`);
   }
 
-  // --- ② l'espace s'élargit : le double, puis le signe ----------------------
-  // Le double entre dans la ligne JUSTE APRÈS l'original, et naît SUR lui : le
-  // reflow qui fait la place le fait glisser jusqu'à la sienne, et c'est ce
-  // glissement qui se lit « le nombre se dédouble ». Le signe prend place entre
-  // eux, avec les écarts de tout signe de la maison : l'écart de terme devant
-  // lui, presque rien entre lui et le nombre qu'il gouverne.
+  // --- ② le double sort de l'original, pendant que l'espace s'étire ----------
+  // Il entre dans la ligne JUSTE APRÈS l'original, naît SUR lui, visible, et
+  // le reflow qui fait la place l'emmène jusqu'à la sienne. Le signe entre dans
+  // la ligne en même temps — sa place doit être faite —, mais reste éteint.
   const posN = ctx.scene.pos(idN);
   const idDouble = ctx.gensym('double');
   const idFois = ctx.gensym('fois');
@@ -666,74 +676,43 @@ function planCarre(ctx, ids) {
   }, { where: ctx.where });
   ctx.scene.place(idDouble, exigerPoint(ctx, { x: posN.x, y: posN.y },
     'le double du nombre, né sur l’original', idDouble));
+  // ⚠️ **ÉTEINT PAR BASE, ALLUMÉ D'UN COUP À SA SORTIE.** L'état de base d'un
+  //   nœud vaut depuis le PREMIER instant de la scène, pas depuis son étape :
+  //   posé visible par base, le double se peignait dès t = 0, par-dessus la
+  //   ligne d'avant (mesuré : « 115 » sur le « 1 » voisin). Il s'allume donc en
+  //   une milliseconde, exactement sur l'original qu'il recouvre : l'œil ne voit
+  //   rien paraître, puis un nombre qui se détache.
+  ctx.anim({ id: idDouble, prop: 'opacity', to: 1, at: tAcc, dur: 1 });
   ctx.scene.create({
     id: idFois, text: '×', kind: 'operator',
     role: 'text', inFlow: true, insertAt: rang + 1, gapBefore: gap * ECART_TERMES,
     base: { opacity: 0, scale: 0.5, fill: ctx.palette.phos },
   }, { where: ctx.where });
   const membres = [idN, idFois, idDouble];
-  const tPlace = Math.max(1, tOuv * 0.6);
-  ctx.reflow({ at: t1, dur: tPlace, ease: EASE.move });
-
-  /* ⚠️ **CHACUN NE PARAÎT QU'UNE FOIS DÉGAGÉ — et c'est pourquoi le signe n'est
-       pas posé par `insertOperatorTokens`.** Celui-ci allume ses signes à 35 %
-       de son geste quand son reflow court jusqu'à 60 % : mesuré sur `115`, le
-       `×` paraissait sur un original qui ne s'était pas encore écarté, et le
-       double sortait de l'original encore à moitié dessus. « Jamais deux jetons
-       superposés sur la ligne de base » : on calcule donc, sur les places de
-       départ et d'arrivée, l'instant où chacun ne recouvre plus personne, et il
-       paraît à cet instant-là — le double d'abord, le signe ensuite. */
-  const depart = new Map([[idN, posN], [idDouble, posN]]);
-  const boiteA = (id, p) => {
-    const b = ctx.scene.pos(id);
-    const a = depart.get(id) || b;
-    const x = a.x + (b.x - a.x) * p;
-    const demi = ctx.scene.get(id).w / 2;
-    return [x - demi, x + demi];
-  };
-  const degageDe = (id, autres, p) => autres.every((autre) => {
-    const [g1, d1] = boiteA(id, p);
-    const [g2, d2] = boiteA(autre, p);
-    return Math.min(d1, d2) - Math.max(g1, g2) <= 0;
-  });
-  // La progression où le jeton se dégage, puis l'instant où le reflow l'atteint.
-  const courbe = progressionDe(EASE.move);
-  const instantDe = (id, autres) => {
-    let p = 1;
-    for (let k = 0; k <= 100; k++) {
-      if (degageDe(id, autres, k / 100)) { p = k / 100; break; }
-    }
-    let u = 1;
-    for (let k = 0; k <= 200; k++) {
-      if (courbe(k / 200) >= p) { u = k / 200; break; }
-    }
-    return t1 + u * tPlace;
-  };
-  const tDouble = instantDe(idDouble, [idN]);
-  const tFois = Math.max(instantDe(idFois, [idN, idDouble]), tDouble + tOuv * 0.1);
-  ctx.anim({ id: idDouble, prop: 'opacity', to: 1, at: tDouble, dur: Math.max(1, tOuv * 0.3) });
-  ctx.anim({ id: idFois, prop: 'opacity', to: 1, at: tFois, dur: Math.max(1, tOuv * 0.3) });
-  ctx.anim({ id: idFois, prop: 'scale', to: 1, at: tFois, dur: Math.max(1, tOuv * 0.3), ease: EASE.pop });
-  // L'accolade s'étire sur l'expression, au rythme de l'écartement.
+  ctx.reflow({ at: t2, dur: d('GLISSADE'), ease: EASE.move });
+  // L'accolade s'étire sur l'expression, au rythme de l'espace.
   ctx.scene.poserAccolade(acc.id, membres);
-  suivreLesAccolades(ctx, { at: t1, dur: tPlace });
+  suivreLesAccolades(ctx, { at: t2, dur: d('GLISSADE') });
 
-  // --- ③ l'expression descend d'un bloc sous l'accolade ---------------------
+  // --- ③ le second arrivé, le × apparaît entre les deux ----------------------
+  ctx.anim({ id: idFois, prop: 'opacity', to: 1, at: t3, dur: d('SIGNE') });
+  ctx.anim({ id: idFois, prop: 'scale', to: 1, at: t3, dur: d('SIGNE'), ease: EASE.pop });
+
+  // --- ④ l'expression descend d'un bloc, et fusionne en son produit ----------
   // Même translation verticale pour les trois : les écarts sont conservés, et
   // « 115 ×115 » se lit encore en arrivant sous la pointe.
   const boite = boiteEmbrassee(ctx, membres);
   const ancre = exigerPoint(ctx, { x: boite ? boite.cx : NaN, y: acc.resultat.y },
     'le point, sous l’accolade, où le produit se lit', to.id);
+  const ligneY = posN.y;
   for (const id of membres) {
     const p = ctx.scene.pos(id);
-    ctx.anim({ id, prop: 'translate', to: { x: p.x, y: ancre.y }, at: t2, dur: Math.max(1, tDes), ease: EASE.move });
+    ctx.anim({ id, prop: 'translate', to: { x: p.x, y: ancre.y }, at: t4, dur: d('DESCENTE'), ease: EASE.move });
   }
-
-  // --- ④ elle s'y resserre en son produit -----------------------------------
   for (const id of membres) {
-    ctx.anim({ id, prop: 'translate', to: { x: ancre.x, y: ancre.y }, at: t3, dur: Math.max(1, tFus), ease: EASE.move });
-    ctx.anim({ id, prop: 'scale', to: 0.65, at: t3, dur: Math.max(1, tFus) });
-    ctx.anim({ id, prop: 'opacity', to: 0, at: t3 + tFus * 0.55, dur: Math.max(1, tFus * 0.45) });
+    ctx.anim({ id, prop: 'translate', to: { x: ancre.x, y: ancre.y }, at: t4b, dur: d('FUSION'), ease: EASE.move });
+    ctx.anim({ id, prop: 'scale', to: 0.65, at: t4b, dur: d('FUSION') });
+    ctx.anim({ id, prop: 'opacity', to: 0, at: t4b + d('FUSION') * 0.55, dur: d('FUSION') * 0.45 });
   }
   ctx.scene.create({
     id: to.id, text: to.text, kind: to.kind, group: to.group,
@@ -741,31 +720,34 @@ function planCarre(ctx, ids) {
     base: { opacity: 0, fill: ctx.palette.phos },
   }, { where: ctx.where });
   ctx.scene.place(to.id, ancre);
-  const tPop = t3 + tFus * 0.6;
-  ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: tPop, dur: Math.max(1, tFus * 0.3) });
+  const tPop = t4b + d('FUSION') * 0.6;
+  ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: tPop, dur: d('FUSION') * 0.3 });
   ctx.anim({
     id: to.id, prop: 'scale', values: [0.8, 1.12, 1], offsets: [0, 0.7, 1],
-    at: tPop, dur: Math.max(1, tFus * 0.4), ease: EASE.pop,
+    at: tPop, dur: d('FUSION') * 0.4, ease: EASE.pop,
   });
 
-  // --- ⑤ le produit remonte à la place du nombre, l'accolade s'efface -------
-  // Il entre dans le flux à l'index qu'occupait l'original : le reflow le fait
-  // monter ET referme la ligne sur sa largeur réelle, en un seul mouvement.
+  // --- ⑤ le résultat remonte sur la ligne, à la place gardée -----------------
+  // L'expression éteinte tient encore sa place dans le flux : la ligne ne bouge
+  // pas pendant que le résultat remonte, à la verticale, au milieu de cette place.
+  ctx.place(to.id, { x: ancre.x, y: ligneY }, { at: t5, dur: d('REMONTEE'), ease: EASE.move });
+
+  // --- ⑥ PUIS l'accolade disparaît, et la ligne se réajuste ------------------
   for (const id of membres) ctx.scene.kill(id, ctx.where);
   ctx.scene.enterFlow(to.id, rang, ctx.where);
-  ctx.reflow({ at: t4, dur: Math.max(1, tRem), ease: EASE.move });
-  // L'accolade suit ce qu'elle a produit pendant qu'elle s'éteint — le même
-  // temps que la remontée, comme à la fin de la division.
+  ctx.reflow({ at: t6, dur: d('RETRAIT'), ease: EASE.move });
+  // Tant qu'elle s'éteint, elle suit ce qu'elle a produit.
   ctx.scene.poserAccolade(acc.id, [to.id]);
-  suivreLesAccolades(ctx, { at: t4, dur: Math.max(1, tRem) });
+  suivreLesAccolades(ctx, { at: t6, dur: d('RETRAIT') });
   for (const id of acc.ids) {
-    ctx.anim({ id, prop: 'opacity', to: 0, at: t4, dur: Math.max(1, tRem * 0.5) });
+    ctx.anim({ id, prop: 'opacity', to: 0, at: t6, dur: d('RETRAIT') * 0.6 });
   }
 }
 
 /** La part de chaque temps du carré, accolade mise à part. */
 const CARRE = Object.freeze({
-  OUVERTURE: 0.22, LECTURE: 0.08, DESCENTE: 0.16, FUSION: 0.16, RESULTAT: 0.12, REMONTEE: 0.26,
+  GLISSADE: 0.16, SIGNE: 0.07, LECTURE: 0.07, DESCENTE: 0.13, FUSION: 0.14,
+  RESULTAT: 0.09, REMONTEE: 0.15, RETRAIT: 0.19,
 });
 
 /** Points d'une trajectoire courbe de `a` à `b` — quadratique, sommet en haut. */
