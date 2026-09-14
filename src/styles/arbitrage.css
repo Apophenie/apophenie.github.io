@@ -6,6 +6,8 @@
 .arb { max-width: 1600px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
 .arb__titre { font-size: 1.4rem; margin: 0 0 .3rem; }
 .arb__note { margin: 0 0 1.2rem; opacity: .75; font-size: .9rem; max-width: 70ch; }
+/* La liste vide : une réponse, pas une panne — lisible d'un coup d'œil. */
+.arb__vide { margin: 2rem 0 .8rem; font-size: 1.25rem; font-weight: 600; }
 
 .arb__barre { display: flex; gap: .6rem; align-items: center; margin-bottom: 1rem; }
 .arb__fleche { min-width: 3rem; min-height: 2.6rem; font-size: 1.1rem; cursor: pointer; }

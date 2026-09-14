@@ -93,6 +93,28 @@ export function pageArbitrage() {
     ]),
   );
 
+  /* ★ **UNE LISTE VIDE EST UNE RÉPONSE, ET LA PAGE LA DONNE.**
+
+     > « Actualiser les arbitrages : retirer ceux qui sont obsolètes, actualiser
+     >   les scores, ou vider s'il n'y a rien à arbitrer actuellement. »
+     >   (l'autrice)
+
+     Sans cas, `montrer(0)` lisait `CAS_ARBITRAGE[0].saisie` et la page tombait
+     sur « l'arbitrage n'a pas pu être monté » — un rouge qui ressemble à une
+     panne, là où il n'y a rien à trancher. On dit donc ce qu'il en est, et où
+     trouver ce qui a été tranché. */
+  if (!CAS_ARBITRAGE.length) {
+    racine.replaceChildren(
+      e('h1.arb__titre', { texte: 'Arbitrage — avant / après' }),
+      e('p.arb__vide', { texte: 'Aucun arbitrage en attente.' }),
+      e('p.arb__note', {
+        texte: 'Les cas tranchés ou devenus obsolètes ont été retirés ; ce qui en est sorti est '
+          + 'consigné en tête de src/app/pages/arbitrage-cas.js.',
+      }),
+    );
+    return racine;
+  }
+
   /** Détruit proprement les lecteurs en place — sinon deux timelines tournent. */
   function nettoyer() {
     for (const v of scenesVivantes) v.detruire();
@@ -261,13 +283,25 @@ export function pageArbitrage() {
     const classement = cas.question === 'classement';
     // Les deux côtés d'un cas de barème : la tête d'aujourd'hui, et celle qui
     // prendrait sa place. Ce ne sont pas deux notations, ce sont deux voies.
+    /* ★ **L'ANCIEN À GAUCHE, CE QUI EST BRANCHÉ À DROITE.**
+
+       > « Pour les arbitrages AB-testing, plutôt que d'avoir actuel à gauche et
+       >   v2 à droite, avoir v2 (actuel/branché) à droite et legacy à gauche. »
+       >   (l'autrice)
+
+       Les cas de barème et de classement mettaient la voie du moteur à GAUCHE,
+       à rebours des cas avant/après, où ce qui est branché est à droite. Une
+       seule convention désormais, quel que soit le type de cas : à droite ce
+       que le moteur fait aujourd'hui, à gauche l'autre. Les champs du cas
+       (`avant`, `apres`, `mesure`) gardent leur sens ; seul l'ordre à l'écran
+       change. */
     const barème = cas.question === 'bareme';
     const cotes = barème
-      ? [['Aujourd’hui', cas.avant, cas.mesure && cas.mesure.avant],
-        ['Ce qu’on mettrait à la place', cas.apres, cas.mesure && cas.mesure.apres]]
+      ? [['Ce qu’on mettrait à la place', cas.apres, cas.mesure && cas.mesure.apres],
+        ['Aujourd’hui', cas.avant, cas.mesure && cas.mesure.avant]]
       : classement
-        ? [['Tête du moteur', cas.avant, cas.mesure && cas.mesure.avant],
-          ['Tête par le score global', cas.apres, cas.mesure && cas.mesure.apres]]
+        ? [['Tête par le score global', cas.apres, cas.mesure && cas.mesure.apres],
+          ['Tête du moteur', cas.avant, cas.mesure && cas.mesure.avant]]
         : [['Avant', cas.avant, null], ['Après', cas.apres, null]];
     for (const [cote, hash, mesure] of cotes) {
       const vue = composer(cote, hash, mesure);
@@ -277,7 +311,8 @@ export function pageArbitrage() {
     // ★ L'avis PRÉ-RENSEIGNÉ des deux liens : on écrit sous les yeux ce dont on
     //   parle, et le bilan se recopie tel quel dans une conversation.
     const garde = lire(cas.id);
-    avis.value = garde || `${cas.titre}\n  avant : ${cas.avant}\n  après : ${cas.apres}\n\n`;
+    // Dans l'ordre de l'écran, gauche puis droite, et nommés comme à l'écran.
+    avis.value = garde || `${cas.titre}\n${cotes.map(([cote, hash]) => `  ${cote} : ${hash}`).join('\n')}\n\n`;
     sortie.hidden = true;
   }
 
