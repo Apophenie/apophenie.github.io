@@ -54,7 +54,10 @@ const CAS = [
 test('★ provisoire — tout lien d’une liste provisoire se rejoue à l’identique, et la liste finale le porte', () => {
   for (const [saisie, cible, fouille] of CAS) {
     const moteur = creerMoteur(catalogue, { filetTemporel: false });
-    const { r, provisoires } = chercher(moteur, saisie, { cible, fouille });
+    const { r, provisoires: toutes } = chercher(moteur, saisie, { cible, fouille });
+    // ★ Les listes de CRANS seulement : celles d'une relecture (cible texte) ont
+    //   leur propre test, plus bas, et ne promettent pas d'être dans la finale.
+    const provisoires = toutes.filter((p) => !p.info.intra);
     // ★ Une liste par cran inférieur, cran rapide (−1) compris.
     assert.equal(provisoires.length, fouille + 1, `${saisie} → ${cible} : une liste par cran inférieur`);
     const finales = new Map(r.approches.map((a) => [a.urlSobre, a]));
@@ -78,6 +81,38 @@ test('★ provisoire — tout lien d’une liste provisoire se rejoue à l’ide
       }
     }
   }
+});
+
+/* ★ **LES LISTES D'UNE RELECTURE — la même règle des liens, sans la promesse
+     d'inclusion.** Pour une cible texte, la liste se montre aussi relecture par
+     relecture, DANS le cran. « Une voie affichée peut sortir de la liste finale,
+     et son lien reste valide : c'est accepté pour ces provisoires-là, qui ne
+     sont pas des crans » (l'autrice).
+   ⚠️ La règle « figure dans la liste finale » NE S'APPLIQUE PAS à ces listes-là,
+     et ce n'est pas un oubli : elle est vérifiée plus haut pour les listes de
+     crans, et délibérément absente ici. Ce qui reste exigé, voie par voie : un
+     lien qui se rejoue à l'identique — même programme, même score. */
+test('★ provisoire — les listes d’une relecture montrent des liens qui se rejouent à l’identique', () => {
+  const moteur = creerMoteur(catalogue, { filetTemporel: false });
+  const { r, provisoires } = chercher(moteur, 'Zerg', { cible: 'Zerg' });
+  const intra = provisoires.filter((p) => p.info.intra);
+  assert.ok(intra.length >= 2, `attendu plusieurs relectures qui apportent, reçu ${intra.length}`);
+  for (const { liste, info } of intra) {
+    const ou = `Zerg → Zerg, cran ${info.cran}, relecture ${info.relecture}`;
+    assert.ok(liste.approches.length >= 1, `${ou} : une liste vide ne se montre pas`);
+    assert.equal(liste.urlResultats, r.urlResultats, `${ou} : lien de la liste`);
+    for (const a of liste.approches) {
+      for (const url of [a.urlSobre, a.urlScenique]) {
+        const rejeu = moteur.rejouer(lire(url));
+        assert.equal(rejeu.ok, true, `${ou} : ${url} ne se rejoue pas (${rejeu.raison || ''})`);
+        assert.equal(rejeu.approche.codes, a.codes, `${ou} : ${url} rejoue un autre programme`);
+        assert.equal(rejeu.approche.score, a.score, `${ou} : ${url} rejoue un autre score`);
+      }
+    }
+  }
+  // ★ Et elles ne changent rien à la liste finale.
+  const sans = creerMoteur(catalogue, { filetTemporel: false }).resoudre('Zerg', { cible: 'Zerg' });
+  assert.deepEqual(signature(r), signature(sans));
 });
 
 /* ═══════════════════ 2. Rien ne change au calcul ════════════════════════ */

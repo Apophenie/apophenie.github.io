@@ -190,6 +190,8 @@ async function routeResultat(saisie, {
        donc, marquée provisoire, jauge comprise, et la suivante la remplace sur
        place (`repeindre`). */
   let jaugeMontree = null;   // la jauge de la première liste provisoire, s'il y en a eu une
+  // ★ Une liste d'une RELECTURE a été montrée : la finale ne promet plus de la contenir.
+  let reclasse = false;
   const page = (resultat, provisoire) => pageDeResultat(saisie, resultat, {
     bandeau, cible, curseurs, fouille, personnalise, provisoire,
   });
@@ -197,7 +199,8 @@ async function routeResultat(saisie, {
     curseurs,
     fouille,
     surListe: (liste, jauge) => {
-      const contenu = page(liste, { cran: liste.cran, fouille: liste.fouille, jauge });
+      if (liste.intra) reclasse = true;
+      const contenu = page(liste, { cran: liste.cran, fouille: liste.fouille, intra: liste.intra === true, jauge });
       if (jaugeMontree) { repeindre(contenu, { titre: saisie }); return; }
       jaugeMontree = jauge;
       regionDAnnonce().textContent = '';
@@ -209,7 +212,7 @@ async function routeResultat(saisie, {
   // ★ Après une liste provisoire, le bandeau reste à sa place et dit « terminée »
   //   (`pages/resultat.js`) : le retirer ferait remonter la liste sous les yeux.
   repeindre(page(resultat, {
-    termine: true, cran: resultat.fouille, fouille: resultat.fouille, jauge: jaugeMontree,
+    termine: true, reclasse, cran: resultat.fouille, fouille: resultat.fouille, jauge: jaugeMontree,
   }), { titre: saisie, annonce: t('attente.provisoire.termine') });
   /* ★ **PUIS LE BANDEAU S'EFFACE, ET LA PAGE REDEVIENT CELLE D'UNE LISTE
        ARRIVÉE D'UN BLOC** — « en douceur après quelques secondes » (l'autrice).

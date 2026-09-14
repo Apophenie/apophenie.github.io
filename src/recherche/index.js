@@ -241,6 +241,10 @@ const PRECEDENT = Symbol('cranPrecedent');
  *  pas de lien et ne se demande pas — c'est la montée qui le pose. */
 const RAPIDE = Symbol('cranRapide');
 
+/** ★ Les LISTES PROVISOIRES D'UN TEXTE, relecture par relecture
+ *  (`deroulerTexte`) — posé par la montée, qui seule sait les réécrire. */
+const SUR_RELECTURE = Symbol('surRelecture');
+
 /** Combien d'états de cran le moteur garde pour ne pas refaire une montée. */
 const MEMO_DES_CRANS = 24;
 
@@ -419,6 +423,10 @@ export function creerMoteur(catalogue, options = {}) {
          qu'elle aura dans la liste finale, où la cumulation la garde. */
     const surListe = typeof optionsResolution.surListe === 'function' ? optionsResolution.surListe : null;
     const montrer = surListe ? (reponse, retenues, k) => {
+      // ★ Une liste VIDE ne se montre pas : sous un bandeau « provisoire », la
+      //   page dirait « aucune voie » — mesuré sur la phrase de reinfocovid,
+      //   dont le cran rapide ne trouve rien. Rien à montrer, rien d'annoncé.
+      if (!retenues.length) return;
       surListe(listeProvisoire(saisieBrute, optionsResolution, reponse, retenues, fouille),
         { cran: k, fouille });
     } : null;
@@ -447,6 +455,14 @@ export function creerMoteur(catalogue, options = {}) {
         fouille: Math.max(0, k),
         [RAPIDE]: k < 0,
         [PRECEDENT]: precedent,
+        /* ★ **ET, POUR UN TEXTE, RELECTURE PAR RELECTURE** — dans le cran même.
+             Celles-là ne sont PAS des crans : une voie qu'elles montrent peut
+             sortir de la liste finale (arbitrage de l'autrice). Leurs liens sont
+             réécrits comme les autres, et se rejouent à l'identique. */
+        [SUR_RELECTURE]: surListe ? (reponse, retenues, detail) => {
+          surListe(listeProvisoire(saisieBrute, optionsResolution, reponse, retenues, fouille),
+            { cran: k, fouille, intra: true, ...detail });
+        } : undefined,
         surAvancement: canal ? (a) => canal(echelle(a)) : undefined,
       });
       let pas = sous.next();
@@ -1523,6 +1539,7 @@ export function creerMoteur(catalogue, options = {}) {
               trouvees.push(a);
             }
           }
+          montrerRelecture(trouvees, k, profond);
           continue;
         }
         const sous = deroulerUnCran(saisieBrute, {
@@ -1553,10 +1570,82 @@ export function creerMoteur(catalogue, options = {}) {
           versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
           trouvees.push(a);
         }
+        montrerRelecture(trouvees, k, profond);
       }
       return trouvees;
     }
+    /* ★ **LA COUPE D'UNE LISTE DE TEXTE** — l'ordre du texte, la double coupe
+         aux places du cran, l'union avec le cran inférieur, les titres et les
+         rangs. Une seule fonction pour la liste finale et pour les listes
+         provisoires d'une relecture : elles ne peuvent pas se classer
+         autrement. Les provisoires la reçoivent sur des COPIES (`copies`) — la
+         liste finale se coupe plus tard sur les mêmes voies, et `nommer` écrit
+         sur ce qu'on lui donne. */
+    const ordreDeLaListe = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
+    const exactitude = ordreDExactitude(ponderation.curseurs);
+    // ★ La règle d'ordre passe AVANT tout le reste — voir `score.js › ordreDExactitude`.
+    const ordreDuTexte = (a, b) => exactitude(a, b) || ordreDeLaListe(a, b);
+    const placesDuTexte = reglagesDeBudget(fouille).voies;
+    const precedent = optionsResolution[PRECEDENT] || null;
+    const cleDuTexte = (a) => ecrire({
+      saisie, cible: mot, relecture: a.relecture.code, registre: 'scenique',
+      fragments: (a.lien || {}).fragments, retouches: (a.lien || {}).retouches, liaison: (a.lien || {}).liaison,
+    });
+    function couper(trouvees, copies) {
+      const triees = trouvees.slice().sort(ordreDuTexte);
+      /* ★ **LA DOUBLE COUPE** (`finaliser`, la double sélection) : les places
+           prises parmi les voies des anciennes gardes — la liste d'avant la
+           rampe —, réunies à celles prises parmi toutes. */
+      let retenues = triees.filter((a) => auxAnciennesGardes.has(a)).slice(0, placesDuTexte);
+      const deLaRampe = triees.slice(0, placesDuTexte).filter((a) => !retenues.includes(a));
+      if (deLaRampe.length) retenues = retenues.concat(deLaRampe).sort(ordreDuTexte);
+      if (copies) retenues = retenues.map((a) => ({ ...a }));
+      /* ★ **L'UNION AVEC LE CRAN INFÉRIEUR, POUR UN TEXTE AUSSI**
+           (`deroulerResolution`) : la liste de ce cran, telle qu'il la coupe seul,
+           plus les voies du cran inférieur qu'elle n'a pas — segments compris,
+           puisque c'est la voie composée qui est reprise. Leurs liens sont
+           réécrits au cran courant. */
+      if (precedent) {
+        const vus = new Set(retenues.map(cleDuTexte));
+        const reprises = copierEtat(precedent).retenues.filter((a) => !vus.has(cleDuTexte(a)));
+        for (const a of reprises) {
+          const rel = relectures.find((r) => r.code === a.relecture.code);
+          if (!rel) throw new Error(`recherche cumulative : la relecture ${a.relecture.code} a disparu d'un cran à l'autre`);
+          relierAuTexte(a, rel, saisie, ponderation.curseurs, fouille);
+        }
+        if (reprises.length) retenues = retenues.concat(reprises).sort(ordreDuTexte);
+      }
+      nommer(retenues);
+      retenues.forEach((a, i) => { a.rang = i + 1; });
+      return retenues;
+    }
+    /* ★ **LES LISTES PROVISOIRES D'UN TEXTE, RELECTURE PAR RELECTURE.**
+         > « La liste s'enrichit à chaque relecture terminée, sous le bandeau
+         >   provisoire. Une voie affichée peut sortir de la liste finale, et son
+         >   lien reste valide. » (l'autrice)
+         Une liste par relecture qui APPORTE : rien n'est montré tant qu'aucune
+         voie n'est trouvée, ni deux fois de suite la même liste. Pendant la
+         passe profonde, la liste montrée garde les voies du premier balayage —
+         la passe profonde repart de zéro, et la liste ne doit pas rétrécir sous
+         les yeux avant d'avoir de quoi grandir. */
+    const surRelecture = typeof optionsResolution[SUR_RELECTURE] === 'function'
+      ? optionsResolution[SUR_RELECTURE] : null;
+    let premierBalayage = [];
+    let dejaMontrees = 0;
+    function montrerRelecture(trouvees, k, profond) {
+      if (!surRelecture) return;
+      let union = trouvees;
+      if (profond && premierBalayage.length) {
+        const vues = new Set(trouvees.map((a) => a.urlScenique));
+        union = trouvees.concat(premierBalayage.filter((a) => !vues.has(a.urlScenique)));
+      }
+      if (!union.length || union.length === dejaMontrees) return;
+      dejaMontrees = union.length;
+      surRelecture({ ...base, tronque, tronqueTemps }, couper(union, true),
+        { relecture: relectures[k].code, balayage: profond ? 'profond' : 'premier' });
+    }
     let approches = yield* balayer(false);
+    premierBalayage = approches;
     /* ★ **LE DERNIER RECOURS D'UN TEXTE — quand AUCUNE relecture n'a rien
          rendu.** « Si des solutions courtes et élégantes sont trouvées, pas
          besoin de chercher les options longues et bancales, mais si rien n'est
@@ -1576,40 +1665,7 @@ export function creerMoteur(catalogue, options = {}) {
       && (exactes < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS)) {
       approches = yield* balayer(true);
     }
-    const ordreDeLaListe = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
-    const exactitude = ordreDExactitude(ponderation.curseurs);
-    // ★ La règle d'ordre passe AVANT tout le reste — voir `score.js › ordreDExactitude`.
-    const ordreDuTexte = (a, b) => exactitude(a, b) || ordreDeLaListe(a, b);
-    approches.sort(ordreDuTexte);
-    /* ★ **LA DOUBLE COUPE** (`finaliser`, la double sélection) : les places
-         prises parmi les voies des anciennes gardes — la liste d'avant la
-         rampe —, réunies à celles prises parmi toutes. */
-    const placesDuTexte = reglagesDeBudget(fouille).voies;
-    let retenues = approches.filter((a) => auxAnciennesGardes.has(a)).slice(0, placesDuTexte);
-    const deLaRampe = approches.slice(0, placesDuTexte).filter((a) => !retenues.includes(a));
-    if (deLaRampe.length) retenues = retenues.concat(deLaRampe).sort(ordreDuTexte);
-    /* ★ **L'UNION AVEC LE CRAN INFÉRIEUR, POUR UN TEXTE AUSSI**
-         (`deroulerResolution`) : la liste de ce cran, telle qu'il la coupe seul,
-         plus les voies du cran inférieur qu'elle n'a pas — segments compris,
-         puisque c'est la voie composée qui est reprise. Leurs liens sont
-         réécrits au cran courant. */
-    const precedent = optionsResolution[PRECEDENT] || null;
-    if (precedent) {
-      const cleDuTexte = (a) => ecrire({
-        saisie, cible: mot, relecture: a.relecture.code, registre: 'scenique',
-        fragments: (a.lien || {}).fragments, retouches: (a.lien || {}).retouches, liaison: (a.lien || {}).liaison,
-      });
-      const vus = new Set(retenues.map(cleDuTexte));
-      const reprises = copierEtat(precedent).retenues.filter((a) => !vus.has(cleDuTexte(a)));
-      for (const a of reprises) {
-        const rel = relectures.find((r) => r.code === a.relecture.code);
-        if (!rel) throw new Error(`recherche cumulative : la relecture ${a.relecture.code} a disparu d'un cran à l'autre`);
-        relierAuTexte(a, rel, saisie, ponderation.curseurs, fouille);
-      }
-      if (reprises.length) retenues = retenues.concat(reprises).sort(ordreDuTexte);
-    }
-    nommer(retenues);
-    retenues.forEach((a, i) => { a.rang = i + 1; });
+    const retenues = couper(approches, false);
     const resultat = {
       ...base,
       approches: retenues,
@@ -2831,7 +2887,12 @@ export function creerCanal(moteur, poster) {
           ...(message.provisoires ? {
             surListe: (liste, info) => {
               if (generation !== mienne) return;
-              envoyer({ type: 'provisoire', generation: mienne, cran: info.cran, ...serialisable(liste) });
+              envoyer({
+                type: 'provisoire', generation: mienne, cran: info.cran,
+                // ★ Une liste d'une RELECTURE, dans le cran : la page le dit autrement.
+                ...(info.intra ? { intra: true, relecture: info.relecture } : {}),
+                ...serialisable(liste),
+              });
             },
           } : {}),
         });

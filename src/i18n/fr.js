@@ -484,6 +484,11 @@ export const fr = {
       // ★ La liste du cran RAPIDE (−1) : pas de facteur à nommer, il vaut moins d'un.
       texteRapide: 'Voici les premières voies, trouvées par une recherche rapide. La fouille ×{demande} '
         + 'se poursuit : elle peut en ajouter et changer leur ordre. Les liens restent valables.',
+      // ★ Une liste d'une RELECTURE (cible texte), dans le cran même : ses voies
+      //   peuvent sortir de la liste finale, et il faut le dire.
+      texteEnCours: 'Voici les voies déjà trouvées. La recherche se poursuit relecture par relecture, '
+        + 'et la liste finale peut en ajouter, en retirer et changer leur ordre. Les liens restent valables.',
+      completReclasse: 'La liste est complète pour la fouille ×{demande}. Certaines voies montrées en chemin ont pu céder leur place.',
       termine: 'Recherche terminée — classement définitif.',
       complet: 'La liste est complète pour la fouille ×{demande} ; les voies montrées en chemin y sont toutes.',
     },

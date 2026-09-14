@@ -612,6 +612,19 @@ test('★ provisoire — le bandeau dit que ça cherche encore, porte la jauge, 
   assert.ok(texteRapide.includes(fr.attente.provisoire.texteRapide.slice(0, 20))
     || texteRapide.includes(en.attente.provisoire.texteRapide.slice(0, 20)), texteRapide);
 
+  // ★ Une liste d'une RELECTURE dit qu'elle peut perdre des voies, et la finale
+  //   qui la suit ne promet plus de toutes les contenir.
+  const enCours = un(rendre([voie(1, 'A', 'elegance', 2)], {
+    provisoire: { cran: 0, fouille: 0, intra: true, jauge },
+  }), 'bandeau--provisoire').textContent;
+  assert.ok(enCours.includes(fr.attente.provisoire.texteEnCours.slice(0, 20))
+    || enCours.includes(en.attente.provisoire.texteEnCours.slice(0, 20)), enCours);
+  const reclassee = un(rendre([voie(1, 'A', 'elegance', 2)], {
+    provisoire: { termine: true, reclasse: true, cran: 0, fouille: 0, jauge },
+  }), 'bandeau--termine').textContent;
+  assert.ok(reclassee.includes(fr.attente.provisoire.completReclasse.slice(0, 20))
+    || reclassee.includes(en.attente.provisoire.completReclasse.slice(0, 20)), reclassee);
+
   const finale = rendre([voie(1, 'A', 'elegance', 2), voie(2, 'B', null)]);
   assert.equal(un(finale, 'bandeau--provisoire'), null);
   assert.equal([...parcourir(finale)].filter((n) => n.getAttribute('aria-busy') === 'true').length, 0);
