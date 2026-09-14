@@ -1458,6 +1458,61 @@ export function creerMoteur(catalogue, options = {}) {
       return { ...a, fraction: plusHaut };
     };
     /**
+     * ★ La recherche du BLOC GONFLÉ d'une relecture longue — une seule fois par
+     * texte et par cran. Ses voies sont payées de l'écart de forme ici, et
+     * nulle part ailleurs : les réemployer ne les repaie pas.
+     */
+    function* chercherLeBloc(k, echelle) {
+      const rel = relectures[k];
+      const echelleBloc = (a) => echelle({ ...a, fraction: Math.min(1, Math.max(0, (a && a.fraction) || 0)) });
+      const sousBloc = deroulerUnCran(saisieBrute, {
+        ...optionsResolution,
+        [PRECEDENT]: null,
+        cible: rel.cible,
+        profond: true,
+        matiereDePhrase: true,
+        dernierRecours: false,
+        surAvancement: canal ? (a) => canal(echelleBloc(a)) : undefined,
+      });
+      let pasBloc = sousBloc.next();
+      while (!pasBloc.done) {
+        const pause = yield echelleBloc(pasBloc.value);
+        pasBloc = sousBloc.next(pause);
+      }
+      const rb = pasBloc.value;
+      if (rb.tronque) tronque = true;
+      if (rb.tronqueTemps) tronqueTemps = true;
+      const blocs = (rb.approches || []).filter((a) => a.mode !== 'JOKER');
+      base.relectures[k].voiesDuBloc = blocs.length;
+      for (const a of blocs) versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
+      return blocs;
+    }
+    /* ★ **LE BLOC GONFLÉ D'UNE PHRASE PART EN TÊTE — avant le premier balayage.**
+         « Pour les phrases, le bloc gonflé se lance dès le premier balayage »
+         (l'autrice). MESURÉ : sur les phrases de reinfocovid, aucune voie,
+         exacte ou approchée, n'existe avant lui ; le premier balayage y durait
+         18 à 30 s pour rien.
+         · Le PÉRIMÈTRE est celui du bloc lui-même : les relectures qui se
+           découpent en segments (`segmentsDe`), c'est-à-dire un texte de
+           plusieurs mots au-delà de 26 chiffres. Un mot seul, « de la merde »
+           (22 chiffres), 666 et les cibles chiffrées n'y passent pas.
+         · Jamais au cran rapide (−1), qui ne creuse pas.
+         · L'ORDRE est fixe : les blocs d'abord, dans l'ordre des relectures,
+           puis le premier balayage. Rien ne dépend de l'horloge.
+         · Ses voies n'entrent PAS dans le compte qui décide de creuser : la
+           décision est celle d'avant, donc la liste finale aussi — le bloc arrive
+           seulement plus tôt, et la passe profonde le réemploie. */
+    const blocsPrecoces = new Map();
+    function* chercherLesBlocsPrecoces() {
+      if (optionsResolution[RAPIDE] === true) return;
+      for (let k = 0; k < n; k++) {
+        if (!segmentsDe(relectures[k])) continue;
+        const blocs = yield* chercherLeBloc(k, echelleDe(k));
+        blocsPrecoces.set(k, blocs);
+        montrerRelecture([...blocsPrecoces.values()].flat(), k, false);
+      }
+    }
+    /**
      * Un balayage : une recherche par relecture, fusionnées. `profond` dit si
      * l'assemblage s'autorise le geste de plus (`assemblage.js ›
      * vecteursDeSix`, la seconde passe).
@@ -1507,38 +1562,14 @@ export function creerMoteur(catalogue, options = {}) {
             versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
             trouvees.push(a);
           }
-          /* ★ **LE BLOC GONFLÉ — la phrase d'un seul tenant, en passe profonde.**
-               « Rassemble tous les morceaux avant de faire gonfler l'ensemble »
-               (l'autrice) : toute la saisie, ponctuation comprise, en une ligne
-               (`mast`), gonflée, absorbée, relue par UNE relecture. Tenté en
-               passe profonde seulement : sans gonflant, un bloc de plus de 26
-               chiffres n'a jamais rendu de voie (mesuré aux crans 0, 3 et 5). */
-          if (profond) {
-            const echelleBloc = (a) => echelle({ ...a, fraction: Math.min(1, Math.max(0, (a && a.fraction) || 0)) });
-            const sousBloc = deroulerUnCran(saisieBrute, {
-              ...optionsResolution,
-              [PRECEDENT]: null,
-              cible: rel.cible,
-              profond: true,
-              matiereDePhrase: true,
-              dernierRecours: false,
-              surAvancement: canal ? (a) => canal(echelleBloc(a)) : undefined,
-            });
-            let pasBloc = sousBloc.next();
-            while (!pasBloc.done) {
-              const pause = yield echelleBloc(pasBloc.value);
-              pasBloc = sousBloc.next(pause);
-            }
-            const rb = pasBloc.value;
-            if (rb.tronque) tronque = true;
-            if (rb.tronqueTemps) tronqueTemps = true;
-            const blocs = (rb.approches || []).filter((a) => a.mode !== 'JOKER');
-            base.relectures[k].voiesDuBloc = blocs.length;
-            for (const a of blocs) {
-              versLeTexte(a, rel, saisie, ponderation.curseurs, fouille);
-              trouvees.push(a);
-            }
-          }
+          /* ★ **LE BLOC GONFLÉ — la phrase d'un seul tenant.** « Rassemble tous
+               les morceaux avant de faire gonfler l'ensemble » (l'autrice) : toute
+               la saisie, ponctuation comprise, en une ligne (`mast`), gonflée,
+               absorbée, relue par UNE relecture. Cherché AVANT le premier
+               balayage (`blocsPrecoces`, plus bas), et ses voies servent aux
+               deux balayages : la passe profonde ne le recherche pas. */
+          if (blocsPrecoces.has(k)) trouvees.push(...blocsPrecoces.get(k));
+          else if (profond) trouvees.push(...(yield* chercherLeBloc(k, echelle)));
           montrerRelecture(trouvees, k, profond);
           continue;
         }
@@ -1644,8 +1675,10 @@ export function creerMoteur(catalogue, options = {}) {
       surRelecture({ ...base, tronque, tronqueTemps }, couper(union, true),
         { relecture: relectures[k].code, balayage: profond ? 'profond' : 'premier' });
     }
+    yield* chercherLesBlocsPrecoces();
     let approches = yield* balayer(false);
     premierBalayage = approches;
+    const duBlocPrecoce = new Set([...blocsPrecoces.values()].flat());
     /* ★ **LE DERNIER RECOURS D'UN TEXTE — quand AUCUNE relecture n'a rien
          rendu.** « Si des solutions courtes et élégantes sont trouvées, pas
          besoin de chercher les options longues et bancales, mais si rien n'est
@@ -1659,7 +1692,10 @@ export function creerMoteur(catalogue, options = {}) {
          approchées rendaient le seuil muet, et la table ASCII n'y livrait
          qu'une voie au lieu de six. */
     // ★ Comptées sur les voies des ANCIENNES gardes : la rampe ne décide pas de creuser.
-    const exactes = approches.filter((a) => auxAnciennesGardes.has(a) && !ometLaPonctuation(a)).length;
+    // ★ Et SANS les voies du bloc précoce : avant lui, elles n'existaient pas au
+    //   premier balayage, et les compter changerait la décision de creuser.
+    const exactes = approches.filter((a) => auxAnciennesGardes.has(a) && !ometLaPonctuation(a)
+      && !duBlocPrecoce.has(a)).length;
     // ★ Le cran rapide (−1) ne creuse jamais : c'est tout ce qui le distingue d'un texte au cran 0.
     if (optionsResolution[RAPIDE] !== true
       && (exactes < voiesAvantDeCreuser || fouille >= FOUILLE_QUI_CREUSE_TOUJOURS)) {
