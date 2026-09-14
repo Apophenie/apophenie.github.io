@@ -286,8 +286,12 @@ test('★ mdiv resserre son accolade sur le reste ; mdvr ne la touche pas', () =
   };
   assert.equal(resserrements('mdiv'), 2,
     'elle se resserre sur le reste, puis se ré-étire sur la ligne neuve');
-  assert.equal(resserrements('mdvr'), 1,
-    'elle ne fait que s’étendre pour accueillir le compte posé après le reste');
+  // ★ Depuis que le tracé suit ses sources (« l'exception devient la règle »,
+  //   l'autrice), `mdvr` se resserre AUSSI sur son reste quand `/B` se dissout,
+  //   puis s'étend sur le compte posé après lui : c'est l'ORDRE du compte, devant
+  //   ou derrière le reste, qui distingue les deux divisions.
+  assert.equal(resserrements('mdvr'), 2,
+    'elle se resserre sur le reste quand /B se dissout, puis s’étend sur le compte posé après lui');
 });
 
 // ───────────────────── 4. dissoudre, ou demeurer
@@ -585,10 +589,14 @@ test('★ le carré se joue dans l’ordre de l’autrice : accolade, double sor
   assert.ok(remontee && remontee.delay > P, 'le résultat remonte sur la ligne principale');
 
   // ⑥ … PUIS l'accolade disparaît, et l'espace se réajuste.
-  for (const n of [accolade, ...suiveurs]) {
+  // ★ Le TRACÉ n'embrasse que ce qui est encore là : l'expression quitte la ligne
+  //   en descendant, et il s'en va avec elle. « au carré » attend la fin.
+  const retraitTrace = anims(accolade.id, 'opacity').find((a) => arrivee(a) === 0);
+  assert.ok(retraitTrace && Math.abs(retraitTrace.delay - D) < 1, 'le tracé s’en va quand l’expression quitte la ligne');
+  for (const n of suiveurs) {
     const retrait = anims(n.id, 'opacity').find((a) => arrivee(a) === 0);
     assert.ok(retrait, `« ${n.id} » se retire`);
-    assert.ok(retrait.delay >= fin(remontee), `« ${n.text || 'l’accolade'} » ne s’efface qu’APRÈS la remontée`);
+    assert.ok(retrait.delay >= fin(remontee), `« ${n.text} » ne s’efface qu’APRÈS la remontée`);
   }
   const resserrement = anims('t2', 'translate').find((a) => a.delay >= fin(remontee));
   assert.ok(resserrement && arrivee(resserrement).x < resserrement.keyframes[0].value.x,
@@ -779,9 +787,13 @@ test('★ la puissance se joue dans l’ordre décrit : exposant formé, copies 
   assert.ok(efface.delay < remontee.delay && fin(efface) > remontee.delay,
     'l’exposant, passé à 0, s’efface pendant la descente et jusque dans la remontée');
   const retrait = anims(accolade.id, 'opacity', pas5).find((a) => arrivee(a) === 0);
-  // ★ La fin en deux temps, commune à tout geste à accolade : le produit se pose,
-  //   PUIS l'accolade s'efface (`helpers.js › finirSousAccolade`).
-  assert.ok(retrait.delay >= fin(remontee) - 1, 'l’accolade ne s’efface qu’APRÈS la remontée du produit');
+  // ★ Le tracé suit ses sources : il s'en va quand la base ELLE-MÊME part, au
+  //   dernier passage. La légende attend la fin en deux temps : le produit se
+  //   pose, PUIS « puissance » s'efface (`helpers.js › finirSousAccolade`).
+  assert.ok(Math.abs(retrait.delay - vols[2].delay) < 1, 'le tracé s’en va quand la base elle-même part');
+  const legende = tl.nodes.find((n) => n.data && n.data.suit === accolade.id);
+  const retraitLegende = anims(legende.id, 'opacity', pas5).find((a) => arrivee(a) === 0);
+  assert.ok(retraitLegende.delay >= fin(remontee) - 1, '« puissance » ne s’efface qu’APRÈS la remontée du produit');
   assert.ok(noeud('x0_0').w >= 3 * av - 0.01, 'le produit a la place de ses trois chiffres');
 });
 

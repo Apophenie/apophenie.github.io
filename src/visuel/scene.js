@@ -42,6 +42,9 @@ export class Scene {
     // Les places tenues dans la ligne pendant qu'une action sous accolade se
     // termine (`primitives/helpers.js › reserverLaPlace`). Rendues dans l'étape.
     this.placesGardees = [];
+    // L'instant, dans l'étape, où chaque accolade a fini de suivre sa zone
+    // (`primitives/helpers.js › suivreLaZone`) : deux suivis ne se chevauchent pas.
+    this.zonesJusqua = new Map();
 
     // Nœud caméra : c'est lui qu'on zoome/déplace, jamais l'attribut viewBox.
     this.nodes.set(CAMERA_ID, makeNode({
@@ -293,7 +296,7 @@ export class Scene {
    * Oublie les ancres. Appelé à chaque nouveau step : une accolade ne promet
    * que pour le geste en cours, et le step suivant repart d'une page nette.
    */
-  oublierAncres() { this.ancres.clear(); this.accolades.clear(); }
+  oublierAncres() { this.ancres.clear(); this.accolades.clear(); this.zonesJusqua.clear(); }
 
   /** Une accolade vient d'être tracée : elle embrasse `sources`. */
   poserAccolade(id, sources) { this.accolades.set(id, [...sources]); }

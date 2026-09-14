@@ -9,6 +9,7 @@
 import {
   tracerAccolade, tokenSpec, numberOf, espacementDe, exigerPoint, suivreLesAccolades,
   reserverLaPlace, occuperLaPlace, rangDansLaPlace, finirSousAccolade,
+  quitterLAccolade,
 } from './helpers.js';
 import { EASE, CAMERA_ID, progressionDe } from '../constants.js';
 import { fail } from '../errors.js';
@@ -292,6 +293,8 @@ export function planPuissance(ctx, ids) {
       // « la valeur n'est plus copiée mais DÉPLACÉE » : la base quitte sa place
       // et prend la taille d'une copie pour passer par l'exposant.
       ctx.anim({ id, prop: 'scale', values: [1, ECHELLE_COPIE, ECHELLE_COPIE], offsets: [0, PASSAGE, 1], at, dur });
+      // La base elle-même part : elle quitte l'accolade, dont le tracé s'en va avec elle.
+      quitterLAccolade(ctx, [idB], { at, dur: dur * PASSAGE });
       ctx.anim({ id, prop: 'opacity', values: [1, 1, 0], offsets: [0, 0.88, 1], at, dur });
     } else {
       ctx.anim({ id, prop: 'opacity', values: [0, 1, 1, 0], offsets: [0, 0.16, 0.88, 1], at, dur });

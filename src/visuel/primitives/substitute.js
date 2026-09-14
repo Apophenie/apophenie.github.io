@@ -34,6 +34,7 @@
 
 import {
   tokenSpec, espacementDe, exigerPoint, reserverLaPlace, occuperLaPlace, rangDansLaPlace,
+  suivreSesSources,
 } from './helpers.js';
 import { EASE, colorForKind } from '../constants.js';
 import { charCenter } from '../layout.js';
@@ -187,8 +188,11 @@ export function plan(ctx) {
     for (const [idAcc, sources] of ctx.scene.accolades) {
       const k = sources.indexOf(j.src.id);
       if (k < 0) continue;
+      // Sous la pointe, le remplaçant ne prend pas la place dans l'accolade : la source
+      // la QUITTE (`suivreSesSources`, plus bas).
+      if (j.ancre) (j.quittees = j.quittees || []).push(idAcc);
       ctx.scene.poserAccolade(idAcc, [
-        ...sources.slice(0, k), ...j.tos.map((t) => t.id), ...sources.slice(k + 1),
+        ...sources.slice(0, k), ...(j.ancre ? [] : j.tos.map((t) => t.id)), ...sources.slice(k + 1),
       ]);
     }
     ctx.scene.kill(j.src.id, ctx.where);
@@ -216,6 +220,9 @@ export function plan(ctx) {
       continue;
     }
     ctx.anim({ id: j.src.id, prop: 'opacity', to: 0, at, dur: ctx.dur * 0.55 });
+    for (const idAcc of j.quittees || []) {
+      suivreSesSources(ctx, idAcc, ctx.scene.accolades.get(idAcc) || [], { at, dur: ctx.dur * 0.55 });
+    }
     ctx.anim({ id: j.src.id, prop: 'scale', to: 0.85, at, dur: ctx.dur * 0.55 });
     if (ctx.scene.has(halo)) ctx.anim({ id: halo, prop: 'opacity', to: 0, at, dur: ctx.dur * 0.4 });
     j.tos.forEach((to, k) => {

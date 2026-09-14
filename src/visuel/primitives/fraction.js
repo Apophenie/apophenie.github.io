@@ -56,6 +56,7 @@ import {
   tokenSpec, targetsOf, numberOf, exigerPoint, espacementDe,
   braceD, suivreLaZone, ACCOLADE,
   reserverLaPlace, occuperLaPlace, rangDansLaPlace, refermerLaLigne,
+  suivreSesSources,
 } from './helpers.js';
 import { bboxOf } from '../layout.js';
 import { EASE } from '../constants.js';
@@ -305,6 +306,9 @@ export function plan(ctx) {
     ctx.anim({ id, prop: 'translate', to: { x: posTotal.x, y: posTotal.y }, at: a, dur: d, ease: EASE.move });
     ctx.anim({ id, prop: 'scale', to: 0.62, at: a, dur: d });
     ctx.anim({ id, prop: 'opacity', to: 0, at: a + d * 0.62, dur: d * 0.38 });
+    // Le terme quitte l'accolade : elle se resserre sur ceux qui restent, à sa
+    // hauteur, et s'efface avec le dernier (`suivreSesSources`).
+    suivreSesSources(ctx, accolade, operandes.slice(i + 1), { at: a, dur: Math.max(1, Math.min(cadence, d)), garderY: true });
     // Le signe qui ouvrait ce terme s'en va avec lui — il n'a plus rien à
     // séparer (voir `helpers.accumulate`, même règle).
     const sid = signes[i - 1];
@@ -400,10 +404,14 @@ export function plan(ctx) {
   //
   //   ⚠️ Elle s'effaçait PENDANT la remontée du quotient : la fin en deux temps
   //     la repousse après.
-  suivreLaZone(ctx, { id: accolade, shape: 'brace', sources: [to.id] },
-    { at: t6 + tRes * 0.7, dur: Math.max(1, tRes * 0.13) });
+  const traceEffacee = Boolean(ctx.scene.get(accolade).data && ctx.scene.get(accolade).data.traceEffacee);
+  if (!traceEffacee) {
+    suivreLaZone(ctx, { id: accolade, shape: 'brace', sources: [to.id] },
+      { at: t6 + tRes * 0.7, dur: Math.max(1, tRes * 0.13) });
+  }
   const tRetrait = t6 + tRes * 0.83;
-  for (const id of [accolade, symbole]) {
+  // Le tracé est déjà parti avec le dernier terme : il ne reste que le symbole.
+  for (const id of traceEffacee ? [symbole] : [accolade, symbole]) {
     ctx.anim({ id, prop: 'opacity', to: 0, at: tRetrait, dur: Math.max(1, tRes * 0.17) });
     const n = ctx.scene.get(id);
     n.data = n.data || {};

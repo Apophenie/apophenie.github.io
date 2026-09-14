@@ -95,6 +95,7 @@
 import {
   tokenSpec, numberOf, espacementDe, tracerAccolade, suivreLesAccolades,
   reserverLaPlace, occuperLaPlace, rangDansLaPlace, finirSousAccolade,
+  quitterLAccolade,
 } from './helpers.js';
 import { filetD } from '../layout.js';
 import { EASE } from '../constants.js';
@@ -777,6 +778,9 @@ export function plan(ctx) {
   for (const id of aEffacer) {
     ctx.anim({ id, prop: 'opacity', to: 0, at: t, dur: tEffacement });
   }
+  // A et B disparaissent : ils quittent l'accolade, et son tracé s'en va avec eux
+  // (`suivreSesSources`). Le symbole attend que le quotient ait pris sa place.
+  quitterLAccolade(ctx, [idA, idB, idCale], { at: t, dur: tEffacement });
 
   /* ★ **LE QUOTIENT REJOINT LA LIGNE, ET LA LIGNE SE REFERME.**
      Les chiffres étaient hors flux le temps du calcul — ils appartenaient à la

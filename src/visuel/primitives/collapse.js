@@ -34,6 +34,7 @@
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
 import { exploser } from './explosion.js';
+import { quitterLAccolade } from './helpers.js';
 
 export const name = 'collapse';
 
@@ -157,6 +158,16 @@ export function plan(ctx) {
     // d'un temps mort.
     const tVol = envol > 0 ? tMontee : 0;
     const tRencontre = envol > 0 ? tChoc : tMontee + tChoc;
+    // ★ Les exemplaires qui disparaissent au contact quittent l'accolade : le tracé
+    //   se resserre sur ce qui reste (`suivreSesSources`). Appelé AVANT les
+    //   déplacements, pendant que la ligne est encore lisible où ils sont.
+    {
+      const impairAvant = mode === 'annulation' && ids.length % 2 === 1;
+      const partent = mode === 'fusion' && survivant
+        ? ids.filter((id) => id !== survivant)
+        : ids.filter((id) => !(impairAvant && id === ids[ids.length - 1]));
+      quitterLAccolade(ctx, partent, { at: decalage + tVol + tRencontre * 0.65, dur: Math.max(1, tRencontre * 0.35) });
+    }
     for (const id of ids) {
       const p = origines.get(id);
       // ① l'envol, à la verticale : on quitte la ligne sans changer de colonne,

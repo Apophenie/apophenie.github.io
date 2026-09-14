@@ -327,6 +327,9 @@ export function effacerSurPlace(ctx, ids, spec = {}) {
     // s'annule avant son objet.
     ctx.animSolidaire({ id, prop: 'opacity', to: 0, at: t, dur: fondu, ease: EASE.fade });
     ctx.animSolidaire({ id, prop: 'scale', to: 0.82, at: t, dur: fondu, ease: EASE.fade });
+    // `auDepart` : l'appelant apprend quand chaque jeton s'en va, et pour combien de
+    // temps avant le suivant — c'est ce que suit le tracé d'une accolade (`drop`).
+    if (typeof spec.auDepart === 'function') spec.auDepart(id, t, Math.max(1, cadence || fondu));
     ctx.scene.kill(id, ctx.where);
   });
   return at + cadence * (n - 1) + fondu;
@@ -840,6 +843,8 @@ export function accumulate(ctx, spec) {
       const a = tEffDebut + i * cadence;
       ctx.anim({ id, prop: 'opacity', to: 0, at: a, dur: fondu, ease: EASE.fade });
       ctx.anim({ id, prop: 'scale', to: 0.82, at: a, dur: fondu, ease: EASE.fade });
+      // Ce qui ne compte pas quitte l'accolade : le tracé se resserre sur ce qui reste.
+      quitterLAccolade(ctx, [id], { at: a, dur: Math.max(1, cadence || fondu) });
       });
   }
 
@@ -879,6 +884,9 @@ export function accumulate(ctx, spec) {
   voler.forEach((id, i) => {
     const a = debutVol + i * cadence;
     arrivees.push(a + vol);
+    // ★ Le terme part vers le compteur, avec son signe : il quitte l'accolade, et le
+    //   tracé se resserre sur ce qui reste — il s'efface avec le dernier.
+    quitterLAccolade(ctx, [id, ...(attelage.get(id) || [])], { at: a, dur: Math.max(1, cadence || vol) });
     ctx.anim({ id, prop: 'translate', to: { x: ancre.x, y: ancre.y }, at: a, dur: vol, ease: EASE.move });
     ctx.anim({ id, prop: 'scale', to: 0.65, at: a, dur: vol });
     ctx.anim({ id, prop: 'opacity', to: 0, at: a + vol * 0.6, dur: vol * 0.4 });
@@ -937,26 +945,10 @@ export function accumulate(ctx, spec) {
   });
 
   // --- 6. le résultat remonte, PUIS l'accolade s'efface et la ligne se referme
-  if (acc) {
-    // ★ Le TRACÉ de l'accolade s'en va AU RYTHME DE SES SOURCES.
-    //
-    // Il tenait jusqu'au bout, à sa place de départ, alors que les opérandes
-    // s'étaient envolés un à un : on voyait « 15 −  ⌣_______⌣  − 3444.fr », une
-    // accolade pleinement tracée sous un trou. Une accolade n'embrasse que ce
-    // qui est encore là : elle se défait donc exactement pendant le vol, et il
-    // ne reste sous la pointe que ce qui doit y rester — le symbole et le
-    // résultat.
-    //
-    // ⚠️ **C'EST LA SEULE PIÈCE D'ACCOLADE QUI S'EFFACE AVANT LA FIN DE
-    //   L'ACTION**, et c'est un arbitrage de l'auteur antérieur à la règle des
-    //   deux temps : elle est marquée (`suitSesSources`) pour que la garde
-    //   (`tests/_accolades.js`) la reconnaisse au lieu de l'ignorer en silence.
-    //   Le symbole et la légende, eux, attendent la fin.
-    ctx.anim({ id: acc.id, prop: 'opacity', to: 0, at: debutVol, dur: Math.max(1, tVol) });
-    const trace = ctx.scene.get(acc.id);
-    trace.data.retiree = true;
-    trace.data.suitSesSources = true;
-  }
+  // ★ Le TRACÉ s'en est allé au rythme de ses sources, départ par départ, pendant
+  //   l'effacement et le vol (`suivreSesSources`) : il ne reste sous la pointe que
+  //   le symbole, la légende et le résultat. C'était l'exception de la somme ;
+  //   c'est la règle de tout geste à accolade.
   // ★ **LE RÉSULTAT REMONTE DANS LA PLACE GARDÉE.** Les consommés quittent la
   //   ligne, mais leur largeur reste tenue : le résultat se pose au milieu, les
   //   voisins ne bougent pas. La ligne ne se referme qu'après l'accolade.
@@ -1272,8 +1264,18 @@ export function suivreLaZone(ctx, acc, spec = {}) {
 
   const depart = ctx.scene.pos(acc.id);
   if (!depart) return;
-  const at = spec.at ?? 0;
-  const dur = Math.max(1, spec.dur ?? ctx.dur);
+  /* ⚠️ **DEUX SUIVIS D'UNE MÊME ACCOLADE NE SE CHEVAUCHENT PAS.** Depuis que le
+     tracé suit ses sources (`suivreSesSources`), deux mécanismes la déplacent :
+     les départs de ses sources, et la ligne qui se referme. Le second attend la
+     fin du premier ; l'instant est tenu en temps d'ÉTAPE (le début de l'op plus
+     `at`), puisque deux ops différentes le comparent. Le centième de
+     milliseconde de marge absorbe les arrondis de la compilation. */
+  const debutOp = (ctx.op && ctx.op.at ? ctx.op.at : 0) / (ctx.speed || 1);
+  const pret = ctx.scene.zonesJusqua.get(acc.id);
+  const at0 = spec.at ?? 0;
+  const fin0 = at0 + Math.max(1, spec.dur ?? ctx.dur);
+  const at = pret === undefined ? at0 : Math.max(at0, pret - debutOp + 0.01);
+  const dur = Math.max(1, fin0 - at);
 
   // Rien n'a bougé : on n'émet pas une animation qui ne ferait rien — elle
   // entrerait en conflit avec celles qui, elles, ont quelque chose à dire.
@@ -1286,9 +1288,12 @@ export function suivreLaZone(ctx, acc, spec = {}) {
   // registre — n'a aucune raison de le savoir.
   const s = sensDeLAccolade(ctx, acc.id);
   const anchorY = (s > 0 ? cible.y + cible.h : cible.y) + s * (BRAS + 6);
-  if (bougeX || Math.abs(anchorY - depart.y) > 0.5) {
-    ctx.place(acc.id, { x: cible.cx, y: anchorY, w: cible.w }, { at, dur, ease: EASE.move });
+  // `garderY` : l'accolade se resserre sur place, à sa hauteur (`suivreSesSources`).
+  const yCible = spec.garderY ? depart.y : anchorY;
+  if (bougeX || Math.abs(yCible - depart.y) > 0.5) {
+    ctx.place(acc.id, { x: cible.cx, y: yCible, w: cible.w }, { at, dur, ease: EASE.move });
   }
+  ctx.scene.zonesJusqua.set(acc.id, debutOp + at + dur);
   /* ★ **LA PROMESSE SUIT L'ACCOLADE — sinon elle désigne où la pointe ÉTAIT.**
      Une accolade qui porte un symbole publie une ancre : le point, sous sa
      pointe, où le résultat viendra se poser (`tracerAccolade › poserAncre`).
@@ -1303,7 +1308,7 @@ export function suivreLaZone(ctx, acc, spec = {}) {
      ⚠️ On ne publie que là où il y avait DÉJÀ une promesse : une accolade qui
        ne promet rien — `partition` découpe, elle ne calcule pas — ne doit pas
        s'en voir attribuer une au premier reflux. */
-  if (ctx.scene.ancreDe(sources[0])) {
+  if (!spec.garderY && ctx.scene.ancreDe(sources[0])) {
     ctx.scene.poserAncre(sources, { x: cible.cx, y: anchorY + s * (POINTE + ctx.metrics.fontSize * 1.44) });
   }
   if (!change) return;
@@ -1520,6 +1525,56 @@ export function finirSousAccolade(ctx, spec) {
   const dur = Math.max(1, spec.dur ?? 600);
   retirerLesAccolades(ctx, { at, dur: dur * 0.6 });
   refermerLaLigne(ctx, { at, dur });
+}
+
+/**
+ * ★ **LE TRACÉ N'EMBRASSE QUE CE QUI EST ENCORE LÀ — pour tout geste.**
+ *
+ * > « Je crois que c'est l'exception qui devrait être la règle, donc oui pour
+ * >   la garder et même la généraliser ! » (l'autrice, à propos du tracé d'une
+ * >   somme qui s'en allait au rythme de ses sources)
+ *
+ * Quand des sources quittent l'accolade — vers le compteur, dans une fusion,
+ * hors de la ligne —, le tracé se RESSERRE sur celles qui restent ; quand il
+ * n'en reste aucune, il s'efface. Le symbole et la légende, eux, ne bougent pas
+ * de leur place et attendent la fin (`finirSousAccolade`). Le tracé porte alors
+ * `suitSesSources` : c'est ce que la garde (`tests/_accolades.js`) reconnaît.
+ *
+ * `restantes` : ce que l'accolade embrasse encore. `garderY` : l'accolade reste à
+ * sa hauteur (celle d'une fraction vit sous le dénominateur, pas sous la ligne).
+ *
+ * ⚠️ Les resserrements successifs d'un même tracé ne se chevauchent jamais : un
+ *   départ qui tombe pendant le précédent attend sa fin.
+ */
+export function suivreSesSources(ctx, idAccolade, restantes, spec = {}) {
+  const trace = ctx.scene.get(idAccolade);
+  if (!trace || !trace.alive) return;
+  trace.data = trace.data || {};
+  if (trace.data.traceEffacee) return;
+  trace.data.suitSesSources = true;
+  const at = spec.at ?? 0;
+  const dur = Math.max(1, spec.dur ?? 300);
+  const presentes = (restantes || []).filter((id) => {
+    const n = ctx.scene.get(id);
+    return n && n.alive && ctx.scene.pos(id);
+  });
+  if (ctx.scene.accolades.has(idAccolade)) ctx.scene.poserAccolade(idAccolade, presentes);
+  if (!presentes.length) {
+    ctx.anim({ id: idAccolade, prop: 'opacity', to: 0, at, dur });
+    trace.data.traceEffacee = true;
+    trace.data.retiree = true;
+    return;
+  }
+  suivreLaZone(ctx, { id: idAccolade, shape: 'brace', sources: presentes }, { at, dur, garderY: spec.garderY });
+}
+
+/** Les jetons `ids` quittent toutes les accolades du step qui les embrassaient. */
+export function quitterLAccolade(ctx, ids, spec = {}) {
+  const partent = new Set(ids);
+  for (const [id, sources] of [...ctx.scene.accolades]) {
+    if (!sources.some((s) => partent.has(s))) continue;
+    suivreSesSources(ctx, id, sources.filter((s) => !partent.has(s)), spec);
+  }
 }
 
 /**

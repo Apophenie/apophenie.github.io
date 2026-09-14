@@ -61,6 +61,7 @@ import {
   espacementDe, exigerPoint, suivreLesAccolades,
   boiteEmbrassee, ECART_TERMES, COLLE_AU_SIGNE,
   reserverLaPlace, occuperLaPlace, rangDansLaPlace, finirSousAccolade,
+  quitterLAccolade, suivreSesSources,
 } from './helpers.js';
 import { EASE, progressionDe } from '../constants.js';
 import { planExposants, planPuissance, planFactorielle } from './produits.js';
@@ -522,16 +523,16 @@ function planDivision(ctx, ids) {
   // rétrécit l'accolade sur le seul reste avant que le compte ne remonte
   // DEVANT lui ; le second la laisse telle quelle, le compte venant se poser
   // APRÈS le reste.
-  if (specS && !resteDAbord) {
-    ctx.scene.poserAccolade(acc.id, [specS.id]);
-    // ⚠️ **EXACTEMENT PENDANT LA DISSOLUTION, ni avant ni après.** Le
-    //   resserrement et le ré-étirement animent le même tracé ; s'ils se
-    //   chevauchent, ne serait-ce que de trente millisecondes, le compilateur
-    //   signale deux animations concurrentes — et il a raison, on ne saurait
-    //   pas dire où l'accolade est à cet instant. Elle se resserre donc
-    //   pendant que `/B` descend, et pas une milliseconde de plus.
-    suivreLesAccolades(ctx, { at: tFin0, dur: tDis });
-  }
+  // ★ CE QUI SE DISSOUT QUITTE L'ACCOLADE : le tracé se resserre sur le reste,
+  //   ou s'efface s'il n'en reste pas (`suivreSesSources`, la règle de tout
+  //   geste à accolade). Cela vaut pour les trois divisions — `mdvr` compris,
+  //   qui gardait sa largeur : c'est désormais l'ORDRE du compte, devant ou
+  //   derrière le reste, qui les distingue.
+  //
+  // ⚠️ **EXACTEMENT PENDANT LA DISSOLUTION, ni avant ni après.** Le
+  //   resserrement et le ré-étirement animent le même tracé ; s'ils se
+  //   chevauchent, le compilateur signale deux animations concurrentes.
+  suivreSesSources(ctx, acc.id, specS ? [specS.id] : [], { at: tFin0, dur: tDis });
 
   // --- le compte remonte dans la place gardée, PUIS l'accolade s'en va -------
   // ★ La ligne garde la largeur de « A / B » pendant que le compte remonte : il
@@ -552,8 +553,10 @@ function planDivision(ctx, ids) {
   // ★ ET L'ACCOLADE SE RÉ-ÉTIRE SUR LA LIGNE NEUVE avant de s'effacer — elle
   //   embrasse ce qu'elle a produit, le temps qu'on le lise. `ctx.reflow` a
   //   déjà recalculé les positions, `suivreLesAccolades` les lit.
-  ctx.scene.poserAccolade(acc.id, ordre);
-  suivreLesAccolades(ctx, { at: tFin0 + tDis, dur: tRem });
+  if (!ctx.scene.get(acc.id).data.traceEffacee) {
+    ctx.scene.poserAccolade(acc.id, ordre);
+    suivreLesAccolades(ctx, { at: tFin0 + tDis, dur: tRem });
+  }
   // ★ PUIS l'accolade s'efface, et la ligne se referme sur le compte.
   finirSousAccolade(ctx, { at: tFin0 + tDis + tRem, dur: tRetrait });
 }
@@ -714,6 +717,10 @@ function planCarre(ctx, ids) {
   const ancre = exigerPoint(ctx, { x: boite ? boite.cx : NaN, y: acc.resultat.y },
     'le point, sous l’accolade, où le produit se lit', to.id);
   const ligneY = posN.y;
+  // ★ « N'embrasse que ce qui est encore là » : l'expression quitte la ligne tout
+  //   entière, et le tracé s'en va pendant qu'elle descend. « au carré » reste,
+  //   et attend la fin, comme le symbole d'une somme.
+  quitterLAccolade(ctx, membres, { at: t4, dur: d('DESCENTE') });
   for (const id of membres) {
     const p = ctx.scene.pos(id);
     ctx.anim({ id, prop: 'translate', to: { x: p.x, y: ancre.y }, at: t4, dur: d('DESCENTE'), ease: EASE.move });
@@ -745,10 +752,9 @@ function planCarre(ctx, ids) {
   for (const id of membres) ctx.scene.kill(id, ctx.where);
   ctx.scene.enterFlow(to.id, rang, ctx.where);
   ctx.reflow({ at: t6, dur: d('RETRAIT'), ease: EASE.move });
-  // Tant qu'elle s'éteint, elle suit ce qu'elle a produit.
-  ctx.scene.poserAccolade(acc.id, [to.id]);
-  suivreLesAccolades(ctx, { at: t6, dur: d('RETRAIT') });
+  // Ce qui reste de l'accolade — la légende, le tracé s'il n'est pas déjà parti — s'éteint.
   for (const id of acc.ids) {
+    if (ctx.scene.get(id).data && ctx.scene.get(id).data.retiree) continue;
     ctx.anim({ id, prop: 'opacity', to: 0, at: t6, dur: d('RETRAIT') * 0.6 });
   }
 }
