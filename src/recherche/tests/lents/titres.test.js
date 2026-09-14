@@ -19,6 +19,7 @@ import assert from 'node:assert/strict';
 
 import {
   NOMS, QUALIFIANTS, PRECISIONS, precisionDe, titreApproche, distinguerTitres, estDecret, conversionDe,
+  TITRES_COURTS, complementDe, titreCourtComplet,
 } from '../../titres.js';
 import { creerMoteur } from '../../index.js';
 import { catalogue } from '../_catalogue.js';
@@ -132,8 +133,9 @@ test('★ titres — une locution soudée, pas une glose derrière un tiret', ()
       assert.ok(!t[langue].includes('—'),
         `« ${t.saisie} » (${langue}) : tiret cadratin dans un titre — ${t[langue]}`);
       assert.equal(t[langue], t[langue].trim(), `espaces parasites — ${t[langue]}`);
-      // Une capitale initiale, et une seule ligne.
-      assert.match(t[langue], /^[A-ZÀ-ÖØ-Þ]/u, `pas de capitale initiale — ${t[langue]}`);
+      // Une capitale initiale — ou un chiffre : le titre court « 14 segments »
+      // commence par son nombre (l'harmonisation sur le titre court).
+      assert.ok(!/^[a-zà-öø-ÿ]/u.test(t[langue]), `pas de capitale initiale — ${t[langue]}`);
     }
   }
 });
@@ -205,25 +207,52 @@ test('★ titres — la typographie française des tables', () => {
  * >   convertit lettre en nombre (quand elle existe). » (l'autrice)
  *
  * Et c'est la MÊME conversion que celle du titre de la carte
- * (`approche.conversion`, lue par `app/pages/resultat.js › titreDeConversion`).
- * ⚠️ Une voie à LIAISON se nomme encore par sa liaison — exception tenue par
- *   `tests/liaison.test.js`, soumise à l'arbitrage de l'autrice.
+ * (`approche.conversion`, lue par `app/pages/resultat.js › titreDeConversion`),
+ * sous la MÊME forme : son TITRE COURT, capitale initiale — « harmoniser sur le
+ * titre court » (l'autrice). Un comptage en est une ; une liaison aussi.
  */
-test('★ titres — le titre nomme la conversion lettre → nombre, la même que la carte', () => {
+test('★ titres — le titre nomme la conversion lettre → nombre, sous son titre court', () => {
   let nommees = 0;
+  const capitale = (texte) => texte.charAt(0).toUpperCase() + texte.slice(1);
   for (const t of tousLesTitres()) {
     const a = t.approche;
     const conversion = conversionDe(a);
     assert.equal(conversion ? conversion.code : null, a.conversion ? a.conversion.code : null,
       `« ${t.saisie} » : la carte et le titre ne lisent pas la même conversion`);
-    if (!conversion || a.liaison) continue;
+    if (!conversion || !TITRES_COURTS[conversion.op.id].fr) continue;
     nommees++;
     for (const langue of ['fr', 'en']) {
-      assert.ok(t[langue].startsWith(NOMS[conversion.op.id][langue]),
+      assert.ok(t[langue].startsWith(capitale(TITRES_COURTS[conversion.op.id][langue])),
         `« ${t.saisie} » (${langue}) : « ${t[langue]} » ne nomme pas sa conversion ${conversion.code}`);
     }
   }
   assert.ok(nommees >= 40, `seulement ${nommees} titres nommés par leur conversion`);
+});
+
+/**
+ * ★ **LE COMPLÉMENT SE DÉRIVE, IL NE S'ÉCRIT PAS** — et il ne redit jamais ce que
+ * le titre court porte déjà.
+ */
+test('★ titres — le complément distinctif se dérive du paramètre de l’opérateur', () => {
+  const op = (id) => CATALOGUE.find((o) => o.id === id);
+  assert.deepEqual(complementDe(op('f.cesar3')), { fr: '3', en: '3' });
+  assert.deepEqual(complementDe(op('f.rot13')), { fr: '13', en: '13' });
+  assert.deepEqual(complementDe(op('f.traduitEN3')), { fr: '3', en: '3' });
+  assert.deepEqual(complementDe(op('m.azertyRangee4')), { fr: '4 rangées', en: '4 rows' });
+  assert.deepEqual(complementDe(op('m.asciiMaj')), { fr: 'capitales', en: 'capitals' });
+  assert.equal(complementDe(op('m.englishX6')), null);
+  // Le titre court écrit déjà « César 3 » : le complément se tait.
+  assert.equal(titreCourtComplet(op('f.cesar3')).fr, TITRES_COURTS['f.cesar3'].fr);
+  // Il paraît là où le titre court ne le porte pas.
+  assert.equal(titreCourtComplet(op('m.asciiMin')).fr, `${TITRES_COURTS['m.asciiMin'].fr} (bas de casse)`);
+  assert.equal(titreCourtComplet(op('f.traduitEN2')).fr, `${TITRES_COURTS['f.traduitEN2'].fr} (2)`);
+  // Tout opérateur du catalogue : un complément ne redit jamais son titre court.
+  for (const o of CATALOGUE) {
+    const complet = titreCourtComplet(o);
+    if (!complet) continue;
+    assert.ok(!/\((\d+)\)$/.test(complet.fr) || !new RegExp(`(^|\\D)${complet.fr.match(/\((\d+)\)$/)[1]}\\D`)
+      .test(complet.fr.replace(/ \(\d+\)$/, ' ')), `${o.code} : « ${complet.fr} » redit son nombre`);
+  }
 });
 
 /* ═══════════════════ 3. l'unicité, sous tension ═══════════════════ */
@@ -272,10 +301,10 @@ test('★ titres — la distinction est un fragment, pas une phrase de Registre'
       if (!a.distinction) continue;
       const fr = a.distinction.fr ?? a.distinction;
       assert.ok(!/^On /.test(fr), `« ${s} » : distinction en phrase — ${fr}`);
-      // Minuscule initiale : le fragment se soude derrière le nom, il ne
-      // recommence pas la ligne. Les noms propres qu'il contient (« après un
-      // Atbash ») restent capitalisés à leur place, pas en tête.
-      assert.ok(!/^[A-Z]/.test(fr), `« ${s} » : distinction capitalisée — ${fr}`);
+      // ★ La minuscule initiale n'est plus exigée : la distinction est un TITRE
+      //   COURT (« César (3) », « MAJUSCULE »), écrit tel que l'autrice l'a posé.
+      //   Ce qui reste exigé : un fragment court, jamais une phrase de Registre.
+      assert.ok(fr.length <= 60, `« ${s} » : distinction trop longue — ${fr}`);
     }
   }
 });

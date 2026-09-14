@@ -222,7 +222,10 @@ function enumererParFragment(approche) {
       // Un fragment porte sa portée devant lui — `0.1:fr13` —, et la portée
       // n'est pas une méthode : on ne garde que ce qui suit le deux-points.
       const code = brut.includes(':') ? brut.slice(brut.lastIndexOf(':') + 1) : brut;
-      const nom = localiser(pont.titreCourtDuCode(code.trim()));
+      // ★ Le titre court et son complément : la ligne a la place de distinguer
+      //   « César (3) » de « César (13) » (l'autrice). Le TITRE de la carte, lui,
+      //   reste sans complément (`titreDeConversion`).
+      const nom = localiser(pont.titreCompletDuCode(code.trim()));
       if (!nom || noms[noms.length - 1] === nom) continue;
       noms.push(nom);
     }

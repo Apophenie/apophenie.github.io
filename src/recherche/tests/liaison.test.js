@@ -59,7 +59,10 @@ test('★ le rejeu réunit 126 et 18 par la potence — et le dit', () => {
   assert.deepEqual(a.parts.map((p) => p.chemin.etats.at(-1).valeur), [126, 18]);
   assert.equal(a.codes, '=mdl0!fr21+tca+mx6+cali,fr21+tca+mx6+cali', 'les codes nomment la liaison');
   assert.equal(a.url, lienJamesBond(), 'le lien rendu est celui qu’on a joué');
-  assert.match(a.titre.fr, /^Par division d’un nombre par l’autre/, 'la voie se nomme par sa liaison');
+  // ★ REVIREMENT décidé par l'autrice : une voie à liaison se nomme par sa
+  //   CONVERSION, sous son titre court — la division reste visible dans
+  //   l'énumération des étapes et dans la règle.
+  assert.match(a.titre.fr, /^Gématrie anglaise$/, 'la voie se nomme par sa conversion');
   assert.match(a.regle.fr, /divisé par le second à la potence/, 'et la règle la dit en dernier');
   assert.ok(Number.isFinite(a.score) && a.score > 0, `score ${a.score}`);
 });
