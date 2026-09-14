@@ -533,23 +533,29 @@ function planDivision(ctx, ids) {
     suivreLesAccolades(ctx, { at: tFin0, dur: tDis });
   }
 
-  // --- le compte remonte dans la ligne, l'accolade s'en va -----------------
-  const place = ctx.scene.flowIndex(idA);
+  // --- le compte remonte dans la place gardée, PUIS l'accolade s'en va -------
+  // ★ La ligne garde la largeur de « A / B » pendant que le compte remonte : il
+  //   se pose au milieu, les voisins ne bougent pas. Elle ne se referme qu'une
+  //   fois l'accolade effacée (`helpers.js › finirSousAccolade`).
+  const rangA = ctx.scene.flowIndex(idA);
+  const garde = reserverLaPlace(ctx, ids);
   for (const id of ids) ctx.scene.kill(id, ctx.where);
   const ordre = specs.map((t) => t.id);
+  const rang0 = garde ? rangDansLaPlace(ctx, garde) : rangA;
   ordre.forEach((id, k) => {
-    ctx.scene.enterFlow(id, place < 0 ? undefined : place + k, ctx.where);
+    ctx.scene.enterFlow(id, rang0 < 0 ? undefined : rang0 + k, ctx.where);
   });
-  const tRem = Math.max(1, tFin - tDis);
+  occuperLaPlace(ctx, garde, ordre);
+  const tRem = Math.max(1, (tFin - tDis) * 0.55);
+  const tRetrait = Math.max(1, tFin - tDis - tRem);
   ctx.reflow({ at: tFin0 + tDis, dur: tRem, ease: EASE.move });
   // ★ ET L'ACCOLADE SE RÉ-ÉTIRE SUR LA LIGNE NEUVE avant de s'effacer — elle
   //   embrasse ce qu'elle a produit, le temps qu'on le lise. `ctx.reflow` a
   //   déjà recalculé les positions, `suivreLesAccolades` les lit.
   ctx.scene.poserAccolade(acc.id, ordre);
   suivreLesAccolades(ctx, { at: tFin0 + tDis, dur: tRem });
-  for (const id of acc.ids) {
-    ctx.anim({ id, prop: 'opacity', to: 0, at: tFin0 + tDis + tRem * 0.55, dur: Math.max(1, tRem * 0.45) });
-  }
+  // ★ PUIS l'accolade s'efface, et la ligne se referme sur le compte.
+  finirSousAccolade(ctx, { at: tFin0 + tDis + tRem, dur: tRetrait });
 }
 
 /**

@@ -36,9 +36,6 @@ setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
  * @type {Record<string, string>}
  */
 const A_TRAITER = {
-  mdiv: 'division : l’accolade s’efface pendant que le compte remonte',
-  mdvq: 'division : l’accolade s’efface pendant que le compte remonte',
-  mdvr: 'division : l’accolade s’efface pendant que le compte remonte',
   mdc1: 'potence : l’accolade s’efface avec A, B et les barres, avant que le quotient ait pris sa place',
   mdc2: 'potence : l’accolade s’efface avec A, B et les barres, avant que le quotient ait pris sa place',
   mdc3: 'potence : l’accolade s’efface avec A, B et les barres, avant que le quotient ait pris sa place',
