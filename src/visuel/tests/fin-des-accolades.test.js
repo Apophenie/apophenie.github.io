@@ -35,11 +35,7 @@ setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
  * Les gestes qui ne tiennent pas encore la règle, et pourquoi.
  * @type {Record<string, string>}
  */
-const A_TRAITER = {
-  cmo: 'fraction : l’accolade s’efface pendant que le quotient remonte',
-  cmod: 'fraction : l’accolade s’efface pendant que le quotient remonte',
-  cme: 'fraction : l’accolade s’efface pendant que le quotient remonte',
-};
+const A_TRAITER = {};
 
 function jetonsDe(etat) {
   const elements = etat.type === 'STR' ? [...etat.valeur]
