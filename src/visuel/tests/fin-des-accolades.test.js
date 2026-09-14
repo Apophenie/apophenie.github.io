@@ -36,14 +36,6 @@ setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
  * @type {Record<string, string>}
  */
 const A_TRAITER = {
-  mdc1: 'potence : l’accolade s’efface avec A, B et les barres, avant que le quotient ait pris sa place',
-  mdc2: 'potence : l’accolade s’efface avec A, B et les barres, avant que le quotient ait pris sa place',
-  mdc3: 'potence : l’accolade s’efface avec A, B et les barres, avant que le quotient ait pris sa place',
-  md01: 'potence : l’accolade s’efface avec A, B et les barres, avant que le quotient ait pris sa place',
-  md02: 'potence : l’accolade s’efface avec A, B et les barres, avant que le quotient ait pris sa place',
-  md03: 'potence : l’accolade s’efface avec A, B et les barres, avant que le quotient ait pris sa place',
-  mdl0: 'potence : l’accolade s’efface avec A, B et les barres, avant que le quotient ait pris sa place',
-  mdlc: 'potence : l’accolade s’efface avec A, B et les barres, avant que le quotient ait pris sa place',
   mpui: 'puissance : l’accolade s’efface pendant que le produit remonte',
   cmo: 'fraction : l’accolade s’efface pendant que le quotient remonte',
   cmod: 'fraction : l’accolade s’efface pendant que le quotient remonte',
