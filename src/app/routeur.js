@@ -16,6 +16,7 @@ import { pageAttente } from './pages/attente.js';
 import { pageDemonstration, enteteDemonstration } from './pages/demonstration.js';
 import { estOeuf, scenarioDeLOeuf, approcheDeLOeuf } from './oeuf.js';
 import { creerJaugeRecherche } from './jauge-recherche.js';
+import { sansSaut, effacerEnDouceur, DELAI_ADIEU_MS } from './defilement.js';
 
 let vueCourante = null;      // { detruire() } de la page démonstration
 let derniereClef = null;
@@ -131,16 +132,12 @@ async function chercherEnMontrant(saisie, cible, reglages = {}) {
  */
 function repeindre(contenu, { titre, annonce = null } = {}) {
   const app = qs('#app');
-  const repere = (racine) => (racine && racine.querySelector ? racine.querySelector('.resultat__flux') : null);
-  const avant = repere(app);
-  const hautAvant = avant ? avant.getBoundingClientRect().top : null;
   const actif = document.activeElement;
   const focusDedans = Boolean(actif && actif !== document.body && app.contains(actif));
   const lienActif = focusDedans && actif.getAttribute ? actif.getAttribute('href') : null;
-  remplir(app, [contenu]);
+  // ★ La compensation est INSTANTANÉE (`defilement.js`) : `html` défile en douceur.
+  sansSaut(window, repereDeLaListe, () => remplir(app, [contenu]));
   poserTitre(titre);
-  const apres = repere(app);
-  if (hautAvant !== null && apres) window.scrollBy(0, apres.getBoundingClientRect().top - hautAvant);
   if (focusDedans) {
     const memeLien = lienActif
       ? [...app.querySelectorAll('a[href]')].find((a) => a.getAttribute('href') === lienActif) : null;
@@ -152,6 +149,9 @@ function repeindre(contenu, { titre, annonce = null } = {}) {
   }
   if (annonce !== null) regionDAnnonce().textContent = annonce;
 }
+
+/** Le corps de la liste : ce que l'œil lit, et ce qui ne doit pas bouger. */
+const repereDeLaListe = () => qs('#app .resultat__flux');
 
 /** La région vivante des recherches progressives, créée au premier besoin. */
 function regionDAnnonce() {
@@ -211,6 +211,17 @@ async function routeResultat(saisie, {
   repeindre(page(resultat, {
     termine: true, cran: resultat.fouille, fouille: resultat.fouille, jauge: jaugeMontree,
   }), { titre: saisie, annonce: t('attente.provisoire.termine') });
+  /* ★ **PUIS LE BANDEAU S'EFFACE, ET LA PAGE REDEVIENT CELLE D'UNE LISTE
+       ARRIVÉE D'UN BLOC** — « en douceur après quelques secondes » (l'autrice).
+       Il pâlit et se replie s'il est à l'écran ; sorti par le haut, il part
+       d'un coup et le défilement compense (`defilement.js`). Une route partie
+       entre-temps ne se laisse pas toucher. */
+  const jeton = jetonRoute;
+  setTimeout(() => {
+    if (!estCourante(jeton)) return;
+    const fin = qs('#app .bandeau--termine');
+    if (fin) effacerEnDouceur(fin, { fenetre: window, repere: repereDeLaListe });
+  }, DELAI_ADIEU_MS);
 }
 
 /** La page de liste d'une recherche — provisoire ou finale, c'est la même. */
