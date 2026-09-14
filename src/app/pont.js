@@ -387,6 +387,12 @@ function fond() {
  *  mémoïsé et qui porte `parts`, indispensable à la compilation du scénario. */
 function traduireApproche(approche) {
   if (!approche || !M.titreApproche) return approche;
+  /* ⚠️ **SANS SES PARTS, UNE VOIE NE SE RENOMME PAS.** Une liste venue du
+       travailleur ne porte pas les parts (`serialisable`) : recomposer le titre
+       d'ici rendait « Démonstration » et ÉCRASAIT le titre bilingue que le moteur
+       avait posé — distinction d'homonyme comprise. On le garde : il est déjà
+       dans les deux langues, et `libelles.js › titreApproche` le localise. */
+  if (!Array.isArray(approche.parts)) return approche;
   const l = langue();
   try {
     return { ...approche, titre: M.titreApproche(approche, l), regle: M.regleApproche(approche, l) };

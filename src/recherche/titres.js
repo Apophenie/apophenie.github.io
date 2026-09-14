@@ -69,6 +69,7 @@
  * `scenario.js`).
  */
 import { normaliserCible, seriesDe } from './cible.js';
+import { CODE_LECTURE_IMPLICITE } from '../config.js';
 
 export const LANGUE_DEFAUT = 'fr';
 
@@ -786,8 +787,10 @@ export const PRECISIONS = {
   'n.espaces': b('au compte des espaces', 'by space count'),
   'n.tirets': b('au compte des tirets', 'by dash count'),
   'n.mots': b('au compte des mots', 'by word count'),
-  'n.lettresPlusVoyelles': b('lettres et voyelles', 'letters and vowels'),
-  'n.lettresPlusConsonnes': b('lettres et consonnes', 'letters and consonants'),
+  // ★ Prépositionnels comme leurs voisins : « lettres et consonnes » ne se
+  //   soudait à rien (« En comptant les consonnes lettres et consonnes »).
+  'n.lettresPlusVoyelles': b('au compte des lettres et des voyelles', 'by letter-and-vowel count'),
+  'n.lettresPlusConsonnes': b('au compte des lettres et des consonnes', 'by letter-and-consonant count'),
 
   // ── mappeurs : la même préposition que leur nom de vedette, en minuscule
   'm.a1z26': b('par gématrie simple', 'by simple gematria'),
@@ -1090,12 +1093,80 @@ export function titreBilingue(approche) {
     const q = tetePart ? (NOMS[tetePart.id] ? minuscule(NOMS[tetePart.id]) : null) : null;
     return assembler(nom, approche.distinction, q);
   }
+  /* ★ **LA VOIE SE NOMME PAR SA CONVERSION LETTRE → NOMBRE.**
+       > « Ce que je t'ai demandé, c'est de mettre en titre le titre de la phase
+       >   qui convertit lettre en nombre (quand elle existe). » (l'autrice)
+       Le titre est celui de la conversion qui a converti le plus de caractères
+       (`conversionVedette`, la MÊME que le titre de la carte du listing), et son
+       qualifiant se lit sur la part qui la porte. Sans conversion — une voie qui
+       compte, ou qui part de chiffres —, la vedette d'avant nomme la voie. */
+  const conversion = conversionDe(approche);
+  if (conversion) {
+    const nomConversion = NOMS[conversion.op.id] || conversion.op.libelle || b('Démonstration', 'Demonstration');
+    return assembler(nomConversion, approche.distinction, qualifiant(conversion.part.chemin, conversion.op.id));
+  }
   const tete = vedette(chemin);
   const nom = (tete && NOMS[tete.id])
     || (tete && tete.libelle)
     || b('Démonstration', 'Demonstration');
   const q = tete ? qualifiant(chemin, tete.id) : null;
   return assembler(nom, approche.distinction, q);
+}
+
+/**
+ * ★ **LA CONVERSION QUI PORTE LA VOIE — celle qui traite le plus de lettres.**
+ *
+ * > « En titre de la carte, indique la transformation lettre vers chiffre qui
+ * >   convertit le plus de caractères parmi toutes les étapes effectuées. »
+ * >   (l'autrice)
+ *
+ * Elle vivait dans `score.js`, pour la carte seule ; elle vit ici depuis que le
+ * titre de la voie la suit aussi, pour qu'il n'y en ait qu'une (`score.js`
+ * l'importe, et `approche.conversion` en est la trace sérialisée).
+ *
+ * Une voie enchaîne des filtres, des découpages, des mesures ; une seule chose
+ * y fait vraiment passer du texte au nombre, et c'est le pas `TOKENS → NUMS`.
+ *
+ * ★ **ON COMPTE SUR L'ÉTAT D'ENTRÉE, PAS SUR LE FRAGMENT.** Un mappeur posé
+ *   après « on ne garde que les consonnes » n'en convertit que quatre sur onze.
+ *   `chemin.etats[i]` est exactement l'état que l'opérateur `i` a reçu.
+ * ★ **À ÉGALITÉ, LE CODE LE PLUS PETIT** dans l'ordre des chaînes (`'ma1'` avant
+ *   `'mx6'`) : un tri total, donc la même vedette sur toutes les machines.
+ * ★ **LA LECTURE DES CHIFFRES N'EN EST PAS UNE** (`m09`, l'implicite) : elle ne
+ *   convertit aucune lettre, et « 9 vaut 9 » ne nomme rien.
+ * ⚠️ Rend `null` sans pas `TOKENS → NUMS` — une voie qui compte ou qui part d'une
+ *   date n'en a pas, et il vaut mieux ne rien annoncer que nommer une conversion
+ *   qui n'a pas eu lieu.
+ */
+export function conversionVedette(chemins) {
+  const totaux = new Map();
+  for (const c of chemins || []) {
+    (c.ops || []).forEach((op, i) => {
+      if (!op || op.from !== 'TOKENS' || op.to !== 'NUMS' || op.code === CODE_LECTURE_IMPLICITE) return;
+      const avant = (c.etats || [])[i];
+      const n = avant && Array.isArray(avant.valeur) ? avant.valeur.length : 0;
+      totaux.set(op.code, (totaux.get(op.code) || 0) + n);
+    });
+  }
+  if (!totaux.size) return null;
+  const [code, caracteres] = [...totaux].sort((a, c) => c[1] - a[1] || (a[0] < c[0] ? -1 : 1))[0];
+  return { code, caracteres };
+}
+
+/**
+ * La conversion d'une approche, avec l'opérateur et la part qui la portent — la
+ * première part, dans l'ordre des parts, où son code apparaît.
+ * @returns {?{code:string, caracteres:number, op:Object, part:Object}}
+ */
+export function conversionDe(approche) {
+  const parts = (approche && approche.parts) || [];
+  const vedetteConversion = conversionVedette(parts.map((p) => p.chemin));
+  if (!vedetteConversion) return null;
+  for (const part of parts) {
+    const op = part.chemin.ops.find((o) => o && o.code === vedetteConversion.code);
+    if (op) return { ...vedetteConversion, op, part };
+  }
+  return null;
 }
 
 /** Une forme de NOMS ramenée au bas de casse initial, pour servir de qualifiant. */
@@ -1124,9 +1195,16 @@ function assembler(nom, precision, qualif) {
     return true;
   };
   const morceaux = [];
+  /* ★ **LA DISTINCTION EST LE DERNIER MEMBRE, À LA VIRGULE — elle ne se soude
+       plus.** Soudée derrière le nom, elle se collait à ce que le nom porte
+       déjà : « Par le code ASCII, bas de casse traduit en anglais », « En
+       comptant les consonnes lettres et consonnes ». Depuis que la voie se nomme
+       par sa conversion, les homonymes sont plus nombreux, et chaque soudure
+       bancale se voyait. Un dernier membre se lit quel que soit le fragment :
+       « Par le code ASCII, bas de casse, traduit en anglais ». */
   if (retenir(nom)) morceaux.push([' ', nom]);
-  if (retenir(precision)) morceaux.push([' ', precision]);
   if (retenir(qualif)) morceaux.push([', ', qualif]);
+  if (retenir(precision)) morceaux.push([', ', precision]);
 
   for (const langue of ['fr', 'en']) {
     let texte = '';
@@ -1219,30 +1297,24 @@ export function regleBilingue(approche) {
 const courtDe = (o, langue) => (PRECISIONS[o.id] ? dire(PRECISIONS[o.id], langue) : '');
 
 /**
- * ★ **UNE RÈGLE QU'AUCUN HOMONYME NE PORTE — par son NOM, pas par son code.**
+ * ★ **LE MOT OÙ LES PROGRAMMES DIVERGENT — la forme des homonymes.**
  *
- * La cascade de `distinguerTitres` cherche un opérateur propre par son
- * IDENTIFIANT. Deux identifiants peuvent pourtant se dire pareil : `fen3` et
- * `fen5` sont tous deux « traduit en anglais ». Mesuré sur « Le chat dort sur
- * le tapis rouge », depuis le cran rapide (−1) : deux moissons reçoivent cette
- * même distinction, la vérification de `nommer` les voit toujours homonymes, et
- * la tête de liste se nommait par sa suite de codes. On cherche donc ici une
- * règle dont le NOM n'appartient qu'à cette ligne.
- */
-function distinctionParUneRegleSeule(a, groupe) {
-  const ailleurs = new Set();
-  for (const x of groupe) if (x !== a) for (const o of opsDe(x)) ailleurs.add(courtDe(o, 'fr'));
-  const propre = opsDe(a).find((o) => courtDe(o, 'fr') && courtDe(o, 'en') && !ailleurs.has(courtDe(o, 'fr')));
-  return propre ? { fr: courtDe(propre, 'fr'), en: courtDe(propre, 'en') } : null;
-}
-
-/**
- * ★ **LE MOT OÙ LES PROGRAMMES DIVERGENT.** Deux moissons peuvent porter les
- * mêmes noms de règles, sur les mêmes mots, en même nombre de portées — et
- * différer par ce que chaque mot reçoit. On nomme le premier mot dont le
- * programme n'appartient qu'à cette ligne, et ce qu'il y reçoit : « « Le »
- * traduit en anglais, aux lettres distinctes, par complément à neuf ». Plus
- * long qu'un nom, mais ça se lit ; une suite de codes, non.
+ * > « Une distinction reste nécessaire, mais elle ne doit pas répéter le titre
+ * >   ni ajouter un morceau qui se soude mal. » (l'autrice)
+ *
+ * Deux voies d'une même liste peuvent porter le même nom de conversion, ou,
+ * sans conversion, le même nom de compte : ce qui les sépare n'est alors pas
+ * une règle mais l'ENDROIT où elle s'applique. On nomme le premier mot dont le
+ * programme n'appartient qu'à cette ligne, et la première règle qu'il y reçoit
+ * sans que le titre la dise déjà :
+ *
+ *     « En comptant les consonnes, au complément à neuf, « sur » traduit en anglais »
+ *     « En comptant les consonnes, au complément à neuf, « Le » traduit en anglais »
+ *
+ * ★ Un DERNIER MEMBRE, à la virgule (`apres`), jamais soudé : « « sur » traduit
+ *   en anglais » ne complète pas le nom, il désigne un morceau de la saisie.
+ * ★ Ni le finisseur (`p.*`, c'est le qualifiant), ni la conversion ou le compte
+ *   qui nomment déjà la voie : la distinction ne répète pas le titre.
  */
 function distinctionParLeMot(a, groupe) {
   const programme = (p) => p.chemin.ops.map((o) => o.id).join('>');
@@ -1251,15 +1323,15 @@ function distinctionParLeMot(a, groupe) {
       && programme(q) === programme(p),
   )));
   if (!divergente) return null;
-  /* ⚠️ **UNE SEULE RÈGLE, ET PAS LE FINISSEUR.** Tout le programme du mot
-       redisait ce que le titre porte déjà — mesuré : « … par complément à neuf,
-       au complément à neuf ». On nomme la première règle du mot qui a une forme
-       courte et qui n'est pas un finisseur (`p.*`, le qualifiant du titre). */
-  const nommee = divergente.chemin.ops.find((o) => !o.id.startsWith('p.') && courtDe(o, 'fr') && courtDe(o, 'en'));
+  const conversion = conversionDe(a);
+  const tete = conversion ? conversion.op : (partPrincipale(a) ? vedette(partPrincipale(a).chemin) : null);
+  const nommee = divergente.chemin.ops.find((o) => !o.id.startsWith('p.')
+    && !(tete && o.id === tete.id) && courtDe(o, 'fr') && courtDe(o, 'en'));
   if (!nommee) return null;
   return {
     fr: `« ${divergente.fragment.texte} » ${courtDe(nommee, 'fr')}`,
     en: `“${divergente.fragment.texte}” ${courtDe(nommee, 'en')}`,
+    apres: true,
   };
 }
 
@@ -1326,12 +1398,15 @@ export function distinguerTitres(approches) {
         vus.add(o.id);
         propres.push(precisionDe(o));
       }
-      if (propres.length) {
-        a.distinction = {
-          fr: propres.map((l) => dire(l, 'fr')).filter(Boolean).join(', '),
-          en: propres.map((l) => dire(l, 'en')).filter(Boolean).join(', '),
-        };
-        if (a.distinction.fr) return;
+      /* ⚠️ **UNE SEULE RÈGLE, PAS LA LISTE.** Nommer tout ce qui varie rendait,
+           sur une moisson, une distinction de douze règles : « Par gématrie
+           anglaise, en sept segments fusionnés, par addition, traduit en
+           français, … ». On nomme la première ; si elle ne sépare pas, la
+           vérification de `nommer` tranche par le mot où les programmes
+           divergent, puis par les codes. */
+      if (propres.length && dire(propres[0], 'fr')) {
+        a.distinction = { fr: dire(propres[0], 'fr'), en: dire(propres[0], 'en') };
+        return;
       }
       // ★ AVANT-DERNIER RECOURS : LA PORTÉE, c'est-à-dire OÙ la méthode
       // s'applique. Deux voies peuvent partager tous leurs opérateurs et ne
@@ -1409,14 +1484,13 @@ export function nommer(approches) {
     if (!parTitre.has(cle)) parTitre.set(cle, []);
     parTitre.get(cle).push(a);
   }
-  /* ★ **AVANT LES CODES, DEUX RECOURS QUI SE LISENT** — une règle dont le NOM
-       n'appartient qu'à la ligne, puis le mot où les programmes divergent. Ils
-       ne jouent QUE sur les titres encore homonymes : un titre déjà unique ne
-       bouge pas d'une lettre. Les codes restent le dernier mot, si ces deux-là
-       se croisent encore. */
+  /* ★ **AVANT LES CODES, UN RECOURS QUI SE LIT** — le mot où les programmes
+       divergent (`distinctionParLeMot`). Il ne joue QUE sur les titres encore
+       homonymes : un titre déjà unique ne bouge pas d'une lettre. Les codes
+       restent le dernier mot, s'il ne sépare pas. */
   const trancher = (lot) => {
     for (const a of lot) {
-      const lisible = distinctionParUneRegleSeule(a, lot) || distinctionParLeMot(a, lot);
+      const lisible = distinctionParLeMot(a, lot);
       if (!lisible) continue;
       a.distinction = lisible;
       a.titre = titreBilingue(a);
