@@ -2452,7 +2452,27 @@ export function construireScenario(approche, ctx = {}) {
     return { blocs: g.blocs.map((b) => ({ ...b, code: op.code, hold: undefined })), courants: g.courants };
   };
 
-  const poserBloc = (b, suffixe = '') => {
+  /* ★ **UN OPÉRATEUR SANS ÉTAPE OUVRE LA SUIVANTE** (`op.sansEtape`, `mecl`).
+       « `mecl` à faire en invisible » (l'autrice). Comme `tca`, il ne porte
+       aucune étape titrée ; mais contrairement à `tca`, la ligne CHANGE à
+       l'écran — « 13225 » devient « 1 3 2 2 5 » —, et le geste suivant lit les
+       chiffres éclatés. On ne peut donc pas le sauter : ses ops sont gardées
+       (`prelude`) et jouées au tout début du premier bloc qui suit, dont tout le
+       reste est décalé d'autant. Le Registre ne voit qu'une étape, celle du
+       gonflement ; la scène montre la ligne se découper juste avant. */
+  let prelude = [];
+  const avecPrelude = (b) => {
+    if (!prelude.length) return b;
+    const avance = prelude.reduce((m, o) => Math.max(m, (o.at || 0) + (o.dur || 0)), 0);
+    const ops = [...prelude, ...b.ops.map((o) => ({ ...o, at: (o.at || 0) + avance }))];
+    prelude = [];
+    return { ...b, ops };
+  };
+  const garderEnPrelude = (blocs) => {
+    for (const b of blocs) prelude.push(...b.ops);
+  };
+  const poserBloc = (b0, suffixe = '') => {
+    const b = b0 && b0.ops && b0.ops.length ? avecPrelude(b0) : b0;
     if (!b.ops || !b.ops.length) return null;
     const st = { id: `s${nStep++}`, title: b.titre + suffixe, ops: b.ops, hold: b.hold === undefined ? DUREE_CHARNIERE : b.hold };
     if (b.legende) st.caption = b.legende;
@@ -2754,6 +2774,13 @@ export function construireScenario(approche, ctx = {}) {
       });
       const actifs = rendus.filter(Boolean);
       if (!actifs.length) continue;
+      // ★ Sans étape (voir `prelude`) : les gestes de chaque morceau ouvriront
+      //   le premier bloc de l'opération suivante.
+      if (membres[0].part.chemin.ops[i].sansEtape && i + 1 < nbOps) {
+        for (const r of actifs) garderEnPrelude(r.blocs);
+        rendus.forEach((r, k) => { if (r) membres[k].courants = r.courants; });
+        continue;
+      }
 
       // Fusionnable ? Alors la transformation s'applique à chaque morceau
       // SIMULTANÉMENT — c'est littéralement « trois d'affilée, selon la même
@@ -2851,7 +2878,9 @@ export function construireScenario(approche, ctx = {}) {
       const apres = chemin.etats[i + 1];
       if (rienAMontrer(avant, apres)) continue;
       const r = produire(chemin.ops[i], avant, apres, g.courants);
-      for (const b of r.blocs) poserBloc(b);
+      // ★ Sans étape : ses gestes ouvriront le bloc suivant (voir `prelude`).
+      if (chemin.ops[i].sansEtape && i + 1 < chemin.ops.length) garderEnPrelude(r.blocs);
+      else for (const b of r.blocs) poserBloc(b);
       g.courants = r.courants;
     }
     // ── Le GROUPEMENT : le calcul ne finit pas sur UN 6, il finit sur un

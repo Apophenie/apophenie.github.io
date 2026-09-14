@@ -27,6 +27,11 @@ import { operateursPourCible, operateursExplorables, appliquerOp, etat } from '.
 import { liaisons, segmentsSansCopie } from '../assemblage.js';
 import { catalogue } from './_catalogue.js';
 import { compile } from '../../visuel/compile.js';
+import { Scene } from '../../visuel/scene.js';
+import { TOKEN_GAP } from '../../visuel/constants.js';
+import { suivreLaLigne } from '../scenario.js';
+import { CODES_NON_FACTURES } from '../../config.js';
+import { titreCourtDe } from '../titres.js';
 import { plafondDAbsorption, VISEE_LONGUE } from '../../moteur/transformations/mappeurs.js';
 
 const B58_SK = encoderTexte('Sarah Kerrigan');
@@ -492,4 +497,75 @@ test('cible-mot — sans l’opérateur qui relit, le scénario refuse plutôt q
     }),
     /n’a pas fourni/,
   );
+});
+
+/* ★ `mecl` SANS ÉTAPE — « à faire en invisible, voire implicite, coût réduit voire
+     nul » (l'autrice). Vérifié par le CHEMIN RÉEL, sans recherche : le lien de la
+     phrase exacte se rejoue, sa scène n'a aucune étape à `mecl`, rien n'est
+     remplacé en silence, et les frontières que la scène montre sont celles que
+     le moteur de recherche rejoue (`suivreLaLigne`), étape par étape. */
+test('mecl — sans étape : la phrase exacte se rejoue, sa scène ne le nomme pas, ses frontières sont justes', () => {
+  const saisie = 'https://reinfocovid.fr/';
+  const cible = lireCible("C'est de la merde !");
+  const lien = ecrire({
+    saisie, cible, relecture: 'masi', registre: 'sobre',
+    fragments: [{ portee: null, resonance: null, codes: ['mast', 'mcar', 'mecl', 'mcar', 'mab'] }],
+  });
+  assert.match(lien, /mecl/, 'il reste écrit dans le lien : aucune porte de type ne le désigne');
+  const rejeu = moteur.rejouer(lire(lien));
+  assert.equal(rejeu.ok, true, rejeu.raison);
+  assert.equal(rejeu.approche.url.includes('mecl'), true);
+  const op = catalogue.find((o) => o.code === 'mecl');
+  assert.ok(CODES_NON_FACTURES.includes('mecl'), 'il ne se facture pas comme une étape');
+  assert.deepEqual(titreCourtDe(op), { fr: '', en: '' }, 'le Registre ne le nomme pas');
+
+  const sc = moteur.scenarioDe(rejeu.approche, { saisie, cible: rejeu.approche.cible });
+  assert.equal(sc.avertissements, undefined, (sc.avertissements || []).join(' | '));
+  assert.equal(sc.result, "C'est de la merde !");
+  assert.ok(!sc.steps.some((st) => st.code === 'mecl'), 'une étape porte encore le code de `mecl`');
+  assert.ok(!sc.steps.some((st) => /éclate/i.test(st.title || '')), 'une étape titrée « éclater » subsiste');
+  assert.deepEqual(sc.steps.map((st) => st.id), sc.steps.map((_, i) => `s${i}`), 'numérotation contiguë');
+  // L'éclatement OUVRE une étape du second carré : un `substitute` d'un jeton vers
+  // plusieurs, en tête, et le reste décalé après lui. `mcar` rend une étape par
+  // nombre — l'ouverture est la première étape du SECOND carré, précédée d'une
+  // étape du premier.
+  const eclate = (o) => o && o.op === 'substitute'
+    && (o.pairs || []).some((pr) => Array.isArray(pr.to) && pr.to.length > 1);
+  const ouvertures = sc.steps.map((st, i) => (eclate(st.ops[0]) ? i : -1)).filter((i) => i >= 0);
+  const iOuverture = ouvertures.find((i) => sc.steps[i].code === 'mcar');
+  assert.ok(iOuverture !== undefined, 'aucune étape du carré n’est ouverte par l’éclatement');
+  assert.equal(sc.steps[iOuverture - 1].code, 'mcar', 'l’éclatement doit suivre le premier carré');
+  const ouverture = sc.steps[iOuverture];
+  const finEclat = (ouverture.ops[0].at || 0) + (ouverture.ops[0].dur || 0);
+  assert.ok(ouverture.ops.slice(1).every((o) => (o.at || 0) >= finEclat),
+    'le carré commence APRÈS l’éclatement, pas en même temps');
+
+  // Les frontières montrées sont celles du moteur, à l'entrée de chaque étape.
+  const releves = [];
+  const original = Scene.prototype.oublierAncres;
+  Scene.prototype.oublierAncres = function mouchard() {
+    releves.push({
+      ids: this.flow.slice(),
+      frontieres: new Set(this.flow.filter((id) => {
+        const g = this.get(id).gapBefore;
+        return g !== undefined && g > TOKEN_GAP;
+      })),
+    });
+    return original.call(this);
+  };
+  try {
+    compile(sc);
+  } finally {
+    Scene.prototype.oublierAncres = original;
+  }
+  const rejouees = suivreLaLigne(sc.tokens, sc.steps);
+  let comparees = 0;
+  for (let i = 0; i + 1 < sc.steps.length; i++) {
+    if (rejouees[i] === null) break;
+    assert.deepEqual(rejouees[i].ids, releves[i + 1].ids, `ligne après l’étape ${i + 1} « ${sc.steps[i].title} »`);
+    assert.deepEqual([...rejouees[i].frontieres].sort(), [...releves[i + 1].frontieres].sort(),
+      `frontières après l’étape ${i + 1} « ${sc.steps[i].title} »`);
+    comparees++;
+  }
+  assert.ok(comparees > 0, 'aucune ligne comparée');
 });

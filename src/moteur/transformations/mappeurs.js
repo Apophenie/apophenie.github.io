@@ -8156,13 +8156,25 @@ function operateurAsciiDeChaqueSigne() {
  *   (`eclate`) : l'assemblage ne l'emploie qu'entre deux gonflants, en passe
  *   profonde, pour le bloc d'une phrase (`recherche/assemblage.js ›
  *   vecteursDeSix`).
- * ★ Le GESTE est celui qu'emploient déjà les absorptions : chaque nombre à
- *   plusieurs chiffres se remplace par ses chiffres, côte à côte (`substitute`,
- *   un jeton vers plusieurs — la primitive vérifie que les chiffres recomposent
- *   le nombre). Un nombre d'un seul chiffre ne bouge pas.
- * ★ Notoriété 0,90 : écrire un nombre chiffre à chiffre, tout le monde le fait.
- *   AdHoc 0,20 : il ne regarde pas la cible, il prépare la matière.
+ * ★ **INVISIBLE, COMME `tca`** — « `mecl` à faire en invisible, voire implicite,
+ *   coût réduit voire nul » (l'autrice). Il ne fait pas d'ÉTAPE à lui
+ *   (`sansEtape`) : la scène joue son éclatement au tout début de l'étape
+ *   suivante, sans titre, et le Registre ne le nomme pas (titre court vide,
+ *   `recherche/titres.js`). Il ne se facture pas comme une étape
+ *   (`config.js › CODES_NON_FACTURES`). Il reste écrit dans les liens : aucune
+ *   porte de type ne le désigne (voir `config.js`).
+ * ★ Le GESTE, lui, reste celui qu'emploient les absorptions : chaque nombre à
+ *   plusieurs chiffres se remplace par ses chiffres (`substitute`, un jeton vers
+ *   plusieurs — la primitive vérifie que les chiffres recomposent le nombre),
+ *   bref, sans escale. Un nombre d'un seul chiffre ne bouge pas. Ce qui est
+ *   montré est ce qui est compté : la ligne à l'écran est bien éclatée quand
+ *   le gonflement suivant la lit.
+ * ★ Notoriété 1,00 et adHoc 0, ceux de `m09` : comme lire un chiffre, écrire un
+ *   nombre chiffre à chiffre n'affirme rien et ne regarde pas la cible.
  */
+/** La durée de l'éclatement, en ms — un geste d'ouverture, pas une étape. */
+const DUREE_ECLATEMENT = 450;
+
 function operateurEclatement() {
   const libelle = bilingue('On éclate chaque nombre en ses chiffres', 'Split every number into its digits');
   const regle = bilingue('13 924 devient 1 3 9 2 4 : les mêmes chiffres, chacun à part',
@@ -8171,9 +8183,10 @@ function operateurEclatement() {
   return def({
     id: 'm.eclatement', code: 'mecl', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
     libelle, regle,
-    notoriete: 0.90, adHoc: 0.20, cout: 1,
+    notoriete: 1.00, adHoc: 0, cout: 1,
     actifParDefaut: false,
     eclate: true,
+    sansEtape: true,
     note: bilingue(
       'Il ne crée aucun chiffre : il rend chacun à nouveau calculable. Joué seulement pour '
       + 'donner de la matière à une phrase, entre deux gonflements.',
@@ -8204,8 +8217,11 @@ function operateurEclatement() {
         });
       });
       if (!pairs.length) return [];
+      // ★ Bref : ce geste ouvre l'étape SUIVANTE (`sansEtape`), il ne doit pas
+      //   s'y attarder. `DUREE_ECLATEMENT` est lue par la scène pour décaler
+      //   ce qui le suit.
       return [etape(ctx, dire(libelle, ctx.langue), `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`,
-        enchainer([{ op: 'substitute', pairs }]), { id: `s_${ctx.cle}_ecl` })];
+        enchainer([{ op: 'substitute', pairs, dur: DUREE_ECLATEMENT }]), { id: `s_${ctx.cle}_ecl` })];
     },
   });
 }
