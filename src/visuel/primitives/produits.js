@@ -9,7 +9,7 @@
 import {
   tracerAccolade, tokenSpec, numberOf, espacementDe, exigerPoint, suivreLesAccolades,
   reserverLaPlace, occuperLaPlace, rangDansLaPlace, finirSousAccolade,
-  quitterLAccolade,
+  quitterLAccolade, poserDansLaPlace,
 } from './helpers.js';
 import { EASE, CAMERA_ID, progressionDe } from '../constants.js';
 import { fail } from '../errors.js';
@@ -366,10 +366,9 @@ export function planPuissance(ctx, ids) {
   const garde = reserverLaPlace(ctx, [idB]);
   ctx.scene.kill(idB, ctx.where);
   ctx.scene.kill(idE, ctx.where);
-  ctx.scene.enterFlow(to.id, garde ? rangDansLaPlace(ctx, garde) : rang, ctx.where);
-  occuperLaPlace(ctx, garde, [to.id]);
   const tMonte = tFin * 0.55;
-  ctx.reflow({ at: t3, dur: Math.max(1, tMonte), ease: EASE.move });
+  // « 125 » est plus large que « 5 » : sa place s'ouvre avant qu'il ne remonte.
+  poserDansLaPlace(ctx, garde, [to.id], { at: t3, dur: Math.max(1, tMonte), rang });
   if (voisin && voisin.alive) voisin.gapBefore = ecart0;
   finirSousAccolade(ctx, { at: t3 + tMonte, dur: Math.max(1, tFin - tMonte) });
 }

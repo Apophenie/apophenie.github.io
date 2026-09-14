@@ -1182,3 +1182,36 @@ test('★ carré, puissance, factorielle : sur une ligne groupée, la scène et 
     assert.deepEqual(releves.at(-1).frontieres, ['x0_2'], `${code} : le résultat du second groupe hérite de sa frontière`);
   }
 });
+
+// ───────────────────── 12. un résultat plus large ouvre sa place avant de remonter
+
+/**
+ * > « Juste avant que le résultat remonte, l'espace s'élargit à sa largeur
+ * >   réelle. Il se pose sans bousculer, puis l'accolade s'efface et la ligne se
+ * >   réajuste. » (la décision de l'autrice)
+ *
+ * `5 34 2` : 5 élevé au cube rend « 125 », trois chiffres pour un. Le nombre
+ * suivant, `34`, doit s'écarter AVANT que le produit ne remonte, et rester
+ * immobile pendant qu'il remonte. Il le bousculait en chemin.
+ */
+test('★ un résultat plus large que sa place l’ouvre AVANT de remonter, et se pose sans bousculer', () => {
+  const valeurs = [5, 34, 2];
+  const { tl } = jouer('mpui', nums(valeurs), jetonsNums(valeurs));
+  assert.deepEqual(tl.warnings, []);
+  const pas = tl.steps[1];
+  const dans = (a) => a.delay >= pas.t0 && a.delay < pas.t0 + pas.duration;
+  const arrivee = (a) => a.keyframes[a.keyframes.length - 1].value;
+  const fin = (a) => a.delay + a.duration;
+  const lire = lecteur(tl);
+  const yLigne = lire.valeur('t0', 'translate', 0).y;
+  const remontee = tl.anims.find((a) => a.id === 'x0_0' && a.prop === 'translate' && dans(a)
+    && Math.abs(arrivee(a).y - yLigne) < 0.5 && a.keyframes[0].value.y > yLigne + 1);
+  assert.ok(remontee, 'le produit remonte sur la ligne');
+  const voisin = tl.anims.filter((a) => a.id === 't1' && a.prop === 'translate' && dans(a));
+  const pendant = voisin.filter((a) => a.delay < fin(remontee) - 1 && fin(a) > remontee.delay + 1);
+  assert.deepEqual(pendant.map((a) => [a.delay, fin(a)]), [], '34 ne bouge pas pendant que 125 remonte');
+  const avant = voisin.filter((a) => fin(a) <= remontee.delay + 1 && arrivee(a).x > a.keyframes[0].value.x + 1);
+  assert.ok(avant.length, '34 s’est écarté, juste avant, pour faire la place de 125');
+  const base = tl.anims.find((a) => a.id === 't0' && a.prop === 'translate' && dans(a) && a.keyframes.length === 4);
+  assert.ok(avant.some((a) => a.delay >= fin(base) - 1), '… une fois la base partie sous l’accolade');
+});

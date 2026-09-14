@@ -33,7 +33,7 @@
  */
 
 import {
-  tokenSpec, espacementDe, exigerPoint, reserverLaPlace, occuperLaPlace, rangDansLaPlace,
+  tokenSpec, espacementDe, exigerPoint, reserverLaPlace, occuperLaPlace, rangDansLaPlace, ouvrirLaPlace,
   suivreSesSources,
 } from './helpers.js';
 import { EASE, colorForKind } from '../constants.js';
@@ -253,6 +253,14 @@ export function plan(ctx) {
   //   un même point d'insertion s'y rangent l'un après l'autre.
   const aRentrer = jobs.filter((j) => j.ancre);
   aRentrer.sort((a, b) => a.rang - b.rang);
+  // ★ Un remplaçant plus large que sa place l'ouvre D'ABORD : les voisins
+  //   s'écartent, PUIS il remonte (`helpers.js › ouvrirLaPlace`).
+  let montee = { at: ctx.dur * 0.56, dur: ctx.dur * 0.44, ease: EASE.move };
+  if (aRentrer.map((j) => ouvrirLaPlace(ctx, j.place, [j.tos[0].id])).some(Boolean)) {
+    const ouverture = ctx.dur * 0.44 * 0.4;
+    ctx.reflow({ at: ctx.dur * 0.56, dur: ouverture, ease: EASE.move });
+    montee = { at: ctx.dur * 0.56 + ouverture, dur: ctx.dur * 0.44 - ouverture, ease: EASE.move };
+  }
   let dernier = -1;
   for (const j of aRentrer) {
     const base = j.place ? rangDansLaPlace(ctx, j.place) : (j.gauche ? ctx.scene.flowIndex(j.gauche) + 1 : 0);
@@ -261,7 +269,7 @@ export function plan(ctx) {
     if (j.place) occuperLaPlace(ctx, j.place, [j.tos[0].id]);
     dernier = index;
   }
-  ctx.reflow({ at: ctx.dur * 0.56, dur: ctx.dur * 0.44, ease: EASE.move });
+  ctx.reflow(montee);
 }
 
 /** Accepte `target: 'id'` ou `targets: ['id']` (une seule source par paire). */

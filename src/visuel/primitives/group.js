@@ -61,7 +61,7 @@ import {
   espacementDe, exigerPoint, suivreLesAccolades,
   boiteEmbrassee, ECART_TERMES, COLLE_AU_SIGNE,
   reserverLaPlace, occuperLaPlace, rangDansLaPlace, finirSousAccolade,
-  quitterLAccolade, suivreSesSources,
+  quitterLAccolade, suivreSesSources, poserDansLaPlace,
 } from './helpers.js';
 import { EASE, progressionDe } from '../constants.js';
 import { planExposants, planPuissance, planFactorielle } from './produits.js';
@@ -542,20 +542,16 @@ function planDivision(ctx, ids) {
   const garde = reserverLaPlace(ctx, ids);
   for (const id of ids) ctx.scene.kill(id, ctx.where);
   const ordre = specs.map((t) => t.id);
-  const rang0 = garde ? rangDansLaPlace(ctx, garde) : rangA;
-  ordre.forEach((id, k) => {
-    ctx.scene.enterFlow(id, rang0 < 0 ? undefined : rang0 + k, ctx.where);
-  });
-  occuperLaPlace(ctx, garde, ordre);
   const tRem = Math.max(1, (tFin - tDis) * 0.55);
   const tRetrait = Math.max(1, tFin - tDis - tRem);
-  ctx.reflow({ at: tFin0 + tDis, dur: tRem, ease: EASE.move });
+  // Un compte plus large que « A / B » ouvre sa place avant de remonter.
+  const monte = poserDansLaPlace(ctx, garde, ordre, { at: tFin0 + tDis, dur: tRem, rang: rangA });
   // ★ ET L'ACCOLADE SE RÉ-ÉTIRE SUR LA LIGNE NEUVE avant de s'effacer — elle
   //   embrasse ce qu'elle a produit, le temps qu'on le lise. `ctx.reflow` a
   //   déjà recalculé les positions, `suivreLesAccolades` les lit.
   if (!ctx.scene.get(acc.id).data.traceEffacee) {
     ctx.scene.poserAccolade(acc.id, ordre);
-    suivreLesAccolades(ctx, { at: tFin0 + tDis, dur: tRem });
+    suivreLesAccolades(ctx, monte);
   }
   // ★ PUIS l'accolade s'efface, et la ligne se referme sur le compte.
   finirSousAccolade(ctx, { at: tFin0 + tDis + tRem, dur: tRetrait });

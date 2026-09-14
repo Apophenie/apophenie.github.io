@@ -56,7 +56,7 @@ import {
   tokenSpec, targetsOf, numberOf, exigerPoint, espacementDe,
   braceD, suivreLaZone, ACCOLADE,
   reserverLaPlace, occuperLaPlace, rangDansLaPlace, refermerLaLigne,
-  suivreSesSources,
+  suivreSesSources, poserDansLaPlace,
 } from './helpers.js';
 import { bboxOf } from '../layout.js';
 import { EASE } from '../constants.js';
@@ -391,9 +391,7 @@ export function plan(ctx) {
   //   (`helpers.js › finirSousAccolade`, la règle commune des deux temps).
   const garde = reserverLaPlace(ctx, [...operandes, ...signes].filter((id) => ctx.scene.flowIndex(id) >= 0));
   for (const id of [...operandes, ...signes]) ctx.scene.kill(id, ctx.where);
-  ctx.scene.enterFlow(to.id, garde ? rangDansLaPlace(ctx, garde) : (tete < 0 ? undefined : tete), ctx.where);
-  occuperLaPlace(ctx, garde, [to.id]);
-  ctx.reflow({ at: t6 + tRes * 0.4, dur: Math.max(1, tRes * 0.3), ease: EASE.move });
+  poserDansLaPlace(ctx, garde, [to.id], { at: t6 + tRes * 0.4, dur: Math.max(1, tRes * 0.3), rang: tete });
 
   // ★ L'ACCOLADE SUIT SA ZONE JUSQU'AU BOUT. Elle embrassait trois nombres,
   //   elle n'en embrasse plus qu'un : garder sa largeur, ne serait-ce que le

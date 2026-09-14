@@ -955,9 +955,7 @@ export function accumulate(ctx, spec) {
   const place = reserverLaPlace(ctx, [...operands, ...consume].filter((id) => ctx.scene.flowIndex(id) >= 0));
   const consumed = [...operands, ...consume, ...copies];
   for (const id of consumed) ctx.scene.kill(id, ctx.where);
-  ctx.scene.enterFlow(to.id, place ? rangDansLaPlace(ctx, place) : (firstIdx < 0 ? undefined : firstIdx), ctx.where);
-  occuperLaPlace(ctx, place, [to.id]);
-  ctx.reflow({ at: tD + tRem * 0.1, dur: Math.max(1, tRem * 0.9), ease: EASE.move });
+  poserDansLaPlace(ctx, place, [to.id], { at: tD + tRem * 0.1, dur: Math.max(1, tRem * 0.9), rang: firstIdx });
   // `garderPlace` : l'émetteur ferme lui-même l'enchaînement (`retirerAccolade`).
   if (!spec.garderPlace) finirSousAccolade(ctx, { at: tD + tRem, dur: Math.max(1, tRet) });
 
@@ -1457,6 +1455,67 @@ export function occuperLaPlace(ctx, place, resultats) {
   const reste = Math.max(0, place.largeur - largeur);
   ctx.scene.get(place.gauche).w = reste / 2;
   ctx.scene.get(place.droite).w = reste / 2;
+}
+
+/** La largeur que prendront `resultats` côte à côte, écart de tête exclu. */
+function largeurDes(ctx, resultats) {
+  const gap = ctx.layoutOpts.gap;
+  return resultats.reduce((l, id, k) => {
+    const n = ctx.scene.live(id, ctx.where);
+    return l + n.w + (k ? (n.gapBefore ?? gap) : 0);
+  }, 0);
+}
+
+/**
+ * ★ **UN RÉSULTAT PLUS LARGE QUE SA PLACE L'OUVRE AVANT DE REMONTER.**
+ *
+ * > « Juste avant que le résultat remonte, l'espace s'élargit à sa largeur
+ * >   réelle. Il se pose sans bousculer, puis l'accolade s'efface et la ligne
+ * >   se réajuste. » (la décision de l'autrice)
+ *
+ * La place gardée tenait la largeur de ce qui était parti ; un produit plus
+ * large que sa base (« 25 » pour « 5 ») la débordait et poussait ses voisins
+ * EN remontant. La cale gauche prend donc d'abord la largeur réelle du
+ * résultat : c'est elle qui écarte les voisins.
+ *
+ * @returns {boolean} la place a-t-elle dû s'ouvrir ?
+ */
+export function ouvrirLaPlace(ctx, place, resultats) {
+  if (!place) return false;
+  const largeur = largeurDes(ctx, resultats);
+  if (largeur <= place.largeur + 0.5) return false;
+  ctx.scene.get(place.gauche).w = largeur;
+  ctx.scene.get(place.droite).w = 0;
+  place.largeur = largeur;
+  return true;
+}
+
+/**
+ * Pose `resultats` — hors du flux, sous l'accolade — dans leur place gardée :
+ * si elle est trop étroite, elle s'ouvre D'ABORD (les voisins s'écartent), PUIS
+ * ils entrent dans le flux et remontent. La même fin pour tout geste.
+ *
+ * @param {{at:number, dur:number, rang?:number, ouverture?:number, ease?:string}} spec
+ *   `rang` : où entrer faute de place gardée ; `ouverture` : la part du temps
+ *   donnée à l'ouverture, quand il y en a une.
+ * @returns {{at:number, dur:number}} l'intervalle de la remontée proprement dite
+ */
+export function poserDansLaPlace(ctx, place, resultats, spec) {
+  const at = spec.at ?? 0;
+  const dur = Math.max(1, spec.dur ?? ctx.dur);
+  let monte = { at, dur };
+  if (ouvrirLaPlace(ctx, place, resultats)) {
+    const dOuv = Math.max(1, dur * (spec.ouverture ?? 0.4));
+    ctx.reflow({ at, dur: dOuv, ease: EASE.move });
+    monte = { at: at + dOuv, dur: Math.max(1, dur - dOuv) };
+  }
+  const rang = place ? rangDansLaPlace(ctx, place) : spec.rang;
+  resultats.forEach((id, k) => {
+    ctx.scene.enterFlow(id, rang === undefined || rang < 0 ? undefined : rang + k, ctx.where);
+  });
+  occuperLaPlace(ctx, place, resultats);
+  ctx.reflow({ at: monte.at, dur: monte.dur, ease: spec.ease || EASE.move });
+  return monte;
 }
 
 /** Les cales s'en vont, chacun reprend son écart : la ligne est prête à se refermer. */
