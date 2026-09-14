@@ -12,6 +12,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { familleDeReglages, formeReglee, vecteursDeSix } from '../assemblage.js';
 import { operateursPourCible } from '../bfs.js';
+import { methodesDeLApproche, mappeurApproche } from '../score.js';
 import { catalogue } from './_catalogue.js';
 
 const PAR_CODE = new Map(catalogue.map((op) => [op.code, op]));
@@ -88,4 +89,22 @@ test('les tables de la liaison gardent tous les réglages (`tousLesReglages`)', 
   const cesars = tous.filter((c) => c.ops.some((o) => familleDeReglages(o) === 'fr'));
   const decalages = new Set(cesars.flatMap((c) => c.ops.filter((o) => familleDeReglages(o) === 'fr').map((o) => o.decalage)));
   assert.ok(decalages.size > 1, 'plusieurs décalages restent offerts à qui les demande tous');
+});
+
+/* ★ LE QUOTA DE LA SÉLECTION DES FAMILLES SE COMPTE PAR MÉTHODES
+     (`score.js › methodesDeLApproche`). Une MOISSON lit chaque portée par la
+     sienne : la compter sous le mappeur de sa première portée lui faisait
+     partager le quota du quatorze segments avec les deux champions de
+     `hope-hope-hope.fr`, et la voie groupée n'entrait pas au cran 0. */
+test('les méthodes d’une voie : son mappeur seul, ou l’ensemble rangé de ceux de ses portées', () => {
+  const chemin = (codes) => ({ ops: codes.split('+').map((c) => PAR_CODE.get(c)) });
+  const voie = (...programmes) => ({ parts: programmes.map((p) => ({ chemin: chemin(p) })) });
+  assert.equal(methodesDeLApproche(voie('fl+tca+m14')), mappeurApproche(voie('fl+tca+m14')),
+    'une voie à une portée garde son mappeur : rien ne change pour elle');
+  const groupee = voie('tca+m14', 'tca+mtc', 'tca+m14', 'tca+mtc', 'tca+m14', 'tca+m7+cs');
+  assert.equal(methodesDeLApproche(groupee), [PAR_CODE.get('m14').id, PAR_CODE.get('mtc').id, PAR_CODE.get('m7').id].sort().join('+'));
+  assert.notEqual(methodesDeLApproche(groupee), mappeurApproche(groupee),
+    'la moisson n’est plus comptée sous le mappeur de sa première portée');
+  assert.equal(methodesDeLApproche(voie('tca+mtc', 'tca+m14')), methodesDeLApproche(voie('tca+m14', 'tca+mtc')),
+    'l’ordre des portées ne change pas la clé');
 });

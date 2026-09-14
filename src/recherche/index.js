@@ -1042,10 +1042,10 @@ export function creerMoteur(catalogue, options = {}) {
       //   places par `ordreTotal` — c'est-à-dire par le barème que le visiteur
       //   vient de régler.
       const parLesRegimes = barèmeDElegance && !ponderation.personnalisee;
-      const choisir = (candidates) => (parLesRegimes
-        ? selectionner(candidates, place, budgets.parMappeur, budgets.lambda)
+      const choisir = (candidates, reglages = {}) => (parLesRegimes
+        ? selectionner(candidates, place, budgets.parMappeur, budgets.lambda, reglages)
         : diversifier(candidates, {
-          limite: place, maxParMappeur: budgets.parMappeur, lambda: budgets.lambda, ponderation,
+          limite: place, maxParMappeur: budgets.parMappeur, lambda: budgets.lambda, ponderation, ...reglages,
         }));
       /* ★ **LA DOUBLE SÉLECTION — la rampe des retouches n'ôte rien.**
            > « Mieux vaut élargir le nombre de résultats pour en faire
@@ -1075,7 +1075,11 @@ export function creerMoteur(catalogue, options = {}) {
       const avantLesFamilles = honnetes.filter((a) => a[NEE_D_UNE_FAMILLE] !== true);
       const historiques = horsGardes ? avantLesFamilles.filter((a) => !horsGardes.has(a)) : avantLesFamilles;
       const desFamilles = avantLesFamilles.length !== honnetes.length
-        ? choisir(honnetes).filter((a) => a[NEE_D_UNE_FAMILLE] === true) : null;
+        // ★ Son quota se compte par MÉTHODES (`score.js › methodesDeLApproche`) :
+        //   au cran 0, la voie groupée de `hope-hope-hope.fr` partageait sinon le
+        //   quota du quatorze segments avec les deux champions, et n'entrait pas.
+        //   Ne pas compter les champions n'y suffisait pas — mesuré.
+        ? choisir(honnetes, { quotaParMethodes: true }).filter((a) => a[NEE_D_UNE_FAMILLE] === true) : null;
       const deLaRampe = historiques.length !== avantLesFamilles.length ? choisir(avantLesFamilles) : null;
       let retenues = choisir(historiques);
       if (jokers.length) retenues.push(jokers[0]);
@@ -2461,7 +2465,7 @@ export function avancementDe(compte) {
  * @param {number} limite
  * @returns {Object[]}
  */
-function selectionner(approches, limite, maxParMappeur, lambda) {
+function selectionner(approches, limite, maxParMappeur, lambda, reglages = {}) {
   if (!approches.length || limite <= 0) return [];
   const tete = champions(approches);
 
@@ -2470,7 +2474,7 @@ function selectionner(approches, limite, maxParMappeur, lambda) {
     // ★ Le quota par mappeur suit le cran, comme les places : sans lui, élargir
     //   la liste ne ferait qu'ajouter des voies d'autres méthodes, jamais les
     //   variantes d'une même méthode que le curseur est censé faire remonter.
-    { limite: limite - tete.length, maxParMappeur, lambda, amorce: tete },
+    { limite: limite - tete.length, maxParMappeur, lambda, amorce: tete, ...reglages },
   );
   for (const a of reste) if (!a.suggestion) a.suggestion = 'mixte';
   return [...tete, ...reste];

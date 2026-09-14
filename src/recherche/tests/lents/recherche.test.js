@@ -1219,8 +1219,10 @@ test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de 
    Le correctif sert d'abord une place par famille de réglages dans les fenêtres
    de la moisson, en RÉUNION avec les fenêtres d'avant (`assemblage.js ›
    moissons`) : la voie groupée est fabriquée à chaque cran, et rien de ce que la
-   liste montrait n'en sort. Elle entre dans la liste dès le cran 2 ; aux crans 0
-   et 1, le quota par mappeur la retient encore (test suivant, `todo`).
+   liste montrait n'en sort. Et le quota de ces voies se compte par MÉTHODES
+   (`score.js › methodesDeLApproche`) : compté sous le seul quatorze segments,
+   il était plein aux crans 0 et 1 avant qu'elle ne soit regardée. Elle est
+   dans la liste à chaque cran, de −1 à 3.
 
    Historique du défaut :
 
@@ -1263,10 +1265,15 @@ test('★ moisson — la voie groupée de `hope-hope-hope.fr` est dans la liste 
   assert.ok(r.approches.some((a) => a.codes === 'fl+tca+m14'), 'la voie brève reste dans la liste');
 });
 
-test('★ moisson — la voie groupée de `hope-hope-hope.fr` est dans la liste dès le cran 0', { todo: 'le quota par mappeur la retient aux crans 0 et 1 : les deux champions sont déjà du quatorze segments' }, () => {
+test('★ moisson — la voie groupée de `hope-hope-hope.fr` est dans la liste dès le cran 0, sous `fl+m14`', () => {
   for (const fouille of [0, 1]) {
     const r = moteurDeLaVoieGroupee.resoudre('hope-hope-hope.fr', { fouille });
-    assert.ok(r.approches.some(estLaVoieGroupee), `cran ${fouille} : la voie groupée est absente des ${r.approches.length} voies`);
+    const i = r.approches.findIndex(estLaVoieGroupee);
+    assert.ok(i >= 0, `cran ${fouille} : la voie groupée est absente des ${r.approches.length} voies`);
+    // « Celle que tu veux en 1ᵉʳ résultat, mais l'autre doit être en 3ᵉ » (l'autrice) :
+    // la brève garde la tête, la groupée la suit de près.
+    assert.equal(r.approches[0].codes, 'fl+tca+m14', `cran ${fouille} : la tête est ${r.approches[0].codes}`);
+    assert.ok(i < 10, `cran ${fouille} : la voie groupée est ${i + 1}ᵉ, trop loin de la tête`);
   }
 });
 

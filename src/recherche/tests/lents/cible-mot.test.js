@@ -254,6 +254,15 @@ test('cible-mot — Sarah Kerrigan → Fantome, rangé puis dissous', () => {
  *   voies, une MOISSON ×6 entre au rang 3 (1 399), aucune ne sort, aucun score
  *   ne change. Les quatre autres couples sont identiques au caractère près.
  *
+ * ★ **IL A ÉTÉ RÉGÉNÉRÉ UNE SIXIÈME FOIS, et voici pourquoi.** LE QUOTA DES VOIES
+ *   NÉES D'UNE FAMILLE SE COMPTE PAR MÉTHODES (`score.js › methodesDeLApproche`) :
+ *   une moisson n'est plus comptée sous le mappeur de sa seule première portée.
+ *   Deux couples bougent, têtes inchangées, entrées seulement :
+ *   `hope-hope-hope.fr → 666`, 27 → 29 voies — une MOISSON ×5 à 3 718 (rang 4)
+ *   et la VOIE GROUPÉE ×5 à 3 603 (rang 5) ; `Sarah Kerrigan → 666`, 17 → 18
+ *   voies — une MOISSON ×3 à 2 642 (rang 6). Aucune voie ne sort, aucun score ne
+ *   change ; les trois autres couples sont identiques au caractère près.
+ *
  * ⚠️ C'est un fil tendu, pas une spécification. Une évolution VOULUE du barème
  *   ou du classement le fera rougir : c'est alors l'instantané qu'on régénère.
  */
