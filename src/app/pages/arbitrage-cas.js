@@ -133,6 +133,39 @@
  *   étaient toutes en désaccord ; aucune n'a été écartée. Les seize liens se
  *   rejouent à l'identique (codes, score, axes).
  *
+ * ★ **ET SEPT CAS DE PLUS : CE QUE LA VARIANTE (c) CHANGERAIT, AUX CURSEURS PAR
+ *   DÉFAUT.** Même question que les huit cas précédents, cette fois avec les
+ *   réglages que voit tout visiteur.
+ *
+ *   `score.js › ordreTotal` classe la liste : au rang des SÉRIES, le nombre de
+ *   séries passe avant le score. Le banc `.planning/banc/series-avant-score.mjs`
+ *   a mesuré trois autres règles :
+ *     · (a) les séries ne départagent que deux scores égaux ;
+ *     · (b) un bonus de séries ;
+ *     · (c) le tri par le score global affiché.
+ *   L'autrice hésite entre (a) et (c) : « Je suis tenté par (c) mais ça
+ *   implique de voir si les changements sont pertinents ou pas. Envoie-les en
+ *   AB-testing. »
+ *
+ *   Aux curseurs par défaut, (c) « liste entière » change 10 têtes sur 13.
+ *   Chaque cas oppose, à la 1ʳᵉ place :
+ *     · À GAUCHE, la tête sous la variante (c) ;
+ *     · À DROITE, la tête actuelle du moteur.
+ *   Un avis « à gauche » plaide pour (c). Un avis « à droite » plaide pour
+ *   garder le classement actuel ou pour la variante (a) : sur ces listes, (a)
+ *   ne change aucune tête. Les cinq premières lignes des deux ordres sont
+ *   notées dans chaque cas, parce qu'une tête ne suffit pas toujours à juger
+ *   une règle de tri.
+ *
+ *   Des dix têtes changées, trois n'ont pas leur cas :
+ *     · `Wikipedia` et `Henri Prunelle` : la paire au défaut est celle de
+ *       leur cas « rang ou score » aux curseurs v2 ;
+ *     · `hope-hope-hope.fr` au cran 3 : même paire qu'au cran 2.
+ *
+ *   Mesurés le 14 septembre 2026 sur `58decb3` par
+ *   `.planning/banc/arbitrage-variante-c.mjs`. Les quatorze liens se rejouent
+ *   à l'identique (codes, score, axes).
+ *
  * ⚠️ Les trois `todo` de moisson qui rougissent encore ne portent PAS sur ce
  *   classement-là : ils gèlent la COMPOSITION de la récolte (les trois « hope »
  *   en quatorze segments, le « fr » en sept segments), et le barème en compose
@@ -312,6 +345,202 @@ export const CAS_ARBITRAGE = Object.freeze([
       date: '2026-09-14',
       avant: { rangMoteur: 1, rangGlobal: 7, global: 638, score: 7694, mode: "RESONANCE", series: null, axes: { simplicite: 677, exhaustivite: 591, quantite: 111, coherence: 876 } },
       apres: { rangMoteur: 5, rangGlobal: 1, global: 818, score: 6355, mode: "GROUPEMENT", series: 4, axes: { simplicite: 1000, exhaustivite: 873, quantite: 444, coherence: 841 } },
+    },
+  },
+  {
+    id: "variante-c-https-hope-hope-hope-fr",
+    place: 1,
+    question: 'classement',
+    titre: "https://hope-hope-hope.fr/ — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
+    saisie: "https://hope-hope-hope.fr/",
+    /* Les cinq premières lignes, relevées avec la paire.
+       Moteur :
+       ·  tca+mch+cs+prn,nc,fr13+nlc+pc9 (3280, g 466, ×1)
+       ·  fr14+tca+m14+mpf,ffr3+tca+m14+mpf,ffr3+tca+m14+mpf,ffr3+tca+m14+mpf,fr… (1274, g 587, ×7)
+       ·  fr14+tca+m14+mpf,ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca+mtc,ffr… (1249, g 578, ×7)
+       ·  fl+tca+mpy+meg (3763, g 827, ×6)
+       ·  fr14+tca+m14+mpf,ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca+mtc+cs,… (1113, g 507, ×6)
+       Variante (c) :
+       ·  fl+tca+mpy+meg (3763, g 827, ×6)
+       ·  0:fr14;fl+tca+m14 (7529, g 823, ×5)
+       ·  fl+tca+mpy+mab (3673, g 695, ×2)
+       ·  fl+tca+mx6+mrdE (3152, g 635, ×1)
+       ·  fi+tca+mazc (3409, g 624, ×1) */
+    avant: "#sce!0:mch+cs+prn,3.5:nc,9:fr13+nlc+pc9#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk",
+    apres: "#sce!fl+mpy+meg#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk",
+    mesure: {
+      commit: '58decb3',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 26, global: 466, score: 3280, mode: "PARTITION", series: null, axes: { simplicite: 348, exhaustivite: 912, quantite: 111, coherence: 491 } },
+      apres: { rangMoteur: 4, rangGlobal: 1, global: 827, score: 3763, mode: "GROUPEMENT", series: 6, axes: { simplicite: 935, exhaustivite: 974, quantite: 667, coherence: 732 } },
+    },
+  },
+  {
+    id: "variante-c-donald-trump",
+    place: 1,
+    question: 'classement',
+    titre: "Donald Trump — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
+    saisie: "Donald Trump",
+    /* Les cinq premières lignes, relevées avec la paire.
+       Moteur :
+       ·  fatb+tca+mt9+mr9,tca+mt9+cmn (4983, g 578, ×2)
+       ·  2:fr15;fl+tca+masc+mab (4272, g 743, ×4)
+       ·  fl+tca+masc+mab (4701, g 715, ×3)
+       ·  fatb+tca+mt9+mr9,fr3+tca+mhe+mrn (4077, g 529, ×3)
+       ·  fr15+tca+mx6+mrn,fr3+tca+mhe+mrn (3921, g 520, ×3)
+       Variante (c) :
+       ·  2:fr15;fl+tca+masc+mab (4272, g 743, ×4)
+       ·  fl+tca+mazc+meg (3447, g 722, ×3)
+       ·  fl+tca+mqwc+meg (3447, g 722, ×3)
+       ·  fl+tca+masc+mab (4701, g 715, ×3)
+       ·  fl+tca+ma1+mab (3684, g 696, ×2) */
+    avant: "#sce!0:fatb+mt9+mr9,2:mt9+cmn#2HuP1G8mNg3sJWhqR",
+    apres: "#sce!2:fr15;fl+masc+mab#2HuP1G8mNg3sJWhqR",
+    mesure: {
+      commit: '58decb3',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 9, global: 578, score: 4983, mode: "MOISSON", series: 2, axes: { simplicite: 644, exhaustivite: 867, quantite: 222, coherence: 577 } },
+      apres: { rangMoteur: 2, rangGlobal: 1, global: 743, score: 4272, mode: "GROUPEMENT", series: 4, axes: { simplicite: 877, exhaustivite: 1000, quantite: 444, coherence: 650 } },
+    },
+  },
+  {
+    id: "variante-c-macron",
+    place: 1,
+    question: 'classement',
+    titre: "Macron — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
+    saisie: "Macron",
+    /* Les cinq premières lignes, relevées avec la paire.
+       Moteur :
+       ·  fr20+tca+mazc+mrdE (6152, g 652, ×1)
+       ·  fr13+tca+m14+meg (6443, g 701, ×2)
+       ·  fr8+tca+msfr+meg (3575, g 691, ×2)
+       ·  fr21+tca+mt9+meg (3569, g 691, ×2)
+       ·  fr4+tca+masc+mdc3 (2179, g 581, ×2)
+       Variante (c) :
+       ·  fr13+tca+m14+meg (6443, g 701, ×2)
+       ·  fr8+tca+msfr+meg (3575, g 691, ×2)
+       ·  fr21+tca+mt9+meg (3569, g 691, ×2)
+       ·  tca+mz26+mab (5333, g 673, ×1)
+       ·  tca+mt9+mpf (5238, g 662, ×1) */
+    avant: "#sce!fr20+mazc+mrdE#fXvexbmf",
+    apres: "#sce!fr13+m14+meg#fXvexbmf",
+    mesure: {
+      commit: '58decb3',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 6, global: 652, score: 6152, mode: "GROUPEMENT", series: 1, axes: { simplicite: 935, exhaustivite: 1000, quantite: 111, coherence: 561 } },
+      apres: { rangMoteur: 2, rangGlobal: 1, global: 701, score: 6443, mode: "GROUPEMENT", series: 2, axes: { simplicite: 935, exhaustivite: 1000, quantite: 222, coherence: 648 } },
+    },
+  },
+  {
+    id: "variante-c-hope-hope-hope-fr-cran-2",
+    place: 1,
+    question: 'classement',
+    titre: "hope-hope-hope.fr — 1ʳᵉ place, curseurs par défaut, cran 2 : la tête au score global (c), ou la tête actuelle",
+    saisie: "hope-hope-hope.fr",
+    /* Les cinq premières lignes, relevées avec la paire.
+       Moteur :
+       ·  nc,nsp+mlet+nlc+pc9,tca+ma1+cs+prn (2442, g 481, ×1)
+       ·  ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca… (1297, g 560, ×6)
+       ·  ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,fr1… (1190, g 536, ×6)
+       ·  ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,fr7… (1153, g 527, ×6)
+       ·  0:ffr4;fl+tca+m14+meg (4914, g 794, ×5)
+       Variante (c) :
+       ·  fl+tca+m14 (7843, g 804, ×4)
+       ·  0:ffr4;fl+tca+m14+meg (4914, g 794, ×5)
+       ·  2:ffr4;fl+tca+m14+meg (4914, g 794, ×5)
+       ·  4:ffr4;fl+tca+m14+meg (4914, g 794, ×5)
+       ·  0:ffr2;fl+tca+m14+meg (3396, g 775, ×5) */
+    avant: "#sce!f2!0.5:nc,5:nsp+mlet+nlc+pc9,6:ma1+cs+prn#yvQYkzhNVYJT8wM8jhvJxSM",
+    apres: "#sce!f2!fl+m14#yvQYkzhNVYJT8wM8jhvJxSM",
+    mesure: {
+      commit: '58decb3',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 45, global: 481, score: 2442, mode: "PARTITION", series: null, axes: { simplicite: 313, exhaustivite: 1000, quantite: 111, coherence: 498 } },
+      apres: { rangMoteur: 14, rangGlobal: 1, global: 804, score: 7843, mode: "GROUPEMENT", series: 4, axes: { simplicite: 1000, exhaustivite: 929, quantite: 444, coherence: 841 } },
+    },
+  },
+  {
+    id: "variante-c-hope",
+    place: 1,
+    question: 'classement',
+    titre: "hope — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
+    saisie: "hope",
+    /* Les cinq premières lignes, relevées avec la paire.
+       Moteur :
+       ·  fr21+tca+masc+mrdE (5010, g 650, ×1)
+       ·  ffr3+tca+m14+meg (4235, g 654, ×2)
+       ·  ffr2+tca+m14+meg (2952, g 654, ×2)
+       ·  fr2+tca+masb+mdc3 (2098, g 576, ×2)
+       ·  ffr2+tca+masc+mdc3 (1769, g 568, ×2)
+       Variante (c) :
+       ·  ffr3+tca+m14+meg (4235, g 654, ×2)
+       ·  ffr2+tca+m14+meg (2952, g 654, ×2)
+       ·  ffr2+tca+ma1+mab (3705, g 651, ×1)
+       ·  fr21+tca+masc+mrdE (5010, g 650, ×1)
+       ·  fr2+tca+masb+mdc3 (2098, g 576, ×2) */
+    avant: "#sce!fr21+masc+mrdE#3fq9KJ",
+    apres: "#sce!ffr3+m14+meg#3fq9KJ",
+    mesure: {
+      commit: '58decb3',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 4, global: 650, score: 5010, mode: "GROUPEMENT", series: 1, axes: { simplicite: 935, exhaustivite: 1000, quantite: 111, coherence: 553 } },
+      apres: { rangMoteur: 2, rangGlobal: 1, global: 654, score: 4235, mode: "GROUPEMENT", series: 2, axes: { simplicite: 935, exhaustivite: 833, quantite: 222, coherence: 626 } },
+    },
+  },
+  {
+    id: "variante-c-eleonore-a-nimes",
+    place: 1,
+    question: 'classement',
+    titre: "Éléonore à Nîmes — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
+    saisie: "Éléonore à Nîmes",
+    /* Les cinq premières lignes, relevées avec la paire.
+       Moteur :
+       ·  nc+pc9,fen5+nc+pc9,nc+pc9 (3739, g 557, ×1)
+       ·  2:fen5;fl+tca+masc+mdc3 (2381, g 778, ×8)
+       ·  2:ffr4;fl+tca+m14+meg (3824, g 829, ×6)
+       ·  2:fen3;fl+tca+m14+meg (3721, g 823, ×6)
+       ·  0:fr16;fl+tca+masc+mdc3 (2550, g 730, ×6)
+       Variante (c) :
+       ·  2:ffr4;fl+tca+m14+meg (3824, g 829, ×6)
+       ·  2:fen3;fl+tca+m14+meg (3721, g 823, ×6)
+       ·  2:fen5;fl+tca+masc+mdc3 (2381, g 778, ×8)
+       ·  0:fr16;fl+tca+masc+mdc3 (2550, g 730, ×6)
+       ·  fl+tca+ma1+mab (3684, g 696, ×2) */
+    avant: "#sce!0+4:nc+pc9,2:fen5+nc+pc9#3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
+    apres: "#sce!2:ffr4;fl+m14+meg#3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
+    mesure: {
+      commit: '58decb3',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 10, global: 557, score: 3739, mode: "PARTITION", series: null, axes: { simplicite: 712, exhaustivite: 818, quantite: 111, coherence: 588 } },
+      apres: { rangMoteur: 3, rangGlobal: 1, global: 829, score: 3824, mode: "GROUPEMENT", series: 6, axes: { simplicite: 935, exhaustivite: 1000, quantite: 667, coherence: 714 } },
+    },
+  },
+  {
+    id: "variante-c-numherololgeek",
+    place: 1,
+    question: 'classement',
+    titre: "numherololgeek.1000i100.fr — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
+    saisie: "numherololgeek.1000i100.fr",
+    /* Les cinq premières lignes, relevées avec la paire.
+       Moteur :
+       ·  nv,tca+cnjd+pc9,fr13+nlc+pc9 (3891, g 456, ×1)
+       ·  0:fr3;fl+tca+mazc+meg (3061, g 738, ×5)
+       ·  3:fatb;fl+tca+mazc+meg (3061, g 738, ×5)
+       ·  fl+tca+mqwc+meg (3061, g 738, ×5)
+       ·  fr5+tca+masb+mdc3 (1459, g 573, ×5)
+       Variante (c) :
+       ·  0:fr3;fl+tca+mazc+meg (3061, g 738, ×5)
+       ·  3:fatb;fl+tca+mazc+meg (3061, g 738, ×5)
+       ·  fl+tca+mqwc+meg (3061, g 738, ×5)
+       ·  fl+tca+ma1+mab (3131, g 649, ×2)
+       ·  fl+tca+mpy+meg (2409, g 644, ×3) */
+    avant: "#sce!0:nv,2.2:cnjd+pc9,5:fr13+nlc+pc9#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
+    apres: "#sce!0:fr3;fl+mazc+meg#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
+    mesure: {
+      commit: '58decb3',
+      date: '2026-09-14',
+      avant: { rangMoteur: 1, rangGlobal: 22, global: 456, score: 3891, mode: "PARTITION", series: null, axes: { simplicite: 387, exhaustivite: 886, quantite: 111, coherence: 441 } },
+      apres: { rangMoteur: 2, rangGlobal: 1, global: 738, score: 3061, mode: "GROUPEMENT", series: 5, axes: { simplicite: 935, exhaustivite: 753, quantite: 556, coherence: 709 } },
     },
   },
 ]);
