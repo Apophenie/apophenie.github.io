@@ -147,15 +147,45 @@ test('score arbitre 12 — hope-hope-hope.fr (défaut, cran 2) : fl+m14 mène, l
 });
 
 /* ⚠️ TODO — CE N'EST PAS LE CLASSEMENT, C'EST LA SÉLECTION DES CANDIDATS.
-     `tca+m14` sur « hope » vaut 7 301 au moteur et 704 au global : il
-     mènerait. Mais aux curseurs par défaut, `assemblage.js › vecteursDeSix`
-     garde son pré-tri historique « au bit près » (la réserve de qualité ne se
-     range par `noteDeQualite` que si un curseur a bougé) : `m14` n'y rend que
-     quatre 6 et sort 18ᵉ, quand le cran 0 coupe à 16. Mesuré : quantité à 99,
-     il est 4ᵉ et mène la liste. Le correctif vit dans l'assemblage, où un
-     autre chantier optimise : il est signalé, pas fait ici. */
+
+   ★ **RAISON REMESURÉE LE 16 SEPTEMBRE 2026 — et l'ancienne était FAUSSE.**
+     Deux correctifs ont été écrits, mesurés, puis écartés. Le `todo` reste
+     ouvert, mais il dit enfin le vrai : ce n'est pas la porte qu'on croyait.
+
+   `tca+m14` sur « hope » vaut 7 301 au moteur et 704 au global : il mènerait.
+   L'ancienne explication — « la réserve de qualité ne se range par
+   `noteDeQualite` que si un curseur a bougé » — est RÉFUTÉE : lever cette
+   porte ne change RIEN à « hope » (8 voies avant, 8 après, aucune entrée).
+
+   Où il se perd, au vecteur près (sonde sur `vecteursDeSix('hope', …)`) :
+    · matière brute, sans mise en forme : `tca+m14` est **21ᵉ** sur 606 ;
+    · après mise en forme, plafond infini : **16ᵉ** sur 50 ;
+    · au plafond du cran 0 (`K_PAR_FRAGMENT` × 2 = 16) : **ABSENT** — la réserve
+      et les élus réarrangent la fenêtre, et il n'y survit pas ;
+    · aux plafonds 32 et 64 : 16ᵉ, donc présent. **La borne est le verrou.**
+   Ce qui le précède est presque tout `ffr*` (traductions) et `fr*` (César) :
+   le pré-tri range par COMPTE de 6, et une traduction en rapporte souvent un de
+   plus qu'une lecture franche — elle change les lettres avant de les compter.
+
+   Les deux correctifs mesurés, et pourquoi ils sont écartés :
+    1. **ranger la réserve par `noteDeQualite` à tous les curseurs** : « hope »
+       inchangé, et TROIS têtes publiées tombent — `Macron` passe de
+       `fr13+m14+meg` à `mt9` (c'est le cas 11, que l'autrice a tranché dans
+       l'autre sens), « Sarah Kerrigan → 666 » à `fl+m7`, « Sarah Kerrigan → 13 »
+       à `tm+mlm+mrd` ; 32 voies sortent des listes publiées, et
+       `score-intermediaire.test.js › ★ réserve — simplicité à 200` rougit ;
+    2. **appliquer au dernier recours le palier de la ficelle** dans le pré-tri
+       (sur `o.recours`, la propriété déclarée que le global lit déjà) : `m14`
+       reste hors des seize, aucune tête ne bouge, mais 25 voies sortent — dont
+       trois traductions de « hope » — et `familles.test.js › sans parFamille,
+       la matière rend la fenêtre d'avant` rougit.
+
+   Ce qui reste à arbitrer, et qui dépasse la correction d'un tri : faire entrer
+   `m14` demande d'ÉLARGIR la fenêtre du cran 0, ou de lui réserver un siège au
+   score global. Les deux changent la MATIÈRE de toutes les listes, pas
+   seulement celle de « hope » — c'est à l'autrice de le vouloir. */
 test('score arbitre 13 — hope (défaut) : le simple m14 est dans la liste, et il mène', {
-  todo: 'm14 écarté par le pré-tri des sièges de vecteursDeSix aux curseurs par défaut (assemblage.js)',
+  todo: 'm14 hors de la fenêtre de 16 du cran 0 (assemblage.js › vecteursDeSix) — deux correctifs mesurés et écartés, voir le pavé',
 }, () => {
   const l = liste('hope');
   assert.ok(rang(l, 'm14') > 0, `m14 absent de la liste — ${resume(l)}`);
