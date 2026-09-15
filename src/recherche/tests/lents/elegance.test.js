@@ -883,16 +883,25 @@ test('★ ficelles — aucune ne figure en tête des quatre cas de référence',
     // ★ Les comptes ont monté d'une série : `MAX_SERIES` rabotait le COMPTAGE
     //   et non l'affichage (`assemblage.js`). Ce que la recherche trouve ici,
     //   elle le trouvait déjà — elle ne pouvait pas le compter.
+  /* ★ AMENDEMENT DU 15 SEPTEMBRE 2026 — les comptes suivent les verdicts de
+       l'autrice (`.planning/arbitrages/2026-09-15-rang-ou-score.md`). Les deux
+       premières lignes se choisissent au global recalibré
+       (`index.js › rangerParLeGlobal`), et les voies plus fournies de ces
+       quatre saisies passent toutes par un dernier recours — traduction ou
+       absorption — que le global renvoie plus bas :
+        · `hope-hope-hope.fr` — `fl+m14`, quatre séries : « simple et
+          efficace » (cas 12) ; les moissons à six traduisent « hope » ;
+        · `https://hope-hope-hope.fr/` — `fl+mpy+meg`, six séries : « pas mal »
+          (cas 9) ; les moissons à sept traduisent aussi ;
+        · « Donald Trump » — trois séries, sans `mab` : « côté score global,
+          mab c'est dommage » (cas 10). La voie à quatre qui absorbe reste dans
+          la liste (« toujours proposer un chemin sans aucune perte, même s'il
+          ne remonte pas toujours en premier résultat »), elle ne mène plus.
+       Ce que le test garde intact : AUCUNE FICELLE sur les deux lignes. */
   const attendus = {
-    'hope-hope-hope.fr': 6,
-    'https://hope-hope-hope.fr/': 7,
-    // ★ Quatre depuis l'ABSORPTION (`mab`) : « toujours proposer un chemin sans
-    //   aucune perte, même s'il ne remonte pas toujours en premier résultat »
-    //   (l'auteur). La 1ʳᵉ place reste la moisson à trois séries qui jette
-    //   deux valeurs ; la 2ᵈ — « la plus fournie », retenue parce qu'elle en a
-    //   plus — devient `2:fr15;fl+tca+masc+mab`, quatre séries, rien de jeté.
-    //   Ce n'est pas une ficelle : elle absorbe, elle n'écarte pas.
-    'Donald Trump': 4,
+    'hope-hope-hope.fr': 4,
+    'https://hope-hope-hope.fr/': 6,
+    'Donald Trump': 3,
     Macron: 2,
   };
   for (const [saisie, series] of Object.entries(attendus)) {
@@ -1650,14 +1659,20 @@ test('★ étalonnage — les quatre cas de référence gardent leur tête de li
      les codes — nommer une voie qui a été battue reviendrait à figer le
      classement d'hier. */
   const attendu = [
-    ['hope-hope-hope.fr', 'MOISSON', 6, null],
-    ['https://hope-hope-hope.fr/', 'MOISSON', 7, null],
-    /* ★ « Donald Trump » : quatre séries en GROUPEMENT depuis l'absorption
-       (`mab`) — `2:fr15;fl+tca+masc+mab`, rien de jeté. La moisson à trois
-       séries garde la 1ʳᵉ place ; c'est la 2ᵈ, « la plus fournie », qui
-       change de main, et à bon droit : elle en a une de plus et ne jette rien.
-       « Toujours proposer un chemin sans aucune perte » (l'auteur). */
-    ['Donald Trump', 'GROUPEMENT', 4, null],
+    /* ★ AMENDEMENT DU 15 SEPTEMBRE 2026 — les têtes des verdicts de l'autrice
+         (`.planning/arbitrages/2026-09-15-rang-ou-score.md`), choisies au
+         global recalibré (`index.js › rangerParLeGlobal`) : `fl+m14` « simple
+         et efficace » (cas 12), `fl+mpy+meg` « pas mal » (cas 9). Les moissons
+         plus fournies de ces deux saisies traduisent « hope » : dernier
+         recours, elles reculent. */
+    ['hope-hope-hope.fr', 'GROUPEMENT', 4, 'fl+tca+m14'],
+    ['https://hope-hope-hope.fr/', 'GROUPEMENT', 6, 'fl+tca+mpy+meg'],
+    /* ★ « Donald Trump » : trois séries, sans absorption — « côté score
+       global, mab c'est dommage » (cas 10). La voie à quatre séries qui absorbe
+       (`2:fr15;fl+tca+masc+mab`) reste proposée plus bas ; les deux voies à
+       trois séries sont à égalité de global (`mazc`, `mqwc`) : on gèle le
+       compte et le mode, pas les codes. */
+    ['Donald Trump', 'GROUPEMENT', 3, null],
     /* ★ **`Macron` : L'ARBITRAGE EST TRANCHÉ, ET IL VA À LA VOIE FOURNIE.**
 
        L'auteur avait d'abord nommé `tca+mt9+mpf` — « très peu d'étapes ». Puis,

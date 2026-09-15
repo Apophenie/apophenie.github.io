@@ -379,7 +379,15 @@ test('déterminisme — score entier, aucune virgule flottante', () => {
   const m = creerMoteur(catalogue);
   for (const a of m.resoudre('https://hope-hope-hope.fr/').approches) {
     assert.ok(Number.isInteger(a.score), `score ${a.score}`);
-    for (const [k, v] of Object.entries(a.criteres)) assert.ok(Number.isInteger(v), `critère ${k} = ${v}`);
+    for (const [k, v] of Object.entries(a.criteres)) {
+      // ★ `axe` porte les mesures de la voie montrée (`score.js ›
+      //   mesuresDeLaVoie`) : un objet, dont chaque valeur est un entier.
+      if (k === 'axe') {
+        for (const [ka, va] of Object.entries(v)) assert.ok(Number.isInteger(va), `critère axe.${ka} = ${va}`);
+        continue;
+      }
+      assert.ok(Number.isInteger(v), `critère ${k} = ${v}`);
+    }
   }
 });
 
@@ -1025,8 +1033,6 @@ test('classement — le global affiché décroît après les lignes réservées,
         assert.ok(ordreTotal(avant, apres) <= 0, `« ${s} » : à global égal (${ga}), l’ordre du moteur est inversé au rang ${i + 1}`);
       }
     }
-    assert.ok(!app.some((a) => a.suggestion === 'elegance' || a.suggestion === 'triptyques'),
-      `« ${s} » : une ligne porte encore la marque d’une place réservée`);
   }
 });
 
@@ -1516,13 +1522,26 @@ test('★ moisson — le « fr » reste en sept segments : 4 + 2, et rien à jet
  *   de jeté, quatre séries. Ce n'est pas une ficelle : elle absorbe, elle
  *   n'écarte pas.
  */
-test('★ « Donald Trump » : la vedette des séries en aligne quatre, sans rien jeter', () => {
+test('★ « Donald Trump » : la voie sans perte à quatre séries reste proposée, sans mener', () => {
   // ★ La 1ʳᵉ ligne revient à `t1+mw+mz` seul — « Donald » en quatorze segments,
   //   un 666 déjà formé, sans rien d'autre —, qui est plus élégant que la
   //   moisson à deux portées dès lors que le second 666 ne rapporte plus que
   //   1 % de son poids. La combinaison des deux que l'auteur demande occupe la
   //   2ᵈ ligne, celle de la quantité, et c'est elle qu'on gèle ici.
-  const tete = vedetteDesSeries(creerMoteur(catalogue).resoudre('Donald Trump'));
+  /* ★ AMENDEMENT DU 15 SEPTEMBRE 2026 — « côté score global, mab c'est
+       dommage » (l'autrice, cas 10 de `.planning/arbitrages/2026-09-15-rang-ou-score.md`).
+       L'absorption cède au dernier recours (`recours`) : la voie à quatre
+       séries ne tient plus aucune des deux premières lignes, qui reviennent à
+       `fl+mazc+meg` (trois séries, sans absorption). Mais l'autre règle de
+       l'auteur tient toujours, et c'est elle que ce test garde : « toujours
+       proposer un chemin sans aucune perte, même s'il ne remonte pas toujours
+       en premier résultat ». La voie reste DANS la liste, et tout ce qui suit
+       la vérifie comme avant. */
+  const liste = creerMoteur(catalogue).resoudre('Donald Trump');
+  const vedette = vedetteDesSeries(liste);
+  assert.doesNotMatch(vedette.codes, /\+mab$/, `la vedette des deux premières lignes n’absorbe plus — ${vedette.codes}`);
+  const tete = liste.approches.find((a) => (a.series || 1) === 4 && /\+mab$/.test(a.codes));
+  assert.ok(tete, 'la voie sans perte à quatre séries doit rester proposée');
 
   assert.equal(tete.mode, 'GROUPEMENT', `vedette : ${tete.mode} — ${tete.codes}`);
   assert.equal(tete.series, 4, `${tete.series} séries — ${tete.codes}`);

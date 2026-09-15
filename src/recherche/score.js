@@ -646,8 +646,19 @@ function mesuresDeLaVoie(approche, chemins, bilan, rendement, criteres) {
  *   champions) et départagent deux globaux égaux. L'ordre montré est celui-ci
  *   (`index.js › rangerParLeGlobal`).
  */
+/*
+ * ★ **LA CONVERGENCE RESTE DERNIÈRE**, avant même le global. C'est une règle de
+ *   l'autrice que les verdicts du 15 septembre ne révoquent pas — « les mêmes
+ *   caractères y servent trois fois » —, et aucun des quatre axes ne la mesure :
+ *   le global la laissait passer devant un groupement (mesuré sur « hope » au
+ *   rang 6, `recherche.test.js › la convergence passe derrière`). Même repli
+ *   que `ordreElegance` : ce qui démontre sur des caractères non réemployés,
+ *   puis le reste.
+ */
 export function ordreGlobal(curseurs, secours = ordreTotal) {
-  return (a, b) => ((scoreGlobal(b, curseurs) ?? -1) - (scoreGlobal(a, curseurs) ?? -1)) || secours(a, b);
+  const derniere = (a) => (rangConviction(a) === RANG.CONVERGENCE ? 1 : 0);
+  return (a, b) => (derniere(a) - derniere(b))
+    || ((scoreGlobal(b, curseurs) ?? -1) - (scoreGlobal(a, curseurs) ?? -1)) || secours(a, b);
 }
 
 /**

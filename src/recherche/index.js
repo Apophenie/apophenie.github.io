@@ -35,7 +35,7 @@ import {
 import { scoreGlobal } from './score.js';
 import {
   noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, ordreGlobal,
-  meriteDEleganceGlobal, REGLAGES,
+  meriteDEleganceGlobal, rangConviction, RANG, REGLAGES,
   ponderer, normaliserCurseurs, pourcentagesDe, scoresParAxe,
   CURSEURS, CURSEUR_DEFAUT, CURSEUR_MAX, CURSEURS_DEFAUT, CORRESPONDANCE,
   facteurDEcartAuxCurseurs, ordreDExactitude, ometLaPonctuation,
@@ -2692,7 +2692,13 @@ function rangerParLeGlobal(liste, ponderation, reservees = false) {
     const eligibles = honnetes.filter((a) => !estUneExtension(a));
     // `honnetes` est rangé par le global : `filter` garde cet ordre, et un `>`
     // strict garde la première des ex æquo — le départage est l'ordre total.
-    const base = eligibles.length ? eligibles : honnetes;
+    // ★ Et la CONVERGENCE ne tient une ligne réservée que s'il n'y a qu'elle —
+    //   la règle de `ordreGlobal`, qui la range dernière.
+    const nonConvergentes = (liste) => {
+      const autres = liste.filter((a) => rangConviction(a) !== RANG.CONVERGENCE);
+      return autres.length ? autres : liste;
+    };
+    const base = nonConvergentes(eligibles.length ? eligibles : honnetes);
     const merite = (a) => meriteDEleganceGlobal(a, curseurs) ?? -1;
     let elegante = base[0];
     for (const a of base) if (merite(a) > merite(elegante)) elegante = a;
