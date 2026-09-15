@@ -540,9 +540,10 @@ export function scoreGlobal(approche, curseurs, options) {
  *    que trois méthodes au hasard (cas 8). Une partition à trois méthodes
  *    distinctes garde l'homogénéité par paires : repliée, elle serait montée
  *    devant du simple — mesuré, et c'est ce que l'autrice refuse.
- *  · **Le bloc court laissé de côté (le `.fr`) ne coûte pas en couverture** :
- *    c'est l'exception que le barème accorde déjà (`EFFACE_BLOC_COURT`,
- *    `estPur`), et la couverture l'ignorait.
+ *  · **Le bloc court laissé de côté (le `.fr`) coûte moitié en couverture** :
+ *    c'est l'exception que le barème accorde déjà (`EFFACE_BLOC_COURT` vaut la
+ *    moitié d'`EFFACE_BLOC`), et la couverture l'ignorait. Pas davantage : « ne
+ *    plus le pénaliser du tout me semble une erreur » (l'autrice).
  *  · **Une sélection min/max jette des valeurs** : le rendement le voit. « Il y
  *    a quand même 4 chiffres virés avec ce cmn » (cas 10).
  *  · **Le dernier recours cède de la cohérence** : chaque opérateur distinct
@@ -586,10 +587,20 @@ function mesuresDeLaVoie(approche, chemins, bilan, rendement, criteres) {
     H = Math.floor(somme / chemins.length);
   }
 
+  // ★ LE BLOC COURT LAISSÉ DE CÔTÉ SE PAIE MOINS, PAS PLUS DU TOUT. « Le
+  //   pénaliser moins me va, ne plus le pénaliser du tout me semble une
+  //   erreur » (l'autrice). On lui rend la MOITIÉ de sa part dans la couverture
+  //   du moteur : c'est le rapport que le barème pose déjà entre un bloc court
+  //   et un bloc entier (`elegance.js › EFFACE_BLOC_COURT` 10, `EFFACE_BLOC` 20).
+  //   ⚠️ Sur la couverture DU MOTEUR (`brut`), et seulement là où un bloc court
+  //   manque : la première version relisait U sur le bilan pour toutes les
+  //   voies, et déplaçait celles qui n'avaient rien laissé de court (mesuré :
+  //   `fl+mqwc+meg` passait de 753 à 739 d'exhaustivité).
   let U = criteres.U;
   const ab = bilan && bilan.abandons;
-  if (ab && !ab.opaque && ab.signifiants > 0) {
-    U = critereCouverture(Math.min(ab.signifiants, (ab.lus || 0) + (ab.blocCourt || 0)), ab.signifiants);
+  if (ab && !ab.opaque && ab.signifiants > 0 && (ab.blocCourt || 0) > 0 && criteres.brut !== undefined) {
+    const rendu = Math.floor((ab.blocCourt * MILLE) / (2 * ab.signifiants));
+    U = critereCouverture(Math.min(MILLE, criteres.brut + rendu), MILLE);
   }
 
   let R = rendement;
@@ -637,6 +648,36 @@ function mesuresDeLaVoie(approche, chemins, bilan, rendement, criteres) {
  */
 export function ordreGlobal(curseurs, secours = ordreTotal) {
   return (a, b) => ((scoreGlobal(b, curseurs) ?? -1) - (scoreGlobal(a, curseurs) ?? -1)) || secours(a, b);
+}
+
+/**
+ * ★ **LE MÉRITE D'ÉLÉGANCE, DÉDUIT DU GLOBAL** — la clé de la ligne réservée
+ * « Élégance » (`index.js › rangerParLeGlobal`).
+ *
+ * > « Garde les deux mais sur la base du score global. » (l'autrice)
+ *
+ * Le global affiché, mais la quantité n'y pèse que 1 % de sa part : le même
+ * 1 % que la 1ʳᵉ place a toujours donné au compte de séries
+ * (`POIDS_DES_REGIMES.elegance.quantite`, « l'élégance prime ; la quantité ne
+ * pèse que 1 % »). Ce qui change, c'est ce qu'il lit : les quatre axes
+ * recalibrés, qui voient la notoriété, l'ad hoc, la concision et le dernier
+ * recours — l'ancien mérite ne voyait que le crédit, la couverture et le
+ * rendement, et une partition au complément à 9 y battait `fl+m14`.
+ *
+ * Entier, borné par les axes : aucun flottant n'en sort (§4.4).
+ */
+export function meriteDEleganceGlobal(approche, curseurs) {
+  const axes = scoresParAxe(approche);
+  const parts = pourcentagesDe(curseurs);
+  let somme = 0;
+  let poids = 0;
+  for (const axe of CURSEURS) {
+    if (axes[axe] === null || axes[axe] === undefined) continue;
+    const w = (parts[axe] ?? 0) * (axe === 'quantite' ? POIDS_DES_REGIMES.elegance.quantite : MILLE);
+    somme += w * axes[axe];
+    poids += w;
+  }
+  return poids ? Math.round(somme / poids) : null;
 }
 
 export function scoresParAxe(approche, { montree = true } = {}) {
@@ -1579,7 +1620,7 @@ export function noter(approche, ctx) {
     H, N, U, C, A, E, brut, G: approche.elegance,
     ...(rendement === null ? {} : { R: rendement }),
     // ★ Ce que la carte montre, et donc ce qui classe (`mesuresDeLaVoie`).
-    axe: mesuresDeLaVoie(approche, chemins, bilan, rendement, { H, U }),
+    axe: mesuresDeLaVoie(approche, chemins, bilan, rendement, { H, U, brut }),
   };
   approche.L = L;
   approche.codes = chemins.map((c) => c.ops.map((o) => o.code).join('+')).join(',');

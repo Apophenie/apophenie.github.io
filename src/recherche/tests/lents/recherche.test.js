@@ -999,21 +999,25 @@ test('★ un lien de décret d’avant la suppression se rejoue encore', () => {
  * L'autrice a tranché les quinze cas « rang ou score »
  * (`.planning/arbitrages/2026-09-15-rang-ou-score.md`) : la tête au global
  * affiché l'emporte, une fois le global recalibré (`score.js ›
- * mesuresDeLaVoie`). Les rangs de conviction et les deux lignes réservées ne
- * rangent donc plus la liste (`index.js › rangerParLeGlobal`) ; ils continuent
- * de décider QUI y entre. Ce qui est exigé désormais, et c'est encore le « le
- * tri a l'air cassé » :
- *  · le global affiché ne remonte jamais le long de la liste ;
+ * mesuresDeLaVoie`). Les rangs de conviction ne rangent donc plus la liste
+ * (`index.js › rangerParLeGlobal`) ; ils continuent de décider QUI y entre. Les
+ * deux lignes réservées — Élégance, Abondance — se choisissent au global
+ * elles aussi, et gardent la tête. Ce qui est exigé désormais, et c'est encore
+ * le « le tri a l'air cassé » :
+ *  · APRÈS les lignes réservées, le global affiché ne remonte jamais ;
  *  · à global égal, l'ordre du moteur départage ;
  *  · le joker reste en dernier.
  */
-test('classement — le global affiché décroît le long de la liste, le joker en dernier', () => {
+test('classement — le global affiché décroît après les lignes réservées, le joker en dernier', () => {
   const m = creerMoteur(catalogue);
   for (const s of [...SAISIES_LISTE, 'https://hope-hope-hope.fr/']) {
     const app = m.resoudre(s).approches;
     const honnetes = app.filter((a) => a.mode !== 'JOKER');
     assert.deepEqual(app.slice(0, honnetes.length), honnetes, `« ${s} » : le joker n’est pas en dernier`);
-    for (let i = 1; i < honnetes.length; i++) {
+    const reservees = honnetes.filter((a) => a.suggestion === 'elegance' || a.suggestion === 'triptyques').length;
+    assert.deepEqual(honnetes.slice(0, reservees).map((a) => a.suggestion),
+      ['elegance', 'triptyques'].slice(0, reservees), `« ${s} » : les lignes réservées ne sont pas en tête`);
+    for (let i = reservees + 1; i < honnetes.length; i++) {
       const [avant, apres] = [honnetes[i - 1], honnetes[i]];
       const [ga, gb] = [scoreGlobal(avant, CURSEURS_DEFAUT), scoreGlobal(apres, CURSEURS_DEFAUT)];
       assert.ok(gb <= ga, `« ${s} » : global ${ga} puis ${gb} au rang ${i + 1} — le tri a l’air cassé`);

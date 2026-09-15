@@ -36,6 +36,15 @@ if (comparer) {
     if (teteChange) tetes++;
     console.log(`── ${cle} : ${a.length} → ${b.length} voies${b.length === 0 ? ' ⚠️ LISTE VIDE' : ''}`);
     console.log(`   tête : ${a[0] ? `${a[0].voie} (s ${a[0].score}, g ${a[0].global})` : '—'} → ${b[0] ? `${b[0].voie} (s ${b[0].score}, g ${b[0].global})` : '—'}${teteChange ? '   ★ CHANGE' : ''}`);
+    // Les deux lignes réservées, par leur marque (`suggestion`), avant et après.
+    const ligne = (liste, marque) => {
+      const x = liste.find((y) => y.suggestion === marque);
+      return x ? `${x.voie} (g ${x.global}, #${x.rang})` : '—';
+    };
+    for (const [marque, nom] of [['elegance', 'Élégance'], ['triptyques', 'Abondance']]) {
+      const [la, lb] = [ligne(a, marque), ligne(b, marque)];
+      if (la !== '—' || lb !== '—') console.log(`   ${nom} : ${la} → ${lb}`);
+    }
     if (sont.length) console.log(`   sorties : ${sont.join(' · ')}`);
     if (ent.length) console.log(`   entrées : ${ent.join(' · ')}`);
   }

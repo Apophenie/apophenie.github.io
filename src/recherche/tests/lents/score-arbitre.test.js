@@ -176,6 +176,46 @@ test('score arbitre 15 — numherololgeek.1000i100.fr (défaut) : une voie meg s
   assert.ok(horsDesCinq(l, '0:nv,2.2:cnjd+pc9,5:fr13+nlc+pc9'), resume(l));
 });
 
+/* ★ LES DEUX LIGNES RÉSERVÉES, CHOISIES AU GLOBAL — « garde les deux mais sur
+     la base du score global, et "élégance" et "abondance" me va bien »
+     (l'autrice). Elles n'existent qu'aux curseurs par défaut, comme avant.
+     Ce qu'on exige d'elles sur les sept cas du corpus à ces curseurs :
+      · aucune des deux n'est une voie que l'autrice a écartée ;
+      · l'Élégance n'est pas bancale (traduction, pc9, absorption, min/max) si
+        une voie propre existe ;
+      · l'Abondance, quand elle existe, aligne plus de séries que l'Élégance,
+        et n'est pas bancale. */
+const ECARTEES = new Set([
+  '0:mch+cs+prn,3.5:nc,9:fr13+nlc+pc9', '0:fatb+mt9+mr9,2:mt9+cmn', 'fr20+mazc+mrdE',
+  '0.5:nc,5:nsp+mlet+nlc+pc9,6:ma1+cs+prn', '0+4:nc+pc9,2:fen5+nc+pc9', '0:nv,2.2:cnjd+pc9,5:fr13+nlc+pc9',
+  '2:flt;fl+ma1+mab', 'fl+ma1+mab', '×3:m7F+cs+prn',
+]);
+test('score arbitre — Élégance et Abondance : jamais une voie écartée, jamais une bancale', () => {
+  const fautes = [];
+  for (const [saisie, o] of [
+    ['https://hope-hope-hope.fr/', {}], ['Donald Trump', {}], ['Macron', {}], ['hope-hope-hope.fr', { fouille: 2 }],
+    ['hope', {}], ['Éléonore à Nîmes', {}], ['numherololgeek.1000i100.fr', {}],
+  ]) {
+    const l = liste(saisie, o);
+    const elegance = l.find((a) => a.suggestion === 'elegance');
+    const abondance = l.find((a) => a.suggestion === 'triptyques');
+    const nom = `${saisie}${o.fouille ? ` (cran ${o.fouille})` : ''}`;
+    if (!elegance) { fautes.push(`${nom} : pas de ligne Élégance`); continue; }
+    if (l[0] !== elegance) fautes.push(`${nom} : l’Élégance n’est pas en tête`);
+    if (ECARTEES.has(voie(elegance.url))) fautes.push(`${nom} : Élégance écartée par l’autrice — ${voie(elegance.url)}`);
+    if (!propre(elegance) && l.some(propre)) fautes.push(`${nom} : Élégance bancale — ${voie(elegance.url)}`);
+    if (abondance) {
+      if (l[1] !== abondance) fautes.push(`${nom} : l’Abondance n’est pas 2ᵈᵉ`);
+      if (ECARTEES.has(voie(abondance.url))) fautes.push(`${nom} : Abondance écartée par l’autrice — ${voie(abondance.url)}`);
+      if (!propre(abondance)) fautes.push(`${nom} : Abondance bancale — ${voie(abondance.url)}`);
+      if ((abondance.series || 1) <= (elegance.series || 1)) {
+        fautes.push(`${nom} : l’Abondance (${abondance.series}×) n’aligne pas plus que l’Élégance (${elegance.series}×)`);
+      }
+    }
+  }
+  assert.deepEqual(fautes, []);
+});
+
 test('score arbitre — sur tout le corpus, pc9 et traduction ne mènent qu’en dernier recours', () => {
   const fautes = [];
   for (const [saisie, o] of [

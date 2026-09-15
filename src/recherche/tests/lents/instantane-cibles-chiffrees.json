@@ -55,20 +55,14 @@
    "GROUPEMENT"
   ],
   [
-   "#sce!0:fr5+mpy+mrdE#XeuapD1GiUPu7gDywGH",
-   2649,
-   1,
-   "GROUPEMENT"
-  ],
-  [
    "#sce!fv+m7+mpf#XeuapD1GiUPu7gDywGH",
    2460,
    1,
    "GROUPEMENT"
   ],
   [
-   "#sce!2:ma1+mab#XeuapD1GiUPu7gDywGH",
-   3031,
+   "#sce!0:fr5+mpy+mrdE#XeuapD1GiUPu7gDywGH",
+   2649,
    1,
    "GROUPEMENT"
   ],
@@ -79,14 +73,8 @@
    "GROUPEMENT"
   ],
   [
-   "#sce!0:fr15+m14,2:fr18+mx6+mrn#XeuapD1GiUPu7gDywGH",
-   3029,
-   3,
-   "MOISSON"
-  ],
-  [
-   "#sce!2:fr16+mqwc+mpf#XeuapD1GiUPu7gDywGH",
-   1763,
+   "#sce!2:ma1+mab#XeuapD1GiUPu7gDywGH",
+   3031,
    1,
    "GROUPEMENT"
   ],
@@ -97,14 +85,20 @@
    "GROUPEMENT"
   ],
   [
+   "#sce!2:fr16+mqwc+mpf#XeuapD1GiUPu7gDywGH",
+   1763,
+   1,
+   "GROUPEMENT"
+  ],
+  [
    "#sce!0:fr9+masb+mdc3#XeuapD1GiUPu7gDywGH",
    1646,
    3,
    "GROUPEMENT"
   ],
   [
-   "#sce!0:fr15+m14+mpf,2:fr18+mx6+mrn#XeuapD1GiUPu7gDywGH",
-   2642,
+   "#sce!0:fr15+m14,2:fr18+mx6+mrn#XeuapD1GiUPu7gDywGH",
+   3029,
    3,
    "MOISSON"
   ],
@@ -113,6 +107,12 @@
    1867,
    2,
    "GROUPEMENT"
+  ],
+  [
+   "#sce!0:fr15+m14+mpf,2:fr18+mx6+mrn#XeuapD1GiUPu7gDywGH",
+   2642,
+   3,
+   "MOISSON"
   ]
  ],
  "Sarah Kerrigan → 13": [
@@ -129,15 +129,15 @@
    "GROUPEMENT"
   ],
   [
-   "#2:mx6+mrdE#XeuapD1GiUPu7gDywGH#4kA",
-   2948,
-   3,
-   "GROUPEMENT"
-  ],
-  [
    "#fl+tm+mlm+mmoc#XeuapD1GiUPu7gDywGH#4kA",
    7154,
    1,
+   "GROUPEMENT"
+  ],
+  [
+   "#2:mx6+mrdE#XeuapD1GiUPu7gDywGH#4kA",
+   2948,
+   3,
    "GROUPEMENT"
   ],
   [
@@ -145,6 +145,12 @@
    5747,
    null,
    "OPERATION"
+  ],
+  [
+   "#fi+mtrc#XeuapD1GiUPu7gDywGH#4kA",
+   3419,
+   1,
+   "GROUPEMENT"
   ],
   [
    "#=mdlc!0+2:fr20+mx6+cme#XeuapD1GiUPu7gDywGH#4kA",
@@ -159,8 +165,8 @@
    "MOISSON"
   ],
   [
-   "#fi+mtrc#XeuapD1GiUPu7gDywGH#4kA",
-   3419,
+   "#0:mt9+mrdE#XeuapD1GiUPu7gDywGH#4kA",
+   2910,
    1,
    "GROUPEMENT"
   ],
@@ -169,12 +175,6 @@
    5166,
    null,
    "OPERATION"
-  ],
-  [
-   "#0:mt9+mrdE#XeuapD1GiUPu7gDywGH#4kA",
-   2910,
-   1,
-   "GROUPEMENT"
   ],
   [
    "#2:fi+masb+mdiv#XeuapD1GiUPu7gDywGH#4kA",
@@ -233,15 +233,15 @@
    "GROUPEMENT"
   ],
   [
-   "#2:masb+mabx#XeuapD1GiUPu7gDywGH#HBnW",
-   2942,
-   2,
-   "GROUPEMENT"
-  ],
-  [
    "#fc+ma1+mdvq+mrdE#XeuapD1GiUPu7gDywGH#HBnW",
    2836,
    1,
+   "GROUPEMENT"
+  ],
+  [
+   "#2:masb+mabx#XeuapD1GiUPu7gDywGH#HBnW",
+   2942,
+   2,
    "GROUPEMENT"
   ],
   [
@@ -283,6 +283,12 @@
    "MOISSON"
   ],
   [
+   "#sce!fl+mgr+mrdE#yvQYkzhNVYJT8wM8jhvJxSM",
+   3679,
+   1,
+   "GROUPEMENT"
+  ],
+  [
    "#sce!×3:mexb+cs#yvQYkzhNVYJT8wM8jhvJxSM",
    7710,
    null,
@@ -313,28 +319,16 @@
    "RESONANCE"
   ],
   [
-   "#sce!×3:nlc#yvQYkzhNVYJT8wM8jhvJxSM",
-   7073,
-   null,
-   "RESONANCE"
-  ],
-  [
-   "#sce!fl+mgr+mrdE#yvQYkzhNVYJT8wM8jhvJxSM",
-   3679,
-   1,
-   "GROUPEMENT"
-  ],
-  [
-   "#sce!×3:fatb+fatb+nlc#yvQYkzhNVYJT8wM8jhvJxSM",
-   4699,
-   null,
-   "RESONANCE"
-  ],
-  [
    "#sce!0.5:fl+mx6+mrdE#yvQYkzhNVYJT8wM8jhvJxSM",
    3152,
    1,
    "GROUPEMENT"
+  ],
+  [
+   "#sce!×3:nlc#yvQYkzhNVYJT8wM8jhvJxSM",
+   7073,
+   null,
+   "RESONANCE"
   ],
   [
    "#sce!0.5:fl+mazc+mr9#yvQYkzhNVYJT8wM8jhvJxSM",
@@ -355,28 +349,22 @@
    "GROUPEMENT"
   ],
   [
+   "#sce!×3:fatb+fatb+nlc#yvQYkzhNVYJT8wM8jhvJxSM",
+   4699,
+   null,
+   "RESONANCE"
+  ],
+  [
    "#sce!0+2+4:m14,1+3:mtc,6:fr13+nlc+pc9#yvQYkzhNVYJT8wM8jhvJxSM",
    3603,
    5,
    "MOISSON"
   ],
   [
-   "#sce!×3:fv+mpy+cmo#yvQYkzhNVYJT8wM8jhvJxSM",
-   3383,
-   null,
-   "RESONANCE"
-  ],
-  [
    "#sce!0.5:fv+masc+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
    1994,
    3,
    "GROUPEMENT"
-  ],
-  [
-   "#sce!×3:fr13+nc+pc9#yvQYkzhNVYJT8wM8jhvJxSM",
-   5382,
-   null,
-   "RESONANCE"
   ],
   [
    "#sce!0+2:ffr3+m14,1+3:mtc,4:m14,6:fr24+m14#yvQYkzhNVYJT8wM8jhvJxSM",
@@ -389,6 +377,12 @@
    2040,
    2,
    "GROUPEMENT"
+  ],
+  [
+   "#sce!×3:fv+mpy+cmo#yvQYkzhNVYJT8wM8jhvJxSM",
+   3383,
+   null,
+   "RESONANCE"
   ],
   [
    "#sce!0:ffr3+m14+mpf,2+4:m14,6:fr9+m7#yvQYkzhNVYJT8wM8jhvJxSM",
@@ -421,16 +415,10 @@
    "MOISSON"
   ],
   [
-   "#sce!0:fr2+masb+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
-   1499,
-   2,
-   "GROUPEMENT"
-  ],
-  [
-   "#sce!6:fr12+mz26+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
-   2032,
-   1,
-   "GROUPEMENT"
+   "#sce!×3:fr13+nc+pc9#yvQYkzhNVYJT8wM8jhvJxSM",
+   5382,
+   null,
+   "RESONANCE"
   ],
   [
    "#sce!×3:ffr4+nd#yvQYkzhNVYJT8wM8jhvJxSM",
@@ -443,6 +431,18 @@
    6327,
    null,
    "RESONANCE"
+  ],
+  [
+   "#sce!6:fr12+mz26+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
+   2032,
+   1,
+   "GROUPEMENT"
+  ],
+  [
+   "#sce!0:fr2+masb+mdc3#yvQYkzhNVYJT8wM8jhvJxSM",
+   1499,
+   2,
+   "GROUPEMENT"
   ],
   [
    "#sce!×3:ffr3+nv+pc9#yvQYkzhNVYJT8wM8jhvJxSM",
@@ -489,12 +489,6 @@
    "GROUPEMENT"
   ],
   [
-   "#=mdlc!0+2:masc+cal#2HuP1G8mNg3sJWhqR#HXLk",
-   6047,
-   null,
-   "OPERATION"
-  ],
-  [
    "#fl+ma1+mrdE#2HuP1G8mNg3sJWhqR#HXLk",
    3753,
    1,
@@ -507,22 +501,28 @@
    "GROUPEMENT"
   ],
   [
-   "#=mdlc!0+2:masc+mrn+cal#2HuP1G8mNg3sJWhqR#HXLk",
-   5907,
-   null,
-   "OPERATION"
-  ],
-  [
    "#fl+mazr+mpf#2HuP1G8mNg3sJWhqR#HXLk",
    3502,
    2,
    "GROUPEMENT"
   ],
   [
+   "#=mdlc!0+2:masc+cal#2HuP1G8mNg3sJWhqR#HXLk",
+   6047,
+   null,
+   "OPERATION"
+  ],
+  [
    "#0:fatb+mtjc#2HuP1G8mNg3sJWhqR#HXLk",
    4125,
    2,
    "GROUPEMENT"
+  ],
+  [
+   "#=mdlc!0+2:masc+mrn+cal#2HuP1G8mNg3sJWhqR#HXLk",
+   5907,
+   null,
+   "OPERATION"
   ],
   [
    "#=mdlc!0+2:fr1+mpy+cal#2HuP1G8mNg3sJWhqR#HXLk",
@@ -543,15 +543,15 @@
    "OPERATION"
   ],
   [
-   "#0:fr22+mx6+mrd#2HuP1G8mNg3sJWhqR#HXLk",
-   2207,
-   3,
-   "GROUPEMENT"
-  ],
-  [
    "#2:msfr+mpf#2HuP1G8mNg3sJWhqR#HXLk",
    2515,
    1,
+   "GROUPEMENT"
+  ],
+  [
+   "#0:fr22+mx6+mrd#2HuP1G8mNg3sJWhqR#HXLk",
+   2207,
+   3,
    "GROUPEMENT"
   ],
   [
@@ -567,16 +567,16 @@
    "GROUPEMENT"
   ],
   [
-   "#=mdlc!0+2:mz26+mmod+cmm#2HuP1G8mNg3sJWhqR#HXLk",
-   5519,
-   null,
-   "OPERATION"
-  ],
-  [
    "#2:ma1+mab#2HuP1G8mNg3sJWhqR#HXLk",
    2903,
    1,
    "GROUPEMENT"
+  ],
+  [
+   "#=mdlc!0+2:mz26+mmod+cmm#2HuP1G8mNg3sJWhqR#HXLk",
+   5519,
+   null,
+   "OPERATION"
   ]
  ]
 }

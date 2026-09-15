@@ -288,6 +288,17 @@ test('cible-mot — Sarah Kerrigan → Fantome, rangé puis dissous', () => {
  *   global recalibré, `hope-hope-hope.fr → 666` perdait deux voies ; elle garde
  *   donc le global du moteur — voir `index.js › evaluerUneVoie`.)
  *
+ * ★ **IL A ÉTÉ RÉGÉNÉRÉ UNE NEUVIÈME FOIS, et voici pourquoi.** Deux arbitrages
+ *   de l'autrice sur le recalibrage précédent : les deux lignes réservées
+ *   REVIENNENT, choisies au global (« garde les deux mais sur la base du score
+ *   global ») — `index.js › rangerParLeGlobal`, `score.js ›
+ *   meriteDEleganceGlobal` —, et le bloc court laissé de côté se paie MOITIÉ, et
+ *   non plus rien (« ne plus le pénaliser du tout me semble une erreur »). Seul
+ *   l'ORDRE change encore : mêmes voies sur les cinq couples (19, 13, 11, 32, 20),
+ *   aucune n'entre ni ne sort, aucun score du moteur ne bouge, et les cinq têtes
+ *   restent celles de la huitième génération. Aucune ligne « Abondance » sur ces
+ *   cinq couples : l'Élégance y est déjà la tête du global.
+ *
  * ⚠️ C'est un fil tendu, pas une spécification. Une évolution VOULUE du barème
  *   ou du classement le fera rougir : c'est alors l'instantané qu'on régénère.
  */
