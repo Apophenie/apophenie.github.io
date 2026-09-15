@@ -1398,6 +1398,12 @@ const brut = [
     //   une fois, au même tarif pour les cinq.
     notoriete: 0.15,
     adHoc: 0.30,
+    // ★ DERNIER RECOURS (`commun.js › def`, `recours`). « Le passage par `ffr4`
+    //   est bancal, il ne devrait être toléré qu'en dernier recours, si on ne
+    //   trouve pas mieux. Il faut pénaliser bien plus les traductions. »
+    //   (l'autrice, 15 septembre 2026). L'ad hoc (0,30) ne le disait pas : c'est
+    //   celui de `meg`, qu'elle aime.
+    recours: 0.70,
     // ★ L'ACCEPTION EST PUBLIÉE, comme un César publie son décalage.
     //
     //   Elle ne sert pas au geste — `apply` a déjà `rang` en portée —, elle sert

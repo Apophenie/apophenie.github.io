@@ -20,7 +20,7 @@ import {
   POIDS, CURSEURS, CURSEUR_DEFAUT, CURSEUR_MAX, CURSEURS_DEFAUT, CORRESPONDANCE,
   ponderer, normaliserCurseurs, pourcentagesDe, auDefaut,
   facteurRendement, facteurQuantite, racineEntiere, REGLAGES,
-  ordreTotal, ordrePondere, rangPondere, rangConviction, RANG,
+  ordreTotal, ordrePondere, rangPondere, rangConviction, RANG, ordreGlobal, scoreGlobal,
 } from '../../score.js';
 import {
   reglagesDeBudget, normaliserPuissance, REGLAGES_DU_CRAN,
@@ -323,7 +323,10 @@ test('★ curseurs — les deux régimes sont DÉBRANCHÉS dès qu’un curseur 
     assert.equal(a.elegances, null, 'les crédits des régimes ne sont même plus calculés');
   }
   // …et toute la liste est classée avec le même comparateur, de bout en bout.
-  const ordre = ordrePondere(ponderer({ coherence: 150 }));
+  // ★ AMENDEMENT DU 15 SEPTEMBRE 2026 : ce comparateur est le score global aux
+  //   curseurs du visiteur, l'ordre pondéré ne faisant plus que départager
+  //   (`index.js › rangerParLeGlobal`, `.planning/arbitrages/2026-09-15-rang-ou-score.md`).
+  const ordre = ordreGlobal(normaliserCurseurs({ coherence: 150 }), ordrePondere(ponderer({ coherence: 150 })));
   for (let i = 1; i < r.approches.length; i++) {
     if (r.approches[i].joker) continue; // le joker est poussé en queue à part (§0.4)
     assert.ok(ordre(r.approches[i - 1], r.approches[i]) <= 0,
@@ -339,8 +342,17 @@ test('★ curseurs — quantité à zéro rend la tête de liste au 666 unique',
   const defaut = moteur.enumerer(s);
   const sansQuantite = moteur.enumerer(s, { curseurs: { quantite: 0 } });
   const avecQuantite = moteur.enumerer(s, { curseurs: { quantite: CURSEUR_MAX } });
-  assert.equal(sansQuantite.approches[0].series ?? 1, 1,
-    'quantité à zéro : une voie qui ne montre qu’un 666 peut mener');
+  /* ★ AMENDEMENT DU 15 SEPTEMBRE 2026 — la liste suit le score global
+       (`index.js › rangerParLeGlobal`). Quantité à zéro, le global ne compte
+       plus les séries : la tête est la voie la plus simple, exhaustive et
+       cohérente, et sur cette saisie c'est `fl+m14` (quatre séries, global 922),
+       pas un 666 unique — aucun ne la vaut sur les trois autres axes. La
+       promesse qui a imposé ce test tient toujours, et c'est elle qu'on
+       mesure : le curseur DÉPLACE la tête dans le sens qu'il nomme. MESURÉ :
+       tête à 4 séries à zéro, à 6 au défaut et à fond, et cinq séries au moins
+       sur les cinq premières lignes à fond. */
+  assert.ok((sansQuantite.approches[0].series ?? 1) < (avecQuantite.approches[0].series ?? 1),
+    `quantité à zéro : la tête aligne moins de séries qu’à fond (${sansQuantite.approches[0].series ?? 1} contre ${avecQuantite.approches[0].series ?? 1})`);
   assert.ok((avecQuantite.approches[0].series ?? 1) >= 2,
     'quantité à fond : la moisson mène');
   assert.notEqual(empreinte(sansQuantite), empreinte(defaut));
@@ -475,12 +487,27 @@ test('fouille — elle sert, et elle finit', () => {
        (reproductible, silencieuse) et le filet TEMPOREL (qui, lui, affiche un
        bandeau). Depuis `D_MAX` 15 la première vaut vrai à peu près partout, y
        compris sur « a » — un drapeau devenu muet. On mesure l'effet UTILE. */
+  /* ★ AMENDEMENT DU 15 SEPTEMBRE 2026 — la liste suit le score global
+       (`index.js › rangerParLeGlobal`). La tête n'est plus la voie au meilleur
+       score du moteur mais au meilleur global, et sur cette saisie le cran 0
+       la trouve déjà : `fl+mpy+meg`, global 827, du cran 0 au cran 4 — le
+       meilleur score du moteur, lui, vaut 7 710 à tous les crans. « La fouille
+       doit améliorer la tête » ne se mesure donc plus ici. Ce qui se mesure :
+       elle SERT — la liste s'allonge (mesuré : 38 → 98 voies du cran 0 au
+       cran 3) sans que le meilleur global recule —, et elle FINIT — au-delà,
+       la tête ne bouge plus. */
   const s = 'https://hope-hope-hope.fr/';
-  const scores = [0, 1, 2, 3].map((f) => moteur.enumerer(s, { fouille: f }).approches[0].score);
-  assert.ok(scores[3] > scores[0],
-    `la fouille doit améliorer la tête : ${scores.join(' → ')}`);
+  const listes = [0, 1, 2, 3].map((f) => moteur.enumerer(s, { fouille: f }).approches);
+  const meilleurGlobal = (l) => Math.max(...l.map((a) => scoreGlobal(a, CURSEURS_DEFAUT)));
+  assert.ok(listes[3].length > listes[0].length,
+    `la fouille doit allonger la liste : ${listes.map((l) => l.length).join(' → ')}`);
+  for (let f = 1; f < listes.length; f++) {
+    assert.ok(meilleurGlobal(listes[f]) >= meilleurGlobal(listes[f - 1]),
+      `le meilleur global recule du cran ${f - 1} au cran ${f}`);
+  }
   // Et elle finit : au dernier cran, la tête ne bouge plus.
-  assert.equal(moteur.enumerer(s, { fouille: 4 }).approches[0].score, scores[3],
+  assert.equal(moteur.enumerer(s, { fouille: 4 }).approches[0].url.split('#')[1].replace(/(^|!)f\d+!/, '$1'),
+    listes[3][0].url.split('#')[1].replace(/(^|!)f\d+!/, '$1'),
     'au-delà, la recherche a fini');
 });
 

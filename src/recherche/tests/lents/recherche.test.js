@@ -379,7 +379,15 @@ test('déterminisme — score entier, aucune virgule flottante', () => {
   const m = creerMoteur(catalogue);
   for (const a of m.resoudre('https://hope-hope-hope.fr/').approches) {
     assert.ok(Number.isInteger(a.score), `score ${a.score}`);
-    for (const [k, v] of Object.entries(a.criteres)) assert.ok(Number.isInteger(v), `critère ${k} = ${v}`);
+    for (const [k, v] of Object.entries(a.criteres)) {
+      // ★ `axe` porte les mesures de la voie montrée (`score.js ›
+      //   mesuresDeLaVoie`) : un objet, dont chaque valeur est un entier.
+      if (k === 'axe') {
+        for (const [ka, va] of Object.entries(v)) assert.ok(Number.isInteger(va), `critère axe.${ka} = ${va}`);
+        continue;
+      }
+      assert.ok(Number.isInteger(v), `critère ${k} = ${v}`);
+    }
   }
 });
 
@@ -993,26 +1001,37 @@ test('★ un lien de décret d’avant la suppression se rejoue encore', () => {
  * huitième rang ») était un défaut du MMR, pas des places réservées. Le point de
  * départ est calculé, jamais posé en dur : on part de la première ligne que le
  * mixte a garnie, quelle que soit la taille de la tête.
+ *
+ * ── ★ AMENDEMENT DU 15 SEPTEMBRE 2026 — LA LISTE SUIT LE SCORE GLOBAL ─────────
+ *
+ * L'autrice a tranché les quinze cas « rang ou score »
+ * (`.planning/arbitrages/2026-09-15-rang-ou-score.md`) : la tête au global
+ * affiché l'emporte, une fois le global recalibré (`score.js ›
+ * mesuresDeLaVoie`). Les rangs de conviction ne rangent donc plus la liste
+ * (`index.js › rangerParLeGlobal`) ; ils continuent de décider QUI y entre. Les
+ * deux lignes réservées — Élégance, Abondance — se choisissent au global
+ * elles aussi, et gardent la tête. Ce qui est exigé désormais, et c'est encore
+ * le « le tri a l'air cassé » :
+ *  · APRÈS les lignes réservées, le global affiché ne remonte jamais ;
+ *  · à global égal, l'ordre du moteur départage ;
+ *  · le joker reste en dernier.
  */
-test('classement — rangs croissants, scores décroissants dans chaque rang', () => {
+test('classement — le global affiché décroît après les lignes réservées, le joker en dernier', () => {
   const m = creerMoteur(catalogue);
   for (const s of [...SAISIES_LISTE, 'https://hope-hope-hope.fr/']) {
     const app = m.resoudre(s).approches;
-    // La première ligne du MIXTE : les précédentes sont les places réservées aux
-    // deux suggestions, et elles répondent chacune à une autre question.
-    const debut = Math.max(1, app.findIndex((a) => a.suggestion === 'mixte'));
-    for (let i = debut + 1; i < app.length; i++) {
-      const [avant, apres] = [app[i - 1], app[i]];
-      const [ra, rb] = [rangConviction(avant), rangConviction(apres)];
-      assert.ok(rb >= ra, `« ${s} » : rang ${ra} puis rang ${rb} au rang ${i + 1}`);
-      if (rb !== ra) continue;
-      if (ra === RANG.SERIES && (avant.series || 1) !== (apres.series || 1)) {
-        assert.ok((apres.series || 1) < (avant.series || 1),
-          `« ${s} » : ${avant.series} séries puis ${apres.series} au rang ${i + 1}`);
-        continue;
+    const honnetes = app.filter((a) => a.mode !== 'JOKER');
+    assert.deepEqual(app.slice(0, honnetes.length), honnetes, `« ${s} » : le joker n’est pas en dernier`);
+    const reservees = honnetes.filter((a) => a.suggestion === 'elegance' || a.suggestion === 'triptyques').length;
+    assert.deepEqual(honnetes.slice(0, reservees).map((a) => a.suggestion),
+      ['elegance', 'triptyques'].slice(0, reservees), `« ${s} » : les lignes réservées ne sont pas en tête`);
+    for (let i = reservees + 1; i < honnetes.length; i++) {
+      const [avant, apres] = [honnetes[i - 1], honnetes[i]];
+      const [ga, gb] = [scoreGlobal(avant, CURSEURS_DEFAUT), scoreGlobal(apres, CURSEURS_DEFAUT)];
+      assert.ok(gb <= ga, `« ${s} » : global ${ga} puis ${gb} au rang ${i + 1} — le tri a l’air cassé`);
+      if (gb === ga) {
+        assert.ok(ordreTotal(avant, apres) <= 0, `« ${s} » : à global égal (${ga}), l’ordre du moteur est inversé au rang ${i + 1}`);
       }
-      assert.ok(apres.score <= avant.score,
-        `« ${s} » : ${avant.score} puis ${apres.score} au rang ${i + 1} — le tri a l’air cassé`);
     }
   }
 });
@@ -1503,13 +1522,26 @@ test('★ moisson — le « fr » reste en sept segments : 4 + 2, et rien à jet
  *   de jeté, quatre séries. Ce n'est pas une ficelle : elle absorbe, elle
  *   n'écarte pas.
  */
-test('★ « Donald Trump » : la vedette des séries en aligne quatre, sans rien jeter', () => {
+test('★ « Donald Trump » : la voie sans perte à quatre séries reste proposée, sans mener', () => {
   // ★ La 1ʳᵉ ligne revient à `t1+mw+mz` seul — « Donald » en quatorze segments,
   //   un 666 déjà formé, sans rien d'autre —, qui est plus élégant que la
   //   moisson à deux portées dès lors que le second 666 ne rapporte plus que
   //   1 % de son poids. La combinaison des deux que l'auteur demande occupe la
   //   2ᵈ ligne, celle de la quantité, et c'est elle qu'on gèle ici.
-  const tete = vedetteDesSeries(creerMoteur(catalogue).resoudre('Donald Trump'));
+  /* ★ AMENDEMENT DU 15 SEPTEMBRE 2026 — « côté score global, mab c'est
+       dommage » (l'autrice, cas 10 de `.planning/arbitrages/2026-09-15-rang-ou-score.md`).
+       L'absorption cède au dernier recours (`recours`) : la voie à quatre
+       séries ne tient plus aucune des deux premières lignes, qui reviennent à
+       `fl+mazc+meg` (trois séries, sans absorption). Mais l'autre règle de
+       l'auteur tient toujours, et c'est elle que ce test garde : « toujours
+       proposer un chemin sans aucune perte, même s'il ne remonte pas toujours
+       en premier résultat ». La voie reste DANS la liste, et tout ce qui suit
+       la vérifie comme avant. */
+  const liste = creerMoteur(catalogue).resoudre('Donald Trump');
+  const vedette = vedetteDesSeries(liste);
+  assert.doesNotMatch(vedette.codes, /\+mab$/, `la vedette des deux premières lignes n’absorbe plus — ${vedette.codes}`);
+  const tete = liste.approches.find((a) => (a.series || 1) === 4 && /\+mab$/.test(a.codes));
+  assert.ok(tete, 'la voie sans perte à quatre séries doit rester proposée');
 
   assert.equal(tete.mode, 'GROUPEMENT', `vedette : ${tete.mode} — ${tete.codes}`);
   assert.equal(tete.series, 4, `${tete.series} séries — ${tete.codes}`);
@@ -1845,17 +1877,28 @@ test('★ réduction — la moisson « clavier » de « Donald Trump » porte la
   const fatb = lecture('fatb');
   const fr11 = lecture('fr11');
   assert.ok(fatb.ok && fr11.ok, 'les deux lectures se rejouent');
-  const gFatb = scoreGlobal(fatb.approche, CURSEURS_DEFAUT);
-  const gFr11 = scoreGlobal(fr11.approche, CURSEURS_DEFAUT);
+  /* ★ AMENDEMENT DU 15 SEPTEMBRE 2026 — DEUX GLOBAUX, DEUX QUESTIONS.
+       La réduction FABRIQUE la moisson : elle départage au global du MOTEUR
+       (`index.js › evaluerUneVoie`, `montree: false`), pour que le recalibrage
+       ne change pas qui entre dans la liste. La liste RANGE au global de la
+       carte (`index.js › rangerParLeGlobal`). Chaque moitié du test lit donc
+       celui de la question qu'elle pose. */
+  const gFatb = scoreGlobal(fatb.approche, CURSEURS_DEFAUT, { montree: false });
+  const gFr11 = scoreGlobal(fr11.approche, CURSEURS_DEFAUT, { montree: false });
   const [meilleure, autre] = gFatb > gFr11 || (gFatb === gFr11 && fatb.approche.score >= fr11.approche.score)
     ? [fatb.approche, fr11.approche] : [fr11.approche, fatb.approche];
   // ★ La réunion garde aussi l'ancienne récolte : la variante au meilleur global
-  //   est PRÉSENTE, et elle passe devant l'autre si les deux y sont.
+  //   du moteur est PRÉSENTE ; si les deux y sont, la liste les range par le
+  //   global de la carte.
   const rang = (codes) => r.approches.findIndex((a) => a.codes === codes);
   assert.ok(rang(meilleure.codes) >= 0,
-    `la lecture au meilleur global manque : ${meilleure.codes} (global ${Math.max(gFatb, gFr11)})`);
+    `la lecture au meilleur global manque : ${meilleure.codes} (global du moteur ${Math.max(gFatb, gFr11)})`);
   if (rang(autre.codes) >= 0) {
-    assert.ok(rang(meilleure.codes) < rang(autre.codes),
-      `${meilleure.codes} (rang ${rang(meilleure.codes) + 1}) doit passer devant ${autre.codes} (rang ${rang(autre.codes) + 1})`);
+    const gMeilleure = scoreGlobal(meilleure, CURSEURS_DEFAUT);
+    const gAutre = scoreGlobal(autre, CURSEURS_DEFAUT);
+    if (gMeilleure !== gAutre) {
+      assert.equal(rang(meilleure.codes) < rang(autre.codes), gMeilleure > gAutre,
+        `${meilleure.codes} (global ${gMeilleure}, rang ${rang(meilleure.codes) + 1}) et ${autre.codes} (global ${gAutre}, rang ${rang(autre.codes) + 1}) : la liste ne suit pas le global de la carte`);
+    }
   }
 });

@@ -685,6 +685,10 @@ const brut = [
     libelle: bilingue('On prend le complément à neuf', 'Take the nines complement'),
     regle: bilingue('La preuve par neuf : 9 − n', 'Casting out nines: 9 − n'),
     notoriete: 0.35, adHoc: 0.25,
+    // ★ DERNIER RECOURS : « le complément à 9 est à considérer comme une
+    //   ficelle, je ne veux pas le voir si d'autres choses fonctionnent »
+    //   (l'autrice, 15 septembre 2026).
+    recours: 0.70,
     calcul: (n) => 9 - n,
     exige: (n) => n >= 0 && n <= 9,
     // Le complément se POSE (`9 − n`) avant de se faire : voir `etapeComplement`.

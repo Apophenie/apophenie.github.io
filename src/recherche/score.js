@@ -21,7 +21,7 @@ import {
 } from '../config.js';
 import {
   bilanApproche, credit as creditDElegance, facteur as facteurDElegance,
-  note as noteDElegance, estPur,
+  note as noteDElegance, estPur, classeDeTransformation,
 } from './elegance.js';
 
 // ══════════════════════════════════ RÉGLAGES — LE SEUL ENDROIT À MODIFIER
@@ -500,8 +500,8 @@ export const LETTRE_DU_CRITERE = Object.freeze({
  * @param {Object} [curseurs]
  * @returns {?number}
  */
-export function scoreGlobal(approche, curseurs) {
-  const axes = scoresParAxe(approche);
+export function scoreGlobal(approche, curseurs, options) {
+  const axes = scoresParAxe(approche, options);
   const parts = pourcentagesDe(curseurs);
   let somme = 0;
   let poids = 0;
@@ -514,8 +514,191 @@ export function scoreGlobal(approche, curseurs) {
   return poids ? Math.round(somme / poids) : null;
 }
 
-export function scoresParAxe(approche) {
-  const c = (approche && approche.criteres) || {};
+/**
+ * ★ **LA VOIE TELLE QUE LA CARTE LA MONTRE — les mesures des quatre axes,
+ *   recalibrées sur les verdicts du 15 septembre 2026**
+ *   (`.planning/arbitrages/2026-09-15-rang-ou-score.md`).
+ *
+ * > « Le score global a l'air de faire mieux que le moteur, mais les mab sont
+ * >   à mettre en retrait. » (l'autrice)
+ *
+ * Le classement suit désormais le global (`ordreGlobal`). Le global lisait les
+ * six critères du moteur tels quels, et quatre de leurs angles morts faisaient
+ * monter du bancal. Chacun est corrigé ICI, sur une propriété mesurée de la
+ * voie, et publié dans `criteres.axe` — la page ne reçoit que `criteres`, et
+ * recalcule les axes elle-même (`app/pages/resultat.js`).
+ *
+ *  · **Une retouche se paie dans les axes.** Ses opérations comptaient dans le
+ *    crédit d'élégance, jamais dans L, N ni A : `0:fr13;ma1+mab` sortait MIEUX
+ *    noté que `fr13+ma1+mab`, qui fait la même chose (mesuré : 789 contre 769).
+ *  · **Un même programme posé sur plusieurs portées se facture une fois** —
+ *    comme le lien l'écrit (`2+3:flt+mpy+mr9`). Le recompter à chaque place
+ *    faisait payer trois fois une seule idée : cas 7, « simplicité et cohérence
+ *    devraient être plus élevées ».
+ *  · **L'homogénéité suit la méthode majoritaire** quand il y en a une, et une
+ *    seule : « une méthode pour les mots, une autre pour le reste » coûte moins
+ *    que trois méthodes au hasard (cas 8). Une partition à trois méthodes
+ *    distinctes garde l'homogénéité par paires : repliée, elle serait montée
+ *    devant du simple — mesuré, et c'est ce que l'autrice refuse.
+ *  · **Le bloc court laissé de côté (le `.fr`) coûte moitié en couverture** :
+ *    c'est l'exception que le barème accorde déjà (`EFFACE_BLOC_COURT` vaut la
+ *    moitié d'`EFFACE_BLOC`), et la couverture l'ignorait. Pas davantage : « ne
+ *    plus le pénaliser du tout me semble une erreur » (l'autrice).
+ *  · **Une sélection min/max jette des valeurs** : le rendement le voit. « Il y
+ *    a quand même 4 chiffres virés avec ce cmn » (cas 10).
+ *  · **Le dernier recours cède de la cohérence** : chaque opérateur distinct
+ *    qui déclare un `recours` (`moteur/transformations/commun.js › def`) en
+ *    retire sa part — traductions, complément à 9, absorptions.
+ *
+ * ⚠️ **LE SCORE DU MOTEUR NE BOUGE PAS.** C'est lui qui choisit QUI entre dans
+ *   la liste (le MMR, les sièges) ; ces mesures ne décident que de l'ORDRE. Une
+ *   voie pénalisée recule dans la liste, elle n'en sort pas — la consigne de
+ *   l'autrice : « si une voie pénalisée recule, qu'elle recule dans la liste ».
+ */
+const cleDuProgramme = (chemin) => chemin.ops.map((o) => o.code).join('+');
+
+function mesuresDeLaVoie(approche, chemins, bilan, rendement, criteres) {
+  const retouches = [];
+  for (const r of approche.retouches || []) {
+    if (r && r.chemin && Array.isArray(r.chemin.ops)) retouches.push(r.chemin);
+  }
+  const parProgramme = new Map();
+  const distincts = [];
+  for (const c of chemins) {
+    const k = cleDuProgramme(c);
+    if (!parProgramme.has(k)) { parProgramme.set(k, 0); distincts.push(c); }
+    parProgramme.set(k, parProgramme.get(k) + 1);
+  }
+  const ops = [];
+  for (const c of retouches) ops.push(...c.ops);
+  for (const c of distincts) ops.push(...c.ops);
+  if (approche.liaison && approche.liaison.op) ops.push(approche.liaison.op);
+  const N = critereNotoriete(ops.length ? ops : [{ notoriete: 0 }]);
+  const A = critereAntiAdHoc(ops);
+  const C = critereConcision(longueurRendue(retouches) + longueurRendue(distincts));
+
+  let H = criteres.H;
+  const comptes = [...parProgramme.values()].sort((x, y) => y - x);
+  if (chemins.length > 1 && comptes.length > 1 && comptes[0] >= 2 && comptes[0] > comptes[1]) {
+    const majoritaire = cleDuProgramme(distincts.find((c) => parProgramme.get(cleDuProgramme(c)) === comptes[0]));
+    const modele = distincts.find((c) => cleDuProgramme(c) === majoritaire);
+    let somme = 0;
+    for (const c of chemins) somme += cleDuProgramme(c) === majoritaire ? MILLE : similarite(c, modele);
+    H = Math.floor(somme / chemins.length);
+  }
+
+  // ★ LE BLOC COURT LAISSÉ DE CÔTÉ SE PAIE MOINS, PAS PLUS DU TOUT. « Le
+  //   pénaliser moins me va, ne plus le pénaliser du tout me semble une
+  //   erreur » (l'autrice). On lui rend la MOITIÉ de sa part dans la couverture
+  //   du moteur : c'est le rapport que le barème pose déjà entre un bloc court
+  //   et un bloc entier (`elegance.js › EFFACE_BLOC_COURT` 10, `EFFACE_BLOC` 20).
+  //   ⚠️ Sur la couverture DU MOTEUR (`brut`), et seulement là où un bloc court
+  //   manque : la première version relisait U sur le bilan pour toutes les
+  //   voies, et déplaçait celles qui n'avaient rien laissé de court (mesuré :
+  //   `fl+mqwc+meg` passait de 753 à 739 d'exhaustivité).
+  let U = criteres.U;
+  const ab = bilan && bilan.abandons;
+  if (ab && !ab.opaque && ab.signifiants > 0 && (ab.blocCourt || 0) > 0 && criteres.brut !== undefined) {
+    const rendu = Math.floor((ab.blocCourt * MILLE) / (2 * ab.signifiants));
+    U = critereCouverture(Math.min(MILLE, criteres.brut + rendu), MILLE);
+  }
+
+  let R = rendement;
+  if (bilan && bilan.minMax) {
+    // Une sélection garde UNE valeur de la ligne qu'elle lit ; toute autre part
+    // compte pour ce qu'elle rend. (`c.maxMoinsMin` en lit deux : compté comme
+    // une, la peine est un peu plus lourde qu'exacte, jamais plus légère.)
+    let gardees = 0;
+    let total = 0;
+    for (const c of chemins) {
+      const etats = c.etats || [];
+      const fin = etats[etats.length - 1];
+      const avant = etats[etats.length - 2];
+      const dernier = c.ops[c.ops.length - 1];
+      gardees += 1;
+      total += fin && fin.type === 'NUM' && avant && avant.type === 'NUMS'
+        && classeDeTransformation(dernier, avant) === 'minmax' ? avant.valeur.length : 1;
+    }
+    const selection = Math.floor((gardees * MILLE) / total);
+    R = R === null || R === undefined ? selection : Math.min(R, selection);
+  }
+
+  let recours = MILLE;
+  const vus = new Set();
+  for (const o of ops) {
+    if (!o || vus.has(o.id)) continue;
+    vus.add(o.id);
+    const part = pourMille(o.recours);
+    if (part > 0) recours = Math.floor((recours * (MILLE - part)) / MILLE);
+  }
+  return { H, N, U, C, A, ...(R === null || R === undefined ? {} : { R }), recours };
+}
+
+/**
+ * ★ L'ORDRE DE LA LISTE — le global affiché, décroissant, aux curseurs donnés.
+ * À global égal, l'ordre du moteur départage (`secours`), qui est total : aucun
+ * ex æquo ne subsiste (§4.4).
+ */
+/*
+ * ⚠️ Depuis le 15 septembre 2026, `ordreTotal`, `ordrePondere` et les deux
+ *   régimes (`ordreElegance`, `ordreTriptyques`) ne rangent plus la liste
+ *   montrée : ils décident QUI y entre (le MMR, les coupes aux places, les
+ *   champions) et départagent deux globaux égaux. L'ordre montré est celui-ci
+ *   (`index.js › rangerParLeGlobal`).
+ */
+/*
+ * ★ **LA CONVERGENCE RESTE DERNIÈRE**, avant même le global. C'est une règle de
+ *   l'autrice que les verdicts du 15 septembre ne révoquent pas — « les mêmes
+ *   caractères y servent trois fois » —, et aucun des quatre axes ne la mesure :
+ *   le global la laissait passer devant un groupement (mesuré sur « hope » au
+ *   rang 6, `recherche.test.js › la convergence passe derrière`). Même repli
+ *   que `ordreElegance` : ce qui démontre sur des caractères non réemployés,
+ *   puis le reste.
+ */
+export function ordreGlobal(curseurs, secours = ordreTotal) {
+  const derniere = (a) => (rangConviction(a) === RANG.CONVERGENCE ? 1 : 0);
+  return (a, b) => (derniere(a) - derniere(b))
+    || ((scoreGlobal(b, curseurs) ?? -1) - (scoreGlobal(a, curseurs) ?? -1)) || secours(a, b);
+}
+
+/**
+ * ★ **LE MÉRITE D'ÉLÉGANCE, DÉDUIT DU GLOBAL** — la clé de la ligne réservée
+ * « Élégance » (`index.js › rangerParLeGlobal`).
+ *
+ * > « Garde les deux mais sur la base du score global. » (l'autrice)
+ *
+ * Le global affiché, mais la quantité n'y pèse que 1 % de sa part : le même
+ * 1 % que la 1ʳᵉ place a toujours donné au compte de séries
+ * (`POIDS_DES_REGIMES.elegance.quantite`, « l'élégance prime ; la quantité ne
+ * pèse que 1 % »). Ce qui change, c'est ce qu'il lit : les quatre axes
+ * recalibrés, qui voient la notoriété, l'ad hoc, la concision et le dernier
+ * recours — l'ancien mérite ne voyait que le crédit, la couverture et le
+ * rendement, et une partition au complément à 9 y battait `fl+m14`.
+ *
+ * Entier, borné par les axes : aucun flottant n'en sort (§4.4).
+ */
+export function meriteDEleganceGlobal(approche, curseurs) {
+  const axes = scoresParAxe(approche);
+  const parts = pourcentagesDe(curseurs);
+  let somme = 0;
+  let poids = 0;
+  for (const axe of CURSEURS) {
+    if (axes[axe] === null || axes[axe] === undefined) continue;
+    const w = (parts[axe] ?? 0) * (axe === 'quantite' ? POIDS_DES_REGIMES.elegance.quantite : MILLE);
+    somme += w * axes[axe];
+    poids += w;
+  }
+  return poids ? Math.round(somme / poids) : null;
+}
+
+export function scoresParAxe(approche, { montree = true } = {}) {
+  const brut = (approche && approche.criteres) || {};
+  // ★ Les mesures de la voie montrée priment, quand la voie en porte
+  //   (`mesuresDeLaVoie`) : une voie notée avant elles se lit comme avant.
+  //   `montree: false` lit les seuls critères du moteur — pour ce qui FABRIQUE
+  //   la matière de la liste et ne doit pas changer qui y entre
+  //   (`index.js › evaluerUneVoie`).
+  const c = montree && brut.axe ? { ...brut, ...brut.axe } : brut;
   const out = {};
   for (const axe of CURSEURS) {
     let somme = 0;
@@ -537,6 +720,10 @@ export function scoresParAxe(approche) {
   // ★ LA QUANTITÉ, sur ce qu'elle mesure : les séries rapportées au plafond.
   const series = Math.min(approche && approche.series ? approche.series : 1, MAX_SERIES);
   out.quantite = Math.round((series * MILLE) / MAX_SERIES);
+  // ★ LE DERNIER RECOURS cède de la cohérence (`mesuresDeLaVoie`).
+  if (out.coherence !== null && c.recours !== undefined && c.recours !== null) {
+    out.coherence = Math.floor((out.coherence * c.recours) / MILLE);
+  }
   return out;
 }
 
@@ -1443,6 +1630,8 @@ export function noter(approche, ctx) {
   approche.criteres = {
     H, N, U, C, A, E, brut, G: approche.elegance,
     ...(rendement === null ? {} : { R: rendement }),
+    // ★ Ce que la carte montre, et donc ce qui classe (`mesuresDeLaVoie`).
+    axe: mesuresDeLaVoie(approche, chemins, bilan, rendement, { H, U, brut }),
   };
   approche.L = L;
   approche.codes = chemins.map((c) => c.ops.map((o) => o.code).join('+')).join(',');

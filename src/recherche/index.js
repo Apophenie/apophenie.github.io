@@ -34,7 +34,8 @@ import {
 } from './assemblage.js';
 import { scoreGlobal } from './score.js';
 import {
-  noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, REGLAGES,
+  noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, ordreGlobal,
+  meriteDEleganceGlobal, rangConviction, RANG, REGLAGES,
   ponderer, normaliserCurseurs, pourcentagesDe, scoresParAxe,
   CURSEURS, CURSEUR_DEFAUT, CURSEUR_MAX, CURSEURS_DEFAUT, CORRESPONDANCE,
   facteurDEcartAuxCurseurs, ordreDExactitude, ometLaPonctuation,
@@ -908,7 +909,16 @@ export function creerMoteur(catalogue, options = {}) {
         const deja = cache.get(cle);
         if (deja) return deja;
         noter(a, { saisie, signifiants, elegance: options.elegance !== false, cible: cbl, ponderation });
-        const note = Object.freeze({ global: scoreGlobal(a, ponderation.curseurs), score: a.score });
+        /* ★ **LE GLOBAL DU MOTEUR, PAS CELUI DE LA CARTE** (`score.js ›
+             scoresParAxe`, `montree: false`). La réduction du surplus FABRIQUE
+             la matière des moissons ; le recalibrage du 15 septembre 2026 ne
+             devait changer que l'ORDRE de la liste. MESURÉ avec le global
+             recalibré ici : `hope-hope-hope.fr → 666` perdait deux voies, dont
+             la voie groupée `0+2+4:m14,1+3:mtc,6:fi+ma1` (global 737) — la
+             réduction choisissait d'autres variantes, qui se confondaient avec
+             des voies déjà là. Faire suivre le nouveau global à la fabrication
+             reste possible, et c'est un arbitrage : il coûte ces voies-là. */
+        const note = Object.freeze({ global: scoreGlobal(a, ponderation.curseurs, { montree: false }), score: a.score });
         cache.set(cle, note);
         return note;
       },
@@ -1139,6 +1149,9 @@ export function creerMoteur(catalogue, options = {}) {
           retenues = (parLesRegimes ? rangerParRegimes(union) : union.sort(ordreDeLaListe)).concat(jokersRetenus);
         }
       }
+      // ★ LA SÉLECTION A CHOISI QUI ENTRE ; LE GLOBAL DIT DANS QUEL ORDRE
+      //   (`rangerParLeGlobal`).
+      rangerParLeGlobal(retenues, ponderation, parLesRegimes);
       comptesDesAnciennesGardes.set(retenues, compteDesAnciennesGardes);
 
       // Les titres sont posés en une passe sur la LISTE, pas approche par
@@ -1240,6 +1253,7 @@ export function creerMoteur(catalogue, options = {}) {
         ? rangerParRegimes(honnetes)
         : honnetes.sort(ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal);
       if (jokers.length) rangees.push(jokers[0]);
+      rangerParLeGlobal(rangees, ponderation, options.elegance !== false && !ponderation.personnalisee);
       nommer(rangees);
       rangees.forEach((a, i) => { a.rang = i + 1; });
       return rangees;
@@ -1706,6 +1720,11 @@ export function creerMoteur(catalogue, options = {}) {
         }
         if (reprises.length) retenues = retenues.concat(reprises).sort(ordreDuTexte);
       }
+      // ★ La coupe a choisi QUI entre ; l'ordre montré suit le global
+      //   (`rangerParLeGlobal`), après la règle d'exactitude, qui tient toujours.
+      const parLeGlobal = ordreGlobal(ponderation.curseurs, ordreDeLaListe);
+      retenues.sort((a, b) => exactitude(a, b) || parLeGlobal(a, b));
+      for (const a of retenues) if (a.suggestion === 'elegance' || a.suggestion === 'triptyques') a.suggestion = 'mixte';
       nommer(retenues);
       retenues.forEach((a, i) => { a.rang = i + 1; });
       return retenues;
@@ -2353,14 +2372,17 @@ export function creerMoteur(catalogue, options = {}) {
       return { ok: false, raison: 'commande sans réponse', bandeau: BANDEAUX.formatInconnu };
     }
     approches.sort(ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal);
-    approches.forEach((a, i) => { a.rang = i + 1; });
+    // ★ La coupe aux places se fait sur l'ordre du moteur (qui entre) ; l'ordre
+    //   montré suit le global (`rangerParLeGlobal`).
+    const gardees = rangerParLeGlobal(approches.slice(0, b.voies), ponderation);
+    gardees.forEach((a, i) => { a.rang = i + 1; });
     return {
       ok: true,
       saisie,
       cible: cbl,
       // ★ Les places suivent le cran, comme pour la liste ordinaire — la
       //   douzaine en dur d'avant ignorait la réglette (audit).
-      approches: approches.slice(0, b.voies),
+      approches: gardees,
       commande: true,
       puissance: b.puissance,
       facteur: b.facteur,
@@ -2613,6 +2635,101 @@ function rangerParRegimes(approches) {
   const reste = approches.filter((a) => !tete.includes(a)).sort(ordreTotal);
   for (const a of reste) a.suggestion = 'mixte';
   return [...tete, ...reste];
+}
+
+/**
+ * ★ **LA LISTE SUIT LE SCORE GLOBAL** — arbitrage de l'autrice, 15 septembre
+ * 2026 (`.planning/arbitrages/2026-09-15-rang-ou-score.md`) : sur les quinze
+ * cas qui opposaient la tête au global affiché et la tête du moteur, le global
+ * l'emporte, une fois recalibré (`score.js › mesuresDeLaVoie`).
+ *
+ * Range EN PLACE une liste déjà choisie : le global décroissant aux curseurs
+ * de la liste, l'ordre du moteur pour départager, le joker en dernier.
+ *
+ * ★ **ON NE CHANGE PAS QUI ENTRE, ON CHANGE L'ORDRE.** La sélection (MMR,
+ *   quotas, sièges) reste celle du score du moteur : une voie que le global
+ *   pénalise recule dans la liste, elle n'en sort pas. « Si une voie pénalisée
+ *   recule, qu'elle recule dans la liste » (l'autrice).
+ *
+ * ★ **LES DEUX LIGNES RÉSERVÉES REVIENNENT, CHOISIES AU GLOBAL** (`reservees`,
+ *   là où les régimes s'appliquaient : curseurs par défaut, barème branché).
+ *   « Garde les deux mais sur la base du score global, et "élégance" et
+ *   "abondance" me va bien » (l'autrice). L'ancien champion de l'élégance
+ *   tenait la tête des sept cas du corpus à ces curseurs, et elle les a tous
+ *   écartés : son mérite ne regardait ni la notoriété, ni l'ad hoc, ni la
+ *   concision. Les deux lignes lisent désormais le global recalibré :
+ *
+ *   · **Élégance** — le meilleur mérite d'élégance déduit du global
+ *     (`score.js › meriteDEleganceGlobal` : la quantité à 1 % de sa part) ;
+ *   · **Abondance** — la voie qui aligne le PLUS de séries, strictement plus que
+ *     l'Élégance, parmi celles dont le global vaut AU MOINS celui de l'Élégance
+ *     et qui ne cèdent pas plus qu'elle au dernier recours.
+ *
+ *   ★ **POURQUOI CE SEUIL, ET AUCUN AUTRE.** Le global paie déjà les séries —
+ *     c'est son axe de quantité. Exiger de l'Abondance qu'elle ne fasse pas
+ *     moins bien au global que l'Élégance, c'est exiger que ses séries en plus
+ *     paient ce qu'elle perd en manière : « au prix d'une élégance moindre,
+ *     sans l'ignorer ». Une voie bancale et fournie ne passe pas — le dernier
+ *     recours, les absorptions, les traductions lui ont déjà retiré de la
+ *     cohérence. Et le seuil n'a aucun réglage. MESURÉ contre deux seuils
+ *     absolus (meilleur global − 28, soit une série de quantité ; 95 % du
+ *     meilleur global) : ils ouvraient la place à des voies moins bien notées
+ *     que l'Élégance (`fl+masb+mrd` sur « Donald Trump » visant 111), sans
+ *     qu'aucun verdict ne le demande.
+ *
+ *   ★ Les deux se décernent SANS les voies nées d'une famille, comme avant
+ *     (`rangerParRegimes`) : une extension allonge la liste, elle n'en change
+ *     pas les lignes réservées.
+ */
+function rangerParLeGlobal(liste, ponderation, reservees = false) {
+  const curseurs = ponderation.curseurs;
+  const secours = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
+  const ordre = ordreGlobal(curseurs, secours);
+  const jokers = liste.filter((a) => a.mode === 'JOKER');
+  const honnetes = liste.filter((a) => a.mode !== 'JOKER').sort(ordre);
+  const tete = [];
+  if (reservees && honnetes.length) {
+    const eligibles = honnetes.filter((a) => !estUneExtension(a));
+    // `honnetes` est rangé par le global : `filter` garde cet ordre, et un `>`
+    // strict garde la première des ex æquo — le départage est l'ordre total.
+    // ★ Et la CONVERGENCE ne tient une ligne réservée que s'il n'y a qu'elle —
+    //   la règle de `ordreGlobal`, qui la range dernière.
+    const nonConvergentes = (liste) => {
+      const autres = liste.filter((a) => rangConviction(a) !== RANG.CONVERGENCE);
+      return autres.length ? autres : liste;
+    };
+    const base = nonConvergentes(eligibles.length ? eligibles : honnetes);
+    const merite = (a) => meriteDEleganceGlobal(a, curseurs) ?? -1;
+    let elegante = base[0];
+    for (const a of base) if (merite(a) > merite(elegante)) elegante = a;
+    const seuil = scoreGlobal(elegante, curseurs) ?? -1;
+    const series = (a) => a.series || 1;
+    // ★ Et elle ne cède pas PLUS au dernier recours que l'Élégance
+    //   (`score.js › mesuresDeLaVoie`, `recours`). MESURÉ sans ce garde : sur
+    //   « Marie Curie », `fl+masc+mab` (×3, global 658) prenait la ligne devant
+    //   l'Élégance `fl+mz26+mr9+mrdE` (650) — la voie bancale et fournie que
+    //   l'autrice ne veut pas y voir. Lu sur la voie, pas sur ses codes ; et une
+    //   liste où l'Élégance elle-même absorbe garde droit à une Abondance.
+    const recours = (a) => (a.criteres && a.criteres.axe && a.criteres.axe.recours) ?? 1000;
+    let abondante = null;
+    for (const a of base) {
+      if (series(a) <= series(elegante) || (scoreGlobal(a, curseurs) ?? -1) < seuil) continue;
+      if (recours(a) < recours(elegante)) continue;
+      if (!abondante || series(a) > series(abondante)) abondante = a;
+    }
+    tete.push(elegante);
+    if (abondante) tete.push(abondante);
+  }
+  const reste = honnetes.filter((a) => !tete.includes(a));
+  for (const a of reste) {
+    if (reservees) a.suggestion = 'mixte';
+    else if (a.suggestion === 'elegance' || a.suggestion === 'triptyques') a.suggestion = 'mixte';
+  }
+  if (tete[0]) tete[0].suggestion = 'elegance';
+  if (tete[1]) tete[1].suggestion = 'triptyques';
+  liste.length = 0;
+  liste.push(...tete, ...reste, ...jokers);
+  return liste;
 }
 
 /**

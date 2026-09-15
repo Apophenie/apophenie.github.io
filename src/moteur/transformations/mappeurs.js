@@ -6165,6 +6165,11 @@ const AUTRES_MAPPEURS = [
     //   et, mesuré, de vingt à quarante sur les cas de l'auteur. Déclarer 1
     //   serait le faire passer pour une lecture.
     notoriete: 0.15, adHoc: 0.49, cout: 2,
+    // ★ DERNIER RECOURS, à moitié du prix d'une traduction : « ce n'est pas
+    //   aussi pire que de traduire, mais ça reste assez bancal, il devrait être
+    //   moins bien noté pour ressortir moins » (l'autrice, 15 septembre 2026).
+    //   `mrdE` n'en porte pas : « ne serait-ce que mrdE serait mieux ».
+    recours: 0.35,
     note: bilingue(
       'La ficelle assumée de l’exhaustivité : rien ne tombe, tout se dissout. Le prix se lit '
       + 'à l’écran — chaque accolade est une coupe choisie, chaque somme, chaque produit et '
@@ -6522,6 +6527,8 @@ const AUTRES_MAPPEURS = [
     //   et, mesuré, de vingt à quarante sur les cas de l'auteur. Déclarer 1
     //   serait le faire passer pour une lecture.
     notoriete: 0.18, adHoc: 0.42, cout: 2,
+    // ★ DERNIER RECOURS, comme l'absorption dont elle est la variante (`mab`).
+    recours: 0.35,
     note: bilingue(
       'La ficelle assumée de l’exhaustivité : rien ne tombe, tout se dissout. Le prix se lit '
       + 'à l’écran — chaque accolade est une coupe choisie, chaque somme, chaque produit et '
@@ -6651,6 +6658,8 @@ const AUTRES_MAPPEURS = [
     //   et, mesuré, de vingt à quarante sur les cas de l'auteur. Déclarer 1
     //   serait le faire passer pour une lecture.
     notoriete: 0.18, adHoc: 0.42, cout: 2,
+    // ★ DERNIER RECOURS, comme l'absorption dont elle est la variante (`mab`).
+    recours: 0.35,
     note: bilingue(
       'La ficelle assumée de l’exhaustivité : rien ne tombe, tout se dissout. Le prix se lit '
       + 'à l’écran — chaque accolade est une coupe choisie, chaque somme, chaque produit et '

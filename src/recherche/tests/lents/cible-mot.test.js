@@ -273,6 +273,32 @@ test('cible-mot — Sarah Kerrigan → Fantome, rangé puis dissous', () => {
  *   (rang 6) ; `Sarah Kerrigan → 666`, 18 → 19 voies — une MOISSON ×3 à 3 029
  *   (rang 6). Aucune voie ne sort, aucun score ne change.
  *
+ * ★ **IL A ÉTÉ RÉGÉNÉRÉ UNE HUITIÈME FOIS, et voici pourquoi.** LA LISTE SUIT LE
+ *   SCORE GLOBAL, recalibré sur les quinze verdicts du 15 septembre 2026
+ *   (`.planning/arbitrages/2026-09-15-rang-ou-score.md`, `score.js ›
+ *   mesuresDeLaVoie`, `index.js › rangerParLeGlobal`) : « le score global a
+ *   l'air de faire mieux que le moteur, mais les mab sont à mettre en retrait,
+ *   donc ça va créer des mouvements, c'est normal » (l'autrice). Seul l'ORDRE
+ *   change : les cinq couples gardent exactement leurs voies (19, 13, 11, 32,
+ *   20), aucune n'entre ni ne sort, aucun score du moteur ne change. Trois têtes
+ *   changent : `Sarah Kerrigan → 666`, `fl+mz26+mab` → `0:fr12;fl+m14+meg` ;
+ *   `Sarah Kerrigan → 13`, `fl+tm+mlm+mmoc` → `fl+ma1+mrdE` ; `Donald Trump →
+ *   111`, `=mdlc!0+2:masc+mrn+cal` → `fl+mlm`. Les deux autres gardent leur tête.
+ *   (Mesuré en chemin : quand la réduction du surplus départageait elle aussi au
+ *   global recalibré, `hope-hope-hope.fr → 666` perdait deux voies ; elle garde
+ *   donc le global du moteur — voir `index.js › evaluerUneVoie`.)
+ *
+ * ★ **IL A ÉTÉ RÉGÉNÉRÉ UNE NEUVIÈME FOIS, et voici pourquoi.** Deux arbitrages
+ *   de l'autrice sur le recalibrage précédent : les deux lignes réservées
+ *   REVIENNENT, choisies au global (« garde les deux mais sur la base du score
+ *   global ») — `index.js › rangerParLeGlobal`, `score.js ›
+ *   meriteDEleganceGlobal` —, et le bloc court laissé de côté se paie MOITIÉ, et
+ *   non plus rien (« ne plus le pénaliser du tout me semble une erreur »). Seul
+ *   l'ORDRE change encore : mêmes voies sur les cinq couples (19, 13, 11, 32, 20),
+ *   aucune n'entre ni ne sort, aucun score du moteur ne bouge, et les cinq têtes
+ *   restent celles de la huitième génération. Aucune ligne « Abondance » sur ces
+ *   cinq couples : l'Élégance y est déjà la tête du global.
+ *
  * ⚠️ C'est un fil tendu, pas une spécification. Une évolution VOULUE du barème
  *   ou du classement le fera rougir : c'est alors l'instantané qu'on régénère.
  */
