@@ -3096,7 +3096,9 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
 /** Plafond de tours de la recherche locale. Le déchet décroît strictement. */
 const MAX_RETOUCHES = 32;
 
-function reduireLeSurplus(choix, accepte, cible = CIBLE_DEFAUT) {
+// ★ Exportée pour `tests/reduction-du-surplus.test.js`, qui décrit son défaut
+//   d'allers-retours à déchet égal (`todo`). Aucun autre appelant.
+export function reduireLeSurplus(choix, accepte, cible = CIBLE_DEFAUT) {
   const cbl = normaliserCible(cible);
   const out = choix.slice();
   // ★ Le compte des séries se lit sur la SUITE des chiffres rapportés, pas sur
