@@ -15,9 +15,9 @@ import { construireBassin, statistiquesBassin, DISTANCE_MAX } from '../../bassin
 import { genererFragments, motifsRepetes, periodicite, tokeniser, zonesSignifiantes, structureUrl } from '../../fragments.js';
 import {
   ordreTotal, comparerCodes, racineEntiere, critereCouverture, critereConcision, noter, maniere,
-  rangConviction, RANG, REGLAGES,
+  rangConviction, RANG, REGLAGES, methodesDeLApproche,
 } from '../../score.js';
-import { approcheJoker, normaliserChemin, compterMoisson, sixDuChemin, SERIE } from '../../assemblage.js';
+import { approcheJoker, normaliserChemin, compterMoisson, sixDuChemin, SERIE, NEE_D_UNE_FAMILLE } from '../../assemblage.js';
 import { BAREME, detailDuCredit } from '../../elegance.js';
 import { estDecret, titreApproche } from '../../titres.js';
 import { catalogue, source, horlogeFactice, demarrerCharge, arreterCharge } from '../_catalogue.js';
@@ -704,37 +704,62 @@ test('garde-fou — MAX_NODES borne l’exploration', () => {
  * de le recopier. Un test qui répète une valeur réglable ne mesure plus le
  * moteur, il mesure sa propre mémoire.
  */
-/* ★ **LES PLACES VALENT PAR SÉLECTION, ET LE CRAN 0 EN RÉUNIT DEUX.** Depuis le
+/* ★ **LES PLACES VALENT PAR SÉLECTION, ET LE CRAN 0 EN RÉUNIT PLUSIEURS.** Depuis le
      cran rapide (−1, `config.js › CRAN_RAPIDE`), la liste du cran 0 est l'union
      de sa sélection et de celle du cran −1 : « l'union allonge la liste, rien
      n'en sort » (arbitrage de l'autrice). Chaque sélection tient ses places —
-     vérifié sans le cran rapide —, et l'union n'en tient jamais plus de deux
-     fois. */
+     vérifié sans le cran rapide —, et l'union n'en tient jamais plus que le
+     nombre de sélections qu'elle réunit.
+
+   ★ **LA SÉLECTION DES FAMILLES EN EST UNE DE PLUS — la même règle que pour le
+     cran −1.** Les voies que seule la fenêtre par famille fabrique
+     (`NEE_D_UNE_FAMILLE`) sont choisies à part (`index.js › finaliser`) :
+     « le cran 0 peut dépasser ses 20 places, jusqu'au double » — « oui, c'est
+     l'union acceptée » (l'autrice). Le test vérifie donc CHAQUE sélection — les
+     voies d'avant d'un côté, celles des familles de l'autre, chacune sous ses
+     places —, puis que la réunion reste bornée. */
+const desFamilles = (liste) => liste.filter((a) => a[NEE_D_UNE_FAMILLE] === true);
+const avantLesFamilles = (liste) => liste.filter((a) => a[NEE_D_UNE_FAMILLE] !== true);
+
 test('sortie — pas plus de voies que de places par sélection, ≤ 24 fragments', () => {
   const m = creerMoteur(catalogue);
   const seule = creerMoteur(catalogue, { cranRapide: false });
   const places = placesDeLaListe(PUISSANCE_DE_FOUILLE_DEFAUT);
   for (const s of SAISIES_DETERMINISME) {
     const sel = seule.resoudre(s);
-    assert.ok(sel.approches.length <= places,
-      `${s} : ${sel.approches.length} approches pour ${places} places, dans une seule sélection`);
+    const avant = avantLesFamilles(sel.approches);
+    const familles = desFamilles(sel.approches);
+    assert.ok(avant.length <= places,
+      `${s} : ${avant.length} approches pour ${places} places, dans la sélection des anciennes fenêtres`);
+    assert.ok(familles.length <= places,
+      `${s} : ${familles.length} approches pour ${places} places, dans la sélection des familles`);
+    const selections = familles.length ? 2 : 1;
+    assert.ok(sel.approches.length <= selections * places,
+      `${s} : ${sel.approches.length} approches pour ${selections} sélection(s) de ${places} places`);
     const r = m.resoudre(s);
-    assert.ok(r.approches.length <= 2 * places,
-      `${s} : ${r.approches.length} approches pour deux sélections de ${places} places`);
+    // Deux crans (−1 et 0), chacun au plus deux sélections quand une famille a fabriqué.
+    const selectionsReunies = 2 * (desFamilles(r.approches).length ? 2 : 1);
+    assert.ok(r.approches.length <= selectionsReunies * places,
+      `${s} : ${r.approches.length} approches pour ${selectionsReunies} sélections de ${places} places`);
     assert.ok(r.fragments.length <= REGLAGES.MAX_FRAGMENTS,
       `${s} : ${r.fragments.length} fragments pour ${REGLAGES.MAX_FRAGMENTS}`);
   }
 });
 
 /* ★ **LE QUOTA VAUT PAR SÉLECTION** — la même règle que les places, juste au-dessus :
-     le cran 0 réunit sa sélection et celle du cran rapide, chacune sous quota. */
+     le cran 0 réunit sa sélection et celle du cran rapide, chacune sous quota.
+   ★ **ET LA SÉLECTION DES FAMILLES EN EST UNE DE PLUS**, sous SON quota : elle le
+     compte par MÉTHODES (`score.js › methodesDeLApproche`), une moisson sous
+     l'ensemble des mappeurs de ses portées. Chaque sélection est vérifiée sous
+     sa propre clé ; la réunion, comptée par mappeur principal, reste bornée par
+     le nombre de sélections — la même règle que pour le cran −1. */
 test('diversité N4 — pas plus d’approches par mappeur principal que le quota, par sélection', () => {
   // Le quota est lu dans `config.js`, pas recopié : « 2 » était la valeur du
   // cran d'ouverture le jour où le test a été écrit (audit).
   const quota = voiesParMappeur(PUISSANCE_DE_FOUILLE_DEFAUT);
-  const compter = (r) => {
+  const compter = (approches) => {
     const compte = new Map();
-    for (const a of r.approches) {
+    for (const a of approches) {
       if (a.joker) continue;
       const op = a.parts[0].chemin.ops.find((o) => o.famille === 'mappeur' || o.famille === 'mesure');
       if (!op) continue;
@@ -742,10 +767,27 @@ test('diversité N4 — pas plus d’approches par mappeur principal que le quot
     }
     return compte;
   };
-  const seule = compter(creerMoteur(catalogue, { cranRapide: false }).resoudre('https://hope-hope-hope.fr/'));
-  for (const [id, n] of seule) assert.ok(n <= quota, `${id} apparaît ${n} fois pour un quota de ${quota}, dans une seule sélection`);
-  const union = compter(creerMoteur(catalogue).resoudre('https://hope-hope-hope.fr/'));
-  for (const [id, n] of union) assert.ok(n <= 2 * quota, `${id} apparaît ${n} fois pour deux sélections sous un quota de ${quota}`);
+  const sel = creerMoteur(catalogue, { cranRapide: false }).resoudre('https://hope-hope-hope.fr/');
+  for (const [id, n] of compter(avantLesFamilles(sel.approches))) {
+    assert.ok(n <= quota, `${id} apparaît ${n} fois pour un quota de ${quota}, dans la sélection des anciennes fenêtres`);
+  }
+  const parMethodes = new Map();
+  for (const a of desFamilles(sel.approches)) {
+    const k = methodesDeLApproche(a);
+    if (k) parMethodes.set(k, (parMethodes.get(k) || 0) + 1);
+  }
+  for (const [k, n] of parMethodes) {
+    assert.ok(n <= quota, `${k} apparaît ${n} fois pour un quota de ${quota}, dans la sélection des familles`);
+  }
+  const selections = desFamilles(sel.approches).length ? 2 : 1;
+  for (const [id, n] of compter(sel.approches)) {
+    assert.ok(n <= selections * quota, `${id} apparaît ${n} fois pour ${selections} sélection(s) sous un quota de ${quota}`);
+  }
+  const r = creerMoteur(catalogue).resoudre('https://hope-hope-hope.fr/');
+  const selectionsReunies = 2 * (desFamilles(r.approches).length ? 2 : 1);
+  for (const [id, n] of compter(r.approches)) {
+    assert.ok(n <= selectionsReunies * quota, `${id} apparaît ${n} fois pour ${selectionsReunies} sélections sous un quota de ${quota}`);
+  }
 });
 
 test('anti-doublons — aucune approche ne montre deux fois le même spectacle', () => {
