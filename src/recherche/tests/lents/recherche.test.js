@@ -649,16 +649,36 @@ test('budget — le pipeline complet tient dans le budget global', () => {
     // les cinq suites en parallèle, donc ce test créait lui-même la contention
     // qui le faisait échouer. Un test qui ne passe que sur une machine au repos
     // ne prouve rien et finit par être ignoré.
-    const u0 = process.cpuUsage();
+    /* ★ **ET LE CPU DU FIL PRINCIPAL, PAS CELUI DU PROCESSUS.** L'autrice a
+         tranché la façon de mesurer le budget : « le CPU du fil principal ».
+
+         `process.cpuUsage()` additionne TOUS les fils du processus, et Node en
+         fait travailler d'autres que le nôtre : la recompilation du moteur
+         JavaScript et le ramasse-miettes parallèle. Ce n'est pas du calcul de
+         recherche, et la personne devant le site ne le perçoit pas comme tel.
+         MESURÉ à froid, dans les conditions de ce test, machine libre (cinq
+         tours, médianes) : sur « Lorem ipsum… », 10,5 s de CPU processus,
+         8,3 s de CPU du fil principal, 8,5 s écoulées. Le fil principal suit le
+         temps écoulé à 0,1–0,2 s près ; les deux secondes d'écart sont
+         compilation (≈ 1,1 s) et ramasse-miettes (≈ 1 s) sur les autres fils.
+         Le processus faisait rougir le test pour du travail que personne
+         n'attend.
+
+         ★ La doctrine d'au-dessus tient toujours : c'est du CPU, donc
+           indifférent à la charge de la machine. La borne ne bouge pas
+           (`BUDGET_TOTAL_MS`) ; seule la chose mesurée est la bonne. */
+    assert.equal(typeof process.threadCpuUsage, 'function',
+      'le budget se mesure au CPU du fil principal : `process.threadCpuUsage` est requis');
+    const u0 = process.threadCpuUsage();
     const t0 = performance.now();
     const r = m.resoudre(s);
     const mural = performance.now() - t0;
-    const u = process.cpuUsage(u0);
+    const u = process.threadCpuUsage(u0);
     const ms = (u.user + u.system) / 1000;
     assert.ok(ms < BUDGET_TOTAL_MS,
-      `« ${s.slice(0, 30)} » : ${ms.toFixed(0)} ms CPU (${mural.toFixed(0)} ms mural), `
+      `« ${s.slice(0, 30)} » : ${ms.toFixed(0)} ms CPU du fil principal (${mural.toFixed(0)} ms mural), `
       + `budget ${BUDGET_TOTAL_MS} ms`);
-    console.log(`    ${ms.toFixed(1).padStart(7)} ms CPU  ${String(r.approches.length).padStart(2)} approches  ${JSON.stringify(s.slice(0, 40))}`);
+    console.log(`    ${ms.toFixed(1).padStart(7)} ms CPU (fil principal)  ${String(r.approches.length).padStart(2)} approches  ${JSON.stringify(s.slice(0, 40))}`);
   }
 });
 
