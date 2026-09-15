@@ -34,16 +34,22 @@
  *
  * ```
  *      1̲0̶5̶ │ 5        ②  seul le PREMIER chiffre est en jeu, le reste est
- *     ─────┼─────         estompé : 5 ne tient pas dans 1, on écrit 0
- *      1̲0̲5̶ │ 02       ③  le 2ᵉ chiffre entre en jeu ; deux « 5 » s'en vont,
- *                          la zone passe de 10 à 05 puis 00
- *      0̲0̲5̲ │ 021      ④  le 3ᵉ entre à son tour, un « 5 » s'en va
+ *     ─────┼─────         estompé : une copie du 5 rebondit sur le 1,
+ *   1 < 5 → 0 × 5         « 1 < 5 → 0 × 5 » s'écrit dessous, le 0 part au quotient
+ *      1̲0̲5̶ │ 02       ③  le 2ᵉ chiffre entre en jeu ; deux copies du 5 s'y
+ *  10 = 2 × 5 + 0         posent, la zone passe de 10 à 05 puis 00 ; l'identité
+ *                          s'écrit dessous, le 2 part au quotient
+ *      0̲0̲5̲ │ 021      ④  le 3ᵉ entre à son tour : « 5 = 1 × 5 + 0 »
  *
  *      3̲,̲0̲ │ 02,0     ⑤  (13 ÷ 5) A GLISSE À GAUCHE, « ,0 » s'inscrit à sa
  *                          droite — et « ,0 » s'inscrit de même sous la barre
  *      0̲,̲0̲ │ 02,6     ⑥  six « 5 » quittent la zone : 3,0 … 0,0
  *                      ⑦  tout s'efface, le quotient descend sans sa virgule
  * ```
+ *
+ * ★ **UN TOUR, UNE EXPRESSION** — voir `chiffreNul` et `chiffreNonNul` : chaque
+ *   chiffre du quotient s'écrit d'abord SOUS le dividende, en toutes lettres
+ *   (« 17 = 3 × 5 + 2 », « 3 < 5 → 0 × 5 »), avant de gagner sa colonne.
  *
  * ★ **LA ZONE EN JEU EST DÉSIGNÉE PAR L'ESTOMPAGE, et le paquet vaut `B`.**
  *
@@ -125,15 +131,14 @@ export const name = 'potence';
  */
 const TEMPO = Object.freeze({
   BARRES: 760,      // ① l'écart, les deux traits, et l'estompage
-  POSE: 300,        //   le chiffre entre en jeu, celui du quotient paraît à zéro
-  PAS: 700,         // ⚠️ UN EXEMPLAIRE TOUTES LES 700 ms — le cœur du geste
-  REPOS: 640,       //   le temps de lire un zéro dont personne n'est parti
-  RESPIRE: 240,     //   après le dernier atterrissage
+  POSE: 300,        //   le chiffre entre en jeu
   INSERTION: 620,   // ⑤ A glisse à gauche, « ,0 » s'inscrit
   EFFACEMENT: 640,  // ⑦ les barres et les opérandes s'en vont
   DESCENTE: 840,    //   le quotient rejoint la ligne
   // ── le geste d'un tour (voir « UN TOUR, UNE EXPRESSION ») ──
   VOL: 700,         //   une copie du diviseur vole jusqu'au nombre partiel
+  DECOUPE: 700,     // ⚠️ chiffre non nul : ses fragments descendent — UN RETRAIT = VOL + DECOUPE
+  RESTE: 700,       //   le reste se duplique : il complète nbr et forme « + R »
   REBOND: 800,      //   chiffre nul : elle rebondit, et « nbr < diviseur » descend
   ECRITURE: 500,    //   « → 0 × diviseur » s'écrit
   LECTURE: 500,     //   le temps de lire l'expression complète
@@ -174,20 +179,19 @@ export const ROLES = Object.freeze({
   TERME: 'terme',                     // les signes et le diviseur récrit de l'expression
 });
 
-/** La part du pas que dure le vol d'un exemplaire — le reste est du silence. */
-const PART_DU_VOL = 0.92;
-
 /** Ce que vaut l'opacité d'un chiffre qui n'est PAS en jeu. */
 const ESTOMPE = 0.3;
 
 /**
  * ⚠️ **UNE POTENCE DE SOIXANTE-DIX RETRAITS NE PEUT PAS DURER UNE MINUTE.**
- * Le pas nominal vaut pour les divisions qu'on montre vraiment (une vingtaine
- * d'exemplaires au plus) ; au-delà il se resserre, sans jamais descendre sous
- * le plancher — mieux vaut un geste rapide qu'un geste qu'on abandonne.
+ * Le retrait nominal (`VOL + DECOUPE`, 1,4 s) vaut pour les divisions qu'on
+ * montre vraiment (une vingtaine de retraits au plus) ; au-delà, TOUS les
+ * retraits se resserrent d'un même facteur, sans descendre sous le plancher —
+ * mieux vaut un geste rapide qu'un geste qu'on abandonne. Le seuil est celui
+ * d'avant le geste en expression : vingt et un retraits.
  */
-const BUDGET_EXTRACTION = 15000;
-const PAS_PLANCHER = 200;
+const BUDGET_EXTRACTION = 30000;
+const CADENCE_PLANCHER = 0.3;
 
 /** L'air qu'on fait entre A et B pour loger la barre, en parts de corps. */
 const ECART_BARRE = 0.8;
@@ -396,10 +400,11 @@ export function plan(ctx) {
 
   /* ── LE TEMPO ─────────────────────────────────────────────────────────────
      On compte d'abord ce qu'il y a à montrer, on en déduit ce que ça dure. */
-  const exemplaires = tours.reduce((n, t) => n + t.chiffre, 0);
-  const pas = exemplaires
-    ? Math.min(TEMPO.PAS, Math.max(PAS_PLANCHER, BUDGET_EXTRACTION / exemplaires))
-    : TEMPO.PAS;
+  const retraits = tours.reduce((n, t) => n + t.chiffre, 0);
+  const unRetrait = TEMPO.VOL + TEMPO.DECOUPE;
+  const cadence = retraits * unRetrait > BUDGET_EXTRACTION
+    ? Math.max(CADENCE_PLANCHER, BUDGET_EXTRACTION / (retraits * unRetrait))
+    : 1;
   const dureeDuTour = (tour, i) => {
     const insertion = tour.decimal ? TEMPO.INSERTION : 0;
     // Sans zéro initial, un rang où rien ne tient n'est pas joué : le chiffre
@@ -408,7 +413,8 @@ export function plan(ctx) {
     if (tour.chiffre === 0) {
       return insertion + TEMPO.POSE + TEMPO.VOL + TEMPO.REBOND + TEMPO.ECRITURE + TEMPO.LECTURE + TEMPO.MIGRATION;
     }
-    return insertion + TEMPO.POSE + tour.chiffre * pas + TEMPO.RESPIRE;
+    return insertion + TEMPO.POSE + tour.chiffre * unRetrait * cadence
+      + TEMPO.RESTE + TEMPO.LECTURE + TEMPO.MIGRATION;
   };
   const naturel = TEMPO.BARRES + TEMPO.EFFACEMENT + TEMPO.DESCENTE
     + tours.reduce((s, t, i) => s + dureeDuTour(t, i), 0);
@@ -849,15 +855,158 @@ export function plan(ctx) {
     return fin;
   };
 
+  /**
+   * ★ **UN CHIFFRE NON NUL : « nbr = N × diviseur + R ».**
+   *
+   * > « On part du diviseur, on envoie autant de copies qu'il y en a dans le
+   * >   nombre à diviser vers ce nombre, on en extrait la valeur en passant au
+   * >   travers du nombre pour former en dessous "{nbr} = {N}x{diviseur}+{R}".
+   * >   Quand le diviseur arrive sur le nombre dans la ligne principale, il
+   * >   retire sa valeur du nombre et se découpe en 3 fragments : un de la
+   * >   valeur du diviseur qui vient former puis s'incrémenter à nbr, 1 qui
+   * >   descend vers N, et lui-même, la première fois, qui va vers diviseur.
+   * >   Quand il ne reste plus assez pour retrancher une fois de plus le
+   * >   diviseur, le reste de la ligne principale se duplique pour venir
+   * >   incrémenter nbr et former +R, puis N migre en courbe elliptique par le
+   * >   bas jusqu'à sa place à droite dans le résultat, pendant que R remonte
+   * >   dans la ligne principale pour la suite du calcul et que le reste de
+   * >   "{nbr} = {N}x{diviseur}+{R}" disparaît. » (l'autrice)
+   *
+   * UN RETRAIT À LA FOIS : la copie suivante ne part qu'une fois les fragments
+   * de la précédente arrivés.
+   *
+   * ★ **CE QUE VEUT DIRE « nbr », ET POURQUOI IL SE RECONSTRUIT.** C'est le
+   *   nombre partiel d'origine, et il se FORME par additions : B, 2B, 3B…, puis
+   *   + R — ce que le calcul a retiré, remis bout à bout. À la fin il vaut le
+   *   nombre partiel : l'identité se lit, et elle est vraie (`expressionDuTour`).
+   *
+   * ★ **« R REMONTE DANS LA LIGNE PRINCIPALE ».** Le nombre de la ligne affiche
+   *   déjà le reste : chaque copie lui a retiré B en arrivant. La copie « + R »
+   *   remonte donc S'Y FONDRE, colonne par colonne — c'est ce reste-là que le
+   *   tour suivant élargit d'un chiffre.
+   *
+   * ★ **« SE DUPLIQUE POUR VENIR INCRÉMENTER NBR ET FORMER +R » : deux copies.**
+   *   Une seule copie qui passerait par nbr avant d'aller à « + R » traverserait
+   *   « = N × diviseur » sur sa rangée ; deux copies nées ensemble font les deux
+   *   gestes à la fois.
+   *
+   * ★ Un reste nul s'écrit « + 0 » : c'est le patron de l'autrice, et c'est ce
+   *   qui dit pourquoi l'on s'arrête.
+   */
+  const chiffreNonNul = ({ tour, spec, enJeu, place, debut, large }) => {
+    const termes = expressionDuTour(tour, b, ctx.where);
+    const nbr = termes[0];
+    const texteR = termes[6];
+    const n = tour.chiffre;
+    const xNbr = milieu(colonnesDuNombre(enJeu, nbr));
+    const centres = disposer(termes, milieu(enJeu));
+    const surLeNombre = { x: xNbr, y: ligneY };
+    const aLaPlace = (k) => ({ x: centres[k], y: yExpression });
+
+    // les termes de l'expression, invisibles jusqu'à ce qu'on les forme
+    const idNbr = creer('potnbr', nbr, aLaPlace(0), ROLES.COMPTEUR);
+    const idEgal = creer('potexpr', '=', aLaPlace(1), ROLES.TERME, { kind: 'operator' });
+    creerLeChiffre(spec, aLaPlace(2));
+    const idFois = creer('potexpr', '×', aLaPlace(3), ROLES.TERME, { kind: 'operator' });
+    const idPlus = creer('potexpr', '+', aLaPlace(5), ROLES.TERME, { kind: 'operator' });
+
+    // ── les retraits ──
+    const dVol = ms(TEMPO.VOL) * cadence;
+    const dRetrait = ms(TEMPO.VOL + TEMPO.DECOUPE) * cadence;
+    const dDescente = ms(TEMPO.DECOUPE) * cadence * 0.85;
+    const t0 = debut + ms(TEMPO.POSE);
+    const arrivees = [];     // la copie touche le nombre : il perd B
+    const versNbr = [];      // un fragment « B » rejoint nbr
+    const versN = [];        // un « 1 » rejoint N
+    const aEffacer = [idNbr, idEgal, idFois, idPlus];
+    for (let e = 0; e < n; e++) {
+      const at = t0 + e * dRetrait;
+      const copie = envoyerLeDiviseur(at, dVol, xNbr, ECHELLE_EN_VOL);
+      const tA = at + dVol;
+      arrivees.push(tA);
+      // « se découpe en 3 fragments » : la valeur du diviseur, et un 1
+      for (const [texte, k, liste] of [[String(b), 0, versNbr], ['1', 2, versN]]) {
+        const id = creer('potfrag', texte, surLeNombre, ROLES.FRAGMENT, { scale: ECHELLE_EN_VOL });
+        paraitre(id, tA, 1);
+        parcourir(id, parLaRangeeDePassage(surLeNombre, aLaPlace(k)), tA + EPS, dDescente);
+        ctx.anim({ id, prop: 'scale', to: 1, at: tA + EPS, dur: dDescente, ease: EASE.move });
+        const arrive = tA + EPS + dDescente;
+        disparaitre(id, arrive, 1);
+        liste.push(arrive);
+        ctx.scene.kill(id, ctx.where);
+      }
+      if (e === 0) {
+        // « et lui-même, la première fois, qui va vers diviseur »
+        parcourir(copie, parLaRangeeDePassage(surLeNombre, aLaPlace(4)), tA + EPS, dDescente);
+        ctx.anim({ id: copie, prop: 'scale', to: 1, at: tA + EPS, dur: dDescente, ease: EASE.move });
+        aEffacer.push(copie);
+      } else {
+        // les suivantes ne sont plus que leurs fragments
+        disparaitre(copie, tA + EPS, 1);
+        ctx.scene.kill(copie, ctx.where);
+      }
+    }
+    // l'expression se forme à l'arrivée des premiers fragments
+    const dSigne = ms(TEMPO.DECOUPE) * 0.25;
+    paraitre(idNbr, versNbr[0], 1);
+    paraitre(spec.id, versN[0], 1);
+    paraitre(idEgal, versNbr[0], dSigne);
+    paraitre(idFois, versNbr[0], dSigne);
+
+    // ── le reste se duplique : il complète nbr, et forme « + R » ──
+    const tReste = t0 + n * dRetrait;
+    const dReste = ms(TEMPO.RESTE) * 0.85;
+    const colonnesR = colonnesDuNombre(enJeu, texteR);
+    const copiesR = [];
+    colonnesR.forEach((cid, j) => {
+      const p0 = ctx.scene.pos(cid);
+      const versLeCompteur = creer('potcopie', texteR[j], p0, ROLES.COPIE_NOMBRE);
+      const pourR = creer('potcopie', texteR[j], p0, ROLES.COPIE_NOMBRE);
+      paraitre(versLeCompteur, tReste, 1);
+      paraitre(pourR, tReste, 1);
+      parcourir(versLeCompteur, parLaRangeeDePassage(p0, aLaPlace(0)), tReste, dReste);
+      disparaitre(versLeCompteur, tReste + dReste + EPS, 1);
+      ctx.scene.kill(versLeCompteur, ctx.where);
+      parcourir(pourR, parLaRangeeDePassage(p0, { x: chiffreDe(centres[6], j, texteR.length), y: yExpression }),
+        tReste, dReste);
+      copiesR.push(pourR);
+    });
+    const tForme = tReste + dReste;
+    paraitre(idPlus, tForme, ms(TEMPO.RESTE) * 0.15);
+
+    // ── N migre par le bas, R remonte, le reste disparaît ──
+    const tMigre = tReste + ms(TEMPO.RESTE) + ms(TEMPO.LECTURE);
+    const dMigre = ms(TEMPO.MIGRATION);
+    parcourir(spec.id, parLeBas(aLaPlace(2), place), tMigre, dMigre);
+    copiesR.forEach((id, j) => {
+      const colonne = ctx.scene.pos(colonnesR[j]);
+      parcourir(id, parLaRangeeDePassage({ x: chiffreDe(centres[6], j, texteR.length), y: yExpression }, colonne),
+        tMigre, dMigre);
+      disparaitre(id, tMigre + dMigre + EPS, 1);
+      ctx.scene.kill(id, ctx.where);
+    });
+    for (const id of aEffacer) disparaitre(id, tMigre, dMigre * 0.6);
+    const fin = tMigre + dMigre + 2 * EPS;
+
+    // ── ce que chaque compteur affiche : fonctions pures du temps ──
+    const span = fin - debut;
+    const passes = (liste, u) => liste.filter((x) => debut + u * span >= x).length;
+    ecrireLaZone(enJeu, debut, span, (u) => ligneAffichee(tour.courantAvant - passes(arrivees, u) * b, large, ''));
+    ctx.discrete({
+      id: idNbr, channel: 'text', at: debut, dur: span,
+      render: (u) => String(passes(versNbr, u) * b + (debut + u * span >= tForme ? tour.reste : 0)),
+    });
+    ctx.discrete({ id: spec.id, channel: 'text', at: debut, dur: span, render: (u) => String(passes(versN, u)) });
+    for (const id of aEffacer) ctx.scene.kill(id, ctx.where);
+    return fin;
+  };
+
   let rangEcrit = 0;         // le prochain jeton de `to` à écrire
   plans.forEach((p, i) => {
     const { tour, d, large } = p;
     // Un rang où rien ne tient, sans zéro initial : on le MONTRE — le chiffre
     // entre en jeu, rien ne part — mais on n'écrit rien sous la barre.
     const spec = ecrits[i] ? sorties[rangEcrit++] : null;
-    // l'instant où le chiffre du quotient paraît : le début du tour, sauf sous
-    // la virgule, où il s'inscrit AVEC elle (voir plus bas).
-    let apparition = t;
 
     /* ⑤ **ON POUSSE, PUIS ON INSÈRE.**
 
@@ -915,11 +1064,10 @@ export function plan(ctx) {
         ctx.anim({ id: idVirgQ, prop: 'opacity', to: 1, at: inscrit, dur: fondu, ease: EASE.fade });
         aDroite.push(idVirgQ);
       }
-      // ★ « ON FAIT DE MÊME SOUS B (on ajoute ",0") » : la virgule ET le zéro.
-      //   Le chiffre du quotient de ce tour-ci EST ce zéro-là — il paraît donc
-      //   avec la virgule, et non un temps plus tard : c'est un seul geste, des
-      //   deux côtés de la barre.
-      apparition = inscrit;
+      // « Et on fait de même sous B » : la virgule du quotient s'inscrit avec
+      // celle du dividende. Le chiffre de ce rang, lui, s'écrit dans
+      // l'expression du tour et gagne sa colonne en dernier (« N migre […]
+      // jusqu'à sa place à droite dans le résultat », l'autrice).
       t = inscrit;
     }
 
@@ -956,113 +1104,9 @@ export function plan(ctx) {
       return;
     }
 
-    // --- le chiffre du quotient : il paraît À ZÉRO, et il montera seul -------
-    if (spec) {
-      ctx.scene.create({
-        id: spec.id, role: 'text', text: spec.text, kind: spec.kind || 'digit', inFlow: false,
-        // le premier chiffre écrit reprendra dans la ligne l'espacement que le
-        // dividende tenait AVANT la potence — pas l'air qu'elle y a ajouté
-        ...(chiffres.length === 0 ? espacementOriginal : {}),
-        base: { opacity: 0, scale: 0.7 },
-      }, { where: ctx.where });
-      ctx.scene.place(spec.id, place);
-      const poseQ = Math.max(1, ms(TEMPO.POSE) * 0.8);
-      ctx.anim({ id: spec.id, prop: 'opacity', to: 1, at: apparition, dur: poseQ, ease: EASE.fade });
-      ctx.anim({ id: spec.id, prop: 'scale', to: 1, at: apparition, dur: poseQ, ease: EASE.pop });
-      chiffres.push(spec.id);
-      aDroite.push(spec.id);
-    }
-
-    const debutTour = t;
-    const depart0 = t + ms(TEMPO.POSE);
-    const n = tour.chiffre;
-    const finTour = n
-      ? depart0 + n * ms(pas) + ms(TEMPO.RESPIRE)
-      : depart0 + ms(TEMPO.REPOS);
-
-    /* ★ **LE CHIFFRE SE COMPTE, IL NE SE POSE PAS.**
-
-       > « La valeur B est EXTRAITE autant de fois qu'elle se trouve dans le
-       >   premier chiffre de A et INCRÉMENTE D'1 PAR EXEMPLAIRE le premier
-       >   chiffre sous B. » (l'auteur)
-
-       C'est le même geste que la division à l'accolade, et pour la même
-       raison : un chiffre qui paraît tout fait n'apprend rien. Quand il n'en
-       part aucun — « 5 ne tient pas dans 1 » —, le chiffre reste à zéro, et
-       ce zéro-là est justement celui qu'il faut voir s'écrire ; c'est pourquoi
-       un tour vide prend quand même son temps. */
-    const departX = tour.decimal ? xDecimale(d) : xEntier(i);
-    const atterrissages = [];
-    for (let e = 0; e < n; e++) {
-      const at = depart0 + e * ms(pas);
-      const vol = Math.max(1, ms(pas) * PART_DU_VOL);
-      atterrissages.push(at + vol);
-
-      const id = ctx.gensym('potpaquet');
-      ctx.scene.create({
-        id, role: 'text', text: String(b), kind: 'digit', inFlow: false,
-        base: { opacity: 0, scale: 0.5, fill: ctx.palette.gold },
-      }, { where: ctx.where });
-      ctx.scene.place(id, { x: departX, y: ligneY });
-      ctx.anim({
-        id,
-        prop: 'translate',
-        values: [
-          { x: departX, y: ligneY },
-          { x: barreX(), y: ligneY - fs * 0.42 },
-          { x: ctx.scene.pos(idB).x, y: ligneY + fs * 0.12 },
-          { x: place.x, y: place.y },
-        ],
-        at,
-        dur: vol,
-        ease: EASE.linear,
-      });
-      ctx.anim({ id, prop: 'opacity', values: [0, 1, 1, 0], offsets: [0, 0.12, 0.86, 1], at, dur: vol });
-      ctx.anim({ id, prop: 'scale', values: [0.55, 0.68, 0.55], offsets: [0, 0.5, 1], at, dur: vol });
-      /* Il vaut `B` en partant — la valeur qu'on retire à la zone — et `1` en
-         arrivant : on retire cinq, ça compte pour un. Même bascule qu'à
-         l'accolade, et pour la même raison : sans elle, un « 5 » qui atterrit
-         sur un compteur affichant `1` se lirait comme un `+5`. */
-      ctx.discrete({
-        id, channel: 'text', at, dur: vol,
-        render: (u) => (u < 0.55 ? String(b) : '1'),
-      });
-    }
-
-    /* La zone en jeu perd `B` AU DÉPART de chaque exemplaire — pas à son
-       arrivée : ce qui a quitté le nombre n'est plus en lui. Chaque colonne
-       rend son propre chiffre, fonction pure du temps. */
-    const span = Math.max(1, finTour - debutTour);
-    const departs = atterrissages.map((_, e) => (depart0 + e * ms(pas) - debutTour) / span);
-    const partis = (u) => {
-      let k = 0;
-      while (k < departs.length && u >= departs[k]) k++;
-      return k;
-    };
-    const texte = (u) => ligneAffichee(tour.courantAvant - partis(u) * b, large, '');
-    const enJeu = tour.decimal ? [...colonnesA, ...decimalesA] : colonnesA.slice(0, i + 1);
-    enJeu.forEach((id, c) => {
-      ctx.discrete({
-        id, channel: 'text', at: debutTour, dur: span, render: (u) => texte(u)[c],
-      });
-    });
-
-    // Le chiffre du quotient suit les ATTERRISSAGES, un cran chacun. Fonction
-    // pure de `t`, donc exacte au scrubbing, en avant comme en arrière.
-    if (spec) {
-      const spanQ = Math.max(1, finTour - apparition);
-      const bornes = atterrissages.map((x) => (x - apparition) / spanQ);
-      ctx.discrete({
-        id: spec.id, channel: 'text', at: apparition, dur: spanQ,
-        render: (u) => {
-          let compte = 0;
-          while (compte < bornes.length && u >= bornes[compte]) compte++;
-          return String(compte);
-        },
-      });
-    }
-
-    t = finTour;
+    t = chiffreNonNul({ tour, spec, enJeu: enJeuDuTour, place, debut: t, large });
+    chiffres.push(spec.id);
+    aDroite.push(spec.id);
   });
 
   /* ── ⑦ TOUT S'EFFACE, SAUF LE QUOTIENT ───────────────────────────────────

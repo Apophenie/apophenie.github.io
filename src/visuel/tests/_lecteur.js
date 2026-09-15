@@ -43,8 +43,9 @@ import { resolveDiscrete } from '../clock.js';
  * ESTOMPÉ, sur un voisin, sur un signe de l'expression ou sur le quotient
  * reste une faute.
  *
- * ⚠️ `@potpaquet` sans rôle : l'exemplaire en vol de l'ancien geste, exclu en
- *   bloc. Il disparaît avec lui.
+ * ★ Il n'y a plus d'exclusion en bloc : l'exemplaire en vol de l'ancien geste
+ *   passait sur les chiffres estompés et sur la barre sans que rien ne le
+ *   dise ; toute copie porte désormais son rôle.
  */
 export function superpositionVoulue(p, q) {
   return voulueDans(p, q) || voulueDans(q, p);
@@ -61,7 +62,7 @@ function voulueDans(a, b) {
     case 'copie-nombre':
       return enJeu || ['copie-nombre', 'copie-diviseur', 'compteur'].includes(b.potence);
     default:
-      return !a.potence && a.id.startsWith('@potpaquet');
+      return false;
   }
 }
 
