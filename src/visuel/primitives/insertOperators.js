@@ -10,7 +10,7 @@
  * l'émetteur qui nomme).
  */
 
-import { insertOperatorTokens } from './helpers.js';
+import { insertOperatorTokens, suivreLesAccolades } from './helpers.js';
 import { fail } from '../errors.js';
 
 export const name = 'insertOperators';
@@ -70,4 +70,8 @@ export function plan(ctx) {
     between, ids, glyph, glyphs, at: 0, dur: ctx.dur,
     ...(tete ? { tete, teteId: ctx.op.teteId } : {}),
   });
+  // ★ La ligne s'écarte pour les signes : une accolade déjà posée sur ces nombres
+  //   s'écarte AVEC elle (même instant, même durée que le reflow), au lieu de
+  //   rattraper l'écart plus tard (`helpers.js › suivreLesAccolades`).
+  suivreLesAccolades(ctx, { at: 0, dur: ctx.dur * 0.6 });
 }

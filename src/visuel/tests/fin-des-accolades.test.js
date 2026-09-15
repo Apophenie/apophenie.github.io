@@ -35,10 +35,7 @@ setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
  * Les gestes qui ne tiennent pas encore la règle, et pourquoi.
  * @type {Record<string, string>}
  */
-const A_TRAITER = {
-  cmm: 'le signe « − » écarte la ligne sans que l’accolade suive : elle rattrape l’écart à l’anticipation, '
-    + 'après s’être resserrée avec la ligne — un yoyo (insertOperators)',
-};
+const A_TRAITER = {};
 
 function jetonsDe(etat) {
   const elements = etat.type === 'STR' ? [...etat.valeur]
