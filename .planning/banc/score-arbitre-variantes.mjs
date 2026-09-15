@@ -33,7 +33,9 @@ const opsDe = (a) => [
   ...(a.liaison && a.liaison.op ? [a.liaison.op] : []),
 ];
 const estTraduction = (o) => o.acception !== undefined;
-const estComplement = (o) => o.complement === 9;
+// ⚠️ Par IDENTIFIANT : `posts.js` retire `complement` du descripteur publié —
+//   lire `o.complement` rendait ce test toujours faux (mesuré).
+const estComplement = (o) => o.id === 'p.complement9';
 const estAbsorption = (o) => /^m\.absorption/.test(o.id);
 const estRedecoupageExact = (o) => o.id === 'm.redecoupageExact';
 export const proprietes = (a) => {
@@ -46,7 +48,7 @@ export const proprietes = (a) => {
 };
 const propre = (a) => { const p = proprietes(a); return !p.traduction && !p.pc9 && !p.mab && !p.minMax; };
 
-function axesVariante(a, v) {
+export function axesVariante(a, v) {
   const c = { ...a.criteres };
   const chemins = a.parts.map((p) => p.chemin);
   // Les programmes distincts, dans l'ordre d'apparition.
@@ -64,7 +66,15 @@ function axesVariante(a, v) {
     ...(a.liaison && a.liaison.op ? [a.liaison.op] : [])];
   c.N = critereNotoriete(ops.length ? ops : [{ notoriete: 0 }]);
   c.A = critereAntiAdHoc(ops);
-  if (v.H === 'parts' && chemins.length > 1) {
+  const cleDe = (ch) => ch.ops.map((o) => o.code).join('+');
+  const compteParProgramme = new Map();
+  for (const ch of chemins) compteParProgramme.set(cleDe(ch), (compteParProgramme.get(cleDe(ch)) || 0) + 1);
+  const comptes = [...compteParProgramme.values()].sort((x, y) => y - x);
+  // ★ « majorite » : le repli ne vaut que s'il existe UN programme strictement
+  //   majoritaire — une méthode pour l'essentiel, une autre pour le reste. Une
+  //   partition à trois méthodes distinctes garde l'homogénéité par paires.
+  const majoriteStricte = comptes.length > 1 && comptes[0] >= 2 && comptes[0] > comptes[1];
+  if ((v.H === 'parts' || (v.H === 'majorite' && majoriteStricte)) && chemins.length > 1) {
     // Moyenne, sur chaque part, de sa similarité au programme majoritaire (en parts).
     const compte = new Map();
     for (const ch of chemins) { const k = ch.ops.map((o) => o.code).join('+'); compte.set(k, (compte.get(k) || 0) + 1); }
@@ -82,6 +92,18 @@ function axesVariante(a, v) {
       somme += w * (c[LETTRE_DU_CRITERE[critere]] ?? MILLE); poids += w;
     }
     out[axe] = poids ? Math.round(somme / poids) : null;
+  }
+  if (v.courts && a.bilan && a.bilan.abandons && a.bilan.abandons.signifiants) {
+    // ★ Le bloc court laissé de côté (< 3 lettres, le `.fr`) est l'exception que
+    //   le barème accorde déjà (`EFFACE_BLOC_COURT`, `estPur`) : la couverture le
+    //   pardonne aussi. On relit U sur ce que le bilan compte comme lu, plus ces blocs.
+    const ab = a.bilan.abandons;
+    const lus = Math.min(ab.signifiants, ab.lus + (ab.blocCourt || 0));
+    const u = Math.floor((lus * MILLE) / ab.signifiants);
+    const U = Math.floor((u * Math.floor(Math.sqrt(u * MILLE))) / MILLE);
+    out.exhaustivite = Math.round((out.exhaustivite * CORRESPONDANCE.couverture.exhaustivite
+      - (c.U ?? MILLE) * CORRESPONDANCE.couverture.exhaustivite + U * CORRESPONDANCE.couverture.exhaustivite)
+      / CORRESPONDANCE.couverture.exhaustivite);
   }
   let R = c.R;
   if (v.selection && a.bilan && a.bilan.minMax) {
@@ -109,7 +131,7 @@ function axesVariante(a, v) {
   }
   return out;
 }
-const globalDe = (axes, curseurs) => {
+export const globalDe = (axes, curseurs) => {
   const parts = pourcentagesDe(curseurs);
   let s = 0; let p = 0;
   for (const axe of CURSEURS) { s += (parts[axe] ?? 0) * axes[axe]; p += parts[axe] ?? 0; }
@@ -146,6 +168,9 @@ export const VARIANTES = {
   plier: { retouches: true, plier: true },
   plierH: { retouches: true, plier: true, H: 'parts' },
   recours: { retouches: true, plier: true, H: 'parts', selection: true, recours: { traduction: 300, pc9: 300, mab: 650 } },
+  recoursCourts: { retouches: true, plier: true, H: 'parts', selection: true, courts: true, recours: { traduction: 300, pc9: 300, mab: 650 } },
+  recoursCourtsSansH: { retouches: true, plier: true, selection: true, courts: true, recours: { traduction: 300, pc9: 300, mab: 650 } },
+  recoursCourtsMaj: { retouches: true, plier: true, H: 'majorite', selection: true, courts: true, recours: { traduction: 300, pc9: 300, mab: 650 } },
   recoursDoux: { retouches: true, plier: true, H: 'parts', selection: true, recours: { traduction: 500, pc9: 400, mab: 750 } },
   recoursDur: { retouches: true, plier: true, H: 'parts', selection: true, recours: { traduction: 250, pc9: 250, mab: 550, minMax: 700 } },
 };

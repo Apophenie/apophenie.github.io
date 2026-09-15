@@ -30,7 +30,9 @@ import {
   classeDeTransformation, survieDesCaracteres, compterTraductionsDivergentes,
 } from '../../elegance.js';
 import { creerMoteur } from '../../index.js';
-import { ordreElegance, ordreTriptyques, ordreTotal, POIDS_DES_REGIMES } from '../../score.js';
+import {
+  ordreElegance, ordreTriptyques, ordreTotal, POIDS_DES_REGIMES, scoreGlobal, CURSEURS_DEFAUT,
+} from '../../score.js';
 import { zonesSignifiantes } from '../../fragments.js';
 import { jalonsDesCornes, suivreLaLigne, dUnSeulTenant } from '../../scenario.js';
 import { lire } from '../../url.js';
@@ -1722,29 +1724,37 @@ test('★ étalonnage — les quatre cas de référence gardent leur tête de li
  * aligne le plus de 666, il n'y a pas de second arbitrage à proposer : la place
  * revient au mixte. Sans ce garde-fou, « le champion des triptyques » désignerait
  * neuf fois sur dix une approche au même compte, qui ne suggérerait rien.
+ *
+ * ── ★ AMENDEMENT DU 15 SEPTEMBRE 2026 — LES PLACES RÉSERVÉES NE RANGENT PLUS ──
+ *
+ * L'autrice a écarté les sept têtes que la 1ʳᵉ place (le champion de
+ * l'élégance) tenait aux curseurs par défaut sur son corpus
+ * (`.planning/arbitrages/2026-09-15-rang-ou-score.md`) : la liste suit le
+ * global recalibré (`index.js › rangerParLeGlobal`). Les deux champions
+ * continuent d'ENTRER dans la liste — la sélection n'a pas changé, et une voie
+ * ne sort pas parce qu'on la range autrement —, mais ils n'y ont plus de place
+ * ni de marque. Ce que ce test garde : la liste est rangée par le global, sans
+ * marque de place réservée, et la voie la plus fournie y figure toujours quand
+ * le régime des triptyques en désigne une plus fournie que la plus élégante.
  */
-test('★ classements — la 2ᵈ suggestion n’apparaît que si elle aligne PLUS de séries', () => {
+test('★ classements — les champions entrent dans la liste, le global la range', () => {
   const m = creerMoteur(catalogue, { filetTemporel: false });
-  let vuesAvec = 0;
-  let vuesSans = 0;
+  let fournies = 0;
   for (const s of ['hope-hope-hope.fr', 'https://hope-hope-hope.fr/', 'Donald Trump', 'Macron',
-    'Éléonore à Nîmes', 'jean-michel', 'Millicent',
-    // ★ Les saisies où la première suggestion N'EST PAS la plus fournie : c'est
-    //   là, et seulement là, que la seconde a quelque chose à dire. Mesuré sur
-    //   trente-trois saisies, elles sont rares — cinq — et c'est le signe que le
-    //   garde-fou fait son travail plutôt que d'ouvrir une seconde place à qui
-    //   n'en a pas besoin.
-    'reinfocovid', 'Marie Curie']) {
+    'Éléonore à Nîmes', 'jean-michel', 'Millicent', 'reinfocovid', 'Marie Curie']) {
     const app = m.resoudre(s).approches;
-    const seconde = app.find((a) => a.suggestion === 'triptyques');
-    if (!seconde) { vuesSans++; continue; }
-    vuesAvec++;
-    assert.ok((seconde.series || 1) > (app[0].series || 1),
-      `« ${s} » : la 2ᵈ suggestion (${seconde.series}×666) n’apporte pas plus que la 1ʳᵉ (${app[0].series}×666)`);
-    assert.equal(app[1], seconde, 'la 2ᵈ suggestion occupe la 2ᵈ place');
+    assert.ok(!app.some((a) => a.suggestion === 'elegance' || a.suggestion === 'triptyques'),
+      `« ${s} » : une marque de place réservée subsiste`);
+    const honnetes = app.filter((a) => a.mode !== 'JOKER');
+    for (let i = 1; i < honnetes.length; i++) {
+      assert.ok(scoreGlobal(honnetes[i], CURSEURS_DEFAUT) <= scoreGlobal(honnetes[i - 1], CURSEURS_DEFAUT),
+        `« ${s} » : le global remonte au rang ${i + 1}`);
+    }
+    const elegante = honnetes.slice().sort(ordreElegance)[0];
+    const fournie = honnetes.slice().sort(ordreTriptyques)[0];
+    if ((fournie.series || 1) > (elegante.series || 1)) fournies++;
   }
-  assert.ok(vuesAvec >= 1, 'la 2ᵈ suggestion doit exister quelque part, sinon elle est du code mort');
-  assert.ok(vuesSans >= 1, '…et ne pas exister ailleurs, sinon le garde-fou ne garde rien');
+  assert.ok(fournies >= 1, 'le régime des triptyques doit encore désigner, quelque part, une voie plus fournie que la plus élégante');
 });
 
 /**
@@ -1940,22 +1950,26 @@ test('★ régimes — l’élégance pure renverse le champion de la quantité'
      fournie ». C'est ce que l'auteur a demandé — « en dehors du résultat
      orienté élégance avant tout, ça me va très bien que ça évolue vers plus de
      quantité, en gardant une élégance assez bonne ». */
-  assert.equal(app[0].suggestion, 'elegance');
-  assert.equal(app[1].suggestion, 'triptyques');
-  assert.ok((app[1].series || 1) > (app[0].series || 1),
-    `la 2ᵈ ligne aligne plus de 666 que la 1ʳᵉ (${app[1].series} contre ${app[0].series})`);
+  /* ★ AMENDEMENT DU 15 SEPTEMBRE 2026 : les deux champions ne tiennent plus
+       les deux premières lignes (la liste suit le global, `index.js ›
+       rangerParLeGlobal`). On les retrouve donc DANS la liste, par leurs
+       comparateurs, et la règle se vérifie sur eux. */
+  const belle = app.slice().sort(ordreElegance)[0];
+  const fournie = app.slice().sort(ordreTriptyques)[0];
+  assert.ok((fournie.series || 1) > (belle.series || 1),
+    `la plus fournie aligne plus de 666 que la plus belle (${fournie.series} contre ${belle.series})`);
 
   // ★ Et les deux comparateurs se contredisent SUR CE COUPLE : c'est très
-  //   exactement ce qui fait qu'il y a deux lignes plutôt qu'une.
-  assert.ok(ordreElegance(app[0], app[1]) < 0,
-    'au régime de l’élégance, la 1ʳᵉ ligne passe devant la 2ᵈ');
-  assert.ok(ordreTriptyques(app[1], app[0]) < 0,
+  //   exactement ce qui fait qu'ils désignent deux voies plutôt qu'une.
+  assert.ok(ordreElegance(belle, fournie) < 0,
+    'au régime de l’élégance, la plus belle passe devant la plus fournie');
+  assert.ok(ordreTriptyques(fournie, belle) < 0,
     '…et au régime de la quantité, c’est l’inverse');
 
   // ★ La 1ʳᵉ ligne est plus COURTE et abandonne MOINS que la 2ᵈ : c'est le
   //   correctif demandé sur le mérite d'élégance (`score.js › meriteDElegance`),
   //   qui ne lisait que le crédit et ignorait ces deux-là.
-  assert.ok(app[0].L < app[1].L, `la belle est la plus courte (${app[0].L} contre ${app[1].L})`);
-  assert.ok(app[0].criteres.U >= app[1].criteres.U,
-    `la belle n’abandonne pas plus (${app[0].criteres.U} contre ${app[1].criteres.U})`);
+  assert.ok(belle.L < fournie.L, `la belle est la plus courte (${belle.L} contre ${fournie.L})`);
+  assert.ok(belle.criteres.U >= fournie.criteres.U,
+    `la belle n’abandonne pas plus (${belle.criteres.U} contre ${fournie.criteres.U})`);
 });

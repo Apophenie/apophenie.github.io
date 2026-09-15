@@ -527,6 +527,12 @@ export function def(spec) {
     deprecated: false,
     notoriete: 0.5,
     adHoc: 0,
+    // ★ LE DERNIER RECOURS — la part de cohérence qu'une voie cède pour avoir
+    //   employé ce geste (0 : aucune). Lu par `recherche/score.js ›
+    //   scoresParAxe`, une fois par opérateur distinct. Arbitrage de l'autrice
+    //   du 15 septembre 2026 : traduire, compléter à neuf ou absorber ne se
+    //   montre « qu'en dernier recours, si on ne trouve pas mieux ».
+    recours: 0,
     commute: false,
     cout: 1,
     isJoker: false,

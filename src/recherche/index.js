@@ -34,7 +34,7 @@ import {
 } from './assemblage.js';
 import { scoreGlobal } from './score.js';
 import {
-  noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, REGLAGES,
+  noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, ordreGlobal, REGLAGES,
   ponderer, normaliserCurseurs, pourcentagesDe, scoresParAxe,
   CURSEURS, CURSEUR_DEFAUT, CURSEUR_MAX, CURSEURS_DEFAUT, CORRESPONDANCE,
   facteurDEcartAuxCurseurs, ordreDExactitude, ometLaPonctuation,
@@ -908,7 +908,16 @@ export function creerMoteur(catalogue, options = {}) {
         const deja = cache.get(cle);
         if (deja) return deja;
         noter(a, { saisie, signifiants, elegance: options.elegance !== false, cible: cbl, ponderation });
-        const note = Object.freeze({ global: scoreGlobal(a, ponderation.curseurs), score: a.score });
+        /* ★ **LE GLOBAL DU MOTEUR, PAS CELUI DE LA CARTE** (`score.js ›
+             scoresParAxe`, `montree: false`). La réduction du surplus FABRIQUE
+             la matière des moissons ; le recalibrage du 15 septembre 2026 ne
+             devait changer que l'ORDRE de la liste. MESURÉ avec le global
+             recalibré ici : `hope-hope-hope.fr → 666` perdait deux voies, dont
+             la voie groupée `0+2+4:m14,1+3:mtc,6:fi+ma1` (global 737) — la
+             réduction choisissait d'autres variantes, qui se confondaient avec
+             des voies déjà là. Faire suivre le nouveau global à la fabrication
+             reste possible, et c'est un arbitrage : il coûte ces voies-là. */
+        const note = Object.freeze({ global: scoreGlobal(a, ponderation.curseurs, { montree: false }), score: a.score });
         cache.set(cle, note);
         return note;
       },
@@ -1139,6 +1148,9 @@ export function creerMoteur(catalogue, options = {}) {
           retenues = (parLesRegimes ? rangerParRegimes(union) : union.sort(ordreDeLaListe)).concat(jokersRetenus);
         }
       }
+      // ★ LA SÉLECTION A CHOISI QUI ENTRE ; LE GLOBAL DIT DANS QUEL ORDRE
+      //   (`rangerParLeGlobal`).
+      rangerParLeGlobal(retenues, ponderation);
       comptesDesAnciennesGardes.set(retenues, compteDesAnciennesGardes);
 
       // Les titres sont posés en une passe sur la LISTE, pas approche par
@@ -1240,6 +1252,7 @@ export function creerMoteur(catalogue, options = {}) {
         ? rangerParRegimes(honnetes)
         : honnetes.sort(ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal);
       if (jokers.length) rangees.push(jokers[0]);
+      rangerParLeGlobal(rangees, ponderation);
       nommer(rangees);
       rangees.forEach((a, i) => { a.rang = i + 1; });
       return rangees;
@@ -1706,6 +1719,11 @@ export function creerMoteur(catalogue, options = {}) {
         }
         if (reprises.length) retenues = retenues.concat(reprises).sort(ordreDuTexte);
       }
+      // ★ La coupe a choisi QUI entre ; l'ordre montré suit le global
+      //   (`rangerParLeGlobal`), après la règle d'exactitude, qui tient toujours.
+      const parLeGlobal = ordreGlobal(ponderation.curseurs, ordreDeLaListe);
+      retenues.sort((a, b) => exactitude(a, b) || parLeGlobal(a, b));
+      for (const a of retenues) if (a.suggestion === 'elegance' || a.suggestion === 'triptyques') a.suggestion = 'mixte';
       nommer(retenues);
       retenues.forEach((a, i) => { a.rang = i + 1; });
       return retenues;
@@ -2353,14 +2371,17 @@ export function creerMoteur(catalogue, options = {}) {
       return { ok: false, raison: 'commande sans réponse', bandeau: BANDEAUX.formatInconnu };
     }
     approches.sort(ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal);
-    approches.forEach((a, i) => { a.rang = i + 1; });
+    // ★ La coupe aux places se fait sur l'ordre du moteur (qui entre) ; l'ordre
+    //   montré suit le global (`rangerParLeGlobal`).
+    const gardees = rangerParLeGlobal(approches.slice(0, b.voies), ponderation);
+    gardees.forEach((a, i) => { a.rang = i + 1; });
     return {
       ok: true,
       saisie,
       cible: cbl,
       // ★ Les places suivent le cran, comme pour la liste ordinaire — la
       //   douzaine en dur d'avant ignorait la réglette (audit).
-      approches: approches.slice(0, b.voies),
+      approches: gardees,
       commande: true,
       puissance: b.puissance,
       facteur: b.facteur,
@@ -2613,6 +2634,41 @@ function rangerParRegimes(approches) {
   const reste = approches.filter((a) => !tete.includes(a)).sort(ordreTotal);
   for (const a of reste) a.suggestion = 'mixte';
   return [...tete, ...reste];
+}
+
+/**
+ * ★ **LA LISTE SUIT LE SCORE GLOBAL** — arbitrage de l'autrice, 15 septembre
+ * 2026 (`.planning/arbitrages/2026-09-15-rang-ou-score.md`) : sur les quinze
+ * cas qui opposaient la tête au global affiché et la tête du moteur, le global
+ * l'emporte, une fois recalibré (`score.js › mesuresDeLaVoie`).
+ *
+ * Range EN PLACE une liste déjà choisie : le global décroissant aux curseurs
+ * de la liste, l'ordre du moteur pour départager, le joker en dernier.
+ *
+ * ★ **ON NE CHANGE PAS QUI ENTRE, ON CHANGE L'ORDRE.** La sélection (MMR,
+ *   quotas, sièges) reste celle du score du moteur : une voie que le global
+ *   pénalise recule dans la liste, elle n'en sort pas. « Si une voie pénalisée
+ *   recule, qu'elle recule dans la liste » (l'autrice).
+ *
+ * ★ **LES LIGNES RÉSERVÉES PERDENT LEUR PLACE**, et leur marque avec. La 1ʳᵉ
+ *   ligne — le champion de l'élégance (`ordreElegance`) — tenait la tête des
+ *   sept cas du corpus aux curseurs par défaut, et l'autrice les a tous
+ *   écartés : « catastrophique », « à jeter », « pourquoi me la présentes-tu ?
+ *   ». Son mérite ne regarde ni la notoriété, ni l'ad hoc, ni la concision : une
+ *   partition au complément à 9 y battait `fl+m14`. Garder la place en changeant
+ *   le champion reviendrait à y mettre la tête du global — c'est-à-dire à ne
+ *   plus rien réserver. La marque suit : un encadré « Élégance » au milieu de
+ *   la liste dirait ce que le classement ne dit plus.
+ */
+function rangerParLeGlobal(liste, ponderation) {
+  const secours = ponderation.personnalisee ? ordrePondere(ponderation) : ordreTotal;
+  const ordre = ordreGlobal(ponderation.curseurs, secours);
+  const jokers = liste.filter((a) => a.mode === 'JOKER');
+  const honnetes = liste.filter((a) => a.mode !== 'JOKER').sort(ordre);
+  for (const a of honnetes) if (a.suggestion === 'elegance' || a.suggestion === 'triptyques') a.suggestion = 'mixte';
+  liste.length = 0;
+  liste.push(...honnetes, ...jokers);
+  return liste;
 }
 
 /**
