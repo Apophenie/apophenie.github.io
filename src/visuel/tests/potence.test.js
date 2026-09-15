@@ -39,6 +39,7 @@ import { CompileError } from '../errors.js';
 import { resolveDiscrete } from '../clock.js';
 import { lecteur } from './_lecteur.js';
 import { derouleDeLaDivision, ligneAffichee } from '../primitives/potence.js';
+import * as primitivePotence from '../primitives/potence.js';
 import { PAR_CODE, appliquer } from '../../moteur/catalogue.js';
 import { depuisSaisie } from '../../moteur/etat.js';
 import { construireScenario } from '../../recherche/scenario.js';
@@ -139,6 +140,8 @@ const BANCS_A_VOISINS = () => [
   ['mdc1 sur 7 135 9', () => { const r = surLaLigne('mdc1', [7, 135, 9]); return { sc: { steps: r.steps }, tl: r.tl }; }],
   ['mdc3 sur 7 23 9', () => { const r = surLaLigne('mdc3', [7, 23, 9]); return { sc: { steps: r.steps }, tl: r.tl }; }],
   ['mdc2 sur 44 23 135 8', () => { const r = surLaLigne('mdc2', [44, 23, 135, 8]); return { sc: { steps: r.steps }, tl: r.tl }; }],
+  ['md01 sur 7 10155 9', () => { const r = surLaLigne('md01', [7, 10155, 9]); return { sc: { steps: r.steps }, tl: r.tl }; }],
+  ['md02 sur 3 17 4', () => { const r = surLaLigne('md02', [3, 17, 4]); return { sc: { steps: r.steps }, tl: r.tl }; }],
   ['le site : Sept, tca+masb+mdc1', () => surLeSite('Sept', 'tca+masb+mdc1')],
   ['le site : Sept, tca+masb+mdc3', () => surLeSite('Sept', 'tca+masb+mdc3')],
 ];
@@ -262,7 +265,7 @@ test('★ à chaque instant, la ligne se lit comme le reste de la division', () 
 test('★ ce qui vole vaut B, toujours — et 1 en arrivant', () => {
   for (const [a, b, d] of [[13, 5, 1], [105, 5, 1], [2, 3, 3], [39, 9, 2], [12345, 7, 3]]) {
     const { tl } = potence(a, b, d);
-    const paquets = parPrefixe(tl, '@potpaquet');
+    const paquets = parPrefixe(tl, '@potpaquet').filter((n) => !n.data);
     assert.ok(paquets.length > 0, `${a} ÷ ${b} : il y a des retraits`);
     for (const n of paquets) {
       assert.equal(n.text, String(b), `${a} ÷ ${b} : un paquet vaut ${n.text} au lieu de ${b}`);
@@ -340,8 +343,9 @@ test('★ l’exemplaire quitte la colonne des unités de la zone', () => {
   const { tl } = potence(105, 5, 1);
   const lire = lecteur(tl);
   const [, dizaines, unites] = parPrefixe(tl, '@potchiffre');
+  const anciens = new Set(parPrefixe(tl, '@potpaquet').filter((n) => !n.data).map((n) => n.id));
   const vols = tl.anims
-    .filter((x) => x.id.startsWith('@potpaquet') && x.prop === 'translate')
+    .filter((x) => anciens.has(x.id) && x.prop === 'translate')
     .sort((x, y) => x.delay - y.delay);
   const colonneDe = (v) => {
     const x = v.keyframes[0].value.x;
@@ -485,24 +489,14 @@ test('★ entre deux voisins, jamais deux jetons ne se superposent, à aucun ins
   for (const [nom, banc] of BANCS_A_VOISINS()) {
     const { sc, tl } = banc();
     assert.deepEqual(tl.warnings, [], `${nom} : ${tl.warnings.join(' | ')}`);
+    // Les superpositions VOULUES — la copie du nombre sur le nombre, la copie du
+    // diviseur au départ et à l'arrivée, les fragments qui en naissent et
+    // rejoignent leur compteur — sont écrites une fois, dans
+    // `_lecteur.js › superpositionVoulue`. Toute autre rencontre est une faute.
     const lire = lecteur(tl);
     for (const { debut, fin } of potencesDe(sc, tl)) {
-      const N = 500;
-      for (let k = 0; k <= N; k++) {
-        const t = debut + ((fin - debut) * k) / N;
-        const vus = lire.visibles(t).filter((j) => !j.id.startsWith('@potpaquet'));
-        for (let i = 0; i < vus.length; i++) {
-          for (let j = i + 1; j < vus.length; j++) {
-            const p = vus[i];
-            const q = vus[j];
-            if (Math.abs(p.y - q.y) >= ((p.h + q.h) / 2) * 0.8) continue;
-            const recouvre = Math.min(p.d, q.d) - Math.max(p.g, q.g);
-            assert.ok(recouvre <= 0.5,
-              `${nom}, t = ${Math.round(t)} : « ${p.texte} » (${p.id}) `
-              + `et « ${q.texte} » (${q.id}) se chevauchent de ${recouvre.toFixed(1)}`);
-          }
-        }
-      }
+      const pire = lire.chevauchement(debut, fin, 500);
+      assert.equal(pire, null, `${nom} : ${JSON.stringify(pire)}`);
     }
   }
 });
@@ -583,8 +577,9 @@ test('★ les voisins cèdent la place le temps de la potence, puis la ligne se 
 test('★ un exemplaire ne part pas avant que le précédent soit arrivé', () => {
   for (const [a, b, d] of [[13, 5, 1], [2, 3, 3], [105, 5, 1], [39, 9, 2]]) {
     const { tl } = potence(a, b, d);
+    const anciens = new Set(parPrefixe(tl, '@potpaquet').filter((n) => !n.data).map((n) => n.id));
     const vols = tl.anims
-      .filter((x) => x.id.startsWith('@potpaquet') && x.prop === 'translate')
+      .filter((x) => anciens.has(x.id) && x.prop === 'translate')
       .sort((x, y) => x.delay - y.delay);
     assert.ok(vols.length >= 2, `${a} ÷ ${b} : il y a bien plusieurs retraits`);
     for (let i = 1; i < vols.length; i++) {
@@ -663,6 +658,142 @@ test('★ le moteur visuel refuse de peindre un quotient qui n’est pas celui d
   };
   assert.throws(() => compile(scenario), (e) => e instanceof CompileError
     && /refuse d.afficher un calcul faux/.test(e.message));
+});
+
+// ───────────────────── 9. le geste d'un tour : l'expression écrite sous le dividende
+
+/** Une expression COMPLÈTE : « nbr < diviseur → 0 × diviseur » ou « nbr = N × diviseur + R ». */
+const EXPRESSION_COMPLETE = /^\d+ (< \d+ → 0 × \d+|= \d × \d+ \+ \d+)$/;
+
+/**
+ * Les expressions que la scène ÉCRIT sous le dividende, dans l'ordre du temps —
+ * lues à l'écran, jeton par jeton, et non dans le code : les nœuds à pleine
+ * encre sur la rangée d'un signe « < » ou « = » de la potence, de gauche à
+ * droite. Deux jetons contigus (les chiffres d'une copie) se lisent collés, un
+ * écart se lit comme une espace. Une expression n'est retenue qu'une fois
+ * complète, et une seule fois tant qu'elle reste à l'écran.
+ */
+function expressionsLues(tl, pas = 20) {
+  const lire = lecteur(tl);
+  const suite = [];
+  let precedente = null;
+  for (let t = 0; t <= tl.total; t += pas) {
+    const vus = lire.visibles(t);
+    const signe = vus.find((j) => j.potence === 'terme' && (j.texte === '=' || j.texte === '<') && j.opacite > 0.95);
+    let lue = null;
+    if (signe) {
+      const rang = vus.filter((j) => Math.abs(j.y - signe.y) < 1 && j.opacite > 0.95).sort((a, b) => a.x - b.x);
+      lue = rang.reduce((s, j, k) => s + (k && j.g - rang[k - 1].d > 1 ? ' ' : '') + j.texte, '');
+      if (!EXPRESSION_COMPLETE.test(lue)) lue = null;
+    }
+    if (lue !== null && lue !== precedente) suite.push(lue);
+    precedente = lue;
+  }
+  return suite;
+}
+
+/** Le bas de la barre verticale, dans la scène, à l'instant t. */
+function basDeLaVerticale(tl, t) {
+  const v = unique(tl, '@potvert');
+  const bas = Number(/V\s*(-?[\d.]+)/.exec(v.data.d)[1]);
+  return lecteur(tl).valeur(v.id, 'translate', t).y + bas;
+}
+
+/**
+ * > « md0x n'affiche le 0 au résultat qu'après avoir : 1. estompé les chiffres
+ * >   hors du calcul actuel 2. envoyé une copie du diviseur vers le nombre qui
+ * >   lui est inférieur 3. rebondi dessus en affichant {nbr}<{diviseur} au
+ * >   rebond (en réutilisant le diviseur qui a voyagé vers le nbr et une copie
+ * >   superposée du nbr, les deux descendant pour afficher
+ * >   "{nbr}<{diviseur} -> 0x{diviseur}") 4. enfin le "0" de "0x{diviseur}"
+ * >   migre vers la zone de résultat pendant que le reste de
+ * >   "{nbr}<{diviseur} -> 0x{diviseur}" s'efface. » (l'autrice)
+ */
+test('★ chiffre nul : « 3 < 5 → 0 × 5 » s’écrit, PUIS le 0 gagne le quotient pendant que le reste s’efface', () => {
+  const { tl } = potence(3, 5, 0);
+  assert.deepEqual(tl.warnings, []);
+  assert.deepEqual(expressionsLues(tl), ['3 < 5 → 0 × 5']);
+  const lire = lecteur(tl);
+  const opacites = (id) => tl.anims.filter((x) => x.id === id && x.prop === 'opacity').sort((x, y) => x.delay - y.delay);
+  const translations = (id) => tl.anims.filter((x) => x.id === id && x.prop === 'translate').sort((x, y) => x.delay - y.delay);
+
+  // 2. la copie du diviseur part DU diviseur et arrive sur le nombre partiel
+  const copies = tl.nodes.filter((n) => n.data && n.data.potence === 'copie-diviseur');
+  assert.equal(copies.length, 1, 'une seule copie du diviseur : le nombre ne le contient pas');
+  const vol = translations(copies[0].id)[0];
+  assert.ok(Math.abs(vol.keyframes[0].value.x - lire.valeur('b', 'translate', vol.delay).x) < 0.01, 'elle part du diviseur');
+  const trois = parPrefixe(tl, '@potchiffre')[0];
+  assert.ok(Math.abs(vol.keyframes.at(-1).value.x - lire.valeur(trois.id, 'translate', vol.delay).x) < 0.01,
+    'et se pose sur le nombre partiel');
+
+  // 3. au rebond : une copie SUPERPOSÉE du nombre, et les deux descendent
+  const copieNombre = tl.nodes.filter((n) => n.data && n.data.potence === 'copie-nombre');
+  assert.equal(copieNombre.length, 1, 'une copie du « 3 »');
+  const tArrivee = vol.delay + vol.duration;
+  const naissance = opacites(copieNombre[0].id)[0];
+  assert.ok(naissance.delay >= tArrivee - 1, 'elle paraît quand la copie du diviseur a touché le nombre');
+  const ici = lire.valeur(copieNombre[0].id, 'translate', naissance.delay);
+  const la = lire.valeur(trois.id, 'translate', naissance.delay);
+  assert.ok(Math.hypot(ici.x - la.x, ici.y - la.y) < 0.01, 'superposée au « 3 »');
+
+  // 4. le 0 ne paraît qu'une fois « 3 < 5 » écrit, et migre au quotient par le bas
+  const inferieur = tl.nodes.find((n) => n.data && n.data.potence === 'terme' && n.text === '<');
+  const tInferieur = opacites(inferieur.id)[0];
+  const tZero = opacites('q0')[0];
+  assert.ok(tZero.delay >= tInferieur.delay, 'le 0 s’écrit après « 3 < 5 »');
+  const migration = translations('q0').find((x) => x.keyframes.length > 2);
+  assert.ok(migration, 'le 0 migre');
+  const plusBas = Math.max(...migration.keyframes.map((k) => k.value.y));
+  assert.ok(plusBas - tl.metrics.fontSize / 2 > basDeLaVerticale(tl, migration.delay),
+    'par le bas : il passe sous la barre verticale');
+  const arrivee = migration.keyframes.at(-1).value;
+  assert.ok(arrivee.x > lire.valeur(unique(tl, '@potvert').id, 'translate', migration.delay).x,
+    'et se pose à droite de la barre, dans la zone du quotient');
+  // pendant que le reste s'efface
+  for (const n of [...copies, ...copieNombre, inferieur]) {
+    const sortie = opacites(n.id).at(-1);
+    assert.equal(sortie.keyframes.at(-1).value, 0, `« ${n.text} » s’efface`);
+    assert.ok(Math.abs(sortie.delay - migration.delay) < 1, `« ${n.text} » s’efface PENDANT la migration du 0`);
+  }
+});
+
+/**
+ * > « Généralise ça à tous les opérateurs de division md0x mdcx (sauf l'ajout
+ * >   du zéro initial qui n'est possible que pour les variantes md0x). »
+ * >   (l'autrice)
+ *
+ * `1015 ÷ 5` : 1 < 5 (zéro initial), 10 → 2, on abaisse le 1 : 1 < 5 (zéro
+ * intermédiaire), 15 → 3. Valeurs lues sur les opérateurs, pas recalculées ici.
+ */
+test('★ 1015 ÷ 5 : md01 joue et écrit le zéro initial, mdc1 non ; le zéro intermédiaire est joué des deux côtés', () => {
+  const avec = surLaLigne('md01', [10155]);
+  const sans = surLaLigne('mdc1', [10155]);
+  assert.deepEqual(avec.apres.valeur, [0, 2, 0, 3]);
+  assert.deepEqual(sans.apres.valeur, [2, 0, 3]);
+  assert.deepEqual(avec.tl.warnings, []);
+  assert.deepEqual(sans.tl.warnings, []);
+  const nuls = (tl) => expressionsLues(tl).filter((e) => e.includes('<'));
+  assert.deepEqual(nuls(avec.tl), ['1 < 5 → 0 × 5', '1 < 5 → 0 × 5'], 'md01 : le zéro initial, puis l’intermédiaire');
+  assert.deepEqual(nuls(sans.tl), ['1 < 5 → 0 × 5'], 'mdc1 : l’intermédiaire seulement');
+
+  // mdc1 élargit directement le nombre partiel : le 2ᵉ chiffre entre en jeu
+  // avant que la moindre copie du diviseur ne parte.
+  const colonnes = parPrefixe(sans.tl, '@potchiffre');
+  const eclairage = sans.tl.anims.filter((x) => x.id === colonnes[1].id && x.prop === 'opacity'
+    && x.keyframes.at(-1).value === 1).sort((x, y) => x.delay - y.delay).at(-1);
+  const premierDepart = Math.min(...sans.tl.nodes.filter((n) => n.data && n.data.potence === 'copie-diviseur')
+    .map((n) => sans.tl.anims.find((x) => x.id === n.id && x.prop === 'translate').delay));
+  assert.ok(eclairage.delay < premierDepart, 'le « 0 » de « 10 » est en jeu avant le premier envoi');
+});
+
+test('★ la primitive refuse d’écrire une identité fausse', () => {
+  const { expressionDuTour } = primitivePotence;
+  assert.equal(typeof expressionDuTour, 'function', 'la potence écrit ses expressions par `expressionDuTour`');
+  const refuse = (tour, b) => assert.throws(() => expressionDuTour(tour, b),
+    (e) => e instanceof CompileError && /calcul faux/.test(e.message), JSON.stringify(tour));
+  assert.deepEqual(expressionDuTour({ courantAvant: 3, chiffre: 0, reste: 3 }, 5), ['3', '<', '5', '→', '0', '×', '5']);
+  refuse({ courantAvant: 7, chiffre: 0, reste: 7 }, 5);     // 7 n'est pas < 5
+  refuse({ courantAvant: 3, chiffre: 0, reste: 2 }, 5);     // le reste d'un chiffre nul est le nombre
 });
 
 test('la potence compile sans animation concurrente, du cas court au cas long', () => {
