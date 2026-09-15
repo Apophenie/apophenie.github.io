@@ -276,22 +276,24 @@ test('★ les trois divisions écrivent trois lignes différentes', () => {
 
 /**
  * « L'accolade rétrécit pour ne laisser que le reste, puis le compteur remonte
- * AVANT le reste en ré-étirant l'accolade » — c'est ce resserrement qui sépare
- * `mdiv` de `mdvr` à l'écran, l'ordre des jetons ne se racontant pas tout seul.
+ * AVANT le reste en ré-étirant l'accolade » — c'était ce resserrement qui
+ * séparait `mdiv` de `mdvr` à l'écran. L'autrice l'a remplacé depuis :
+ *
+ * > « L'accolade ne doit pas se réduire quand un espace est gardé. […] elle
+ * >   pourrait rester stable le temps que les 2 ingrédients sont additionnés,
+ * >   puis se réajuster à la taille du résultat pour finalement disparaître. »
+ *
+ * La ligne garde la place de « A / B » pendant que `/B` se dissout : le tracé ne
+ * bouge pas, puis se réajuste UNE fois, sur le compte qui remonte. Ce qui
+ * distingue les deux divisions est l'ORDRE du compte, devant ou derrière le
+ * reste (« les trois divisions écrivent trois lignes différentes », plus haut).
  */
-test('★ mdiv resserre son accolade sur le reste ; mdvr ne la touche pas', () => {
-  const resserrements = (code) => {
+test('★ mdiv et mdvr gardent leur accolade stable pendant la dissolution, puis la réajustent une fois', () => {
+  for (const code of ['mdiv', 'mdvr']) {
     const { tl } = jouer(code, nums([135]), jetonsNums([135]));
-    return tl.discrete.filter((d) => d.channel === 'd').length;
-  };
-  assert.equal(resserrements('mdiv'), 2,
-    'elle se resserre sur le reste, puis se ré-étire sur la ligne neuve');
-  // ★ Depuis que le tracé suit ses sources (« l'exception devient la règle »,
-  //   l'autrice), `mdvr` se resserre AUSSI sur son reste quand `/B` se dissout,
-  //   puis s'étend sur le compte posé après lui : c'est l'ORDRE du compte, devant
-  //   ou derrière le reste, qui distingue les deux divisions.
-  assert.equal(resserrements('mdvr'), 2,
-    'elle se resserre sur le reste quand /B se dissout, puis s’étend sur le compte posé après lui');
+    assert.equal(tl.discrete.filter((d) => d.channel === 'd').length, 1,
+      `${code} : pas de resserrement sur le reste — un seul réajustement, sur le compte arrivé`);
+  }
 });
 
 // ───────────────────── 4. dissoudre, ou demeurer
