@@ -1454,6 +1454,75 @@ function distinctionParLeMot(a, groupe) {
   };
 }
 
+/**
+ * ★ **LA COMBINAISON DE MOTS — quand aucun mot ne suffit seul.**
+ *
+ * `distinctionParLeMot` cherche UNE portée dont le programme n'appartient qu'à
+ * cette ligne. Dans un grand groupe d'homonymes, il arrive qu'aucune n'existe :
+ * chaque mot de la voie est lu de la même façon par une autre ligne, et seule la
+ * RENCONTRE de ces lectures lui est propre.
+ *
+ * ⚠️ MESURÉ sur « Le chat dort sur le tapis rouge », quand la réunion de la
+ *   réduction du surplus a fait grossir le groupe « Gématrie anglaise » jusqu'à
+ *   neuf voies : « « tapis » César 12 » et « « rouge » César 15 » existaient
+ *   chacun sur une autre ligne, et la voie qui les réunissait s'affichait
+ *   « Gématrie anglaise, tca+mpy+cp+prn,ffr3+tca+mx6+mrn,… » — la plomberie.
+ *
+ * On cherche donc, dans l'ordre de la ligne, le plus PETIT ensemble de marques
+ * — un mot et une règle nommable qu'il y reçoit — qu'aucune autre ligne du
+ * groupe ne réunit toutes : une marque, puis deux, puis trois. On les nomme sous
+ * leur titre court, comme `distinctionParLeMot`. Au-delà de trois marques, ou
+ * de soixante caractères, ce n'est plus un fragment qui se lit : les codes
+ * restent le dernier mot.
+ *
+ * ★ Ce recours ne joue qu'APRÈS tous les autres : aucun titre déjà lisible ne
+ *   change d'une lettre.
+ */
+const LONGUEUR_MAX_DISTINCTION = 60;
+const MARQUES_MAX_DISTINCTION = 3;
+
+function distinctionParCombinaison(a, groupe) {
+  const conversion = conversionDe(a);
+  const tete = conversion ? conversion.op : (partPrincipale(a) ? vedette(partPrincipale(a).chemin) : null);
+  const marques = [];
+  for (const p of a.parts || []) {
+    const vues = new Set();
+    for (const o of p.chemin.ops) {
+      if (o.id.startsWith('p.') || (tete && o.id === tete.id) || vues.has(o.id)) continue;
+      if (!courtDe(o, 'fr') || !courtDe(o, 'en')) continue;
+      vues.add(o.id);
+      marques.push({ offset: p.fragment.offset, longueur: p.fragment.longueur, texte: p.fragment.texte, op: o });
+    }
+  }
+  const autres = groupe.filter((x) => x !== a);
+  const porte = (x, m) => (x.parts || []).some((q) => q.fragment.offset === m.offset
+    && q.fragment.longueur === m.longueur && q.chemin.ops.some((o) => o.id === m.op.id));
+  const libelle = (ensemble, langue) => ensemble.map((m) => (langue === 'fr'
+    ? `« ${m.texte} » ${courtDe(m.op, 'fr')}`
+    : `“${m.texte}” ${courtDe(m.op, 'en')}`)).join(', ');
+  const essayer = (ensemble) => {
+    if (autres.some((x) => ensemble.every((m) => porte(x, m)))) return null;
+    const fr = libelle(ensemble, 'fr');
+    const en = libelle(ensemble, 'en');
+    if (fr.length > LONGUEUR_MAX_DISTINCTION || en.length > LONGUEUR_MAX_DISTINCTION) return null;
+    return { fr, en, apres: true };
+  };
+  // Les ensembles de k marques, dans l'ordre de la ligne (indices croissants).
+  const parcourir = (k, debut, pris) => {
+    if (pris.length === k) return essayer(pris);
+    for (let i = debut; i < marques.length; i++) {
+      const r = parcourir(k, i + 1, [...pris, marques[i]]);
+      if (r) return r;
+    }
+    return null;
+  };
+  for (let k = 1; k <= Math.min(MARQUES_MAX_DISTINCTION, marques.length); k++) {
+    const r = parcourir(k, 0, []);
+    if (r) return r;
+  }
+  return null;
+}
+
 export function distinguerTitres(approches) {
   for (const a of approches) a.distinction = null;
   const groupes = new Map();
@@ -1586,6 +1655,10 @@ export function distinguerTitres(approches) {
       //   (`distinctionParLeMot`).
       const parLeMot = distinctionParLeMot(a, groupe);
       if (parLeMot) { a.distinction = parLeMot; return; }
+      // ★ Puis la COMBINAISON de mots (`distinctionParCombinaison`), quand aucun
+      //   mot ne suffit seul.
+      const parCombinaison = distinctionParCombinaison(a, groupe);
+      if (parCombinaison) { a.distinction = parCombinaison; return; }
       // Dernier recours : la suite des codes, unique par construction. On n'y
       // arrive que si deux lignes ont exactement les mêmes opérateurs sur les
       // mêmes fragments — auquel cas il n'y a plus rien à dire d'elles.
@@ -1629,10 +1702,38 @@ export function nommer(approches) {
        divergent (`distinctionParLeMot`). Il ne joue QUE sur les titres encore
        homonymes : un titre déjà unique ne bouge pas d'une lettre. Les codes
        restent le dernier mot, s'il ne sépare pas. */
+  /* ★ **ET LE TITRE TRANCHÉ DOIT ÊTRE LIBRE DANS TOUTE LA LISTE**, pas seulement
+       dans son lot. `distinctionParLeMot` départage le lot, mais le nom qu'il
+       forge peut être celui d'une AUTRE ligne ; le repli final mettait alors en
+       codes les deux lignes heurtées — y compris celle qui avait un titre lisible.
+       ⚠️ MESURÉ sur « Le chat dort sur le tapis rouge », quand la réunion de la
+         réduction du surplus a fait naître deux homonymes « Gématrie anglaise,
+         numérologie pythagoricienne » : départagés en « « dort » César 12 » et
+         « « dort » César 4 », ils heurtaient chacun une ligne qui portait déjà ce
+         nom, et s'affichaient « Gématrie anglaise, tca+mpy+cp+prn,… ».
+       Une distinction qui heurte se refait donc par la combinaison de mots, sur le
+       lot ÉLARGI aux lignes heurtées ; si elle heurte encore, les codes restent le
+       dernier mot. */
+  const titreSi = (a, distinction) => {
+    const garde = a.distinction;
+    a.distinction = distinction;
+    const t = titreBilingue(a);
+    a.distinction = garde;
+    return t;
+  };
+  const heurtees = (a, distinction) => {
+    const t = titreSi(a, distinction);
+    return approches.filter((x) => x !== a && x.titre && (x.titre.fr === t.fr || x.titre.en === t.en));
+  };
   const trancher = (lot) => {
     for (const a of lot) {
-      const lisible = distinctionParLeMot(a, lot);
+      let lisible = distinctionParLeMot(a, lot) || distinctionParCombinaison(a, lot);
       if (!lisible) continue;
+      const touchees = heurtees(a, lisible);
+      if (touchees.length) {
+        lisible = distinctionParCombinaison(a, [...lot, ...touchees.filter((x) => !lot.includes(x))]);
+        if (!lisible || heurtees(a, lisible).length) continue;
+      }
       a.distinction = lisible;
       a.titre = titreBilingue(a);
     }

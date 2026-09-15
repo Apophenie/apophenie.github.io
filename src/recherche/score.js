@@ -488,6 +488,32 @@ export const LETTRE_DU_CRITERE = Object.freeze({
   elegance: 'E',
 });
 
+/**
+ * ★ **LE SCORE GLOBAL — celui qu'affiche la carte.** La moyenne des quatre axes
+ * (`scoresParAxe`) pondérée par les parts des curseurs (`pourcentagesDe`),
+ * arrondie à l'entier : exactement le calcul de `app/pages/resultat.js ›
+ * scoresDeLaVoie`, qui le refait côté page pour suivre les curseurs sans
+ * relancer la recherche. Le moteur l'emploie pour départager deux variantes à
+ * déchet égal (`assemblage.js › reduireLeSurplus`).
+ *
+ * @param {Object} approche  une approche notée
+ * @param {Object} [curseurs]
+ * @returns {?number}
+ */
+export function scoreGlobal(approche, curseurs) {
+  const axes = scoresParAxe(approche);
+  const parts = pourcentagesDe(curseurs);
+  let somme = 0;
+  let poids = 0;
+  for (const axe of CURSEURS) {
+    if (axes[axe] === null || axes[axe] === undefined) continue;
+    const w = parts[axe] ?? 0;
+    somme += w * axes[axe];
+    poids += w;
+  }
+  return poids ? Math.round(somme / poids) : null;
+}
+
 export function scoresParAxe(approche) {
   const c = (approche && approche.criteres) || {};
   const out = {};

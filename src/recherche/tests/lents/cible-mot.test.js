@@ -263,6 +263,16 @@ test('cible-mot — Sarah Kerrigan → Fantome, rangé puis dissous', () => {
  *   voies — une MOISSON ×3 à 2 642 (rang 6). Aucune voie ne sort, aucun score ne
  *   change ; les trois autres couples sont identiques au caractère près.
  *
+ * ★ **IL A ÉTÉ RÉGÉNÉRÉ UNE SEPTIÈME FOIS, et voici pourquoi.** LA RÉDUCTION DU
+ *   SURPLUS DÉPARTAGE AU SCORE GLOBAL, en RÉUNION avec l'ancienne
+ *   (`assemblage.js › reduireLeSurplus`) : « s'il y a différence de score global,
+ *   c'est à prendre en compte » (l'autrice), et aucune baisse de qualité. Deux
+ *   couples bougent, têtes inchangées, entrées seulement :
+ *   `hope-hope-hope.fr → 666`, 29 → 32 voies — deux MOISSONS ×6 (1 542 au rang 3,
+ *   1 255 au rang 5) et la voie groupée lue `fi+ma1` sur « fr », ×5 à 4 196
+ *   (rang 6) ; `Sarah Kerrigan → 666`, 18 → 19 voies — une MOISSON ×3 à 3 029
+ *   (rang 6). Aucune voie ne sort, aucun score ne change.
+ *
  * ⚠️ C'est un fil tendu, pas une spécification. Une évolution VOULUE du barème
  *   ou du classement le fera rougir : c'est alors l'instantané qu'on régénère.
  */

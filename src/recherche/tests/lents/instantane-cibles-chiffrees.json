@@ -31,6 +31,12 @@
    "GROUPEMENT"
   ],
   [
+   "#sce!0:fr15+m14,2:fr18+mx6+mrn#XeuapD1GiUPu7gDywGH",
+   3029,
+   3,
+   "MOISSON"
+  ],
+  [
    "#sce!0:fr15+m14+mpf,2:fr18+mx6+mrn#XeuapD1GiUPu7gDywGH",
    2642,
    3,
@@ -271,9 +277,27 @@
    "MOISSON"
   ],
   [
+   "#sce!0+2:ffr3+m14,1+3:mtc,4:m14,6:fr24+m14#yvQYkzhNVYJT8wM8jhvJxSM",
+   1542,
+   6,
+   "MOISSON"
+  ],
+  [
    "#sce!0+2:ffr3+m14+mpf,1+3:mtc,4:m14,6:mpy+mr9#yvQYkzhNVYJT8wM8jhvJxSM",
    1399,
    6,
+   "MOISSON"
+  ],
+  [
+   "#sce!0+2+4:ffr3+m14,1+3:mtc,6:fr13+nlc+pc9#yvQYkzhNVYJT8wM8jhvJxSM",
+   1255,
+   6,
+   "MOISSON"
+  ],
+  [
+   "#sce!0+2+4:m14,1+3:mtc,6:fi+ma1#yvQYkzhNVYJT8wM8jhvJxSM",
+   4196,
+   5,
    "MOISSON"
   ],
   [
