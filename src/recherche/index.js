@@ -30,7 +30,7 @@ import { construireBassin } from './bassin.js';
 import { genererFragments, zonesSignifiantes, tokeniser, motifsRepetes } from './fragments.js';
 import {
   assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe, vecteursDeSix, segmentsSansCopie,
-  MAX_JETONS_RETOUCHE, MAX_VECTEURS_RETOUCHES,
+  MAX_JETONS_RETOUCHE, MAX_VECTEURS_RETOUCHES, NEE_D_UNE_FAMILLE,
 } from './assemblage.js';
 import {
   noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, REGLAGES,
@@ -1042,10 +1042,10 @@ export function creerMoteur(catalogue, options = {}) {
       //   places par `ordreTotal` — c'est-à-dire par le barème que le visiteur
       //   vient de régler.
       const parLesRegimes = barèmeDElegance && !ponderation.personnalisee;
-      const choisir = (candidates) => (parLesRegimes
-        ? selectionner(candidates, place, budgets.parMappeur, budgets.lambda)
+      const choisir = (candidates, reglages = {}) => (parLesRegimes
+        ? selectionner(candidates, place, budgets.parMappeur, budgets.lambda, reglages)
         : diversifier(candidates, {
-          limite: place, maxParMappeur: budgets.parMappeur, lambda: budgets.lambda, ponderation,
+          limite: place, maxParMappeur: budgets.parMappeur, lambda: budgets.lambda, ponderation, ...reglages,
         }));
       /* ★ **LA DOUBLE SÉLECTION — la rampe des retouches n'ôte rien.**
            > « Mieux vaut élargir le nombre de résultats pour en faire
@@ -1060,9 +1060,27 @@ export function creerMoteur(catalogue, options = {}) {
            les deux posent leur suggestion et leur score ajusté sur les voies, et
            c'est la seconde qui doit avoir le dernier mot sur celles qu'elle
            garde. */
+      /* ★ **ET UNE TROISIÈME : LES VOIES NÉES D'UNE FAMILLE.** La moisson récolte
+           aussi sur une fenêtre qui sert une place par famille de réglages
+           (`assemblage.js › moissons`, la réunion) ; ce qu'elle seule fabrique
+           porte `NEE_D_UNE_FAMILLE`. Ces voies sont sélectionnées À PART, et
+           AVANT les deux autres (même raison que la rampe : la dernière sélection
+           a le dernier mot sur les voies qu'elle garde) ; de cette sélection on
+           ne garde qu'elles. La rampe et les anciennes gardes voient donc
+           exactement leurs candidates d'hier, et la liste ne fait que s'allonger.
+           ⚠️ MESURÉ : mêlées aux candidates de la rampe, elles en changeaient le
+             choix — un groupement ×7 (3 575) sortait de `https://hope-hope-hope.fr/`
+             au cran 2. */
       const horsGardes = ctxAssemblage.horsGardesHistoriques;
-      const historiques = horsGardes ? honnetes.filter((a) => !horsGardes.has(a)) : honnetes;
-      const deLaRampe = historiques.length !== honnetes.length ? choisir(honnetes) : null;
+      const avantLesFamilles = honnetes.filter((a) => a[NEE_D_UNE_FAMILLE] !== true);
+      const historiques = horsGardes ? avantLesFamilles.filter((a) => !horsGardes.has(a)) : avantLesFamilles;
+      const desFamilles = avantLesFamilles.length !== honnetes.length
+        // ★ Son quota se compte par MÉTHODES (`score.js › methodesDeLApproche`) :
+        //   au cran 0, la voie groupée de `hope-hope-hope.fr` partageait sinon le
+        //   quota du quatorze segments avec les deux champions, et n'entrait pas.
+        //   Ne pas compter les champions n'y suffisait pas — mesuré.
+        ? choisir(honnetes, { quotaParMethodes: true }).filter((a) => a[NEE_D_UNE_FAMILLE] === true) : null;
+      const deLaRampe = historiques.length !== avantLesFamilles.length ? choisir(avantLesFamilles) : null;
       let retenues = choisir(historiques);
       if (jokers.length) retenues.push(jokers[0]);
       else if (!retenues.length) {
@@ -1071,8 +1089,11 @@ export function creerMoteur(catalogue, options = {}) {
       }
       const compteDesAnciennesGardes = retenues.length;
       for (const a of retenues) auxAnciennesGardes.add(a);
-      if (deLaRampe) {
-        const enPlus = deLaRampe.filter((a) => !retenues.includes(a));
+      if (deLaRampe || desFamilles) {
+        const enPlus = [];
+        for (const liste of [deLaRampe, desFamilles]) {
+          for (const a of liste || []) if (!retenues.includes(a) && !enPlus.includes(a)) enPlus.push(a);
+        }
         if (enPlus.length) {
           const jokersRetenus = retenues.filter((a) => a.mode === 'JOKER');
           const union = retenues.filter((a) => a.mode !== 'JOKER').concat(enPlus);
@@ -2444,7 +2465,7 @@ export function avancementDe(compte) {
  * @param {number} limite
  * @returns {Object[]}
  */
-function selectionner(approches, limite, maxParMappeur, lambda) {
+function selectionner(approches, limite, maxParMappeur, lambda, reglages = {}) {
   if (!approches.length || limite <= 0) return [];
   const tete = champions(approches);
 
@@ -2453,7 +2474,7 @@ function selectionner(approches, limite, maxParMappeur, lambda) {
     // ★ Le quota par mappeur suit le cran, comme les places : sans lui, élargir
     //   la liste ne ferait qu'ajouter des voies d'autres méthodes, jamais les
     //   variantes d'une même méthode que le curseur est censé faire remonter.
-    { limite: limite - tete.length, maxParMappeur, lambda, amorce: tete },
+    { limite: limite - tete.length, maxParMappeur, lambda, amorce: tete, ...reglages },
   );
   for (const a of reste) if (!a.suggestion) a.suggestion = 'mixte';
   return [...tete, ...reste];
@@ -2542,7 +2563,14 @@ function champions(approches) {
  */
 function rangerParRegimes(approches) {
   for (const a of approches) delete a.suggestion;
-  const tete = champions(approches);
+  // ★ **LES LIGNES RÉSERVÉES SE DÉCERNENT SANS LES VOIES NÉES D'UNE FAMILLE.**
+  //   « Une tête publiée ne baisse jamais » (l'autrice). La fenêtre par famille
+  //   ALLONGE la liste (`assemblage.js › moissons`) : elle n'a pas à en changer
+  //   la tête. MESURÉ : sur « Donald Trump », sa variante
+  //   `fr11+tca+mt9+mr9,tca+mt9+cmn` (4 723) prenait la ligne de l'élégance à
+  //   `fatb+tca+mt9+mr9,tca+mt9+cmn` (4 983). Elles se rangent donc au mixte.
+  const eligibles = approches.filter((a) => a[NEE_D_UNE_FAMILLE] !== true);
+  const tete = champions(eligibles.length ? eligibles : approches);
   const reste = approches.filter((a) => !tete.includes(a)).sort(ordreTotal);
   for (const a of reste) a.suggestion = 'mixte';
   return [...tete, ...reste];

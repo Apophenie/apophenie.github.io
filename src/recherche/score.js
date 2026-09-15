@@ -2077,6 +2077,9 @@ export function ordreTriptyques(a, b) {
 export function diversifier(approches, options = {}) {
   const lambda = options.lambda ?? REGLAGES.LAMBDA_MMR;
   const maxParMappeur = options.maxParMappeur ?? REGLAGES.MAX_PAR_MAPPEUR;
+  // ★ La clé du quota : le mappeur de la voie, ou l'ensemble de ses méthodes quand
+  //   on le demande (`methodesDeLApproche`). Voir `index.js › finaliser`.
+  const cleDeQuota = options.quotaParMethodes === true ? methodesDeLApproche : mappeurApproche;
   const limite = options.limite ?? REGLAGES.MAX_APPROCHES;
   // ★ `options.ponderation` — LE BARÈME DU VISITEUR. Le MMR choisit et classe
   //   avec le même ordre que le reste de la liste : lui laisser `ordreTotal`
@@ -2103,7 +2106,7 @@ export function diversifier(approches, options = {}) {
   const choisis = [];
   const compteMappeur = new Map();
   for (const a of amorce) {
-    const m = mappeurApproche(a);
+    const m = cleDeQuota(a);
     if (m) compteMappeur.set(m, (compteMappeur.get(m) || 0) + 1);
   }
 
@@ -2112,7 +2115,7 @@ export function diversifier(approches, options = {}) {
     let meilleurScore = -Infinity;
     for (let i = 0; i < restants.length; i++) {
       const a = restants[i];
-      const m = mappeurApproche(a);
+      const m = cleDeQuota(a);
       if (m && (compteMappeur.get(m) || 0) >= maxParMappeur) continue;
       let redondance = 0;
       for (const s of choisis) {
@@ -2142,7 +2145,7 @@ export function diversifier(approches, options = {}) {
     const a = restants.splice(meilleur, 1)[0];
     a.scoreAjuste = meilleurScore;
     choisis.push(a);
-    const m = mappeurApproche(a);
+    const m = cleDeQuota(a);
     if (m) compteMappeur.set(m, (compteMappeur.get(m) || 0) + 1);
   }
   return choisis.sort(ordre);
@@ -2170,6 +2173,28 @@ function plusConvaincant(a, ajusteA, b, ajusteB, rangDe, compteAvantScore, ordre
   }
   if (ajusteA !== ajusteB) return ajusteA > ajusteB;
   return ordre(a, b) < 0;
+}
+
+/**
+ * ★ **LES MÉTHODES D'UNE VOIE À PLUSIEURS PORTÉES** — l'ensemble de leurs mappeurs,
+ * rangé, et non le mappeur de la première.
+ *
+ * Le quota par mappeur (§4.8) existe pour qu'une même méthode ne prenne pas toute
+ * la liste. Une MOISSON n'a pas une méthode : elle lit chaque portée par la sienne.
+ * La compter sous le mappeur de sa première portée confond deux voies qui n'ont en
+ * commun que leur premier geste. MESURÉ sur `hope-hope-hope.fr` au cran 0 : la
+ * voie groupée (`m14` ×3, `mtc` ×2, et le « fr ») partageait le quota du
+ * quatorze segments avec `fl+tca+m14` et la moisson ×6, les deux champions — et le
+ * quota, deux places à ce cran, était plein avant qu'elle ne soit regardée.
+ *
+ * Une voie à une seule portée garde son mappeur : rien ne change pour elle.
+ * Ordre des clés : comparaison de chaînes en unités de code (§4.4 règle 4).
+ */
+export function methodesDeLApproche(approche) {
+  const parts = (approche && approche.parts) || [];
+  if (parts.length < 2) return mappeurApproche(approche);
+  const vues = [...new Set(parts.map((p) => mappeurPrincipal(p.chemin)).filter(Boolean))].sort();
+  return vues.length ? vues.join('+') : null;
 }
 
 export function mappeurApproche(approche) {

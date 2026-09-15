@@ -585,12 +585,24 @@ export function operateursPourCible(catalogue, cible) {
  *   court-circuite pour la cible par défaut et rend le catalogue tel quel ;
  *   or une entrée de catalogue peut être bâtie sur une AUTRE visée que celle
  *   qu'on cherche (`selonLaCible`, option `reference`) : sous une recherche
- *   666, `mr6` est joué avec sa règle de 999 et retourne les 6 en 9. Le
- *   résultat n'en souffre pas — un tel chemin n'écrit pas 666 et tombe au
- *   verdict — mais c'est du budget dépensé, et c'est exactement ce que
- *   `debug.html` promet de ne jamais laisser passer. On le DIT ici ; le
- *   corriger changerait ce qu'explore chaque recherche du site, et cela se
- *   mesure avant de se décider.
+ *   666, `mr6` est joué avec sa règle de 999 et retourne les 6 en 9.
+ *
+ *   ⚠️ **CE COMMENTAIRE DISAIT « un tel chemin n'écrit pas 666 et tombe au
+ *   verdict ». C'ÉTAIT FAUX, et c'est mesuré.** Un chemin peut faire
+ *   l'aller-retour : `tca+mtc+mr6+cs+pr9` retourne le 6 en 9 puis le 9 en 6, et
+ *   rapporte un 6. Sur `https://hope-hope-hope.fr/`, deux moissons nées de la
+ *   fenêtre par famille le portaient (×2 1 077 et ×2 1 092) et leurs liens
+ *   étaient REFUSÉS au rejeu, qui résout chaque code par `viser` et ne connaît
+ *   pas `mr6` sous 666 (`index.js › tableDesCodes`). Le chemin ne tombe donc
+ *   pas au verdict : il peut atteindre la liste, avec un lien qui ne se rejoue
+ *   pas.
+ *
+ *   Le correctif est LOCAL (`assemblage.js › rejouableSousLaCible`, dans la
+ *   fenêtre par famille), parce qu'à la racine il changerait ce qu'explore
+ *   chaque recherche du site — et élaguer `mr6` sous 666 perturbait déjà des
+ *   listes publiées. Les fenêtres d'avant n'ont jamais publié un tel chemin
+ *   (vérifié sur les 40 listes du banc) ; elles le jouent encore, et c'est
+ *   toujours du budget dépensé.
  *
  * @param {Object} catalogue
  * @param {import('./cible.js').Cible} cible
