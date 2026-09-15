@@ -2291,6 +2291,20 @@ function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT, compteur =
  */
 export const NEE_D_UNE_FAMILLE = Symbol('nee-d-une-famille');
 
+/** ★ La MARQUE d'une voie que seule la nouvelle réduction du surplus fabrique
+ *  (`moissons`, la réunion). Même régime que `NEE_D_UNE_FAMILLE`. */
+export const NEE_DE_LA_REDUCTION = Symbol('nee-de-la-reduction');
+
+/**
+ * ★ Une voie née d'une EXTENSION de la moisson — fenêtre par famille ou nouvelle
+ * réduction du surplus. `index.js › finaliser` les sélectionne à part et les
+ * écarte des lignes réservées : elles allongent la liste, elles ne changent ni
+ * ce qu'elle montrait ni sa tête.
+ */
+export function estUneExtension(a) {
+  return Boolean(a) && (a[NEE_D_UNE_FAMILLE] === true || a[NEE_DE_LA_REDUCTION] === true);
+}
+
 export function familleDeReglages(op) {
   if (!op) return null;
   if (typeof op.reglageDe === 'string' && op.reglageDe) return op.reglageDe;
@@ -2755,7 +2769,7 @@ const ETALONS_MAX = 4;
  * @returns {Object[]} approches non notées
  */
 function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
-  kParFragment = K_PAR_FRAGMENT, borneTravail = Infinity, memo = null) {
+  kParFragment = K_PAR_FRAGMENT, borneTravail = Infinity, memo = null, evaluerUneVoie = null) {
   const cbl = normaliserCible(cible);
   if (!jetons || jetons.length < 2) return [];
   const n = Math.min(jetons.length, MAX_JETONS_MOISSON);
@@ -2799,6 +2813,15 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
        ★ La seconde fenêtre ne facture aucun travail : son énumération est celle
          de la première (`vecteursDeSix`, le mémo), et la borne de la moisson
          décide exactement comme avant. */
+  // ★ La note d'une variante, telle que la liste la publierait : élaguée, puis
+  //   notée par le moteur (`index.js › evaluerUneVoie`). `reduireLeSurplus` s'en
+  //   sert pour départager à déchet égal ; elle la mémorise par configuration.
+  const evaluer = evaluerUneVoie ? (retenus) => evaluerUneVoie(approche('MOISSON', elaguerLaMoisson(
+    retenus.map(({ portee, candidat }) => ({
+      fragment: fragmentDeJetons(saisie, jetons, portee.debut, portee.longueur),
+      chemin: candidat.chemin,
+    })), cbl,
+  ))) : null;
   const portees = [];
   const porteesParFamille = [];
   const vues = new Set();
@@ -2831,17 +2854,30 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
 
   const out = [];
   const signatures = new Set();
-  for (const a of recolter(portees, false)) { signatures.add(a.cle); out.push(a.approche); }
-  for (const a of recolter(porteesParFamille, true)) {
-    if (signatures.has(a.cle)) continue;
-    signatures.add(a.cle);
-    a.approche[NEE_D_UNE_FAMILLE] = true;
-    out.push(a.approche);
-  }
+  /* ★ **QUATRE RÉCOLTES, UNE RÉUNION.** Les fenêtres d'avant avec l'ancienne
+       réduction — la récolte d'hier, telle quelle —, puis ce que chaque extension
+       AJOUTE : la fenêtre par famille, la nouvelle réduction, et les deux ensemble.
+       Une moisson déjà fabriquée ne l'est pas deux fois (`signatures`), et une
+       moisson ajoutée n'entre que si son lien se REJOUE (`rejouableSousLaCible`) :
+       la nouvelle réduction peut choisir, sur les portées d'avant, un chemin que
+       l'ancienne ne publiait jamais — `tca+mtc+mr6+cs+pr9` y figure. */
+  for (const a of recolter(portees, false, reduireLeSurplusHistorique)) { signatures.add(a.cle); out.push(a.approche); }
+  const ajouter = (recoltees, marques) => {
+    for (const a of recoltees) {
+      if (signatures.has(a.cle)) continue;
+      if (!a.approche.parts.every((p) => rejouableSousLaCible(p.chemin, cbl))) continue;
+      signatures.add(a.cle);
+      for (const m of marques) a.approche[m] = true;
+      out.push(a.approche);
+    }
+  };
+  ajouter(recolter(porteesParFamille, true, reduireLeSurplusHistorique), [NEE_D_UNE_FAMILLE]);
+  ajouter(recolter(portees, false, reduireLeSurplus), [NEE_DE_LA_REDUCTION]);
+  ajouter(recolter(porteesParFamille, true, reduireLeSurplus), [NEE_D_UNE_FAMILLE, NEE_DE_LA_REDUCTION]);
   return out;
 
   /** La récolte d'un jeu de portées — le code d'avant, tel quel. */
-  function recolter(portees, parFamille) {
+  function recolter(portees, parFamille, reduire) {
     const parDebut = Array.from({ length: n }, () => []);
     for (const p of portees) parDebut[p.debut].push(p);
 
@@ -2894,11 +2930,11 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
       //   `signatures` jetterait.
       if (politique(profilDeCible(cbl)).moissonDuMotif) {
         const { choix: motif } = moissonDuMotif(parDebut, n, accepte, cbl);
-        if (motif.length >= 2) variantes.push({ accepte, retenu: reduireLeSurplus(motif, accepte, cbl) });
+        if (motif.length >= 2) variantes.push({ accepte, retenu: reduire(motif, accepte, cbl, evaluer) });
       }
       const { choix } = meilleureMoisson(parDebut, n, accepte);
       if (choix.length < 2) continue;
-      const sobre = reduireLeSurplus(choix, accepte, cbl);
+      const sobre = reduire(choix, accepte, cbl, evaluer);
       variantes.push({ accepte, retenu: sobre });
       for (const groupee of uniformiserLesProgrammes(sobre, { auMoins: true, tousLesEtalons: true, parFamille })) {
         // ★ ET ON RÉDUIT DE NOUVEAU, SANS DÉFAIRE LE GROUPEMENT.
@@ -2940,7 +2976,7 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
           && actuel.chemin.ops.map((o) => o.code).join('+') === codesEtalon
           ? c.chemin.ops.map((o) => o.code).join('+') === codesEtalon
           : true);
-        const nette = reduireLeSurplus(groupee, memeProgramme, cbl);
+        const nette = reduire(groupee, memeProgramme, cbl, evaluer);
         // ★ ET SI LE DÉCHET SURVIT, ON RENONCE À LA VARIANTE.
         //
         //   La réduction ci-dessus ne peut échanger qu'entre les programmes déjà
@@ -3083,11 +3119,29 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
  * retirer du `fr` final que d'un `hope` du milieu. La règle de départage est
  * celle qui valait déjà : **le surplus est en queue**. On balaie donc les
  * portées de la dernière vers la première, et l'on ne retient qu'une
- * amélioration STRICTE — à déchet égal, c'est la portée la plus tardive qui
- * cède, celle dont le calcul serait de toute façon montré en dernier.
+ * amélioration STRICTE.
  *
- * À déchet égal encore, on préfère la récolte la plus MAIGRE : un 6 de plus qui
- * ne fait pas une série de plus est un 6 qu'il faudra montrer puis écarter.
+ * ── À déchet égal : le meilleur score GLOBAL, et plus jamais d'aller-retour ──
+ *
+ * > « Corrige, mais s'il y a différence de score global, c'est probablement à
+ * >   prendre en compte. » (l'autrice)
+ *
+ * ⚠️ MESURÉ, et c'est le défaut corrigé : la boucle départageait à déchet égal
+ *   par homogénéité, et ce départage acceptait un échange qui n'améliorait RIEN.
+ *   Sur « Donald Trump », moisson « clavier », elle échangeait `fatb+mt9+mr9` ⇄
+ *   `fr11+mt9+mr9` jusqu'au plafond de tours, et la variante finale dépendait de
+ *   la PARITÉ du nombre d'échanges — donc du point de départ.
+ *
+ * La règle, en deux temps :
+ *  1. la DESCENTE ne joue un remplacement que s'il jette STRICTEMENT moins ET
+ *     ne fait pas baisser le score global (A) ; entre plusieurs remplacements au
+ *     même meilleur gain, la meilleure variante ;
+ *  2. le PALIER, une fois qu'aucun gain strict ne reste : une portée ne change
+ *     de lecture que pour une variante à déchet égal STRICTEMENT meilleure.
+ * « Meilleure » se lit, dans l'ordre : le score GLOBAL de la carte, le score du
+ * moteur, puis l'ordre des codes — celui-là seul quand aucun évaluateur n'est
+ * donné. Chaque changement améliore strictement cette clé : aucun cycle n'est
+ * possible, et le résultat ne dépend ni du nombre de tours ni du point de départ.
  *
  * Déterminisme (CONTRACTS §4.4) : ordres de balayage fixes, comparaisons
  * strictes, aucune horloge.
@@ -3096,9 +3150,170 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
 /** Plafond de tours de la recherche locale. Le déchet décroît strictement. */
 const MAX_RETOUCHES = 32;
 
-// ★ Exportée pour `tests/reduction-du-surplus.test.js`, qui décrit son défaut
-//   d'allers-retours à déchet égal (`todo`). Aucun autre appelant.
-export function reduireLeSurplus(choix, accepte, cible = CIBLE_DEFAUT) {
+/**
+ * @param {Array<{portee:Object, candidat:Object}>} choix
+ * @param {(c:Object, actuel:Object)=>boolean} accepte
+ * @param {string|Object} [cible]
+ * @param {?(retenus:Array)=>{global:?number, score:number}} [evaluer]  la note
+ *   de la moisson que ces choix publieraient (`moissons`, `index.js ›
+ *   evaluerUneVoie`) ; absente, seul l'ordre des codes départage.
+ */
+export function reduireLeSurplus(choix, accepte, cible = CIBLE_DEFAUT, evaluer = null) {
+  const cbl = normaliserCible(cible);
+  const out = choix.slice();
+  // ★ Le compte des séries se lit sur la SUITE des chiffres rapportés, pas sur
+  //   leur nombre : deux portées qui rapportent chacune « un chiffre utile »
+  //   n'écrivent pas la même chose selon l'ordre, dès que la cible n'est pas
+  //   homogène. Sur `666`, `nbSeries` vaut exactement `⌊six / 3⌋`.
+  const nbSeries = (liste) => Math.min(
+    seriesDe(liste.flatMap((c) => c.candidat.chiffres), cbl, MAX_SERIES).length, MAX_SERIES,
+  );
+  // ★ L'HOMOGÉNÉITÉ COMME DERNIER DÉPARTAGE — voir `uniformiserLesProgrammes`.
+  //
+  //   Cette boucle échange un candidat contre un autre pour réduire le déchet,
+  //   et deux candidats rendent souvent le MÊME déchet : ce sont alors deux
+  //   programmes équivalents, et rien ne les départageait. Elle défaisait ainsi
+  //   l'uniformisation faite juste avant — sur `https://hope-hope-hope.fr/`,
+  //   trois « hope » alignés en `ffr3` ressortaient en `ffr3`, `ffr` et `ffr2`,
+  //   trois acceptions de la même traduction, et l'écriture ne pouvait plus les
+  //   grouper.
+  //
+  //   On compte donc, à déchet et à récolte égaux, combien de portées portent
+  //   déjà le programme envisagé : le plus répandu gagne. C'est un DÉPARTAGE,
+  //   pas une préférence — un candidat qui gaspille moins passe toujours devant,
+  //   quelle qu'en soit l'homogénéité.
+  const codesDe = (c) => c.chemin.ops.map((o) => o.code).join('+');
+  // ★ LA CLÉ D'UNE VARIANTE : son score global, son score du moteur, puis ses
+  //   codes portée par portée — un ordre, pas une préférence (§4.4 règle 3).
+  //   L'homogénéité n'est plus un départage à part : le score la voit déjà
+  //   (critère H), et c'est lui qui tranche désormais.
+  const cleStable = (liste) => liste
+    .map((x) => `${x.portee.debut}.${x.portee.longueur}:${codesDe(x.candidat)}`).join(',');
+  const notes = new Map();
+  const noteDe = (liste) => {
+    if (!evaluer) return null;
+    const k = cleStable(liste);
+    if (!notes.has(k)) notes.set(k, evaluer(liste) || null);
+    return notes.get(k);
+  };
+  /** Négatif si `a` est la meilleure des deux variantes. */
+  const comparer = (a, b) => {
+    const na = noteDe(a);
+    const nb = noteDe(b);
+    if (na && nb) {
+      const ga = na.global ?? -1;
+      const gb = nb.global ?? -1;
+      if (ga !== gb) return gb - ga;
+      if (na.score !== nb.score) return nb.score - na.score;
+    }
+    const ka = cleStable(a);
+    const kb = cleStable(b);
+    return ka < kb ? -1 : ka > kb ? 1 : 0;
+  };
+  /* ★ (A) — UN GAIN DE DÉCHET NE SE PAIE PAS EN SCORE GLOBAL. « S'il y a
+       différence de score global, c'est à prendre en compte » (l'autrice), et
+       aucune baisse de qualité. MESURÉ sans ce garde-fou : sur
+       `https://hope-hope-hope.fr/`, une moisson ×2 remplaçait `fr14+tca+m14+mpf`
+       par `fr5+tca+mt9+mr9` — un 6 jeté en moins, global 438 → 433. */
+  const faitBaisserLeGlobal = (essai, actuelle) => {
+    if (!actuelle) return false;
+    const n = noteDe(essai);
+    return Boolean(n) && (n.global ?? -1) < (actuelle.global ?? -1);
+  };
+  let six = out.reduce((n, c) => n + c.candidat.six, 0);
+  let total = out.reduce((n, c) => n + c.candidat.total, 0);
+  // Le point de départ peut DÉJÀ diverger — l'ordonnancement pondéré ne s'en
+  // soucie pas. On n'aggrave pas ; on ne prétend pas non plus réparer ici.
+  const divergentes = compterTraductionsDivergentes(out.map((x) => ({ chemin: x.candidat.chemin })));
+  const series = nbSeries(out);
+  const garde = series * cbl.longueur;
+  // Le déchet : les valeurs calculées qui ne finiront pas dans le verdict.
+  let dechet = total - garde;
+
+  // Les remplacements d'UNE portée qui gardent le verdict et n'ajoutent aucune
+  // lecture divergente, avec le déchet qu'ils laisseraient.
+  const remplacements = () => {
+    const possibles = [];
+    for (let i = out.length - 1; i >= 0; i--) {
+      const { portee, candidat } = out[i];
+      for (const c of portee.candidats) {
+        if (c === candidat || c.six < 1 || !accepte(c, candidat)) continue;
+        // Le verdict est intangible : ni une série de moins, ni une de plus.
+        const essai = out.slice();
+        essai[i] = { portee, candidat: c };
+        if (nbSeries(essai) !== series) continue;
+        // ★ JAMAIS DEUX LECTURES DU MÊME MOT, quel qu'en soit le prix en déchet.
+        //
+        //   « Traduire un même mot de manière différente dans une même voie est
+        //   encore pire que d'utiliser des conversions de César différentes […]
+        //   Mieux vaut un peu de déchet que ça » (l'auteur).
+        //
+        //   C'est un INTERDIT, pas un départage : cette boucle ne cherche qu'à
+        //   réduire le gaspillage, et elle y arrivait en échangeant `ffr3`
+        //   contre `ffr2` sur l'un des trois « hope » — une valeur jetée en
+        //   moins, et le mot qui cesse de vouloir dire la même chose d'un bout à
+        //   l'autre de la démonstration. Le barème le facture (`elegance.js ›
+        //   TRADUCTION_DIVERGENTE`, 600) ; mieux vaut ne pas le produire.
+        //
+        //   ⚠️ Le compte vient de `compterTraductionsDivergentes`, celui-là même
+        //     que le barème emploie : interdire ici et facturer là-bas deux
+        //     choses différentes serait le pire des deux mondes.
+        if (compterTraductionsDivergentes(essai.map((x) => ({ chemin: x.candidat.chemin })))
+          > divergentes) continue;
+        possibles.push({ essai, d: (total - candidat.total + c.total) - garde, total: total - candidat.total + c.total });
+      }
+    }
+    return possibles;
+  };
+  const jouer = (p) => {
+    out.length = 0;
+    out.push(...p.essai);
+    total = p.total;
+    dechet = p.d;
+  };
+
+  // 1. La DESCENTE : un gain STRICT, et, entre plusieurs gains égaux, la meilleure variante.
+  for (let tour = 0; tour < MAX_RETOUCHES && dechet > 0; tour++) {
+    const possibles = remplacements().filter((p) => p.d < dechet);
+    if (!possibles.length) break;
+    /* ★ (A) SE VÉRIFIE PAR GAIN DÉCROISSANT, et s'arrête au premier gain qui a un
+         remplacement accepté. C'est EXACTEMENT l'ensemble que retiendrait le
+         calcul complet — le plus fort gain parmi les remplacements acceptés —,
+         mais les gains plus faibles ne sont plus notés : chaque note coûte une
+         notation entière de la moisson. */
+    const actuelle = noteDe(out.slice());
+    const gains = [...new Set(possibles.map((p) => p.d))].sort((x, y) => x - y);
+    let gagnants = [];
+    for (const d of gains) {
+      gagnants = possibles.filter((p) => p.d === d && !faitBaisserLeGlobal(p.essai, actuelle));
+      if (gagnants.length) break;
+    }
+    if (!gagnants.length) break;
+    gagnants.sort((a, b) => comparer(a.essai, b.essai));
+    jouer(gagnants[0]);
+  }
+  // 2. Le PALIER : à déchet égal, une variante STRICTEMENT meilleure, jusqu'à ce qu'il n'y en ait plus.
+  for (let tour = 0; tour < MAX_RETOUCHES; tour++) {
+    const egaux = remplacements().filter((p) => p.d === dechet && comparer(p.essai, out) < 0);
+    if (!egaux.length) break;
+    egaux.sort((a, b) => comparer(a.essai, b.essai));
+    jouer(egaux[0]);
+  }
+  six = out.reduce((n, c) => n + c.candidat.six, 0);
+  return out;
+}
+
+/* ★ **L'ANCIENNE RÉDUCTION, GARDÉE À L'IDENTIQUE — la moitié historique de la réunion.**
+     `moissons` récolte avec elle ET avec `reduireLeSurplus` ; ce que seule la
+     nouvelle fabrique s'AJOUTE (`NEE_DE_LA_REDUCTION`). Rien de ce que cette
+     réduction-ci montrait ne sort donc de la liste — « zéro baisse de qualité ».
+     ⚠️ Elle porte le défaut corrigé à côté (allers-retours à déchet égal, variante
+       finale selon la parité des tours). Ne pas la « réparer » : ce serait
+       changer ce que les listes publiées montrent, ce que la réunion interdit.
+       MESURÉ sans la réunion : sept voies publiées sortaient, dont un groupement
+       ×2 de « Donald Trump » en v2 et un LIBRE de « Le chat dort sur le tapis
+       rouge » — changer les moissons changeait ce que la sélection gardait. */
+function reduireLeSurplusHistorique(choix, accepte, cible = CIBLE_DEFAUT) {
   const cbl = normaliserCible(cible);
   const out = choix.slice();
   // ★ Le compte des séries se lit sur la SUITE des chiffres rapportés, pas sur
@@ -3633,7 +3848,8 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    chaque jeton ce qu'il sait donner, par le programme qui lui convient.
   if (opsExplorables.length) {
     for (const a of moissons(saisie, ctx.jetons || [], fragments, parFrag, opsExplorables, cbl,
-      kParFragment, ctx.borneAssemblage ?? Infinity, ctx.cache instanceof Map ? ctx.cache : null)) {
+      kParFragment, ctx.borneAssemblage ?? Infinity, ctx.cache instanceof Map ? ctx.cache : null,
+      typeof ctx.evaluerUneVoie === 'function' ? ctx.evaluerUneVoie : null)) {
       approches.push(a);
     }
   }

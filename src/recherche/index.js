@@ -30,8 +30,9 @@ import { construireBassin } from './bassin.js';
 import { genererFragments, zonesSignifiantes, tokeniser, motifsRepetes } from './fragments.js';
 import {
   assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe, vecteursDeSix, segmentsSansCopie,
-  MAX_JETONS_RETOUCHE, MAX_VECTEURS_RETOUCHES, NEE_D_UNE_FAMILLE,
+  MAX_JETONS_RETOUCHE, MAX_VECTEURS_RETOUCHES, estUneExtension, NEE_D_UNE_FAMILLE, NEE_DE_LA_REDUCTION,
 } from './assemblage.js';
+import { scoreGlobal } from './score.js';
 import {
   noter, diversifier, ordreTotal, ordrePondere, ordreElegance, ordreTriptyques, REGLAGES,
   ponderer, normaliserCurseurs, pourcentagesDe, scoresParAxe,
@@ -886,6 +887,31 @@ export function creerMoteur(catalogue, options = {}) {
       // ★ Ce que la rampe fait naître au-delà des gardes historiques — voir
       //   `finaliser`, la double sélection. Partagé avec la passe profonde.
       horsGardesHistoriques: new WeakSet(),
+      /* ★ **NOTER UNE VOIE EN COURS DE FABRICATION** — pour départager deux
+           variantes d'une moisson à déchet égal (`assemblage.js ›
+           reduireLeSurplus`) : « s'il y a différence de score global, c'est
+           probablement à prendre en compte » (l'autrice). La note est celle que
+           la liste lui donnera — `noter` avec la pondération de la recherche —,
+           et le global celui de la carte, sous les curseurs de la recherche. */
+      evaluerUneVoie: (a) => {
+        /* ★ **UNE CONFIGURATION SE NOTE UNE FOIS** — dans le cache du moteur, qui
+             survit d'une récolte à l'autre et d'un cran au suivant (la moisson du
+             cran n refait celle du cran n−1). La clé est CANONIQUE : la question
+             posée (saisie, cible, curseurs, barème) et le programme exact de
+             chaque portée. Même clé, mêmes jetons lus par les mêmes opérateurs :
+             même note — le cache ne change rien, il évite de recalculer (§4.4).
+             ⚠️ Aucun travail à refacturer : la borne de la moisson ne compte que
+               le travail de `vecteursDeSix`, et noter n'en fait pas partie. */
+        const cle = JSON.stringify(['evaluerUneVoie', saisie, cbl.texte, ponderation.curseurs,
+          options.elegance !== false, a.parts.map((p) => `${p.fragment.tokenDebut}.${p.fragment.tokenLong}:`
+            + p.chemin.ops.map((o) => o.code).join('+'))]);
+        const deja = cache.get(cle);
+        if (deja) return deja;
+        noter(a, { saisie, signifiants, elegance: options.elegance !== false, cible: cbl, ponderation });
+        const note = Object.freeze({ global: scoreGlobal(a, ponderation.curseurs), score: a.score });
+        cache.set(cle, note);
+        return note;
+      },
       // ★ La BORNE DE TRAVAIL de la moisson (`assemblage.js › moissons`) —
       //   absente au défaut : la liste du site ne la connaît pas.
       borneAssemblage: borneDeLaMoisson(optionsResolution),
@@ -1063,7 +1089,9 @@ export function creerMoteur(catalogue, options = {}) {
       /* ★ **ET UNE TROISIÈME : LES VOIES NÉES D'UNE FAMILLE.** La moisson récolte
            aussi sur une fenêtre qui sert une place par famille de réglages
            (`assemblage.js › moissons`, la réunion) ; ce qu'elle seule fabrique
-           porte `NEE_D_UNE_FAMILLE`. Ces voies sont sélectionnées À PART, et
+           porte `NEE_D_UNE_FAMILLE`, et ce que seule la nouvelle réduction du surplus fabrique
+           porte `NEE_DE_LA_REDUCTION` ; `estUneExtension` lit les deux. Ces voies sont
+           sélectionnées À PART, et
            AVANT les deux autres (même raison que la rampe : la dernière sélection
            a le dernier mot sur les voies qu'elle garde) ; de cette sélection on
            ne garde qu'elles. La rampe et les anciennes gardes voient donc
@@ -1072,14 +1100,25 @@ export function creerMoteur(catalogue, options = {}) {
              choix — un groupement ×7 (3 575) sortait de `https://hope-hope-hope.fr/`
              au cran 2. */
       const horsGardes = ctxAssemblage.horsGardesHistoriques;
-      const avantLesFamilles = honnetes.filter((a) => a[NEE_D_UNE_FAMILLE] !== true);
+      const avantLesFamilles = honnetes.filter((a) => !estUneExtension(a));
       const historiques = horsGardes ? avantLesFamilles.filter((a) => !horsGardes.has(a)) : avantLesFamilles;
-      const desFamilles = avantLesFamilles.length !== honnetes.length
+      /* ★ **ET UNE QUATRIÈME : LES VOIES DE LA NOUVELLE RÉDUCTION, À PART.** Ce que
+           seule la nouvelle réduction du surplus fabrique (`NEE_DE_LA_REDUCTION`)
+           a sa PROPRE sélection, faite AVANT celle des familles : celle-ci voit
+           ainsi exactement ses candidates d'hier et garde le dernier mot sur elles.
+           ⚠️ MESURÉ avec une seule sélection pour toutes les extensions : les voies
+             de la nouvelle réduction délogeaient une voie née d'une famille — une
+             moisson ×6 de `https://hope-hope-hope.fr/` (moteur 3 430, global 639),
+             sortie aux crans 0 à 2. */
+      const sansReduction = honnetes.filter((a) => a[NEE_DE_LA_REDUCTION] !== true);
+      const deLaReduction = sansReduction.length !== honnetes.length
+        ? choisir(honnetes, { quotaParMethodes: true }).filter((a) => a[NEE_DE_LA_REDUCTION] === true) : null;
+      const desFamilles = avantLesFamilles.length !== sansReduction.length
         // ★ Son quota se compte par MÉTHODES (`score.js › methodesDeLApproche`) :
         //   au cran 0, la voie groupée de `hope-hope-hope.fr` partageait sinon le
         //   quota du quatorze segments avec les deux champions, et n'entrait pas.
         //   Ne pas compter les champions n'y suffisait pas — mesuré.
-        ? choisir(honnetes, { quotaParMethodes: true }).filter((a) => a[NEE_D_UNE_FAMILLE] === true) : null;
+        ? choisir(sansReduction, { quotaParMethodes: true }).filter((a) => a[NEE_D_UNE_FAMILLE] === true) : null;
       const deLaRampe = historiques.length !== avantLesFamilles.length ? choisir(avantLesFamilles) : null;
       let retenues = choisir(historiques);
       if (jokers.length) retenues.push(jokers[0]);
@@ -1089,9 +1128,9 @@ export function creerMoteur(catalogue, options = {}) {
       }
       const compteDesAnciennesGardes = retenues.length;
       for (const a of retenues) auxAnciennesGardes.add(a);
-      if (deLaRampe || desFamilles) {
+      if (deLaRampe || desFamilles || deLaReduction) {
         const enPlus = [];
-        for (const liste of [deLaRampe, desFamilles]) {
+        for (const liste of [deLaRampe, desFamilles, deLaReduction]) {
           for (const a of liste || []) if (!retenues.includes(a) && !enPlus.includes(a)) enPlus.push(a);
         }
         if (enPlus.length) {
@@ -2569,7 +2608,7 @@ function rangerParRegimes(approches) {
   //   la tête. MESURÉ : sur « Donald Trump », sa variante
   //   `fr11+tca+mt9+mr9,tca+mt9+cmn` (4 723) prenait la ligne de l'élégance à
   //   `fatb+tca+mt9+mr9,tca+mt9+cmn` (4 983). Elles se rangent donc au mixte.
-  const eligibles = approches.filter((a) => a[NEE_D_UNE_FAMILLE] !== true);
+  const eligibles = approches.filter((a) => !estUneExtension(a));
   const tete = champions(eligibles.length ? eligibles : approches);
   const reste = approches.filter((a) => !tete.includes(a)).sort(ordreTotal);
   for (const a of reste) a.suggestion = 'mixte';

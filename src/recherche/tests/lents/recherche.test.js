@@ -15,9 +15,9 @@ import { construireBassin, statistiquesBassin, DISTANCE_MAX } from '../../bassin
 import { genererFragments, motifsRepetes, periodicite, tokeniser, zonesSignifiantes, structureUrl } from '../../fragments.js';
 import {
   ordreTotal, comparerCodes, racineEntiere, critereCouverture, critereConcision, noter, maniere,
-  rangConviction, RANG, REGLAGES, methodesDeLApproche,
+  rangConviction, RANG, REGLAGES, methodesDeLApproche, scoreGlobal, CURSEURS_DEFAUT,
 } from '../../score.js';
-import { approcheJoker, normaliserChemin, compterMoisson, sixDuChemin, SERIE, NEE_D_UNE_FAMILLE } from '../../assemblage.js';
+import { approcheJoker, normaliserChemin, compterMoisson, sixDuChemin, SERIE, estUneExtension, NEE_D_UNE_FAMILLE, NEE_DE_LA_REDUCTION } from '../../assemblage.js';
 import { BAREME, detailDuCredit } from '../../elegance.js';
 import { estDecret, titreApproche } from '../../titres.js';
 import { catalogue, source, horlogeFactice, demarrerCharge, arreterCharge } from '../_catalogue.js';
@@ -718,8 +718,12 @@ test('garde-fou — MAX_NODES borne l’exploration', () => {
      l'union acceptée » (l'autrice). Le test vérifie donc CHAQUE sélection — les
      voies d'avant d'un côté, celles des familles de l'autre, chacune sous ses
      places —, puis que la réunion reste bornée. */
-const desFamilles = (liste) => liste.filter((a) => a[NEE_D_UNE_FAMILLE] === true);
-const avantLesFamilles = (liste) => liste.filter((a) => a[NEE_D_UNE_FAMILLE] !== true);
+// Trois sortes de sélection : les voies d'avant, celles des familles, celles de la
+// nouvelle réduction du surplus (`index.js › finaliser`). Une voie née des deux
+// extensions à la fois est choisie par la sélection de la réduction.
+const desFamilles = (liste) => liste.filter((a) => a[NEE_D_UNE_FAMILLE] === true && a[NEE_DE_LA_REDUCTION] !== true);
+const deLaReduction = (liste) => liste.filter((a) => a[NEE_DE_LA_REDUCTION] === true);
+const avantLesFamilles = (liste) => liste.filter((a) => !estUneExtension(a));
 
 test('sortie — pas plus de voies que de places par sélection, ≤ 24 fragments', () => {
   const m = creerMoteur(catalogue);
@@ -733,12 +737,15 @@ test('sortie — pas plus de voies que de places par sélection, ≤ 24 fragment
       `${s} : ${avant.length} approches pour ${places} places, dans la sélection des anciennes fenêtres`);
     assert.ok(familles.length <= places,
       `${s} : ${familles.length} approches pour ${places} places, dans la sélection des familles`);
-    const selections = familles.length ? 2 : 1;
+    const reduction = deLaReduction(sel.approches);
+    assert.ok(reduction.length <= places,
+      `${s} : ${reduction.length} approches pour ${places} places, dans la sélection de la nouvelle réduction`);
+    const selections = 1 + (familles.length ? 1 : 0) + (reduction.length ? 1 : 0);
     assert.ok(sel.approches.length <= selections * places,
       `${s} : ${sel.approches.length} approches pour ${selections} sélection(s) de ${places} places`);
     const r = m.resoudre(s);
     // Deux crans (−1 et 0), chacun au plus deux sélections quand une famille a fabriqué.
-    const selectionsReunies = 2 * (desFamilles(r.approches).length ? 2 : 1);
+    const selectionsReunies = 2 * (1 + (desFamilles(r.approches).length ? 1 : 0) + (deLaReduction(r.approches).length ? 1 : 0));
     assert.ok(r.approches.length <= selectionsReunies * places,
       `${s} : ${r.approches.length} approches pour ${selectionsReunies} sélections de ${places} places`);
     assert.ok(r.fragments.length <= REGLAGES.MAX_FRAGMENTS,
@@ -771,22 +778,38 @@ test('diversité N4 — pas plus d’approches par mappeur principal que le quot
   for (const [id, n] of compter(avantLesFamilles(sel.approches))) {
     assert.ok(n <= quota, `${id} apparaît ${n} fois pour un quota de ${quota}, dans la sélection des anciennes fenêtres`);
   }
-  const parMethodes = new Map();
-  for (const a of desFamilles(sel.approches)) {
-    const k = methodesDeLApproche(a);
-    if (k) parMethodes.set(k, (parMethodes.get(k) || 0) + 1);
+  for (const [nom, sorte] of [['des familles', desFamilles], ['de la nouvelle réduction', deLaReduction]]) {
+    const parMethodes = new Map();
+    for (const a of sorte(sel.approches)) {
+      const k = methodesDeLApproche(a);
+      if (k) parMethodes.set(k, (parMethodes.get(k) || 0) + 1);
+    }
+    for (const [k, n] of parMethodes) {
+      assert.ok(n <= quota, `${k} apparaît ${n} fois pour un quota de ${quota}, dans la sélection ${nom}`);
+    }
   }
-  for (const [k, n] of parMethodes) {
-    assert.ok(n <= quota, `${k} apparaît ${n} fois pour un quota de ${quota}, dans la sélection des familles`);
-  }
-  const selections = desFamilles(sel.approches).length ? 2 : 1;
-  for (const [id, n] of compter(sel.approches)) {
-    assert.ok(n <= selections * quota, `${id} apparaît ${n} fois pour ${selections} sélection(s) sous un quota de ${quota}`);
-  }
+  /* ★ **LA RÉUNION SE BORNE SOUS LA CLÉ DE CHAQUE SÉLECTION.** Les voies d'avant
+       par mappeur principal, les extensions (famille, nouvelle réduction du
+       surplus — `estUneExtension`) par méthodes : c'est la clé que chacune tient.
+       ⚠️ Compter la réunion ENTIÈRE par mappeur principal ne découle d'aucune
+         règle : plusieurs moissons de méthodes différentes peuvent commencer par
+         le même mappeur, chacune sous son quota. MESURÉ quand la nouvelle
+         réduction est entrée en réunion : `m.seg14` y apparaissait 5 fois sur
+         https://hope-hope-hope.fr/, alors que chaque sélection tenait le sien. */
   const r = creerMoteur(catalogue).resoudre('https://hope-hope-hope.fr/');
-  const selectionsReunies = 2 * (desFamilles(r.approches).length ? 2 : 1);
-  for (const [id, n] of compter(r.approches)) {
-    assert.ok(n <= selectionsReunies * quota, `${id} apparaît ${n} fois pour ${selectionsReunies} sélections sous un quota de ${quota}`);
+  // Deux crans (−1 et 0), chacun au plus une sélection de chaque sorte.
+  for (const [id, n] of compter(avantLesFamilles(r.approches))) {
+    assert.ok(n <= 2 * quota, `${id} apparaît ${n} fois pour deux sélections d'avant sous un quota de ${quota}`);
+  }
+  for (const [nom, sorte] of [['des familles', desFamilles], ['de la nouvelle réduction', deLaReduction]]) {
+    const parMethodesReunies = new Map();
+    for (const a of sorte(r.approches)) {
+      const k = methodesDeLApproche(a);
+      if (k) parMethodesReunies.set(k, (parMethodesReunies.get(k) || 0) + 1);
+    }
+    for (const [k, n] of parMethodesReunies) {
+      assert.ok(n <= 2 * quota, `${k} apparaît ${n} fois pour deux sélections ${nom} sous un quota de ${quota}`);
+    }
   }
 });
 
@@ -1801,4 +1824,38 @@ test('★ classement — le rang de conviction prime sur le score', () => {
   // À l'intérieur du rang des séries, c'est leur NOMBRE qui commande.
   const moins = { mode: 'GROUPEMENT', series: 4, score: 9900, L: 3, codes: 'd' };
   assert.ok(ordreTotal(series, moins) < 0, 'cinq séries passent devant quatre, quel que soit le score');
+});
+
+/* ★ LA RÉDUCTION DU SURPLUS DÉPARTAGE AU SCORE GLOBAL — le cas qui l'a révélée.
+     « Corrige, mais s'il y a différence de score global, c'est probablement à
+     prendre en compte » (l'autrice). Sur « Donald Trump », la moisson « clavier »
+     peut lire « Donald » par `fatb+mt9+mr9` ou `fr11+mt9+mr9` : même récolte, même
+     déchet. La réduction échangeait l'une contre l'autre jusqu'au plafond de
+     tours, et la variante finale dépendait de la parité. Désormais elle garde la
+     lecture au meilleur global — et ce test le vérifie sur les VRAIES notes, en
+     rejouant les deux liens. */
+test('★ réduction — la moisson « clavier » de « Donald Trump » porte la lecture au meilleur global', () => {
+  const m = creerMoteur(catalogue, { filetTemporel: false });
+  const r = m.resoudre('Donald Trump');
+  const clavier = r.approches.filter((a) => /^(fatb|fr11)\+tca\+mt9\+mr9,tca\+mt9\+cmn$/.test(a.codes));
+  assert.ok(clavier.length >= 1, 'la moisson « clavier » est dans la liste : le test porte sur un cas réel');
+  // Les deux lectures, rejouées par leurs liens : celle au meilleur global est la bonne.
+  const lien = clavier[0].url;
+  const lecture = (prefixe) => m.rejouer(lire(lien.replace(/0:(fatb|fr11)\+/, `0:${prefixe}+`), { catalogue }));
+  const fatb = lecture('fatb');
+  const fr11 = lecture('fr11');
+  assert.ok(fatb.ok && fr11.ok, 'les deux lectures se rejouent');
+  const gFatb = scoreGlobal(fatb.approche, CURSEURS_DEFAUT);
+  const gFr11 = scoreGlobal(fr11.approche, CURSEURS_DEFAUT);
+  const [meilleure, autre] = gFatb > gFr11 || (gFatb === gFr11 && fatb.approche.score >= fr11.approche.score)
+    ? [fatb.approche, fr11.approche] : [fr11.approche, fatb.approche];
+  // ★ La réunion garde aussi l'ancienne récolte : la variante au meilleur global
+  //   est PRÉSENTE, et elle passe devant l'autre si les deux y sont.
+  const rang = (codes) => r.approches.findIndex((a) => a.codes === codes);
+  assert.ok(rang(meilleure.codes) >= 0,
+    `la lecture au meilleur global manque : ${meilleure.codes} (global ${Math.max(gFatb, gFr11)})`);
+  if (rang(autre.codes) >= 0) {
+    assert.ok(rang(meilleure.codes) < rang(autre.codes),
+      `${meilleure.codes} (rang ${rang(meilleure.codes) + 1}) doit passer devant ${autre.codes} (rang ${rang(autre.codes) + 1})`);
+  }
 });
