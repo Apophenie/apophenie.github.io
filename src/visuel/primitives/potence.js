@@ -37,9 +37,10 @@
  *     ─────┼─────         estompé : une copie du 5 rebondit sur le 1,
  *   1 < 5 → 0 × 5         « 1 < 5 → 0 × 5 » s'écrit dessous, le 0 part au quotient
  *      1̲0̲5̶ │ 02       ③  le 2ᵉ chiffre entre en jeu ; deux copies du 5 s'y
- *  10 = 2 × 5 + 0         posent, la zone passe de 10 à 05 puis 00 ; l'identité
- *                          s'écrit dessous, le 2 part au quotient
- *      0̲0̲5̲ │ 021      ④  le 3ᵉ entre à son tour : « 5 = 1 × 5 + 0 »
+ *  10 = 2 × 5             posent, la zone passe de 10 à 05, et la seconde la
+ *                          fait DISPARAÎTRE ; l'identité s'écrit dessous, le 2
+ *                          part au quotient
+ *      0̲0̲5̲ │ 021      ④  le 3ᵉ entre à son tour : « 5 = 1 × 5 », et le 5 disparaît
  *
  *      3̲,̲0̲ │ 02,0     ⑤  (13 ÷ 5) A GLISSE À GAUCHE, « ,0 » s'inscrit à sa
  *                          droite — et « ,0 » s'inscrit de même sous la barre
@@ -272,9 +273,11 @@ export function expressionDuTour(tour, b, where = '') {
     fail(`${where}potence : « ${n} = ${q} × ${b} + ${r} » n’est pas une identité de la division posée. `
       + 'Le moteur visuel refuse d’afficher un calcul faux.');
   }
-  return q === 0
-    ? [String(n), '<', String(b), '→', '0', '×', String(b)]
-    : [String(n), '=', String(q), '×', String(b), '+', String(r)];
+  if (q === 0) return [String(n), '<', String(b), '→', '0', '×', String(b)];
+  // « Quand le reste est nul, au lieu de l'envoyer en +0, le passage du
+  //   diviseur qui le fait descendre à 0 le détruit » (l'autrice) : pas de « + R ».
+  if (r === 0) return [String(n), '=', String(q), '×', String(b)];
+  return [String(n), '=', String(q), '×', String(b), '+', String(r)];
 }
 
 /**
@@ -414,7 +417,7 @@ export function plan(ctx) {
       return insertion + TEMPO.POSE + TEMPO.VOL + TEMPO.REBOND + TEMPO.ECRITURE + TEMPO.LECTURE + TEMPO.MIGRATION;
     }
     return insertion + TEMPO.POSE + tour.chiffre * unRetrait * cadence
-      + TEMPO.RESTE + TEMPO.LECTURE + TEMPO.MIGRATION;
+      + (tour.reste ? TEMPO.RESTE : 0) + TEMPO.LECTURE + TEMPO.MIGRATION;
   };
   const naturel = TEMPO.BARRES + TEMPO.EFFACEMENT + TEMPO.DESCENTE
     + tours.reduce((s, t, i) => s + dureeDuTour(t, i), 0);
@@ -733,6 +736,26 @@ export function plan(ctx) {
   /** Les colonnes de la zone qui portent un nombre : ses derniers chiffres. */
   const colonnesDuNombre = (enJeu, texte) => enJeu.slice(-[...texte].length);
 
+  /* ★ **UN NOMBRE PARTIEL RAMENÉ À ZÉRO DISPARAÎT DE LA LIGNE.**
+
+     > « Quand le reste est nul, au lieu de l'envoyer en +0, le passage du
+     >   diviseur qui le fait descendre à 0 le détruit au lieu de le faire
+     >   passer à 0. » (l'autrice)
+
+     Ses colonnes restent à leur place — rien ne bouge d'un pixel —, mais elles
+     n'écrivent plus rien, jusqu'au bout : le chiffre qu'on abaisse ensuite
+     forme SEUL le nouveau nombre partiel, dans sa colonne. `colonnesMortes`
+     les compte depuis la gauche.
+
+     ⚠️ Le compte se LIT AU MOMENT DU PLAN et se passe aux fonctions de rendu :
+       elles ne sont appelées qu'à la lecture, quand il vaut déjà sa valeur
+       finale. */
+  let colonnesMortes = 0;
+  const afficherZone = (valeur, large, morts, detruite = false) => [...ligneAffichee(valeur, large, '')]
+    .map((ch, c) => (detruite || c < morts ? '' : ch));
+  /** Les colonnes encore vivantes de la zone : l'expression s'écrit sous elles. */
+  const vivantes = (enJeu) => enJeu.slice(Math.min(colonnesMortes, enJeu.length - 1));
+
   /**
    * ★ **LE MOUVEMENT COMMUN : UNE COPIE DU DIVISEUR VOLE JUSQU'AU NOMBRE PARTIEL.**
    *
@@ -801,7 +824,7 @@ export function plan(ctx) {
     const nbr = termes[0];
     const colonnes = colonnesDuNombre(enJeu, nbr);
     const xNbr = milieu(colonnes);
-    const centres = disposer(termes, milieu(enJeu));
+    const centres = disposer(termes, milieu(vivantes(enJeu)));
 
     // 2. l'envoi
     const tVol = debut + ms(TEMPO.POSE);
@@ -850,7 +873,8 @@ export function plan(ctx) {
     for (const id of reste) disparaitre(id, tMigre, dMigre * 0.6);
     const fin = tMigre + dMigre;
     ctx.discrete({ id: spec.id, channel: 'text', at: debut, dur: fin - debut, render: () => '0' });
-    ecrireLaZone(enJeu, debut, fin - debut, () => ligneAffichee(tour.courantAvant, large, ''));
+    const morts = colonnesMortes;
+    ecrireLaZone(enJeu, debut, fin - debut, () => afficherZone(tour.courantAvant, large, morts));
     for (const id of reste) ctx.scene.kill(id, ctx.where);
     return fin;
   };
@@ -890,16 +914,20 @@ export function plan(ctx) {
    *   « = N × diviseur » sur sa rangée ; deux copies nées ensemble font les deux
    *   gestes à la fois.
    *
-   * ★ Un reste nul s'écrit « + 0 » : c'est le patron de l'autrice, et c'est ce
-   *   qui dit pourquoi l'on s'arrête.
+   * ★ **UN RESTE NUL NE S'ÉCRIT PAS.**
+   *   > « Quand le reste est nul, au lieu de l'envoyer en +0, le passage du
+   *   >   diviseur qui le fait descendre à 0 le détruit au lieu de le faire
+   *   >   passer à 0. » (l'autrice)
+   *   Le dernier retrait EFFACE le nombre partiel de la ligne (`colonnesMortes`),
+   *   il n'y a rien à dupliquer, et l'expression s'arrête à « nbr = N × diviseur ».
    */
   const chiffreNonNul = ({ tour, spec, enJeu, place, debut, large }) => {
     const termes = expressionDuTour(tour, b, ctx.where);
     const nbr = termes[0];
-    const texteR = termes[6];
+    const texteR = tour.reste ? termes[6] : null;
     const n = tour.chiffre;
     const xNbr = milieu(colonnesDuNombre(enJeu, nbr));
-    const centres = disposer(termes, milieu(enJeu));
+    const centres = disposer(termes, milieu(vivantes(enJeu)));
     const surLeNombre = { x: xNbr, y: ligneY };
     const aLaPlace = (k) => ({ x: centres[k], y: yExpression });
 
@@ -908,7 +936,7 @@ export function plan(ctx) {
     const idEgal = creer('potexpr', '=', aLaPlace(1), ROLES.TERME, { kind: 'operator' });
     creerLeChiffre(spec, aLaPlace(2));
     const idFois = creer('potexpr', '×', aLaPlace(3), ROLES.TERME, { kind: 'operator' });
-    const idPlus = creer('potexpr', '+', aLaPlace(5), ROLES.TERME, { kind: 'operator' });
+    const idPlus = texteR ? creer('potexpr', '+', aLaPlace(5), ROLES.TERME, { kind: 'operator' }) : null;
 
     // ── les retraits ──
     const dVol = ms(TEMPO.VOL) * cadence;
@@ -918,7 +946,7 @@ export function plan(ctx) {
     const arrivees = [];     // la copie touche le nombre : il perd B
     const versNbr = [];      // un fragment « B » rejoint nbr
     const versN = [];        // un « 1 » rejoint N
-    const aEffacer = [idNbr, idEgal, idFois, idPlus];
+    const aEffacer = [idNbr, idEgal, idFois, ...(idPlus ? [idPlus] : [])];
     for (let e = 0; e < n; e++) {
       const at = t0 + e * dRetrait;
       const copie = envoyerLeDiviseur(at, dVol, xNbr, ECHELLE_EN_VOL);
@@ -955,27 +983,30 @@ export function plan(ctx) {
 
     // ── le reste se duplique : il complète nbr, et forme « + R » ──
     const tReste = t0 + n * dRetrait;
-    const dReste = ms(TEMPO.RESTE) * 0.85;
-    const colonnesR = colonnesDuNombre(enJeu, texteR);
+    const colonnesR = texteR ? colonnesDuNombre(enJeu, texteR) : [];
     const copiesR = [];
-    colonnesR.forEach((cid, j) => {
-      const p0 = ctx.scene.pos(cid);
-      const versLeCompteur = creer('potcopie', texteR[j], p0, ROLES.COPIE_NOMBRE);
-      const pourR = creer('potcopie', texteR[j], p0, ROLES.COPIE_NOMBRE);
-      paraitre(versLeCompteur, tReste, 1);
-      paraitre(pourR, tReste, 1);
-      parcourir(versLeCompteur, parLaRangeeDePassage(p0, aLaPlace(0)), tReste, dReste);
-      disparaitre(versLeCompteur, tReste + dReste + EPS, 1);
-      ctx.scene.kill(versLeCompteur, ctx.where);
-      parcourir(pourR, parLaRangeeDePassage(p0, { x: chiffreDe(centres[6], j, texteR.length), y: yExpression }),
-        tReste, dReste);
-      copiesR.push(pourR);
-    });
-    const tForme = tReste + dReste;
-    paraitre(idPlus, tForme, ms(TEMPO.RESTE) * 0.15);
+    let tForme = Infinity;
+    if (texteR) {
+      const dReste = ms(TEMPO.RESTE) * 0.85;
+      colonnesR.forEach((cid, j) => {
+        const p0 = ctx.scene.pos(cid);
+        const versLeCompteur = creer('potcopie', texteR[j], p0, ROLES.COPIE_NOMBRE);
+        const pourR = creer('potcopie', texteR[j], p0, ROLES.COPIE_NOMBRE);
+        paraitre(versLeCompteur, tReste, 1);
+        paraitre(pourR, tReste, 1);
+        parcourir(versLeCompteur, parLaRangeeDePassage(p0, aLaPlace(0)), tReste, dReste);
+        disparaitre(versLeCompteur, tReste + dReste + EPS, 1);
+        ctx.scene.kill(versLeCompteur, ctx.where);
+        parcourir(pourR, parLaRangeeDePassage(p0, { x: chiffreDe(centres[6], j, texteR.length), y: yExpression }),
+          tReste, dReste);
+        copiesR.push(pourR);
+      });
+      tForme = tReste + dReste;
+      paraitre(idPlus, tForme, ms(TEMPO.RESTE) * 0.15);
+    }
 
     // ── N migre par le bas, R remonte, le reste disparaît ──
-    const tMigre = tReste + ms(TEMPO.RESTE) + ms(TEMPO.LECTURE);
+    const tMigre = tReste + (texteR ? ms(TEMPO.RESTE) : 0) + ms(TEMPO.LECTURE);
     const dMigre = ms(TEMPO.MIGRATION);
     parcourir(spec.id, parLeBas(aLaPlace(2), place), tMigre, dMigre);
     copiesR.forEach((id, j) => {
@@ -991,7 +1022,13 @@ export function plan(ctx) {
     // ── ce que chaque compteur affiche : fonctions pures du temps ──
     const span = fin - debut;
     const passes = (liste, u) => liste.filter((x) => debut + u * span >= x).length;
-    ecrireLaZone(enJeu, debut, span, (u) => ligneAffichee(tour.courantAvant - passes(arrivees, u) * b, large, ''));
+    // « le passage du diviseur qui le fait descendre à 0 le détruit »
+    const morts = colonnesMortes;
+    ecrireLaZone(enJeu, debut, span, (u) => {
+      const k = passes(arrivees, u);
+      return afficherZone(tour.courantAvant - k * b, large, morts, !tour.reste && k === n);
+    });
+    if (!tour.reste) colonnesMortes = large;
     ctx.discrete({
       id: idNbr, channel: 'text', at: debut, dur: span,
       render: (u) => String(passes(versNbr, u) * b + (debut + u * span >= tForme ? tour.reste : 0)),

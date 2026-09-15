@@ -212,7 +212,7 @@ const ligneA = (tl, t) => etatA(tl, t).chiffres;
  *   demeure : elle ne fait que perdre.
  */
 test('★ la ligne de gauche ne remonte jamais — elle ne fait que perdre', () => {
-  for (const [a, b, d] of [[13, 5, 1], [105, 5, 1], [2, 3, 3], [1, 2, 1], [12345, 7, 3]]) {
+  for (const [a, b, d] of [[13, 5, 1], [105, 5, 1], [2, 3, 3], [1, 2, 1], [12345, 7, 3], [1015, 5, 0]]) {
     const { tl } = potence(a, b, d);
     const depart = tDebut(tl);
     let precedent = Infinity;
@@ -235,7 +235,7 @@ test('★ la ligne de gauche ne remonte jamais — elle ne fait que perdre', () 
  *   ce que la scène affiche RÉELLEMENT, canal par canal.
  */
 test('★ à chaque instant, la ligne se lit comme le reste de la division', () => {
-  for (const [a, b, d] of [[13, 5, 1], [105, 5, 1], [2, 3, 3], [39, 9, 2]]) {
+  for (const [a, b, d] of [[13, 5, 1], [105, 5, 1], [2, 3, 3], [39, 9, 2], [1015, 5, 0]]) {
     const { tl, tours } = potence(a, b, d);
     const vus = new Set();
     for (let k = 0; k <= 600; k++) {
@@ -251,8 +251,12 @@ test('★ à chaque instant, la ligne se lit comme le reste de la division', () 
         legitimes.add(ligneAffichee(tour.courantAvant - p * b, large, queue));
       }
     });
+    // Un nombre partiel ramené à zéro disparaît de la ligne (l'autrice) : ses
+    // zéros de tête ne s'écrivent plus. On compare donc sans eux.
+    const sansZerosDeTete = (x) => x.replace(/^0+/, '');
+    const permises = new Set([...legitimes].map(sansZerosDeTete));
     for (const ligne of vus) {
-      assert.ok(legitimes.has(ligne),
+      assert.ok(permises.has(sansZerosDeTete(ligne)),
         `${a} ÷ ${b} : la ligne « ${ligne} » n’est pas un état du calcul`);
     }
   }
@@ -677,33 +681,36 @@ test('★ le moteur visuel refuse de peindre un quotient qui n’est pas celui d
 
 // ───────────────────── 9. le geste d'un tour : l'expression écrite sous le dividende
 
-/** Une expression COMPLÈTE : « nbr < diviseur → 0 × diviseur » ou « nbr = N × diviseur + R ». */
-const EXPRESSION_COMPLETE = /^\d+ (< \d+ → 0 × \d+|= \d × \d+ \+ \d+)$/;
+/** Une expression bien formée : « nbr < diviseur → 0 × diviseur », « nbr = N × diviseur »
+ *  ou « nbr = N × diviseur + R ». Un « + 0 » se lit aussi — pour qu'un test le voie. */
+const EXPRESSION_COMPLETE = /^\d+ (< \d+ → 0 × \d+|= \d × \d+( \+ \d+)?)$/;
 
 /**
  * Les expressions que la scène ÉCRIT sous le dividende, dans l'ordre du temps —
  * lues à l'écran, jeton par jeton, et non dans le code : les nœuds à pleine
  * encre sur la rangée d'un signe « < » ou « = » de la potence, de gauche à
  * droite. Deux jetons contigus (les chiffres d'une copie) se lisent collés, un
- * écart se lit comme une espace. Une expression n'est retenue qu'une fois
- * complète, et une seule fois tant qu'elle reste à l'écran.
+ * écart se lit comme une espace. Une expression est retenue TELLE QU'ELLE SE
+ * LIT EN DERNIER, avant de s'effacer : nbr se forme par étapes (« 5 = 1 × 5 »,
+ * « 10 = 2 × 5 »…), et c'est la forme finale qu'on compare.
  */
 function expressionsLues(tl, pas = 20) {
   const lire = lecteur(tl);
   const suite = [];
-  let precedente = null;
-  for (let t = 0; t <= tl.total; t += pas) {
+  let derniere = null;
+  for (let t = 0; t <= tl.total + pas; t += pas) {
     const vus = lire.visibles(t);
     const signe = vus.find((j) => j.potence === 'terme' && (j.texte === '=' || j.texte === '<') && j.opacite > 0.95);
-    let lue = null;
-    if (signe) {
-      const rang = vus.filter((j) => Math.abs(j.y - signe.y) < 1 && j.opacite > 0.95).sort((a, b) => a.x - b.x);
-      lue = rang.reduce((s, j, k) => s + (k && j.g - rang[k - 1].d > 1 ? ' ' : '') + j.texte, '');
-      if (!EXPRESSION_COMPLETE.test(lue)) lue = null;
+    if (!signe) {
+      if (derniere !== null) suite.push(derniere);
+      derniere = null;
+      continue;
     }
-    if (lue !== null && lue !== precedente) suite.push(lue);
-    precedente = lue;
+    const rang = vus.filter((j) => Math.abs(j.y - signe.y) < 1 && j.opacite > 0.95).sort((a, b) => a.x - b.x);
+    const lue = rang.reduce((acc, j, k) => acc + (k && j.g - rang[k - 1].d > 1 ? ' ' : '') + j.texte, '');
+    if (EXPRESSION_COMPLETE.test(lue)) derniere = lue;
   }
+  if (derniere !== null) suite.push(derniere);
   return suite;
 }
 
@@ -884,8 +891,66 @@ test('★ chiffre non nul : « 17 = 3 × 5 + 2 », un retrait à la fois, puis N
 test('★ 1015 ÷ 5 : la suite complète des expressions, md01 contre mdc1', () => {
   const avec = surLaLigne('md01', [10155]);
   const sans = surLaLigne('mdc1', [10155]);
-  assert.deepEqual(expressionsLues(avec.tl), ['1 < 5 → 0 × 5', '10 = 2 × 5 + 0', '1 < 5 → 0 × 5', '15 = 3 × 5 + 0']);
-  assert.deepEqual(expressionsLues(sans.tl), ['10 = 2 × 5 + 0', '1 < 5 → 0 × 5', '15 = 3 × 5 + 0']);
+  assert.deepEqual(expressionsLues(avec.tl), ['1 < 5 → 0 × 5', '10 = 2 × 5', '1 < 5 → 0 × 5', '15 = 3 × 5']);
+  assert.deepEqual(expressionsLues(sans.tl), ['10 = 2 × 5', '1 < 5 → 0 × 5', '15 = 3 × 5']);
+
+  /* > « Quand le reste est nul, au lieu de l'envoyer en +0, le passage du
+     >   diviseur qui le fait descendre à 0 le détruit au lieu de le faire
+     >   passer à 0. » (l'autrice) */
+  for (const [nom, { tl }, rebonds] of [['md01', avec, 2], ['mdc1', sans, 1]]) {
+    const lire = lecteur(tl);
+    const deRole = (r) => tl.nodes.filter((n) => n.data && n.data.potence === r);
+    assert.equal(deRole('terme').filter((n) => n.text === '+').length, 0, `${nom} : aucun « + » ne s’écrit`);
+    assert.deepEqual(deRole('copie-nombre').map((n) => n.text), Array(rebonds).fill('1'),
+      `${nom} : un reste nul ne se duplique pas — seules restent les copies du « 1 » au rebond`);
+    const colonnes = parPrefixe(tl, '@potchiffre');
+    const texte = (id, t) => {
+      const r = resolveDiscrete(tl.discreteIndex, t).get(`${id}::text`);
+      return r ? r.value : tl.nodes.find((n) => n.id === id).text;
+    };
+    const vols = deRole('copie-diviseur')
+      .map((n) => tl.anims.filter((x) => x.id === n.id && x.prop === 'translate').sort((x, y) => x.delay - y.delay)[0])
+      .sort((x, y) => x.delay - y.delay);
+    const sur = (v, ...cols) => {
+      const xs = cols.map((c) => lire.valeur(colonnes[c].id, 'translate', v.delay).x);
+      return Math.abs(v.keyframes.at(-1).value.x - (xs[0] + xs[xs.length - 1]) / 2) < 0.01;
+    };
+    // la dernière copie posée sur « 10 » le fait disparaître
+    const surDix = vols.filter((v) => sur(v, 0, 1));
+    assert.equal(surDix.length, 2, `${nom} : deux copies sur « 10 »`);
+    const tDetruit = surDix[1].delay + surDix[1].duration;
+    assert.deepEqual([texte(colonnes[0].id, tDetruit - 2), texte(colonnes[1].id, tDetruit - 2)], ['0', '5'],
+      `${nom} : juste avant, la ligne lit « 05 »`);
+    assert.deepEqual([texte(colonnes[0].id, tDetruit + 2), texte(colonnes[1].id, tDetruit + 2)], ['', ''],
+      `${nom} : la copie qui le ramène à zéro le DÉTRUIT — pas de « 00 »`);
+    // le 1 abaissé forme SEUL le nombre partiel : la copie se pose sur sa colonne
+    const surUn = vols.find((v) => v.delay > tDetruit && sur(v, 2));
+    assert.ok(surUn, `${nom} : la copie suivante se pose sur le « 1 » abaissé, dans sa colonne`);
+    assert.deepEqual(colonnes.slice(0, 3).map((c) => texte(c.id, surUn.delay + surUn.duration)), ['', '', '1'],
+      `${nom} : rien à côté de lui`);
+    // et « 15 » disparaît à son tour : à la fin du calcul, la zone n'écrit plus rien
+    const tFin = Math.min(...tl.anims.filter((x) => x.id === unique(tl, '@potvert').id && x.prop === 'opacity'
+      && x.keyframes.at(-1).value === 0).map((x) => x.delay)) - 1;
+    assert.deepEqual(colonnes.map((c) => texte(c.id, tFin)), ['', '', '', ''], `${nom} : le 15 a disparu`);
+    assert.equal(lire.chevauchement(0, tl.total, 800), null, `${nom} : rien ne se superpose`);
+  }
+});
+
+test('★ reste nul : la potence finit proprement, division exacte comme décimale', () => {
+  for (const [a, b, d, attendues] of [
+    [15, 5, 0, ['1 < 5 → 0 × 5', '15 = 3 × 5']],
+    [12, 5, 1, ['1 < 5 → 0 × 5', '12 = 2 × 5 + 2', '20 = 4 × 5']],
+    [1013, 5, 1, ['1 < 5 → 0 × 5', '10 = 2 × 5', '1 < 5 → 0 × 5', '13 = 2 × 5 + 3', '30 = 6 × 5']],
+  ]) {
+    const { tl, tours } = potence(a, b, d);
+    assert.deepEqual(tl.warnings, [], `${a} ÷ ${b} : ${tl.warnings.join(' | ')}`);
+    assert.deepEqual(expressionsLues(tl), attendues, `${a} ÷ ${b}`);
+    assert.equal(lecteur(tl).chevauchement(0, tl.total, 800), null, `${a} ÷ ${b} : rien ne se superpose`);
+    const tFin = Math.min(...tl.anims.filter((x) => x.id === unique(tl, '@potvert').id && x.prop === 'opacity'
+      && x.keyframes.at(-1).value === 0).map((x) => x.delay)) - 1;
+    assert.equal(ligneA(tl, tFin), '', `${a} ÷ ${b} : le dernier nombre partiel a disparu de la ligne`);
+    assert.deepEqual(tl.scene.flow, tours.map((_, k) => `q${k}`), `${a} ÷ ${b} : la ligne se referme sur le quotient`);
+  }
 });
 
 test('★ la primitive refuse d’écrire une identité fausse', () => {
@@ -897,6 +962,9 @@ test('★ la primitive refuse d’écrire une identité fausse', () => {
   refuse({ courantAvant: 7, chiffre: 0, reste: 7 }, 5);     // 7 n'est pas < 5
   refuse({ courantAvant: 3, chiffre: 0, reste: 2 }, 5);     // le reste d'un chiffre nul est le nombre
   assert.deepEqual(expressionDuTour({ courantAvant: 17, chiffre: 3, reste: 2 }, 5), ['17', '=', '3', '×', '5', '+', '2']);
+  // un reste nul ne s'écrit pas, et l'identité est tout de même vérifiée
+  assert.deepEqual(expressionDuTour({ courantAvant: 15, chiffre: 3, reste: 0 }, 5), ['15', '=', '3', '×', '5']);
+  refuse({ courantAvant: 16, chiffre: 3, reste: 0 }, 5);    // 3 × 5 = 15
   refuse({ courantAvant: 17, chiffre: 3, reste: 1 }, 5);    // 3 × 5 + 1 = 16
   refuse({ courantAvant: 17, chiffre: 2, reste: 7 }, 5);    // vrai, mais 7 n'est pas un reste de 5
 });
