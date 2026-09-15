@@ -10,7 +10,7 @@
  * (`lents/recherche.test.js`). */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { familleDeReglages, formeReglee, vecteursDeSix } from '../assemblage.js';
+import { familleDeReglages, formeReglee, vecteursDeSix, rejouableSousLaCible } from '../assemblage.js';
 import { operateursPourCible } from '../bfs.js';
 import { methodesDeLApproche, mappeurApproche } from '../score.js';
 import { catalogue } from './_catalogue.js';
@@ -107,4 +107,22 @@ test('les méthodes d’une voie : son mappeur seul, ou l’ensemble rangé de c
     'la moisson n’est plus comptée sous le mappeur de sa première portée');
   assert.equal(methodesDeLApproche(voie('tca+mtc', 'tca+m14')), methodesDeLApproche(voie('tca+m14', 'tca+mtc')),
     'l’ordre des portées ne change pas la clé');
+});
+
+/* ★ LA FENÊTRE PAR FAMILLE NE PROPOSE QUE DES CHEMINS REJOUABLES
+     (`assemblage.js › rejouableSousLaCible`). Sous 666, la recherche explore le
+     catalogue tel quel : `mr6` — bâti pour 999 — y est joué, mais la table du
+     rejeu, qui résout chaque code par `viser`, ne le connaît pas. Mesuré sur
+     `https://hope-hope-hope.fr/` : deux moissons nées de la fenêtre par famille
+     portaient `tca+mtc+mr6+cs+pr9`, et leurs liens étaient refusés. */
+test('un chemin est rejouable si le rejeu résout chacun de ses codes vers le même opérateur', () => {
+  const chemin = (codes) => ({ ops: codes.split('+').map((c) => PAR_CODE.get(c)) });
+  const CIBLE_666 = { texte: '666' };
+  assert.equal(rejouableSousLaCible(chemin('tca+m14'), CIBLE_666), true, 'un opérateur qui ne lit pas la cible');
+  assert.equal(rejouableSousLaCible(chemin('tca+m14+mpf'), CIBLE_666), true,
+    '`mpf` lit la cible et vise 666 : le rejeu retrouve le même opérateur');
+  assert.equal(rejouableSousLaCible(chemin('tca+mtc+mr6+cs+pr9'), CIBLE_666), false,
+    '`mr6` est bâti pour 999 : le rejeu ne le connaît pas sous 666');
+  // Ce qui rend le refus nécessaire : la recherche sous 666 explore bien `mr6`.
+  assert.ok(OPS.some((o) => o.code === 'mr6'), 'sous 666, `mr6` est parmi les opérateurs explorés');
 });

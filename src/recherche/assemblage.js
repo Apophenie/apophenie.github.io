@@ -2202,6 +2202,16 @@ function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT, compteur =
     //   Les ficelles restent pleinement disponibles au GROUPEMENT, qui est le
     //   mode de tous les exemples de l'auteur : un vecteur, une ficelle, un 666.
     if (nbFicelles(chemin)) return;
+    /* ★ **LA FENÊTRE PAR FAMILLE REFUSE CE QUE LE REJEU NE SAURAIT PAS REJOUER**
+         (`rejouableSousLaCible`). Un lien affiché qui ne se rejoue pas est un
+         échec bruyant, pas un arbitrage (§4.3).
+         ⚠️ Le refus est LOCAL, et c'est voulu. Le corriger à la racine — passer
+           par `viser` même sous 666, dans `bfs.js › operateursPourCible` —
+           changerait ce qu'explore CHAQUE recherche du site, et élaguer `mr6`
+           sous 666 perturbait déjà des listes publiées (mesuré). La fenêtre par
+           famille, elle, ne fait qu'AJOUTER : l'y refuser ne retire rien de ce
+           que la fenêtre d'avant montrait. */
+    if (parFamille && !rejouableSousLaCible(chemin, cbl)) return;
     const s = sixDuChemin(chemin, cbl);
     if (!s) return;
     const cle = chemin.ops.map((o) => o.code).join('+');
@@ -2287,6 +2297,39 @@ export function familleDeReglages(op) {
   if (!Number.isFinite(op.decalage) && !Number.isFinite(op.acception) && !Number.isFinite(op.rang)) return null;
   if (typeof op.familleOutil === 'string' && op.familleOutil) return op.familleOutil;
   return String(op.code).replace(/\d+$/, '');
+}
+
+/**
+ * ★ **UN CHEMIN QUE LE REJEU SAIT REJOUER** — chacun de ses opérateurs est celui
+ *   que la table du rejeu associe à son code sous cette cible.
+ *
+ * Le rejeu (`index.js › tableDesCodes`) résout chaque code par `viser(cible)`
+ * quand l'opérateur lit la cible, et le retire de la table quand sa règle n'a pas
+ * de sens pour elle. La recherche, elle, part du catalogue TEL QUEL sous la cible
+ * par défaut (`bfs.js › operateursPourCible`) : un opérateur bâti sur une autre
+ * visée y est joué avec sa règle d'origine. C'est le défaut ancien que décrit
+ * `bfs.js › operateursRetires`.
+ *
+ * ⚠️ MESURÉ sur `https://hope-hope-hope.fr/` : `mr6` — « un 6 retourné donne un
+ *   9 », bâti pour 999 — y est joué sous 666, et `tca+mtc+mr6+cs+pr9` fait
+ *   l'aller-retour 6 → 9 → 6 : il écrit bien un 6. Deux moissons nées de la
+ *   fenêtre par famille le portaient (×2 1 077 et ×2 1 092) ; leurs liens
+ *   étaient refusés au rejeu, « mr6 n'existe pas dans ce catalogue ».
+ *
+ * ★ **L'ÉGALITÉ EST STRICTE** : `viser(cible)` doit rendre CET opérateur, pas
+ *   seulement un opérateur. Un code que le rejeu résoudrait vers une autre règle
+ *   rejouerait une autre démonstration, avec un autre score (§4.3).
+ *
+ * @param {Object} chemin
+ * @param {{texte:string}} cible  la cible normalisée
+ * @returns {boolean}
+ */
+export function rejouableSousLaCible(chemin, cible) {
+  for (const o of (chemin && chemin.ops) || []) {
+    if (!o || typeof o.viser !== 'function') continue;
+    if (o.viser(cible.texte) !== o) return false;
+  }
+  return true;
 }
 
 /** La FORME d'un chemin : ses opérateurs, les réglages effacés — `fr14+tca+m14`
