@@ -8,6 +8,79 @@ Chaque démonstration est illustré par une animation montrant chaque étapes po
 
 Venez vous essayer à la science des nombre enfin rendu accessible à toutes et tous !
 
+## Ce que le site fait aujourd'hui
+
+La version 3.0.0, en bref. Plus bas, « Méthodologie » et « L'interface du site »
+sont le cahier des charges d'origine : il tient toujours, le site a grandi autour.
+
+### D'autres cibles que 666
+
+Sous la liste des voies, « Trop diabolique pour vous ? » propose 111, 777, 000, 13
+et 007, ou la valeur de votre choix : une suite de 20 chiffres au plus, zéros de
+tête compris (« 007 » n'est pas « 7 »), ou **un texte** de 20 signes au plus, visé
+tel quel, casse, accents et ponctuation compris. « https://reinfocovid.fr/ » vaut
+ainsi « C'est de la merde ! », point d'exclamation inclus.
+
+Les cornes et l'orage du registre scénique restent l'apanage du 666 : les autres
+cibles se démontrent en sobre, en attendant leurs emblèmes
+(`.planning/A-VENIR-cibles.md`).
+
+### Régler ce qui compte
+
+La page de résultats porte quatre curseurs — **Simplicité**, **Exhaustivité**,
+**Quantité**, **Cohérence** — de 0 à 200, 100 par défaut ; le pourcentage affiché
+est la part de chacun dans le score global. Un cinquième, la **Fouille**, ne classe
+pas : il creuse. Ses crans vont de 0 (le défaut) à 10, et chaque cran double le
+travail accordé à la recherche (×1, ×2, ×4…).
+
+Monter la fouille n'appauvrit rien : la liste d'un cran réunit ce que chaque cran
+inférieur a choisi, et une voie trouvée reste trouvée. La recherche part d'un **cran
+rapide** (−1), qui n'est pas un réglage : il montre ses premières voies en quelques
+secondes. Tant qu'un cran se calcule, la liste du cran précédent s'affiche sous le
+bandeau « Recherche en cours — classement provisoire », et ses liens restent valables.
+
+### Révéler
+
+Sur l'accueil, **Révéler** cherche sur place et ouvre directement la démonstration de
+la première voie, en cinq secondes environ : sa recherche est bornée pour ça.
+« Énumérer les voies occultes » mène à la liste complète, et Révéler y retombe
+lui-même s'il n'obtient pas de lien direct.
+
+### Le classement
+
+Chaque voie porte un **score global** : la moyenne de ses quatre axes, pondérée par
+les curseurs. Depuis la 3.0.0, c'est lui qui range la liste, recalibré sur quinze
+arbitrages de l'autrice (`.planning/arbitrages/`) : l'absorption (`mab`), les
+traductions et le complément à neuf paient leur caractère de dernier recours, et une
+sélection qui jette des chiffres fait baisser le rendement.
+
+Aux curseurs par défaut, deux lignes ouvrent la liste : **Élégance**, « la plus
+belle », et **Abondance**, « la plus fournie » — celle qui aligne plus de séries que
+l'Élégance sans faire moins bien qu'elle au score global, quand il y en a une.
+
+### Les liens
+
+Tout se partage par l'URL, et ce qui compte y est écrit :
+
+| lien | ce qu'il fait |
+|---|---|
+| `#:Donald Trump` | cherche, puis anime la première voie — le geste de Révéler |
+| `##:Donald Trump` | cherche, puis énumère les voies |
+| `##:Donald Trump#:111` | la même liste, pour une autre cible (troisième `#`) |
+| `#sce!m14#:hope` | joue ce programme-là, sans recherche, en registre scénique |
+
+* La saisie et la cible s'écrivent en base58 — c'est ce que le site produit — ou en
+  clair derrière `:`. Sans cible, c'est 666.
+* Dans un programme, `+` enchaîne les opérations, `,` sépare les fragments dont les 6
+  s'assemblent, `0.1:` désigne une portée (position et longueur, en jetons), et `;`
+  sépare une retouche, qui réécrit la saisie, de ce qui la lit ensuite.
+* Avant le programme, des marqueurs clos par `!` : `sce!` pour le registre scénique,
+  `p25.200.50.150!` pour les curseurs (simplicité, exhaustivité, quantité,
+  cohérence), `f2!` pour la fouille. Le registre sobre est implicite : **seul `sce!`
+  s'écrit**, et les anciens liens en `so!` se relisent à l'identique.
+
+La grammaire complète est en tête de `src/recherche/url.js`.
+
 ## L'arborescence
 
 ```
@@ -16,6 +89,7 @@ favicon.svg                l'identité — produit par le générateur de logo, 
 package.json  bun.lock  vite.config.js  .gitignore  .gitlab-ci.yml
 src/                       LES SOURCES — tout ce qui est servi part d'ici
   index.html               le document ; c'est la racine du serveur Vite
+  config.js                les réglages de la recherche : crans de fouille, budgets, lois
   app/                     amorçage, routeur, pages, réglages, partage
   moteur/                  l'arithmétique : transformer une séquence en 6
   recherche/               le tri heuristique des chemins qui mènent à 666
@@ -23,8 +97,9 @@ src/                       LES SOURCES — tout ce qui est servi part d'ici
   i18n/                    les libellés, fr et en
   styles/                  tokens, base, pages, contrôles
   fonts/                   les deux woff2 servis + leurs licences OFL
+  sons/                    les trois sons de la version scénique + leur licence CC0
   gfx/                     le générateur du logo, son banc d'essai, et jost.ttf
-.planning/                 le contrat, la recherche, les prototypes de recherche
+.planning/                 le contrat, les arbitrages, les bancs de mesure, et ce qui reste à faire (A-VENIR.md)
 dist/                      produit par `bun run build` — ignoré par git
 ```
 
@@ -48,8 +123,10 @@ Le site est écrit en modules ES natifs et n'a **aucune dépendance à l'exécut
 |---|---|
 | `bun run dev` | le serveur Vite sur `src/` |
 | `bun run build` | replie le site dans `dist/`, ouvrable en `file://` |
-| `bun run test` | `node --test` sur les sources, sans build préalable |
-| `bun run check` | les tests puis le build — ce que la CI exécute |
+| `bun run test` | la suite de routine (`npm test` lance la même) : `node --test` sur les sources, sans build préalable |
+| `bun run test:lent` | la suite lente : les recherches complètes, le classement, les arbitrages, les budgets |
+| `bun run test:tout` | les deux suites, l'une après l'autre |
+| `bun run check` | les deux suites puis le build — ce que la CI exécute |
 | `bun run logo` | régénère le logo, le favicon et le banc d'essai |
 
 `bun run logo` appelle `src/gfx/logo-jost-trace.py` (fontTools requis). Il réécrit quatre
@@ -123,6 +200,9 @@ Mémo d'assemblage de fragments dans l'url
 cible des liens de la page résultat, pour illustrer une méthode de calcul.
 
 Url : {domain/path}#{numéro de l'approche, ou numéro+numéro+numéro pour la composition de plusieurs fragments}#{b58 de la séquence recherchée}
+
+*(Cette forme par numéro se lit encore : elle relance la recherche et joue la voie de ce rang. Le site écrit désormais le programme lui-même — voir « Les liens », plus haut.)*
+
 Titre : La vérité derrière "{Séquence recherchée}"
 
 Animation svg (ou css) avec la séquence de départ, transition vers étape suivante... jusqu'au résultat fatidique.
