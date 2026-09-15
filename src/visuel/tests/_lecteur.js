@@ -18,6 +18,54 @@
 
 import { resolveDiscrete } from '../clock.js';
 
+/**
+ * ★ **LES SUPERPOSITIONS VOULUES DE LA POTENCE — et elles seules.**
+ *
+ * « Jamais 2 chiffres ne se superposent sur la ligne de base » vaut pour tout
+ * ce qui est POSÉ. Le geste de la potence, lui, fait naître des copies sur ce
+ * qu'elles copient et les fait fondre dans ce qu'elles rejoignent (l'autrice :
+ * « une copie superposée du nbr », « quand le diviseur arrive sur le nombre »,
+ * « un fragment qui vient former puis s'incrémenter à nbr »). Ces rencontres-là
+ * sont le geste ; toute autre est un défaut. Chaque nœud de la potence porte
+ * son rôle (`data.potence`, `primitives/potence.js › ROLES`) :
+ *
+ *  · la COPIE DU DIVISEUR se superpose au diviseur dont elle part (même texte,
+ *    jeton de la ligne), à la zone EN JEU du dividende où elle arrive, à la
+ *    copie du nombre qui paraît sous elle au rebond, et aux fragments qu'elle
+ *    devient ;
+ *  · un FRAGMENT se superpose à la zone en jeu et à la copie dont il sort, aux
+ *    autres fragments nés au même point, et au compteur qu'il vient incrémenter ;
+ *  · une COPIE DU NOMBRE (le nombre partiel au rebond, le reste) se superpose à
+ *    la zone en jeu qu'elle copie ou qu'elle rejoint, à ses sœurs quand elles
+ *    convergent sur le compteur, et à ce compteur.
+ *
+ * « En jeu » veut dire à pleine encre : une copie qui passerait sur un chiffre
+ * ESTOMPÉ, sur un voisin, sur un signe de l'expression ou sur le quotient
+ * reste une faute.
+ *
+ * ★ Il n'y a plus d'exclusion en bloc : l'exemplaire en vol de l'ancien geste
+ *   passait sur les chiffres estompés et sur la barre sans que rien ne le
+ *   dise ; toute copie porte désormais son rôle.
+ */
+export function superpositionVoulue(p, q) {
+  return voulueDans(p, q) || voulueDans(q, p);
+}
+
+function voulueDans(a, b) {
+  const enJeu = b.potence === 'zone' && b.opacite > 0.5;
+  switch (a.potence) {
+    case 'copie-diviseur':
+      return enJeu || (!b.potence && b.texte === a.texte)
+        || b.potence === 'fragment' || b.potence === 'copie-nombre';
+    case 'fragment':
+      return enJeu || ['fragment', 'copie-diviseur', 'compteur'].includes(b.potence);
+    case 'copie-nombre':
+      return enJeu || ['copie-nombre', 'copie-diviseur', 'compteur'].includes(b.potence);
+    default:
+      return false;
+  }
+}
+
 /** Une courbe `cubic-bezier` évaluée comme le navigateur l'évalue. */
 export function courbe(easing) {
   const m = /cubic-bezier\(([^)]+)\)/.exec(easing || '');
@@ -83,6 +131,8 @@ export function lecteur(tl) {
       out.push({
         id: n.id, texte, x: p.x, y: p.y, opacite: o,
         g: p.x - demi, d: p.x + demi, h: tl.metrics.fontSize * s,
+        // le rôle d'un nœud de la potence (`primitives/potence.js › ROLES`)
+        potence: (n.data && n.data.potence) || null,
       });
     }
     return out;
@@ -91,18 +141,18 @@ export function lecteur(tl) {
   /**
    * Le pire chevauchement entre jetons posés sur une même ligne, sur une
    * fenêtre de temps échantillonnée — `null` s'il n'y en a aucun. Les
-   * exemplaires en vol de la potence sont exclus, et c'est voulu : ils se
-   * DÉTACHENT du chiffre dont on les retire, c'est tout le geste.
+   * superpositions VOULUES sont écrites une fois, dans `superpositionVoulue`.
    */
-  const chevauchement = (debut, fin, n = 500) => {
+  const chevauchement = (debut, fin, n = 500, voulue = superpositionVoulue) => {
     let pire = null;
     for (let k = 0; k <= n; k++) {
       const t = debut + ((fin - debut) * k) / n;
-      const vus = visibles(t).filter((j) => !j.id.startsWith('@potpaquet'));
+      const vus = visibles(t);
       for (let i = 0; i < vus.length; i++) {
         for (let j = i + 1; j < vus.length; j++) {
           const p = vus[i];
           const q = vus[j];
+          if (voulue(p, q)) continue;
           if (Math.abs(p.y - q.y) >= ((p.h + q.h) / 2) * 0.8) continue;
           const recouvre = Math.min(p.d, q.d) - Math.max(p.g, q.g);
           if (recouvre > 0.5 && (!pire || recouvre > pire.recouvre)) {
