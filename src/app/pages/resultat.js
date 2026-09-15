@@ -359,7 +359,7 @@ function scoresDeLaVoie(approche, curseurs) {
  *   abondance en 2ᵈ) : ces régimes classent sur d'autres grandeurs que les
  *   quatre axes, et afficher ici une part qu'ils n'emploient pas serait un
  *   mensonge de plus. Le jour où le score du moteur se décomposera sur les
- *   quatre axes (voir `.planning/PROPOSITION-score-global.md`), la part variera
+ *   quatre axes (voir `.planning/archive/PROPOSITION-score-global.md`), la part variera
  *   avec la place, et ce sera vrai.
  */
 function poidsDeLAxe(axe, part) {

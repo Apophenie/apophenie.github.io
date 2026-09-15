@@ -1,3 +1,14 @@
+> **Archivé le 16 septembre 2026 — dépassé, réalisé par une autre voie.** Depuis
+> `v3.0.0`, la liste suit le score global — mais pas selon cette proposition.
+> Les pistes « score v2 » (`.planning/banc/score-v2-comparatif.md`) puis les
+> quinze verdicts de `.planning/arbitrages/2026-09-15-rang-ou-score.md` ont
+> tranché autrement : le global reste la moyenne des quatre axes pondérée par les
+> curseurs, recalibrée dans `src/recherche/score.js › mesuresDeLaVoie` ; la liste
+> est rangée par `src/recherche/index.js › rangerParLeGlobal`, et la sélection
+> (qui entre dans la liste) reste au score du moteur. Les parts par place du §2.2
+> n'ont pas été reprises : seule la ligne « Élégance » ramène la quantité à 1 %
+> (`score.js › meriteDEleganceGlobal`).
+
 # Proposition — faire du score moteur le score global affiché
 
 > « J'aimerais que tu décomposes les critères actuels du moteur de manière à

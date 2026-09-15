@@ -1,3 +1,11 @@
+> **Archivé le 16 septembre 2026 — réalisé.** Les gestes décrits ici sont joués
+> depuis `2e6c332` (10 septembre 2026), et le document disait déjà « Rien des
+> gestes décrits » dans ce qui restait. La potence a été reprise depuis
+> (`f61c948`, 15 septembre : « nbr < diviseur → 0 × diviseur »,
+> « nbr = N × diviseur + R »). Le résultat vit dans les opérateurs du catalogue
+> (`src/moteur/catalogue.js`), dans `src/visuel/primitives/potence.js`, et la
+> garde qui regarde l'écran est `src/visuel/tests/gestes-decrits.test.js`.
+
 # Les gestes arithmétiques — ce qui est livré, et comment ça se joue
 
 ## Livré
