@@ -7,9 +7,14 @@
 > charge l'étage amont** (§3) et **la scénographie du 6 surnuméraire** (§4).
 > L'étage est **branché par défaut**.
 >
-> Ce qui reste est écrit à la fin du §3 : le balayage des trois bornes du
+> ~~Ce qui reste est écrit à la fin du §3 : le balayage des trois bornes du
 > générateur l'une contre l'autre, et un désaccord entre `LETTRE_VERS_LETTRE` et
-> le catalogue que ce chantier a rendu visible sans le corriger.
+> le catalogue que ce chantier a rendu visible sans le corriger.~~
+>
+> **État au 16 septembre 2026 (`v3.0.0`) — partiellement réalisé.** Le désaccord
+> `LETTRE_VERS_LETTRE` est corrigé. **Reste ouvert : le balayage des bornes du
+> générateur**, dont deux suivent désormais le cran de fouille — voir la fin du
+> §3. Index de ce qui reste : `.planning/A-VENIR.md`.
 
 ---
 
@@ -131,11 +136,28 @@ déjà avant.
 
 ### Ce qui reste ouvert sur cet étage
 
-- **Les trois bornes de `groupementsRetouches`** (six mots, quatre vecteurs, la
-  saisie entière seule) n'ont toujours pas été balayées L'UNE CONTRE L'AUTRE :
-  on sait ce que leur produit coûte, pas ce que chacune achète.
-- ⚠️ **`LETTRE_VERS_LETTRE` a perdu de vue le catalogue, et ça se voit ici.** Le
-  poste nomme trois identifiants — `f.atbash`, `f.rot13`, `f.leet` — et son
+- **OUVERT — Les trois bornes de `groupementsRetouches`** (six mots, quatre
+  vecteurs, la saisie entière seule) n'ont toujours pas été balayées L'UNE
+  CONTRE L'AUTRE : on sait ce que leur produit coûte, pas ce que chacune achète.
+
+  > **Mis à jour le 16 septembre 2026.** La question a bougé sans être close.
+  > Depuis `77e7823` (13 septembre), les deux premières bornes suivent le cran de
+  > fouille (`src/config.js › motsARetoucher`, `round(6 × 1,2ⁿ)`, et
+  > `vecteursARetoucher`, `round(4 × 1,32ⁿ)`) ; au cran 0 elles valent toujours
+  > six et quatre (`assemblage.js › MAX_JETONS_RETOUCHE`,
+  > `MAX_VECTEURS_RETOUCHES`), et la liste d'un cran réunit ce que choisissent
+  > les anciennes gardes et la rampe. La loi des vecteurs a été choisie au banc
+  > contre ×1,2, la loi des mots ne l'a pas été, la troisième borne n'a pas bougé,
+  > et aucune n'a été balayée contre les autres. Le commentaire de
+  > `groupementsRetouches` le dit encore : « C'est le chantier qui reste ouvert
+  > sur cet étage. »
+
+- ~~⚠️ **`LETTRE_VERS_LETTRE` a perdu de vue le catalogue, et ça se voit ici.**~~
+  **FAIT** (`181a1c2`, 31 août 2026) : une conversion lettre → lettre se
+  reconnaît désormais à sa réglette (`src/recherche/elegance.js ›
+  porteUneReglette`), les vingt-cinq césars compris. Le constat d'origine :
+
+  Le poste nomme trois identifiants — `f.atbash`, `f.rot13`, `f.leet` — et son
   commentaire affirme que le catalogue n'en porte pas d'autre. Ce n'est plus
   vrai : les vingt-cinq autres décalages de César y sont entrés sous `f.cesar1`
   à `f.cesar25`, et ils ne paient **rien** là où `fr13` paie 40. Tant que
@@ -190,6 +212,7 @@ Tests : `visuel/tests/explosion.test.js` (11), `recherche/tests/scenario.test.js
 | l'étage amont au rejeu | `src/recherche/index.js › rejouer` |
 | les codes qui nomment la retouche | `src/recherche/index.js › marquerLesCodes` |
 | le générateur, branché | `src/recherche/assemblage.js › groupementsRetouches` |
+| les gardes qui suivent le cran | `src/config.js › motsARetoucher`, `vecteursARetoucher` |
 | le prix de l’étage | `src/recherche/elegance.js › BAREME.RETOUCHE` |
 | ce que le bilan en retient | `src/recherche/elegance.js › POSTES_DU_PROCESSUS` |
 | la ligne de base du réglage | `node .planning/banc/classement.mjs --sans-retouches` |
