@@ -78,11 +78,24 @@ node --test src/recherche/tests/lents/progression.test.js
 node --test --test-name-pattern="horloge hostile" src/recherche/tests/lents/recherche.test.js
 ```
 
-## Les trois `todo` d'arbitrage
+## Les `todo` d'arbitrage
 
-Trois tests de moisson portent `{ todo: 'arbitrage ouvert…' }` : ils s'exécutent,
-leur échec est RAPPORTÉ, et ils ne font pas tomber la suite. Les voir en rouge
-dans la sortie est normal ; c'est `ℹ fail` qui compte.
+Un test qui porte `{ todo: 'arbitrage ouvert…' }` s'exécute, son échec est
+RAPPORTÉ, et il ne fait pas tomber la suite. Le voir en rouge dans la sortie est
+normal ; c'est `ℹ fail` qui compte.
+
+**Les trois `todo` de moisson sont clos depuis le 16 septembre 2026**, sur
+verdict de l'autrice (`.planning/arbitrages/2026-09-15-rang-ou-score.md`) :
+
+- « `https://hope-hope-hope.fr/` atteint les six séries » — **devenu affirmatif**.
+  La voie était produite depuis le début ; c'est l'énoncé du test qui visait à
+  côté (il lisait les deux premières lignes, l'apothéose est 3ᵉ, global 706) ;
+- « `hope-hope-hope.fr` mène cinq séries en tête de liste » — **retiré**. « Ok
+  qu'elle soit dans les 10 premiers seulement » : c'est le test de la voie
+  groupée au cran 0 qui le remplace, et le pavé le dit à sa place ;
+- « le "fr" reste en sept segments » — **réécrit**. « Les deux me vont » : le
+  test ne fige plus `m7`, il vérifie qu'à séries égales la variante montrée est
+  celle que le score global préfère.
 
 ## Quand les lancer
 
