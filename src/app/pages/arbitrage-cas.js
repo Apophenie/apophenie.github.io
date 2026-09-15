@@ -104,67 +104,49 @@
  *    que les voies qu'ils opposaient ont changé de place, pas parce que la
  *    question a reçu sa réponse ; si elle revient, elle reviendra avec des cas
  *    remesurés.
+ *    Elle est revenue ainsi, et l'autrice l'a arbitrée le 15 septembre 2026 :
+ *    voir les quinze cas consignés plus bas.
  *
- * ★ **CE QUI EST OUVERT : HUIT CAS, UNE SEULE QUESTION — LE RANG OU LE SCORE
- *   GLOBAL ?** L'autrice a demandé à les voir (« oui, les 8 cas sur la page »).
+ * ★ **LES QUINZE CAS « RANG OU SCORE » SONT SORTIS LE 15 SEPTEMBRE 2026,
+ *   ARBITRÉS PAR L'AUTRICE.** Huit aux curseurs v2 (`p25.200.50.150`), sept
+ *   « variante (c) » aux curseurs par défaut. Tous posaient la même question : la
+ *   tête de liste doit-elle suivre le score global affiché, ou le classement du
+ *   moteur (`score.js › ordreTotal`) ? Ses verdicts, tels quels, sont dans
+ *   `.planning/arbitrages/2026-09-15-rang-ou-score.md` ; les numéros ci-dessous
+ *   sont les siens, et c'est ce fichier qui fait foi.
  *
- *   Le moteur ne classe pas sa liste sur le « Score global » qu'affichent les
- *   cartes. Il la classe d'abord par RANG DE CONVICTION (`score.js ›
- *   ordreTotal` ; aux curseurs personnalisés, sa variante `ordrePondere`), puis
- *   par son score interne (six critères, élégance, rendement). Le global, lui,
- *   est la moyenne des quatre axes pondérée par les curseurs, sans rang. Les
- *   deux désignent souvent la même tête, pas toujours.
+ *   En résumé :
+ *     · le score global l'emporte dans neuf cas (1, 2, 3, 5, 9, 11, 12, 14, 15),
+ *       légèrement seulement au 2 ;
+ *     · le moteur l'emporte légèrement au 4, très nettement au 7 ;
+ *     · égalité au 6 ;
+ *     · les deux sont « bof » au 8, gâchées au 10, et au 13 « les deux passent »
+ *       sans que l'une soit préférée.
  *
- *   Chaque cas oppose, à la 1ʳᵉ place et aux curseurs « élégance » de l'étude
- *   v2 (`p25.200.50.150!`) :
- *     · À GAUCHE, la voie qui serait en tête si l'on triait par le global
- *       affiché ;
- *     · À DROITE, la tête actuelle du moteur.
- *   À ces curseurs la quantité est sous le défaut : le rang des séries est
- *   replié, seules les convergences restent derrière, et c'est donc surtout le
- *   SCORE du moteur contre le GLOBAL qui se départagent ici.
+ *   ⚠️ **CE QUI EN DÉCOULE N'EST PAS APPLIQUÉ ICI.** Le recalibrage du score est
+ *     un chantier séparé. Les verdicts y demandent :
+ *       · des pénalités plus fortes pour `mab`, les traductions, `pc9` et `cmn` ;
+ *       · une simplicité et une cohérence moins sous-notées ;
+ *       · une exhaustivité des URL mieux comptée.
  *
- *   Ce qu'on arbitre, en regardant : la tête doit-elle suivre le score global
- *   affiché, ou le classement du moteur ? Un avis « à gauche » sur ces cas dit
- *   « trier par le global » ; un avis « à droite », « garder le rang ».
+ *  · n° 1 — `hope`, curseurs v2 — score global, « mieux et de loin » (`m14` contre `ffr2+ma1+mab`).
+ *  · n° 2 — `Donald Trump`, v2 — légère préférence pour le score global, mais gêne des deux côtés : « mab m'a l'air de ne pas être assez pénalisé ».
+ *  · n° 3 — `Éléonore à Nîmes`, v2 — score global ; le `meg` qui tombe juste plaît, le passage par `ffr4` est bancal : « Il faut pénaliser bien plus les traductions ».
+ *  · n° 4 — `Capitalisme`, v2 — les deux font l'affaire, légère préférence pour la concision du moteur (`ma1+mab`) ; `mab` devrait être moins bien noté. Question posée : pourquoi `0:fr13;ma1+mab` plutôt que `fr13+ma1+mab` sur un seul mot.
+ *  · n° 5 — `Wikipedia`, v2 — score global, `meg` plutôt que `mab` : « court et exhaustif, sans passer par mab ».
+ *  · n° 6 — `Henri Prunelle`, v2 — égalité : « les deux me conviennent ».
+ *  · n° 7 — `numherololgeek.1000i100.fr`, v2 — le moteur, « très très largement plus élégante » ; la voie du global est « totalement discalifiée » ; simplicité et cohérence devraient être plus élevées.
+ *  · n° 8 — `https://hope-hope-hope.fr/`, v2 — « Les deux sont bof », faute d'exhaustivité : la simplicité pèse trop. Piste proposée : moins d'incohérence comptée quand une méthode lit les mots et une autre le reste.
+ *  · n° 9 — `https://hope-hope-hope.fr/`, défaut — score global « pas mal » (`fl+mpy+meg`) ; moteur « catastrophique », la partie sur « fr » « bien trop alambiqué ».
+ *  · n° 10 — `Donald Trump`, défaut — les deux gâchées : `mab` à gauche, `cmn` à droite, qui jette quatre chiffres et « devrait le discalifier ».
+ *  · n° 11 — `Macron`, défaut — score global, « bien mieux » (`fr13+m14+meg` contre `fr20+mazc+mrdE`).
+ *  · n° 12 — `hope-hope-hope.fr`, défaut, cran 2 — score global (`fl+m14`, « simple et efficace ») ; moteur « catastrophique », le « . » en 6 « trop complexe et tirée par les cheveux ».
+ *  · n° 13 — `hope`, défaut — « les deux passent », sans préférence ; question posée : pourquoi un simple `m14` ne prime pas.
+ *  · n° 14 — `Éléonore à Nîmes`, défaut — moteur « à jetter » ; la voie du global a déjà été jugée au n° 3.
+ *  · n° 15 — `numherololgeek.1000i100.fr`, défaut — score global, nettement ; `pc9` « à considéré comme une ficelle ».
  *
- *   Mesurés le 14 septembre 2026 sur `47e770d` par
- *   `.planning/banc/arbitrage-rang-ou-score.mjs`. Les huit saisies proposées
- *   étaient toutes en désaccord ; aucune n'a été écartée. Les seize liens se
- *   rejouent à l'identique (codes, score, axes).
- *
- * ★ **ET SEPT CAS DE PLUS : CE QUE LA VARIANTE (c) CHANGERAIT, AUX CURSEURS PAR
- *   DÉFAUT.** Même question que les huit cas précédents, cette fois avec les
- *   réglages que voit tout visiteur.
- *
- *   `score.js › ordreTotal` classe la liste : au rang des SÉRIES, le nombre de
- *   séries passe avant le score. Le banc `.planning/banc/series-avant-score.mjs`
- *   a mesuré trois autres règles :
- *     · (a) les séries ne départagent que deux scores égaux ;
- *     · (b) un bonus de séries ;
- *     · (c) le tri par le score global affiché.
- *   L'autrice hésite entre (a) et (c) : « Je suis tenté par (c) mais ça
- *   implique de voir si les changements sont pertinents ou pas. Envoie-les en
- *   AB-testing. »
- *
- *   Aux curseurs par défaut, (c) « liste entière » change 10 têtes sur 13.
- *   Chaque cas oppose, à la 1ʳᵉ place :
- *     · À GAUCHE, la tête sous la variante (c) ;
- *     · À DROITE, la tête actuelle du moteur.
- *   Un avis « à gauche » plaide pour (c). Un avis « à droite » plaide pour
- *   garder le classement actuel ou pour la variante (a) : sur ces listes, (a)
- *   ne change aucune tête. Les cinq premières lignes des deux ordres sont
- *   notées dans chaque cas, parce qu'une tête ne suffit pas toujours à juger
- *   une règle de tri.
- *
- *   Des dix têtes changées, trois n'ont pas leur cas :
- *     · `Wikipedia` et `Henri Prunelle` : la paire au défaut est celle de
- *       leur cas « rang ou score » aux curseurs v2 ;
- *     · `hope-hope-hope.fr` au cran 3 : même paire qu'au cran 2.
- *
- *   Mesurés le 14 septembre 2026 sur `58decb3` par
- *   `.planning/banc/arbitrage-variante-c.mjs`. Les quatorze liens se rejouent
- *   à l'identique (codes, score, axes).
+ * ★ **CE QUI RESTE OUVERT : RIEN.** La liste est vide, et la page le dit
+ *   (« Aucun arbitrage en attente », `arbitrage.js`).
  *
  * ⚠️ Les trois `todo` de moisson qui rougissent encore ne portent PAS sur ce
  *   classement-là : ils gèlent la COMPOSITION de la récolte (les trois « hope »
@@ -202,345 +184,4 @@
  * ★ À l'écran, ce que le moteur fait aujourd'hui est à DROITE et l'autre voie à
  *   gauche, quel que soit le type de cas (`arbitrage.js › montrer`).
  */
-export const CAS_ARBITRAGE = Object.freeze([
-  {
-    id: "rang-ou-score-hope",
-    place: 1,
-    question: 'classement',
-    titre: "hope — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
-    saisie: "hope",
-    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
-    // à droite, la tête du moteur : `ffr2+tca+ma1+mab`
-    avant: "#sce!p25.200.50.150!ffr2+ma1+mab#3fq9KJ",
-    // à gauche, la tête au score global affiché : `tca+m14`
-    apres: "#sce!p25.200.50.150!m14#3fq9KJ",
-    mesure: {
-      commit: '47e770d',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 3, global: 752, score: 6660, mode: "GROUPEMENT", series: 1, axes: { simplicite: 877, exhaustivite: 1000, quantite: 111, coherence: 617 } },
-      apres: { rangMoteur: 2, rangGlobal: 1, global: 775, score: 6204, mode: "GROUPEMENT", series: 1, axes: { simplicite: 1000, exhaustivite: 875, quantite: 111, coherence: 830 } },
-    },
-  },
-  {
-    id: "rang-ou-score-donald-trump",
-    place: 1,
-    question: 'classement',
-    titre: "Donald Trump — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
-    saisie: "Donald Trump",
-    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
-    // à droite, la tête du moteur : `fl+tca+ma1+mab`
-    avant: "#sce!p25.200.50.150!fl+ma1+mab#2HuP1G8mNg3sJWhqR",
-    // à gauche, la tête au score global affiché : `2:fr15;fl+tca+masc+mab`
-    apres: "#sce!p25.200.50.150!2:fr15;fl+masc+mab#2HuP1G8mNg3sJWhqR",
-    mesure: {
-      commit: '47e770d',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 3, global: 788, score: 6738, mode: "GROUPEMENT", series: 2, axes: { simplicite: 877, exhaustivite: 1000, quantite: 222, coherence: 683 } },
-      apres: { rangMoteur: 4, rangGlobal: 1, global: 803, score: 5199, mode: "GROUPEMENT", series: 4, axes: { simplicite: 877, exhaustivite: 1000, quantite: 444, coherence: 650 } },
-    },
-  },
-  {
-    id: "rang-ou-score-eleonore-a-nimes",
-    place: 1,
-    question: 'classement',
-    titre: "Éléonore à Nîmes — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
-    saisie: "Éléonore à Nîmes",
-    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
-    // à droite, la tête du moteur : `fl+tca+ma1+mab`
-    avant: "#sce!p25.200.50.150!fl+ma1+mab#3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
-    // à gauche, la tête au score global affiché : `2:ffr4;fl+tca+m14+meg`
-    apres: "#sce!p25.200.50.150!2:ffr4;fl+m14+meg#3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
-    mesure: {
-      commit: '47e770d',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 3, global: 788, score: 6738, mode: "GROUPEMENT", series: 2, axes: { simplicite: 877, exhaustivite: 1000, quantite: 222, coherence: 683 } },
-      apres: { rangMoteur: 5, rangGlobal: 1, global: 856, score: 2999, mode: "GROUPEMENT", series: 6, axes: { simplicite: 935, exhaustivite: 1000, quantite: 667, coherence: 714 } },
-    },
-  },
-  {
-    id: "rang-ou-score-capitalisme",
-    place: 1,
-    question: 'classement',
-    titre: "Capitalisme — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
-    saisie: "Capitalisme",
-    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
-    // à droite, la tête du moteur : `tca+ma1+mab`
-    avant: "#sce!p25.200.50.150!ma1+mab#Hi75aotg77MXEgC",
-    // à gauche, la tête au score global affiché : `0:fr13;tca+ma1+mab`
-    apres: "#sce!p25.200.50.150!0:fr13;ma1+mab#Hi75aotg77MXEgC",
-    mesure: {
-      commit: '47e770d',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 2, global: 776, score: 6999, mode: "GROUPEMENT", series: 1, axes: { simplicite: 935, exhaustivite: 1000, quantite: 111, coherence: 675 } },
-      apres: { rangMoteur: 5, rangGlobal: 1, global: 789, score: 4696, mode: "GROUPEMENT", series: 2, axes: { simplicite: 935, exhaustivite: 1000, quantite: 222, coherence: 675 } },
-    },
-  },
-  {
-    id: "rang-ou-score-wikipedia",
-    place: 1,
-    question: 'classement',
-    titre: "Wikipedia — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
-    saisie: "Wikipedia",
-    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
-    // à droite, la tête du moteur : `tca+mt9+mab`
-    avant: "#sce!p25.200.50.150!mt9+mab#27Xv14MeSfjBN",
-    // à gauche, la tête au score global affiché : `fr17+tca+mpy+meg`
-    apres: "#sce!p25.200.50.150!fr17+mpy+meg#27Xv14MeSfjBN",
-    mesure: {
-      commit: '47e770d',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 4, global: 771, score: 6934, mode: "GROUPEMENT", series: 1, axes: { simplicite: 935, exhaustivite: 1000, quantite: 111, coherence: 663 } },
-      apres: { rangMoteur: 3, rangGlobal: 1, global: 780, score: 3179, mode: "GROUPEMENT", series: 3, axes: { simplicite: 935, exhaustivite: 1000, quantite: 333, coherence: 610 } },
-    },
-  },
-  {
-    id: "rang-ou-score-henri-prunelle",
-    place: 1,
-    question: 'classement',
-    titre: "Henri Prunelle — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
-    saisie: "Henri Prunelle",
-    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
-    // à droite, la tête du moteur : `fl+tca+msfr+mad`
-    avant: "#sce!p25.200.50.150!fl+msfr+mad#TcguSXTd7SkC7z32JAG",
-    // à gauche, la tête au score global affiché : `fl+tca+mazc+meg`
-    apres: "#sce!p25.200.50.150!fl+mazc+meg#TcguSXTd7SkC7z32JAG",
-    mesure: {
-      commit: '47e770d',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 2, global: 803, score: 7423, mode: "GROUPEMENT", series: 1, axes: { simplicite: 935, exhaustivite: 1000, quantite: 111, coherence: 753 } },
-      apres: { rangMoteur: 3, rangGlobal: 1, global: 810, score: 3033, mode: "GROUPEMENT", series: 4, axes: { simplicite: 935, exhaustivite: 962, quantite: 444, coherence: 709 } },
-    },
-  },
-  {
-    id: "rang-ou-score-numherololgeek",
-    place: 1,
-    question: 'classement',
-    titre: "numherololgeek.1000i100.fr — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
-    saisie: "numherololgeek.1000i100.fr",
-    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
-    // à droite, la tête du moteur : `nv,flt+tca+mpy+mr9,flt+tca+mpy+mr9`
-    avant: "#sce!p25.200.50.150!0:nv,2+3:flt+mpy+mr9#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
-    // à gauche, la tête au score global affiché : `2:flt;fl+tca+ma1+mab`
-    apres: "#sce!p25.200.50.150!2:flt;fl+ma1+mab#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
-    mesure: {
-      commit: '47e770d',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 4, global: 657, score: 4113, mode: "MOISSON", series: 3, axes: { simplicite: 454, exhaustivite: 889, quantite: 333, coherence: 491 } },
-      apres: { rangMoteur: 3, rangGlobal: 1, global: 762, score: 2923, mode: "GROUPEMENT", series: 3, axes: { simplicite: 877, exhaustivite: 915, quantite: 333, coherence: 683 } },
-    },
-  },
-  {
-    id: "rang-ou-score-https-hope-hope-hope-fr",
-    place: 1,
-    question: 'classement',
-    titre: "https://hope-hope-hope.fr/ — 1ʳᵉ place : la tête au score global, ou la tête au rang de conviction",
-    saisie: "https://hope-hope-hope.fr/",
-    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
-    // à droite, la tête du moteur : `tca+m7F+cs+prn,tca+m7F+cs+prn,tca+m7F+cs+prn`
-    avant: "#sce!p25.200.50.150!×3:m7F+cs+prn#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk",
-    // à gauche, la tête au score global affiché : `fl+tca+m14`
-    apres: "#sce!p25.200.50.150!3.5:fl+m14#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk",
-    mesure: {
-      commit: '47e770d',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 7, global: 638, score: 7694, mode: "RESONANCE", series: null, axes: { simplicite: 677, exhaustivite: 591, quantite: 111, coherence: 876 } },
-      apres: { rangMoteur: 5, rangGlobal: 1, global: 818, score: 6355, mode: "GROUPEMENT", series: 4, axes: { simplicite: 1000, exhaustivite: 873, quantite: 444, coherence: 841 } },
-    },
-  },
-  {
-    id: "variante-c-https-hope-hope-hope-fr",
-    place: 1,
-    question: 'classement',
-    titre: "https://hope-hope-hope.fr/ — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
-    saisie: "https://hope-hope-hope.fr/",
-    /* Les cinq premières lignes, relevées avec la paire.
-       Moteur :
-       ·  tca+mch+cs+prn,nc,fr13+nlc+pc9 (3280, g 466, ×1)
-       ·  fr14+tca+m14+mpf,ffr3+tca+m14+mpf,ffr3+tca+m14+mpf,ffr3+tca+m14+mpf,fr… (1274, g 587, ×7)
-       ·  fr14+tca+m14+mpf,ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca+mtc,ffr… (1249, g 578, ×7)
-       ·  fl+tca+mpy+meg (3763, g 827, ×6)
-       ·  fr14+tca+m14+mpf,ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca+mtc+cs,… (1113, g 507, ×6)
-       Variante (c) :
-       ·  fl+tca+mpy+meg (3763, g 827, ×6)
-       ·  0:fr14;fl+tca+m14 (7529, g 823, ×5)
-       ·  fl+tca+mpy+mab (3673, g 695, ×2)
-       ·  fl+tca+mx6+mrdE (3152, g 635, ×1)
-       ·  fi+tca+mazc (3409, g 624, ×1) */
-    avant: "#sce!0:mch+cs+prn,3.5:nc,9:fr13+nlc+pc9#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk",
-    apres: "#sce!fl+mpy+meg#4CWoMo83vssWUVNyVX4xwHfRUZTefuSMtPKk",
-    mesure: {
-      commit: '58decb3',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 26, global: 466, score: 3280, mode: "PARTITION", series: null, axes: { simplicite: 348, exhaustivite: 912, quantite: 111, coherence: 491 } },
-      apres: { rangMoteur: 4, rangGlobal: 1, global: 827, score: 3763, mode: "GROUPEMENT", series: 6, axes: { simplicite: 935, exhaustivite: 974, quantite: 667, coherence: 732 } },
-    },
-  },
-  {
-    id: "variante-c-donald-trump",
-    place: 1,
-    question: 'classement',
-    titre: "Donald Trump — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
-    saisie: "Donald Trump",
-    /* Les cinq premières lignes, relevées avec la paire.
-       Moteur :
-       ·  fatb+tca+mt9+mr9,tca+mt9+cmn (4983, g 578, ×2)
-       ·  2:fr15;fl+tca+masc+mab (4272, g 743, ×4)
-       ·  fl+tca+masc+mab (4701, g 715, ×3)
-       ·  fatb+tca+mt9+mr9,fr3+tca+mhe+mrn (4077, g 529, ×3)
-       ·  fr15+tca+mx6+mrn,fr3+tca+mhe+mrn (3921, g 520, ×3)
-       Variante (c) :
-       ·  2:fr15;fl+tca+masc+mab (4272, g 743, ×4)
-       ·  fl+tca+mazc+meg (3447, g 722, ×3)
-       ·  fl+tca+mqwc+meg (3447, g 722, ×3)
-       ·  fl+tca+masc+mab (4701, g 715, ×3)
-       ·  fl+tca+ma1+mab (3684, g 696, ×2) */
-    avant: "#sce!0:fatb+mt9+mr9,2:mt9+cmn#2HuP1G8mNg3sJWhqR",
-    apres: "#sce!2:fr15;fl+masc+mab#2HuP1G8mNg3sJWhqR",
-    mesure: {
-      commit: '58decb3',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 9, global: 578, score: 4983, mode: "MOISSON", series: 2, axes: { simplicite: 644, exhaustivite: 867, quantite: 222, coherence: 577 } },
-      apres: { rangMoteur: 2, rangGlobal: 1, global: 743, score: 4272, mode: "GROUPEMENT", series: 4, axes: { simplicite: 877, exhaustivite: 1000, quantite: 444, coherence: 650 } },
-    },
-  },
-  {
-    id: "variante-c-macron",
-    place: 1,
-    question: 'classement',
-    titre: "Macron — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
-    saisie: "Macron",
-    /* Les cinq premières lignes, relevées avec la paire.
-       Moteur :
-       ·  fr20+tca+mazc+mrdE (6152, g 652, ×1)
-       ·  fr13+tca+m14+meg (6443, g 701, ×2)
-       ·  fr8+tca+msfr+meg (3575, g 691, ×2)
-       ·  fr21+tca+mt9+meg (3569, g 691, ×2)
-       ·  fr4+tca+masc+mdc3 (2179, g 581, ×2)
-       Variante (c) :
-       ·  fr13+tca+m14+meg (6443, g 701, ×2)
-       ·  fr8+tca+msfr+meg (3575, g 691, ×2)
-       ·  fr21+tca+mt9+meg (3569, g 691, ×2)
-       ·  tca+mz26+mab (5333, g 673, ×1)
-       ·  tca+mt9+mpf (5238, g 662, ×1) */
-    avant: "#sce!fr20+mazc+mrdE#fXvexbmf",
-    apres: "#sce!fr13+m14+meg#fXvexbmf",
-    mesure: {
-      commit: '58decb3',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 6, global: 652, score: 6152, mode: "GROUPEMENT", series: 1, axes: { simplicite: 935, exhaustivite: 1000, quantite: 111, coherence: 561 } },
-      apres: { rangMoteur: 2, rangGlobal: 1, global: 701, score: 6443, mode: "GROUPEMENT", series: 2, axes: { simplicite: 935, exhaustivite: 1000, quantite: 222, coherence: 648 } },
-    },
-  },
-  {
-    id: "variante-c-hope-hope-hope-fr-cran-2",
-    place: 1,
-    question: 'classement',
-    titre: "hope-hope-hope.fr — 1ʳᵉ place, curseurs par défaut, cran 2 : la tête au score global (c), ou la tête actuelle",
-    saisie: "hope-hope-hope.fr",
-    /* Les cinq premières lignes, relevées avec la paire.
-       Moteur :
-       ·  nc,nsp+mlet+nlc+pc9,tca+ma1+cs+prn (2442, g 481, ×1)
-       ·  ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca… (1297, g 560, ×6)
-       ·  ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,fr1… (1190, g 536, ×6)
-       ·  ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,tca+mtc,ffr3+tca+m14+mpf,fr7… (1153, g 527, ×6)
-       ·  0:ffr4;fl+tca+m14+meg (4914, g 794, ×5)
-       Variante (c) :
-       ·  fl+tca+m14 (7843, g 804, ×4)
-       ·  0:ffr4;fl+tca+m14+meg (4914, g 794, ×5)
-       ·  2:ffr4;fl+tca+m14+meg (4914, g 794, ×5)
-       ·  4:ffr4;fl+tca+m14+meg (4914, g 794, ×5)
-       ·  0:ffr2;fl+tca+m14+meg (3396, g 775, ×5) */
-    avant: "#sce!f2!0.5:nc,5:nsp+mlet+nlc+pc9,6:ma1+cs+prn#yvQYkzhNVYJT8wM8jhvJxSM",
-    apres: "#sce!f2!fl+m14#yvQYkzhNVYJT8wM8jhvJxSM",
-    mesure: {
-      commit: '58decb3',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 45, global: 481, score: 2442, mode: "PARTITION", series: null, axes: { simplicite: 313, exhaustivite: 1000, quantite: 111, coherence: 498 } },
-      apres: { rangMoteur: 14, rangGlobal: 1, global: 804, score: 7843, mode: "GROUPEMENT", series: 4, axes: { simplicite: 1000, exhaustivite: 929, quantite: 444, coherence: 841 } },
-    },
-  },
-  {
-    id: "variante-c-hope",
-    place: 1,
-    question: 'classement',
-    titre: "hope — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
-    saisie: "hope",
-    /* Les cinq premières lignes, relevées avec la paire.
-       Moteur :
-       ·  fr21+tca+masc+mrdE (5010, g 650, ×1)
-       ·  ffr3+tca+m14+meg (4235, g 654, ×2)
-       ·  ffr2+tca+m14+meg (2952, g 654, ×2)
-       ·  fr2+tca+masb+mdc3 (2098, g 576, ×2)
-       ·  ffr2+tca+masc+mdc3 (1769, g 568, ×2)
-       Variante (c) :
-       ·  ffr3+tca+m14+meg (4235, g 654, ×2)
-       ·  ffr2+tca+m14+meg (2952, g 654, ×2)
-       ·  ffr2+tca+ma1+mab (3705, g 651, ×1)
-       ·  fr21+tca+masc+mrdE (5010, g 650, ×1)
-       ·  fr2+tca+masb+mdc3 (2098, g 576, ×2) */
-    avant: "#sce!fr21+masc+mrdE#3fq9KJ",
-    apres: "#sce!ffr3+m14+meg#3fq9KJ",
-    mesure: {
-      commit: '58decb3',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 4, global: 650, score: 5010, mode: "GROUPEMENT", series: 1, axes: { simplicite: 935, exhaustivite: 1000, quantite: 111, coherence: 553 } },
-      apres: { rangMoteur: 2, rangGlobal: 1, global: 654, score: 4235, mode: "GROUPEMENT", series: 2, axes: { simplicite: 935, exhaustivite: 833, quantite: 222, coherence: 626 } },
-    },
-  },
-  {
-    id: "variante-c-eleonore-a-nimes",
-    place: 1,
-    question: 'classement',
-    titre: "Éléonore à Nîmes — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
-    saisie: "Éléonore à Nîmes",
-    /* Les cinq premières lignes, relevées avec la paire.
-       Moteur :
-       ·  nc+pc9,fen5+nc+pc9,nc+pc9 (3739, g 557, ×1)
-       ·  2:fen5;fl+tca+masc+mdc3 (2381, g 778, ×8)
-       ·  2:ffr4;fl+tca+m14+meg (3824, g 829, ×6)
-       ·  2:fen3;fl+tca+m14+meg (3721, g 823, ×6)
-       ·  0:fr16;fl+tca+masc+mdc3 (2550, g 730, ×6)
-       Variante (c) :
-       ·  2:ffr4;fl+tca+m14+meg (3824, g 829, ×6)
-       ·  2:fen3;fl+tca+m14+meg (3721, g 823, ×6)
-       ·  2:fen5;fl+tca+masc+mdc3 (2381, g 778, ×8)
-       ·  0:fr16;fl+tca+masc+mdc3 (2550, g 730, ×6)
-       ·  fl+tca+ma1+mab (3684, g 696, ×2) */
-    avant: "#sce!0+4:nc+pc9,2:fen5+nc+pc9#3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
-    apres: "#sce!2:ffr4;fl+m14+meg#3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
-    mesure: {
-      commit: '58decb3',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 10, global: 557, score: 3739, mode: "PARTITION", series: null, axes: { simplicite: 712, exhaustivite: 818, quantite: 111, coherence: 588 } },
-      apres: { rangMoteur: 3, rangGlobal: 1, global: 829, score: 3824, mode: "GROUPEMENT", series: 6, axes: { simplicite: 935, exhaustivite: 1000, quantite: 667, coherence: 714 } },
-    },
-  },
-  {
-    id: "variante-c-numherololgeek",
-    place: 1,
-    question: 'classement',
-    titre: "numherololgeek.1000i100.fr — 1ʳᵉ place, curseurs par défaut : la tête au score global (c), ou la tête actuelle",
-    saisie: "numherololgeek.1000i100.fr",
-    /* Les cinq premières lignes, relevées avec la paire.
-       Moteur :
-       ·  nv,tca+cnjd+pc9,fr13+nlc+pc9 (3891, g 456, ×1)
-       ·  0:fr3;fl+tca+mazc+meg (3061, g 738, ×5)
-       ·  3:fatb;fl+tca+mazc+meg (3061, g 738, ×5)
-       ·  fl+tca+mqwc+meg (3061, g 738, ×5)
-       ·  fr5+tca+masb+mdc3 (1459, g 573, ×5)
-       Variante (c) :
-       ·  0:fr3;fl+tca+mazc+meg (3061, g 738, ×5)
-       ·  3:fatb;fl+tca+mazc+meg (3061, g 738, ×5)
-       ·  fl+tca+mqwc+meg (3061, g 738, ×5)
-       ·  fl+tca+ma1+mab (3131, g 649, ×2)
-       ·  fl+tca+mpy+meg (2409, g 644, ×3) */
-    avant: "#sce!0:nv,2.2:cnjd+pc9,5:fr13+nlc+pc9#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
-    apres: "#sce!0:fr3;fl+mazc+meg#4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
-    mesure: {
-      commit: '58decb3',
-      date: '2026-09-14',
-      avant: { rangMoteur: 1, rangGlobal: 22, global: 456, score: 3891, mode: "PARTITION", series: null, axes: { simplicite: 387, exhaustivite: 886, quantite: 111, coherence: 441 } },
-      apres: { rangMoteur: 2, rangGlobal: 1, global: 738, score: 3061, mode: "GROUPEMENT", series: 5, axes: { simplicite: 935, exhaustivite: 753, quantite: 556, coherence: 709 } },
-    },
-  },
-]);
+export const CAS_ARBITRAGE = Object.freeze([]);
