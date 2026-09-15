@@ -1256,62 +1256,27 @@ function vedetteDesSeries(r) {
  * pour le `fr` — est intact ; c'est la façon de compter le `fr` qui a été
  * surclassée par une meilleure.
  */
-/* ⚠️ **EN ATTENTE D'ARBITRAGE — `todo`, et surtout pas supprimé.**
+/* ★ **ARBITRAGE CLOS — 16 septembre 2026 : ce test est RETIRÉ, et voici par quoi.**
 
-   Ce test échoue, et il a RAISON d'échouer : il gèle une préférence que
-   l'auteur a exprimée et que le barème actuel ne rend pas. Le dégeler
-   effacerait la préférence ; le laisser rouge bloque la PUBLICATION, car la
-   chaîne d'intégration enchaîne `bun run check` — les tests, puis le build — et
-   refuse de mettre en ligne un site rouge. Un arbitrage ouvert n'est pourtant
-   pas une régression : le site fonctionne, c'est son classement qui attend une
-   décision.
+   > « Il faut que ma préférence continue d'être générée, mais ok qu'elle soit
+   >   dans les 10 premiers seulement. On peut fermer. » (l'autrice)
 
-   `todo` dit exactement cela : le test s'exécute, son échec est RAPPORTÉ dans la
-   sortie, et il ne fait pas tomber la suite. Le jour où l'arbitrage tombe, on
-   retire le drapeau — et si le test passe entre-temps, `node:test` le signale
-   comme « todo réussi », ce qui est précisément l'alerte qu'on veut. */
-test('★ moisson — `hope-hope-hope.fr` mène cinq séries de 666 en tête de liste', { todo: 'arbitrage ouvert : la stratégie nommée par l’auteur n’est plus la vedette' }, () => {
-  const r = creerMoteur(catalogue).resoudre('hope-hope-hope.fr');
-  // ★ Sur cette saisie, la 1ʳᵉ ligne revient désormais à une RÉSONANCE — les
-  //   trois « hope » lus de la même façon, un 6 chacun, rien de jeté, crédit
-  //   d'élégance 1 359 contre 1 258 à la moisson une fois la quantité ramenée
-  //   à 1 %. La moisson garde la 2ᵈ, au titre de la quantité, et c'est elle
-  //   que ce test suit : le souhait de l'auteur porte sur SA composition,
-  //   pas sur le numéro de la ligne où elle s'affiche.
-  const tete = vedetteDesSeries(r);
-  assert.equal(tete.mode, 'MOISSON', `tête de liste : ${tete.mode} (${tete.codes})`);
-  // ★ **LE COMPTE A MONTÉ D'UNE SÉRIE PARCE QUE `MAX_SERIES` A MONTÉ.**
-  //   Il valait 6 et rabotait le comptage lui-même : une voie qui démontrait
-  //   sept séries s'en voyait attribuer six. « Le verdict ne le gère pas et
-  //   détruit tout ce qui dépasse 6×666 — à corriger » (l'auteur). Le plafond
-  //   est à 9 (`assemblage.js › MAX_SERIES`), et ce que la recherche trouve
-  //   maintenant, elle le trouvait déjà : elle ne pouvait pas le compter.
-  assert.equal(tete.series, 6, `${tete.series} séries — ${tete.codes}`);
-  // ⚠️ Cette assertion disait DEUX choses, et une seule survit. Elle vérifiait
-  // que la vedette du titre est bien le quatorze segments — c'est ce qui reste,
-  // et c'est ce qui compte : le titre doit nommer la méthode qui domine
-  // l'assemblage, pas la première venue. Elle vérifiait aussi que le titre
-  // ANNONÇAIT « cinq séries de 666 » ; ce compte est désormais interdit de
-  // titre (il divulgue la chute) et vit dans le listing seul. Il est déjà
-  // vérifié deux lignes plus haut, sur `tete.series`, là où il a du sens.
-  // On épingle la VEDETTE — « En quatorze segments » — et non la ligne entière : la
-  // précision qui la suit est calculée par rapport aux AUTRES voies de la liste
-  // (`distinguerTitres`), donc elle bouge dès qu'une voie entre ou sort du classement.
-  // Figer la ligne complète ferait échouer ce test pour une raison qui n'est pas la
-  // sienne.
-  assert.match(tete.titre.fr, /^14 segments\b/, `titre : ${tete.titre.fr}`);
-  assert.ok(!/666|série/.test(tete.titre.fr), 'un titre ne divulgue jamais son résultat');
-  // Les trois ingrédients demandés, et rien d'autre.
-  const programmes = tete.parts.map((p) => p.chemin.ops.map((o) => o.code).join('+'));
-  assert.equal(programmes.filter((p) => p === 'tca+m14').length, 3, 'trois `hope` en quatorze segments');
-  assert.equal(programmes.filter((p) => p.includes('mtc')).length, 2, 'deux tirets par la touche du 6');
-  // Le `fr` a sa propre portée, et elle rapporte au moins un 6 — par quelque
-  // méthode que ce soit. On n'épingle plus `m7` : ce serait figer la moins
-  // bonne des deux façons de compter deux lettres.
-  const fr = tete.parts.find((p) => p.fragment.texte === 'fr');
-  assert.ok(fr, `le \`fr\` a sa portée — ${programmes.join(' , ')}`);
-  assert.ok(fr.chemin.etats.at(-1).valeur.toString().includes('6'), 'et il rapporte du 6');
-});
+   Il exigeait que la voie nommée par l'auteur tienne l'une des DEUX premières
+   lignes (`vedetteDesSeries`). L'autrice a rabattu l'exigence sur les DIX
+   premières, et ce qui la tient désormais est le test qui suit — « la voie
+   groupée […] est dans la liste dès le cran 0, sous `fl+m14` ». Il couvre bien
+   la composition qu'elle voulait : `estLaVoieGroupee` exige les trois « hope »
+   en quatorze segments, les deux tirets par la touche du 6 et une portée pour
+   le « fr » ; il exige aussi que `fl+m14` MÈNE, et que la voie groupée soit
+   dans les dix premières aux crans 0 et 1.
+
+   Relevé du jour de la clôture (curseurs par défaut, filet débranché) : la voie
+   groupée est 3ᵉ — `0+2+4:m14,1+3:mtc,6:fi+ma1`, cinq séries, global 737 —
+   derrière `fl+m14` (quatre séries, global 804) et `fl+mch+meg` (757).
+
+   Ce que la clôture abandonne, et que l'autrice a accepté d'abandonner : que la
+   MOISSON tienne l'une des deux premières lignes, et le compte de séries de
+   cette vedette. La 1ʳᵉ ligne est un GROUPEMENT, et c'est très bien ainsi. */
 
 /* ★ **LA VOIE GROUPÉE EST DE NOUVEAU FABRIQUÉE — une place par famille.**
 
@@ -1381,48 +1346,71 @@ test('★ moisson — la voie groupée de `hope-hope-hope.fr` est dans la liste 
   }
 });
 
+/** Le schéma des quatorze segments, SANS exiger le « fr » : les trois « hope »
+ *  en quatorze segments et les deux tirets par la touche du 6. L'apothéose n'a
+ *  pas de portée « fr » — voir le pavé ci-dessous. */
+const estLeSchemaDesQuatorzeSegments = (a) => {
+  const parts = a.parts || [];
+  return parts.filter((p) => p.fragment.texte === 'hope' && programmeDeLaPart(p) === 'm14').length === 3
+    && parts.filter((p) => p.fragment.texte === '-' && /^mtc(\+cs)?$/.test(programmeDeLaPart(p))).length === 2;
+};
+
 /**
- * ★ « Si en rajoutant https:// devant tu arrives à 666 de plus, ça donnerait
- * 6 × 666, ce serait l'apothéose ! » — l'auteur. Le schéma en donne exactement
- * trois : `https` passé à l'Atbash s'écrit `hgkkh`, dont trois lettres valent 6
- * en quatorze segments. Dix-huit 6, six séries.
+ * ★ **L'APOTHÉOSE — et elle est PRODUITE.**
+ *
+ * > « Si en rajoutant https:// devant tu arrives à 666 de plus, ça donnerait
+ * >   6 × 666, ce serait l'apothéose ! » (l'auteur)
+ *
+ * ★ **ARBITRAGE CLOS — 16 septembre 2026.** Le `todo` disait « même cause que la
+ *   moisson de `hope-hope-hope.fr` » ; mesuré, il n'y avait plus de cause du
+ *   tout. La voie EST fabriquée et publiée. Ce qui restait faux était l'ÉNONCÉ
+ *   du test : il lisait `vedetteDesSeries` — la plus fournie des DEUX premières
+ *   lignes — alors que l'apothéose se range 3ᵉ. Aucun correctif de moteur n'a
+ *   été nécessaire, et aucun n'a été fait : rien ne se perdait nulle part.
+ *
+ *   Relevé (curseurs par défaut, filet débranché) :
+ *    · `https://hope-hope-hope.fr/` — `0:fr14+m14+mpf,3+5+7:m14,4+6:mtc`,
+ *      3ᵉ, **six séries**, global 706 ;
+ *    · `hope-hope-hope.fr` — la même composition (`0+2+4:m14,1+3:mtc,6:fi+ma1`),
+ *      3ᵉ, cinq séries, global 737.
+ *   Le préfixe apporte exactement une série de plus : 5 × 666 → **6 × 666**.
+ *
+ * ⚠️ **LE SCHÉMA RÉALISÉ N'EST PAS CELUI QUE L'AUTEUR AVAIT IMAGINÉ**, et cela
+ *   doit se lire ici. Il annonçait « `https` passé à l'Atbash s'écrit `hgkkh`,
+ *   dont trois lettres valent 6 en quatorze segments », le « fr » fournissant le
+ *   dix-huitième. La recherche fait autrement, et mieux : `https` par un
+ *   César 14 puis quatorze segments et `mpf` rend QUATRE 6 sur sa seule portée,
+ *   si bien que le « .fr » n'a plus rien à apporter — douze 6 pour les trois
+ *   « hope », deux pour les tirets, quatre pour le préfixe, dix-huit en tout.
+ *   Le COMPTE de l'auteur est atteint, sa RECETTE non ; et `elaguerLaMoisson` a
+ *   raison de laisser tomber une portée dont la récolte ne servirait pas
+ *   (« on ne récolte que ce qu'on montre », vérifié plus bas sur toutes les
+ *   moissons).
+ *
+ * ★ Et la liste va au-delà : elle porte des moissons à SEPT séries (rang 13,
+ *   global 598). Ce test ne les gèle pas — `MAX_SERIES` vaut 9, et ce qui les
+ *   classe est le global, pas le compte.
  */
-/* ⚠️ **EN ATTENTE D'ARBITRAGE — `todo`, et surtout pas supprimé.**
-
-   Ce test échoue, et il a RAISON d'échouer : il gèle une préférence que
-   l'auteur a exprimée et que le barème actuel ne rend pas. Le dégeler
-   effacerait la préférence ; le laisser rouge bloque la PUBLICATION, car la
-   chaîne d'intégration enchaîne `bun run check` — les tests, puis le build — et
-   refuse de mettre en ligne un site rouge. Un arbitrage ouvert n'est pourtant
-   pas une régression : le site fonctionne, c'est son classement qui attend une
-   décision.
-
-   `todo` dit exactement cela : le test s'exécute, son échec est RAPPORTÉ dans la
-   sortie, et il ne fait pas tomber la suite. Le jour où l'arbitrage tombe, on
-   retire le drapeau — et si le test passe entre-temps, `node:test` le signale
-   comme « todo réussi », ce qui est précisément l'alerte qu'on veut. */
-test('★ moisson — `https://hope-hope-hope.fr/` atteint les six séries', { todo: 'arbitrage ouvert : même cause que la moisson de `hope-hope-hope.fr`' }, () => {
-  const r = creerMoteur(catalogue).resoudre('https://hope-hope-hope.fr/');
-  // Même amendement qu'au test précédent : la 2ᵈ ligne est celle de la
-  // quantité, et c'est là que l'apothéose à six séries s'affiche.
-  const tete = vedetteDesSeries(r);
-  assert.equal(tete.mode, 'MOISSON');
-  // ★ **LE COMPTE A MONTÉ D'UNE SÉRIE PARCE QUE `MAX_SERIES` A MONTÉ.**
-  //   Il valait 6 et rabotait le comptage lui-même : une voie qui démontrait
-  //   sept séries s'en voyait attribuer six. « Le verdict ne le gère pas et
-  //   détruit tout ce qui dépasse 6×666 — à corriger » (l'auteur). Le plafond
-  //   est à 9 (`assemblage.js › MAX_SERIES`), et ce que la recherche trouve
-  //   maintenant, elle le trouvait déjà : elle ne pouvait pas le compter.
-  assert.equal(tete.series, 7, `${tete.series} séries — ${tete.codes}`);
-  // Même remarque qu'au test précédent : c'est la VEDETTE qu'on gèle ici, plus
-  // le compte de séries — que l'assertion `tete.series` ci-dessus tient déjà.
-  // Le titre est le même que sans le préfixe `https://`, et c'est normal : la
-  // méthode n'a pas changé, seule la récolte a grossi. C'est exactement ce que
-  // le titre ne doit plus dire.
-  assert.match(tete.titre.fr, /^14 segments\b/, `titre : ${tete.titre.fr}`);
-  // Le préfixe apporte bien trois 6 de plus, et sur SA propre portée.
-  const sans = vedetteDesSeries(creerMoteur(catalogue).resoudre('hope-hope-hope.fr'));
-  assert.equal(tete.series - sans.series, 1, 'une série de plus, exactement');
+test('★ moisson — `https://hope-hope-hope.fr/` atteint les six séries', () => {
+  const liste = moteurDeLaVoieGroupee.resoudre('https://hope-hope-hope.fr/').approches;
+  const i = liste.findIndex(estLeSchemaDesQuatorzeSegments);
+  assert.ok(i >= 0, `l’apothéose est absente des ${liste.length} voies`);
+  const apotheose = liste[i];
+  assert.equal(apotheose.mode, 'MOISSON', `${apotheose.codes}`);
+  assert.equal(apotheose.series, 6, `${apotheose.series} séries — ${apotheose.codes}`);
+  // « Ok qu'elle soit dans les 10 premiers » (l'autrice) : la même exigence que
+  // pour la voie groupée, et pour la même raison — c'est le global qui classe.
+  assert.ok(i < 10, `l’apothéose est ${i + 1}ᵉ, trop loin de la tête`);
+  assert.match(apotheose.titre.fr, /^14 segments\b/, `titre : ${apotheose.titre.fr}`);
+  assert.ok(!/666|série/.test(apotheose.titre.fr), 'un titre ne divulgue jamais son résultat');
+  // Le préfixe apporte bien une série de plus, et il la doit à SA propre portée.
+  const sans = moteurDeLaVoieGroupee.resoudre('hope-hope-hope.fr')
+    .approches.find(estLeSchemaDesQuatorzeSegments);
+  assert.ok(sans, 'la même composition, sans le préfixe');
+  assert.equal(apotheose.series - sans.series, 1, 'une série de plus, exactement');
+  const prefixe = apotheose.parts.find((p) => p.fragment.texte === 'https');
+  assert.ok(prefixe, `le préfixe a sa portée — ${apotheose.codes}`);
+  assert.equal(sixDuChemin(prefixe.chemin).six, 4, 'et il rapporte quatre 6 à lui seul');
 });
 
 /**
@@ -1485,38 +1473,46 @@ test('★ moisson — on ne récolte que ce qu’on montre', () => {
   assert.ok(vues >= 5, `seulement ${vues} moissons observées`);
 });
 
-/* ⚠️ **EN ATTENTE D'ARBITRAGE — `todo`, et surtout pas supprimé.**
+/* ★ **ARBITRAGE CLOS — 16 septembre 2026, et la nuance est GARDÉE, pas perdue.**
 
-   Ce test échoue, et il a RAISON d'échouer : il gèle une préférence que
-   l'auteur a exprimée et que le barème actuel ne rend pas. Le dégeler
-   effacerait la préférence ; le laisser rouge bloque la PUBLICATION, car la
-   chaîne d'intégration enchaîne `bun run check` — les tests, puis le build — et
-   refuse de mettre en ligne un site rouge. Un arbitrage ouvert n'est pourtant
-   pas une régression : le site fonctionne, c'est son classement qui attend une
-   décision.
+   > « Les deux me vont, ça dépend si on veut 1 ou 2 "6" pour former les
+   >   triptyques. » (l'autrice)
 
-   `todo` dit exactement cela : le test s'exécute, son échec est RAPPORTÉ dans la
-   sortie, et il ne fait pas tomber la suite. Le jour où l'arbitrage tombe, on
-   retire le drapeau — et si le test passe entre-temps, `node:test` le signale
-   comme « todo réussi », ce qui est précisément l'alerte qu'on veut. */
-test('★ moisson — le « fr » reste en sept segments : 4 + 2, et rien à jeter', { todo: 'arbitrage ouvert : le « fr » passe par `mpy+mr9` et non le sept segments' }, () => {
-  // L'auteur l'a demandé nommément : « hope-hope-hope.fr en première stratégie,
-  // celle des 14 segments + tiret du 6 plus fr → 4 + 2 → 6 ». Le retournement
-  // des 9 rendait « fr » plus fourni (f = 6, r = 9 retourné) et la
-  // programmation dynamique le préférait — pour un seizième 6 qui ne faisait pas
-  // une sixième série. `reduireLeSurplus` rend la main au sept segments.
-  const tete = vedetteDesSeries(creerMoteur(catalogue).resoudre('hope-hope-hope.fr'));
-  // ★ **LE COMPTE A MONTÉ D'UNE SÉRIE PARCE QUE `MAX_SERIES` A MONTÉ.**
-  //   Il valait 6 et rabotait le comptage lui-même : une voie qui démontrait
-  //   sept séries s'en voyait attribuer six. « Le verdict ne le gère pas et
-  //   détruit tout ce qui dépasse 6×666 — à corriger » (l'auteur). Le plafond
-  //   est à 9 (`assemblage.js › MAX_SERIES`), et ce que la recherche trouve
-  //   maintenant, elle le trouvait déjà : elle ne pouvait pas le compter.
-  assert.equal(tete.series, 6, `${tete.series} séries — ${tete.codes}`);
-  const fr = tete.parts[tete.parts.length - 1];
+   Ce test exigeait le sept segments (`m7` : f = 4, r = 2, puis la somme) sur la
+   portée « fr », parce que l'auteur l'avait nommé. L'autrice ne tranche plus
+   entre un 6 et deux : la lettre du souhait est donc DÉGELÉE — épingler `m7`
+   figerait une préférence qu'elle vient de retirer.
+
+   Ce qui reste vrai, et que ce test vérifie désormais : à nombre de séries
+   ÉGAL, la variante que la liste montre en premier est celle que le SCORE
+   GLOBAL recalibré préfère — et non celle qui récolte le plus de 6. C'est la
+   règle du 15 septembre (`ordreGlobal`), lue là où l'autrice hésitait.
+
+   Relevé du jour (`hope-hope-hope.fr`, curseurs par défaut, filet débranché) :
+   deux moissons portent la composition des quatorze segments, toutes deux à
+   CINQ séries — `6:fi+ma1` (global 737, 3ᵉ) puis `6:fr13+nlc+pc9` (584, 16ᵉ).
+   Le « fr » y rend UN 6, le compte que l'auteur demandait ; et rien n'est
+   récolté pour être jeté, ce que l'assertion finale tient. */
+test('★ moisson — à séries égales, le « fr » suit le score global, et rien n’est jeté', () => {
+  const liste = moteurDeLaVoieGroupee.resoudre('hope-hope-hope.fr').approches;
+  const memes = liste.filter(estLaVoieGroupee);
+  assert.ok(memes.length >= 2,
+    `une seule variante à comparer : ${memes.map((a) => a.codes).join(' / ')}`);
+  // « À nombre de séries égal » : c'est l'hypothèse de la comparaison, et elle
+  // se vérifie plutôt qu'elle ne se suppose.
+  for (const a of memes) assert.equal(a.series, 5, `${a.series} séries — ${a.codes}`);
+  // Celle que la liste montre en premier est celle que le global préfère.
+  const globaux = memes.map((a) => scoreGlobal(a));
+  assert.equal(globaux[0], Math.max(...globaux),
+    `les globaux, dans l’ordre de la liste : ${globaux.join(' , ')}`);
+  // Le « fr » garde sa propre portée, en queue de moisson.
+  const fr = memes[0].parts[memes[0].parts.length - 1];
   assert.equal(fr.fragment.texte, 'fr');
-  assert.ok(fr.chemin.ops.some((o) => o.code === 'm7'),
-    `le « fr » passe par ${fr.chemin.ops.map((o) => o.code).join('+')} — le sept segments est attendu`);
+  // « 1 ou 2 "6" » : les deux conviennent à l'autrice, mais rien de ce qui est
+  // récolté ne doit être jeté — l'invariant, lui, ne se négocie pas.
+  const total = memes[0].parts.reduce((n, p) => n + sixDuChemin(p.chemin).six, 0);
+  assert.equal(total, memes[0].series * SERIE,
+    `${total} six récoltés pour ${memes[0].series * SERIE} montrés — ${memes[0].codes}`);
 });
 
 /**
