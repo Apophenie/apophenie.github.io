@@ -1296,6 +1296,10 @@ export function suivreLaZone(ctx, acc, spec = {}) {
   if (!bougeX && !change && Math.abs(yCible - depart.y) <= 0.5) return false;
   if (bougeX || Math.abs(yCible - depart.y) > 0.5) {
     ctx.place(acc.id, { x: cible.cx, y: yCible, w: cible.w }, { at, dur, ease: EASE.move });
+  } else {
+    // La largeur seule change : le modèle la retient aussi, sans quoi le chemin
+    // suivant partirait d'une largeur périmée — un saut, à l'écran.
+    ctx.scene.place(acc.id, { x: depart.x, y: depart.y, w: cible.w });
   }
   ctx.scene.zonesJusqua.set(acc.id, debutOp + at + dur);
   /* ★ **LA PROMESSE SUIT L'ACCOLADE — sinon elle désigne où la pointe ÉTAIT.**
@@ -1436,6 +1440,13 @@ export function reserverLaPlace(ctx, sources) {
     const nd = ctx.scene.get(id);
     return nd && nd.alive && ((nd.data && nd.data.attendResultat) || srcs.some((s) => remplaces.has(s)));
   }).map(([id]) => id);
+  // ★ UNE PLACE GARDÉE COMPTE COMME « LÀ » : ses cales entrent dans ce que ces
+  //   accolades embrassent. Tout suivi (`suivreLesAccolades`, `anticiperLaPlace`)
+  //   couvre donc la place entière tant qu'elle est tenue ; le tracé ne s'en
+  //   détache qu'à l'arrivée du résultat (`refermerSurLesResultats`).
+  for (const idAcc of accolades) {
+    ctx.scene.poserAccolade(idAcc, [...(ctx.scene.accolades.get(idAcc) || []), gauche, droite]);
+  }
   const place = { gauche, droite, largeur: Math.max(0, largeur), resultats: [], accolades };
   ctx.scene.placesGardees.push(place);
   return place;
@@ -1594,10 +1605,24 @@ export function anticiperLaPlace(ctx, place, resultats, spec = {}) {
       g = Math.min(g, p.x - n.w / 2);
       d = Math.max(d, p.x + n.w / 2);
     }
+    // ★ Jamais plus étroit que ce qu'il couvre déjà : il ne se réajuste à la taille
+    //   du résultat qu'à son arrivée (`refermerSurLesResultats`). La comparaison se
+    //   fait sur la BOÎTE, marge comprise : le tracé en place porte déjà la sienne.
+    let gauche = g - DEBORD_ACCOLADE;
+    let droite = d + DEBORD_ACCOLADE;
+    const actuel = ctx.scene.pos(idAcc);
+    if (actuel && actuel.w) {
+      const aG = actuel.x - actuel.w / 2;
+      const aD = actuel.x + actuel.w / 2;
+      // La place du résultat est déjà sous le tracé : il ne bouge pas.
+      if (g >= aG - 0.5 && d <= aD + 0.5) continue;
+      gauche = Math.min(gauche, aG);
+      droite = Math.max(droite, aD);
+    }
     const boite = {
-      x: g - DEBORD_ACCOLADE, y: pG.y - fs / 2 - DEBORD_ACCOLADE,
-      w: d - g + 2 * DEBORD_ACCOLADE, h: fs + 2 * DEBORD_ACCOLADE,
-      cx: (g + d) / 2, cy: pG.y,
+      x: gauche, y: pG.y - fs / 2 - DEBORD_ACCOLADE,
+      w: droite - gauche, h: fs + 2 * DEBORD_ACCOLADE,
+      cx: (gauche + droite) / 2, cy: pG.y,
     };
     if (suivreLaZone(ctx, { id: idAcc, shape: 'brace', sources: [] }, { at: spec.at, dur: spec.dur, boite })) bouge = true;
   }
@@ -1699,6 +1724,25 @@ export function refermerSurLesResultats(ctx, spec = {}) {
     }
   }
   ctx.scene.resultatsArrives.length = 0;
+  /* ★ **LE RÉAJUSTEMENT FINAL, AUSSI QUAND LE RÉSULTAT EST CE QUI RESTE.**
+     Des sources sont parties sans que le tracé bouge — leur place était tenue
+     (`suivreSesSources`) — et le résultat n'est pas arrivé d'ailleurs : c'est ce
+     qui demeure sous l'accolade (le reste réécrit d'un modulo). Le tracé se
+     réajuste une fois sur ce qui reste, cales exclues, avant de s'effacer. */
+  for (const [idAcc, sources] of ctx.scene.accolades) {
+    const trace = ctx.scene.get(idAcc);
+    if (!trace || !trace.alive || !trace.data || !trace.data.suitSesSources
+      || trace.data.traceEffacee || trace.data.retiree || trace.data.fermeeSurResultat) continue;
+    const restent = sources.filter((id) => {
+      const nd = ctx.scene.get(id);
+      return nd && nd.alive && nd.role === 'text' && nd.kind !== 'space' && ctx.scene.pos(id)
+        && ctx.scene.flowIndex(id) >= 0;
+    });
+    if (!restent.length) continue;
+    ctx.scene.poserAccolade(idAcc, restent);
+    if (suivreLaZone(ctx, { id: idAcc, shape: 'brace', sources: restent }, { at, dur })) n++;
+    trace.data.fermeeSurResultat = true;
+  }
   return n;
 }
 
@@ -1752,9 +1796,11 @@ export function suivreSesSources(ctx, idAccolade, restantes, spec = {}) {
     //   Le tracé l'attend, et se refermera sur lui (`refermerSurLesResultats`).
     if (spec.resultatAttendu) {
       trace.data.attendResultat = true;
-      // `vers` : le résultat attend déjà sous la pointe (le compteur d'une somme).
-      // Le tracé glisse vers lui, à sa hauteur, plutôt que de rester au-dessus de
-      // la place que la dernière source vient de quitter.
+      // Une place gardée compte comme « là » : le tracé reste où il est.
+      if (!spec.laLigneSeReferme) return;
+      // `laLigneSeReferme` + `vers` : la ligne se referme sur la place que la
+      // dernière source vient de quitter, et le résultat attend sous la pointe.
+      // Le tracé glisse vers lui, à sa hauteur, AVEC la ligne.
       const attendu = (spec.vers || []).filter((id) => {
         const n = ctx.scene.get(id);
         return n && n.alive && ctx.scene.pos(id);
@@ -1769,7 +1815,19 @@ export function suivreSesSources(ctx, idAccolade, restantes, spec = {}) {
     trace.data.retiree = true;
     return;
   }
-  suivreLaZone(ctx, { id: idAccolade, shape: 'brace', sources: presentes }, { at, dur, garderY: spec.garderY });
+  /* ★ **DES SOURCES RESTENT : LE TRACÉ NE BOUGE PAS À CE DÉPART.**
+
+     > « L'accolade ne doit pas se réduire quand un espace est gardé. Exemple,
+     >   mab : l'accolade fait du yoyo alors qu'elle pourrait rester stable le
+     >   temps que les 2 ingrédients sont additionnés, puis se réajuster à la
+     >   taille du résultat pour finalement disparaître. » (l'autrice)
+
+     Le registre dit désormais ce qui reste ; le tracé, lui, ne bouge qu'aux
+     moments où la LIGNE bouge — quand elle se referme vraiment, le geste le
+     fait suivre (`suivreLesAccolades`, à son reflow) — et, à l'arrivée du
+     résultat, il se réajuste une fois à sa taille (`refermerSurLesResultats`).
+     Se resserrer ici, sur une ligne qui garde la place de ce qui part, puis se
+     ré-élargir pour le résultat : c'était le yoyo. */
 }
 
 /** Les jetons `ids` quittent toutes les accolades du step qui les embrassaient. */

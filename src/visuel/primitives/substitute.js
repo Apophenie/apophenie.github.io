@@ -223,6 +223,8 @@ export function plan(ctx) {
     for (const idAcc of j.quittees || []) {
       suivreSesSources(ctx, idAcc, ctx.scene.accolades.get(idAcc) || [], {
         at, dur: ctx.dur * 0.55, resultatAttendu: true, vers: j.tos.map((t) => t.id),
+        // sans place gardée, la ligne se referme sur la source partie : le tracé suit
+        laLigneSeReferme: !j.place,
       });
     }
     ctx.anim({ id: j.src.id, prop: 'scale', to: 0.85, at, dur: ctx.dur * 0.55 });

@@ -84,6 +84,28 @@
  * descente. Des opérandes qui descendent UN PAR UN au compteur — ceux d'une
  * somme — la quittent, eux.
  *
+ * ★ **UNE PLACE GARDÉE COMPTE COMME « LÀ » — et le yoyo est une faute.**
+ *
+ * > « L'accolade ne doit pas se réduire quand un espace est gardé. Exemple,
+ * >   mab : l'accolade fait du yoyo alors qu'elle pourrait rester stable le
+ * >   temps que les 2 ingrédients sont additionnés, puis se réajuster à la
+ * >   taille du résultat pour finalement disparaître. » (l'autrice)
+ *
+ * Le tracé ne bouge qu'aux moments où la LIGNE bouge — un déplacement
+ * horizontal d'un de ses jetons, à sa hauteur de ligne. Sur
+ * la timeline, pour chaque changement de largeur du tracé (chemin `d`, lu de la
+ * largeur dessinée juste avant à celle d'arrivée) :
+ *  · AVANT l'arrivée des résultats sous lui (le début de leur remontée), il ne se
+ *    RÉDUIT que pendant un mouvement de la ligne — s'étendre, c'est anticiper la
+ *    place du résultat ;
+ *  · et, hors des mouvements de la ligne, la largeur ne change de sens qu'une
+ *    fois sur l'étape, au plus tôt à cette arrivée — le réajustement à la taille
+ *    du résultat. Un tracé qui suit une ligne qui se referme PUIS s'écarte (un
+ *    signe inséré) fait ce que la ligne fait : ce n'est pas un yoyo.
+ * Les mouvements de la ligne : ceux, horizontaux et à leur hauteur de ligne,
+ * des jetons qu'elle portait à l'entrée de l'étape.
+ * Le suivi des sources n'est donc exigé que si la ligne bouge pendant l'action.
+ *
  * **Le resserrement** : le départ des déplacements horizontaux des jetons de la
  * ligne de sortie qui durent encore à la fin de l'action. Un élargissement
  * fini avant la fin de l'action — l'espace qui s'ouvre au début du carré — n'en
@@ -187,6 +209,28 @@ export function finsDesAccolades(tl, lignes) {
       return f.length ? Math.min(...f.map((a) => a.delay)) : null;
     };
 
+    // La demi-largeur du tracé à l'instant t : le dernier chemin émis, à son avancée.
+    const demiLargeurA = (acc, t) => {
+      const chemins = tl.discrete.filter((r) => r.id === acc.id && r.channel === 'd' && r.at <= t)
+        .sort((x, y) => x.at - y.at);
+      const r = chemins.length ? chemins[chemins.length - 1] : null;
+      const chemin = r ? r.render(r.dur ? Math.min(1, Math.max(0, (t - r.at) / r.dur)) : 1) : (acc.data && acc.data.d);
+      const m = /^M\s*(-?[\d.]+)/.exec(String(chemin || ''));
+      return m ? Math.abs(Number(m[1])) : null;
+    };
+    // Les mouvements de la LIGNE : les déplacements horizontaux, À LEUR HAUTEUR DE
+    // LIGNE, des jetons qu'elle portait à l'entrée de l'étape. Ni des exemplaires
+    // qui convergent en l'air, ni d'un résultat nouveau qui se centre dans sa
+    // place, ni des cales invisibles qui se répartissent autour de lui : la ligne,
+    // elle, ne bouge pas. (Une place qui s'ouvre sans voisin à pousser ne fait
+    // qu'étendre le tracé, ce qui est permis.)
+    const hauteurDeLigne = (id) => (lire.valeur(id, 'translate', t0) || {}).y;
+    const mouvementsDeLaLigne = anims.filter((a) => a.prop === 'translate' && horizontal(a)
+      && Math.abs(arrivee(a).x - depart(a).x) > 0.5
+      && entree.has(a.id) && texte(a.id) && Math.abs(depart(a).y - hauteurDeLigne(a.id)) < 1);
+    const laLigneBouge = (t, d) => mouvementsDeLaLigne.some((a) => a.delay < t + d - TOLERANCE_MS
+      && a.delay + a.duration > t + TOLERANCE_MS);
+
     // ── Le tracé suit-il ses sources ? ───────────────────────────────────────
     let suiviManquant = null;
     if (tAction !== null) {
@@ -265,7 +309,11 @@ export function finsDesAccolades(tl, lignes) {
         const toutesParties = couverts.every((id) => !sortie.has(id));
         if (toutesParties && tF !== null && resultatsSous(acc, tF).length) continue;
         const premier = Math.min(...partis.map((x) => x.t));
-        const suit = tl.discrete.some((r) => r.id === acc.id && r.channel === 'd'
+        // ★ Une place gardée compte comme « là » (l'autrice) : tant que la ligne ne
+        //   bouge pas, le tracé reste stable. Le suivi n'est dû que si la ligne se
+        //   referme VRAIMENT pendant l'action.
+        if (!laLigneBouge(t0 + premier, tAction - premier)) continue;
+        const suit =tl.discrete.some((r) => r.id === acc.id && r.channel === 'd'
           && r.at - t0 >= premier - 50 && r.at - t0 < tAction)
           || tl.anims.some((a) => a.id === acc.id && a.prop === 'opacity' && arrivee(a) === 0
             && debut(a) >= premier - 50 && debut(a) < tAction);
@@ -323,14 +371,6 @@ export function finsDesAccolades(tl, lignes) {
 
     // ── Le résultat se pose-t-il DANS le tracé ? ─────────────────────────────
     let logementManque = null;
-    const demiLargeurA = (acc, t) => {
-      const chemins = tl.discrete.filter((r) => r.id === acc.id && r.channel === 'd' && r.at <= t)
-        .sort((x, y) => x.at - y.at);
-      const r = chemins.length ? chemins[chemins.length - 1] : null;
-      const chemin = r ? r.render(r.dur ? Math.min(1, Math.max(0, (t - r.at) / r.dur)) : 1) : (acc.data && acc.data.d);
-      const m = /^M\s*(-?[\d.]+)/.exec(String(chemin || ''));
-      return m ? Math.abs(Number(m[1])) : null;
-    };
     for (const id of tAction === null ? [] : nouveaux) {
       if (!sousLAccolade(id)) continue;
       const yFinal = (lire.valeur(id, 'translate', t1 - 0.5) || {}).y;
@@ -366,6 +406,54 @@ export function finsDesAccolades(tl, lignes) {
       }
     }
 
+    // ── La largeur du tracé : stable tant que la ligne ne bouge pas ─────────
+    let yoyo = null;
+    for (const acc of tAction === null ? [] : accolades) {
+      const base = acc.base && acc.base.translate;
+      // L'arrivée des résultats sous CE tracé : le début de leur dernière remontée.
+      const arrivees = nouveaux.filter(sousLAccolade).map((id) => {
+        const yFinal = (lire.valeur(id, 'translate', t1 - 0.5) || {}).y;
+        if (yFinal === undefined) return null;
+        const poses = anims.filter((a) => a.id === id && debut(a) < borne - TOLERANCE_MS && a.prop === 'translate'
+          && Math.abs(arrivee(a).y - a.keyframes[0].value.y) > 1 && Math.abs(arrivee(a).y - yFinal) < 1);
+        if (!poses.length) return null;
+        const pose = poses.reduce((m, a) => (a.delay + a.duration > m.delay + m.duration ? a : m));
+        const p = arrivee(pose);
+        return base && p.x >= base.x - acc.w / 2 - 2 * av && p.x <= base.x + acc.w / 2 + 2 * av ? pose.delay : null;
+      }).filter((x) => x !== null);
+      const tArrivee = arrivees.length ? Math.min(...arrivees) : t0 + tAction;
+      const chemins = tl.discrete.filter((r) => r.id === acc.id && r.channel === 'd' && r.at >= t0 - 0.5 && r.at < t1 - 0.5)
+        .sort((x, y) => x.at - y.at);
+      let sens = 0;
+      let retourne = false;
+      for (const r of chemins) {
+        const avant = demiLargeurA(acc, r.at - 0.01);
+        const m = /^M\s*(-?[\d.]+)/.exec(String(r.render(1) || ''));
+        if (avant === null || !m) continue;
+        const delta = 2 * (Math.abs(Number(m[1])) - avant);
+        if (Math.abs(delta) <= 1) continue;
+        const s = Math.sign(delta);
+        const quoi = `${Math.round(2 * avant)} → ${Math.round(2 * avant + delta)} à ${Math.round(r.at - t0)} ms`;
+        // S'étendre avant l'arrivée, c'est anticiper la place du résultat (la règle) ;
+        // se RÉDUIRE sur une ligne immobile, c'est oublier la place gardée.
+        if (s < 0 && r.at < tArrivee - TOLERANCE_MS && !laLigneBouge(r.at, r.dur)) {
+          yoyo = `le tracé se réduit (${quoi}) alors que la ligne ne bouge pas : une place gardée compte comme « là »`;
+          break;
+        }
+        // Un changement de sens qui SUIT la ligne (elle se referme, puis s'écarte
+        // pour un signe) n'est pas un yoyo : le tracé fait ce que la ligne fait.
+        if (sens && s !== sens && !laLigneBouge(r.at, r.dur)) {
+          if (retourne || r.at < tArrivee - TOLERANCE_MS) {
+            yoyo = `le tracé fait du yoyo (${quoi}) : sa largeur change de sens avant le réajustement final`;
+            break;
+          }
+          retourne = true;
+        }
+        sens = s;
+      }
+      if (yoyo) break;
+    }
+
     let faute = null;
     if (tAction === null) {
       faute = null; // rien ne se passe sous l'accolade : il n'y a pas de fin à ordonner
@@ -387,6 +475,7 @@ export function finsDesAccolades(tl, lignes) {
     if (!faute && suiviManquant) faute = suiviManquant;
     if (!faute && fermetureManquee) faute = fermetureManquee;
     if (!faute && logementManque) faute = logementManque;
+    if (!faute && yoyo) faute = yoyo;
     out.push({ etape: i, id: st.id, action: tAction, effacement: tEff, resserrement: tSerre, duree: st.duration, faute });
   });
   return out;
