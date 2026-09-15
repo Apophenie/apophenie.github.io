@@ -710,6 +710,75 @@ function cleDesOps(ops) {
   return cle;
 }
 
+/**
+ * ★ **L'ÉTAGE 3 DE `vecteursDeSix`, POUR UN MAPPEUR ET UN JEU DE JETONS** — le
+ * corps de sa boucle, tel quel, sorti de la fermeture.
+ *
+ * ⚠️ MESURÉ sur « Lorem ipsum… », le pire cas du test de budget : la fermeture
+ *   `derouler` naît à chaque appel et n'est appelée qu'une fois, si bien que V8
+ *   l'optimisait PAR REMPLACEMENT SUR PILE à chaque portée, puis la désoptimisait
+ *   à la sortie de la boucle (34 désoptimisations, 295 ms de compilation sur les
+ *   fils du moteur JavaScript, que `process.cpuUsage` facture). Une fonction de
+ *   module appelée des milliers de fois s'optimise une fois pour toutes.
+ * ★ Le COMPORTEMENT ne change pas : même ordre, mêmes applications, même travail
+ *   compté ; `d` porte ce que la fermeture lisait.
+ */
+function deroulerUnMappeur(j, m, secondRaffinage, d) {
+  // ★ Le TRAVAIL de l'étage 3 — c'est lui qui coûte (`moissons`, la borne).
+  //   Pesé par la LONGUEUR de ce qu'on lit : mesuré, « désinformation »
+  //   coûte deux fois « garantie » pour le même nombre d'applications.
+  d.compte.travail += Math.max(1, j.etat.valeur.length);
+  const v = appliquerOp(m, j.etat);
+  if (v === null) return;
+  if (!secondRaffinage) d.retenir(j.ops.concat(m), j.etats.concat([v]));
+  const lignesVues = secondRaffinage ? new Set([cleEtat(v)]) : null;
+  for (const r of d.raffineurs) {
+    // ★ Un raffinage qui GONFLE n'a rien à faire dans le premier déroulé :
+    //   il n'existe que pour le dernier recours (voir `assembler`).
+    if (!secondRaffinage && r.gonfle) continue;
+    d.compte.travail += Math.max(1, v.valeur.length);
+    const w = appliquerOp(r, v);
+    if (w === null) continue;
+    if (!secondRaffinage) {
+      d.retenir(j.ops.concat(m, r), j.etats.concat([v, w]));
+      continue;
+    }
+    if (r.absorbe || w.type !== 'NUMS') continue;
+    const k = cleEtat(w);
+    if (lignesVues.has(k)) continue;
+    lignesVues.add(k);
+    for (const a of d.absorbants) {
+      const x = appliquerOp(a, w);
+      if (x !== null) d.retenir(j.ops.concat(m, r, a), j.etats.concat([v, w, x]));
+    }
+    /* ★ **DEUX GONFLEMENTS À LA SUITE — pour la seule matière d'une phrase.**
+         « Oui, les deux, en dernier recours » (l'autrice). Un gonflant, puis
+         un éclatement en chiffres, puis un second gonflant, puis
+         l'absorption : c'est ce qui porte « https://reinfocovid.fr/ » à 143
+         chiffres de ligne, assez pour les 57 de « C'est de la merde ! » en
+         ASCII. Seulement quand `index.js` cherche le bloc d'une phrase
+         (`options.matiereDePhrase`), et seulement sur un premier gonflant :
+         rien ne change pour 666 ni pour aucune cible chiffrée. */
+    if (!d.matiereDePhrase || !r.gonfle) continue;
+    for (const e of d.eclateurs) {
+      const y = appliquerOp(e, w);
+      if (y === null) continue;
+      for (const r2 of d.raffineurs) {
+        if (!r2.gonfle) continue;
+        const z = appliquerOp(r2, y);
+        if (z === null || z.type !== 'NUMS') continue;
+        const k2 = cleEtat(z);
+        if (lignesVues.has(k2)) continue;
+        lignesVues.add(k2);
+        for (const a of d.absorbants) {
+          const x = appliquerOp(a, z);
+          if (x !== null) d.retenir(j.ops.concat(m, r, e, r2, a), j.etats.concat([v, w, y, z, x]));
+        }
+      }
+    }
+  }
+}
+
 export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS_PAR_FRAGMENT * 2,
   cible = CIBLE_DEFAUT, options = {}) {
   // ★ **DEUX APPELANTS, DEUX QUESTIONS** — et un seul des deux veut un faisceau
@@ -962,63 +1031,12 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
        on ne tente l'absorption qu'une fois par ligne obtenue, le premier
        rencontré dans l'ordre du catalogue (§4.4 règle 3), comme l'étage 2. */
   const absorbants = raffineurs.filter((o) => o.absorbe);
+  /* ★ Le déroulé d'UN mappeur sur UN jeu de jetons vit hors de cette fonction
+       (`deroulerUnMappeur`) : voir là-bas pourquoi. */
+  const deroulage = { raffineurs, absorbants, eclateurs, matiereDePhrase: options.matiereDePhrase, compte, retenir };
   const derouler = (secondRaffinage) => {
     for (const j of jetons.values()) {
-      for (const m of mappeurs) {
-        // ★ Le TRAVAIL de l'étage 3 — c'est lui qui coûte (`moissons`, la borne).
-        //   Pesé par la LONGUEUR de ce qu'on lit : mesuré, « désinformation »
-        //   coûte deux fois « garantie » pour le même nombre d'applications.
-        compte.travail += Math.max(1, j.etat.valeur.length);
-        const v = appliquerOp(m, j.etat);
-        if (v === null) continue;
-        if (!secondRaffinage) retenir(j.ops.concat(m), j.etats.concat([v]));
-        const lignesVues = secondRaffinage ? new Set([cleEtat(v)]) : null;
-        for (const r of raffineurs) {
-          // ★ Un raffinage qui GONFLE n'a rien à faire dans le premier déroulé :
-          //   il n'existe que pour le dernier recours (voir `assembler`).
-          if (!secondRaffinage && r.gonfle) continue;
-          compte.travail += Math.max(1, v.valeur.length);
-          const w = appliquerOp(r, v);
-          if (w === null) continue;
-          if (!secondRaffinage) {
-            retenir(j.ops.concat(m, r), j.etats.concat([v, w]));
-            continue;
-          }
-          if (r.absorbe || w.type !== 'NUMS') continue;
-          const k = cleEtat(w);
-          if (lignesVues.has(k)) continue;
-          lignesVues.add(k);
-          for (const a of absorbants) {
-            const x = appliquerOp(a, w);
-            if (x !== null) retenir(j.ops.concat(m, r, a), j.etats.concat([v, w, x]));
-          }
-          /* ★ **DEUX GONFLEMENTS À LA SUITE — pour la seule matière d'une phrase.**
-               « Oui, les deux, en dernier recours » (l'autrice). Un gonflant, puis
-               un éclatement en chiffres, puis un second gonflant, puis
-               l'absorption : c'est ce qui porte « https://reinfocovid.fr/ » à 143
-               chiffres de ligne, assez pour les 57 de « C'est de la merde ! » en
-               ASCII. Seulement quand `index.js` cherche le bloc d'une phrase
-               (`options.matiereDePhrase`), et seulement sur un premier gonflant :
-               rien ne change pour 666 ni pour aucune cible chiffrée. */
-          if (!options.matiereDePhrase || !r.gonfle) continue;
-          for (const e of eclateurs) {
-            const y = appliquerOp(e, w);
-            if (y === null) continue;
-            for (const r2 of raffineurs) {
-              if (!r2.gonfle) continue;
-              const z = appliquerOp(r2, y);
-              if (z === null || z.type !== 'NUMS') continue;
-              const k2 = cleEtat(z);
-              if (lignesVues.has(k2)) continue;
-              lignesVues.add(k2);
-              for (const a of absorbants) {
-                const x = appliquerOp(a, z);
-                if (x !== null) retenir(j.ops.concat(m, r, e, r2, a), j.etats.concat([v, w, y, z, x]));
-              }
-            }
-          }
-        }
-      }
+      for (const m of mappeurs) deroulerUnMappeur(j, m, secondRaffinage, deroulage);
     }
   };
   const enumeree = cleEnumeration ? memo.get(cleEnumeration) : null;
@@ -1096,21 +1114,23 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   //     ficelle vaut mieux qu'une voie qui triche — d'où la comparaison par
   //     paliers : on n'oppose pas 5 six à 3, on oppose 5 six tricheurs à 4 six
   //     honnêtes.
-  const six = (c) => compterSix(c.etats[c.etats.length - 1], cbl);
-  const dilue = (c) => largeurMontree(c, c.etats[c.etats.length - 1].valeur.length) - six(c);
+  // ★ Mesures gardées par chemin (`mesuresDuChemin`) : le tri ci-dessous les
+  //   relit au lieu de les recalculer à chaque comparaison.
+  const six = (c) => sixDuDernierEtat(c, cbl);
+  const dilue = (c) => largeurDuChemin(c, c.etats[c.etats.length - 1].valeur.length) - six(c);
   // Le meilleur compte de 6 atteint SANS ficelle : c'est lui l'étalon. Une voie
   // à ficelle doit le dépasser d'au moins deux pour mériter sa place devant.
   let etalon = 0;
-  for (const c of out) if (!nbFicelles(c)) etalon = Math.max(etalon, six(c));
+  for (const c of out) if (!ficellesDuChemin(c)) etalon = Math.max(etalon, six(c));
   const rang = (c) => {
     const n = six(c);
-    if (!nbFicelles(c)) return n;
+    if (!ficellesDuChemin(c)) return n;
     // Une ficelle qui n'apporte qu'un 6 de plus que la meilleure voie honnête
     // est ramenée derrière elle : ce qu'elle achète ne vaut pas ce qu'elle
     // coûtera (`elegance.js`, les paliers de ficelle).
     return n > etalon + 1 ? n : Math.min(n, etalon) - 1;
   };
-  out.sort((a, b) => (rang(b) - rang(a)) || (nbFicelles(a) - nbFicelles(b))
+  out.sort((a, b) => (rang(b) - rang(a)) || (ficellesDuChemin(a) - ficellesDuChemin(b))
     || (dilue(a) - dilue(b)) || comparerChemins(a, b));
 
   // ★ UN RÉGLAGE PAR FORME, ET PAS ONZE.
@@ -2034,6 +2054,80 @@ function nbFicelles(chemin) {
 }
 
 /**
+ * ★ **LES MESURES D'UN CHEMIN, CALCULÉES UNE FOIS.**
+ *
+ * Les tris de `vecteursDeSix` et de `candidatsDePortee` départagent sur des
+ * mesures du chemin — son compte de 6, ses ficelles, sa dilution, les caractères
+ * qu'il lit — et les recalculaient à CHAQUE comparaison, donc des milliers de
+ * fois pour une portée. Ce sont des fonctions pures du chemin (et de la cible, ou
+ * du texte de la portée) : on les garde, par chemin, dans un `WeakMap`.
+ *
+ * ⚠️ MESURÉ sur « Lorem ipsum… », le pire cas du test de budget, quand la fenêtre
+ *   par famille a doublé les appels de `candidatsDePortee` : `indexUtiles` 458 ms,
+ *   `nbFicelles` 205 ms de temps propre, et le test sortait du budget global
+ *   (10 391 à 10 720 ms CPU pour 10 000).
+ *
+ * ★ Le COMPORTEMENT ne change pas : mêmes valeurs, même comparateur, même ordre
+ *   (le tri est stable). Et `normaliserChemin` rend le même objet pour un même
+ *   chemin : ce que la fenêtre d'avant a mesuré sert à la fenêtre par famille.
+ * ⚠️ Un chemin n'est jamais modifié après sa construction — ses `ops` et ses
+ *   `etats` sont des tableaux neufs à chaque étape (`retenir`, le rattrapage) :
+ *   c'est ce qui rend le cache par objet exact.
+ */
+const MESURES_DES_CHEMINS = new WeakMap();
+/* ★ Une mesure par clé (cible, texte, plancher), et presque toujours UNE seule
+     clé par chemin : la dernière est gardée en clair, et un `Map` n'est créé
+     qu'à la deuxième clé distincte. MESURÉ : quatre `Map` par chemin coûtaient
+     152 ms de temps propre sur « Lorem ipsum… », sans compter le ramasse-miettes. */
+//   Ni fermeture ni tableau par consultation : la fonction de calcul et son
+//   argument sont passés tels quels (`calculer(chemin, arg)`), et la CLÉ est
+//   celle qu'employait le `Map` — `cbl.texte`, le texte de portée, le plancher.
+function mesure(chemin, champ, cle, calculer, arg) {
+  const m = mesuresDuChemin(chemin);
+  const c = m[champ];
+  if (c === null) {
+    const v = calculer(chemin, arg);
+    m[champ] = { cle, v, autres: null };
+    return v;
+  }
+  if (c.cle === cle) return c.v;
+  if (c.autres === null) c.autres = new Map();
+  if (!c.autres.has(cle)) c.autres.set(cle, calculer(chemin, arg));
+  return c.autres.get(cle);
+}
+function compterSixDuDernierEtat(chemin, cbl) {
+  return compterSix(chemin.etats[chemin.etats.length - 1], cbl);
+}
+function mesuresDuChemin(chemin) {
+  let m = MESURES_DES_CHEMINS.get(chemin);
+  if (!m) {
+    m = { ficelles: nbFicelles(chemin), six: null, sixDuChemin: null, lus: null, largeur: null };
+    MESURES_DES_CHEMINS.set(chemin, m);
+  }
+  return m;
+}
+/** `nbFicelles`, gardé. */
+function ficellesDuChemin(chemin) {
+  return mesuresDuChemin(chemin).ficelles;
+}
+/** `compterSix` du dernier état, gardé par cible. */
+function sixDuDernierEtat(chemin, cbl) {
+  return mesure(chemin, 'six', cbl.texte, compterSixDuDernierEtat, cbl);
+}
+/** `sixDuChemin`, gardé par cible. */
+function sixDuCheminGarde(chemin, cbl) {
+  return mesure(chemin, 'sixDuChemin', cbl.texte, sixDuChemin, cbl);
+}
+/** `caracteresLus`, gardé par texte de portée. */
+function lusDuChemin(chemin, texte) {
+  return mesure(chemin, 'lus', texte, caracteresLus, texte);
+}
+/** `largeurMontree`, gardée par plancher. */
+function largeurDuChemin(chemin, plancher) {
+  return mesure(chemin, 'largeur', plancher, largeurMontree, plancher);
+}
+
+/**
  * À quels fragments on demande un vecteur.
  *
  * L'énumération coûte ~1 500 applications d'opérateurs par fragment — trois
@@ -2201,7 +2295,7 @@ function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT, compteur =
     //
     //   Les ficelles restent pleinement disponibles au GROUPEMENT, qui est le
     //   mode de tous les exemples de l'auteur : un vecteur, une ficelle, un 666.
-    if (nbFicelles(chemin)) return;
+    if (ficellesDuChemin(chemin)) return;
     /* ★ **LA FENÊTRE PAR FAMILLE REFUSE CE QUE LE REJEU NE SAURAIT PAS REJOUER**
          (`rejouableSousLaCible`). Un lien affiché qui ne se rejoue pas est un
          échec bruyant, pas un arbitrage (§4.3).
@@ -2212,7 +2306,7 @@ function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT, compteur =
            famille, elle, ne fait qu'AJOUTER : l'y refuser ne retire rien de ce
            que la fenêtre d'avant montrait. */
     if (parFamille && !rejouableSousLaCible(chemin, cbl)) return;
-    const s = sixDuChemin(chemin, cbl);
+    const s = sixDuCheminGarde(chemin, cbl);
     if (!s) return;
     const cle = chemin.ops.map((o) => o.code).join('+');
     if (vus.has(cle)) return;
@@ -2240,12 +2334,12 @@ function candidatsDePortee(texte, ops, chemins, cible = CIBLE_DEFAUT, compteur =
   // `tca+m7+cs` — le sept segments, 4 + 2, qui lit les deux. La couverture ne
   // les distingue pas : elle compte les caractères de la PORTÉE, pas ceux que
   // le programme regarde. Ici, si.
-  const lus = (c) => caracteresLus(c.chemin, texte);
+  const lus = (c) => lusDuChemin(c.chemin, texte);
   // ★ La dilution se lit sur le vecteur LE PLUS LARGE du chemin (voir
   //   `largeurMontree`) : `c.total` est celui du dernier état, et un opérateur
   //   qui rétrécit avant la fin s'y ferait passer pour économe — `m36` le fait
   //   déjà, honnêtement, et la mesure doit le voir.
-  const jetees = (c) => largeurMontree(c.chemin, c.total) - c.six;
+  const jetees = (c) => largeurDuChemin(c.chemin, c.total) - c.six;
   out.sort((a, b) => (b.six - a.six)
     || (lus(b) - lus(a))
     || (jetees(a) - jetees(b))
