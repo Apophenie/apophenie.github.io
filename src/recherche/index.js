@@ -1156,8 +1156,28 @@ export function creerMoteur(catalogue, options = {}) {
            changerait rien. On lève donc le seul quota, en laissant `limite`,
            l'amorce, la redondance et l'ordre faire leur travail. */
       const assises = avantLesFamilles.filter((a) => a[NEE_D_UN_SIEGE] === true);
+      /* ⚠️ **LA SÉLECTION DES ASSISES NE DOIT RIEN DEVOIR À LA RAMPE**, et c'est
+           une MESURE qui l'impose (`monotonie.test.js › la rampe des retouches
+           n'ôte rien à la liste des anciennes gardes`).
+
+         Elle se faisait sur `avantLesFamilles`, qui CONTIENT les voies de la
+         rampe. Or une voie assise est retirée de `historiques` : elle ne revient
+         que par ici. Quand la rampe est branchée, le vivier grossit — 62 voies
+         contre 44 sur « Donald Trump » visant 111 au cran 3 — et `limite` finit
+         par évincer l'assise, qui disparaît alors de la liste. Rampe éteinte,
+         le même vivier plus petit la gardait. Trois voies s'y perdaient :
+         `2:mlm` (3 001) sur « Donald Trump », `0:fc+mt9` (3 161) et `2:mt9`
+         (2 641) sur « Emmanuel Macron » au cran 2.
+
+         Le siège, lui, ne doit rien à la rampe : il est élu dans `assembler`,
+         par fragment, sur `vecteursDeSix` — les retouches viennent d'un tout
+         autre mode. Sa sélection se fait donc sur le MÊME vivier que
+         `historiques`, sans les voies de la rampe : identique des deux côtés,
+         et `limite` comme la déduplication continuent de s'appliquer. */
+      const vivierDesSieges = horsGardes
+        ? avantLesFamilles.filter((a) => !horsGardes.has(a)) : avantLesFamilles;
       const desSieges = assises.length
-        ? choisir(avantLesFamilles, { maxParMappeur: Infinity })
+        ? choisir(vivierDesSieges, { maxParMappeur: Infinity })
           .filter((a) => a[NEE_D_UN_SIEGE] === true)
         : null;
       // ⚠️ La rampe se demande sur `sansSieges` — ses candidates d'hier.
