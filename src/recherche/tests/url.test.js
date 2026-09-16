@@ -695,7 +695,7 @@ test('★ registre — `so!` ne s’écrit plus, et chaque forme se relit comme 
               // elle ne devient la première voie que si une cible est écrite.
               assert.equal(lire(avecSo(s)).forme, 'premiere', avecSo(s));
               assert.equal(lire(avecSo(enClair(s))).forme, 'premiere', avecSo(enClair(s)));
-              assert.equal(lire(enClair(s)).forme, cible === undefined ? 'resultats' : 'premiere', enClair(s));
+              assert.equal(lire(enClair(s)).forme, 'resultats', enClair(s));
             }
           }
         }
@@ -1039,31 +1039,34 @@ test('saisie en clair — les liens base58 existants se relisent à l’identiqu
  * l'inverse » (l'auteur) : des marqueurs seuls valent la première voie animée,
  * cible comprise.
  *
- * La bascule ne peut pourtant pas être totale, et la raison n'est pas
- * théorique : cette forme est écrite par le SÉLECTEUR DE CIBLE de la page de
- * listing (`pages/resultat.js`, « changer de cible, c'est changer d'URL »). La
- * lire comme une animation ferait sauter dans une démonstration au moment
- * précis où l'on clique sur `[111]` pour voir la liste des voies menant à 111.
+ * ⚠️ **CETTE BASCULE A ÉTÉ DÉFAITE PAR L'AUTRICE**, et ce test gèle désormais
+ * son contraire. Elle disait : `#c111!#Donald Trump` anime, `#c111!#<b58>`
+ * énumère — « le base58 est la signature de la machine, le texte en clair
+ * celle de la main ». Son verdict : « l'écriture de la saisie ne détermine plus
+ * jamais la page obtenue », parce qu'une règle invisible dans le lien ne doit
+ * pas en changer la page sous les yeux de qui le compose à la main.
  *
- * La frontière retenue est celle que l'auteur a lui-même posée — « la version
- * b58 est bien sûr toujours supportée et à conserver par défaut quand on passe
- * par l'interface du site » : le base58 est la signature de la machine, le
- * texte en clair celle de la main. Ses quatre exemples sont tous en clair.
+ * Ce que le sélecteur de cible de la page de listing écrit n'en souffre pas :
+ * il écrit du base58, et le base58 énumérait déjà.
  */
-test('★ saisie en clair — `#c111!#…` ANIME ; en base58 il reste la LISTE', () => {
-  // La main : ce que l'auteur demande.
-  assert.equal(lire('#c111!#Donald Trump').forme, 'premiere');
+test('★ la cible est un RÉGLAGE DE RECHERCHE : elle énumère, en clair comme en base58', () => {
+  // La cible ne demande à voir aucune voie : elle paramètre l'énumération.
+  for (const lien of ['#c111!#Donald Trump', `#c111!#${B58_HOPE}`,
+    '?c111!$Donald Trump', '##:hope#:111', '?$:hope$:111']) {
+    assert.equal(lire(lien).forme, 'resultats', `${lien} doit énumérer`);
+  }
   assert.equal(lire('#c111!#Donald Trump').cible.texte, '111');
-  assert.equal(lire('#c111!sce!#Donald Trump').forme, 'premiere');
 
-  // La machine : ce que le site écrit se relit comme le site l'entend.
-  assert.equal(lire(`#c111!#${B58_HOPE}`).forme, 'resultats');
+  // Le REGISTRE, lui, demande à voir : il anime, et l'écriture n'y change rien.
+  for (const lien of ['#c111!sce!#Donald Trump', `#so!#${B58_HOPE}`,
+    '?so!$:hope', `?sce!$${B58_HOPE}`]) {
+    assert.equal(lire(lien).forme, 'premiere', `${lien} doit animer`);
+  }
+
+  // Ce que le site ÉCRIT n'a pas changé de sens.
   const lien = ecrire({ saisie: 'Donald Trump', cible: '111' });
   assert.equal(lire(lien).forme, 'resultats');
   assert.equal(lire(lien).cible.texte, '111');
-
-  // ⚠️ Et la liste reste demandable à la main, sans cible comme avec : deux
-  //    dièses, c'est la liste, et cela n'a pas bougé.
   assert.equal(lire('##Donald Trump').forme, 'resultats');
 });
 
@@ -1205,7 +1208,7 @@ test('★ porteurs — chaque forme publiée en fragment a sa jumelle en requêt
   for (const [fragment, requete, forme, saisie, cible] of [
     ['#:hope', '?:hope', 'premiere', 'hope', '666'],
     ['##:hope', '?$:hope', 'resultats', 'hope', '666'],
-    ['##:hope#:111', '?$:hope$:111', 'premiere', 'hope', '111'],
+    ['##:hope#:111', '?$:hope$:111', 'resultats', 'hope', '111'],
     ['#sce!m14#:hope', '?sce!m14$:hope', 'canonique', 'hope', '666'],
     [`##${H}`, `?$${H}`, 'resultats', 'hope', '666'],
     [`#${H}`, `?${H}`, 'premiere', 'hope', '666'],
@@ -1276,4 +1279,39 @@ test('★ porteurs — un paramètre ordinaire cohabite avec la charge, et lui s
   canoniser({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['m14'] }] }, faux);
   assert.equal(appels[0], `/nhlg/?m14$${H}&debug=1`,
     'le vieux fragment tombe, le paramètre reste');
+});
+
+/**
+ * ★ **LE TABLEAU DE L'AUTRICE, LIGNE PAR LIGNE.**
+ *
+ * > « Il n'y a que `?$<b58 ou clair>` et `##<b58 ou clair>` qui affichent la
+ * >   liste. » (l'autrice)
+ *
+ * Ce que ce test gèle n'est pas une implémentation mais une DÉCISION : le
+ * nombre de séparateurs décide, l'écriture de la saisie jamais, et le registre
+ * — seul marqueur qui dise comment MONTRER — demande l'animation. Chaque ligne
+ * est vérifiée dans les DEUX porteurs, parce que la promesse est que les liens
+ * d'hier se lisent exactement comme ceux d'aujourd'hui.
+ */
+test('★ deux familles — chaque ligne du tableau, en requête ET en fragment', () => {
+  const H = encoderTexte('hope');
+  const C = encoderTexte('111');
+  for (const [requete, fragment, attendu, quoi] of [
+    [`?${H}`, `#${H}`, 'premiere', 'zéro séparateur : Révéler'],
+    ['?:hope', '#:hope', 'premiere', 'zéro séparateur, en clair : Révéler'],
+    [`?$${H}`, `##${H}`, 'resultats', 'un séparateur : la liste'],
+    ['?$:hope', '##:hope', 'resultats', 'un séparateur, en clair : la liste'],
+    [`?$${H}$${C}`, `##${H}#${C}`, 'resultats', 'deux séparateurs : la liste visant la cible'],
+    ['?$:hope$:111', '##:hope#:111', 'resultats', 'idem, en clair'],
+    [`?c111!$${H}`, `#c111!#${H}`, 'resultats', 'marqueur de cible : un réglage, donc la liste'],
+    ['?c111!$:hope', '#c111!#:hope', 'resultats', 'idem, en clair'],
+    [`?p100.100.10.100!f10!$${H}`, `#p100.100.10.100!f10!#${H}`, 'resultats', 'curseurs et fouille : des réglages'],
+    [`?so!$${H}`, `#so!#${H}`, 'premiere', 'registre sobre : il demande à MONTRER'],
+    [`?sce!$${H}`, `#sce!#${H}`, 'premiere', 'registre scénique'],
+    [`?so!p10.20.30.40!$${H}`, `#so!p10.20.30.40!#${H}`, 'premiere', 'registre + réglages : le registre décide'],
+    [`?m14$${H}`, `#m14#${H}`, 'canonique', 'un programme : aucune recherche'],
+  ]) {
+    assert.equal(lire(requete).forme, attendu, `requête « ${requete} » — ${quoi}`);
+    assert.equal(lire(fragment).forme, attendu, `fragment « ${fragment} » — ${quoi}`);
+  }
 });

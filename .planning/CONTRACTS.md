@@ -2833,10 +2833,11 @@ programme  := code ('+' code)*
 > lien recopié à la main dans l'autre ordre serait une sévérité sans motif, et
 > `canoniser()` réécrit la barre d'adresse de toute façon (§4.3).
 >
-> ★ **`#c111!#…` est la page de RÉSULTATS pour 111** — là où `sobre!` seul est un
-> lien tronqué. La différence n'est pas un caprice : le registre dit comment
-> MONTRER une démonstration, et une liste n'en montre aucune ; la cible dit ce
-> qu'on CHERCHE, et une liste est le résultat d'une recherche.
+> ★ **`#c111!#…` est la page de RÉSULTATS pour 111**, en clair comme en base58.
+> La cible est un RÉGLAGE DE RECHERCHE : elle dit ce qu'on CHERCHE, et une liste
+> est le résultat d'une recherche. Le registre (`so!`, `sce!`) dit comment
+> MONTRER une démonstration, et une liste n'en montre aucune : lui seul demande
+> l'animation. Voir §4.3, « les deux familles de marqueurs ».
 >
 > ★ **Une cible illisible s'ANNONCE** (plus de six chiffres, ou autre chose que
 > des chiffres) : bandeau et repli, jamais un repli muet sur 666 — §4.3.
@@ -2979,7 +2980,8 @@ programme  := code ('+' code)*
 > |---|---|
 > | `#Donald Trump` | Recherche, puis **animation de la 1ʳᵉ voie** (« Révéler »). |
 > | `##Donald Trump` | Recherche, puis **énumération** des voies. |
-> | `#c111!sce!#Donald Trump` | Recherche avec ces réglages, puis animation. |
+> | `#c111!sce!#Donald Trump` | Recherche visant 111, puis animation — c'est `sce!` qui l'obtient. |
+> | `#c111!#Donald Trump` | Recherche visant 111, puis **énumération** : la cible est un réglage. |
 > | `#so!tca+m36#Donald Trump` | **Aucune recherche** : ce programme, sur ce texte. |
 >
 > Un lien qui ne porte QUE des marqueurs cherche ; dès qu'il porte un programme,
@@ -3010,14 +3012,13 @@ programme  := code ('+' code)*
 > qu'elle a comprise —, et parce qu'aucune quatrième condition ne tient : une
 > longueur minimale tuerait `##KD8Z`, lien légitime de la saisie « 666 ».
 >
-> ⚠️ **UNE EXCEPTION : `#c111!#…` reste la PAGE DE RÉSULTATS**, contre la lecture
-> littérale de la règle ci-dessus. C'est la forme que `ecrire({saisie, cible})`
-> produit — le lien de partage de la page de listing — et l'écriture ne change
-> pas ; sans elle, l'énumération deviendrait indemandable pour toute cible autre
-> que 666. La frontière est celle qui était déjà posée pour le registre : le
-> registre dit comment MONTRER une démonstration, et une liste n'en montre
-> aucune ; la cible dit ce qu'on CHERCHE, et une liste est le résultat d'une
-> recherche.
+> ⚠️ **CE N'EST PLUS UNE EXCEPTION, C'EST LA RÈGLE.** `#c111!#…` est la page de
+> RÉSULTATS, que la saisie soit en clair ou en base58. Un amendement ultérieur a
+> retiré la condition qui regardait l'ÉCRITURE de la saisie : « l'écriture de la
+> saisie ne détermine plus jamais la page obtenue » (l'autrice), au motif qu'une
+> règle invisible dans le lien ne doit pas en changer la page. Reste la
+> distinction des deux FAMILLES de marqueurs — réglages de recherche contre
+> registre de mise en scène —, qui est écrite dans le lien, donc lisible.
 >
 > ⚠️ **UNE ANCRE HTML N'EST PAS UNE SAISIE.** Le fragment d'URL désigne un
 > élément de la page depuis toujours, et le site s'en sert : le lien d'évitement
@@ -3341,7 +3342,8 @@ et `…/` étaient la même URL pour lui — mais il voit la requête. L'entrée
 | Grammaire §4.2 | **Rejouée telle quelle, sans recherche.** |
 | `#3+7+2#…` (rangs hérités du README) | Recherche relancée, rangs 3/7/2 du classement courant, bandeau discret « démonstration recalculée ». |
 | `##…` | Page de résultats. |
-| `#texte` (un seul `#`), `#so!#…` (marqueurs seuls) | Recherche, puis **animation de la 1ʳᵉ voie** — le geste de « Révéler ». `#c111!#…` fait exception et reste la liste (§4.2, amendement « LA SAISIE EN CLAIR »). |
+| `#texte` (zéro séparateur), `#so!#…` / `#sce!#…` (registre seul) | Recherche, puis **animation de la 1ʳᵉ voie** — le geste de « Révéler ». |
+| **Les deux familles de marqueurs.** Réglages de RECHERCHE (`c111!`, `p…!`, `f…!`) contre REGISTRE de mise en scène (`so!`, `sce!`) | Les réglages paramètrent une énumération et **n'empêchent pas la liste** : `#c111!#…` et `#p…!f…!#…` énumèrent. Le registre dit comment MONTRER, donc **il demande l'animation**. ⚠️ L'ÉCRITURE de la saisie — clair ou base58 — ne décide plus rien : seul le nombre de séparateurs, et le registre, décident. |
 | `#…#texte` dont le texte n'est pas du base58 lisible | Le texte EST la saisie ; la barre d'adresse est réécrite en base58 à l'ouverture. Le base58 reste prioritaire (§4.2). |
 | Fragment désignant un élément monté (`#registre-titre`) | Ancre HTML : le routeur ne route pas, le navigateur défile. |
 | `#0.1+2.1:P#…` (portées groupées) | **Dépliée en `0.1:P,2.1:P`** à la lecture : mêmes fragments, même ordre, même score. C'est aussi la forme ÉCRITE quand deux places VOISINES partagent un programme (§4.2, amendement « LES PORTÉES GROUPÉES »). |

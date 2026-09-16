@@ -50,14 +50,19 @@
 // tapé à la main se convertit tout seul en lien partageable, exactement comme
 // le `so!` d'un lien sobre disparaît sans qu'on ait rien demandé.
 //
-// ★ **QUATRE FORMES, et ce qui les distingue est le NOMBRE DE `#`** :
+// ★ **CE QUI DÉCIDE EST LE NOMBRE DE SÉPARATEURS — jamais l'écriture de la
+// saisie.** En base58 ou en clair, un lien fait la même chose :
 //
-//     #Donald Trump              recherche, puis animation de la 1ʳᵉ voie
-//     ##Donald Trump             recherche, puis ÉNUMÉRATION des voies
-//     #c111!sce!#Donald Trump    recherche visant 111, puis animation scénique
-//     #c111!#Donald Trump        idem, registre par défaut — la MAIN
-//     #c111!#<b58>               la LISTE des voies visant 111 — la MACHINE
-//     #tca+m36#Donald Trump      aucune recherche : CE programme, sur ce texte
+//     ?Donald Trump              recherche, puis animation de la 1ʳᵉ voie
+//     ?$Donald Trump             recherche, puis ÉNUMÉRATION des voies
+//     ?$Donald Trump$111         la même énumération, visant 111
+//     ?c111!$Donald Trump        la même, par le marqueur de cible
+//     ?p10.20.30.40!f2!$D. Trump la même, à ces réglages de recherche
+//     ?so!$Donald Trump          animation sobre de la 1ʳᵉ voie
+//     ?sce!$Donald Trump         animation scénique
+//     ?tca+m36$Donald Trump      aucune recherche : CE programme, sur ce texte
+//
+// (et les mêmes, au signe près, dans les liens d'hier : `#…`, séparés par `#`.)
 //
 // La première est le geste de « Révéler » (`pages/accueil.js`) : on cherche et
 // on montre, sans passer par la liste. La troisième est la même chose avec des
@@ -65,18 +70,27 @@
 // recherche et effectue directement le programme demandé » (l'auteur), donc a
 // contrario : tant qu'il n'y a QUE des marqueurs, on cherche.
 //
-// ⚠️ **UNE EXCEPTION, et elle n'est pas de moi.** `#c111!#…` — cible seule, sans
-// registre — reste la PAGE DE RÉSULTATS visant 111, contre la lecture littérale
-// de la règle ci-dessus. Deux raisons, et la seconde suffirait : c'est la forme
-// que `ecrire({saisie, cible})` PRODUIT (le lien de partage de la page de
-// listing), et l'écriture ne change pas ; et sans elle il n'existerait aucune
-// façon de demander l'énumération pour une autre cible que 666. Le registre,
-// lui, n'est jamais écrit sans programme : `#so!#…` ne dénotait rien, il dénote
-// désormais l'animation — et c'est la seule place où `so!`, qui ne s'écrit
-// plus, change encore le sens d'un lien. La frontière est celle qui était déjà argumentée plus
-// bas, mot pour mot — le registre dit comment MONTRER une démonstration, et une
-// liste n'en montre aucune ; la cible dit ce qu'on CHERCHE, et une liste est le
-// résultat d'une recherche.
+// ★ **DEUX FAMILLES DE MARQUEURS, ET UNE SEULE DÉCIDE.**
+//
+// > « Il n'y a que `?$<b58 ou clair>` et `##<b58 ou clair>` qui affichent la
+// >   liste. » (l'autrice)
+//
+// Les RÉGLAGES DE RECHERCHE — cible (`c111!`), curseurs (`p…!`), fouille
+// (`f…!`) — paramètrent une ÉNUMÉRATION : aucun ne demande à voir une voie en
+// particulier, donc aucun n'empêche la liste. `?c111!$…` énumère les voies
+// visant 111, exactement comme `?$…$111`.
+//
+// Le REGISTRE DE MISE EN SCÈNE — `so!`, `sce!` — dit comment MONTRER : il y a
+// donc quelque chose à montrer, et il demande l'animation. C'est la seule place
+// où `so!`, qui ne s'écrit plus, change encore le sens d'un lien.
+//
+// ⚠️ **UNE RÈGLE A ÉTÉ DÉFAITE ICI, et il faut savoir laquelle.** L'écriture de
+// la saisie décidait aussi : `#c111!#Donald Trump` animait quand `#c111!#<b58>`
+// énumérait — « le base58 est la signature de la machine, le texte en clair
+// celle de la main ». L'autrice l'a retirée : une règle INVISIBLE dans le lien
+// ne doit pas en changer la page. Celle du registre, elle, est ÉCRITE, donc
+// elle vaut. Aucun lien jamais émis par le site n'en a changé de sens —
+// `ecrire()` n'écrit la saisie qu'en base58 (mesuré : 48 formes, zéro bascule).
 //
 // ★ **LE BASE58 GAGNE TOUJOURS**, et la règle tient en trois conditions.
 //
@@ -401,13 +415,12 @@
 // raison qu'un curseur est borné à sa glissière.
 //
 // ★ **Les deux marqueurs valent la LISTE, pas la première voie.** `#p…!#texte`
-// et `#f3!#texte` rendent la page de résultats, même écrits en clair — à la
-// différence de `#c111!#texte`, qui joue la démonstration de tête. Ce n'est pas
-// une exception de plus : la frontière est celle que l'en-tête pose déjà. La
-// cible dit ce qu'on CHERCHE, et cela vaut aussi bien pour une animation ; les
-// curseurs et la fouille disent comment on CLASSE et jusqu'où on FOUILLE, deux
-// choses dont une démonstration unique n'a rien à faire. Un marqueur qui ne
-// peut rien changer à ce qu'on montre ne peut pas décider qu'on le montre.
+// et `#f3!#texte` rendent la page de résultats, en clair comme en base58 — tout
+// comme `#c111!#texte`. Ce ne sont pas des exceptions : ce sont les trois
+// RÉGLAGES DE RECHERCHE, et aucun ne demande à voir une voie en particulier.
+// La cible dit ce qu'on CHERCHE ; les curseurs et la fouille disent comment on
+// CLASSE et jusqu'où on FOUILLE. Un marqueur qui ne peut rien changer à ce
+// qu'on montre ne peut pas décider qu'on le montre.
 //
 // ★ Ils sont néanmoins ÉCRITS sur les liens de voie, quand ils ne sont pas au
 // défaut. Deux raisons : le score affiché sous une voie rejouée est celui de la
@@ -1040,42 +1053,36 @@ export function lire(hash, options = {}) {
     //   maintenant laquelle montrer quand le lien ne la nomme pas — celle que
     //   le classement met en tête, exactement comme le bouton de l'accueil.
     //
-    //   ★ **ET LA CIBLE SEULE VAUT AUSSI LA PREMIÈRE VOIE — QUAND LA SAISIE EST
-    //   ÉCRITE EN CLAIR.** « Je veux l'inverse » (l'auteur), sur l'exception qui
-    //   avait d'abord été faite à `#c111!#…`. Donc `#c111!#Donald Trump` cherche
-    //   111 et JOUE la démonstration de tête, comme `#Donald Trump` le fait
-    //   pour 666.
+    //   ★ **DEUX FAMILLES DE MARQUEURS, ET UNE SEULE DÉCIDE.**
     //
-    //   ⚠️ **Mais `#c111!#<b58>` reste la liste, et ce n'est pas un
-    //   contournement de sa consigne — c'est la frontière qu'il a lui-même
-    //   posée** : « la version b58 est bien sûr toujours supportée et à
-    //   conserver par défaut quand on passe par l'interface du site ». Cette
-    //   forme-là, le site l'ÉCRIT : c'est le sélecteur de cible de la page de
-    //   listing (`pages/resultat.js`, « changer de cible, c'est changer
-    //   d'URL »). La lire comme une animation ferait sauter dans une
-    //   démonstration au moment où l'on clique sur `[111]` pour voir la LISTE
-    //   des voies menant à 111.
+    //   > « Il n'y a que `?\$<b58 ou clair>` et `##<b58 ou clair>` qui affichent
+    //   >   la liste. » (l'autrice)
     //
-    //   La règle se lit donc en une phrase : **ce que le site écrit garde son
-    //   sens, ce qu'un humain tape suit la règle simple de l'auteur.** Le
-    //   base58 est la signature de la machine, le texte en clair celle de la
-    //   main ; les quatre exemples de l'auteur sont tous en clair.
+    //   Les RÉGLAGES DE RECHERCHE — la cible (`c111!`), les curseurs (`p…!`),
+    //   la fouille (`f…!`) — paramètrent une ÉNUMÉRATION. Aucun ne demande à
+    //   voir une voie en particulier, donc aucun n'empêche la liste.
     //
-    //   ⚠️ C'est un choix que l'auteur n'a pas tranché explicitement — il a dit
-    //   « je veux l'inverse » sans mentionner le sélecteur de cible, qu'il ne
-    //   pouvait pas avoir en tête. À défaire en une ligne s'il préfère que la
-    //   bascule vaille aussi pour les liens du site : il faudra alors donner au
-    //   listing une autre façon d'écrire « la liste, pour cette cible-là ».
+    //   Le REGISTRE DE MISE EN SCÈNE — `so!`, `sce!` — dit comment MONTRER :
+    //   il y a donc quelque chose à montrer, et il demande l'animation.
     //
-    //   ⚠️ **LES CURSEURS ET LA FOUILLE N'ENTRENT PAS DANS CETTE CONDITION**, et
-    //   c'est raisonné en tête de fichier : ils disent comment on CLASSE et
-    //   jusqu'où on FOUILLE, deux questions dont une démonstration unique n'a
-    //   rien à faire. `#p…!#texte` et `#f3!#texte` rendent donc la LISTE, que la
-    //   saisie soit en base58 ou en clair. Ils s'ajoutent en revanche sans rien
-    //   changer quand un AUTRE marqueur a déjà fait pencher vers la première
-    //   voie : `#sce!p0.200.100.100!#texte` anime bien la voie de tête — celle
-    //   que le classement repondéré met en tête.
-    if (parts.length === 1 || registreEcrit || (cibleEcrite && saisieBrute)) {
+    //   ⚠️ **CE QUE CETTE RÈGLE A REMPLACÉ, et pourquoi.** La condition portait
+    //   aussi sur l'ÉCRITURE de la saisie : `#c111!#Donald Trump` animait quand
+    //   `#c111!#<b58>` énumérait, au motif que « le base58 est la signature de
+    //   la machine, le texte en clair celle de la main ». L'autrice l'a défait :
+    //   « l'écriture de la saisie ne détermine plus jamais la page obtenue ».
+    //   Son argument tient en une ligne — cette règle-là était INVISIBLE dans le
+    //   lien, et changeait pourtant la page sous les yeux de qui le composait à
+    //   la main. Le registre, lui, est ÉCRIT : sa règle se voit, donc elle vaut.
+    //
+    //   ⚠️ Aucun lien jamais ÉMIS par le site n'a changé de sens : `ecrire()`
+    //   n'écrit la saisie qu'en base58, de sorte que la condition supprimée ne
+    //   pouvait pas se déclencher sur un lien du site. Mesuré sur 48 formes
+    //   produites, zéro bascule.
+    //
+    //   Les réglages s'ajoutent sans rien changer quand le registre a déjà fait
+    //   pencher vers la première voie : `#sce!p0.200.100.100!#texte` anime bien
+    //   la voie de tête — celle que le classement repondéré met en tête.
+    if (parts.length === 1 || registreEcrit) {
       return {
         forme: 'premiere', saisie, saisieBrute, fragments: null, retouches: [],
         // Même résolution que la forme canonique : le registre rendu est celui

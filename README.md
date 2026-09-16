@@ -66,20 +66,18 @@ Tout se partage par l'URL, et ce qui compte y est écrit :
 |---|---|
 | `?:Donald Trump` | cherche, puis anime la première voie — le geste de Révéler |
 | `?$:Donald Trump` | cherche, puis énumère les voies |
-| `?$:Donald Trump$:111` | la même liste, pour une autre cible (troisième segment) — voir le TODO ci-dessous |
+| `?$:Donald Trump$:111` | la même liste, pour une autre cible (troisième segment) |
 | `?sce!m14$:hope` | joue ce programme-là, sans recherche, en registre scénique |
 
-> **TODO — le code et cette ligne ne disent pas la même chose, et c'est antérieur au
-> passage à la requête.** Écrite EN CLAIR avec une cible (`?$:Donald Trump$:111`,
-> hier `##:Donald Trump#:111`), cette forme rend aujourd'hui l'ANIMATION de la
-> première voie, pas la liste : une cible écrite plus une saisie en clair valent
-> « cherche, puis montre », par la règle « je veux l'inverse » de l'autrice
-> (`src/recherche/url.js`, « LA SAISIE EN CLAIR »). En base58 — ce que le site
-> écrit —, c'est bien la liste. L'écart est donc entre ce tableau et le code, pas
-> entre l'ancienne forme et la neuve : les deux se comportent à l'identique.
-> À l'autrice de dire lequel des deux a tort ; rien n'a été réécrit ici pour
-> trancher à sa place.
-
+* **C'est le nombre de séparateurs qui décide, jamais l'écriture de la saisie.**
+  `?<saisie>` anime, `?$<saisie>` énumère — que la saisie soit en base58 ou en
+  clair derrière `:`, indifféremment. Une règle qui ne se voit pas dans le lien
+  n'a pas à en changer la page.
+* Les marqueurs se rangent en deux familles, et une seule décide. Les **réglages
+  de recherche** — la cible (`c111!`), les curseurs (`p25.200.50.150!`), la
+  fouille (`f2!`) — paramètrent l'énumération et n'empêchent pas la liste. Le
+  **registre de mise en scène** — `sce!`, et `so!` dans les liens d'hier — dit
+  comment MONTRER, donc il demande l'animation : `?so!$<saisie>` anime.
 * Les segments se séparent par `$`. Le site a d'abord vécu dans le fragment
   (`#…#…`), ce qui était hors grammaire : la RFC 3986 interdit un `#` dans un
   fragment, et certains navigateurs recodaient nos liens. **Les liens publiés
