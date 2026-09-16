@@ -36,6 +36,15 @@ cache:
 # rattrape ici, signalé « vert seul, rouge sous charge » dans le bilan, sans
 # masquer un vrai échec — celui-là rougit deux fois et fait échouer le job.
 #
+# ⚠️ **SI CE RUNNER EST NETTEMENT PLUS LENT QUE LA MACHINE DE RÉFÉRENCE**, relevez
+# le facteur du délai de garde plutôt que de subir des dépassements — par exemple
+# `TEST_LENT_FACTEUR_DELAI: "8"` dans les `variables:` ci-dessus. Chaque fichier a
+# un budget valant 4 × sa durée de référence (`scripts/durees-lentes.json`, qui
+# porte la date, les cœurs et la charge de son relevé) ; un dépassement compte
+# rouge et part en relance seule. Une VAGUE de « dépassement du délai de garde »
+# se lit comme un problème de machine, pas de code : le bilan le dit lui-même
+# quand tous les échecs sont de ce type.
+#
 # ⚠️ **`rsvg-convert` EST INDISPENSABLE, ET SON ABSENCE NE SE VOIT PAS.**
 # `vite.config.js › carteDePartage` rastérise `favicon.svg` en `og-card.png`, et
 # RETIRE ses balises `og:image` si l'outil manque plutôt que de pointer dans le
