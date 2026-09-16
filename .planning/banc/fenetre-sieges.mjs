@@ -119,6 +119,7 @@ let totalB = 0;
 let listesChangees = 0;
 let tetesChangees = 0;
 const alertes = [];
+const evictions = [];
 
 console.log(`fenêtre et sièges — cran ${fouille}, curseurs ${JSON.stringify(curseurs || 'défaut')}, `
   + `${COUPLES.length} couples\nAVANT=${AVANT}\nAPRÈS=${APRES}\n`);
@@ -155,9 +156,25 @@ for (const [saisie, cible] of COUPLES) {
       console.log(`    ⚠️ VOIE REJETÉE PAR L'AUTRICE : ${r.join(' + ')}`);
     }
   }
+  const entrees = lb.filter((a) => !ca.includes(a.codes));
+  const sorties = la.filter((a) => !cb.includes(a.codes));
   if (!memeListe) {
-    for (const a of lb) if (!ca.includes(a.codes)) console.log(`    entre : ${ligne(apres, a)}`);
-    for (const a of la) if (!cb.includes(a.codes)) console.log(`    sort  : ${ligne(avant, a)}`);
+    for (const a of entrees) console.log(`    entre : ${ligne(apres, a)}`);
+    for (const a of sorties) console.log(`    sort  : ${ligne(avant, a)}`);
+  }
+  /* ★ **LE PREMIER GARDE-FOU DE L'AUTRICE : « la liste s'allonge, elle ne
+       chasse pas ».** Une voie qui SORT alors qu'aucune mieux notée n'entre est
+       une ÉVICTION — c'est exactement ce que la coupe à huit faisait sur
+       « Macron », où `fr21+tca+mt9+meg` (global 691) cédait la place à
+       `tca+mtal+mt9` (683). Une liste qui ne fait que s'allonger n'a aucune
+       sortie du tout ; on les signale donc toutes, avec ce qui est entré. */
+  const meilleureEntree = entrees.length ? Math.max(...entrees.map((a) => apres.global(a))) : -1;
+  for (const a of sorties) {
+    const g = avant.global(a);
+    evictions.push(`${titre} : SORT ${a.codes} (global ${g})`
+      + ` — meilleure entrée : ${meilleureEntree < 0 ? 'aucune' : meilleureEntree}`);
+    console.log(`    ⚠️ ÉVICTION : ${a.codes} (global ${g}) sort`
+      + `${g >= meilleureEntree ? ' — et rien de mieux noté n’entre' : ''}`);
   }
 
   // ★ La voie que l'autrice cherche sur « hope » : 7 301 au moteur, 704 au
@@ -209,4 +226,10 @@ if (alertes.length) {
   for (const a of alertes) console.log(`  · ${a}`);
 } else {
   console.log('\naucune tête ne tombe sur une voie rejetée par l’autrice.');
+}
+if (evictions.length) {
+  console.log(`\n⚠️⚠️ ${evictions.length} ÉVICTION(S) — une voie quitte une liste :`);
+  for (const e of evictions) console.log(`  · ${e}`);
+} else {
+  console.log('aucune voie ne quitte une liste : elles ne font que s’allonger.');
 }

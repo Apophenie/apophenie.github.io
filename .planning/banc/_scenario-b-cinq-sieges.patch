@@ -1,0 +1,232 @@
+diff --git a/src/recherche/assemblage.js b/src/recherche/assemblage.js
+index 741ee50..7f0e347 100644
+--- a/src/recherche/assemblage.js
++++ b/src/recherche/assemblage.js
+@@ -43,6 +43,7 @@
+ 
+ import {
+   signature, comparerCodes, scorePartiel, maniere, normaliserCurseurs, auDefaut,
++  pourcentagesDe, POIDS_DES_REGIMES,
+ } from './score.js';
+ import {
+   A_MERITER_SA_PLACE, OPERATEURS_QUI_ECARTENT, FICELLES, nbTriptyques, compterTraductionsDivergentes,
+@@ -1463,6 +1464,51 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
+       if (c) parLeMotif.push(c);
+     }
+   }
++  /* ★ CINQ SIÈGES AUX MIEUX NOTÉS — le scénario de l'autrice, EN MESURE.
++     (banc : `.planning/banc/fenetre-sieges.mjs`) */
++  const sieges = [];
++  if (miseEnForme) {
++    const parts = pourcentagesDe(curseurs);
++    const axesMemo = new Map();
++    const axesDe = (c) => {
++      let a = axesMemo.get(c);
++      if (a === undefined) {
++        const s = serieDeSix(c, cbl);
++        a = {
++          ...axesIntermediaires(c, depart.valeur, cbl),
++          quantite: Math.round((Math.min(s ? s.series : 1, MAX_SERIES) * 1000) / MAX_SERIES),
++        };
++        axesMemo.set(c, a);
++      }
++      return a;
++    };
++    const noteSelon = (c, quantite, qualite) => {
++      const a = axesDe(c);
++      let somme = 0;
++      let poids = 0;
++      for (const axe of ['simplicite', 'exhaustivite', 'coherence', 'quantite']) {
++        const w = (parts[axe] ?? 0) * (axe === 'quantite' ? quantite : qualite);
++        somme += w * a[axe];
++        poids += w;
++      }
++      return poids ? Math.round(somme / poids) : 0;
++    };
++    const PONDERATIONS = [
++      ['elegance', POIDS_DES_REGIMES.elegance.quantite, 1000, 1],
++      ['abondance', 1000, POIDS_DES_REGIMES.triptyques.elegance, 1],
++      ['mixte', 1000, 1000, 3],
++    ];
++    const eligibles = out.filter((c) => ecrit(c.etats[c.etats.length - 1].valeur, cbl));
++    for (const [, quantite, qualite, combien] of PONDERATIONS) {
++      const ranges = eligibles
++        .filter((c) => !sieges.includes(c))
++        .sort((a, b) => (noteSelon(b, quantite, qualite) - noteSelon(a, quantite, qualite))
++          || (nbFicelles(a) - nbFicelles(b)) || (nettete(a) - nettete(b))
++          || (lues(b) - lues(a))
++          || (a.ops.length - b.ops.length) || (dilue(a) - dilue(b)) || comparerChemins(a, b));
++      for (const c of ranges.slice(0, combien)) sieges.push(c);
++    }
++  }
+   const tete = [...parLeMotif.slice(0, plafond)];
+   {
+     /* ★ **UNE PROMOTION NE COÛTE PAS SA PLACE — la réserve n'EXCLUT plus de la
+@@ -1801,6 +1847,25 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
+     vusCan.add(cle);
+     finaux.push(n);
+   }
++  /* ★ **LES SIÈGES S'AJOUTENT APRÈS LA COUPE — ils ne prennent pas ses places.**
++     MESURÉ : posés EN TÊTE de la fenêtre, les cinq sièges repoussaient cinq
++     chemins au-delà de la coupe à huit que `assembler` applique. Sur « Macron »
++     au cran 0, `fr21+tca+mt9+meg` (global 691, deux séries, rendement plein)
++     passait de la 5ᵉ place — gardée — à la 9ᵉ — coupée —, et quittait la liste
++     pour `tca+mtal+mt9` (global 683, une série, rendement 500 ‰). C'est la règle
++     de l'autrice, et elle vaut ici comme ailleurs : la liste s'allonge, elle ne
++     chasse pas.
++     ⚠️ La marque se pose sur le chemin CANONISÉ, jamais sur celui d'avant :
++       `normaliserChemin` rend un AUTRE objet, et un symbole posé en amont s'y
++       perdait — deux sièges sur cinq seulement arrivaient marqués. */
++  for (const c of sieges) {
++    const n = normaliserChemin(c);
++    const cle = cleTrace(n);
++    if (vusCan.has(cle)) continue;
++    vusCan.add(cle);
++    n[NEE_D_UN_SIEGE] = true;
++    finaux.push(n);
++  }
+   if (options.compteur) options.compteur.travail += compte.travail;
+   if (memo) memo.set(cleMemo, { chemins: finaux, travail: compte.travail });
+   return memo ? finaux.slice() : finaux;
+@@ -1956,7 +2021,27 @@ function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAU
+             fragment: {
+               texte: j.texte, offset: j.offset, longueur: j.longueur,
+               intervalles: [[j.offset, j.offset + j.longueur]],
+-              tokenDebut: iJeton, tokenLong: 1, famille: 'portee', priorite: 2,
++              tokenDebut: iJeton,
++              tokenLong: 1,
++              /* ★ **UNE RETOUCHE QUI COUVRE TOUT S'ÉCRIT SANS PORTÉE** — verdict
++                 n° 4 de l'autrice (15 septembre 2026) :
++
++                 > « Pourquoi : `0:fr13;ma1+mab` plutôt que `fr13+ma1+mab` ? il
++                 >   n'y a qu'un mot. »
++
++                 Ce descripteur est bâti PAR JETON, et il l'annonçait toujours
++                 comme une portée. Or `url.js › porteeDe` n'omet la portée que
++                 pour la famille `'entier'` : sur une saisie d'un seul mot, le
++                 lien écrivait `0:` pour désigner… toute la saisie. Le jeton et
++                 la saisie sont alors la MÊME chose, et c'est la famille qui doit
++                 le dire.
++
++                 ⚠️ Le `;` reste, lui, et il le faut : il marque l'ÉTAGE, pas la
++                   portée. Sans lui, `fr13;ma1+mab` deviendrait `fr13+ma1+mab`,
++                   qui est un programme ordinaire parfaitement valide — deux
++                   démonstrations distinctes sous un seul lien. */
++              famille: (j.offset === 0 && j.longueur === saisie.length) ? 'entier' : 'portee',
++              priorite: 2,
+             },
+             chemin: { ops: [f], etats: [depart, apres], valeur: null, cout: f.cout || 0 },
+           }],
+@@ -2389,6 +2474,24 @@ export const NEE_D_UNE_FAMILLE = Symbol('nee-d-une-famille');
+  *  (`moissons`, la réunion). Même régime que `NEE_D_UNE_FAMILLE`. */
+ export const NEE_DE_LA_REDUCTION = Symbol('nee-de-la-reduction');
+ 
++/**
++ * ★ La MARQUE d'une voie assise par un SIÈGE RÉSERVÉ de la fenêtre
++ * (`vecteursDeSix`, les cinq sièges). Même régime que `NEE_D_UNE_FAMILLE`, et
++ * pour la même raison, MESURÉE : sans elle, les voies que les sièges font
++ * entrer prennent les places des autres. Sur « Macron » au cran 0,
++ * `fr21+tca+mt9+meg` (moteur 3 569, global 691, deux séries, rendement plein)
++ * QUITTAIT la liste pour laisser entrer `tca+mtal+mt9` (4 590, global 683, une
++ * série, rendement 500 ‰) — une voie mieux notée chassée par une moins bonne,
++ * ce que la règle de l'autrice interdit : « la liste s'allonge, elle ne chasse
++ * pas ». Au cran 1, où la liste a quinze places, elle survivait : c'était bien
++ * la LONGUEUR, pas le classement.
++ *
++ * ⚠️ Elle n'est PAS une extension (`estUneExtension`) : une voie assise garde le
++ *   droit de tenir une ligne réservée — c'est ainsi que `tca+m14` prend la tête
++ *   de « hope ». Elle est seulement SÉLECTIONNÉE À PART.
++ */
++export const NEE_D_UN_SIEGE = Symbol('nee-d-un-siege');
++
+ /**
+  * ★ Une voie née d'une EXTENSION de la moisson — fenêtre par famille ou nouvelle
+  * réduction du surplus. `index.js › finaliser` les sélectionne à part et les
+@@ -3889,17 +3992,27 @@ export function assembler(saisie, fragments, parFrag, ctx) {
+       //   sont des GROUPEMENTS : elles ne viennent pas du BFS — aucun chemin de
+       //   `parFrag` ne porte seulement `mrd` — mais d'ici. Huit vecteurs par
+       //   fragment porteur, en dur, c'était la borne réelle de la liste entière.
+-      const vecteurs = vecteursDeSix(f.texte, opsPourVecteurs, K, kParFragment * 2, cbl,
++      const tous = vecteursDeSix(f.texte, opsPourVecteurs, K, kParFragment * 2, cbl,
+         // ★ `profond` — la seconde passe de dernier recours, posée par
+         //   `index.js` quand un premier assemblage n'a rien rendu.
+         {
+           curseurs: ctx.curseurs, profond: ctx.profond === true, matiereDePhrase: ctx.matiereDePhrase === true,
+           memo: ctx.cache instanceof Map ? ctx.cache : null,
+-        })
+-        .slice(0, kParFragment);
++        });
++      /* ★ **LA COUPE À HUIT GARDE CE QU'ELLE GARDAIT, ET LES SIÈGES S'Y
++           AJOUTENT.** Sans cela, une voie assise coûte sa place à une voie mieux
++           notée (voir `vecteursDeSix`, « les sièges s'ajoutent après la coupe »). */
++      const assises = tous.filter((c) => c[NEE_D_UN_SIEGE] === true);
++      const vecteurs = tous.filter((c) => c[NEE_D_UN_SIEGE] !== true)
++        .slice(0, kParFragment)
++        .concat(assises);
+       if (f.entier || f.famille === 'entier') vecteursEntiers = vecteurs;
+       for (const c of vecteurs) {
+-        approches.push(approche('GROUPEMENT', [{ fragment: f, chemin: c }]));
++        const a = approche('GROUPEMENT', [{ fragment: f, chemin: c }]);
++        // ★ La marque du siège passe du CHEMIN à l'APPROCHE : c'est l'approche
++        //   que `index.js › finaliser` sélectionne.
++        if (c[NEE_D_UN_SIEGE] === true) a[NEE_D_UN_SIEGE] = true;
++        approches.push(a);
+       }
+     }
+   }
+diff --git a/src/recherche/index.js b/src/recherche/index.js
+index bd9c20a..b790e31 100644
+--- a/src/recherche/index.js
++++ b/src/recherche/index.js
+@@ -31,6 +31,7 @@ import { genererFragments, zonesSignifiantes, tokeniser, motifsRepetes } from '.
+ import {
+   assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe, vecteursDeSix, segmentsSansCopie,
+   MAX_JETONS_RETOUCHE, MAX_VECTEURS_RETOUCHES, estUneExtension, NEE_D_UNE_FAMILLE, NEE_DE_LA_REDUCTION,
++  NEE_D_UN_SIEGE,
+ } from './assemblage.js';
+ import { scoreGlobal } from './score.js';
+ import {
+@@ -1111,7 +1112,15 @@ export function creerMoteur(catalogue, options = {}) {
+              au cran 2. */
+       const horsGardes = ctxAssemblage.horsGardesHistoriques;
+       const avantLesFamilles = honnetes.filter((a) => !estUneExtension(a));
+-      const historiques = horsGardes ? avantLesFamilles.filter((a) => !horsGardes.has(a)) : avantLesFamilles;
++      /* ★ **ET UNE CINQUIÈME : LES VOIES ASSISES PAR UN SIÈGE RÉSERVÉ.** Même
++           raison que les quatre autres, et MESURÉE de la même façon : mêlées aux
++           candidates d'hier, elles prenaient leurs places. Sur « Macron » au
++           cran 0, `fr21+tca+mt9+meg` (global 691, deux séries, rendement plein)
++           sortait de la liste pour `tca+mtal+mt9` (global 683, une série,
++           rendement 500 ‰). La sélection d'hier ne voit donc PAS les voies
++           assises ; elles ont la leur, et la liste ne fait que s'allonger. */
++      const sansSieges = avantLesFamilles.filter((a) => a[NEE_D_UN_SIEGE] !== true);
++      const historiques = horsGardes ? sansSieges.filter((a) => !horsGardes.has(a)) : sansSieges;
+       /* ★ **ET UNE QUATRIÈME : LES VOIES DE LA NOUVELLE RÉDUCTION, À PART.** Ce que
+            seule la nouvelle réduction du surplus fabrique (`NEE_DE_LA_REDUCTION`)
+            a sa PROPRE sélection, faite AVANT celle des familles : celle-ci voit
+@@ -1129,7 +1138,13 @@ export function creerMoteur(catalogue, options = {}) {
+         //   quota du quatorze segments avec les deux champions, et n'entrait pas.
+         //   Ne pas compter les champions n'y suffisait pas — mesuré.
+         ? choisir(sansReduction, { quotaParMethodes: true }).filter((a) => a[NEE_D_UNE_FAMILLE] === true) : null;
+-      const deLaRampe = historiques.length !== avantLesFamilles.length ? choisir(avantLesFamilles) : null;
++      // ★ Les voies ASSISES par un siège, sélectionnées À PART : de cette
++      //   sélection on ne garde qu'elles, exactement comme pour les familles.
++      const desSieges = sansSieges.length !== avantLesFamilles.length
++        ? choisir(avantLesFamilles).filter((a) => a[NEE_D_UN_SIEGE] === true) : null;
++      // ⚠️ La rampe se demande sur `sansSieges` — ses candidates d'hier, sans
++      //   les assises : sinon les deux questions se mélangeraient.
++      const deLaRampe = historiques.length !== sansSieges.length ? choisir(sansSieges) : null;
+       let retenues = choisir(historiques);
+       if (jokers.length) retenues.push(jokers[0]);
+       else if (!retenues.length) {
+@@ -1138,9 +1153,9 @@ export function creerMoteur(catalogue, options = {}) {
+       }
+       const compteDesAnciennesGardes = retenues.length;
+       for (const a of retenues) auxAnciennesGardes.add(a);
+-      if (deLaRampe || desFamilles || deLaReduction) {
++      if (deLaRampe || desFamilles || deLaReduction || desSieges) {
+         const enPlus = [];
+-        for (const liste of [deLaRampe, desFamilles, deLaReduction]) {
++        for (const liste of [deLaRampe, desFamilles, deLaReduction, desSieges]) {
+           for (const a of liste || []) if (!retenues.includes(a) && !enPlus.includes(a)) enPlus.push(a);
+         }
+         if (enPlus.length) {
