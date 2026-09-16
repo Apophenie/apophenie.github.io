@@ -245,3 +245,83 @@ test('aucun fichier trouvé — c’est un échec, pas un succès vide', () => {
   assert.match(sortie, /Aucun fichier de test lent trouvé/);
   fs.rmSync(racine, { recursive: true, force: true });
 });
+
+test('chemin accentué — le lanceur s’exécute, au lieu de sortir à 0 sans rien faire', () => {
+  // `new URL(import.meta.url).pathname` rendrait « mon dépôt à moi » sous forme
+  // percent-encodée : la détection du module principal échouerait, et la
+  // commande sortirait à 0 SANS AVOIR RIEN LANCÉ. Le dépôt d'ici est en ASCII,
+  // donc ce test ne parle pas de notre clone — il parle de celui de demain.
+  const abri = fs.mkdtempSync(path.join(os.tmpdir(), 'lanceur-accent-'));
+  const loge = path.join(abri, 'mon dépôt à moi');
+  fs.mkdirSync(loge);
+  const copie = path.join(loge, 'test-lent.mjs');
+  fs.copyFileSync(LANCEUR, copie);
+
+  const { racine } = atelier({ 'a.test.js': VERT });
+  const r = spawnSync(
+    process.execPath,
+    [copie, `--racine=${racine}`, `--motif=${MOTIF}`, '--parallelisme=1'],
+    { encoding: 'utf8' },
+  );
+  const sortie = `${r.stdout}${r.stderr}`;
+  assert.match(sortie, /1 exécuté, 1 vert/, `rien n’a été lancé depuis « ${loge} » : ${sortie}`);
+  assert.equal(r.status, 0, sortie);
+
+  fs.rmSync(abri, { recursive: true, force: true });
+  fs.rmSync(racine, { recursive: true, force: true });
+});
+
+test('découverte — `*` ne traverse pas les dossiers, et un chemin exact est un motif', () => {
+  const racine = fs.mkdtempSync(path.join(os.tmpdir(), 'lanceur-motifs-'));
+  fs.mkdirSync(path.join(racine, 'src/a/lents/encore'), { recursive: true });
+  fs.writeFileSync(path.join(racine, 'src/a/lents/un.test.js'), VERT);
+  fs.writeFileSync(path.join(racine, 'src/a/lents/encore/deux.test.js'), VERT);
+
+  assert.deepEqual(
+    decouvrir(racine, ['src/*/lents/*.test.js']),
+    ['src/a/lents/un.test.js'],
+    '`*` s’arrête au séparateur : le fichier du sous-dossier n’entre pas',
+  );
+  assert.deepEqual(decouvrir(racine, ['src/a/lents/encore/deux.test.js']), [
+    'src/a/lents/encore/deux.test.js',
+  ], 'un chemin littéral est un motif valide — c’est ce que --motif reçoit souvent');
+  assert.deepEqual(decouvrir(racine, ['src/a/lents/encore']), [], 'un dossier n’est pas un fichier de test');
+  assert.deepEqual(decouvrir(racine, ['src/*/absent/*.test.js']), [], 'un motif sans correspondance ne lève pas');
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
+
+test('reprise — une reprise complète et verte efface l’état qu’elle vient d’épuiser', () => {
+  const { racine, ecrire } = atelier({ 'rouge.test.js': ROUGE, 'a.test.js': VERT });
+  const etat = path.join(racine, '.test-lent-etat.json');
+
+  assert.equal(lancer(racine).code, 1);
+  assert.ok(fs.existsSync(etat), "l'état retient le vert du premier passage");
+
+  ecrire('rouge.test.js', VERT);
+  const reprise = lancer(racine, '--reprise');
+  assert.equal(reprise.code, 0, reprise.sortie);
+  assert.equal(fs.existsSync(etat), false, 'tout est vert : il n’y a plus rien à reprendre');
+
+  // et la reprise suivante rejoue tout, au lieu de rendre « vert sur zéro fichier »
+  const encore = lancer(racine, '--reprise');
+  assert.equal(encore.code, 0, encore.sortie);
+  assert.match(encore.sortie, /2 exécutés, 2 verts/);
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
+
+test('reprise — un état qui couvre déjà tout ne vaut pas succès : rien n’a été exécuté', () => {
+  const { racine } = atelier({ 'rouge.test.js': ROUGE, 'a.test.js': VERT });
+  assert.equal(lancer(racine).code, 1);
+
+  // le fichier rouge disparaît : l'état couvre alors la totalité de ce qui reste
+  fs.rmSync(path.join(racine, 'src/faux/lents/rouge.test.js'));
+  const r = lancer(racine, '--reprise');
+
+  assert.equal(r.code, 1, r.sortie);
+  assert.match(r.sortie, /tous déjà verts/);
+  assert.match(r.sortie, /pas un succès/);
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
