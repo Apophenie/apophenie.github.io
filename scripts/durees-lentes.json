@@ -1,0 +1,53 @@
+{
+  "_lisezMoi": [
+    "Durées de référence des tests lents. Elles ne servent QU'À DEUX CHOSES :",
+    "calculer le délai de garde de chaque fichier (facteur × cette durée), et",
+    "lancer les plus longs d'abord pour raccourcir la queue de la passe.",
+    "Aucune d'elles n'est une assertion : dépasser son budget rend un fichier",
+    "ROUGE, et un rouge part en relance seule — sur une machine vide, où la",
+    "charge ne compte plus. Une machine durablement plus lente que celle du",
+    "relevé se règle donc par TEST_LENT_FACTEUR_DELAI, pas par ce fichier.",
+    "",
+    "Régénération EXPLICITE, jamais automatique (sinon l'arbre git serait sale",
+    "à chaque exécution) : `node scripts/test-lent.mjs --releve-durees`.",
+    "Seuls les fichiers verts DÈS LA PREMIÈRE PASSE y entrent : une durée",
+    "relevée en relance seule serait mesurée sans charge, donc trop optimiste",
+    "pour servir de budget à une passe parallèle.",
+    "",
+    "Deux fichiers manquent volontairement et prennent le cas « sans",
+    "référence » (90 min, le plus généreux) :",
+    "  · recherche.test.js — rouge sous charge lors de ce relevé, donc sa durée",
+    "    de première passe ne décrit pas une exécution verte ;",
+    "  · monotonie.test.js — ses 52 min 37 de ce jour-là étaient une VRAIE",
+    "    régression, corrigée depuis. Les garder ferait d'un bug la norme."
+  ],
+  "conditions": {
+    "le": "2026-09-16",
+    "coeurs": 8,
+    "voies": 4,
+    "passe": "première (parallèle), pas les relances seules",
+    "chargeMoyenne": 12.2,
+    "chargeMin": 3.8,
+    "chargeMax": 30.4,
+    "relevesDeCharge": 90,
+    "machine": "CHARGÉE — un autre travail tournait pendant tout le relevé, la charge est retombée entre 5 et 9 en fin de passe",
+    "pourquoiCaCompte": "Ces durées incluent déjà une forte inflation de charge (de 1,3× à 2,7× par rapport aux mêmes fichiers mesurés seuls). Les budgets qui en découlent sont donc généreux, et c'est voulu : tuer un test sain est plus grave que laisser courir un blocage quelques minutes de trop."
+  },
+  "durees": {
+    "src/app/lents/debug.test.js": { "secondes": 34.6, "le": "2026-09-16" },
+    "src/recherche/tests/lents/cible-mot.test.js": { "secondes": 590, "le": "2026-09-16" },
+    "src/recherche/tests/lents/cible-phrase.test.js": { "secondes": 1011, "le": "2026-09-16" },
+    "src/recherche/tests/lents/cible.test.js": { "secondes": 288, "le": "2026-09-16" },
+    "src/recherche/tests/lents/curseurs.test.js": { "secondes": 356, "le": "2026-09-16" },
+    "src/recherche/tests/lents/elegance.test.js": { "secondes": 293, "le": "2026-09-16" },
+    "src/recherche/tests/lents/integration-visuel.test.js": { "secondes": 509, "le": "2026-09-16" },
+    "src/recherche/tests/lents/liaison.test.js": { "secondes": 25.8, "le": "2026-09-16" },
+    "src/recherche/tests/lents/progression.test.js": { "secondes": 100, "le": "2026-09-16" },
+    "src/recherche/tests/lents/provisoire.test.js": { "secondes": 167, "le": "2026-09-16" },
+    "src/recherche/tests/lents/reveler.test.js": { "secondes": 108, "le": "2026-09-16" },
+    "src/recherche/tests/lents/scenario.test.js": { "secondes": 164, "le": "2026-09-16" },
+    "src/recherche/tests/lents/score-arbitre.test.js": { "secondes": 168, "le": "2026-09-16" },
+    "src/recherche/tests/lents/sieges.test.js": { "secondes": 42.5, "le": "2026-09-16" },
+    "src/recherche/tests/lents/titres.test.js": { "secondes": 260, "le": "2026-09-16" }
+  }
+}

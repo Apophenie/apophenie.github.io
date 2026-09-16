@@ -138,16 +138,23 @@ sous charge. Le lanceur exécute **un processus par fichier** et annonce chacun 
 au départ puis au verdict, avec l'horloge depuis le début :
 
 ```
-[  0:00] départ   src/recherche/tests/lents/sieges.test.js
-[  0:16] vert     src/recherche/tests/lents/sieges.test.js  ·  5 tests, 16,2 s  ·  1/17
-[  4:02] ROUGE    src/recherche/tests/lents/progression.test.js  ·  12 tests dont 1 échoué, 42,1 s  ·  5/17
-
-Relance seule de 1 fichier rouge — un à la fois, rien d'autre en parallèle.
-[  4:44] VERT SEUL src/recherche/tests/lents/progression.test.js  ·  12 tests, 38,4 s  ·  1/1
-           ↳ vert seul, rouge sous charge : la machine, pas le code.
+[  0:00] départ   src/recherche/tests/lents/monotonie.test.js  ·  budget 1 h 30 min
+[  0:00] départ   src/recherche/tests/lents/cible-phrase.test.js  ·  budget 1 h 07 min
+[  0:26] vert     src/recherche/tests/lents/liaison.test.js  ·  2 tests, 25,8 s  ·  3/17
+[  0:42] vert     src/recherche/tests/lents/sieges.test.js  ·  5 tests, 42,5 s  ·  4/17
+[ 35:00] en vol   src/recherche/tests/lents/monotonie.test.js — 35 min 00 s, 12 tests faits, budget 1 h 30 min
 ```
 
-Trois règles, et elles se tiennent :
+Ce que cette passe-là a donné, le 16 septembre, à quatre voies sur machine chargée : deux
+fichiers rouges sur dix-sept. `recherche.test.js` a rougi sur des tests de budget et de
+temps, puis la relance seule l'a rendu vert — « vert seul, rouge sous charge ».
+`monotonie.test.js` a rougi **et est resté rouge seul** : c'était une vraie régression, pas
+la machine. Sans ce lanceur, il y aurait eu une heure de silence et une excuse toute
+trouvée. À l'inverse, `progression.test.js` — longtemps soupçonné de rougir sous charge —
+est passé du premier coup : la suite n'a qu'un seul fichier réellement sensible à la
+charge, et c'est `recherche.test.js`.
+
+Cinq règles, et elles se tiennent :
 
 * **Un seul niveau de parallélisme.** `node --test` a le sien (`--test-concurrency`, qui
   compte des fichiers) ; on lui passe `--test-concurrency=1` et c'est le lanceur, et lui
@@ -158,14 +165,42 @@ Trois règles, et elles se tiennent :
   information sur la machine, pas un défaut à cacher. S'il rougit encore, c'est un vrai
   échec et le code de sortie est non nul. Un fichier dont le bilan TAP est illisible —
   processus tué, sortie tronquée — est un échec, jamais un succès par défaut.
+  Cet isolement est strict, et il coûte : les relances n'attendent pas seulement qu'une
+  voie se libère, mais que **toute** la passe soit finie. C'est le prix de l'étiquette —
+  rejouer un rouge pendant que d'autres fichiers tournent ne permettrait plus d'écrire
+  « vert seul » sans mentir.
+* **Chaque fichier a un délai de garde proportionné à lui-même.** Le budget vaut
+  `4 × sa durée de référence` (table `scripts/durees-lentes.json`), avec un plancher de
+  3 min, et 90 min pour un fichier sans référence. Un dépassement compte **rouge**, donc
+  part en relance seule — sur une machine vide, où la charge a disparu. Il ne pouvait pas
+  s'agir d'une valeur unique : du plus court au plus long, ces fichiers s'étalent sur 39×.
+* **Les plus longs partent en premier.** La queue d'une passe parallèle est dictée par son
+  fichier le plus long ; le lancer en dernier ajoute sa durée entière au temps au mur.
+  L'ordre de **lancement** suit donc les durées décroissantes — c'est un changement visible
+  dans le journal — tandis que le **bilan reste trié par chemin**.
 * **La reprise se demande.** Les fichiers verts sont notés au fil de l'eau dans
   `.test-lent-etat.json` (ignoré par git) ; `--reprise` (ou `TEST_LENT_REPRISE=1`) repart
   de là après une interruption. Une exécution normale repart **de zéro** : une reprise
   implicite mentirait sur ce qui a été vérifié.
 
+Et jamais plus de soixante secondes sans nouvelles : quand rien ne tombe, une ligne de vie
+dit ce qui est encore en vol, depuis combien de temps, combien de tests y sont déjà faits,
+et quel budget lui reste — un dépassement devient prévisible au lieu d'être brutal.
+
+```
+[ 35:00] en vol   src/recherche/tests/lents/cible-phrase.test.js — 35 min 00 s, 12 tests faits, budget 67 min
+```
+
 Le verdict, lui, ne dépend ni de l'ordre ni du parallélisme : chaque fichier a son propre
-processus, et l'ordre de lancement comme celui du bilan suivent le tri des chemins.
-`node scripts/test-lent.mjs --aide` liste les options.
+processus, donc son propre état. `node scripts/test-lent.mjs --aide` liste les options.
+
+**Sur une machine nettement plus lente que celle du relevé**, relevez le facteur —
+`TEST_LENT_FACTEUR_DELAI=8` — plutôt que de subir des dépassements. Une vague de
+« dépassement du délai de garde » est un signe de machine, pas de code, et le bilan le dit
+lui-même quand tous les échecs sont de ce type. La table des durées se régénère par
+`node scripts/test-lent.mjs --releve-durees`, jamais automatiquement : elle porte ses
+conditions de relevé (date, cœurs, charge) pour qu'un lecteur puisse juger si elles valent
+encore pour sa machine.
 
 `bun run logo` appelle `src/gfx/logo-jost-trace.py` (fontTools requis). Il réécrit quatre
 fichiers : le banc d'essai `src/gfx/_logo-test.html`, `favicon.svg`, et — entre les repères

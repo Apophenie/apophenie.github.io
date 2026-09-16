@@ -1,17 +1,18 @@
 /**
  * ★ **LE LANCEUR DE LA SUITE LENTE, MIS À L'ÉPREUVE EN QUELQUES SECONDES.**
  *
- * `scripts/test-lent.mjs` promet trois choses qu'on ne peut pas vérifier en
+ * `scripts/test-lent.mjs` promet des choses qu'on ne peut pas vérifier en
  * regardant le code : qu'un rouge est rejoué SEUL, qu'un vert-seul est signalé
- * plutôt que caché, et qu'une reprise ne rejoue que ce qui manque. Les prouver
- * sur la vraie suite coûterait une heure de machine par essai.
+ * plutôt que caché, qu'un blocage devient rouge au lieu d'une heure de silence,
+ * et qu'une reprise ne rejoue que ce qui manque. Les prouver sur la vraie suite
+ * coûterait une heure de machine par essai.
  *
  * Ce fichier les prouve sur des tests jetables écrits dans un dossier temporaire
- * — dont un qui échoue toujours, un qui échoue **la première fois puis passe**
- * (le portrait exact des deux tests de temps qui rougissent sous charge), et un
- * qui se fait tuer en pleine course. Chaque cas tourne en quelques dixièmes de
- * seconde, et le lanceur est appelé par son vrai chemin de ligne de commande :
- * c'est bien le binaire livré qui est mesuré, pas une fonction approchante.
+ * — dont un qui échoue toujours, un qui échoue **la première fois puis passe**,
+ * un qui **dort interminablement la première fois puis rend la main**, et un qui
+ * se fait tuer en pleine course. Chaque cas tourne en quelques secondes au plus,
+ * et le lanceur est appelé par son vrai chemin de ligne de commande : c'est bien
+ * le binaire livré qui est mesuré, pas une fonction approchante.
  */
 
 import assert from 'node:assert/strict';
@@ -22,12 +23,26 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  budgetDeGarde,
+  chargerDurees,
   decouvrir,
+  FACTEUR_DEFAUT,
+  FICHIER_DUREES,
   formaterDuree,
+  INCONNU_DEFAUT,
+  lancerSuiteLente,
   lireBilanTap,
+  ordonnerParDuree,
   parallelismeParDefaut,
+  PLANCHER_DEFAUT,
+  referenceDe,
+  reglagesDelai,
   testsEchoues,
+  testsTermines,
+  VAR_FACTEUR,
+  VAR_INCONNU,
   VAR_PARALLELISME,
+  VAR_PLANCHER,
 } from './test-lent.mjs';
 
 const LANCEUR = path.join(import.meta.dirname, 'test-lent.mjs');
@@ -60,8 +75,12 @@ const ROUGE = `import test from 'node:test';\nimport assert from 'node:assert/st
 const TUE = `import test from 'node:test';\nprocess.kill(process.pid, 'SIGKILL');\ntest('jamais atteint', () => {});\n`;
 
 /**
- * Le portrait des deux tests de temps : rouge quand la machine est chargée,
- * vert quand on le laisse seul. Le témoin sur disque tient lieu de « charge ».
+ * Le portrait de `recherche.test.js` — le SEUL fichier que la mesure du
+ * 16 septembre a montré réellement sensible à la charge : rouge quand la machine
+ * est chargée, vert quand on le laisse seul. `progression.test.js`, longtemps
+ * soupçonné du même travers, est passé du premier coup ce jour-là.
+ *
+ * Le témoin sur disque tient lieu de « charge ».
  */
 const BASCULE = `import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -324,4 +343,175 @@ test('reprise — un état qui couvre déjà tout ne vaut pas succès : rien n�
   assert.match(r.sortie, /pas un succès/);
 
   fs.rmSync(racine, { recursive: true, force: true });
+});
+
+// ──────────────────────────────────────────────────────── délai de garde ──
+
+/** Dort dix secondes : le portrait d'un fichier qui ne rendra jamais la main. */
+const DORT = `import test from 'node:test';
+test('je dors sans fin', async () => { await new Promise((r) => setTimeout(r, 10_000)); });
+`;
+
+/**
+ * Dort la PREMIÈRE fois seulement — un blocage qui se dénoue quand la machine
+ * se vide. C'est le cas que le garde doit convertir en rouge, puis que la
+ * relance seule doit sauver.
+ */
+const DORT_UNE_FOIS = `import test from 'node:test';
+import fs from 'node:fs';
+import path from 'node:path';
+const temoin = path.join(import.meta.dirname, 'dort.temoin');
+const premiere = !fs.existsSync(temoin);
+fs.writeFileSync(temoin, 'vu');
+test('interminable sous charge, instantané seul', async () => {
+  if (premiere) await new Promise((r) => setTimeout(r, 10_000));
+});
+`;
+
+/** Une seconde et demie : assez pour qu'un silence se fasse entendre. */
+const DORT_UN_PEU = `import test from 'node:test';
+test('je dors un peu', async () => { await new Promise((r) => setTimeout(r, 1500)); });
+`;
+
+test('délai de garde — proportionné au fichier, avec plancher, et généreux sans référence', () => {
+  const table = { durees: { 'court.test.js': 20, 'long.test.js': { secondes: 1011, le: '2026-09-16' } } };
+  const reglages = { facteur: 4, plancher: 180, inconnu: 5400 };
+
+  assert.equal(budgetDeGarde('court.test.js', table, reglages), 180_000, '4 × 20 s passe sous le plancher');
+  assert.equal(budgetDeGarde('long.test.js', table, reglages), 4 * 1011 * 1000);
+  assert.equal(
+    budgetDeGarde('jamais-vu.test.js', table, reglages),
+    5_400_000,
+    'sans référence, le cas le plus généreux : on ne tue pas ce qu’on ne connaît pas',
+  );
+
+  assert.equal(referenceDe(table, 'court.test.js'), 20, 'une entrée en nombre brut reste lisible');
+  assert.equal(referenceDe(table, 'long.test.js'), 1011);
+  assert.equal(referenceDe(table, 'jamais-vu.test.js'), null);
+
+  // les défauts livrés sont ceux qu'on a justifiés sur les mesures du 16 septembre
+  assert.deepEqual([FACTEUR_DEFAUT, PLANCHER_DEFAUT, INCONNU_DEFAUT], [4, 180, 5400]);
+});
+
+test('réglages du garde — l’environnement a le dernier mot, et l’absurde lève', () => {
+  assert.deepEqual(reglagesDelai({}), { facteur: 4, plancher: 180, inconnu: 5400 });
+  assert.equal(reglagesDelai({ [VAR_FACTEUR]: '8' }).facteur, 8, 'le réglage d’un runner lent');
+  assert.equal(reglagesDelai({ [VAR_PLANCHER]: '30' }).plancher, 30);
+  assert.equal(reglagesDelai({ [VAR_INCONNU]: '600' }).inconnu, 600);
+
+  // un facteur sous 1 donnerait un budget plus court que la durée de référence
+  assert.throws(() => reglagesDelai({ [VAR_FACTEUR]: '0.5' }), /≥ 1/);
+  assert.throws(() => reglagesDelai({ [VAR_PLANCHER]: '-1' }), /≥ 0/);
+  assert.throws(() => reglagesDelai({ [VAR_INCONNU]: 'beaucoup' }), /≥ 1/);
+});
+
+test('ordre de lancement — les plus longs d’abord, les inconnus en tête', () => {
+  const table = { durees: { 'b.test.js': 100, 'c.test.js': 10, 'd.test.js': 100 } };
+  const fichiers = ['a.test.js', 'b.test.js', 'c.test.js', 'd.test.js'];
+
+  assert.deepEqual(
+    ordonnerParDuree(fichiers, table),
+    ['a.test.js', 'b.test.js', 'd.test.js', 'c.test.js'],
+    'inconnu en tête, puis 100, 100 départagés par le chemin, puis 10',
+  );
+  assert.deepEqual(
+    fichiers,
+    ['a.test.js', 'b.test.js', 'c.test.js', 'd.test.js'],
+    'la liste d’origine n’est pas touchée — le bilan s’en sert encore, trié par chemin',
+  );
+});
+
+test('ordre de lancement — le plus long part vraiment en premier, jusque dans le journal', () => {
+  const { racine } = atelier({ 'court.test.js': VERT, 'long.test.js': VERT });
+  const durees = path.join(racine, 'durees.json');
+  fs.writeFileSync(
+    durees,
+    JSON.stringify({ durees: { 'src/faux/lents/long.test.js': 900, 'src/faux/lents/court.test.js': 1 } }),
+  );
+
+  const { code, sortie } = lancer(racine, `--durees=${durees}`);
+  assert.equal(code, 0, sortie);
+  const ordre = [...sortie.matchAll(/départ {3}(\S+)/g)].map((m) => m[1]);
+  assert.deepEqual(ordre, ['src/faux/lents/long.test.js', 'src/faux/lents/court.test.js']);
+  // et le bilan, lui, reste trié par chemin
+  assert.match(sortie, /2 exécutés, 2 verts/);
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
+
+test('tests terminés — comptés dans une sortie TAP encore en cours', () => {
+  const enCours = 'TAP version 13\n# Subtest: un\nok 1 - un\n# Subtest: deux\nnot ok 2 - deux\n# Subtest: trois\n';
+  assert.equal(testsTermines(enCours), 2, 'le troisième a démarré, il n’a pas rendu son verdict');
+  assert.equal(testsTermines(''), 0);
+});
+
+test('délai de garde — un dépassement part en relance seule, et y passe : vert seul', () => {
+  const { racine } = atelier({ 'dort.test.js': DORT_UNE_FOIS });
+  const { code, sortie } = lancer(racine, '--plancher=0', '--inconnu=2');
+
+  assert.equal(code, 0, sortie);
+  assert.match(sortie, /ROUGE +src\/faux\/lents\/dort\.test\.js/, 'le blocage devient rouge');
+  assert.match(sortie, /dépassement du délai de garde/);
+  assert.match(sortie, /tests terminés avant le dépassement/, 'on dit où il en était');
+  assert.match(sortie, /VERT SEUL +src\/faux\/lents\/dort\.test\.js/);
+  assert.match(sortie, /signalés +1 vert seul, rouge sous charge/);
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
+
+test('délai de garde — un blocage qui ne se dénoue pas reste un échec, et accuse la machine', () => {
+  const { racine } = atelier({ 'dort.test.js': DORT });
+  const { code, sortie } = lancer(racine, '--plancher=0', '--inconnu=2');
+
+  assert.equal(code, 1, sortie);
+  assert.match(sortie, /ÉCHEC +src\/faux\/lents\/dort\.test\.js/);
+  assert.match(sortie, /ÉCHECS +1, rouges même seuls/);
+  assert.match(sortie, /dépassement du délai de garde/);
+  // quand TOUS les échecs sont des dépassements, le bilan désigne la machine
+  assert.match(sortie, /signe de machine lente/);
+  assert.match(sortie, new RegExp(VAR_FACTEUR));
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
+
+test('ligne de vie — le silence est rompu par ce qui est encore en vol', async () => {
+  const { racine } = atelier({ 'dort.test.js': DORT_UN_PEU });
+  let sortie = '';
+
+  const { code } = await lancerSuiteLente({
+    racine,
+    motifs: [MOTIF],
+    parallelisme: 1,
+    sansGarde: true,
+    intervalleVie: 300, // une minute en vrai ; trois dixièmes de seconde ici
+    cheminEtat: path.join(racine, 'etat.json'),
+    cheminDurees: path.join(racine, 'durees-absentes.json'),
+    ecrire: (t) => {
+      sortie += t;
+    },
+  });
+
+  assert.equal(code, 0, sortie);
+  assert.match(sortie, /en vol +src\/faux\/lents\/dort\.test\.js/, 'rien n’a été dit pendant l’attente');
+  assert.match(sortie, /tests? faits?/, 'la ligne de vie dit où en est le fichier');
+  assert.match(sortie, /budget sans garde/);
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
+
+test('table des durées — elle ne nomme que des fichiers réels, et dit d’où viennent ses chiffres', () => {
+  const depot = path.join(import.meta.dirname, '..');
+  const table = chargerDurees(path.join(depot, FICHIER_DUREES));
+  const noms = Object.keys(table.durees);
+
+  assert.ok(noms.length > 0, 'la table de référence livrée est vide');
+  for (const nom of noms) {
+    assert.ok(fs.existsSync(path.join(depot, nom)), `la table nomme ${nom}, qui n’existe plus`);
+    assert.ok(referenceDe(table, nom) > 0, `${nom} n’a pas de durée utilisable`);
+  }
+
+  // Sans provenance, personne ne peut juger si ces chiffres valent pour SA machine.
+  for (const cle of ['le', 'coeurs', 'voies', 'chargeMoyenne', 'machine']) {
+    assert.ok(cle in table.conditions, `la table ne dit pas « ${cle} » de son relevé`);
+  }
 });
