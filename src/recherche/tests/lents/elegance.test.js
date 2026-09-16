@@ -196,7 +196,17 @@ test('★ les ficelles sont au catalogue, et chacune alimente SON palier', () =>
   //   mesuré un bilan qui n'existe pas.
   const attendu = {
     'm.unRangSurDeux': ['m1s2', 'decimation', [6, 4, 6, 3, 6], 'NUMS', 'NUMS'],
-    'm.additionSelective': ['mad', 'additionSelective', [6, 5, 16, 8], 'NUMS', 'NUMS'],
+    // ⚠️ **`m.additionSelective` N'Y FIGURE PLUS** — « `mad` n'est pas pire que
+    //    `mrdE`, donc retire-le des ficelles je dirais » (l'autrice). `mrdE`
+    //    n'en a jamais été une ; les deux additionnent des termes choisis pour
+    //    que la ligne tombe juste, et rien ne justifiait d'en traiter un seul
+    //    en suspect. Même partage que pour `mpf`, `mrd` et `m.egalisation` :
+    //    son palier `ADDITION_SELECTIVE` reste, elle le paie toujours, et elle
+    //    reste nommée dans `A_MERITER_SA_PLACE` — le faisceau continue de lui
+    //    demander de mériter sa place. Ce qu'elle perd : elle n'est plus
+    //    évinçable ni évinçante, et elle redevient éligible aux lignes
+    //    réservées. Le siège, lui, la refuse toujours, mais par SA liste à lui
+    //    (`assemblage.js`, mode G) — pas par celle-ci.
     // ★ La ficelle qui RÉÉCRIT — « avec un gros malus puisqu'on essaie plutôt
     //   d'aller en sens inverse » (l'auteur). Elle ne jette rien, n'absorbe
     //   rien, et se paie au forfait : un emploi, une fois.
