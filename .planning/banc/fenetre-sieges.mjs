@@ -68,22 +68,41 @@ const COUPLES = (() => {
 const CHAUFFE = ['hope', 'Macron', 'satan'];
 
 async function moteurDe(racine) {
-  const { creerMoteur } = await import(pathToFileURL(path.resolve(racine, 'src/recherche/index.js')).href);
+  const { creerMoteur, lire } = await import(pathToFileURL(path.resolve(racine, 'src/recherche/index.js')).href);
   const { CATALOGUE } = await import(pathToFileURL(path.resolve(racine, 'src/moteur/catalogue.js')).href);
   const { scoreGlobal, CURSEURS_DEFAUT } = await import(pathToFileURL(path.resolve(racine, 'src/recherche/score.js')).href);
+  const { emploieUneFicelle } = await import(pathToFileURL(path.resolve(racine, 'src/recherche/elegance.js')).href);
+  const moteur = creerMoteur(CATALOGUE, { filetTemporel: false });
   return {
-    moteur: creerMoteur(CATALOGUE, { filetTemporel: false }),
+    moteur,
     global: (a) => scoreGlobal(a, curseurs ? { ...CURSEURS_DEFAUT, ...curseurs } : CURSEURS_DEFAUT) ?? -1,
+    /* ★ Le BILAN ne traverse pas la projection de `resoudre` : on rejoue le lien
+       pour retrouver la voie INTERNE, celle que la liste a notée. C'est ce
+       bilan-là que `emploieUneFicelle` sait lire. */
+    bilanDe: (a) => {
+      const r = moteur.rejouer(lire(a.url));
+      return (r.ok && r.approche && r.approche.bilan) || null;
+    },
+    ficelle: emploieUneFicelle,
   };
 }
 
 /* ★ CE QUE L'AUTRICE A REJETÉ, nommément, dans les quinze verdicts : l'absorption
-   (`mab`), les traductions (`ffr*`), le complément à 9 (`pc9`), un `cmn` qui
-   jette, et les voies alambiquées. « Alambiquée » n'a pas de code : on la lit au
-   nombre de gestes, au-delà de cinq — c'est ce que les verdicts 9, 12, 14 et 15
-   montrent du doigt (trois fragments, deux portées, cinq opérateurs et plus). */
-function rejets(codes) {
+   (`mab`), les traductions (`ffr*`/`fen*`), le complément à 9 (`pc9`), un `cmn`
+   qui jette, et les voies alambiquées.
+
+   ⚠️⚠️ **ET LES FICELLES, LUES PAR LA DÉFINITION DU DÉPÔT, JAMAIS PAR UNE LISTE
+     DE CODES ÉCRITE ICI.** Ce banc a MENTI : il annonçait « aucune tête ne tombe
+     sur une voie rejetée » pendant que `test:lent` rougissait sur
+     `https://hope-hope-hope.fr/`, dont la tête `fl+tca+m14+mad` emploie la
+     ficelle `mad`. La liste de codes ci-dessous ne la connaissait pas, et une
+     liste écrite à la main ne les connaîtra jamais toutes. `elegance.js ›
+     emploieUneFicelle` les lit sur les COMPTEURS du bilan — ce que le chemin a
+     FAIT —, et c'est elle qui fait foi. Un banc qui rassure à tort est pire
+     qu'un banc absent. */
+function rejets(codes, bilan, ficelle) {
   const out = [];
+  if (typeof ficelle === 'function' && ficelle(bilan)) out.push('ficelle');
   if (/\bmab\b/.test(codes)) out.push('mab');
   // Les DEUX sens de traduction, `ffr*` et `fen*` (`catalogue.js`, « les trois
   // acceptions de chaque sens de traduction ») — pas `fr*`, qui est un César.
@@ -149,7 +168,7 @@ for (const [saisie, cible] of COUPLES) {
 
   if (!memeTete) {
     console.log(`    TÊTE : ${ligne(avant, la[0])}  →  ${ligne(apres, lb[0])}`);
-    const r = rejets(cb[0]);
+    const r = rejets(cb[0], apres.bilanDe(lb[0]), apres.ficelle);
     if (r.length) {
       const dit = `${titre} : la tête tombe sur ${r.join(' + ')} — ${cb[0]}`;
       alertes.push(dit);
