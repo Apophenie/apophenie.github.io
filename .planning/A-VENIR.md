@@ -52,3 +52,17 @@
   fermé n'est pas lue cycliquement, le sommet proche de la couture échappe à la
   détection, et il manque le bas de l'ovale de l'`O`. Ce n'est pas un réglage à
   trouver, c'est une lecture à écrire.
+
+## L'outillage
+
+- **La suite lente relancée après coup.** Le lanceur
+  ([`scripts/test-lent.mjs`](../scripts/test-lent.mjs)) sait reprendre là où il
+  s'est arrêté (`--reprise`), mais l'essai n'a été fait que sur une suite
+  factice : reste à l'interrompre en plein vol sur la vraie suite, machine
+  libre, et à vérifier que la reprise ne rejoue que ce qui manque.
+- **La table des durées de référence est incomplète.**
+  [`scripts/durees-lentes.json`](../scripts/durees-lentes.json) ne dit que ce
+  qu'une passe complète a mesuré : `monotonie` s'y inscrira à la prochaine
+  passe verte lancée avec `--releve-durees`, et `recherche` reste au délai du
+  cas inconnu tant qu'il n'a pas été vert sous la passe parallèle (la table
+  refuse, à dessein, les durées d'une relance seule).
