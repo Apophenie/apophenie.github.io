@@ -497,7 +497,7 @@ test('★ œuf — chaque écriture donne un lien canonique qui se relit', async
     'CHEVAL / OISEAU = π',
   ]) {
     const url = ecrire({ saisie: s });
-    assert.ok(url && url.startsWith('#'),
+    assert.ok(url && url.startsWith('?'),
       `« ${s} » : aucun lien canonique, le bouton « Partager » resterait muet`);
     const relu = lire(url);
     assert.equal(relu.saisie, s, `« ${url} » ne se relit pas sur sa saisie`);

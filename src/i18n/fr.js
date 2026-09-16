@@ -106,7 +106,7 @@ export const fr = {
         // chaque « hope » en quatorze segments, les deux tirets par la touche
         // du 6 de l'AZERTY, et « fr » en sept segments (4+2). Quinze 6, cinq
         // séries, pas un caractère compté deux fois — et rien à jeter.
-        hash: '#0.1:tca+m14,1.1:tca+mtc+cs,2.1:tca+m14,3.1:tca+mtc+cs,4.1:tca+m14,6.1:tca+m7+cs#yvQYkzhNVYJT8wM8jhvJxSM',
+        hash: '?0.1:tca+m14,1.1:tca+mtc+cs,2.1:tca+m14,3.1:tca+mtc+cs,4.1:tca+m14,6.1:tca+m7+cs$yvQYkzhNVYJT8wM8jhvJxSM',
         aide: 'Voir la démonstration pour « hope-hope-hope.fr »',
       },
       'Donald Trump',
@@ -115,7 +115,7 @@ export const fr = {
         // Trois morceaux d'URL, trois règles différentes, trois 6 : la
         // chaldéenne sur « https » (5+4+4+8+3 = 24 → 6), les consonnes de
         // « reinfocovid » comptées (6), et « fr » en sept segments (4+2).
-        hash: '#0.1:tca+mch+cs+prn,3.1:fc+nl,5.1:tca+m7+cs#3A8evQZovd7BUyRUF65ToBwrHvW25EUn',
+        hash: '?0.1:tca+mch+cs+prn,3.1:fc+nl,5.1:tca+m7+cs$3A8evQZovd7BUyRUF65ToBwrHvW25EUn',
         aide: 'Voir la démonstration pour « https://reinfocovid.fr/ »',
       },
       'Capitalisme',
@@ -266,21 +266,21 @@ export const fr = {
     },
     memo: {
       titre: 'Assembler vos propres arcanes',
-      grammaire: '#{programme}#{saisie en base58}',
+      grammaire: '?{programme}${saisie en base58}',
       grammaireTexte: '« + » entre les opérations, « , » entre les fragments.',
-      resonance: '#×3:ma1+cs+prn#…',
+      resonance: '?×3:ma1+cs+prn$…',
       resonanceTexte: 'résonance : le même programme sur les trois occurrences d’un motif répété.',
-      portee: '#0.1:ma1+cs,1.1:nv#…',
+      portee: '?0.1:ma1+cs,1.1:nv$…',
       porteeTexte: 'portée : offset et longueur en jetons de la saisie.',
       // Le site ÉCRIT désormais cette forme (`src/recherche/url.js`, « les
       // portées groupées ») : sans cette entrée, le mémo laisserait un lecteur
       // devant un « + » placé avant le « : » qu'aucune ligne n'explique.
-      portees: '#0.1+2.1+4.1:ma1+cs#…',
+      portees: '?0.1+2.1+4.1:ma1+cs$…',
       porteesTexte: 'portées groupées : plusieurs places voisines qui se partagent un même programme.',
-      registre: '#sce!…#…',
+      registre: '?sce!…$…',
       registreTexte: 'registre scénique, en tête de l’approche. Absent, c’est « sobre » : le spectacle se demande, la sobriété ne s’écrit pas.',
-      cible: '#…#…#…',
-      cibleTexte: 'la cible — des chiffres, ou n’importe quel texte —, derrière le troisième #, en base58 (le texte en clair se lit aussi). Absente, c’est 666 — la maison ne se renie pas.',
+      cible: '?…$…$…',
+      cibleTexte: 'la cible — des chiffres, ou n’importe quel texte —, derrière le troisième segment, en base58 (le texte en clair se lit aussi). Absente, c’est 666 — la maison ne se renie pas.',
       copier: 'Copier le lien de cette page',
     },
     /* ★ LA COMMANDE DE CIBLE, en pied de listing. « Trop diabolique pour

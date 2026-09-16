@@ -67,7 +67,7 @@ test('cible-mot — « Zerg » depuis « Zerg » : le rang, puis la lettre — �
 });
 
 test('cible-mot — casse et accents : la même recherche, un écart payé autrement', () => {
-  const programmes = (r) => r.approches.map((a) => a.url.split('#')[1]);
+  const programmes = (r) => r.approches.map((a) => a.url.split('$')[0].slice(1));
   const exacte = moteur.resoudre('Sarah Kerrigan', { cible: 'sarah' });
   const capitales = moteur.resoudre('Sarah Kerrigan', { cible: 'SARAH' });
   assert.ok(exacte.approches.length >= 1);
@@ -140,7 +140,7 @@ test('cible-mot — Sarah Kerrigan → Zerg, par les coordonnées de clavier ent
   assert.ok(r.approches.length >= 1, 'aucune voie vers Zerg');
   assert.ok(r.approches.some((a) => ['mcaz', 'mcqw'].includes(a.relecture.code)),
     'la relecture que l’auteur a proposée garde ses voies à côté des paires');
-  for (const a of r.approches) assert.match(a.url, new RegExp(`#${encoderTexte('Zerg')}$`));
+  for (const a of r.approches) assert.match(a.url, new RegExp(`\\$${encoderTexte('Zerg')}$`));
   verifierVoies('Sarah Kerrigan', r, 'zerg');
 });
 
@@ -323,8 +323,13 @@ for (const [couple, attendu] of Object.entries(INSTANTANE)) {
       attendu.map(([url, score, series, mode]) => [reecrire(url), score, series, mode]),
     );
     if (cible === '666') {
-      assert.deepEqual(r.approches.map((a) => a.url), attendu.map(([url]) => url),
-        'pour 666, le lien est celui d’avant, au caractère près');
+      // ★ La promesse a changé de NATURE, pas de force. Le lien d'avant vivait
+      //   dans le fragment ; celui d'aujourd'hui vit dans la requête. Ce qui
+      //   est gelé ici, c'est que le premier se RELIT et se réécrit exactement
+      //   en le second — l'instantané reste donc la mémoire de ce qui était
+      //   publié, et il n'a pas eu à être régénéré.
+      assert.deepEqual(r.approches.map((a) => a.url), attendu.map(([url]) => reecrire(url)),
+        'pour 666, le lien d’avant se réécrit exactement en celui d’aujourd’hui');
     }
   });
 }

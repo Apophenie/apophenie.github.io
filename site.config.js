@@ -33,11 +33,15 @@ export const BASE_CANONIQUE = 'https://apophenie.github.io/';
 /**
  * ★ **LA SAISIE QUE LE PLAN DU SITE MET EN VITRINE.**
  *
- * Le site n'a qu'UNE page : tout le reste vit dans le fragment (`#…`), qui
- * n'est jamais envoyé au serveur. Le plan pointe donc l'accueil, plus une
- * démonstration — celle-ci — pour qu'un visiteur qui arrive par un moteur de
- * recherche tombe sur quelque chose qui se regarde, et pas sur un formulaire
- * vide.
+ * Le site n'a qu'UNE page : tout le reste vit dans la requête (`?…`). Elle EST
+ * envoyée au serveur — c'est ce qui a changé quand la démonstration a quitté le
+ * fragment, et ce que l'autrice a explicitement accepté. Un hébergement
+ * statique n'en fait rien, mais un robot d'indexation, lui, la voit : deux
+ * adresses qui ne diffèrent que par leur requête sont deux pages pour lui, là
+ * où deux fragments n'en faisaient qu'une. Le plan pointe donc l'accueil, plus
+ * une démonstration — celle-ci — pour qu'un visiteur qui arrive par un moteur
+ * de recherche tombe sur quelque chose qui se regarde, et pas sur un
+ * formulaire vide.
  *
  * ⚠️ **LE LIEN N'EST PAS ÉCRIT ICI, IL EST CALCULÉ AU BUILD** : c'est le moteur
  *   qui dit quelle est la première voie, et le plan recopie sa réponse. Un lien

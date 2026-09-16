@@ -1,4 +1,4 @@
-/** Le routeur : `hashchange` → page.
+/** Le routeur : `popstate` / `hashchange` → page.
  *
  *  Grammaire et lecture tolérante : `src/recherche/url.js` (CONTRACTS §4.2,
  *  §4.3). L'interface ne réimplémente rien — elle consomme `lire()` et `ecrire()`.
@@ -166,6 +166,24 @@ function regionDAnnonce() {
 async function routeResultat(saisie, {
   bandeau = null, cible = null, curseurs = null, fouille = undefined, personnalise = false,
 } = {}) {
+  /* ★ **LA LISTE AUSSI RÉÉCRIT SA BARRE D'ADRESSE.**
+
+     §4.3 le dit sans réserve : à l'ouverture, l'adresse est TOUJOURS remise en
+     forme canonique. Tant que la liste s'écrivait `##<b58>`, la règle ne coûtait
+     rien ici — la forme reçue était déjà la forme canonique, et seule la route
+     de démonstration avait quelque chose à corriger.
+
+     Depuis que la démonstration vit dans la requête, ce n'est plus vrai : un
+     lien de liste publié (`##<b58>`, `##<b58>#<cible>`) resterait indéfiniment
+     dans la barre d'adresse sous sa forme HORS GRAMMAIRE — celle-là même que
+     Brave recode sur macOS, et qui a motivé tout ce déménagement. Mesuré sur le
+     `dist/` : sans cette ligne, les cas `##…` et `##…#…` ne se réécrivaient pas.
+
+     ⚠️ On canonise avec ce que le lien PORTAIT, pas avec ce qu'on a résolu :
+     `curseurs` et `fouille` n'arrivent ici non nuls que s'ils étaient écrits
+     (`router()`), de sorte qu'un lien qui ne les nommait pas n'en hérite pas. */
+  pont.canoniser({ saisie, cible, curseurs, fouille });
+
   /* ★ **L'ŒUF SE PREND LA MAIN ICI, avant toute recherche.**
 
      « Ça doit générer une URL qui permette d'arriver directement sur la
@@ -384,7 +402,7 @@ async function routePremiereVoie(lecture) {
   // annoncer, juste une liste qui se trouve être vide.
   if (!premiere) { routeResultat(lecture.saisie, { cible: lecture.cible }); return; }
   const direct = lecture.registre === 'scenique' ? premiere.urlScenique : premiere.urlSobre;
-  if (direct) { location.replace(location.pathname + location.search + direct); return; }
+  if (direct) { pont.aller(direct, { remplacer: true }); return; }
   // Moteur en repli : il ne fabrique jamais d'URL. On montre sur place.
   montrerDemonstrationLocale(lecture.saisie, premiere, resultat);
 }
@@ -403,7 +421,7 @@ async function routeRangHerite(lecture) {
     });
     return;
   }
-  if (approche.url) { location.replace(location.pathname + approche.url); return; }
+  if (approche.url) { pont.aller(approche.url, { remplacer: true }); return; }
   montrerDemonstrationLocale(lecture.saisie, approche, resultat);
 }
 
@@ -483,7 +501,19 @@ export function router() {
   // Toute route commence par prendre un numéro : celles qui cherchent s'en
   // servent pour savoir si elles ont encore le droit de peindre.
   jetonRoute++;
+  /* ★ **LA REQUÊTE D'ABORD, LE FRAGMENT ENSUITE — ET LE FRAGMENT POUR TOUJOURS.**
+
+     La démonstration s'écrit désormais en REQUÊTE (`?…$…`) : un fragment n'a
+     pas le droit de contenir un `#` (RFC 3986), et nos vieux liens `##…`
+     étaient donc hors grammaire, recodables par n'importe quel navigateur.
+
+     Mais tous les liens publiés jusqu'ici vivent dans le fragment, et ils
+     doivent continuer de s'ouvrir tels quels — c'est la promesse tenue depuis
+     la publication. On lit donc les deux porteurs. Quand les deux sont là, la
+     requête gagne : c'est elle que `canoniser()` vient d'écrire. */
+  const charge = pont.chargeDeRequete(location.search);
   const hash = location.hash;
+  const lien = charge ? `?${charge}` : hash;
   if (pont.etat.url !== 'branché') {
     routeAccueil({
       bandeau: t('bandeaux.urlAbsente', { raison: pont.etat.raison || '' }).trim(),
@@ -505,23 +535,33 @@ export function router() {
   //   monté, et un `#registre-titre` collé dans une barre d'adresse vierge
   //   redevient une saisie. C'est le prix d'un test qui ne suppose l'existence
   //   d'aucune liste d'ancres, et il se paie une fois sur mille.
-  if (hash.length > 1 && document.getElementById(hash.slice(1))) return;
+  //   ⚠️ Et l'ancre ne vaut que si la requête ne porte RIEN : `?…$…#scene`
+  //     est une démonstration qu'on regarde, pas un défilement qu'on demande.
+  if (!charge && hash.length > 1 && document.getElementById(hash.slice(1))) return;
 
-  const lecture = pont.lireHash(hash);
+  const lecture = pont.lireHash(lien);
   if (!lecture) { routeAccueil({ bandeau: t('bandeaux.lienIllisible') }); return; }
   /* ★ **UNE ADRESSE INTROUVABLE N'EST PAS UN LIEN CASSÉ.**
 
      Le serveur a rendu `404.html`, qui EST le site (voir
-     `vite.config.js › pageIntrouvable`) : seul le CHEMIN manquait. Or le site
-     vit dans le fragment, et le fragment n'est jamais envoyé au serveur — il
-     est donc arrivé intact. Un lien de démonstration partagé avec un chemin
-     fautif se rejoue tel quel ; on le laisse faire, et l'on ajoute seulement
-     le bandeau qui dit ce qui, lui, était vraiment perdu.
+     `vite.config.js › pageIntrouvable`) : seul le CHEMIN manquait. Or la
+     démonstration ne vit pas dans le chemin — elle vit dans la requête, que le
+     navigateur garde telle quelle en affichant la page d'erreur. Elle est donc
+     arrivée intacte, et un lien de démonstration partagé avec un chemin fautif
+     se rejoue tel quel ; on le laisse faire, et l'on ajoute seulement le
+     bandeau qui dit ce qui, lui, était vraiment perdu.
+
+     ⚠️ L'argument a changé avec le porteur. Il tenait au fait que le fragment
+     n'est JAMAIS envoyé au serveur ; la requête, elle, l'est — mais elle
+     survit tout autant à la réponse 404, parce que c'est le navigateur, et non
+     le serveur, qui tient la barre d'adresse. La conclusion est la même, sa
+     raison n'est plus la même, et un lecteur qui trouverait ici l'ancienne
+     raison en tirerait de fausses conséquences.
 
      Le marqueur ne se lit qu'UNE FOIS : sans cela, le bandeau reviendrait à
      chaque navigation dans l'onglet, longtemps après qu'on a quitté l'adresse
      fautive. */
-  if (introuvable && !hash) { routeAccueil({ bandeau: t('bandeaux.cheminIntrouvable') }); return; }
+  if (introuvable && !lien) { routeAccueil({ bandeau: t('bandeaux.cheminIntrouvable') }); return; }
 
   switch (lecture.forme) {
     case 'resultats':
@@ -586,12 +626,24 @@ export function demarrer() {
   // seul point d'entrée — aucune vue ne se retraduit toute seule.
   onLangue(() => router());
 
+  /* ★ **DEUX ÉVÉNEMENTS, PARCE QU'IL Y A DEUX PORTEURS.**
+
+     `popstate` pour la requête — c'est ce que `pont.aller` émet après son
+     `pushState`, et c'est aussi ce que produisent les flèches du navigateur.
+     `hashchange` pour les liens publiés en fragment, qui doivent continuer
+     d'ouvrir une page quand on en colle un dans la barre d'adresse.
+
+     La clef de garde porte donc sur l'adresse ENTIÈRE : comparer le seul
+     fragment laisserait passer deux démonstrations qui ne diffèrent que par
+     leur requête, c'est-à-dire toutes celles d'aujourd'hui. */
+  const clef = () => (location.search || '') + (location.hash || '');
   const surChangement = () => {
-    if (location.hash === derniereClef) return;
-    derniereClef = location.hash;
+    if (clef() === derniereClef) return;
+    derniereClef = clef();
     router();
   };
   window.addEventListener('hashchange', surChangement);
-  derniereClef = location.hash;
+  window.addEventListener('popstate', surChangement);
+  derniereClef = clef();
   router();
 }

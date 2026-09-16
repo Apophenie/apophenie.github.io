@@ -1,10 +1,22 @@
 /** Le partage.
  *
- *  Constat technique, établi et assumé (design §5.2) : le fragment d'URL
- *  (`…#approche#b58`) n'est **jamais envoyé au serveur**. Aucun robot d'aperçu
- *  — Slack, Discord, Mastodon, WhatsApp, X — n'en voit la moindre trace. En
- *  hébergement statique sans build, une carte OpenGraph par démonstration est
- *  donc **impossible**. Le site porte une carte générique unique.
+ *  Constat technique, établi et assumé (design §5.2) : en hébergement statique,
+ *  rien ne s'exécute à la demande. Une carte OpenGraph par démonstration
+ *  supposerait un document par démonstration, et le site n'en a qu'un : la carte
+ *  est donc **générique et unique**.
+ *
+ *  ⚠️ **LA RAISON A CHANGÉ AVEC LE PORTEUR, PAS LA CONCLUSION.** Elle tenait au
+ *  fait que le fragment (`…#approche#b58`) n'était **jamais envoyé au serveur**,
+ *  de sorte qu'aucun robot d'aperçu — Slack, Discord, Mastodon, WhatsApp, X —
+ *  n'en voyait la trace. La démonstration vit désormais dans la REQUÊTE
+ *  (`…?approche$b58`), que ces robots reçoivent bel et bien ; simplement, un
+ *  hôte statique n'en fait rien. Qui voudra des cartes par démonstration devra
+ *  donc un jour rendre le HTML à la demande — ce n'est plus l'URL qui l'empêche.
+ *
+ *  ★ **CE QUI A ÉTÉ GAGNÉ AU PASSAGE : Telegram.** Sa vignette est CLIQUABLE
+ *  vers `og:url`, qui annonçait l'accueil — toute démonstration partagée y
+ *  ramenait. `og:url` a été retiré (`vite.config.js › adressePubliee`), et
+ *  l'aperçu retombe sur l'adresse réellement partagée.
  *
  *  La personnalisation existe là où elle ne coûte rien : dans le texte copié.
  *  `navigator.share()` quand il est disponible, repli sur le presse-papier,

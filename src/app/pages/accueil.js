@@ -117,7 +117,7 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
     }
     bouton.setAttribute('aria-busy', 'true');
     bouton.textContent = t('accueil.consultation');
-    location.hash = hash;
+    pont.aller(hash);
   }
 
   /**
@@ -164,7 +164,7 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
        main sans chercher pour rien. */
     if (estOeuf(saisie)) {
       const hash = pont.ecrireHash({ saisie });
-      if (hash) { location.hash = hash; return; }
+      if (hash) { pont.aller(hash); return; }
     }
 
     bouton.setAttribute('aria-busy', 'true');
@@ -195,7 +195,7 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
       erreur.textContent = t('accueil.erreurUrl');
       return;
     }
-    location.hash = hash;
+    pont.aller(hash);
   }
 
   formulaire.addEventListener('submit', (ev) => {
@@ -220,7 +220,7 @@ export function pageAccueil({ saisieInitiale = '' } = {}) {
       title: raccourci ? (x.aide || texte) : null,
       sur: {
         click: () => {
-          if (raccourci) { location.hash = raccourci; return; }
+          if (raccourci) { pont.aller(raccourci); return; }
           champ.value = texte;
           majCompteur();
           champ.focus();

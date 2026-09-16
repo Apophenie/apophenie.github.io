@@ -31,7 +31,7 @@ const moteur = creerMoteur(catalogue, { filetTemporel: false });
 const V2 = Object.freeze({ simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 });
 
 /** La voie d'un lien, sans registre, curseurs ni cran : ce qu'on lit dans le corpus. */
-const voie = (url) => String(url || '').split('#')[1]
+const voie = (url) => String(url || '').split('$')[0].slice(1)
   .replace(/^(?:(?:so|sce)!|c[0-9a-z]+!|p\d+\.\d+\.\d+\.\d+!|f-?\d+!)+/, '');
 
 const opsDe = (a) => [

@@ -506,8 +506,8 @@ test('fouille — elle sert, et elle finit', () => {
       `le meilleur global recule du cran ${f - 1} au cran ${f}`);
   }
   // Et elle finit : au dernier cran, la tête ne bouge plus.
-  assert.equal(moteur.enumerer(s, { fouille: 4 }).approches[0].url.split('#')[1].replace(/(^|!)f\d+!/, '$1'),
-    listes[3][0].url.split('#')[1].replace(/(^|!)f\d+!/, '$1'),
+  assert.equal(moteur.enumerer(s, { fouille: 4 }).approches[0].url.split('$')[0].slice(1).replace(/(^|!)f\d+!/, '$1'),
+    listes[3][0].url.split('$')[0].slice(1).replace(/(^|!)f\d+!/, '$1'),
     'au-delà, la recherche a fini');
 });
 
@@ -558,7 +558,7 @@ test('url — les marqueurs se lisent dans n’importe quel ordre, et s’écriv
       saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['tca', 'm36'] }],
       registre: 'sobre', cible: '111', curseurs: attendu, fouille: 2,
     }),
-    '#p10.20.30.40!f2!m36#3fq9KJ#HXLk',
+    '?p10.20.30.40!f2!m36$3fq9KJ$HXLk',
   );
 });
 

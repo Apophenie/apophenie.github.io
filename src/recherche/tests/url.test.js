@@ -2,8 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   lire, ecrire, ecrireApproche, descripteursDe, retouchesDe, canoniser, autreRegistre,
-  registreEffectif, BANDEAUX, RE_CODE,
-} from '../url.js';
+  registreEffectif, BANDEAUX, RE_CODE, chargeDeRequete, adresse} from '../url.js';
 import { encoderTexte, LIMITE_SAISIE } from '../base58.js';
 import { catalogue } from './_catalogue.js';
 import { reglagesDeBudget, PUISSANCE_ENUMERATION } from '../../config.js';
@@ -106,7 +105,7 @@ test('url — écriture canonique : aller-retour exact', () => {
   const s = ecrire({ saisie: 'hope', fragments: frags });
   // « Sobre » est le défaut, et le défaut ne s'écrit pas : seul `sce!` paraît
   // (`url.js`, « `so!` NE S'ÉCRIT PLUS »).
-  assert.equal(s, `#0.3:fp+ma1+cs,nv#${B58_HOPE}`);
+  assert.equal(s, `?0.3:fp+ma1+cs,nv$${B58_HOPE}`);
   const r = lire(s);
   assert.equal(r.saisie, 'hope');
   assert.deepEqual(r.fragments, frags);
@@ -175,7 +174,7 @@ test('★ portées groupées — la forme groupée EST la forme dépliée, champ
  * vient de la taper. Une abréviation qu'on ne peut pas garder n'en est pas une.
  */
 test('★ portées groupées — l’écriture les PRODUIT : l’aller-retour est exact', () => {
-  const lien = `#${GROUPE}#${B58_URL}`;
+  const lien = `?${GROUPE}$${B58_URL}`;
   const r = lire(lien);
   const reecrit = ecrire({ saisie: r.saisie, fragments: r.fragments, registre: r.registre });
   // ⚠️ `tca` ne s'écrit plus : on compare donc l'écriture à ELLE-MÊME une fois
@@ -384,7 +383,7 @@ test('★ url — aller-retour d’une retouche, au caractère près', () => {
      défaut, réinséré à la lecture (`url.js › CODE_DECOUPE_IMPLICITE`). Les liens
      qui le PORTENT restent lisibles — ceux d'hier le font —, mais la forme
      canonique s'en passe. Ce qui est comparé ici est une ÉCRITURE, donc sans. */
-  const lien = `#2:fr13;fl+mtal+m14+mpf#${encoderTexte('Donald Trump')}`;
+  const lien = `?2:fr13;fl+mtal+m14+mpf$${encoderTexte('Donald Trump')}`;
   const r = lire(lien);
   assert.equal(ecrire({
     saisie: r.saisie, retouches: r.retouches, fragments: r.fragments, registre: r.registre,
@@ -402,7 +401,7 @@ test('★ url — sans retouche, l’écriture est INCHANGÉE au caractère prè
      défaut, réinséré à la lecture (`url.js › CODE_DECOUPE_IMPLICITE`). Les liens
      qui le PORTENT restent lisibles — ceux d'hier le font —, mais la forme
      canonique s'en passe. Ce qui est comparé ici est une ÉCRITURE, donc sans. */
-  const attendu = `#m14+m36#${B58_HOPE}`;
+  const attendu = `?m14+m36$${B58_HOPE}`;
   assert.equal(ecrire({ saisie: 'hope', fragments: frags, registre: 'sobre' }), attendu);
   assert.equal(ecrire({ saisie: 'hope', fragments: frags, registre: 'sobre', retouches: [] }), attendu);
   assert.ok(!attendu.includes(';'));
@@ -428,7 +427,7 @@ test('★ url — la lecture des chiffres se tait, elle aussi, et se réinsère 
   // L'écriture : les deux implicites tombent, le reste ne bouge pas.
   const frags = [{ portee: null, resonance: null, codes: ['tca', 'm09', 'm36'] }];
   assert.equal(ecrire({ saisie: '12345666', fragments: frags, registre: 'sobre' }),
-    `#m36#${chiffres}`);
+    `?m36$${chiffres}`);
 
   // La lecture : les deux se remettent, dans cet ordre, et à leur place.
   const r = lire(`#m36#${chiffres}`);
@@ -456,7 +455,7 @@ test('★ url — une retouche seule ne désigne aucune démonstration', () => {
   // À l'écriture : une page de résultats n'a rien à préparer.
   assert.equal(ecrire({
     saisie: 'hope', retouches: [{ portee: null, resonance: null, codes: ['fr13'] }],
-  }), `##${B58_HOPE}`);
+  }), `?$${B58_HOPE}`);
 });
 
 test('★ url — pas d’abréviation de résonance dans une retouche', () => {
@@ -498,8 +497,8 @@ test('★ url — retouchesDe traduit l’étage amont d’une approche', () => 
 });
 
 test('url — écriture sans approche = page de résultats', () => {
-  assert.equal(ecrire({ saisie: 'hope' }), `##${B58_HOPE}`);
-  assert.equal(ecrire({ saisie: 'hope', fragments: [] }), `##${B58_HOPE}`);
+  assert.equal(ecrire({ saisie: 'hope' }), `?$${B58_HOPE}`);
+  assert.equal(ecrire({ saisie: 'hope', fragments: [] }), `?$${B58_HOPE}`);
 });
 
 test('url — la forme héritée n’est JAMAIS produite en écriture', () => {
@@ -526,11 +525,11 @@ test('url — canoniser() réécrit la barre d’adresse par replaceState', () =
     history: { replaceState: (...a) => appels.push(a) },
   };
   const frag = canoniser({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['nd'] }] }, faux);
-  assert.equal(frag, `#nd#${B58_HOPE}`);
+  assert.equal(frag, `?nd$${B58_HOPE}`);
   assert.equal(appels.length, 1);
-  assert.equal(appels[0][2], `/numherololgeek/#nd#${B58_HOPE}`);
+  assert.equal(appels[0][2], `/numherololgeek/?nd$${B58_HOPE}`);
   // Idempotent : si le hash est déjà canonique, on n’empile rien.
-  faux.location.hash = frag;
+  faux.location.search = frag; faux.location.hash = '';
   canoniser({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['nd'] }] }, faux);
   assert.equal(appels.length, 1);
 });
@@ -597,7 +596,7 @@ test('★ registre — un marqueur seul vaut « cherche, puis montre la 1ʳᵉ v
 });
 
 test('registre — la page de résultats n’en porte pas : rien à mettre en scène', () => {
-  assert.equal(ecrire({ saisie: 'hope' }), `##${B58_HOPE}`);
+  assert.equal(ecrire({ saisie: 'hope' }), `?$${B58_HOPE}`);
   assert.equal(lire(`##${B58_HOPE}`).registre, null);
 });
 
@@ -632,8 +631,8 @@ test('★ registre — `so!` ne s’écrit plus, et chaque forme se relit comme 
   ];
   const RETOUCHE = [{ portee: { offset: 2, longueur: 1 }, resonance: null, codes: ['fr13'] }];
   const REGLAGES = { curseurs: { simplicite: 10, exhaustivite: 20, quantite: 30, coherence: 40 }, fouille: 2 };
-  const avecSo = (hash) => `#so!${hash.slice(1)}`;
-  const enClair = (hash) => { const p = hash.split('#'); p[2] = `:${SAISIE}`; return p.join('#'); };
+  const avecSo = (url) => `?so!${url.slice(1)}`;
+  const enClair = (url) => { const p = url.split('$'); p[1] = `:${SAISIE}`; return p.join('$'); };
   const sansTrace = ({ registreEcrit, ...lecture }) => lecture;
   const champs = (l) => ({
     saisie: l.saisie, fragments: l.fragments, retouches: l.retouches, registre: l.registre,
@@ -661,7 +660,7 @@ test('★ registre — `so!` ne s’écrit plus, et chaque forme se relit comme 
 
             // 1. `so!` jamais écrit ; `sce!` exactement quand on le jouera.
             assert.doesNotMatch(s, /so!/, nom);
-            assert.equal(s.startsWith('#sce!'), avecProgramme && joue === 'scenique', nom);
+            assert.equal(s.startsWith('?sce!'), avecProgramme && joue === 'scenique', nom);
 
             // 2. L'aller-retour.
             const l = lire(s);
@@ -709,7 +708,7 @@ test('★ registre — `so!` ne s’écrit plus, et chaque forme se relit comme 
 test('★ registre — le scénique replié n’écrit aucun marqueur, et l’aller-retour reste fidèle', () => {
   const fragments = [{ portee: null, resonance: null, codes: ['nd'] }];
   const s = ecrire({ saisie: 'hope', fragments, registre: 'scenique', cible: '111' });
-  assert.equal(s, `#nd#${B58_HOPE}#${encoderTexte('111')}`, '111 n’a pas d’emblème : rien à écrire');
+  assert.equal(s, `?nd$${B58_HOPE}$${encoderTexte('111')}`, '111 n’a pas d’emblème : rien à écrire');
   const l = lire(s);
   assert.equal(l.registre, 'sobre');
   assert.equal(ecrire({ saisie: l.saisie, fragments: l.fragments, registre: l.registre, cible: l.cible }), s);
@@ -734,9 +733,9 @@ test('★ registre — canoniser() retire le `so!` d’un lien publié', () => {
   const frag = canoniser({
     saisie: lu.saisie, fragments: lu.fragments, registre: lu.registre, curseurs: lu.curseurs, fouille: lu.fouille,
   }, faux);
-  assert.equal(frag, `#p10.20.30.40!f2!m36#${B58_HOPE}`);
+  assert.equal(frag, `?p10.20.30.40!f2!m36$${B58_HOPE}`);
   assert.equal(appels.length, 1);
-  assert.equal(appels[0][2], `/numherololgeek/#p10.20.30.40!f2!m36#${B58_HOPE}`);
+  assert.equal(appels[0][2], `/numherololgeek/?p10.20.30.40!f2!m36$${B58_HOPE}`);
 });
 
 test('★ registre — un texte qui commence par « so! » reste une saisie', () => {
@@ -748,7 +747,7 @@ test('★ registre — un texte qui commence par « so! » reste une saisie', ()
   const b58 = lire(`#${encoderTexte('so!Machin')}`);
   assert.equal(b58.saisie, 'so!Machin');
   // Et une saisie « so!Machin » s'écrit en base58 : aucun `!` ne sort dans le lien.
-  assert.equal(ecrire({ saisie: 'so!Machin' }), `##${encoderTexte('so!Machin')}`);
+  assert.equal(ecrire({ saisie: 'so!Machin' }), `?$${encoderTexte('so!Machin')}`);
 });
 
 test('★ url — une démonstration sans programme ne s’écrit pas : l’échec est bruyant', () => {
@@ -811,8 +810,8 @@ test('★ registre — la forme longue se relit, la forme brève s’écrit — 
   // `so!` ne s'écrit plus du tout (`url.js`, « `so!` NE S'ÉCRIT PLUS ») : le
   // préfixe attendu du sobre est donc l'absence de marqueur.
   for (const [long, bref, attendu, prefixe] of [
-    ['sobre', 'so', 'sobre', '#ma1#'],
-    ['scenique', 'sce', 'scenique', '#sce!ma1#'],
+    ['sobre', 'so', 'sobre', '?ma1$'],
+    ['scenique', 'sce', 'scenique', '?sce!ma1$'],
   ]) {
     assert.equal(lire(`#${long}!ma1+cs+prn#${B58_HOPE}`).registre, attendu,
       `« ${long}! » n’est plus compris : les liens de la 1.2.0 sont morts`);
@@ -820,7 +819,7 @@ test('★ registre — la forme longue se relit, la forme brève s’écrit — 
     // Et c'est la forme brève qui sort, quelle que soit celle qui est entrée.
     const ecrit = ecrire({ saisie: 'hope', fragments: [{ codes: ['ma1'] }], registre: attendu });
     assert.ok(ecrit.startsWith(prefixe), `écrit « ${ecrit} », attendu le préfixe « ${prefixe} »`);
-    assert.doesNotMatch(ecrit, new RegExp(`^#${long}!`), 'la forme longue est encore écrite');
+    assert.doesNotMatch(ecrit, new RegExp(`^\\?${long}!`), 'la forme longue est encore écrite');
   }
 });
 
@@ -984,8 +983,8 @@ test('saisie en clair — le plafond de saisie vaut aussi pour le texte brut', (
  */
 test('★ saisie en clair — l’écriture reste en base58, la barre d’adresse se corrige', () => {
   const frags = [{ portee: null, resonance: null, codes: ['tca', 'm36'] }];
-  assert.equal(ecrire({ saisie: 'Macron', fragments: frags }), `#m36#${encoderTexte('Macron')}`);
-  assert.equal(ecrire({ saisie: 'Donald Trump' }), `##${encoderTexte('Donald Trump')}`);
+  assert.equal(ecrire({ saisie: 'Macron', fragments: frags }), `?m36$${encoderTexte('Macron')}`);
+  assert.equal(ecrire({ saisie: 'Donald Trump' }), `?$${encoderTexte('Donald Trump')}`);
 
   const appels = [];
   const faux = {
@@ -995,7 +994,7 @@ test('★ saisie en clair — l’écriture reste en base58, la barre d’adress
   const lu = lire(faux.location.hash);
   canoniser({ saisie: lu.saisie, fragments: lu.fragments, registre: lu.registre }, faux);
   assert.equal(appels.length, 1, 'un lien tapé à la main n’est pas laissé en l’état');
-  assert.equal(appels[0][2], `/numherololgeek/#m36#${encoderTexte('Macron')}`,
+  assert.equal(appels[0][2], `/numherololgeek/?m36$${encoderTexte('Macron')}`,
     'le clair devient base58, `tca` et `so!` tombent');
 });
 
@@ -1184,4 +1183,97 @@ test('★ commande — l’énumération classe le compte juste devant l’à-pe
   assert.ok(trop.approches[0].score * 5 < juste.approches[0].score,
     `manque ${trop.approches[0].score} contre juste ${juste.approches[0].score} : `
     + 'le malus de manque doit être énorme');
+});
+
+/* ═════════════════ LES DEUX PORTEURS — la promesse tenue ═════════════════ */
+
+/**
+ * ★ **TOUT LIEN DÉJÀ PUBLIÉ S'OUVRE ENCORE, ET SUR LA MÊME PAGE.**
+ *
+ * La démonstration a quitté le fragment pour la requête : un fragment n'a pas
+ * le droit de contenir un `#` (RFC 3986, `fragment = *( pchar / "/" / "?" )`),
+ * si bien que nos `##…` étaient hors grammaire et qu'un navigateur pouvait les
+ * recoder. Mais des liens sont partagés depuis la publication, et ils ne
+ * peuvent pas mourir d'un changement de porteur.
+ *
+ * Ce test gèle l'ISOMORPHISME : à chaque forme de fragment répond une forme de
+ * requête qui se lit exactement pareil — même `forme`, même saisie, même cible.
+ * Le nombre de séparateurs porte la même distinction qu'avant.
+ */
+test('★ porteurs — chaque forme publiée en fragment a sa jumelle en requête', () => {
+  const H = encoderTexte('hope');
+  for (const [fragment, requete, forme, saisie, cible] of [
+    ['#:hope', '?:hope', 'premiere', 'hope', '666'],
+    ['##:hope', '?$:hope', 'resultats', 'hope', '666'],
+    ['##:hope#:111', '?$:hope$:111', 'premiere', 'hope', '111'],
+    ['#sce!m14#:hope', '?sce!m14$:hope', 'canonique', 'hope', '666'],
+    [`##${H}`, `?$${H}`, 'resultats', 'hope', '666'],
+    [`#${H}`, `?${H}`, 'premiere', 'hope', '666'],
+    [`#3+7+2#${H}`, `?3+7+2$${H}`, 'heritee', 'hope', '666'],
+    [`#so!#${H}`, `?so!$${H}`, 'premiere', 'hope', '666'],
+  ]) {
+    for (const [porteur, lien] of [['fragment', fragment], ['requête', requete]]) {
+      const l = lire(lien);
+      assert.equal(l.forme, forme, `${porteur} « ${lien} » : forme`);
+      assert.equal(l.saisie, saisie, `${porteur} « ${lien} » : saisie`);
+      assert.equal(l.cible.texte, cible, `${porteur} « ${lien} » : cible`);
+    }
+  }
+});
+
+/**
+ * ★ **LE PORTEUR CHOISIT SON SÉPARATEUR — ET C'EST CE QUI REND LA PROMESSE
+ *   TENABLE.**
+ *
+ * `$` était un caractère ordinaire du temps du fragment : une saisie pouvait en
+ * contenir un, et un vieux lien qui en porte un ne doit pas se découper dessus.
+ * Symétriquement, `#` n'est rien dans une requête. Et dans les deux porteurs,
+ * le découpage précède le décodage pourcent (voir `lire()`), de sorte que
+ * `%23` désigne un `#` du texte et `%24` un `$` du texte, jamais un séparateur.
+ */
+test('★ porteurs — un `$` de fragment et un `#` de requête ne séparent rien', () => {
+  assert.equal(lire('#:100$').saisie, '100$',
+    'le `$` d’un lien publié appartient à la saisie, il ne la coupe pas');
+  assert.equal(lire('##%23JeSuis666').saisie, '#JeSuis666',
+    '`%23` reste un `#` DANS la saisie — découper précède décoder');
+  assert.equal(lire('?$%24litteral').saisie, '$litteral',
+    '`%24` est un `$` du texte, jamais un séparateur');
+  assert.equal(lire('?$:100#bis').saisie, '100#bis',
+    'le `#` d’une requête appartient à la saisie');
+});
+
+/**
+ * ★ **UN PARAMÈTRE ORDINAIRE COHABITE AVEC LA DÉMONSTRATION.**
+ *
+ * La charge d'une démonstration n'est pas un couple `clé=valeur` : c'est un
+ * segment nu. `?debug=1` doit donc pouvoir vivre dans la même requête sans être
+ * pris pour une saisie, et sans disparaître quand on navigue. Le crible exige
+ * d'un paramètre un nom commençant par une LETTRE — ce qui laisse `?:2+2=4`
+ * du côté des saisies, là où une comparaison naïve sur `=` l'aurait perdu.
+ */
+test('★ porteurs — un paramètre ordinaire cohabite avec la charge, et lui survit', () => {
+  const H = encoderTexte('hope');
+  assert.equal(chargeDeRequete('?debug=1'), '', 'un paramètre seul ne désigne aucune démonstration');
+  assert.equal(chargeDeRequete('?a=1&b=2'), '');
+  assert.equal(chargeDeRequete('?$:hope'), '$:hope');
+  assert.equal(chargeDeRequete('?$:hope&debug=1'), '$:hope');
+  assert.equal(chargeDeRequete('?debug=1&$:hope'), '$:hope', 'l’ordre est indifférent');
+  assert.equal(chargeDeRequete('?:2+2=4'), ':2+2=4',
+    'un `=` ne fait pas un paramètre sans nom de paramètre');
+
+  // ★ L'adresse RECONDUIT l'étranger, et JETTE l'ancienne charge : sans quoi
+  //   chaque navigation empilerait la précédente dans la barre d'adresse.
+  const ailleurs = { location: { pathname: '/nhlg/', search: '?$vieux&debug=1', hash: '' } };
+  assert.equal(adresse(`?m14$${H}`, ailleurs), `/nhlg/?m14$${H}&debug=1`);
+
+  // ★ Et la canonisation d'un lien PUBLIÉ abandonne le fragment sans emporter
+  //   le paramètre avec lui.
+  const appels = [];
+  const faux = {
+    location: { pathname: '/nhlg/', search: '?debug=1', hash: `#so!m14#${H}` },
+    history: { replaceState: (...a) => appels.push(a[2]) },
+  };
+  canoniser({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['m14'] }] }, faux);
+  assert.equal(appels[0], `/nhlg/?m14$${H}&debug=1`,
+    'le vieux fragment tombe, le paramètre reste');
 });

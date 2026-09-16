@@ -72,6 +72,8 @@ export function preparer() {
       M.lire = url.lire;
       M.ecrire = url.ecrire;
       M.canoniser = url.canoniser;
+      M.adresse = url.adresse;
+      M.chargeDeRequete = url.chargeDeRequete;
       M.BANDEAUX = url.BANDEAUX;
       // Le REGISTRE de mise en scène appartient à la grammaire d'URL, comme
       // tout le reste : l'interface ne redéfinit ni ses noms, ni son défaut,
@@ -274,6 +276,63 @@ export function ecrireHash(demonstration) {
 export function canoniser(demonstration) {
   if (!M.canoniser) return null;
   try { return M.canoniser(demonstration); } catch { return null; }
+}
+
+/** La charge de démonstration portée par la requête courante, ou `''`. */
+export function chargeDeRequete(search) {
+  if (!M.chargeDeRequete) return '';
+  try { return M.chargeDeRequete(search); } catch { return ''; }
+}
+
+/** L'adresse complète où mène un lien — chemin, charge, paramètres reconduits. */
+export function adresse(url) {
+  if (!M.adresse) return null;
+  try { return M.adresse(url); } catch { return null; }
+}
+
+/**
+ * ★ **ALLER À UN LIEN — le seul geste de navigation de l'interface.**
+ *
+ * La démonstration a quitté le fragment pour la requête, et changer de requête
+ * n'est plus un `location.hash = …` : c'est un `pushState`, suivi du `popstate`
+ * que le routeur écoute. Mesuré sur Chromium, Brave et Firefox, `pushState`
+ * fonctionne aussi en `file://` — le site continue donc de s'ouvrir depuis un
+ * disque, ce qui est la raison d'être de `base: './'`.
+ *
+ * ⚠️ Sans `pushState` — un navigateur qui le refuserait —, on NAVIGUE pour de
+ *   bon plutôt que de ne rien faire : la page se recharge, ce qui est plus lent
+ *   et parfaitement correct. On ne reste jamais muet sur un clic.
+ */
+export function aller(url, { remplacer = false } = {}) {
+  const cible = adresse(url);
+  if (!cible) {
+    // Un clic qui ne mène nulle part est un ÉCHEC, et il se dit — comme partout
+    // ailleurs dans ce fichier. Rester muet laisserait croire à un site figé.
+    console.error('[NumHeroLOLgeek] navigation impossible : aucune adresse pour', url);
+    return false;
+  }
+  const geste = remplacer ? 'replace' : 'assign';
+  const pousse = remplacer ? 'replaceState' : 'pushState';
+  const h = typeof history === 'undefined' ? null : history;
+  /* ★ **ON EXIGE LES DEUX MOYENS AVANT DE POUSSER : l'état, ET l'événement qui
+     l'annonce.** Le routeur n'écoute que `popstate`, et `pushState` ne l'émet
+     pas de lui-même. Pousser un état que personne ne routerait changerait la
+     barre d'adresse sans changer la page — un clic mort, et silencieux, qui est
+     exactement la panne la plus difficile à voir. Faute de l'un ou de l'autre,
+     on NAVIGUE pour de bon : la page se recharge, c'est plus lent, et c'est
+     juste. */
+  const peutPousser = h && typeof h[pousse] === 'function'
+    && typeof window !== 'undefined' && typeof PopStateEvent === 'function';
+  if (!peutPousser) { location[geste](cible); return true; }
+  try {
+    h[pousse](null, '', cible);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  } catch {
+    // Poussé mais non annoncé, ou refusé : la navigation franche rattrape les
+    // deux cas, et rejouer la même adresse est sans effet de bord.
+    location[geste](cible);
+  }
+  return true;
 }
 
 export const reponseDediee = (saisie) =>

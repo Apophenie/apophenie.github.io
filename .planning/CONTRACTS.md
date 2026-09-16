@@ -2684,7 +2684,7 @@ casse, et dans le même ordre que la déclaration.
 ### 4.2 Grammaire
 
 ```
-url        := {chemin} '#' [approche] '#' b58(saisie)
+url        := {chemin} '?' [approche] '$' b58(saisie)
 approche   := fragment (',' fragment)*
 fragment   := [portee ':'] programme
 portee     := offset '.' longueur          // en tokens ; absent ⇒ saisie entière
@@ -3172,18 +3172,18 @@ programme  := code ('+' code)*
 Exemples :
 
 ```
-#fp+tca+ma1+cs+prn#3fq9KJ                        une seule voie, saisie entière
-#×3:ma1+cs+prn#4CWoMo83vssW                     résonance : trois fois la même méthode
-#0.1:ma1+cs+prn,1.1:nv+prn,2.1:mch+cst#4CWoMo83    trois fragments, méthodes distinctes
-##3fq9KJ                                       page de résultats (README)
-#c111!#3fq9KJ                                  page de résultats, mais pour 111
-#Donald Trump                                  cherche, puis montre la 1ʳᵉ voie
-#c111!sce!#Donald Trump                        idem, avec les réglages du lien
-#tca+m36#Donald Trump                          ce programme, sur cette saisie en clair
-#c007!0.1+2.1:tca+mboc+cp,6.1:tca+mms+cs#…      une voie qui écrit 007
-#0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+mpy+mr9#…   trois groupes, six places
-#2.1:fr13;fl+tca+mtal+m14+mpf#2HuP1G8mNg3sJWhqR      on chiffre « Trump », puis on lit tout
-#sce!2.1:fr13;fl+tca+mtal+m14+mpf#2HuP1G8mNg3sJWhqR  la même, mise en scène : seul `sce!` s'écrit
+?fp+tca+ma1+cs+prn$3fq9KJ                        une seule voie, saisie entière
+?×3:ma1+cs+prn$4CWoMo83vssW                     résonance : trois fois la même méthode
+?0.1:ma1+cs+prn,1.1:nv+prn,2.1:mch+cst$4CWoMo83    trois fragments, méthodes distinctes
+?$3fq9KJ                                       page de résultats (README)
+?c111!$3fq9KJ                                  page de résultats, mais pour 111
+?Donald Trump                                  cherche, puis montre la 1ʳᵉ voie
+?c111!sce!$Donald Trump                        idem, avec les réglages du lien
+?tca+m36$Donald Trump                          ce programme, sur cette saisie en clair
+?c007!0.1+2.1:tca+mboc+cp,6.1:tca+mms+cs$…      une voie qui écrit 007
+?0.1+2.1+4.1:tca+m14,1.1+3.1:tca+mtc+cs,6.1:tca+mpy+mr9$…   trois groupes, six places
+?2.1:fr13;fl+tca+mtal+m14+mpf$2HuP1G8mNg3sJWhqR      on chiffre « Trump », puis on lit tout
+?sce!2.1:fr13;fl+tca+mtal+m14+mpf$2HuP1G8mNg3sJWhqR  la même, mise en scène : seul `sce!` s'écrit
 ```
 
 ⚠️ L'exemple 007 ci-dessus s'écrivait `0.1:tca+mboc+cp,2.1:tca+mboc+cp,…` avant
@@ -3258,10 +3258,86 @@ voisines » garantit.
 > relecture. `tests/lents/cible-mot.test.js` les porte en `todo`, avec ce qu'il
 > faudrait ajouter.
 
+#### Amendement — LA DÉMONSTRATION QUITTE LE FRAGMENT POUR LA REQUÊTE
+
+> « je n'ai aucune objection à ce que les URL soient transmises aux serveurs »
+> (l'autrice)
+
+★ **CE QUI N'ALLAIT PAS, ET QUI A ÉTÉ MESURÉ.** Deux défauts constatés, pas
+supposés :
+
+1. **Les `##` ne survivaient pas à certains navigateurs** (Brave sur macOS les
+   fusionne ou les retraite). La cause est établie et tient en une ligne de la
+   RFC 3986 : `fragment = *( pchar / "/" / "?" )`, et `#` n'est pas un `pchar`.
+   Un fragment n'a donc pas le droit d'en contenir : nos liens étaient hors
+   grammaire, et **tout normaliseur d'URL était en droit de les recoder**.
+2. **Sur Telegram, la vignette de partage perdait l'ancre** : la carte est
+   cliquable vers `og:url`, que le build fixait à `BASE_CANONIQUE` — donc vers
+   l'accueil, jamais vers la démonstration partagée.
+
+★ **CE QUI EST DÉCIDÉ.** La démonstration vit dans la REQUÊTE, et ses segments
+se séparent par **`$`**. `$` est un `sub-delim` de la RFC, autorisé tel quel
+dans une query, jamais recodé, et absent de la grammaire (`+ , ; : . !` étaient
+déjà pris). Ont été écartés : `~` (trop discret), `§` (non-ASCII, toujours
+`%C2%A7`) et `|` (illégal, donc parfois `%7C`). `og:url` est retiré — c'est ce
+qui traite précisément le symptôme Telegram ; `<link rel="canonical">` reste,
+car il parle du DOCUMENT servi.
+
+★ **LA FORME EST ISOMORPHE À L'ANCIENNE** : le nombre de séparateurs porte la
+même distinction, au signe près.
+
+```
+?:hope           cherche puis anime la 1ʳᵉ voie      (hier #:hope)
+?$:hope          cherche puis ÉNUMÈRE                (hier ##:hope)
+?$:hope$:111     la liste, pour la cible 111         (hier ##:hope#:111)
+?sce!m14$:hope   ce programme, registre scénique     (hier #sce!m14#:hope)
+```
+
+★ **LE PORTEUR CHOISIT SON SÉPARATEUR — et c'est ce qui rend la promesse
+tenable.** `?` ⇒ la requête, séparateur `$` ; `#` (ou rien) ⇒ le fragment,
+séparateur `#`. Les deux grammaires sont étanches dans les deux sens : un `$`
+dans un lien de fragment est un caractère de la saisie (`#:100$` vise bien
+« 100$ »), un `#` dans une requête aussi. Le découpage précède toujours le
+décodage pourcent, de sorte que **`%23` désigne un `#` du texte et `%24` un `$`
+du texte, jamais un séparateur** — dans l'un comme dans l'autre porteur. Côté
+requête la garantie est même plus forte : `ecrire()` ne pose que du base58,
+dont l'alphabet ignore `$`.
+
+⚠️ **`?debug=1` COHABITE.** La charge d'une démonstration n'est pas un couple
+`clé=valeur` : c'est un segment nu. Les deux se séparent par `&`, et le crible
+exige d'un paramètre un nom commençant par une LETTRE — si bien que `?:2+2=4`
+reste une saisie là où `?debug=1` est un paramètre.
+
+★ **`file://` SUIT, ET ÇA A ÉTÉ MESURÉ AVANT D'ÉCRIRE UNE LIGNE.** C'était le
+risque du chantier : le routeur vivait sur `hashchange`, et passer à la requête
+impose `pushState` + `popstate`, que plusieurs navigateurs refusent en `file://`
+(`SecurityError`). Relevé sur Chromium 152, Brave 153 et Firefox 155 :
+`pushState` et `replaceState` avec une requête **réussissent en `file://` dans
+les trois** (y compris sous Firefox, dont l'origine y est pourtant `null`) ;
+l'ouverture directe d'un `file://…?$:hope` charge la page ; `$` n'est jamais
+recodé et `%24` reste distinct ; et sur le `dist/` réel, les assets relatifs de
+`base: './'` se résolvent **sans une seule erreur** avec une requête présente.
+Aucun repli n'a donc été nécessaire, et `base: './'` garde sa raison d'être.
+
+⚠️ **L'ANGLE MORT ASSUMÉ : WebKit.** Aucun moteur WebKit n'est installable sur
+la machine de mesure (Playwright ne le fournit pas pour cette distribution), et
+Safari n'a donc pas été éprouvé — or c'est le moteur historiquement le plus
+strict sur `file://`. Les trois mesures disponibles concordent, et le repli en
+cas de refus est déjà écrit (`pont.js › aller` : sans `pushState`, on NAVIGUE
+pour de bon plutôt que de rester muet).
+
+★ **CE QUE ÇA RAPPORTE EN PLUS.** La réserve posée sur la deuxième entrée du
+plan du site est levée : un moteur de recherche ignore le fragment — `…/#sce!…`
+et `…/` étaient la même URL pour lui — mais il voit la requête. L'entrée du
+`sitemap.xml` désigne enfin quelque chose qu'un robot peut distinguer.
+
 ### 4.3 Lecture tolérante, écriture canonique
 
 | Forme lue | Comportement |
 |---|---|
+| Grammaire §4.2, portée par la REQUÊTE (`?…$…`) | **Rejouée telle quelle, sans recherche.** C'est la forme écrite. |
+| La même grammaire portée par le FRAGMENT (`#…#…`), séparateurs `#` | **Lue à l'identique, et pour toujours** — c'est la forme qu'a publiée le site jusqu'ici. La barre d'adresse est réécrite en requête à l'ouverture. Voir la ligne suivante pour ce qui rend les deux étanches. |
+| Un `$` dans un lien de FRAGMENT, un `#` dans un lien de REQUÊTE | **Un caractère ordinaire, jamais un séparateur.** Le porteur choisit son séparateur : `#:100$` garde sa saisie « 100$ ». Le découpage précède le décodage pourcent, donc `%24` désigne un `$` du texte et `%23` un `#` du texte — dans les deux porteurs. |
 | Grammaire §4.2 | **Rejouée telle quelle, sans recherche.** |
 | `#3+7+2#…` (rangs hérités du README) | Recherche relancée, rangs 3/7/2 du classement courant, bandeau discret « démonstration recalculée ». |
 | `##…` | Page de résultats. |
@@ -3278,6 +3354,15 @@ voisines » garantit.
 
 **Un lien ne renvoie jamais silencieusement vers une autre démonstration :** soit il
 rejoue exactement, soit il l'annonce.
+
+**Pourquoi la démonstration a quitté le fragment.** La RFC 3986 pose
+`fragment = *( pchar / "/" / "?" )`, et `#` n'est pas un `pchar` : un fragment n'a pas
+le droit d'en contenir un. Les liens `#…#…` étaient donc hors grammaire, et tout
+normaliseur d'URL était en droit de les recoder — ce que fait Brave sur macOS. Le
+séparateur retenu est `$`, `sub-delim` de la RFC, autorisé tel quel dans une requête,
+jamais recodé, et absent de la grammaire (`+ , ; : . !` étaient pris). La requête, elle,
+est envoyée au serveur, ce que l'autrice a explicitement accepté — et ce qui rend
+enfin indexable la deuxième entrée du plan du site.
 
 À l'ouverture d'une démonstration, l'application réécrit **toujours** la barre d'adresse
 en forme canonique via `history.replaceState`. L'utilisateur qui copie l'URL copie donc
