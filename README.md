@@ -124,10 +124,48 @@ Le site est écrit en modules ES natifs et n'a **aucune dépendance à l'exécut
 | `bun run dev` | le serveur Vite sur `src/` |
 | `bun run build` | replie le site dans `dist/`, ouvrable en `file://` |
 | `bun run test` | la suite de routine (`npm test` lance la même) : `node --test` sur les sources, sans build préalable |
-| `bun run test:lent` | la suite lente : les recherches complètes, le classement, les arbitrages, les budgets |
+| `bun run test:lent` | la suite lente : les recherches complètes, le classement, les arbitrages, les budgets — voir juste en dessous |
 | `bun run test:tout` | les deux suites, l'une après l'autre |
 | `bun run check` | les deux suites puis le build — ce que la CI exécute |
 | `bun run logo` | régénère le logo, le favicon et le banc d'essai |
+
+### La suite lente parle pendant qu'elle tourne
+
+`bun run test:lent` passe par `scripts/test-lent.mjs` plutôt que par un `node --test`
+direct, pour une raison simple : sur dix-sept fichiers qui lancent de vraies recherches,
+`node --test` n'écrit **rien** avant la fin — trois quarts d'heure de silence, une heure
+sous charge. Le lanceur exécute **un processus par fichier** et annonce chacun deux fois,
+au départ puis au verdict, avec l'horloge depuis le début :
+
+```
+[  0:00] départ   src/recherche/tests/lents/sieges.test.js
+[  0:16] vert     src/recherche/tests/lents/sieges.test.js  ·  5 tests, 16,2 s  ·  1/17
+[  4:02] ROUGE    src/recherche/tests/lents/progression.test.js  ·  12 tests dont 1 échoué, 42,1 s  ·  5/17
+
+Relance seule de 1 fichier rouge — un à la fois, rien d'autre en parallèle.
+[  4:44] VERT SEUL src/recherche/tests/lents/progression.test.js  ·  12 tests, 38,4 s  ·  1/1
+           ↳ vert seul, rouge sous charge : la machine, pas le code.
+```
+
+Trois règles, et elles se tiennent :
+
+* **Un seul niveau de parallélisme.** `node --test` a le sien (`--test-concurrency`, qui
+  compte des fichiers) ; on lui passe `--test-concurrency=1` et c'est le lanceur, et lui
+  seul, qui ouvre les voies — `availableParallelism() / 2`, au moins une, réglable par
+  `TEST_LENT_PARALLELISME`. Sans ça, les deux niveaux se multiplieraient.
+* **Tout fichier rouge est rejoué SEUL**, rien d'autre en vol. S'il passe alors, il compte
+  vert mais il est **signalé** « vert seul, rouge sous charge » dans le bilan : c'est une
+  information sur la machine, pas un défaut à cacher. S'il rougit encore, c'est un vrai
+  échec et le code de sortie est non nul. Un fichier dont le bilan TAP est illisible —
+  processus tué, sortie tronquée — est un échec, jamais un succès par défaut.
+* **La reprise se demande.** Les fichiers verts sont notés au fil de l'eau dans
+  `.test-lent-etat.json` (ignoré par git) ; `--reprise` (ou `TEST_LENT_REPRISE=1`) repart
+  de là après une interruption. Une exécution normale repart **de zéro** : une reprise
+  implicite mentirait sur ce qui a été vérifié.
+
+Le verdict, lui, ne dépend ni de l'ordre ni du parallélisme : chaque fichier a son propre
+processus, et l'ordre de lancement comme celui du bilan suivent le tri des chemins.
+`node scripts/test-lent.mjs --aide` liste les options.
 
 `bun run logo` appelle `src/gfx/logo-jost-trace.py` (fontTools requis). Il réécrit quatre
 fichiers : le banc d'essai `src/gfx/_logo-test.html`, `favicon.svg`, et — entre les repères

@@ -8,6 +8,13 @@
 # le build. Les deux comptent : le site doit être vert ET constructible. Un test
 # rouge n'est donc jamais publié.
 #
+# La commande ne change pas, mais ce qu'elle écrit, si : la suite lente passe
+# désormais par `scripts/test-lent.mjs`, qui annonce chaque fichier au départ
+# puis à son verdict, horloge en tête. Le journal du job n'est plus muet pendant
+# trois quarts d'heure. Le lanceur rejoue SEUL tout fichier rouge : un rouge dû
+# à la charge du runner se rattrape, signalé « vert seul, rouge sous charge »
+# dans le bilan, sans jamais masquer un vrai échec — celui-là rougit deux fois.
+#
 # ⚠ Le miroir GitLab (`.gitlab-ci.yml`) fait exactement la même chose pour
 # Framagit. Les deux doivent rester d'accord sur la commande — `bun run check` —
 # pour qu'un site vert ici ne soit pas rouge là-bas.
