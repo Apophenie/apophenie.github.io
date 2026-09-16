@@ -43,6 +43,35 @@
 - **Les bornes de l'étage des retouches**, jamais balayées l'une contre l'autre.
   → [A-VENIR-retouches.md](A-VENIR-retouches.md), §3, « Ce qui reste ouvert sur
   cet étage »
+- **Les absorptions en ficelles (`mab`/`mabx`/`mabd`) — essayé, mesuré, écarté.**
+  « Peut-être que c'est `mab` qu'il faudrait ajouter aux ficelles pour que ça ne
+  soit utilisé qu'en dernier recours » (l'autrice). C'est FAISABLE : le registre
+  de `elegance.test.js` n'est pas un obstacle, et le compteur `absorptions` se
+  scinde (`absorptionsExactes` pour `mrdE`) sans toucher au barème — contrôle au
+  bit près sur les 24 voies à `mrdE` : diff VIDE. Le prix, lui, reste la SOMME des
+  deux compteurs, donc `mab` ne paie pas un poste de plus.
+  ⚠️ **Ce que ça coûte** : 1 liste sur 26 change, 0 tête sur 26 — et ce seul
+  changement est une SORTIE SÈCHE. Sur « Sarah Kerrigan » → 007, `tca+masb+mabx`
+  (global 572, rang 8 sur 11) quitte la liste et RIEN n'entre, pendant que trois
+  voies moins bien notées survivent (547, 538, 518). La cause est mesurée :
+  `vierge()` et `honnete()` (`assemblage.js` 1613 / 1723) ne nommaient que
+  `m.absorption` et ramassent `mabx`/`mabd` dès qu'ils entrent dans `FICELLES` ;
+  le siège « addition uniquement » les refuse alors à bon droit, mais AUCUN
+  successeur éligible n'existe pour reprendre la place.
+  ⚠️ **Ce que ça rapporte** : aucune mesure ne le constate. L'option 1 (siège doté
+  de sa propre liste de refus) déloge déjà les trois `mab` des lignes réservées,
+  « Marie Curie » comprise, sans geste dédié.
+  Deux replis ont été mesurés et tous deux refusés : exempter `mabx`/`mabd` des
+  deux filtres rend 0/26 mais ROUVRE SCIEMMENT l'omission que l'inscription venait
+  de fermer (un chiffre propre acheté en débranchant ce qu'on installe) ; faire
+  retomber le siège sur un candidat non encore élu ne change RIEN (mesuré :
+  liste identique à l'octet près). Écarté le 17 septembre 2026.
+- **Deux têtes `alambiquée` sur « Sarah Kerrigan » → 007 — condition PRÉEXISTANTE.**
+  `=mdl0!fatb+tca+mexc+cs` et `=mdlc!fr14+tca+mt9+cp` occupent les deux lignes
+  réservées de ce couple et comptent 8 gestes chacune. `fenetre-sieges.mjs` les
+  signale à chaque passage. Ce n'est imputable à aucun chantier récent : vérifié
+  sur DEUX arbres (têtes changées 0/26 des deux côtés). À traiter pour elles-mêmes
+  si on y revient, pas comme une régression.
 
 ## Les glyphes
 
