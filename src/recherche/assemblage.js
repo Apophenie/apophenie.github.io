@@ -3979,6 +3979,30 @@ export function assembler(saisie, fragments, parFrag, ctx) {
         let meilleur = -1;
         for (const c of large) {
           if (dejaGardes.has(codesDe(c))) continue;
+          /* ★ **UN SIÈGE N'ASSOIT JAMAIS UNE FICELLE.**
+             MESURÉ : le siège élisait `fl+tca+m14+mad` sur
+             `https://hope-hope-hope.fr/` — global 786, le deuxième meilleur —,
+             et la liste étant rangée par le global, elle se posait à la 2ᵈ
+             place, c'est-à-dire DANS les deux lignes que le test gelé protège
+             (`elegance.test.js › ★ ficelles`, « l'interdiction PORTE SUR LES
+             DEUX »). Le siège existe pour faire entrer une voie que la coupe
+             cachait, jamais pour introduire un dernier recours.
+
+             ⚠️ **LU SUR LES OPÉRATEURS, PAS SUR LE BILAN — et c'est MESURÉ.**
+               La première version demandait `emploieUneFicelle(essai.bilan)`.
+               Elle ne s'est JAMAIS déclenchée : `index.js › evaluerUneVoie` est
+               MÉMOÏSÉ, et sur un coup de cache il rend la note sans appeler
+               `noter`, si bien que `essai.bilan` reste indéfini et que le garde
+               répondait « pas de ficelle » sur toutes les voies déjà vues. On
+               lit donc la table `FICELLES` sur les identifiants d'opérateur —
+               ce que ce fichier fait déjà ailleurs (`vierge`) —, ce qui ne
+               dépend d'aucune notation, ni d'aucun cache.
+
+             ★ Aucun repli : si tout ce que la fenêtre offre au-delà de la coupe
+               emploie une ficelle, le fragment n'a pas de siège. Un siège est
+               facultatif ; en forcer un rouvrirait la porte qu'on ferme. */
+          if (c.ops.some((o) => o && o.id
+            && Object.prototype.hasOwnProperty.call(FICELLES, o.id))) continue;
           const essai = approche('GROUPEMENT', [{ fragment: f, chemin: c }]);
           const note = ctx.evaluerUneVoie(essai);
           const g = note && Number.isFinite(note.global) ? note.global : -1;

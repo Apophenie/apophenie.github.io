@@ -1137,13 +1137,29 @@ export function creerMoteur(catalogue, options = {}) {
         //   quota du quatorze segments avec les deux champions, et n'entrait pas.
         //   Ne pas compter les champions n'y suffisait pas — mesuré.
         ? choisir(sansReduction, { quotaParMethodes: true }).filter((a) => a[NEE_D_UNE_FAMILLE] === true) : null;
-      /* ★ Les voies ASSISES entrent SANS repasser par `choisir`, et c'est le
-           tout du siège : la sélection applique le QUOTA PAR MAPPEUR (deux au
-           cran 0), et sur « hope » les deux places de `m14` sont déjà prises par
-           `ffr3+tca+m14+meg` et `ffr2+tca+m14+meg`. Un siège qu'un quota peut
-           opposer n'est pas un siège. Il y en a au plus un par fragment. */
+      /* ★ **LES VOIES ASSISES PASSENT PAR `choisir`, ET N'EN SONT EXEMPTÉES QUE
+           DU QUOTA PAR MAPPEUR.**
+
+         Elles l'ont d'abord CONTOURNÉ, et le contournement a cassé trois choses
+         que `choisir` tient ensemble — mesuré par `test:lent`, onze tests rouges :
+           · le plafond de places : `https://hope-hope-hope.fr/` rendait 24
+             approches pour 20 places ;
+           · le quota : `m.pythagore` paraissait 3 fois pour un quota de 2 ;
+           · l'ordre total (§4.4) : sur « Le chat dort sur le tapis rouge », deux
+             approches devenaient indiscernables.
+         Un siège doit rester une voie CHOISIE, pas une voie qui échappe au choix.
+
+         ⚠️ Et l'exemption ne peut pas être `quotaParMethodes`, l'idiome des
+           familles : `score.js › methodesDeLApproche` se replie sur
+           `mappeurApproche` dès que la voie n'a qu'une part — or une voie assise
+           est un GROUPEMENT d'UN fragment. La clé serait la même, et le mode ne
+           changerait rien. On lève donc le seul quota, en laissant `limite`,
+           l'amorce, la redondance et l'ordre faire leur travail. */
       const assises = avantLesFamilles.filter((a) => a[NEE_D_UN_SIEGE] === true);
-      const desSieges = assises.length ? assises : null;
+      const desSieges = assises.length
+        ? choisir(avantLesFamilles, { maxParMappeur: Infinity })
+          .filter((a) => a[NEE_D_UN_SIEGE] === true)
+        : null;
       // ⚠️ La rampe se demande sur `sansSieges` — ses candidates d'hier.
       const deLaRampe = historiques.length !== sansSieges.length ? choisir(sansSieges) : null;
       let retenues = choisir(historiques);
