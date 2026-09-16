@@ -2715,9 +2715,73 @@ function rangerParLeGlobal(liste, ponderation, reservees = false) {
       return autres.length ? autres : liste;
     };
     const base = nonConvergentes(eligibles.length ? eligibles : honnetes);
+    /* ★ **UNE VOIE QUI JETTE NE TIENT PAS LA LIGNE « ÉLÉGANCE ».**
+     *
+     * > « `mt9` est bien plus simple et mérite de détrôner SI ELLE NE JETTE
+     * >   RIEN. » (l'autrice)
+     *
+     * Sur « Macron », `tca+mt9` calcule `[6 2 2 7 6 6]` et n'en garde que trois
+     * chiffres : elle jette un 2, un 2 et un 7. Elle prenait pourtant la ligne
+     * Élégance (mérite 885) devant `fr13+m14+meg` (859), qui écrit
+     * `[6 6 6 6 6 6]` sans rien abandonner — c'est-à-dire devant la voie que
+     * l'autrice a nommée elle-même au verdict n° 11.
+     *
+     * ★ **CE QUI COMPTE EST CE QU'ON JETTE D'ÉTRANGER, ET C'EST MESURÉ.**
+     *   Le bilan distingue deux reliquats, et la distinction fait tout :
+     *     · `reliquatDeCible`    — du surplus qui EST le chiffre visé ;
+     *     · `reliquatHorsCible`  — des valeurs qui ne le sont pas.
+     *   Sur « hope », `tca+m14` écrit `6666` : le verdict laisse tomber un 6 de
+     *   trop (`reliquatDeCible` 1, `reliquatHorsCible` 0). Elle n'a rien jeté
+     *   d'étranger — elle a écrit la réponse une fois trop. `tca+mt9`, elle,
+     *   abandonne trois valeurs qui n'ont rien à voir avec la cible.
+     *
+     * ⚠️ **MESURÉ, ET C'EST CE QUI ÉCARTE LE CRITÈRE LE PLUS ÉVIDENT.** Prendre
+     *   `jeteesAuTri > 0` — « elle jette quelque chose » — rend bien Macron à
+     *   `fr13+m14+meg`, mais retire à `tca+m14` (mérite 899) la tête de « hope »
+     *   au profit de `fr21+tca+masc+mrdE` (827), et le cas 13 serait reperdu le
+     *   jour même où il est gagné. Le reliquat HORS CIBLE tient les deux.
+     *
+     * ★ La voie qui jette RESTE DANS LA LISTE : on ne lui retire que la ligne
+     *   réservée. Et si toute la liste jette, la règle ne mord pas — la ligne ne
+     *   reste jamais vide.
+     *
+     * ⚠️⚠️ **ET ELLE NE CÈDE LA LIGNE QU'À UNE VOIE QUI NE FAIT PAS MOINS BIEN
+     *   AU GLOBAL. SANS CE GARDE, LA RÈGLE SE RETOURNE.**
+     *
+     *   La raison est structurelle, pas accidentelle : **une absorption ne jette
+     *   rien par construction** — `mab` replie tout dans la réponse — et une
+     *   convergence finit sur des `NUM`. Toutes deux sont donc « propres » au
+     *   sens ci-dessus, tandis qu'une tête riche, qui lit large et aligne
+     *   beaucoup de séries, abandonne forcément quelques valeurs étrangères. La
+     *   règle nue promeut exactement ce que l'autrice rejette.
+     *
+     *   MESURÉ sur les 26 couples, règle nue : CINQ têtes riches tombaient, dont
+     *   DEUX sur une voie qu'elle a écartée —
+     *     · « Sarah Kerrigan » 723 → `fl+tca+mz26+mab` 660 (une absorption) ;
+     *     · « https://hope-hope-hope.fr/ » 827 → `tca+mexb+cs` ×3, 661
+     *       (alambiquée, neuf gestes) ;
+     *     · « hope-hope-hope.fr » 804 → 675 ; « numherololgeek.1000i100.fr »
+     *       738 → 607 ; « Donald Trump » 722 → 619.
+     *
+     *   Le garde découle des deux règles de l'autrice sans en inventer une
+     *   troisième : sa phrase visait le cas où la voie propre était AUSSI la
+     *   mieux notée — `fr13+m14+meg` (701) contre `tca+mt9` (694). **On ne troque
+     *   jamais du score global contre de la propreté.**
+     */
+    const jette = (a) => ((a.bilan && a.bilan.reliquatHorsCible) || 0) > 0;
     const merite = (a) => meriteDEleganceGlobal(a, curseurs) ?? -1;
+    const globalDe = (a) => scoreGlobal(a, curseurs) ?? -1;
     let elegante = base[0];
     for (const a of base) if (merite(a) > merite(elegante)) elegante = a;
+    if (jette(elegante)) {
+      // La mieux notée parmi les propres qui ne font pas MOINS BIEN au global.
+      let propre = null;
+      for (const a of base) {
+        if (jette(a) || globalDe(a) < globalDe(elegante)) continue;
+        if (!propre || merite(a) > merite(propre)) propre = a;
+      }
+      if (propre) elegante = propre;
+    }
     const seuil = scoreGlobal(elegante, curseurs) ?? -1;
     const series = (a) => a.series || 1;
     // ★ Et elle ne cède pas PLUS au dernier recours que l'Élégance
