@@ -28,6 +28,14 @@ cache:
 # `bun run check` enchaîne les tests (node --test, sans build préalable) puis le
 # build. Les deux comptent : le site doit être vert ET constructible.
 #
+# La commande ne change pas, mais ce qu'elle écrit, si : la suite lente passe
+# désormais par `scripts/test-lent.mjs`, qui annonce chaque fichier au départ
+# puis à son verdict, horloge en tête. Un job qui tourne n'est plus un job muet
+# pendant trois quarts d'heure — on voit où il en est, et lequel a rougi. Le
+# lanceur rejoue SEUL tout fichier rouge : un rouge dû à la charge du runner se
+# rattrape ici, signalé « vert seul, rouge sous charge » dans le bilan, sans
+# masquer un vrai échec — celui-là rougit deux fois et fait échouer le job.
+#
 # ⚠️ **`rsvg-convert` EST INDISPENSABLE, ET SON ABSENCE NE SE VOIT PAS.**
 # `vite.config.js › carteDePartage` rastérise `favicon.svg` en `og-card.png`, et
 # RETIRE ses balises `og:image` si l'outil manque plutôt que de pointer dans le
