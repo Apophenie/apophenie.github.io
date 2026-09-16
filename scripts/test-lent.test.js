@@ -510,8 +510,76 @@ test('table des durées — elle ne nomme que des fichiers réels, et dit d’o�
     assert.ok(referenceDe(table, nom) > 0, `${nom} n’a pas de durée utilisable`);
   }
 
-  // Sans provenance, personne ne peut juger si ces chiffres valent pour SA machine.
-  for (const cle of ['le', 'coeurs', 'voies', 'chargeMoyenne', 'machine']) {
+  // Sans provenance, personne ne peut juger si ces chiffres valent pour SA
+  // machine. On n'exige que ce qu'un relevé automatique sait produire : exiger
+  // ici `machine`, que seul un humain peut écrire, ferait rougir la suite à la
+  // première régénération de la table.
+  for (const cle of ['le', 'coeurs', 'voies', 'chargeMoyenne']) {
     assert.ok(cle in table.conditions, `la table ne dit pas « ${cle} » de son relevé`);
   }
+});
+
+test('relevé des durées — il écrit ce qu’il mesure, jamais une consigne à remplir', () => {
+  const { racine } = atelier({ 'a.test.js': VERT, 'b.test.js': VERT });
+  const durees = path.join(racine, 'durees.json');
+
+  const { code, sortie } = lancer(racine, '--releve-durees', `--durees=${durees}`);
+  assert.equal(code, 0, sortie);
+  assert.match(sortie, /Relevé écrit dans/);
+
+  const table = JSON.parse(fs.readFileSync(durees, 'utf8'));
+  assert.deepEqual(Object.keys(table.durees).sort(), [
+    'src/faux/lents/a.test.js',
+    'src/faux/lents/b.test.js',
+  ]);
+  for (const cle of ['le', 'coeurs', 'voies', 'passe', 'relevesDeCharge']) {
+    assert.ok(cle in table.conditions, `le relevé ne dit pas « ${cle} »`);
+  }
+  assert.ok(
+    !('machine' in table.conditions),
+    'le lanceur ne prétend pas savoir si la machine était chargée : il se tait',
+  );
+  // La table dit elle-même d'où viennent ses durées — passe 1, pas les relances.
+  assert.match(table.conditions.passe, /première/);
+
+  // Aucune valeur ne doit être une invite déguisée en information.
+  for (const [cle, valeur] of Object.entries(table.conditions)) {
+    if (typeof valeur !== 'string') continue;
+    assert.doesNotMatch(
+      valeur,
+      /décrivez|remplissez|renseignez|à compléter|ici l’état|ici l'état/i,
+      `conditions.${cle} est une consigne, pas une information`,
+    );
+  }
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
+
+test('relevé des durées — une passe rouge n’écrit rien : ces durées ne décriraient rien de sain', () => {
+  const { racine } = atelier({ 'a.test.js': VERT, 'rouge.test.js': ROUGE });
+  const durees = path.join(racine, 'durees.json');
+
+  const { code, sortie } = lancer(racine, '--releve-durees', `--durees=${durees}`);
+  assert.equal(code, 1);
+  assert.match(sortie, /Relevé NON écrit/);
+  assert.equal(fs.existsSync(durees), false, 'rien ne doit être écrit après une passe rouge');
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
+
+test('tests terminés — les sous-tests indentés comptent aussi', () => {
+  const imbrique = [
+    'TAP version 13',
+    '# Subtest: le parent',
+    '    # Subtest: le petit',
+    '    ok 1 - le petit',
+    '    1..1',
+    'ok 1 - le parent',
+    '# Subtest: celui qui court encore',
+  ].join('\n');
+
+  // Sans l'indentation, un fichier en `describe` affichait « 0 tests faits »
+  // jusqu'à sa toute dernière seconde — sur le plus long, une demi-heure.
+  assert.equal(testsTermines(imbrique), 2);
+  assert.equal(testsTermines('    not ok 3 - un échec imbriqué\n'), 1);
 });

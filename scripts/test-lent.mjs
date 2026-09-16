@@ -337,7 +337,12 @@ export function testsEchoues(sortie) {
  * fichier qui tourne encore, sans rien ajouter à la capture.
  */
 export function testsTermines(sortie) {
-  return (sortie.match(/^(?:not )?ok \d+ /gm) || []).length;
+  // L'indentation est acceptée, et c'est le fond du sujet : node imbrique les
+  // sous-tests, si bien qu'un fichier structuré en `describe` n'affichait « 0
+  // tests faits » que parce qu'on ne regardait que la colonne zéro — pendant
+  // une demi-heure, sur le fichier le plus long. On compte tout ce qui a rendu
+  // son verdict, à quelque niveau que ce soit.
+  return (sortie.match(/^[ \t]*(?:not )?ok \d+ /gm) || []).length;
 }
 
 // ──────────────────────────────────────────────────────────── exécution ──
@@ -594,6 +599,7 @@ export async function lancerSuiteLente(options) {
   // tombent, elle se tait. C'est ce qui la rend supportable sur quatre voies.
   const vol = new Map();
   const charges = [];
+  let chargesPasse1 = null;
   const battement = setInterval(() => {
     charges.push(loadavg()[0]);
     if (Date.now() - derniereEcriture < intervalleVie) return;
@@ -631,6 +637,11 @@ export async function lancerSuiteLente(options) {
       }
     };
     await Promise.all(Array.from({ length: voies }, voie));
+    // Les durées inscrites au relevé ne viennent QUE de cette passe : la charge
+    // qui les décrit doit donc s'arrêter ici. La phase solo qui suit est calme
+    // par construction — une seule voie — et la laisser entrer dans la moyenne
+    // ferait mentir la table sur les conditions de sa propre mesure.
+    chargesPasse1 = [...charges];
 
     // ── passe 2 : les rouges, seuls, rien d'autre en vol ─────────────────
     const rouges = aFaire.filter((f) => resultats.has(f) && !resultats.get(f).vert);
@@ -711,17 +722,24 @@ export async function lancerSuiteLente(options) {
       if (code !== 0) {
         journal.ligne('Relevé NON écrit : la passe n’est pas verte, ces durées ne décriraient rien de sain.');
       } else {
-        const moyenne = charges.length ? charges.reduce((t, c) => t + c, 0) / charges.length : null;
+        const echantillons = chargesPasse1 ?? charges;
+        const arrondi = (n) => Math.round(n * 10) / 10;
+        const moyenne = echantillons.length
+          ? echantillons.reduce((t, c) => t + c, 0) / echantillons.length
+          : null;
         ecrireDurees(cheminDurees, table, mesuresPasse1, {
           le: new Date().toISOString().slice(0, 10),
           coeurs: availableParallelism(),
           voies,
           passe: 'première (parallèle), pas les relances seules',
-          chargeMoyenne: moyenne === null ? null : Math.round(moyenne * 10) / 10,
-          chargeMin: charges.length ? Math.round(Math.min(...charges) * 10) / 10 : null,
-          chargeMax: charges.length ? Math.round(Math.max(...charges) * 10) / 10 : null,
-          relevesDeCharge: charges.length,
-          machine: "relevé automatique — décrivez ici l'état de la machine si elle était chargée",
+          chargeMoyenne: moyenne === null ? null : arrondi(moyenne),
+          chargeMin: echantillons.length ? arrondi(Math.min(...echantillons)) : null,
+          chargeMax: echantillons.length ? arrondi(Math.max(...echantillons)) : null,
+          relevesDeCharge: echantillons.length,
+          // Pas de champ `machine` : le lanceur ne sait pas dire si elle était
+          // « chargée » au sens où un humain l'entend. Il écrit ce qu'il mesure
+          // et s'arrête là. Y déposer une consigne à remplir ferait passer une
+          // invite pour une information — et personne ne la remplirait.
         });
         journal.ligne(`Relevé écrit dans ${cheminDurees} — ${mesuresPasse1.size} durées mises à jour.`);
       }
