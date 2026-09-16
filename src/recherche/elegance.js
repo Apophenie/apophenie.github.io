@@ -1505,7 +1505,26 @@ export const FICELLES = Object.freeze({
   //    voir écarter (`OPERATEURS_QUI_ECARTENT`). Sortir des ficelles n'est pas
   //    devenir gratuite, c'est cesser d'être traitée en suspecte.
   'm.unRangSurDeux': 'decimation',
-  'm.additionSelective': 'additionSelective',
+  // ★ **`m.additionSelective` (`mad`) N'EN FAIT PLUS PARTIE** — « `mad` n'est
+  //   pas pire que `mrdE`, donc retire-le des ficelles je dirais » (l'autrice).
+  //   `mrdE` n'a jamais été rangé parmi elles ; les deux additionnent des termes
+  //   choisis pour que la ligne tombe juste, et l'autrice ne voit pas ce qui
+  //   justifierait de traiter l'un en suspect et l'autre non.
+  //
+  //   Même mouvement que pour `mpf`, `mrd` et `m.egalisation` avant lui, et
+  //   mêmes conséquences, qui dépassent son tarif :
+  //     · elle cesse d'être ÉVINÇABLE (`assemblage.js › apporteQuelqueChose`)
+  //       et d'ÉVINCER — elle ne compte plus dans `nbFicelles` ;
+  //     · elle redevient éligible aux lignes réservées, et au siège d'un
+  //       fragment, qui refuse les ficelles (`assemblage.js`, mode G) ;
+  //     · le test gelé des quatre cas de référence cesse de la surveiller
+  //       (`elegance.test.js › ★ ficelles`, par `codesDesFicelles`).
+  //
+  //   ⚠️ Ce qu'elle GARDE, et c'est tout le sens de la séparation des deux
+  //     tables : son geste se paie exactement comme avant. Elle reste dans
+  //     `ABSORBENT_PAR_ADDITION`, donc au palier `ADDITION_SELECTIVE`, dilué par
+  //     ses additions et dégressif avec la longueur. Sortir des ficelles n'est
+  //     pas devenir gratuite, c'est cesser d'être traitée en suspecte.
   // ★ La troisième, et d'un genre à elle : elle ne jette rien et n'absorbe
   //   rien, elle RÉÉCRIT — un nombre redevient du texte. « C'est plutôt à
   //   considérer comme une ficelle » (l'auteur), et c'en est une au sens
@@ -1793,6 +1812,24 @@ export const A_MERITER_SA_PLACE = Object.freeze(new Set([
   ...Object.keys(FICELLES),
   ...UNIFORMISENT,
   'm.redecoupageChoisi',
+  /* ★ **`m.additionSelective` (`mad`) Y RESTE, BIEN QU'ELLE AIT QUITTÉ LES
+       FICELLES** — exactement comme `m.redecoupageChoisi` ci-dessus, et pour la
+     raison qui y est écrite : la question du FAISCEAU n'est pas celle du
+     barème. Cette table-ci demande « produit-elle des chiffres de la cible EN
+     MASSE, par construction ? », et `mad` répond oui : elle choisit les termes
+     qu'elle additionne pour que la ligne tombe juste.
+
+     ⚠️ MESURÉ, et c'est pourquoi la ligne est écrite plutôt que déduite. Cette
+       table se bâtit sur `...Object.keys(FICELLES)` : retirer `mad` des
+       ficelles l'en faisait donc sortir AUSSI, en silence. Résultat immédiat,
+       `recherche.test.js › sortie` : « jean-michel : 22 approches pour 20
+       places ». Le faisceau ne lui demandait plus de mériter sa place, et les
+       voies en `mad` débordaient la liste.
+
+     Une notion retirée d'un seul endroit laisse les autres mentir : `mad` cesse
+     d'être une suspecte AU BARÈME, elle ne cesse pas de devoir mériter sa place
+     DANS LE FAISCEAU. */
+  'm.additionSelective',
   // L'absorption fabrique la cible ENTIÈRE par construction : à plus forte
   // raison que le redécoupage, elle doit mériter sa place.
   'm.absorption',

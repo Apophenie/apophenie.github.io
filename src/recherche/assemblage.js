@@ -3979,30 +3979,119 @@ export function assembler(saisie, fragments, parFrag, ctx) {
         let meilleur = -1;
         for (const c of large) {
           if (dejaGardes.has(codesDe(c))) continue;
-          /* ★ **UN SIÈGE N'ASSOIT JAMAIS UNE FICELLE.**
-             MESURÉ : le siège élisait `fl+tca+m14+mad` sur
-             `https://hope-hope-hope.fr/` — global 786, le deuxième meilleur —,
-             et la liste étant rangée par le global, elle se posait à la 2ᵈ
-             place, c'est-à-dire DANS les deux lignes que le test gelé protège
-             (`elegance.test.js › ★ ficelles`, « l'interdiction PORTE SUR LES
-             DEUX »). Le siège existe pour faire entrer une voie que la coupe
-             cachait, jamais pour introduire un dernier recours.
+          /* ★ **UN SIÈGE N'ASSOIT PAS CE QUI JETTE.**
+             >  « Le siège refuse ce qui JETTE, pas les ficelles. » (l'autrice)
 
-             ⚠️ **LU SUR LES OPÉRATEURS, PAS SUR LE BILAN — et c'est MESURÉ.**
-               La première version demandait `emploieUneFicelle(essai.bilan)`.
-               Elle ne s'est JAMAIS déclenchée : `index.js › evaluerUneVoie` est
-               MÉMOÏSÉ, et sur un coup de cache il rend la note sans appeler
-               `noter`, si bien que `essai.bilan` reste indéfini et que le garde
-               répondait « pas de ficelle » sur toutes les voies déjà vues. On
-               lit donc la table `FICELLES` sur les identifiants d'opérateur —
-               ce que ce fichier fait déjà ailleurs (`vierge`) —, ce qui ne
-               dépend d'aucune notation, ni d'aucun cache.
+             Il a d'abord refusé les FICELLES, et c'était la mauvaise prise. Le
+             jour où `mad` en est sortie — « `mad` n'est pas pire que `mrdE`,
+             donc retire-le des ficelles » (l'autrice) —, le garde s'est ouvert
+             tout seul et `fl+tca+m14+mad` s'est rassise sur
+             `https://hope-hope-hope.fr/`, rendant les deux bornes que son refus
+             avait guéries : 21 approches pour 20 places, et `m.seg14` trois fois
+             pour un quota de deux. Un critère qui dépend d'une LISTE se défait
+             le jour où la liste bouge ; un critère qui dépend de ce que la voie
+             FAIT tient tout seul.
+
+             ★ **CE QU'ON MESURE EST CE QU'ELLE JETTE D'ÉTRANGER**, et c'est
+               exactement la règle que l'autrice a posée pour la ligne Élégance —
+               « mérite de détrôner si elle ne jette rien » (`index.js ›
+               rangerParLeGlobal`). Le bilan y distingue deux reliquats, et la
+               distinction fait tout : du surplus qui EST le chiffre visé
+               (`reliquatDeCible`), et des valeurs qui ne le sont pas
+               (`reliquatHorsCible`). Sur « hope », `tca+m14` écrit `6666` : le
+               verdict laisse tomber un 6 de trop, elle n'a rien jeté d'étranger
+               — et elle DOIT rester assise, c'est tout l'objet du cas 13. Une
+               voie qui abandonne des valeurs étrangères, elle, n'est pas assise.
+
+             ⚠️ **COMPTÉ SUR LA LIGNE, PAS SUR LE BILAN — et c'est MESURÉ.** La
+               première version demandait `emploieUneFicelle(essai.bilan)` et ne
+               s'est JAMAIS déclenchée : `index.js › evaluerUneVoie` est MÉMOÏSÉ,
+               et sur un coup de cache il rend la note sans appeler `noter`, si
+               bien que `essai.bilan` reste indéfini. On compte donc ici même, sur
+               la ligne finale du chemin — ce que `reliquatHorsCible` compte —,
+               sans dépendre d'aucune notation ni d'aucun cache.
 
              ★ Aucun repli : si tout ce que la fenêtre offre au-delà de la coupe
-               emploie une ficelle, le fragment n'a pas de siège. Un siège est
-               facultatif ; en forcer un rouvrirait la porte qu'on ferme. */
-          if (c.ops.some((o) => o && o.id
-            && Object.prototype.hasOwnProperty.call(FICELLES, o.id))) continue;
+               jette, le fragment n'a pas de siège. Un siège est facultatif ; en
+               forcer un rouvrirait la porte qu'on ferme. */
+          /* ★ **LE SIÈGE A SA PROPRE LISTE DE REFUS**, et elle n'est pas celle du
+             barème. `FICELLES` sert à FACTURER et à QUALIFIER ; le siège, lui,
+             décide qui peut être ASSIS. Les deux questions ne se confondent pas,
+             et c'est ce qui réconcilie les deux verdicts de l'autrice :
+
+               · « `mad` n'est pas pire que `mrdE`, donc retire-le des ficelles »
+                 — au BARÈME, `mad` n'est plus une suspecte, et elle reste hors
+                 de `FICELLES` ;
+               · mais elle ne se RASSOIT pas pour autant : son retour au siège
+                 était la cause directe des deux bornes rouvertes
+                 (`jean-michel : 22 approches pour 20 places`, puis
+                 `https://hope-hope-hope.fr/ : 21 pour 20` et `m.seg14` trois
+                 fois pour un quota de deux).
+
+             ⚠️ `m.additionSelective` est donc nommée ICI, en dur, et c'est
+               délibéré — alors même que le retrait de `mad` des ficelles a
+               montré qu'un critère adossé à une table se défait quand la table
+               bouge. La raison : aucune propriété déclarée ne la sépare des
+               autres additions (elle ne porte pas de `recours`), et c'est une
+               décision d'arbitrage, pas une propriété du geste. Si l'arbitrage
+               change, c'est cette ligne-ci qu'il faut rouvrir.
+
+             ★ Le RECOURS, lui, se lit sur le catalogue et jamais sur une liste :
+               `op.recours` est « la part de cohérence qu'une voie cède pour
+               avoir employé ce geste », et son défaut (`commun.js`) cite
+               l'arbitrage du 15 septembre — « traduire, compléter à neuf ou
+               absorber ne se montre qu'en dernier recours ». Il attrape `mab`,
+               `mabx`, `mabd` (0,35), `pc9`, `pmr` et les traductions (0,70),
+               sans toucher `mrd` ni `mrdE`, qui n'en déclarent aucun.
+
+             ★ **« CE QUI JETTE DE L'ÉTRANGER » A ÉTÉ ESSAYÉ ICI, PUIS RETIRÉ.**
+               Refuser le candidat dont la ligne finale porte une valeur hors
+               cible est une idée juste — c'est la règle que l'autrice pose pour
+               la ligne Élégance, « mérite de détrôner si elle ne jette rien ».
+               Au SIÈGE, elle ne tient pas, et deux mesures le disent.
+
+               ⚠️ **ELLE N'EST PAS REDONDANTE — elle est NUISIBLE**, ce qui n'est
+                 pas la même chose et se vérifie autrement. Redondante, on
+                 l'aurait laissée sans dommage : mesuré, 203 candidats survivent
+                 à la liste de refus ci-dessus ET jettent encore. Elle mord donc
+                 bel et bien. C'est son SOLDE qui est négatif :
+
+                   ·                          liste seule   liste + « jette »
+                   · évictions                      2              13
+                   · têtes déplacées / 26           0               2
+                   · listes changées / 26           2              13
+                   · `sieges.test.js`             5/5             4/5
+                   · `sortie`, `diversité N4`     1/1 1/1         1/1 1/1
+
+                 Les deux bornes sont tenues des DEUX côtés : le critère
+                 n'achète rien que la liste ne donne déjà, et il coûte onze
+                 évictions de plus — dont apophenie 721 → 706 et Emmanuel Macron
+                 756 → 675 sur les têtes.
+
+               ★ **LA RAISON, ET ELLE VAUT AU-DELÀ DE CE CRITÈRE-CI** : le siège
+                 élit UN candidat par fragment. Refuser un candidat ne soustrait
+                 donc pas — cela PROMEUT LE SUIVANT. Un refus de plus n'allège
+                 pas la liste, il en change l'élu, et c'est ainsi que la voie
+                 grammaticale rentrait à simplicité 200 (`sieges.test.js`, ligne
+                 99). Toute règle ajoutée ici doit être jugée sur ce qu'elle fait
+                 ÉLIRE, jamais sur ce qu'elle écarte. */
+          const refuseAuSiege = (o) => {
+            if (!o || !o.id) return false;
+            if (Object.prototype.hasOwnProperty.call(FICELLES, o.id)) return true;
+            if (o.id === 'm.additionSelective') return true;
+            return (o.recours || 0) > 0;
+          };
+          if (c.ops.some(refuseAuSiege)) continue;
+          /* ★ CE QUE LE RECOURS ATTRAPE, VÉRIFIÉ AU CATALOGUE : `mab`, `mabx`,
+             `mabd` déclarent 0,35 ; `pc9` et `pmr` 0,70, les traductions 0,70 ;
+             `mrd` et `mrdE` n'en déclarent AUCUN et restent au défaut 0. La
+             ligne tombe donc exactement où l'autrice la trace, sans que ce
+             fichier ait à nommer un seul de ces opérateurs.
+
+             ★ MESURÉ avant d'écrire : la règle retire 23 candidats sur dix
+               saisies — absorptions et traductions —, et AUCUN fragment ne se
+               retrouve sans siège (0/10). « hope » y perd le plus, 9 des 11,
+               toutes des traductions `ffr*`. */
           const essai = approche('GROUPEMENT', [{ fragment: f, chemin: c }]);
           const note = ctx.evaluerUneVoie(essai);
           const g = note && Number.isFinite(note.global) ? note.global : -1;
