@@ -168,12 +168,30 @@ for (const [saisie, cible] of COUPLES) {
 
   if (!memeTete) {
     console.log(`    TÊTE : ${ligne(avant, la[0])}  →  ${ligne(apres, lb[0])}`);
-    const r = rejets(cb[0], apres.bilanDe(lb[0]), apres.ficelle);
-    if (r.length) {
-      const dit = `${titre} : la tête tombe sur ${r.join(' + ')} — ${cb[0]}`;
-      alertes.push(dit);
-      console.log(`    ⚠️ VOIE REJETÉE PAR L'AUTRICE : ${r.join(' + ')}`);
-    }
+  }
+  /* ★ **LES DEUX PREMIÈRES LIGNES, ET TOUJOURS — pas la tête, et pas seulement
+       quand elle change.** Deuxième correction du même aveuglement, et la
+       première ne suffisait pas : elle avait appris à LIRE les ficelles
+       (`emploieUneFicelle`) mais regardait encore au mauvais endroit.
+
+     MESURÉ sur l'état d'avant la reprise : le banc annonçait « aucune tête ne
+     tombe sur une voie rejetée » pendant que `test:lent` rougissait sur
+     `https://hope-hope-hope.fr/` à cause de `fl+tca+m14+mad`. Deux raisons, et
+     il fallait les deux :
+       · la vérification vivait dans `if (!memeTete)` — or la tête ne CHANGEAIT
+         pas sur cette saisie, donc elle n'était jamais faite ;
+       · elle ne lisait que `cb[0]`, alors que `mad` est à la 2ᵈ place.
+
+     `elegance.test.js › ★ ficelles` le dit en toutes lettres : « l'interdiction
+     PORTE SUR LES DEUX » lignes réservées. Le banc lit donc les deux, sur toute
+     liste, changée ou non. Un banc qui ne regarde que ce qui bouge ne voit pas
+     ce qui était déjà là. */
+  for (const a of lb.slice(0, 2)) {
+    const r = rejets(a.codes, apres.bilanDe(a), apres.ficelle);
+    if (!r.length) continue;
+    const dit = `${titre} : ligne ${lb.indexOf(a) + 1} sur ${r.join(' + ')} — ${a.codes}`;
+    alertes.push(dit);
+    console.log(`    ⚠️ VOIE REJETÉE PAR L'AUTRICE (ligne ${lb.indexOf(a) + 1}) : ${r.join(' + ')} — ${a.codes}`);
   }
   const entrees = lb.filter((a) => !ca.includes(a.codes));
   const sorties = la.filter((a) => !cb.includes(a.codes));
