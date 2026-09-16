@@ -46,6 +46,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import { availableParallelism } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 /** Les deux formes de dossier où vivent les tests lents (cf. `package.json`). */
@@ -62,6 +63,54 @@ export const VAR_REPRISE = 'TEST_LENT_REPRISE';
 
 // ───────────────────────────────────────────────────────────── découverte ──
 
+/** Un segment de motif en expression régulière — `*` ne traverse jamais un `/`. */
+function segmentEnRegex(segment) {
+  const echappe = segment.replace(/[.+^${}()|[\]\\?]/g, '\\$&').replace(/\*/g, '[^/]*');
+  return new RegExp(`^${echappe}$`);
+}
+
+/**
+ * Descend le motif segment par segment.
+ *
+ * Un segment littéral se teste directement, sans lister son parent ; seuls les
+ * segments à `*` provoquent une lecture de dossier. `node_modules/` et `dist/`
+ * ne sont donc jamais parcourus, là où un parcours récursif naïf s'y perdrait.
+ */
+function etendre(racine, segments, prefixe) {
+  const [tete, ...reste] = segments;
+  const dernier = reste.length === 0;
+
+  if (!tete.includes('*')) {
+    const suivant = [...prefixe, tete];
+    let etat;
+    try {
+      etat = fs.statSync(path.join(racine, ...suivant));
+    } catch {
+      return [];
+    }
+    if (dernier) return etat.isFile() ? [suivant.join('/')] : [];
+    return etat.isDirectory() ? etendre(racine, reste, suivant) : [];
+  }
+
+  let entrees;
+  try {
+    entrees = fs.readdirSync(path.join(racine, ...prefixe), { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const filtre = segmentEnRegex(tete);
+  const trouves = [];
+  for (const entree of entrees) {
+    if (!filtre.test(entree.name)) continue;
+    if (dernier) {
+      if (entree.isFile()) trouves.push([...prefixe, entree.name].join('/'));
+    } else if (entree.isDirectory()) {
+      trouves.push(...etendre(racine, reste, [...prefixe, entree.name]));
+    }
+  }
+  return trouves;
+}
+
 /**
  * Les fichiers de test lents, **triés par chemin**.
  *
@@ -69,16 +118,20 @@ export const VAR_REPRISE = 'TEST_LENT_REPRISE';
  * l'ordre du bilan reproductibles d'une machine à l'autre, là où l'ordre rendu
  * par le système de fichiers, lui, ne l'est pas.
  *
+ * La descente est écrite à la main plutôt que confiée à `fs.globSync`, qui
+ * n'existe qu'à partir de Node 22 : aucune des deux CI n'installe ni n'épingle
+ * Node — l'une prend celui de son image, l'autre celui du runner — et une
+ * contrainte de version que personne ne vérifie est une promesse qu'on ne tient
+ * pas. Vingt lignes ici valent mieux qu'un plancher tacite.
+ *
  * @param {string} racine dossier depuis lequel les motifs sont résolus
- * @param {string[]} motifs globs à la façon de `node --test`
+ * @param {string[]} motifs globs à la façon de `node --test` (`*`, pas `**`)
  * @returns {string[]} chemins relatifs à `racine`, en séparateurs `/`, dédoublonnés
  */
 export function decouvrir(racine, motifs = MOTIFS) {
   const vus = new Set();
   for (const motif of motifs) {
-    for (const trouve of fs.globSync(motif, { cwd: racine })) {
-      vus.add(trouve.split(path.sep).join('/'));
-    }
+    for (const trouve of etendre(racine, motif.split('/'), [])) vus.add(trouve);
   }
   return [...vus].sort();
 }
@@ -320,6 +373,18 @@ export async function lancerSuiteLente(options) {
     : [];
   const aFaire = tous.filter((f) => !repris.includes(f));
 
+  // Un vert sur zéro fichier exécuté est un mensonge, même bien libellé : si
+  // l'état couvre déjà tout ce qui a été découvert, on le dit et on sort rouge
+  // plutôt que de rendre un succès qui ne repose sur rien.
+  if (aFaire.length === 0) {
+    journal.ligne('');
+    journal.ligne(
+      `Reprise : ${tous.length} fichier${tous.length > 1 ? 's' : ''} découvert${tous.length > 1 ? 's' : ''}, tous déjà verts dans ${cheminEtat}.`,
+    );
+    journal.ligne("Rien n'a donc été exécuté : ce n'est pas un succès. Effacez cet état pour tout rejouer.");
+    return { fichiers: tous, echecs: [], repris, signales: [], code: 1 };
+  }
+
   const voies = Math.min(parallelisme, aFaire.length) || 1;
   journal.ligne('');
   journal.ligne(
@@ -418,9 +483,10 @@ export async function lancerSuiteLente(options) {
   journal.ligne('─'.repeat(72));
 
   const code = echecs.length > 0 || interrompu ? 1 : 0;
-  // Tout vert de bout en bout : il n'y a plus rien à reprendre, l'état s'efface
-  // plutôt que de laisser un --reprise ultérieur tout sauter en silence.
-  if (code === 0 && repris.length === 0) fs.rmSync(cheminEtat, { force: true });
+  // Tout vert de bout en bout : il n'y a plus rien à reprendre, l'état s'efface.
+  // Y compris quand ce tout-vert vient d'une reprise — sinon l'état survivait à
+  // sa raison d'être, et le `--reprise` suivant sautait la totalité en silence.
+  if (code === 0) fs.rmSync(cheminEtat, { force: true });
 
   return { fichiers: tous, echecs, repris, signales, code };
 }
@@ -482,7 +548,11 @@ async function principal() {
 }
 
 // Exécuté directement (et pas importé par son propre test) : on rend le code.
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+// `new URL(import.meta.url).pathname` est PERCENT-ENCODÉ : cloné dans
+// « /home/…/mon dépôt/ », il ne correspond plus à `argv[1]`, `principal()` n'est
+// jamais appelé, et la commande sort à 0 sans avoir lancé un seul test. Le
+// silence de trop. `fileURLToPath` décode : c'est la seule comparaison honnête.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   principal().then(
     (code) => {
       process.exitCode = code;
