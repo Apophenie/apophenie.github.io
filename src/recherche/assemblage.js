@@ -2410,6 +2410,16 @@ export const NEE_D_UNE_FAMILLE = Symbol('nee-d-une-famille');
 export const NEE_DE_LA_REDUCTION = Symbol('nee-de-la-reduction');
 
 /**
+ * ★ La MARQUE d'une voie ASSISE par le siège d'un fragment (`assembler`, mode G).
+ * Même régime que `NEE_D_UNE_FAMILLE` : `index.js › finaliser` la sélectionne à
+ * part, de sorte qu'un siège ALLONGE la liste sans en chasser personne.
+ *
+ * ⚠️ Elle n'est PAS une extension (`estUneExtension`) : une voie assise garde le
+ *   droit de tenir une ligne réservée — c'est tout l'objet du siège.
+ */
+export const NEE_D_UN_SIEGE = Symbol('nee-d-un-siege');
+
+/**
  * ★ Une voie née d'une EXTENSION de la moisson — fenêtre par famille ou nouvelle
  * réduction du surplus. `index.js › finaliser` les sélectionne à part et les
  * écarte des lignes réservées : elles allongent la liste, elles ne changent ni
@@ -3909,17 +3919,75 @@ export function assembler(saisie, fragments, parFrag, ctx) {
       //   sont des GROUPEMENTS : elles ne viennent pas du BFS — aucun chemin de
       //   `parFrag` ne porte seulement `mrd` — mais d'ici. Huit vecteurs par
       //   fragment porteur, en dur, c'était la borne réelle de la liste entière.
-      const vecteurs = vecteursDeSix(f.texte, opsPourVecteurs, K, kParFragment * 2, cbl,
+      const tous = vecteursDeSix(f.texte, opsPourVecteurs, K, kParFragment * 2, cbl,
         // ★ `profond` — la seconde passe de dernier recours, posée par
         //   `index.js` quand un premier assemblage n'a rien rendu.
         {
           curseurs: ctx.curseurs, profond: ctx.profond === true, matiereDePhrase: ctx.matiereDePhrase === true,
           memo: ctx.cache instanceof Map ? ctx.cache : null,
-        })
-        .slice(0, kParFragment);
+        });
+      const vecteurs = tous.slice(0, kParFragment);
       if (f.entier || f.famille === 'entier') vecteursEntiers = vecteurs;
       for (const c of vecteurs) {
         approches.push(approche('GROUPEMENT', [{ fragment: f, chemin: c }]));
+      }
+      /* ★ **UN SIÈGE PAR FRAGMENT, À LA MIEUX NOTÉE AU SCORE GLOBAL — piste B.**
+
+         La coupe garde les `kParFragment` premières du pré-tri, qui range par
+         COMPTE de 6. Une voie courte et juste peut donc être écartée sans que
+         le barème l'ait jamais vue : sur « hope », `tca+m14` est 16ᵉ de la
+         fenêtre et vaut 7 301 au moteur, 704 au global.
+
+         ★ **QUEL « GLOBAL » POUR UN CANDIDAT DE FRAGMENT.** Le global se calcule
+           sur une voie ENTIÈRE ; un chemin nu n'en a pas. On note donc la voie
+           que ce candidat formerait à lui seul — le GROUPEMENT d'un fragment et
+           d'un chemin, c'est-à-dire exactement ce que la liste montrerait —, par
+           `index.js › evaluerUneVoie` : le vrai `noter`, puis `scoreGlobal` sous
+           les curseurs de la recherche. Ce n'est pas un score approché, c'est le
+           score de la voie elle-même. `montree: false` y est le choix déjà fait
+           par `reduireLeSurplus` pour tout ce qui FABRIQUE la matière — le
+           recalibrage du 15 septembre ne devait changer que l'ordre de la liste.
+
+         ★ Le siège est pris HORS de la coupe, et l'approche est MARQUÉE : elle
+           s'ajoute, elle ne prend la place de personne (`index.js › finaliser`). */
+      if (typeof ctx.evaluerUneVoie === 'function') {
+        /* ★ **LE SIÈGE REGARDE PLUS LOIN QUE LA COUPE, SANS LA DÉPLACER.**
+
+           MESURÉ : `tca+m14` n'est pas dans la fenêtre du cran 0 (plafond 16) —
+           il n'y paraît qu'à partir du plafond 32, au rang 16. Un siège ne peut
+           pas élire ce que la fenêtre ne lui montre pas.
+
+           Mais élargir le plafond de la fenêtre QUI SERT LA COUPE réordonne la
+           réserve de qualité (`reserveDeQualite` suit le plafond) et chasse des
+           titulaires : 26 listes sur 26 changées, mesuré. On demande donc une
+           SECONDE fenêtre, plus large, réservée au choix du siège. La coupe
+           garde exactement ce qu'elle gardait ; le siège, lui, voit plus loin.
+
+           ⚠️ Les deux fenêtres rendent des chemins CANONISÉS DISTINCTS — un
+             plafond différent est une autre clé de mémo, et `normaliserChemin`
+             rend un autre objet. On les compare donc par leurs CODES, jamais par
+             identité d'objet. */
+        const codesDe = (c) => c.ops.map((o) => o.code).join('+');
+        const large = vecteursDeSix(f.texte, opsPourVecteurs, K, kParFragment * 4, cbl, {
+          curseurs: ctx.curseurs,
+          profond: ctx.profond === true,
+          matiereDePhrase: ctx.matiereDePhrase === true,
+          memo: ctx.cache instanceof Map ? ctx.cache : null,
+        });
+        const dejaGardes = new Set(vecteurs.map(codesDe));
+        let assise = null;
+        let meilleur = -1;
+        for (const c of large) {
+          if (dejaGardes.has(codesDe(c))) continue;
+          const essai = approche('GROUPEMENT', [{ fragment: f, chemin: c }]);
+          const note = ctx.evaluerUneVoie(essai);
+          const g = note && Number.isFinite(note.global) ? note.global : -1;
+          if (g > meilleur) { meilleur = g; assise = essai; }
+        }
+        if (assise) {
+          assise[NEE_D_UN_SIEGE] = true;
+          approches.push(assise);
+        }
       }
     }
   }

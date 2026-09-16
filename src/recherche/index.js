@@ -31,6 +31,7 @@ import { genererFragments, zonesSignifiantes, tokeniser, motifsRepetes } from '.
 import {
   assembler, approcheJoker, deduireMode, normaliserChemins, verdictDe, vecteursDeSix, segmentsSansCopie,
   MAX_JETONS_RETOUCHE, MAX_VECTEURS_RETOUCHES, estUneExtension, NEE_D_UNE_FAMILLE, NEE_DE_LA_REDUCTION,
+  NEE_D_UN_SIEGE,
 } from './assemblage.js';
 import { scoreGlobal } from './score.js';
 import {
@@ -1111,7 +1112,14 @@ export function creerMoteur(catalogue, options = {}) {
              au cran 2. */
       const horsGardes = ctxAssemblage.horsGardesHistoriques;
       const avantLesFamilles = honnetes.filter((a) => !estUneExtension(a));
-      const historiques = horsGardes ? avantLesFamilles.filter((a) => !horsGardes.has(a)) : avantLesFamilles;
+      /* ★ **ET UNE CINQUIÈME : LES VOIES ASSISES PAR LE SIÈGE D'UN FRAGMENT.**
+           Même raison que les quatre autres : mêlées aux candidates d'hier,
+           elles prendraient leurs places — et le quota par mappeur, à deux au
+           cran 0, suffit à faire sortir une voie mieux notée. La sélection
+           d'hier ne les voit donc pas ; elles ont la leur, et la liste ne fait
+           que s'allonger. */
+      const sansSieges = avantLesFamilles.filter((a) => a[NEE_D_UN_SIEGE] !== true);
+      const historiques = horsGardes ? sansSieges.filter((a) => !horsGardes.has(a)) : sansSieges;
       /* ★ **ET UNE QUATRIÈME : LES VOIES DE LA NOUVELLE RÉDUCTION, À PART.** Ce que
            seule la nouvelle réduction du surplus fabrique (`NEE_DE_LA_REDUCTION`)
            a sa PROPRE sélection, faite AVANT celle des familles : celle-ci voit
@@ -1129,7 +1137,15 @@ export function creerMoteur(catalogue, options = {}) {
         //   quota du quatorze segments avec les deux champions, et n'entrait pas.
         //   Ne pas compter les champions n'y suffisait pas — mesuré.
         ? choisir(sansReduction, { quotaParMethodes: true }).filter((a) => a[NEE_D_UNE_FAMILLE] === true) : null;
-      const deLaRampe = historiques.length !== avantLesFamilles.length ? choisir(avantLesFamilles) : null;
+      /* ★ Les voies ASSISES entrent SANS repasser par `choisir`, et c'est le
+           tout du siège : la sélection applique le QUOTA PAR MAPPEUR (deux au
+           cran 0), et sur « hope » les deux places de `m14` sont déjà prises par
+           `ffr3+tca+m14+meg` et `ffr2+tca+m14+meg`. Un siège qu'un quota peut
+           opposer n'est pas un siège. Il y en a au plus un par fragment. */
+      const assises = avantLesFamilles.filter((a) => a[NEE_D_UN_SIEGE] === true);
+      const desSieges = assises.length ? assises : null;
+      // ⚠️ La rampe se demande sur `sansSieges` — ses candidates d'hier.
+      const deLaRampe = historiques.length !== sansSieges.length ? choisir(sansSieges) : null;
       let retenues = choisir(historiques);
       if (jokers.length) retenues.push(jokers[0]);
       else if (!retenues.length) {
@@ -1138,9 +1154,9 @@ export function creerMoteur(catalogue, options = {}) {
       }
       const compteDesAnciennesGardes = retenues.length;
       for (const a of retenues) auxAnciennesGardes.add(a);
-      if (deLaRampe || desFamilles || deLaReduction) {
+      if (deLaRampe || desFamilles || deLaReduction || desSieges) {
         const enPlus = [];
-        for (const liste of [deLaRampe, desFamilles, deLaReduction]) {
+        for (const liste of [deLaRampe, desFamilles, deLaReduction, desSieges]) {
           for (const a of liste || []) if (!retenues.includes(a) && !enPlus.includes(a)) enPlus.push(a);
         }
         if (enPlus.length) {
