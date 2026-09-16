@@ -1956,7 +1956,27 @@ function groupementsRetouches(saisie, jetons, vecteurs, ops, cible = CIBLE_DEFAU
             fragment: {
               texte: j.texte, offset: j.offset, longueur: j.longueur,
               intervalles: [[j.offset, j.offset + j.longueur]],
-              tokenDebut: iJeton, tokenLong: 1, famille: 'portee', priorite: 2,
+              tokenDebut: iJeton,
+              tokenLong: 1,
+              /* ★ **UNE RETOUCHE QUI COUVRE TOUT S'ÉCRIT SANS PORTÉE** — verdict
+                 n° 4 de l'autrice (15 septembre 2026) :
+
+                 > « Pourquoi : `0:fr13;ma1+mab` plutôt que `fr13+ma1+mab` ? il
+                 >   n'y a qu'un mot. »
+
+                 Ce descripteur est bâti PAR JETON, et il l'annonçait toujours
+                 comme une portée. Or `url.js › porteeDe` n'omet la portée que
+                 pour la famille `'entier'` : sur une saisie d'un seul mot, le
+                 lien écrivait `0:` pour désigner… toute la saisie. Le jeton et
+                 la saisie sont alors la MÊME chose, et c'est la famille qui doit
+                 le dire.
+
+                 ⚠️ Le `;` reste, lui, et il le faut : il marque l'ÉTAGE, pas la
+                   portée. Sans lui, `fr13;ma1+mab` deviendrait `fr13+ma1+mab`,
+                   qui est un programme ordinaire parfaitement valide — deux
+                   démonstrations distinctes sous un seul lien. */
+              famille: (j.offset === 0 && j.longueur === saisie.length) ? 'entier' : 'portee',
+              priorite: 2,
             },
             chemin: { ops: [f], etats: [depart, apres], valeur: null, cout: f.cout || 0 },
           }],
