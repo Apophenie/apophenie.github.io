@@ -47,6 +47,23 @@ import { lireCible } from '../../cible.js';
 import { signesSansRelecture, relecturesPour, segmentsDe } from '../../conversions.js';
 import { catalogue } from '../_catalogue.js';
 import { compile } from '../../../visuel/compile.js';
+import { setGlyphes } from '../../../visuel/glyphes.js';
+import { GLYPHES } from '../../../moteur/tables/glyphes.js';
+
+/* ★ **LA TABLE DE GLYPHES, CHARGÉE COMME AILLEURS.**
+ *
+ * Ce fichier COMPILE chaque voie qu'il vérifie (`assert.doesNotThrow(() =>
+ * compile(sc))`), et une voie qui passe par `countStrokes` ou `sevenSeg` exige
+ * la table : sans elle, `compile` échoue bruyamment — et c'est très bien ce
+ * qu'elle doit faire (`visuel/glyphes.js`).
+ *
+ * ⚠️ Le manque était LATENT, pas théorique : aucune des voies que « C'est »
+ *   rendait alors n'employait ces primitives. La première qui l'a fait —
+ *   `fl+mtrb+mab`, comptée en traits — a fait rougir un test qui ne parle pas
+ *   d'elle, avec « table de glyphes absente » pour tout diagnostic. Le
+ *   chargement est celui de `integration-visuel.test.js`, au même argument près.
+ */
+setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
 
 const moteur = creerMoteur(catalogue, { filetTemporel: false });
 const SAISIE = 'https://reinfocovid.fr/';
