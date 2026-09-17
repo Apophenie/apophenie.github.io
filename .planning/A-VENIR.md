@@ -89,9 +89,16 @@
   s'est arrêté (`--reprise`), mais l'essai n'a été fait que sur une suite
   factice : reste à l'interrompre en plein vol sur la vraie suite, machine
   libre, et à vérifier que la reprise ne rejoue que ce qui manque.
-- **La table des durées de référence est incomplète.**
-  [`scripts/durees-lentes.json`](../scripts/durees-lentes.json) ne dit que ce
-  qu'une passe complète a mesuré : `monotonie` s'y inscrira à la prochaine
-  passe verte lancée avec `--releve-durees`, et `recherche` reste au délai du
-  cas inconnu tant qu'il n'a pas été vert sous la passe parallèle (la table
-  refuse, à dessein, les durées d'une relance seule).
+- **La table des durées de référence est complète, et elle a changé de nature.**
+  [`scripts/durees-lentes.json`](../scripts/durees-lentes.json) porte désormais,
+  pour les dix-sept fichiers, un `cpuSecondes` et un `murSecondes` nommés plutôt
+  qu'un nombre dont il fallait deviner l'unité. La passe verte du 17 septembre y
+  a inscrit `monotonie` et `recherche`, qui manquaient faute d'une première
+  passe verte — la table refuse toujours, à dessein, les durées d'une relance
+  seule.
+  Ce qui reste ouvert n'est plus le remplissage mais le RÉGLAGE : le facteur du
+  budget CPU est resté à 4, celui d'avant, alors que le CPU est bien plus stable
+  que le mur et permettrait sans doute plus serré. Le resserrer demande une série
+  de passes sur plusieurs machines et plusieurs charges, pas une intuition — et
+  un garde trop serré tue des fichiers sains, ce qui est plus grave que de
+  laisser courir un blocage quelques minutes de trop.

@@ -120,11 +120,24 @@ export const ANCIENS_REGLAGES = [
 /**
  * Facteur CPU 4 — le même qu'avant, et ce n'est pas un oubli.
  *
- * Le CPU étant bien plus stable que le mur, un facteur plus serré serait
- * tentant. Mais le facteur ne couvre pas que la charge : il couvre aussi le
- * cache froid, la version de Node et le contenu des tests, qui bougent d'une
- * passe à l'autre. On ne resserre pas un garde sur une intuition ; quatre est
- * déjà éprouvé, et le gain du CPU se prend d'abord en fiabilité, pas en cran.
+ * Ce que la charge fait aux deux métriques, mesuré le 17 septembre sur quatre
+ * fichiers (`cible`, `elegance`, `curseurs`, `titres`), même parallélisme et
+ * même table, machine libre puis sous huit brûleurs occupant les huit cœurs —
+ * charge 4,2 contre 18,0 :
+ *
+ *     cumul mural   805 s → 1 291 s   ×1,60   (par fichier : 1,56 à 1,62)
+ *     cumul CPU     821 s →   841 s   ×1,02   (par fichier : 0,96 à 1,05)
+ *
+ * Les ratios muraux tiennent dans une bande étroite parce qu'ils ne mesurent
+ * pas les fichiers : ils mesurent la machine. Les ratios CPU, eux, sont du
+ * bruit. C'est CE résultat qui autorise une table commitée.
+ *
+ * Un facteur plus serré devient donc tentant. On ne le fait pas : le facteur ne
+ * couvre pas que la charge, il couvre aussi le cache froid, la version de Node
+ * et le contenu des tests, qui bougent d'une passe à l'autre — et un seul essai
+ * sur une seule machine ne dit rien de tout cela. On ne resserre pas un garde
+ * sur une mesure isolée ; quatre est déjà éprouvé, et le gain du CPU se prend
+ * d'abord en fiabilité, pas en cran.
  */
 export const FACTEUR_CPU_DEFAUT = 4;
 

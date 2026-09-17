@@ -152,11 +152,11 @@ sous charge. Le lanceur exécute **un processus par fichier** et annonce chacun 
 au départ puis au verdict, avec l'horloge depuis le début :
 
 ```
-[  0:00] départ   src/recherche/tests/lents/monotonie.test.js  ·  budget 1 h 30 min
-[  0:00] départ   src/recherche/tests/lents/cible-phrase.test.js  ·  budget 1 h 07 min
-[  0:26] vert     src/recherche/tests/lents/liaison.test.js  ·  2 tests, 25,8 s  ·  3/17
-[  0:42] vert     src/recherche/tests/lents/sieges.test.js  ·  5 tests, 42,5 s  ·  4/17
-[ 35:00] en vol   src/recherche/tests/lents/monotonie.test.js — 35 min 00 s, 12 tests faits, budget 1 h 30 min
+[  0:00] départ   src/recherche/tests/lents/monotonie.test.js  ·  budget CPU 1 h 30 min · mur 2 h 00 min
+[  0:00] départ   src/recherche/tests/lents/cible-phrase.test.js  ·  budget CPU 1 h 30 min · mur 2 h 14 min
+[  7:19] vert     src/recherche/tests/lents/cible-mot.test.js  ·  13 tests, 7 min 19 s au mur, 6 min 07 s de CPU  ·  1/17
+[ 14:58] vert     src/recherche/tests/lents/recherche.test.js  ·  69 tests, 14 min 58 s au mur, 21 min 08 s de CPU  ·  4/17
+[ 21:50] vert     src/recherche/tests/lents/sieges.test.js  ·  5 tests, 20,1 s au mur, 25,6 s de CPU  ·  12/17
 ```
 
 Ce que cette passe-là a donné, le 16 septembre, à quatre voies sur machine chargée : deux
@@ -167,6 +167,37 @@ la machine. Sans ce lanceur, il y aurait eu une heure de silence et une excuse t
 trouvée. À l'inverse, `progression.test.js` — longtemps soupçonné de rougir sous charge —
 est passé du premier coup : la suite n'a qu'un seul fichier réellement sensible à la
 charge, et c'est `recherche.test.js`.
+
+Le 17 septembre, machine calme, la même passe est verte de bout en bout : 17 fichiers,
+360 tests, **43 min 35 s au mur pour 1 h 50 min de CPU cumulées sur quatre voies** — et la
+somme des CPU relevés par fichier retombe à **0,0 %** près sur ce que le noyau compte au
+lanceur pour tous ses enfants. La mesure CPU répond du même coup à la question que le mur
+laissait ouverte sur `recherche.test.js` : ce fichier ne dépasse aucun budget de travail,
+il **brûle plus de CPU que de mur** — 21 min contre 15 — parce qu'il occupe plus d'un cœur.
+S'il rougit sous charge, ce n'est donc pas le garde du lanceur qui le tue, c'est
+`test('budget — chaque fragment reste sous BUDGET_MS')`, qui mesure au `performance.now()`
+réel. **Et cette assertion-là doit rester murale** : elle teste une promesse faite à
+l'utilisateur, et le temps d'attente d'un humain ne se compte pas en cycles. La métrique
+du lanceur et celle du produit n'ont pas à être la même — c'est exactement pourquoi
+l'étiquette « vert seul, rouge sous charge » continue d'exister à côté des deux bornes.
+
+**La démonstration, mesurée plutôt qu'affirmée.** Le même sous-ensemble de quatre fichiers,
+même parallélisme, même table — d'abord sur machine libre, puis sous huit brûleurs occupant
+les huit cœurs (charge 4,2 contre 18,0) :
+
+| fichier | mur au calme → sous charge | | CPU au calme → sous charge | |
+| --- | --- | --- | --- | --- |
+| `titres` | 194 s → 303 s | **×1,56** | 198 s → 190 s | ×0,96 |
+| `elegance` | 194 s → 314 s | **×1,62** | 198 s → 206 s | ×1,04 |
+| `cible` | 194 s → 314 s | **×1,62** | 193 s → 203 s | ×1,05 |
+| `curseurs` | 223 s → 360 s | **×1,61** | 232 s → 242 s | ×1,04 |
+| **cumul** | 805 s → 1 291 s | **×1,60** | 821 s → 841 s | **×1,02** |
+
+Le mur enfle de **61 %**, le CPU de **2,4 %**. La dispersion dit le reste : les quatre
+ratios muraux tiennent dans une bande étroite — 1,56 à 1,62 — parce qu'ils ne mesurent pas
+les fichiers, ils mesurent la machine ; les ratios CPU tiennent entre 0,96 et 1,05,
+c'est-à-dire du bruit. C'est ce résultat, et lui seul, qui autorise une table **commitée** :
+elle décrit ce que le travail coûte, et non le jour où on l'a relevée.
 
 Cinq règles, et elles se tiennent :
 
@@ -209,10 +240,12 @@ Cinq règles, et elles se tiennent :
 
 Et jamais plus de soixante secondes sans nouvelles : quand rien ne tombe, une ligne de vie
 dit ce qui est encore en vol, depuis combien de temps, combien de tests y sont déjà faits,
-et quel budget lui reste — un dépassement devient prévisible au lieu d'être brutal.
+**combien de CPU il a brûlé**, et quels budgets lui restent — un dépassement devient
+prévisible au lieu d'être brutal. Le CPU en vol est l'information qui manquait le plus :
+un fichier à trente minutes de mur et deux minutes de CPU n'est pas lent, il attend.
 
 ```
-[ 35:00] en vol   src/recherche/tests/lents/cible-phrase.test.js — 35 min 00 s, 12 tests faits, budget 67 min
+[  2:15] en vol   src/recherche/tests/lents/recherche.test.js — 2 min 15 s, 0 test fait, 2 min 18 s de CPU, budget CPU 1 h 30 min · mur 2 h 00 min
 ```
 
 Le verdict, lui, ne dépend ni de l'ordre ni du parallélisme : chaque fichier a son propre

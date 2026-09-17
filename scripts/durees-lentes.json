@@ -33,49 +33,118 @@
     "relance seule serait mesurée sans charge — ce qui fausse encore le mur,",
     "même si le CPU, lui, s'en moque.",
     "",
-    "⚠ CES ENTRÉES N'ONT PAS ENCORE DE cpuSecondes. Ce sont les durées murales",
-    "du relevé du 16 septembre, renommées pour dire enfin ce qu'elles ont",
-    "toujours été — rien n'a été converti, rien n'a été inventé. Tant qu'un",
-    "relevé n'a pas tourné avec la mesure CPU, chaque fichier prend le budget de",
-    "travail du cas inconnu et un filet mural calculé sur sa durée d'alors.",
+    "Les DIX-SEPT fichiers y sont, chacun avec ses deux natures : le relevé du",
+    "17 septembre est passé vert de bout en bout, `monotonie` et `recherche`",
+    "compris — ils manquaient jusqu'ici faute d'une première passe verte, et",
+    "c'est la seule raison pour laquelle un fichier peut manquer.",
     "",
-    "Deux fichiers manquent volontairement et prennent les deux cas « sans",
-    "référence », les plus généreux :",
-    "  · recherche.test.js — rouge sous charge lors de ce relevé, donc sa durée",
-    "    de première passe ne décrit pas une exécution verte ;",
-    "  · monotonie.test.js — ses 52 min 37 de ce jour-là étaient une VRAIE",
-    "    régression, corrigée depuis. Les garder ferait d'un bug la norme."
+    "CE QUE LE RAPPORT CPU/MUR DIT, ET QU'AUCUNE DURÉE MURALE NE DISAIT.",
+    "Au-dessus de 1, le fichier occupe PLUS D'UN CŒUR : recherche est à 1,41 —",
+    "21 min de CPU pour 15 min au mur. En dessous, il a attendu, ou s'est fait",
+    "déloger par ses voisins de passe : cible-phrase est à 0,84. Sur la passe",
+    "entière les deux sommes coïncident (6 614 s de CPU pour 6 608 s de mur),",
+    "mais fichier par fichier l'écart va de 0,84 à 1,53. Un budget assis sur le",
+    "mur ne pouvait pas voir cette différence ; il la prenait pour du bruit."
   ],
   "metrique": "cpuSecondes = temps CPU (utilisateur + système, descendance comprise), en secondes. murSecondes = temps écoulé au mur, en secondes. Le budget de travail se calcule sur le CPU — comparable d’une machine et d’une charge à l’autre — et le garde anti-blocage sur le mur, parce qu’un test bloqué ne consomme aucun CPU. Une entrée sans cpuSecondes a été relevée là où le CPU n’était pas lisible : ce fichier n’a alors aucun budget de travail.",
   "conditions": {
-    "le": "2026-09-16",
+    "le": "2026-09-17",
     "coeurs": 8,
     "voies": 4,
     "passe": "première (parallèle), pas les relances seules",
-    "chargeMoyenne": 12.2,
-    "chargeMin": 3.8,
-    "chargeMax": 30.4,
-    "relevesDeCharge": 90,
-    "cpuReleve": "0/15 fichiers",
-    "cpuSource": "relevé d'avant la mesure CPU : ces chiffres ne disent que le mur",
-    "machine": "CHARGÉE — un autre travail tournait pendant tout le relevé, la charge est retombée entre 5 et 9 en fin de passe",
-    "pourquoiCaCompte": "Ces durées murales incluent une forte inflation de charge (de 1,3× à 2,7× par rapport aux mêmes fichiers mesurés seuls). C'est précisément ce que la mesure CPU vient supprimer : tant qu'elles servent de filet mural, elles restent généreuses, et c'est voulu — tuer un test sain est plus grave que laisser courir un blocage quelques minutes de trop."
+    "cpuReleve": "17/17 fichiers",
+    "cpuSource": "`times` de /bin/sh à la sortie du processus, descendance comprise (exact)",
+    "gardeCpu": "/proc, 100 jiffies par seconde",
+    "chargeMoyenne": 11.2,
+    "chargeMin": 4.1,
+    "chargeMax": 26.9,
+    "relevesDeCharge": 174
   },
   "durees": {
-    "src/app/lents/debug.test.js": { "murSecondes": 34.6, "le": "2026-09-16" },
-    "src/recherche/tests/lents/cible-mot.test.js": { "murSecondes": 590, "le": "2026-09-16" },
-    "src/recherche/tests/lents/cible-phrase.test.js": { "murSecondes": 1011, "le": "2026-09-16" },
-    "src/recherche/tests/lents/cible.test.js": { "murSecondes": 288, "le": "2026-09-16" },
-    "src/recherche/tests/lents/curseurs.test.js": { "murSecondes": 356, "le": "2026-09-16" },
-    "src/recherche/tests/lents/elegance.test.js": { "murSecondes": 293, "le": "2026-09-16" },
-    "src/recherche/tests/lents/integration-visuel.test.js": { "murSecondes": 509, "le": "2026-09-16" },
-    "src/recherche/tests/lents/liaison.test.js": { "murSecondes": 25.8, "le": "2026-09-16" },
-    "src/recherche/tests/lents/progression.test.js": { "murSecondes": 100, "le": "2026-09-16" },
-    "src/recherche/tests/lents/provisoire.test.js": { "murSecondes": 167, "le": "2026-09-16" },
-    "src/recherche/tests/lents/reveler.test.js": { "murSecondes": 108, "le": "2026-09-16" },
-    "src/recherche/tests/lents/scenario.test.js": { "murSecondes": 164, "le": "2026-09-16" },
-    "src/recherche/tests/lents/score-arbitre.test.js": { "murSecondes": 168, "le": "2026-09-16" },
-    "src/recherche/tests/lents/sieges.test.js": { "murSecondes": 42.5, "le": "2026-09-16" },
-    "src/recherche/tests/lents/titres.test.js": { "murSecondes": 260, "le": "2026-09-16" }
+    "src/app/lents/debug.test.js": {
+      "cpuSecondes": 23.4,
+      "murSecondes": 19.1,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/cible-mot.test.js": {
+      "cpuSecondes": 367.2,
+      "murSecondes": 439.4,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/cible-phrase.test.js": {
+      "cpuSecondes": 734.9,
+      "murSecondes": 879.6,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/cible.test.js": {
+      "cpuSecondes": 202.6,
+      "murSecondes": 220.7,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/curseurs.test.js": {
+      "cpuSecondes": 243.2,
+      "murSecondes": 262.7,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/elegance.test.js": {
+      "cpuSecondes": 204.2,
+      "murSecondes": 219.8,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/integration-visuel.test.js": {
+      "cpuSecondes": 363.4,
+      "murSecondes": 406.4,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/liaison.test.js": {
+      "cpuSecondes": 17.6,
+      "murSecondes": 11.5,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/monotonie.test.js": {
+      "cpuSecondes": 2521,
+      "murSecondes": 2615.3,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/progression.test.js": {
+      "cpuSecondes": 62.9,
+      "murSecondes": 53.6,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/provisoire.test.js": {
+      "cpuSecondes": 141.2,
+      "murSecondes": 141.6,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/recherche.test.js": {
+      "cpuSecondes": 1268.3,
+      "murSecondes": 898.1,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/reveler.test.js": {
+      "cpuSecondes": 116.3,
+      "murSecondes": 104.8,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/scenario.test.js": {
+      "cpuSecondes": 67.9,
+      "murSecondes": 63.4,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/score-arbitre.test.js": {
+      "cpuSecondes": 63.5,
+      "murSecondes": 61.7,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/sieges.test.js": {
+      "cpuSecondes": 25.6,
+      "murSecondes": 20.1,
+      "le": "2026-09-17"
+    },
+    "src/recherche/tests/lents/titres.test.js": {
+      "cpuSecondes": 190.5,
+      "murSecondes": 190.2,
+      "le": "2026-09-17"
+    }
   }
 }
