@@ -84,11 +84,15 @@
 
 ## L'outillage
 
-- **La suite lente relancée après coup.** Le lanceur
-  ([`scripts/test-lent.mjs`](../scripts/test-lent.mjs)) sait reprendre là où il
-  s'est arrêté (`--reprise`), mais l'essai n'a été fait que sur une suite
-  factice : reste à l'interrompre en plein vol sur la vraie suite, machine
-  libre, et à vérifier que la reprise ne rejoue que ce qui manque.
+- ~~**La suite lente relancée après coup.**~~ **Fait, sur la vraie suite.**
+  Interrompue en plein vol par `SIGINT` au PID du lanceur, après 10 fichiers
+  verts sur 17 : les 4 fichiers en cours sont sortis en `code 143` sans bilan
+  TAP, donc comptés ROUGES et jamais verts ; la descendance capturée avant la
+  coupe — douze PID, `sh`, `node --test` et les petits-fils isolés — était
+  **entièrement éteinte** après, vérifiée PID par PID ; l'état de reprise
+  contenait exactement les 10 verts. La reprise a ensuite relancé **les 7
+  fichiers manquants et eux seuls**, est repassée verte (code 0), et a **effacé
+  l'état** qu'elle venait d'épuiser. Les cinq promesses tiennent.
 - **La table des durées de référence est complète, et elle a changé de nature.**
   [`scripts/durees-lentes.json`](../scripts/durees-lentes.json) porte désormais,
   pour les dix-sept fichiers, un `cpuSecondes` et un `murSecondes` nommés plutôt

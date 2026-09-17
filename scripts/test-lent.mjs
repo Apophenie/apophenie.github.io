@@ -1025,10 +1025,19 @@ const pad = (n, large = 2) => String(n).padStart(large, '0');
 export function formaterDuree(ms) {
   if (!Number.isFinite(ms)) return 'sans garde';
   const s = ms / 1000;
-  if (s < 60) return `${s.toFixed(1).replace('.', ',')} s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m} min ${pad(Math.round(s - m * 60))} s`;
-  return `${Math.floor(m / 60)} h ${pad(m % 60)} min`;
+  // Sous la minute on garde le dixième — mais 59,96 s arrondi au dixième rendait
+  // « 60,0 s ». La bascule se décide donc sur la valeur ARRONDIE, pas sur la brute.
+  if (Math.round(s * 10) < 600) return `${s.toFixed(1).replace('.', ',')} s`;
+  // ★ ARRONDIR UNE FOIS, PUIS DÉCOUPER — et jamais l'inverse.
+  //
+  // Découper d'abord puis arrondir le reste laissait ce reste atteindre 60 et
+  // l'imprimait tel quel : « budget CPU 48 min 60 s » s'est affiché en
+  // production, et un balayage de 1 s à 2 h en a trouvé 295 autres, dont
+  // « 59 min 60 s ». Une retenue ne s'improvise pas après le découpage.
+  const total = Math.round(s);
+  const heures = Math.floor(total / 3600);
+  if (heures === 0) return `${Math.floor(total / 60)} min ${pad(total % 60)} s`;
+  return `${heures} h ${pad(Math.floor((total % 3600) / 60))} min`;
 }
 
 /** L'horloge depuis le départ, en tête de chaque ligne : `[  4:02]`. */
@@ -1328,11 +1337,41 @@ export async function lancerSuiteLente(options) {
         attendu: cpuMoissonneDepart === null || moissonneFin === null ? null : moissonneFin - cpuMoissonneDepart,
       });
       if (reconcilie !== null) {
-        journal.ligne(
-          `  contrôle   ${formaterDuree(reconcilie.attendu * 1000)} comptées par le noyau aux enfants du lanceur` +
-            ` — écart résiduel ${(reconcilie.ecart * 100).toFixed(1).replace('.', ',')} %` +
-            ` ; le lanceur lui-même : ${formaterDuree((cpuPropre() - cpuPropreDepart) * 1000)}`,
-        );
+        const propre = formaterDuree((cpuPropre() - cpuPropreDepart) * 1000);
+        // ★ UNE EXÉCUTION TUÉE REND LE CONTRÔLE IMPOSSIBLE, ET IL FAUT LE DIRE.
+        //
+        // `cutime`/`cstime` ne comptent que les enfants MOISSONNÉS. Or un
+        // `node --test` tué — par le garde ou par une interruption — n'a jamais
+        // moissonné le petit-fils qui portait tout le travail : son CPU
+        // n'atteint donc jamais le compte du noyau. Mesuré par vérité-terrain,
+        // le petit-fils déclarant lui-même sa consommation : 1,36 s brûlées,
+        // 1,5 s vues par la sonde, 0,3 s comptées par le noyau.
+        //
+        // La sonde a raison, le noyau est aveugle, et publier un écart ici
+        // reviendrait à accuser la mesure juste. La ligne annonçait 1026,9 % sur
+        // ce cas, et 28,6 % sur une vraie passe interrompue.
+        const tuee = (r) => r.depasse !== null || r.signal !== null || r.code === 143;
+        const tuees = [
+          ...finaux,
+          ...finaux.filter((r) => r.sousCharge).map((r) => r.sousCharge),
+        ].filter(tuee);
+        if (tuees.length > 0) {
+          const n = tuees.length;
+          journal.ligne(
+            `  contrôle   ${formaterDuree(reconcilie.attendu * 1000)} comptées par le noyau aux enfants — MINORANT :` +
+              ` ${n} exécution${n > 1 ? 's' : ''} tuée${n > 1 ? 's' : ''} sans avoir moissonné sa descendance,`,
+          );
+          journal.ligne(
+            `             dont le CPU échappe à ce compte. Pas de comparaison possible ;` +
+              ` le lanceur lui-même : ${propre}`,
+          );
+        } else {
+          journal.ligne(
+            `  contrôle   ${formaterDuree(reconcilie.attendu * 1000)} comptées par le noyau aux enfants du lanceur` +
+              ` — écart résiduel ${(reconcilie.ecart * 100).toFixed(1).replace('.', ',')} %` +
+              ` ; le lanceur lui-même : ${propre}`,
+          );
+        }
       }
     }
     if (signales.length > 0) {

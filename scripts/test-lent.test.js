@@ -976,3 +976,44 @@ test('bilan — une relance NOMME le CPU écarté, une passe sans relance n’en
   assert.match(r2.sortie, /écart résiduel/, 'mais le contrôle croisé, lui, parle toujours');
   fs.rmSync(sans.racine, { recursive: true, force: true });
 });
+
+// ──────────────────────────────────── ce que la mesure a corrigé au rapport ──
+
+test('durées — la retenue se fait AVANT le découpage, jamais après', () => {
+  // « budget CPU 48 min 60 s » s'est affiché en production. La cause : on
+  // découpait d'abord, puis on arrondissait le reste — qui pouvait atteindre 60.
+  assert.equal(formaterDuree(4 * 734.9 * 1000), '49 min 00 s', 'le cas vu en production');
+  assert.equal(formaterDuree(3599.6 * 1000), '1 h 00 min', 'et la même faute au passage de l’heure');
+  assert.equal(formaterDuree(119.6 * 1000), '2 min 00 s');
+  // Le premier balayage que j'avais écrit ne regardait QUE la branche des
+  // minutes, et ratait donc celle-ci : 59,96 s arrondi au dixième rend « 60,0 s ».
+  assert.equal(formaterDuree(59.96 * 1000), '1 min 00 s', 'la branche sous la minute avait le même défaut');
+  assert.equal(formaterDuree(59.94 * 1000), '59,9 s', 'et elle ne doit pas basculer trop tôt');
+
+  // Balayage exhaustif, cette fois sur TOUTE la chaîne rendue : aucune durée ne
+  // doit contenir un champ à 60, ni sous la minute, ni ailleurs.
+  const malformees = [];
+  for (let d = 1; d <= 7260 * 10; d += 1) {
+    const t = formaterDuree((d / 10) * 1000);
+    if (/(^|\s)60(,0)? (s|min)$/.test(t) || /\b6[0-9],\d s$/.test(t)) malformees.push([d / 10, t]);
+  }
+  assert.deepEqual(malformees, [], `durées malformées : ${JSON.stringify(malformees.slice(0, 5))}`);
+});
+
+test('contrôle croisé — une exécution TUÉE le rend impossible, et la ligne le dit', () => {
+  // Mesuré par vérité-terrain, le petit-fils déclarant lui-même sa consommation :
+  // 1,36 s brûlées, 1,5 s vues par la sonde, 0,3 s comptées par le noyau. Un
+  // `node --test` tué ne moissonne jamais son petit-fils, dont le CPU n'atteint
+  // donc pas `cutime`. Publier un écart ici accuserait la mesure JUSTE — la
+  // ligne annonçait 1026,9 % sur ce cas, et 28,6 % sur une vraie passe interrompue.
+  const { racine } = atelier({ 'dort.test.js': DORT });
+  const { code, sortie } = lancer(racine, '--plancher-mur=0', '--mur-inconnu=2');
+
+  assert.equal(code, 1, sortie);
+  assert.match(sortie, /MINORANT/, 'le compte du noyau doit être annoncé comme incomplet');
+  assert.match(sortie, /sans avoir moissonné sa descendance/);
+  assert.doesNotMatch(sortie, /écart résiduel/, 'un écart calculé ici accuserait la sonde à tort');
+  assert.match(sortie, /le lanceur lui-même : /, 'ce qui revient au lanceur reste dit');
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
