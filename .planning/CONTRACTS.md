@@ -2282,7 +2282,7 @@ Exemples : `fp` retirer le protocole · `ma1` A1Z26 · `cs` somme · `prn` racin
 fusionnés) · `m14`/`m14F` **quatorze segments**, mêmes deux lectures ·
 `mr9` **on retourne les 9** (`NUMS → NUMS`) · `mr39` le même geste **par trio** ·
 `m36` **trois 6 d'affilée** (`NUMS → NUMS`) ·
-`mpf`/`m1s2`/`mad` **les trois ficelles** (voir l'amendement en fin de §).
+`m1s2`/`mlet` **les deux ficelles** (voir l'amendement en fin de §, qui les nommait trois : `mpf` en est sorti — « mpf ne doit plus être considéré comme une ficelle ! » —, puis `mad` — « mad n'est pas pire que mrdE » —, et `mlet`, l'écriture en toutes lettres, y est entrée sans que le texte le dise).
 
 > *Amendement — **LES CENT CODES DEVIENNENT PARLANTS**.* — 27 août 2026.
 >
@@ -2641,7 +2641,7 @@ fusionnés) · `m14`/`m14F` **quatorze segments**, mêmes deux lectures ·
 > > s'ajoutent — une somme ne retombe sur 0 qu'en n'additionnant que des 0).
 >
 > ★ **`exige` — les quatre refusent plutôt que de se jouer pour rien**, même
-> discipline que `mr9`, `m36` et les trois ficelles. `mtri` refuse s'il ne
+> discipline que `mr9`, `m36` et les ficelles. `mtri` refuse s'il ne
 > RASSEMBLE pas (il doit faire apparaître une plage de trois qui n'existait
 > pas) ; `mr39` refuse sans trio de 9 contigus ; `mcc` refuse quand le décompte
 > ne condense pas la ligne ; `mrd` refuse en deçà de vingt-cinq chiffres — deux
