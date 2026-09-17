@@ -23,26 +23,40 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
-  budgetDeGarde,
+  ANCIENS_REGLAGES,
+  budgetsDeGarde,
   chargerDurees,
+  compteursStat,
+  CPU_INCONNU_DEFAUT,
+  cpuArbreJiffies,
+  cpuEnfantsMoissonnes,
   decouvrir,
-  FACTEUR_DEFAUT,
+  FACTEUR_CPU_DEFAUT,
+  FACTEUR_MUR_DEFAUT,
   FICHIER_DUREES,
   formaterDuree,
-  INCONNU_DEFAUT,
+  jiffiesParSeconde,
   lancerSuiteLente,
   lireBilanTap,
+  lireTimes,
+  METRIQUE,
+  MUR_INCONNU_DEFAUT,
   ordonnerParDuree,
   parallelismeParDefaut,
-  PLANCHER_DEFAUT,
+  PLANCHER_CPU_DEFAUT,
+  PLANCHER_MUR_DEFAUT,
   referenceDe,
-  reglagesDelai,
+  reglagesGarde,
+  sonderCpu,
   testsEchoues,
   testsTermines,
-  VAR_FACTEUR,
-  VAR_INCONNU,
+  VAR_CPU_INCONNU,
+  VAR_FACTEUR_CPU,
+  VAR_FACTEUR_MUR,
+  VAR_MUR_INCONNU,
   VAR_PARALLELISME,
-  VAR_PLANCHER,
+  VAR_PLANCHER_CPU,
+  VAR_PLANCHER_MUR,
 } from './test-lent.mjs';
 
 const LANCEUR = path.join(import.meta.dirname, 'test-lent.mjs');
@@ -373,46 +387,152 @@ const DORT_UN_PEU = `import test from 'node:test';
 test('je dors un peu', async () => { await new Promise((r) => setTimeout(r, 1500)); });
 `;
 
-test('délai de garde — proportionné au fichier, avec plancher, et généreux sans référence', () => {
-  const table = { durees: { 'court.test.js': 20, 'long.test.js': { secondes: 1011, le: '2026-09-16' } } };
-  const reglages = { facteur: 4, plancher: 180, inconnu: 5400 };
+const REGLAGES = {
+  facteurCpu: 4,
+  plancherCpu: 180,
+  cpuInconnu: 5400,
+  facteurMur: 8,
+  plancherMur: 300,
+  murInconnu: 7200,
+};
 
-  assert.equal(budgetDeGarde('court.test.js', table, reglages), 180_000, '4 × 20 s passe sous le plancher');
-  assert.equal(budgetDeGarde('long.test.js', table, reglages), 4 * 1011 * 1000);
-  assert.equal(
-    budgetDeGarde('jamais-vu.test.js', table, reglages),
-    5_400_000,
-    'sans référence, le cas le plus généreux : on ne tue pas ce qu’on ne connaît pas',
+test('les deux budgets — proportionnés au fichier, avec planchers, et généreux sans référence', () => {
+  const table = {
+    durees: {
+      'court.test.js': { cpuSecondes: 20, murSecondes: 26 },
+      'long.test.js': { cpuSecondes: 700, murSecondes: 1011, le: '2026-09-17' },
+      'mural-seul.test.js': { murSecondes: 300 },
+    },
+  };
+
+  assert.equal(budgetsDeGarde('court.test.js', table, REGLAGES).cpu, 180_000, '4 × 20 s passe sous le plancher CPU');
+  assert.equal(budgetsDeGarde('court.test.js', table, REGLAGES).mur, 300_000, '8 × 26 s passe sous le plancher mural');
+  assert.equal(budgetsDeGarde('long.test.js', table, REGLAGES).cpu, 4 * 700 * 1000);
+  assert.equal(budgetsDeGarde('long.test.js', table, REGLAGES).mur, 8 * 1011 * 1000);
+
+  // La borne murale doit rester HORS D'ATTEINTE d'un fichier sain : c'est un
+  // filet, pas un budget. Sur toute entrée complète, elle est plus large que la
+  // borne CPU — sans quoi elle parlerait la première et masquerait le vrai
+  // diagnostic, qui est « ce fichier travaille trop », pas « il attend ».
+  for (const nom of ['court.test.js', 'long.test.js']) {
+    const b = budgetsDeGarde(nom, table, REGLAGES);
+    assert.ok(b.mur > b.cpu, `${nom} : le filet mural doit être plus large que le budget CPU`);
+  }
+
+  // Une entrée qui n'a QUE du mur n'a aucun budget de travail : le CPU retombe
+  // au cas inconnu, et c'est l'état d'une table fraîchement migrée.
+  const migre = budgetsDeGarde('mural-seul.test.js', table, REGLAGES);
+  assert.equal(migre.cpu, 5_400_000, 'sans référence CPU, le cas le plus généreux');
+  assert.equal(migre.mur, 8 * 300 * 1000, 'sa référence murale, elle, est bien là');
+
+  const inconnu = budgetsDeGarde('jamais-vu.test.js', table, REGLAGES);
+  assert.deepEqual([inconnu.cpu, inconnu.mur], [5_400_000, 7_200_000], 'on ne tue pas ce qu’on ne connaît pas');
+
+  assert.equal(referenceDe(table, 'long.test.js', 'cpu'), 700);
+  assert.equal(referenceDe(table, 'long.test.js', 'mur'), 1011);
+  assert.equal(referenceDe(table, 'long.test.js'), 700, 'le CPU est la nature par défaut : c’est la référence de coût');
+  assert.equal(referenceDe(table, 'jamais-vu.test.js', 'mur'), null);
+  assert.throws(() => referenceDe(table, 'long.test.js', 'lunaire'), /nature de référence inconnue/);
+
+  assert.deepEqual(
+    [FACTEUR_CPU_DEFAUT, PLANCHER_CPU_DEFAUT, CPU_INCONNU_DEFAUT],
+    [4, 180, 5400],
+    'les défauts CPU livrés',
   );
-
-  assert.equal(referenceDe(table, 'court.test.js'), 20, 'une entrée en nombre brut reste lisible');
-  assert.equal(referenceDe(table, 'long.test.js'), 1011);
-  assert.equal(referenceDe(table, 'jamais-vu.test.js'), null);
-
-  // les défauts livrés sont ceux qu'on a justifiés sur les mesures du 16 septembre
-  assert.deepEqual([FACTEUR_DEFAUT, PLANCHER_DEFAUT, INCONNU_DEFAUT], [4, 180, 5400]);
+  assert.deepEqual(
+    [FACTEUR_MUR_DEFAUT, PLANCHER_MUR_DEFAUT, MUR_INCONNU_DEFAUT],
+    [8, 300, 7200],
+    'le filet mural est partout plus large que le budget CPU',
+  );
+  assert.ok(FACTEUR_MUR_DEFAUT > FACTEUR_CPU_DEFAUT, 'un filet plus serré que le budget ne filtrerait rien');
 });
 
-test('réglages du garde — l’environnement a le dernier mot, et l’absurde lève', () => {
-  assert.deepEqual(reglagesDelai({}), { facteur: 4, plancher: 180, inconnu: 5400 });
-  assert.equal(reglagesDelai({ [VAR_FACTEUR]: '8' }).facteur, 8, 'le réglage d’un runner lent');
-  assert.equal(reglagesDelai({ [VAR_PLANCHER]: '30' }).plancher, 30);
-  assert.equal(reglagesDelai({ [VAR_INCONNU]: '600' }).inconnu, 600);
-
-  // un facteur sous 1 donnerait un budget plus court que la durée de référence
-  assert.throws(() => reglagesDelai({ [VAR_FACTEUR]: '0.5' }), /≥ 1/);
-  assert.throws(() => reglagesDelai({ [VAR_PLANCHER]: '-1' }), /≥ 0/);
-  assert.throws(() => reglagesDelai({ [VAR_INCONNU]: 'beaucoup' }), /≥ 1/);
+test('référence — la forme d’AVANT la séparation n’est lue que comme du mur', () => {
+  // Ces deux formes-là viennent de la table d'avant : elles portaient du temps
+  // ÉCOULÉ. Les relire comme du CPU inventerait une mesure jamais prise, et
+  // donnerait un budget de travail fondé sur la charge d'un jour de septembre.
+  const ancienne = { durees: { 'nu.test.js': 20, 'objet.test.js': { secondes: 1011, le: '2026-09-16' } } };
+  for (const nom of ['nu.test.js', 'objet.test.js']) {
+    assert.equal(referenceDe(ancienne, nom, 'cpu'), null, `${nom} : aucun CPU n’a jamais été mesuré ici`);
+    assert.ok(referenceDe(ancienne, nom, 'mur') > 0, `${nom} : mais son mur, lui, est lisible`);
+  }
+  assert.equal(budgetsDeGarde('nu.test.js', ancienne, REGLAGES).cpu, 5_400_000, 'donc le cas inconnu, en CPU');
+  assert.equal(budgetsDeGarde('nu.test.js', ancienne, REGLAGES).mur, 300_000, 'et son plancher mural');
 });
 
-test('ordre de lancement — les plus longs d’abord, les inconnus en tête', () => {
-  const table = { durees: { 'b.test.js': 100, 'c.test.js': 10, 'd.test.js': 100 } };
+test('réglages des gardes — l’environnement a le dernier mot, et l’absurde lève', () => {
+  assert.deepEqual(reglagesGarde({}), REGLAGES);
+  assert.equal(reglagesGarde({ [VAR_FACTEUR_CPU]: '6' }).facteurCpu, 6);
+  assert.equal(reglagesGarde({ [VAR_PLANCHER_CPU]: '30' }).plancherCpu, 30);
+  assert.equal(reglagesGarde({ [VAR_CPU_INCONNU]: '600' }).cpuInconnu, 600);
+  assert.equal(reglagesGarde({ [VAR_FACTEUR_MUR]: '16' }).facteurMur, 16, 'le réglage d’un runner lent');
+  assert.equal(reglagesGarde({ [VAR_PLANCHER_MUR]: '60' }).plancherMur, 60);
+  assert.equal(reglagesGarde({ [VAR_MUR_INCONNU]: '900' }).murInconnu, 900);
+
+  // un facteur sous 1 donnerait un budget plus court que la référence
+  assert.throws(() => reglagesGarde({ [VAR_FACTEUR_CPU]: '0.5' }), /≥ 1/);
+  assert.throws(() => reglagesGarde({ [VAR_FACTEUR_MUR]: '0.5' }), /≥ 1/);
+  assert.throws(() => reglagesGarde({ [VAR_PLANCHER_CPU]: '-1' }), /≥ 0/);
+  assert.throws(() => reglagesGarde({ [VAR_MUR_INCONNU]: 'beaucoup' }), /≥ 1/);
+});
+
+test('anciens noms — honorés, mais JAMAIS en silence', () => {
+  // Les deux CI documentent encore `TEST_LENT_FACTEUR_DELAI=8`. Les ignorer
+  // ferait croire à un réglage qui n'a pas lieu ; les appliquer sans le dire
+  // ferait croire qu'on règle une borne alors qu'on en règle deux.
+  const dits = [];
+  const r = reglagesGarde({ TEST_LENT_FACTEUR_DELAI: '8' }, (t) => dits.push(t));
+  assert.equal(r.facteurCpu, 8, 'une machine lente l’est pour les deux : le CPU suit la vitesse du processeur');
+  assert.equal(r.facteurMur, 8);
+  assert.equal(dits.length, 1, 'un ancien nom, une ligne');
+  assert.match(dits[0], /TEST_LENT_FACTEUR_DELAI=8/);
+  assert.match(dits[0], new RegExp(VAR_FACTEUR_CPU));
+  assert.match(dits[0], new RegExp(VAR_FACTEUR_MUR));
+
+  // Les deux autres étaient muraux de naissance et le restent.
+  const muraux = [];
+  const m = reglagesGarde({ TEST_LENT_PLANCHER_DELAI: '30', TEST_LENT_DELAI_INCONNU: '600' }, (t) => muraux.push(t));
+  assert.deepEqual([m.plancherMur, m.murInconnu], [30, 600]);
+  assert.deepEqual([m.plancherCpu, m.cpuInconnu], [180, 5400], 'ils ne débordent pas sur le CPU');
+  assert.equal(muraux.length, 2);
+
+  // Le nom précis gagne sur l'ancien nom fourre-tout, et la ligne le dit.
+  const conflit = [];
+  const c = reglagesGarde({ TEST_LENT_FACTEUR_DELAI: '8', [VAR_FACTEUR_CPU]: '2' }, (t) => conflit.push(t));
+  assert.equal(c.facteurCpu, 2, 'le nom précis a le dernier mot');
+  assert.equal(c.facteurMur, 8, 'et l’ancien couvre ce que personne n’a nommé');
+  assert.match(conflit[0], new RegExp(VAR_FACTEUR_MUR));
+
+  assert.deepEqual(
+    ANCIENS_REGLAGES.map((a) => a.nom),
+    ['TEST_LENT_FACTEUR_DELAI', 'TEST_LENT_PLANCHER_DELAI', 'TEST_LENT_DELAI_INCONNU'],
+  );
+});
+
+test('ordre de lancement — sur le CPU, les plus longs d’abord, les inconnus en tête', () => {
+  const table = {
+    durees: {
+      'b.test.js': { cpuSecondes: 100, murSecondes: 400 },
+      'c.test.js': { cpuSecondes: 10, murSecondes: 900 },
+      'd.test.js': { cpuSecondes: 100, murSecondes: 120 },
+    },
+  };
   const fichiers = ['a.test.js', 'b.test.js', 'c.test.js', 'd.test.js'];
 
   assert.deepEqual(
     ordonnerParDuree(fichiers, table),
     ['a.test.js', 'b.test.js', 'd.test.js', 'c.test.js'],
-    'inconnu en tête, puis 100, 100 départagés par le chemin, puis 10',
+    'inconnu en tête, puis 100, 100 départagés par le chemin, puis 10 — c’est le CPU qui classe, pas le mur',
+  );
+
+  // Une table fraîchement migrée n'a QUE du mur : le tri s'en sert plutôt que
+  // de renvoyer tout le monde à égalité. Ce n'est qu'une heuristique
+  // d'occupation de voie — les deux natures ne se mélangent jamais ailleurs.
+  const migree = { durees: { 'court.test.js': { murSecondes: 10 }, 'long.test.js': { murSecondes: 900 } } };
+  assert.deepEqual(
+    ordonnerParDuree(['court.test.js', 'long.test.js'], migree),
+    ['long.test.js', 'court.test.js'],
+    'faute de CPU, le mur classe encore — mieux que l’ordre alphabétique',
   );
   assert.deepEqual(
     fichiers,
@@ -426,7 +546,12 @@ test('ordre de lancement — le plus long part vraiment en premier, jusque dans 
   const durees = path.join(racine, 'durees.json');
   fs.writeFileSync(
     durees,
-    JSON.stringify({ durees: { 'src/faux/lents/long.test.js': 900, 'src/faux/lents/court.test.js': 1 } }),
+    JSON.stringify({
+      durees: {
+        'src/faux/lents/long.test.js': { cpuSecondes: 900, murSecondes: 900 },
+        'src/faux/lents/court.test.js': { cpuSecondes: 1, murSecondes: 1 },
+      },
+    }),
   );
 
   const { code, sortie } = lancer(racine, `--durees=${durees}`);
@@ -445,13 +570,15 @@ test('tests terminés — comptés dans une sortie TAP encore en cours', () => {
   assert.equal(testsTermines(''), 0);
 });
 
-test('délai de garde — un dépassement part en relance seule, et y passe : vert seul', () => {
+test('garde murale — un dépassement part en relance seule, et y passe : vert seul', () => {
   const { racine } = atelier({ 'dort.test.js': DORT_UNE_FOIS });
-  const { code, sortie } = lancer(racine, '--plancher=0', '--inconnu=2');
+  // Un dormeur ne brûle RIEN : seule la borne murale peut le couper, et c'est
+  // pour ce cas-là qu'elle existe. On laisse donc le budget CPU au large.
+  const { code, sortie } = lancer(racine, '--plancher-mur=0', '--mur-inconnu=2');
 
   assert.equal(code, 0, sortie);
   assert.match(sortie, /ROUGE +src\/faux\/lents\/dort\.test\.js/, 'le blocage devient rouge');
-  assert.match(sortie, /dépassement du délai de garde/);
+  assert.match(sortie, /dépassement du délai de garde mural/);
   assert.match(sortie, /tests terminés avant le dépassement/, 'on dit où il en était');
   assert.match(sortie, /VERT SEUL +src\/faux\/lents\/dort\.test\.js/);
   assert.match(sortie, /signalés +1 vert seul, rouge sous charge/);
@@ -459,17 +586,20 @@ test('délai de garde — un dépassement part en relance seule, et y passe : ve
   fs.rmSync(racine, { recursive: true, force: true });
 });
 
-test('délai de garde — un blocage qui ne se dénoue pas reste un échec, et accuse la machine', () => {
+test('garde murale — un blocage qui ne se dénoue pas reste un échec, et accuse la machine', () => {
   const { racine } = atelier({ 'dort.test.js': DORT });
-  const { code, sortie } = lancer(racine, '--plancher=0', '--inconnu=2');
+  const { code, sortie } = lancer(racine, '--plancher-mur=0', '--mur-inconnu=2');
 
   assert.equal(code, 1, sortie);
   assert.match(sortie, /ÉCHEC +src\/faux\/lents\/dort\.test\.js/);
   assert.match(sortie, /ÉCHECS +1, rouges même seuls/);
-  assert.match(sortie, /dépassement du délai de garde/);
-  // quand TOUS les échecs sont des dépassements, le bilan désigne la machine
+  assert.match(sortie, /dépassement du délai de garde mural/);
+  // Et il dit POURQUOI c'est la machine : le mur a sauté sans que le CPU suive.
+  assert.match(sortie, /n’a brûlé que .* de CPU — une attente, pas du travail/);
+  // quand TOUS les échecs sont des dépassements muraux, le bilan désigne la machine
   assert.match(sortie, /signe de machine lente/);
-  assert.match(sortie, new RegExp(VAR_FACTEUR));
+  assert.match(sortie, new RegExp(VAR_FACTEUR_MUR));
+  assert.doesNotMatch(sortie, /dépassement du budget CPU/, 'un dormeur ne dépasse aucun budget de travail');
 
   fs.rmSync(racine, { recursive: true, force: true });
 });
@@ -507,8 +637,21 @@ test('table des durées — elle ne nomme que des fichiers réels, et dit d’o�
   assert.ok(noms.length > 0, 'la table de référence livrée est vide');
   for (const nom of noms) {
     assert.ok(fs.existsSync(path.join(depot, nom)), `la table nomme ${nom}, qui n’existe plus`);
-    assert.ok(referenceDe(table, nom) > 0, `${nom} n’a pas de durée utilisable`);
+    const cpu = referenceDe(table, nom, 'cpu');
+    const mur = referenceDe(table, nom, 'mur');
+    assert.ok(cpu > 0 || mur > 0, `${nom} n’a aucune référence utilisable, ni CPU ni murale`);
   }
+
+  // ★ La table DIT en quoi ses nombres sont libellés, en toutes lettres.
+  //
+  // Sans ce champ, on retombe sur la convention tacite — et c'est elle qui a
+  // permis, des semaines durant, de compenser à la main une inflation de charge
+  // qu'on prenait pour une fatalité de la mesure plutôt que pour le symptôme
+  // d'une métrique mal choisie.
+  assert.equal(typeof table.metrique, 'string', 'la table ne dit pas la nature de ses nombres');
+  assert.match(table.metrique, /cpuSecondes/);
+  assert.match(table.metrique, /murSecondes/);
+  assert.equal(table.metrique, METRIQUE, 'la table livrée doit porter la métrique du lanceur qui la relit');
 
   // Sans provenance, personne ne peut juger si ces chiffres valent pour SA
   // machine. On n'exige que ce qu'un relevé automatique sait produire : exiger
@@ -532,8 +675,16 @@ test('relevé des durées — il écrit ce qu’il mesure, jamais une consigne �
     'src/faux/lents/a.test.js',
     'src/faux/lents/b.test.js',
   ]);
-  for (const cle of ['le', 'coeurs', 'voies', 'passe', 'relevesDeCharge']) {
+  for (const cle of ['le', 'coeurs', 'voies', 'passe', 'relevesDeCharge', 'cpuReleve', 'cpuSource', 'gardeCpu']) {
     assert.ok(cle in table.conditions, `le relevé ne dit pas « ${cle} »`);
+  }
+  // Les nombres sont NOMMÉS, et la métrique est écrite avant eux.
+  assert.equal(table.metrique, METRIQUE);
+  assert.deepEqual(Object.keys(table).slice(0, 2), ['metrique', 'conditions'], 'l’unité se lit avant les chiffres');
+  for (const entree of Object.values(table.durees)) {
+    assert.ok(entree.murSecondes > 0, 'chaque entrée porte son temps écoulé');
+    assert.ok(entree.cpuSecondes > 0, 'et son temps CPU, puisque cette machine sait le lire');
+    assert.ok(!('secondes' in entree), 'plus aucun nombre dont on doive deviner l’unité');
   }
   assert.ok(
     !('machine' in table.conditions),
@@ -582,4 +733,188 @@ test('tests terminés — les sous-tests indentés comptent aussi', () => {
   // jusqu'à sa toute dernière seconde — sur le plus long, une demi-heure.
   assert.equal(testsTermines(imbrique), 2);
   assert.equal(testsTermines('    not ok 3 - un échec imbriqué\n'), 1);
+});
+
+// ──────────────────────────────────────────────── la mesure du temps CPU ──
+
+test('lecture de /proc — les compteurs, même sous un nom à parenthèses', () => {
+  const stat = '1234 (mon (drôle) de programme) S 1 1 1 0 -1 4194304 126 0 0 0 11 22 33 44 12 -8 1 0 45111954';
+  assert.deepEqual(compteursStat(stat), { utime: 11, stime: 22, cutime: 33, cstime: 44 });
+  // Découper par la PREMIÈRE parenthèse casserait sur ce nom-là. Le format de
+  // `/proc/<pid>/stat` n'est déchiffrable qu'en partant de la dernière.
+  assert.equal(compteursStat('pas une ligne de stat'), null);
+  assert.equal(compteursStat(null), null);
+  assert.equal(compteursStat(''), null);
+});
+
+test('CPU d’un arbre — la descendance compte, et un pid absent rend null, jamais zéro', () => {
+  const jiffies = cpuArbreJiffies(process.pid);
+  assert.ok(Number.isFinite(jiffies) && jiffies >= 0, 'la lecture de son propre arbre doit aboutir');
+
+  // Zéro serait un chiffre ; null est un aveu. Rendre zéro ferait passer un
+  // processus illisible pour un processus qui n'a rien consommé.
+  assert.equal(cpuArbreJiffies(2 ** 30), null, 'un pid qui n’existe pas');
+  assert.equal(cpuArbreJiffies(process.pid, '/il-ny-a-pas-de-proc'), null, 'pas de /proc du tout');
+
+  // Un enfant qui brûle doit faire grossir le compte de son parent — c'est
+  // `cutime`/`cstime`, et c'est ce qui permet de ne pas perdre une descendance
+  // déjà moissonnée entre deux échantillons. Travail BORNÉ, pas une attente :
+  // une boucle à l'horloge brûlerait moins de CPU sous charge, et ce test
+  // rougirait sur une machine occupée sans rien dire de vrai.
+  const avant = cpuArbreJiffies(process.pid);
+  spawnSync(process.execPath, ['-e', 'let x = 0; for (let i = 0; i < 5e7; i++) x += Math.sqrt(i); process.exitCode = x > 0 ? 0 : 1;']);
+  const apres = cpuArbreJiffies(process.pid);
+  assert.ok(apres - avant > 10, `l’enfant moissonné doit peser : ${avant} → ${apres} jiffies`);
+});
+
+test('jiffies — la cadence vient du système, elle n’est pas supposée', () => {
+  const tictac = jiffiesParSeconde();
+  assert.ok(Number.isInteger(tictac) && tictac > 0);
+  // 100 sur toutes les machines Linux courantes — mais c'est `getconf CLK_TCK`
+  // qui le dit. Coder 100 en dur passerait inaperçu jusqu'au jour où ce serait
+  // faux, et se paierait alors d'un facteur inconnu sur tous les budgets.
+  const dit = spawnSync('getconf', ['CLK_TCK'], { encoding: 'utf8' });
+  if (dit.status === 0) assert.equal(tictac, Number(dit.stdout.trim()));
+});
+
+test('times — les deux dernières lignes, et ce sont celles des ENFANTS', () => {
+  assert.equal(lireTimes('0m0.000000s 0m0.000000s\n0m1.230000s 0m0.450000s\n'), 1.68, 'dash, six décimales');
+  assert.equal(lireTimes('0m0.004s 0m0.003s\n2m1.500s 0m0.500s\n'), 122, 'bash, trois décimales, minutes comprises');
+  assert.equal(lireTimes(''), null);
+  assert.equal(lireTimes(null), null);
+  assert.equal(lireTimes('0m0.0s 0m0.0s\n'), null, 'une seule ligne ne dit rien des enfants');
+  // Le piège du shell a pu écrire un relevé, puis la sortie normale un second :
+  // c'est le DERNIER qui décrit tout ce qui a tourné.
+  assert.equal(lireTimes('0m0.0s 0m0.0s\n0m1.0s 0m0.0s\n0m0.0s 0m0.0s\n0m9.0s 0m1.0s\n'), 10);
+});
+
+test('sonde CPU — absente, elle le DIT, et ne rend jamais un chiffre muet', () => {
+  const vraie = sonderCpu();
+  assert.equal(vraie.disponible, true, 'cette suite tourne sous Linux : /proc doit être là');
+  assert.match(vraie.raison, /jiffies/);
+  assert.ok(vraie.secondes(process.pid) >= 0);
+
+  const absente = sonderCpu('/il-ny-a-pas-de-proc-ici');
+  assert.equal(absente.disponible, false);
+  assert.match(absente.raison, /aucune garde CPU, garde murale seule/);
+  assert.equal(absente.secondes(process.pid), null, 'pas de chiffre du tout plutôt qu’un chiffre trompeur');
+});
+
+test('contrôle croisé — ce que le noyau compte au lanceur recoupe ce qu’il a vu', () => {
+  // `cutime`/`cstime` de `/proc/self/stat` cumulent TOUS les enfants moissonnés :
+  // inutilisables pour attribuer un coût à un fichier quand quatre tournent de
+  // front, mais irremplaçables pour vérifier que la somme des chiffres par
+  // fichier ne dérive pas. Deux chemins indépendants sur la même quantité.
+  const avant = cpuEnfantsMoissonnes();
+  assert.ok(avant !== null && avant >= 0);
+  spawnSync(process.execPath, ['-e', 'let x = 0; for (let i = 0; i < 5e7; i++) x += Math.sqrt(i);']);
+  const apres = cpuEnfantsMoissonnes();
+  assert.ok(apres > avant, `le compte du noyau doit grossir : ${avant} → ${apres} s`);
+  assert.equal(cpuEnfantsMoissonnes('/il-ny-a-pas-de-proc'), null);
+});
+
+// ────────────────────────────────────── les deux bornes, de bout en bout ──
+
+/** Brûle un travail BORNÉ — ce qu'aucune horloge ne distingue d'une attente. */
+const BRULE = `import test from 'node:test';
+test('brûle pour de vrai', () => { let x = 0; for (let i = 0; i < 1e8; i++) x += Math.sqrt(i); });
+`;
+
+/** Brûle sans fin : le portrait d'un fichier parti en vrille, pas bloqué. */
+const BRULE_SANS_FIN = `import test from 'node:test';
+test('brûle sans fin', () => { let x = 0; const fin = Date.now() + 60_000; while (Date.now() < fin) x += Math.sqrt(x + 1); });
+`;
+
+test('CPU contre mur — le dormeur occupe une voie sans rien coûter, et la table le montre', () => {
+  const { racine } = atelier({ 'brule.test.js': BRULE, 'dort.test.js': DORT_UN_PEU });
+  const durees = path.join(racine, 'durees.json');
+  const { code, sortie } = lancer(racine, '--releve-durees', `--durees=${durees}`);
+  assert.equal(code, 0, sortie);
+
+  const table = JSON.parse(fs.readFileSync(durees, 'utf8'));
+  const dort = table.durees['src/faux/lents/dort.test.js'];
+  const brule = table.durees['src/faux/lents/brule.test.js'];
+
+  // ★ C'EST TOUT LE SUJET. Deux fichiers qui occupent une voie le même ordre de
+  // temps, dont un seul coûte quelque chose. Le mur ne les distingue pas ; le
+  // CPU, si. Un budget de travail assis sur le mur donnerait donc au dormeur la
+  // même corde qu'au brûleur — et se laisserait gonfler par la charge en prime.
+  assert.ok(dort.murSecondes >= 1.4, `le dormeur occupe bien le mur : ${dort.murSecondes} s`);
+  assert.ok(
+    dort.cpuSecondes < dort.murSecondes / 2,
+    `mais il ne brûle presque rien : ${dort.cpuSecondes} s de CPU pour ${dort.murSecondes} s au mur`,
+  );
+  assert.ok(brule.cpuSecondes > dort.cpuSecondes, 'le brûleur, lui, paie ce qu’il consomme');
+  assert.match(sortie, /de CPU/, 'le journal dit le CPU, pas seulement le mur');
+  assert.match(sortie, /contrôle {3}/, 'et il recoupe sa somme avec le compte du noyau');
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
+
+test('dépassement CPU — distinct du mural, et le message dit LEQUEL a sauté', () => {
+  const { racine } = atelier({ 'brule.test.js': BRULE_SANS_FIN });
+  // Budget CPU d'une seconde, filet mural de deux minutes : seule la borne de
+  // travail peut parler ici. Sans la distinction, on irait chercher un blocage.
+  const { code, sortie } = lancer(
+    racine,
+    '--plancher-cpu=0',
+    '--cpu-inconnu=1',
+    '--plancher-mur=0',
+    '--mur-inconnu=120',
+    '--pas-cpu=100',
+  );
+
+  assert.equal(code, 1, sortie);
+  assert.match(sortie, /dépassement du budget CPU/);
+  assert.match(sortie, /le fichier travaille plus que sa référence/);
+  assert.doesNotMatch(sortie, /dépassement du délai de garde mural/, 'le mur avait deux minutes : il n’est pas en cause');
+  assert.match(sortie, /tous par dépassement du budget CPU/, 'le bilan désigne le travail, pas la machine');
+  assert.match(sortie, new RegExp(VAR_FACTEUR_CPU));
+  assert.doesNotMatch(sortie, /signe de machine lente/, 'accuser la machine ici enverrait chercher au mauvais endroit');
+
+  // Et il dit COMBIEN il avait brûlé — ce qui n'a rien d'acquis : tué par le
+  // garde, `node --test` n'a jamais moissonné le petit-fils qui portait le
+  // travail, donc le `times` du shell l'ignore. C'est l'échantillonnage qui
+  // rattrape, et le lanceur retient la plus grande des deux lectures.
+  const brulees = sortie.match(/(\d+[,.]\d+) s brûlées/);
+  assert.ok(brulees, `le message doit chiffrer le brûlage : ${sortie}`);
+  assert.ok(
+    Number(brulees[1].replace(',', '.')) >= 1,
+    `il a dépassé une seconde de CPU, il doit l’avouer : ${brulees[1]} s`,
+  );
+
+  fs.rmSync(racine, { recursive: true, force: true });
+});
+
+test('sans /proc — la passe s’annonce sans garde CPU, et la table le consigne', async () => {
+  const { racine } = atelier({ 'a.test.js': VERT });
+  const durees = path.join(racine, 'durees.json');
+  let sortie = '';
+
+  const { code } = await lancerSuiteLente({
+    racine,
+    motifs: [MOTIF],
+    parallelisme: 1,
+    racineProc: '/il-ny-a-pas-de-proc-ici',
+    cheminEtat: path.join(racine, 'etat.json'),
+    cheminDurees: durees,
+    releveDurees: true,
+    ecrire: (t) => {
+      sortie += t;
+    },
+  });
+
+  assert.equal(code, 0, sortie);
+  // Le repli hors Linux doit être BRUYANT : jamais un chiffre muet dont on
+  // ignore la nature.
+  assert.match(sortie, /PAS DE SONDE/);
+  assert.match(sortie, /aucune garde CPU, garde murale seule/);
+
+  const table = JSON.parse(fs.readFileSync(durees, 'utf8'));
+  assert.match(table.conditions.gardeCpu, /indisponible/, 'la table aussi doit le dire');
+  // Le shell, lui, est toujours là : le CPU exact reste relevé à la sortie.
+  // Deux capacités distinctes, et perdre l'une ne fait pas perdre l'autre.
+  assert.match(table.conditions.cpuSource, /times/);
+
+  fs.rmSync(racine, { recursive: true, force: true });
 });

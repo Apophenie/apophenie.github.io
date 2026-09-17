@@ -183,11 +183,21 @@ Cinq règles, et elles se tiennent :
   voie se libère, mais que **toute** la passe soit finie. C'est le prix de l'étiquette —
   rejouer un rouge pendant que d'autres fichiers tournent ne permettrait plus d'écrire
   « vert seul » sans mentir.
-* **Chaque fichier a un délai de garde proportionné à lui-même.** Le budget vaut
-  `4 × sa durée de référence` (table `scripts/durees-lentes.json`), avec un plancher de
-  3 min, et 90 min pour un fichier sans référence. Un dépassement compte **rouge**, donc
-  part en relance seule — sur une machine vide, où la charge a disparu. Il ne pouvait pas
-  s'agir d'une valeur unique : du plus court au plus long, ces fichiers s'étalent sur 39×.
+* **Chaque fichier a DEUX bornes, et le verdict dit laquelle a sauté.** Le budget de
+  **travail** se compte en **temps CPU** — `4 × sa référence CPU` (table
+  `scripts/durees-lentes.json`), avec un plancher de 3 min. C'est ce que le fichier
+  coûte, et cela ne bouge pas quand la machine se remplit : mesuré en temps écoulé, le
+  même fichier enfle de 1,3× à 2,7× selon ce qui tourne à côté, et on compensait ce
+  gonflement à la main. Le filet **anti-blocage**, lui, reste **mural** et plus large —
+  `8 × sa référence murale`, plancher 5 min — parce qu'un test arrêté sur une attente, un
+  verrou ou une socket ne consomme *aucun* CPU : une garde en CPU ne le couperait jamais.
+  Dépasser l'une ou l'autre compte **rouge**, donc part en relance seule — sur une machine
+  vide, où la charge a disparu. Aucune ne pouvait être une valeur unique : du plus court au
+  plus long, ces fichiers s'étalent sur 39×.
+  Le message distingue les deux, et c'est tout l'intérêt : « dépassement du budget CPU »
+  accuse le fichier, qui travaille vraiment plus que sa référence ; « dépassement du délai
+  de garde mural (2,0 s) alors qu'il n'a brûlé que 0,2 s de CPU » accuse une **attente**.
+  Sans cette distinction, on diagnostique de travers.
 * **Les plus longs partent en premier.** La queue d'une passe parallèle est dictée par son
   fichier le plus long ; le lancer en dernier ajoute sa durée entière au temps au mur.
   L'ordre de **lancement** suit donc les durées décroissantes — c'est un changement visible
@@ -208,13 +218,35 @@ et quel budget lui reste — un dépassement devient prévisible au lieu d'être
 Le verdict, lui, ne dépend ni de l'ordre ni du parallélisme : chaque fichier a son propre
 processus, donc son propre état. `node scripts/test-lent.mjs --aide` liste les options.
 
-**Sur une machine nettement plus lente que celle du relevé**, relevez le facteur —
-`TEST_LENT_FACTEUR_DELAI=8` — plutôt que de subir des dépassements. Une vague de
-« dépassement du délai de garde » est un signe de machine, pas de code, et le bilan le dit
-lui-même quand tous les échecs sont de ce type. La table des durées se régénère par
-`node scripts/test-lent.mjs --releve-durees`, jamais automatiquement : elle porte ses
-conditions de relevé (date, cœurs, charge) pour qu'un lecteur puisse juger si elles valent
-encore pour sa machine.
+**Comment le CPU est mesuré**, puisque Node n'expose pas le `rusage` de ses enfants. Le
+fichier est lancé sous un `sh` de service dont le builtin `times` rend, à la sortie, le CPU
+cumulé de toute la descendance — exact, sans échantillonnage. En parallèle, `/proc` est
+échantillonné à la seconde : c'est la seule source *pendant* la course, donc la seule qui
+puisse armer la garde CPU. Les deux sont des **minorants** — `times` rate une descendance
+non moissonnée quand le garde a tué le processus, l'échantillon rate le CPU brûlé depuis le
+dernier tic — et le lanceur retient la plus grande, en disant laquelle. Il faut l'**arbre**
+et pas le fils : `node --test` isole chaque fichier dans un petit-fils, et le fils direct
+affichait `0,11 s` de CPU pendant que son petit-fils en brûlait `2 536`. Le bilan recoupe
+enfin sa somme avec ce que le noyau compte au lanceur (`cutime`/`cstime`), deux chemins
+indépendants sur la même quantité. **Hors Linux**, pas de `/proc` : la garde CPU disparaît,
+le filet mural reste seul, et la sortie comme la table le **disent** — jamais un chiffre
+muet dont on ignore la nature.
+
+**Sur un runner nettement plus lent que la machine du relevé**, relevez les facteurs —
+`TEST_LENT_FACTEUR_CPU=8` et `TEST_LENT_FACTEUR_MUR=16` — plutôt que de subir des
+dépassements. Le temps CPU est insensible à la *charge* d'une machine, pas à la *vitesse*
+de son processeur : les deux bornes montent ensemble. Les anciens noms
+(`TEST_LENT_FACTEUR_DELAI`, `TEST_LENT_PLANCHER_DELAI`, `TEST_LENT_DELAI_INCONNU`) restent
+acceptés, et chacun fait dire une ligne rappelant sur quelle borne il retombe — jamais en
+silence. Une vague de « dépassement du délai de garde mural » est un signe de machine, pas
+de code, et le bilan le dit lui-même quand tous les échecs sont de ce type ; une vague de
+« dépassement du budget CPU » dit l'inverse, et relever le facteur ne ferait que la cacher.
+
+La table se régénère par `node scripts/test-lent.mjs --releve-durees`, jamais
+automatiquement. Elle porte ses conditions de relevé (date, cœurs, charge, d'où vient son
+CPU) **et un champ `metrique` qui dit en toutes lettres en quoi ses nombres sont
+libellés** : une table dont il faut deviner l'unité est exactement ce qui a permis, des
+semaines durant, de prendre une métrique mal choisie pour une fatalité de la mesure.
 
 `bun run logo` appelle `src/gfx/logo-jost-trace.py` (fontTools requis). Il réécrit quatre
 fichiers : le banc d'essai `src/gfx/_logo-test.html`, `favicon.svg`, et — entre les repères

@@ -28,14 +28,17 @@
  *     fichiers tournent encore raccourcirait la passe, mais rendrait l'étiquette
  *     FAUSSE. Une mesure bruitée reste une mesure ; une mesure fausse ne vaut
  *     rien.
- *  3. **Chaque fichier a un délai de garde, proportionné à lui-même.** Un blocage
- *     doit devenir un rouge, pas une heure de silence. Le budget vaut
- *     `facteur × sa durée de référence` (`scripts/durees-lentes.json`), avec un
- *     plancher ; sans référence, il prend le cas généreux. Il ne pouvait PAS
- *     s'agir d'une valeur unique : du plus court au plus long, ces fichiers
- *     s'étalent sur 39×, et 4 × le plus long donnerait des heures de corde à un
- *     fichier de 26 secondes. Un dépassement rend rouge, donc part en relance
- *     seule — où la charge a disparu.
+ *  3. **Chaque fichier a DEUX bornes, et le verdict dit laquelle a sauté.** Le
+ *     budget de TRAVAIL se compte en **temps CPU** — `facteurCpu × sa référence
+ *     CPU` (`scripts/durees-lentes.json`), avec un plancher : c'est ce que le
+ *     fichier coûte, et cela ne bouge pas quand la machine se remplit. Le filet
+ *     ANTI-BLOCAGE, lui, reste **mural** et nettement plus large : un test
+ *     arrêté sur une attente, un verrou ou une socket ne consomme aucun CPU, et
+ *     une garde en CPU ne le couperait jamais — le garde-fou anti-blocage est
+ *     par nature une horloge murale. Aucune des deux ne pouvait être une valeur
+ *     unique : du plus court au plus long, ces fichiers s'étalent sur 39×.
+ *     Dépasser l'une ou l'autre rend rouge, donc part en relance seule — où la
+ *     charge a disparu.
  *  4. **Les plus longs partent en premier.** La queue d'une passe parallèle est
  *     dictée par son fichier le plus long : le lancer en dernier ajoute sa durée
  *     entière au temps au mur. L'ordre de LANCEMENT suit donc les durées
@@ -54,11 +57,11 @@
  *
  * ```
  * node scripts/test-lent.mjs [--parallelisme=N] [--reprise] [--sans-garde]
- *                            [--facteur=N] [--plancher=SECONDES] [--releve-durees]
+ *                            [--facteur-cpu=N] [--facteur-mur=N] [--releve-durees]
  * ```
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { availableParallelism, loadavg } from 'node:os';
 import path from 'node:path';
@@ -80,26 +83,85 @@ export const VAR_PARALLELISME = 'TEST_LENT_PARALLELISME';
 /** La variable qui demande la reprise, pour les environnements sans ligne de commande. */
 export const VAR_REPRISE = 'TEST_LENT_REPRISE';
 
-/** Les trois réglages du délai de garde — celui du haut est le seul à toucher d'ordinaire. */
-export const VAR_FACTEUR = 'TEST_LENT_FACTEUR_DELAI';
-export const VAR_PLANCHER = 'TEST_LENT_PLANCHER_DELAI';
-export const VAR_INCONNU = 'TEST_LENT_DELAI_INCONNU';
+/**
+ * ★ **DEUX BORNES, DEUX NATURES, SIX RÉGLAGES — ET AUCUN NOM AMBIGU.**
+ *
+ * Le budget de TRAVAIL se compte en CPU : c'est ce qu'un fichier coûte, et cela
+ * ne bouge pas quand la machine se remplit. Le garde ANTI-BLOCAGE se compte au
+ * mur : un test arrêté sur une attente, un verrou ou une socket ne consomme
+ * aucun CPU, et une garde en CPU ne le couperait JAMAIS. Les confondre, c'est
+ * soit tuer des fichiers sains sous charge, soit laisser dormir un blocage.
+ *
+ * D'où six variables plutôt que trois surchargées : le nom dit l'unité.
+ */
+export const VAR_FACTEUR_CPU = 'TEST_LENT_FACTEUR_CPU';
+export const VAR_PLANCHER_CPU = 'TEST_LENT_PLANCHER_CPU';
+export const VAR_CPU_INCONNU = 'TEST_LENT_CPU_INCONNU';
+export const VAR_FACTEUR_MUR = 'TEST_LENT_FACTEUR_MUR';
+export const VAR_PLANCHER_MUR = 'TEST_LENT_PLANCHER_MUR';
+export const VAR_MUR_INCONNU = 'TEST_LENT_MUR_INCONNU';
 
 /**
- * Facteur 4 : la pire inflation de charge relevée entre une exécution seule et
- * une passe à quatre voies est 2,7× (et 1,6× de variation due au seul cache).
- * Quatre laisse donc environ 50 % de marge au-delà du pire cas observé.
+ * Les noms d'avant la séparation, tels que les deux CI les documentent encore.
+ *
+ * Ils restent acceptés — mais JAMAIS en silence : les honorer sans le dire
+ * laisserait croire qu'on règle une chose alors qu'on en règle une autre. Le
+ * lanceur annonce chaque ancien nom rencontré et sur quelles bornes il retombe.
+ * `TEST_LENT_FACTEUR_DELAI=8`, le geste que les deux CI recommandent, veut dire
+ * « cette machine est lente » : il porte donc sur LES DEUX facteurs. Les deux
+ * autres étaient muraux de naissance et le restent.
  */
-export const FACTEUR_DEFAUT = 4;
+export const ANCIENS_REGLAGES = [
+  { nom: 'TEST_LENT_FACTEUR_DELAI', vers: ['facteurCpu', 'facteurMur'], minimum: 1 },
+  { nom: 'TEST_LENT_PLANCHER_DELAI', vers: ['plancherMur'], minimum: 0 },
+  { nom: 'TEST_LENT_DELAI_INCONNU', vers: ['murInconnu'], minimum: 1 },
+];
 
-/** Plancher 3 min : sous 45 s de référence, le facteur seul serait trop serré pour le bruit. */
-export const PLANCHER_DEFAUT = 180;
+/**
+ * Facteur CPU 4 — le même qu'avant, et ce n'est pas un oubli.
+ *
+ * Le CPU étant bien plus stable que le mur, un facteur plus serré serait
+ * tentant. Mais le facteur ne couvre pas que la charge : il couvre aussi le
+ * cache froid, la version de Node et le contenu des tests, qui bougent d'une
+ * passe à l'autre. On ne resserre pas un garde sur une intuition ; quatre est
+ * déjà éprouvé, et le gain du CPU se prend d'abord en fiabilité, pas en cran.
+ */
+export const FACTEUR_CPU_DEFAUT = 4;
 
-/** Sans référence, 90 min : le cas « on ne sait pas » doit être le plus généreux de tous. */
-export const INCONNU_DEFAUT = 5400;
+/** Plancher 3 min de CPU : sous 45 s de référence, le facteur seul serait trop serré. */
+export const PLANCHER_CPU_DEFAUT = 180;
+
+/** Sans référence CPU, 90 min : le cas « on ne sait pas » reste le plus généreux. */
+export const CPU_INCONNU_DEFAUT = 5400;
+
+/**
+ * Facteur mural 8, soit le double du facteur CPU.
+ *
+ * Cette borne-là n'est pas un budget, c'est un filet : elle ne doit se déclencher
+ * QUE sur ce que le CPU ne peut pas voir — un blocage. Sur un fichier sain, même
+ * à 2,7× d'inflation de charge, elle doit rester hors d'atteinte ; c'est la borne
+ * CPU qui doit parler la première. Huit laisse 3× de marge au pire cas relevé.
+ */
+export const FACTEUR_MUR_DEFAUT = 8;
+
+/** Plancher mural 5 min : un fichier de 26 s bloqué ne mérite pas trois heures de corde. */
+export const PLANCHER_MUR_DEFAUT = 300;
+
+/** Sans référence murale, 2 h : plus large que le cas CPU inconnu, comme tout filet. */
+export const MUR_INCONNU_DEFAUT = 7200;
 
 /** Jamais plus d'une minute sans nouvelles. */
 export const INTERVALLE_VIE = 60_000;
+
+/**
+ * Le pas d'échantillonnage du CPU : une seconde.
+ *
+ * C'est la précision de la GARDE, pas celle de la table — celle-ci reçoit le
+ * chiffre exact rendu par `times` à la sortie. Sur des budgets qui se comptent
+ * en minutes, une seconde de retard à la détente ne change rien ; en dessous, on
+ * paierait des lectures de `/proc` pour une précision dont personne n'a l'usage.
+ */
+export const PAS_CPU = 1000;
 
 // ───────────────────────────────────────────────────────────── découverte ──
 
@@ -211,20 +273,266 @@ function nombreRegle(brut, origine, minimum, defaut) {
   return n;
 }
 
-// ──────────────────────────────────────────────────────── délai de garde ──
+// ──────────────────────────────────────────────── le temps CPU d'un enfant ──
 
 /**
- * Les trois réglages du garde, tels que l'environnement les veut.
+ * ★ **POURQUOI LE CPU, ET POURQUOI PAS SEULEMENT L'HORLOGE.**
  *
- * Le facteur ne descend pas sous 1 : un budget plus court que la durée de
- * référence tuerait des fichiers sains à tous les coups.
+ * > « Si tu mesures en temps écoulé et pas en temps CPU, ça va rester très
+ * >   fragile : entre cette machine qui fait plein d'autres choses et les CI qui
+ * >   peuvent aussi avoir d'autres tâches interférentes, ta métrique est trop
+ * >   fragile. » (l'autrice)
+ *
+ * Le temps au mur d'un fichier raconte autant la machine que le fichier : la
+ * table du 16 septembre porte, de son propre aveu, une inflation de 1,3× à 2,7×
+ * due à la seule charge, et on la compensait à la main par un facteur. Le CPU,
+ * lui, dit le travail et pas l'attente — il se compare d'une machine à l'autre.
+ *
+ * Node n'expose pas le `rusage` de ses enfants : `process.resourceUsage()` ne
+ * couvre que soi. Deux voies, et il faut **les deux** :
+ *
+ *  · **`times`, exact, mais seulement à la fin.** Le fils est lancé sous un
+ *    `sh -c` qui, une fois `node --test` moissonné, écrit sur un descripteur à
+ *    part le CPU cumulé de ses enfants, descendance comprise, sans le moindre
+ *    échantillonnage. C'est ce chiffre-là qui entre dans la table.
+ *  · **`/proc`, approximatif, mais PENDANT.** Un chiffre qu'on ne sait lire
+ *    qu'après la mort du processus ne coupe rien du tout. La garde CPU a donc
+ *    besoin d'un échantillonnage, au pas de la seconde — c'est amplement assez
+ *    pour un budget qui se compte en minutes.
+ *
+ * Et dans les deux cas, il faut l'**arbre**, pas le fils. `node --test` isole
+ * chaque fichier dans un petit-fils (`--test-isolation=process`) : relevé en
+ * vol sur la passe du 17 septembre, le fils direct affichait 0,11 s de CPU
+ * pendant que son petit-fils en avait brûlé 2 536. Un budget calculé sur le
+ * seul fils aurait tué tout le monde à la première seconde.
  */
-export function reglagesDelai(env = process.env) {
+
+/** Le fichier lu, ou `null` : sous `/proc`, un processus disparaît entre deux lectures. */
+function lireProc(chemin) {
+  try {
+    return fs.readFileSync(chemin, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Les quatre compteurs de temps de `/proc/<pid>/stat`, en jiffies.
+ *
+ * Le nom du programme est entre parenthèses et peut contenir **des espaces
+ * comme des parenthèses** — `(node-MainThread)` ici, mais rien ne l'interdit
+ * ailleurs. On découpe donc après la DERNIÈRE parenthèse fermante ; découper
+ * par le début casserait sur le premier programme malicieusement nommé.
+ */
+export function compteursStat(texte) {
+  if (typeof texte !== 'string') return null;
+  const fin = texte.lastIndexOf(')');
+  if (fin < 0) return null;
+  const champs = texte.slice(fin + 2).split(' ');
+  // Le premier champ après le nom est le 3ᵉ de la ligne : d'où le décalage.
+  const champ = (n) => Number(champs[n - 3]);
+  const compteurs = { utime: champ(14), stime: champ(15), cutime: champ(16), cstime: champ(17) };
+  return Object.values(compteurs).every(Number.isFinite) ? compteurs : null;
+}
+
+/**
+ * Le CPU d'un processus **et de toute sa descendance**, en jiffies.
+ *
+ * `utime + stime` est ce que chaque vivant a déjà brûlé ; `cutime + cstime` est
+ * ce que ses enfants DÉJÀ MOISSONNÉS ont brûlé. Additionner les deux sur l'arbre
+ * vivant ne laisse donc échapper que les branches dont le parent est mort avant
+ * la lecture — et ce parent-là, en mourant, a versé son compte au sien.
+ *
+ * Les enfants ne pendent pas du processus mais de ses FILS D'EXÉCUTION : on lit
+ * `children` sous chaque `task/`, faute de quoi un processus lancé depuis un
+ * worker (node en ouvre plusieurs) échapperait entièrement au compte.
+ */
+export function cpuArbreJiffies(pid, racine = '/proc') {
+  const vus = new Set();
+  const pile = [Number(pid)];
+  let total = 0;
+  let trouve = false;
+  while (pile.length > 0) {
+    const p = pile.pop();
+    if (!Number.isInteger(p) || p <= 0 || vus.has(p)) continue;
+    vus.add(p);
+    const compteurs = compteursStat(lireProc(`${racine}/${p}/stat`));
+    if (compteurs === null) continue;
+    trouve = true;
+    total += compteurs.utime + compteurs.stime + compteurs.cutime + compteurs.cstime;
+    let taches;
+    try {
+      taches = fs.readdirSync(`${racine}/${p}/task`);
+    } catch {
+      continue;
+    }
+    for (const tache of taches) {
+      const liste = lireProc(`${racine}/${p}/task/${tache}/children`);
+      if (liste === null) continue;
+      for (const enfant of liste.trim().split(/\s+/)) {
+        if (enfant !== '') pile.push(Number(enfant));
+      }
+    }
+  }
+  return trouve ? total : null;
+}
+
+/** Cent sur toutes les machines Linux courantes — ce qui ne vaut pas permission de le supposer. */
+export const JIFFIES_DEFAUT = 100;
+let jiffiesLus = null;
+
+/**
+ * Combien de jiffies font une seconde : `sysconf(_SC_CLK_TCK)`, demandé au
+ * système par `getconf` et relu une seule fois. Le coder en dur passerait
+ * inaperçu tant que la valeur vaut 100, puis se paierait d'un facteur inconnu.
+ */
+export function jiffiesParSeconde() {
+  if (jiffiesLus !== null) return jiffiesLus;
+  try {
+    const r = spawnSync('getconf', ['CLK_TCK'], { encoding: 'utf8' });
+    const n = Number(String(r.stdout ?? '').trim());
+    jiffiesLus = Number.isFinite(n) && n > 0 ? n : JIFFIES_DEFAUT;
+  } catch {
+    jiffiesLus = JIFFIES_DEFAUT;
+  }
+  return jiffiesLus;
+}
+
+/**
+ * La sonde d'échantillonnage : disponible, **ou absente en le disant**.
+ *
+ * Hors Linux, pas de `/proc` : la garde CPU ne peut pas exister et le repli
+ * mural doit s'annoncer, dans la sortie comme dans la table. Un chiffre muet
+ * dont le lecteur ignore la nature vaut moins que pas de chiffre du tout.
+ */
+export function sonderCpu(racine = '/proc') {
+  if (cpuArbreJiffies(process.pid, racine) === null) {
+    return {
+      disponible: false,
+      raison: `${racine}/<pid>/stat illisible sur ${process.platform} — aucune garde CPU, garde murale seule`,
+      secondes: () => null,
+    };
+  }
+  const tictac = jiffiesParSeconde();
   return {
-    facteur: nombreRegle(env[VAR_FACTEUR], VAR_FACTEUR, 1, FACTEUR_DEFAUT),
-    plancher: nombreRegle(env[VAR_PLANCHER], VAR_PLANCHER, 0, PLANCHER_DEFAUT),
-    inconnu: nombreRegle(env[VAR_INCONNU], VAR_INCONNU, 1, INCONNU_DEFAUT),
+    disponible: true,
+    raison: `${racine}, ${tictac} jiffies par seconde`,
+    secondes: (pid) => {
+      const jiffies = cpuArbreJiffies(pid, racine);
+      return jiffies === null ? null : jiffies / tictac;
+    },
   };
+}
+
+/**
+ * Le CPU des enfants qu'un `sh` a moissonnés, tel que son builtin `times` l'écrit.
+ *
+ * Deux lignes : le shell lui-même, puis SES ENFANTS. Seule la seconde compte —
+ * la première ne mesure que le `sh` de service. Format POSIX `0m1.234s`, avec
+ * un nombre de décimales qui varie d'un shell à l'autre (`dash` en écrit six,
+ * `bash` trois). On prend les DEUX DERNIÈRES lignes : si le fichier a été coupé
+ * après avoir rendu la main, le piège et la sortie normale ont pu écrire chacun
+ * leur relevé, et c'est le dernier qui décrit tout ce qui a tourné.
+ */
+export function lireTimes(texte) {
+  const lignes = String(texte ?? '')
+    .split('\n')
+    .filter((l) => l.trim() !== '');
+  if (lignes.length < 2) return null;
+  const nombres = [...lignes[lignes.length - 1].matchAll(/(\d+)m([\d.]+)s/g)].map(
+    (m) => Number(m[1]) * 60 + Number(m[2]),
+  );
+  if (nombres.length < 2 || !nombres.every(Number.isFinite)) return null;
+  return nombres[0] + nombres[1];
+}
+
+/**
+ * Le shell de service, et pourquoi le fils ne se lance plus en direct.
+ *
+ * `$0` porte le binaire node, `$1` le fichier : rien n'est concaténé dans une
+ * ligne de commande, donc rien à échapper — un chemin à espaces ou à apostrophe
+ * passe tel quel. Le code de sortie rendu est celui de `node`, jamais celui de
+ * `times`. Et le piège sur SIGTERM/SIGINT fait écrire le relevé même quand le
+ * garde coupe : c'est ainsi qu'un dépassement peut DIRE combien il avait brûlé.
+ *
+ * `sh` n'étant pas tué avant `node` — le signal part au groupe entier, et `sh`
+ * attend la fin de son enfant avant d'exécuter son piège — le relevé décrit
+ * bien l'exécution complète, y compris son dernier souffle.
+ */
+export const SCRIPT_MESURE = [
+  'releve() { times >&3; }',
+  'trap "releve; exit 143" TERM INT',
+  '"$0" --test --test-concurrency=1 --test-reporter=tap "$1"',
+  'code=$?',
+  'releve',
+  'exit $code',
+].join('\n');
+
+/** Là où vit le shell de service. Absent — Windows —, on s'en passe, et on le dit. */
+export const SHELL = '/bin/sh';
+
+/**
+ * Le CPU de TOUS les enfants que le lanceur a déjà moissonnés, en secondes.
+ *
+ * `cutime`/`cstime` de `/proc/self/stat` : exact, sans échantillonnage, mais il
+ * cumule tout — inutilisable pour attribuer un coût à un fichier quand quatre
+ * tournent de front. Il vaut en revanche comme CONTRÔLE CROISÉ : la somme des
+ * chiffres par fichier doit retomber sur son écart de bout en bout. Si les deux
+ * divergent, c'est l'échantillonnage ou le relevé qui ment, et on veut le voir.
+ */
+export function cpuEnfantsMoissonnes(racine = '/proc') {
+  const compteurs = compteursStat(lireProc(`${racine}/self/stat`));
+  return compteurs === null ? null : (compteurs.cutime + compteurs.cstime) / jiffiesParSeconde();
+}
+
+// ──────────────────────────────────────────────────────── délai de garde ──
+
+/** Chaque réglage et la variable qui le nomme — c'est ce couple qui rend les erreurs lisibles. */
+const VARIABLE_DE = {
+  facteurCpu: VAR_FACTEUR_CPU,
+  plancherCpu: VAR_PLANCHER_CPU,
+  cpuInconnu: VAR_CPU_INCONNU,
+  facteurMur: VAR_FACTEUR_MUR,
+  plancherMur: VAR_PLANCHER_MUR,
+  murInconnu: VAR_MUR_INCONNU,
+};
+
+/**
+ * Les six réglages des deux gardes, tels que l'environnement les veut.
+ *
+ * Ni facteur sous 1 — un budget plus court que la référence tuerait des
+ * fichiers sains à tous les coups — ni repli muet sur le défaut.
+ *
+ * Les anciens noms sont honorés, mais chacun fait dire une ligne : `prevenir`
+ * reçoit de quoi l'écrire. Les honorer en silence laisserait croire qu'on règle
+ * une borne alors qu'on en règle une autre, ce qui est pire que de les ignorer.
+ */
+export function reglagesGarde(env = process.env, prevenir = () => {}) {
+  const reglages = {
+    facteurCpu: nombreRegle(env[VAR_FACTEUR_CPU], VAR_FACTEUR_CPU, 1, FACTEUR_CPU_DEFAUT),
+    plancherCpu: nombreRegle(env[VAR_PLANCHER_CPU], VAR_PLANCHER_CPU, 0, PLANCHER_CPU_DEFAUT),
+    cpuInconnu: nombreRegle(env[VAR_CPU_INCONNU], VAR_CPU_INCONNU, 1, CPU_INCONNU_DEFAUT),
+    facteurMur: nombreRegle(env[VAR_FACTEUR_MUR], VAR_FACTEUR_MUR, 1, FACTEUR_MUR_DEFAUT),
+    plancherMur: nombreRegle(env[VAR_PLANCHER_MUR], VAR_PLANCHER_MUR, 0, PLANCHER_MUR_DEFAUT),
+    murInconnu: nombreRegle(env[VAR_MUR_INCONNU], VAR_MUR_INCONNU, 1, MUR_INCONNU_DEFAUT),
+  };
+
+  for (const ancien of ANCIENS_REGLAGES) {
+    const brut = env[ancien.nom];
+    if (brut === undefined || brut === '') continue;
+    const valeur = nombreRegle(brut, ancien.nom, ancien.minimum, null);
+    // Le nom précis l'emporte toujours sur l'ancien nom fourre-tout : régler les
+    // deux et voir gagner le vague serait la pire des surprises.
+    const vises = ancien.vers.filter((cle) => env[VARIABLE_DE[cle]] === undefined || env[VARIABLE_DE[cle]] === '');
+    for (const cle of vises) reglages[cle] = valeur;
+    const noms = ancien.vers.map((cle) => VARIABLE_DE[cle]);
+    prevenir(
+      vises.length === 0
+        ? `${ancien.nom}=${brut} est un ancien nom, et il est IGNORÉ ici : ${noms.join(' et ')} le contredisent.`
+        : `${ancien.nom}=${brut} est un ancien nom, d'avant la séparation CPU / mur — appliqué à ${vises.map((cle) => VARIABLE_DE[cle]).join(' et ')}.`,
+    );
+  }
+  return reglages;
 }
 
 /**
@@ -244,23 +552,56 @@ export function chargerDurees(chemin) {
   return { durees: {} };
 }
 
-/** La durée de référence d'un fichier, en secondes, ou `null` s'il n'en a pas. */
-export function referenceDe(table, fichier) {
-  const entree = table?.durees?.[fichier];
-  if (entree === undefined || entree === null) return null;
-  const secondes = typeof entree === 'number' ? entree : entree.secondes;
-  return Number.isFinite(secondes) && secondes > 0 ? secondes : null;
+/** Les deux natures de référence, et la clé qui les porte dans la table. */
+export const NATURES = { cpu: 'cpuSecondes', mur: 'murSecondes' };
+
+/** Ce qu'on accepte comme référence : un nombre, et strictement positif. */
+function positif(n) {
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /**
- * Le budget d'un fichier, en millisecondes.
+ * La référence d'un fichier pour une nature donnée, en secondes, ou `null`.
  *
- * `max(plancher, facteur × référence)`, ou le cas généreux sans référence.
+ * La forme d'avant la séparation — un nombre nu, ou `{ secondes }` — était du
+ * TEMPS AU MUR et rien d'autre. La relire comme du CPU inventerait une mesure
+ * qui n'a jamais été prise : elle ne répond donc qu'à `mur`, et un fichier resté
+ * dans cette forme n'a simplement pas de budget de travail.
  */
-export function budgetDeGarde(fichier, table, reglages = reglagesDelai()) {
-  const reference = referenceDe(table, fichier);
-  if (reference === null) return reglages.inconnu * 1000;
-  return Math.max(reglages.plancher, reglages.facteur * reference) * 1000;
+export function referenceDe(table, fichier, nature = 'cpu') {
+  const cle = NATURES[nature];
+  if (cle === undefined) throw new Error(`nature de référence inconnue : « ${nature} »`);
+  const entree = table?.durees?.[fichier];
+  if (entree === undefined || entree === null) return null;
+  if (typeof entree === 'number') return nature === 'mur' ? positif(entree) : null;
+  if (entree[cle] !== undefined) return positif(entree[cle]);
+  if (nature === 'mur' && entree.secondes !== undefined) return positif(entree.secondes);
+  return null;
+}
+
+/**
+ * Les DEUX budgets d'un fichier, en millisecondes, et jamais confondus.
+ *
+ * · `cpu` — le travail attendu : `max(plancherCpu, facteurCpu × référence CPU)`.
+ *   C'est la borne qui doit parler la première sur un fichier parti en vrille,
+ *   et celle qui ne bouge pas quand la machine se remplit.
+ * · `mur` — le filet anti-blocage : `max(plancherMur, facteurMur × référence
+ *   murale)`, nettement plus large. Un test arrêté sur une attente ne brûle
+ *   aucun CPU ; sans cette borne-là, il dormirait indéfiniment.
+ *
+ * Sans référence, chacune retombe sur son cas généreux, séparément : une table
+ * migrée qui ne porte encore que du mur donne donc `cpuInconnu` et un vrai
+ * budget mural, ce qui est exactement ce qu'elle sait dire.
+ */
+export function budgetsDeGarde(fichier, table, reglages = reglagesGarde()) {
+  const refCpu = referenceDe(table, fichier, 'cpu');
+  const refMur = referenceDe(table, fichier, 'mur');
+  return {
+    cpu: refCpu === null ? reglages.cpuInconnu * 1000 : Math.max(reglages.plancherCpu, reglages.facteurCpu * refCpu) * 1000,
+    mur: refMur === null ? reglages.murInconnu * 1000 : Math.max(reglages.plancherMur, reglages.facteurMur * refMur) * 1000,
+    referenceCpu: refCpu,
+    referenceMur: refMur,
+  };
 }
 
 /**
@@ -271,9 +612,15 @@ export function budgetDeGarde(fichier, table, reglages = reglagesDelai()) {
  * de passe, exactement là où il ferait le plus mal.
  */
 export function ordonnerParDuree(fichiers, table) {
+  // L'ordre se prend sur le CPU, qui est la référence de coût. Un fichier qui
+  // n'a encore qu'une référence murale — table fraîchement migrée, machine sans
+  // `/proc` — se place quand même par elle : ce tri n'est qu'une heuristique
+  // d'occupation de voie, jamais un verdict. Les deux natures ne se mélangent
+  // QUE là, et jamais dans un budget.
+  const poids = (f) => referenceDe(table, f, 'cpu') ?? referenceDe(table, f, 'mur');
   return [...fichiers].sort((a, b) => {
-    const da = referenceDe(table, a);
-    const db = referenceDe(table, b);
+    const da = poids(a);
+    const db = poids(b);
     if (da === null && db !== null) return -1;
     if (db === null && da !== null) return 1;
     if (da !== null && db !== null && da !== db) return db - da;
@@ -281,15 +628,46 @@ export function ordonnerParDuree(fichiers, table) {
   });
 }
 
+/**
+ * Ce que la table dit d'elle-même, en toutes lettres et non par convention.
+ *
+ * Une table de nombres dont on doit deviner l'unité est un piège : c'est
+ * exactement comme ça qu'on a compensé à la main, pendant des semaines, une
+ * fragilité qu'on croyait inhérente à la mesure.
+ */
+export const METRIQUE =
+  'cpuSecondes = temps CPU (utilisateur + système, descendance comprise), en secondes. ' +
+  'murSecondes = temps écoulé au mur, en secondes. Le budget de travail se calcule sur le ' +
+  'CPU — comparable d’une machine et d’une charge à l’autre — et le garde anti-blocage sur ' +
+  'le mur, parce qu’un test bloqué ne consomme aucun CPU. Une entrée sans cpuSecondes a été ' +
+  'relevée là où le CPU n’était pas lisible : ce fichier n’a alors aucun budget de travail.';
+
 /** Le relevé, écrit seulement sur demande explicite — sinon l'arbre git serait sale. */
 function ecrireDurees(chemin, table, mesures, conditions) {
+  const arrondir = (n) => Math.round(n * 10) / 10;
   const durees = { ...table.durees };
-  for (const [fichier, secondes] of mesures) {
-    durees[fichier] = { secondes: Math.round(secondes * 10) / 10, le: conditions.le };
+  for (const [fichier, mesure] of mesures) {
+    const entree = {};
+    // Pas de `cpuSecondes` inventé : son absence EST l'information, et
+    // `budgetsDeGarde` la lit comme « aucun budget de travail connu ».
+    if (mesure.cpu !== null) entree.cpuSecondes = arrondir(mesure.cpu);
+    entree.murSecondes = arrondir(mesure.mur);
+    entree.le = conditions.le;
+    durees[fichier] = entree;
   }
   const ordonnees = {};
   for (const cle of Object.keys(durees).sort()) ordonnees[cle] = durees[cle];
-  const contenu = { ...table, conditions, durees: ordonnees };
+  // L'ordre des clés est posé ici, et non hérité de ce qu'on a relu : une table
+  // qui dit son unité APRÈS ses nombres se lit à l'envers. `_lisezMoi`, puis ce
+  // que les chiffres signifient, puis d'où ils viennent, puis les chiffres.
+  const { _lisezMoi, metrique: _ancienne, conditions: _anciennes, durees: _anciens, ...reste } = table;
+  const contenu = {
+    ...(_lisezMoi === undefined ? {} : { _lisezMoi }),
+    metrique: METRIQUE,
+    conditions,
+    ...reste,
+    durees: ordonnees,
+  };
   fs.writeFileSync(chemin, `${JSON.stringify(contenu, null, 2)}\n`);
 }
 
@@ -353,8 +731,10 @@ export function testsTermines(sortie) {
  * `--test-concurrency=1` est explicite : `node --test` ne doit jamais ouvrir de
  * seconde voie sous celle que ce script a déjà ouverte.
  */
-function executer(fichier, { racine, signalArret, budget = Infinity, vol }) {
+function executer(fichier, { racine, signalArret, budgets = {}, vol, sonde, pasCpu = PAS_CPU }) {
   const debut = Date.now();
+  const budgetCpu = budgets.cpu ?? Infinity;
+  const budgetMur = budgets.mur ?? Infinity;
   // `node --test` marque ses processus (`NODE_TEST_CONTEXT`) pour repérer un
   // `run()` imbriqué. Hériter de cette marque — ce qui arrive dès que le lanceur
   // est lui-même appelé depuis un test — ferait croire à l'enfant qu'il tourne
@@ -364,14 +744,34 @@ function executer(fichier, { racine, signalArret, budget = Infinity, vol }) {
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
   delete env.NODE_TEST_WORKER_ID;
+  // Le shell de service n'est là que pour son builtin `times` : c'est lui qui
+  // rend le CPU EXACT de toute la descendance, une fois `node --test` moissonné.
+  // Absent — Windows —, on lance node en direct et le CPU se rabat sur
+  // l'échantillonnage, ou sur rien du tout. Dans les deux cas, le bilan le dit.
+  const parShell = fs.existsSync(SHELL);
   return new Promise((resoudre) => {
-    const enfant = spawn(
-      process.execPath,
-      ['--test', '--test-concurrency=1', '--test-reporter=tap', fichier],
-      { cwd: racine, env, stdio: ['ignore', 'pipe', 'pipe'] },
-    );
+    const enfant = parShell
+      ? spawn(SHELL, ['-c', SCRIPT_MESURE, process.execPath, fichier], {
+          cwd: racine,
+          env,
+          // Le 4ᵉ descripteur porte le relevé de `times`, à l'écart de TAP.
+          stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+          // Groupe à part : on tue le GROUPE, pas le seul fils. Sans cela, un
+          // SIGTERM au fils laisse vivre le petit-fils isolé par `node --test`
+          // — celui qui porte tout le travail — et le garde ne garde rien.
+          detached: true,
+        })
+      : spawn(process.execPath, ['--test', '--test-concurrency=1', '--test-reporter=tap', fichier], {
+          cwd: racine,
+          env,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          detached: true,
+        });
+
     let sortie = '';
-    let depasse = false;
+    let releve = '';
+    let depasse = null;
+    let cpuVu = null;
     const avaler = (morceau) => {
       sortie += morceau;
     };
@@ -379,56 +779,159 @@ function executer(fichier, { racine, signalArret, budget = Infinity, vol }) {
     enfant.stderr.setEncoding('utf8');
     enfant.stdout.on('data', avaler);
     enfant.stderr.on('data', avaler);
+    const canalReleve = enfant.stdio[3];
+    if (canalReleve) {
+      canalReleve.setEncoding('utf8');
+      canalReleve.on('data', (m) => {
+        releve += m;
+      });
+      // Un tuyau qui casse n'est pas une raison de faire tomber le lanceur.
+      canalReleve.on('error', () => {});
+    }
+
+    /** Le signal part au GROUPE ; à défaut — groupe déjà éteint — au seul fils. */
+    const couper = (signal) => {
+      try {
+        if (enfant.pid !== undefined) process.kill(-enfant.pid, signal);
+      } catch {
+        try {
+          enfant.kill(signal);
+        } catch {
+          // déjà mort : il n'y a plus rien à couper
+        }
+      }
+    };
+
+    // SIGTERM d'abord, pour laisser une chance à une sortie propre — et au
+    // piège du shell d'écrire son relevé, ce qui permet à un dépassement de
+    // DIRE combien de CPU il avait brûlé. SIGKILL cinq secondes plus tard.
+    let acheve = null;
+    const abattre = (cause) => {
+      if (depasse !== null) return;
+      depasse = cause;
+      couper('SIGTERM');
+      acheve = setTimeout(() => couper('SIGKILL'), 5000);
+      acheve.unref?.();
+    };
+
+    // La garde CPU ne peut vivre que par échantillonnage : le chiffre exact
+    // n'arrive qu'à la mort du processus, et un budget qu'on ne lit qu'après
+    // coup ne coupe rien. Le pas de la seconde suffit pour des budgets qui se
+    // comptent en minutes.
+    const echantillonner = () => {
+      if (!sonde?.disponible || enfant.pid === undefined) return;
+      const vu = sonde.secondes(enfant.pid);
+      if (vu !== null) cpuVu = vu;
+      if (Number.isFinite(budgetCpu) && cpuVu !== null && cpuVu * 1000 > budgetCpu) abattre('cpu');
+    };
+    const echo = sonde?.disponible ? setInterval(echantillonner, pasCpu) : null;
+    echo?.unref?.();
 
     // Ce que la ligne de vie ira lire, tant que ce fichier est en vol.
-    vol?.set(fichier, { debut, budget, sortie: () => sortie });
+    vol?.set(fichier, {
+      debut,
+      budgets: { cpu: budgetCpu, mur: budgetMur },
+      cpu: () => cpuVu,
+      sortie: () => sortie,
+    });
 
-    const couper = () => enfant.kill('SIGTERM');
-    signalArret?.addEventListener('abort', couper, { once: true });
+    const interrompre = () => couper('SIGTERM');
+    signalArret?.addEventListener('abort', interrompre, { once: true });
 
-    // Le garde : SIGTERM d'abord, pour laisser une chance à une sortie propre,
-    // puis SIGKILL cinq secondes plus tard s'il s'accroche.
-    let acheve = null;
-    const minuteur = Number.isFinite(budget)
-      ? setTimeout(() => {
-          depasse = true;
-          enfant.kill('SIGTERM');
-          acheve = setTimeout(() => enfant.kill('SIGKILL'), 5000);
-          acheve.unref?.();
-        }, budget)
-      : null;
+    const minuteur = Number.isFinite(budgetMur) ? setTimeout(() => abattre('mur'), budgetMur) : null;
 
     const ranger = () => {
       if (minuteur) clearTimeout(minuteur);
       if (acheve) clearTimeout(acheve);
-      signalArret?.removeEventListener('abort', couper);
+      if (echo) clearInterval(echo);
+      signalArret?.removeEventListener('abort', interrompre);
       vol?.delete(fichier);
     };
 
-    enfant.on('error', (err) => {
+    const rendre = (surcroit, code, signal) => {
       ranger();
-      resoudre(verdict({ fichier, sortie: `${sortie}\n${err.stack}`, code: null, signal: null, debut, depasse, budget }));
-    });
-    enfant.on('close', (code, signal) => {
-      ranger();
-      resoudre(verdict({ fichier, sortie, code, signal, debut, depasse, budget }));
-    });
+      const declare = parShell ? lireTimes(releve) : null;
+      // ★ LES DEUX SOURCES SONT DES MINORANTS, ET ON PREND LA PLUS GRANDE.
+      //
+      // `times` semblait devoir l'emporter toujours — exact, sans
+      // échantillonnage. La mesure a dit le contraire : sur un fichier TUÉ par
+      // le garde, `node --test` n'a jamais moissonné le petit-fils qui portait
+      // tout le travail, donc son `cutime` ne le contient pas, donc le `times`
+      // du shell non plus. Un fichier qui venait de brûler deux secondes se
+      // déclarait à 0,1 s — et le message de dépassement accusait à côté.
+      //
+      // Chacune rate donc quelque chose : `times` rate la descendance non
+      // moissonnée, l'échantillon rate le CPU brûlé depuis le dernier tic.
+      // Aucune ne peut SURESTIMER. Le maximum est le seul choix qui ne mente
+      // dans aucun des deux cas, et on retient laquelle a parlé.
+      const parEchantillon = cpuVu !== null && (declare === null || cpuVu > declare);
+      const cpu = declare === null ? cpuVu : parEchantillon ? cpuVu : declare;
+      resoudre(
+        verdict({
+          fichier,
+          sortie: surcroit === null ? sortie : `${sortie}\n${surcroit}`,
+          code,
+          signal,
+          debut,
+          depasse,
+          budgetCpu,
+          budgetMur,
+          cpu,
+          cpuExact: cpu !== null && !parEchantillon,
+          cpuEchantillonne: cpu !== null && parEchantillon,
+        }),
+      );
+    };
+
+    enfant.on('error', (err) => rendre(err.stack, null, null));
+    enfant.on('close', (code, signal) => rendre(null, code, signal));
   });
 }
 
 /** Ce qu'on retient d'une exécution : vert ou non, et POURQUOI non. */
-function verdict({ fichier, sortie, code, signal, debut, depasse, budget }) {
+function verdict({ fichier, sortie, code, signal, debut, depasse, budgetCpu, budgetMur, cpu, cpuExact, cpuEchantillonne }) {
   const duree = Date.now() - debut;
   const bilan = lireBilanTap(sortie);
+  const brule = cpu === null ? null : formaterDuree(cpu * 1000);
   let raison = null;
   // Le dépassement passe AVANT la lecture du bilan : un fichier tué par le garde
   // n'a pas de bilan, et « aucun bilan lisible » dirait le symptôme, pas la cause.
-  if (depasse) raison = `dépassement du délai de garde (${formaterDuree(budget)})`;
-  else if (bilan === null) raison = `aucun bilan TAP lisible (code ${code ?? '—'}${signal ? `, signal ${signal}` : ''})`;
-  else if (bilan.fail > 0) raison = `${bilan.fail} test${bilan.fail > 1 ? 's' : ''} en échec`;
-  else if (signal) raison = `processus interrompu par ${signal} malgré un bilan vert`;
-  else if (code !== 0) raison = `code de sortie ${code} malgré un bilan vert`;
-  return { fichier, sortie, code, signal, duree, bilan, raison, depasse: Boolean(depasse), budget, vert: raison === null };
+  //
+  // ET IL DIT LAQUELLE DES DEUX BORNES A SAUTÉ. Sans cette distinction, on
+  // diagnostique de travers : un dépassement CPU accuse le fichier — il a
+  // vraiment travaillé plus que prévu —, un dépassement mural avec presque
+  // aucun CPU brûlé accuse une ATTENTE, verrou, socket ou machine à genoux.
+  if (depasse === 'cpu') {
+    raison = `dépassement du budget CPU (${formaterDuree(budgetCpu)} accordées, ${brule ?? 'brûlage inconnu'} brûlées) — le fichier travaille plus que sa référence`;
+  } else if (depasse === 'mur') {
+    raison =
+      `dépassement du délai de garde mural (${formaterDuree(budgetMur)})` +
+      (brule === null ? '' : ` alors qu’il n’a brûlé que ${brule} de CPU — une attente, pas du travail`);
+  } else if (bilan === null) {
+    raison = `aucun bilan TAP lisible (code ${code ?? '—'}${signal ? `, signal ${signal}` : ''})`;
+  } else if (bilan.fail > 0) {
+    raison = `${bilan.fail} test${bilan.fail > 1 ? 's' : ''} en échec`;
+  } else if (signal) {
+    raison = `processus interrompu par ${signal} malgré un bilan vert`;
+  } else if (code !== 0) {
+    raison = `code de sortie ${code} malgré un bilan vert`;
+  }
+  return {
+    fichier,
+    sortie,
+    code,
+    signal,
+    duree,
+    bilan,
+    raison,
+    depasse,
+    budgetCpu,
+    budgetMur,
+    cpu,
+    cpuExact: Boolean(cpuExact),
+    cpuEchantillonne: Boolean(cpuEchantillonne),
+    vert: raison === null,
+  };
 }
 
 // ──────────────────────────────────────────────────────────────── état ──
@@ -483,25 +986,43 @@ function horloge(depuis) {
   return `[${Math.floor(m / 60)}:${pad(m % 60)}:${pad(s % 60)}]`;
 }
 
+/**
+ * Les deux budgets sur une ligne — ou « sans garde » quand il n'y en a aucun.
+ *
+ * Les afficher tous les deux n'est pas du bavardage : quand un fichier rougit,
+ * la première question est « lequel des deux a sauté », et la réponse doit être
+ * lisible dans la ligne de départ autant que dans le verdict.
+ */
+function formaterBudgets(budgets) {
+  const { cpu = Infinity, mur = Infinity } = budgets ?? {};
+  if (!Number.isFinite(cpu) && !Number.isFinite(mur)) return 'sans garde';
+  return `CPU ${formaterDuree(cpu)} · mur ${formaterDuree(mur)}`;
+}
+
 function creerJournal(ecrire, depart) {
   const ligne = (texte) => ecrire(`${texte}\n`);
   return {
     ligne,
     brut: (texte) => ecrire(texte.endsWith('\n') ? texte : `${texte}\n`),
-    depart: (fichier, budget) =>
-      ligne(`${horloge(depart)} départ   ${fichier}  ·  budget ${formaterDuree(budget)}`),
+    depart: (fichier, budgets) =>
+      ligne(`${horloge(depart)} départ   ${fichier}  ·  budget ${formaterBudgets(budgets)}`),
     vie: (fichier, entree) => {
       const ecoule = Date.now() - entree.debut;
       const n = testsTermines(entree.sortie());
+      const cpu = entree.cpu?.();
+      // Le CPU en vol est l'information qui manquait le plus : un fichier à
+      // trente minutes de mur et deux minutes de CPU n'est pas lent, il attend.
+      const brule = cpu === null || cpu === undefined ? '' : `, ${formaterDuree(cpu * 1000)} de CPU`;
       ligne(
-        `${horloge(depart)} en vol   ${fichier} — ${formaterDuree(ecoule)}, ${n} test${n > 1 ? 's' : ''} fait${n > 1 ? 's' : ''}, budget ${formaterDuree(entree.budget)}`,
+        `${horloge(depart)} en vol   ${fichier} — ${formaterDuree(ecoule)}, ${n} test${n > 1 ? 's' : ''} fait${n > 1 ? 's' : ''}${brule}, budget ${formaterBudgets(entree.budgets)}`,
       );
     },
     verdict: (r, faits, total, etiquette) => {
       const compte = r.bilan
         ? `${r.bilan.tests} test${r.bilan.tests > 1 ? 's' : ''}${r.bilan.fail ? ` dont ${r.bilan.fail} échoué${r.bilan.fail > 1 ? 's' : ''}` : ''}`
         : 'sans bilan';
-      const fin = `${compte}, ${formaterDuree(r.duree)}  ·  ${faits}/${total}`;
+      const brule = r.cpu === null ? '' : `, ${formaterDuree(r.cpu * 1000)} de CPU`;
+      const fin = `${compte}, ${formaterDuree(r.duree)} au mur${brule}  ·  ${faits}/${total}`;
       ligne(`${horloge(depart)} ${etiquette.padEnd(8)} ${r.fichier}  ·  ${fin}`);
     },
   };
@@ -534,10 +1055,13 @@ export async function lancerSuiteLente(options) {
     reprise = false,
     cheminEtat = path.join(racine, FICHIER_ETAT),
     cheminDurees = path.join(racine, FICHIER_DUREES),
-    reglages = reglagesDelai(),
+    reglages = reglagesGarde(),
     sansGarde = false,
     releveDurees = false,
     intervalleVie = INTERVALLE_VIE,
+    pasCpu = PAS_CPU,
+    racineProc = '/proc',
+    avertissements = [],
     ecrire = (t) => process.stdout.write(t),
     signalArret,
   } = options;
@@ -557,7 +1081,13 @@ export async function lancerSuiteLente(options) {
   }
 
   const table = chargerDurees(cheminDurees);
-  const budgetDe = (f) => (sansGarde ? Infinity : budgetDeGarde(f, table, reglages));
+  const sonde = sonderCpu(racineProc);
+  // Deux capacités distinctes, et il faut les distinguer : `/proc` donne la
+  // garde CPU EN VOL, le shell donne le chiffre EXACT À LA SORTIE. On peut
+  // avoir l'un sans l'autre — un BSD sans `/proc` garde son `times`.
+  const cpuExactPossible = fs.existsSync(SHELL);
+  const budgetsDe = (f) =>
+    sansGarde ? { cpu: Infinity, mur: Infinity } : budgetsDeGarde(f, table, reglages);
 
   const etat = reprise ? chargerEtat(cheminEtat) : { version: 1, verts: {} };
   const repris = reprise
@@ -582,11 +1112,26 @@ export async function lancerSuiteLente(options) {
   journal.ligne(
     `Suite lente — ${tous.length} fichier${tous.length > 1 ? 's' : ''}, ${voies} en parallèle, les plus longs d'abord, relance seule des rouges.`,
   );
+  if (sansGarde) {
+    journal.ligne('  garde : DÉSACTIVÉE (--sans-garde) — ni budget CPU, ni filet anti-blocage.');
+  } else {
+    journal.ligne(
+      `  budget CPU : ${reglages.facteurCpu} × la référence CPU, plancher ${formaterDuree(reglages.plancherCpu * 1000)}, ${formaterDuree(reglages.cpuInconnu * 1000)} sans référence CPU.`,
+    );
+    journal.ligne(
+      `  garde murale : ${reglages.facteurMur} × la référence murale, plancher ${formaterDuree(reglages.plancherMur * 1000)}, ${formaterDuree(reglages.murInconnu * 1000)} sans référence murale — c’est le filet anti-blocage, pas un budget.`,
+    );
+  }
+  // Ce que le lanceur sait mesurer ici, dit AVANT le premier chiffre. Un repli
+  // sur le mural qui ne s'annonce pas produirait des nombres dont personne ne
+  // saurait la nature — c'est précisément ce qu'on vient de corriger.
   journal.ligne(
-    sansGarde
-      ? '  garde : DÉSACTIVÉE (--sans-garde) — un blocage ne sera pas interrompu.'
-      : `  garde : ${reglages.facteur} × la durée de référence, plancher ${formaterDuree(reglages.plancher * 1000)}, ${formaterDuree(reglages.inconnu * 1000)} sans référence.`,
+    `  CPU : ${sonde.disponible ? `échantillonné par ${sonde.raison}` : `PAS DE SONDE — ${sonde.raison}`} ; ` +
+      (cpuExactPossible
+        ? `relevé exact à la sortie par \`times\` de ${SHELL}.`
+        : `${SHELL} absent, AUCUN relevé exact — les durées resteront murales, et la table le dira.`),
   );
+  for (const avertissement of avertissements) journal.ligne(`  ⚠ ${avertissement}`);
   if (repris.length > 0) {
     journal.ligne(
       `  reprise : ${repris.length} fichier${repris.length > 1 ? 's' : ''} déjà vert${repris.length > 1 ? 's' : ''} ${repris.length > 1 ? 'ne sont' : "n'est"} pas rejoué${repris.length > 1 ? 's' : ''}.`,
@@ -598,6 +1143,7 @@ export async function lancerSuiteLente(options) {
   // La ligne de vie ne parle QUE dans le silence : tant que des verdicts
   // tombent, elle se tait. C'est ce qui la rend supportable sur quatre voies.
   const vol = new Map();
+  const cpuMoissonneDepart = cpuEnfantsMoissonnes(racineProc);
   const charges = [];
   let chargesPasse1 = null;
   const battement = setInterval(() => {
@@ -616,14 +1162,17 @@ export async function lancerSuiteLente(options) {
     const voie = async () => {
       while (file.length > 0 && !signalArret?.aborted) {
         const fichier = file.shift();
-        const budget = budgetDe(fichier);
-        journal.depart(fichier, budget);
-        const r = await executer(fichier, { racine, signalArret, budget, vol });
+        const budgets = budgetsDe(fichier);
+        journal.depart(fichier, budgets);
+        const r = await executer(fichier, { racine, signalArret, budgets, vol, sonde, pasCpu });
         resultats.set(fichier, r);
         faits += 1;
         journal.verdict(r, faits, tous.length, r.vert ? 'vert' : 'ROUGE');
         if (r.vert) {
-          mesuresPasse1.set(fichier, r.duree / 1000);
+          // Les deux natures voyagent ensemble jusqu'à la table, qui les nomme
+          // séparément. Le CPU peut manquer — machine sans sonde ni shell — et
+          // son absence est alors une information, pas un trou à combler.
+          mesuresPasse1.set(fichier, { cpu: r.cpu, mur: r.duree / 1000 });
           etat.verts[fichier] = { empreinte: empreinte(racine, fichier), le: new Date().toISOString() };
           ecrireEtat(cheminEtat, etat);
         } else {
@@ -655,9 +1204,9 @@ export async function lancerSuiteLente(options) {
       let refaits = 0;
       for (const fichier of rouges) {
         if (signalArret?.aborted) break;
-        const budget = budgetDe(fichier);
-        journal.depart(fichier, budget);
-        const r = await executer(fichier, { racine, signalArret, budget, vol });
+        const budgets = budgetsDe(fichier);
+        journal.depart(fichier, budgets);
+        const r = await executer(fichier, { racine, signalArret, budgets, vol, sonde, pasCpu });
         refaits += 1;
         const sousCharge = resultats.get(fichier);
         resultats.set(fichier, { ...r, sousCharge });
@@ -693,6 +1242,31 @@ export async function lancerSuiteLente(options) {
     journal.ligne(
       `  durée      ${formaterDuree(Date.now() - depart)} au mur, ${formaterDuree(cumul)} cumulées sur ${voies} voie${voies > 1 ? 's' : ''}`,
     );
+    const avecCpu = finaux.filter((r) => r.cpu !== null);
+    if (avecCpu.length === 0) {
+      journal.ligne('  CPU        AUCUN relevé — ni sonde ni shell ici : ces durées ne disent que le mur.');
+    } else {
+      const cumulCpu = avecCpu.reduce((t, r) => t + r.cpu, 0);
+      const exacts = avecCpu.filter((r) => r.cpuExact).length;
+      const manquants = finaux.length - avecCpu.length;
+      journal.ligne(
+        `  CPU        ${formaterDuree(cumulCpu * 1000)} cumulées, ${exacts}/${avecCpu.length} exactes` +
+          (manquants > 0 ? `, ${manquants} sans relevé` : ''),
+      );
+      // Le contrôle croisé : ce que le lanceur a vu fichier par fichier doit
+      // retomber sur ce que le noyau lui compte pour TOUS ses enfants moissonnés.
+      // Deux chemins indépendants sur la même quantité ; s'ils divergent, c'est
+      // la mesure qui est fausse, et mieux vaut le lire que le supposer.
+      const moissonneFin = cpuEnfantsMoissonnes(racineProc);
+      if (cpuMoissonneDepart !== null && moissonneFin !== null) {
+        const attendu = moissonneFin - cpuMoissonneDepart;
+        const ecart = attendu === 0 ? null : Math.abs(cumulCpu - attendu) / attendu;
+        journal.ligne(
+          `  contrôle   ${formaterDuree(attendu * 1000)} de CPU comptées par le noyau au lanceur` +
+            (ecart === null ? '' : ` — écart ${(ecart * 100).toFixed(1).replace('.', ',')} % avec la somme ci-dessus`),
+        );
+      }
+    }
     if (signales.length > 0) {
       journal.ligne(
         `  signalés   ${signales.length} vert${signales.length > 1 ? 's' : ''} seul${signales.length > 1 ? 's' : ''}, rouge${signales.length > 1 ? 's' : ''} sous charge :`,
@@ -702,9 +1276,22 @@ export async function lancerSuiteLente(options) {
     if (echecs.length > 0) {
       journal.ligne(`  ÉCHECS     ${echecs.length}, rouges même seuls :`);
       for (const r of echecs) journal.ligne(`               ${r.fichier} — ${r.raison}`);
-      if (echecs.every((r) => r.depasse)) {
-        journal.ligne('  ⚠ tous par dépassement du garde : c’est un signe de machine lente,');
-        journal.ligne(`    pas de code. Relevez le facteur — ${VAR_FACTEUR}=8 — avant de suspecter les tests.`);
+      // Les deux dépassements ne se diagnostiquent pas pareil, et les confondre
+      // envoie chercher au mauvais endroit. Le mur qui saute sans que le CPU
+      // suive désigne la MACHINE ; le CPU qui saute désigne le TRAVAIL.
+      const parMur = echecs.filter((r) => r.depasse === 'mur');
+      const parCpu = echecs.filter((r) => r.depasse === 'cpu');
+      if (parMur.length === echecs.length) {
+        journal.ligne('  ⚠ tous par dépassement mural sans que le CPU suive : signe de machine lente');
+        journal.ligne(`    ou bloquée, pas de code. Relevez ${VAR_FACTEUR_MUR}=16 avant de suspecter`);
+        journal.ligne("    les tests — ce filet-là n'est pas un budget de travail.");
+      } else if (parCpu.length === echecs.length) {
+        journal.ligne('  ⚠ tous par dépassement du budget CPU : ces fichiers travaillent vraiment plus');
+        journal.ligne('    que leur référence, et la charge n’y est pour rien. Table périmée — régénérez');
+        journal.ligne(`    par --releve-durees — ou régression. Relever ${VAR_FACTEUR_CPU} ne ferait que la cacher.`);
+      } else if (parMur.length + parCpu.length === echecs.length) {
+        journal.ligne(`  ⚠ ${parCpu.length} par dépassement CPU et ${parMur.length} par dépassement mural :`);
+        journal.ligne('    deux causes distinctes, à ne pas traiter d’un seul réglage.');
       }
     }
     if (interrompu) {
@@ -727,11 +1314,19 @@ export async function lancerSuiteLente(options) {
         const moyenne = echantillons.length
           ? echantillons.reduce((t, c) => t + c, 0) / echantillons.length
           : null;
+        const mesuresAvecCpu = [...mesuresPasse1.values()].filter((m) => m.cpu !== null).length;
         ecrireDurees(cheminDurees, table, mesuresPasse1, {
           le: new Date().toISOString().slice(0, 10),
           coeurs: availableParallelism(),
           voies,
           passe: 'première (parallèle), pas les relances seules',
+          // D'où vient le CPU de ces chiffres, en toutes lettres. Une table qui
+          // ne dit pas comment elle a été mesurée redevient une convention tacite.
+          cpuReleve: `${mesuresAvecCpu}/${mesuresPasse1.size} fichiers`,
+          cpuSource: cpuExactPossible
+            ? `\`times\` de ${SHELL} à la sortie du processus, descendance comprise (exact)`
+            : `${SHELL} absent : aucun relevé CPU, ces chiffres ne disent que le mur`,
+          gardeCpu: sonde.disponible ? sonde.raison : `indisponible — ${sonde.raison}`,
           chargeMoyenne: moyenne === null ? null : arrondi(moyenne),
           chargeMin: echantillons.length ? arrondi(Math.min(...echantillons)) : null,
           chargeMax: echantillons.length ? arrondi(Math.max(...echantillons)) : null,
@@ -759,13 +1354,25 @@ const AIDE = `Lance la suite lente fichier par fichier, avec l'avancement au fil
                      ou la variable ${VAR_PARALLELISME}
   --reprise          repart des fichiers déjà verts notés dans ${FICHIER_ETAT}
                      ou la variable ${VAR_REPRISE}=1
-  --facteur=N        budget = N × la durée de référence du fichier (défaut : ${FACTEUR_DEFAUT})
-                     ou la variable ${VAR_FACTEUR}
-  --plancher=SEC     budget minimal, en secondes (défaut : ${PLANCHER_DEFAUT})
-                     ou la variable ${VAR_PLANCHER}
-  --inconnu=SEC      budget d'un fichier sans référence (défaut : ${INCONNU_DEFAUT})
-                     ou la variable ${VAR_INCONNU}
-  --sans-garde       aucun délai de garde : un blocage ne sera pas interrompu
+
+  Le BUDGET DE TRAVAIL, en temps CPU — ce que le fichier coûte vraiment :
+  --facteur-cpu=N    budget CPU = N × la référence CPU du fichier (défaut : ${FACTEUR_CPU_DEFAUT})
+                     ou la variable ${VAR_FACTEUR_CPU}
+  --plancher-cpu=SEC budget CPU minimal, en secondes (défaut : ${PLANCHER_CPU_DEFAUT})
+                     ou la variable ${VAR_PLANCHER_CPU}
+  --cpu-inconnu=SEC  budget CPU sans référence CPU (défaut : ${CPU_INCONNU_DEFAUT})
+                     ou la variable ${VAR_CPU_INCONNU}
+
+  Le FILET ANTI-BLOCAGE, en temps écoulé — un test bloqué ne brûle aucun CPU :
+  --facteur-mur=N    garde murale = N × la référence murale (défaut : ${FACTEUR_MUR_DEFAUT})
+                     ou la variable ${VAR_FACTEUR_MUR}
+  --plancher-mur=SEC garde murale minimale, en secondes (défaut : ${PLANCHER_MUR_DEFAUT})
+                     ou la variable ${VAR_PLANCHER_MUR}
+  --mur-inconnu=SEC  garde murale sans référence murale (défaut : ${MUR_INCONNU_DEFAUT})
+                     ou la variable ${VAR_MUR_INCONNU}
+
+  --pas-cpu=MS       pas d'échantillonnage du CPU en vol (défaut : ${PAS_CPU})
+  --sans-garde       NI budget CPU ni filet : un blocage ne sera pas interrompu
   --releve-durees    réécrit ${FICHIER_DUREES} si la passe est verte
   --racine=DOSSIER   dossier de résolution des motifs (défaut : le dossier courant)
   --motif=GLOB       motif de découverte, répétable (défaut : ${MOTIFS.join(' ')})
@@ -773,22 +1380,34 @@ const AIDE = `Lance la suite lente fichier par fichier, avec l'avancement au fil
   --durees=FICHIER   table des durées de référence (défaut : ${FICHIER_DUREES})
   --aide             ce texte
 
+Deux bornes, deux natures, et le verdict DIT laquelle a sauté. Le budget CPU
+mesure le travail : il ne bouge pas quand la machine se remplit, et c'est lui qui
+rend la table comparable d'une machine à l'autre. La garde murale ne mesure
+rien — c'est un filet contre le blocage, qu'aucune garde CPU ne verrait, puisque
+le propre d'un test arrêté sur une attente est de ne consommer aucun CPU.
+
 Tout fichier rouge est rejoué SEUL. S'il passe alors, il est vert mais signalé
 « vert seul, rouge sous charge » ; s'il rougit encore, c'est un vrai échec et le
-code de sortie est non nul. Un dépassement du délai de garde compte comme rouge,
-et part donc en relance seule — sur une machine vide, où la charge a disparu.
+code de sortie est non nul. Un dépassement, de l'une ou l'autre borne, compte
+comme rouge et part donc en relance seule — sur une machine vide.
 
-Sur un runner nettement plus lent que la machine de référence, relevez le
-facteur (${VAR_FACTEUR}=8) plutôt que de subir des dépassements.`;
+Les anciens noms (${ANCIENS_REGLAGES.map((a) => a.nom).join(', ')})
+restent acceptés, et chacun fait dire une ligne rappelant sur quelle borne il
+retombe. Sur un runner nettement plus lent, relevez LES DEUX facteurs : le temps
+CPU est insensible à la CHARGE de la machine, pas à la vitesse de son processeur.`;
 
 async function principal() {
   const { values } = parseArgs({
     options: {
       parallelisme: { type: 'string' },
       reprise: { type: 'boolean', default: false },
-      facteur: { type: 'string' },
-      plancher: { type: 'string' },
-      inconnu: { type: 'string' },
+      'facteur-cpu': { type: 'string' },
+      'plancher-cpu': { type: 'string' },
+      'cpu-inconnu': { type: 'string' },
+      'facteur-mur': { type: 'string' },
+      'plancher-mur': { type: 'string' },
+      'mur-inconnu': { type: 'string' },
+      'pas-cpu': { type: 'string' },
       'sans-garde': { type: 'boolean', default: false },
       'releve-durees': { type: 'boolean', default: false },
       racine: { type: 'string' },
@@ -806,11 +1425,17 @@ async function principal() {
   }
 
   const racine = path.resolve(values.racine ?? process.cwd());
-  const parEnv = reglagesDelai();
+  // Les anciens noms d'environnement ne sont pas honorés en silence : ce que
+  // `reglagesGarde` a à en dire remonte jusqu'au journal, en tête de passe.
+  const avertissements = [];
+  const parEnv = reglagesGarde(process.env, (m) => avertissements.push(m));
   const reglages = {
-    facteur: nombreRegle(values.facteur, '--facteur', 1, parEnv.facteur),
-    plancher: nombreRegle(values.plancher, '--plancher', 0, parEnv.plancher),
-    inconnu: nombreRegle(values.inconnu, '--inconnu', 1, parEnv.inconnu),
+    facteurCpu: nombreRegle(values['facteur-cpu'], '--facteur-cpu', 1, parEnv.facteurCpu),
+    plancherCpu: nombreRegle(values['plancher-cpu'], '--plancher-cpu', 0, parEnv.plancherCpu),
+    cpuInconnu: nombreRegle(values['cpu-inconnu'], '--cpu-inconnu', 1, parEnv.cpuInconnu),
+    facteurMur: nombreRegle(values['facteur-mur'], '--facteur-mur', 1, parEnv.facteurMur),
+    plancherMur: nombreRegle(values['plancher-mur'], '--plancher-mur', 0, parEnv.plancherMur),
+    murInconnu: nombreRegle(values['mur-inconnu'], '--mur-inconnu', 1, parEnv.murInconnu),
   };
 
   const controleur = new AbortController();
@@ -834,6 +1459,8 @@ async function principal() {
     sansGarde: values['sans-garde'],
     releveDurees: values['releve-durees'],
     intervalleVie: nombreRegle(values['intervalle-vie'], '--intervalle-vie', 1, INTERVALLE_VIE),
+    pasCpu: nombreRegle(values['pas-cpu'], '--pas-cpu', 1, PAS_CPU),
+    avertissements,
     signalArret: controleur.signal,
   });
   return code;
