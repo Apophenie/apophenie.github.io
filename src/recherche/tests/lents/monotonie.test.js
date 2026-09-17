@@ -139,7 +139,7 @@ import { catalogue } from '../_catalogue.js';
 
 const moteur = creerMoteur(catalogue, { filetTemporel: false });
 /** Le programme d'une voie, marqueur de cran retiré : c'est lui qu'on suit. */
-const programme = (a) => a.url.split('#')[1].replace(/(^|!)f\d+!/, '$1');
+const programme = (a) => a.url.split('$')[0].slice(1).replace(/(^|!)f\d+!/, '$1');
 
 /** Ce que le cran `haut` a perdu de ce que le cran `bas` avait trouvé. */
 function perduesEntre(saisie, cible, bas, haut) {

@@ -2,8 +2,13 @@
 // Grammaire d'URL : lecture tolérante, écriture toujours canonique.
 // CONTRACTS.md §4.2, §4.3, §4.4.
 //
-//   url        := {chemin} '#' [approche] '#' saisie ['#' cible]
-//              |  {chemin} '#' saisie                 // un seul `#`, voir plus bas
+//   url        := {chemin} '?' [approche] '$' saisie ['$' cible]
+//              |  {chemin} '?' saisie                 // un seul segment, voir plus bas
+//
+//   ⚠️ **LA MÊME GRAMMAIRE SE LIT AUSSI DANS LE FRAGMENT**, où le séparateur
+//      est `#` : `#…#…#…`. C'est la forme que le site a publiée jusqu'ici ;
+//      elle se lit pour toujours, et ne s'écrit plus. Le porteur choisit son
+//      séparateur — voir « LES DEUX PORTEURS, ET LEUR SÉPARATEUR ».
 //   approche   := marqueur* (retouche ';')* fragment (',' fragment)*
 //   marqueur   := registre '!' | relecture '!'
 //               |  'c' chiffre+ '!' | 'c' lettre+ '!'   // la cible : LUE, plus écrite
@@ -45,14 +50,19 @@
 // tapé à la main se convertit tout seul en lien partageable, exactement comme
 // le `so!` d'un lien sobre disparaît sans qu'on ait rien demandé.
 //
-// ★ **QUATRE FORMES, et ce qui les distingue est le NOMBRE DE `#`** :
+// ★ **CE QUI DÉCIDE EST LE NOMBRE DE SÉPARATEURS — jamais l'écriture de la
+// saisie.** En base58 ou en clair, un lien fait la même chose :
 //
-//     #Donald Trump              recherche, puis animation de la 1ʳᵉ voie
-//     ##Donald Trump             recherche, puis ÉNUMÉRATION des voies
-//     #c111!sce!#Donald Trump    recherche visant 111, puis animation scénique
-//     #c111!#Donald Trump        idem, registre par défaut — la MAIN
-//     #c111!#<b58>               la LISTE des voies visant 111 — la MACHINE
-//     #tca+m36#Donald Trump      aucune recherche : CE programme, sur ce texte
+//     ?Donald Trump              recherche, puis animation de la 1ʳᵉ voie
+//     ?$Donald Trump             recherche, puis ÉNUMÉRATION des voies
+//     ?$Donald Trump$111         la même énumération, visant 111
+//     ?c111!$Donald Trump        la même, par le marqueur de cible
+//     ?p10.20.30.40!f2!$D. Trump la même, à ces réglages de recherche
+//     ?so!$Donald Trump          animation sobre de la 1ʳᵉ voie
+//     ?sce!$Donald Trump         animation scénique
+//     ?tca+m36$Donald Trump      aucune recherche : CE programme, sur ce texte
+//
+// (et les mêmes, au signe près, dans les liens d'hier : `#…`, séparés par `#`.)
 //
 // La première est le geste de « Révéler » (`pages/accueil.js`) : on cherche et
 // on montre, sans passer par la liste. La troisième est la même chose avec des
@@ -60,18 +70,27 @@
 // recherche et effectue directement le programme demandé » (l'auteur), donc a
 // contrario : tant qu'il n'y a QUE des marqueurs, on cherche.
 //
-// ⚠️ **UNE EXCEPTION, et elle n'est pas de moi.** `#c111!#…` — cible seule, sans
-// registre — reste la PAGE DE RÉSULTATS visant 111, contre la lecture littérale
-// de la règle ci-dessus. Deux raisons, et la seconde suffirait : c'est la forme
-// que `ecrire({saisie, cible})` PRODUIT (le lien de partage de la page de
-// listing), et l'écriture ne change pas ; et sans elle il n'existerait aucune
-// façon de demander l'énumération pour une autre cible que 666. Le registre,
-// lui, n'est jamais écrit sans programme : `#so!#…` ne dénotait rien, il dénote
-// désormais l'animation — et c'est la seule place où `so!`, qui ne s'écrit
-// plus, change encore le sens d'un lien. La frontière est celle qui était déjà argumentée plus
-// bas, mot pour mot — le registre dit comment MONTRER une démonstration, et une
-// liste n'en montre aucune ; la cible dit ce qu'on CHERCHE, et une liste est le
-// résultat d'une recherche.
+// ★ **DEUX FAMILLES DE MARQUEURS, ET UNE SEULE DÉCIDE.**
+//
+// > « Il n'y a que `?$<b58 ou clair>` et `##<b58 ou clair>` qui affichent la
+// >   liste. » (l'autrice)
+//
+// Les RÉGLAGES DE RECHERCHE — cible (`c111!`), curseurs (`p…!`), fouille
+// (`f…!`) — paramètrent une ÉNUMÉRATION : aucun ne demande à voir une voie en
+// particulier, donc aucun n'empêche la liste. `?c111!$…` énumère les voies
+// visant 111, exactement comme `?$…$111`.
+//
+// Le REGISTRE DE MISE EN SCÈNE — `so!`, `sce!` — dit comment MONTRER : il y a
+// donc quelque chose à montrer, et il demande l'animation. C'est la seule place
+// où `so!`, qui ne s'écrit plus, change encore le sens d'un lien.
+//
+// ⚠️ **UNE RÈGLE A ÉTÉ DÉFAITE ICI, et il faut savoir laquelle.** L'écriture de
+// la saisie décidait aussi : `#c111!#Donald Trump` animait quand `#c111!#<b58>`
+// énumérait — « le base58 est la signature de la machine, le texte en clair
+// celle de la main ». L'autrice l'a retirée : une règle INVISIBLE dans le lien
+// ne doit pas en changer la page. Celle du registre, elle, est ÉCRITE, donc
+// elle vaut. Aucun lien jamais émis par le site n'en a changé de sens —
+// `ecrire()` n'écrit la saisie qu'en base58 (mesuré : 48 formes, zéro bascule).
 //
 // ★ **LE BASE58 GAGNE TOUJOURS**, et la règle tient en trois conditions.
 //
@@ -396,13 +415,12 @@
 // raison qu'un curseur est borné à sa glissière.
 //
 // ★ **Les deux marqueurs valent la LISTE, pas la première voie.** `#p…!#texte`
-// et `#f3!#texte` rendent la page de résultats, même écrits en clair — à la
-// différence de `#c111!#texte`, qui joue la démonstration de tête. Ce n'est pas
-// une exception de plus : la frontière est celle que l'en-tête pose déjà. La
-// cible dit ce qu'on CHERCHE, et cela vaut aussi bien pour une animation ; les
-// curseurs et la fouille disent comment on CLASSE et jusqu'où on FOUILLE, deux
-// choses dont une démonstration unique n'a rien à faire. Un marqueur qui ne
-// peut rien changer à ce qu'on montre ne peut pas décider qu'on le montre.
+// et `#f3!#texte` rendent la page de résultats, en clair comme en base58 — tout
+// comme `#c111!#texte`. Ce ne sont pas des exceptions : ce sont les trois
+// RÉGLAGES DE RECHERCHE, et aucun ne demande à voir une voie en particulier.
+// La cible dit ce qu'on CHERCHE ; les curseurs et la fouille disent comment on
+// CLASSE et jusqu'où on FOUILLE. Un marqueur qui ne peut rien changer à ce
+// qu'on montre ne peut pas décider qu'on le montre.
 //
 // ★ Ils sont néanmoins ÉCRITS sur les liens de voie, quand ils ne sont pas au
 // défaut. Deux raisons : le score affiché sous une voie rejouée est celui de la
@@ -634,6 +652,23 @@ const RE_RESONANCE = /^[×xX*](\d+)$/;
 const RE_RANGS = /^\d+(\+\d+)*$/;
 
 /**
+ * ★ **LES DEUX PORTEURS, ET LEUR SÉPARATEUR.**
+ *
+ * Le site a d'abord vécu dans le FRAGMENT (`#…#…`), où les segments se
+ * séparaient par `#`. C'était hors grammaire : la RFC 3986 dit
+ * `fragment = *( pchar / "/" / "?" )`, et `#` n'est pas un `pchar`. Un
+ * fragment n'a donc pas le droit de contenir un `#`, et tout normaliseur
+ * d'URL est en droit de recoder nos liens — ce que Brave sur Mac fait.
+ *
+ * La forme d'aujourd'hui vit dans la REQUÊTE (`?…$…`), où les segments se
+ * séparent par `$`. `$` est un `sub-delim` de la RFC, autorisé tel quel dans
+ * une query, jamais recodé, et absent de la grammaire (`+ , ; : . !` étaient
+ * pris). Les deux se lisent ; seule la seconde s'écrit.
+ */
+const SEP_FRAGMENT = '#';
+const SEP_REQUETE = '$';
+
+/**
  * Les deux registres de mise en scène, et le mot qui les écrit dans l'URL.
  *
  * ★ **`so!` et `sce!`, abrégés.** Le premier jet écrivait « sobre » et
@@ -841,18 +876,33 @@ export function lire(hash, options = {}) {
   };
   if (typeof hash !== 'string') return { ...vide, raison: 'hash absent' };
 
+  // ★ **LE SIGIL DE TÊTE DÉCLARE LA GRAMMAIRE.** `?` ⇒ la requête, dont les
+  //   segments se séparent par `$` ; `#`, ou rien du tout, ⇒ le fragment
+  //   historique, séparé par `#`. C'est le PORTEUR qui choisit le séparateur,
+  //   et c'est exactement ce qui rend la promesse tenable : un vieux lien de
+  //   fragment ne se découpe JAMAIS sur un `$`, de sorte qu'une saisie qui en
+  //   contenait un — `#:100$` — se relit aujourd'hui comme au premier jour.
+  //   L'inverse est vrai aussi : un `#` dans une requête n'y sépare rien.
   let brut = hash;
-  if (brut.startsWith('#')) brut = brut.slice(1);
+  let separateur = SEP_FRAGMENT;
+  if (brut.startsWith('?')) { separateur = SEP_REQUETE; brut = brut.slice(1); }
+  else if (brut.startsWith('#')) brut = brut.slice(1);
   if (brut === '') return { ...vide, forme: 'resultats', saisie: null };
 
-  // ★ Le pourcentage se décode PAR SEGMENT, et non sur le fragment entier.
+  // ★ Le pourcentage se décode PAR SEGMENT, et non sur la charge entière.
   //   Tant que la saisie était du base58 la distinction ne se voyait pas —
   //   aucun des 58 signes ne s'échappe. Elle se voit dès que la saisie est du
   //   texte : `##%23JeSuis666` porte un `#` DANS la saisie, et décoder avant de
   //   découper en ferait un troisième segment, donc un lien mort. Découper
   //   d'abord, décoder ensuite, c'est l'ordre que le navigateur lui-même
   //   applique — le fragment commence au premier `#` NON échappé.
-  const parts = brut.split('#').map(depourcenter);
+  //
+  //   ★ **ET LA RÈGLE VAUT AU SIGNE PRÈS POUR `$`.** `?$%24litteral` porte un
+  //   `$` DANS la saisie, pas un séparateur : on découpe sur les `$` bruts,
+  //   puis on dépourcente. Côté requête la garantie est même plus forte que
+  //   côté fragment — `ecrire()` ne pose que du base58, dont l'alphabet ignore
+  //   `$` : un `$` non échappé dans un lien écrit par le site est impossible.
+  const parts = brut.split(separateur).map(depourcenter);
   // ★ TROIS segments au plus : le troisième est la CIBLE (voir l'en-tête).
   if (parts.length > 3) {
     return { ...vide, raison: 'format inconnu', bandeau: BANDEAUX.formatInconnu };
@@ -1003,42 +1053,36 @@ export function lire(hash, options = {}) {
     //   maintenant laquelle montrer quand le lien ne la nomme pas — celle que
     //   le classement met en tête, exactement comme le bouton de l'accueil.
     //
-    //   ★ **ET LA CIBLE SEULE VAUT AUSSI LA PREMIÈRE VOIE — QUAND LA SAISIE EST
-    //   ÉCRITE EN CLAIR.** « Je veux l'inverse » (l'auteur), sur l'exception qui
-    //   avait d'abord été faite à `#c111!#…`. Donc `#c111!#Donald Trump` cherche
-    //   111 et JOUE la démonstration de tête, comme `#Donald Trump` le fait
-    //   pour 666.
+    //   ★ **DEUX FAMILLES DE MARQUEURS, ET UNE SEULE DÉCIDE.**
     //
-    //   ⚠️ **Mais `#c111!#<b58>` reste la liste, et ce n'est pas un
-    //   contournement de sa consigne — c'est la frontière qu'il a lui-même
-    //   posée** : « la version b58 est bien sûr toujours supportée et à
-    //   conserver par défaut quand on passe par l'interface du site ». Cette
-    //   forme-là, le site l'ÉCRIT : c'est le sélecteur de cible de la page de
-    //   listing (`pages/resultat.js`, « changer de cible, c'est changer
-    //   d'URL »). La lire comme une animation ferait sauter dans une
-    //   démonstration au moment où l'on clique sur `[111]` pour voir la LISTE
-    //   des voies menant à 111.
+    //   > « Il n'y a que `?\$<b58 ou clair>` et `##<b58 ou clair>` qui affichent
+    //   >   la liste. » (l'autrice)
     //
-    //   La règle se lit donc en une phrase : **ce que le site écrit garde son
-    //   sens, ce qu'un humain tape suit la règle simple de l'auteur.** Le
-    //   base58 est la signature de la machine, le texte en clair celle de la
-    //   main ; les quatre exemples de l'auteur sont tous en clair.
+    //   Les RÉGLAGES DE RECHERCHE — la cible (`c111!`), les curseurs (`p…!`),
+    //   la fouille (`f…!`) — paramètrent une ÉNUMÉRATION. Aucun ne demande à
+    //   voir une voie en particulier, donc aucun n'empêche la liste.
     //
-    //   ⚠️ C'est un choix que l'auteur n'a pas tranché explicitement — il a dit
-    //   « je veux l'inverse » sans mentionner le sélecteur de cible, qu'il ne
-    //   pouvait pas avoir en tête. À défaire en une ligne s'il préfère que la
-    //   bascule vaille aussi pour les liens du site : il faudra alors donner au
-    //   listing une autre façon d'écrire « la liste, pour cette cible-là ».
+    //   Le REGISTRE DE MISE EN SCÈNE — `so!`, `sce!` — dit comment MONTRER :
+    //   il y a donc quelque chose à montrer, et il demande l'animation.
     //
-    //   ⚠️ **LES CURSEURS ET LA FOUILLE N'ENTRENT PAS DANS CETTE CONDITION**, et
-    //   c'est raisonné en tête de fichier : ils disent comment on CLASSE et
-    //   jusqu'où on FOUILLE, deux questions dont une démonstration unique n'a
-    //   rien à faire. `#p…!#texte` et `#f3!#texte` rendent donc la LISTE, que la
-    //   saisie soit en base58 ou en clair. Ils s'ajoutent en revanche sans rien
-    //   changer quand un AUTRE marqueur a déjà fait pencher vers la première
-    //   voie : `#sce!p0.200.100.100!#texte` anime bien la voie de tête — celle
-    //   que le classement repondéré met en tête.
-    if (parts.length === 1 || registreEcrit || (cibleEcrite && saisieBrute)) {
+    //   ⚠️ **CE QUE CETTE RÈGLE A REMPLACÉ, et pourquoi.** La condition portait
+    //   aussi sur l'ÉCRITURE de la saisie : `#c111!#Donald Trump` animait quand
+    //   `#c111!#<b58>` énumérait, au motif que « le base58 est la signature de
+    //   la machine, le texte en clair celle de la main ». L'autrice l'a défait :
+    //   « l'écriture de la saisie ne détermine plus jamais la page obtenue ».
+    //   Son argument tient en une ligne — cette règle-là était INVISIBLE dans le
+    //   lien, et changeait pourtant la page sous les yeux de qui le composait à
+    //   la main. Le registre, lui, est ÉCRIT : sa règle se voit, donc elle vaut.
+    //
+    //   ⚠️ Aucun lien jamais ÉMIS par le site n'a changé de sens : `ecrire()`
+    //   n'écrit la saisie qu'en base58, de sorte que la condition supprimée ne
+    //   pouvait pas se déclencher sur un lien du site. Mesuré sur 48 formes
+    //   produites, zéro bascule.
+    //
+    //   Les réglages s'ajoutent sans rien changer quand le registre a déjà fait
+    //   pencher vers la première voie : `#sce!p0.200.100.100!#texte` anime bien
+    //   la voie de tête — celle que le classement repondéré met en tête.
+    if (parts.length === 1 || registreEcrit) {
       return {
         forme: 'premiere', saisie, saisieBrute, fragments: null, retouches: [],
         // Même résolution que la forme canonique : le registre rendu est celui
@@ -1437,7 +1481,7 @@ export function ecrire({
   // Une page de RÉSULTATS n'a pas de programme, donc rien à préparer : une
   // retouche sans fragment à nourrir ne désigne aucune démonstration, et on ne
   // l'écrit pas plutôt que d'écrire un lien qui ne se relit pas.
-  if (!fragments || !fragments.length) return `#${reglages}#${b58}${queue}`;
+  if (!fragments || !fragments.length) return `?${reglages}${SEP_REQUETE}${b58}${queue}`;
   const approche = ecrireApproche(fragments);
   // ★ Un programme VIDE est une faute, et bruyante. Du temps où `so!` s'écrivait
   //   toujours, `{codes: []}` rendait `#so!#…`, qui se relit « la première
@@ -1447,8 +1491,8 @@ export function ecrire({
   if (approche === '') {
     throw new Error('url : une démonstration sans programme ne s’écrit pas — la liste s’écrit sans fragments');
   }
-  return `#${marqueur(registre, cible)}${marqueurRelecture(relecture)}${marqueurLiaison(liaison)}${reglages}`
-    + `${ecrireRetouches(retouches)}${approche}#${b58}${queue}`;
+  return `?${marqueur(registre, cible)}${marqueurRelecture(relecture)}${marqueurLiaison(liaison)}${reglages}`
+    + `${ecrireRetouches(retouches)}${approche}${SEP_REQUETE}${b58}${queue}`;
 }
 
 /**
@@ -1482,7 +1526,7 @@ function marqueur(registre, cible) {
  */
 function queueCible(cible) {
   const c = normaliserCible(cible);
-  return c.defaut ? '' : `#${encoderTexte(c.texte)}`;
+  return c.defaut ? '' : `${SEP_REQUETE}${encoderTexte(c.texte)}`;
 }
 
 /** Le préfixe de liaison — `=mdl0!`, ou rien. Un code mal formé est une faute. */
@@ -1665,11 +1709,70 @@ function porteeDe(fragment, ctx) {
  * L'utilisateur qui copie l'URL copie un lien permanent sans avoir à le savoir.
  */
 export function canoniser(demonstration, portee = globalThis) {
-  const frag = ecrire(demonstration);
+  const url = ecrire(demonstration);
   const h = portee && portee.history;
   const loc = portee && portee.location;
-  if (!h || typeof h.replaceState !== 'function' || !loc) return frag;
-  if (loc.hash === frag) return frag;
-  h.replaceState(null, '', (loc.pathname || '') + (loc.search || '') + frag);
-  return frag;
+  if (!h || typeof h.replaceState !== 'function' || !loc) return url;
+  const voulue = adresse(url, portee);
+  // ★ On compare l'adresse ENTIÈRE — chemin, requête ET fragment. Comparer la
+  //   seule requête laisserait en place le `#…` d'un vieux lien, qui resterait
+  //   à jamais dans la barre d'adresse à côté de sa traduction : deux écritures
+  //   de la même démonstration, et la promesse du lien permanent rompue.
+  const courante = (loc.pathname || '') + (loc.search || '') + (loc.hash || '');
+  if (courante === voulue) return url;
+  h.replaceState(null, '', voulue);
+  return url;
+}
+
+/**
+ * ★ **UN PARAMÈTRE DE REQUÊTE ORDINAIRE — `debug=1`, et rien d'autre à ce
+ *   jour.** La charge d'une démonstration n'est PAS un couple `clé=valeur` :
+ *   c'est un segment nu (`$:hope$:111`). Les deux cohabitent donc dans la même
+ *   requête sans se marcher dessus, séparés par `&`.
+ *
+ * Le crible exige un nom qui commence par une LETTRE : `?:2+2=4` reste une
+ * saisie — ses `2` ne font pas un nom de paramètre — alors que `?debug=1` en
+ * est un. C'est le seul point où les deux grammaires pourraient se confondre,
+ * et il est tranché par une règle qu'on peut lire.
+ */
+const RE_PARAMETRE = /^[A-Za-z][A-Za-z0-9_-]*=/;
+
+/** Les segments `clé=valeur` d'une requête — ce qui n'appartient pas à la
+ *  démonstration et doit lui survivre. */
+function parametresEtrangers(search) {
+  const brut = String(search || '').replace(/^\?/, '');
+  if (!brut) return [];
+  return brut.split('&').filter((seg) => seg && RE_PARAMETRE.test(seg));
+}
+
+/**
+ * La charge de démonstration portée par une requête — le premier segment qui
+ * n'est pas un paramètre ordinaire. `''` s'il n'y en a pas.
+ *
+ * Exportée parce que le routeur doit savoir, AVANT de lire, si l'adresse porte
+ * une démonstration en requête ou s'il faut se rabattre sur le fragment.
+ */
+export function chargeDeRequete(search) {
+  const brut = String(search || '').replace(/^\?/, '');
+  if (!brut) return '';
+  return brut.split('&').find((seg) => seg && !RE_PARAMETRE.test(seg)) || '';
+}
+
+/**
+ * ★ **L'ADRESSE COMPLÈTE OÙ MÈNE UN LIEN** — chemin, charge, et les paramètres
+ *   étrangers reconduits.
+ *
+ * C'est le seul endroit qui sache assembler une URL du site, et tout ce qui
+ * navigue y passe. Le fragment n'y figure jamais : la démonstration a quitté le
+ * fragment, et en laisser traîner un ferait deux adresses pour une page.
+ *
+ * @param {string} url  ce que rend `ecrire()` — `?…`
+ * @returns {string} `/chemin/?charge[&debug=1]`
+ */
+export function adresse(url, portee = globalThis) {
+  const loc = portee && portee.location;
+  const chemin = (loc && loc.pathname) || '';
+  const charge = String(url || '').replace(/^\?/, '');
+  const requete = [charge, ...parametresEtrangers(loc && loc.search)].filter(Boolean).join('&');
+  return requete ? `${chemin}?${requete}` : chemin;
 }

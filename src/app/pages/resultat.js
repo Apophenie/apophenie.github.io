@@ -730,7 +730,7 @@ function panneauDePonderation({ saisie, cible, curseurs, fouille, personnalise }
     //   spéciales » (l'auteur) : c'est un retour à un ÉTAT de la page — celui
     //   où le podium existe —, pas une remise à zéro de quatre glissières. Le
     //   lien s'écrit donc sans curseurs du tout.
-    sur: { click: () => { location.hash = pont.ecrireHash({ saisie, cible }); } },
+    sur: { click: () => { pont.aller(pont.ecrireHash({ saisie, cible })); } },
   });
   const appliquer = e('button.bouton.curseurs__appliquer', {
     type: 'button',
@@ -745,7 +745,7 @@ function panneauDePonderation({ saisie, cible, curseurs, fouille, personnalise }
         const href = pont.ecrireHash({
           saisie, cible, curseurs: { ...position }, fouille: cranDeFouille,
         });
-        if (href) location.hash = href;
+        if (href) pont.aller(href);
       },
     },
   });
@@ -869,7 +869,7 @@ function commandeDeCible({ saisie, cible, texteCible, curseurs, fouille }) {
         champ.removeAttribute('aria-invalid');
         const cible = lue.texte;
         const href = lien(cible);
-        if (href) location.hash = href;
+        if (href) pont.aller(href);
       },
       input: () => champ.removeAttribute('aria-invalid'),
     },

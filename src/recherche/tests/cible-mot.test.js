@@ -279,14 +279,14 @@ test('url — `:` pour le clair, rien pour le base58, et la même règle pour la
 });
 
 test('url — l’écriture : toujours le base58 nu, et rien au défaut', () => {
-  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: 'Zerg' }), `##${B58_SK}#${B58('Zerg')}`);
-  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: '111' }), `##${B58_SK}#${B58('111')}`);
-  assert.equal(ecrire({ saisie: 'Sarah Kerrigan' }), `##${B58_SK}`, 'les liens de 666 sont ceux d’avant');
-  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: '666' }), `##${B58_SK}`);
+  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: 'Zerg' }), `?$${B58_SK}$${B58('Zerg')}`);
+  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: '111' }), `?$${B58_SK}$${B58('111')}`);
+  assert.equal(ecrire({ saisie: 'Sarah Kerrigan' }), `?$${B58_SK}`, 'les liens de 666 sont ceux d’avant');
+  assert.equal(ecrire({ saisie: 'Sarah Kerrigan', cible: '666' }), `?$${B58_SK}`);
   assert.equal(
     ecrire({ saisie: 'Sarah Kerrigan', fragments: [{ portee: null, resonance: null, codes: ['fl', 'tca', 'masb', 'mrdE'] }],
       registre: 'sobre', cible: 'Zerg', relecture: 'mcaz' }),
-    `#mcaz!fl+masb+mrdE#${B58_SK}#${B58('Zerg')}`,
+    `?mcaz!fl+masb+mrdE$${B58_SK}$${B58('Zerg')}`,
   );
 });
 
@@ -306,7 +306,7 @@ test('url — le marqueur de relecture : lu, écrit, et refusé sans texte', () 
   assert.equal(l.relecture, 'mcaz');
   assert.equal(
     ecrire({ saisie: l.saisie, fragments: l.fragments, registre: 'sobre', cible: l.cible, relecture: l.relecture }),
-    `#mcaz!fl+masb+mrdE#${B58_SK}#${B58('Zerg')}`,
+    `?mcaz!fl+masb+mrdE$${B58_SK}$${B58('Zerg')}`,
     'ce qui se lit se réécrit en base58, et sans le `so!` que le lien portait',
   );
   assert.equal(lire(`#so!mcaz!fl+masb+mab#${B58_SK}#:111`).bandeau, BANDEAUX.relectureSansTexte);

@@ -431,7 +431,7 @@ test('jamais bredouille — les 14 saisies dégénérées mesurées produisent t
     const r = m.resoudre(s);
     assert.ok(r.approches.length >= 1, `« ${s} » ne doit jamais rester bredouille`);
     const a = r.approches[0];
-    assert.ok(a.url && a.url.includes('#'), `« ${s} » doit produire une URL partageable`);
+    assert.ok(a.url && a.url.startsWith('?'), `« ${s} » doit produire une URL partageable`);
     rapport.push(`${JSON.stringify(s).padEnd(14)} → ${String(a.approches ?? a.score).padStart(5)} [${a.mode}] ${a.codes}`);
   }
   console.log('    ' + rapport.join('\n    '));
@@ -854,7 +854,7 @@ test('résonance — `hope-hope-hope` produit bien des approches en ×3', () => 
   const reso = r.approches.filter((a) => a.mode === 'RESONANCE');
   assert.ok(reso.length >= 1, 'le cas d’école du README doit être détecté');
   for (const a of reso) {
-    assert.match(a.url, /^#sce!×3:/, 'l’URL doit employer l’abréviation de résonance');
+    assert.match(a.url, /^\?sce!×3:/, 'l’URL doit employer l’abréviation de résonance');
     assert.equal(new Set(a.parts.map((p) => p.fragment.texte)).size, 1, 'les 3 fragments sont le même texte');
   }
 });
@@ -882,7 +882,7 @@ test('rejeu — une URL canonique est rejouée SANS relancer la recherche', () =
     //    `0+2+4:` et le motif d'hier — qui exigeait un point — n'en reconnaissait
     //    plus AUCUNE. Le test passait alors sur un lot vide, ce que son propre
     //    garde-fou a heureusement dit tout haut.
-    if (/(?:^|[#!,])\d+(?:\.\d+)?\+\d/.test(a.url)) groupees++;
+    if (/(?:^\?|[#!,])\d+(?:\.\d+)?\+\d/.test(a.url)) groupees++;
   }
   // Cette saisie-là en produit : le cas est réellement traversé, pas supposé.
   assert.ok(groupees >= 1, 'aucune URL groupée dans le lot : le rejeu ne prouve rien ici');

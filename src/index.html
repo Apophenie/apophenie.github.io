@@ -9,9 +9,20 @@
 <meta name="theme-color" content="#0B0E14">
 
 <!-- Carte de partage : GÉNÉRIQUE ET UNIQUE, et c'est une contrainte, pas un choix.
-     Le fragment d'URL (#approche#b58) n'est jamais envoyé au serveur : aucun robot
-     d'aperçu n'en voit la trace. En hébergement statique sans build, une carte par
-     démonstration est impossible. La personnalisation vit dans le bouton « Partager ». -->
+     En hébergement statique, rien ne s'exécute à la demande : une carte par
+     démonstration supposerait un document par démonstration, et il n'y en a qu'un.
+     La personnalisation vit donc dans le bouton « Partager ».
+
+     ⚠️ LA RAISON A CHANGÉ AVEC LE PORTEUR. Elle tenait au fait que le fragment
+     (#approche#b58) n'était jamais envoyé au serveur : aucun robot d'aperçu n'en
+     voyait la trace. La démonstration vit désormais dans la REQUÊTE
+     (?approche$b58), que les robots reçoivent — mais un hôte statique n'en fait
+     toujours rien. La conclusion tient, son motif n'est plus le même.
+
+     ★ ET C'EST POURQUOI IL N'Y A PAS D'`og:url` ICI NI AU BUILD. Telegram rend sa
+     vignette cliquable vers `og:url` : y annoncer l'accueil renvoyait vers
+     l'accueil toute démonstration partagée. Sans lui, l'aperçu retombe sur
+     l'adresse réellement partagée — voir `vite.config.js › adressePubliee`. -->
 <meta property="og:type" content="website">
 <meta property="og:locale" content="fr_FR">
 <meta property="og:site_name" content="L’art de la numérologie, enfin accessible au plus grand nombre.">

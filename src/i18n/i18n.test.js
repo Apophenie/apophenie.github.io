@@ -88,7 +88,10 @@ test('resoudreValeur rend les listes telles quelles', () => {
     const raccourci = resoudreValeur(dictionnaires, langue, 'accueil.exemples')
       .find((x) => x && typeof x === 'object');
     assert.ok(raccourci, `${langue} : plus aucune puce ne mène à une voie choisie`);
-    assert.match(raccourci.hash, /^#[^#]*#[1-9A-HJ-NP-Za-km-z]+$/,
+    // ★ La forme NEUVE : la requête, et son séparateur `$`. Les liens déjà
+    //   publiés en fragment se lisent toujours (`url.js`, « LES DEUX
+    //   PORTEURS »), mais ce que le site EMBARQUE s'écrit en canonique.
+    assert.match(raccourci.hash, /^\?[^$]*\$[1-9A-HJ-NP-Za-km-z]+$/,
       `${langue} : le raccourci n’est pas une URL de démonstration`);
     assert.ok(raccourci.aide && raccourci.aide.length > raccourci.texte.length,
       `${langue} : le raccourci ne dit pas où il mène`);

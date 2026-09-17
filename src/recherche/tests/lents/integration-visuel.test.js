@@ -586,7 +586,7 @@ test('★ retouche — « Donald Trump » : on chiffre un mot, puis on lit le to
             s'écrive plus). Le lien d'entrée le porte — et il reste lu, c'est
             tout l'objet des assertions précédentes —, la forme canonique s'en
             passe. Ce qu'on gèle ici est donc l'écriture, pas l'entrée. */
-    assert.equal(a.url, `#2:fr13;fl+mtal+m14+mpf#${b58}`);
+    assert.equal(a.url, `?2:fr13;fl+mtal+m14+mpf$${b58}`);
 
     // 4. La règle affichée NOMME l'étage amont : taire le chiffrement
     //    annoncerait une méthode qui ne mène pas au résultat montré.

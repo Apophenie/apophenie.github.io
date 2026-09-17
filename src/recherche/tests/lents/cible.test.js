@@ -198,7 +198,7 @@ test('url — le marqueur de cible se lit, et il n’est pas écrit au défaut',
   //   n'en porte pas. C'est ce qui garantit que la forme canonique de tous les
   //   liens existants est inchangée, au caractère près.
   const nu = ecrire({ saisie: 'hope', fragments: [{ portee: null, resonance: null, codes: ['nd'] }] });
-  assert.equal(nu, `#nd#${B58}`, 'aucun `c666!` dans une URL ordinaire');
+  assert.equal(nu, `?nd$${B58}`, 'aucun `c666!` dans une URL ordinaire');
   assert.equal(lire(nu).cible.texte, '666');
   assert.equal(lire(nu).cibleEcrite, false);
 
@@ -208,7 +208,7 @@ test('url — le marqueur de cible se lit, et il n’est pas écrit au défaut',
   });
   // ★ La cible passe derrière un TROISIÈME `#`, en base58 marqué `~` (`url.js`,
   //   « la cible passe derrière un troisième `#` ») ; `c111!` reste lu, plus écrit.
-  assert.equal(vise, `#nd#${B58}#${encoderTexte('111')}`);
+  assert.equal(vise, `?nd$${B58}$${encoderTexte('111')}`);
   const l = lire(vise);
   assert.equal(l.forme, 'canonique');
   assert.equal(l.cible.texte, '111');
@@ -242,9 +242,9 @@ test('url — `#c111!#…` est la PAGE DE RÉSULTATS pour 111', () => {
   assert.equal(r.cible.texte, '111');
   // Et c'est bien ce que `ecrire` produit sans programme.
   // …et `ecrire` en produit la forme d'aujourd'hui, qui est aussi la liste.
-  assert.equal(ecrire({ saisie: 'hope', cible: '111' }), `##${B58}#${encoderTexte('111')}`);
+  assert.equal(ecrire({ saisie: 'hope', cible: '111' }), `?$${B58}$${encoderTexte('111')}`);
   assert.equal(lire(`##${B58}#${encoderTexte('111')}`).forme, 'resultats');
-  assert.equal(ecrire({ saisie: 'hope' }), `##${B58}`, 'la cible par défaut ne s’écrit pas');
+  assert.equal(ecrire({ saisie: 'hope' }), `?$${B58}`, 'la cible par défaut ne s’écrit pas');
 });
 
 test('url — une cible illisible s’ANNONCE au lieu de retomber en silence sur 666', () => {
@@ -288,7 +288,7 @@ test('★ registre — une cible sans emblème replie « scénique » sur « sob
     saisie: 'hope', cible: '111', registre: 'scenique',
     fragments: [{ portee: null, resonance: null, codes: ['nd'] }],
   });
-  assert.equal(ecrit111, `#nd#${B58}#${encoderTexte('111')}`, 'le scénique replié n’écrit AUCUN registre');
+  assert.equal(ecrit111, `?nd$${B58}$${encoderTexte('111')}`, 'le scénique replié n’écrit AUCUN registre');
   assert.equal(lire(ecrit111).registre, 'sobre');
 });
 
@@ -325,9 +325,9 @@ test('★ NON-RÉGRESSION — aucune URL de la cible par défaut ne porte de mar
     const r = moteur.resoudre(saisie);
     for (const a of r.approches) {
       assert.ok(!a.url.includes('!c'), `${saisie} : ${a.url}`);
-      assert.ok(!/#c\d+!/.test(a.url), `${saisie} : ${a.url}`);
+      assert.ok(!/c\d+!/.test(a.url), `${saisie} : ${a.url}`);
     }
-    assert.equal(r.urlResultats, `##${encoderTexte(saisie)}`);
+    assert.equal(r.urlResultats, `?$${encoderTexte(saisie)}`);
   }
 });
 

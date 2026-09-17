@@ -270,9 +270,15 @@ function carteDePartage() {
  *    robot d'aperçu à le résoudre, ce que les grandes plateformes font mais que
  *    la spécification n'exige pas — et une carte sans image n'est signalée
  *    nulle part ;
- *  · `og:url` et `<link rel="canonical">`, qui disent laquelle des adresses est
- *    LA bonne. Le site est publié à deux endroits (GitHub Pages et Framagit) :
- *    sans canonique, ce sont deux sites jumeaux qui se font concurrence ;
+ *  · `<link rel="canonical">`, qui dit laquelle des adresses est LA bonne. Le
+ *    site est publié à deux endroits (GitHub Pages et Framagit) : sans
+ *    canonique, ce sont deux sites jumeaux qui se font concurrence.
+ *
+ *    ⚠️ **ET PLUS D'`og:url`.** Il y était, et il coûtait une démonstration à
+ *    chaque partage : Telegram rend sa vignette CLIQUABLE vers `og:url`, si
+ *    bien qu'une démonstration partagée ramenait sur la page d'accueil. Sans
+ *    lui, l'aperçu retombe sur l'adresse réellement partagée. Le `canonical`
+ *    reste : il parle du DOCUMENT servi, qui est bien l'accueil ;
  *  · `robots.txt` et `sitemap.xml`.
  *
  * ⚠️ **LE PLAN NE PORTE PAS `debug.html` NI `AB-testing.html`** — ce sont des
@@ -280,11 +286,15 @@ function carteDePartage() {
  *   plan qui ne cite pas une page ne l'interdit pas pour autant.
  *
  * ⚠️ **UNE RÉSERVE HONNÊTE SUR LA DEUXIÈME ENTRÉE DU PLAN.** L'auteur la
- *   demande — « avec la 1ère voie pour Capitalisme » — et elle y est. Mais un
- *   moteur de recherche IGNORE le fragment : `…/#sce!…` et `…/` sont la même
- *   URL pour lui, et il n'indexera pas deux pages. L'entrée reste utile à un
- *   humain qui ouvre le plan, et inerte pour un robot. Elle ne coûte rien ;
- *   elle ne rapportera pas ce qu'on pourrait croire.
+ *   demande — « avec la 1ère voie pour Capitalisme » — et elle y est.
+ *
+ *   ★ **ET LA RÉSERVE EST LEVÉE depuis que la démonstration vit dans la
+ *   REQUÊTE.** Elle disait ceci, et c'était vrai : un moteur de recherche
+ *   IGNORE le fragment, `…/#sce!…` et `…/` étaient la même URL pour lui, et
+ *   l'entrée du plan restait inerte pour un robot. `…/?sce!…` n'est pas la
+ *   même URL que `…/` : la requête est envoyée au serveur et fait partie de
+ *   l'identité de la page. La deuxième entrée du plan désigne donc désormais
+ *   quelque chose qu'un robot peut distinguer, et indexer.
  *
  * ⚠️ **ET SON LIEN EST CALCULÉ, jamais recopié** : le moteur est chargé ici, au
  *   build, et l'on écrit la voie qu'il classe première. Un lien figé serait
@@ -320,9 +330,15 @@ function adressePubliee() {
         return html
           .replace(/(<meta property="og:image" content=")([^"]*)(")/,
             (_m, a, chemin, z) => a + abs(chemin) + z)
+          // ★ **PAS D'`og:url`, ET C'EST LE POINT.** Telegram rend sa vignette
+          //   CLIQUABLE vers `og:url` : en y posant l'accueil, toute
+          //   démonstration partagée arrivait sur la page d'accueil, l'adresse
+          //   perdue en route. Sans `og:url`, l'aperçu retombe sur l'URL
+          //   effectivement partagée — celle qui porte la démonstration.
+          //   Le `<link rel="canonical">` reste, lui : il parle aux moteurs de
+          //   recherche du DOCUMENT servi, et le document est bien l'accueil.
           .replace('<meta property="og:type" content="website">',
             '<meta property="og:type" content="website">\n'
-            + `<meta property="og:url" content="${BASE_CANONIQUE}">\n`
             + `<link rel="canonical" href="${BASE_CANONIQUE}">`);
       },
     },
@@ -356,12 +372,18 @@ function adressePubliee() {
  *   `<template>` que l'application lit au démarrage. Rien à styler, rien à
  *   traduire deux fois.
  *
- * ★ **ET « GÉRER CE QUI EST DANS L'URL » SE FAIT TOUT SEUL — c'est le fragment
- *   qui porte tout.** Le site vit dans le hash (`#programme#saisie`), qui n'est
- *   JAMAIS envoyé au serveur : une adresse qui tombe en 404 a donc perdu son
- *   CHEMIN, pas son fragment. En servant l'application, le routeur reçoit le
- *   hash intact et ouvre exactement la démonstration demandée — un lien partagé
- *   avec un chemin fautif se répare de lui-même.
+ * ★ **ET « GÉRER CE QUI EST DANS L'URL » SE FAIT TOUT SEUL — parce que ce qui
+ *   porte la démonstration n'est pas le chemin.** Le site vit dans la requête
+ *   (`?programme$saisie`) : une adresse qui tombe en 404 a donc perdu son
+ *   CHEMIN, et rien d'autre. En servant l'application, le routeur reçoit la
+ *   requête intacte et ouvre exactement la démonstration demandée — un lien
+ *   partagé avec un chemin fautif se répare de lui-même.
+ *
+ *   ⚠️ La RAISON a changé avec le porteur, pas la conclusion. Elle tenait au
+ *   fait que le fragment n'est jamais envoyé au serveur ; la requête, elle,
+ *   l'est. Mais c'est le NAVIGATEUR qui tient la barre d'adresse : il la garde
+ *   telle quelle en affichant la page d'erreur, quoi que le serveur ait
+ *   répondu. Le mécanisme est intact, son explication devait suivre.
  *
  *   Ce qui reste vraiment perdu, c'est le chemin ; le bandeau le dit, et le
  *   `<template>` le porte pour que l'application puisse l'afficher au lieu de

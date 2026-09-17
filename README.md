@@ -64,11 +64,25 @@ Tout se partage par l'URL, et ce qui compte y est écrit :
 
 | lien | ce qu'il fait |
 |---|---|
-| `#:Donald Trump` | cherche, puis anime la première voie — le geste de Révéler |
-| `##:Donald Trump` | cherche, puis énumère les voies |
-| `##:Donald Trump#:111` | la même liste, pour une autre cible (troisième `#`) |
-| `#sce!m14#:hope` | joue ce programme-là, sans recherche, en registre scénique |
+| `?:Donald Trump` | cherche, puis anime la première voie — le geste de Révéler |
+| `?$:Donald Trump` | cherche, puis énumère les voies |
+| `?$:Donald Trump$:111` | la même liste, pour une autre cible (troisième segment) |
+| `?sce!m14$:hope` | joue ce programme-là, sans recherche, en registre scénique |
 
+* **C'est le nombre de séparateurs qui décide, jamais l'écriture de la saisie.**
+  `?<saisie>` anime, `?$<saisie>` énumère — que la saisie soit en base58 ou en
+  clair derrière `:`, indifféremment. Une règle qui ne se voit pas dans le lien
+  n'a pas à en changer la page.
+* Les marqueurs se rangent en deux familles, et une seule décide. Les **réglages
+  de recherche** — la cible (`c111!`), les curseurs (`p25.200.50.150!`), la
+  fouille (`f2!`) — paramètrent l'énumération et n'empêchent pas la liste. Le
+  **registre de mise en scène** — `sce!`, et `so!` dans les liens d'hier — dit
+  comment MONTRER, donc il demande l'animation : `?so!$<saisie>` anime.
+* Les segments se séparent par `$`. Le site a d'abord vécu dans le fragment
+  (`#…#…`), ce qui était hors grammaire : la RFC 3986 interdit un `#` dans un
+  fragment, et certains navigateurs recodaient nos liens. **Les liens publiés
+  sous cette forme continuent de s'ouvrir, à l'identique et pour toujours** ;
+  seule la forme neuve s'écrit, et la barre d'adresse se corrige à l'ouverture.
 * La saisie et la cible s'écrivent en base58 — c'est ce que le site produit — ou en
   clair derrière `:`. Sans cible, c'est 666.
 * Dans un programme, `+` enchaîne les opérations, `,` sépare les fragments dont les 6
