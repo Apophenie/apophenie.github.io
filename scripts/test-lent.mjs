@@ -498,6 +498,46 @@ export function cpuEnfantsMoissonnes(racine = '/proc') {
   return compteurs === null ? null : (compteurs.cutime + compteurs.cstime) / jiffiesParSeconde();
 }
 
+/**
+ * Le CPU du lanceur LUI-MÊME — lecture du TAP, ligne de vie, échantillonnage.
+ *
+ * `process.resourceUsage()` ne couvre que soi, ce qui en fait ici exactement le
+ * bon outil : il est le complément de `cpuEnfantsMoissonnes`, qui ne couvre que
+ * les enfants. Les deux ne se recouvrent pas, et le contrôle croisé ne porte que
+ * sur le second — afficher le premier évite qu'on se demande s'il manque.
+ * L'unité rendue est la MICROSECONDE ; la supposer en millisecondes publierait
+ * un chiffre mille fois faux.
+ */
+export function cpuPropre() {
+  const u = process.resourceUsage();
+  return (u.userCPUTime + u.systemCPUTime) / 1e6;
+}
+
+/**
+ * ★ **LA RÉCONCILIATION — ET POURQUOI LA SOUSTRACTION NAÏVE ACCUSAIT À TORT.**
+ *
+ * Le contrôle croisé compare deux chemins indépendants sur la même quantité :
+ * ce que le lanceur a relevé fichier par fichier, et ce que le noyau lui compte
+ * pour tous ses enfants moissonnés. Sur une passe verte du premier coup, les
+ * deux coïncident — mesuré à 0,1 %.
+ *
+ * Mais une RELANCE remplace le résultat de la passe 1 : le fichier ne compte
+ * plus qu'une fois dans la somme, alors que le noyau, lui, a bel et bien vu
+ * tourner les deux exécutions. La différence vaut exactement le CPU de
+ * l'exécution écartée — mesuré sur deux passes ne différant QUE par la présence
+ * d'une relance : 48,7 % d'écart avec, 0,1 % sans, et 13,6 − 7,0 = 6,6 s, soit
+ * au dixième près le CPU de la première exécution du fichier rejoué.
+ *
+ * Ce CPU est écarté, pas perdu. Le passer sous silence faisait crier la ligne
+ * de contrôle à chaque passe comportant un rouge — et une alarme qui se déclenche
+ * quand tout va bien est une alarme qu'on cesse de lire.
+ */
+export function reconcilierCpu({ cumulCpu, cpuEcarte = 0, attendu }) {
+  if (attendu === null || !Number.isFinite(attendu) || attendu <= 0) return null;
+  const total = cumulCpu + cpuEcarte;
+  return { retenu: cumulCpu, ecarte: cpuEcarte, total, attendu, ecart: Math.abs(total - attendu) / attendu };
+}
+
 // ──────────────────────────────────────────────────────── délai de garde ──
 
 /** Chaque réglage et la variable qui le nomme — c'est ce couple qui rend les erreurs lisibles. */
@@ -1157,6 +1197,7 @@ export async function lancerSuiteLente(options) {
   // tombent, elle se tait. C'est ce qui la rend supportable sur quatre voies.
   const vol = new Map();
   const cpuMoissonneDepart = cpuEnfantsMoissonnes(racineProc);
+  const cpuPropreDepart = cpuPropre();
   const charges = [];
   let chargesPasse1 = null;
   const battement = setInterval(() => {
@@ -1262,21 +1303,35 @@ export async function lancerSuiteLente(options) {
       const cumulCpu = avecCpu.reduce((t, r) => t + r.cpu, 0);
       const exacts = avecCpu.filter((r) => r.cpuExact).length;
       const manquants = finaux.length - avecCpu.length;
+      // Le CPU des exécutions que leur relance a remplacées. Il a réellement été
+      // brûlé, le noyau l'a compté, mais la somme par fichier ne le retient pas
+      // — voir `reconcilierCpu`. On le DIT, au lieu de le laisser passer pour
+      // une fuite de la sonde.
+      const remplacees = finaux.filter((r) => r.sousCharge && r.sousCharge.cpu !== null);
+      const cpuEcarte = remplacees.reduce((t, r) => t + r.sousCharge.cpu, 0);
+      const plusieurs = remplacees.length > 1;
       journal.ligne(
         `  CPU        ${formaterDuree(cumulCpu * 1000)} cumulées, ${exacts}/${avecCpu.length} exactes` +
-          (manquants > 0 ? `, ${manquants} sans relevé` : ''),
+          (manquants > 0 ? `, ${manquants} sans relevé` : '') +
+          (remplacees.length === 0
+            ? ''
+            : `  ·  ${formaterDuree(cpuEcarte * 1000)} écartées (${remplacees.length} exécution${plusieurs ? 's' : ''} remplacée${plusieurs ? 's' : ''} par ${plusieurs ? 'leur relance' : 'sa relance'})`),
       );
-      // Le contrôle croisé : ce que le lanceur a vu fichier par fichier doit
+      // Le contrôle croisé : ce que le lanceur a vu, écartées comprises, doit
       // retomber sur ce que le noyau lui compte pour TOUS ses enfants moissonnés.
       // Deux chemins indépendants sur la même quantité ; s'ils divergent, c'est
       // la mesure qui est fausse, et mieux vaut le lire que le supposer.
       const moissonneFin = cpuEnfantsMoissonnes(racineProc);
-      if (cpuMoissonneDepart !== null && moissonneFin !== null) {
-        const attendu = moissonneFin - cpuMoissonneDepart;
-        const ecart = attendu === 0 ? null : Math.abs(cumulCpu - attendu) / attendu;
+      const reconcilie = reconcilierCpu({
+        cumulCpu,
+        cpuEcarte,
+        attendu: cpuMoissonneDepart === null || moissonneFin === null ? null : moissonneFin - cpuMoissonneDepart,
+      });
+      if (reconcilie !== null) {
         journal.ligne(
-          `  contrôle   ${formaterDuree(attendu * 1000)} de CPU comptées par le noyau au lanceur` +
-            (ecart === null ? '' : ` — écart ${(ecart * 100).toFixed(1).replace('.', ',')} % avec la somme ci-dessus`),
+          `  contrôle   ${formaterDuree(reconcilie.attendu * 1000)} comptées par le noyau aux enfants du lanceur` +
+            ` — écart résiduel ${(reconcilie.ecart * 100).toFixed(1).replace('.', ',')} %` +
+            ` ; le lanceur lui-même : ${formaterDuree((cpuPropre() - cpuPropreDepart) * 1000)}`,
         );
       }
     }

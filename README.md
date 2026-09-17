@@ -171,7 +171,17 @@ charge, et c'est `recherche.test.js`.
 Le 17 septembre, machine calme, la même passe est verte de bout en bout : 17 fichiers,
 360 tests, **43 min 35 s au mur pour 1 h 50 min de CPU cumulées sur quatre voies** — et la
 somme des CPU relevés par fichier retombe à **0,0 %** près sur ce que le noyau compte au
-lanceur pour tous ses enfants. La mesure CPU répond du même coup à la question que le mur
+lanceur pour tous ses enfants.
+
+Ce 0,0 % vaut pour une passe **verte du premier coup**, et il faut le dire, parce qu'une
+relance change l'arithmétique : elle *remplace* le résultat de la passe 1, si bien que le
+fichier ne compte plus qu'une fois dans la somme alors que le noyau a vu tourner les deux
+exécutions. Mesuré sur deux passes ne différant que par ce point : **0,1 % d'écart sans
+relance, 48,7 % avec** — et la différence valait exactement le CPU de l'exécution écartée.
+La sonde ne perdait rien ; c'était la soustraction qui était mauvaise. La ligne de contrôle
+réconcilie donc désormais les deux, nomme le CPU écarté, et n'affiche plus qu'un **écart
+résiduel** — sans quoi elle aurait crié au loup à chaque passe comportant un rouge, et on
+aurait cessé de la lire. La mesure CPU répond du même coup à la question que le mur
 laissait ouverte sur `recherche.test.js` : ce fichier ne dépasse aucun budget de travail,
 il **brûle plus de CPU que de mur** — 21 min contre 15 — parce qu'il occupe plus d'un cœur.
 S'il rougit sous charge, ce n'est donc pas le garde du lanceur qui le tue, c'est

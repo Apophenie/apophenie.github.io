@@ -30,6 +30,7 @@ import {
   CPU_INCONNU_DEFAUT,
   cpuArbreJiffies,
   cpuEnfantsMoissonnes,
+  cpuPropre,
   decouvrir,
   FACTEUR_CPU_DEFAUT,
   FACTEUR_MUR_DEFAUT,
@@ -45,6 +46,7 @@ import {
   parallelismeParDefaut,
   PLANCHER_CPU_DEFAUT,
   PLANCHER_MUR_DEFAUT,
+  reconcilierCpu,
   referenceDe,
   reglagesGarde,
   sonderCpu,
@@ -917,4 +919,60 @@ test('sans /proc — la passe s’annonce sans garde CPU, et la table le consign
   assert.match(table.conditions.cpuSource, /times/);
 
   fs.rmSync(racine, { recursive: true, force: true });
+});
+
+// ───────────────────────────────── la réconciliation du contrôle croisé ──
+
+test('réconciliation — la somme par fichier ne contient PAS les exécutions remplacées', () => {
+  // ★ Le défaut que la mesure a mis au jour. Deux passes identiques ne
+  // différant que par la présence d'une relance donnaient 0,1 % d'écart sans,
+  // et 48,7 % avec — alors que la sonde ne perdait rien : la différence valait
+  // exactement le CPU de la première exécution du fichier rejoué (6,6 s).
+  // Une alarme qui se déclenche quand tout va bien est une alarme qu'on cesse
+  // de lire, et la ligne de contrôle criait au loup à chaque passe avec rouge.
+  const sansRelance = reconcilierCpu({ cumulCpu: 7, cpuEcarte: 0, attendu: 7.01 });
+  assert.ok(sansRelance.ecart < 0.01, `passe verte du premier coup : ${sansRelance.ecart}`);
+
+  // Le noyau a vu tourner les DEUX exécutions ; la somme n'en retient qu'une.
+  const naif = Math.abs(7 - 13.6) / 13.6;
+  assert.ok(naif > 0.4, 'la soustraction naïve accusait à tort, et fortement');
+  const avecRelance = reconcilierCpu({ cumulCpu: 7, cpuEcarte: 6.6, attendu: 13.6 });
+  assert.equal(avecRelance.retenu, 7);
+  assert.equal(avecRelance.ecarte, 6.6);
+  assert.ok(avecRelance.ecart < 0.01, `réconcilié, il ne reste que du bruit : ${avecRelance.ecart}`);
+
+  // Sans compte du noyau — pas de /proc — il n'y a pas de contrôle du tout,
+  // et surtout pas un écart inventé.
+  assert.equal(reconcilierCpu({ cumulCpu: 7, attendu: null }), null);
+  assert.equal(reconcilierCpu({ cumulCpu: 7, attendu: 0 }), null);
+  assert.equal(reconcilierCpu({ cumulCpu: 7, attendu: Number.NaN }), null);
+});
+
+test('CPU propre du lanceur — compté en microsecondes, et hors du compte des enfants', () => {
+  const avant = cpuPropre();
+  let x = 0;
+  for (let i = 0; i < 5e7; i++) x += Math.sqrt(i);
+  const apres = cpuPropre();
+  assert.ok(apres > avant, `le travail du lanceur doit se voir : ${avant} → ${apres}`);
+  // Des microsecondes lues comme des millisecondes donneraient un chiffre mille
+  // fois trop grand : une boucle de cet ordre ne dure pas une heure.
+  assert.ok(apres - avant < 60, `unité suspecte : ${apres - avant} s pour une boucle courte`);
+});
+
+test('bilan — une relance NOMME le CPU écarté, une passe sans relance n’en parle pas', () => {
+  const avec = atelier({ 'bascule.test.js': BASCULE, 'a.test.js': VERT });
+  const r1 = lancer(avec.racine);
+  assert.equal(r1.code, 0, r1.sortie);
+  assert.match(r1.sortie, /VERT SEUL/, 'la bascule a bien été rejouée');
+  assert.match(r1.sortie, /écartées \(1 exécution remplacée par sa relance\)/);
+  assert.match(r1.sortie, /écart résiduel/);
+  assert.match(r1.sortie, /le lanceur lui-même : /, 'ce qui revient au lanceur est dit, pas laissé à deviner');
+  fs.rmSync(avec.racine, { recursive: true, force: true });
+
+  const sans = atelier({ 'a.test.js': VERT, 'b.test.js': VERT });
+  const r2 = lancer(sans.racine);
+  assert.equal(r2.code, 0, r2.sortie);
+  assert.doesNotMatch(r2.sortie, /écartées/, 'sans relance, rien n’est écarté : le dire serait du bruit');
+  assert.match(r2.sortie, /écart résiduel/, 'mais le contrôle croisé, lui, parle toujours');
+  fs.rmSync(sans.racine, { recursive: true, force: true });
 });
