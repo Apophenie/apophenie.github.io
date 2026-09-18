@@ -137,21 +137,30 @@ test('★ réserve — exhaustivité et cohérence à 150 : la voie grammaticale
  * curseurs pilotent la réserve, il ne chasse plus qu'un siège de quantité.
  * (Au défaut, le comportement historique est gardé : voir `vecteursDeSix`.)
  */
-/* ⚠️ **SUR LE CATALOGUE DE L'ARBITRAGE — sans `mas` ni `mu8`.** Ajoutés le
-     18 septembre 2026, ils fabriquent sur cette phrase deux voies courtes
-     (`fmaj+tca+mas+mdc3` et `+mdc2` : la phrase en capitales, espaces codés)
-     qui prennent deux des huit places, et l'absorption `fc+tca+masc+mab` passe
-     de la 5ᵉ à la 10ᵉ — hors de la moitié gardée, sous les trois réglages de
-     curseurs. Ce n'est pas l'élu qui chasse l'absorption (ce que ce test
-     garde), ce sont deux voies nouvelles qui la dépassent. Le test reste donc
-     posé sur le catalogue où l'autrice a tranché ; la nouvelle concurrence est
-     à ARBITRER par elle, pas à absorber ici en silence. */
-const AVANT_LES_CODES_DE_CARACTERE = OPS.filter((o) => o.code !== 'mas' && o.code !== 'mu8');
+/* ★ **SUR LE CATALOGUE COMPLET — et l'absorption cède sa place, c'est voulu.**
+     Le 18 septembre 2026, `mas` et `mu8` ont fabriqué sur cette phrase deux
+     voies courtes, sans absorption (`fmaj+tca+mas+mdc3` et `+mdc2` : la phrase
+     en capitales, espaces codés), qui passent devant `fc+tca+masc+mab` : elle
+     tombait de la 5ᵉ à la 10ᵉ place, hors de la moitié gardée sous deux des
+     trois réglages. Le test s'était replié un temps sur le catalogue d'avant
+     ces deux codes, pour ne pas trancher à la place de l'autrice. Elle a
+     tranché :
+
+     > « ça m'a l'air d'être une bonne nouvelle, mab est un dernier recours, à
+     >   éviter quand on peut, donc que d'autres passent devant me va très
+     >   bien. » (l'autrice, 18 septembre 2026)
+
+     Le test tient donc, sur le catalogue COMPLET, ce qui est voulu : les deux
+     élus sans perte restent gardés ensemble ; l'absorption reste PROPOSÉE
+     (« en plus de `mab`, pas à la place »), mais derrière les voies qui s'en
+     passent ; et là où elle sort des huit places, ce sont des voies sans
+     absorption qui les tiennent. */
+const ABSORBE = /\+mab[xd]?(\+|$)/;
 
 test('★ élus — curseurs personnalisés : les deux voies sans perte sont gardées ensemble', () => {
   for (const x of [{ simplicite: 200 }, { exhaustivite: 200 }, { coherence: 150 }]) {
-    const garde = vecteursDeSix(JARDIN, AVANT_LES_CODES_DE_CARACTERE, 3, 16, '666', { curseurs: x })
-      .slice(0, 8).map(codesDe);
+    const liste = vecteurs(x).map(codesDe);
+    const garde = liste.slice(0, 8);
     const dit = `${JSON.stringify(x ?? {})} : ${garde.join('  ')}`;
     /* ★ **L'ÉLU SANS PERTE EST DÉSORMAIS UNE VOIE HONNÊTE.** Il s'appelait
        `tm+mlm+mab` — une absorption, donc une ficelle. Depuis que la potence
@@ -165,8 +174,24 @@ test('★ élus — curseurs personnalisés : les deux voies sans perte sont gar
     assert.ok(garde.includes('fr1+tsy+mlm+mdc2'), `la voie sans perte : ${dit}`);
     assert.ok(garde.includes('fl+tca+msen+mrdE'), `la voie additive : ${dit}`);
     // « Une approche addition uniquement, EN PLUS de `mab`, pas à la place » :
-    // l'absorption reste proposée.
-    assert.ok(garde.some((c) => c.endsWith('+mab')), `une absorption reste proposée : ${dit}`);
+    // l'absorption reste proposée — plus loin, s'il le faut.
+    const rang = liste.findIndex((c) => c.endsWith('+mab'));
+    assert.ok(rang >= 0, `une absorption reste proposée : ${liste.join('  ')}`);
+    // « mab est un dernier recours » : les deux voies des codes de caractère,
+    // qui s'en passent, la devancent…
+    for (const v of ['fmaj+tca+mas+mdc3', 'fmaj+tca+mas+mdc2']) {
+      const r = liste.indexOf(v);
+      assert.ok(r >= 0 && r < rang, `${v} devance l’absorption : ${liste.join('  ')}`);
+    }
+    // …et quand elle sort des huit places, ce sont des voies SANS absorption
+    // qui les tiennent.
+    if (rang >= 8) assert.ok(garde.every((c) => !ABSORBE.test(c)), `huit places sans absorption : ${dit}`);
+  }
+  // Le constat du 18 septembre, tel que mesuré : sous la simplicité et la
+  // cohérence levées, l'absorption n'est plus dans les huit places.
+  for (const x of [{ simplicite: 200 }, { coherence: 150 }]) {
+    const garde = vecteurs(x).slice(0, 8).map(codesDe);
+    assert.ok(!garde.some((c) => ABSORBE.test(c)), `${JSON.stringify(x)} : ${garde.join('  ')}`);
   }
 });
 
