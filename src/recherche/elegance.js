@@ -1638,8 +1638,8 @@ const ABSORBENT_PAR_ADDITION = Object.freeze({
   'm.redecoupageExact': 'redecoupage',
   // ★ Les variantes qui ACCOLENT (`mrdf`, `mrfE`) font le geste de leur modèle,
   //   des chiffres soudés en plus : même palier, même dilution, même
-  //   dégressivité. Ce qu'elles ont de moins élégant se paie ailleurs — au
-  //   recours et à la notoriété qu'elles déclarent (`mappeurs.js`) —, pas en
+  //   dégressivité. Ce qu'elles ont de moins élégant se paie ailleurs — à la
+  //   notoriété, à l'adHoc et au coût qu'elles déclarent (`mappeurs.js`) —, pas en
   //   inventant un poste que le barème ne sait pas comparer.
   'm.redecoupageFusionnant': 'redecoupage',
   'm.redecoupageFusionnantExact': 'redecoupage',

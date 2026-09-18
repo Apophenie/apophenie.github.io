@@ -143,14 +143,20 @@ test('★ `megf` ne vise que les cibles homogènes, et ne cherche pas', () => {
   assert.equal(PAR_CODE.get('mrfE').actifParDefaut, true);
 });
 
-test('★ au moins aussi sévères que leurs modèles', () => {
+/* ★ « Note plus basse que leur modèle oui, mais derniers recours, non. Ils
+     peuvent concourir aux lignes Élégance et Abondance tout en étant mal
+     notés. » (l'autrice, 18 septembre 2026) — plus sévères au barème, jamais
+     rangés parmi les ficelles : le `recours` qu'ils portaient ferme la ligne
+     Abondance (`index.js › rangerParLeGlobal`), et il leur est retiré. */
+test('★ au moins aussi sévères que leurs modèles, sans être des derniers recours', () => {
   for (const [variante, modele] of [['mrdf', 'mrd'], ['mrfE', 'mrdE'], ['megf', 'meg']]) {
     const v = PAR_CODE.get(variante);
     const m = PAR_CODE.get(modele);
     assert.ok(v.notoriete < m.notoriete, `${variante} : notoriété`);
     assert.ok(v.adHoc >= m.adHoc, `${variante} : adHoc`);
-    assert.ok(v.recours > (m.recours || 0), `${variante} : recours`);
     assert.ok(v.cout >= m.cout, `${variante} : coût`);
+    assert.equal(v.recours || 0, m.recours || 0, `${variante} : pas plus de recours que ${modele}`);
+    assert.equal(v.recours || 0, 0, `${variante} : pas un dernier recours`);
   }
 });
 

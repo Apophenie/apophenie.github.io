@@ -2680,7 +2680,8 @@ fusionnés) · `m14`/`m14F` **quatorze segments**, mêmes deux lectures ·
 >    famille de « hope » ; il se joue par lien.
 >
 > Notés au moins aussi sévèrement que leurs modèles (notoriété plus basse,
-> adHoc au moins égal, recours 0,10, coût 2). Aucune primitive ajoutée :
+> adHoc au moins égal, coût 2 ; pas de `recours` : « derniers recours, non »,
+> a tranché l'autrice). Aucune primitive ajoutée :
 > `substitute` coupe, `merge` soude, `sum` / `reduce` calculent, le `group`
 > d'égalisation de `meg` égalise.
 

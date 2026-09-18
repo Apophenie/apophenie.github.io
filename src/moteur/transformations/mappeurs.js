@@ -9538,14 +9538,22 @@ function operateurAdditionVersLaMoyenne() {
  *    les plus accommodantes ;
  *  · **adHoc** — au moins celui du modèle : la découpe regarde toujours la
  *    cible, et elle a désormais une liberté de plus pour lui plaire ;
- *  · **recours 0,10** — là où les modèles n'en portent aucun. C'est la part de
- *    cohérence qu'une voie cède pour avoir employé le geste (`score.js`), le
- *    tarif de « ce qui ne se montre qu'en dernier recours ». Le tiers de celui
- *    de `mab` (0,35) : souder deux chiffres n'est pas absorber une ligne en
- *    multipliant, mais ce n'est plus seulement additionner. Il les écarte
- *    aussi du siège des voies honnêtes (`assemblage.js › refuseAuSiege`), ce
- *    qui est cohérent : l'autrice les juge moins élégantes que ce qu'elles
- *    complètent ;
+ *  · **AUCUN `recours`**, comme leurs modèles — et c'est une décision de
+ *    l'autrice, qui en a retiré un :
+ *
+ *    > « Note plus basse que leur modèle oui, mais derniers recours, non. Ils
+ *    >   peuvent concourir aux lignes Élégance et Abondance tout en étant mal
+ *    >   notés. » (l'autrice, 18 septembre 2026)
+ *
+ *    Ils avaient été écrits avec `recours: 0.10` (le tiers de `mab`). Ce champ
+ *    n'est pas un simple malus : il fait céder de la cohérence (`score.js ›
+ *    mesuresDeLaVoie`) ET il interdit la ligne Abondance à toute voie qui en
+ *    cède plus que l'Élégance (`index.js › rangerParLeGlobal`, le garde
+ *    « elle ne cède pas PLUS au dernier recours »). C'est le rang de `mab` et
+ *    de ses variantes, les ficelles qu'on évite quand on peut ; pas celui d'un
+ *    redécoupage un peu moins élégant que son modèle. La sévérité passe donc
+ *    par la notoriété, l'adHoc et le coût, qui baissent la note sans fermer
+ *    de ligne ;
  *  · **coût 2** — le « malus de simplicité » dans la seule grandeur que le
  *    barème lit (`score.js › coutRendu`), pour la raison que `mab` donne : le
  *    geste se montre le plus souvent en deux temps au moins, le montage des
@@ -9588,9 +9596,9 @@ function operateurRedecoupageFusionnant() {
         + 'packet is replaced by its sum, written digit by digit: 33 + 33 = 66 writes two. Digits '
         + 'are joined only when that writes more.',
       ),
-      // ★ 0,15 sous `mrd` (0,20), 0,49 au-dessus (0,48), un recours là où il
-      //   n'en a pas — voir l'en-tête des trois variantes.
-      notoriete: 0.15, adHoc: 0.49, recours: 0.10, cout: 2,
+      // ★ 0,15 sous `mrd` (0,20), 0,49 au-dessus (0,48), et pas de recours, comme
+      //   lui — voir l'en-tête des trois variantes.
+      notoriete: 0.15, adHoc: 0.49, cout: 2,
       note: bilingue(
         'La triche du redécoupage, avec une liberté de plus : coller deux chiffres voisins pour '
         + 'en faire un nombre. Elle ne sert que là où le redécoupage ordinaire écrit moins — '
@@ -9659,9 +9667,9 @@ function operateurRedecoupageFusionnantExact() {
         + 'the exact recut manages without joining anything, nothing is written.',
       ),
       // ★ 0,12 sous `mrdE` (0,15), le même adHoc (0,49 : on ne peut pas être
-      //   plus taillé pour la cible sans être le joker), un recours là où il n'en
-      //   a pas — voir l'en-tête des trois variantes.
-      notoriete: 0.12, adHoc: 0.49, recours: 0.10, cout: 2,
+      //   plus taillé pour la cible sans être le joker), et pas de recours, comme
+      //   lui — voir l'en-tête des trois variantes.
+      notoriete: 0.12, adHoc: 0.49, cout: 2,
       note: bilingue(
         'Le redécoupage exact, avec une liberté de plus : coller des chiffres voisins pour que '
         + 'la somme écrive plusieurs chiffres de la cible d’un coup. Il ne joue que là où le '
@@ -9726,8 +9734,8 @@ function operateurEgalisationFutee() {
       //   est aveugle, le redécoupage qui la prépare ne l'est pas : il est
       //   choisi en regardant le chiffre visé. 0,45, c'est « le plus fréquent
       //   l'emporte », qui décide lui aussi en regardant les valeurs, et reste
-      //   sous `mrd` (0,48), qui choisit chaque paquet. Recours : voir l'en-tête.
-      notoriete: 0.15, adHoc: 0.45, recours: 0.10, cout: 2,
+      //   sous `mrd` (0,48), qui choisit chaque paquet. Pas de recours : voir l'en-tête.
+      notoriete: 0.15, adHoc: 0.45, cout: 2,
       // ★ **INACTIF EN RECHERCHE — mesuré, et à rouvrir par l'autrice.** Actif,
       //   il prenait sept des vingt places de la fenêtre par famille de « hope »
       //   (`familles.test.js`) et en chassait `tca+m14`, la voie de référence :
