@@ -85,6 +85,9 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
   masi: 'table',
   // Le code ASCII de chaque signe : une case par signe, désignée par son code.
   mast: 'table',
+  // Le code ASCII casse comprise, et le point de code Unicode : même table
+  // désignée par le code, l'une en 32…126, l'autre en 32…126 puis 160…255.
+  mas: 'table', mu8: 'table',
 });
 
 /**
@@ -139,8 +142,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 193); // …+1 éclatement en chiffres (mecl), +1 code ASCII de chaque signe (mast), +1 code ASCII en signe (masi), +1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 193, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 196); // …+2 codes de caractère (mas, mu8), +1 addition vers la moyenne (mam), +1 éclatement en chiffres (mecl), +1 code ASCII de chaque signe (mast), +1 code ASCII en signe (masi), +1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 196, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -150,7 +153,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 193, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 196, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -957,7 +960,8 @@ test('steps : vocabulaire fermé, JSON pur, identifiants nommés par l’émette
           //   (`m1a2`, `mpol`, `mtap`) — est à rebours de la même façon.
           const aRebours = o.ordre === '1a26' || /^[a-z]$/.test(String(o.to && o.to.text));
           // ★ `mast` désigne sa case par le CODE : sa table porte « h » et « H ».
-          const parCode = code === 'mast';
+          //   `mas` et `mu8` aussi, pour la même raison.
+          const parCode = ['mast', 'mas', 'mu8'].includes(code);
           assert.match(String(o.letter), aRebours || parCode ? /^\d+$/ : /^[A-Z]$/,
             `${code} : « letter » manquant ou non replié`);
           assert.match(String(o.to && o.to.text), aRebours ? /^[a-z]$/ : /^\d+$/,
@@ -1428,4 +1432,96 @@ test('masi — trois chiffres, un signe : les 95 imprimables, et rien d’autre'
   assert.equal(appliquer(op, N([1, 2, 7])), null, '127 aussi');
   assert.equal(appliquer(op, N([6, 7])), null, 'trois chiffres par signe, pas deux');
   assert.equal(appliquer(op, N([67, 0, 0])), null, 'des chiffres, pas des nombres');
+});
+
+/* ★ LE CODE ASCII CASSE COMPRISE — `mas`. Tout caractère imprimable, la casse
+   telle qu'écrite, l'accent retiré ; ce qu'ASCII n'a pas n'est pas inventé. */
+test('mas — le code ASCII tel qu’écrit : casse gardée, accent retiré, rien d’inventé', () => {
+  const op = PAR_CODE.get('mas');
+  assert.equal(operateursActifs().includes(op), true, 'mas : actif en recherche, comme masc et masb');
+  const sur = (s) => {
+    const r = appliquer(op, T([...s]));
+    return r && [...r.valeur];
+  };
+  assert.deepEqual(sur('Louis Fouché'), [76, 111, 117, 105, 115, 32, 70, 111, 117, 99, 104, 101]);
+  assert.deepEqual(sur('l\'ami'), [108, 39, 97, 109, 105], 'l’apostrophe droite vaut 39');
+  assert.deepEqual(sur('Éé-7'), [69, 101, 45, 55], 'É = E = 69, é = e = 101, le chiffre vaut son code');
+  for (const s of ['l’ami', 'cœur', '5 €', 'ß']) assert.equal(sur(s), null, `« ${s} » : ASCII ne l’a pas`);
+  assert.equal(appliquer(op, T(['ab'])), null, 'un caractère par jeton');
+  // Le geste : la case est désignée par le CODE, son étiquette est le caractère
+  // lu — sans accent —, et Le Registre dit le retrait.
+  const entree = T(['é', 'M']);
+  const apres = appliquer(op, entree);
+  const steps = etapes(op, entree, apres, { ids: ['t0', 't1'], cle: 'e0' });
+  const tables = steps.flatMap((st) => st.ops).filter((o) => o.op === 'table');
+  assert.deepEqual(tables.map((o) => [o.letter, o.entries.find((e) => e.char === o.letter).label]),
+    [['101', 'e'], ['77', 'M']]);
+  assert.match(steps[0].caption, /é → e → 101/);
+});
+
+/* ★ LE POINT DE CODE UNICODE — `mu8`. Le numéro du caractère, pas ses octets. */
+test('mu8 — le point de code Unicode, et non les octets UTF-8', () => {
+  const op = PAR_CODE.get('mu8');
+  assert.equal(operateursActifs().includes(op), true, 'mu8 : actif en recherche');
+  const sur = (s) => {
+    const r = appliquer(op, T([...s]));
+    return r && [...r.valeur];
+  };
+  assert.deepEqual(sur('Louis Fouché'), [76, 111, 117, 105, 115, 32, 70, 111, 117, 99, 104, 233]);
+  assert.deepEqual(sur('l’ami'), [108, 8217, 97, 109, 105], 'l’apostrophe typographique a son numéro');
+  assert.deepEqual(sur('é'), [233], 'é = U+00E9 = 233 — et non 195 169, ses deux octets UTF-8');
+  assert.match(op.regle.fr, /pas les octets UTF-8/, 'la règle dit ce qu’elle lit');
+  // Dans les pages montrées (32…126, 160…255) : la table ; au-delà, une
+  // substitution sans table — on n'affirme rien qu'on ne sait montrer.
+  const dansTable = T(['é', 'M']);
+  const s1 = etapes(op, dansTable, appliquer(op, dansTable), { ids: ['t0', 't1'], cle: 'e0' });
+  assert.deepEqual(s1.flatMap((st) => st.ops).filter((o) => o.op === 'table').map((o) => o.letter), ['233', '77']);
+  const horsTable = T(['c', 'œ']);
+  const s2 = etapes(op, horsTable, appliquer(op, horsTable), { ids: ['t0', 't1'], cle: 'e0' });
+  const ops2 = s2.flatMap((st) => st.ops);
+  assert.equal(ops2.some((o) => o.op === 'table'), false);
+  assert.deepEqual(ops2.find((o) => o.op === 'substitute').pairs.map((p) => p.to.text), ['99', '339']);
+});
+
+/* ★ L'ADDITION VERS LA MOYENNE — `mam`, puis `meg`. Les trois vérifications
+   chiffrées de l'autrice, par l'exécution réelle. */
+test('mam — des voisins additionnés sans réduire, et `meg` tombe sur la cible', () => {
+  const mam = PAR_CODE.get('mam');
+  const meg = PAR_CODE.get('meg');
+  const compte = (v, d) => v.filter((x) => x === d).length;
+  const somme = (v) => v.reduce((a, b) => a + b, 0);
+  for (const [ligne, additions, apresMam, six, autre] of [
+    // « Donald Trump » en `fl+tca+mt9+mtri`, S = 61 : une addition, neuf 6 et un 7.
+    [[2, 3, 3, 5, 6, 6, 6, 7, 7, 8, 8], [2], [5, 3, 5, 6, 6, 6, 7, 7, 8, 8], 9, [7, 1]],
+    // S = 53 : deux additions, huit 6 et un 5.
+    [[1, 3, 3, 3, 3, 5, 6, 6, 6, 8, 9], [2, 2], [4, 6, 3, 5, 6, 6, 6, 8, 9], 8, [5, 1]],
+    // S = 64 : une addition, neuf 6 et deux 5.
+    [[6, 4, 6, 4, 6, 7, 7, 7, 6, 5, 3, 3], [2], [6, 4, 6, 4, 6, 7, 7, 7, 6, 5, 6], 9, [5, 2]],
+  ]) {
+    const a = appliquer(mam, N(ligne));
+    assert.deepEqual([...a.valeur], apresMam, `mam sur ${ligne.join(' ')}`);
+    assert.equal(somme(a.valeur), somme(ligne), 'la somme est conservée : rien n’est réduit');
+    assert.deepEqual(mam.additions(ligne), additions);
+    const b = appliquer(meg, a);
+    assert.equal(compte(b.valeur, 6), six, `meg après mam sur ${ligne.join(' ')} : ${b.valeur.join(' ')}`);
+    assert.equal(compte(b.valeur, autre[0]), autre[1]);
+    assert.equal(b.valeur.length, six + autre[1], 'rien d’autre');
+  }
+  // Rien à gagner : la ligne est déjà à la bonne moyenne.
+  assert.equal(appliquer(mam, N([6, 6, 6, 5, 7])), null, 'aucune addition n’améliore : inapplicable');
+  // Une somme n'est jamais réduite : visant 999, `6 + 4` reste 10 (et non 1).
+  assert.deepEqual([...appliquer(mam.viser('999'), N([5, 6, 4, 9, 9, 9])).valeur], [5, 10, 9, 9, 9]);
+  // Départage : à coût égal, l'addition la plus à gauche (`2+3` plutôt que `3+3`).
+  assert.deepEqual([...appliquer(mam, N([2, 3, 3, 5, 6, 6, 6, 7, 7, 8, 8])).valeur].slice(0, 2), [5, 3]);
+  // La cible : 777 vise 7 ; 111, 000 et les cibles mêlées le retirent.
+  assert.ok(mam.viser('777'), 'il suit la cible');
+  assert.deepEqual([...appliquer(mam.viser('777'), N([2, 3, 3, 5, 6, 6, 6, 7, 7, 8, 8])).valeur], [8, 5, 6, 6, 6, 7, 7, 8, 8]);
+  for (const t of ['111', '000', '13', '1984']) assert.equal(mam.viser(t), null, `${t} : désactivé`);
+  // Le geste : des additions de deux termes, le + entre eux seuls.
+  const entree = N([2, 3, 3, 5, 6, 6, 6, 7, 7, 8, 8]);
+  const steps = etapes(mam, entree, appliquer(mam, entree), { ids: entree.valeur.map((_, i) => `t${i}`), cle: 'e0' });
+  const ops = steps.flatMap((st) => st.ops);
+  assert.deepEqual(ops.filter((o) => o.op === 'insertOperators').map((o) => o.between), [['t0', 't1']]);
+  assert.equal(ops.find((o) => o.op === 'sum').to.text, '5');
+  assert.deepEqual(steps.map((st) => st.caption), ['2 + 3 = 5']);
 });

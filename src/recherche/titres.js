@@ -144,6 +144,10 @@ const MAPPEURS_DE_SERVICE = new Set([
   // ★ Le redécoupage EXACT (`mrdE`) est le même geste que `mrd`, poussé jusqu'au
   //   bout : il relit, il ne convertit pas. Même sort.
   'm.redecoupageExact',
+  // ★ L'ADDITION VERS LA MOYENNE (`mam`) : elle regroupe ce qu'une conversion a
+  //   calculé, pour que l'égalisation qui suit tombe juste. Elle ne convertit
+  //   rien — le nom de la voie reste celui de la conversion lettre → nombre.
+  'm.additionVersLaMoyenne',
   // ★ Le CARRÉ (`mcar`) ne convertit rien non plus : il multiplie par lui-même
   //   ce qu'une autre méthode a calculé, pour donner de la matière à dissoudre.
   //   Vedette, il aurait nommé « par le carré » des voies dont le carré n'est
@@ -356,6 +360,13 @@ export const NOMS = {
   'm.asciiEnSigne': b('Par la table ASCII', 'By the ASCII table'),
   'm.asciiDeChaqueSigne': b('Par le code ASCII de chaque signe', 'By the ASCII code of every character'),
   'm.eclatement': b('En éclatant les nombres', 'By splitting the numbers'),
+  // ★ Deux conversions qui disent CE QU'ELLES LISENT : la casse telle qu'écrite
+  //   pour l'une, le numéro Unicode — et non les octets UTF-8 — pour l'autre.
+  'm.ascii': b('Par le code ASCII, casse comprise', 'By ASCII, case included'),
+  'm.utf8': b('Par le point de code Unicode', 'By Unicode code point'),
+  // Mappeur de service : ce nom ne devrait jamais paraître, mais le registre
+  // des noms est exhaustif.
+  'm.additionVersLaMoyenne': b('Par addition vers la moyenne', 'By addition towards the average'),
   // ★ Le carré est un mappeur DE SERVICE : il ne passe jamais vedette, et ce
   //   nom-ci ne devrait donc jamais paraître. Il existe parce que la famille
   //   `mappeur` l'exige, et parce qu'un titre vide serait pire qu'un titre juste.
@@ -636,6 +647,9 @@ export const TITRES_COURTS = {
   'm.asciiEnSigne': b('table ASCII', 'ASCII table'), // masi
   'm.asciiDeChaqueSigne': b('code ASCII de chaque signe', 'ASCII code of each sign'), // mast
   'm.eclatement': b('', ''), // mecl — sans étape, comme `tca` : il ne se nomme pas
+  'm.ascii': b('code ASCII, casse comprise', 'ASCII code, case included'), // mas
+  'm.utf8': b('point de code Unicode', 'Unicode code point'), // mu8
+  'm.additionVersLaMoyenne': b('addition vers la moyenne', 'addition towards the average'), // mam
   'm.longueurToken': b('nombre de caractères', 'character count'), // mlm
   'm.longueurNom': b('nombre de caractères', 'character count'), // mln
   // ⚠️ « signaux morse » se lit comme un nom composé bancal ; l'auteur veut
@@ -877,6 +891,9 @@ export const PRECISIONS = {
   'm.asciiEnSigne': b('chaque trio lu dans la table ASCII', 'each triple read in the ASCII table'),
   'm.asciiDeChaqueSigne': b('ponctuation comprise', 'punctuation included'),
   'm.eclatement': b('en éclatant les nombres', 'splitting the numbers'),
+  'm.ascii': b('en ASCII, casse comprise', 'in ASCII, case included'),
+  'm.utf8': b('en points de code Unicode', 'in Unicode code points'),
+  'm.additionVersLaMoyenne': b('des voisins additionnés vers la moyenne', 'with neighbours added towards the average'),
   // ★ Muet sur ce qu'il souligne — voir `MAPPEURS_DE_SERVICE`. « 666 déjà
   // écrit » serait exact et divulguerait la chute d'une ligne de la liste.
   'm.troisSixDAffilee': b('avec le trio souligné', 'with the trio underlined'),

@@ -167,31 +167,34 @@ test('★ politique — au-delà de dix chiffres visés, ranger suffit', () => {
 
 /* ══════════════════ 5. Ce qui se retire, et qui le dit ══════════════════
  *
- * ★ Dix opérateurs lisent la cible et ont le DROIT de se retirer quand leur
+ * ★ Onze opérateurs lisent la cible et ont le DROIT de se retirer quand leur
  *   règle n'a pas de sens pour elle — « le plus fréquent l'emporte » ne veut
  *   rien dire pour `13`. Ils n'ont pas le droit de le faire en silence :
  *   l'échec bruyant est un contrat (§2.2). Avant, `operateursPourCible` les
  *   laissait tomber sans un mot.
  */
 
-test('★ retraits — une cible mêlée fait se retirer `mpf` et `mr6`, et ça se dit', () => {
+test('★ retraits — une cible mêlée fait se retirer `mpf`, `mr6` et `mam`, et ça se dit', () => {
   const retires = operateursRetires(catalogue, lireCible('13'));
-  assert.deepEqual(retires.map((x) => x.code).sort(), ['mpf', 'mr6']);
+  // `mam` vise la MOYENNE que `meg` égalisera : elle n'a de sens que pour une
+  // cible d'un seul chiffre (`mappeurs.js › operateurAdditionVersLaMoyenne`).
+  assert.deepEqual(retires.map((x) => x.code).sort(), ['mam', 'mpf', 'mr6']);
   for (const x of retires) {
     assert.equal(x.etat, 'RETIRE');
     assert.match(x.dit, /règle/, 'un retrait dit sa raison');
     assert.ok(x.id, 'et se nomme');
   }
-  // « 111 » est homogène : « le plus fréquent » y a un sens, le demi-tour non.
-  assert.deepEqual(operateursRetires(catalogue, lireCible('111')).map((x) => x.code), ['mr6']);
+  // « 111 » est homogène : « le plus fréquent » y a un sens, le demi-tour non —
+  // ni l'addition vers la moyenne, qui ne sait que la faire MONTER.
+  assert.deepEqual(operateursRetires(catalogue, lireCible('111')).map((x) => x.code).sort(), ['mam', 'mr6']);
   // « 999 » porte un 9 : personne ne se retire.
   assert.deepEqual(operateursRetires(catalogue, lireCible('999')), []);
 });
 
-test('★ retraits — sur la cible sous-jacente d’un mot, dix opérateurs s’en vont', () => {
+test('★ retraits — sur la cible sous-jacente d’un mot, onze opérateurs s’en vont', () => {
   const rangs = cibleDeValeurs([26, 5, 18, 7]);
   const retires = operateursRetires(catalogue, rangs);
-  assert.equal(retires.length, 10, 'toute la famille qui lit la cible');
+  assert.equal(retires.length, 11, 'toute la famille qui lit la cible (`mam` compris)');
   assert.ok(retires.every((x) => x.etat === 'RETIRE'));
   for (const code of ['mab', 'mrdE', 'mabx', 'mabd']) {
     assert.ok(retires.some((x) => x.code === code), `${code} se retire devant une suite de valeurs`);

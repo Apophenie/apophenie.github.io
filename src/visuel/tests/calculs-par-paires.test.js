@@ -33,7 +33,7 @@ import { construireScenario, suivreLaLigne } from '../../recherche/scenario.js';
 setGlyphes(GLYPHES, 'fixtures/glyphes.js');
 
 /** Les opérateurs dont la mise en scène est désormais binaire. */
-const PERIMETRE = ['mab', 'mabx', 'mabd', 'mad', 'mrd', 'mrdE', 'cs', 'cp', 'cst'];
+const PERIMETRE = ['mab', 'mabx', 'mabd', 'mad', 'mrd', 'mrdE', 'mam', 'cs', 'cp', 'cst'];
 
 const nums = (vs) => ({ type: 'NUMS', valeur: vs, traces: vs.map(() => [0, 1]) });
 const jetonsNums = (vs) => vs.map((v, i) => ({ id: `t${i}`, text: String(v), kind: 'number' }));
@@ -111,12 +111,18 @@ function lignesTemoins(n = 1500) {
 
 test('★ aucun geste à plus de deux opérandes dans les steps du périmètre — et des secondes passes jouées', () => {
   const lignes = lignesTemoins();
+  /* ★ `mam` ne s'applique qu'à une ligne dont la moyenne est SOUS le chiffre
+     visé — additionner la fait monter. Les lignes témoins, riches en nombres
+     à deux chiffres, sont presque toutes au-dessus de 6 : il n'en exercerait
+     aucune. Il reçoit donc les mêmes lignes ramenées à de petits chiffres
+     (modulo 7), fixes et déterministes comme elles. */
+  const PROPRES = { mam: lignes.map((l) => l.map((v) => v % 7)) };
   for (const code of PERIMETRE) {
     const o = PAR_CODE.get(code);
     assert.ok(o, `« ${code} » doit exister au catalogue`);
     let exerce = 0;
     let secondesPasses = 0;
-    for (const v of lignes) {
+    for (const v of PROPRES[code] || lignes) {
       const avant = nums(v);
       const apres = appliquer(o, avant);
       if (!apres) continue;
@@ -182,6 +188,8 @@ const VOIES = [
   ['Wikipedia', 'tca+mt9+mabd'],
   ['Macron', 'tca+mz26+mad'],
   ['Donald', 'tca+mhe+mrd'],
+  // L'addition vers la moyenne : « 6 1 2 1 8 5 4 1 1 », deux paquets de trois.
+  ['Wikipedia', 'tca+mch+mam'],
   ['Trump', 'tca+mx6+mrdE'],
   ['Donald', 'tca+ma1+cs'],
   ['Donald', 'tca+mpy+cp'],

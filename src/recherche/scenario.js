@@ -3705,7 +3705,13 @@ function validerArithmetiqueOp(o, ctxOp) {
     const caseDesignee = o.letter !== undefined
       ? (o.entries || []).find((e) => e && String(e.char) === String(o.letter) && e.label !== undefined)
       : undefined;
-    const parSonEtiquette = Boolean(caseDesignee) && source !== null && String(caseDesignee.label) === String(source);
+    //   ★ Et l'étiquette peut être le jeton SANS SON ACCENT, casse gardée :
+    //   `mas` lit « é » dans la case « e » (101) — c'est sa règle, dite dans Le
+    //   Registre (« é → e → 101 »). La casse, elle, reste exigée : « E » (69)
+    //   n'est pas licite pour un « é ».
+    const sansAccent = (c) => c.normalize('NFD').replace(/[̀-ͯ]/g, '').normalize('NFC');
+    const parSonEtiquette = Boolean(caseDesignee) && source !== null
+      && (String(caseDesignee.label) === String(source) || String(caseDesignee.label) === sansAccent(String(source)));
     if (source !== null && o.letter !== undefined && plier(String(source)) !== lettre && !parSonEtiquette) {
       return `« table » enverrait « ${lettre} » dans la table alors que la ligne porte « ${source} »`;
     }

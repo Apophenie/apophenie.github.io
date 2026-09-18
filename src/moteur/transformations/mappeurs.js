@@ -7394,6 +7394,15 @@ const AUTRES_MAPPEURS = [
   //   la matière d'une phrase. Fabrique plus bas (hissage). Fin de bloc,
   //   append-only (§4.1).
   operateurEclatement(),
+  // ★ LE CODE ASCII DE CHAQUE CARACTÈRE, casse comprise — `mas` —, puis le
+  //   POINT DE CODE UNICODE — `mu8`. Deux conversions lettre → nombre de plus,
+  //   actives en recherche. Fabriques plus bas (hissage). Fin de bloc,
+  //   append-only (§4.1).
+  operateurAscii(),
+  operateurPointDeCode(),
+  // ★ L'ADDITION VERS LA MOYENNE — `mam`, la préparation de `meg`. Fabrique
+  //   plus bas (hissage). Fin de bloc, append-only (§4.1).
+  operateurAdditionVersLaMoyenne(),
 ];
 
 /**
@@ -8230,6 +8239,476 @@ function operateurEclatement() {
       return [etape(ctx, dire(libelle, ctx.langue), `${avant.valeur.join(' ')} → ${apres.valeur.join(' ')}`,
         enchainer([{ op: 'substitute', pairs, dur: DUREE_ECLATEMENT }]), { id: `s_${ctx.cle}_ecl` })];
     },
+  });
+}
+
+/**
+ * ★ **LE CODE ASCII DE CHAQUE CARACTÈRE, CASSE COMPRISE — `mas`.**
+ *
+ * > « `m.ascii` : chaque caractère vaut son code ASCII tel quel, casse
+ * >   comprise. Les accents sont retirés en gardant la casse. » (l'autrice)
+ *
+ * `masc` et `masb` ne codent que les LETTRES, et chacun dans UNE casse — ils
+ * plient la ligne en capitales ou en bas de casse avant de lire. Celui-ci lit
+ * la casse telle qu'elle est écrite : « M » vaut 77 et « m » 109, dans la même
+ * ligne. Et il code TOUT caractère que la table ASCII imprimable porte :
+ * l'apostrophe droite (39), le tiret (45), l'espace (32), les chiffres
+ * (« 7 » vaut 55 — c'est son CODE, pas sa valeur : `m09` la lit, lui).
+ *
+ * ★ **UN ACCENT SE RETIRE, LA CASSE RESTE.** « é » vaut 101, comme « e » ;
+ *   « É » vaut 69, comme « E ». C'est le pliage de `sansAccents`, sans le
+ *   passage en capitales que `pli` y ajoute pour les tables de lettres. La
+ *   scène le montre : la case désignée s'écrit « e », et Le Registre dit
+ *   « é → e → 101 » — le retrait est une étape de la lecture, pas un secret.
+ *
+ * ★ **CE QU'ASCII N'A PAS, IL NE L'INVENTE PAS.** Un caractère qui reste hors de
+ *   32…126 une fois l'accent retiré — « œ », « ß », « € », l'apostrophe
+ *   typographique « ’ », un emoji, un caractère de commande — n'a pas de code
+ *   ASCII, et aucune « approximation » (œ → oe, ’ → ') ne serait une lecture de
+ *   la norme : ce serait une réécriture de la saisie. L'opérateur rend alors
+ *   `null` pour toute la ligne, exactement comme ses voisins `masc` et `masb`
+ *   sur un jeton qui n'est pas une lettre (`parLettre`) : une voie ne se
+ *   construit pas sur une ligne à moitié codée. `mu8`, juste en dessous, sait
+ *   les lire.
+ *
+ * ★ Le GESTE est celui de `mast` : la table ASCII imprimable montée en seize
+ *   colonnes, un aller-retour par caractère, la case désignée par son CODE (la
+ *   table porte « m » ET « M », que la primitive confondrait si elle cherchait
+ *   la lettre pliée).
+ * ★ Notoriété 0,45 : celle de `masc` et `masb`, dont il est le cousin sans
+ *   pliage. AdHoc 0 : il ne regarde ni la cible ni la ligne pour choisir.
+ *   Actif en recherche, comme eux.
+ */
+function operateurAscii() {
+  const libelle = bilingue('Chaque caractère vaut son code ASCII, casse comprise',
+    'Each character is worth its ASCII code, case included');
+  const regle = bilingue(
+    'M = 77, m = 109, \' = 39, - = 45, l’espace = 32 ; un accent se retire, la casse reste : '
+    + 'é = 101, É = 69',
+    'M = 77, m = 109, \' = 39, - = 45, a space = 32; an accent is dropped, the case stays: '
+    + 'é = 101, É = 69',
+  );
+  const outil = bilingue('Table ASCII, de 32 à 126', 'ASCII table, 32 to 126');
+  const NOTE_ESPACE = bilingue('espace', 'space');
+  const PREMIER = 32;
+  const DERNIER = 126;
+  const table = Object.freeze(Array.from({ length: DERNIER - PREMIER + 1 }, (_, k) => {
+    const n = PREMIER + k;
+    const c = String.fromCharCode(n);
+    return Object.freeze({ char: String(n), value: n, label: c, ...(c === ' ' ? { note: NOTE_ESPACE } : {}) });
+  }));
+  /** Le caractère que la table lit : l'accent retiré, la casse gardée — ou `null`. */
+  const lu = (c) => {
+    const cs = [...sansAccents(String(c))];
+    if (cs.length !== 1) return null;
+    const n = cs[0].codePointAt(0);
+    return n >= PREMIER && n <= DERNIER ? cs[0] : null;
+  };
+  return def({
+    id: 'm.ascii', code: 'mas', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    libelle, regle, outil,
+    notoriete: 0.45,
+    note: bilingue(
+      'Le code décimal ASCII du caractère tel qu’il est écrit, capitale ou bas de casse, '
+      + 'ponctuation et espace compris. Un accent se retire (é vaut e) ; ce qu’ASCII n’a pas '
+      + '(œ, €, ’, un emoji) ne se code pas, et la ligne entière est refusée.',
+      'The decimal ASCII code of the character as written, capital or lower case, punctuation '
+      + 'and space included. An accent is dropped (é counts as e); what ASCII lacks (œ, €, ’, '
+      + 'an emoji) is not coded, and the whole line is refused.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      const out = [];
+      for (const tok of valeur) {
+        const chars = [...String(tok)];
+        if (chars.length !== 1) return null;
+        const c = lu(chars[0]);
+        if (c === null) return null;
+        out.push(c.codePointAt(0));
+      }
+      return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
+    },
+    sortie: (avant, apres, ctx) => nomsTokens(ctx, apres.valeur.length),
+    steps: (avant, apres, ctx) => {
+      const titre = dire(libelle, ctx.langue);
+      const dit = dire(regle, ctx.langue);
+      const nomOutil = dire(outil, ctx.langue);
+      const sortie = nomsTokens(ctx, apres.valeur.length);
+      const entries = table.map((e) => ({ ...e, ...(e.note ? { note: dire(e.note, ctx.langue) } : {}) }));
+      const dernier = apres.valeur.length - 1;
+      const montre = (c) => (c === ' ' ? '␣' : c);
+      return apres.valeur.map((n, i) => {
+        const signe = String(avant.valeur[i]);
+        const plie = lu(signe);
+        // Le retrait de l'accent est DIT quand il a eu lieu : « é → e → 101 ».
+        const detail = plie !== signe
+          ? `${montre(signe)} → ${montre(plie)} → ${n}`
+          : `${montre(signe)} → ${n}`;
+        return etape(ctx, titre, `${dit} · ${detail}`, [{
+          op: 'table',
+          disposition: 'reglette',
+          titre: nomOutil,
+          colonnes: 16,
+          entries: entries.map((e) => ({ ...e })),
+          target: ctx.ids[i],
+          letter: String(n),
+          to: token(sortie[i], n, 'number'),
+          montre: i === 0,
+          retire: i === dernier,
+        }], { id: `s_${ctx.cle}_${i}` });
+      });
+    },
+  });
+}
+
+/**
+ * ★ **LE POINT DE CODE UNICODE DE CHAQUE CARACTÈRE — `mu8`.**
+ *
+ * > « `m.utf8` : chaque caractère vaut son point de code Unicode, é = 233,
+ * >   M = 77. Comme ça le choix est complet. » (l'autrice)
+ *
+ * ⚠️ **LE NOM DIT « UTF-8 », LA RÈGLE DIT CE QU'ELLE FAIT.** UTF-8 est un
+ *   ENCODAGE : il écrit « é » sur deux octets, 195 et 169. Ce que l'opérateur
+ *   lit n'est pas cela, c'est le NUMÉRO du caractère dans Unicode — son point de
+ *   code, U+00E9 = 233 —, le même quel que soit l'encodage. L'identifiant et le
+ *   code (`m.utf8`, `mu8`) sont ceux que l'autrice a donnés ; le libellé, la
+ *   règle, la note et le titre disent « point de code Unicode », et la règle
+ *   précise que ce ne sont pas les octets. Rien de ce qui s'affiche ne ment.
+ *
+ * ★ Sur l'ASCII (0…127), le point de code EST le code ASCII : « M » vaut 77 ici
+ *   comme sous `mas`. Les deux ne diffèrent que sur ce qu'ASCII n'a pas — et
+ *   c'est là que celui-ci sert : « é » vaut 233 au lieu de 101, « œ » 339, « ’ »
+ *   8217, « € » 8364. AUCUN caractère n'est retiré ni plié : la casse et
+ *   l'accent sont lus tels qu'écrits.
+ * ★ Une seule borne, celle du DOMAINE DU MOTEUR (`NUM_MAX`, 10⁶) : Unicode va
+ *   jusqu'à 1 114 111, et les derniers plans (usage privé) dépassent. Un tel
+ *   caractère rend `null` — refusé ici plutôt que rejeté en silence par
+ *   `etat.js`, comme `mcar`.
+ *
+ * ★ Le GESTE : la table montrée couvre ce qu'on écrit au clavier en français —
+ *   l'ASCII imprimable (32…126) et le supplément Latin-1 (160…255 : les
+ *   accents, « « » », « ° », « × ») —, en seize colonnes, un rang par seizaine
+ *   comme toute table de codes. Un aller-retour par caractère, la case désignée
+ *   par son point de code.
+ *   ⚠️ Au-delà de 255 (« œ », « ’ », « € », un emoji), il n'y a plus de table
+ *   finie à montrer : la ligne entière se convertit alors par une substitution
+ *   sans table, et Le Registre donne chaque correspondance — le repli commun des
+ *   mappeurs de lettres (`etapeMappeur`), qui n'affirment rien qu'ils ne
+ *   savent montrer.
+ * ★ Notoriété 0,35 : moins connu que la table ASCII, que tout programmeur a
+ *   croisée ; plus que les numérologies de niche. AdHoc 0 : il ne regarde
+ *   rien pour choisir. Actif en recherche.
+ */
+function operateurPointDeCode() {
+  const libelle = bilingue('Chaque caractère vaut son point de code Unicode',
+    'Each character is worth its Unicode code point');
+  const regle = bilingue(
+    'Le numéro du caractère dans Unicode, tel qu’il est écrit : M = 77, m = 109, é = 233, '
+    + 'œ = 339 — le point de code, pas les octets UTF-8',
+    'The number of the character in Unicode, as written: M = 77, m = 109, é = 233, '
+    + 'œ = 339 — the code point, not the UTF-8 bytes',
+  );
+  const outil = bilingue('Unicode, de 32 à 255', 'Unicode, 32 to 255');
+  const NOTES = new Map([
+    [32, bilingue('espace', 'space')],
+    [160, bilingue('espace insécable', 'no-break space')],
+    [173, bilingue('césure conditionnelle', 'soft hyphen')],
+  ]);
+  const PAGES = [[32, 126], [160, 255]];
+  const table = Object.freeze(PAGES.flatMap(([de, a]) => Array.from({ length: a - de + 1 }, (_, k) => {
+    const n = de + k;
+    const note = NOTES.get(n);
+    return Object.freeze({ char: String(n), value: n, label: String.fromCodePoint(n), ...(note ? { note } : {}) });
+  })));
+  const dansLaTable = (n) => PAGES.some(([de, a]) => n >= de && n <= a);
+  return def({
+    id: 'm.utf8', code: 'mu8', famille: 'mappeur', from: 'TOKENS', to: 'NUMS',
+    libelle, regle, outil,
+    notoriete: 0.35,
+    note: bilingue(
+      'Le point de code est le numéro qu’Unicode donne au caractère (U+00E9 = 233 pour é). '
+      + 'Ce ne sont pas les octets UTF-8, qui écrivent é sur deux nombres, 195 et 169. '
+      + 'Sur l’ASCII, il vaut le code ASCII.',
+      'The code point is the number Unicode gives the character (U+00E9 = 233 for é). '
+      + 'It is not the UTF-8 bytes, which write é as two numbers, 195 and 169. '
+      + 'On ASCII, it equals the ASCII code.',
+    ),
+    apply: (valeur, traces) => {
+      if (!valeur.length) return null;
+      const out = [];
+      for (const tok of valeur) {
+        const chars = [...String(tok)];
+        if (chars.length !== 1) return null;
+        const n = chars[0].codePointAt(0);
+        if (n > NUM_MAX) return null;
+        out.push(n);
+      }
+      return { valeur: out, traces: out.map((_, i) => traces[i] || []) };
+    },
+    sortie: (avant, apres, ctx) => nomsTokens(ctx, apres.valeur.length),
+    steps: (avant, apres, ctx) => {
+      const titre = dire(libelle, ctx.langue);
+      const dit = dire(regle, ctx.langue);
+      const nomOutil = dire(outil, ctx.langue);
+      const sortie = nomsTokens(ctx, apres.valeur.length);
+      const montre = (c) => (c === ' ' ? '␣' : c);
+      if (!apres.valeur.every(dansLaTable)) {
+        // Repli : un caractère hors des pages montrées. On substitue, sans table.
+        const detail = apres.valeur.map((n, i) => `${montre(String(avant.valeur[i]))} → ${n}`).join(', ');
+        return [etape(ctx, titre, `${dit} · ${detail}`, [{
+          op: 'substitute',
+          stagger: 90,
+          pairs: apres.valeur.map((n, i) => ({ target: ctx.ids[i], to: token(sortie[i], n, 'number') })),
+        }])];
+      }
+      const entries = table.map((e) => ({ ...e, ...(e.note ? { note: dire(e.note, ctx.langue) } : {}) }));
+      const dernier = apres.valeur.length - 1;
+      return apres.valeur.map((n, i) => etape(ctx, titre,
+        `${dit} · ${montre(String(avant.valeur[i]))} → ${n}`, [{
+          op: 'table',
+          disposition: 'reglette',
+          titre: nomOutil,
+          colonnes: 16,
+          entries: entries.map((e) => ({ ...e })),
+          target: ctx.ids[i],
+          letter: String(n),
+          to: token(sortie[i], n, 'number'),
+          montre: i === 0,
+          retire: i === dernier,
+        }], { id: `s_${ctx.cle}_${i}` }));
+    },
+  });
+}
+
+/**
+ * ★ **ADDITIONNER DES VOISINS POUR PRÉPARER L'ÉGALISATION — `mam`.**
+ *
+ * > « Prépare le terrain pour `meg`. » (l'autrice)
+ *
+ * `meg` donne 1 du plus grand au plus petit jusqu'à ce que tout se tienne à 1
+ * près : la somme S et le nombre de termes n sont CONSERVÉS, et la ligne finit
+ * sur ⌊S/n⌋ et ⌈S/n⌉. Elle ne réussit donc que si la moyenne de la ligne est
+ * déjà celle qu'on cherche — « Donald Trump » en `fl+mt9+mtri` fait
+ * `2 3 3 5 6 6 6 7 7 8 8`, S = 61 sur onze termes, moyenne 5,5 : six 6 et cinq
+ * 5. Additionner deux voisins garde S et retire un terme : la moyenne MONTE.
+ * Sur dix termes, 61 donne neuf 6 et un 7.
+ *
+ * ── Combien de termes garder ─────────────────────────────────────────────────
+ *
+ * Pour un chiffre visé d, n' termes de somme S s'égalisent en :
+ *
+ *    · si d·n' ≤ S ≤ (d+1)·n' : (d+1)·n' − S fois d (le reste en d+1) ;
+ *    · si (d−1)·n' ≤ S ≤ d·n' : S − (d−1)·n' fois d (le reste en d−1) ;
+ *    · sinon aucun d.
+ *
+ * On garde le n' (2 ≤ n' < n) qui en donne le PLUS ; à égalité, le plus grand —
+ * le moins d'additions. Si aucun n' < n ne fait mieux que la ligne telle
+ * qu'elle est, l'opérateur ne s'applique pas (`null`) : une addition qui
+ * n'améliore rien n'est pas une préparation. n' = 1 est exclu : additionner
+ * TOUTE la ligne, c'est `cs`, et il ne reste rien à égaliser.
+ *
+ * ── Quels voisins additionner ───────────────────────────────────────────────
+ *
+ * Parmi les découpes de la ligne en n' paquets CONTIGUS, celle qui minimise
+ * Σ |paquet − d| : le moins de transferts laissés à `meg`. Programmation
+ * dynamique sur (position, paquets restants), entière et déterministe.
+ * ★ **Le départage, écrit une fois pour toutes** : à coût égal, la découpe dont
+ *   la suite des LONGUEURS de paquets est la plus grande dans l'ordre
+ *   lexicographique — le premier paquet le plus long possible, puis le second,
+ *   etc. Autrement dit, les additions se font LE PLUS À GAUCHE possible, comme
+ *   on lit. Sur `2 3 3 5 …`, `2+3` et `3+3` coûtent autant : c'est `2+3`.
+ *
+ * ── Ce qui n'est jamais fait ────────────────────────────────────────────────
+ *
+ * ⚠️ **UNE SOMME N'EST NI RÉDUITE NI REDÉCOUPÉE EN CHIFFRES.** `7 + 8` reste 15
+ *   sur la ligne. Réduire (15 → 6) ou éclater (15 → 1 5) changerait S, et toute
+ *   l'arithmétique de `meg` ci-dessus tomberait. C'est la différence de fond
+ *   avec `mad` et `mrd`, qui écrivent chiffre à chiffre : eux visent le chiffre
+ *   de chaque paquet, celui-ci vise la MOYENNE de la ligne. Pour la même
+ *   raison, les nombres de la ligne ne sont pas éclatés en chiffres avant
+ *   d'additionner : ce sont des termes, et `meg` les lira comme tels.
+ * ⚠️ Et une ligne préparée que `meg` ne saurait pas égaliser (plus de
+ *   `MAX_TRANSFERTS` transferts, `combinateurs.js`) est refusée : la
+ *   préparation n'aurait rien préparé.
+ *
+ * ── La cible ────────────────────────────────────────────────────────────────
+ *
+ * Il suit la cible comme `mad` et `mrd` (`selonLaCible`) : 777 lui fait viser
+ * 7. Il se DÉSACTIVE (null depuis la fabrique) dans deux cas :
+ *
+ *  · **une cible à plusieurs chiffres distincts** (13, 1984). `meg` ne rend que
+ *    deux valeurs consécutives ; viser la moyenne d'une cible hétérogène
+ *    n'aurait pas de sens simple, et on préfère ne rien faire qu'inventer une
+ *    règle (choix de l'agent, à confirmer par l'autrice) ;
+ *  · **une cible de 0 ou de 1.** Additionner fait MONTER la moyenne. Viser 0 ne
+ *    se peut que par des zéros ; viser 1 demande une moyenne proche de 1,
+ *    c'est-à-dire une ligne de zéros et de uns, que l'addition ne peut
+ *    qu'éloigner — `m0`, qui retire les zéros, le fait sans rien additionner.
+ *
+ * ★ Le GESTE est celui de `mad`, au mot près : les signes `+` paraissent entre
+ *   les seuls termes additionnés, deux par deux (`passesBinaires`), passe après
+ *   passe (`passesEnLargeur`), et le résultat remonte à la place du paquet. La
+ *   fin sous l'accolade de `sum` — le résultat se pose, PUIS l'accolade
+ *   s'efface, PUIS la ligne se réajuste — est portée par la primitive, comme
+ *   pour `mad`.
+ * ★ Notoriété 0,30, adHoc 0,30, recours 0 : ceux de `mad`, et pour la même
+ *   raison. Additionner des voisins est le geste le plus banal qui soit ; ce
+ *   qui est louche, c'est de ne pas les additionner TOUS, et de choisir
+ *   lesquels en regardant la cible. L'autrice juge ces additions sélectives
+ *   « de la triche en dernier recours », mais préférables à jeter des chiffres :
+ *   rien n'est jeté, tout ressort dans une somme. Le barème les paie au palier
+ *   de l'addition sélective (`recherche/elegance.js › ABSORBENT_PAR_ADDITION`).
+ */
+function operateurAdditionVersLaMoyenne() {
+  /** Au-delà, la découpe coûterait cher pour une ligne qu'on ne lirait plus. */
+  const TERMES_MAX = 36;
+  const libelle = bilingue('On additionne des voisins pour viser la moyenne',
+    'Add up neighbours to aim at the average');
+
+  /** Combien de d l'égalisation de n' termes de somme S écrira. */
+  const chiffresApresEgalisation = (S, np, d) => {
+    if (d * np <= S && S <= (d + 1) * np) return (d + 1) * np - S;
+    if ((d - 1) * np <= S && S <= d * np) return S - (d - 1) * np;
+    return 0;
+  };
+
+  /**
+   * Le plan : `sortie[j] = {v, debut, fin}` sur les indices de `valeur`, ou
+   * `null`. Pur et déterministe — `apply`, `additions`, `sortie` et `steps`
+   * appellent le même, sur le même vecteur (contrôle croisé, CONTRACTS §0.3).
+   */
+  function plan(valeur, d) {
+    const n = valeur.length;
+    if (n < 3 || n > TERMES_MAX) return null;
+    if (!valeur.every((v) => Number.isInteger(v) && v >= 0)) return null;
+    const prefixe = [0];
+    for (const v of valeur) prefixe.push(prefixe[prefixe.length - 1] + v);
+    const S = prefixe[n];
+    // ① Le nombre de termes : strictement mieux que la ligne telle quelle, et à
+    //   égalité le plus grand (on descend depuis n − 1, on ne remplace que si
+    //   c'est mieux).
+    let meilleur = n;
+    let gain = chiffresApresEgalisation(S, n, d);
+    for (let np = n - 1; np >= 2; np--) {
+      const g = chiffresApresEgalisation(S, np, d);
+      if (g > gain) { gain = g; meilleur = np; }
+    }
+    if (meilleur === n) return null;
+    // ② La découpe : cout[i][k] = le moindre Σ|paquet − d| du suffixe qui
+    //   commence en i, coupé en k paquets non vides.
+    const INF = Number.MAX_SAFE_INTEGER;
+    const cout = Array.from({ length: n + 1 }, () => new Array(meilleur + 1).fill(INF));
+    cout[n][0] = 0;
+    const ecart = (i, j) => Math.abs(prefixe[j] - prefixe[i] - d);
+    for (let i = n - 1; i >= 0; i--) {
+      for (let k = 1; k <= meilleur; k++) {
+        let m = INF;
+        // Le paquet [i, j) laisse n − j termes aux k − 1 paquets suivants.
+        for (let j = i + 1; j <= n - (k - 1); j++) {
+          if (cout[j][k - 1] === INF) continue;
+          const c = ecart(i, j) + cout[j][k - 1];
+          if (c < m) m = c;
+        }
+        cout[i][k] = m;
+      }
+    }
+    // ③ La reconstruction : le premier paquet le plus LONG parmi les optimaux,
+    //   puis le suivant — c'est ce qui rend la suite des longueurs
+    //   lexicographiquement maximale.
+    const sortie = [];
+    let i = 0;
+    for (let k = meilleur; k >= 1; k--) {
+      let choisi = -1;
+      for (let j = n - (k - 1); j >= i + 1; j--) {
+        if (cout[j][k - 1] !== INF && ecart(i, j) + cout[j][k - 1] === cout[i][k]) { choisi = j; break; }
+      }
+      if (choisi < 0) {
+        throw new Error(`addition vers la moyenne : aucune découpe optimale depuis ${i} (${valeur.join(' ')}).`);
+      }
+      sortie.push({ v: prefixe[choisi] - prefixe[i], debut: i, fin: choisi });
+      i = choisi;
+    }
+    if (i !== n) throw new Error(`addition vers la moyenne : la découpe ne couvre pas la ligne (${valeur.join(' ')}).`);
+    // ④ `meg` doit pouvoir conclure sur la ligne préparée.
+    if (!nivellementDe(sortie.map((s) => s.v)).converge) return null;
+    return { sortie, gain };
+  }
+
+  /** L'identifiant du jᵉ terme de sortie — neuf si, et seulement si, il naît d'une addition. */
+  const idSortie = (ctx, s, j) => (s.fin - s.debut < 2 ? ctx.ids[s.debut] : `${ctx.cle}s${j}`);
+
+  return selonLaCible((visee) => {
+    if (!visee.homogene) return null;
+    const d = visee.alphabet[0];
+    if (d <= 1) return null;
+    return {
+      id: 'm.additionVersLaMoyenne', code: 'mam', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+      libelle,
+      regle: bilingue(
+        'On additionne des nombres VOISINS, sans jamais réduire les sommes, jusqu’au nombre de '
+        + `termes dont l’égalisation écrira le plus de ${d} : la somme de la ligne ne change pas, `
+        + `sa moyenne monte. Parmi les regroupements, celui qui s’écarte le moins de ${d} ; à `
+        + 'égalité, le plus à gauche.',
+        'Adjacent numbers are added, the sums never reduced, down to the number of terms whose '
+        + `evening out will write the most ${d}s: the line’s total does not change, its average `
+        + `goes up. Among the groupings, the one that strays least from ${d}; on a tie, the `
+        + 'leftmost.',
+      ),
+      // ★ Ceux de `mad` — voir l'en-tête de la fabrique.
+      notoriete: 0.30, adHoc: 0.30,
+      note: bilingue(
+        'Sélective, donc discutable : on n’additionne que les voisins qui rapprochent la moyenne '
+        + `de ${d}, pour que l’égalisation qui suit tombe juste. Rien n’est jeté, et les signes + `
+        + 'ne paraissent qu’entre les termes retenus.',
+        `Selective, hence arguable: only the neighbours that bring the average closer to ${d} `
+        + 'are added, so that the evening out that follows lands right. Nothing is dropped, and '
+        + 'the plus signs appear only between the chosen terms.',
+      ),
+      apply: (valeur, traces) => {
+        const p = plan(valeur, d);
+        if (!p) return null;
+        return {
+          valeur: p.sortie.map((s) => s.v),
+          traces: p.sortie.map((s) => fusion(...traces.slice(s.debut, s.fin).map((t) => t || []))),
+        };
+      },
+      // ★ Ce que la triche fait VOIR — voir `additions` dans `commun.js`.
+      additions: (valeur) => {
+        const p = plan(valeur, d);
+        return p ? p.sortie.filter((s) => s.fin - s.debut >= 2).map((s) => s.fin - s.debut) : [];
+      },
+      sortie: (avant, apres, ctx) => {
+        const p = plan(avant.valeur, d);
+        return p ? p.sortie.map((s, j) => idSortie(ctx, s, j)) : [];
+      },
+      steps: (avant, apres, ctx) => {
+        const p = plan(avant.valeur, d);
+        if (!p) return [];
+        const titre = dire(libelle, ctx.langue);
+        const parPaquet = p.sortie.map((s, j) => {
+          if (s.fin - s.debut < 2) return { gestes: [] };
+          const termes = [];
+          for (let k = s.debut; k < s.fin; k++) termes.push({ id: ctx.ids[k], v: avant.valeur[k], ou: k });
+          const arbre = passesBinaires(termes, {
+            combiner: (x, y) => x + y,
+            nommer: (k) => `${ctx.cle}i${j}x${k}`,
+            racine: idSortie(ctx, s, j),
+          });
+          if (arbre.racine.v !== s.v) {
+            throw new Error(`addition vers la moyenne : le paquet ${j} rend ${arbre.racine.v} par paires, le plan annonce ${s.v}.`);
+          }
+          return {
+            gestes: arbre.gestes.map((g) => ({
+              famille: 'addition', niveau: g.niveau, ou: g.ou,
+              step: etape(ctx, titre, `${g.gauche.v} + ${g.droite.v} = ${g.resultat.v}`,
+                enchainer(opsDuGesteBinaire(g, { signe: `${ctx.cle}p${j}x${g.k}`, glyph: '+', symbol: '+' })),
+                { id: `s_${ctx.cle}_s${j}${g.dernier ? '' : `b${g.k}`}` }),
+            })),
+          };
+        });
+        return passesEnLargeur(parPaquet);
+      },
+    };
   });
 }
 

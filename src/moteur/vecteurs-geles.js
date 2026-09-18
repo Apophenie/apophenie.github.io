@@ -339,6 +339,14 @@ export const VECTEURS = [
   ['masi', N([1, 2, 2, 1, 0, 1, 1, 1, 4, 1, 0, 3]), ['z', 'e', 'r', 'g']],
   ['mast', T([...'fr/']), [102, 114, 47]],
   ['mecl', N([13924, 7, 25]), [1, 3, 9, 2, 4, 7, 2, 5]],
+  // ★ Le code ASCII casse comprise : la capitale, le bas de casse, l'apostrophe
+  //   droite, et l'accent retiré (« é » vaut « e », 101).
+  ['mas', T([...'Mé\'m']), [77, 101, 39, 109]],
+  // ★ Le point de code : le même « é » vaut 233, et « M » 77 comme en ASCII.
+  ['mu8', T([...'Mé\'m']), [77, 233, 39, 109]],
+  // ★ L'addition vers la moyenne : « Donald Trump » en `fl+tca+mt9+mtri`,
+  //   S = 61. Dix termes au lieu d'onze — `2 + 3` —, et `meg` en tirera neuf 6.
+  ['mam', N([2, 3, 3, 5, 6, 6, 6, 7, 7, 8, 8]), [5, 3, 5, 6, 6, 6, 7, 7, 8, 8]],
   // Le carré : trois chiffres deviennent cinq, et c'est tout ce qu'on lui demande.
   ['mcar', N([115, 97, 114]), [13225, 9409, 12996]],
   // La puissance regarde le PREMIER CHIFFRE du nombre suivant — 5², puis 2⁵,

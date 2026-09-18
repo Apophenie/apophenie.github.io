@@ -42,14 +42,28 @@ test('★ la voie à deux retraits grammaticaux est FABRIQUÉE', () => {
  *   les suites CROISSANTES — une par combinaison, jamais ses permutations —, ce
  *   qui garde l'énumération déterministe (§4.4) et en borne le coût.
  */
-test('les retraits ne s’enchaînent que dans l’ordre du registre, jamais permutés', () => {
+/* ⚠️ **CE QUI EST TENU, C'EST « JAMAIS PERMUTÉS » — PAS L'ORDRE DU REGISTRE EN
+     SORTIE.** L'énumération déroule bien les suites croissantes du registre ;
+     mais les vecteurs rescapés sont ensuite CANONICALISÉS (`assemblage.js ›
+     reordonnerCommutants`, N2), qui range tout bloc commutant dans l'ordre de
+     l'URL (`bfs.js › codeAvant`) — alphabétique : `faux` avant `fcnj`. Tant
+     qu'aucun rescapé ne portait `fcnj` avec `faux` ou `fprp`, les deux ordres
+     coïncidaient et le test lisait l'ordre du registre ; `mas`, qui code les
+     espaces et les chiffres de cette phrase, en a fait survivre
+     (`fart+faux+fcnj+tca+mas+mrn`), et l'écart est apparu. La promesse de
+     l'énumération — une suite par combinaison, jamais ses permutations — se
+     vérifie donc sur les COMBINAISONS : deux vecteurs qui ne diffèrent que par
+     l'ordre de leurs retraits seraient une permutation fabriquée deux fois. */
+test('les retraits ne s’enchaînent qu’une fois par combinaison, jamais permutés', () => {
   const v = vecteursDeSix('Le 6 est sur le mur et il rit', OPS, 1, 400, '666', { miseEnForme: false });
+  const vus = new Map();
   for (const c of v) {
-    const g = grammaticaux(codesDe(c));
-    const rangs = g.map((x) => REGISTRE.indexOf(x));
-    for (let k = 1; k < rangs.length; k++) {
-      assert.ok(rangs[k] > rangs[k - 1], `${codesDe(c).join('+')} : suite hors de l'ordre du registre`);
-    }
+    const codes = codesDe(c);
+    const g = grammaticaux(codes);
+    assert.equal(new Set(g).size, g.length, `${codes.join('+')} : un retrait répété`);
+    const cle = `${[...g].sort().join('+')} | ${codes.filter((x) => !REGISTRE.includes(x)).join('+')}`;
+    assert.ok(!vus.has(cle), `${codes.join('+')} et ${vus.get(cle)} : la même combinaison, permutée`);
+    vus.set(cle, codes.join('+'));
   }
 });
 
