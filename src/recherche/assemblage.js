@@ -390,7 +390,8 @@ function comparerLiaison(a, b) {
  * programmes, et programme → sa valeur. Gardée dans le cache du moteur.
  */
 function tableDeValeurs(texte, explorables, combinateurs, cbl, cache) {
-  const cle = `liaison|${cbl.texte}|${texte.normalize('NFC')}`;
+  // ★ Le jeu d'opérateurs entre dans la clé : il dépend du cran (`op.desLeCran`).
+  const cle = `liaison|${cbl.texte}|${texte.normalize('NFC')}|${cleDesOps(explorables)}`;
   if (cache && cache.has(cle)) return cache.get(cle);
   const vecteurs = vecteursDeSix(texte, explorables, 0, 1e6, cbl, { miseEnForme: false, tousLesReglages: true });
   const parCodes = new Map();
@@ -440,7 +441,7 @@ export function liaisons(fragments, ctx, cbl) {
   if (!lieurs.length) return [];
   const mots = fragments.filter((f) => f.famille === 'unite').sort((a, b) => a.offset - b.offset);
   if (mots.length < 2 || mots.length > LIAISON_MOTS_MAX) return [];
-  const explorables = operateursPourCible(ctx.catalogue, cbl);
+  const explorables = operateursPourCible(ctx.catalogue, cbl, ctx.cran ?? 0);
   const combinateurs = explorables.filter((o) => o.from === 'NUMS' && o.to === 'NUM');
   const tables = mots.map((f) => tableDeValeurs(f.texte, explorables, combinateurs, cbl, ctx.cache));
   const attendu = cbl.chiffres.join('');
@@ -3892,7 +3893,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
   //    C'est ce qui remplace le décret sur une saisie courte, et c'est ce que
   //    demande l'auteur : « quand tu arrives à faire autant de 6, plutôt que de
   //    les réduire à trois, regroupe-les par trois ».
-  const opsExplorables = ctx.catalogue ? operateursPourCible(ctx.catalogue, cbl) : [];
+  const opsExplorables = ctx.catalogue ? operateursPourCible(ctx.catalogue, cbl, ctx.cran ?? 0) : [];
   /* ★ **LES OPÉRATEURS QUI GONFLENT LA LIGNE N'EXISTENT QUE POUR LE DERNIER
        RECOURS.** Ils se déclarent (`op.gonfle`) et sont INACTIFS en recherche
        (`actifParDefaut: false`), donc ni le faisceau ni la première passe ne les

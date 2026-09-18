@@ -336,9 +336,11 @@ export function creerMoteur(catalogue, options = {}) {
       throw new Error(`recherche : le texte « ${cbl.texte} » se cherche par ses relectures, pas tel quel`);
     }
   };
-  const contexteBase = (cbl, sur = {}) => (garderTexteHorsRecherche(cbl), {
+  /* ★ Le CRAN DE FOUILLE décide aussi du jeu d'opérateurs (`bfs.js ›
+       operateursExplorables`, `op.desLeCran`) — 0 au défaut, celui du site. */
+  const contexteBase = (cbl, sur = {}, cran = 0) => (garderTexteHorsRecherche(cbl), {
     catalogue,
-    operateurs: operateursPourCible(catalogue, cbl),
+    operateurs: operateursPourCible(catalogue, cbl, cran),
     bassin,
     bassins: tablesDe(cbl),
     cible: cbl,
@@ -681,7 +683,7 @@ export function creerMoteur(catalogue, options = {}) {
     //   faux si l'on cherche `6`. Le gag est une propriété du couple
     //   (saisie, cible), et la moitié de ce couple vient de changer.
     const dedie = regles.reponsesDediees ? (REPONSES_DEDIEES.get(saisie.toLowerCase().trim()) || null) : null;
-    const ctxRecherche = contexteBase(cbl);
+    const ctxRecherche = contexteBase(cbl, {}, fouille);
     const signifiants = zonesSignifiantes(saisie);
     const jetons = tokeniser(saisie);
     const frags = genererFragments(saisie, { max: options.nFragMax ?? N_FRAG_MAX });
@@ -890,6 +892,8 @@ export function creerMoteur(catalogue, options = {}) {
       // ★ La largeur d'assemblage suit le cran : c'est elle qui décide combien
       //   d'approches peuvent seulement EXISTER (`config.js`).
       parFragment: budgets.parFragment,
+      // ★ Le cran décide du jeu d'opérateurs (`op.desLeCran`).
+      cran: fouille,
       // ★ Les gardes de l'étage des retouches suivent le cran (`config.js`).
       // ★ Ce que la rampe fait naître au-delà des gardes historiques — voir
       //   `finaliser`, la double sélection. Partagé avec la passe profonde.
@@ -1401,7 +1405,7 @@ export function creerMoteur(catalogue, options = {}) {
            n'ont pas le droit de le faire sans le dire (`bfs.js ›
            operateursRetires`). Sur la cible sous-jacente d'un mot relu par
            les rangs, ce sont DIX absences d'un coup. */
-      operateursRetires: operateursRetires(catalogue, cbl),
+      operateursRetires: operateursRetires(catalogue, cbl, fouille),
       /* ★ Les modes hors jeu par construction — dédoublonnés, parce qu'un
            dernier recours rejoue l'assemblage et le redirait. */
       modesImpossibles: [...new Map(ctxAssemblage.modesImpossibles.map((m) => [m.mode, m])).values()],
@@ -1467,7 +1471,7 @@ export function creerMoteur(catalogue, options = {}) {
         produit: r.produit, ecart: r.ecart, voies: null,
         // ★ Ce qui se retire devant CETTE cible sous-jacente : sur une suite de
         //   valeurs (les rangs), toute la famille des absorptions s'en va.
-        operateursRetires: operateursRetires(catalogue, r.cible),
+        operateursRetires: operateursRetires(catalogue, r.cible, fouille),
       })),
     };
     if (!saisie.length) return { ...base, approches: [] };
@@ -2067,7 +2071,9 @@ export function creerMoteur(catalogue, options = {}) {
     const parts = [];
     // ★ Le rejeu n'ouvre une recherche QUE si le lien en commande une ; le
     //   contexte est donc construit ici, une fois, et ne coûte rien sinon.
-    const ctxRejeu = contexteBase(cbl);
+    // ★ Au cran que le lien écrit : une commande à trous se cherche avec les
+    //   opérateurs que ce cran ouvre (`op.desLeCran`).
+    const ctxRejeu = contexteBase(cbl, {}, normaliserPuissance(lecture.fouille));
     let commandes = false;
 
     for (const [rangDesc, desc] of lecture.fragments.entries()) {
@@ -2336,7 +2342,7 @@ export function creerMoteur(catalogue, options = {}) {
       dMax: b.dMax,
       maxTravail: BUDGET_TRAVAIL * b.facteur,
       budgetMs: b.budgetTotalMs,
-    });
+    }, b.puissance);
 
     // ── 1. déplier : une commande portant sur trois portées en fait trois.
     const plan = [];

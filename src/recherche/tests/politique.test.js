@@ -19,6 +19,7 @@ import { profilDeCible, CIBLE_LONGUE, cibleDeValeurs, lireCible } from '../cible
 import { politique, gesteUtile } from '../politique.js';
 import { normaliserCatalogue, appliquerOp, etat, operateursRetires } from '../bfs.js';
 import { catalogue } from './_catalogue.js';
+import { PUISSANCE_DE_FOUILLE_MAX } from '../../config.js';
 
 /* ══════════════════════ 1. Le verrou du 666 ══════════════════════ */
 
@@ -167,7 +168,7 @@ test('★ politique — au-delà de dix chiffres visés, ranger suffit', () => {
 
 /* ══════════════════ 5. Ce qui se retire, et qui le dit ══════════════════
  *
- * ★ Treize opérateurs lisent la cible et ont le DROIT de se retirer quand leur
+ * ★ Quatorze opérateurs lisent la cible et ont le DROIT de se retirer quand leur
  *   règle n'a pas de sens pour elle — « le plus fréquent l'emporte » ne veut
  *   rien dire pour `13`. Ils n'ont pas le droit de le faire en silence :
  *   l'échec bruyant est un contrat (§2.2). Avant, `operateursPourCible` les
@@ -191,13 +192,18 @@ test('★ retraits — une cible mêlée fait se retirer `mpf`, `mr6` et `mam`, 
   assert.deepEqual(operateursRetires(catalogue, lireCible('999')), []);
 });
 
-test('★ retraits — sur la cible sous-jacente d’un mot, treize opérateurs s’en vont', () => {
+test('★ retraits — sur la cible sous-jacente d’un mot, onze opérateurs s’en vont au cran 0, quatorze au bout', () => {
   const rangs = cibleDeValeurs([26, 5, 18, 7]);
-  const retires = operateursRetires(catalogue, rangs);
-  // Dix, plus l'addition vers la moyenne (`mam`) et les deux redécoupages qui
-  // accolent (`mrdf`, `mrfE`), qui lisent la cible comme leurs modèles. `megf`
-  // n'est pas compté : inactif en recherche, il n'a rien à retirer.
-  assert.equal(retires.length, 13, 'toute la famille qui lit la cible');
+  // Au cran 0 : les dix d'avant, plus l'addition vers la moyenne (`mam`). Les
+  // redécoupages qui accolent (`mrdf`, `mrfE`) et l'égalisation futée (`megf`)
+  // n'y sont pas explorés (`op.desLeCran`) : ils n'ont rien à retirer.
+  assert.equal(operateursRetires(catalogue, rangs).length, 11, 'la famille qui lit la cible, au cran 0');
+  // Au bout du curseur, ils le sont tous, et tous trois lisent la cible :
+  // `megf` ne vise qu'une cible homogène, `mrdf` et `mrfE` comme leurs modèles.
+  const retires = operateursRetires(catalogue, rangs, PUISSANCE_DE_FOUILLE_MAX);
+  assert.deepEqual(retires.map((x) => x.code).filter((c) => ['mrdf', 'mrfE', 'megf'].includes(c)).sort(),
+    ['megf', 'mrdf', 'mrfE']);
+  assert.equal(retires.length, 14, 'toute la famille qui lit la cible');
   assert.ok(retires.every((x) => x.etat === 'RETIRE'));
   for (const code of ['mab', 'mrdE', 'mabx', 'mabd']) {
     assert.ok(retires.some((x) => x.code === code), `${code} se retire devant une suite de valeurs`);

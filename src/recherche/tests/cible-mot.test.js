@@ -30,7 +30,7 @@ import { compile } from '../../visuel/compile.js';
 import { Scene } from '../../visuel/scene.js';
 import { TOKEN_GAP } from '../../visuel/constants.js';
 import { suivreLaLigne } from '../scenario.js';
-import { CODES_NON_FACTURES } from '../../config.js';
+import { CODES_NON_FACTURES, PUISSANCE_DE_FOUILLE_MAX } from '../../config.js';
 import { titreCourtDe } from '../titres.js';
 import { plafondDAbsorption, VISEE_LONGUE } from '../../moteur/transformations/mappeurs.js';
 
@@ -380,11 +380,16 @@ test('cible-mot — le rejeu refuse ce qu’il ne sait pas relire, en le disant'
  *   recherche ; et s'il oubliait le champ, ce test le dirait.
  */
 test('cible-mot — les opérateurs qui ABSORBENT sont déclarés, et ce sont ceux-là', () => {
-  const absorbants = operateursExplorables(catalogue).filter((o) => o.absorbe).map((o) => o.code);
+  const absorbants = operateursExplorables(catalogue, PUISSANCE_DE_FOUILLE_MAX).filter((o) => o.absorbe)
+    .map((o) => o.code);
   // `mrfE`, la variante de `mrdE` qui accole des chiffres, absorbe comme elle.
   assert.deepEqual(absorbants, ['mab', 'mrdE', 'mabx', 'mabd', 'mrfE']);
+  // …mais elle ne s'explore qu'à partir de son cran d'ouverture (`op.desLeCran`) :
+  // au cran 0, celui du site, les quatre d'avant.
+  assert.deepEqual(operateursExplorables(catalogue).filter((o) => o.absorbe).map((o) => o.code),
+    ['mab', 'mrdE', 'mabx', 'mabd']);
   for (const code of absorbants) {
-    const op = operateursExplorables(catalogue).find((o) => o.code === code);
+    const op = operateursExplorables(catalogue, PUISSANCE_DE_FOUILLE_MAX).find((o) => o.code === code);
     assert.equal(op.from, 'NUMS');
     assert.equal(op.to, 'NUMS');
     assert.equal(typeof op.viser, 'function', 'elle écrit la cible : elle la lit');

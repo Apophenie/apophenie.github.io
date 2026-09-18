@@ -21,7 +21,7 @@ import assert from 'node:assert/strict';
 import { compile } from '../compile.js';
 import { setGlyphes } from '../glyphes.js';
 import { GLYPHES } from '../fixtures/glyphes.js';
-import { PAR_CODE, appliquer } from '../../moteur/catalogue.js';
+import { PAR_CODE, CATALOGUE, appliquer } from '../../moteur/catalogue.js';
 import { depuisSaisie } from '../../moteur/etat.js';
 import { lireVisee } from '../../moteur/transformations/commun.js';
 import { nivellementDe } from '../../moteur/transformations/combinateurs.js';
@@ -29,6 +29,7 @@ import {
   planRedecoupageFusionnant, planRedecoupageFusionnantExact, planEgalisationFutee,
 } from '../../moteur/transformations/mappeurs.js';
 import { construireScenario, suivreLaLigne } from '../../recherche/scenario.js';
+import { operateursExplorables } from '../../recherche/bfs.js';
 
 setGlyphes(GLYPHES, 'fixtures/glyphes.js');
 
@@ -134,13 +135,26 @@ test('★ `megf` bat `meg` : une seule coupe, neuf 6 au lieu d’aucun', () => {
   assert.deepEqual(planEgalisationFutee([1, 3, 3, 3, 3], V666).valeurs, [13, 3, 3, 3]);
 });
 
-test('★ `megf` ne vise que les cibles homogènes, et ne cherche pas', () => {
+test('★ `megf` ne vise que les cibles homogènes, et ne se cherche qu’à partir de son cran', () => {
   const op = PAR_CODE.get('megf');
   assert.equal(op.viser('31031998'), null);
   assert.ok(op.viser('111'));
-  assert.equal(op.actifParDefaut, false, 'inactif en recherche : il saturait la fenêtre de « hope »');
-  assert.equal(PAR_CODE.get('mrdf').actifParDefaut, true);
-  assert.equal(PAR_CODE.get('mrfE').actifParDefaut, true);
+  // ★ Actifs tous trois, mais explorés à partir d'un cran de fouille
+  //   (`op.desLeCran`, `bfs.js › operateursExplorables`) : « plus on avance
+  //   dans les crans, plus des cas complexes sont envisageables » (l'autrice).
+  //   Au cran 0, aucun des trois — la recherche du site garde son coût.
+  for (const code of ['mrdf', 'mrfE', 'megf']) {
+    const o = PAR_CODE.get(code);
+    assert.equal(o.actifParDefaut, true, `${code} : jugé, actif`);
+    assert.ok(o.desLeCran > 0, `${code} : absent du cran 0`);
+    assert.ok(!operateursExplorables(CATALOGUE, 0).includes(o), `${code} : pas exploré au cran 0`);
+    assert.ok(operateursExplorables(CATALOGUE, o.desLeCran).includes(o), `${code} : exploré à son cran`);
+    assert.ok(!operateursExplorables(CATALOGUE, o.desLeCran - 1).includes(o), `${code} : pas avant`);
+  }
+  // `megf` s'ouvre plus tard que les deux autres : c'est lui qui prenait les
+  // places (sept des vingt de « hope », `tca+m14` chassé).
+  assert.ok(op.desLeCran > PAR_CODE.get('mrdf').desLeCran);
+  assert.equal(PAR_CODE.get('mrdf').desLeCran, PAR_CODE.get('mrfE').desLeCran);
 });
 
 /* ★ « Note plus basse que leur modèle oui, mais derniers recours, non. Ils

@@ -15,7 +15,7 @@ import {
 } from './score.js';
 // ★ Les bornes de TEMPS vivent dans `src/config.js` — voir l'en-tête de ce
 //   fichier-là pour la condition qui permettrait de les relever.
-import { BUDGET_MS, BUDGET_MS_FILET, BUDGET_TOTAL_MS } from '../config.js';
+import { BUDGET_MS, BUDGET_MS_FILET, BUDGET_TOTAL_MS, PUISSANCE_DE_FOUILLE_MAX } from '../config.js';
 // ★ Une seule fonction, et rien de plus : la lecture du champ `convention`.
 //   Le barème COMPTE le mélange, ce module le REFUSE — mais tous deux doivent
 //   appeler « famille » la même chose (`elegance.js`, l'en-tête de la fonction).
@@ -460,6 +460,12 @@ export function validerCatalogue(catalogue) {
     if (typeof op.notoriete !== 'number' || op.notoriete < 0 || op.notoriete > 1) pbs.push(`${ou}: notoriete hors [0,1]`);
     if (typeof op.adHoc !== 'number' || op.adHoc < 0 || op.adHoc > 1) pbs.push(`${ou}: adHoc hors [0,1]`);
     if (typeof op.cout !== 'number' || op.cout < 0) pbs.push(`${ou}: cout manquant`);
+    // ★ Le cran d'ouverture (`operateursExplorables`) : un entier du curseur, ou
+    //   rien. Un cran hors du curseur fermerait l'opérateur à jamais, sans le dire.
+    if (op.desLeCran !== undefined && !(Number.isInteger(op.desLeCran) && op.desLeCran >= 0
+      && op.desLeCran <= PUISSANCE_DE_FOUILLE_MAX)) {
+      pbs.push(`${ou}: desLeCran hors de [0, ${PUISSANCE_DE_FOUILLE_MAX}]`);
+    }
   }
   return pbs;
 }
@@ -502,9 +508,26 @@ export function validerCatalogue(catalogue) {
  *   operateursActifs`) ; la recherche, elle, l'ignorait — et un `prm` inactif
  *   ne sortait des résultats que par la grâce de son barème.
  */
-export function operateursExplorables(catalogue) {
+/*
+ * ★ **ET CE QUE LE CRAN DE FOUILLE OUVRE** (`op.desLeCran`, déclaré sur
+ *   l'opérateur, 0 au défaut — `commun.js › def`).
+ *
+ * > « Plus on avance dans les crans, plus des cas complexes sont
+ * >   envisageables. » (l'autrice, 18 septembre 2026)
+ *
+ *   Un opérateur jugé, actif, mais CHER — en temps de recherche, ou en places
+ *   qu'il prend à la liste — n'a pas à choisir entre « toujours » et
+ *   « jamais » : il se déclare explorable à partir d'un cran, et la recherche
+ *   au cran N explore ceux dont le cran d'ouverture ne dépasse pas N. Rien
+ *   d'autre ne change pour lui : il se joue par lien à tous les crans, comme un
+ *   opérateur inactif (le rejeu lit le catalogue entier, `index.js ›
+ *   tableDesCodes`), et un appelant qui ne dit pas son cran obtient le cran 0 —
+ *   celui du site par défaut.
+ */
+export function operateursExplorables(catalogue, cran = 0) {
   return normaliserCatalogue(catalogue)
-    .filter((op) => !op.deprecated && !op.isJoker && op.actifParDefaut !== false);
+    .filter((op) => !op.deprecated && !op.isJoker && op.actifParDefaut !== false
+      && (op.desLeCran ?? 0) <= cran);
 }
 
 /**
@@ -556,8 +579,8 @@ export function operateursExplorables(catalogue) {
  * @param {Object} catalogue
  * @param {{defaut:boolean, texte:string}} cible
  */
-export function operateursPourCible(catalogue, cible) {
-  const tous = operateursExplorables(catalogue);
+export function operateursPourCible(catalogue, cible, cran = 0) {
+  const tous = operateursExplorables(catalogue, cran);
   if (!cible || cible.defaut !== false) return tous;
   const out = [];
   for (const op of tous) {
@@ -608,7 +631,7 @@ export function operateursPourCible(catalogue, cible) {
  * @param {import('./cible.js').Cible} cible
  * @returns {Array<{code:string, id:string, etat:string, dit:string}>}
  */
-export function operateursRetires(catalogue, cible) {
+export function operateursRetires(catalogue, cible, cran = 0) {
   const out = [];
   if (!cible) return out;
   const vueDuDefaut = cible.defaut !== false;
@@ -619,7 +642,7 @@ export function operateursRetires(catalogue, cible) {
     etat: 'REGLE_D_UNE_AUTRE_CIBLE',
     dit: `joué avec la règle de ${visee.texte}`,
   });
-  for (const op of operateursExplorables(catalogue)) {
+  for (const op of operateursExplorables(catalogue, cran)) {
     if (typeof op.viser !== 'function') continue;
     /* ★ **QUAND ON NE FILTRE PAS, RIEN N'EST RETIRÉ** — et c'est bien le
          problème : sous la cible par défaut, l'entrée du catalogue est explorée
@@ -929,7 +952,8 @@ export function chercherSix(fragment, ctx) {
     + '\u0000' + (ctx.maxNodes ?? MAX_NODES)
     + '\u0000' + (ctx.dMax ?? D_MAX)
     + '\u0000' + (ctx.pBeam ?? P_BEAM)
-    + '\u0000' + (ctx.cible && ctx.cible.texte ? ctx.cible.texte : '');
+    + '\u0000' + (ctx.cible && ctx.cible.texte ? ctx.cible.texte : '')
+    + '\u0000' + signatureDesOperateurs(ctx);
   const memo = cache.get(cle);
   // ── Un fragment déjà connu coûte zéro EN TEMPS, mais il est REFACTURÉ au
   // budget de travail, au tarif exact de la recherche qu'il économise.
@@ -958,7 +982,8 @@ export function chercherSix(fragment, ctx) {
     + '\u0000' + butsDe(ctx).map((b) => b.but).join('.')
     + '\u0000' + (ctx.maxNodes ?? MAX_NODES)
     + '\u0000' + (ctx.pBeam ?? P_BEAM)
-    + '\u0000' + (ctx.cible && ctx.cible.texte ? ctx.cible.texte : '');
+    + '\u0000' + (ctx.cible && ctx.cible.texte ? ctx.cible.texte : '')
+    + '\u0000' + signatureDesOperateurs(ctx);
   const deLaFamille = cache.get(famille);
   if (deLaFamille !== undefined) {
     const maxTravail = ctx.maxTravail ?? BUDGET_TRAVAIL;
@@ -1007,6 +1032,27 @@ export function reemployable(cout, maxTravail, dMax) {
   if (cout.travail >= cout.maxTravail) return false;
   if (dMax > cout.dMax && cout.profondeur >= cout.dMax - 1) return false;
   return true;
+}
+
+/**
+ * ★ **LE JEU D'OPÉRATEURS ENTRE DANS LA CLÉ** — depuis qu'il dépend du cran
+ *   (`operateursExplorables`, `op.desLeCran`). La recherche cumulative cherche
+ *   le même fragment au cran 0 puis au cran 5 sur le même moteur : servir au
+ *   cran 5 ce que le cran 0 a trouvé SANS les opérateurs que le cran 5 ouvre
+ *   rendrait la liste dépendante de l'ordre des recherches — l'entropie que
+ *   §4.4 interdit. Les codes, dans l'ordre : deux jeux égaux ont la même
+ *   signature, et le réemploi d'un cran au suivant reste entier tant que le
+ *   cran n'ouvre rien.
+ */
+const signatures = new WeakMap();
+function signatureDesOperateurs(ctx) {
+  const ops = ctx.operateurs || (ctx.operateurs = operateursExplorables(ctx.catalogue));
+  let s = signatures.get(ops);
+  if (s === undefined) {
+    s = ops.map((o) => o.code).join('+');
+    signatures.set(ops, s);
+  }
+  return s;
 }
 
 /**

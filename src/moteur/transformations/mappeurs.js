@@ -3013,6 +3013,21 @@ function idsFinalesExactes(plan, ctx) {
  */
 const TERME_ACCOLE_MAX = 3;
 
+/**
+ * ★ **LE CRAN D'OUVERTURE DE `mrdf` ET DE `mrfE`** — le 2, celui où s'ouvre
+ *   l'énumération (`config.js › PUISSANCE_ENUMERATION`).
+ *
+ * MESURÉ (temps CPU, moteur neuf) : actifs dès le cran 0, ils coûtaient
+ * environ +20 % à toute recherche du site (Donald Trump, Millicent Billette,
+ * Emmanuel Macron), dont deux secondes passées dans `mrdf` lui-même ; au cran 5,
+ * +13 % sur « Donald Trump », +10 % sur « Louis Fouché ». « Révéler en cinq
+ * secondes au cran 0 » est une promesse faite à quelqu'un qui attend : le cran 0
+ * ne les paie donc pas. Au cran 2, on a demandé davantage, et c'est le premier
+ * où la liste s'élargit assez (quarante-cinq places) pour qu'une variante moins
+ * élégante que son modèle y trouve sa place sans en chasser.
+ */
+const CRAN_DES_REDECOUPAGES_FUSIONNANTS = 2;
+
 /** La ligne écrite chiffre à chiffre, chaque chiffre avec le rang du nombre dont il vient. */
 function ligneDeChiffres(valeur) {
   const chiffres = [];
@@ -9597,8 +9612,9 @@ function operateurRedecoupageFusionnant() {
         + 'are joined only when that writes more.',
       ),
       // ★ 0,15 sous `mrd` (0,20), 0,49 au-dessus (0,48), et pas de recours, comme
-      //   lui — voir l'en-tête des trois variantes.
-      notoriete: 0.15, adHoc: 0.49, cout: 2,
+      //   lui — voir l'en-tête des trois variantes. Exploré à partir du cran 2 :
+      //   voir `CRAN_DES_REDECOUPAGES_FUSIONNANTS`.
+      notoriete: 0.15, adHoc: 0.49, cout: 2, desLeCran: CRAN_DES_REDECOUPAGES_FUSIONNANTS,
       note: bilingue(
         'La triche du redécoupage, avec une liberté de plus : coller deux chiffres voisins pour '
         + 'en faire un nombre. Elle ne sert que là où le redécoupage ordinaire écrit moins — '
@@ -9668,8 +9684,9 @@ function operateurRedecoupageFusionnantExact() {
       ),
       // ★ 0,12 sous `mrdE` (0,15), le même adHoc (0,49 : on ne peut pas être
       //   plus taillé pour la cible sans être le joker), et pas de recours, comme
-      //   lui — voir l'en-tête des trois variantes.
-      notoriete: 0.12, adHoc: 0.49, cout: 2,
+      //   lui — voir l'en-tête des trois variantes. Exploré à partir du cran 2,
+      //   comme `mrdf`.
+      notoriete: 0.12, adHoc: 0.49, cout: 2, desLeCran: CRAN_DES_REDECOUPAGES_FUSIONNANTS,
       note: bilingue(
         'Le redécoupage exact, avec une liberté de plus : coller des chiffres voisins pour que '
         + 'la somme écrive plusieurs chiffres de la cible d’un coup. Il ne joue que là où le '
@@ -9736,17 +9753,26 @@ function operateurEgalisationFutee() {
       //   l'emporte », qui décide lui aussi en regardant les valeurs, et reste
       //   sous `mrd` (0,48), qui choisit chaque paquet. Pas de recours : voir l'en-tête.
       notoriete: 0.15, adHoc: 0.45, cout: 2,
-      // ★ **INACTIF EN RECHERCHE — mesuré, et à rouvrir par l'autrice.** Actif,
-      //   il prenait sept des vingt places de la fenêtre par famille de « hope »
-      //   (`familles.test.js`) et en chassait `tca+m14`, la voie de référence :
-      //   une ligne sur deux se laisse égaliser en 6 pourvu qu'on la redécoupe
-      //   (mesuré : 2 021 lignes témoins sur 4 000), et la fenêtre se trie
-      //   d'abord au compte de 6. Ni le barème ni `A_MERITER_SA_PLACE` n'y
-      //   peuvent rien — c'est le piège que `meg` avait tendu le jour où il est
-      //   sorti des ficelles, en plus fort. Il se joue donc par lien, comme les
-      //   opérateurs de dernier recours ; l'activer est une décision de
-      //   classement, qui se mesure sur la suite lente.
-      actifParDefaut: false,
+      // ★ **ACTIF, MAIS À PARTIR DU CRAN 8** (`desLeCran`, `recherche/bfs.js ›
+      //   operateursExplorables`). Il fut d'abord INACTIF en recherche : actif
+      //   partout, il prenait sept des vingt places de la fenêtre par famille de
+      //   « hope » (`familles.test.js`) et en chassait `tca+m14` — une ligne sur
+      //   deux se laisse égaliser en 6 pourvu qu'on la redécoupe (mesuré : 2 021
+      //   lignes témoins sur 4 000), et la fenêtre se trie d'abord au compte de
+      //   6. L'autrice a rouvert la question : « plus on avance dans les crans,
+      //   plus des cas complexes sont envisageables ».
+      //   MESURÉ, ouvert au cran 5 (temps CPU, moteur neuf, recherche
+      //   cumulative) : +24 % sur « Donald Trump », +10 % sur « Louis Fouché » —
+      //   supportable —, mais la TÊTE se remplissait de ses variantes : sur
+      //   « Donald Trump », quatre des cinq premières lignes (`2:fatb;fl+tca+
+      //   masc+megf`, `0:fr24;…`, `0:fr23;…`, `0:fr8;…`), sur « Didier Raoult »
+      //   quatre aussi (`+megf`, `+megf+mtri`, `+megf+mpf`). Ce n'est plus une
+      //   question de places — la cumulation garde ce que les crans inférieurs
+      //   montraient —, c'est une question de ce qu'on lit en premier. Il s'ouvre
+      //   donc avec les chaînes de trois retouches (`config.js ›
+      //   raffinagesEnChaine`), aux crans où l'on vient chercher l'inhabituel.
+      desLeCran: 8,
+      actifParDefaut: true,
       note: bilingue(
         'L’égalisation, préparée : avant de répartir, on choisit comment lire la ligne — ce '
         + 'nombre coupé en deux, ces deux chiffres collés — pour que la répartition tombe sur le '

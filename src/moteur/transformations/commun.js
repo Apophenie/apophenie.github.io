@@ -538,6 +538,13 @@ export function def(spec) {
     isJoker: false,
     note: null,
     actifParDefaut: true,
+    // ★ LE CRAN D'OUVERTURE — le cran de fouille à partir duquel la recherche
+    //   l'explore (0 : dès l'ouverture). Lu par `recherche/bfs.js ›
+    //   operateursExplorables`. Pour un opérateur jugé et actif, mais qui coûte
+    //   cher à chercher ou prend trop de places : « plus on avance dans les
+    //   crans, plus des cas complexes sont envisageables » (l'autrice, 18
+    //   septembre 2026). Le moteur n'en fait rien : il se joue à tous les crans.
+    desLeCran: 0,
     couverture: null,
     steps: null,
     sortie: null,
