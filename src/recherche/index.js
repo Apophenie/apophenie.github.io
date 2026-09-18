@@ -892,8 +892,11 @@ export function creerMoteur(catalogue, options = {}) {
       // ★ La largeur d'assemblage suit le cran : c'est elle qui décide combien
       //   d'approches peuvent seulement EXISTER (`config.js`).
       parFragment: budgets.parFragment,
-      // ★ Le cran décide du jeu d'opérateurs (`op.desLeCran`).
+      // ★ Le cran décide du jeu d'opérateurs (`op.desLeCran`) et de la longueur
+      //   des chaînes de retouches après la conversion (`config.js ›
+      //   raffinagesEnChaine`, `assemblage.js › prolongerLesRetouches`).
       cran: fouille,
+      raffinages: budgets.raffinages,
       // ★ Les gardes de l'étage des retouches suivent le cran (`config.js`).
       // ★ Ce que la rampe fait naître au-delà des gardes historiques — voir
       //   `finaliser`, la double sélection. Partagé avec la passe profonde.

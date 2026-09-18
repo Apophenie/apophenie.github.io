@@ -307,7 +307,53 @@ export function reglagesDeBudget(puissance = PUISSANCE_DE_FOUILLE_DEFAUT) {
     //   quatre, les valeurs d'avant au caractère près.
     motsRetouches: motsARetoucher(n),
     vecteursRetouches: vecteursARetoucher(n),
+    // ★ **LES CHAÎNES DE RETOUCHES APRÈS LA CONVERSION SUIVENT LE CRAN**
+    //   (`raffinagesEnChaine`, `assemblage.js › prolongerLesRetouches`). Une au
+    //   cran 0, le déroulé d'avant au bit près.
+    raffinages: raffinagesEnChaine(n),
   };
+}
+
+/**
+ * ★ **LA LONGUEUR DES CHAÎNES DE RETOUCHES** — combien de retouches `NUMS →
+ *   NUMS` peuvent suivre la conversion lettre → nombre dans le déroulé des
+ *   vecteurs (`assemblage.js › vecteursDeSix`).
+ *
+ * > « Plus largement, mais si le coût est élevé, c'est le genre de chose à
+ * >   faire évoluer entre le cran 0 et le cran 10 : plus on avance dans les
+ * >   crans, plus des cas complexes sont envisageables. » (l'autrice,
+ * >   18 septembre 2026)
+ *
+ * `min(3, 1 + ⌊(n + 2) / 5⌋)` : UNE retouche aux crans 0 à 2 — le déroulé
+ * d'avant, au bit près —, DEUX aux crans 3 à 7, TROIS aux crans 8 à 10. Une
+ * loi, pas une table (« des rampes, pas des marches » : ici la grandeur est un
+ * entier, la rampe a donc des paliers, mais ils se déduisent de la formule).
+ *
+ * ★ **MESURÉ, et c'est ce qui place les paliers** — temps CPU d'une recherche
+ *   au cran 5, moteur neuf, recherche cumulative, sur « Donald Trump » et
+ *   « Louis Fouché », chaque ingrédient pris seul :
+ *
+ *     rien de plus                                  47,0 s   35,5 s
+ *     deux retouches dès le cran 0                  57,0 s   41,8 s   (+21 %, +18 %)
+ *     trois retouches dès le cran 0                 70,1 s   53,5 s   (+49 %, +51 %)
+ *
+ *   (Avant que la chaîne cesse de regonfler la ligne — `assemblage.js ›
+ *   prolongerLesRetouches` —, trois retouches coûtaient ×2,4 et ×3,0.)
+ *   Deux retouches coûtent donc à peu près le prix d'un demi-cran ; trois, d'un
+ *   cran entier. Au cran 0, aucune : la promesse de « Révéler » en cinq
+ *   secondes est faite à quelqu'un qui attend. Deux s'ouvrent au cran 3, le
+ *   premier après l'ouverture de l'énumération (`PUISSANCE_ENUMERATION`) — et
+ *   c'est dès ce cran que « Donald Trump » montre `fl+mt9+mam+meg` (neuf 6 et
+ *   un 7) en troisième ligne ; trois au cran 8, là où l'on accepte d'attendre
+ *   des minutes pour voir l'inhabituel.
+ */
+export const RAFFINAGES_OUVERTURE = 3;
+export const RAFFINAGES_PAS = 5;
+export const RAFFINAGES_PLAFOND = 3;
+export const FORMULE_RAFFINAGES = 'min(3, 1 + ⌊(n + 2) / 5⌋)';
+export function raffinagesEnChaine(n) {
+  return Math.min(RAFFINAGES_PLAFOND,
+    1 + Math.floor(Math.max(0, n - RAFFINAGES_OUVERTURE + RAFFINAGES_PAS) / RAFFINAGES_PAS));
 }
 
 /** La pénalité de redondance du MMR au cran d'ouverture, en pour-mille — le
@@ -469,6 +515,11 @@ export const REGLAGES_DU_CRAN = Object.freeze([
     cle: 'vecteursRetouches', nom: 'Vecteurs rejoués sous retouche',
     formule: 'round(4 × 1,32ⁿ)', calcul: vecteursARetoucher,
     role: 'combien de vecteurs de tête sont rejoués sur le texte retouché',
+  }),
+  Object.freeze({
+    cle: 'raffinages', nom: 'Retouches enchaînées après la conversion',
+    formule: FORMULE_RAFFINAGES, calcul: raffinagesEnChaine,
+    role: 'combien de retouches NUMS → NUMS peuvent suivre la conversion lettre → nombre',
   }),
   Object.freeze({
     cle: 'lambda', nom: 'Pénalité de redondance (‰)',

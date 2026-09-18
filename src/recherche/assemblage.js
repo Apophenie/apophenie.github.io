@@ -733,6 +733,10 @@ function deroulerUnMappeur(j, m, secondRaffinage, d) {
   if (v === null) return;
   if (!secondRaffinage) d.retenir(j.ops.concat(m), j.etats.concat([v]));
   const lignesVues = secondRaffinage ? new Set([cleEtat(v)]) : null;
+  // ★ Les lignes du premier niveau qu'une chaîne de retouches peut prolonger —
+  //   seulement quand le cran en ouvre une (`d.raffinages > 1`, voir
+  //   `prolongerLesRetouches`). Au cran 0, rien n'est collecté.
+  const aProlonger = !secondRaffinage && d.raffinages > 1 ? [] : null;
   for (const r of d.raffineurs) {
     // ★ Un raffinage qui GONFLE n'a rien à faire dans le premier déroulé :
     //   il n'existe que pour le dernier recours (voir `assembler`).
@@ -742,6 +746,7 @@ function deroulerUnMappeur(j, m, secondRaffinage, d) {
     if (w === null) continue;
     if (!secondRaffinage) {
       d.retenir(j.ops.concat(m, r), j.etats.concat([v, w]));
+      if (aProlonger) aProlonger.push({ ops: j.ops.concat(m, r), etats: j.etats.concat([v, w]), r, w });
       continue;
     }
     if (r.absorbe || w.type !== 'NUMS') continue;
@@ -778,6 +783,84 @@ function deroulerUnMappeur(j, m, secondRaffinage, d) {
       }
     }
   }
+  if (aProlonger && aProlonger.length) prolongerLesRetouches(v, aProlonger, d);
+}
+
+/**
+ * ★ **LES RETOUCHES S'ENCHAÎNENT APRÈS LA CONVERSION — et la longueur de la
+ *   chaîne suit le cran de fouille.**
+ *
+ * > « Plus largement, mais si le coût est élevé, c'est le genre de chose à faire
+ * >   évoluer entre le cran 0 et le cran 10 : plus on avance dans les crans,
+ * >   plus des cas complexes sont envisageables. » (l'autrice, 18 septembre 2026)
+ *
+ * L'étage 3 déroulait « mappeur, puis UN raffinage » : `fl+tca+mt9+mtri+mam+meg`
+ * — ranger, additionner des voisins vers la moyenne, égaliser — n'était jamais
+ * construit, et `mam`, qui n'existe que pour préparer `meg`, ne sortait jamais.
+ * Ce n'était pas la profondeur (`dMax`), c'était la FORME, exactement comme pour
+ * les retraits grammaticaux de l'étage 1. La forme s'élargit donc : jusqu'à
+ * `d.raffinages` retouches `NUMS → NUMS` à la suite (`config.js ›
+ * raffinagesEnChaine`), une au cran 0 — le déroulé d'avant, au bit près.
+ *
+ * ★ **EN LARGEUR, UNE LIGNE UNE FOIS.** Chaque niveau part des lignes du niveau
+ *   précédent, dans l'ordre du catalogue (§4.4 règle 3). Une ligne déjà atteinte
+ *   — par la conversion, ou par une chaîne plus courte — n'est pas reprise :
+ *   elle a déjà son chemin le plus court, et la prolonger referait le même
+ *   travail sous un nom plus long. C'est aussi ce qui écarte la retouche qui ne
+ *   change rien (N3) et l'aller-retour qui revient sur ses pas.
+ * ★ **NI ABSORPTION, NI GONFLEMENT DANS LA CHAÎNE.** Une absorption consomme
+ *   toute la ligne et n'écrit que la cible : rien ne se retouche après elle, et
+ *   la faire précéder de retouches, c'est la seconde passe de dernier recours
+ *   (`derouler(true)`), que seule une liste vide déclenche — « mab est un
+ *   dernier recours, à éviter quand on peut » (l'autrice). Le gonflement reste
+ *   à cette même passe. La chaîne n'enchaîne donc que des RETOUCHES.
+ * ★ **ET LA CHAÎNE NE REGONFLE PAS LA LIGNE.** Une retouche peut rendre une
+ *   ligne plus LONGUE que celle de la conversion — la potence (`mdc*`) écrit un
+ *   nombre en ses décimales, `2 5 3` devient une vingtaine de chiffres. Elle
+ *   reste retenue telle quelle, comme avant ; mais on ne la prolonge pas. Une
+ *   chaîne de retouches RAFFINE ce que la conversion a lu, elle ne fabrique pas
+ *   de la matière pour la raffiner ensuite : fabriquer de la matière, c'est le
+ *   gonflement, et il est réservé au dernier recours. MESURÉ, et c'est ce qui a
+ *   fait écrire la règle : sans elle, les chaînes partaient des lignes gonflées
+ *   — `fr21+tca+mas+mdc3+mam+meg`, vingt-deux 6 sur « Donald Trump » — et
+ *   `prolongerLesRetouches` pesait 58 % d'une recherche au cran 8 (89 s CPU au
+ *   lieu de 49), dans les plans les plus chers (`mrdf`, `mrd`, `megf`) appliqués
+ *   à des lignes de trente chiffres ; et ces voies alambiquées, fournies en 6,
+ *   montaient en tête de liste devant `fl+mazc+meg`.
+ * ★ Le travail se compte comme au premier niveau, pesé par la longueur de la
+ *   ligne lue : c'est lui que la borne de la moisson lit (§4.4).
+ */
+function prolongerLesRetouches(v, premiers, d) {
+  const vues = new Set([cleEtat(v)]);
+  let niveau = [];
+  for (const p of premiers) {
+    const k = cleEtat(p.w);
+    if (vues.has(k)) continue;
+    vues.add(k);
+    if (!p.r.absorbe && p.w.type === 'NUMS') niveau.push(p);
+  }
+  const largeur = v.valeur.length;
+  const prolongeable = (w) => w.valeur.length <= largeur;
+  niveau = niveau.filter((p) => prolongeable(p.w));
+  for (let n = 2; n <= d.raffinages && niveau.length; n++) {
+    const suivant = [];
+    for (const p of niveau) {
+      for (const r of d.raffineurs) {
+        if (r.gonfle || r.absorbe) continue;
+        d.compte.travail += Math.max(1, p.w.valeur.length);
+        const w = appliquerOp(r, p.w);
+        if (w === null || w.type !== 'NUMS') continue;
+        const k = cleEtat(w);
+        if (vues.has(k)) continue;
+        vues.add(k);
+        const ops = p.ops.concat(r);
+        const etats = p.etats.concat([w]);
+        d.retenir(ops, etats);
+        if (prolongeable(w)) suivant.push({ ops, etats, r, w });
+      }
+    }
+    niveau = suivant;
+  }
 }
 
 export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS_PAR_FRAGMENT * 2,
@@ -808,9 +891,18 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
          du déroulé qu'il économise — comme `bfs.js › chercherSix` : la borne de
          la moisson décide pareil, que le mémo serve ou non (§4.4). */
   const memo = options.memo instanceof Map ? options.memo : null;
+  /* ★ **LA LONGUEUR DES CHAÎNES DE RETOUCHES** après la conversion
+       (`prolongerLesRetouches`), que le cran de fouille commande (`config.js ›
+       raffinagesEnChaine`). Une au défaut : le déroulé d'avant. Elle entre dans
+       les deux clés du mémo — la même portée déroulée à deux longueurs n'est pas
+       la même question. */
+  const raffinages = options.raffinages ?? 1;
+  if (!Number.isInteger(raffinages) || raffinages < 1) {
+    throw new Error(`vecteursDeSix : « raffinages » doit être un entier ≥ 1, reçu ${raffinages}`);
+  }
   const cleMemo = memo ? JSON.stringify(['vecteursDeSix', String(texte).normalize('NFC'), cbl.texte, minSix,
     plafond, miseEnForme, options.profond === true, options.matiereDePhrase === true,
-    options.curseurs ?? null, cleDesOps(ops), options.parFamille === true]) : null;
+    options.curseurs ?? null, cleDesOps(ops), options.parFamille === true, raffinages]) : null;
   /* ★ **L'ÉNUMÉRATION SE PARTAGE ENTRE LES DEUX FENÊTRES DE LA MATIÈRE.**
        `candidatsDePortee` demande la même portée deux fois — la fenêtre d'avant,
        puis celle qui sert une place par famille (`moissons`, la réunion). Les
@@ -819,7 +911,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
        coupe. Seule la matière est concernée : le GROUPEMENT n'a qu'une fenêtre. */
   const cleEnumeration = memo && !miseEnForme ? JSON.stringify(['vecteursDeSix:enumeration',
     String(texte).normalize('NFC'), cbl.texte, minSix, options.profond === true,
-    options.matiereDePhrase === true, cleDesOps(ops)]) : null;
+    options.matiereDePhrase === true, cleDesOps(ops), raffinages]) : null;
   if (memo) {
     const deja = memo.get(cleMemo);
     if (deja) {
@@ -1034,7 +1126,9 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   const absorbants = raffineurs.filter((o) => o.absorbe);
   /* ★ Le déroulé d'UN mappeur sur UN jeu de jetons vit hors de cette fonction
        (`deroulerUnMappeur`) : voir là-bas pourquoi. */
-  const deroulage = { raffineurs, absorbants, eclateurs, matiereDePhrase: options.matiereDePhrase, compte, retenir };
+  const deroulage = {
+    raffineurs, absorbants, eclateurs, matiereDePhrase: options.matiereDePhrase, compte, retenir, raffinages,
+  };
   const derouler = (secondRaffinage) => {
     for (const j of jetons.values()) {
       for (const m of mappeurs) deroulerUnMappeur(j, m, secondRaffinage, deroulage);
@@ -3926,6 +4020,8 @@ export function assembler(saisie, fragments, parFrag, ctx) {
         {
           curseurs: ctx.curseurs, profond: ctx.profond === true, matiereDePhrase: ctx.matiereDePhrase === true,
           memo: ctx.cache instanceof Map ? ctx.cache : null,
+          // ★ La longueur des chaînes de retouches, que le cran commande.
+          raffinages: ctx.raffinages ?? 1,
         });
       const vecteurs = tous.slice(0, kParFragment);
       if (f.entier || f.famille === 'entier') vecteursEntiers = vecteurs;
@@ -3974,6 +4070,7 @@ export function assembler(saisie, fragments, parFrag, ctx) {
           profond: ctx.profond === true,
           matiereDePhrase: ctx.matiereDePhrase === true,
           memo: ctx.cache instanceof Map ? ctx.cache : null,
+          raffinages: ctx.raffinages ?? 1,
         });
         const dejaGardes = new Set(vecteurs.map(codesDe));
         let assise = null;

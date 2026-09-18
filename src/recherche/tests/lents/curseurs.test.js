@@ -803,6 +803,7 @@ test('★ les formules du cran rendent exactement les lois dictées', () => {
     lambda: [350, 270, 208, 160, 123, 95, 73, 56, 43, 33, 26],
     motsRetouches: [6, 7, 9, 10, 12, 15, 18, 21, 26, 31, 37],
     vecteursRetouches: [4, 5, 7, 9, 12, 16, 21, 28, 37, 49, 64],
+    raffinages: [1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
   };
   for (const [cle, attendu] of Object.entries(ATTENDU)) {
     assert.equal(attendu.length, PUISSANCE_DE_FOUILLE_MAX + 1, `${cle} : un cran manque`);
@@ -834,7 +835,7 @@ test('★ le registre des réglages du cran dit ce que les budgets font', () => 
   // Les quatre réglages que le cran commande y sont tous, et pas seulement
   // ceux qu'on a pensé à y mettre le jour où on a écrit la page.
   const cles = new Set(REGLAGES_DU_CRAN.map((r) => r.cle));
-  for (const c of ['voies', 'parMappeur', 'parFragment', 'lambda', 'motsRetouches', 'vecteursRetouches']) {
+  for (const c of ['voies', 'parMappeur', 'parFragment', 'lambda', 'motsRetouches', 'vecteursRetouches', 'raffinages']) {
     assert.ok(cles.has(c), `${c} bouge avec le cran et manque au registre de debug`);
   }
 });
