@@ -8,6 +8,7 @@ import { encoderTexte, LIMITE_SAISIE } from '../base58.js';
 import { catalogue } from './_catalogue.js';
 import { reglagesDeBudget, PUISSANCE_ENUMERATION } from '../../config.js';
 import { creerMoteur } from '../index.js';
+import { scoreGlobal } from '../score.js';
 
 const B58_HOPE = encoderTexte('hope');                       // 3fq9KJ
 const B58_URL = encoderTexte('https://hope-hope-hope.fr/');
@@ -1131,7 +1132,14 @@ test('★ commande — l’énumération applique la fouille et les curseurs du 
   assert.equal(pondere.curseurs.simplicite, 200, 'les curseurs appliqués sont rendus');
   // Et la liste est CLASSÉE par ces curseurs : décroissante sur le score
   // pondéré qu'elle affiche, pas sur celui du barème par défaut.
-  const scores = pondere.approches.map((a) => a.score);
+  // ⚠️ Ce qu'elle affiche est le GLOBAL des axes (`app/pages/resultat.js ›
+  //   scoresDeLaVoie`), et c'est lui qui la range (`index.js ›
+  //   rangerParLeGlobal`, `score.js › ordreGlobal`). L'assertion lisait
+  //   `a.score`, le score du moteur : les deux ordres coïncidaient sur cette
+  //   saisie tant qu'aucune voie n'y avait un global haut et un score bas. La
+  //   première à en avoir un — `fen2+tca+mx6+mrfE`, sans perte, courte, peu
+  //   fournie — a montré que c'était une coïncidence.
+  const scores = pondere.approches.map((a) => scoreGlobal(a, pondere.curseurs));
   for (let i = 1; i < scores.length; i++) {
     assert.ok(scores[i] <= scores[i - 1], `rang ${i + 1} (${scores[i]}) passe devant le rang ${i} (${scores[i - 1]})`);
   }

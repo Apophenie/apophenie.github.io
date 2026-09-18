@@ -167,7 +167,7 @@ test('★ politique — au-delà de dix chiffres visés, ranger suffit', () => {
 
 /* ══════════════════ 5. Ce qui se retire, et qui le dit ══════════════════
  *
- * ★ Onze opérateurs lisent la cible et ont le DROIT de se retirer quand leur
+ * ★ Treize opérateurs lisent la cible et ont le DROIT de se retirer quand leur
  *   règle n'a pas de sens pour elle — « le plus fréquent l'emporte » ne veut
  *   rien dire pour `13`. Ils n'ont pas le droit de le faire en silence :
  *   l'échec bruyant est un contrat (§2.2). Avant, `operateursPourCible` les
@@ -191,10 +191,13 @@ test('★ retraits — une cible mêlée fait se retirer `mpf`, `mr6` et `mam`, 
   assert.deepEqual(operateursRetires(catalogue, lireCible('999')), []);
 });
 
-test('★ retraits — sur la cible sous-jacente d’un mot, onze opérateurs s’en vont', () => {
+test('★ retraits — sur la cible sous-jacente d’un mot, treize opérateurs s’en vont', () => {
   const rangs = cibleDeValeurs([26, 5, 18, 7]);
   const retires = operateursRetires(catalogue, rangs);
-  assert.equal(retires.length, 11, 'toute la famille qui lit la cible (`mam` compris)');
+  // Dix, plus l'addition vers la moyenne (`mam`) et les deux redécoupages qui
+  // accolent (`mrdf`, `mrfE`), qui lisent la cible comme leurs modèles. `megf`
+  // n'est pas compté : inactif en recherche, il n'a rien à retirer.
+  assert.equal(retires.length, 13, 'toute la famille qui lit la cible');
   assert.ok(retires.every((x) => x.etat === 'RETIRE'));
   for (const code of ['mab', 'mrdE', 'mabx', 'mabd']) {
     assert.ok(retires.some((x) => x.code === code), `${code} se retire devant une suite de valeurs`);

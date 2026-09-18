@@ -381,7 +381,8 @@ test('cible-mot — le rejeu refuse ce qu’il ne sait pas relire, en le disant'
  */
 test('cible-mot — les opérateurs qui ABSORBENT sont déclarés, et ce sont ceux-là', () => {
   const absorbants = operateursExplorables(catalogue).filter((o) => o.absorbe).map((o) => o.code);
-  assert.deepEqual(absorbants, ['mab', 'mrdE', 'mabx', 'mabd']);
+  // `mrfE`, la variante de `mrdE` qui accole des chiffres, absorbe comme elle.
+  assert.deepEqual(absorbants, ['mab', 'mrdE', 'mabx', 'mabd', 'mrfE']);
   for (const code of absorbants) {
     const op = operateursExplorables(catalogue).find((o) => o.code === code);
     assert.equal(op.from, 'NUMS');

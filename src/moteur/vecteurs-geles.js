@@ -354,6 +354,17 @@ export const VECTEURS = [
   ['mpui', N([5, 2]), [25, 32]],
   // La factorielle s'écrit comme elle se calcule : 4 × 3 × 2 × 1, puis 3 × 2 × 1.
   ['mfac', N([4, 3]), [24, 6]],
+  // ★ Les trois redécoupages qui FUSIONNENT, chacun sur une ligne où son modèle
+  //   écrit moins. `2 2 4 4` : `mrd` n'y trouve qu'un 6 (`2+4` au milieu) ;
+  //   accolés, `22 + 44 = 66` en écrit deux.
+  ['mrdf', N([2, 2, 4, 4]), [6, 6]],
+  // `6 5 6 1` : le 6 reste, et `5 + 61 = 66` écrit les deux suivants — `mrdE`
+  //   n'y écrit rien, aucune somme de chiffres voisins n'y tombant deux fois.
+  ['mrfE', N([6, 5, 6, 1]), [6, 6, 6]],
+  // `9 14 1 8 3 5 5 8 4 16` : égalisée telle quelle, la ligne tombe sur des 7
+  //   et des 8 — aucun 6. Coupé en `1 6`, le dernier nombre la fait tomber sur
+  //   neuf 6 : une coupe, quinze transferts.
+  ['megf', N([9, 14, 1, 8, 3, 5, 5, 8, 4, 16]), [6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 6]],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],

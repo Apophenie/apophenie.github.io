@@ -107,7 +107,7 @@ import {
 } from './commun.js';
 import { opComptage } from './combinateurs.js';
 import { bilingue, dire } from '../i18n.js';
-import { nivellementDe, dureeRamassage } from './combinateurs.js';
+import { nivellementDe, dureeRamassage, MAX_TRANSFERTS } from './combinateurs.js';
 
 const pli = (c) => sansAccents(String(c)).toUpperCase();
 
@@ -2958,6 +2958,811 @@ function idsFinalesExactes(plan, ctx) {
     ids = passe.paquets.flatMap((p, j) => idsSortieExacte(ctx, q, j, p, ids));
   });
   return ids;
+}
+
+
+// ───────────────────────────────────────────────────────────────────────────
+// ★ LES REDÉCOUPAGES QUI FUSIONNENT — `mrdf`, `mrfE`, `megf`
+// ───────────────────────────────────────────────────────────────────────────
+//
+// > « Plutôt que d'inclure la fusion dans mrd et mrdE, fais des variantes
+// >   capables de fusionner ; elles me semblent un peu moins élégantes, donc
+// >   autant garder l'existant et ajouter plutôt que modifier. » (l'autrice)
+//
+// `mrd`, `mrdE` et `meg` lisent la ligne comme ils l'ont toujours lue — pas un
+// octet de leur comportement ne bouge, et rien de ce qui suit n'est appelé par
+// eux. Les trois variantes lisent la ligne comme la SUITE DE SES CHIFFRES, et
+// y choisissent des TERMES : un terme est une suite de chiffres voisins lue
+// comme un nombre. Trois sortes de termes, et c'est toute la liberté ajoutée :
+//
+//  · un chiffre seul — ce que `mrd` et `mrdE` lisent déjà ;
+//  · un nombre de la ligne laissé ENTIER (« un 12 n'est pas forcé d'être
+//    éclaté ») — quelle que soit sa longueur, puisqu'il était déjà là ;
+//  · des chiffres voisins ACCOLÉS (`3 3 → 33`), au plus `TERME_ACCOLE_MAX`,
+//    qu'ils viennent d'un même nombre (un morceau de `123`) ou de deux (une
+//    SOUDURE, qui franchit l'espace entre deux nombres).
+//
+// ★ **CE QUI SE COMPTE, ET CE QUI SE PAIE.** Une COUPE tombe à l'intérieur
+//   d'un nombre de la ligne, une SOUDURE franchit l'espace entre deux : ce
+//   sont les deux écarts à la ligne telle qu'elle est écrite. Les soudures se
+//   paient partout (ce sont elles qui rendent ces variantes « moins
+//   élégantes ») ; les coupes ne se paient que chez `megf`, parce que `mrd` et
+//   `mrdE` coupent déjà tout sans rien payer — les variantes n'ont pas à être
+//   plus pudiques que leurs modèles sur ce que ceux-ci font gratuitement.
+//
+// ⚠️ **L'INVARIANT MODULO NEUF TIENT TOUJOURS.** `33 ≡ 3 + 3 (mod 9)` : accoler
+//   des chiffres ne change pas la classe de la ligne, pas plus qu'additionner.
+//   `mrfE` refuse donc exactement les mêmes lignes que `mrdE` sur ce critère ;
+//   ce qu'il gagne tient à la FORME — `33 + 33` écrit deux 6 d'une seule
+//   addition, là où deux sommes de chiffres en demandent quatre —, pas à
+//   l'arithmétique.
+
+/**
+ * ★ La longueur maximale d'un terme ACCOLÉ — trois chiffres.
+ *
+ * Choisie pour la taille de la programmation dynamique et pour l'œil, dans cet
+ * ordre. Un terme de trois chiffres suffit à écrire `333 + 333 = 666`, le cas
+ * le plus long que l'autrice ait cité ; un paquet reste borné à six chiffres en
+ * tout (`PAQUET_MAX`, la lisibilité de `mrd`), si bien qu'à trois chiffres par
+ * terme les découpes d'un paquet se comptent par dizaines (51 au plus depuis un
+ * rang) et non par milliers. Au-delà, on n'additionnerait plus des nombres
+ * qu'on lit, on fabriquerait des nombres pour qu'ils s'additionnent.
+ *
+ * ⚠️ La borne ne vise que ce qu'on ACCOLE : un nombre de la ligne laissé entier
+ *   garde sa longueur, quelle qu'elle soit.
+ */
+const TERME_ACCOLE_MAX = 3;
+
+/** La ligne écrite chiffre à chiffre, chaque chiffre avec le rang du nombre dont il vient. */
+function ligneDeChiffres(valeur) {
+  const chiffres = [];
+  valeur.forEach((v, i) => {
+    for (const c of String(v)) chiffres.push({ v: Number(c), src: i });
+  });
+  return chiffres;
+}
+
+/**
+ * Les termes qu'on peut lire à partir de chaque rang, du plus court au plus
+ * long — l'ordre d'énumération est le départage final des trois plans (§4.4).
+ *
+ * Un terme de plusieurs chiffres ne commence jamais par un 0 — sauf à être un
+ * nombre de la ligne, qui n'en porte jamais en tête : `05` ne s'écrit pas.
+ *
+ * @returns {Array<Array<{debut:number, fin:number, v:number, soudures:number, entier:boolean}>>}
+ */
+function termesPossibles(chiffres) {
+  const n = chiffres.length;
+  const ouvreUnNombre = (k) => k === 0 || chiffres[k - 1].src !== chiffres[k].src;
+  const fermeUnNombre = (k) => k === n || chiffres[k].src !== chiffres[k - 1].src;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const liste = [];
+    let v = 0;
+    let soudures = 0;
+    for (let f = i + 1; f <= n; f++) {
+      const k = f - i;
+      if (k > 1 && chiffres[f - 1].src !== chiffres[f - 2].src) soudures++;
+      v = v * 10 + chiffres[f - 1].v;
+      const entier = soudures === 0 && ouvreUnNombre(i) && fermeUnNombre(f);
+      const accolable = k <= TERME_ACCOLE_MAX && chiffres[i].v !== 0;
+      if (k === 1 || entier || accolable) liste.push({ debut: i, fin: f, v, soudures, entier });
+      // Au-delà de la borne, seul un nombre ENTIER peut encore se lire.
+      const peutFinirEntier = soudures === 0 && ouvreUnNombre(i) && !fermeUnNombre(f);
+      if (k >= TERME_ACCOLE_MAX && !peutFinirEntier) break;
+    }
+    out.push(liste);
+  }
+  return out;
+}
+
+/**
+ * Les paquets de DEUX TERMES OU PLUS qui commencent au rang `i` — six chiffres
+ * au plus en tout (`PAQUET_MAX`). Énumérés en profondeur, termes courts
+ * d'abord : c'est l'ordre du départage final.
+ *
+ * ★ **Deux découpes qui finissent au même rang avec la même somme, les mêmes
+ *   soudures et le même nombre de termes accolés sont INDISCERNABLES** pour
+ *   les deux programmations dynamiques : elles écrivent les mêmes chiffres et
+ *   coûtent pareil. Seule la première, dans l'ordre d'énumération, est gardée
+ *   — c'est déjà elle que le départage aurait retenue.
+ *
+ * ⚠️ MESURÉ, et c'est ce qui a fait écrire `garder` et la table des lectures
+ *   de `planRedecoupageFusionnant` : sans eux, `mrdf` coûtait quatre fois
+ *   `mrd` par ligne, et la recherche 40 % de temps CPU de plus. Le
+ *   dédoublonnage ci-dessus, lui, ne gagnait presque rien — il reste parce
+ *   qu'il est gratuit et qu'il ne change aucun plan.
+ *
+ * `garder`, s'il est donné, filtre les seuls paquets qui ACCOLENT : ceux qui
+ * n'additionnent que des chiffres sont les paquets de `mrd`, et restent tous.
+ */
+function sommesDepuis(termes, i, n, garder = null) {
+  const out = [];
+  const pile = [];
+  const vues = new Set();
+  const explorer = (pos, somme, soudures, accoles, largeur) => {
+    if (pile.length >= 2 && (!accoles || !garder || garder(somme))) {
+      const cle = ((pos * 4096 + somme) * 64 + soudures) * 8 + accoles;
+      if (!vues.has(cle)) {
+        vues.add(cle);
+        out.push({ debut: i, fin: pos, termes: pile.slice(), somme, soudures, accoles });
+      }
+    }
+    if (pos >= n) return;
+    for (const t of termes[pos]) {
+      const w = t.fin - t.debut;
+      if (largeur + w > PAQUET_MAX) break;
+      pile.push(t);
+      explorer(t.fin, somme + t.v, soudures + t.soudures, accoles + (w > 1 ? 1 : 0), largeur + w);
+      pile.pop();
+    }
+  };
+  explorer(i, 0, 0, 0, 0);
+  return out;
+}
+
+/**
+ * La lecture de la cible que `mrd` fait déjà, rang par rang — RÉÉCRITE ici et
+ * non partagée, parce que la partager aurait demandé de toucher `mrd`. Même
+ * règle, mot pour mot : un 9 avance le rang d'un 6 quand la cible veut des 6
+ * sans vouloir de 9 (`mr9` le retournera), et une VALEUR de plusieurs chiffres
+ * n'écrit rien — `cible.js › seriesDe` compare des valeurs, pas des signes.
+ */
+function lecteurDeCible(visee) {
+  const suite = visee.chiffres;
+  const L = suite.length;
+  const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
+  const colle = (d, p) => d === suite[p % L]
+    || (parDemiTour && d === RETOURNABLE && suite[p % L] === SIX_RETOURNE);
+  const avance = (sortie, pos) => {
+    let p = pos;
+    let gagne = 0;
+    for (const d of sortie) {
+      if (!colle(d, p)) continue;
+      p++;
+      gagne++;
+      if (p === L) p = 0;
+    }
+    return { pos: p, gagne };
+  };
+  return { suite, L, parDemiTour, colle, avance };
+}
+
+/** Le mode d'un paquet additif selon sa somme — celui de `mrd` : elle s'écrit telle qu'elle tombe. */
+const modeDeLaSomme = (somme) => (somme <= 9 ? 'somme' : 'eclate');
+
+/**
+ * ★ **LE REDÉCOUPAGE FUSIONNANT — le plan de `mrdf`.**
+ *
+ * La programmation dynamique de `planRedecoupage`, à la même échelle (état :
+ * rang dans la ligne, rang dans la cible), où un paquet additionne des TERMES
+ * et plus seulement des chiffres. Un paquet d'un seul terme le RECOPIE —
+ * chiffre seul, nombre de la ligne gardé entier, ou morceau de nombre coupé ;
+ * jamais une soudure qui ne s'additionne à rien, qui ne changerait aucun signe
+ * et coûterait un geste. Un paquet de plusieurs termes écrit sa somme chiffre
+ * à chiffre, comme `mrd` : `33 + 33 = 66` rend « 6 6 », DEUX chiffres visés
+ * (confirmé par l'autrice), et `333 + 333 = 666` en rend trois. Le 9 que
+ * `mr9` retournera compte pareil, `99` compris.
+ *
+ * ★ **LE DÉPARTAGE — il n'accole que quand ça rapporte**, dans cet ordre :
+ *
+ *  1. le plus de chiffres ÉCRITS (l'objectif de `mrd`, mot pour mot) ;
+ *  2. le moins de SOUDURES — c'est la liberté « moins élégante », elle se
+ *     prend en dernier ;
+ *  3. le moins de termes de plusieurs chiffres DANS LES SOMMES ;
+ *  4. le moins de paquets (le départage de `mrd`) ;
+ *  5. l'ordre d'énumération — recopies d'abord, puis paquets courts, termes
+ *     courts d'abord.
+ *
+ * Conséquence, et elle est voulue : un plan sans aucun terme accolé dans une
+ * somme est un plan que `mrd` sait faire, et il gagne tout ex æquo (2 et 3). Si
+ * le meilleur plan est de ceux-là, `mrdf` se TAIT — `mrd` suffit. Quand il
+ * parle, il écrit donc STRICTEMENT plus de chiffres visés que tout plan de
+ * `mrd` à paquets de même largeur.
+ *
+ * @returns {{chiffres:Array, paquets:Array}|null} — chaque paquet
+ *   `{ debut, fin, termes, somme, mode, sortie }`, `mode` parmi `copie`,
+ *   `somme`, `eclate`.
+ */
+function planRedecoupageFusionnant(valeur, visee, lectures = new Map()) {
+  if (!valeur.length) return null;
+  if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
+  const chiffres = ligneDeChiffres(valeur);
+  const n = chiffres.length;
+  if (n > CHIFFRES_REDECOUPE_MAX) return null;
+  const { suite, L, parDemiTour, avance } = lecteurDeCible(visee);
+  const termes = termesPossibles(chiffres);
+  /* ★ Un paquet qui ACCOLE sans écrire un seul chiffre utile n'est jamais
+       retenu : recopier ses chiffres un à un écrit au moins autant — une
+       lecture en sous-suite ne perd rien à ce qu'on lui en montre davantage —
+       sans rien accoler, et le départage préfère ce plan-là. On ne l'énumère
+       donc pas. */
+  const utiles = new Set(suite);
+  if (parDemiTour) utiles.add(RETOURNABLE);
+  const ecritUnChiffreUtile = (somme) => {
+    for (let v = somme; ; v = Math.floor(v / 10)) {
+      if (utiles.has(v % 10)) return true;
+      if (v < 10) return false;
+    }
+  };
+
+  /* ★ Ce qu'une sortie écrit depuis chaque rang de la cible, calculé UNE fois
+       par sortie distincte : des centaines de paquets tombent sur les mêmes
+       sommes. La clé est la somme — un chiffre recopié et une somme d'un
+       chiffre écrivent la même chose —, ou l'opposé d'un nombre recopié
+       entier, qui n'écrit qu'une valeur. MESURÉ : la lecture pesait près de la
+       moitié du plan. Elle ne dépend que de la sortie et de la visée :
+       l'opérateur garde donc la table d'une ligne à l'autre (`lectures`),
+       bornée comme les mémos de plans. */
+  const lecture = (cle, ecrire) => {
+    let l = lectures.get(cle);
+    if (!l) {
+      if (lectures.size >= 4096) lectures.clear();
+      const sortie = ecrire();
+      l = { sortie, pos: new Array(L), gagne: new Array(L) };
+      for (let p = 0; p < L; p++) {
+        const pas = avance(sortie, p);
+        l.pos[p] = pas.pos;
+        l.gagne[p] = pas.gagne;
+      }
+      lectures.set(cle, l);
+    }
+    return l;
+  };
+  const options = [];
+  for (let i = 0; i < n; i++) {
+    const liste = [];
+    for (const t of termes[i]) {
+      if (t.soudures) continue;
+      liste.push({
+        debut: i, fin: t.fin, termes: [t], somme: t.v, mode: 'copie', soudures: 0, accoles: 0,
+        lu: lecture(t.v > 9 ? -t.v : t.v, () => [t.v]),
+      });
+    }
+    for (const q of sommesDepuis(termes, i, n, ecritUnChiffreUtile)) {
+      q.mode = modeDeLaSomme(q.somme);
+      q.lu = lecture(q.somme, () => chiffresDe(q.somme));
+      liste.push(q);
+    }
+    options.push(liste);
+  }
+
+  // La programmation dynamique, en tableaux plats : un état par (rang, rang de cible).
+  const T = (n + 1) * L;
+  const ecrits = new Int32Array(T).fill(-1);
+  const soudures = new Int32Array(T);
+  const accoles = new Int32Array(T);
+  const nbPaquets = new Int32Array(T);
+  const choix = new Array(T).fill(null);
+  for (let p = 0; p < L; p++) ecrits[n * L + p] = 0;
+  for (let i = n - 1; i >= 0; i--) {
+    for (let p = 0; p < L; p++) {
+      const k = i * L + p;
+      for (const o of options[i]) {
+        const kk = o.fin * L + o.lu.pos[p];
+        if (ecrits[kk] < 0) continue;
+        const e = ecrits[kk] + o.lu.gagne[p];
+        const s = soudures[kk] + o.soudures;
+        const a = accoles[kk] + o.accoles;
+        const q = nbPaquets[kk] + 1;
+        // Départage : plus d'écrits, puis moins de soudures, de termes accolés,
+        // de paquets ; à égalité parfaite, le premier énuméré reste.
+        if (ecrits[k] < 0 || e > ecrits[k] || (e === ecrits[k] && (s < soudures[k]
+          || (s === soudures[k] && (a < accoles[k] || (a === accoles[k] && q < nbPaquets[k])))))) {
+          ecrits[k] = e;
+          soudures[k] = s;
+          accoles[k] = a;
+          nbPaquets[k] = q;
+          choix[k] = o;
+        }
+      }
+    }
+  }
+  const meilleur = (i, p) => (ecrits[i * L + p] < 0 ? null : { ecrits: ecrits[i * L + p], choix: choix[i * L + p] });
+
+  // Le rang d'entrée, comme `mrd` : celui qui écrit le plus, le plus petit à égalité.
+  let depart = 0;
+  for (let p = 1; p < L; p++) {
+    if (meilleur(0, p) && (!meilleur(0, depart) || meilleur(0, p).ecrits > meilleur(0, depart).ecrits)) depart = p;
+  }
+  const paquets = [];
+  let i = 0;
+  let pos = depart;
+  while (i < n) {
+    const b = meilleur(i, pos);
+    if (!b || !b.choix) throw new Error('redécoupage fusionnant : chaîne de reconstruction rompue.');
+    const o = b.choix;
+    paquets.push({ debut: o.debut, fin: o.fin, termes: o.termes, somme: o.somme, mode: o.mode, sortie: o.lu.sortie });
+    pos = o.lu.pos[pos];
+    i = o.fin;
+  }
+  // `mrd` suffit : aucun terme accolé n'entre dans une somme.
+  const accole = paquets.some((p) => p.mode !== 'copie' && p.termes.some((t) => t.fin - t.debut > 1));
+  if (!accole) return null;
+  // Et le gain se mesure dans l'ordre, contre la ligne lue chiffre à chiffre.
+  const avant = avance(chiffres.map((c) => c.v), depart).gagne;
+  return meilleur(0, depart).ecrits > avant ? { chiffres, paquets } : null;
+}
+
+/**
+ * ★ **LE REDÉCOUPAGE FUSIONNANT EXACT — le plan de `mrfE`.**
+ *
+ * L'exigence de `mrdE` — la ligne ENTIÈRE se découpe et n'écrit que la cible,
+ * `m` fois d'affilée, ou rien —, avec la liberté des termes accolés. Chaque
+ * paquet de plusieurs termes est remplacé par sa somme, écrite chiffre à
+ * chiffre (`33 + 33 = 66` couvre deux rangs de la cible) ou réduite à sa
+ * racine quand elle déborde (`33 + 33 = 66 → 12 → 3`), exactement les deux
+ * gestes de `mrdE`. Un paquet d'un seul terme ne recopie qu'un CHIFFRE : la
+ * ligne rendue est une suite de chiffres, et `66` gardé entier n'y écrirait
+ * rien (`cible.js › seriesDe` lit des valeurs).
+ *
+ * ⚠️ **UNE SEULE PASSE, et c'est un choix.** `mrdE` repasse quand une passe ne
+ *   suffit pas ; la liberté d'accoler en est une autre, et les superposer
+ *   ferait un geste que personne ne relirait. Et puisque la seconde passe de
+ *   `mrdE` écrit peut-être déjà ce que l'accolement écrirait, `mrfE` se TAIT
+ *   quand `mrdE` atteint autant de séries : il ne fusionne que là où rien
+ *   d'autre n'écrit la cible aussi loin.
+ *
+ * ★ Le départage : le moins de demi-tours (un 9 posé pour un 6 appelle un `mr9`
+ *   à trouver, comme chez `mrdE`), puis le PLUS de séries, puis le moins de
+ *   soudures, puis le moins de termes accolés, puis le moins d'additions ;
+ *   enfin l'ordre d'énumération (§4.4). Un plan sans terme accolé est un plan
+ *   de `mrdE` : il se tait.
+ */
+function planRedecoupageFusionnantExact(valeur, visee, sansFusionDe = (v) => planRedecoupageExact(v, visee)) {
+  if (!valeur.length) return null;
+  if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
+  const chiffres = ligneDeChiffres(valeur);
+  const n = chiffres.length;
+  if (n > CHIFFRES_REDECOUPE_MAX) return null;
+  const { suite, L, parDemiTour, colle } = lecteurDeCible(visee);
+  const mMax = Math.floor(n / L);
+  if (mMax < 1) return null;
+  // ★ L'invariant modulo neuf, AVANT toute recherche — celui de `mrdE`.
+  const residus = residusDesSeries(suite, parDemiTour, mMax);
+  const total = chiffres.reduce((t, c) => t + c.v, 0);
+  if (!residus.some((r) => r.has(total % 9))) return null;
+
+  const termes = termesPossibles(chiffres);
+  // Un paquet qui accole n'est énuméré que s'il peut écrire la cible : sa
+  // somme d'un chiffre, sa racine, ou chacun de ses chiffres doit être utile.
+  const utiles = new Set(suite);
+  if (parDemiTour) utiles.add(RETOURNABLE);
+  const peutEcrire = (somme) => {
+    if (utiles.has(racineNumerique(somme))) return true;
+    for (let v = somme; ; v = Math.floor(v / 10)) {
+      if (!utiles.has(v % 10)) return false;
+      if (v < 10) return true;
+    }
+  };
+  const N = mMax * L;
+  const demiTour = (d, p) => (d === suite[p % L] ? 0 : 1);
+  // Le coût est un entier lexicographique : demi-tours ≫ soudures ≫ termes
+  // accolés ≫ additions. Trente-six chiffres bornent chaque compte bien sous
+  // mille : aucun étage ne déborde sur le suivant.
+  const DEMI = 1e9;
+  const SOUDURE = 1e6;
+  const ACCOLE = 1e3;
+  const cle = (i, p) => i * (N + 1) + p;
+  const cout = new Array((n + 1) * (N + 1)).fill(Infinity);
+  const depuis = new Array((n + 1) * (N + 1)).fill(null);
+  cout[cle(0, 0)] = 0;
+  const poser = (k, c, origine) => {
+    if (c < cout[k]) { cout[k] = c; depuis[k] = origine; }
+  };
+  for (let i = 0; i < n; i++) {
+    const sommes = sommesDepuis(termes, i, n, peutEcrire);
+    for (let p = 0; p < N; p++) {
+      const c0 = cout[cle(i, p)];
+      if (c0 === Infinity) continue;
+      // Un chiffre recopié : il doit DÉJÀ coller.
+      const d = chiffres[i].v;
+      if (colle(d, p)) {
+        poser(cle(i + 1, p + 1), c0 + demiTour(d, p) * DEMI,
+          { i, p, paquet: { debut: i, fin: i + 1, termes: [termes[i][0]], somme: d, mode: 'copie', sortie: [d] } });
+      }
+      for (const s of sommes) {
+        const base = c0 + s.soudures * SOUDURE + s.accoles * ACCOLE + 1;
+        if (s.somme <= 9) {
+          if (colle(s.somme, p)) {
+            poser(cle(s.fin, p + 1), base + demiTour(s.somme, p) * DEMI,
+              { i, p, paquet: { ...s, mode: 'somme', sortie: [s.somme] } });
+          }
+          continue;
+        }
+        const r = racineNumerique(s.somme);
+        if (colle(r, p)) {
+          poser(cle(s.fin, p + 1), base + demiTour(r, p) * DEMI,
+            { i, p, paquet: { ...s, mode: 'racine', sortie: [r] } });
+        }
+        const ecrit = chiffresDe(s.somme);
+        if (p + ecrit.length <= N && ecrit.every((x, t) => colle(x, p + t))) {
+          const demi = ecrit.reduce((a, x, t) => a + demiTour(x, p + t), 0);
+          poser(cle(s.fin, p + ecrit.length), base + demi * DEMI,
+            { i, p, paquet: { ...s, mode: 'eclate', sortie: ecrit } });
+        }
+      }
+    }
+  }
+
+  let choix = null;
+  for (let m = 1; m <= mMax; m++) {
+    if (!residus[m - 1].has(total % 9)) continue;
+    const c = cout[cle(n, m * L)];
+    if (c === Infinity) continue;
+    const demi = Math.floor(c / DEMI);
+    const reste = c % DEMI;
+    if (!choix || demi < choix.demi || (demi === choix.demi && (m > choix.m
+      || (m === choix.m && reste < choix.reste)))) choix = { m, demi, reste, k: cle(n, m * L) };
+  }
+  if (!choix) return null;
+  const paquets = [];
+  for (let k = choix.k; k !== cle(0, 0);) {
+    const o = depuis[k];
+    if (!o) throw new Error('redécoupage fusionnant exact : chaîne de reconstruction rompue.');
+    paquets.push({
+      debut: o.paquet.debut, fin: o.paquet.fin, termes: o.paquet.termes, somme: o.paquet.somme,
+      mode: o.paquet.mode, sortie: o.paquet.sortie,
+      paliers: o.paquet.mode === 'racine' ? paliersReduction(o.paquet.somme, o.paquet.sortie[0]) : [],
+    });
+    k = cle(o.i, o.p);
+  }
+  paquets.reverse();
+  // `mrdE` suffit : aucun terme accolé n'entre dans une somme.
+  if (!paquets.some((p) => p.mode !== 'copie' && p.termes.some((t) => t.fin - t.debut > 1))) return null;
+  // ★ Le contrôle final : la cible, `m` fois, au demi-tour près — sinon c'est le plan qui ment.
+  const sortie = paquets.flatMap((p) => p.sortie);
+  if (sortie.length !== choix.m * L || sortie.some((d, k) => !colle(d, k))) {
+    throw new Error(`redécoupage fusionnant exact : la sortie « ${sortie.join(' ')} » n’écrit pas la cible.`);
+  }
+  // ★ Et `mrdE` a-t-il déjà ce qu'il faut ? S'il écrit autant de séries sans
+  //   rien accoler — au besoin en repassant —, l'accolement ne rapporte rien.
+  const sansFusion = sansFusionDe(valeur);
+  if (sansFusion && sansFusion.series >= choix.m) return null;
+  return { chiffres, paquets, series: choix.m };
+}
+
+/**
+ * ★ **L'ÉGALISATION FUTÉE — le plan de `megf`.**
+ *
+ * > « Comme mrd, peut redécouper aussi bien pour casser un nombre en chiffres
+ * >   que pour fusionner des chiffres adjacents en nombre afin d'obtenir
+ * >   l'égalisation souhaitée. » (l'autrice)
+ *
+ * On choisit un redécoupage de la ligne en termes, puis on égalise EXACTEMENT
+ * comme `meg` (`nivellementDe`, le même code). L'égalisation ne regarde que
+ * deux grandeurs : `n` termes de somme `S` finissent en `q = ⌊S/n⌋` et `q + 1`,
+ * ce dernier `r = S − q·n` fois. Pour un chiffre visé `d`, le nombre de `d`
+ * écrits vaut donc
+ *
+ *     (d+1)·n − S   si d·n ≤ S < (d+1)·n      (q = d : les d sont les n − r)
+ *     S − (d−1)·n   si (d−1)·n ≤ S < d·n      (q = d−1 : les d sont les r)
+ *     0             sinon
+ *
+ * — la formule de l'autrice, à la borne près : `S = d·n` tombe dans le
+ * premier cas (tout vaut d), et les deux lectures y donnent `n`. Un test la
+ * recoupe contre `nivellementDe` lui-même.
+ *
+ * ★ **La programmation dynamique**, pour chaque niveau `q` utile (`d` et
+ *   `d − 1` pour chaque chiffre que `butsDuPaquet` admet — le 9 que `mr9`
+ *   retournera compte comme un 6, exactement comme chez `mrd`) : l'état est le
+ *   nombre de termes posés et l'écart `e = S − q·n` ; on garde, par état, le
+ *   redécoupage qui coûte le moins de COUPES + SOUDURES, puis le moins de
+ *   transferts estimés. L'égalisation de `meg` s'arrête à `MAX_TRANSFERTS` ;
+ *   un terme qui s'écarte de plus de dix-huit du niveau visé ne peut donc pas
+ *   s'y fondre, et l'état reste petit.
+ *
+ * ★ **Le départage** : le plus de chiffres visés, puis le redécoupage le plus
+ *   proche de la ligne (le moins de coupes et de soudures), puis le moins de
+ *   transferts RÉELS (`nivellementDe` sur la ligne redécoupée), puis le niveau,
+ *   le nombre de termes et l'écart les plus petits — aucun ex æquo ne survit.
+ *   ⚠️ Un seul redécoupage est gardé par état : entre deux redécoupages de même
+ *   coût qui aboutissent au même état, le premier trouvé l'emporte, et c'est
+ *   sur lui seul que les transferts réels se comptent.
+ *
+ * ★ **Il se TAIT** quand il ne fait pas mieux que `meg` sur la ligne telle
+ *   qu'elle est — et en particulier quand le meilleur redécoupage est la ligne
+ *   elle-même —, ou quand rien n'écrit un chiffre visé.
+ */
+function planEgalisationFutee(valeur, visee) {
+  if (valeur.length < 1) return null;
+  if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
+  const chiffres = ligneDeChiffres(valeur);
+  const n = chiffres.length;
+  if (n > CHIFFRES_REDECOUPE_MAX) return null;
+  const buts = butsDuPaquet(visee);
+  const vise = (v) => buts.includes(v);
+  const compteVise = (valeurs) => valeurs.reduce((a, v) => a + (vise(v) ? 1 : 0), 0);
+
+  // Ce que `meg` fait de la ligne telle qu'elle est — la barre à dépasser.
+  const tel = valeur.length >= 2 ? nivellementDe(valeur) : null;
+  const barre = tel && tel.converge && tel.transferts.length ? compteVise(tel.valeurs) : compteVise(valeur);
+
+  const termes = termesPossibles(chiffres);
+  const coupeApres = (f) => (f < n && chiffres[f].src === chiffres[f - 1].src ? 1 : 0);
+  const niveaux = [...new Set(buts.flatMap((d) => [d - 1, d]).filter((q) => q >= 0))].sort((a, b) => a - b);
+
+  const candidats = [];
+  for (const q of niveaux) {
+    const etats = Array.from({ length: n + 1 }, () => new Map());
+    etats[0].set('0,0', { m: 0, e: 0, cout: 0, haut: 0, bas: 0, prec: null, terme: null });
+    for (let i = 0; i < n; i++) {
+      for (const st of etats[i].values()) {
+        for (const t of termes[i]) {
+          const haut = st.haut + Math.max(0, t.v - q - 1);
+          const bas = st.bas + Math.max(0, q - t.v);
+          if (haut > MAX_TRANSFERTS || bas > MAX_TRANSFERTS) continue;
+          const m = st.m + 1;
+          const e = st.e + t.v - q;
+          const cout = st.cout + t.soudures + coupeApres(t.fin);
+          const k = `${m},${e}`;
+          const ici = etats[t.fin].get(k);
+          if (!ici || cout < ici.cout || (cout === ici.cout && haut + bas < ici.haut + ici.bas)) {
+            etats[t.fin].set(k, { m, e, cout, haut, bas, prec: st, terme: t });
+          }
+        }
+      }
+    }
+    for (const st of etats[n].values()) {
+      if (st.m < 2 || st.e < 0 || st.e >= st.m) continue;
+      const score = (vise(q) ? st.m - st.e : 0) + (vise(q + 1) ? st.e : 0);
+      if (score > barre) candidats.push({ score, cout: st.cout, q, m: st.m, e: st.e, st });
+    }
+  }
+  if (!candidats.length) return null;
+  candidats.sort((a, b) => b.score - a.score || a.cout - b.cout || a.q - b.q || a.m - b.m || a.e - b.e);
+
+  let choix = null;
+  for (let g = 0; g < candidats.length && !choix;) {
+    let h = g;
+    while (h < candidats.length && candidats[h].score === candidats[g].score
+      && candidats[h].cout === candidats[g].cout) h++;
+    for (let k = g; k < h; k++) {
+      const c = candidats[k];
+      const liste = [];
+      for (let st = c.st; st.terme; st = st.prec) liste.push(st.terme);
+      liste.reverse();
+      const niv = nivellementDe(liste.map((t) => t.v));
+      if (!niv.converge || !niv.transferts.length) continue;
+      if (compteVise(niv.valeurs) !== c.score) {
+        throw new Error(`égalisation futée : l’arithmétique annonce ${c.score} chiffres visés, `
+          + `le nivellement en écrit ${compteVise(niv.valeurs)}.`);
+      }
+      if (!choix || niv.transferts.length < choix.niv.transferts.length) choix = { ...c, termes: liste, niv };
+    }
+    g = h;
+  }
+  if (!choix || choix.cout === 0) return null;
+  return {
+    chiffres, termes: choix.termes, valeurs: choix.termes.map((t) => t.v),
+    egalisees: choix.niv.valeurs, transferts: choix.niv.transferts, score: choix.score, ecarts: choix.cout,
+  };
+}
+
+/** Mémoïsation bornée d'un plan, par ligne — la recherche le redemande sur chaque état `NUMS`. */
+function memoParLigne(fabrique) {
+  const memo = new Map();
+  return (valeur) => {
+    const k = valeur.join(',');
+    if (memo.has(k)) return memo.get(k);
+    if (memo.size >= 512) memo.clear();
+    const plan = fabrique(valeur);
+    memo.set(k, plan);
+    return plan;
+  };
+}
+
+/**
+ * ★ **LE MONTAGE DES TERMES — couper, puis accoler, avant tout calcul.**
+ *
+ * Les trois variantes partagent ce début de geste, et il se dit en deux temps
+ * au plus :
+ *
+ *  1. **les coupes** — chaque nombre de la ligne coupé par un terme se
+ *     remplace par ses MORCEAUX (`substitute`, un jeton vers plusieurs : la
+ *     primitive vérifie qu'ils recomposent le nombre). C'est le step 1 de
+ *     `mrd`, à ceci près qu'un morceau n'est pas forcément un chiffre : `123`
+ *     coupé en `12 | 3` rend deux jetons, pas trois ;
+ *  2. **les soudures** — les morceaux voisins d'un même terme se COLLENT
+ *     (`merge`, « les espaces se résorbent ») : aucune accolade, parce que
+ *     rien n'est calculé — les mêmes chiffres, dans le même ordre, à la même
+ *     place. Le terme naît de ce qui était déjà là, jamais du néant.
+ *
+ * Un morceau garde l'identifiant de son nombre quand celui-ci n'est pas coupé,
+ * un terme celui de son morceau quand il n'en soude qu'un : ce qui ne bouge
+ * pas ne clignote pas.
+ *
+ * @param {Array<{debut:number, fin:number, v:number}>} termes  dans l'ordre, couvrant la ligne
+ */
+function montageDesTermes(chiffres, termes, ctx) {
+  const n = chiffres.length;
+  const bornes = new Set(termes.map((t) => t.debut));
+  const morceaux = [];
+  for (let k = 0; k < n; k++) {
+    if (k === 0 || bornes.has(k) || chiffres[k].src !== chiffres[k - 1].src) {
+      morceaux.push({ debut: k, fin: k + 1, src: chiffres[k].src, texte: String(chiffres[k].v) });
+    } else {
+      const m = morceaux[morceaux.length - 1];
+      m.fin = k + 1;
+      m.texte += String(chiffres[k].v);
+    }
+  }
+  const parSource = new Map();
+  for (const m of morceaux) parSource.set(m.src, (parSource.get(m.src) || 0) + 1);
+  const coupee = (src) => parSource.get(src) > 1;
+  for (const m of morceaux) m.id = coupee(m.src) ? `${ctx.cle}f${m.debut}` : ctx.ids[m.src];
+  const montes = termes.map((t) => {
+    const siens = morceaux.filter((m) => m.debut >= t.debut && m.fin <= t.fin);
+    if (siens.map((m) => m.texte).join('') !== String(t.v)) {
+      throw new Error(`montage des termes : les morceaux « ${siens.map((m) => m.texte).join(' ')} » `
+        + `ne recomposent pas le terme ${t.v}.`);
+    }
+    return { ...t, morceaux: siens, id: siens.length === 1 ? siens[0].id : `${ctx.cle}a${t.debut}` };
+  });
+  return { morceaux, montes, coupee };
+}
+
+const LIB_COUPES = bilingue('On coupe les nombres là où le calcul le demande',
+  'Cut the numbers where the calculation needs it');
+const LIB_SOUDURES = bilingue('On accole des chiffres voisins', 'Join neighbouring digits');
+// ★ Les libellés des trois variantes disent la liberté ajoutée — l'accolement —
+//   et rien de ce qu'elle produit : le 6 n'est nommé que là où `mrd` le nomme
+//   déjà (`LIB_REDECOUPAGE`, repris tel quel pour les sommes).
+const LIB_REDECOUPAGE_FUSIONNANT = bilingue(
+  'On redécoupe en paquets, quitte à accoler des chiffres',
+  'Recut into packets, joining digits if need be',
+);
+const LIB_REDECOUPAGE_FUSIONNANT_EXACT = bilingue(
+  'On fond toute la ligne dans la cible, quitte à accoler des chiffres',
+  'Melt the whole line into the target, joining digits if need be',
+);
+const LIB_EGALISATION_FUTEE = bilingue(
+  'On redécoupe, puis on égalise',
+  'Recut, then even them out',
+);
+const LIB_EGALISE = bilingue('On égalise', 'Even them out');
+
+/** Les deux steps du montage — coupes, puis soudures —, chacun émis seulement s'il a lieu. */
+function etapesDuMontage(avant, montage, ctx) {
+  const steps = [];
+  const paires = [];
+  avant.valeur.forEach((v, i) => {
+    if (!montage.coupee(i)) return;
+    const siens = montage.morceaux.filter((m) => m.src === i);
+    paires.push({
+      target: ctx.ids[i],
+      to: siens.map((m) => token(m.id, Number(m.texte), m.texte.length > 1 ? 'number' : 'digit')),
+    });
+  });
+  if (paires.length) {
+    steps.push(etape(ctx, dire(LIB_COUPES, ctx.langue),
+      `${avant.valeur.join(' ')} → ${montage.morceaux.map((m) => m.texte).join(' ')}`,
+      enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_fc` }));
+  }
+  const soudes = montage.montes.filter((t) => t.morceaux.length > 1);
+  if (soudes.length) {
+    steps.push(etape(ctx, dire(LIB_SOUDURES, ctx.langue),
+      soudes.map((t) => `${t.morceaux.map((m) => m.texte).join(' ')} → ${t.v}`).join(' ; '),
+      enchainer(soudes.map((t) => ({
+        op: 'merge', targets: t.morceaux.map((m) => m.id), to: token(t.id, t.v, 'number'),
+      }))), { id: `s_${ctx.cle}_fs` }));
+  }
+  return steps;
+}
+
+/** Les termes d'un plan de paquets, dans l'ordre de la ligne. */
+const termesDesPaquets = (plan) => plan.paquets.flatMap((p) => p.termes);
+
+/** Les identifiants que le jᵉ paquet ÉCRIT : le terme recopié garde le sien. */
+function idsPaquetFusionnant(p, j, idsTermes, ctx) {
+  if (p.mode === 'copie') return [idsTermes[0]];
+  if (p.mode === 'eclate') return p.sortie.map((_, t) => `${ctx.cle}s${j}x${t}`);
+  return [`${ctx.cle}s${j}`];
+}
+
+/** Le jeton où la somme atterrit, avant d'être écrite chiffre à chiffre ou réduite. */
+const idSommeFusionnant = (p, j, ctx) => (p.mode === 'somme' ? `${ctx.cle}s${j}` : `${ctx.cle}t${j}`);
+
+/** Les identifiants de la ligne rendue par un plan de paquets — ce que `sortie` rend. */
+function idsFinalesFusionnant(plan, ctx) {
+  const { montes } = montageDesTermes(plan.chiffres, termesDesPaquets(plan), ctx);
+  let k = 0;
+  return plan.paquets.flatMap((p, j) => {
+    const ids = montes.slice(k, k + p.termes.length).map((t) => t.id);
+    k += p.termes.length;
+    return idsPaquetFusionnant(p, j, ids, ctx);
+  });
+}
+
+/** La ligne et ses traces rendues par un plan de paquets — ce que `apply` rend. */
+function sortieFusionnant(plan, traces) {
+  const valeur = [];
+  const org = [];
+  for (const p of plan.paquets) {
+    const srcs = [];
+    for (let k = p.debut; k < p.fin; k++) {
+      const s = plan.chiffres[k].src;
+      if (!srcs.includes(s)) srcs.push(s);
+    }
+    const t = fusion(...srcs.map((s) => traces[s] || []));
+    for (const d of p.sortie) { valeur.push(d); org.push(t); }
+  }
+  return { valeur, traces: org };
+}
+
+/**
+ * ★ **LA MISE EN SCÈNE DE `mrdf` ET DE `mrfE`** — le montage, puis les sommes
+ * exactement comme `mrd` et `mrdE` les montrent : deux termes à la fois, les
+ * paquets en largeur (`passesBinaires`, `passesEnLargeur`), l'accolade que
+ * `sum` trace sur ses propres termes au moment où il les additionne, la
+ * découpe muette glissée en tête du premier calcul. La somme ENTIÈRE, celle du
+ * plan, s'écrit ensuite chiffre à chiffre (`substitute`, comme `mrd`) ou se
+ * réduit palier par palier (`reduce`, comme `mrdE`).
+ *
+ * Contrôle croisé (§0.3) : `apply`, `sortie`, `additions` et `steps` relisent
+ * le MÊME plan mémoïsé ; `merge` recoupe chaque soudure, `sum` chaque somme,
+ * `reduce` chaque palier.
+ */
+function etapesFusionnant(plan, avant, ctx, titre) {
+  const montage = montageDesTermes(plan.chiffres, termesDesPaquets(plan), ctx);
+  const steps = etapesDuMontage(avant, montage, ctx);
+  const titreDit = dire(titre, ctx.langue);
+  let k0 = 0;
+  const parPaquet = [];
+  const groupesMuets = [];
+  plan.paquets.forEach((p, j) => {
+    const siens = montage.montes.slice(k0, k0 + p.termes.length);
+    k0 += p.termes.length;
+    groupesMuets.push({ targets: siens.map((t) => t.id), tag: `${ctx.cle}q${j}` });
+    const gestes = [];
+    parPaquet.push({ gestes });
+    if (p.mode === 'copie') return;
+    const sorties = idsPaquetFusionnant(p, j, siens.map((t) => t.id), ctx);
+    const somme = idSommeFusionnant(p, j, ctx);
+    const arbre = passesBinaires(siens.map((t) => ({ id: t.id, v: t.v, ou: t.debut })), {
+      combiner: (x, y) => x + y,
+      nommer: (k) => `${ctx.cle}i${j}x${k}`,
+      racine: somme,
+    });
+    if (arbre.racine.v !== p.somme) {
+      throw new Error(`redécoupage fusionnant : le paquet ${j} rend ${arbre.racine.v} par paires, le plan annonce ${p.somme}.`);
+    }
+    for (const g of arbre.gestes) {
+      const ops = opsDuGesteBinaire(g, { signe: `${ctx.cle}p${j}x${g.k}`, glyph: '+', symbol: '+' });
+      let legende = `${g.gauche.v} + ${g.droite.v} = ${g.resultat.v}`;
+      if (g.dernier && p.mode === 'eclate') {
+        ops.push({
+          op: 'substitute',
+          pairs: [{ target: somme, to: p.sortie.map((d, t) => token(sorties[t], d, 'digit')) }],
+        });
+        legende += ` → ${p.sortie.join(' ')}`;
+      } else if (g.dernier && p.mode === 'racine') {
+        let source = somme;
+        let texte = String(p.somme);
+        p.paliers.forEach((v, k) => {
+          const cible = k === p.paliers.length - 1 ? sorties[0] : `${ctx.cle}r${j}p${k}`;
+          ops.push({
+            op: 'reduce',
+            target: source,
+            digits: [...texte].map((d, t) => token(`${ctx.cle}r${j}k${k}x${t}`, d, 'digit')),
+            to: token(cible, v, 'number'),
+          });
+          legende += ` → ${[...texte].join(' + ')} → ${v}`;
+          source = cible;
+          texte = String(v);
+        });
+      }
+      gestes.push({
+        famille: 'addition', niveau: g.niveau, ou: g.ou,
+        step: etape(ctx, titreDit, legende, enchainer(ops),
+          { id: `s_${ctx.cle}_p${j}${g.dernier ? '' : `b${g.k}`}` }),
+      });
+    }
+  });
+  const avantLesCalculs = steps.length;
+  steps.push(...passesEnLargeur(parPaquet));
+  glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
+  return steps;
 }
 
 
@@ -7403,6 +8208,14 @@ const AUTRES_MAPPEURS = [
   // ★ L'ADDITION VERS LA MOYENNE — `mam`, la préparation de `meg`. Fabrique
   //   plus bas (hissage). Fin de bloc, append-only (§4.1).
   operateurAdditionVersLaMoyenne(),
+  // ★ LES REDÉCOUPAGES QUI FUSIONNENT — `mrdf`, `mrfE`, `megf` : `mrd`, `mrdE`
+  //   et `meg` avec la liberté d'accoler des chiffres voisins. « Ajouter
+  //   plutôt que modifier » (l'autrice) : les modèles ne bougent pas, et leurs
+  //   variantes vont en fin de bloc, append-only (§4.1). Fabriques plus bas
+  //   (hissage) ; les plans sont écrits à côté de `planRedecoupageExact`.
+  operateurRedecoupageFusionnant(),
+  operateurRedecoupageFusionnantExact(),
+  operateurEgalisationFutee(),
 ];
 
 /**
@@ -8712,6 +9525,279 @@ function operateurAdditionVersLaMoyenne() {
   });
 }
 
+/*
+ * ★ **LES TROIS VARIANTES QUI FUSIONNENT — et ce qu'elles paient de plus que
+ *   leurs modèles.**
+ *
+ * « Elles me semblent un peu moins élégantes » (l'autrice). Chacune est donc
+ * notée AU MOINS aussi sévèrement que son modèle, sur les trois grandeurs que
+ * le barème lit, et strictement plus sur deux :
+ *
+ *  · **notoriété** — un cran sous le modèle : accoler `3 3` en `33` pour que la
+ *    somme tombe juste ne se fait nulle part, pas même dans les numérologies
+ *    les plus accommodantes ;
+ *  · **adHoc** — au moins celui du modèle : la découpe regarde toujours la
+ *    cible, et elle a désormais une liberté de plus pour lui plaire ;
+ *  · **recours 0,10** — là où les modèles n'en portent aucun. C'est la part de
+ *    cohérence qu'une voie cède pour avoir employé le geste (`score.js`), le
+ *    tarif de « ce qui ne se montre qu'en dernier recours ». Le tiers de celui
+ *    de `mab` (0,35) : souder deux chiffres n'est pas absorber une ligne en
+ *    multipliant, mais ce n'est plus seulement additionner. Il les écarte
+ *    aussi du siège des voies honnêtes (`assemblage.js › refuseAuSiege`), ce
+ *    qui est cohérent : l'autrice les juge moins élégantes que ce qu'elles
+ *    complètent ;
+ *  · **coût 2** — le « malus de simplicité » dans la seule grandeur que le
+ *    barème lit (`score.js › coutRendu`), pour la raison que `mab` donne : le
+ *    geste se montre le plus souvent en deux temps au moins, le montage des
+ *    termes (coupes, soudures) puis le calcul. Déclarer 1, c'était le faire
+ *    passer pour une lecture.
+ *
+ * ⚠️ MESURÉ, pour `mrfE` : au coût 1, sur « Le chat dort » énuméré à trous, la
+ *   simplicité seule à 200, `fen2+tca+mx6+mrfE` montait en tête de liste — une
+ *   voie sans perte, courte et peu fournie. Au coût 2, elle reste dans la
+ *   liste, derrière `tca+masc+mdc2`.
+ */
+
+/** `mrdf` — `mrd`, des termes accolés en plus. Voir `planRedecoupageFusionnant`. */
+function operateurRedecoupageFusionnant() {
+  // Il suit la cible comme `mrd`, et refuse la même : une somme de chiffres ne
+  // retombe sur 0 qu'en n'additionnant que des 0.
+  return selonLaCible((visee) => (butsDuPaquet(visee).every((d) => d === 0) ? null : (() => {
+    const lectures = new Map(); // ce qu'une sortie écrit de cette visée — voir le plan
+    const planDe = memoParLigne((valeur) => planRedecoupageFusionnant(valeur, visee, lectures));
+    const buts = butsDuPaquet(visee);
+    const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
+    const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
+    const defaut = retourne
+      ? bilingue(` — ou sur ${RETOURNABLE}, qu’un demi-tour rendra —`,
+        ` — or on ${RETOURNABLE}, which a half-turn will settle —`)
+      : bilingue('', '');
+    return {
+      id: 'm.redecoupageFusionnant', code: 'mrdf', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+      libelle: LIB_REDECOUPAGE_FUSIONNANT,
+      // La phrase LIT `butsDuPaquet`, comme celle de `mrd` (§0.3).
+      regle: bilingue(
+        'La ligne se lit comme la suite de ses chiffres, puis se redécoupe en paquets choisis '
+        + `pour tomber sur ${vises}${defaut.fr} le plus souvent possible ; un terme de paquet peut `
+        + `être un nombre de la ligne gardé entier, ou jusqu’à ${TERME_ACCOLE_MAX} chiffres voisins `
+        + 'accolés (3 3 → 33), et chaque paquet est remplacé par sa somme, écrite chiffre à '
+        + 'chiffre : 33 + 33 = 66 en écrit deux. On n’accole que si cela en écrit davantage.',
+        'The line is read as the run of its digits, then recut into packets chosen to land on '
+        + `${vises}${defaut.en} as often as possible; a packet term may be a number of the line `
+        + `kept whole, or up to ${TERME_ACCOLE_MAX} neighbouring digits joined (3 3 → 33), and each `
+        + 'packet is replaced by its sum, written digit by digit: 33 + 33 = 66 writes two. Digits '
+        + 'are joined only when that writes more.',
+      ),
+      // ★ 0,15 sous `mrd` (0,20), 0,49 au-dessus (0,48), un recours là où il
+      //   n'en a pas — voir l'en-tête des trois variantes.
+      notoriete: 0.15, adHoc: 0.49, recours: 0.10, cout: 2,
+      note: bilingue(
+        'La triche du redécoupage, avec une liberté de plus : coller deux chiffres voisins pour '
+        + 'en faire un nombre. Elle ne sert que là où le redécoupage ordinaire écrit moins — '
+        + 'et le score compte le geste de plus.',
+        'The recut cheat with one more liberty: sticking two neighbouring digits into a number. '
+        + 'It only plays where the ordinary recut writes less — and the score counts the extra move.',
+      ),
+      apply: (valeur, traces) => {
+        const plan = planDe(valeur);
+        return plan ? sortieFusionnant(plan, traces) : null;
+      },
+      // ★ Comme `mrd` — voir `additions` dans `commun.js` : la taille de chaque
+      //   somme, en termes, pour que le barème la dilue.
+      additions: (valeur) => {
+        const plan = planDe(valeur);
+        return plan ? plan.paquets.filter((p) => p.mode !== 'copie').map((p) => p.termes.length) : [];
+      },
+      sortie: (avant, apres, ctx) => {
+        const plan = planDe(avant.valeur);
+        return plan ? idsFinalesFusionnant(plan, ctx) : [];
+      },
+      steps: (avant, apres, ctx) => {
+        const plan = planDe(avant.valeur);
+        return plan ? etapesFusionnant(plan, avant, ctx, LIB_REDECOUPAGE) : [];
+      },
+    };
+  })()));
+}
+
+/**
+ * `mrfE` — `mrdE`, des termes accolés en plus. Voir
+ * `planRedecoupageFusionnantExact`.
+ *
+ * ⚠️ **LE CODE N'EST PAS `mrdfE`**, qui était proposé : le registre borne les
+ *   codes à quatre signes (« 2, 3 ou 4 caractères, évite d'aller au-delà »,
+ *   l'autrice ; `catalogue.test.js` le tient). `mrfE` garde les trois repères —
+ *   Redécoupage, Fusion, la majuscule d'Exact de `mrdE`.
+ */
+function operateurRedecoupageFusionnantExact() {
+  return selonLaCible((visee) => (butsDuPaquet(visee).every((d) => d === 0) ? null : (() => {
+    // Le plan de `mrdE`, que `mrfE` consulte avant de parler, mémoïsé à part.
+    const sansFusionDe = memoParLigne((valeur) => planRedecoupageExact(valeur, visee));
+    const planDe = memoParLigne((valeur) => planRedecoupageFusionnantExact(valeur, visee, sansFusionDe));
+    const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
+    const defaut = parDemiTour
+      ? bilingue(` Un 9, qu’un demi-tour rendra, vaut un ${SIX_RETOURNE}.`,
+        ` A 9, which a half-turn will settle, counts as a ${SIX_RETOURNE}.`)
+      : bilingue('', '');
+    return {
+      id: 'm.redecoupageFusionnantExact', code: 'mrfE', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+      absorbe: true, // comme `mrdE` : elle consomme toute la ligne et n'écrit que la cible
+      libelle: LIB_REDECOUPAGE_FUSIONNANT_EXACT,
+      regle: bilingue(
+        'La ligne se lit comme la suite de ses chiffres, puis se redécoupe ENTIÈRE en paquets '
+        + `qui écrivent ${visee.texte} dans l’ordre, et rien d’autre ; un terme de paquet peut `
+        + `être un nombre de la ligne gardé entier, ou jusqu’à ${TERME_ACCOLE_MAX} chiffres voisins `
+        + 'accolés (3 3 → 33). Chaque paquet est remplacé par sa somme, écrite chiffre à chiffre '
+        + `ou réduite à un chiffre si elle déborde, en une seule passe.${defaut.fr} Quand la ligne `
+        + 'ne peut pas s’écrire exactement, ou que le redécoupage exact y parvient sans rien '
+        + 'accoler, on n’écrit rien.',
+        'The line is read as the run of its digits, then the WHOLE of it is recut into packets '
+        + `that spell ${visee.texte} in order, and nothing else; a packet term may be a number of `
+        + `the line kept whole, or up to ${TERME_ACCOLE_MAX} neighbouring digits joined (3 3 → 33). `
+        + 'Each packet is replaced by its sum, written digit by digit or reduced to one digit when '
+        + `it overflows, in a single pass.${defaut.en} When the line cannot be spelt exactly, or `
+        + 'the exact recut manages without joining anything, nothing is written.',
+      ),
+      // ★ 0,12 sous `mrdE` (0,15), le même adHoc (0,49 : on ne peut pas être
+      //   plus taillé pour la cible sans être le joker), un recours là où il n'en
+      //   a pas — voir l'en-tête des trois variantes.
+      notoriete: 0.12, adHoc: 0.49, recours: 0.10, cout: 2,
+      note: bilingue(
+        'Le redécoupage exact, avec une liberté de plus : coller des chiffres voisins pour que '
+        + 'la somme écrive plusieurs chiffres de la cible d’un coup. Il ne joue que là où le '
+        + 'redécoupage exact n’écrit pas autant.',
+        'The exact recut with one more liberty: sticking neighbouring digits together so that a '
+        + 'sum spells several target digits at once. It only plays where the exact recut writes less.',
+      ),
+      apply: (valeur, traces) => {
+        const plan = planDe(valeur);
+        return plan ? sortieFusionnant(plan, traces) : null;
+      },
+      additions: (valeur) => {
+        const plan = planDe(valeur);
+        return plan ? plan.paquets.filter((p) => p.mode !== 'copie').map((p) => p.termes.length) : [];
+      },
+      sortie: (avant, apres, ctx) => {
+        const plan = planDe(avant.valeur);
+        return plan ? idsFinalesFusionnant(plan, ctx) : [];
+      },
+      steps: (avant, apres, ctx) => {
+        const plan = planDe(avant.valeur);
+        return plan ? etapesFusionnant(plan, avant, ctx, LIB_REDECOUPAGE_EXACT) : [];
+      },
+    };
+  })()));
+}
+
+/**
+ * `megf` — un redécoupage, puis l'égalisation de `meg`. Voir
+ * `planEgalisationFutee`.
+ *
+ * ★ **IL SUIT LA CIBLE, ce que `meg` ne fait pas** : c'est elle qui dit quel
+ *   chiffre l'égalisation doit écrire. Et il ne s'applique qu'aux cibles
+ *   HOMOGÈNES (`666`, `111`, `000`…) : une égalisation n'écrit que deux valeurs
+ *   voisines, `q` et `q + 1`, à des places qu'elle ne choisit pas — elle
+ *   n'écrira jamais `31031998` dans l'ordre. Sur toute autre visée, `viser`
+ *   rend `null` et le catalogue le classe désactivé, comme `mr6` sous 666.
+ */
+function operateurEgalisationFutee() {
+  return selonLaCible((visee) => (!visee.homogene ? null : (() => {
+    const planDe = memoParLigne((valeur) => planEgalisationFutee(valeur, visee));
+    const buts = butsDuPaquet(visee);
+    const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
+    const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
+    const defaut = retourne
+      ? bilingue(` (ou de ${RETOURNABLE}, qu’un demi-tour rendra)`, ` (or ${RETOURNABLE}s, which a half-turn will settle)`)
+      : bilingue('', '');
+    return {
+      id: 'm.egalisationFutee', code: 'megf', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+      libelle: LIB_EGALISATION_FUTEE,
+      regle: bilingue(
+        'La ligne se lit comme la suite de ses chiffres et se redécoupe en nombres — un nombre '
+        + `gardé entier, coupé, ou soudé à ses voisins (jusqu’à ${TERME_ACCOLE_MAX} chiffres) — `
+        + `de sorte que l’égalisation écrive le plus de ${vises}${defaut.fr} ; puis on donne 1 du `
+        + 'plus grand au plus petit jusqu’à ce que tout se tienne à 1 près.',
+        'The line is read as the run of its digits and recut into numbers — a number kept whole, '
+        + `cut, or welded to its neighbours (up to ${TERME_ACCOLE_MAX} digits) — so that evening `
+        + `out writes as many ${vises}s${defaut.en} as possible; then 1 is handed from the largest `
+        + 'to the smallest until nothing is more than 1 apart.',
+      ),
+      // ★ 0,15 sous `meg` (0,20) ; adHoc 0,45 au lieu de 0,30 — l'égalisation
+      //   est aveugle, le redécoupage qui la prépare ne l'est pas : il est
+      //   choisi en regardant le chiffre visé. 0,45, c'est « le plus fréquent
+      //   l'emporte », qui décide lui aussi en regardant les valeurs, et reste
+      //   sous `mrd` (0,48), qui choisit chaque paquet. Recours : voir l'en-tête.
+      notoriete: 0.15, adHoc: 0.45, recours: 0.10, cout: 2,
+      // ★ **INACTIF EN RECHERCHE — mesuré, et à rouvrir par l'autrice.** Actif,
+      //   il prenait sept des vingt places de la fenêtre par famille de « hope »
+      //   (`familles.test.js`) et en chassait `tca+m14`, la voie de référence :
+      //   une ligne sur deux se laisse égaliser en 6 pourvu qu'on la redécoupe
+      //   (mesuré : 2 021 lignes témoins sur 4 000), et la fenêtre se trie
+      //   d'abord au compte de 6. Ni le barème ni `A_MERITER_SA_PLACE` n'y
+      //   peuvent rien — c'est le piège que `meg` avait tendu le jour où il est
+      //   sorti des ficelles, en plus fort. Il se joue donc par lien, comme les
+      //   opérateurs de dernier recours ; l'activer est une décision de
+      //   classement, qui se mesure sur la suite lente.
+      actifParDefaut: false,
+      note: bilingue(
+        'L’égalisation, préparée : avant de répartir, on choisit comment lire la ligne — ce '
+        + 'nombre coupé en deux, ces deux chiffres collés — pour que la répartition tombe sur le '
+        + 'chiffre voulu. Elle ne joue que là où l’égalisation seule en écrit moins.',
+        'Evening out, prepared: before sharing out, the line is read the convenient way — this '
+        + 'number cut in two, these two digits stuck together — so that the sharing lands on the '
+        + 'wanted digit. It only plays where evening out alone writes fewer.',
+      ),
+      apply: (valeur, traces) => {
+        const plan = planDe(valeur);
+        if (!plan) return null;
+        // L'égalisation garde les places : la trace d'un terme reste la sienne.
+        const org = plan.termes.map((t) => {
+          const srcs = [];
+          for (let k = t.debut; k < t.fin; k++) {
+            const s = plan.chiffres[k].src;
+            if (!srcs.includes(s)) srcs.push(s);
+          }
+          return fusion(...srcs.map((s) => traces[s] || []));
+        });
+        return { valeur: plan.egalisees.slice(), traces: org };
+      },
+      sortie: (avant, apres, ctx) => nomsTokens(ctx, apres.valeur.length),
+      /**
+       * ★ Le montage (coupes, puis soudures — `etapesDuMontage`), puis le geste
+       *   de `meg` tel quel : l'accolade qui égalise sans rien ramasser, et le
+       *   relevé d'identité qui DÉCLARE ce que le nivellement a changé (voir
+       *   `meg`, « les jetons changent d'identité à la fin, et il le faut »).
+       */
+      steps: (avant, apres, ctx) => {
+        const plan = planDe(avant.valeur);
+        if (!plan) return [];
+        const montage = montageDesTermes(plan.chiffres, plan.termes, ctx);
+        const steps = etapesDuMontage(avant, montage, ctx);
+        const ids = montage.montes.map((t) => t.id);
+        const sortie = nomsTokens(ctx, plan.egalisees.length);
+        steps.push(etape(ctx, dire(LIB_EGALISE, ctx.langue),
+          `${plan.valeurs.join(' ')} → ${plan.egalisees.join(' ')}`, enchainer([
+            {
+              op: 'group',
+              targets: ids,
+              egaliser: true,
+              symbol: '≡',
+              label: dire(bilingue('Égalisation', 'Evening out'), ctx.langue),
+              resultat: plan.egalisees,
+              dur: dureeRamassage({ transferts: plan.transferts.length }),
+            },
+            {
+              op: 'substitute',
+              dur: 120,
+              pairs: ids.map((id, i) => ({ target: id, to: token(sortie[i], plan.egalisees[i], 'number') })),
+            },
+          ]), { id: `s_${ctx.cle}_eg`, hold: 400 }));
+        return steps;
+      },
+    };
+  })()));
+}
+
 /** Les dix caractères que « le tiret du 6 » sait convertir — exposé pour l'UI. */
 export const TOUCHES_CHIFFREES = Object.freeze(Object.keys(CHIFFRE_DE_TOUCHE));
 
@@ -8720,6 +9806,9 @@ export { SEG7_APPROXIMATIONS };
 
 /** Le quatorze segments n'en a aucune à assumer — il le dit lui-même. */
 export { MENTION_SEG14 };
+
+/** Les plans des trois variantes qui fusionnent — exposés pour leurs tests, comme `plagesDe`. */
+export { planRedecoupageFusionnant, planRedecoupageFusionnantExact, planEgalisationFutee };
 
 export const MESURES_STR = Object.freeze(MESURES);
 export const MAPPEURS = Object.freeze([...MAPPEURS_LETTRE, ...AUTRES_MAPPEURS]);

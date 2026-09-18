@@ -33,7 +33,7 @@ import { construireScenario, suivreLaLigne } from '../../recherche/scenario.js';
 setGlyphes(GLYPHES, 'fixtures/glyphes.js');
 
 /** Les opérateurs dont la mise en scène est désormais binaire. */
-const PERIMETRE = ['mab', 'mabx', 'mabd', 'mad', 'mrd', 'mrdE', 'mam', 'cs', 'cp', 'cst'];
+const PERIMETRE = ['mab', 'mabx', 'mabd', 'mad', 'mrd', 'mrdE', 'mam', 'mrdf', 'mrfE', 'cs', 'cp', 'cst'];
 
 const nums = (vs) => ({ type: 'NUMS', valeur: vs, traces: vs.map(() => [0, 1]) });
 const jetonsNums = (vs) => vs.map((v, i) => ({ id: `t${i}`, text: String(v), kind: 'number' }));

@@ -199,6 +199,11 @@ export const ORDRE_CANONIQUE = Object.freeze([
   // ★ L'ADDITION VERS LA MOYENNE — des voisins additionnés, sans réduire, pour
   //   que `meg` tombe sur le chiffre visé. Fin de bloc mappeur, append-only.
   'mam',
+  // ★ LES REDÉCOUPAGES QUI FUSIONNENT — `mrd`, `mrdE` et `meg` avec la liberté
+  //   d'accoler des chiffres voisins (`3 3 → 33`). « Ajouter plutôt que
+  //   modifier » (l'autrice) : les modèles ne bougent pas. `mrfE` et non
+  //   `mrdfE` : quatre signes au plus. Fin de bloc mappeur, append-only (§4.1).
+  'mrdf', 'mrfE', 'megf',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

@@ -148,6 +148,10 @@ const MAPPEURS_DE_SERVICE = new Set([
   //   calculé, pour que l'égalisation qui suit tombe juste. Elle ne convertit
   //   rien — le nom de la voie reste celui de la conversion lettre → nombre.
   'm.additionVersLaMoyenne',
+  // ★ Leurs variantes qui ACCOLENT des chiffres (`mrdf`, `mrfE`) relisent de
+  //   même, avec une liberté de plus : même sort que leurs modèles. `megf`
+  //   n'y est pas, pas plus que `meg` — l'égalisation nomme une voie.
+  'm.redecoupageFusionnant', 'm.redecoupageFusionnantExact',
   // ★ Le CARRÉ (`mcar`) ne convertit rien non plus : il multiplie par lui-même
   //   ce qu'une autre méthode a calculé, pour donner de la matière à dissoudre.
   //   Vedette, il aurait nommé « par le carré » des voies dont le carré n'est
@@ -343,6 +347,13 @@ export const NOMS = {
   'm.absorptionProduit': b('Par absorption en produits', 'By absorption through products'),
   'm.absorptionDifference': b('Par absorption en différences', 'By absorption through differences'),
   'm.redecoupageExact': b('Par redécoupage exact', 'By exact recutting'),
+  // ★ Les trois variantes qui accolent des chiffres. Les deux premières sont de
+  //   service et ne devraient jamais paraître ; le registre des noms est
+  //   exhaustif. La troisième nomme une voie comme `meg` la nomme — le geste,
+  //   jamais ce qu'il produit.
+  'm.redecoupageFusionnant': b('Par redécoupage choisi, chiffres accolés', 'By chosen recutting, digits joined'),
+  'm.redecoupageFusionnantExact': b('Par redécoupage exact, chiffres accolés', 'By exact recutting, digits joined'),
+  'm.egalisationFutee': b('Par répartition homogène préparée', 'By prepared evening out'),
   // Jamais employé — il est mappeur de service — mais le registre des noms
   // est EXHAUSTIF, et un trou ici serait un trou le jour où la règle changerait.
   'm.chiffreTelQuel': b('Par la lecture des chiffres', 'By reading the digits'),
@@ -674,6 +685,9 @@ export const TITRES_COURTS = {
   'm.absorptionProduit': b('absorption en produits', 'absorption by products'), // mabx
   'm.absorptionDifference': b('absorption en différences', 'absorption by differences'), // mabd
   'm.redecoupageExact': b('additions sans reste', 'additions with no remainder'), // mrdE
+  'm.redecoupageFusionnant': b('additions accolées', 'joined additions'), // mrdf
+  'm.redecoupageFusionnantExact': b('additions accolées sans reste', 'joined additions with no remainder'), // mrfE
+  'm.egalisationFutee': b('égalisation futée', 'shrewd evening out'), // megf
   'm.reduireChaque': b('addition', 'addition'), // mrn
   'm.scrabbleEN': b('Scrabble EN', 'EN Scrabble'), // msen
   'm.scrabbleFR': b('Scrabble FR', 'FR Scrabble'), // msfr
@@ -874,6 +888,10 @@ export const PRECISIONS = {
   'm.absorptionProduit': b('les intrus absorbés par produits', 'with the intruders absorbed by products'),
   'm.absorptionDifference': b('les intrus absorbés par différences', 'with the intruders absorbed by differences'),
   'm.redecoupageExact': b('tout fondu dans la cible', 'everything melted into the target'),
+  'm.redecoupageFusionnant': b('redécoupé en paquets, chiffres accolés', 'recut into packets, digits joined'),
+  'm.redecoupageFusionnantExact': b('tout fondu dans la cible, chiffres accolés',
+    'everything melted into the target, digits joined'),
+  'm.egalisationFutee': b('redécoupés, puis égalisés', 'recut, then evened out'),
   // ⚠️ Elle existe, mais ne devrait jamais servir : `m.chiffreTelQuel` est un
   //    mappeur de service, et deux voies ne se distinguent pas par le fait
   //    d'avoir lu leurs chiffres. Sans elle, `precisionDe` se rabattrait sur le
