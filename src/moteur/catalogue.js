@@ -27,6 +27,7 @@ import { POSTS, JOKERS } from './transformations/posts.js';
 import {
   ORDRE_PREFIXES, PREFIXE, FAMILLES, RE_CODE, tracesDe, lireVisee, VISEE_DEFAUT,
 } from './transformations/commun.js';
+import { resoudreCode } from './transformations/positionnel.js';
 import { estBilingue, langueValide, LANGUES, LANGUE_DEFAUT, dire } from './i18n.js';
 import {
   TYPES, str, tokens, nums, num, estEtat, estType, taille,
@@ -555,11 +556,21 @@ export function idsApres(op, avant, apres, ctx) {
   return op.sortie(avant, apres, ctx);
 }
 
+/**
+ * L'opérateur qu'un code ÉCRIT désigne — le code nu du registre, ou sa forme
+ * positionnelle (`1.2.2cs`, `3.2mr9` : `transformations/positionnel.js`).
+ * `null` pour un code inconnu comme pour un préfixe que l'opérateur refuse ;
+ * `positionnel.js › resoudreCode` dit lequel des deux à qui veut le savoir.
+ */
+export function operateurDuCode(code) {
+  return resoudreCode(PAR_CODE, code).op;
+}
+
 /** Applique une suite de codes à un état. `null` dès qu'une étape échoue. */
 export function appliquerProgramme(codes, etat) {
   let courant = etat;
   for (const code of codes) {
-    const op = PAR_CODE.get(code);
+    const op = operateurDuCode(code);
     if (!op) return null;
     courant = appliquer(op, courant);
     if (courant === null) return null;
@@ -579,7 +590,7 @@ export function derouler(codes, etat, ctxInitial) {
   const sortie = [];
   codes.forEach((code, k) => {
     if (courant === null) return;
-    const op = PAR_CODE.get(code);
+    const op = operateurDuCode(code);
     if (!op) { courant = null; return; }
     const apres = appliquer(op, courant);
     if (apres === null) { courant = null; return; }

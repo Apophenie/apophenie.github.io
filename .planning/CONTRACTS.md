@@ -3332,6 +3332,66 @@ plan du site est levée : un moteur de recherche ignore le fragment — `…/#sc
 et `…/` étaient la même URL pour lui — mais il voit la requête. L'entrée du
 `sitemap.xml` désigne enfin quelque chose qu'un robot peut distinguer.
 
+#### Amendement du 18 septembre 2026 — LA NOTATION POSITIONNELLE
+
+> « C'est en nombre de caractères donc ça peut couper un nombre ; si je veux le
+> nombre, j'élargis pour l'inclure. » (l'autrice)
+
+★ **CE QUI EST DÉCIDÉ.** Un code peut porter un PRÉFIXE qui l'applique à une
+partie seulement de la ligne de nombres :
+
+```
+code        := [prefixe] nu
+prefixe     := position ('.' largeur)*      // position, largeurs : entiers ; largeur ≥ 1
+nu          := [ftnmcpj][0-9a-z]+[A-Z]?     // §4.1, inchangé
+```
+
+`position` est l'index (base 0) d'un CARACTÈRE de la ligne courante, lue comme
+la concaténation des chiffres de ses nombres ; chaque `largeur` est un nombre
+de caractères. Devant un **combinateur** (`cs`, `cp`…), au moins deux largeurs,
+autant d'opérandes, chacun relu comme un nombre : sur `1 3 3 3 3 …`, `1.2.2cs`
+fait `33 + 33`. Devant un **mappeur `NUMS → NUMS`** (`mr9`…), une seule
+largeur : la fenêtre, dont les nombres sont coupés aux bords. Une fenêtre peut
+couper un nombre : sur `3 9 6 1 10`, `3.1.1cs` additionne le `1` et le `1` de
+`10`, et le `0` reste seul, comme nombre. Le résultat reprend la place de ce
+qu'il remplace ; ce qui est hors fenêtre ne change pas.
+
+★ **LES LARGEURS IMPLICITES SE TAISENT**, comme `.1` dans une portée : `1cs`
+vaut `1.1.1cs`, `5mr9` vaut `5.1mr9`. La lettre de famille dit lesquelles sont
+omises ; `lire()` rend la forme canonique, `ecrire()` l'écrit, l'aller-retour
+est exact. Le lien de référence de l'autrice (« Louis Fouché ») :
+`?fl+mpy+mtri+1cs+2cs+mtri+0cs+mr9+mpf$7NFn8xBqb5eNAq3YCY` — la ligne
+`1 3 3 3 3 5 6 6 6 8 9` devient `1 6 3 3 5 …`, `1 6 6 5 …`, `1 5 6 6 6 6 6 8 9`,
+`6 6 6 6 6 6 8 9`, `… 8 6`, puis sept 6.
+
+★ **CE N'EST PAS LA RECHERCHE QUI ÉNUMÈRE CES POSITIONS** — l'explosion serait
+combinatoire. C'est une ÉCRITURE de lien, rejouée telle quelle.
+
+★ **AUCUNE COLLISION**, par construction : un code nu commence par une lettre,
+une portée se termine par `:`, une forme héritée n'a que des chiffres et des
+`+`. Un code préfixé commence par un chiffre mais finit par un code nu entier —
+`2.1` n'est toujours ni un code ni un préfixe, `1+2cs` n'est ni un rang ni un
+programme.
+
+⚠️ **RÉSERVÉ AUX LIGNES DE NOMBRES.** La conversion partielle du TEXTE reste le
+rôle des portées (`0.5:mpy,5.12:mch`). Sont refusés, bruyamment et jamais
+devinés : un préfixe devant une autre famille que `c` ou `m` (grammaire), un
+combinateur à une seule largeur ou un mappeur à plusieurs (grammaire), un
+opérateur `TOKENS → NUMS` comme `2mpy` (catalogue, donc au rejeu : `lire()` de
+la page n'a pas le catalogue) — bandeau `BANDEAUX.positionIllisible` ; une
+fenêtre au-delà de la ligne, une ligne portant un nombre négatif, une coupe
+laissant un morceau à zéro de tête (`102` → `1` | `02`) — bandeau
+`BANDEAUX.positionImpossible(code)`.
+
+★ **LE SENS VIT AU MOTEUR** (`moteur/transformations/positionnel.js`) :
+l'opérateur localisé garde l'identité du sien (`id`, titre, notoriété) et ne
+change que son code et son type d'arrivée — une somme localisée rend une ligne.
+La grammaire est recopiée dans `url.js`, comme `RE_CODE`, sous un test qui
+exige que les deux lecteurs rendent la même chose. À l'écran, la ligne se
+redécoupe d'abord (`substitute` pour un nombre coupé, `merge` pour un opérande
+élargi), PUIS le geste de l'opérateur se joue sur la fenêtre seule : l'accolade
+n'embrasse que les opérandes. Aucune primitive neuve.
+
 ### 4.3 Lecture tolérante, écriture canonique
 
 | Forme lue | Comportement |

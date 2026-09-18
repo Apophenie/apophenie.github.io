@@ -49,6 +49,11 @@ import { emploieUneFicelle, elagueALaFin } from './elegance.js';
 import { indexUtiles } from './cible.js';
 
 import { construireScenario } from './scenario.js';
+// ★ La NOTATION POSITIONNELLE (`1.2.2cs`) : le sens d'un préfixe vit au moteur,
+//   qui sait découper une ligne et rejouer un geste sur une fenêtre ; la
+//   recherche ne fait que le résoudre sur SA table de codes — celle qui suit la
+//   cible du lien —, comme `politique.js` lit déjà `plagesDe` au moteur.
+import { resoudreCode } from '../moteur/transformations/positionnel.js';
 import {
   titreApproche, regleApproche, titreBilingue, regleBilingue, nommer, titreCourtDe,
 } from './titres.js';
@@ -3060,7 +3065,10 @@ function executerProgramme(texte, codes, parCode, journal = null) {
   let courant = etat('STR', String(texte).normalize('NFC'), [[0, texte.length]]);
   const chemin = { ops: [], etats: [courant], valeur: null, cout: 0 };
   for (const code of codes) {
-    const op = parCode.get(code);
+    // Un code nu, ou un code POSITIONNEL localisé sur la même table : le
+    // `mr9` d'un `3.2mr9` est celui qui vise la cible du lien, comme tout autre.
+    const resolu = resoudreCode(parCode, code);
+    const op = resolu.op;
     /* ★ **LES IMPLICITES SE RÉINSÈRENT ICI.** Voir `url.js` : `tca` — « un
        caractère, un jeton » — et `m09` — « chaque chiffre vaut lui-même » — ne
        s'écrivent plus dans les liens. On les remet quand — et seulement quand —
@@ -3107,7 +3115,14 @@ function executerProgramme(texte, codes, parCode, journal = null) {
     //   quel état — la seule chose qui permette de comprendre sans relire le
     //   catalogue.
     if (!op) {
-      if (journal) journal.push({ cause: 'inconnu', code, rang: chemin.ops.length });
+      // ★ Un TROISIÈME échec, qui n'est ni l'un ni l'autre : le code existe, mais
+      //   le préfixe qu'on lui a collé n'a pas de lecture pour lui (`2mpy` —
+      //   une conversion du TEXTE —, ou des largeurs que sa famille ne prend pas).
+      if (journal) {
+        journal.push(resolu.inconnu
+          ? { cause: 'inconnu', code, rang: chemin.ops.length }
+          : { cause: 'position', code, rang: chemin.ops.length, raison: resolu.raison });
+      }
       return null;
     }
     const apres = appliquerOp(op, courant);
@@ -3117,6 +3132,10 @@ function executerProgramme(texte, codes, parCode, journal = null) {
           cause: 'refus', code, rang: chemin.ops.length,
           type: courant.type,
           valeur: Array.isArray(courant.valeur) ? courant.valeur.join(' ') : String(courant.valeur),
+          // Une fenêtre qui ne tombe pas sur la ligne se dit comme telle : le
+          // refus vient de l'ENDROIT, pas de la règle (`positionnel.js › pourquoi`).
+          horsLigne: op.positionnel && typeof op.pourquoi === 'function'
+            && courant.type === op.from ? op.pourquoi(courant.valeur) : null,
         });
       }
       return null;
@@ -3145,6 +3164,15 @@ function diagnostic(journal) {
     return {
       bandeau: BANDEAUX.codeInconnu,
       detail: `« ${e.code} » (position ${e.rang + 1}) n’existe pas dans ce catalogue.`,
+    };
+  }
+  if (e.cause === 'position') {
+    return { bandeau: BANDEAUX.positionIllisible, detail: `${e.raison} (position ${e.rang + 1}).` };
+  }
+  if (e.horsLigne) {
+    return {
+      bandeau: BANDEAUX.positionImpossible(e.code),
+      detail: `« ${e.code} » (position ${e.rang + 1}) : ${e.horsLigne}.`,
     };
   }
   return {

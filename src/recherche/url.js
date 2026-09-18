@@ -213,7 +213,10 @@
 // que `2` est un code connu ». Il n'en a pas besoin : les deux alphabets sont
 // disjoints par CONSTRUCTION. Une portée commence par un chiffre, un code par
 // une lettre de famille ; même privé du `:`, `2.1` ne peut pas passer pour un
-// code ni `tca` pour une portée. C'est toute la différence avec la virgule que
+// code ni `tca` pour une portée. (Depuis la notation positionnelle, un code
+// peut commencer par un chiffre — `1cs` —, mais il FINIT toujours par une
+// lettre de famille et son corps : `2.1` reste une portée, jamais un code. Voir
+// `RE_POSITIONNEL`.) C'est toute la différence avec la virgule que
 // l'auteur avait proposée pour la retouche, qui aurait exigé, elle, de savoir
 // ce que `fr13` PRODUIT.
 //
@@ -577,6 +580,90 @@ export const RE_CODE = /^[ftnmcpj][0-9a-z]+[A-Z]?$/;
 export const RE_A_TROUVER = /^\?+$/;
 
 /**
+ * ★ **LA NOTATION POSITIONNELLE — `position.largeur.largeur…code`.**
+ *
+ * > « C'est en nombre de caractères donc ça peut couper un nombre ; si je veux
+ * >   le nombre, j'élargis pour l'inclure. » (l'autrice, 18 septembre 2026)
+ *
+ * Un préfixe collé devant le code d'un opérateur, dans la liste `+` d'un
+ * programme : `fl+mpy+mtri+1cs+2cs+mtri+0cs+mr9+mpf`. Il applique l'opérateur à
+ * une partie seulement de la ligne de NOMBRES, lue comme la concaténation de
+ * leurs chiffres : `position` est l'index (base 0) d'un caractère, chaque
+ * `largeur` un nombre de caractères — un par opérande devant un combinateur
+ * (`1.2.2cs` fait `33 + 33`), la fenêtre entière devant un mappeur (`3.2mr9`).
+ * Le sens est dans `moteur/transformations/positionnel.js` ; ici, la seule
+ * grammaire.
+ *
+ * ★ **LES LARGEURS IMPLICITES SE TAISENT**, exactement comme `.1` dans une
+ *   portée (`LONGUEUR_IMPLICITE`) : `1cs` vaut `1.1.1cs`, `5mr9` vaut `5.1mr9`.
+ *   La lettre de famille suffit à dire lesquelles sont omises — deux pour un
+ *   combinateur, une pour un mappeur —, donc l'omission ne perd rien et la
+ *   lecture reste possible SANS catalogue. `lire()` rend la forme canonique,
+ *   `ecrire()` l'écrit, et l'aller-retour est exact.
+ *
+ * ★ **AUCUNE COLLISION**, et par construction : un code commence toujours par
+ *   une lettre de famille, une portée se termine par `:`, une forme héritée
+ *   (`RE_RANGS`) n'a que des chiffres et des `+`. Un code positionnel commence
+ *   par un chiffre mais FINIT par un code entier : `2.1` ne passe toujours pas
+ *   pour un code, ni `1cs` pour une portée ou un rang.
+ *
+ * ⚠️ **Réservé aux lignes de nombres.** Seules deux lettres l'admettent, `c` et
+ *   `m` ; un `2tca` ou un `0fl` est refusé ici, bruyamment. Un `2mpy` — un
+ *   mappeur, mais qui part du TEXTE — ne se refuse qu'avec le catalogue sous la
+ *   main (`lire(…, { catalogue })`, et le rejeu dans tous les cas) : la
+ *   conversion partielle du texte reste le rôle des portées (`0.5:mpy,5.12:mch`).
+ *
+ * ⚠ Recopiée depuis `moteur/transformations/positionnel.js`, et pas importée,
+ *   pour la raison de `RE_CODE` ; `url.test.js` exige que les deux lecteurs
+ *   rendent la même chose.
+ */
+export const RE_POSITIONNEL = new RegExp(`^(\\d+)((?:\\.\\d+)*)(${RE_CODE.source.slice(1, -1)})$`);
+const LARGEURS_IMPLICITES = Object.freeze({ c: Object.freeze([1, 1]), m: Object.freeze([1]) });
+
+/** L'écriture canonique d'un code positionnel : les largeurs implicites se taisent. */
+function ecrirePositionnel(position, largeurs, code) {
+  const implicites = LARGEURS_IMPLICITES[code[0]];
+  const tues = implicites && implicites.length === largeurs.length
+    && implicites.every((l, i) => l === largeurs[i]);
+  return `${position}${tues ? '' : `.${largeurs.join('.')}`}${code}`;
+}
+
+/**
+ * Lit un code positionnel : `null` si ce n'en est pas un, `{ raison }` s'il en
+ * a la forme sans en avoir le sens, `{ position, largeurs, code, ecrit }`
+ * sinon — `ecrit` étant l'écriture canonique.
+ */
+export function lirePositionnel(ecrit) {
+  const m = typeof ecrit === 'string' ? RE_POSITIONNEL.exec(ecrit) : null;
+  if (!m) return null;
+  const position = Number(m[1]);
+  const code = m[3];
+  const implicites = LARGEURS_IMPLICITES[code[0]];
+  if (!implicites) {
+    return { raison: `« ${ecrit} » : une position ne se pose que devant un combinateur (c…) ou `
+      + 'un mappeur de nombres (m…) — le texte se découpe par les portées' };
+  }
+  const largeurs = m[2] ? m[2].slice(1).split('.').map(Number) : implicites.slice();
+  if (largeurs.some((l) => !Number.isSafeInteger(l) || l < 1)) {
+    return { raison: `« ${ecrit} » : une largeur compte au moins un caractère` };
+  }
+  if (!Number.isSafeInteger(position)) return { raison: `« ${ecrit} » : position illisible` };
+  if (code[0] === 'c' && largeurs.length < 2) {
+    return { raison: `« ${ecrit} » : un combinateur réunit au moins deux opérandes, donc deux largeurs` };
+  }
+  if (code[0] === 'm' && largeurs.length !== 1) {
+    return { raison: `« ${ecrit} » : un mappeur ne prend qu’une largeur, celle de sa fenêtre` };
+  }
+  return { position, largeurs, code, ecrit: ecrirePositionnel(position, largeurs, code) };
+}
+
+/** Le code du catalogue que désigne un code écrit — lui-même, ou celui qu'un préfixe localise. */
+export function codeDeBase(ecrit) {
+  const p = lirePositionnel(ecrit);
+  return p && !p.raison ? p.code : ecrit;
+}
+
+/**
  * ★ **`tca` EST IMPLICITE — le découpage par défaut ne s'écrit plus.**
  *
  * > « Si `tca` devient implicite, et qu'on saute `mpf`, ça donne `#mt9#` comme
@@ -615,7 +702,11 @@ export { CODE_DECOUPE_IMPLICITE, CODE_LECTURE_IMPLICITE };
 
 /** Les codes tels qu'on les ÉCRIT : sans les implicites. */
 export function codesEcrits(codes) {
-  const liste = [...codes];
+  // Un code positionnel s'écrit sous sa forme canonique (voir `RE_POSITIONNEL`).
+  const liste = [...codes].map((c) => {
+    const p = lirePositionnel(c);
+    return p && !p.raison ? p.ecrit : c;
+  });
   if (liste.length < 2) return liste;
   const sortie = liste.filter((c) => !CODES_IMPLICITES.includes(c));
   return sortie.length ? sortie : liste;
@@ -1156,6 +1247,7 @@ export function lire(hash, options = {}) {
   const retouches = [];
   for (const brutRet of etages) {
     const r = lireFragments(brutRet);
+    if (r && r.refus) return { ...vide, saisie, saisieBrute, raison: r.refus, bandeau: BANDEAUX.positionIllisible };
     if (!r) return { ...vide, saisie, saisieBrute, raison: `retouche illisible : ${brutRet}`, bandeau: BANDEAUX.formatInconnu };
     // ★ Ni résonance ni portées groupées dans une retouche, et c'est le MÊME
     //   argument (voir l'en-tête) : les deux abrègent « plusieurs places à la
@@ -1181,6 +1273,7 @@ export function lire(hash, options = {}) {
   let groupee = false;
   for (const brutFrag of brutFragments.split(',')) {
     const f = lireFragments(brutFrag);
+    if (f && f.refus) return { ...vide, saisie, saisieBrute, raison: f.refus, bandeau: BANDEAUX.positionIllisible };
     if (!f) return { ...vide, saisie, saisieBrute, raison: `fragment illisible : ${brutFrag}`, bandeau: BANDEAUX.formatInconnu };
     // ★ Le DÉPLIAGE est ici, et il est total : à partir de cette ligne, plus
     //   rien dans le site ne sait qu'un lien était groupé. `0.1+2.1:P` a rendu
@@ -1218,11 +1311,25 @@ export function lire(hash, options = {}) {
   }
 
   if (options.catalogue) {
-    const connus = new Set(normaliserCatalogue(options.catalogue).map((o) => o.code));
+    const parCode = new Map(normaliserCatalogue(options.catalogue).map((o) => [o.code, o]));
     for (const f of [...retouches, ...fragments]) {
       for (const c of f.codes) {
-        if (!connus.has(c)) {
+        const base = codeDeBase(c);
+        if (!parCode.has(base)) {
           return { ...vide, saisie, saisieBrute, raison: `code inconnu : ${c}`, bandeau: BANDEAUX.codeInconnu };
+        }
+        // ★ Le préfixe n'a de sens que sur une ligne de NOMBRES : un combinateur
+        //   qui en réunit, un mappeur qui en rend. Un `2mpy` — une conversion
+        //   partielle du texte — est le rôle des portées, pas le sien.
+        const op = parCode.get(base);
+        const nombres = op.from === 'NUMS'
+          && ((op.famille === 'combinateur' && op.to === 'NUM') || (op.famille === 'mappeur' && op.to === 'NUMS'));
+        if (base !== c && !nombres) {
+          return {
+            ...vide, saisie, saisieBrute,
+            raison: `« ${c} » : ${op.code} (${op.from} → ${op.to}) ne se localise pas`,
+            bandeau: BANDEAUX.positionIllisible,
+          };
         }
       }
     }
@@ -1333,9 +1440,10 @@ function texteBase58(segment) {
  * cherché d'abord, et il partage le fragment en deux zones étanches : à gauche
  * des portées, à droite des codes. Aucun `+` n'est lu avant ce partage, et un
  * programme ne peut pas contenir de `:` (§4.1) — le premier est donc toujours
- * le bon. Les deux alphabets sont de surcroît disjoints (un chiffre ouvre une
- * portée, une lettre de famille ouvre un code), ce qui vaut filet : la lecture
- * reste décidable sans catalogue, comme tout ce module.
+ * le bon. Les deux alphabets sont de surcroît disjoints (une portée n'a que des
+ * chiffres et des points, un code finit par une lettre de famille et son corps
+ * — préfixe positionnel ou pas), ce qui vaut filet : la lecture reste
+ * décidable sans catalogue, comme tout ce module.
  *
  * @param {string} brut
  * @returns {FragmentUrl[]|null}
@@ -1354,7 +1462,17 @@ function lireFragments(brut) {
   const codes = RE_A_TROUVER.test(programme)
     ? [programme]
     : programme.split('+');
-  if (!RE_A_TROUVER.test(programme) && !codes.every((c) => RE_CODE.test(c))) return null;
+  if (!RE_A_TROUVER.test(programme)) {
+    for (let k = 0; k < codes.length; k++) {
+      if (RE_CODE.test(codes[k])) continue;
+      // ★ Un code POSITIONNEL se lit ici, et se rend sous sa forme canonique :
+      //   en aval, `1.1.1cs` et `1cs` sont le même code, écrit d'une seule façon.
+      const p = lirePositionnel(codes[k]);
+      if (!p) return null;
+      if (p.raison) return { refus: p.raison };
+      codes[k] = p.ecrit;
+    }
+  }
   // Pas de tête : le fragment porte sur la saisie entière, comme toujours.
   if (!tetes) return [{ portee: null, resonance: null, codes }];
   // La résonance ne se groupe pas — elle nomme DÉJÀ plusieurs places, et les
@@ -1407,6 +1525,17 @@ export const BANDEAUX = {
       + 'no digits that yield it.',
   },
   formatInconnu: 'Ce lien a été créé par une autre version du site.',
+  // ★ La NOTATION POSITIONNELLE (`1.2.2cs`, `3.2mr9`) : un préfixe sans lecture
+  //   — devant un opérateur qui ne travaille pas une ligne de nombres, ou avec
+  //   des largeurs que sa famille ne prend pas —, puis une fenêtre que la ligne
+  //   trouvée ne permet pas de découper : hors bornes, sur un nombre négatif,
+  //   ou laissant un morceau à zéro de tête (`positionnel.js › planifier`).
+  //   Deux refus distincts de « version inconnue » : la règle est connue,
+  //   c'est l'endroit qui ne va pas.
+  positionIllisible: 'Ce lien applique une règle à une partie de la ligne de nombres, '
+    + 'et cette règle ne s’y prête pas.',
+  positionImpossible: (code) => `La position « ${code} » ne se découpe pas dans cette ligne de nombres : `
+    + 'la démonstration s’arrête là.',
   lienIllisible: 'Ce lien est illisible : la saisie n’a pas pu être décodée.',
   // Seul bandeau du moteur : le filet de sécurité temporel a mordu. Le
   // classement rendu n'est alors PAS reproductible — il dépend de la charge de

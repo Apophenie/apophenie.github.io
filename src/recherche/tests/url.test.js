@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   lire, ecrire, ecrireApproche, descripteursDe, retouchesDe, canoniser, autreRegistre,
-  registreEffectif, BANDEAUX, RE_CODE, chargeDeRequete, adresse} from '../url.js';
+  registreEffectif, BANDEAUX, RE_CODE, RE_POSITIONNEL, lirePositionnel, chargeDeRequete, adresse,
+} from '../url.js';
 import { encoderTexte, LIMITE_SAISIE } from '../base58.js';
 import { catalogue } from './_catalogue.js';
 import { reglagesDeBudget, PUISSANCE_ENUMERATION } from '../../config.js';
@@ -1314,4 +1315,129 @@ test('★ deux familles — chaque ligne du tableau, en requête ET en fragment'
     assert.equal(lire(requete).forme, attendu, `requête « ${requete} » — ${quoi}`);
     assert.equal(lire(fragment).forme, attendu, `fragment « ${fragment} » — ${quoi}`);
   }
+});
+
+/* ══════════ LA NOTATION POSITIONNELLE — `position.largeur.largeur…code` ═══ */
+
+/**
+ * ★ « C'est en nombre de caractères donc ça peut couper un nombre ; si je veux
+ * le nombre, j'élargis pour l'inclure. » (l'autrice, 18 septembre 2026)
+ *
+ * Ces tests gèlent la GRAMMAIRE : la lecture, la forme canonique, l'absence de
+ * collision avec les portées, les rangs hérités et les étages. Le sens — ce
+ * qu'une somme à la position 1 fait d'une ligne — est éprouvé par le chemin du
+ * site dans `positionnel.test.js`.
+ */
+const FOUCHE = '7NFn8xBqb5eNAq3YCY';
+const LIEN_FOUCHE = `?fl+mpy+mtri+1cs+2cs+mtri+0cs+mr9+mpf$${FOUCHE}`;
+
+test('★ positionnel — le lien de l’autrice se lit, et se réécrit au caractère près', () => {
+  const r = lire(LIEN_FOUCHE, { catalogue });
+  assert.equal(r.forme, 'canonique', r.raison);
+  assert.equal(r.saisie, 'Louis Fouché');
+  assert.deepEqual(r.fragments[0].codes, ['fl', 'mpy', 'mtri', '1cs', '2cs', 'mtri', '0cs', 'mr9', 'mpf']);
+  assert.equal(ecrire(r), LIEN_FOUCHE, 'l’aller-retour est exact');
+});
+
+test('★ positionnel — les largeurs implicites se taisent, comme `.1` dans une portée', () => {
+  for (const [ecrit, canonique] of [
+    ['1.1.1cs', '1cs'], ['1cs', '1cs'], ['1.2.2cs', '1.2.2cs'], ['1.1.1.1cs', '1.1.1.1cs'],
+    ['5.1mr9', '5mr9'], ['5mr9', '5mr9'], ['3.2mr9', '3.2mr9'], ['01.1.1cp', '1cp'],
+  ]) {
+    const r = lire(`?mpy+${ecrit}$:Louis`);
+    assert.equal(r.forme, 'canonique', `${ecrit} : ${r.raison}`);
+    assert.deepEqual(r.fragments[0].codes, ['mpy', canonique], `${ecrit} se lit ${canonique}`);
+    const reecrit = ecrire(r);
+    assert.ok(reecrit.startsWith(`?mpy+${canonique}$`), `${ecrit} s’écrit ${canonique} : ${reecrit}`);
+    const relu = lire(reecrit);
+    assert.deepEqual(relu.fragments, r.fragments, `${ecrit} : relire l’écriture rend la même lecture`);
+    assert.equal(ecrire(relu), reecrit, `${ecrit} : l’écriture canonique est un point fixe`);
+  }
+  // ★ Et l'écriture canonise ce qu'on lui passe tel quel : il n'y a qu'UNE
+  //   forme écrite d'une démonstration.
+  assert.equal(
+    ecrire({ saisie: 'Louis', fragments: [{ portee: null, resonance: null, codes: ['mpy', '1.1.1cs'] }] }),
+    `?mpy+1cs$${encoderTexte('Louis')}`,
+  );
+});
+
+/**
+ * ★ AUCUNE COLLISION. Un code commence par une lettre de famille, une portée
+ * se termine par `:`, une forme héritée n'a que des chiffres : le code
+ * positionnel commence par un chiffre, mais FINIT par un code entier. On le
+ * vérifie sur les formes voisines — portées groupées, implicite `0` = `0.1`,
+ * fragments `,`, étages `;`, rangs hérités, commande `????`.
+ */
+test('★ positionnel — aucune collision avec les portées, les rangs, les étages', () => {
+  const H = encoderTexte('hope');
+  // Portées groupées et préfixes dans le même lien : le `:` partage d'abord,
+  // les préfixes ne vivent qu'à droite.
+  const g = lire(`?0+2+4:tca+m14+1cs,1:mpy+0mr9$${H}`);
+  assert.equal(g.forme, 'canonique', g.raison);
+  assert.deepEqual(g.fragments.map((f) => [f.portee.offset, f.portee.longueur, f.codes.join('+')]),
+    [[0, 1, 'tca+m14+1cs'], [1, 1, 'mpy+0mr9'], [2, 1, 'tca+m14+1cs'], [4, 1, 'tca+m14+1cs']]);
+  // `0.1:` reste une portée, `0.1` sans deux-points n'est pas un code.
+  assert.equal(lire(`?0.1:m14$${H}`).fragments[0].portee.longueur, 1);
+  assert.equal(lire(`?0.1+m14$${H}`).forme, 'invalide', '`0.1` n’est ni un code ni un préfixe');
+  assert.equal(lire(`?0.1+m14$${H}`).bandeau, BANDEAUX.formatInconnu);
+  // Les rangs hérités restent des rangs, un code positionnel seul est un
+  // programme, et les deux ne se mêlent pas : `1` n'est pas un code.
+  assert.equal(lire(`?1+2$${H}`).forme, 'heritee');
+  assert.equal(lire(`?m14+2cs$${H}`).forme, 'canonique');
+  assert.equal(lire(`?1+2cs$${H}`).forme, 'invalide', 'ni un rang, ni un programme');
+  // Un étage : la retouche lit sa propre grammaire, le préfixe ne la change pas.
+  const e = lire(`?2:fr13;m14+1cs$${H}`);
+  assert.equal(e.forme, 'canonique', e.raison);
+  assert.deepEqual(e.retouches[0].codes, ['fr13']);
+  assert.deepEqual(e.fragments[0].codes, ['m14', '1cs']);
+  // La commande ne se compose toujours pas.
+  assert.equal(lire(`?1cs+????$${H}`).forme, 'invalide');
+  // `14m` n'est ni un code ni un préfixe (`m` n'a pas de corps) ; un point
+  // sans largeur n'en est pas un non plus.
+  assert.doesNotMatch('14m', RE_POSITIONNEL);
+  assert.doesNotMatch('1.cs', RE_POSITIONNEL);
+  assert.doesNotMatch('1..1cs', RE_POSITIONNEL);
+});
+
+/**
+ * ★ La grammaire est recopiée, pas importée — pour la raison de `RE_CODE`, et
+ * sous la même garde : les deux lecteurs doivent rendre la même chose, champ
+ * par champ, y compris leurs refus.
+ */
+test('★ positionnel — url.js et le moteur lisent la même grammaire', async () => {
+  const moteur = await import('../../moteur/transformations/positionnel.js');
+  assert.equal(RE_POSITIONNEL.source, moteur.RE_POSITIONNEL.source, 'url.js a dérivé de positionnel.js');
+  for (const ecrit of ['1cs', '1.1.1cs', '1.2.2cs', '0.1.1.1cp', '3.2mr9', '5mr9', '5.1mr9',
+    '1.1cs', '1.1.1mr9', '0.0.1cs', '2tca', '0fl', '3pr9', '1.2mpy', 'cs', '1', '2.1', '1.cs']) {
+    assert.deepEqual(lirePositionnel(ecrit), moteur.lirePositionnel(ecrit), `« ${ecrit} »`);
+  }
+});
+
+/**
+ * ★ LES REFUS, ET LEUR BANDEAU. Ni deviné, ni ramené à « autre version du
+ * site » : la règle est connue, c'est l'endroit qui ne va pas.
+ */
+test('★ positionnel — un préfixe sans lecture est refusé, bruyamment', () => {
+  for (const [programme, quoi] of [
+    ['mpy+0tca', 'un découpage du texte'],
+    ['0fl+mpy', 'un filtre'],
+    ['mpy+cs+0pr9', 'un post-traitement'],
+    ['mpy+1.1cs', 'un combinateur à une seule largeur'],
+    ['mpy+1.1.1mr9', 'un mappeur à deux largeurs'],
+    ['mpy+0.0.1cs', 'une largeur nulle'],
+  ]) {
+    const r = lire(`?${programme}$:Louis`);
+    assert.equal(r.forme, 'invalide', `${quoi} : ${programme}`);
+    assert.equal(r.bandeau, BANDEAUX.positionIllisible, quoi);
+  }
+  // ★ `2mpy` a la GRAMMAIRE d'un préfixe (une lettre `m`), mais `mpy` part du
+  //   TEXTE : il n'est refusé qu'avec le catalogue — et, sans lui, par le
+  //   rejeu (`positionnel.test.js`). La conversion partielle du texte reste le
+  //   rôle des portées (`0.5:mpy`).
+  assert.equal(lire('?2mpy$:Louis').forme, 'canonique', 'sans catalogue, la grammaire seule');
+  const r = lire('?2mpy$:Louis', { catalogue });
+  assert.equal(r.forme, 'invalide');
+  assert.equal(r.bandeau, BANDEAUX.positionIllisible);
+  assert.equal(lire('?mpy+2czz$:Louis', { catalogue }).bandeau, BANDEAUX.codeInconnu,
+    'un code inconnu reste un code inconnu, préfixe ou pas');
 });
