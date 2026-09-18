@@ -167,6 +167,15 @@ function signifiantsLus(chemin) {
 }
 
 /**
+ * Le chemin lit-il TOUS les caractères signifiants du fragment ? — la lecture
+ * sans perte de `axesIntermediaires`, en oui ou non (`assemblage.js ›
+ * vecteursDeSix`, le siège de la voie courte qui lit tout).
+ */
+export function litTout(chemin, texte) {
+  return signifiantsLus(chemin) >= nbSignifiants(texte);
+}
+
+/**
  * Le rendement du vecteur final : ce que le verdict en GARDERA, rapporté à ce
  * qu'on a calculé. Même lecture que `score.js › rendementSix` : pour ce qui
  * ÉCARTE (`mpf`, `m36`…), la ligne la plus large du chemin ; pour le reste, la

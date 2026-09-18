@@ -107,3 +107,31 @@ test('★ exhaustivité à 200 : la tête lit toute la saisie, et la voie qui é
   assert.ok(!codes(r).includes(GRAMMATICALE),
     'une suppression élégante reste une suppression : à 200, elle cède son siège à celles qui lisent tout');
 });
+
+/**
+ * ★ **« LOUIS FOUCHÉ » : LA VOIE SIMPLE RESTE EN HAUT DE LA LISTE.**
+ *
+ * > « À première vue je n'y vois pas d'inconvénient [à ce que `mas` et `mu8`
+ * >   bousculent la liste], mais que fl+m14 sorte est dérangeant. Une voie
+ * >   aussi simple est précieuse. » (l'autrice, 18 septembre 2026)
+ *
+ * Deux causes, mesurées, et une règle générale pour chacune :
+ *  1. la voie n'était plus FABRIQUÉE — `mas` et `mu8` l'avaient poussée du 5ᵉ
+ *     au 23ᵉ rang de la fenêtre du fragment entier. Le troisième élu
+ *     (`assemblage.js › vecteursDeSix`, la voie courte qui lit tout) la rend ;
+ *  2. fabriquée, elle restait hors de la liste : le quota du quatorze segments
+ *     allait à `tca+m14` et `tca+mtal+m14`, que le moteur préfère et que la liste
+ *     classe derrière elle au global (592 et 584 contre 647). Une méthode est
+ *     désormais représentée par ses voies les mieux notées au global
+ *     (`score.js › representerParLesMieuxNotees`).
+ * Ce test tient le résultat, pas les moyens : `fl+tca+m14` dans les trois
+ * premières places, et devant l'absorption en produits.
+ */
+test('★ « Louis Fouché » — `fl+tca+m14` reste dans les trois premières places', () => {
+  const r = moteur.resoudre('Louis Fouché', { fouille: 0 });
+  const liste = codes(r);
+  const rang = liste.indexOf('fl+tca+m14');
+  assert.ok(rang >= 0 && rang < 3, `rang ${rang + 1} : ${liste.join('  ')}`);
+  const absorption = liste.indexOf('tca+mu8+mabx');
+  assert.ok(absorption < 0 || absorption > rang, `l’absorption passe devant : ${liste.join('  ')}`);
+});

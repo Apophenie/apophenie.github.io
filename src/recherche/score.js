@@ -2363,7 +2363,61 @@ export function diversifier(approches, options = {}) {
     const m = cleDeQuota(a);
     if (m) compteMappeur.set(m, (compteMappeur.get(m) || 0) + 1);
   }
+  representerParLesMieuxNotees(choisis, restants, cleDeQuota,
+    options.curseurs ?? (options.ponderation && options.ponderation.curseurs));
   return choisis.sort(ordre);
+}
+
+/**
+ * ★ **UNE MÉTHODE EST REPRÉSENTÉE PAR SES VOIES LES MIEUX NOTÉES AU GLOBAL.**
+ *
+ * > « Que fl+m14 sorte est dérangeant. Une voie aussi simple est
+ * >   précieuse. » (l'autrice, 18 septembre 2026, sur « Louis Fouché »)
+ *
+ * Le MMR choisit QUI entre dans la liste à l'ordre du moteur (`ordreTotal`),
+ * et c'est voulu : le global ne décide que de l'ordre montré (voir
+ * `ordreGlobal`, et les verdicts du 15 septembre). Mais le quota par méthode
+ * (`maxParMappeur`) fait alors un choix que personne n'a arbitré : QUELLES
+ * voies d'une même méthode la représentent. Au moteur, la réponse peut
+ * contredire la liste elle-même. MESURÉ sur « Louis Fouché » : `fl+tca+m14`
+ * (moteur 2 296, global 647) restait dehors pendant que `tca+m14` (2 559, 592)
+ * et `tca+mtal+m14` (2 360, 584), deux lectures du quatorze segments que la
+ * liste classe derrière elle, occupaient la place de la méthode.
+ *
+ * ★ **LA RÈGLE, GÉNÉRALE** : une voie restée dehors prend la place d'une voie
+ *   retenue de la MÊME méthode (même clé de quota) quand elle est mieux notée
+ *   au global — la moins bien notée cède d'abord. Le compte par méthode ne
+ *   bouge pas, le nombre de voies non plus, et rien ne change d'une méthode à
+ *   l'autre : le MMR reste seul juge de la diversité, le global ne départage
+ *   qu'à l'intérieur d'une méthode, là où la diversité n'est pas en jeu.
+ * ★ Déterministe : les candidates dans l'ordre du moteur, chaque échange
+ *   strictement gagnant au global, un départage total par `ordreTotal`
+ *   (§4.4). Les voies de l'amorce (les deux lignes réservées) ne sont jamais
+ *   échangées : elles ne sont pas dans `choisis`.
+ */
+function representerParLesMieuxNotees(choisis, restants, cleDeQuota, curseurs) {
+  if (!choisis.length || !restants.length) return;
+  const g = new Map();
+  const globalDe = (a) => {
+    let v = g.get(a);
+    if (v === undefined) { v = scoreGlobal(a, curseurs) ?? -1; g.set(a, v); }
+    return v;
+  };
+  for (const r of restants.slice().sort(ordreTotal)) {
+    const m = cleDeQuota(r);
+    if (!m) continue;
+    let pire = -1;
+    for (let i = 0; i < choisis.length; i++) {
+      const c = choisis[i];
+      if (cleDeQuota(c) !== m) continue;
+      if (pire < 0 || globalDe(c) < globalDe(choisis[pire])
+        || (globalDe(c) === globalDe(choisis[pire]) && ordreTotal(c, choisis[pire]) > 0)) pire = i;
+    }
+    if (pire >= 0 && globalDe(r) > globalDe(choisis[pire])) {
+      r.scoreAjuste = choisis[pire].scoreAjuste;
+      choisis[pire] = r;
+    }
+  }
 }
 
 /**

@@ -42,7 +42,7 @@
 // hachage, O(nb de chemins), quasi gratuite.
 
 import {
-  signature, comparerCodes, scorePartiel, maniere, normaliserCurseurs, auDefaut,
+  signature, comparerCodes, scorePartiel, maniere, normaliserCurseurs, auDefaut, longueurRendue,
 } from './score.js';
 import {
   A_MERITER_SA_PLACE, OPERATEURS_QUI_ECARTENT, FICELLES, nbTriptyques, compterTraductionsDivergentes,
@@ -62,7 +62,7 @@ import {
 import { tokeniser } from './fragments.js';
 import { MAX_SERIES } from '../config.js';
 import {
-  axesIntermediaires, noteDeQualite, partDesSieges, siegeDeQualite, reserveDeQualite,
+  axesIntermediaires, noteDeQualite, partDesSieges, siegeDeQualite, reserveDeQualite, litTout,
 } from './score-intermediaire.js';
 
 /**
@@ -1819,7 +1819,45 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     const additive = sansPerte.find((c) => honnete(c)
       && c.ops.some((o) => o && o.id === 'm.redecoupageExact'))
       || sansPerte.find(honnete);
-    for (const c of [sansPerte[0], additive]) if (c && !elus.includes(c)) elus.push(c);
+    /* ★ **UN TROISIÈME ÉLU : LA VOIE COURTE QUI LIT TOUT.**
+
+       > « Que fl+m14 sorte est dérangeant. Une voie aussi simple est
+       >   précieuse. » (l'autrice, 18 septembre 2026, sur « Louis Fouché »)
+
+       Son goût, consigné : « court et exhaustif, sans passer par mab ». Or rien
+       dans cette fonction ne tient ces deux mots ensemble. Le tri range par
+       COMPTE de 6, la réserve de qualité par netteté (ce que le verdict n'aura
+       pas à jeter), les deux premiers élus par l'absence de perte. Une voie de
+       deux gestes qui lit toutes les lettres et écrit la cible une fois, en
+       laissant quelques valeurs au verdict, n'est première sur aucun de ces
+       critères — elle ne tenait sa place que tant que la concurrence était
+       rare. MESURÉ sur « Louis Fouché » : `fl+tca+m14` était 5ᵉ de la fenêtre
+       du fragment entier ; `mas` et `mu8`, qui codent chaque caractère d'une
+       ligne de douze et fabriquent des lignes riches en 6 (`fr2+tca+mu8+mdc3`,
+       `tca+mu8+mabx`…), l'ont repoussée au 23ᵉ rang, et elle a quitté la
+       liste — non pas classée plus bas : plus FABRIQUÉE. Au global, elle
+       aurait été 3ᵉ (647).
+
+       ★ La règle est générale, et c'est celle de l'autrice mot pour mot :
+         parmi les voies SANS FICELLE (`nbFicelles` : ni absorption, ni
+         égalisation, ni rien de ce qui doit mériter sa place) qui ÉCRIVENT la
+         cible et LISENT tous les caractères signifiants du fragment
+         (`score-intermediaire.js › litTout`), la plus COURTE au tarif du
+         barème (`score.js › longueurRendue` : `tca` gratuit, les retraits
+         grammaticaux en remise), puis la plus fournie, puis l'ordre des
+         chemins (§4.4). Aucun code d'opérateur n'y est nommé.
+       ★ Elle entre comme les deux autres élus : EN PLUS, à la fin de la
+         moitié gardée, sans prendre la place d'un siège réservé ; et, sans
+         ficelle, elle n'a pas à mériter sa place. Si elle y est déjà, rien ne
+         bouge.
+       ★ Au GROUPEMENT seulement (`miseEnForme`) : c'est lui qui propose des
+         voies au lecteur. La MATIÈRE d'une moisson garde sa fenêtre d'avant
+         au chemin près — la garantie « zéro voie sortie » de la fenêtre par
+         famille (`familles.test.js`). */
+    const courte = !miseEnForme ? null : out
+      .filter((c) => !nbFicelles(c) && ecrit(c.etats[c.etats.length - 1].valeur, cbl) && litTout(c, texte))
+      .sort((a, b) => (longueurRendue([a]) - longueurRendue([b])) || (six(b) - six(a)) || comparerChemins(a, b))[0];
+    for (const c of [sansPerte[0], additive, courte]) if (c && !elus.includes(c)) elus.push(c);
     // ⚠️ Les places visées sont les DERNIÈRES de la première moitié, et jamais
     //   négatives : sur une liste courte (`plafond` à deux), `fenetre - 1 - rang`
     //   passait sous zéro et `splice` insérait alors depuis la FIN — la voie

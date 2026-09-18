@@ -206,11 +206,18 @@ test('★ élus — curseurs personnalisés : les deux voies sans perte sont gar
 test('élus — rendue à l’ancienne potence, la liste retrouve l’absorption sans perte', () => {
   const OPS_ANCIENNE = OPS.filter((o) => !/^mdc\d$/.test(o.code));
   for (const x of [{ simplicite: 200 }, { exhaustivite: 200 }, { coherence: 150 }]) {
-    const garde = vecteursDeSix(JARDIN, OPS_ANCIENNE, 3, 16, '666', { curseurs: x })
-      .slice(0, 8).map(codesDe);
+    const fenetre = vecteursDeSix(JARDIN, OPS_ANCIENNE, 3, 16, '666', { curseurs: x }).map(codesDe);
+    const garde = fenetre.slice(0, 8);
     assert.ok(garde.includes('tm+mlm+mab'), `${JSON.stringify(x)} : ${garde.join('  ')}`);
     assert.ok(garde.includes('fl+tca+msen+mrdE'), `${JSON.stringify(x)} : ${garde.join('  ')}`);
-    assert.equal(garde.filter((c) => /\+md0\d$/.test(c) && c.startsWith('fl+tca+masc+')).length, 2,
+    /* Une potence par nombre de décimales, pas une par réglage — lu sur la
+       fenêtre ENTIÈRE. Depuis le troisième élu (la voie courte qui lit tout,
+       ici `fl+tca+m14`, posée à la fin de la moitié gardée), la seconde potence
+       peut passer juste derrière la coupe : ce n'est pas un réglage de trop
+       qu'on compterait, c'est une place prise par l'élu. */
+    const potences = fenetre.filter((c) => /\+md0\d$/.test(c) && c.startsWith('fl+tca+masc+'));
+    assert.deepEqual(potences.sort(), ['fl+tca+masc+md02', 'fl+tca+masc+md03'],
       'une potence par nombre de décimales, pas une par réglage');
+    assert.ok(garde.includes('fl+tca+m14'), `l’élu court : ${garde.join('  ')}`);
   }
 });
