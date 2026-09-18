@@ -191,6 +191,13 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   d'une phrase. Inactif, réservé au bloc d'une phrase en passe profonde.
   //   Fin de bloc mappeur, append-only (§4.1).
   'mecl',
+  // ★ LE CODE ASCII DE CHAQUE CARACTÈRE, casse comprise et accents retirés, puis
+  //   le POINT DE CODE UNICODE — deux conversions lettre → nombre, actives.
+  //   Fin de bloc mappeur, append-only (§4.1).
+  'mas', 'mu8',
+  // ★ L'ADDITION VERS LA MOYENNE — des voisins additionnés, sans réduire, pour
+  //   que `meg` tombe sur le chiffre visé. Fin de bloc mappeur, append-only.
+  'mam',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

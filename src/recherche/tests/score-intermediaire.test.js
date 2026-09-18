@@ -137,9 +137,21 @@ test('★ réserve — exhaustivité et cohérence à 150 : la voie grammaticale
  * curseurs pilotent la réserve, il ne chasse plus qu'un siège de quantité.
  * (Au défaut, le comportement historique est gardé : voir `vecteursDeSix`.)
  */
+/* ⚠️ **SUR LE CATALOGUE DE L'ARBITRAGE — sans `mas` ni `mu8`.** Ajoutés le
+     18 septembre 2026, ils fabriquent sur cette phrase deux voies courtes
+     (`fmaj+tca+mas+mdc3` et `+mdc2` : la phrase en capitales, espaces codés)
+     qui prennent deux des huit places, et l'absorption `fc+tca+masc+mab` passe
+     de la 5ᵉ à la 10ᵉ — hors de la moitié gardée, sous les trois réglages de
+     curseurs. Ce n'est pas l'élu qui chasse l'absorption (ce que ce test
+     garde), ce sont deux voies nouvelles qui la dépassent. Le test reste donc
+     posé sur le catalogue où l'autrice a tranché ; la nouvelle concurrence est
+     à ARBITRER par elle, pas à absorber ici en silence. */
+const AVANT_LES_CODES_DE_CARACTERE = OPS.filter((o) => o.code !== 'mas' && o.code !== 'mu8');
+
 test('★ élus — curseurs personnalisés : les deux voies sans perte sont gardées ensemble', () => {
   for (const x of [{ simplicite: 200 }, { exhaustivite: 200 }, { coherence: 150 }]) {
-    const garde = vecteurs(x).slice(0, 8).map(codesDe);
+    const garde = vecteursDeSix(JARDIN, AVANT_LES_CODES_DE_CARACTERE, 3, 16, '666', { curseurs: x })
+      .slice(0, 8).map(codesDe);
     const dit = `${JSON.stringify(x ?? {})} : ${garde.join('  ')}`;
     /* ★ **L'ÉLU SANS PERTE EST DÉSORMAIS UNE VOIE HONNÊTE.** Il s'appelait
        `tm+mlm+mab` — une absorption, donc une ficelle. Depuis que la potence

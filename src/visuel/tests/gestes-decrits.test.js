@@ -1382,3 +1382,38 @@ test('★ fraction et divisions : le tracé se referme sur le résultat arrivé,
       `${code} : au moment de s’effacer, le tracé couvre le résultat, et lui seul`);
   }
 });
+
+// ───────────────────── 15. `mas`, `mu8`, `mam` : par le chemin du site
+
+/**
+ * ★ **PAR LE CHEMIN DU SITE**, comme le carré : `construireScenario` sans
+ *   avertissement, et le geste attendu parmi les ops émises — sans quoi une
+ *   voie « compile » en retombant sur la substitution générique.
+ *
+ *   · `mas` sur « Louis Fouché » : douze tables, et le « é » envoyé dans la
+ *     case « e » (101) — le pont accepte l'étiquette sans accent, casse gardée ;
+ *   · `mu8` sur la même saisie : le « é » dans la case 233 ;
+ *   · `fl+tca+mt9+mtri+mam+meg` sur « Donald Trump » : UNE addition, `2 + 3`,
+ *     puis l'égalisation, et la ligne finit sur neuf 6 et un 7.
+ */
+test('★ par le chemin du site, `mas`, `mu8` et `mam` jouent leur geste', () => {
+  for (const [code, case_] of [['mas', '101'], ['mu8', '233']]) {
+    const saisie = 'Louis Fouché';
+    const sc = construireScenario(approcheSur(saisie, ['tca', code]), { saisie });
+    assert.equal(sc.avertissements, undefined, `${code} : ${(sc.avertissements || []).join(' | ')}`);
+    const tables = sc.steps.flatMap((s) => s.ops || []).filter((o) => o.op === 'table');
+    assert.equal(tables.length, 12, `${code} : un aller-retour par caractère, l’espace compris`);
+    assert.equal(tables[11].letter, case_, `${code} : la case du « é »`);
+    assert.deepEqual(compile(sc).warnings, [], `${code} : la scène compile sans animation concurrente`);
+  }
+  const saisie = 'Donald Trump';
+  const approche = approcheSur(saisie, ['fl', 'tca', 'mt9', 'mtri', 'mam', 'meg']);
+  const sc = construireScenario(approche, { saisie });
+  assert.equal(sc.avertissements, undefined, (sc.avertissements || []).join(' | '));
+  const ops = sc.steps.flatMap((s) => s.ops || []);
+  assert.deepEqual(ops.filter((o) => o.op === 'sum').map((o) => o.to.text), ['5'], 'une seule addition : 2 + 3');
+  assert.ok(ops.some((o) => o.op === 'group' && o.egaliser), 'puis l’égalisation');
+  const fin = approche.parts[0].chemin.etats.at(-1).valeur;
+  assert.deepEqual([...fin].sort((a, b) => a - b), [6, 6, 6, 6, 6, 6, 6, 6, 6, 7]);
+  assert.deepEqual(compile(sc).warnings, []);
+});

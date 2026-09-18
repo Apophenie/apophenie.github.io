@@ -1614,6 +1614,12 @@ const REECRITURES = new Set(['ecritureEnLettres']);
  */
 const ABSORBENT_PAR_ADDITION = Object.freeze({
   'm.additionSelective': 'additionSelective',
+  // ★ L'ADDITION VERS LA MOYENNE (`mam`) additionne des voisins choisis en
+  //   regardant la cible, comme `mad` — pour la moyenne de la ligne plutôt que
+  //   pour le chiffre de chaque paquet. Même geste, même palier, même dilution
+  //   par ses additions : sans cette ligne, sa ligne raccourcie se serait payée
+  //   au poste des REJETS, comme si les termes additionnés avaient été jetés.
+  'm.additionVersLaMoyenne': 'additionSelective',
   'm.redecoupageChoisi': 'redecoupage',
   // ★ L'ABSORPTION ARITHMÉTIQUE (`mab`) — le redécoupage poussé jusqu'au bout :
   //   elle coupe, additionne, réduit et multiplie pour que la ligne écrive la
@@ -1830,6 +1836,11 @@ export const A_MERITER_SA_PLACE = Object.freeze(new Set([
      d'être une suspecte AU BARÈME, elle ne cesse pas de devoir mériter sa place
      DANS LE FAISCEAU. */
   'm.additionSelective',
+  // ★ L'addition vers la moyenne (`mam`) prépare `meg`, qui y est déjà
+  //   (`UNIFORMISENT`) : elle choisit ses additions pour que l'égalisation
+  //   écrive le plus de chiffres de la cible — des 6 en masse, par
+  //   construction. Même question du faisceau, même réponse que `mad`.
+  'm.additionVersLaMoyenne',
   // L'absorption fabrique la cible ENTIÈRE par construction : à plus forte
   // raison que le redécoupage, elle doit mériter sa place.
   'm.absorption',
