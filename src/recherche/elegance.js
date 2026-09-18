@@ -1630,6 +1630,13 @@ const ABSORBENT_PAR_ADDITION = Object.freeze({
   //   additions et dégressif avec la longueur de la ligne. Ce qu'il a de plus
   //   — ne rien laisser — se lit ailleurs, sur le reliquat et le rendement.
   'm.redecoupageExact': 'redecoupage',
+  // ★ Les variantes qui ACCOLENT (`mrdf`, `mrfE`) font le geste de leur modèle,
+  //   des chiffres soudés en plus : même palier, même dilution, même
+  //   dégressivité. Ce qu'elles ont de moins élégant se paie ailleurs — au
+  //   recours et à la notoriété qu'elles déclarent (`mappeurs.js`) —, pas en
+  //   inventant un poste que le barème ne sait pas comparer.
+  'm.redecoupageFusionnant': 'redecoupage',
+  'm.redecoupageFusionnantExact': 'redecoupage',
 });
 
 /**
@@ -1772,7 +1779,10 @@ const ENONCENT_LA_MAJORITE = Object.freeze(new Set(['m.plusFrequent']));
  * demanderait de comparer les vecteurs à chaque étape et frapperait au passage
  * une réduction qui tombe juste par hasard (`mrn` sur `[9, 18, 27]`).
  */
-export const UNIFORMISENT = Object.freeze(new Set(['m.egalisation']));
+// ★ `megf` égalise comme `meg`, après avoir redécoupé : même poste. La ligne
+//   ayant changé de longueur, la comparaison rang à rang compte pour réécrite
+//   presque toute valeur — c'est plus sévère que pour `meg`, et c'est voulu.
+export const UNIFORMISENT = Object.freeze(new Set(['m.egalisation', 'm.egalisationFutee']));
 
 /**
  * ★ **CE QUI DOIT MÉRITER SA PLACE DANS LE FAISCEAU** — et ce n'est PAS la même
@@ -1839,6 +1849,10 @@ export const A_MERITER_SA_PLACE = Object.freeze(new Set([
   //   (`assemblage.js › vecteursDeSix`) le fait entrer dans la liste quand il
   //   le mérite ; il n'a plus besoin d'être dispensé.
   'm.redecoupageExact',
+  // ★ Leurs variantes qui accolent, pour la même raison que leurs modèles
+  //   (`megf` y entre par `UNIFORMISENT`, comme `meg`).
+  'm.redecoupageFusionnant',
+  'm.redecoupageFusionnantExact',
   // ★ Le redécoupage EXACT (`mrdE`) n'y est PAS, et c'est mesuré. Il ne
   //   produit rien « en masse » : il écrit la cible exactement ou il se tait,
   //   et sa récolte est bornée par la somme de la ligne (invariant modulo
@@ -2674,7 +2688,9 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       //   seulement — et paie le même poste : sans lui, une voie à une série
       //   passait devant `fl+tca+m14` et devant `fr13+tca+m14+meg`.
       if (op.id === 'm.absorption' || op.id === 'm.absorptionProduit'
-        || op.id === 'm.absorptionDifference' || op.id === 'm.redecoupageExact') b.absorptions += absorbes;
+        || op.id === 'm.absorptionDifference' || op.id === 'm.redecoupageExact'
+        // ★ …et sa variante qui accole (`mrfE`), par analogie exacte.
+        || op.id === 'm.redecoupageFusionnantExact') b.absorptions += absorbes;
       const poids = typeof op.additions === 'function'
         ? dilution(op.additions(avant.valeur)) : absorbes * 1000;
       // ★ Et le redécoupage, LUI SEUL, s'allège avec la longueur de la ligne :

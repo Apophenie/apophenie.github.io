@@ -2656,6 +2656,34 @@ fusionnés) · `m14`/`m14F` **quatorze segments**, mêmes deux lectures ·
 > n'employaient même pas `mrd`. Aucun réglage du barème ne pouvait y remédier :
 > ce qui tombait n'était pas classé plus bas, il n'était plus là.
 
+> *Amendement — **LES REDÉCOUPAGES QUI FUSIONNENT**, `mrdf`, `mrfE`, `megf`.* —
+> 18 septembre 2026.
+>
+> « Plutôt que d'inclure la fusion dans mrd et mrdE, fais des variantes
+> capables de fusionner ; elles me semblent un peu moins élégantes, donc autant
+> garder l'existant et ajouter plutôt que modifier. » (l'autrice)
+>
+> Trois codes NEUFS en fin de bloc mappeur ; `mrd`, `mrdE` et `meg` ne
+> changent pas (règle 2 ci-dessous). Les trois lisent la ligne comme la suite
+> de ses chiffres et y choisissent des TERMES : un chiffre, un nombre de la
+> ligne gardé entier, ou jusqu'à trois chiffres voisins accolés (`3 3 → 33`).
+>
+>  · `mrdf` — `mrd` avec ces termes : `22 + 44 = 66` écrit deux 6. À égalité, le
+>    moins de soudures l'emporte ; si le meilleur plan n'accole rien, `mrd`
+>    suffit et `mrdf` se tait.
+>  · `mrfE` — `mrdE` avec ces termes, en une passe : `6 · 5 + 61 = 66`. Il se tait
+>    quand `mrdE` écrit déjà autant de séries. **Pas `mrdfE`** : cinq signes,
+>    hors de la borne de quatre que tient le test du registre.
+>  · `megf` — un redécoupage (coupes et soudures) choisi pour que l'égalisation
+>    de `meg` tombe sur le chiffre visé, puis cette égalisation. Cibles homogènes
+>    seulement. **Inactif en recherche** : actif, il saturait la fenêtre par
+>    famille de « hope » ; il se joue par lien.
+>
+> Notés au moins aussi sévèrement que leurs modèles (notoriété plus basse,
+> adHoc au moins égal, recours 0,10, coût 2). Aucune primitive ajoutée :
+> `substitute` coupe, `merge` soude, `sum` / `reduce` calculent, le `group`
+> d'égalisation de `meg` égalise.
+
 **Trois règles inviolables :**
 1. Un code alloué l'est **à vie**. Retirer un opérateur pose une pierre tombale : son
    code n'est jamais recyclé.
