@@ -81,3 +81,24 @@ test('★ mrdf — à écrits égaux, le 6 reste seul ; à écrits supérieurs, 
   // qu'un : le résultat passe avant la manière, et le 6 est avalé.
   assert.deepEqual(rend('mrdf', [2, 6, 7, 1, 6, 6]), [6, 9, 1, 6, 6]);
 });
+
+test('★ mad — la suite qui se referme la première, pas celle qui s’ouvre la première', () => {
+  // Avant : `1 + 3 + 3 + 3 + 3 + 5 = 18`, six chiffres pour un 9 à réduire puis
+  // à retourner. Maintenant : `3 + 3` et `3 + 3`, deux 6 tout de suite — ce que
+  // `mrd` rend sur la même ligne.
+  assert.deepEqual(rend('mad', [1, 3, 3, 3, 3, 5, 6, 6, 6, 8, 9]), [1, 6, 6, 5, 6, 6, 6, 8, 9]);
+  assert.deepEqual(rend('mad', [1, 3, 3, 3, 3, 5, 6, 6, 6, 8, 9]), rend('mrd', [1, 3, 3, 3, 3, 5, 6, 6, 6, 8, 9]));
+  // Et une ligne qu'il refusait (`4 + 4 + 2 + 8 = 18` ne portait plus 666) s'écrit.
+  assert.deepEqual(rend('mad', [6, 6, 4, 4, 2, 8]), [6, 6, 4, 6, 8]);
+});
+
+test('★ mad — ce qui entre en 6 ressort en 6 : plus de `3 + 6 = 9`', () => {
+  const r = rend('mad', RAOULT);
+  assert.ok(r, 'mad s’applique à la ligne de Didier Raoult');
+  // Avant : `6 15 9 15 9 9 15 8 2 6 5 36 6 8 4` — deux `3 + 6 → 9` et un
+  // `7 + 9 + 8 + 5 + 7 → 36` qui fondait un 9.
+  assert.ok(!r.includes(36), `aucun 9 fondu dans 36 (${r.join(' ')})`);
+  assert.equal(r.filter((v) => v === 6).length, 5, `les cinq 6 de la ligne sont tous là (${r.join(' ')})`);
+  // Le zéro parasite de l'autrice reste absorbé : « 0 + 6 », le 6 intact.
+  assert.deepEqual(rend('mad', [6, 6, 1, 5, 0, 6, 9, 6, 7, 8, 7, 2]), [6, 6, 6, 6, 9, 6, 15, 9]);
+});

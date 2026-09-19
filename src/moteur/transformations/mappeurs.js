@@ -607,7 +607,9 @@ function releveDesParites(valeur, langue, visee) {
  *  1. on écrit tous les nombres chiffre à chiffre, dans l'ordre ;
  *  2. à chaque rang, on prend **la plus courte** suite qui commence là et dont
  *     la somme fait **exactement 6** ; à défaut, le chiffre reste seul et l'on
- *     avance d'un cran.
+ *     avance d'un cran. *(19 septembre : parmi les suites qui visent, celle qui
+ *     SE REFERME la première — voir `planAdditionSelective`, et la mesure qui
+ *     l'a décidé.)*
  *
  * Trois refus bornent le reste :
  *
@@ -761,9 +763,19 @@ function paquetRecevable(entree, buts, colle = null) {
        Ce qu'il faut préserver n'est pas « un chiffre de la cible » mais « un
        chiffre qui AURAIT SERVI ici » : le seul qui compte est celui du rang
        courant, et lui seul est protégé. */
-    const perdus = entree.filter((d) => colle(d)).length;
-    const rendus = sortie.filter((d) => colle(d)).length;
-    return rendus >= perdus;
+    /* ⚠️ **ET PAR VALEUR, PAS EN VRAC.** Compter « ce qui colle » d'un bloc
+       mettait le 6 et le 9 dans le même sac, puisque les deux collent au rang
+       d'un 6 : `3 + 6 → 9` perdait un 6, rendait un 9, et passait. C'est
+       exactement ce que la règle écrite plus haut interdit — « ce qui entre en
+       6 doit ressortir en 6, ce qui entre en 9 doit ressortir en 9 » — et ce
+       que l'autrice a relevé le 19 septembre sur `mrdE` : « 3 + 6 = 9 », un 6
+       déjà écrit avalé. MESURÉ sur « Didier Raoult » (`fmaj+mas+mad`) : deux
+       `3 + 6 → 9` et un `7 + 9 + 8 + 5 + 7 → 36` qui fond un 9. On compte donc
+       chaque valeur qui colle séparément. */
+    for (const d of new Set(entree.filter((x) => colle(x)))) {
+      if (compte(sortie, d) < compte(entree, d)) return false;
+    }
+    return true;
   }
   for (const d of buts) {
     if (compte(sortie, d) < compte(entree, d)) return false;
@@ -811,40 +823,63 @@ function planAdditionSelective(valeur, visee) {
     || (parDemiTour && d === RETOURNABLE && suiteCible[rang] === SIX_RETOURNE);
   const avancer = () => { rang = (rang + 1) % suiteCible.length; };
 
+  /* ★ **LA SUITE QUI SE REFERME LA PREMIÈRE — et non la première qui s'ouvre.**
+
+     Le balayage prenait, au premier chiffre qui ne collait pas, la plus courte
+     suite QUI COMMENCE LÀ. Sur `1 3 3 3 3 5 6 6 6 8 9`, c'était `1 + 3 + 3 + 3
+     + 3 + 5 = 18` : six chiffres fondus en un 18 — un 9 à réduire puis à
+     retourner —, là où `3 + 3` et `3 + 3` écrivent deux 6 tout de suite (c'est
+     ce que `mrd` rend sur la même ligne). Le 1 n'avait rien à donner ; s'y
+     accrocher coûtait deux 6.
+
+     On garde le geste — de gauche à droite, une suite courte à la fois, sans
+     rien optimiser au-delà — et l'on change le seul point de départ : parmi
+     les suites qui écrivent le chiffre attendu (un chiffre qui colle déjà en
+     est une, d'un seul chiffre), on prend celle qui SE REFERME LA PREMIÈRE ;
+     ce qui la précède passe tel quel (③). À égalité de fin, celle qui commence
+     le plus tôt : c'est le `0 + 6` de l'autrice sur `661506967872`, le zéro
+     parasite absorbé, le 6 intact. C'est le glouton classique des intervalles
+     disjoints : il en place autant qu'on peut en placer, dans l'ordre, et il
+     ne coûte toujours que O(n × 6) par chiffre écrit.
+
+     MESURÉ sur 3 000 lignes témoins, avec la règle « par valeur » de
+     `paquetRecevable` : `mad` s'applique à 1 764 lignes au lieu de 1 323 ; sur
+     les sorties qui changent, 805 portent plus de 6 et de 9 qu'avant, 4 en
+     portent moins — une seule ligne distincte (`24 21 18 21 15 12 12`), où le
+     balayage prend `1 + 8 = 9` plus tôt et ne trouve plus trois 6 : le 9
+     « à défaut » compte autant qu'un 6 pour se refermer, comme il comptait
+     autant pour s'ouvrir. */
+  const suiteDepuis = (d) => {
+    if (colle(chiffres[d].v)) return { debut: d, fin: d + 1, v: chiffres[d].v };
+    // Le paquet le plus COURT qui commence en `d` et dont la réduction tombe sur le rang.
+    for (let L = 2; L <= PAQUET_ADDITION_MAX && d + L <= chiffres.length; L++) {
+      const entree = [];
+      for (let k = d; k < d + L; k++) entree.push(chiffres[k].v);
+      if (!paquetRecevable(entree, buts, colle)) continue;
+      const somme = entree.reduce((a, b) => a + b, 0);
+      if (!colle(reduire(somme))) continue;
+      return { debut: d, fin: d + L, v: somme };
+    }
+    return null;
+  };
   const sortie = [];
   let i = 0;
   let additions = 0;
   while (i < chiffres.length) {
-    // ① Le chiffre est déjà celui qu'on attend : on ne l'absorbe pas.
-    if (colle(chiffres[i].v)) {
-      sortie.push({ v: chiffres[i].v, debut: i, fin: i + 1 });
-      avancer();
-      i++;
-      continue;
+    let pris = null;
+    for (let d = i; d < chiffres.length && (!pris || d < pris.fin); d++) {
+      const s = suiteDepuis(d);
+      if (s && (!pris || s.fin < pris.fin)) pris = s;
     }
-    // ② Sinon, le paquet le plus COURT dont la réduction tombe sur le rang.
-    let pris = 0;
-    let valeur = 0;
-    for (let L = 2; L <= PAQUET_ADDITION_MAX && i + L <= chiffres.length; L++) {
-      const entree = [];
-      for (let k = i; k < i + L; k++) entree.push(chiffres[k].v);
-      if (!paquetRecevable(entree, buts, colle)) continue;
-      const somme = entree.reduce((a, b) => a + b, 0);
-      if (!colle(reduire(somme))) continue;
-      pris = L;
-      valeur = somme;
-      break;
-    }
-    if (pris) {
-      sortie.push({ v: valeur, debut: i, fin: i + pris });
-      avancer();
-      i += pris;
-      additions++;
-    } else {
-      // ③ Rien à en tirer ici : le chiffre passe tel quel, le rang ne bouge pas.
-      sortie.push({ v: chiffres[i].v, debut: i, fin: i + 1 });
-      i++;
-    }
+    // ③ Rien ne s'écrit plus : le reste passe tel quel, le rang ne bouge pas.
+    const jusqua = pris ? pris.debut : chiffres.length;
+    for (; i < jusqua; i++) sortie.push({ v: chiffres[i].v, debut: i, fin: i + 1 });
+    if (!pris) break;
+    // ① un chiffre qui colle déjà reste seul ; ② une suite s'additionne.
+    sortie.push(pris);
+    if (pris.fin - pris.debut >= 2) additions++;
+    avancer();
+    i = pris.fin;
   }
   if (!additions) return null;
   // ★ Même exigence que les deux autres ficelles : le résultat doit ÉCRIRE la
@@ -6002,11 +6037,11 @@ const AUTRES_MAPPEURS = [
         + `contiguës dont la somme vise ${vises}${defaut.fr}. `
         + `Une suite qui ferait perdre un ${buts.join(' ou un ')} déjà `
         + `${buts.length > 1 ? 'écrits' : 'écrit'} est refusée. `
-        + 'Toujours la plus courte, de gauche à droite.',
+        + 'De gauche à droite, toujours la suite qui se referme la première.',
         'Every number is written out digit by digit, then only the adjacent runs aiming '
         + `at ${vises}${defaut.en} are summed. A run that `
         + `would cost a ${buts.join(' or a ')} already written is refused. `
-        + 'Always the shortest run, left to right.',
+        + 'Left to right, always the run that closes first.',
       );
     })(),
     // ★ Notoriété 0,30, la plus haute des trois : additionner des chiffres
