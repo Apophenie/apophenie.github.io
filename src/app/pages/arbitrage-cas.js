@@ -145,8 +145,12 @@
  *  · n° 14 — `Éléonore à Nîmes`, défaut — moteur « à jetter » ; la voie du global a déjà été jugée au n° 3.
  *  · n° 15 — `numherololgeek.1000i100.fr`, défaut — score global, nettement ; `pc9` « à considéré comme une ficelle ».
  *
- * ★ **CE QUI RESTE OUVERT : RIEN.** La liste est vide, et la page le dit
- *   (« Aucun arbitrage en attente », `arbitrage.js`).
+ * ★ **HUIT CAS OUVERTS LE 19 SEPTEMBRE 2026** — ce que les six opérateurs du
+ *   18 septembre (`mas`, `mu8`, `mam`, `mrdf`, `mrfE`, `megf`), les retouches
+ *   enchaînées par cran et le siège de la voie courte changent en tête de liste.
+ *   Relevés par `resoudre` au cran et aux curseurs de chaque cas, sur `main`
+ *   (`7ae67a5`) et sur la branche `operateurs-et-crans` (`f07e3a4`). La voie de
+ *   la branche est à droite (« aujourd’hui »), celle de `main` à gauche.
  *
  * ⚠️ Les trois `todo` de moisson qui rougissent encore ne portent PAS sur ce
  *   classement-là : ils gèlent la COMPOSITION de la récolte (les trois « hope »
@@ -184,4 +188,94 @@
  * ★ À l'écran, ce que le moteur fait aujourd'hui est à DROITE et l'autre voie à
  *   gauche, quel que soit le type de cas (`arbitrage.js › montrer`).
  */
-export const CAS_ARBITRAGE = Object.freeze([]);
+export const CAS_ARBITRAGE = Object.freeze([
+  {
+    id: "2026-09-19-raoult",
+    place: 1,
+    question: 'bareme',
+    titre: "Didier Raoult — 1ʳᵉ place : le code ASCII casse comprise (mas) prend la tête qu’avait le T9",
+    saisie: "Didier Raoult",
+    // à droite, la tête de la branche `operateurs-et-crans` (f07e3a4)
+    avant: "?sce!fmaj+mas+mrdE$6hVamBkJyG1MWtPRwR",
+    // à gauche, celle de `main` (7ae67a5) à la même place
+    apres: "?sce!2:mt9+meg$6hVamBkJyG1MWtPRwR",
+  },
+  {
+    id: "2026-09-19-marie-curie",
+    place: 1,
+    question: 'bareme',
+    titre: "Marie Curie — 1ʳᵉ place : le code ASCII casse comprise (mas) prend la tête",
+    saisie: "Marie Curie",
+    // à droite, la tête de la branche `operateurs-et-crans` (f07e3a4)
+    avant: "?sce!fmaj+mas+mrdE$LBvysLJSWqpia3v",
+    // à gauche, celle de `main` (7ae67a5) à la même place
+    apres: "?sce!fl+mz26+mr9+mrdE$LBvysLJSWqpia3v",
+  },
+  {
+    id: "2026-09-19-jean-michel",
+    place: 1,
+    question: 'bareme',
+    titre: "jean-michel — 1ʳᵉ place : le code ASCII casse comprise (mas) prend la tête qu’avait le clavier",
+    saisie: "jean-michel",
+    // à droite, la tête de la branche `operateurs-et-crans` (f07e3a4)
+    avant: "?sce!fmaj+mas+mrdE$TPFErnfXxwkkeBD",
+    // à gauche, celle de `main` (7ae67a5) à la même place
+    apres: "?sce!2:mqwc+meg$TPFErnfXxwkkeBD",
+  },
+  {
+    id: "2026-09-19-sarah-kerrigan",
+    place: 1,
+    question: 'bareme',
+    titre: "Sarah Kerrigan — 1ʳᵉ place : le code ASCII puis une absorption (mas+mab) prend la tête",
+    saisie: "Sarah Kerrigan",
+    // à droite, la tête de la branche `operateurs-et-crans` (f07e3a4)
+    avant: "?sce!fmaj+mas+mab$XeuapD1GiUPu7gDywGH",
+    // à gauche, celle de `main` (7ae67a5) à la même place
+    apres: "?sce!0:fr12;fl+m14+meg$XeuapD1GiUPu7gDywGH",
+  },
+  {
+    id: "2026-09-19-eleonore",
+    place: 1,
+    question: 'bareme',
+    titre: "Éléonore à Nîmes — 1ʳᵉ place : m14 égalisé remplace le redécoupage exact",
+    saisie: "Éléonore à Nîmes",
+    // à droite, la tête de la branche `operateurs-et-crans` (f07e3a4)
+    avant: "?sce!fl+m14+meg$3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
+    // à gauche, celle de `main` (7ae67a5) à la même place
+    apres: "?sce!fl+mx6+mrdE$3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
+  },
+  {
+    id: "2026-09-19-trump-cran3",
+    place: 3,
+    question: 'bareme',
+    titre: "Donald Trump, cran 3 — 3ᵉ place : l’addition vers la moyenne (mam) avant l’égalisation",
+    saisie: "Donald Trump",
+    // à droite, la tête de la branche `operateurs-et-crans` (f07e3a4)
+    avant: "?sce!f3!fl+mt9+mam+meg$2HuP1G8mNg3sJWhqR",
+    // à gauche, celle de `main` (7ae67a5) à la même place
+    apres: "?sce!f3!0:fr21;fc+mqwc+meg$2HuP1G8mNg3sJWhqR",
+  },
+  {
+    id: "2026-09-19-trump-cran10",
+    place: 1,
+    question: 'bareme',
+    titre: "Donald Trump, cran 10 — 1ʳᵉ place : l’égalisation futée (megf) prend la tête et les cinq premières lignes",
+    saisie: "Donald Trump",
+    // à droite, la tête de la branche `operateurs-et-crans` (f07e3a4)
+    avant: "?sce!f10!2:fr16;fc+masc+megf$2HuP1G8mNg3sJWhqR",
+    // à gauche, celle de `main` (7ae67a5) à la même place
+    apres: "?sce!f10!fl+mazc+meg$2HuP1G8mNg3sJWhqR",
+  },
+  {
+    id: "2026-09-19-numherololgeek-v2",
+    place: 1,
+    question: 'bareme',
+    titre: "numherololgeek.1000i100.fr, curseurs v2 — 1ʳᵉ place : ton verdict n° 7 n’est plus fabriqué",
+    saisie: "numherololgeek.1000i100.fr",
+    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
+    // à droite, la tête de la branche `operateurs-et-crans` (f07e3a4)
+    avant: "?sce!p25.200.50.150!fl+mqwc+meg$4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
+    // à gauche, celle de `main` (7ae67a5) à la même place
+    apres: "?sce!p25.200.50.150!0:nv,2+3:flt+mpy+mr9$4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
+  },
+]);
