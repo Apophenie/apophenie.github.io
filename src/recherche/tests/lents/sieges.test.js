@@ -93,10 +93,18 @@ test('★ exhaustivité et cohérence à 150 : la voie grammaticale est finalis�
  *   deux gestes passent devant elle dans la réserve, qui ne tient que deux
  *   sièges dans ce que l'assemblage garde.
  */
-test('★ simplicité à 200 : la voie la plus courte est finalisée, la voie à quatre gestes ne l’est pas', () => {
+/* ★ **AMENDEMENT DU 19 SEPTEMBRE 2026 — elle peut ENTRER, derrière la courte.**
+     Depuis qu'une méthode est représentée par ses voies les mieux notées au
+     global (`score.js › representerParLesMieuxNotees`), la voie grammaticale
+     (global 745 sous ces curseurs) prend dans la liste la place d'une voie de
+     la même méthode moins bien notée qu'elle. Ce que la phrase de l'auteur
+     demande reste tenu : la voie courte est finalisée, et elle passe devant. */
+test('★ simplicité à 200 : la voie la plus courte est finalisée, et passe devant la voie à quatre gestes', () => {
   const r = moteur.resoudre(JARDIN, { fouille: 0, curseurs: { simplicite: 200 } });
-  assert.ok(codes(r).includes('tm+mlm'), `« la longueur des mots », deux gestes : ${codes(r).join('  ')}`);
-  assert.ok(!codes(r).includes(GRAMMATICALE));
+  const liste = codes(r);
+  assert.ok(liste.includes('tm+mlm'), `« la longueur des mots », deux gestes : ${liste.join('  ')}`);
+  const g = liste.indexOf(GRAMMATICALE);
+  assert.ok(g < 0 || liste.indexOf('tm+mlm') < g, `la courte devant : ${liste.join('  ')}`);
 });
 
 test('★ exhaustivité à 200 : la tête lit toute la saisie, et la voie qui écarte onze lettres n’est pas finalisée', () => {
