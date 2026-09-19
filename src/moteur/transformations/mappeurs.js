@@ -857,6 +857,7 @@ const CODES_AVEC_NEUF = Object.freeze({
   mrdf: Object.freeze({ id: 'm.redecoupageFusionnantNeuf', code: 'mrf9', notoriete: 0.12 }),
   mrfE: Object.freeze({ id: 'm.redecoupageFusionnantExactNeuf', code: 'mf9E', notoriete: 0.09 }),
   megf: Object.freeze({ id: 'm.egalisationFuteeNeuf', code: 'mef9', notoriete: 0.12 }),
+  mrtE: Object.freeze({ id: 'm.redecoupageExactTrieNeuf', code: 'mt9E', notoriete: 0.09 }),
 });
 
 /**
@@ -1103,6 +1104,15 @@ const LIB_REDECOUPAGE_EXACT = bilingue(
   'Melt the intruders into the target, losing nothing',
 );
 const LIB_SECONDE_PASSE = bilingue(' (seconde passe)', ' (second pass)');
+// ★ Le redécoupage exact AVEC TRI (`mrtE`, `mt9E`) : le geste, puis son rangement.
+const LIB_REDECOUPAGE_EXACT_TRIE = bilingue(
+  'On range à part ce qui ne tombe pas juste, puis on le fond dans la cible',
+  'Set aside what does not land right, then melt it into the target',
+);
+const LIB_RANGEMENT_DES_RESTES = bilingue(
+  'On garde les chiffres justes devant, et l’on range le reste par ordre croissant',
+  'Keep the right digits in front, and line up the rest in ascending order',
+);
 const LIB_EN_LETTRES = bilingue(
   'On écrit le chiffre en toutes lettres',
   'Write the digit out in French words',
@@ -3517,6 +3527,20 @@ const TERME_ACCOLE_MAX = 3;
  * élégante que son modèle y trouve sa place sans en chasser.
  */
 const CRAN_DES_REDECOUPAGES_FUSIONNANTS = 2;
+
+/**
+ * ★ **LE CRAN D'OUVERTURE DE `mrtE`** — celui des variantes qui accolent, et
+ *   pour les mêmes raisons, MESURÉES (temps CPU, moteur neuf, recherche
+ *   cumulative, cran 0) : ouvert dès le cran 0, il coûtait +35 % sur « Donald
+ *   Trump » (3,2 s → 4,4 s) et +25 % sur « Louis Fouché » (2,4 s → 3,0 s), sans
+ *   écrire une voie de plus sur l'un ni l'autre ; et sur « Didier Raoult » il
+ *   prenait les DEUX premières places (`fmaj+tca+mas+mrtE`, quatre séries), en
+ *   chassant de la tête les deux voies de `mab`. Une variante « moins élégante »
+ *   que son modèle (l'autrice) n'a pas à prendre la tête au cran de « Révéler ».
+ *   Sa variante avec 9, `mt9E`, s'ouvre plus tard encore, avec la chaîne de
+ *   deux retouches (`CRAN_DU_DEMI_TOUR`).
+ */
+const CRAN_DU_REDECOUPAGE_TRIE = CRAN_DES_REDECOUPAGES_FUSIONNANTS;
 
 /** La ligne écrite chiffre à chiffre, chaque chiffre avec le rang du nombre dont il vient. */
 function ligneDeChiffres(valeur) {
@@ -8133,6 +8157,10 @@ const AUTRES_MAPPEURS = [
   operateurRedecoupageFusionnant(AVEC_LE_NEUF),
   operateurRedecoupageFusionnantExact(AVEC_LE_NEUF),
   operateurEgalisationFutee(AVEC_LE_NEUF),
+  // ★ LE REDÉCOUPAGE EXACT AVEC TRI — `mrtE`, puis sa variante avec 9 `mt9E`
+  //   (`operateurRedecoupageExactTrie`). Fin de bloc, append-only (§4.1).
+  operateurRedecoupageExactTrie(SANS_NEUF),
+  operateurRedecoupageExactTrie(AVEC_LE_NEUF),
 ];
 
 /**
@@ -10293,6 +10321,223 @@ function operateurRedecoupageExact(avecNeuf) {
         },
       }, avecNeuf);
     })();
+  });
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// ★ LE REDÉCOUPAGE EXACT AVEC TRI — `mrtE` et `mt9E`
+// ───────────────────────────────────────────────────────────────────────────
+//
+// > « Pour mrdE, peux-tu faire une variante qui peut inclure un mtri en cours
+// >   de route pour débloquer les assemblages ? (ou utiliser mrd+mtri+mrdE
+// >   peut-être) » (l'autrice, 19 septembre 2026)
+//
+// ★ **LA CHAÎNE NE SE CONSTRUIT PAS, ET C'EST MESURÉ.** `mrd+mtri+mrdE` finit
+//   par une absorption, et la recherche ne met jamais une absorption dans une
+//   chaîne de retouches (`assemblage.js › prolongerLesRetouches`, « ni
+//   absorption ni gonflement après la première ») ; `mtri+mrdE` n'est tentée
+//   qu'à la passe de dernier recours, sur une liste vide. Et là où on la joue
+//   par lien, elle n'écrit pas plus : sur les lignes de conversion de seize
+//   saisies du corpus (vingt-cinq conversions chacune), `mrdE` seul écrit 29
+//   séries, `mtri+mrdE` 27, `mrd+mtri+mrdE` 24, `mad+mtri+mrdE` 28. Le tri de
+//   `mtri` range des NOMBRES : `68 73 …` reste `68 73`, et les 6 s'y noient au
+//   milieu de la ligne.
+//
+// ★ **CE QUE FAIT LE GESTE INTÉGRÉ** — 43 séries sur les mêmes lignes, 50 avec
+//   la première passe :
+//
+//  1. éventuellement une première passe, celle de `mrd` : elle écrit les
+//     paquets qui tombent juste là où ils sont ;
+//  2. la ligne s'écrit chiffre à chiffre, les chiffres JUSTES (le 6 ; le 9 en
+//     plus dans la variante avec 9) restent devant, dans l'ordre où on les a
+//     lus, et le reste se range par ordre croissant derrière eux — les intrus
+//     deviennent contigus, les petits avec les petits ;
+//  3. la passe exacte de `mrdE` fond ce reste dans la cible.
+//
+//   De ces deux chemins (sans ou avec la première passe), celui qui écrit le
+//   plus de séries — le plus court à égalité. Et le geste se TAIT quand `mrdE`
+//   écrit déjà autant de séries sur la ligne telle qu'elle est : ranger n'a de
+//   sens que si ça débloque (même règle que `mrfE`).
+//
+// ★ **CIBLES HOMOGÈNES SEULEMENT** (`666`, `777`…) : ranger par ordre croissant
+//   détruit l'ordre de lecture, et une cible comme `31031998` s'écrit DANS
+//   L'ORDRE. Comme `megf` et `mam`, il se désactive ailleurs.
+
+/**
+ * ★ **LE PLAN DU REDÉCOUPAGE EXACT AVEC TRI.** Rend `null` quand la cible
+ * n'est pas homogène, quand rien ne bouge, ou quand `mrdE` fait déjà aussi
+ * bien sans ranger.
+ *
+ * @param {number[]} valeur
+ * @param {import('./commun.js').Visee} visee  la visée de la VARIANTE (`viseeDeVariante`)
+ * @param {Object|null} premiere  l'opérateur de la première passe (`mrd` ou `mrd9`)
+ * @returns {{premiere: number[]|null, ligne: number[], chiffres: number[],
+ *   ordre: number[], range: number[], exact: Object, series: number}|null}
+ */
+function planRedecoupageExactTrie(valeur, visee, premiere) {
+  if (!visee.homogene || !valeur.length) return null;
+  if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
+  const cible = visee.alphabet[0];
+  const retourne = neufRetournable(visee);
+  const juste = (d) => d === cible || (retourne && d === RETOURNABLE);
+  const sansTri = planRedecoupageExact(valeur, visee);
+  const barre = sansTri ? sansTri.series : 0;
+  const essayer = (ligne, avecPremiere) => {
+    const chiffres = ligne.flatMap(chiffresDe);
+    if (chiffres.length > CHIFFRES_REDECOUPE_MAX) return null;
+    const rangs = chiffres.map((d, k) => k);
+    const justes = rangs.filter((k) => juste(chiffres[k]));
+    const reste = rangs.filter((k) => !juste(chiffres[k]))
+      .sort((a, b) => (chiffres[a] - chiffres[b]) || (a - b));
+    const ordre = [...justes, ...reste];
+    if (ordre.every((k, i) => k === i)) return null;
+    const range = ordre.map((k) => chiffres[k]);
+    const exact = planRedecoupageExact(range, visee);
+    if (!exact) return null;
+    return { premiere: avecPremiere ? ligne : null, ligne, chiffres, ordre, range, exact, series: exact.series };
+  };
+  let choix = essayer(valeur, false);
+  const apres = premiere ? premiere.apply(valeur, valeur.map(() => [])) : null;
+  if (apres) {
+    const autre = essayer(apres.valeur, true);
+    if (autre && (!choix || autre.series > choix.series)) choix = autre;
+  }
+  return choix && choix.series > barre ? choix : null;
+}
+
+/**
+ * `mrtE` et `mt9E` — voir l'en-tête du bloc et `planRedecoupageExactTrie`.
+ *
+ * ★ **LE GESTE SE COMPOSE DE CEUX QU'ON CONNAÎT DÉJÀ**, sans primitive neuve :
+ *   la première passe est celle de `mrd` (ses étapes, telles quelles), le
+ *   rangement est celui de `mtri` (`move`, les jetons glissent jusqu'à leur
+ *   place, tous ensemble), la passe exacte est celle de `mrdE` (tous les
+ *   paquets au même temps, `etapesEnLargeur`). Chaque morceau garde ses
+ *   identifiants sous un préfixe à lui : les trois se suivent sans se marcher
+ *   dessus, et la scène sait qui est qui d'un bout à l'autre.
+ */
+function operateurRedecoupageExactTrie(avecNeuf) {
+  return selonLaCible((viseeLue) => {
+    const visee = viseeDeVariante(viseeLue, avecNeuf);
+    if (!visee || !visee.homogene || butsDuPaquet(visee).every((d) => d === 0)) return null;
+    const premiere = operateurRedecoupage(avecNeuf).viser(viseeLue);
+    const exacte = operateurRedecoupageExact(avecNeuf).viser(viseeLue);
+    if (!premiere || !exacte) return null;
+    const planDe = memoParLigne((valeur) => planRedecoupageExactTrie(valeur, visee, premiere));
+    const etatNums = (valeur, traces) => ({ type: 'NUMS', valeur, traces });
+    const ctxDe = (ctx, suffixe, ids) => ({ ...ctx, cle: `${ctx.cle}${suffixe}`, ids });
+    /** Les identifiants de la ligne à chaque temps du geste — une seule source pour `sortie` et `steps`. */
+    const idsDuRangement = (plan, avant, ctx) => {
+      let etatLigne = avant;
+      let idsLigne = ctx.ids;
+      if (plan.premiere) {
+        etatLigne = etatNums(plan.ligne, []);
+        idsLigne = premiere.sortie(avant, etatLigne, ctxDe(ctx, 'p', ctx.ids));
+      }
+      const idsChiffres = [];
+      plan.ligne.forEach((v, i) => {
+        const siens = chiffresDe(v);
+        if (siens.length < 2) { idsChiffres.push(idsLigne[i]); return; }
+        siens.forEach(() => idsChiffres.push(`${ctx.cle}c${idsChiffres.length}`));
+      });
+      return { etatLigne, idsLigne, idsChiffres, idsRanges: plan.ordre.map((k) => idsChiffres[k]) };
+    };
+    return declinerAvecNeuf({
+      id: 'm.redecoupageExactTrie', code: 'mrtE', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+      absorbe: true, // comme `mrdE` : toute la ligne, et la cible, rien d'autre
+      libelle: LIB_REDECOUPAGE_EXACT_TRIE,
+      regle: (() => {
+        const neuf = neufRetournable(visee);
+        const justes = neuf ? bilingue(`les ${visee.alphabet[0]} et les ${RETOURNABLE}`, `the ${visee.alphabet[0]}s and the ${RETOURNABLE}s`)
+          : bilingue(`les ${visee.alphabet[0]}`, `the ${visee.alphabet[0]}s`);
+        return bilingue(
+          'Au besoin, un premier redécoupage écrit ce qui tombe juste là où c’est. Puis la ligne '
+          + `s’écrit chiffre à chiffre : ${justes.fr} restent devant, le reste se range par ordre `
+          + `croissant derrière eux, et la ligne ENTIÈRE se redécoupe en paquets qui écrivent ${visee.texte}, `
+          + `rien d’autre${neuf ? ` — un ${RETOURNABLE}, qu’un demi-tour rendra, vaut un ${SIX_RETOURNE}` : ''}. `
+          + 'On ne range que si le redécoupage exact de la ligne telle qu’elle est écrit moins de séries.',
+          'If need be, a first recut writes what lands right where it is. Then the line is written '
+          + `out digit by digit: ${justes.en} stay in front, the rest lines up in ascending order `
+          + `behind them, and the WHOLE line is recut into packets that spell ${visee.texte}, nothing `
+          + `else${neuf ? ` — a ${RETOURNABLE}, which a half-turn will settle, counts as a ${SIX_RETOURNE}` : ''}. `
+          + 'The line is only rearranged when the exact recut of the line as it stands writes fewer series.',
+        );
+      })(),
+      // ★ Notoriété 0,12, sous `mrdE` (0,15) : « moins élégantes » (l'autrice) —
+      //   au redécoupage exact s'ajoute un rangement, que le barème facture en
+      //   plus, par chiffre déplacé (`deplaces`, `elegance.js › REARRANGEMENT`).
+      //   AdHoc 0,49 : celui de `mrdE`. Coût 2, comme les variantes qui
+      //   accolent : deux gestes où le modèle en fait un. Pas de `recours`.
+      notoriete: 0.12, adHoc: 0.49, cout: 2, desLeCran: CRAN_DU_REDECOUPAGE_TRIE,
+      note: bilingue(
+        'Le redécoupage exact, avec une liberté de plus : ranger les chiffres qui ne tombent pas '
+        + 'juste pour qu’ils se touchent. Il ne joue que là où le redécoupage exact de la ligne telle '
+        + 'qu’elle est écrit moins.',
+        'The exact recut with one more liberty: lining up the digits that do not land right so '
+        + 'that they touch. It only plays where the exact recut of the line as it stands writes less.',
+      ),
+      apply: (valeur, traces) => {
+        const plan = planDe(valeur);
+        if (!plan) return null;
+        let ligne = valeur;
+        let org = traces;
+        if (plan.premiere) {
+          const r = premiere.apply(valeur, traces);
+          ligne = r.valeur;
+          org = r.traces;
+        }
+        const tracesChiffres = ligne.flatMap((v, i) => chiffresDe(v).map(() => org[i] || []));
+        return exacte.apply(plan.range, plan.ordre.map((k) => tracesChiffres[k]));
+      },
+      additions: (valeur) => {
+        const plan = planDe(valeur);
+        if (!plan) return [];
+        return [...(plan.premiere ? premiere.additions(valeur) : []), ...exacte.additions(plan.range)];
+      },
+      // ★ Ce que le rangement DÉPLACE — le barème le facture comme celui de
+      //   `mtri`, par chiffre qui change de place (`elegance.js ›
+      //   REARRANGEMENT`) ; l'état d'avant et celui d'après n'ont pas la même
+      //   longueur, c'est donc l'opérateur qui le dit.
+      deplaces: (valeur) => {
+        const plan = planDe(valeur);
+        return plan ? plan.ordre.filter((k, i) => k !== i).length : 0;
+      },
+      sortie: (avant, apres, ctx) => {
+        const plan = planDe(avant.valeur);
+        if (!plan) return [];
+        const { idsRanges } = idsDuRangement(plan, avant, ctx);
+        return exacte.sortie(etatNums(plan.range, []), apres, ctxDe(ctx, 'e', idsRanges));
+      },
+      steps: (avant, apres, ctx) => {
+        const plan = planDe(avant.valeur);
+        if (!plan) return [];
+        const steps = [];
+        const { etatLigne, idsLigne, idsChiffres, idsRanges } = idsDuRangement(plan, avant, ctx);
+        // ── 1. la première passe, celle de `mrd`, telle quelle
+        if (plan.premiere) steps.push(...premiere.steps(avant, etatLigne, ctxDe(ctx, 'p', ctx.ids)));
+        // ── 2. chiffre à chiffre, puis le rangement de `mtri`
+        const paires = [];
+        let k = 0;
+        plan.ligne.forEach((v, i) => {
+          const siens = chiffresDe(v);
+          if (siens.length > 1) {
+            paires.push({ target: idsLigne[i], to: siens.map((d, t) => token(idsChiffres[k + t], d, 'digit')) });
+          }
+          k += siens.length;
+        });
+        if (paires.length) {
+          steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue),
+            `${plan.ligne.join(' ')} → ${plan.chiffres.join(' ')}`,
+            enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
+        }
+        steps.push(etape(ctx, dire(LIB_RANGEMENT_DES_RESTES, ctx.langue),
+          `${plan.chiffres.join(' ')} → ${plan.range.join(' ')}`,
+          enchainer([{ op: 'move', order: idsRanges }]), { id: `s_${ctx.cle}_r` }));
+        // ── 3. la passe exacte, celle de `mrdE`
+        steps.push(...exacte.steps(etatNums(plan.range, []), apres, ctxDe(ctx, 'e', idsRanges)));
+        return steps;
+      },
+    }, avecNeuf);
   });
 }
 

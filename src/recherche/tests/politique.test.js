@@ -192,7 +192,7 @@ test('★ retraits — une cible mêlée fait se retirer `mpf`, `mr6` et `mam`, 
   assert.deepEqual(operateursRetires(catalogue, lireCible('999')), []);
 });
 
-test('★ retraits — sur la cible sous-jacente d’un mot, onze opérateurs s’en vont au cran 0, vingt au bout', () => {
+test('★ retraits — sur la cible sous-jacente d’un mot, onze opérateurs s’en vont au cran 0, vingt-deux au bout', () => {
   const rangs = cibleDeValeurs([26, 5, 18, 7]);
   // Au cran 0 : les dix d'avant, plus l'addition vers la moyenne (`mam`). Les
   // redécoupages qui accolent (`mrdf`, `mrfE`) et l'égalisation futée (`megf`)
@@ -208,8 +208,11 @@ test('★ retraits — sur la cible sous-jacente d’un mot, onze opérateurs s�
   //   pour le demi-tour (`mappeurs.js › viseeDeVariante`). Leurs modèles sans 9,
   //   eux, lisent la cible comme avant.
   assert.deepEqual(retires.map((x) => x.code).filter((c) => /9/.test(c)).sort(),
-    ['mad9', 'md9E', 'mef9', 'mf9E', 'mrd9', 'mrf9']);
-  assert.equal(retires.length, 20, 'toute la famille qui lit la cible');
+    ['mad9', 'md9E', 'mef9', 'mf9E', 'mrd9', 'mrf9', 'mt9E']);
+  // ★ …et le redécoupage exact avec tri (`mrtE`), cran 2 : ranger n'a de sens
+  //   que pour une cible homogène, comme `megf`.
+  assert.ok(retires.some((x) => x.code === 'mrtE'));
+  assert.equal(retires.length, 22, 'toute la famille qui lit la cible');
   assert.ok(retires.every((x) => x.etat === 'RETIRE'));
   for (const code of ['mab', 'mrdE', 'mabx', 'mabd']) {
     assert.ok(retires.some((x) => x.code === code), `${code} se retire devant une suite de valeurs`);

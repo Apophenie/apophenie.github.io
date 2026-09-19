@@ -2753,6 +2753,49 @@ fusionnés) · `m14`/`m14F` **quatorze segments**, mêmes deux lectures ·
 >    liens relevés (`0:masb+mrd`, `2:fr5+mx6+mrd`, `fl+masb+mrd` sur
 >    « Donald Trump »).
 
+> *Amendement — **LE REDÉCOUPAGE EXACT AVEC TRI**, `mrtE` et `mt9E`.* —
+> 19 septembre 2026.
+>
+> « Pour mrdE, peux-tu faire une variante qui peut inclure un mtri en cours de
+> route pour débloquer les assemblages ? (ou utiliser mrd+mtri+mrdE peut-être) »
+> (l'autrice)
+>
+> Les deux pistes, mesurées sur les lignes de conversion de seize saisies du
+> corpus (vingt-cinq conversions chacune), en séries exactes écrites :
+>
+> | | séries |
+> |---|---|
+> | `mrdE` seul | 29 |
+> | `mtri+mrdE` | 27 |
+> | `mrd+mtri+mrdE` | 24 |
+> | `mad+mtri+mrdE` | 28 |
+> | le geste intégré, sans première passe | 43 |
+> | le geste intégré, la meilleure des deux (sans ou avec `mrd` d'abord) | 50 |
+>
+> **La chaîne ne se construit pas** : la recherche ne met jamais une
+> absorption dans une chaîne de retouches, et `mtri+mrdE` n'est tentée qu'en
+> passe de dernier recours. Et jouée par lien, elle n'écrit pas plus que
+> `mrdE` : `mtri` range des NOMBRES (`68 73 …`), les 6 s'y noient.
+>
+> Deux codes neufs en fin de bloc mappeur. `mrtE` : au besoin la première passe
+> de `mrd` ; puis la ligne s'écrit chiffre à chiffre, les chiffres JUSTES restent
+> devant dans l'ordre de lecture, le reste se range par ordre croissant
+> derrière eux (le `move` de `mtri`) ; puis la passe exacte de `mrdE`. Il se tait
+> quand `mrdE` écrit déjà autant de séries sur la ligne telle qu'elle est, et ne
+> vise que les cibles homogènes (ranger détruirait l'ordre d'une date). `mt9E`
+> est sa variante avec 9 (le 9 gardé devant avec les 6), dans la règle de
+> l'amendement précédent. « Didier Raoult » en `fmaj+mas` : `mrdE` deux séries,
+> `mrtE` quatre, `mt9E+mr9` cinq.
+>
+> Notoriété 0,12 et 0,09 (sous `mrdE`, 0,15), adHoc de `mrdE`, coût 2, pas de
+> `recours`. Au barème : le poste du redécoupage, dilué par les additions des
+> deux passes, et le rangement au poste de `mtri`, par chiffre déplacé — un
+> champ neuf du descripteur, `deplaces(valeur)`, puisque l'état d'avant et
+> celui d'après n'ont pas la même longueur. **Cran 2** pour `mrtE` (celui des
+> variantes qui accolent) : ouvert au cran 0, il coûtait +35 % de temps CPU sur
+> « Donald Trump » et +25 % sur « Louis Fouché », et prenait les deux premières
+> places de « Didier Raoult ». **Cran 3** pour `mt9E`.
+
 **Trois règles inviolables :**
 1. Un code alloué l'est **à vie**. Retirer un opérateur pose une pierre tombale : son
    code n'est jamais recyclé.

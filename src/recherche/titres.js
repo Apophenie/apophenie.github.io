@@ -157,6 +157,9 @@ const MAPPEURS_DE_SERVICE = new Set([
   //   pas, pas plus que `mad` et `megf`.
   'm.redecoupageChoisiNeuf', 'm.redecoupageExactNeuf',
   'm.redecoupageFusionnantNeuf', 'm.redecoupageFusionnantExactNeuf',
+  // ★ Le redécoupage exact AVEC TRI (`mrtE`, `mt9E`) relit, range et fond ce
+  //   qu'une conversion a écrit : même sort que `mrdE`.
+  'm.redecoupageExactTrie', 'm.redecoupageExactTrieNeuf',
   // ★ Le CARRÉ (`mcar`) ne convertit rien non plus : il multiplie par lui-même
   //   ce qu'une autre méthode a calculé, pour donner de la matière à dissoudre.
   //   Vedette, il aurait nommé « par le carré » des voies dont le carré n'est
@@ -371,6 +374,10 @@ export const NOMS = {
     'By exact recutting, digits joined, keeping the 9s'),
   'm.egalisationFuteeNeuf': b('Par répartition homogène préparée, les 9 gardés',
     'By prepared evening out, keeping the 9s'),
+  // ★ Le redécoupage exact AVEC TRI — de service, comme `mrdE`.
+  'm.redecoupageExactTrie': b('Par redécoupage exact, le reste rangé', 'By exact recutting, the rest lined up'),
+  'm.redecoupageExactTrieNeuf': b('Par redécoupage exact, le reste rangé, les 9 gardés',
+    'By exact recutting, the rest lined up, keeping the 9s'),
   // Jamais employé — il est mappeur de service — mais le registre des noms
   // est EXHAUSTIF, et un trou ici serait un trou le jour où la règle changerait.
   'm.chiffreTelQuel': b('Par la lecture des chiffres', 'By reading the digits'),

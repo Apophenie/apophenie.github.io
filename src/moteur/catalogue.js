@@ -211,6 +211,11 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   modèles (`mappeurs.js › CODES_AVEC_NEUF`). Fin de bloc mappeur,
   //   append-only (§4.1).
   'mad9', 'mrd9', 'md9E', 'mrf9', 'mf9E', 'mef9',
+  // ★ LE REDÉCOUPAGE EXACT AVEC TRI — les chiffres justes devant, le reste
+  //   rangé par ordre croissant, puis fondu dans la cible ; sans le 9, puis
+  //   avec (`mappeurs.js › operateurRedecoupageExactTrie`). Fin de bloc
+  //   mappeur, append-only (§4.1).
+  'mrtE', 'mt9E',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

@@ -395,6 +395,13 @@ export const VECTEURS = [
   // `8 8 8 1 1` : `1 1` soudés en `11`, et l'égalisation tombe sur trois 9 et
   //   un 8 — `megf`, qui ne vise que le 6, s'y tait.
   ['mef9', N([8, 8, 8, 1, 1]), [9, 9, 8, 9]],
+  // ★ LE REDÉCOUPAGE EXACT AVEC TRI. `3 6 3 3 3` : aucune découpe exacte de la
+  //   ligne telle qu'elle est (`3 + 6 = 9` ne vaut rien, `mrdE` se tait) ; le 6
+  //   passe devant, les quatre 3 se touchent, `3 + 3` et `3 + 3`.
+  ['mrtE', N([3, 6, 3, 3, 3]), [6, 6, 6]],
+  // `6 3 4 3 5` : le 6 devant, `3 3 4 5` rangés derrière — `3 + 3 = 6`, et
+  //   `4 + 5 = 9` à retourner. `md9E` n'y écrit rien sans ranger.
+  ['mt9E', N([6, 3, 4, 3, 5]), [6, 6, 9]],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],

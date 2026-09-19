@@ -382,8 +382,11 @@ test('cible-mot — le rejeu refuse ce qu’il ne sait pas relire, en le disant'
 test('cible-mot — les opérateurs qui ABSORBENT sont déclarés, et ce sont ceux-là', () => {
   const absorbants = operateursExplorables(catalogue, PUISSANCE_DE_FOUILLE_MAX).filter((o) => o.absorbe)
     .map((o) => o.code);
-  // `mrfE`, la variante de `mrdE` qui accole des chiffres, absorbe comme elle.
-  assert.deepEqual(absorbants, ['mab', 'mrdE', 'mabx', 'mabd', 'mrfE']);
+  // `mrfE`, la variante de `mrdE` qui accole des chiffres, absorbe comme elle ;
+  // `mrtE`, qui range avant de fondre, aussi. Leurs variantes avec 9 (`md9E`,
+  // `mf9E`, `mt9E`) n'absorbent pas : c'est le demi-tour qui les suit qui
+  // conclut (`mappeurs.js › declinerAvecNeuf`).
+  assert.deepEqual(absorbants, ['mab', 'mrdE', 'mabx', 'mabd', 'mrfE', 'mrtE']);
   // …mais elle ne s'explore qu'à partir de son cran d'ouverture (`op.desLeCran`) :
   // au cran 0, celui du site, les quatre d'avant.
   assert.deepEqual(operateursExplorables(catalogue).filter((o) => o.absorbe).map((o) => o.code),

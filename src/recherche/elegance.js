@@ -1653,6 +1653,12 @@ const ABSORBENT_PAR_ADDITION = Object.freeze({
   'm.redecoupageExactNeuf': 'redecoupage',
   'm.redecoupageFusionnantNeuf': 'redecoupage',
   'm.redecoupageFusionnantExactNeuf': 'redecoupage',
+  // ★ Le redécoupage exact AVEC TRI (`mrtE`, `mt9E`) : le geste de `mrdE`,
+  //   précédé au besoin de celui de `mrd` — même poste, dilué par TOUTES ses
+  //   additions (les deux passes, `op.additions`). Son rangement se paie à
+  //   part, au poste de `mtri` (`deplaces`, plus bas).
+  'm.redecoupageExactTrie': 'redecoupage',
+  'm.redecoupageExactTrieNeuf': 'redecoupage',
 });
 
 /**
@@ -1883,6 +1889,10 @@ export const A_MERITER_SA_PLACE = Object.freeze(new Set([
   'm.redecoupageExactNeuf',
   'm.redecoupageFusionnantNeuf',
   'm.redecoupageFusionnantExactNeuf',
+  // ★ Le redécoupage exact avec tri, et sa variante avec 9 : ils rangent la
+  //   ligne pour qu'elle tombe juste — des 6 en masse, par construction.
+  'm.redecoupageExactTrie',
+  'm.redecoupageExactTrieNeuf',
   // ★ Le redécoupage EXACT (`mrdE`) n'y est PAS, et c'est mesuré. Il ne
   //   produit rien « en masse » : il écrit la cible exactement ou il se tait,
   //   et sa récolte est bornée par la somme de la ligne (invariant modulo
@@ -2722,7 +2732,10 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
         // ★ …et sa variante qui accole (`mrfE`), par analogie exacte ; et leurs
         //   variantes avec 9 (`md9E`, `mf9E`), qui absorbent de même.
         || op.id === 'm.redecoupageFusionnantExact' || op.id === 'm.redecoupageExactNeuf'
-        || op.id === 'm.redecoupageFusionnantExactNeuf') b.absorptions += absorbes;
+        || op.id === 'm.redecoupageFusionnantExactNeuf'
+        // ★ …et le redécoupage exact avec tri (`mrtE`, `mt9E`), qui absorbe
+        //   toute la ligne comme lui.
+        || op.id === 'm.redecoupageExactTrie' || op.id === 'm.redecoupageExactTrieNeuf') b.absorptions += absorbes;
       const poids = typeof op.additions === 'function'
         ? dilution(op.additions(avant.valeur)) : absorbes * 1000;
       // ★ Et le redécoupage, LUI SEUL, s'allège avec la longueur de la ligne :
@@ -2744,6 +2757,13 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
         if (avant.valeur[k] !== apres.valeur[k]) bouges++;
       }
       b.rearrangement += bouges;
+    }
+    // ★ …et un geste qui range EN CHEMIN (`mrtE`, `mt9E`) le DÉCLARE : ses
+    //   états d'avant et d'après n'ont pas la même longueur, la comparaison rang
+    //   à rang ne dirait rien. Il rend le nombre de chiffres qu'il déplace
+    //   (`op.deplaces`), au même tarif que ceux de `mtri`.
+    if (typeof op.deplaces === 'function' && Array.isArray(avant.valeur)) {
+      b.rearrangement += op.deplaces(avant.valeur);
     }
 
     // ── ★ L'AGRÉGATION : la ligne raccourcit sans que rien ne soit jeté.
