@@ -505,9 +505,15 @@ test('★ la chaîne du 27 août se rejoue sur les chiffres de l’auteur', () =
   //    se confondent. C'est le total qui est la propriété ; la découpe n'en est
   //    qu'une réalisation, et la figer aurait interdit toute amélioration de
   //    l'algorithme sans rien garantir de plus.
+  // ⚠️ **ET ELLE A CHANGÉ UNE SECONDE FOIS LE 19 SEPTEMBRE**, pour la même
+  //    raison et avec le même rendement : à écrits égaux, `mrd` n'avale plus
+  //    un chiffre déjà juste pour gagner un paquet (« un 6 ou un 9 déjà là
+  //    reste seul », sa règle affichée — `planRedecoupage`). Les onze 6-ou-9
+  //    restent onze ; la queue `1 2 9 9 6 6 9 9` devient `1 5 6 9 6 9 6 9`,
+  //    où les 6 et les 9 de la ligne restent seuls au lieu d'être refondus.
   const redec = chaine(avant, 'mrd');
   const gagnants = (vs) => vs.filter((v) => v === 6 || v === 9).length;
-  assert.deepEqual(redec.valeur, [1, 2, 6, 9, 6, 6, 9, 1, 2, 9, 9, 6, 6, 9, 9]);
+  assert.deepEqual(redec.valeur, [1, 2, 6, 9, 6, 6, 9, 1, 5, 6, 9, 6, 9, 6, 9]);
   assert.equal(gagnants(avant.valeur.join('').split('').map(Number)), 4,
     'la ligne de départ ne porte que trois 6 et un 9');
   assert.equal(gagnants(redec.valeur), 11, 'onze 6-ou-9, contre quatre au départ');
