@@ -145,8 +145,18 @@
  *  · n° 14 — `Éléonore à Nîmes`, défaut — moteur « à jetter » ; la voie du global a déjà été jugée au n° 3.
  *  · n° 15 — `numherololgeek.1000i100.fr`, défaut — score global, nettement ; `pc9` « à considéré comme une ficelle ».
  *
- * ★ **DOUZE CAS OUVERTS LE 19 SEPTEMBRE 2026** (les trois derniers au cran 3,
- *   après les variantes avec et sans 9 et le redécoupage qui range) — (le neuvième, Louis Fouché, après
+ * ★ **DIX CAS OUVERTS LE 19 SEPTEMBRE 2026** (les trois derniers au cran 3,
+ *   après les variantes avec et sans 9 et le redécoupage qui range). Deux sont
+ *   sortis le soir même, remesurés par `.planning/banc/arbitrage-remesure.mjs`
+ *   sur `4f74b95` : la voie de droite n’y est plus candidate à la place visée,
+ *   donc le cas ne pose plus de question.
+ *    · `2026-09-19-louis-fouche-3e` (3ᵉ) — `fmaj+mas+mrdE` a quitté la liste :
+ *      `mrdE` ne pose plus de 9, et la voie s’écrit désormais `md9E`, qui ne
+ *      cherche qu’à partir du cran 3. `fl+m14` tient la 3ᵉ place.
+ *    · `2026-09-19-trump-cran3` (3ᵉ) — les deux voies ont quitté la liste :
+ *      `fl+mt9+mam+meg` n’est plus construite (la même ligne est atteinte
+ *      d’abord par `mad+meg`), et la 3ᵉ place est tenue par
+ *      `2:fr16;mas+mrd9+meg`. — (le neuvième, Louis Fouché, après
  *   les redécoupages qui laissent en place ce qui est juste) — ce que les six opérateurs du
  *   18 septembre (`mas`, `mu8`, `mam`, `mrdf`, `mrfE`, `megf`), les retouches
  *   enchaînées par cran et le siège de la voie courte changent en tête de liste.
@@ -195,7 +205,7 @@ export const CAS_ARBITRAGE = Object.freeze([
   {
     id: "2026-09-19-raoult",
     place: 1,
-    titre: "Didier Raoult — 1ʳᵉ place : le code ASCII casse comprise (mas) prend la tête qu’avait le T9",
+    titre: "[gauche 4ᵉ] Didier Raoult — 1ʳᵉ place : le code ASCII casse comprise (mas) prend la tête qu’avait le T9",
     saisie: "Didier Raoult",
     // à gauche (« Avant »), la voie de `main` (7ae67a5) à la même place
     avant: "?sce!2:mt9+meg$6hVamBkJyG1MWtPRwR",
@@ -205,7 +215,7 @@ export const CAS_ARBITRAGE = Object.freeze([
   {
     id: "2026-09-19-marie-curie",
     place: 1,
-    titre: "Marie Curie — 1ʳᵉ place : le code ASCII casse comprise (mas) prend la tête",
+    titre: "[gauche hors liste] Marie Curie — 1ʳᵉ place : le code ASCII casse comprise (mas) prend la tête",
     saisie: "Marie Curie",
     // à gauche (« Avant »), la voie de `main` (7ae67a5) à la même place
     avant: "?sce!fl+mz26+mr9+mrdE$LBvysLJSWqpia3v",
@@ -215,7 +225,7 @@ export const CAS_ARBITRAGE = Object.freeze([
   {
     id: "2026-09-19-jean-michel",
     place: 1,
-    titre: "jean-michel — 1ʳᵉ place : le code ASCII casse comprise (mas) prend la tête qu’avait le clavier",
+    titre: "[gauche 3ᵉ] jean-michel — 1ʳᵉ place : le code ASCII casse comprise (mas) prend la tête qu’avait le clavier",
     saisie: "jean-michel",
     // à gauche (« Avant »), la voie de `main` (7ae67a5) à la même place
     avant: "?sce!2:mqwc+meg$TPFErnfXxwkkeBD",
@@ -225,7 +235,7 @@ export const CAS_ARBITRAGE = Object.freeze([
   {
     id: "2026-09-19-sarah-kerrigan",
     place: 1,
-    titre: "Sarah Kerrigan — 1ʳᵉ place : le code ASCII puis une absorption (mas+mab) prend la tête",
+    titre: "[gauche hors liste] Sarah Kerrigan — 1ʳᵉ place : le code ASCII puis une absorption (mas+mab) prend la tête",
     saisie: "Sarah Kerrigan",
     // à gauche (« Avant »), la voie de `main` (7ae67a5) à la même place
     avant: "?sce!0:fr12;fl+m14+meg$XeuapD1GiUPu7gDywGH",
@@ -235,7 +245,7 @@ export const CAS_ARBITRAGE = Object.freeze([
   {
     id: "2026-09-19-eleonore",
     place: 1,
-    titre: "Éléonore à Nîmes — 1ʳᵉ place : m14 égalisé remplace le redécoupage exact",
+    titre: "[gauche 6ᵉ] Éléonore à Nîmes — 1ʳᵉ place : m14 égalisé remplace le redécoupage exact",
     saisie: "Éléonore à Nîmes",
     // à gauche (« Avant »), la voie de `main` (7ae67a5) à la même place
     avant: "?sce!fl+mx6+mrdE$3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
@@ -243,19 +253,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     apres: "?sce!fl+m14+meg$3j14d86Y9shVAUrGT6Cq5K2Rk2cA",
   },
   {
-    id: "2026-09-19-trump-cran3",
-    place: 3,
-    titre: "Donald Trump, cran 3 — 3ᵉ place : l’addition vers la moyenne (mam) avant l’égalisation",
-    saisie: "Donald Trump",
-    // à gauche (« Avant »), la voie de `main` (7ae67a5) à la même place
-    avant: "?sce!f3!0:fr21;fc+mqwc+meg$2HuP1G8mNg3sJWhqR",
-    // à droite (« Après »), la tête de la branche `operateurs-et-crans` (f07e3a4)
-    apres: "?sce!f3!fl+mt9+mam+meg$2HuP1G8mNg3sJWhqR",
-  },
-  {
     id: "2026-09-19-trump-cran10",
     place: 1,
-    titre: "Donald Trump, cran 10 — 1ʳᵉ place : l’égalisation futée (megf) prend la tête et les cinq premières lignes",
+    titre: "[gauche 8ᵉ] Donald Trump, cran 10 — 1ʳᵉ place : l’égalisation futée (megf) prend la tête et les cinq premières lignes",
     saisie: "Donald Trump",
     // à gauche (« Avant »), la voie de `main` (7ae67a5) à la même place
     avant: "?sce!f10!fl+mazc+meg$2HuP1G8mNg3sJWhqR",
@@ -265,7 +265,7 @@ export const CAS_ARBITRAGE = Object.freeze([
   {
     id: "2026-09-19-numherololgeek-v2",
     place: 1,
-    titre: "numherololgeek.1000i100.fr, curseurs v2 — 1ʳᵉ place : ton verdict n° 7 n’est plus fabriqué",
+    titre: "[gauche hors liste] numherololgeek.1000i100.fr, curseurs v2 — 1ʳᵉ place : ton verdict n° 7 n’est plus fabriqué",
     saisie: "numherololgeek.1000i100.fr",
     curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
     // à gauche (« Avant »), la voie de `main` (7ae67a5) à la même place
@@ -274,22 +274,9 @@ export const CAS_ARBITRAGE = Object.freeze([
     apres: "?sce!p25.200.50.150!fl+mqwc+meg$4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
   },
   {
-    id: "2026-09-19-louis-fouche-3e",
-    place: 3,
-    titre: "Louis Fouché — 3ᵉ place : fl+m14 (simple) ou fmaj+mas+mrdE (deux séries depuis que mrdE préfère les séries). Tête inchangée des deux côtés : fl+mazc+meg, puis fr21+mas+mrdE",
-    saisie: "Louis Fouché",
-    // à gauche (« Avant »), la 3ᵉ de `operateurs-et-crans` (669b841)
-    avant: "?sce!fl+m14$7NFn8xBqb5eNAq3YCY",
-    // à droite (« Après »), la 3ᵉ de `redecoupages-respectueux` (a3bcfed) ; fl+m14 y est 4ᵉ.
-    // ★ Sa ligne, `6 6 6 6 6 6 9 6 9`, garde un 9 : depuis que `mrdE` ne garde plus
-    //   les 9 (19 septembre 2026), elle s'écrit `md9E` — la même découpe, qui ne se
-    //   cherche qu'à partir du cran 3. `fmaj+mas+mrdE` ne s'applique plus ici.
-    apres: "?sce!fmaj+mas+md9E$7NFn8xBqb5eNAq3YCY",
-  },
-  {
     id: "2026-09-19-raoult-cran3-2e",
     place: 2,
-    titre: "Didier Raoult, cran 3 — 2ᵉ place : le redécoupage exact qui range les restes (mrtE, quatre séries) entre",
+    titre: "[gauche 3ᵉ] Didier Raoult, cran 3 — 2ᵉ place : le redécoupage exact qui range les restes (mrtE, quatre séries) entre",
     saisie: "Didier Raoult",
     // à gauche (« Avant ») : la 2ᵉ de `redecoupages-respectueux` (0858dd5)
     avant: "?sce!f3!fr16+mas+mrn+meg$6hVamBkJyG1MWtPRwR",
@@ -299,7 +286,7 @@ export const CAS_ARBITRAGE = Object.freeze([
   {
     id: "2026-09-19-raoult-cran3-1re",
     place: 1,
-    titre: "Didier Raoult, cran 3 — 1ʳᵉ place : la tête garde mrdE (deux séries) devant mrtE (quatre séries) ; laquelle en tête ?",
+    titre: "[gauche 1ʳᵉ] Didier Raoult, cran 3 — 1ʳᵉ place : la tête garde mrdE (deux séries) devant mrtE (quatre séries) ; laquelle en tête ?",
     saisie: "Didier Raoult",
     // à gauche (« Avant ») : la tête actuelle de `variantes-neuf-et-tri`, fmaj+mas+mrdE
     avant: "?sce!f3!fmaj+mas+mrdE$6hVamBkJyG1MWtPRwR",
@@ -309,7 +296,7 @@ export const CAS_ARBITRAGE = Object.freeze([
   {
     id: "2026-09-19-fouche-cran3-2e",
     place: 2,
-    titre: "Louis Fouché, cran 3 — 2ᵉ place : la version avec 9 rangée puis retournée (mt9E+mr9, cinq séries) entre",
+    titre: "[gauche hors liste] Louis Fouché, cran 3 — 2ᵉ place : la version avec 9 rangée puis retournée (mt9E+mr9, cinq séries) entre",
     saisie: "Louis Fouché",
     // à gauche (« Avant ») : la 2ᵉ de `redecoupages-respectueux` (0858dd5)
     avant: "?sce!f3!fr9+mas+mrd+meg$7NFn8xBqb5eNAq3YCY",
