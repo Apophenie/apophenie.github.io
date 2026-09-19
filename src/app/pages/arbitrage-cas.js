@@ -145,7 +145,8 @@
  *  · n° 14 — `Éléonore à Nîmes`, défaut — moteur « à jetter » ; la voie du global a déjà été jugée au n° 3.
  *  · n° 15 — `numherololgeek.1000i100.fr`, défaut — score global, nettement ; `pc9` « à considéré comme une ficelle ».
  *
- * ★ **NEUF CAS OUVERTS LE 19 SEPTEMBRE 2026** (le neuvième, Louis Fouché, après
+ * ★ **DOUZE CAS OUVERTS LE 19 SEPTEMBRE 2026** (les trois derniers au cran 3,
+ *   après les variantes avec et sans 9 et le redécoupage qui range) — (le neuvième, Louis Fouché, après
  *   les redécoupages qui laissent en place ce qui est juste) — ce que les six opérateurs du
  *   18 septembre (`mas`, `mu8`, `mam`, `mrdf`, `mrfE`, `megf`), les retouches
  *   enchaînées par cran et le siège de la voie courte changent en tête de liste.
@@ -284,5 +285,35 @@ export const CAS_ARBITRAGE = Object.freeze([
     //   les 9 (19 septembre 2026), elle s'écrit `md9E` — la même découpe, qui ne se
     //   cherche qu'à partir du cran 3. `fmaj+mas+mrdE` ne s'applique plus ici.
     apres: "?sce!fmaj+mas+md9E$7NFn8xBqb5eNAq3YCY",
+  },
+  {
+    id: "2026-09-19-raoult-cran3-2e",
+    place: 2,
+    titre: "Didier Raoult, cran 3 — 2ᵉ place : le redécoupage exact qui range les restes (mrtE, quatre séries) entre",
+    saisie: "Didier Raoult",
+    // à gauche (« Avant ») : la 2ᵉ de `redecoupages-respectueux` (0858dd5)
+    avant: "?sce!f3!fr16+mas+mrn+meg$6hVamBkJyG1MWtPRwR",
+    // à droite (« Après ») : la 2ᵉ de `variantes-neuf-et-tri` (d8b8114)
+    apres: "?sce!f3!fmaj+mas+mrtE$6hVamBkJyG1MWtPRwR",
+  },
+  {
+    id: "2026-09-19-raoult-cran3-1re",
+    place: 1,
+    titre: "Didier Raoult, cran 3 — 1ʳᵉ place : la tête garde mrdE (deux séries) devant mrtE (quatre séries) ; laquelle en tête ?",
+    saisie: "Didier Raoult",
+    // à gauche (« Avant ») : la tête actuelle de `variantes-neuf-et-tri`, fmaj+mas+mrdE
+    avant: "?sce!f3!fmaj+mas+mrdE$6hVamBkJyG1MWtPRwR",
+    // à droite (« Après ») : sa 2ᵉ, fmaj+mas+mrtE, qu’on mettrait en tête
+    apres: "?sce!f3!fmaj+mas+mrtE$6hVamBkJyG1MWtPRwR",
+  },
+  {
+    id: "2026-09-19-fouche-cran3-2e",
+    place: 2,
+    titre: "Louis Fouché, cran 3 — 2ᵉ place : la version avec 9 rangée puis retournée (mt9E+mr9, cinq séries) entre",
+    saisie: "Louis Fouché",
+    // à gauche (« Avant ») : la 2ᵉ de `redecoupages-respectueux` (0858dd5)
+    avant: "?sce!f3!fr9+mas+mrd+meg$7NFn8xBqb5eNAq3YCY",
+    // à droite (« Après ») : la 2ᵉ de `variantes-neuf-et-tri` (d8b8114)
+    apres: "?sce!f3!2:fr22;fmaj+mas+mt9E+mr9$7NFn8xBqb5eNAq3YCY",
   },
 ]);
