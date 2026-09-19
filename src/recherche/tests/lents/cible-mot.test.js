@@ -156,11 +156,21 @@ test('cible-mot — Sarah Kerrigan → Terran, douze chiffres', () => {
   verifierVoies('Sarah Kerrigan', r, 'terran');
 });
 
-test('cible-mot — Sarah Kerrigan → Diable, que seules les relectures par paires ouvrent', () => {
+/* ★ **AMENDEMENT DU 19 SEPTEMBRE 2026 — le clavier y mène aussi, par l'ASCII.**
+     Le test tenait « seules les relectures par paires l'ouvrent ». Depuis
+     `mas` (le code ASCII casse comprise, actif depuis le 18 septembre), la
+     saisie donne des lignes deux fois plus longues — chaque lettre en deux ou
+     trois chiffres —, et l'absorption y trouve de quoi écrire aussi la suite
+     du clavier (`mcaz`, `mcqw`). Ce qui reste vrai, et que le test tient : le
+     RANG n'y mène toujours pas, et tout ce qui n'est pas une relecture par
+     paires passe par le code ASCII. */
+test('cible-mot — Sarah Kerrigan → Diable, que les relectures par paires ouvrent, et le clavier par l’ASCII', () => {
   const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Diable' });
   assert.ok(r.approches.length >= 1, 'aucune voie vers Diable');
-  assert.ok(r.approches.every((a) => ['m1a2', 'mpol', 'mtap'].includes(a.relecture.code)),
-    'ni le rang ni le clavier n’y mènent : ce sont les paires qui l’ouvrent');
+  assert.ok(r.approches.every((a) => ['m1a2', 'mpol', 'mtap'].includes(a.relecture.code)
+    || /(^|\+)mas(\+|$)/.test(a.codes)),
+    'hors des paires, seul le code ASCII y mène');
+  assert.ok(r.approches.every((a) => a.relecture.code !== 'm1a'), 'le rang n’y mène pas');
   /* ★ **ET AUCUNE VOIE DE DERNIER RECOURS ICI** — c'est tout l'objet de la
      règle : « si des solutions courtes et élégantes sont trouvées, pas besoin
      de chercher les options longues et bancales » (l'auteur). Diable a ses sept
@@ -171,17 +181,25 @@ test('cible-mot — Sarah Kerrigan → Diable, que seules les relectures par pai
     'rien n’a été gonflé ni rangé : la liste courte se suffit');
   // Le diagnostic dit, relecture par relecture, ce qui a été tenté.
   const clavier = r.relectures.find((x) => x.code === 'mcaz');
-  assert.equal(clavier.voies, 0);
+  assert.ok(clavier.voies > 0, 'le clavier y mène désormais, et le diagnostic le dit');
+  assert.equal(r.relectures.find((x) => x.code === 'm1a').voies, 0, 'et le rang, rien');
   verifierVoies('Sarah Kerrigan', r, 'diable');
 });
 
-test('cible-mot — Sarah Kerrigan → Fantome, rangé puis dissous', () => {
+/* ★ **AMENDEMENT DU 19 SEPTEMBRE 2026 — plus besoin de ranger.** Le test
+     tenait `…+mtri+mab` : les codes ASCII rangés puis dissous, que seule la
+     passe de dernier recours déroule, quand la première n'a RIEN rendu
+     (`assemblage.js › vecteursDeSix`, `derouler(true)`). Depuis `mas`, la
+     première passe trouve des voies courtes vers Fantome — `mtal+mas+mab`,
+     `fatb+mas+mab`… — et la passe profonde n'est plus déroulée : « si des
+     solutions courtes et élégantes sont trouvées, pas besoin de chercher les
+     options longues et bancales » (l'auteur). Le test tient cette règle-là. */
+test('cible-mot — Sarah Kerrigan → Fantome, sans passer par le dernier recours', () => {
   const r = moteur.resoudre('Sarah Kerrigan', { cible: 'Fantome' });
   assert.ok(r.approches.length >= 1, 'aucune voie vers Fantome');
-  // Le geste que les deux verrous interdisaient : un rangement, PUIS une
-  // absorption — deux raffinages, ce que la forme fermée ne déroulait pas.
-  assert.ok(r.approches.some((a) => /mtri\+mab/.test(a.url)),
-    'la voie attendue range les codes ASCII avant de les dissoudre');
+  assert.ok(r.approches.every((a) => !/(mtri|mdc3|md03|meg)\+mab/.test(a.url)),
+    'rien n’a été rangé ni gonflé : la première passe se suffit');
+  assert.ok(r.approches.some((a) => /(^|\+)mas(\+|$)/.test(a.codes)), 'par le code ASCII, casse comprise');
   verifierVoies('Sarah Kerrigan', r, 'fantome');
 });
 

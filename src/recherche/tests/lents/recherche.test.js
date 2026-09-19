@@ -519,12 +519,27 @@ test('★ suppression du décret — les saisies courtes se démontrent sans rie
  * ponctuation, des espaces — n'a d'autre issue que le joker, et le moteur ne
  * doit jamais lui inventer une méthode.
  */
+/**
+ * ★ « !!! » ET « ␣␣␣ » ONT QUITTÉ CETTE LISTE À LEUR TOUR — le 18 septembre
+ *   2026, avec `mas` : « chaque caractère vaut son code ASCII tel qu'écrit »,
+ *   ponctuation et espace compris, par décision de l'autrice. Le point
+ *   d'exclamation vaut 33 (`mas+mrn` : trois fois 3 + 3), l'espace 32
+ *   (`mas+mab`). Ce n'est pas le moteur qui invente une méthode : la méthode
+ *   existe, et elle lit ce qui est écrit. Un signe SEUL, lui, ne donne toujours
+ *   rien à lire qui fasse une série.
+ */
 test('★ le joker reste indispensable aux saisies sans rien à lire', () => {
   const m = creerMoteur(catalogue);
-  for (const s of ['!!!', '   ']) {
+  for (const s of ['?']) {
     const r = m.resoudre(s);
     assert.equal(r.approches.length, 1, `« ${s} » : ${r.approches.length} approches`);
     assert.equal(r.approches[0].mode, 'JOKER', `« ${s} » : ${r.approches[0].mode}`);
+  }
+  for (const s of ['!!!', '   ']) {
+    const r = m.resoudre(s);
+    assert.ok(r.approches.length >= 1 && r.approches.every((a) => a.mode !== 'JOKER'),
+      `« ${s} » se lit désormais : ${r.approches.map((a) => a.codes).join('  ')}`);
+    assert.ok(r.approches.every((a) => /(^|\+)mas(\+|$)/.test(a.codes)), `« ${s} » : par le code ASCII`);
   }
 });
 

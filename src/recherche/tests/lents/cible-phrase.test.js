@@ -187,7 +187,13 @@ test('cible-phrase — « https://reinfocovid.fr/ » → « C’est de la merde 
   assert.equal(tete.relecture.code, 'masi', 'la voie exacte en tête');
   assert.equal(tete.ecartDeForme.facteur, 1000, 'rien à payer');
   // `tca` est implicite : il est dans le chemin, pas dans le lien (`url.js`).
-  assert.deepEqual(tete.parts[0].chemin.ops.map((o) => o.code).join('+'), 'tca+mast+mcar+mecl+mcar+mab');
+  // ★ `mas` et non plus `mast` : sur « https://reinfocovid.fr/ », tout en ASCII
+  //   et sans accent, le code ASCII casse comprise (`mas`, actif depuis le 18
+  //   septembre 2026) et le code ASCII de chaque signe (`mast`, réservé à la
+  //   matière d'une phrase) écrivent la même ligne, au chiffre près. Deux
+  //   chemins, une démonstration, et la déduplication garde le premier dans
+  //   l’ordre des chemins (§4.4) : `mas` précède `mast`.
+  assert.deepEqual(tete.parts[0].chemin.ops.map((o) => o.code).join('+'), 'tca+mas+mcar+mecl+mcar+mab');
   for (const a of r.approches) {
     assert.equal(a.parts.length, 1, `${a.url} : un seul bloc, pas de segments`);
   }

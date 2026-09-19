@@ -686,7 +686,9 @@ export const TITRES_COURTS = {
   'm.absorptionDifference': b('absorption en différences', 'absorption by differences'), // mabd
   'm.redecoupageExact': b('additions sans reste', 'additions with no remainder'), // mrdE
   'm.redecoupageFusionnant': b('additions accolées', 'joined additions'), // mrdf
-  'm.redecoupageFusionnantExact': b('additions accolées sans reste', 'joined additions with no remainder'), // mrfE
+  // ⚠️ Pas « additions accolées sans reste » : vingt-neuf signes, un de trop pour
+  //   la largeur d'une carte (`debug.test.js › titres courts`).
+  'm.redecoupageFusionnantExact': b('sommes accolées sans reste', 'joined sums, no remainder'), // mrfE
   'm.egalisationFutee': b('égalisation futée', 'shrewd evening out'), // megf
   'm.reduireChaque': b('addition', 'addition'), // mrn
   'm.scrabbleEN': b('Scrabble EN', 'EN Scrabble'), // msen
