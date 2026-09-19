@@ -145,7 +145,8 @@
  *  · n° 14 — `Éléonore à Nîmes`, défaut — moteur « à jetter » ; la voie du global a déjà été jugée au n° 3.
  *  · n° 15 — `numherololgeek.1000i100.fr`, défaut — score global, nettement ; `pc9` « à considéré comme une ficelle ».
  *
- * ★ **HUIT CAS OUVERTS LE 19 SEPTEMBRE 2026** — ce que les six opérateurs du
+ * ★ **NEUF CAS OUVERTS LE 19 SEPTEMBRE 2026** (le neuvième, Louis Fouché, après
+ *   les redécoupages qui laissent en place ce qui est juste) — ce que les six opérateurs du
  *   18 septembre (`mas`, `mu8`, `mam`, `mrdf`, `mrfE`, `megf`), les retouches
  *   enchaînées par cran et le siège de la voie courte changent en tête de liste.
  *   Relevés par `resoudre` au cran et aux curseurs de chaque cas, sur `main`
@@ -270,5 +271,15 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: "?sce!p25.200.50.150!0:nv,2+3:flt+mpy+mr9$4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
     // à droite (« Après »), la tête de la branche `operateurs-et-crans` (f07e3a4)
     apres: "?sce!p25.200.50.150!fl+mqwc+meg$4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
+  },
+  {
+    id: "2026-09-19-louis-fouche-3e",
+    place: 3,
+    titre: "Louis Fouché — 3ᵉ place : fl+m14 (simple) ou fmaj+mas+mrdE (deux séries depuis que mrdE préfère les séries). Tête inchangée des deux côtés : fl+mazc+meg, puis fr21+mas+mrdE",
+    saisie: "Louis Fouché",
+    // à gauche (« Avant »), la 3ᵉ de `operateurs-et-crans` (669b841)
+    avant: "?sce!fl+m14$7NFn8xBqb5eNAq3YCY",
+    // à droite (« Après »), la 3ᵉ de `redecoupages-respectueux` (a3bcfed) ; fl+m14 y est 4ᵉ
+    apres: "?sce!fmaj+mas+mrdE$7NFn8xBqb5eNAq3YCY",
   },
 ]);
