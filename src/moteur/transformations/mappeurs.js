@@ -2908,21 +2908,35 @@ function meilleurPlanExact(a, b) {
 function compteurDAvales(chiffres, colle, L) {
   const n = chiffres.length;
   const somme = new Int32Array(n + 1);
-  const justes = Array.from({ length: L }, () => new Int32Array(n + 1));
-  const valeurs = Array.from({ length: L }, () => new Int32Array(n + 1));
-  for (let k = 0; k < n; k++) {
-    const v = chiffres[k].v;
-    somme[k + 1] = somme[k] + v;
-    for (let r = 0; r < L; r++) {
-      const j = colle(v, r);
-      justes[r][k + 1] = justes[r][k] + (j ? 1 : 0);
-      valeurs[r][k + 1] = valeurs[r][k] + (j ? v : 0);
-    }
+  for (let k = 0; k < n; k++) somme[k + 1] = somme[k] + chiffres[k].v;
+  /* ★ Les rangs qui attendent les MÊMES chiffres partagent leurs tables — sur
+       `666`, les trois rangs n'en font qu'une. MESURÉ : une table par rang,
+       dressée à chaque plan, coûtait 0,4 s CPU sur « Lorem ipsum… » et faisait
+       sortir la recherche de son budget global (`recherche.test.js › budget`). */
+  const classeDe = new Int32Array(L);
+  const signatures = [];
+  for (let r = 0; r < L; r++) {
+    let sig = 0;
+    for (let d = 0; d <= 9; d++) if (colle(d, r)) sig |= 1 << d;
+    let c = signatures.indexOf(sig);
+    if (c < 0) { c = signatures.length; signatures.push(sig); }
+    classeDe[r] = c;
   }
+  const tables = signatures.map((sig) => {
+    const justes = new Int32Array(n + 1);
+    const valeurs = new Int32Array(n + 1);
+    for (let k = 0; k < n; k++) {
+      const v = chiffres[k].v;
+      const j = (sig >> v) & 1;
+      justes[k + 1] = justes[k] + j;
+      valeurs[k + 1] = valeurs[k] + j * v;
+    }
+    return { justes, valeurs };
+  });
   return (a, b, p, seul = true) => {
-    const r = p % L;
-    const k = justes[r][b] - justes[r][a];
-    if (k === 1 && seul && somme[b] - somme[a] === valeurs[r][b] - valeurs[r][a]) return 0;
+    const t = tables[classeDe[p % L]];
+    const k = t.justes[b] - t.justes[a];
+    if (k === 1 && seul && somme[b] - somme[a] === t.valeurs[b] - t.valeurs[a]) return 0;
     return k;
   };
 }
