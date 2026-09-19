@@ -45,9 +45,16 @@ Le plan est une programmation dynamique sur `(chiffres consommés, rang de la
 cible écrit, unité pendue)` : chaque chiffre de la cible reçoit une plage de
 0 à 12 voisins et, au besoin, un paquet partagé de 2 à 6 chiffres à sa droite.
 Coût minimisé, dans l'ordre : demi-tours (un 9 posé pour un 6 — il appelle un
-`mr9` que la recherche doit encore trouver), travail de seconde passe, puis le
-**plus** de séries, puis le moins d'additions. Parcours en ordre fixe,
-remplacement sur strict mieux, entiers : déterministe (§4.4).
+`mr9` que la recherche doit encore trouver), puis le **plus** de séries, puis
+le moins de chiffres déjà justes avalés, puis le travail de seconde passe, puis
+le moins d'additions. Parcours en ordre fixe, remplacement sur strict mieux,
+entiers : déterministe (§4.4).
+
+> *19 septembre 2026.* Les séries passaient APRÈS la seconde passe, et rien ne
+> comptait les chiffres justes fondus dans une plage — « mrdE a l'air de
+> détruire des 6 et de convertir des 9 » (l'autrice, sur « Didier Raoult »).
+> L'ordre et la mesure sont écrits dans `mappeurs.js › meilleurPlanExact`, avec
+> l'essai « les séries avant les demi-tours », mesuré et écarté.
 
 Clause du demi-tour reprise de `mrd` : quand la cible veut des 6 et pas de 9,
 un 9 peut tenir la place d'un 6 (`mr9` le retournera). Elle n'est employée qu'à

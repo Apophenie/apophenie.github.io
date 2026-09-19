@@ -2619,6 +2619,107 @@ function residusDesSeries(suite, parDemiTour, m) {
 }
 
 /**
+ * ★ **L'ORDRE DE PRÉFÉRENCE DU REDÉCOUPAGE EXACT — et ce qu'il doit au 19
+ *   septembre.**
+ *
+ * > « mrdE a l'air de détruire des 6 et de convertir des 9 qui auraient pu être
+ * >   retournés en 6, donc l'opérateur me semble encore à améliorer. »
+ * >   (l'autrice, sur `fmaj+mas+mrdE` et « Didier Raoult »)
+ *
+ * Ses étapes montraient `3 + 6 = 9`, `6 + 6 = 12`, `9 + 8 = 17` : des chiffres
+ * DÉJÀ JUSTES fondus dans des plages, alors qu'ils écrivaient la cible tout
+ * seuls. La plage les « restitue » par la racine (`… = 33 → 6`), mais à l'écran
+ * c'est un 6 qu'on avale. Le coût ne les voyait pas : entre deux plans aussi
+ * bons, il départageait à la seconde passe et aux additions, jamais à ce qui
+ * était détruit. Il les compte désormais (`compteurDAvales`), dans cet ordre :
+ *
+ *  1. **le moins de demi-tours** — un 9 posé pour un 6, qu'il soit fabriqué par
+ *     une somme ou laissé tel quel. INCHANGÉ, et c'est MESURÉ, pas supposé : un
+ *     9 laissé dans la sortie n'est plus « la cible et rien d'autre », il
+ *     appelle un `mr9` que la recherche ne va pas chercher au cran 0. L'ordre
+ *     « le plus de séries d'abord, 9 compris » a été essayé : sur « Didier
+ *     Raoult » il écrit `6 9 6 9 6 9 6 6 6` (trois 6 et un 9 gardés seuls, trois
+ *     séries une fois retournés), mais `fmaj+mas+mrdE+mr9` n'est pas trouvé et la
+ *     tête retombe sur une voie à deux séries moins bien notée ; « Wikipedia » et
+ *     « Marie Curie » perdent leur voie sans perte de tête, « Donald Trump » la
+ *     sienne au rang 3. La moitié « 9 » de la remarque ne se tient donc QUE là
+ *     où la sortie porte déjà des 9 : à demi-tours égaux, un 9 laissé seul vaut
+ *     mieux qu'un 9 avalé (étage 3). Le reste est à arbitrer — voir le rapport
+ *     du 19 septembre ;
+ *  2. **le PLUS de séries** — « à résultat égal ou meilleur » : le résultat
+ *     passe avant la manière. Il venait APRÈS la seconde passe ; il la précède
+ *     maintenant, sans quoi un plan plus court à une série battait un plan à
+ *     deux qui n'avale rien de plus (67 lignes témoins sur 511 gagnent une
+ *     série, aucune n'en perd) ;
+ *  3. **le moins de chiffres justes AVALÉS** — un chiffre qui colle au rang où
+ *     sa plage écrit, fondu avec d'autres. L'exception de `mad` tient : un
+ *     chiffre juste qui n'avale que des zéros en ressort intact (`6 + 0 → 6`),
+ *     il n'est pas compté ;
+ *  4. **le moins de seconde passe**, puis **le moins d'additions** — le
+ *     départage d'avant, intact.
+ *
+ * ★ **UN PLAN QUI ÉCRIT PLUS EN AVALANT PEUT-IL GAGNER ? Oui, et c'est voulu.**
+ *   Une série de plus, ce sont trois 6 de plus dans le verdict ; un 6 avalé en
+ *   chemin en ressort par la racine. Le contraire — garder un 6 seul au prix
+ *   d'une série — rendrait une démonstration plus pauvre pour une étape plus
+ *   jolie. Sur la ligne de « Didier Raoult », deux séries exactes OBLIGENT à
+ *   avaler cinq des sept chiffres justes (six plages pour sept chiffres justes
+ *   et six blocs d'intrus dont aucun ne se replie seul sur 6) : on en avalait
+ *   six, on en avale cinq.
+ */
+function meilleurPlanExact(a, b) {
+  if (a.demi !== b.demi) return a.demi < b.demi;
+  if (a.m !== b.m) return a.m > b.m;
+  if (a.avales !== b.avales) return a.avales < b.avales;
+  return a.reste < b.reste;
+}
+
+/**
+ * ★ **CE QU'UN PAQUET AVALE DE DÉJÀ JUSTE** — la mesure commune aux
+ *   redécoupages (`mrd`, `mrdE`, `mrdf`, `mrfE`).
+ *
+ * Un chiffre est « déjà juste » quand il COLLE au rang où le paquet écrit : sur
+ * `666`, un 6 ou un 9 (que `mr9` retournera) ; sur `31031998`, le seul chiffre
+ * attendu à ce rang — c'est la règle de `mad › paquetRecevable`, « le seul qui
+ * compte est celui du rang courant ». Un chiffre recopié seul n'avale rien ;
+ * c'est l'appelant qui le sait, et qui n'appelle pas.
+ *
+ * ★ **L'exception du zéro**, celle que `mad` écrit dans sa note : un chiffre
+ *   juste qui n'avale que des zéros en ressort intact (`6 + 0 → 6`) — il n'est
+ *   pas compté. On la reconnaît sans regarder les zéros : un seul chiffre juste
+ *   dans le paquet, et la somme du paquet vaut ce chiffre.
+ *
+ * @param {Array<{v:number}>} chiffres
+ * @param {(d:number, r:number)=>boolean} colle  le chiffre `d` colle-t-il au rang `r` ?
+ * @param {number} L  la longueur de la cible — les rangs se lisent modulo `L`
+ * @returns {(a:number, b:number, p:number, seul?:boolean)=>number} le compte
+ *   sur `[a, b)` pour un paquet qui écrit au rang `p` ; `seul` faux quand le
+ *   paquet reçoit autre chose que ses chiffres (une unité pendue), ce qui
+ *   ôte l'exception du zéro.
+ */
+function compteurDAvales(chiffres, colle, L) {
+  const n = chiffres.length;
+  const somme = new Int32Array(n + 1);
+  const justes = Array.from({ length: L }, () => new Int32Array(n + 1));
+  const valeurs = Array.from({ length: L }, () => new Int32Array(n + 1));
+  for (let k = 0; k < n; k++) {
+    const v = chiffres[k].v;
+    somme[k + 1] = somme[k] + v;
+    for (let r = 0; r < L; r++) {
+      const j = colle(v, r);
+      justes[r][k + 1] = justes[r][k] + (j ? 1 : 0);
+      valeurs[r][k + 1] = valeurs[r][k] + (j ? v : 0);
+    }
+  }
+  return (a, b, p, seul = true) => {
+    const r = p % L;
+    const k = justes[r][b] - justes[r][a];
+    if (k === 1 && seul && somme[b] - somme[a] === valeurs[r][b] - valeurs[r][a]) return 0;
+    return k;
+  };
+}
+
+/**
  * La programmation dynamique du redécoupage exact.
  *
  * Chaque chiffre de la cible reçoit une PLAGE de chiffres voisins (0 à 12), et
@@ -2629,12 +2730,11 @@ function residusDesSeries(suite, parDemiTour, m) {
  * chiffre à chiffre sur DEUX rangs de la cible.
  *
  * L'état est `(i, p, pend)` : `i` chiffres consommés, `p` rangs de la cible
- * écrits, `pend` l'unité qui attend (ou `RIEN`). On minimise, dans cet ordre :
- * le travail de seconde passe (paquets partagés et plages trop larges), les
- * demi-tours (un 9 posé pour un 6), le nombre d'additions. Parcours en ordre
- * fixe, remplacement sur strict mieux : déterministe (§4.4).
+ * écrits, `pend` l'unité qui attend (ou `RIEN`). Le départage — et pourquoi
+ * dans cet ordre — est écrit au-dessus de `meilleurPlanExact`. Parcours en
+ * ordre fixe, remplacement sur strict mieux : déterministe (§4.4).
  *
- * @returns {{plages:Array, m:number, F:number}|null}
+ * @returns {{plages:Array, m:number, F:number, avales:number}|null}
  */
 function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus) {
   const n = chiffres.length;
@@ -2645,17 +2745,19 @@ function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus) {
   const demiTour = (d, p) => (d === suite[p % L] ? 0 : 1);
   const pre = [0];
   for (const c of chiffres) pre.push(pre[pre.length - 1] + c.v);
+  const avales = compteurDAvales(chiffres, (d, r) => colle(d, r), L);
 
   const PEND = 11;
   const cle = (i, p, pend) => ((i * (N + 1)) + p) * PEND + (pend + 1);
   const cout = new Array((n + 1) * (N + 1) * PEND).fill(Infinity);
   const depuis = new Array((n + 1) * (N + 1) * PEND).fill(null);
-  // Le coût est un entier lexicographique : demi-tours ≫ seconde passe ≫
-  // additions. Un 9 posé pour un 6 appelle un `mr9` que la recherche doit
-  // encore trouver ; une seconde passe reste dans l'opérateur. On préfère donc
-  // repasser plutôt que de laisser un 9.
-  const COUT_DEMI = 1000000;
-  const COUT_F = 1000;
+  // Le coût est un entier lexicographique : demi-tours ≫ chiffres justes
+  // avalés ≫ seconde passe ≫ additions. Trente-six chiffres bornent chaque
+  // compte bien sous mille : aucun étage ne déborde sur le suivant. Le nombre
+  // de séries ne s'y lit pas — il se lit sur l'état final, un par `m`.
+  const COUT_DEMI = 1e9;
+  const COUT_AVALE = 1e6;
+  const COUT_F = 1e3;
   cout[cle(0, 0, RIEN)] = 0;
 
   // L'origine n'est construite QUE sur un strict mieux : la boucle essaie des
@@ -2701,7 +2803,13 @@ function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus) {
             const F = (sw ? 1 : 0) + ((sousPlies || (extras && c >= 2)) ? 1 : 0);
             const additions = (sw ? 1 : 0) + (c >= 2 ? 1 : 0)
               + (sousPlies ? Math.floor(w / PAQUET_MAX) + ((w % PAQUET_MAX) >= 2 ? 1 : 0) : 0);
-            const base = c0 + F * COUT_F + additions;
+            // ★ Un chiffre recopié seul n'avale rien ; toute autre plage avale
+            //   ce qu'elle embrasse — son contenu, et le paquet partagé qu'elle
+            //   entame. Une unité pendue n'est pas un chiffre de la ligne : elle
+            //   interdit seulement l'exception du zéro (la somme n'est plus le
+            //   chiffre juste tout seul).
+            const avale = (c === 1 && w === 1) ? 0 : avales(i, i3, p, extras === 0);
+            const base = c0 + avale * COUT_AVALE + F * COUT_F + additions;
             o = { i, p, pend, w, sw, a, b };
             if (c === 1) {
               // Un seul item : il est recopié tel quel, il doit DÉJÀ coller.
@@ -2729,33 +2837,35 @@ function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus) {
     }
   }
 
-  // ── le meilleur nombre de séries : le moins de demi-tours, puis le moins de
-  //    seconde passe, puis le PLUS de séries, puis le moins d'additions.
+  // ── le nombre de séries, dans l'ordre de `meilleurPlanExact`.
   let choix = null;
   for (let m = 1; m <= mMax; m++) {
     if (!residus[m - 1].has(pre[n] % 9)) continue;
     const k = cle(n, m * L, RIEN);
     if (cout[k] === Infinity) continue;
-    const demi = Math.floor(cout[k] / COUT_DEMI);
-    const F = Math.floor((cout[k] % COUT_DEMI) / COUT_F);
-    const additions = cout[k] % COUT_F;
-    const mieux = !choix || demi < choix.demi
-      || (demi === choix.demi && (F < choix.F
-        || (F === choix.F && (m > choix.m || (m === choix.m && additions < choix.additions)))));
-    if (mieux) choix = { m, demi, F, additions, k };
+    const c = cout[k];
+    const cand = {
+      m,
+      k,
+      demi: Math.floor(c / COUT_DEMI),
+      avales: Math.floor((c % COUT_DEMI) / COUT_AVALE),
+      reste: c % COUT_AVALE,
+      F: Math.floor((c % COUT_AVALE) / COUT_F),
+    };
+    if (!choix || meilleurPlanExact(cand, choix)) choix = cand;
   }
   if (!choix) return null;
 
   const plages = [];
   let k = choix.k;
   while (k !== cle(0, 0, RIEN)) {
-    const o = depuis[k];
-    if (!o) throw new Error('redécoupage exact : chaîne de reconstruction rompue.');
-    plages.push(o);
-    k = cle(o.i, o.p, o.pend);
+    const oo = depuis[k];
+    if (!oo) throw new Error('redécoupage exact : chaîne de reconstruction rompue.');
+    plages.push(oo);
+    k = cle(oo.i, oo.p, oo.pend);
   }
   plages.reverse();
-  return { plages, m: choix.m, F: choix.F };
+  return { plages, m: choix.m, F: choix.F, avales: choix.avales };
 }
 
 /**
@@ -2916,7 +3026,7 @@ function planRedecoupageExact(valeur, visee) {
   }
   // Un plan qui ne fait rien n'est pas un plan : au moins une addition.
   if (!passes.some((ps) => ps.paquets.some((p) => p.fin - p.debut >= 2))) return null;
-  return { chiffres, multi, passes, sortie, series: trouve.m };
+  return { chiffres, multi, passes, sortie, series: trouve.m, avales: trouve.avales };
 }
 
 /** Mémoïsation bornée du plan exact, par cible : la recherche le redemande sur chaque état `NUMS`. */
@@ -3320,6 +3430,9 @@ function planRedecoupageFusionnant(valeur, visee, lectures = new Map()) {
  *
  * ★ Le départage : le moins de demi-tours (un 9 posé pour un 6 appelle un `mr9`
  *   à trouver, comme chez `mrdE`), puis le PLUS de séries, puis le moins de
+ *   chiffres DÉJÀ JUSTES avalés (`compteurDAvales` — la règle que `mrdE` a
+ *   reçue le 19 septembre, « à toi de voir s'ils souffrent des mêmes
+ *   défauts » : ils en souffraient, voir le commit), puis le moins de
  *   soudures, puis le moins de termes accolés, puis le moins d'additions ;
  *   enfin l'ordre d'énumération (§4.4). Un plan sans terme accolé est un plan
  *   de `mrdE` : il se tait.
@@ -3352,12 +3465,16 @@ function planRedecoupageFusionnantExact(valeur, visee, sansFusionDe = (v) => pla
   };
   const N = mMax * L;
   const demiTour = (d, p) => (d === suite[p % L] ? 0 : 1);
-  // Le coût est un entier lexicographique : demi-tours ≫ soudures ≫ termes
-  // accolés ≫ additions. Trente-six chiffres bornent chaque compte bien sous
-  // mille : aucun étage ne déborde sur le suivant.
+  // Le coût est un entier lexicographique : demi-tours ≫ chiffres justes
+  // avalés ≫ soudures ≫ termes accolés ≫ additions. Trente-six chiffres
+  // bornent chaque compte sous cent : aucun étage ne déborde sur le suivant.
   const DEMI = 1e9;
-  const SOUDURE = 1e6;
-  const ACCOLE = 1e3;
+  // ★ Les chiffres justes AVALÉS, entre les séries et les soudures — la règle
+  //   de `mrdE` (`meilleurPlanExact`), à laquelle cette variante se tient.
+  const AVALE = 1e6;
+  const SOUDURE = 1e4;
+  const ACCOLE = 1e2;
+  const avales = compteurDAvales(chiffres, (x, r) => colle(x, r), L);
   const cle = (i, p) => i * (N + 1) + p;
   const cout = new Array((n + 1) * (N + 1)).fill(Infinity);
   const depuis = new Array((n + 1) * (N + 1)).fill(null);
@@ -3377,7 +3494,7 @@ function planRedecoupageFusionnantExact(valeur, visee, sansFusionDe = (v) => pla
           { i, p, paquet: { debut: i, fin: i + 1, termes: [termes[i][0]], somme: d, mode: 'copie', sortie: [d] } });
       }
       for (const s of sommes) {
-        const base = c0 + s.soudures * SOUDURE + s.accoles * ACCOLE + 1;
+        const base = c0 + avales(s.debut, s.fin, p) * AVALE + s.soudures * SOUDURE + s.accoles * ACCOLE + 1;
         if (s.somme <= 9) {
           if (colle(s.somme, p)) {
             poser(cle(s.fin, p + 1), base + demiTour(s.somme, p) * DEMI,
@@ -9842,7 +9959,7 @@ export { SEG7_APPROXIMATIONS };
 export { MENTION_SEG14 };
 
 /** Les plans des trois variantes qui fusionnent — exposés pour leurs tests, comme `plagesDe`. */
-export { planRedecoupageFusionnant, planRedecoupageFusionnantExact, planEgalisationFutee };
+export { planRedecoupageFusionnant, planRedecoupageFusionnantExact, planEgalisationFutee, planRedecoupageExact };
 
 export const MESURES_STR = Object.freeze(MESURES);
 export const MAPPEURS = Object.freeze([...MAPPEURS_LETTRE, ...AUTRES_MAPPEURS]);
