@@ -216,3 +216,53 @@ test('★ par le chemin du site, les paires sont JOUÉES — et rien ne se cheva
     assert.deepEqual(tl.warnings, [], `${saisie} › ${programme} : ${tl.warnings.join(' | ')}`);
   }
 });
+
+// ───────────────────── 4. tous les paquets au même temps
+
+/**
+ * > « Toutes les premières additions de tous les paquets en même temps, puis
+ * >   toutes les deuxièmes, etc., puis les réductions ensemble. » (l'autrice,
+ * >   19 septembre, sur `fmaj+mas+mrdE` et « Didier Raoult »)
+ *
+ * On le vérifie sur la ligne même de Raoult, par le chemin du site
+ * (`construireScenario` puis `compile`) : dans une étape d'additions, toutes
+ * les sommes partent au même instant, et pas une animation ne se contredit —
+ * c'était 437 conflits quand on posait simplement les `sum` ordinaires côte à
+ * côte. Puis la fin commune : les accolades ne s'effacent qu'après la pose de
+ * TOUS les résultats (`_accolades.js`, sur des étapes à plusieurs lots).
+ */
+test('★ mrdE sur Didier Raoult : chaque temps joue tous ses paquets ensemble, sans rien de concurrent', async () => {
+  const { compilerEnRelevant } = await import('./_cadre.js');
+  const { finsDesAccolades } = await import('./_accolades.js');
+  const saisie = 'Didier Raoult';
+  const sc = construireScenario(approcheSur(saisie, ['fmaj', 'tca', 'mas', 'mrdE']), { saisie });
+  assert.equal(sc.avertissements, undefined, (sc.avertissements || []).join(' | '));
+  const calculs = sc.steps.filter((s) => s.ops.some((o) => o.op === 'sum'));
+  // Neuf temps d'additions, là où vingt-deux additions se montraient une à une.
+  assert.equal(calculs.length, 9, calculs.map((s) => s.caption).join('\n'));
+  assert.equal(calculs[0].caption,
+    '8 + 7 = 15 · 3 + 6 = 9 · 8 + 7 = 15 · 9 + 8 = 17 · 2 + 3 = 5 · 7 + 9 = 16 · 8 + 5 = 13',
+    'les premières paires de TOUS les paquets de la passe, dans l’ordre de la ligne');
+  for (const s of calculs) {
+    const sommes = s.ops.filter((o) => o.op === 'sum');
+    assert.equal(new Set(sommes.map((o) => o.at)).size, 1, `${s.caption} : les sommes partent ensemble`);
+    const signes = s.ops.filter((o) => o.op === 'insertOperators');
+    assert.equal(signes.length, 1, `${s.caption} : un seul écartement pour tous les signes`);
+    assert.equal(signes[0].lots.length, sommes.length);
+    const fin = s.ops[s.ops.length - 1];
+    assert.ok(fin.op === 'move' && fin.retirer === true && fin.attendre > 0,
+      `${s.caption} : la fin commune — les résultats posés, PUIS les accolades s'effacent et la ligne se referme`);
+  }
+  // L'écriture chiffre à chiffre vient APRÈS toutes les additions : aucun paquet ne finit seul.
+  const legendes = sc.steps.map((s) => s.caption);
+  assert.ok(legendes.indexOf('39 → 3 9 · 24 → 2 4 · 36 → 3 6')
+    > legendes.indexOf('24 + 15 = 39 · 22 + 2 = 24 · 29 + 7 = 36'),
+  'les sommes de la passe s’écrivent chiffre à chiffre ensemble, après la dernière addition');
+  // La garde de fin d'accolade, sans le verdict : il change la largeur des
+  // jetons révélés, et la garde lit la largeur finale des nœuds.
+  const { tl, lignes } = compilerEnRelevant({ ...sc, steps: sc.steps.filter((s) => !s.ops.some((o) => o.op === 'reveal')) });
+  assert.deepEqual(tl.warnings, [], tl.warnings.slice(0, 3).join(' | '));
+  const fautes = finsDesAccolades(tl, lignes).filter((f) => f.faute);
+  assert.deepEqual(fautes.map((f) => `${f.id} : ${f.faute}`), []);
+  assert.deepEqual(compile(sc).warnings, [], 'et la scène entière, verdict compris');
+});

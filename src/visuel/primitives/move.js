@@ -17,7 +17,9 @@
  */
 
 import { EASE } from '../constants.js';
-import { suivreLesAccolades, rendreLesPlaces, refermerSurLesResultats } from './helpers.js';
+import {
+  suivreLesAccolades, rendreLesPlaces, refermerSurLesResultats, retirerLesAccolades,
+} from './helpers.js';
 import { demiEllipse } from './ellipse.js';
 import { fail } from '../errors.js';
 
@@ -146,6 +148,16 @@ export function plan(ctx) {
       refermerSurLesResultats(ctx, { at: 0, dur: attente });
       bouge.at = attente;
       bouge.dur = Math.max(1, ctx.dur - attente);
+    }
+    /* ★ `retirer: true` — ce `move` ferme des gestes qui ont GARDÉ LEUR PLACE
+         sans effacer leur accolade (`sum` en `garderPlace`, joués ensemble) :
+         il les efface ici, toutes à la fois, au moment où la ligne se referme.
+         C'est la fin de `helpers.js › finirSousAccolade`, jouée une fois pour
+         toutes les accolades de l'étape : le résultat s'est posé, PUIS
+         l'accolade s'efface, et la ligne se réajuste. Une pièce déjà effacée
+         par son geste (`data.retiree`) ne l'est pas deux fois. */
+    if (op.retirer === true) {
+      retirerLesAccolades(ctx, { at: bouge.at, dur: Math.max(1, bouge.dur * 0.6) });
     }
     rendreLesPlaces(ctx);
   }

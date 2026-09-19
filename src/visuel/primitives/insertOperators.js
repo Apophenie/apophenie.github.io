@@ -10,12 +10,37 @@
  * l'émetteur qui nomme).
  */
 
-import { insertOperatorTokens, suivreLesAccolades } from './helpers.js';
+import { insertOperatorTokens, insererParLots, suivreLesAccolades } from './helpers.js';
 import { fail } from '../errors.js';
 
 export const name = 'insertOperators';
 
 export function plan(ctx) {
+  /* ★ `lots` — des signes à PLUSIEURS endroits de la ligne, d'un seul geste :
+       `[{ between:[a, b], ids:[s] }, …]`, chaque lot étant l'équivalent d'un
+       `insertOperators` ordinaire. C'est une OPTION de cette primitive, pas une
+       primitive de plus (§3.1) : elle ne fait rien d'autre que ce que font ses
+       lots, mais n'écarte la ligne qu'une fois (`helpers.js › insererParLots`)
+       — ce qui permet aux additions de plusieurs paquets de se jouer ensemble. */
+  if (ctx.op.lots !== undefined) {
+    const lots = ctx.op.lots;
+    if (!Array.isArray(lots) || !lots.length) fail(`${ctx.where}« lots » doit lister au moins un lot.`);
+    if (ctx.op.between !== undefined) fail(`${ctx.where}« lots » et « between » s'excluent : un lot EST un « between ».`);
+    const glyph = ctx.op.glyph ?? '+';
+    if (typeof glyph !== 'string' || !glyph) fail(`${ctx.where}« glyph » doit être une chaîne (ex. « + », « − »).`);
+    lots.forEach((lot, k) => {
+      if (!lot || !Array.isArray(lot.between) || lot.between.length < 2) {
+        fail(`${ctx.where}lots[${k}] : « between » doit lister au moins deux tokens.`);
+      }
+      for (const id of lot.between) ctx.scene.live(id, `${ctx.where}lots[${k}] : `);
+      if (!Array.isArray(lot.ids) || lot.ids.length !== lot.between.length - 1) {
+        fail(`${ctx.where}lots[${k}] : « ids » doit contenir exactement ${lot.between.length - 1} identifiant(s) — c'est l'émetteur qui nomme (CONTRACTS §3).`);
+      }
+    });
+    insererParLots(ctx, { lots, glyph, at: 0, dur: ctx.dur });
+    suivreLesAccolades(ctx, { at: 0, dur: ctx.dur * 0.6 });
+    return;
+  }
   const between = ctx.op.between;
   if (!Array.isArray(between) || between.length < 2) {
     fail(`${ctx.where}« between » doit lister au moins deux tokens.`);

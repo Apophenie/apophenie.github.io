@@ -486,6 +486,9 @@ function inventaire(o) {
       // `ids` est facultatif : sans lui, les signes sont nommés « @… » par le
       // moteur visuel et n'appartiennent pas au scénario.
       for (const id of normaliserCibles(o.ids)) crees.push(id);
+      for (const lot of Array.isArray(o.lots) ? o.lots : []) {
+        for (const id of normaliserCibles(lot && lot.ids)) crees.push(id);
+      }
       break;
     case 'drop':
       supprimes.push(...normaliserCibles(o.targets));
@@ -584,6 +587,8 @@ function referencesDe(o) {
   refs.push(...normaliserCibles(o.targets));
   refs.push(...normaliserCibles(o.target));
   refs.push(...normaliserCibles(o.between));
+  // `insertOperators` en `lots` — chaque lot désigne ses deux termes.
+  for (const lot of Array.isArray(o.lots) ? o.lots : []) refs.push(...normaliserCibles(lot && lot.between));
   refs.push(...normaliserCibles(o.anchor));
   refs.push(...normaliserCibles(o.order));
   // `shift` — le tamis désigne ce qui monte, ce qui descend et ce qui se rend.
@@ -1620,6 +1625,23 @@ export function suivreLaLigne(tokens, steps) {
           break;
         }
         case 'insertOperators': {
+          // ★ En `lots`, chaque lot est un `insertOperators` ordinaire : le
+          //   modèle de ligne les rejoue l'un après l'autre, dans l'ordre où la
+          //   primitive les pose (`helpers.js › insererParLots`).
+          if (o.lots !== undefined) {
+            for (const lot of Array.isArray(o.lots) ? o.lots : []) {
+              const entreLot = ids(lot && lot.between);
+              const nomsLot = ids(lot && lot.ids);
+              if (!entreLot || entreLot.length !== 2 || !nomsLot || nomsLot.length !== 1) { perdu = true; break; }
+              const rangLot = ligne.indexOf(entreLot[0]);
+              if (rangLot < 0) { perdu = true; break; }
+              signes.add(nomsLot[0]);
+              ligne.splice(rangLot + 1, 0, nomsLot[0]);
+              frontieres.add(nomsLot[0]);
+              frontieres.delete(entreLot[1]);
+            }
+            break;
+          }
           const entre = ids(o.between);
           if (!entre || entre.length < 2) { perdu = true; break; }
           const nommes = ids(o.ids);
@@ -3417,6 +3439,19 @@ export function validerFormeOp(o) {
       if (!Array.isArray(o.digits) || o.digits.length < 2 || !o.digits.every(tok)) return '« digits » doit lister au moins deux {id, text}';
       return tok(o.to) ? null : '« to » doit être {id, text}';
     case 'insertOperators': {
+      if (o.lots !== undefined) {
+        if (o.between !== undefined) return '« lots » et « between » s’excluent';
+        if (!Array.isArray(o.lots) || !o.lots.length) return '« lots » doit lister au moins un lot';
+        for (const lot of o.lots) {
+          if (!lot || !Array.isArray(lot.between) || lot.between.length < 2 || !lot.between.every(chaine)) {
+            return '« lots[].between » doit lister au moins deux identifiants';
+          }
+          if (!Array.isArray(lot.ids) || lot.ids.length !== lot.between.length - 1 || !lot.ids.every(chaine)) {
+            return '« lots[].ids » doit nommer chaque signe';
+          }
+        }
+        return null;
+      }
       if (!Array.isArray(o.between) || o.between.length < 2 || !o.between.every(chaine)) return '« between » doit lister au moins deux identifiants';
       const n = o.between.length - 1;
       if (o.glyphs !== undefined

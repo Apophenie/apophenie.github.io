@@ -607,15 +607,17 @@ test('★ les trois ficelles se MONTRENT — accolade nommée, additions ordinai
     const eclat = ops.find((o) => o.op === 'substitute');
     assert.ok(eclat, 'm12 : `16` doit être écrit chiffre à chiffre avant qu’on additionne');
     assert.deepEqual(eclat.pairs[0].to.map((t) => t.text), ['1', '6']);
-    // 2. les `+` ne paraissent qu'entre les termes retenus
+    // 2. les `+` ne paraissent qu'entre les termes retenus — posés par lots,
+    //    un lot par addition du temps (`etapesEnLargeur`, 19 septembre)
     const signes = ops.filter((o) => o.op === 'insertOperators');
-    assert.equal(signes.length, 1, 'm12 : une seule addition sur ce vecteur');
-    assert.equal(signes[0].between.length, 2, 'm12 : `5+1` porte sur DEUX termes');
+    assert.equal(signes.length, 1, 'm12 : un seul temps d’additions sur ce vecteur');
+    assert.equal(signes[0].lots.length, 1, 'm12 : une seule addition sur ce vecteur');
+    assert.equal(signes[0].lots[0].between.length, 2, 'm12 : `5+1` porte sur DEUX termes');
     assert.equal(signes[0].glyph, '+');
     // 3. la somme est recoupée par la primitive elle-même
     const somme = ops.find((o) => o.op === 'sum');
     assert.equal(somme.to.text, '6', 'm12 : ce qui descend sous la pointe est le 6 obtenu');
-    assert.deepEqual(somme.targets, signes[0].between,
+    assert.deepEqual(somme.targets, signes[0].lots[0].between,
       'm12 : on additionne exactement les termes entre lesquels le + est paru');
   }
 });
@@ -1254,32 +1256,46 @@ test('★ `mrdE` — le redécoupage exact ne laisse rien, ou ne fait rien', () 
      ★ **ET CHAQUE ADDITION NE PORTE PLUS QUE DEUX TERMES** — « ne fais les
      opérations qu'entre deux valeurs » (l'auteur). `8 + 7 + 1` se montre
      `8 + 7 = 15`, puis `15 + 1 = 16`, et c'est la dernière paire qui écrit la
-     somme ENTIÈRE chiffre à chiffre. Le gel porte donc sur TROIS étapes au
-     lieu de deux ; la sortie, elle, n'a pas bougé d'un identifiant. */
+     somme ENTIÈRE chiffre à chiffre.
+
+     ★ **ET CHAQUE TEMPS EST UNE ÉTAPE, TOUS LES PAQUETS ENSEMBLE** (19
+     septembre) — « toutes les premières additions de tous les paquets en même
+     temps, puis toutes les deuxièmes, etc., puis les réductions ensemble »
+     (l'autrice). L'écriture chiffre à chiffre n'est plus collée à la dernière
+     paire de SON paquet : elle a son temps, commun à tous les paquets, après
+     toutes les additions. Chaque étape d'additions finit par le `move` qui
+     efface les accolades puis referme la ligne (`retirer`). La sortie, elle,
+     n'a pas bougé d'un identifiant. */
   const entree = N([5, 8, 7, 1]);
   const vise = op.viser('66');
   const apres = appliquer(vise, entree);
   const ctx = { ids: ['t0', 't1', 't2', 't3'], cle: 'e0', langue: 'fr' };
   const steps = etapes(vise, entree, apres, ctx);
   assert.deepEqual(steps.map((s) => s.ops.map((o) => o.op)), [
-    ['partition', 'insertOperators', 'sum'],
-    ['insertOperators', 'sum', 'substitute'],
-    ['partition', 'insertOperators', 'sum'],
-  ], 'deux passes, une étape par paire, le découpage en tête de chacune');
+    ['partition', 'insertOperators', 'sum', 'move'],
+    ['insertOperators', 'sum', 'move'],
+    ['substitute'],
+    ['partition', 'insertOperators', 'sum', 'move'],
+  ], 'deux passes ; un temps par niveau de paires, puis l’écriture ; le découpage en tête de chacune');
   assert.ok(steps.every((x) => x.ops[0].op !== 'partition' || x.ops[0].visible === false),
     'le découpage est MUET : il ne trace rien, il pose les groupes');
   assert.deepEqual(steps.map((s) => s.caption),
-    ['8 + 7 = 15', '15 + 1 = 16 → 1 6', '5 + 1 = 6']);
-  assert.ok(steps[2].title.includes('seconde passe'), 'la seconde passe se nomme');
+    ['8 + 7 = 15', '15 + 1 = 16', '16 → 1 6', '5 + 1 = 6']);
+  assert.ok(steps[3].title.includes('seconde passe'), 'la seconde passe se nomme');
   assert.deepEqual(vise.sortie(entree, apres, ctx), ['e0q1s0', 'e0q0s1x1'],
     'le 6 de gauche naît en seconde passe, celui de droite est l’unité du 16');
-  // ── et la racine se montre par un `reduce`, comme `mrn` — sur la somme
-  //    ENTIÈRE du paquet, que la dernière paire vient de former
+  // ── et la racine se MONTRE — sur la somme ENTIÈRE du paquet : elle s'écrit
+  //    chiffre à chiffre, puis ses chiffres s'additionnent, comme toute autre
+  //    paire. Ce n'est plus un `reduce` collé à la dernière paire : les
+  //    réductions de tous les paquets se jouent ensemble, après les additions.
   const r = etapes(op, N([6, 5, 1, 9, 3, 3]), appliquer(op, N([6, 5, 1, 9, 3, 3])),
     { ids: ['t0', 't1', 't2', 't3', 't4', 't5'], cle: 'e0', langue: 'fr' });
-  const racine = r.find((s) => s.ops.some((o) => o.op === 'reduce'));
-  assert.ok(racine, 'la réduction 15 → 6 est un geste, pas une affirmation');
-  assert.equal(racine.caption, '12 + 3 = 15 → 1 + 5 → 6');
+  assert.deepEqual(r.map((s) => s.caption), ['5 + 1 = 6 · 9 + 3 = 12', '12 + 3 = 15', '15 → 1 5', '1 + 5 = 6'],
+    'les premières paires des deux paquets ensemble, puis 12 + 3, puis la réduction 15 → 6 montrée');
+  assert.equal(r[0].ops.filter((o) => o.op === 'sum').length, 2, 'deux sommes dans la même étape');
+  assert.ok(r[0].ops.filter((o) => o.op === 'sum').every((o) => o.garderPlace === true),
+    'elles gardent leur place : aucune ne bouge la ligne sous l’autre');
+  assert.equal(new Set(r[0].ops.filter((o) => o.op === 'sum').map((o) => o.at)).size, 1, 'et partent au même instant');
 });
 
 /* ★ LE RANG QUI REDEVIENT LETTRE — `m1a` (la cible textuelle). Ses refus, et sa

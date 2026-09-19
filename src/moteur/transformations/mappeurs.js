@@ -103,7 +103,7 @@ import { decouperMots } from './filtres.js';
 import { estSeparateur } from './tokeniseurs.js';
 import {
   def, selonLaCible, etape, token, fusion, nomsTokens, nomToken, enchainer, retirerAccolade,
-  ordreCroissant, passesBinaires, opsDuGesteBinaire, VISEE_LONGUE,
+  ordreCroissant, passesBinaires, opsDuGesteBinaire, VISEE_LONGUE, DUREE_OP,
 } from './commun.js';
 import { opComptage } from './combinateurs.js';
 import { bilingue, dire } from '../i18n.js';
@@ -2579,6 +2579,150 @@ function passesEnLargeur(parPaquet) {
 }
 
 
+/**
+ * ★ **LES REDÉCOUPAGES SE JOUENT EN LARGEUR, ET CHAQUE TEMPS EN MÊME TEMPS.**
+ *
+ * > « Toutes les premières additions de tous les paquets en même temps, puis
+ * >   toutes les deuxièmes, etc., puis les réductions ensemble. » (l'autrice,
+ * >   19 septembre, sur `fmaj+mas+mrdE` et « Didier Raoult »)
+ *
+ * `passesEnLargeur` ORDONNAIT déjà les gestes par niveau, mais en jouait un par
+ * étape — vingt-deux étapes sur la ligne de Raoult — et collait l'écriture ou
+ * la réduction d'un paquet à sa dernière addition : le premier paquet, `8 + 7`,
+ * finissait `= 15 → 1 + 5 → 6` avant que le deuxième ait commencé. C'est le
+ * parcours en profondeur que le parcours horizontal (`recherche/scenario.js ›
+ * jouerEnsemble`) a déjà chassé ailleurs.
+ *
+ * Ici chaque TEMPS est une étape, et tous les paquets y avancent ensemble :
+ *
+ *  1. **les additions, niveau par niveau** (`passesBinaires`) : toutes les
+ *     premières paires de tous les paquets, puis leurs résultats deux à deux ;
+ *  2. **les sommes qui débordent s'écrivent chiffre à chiffre**, toutes
+ *     ensemble — qu'elles restent ainsi (`36 → 3 6`) ou qu'elles se réduisent
+ *     (`39 → 3 9`) ;
+ *  3. **les réductions**, qui sont des additions comme les autres : `3 + 9`,
+ *     puis `12 → 1 2`, puis `1 + 2`… toutes au même palier en même temps.
+ *
+ * ★ **CE QUI REND LA SIMULTANÉITÉ POSSIBLE, et c'est mesuré.** Deux `sum`
+ *   ordinaires au même instant écartent et referment la ligne chacun de son
+ *   côté : sur la ligne de Raoult, le prototype en donnait 437 animations
+ *   concurrentes. Chaque étape d'additions pose donc tous ses signes d'un seul
+ *   écartement (`insertOperators` en `lots`), joue ses sommes en GARDANT LEUR
+ *   PLACE (`sum › garderPlace` : aucune ne bouge la ligne sous les autres), puis
+ *   un `move` final (`retirer: true`) fait la fin commune de tout geste à
+ *   accolade — les résultats sont posés, PUIS les accolades s'effacent, PUIS la
+ *   ligne se réajuste, une fois. Aucune primitive nouvelle : deux options.
+ *
+ * ★ **UNE ACCOLADE N'EMBRASSE QUE CE QUI EST ENCORE LÀ, ET RIEN NE PARAÎT DU
+ *   NÉANT** : chaque somme trace la sienne sur ses deux termes au moment où
+ *   elle les additionne ; l'écriture chiffre à chiffre est un `substitute` dont
+ *   les chiffres refont la somme, donc un éclatement sur place.
+ *
+ * @param {Array<{temps:Array}>} chantiers  un par paquet qui additionne : la
+ *   suite de ses temps, en alternance `{ sommes: [gestes] }` — ceux de
+ *   `passesBinaires`, munis de leur `signe` — et `{ eclat: {target, to, somme} }`.
+ *   Le temps 0 est toujours l'arbre des additions du paquet.
+ * @returns {Array} les étapes, dans l'ordre
+ */
+function etapesEnLargeur(chantiers, { ctx, titre, prefixe }) {
+  const steps = [];
+  const I = DUREE_OP.insertOperators;
+  const S = DUREE_OP.sum;
+  const REFERME = 300;
+  const etapeDAdditions = (gestes, id) => {
+    const rangees = gestes.slice().sort((a, b) => a.ou - b.ou);
+    return etape(ctx, titre,
+      rangees.map((g) => `${g.gauche.v} + ${g.droite.v} = ${g.resultat.v}`).join(' · '), [
+        {
+          op: 'insertOperators',
+          lots: rangees.map((g) => ({ between: [g.gauche.id, g.droite.id], ids: [g.signe] })),
+          glyph: '+',
+          at: 0,
+        },
+        ...rangees.map((g) => ({
+          op: 'sum',
+          targets: [g.gauche.id, g.droite.id],
+          consume: [g.signe],
+          to: token(g.resultat.id, g.resultat.v, 'number'),
+          symbol: '+',
+          garderPlace: true,
+          at: I,
+        })),
+        { op: 'move', at: I + S, attendre: REFERME, dur: DUREE_OP.move + REFERME, retirer: true },
+      ], { id });
+  };
+  const etapeDEcriture = (eclats, id) => etape(ctx, titre,
+    eclats.map((e) => `${e.somme} → ${e.to.map((t) => t.text).join(' ')}`).join(' · '),
+    [{ op: 'substitute', pairs: eclats.map((e) => ({ target: e.target, to: e.to })), at: 0 }], { id });
+
+  const nbTemps = Math.max(0, ...chantiers.map((c) => c.temps.length));
+  for (let t = 0; t < nbTemps; t++) {
+    const eclats = [];
+    const parNiveau = new Map();
+    for (const c of chantiers) {
+      const x = c.temps[t];
+      if (!x) continue;
+      if (x.eclat) { eclats.push(x.eclat); continue; }
+      for (const g of x.sommes) {
+        if (!parNiveau.has(g.niveau)) parNiveau.set(g.niveau, []);
+        parNiveau.get(g.niveau).push(g);
+      }
+    }
+    if (eclats.length && parNiveau.size) {
+      throw new Error('redécoupage : un même temps mêle écriture et addition — les chantiers sont désaccordés.');
+    }
+    if (eclats.length) steps.push(etapeDEcriture(eclats, `s_${ctx.cle}_${prefixe}t${t}`));
+    [...parNiveau.keys()].sort((a, b) => a - b)
+      .forEach((n) => steps.push(etapeDAdditions(parNiveau.get(n), `s_${ctx.cle}_${prefixe}t${t}n${n}`)));
+  }
+  return steps;
+}
+
+/**
+ * Le chantier d'un paquet : ses additions, puis ce qui suit sa somme.
+ *
+ * `mode` : `somme` (elle tient en un chiffre, ou s'écrit telle qu'elle tombe —
+ * rien ne suit), `eclate` (elle s'écrit chiffre à chiffre et reste ainsi),
+ * `racine` (elle s'écrit chiffre à chiffre, et ses chiffres s'additionnent,
+ * palier après palier, jusqu'à un seul — `paliers` en donne les valeurs, comme
+ * à `reduce`). Un palier de trois chiffres ou plus s'additionne par paires,
+ * comme le reste (`passesBinaires`).
+ */
+function chantierDuPaquet({ termes, somme, mode, paliers = [], sorties, racine, nommer, signe, nomPalier }) {
+  if (termes.length < 2) return null;
+  const arbre = passesBinaires(termes, { combiner: (x, y) => x + y, nommer, racine });
+  if (arbre.racine.v !== somme) {
+    throw new Error(`redécoupage : le paquet rend ${arbre.racine.v} par paires, le plan annonce ${somme}.`);
+  }
+  const temps = [{ sommes: arbre.gestes.map((g) => ({ ...g, signe: signe(g.k) })) }];
+  if (mode === 'eclate') {
+    temps.push({ eclat: { target: racine, somme, to: chiffresDe(somme).map((d, t) => token(sorties[t], d, 'digit')) } });
+  } else if (mode === 'racine') {
+    let source = racine;
+    let valeur = somme;
+    paliers.forEach((v, k) => {
+      const chiffres = chiffresDe(valeur);
+      const ids = chiffres.map((_, t) => nomPalier(k, t));
+      temps.push({ eclat: { target: source, somme: valeur, to: chiffres.map((d, t) => token(ids[t], d, 'digit')) } });
+      const vers = k === paliers.length - 1 ? sorties[0] : nomPalier(k, 'r');
+      const palier = passesBinaires(chiffres.map((d, t) => ({ id: ids[t], v: d, ou: termes[0].ou + t })), {
+        combiner: (x, y) => x + y,
+        nommer: (b) => nomPalier(k, `i${b}`),
+        racine: vers,
+      });
+      if (palier.racine.v !== v) {
+        throw new Error(`redécoupage : ${chiffres.join(' + ')} ne fait pas ${v}, le palier annoncé.`);
+      }
+      temps.push({ sommes: palier.gestes.map((g) => ({ ...g, signe: nomPalier(k, `s${g.k}`) })) });
+      source = vers;
+      valeur = v;
+    });
+    if (valeur > 9) throw new Error(`redécoupage : la réduction de ${somme} s'arrête sur ${valeur}.`);
+  }
+  return { temps };
+}
+
+
 // ───────────────────────────────────────────────────────────────────────────
 // ★ LE REDÉCOUPAGE EXACT — toute la ligne, rien de perdu, la cible et rien
 //   d'autre (`mrdE`)
@@ -3900,75 +4044,47 @@ function sortieFusionnant(plan, traces) {
 
 /**
  * ★ **LA MISE EN SCÈNE DE `mrdf` ET DE `mrfE`** — le montage, puis les sommes
- * exactement comme `mrd` et `mrdE` les montrent : deux termes à la fois, les
- * paquets en largeur (`passesBinaires`, `passesEnLargeur`), l'accolade que
- * `sum` trace sur ses propres termes au moment où il les additionne, la
+ * exactement comme `mrd` et `mrdE` les montrent : deux termes à la fois, tous
+ * les paquets au même temps (`passesBinaires`, `etapesEnLargeur`), l'accolade
+ * que `sum` trace sur ses propres termes au moment où il les additionne, la
  * découpe muette glissée en tête du premier calcul. La somme ENTIÈRE, celle du
- * plan, s'écrit ensuite chiffre à chiffre (`substitute`, comme `mrd`) ou se
- * réduit palier par palier (`reduce`, comme `mrdE`).
+ * plan, s'écrit ensuite chiffre à chiffre (`substitute`, comme `mrd`) et, s'il
+ * le faut, ses chiffres s'additionnent palier par palier (comme `mrdE`).
  *
  * Contrôle croisé (§0.3) : `apply`, `sortie`, `additions` et `steps` relisent
- * le MÊME plan mémoïsé ; `merge` recoupe chaque soudure, `sum` chaque somme,
- * `reduce` chaque palier.
+ * le MÊME plan mémoïsé ; `merge` recoupe chaque soudure, `sum` chaque somme et
+ * chaque palier.
  */
 function etapesFusionnant(plan, avant, ctx, titre) {
   const montage = montageDesTermes(plan.chiffres, termesDesPaquets(plan), ctx);
   const steps = etapesDuMontage(avant, montage, ctx);
   const titreDit = dire(titre, ctx.langue);
   let k0 = 0;
-  const parPaquet = [];
+  const chantiers = [];
   const groupesMuets = [];
   plan.paquets.forEach((p, j) => {
     const siens = montage.montes.slice(k0, k0 + p.termes.length);
     k0 += p.termes.length;
     groupesMuets.push({ targets: siens.map((t) => t.id), tag: `${ctx.cle}q${j}` });
-    const gestes = [];
-    parPaquet.push({ gestes });
     if (p.mode === 'copie') return;
-    const sorties = idsPaquetFusionnant(p, j, siens.map((t) => t.id), ctx);
-    const somme = idSommeFusionnant(p, j, ctx);
-    const arbre = passesBinaires(siens.map((t) => ({ id: t.id, v: t.v, ou: t.debut })), {
-      combiner: (x, y) => x + y,
+    // ★ Les temps de `mrd` et de `mrdE`, tous les paquets ensemble : les
+    //   additions, puis l'écriture chiffre à chiffre, puis les paliers de la
+    //   réduction (`etapesEnLargeur`).
+    const chantier = chantierDuPaquet({
+      termes: siens.map((t) => ({ id: t.id, v: t.v, ou: t.debut })),
+      somme: p.somme,
+      mode: p.mode,
+      paliers: p.paliers,
+      sorties: idsPaquetFusionnant(p, j, siens.map((t) => t.id), ctx),
+      racine: idSommeFusionnant(p, j, ctx),
       nommer: (k) => `${ctx.cle}i${j}x${k}`,
-      racine: somme,
+      signe: (k) => `${ctx.cle}p${j}x${k}`,
+      nomPalier: (k, t) => `${ctx.cle}r${j}k${k}x${t}`,
     });
-    if (arbre.racine.v !== p.somme) {
-      throw new Error(`redécoupage fusionnant : le paquet ${j} rend ${arbre.racine.v} par paires, le plan annonce ${p.somme}.`);
-    }
-    for (const g of arbre.gestes) {
-      const ops = opsDuGesteBinaire(g, { signe: `${ctx.cle}p${j}x${g.k}`, glyph: '+', symbol: '+' });
-      let legende = `${g.gauche.v} + ${g.droite.v} = ${g.resultat.v}`;
-      if (g.dernier && p.mode === 'eclate') {
-        ops.push({
-          op: 'substitute',
-          pairs: [{ target: somme, to: p.sortie.map((d, t) => token(sorties[t], d, 'digit')) }],
-        });
-        legende += ` → ${p.sortie.join(' ')}`;
-      } else if (g.dernier && p.mode === 'racine') {
-        let source = somme;
-        let texte = String(p.somme);
-        p.paliers.forEach((v, k) => {
-          const cible = k === p.paliers.length - 1 ? sorties[0] : `${ctx.cle}r${j}p${k}`;
-          ops.push({
-            op: 'reduce',
-            target: source,
-            digits: [...texte].map((d, t) => token(`${ctx.cle}r${j}k${k}x${t}`, d, 'digit')),
-            to: token(cible, v, 'number'),
-          });
-          legende += ` → ${[...texte].join(' + ')} → ${v}`;
-          source = cible;
-          texte = String(v);
-        });
-      }
-      gestes.push({
-        famille: 'addition', niveau: g.niveau, ou: g.ou,
-        step: etape(ctx, titreDit, legende, enchainer(ops),
-          { id: `s_${ctx.cle}_p${j}${g.dernier ? '' : `b${g.k}`}` }),
-      });
-    }
+    if (chantier) chantiers.push(chantier);
   });
   const avantLesCalculs = steps.length;
-  steps.push(...passesEnLargeur(parPaquet));
+  steps.push(...etapesEnLargeur(chantiers, { ctx, titre: titreDit, prefixe: '' }));
   glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
   return steps;
 }
@@ -6164,31 +6280,26 @@ const AUTRES_MAPPEURS = [
            les premières paires de la ligne, puis leurs résultats. La somme de
            chaque suite est celle du plan, au chiffre près. */
       const vus = plan.chiffres.map((c) => c.v).join(' ');
-      const parSuite = plan.sortie.map((s, j) => {
-        const gestes = [];
-        if (s.fin - s.debut < 2) return { gestes };
+      /* ★ **ET TOUTES LES SUITES AU MÊME TEMPS** — « toutes les premières
+           additions de tous les paquets en même temps, puis toutes les
+           deuxièmes » (l'autrice, 19 septembre, sur les redécoupages : `mad`
+           a le même geste, il suit la même règle). Une étape par temps, qui
+           énumère ses additions ; voir `etapesEnLargeur`. La somme s'écrit
+           telle qu'elle tombe (`15`) : rien ne suit l'addition. */
+      const chantiers = plan.sortie.map((s, j) => {
+        if (s.fin - s.debut < 2) return null;
         const termes = [];
         for (let k = s.debut; k < s.fin; k++) termes.push({ id: idc(k), v: plan.chiffres[k].v, ou: k });
-        const arbre = passesBinaires(termes, {
-          combiner: (x, y) => x + y,
-          nommer: (k) => `${ctx.cle}i${j}x${k}`,
+        return chantierDuPaquet({
+          termes,
+          somme: s.v,
+          mode: 'somme',
           racine: idSortie(plan, ctx, s, j),
+          nommer: (k) => `${ctx.cle}i${j}x${k}`,
+          signe: (k) => `${ctx.cle}p${j}x${k}`,
         });
-        if (arbre.racine.v !== s.v) {
-          throw new Error(`addition sélective : la suite ${j} rend ${arbre.racine.v} par paires, le plan annonce ${s.v}.`);
-        }
-        for (const g of arbre.gestes) {
-          gestes.push({
-            famille: 'addition', niveau: g.niveau, ou: g.ou,
-            step: etape(ctx, dire(LIB_ADDITION_SELECTIVE, ctx.langue),
-              `${g.gauche.v} + ${g.droite.v} = ${g.resultat.v}`,
-              enchainer(opsDuGesteBinaire(g, { signe: `${ctx.cle}p${j}x${g.k}`, glyph: '+', symbol: '+' })),
-              { id: `s_${ctx.cle}_s${j}${g.dernier ? '' : `b${g.k}`}` }),
-          });
-        }
-        return { gestes };
-      });
-      steps.push(...passesEnLargeur(parSuite));
+      }).filter(Boolean);
+      steps.push(...etapesEnLargeur(chantiers, { ctx, titre: dire(LIB_ADDITION_SELECTIVE, ctx.langue), prefixe: 's' }));
       // ⚠️ Aucune addition retenue ne peut arriver ici : `planAdditionSelective`
       //   rend `null` sans elles (`if (!additions) return null`). Le relevé
       //   d'ensemble reste néanmoins utile à qui lit Le Registre d'une traite,
@@ -6831,8 +6942,13 @@ const AUTRES_MAPPEURS = [
            que `sum` trace sur ses propres termes, au moment où il les
            additionne, dit la même chose et la dit en la justifiant.
 
-           La décomposition « une étape par addition », elle, ne bouge pas :
-           c'est l'autre consigne, et elle reste entière. */
+           ★ **ET « UNE ÉTAPE PAR ADDITION » DEVIENT « UNE ÉTAPE PAR TEMPS ».**
+             > « Toutes les premières additions de tous les paquets en même
+             >   temps, puis toutes les deuxièmes, etc. » (l'autrice, 19
+             >   septembre)
+             Le Registre garde une ligne par temps, qui énumère toutes ses
+             additions (`8 + 7 = 15 · 3 + 6 = 9 · …`) : ce qui se voit en même
+             temps se lit sur la même ligne. Voir `etapesEnLargeur`. */
       const vus = plan.chiffres.map((c) => c.v).join(' ');
       const groupesMuets = plan.paquets.map((p, j) => ({
         targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
@@ -6840,51 +6956,27 @@ const AUTRES_MAPPEURS = [
       }));
       const avantLesCalculs = steps.length;
 
-      /* ★ **DEUX CHIFFRES À LA FOIS, ET LES PAQUETS AVANCENT ENSEMBLE** — voir
-           `commun.js › passesBinaires` et `passesEnLargeur`. `5 + 3 + 8 + 2`
-           se montre `5 + 3`, `8 + 2`, puis `8 + 10` à la passe suivante ; la
+      /* ★ **DEUX CHIFFRES À LA FOIS, ET TOUS LES PAQUETS ENSEMBLE** — voir
+           `commun.js › passesBinaires` et `etapesEnLargeur`. `5 + 3 + 8 + 2`
+           se montre `5 + 3`, `8 + 2`, puis `8 + 10` au temps suivant ; la
            somme du paquet — 18 — est celle du plan, et c'est elle, entière,
-           qui s'écrit ensuite chiffre à chiffre. */
-      const parPaquet = plan.paquets.map((p, j) => {
-        const gestes = [];
-        if (p.fin - p.debut < 2) return { gestes };
+           qui s'écrit ensuite chiffre à chiffre, avec celles des autres
+           paquets. Rien ne la réduit : `16` porte un 6 que `7` n'a pas. */
+      const chantiers = plan.paquets.map((p, j) => {
+        if (p.fin - p.debut < 2) return null;
         const termes = [];
         for (let k = p.debut; k < p.fin; k++) termes.push({ id: idc(k), v: plan.chiffres[k].v, ou: k });
-        const sortie = idsPaquet(plan, ctx, p, j);
-        const somme = idSomme(plan, ctx, p, j);
-        const arbre = passesBinaires(termes, {
-          combiner: (x, y) => x + y,
+        return chantierDuPaquet({
+          termes,
+          somme: p.somme,
+          mode: p.sortie.length > 1 ? 'eclate' : 'somme',
+          sorties: idsPaquet(plan, ctx, p, j),
+          racine: idSomme(plan, ctx, p, j),
           nommer: (k) => `${ctx.cle}i${j}x${k}`,
-          racine: somme,
+          signe: (k) => `${ctx.cle}p${j}x${k}`,
         });
-        if (arbre.racine.v !== p.somme) {
-          throw new Error(`redécoupage : le paquet ${j} rend ${arbre.racine.v} par paires, le plan annonce ${p.somme}.`);
-        }
-        // ★ La légende de la DERNIÈRE paire dit l'addition ET son écriture :
-        //   `8 + 10 = 18`, puis `18 → 1 8` quand la somme déborde. Les deux
-        //   temps sont dans la même étape parce qu'ils sont le même fait — un
-        //   nombre qui ne tient pas sur un chiffre s'écrit avec deux.
-        const eclate = p.sortie.length > 1 ? ` → ${p.sortie.join(' ')}` : '';
-        for (const g of arbre.gestes) {
-          const ops = opsDuGesteBinaire(g, { signe: `${ctx.cle}p${j}x${g.k}`, glyph: '+', symbol: '+' });
-          // La somme d'abord, telle qu'elle tombe. Puis, si elle dépasse neuf,
-          // elle s'écrit chiffre à chiffre — et c'est tout : rien ne la réduit.
-          if (g.dernier && p.sortie.length > 1) {
-            ops.push({
-              op: 'substitute',
-              pairs: [{ target: somme, to: p.sortie.map((d, t) => token(sortie[t], d, 'digit')) }],
-            });
-          }
-          gestes.push({
-            famille: 'addition', niveau: g.niveau, ou: g.ou,
-            step: etape(ctx, dire(LIB_REDECOUPAGE, ctx.langue),
-              `${g.gauche.v} + ${g.droite.v} = ${g.resultat.v}${g.dernier ? eclate : ''}`, enchainer(ops),
-              { id: `s_${ctx.cle}_p${j}${g.dernier ? '' : `b${g.k}`}` }),
-          });
-        }
-        return { gestes };
-      });
-      steps.push(...passesEnLargeur(parPaquet));
+      }).filter(Boolean);
+      steps.push(...etapesEnLargeur(chantiers, { ctx, titre: dire(LIB_REDECOUPAGE, ctx.langue), prefixe: '' }));
       glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
 
       // Un redécoupage sans aucun paquet à additionner n'existe pas
@@ -7385,16 +7477,17 @@ const AUTRES_MAPPEURS = [
        * ★ LA MÊME MISE EN SCÈNE QUE `mrd`, PASSE APRÈS PASSE.
        *
        * 1. **Chiffre à chiffre**, une fois, pour les nombres à plusieurs chiffres.
-       * 2. **Pour chaque passe** : la DÉCOUPE d'abord (`partition`, une accolade
-       *    par paquet — c'est la décision, et c'est elle qui triche), puis UNE
-       *    ÉTAPE PAR ADDITION : les signes `+`, la somme ; et si elle déborde,
-       *    soit elle s'écrit chiffre à chiffre (`substitute`, comme `mrd`), soit
-       *    elle se réduit à sa racine (`reduce`, comme `mrn`, un palier par
-       *    geste). Rien ne disparaît sans avoir été additionné sous les yeux.
+       * 2. **Pour chaque passe**, la découpe muette en tête, puis UNE ÉTAPE PAR
+       *    TEMPS, tous les paquets ensemble (`etapesEnLargeur`, 19 septembre) :
+       *    les premières paires de tous les paquets, puis leurs résultats ; puis
+       *    les sommes qui débordent s'écrivent chiffre à chiffre, toutes
+       *    ensemble ; puis, s'il faut une racine, leurs chiffres s'additionnent,
+       *    palier par palier. Rien ne disparaît sans avoir été additionné sous
+       *    les yeux.
        *
        * Contrôle croisé (§0.3) : `apply`, `sortie`, `additions` et `steps`
-       * relisent le MÊME plan mémoïsé ; `sum` recoupe chaque somme, `reduce`
-       * chaque éclatement, `recherche/scenario.js` l'ensemble une troisième fois.
+       * relisent le MÊME plan mémoïsé ; `sum` recoupe chaque somme et chaque
+       * palier, `recherche/scenario.js` l'ensemble une troisième fois.
        */
       steps: (avant, apres, ctx) => {
         const plan = planDe(avant.valeur);
@@ -7432,68 +7525,32 @@ const AUTRES_MAPPEURS = [
             tag: `${ctx.cle}q${q}g${j}`,
           }));
           const avantLesCalculs = steps.length;
-          /* ★ **DEUX CHIFFRES À LA FOIS, PASSE BINAIRE APRÈS PASSE BINAIRE** —
-               voir `commun.js › passesBinaires`. À l'intérieur d'une passe du
-               redécoupage, les paquets avancent ensemble (`passesEnLargeur`) :
-               toutes leurs premières paires, puis les suivantes. La somme du
-               paquet est celle du plan ; c'est elle, ENTIÈRE, qui s'écrit
-               chiffre à chiffre (« éclate ») ou se réduit (« racine ») dans
-               l'étape de sa dernière paire — jamais un résultat partiel, qui
-               écrirait autre chose que ce que la passe écrit. */
-          const parPaquet = passe.paquets.map((p, j) => {
-            const gestes = [];
-            if (p.fin - p.debut < 2) return { gestes };
+          /* ★ **DEUX CHIFFRES À LA FOIS, ET TOUS LES PAQUETS ENSEMBLE** — voir
+               `commun.js › passesBinaires` et `etapesEnLargeur`. Toutes les
+               premières paires de la passe dans une étape, puis leurs
+               résultats ; puis les sommes qui débordent s'écrivent chiffre à
+               chiffre, toutes ensemble ; puis les réductions, palier par
+               palier, toutes ensemble. La somme du paquet est celle du plan ;
+               c'est elle, ENTIÈRE, qui s'écrit ou se réduit — jamais un
+               résultat partiel, qui écrirait autre chose que ce que la passe
+               écrit. */
+          const chantiers = passe.paquets.map((p, j) => {
+            if (p.fin - p.debut < 2) return null;
             const termes = ids.slice(p.debut, p.fin)
               .map((id, t) => ({ id, v: passe.entree[p.debut + t], ou: p.debut + t }));
-            const sorties = idsSortieExacte(ctx, q, j, p, ids);
-            const somme = idSommeExacte(ctx, q, j, p);
-            const arbre = passesBinaires(termes, {
-              combiner: (x, y) => x + y,
+            return chantierDuPaquet({
+              termes,
+              somme: p.somme,
+              mode: p.mode,
+              paliers: p.paliers,
+              sorties: idsSortieExacte(ctx, q, j, p, ids),
+              racine: idSommeExacte(ctx, q, j, p),
               nommer: (k) => `${ctx.cle}q${q}i${j}x${k}`,
-              racine: somme,
+              signe: (k) => `${ctx.cle}q${q}p${j}x${k}`,
+              nomPalier: (k, t) => `${ctx.cle}q${q}r${j}k${k}x${t}`,
             });
-            if (arbre.racine.v !== p.somme) {
-              throw new Error(`redécoupage exact : le paquet ${j} de la passe ${q} rend ${arbre.racine.v} par paires, le plan annonce ${p.somme}.`);
-            }
-            for (const g of arbre.gestes) {
-              const ops = opsDuGesteBinaire(g, { signe: `${ctx.cle}q${q}p${j}x${g.k}`, glyph: '+', symbol: '+' });
-              let legende = `${g.gauche.v} + ${g.droite.v} = ${g.resultat.v}`;
-              if (g.dernier && p.mode === 'eclate') {
-                ops.push({
-                  op: 'substitute',
-                  pairs: [{ target: somme, to: p.sortie.map((d, t) => token(sorties[t], d, 'digit')) }],
-                });
-                legende += ` → ${p.sortie.join(' ')}`;
-              } else if (g.dernier && p.mode === 'racine') {
-                // Un `reduce` par palier, comme `mrn` : le moteur visuel ne
-                // boucle jamais, et il refuse une somme qui ne tombe pas juste.
-                // Une somme de paquet ne dépasse pas 6 × 9 = 54 : deux
-                // chiffres, donc deux valeurs par palier.
-                let source = somme;
-                let texte = String(p.somme);
-                p.paliers.forEach((v, k) => {
-                  const dernier = k === p.paliers.length - 1;
-                  const cible = dernier ? sorties[0] : `${ctx.cle}q${q}r${j}p${k}`;
-                  ops.push({
-                    op: 'reduce',
-                    target: source,
-                    digits: [...texte].map((d, t) => token(`${ctx.cle}q${q}r${j}k${k}x${t}`, d, 'digit')),
-                    to: token(cible, v, 'number'),
-                  });
-                  legende += ` → ${[...texte].join(' + ')} → ${v}`;
-                  source = cible;
-                  texte = String(v);
-                });
-              }
-              gestes.push({
-                famille: 'addition', niveau: g.niveau, ou: g.ou,
-                step: etape(ctx, titre, legende, enchainer(ops),
-                  { id: `s_${ctx.cle}_q${q}p${j}${g.dernier ? '' : `b${g.k}`}` }),
-              });
-            }
-            return { gestes };
-          });
-          steps.push(...passesEnLargeur(parPaquet));
+          }).filter(Boolean);
+          steps.push(...etapesEnLargeur(chantiers, { ctx, titre, prefixe: `q${q}` }));
           glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
           ids = passe.paquets.flatMap((p, j) => idsSortieExacte(ctx, q, j, p, ids));
         });

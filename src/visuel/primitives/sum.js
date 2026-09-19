@@ -35,6 +35,15 @@ export function plan(ctx) {
   // additionne, si l'on multiplie ou si l'on dénombre (voir `group.js`).
   const res = accumulate(ctx, {
     operands, consume, to, at: 0, dur: ctx.dur, partials,
+    /* ★ `garderPlace` — la somme se pose dans sa place gardée et S'ARRÊTE LÀ :
+         ni son accolade ne s'efface, ni la ligne ne se referme. C'est ce qui
+         permet à plusieurs sommes de se jouer EN MÊME TEMPS dans une étape —
+         « toutes les premières additions de tous les paquets, puis toutes les
+         deuxièmes » (l'autrice, 19 septembre) : aucune ne bouge la ligne sous
+         les autres, et c'est le `move` qui ferme l'étape (`retirer: true`) qui
+         efface toutes leurs accolades puis referme la ligne, UNE fois. Le
+         même contrat que `group` en ramassage (`combinateurs.js`). */
+    garderPlace: ctx.op.garderPlace === true,
     // ★ `avant` — les signes déjà posés DEVANT le premier opérande, que
     //   l'accolade doit embrasser avec lui (voir `insertOperators › tete`).
     ...(Array.isArray(ctx.op.avant) ? { avant: ctx.scene.resolve(ctx.op.avant, ctx.where) } : {}),

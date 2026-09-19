@@ -430,6 +430,9 @@ export function insertOperatorTokens(ctx, spec) {
     if (suivant) suivant.gapBefore = gap * COLLE_AU_SIGNE;
     created.push(node.id);
   }
+  // `sansApparition` : l'appelant pose d'autres signes ailleurs dans le même
+  // geste, et fera lui-même l'unique reflow puis l'apparition (`insererParLots`).
+  if (spec.sansApparition) return created;
   // 1. réserver la place (les voisins s'écartent), 2. faire apparaître.
   ctx.reflow({ at: spec.at, dur: spec.dur * 0.6, ease: EASE.move });
   created.forEach((id, i) => {
@@ -437,6 +440,37 @@ export function insertOperatorTokens(ctx, spec) {
     ctx.anim({ id, prop: 'opacity', to: 1, at: a, dur: spec.dur * 0.65 });
     ctx.anim({ id, prop: 'scale', to: 1, at: a, dur: spec.dur * 0.65, ease: EASE.pop });
   });
+  return created;
+}
+
+/**
+ * ★ **DES SIGNES POSÉS À PLUSIEURS ENDROITS DE LA LIGNE, D'UN SEUL GESTE.**
+ *
+ * > « Toutes les premières additions de tous les paquets en même temps, puis
+ * >   toutes les deuxièmes. » (l'autrice, 19 septembre, sur les redécoupages)
+ *
+ * Deux `insertOperators` joués au même instant écartent la ligne DEUX fois :
+ * les jetons à droite des deux paires reçoivent deux `translate` concurrents,
+ * que le compilateur signale et que l'écran joue de travers. Ici, chaque lot
+ * pose ses signes sans rien déplacer, puis la ligne s'écarte UNE fois pour
+ * tous, et tous les signes paraissent ensemble.
+ *
+ * @param {{lots:{between:string[], ids:string[]}[], glyph:string, at:number, dur:number}} spec
+ * @returns {string[]} les signes créés, tous lots confondus
+ */
+export function insererParLots(ctx, spec) {
+  const created = [];
+  for (const lot of spec.lots) {
+    created.push(...insertOperatorTokens(ctx, {
+      between: lot.between, ids: lot.ids, glyph: spec.glyph, at: spec.at, dur: spec.dur, sansApparition: true,
+    }));
+  }
+  ctx.reflow({ at: spec.at, dur: spec.dur * 0.6, ease: EASE.move });
+  for (const id of created) {
+    const a = spec.at + spec.dur * 0.35;
+    ctx.anim({ id, prop: 'opacity', to: 1, at: a, dur: spec.dur * 0.65 });
+    ctx.anim({ id, prop: 'scale', to: 1, at: a, dur: spec.dur * 0.65, ease: EASE.pop });
+  }
   return created;
 }
 
