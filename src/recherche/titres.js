@@ -714,6 +714,18 @@ export const TITRES_COURTS = {
   //   la largeur d'une carte (`debug.test.js › titres courts`).
   'm.redecoupageFusionnantExact': b('sommes accolées sans reste', 'joined sums, no remainder'), // mrfE
   'm.egalisationFutee': b('égalisation futée', 'shrewd evening out'), // megf
+  // ★ Les variantes AVEC 9 : la forme courte du modèle, et le 9 gardé — dans la
+  //   largeur d'une carte (`debug.test.js › titres courts`, 28 signes).
+  'm.additionSelectiveNeuf': b('addition, 9 gardés', 'addition, 9s kept'), // mad9
+  'm.redecoupageChoisiNeuf': b('additions futées, 9 gardés', 'shrewd additions, 9s kept'), // mrd9
+  // ⚠️ Pas « additions sans reste, 9 gardés » : trente signes.
+  'm.redecoupageExactNeuf': b('sans reste, 9 gardés', 'no remainder, 9s kept'), // md9E
+  'm.redecoupageFusionnantNeuf': b('additions accolées, 9 gardés', 'joined additions, 9s kept'), // mrf9
+  'm.redecoupageFusionnantExactNeuf': b('sommes accolées, 9 gardés', 'joined sums, 9s kept'), // mf9E
+  'm.egalisationFuteeNeuf': b('égalisation futée, 9 gardés', 'shrewd evening out, 9s kept'), // mef9
+  // ★ Le redécoupage exact AVEC TRI : le rangement, et le « sans reste » de `mrdE`.
+  'm.redecoupageExactTrie': b('additions rangées sans reste', 'sorted sums, no remainder'), // mrtE
+  'm.redecoupageExactTrieNeuf': b('rangées sans reste, 9 gardés', 'sorted, no rest, 9s kept'), // mt9E
   'm.reduireChaque': b('addition', 'addition'), // mrn
   'm.scrabbleEN': b('Scrabble EN', 'EN Scrabble'), // msen
   'm.scrabbleFR': b('Scrabble FR', 'FR Scrabble'), // msfr
@@ -918,6 +930,20 @@ export const PRECISIONS = {
   'm.redecoupageFusionnantExact': b('tout fondu dans la cible, chiffres accolés',
     'everything melted into the target, digits joined'),
   'm.egalisationFutee': b('redécoupés, puis égalisés', 'recut, then evened out'),
+  // ★ Les variantes AVEC 9, et le redécoupage exact avec tri : la précision du
+  //   modèle, et ce qu'elles font de plus.
+  'm.additionSelectiveNeuf': b('par addition sélective, les 9 gardés', 'by selective addition, keeping the 9s'),
+  'm.redecoupageChoisiNeuf': b('redécoupé en paquets, les 9 gardés', 'recut into packets, keeping the 9s'),
+  'm.redecoupageExactNeuf': b('tout fondu dans la cible, les 9 gardés',
+    'everything melted into the target, keeping the 9s'),
+  'm.redecoupageFusionnantNeuf': b('redécoupé en paquets, chiffres accolés, les 9 gardés',
+    'recut into packets, digits joined, keeping the 9s'),
+  'm.redecoupageFusionnantExactNeuf': b('tout fondu dans la cible, chiffres accolés, les 9 gardés',
+    'everything melted into the target, digits joined, keeping the 9s'),
+  'm.egalisationFuteeNeuf': b('redécoupés, puis égalisés, les 9 gardés', 'recut, then evened out, keeping the 9s'),
+  'm.redecoupageExactTrie': b('le reste rangé, puis fondu dans la cible', 'the rest lined up, then melted into the target'),
+  'm.redecoupageExactTrieNeuf': b('le reste rangé, puis fondu dans la cible, les 9 gardés',
+    'the rest lined up, then melted into the target, keeping the 9s'),
   // ⚠️ Elle existe, mais ne devrait jamais servir : `m.chiffreTelQuel` est un
   //    mappeur de service, et deux voies ne se distinguent pas par le fait
   //    d'avoir lu leurs chiffres. Sans elle, `precisionDe` se rabattrait sur le

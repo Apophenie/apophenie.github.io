@@ -511,7 +511,14 @@ test('★ la chaîne du 27 août se rejoue sur les chiffres de l’auteur', () =
   //    reste seul », sa règle affichée — `planRedecoupage`). Les onze 6-ou-9
   //    restent onze ; la queue `1 2 9 9 6 6 9 9` devient `1 5 6 9 6 9 6 9`,
   //    où les 6 et les 9 de la ligne restent seuls au lieu d'être refondus.
-  const redec = chaine(avant, 'mrd');
+  // ★ **ET CE GESTE S'ÉCRIT `mrd9` DEPUIS LE 19 SEPTEMBRE** : « fais `mrd9` qui
+  //    garde les 9 » (l'autrice). C'est exactement la phrase de l'auteur
+  //    citée plus haut — garder les 9 pour `mr9` —, la même découpe au chiffre
+  //    près. `mrd`, qui ne vise plus que le 6, écrit huit 6 sur la même ligne
+  //    (deux séries, contre trois pour `mrd9` une fois retourné).
+  const redec = chaine(avant, 'mrd9');
+  assert.equal(chaine(avant, 'mrd').valeur.filter((v) => v === 6).length, 8,
+    'sans le 9 : huit 6, les 9 fondus dans les paquets');
   const gagnants = (vs) => vs.filter((v) => v === 6 || v === 9).length;
   assert.deepEqual(redec.valeur, [1, 2, 6, 9, 6, 6, 9, 1, 5, 6, 9, 6, 9, 6, 9]);
   assert.equal(gagnants(avant.valeur.join('').split('').map(Number)), 4,
