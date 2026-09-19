@@ -108,6 +108,10 @@ import {
 import { opComptage } from './combinateurs.js';
 import { bilingue, dire } from '../i18n.js';
 import { nivellementDe, dureeRamassage, MAX_TRANSFERTS } from './combinateurs.js';
+// La loi des retouches enchaînées vit dans les réglages du produit (`config.js`,
+// qui n'importe rien) : les variantes qui gardent le 9 y lisent leur cran
+// d'ouverture — voir `declinerAvecNeuf`.
+import { premierCranPourRetouches } from '../../config.js';
 
 const pli = (c) => sansAccents(String(c)).toUpperCase();
 
@@ -729,15 +733,165 @@ const compte = (liste, d) => liste.reduce((n, c) => n + (c === d ? 1 : 0), 0);
  *
  * ★ Repli exact sur `666` : l'alphabet vaut `{6}`, le 6 y est, la liste est
  * `[6, 9]` — mot pour mot l'ancien `[cible, RETOURNABLE]`.
+ *
+ * ★ **ET SEULEMENT DANS UNE VARIANTE AVEC 9** (`neufRetournable`) : la variante
+ *   sans 9 ne vise que les chiffres de la cible — `[6]` sur `666`.
  */
 function butsDuPaquet(visee) {
   const buts = [...visee.alphabet];
-  if (visee.utile(SIX_RETOURNE) && !buts.includes(RETOURNABLE)) buts.push(RETOURNABLE);
+  if (neufRetournable(visee) && !buts.includes(RETOURNABLE)) buts.push(RETOURNABLE);
   return buts;
 }
 
 /** Le chiffre qu'un demi-tour PRODUIT — voir `flip180`, qui ne connaît que celui-là. */
 const SIX_RETOURNE = 6;
+
+// ───────────────────────────────────────────────────────────────────────────
+// ★ AVEC OU SANS LE 9 — une variante de chaque redécoupage
+// ───────────────────────────────────────────────────────────────────────────
+//
+// > « Fais `mrd9` qui garde les 9, et `mrdE` ne les garde pas. […] S'il y a des
+// >   opérateurs qui gardent les 9 et qui n'ont pas de variante, décline-les en
+// >   variante avec 9 et sans. » (l'autrice, 19 septembre 2026)
+//
+// Le 9 « à défaut » n'est un gain que si un `mr9` le retourne ENSUITE. Or la
+// retouche qui suit la conversion est UNIQUE aux crans 0 à 2
+// (`config.js › raffinagesEnChaine`) : un 9 gardé y reste un 9, que le verdict
+// ne lit pas. Sur « Didier Raoult », `fmaj+mas+mrdE` écrirait `6 9 6 9 6 9 6 6 6`
+// s'il gardait les 9 — trois séries une fois retournés, mais `+mr9` ne se
+// construit qu'à partir du cran 3. Chaque opérateur qui visait le 9 retournable
+// se décline donc en DEUX codes :
+//
+//  · SANS 9, le code nu (`mad`, `mrd`, `mrdE`, `mrdf`, `mrfE`, `megf`) : il ne
+//    vise que les chiffres de la cible, et un 9 n'y est pas un chiffre juste —
+//    il s'additionne comme n'importe quel intrus. Il cherche à tous les crans où
+//    cherchait son modèle ;
+//  · AVEC 9, suffixé d'un 9 (`mad9`, `mrd9`, `md9E`, `mrf9`, `mf9E`, `mef9`) : il
+//    vise aussi le 9, et garde seuls ceux qui sont déjà là, pour un demi-tour.
+//    Il ne cherche qu'à partir du cran où deux retouches s'enchaînent
+//    (`declinerAvecNeuf`).
+//
+// ⚠️ « Sans 9 » veut dire SANS LE 9 RETOURNABLE, pas sans le chiffre 9. Une
+//   cible qui demande un 9 pour lui-même (`1998`, `999`) le vise dans les deux
+//   variantes, comme un chiffre ordinaire — et la variante avec 9 n'y a aucun
+//   sens (il n'y a pas de 6 à fabriquer par demi-tour) : elle se désactive,
+//   comme `mad` sous `000`. Sur toute cible sans 6, la variante sans 9 fait
+//   exactement ce que le code faisait avant la déclinaison.
+
+/**
+ * ★ **LE 9 RETOURNABLE EST-IL DE LA PARTIE ?** — la seule question qui sépare
+ *   les deux variantes, posée en un seul endroit.
+ *
+ * Oui quand la cible veut des 6 sans vouloir de 9 (le demi-tour ne rend qu'un
+ * 6, et un 9 que la cible demande n'est pas à retourner), et que la visée n'est
+ * pas celle d'une variante sans 9 (`viseeDeVariante`).
+ */
+function neufRetournable(visee) {
+  return visee.sansNeufRetournable !== true
+    && visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
+}
+
+/**
+ * La visée que LIT une variante — ou `null` quand la variante n'a pas de sens
+ * pour cette cible.
+ *
+ * Sans 9 : la visée elle-même quand le 9 n'y était déjà pas retournable (cible
+ * sans 6, ou qui veut des 9), sinon une copie qui le dit
+ * (`sansNeufRetournable`). Tout le reste — chiffres, alphabet, `utile` — est
+ * celui de la cible : c'est la même cible, lue sans le demi-tour. La visée de
+ * l'opérateur (`op.visee`, posée par `selonLaCible`) reste la vraie ; seule la
+ * programmation dynamique lit celle-ci.
+ *
+ * Avec 9 : la visée telle quelle, si et seulement si le 9 y est retournable.
+ */
+function viseeDeVariante(visee, avecNeuf) {
+  if (avecNeuf) return neufRetournable(visee) ? visee : null;
+  if (!neufRetournable(visee)) return visee;
+  return Object.freeze({ ...visee, sansNeufRetournable: true });
+}
+
+/**
+ * ★ **LE CRAN D'OUVERTURE DES VARIANTES AVEC 9** — le premier où deux
+ *   retouches s'enchaînent après la conversion, LU sur la loi
+ *   (`config.js › premierCranPourRetouches`) : 3 aujourd'hui.
+ *
+ * ⚠️ L'autrice écrivait « à partir du cran 2 » ; la loi dit 3 (une retouche
+ *   aux crans 0 à 2, deux aux crans 3 à 7). C'est la loi qui décide : si elle
+ *   bouge, ce cran bouge avec elle.
+ *
+ * ⚠️ **Ce que ce cran ne couvre pas** : la recherche en largeur des fragments
+ *   (`recherche/bfs.js`) enchaîne ses gestes sans compter les retouches — c'est
+ *   par elle que `fr21+tca+mx6+mrd+mr9` existait. Fermer la variante avec 9
+ *   aux crans 0 à 2 la retire AUSSI de cette recherche-là : c'est la décision
+ *   de l'autrice, « seules les variantes sans 9 cherchent » aux premiers crans.
+ */
+const CRAN_DU_DEMI_TOUR = premierCranPourRetouches(2);
+
+/** Les deux variantes, telles que les fabriques les reçoivent. */
+const SANS_NEUF = false;
+const AVEC_LE_NEUF = true;
+
+/**
+ * Les codes des variantes AVEC 9, et ce qu'elles cèdent à leur modèle.
+ *
+ * ★ **Le nom** : le code du modèle et un 9, dans la limite de quatre signes
+ *   (`catalogue.test.js`). `mad9`, `mrd9` s'écrivent d'eux-mêmes ; les codes de
+ *   quatre signes perdent leur troisième lettre, comme `mrdfE` est devenu `mrfE`
+ *   (`mrdf` → `mrf9`, `megf` → `mef9`) ; les exactes gardent leur majuscule en
+ *   dernier, comme la grammaire l'exige (`/^[ftnmcpj][0-9a-z]+[A-Z]?$/`), et le
+ *   9 se glisse avant elle : `md9E` (Découpage), `mf9E` (Fusion). Pas `mr9E`,
+ *   qui était proposé : il se lit « `mr9` puis E », et `mr9` est l'opérateur
+ *   qui RETOURNE les 9 — la voie `…+mr9E+mr9` aurait deux fois le même début
+ *   pour deux gestes contraires.
+ *
+ * ★ **La notoriété**, plus basse que celle du modèle (« moins élégantes »,
+ *   l'autrice) : trois centièmes de moins, l'écart de `mrfE` sous `mrdE`. Pas de
+ *   `recours` — « mal noté ≠ dernier recours » : elles concourent aux lignes
+ *   Élégance et Abondance comme leurs modèles. L'adHoc et le coût sont ceux du
+ *   modèle : viser un chiffre de plus n'est pas plus taillé pour la cible.
+ */
+const CODES_AVEC_NEUF = Object.freeze({
+  mad: Object.freeze({ id: 'm.additionSelectiveNeuf', code: 'mad9', notoriete: 0.27 }),
+  mrd: Object.freeze({ id: 'm.redecoupageChoisiNeuf', code: 'mrd9', notoriete: 0.17 }),
+  mrdE: Object.freeze({ id: 'm.redecoupageExactNeuf', code: 'md9E', notoriete: 0.12 }),
+  mrdf: Object.freeze({ id: 'm.redecoupageFusionnantNeuf', code: 'mrf9', notoriete: 0.12 }),
+  mrfE: Object.freeze({ id: 'm.redecoupageFusionnantExactNeuf', code: 'mf9E', notoriete: 0.09 }),
+  megf: Object.freeze({ id: 'm.egalisationFuteeNeuf', code: 'mef9', notoriete: 0.12 }),
+});
+
+/**
+ * Le descripteur d'une variante : celui du modèle (sans 9) tel quel, ou sa
+ * déclinaison avec 9 — code, identifiant et notoriété de `CODES_AVEC_NEUF`, et
+ * le cran d'ouverture le plus tardif des deux (`megf` s'ouvrait déjà au cran 8).
+ *
+ * ★ **ELLE SE TAIT QUAND ELLE NE GARDE AUCUN 9.** Sa sortie sans un 9 est une
+ *   sortie que son modèle sait faire — et mieux : le modèle maximise ce que la
+ *   variante n'a pas su dépasser —, et `mr9` n'y aurait rien à retourner. La
+ *   laisser parler doublerait chaque voie du modèle d'une voie identique au
+ *   code près. Même règle que `mrfE`, qui se tait quand `mrdE` suffit.
+ *
+ * ★ **ET ELLE N'ABSORBE PAS**, même quand son modèle absorbe (`mrdE`, `mrfE`).
+ *   `absorbe` promet « la ligne entière, et la cible, rien d'autre » : c'est ce
+ *   qui permet à la recherche de CLORE un programme sur elle, et lui interdit
+ *   de la prolonger (`assemblage.js › prolongerLesRetouches`). Une variante
+ *   avec 9 écrit la cible AU DEMI-TOUR PRÈS ; ce qui clôt, c'est le `mr9` qui
+ *   la suit, et la chaîne doit pouvoir le lui ajouter.
+ */
+function declinerAvecNeuf(spec, avecNeuf) {
+  if (!avecNeuf) return spec;
+  const variante = CODES_AVEC_NEUF[spec.code];
+  if (!variante) throw new Error(`variante avec 9 : aucun code prévu pour « ${spec.code} ».`);
+  return {
+    ...spec,
+    ...variante,
+    desLeCran: Math.max(spec.desLeCran ?? 0, CRAN_DU_DEMI_TOUR),
+    absorbe: false,
+    apply: (valeur, traces) => {
+      const r = spec.apply(valeur, traces);
+      return r && r.valeur.includes(RETOURNABLE) ? r : null;
+    },
+  };
+}
 
 /**
  * Un paquet est-il recevable ?
@@ -817,7 +971,7 @@ function planAdditionSelective(valeur, visee) {
        que dans `planRedecoupage`, et l'omettre coûtait à celui-ci la découpe que
        l'auteur avait calculée à la main. */
   const suiteCible = visee.chiffres;
-  const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
+  const parDemiTour = neufRetournable(visee);
   let rang = 0;
   const colle = (d) => d === suiteCible[rang]
     || (parDemiTour && d === RETOURNABLE && suiteCible[rang] === SIX_RETOURNE);
@@ -1418,7 +1572,7 @@ const RETOURNABLE = 9;
  * « 6 ou 9 » — mot pour mot l'ancien `d === SIX || d === RETOURNABLE`.
  */
 const rapporte = (d, visee) => visee.utile(d)
-  || (d === RETOURNABLE && visee.utile(SIX_RETOURNE));
+  || (d === RETOURNABLE && neufRetournable(visee));
 
 /** Les chiffres qu'un nombre écrit — la ligne ne porte jamais autre chose. */
 const chiffresDe = (n) => [...String(n)].map(Number);
@@ -1479,7 +1633,7 @@ function planRedecoupage(valeur, visee) {
   //   juste, il était juste aveugle au demi-tour.
   //   Le 9 ne vaut que là où la cible ne le demande PAS pour lui-même : sinon on
   //   ne saurait plus si le rang qu'il fait avancer est le sien ou celui d'un 6.
-  const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
+  const parDemiTour = neufRetournable(visee);
   const colle = (d, p) => d === suiteCible[p]
     || (parDemiTour && d === RETOURNABLE && suiteCible[p] === SIX_RETOURNE);
 
@@ -2841,30 +2995,31 @@ function residusDesSeries(suite, parDemiTour, m) {
  * bons, il départageait à la seconde passe et aux additions, jamais à ce qui
  * était détruit. Il les compte désormais (`compteurDAvales`), dans cet ordre :
  *
- *  1. **le moins de demi-tours** — un 9 posé pour un 6, qu'il soit fabriqué par
- *     une somme ou laissé tel quel. INCHANGÉ, et c'est MESURÉ, pas supposé : un
- *     9 laissé dans la sortie n'est plus « la cible et rien d'autre », il
- *     appelle un `mr9` que la recherche ne va pas chercher au cran 0. L'ordre
- *     « le plus de séries d'abord, 9 compris » a été essayé : sur « Didier
- *     Raoult » il écrit `6 9 6 9 6 9 6 6 6` (trois 6 et un 9 gardés seuls, trois
- *     séries une fois retournés), mais `fmaj+mas+mrdE+mr9` n'est pas trouvé et la
- *     tête retombe sur une voie à deux séries moins bien notée ; « Wikipedia » et
- *     « Marie Curie » perdent leur voie sans perte de tête, « Donald Trump » la
- *     sienne au rang 3. La moitié « 9 » de la remarque ne se tient donc QUE là
- *     où la sortie porte déjà des 9 : à demi-tours égaux, un 9 laissé seul vaut
- *     mieux qu'un 9 avalé (étage 3). Le reste est à arbitrer — voir le rapport
- *     du 19 septembre ;
- *  2. **le PLUS de séries** — « à résultat égal ou meilleur » : le résultat
- *     passe avant la manière. Il venait APRÈS la seconde passe ; il la précède
- *     maintenant, sans quoi un plan plus court à une série battait un plan à
- *     deux qui n'avale rien de plus (67 lignes témoins sur 511 gagnent une
- *     série, aucune n'en perd) ;
- *  3. **le moins de chiffres justes AVALÉS** — un chiffre qui colle au rang où
+ *  1. **le PLUS de séries** — « à résultat égal ou meilleur » : le résultat
+ *     passe avant la manière. Sans quoi un plan plus court à une série battait
+ *     un plan à deux qui n'avale rien de plus (67 lignes témoins sur 511
+ *     gagnaient une série, aucune n'en perdait) ;
+ *  2. **le moins de chiffres justes AVALÉS** — un chiffre qui colle au rang où
  *     sa plage écrit, fondu avec d'autres. L'exception de `mad` tient : un
  *     chiffre juste qui n'avale que des zéros en ressort intact (`6 + 0 → 6`),
  *     il n'est pas compté ;
+ *  3. **le moins de demi-tours** — un 9 posé pour un 6, qu'il soit fabriqué par
+ *     une somme ou laissé tel quel ;
  *  4. **le moins de seconde passe**, puis **le moins d'additions** — le
  *     départage d'avant, intact.
+ *
+ * ★ **LE 9 NE SE JOUE QUE DANS LA VARIANTE AVEC 9** (`md9E`, `viseeDeVariante`),
+ *   et c'est ce qui a remis les demi-tours au troisième rang. Ils étaient au
+ *   PREMIER, parce qu'un 9 laissé dans la sortie appelle un `mr9` que la
+ *   recherche ne va pas chercher au cran 0 : l'ordre « le plus de séries
+ *   d'abord, 9 compris » avait été essayé et écarté, `fmaj+mas+mrdE+mr9` n'étant
+ *   pas trouvé. L'autrice a tranché le 19 septembre — « fais `mrd9` qui garde
+ *   les 9, et `mrdE` ne les garde pas » : `mrdE` ne vise plus que la cible (un 9
+ *   n'y colle jamais, les demi-tours y valent toujours zéro), et `md9E`, qui ne
+ *   cherche qu'à partir du cran où `+mr9` peut le suivre, prend l'ordre
+ *   écarté. Sur « Didier Raoult », `6 9 6 9 6 9 6 6 6` : un 9 gardé seul vaut
+ *   mieux qu'un 9 avalé (étage 2), et une série de plus mieux qu'un demi-tour
+ *   de moins (étage 1).
  *
  * ★ **UN PLAN QUI ÉCRIT PLUS EN AVALANT PEUT-IL GAGNER ? Oui, et c'est voulu.**
  *   Une série de plus, ce sont trois 6 de plus dans le verdict ; un 6 avalé en
@@ -2876,9 +3031,9 @@ function residusDesSeries(suite, parDemiTour, m) {
  *   six, on en avale cinq.
  */
 function meilleurPlanExact(a, b) {
-  if (a.demi !== b.demi) return a.demi < b.demi;
   if (a.m !== b.m) return a.m > b.m;
   if (a.avales !== b.avales) return a.avales < b.avales;
+  if (a.demi !== b.demi) return a.demi < b.demi;
   return a.reste < b.reste;
 }
 
@@ -2973,12 +3128,15 @@ function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus) {
   const cle = (i, p, pend) => ((i * (N + 1)) + p) * PEND + (pend + 1);
   const cout = new Array((n + 1) * (N + 1) * PEND).fill(Infinity);
   const depuis = new Array((n + 1) * (N + 1) * PEND).fill(null);
-  // Le coût est un entier lexicographique : demi-tours ≫ chiffres justes
-  // avalés ≫ seconde passe ≫ additions. Trente-six chiffres bornent chaque
-  // compte bien sous mille : aucun étage ne déborde sur le suivant. Le nombre
-  // de séries ne s'y lit pas — il se lit sur l'état final, un par `m`.
-  const COUT_DEMI = 1e9;
-  const COUT_AVALE = 1e6;
+  // Le coût est un entier lexicographique : chiffres justes avalés ≫
+  // demi-tours ≫ seconde passe ≫ additions — l'ordre de `meilleurPlanExact`,
+  // séries mises à part. Trente-six chiffres bornent chaque compte bien sous
+  // mille : aucun étage ne déborde sur le suivant, et le plus grand coût
+  // (3,6 × 10¹⁰) reste un entier exact. Le nombre de séries ne s'y lit pas —
+  // il se lit sur l'état final, un par `m`. Sans le 9 retournable, les
+  // demi-tours valent toujours zéro : un 9 n'y colle jamais.
+  const COUT_AVALE = 1e9;
+  const COUT_DEMI = 1e6;
   const COUT_F = 1e3;
   cout[cle(0, 0, RIEN)] = 0;
 
@@ -3069,10 +3227,10 @@ function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus) {
     const cand = {
       m,
       k,
-      demi: Math.floor(c / COUT_DEMI),
-      avales: Math.floor((c % COUT_DEMI) / COUT_AVALE),
-      reste: c % COUT_AVALE,
-      F: Math.floor((c % COUT_AVALE) / COUT_F),
+      avales: Math.floor(c / COUT_AVALE),
+      demi: Math.floor((c % COUT_AVALE) / COUT_DEMI),
+      reste: c % COUT_DEMI,
+      F: Math.floor((c % COUT_DEMI) / COUT_F),
     };
     if (!choix || meilleurPlanExact(cand, choix)) choix = cand;
   }
@@ -3118,7 +3276,7 @@ function planRedecoupageExact(valeur, visee) {
   const L = suite.length;
   const mMax = Math.floor(n / L);
   if (mMax < 1) return null;
-  const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
+  const parDemiTour = neufRetournable(visee);
 
   // ★ L'invariant modulo neuf, AVANT toute recherche.
   const residus = residusDesSeries(suite, parDemiTour, mMax);
@@ -3458,7 +3616,7 @@ function sommesDepuis(termes, i, n, garder = null) {
 function lecteurDeCible(visee) {
   const suite = visee.chiffres;
   const L = suite.length;
-  const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
+  const parDemiTour = neufRetournable(visee);
   const colle = (d, p) => d === suite[p % L]
     || (parDemiTour && d === RETOURNABLE && suite[p % L] === SIX_RETOURNE);
   const avance = (sortie, pos) => {
@@ -3662,14 +3820,14 @@ function planRedecoupageFusionnant(valeur, visee, lectures = new Map()) {
  *   quand `mrdE` atteint autant de séries : il ne fusionne que là où rien
  *   d'autre n'écrit la cible aussi loin.
  *
- * ★ Le départage : le moins de demi-tours (un 9 posé pour un 6 appelle un `mr9`
- *   à trouver, comme chez `mrdE`), puis le PLUS de séries, puis le moins de
- *   chiffres DÉJÀ JUSTES avalés (`compteurDAvales` — la règle que `mrdE` a
- *   reçue le 19 septembre, « à toi de voir s'ils souffrent des mêmes
- *   défauts » : ils en souffraient, voir le commit), puis le moins de
- *   soudures, puis le moins de termes accolés, puis le moins d'additions ;
- *   enfin l'ordre d'énumération (§4.4). Un plan sans terme accolé est un plan
- *   de `mrdE` : il se tait.
+ * ★ Le départage, celui de `mrdE` (`meilleurPlanExact`) : le PLUS de séries,
+ *   puis le moins de chiffres DÉJÀ JUSTES avalés (`compteurDAvales` — la règle
+ *   que `mrdE` a reçue le 19 septembre, « à toi de voir s'ils souffrent des
+ *   mêmes défauts » : ils en souffraient, voir le commit), puis le moins de
+ *   demi-tours (un 9 posé pour un 6 — seulement dans la variante avec 9,
+ *   `mf9E`), puis le moins de soudures, puis le moins de termes accolés, puis
+ *   le moins d'additions ; enfin l'ordre d'énumération (§4.4). Un plan sans
+ *   terme accolé est un plan de `mrdE` : il se tait.
  */
 function planRedecoupageFusionnantExact(valeur, visee, sansFusionDe = (v) => planRedecoupageExact(v, visee)) {
   if (!valeur.length) return null;
@@ -3699,13 +3857,14 @@ function planRedecoupageFusionnantExact(valeur, visee, sansFusionDe = (v) => pla
   };
   const N = mMax * L;
   const demiTour = (d, p) => (d === suite[p % L] ? 0 : 1);
-  // Le coût est un entier lexicographique : demi-tours ≫ chiffres justes
-  // avalés ≫ soudures ≫ termes accolés ≫ additions. Trente-six chiffres
+  // Le coût est un entier lexicographique : chiffres justes avalés ≫
+  // demi-tours ≫ soudures ≫ termes accolés ≫ additions. Trente-six chiffres
   // bornent chaque compte sous cent : aucun étage ne déborde sur le suivant.
-  const DEMI = 1e9;
-  // ★ Les chiffres justes AVALÉS, entre les séries et les soudures — la règle
-  //   de `mrdE` (`meilleurPlanExact`), à laquelle cette variante se tient.
-  const AVALE = 1e6;
+  // ★ Les chiffres justes AVALÉS, juste après les séries — la règle de `mrdE`
+  //   (`meilleurPlanExact`), à laquelle cette variante se tient ; les
+  //   demi-tours ensuite, qui ne comptent que dans sa variante avec 9 (`mf9E`).
+  const AVALE = 1e9;
+  const DEMI = 1e6;
   const SOUDURE = 1e4;
   const ACCOLE = 1e2;
   const avales = compteurDAvales(chiffres, (x, r) => colle(x, r), L);
@@ -3756,10 +3915,8 @@ function planRedecoupageFusionnantExact(valeur, visee, sansFusionDe = (v) => pla
     if (!residus[m - 1].has(total % 9)) continue;
     const c = cout[cle(n, m * L)];
     if (c === Infinity) continue;
-    const demi = Math.floor(c / DEMI);
-    const reste = c % DEMI;
-    if (!choix || demi < choix.demi || (demi === choix.demi && (m > choix.m
-      || (m === choix.m && reste < choix.reste)))) choix = { m, demi, reste, k: cle(n, m * L) };
+    // Le plus de séries, puis le coût : avalés, demi-tours, soudures…
+    if (!choix || m > choix.m || (m === choix.m && c < choix.c)) choix = { m, c, k: cle(n, m * L) };
   }
   if (!choix) return null;
   const paquets = [];
@@ -6148,183 +6305,7 @@ const AUTRES_MAPPEURS = [
   // chaque fragment : `viser('000')` rend `null`, l'opérateur se désactive, et
   // la page de débogage l'annonce. Toute autre cible — homogène ou non — le
   // garde : ses paquets visent alors les chiffres qu'elle demande.
-  selonLaCible((visee) => (butsDuPaquet(visee).every((d) => d === 0) ? null : {
-    id: 'm.additionSelective', code: 'mad', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
-    libelle: LIB_ADDITION_SELECTIVE,
-    regle: (() => {
-      // Les buts se LISENT sur `butsDuPaquet` : la règle affichée est la règle
-      // appliquée, pas une phrase parallèle qui pourrait dériver (§0.3). Sur
-      // `666` la liste vaut `[6, 9]`, et la phrase est celle d'hier.
-      const buts = butsDuPaquet(visee);
-      const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
-      const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
-      const defaut = retourne
-        ? bilingue(` — ou ${RETOURNABLE} à défaut, qu’un demi-tour rendra`,
-          ` — or at ${RETOURNABLE} failing that, which half a turn will convert —`)
-        : bilingue('', '');
-      return bilingue(
-        'Chaque nombre s’écrit chiffre à chiffre, puis on n’additionne QUE les suites '
-        + `contiguës dont la somme vise ${vises}${defaut.fr}. `
-        + `Une suite qui ferait perdre un ${buts.join(' ou un ')} déjà `
-        + `${buts.length > 1 ? 'écrits' : 'écrit'} est refusée. `
-        + 'De gauche à droite, toujours la suite qui se referme la première.',
-        'Every number is written out digit by digit, then only the adjacent runs aiming '
-        + `at ${vises}${defaut.en} are summed. A run that `
-        + `would cost a ${buts.join(' or a ')} already written is refused. `
-        + 'Left to right, always the run that closes first.',
-      );
-    })(),
-    // ★ Notoriété 0,30, la plus haute des trois : additionner des chiffres
-    // contigus est le geste le plus banal de toute la numérologie — c'est ce
-    // que fait la racine numérique. Ce qui est louche n'est pas l'addition,
-    // c'est le fait de ne pas les additionner TOUS.
-    //
-    // ★ AdHoc 0,30, la plus basse des trois, et c'est l'auteur qui l'ordonne :
-    // « c'est de la triche à utiliser en dernier recours », mais elle ne jette
-    // rien — elle ABSORBE arithmétiquement, ce que l'auteur préfère
-    // explicitement à « se débarrasser artificiellement de chiffres ».
-    notoriete: 0.30, adHoc: 0.30,
-    // ★ L'EXEMPLE de la note est CALCULÉ sur la cible, jamais recopié. « 5+1 »
-    //   ne fait un 6 que parce qu'on vise 6 ; sur `111` la note doit montrer une
-    //   somme qui fait 1. On prend la plus petite paire qui vise juste — deux
-    //   termes non nuls dont la somme se réduit au premier chiffre de la cible —,
-    //   et si aucune n'existe on se passe d'exemple plutôt que d'en inventer un.
-    note: (() => {
-      const but = visee.alphabet.find((d) => d !== 0) ?? visee.alphabet[0];
-      const paire = (() => {
-        for (let a = 1; a <= 9; a++) {
-          for (let b = 1; b <= 9; b++) if (reduire(a + b) === but) return `${a}+${b}`;
-        }
-        return null;
-      })();
-      const ex = paire
-        ? bilingue(`on additionne ${paire} pour faire un ${but}, et l’on ne touche `,
-          `${paire} is added to make a ${but}, and a ${but} already there is only `)
-        : bilingue('on additionne des chiffres contigus, et l’on ne touche ',
-          `adjacent digits are added up, and a ${but} already there is only `);
-      return bilingue(
-        `Sélective, donc discutable : ${ex.fr}à un ${but} déjà là que pour lui faire avaler `
-        + 'un zéro — il en ressort intact. Les signes + ne paraissent qu’entre les termes '
-        + 'retenus : la sélection est sous les yeux, c’est le score qui la juge.',
-        `Selective, hence arguable: ${ex.en}touched to swallow a zero — it comes out `
-        + 'intact. The plus signs appear only between the chosen terms: the selection is '
-        + 'in plain sight, and the score is what judges it.',
-      );
-    })(),
-    apply: (valeur, traces) => {
-      const plan = planAdditionSelective(valeur, visee);
-      if (!plan) return null;
-      return {
-        valeur: plan.sortie.map((s) => s.v),
-        traces: plan.sortie.map((s) => fusion(
-          ...plan.chiffres.slice(s.debut, s.fin).map((c) => traces[c.src] || []),
-        )),
-      };
-    },
-    // ★ Ce que la triche fait VOIR — voir `additions` dans `commun.js`.
-    additions: (valeur) => {
-      const plan = planAdditionSelective(valeur, visee);
-      return plan ? plan.sortie.filter((s) => s.fin - s.debut >= 2)
-        .map((s) => s.fin - s.debut) : [];
-    },
-    sortie: (avant, apres, ctx) => {
-      const plan = planAdditionSelective(avant.valeur, visee);
-      return plan ? plan.sortie.map((s, j) => idSortie(plan, ctx, s, j)) : [];
-    },
-    /**
-     * ★ DEUX STEPS, PARCE QUE CE SONT DEUX GESTES.
-     *
-     * 1. **On écrit chaque nombre chiffre à chiffre.** `16` devient `1` `6` :
-     *    sans cela, « 5+1 » est incompréhensible — le `1` n'est nulle part.
-     *    Le step n'est émis que s'il y a quelque chose à découper.
-     * 2. **On additionne les termes retenus, et EUX SEULS.** C'est là que la
-     *    triche se cache, et c'est donc là qu'il faut le plus la montrer : les
-     *    signes `+` paraissent (`insertOperators`) entre les termes d'une
-     *    suite retenue, et NULLE PART ailleurs. Un spectateur voit donc, d'un
-     *    seul coup d'œil, quels chiffres ont été additionnés et lesquels ont
-     *    été laissés côte à côte sans rien faire.
-     *
-     * ★ Contrôle croisé (CONTRACTS §0.3) : `apply`, `sortie` et `steps`
-     * appellent le MÊME `planAdditionSelective` sur le MÊME vecteur — il n'y a
-     * pas de seconde copie qui puisse diverger. `sum` recoupe une deuxième fois
-     * (la somme des opérandes affichés doit égaler `to.text`, sinon échec de
-     * compilation) et `recherche/scenario.js` une troisième, là où il connaît
-     * encore la valeur des jetons de départ.
-     */
-    steps: (avant, apres, ctx) => {
-      const plan = planAdditionSelective(avant.valeur, visee);
-      if (!plan) return [];
-      const steps = [];
-      const idc = (k) => idChiffre(plan, ctx, k);
-
-      // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
-      const paires = [];
-      avant.valeur.forEach((v, i) => {
-        const ks = plan.chiffres
-          .map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
-        if (ks.length < 2) return;
-        paires.push({ target: ctx.ids[i], to: ks.map((k) => token(idc(k), plan.chiffres[k].v, 'digit')) });
-      });
-      if (paires.length) {
-        const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
-        steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
-          enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
-      }
-
-      /* ── 2. les additions retenues, UNE ÉTAPE CHACUNE ─────────────────────
-
-         > « `mrd` (ou `mad`, j'ai l'impression qu'ils font ou devraient faire la
-         >   même chose) devrait décomposer ses étapes par addition de 2 chiffres
-         >   et générer une étape dans le registre pour chaque, comme ça on peut
-         >   naviguer dedans convenablement. » (l'auteur)
-
-         Elles tenaient toutes dans UN step. À l'écran, cela donnait plusieurs
-         additions qui se jouaient à la suite sans qu'on puisse s'arrêter entre
-         deux — et, dans Le Registre, une seule ligne pour un geste qui en
-         comporte quatre ou cinq. Or Le Registre est l'équivalent accessible
-         OBLIGATOIRE de la scène (CONTRACTS §6) : ce qui se voit en quatre temps
-         doit s'y lire en quatre lignes, sans quoi il ne rend pas compte.
-
-         Chaque étape porte donc SON addition et rien d'autre, avec pour légende
-         l'opération elle-même — `1 + 5 = 6`, qui se vérifie d'un coup d'œil. */
-      /* ★ **ET CHAQUE ADDITION NE PORTE QUE DEUX TERMES** — voir `commun.js ›
-           passesBinaires`. Une suite retenue de quatre chiffres se montrait
-           sous une seule accolade ; elle se montre par paires, et les suites
-           avancent ENSEMBLE, passe après passe (`passesEnLargeur`) : toutes
-           les premières paires de la ligne, puis leurs résultats. La somme de
-           chaque suite est celle du plan, au chiffre près. */
-      const vus = plan.chiffres.map((c) => c.v).join(' ');
-      /* ★ **ET TOUTES LES SUITES AU MÊME TEMPS** — « toutes les premières
-           additions de tous les paquets en même temps, puis toutes les
-           deuxièmes » (l'autrice, 19 septembre, sur les redécoupages : `mad`
-           a le même geste, il suit la même règle). Une étape par temps, qui
-           énumère ses additions ; voir `etapesEnLargeur`. La somme s'écrit
-           telle qu'elle tombe (`15`) : rien ne suit l'addition. */
-      const chantiers = plan.sortie.map((s, j) => {
-        if (s.fin - s.debut < 2) return null;
-        const termes = [];
-        for (let k = s.debut; k < s.fin; k++) termes.push({ id: idc(k), v: plan.chiffres[k].v, ou: k });
-        return chantierDuPaquet({
-          termes,
-          somme: s.v,
-          mode: 'somme',
-          racine: idSortie(plan, ctx, s, j),
-          nommer: (k) => `${ctx.cle}i${j}x${k}`,
-          signe: (k) => `${ctx.cle}p${j}x${k}`,
-        });
-      }).filter(Boolean);
-      steps.push(...etapesEnLargeur(chantiers, { ctx, titre: dire(LIB_ADDITION_SELECTIVE, ctx.langue), prefixe: 's' }));
-      // ⚠️ Aucune addition retenue ne peut arriver ici : `planAdditionSelective`
-      //   rend `null` sans elles (`if (!additions) return null`). Le relevé
-      //   d'ensemble reste néanmoins utile à qui lit Le Registre d'une traite,
-      //   et il ne coûte qu'une ligne — celle du DÉCOUPAGE, pas d'un calcul.
-      if (!steps.length) {
-        steps.push(etape(ctx, dire(LIB_ADDITION_SELECTIVE, ctx.langue),
-          `${vus} → ${apres.valeur.join(' ')}`, [], { id: `s_${ctx.cle}_s` }));
-      }
-      return steps;
-    },
-  })),
+  operateurAdditionSelective(SANS_NEUF),
 
   // ══════════════════════════════════════════════════════════════════════════
   // ★ LES QUATRE TRANSFORMATIONS DU 27 AOÛT — `mtri`, `mr39`, `mcc`, `mrd`
@@ -6805,204 +6786,7 @@ const AUTRES_MAPPEURS = [
   //
   // Tout le reste descend : le chiffre que les paquets cherchent, et le 9 qui
   // n'est « à défaut » que lorsque la cible veut des 6 — voir `rapporte`.
-  selonLaCible((visee) => (butsDuPaquet(visee).every((d) => d === 0) ? null : {
-    id: 'm.redecoupageChoisi', code: 'mrd', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
-    libelle: LIB_REDECOUPAGE,
-    regle: (() => {
-      // La phrase LIT `butsDuPaquet`, comme celle de `mad` : ce qui est annoncé
-      // est ce que la programmation dynamique cherche réellement (§0.3).
-      const buts = butsDuPaquet(visee);
-      const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
-      const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
-      const defaut = retourne
-        ? bilingue(` — ou sur ${RETOURNABLE}, qu’un demi-tour rendra —`,
-          ` — or on ${RETOURNABLE}, which a half-turn will settle —`)
-        : bilingue('', '');
-      return bilingue(
-        'Chaque nombre s’écrit chiffre à chiffre, puis on redécoupe la ligne en paquets '
-        + `choisis pour tomber sur ${vises}${defaut.fr} le plus souvent possible ; chaque `
-        + `paquet est remplacé par sa somme. Un ${buts.join(' ou un ')} déjà là reste seul.`,
-        'Every number is written out digit by digit, then the line is recut into packets '
-        + `chosen to land on ${vises}${defaut.en} as often as possible; each packet is `
-        + `replaced by its sum. A ${buts.join(' or a ')} already there is left alone.`,
-      );
-    })(),
-    // ★ Notoriété 0,20 — « `mrd`, l'idée est là, à retirer des ficelles pour en
-    // faire un opérateur à 0.2 de notoriété » (l'auteur). Elle valait 0,10, la
-    // plus basse du catalogue hors joker, du temps où l'opérateur était compté
-    // parmi les ficelles ; il n'y est plus (`elegance.js › FICELLES`), et
-    // l'auteur fixe lui-même le chiffre. Ce qui ne change pas, c'est le
-    // RAISONNEMENT derrière : additionner des chiffres est banal, REDÉCOUPER la
-    // ligne pour choisir lesquels s'additionnent ne se fait nulle part et ne
-    // s'attend nulle part. Ce qui est connu ici, c'est l'addition ; ce qui ne
-    // l'est pas, c'est la découpe — et c'est la découpe qui fait tout le
-    // travail.
-    //
-    // ★ AdHoc 0,48, juste sous le joker (0,50) et au-dessus de « le plus
-    // fréquent l'emporte » (0,45) : c'est l'opérateur le plus taillé pour la
-    // cible de tout le catalogue. `mpf` décide en regardant le vecteur qu'il
-    // vient d'obtenir ; celui-ci décide en regardant le CHIFFRE QU'ON CHERCHE,
-    // et il essaie toutes les découpes jusqu'à trouver celle qui en donne le
-    // plus. On ne peut pas être plus explicitement au service du 6.
-    notoriete: 0.20, adHoc: 0.48,
-    note: bilingue(
-      'Oui, c’est de la triche, et l’auteur l’écrit ainsi : « c’est le moment de tricher ». '
-      + 'On le montre plutôt que de le maquiller — les accolades disent où l’on a coupé, '
-      + 'les signes + disent ce qu’on a additionné, et le score dit ce que ça coûte.',
-      'Yes, this is cheating, and the author says so: “time to cheat”. We show it rather '
-      + 'than dress it up — the braces say where the cuts were made, the plus signs say what '
-      + 'was added, and the score says what it costs.',
-    ),
-    apply: (valeur, traces) => {
-      const plan = planRedecoupage(valeur, visee);
-      if (!plan) return null;
-      const sortie = [];
-      const org = [];
-      for (const p of plan.paquets) {
-        // Les deux chiffres d'une somme à deux signes viennent des MÊMES
-        // caractères : ils portent donc la même trace, celle du paquet entier.
-        const t = fusion(...plan.chiffres.slice(p.debut, p.fin).map((c) => traces[c.src] || []));
-        for (const d of p.sortie) { sortie.push(d); org.push(t); }
-      }
-      return { valeur: sortie, traces: org };
-    },
-    // ★ Ce que la triche fait VOIR — voir `additions` dans `commun.js`. C'est
-    //   par là que le barème apprend combien d'additions se suivent, donc à
-    //   quel point chacune passe inaperçue.
-    additions: (valeur) => {
-      const plan = planRedecoupage(valeur, visee);
-      return plan ? plan.paquets.filter((p) => p.fin - p.debut >= 2)
-        .map((p) => p.fin - p.debut) : [];
-    },
-    sortie: (avant, apres, ctx) => {
-      const plan = planRedecoupage(avant.valeur, visee);
-      return plan ? plan.paquets.flatMap((p, j) => idsPaquet(plan, ctx, p, j)) : [];
-    },
-    /**
-     * ★ DEUX STEPS, ET LE SECOND MONTRE LA TRICHE EN FACE.
-     *
-     * 1. **On écrit chaque nombre chiffre à chiffre.** `12` devient `1` `2` :
-     *    sans cela, « 1+2+3 » est incompréhensible. Le step n'est émis que s'il
-     *    y a quelque chose à éclater.
-     * 2. **On redécoupe, puis on additionne.** Les accolades de `partition`
-     *    tombent d'abord — c'est la DÉCISION, et c'est elle qu'il faut montrer
-     *    avant tout, parce que c'est elle qui triche : le choix des coupes.
-     *    Puis, dans chaque paquet de plus d'un chiffre, les signes `+`
-     *    paraissent et la somme se fait ; si elle dépasse neuf, un `substitute`
-     *    l'écrit chiffre à chiffre — le MÊME geste qu'au step 1, parce que
-     *    c'est la même chose qui se passe : un nombre à deux signes rejoint une
-     *    ligne de chiffres.
-     *
-     * ⚠️ **Et surtout PAS un `reduce`.** C'est ce que faisait la version
-     * précédente : `16` y était ramené à `7` par racine numérique, et le 6 que
-     * l'auteur venait de fabriquer disparaissait sous nos yeux. Le geste était
-     * juste, la règle ne l'était pas.
-     *
-     * ★ Contrôle croisé (CONTRACTS §0.3) : `apply`, `sortie` et `steps`
-     * appellent le MÊME `planRedecoupage` sur le MÊME vecteur — pas de seconde
-     * copie possible. `sum` recoupe une deuxième fois (la somme des opérandes
-     * affichés doit égaler `to.text`, sinon échec de compilation), et
-     * `recherche/scenario.js` une troisième, là où il connaît encore la valeur
-     * des jetons de départ.
-     */
-    steps: (avant, apres, ctx) => {
-      const plan = planRedecoupage(avant.valeur, visee);
-      if (!plan) return [];
-      const steps = [];
-      const idc = (k) => idChiffreRedecoupe(plan, ctx, k);
-
-      // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
-      const paires = [];
-      avant.valeur.forEach((v, i) => {
-        const ks = plan.chiffres
-          .map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
-        if (ks.length < 2) return;
-        paires.push({
-          target: ctx.ids[i],
-          to: ks.map((k) => token(idc(k), plan.chiffres[k].v, 'digit')),
-        });
-      });
-      if (paires.length) {
-        const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
-        steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
-          enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
-      }
-
-      /* ── 2. la DÉCOUPE, puis UNE ÉTAPE PAR ADDITION ───────────────────────
-
-         > « `mrd` (ou `mad`…) devrait décomposer ses étapes par addition de 2
-         >   chiffres et générer une étape dans le registre pour chaque, comme ça
-         >   on peut naviguer dedans convenablement. » (l'auteur)
-
-         Tout tenait dans UN step : la découpe et les cinq ou six additions se
-         jouaient d'affilée, sans arrêt possible entre deux, et Le Registre n'en
-         gardait qu'une ligne. Or il est l'équivalent accessible OBLIGATOIRE de
-         la scène (§6) — ce qui se voit en six temps doit s'y lire en six lignes.
-
-         ⚠️ **LA DÉCOUPE AVAIT SA PROPRE ÉTAPE, ELLE N'EN A PLUS** — et c'est
-           l'auteur qui a retourné l'argument.
-
-           > « Plutôt que de pré-découper visuellement et d'afficher les
-           >   accolades pour chaque segment, ne fais la découpe visuelle que
-           >   sur le moment de l'opération impliquant ces chiffres, et affiche
-           >   l'accolade correspondante à ce moment-là. » (l'auteur)
-
-           Ce qui était écrit ici — « elle n'additionne rien, elle ANNONCE les
-           paquets », « la coller à la première addition ferait commencer un
-           calcul dans l'étape qui pose la question » — se défendait. Mais
-           annoncer les paquets, c'est montrer d'un coup le résultat du
-           découpage, donc la réponse, avant d'avoir rien calculé : le lecteur
-           voit le programme savoir où couper sans savoir pourquoi. L'accolade
-           que `sum` trace sur ses propres termes, au moment où il les
-           additionne, dit la même chose et la dit en la justifiant.
-
-           ★ **ET « UNE ÉTAPE PAR ADDITION » DEVIENT « UNE ÉTAPE PAR TEMPS ».**
-             > « Toutes les premières additions de tous les paquets en même
-             >   temps, puis toutes les deuxièmes, etc. » (l'autrice, 19
-             >   septembre)
-             Le Registre garde une ligne par temps, qui énumère toutes ses
-             additions (`8 + 7 = 15 · 3 + 6 = 9 · …`) : ce qui se voit en même
-             temps se lit sur la même ligne. Voir `etapesEnLargeur`. */
-      const vus = plan.chiffres.map((c) => c.v).join(' ');
-      const groupesMuets = plan.paquets.map((p, j) => ({
-        targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
-        tag: `${ctx.cle}q${j}`,
-      }));
-      const avantLesCalculs = steps.length;
-
-      /* ★ **DEUX CHIFFRES À LA FOIS, ET TOUS LES PAQUETS ENSEMBLE** — voir
-           `commun.js › passesBinaires` et `etapesEnLargeur`. `5 + 3 + 8 + 2`
-           se montre `5 + 3`, `8 + 2`, puis `8 + 10` au temps suivant ; la
-           somme du paquet — 18 — est celle du plan, et c'est elle, entière,
-           qui s'écrit ensuite chiffre à chiffre, avec celles des autres
-           paquets. Rien ne la réduit : `16` porte un 6 que `7` n'a pas. */
-      const chantiers = plan.paquets.map((p, j) => {
-        if (p.fin - p.debut < 2) return null;
-        const termes = [];
-        for (let k = p.debut; k < p.fin; k++) termes.push({ id: idc(k), v: plan.chiffres[k].v, ou: k });
-        return chantierDuPaquet({
-          termes,
-          somme: p.somme,
-          mode: p.sortie.length > 1 ? 'eclate' : 'somme',
-          sorties: idsPaquet(plan, ctx, p, j),
-          racine: idSomme(plan, ctx, p, j),
-          nommer: (k) => `${ctx.cle}i${j}x${k}`,
-          signe: (k) => `${ctx.cle}p${j}x${k}`,
-        });
-      }).filter(Boolean);
-      steps.push(...etapesEnLargeur(chantiers, { ctx, titre: dire(LIB_REDECOUPAGE, ctx.langue), prefixe: '' }));
-      glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
-
-      // Un redécoupage sans aucun paquet à additionner n'existe pas
-      // (`planRedecoupage` exige `groupes`), mais un relevé d'ensemble reste dû
-      // à qui lit Le Registre d'une traite.
-      if (!steps.length) {
-        steps.push(etape(ctx, dire(LIB_REDECOUPAGE, ctx.langue),
-          `${vus} → ${apres.valeur.join(' ')}`, [], { id: `s_${ctx.cle}_d` }));
-      }
-      return steps;
-    },
-  })),
+  operateurRedecoupage(SANS_NEUF),
 
   // ★ **LE DEMI-TOUR MONTANT — les 6 qui deviennent des 9.**
   //
@@ -7415,163 +7199,7 @@ const AUTRES_MAPPEURS = [
   //
   // Il suit la cible comme `mrd`, et refuse la même : une somme de chiffres
   // ne retombe sur 0 qu'en n'additionnant que des 0.
-  selonLaCible((visee) => (butsDuPaquet(visee).every((d) => d === 0) ? null : (() => {
-    const planDe = memoPlanExact(visee);
-    return {
-      id: 'm.redecoupageExact', code: 'mrdE', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
-      absorbe: true, // voir `mab` : elle consomme toute la ligne et n'écrit que la cible
-      libelle: LIB_REDECOUPAGE_EXACT,
-      regle: (() => {
-        const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
-        const defaut = parDemiTour
-          ? bilingue(` — un 9, qu’un demi-tour rendra, vaut un ${SIX_RETOURNE}`,
-            ` — a 9, which a half-turn will settle, counts as a ${SIX_RETOURNE}`)
-          : bilingue('', '');
-        return bilingue(
-          'Chaque nombre s’écrit chiffre à chiffre, puis la ligne ENTIÈRE se redécoupe en '
-          + `paquets qui écrivent ${visee.texte} dans l’ordre, et rien d’autre : chaque paquet `
-          + 'est remplacé par sa somme, réduite à un chiffre si elle déborde — un chiffre de la '
-          + 'cible absorbe ainsi des voisins dont la somme est un multiple de neuf, et ressort '
-          + `intact. Si une passe ne suffit pas, une seconde redécoupe le résultat${defaut.fr}. `
-          + 'Quand la ligne ne peut pas s’écrire exactement, on n’écrit rien.',
-          'Every number is written out digit by digit, then the WHOLE line is recut into packets '
-          + `that spell ${visee.texte} in order, and nothing else: each packet is replaced by its `
-          + 'sum, reduced to one digit when it overflows — a target digit thereby absorbs '
-          + 'neighbours whose sum is a multiple of nine, and comes out intact. When one pass is '
-          + `not enough, a second one recuts the result${defaut.en}. When the line cannot be `
-          + 'spelt exactly, nothing is written.',
-        );
-      })(),
-      // ★ Notoriété 0,15, sous `mrd` (0,20) : redécouper est déjà inconnu ;
-      //   redécouper jusqu'à ce que TOUT tombe juste, en repassant, l'est
-      //   davantage. AdHoc 0,49, entre `mrd` (0,48) et le joker (0,50) : il ne
-      //   se contente pas de regarder le chiffre qu'on cherche, il refuse tout
-      //   résultat qui ne serait pas la cible. On ne peut pas être plus taillé
-      //   pour elle — c'est ce qu'il paie en conviction, et ce qu'il rachète en
-      //   exhaustivité : rien n'est jeté, ni en route, ni au verdict.
-      notoriete: 0.15, adHoc: 0.49,
-      // ★ Le coût est celui d'UNE passe — comme `mrd`. La seconde passe se voit
-      //   dans le nombre d'étapes et se paie au barème par ses additions
-      //   (`elegance.js › ABSORBENT_PAR_ADDITION`) : le malus de simplicité est
-      //   celui du geste réellement joué, pas un forfait.
-      note: bilingue(
-        'La même triche que le redécoupage, poussée jusqu’au bout : on ne garde pas les '
-        + 'paquets qui tombent bien en jetant le reste, on fond le reste dans les paquets — '
-        + 'quitte à repasser. Le prix : plus d’additions à l’écran ; le gain : la ligne entière '
-        + 'y passe, et le verdict n’écarte rien.',
-        'The same cheat as the recut, taken to its end: instead of keeping the packets that '
-        + 'land well and dropping the rest, the rest is melted into the packets — repeating if '
-        + 'needed. The price: more additions on screen; the gain: the whole line goes in, and '
-        + 'the verdict discards nothing.',
-      ),
-      apply: (valeur, traces) => {
-        const plan = planDe(valeur);
-        if (!plan) return null;
-        const derniere = plan.passes[plan.passes.length - 1];
-        const sortie = [];
-        const org = [];
-        for (const p of derniere.paquets) {
-          const t = fusion(...plan.chiffres.slice(p.od, p.of).map((c) => traces[c.src] || []));
-          for (const d of p.sortie) { sortie.push(d); org.push(t); }
-        }
-        return { valeur: sortie, traces: org };
-      },
-      // ★ Toutes les additions, passe après passe, dans l'ordre de lecture —
-      //   c'est ce que le barème dilue (`commun.js › additions`).
-      additions: (valeur) => {
-        const plan = planDe(valeur);
-        return plan ? plan.passes.flatMap((ps) => ps.paquets
-          .filter((p) => p.fin - p.debut >= 2).map((p) => p.fin - p.debut)) : [];
-      },
-      sortie: (avant, apres, ctx) => {
-        const plan = planDe(avant.valeur);
-        return plan ? idsFinalesExactes(plan, ctx) : [];
-      },
-      /**
-       * ★ LA MÊME MISE EN SCÈNE QUE `mrd`, PASSE APRÈS PASSE.
-       *
-       * 1. **Chiffre à chiffre**, une fois, pour les nombres à plusieurs chiffres.
-       * 2. **Pour chaque passe**, la découpe muette en tête, puis UNE ÉTAPE PAR
-       *    TEMPS, tous les paquets ensemble (`etapesEnLargeur`, 19 septembre) :
-       *    les premières paires de tous les paquets, puis leurs résultats ; puis
-       *    les sommes qui débordent s'écrivent chiffre à chiffre, toutes
-       *    ensemble ; puis, s'il faut une racine, leurs chiffres s'additionnent,
-       *    palier par palier. Rien ne disparaît sans avoir été additionné sous
-       *    les yeux.
-       *
-       * Contrôle croisé (§0.3) : `apply`, `sortie`, `additions` et `steps`
-       * relisent le MÊME plan mémoïsé ; `sum` recoupe chaque somme et chaque
-       * palier, `recherche/scenario.js` l'ensemble une troisième fois.
-       */
-      steps: (avant, apres, ctx) => {
-        const plan = planDe(avant.valeur);
-        if (!plan) return [];
-        const steps = [];
-        let ids = idsEntreeExacte(plan, ctx, 0, null);
-
-        // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
-        const paires = [];
-        avant.valeur.forEach((v, i) => {
-          const ks = plan.chiffres.map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
-          if (ks.length < 2) return;
-          paires.push({ target: ctx.ids[i], to: ks.map((k) => token(ids[k], plan.chiffres[k].v, 'digit')) });
-        });
-        if (paires.length) {
-          const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
-          steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
-            enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
-        }
-
-        // ── 2. les passes
-        plan.passes.forEach((passe, q) => {
-          const titre = dire(LIB_REDECOUPAGE_EXACT, ctx.langue)
-            + (q > 0 ? dire(LIB_SECONDE_PASSE, ctx.langue) : '');
-          /* ★ **PAS DE DÉCOUPE D'AVANCE ICI NON PLUS** — voir `mab`. La passe
-               annonçait ses paquets tous ensemble avant de calculer quoi que
-               ce soit ; chaque somme trace son accolade sur ses propres
-               termes, au moment où elle s'en sert, et c'est assez.
-             ⚠️ Ce qui reste vrai et qu'on ne touche pas : la passe ENTIÈRE se
-               joue de gauche à droite avant que la suivante commence. C'est
-               déjà l'ordre que l'auteur demande — « l'itération doit se faire
-               après un parcours de gauche à droite ». */
-          const groupesMuets = passe.paquets.map((p, j) => ({
-            targets: ids.slice(p.debut, p.fin),
-            tag: `${ctx.cle}q${q}g${j}`,
-          }));
-          const avantLesCalculs = steps.length;
-          /* ★ **DEUX CHIFFRES À LA FOIS, ET TOUS LES PAQUETS ENSEMBLE** — voir
-               `commun.js › passesBinaires` et `etapesEnLargeur`. Toutes les
-               premières paires de la passe dans une étape, puis leurs
-               résultats ; puis les sommes qui débordent s'écrivent chiffre à
-               chiffre, toutes ensemble ; puis les réductions, palier par
-               palier, toutes ensemble. La somme du paquet est celle du plan ;
-               c'est elle, ENTIÈRE, qui s'écrit ou se réduit — jamais un
-               résultat partiel, qui écrirait autre chose que ce que la passe
-               écrit. */
-          const chantiers = passe.paquets.map((p, j) => {
-            if (p.fin - p.debut < 2) return null;
-            const termes = ids.slice(p.debut, p.fin)
-              .map((id, t) => ({ id, v: passe.entree[p.debut + t], ou: p.debut + t }));
-            return chantierDuPaquet({
-              termes,
-              somme: p.somme,
-              mode: p.mode,
-              paliers: p.paliers,
-              sorties: idsSortieExacte(ctx, q, j, p, ids),
-              racine: idSommeExacte(ctx, q, j, p),
-              nommer: (k) => `${ctx.cle}q${q}i${j}x${k}`,
-              signe: (k) => `${ctx.cle}q${q}p${j}x${k}`,
-              nomPalier: (k, t) => `${ctx.cle}q${q}r${j}k${k}x${t}`,
-            });
-          }).filter(Boolean);
-          steps.push(...etapesEnLargeur(chantiers, { ctx, titre, prefixe: `q${q}` }));
-          glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
-          ids = passe.paquets.flatMap((p, j) => idsSortieExacte(ctx, q, j, p, ids));
-        });
-        return steps;
-      },
-    };
-  })())),
+  operateurRedecoupageExact(SANS_NEUF),
 
   /* ★ **DEUX VARIANTES MONO-OPÉRATION — et c'est l'auteur qui pose le principe.**
 
@@ -8492,9 +8120,19 @@ const AUTRES_MAPPEURS = [
   //   plutôt que modifier » (l'autrice) : les modèles ne bougent pas, et leurs
   //   variantes vont en fin de bloc, append-only (§4.1). Fabriques plus bas
   //   (hissage) ; les plans sont écrits à côté de `planRedecoupageExact`.
-  operateurRedecoupageFusionnant(),
-  operateurRedecoupageFusionnantExact(),
-  operateurEgalisationFutee(),
+  operateurRedecoupageFusionnant(SANS_NEUF),
+  operateurRedecoupageFusionnantExact(SANS_NEUF),
+  operateurEgalisationFutee(SANS_NEUF),
+  // ★ LES VARIANTES AVEC 9 — le 9 gardé seul pour le demi-tour d'un `mr9`
+  //   (`CODES_AVEC_NEUF`, `declinerAvecNeuf`). Leurs modèles gardent leur rang
+  //   et ne visent plus que la cible ; elles vont en fin de bloc, append-only
+  //   (§4.1), dans l'ordre de leurs modèles.
+  operateurAdditionSelective(AVEC_LE_NEUF),
+  operateurRedecoupage(AVEC_LE_NEUF),
+  operateurRedecoupageExact(AVEC_LE_NEUF),
+  operateurRedecoupageFusionnant(AVEC_LE_NEUF),
+  operateurRedecoupageFusionnantExact(AVEC_LE_NEUF),
+  operateurEgalisationFutee(AVEC_LE_NEUF),
 ];
 
 /**
@@ -9846,66 +9484,69 @@ function operateurAdditionVersLaMoyenne() {
  */
 
 /** `mrdf` — `mrd`, des termes accolés en plus. Voir `planRedecoupageFusionnant`. */
-function operateurRedecoupageFusionnant() {
+function operateurRedecoupageFusionnant(avecNeuf) {
   // Il suit la cible comme `mrd`, et refuse la même : une somme de chiffres ne
   // retombe sur 0 qu'en n'additionnant que des 0.
-  return selonLaCible((visee) => (butsDuPaquet(visee).every((d) => d === 0) ? null : (() => {
-    const lectures = new Map(); // ce qu'une sortie écrit de cette visée — voir le plan
-    const planDe = memoParLigne((valeur) => planRedecoupageFusionnant(valeur, visee, lectures));
-    const buts = butsDuPaquet(visee);
-    const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
-    const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
-    const defaut = retourne
-      ? bilingue(` — ou sur ${RETOURNABLE}, qu’un demi-tour rendra —`,
-        ` — or on ${RETOURNABLE}, which a half-turn will settle —`)
-      : bilingue('', '');
-    return {
-      id: 'm.redecoupageFusionnant', code: 'mrdf', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
-      libelle: LIB_REDECOUPAGE_FUSIONNANT,
-      // La phrase LIT `butsDuPaquet`, comme celle de `mrd` (§0.3).
-      regle: bilingue(
-        'La ligne se lit comme la suite de ses chiffres, puis se redécoupe en paquets choisis '
-        + `pour tomber sur ${vises}${defaut.fr} le plus souvent possible ; un terme de paquet peut `
-        + `être un nombre de la ligne gardé entier, ou jusqu’à ${TERME_ACCOLE_MAX} chiffres voisins `
-        + 'accolés (3 3 → 33), et chaque paquet est remplacé par sa somme, écrite chiffre à '
-        + 'chiffre : 33 + 33 = 66 en écrit deux. On n’accole que si cela en écrit davantage.',
-        'The line is read as the run of its digits, then recut into packets chosen to land on '
-        + `${vises}${defaut.en} as often as possible; a packet term may be a number of the line `
-        + `kept whole, or up to ${TERME_ACCOLE_MAX} neighbouring digits joined (3 3 → 33), and each `
-        + 'packet is replaced by its sum, written digit by digit: 33 + 33 = 66 writes two. Digits '
-        + 'are joined only when that writes more.',
-      ),
-      // ★ 0,15 sous `mrd` (0,20), 0,49 au-dessus (0,48), et pas de recours, comme
-      //   lui — voir l'en-tête des trois variantes. Exploré à partir du cran 2 :
-      //   voir `CRAN_DES_REDECOUPAGES_FUSIONNANTS`.
-      notoriete: 0.15, adHoc: 0.49, cout: 2, desLeCran: CRAN_DES_REDECOUPAGES_FUSIONNANTS,
-      note: bilingue(
-        'La triche du redécoupage, avec une liberté de plus : coller deux chiffres voisins pour '
-        + 'en faire un nombre. Elle ne sert que là où le redécoupage ordinaire écrit moins — '
-        + 'et le score compte le geste de plus.',
-        'The recut cheat with one more liberty: sticking two neighbouring digits into a number. '
-        + 'It only plays where the ordinary recut writes less — and the score counts the extra move.',
-      ),
-      apply: (valeur, traces) => {
-        const plan = planDe(valeur);
-        return plan ? sortieFusionnant(plan, traces) : null;
-      },
-      // ★ Comme `mrd` — voir `additions` dans `commun.js` : la taille de chaque
-      //   somme, en termes, pour que le barème la dilue.
-      additions: (valeur) => {
-        const plan = planDe(valeur);
-        return plan ? plan.paquets.filter((p) => p.mode !== 'copie').map((p) => p.termes.length) : [];
-      },
-      sortie: (avant, apres, ctx) => {
-        const plan = planDe(avant.valeur);
-        return plan ? idsFinalesFusionnant(plan, ctx) : [];
-      },
-      steps: (avant, apres, ctx) => {
-        const plan = planDe(avant.valeur);
-        return plan ? etapesFusionnant(plan, avant, ctx, LIB_REDECOUPAGE) : [];
-      },
-    };
-  })()));
+  return selonLaCible((viseeLue) => {
+    const visee = viseeDeVariante(viseeLue, avecNeuf);
+    return !visee || butsDuPaquet(visee).every((d) => d === 0) ? null : (() => {
+      const lectures = new Map(); // ce qu'une sortie écrit de cette visée — voir le plan
+      const planDe = memoParLigne((valeur) => planRedecoupageFusionnant(valeur, visee, lectures));
+      const buts = butsDuPaquet(visee);
+      const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
+      const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
+      const defaut = retourne
+        ? bilingue(` — ou sur ${RETOURNABLE}, qu’un demi-tour rendra —`,
+          ` — or on ${RETOURNABLE}, which a half-turn will settle —`)
+        : bilingue('', '');
+      return declinerAvecNeuf({
+        id: 'm.redecoupageFusionnant', code: 'mrdf', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+        libelle: LIB_REDECOUPAGE_FUSIONNANT,
+        // La phrase LIT `butsDuPaquet`, comme celle de `mrd` (§0.3).
+        regle: bilingue(
+          'La ligne se lit comme la suite de ses chiffres, puis se redécoupe en paquets choisis '
+          + `pour tomber sur ${vises}${defaut.fr} le plus souvent possible ; un terme de paquet peut `
+          + `être un nombre de la ligne gardé entier, ou jusqu’à ${TERME_ACCOLE_MAX} chiffres voisins `
+          + 'accolés (3 3 → 33), et chaque paquet est remplacé par sa somme, écrite chiffre à '
+          + 'chiffre : 33 + 33 = 66 en écrit deux. On n’accole que si cela en écrit davantage.',
+          'The line is read as the run of its digits, then recut into packets chosen to land on '
+          + `${vises}${defaut.en} as often as possible; a packet term may be a number of the line `
+          + `kept whole, or up to ${TERME_ACCOLE_MAX} neighbouring digits joined (3 3 → 33), and each `
+          + 'packet is replaced by its sum, written digit by digit: 33 + 33 = 66 writes two. Digits '
+          + 'are joined only when that writes more.',
+        ),
+        // ★ 0,15 sous `mrd` (0,20), 0,49 au-dessus (0,48), et pas de recours, comme
+        //   lui — voir l'en-tête des trois variantes. Exploré à partir du cran 2 :
+        //   voir `CRAN_DES_REDECOUPAGES_FUSIONNANTS`.
+        notoriete: 0.15, adHoc: 0.49, cout: 2, desLeCran: CRAN_DES_REDECOUPAGES_FUSIONNANTS,
+        note: bilingue(
+          'La triche du redécoupage, avec une liberté de plus : coller deux chiffres voisins pour '
+          + 'en faire un nombre. Elle ne sert que là où le redécoupage ordinaire écrit moins — '
+          + 'et le score compte le geste de plus.',
+          'The recut cheat with one more liberty: sticking two neighbouring digits into a number. '
+          + 'It only plays where the ordinary recut writes less — and the score counts the extra move.',
+        ),
+        apply: (valeur, traces) => {
+          const plan = planDe(valeur);
+          return plan ? sortieFusionnant(plan, traces) : null;
+        },
+        // ★ Comme `mrd` — voir `additions` dans `commun.js` : la taille de chaque
+        //   somme, en termes, pour que le barème la dilue.
+        additions: (valeur) => {
+          const plan = planDe(valeur);
+          return plan ? plan.paquets.filter((p) => p.mode !== 'copie').map((p) => p.termes.length) : [];
+        },
+        sortie: (avant, apres, ctx) => {
+          const plan = planDe(avant.valeur);
+          return plan ? idsFinalesFusionnant(plan, ctx) : [];
+        },
+        steps: (avant, apres, ctx) => {
+          const plan = planDe(avant.valeur);
+          return plan ? etapesFusionnant(plan, avant, ctx, LIB_REDECOUPAGE) : [];
+        },
+      }, avecNeuf);
+    })();
+  });
 }
 
 /**
@@ -9917,65 +9558,68 @@ function operateurRedecoupageFusionnant() {
  *   l'autrice ; `catalogue.test.js` le tient). `mrfE` garde les trois repères —
  *   Redécoupage, Fusion, la majuscule d'Exact de `mrdE`.
  */
-function operateurRedecoupageFusionnantExact() {
-  return selonLaCible((visee) => (butsDuPaquet(visee).every((d) => d === 0) ? null : (() => {
-    // Le plan de `mrdE`, que `mrfE` consulte avant de parler, mémoïsé à part.
-    const sansFusionDe = memoParLigne((valeur) => planRedecoupageExact(valeur, visee));
-    const planDe = memoParLigne((valeur) => planRedecoupageFusionnantExact(valeur, visee, sansFusionDe));
-    const parDemiTour = visee.utile(SIX_RETOURNE) && !visee.utile(RETOURNABLE);
-    const defaut = parDemiTour
-      ? bilingue(` Un 9, qu’un demi-tour rendra, vaut un ${SIX_RETOURNE}.`,
-        ` A 9, which a half-turn will settle, counts as a ${SIX_RETOURNE}.`)
-      : bilingue('', '');
-    return {
-      id: 'm.redecoupageFusionnantExact', code: 'mrfE', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
-      absorbe: true, // comme `mrdE` : elle consomme toute la ligne et n'écrit que la cible
-      libelle: LIB_REDECOUPAGE_FUSIONNANT_EXACT,
-      regle: bilingue(
-        'La ligne se lit comme la suite de ses chiffres, puis se redécoupe ENTIÈRE en paquets '
-        + `qui écrivent ${visee.texte} dans l’ordre, et rien d’autre ; un terme de paquet peut `
-        + `être un nombre de la ligne gardé entier, ou jusqu’à ${TERME_ACCOLE_MAX} chiffres voisins `
-        + 'accolés (3 3 → 33). Chaque paquet est remplacé par sa somme, écrite chiffre à chiffre '
-        + `ou réduite à un chiffre si elle déborde, en une seule passe.${defaut.fr} Quand la ligne `
-        + 'ne peut pas s’écrire exactement, ou que le redécoupage exact y parvient sans rien '
-        + 'accoler, on n’écrit rien.',
-        'The line is read as the run of its digits, then the WHOLE of it is recut into packets '
-        + `that spell ${visee.texte} in order, and nothing else; a packet term may be a number of `
-        + `the line kept whole, or up to ${TERME_ACCOLE_MAX} neighbouring digits joined (3 3 → 33). `
-        + 'Each packet is replaced by its sum, written digit by digit or reduced to one digit when '
-        + `it overflows, in a single pass.${defaut.en} When the line cannot be spelt exactly, or `
-        + 'the exact recut manages without joining anything, nothing is written.',
-      ),
-      // ★ 0,12 sous `mrdE` (0,15), le même adHoc (0,49 : on ne peut pas être
-      //   plus taillé pour la cible sans être le joker), et pas de recours, comme
-      //   lui — voir l'en-tête des trois variantes. Exploré à partir du cran 2,
-      //   comme `mrdf`.
-      notoriete: 0.12, adHoc: 0.49, cout: 2, desLeCran: CRAN_DES_REDECOUPAGES_FUSIONNANTS,
-      note: bilingue(
-        'Le redécoupage exact, avec une liberté de plus : coller des chiffres voisins pour que '
-        + 'la somme écrive plusieurs chiffres de la cible d’un coup. Il ne joue que là où le '
-        + 'redécoupage exact n’écrit pas autant.',
-        'The exact recut with one more liberty: sticking neighbouring digits together so that a '
-        + 'sum spells several target digits at once. It only plays where the exact recut writes less.',
-      ),
-      apply: (valeur, traces) => {
-        const plan = planDe(valeur);
-        return plan ? sortieFusionnant(plan, traces) : null;
-      },
-      additions: (valeur) => {
-        const plan = planDe(valeur);
-        return plan ? plan.paquets.filter((p) => p.mode !== 'copie').map((p) => p.termes.length) : [];
-      },
-      sortie: (avant, apres, ctx) => {
-        const plan = planDe(avant.valeur);
-        return plan ? idsFinalesFusionnant(plan, ctx) : [];
-      },
-      steps: (avant, apres, ctx) => {
-        const plan = planDe(avant.valeur);
-        return plan ? etapesFusionnant(plan, avant, ctx, LIB_REDECOUPAGE_EXACT) : [];
-      },
-    };
-  })()));
+function operateurRedecoupageFusionnantExact(avecNeuf) {
+  return selonLaCible((viseeLue) => {
+    const visee = viseeDeVariante(viseeLue, avecNeuf);
+    return !visee || butsDuPaquet(visee).every((d) => d === 0) ? null : (() => {
+      // Le plan de `mrdE`, que `mrfE` consulte avant de parler, mémoïsé à part.
+      const sansFusionDe = memoParLigne((valeur) => planRedecoupageExact(valeur, visee));
+      const planDe = memoParLigne((valeur) => planRedecoupageFusionnantExact(valeur, visee, sansFusionDe));
+      const parDemiTour = neufRetournable(visee);
+      const defaut = parDemiTour
+        ? bilingue(` Un 9, qu’un demi-tour rendra, vaut un ${SIX_RETOURNE}.`,
+          ` A 9, which a half-turn will settle, counts as a ${SIX_RETOURNE}.`)
+        : bilingue('', '');
+      return declinerAvecNeuf({
+        id: 'm.redecoupageFusionnantExact', code: 'mrfE', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+        absorbe: true, // comme `mrdE` : elle consomme toute la ligne et n'écrit que la cible
+        libelle: LIB_REDECOUPAGE_FUSIONNANT_EXACT,
+        regle: bilingue(
+          'La ligne se lit comme la suite de ses chiffres, puis se redécoupe ENTIÈRE en paquets '
+          + `qui écrivent ${visee.texte} dans l’ordre, et rien d’autre ; un terme de paquet peut `
+          + `être un nombre de la ligne gardé entier, ou jusqu’à ${TERME_ACCOLE_MAX} chiffres voisins `
+          + 'accolés (3 3 → 33). Chaque paquet est remplacé par sa somme, écrite chiffre à chiffre '
+          + `ou réduite à un chiffre si elle déborde, en une seule passe.${defaut.fr} Quand la ligne `
+          + 'ne peut pas s’écrire exactement, ou que le redécoupage exact y parvient sans rien '
+          + 'accoler, on n’écrit rien.',
+          'The line is read as the run of its digits, then the WHOLE of it is recut into packets '
+          + `that spell ${visee.texte} in order, and nothing else; a packet term may be a number of `
+          + `the line kept whole, or up to ${TERME_ACCOLE_MAX} neighbouring digits joined (3 3 → 33). `
+          + 'Each packet is replaced by its sum, written digit by digit or reduced to one digit when '
+          + `it overflows, in a single pass.${defaut.en} When the line cannot be spelt exactly, or `
+          + 'the exact recut manages without joining anything, nothing is written.',
+        ),
+        // ★ 0,12 sous `mrdE` (0,15), le même adHoc (0,49 : on ne peut pas être
+        //   plus taillé pour la cible sans être le joker), et pas de recours, comme
+        //   lui — voir l'en-tête des trois variantes. Exploré à partir du cran 2,
+        //   comme `mrdf`.
+        notoriete: 0.12, adHoc: 0.49, cout: 2, desLeCran: CRAN_DES_REDECOUPAGES_FUSIONNANTS,
+        note: bilingue(
+          'Le redécoupage exact, avec une liberté de plus : coller des chiffres voisins pour que '
+          + 'la somme écrive plusieurs chiffres de la cible d’un coup. Il ne joue que là où le '
+          + 'redécoupage exact n’écrit pas autant.',
+          'The exact recut with one more liberty: sticking neighbouring digits together so that a '
+          + 'sum spells several target digits at once. It only plays where the exact recut writes less.',
+        ),
+        apply: (valeur, traces) => {
+          const plan = planDe(valeur);
+          return plan ? sortieFusionnant(plan, traces) : null;
+        },
+        additions: (valeur) => {
+          const plan = planDe(valeur);
+          return plan ? plan.paquets.filter((p) => p.mode !== 'copie').map((p) => p.termes.length) : [];
+        },
+        sortie: (avant, apres, ctx) => {
+          const plan = planDe(avant.valeur);
+          return plan ? idsFinalesFusionnant(plan, ctx) : [];
+        },
+        steps: (avant, apres, ctx) => {
+          const plan = planDe(avant.valeur);
+          return plan ? etapesFusionnant(plan, avant, ctx, LIB_REDECOUPAGE_EXACT) : [];
+        },
+      }, avecNeuf);
+    })();
+  });
 }
 
 /**
@@ -9989,111 +9633,667 @@ function operateurRedecoupageFusionnantExact() {
  *   n'écrira jamais `31031998` dans l'ordre. Sur toute autre visée, `viser`
  *   rend `null` et le catalogue le classe désactivé, comme `mr6` sous 666.
  */
-function operateurEgalisationFutee() {
-  return selonLaCible((visee) => (!visee.homogene ? null : (() => {
-    const planDe = memoParLigne((valeur) => planEgalisationFutee(valeur, visee));
-    const buts = butsDuPaquet(visee);
-    const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
-    const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
-    const defaut = retourne
-      ? bilingue(` (ou de ${RETOURNABLE}, qu’un demi-tour rendra)`, ` (or ${RETOURNABLE}s, which a half-turn will settle)`)
-      : bilingue('', '');
-    return {
-      id: 'm.egalisationFutee', code: 'megf', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
-      libelle: LIB_EGALISATION_FUTEE,
-      regle: bilingue(
-        'La ligne se lit comme la suite de ses chiffres et se redécoupe en nombres — un nombre '
-        + `gardé entier, coupé, ou soudé à ses voisins (jusqu’à ${TERME_ACCOLE_MAX} chiffres) — `
-        + `de sorte que l’égalisation écrive le plus de ${vises}${defaut.fr} ; puis on donne 1 du `
-        + 'plus grand au plus petit jusqu’à ce que tout se tienne à 1 près.',
-        'The line is read as the run of its digits and recut into numbers — a number kept whole, '
-        + `cut, or welded to its neighbours (up to ${TERME_ACCOLE_MAX} digits) — so that evening `
-        + `out writes as many ${vises}s${defaut.en} as possible; then 1 is handed from the largest `
-        + 'to the smallest until nothing is more than 1 apart.',
-      ),
-      // ★ 0,15 sous `meg` (0,20) ; adHoc 0,45 au lieu de 0,30 — l'égalisation
-      //   est aveugle, le redécoupage qui la prépare ne l'est pas : il est
-      //   choisi en regardant le chiffre visé. 0,45, c'est « le plus fréquent
-      //   l'emporte », qui décide lui aussi en regardant les valeurs, et reste
-      //   sous `mrd` (0,48), qui choisit chaque paquet. Pas de recours : voir l'en-tête.
-      notoriete: 0.15, adHoc: 0.45, cout: 2,
-      // ★ **ACTIF, MAIS À PARTIR DU CRAN 8** (`desLeCran`, `recherche/bfs.js ›
-      //   operateursExplorables`). Il fut d'abord INACTIF en recherche : actif
-      //   partout, il prenait sept des vingt places de la fenêtre par famille de
-      //   « hope » (`familles.test.js`) et en chassait `tca+m14` — une ligne sur
-      //   deux se laisse égaliser en 6 pourvu qu'on la redécoupe (mesuré : 2 021
-      //   lignes témoins sur 4 000), et la fenêtre se trie d'abord au compte de
-      //   6. L'autrice a rouvert la question : « plus on avance dans les crans,
-      //   plus des cas complexes sont envisageables ».
-      //   MESURÉ, ouvert au cran 5 (temps CPU, moteur neuf, recherche
-      //   cumulative) : +24 % sur « Donald Trump », +10 % sur « Louis Fouché » —
-      //   supportable —, mais la TÊTE se remplissait de ses variantes : sur
-      //   « Donald Trump », quatre des cinq premières lignes (`2:fatb;fl+tca+
-      //   masc+megf`, `0:fr24;…`, `0:fr23;…`, `0:fr8;…`), sur « Didier Raoult »
-      //   quatre aussi (`+megf`, `+megf+mtri`, `+megf+mpf`). Ce n'est plus une
-      //   question de places — la cumulation garde ce que les crans inférieurs
-      //   montraient —, c'est une question de ce qu'on lit en premier. Il s'ouvre
-      //   donc avec les chaînes de trois retouches (`config.js ›
-      //   raffinagesEnChaine`), aux crans où l'on vient chercher l'inhabituel.
-      desLeCran: 8,
-      actifParDefaut: true,
-      note: bilingue(
-        'L’égalisation, préparée : avant de répartir, on choisit comment lire la ligne — ce '
-        + 'nombre coupé en deux, ces deux chiffres collés — pour que la répartition tombe sur le '
-        + 'chiffre voulu. Elle ne joue que là où l’égalisation seule en écrit moins.',
-        'Evening out, prepared: before sharing out, the line is read the convenient way — this '
-        + 'number cut in two, these two digits stuck together — so that the sharing lands on the '
-        + 'wanted digit. It only plays where evening out alone writes fewer.',
-      ),
-      apply: (valeur, traces) => {
-        const plan = planDe(valeur);
-        if (!plan) return null;
-        // L'égalisation garde les places : la trace d'un terme reste la sienne.
-        const org = plan.termes.map((t) => {
-          const srcs = [];
-          for (let k = t.debut; k < t.fin; k++) {
-            const s = plan.chiffres[k].src;
-            if (!srcs.includes(s)) srcs.push(s);
+function operateurEgalisationFutee(avecNeuf) {
+  return selonLaCible((viseeLue) => {
+    const visee = viseeDeVariante(viseeLue, avecNeuf);
+    return !visee || !visee.homogene ? null : (() => {
+      const planDe = memoParLigne((valeur) => planEgalisationFutee(valeur, visee));
+      const buts = butsDuPaquet(visee);
+      const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
+      const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
+      const defaut = retourne
+        ? bilingue(` (ou de ${RETOURNABLE}, qu’un demi-tour rendra)`, ` (or ${RETOURNABLE}s, which a half-turn will settle)`)
+        : bilingue('', '');
+      return declinerAvecNeuf({
+        id: 'm.egalisationFutee', code: 'megf', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+        libelle: LIB_EGALISATION_FUTEE,
+        regle: bilingue(
+          'La ligne se lit comme la suite de ses chiffres et se redécoupe en nombres — un nombre '
+          + `gardé entier, coupé, ou soudé à ses voisins (jusqu’à ${TERME_ACCOLE_MAX} chiffres) — `
+          + `de sorte que l’égalisation écrive le plus de ${vises}${defaut.fr} ; puis on donne 1 du `
+          + 'plus grand au plus petit jusqu’à ce que tout se tienne à 1 près.',
+          'The line is read as the run of its digits and recut into numbers — a number kept whole, '
+          + `cut, or welded to its neighbours (up to ${TERME_ACCOLE_MAX} digits) — so that evening `
+          + `out writes as many ${vises}s${defaut.en} as possible; then 1 is handed from the largest `
+          + 'to the smallest until nothing is more than 1 apart.',
+        ),
+        // ★ 0,15 sous `meg` (0,20) ; adHoc 0,45 au lieu de 0,30 — l'égalisation
+        //   est aveugle, le redécoupage qui la prépare ne l'est pas : il est
+        //   choisi en regardant le chiffre visé. 0,45, c'est « le plus fréquent
+        //   l'emporte », qui décide lui aussi en regardant les valeurs, et reste
+        //   sous `mrd` (0,48), qui choisit chaque paquet. Pas de recours : voir l'en-tête.
+        notoriete: 0.15, adHoc: 0.45, cout: 2,
+        // ★ **ACTIF, MAIS À PARTIR DU CRAN 8** (`desLeCran`, `recherche/bfs.js ›
+        //   operateursExplorables`). Il fut d'abord INACTIF en recherche : actif
+        //   partout, il prenait sept des vingt places de la fenêtre par famille de
+        //   « hope » (`familles.test.js`) et en chassait `tca+m14` — une ligne sur
+        //   deux se laisse égaliser en 6 pourvu qu'on la redécoupe (mesuré : 2 021
+        //   lignes témoins sur 4 000), et la fenêtre se trie d'abord au compte de
+        //   6. L'autrice a rouvert la question : « plus on avance dans les crans,
+        //   plus des cas complexes sont envisageables ».
+        //   MESURÉ, ouvert au cran 5 (temps CPU, moteur neuf, recherche
+        //   cumulative) : +24 % sur « Donald Trump », +10 % sur « Louis Fouché » —
+        //   supportable —, mais la TÊTE se remplissait de ses variantes : sur
+        //   « Donald Trump », quatre des cinq premières lignes (`2:fatb;fl+tca+
+        //   masc+megf`, `0:fr24;…`, `0:fr23;…`, `0:fr8;…`), sur « Didier Raoult »
+        //   quatre aussi (`+megf`, `+megf+mtri`, `+megf+mpf`). Ce n'est plus une
+        //   question de places — la cumulation garde ce que les crans inférieurs
+        //   montraient —, c'est une question de ce qu'on lit en premier. Il s'ouvre
+        //   donc avec les chaînes de trois retouches (`config.js ›
+        //   raffinagesEnChaine`), aux crans où l'on vient chercher l'inhabituel.
+        desLeCran: 8,
+        actifParDefaut: true,
+        note: bilingue(
+          'L’égalisation, préparée : avant de répartir, on choisit comment lire la ligne — ce '
+          + 'nombre coupé en deux, ces deux chiffres collés — pour que la répartition tombe sur le '
+          + 'chiffre voulu. Elle ne joue que là où l’égalisation seule en écrit moins.',
+          'Evening out, prepared: before sharing out, the line is read the convenient way — this '
+          + 'number cut in two, these two digits stuck together — so that the sharing lands on the '
+          + 'wanted digit. It only plays where evening out alone writes fewer.',
+        ),
+        apply: (valeur, traces) => {
+          const plan = planDe(valeur);
+          if (!plan) return null;
+          // L'égalisation garde les places : la trace d'un terme reste la sienne.
+          const org = plan.termes.map((t) => {
+            const srcs = [];
+            for (let k = t.debut; k < t.fin; k++) {
+              const s = plan.chiffres[k].src;
+              if (!srcs.includes(s)) srcs.push(s);
+            }
+            return fusion(...srcs.map((s) => traces[s] || []));
+          });
+          return { valeur: plan.egalisees.slice(), traces: org };
+        },
+        sortie: (avant, apres, ctx) => nomsTokens(ctx, apres.valeur.length),
+        /**
+         * ★ Le montage (coupes, puis soudures — `etapesDuMontage`), puis le geste
+         *   de `meg` tel quel : l'accolade qui égalise sans rien ramasser, et le
+         *   relevé d'identité qui DÉCLARE ce que le nivellement a changé (voir
+         *   `meg`, « les jetons changent d'identité à la fin, et il le faut »).
+         */
+        steps: (avant, apres, ctx) => {
+          const plan = planDe(avant.valeur);
+          if (!plan) return [];
+          const montage = montageDesTermes(plan.chiffres, plan.termes, ctx);
+          const steps = etapesDuMontage(avant, montage, ctx);
+          const ids = montage.montes.map((t) => t.id);
+          const sortie = nomsTokens(ctx, plan.egalisees.length);
+          steps.push(etape(ctx, dire(LIB_EGALISE, ctx.langue),
+            `${plan.valeurs.join(' ')} → ${plan.egalisees.join(' ')}`, enchainer([
+              {
+                op: 'group',
+                targets: ids,
+                egaliser: true,
+                symbol: '≡',
+                label: dire(bilingue('Égalisation', 'Evening out'), ctx.langue),
+                resultat: plan.egalisees,
+                dur: dureeRamassage({ transferts: plan.transferts.length }),
+              },
+              {
+                op: 'substitute',
+                dur: 120,
+                pairs: ids.map((id, i) => ({ target: id, to: token(sortie[i], plan.egalisees[i], 'number') })),
+              },
+            ]), { id: `s_${ctx.cle}_eg`, hold: 400 }));
+          return steps;
+        },
+      }, avecNeuf);
+    })();
+  });
+}
+
+/** `mad` et `mad9` — voir leur place au catalogue, et `planAdditionSelective`. */
+function operateurAdditionSelective(avecNeuf) {
+  return selonLaCible((viseeLue) => {
+    const visee = viseeDeVariante(viseeLue, avecNeuf);
+    return !visee || butsDuPaquet(visee).every((d) => d === 0) ? null : declinerAvecNeuf({
+      id: 'm.additionSelective', code: 'mad', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+      libelle: LIB_ADDITION_SELECTIVE,
+      regle: (() => {
+        // Les buts se LISENT sur `butsDuPaquet` : la règle affichée est la règle
+        // appliquée, pas une phrase parallèle qui pourrait dériver (§0.3). Sur
+        // `666` la liste vaut `[6]` sans le 9, `[6, 9]` avec (`mad9`).
+        const buts = butsDuPaquet(visee);
+        const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
+        const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
+        const defaut = retourne
+          ? bilingue(` — ou ${RETOURNABLE} à défaut, qu’un demi-tour rendra`,
+            ` — or at ${RETOURNABLE} failing that, which half a turn will convert —`)
+          : bilingue('', '');
+        return bilingue(
+          'Chaque nombre s’écrit chiffre à chiffre, puis on n’additionne QUE les suites '
+          + `contiguës dont la somme vise ${vises}${defaut.fr}. `
+          + `Une suite qui ferait perdre un ${buts.join(' ou un ')} déjà `
+          + `${buts.length > 1 ? 'écrits' : 'écrit'} est refusée. `
+          + 'De gauche à droite, toujours la suite qui se referme la première.',
+          'Every number is written out digit by digit, then only the adjacent runs aiming '
+          + `at ${vises}${defaut.en} are summed. A run that `
+          + `would cost a ${buts.join(' or a ')} already written is refused. `
+          + 'Left to right, always the run that closes first.',
+        );
+      })(),
+      // ★ Notoriété 0,30, la plus haute des trois : additionner des chiffres
+      // contigus est le geste le plus banal de toute la numérologie — c'est ce
+      // que fait la racine numérique. Ce qui est louche n'est pas l'addition,
+      // c'est le fait de ne pas les additionner TOUS.
+      //
+      // ★ AdHoc 0,30, la plus basse des trois, et c'est l'auteur qui l'ordonne :
+      // « c'est de la triche à utiliser en dernier recours », mais elle ne jette
+      // rien — elle ABSORBE arithmétiquement, ce que l'auteur préfère
+      // explicitement à « se débarrasser artificiellement de chiffres ».
+      notoriete: 0.30, adHoc: 0.30,
+      // ★ L'EXEMPLE de la note est CALCULÉ sur la cible, jamais recopié. « 5+1 »
+      //   ne fait un 6 que parce qu'on vise 6 ; sur `111` la note doit montrer une
+      //   somme qui fait 1. On prend la plus petite paire qui vise juste — deux
+      //   termes non nuls dont la somme se réduit au premier chiffre de la cible —,
+      //   et si aucune n'existe on se passe d'exemple plutôt que d'en inventer un.
+      note: (() => {
+        const but = visee.alphabet.find((d) => d !== 0) ?? visee.alphabet[0];
+        const paire = (() => {
+          for (let a = 1; a <= 9; a++) {
+            for (let b = 1; b <= 9; b++) if (reduire(a + b) === but) return `${a}+${b}`;
           }
-          return fusion(...srcs.map((s) => traces[s] || []));
-        });
-        return { valeur: plan.egalisees.slice(), traces: org };
+          return null;
+        })();
+        const ex = paire
+          ? bilingue(`on additionne ${paire} pour faire un ${but}, et l’on ne touche `,
+            `${paire} is added to make a ${but}, and a ${but} already there is only `)
+          : bilingue('on additionne des chiffres contigus, et l’on ne touche ',
+            `adjacent digits are added up, and a ${but} already there is only `);
+        return bilingue(
+          `Sélective, donc discutable : ${ex.fr}à un ${but} déjà là que pour lui faire avaler `
+          + 'un zéro — il en ressort intact. Les signes + ne paraissent qu’entre les termes '
+          + 'retenus : la sélection est sous les yeux, c’est le score qui la juge.',
+          `Selective, hence arguable: ${ex.en}touched to swallow a zero — it comes out `
+          + 'intact. The plus signs appear only between the chosen terms: the selection is '
+          + 'in plain sight, and the score is what judges it.',
+        );
+      })(),
+      apply: (valeur, traces) => {
+        const plan = planAdditionSelective(valeur, visee);
+        if (!plan) return null;
+        return {
+          valeur: plan.sortie.map((s) => s.v),
+          traces: plan.sortie.map((s) => fusion(
+            ...plan.chiffres.slice(s.debut, s.fin).map((c) => traces[c.src] || []),
+          )),
+        };
       },
-      sortie: (avant, apres, ctx) => nomsTokens(ctx, apres.valeur.length),
+      // ★ Ce que la triche fait VOIR — voir `additions` dans `commun.js`.
+      additions: (valeur) => {
+        const plan = planAdditionSelective(valeur, visee);
+        return plan ? plan.sortie.filter((s) => s.fin - s.debut >= 2)
+          .map((s) => s.fin - s.debut) : [];
+      },
+      sortie: (avant, apres, ctx) => {
+        const plan = planAdditionSelective(avant.valeur, visee);
+        return plan ? plan.sortie.map((s, j) => idSortie(plan, ctx, s, j)) : [];
+      },
       /**
-       * ★ Le montage (coupes, puis soudures — `etapesDuMontage`), puis le geste
-       *   de `meg` tel quel : l'accolade qui égalise sans rien ramasser, et le
-       *   relevé d'identité qui DÉCLARE ce que le nivellement a changé (voir
-       *   `meg`, « les jetons changent d'identité à la fin, et il le faut »).
+       * ★ DEUX STEPS, PARCE QUE CE SONT DEUX GESTES.
+       *
+       * 1. **On écrit chaque nombre chiffre à chiffre.** `16` devient `1` `6` :
+       *    sans cela, « 5+1 » est incompréhensible — le `1` n'est nulle part.
+       *    Le step n'est émis que s'il y a quelque chose à découper.
+       * 2. **On additionne les termes retenus, et EUX SEULS.** C'est là que la
+       *    triche se cache, et c'est donc là qu'il faut le plus la montrer : les
+       *    signes `+` paraissent (`insertOperators`) entre les termes d'une
+       *    suite retenue, et NULLE PART ailleurs. Un spectateur voit donc, d'un
+       *    seul coup d'œil, quels chiffres ont été additionnés et lesquels ont
+       *    été laissés côte à côte sans rien faire.
+       *
+       * ★ Contrôle croisé (CONTRACTS §0.3) : `apply`, `sortie` et `steps`
+       * appellent le MÊME `planAdditionSelective` sur le MÊME vecteur — il n'y a
+       * pas de seconde copie qui puisse diverger. `sum` recoupe une deuxième fois
+       * (la somme des opérandes affichés doit égaler `to.text`, sinon échec de
+       * compilation) et `recherche/scenario.js` une troisième, là où il connaît
+       * encore la valeur des jetons de départ.
        */
       steps: (avant, apres, ctx) => {
-        const plan = planDe(avant.valeur);
+        const plan = planAdditionSelective(avant.valeur, visee);
         if (!plan) return [];
-        const montage = montageDesTermes(plan.chiffres, plan.termes, ctx);
-        const steps = etapesDuMontage(avant, montage, ctx);
-        const ids = montage.montes.map((t) => t.id);
-        const sortie = nomsTokens(ctx, plan.egalisees.length);
-        steps.push(etape(ctx, dire(LIB_EGALISE, ctx.langue),
-          `${plan.valeurs.join(' ')} → ${plan.egalisees.join(' ')}`, enchainer([
-            {
-              op: 'group',
-              targets: ids,
-              egaliser: true,
-              symbol: '≡',
-              label: dire(bilingue('Égalisation', 'Evening out'), ctx.langue),
-              resultat: plan.egalisees,
-              dur: dureeRamassage({ transferts: plan.transferts.length }),
-            },
-            {
-              op: 'substitute',
-              dur: 120,
-              pairs: ids.map((id, i) => ({ target: id, to: token(sortie[i], plan.egalisees[i], 'number') })),
-            },
-          ]), { id: `s_${ctx.cle}_eg`, hold: 400 }));
+        const steps = [];
+        const idc = (k) => idChiffre(plan, ctx, k);
+
+        // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
+        const paires = [];
+        avant.valeur.forEach((v, i) => {
+          const ks = plan.chiffres
+            .map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
+          if (ks.length < 2) return;
+          paires.push({ target: ctx.ids[i], to: ks.map((k) => token(idc(k), plan.chiffres[k].v, 'digit')) });
+        });
+        if (paires.length) {
+          const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
+          steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
+            enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
+        }
+
+        /* ── 2. les additions retenues, UNE ÉTAPE CHACUNE ─────────────────────
+
+           > « `mrd` (ou `mad`, j'ai l'impression qu'ils font ou devraient faire la
+           >   même chose) devrait décomposer ses étapes par addition de 2 chiffres
+           >   et générer une étape dans le registre pour chaque, comme ça on peut
+           >   naviguer dedans convenablement. » (l'auteur)
+
+           Elles tenaient toutes dans UN step. À l'écran, cela donnait plusieurs
+           additions qui se jouaient à la suite sans qu'on puisse s'arrêter entre
+           deux — et, dans Le Registre, une seule ligne pour un geste qui en
+           comporte quatre ou cinq. Or Le Registre est l'équivalent accessible
+           OBLIGATOIRE de la scène (CONTRACTS §6) : ce qui se voit en quatre temps
+           doit s'y lire en quatre lignes, sans quoi il ne rend pas compte.
+
+           Chaque étape porte donc SON addition et rien d'autre, avec pour légende
+           l'opération elle-même — `1 + 5 = 6`, qui se vérifie d'un coup d'œil. */
+        /* ★ **ET CHAQUE ADDITION NE PORTE QUE DEUX TERMES** — voir `commun.js ›
+             passesBinaires`. Une suite retenue de quatre chiffres se montrait
+             sous une seule accolade ; elle se montre par paires, et les suites
+             avancent ENSEMBLE, passe après passe (`passesEnLargeur`) : toutes
+             les premières paires de la ligne, puis leurs résultats. La somme de
+             chaque suite est celle du plan, au chiffre près. */
+        const vus = plan.chiffres.map((c) => c.v).join(' ');
+        /* ★ **ET TOUTES LES SUITES AU MÊME TEMPS** — « toutes les premières
+             additions de tous les paquets en même temps, puis toutes les
+             deuxièmes » (l'autrice, 19 septembre, sur les redécoupages : `mad`
+             a le même geste, il suit la même règle). Une étape par temps, qui
+             énumère ses additions ; voir `etapesEnLargeur`. La somme s'écrit
+             telle qu'elle tombe (`15`) : rien ne suit l'addition. */
+        const chantiers = plan.sortie.map((s, j) => {
+          if (s.fin - s.debut < 2) return null;
+          const termes = [];
+          for (let k = s.debut; k < s.fin; k++) termes.push({ id: idc(k), v: plan.chiffres[k].v, ou: k });
+          return chantierDuPaquet({
+            termes,
+            somme: s.v,
+            mode: 'somme',
+            racine: idSortie(plan, ctx, s, j),
+            nommer: (k) => `${ctx.cle}i${j}x${k}`,
+            signe: (k) => `${ctx.cle}p${j}x${k}`,
+          });
+        }).filter(Boolean);
+        steps.push(...etapesEnLargeur(chantiers, { ctx, titre: dire(LIB_ADDITION_SELECTIVE, ctx.langue), prefixe: 's' }));
+        // ⚠️ Aucune addition retenue ne peut arriver ici : `planAdditionSelective`
+        //   rend `null` sans elles (`if (!additions) return null`). Le relevé
+        //   d'ensemble reste néanmoins utile à qui lit Le Registre d'une traite,
+        //   et il ne coûte qu'une ligne — celle du DÉCOUPAGE, pas d'un calcul.
+        if (!steps.length) {
+          steps.push(etape(ctx, dire(LIB_ADDITION_SELECTIVE, ctx.langue),
+            `${vus} → ${apres.valeur.join(' ')}`, [], { id: `s_${ctx.cle}_s` }));
+        }
         return steps;
       },
-    };
-  })()));
+    }, avecNeuf);
+  });
+}
+
+/** `mrd` et `mrd9` — voir leur place au catalogue, et `planRedecoupage`. */
+function operateurRedecoupage(avecNeuf) {
+  return selonLaCible((viseeLue) => {
+    const visee = viseeDeVariante(viseeLue, avecNeuf);
+    return !visee || butsDuPaquet(visee).every((d) => d === 0) ? null : declinerAvecNeuf({
+      id: 'm.redecoupageChoisi', code: 'mrd', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+      libelle: LIB_REDECOUPAGE,
+      regle: (() => {
+        // La phrase LIT `butsDuPaquet`, comme celle de `mad` : ce qui est annoncé
+        // est ce que la programmation dynamique cherche réellement (§0.3).
+        const buts = butsDuPaquet(visee);
+        const retourne = buts[buts.length - 1] === RETOURNABLE && !visee.utile(RETOURNABLE);
+        const vises = (retourne ? buts.slice(0, -1) : buts).join(', ');
+        const defaut = retourne
+          ? bilingue(` — ou sur ${RETOURNABLE}, qu’un demi-tour rendra —`,
+            ` — or on ${RETOURNABLE}, which a half-turn will settle —`)
+          : bilingue('', '');
+        return bilingue(
+          'Chaque nombre s’écrit chiffre à chiffre, puis on redécoupe la ligne en paquets '
+          + `choisis pour tomber sur ${vises}${defaut.fr} le plus souvent possible ; chaque `
+          + `paquet est remplacé par sa somme. Un ${buts.join(' ou un ')} déjà là reste seul.`,
+          'Every number is written out digit by digit, then the line is recut into packets '
+          + `chosen to land on ${vises}${defaut.en} as often as possible; each packet is `
+          + `replaced by its sum. A ${buts.join(' or a ')} already there is left alone.`,
+        );
+      })(),
+      // ★ Notoriété 0,20 — « `mrd`, l'idée est là, à retirer des ficelles pour en
+      // faire un opérateur à 0.2 de notoriété » (l'auteur). Elle valait 0,10, la
+      // plus basse du catalogue hors joker, du temps où l'opérateur était compté
+      // parmi les ficelles ; il n'y est plus (`elegance.js › FICELLES`), et
+      // l'auteur fixe lui-même le chiffre. Ce qui ne change pas, c'est le
+      // RAISONNEMENT derrière : additionner des chiffres est banal, REDÉCOUPER la
+      // ligne pour choisir lesquels s'additionnent ne se fait nulle part et ne
+      // s'attend nulle part. Ce qui est connu ici, c'est l'addition ; ce qui ne
+      // l'est pas, c'est la découpe — et c'est la découpe qui fait tout le
+      // travail.
+      //
+      // ★ AdHoc 0,48, juste sous le joker (0,50) et au-dessus de « le plus
+      // fréquent l'emporte » (0,45) : c'est l'opérateur le plus taillé pour la
+      // cible de tout le catalogue. `mpf` décide en regardant le vecteur qu'il
+      // vient d'obtenir ; celui-ci décide en regardant le CHIFFRE QU'ON CHERCHE,
+      // et il essaie toutes les découpes jusqu'à trouver celle qui en donne le
+      // plus. On ne peut pas être plus explicitement au service du 6.
+      notoriete: 0.20, adHoc: 0.48,
+      note: bilingue(
+        'Oui, c’est de la triche, et l’auteur l’écrit ainsi : « c’est le moment de tricher ». '
+        + 'On le montre plutôt que de le maquiller — les accolades disent où l’on a coupé, '
+        + 'les signes + disent ce qu’on a additionné, et le score dit ce que ça coûte.',
+        'Yes, this is cheating, and the author says so: “time to cheat”. We show it rather '
+        + 'than dress it up — the braces say where the cuts were made, the plus signs say what '
+        + 'was added, and the score says what it costs.',
+      ),
+      apply: (valeur, traces) => {
+        const plan = planRedecoupage(valeur, visee);
+        if (!plan) return null;
+        const sortie = [];
+        const org = [];
+        for (const p of plan.paquets) {
+          // Les deux chiffres d'une somme à deux signes viennent des MÊMES
+          // caractères : ils portent donc la même trace, celle du paquet entier.
+          const t = fusion(...plan.chiffres.slice(p.debut, p.fin).map((c) => traces[c.src] || []));
+          for (const d of p.sortie) { sortie.push(d); org.push(t); }
+        }
+        return { valeur: sortie, traces: org };
+      },
+      // ★ Ce que la triche fait VOIR — voir `additions` dans `commun.js`. C'est
+      //   par là que le barème apprend combien d'additions se suivent, donc à
+      //   quel point chacune passe inaperçue.
+      additions: (valeur) => {
+        const plan = planRedecoupage(valeur, visee);
+        return plan ? plan.paquets.filter((p) => p.fin - p.debut >= 2)
+          .map((p) => p.fin - p.debut) : [];
+      },
+      sortie: (avant, apres, ctx) => {
+        const plan = planRedecoupage(avant.valeur, visee);
+        return plan ? plan.paquets.flatMap((p, j) => idsPaquet(plan, ctx, p, j)) : [];
+      },
+      /**
+       * ★ DEUX STEPS, ET LE SECOND MONTRE LA TRICHE EN FACE.
+       *
+       * 1. **On écrit chaque nombre chiffre à chiffre.** `12` devient `1` `2` :
+       *    sans cela, « 1+2+3 » est incompréhensible. Le step n'est émis que s'il
+       *    y a quelque chose à éclater.
+       * 2. **On redécoupe, puis on additionne.** Les accolades de `partition`
+       *    tombent d'abord — c'est la DÉCISION, et c'est elle qu'il faut montrer
+       *    avant tout, parce que c'est elle qui triche : le choix des coupes.
+       *    Puis, dans chaque paquet de plus d'un chiffre, les signes `+`
+       *    paraissent et la somme se fait ; si elle dépasse neuf, un `substitute`
+       *    l'écrit chiffre à chiffre — le MÊME geste qu'au step 1, parce que
+       *    c'est la même chose qui se passe : un nombre à deux signes rejoint une
+       *    ligne de chiffres.
+       *
+       * ⚠️ **Et surtout PAS un `reduce`.** C'est ce que faisait la version
+       * précédente : `16` y était ramené à `7` par racine numérique, et le 6 que
+       * l'auteur venait de fabriquer disparaissait sous nos yeux. Le geste était
+       * juste, la règle ne l'était pas.
+       *
+       * ★ Contrôle croisé (CONTRACTS §0.3) : `apply`, `sortie` et `steps`
+       * appellent le MÊME `planRedecoupage` sur le MÊME vecteur — pas de seconde
+       * copie possible. `sum` recoupe une deuxième fois (la somme des opérandes
+       * affichés doit égaler `to.text`, sinon échec de compilation), et
+       * `recherche/scenario.js` une troisième, là où il connaît encore la valeur
+       * des jetons de départ.
+       */
+      steps: (avant, apres, ctx) => {
+        const plan = planRedecoupage(avant.valeur, visee);
+        if (!plan) return [];
+        const steps = [];
+        const idc = (k) => idChiffreRedecoupe(plan, ctx, k);
+
+        // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
+        const paires = [];
+        avant.valeur.forEach((v, i) => {
+          const ks = plan.chiffres
+            .map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
+          if (ks.length < 2) return;
+          paires.push({
+            target: ctx.ids[i],
+            to: ks.map((k) => token(idc(k), plan.chiffres[k].v, 'digit')),
+          });
+        });
+        if (paires.length) {
+          const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
+          steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
+            enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
+        }
+
+        /* ── 2. la DÉCOUPE, puis UNE ÉTAPE PAR ADDITION ───────────────────────
+
+           > « `mrd` (ou `mad`…) devrait décomposer ses étapes par addition de 2
+           >   chiffres et générer une étape dans le registre pour chaque, comme ça
+           >   on peut naviguer dedans convenablement. » (l'auteur)
+
+           Tout tenait dans UN step : la découpe et les cinq ou six additions se
+           jouaient d'affilée, sans arrêt possible entre deux, et Le Registre n'en
+           gardait qu'une ligne. Or il est l'équivalent accessible OBLIGATOIRE de
+           la scène (§6) — ce qui se voit en six temps doit s'y lire en six lignes.
+
+           ⚠️ **LA DÉCOUPE AVAIT SA PROPRE ÉTAPE, ELLE N'EN A PLUS** — et c'est
+             l'auteur qui a retourné l'argument.
+
+             > « Plutôt que de pré-découper visuellement et d'afficher les
+             >   accolades pour chaque segment, ne fais la découpe visuelle que
+             >   sur le moment de l'opération impliquant ces chiffres, et affiche
+             >   l'accolade correspondante à ce moment-là. » (l'auteur)
+
+             Ce qui était écrit ici — « elle n'additionne rien, elle ANNONCE les
+             paquets », « la coller à la première addition ferait commencer un
+             calcul dans l'étape qui pose la question » — se défendait. Mais
+             annoncer les paquets, c'est montrer d'un coup le résultat du
+             découpage, donc la réponse, avant d'avoir rien calculé : le lecteur
+             voit le programme savoir où couper sans savoir pourquoi. L'accolade
+             que `sum` trace sur ses propres termes, au moment où il les
+             additionne, dit la même chose et la dit en la justifiant.
+
+             ★ **ET « UNE ÉTAPE PAR ADDITION » DEVIENT « UNE ÉTAPE PAR TEMPS ».**
+               > « Toutes les premières additions de tous les paquets en même
+               >   temps, puis toutes les deuxièmes, etc. » (l'autrice, 19
+               >   septembre)
+               Le Registre garde une ligne par temps, qui énumère toutes ses
+               additions (`8 + 7 = 15 · 3 + 6 = 9 · …`) : ce qui se voit en même
+               temps se lit sur la même ligne. Voir `etapesEnLargeur`. */
+        const vus = plan.chiffres.map((c) => c.v).join(' ');
+        const groupesMuets = plan.paquets.map((p, j) => ({
+          targets: Array.from({ length: p.fin - p.debut }, (_, k) => idc(p.debut + k)),
+          tag: `${ctx.cle}q${j}`,
+        }));
+        const avantLesCalculs = steps.length;
+
+        /* ★ **DEUX CHIFFRES À LA FOIS, ET TOUS LES PAQUETS ENSEMBLE** — voir
+             `commun.js › passesBinaires` et `etapesEnLargeur`. `5 + 3 + 8 + 2`
+             se montre `5 + 3`, `8 + 2`, puis `8 + 10` au temps suivant ; la
+             somme du paquet — 18 — est celle du plan, et c'est elle, entière,
+             qui s'écrit ensuite chiffre à chiffre, avec celles des autres
+             paquets. Rien ne la réduit : `16` porte un 6 que `7` n'a pas. */
+        const chantiers = plan.paquets.map((p, j) => {
+          if (p.fin - p.debut < 2) return null;
+          const termes = [];
+          for (let k = p.debut; k < p.fin; k++) termes.push({ id: idc(k), v: plan.chiffres[k].v, ou: k });
+          return chantierDuPaquet({
+            termes,
+            somme: p.somme,
+            mode: p.sortie.length > 1 ? 'eclate' : 'somme',
+            sorties: idsPaquet(plan, ctx, p, j),
+            racine: idSomme(plan, ctx, p, j),
+            nommer: (k) => `${ctx.cle}i${j}x${k}`,
+            signe: (k) => `${ctx.cle}p${j}x${k}`,
+          });
+        }).filter(Boolean);
+        steps.push(...etapesEnLargeur(chantiers, { ctx, titre: dire(LIB_REDECOUPAGE, ctx.langue), prefixe: '' }));
+        glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
+
+        // Un redécoupage sans aucun paquet à additionner n'existe pas
+        // (`planRedecoupage` exige `groupes`), mais un relevé d'ensemble reste dû
+        // à qui lit Le Registre d'une traite.
+        if (!steps.length) {
+          steps.push(etape(ctx, dire(LIB_REDECOUPAGE, ctx.langue),
+            `${vus} → ${apres.valeur.join(' ')}`, [], { id: `s_${ctx.cle}_d` }));
+        }
+        return steps;
+      },
+    }, avecNeuf);
+  });
+}
+
+/** `mrdE` et `md9E` — voir leur place au catalogue, et `planRedecoupageExact`. */
+function operateurRedecoupageExact(avecNeuf) {
+  return selonLaCible((viseeLue) => {
+    const visee = viseeDeVariante(viseeLue, avecNeuf);
+    return !visee || butsDuPaquet(visee).every((d) => d === 0) ? null : (() => {
+      const planDe = memoPlanExact(visee);
+      return declinerAvecNeuf({
+        id: 'm.redecoupageExact', code: 'mrdE', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
+        absorbe: true, // voir `mab` : elle consomme toute la ligne et n'écrit que la cible
+        libelle: LIB_REDECOUPAGE_EXACT,
+        regle: (() => {
+          const parDemiTour = neufRetournable(visee);
+          const defaut = parDemiTour
+            ? bilingue(` — un 9, qu’un demi-tour rendra, vaut un ${SIX_RETOURNE}`,
+              ` — a 9, which a half-turn will settle, counts as a ${SIX_RETOURNE}`)
+            : bilingue('', '');
+          return bilingue(
+            'Chaque nombre s’écrit chiffre à chiffre, puis la ligne ENTIÈRE se redécoupe en '
+            + `paquets qui écrivent ${visee.texte} dans l’ordre, et rien d’autre : chaque paquet `
+            + 'est remplacé par sa somme, réduite à un chiffre si elle déborde — un chiffre de la '
+            + 'cible absorbe ainsi des voisins dont la somme est un multiple de neuf, et ressort '
+            + `intact. Si une passe ne suffit pas, une seconde redécoupe le résultat${defaut.fr}. `
+            + 'Quand la ligne ne peut pas s’écrire exactement, on n’écrit rien.',
+            'Every number is written out digit by digit, then the WHOLE line is recut into packets '
+            + `that spell ${visee.texte} in order, and nothing else: each packet is replaced by its `
+            + 'sum, reduced to one digit when it overflows — a target digit thereby absorbs '
+            + 'neighbours whose sum is a multiple of nine, and comes out intact. When one pass is '
+            + `not enough, a second one recuts the result${defaut.en}. When the line cannot be `
+            + 'spelt exactly, nothing is written.',
+          );
+        })(),
+        // ★ Notoriété 0,15, sous `mrd` (0,20) : redécouper est déjà inconnu ;
+        //   redécouper jusqu'à ce que TOUT tombe juste, en repassant, l'est
+        //   davantage. AdHoc 0,49, entre `mrd` (0,48) et le joker (0,50) : il ne
+        //   se contente pas de regarder le chiffre qu'on cherche, il refuse tout
+        //   résultat qui ne serait pas la cible. On ne peut pas être plus taillé
+        //   pour elle — c'est ce qu'il paie en conviction, et ce qu'il rachète en
+        //   exhaustivité : rien n'est jeté, ni en route, ni au verdict.
+        notoriete: 0.15, adHoc: 0.49,
+        // ★ Le coût est celui d'UNE passe — comme `mrd`. La seconde passe se voit
+        //   dans le nombre d'étapes et se paie au barème par ses additions
+        //   (`elegance.js › ABSORBENT_PAR_ADDITION`) : le malus de simplicité est
+        //   celui du geste réellement joué, pas un forfait.
+        note: bilingue(
+          'La même triche que le redécoupage, poussée jusqu’au bout : on ne garde pas les '
+          + 'paquets qui tombent bien en jetant le reste, on fond le reste dans les paquets — '
+          + 'quitte à repasser. Le prix : plus d’additions à l’écran ; le gain : la ligne entière '
+          + 'y passe, et le verdict n’écarte rien.',
+          'The same cheat as the recut, taken to its end: instead of keeping the packets that '
+          + 'land well and dropping the rest, the rest is melted into the packets — repeating if '
+          + 'needed. The price: more additions on screen; the gain: the whole line goes in, and '
+          + 'the verdict discards nothing.',
+        ),
+        apply: (valeur, traces) => {
+          const plan = planDe(valeur);
+          if (!plan) return null;
+          const derniere = plan.passes[plan.passes.length - 1];
+          const sortie = [];
+          const org = [];
+          for (const p of derniere.paquets) {
+            const t = fusion(...plan.chiffres.slice(p.od, p.of).map((c) => traces[c.src] || []));
+            for (const d of p.sortie) { sortie.push(d); org.push(t); }
+          }
+          return { valeur: sortie, traces: org };
+        },
+        // ★ Toutes les additions, passe après passe, dans l'ordre de lecture —
+        //   c'est ce que le barème dilue (`commun.js › additions`).
+        additions: (valeur) => {
+          const plan = planDe(valeur);
+          return plan ? plan.passes.flatMap((ps) => ps.paquets
+            .filter((p) => p.fin - p.debut >= 2).map((p) => p.fin - p.debut)) : [];
+        },
+        sortie: (avant, apres, ctx) => {
+          const plan = planDe(avant.valeur);
+          return plan ? idsFinalesExactes(plan, ctx) : [];
+        },
+        /**
+         * ★ LA MÊME MISE EN SCÈNE QUE `mrd`, PASSE APRÈS PASSE.
+         *
+         * 1. **Chiffre à chiffre**, une fois, pour les nombres à plusieurs chiffres.
+         * 2. **Pour chaque passe**, la découpe muette en tête, puis UNE ÉTAPE PAR
+         *    TEMPS, tous les paquets ensemble (`etapesEnLargeur`, 19 septembre) :
+         *    les premières paires de tous les paquets, puis leurs résultats ; puis
+         *    les sommes qui débordent s'écrivent chiffre à chiffre, toutes
+         *    ensemble ; puis, s'il faut une racine, leurs chiffres s'additionnent,
+         *    palier par palier. Rien ne disparaît sans avoir été additionné sous
+         *    les yeux.
+         *
+         * Contrôle croisé (§0.3) : `apply`, `sortie`, `additions` et `steps`
+         * relisent le MÊME plan mémoïsé ; `sum` recoupe chaque somme et chaque
+         * palier, `recherche/scenario.js` l'ensemble une troisième fois.
+         */
+        steps: (avant, apres, ctx) => {
+          const plan = planDe(avant.valeur);
+          if (!plan) return [];
+          const steps = [];
+          let ids = idsEntreeExacte(plan, ctx, 0, null);
+
+          // ── 1. chiffre à chiffre, pour les seuls nombres à plusieurs chiffres
+          const paires = [];
+          avant.valeur.forEach((v, i) => {
+            const ks = plan.chiffres.map((c, k) => (c.src === i ? k : -1)).filter((k) => k >= 0);
+            if (ks.length < 2) return;
+            paires.push({ target: ctx.ids[i], to: ks.map((k) => token(ids[k], plan.chiffres[k].v, 'digit')) });
+          });
+          if (paires.length) {
+            const legende = `${avant.valeur.join(' ')} → ${plan.chiffres.map((c) => c.v).join(' ')}`;
+            steps.push(etape(ctx, dire(LIB_CHIFFRE_A_CHIFFRE, ctx.langue), legende,
+              enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
+          }
+
+          // ── 2. les passes
+          plan.passes.forEach((passe, q) => {
+            const titre = dire(LIB_REDECOUPAGE_EXACT, ctx.langue)
+              + (q > 0 ? dire(LIB_SECONDE_PASSE, ctx.langue) : '');
+            /* ★ **PAS DE DÉCOUPE D'AVANCE ICI NON PLUS** — voir `mab`. La passe
+                 annonçait ses paquets tous ensemble avant de calculer quoi que
+                 ce soit ; chaque somme trace son accolade sur ses propres
+                 termes, au moment où elle s'en sert, et c'est assez.
+               ⚠️ Ce qui reste vrai et qu'on ne touche pas : la passe ENTIÈRE se
+                 joue de gauche à droite avant que la suivante commence. C'est
+                 déjà l'ordre que l'auteur demande — « l'itération doit se faire
+                 après un parcours de gauche à droite ». */
+            const groupesMuets = passe.paquets.map((p, j) => ({
+              targets: ids.slice(p.debut, p.fin),
+              tag: `${ctx.cle}q${q}g${j}`,
+            }));
+            const avantLesCalculs = steps.length;
+            /* ★ **DEUX CHIFFRES À LA FOIS, ET TOUS LES PAQUETS ENSEMBLE** — voir
+                 `commun.js › passesBinaires` et `etapesEnLargeur`. Toutes les
+                 premières paires de la passe dans une étape, puis leurs
+                 résultats ; puis les sommes qui débordent s'écrivent chiffre à
+                 chiffre, toutes ensemble ; puis les réductions, palier par
+                 palier, toutes ensemble. La somme du paquet est celle du plan ;
+                 c'est elle, ENTIÈRE, qui s'écrit ou se réduit — jamais un
+                 résultat partiel, qui écrirait autre chose que ce que la passe
+                 écrit. */
+            const chantiers = passe.paquets.map((p, j) => {
+              if (p.fin - p.debut < 2) return null;
+              const termes = ids.slice(p.debut, p.fin)
+                .map((id, t) => ({ id, v: passe.entree[p.debut + t], ou: p.debut + t }));
+              return chantierDuPaquet({
+                termes,
+                somme: p.somme,
+                mode: p.mode,
+                paliers: p.paliers,
+                sorties: idsSortieExacte(ctx, q, j, p, ids),
+                racine: idSommeExacte(ctx, q, j, p),
+                nommer: (k) => `${ctx.cle}q${q}i${j}x${k}`,
+                signe: (k) => `${ctx.cle}q${q}p${j}x${k}`,
+                nomPalier: (k, t) => `${ctx.cle}q${q}r${j}k${k}x${t}`,
+              });
+            }).filter(Boolean);
+            steps.push(...etapesEnLargeur(chantiers, { ctx, titre, prefixe: `q${q}` }));
+            glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
+            ids = passe.paquets.flatMap((p, j) => idsSortieExacte(ctx, q, j, p, ids));
+          });
+          return steps;
+        },
+      }, avecNeuf);
+    })();
+  });
 }
 
 /** Les dix caractères que « le tiret du 6 » sait convertir — exposé pour l'UI. */
@@ -10107,6 +10307,9 @@ export { MENTION_SEG14 };
 
 /** Les plans des trois variantes qui fusionnent — exposés pour leurs tests, comme `plagesDe`. */
 export { planRedecoupageFusionnant, planRedecoupageFusionnantExact, planEgalisationFutee, planRedecoupageExact };
+// ★ La visée que lit une variante avec ou sans 9 — pour que les tests des plans
+//   lisent la cible comme l'opérateur la lit.
+export { viseeDeVariante };
 
 export const MESURES_STR = Object.freeze(MESURES);
 export const MAPPEURS = Object.freeze([...MAPPEURS_LETTRE, ...AUTRES_MAPPEURS]);

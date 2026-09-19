@@ -2685,6 +2685,74 @@ fusionnés) · `m14`/`m14F` **quatorze segments**, mêmes deux lectures ·
 > `substitute` coupe, `merge` soude, `sum` / `reduce` calculent, le `group`
 > d'égalisation de `meg` égalise.
 
+> *Amendement — **AVEC OU SANS LE 9** : six codes changent de sens, six codes
+> neufs gardent l'ancien.* — 19 septembre 2026.
+>
+> « Fais `mrd9` qui garde les 9, et `mrdE` ne les garde pas. […] S'il y a des
+> opérateurs qui gardent les 9 et qui n'ont pas de variante, décline-les en
+> variante avec 9 et sans. » (l'autrice)
+>
+> Six opérateurs visaient le 9 « à défaut », qu'un `mr9` retournera :
+> `mad`, `mrd`, `mrdf`, `megf` (le 9 comptait comme un 6), `mrdE` et `mrfE`
+> (ils posaient un 9 quand aucune découpe exacte ne l'évitait). Aucun autre ne
+> le vise — `mam`, `meg`, `mab`, `mabx`, `mabd` écrivent la cible seule, `mr39`
+> est le demi-tour lui-même. Chacun se décline :
+>
+> | sans le 9 retournable (code nu) | avec (code neuf) | cran d'ouverture de la variante avec 9 |
+> |---|---|---|
+> | `mad` | `mad9` | 3 |
+> | `mrd` | `mrd9` | 3 |
+> | `mrdE` | `md9E` | 3 |
+> | `mrdf` | `mrf9` | 3 (`mrdf` : 2) |
+> | `mrfE` | `mf9E` | 3 (`mrfE` : 2) |
+> | `megf` | `mef9` | 8, comme `megf` |
+>
+>  · **Le code nu ne vise plus que la cible** : un 9 n'y est pas un chiffre
+>    juste, il s'additionne comme un intrus. « Sans 9 », c'est sans le 9
+>    RETOURNABLE : une cible qui demande un 9 (`1998`, `31031998`) le vise
+>    comme n'importe quel chiffre, et sur toute cible sans 6 le code nu fait
+>    exactement ce qu'il faisait (`mappeurs.js › viseeDeVariante`).
+>  · **La variante avec 9** vise aussi le 9 et garde seuls ceux qui sont déjà
+>    là. Les exactes y prennent l'ordre « le plus de séries d'abord, 9
+>    compris », puis le moins de chiffres justes avalés, puis le moins de
+>    demi-tours : « Didier Raoult » en `fmaj+mas+md9E` écrit `6 9 6 9 6 9 6 6
+>    6`, trois séries une fois `mr9` passé. Elle se désactive sur une cible
+>    qui ne veut pas de 6 ou qui veut des 9 (le demi-tour ne rend qu'un 6), se
+>    tait quand sa sortie ne porte aucun 9, et n'`absorbe` pas : elle écrit la
+>    cible au demi-tour près, c'est le `mr9` qui la suit qui conclut.
+>  · **Son cran d'ouverture est DÉRIVÉ** de la loi des retouches enchaînées :
+>    le premier cran où `raffinagesEnChaine` vaut 2 (`config.js ›
+>    premierCranPourRetouches`), 3 aujourd'hui — et non 2, que l'autrice
+>    supposait. Aux crans 0 à 2, seules les variantes sans 9 cherchent — la
+>    recherche en largeur des fragments comprise, qui enchaînait `mrd+mr9`
+>    dès le cran 0.
+>  · **Les noms** : le code du modèle et un 9, quatre signes au plus. Les
+>    codes de quatre signes perdent leur troisième lettre, comme `mrdfE` est
+>    devenu `mrfE` ; les exactes gardent leur majuscule en dernier et glissent
+>    le 9 devant (`md9E`, `mf9E`). **Pas `mr9E`**, proposé : il se lit
+>    « `mr9` », l'opérateur qui retourne les 9.
+>  · Notées plus bas que leur modèle (trois centièmes), même adHoc, même coût,
+>    pas de `recours` ; au barème, au poste de leur modèle
+>    (`elegance.js › ABSORBENT_PAR_ADDITION`, `A_MERITER_SA_PLACE`,
+>    `UNIFORMISENT`).
+>
+> ⚠️ **C'EST UNE ENTORSE À LA RÈGLE 2, ET ELLE EST ACCORDÉE.** Six codes
+> publiés ou non changent de sens au lieu d'être dépréciés. « Il y a très peu
+> de liens en circulation, l'outil est encore jeune, si certains liens sont
+> cassés, ce n'est pas grave » (l'autrice, 19 septembre 2026). Ce qui change,
+> relevé sur les liens du dépôt (les autres rejouent à l'identique) :
+>
+>  · un lien qui ENCHAÎNAIT un demi-tour ne rejoue plus :
+>    `?tca+masb+mrd+mr9` (« Capitalisme », le calcul de l'auteur, trois séries)
+>    s'écrit désormais `?tca+masb+mrd9+mr9` ; `fl+ma1+mrdE+mr9`
+>    (`hope-hope-hope.fr`) s'écrit `fl+ma1+md9E+mr9` — et y gagne une série ;
+>  · un `mrdE` qui posait un 9 se tait : `fmaj+mas+mrdE` sur « Louis Fouché »
+>    (`6 6 6 6 6 6 9 6 9`, le neuvième cas d'arbitrage, réécrit en `md9E`),
+>    `2:mx6+mrdE` sur « Sarah Kerrigan », `fl+ma1+mrdE` sur « Donald Trump » ;
+>  · un `mrd` qui gardait un 9 découpe autrement, à séries égales sur les
+>    liens relevés (`0:masb+mrd`, `2:fr5+mx6+mrd`, `fl+masb+mrd` sur
+>    « Donald Trump »).
+
 **Trois règles inviolables :**
 1. Un code alloué l'est **à vie**. Retirer un opérateur pose une pierre tombale : son
    code n'est jamais recyclé.

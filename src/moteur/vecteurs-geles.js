@@ -260,8 +260,15 @@ export const VECTEURS = [
   // TOMBE — `7+1+0+8 = 16` rend « 1 6 » et non « 7 », qui perdrait le 6 qu'on
   // venait de fabriquer.
   // (Et il gèle la borne basse : `mrd` refuse en deçà de vingt-cinq chiffres.)
+  //
+  // ★ **CE CALCUL EST DEVENU CELUI DE `mrd9`** (19 septembre 2026) : « fais
+  //   `mrd9` qui garde les 9, et `mrdE` ne les garde pas » (l'autrice). `mrd` ne
+  //   vise plus que le 6 — un 9 s'y additionne comme un intrus —, et sur les
+  //   mêmes trente chiffres il écrit sept 6 (deux séries) là où `mrd9` écrit
+  //   quatre 6 et sept 9 (trois séries, une fois `mr9` passé). Le calcul de
+  //   l'auteur est gelé plus bas, sous son nouveau code, au chiffre près.
   ['mrd', N('9 9 9 7 1 1 2 1 0 5 1 1 6 9 7 1 0 8 1 0 5 1 1 5 1 0 9 1 0 1'.split(' ').map(Number)),
-    [9, 9, 9, 9, 9, 1, 6, 9, 1, 6, 6, 2, 6, 9, 2]],
+    [3, 6, 2, 6, 2, 6, 2, 6, 6, 6, 1, 2]],
   // ★ LA LECTURE, qui n'est pas une conversion : chaque chiffre vaut lui-même.
   //   UN chiffre par jeton — « 24 » d'un coup serait déjà assembler, et la scène
   //   l'a dit (voir `RE_UN_CHIFFRE`). Les refus sont éprouvés plus bas.
@@ -365,6 +372,29 @@ export const VECTEURS = [
   //   et des 8 — aucun 6. Coupé en `1 6`, le dernier nombre la fait tomber sur
   //   neuf 6 : une coupe, quinze transferts.
   ['megf', N([9, 14, 1, 8, 3, 5, 5, 8, 4, 16]), [6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 6]],
+  // ★ LES VARIANTES AVEC 9 — chacune sur une ligne où elle garde un 9 pour le
+  //   demi-tour d'un `mr9`, là où son modèle, qui ne vise que le 6, écrit moins
+  //   ou se tait. Une variante qui ne garde aucun 9 se tait (`mappeurs.js ›
+  //   declinerAvecNeuf`).
+  // `5 16 8 16` : `8 + 1 = 9`, gardé pour le demi-tour — `mad` en fait `8 1`.
+  ['mad9', N([5, 16, 8, 16]), [6, 6, 9, 6]],
+  // Le calcul de l'auteur, `999991691662692`, qui était celui de `mrd` : voir
+  //   plus haut. Coupe pour coupe : `999 7+1+1 2+1+0+5+1 1 6 9 7+1+0+8 1+0+5
+  //   1+1 5+1+0 9 1+0+1`.
+  ['mrd9', N('9 9 9 7 1 1 2 1 0 5 1 1 6 9 7 1 0 8 1 0 5 1 1 5 1 0 9 1 0 1'.split(' ').map(Number)),
+    [9, 9, 9, 9, 9, 1, 6, 9, 1, 6, 6, 2, 6, 9, 2]],
+  // `6 5 1 9 3 3 6 9` : la somme (42) n'est pas un multiple de neuf, `mrdE`
+  //   ne peut rien écrire ; en gardant les deux 9, deux séries : `6 · 5+1 · 9
+  //   · 3+3 · 6 · 9`.
+  ['md9E', N([6, 5, 1, 9, 3, 3, 6, 9]), [6, 6, 9, 6, 6, 9]],
+  // `2 2 7 7` : `22 + 77 = 99`, deux 9 d'une addition, que `mr9` rendra `66` —
+  //   `mrdf` s'y tait.
+  ['mrf9', N([2, 2, 7, 7]), [9, 9]],
+  // `1 6 5 9` : `1 + 65 = 66`, et le 9 reste seul — `mrfE` n'y écrit rien.
+  ['mf9E', N([1, 6, 5, 9]), [6, 6, 9]],
+  // `8 8 8 1 1` : `1 1` soudés en `11`, et l'égalisation tombe sur trois 9 et
+  //   un 8 — `megf`, qui ne vise que le 6, s'y tait.
+  ['mef9', N([8, 8, 8, 1, 1]), [9, 9, 8, 9]],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],

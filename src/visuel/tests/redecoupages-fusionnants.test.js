@@ -13,6 +13,13 @@
  *  3. l'arithmétique de l'égalisation futée est celle de `nivellementDe` ;
  *  4. les gestes se jouent par le CHEMIN DU SITE (`construireScenario`), sans
  *     avertissement, et la ligne rejouée est la sortie publiée.
+ *
+ * ★ **Depuis le 19 septembre 2026, chaque redécoupage a deux variantes** :
+ *   sans le 9 retournable (le code nu) et avec (`mrd9`, `md9E`, `mrf9`, `mf9E`,
+ *   `mef9`) — voir `mappeurs.js › CODES_AVEC_NEUF`. Les lignes de la commande
+ *   ci-dessous avaient été calculées avec le 9 : elles sont tenues sous les
+ *   codes des variantes avec 9, qui font au chiffre près ce que faisaient
+ *   leurs modèles, et le code nu y est confronté.
  */
 
 import test from 'node:test';
@@ -47,7 +54,10 @@ const jetonsNums = (v) => v.map((x, i) => ({ id: `t${i}`, text: String(x), kind:
 // ───────────────────── 1. les modèles
 
 test('★ les modèles n’ont pas bougé d’un octet sur les lignes de la commande', () => {
-  assert.deepEqual(sortie('mrd', [12, 24, 33]), [9, 6]);
+  // `12 24 33` : `1 + 2 + 2 + 4 = 9` gardé pour le demi-tour — c'est `mrd9` ;
+  // `mrd`, qui ne vise que le 6, fait `3` et deux 6.
+  assert.deepEqual(sortie('mrd9', [12, 24, 33]), [9, 6]);
+  assert.deepEqual(sortie('mrd', [12, 24, 33]), [3, 6, 6]);
   assert.deepEqual(sortie('mrd', [1, 3, 3, 3, 3, 3, 3]), [1, 6, 6, 6]);
   assert.deepEqual(sortie('mrd', [1, 3, 3, 3, 3]), [1, 6, 6]);
   assert.equal(sortie('mrdE', [12, 24, 33]), null);
@@ -74,10 +84,14 @@ test('★ `mrdf` se tait à égalité : `33 + 33` ne vaut pas mieux que `3 + 3, 
 
 test('★ `mrdf` peut garder un nombre entier, souder, et gagner franchement', () => {
   const ligne = [12, 8, 9, 14, 6, 1, 9, 9, 1, 20, 23];
-  assert.equal(sortie('mrd', ligne), null, '`mrd` n’y écrit rien de plus que la ligne');
+  assert.equal(sortie('mrd9', ligne), null, '`mrd9` n’y écrit rien de plus que la ligne');
+  // ★ La visée NUE de `666` est celle des variantes avec 9 (`viseeDeVariante`) :
+  //   le plan est celui de `mrf9`, qui garde les trois 9 de la ligne.
   const plan = planRedecoupageFusionnant(ligne, V666);
   assert.deepEqual(ecrit(plan), ['1+28=29', '9=9', '1+4+61=66', '9=9', '9=9', '1+2+0+23=26']);
-  assert.equal(six(sortie('mrdf', ligne)), 7);
+  assert.equal(six(sortie('mrf9', ligne)), 7);
+  // Sans le 9, les mêmes libertés n'écrivent que trois 6 (et laissent un 9).
+  assert.deepEqual(sortie('mrdf', ligne), [1, 0, 6, 6, 1, 9, 2, 6]);
 });
 
 test('★ `mrfE` : `5 + 61 = 66` écrit la cible là où `mrdE` ne peut rien', () => {
@@ -211,8 +225,10 @@ function approcheSur(saisie, codes) {
 
 test('★ par le chemin du site, chaque variante joue son vrai geste', () => {
   const voies = [
-    // `4 7 5 1 3 4` : une soudure, puis des sommes.
-    ['Donald', 'tca+mch+mrdf', ['merge', 'sum']],
+    // `4 7 5 1 3 4` : une soudure, puis des sommes — `4 + 7 + 51 + 3 + 4 = 69`,
+    //   un 6 et un 9 à retourner : c'est la variante avec 9 (`mrdf` s'y tait).
+    ['Donald', 'tca+mch+mrf9', ['merge', 'sum']],
+    ['Didier Raoult', 'fmaj+tca+mas+mrdf', ['sum']],
     // Des nombres gardés ENTIERS additionnés : une coupe, pas une soudure.
     ['Wikipedia', 'tca+mx6+mrfE', ['substitute', 'sum']],
     ['Donald', 'tca+mpy+megf', ['merge', 'group']],

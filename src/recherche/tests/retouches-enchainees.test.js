@@ -32,13 +32,25 @@ test('★ cran 0 : une retouche, le déroulé d’avant au chemin près', () => 
     'jamais plus d’un mappeur et d’une retouche');
 });
 
-test('★ deux retouches : `mam` prépare `meg`, et la voie est construite', () => {
+/* ★ **L'ÉGALISATION QUE `mam` PRÉPARE, `mad` Y MÈNE AUSSI DEPUIS QU'IL NE VISE
+     PLUS LE 9** (19 septembre 2026). Sur `3 6 6 2 5 3 8 7 8 6 7` (somme 61),
+     `mam` fait `2 + 5` pour la moyenne ; l'addition sélective sans 9 fait
+     `7 + 8 = 15`, une suite qui vise 6. Dix termes de somme 61 dans les deux
+     cas : `meg` y écrit la MÊME ligne, neuf 6 et un 7, et la chaîne ne garde
+     une ligne qu'une fois — la première atteinte dans l'ordre du registre
+     (`prolongerLesRetouches`), et `mad` y précède `mam`. La voie à deux
+     retouches est donc construite, sous le nom de `mad`. */
+test('★ deux retouches : la ligne que `mam` prépare pour `meg` est construite', () => {
   const v = tous(2);
-  const voie = v.find((c) => codesDe(c) === 'fl+tca+mt9+mam+meg');
-  assert.ok(voie, 'fl+tca+mt9+mam+meg doit être construit à deux retouches');
+  const voie = v.find((c) => codesDe(c) === 'fl+tca+mt9+mad+meg');
+  assert.ok(voie, 'fl+tca+mt9+mad+meg doit être construit à deux retouches');
   const fin = [...voie.etats.at(-1).valeur].sort((a, b) => a - b);
   assert.deepEqual(fin, [6, 6, 6, 6, 6, 6, 6, 6, 6, 7], 'neuf 6 et un 7');
-  assert.ok(!tous(1).some((c) => codesDe(c) === 'fl+tca+mt9+mam+meg'), 'à une retouche, il ne l’était pas');
+  const [mam, meg] = ['mam', 'meg'].map((code) => OPS.find((o) => o.code === code));
+  const parMam = mam.apply([3, 6, 6, 2, 5, 3, 8, 7, 8, 6, 7], []).valeur;
+  assert.deepEqual(meg.apply(parMam, []).valeur, voie.etats.at(-1).valeur,
+    '`mam` puis `meg` écrit la même ligne : la chaîne ne la garde qu’une fois');
+  assert.ok(!tous(1).some((c) => codesDe(c) === 'fl+tca+mt9+mad+meg'), 'à une retouche, il ne l’était pas');
 });
 
 test('la chaîne n’enchaîne que des retouches : ni absorption ni gonflement après la première', () => {

@@ -279,7 +279,10 @@ export const CAS_ARBITRAGE = Object.freeze([
     saisie: "Louis Fouché",
     // à gauche (« Avant »), la 3ᵉ de `operateurs-et-crans` (669b841)
     avant: "?sce!fl+m14$7NFn8xBqb5eNAq3YCY",
-    // à droite (« Après »), la 3ᵉ de `redecoupages-respectueux` (a3bcfed) ; fl+m14 y est 4ᵉ
-    apres: "?sce!fmaj+mas+mrdE$7NFn8xBqb5eNAq3YCY",
+    // à droite (« Après »), la 3ᵉ de `redecoupages-respectueux` (a3bcfed) ; fl+m14 y est 4ᵉ.
+    // ★ Sa ligne, `6 6 6 6 6 6 9 6 9`, garde un 9 : depuis que `mrdE` ne garde plus
+    //   les 9 (19 septembre 2026), elle s'écrit `md9E` — la même découpe, qui ne se
+    //   cherche qu'à partir du cran 3. `fmaj+mas+mrdE` ne s'applique plus ici.
+    apres: "?sce!fmaj+mas+md9E$7NFn8xBqb5eNAq3YCY",
   },
 ]);

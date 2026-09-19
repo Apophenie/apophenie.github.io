@@ -356,6 +356,27 @@ export function raffinagesEnChaine(n) {
     1 + Math.floor(Math.max(0, n - RAFFINAGES_OUVERTURE + RAFFINAGES_PAS) / RAFFINAGES_PAS));
 }
 
+/**
+ * ★ **LE PREMIER CRAN OÙ `k` RETOUCHES S'ENCHAÎNENT** — lu sur la loi
+ *   `raffinagesEnChaine`, jamais recopié à côté d'elle.
+ *
+ * Un opérateur dont le geste ne sert que SUIVI d'un autre — les variantes qui
+ * gardent le 9 pour qu'un `mr9` le retourne (`mappeurs.js › declinerAvecNeuf`)
+ * — n'a rien à faire aux crans où la chaîne ne peut pas se former : il y
+ * prendrait des places sans jamais y conclure. Son cran d'ouverture est donc
+ * celui-ci, et si la loi bouge, il bouge avec elle. Aujourd'hui : 3 pour deux
+ * retouches, 8 pour trois.
+ *
+ * ⚠️ Échec bruyant si la loi ne l'atteint jamais : un cran d'ouverture qui
+ *   n'existe pas n'a pas de repli honnête.
+ */
+export function premierCranPourRetouches(k) {
+  for (let n = 0; n <= PUISSANCE_DE_FOUILLE_MAX; n++) {
+    if (raffinagesEnChaine(n) >= k) return n;
+  }
+  throw new Error(`config : aucun cran n’enchaîne ${k} retouches (${FORMULE_RAFFINAGES}).`);
+}
+
 /** La pénalité de redondance du MMR au cran d'ouverture, en pour-mille — le
  *  chiffre historique de `score.js › REGLAGES`. Elle DESCEND ensuite, de 23 %
  *  par cran, jusqu'à 26 au cran 10 (`penaliteDeRedondance`). */

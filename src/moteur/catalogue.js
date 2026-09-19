@@ -204,6 +204,13 @@ export const ORDRE_CANONIQUE = Object.freeze([
   //   modifier » (l'autrice) : les modèles ne bougent pas. `mrfE` et non
   //   `mrdfE` : quatre signes au plus. Fin de bloc mappeur, append-only (§4.1).
   'mrdf', 'mrfE', 'megf',
+  // ★ LES VARIANTES AVEC 9 — « fais `mrd9` qui garde les 9, et `mrdE` ne les
+  //   garde pas » (l'autrice, 19 septembre 2026). Les six codes qui visaient le
+  //   9 retournable ne visent plus que la cible ; leur variante qui garde le 9
+  //   pour le demi-tour d'un `mr9` prend un code neuf, dans l'ordre de leurs
+  //   modèles (`mappeurs.js › CODES_AVEC_NEUF`). Fin de bloc mappeur,
+  //   append-only (§4.1).
+  'mad9', 'mrd9', 'md9E', 'mrf9', 'mf9E', 'mef9',
   'cs', 'cst', 'cp',
   // Les deux phases de l'alternance, l'une derrière l'autre (`combinateurs.js`).
   'cal', 'cali', 'cmm',

@@ -788,7 +788,9 @@ test('★ intégration — la ligne principale reste à l’écran sur toutes le
       ['Ice', 'tca+ma1+mfac'],
       ['Sept', 'tca+masb+mdc2'],
       ['Sept', 'tca+masb+mdiv'],
-      ['Capitalisme', 'tca+masb+mrd+mr9'],
+      // ★ `mrd` ne garde plus les 9 (19 septembre 2026) : la retouche qui les
+      //   garde pour `mr9` s'écrit `mrd9`, la même découpe au chiffre près.
+      ['Capitalisme', 'tca+masb+mrd9+mr9'],
       ['Le chat dort sur le tapis rouge', 'fl+tca+m14+mtri+mcc'],
       ['Le chat dort sur le tapis rouge', 'fl+tca+mx6+mrn+mr9'],
       ['Donald Trump', 'so!2:fr13;fl+tca+mtal+m14+mpf'],

@@ -142,8 +142,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 199); // …+3 redécoupages qui fusionnent (mrdf, mrfE, megf), +2 codes de caractère (mas, mu8), +1 addition vers la moyenne (mam), +1 éclatement en chiffres (mecl), +1 code ASCII de chaque signe (mast), +1 code ASCII en signe (masi), +1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 199, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 205); // …+6 variantes avec 9 (mad9, mrd9, md9E, mrf9, mf9E, mef9), +3 redécoupages qui fusionnent (mrdf, mrfE, megf), +2 codes de caractère (mas, mu8), +1 addition vers la moyenne (mam), +1 éclatement en chiffres (mecl), +1 code ASCII de chaque signe (mast), +1 code ASCII en signe (masi), +1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 205, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -153,7 +153,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 199, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 205, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {
@@ -333,7 +333,15 @@ test('★ les quatre transformations du 27 août — ce qu’elles font, et ce q
   assert.deepEqual(sortie('mrd', [1, 2, 3, 6, 4, 2]), [6, 6, 6],
     'six chiffres : le redécoupage s’applique — cher, mais il s’applique');
   const longue = '9 9 9 7 1 1 2 1 0 5 1 1 6 9 7 1 0 8 1 0 5 1 1 5 1 0 9 1 0 1'.split(' ').map(Number);
-  const paquets = sortie('mrd', longue);
+  /* ★ **LE CALCUL DE L'AUTEUR EST CELUI DE `mrd9` DEPUIS LE 19 SEPTEMBRE 2026.**
+     « Fais `mrd9` qui garde les 9, et `mrdE` ne les garde pas » (l'autrice) :
+     `mrd` ne vise plus que le 6, et sa variante avec 9 reprend, au chiffre
+     près, la découpe calculée à la main. Ce qui suit la tient sous son nouveau
+     code ; `mrd`, lui, écrit sept 6 sur les mêmes trente chiffres — deux
+     séries, contre trois pour `mrd9+mr9`. */
+  assert.equal(sortie('mrd', longue).join(''), '362626266612',
+    'sans le 9 : sept 6, les 9 fondus dans les paquets comme n’importe quel intrus');
+  const paquets = sortie('mrd9', longue);
   assert.equal(paquets.join(''), '999991691662692',
     'les trente chiffres de l’auteur, et la sortie qu’il a calculée à la main');
   // ★ Il ACHÈTE des 6-ou-9, sinon il ne se joue pas : onze contre six au départ.
@@ -347,17 +355,21 @@ test('★ les quatre transformations du 27 août — ce qu’elles font, et ce q
   //   réduite : `7+1+0+8 = 16` rend « 1 6 » — c’est de là que vient le 6 du
   //   rang 8, et le réduire à 7 le ferait disparaître.
   assert.deepEqual(paquets.slice(8, 10), [1, 6], 'la somme 16 s’écrit « 1 6 »');
-  const tailles = PAR_CODE.get('mrd').additions(longue);
+  const tailles = PAR_CODE.get('mrd9').additions(longue);
   assert.ok(tailles.length > 0 && tailles.every((t) => t >= 2),
     'les additions déclarées portent toutes au moins deux termes');
   // Rien à acheter : une ligne longue mais qui ne gagne rien est refusée.
   assert.equal(sortie('mrd', new Array(30).fill(6)), null,
     'trente 6 : chacun reste seul, rien n’est gagné, la triche ne se joue pas');
-  assert.equal(sortie('mrd', new Array(30).fill(9)), null,
+  assert.equal(sortie('mrd9', new Array(30).fill(9)), null,
     'trente 9 : même refus, et c’est ce que la règle des 9 implique');
+  // ★ Sans le 9, trente 9 ne sont plus trente chiffres acquis : `9+9+9+9 = 36`
+  //   écrit un 6, et `mrd` en fait sept.
+  assert.deepEqual(sortie('mrd', new Array(30).fill(9)), [1, 8, 3, 6, 3, 6, 3, 6, 3, 6, 3, 6, 3, 6, 3, 6],
+    'trente 9, sans le demi-tour : des 36 qui écrivent chacun un 6');
   // ★ Et la suite que l’auteur en tire se rejoue telle quelle : `mr9` retourne
   //   les 9 et la ligne écrit `666661661662662`.
-  assert.equal(appliquerProgramme(['mrd', 'mr9'], N(longue)).valeur.join(''),
+  assert.equal(appliquerProgramme(['mrd9', 'mr9'], N(longue)).valeur.join(''),
     '666661661662662', 'la suite de l’auteur, un cran plus loin');
 });
 
@@ -1223,10 +1235,16 @@ test('★ `mrdE` — le redécoupage exact ne laisse rien, ou ne fait rien', () 
   // ── plusieurs séries quand la ligne le permet, et jamais un chiffre de plus
   assert.deepEqual(sur('666', [6, 6, 6, 6, 5, 1, 6]), [6, 6, 6, 6, 6, 6],
     'sept chiffres, somme 36 : deux séries, et le 5+1 fait le sixième 6');
-  // ── le demi-tour ne sert qu'à défaut : à sommes égales, on repasse plutôt
-  //    que de poser un 9 (l'ordre du coût : demi-tours, puis seconde passe).
-  assert.deepEqual(sur('666', [12, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5]),
-    [6, 6, 6, 9, 6, 6, 6, 9, 6], 'deux 9 posés, parce qu’aucune découpe n’en évite un');
+  // ── ★ le 9 retournable n'est plus de la partie (19 septembre 2026) : « fais
+  //    `mrd9` qui garde les 9, et `mrdE` ne les garde pas » (l'autrice). Cette
+  //    ligne ne s'écrivait qu'en posant deux 9 pour des 6 (`6 6 6 9 6 6 6 9
+  //    6`) ; sa somme (123) n'est pas un multiple de neuf, `mrdE` n'y écrit
+  //    plus rien, et c'est sa variante avec 9 qui s'en charge — le plus de
+  //    séries d'abord, 9 compris : quatre séries, cinq 9 à retourner.
+  const ligneA9 = [12, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5];
+  assert.equal(sur('666', ligneA9), null, 'sans le 9, l’invariant modulo neuf refuse');
+  assert.deepEqual(appliquer(PAR_CODE.get('md9E'), N(ligneA9)).valeur,
+    [6, 9, 6, 6, 9, 6, 9, 6, 6, 9, 6, 9], '`md9E` : quatre séries une fois `mr9` passé');
 
   // ── les refus, chacun pour sa raison
   assert.equal(sur('666', [8, 15, 16, 5]), null, 'somme 26 ≢ 0, 3 ou 6 (mod 9) : l’invariant refuse');

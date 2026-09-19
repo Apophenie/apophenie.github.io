@@ -192,7 +192,7 @@ test('★ retraits — une cible mêlée fait se retirer `mpf`, `mr6` et `mam`, 
   assert.deepEqual(operateursRetires(catalogue, lireCible('999')), []);
 });
 
-test('★ retraits — sur la cible sous-jacente d’un mot, onze opérateurs s’en vont au cran 0, quatorze au bout', () => {
+test('★ retraits — sur la cible sous-jacente d’un mot, onze opérateurs s’en vont au cran 0, vingt au bout', () => {
   const rangs = cibleDeValeurs([26, 5, 18, 7]);
   // Au cran 0 : les dix d'avant, plus l'addition vers la moyenne (`mam`). Les
   // redécoupages qui accolent (`mrdf`, `mrfE`) et l'égalisation futée (`megf`)
@@ -203,7 +203,13 @@ test('★ retraits — sur la cible sous-jacente d’un mot, onze opérateurs s�
   const retires = operateursRetires(catalogue, rangs, PUISSANCE_DE_FOUILLE_MAX);
   assert.deepEqual(retires.map((x) => x.code).filter((c) => ['mrdf', 'mrfE', 'megf'].includes(c)).sort(),
     ['megf', 'mrdf', 'mrfE']);
-  assert.equal(retires.length, 14, 'toute la famille qui lit la cible');
+  // ★ …et les six variantes AVEC 9 (19 septembre 2026), qui ne s'ouvrent qu'au
+  //   cran 3 : une cible qui ne demande pas de 6 n'a rien à faire d'un 9 gardé
+  //   pour le demi-tour (`mappeurs.js › viseeDeVariante`). Leurs modèles sans 9,
+  //   eux, lisent la cible comme avant.
+  assert.deepEqual(retires.map((x) => x.code).filter((c) => /9/.test(c)).sort(),
+    ['mad9', 'md9E', 'mef9', 'mf9E', 'mrd9', 'mrf9']);
+  assert.equal(retires.length, 20, 'toute la famille qui lit la cible');
   assert.ok(retires.every((x) => x.etat === 'RETIRE'));
   for (const code of ['mab', 'mrdE', 'mabx', 'mabd']) {
     assert.ok(retires.some((x) => x.code === code), `${code} se retire devant une suite de valeurs`);

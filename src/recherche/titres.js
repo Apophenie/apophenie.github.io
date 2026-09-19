@@ -152,6 +152,11 @@ const MAPPEURS_DE_SERVICE = new Set([
   //   même, avec une liberté de plus : même sort que leurs modèles. `megf`
   //   n'y est pas, pas plus que `meg` — l'égalisation nomme une voie.
   'm.redecoupageFusionnant', 'm.redecoupageFusionnantExact',
+  // ★ Les variantes AVEC 9 des redécoupages relisent comme leurs modèles, un
+  //   9 gardé en plus pour le demi-tour : même sort. `mad9` et `mef9` n'y sont
+  //   pas, pas plus que `mad` et `megf`.
+  'm.redecoupageChoisiNeuf', 'm.redecoupageExactNeuf',
+  'm.redecoupageFusionnantNeuf', 'm.redecoupageFusionnantExactNeuf',
   // ★ Le CARRÉ (`mcar`) ne convertit rien non plus : il multiplie par lui-même
   //   ce qu'une autre méthode a calculé, pour donner de la matière à dissoudre.
   //   Vedette, il aurait nommé « par le carré » des voies dont le carré n'est
@@ -354,6 +359,18 @@ export const NOMS = {
   'm.redecoupageFusionnant': b('Par redécoupage choisi, chiffres accolés', 'By chosen recutting, digits joined'),
   'm.redecoupageFusionnantExact': b('Par redécoupage exact, chiffres accolés', 'By exact recutting, digits joined'),
   'm.egalisationFutee': b('Par répartition homogène préparée', 'By prepared evening out'),
+  // ★ Les variantes AVEC 9 — le 9 gardé seul pour le demi-tour d'un `mr9`.
+  //   Leur nom est celui du modèle, et dit ce qu'elles gardent en plus ; les
+  //   quatre redécoupages sont de service, le registre des noms est exhaustif.
+  'm.additionSelectiveNeuf': b('Par addition sélective, les 9 gardés', 'By selective addition, keeping the 9s'),
+  'm.redecoupageChoisiNeuf': b('Par redécoupage choisi, les 9 gardés', 'By chosen recutting, keeping the 9s'),
+  'm.redecoupageExactNeuf': b('Par redécoupage exact, les 9 gardés', 'By exact recutting, keeping the 9s'),
+  'm.redecoupageFusionnantNeuf': b('Par redécoupage choisi, chiffres accolés, les 9 gardés',
+    'By chosen recutting, digits joined, keeping the 9s'),
+  'm.redecoupageFusionnantExactNeuf': b('Par redécoupage exact, chiffres accolés, les 9 gardés',
+    'By exact recutting, digits joined, keeping the 9s'),
+  'm.egalisationFuteeNeuf': b('Par répartition homogène préparée, les 9 gardés',
+    'By prepared evening out, keeping the 9s'),
   // Jamais employé — il est mappeur de service — mais le registre des noms
   // est EXHAUSTIF, et un trou ici serait un trou le jour où la règle changerait.
   'm.chiffreTelQuel': b('Par la lecture des chiffres', 'By reading the digits'),

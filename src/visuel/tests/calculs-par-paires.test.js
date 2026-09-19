@@ -190,7 +190,9 @@ const VOIES = [
   ['Donald', 'tca+mhe+mrd'],
   // L'addition vers la moyenne : « 6 1 2 1 8 5 4 1 1 », deux paquets de trois.
   ['Wikipedia', 'tca+mch+mam'],
-  ['Trump', 'tca+mx6+mrdE'],
+  // ★ `mrdE` n'y écrivait qu'en posant des 9 pour des 6 : c'est désormais le
+  //   geste de sa variante avec 9 (19 septembre 2026), même sortie : `9 9 6`.
+  ['Trump', 'tca+mx6+md9E'],
   ['Donald', 'tca+ma1+cs'],
   ['Donald', 'tca+mpy+cp'],
   ['Donald', 'tca+ma1+cst'],

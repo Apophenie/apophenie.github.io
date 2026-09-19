@@ -1643,6 +1643,16 @@ const ABSORBENT_PAR_ADDITION = Object.freeze({
   //   inventant un poste que le barème ne sait pas comparer.
   'm.redecoupageFusionnant': 'redecoupage',
   'm.redecoupageFusionnantExact': 'redecoupage',
+  // ★ Les variantes AVEC 9 (`mad9`, `mrd9`, `md9E`, `mrf9`, `mf9E`) font le
+  //   geste de leur modèle, un 9 gardé seul en plus : même poste, même palier,
+  //   même dilution. Ce qu'elles ont de moins élégant se paie à la notoriété
+  //   qu'elles déclarent (`mappeurs.js › CODES_AVEC_NEUF`) et au `mr9` qui les
+  //   suit — un geste de plus, compté comme tel.
+  'm.additionSelectiveNeuf': 'additionSelective',
+  'm.redecoupageChoisiNeuf': 'redecoupage',
+  'm.redecoupageExactNeuf': 'redecoupage',
+  'm.redecoupageFusionnantNeuf': 'redecoupage',
+  'm.redecoupageFusionnantExactNeuf': 'redecoupage',
 });
 
 /**
@@ -1788,7 +1798,9 @@ const ENONCENT_LA_MAJORITE = Object.freeze(new Set(['m.plusFrequent']));
 // ★ `megf` égalise comme `meg`, après avoir redécoupé : même poste. La ligne
 //   ayant changé de longueur, la comparaison rang à rang compte pour réécrite
 //   presque toute valeur — c'est plus sévère que pour `meg`, et c'est voulu.
-export const UNIFORMISENT = Object.freeze(new Set(['m.egalisation', 'm.egalisationFutee']));
+//   Sa variante avec 9 (`mef9`) aussi.
+export const UNIFORMISENT = Object.freeze(new Set(['m.egalisation', 'm.egalisationFutee',
+  'm.egalisationFuteeNeuf']));
 
 /**
  * ★ **CE QUI DOIT MÉRITER SA PLACE DANS LE FAISCEAU** — et ce n'est PAS la même
@@ -1864,6 +1876,13 @@ export const A_MERITER_SA_PLACE = Object.freeze(new Set([
   //   (`megf` y entre par `UNIFORMISENT`, comme `meg`).
   'm.redecoupageFusionnant',
   'm.redecoupageFusionnantExact',
+  // ★ Et les variantes avec 9 de chacun, pour la même raison que leur modèle
+  //   (`mef9` y entre par `UNIFORMISENT`).
+  'm.additionSelectiveNeuf',
+  'm.redecoupageChoisiNeuf',
+  'm.redecoupageExactNeuf',
+  'm.redecoupageFusionnantNeuf',
+  'm.redecoupageFusionnantExactNeuf',
   // ★ Le redécoupage EXACT (`mrdE`) n'y est PAS, et c'est mesuré. Il ne
   //   produit rien « en masse » : il écrit la cible exactement ou il se tait,
   //   et sa récolte est bornée par la somme de la ligne (invariant modulo
@@ -2700,8 +2719,10 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
       //   passait devant `fl+tca+m14` et devant `fr13+tca+m14+meg`.
       if (op.id === 'm.absorption' || op.id === 'm.absorptionProduit'
         || op.id === 'm.absorptionDifference' || op.id === 'm.redecoupageExact'
-        // ★ …et sa variante qui accole (`mrfE`), par analogie exacte.
-        || op.id === 'm.redecoupageFusionnantExact') b.absorptions += absorbes;
+        // ★ …et sa variante qui accole (`mrfE`), par analogie exacte ; et leurs
+        //   variantes avec 9 (`md9E`, `mf9E`), qui absorbent de même.
+        || op.id === 'm.redecoupageFusionnantExact' || op.id === 'm.redecoupageExactNeuf'
+        || op.id === 'm.redecoupageFusionnantExactNeuf') b.absorptions += absorbes;
       const poids = typeof op.additions === 'function'
         ? dilution(op.additions(avant.valeur)) : absorbes * 1000;
       // ★ Et le redécoupage, LUI SEUL, s'allège avec la longueur de la ligne :

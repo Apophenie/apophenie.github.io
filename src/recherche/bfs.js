@@ -54,7 +54,9 @@ import { signalerException } from '../moteur/catalogue.js';
  *
  * ⚠️ Ce qu'ouvre concrètement ce relèvement : `mrd` produit désormais des 9
  *   qu'un `mr9` doit retourner, et `fr21+tca+mx6+mrd+mr9` — cinq gestes — donne
- *   seize 6 sur vingt. À quatre, cette voie était hors de portée.
+ *   seize 6 sur vingt. À quatre, cette voie était hors de portée. (Depuis le 19
+ *   septembre 2026, le redécoupage qui garde les 9 s'écrit `mrd9`, et ne
+ *   s'explore qu'à partir du cran 3 — `mappeurs.js › CRAN_DU_DEMI_TOUR`.)
  */
 /* ★ **QUINZE, ET C'EST L'AUTEUR QUI L'AUTORISE** : « vu que ça n'a pas l'air de
    coincer côté timing, on va pouvoir passer la profondeur max à 15 au lieu de

@@ -834,10 +834,21 @@ function prolongerLesRetouches(v, premiers, d) {
   const vues = new Set([cleEtat(v)]);
   let niveau = [];
   for (const p of premiers) {
+    /* ★ **UNE LIGNE QU'UNE ABSORPTION A ÉCRITE NE FERME PAS LA PORTE.** Une
+         absorption (`mab`, `mrdE`…) n'est pas « une chaîne plus courte » vers
+         sa ligne : c'est un autre geste, noté autrement — `mab` est un dernier
+         recours. La compter comme déjà atteinte interdisait aux retouches d'y
+         arriver : sur « Didier Raoult », `fmaj+tca+mas+mab` écrit neuf 6 d'un
+         coup, et `fmaj+tca+mas+md9E+mr9` — les mêmes neuf 6, par des sommes et
+         un demi-tour, ce que l'autrice demandait (19 septembre 2026) — n'était
+         jamais construit. Les deux voies arrivent désormais au classement, qui
+         les départage. Rien ne change aux crans 0 à 2 : la chaîne ne s'y
+         prolonge pas. */
+    if (p.r.absorbe) continue;
     const k = cleEtat(p.w);
     if (vues.has(k)) continue;
     vues.add(k);
-    if (!p.r.absorbe && p.w.type === 'NUMS') niveau.push(p);
+    if (p.w.type === 'NUMS') niveau.push(p);
   }
   const largeur = v.valeur.length;
   const prolongeable = (w) => w.valeur.length <= largeur;
@@ -1654,7 +1665,8 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   //   court, donc `mab` — qui dispose du produit et de la différence — le
   //   prenait chaque fois que les deux existaient. Mesuré sur
   //   `hope-hope-hope.fr` : `fl+ma1+mrdE+mr9` écrit 666 sans rien jeter
-  //   (score 3 552) et n'était proposée à AUCUN cran, parce que
+  //   (score 3 552 ; depuis que `mrdE` ne garde plus les 9, c'est
+  //   `fl+ma1+md9E+mr9`, trois séries) et n'était proposée à AUCUN cran, parce que
   //   `fl+ma1+mab` (3 684) tenait le siège avec une étape de moins.
   //
   //   L'auteur a demandé les deux — « une approche addition uniquement, EN PLUS
@@ -4214,7 +4226,8 @@ export function assembler(saisie, fragments, parFrag, ctx) {
           const refuseAuSiege = (o) => {
             if (!o || !o.id) return false;
             if (Object.prototype.hasOwnProperty.call(FICELLES, o.id)) return true;
-            if (o.id === 'm.additionSelective') return true;
+            // …et sa variante avec 9 (`mad9`), par analogie.
+            if (o.id === 'm.additionSelective' || o.id === 'm.additionSelectiveNeuf') return true;
             return (o.recours || 0) > 0;
           };
           if (c.ops.some(refuseAuSiege)) continue;
