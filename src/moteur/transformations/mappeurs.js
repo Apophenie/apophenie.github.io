@@ -1462,8 +1462,34 @@ function planRedecoupage(valeur, visee) {
   };
 
   // ── la programmation dynamique, de la fin vers le début, à deux dimensions
+  /* ★ **« UN 6 OU UN 9 DÉJÀ LÀ RESTE SEUL » — la règle affichée, enfin tenue.**
+       Elle est écrite dans la `regle` de l'opérateur et dans l'en-tête
+       ci-dessus (« aucun 6 ni aucun 9 déjà là n'est absorbé »), et le code ne
+       la tenait pas : le départage « moins de paquets » préférait `3 + 6 = 9`
+       à `3`, `6` — même nombre d'écrits, un paquet de moins. MESURÉ : sur
+       `3 6 3 3 3`, `mrd` rendait `9 9`, le 6 changé en 9 à retourner, là où
+       `3 | 6 | 3 + 3 + 3` rend `3 6 9`. C'est précisément ce que l'autrice a
+       relevé sur `mrdE` le 19 septembre (« détruire des 6 et convertir des
+       9 »), en demandant de regarder `mrd` « dans la même lignée ».
+
+       Les chiffres justes AVALÉS (`compteurDAvales` : ceux qui collent au rang
+       où le paquet écrit — un 6 ou un 9 sur `666`) se comptent donc, et se
+       départagent juste après les écrits : plus d'écrits, PUIS moins
+       d'avalés, PUIS moins de paquets.
+
+       ★ **POURQUOI UN DÉPARTAGE ET PAS UN INTERDIT** — et pourquoi, sur `666`,
+         c'est la même chose. Une somme de six chiffres ne dépasse pas 54 : elle
+         n'écrit jamais DEUX chiffres utiles (66, 69, 96, 99 sont hors
+         d'atteinte). Un paquet qui avale un 6 écrit donc au plus un chiffre
+         utile, que le 6 laissé seul écrivait déjà : ne jamais avaler ne coûte
+         aucun écrit. MESURÉ sur 3 000 lignes témoins : l'interdit strict, ce
+         départage et « avalés d'abord » rendent les mêmes sorties. Sur une
+         cible à plusieurs chiffres, l'interdit en perdait (sur `31031998`,
+         1 609 lignes refusées au lieu de 122) ; le départage, lui, ne retire
+         jamais un écrit — c'est le premier critère, inchangé. */
+  const avalesDe = compteurDAvales(chiffres, (d, r) => colle(d, r), L);
   const meilleur = Array.from({ length: n + 1 }, () => new Array(L).fill(null));
-  for (let p = 0; p < L; p++) meilleur[n][p] = { ecrits: 0, paquets: 0, coupe: 0, somme: 0, sortie: [] };
+  for (let p = 0; p < L; p++) meilleur[n][p] = { ecrits: 0, avales: 0, paquets: 0, coupe: 0, somme: 0, sortie: [] };
   for (let i = n - 1; i >= 0; i--) {
     for (let p = 0; p < L; p++) {
       let somme = 0;
@@ -1476,12 +1502,15 @@ function planRedecoupage(valeur, visee) {
         const suite = meilleur[i + k][pas.pos];
         if (!suite) continue;
         const ecrits = suite.ecrits + pas.gagne;
+        const avales = suite.avales + (k === 1 ? 0 : avalesDe(i, i + k, p));
         const paquets = suite.paquets + 1;
         const cur = meilleur[i][p];
-        // Départage : plus de chiffres ÉCRITS, puis moins de paquets, puis la
-        // coupe la plus courte — `k` étant croissant, c'est la première trouvée.
-        if (!cur || ecrits > cur.ecrits || (ecrits === cur.ecrits && paquets < cur.paquets)) {
-          meilleur[i][p] = { ecrits, paquets, coupe: k, somme, sortie };
+        // Départage : plus de chiffres ÉCRITS, puis moins de chiffres justes
+        // AVALÉS, puis moins de paquets, puis la coupe la plus courte — `k`
+        // étant croissant, c'est la première trouvée.
+        if (!cur || ecrits > cur.ecrits || (ecrits === cur.ecrits && (avales < cur.avales
+          || (avales === cur.avales && paquets < cur.paquets)))) {
+          meilleur[i][p] = { ecrits, avales, paquets, coupe: k, somme, sortie };
         }
       }
     }
@@ -3272,6 +3301,8 @@ const modeDeLaSomme = (somme) => (somme <= 9 ? 'somme' : 'eclate');
  * ★ **LE DÉPARTAGE — il n'accole que quand ça rapporte**, dans cet ordre :
  *
  *  1. le plus de chiffres ÉCRITS (l'objectif de `mrd`, mot pour mot) ;
+ *  1 bis. le moins de chiffres DÉJÀ JUSTES avalés — la règle que `mrd` a
+ *     reçue le 19 septembre (`compteurDAvales`), et dans la même position ;
  *  2. le moins de SOUDURES — c'est la liberté « moins élégante », elle se
  *     prend en dernier ;
  *  3. le moins de termes de plusieurs chiffres DANS LES SOMMES ;
@@ -3295,7 +3326,7 @@ function planRedecoupageFusionnant(valeur, visee, lectures = new Map()) {
   const chiffres = ligneDeChiffres(valeur);
   const n = chiffres.length;
   if (n > CHIFFRES_REDECOUPE_MAX) return null;
-  const { suite, L, parDemiTour, avance } = lecteurDeCible(visee);
+  const { suite, L, parDemiTour, colle, avance } = lecteurDeCible(visee);
   const termes = termesPossibles(chiffres);
   /* ★ Un paquet qui ACCOLE sans écrire un seul chiffre utile n'est jamais
        retenu : recopier ses chiffres un à un écrit au moins autant — une
@@ -3358,6 +3389,13 @@ function planRedecoupageFusionnant(valeur, visee, lectures = new Map()) {
   const soudures = new Int32Array(T);
   const accoles = new Int32Array(T);
   const nbPaquets = new Int32Array(T);
+  // ★ Les chiffres justes AVALÉS — la règle de `mrd`, à laquelle cette variante
+  //   se tient (voir `planRedecoupage` et `compteurDAvales`) : juste après les
+  //   écrits, avant les libertés « moins élégantes ». Un plan qui écrit PLUS en
+  //   avalant gagne toujours — `2 + 67 = 69` écrit deux chiffres visés là où
+  //   `2 | 6 | 7` n'en écrit qu'un —, mais à écrits égaux, le 6 reste seul.
+  const avales = new Int32Array(T);
+  const avalesDe = compteurDAvales(chiffres, (d, r) => colle(d, r), L);
   const choix = new Array(T).fill(null);
   for (let p = 0; p < L; p++) ecrits[n * L + p] = 0;
   for (let i = n - 1; i >= 0; i--) {
@@ -3367,14 +3405,17 @@ function planRedecoupageFusionnant(valeur, visee, lectures = new Map()) {
         const kk = o.fin * L + o.lu.pos[p];
         if (ecrits[kk] < 0) continue;
         const e = ecrits[kk] + o.lu.gagne[p];
+        const v = avales[kk] + (o.mode === 'copie' ? 0 : avalesDe(o.debut, o.fin, p));
         const s = soudures[kk] + o.soudures;
         const a = accoles[kk] + o.accoles;
         const q = nbPaquets[kk] + 1;
-        // Départage : plus d'écrits, puis moins de soudures, de termes accolés,
-        // de paquets ; à égalité parfaite, le premier énuméré reste.
-        if (ecrits[k] < 0 || e > ecrits[k] || (e === ecrits[k] && (s < soudures[k]
-          || (s === soudures[k] && (a < accoles[k] || (a === accoles[k] && q < nbPaquets[k])))))) {
+        // Départage : plus d'écrits, puis moins d'avalés, de soudures, de
+        // termes accolés, de paquets ; à égalité parfaite, le premier énuméré reste.
+        if (ecrits[k] < 0 || e > ecrits[k] || (e === ecrits[k] && (v < avales[k] || (v === avales[k]
+          && (s < soudures[k] || (s === soudures[k] && (a < accoles[k]
+          || (a === accoles[k] && q < nbPaquets[k])))))))) {
           ecrits[k] = e;
+          avales[k] = v;
           soudures[k] = s;
           accoles[k] = a;
           nbPaquets[k] = q;

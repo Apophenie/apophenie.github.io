@@ -54,3 +54,30 @@ test('★ mrdE — le PLUS de séries passe avant la seconde passe', () => {
   const ligne = [26, 24, 19, 21, 20, 21, 17, 23, 26, 20, 22, 15, 22];
   assert.deepEqual(rend('mrdE', ligne), [6, 9, 6, 6, 6, 9]);
 });
+
+test('★ mrd — « un 6 ou un 9 déjà là reste seul », comme la règle l’annonce', () => {
+  // Avant : `3 + 6 = 9` puis `3 + 3 + 3 = 9` — deux écrits, deux paquets, et le
+  // 6 changé en 9. Maintenant : deux écrits aussi, le 6 intact.
+  assert.deepEqual(rend('mrd', [3, 6, 3, 3, 3]), [3, 6, 9]);
+  assert.match(op('mrd').regle.fr, /déjà là reste seul/);
+  // Avant : `8 + 2 + 6 = 16`, le 6 fondu dans « 1 6 » ; même nombre d'écrits.
+  assert.deepEqual(rend('mrd', [2, 4, 8, 2, 6]), [1, 6, 6]);
+});
+
+test('★ mrd — l’exception du zéro : un 6 qui n’avale qu’un zéro en ressort intact', () => {
+  // Le départage ne compte pas `6 + 0` comme un 6 avalé : à écrits égaux, le
+  // paquet de moins reste préféré, et le zéro parasite disparaît.
+  const r = rend('mrd', [6, 0, 5, 1, 3, 3]);
+  assert.ok(r, 'mrd s’applique');
+  assert.ok(!r.includes(0), `le zéro est absorbé par le 6 (${r && r.join(' ')})`);
+});
+
+test('★ mrdf — à écrits égaux, le 6 reste seul ; à écrits supérieurs, il peut être avalé', () => {
+  // Avant : `5 8 2 6` → `6 6` en fondant le 6. Maintenant le 6 reste.
+  const r = rend('mrdf', [5, 8, 2, 6]);
+  assert.equal(r[r.length - 1], 6);
+  assert.deepEqual(r, [6, 0, 6]);
+  // Mais `2 + 67 = 69` écrit DEUX chiffres visés là où `2 | 6 | 7` n'en écrit
+  // qu'un : le résultat passe avant la manière, et le 6 est avalé.
+  assert.deepEqual(rend('mrdf', [2, 6, 7, 1, 6, 6]), [6, 9, 1, 6, 6]);
+});
