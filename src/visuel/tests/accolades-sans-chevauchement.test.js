@@ -95,10 +95,12 @@ function approcheSur(saisie, codes) {
   }] };
 }
 
-/** Les quatre liens de l'auteur, décodés (`recherche/base58.js`). */
+/** Les liens de l'auteur, plus un témoin de `mrtE` encore applicable après le tri strict. */
 const VOIES = [
   ['Didier Raoult', 'fmaj+tca+mas+mrdE'],
-  ['Didier Raoult', 'fmaj+tca+mas+mrtE'],
+  // Sur Raoult, le tri strict ne gagne plus de série : `mrtE` se tait.
+  // Ce témoin conserve la vérification des accolades de sa passe triée.
+  ['hope-hope-hope.fr', 'fmaj+tca+mas+mrtE'],
   ['Marie Curie', 'fmaj+tca+mas+mrdE'],
   ['jean-michel', 'fmaj+tca+mas+mrdE'],
 ];

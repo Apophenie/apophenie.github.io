@@ -3126,7 +3126,7 @@ function compteurDAvales(chiffres, colle, L) {
  *
  * @returns {{plages:Array, m:number, F:number, avales:number}|null}
  */
-function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus) {
+function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus, garderJustes = false) {
   const n = chiffres.length;
   const L = suite.length;
   const N = mMax * L;
@@ -3135,6 +3135,13 @@ function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus) {
   const demiTour = (d, p) => (d === suite[p % L] ? 0 : 1);
   const pre = [0];
   for (const c of chiffres) pre.push(pre[pre.length - 1] + c.v);
+  // Après le tri, les chiffres de la cible restent à leur place et ne
+  // participent à aucune addition. La contrainte porte sur le plan, afin que
+  // le calcul, les traces et l'animation choisissent les mêmes paquets.
+  const proteges = garderJustes ? [0] : null;
+  if (proteges) for (const c of chiffres) {
+    proteges.push(proteges[proteges.length - 1] + (suite.includes(c.v) ? 1 : 0));
+  }
   const avales = compteurDAvales(chiffres, (d, r) => colle(d, r), L);
 
   const PEND = 11;
@@ -3179,6 +3186,8 @@ function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus) {
             if (sw === 1) continue;
             const i3 = i2 + sw;
             if (i3 > n) break;
+            if (proteges && proteges[i3] > proteges[i]
+              && !(w === 1 && sw === 0 && pend === RIEN)) continue;
             let a = 0;
             let b = RIEN;
             if (sw) {
@@ -3276,7 +3285,7 @@ function chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus) {
  * `racine` (la somme se réduit, `paliers` en donne les étapes) ; `od`/`of` la
  * plage de chiffres d'origine dont le paquet descend, pour les traces.
  */
-function planRedecoupageExact(valeur, visee) {
+function planRedecoupageExact(valeur, visee, garderJustes = false) {
   if (!valeur.length) return null;
   if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
   const chiffres = [];
@@ -3296,7 +3305,7 @@ function planRedecoupageExact(valeur, visee) {
   const total = chiffres.reduce((t, c) => t + c.v, 0);
   if (!residus.some((r) => r.has(total % 9))) return null;
 
-  const trouve = chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus);
+  const trouve = chercherPlagesExactes(chiffres, suite, parDemiTour, mMax, residus, garderJustes);
   if (!trouve) return null;
 
   const multi = new Set();
@@ -3423,13 +3432,13 @@ function planRedecoupageExact(valeur, visee) {
 }
 
 /** Mémoïsation bornée du plan exact, par cible : la recherche le redemande sur chaque état `NUMS`. */
-function memoPlanExact(visee) {
+function memoPlanExact(visee, garderJustes = false) {
   const memo = new Map();
   return (valeur) => {
     const k = valeur.join(',');
     if (memo.has(k)) return memo.get(k);
     if (memo.size >= 512) memo.clear();
-    const plan = planRedecoupageExact(valeur, visee);
+    const plan = planRedecoupageExact(valeur, visee, garderJustes);
     memo.set(k, plan);
     return plan;
   };
@@ -10173,11 +10182,11 @@ function operateurRedecoupage(avecNeuf) {
 }
 
 /** `mrdE` et `md9E` — voir leur place au catalogue, et `planRedecoupageExact`. */
-function operateurRedecoupageExact(avecNeuf) {
+function operateurRedecoupageExact(avecNeuf, garderJustes = false) {
   return selonLaCible((viseeLue) => {
     const visee = viseeDeVariante(viseeLue, avecNeuf);
     return !visee || butsDuPaquet(visee).every((d) => d === 0) ? null : (() => {
-      const planDe = memoPlanExact(visee);
+      const planDe = memoPlanExact(visee, garderJustes);
       return declinerAvecNeuf({
         id: 'm.redecoupageExact', code: 'mrdE', famille: 'mappeur', from: 'NUMS', to: 'NUMS',
         absorbe: true, // voir `mab` : elle consomme toute la ligne et n'écrit que la cible
@@ -10395,10 +10404,9 @@ function operateurRedecoupageExact(avecNeuf) {
 //   TRIER. Les 6 tombent entre les 5 et les 7, comme n'importe quel chiffre.
 //
 //   Ce qu'ils continuent de ne pas faire, c'est d'être ADDITIONNÉS : la passe
-//   exacte préfère toujours les laisser seuls (`meilleurPlanExact`, étage des
-//   avalés), et elle ne les fond que si ça écrit une série de plus — le
-//   départage du 19 septembre, inchangé. La différence est là : ils ne sont
-//   plus mis À L'ÉCART, ils sont seulement LAISSÉS SEULS là où le tri les met.
+//   exacte du tri les laisse seuls, même si les additionner rapporterait une
+//   série de plus. C'est une contrainte du plan (`garderJustes`), pas seulement
+//   un départage. Le redécoupage non trié garde son propre départage.
 //
 //   ★ **LE PRIX, MESURÉ** (banc `tri-respectueux.mjs`, 714 lignes témoins) :
 //     `mrtE` passe de 33 lignes où il parle à 28, et de 78 séries à 64 ; `mt9E`
@@ -10409,6 +10417,11 @@ function operateurRedecoupageExact(avecNeuf) {
 //     frais : `mrtE` n'y écrit plus que ce que `mrdE` écrit déjà, donc il s'y
 //     TAIT ; `mt9E+mr9` y tombe de cinq séries à quatre. L'arbitrage est
 //     assumé : « c'est le prix d'un rendu qui ne semble pas intentionnel ».
+//
+//   Reprise du 22 septembre : cette mesure précédait la protection effective
+//   des chiffres justes. Sur le même banc, la protection donne 17 lignes / 38
+//   séries pour `mrtE`, 10 lignes / 20 séries pour `mt9E`. La voie ASCII de
+//   Raoult avec `mt9E` se tait aussi : ses quatre séries additionnaient des 6.
 //
 // ★ **CIBLES HOMOGÈNES SEULEMENT** (`666`, `777`…) : trier détruit l'ordre de
 //   lecture, et une cible comme `31031998` s'écrit DANS L'ORDRE. Comme `megf`
@@ -10441,7 +10454,7 @@ function planRedecoupageExactTrie(valeur, visee, premiere) {
       .sort((a, b) => (chiffres[a] - chiffres[b]) || (a - b));
     if (ordre.every((k, i) => k === i)) return null;
     const range = ordre.map((k) => chiffres[k]);
-    const exact = planRedecoupageExact(range, visee);
+    const exact = planRedecoupageExact(range, visee, true);
     if (!exact) return null;
     return { premiere: avecPremiere ? ligne : null, ligne, chiffres, ordre, range, exact, series: exact.series };
   };
@@ -10470,7 +10483,7 @@ function operateurRedecoupageExactTrie(avecNeuf) {
     const visee = viseeDeVariante(viseeLue, avecNeuf);
     if (!visee || !visee.homogene || butsDuPaquet(visee).every((d) => d === 0)) return null;
     const premiere = operateurRedecoupage(avecNeuf).viser(viseeLue);
-    const exacte = operateurRedecoupageExact(avecNeuf).viser(viseeLue);
+    const exacte = operateurRedecoupageExact(avecNeuf, true).viser(viseeLue);
     if (!premiere || !exacte) return null;
     const planDe = memoParLigne((valeur) => planRedecoupageExactTrie(valeur, visee, premiere));
     const etatNums = (valeur, traces) => ({ type: 'NUMS', valeur, traces });

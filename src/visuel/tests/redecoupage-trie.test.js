@@ -31,6 +31,8 @@ import { GLYPHES } from '../fixtures/glyphes.js';
 import { PAR_CODE, appliquer } from '../../moteur/catalogue.js';
 import { depuisSaisie, nums } from '../../moteur/etat.js';
 import { construireScenario } from '../../recherche/scenario.js';
+import { planRedecoupageExactTrie, viseeDeVariante } from '../../moteur/transformations/mappeurs.js';
+import { lireVisee } from '../../moteur/transformations/commun.js';
 
 setGlyphes(GLYPHES, 'fixtures/glyphes.js');
 
@@ -79,9 +81,9 @@ test('★ le tri est un TRI : rien n’est mis à part, pas même un 6', () => {
   assert.deepEqual(rend('mt9E', [6, 3, 4, 3, 5]), [6, 9, 6]);
   // La règle générale, sur la plus longue ligne qu'on ait sous la main : la
   // ligne rangée est TRIÉE, point. Aucun 6 ni aucun 9 n'a été extrait.
-  const rangee = ligneRangee('mt9E', RAOULT);
+  const rangee = ligneRangee('mt9E', [18, 5, 9, 14, 6, 15, 3, 15, 22, 9, 4]);
   assert.deepEqual(rangee, [...rangee].sort((a, b) => a - b), 'la ligne rangée est croissante');
-  assert.equal(rangee.length, 26);
+  assert.ok(rangee.includes(6), 'le témoin contient un 6 à préserver');
 });
 
 test('★ Didier Raoult : le tri strict rend ce que le tri à exception avait pris', () => {
@@ -96,8 +98,9 @@ test('★ Didier Raoult : le tri strict rend ce que le tri à exception avait pr
   //   perte franche de l'arbitrage du 20 septembre, et elle est assumée :
   //   « c'est le prix d'un rendu qui ne semble pas intentionnel ».
   assert.equal(rend('mrtE', RAOULT), null);
-  // Avec le 9, le geste tient encore — quatre séries au lieu des cinq d'avant.
-  assert.equal(series(rend('mt9E+mr9', RAOULT)), 4);
+  // Les quatre séries du premier tri strict additionnaient encore des 6.
+  // En les laissant réellement seuls, la passe exacte ne peut plus aboutir.
+  assert.equal(rend('mt9E+mr9', RAOULT), null);
   assert.equal(series(rend('md9E+mr9', RAOULT)), 3);
 });
 
@@ -110,8 +113,36 @@ test('★ jean-michel : l’autre perte franche, celle du « 5 groupé avec un 7
   // Trois séries avec le tri à exception, deux avec `mrdE` seul : le geste ne
   // débloque plus rien, donc il se tait. Une série perdue à l'écran.
   assert.equal(rend('mrtE', JEAN_MICHEL), null, 'une série perdue, et c’est le prix');
-  const rangee = ligneRangee('mt9E', JEAN_MICHEL);
-  assert.deepEqual(rangee, [...rangee].sort((a, b) => a - b));
+  assert.equal(rend('mt9E', JEAN_MICHEL), null, 'les 6 ne sont pas sacrifiés pour finir le tri');
+});
+
+test('★ après le tri, les chiffres déjà justes traversent toutes les passes sans addition', () => {
+  for (const [cible, valeur, avecNeuf] of [
+    ['666', [3, 6, 3, 3, 3], false],
+    ['666', [18, 5, 9, 14, 6, 15, 3, 15, 22, 9, 4], true],
+    ['777', [7, 3, 7, 3, 1], false],
+  ]) {
+    const visee = viseeDeVariante(lireVisee(cible), avecNeuf);
+    const premiere = PAR_CODE.get(avecNeuf ? 'mrd9' : 'mrd').viser(cible);
+    const plan = planRedecoupageExactTrie(valeur, visee, premiere);
+    assert.ok(plan, `${cible} : le témoin doit produire un plan`);
+    let proteges = plan.range.map((v) => v === Number(cible[0]));
+    assert.ok(proteges.some(Boolean));
+    const nombre = proteges.filter(Boolean).length;
+    for (const passe of plan.exact.passes) {
+      const suivants = [];
+      for (const paquet of passe.paquets) {
+        const protege = proteges.slice(paquet.debut, paquet.fin).some(Boolean);
+        if (protege) {
+          assert.equal(paquet.mode, 'copie', 'un chiffre juste ne participe pas à une somme');
+          assert.equal(paquet.fin - paquet.debut, 1);
+        }
+        suivants.push(...paquet.sortie.map(() => protege));
+      }
+      proteges = suivants;
+    }
+    assert.equal(proteges.filter(Boolean).length, nombre);
+  }
 });
 
 test('★ il se tait quand `mrdE` écrit déjà autant, et quand la cible n’est pas homogène', () => {
@@ -150,7 +181,7 @@ test('★ par le chemin du site : `mrd`, puis le rangement de `mtri`, puis `mrdE
   // La dernière ligne est celle qui passe par la PREMIÈRE PASSE : ses étapes de
   // `mrd` se jouent en tête, avant que le rangement ne commence.
   for (const [saisie, programme] of [['hope-hope-hope.fr', 'fmaj+tca+mas+mrtE'],
-    ['hope-hope-hope.fr', 'fmaj+tca+mas+mt9E+mr9'], ['Marie Curie', 'fmaj+tca+mast+mrtE'],
+    ['hope-hope-hope.fr', 'fmaj+tca+mas+mt9E+mr9'],
     ['https://www.google.com', 'fl+tca+masc+mrtE'], ['Wikipedia', 'fmaj+tca+mejc+mrtE']]) {
     const ops = programme.split('+').map((c) => PAR_CODE.get(c));
     const etats = [depuisSaisie(saisie)];
