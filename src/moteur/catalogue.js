@@ -104,12 +104,11 @@ export const ORDRE_CANONIQUE = Object.freeze([
   // ★ LES CÉSARS QUI TROUVENT LEUR DÉCALAGE — même arithmétique que `fr11`…
   //   `fr25`, mais le décalage se LIT dans la saisie (« combien de caractères
   //   communs à chaque mot ? ») au lieu d'être essayé, et l'opérateur refuse
-  //   quand il ne peut pas le prouver. Quatorze et non vingt-cinq : ce sont
-  //   exactement les nombres que la lecture peut écrire, `20` excepté faute de
-  //   pouvoir écrire son zéro (`filtres.js › DECALAGES_LISIBLES`). Fin de bloc
-  //   filtre, append-only (§4.1).
-  'fj11', 'fj12', 'fj13', 'fj14', 'fj15', 'fj16', 'fj17', 'fj18', 'fj19',
-  'fj21', 'fj22', 'fj23', 'fj24', 'fj25',
+  //   quand il ne peut pas le prouver. TROIS et non quatorze : la lecture sait
+  //   écrire quatorze décalages, mais trois seulement sont jouables sur une
+  //   saisie témoin, et un code ne s'alloue à vie que sur ce qu'on sait MONTRER
+  //   (`filtres.js › DECALAGES_ALLOUES`). Fin de bloc filtre, append-only.
+  'fj11', 'fj21', 'fj22',
   'tca', 'tm', 'tsp', 'tsy', 'tch', 'nl', 'nv', 'nc', 'nd', 'nsp',
   // Les quatre compteurs PRÉCIS, derrière celui qui compte tout
   // (`mappeurs.js`) : les barres, les points, les espaces, les tirets.

@@ -144,10 +144,30 @@ C'est cette borne qui tranche, et elle élimine d'abord la forme qu'on attendait
    court dit « César 22 ». Seul le code est muet ; tout ce que le lecteur voit
    ne l'est pas.
 
-**Quatorze codes**, et pas vingt-cinq : `fj11`…`fj19` et `fj21`…`fj25`. Ce sont
-exactement les décalages que la lecture peut produire (§3, corollaire), et ils
-se DÉRIVENT de la lecture plutôt que de se lister — un décalage dont aucune
-saisie ne pourrait porter la preuve n'a pas à occuper un code.
+**Quatorze décalages LISIBLES** — `fj11`…`fj19` et `fj21`…`fj25` —, qui se
+DÉRIVENT de la lecture plutôt que de se lister : un décalage dont aucune saisie
+ne pourrait porter la preuve n'a pas à occuper un code.
+
+> ★ **MAIS TROIS CODES ALLOUÉS, PAS QUATORZE** — `fj11`, `fj21`, `fj22`. Cette
+> réduction est venue de la suite lente, pas d'un goût : `debug.test.js` exige
+> que **chaque opérateur du catalogue soit jouable sur une saisie témoin**, et
+> onze des quatorze ne le sont sur aucune. On ne force pas cette porte en
+> fabriquant onze témoins taillés pour faire tomber onze comptes précis : un
+> témoin est une saisie que la page de démonstration AFFICHE, et onze chaînes
+> qui ne démontrent que leur propre fabrication rempliraient la page tout en
+> divisant d'autant le plafond de nœuds qui sert à TOUS les opérateurs.
+>
+> Ce n'est pas une impossibilité — le dictionnaire français du dépôt fournit de
+> vrais témoins pour neuf des quatorze (« abaisser cellule » écrit 12,
+> « abaisser agacant » écrit 23). C'est un **refus de payer ce prix pour des
+> codes que la recherche ne rend de toute façon pas** (§8). Un code est alloué
+> **à vie** (§4.1 règle 1) : on n'en grave pas onze que rien n'atteint et que
+> rien ne montre. La règle de dérivation reste écrite ; le jour où un témoin
+> rendra `fj15` montrable, il s'inscrira en fin de registre comme tout code neuf.
+>
+> **Les deux cas de l'auteur sont couverts tels quels** : 22 sur « Louis
+> Fouché », 11 sur « Didier Raoult ». Le catalogue passe de 207 à **210**, et
+> non à 221.
 
 > **Le coût de recherche n'est pas de quatorze, il est de un.** La lecture rend
 > un nombre et un seul : sur une saisie donnée, **au plus un `fj<N>` s'applique**
@@ -281,12 +301,19 @@ catalogue ; la comparaison se refait à tout moment.
      registre (§4.4 règle 3), et l'append-only inscrit les codes neufs à la fin.
      **La déduplication écarte donc systématiquement le chemin le MIEUX noté.**
 
- · **Le prix, lui, est bien réel.** Ajouter quatorze codes remue le classement
-   par simple effet d'ordre : sur les 23 saisies, **8 listes changent, 0 tête
-   change, et il y a 1 sortie sèche** (« apophenie » perd la moisson
-   `mt9+cs+prn,mpy+cmo,m7+cs+prn` sans remplaçante). **Aucune** des voies
-   entrées ou sorties ne contient un césar justifié : c'est de la turbulence
-   pure.
+ · **Le prix, lui, est bien réel**, et il a été divisé en réduisant le nombre de
+   codes. Sur les 23 saisies, par simple effet d'ordre :
+
+   | codes alloués | listes changées | têtes changées | **sorties sèches** |
+   |---|---|---|---|
+   | quatorze (`fj11`…`fj25`) | 8 | 0 | **1** |
+   | **trois** (`fj11`, `fj21`, `fj22`) | **5** | 0 | **0** |
+
+   À quatorze, « apophenie » perdait la moisson `mt9+cs+prn,mpy+cmo,m7+cs+prn`
+   sans remplaçante — le signal d'alarme. À trois, elle est remplacée
+   (`…,mms+cp+prn`) et **il ne reste aucune sortie sèche**. **Aucune** des voies
+   entrées ou sorties ne contient de césar justifié dans les deux cas : c'est de
+   la turbulence pure, et il fallait donc la réduire plutôt que la justifier.
 
 ### 8.3 Une correction a été tentée, puis RETIRÉE
 

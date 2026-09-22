@@ -19,21 +19,25 @@ const PAR_CODE = new Map(catalogue.map((op) => [op.code, op]));
 const familleDe = (code) => familleDeReglages(PAR_CODE.get(code));
 const OPS = operateursPourCible(catalogue, { defaut: true, texte: '666' });
 
-/* ★ Ils étaient vingt-cinq ; ils sont TRENTE-NEUF depuis que les quatorze
-     césars justifiés (`fj11`…`fj25`) ont rejoint le catalogue — même réglette,
-     même décalage publié, mais le décalage se LIT dans la saisie au lieu d'être
-     essayé (`filtres.js › lectureDesCommuns`).
+/* ★ Ils étaient vingt-cinq ; ils sont VINGT-HUIT depuis que les trois césars
+     justifiés (`fj11`, `fj21`, `fj22`) ont rejoint le catalogue — même
+     réglette, même décalage publié, mais le décalage se LIT dans la saisie au
+     lieu d'être essayé (`filtres.js › lectureDesCommuns`).
 
      ⚠️ **C'est ici que se vérifie ce qui les empêche de doubler la liste.** La
      devinette de `familleDeReglages` retire les chiffres de FIN du code : sur
      `fj22` elle rendrait « fj », une famille à lui tout seul, et chaque voie
-     justifiée aurait pris une place EN PLUS de sa jumelle arbitraire. Les
-     quatorze publient donc `familleOutil: 'fr'`, et l'assertion ci-dessous est
-     ce qui le tient : une seule famille pour les trente-neuf, donc une seule
-     place dans la fenêtre — la meilleure. */
+     justifiée aurait pris une place EN PLUS de sa jumelle arbitraire. Les trois
+     publient donc `familleOutil: 'fr'`, et l'assertion ci-dessous est ce qui le
+     tient : une seule famille pour les vingt-huit, donc une seule place dans la
+     fenêtre — la meilleure.
+
+     ⚠️ Et c'est un ARBITRAGE, pas une évidence : mesuré, ce siège unique va
+     toujours à un aîné, qui a le droit de choisir son décalage. Voir
+     `.planning/arbitrages/2026-09-22-cesar-justifie.md` §8.4, levier (c). */
 test('les césars, justifiés ou non, sont UNE famille, lue sur leur décalage', () => {
   const cesars = catalogue.filter((op) => Number.isFinite(op.decalage) && op.forme === 'glissiere');
-  assert.equal(cesars.length, 39, 'le catalogue publie vingt-cinq décalages, plus quatorze justifiés');
+  assert.equal(cesars.length, 28, 'le catalogue publie vingt-cinq décalages, plus trois justifiés');
   assert.deepEqual([...new Set(cesars.map(familleDeReglages))], ['fr']);
   assert.equal(familleDe('fj22'), familleDe('fr22'), 'le césar justifié règle le MÊME outil que son aîné');
 });

@@ -106,9 +106,9 @@ function cesars(valeur) {
 }
 
 /**
- * ★ **LES QUATORZE CÉSARS JUSTIFIÉS, DÉRIVÉS DE LA MÊME RÈGLE QU'EUX.**
+ * ★ **LES CÉSARS JUSTIFIÉS, EN UNE LIGNE PAR TABLE COMME LEURS AÎNÉS.**
  *
- * Même raison qu'au-dessus — quatorze lignes à tenir d'accord dans trois tables
+ * Même raison qu'au-dessus — des lignes à tenir d'accord dans trois tables
  * divergeraient au premier oubli. La règle de sélection est celle de
  * `transformations/filtres.js › DECALAGES_LISIBLES`, et elle est recopiée ici
  * en toutes lettres plutôt qu'importée : `titres.js` ne connaît pas le
@@ -118,11 +118,11 @@ function cesars(valeur) {
  *
  * @param {(n:number) => any} valeur ce que la table associe au décalage `n`
  */
+const DECALAGES_JUSTIFIES = Object.freeze([11, 21, 22]);
+
 function cesarsJustifies(valeur) {
   const out = {};
-  for (let n = 1; n <= 25; n++) {
-    if (String(n).length >= 2 && !String(n).includes('0')) out[`f.cesarJustifie${n}`] = valeur(n);
-  }
+  for (const n of DECALAGES_JUSTIFIES) out[`f.cesarJustifie${n}`] = valeur(n);
   return out;
 }
 

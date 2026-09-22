@@ -1225,6 +1225,37 @@ const DECALAGES_LISIBLES = Object.freeze(
     .filter((n) => String(n).length >= 2 && !String(n).includes('0')),
 );
 
+/**
+ * ★ **CE QU'ON ALLOUE : ce qu'on sait MONTRER, pas ce qu'on sait calculer.**
+ *
+ * Les quatorze décalages ci-dessus sont ceux que la lecture peut écrire. Ils ne
+ * sont pas pour autant quatorze codes : `src/app/lents/debug.test.js` exige que
+ * **chaque opérateur du catalogue soit jouable sur une saisie témoin** — « ces
+ * opérateurs ne sont jouables sur aucune saisie témoin : il en faut une de
+ * plus ». MESURÉ : sur les quatorze, **trois** passent cette porte (11, 21, 22)
+ * et onze la manquent.
+ *
+ * ★ **Et l'on ne force pas la porte en fabriquant onze témoins pour eux.** Un
+ *   témoin est une saisie que Le Registre AFFICHE ; en ajouter onze, taillées
+ *   pour faire tomber onze comptes précis, remplirait la page de démonstration
+ *   de chaînes qui ne démontrent que leur propre fabrication — et diviserait
+ *   d'autant le plafond de nœuds qui sert à TOUS les opérateurs. Le dictionnaire
+ *   français du dépôt sait pourtant en fournir de vrais (« abaisser cellule »
+ *   écrit 12, « abaisser agacant » écrit 23) : ce n'est donc pas une
+ *   impossibilité, c'est un refus de payer ce prix-là pour des codes que la
+ *   recherche ne rend de toute façon pas (voir la mesure, §8 de la note).
+ *
+ * ★ **Trois codes, pas quatorze**, et c'est la seule conséquence qui compte :
+ *   un code est alloué **à vie** (§4.1 règle 1). On n'en grave pas onze que rien
+ *   n'atteint et que rien ne montre. La règle de dérivation reste écrite
+ *   au-dessus : le jour où un témoin rendra `fj15` montrable, il s'inscrira en
+ *   fin de registre, comme tout code neuf.
+ *
+ * ★ Les deux cas de l'auteur sont couverts tels quels : **22** sur « Louis
+ *   Fouché », **11** sur « Didier Raoult ».
+ */
+const DECALAGES_ALLOUES = Object.freeze([11, 21, 22]);
+
 /** Un césar justifié, tout entier dérivé de son décalage — comme son aîné. */
 function cesarJustifieDe(n) {
   return {
@@ -1295,7 +1326,7 @@ function cesarJustifieDe(n) {
   };
 }
 
-const CESARS_JUSTIFIES = Object.freeze(DECALAGES_LISIBLES.map(cesarJustifieDe));
+const CESARS_JUSTIFIES = Object.freeze(DECALAGES_ALLOUES.map(cesarJustifieDe));
 
 const brut = [
   {
