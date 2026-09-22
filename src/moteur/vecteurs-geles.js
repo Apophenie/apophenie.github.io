@@ -396,12 +396,15 @@ export const VECTEURS = [
   //   un 8 — `megf`, qui ne vise que le 6, s'y tait.
   ['mef9', N([8, 8, 8, 1, 1]), [9, 9, 8, 9]],
   // ★ LE REDÉCOUPAGE EXACT AVEC TRI. `3 6 3 3 3` : aucune découpe exacte de la
-  //   ligne telle qu'elle est (`3 + 6 = 9` ne vaut rien, `mrdE` se tait) ; le 6
-  //   passe devant, les quatre 3 se touchent, `3 + 3` et `3 + 3`.
+  //   ligne telle qu'elle est (`3 + 6 = 9` ne vaut rien, `mrdE` se tait) ; la
+  //   ligne se trie EN ENTIER — `3 3 3 3 6` — et `3 + 3`, `3 + 3`, puis le 6 qui
+  //   reste seul à sa place dans l'ordre. Le geste ne met plus les 6 devant :
+  //   « tri oui, mais avec un ordre respecté » (l'autrice, 20 septembre 2026).
   ['mrtE', N([3, 6, 3, 3, 3]), [6, 6, 6]],
-  // `6 3 4 3 5` : le 6 devant, `3 3 4 5` rangés derrière — `3 + 3 = 6`, et
-  //   `4 + 5 = 9` à retourner. `md9E` n'y écrit rien sans ranger.
-  ['mt9E', N([6, 3, 4, 3, 5]), [6, 6, 9]],
+  // `6 3 4 3 5` : trié, `3 3 4 5 6` — `3 + 3 = 6`, `4 + 5 = 9` à retourner, et
+  //   le 6 en dernier, là où le tri le met. La sortie dit l'ordre : `6 9 6` et
+  //   non plus `6 6 9`. `md9E` n'y écrit rien sans ranger.
+  ['mt9E', N([6, 3, 4, 3, 5]), [6, 9, 6]],
   ['cs', N([8, 15, 16, 5]), 44],
   ['cst', N([8, 15, 16, 5]), -28],
   ['cp', N([8, 15, 16, 5]), 9600],

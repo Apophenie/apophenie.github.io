@@ -2876,6 +2876,60 @@ fusionnés) · `m14`/`m14F` **quatorze segments**, mêmes deux lectures ·
 > « Donald Trump » et +25 % sur « Louis Fouché », et prenait les deux premières
 > places de « Didier Raoult ». **Cran 3** pour `mt9E`.
 
+> *Amendement — **LE TRI DE `mrtE` N'A PLUS D'EXCEPTION**.* — 20 septembre 2026.
+>
+> « Le tri qui place les 6 devant ne va pas : tri oui, mais avec un ordre
+> respecté. Les 6 ne seront juste pas additionnés mais ils doivent être à leur
+> position dans l'ordre de tri quand même. Ça risque de casser quelques cas de
+> figure où un 5 était groupé avec un 7 par exemple, mais c'est le prix d'un
+> rendu qui ne semble pas intentionnel (alors que si on met visiblement de côté
+> les 6, ça fait trop ficelle). » (l'autrice)
+>
+> **Ce n'est pas un code neuf**, et la règle 2 ne s'applique pas ici comme
+> ailleurs : `mrtE` et `mt9E` ont deux jours, aucun lien publié ne les emploie,
+> et l'autrice avait déjà tranché la veille — « il y a très peu de liens en
+> circulation, l'outil est encore jeune ». Le geste garde donc son code et
+> change de rangement : la ligne se trie EN ENTIER, par ordre croissant, stable
+> à valeur égale. Aucun chiffre n'est extrait, pas même un 6 ou un 9.
+>
+> **Ce qui ne change pas** : les chiffres déjà justes ne sont toujours pas
+> ADDITIONNÉS. La passe exacte préfère les laisser seuls (`meilleurPlanExact`,
+> étage des avalés) et ne les fond que si ça écrit une série de plus — le
+> départage du 19 septembre, intact. Ils ne sont plus mis à l'écart, ils sont
+> laissés seuls là où le tri les met.
+>
+> **Le prix, mesuré** (`.planning/banc/tri-respectueux.mjs`, banc neuf, 714
+> lignes témoins : le corpus par `fmaj+tca` puis chaque conversion qui rend des
+> nombres, pour `666`, `777` et `111`) :
+>
+> | | lignes où il parle | séries |
+> |---|---|---|
+> | `mrtE`, tri à exception | 33 | 78 |
+> | `mrtE`, tri strict | 28 | 64 |
+> | `mt9E`, tri à exception | 22 | 56 |
+> | `mt9E`, tri strict | 15 | 34 |
+>
+> Aucune ligne n'y gagne. Là où le geste parle encore, il reste devant la
+> chaîne : sur ces 28 lignes, `mrdE` seul 10 séries, `mtri+mrdE` 27,
+> `mrd+mtri+mrdE` 54, le geste 64. L'ordre DÉCROISSANT a été essayé et écarté :
+> 63 séries au lieu de 64, sans rien sauver.
+>
+> **Sur le classement, au cran 3** (le cran des deux variantes) : la tête ne
+> bouge sur aucune des saisies mesurées. « Didier Raoult » garde
+> `fmaj+mas+mrdE` (deux séries) ; sa 2ᵉ place passe de `fmaj+mas+mrtE` (quatre
+> séries, qui ne se rejoue plus) à `2:fr10;fmaj+mas+mt9E+mr9` (cinq séries) ;
+> la liste passe de 78 voies à 80. « Louis Fouché » garde `fr21+mas+mrdE` ; sa
+> 2ᵉ place tombe de cinq séries à quatre (`fr9+mas+mrd9+meg`), et les voies qui
+> trient y passent de quatre à une. `https://www.google.com` : cinq premières
+> places identiques, `mrtE` perd sa meilleure voie (six séries, 7ᵉ). Trois cas
+> d'arbitrage sont sortis, trois les remplacent.
+>
+> Le vecteur gelé de `mt9E` suit (`6 3 4 3 5` → `6 9 6` et non plus `6 6 9`),
+> celui de `mrtE` ne bouge pas. Le barème facture la différence sans qu'on y
+> touche : le tri strict déplace plus de jetons (`deplaces`, 2 → 4 sur
+> `3 6 3 3 3`). Les crans ne bougent pas — celui de `mrtE` avait deux raisons,
+> et le temps CPU ne dépend pas de l'ordre du rangement.
+
 **Trois règles inviolables :**
 1. Un code alloué l'est **à vie**. Retirer un opérateur pose une pierre tombale : son
    code n'est jamais recyclé.

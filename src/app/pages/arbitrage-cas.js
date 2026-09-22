@@ -165,6 +165,32 @@
  *   « Avant / Après » : `main` à gauche, la branche à droite — « Aujourd’hui »
  *   se lisait comme « ce qui est en ligne », à rebours de ce qu’il désignait.
  *
+ * ★ **TROIS CAS SONT SORTIS LE 20 SEPTEMBRE, ET TROIS LES REMPLACENT** — le
+ *   jour où le tri de `mrtE` a cessé d'avoir une exception.
+ *
+ *   > « Le tri qui place les 6 devant ne va pas : tri oui, mais avec un ordre
+ *   >   respecté. […] c'est le prix d'un rendu qui ne semble pas intentionnel
+ *   >   (alors que si on met visiblement de côté les 6, ça fait trop ficelle). »
+ *   >   (l'autrice)
+ *
+ *   Les sortants, et pourquoi ils ne posent plus de question :
+ *    · `2026-09-19-raoult-cran3-2e` et `2026-09-19-raoult-cran3-1re` (2ᵉ et 1ʳᵉ)
+ *      — leur voie de droite, `fmaj+mas+mrtE`, NE SE REJOUE PLUS : trié pour de
+ *      bon, le geste n'écrit plus sur cette ligne que ce que `mrdE` écrit déjà,
+ *      donc il s'y tait et le programme est inapplicable. Un lien mort ne
+ *      s'arbitre pas.
+ *    · `2026-09-19-fouche-cran3-2e` (2ᵉ) — ses DEUX voies ont quitté la liste :
+ *      `2:fr22;fmaj+mas+mt9E+mr9` tombe de cinq séries à quatre et sort des
+ *      soixante-huit voies retenues.
+ *
+ *   ⚠️ **ET CE QUE CETTE PAGE NE PEUT PAS MONTRER ICI**, il faut le dire : la
+ *     correction est une correction de GESTE, et l'instrument rejoue les deux
+ *     côtés avec les gestes d'aujourd'hui (voir plus haut). Personne ne verra
+ *     donc côte à côte l'ancien rendu et le neuf — ça se regarde sur
+ *     `debug.html`. Ce que les trois cas neufs demandent est autre chose, et
+ *     c'est une question de goût : maintenant que la voie triée à exception
+ *     n'existe plus, QUI mérite la place qu'elle tenait.
+ *
  * ⚠️ Les trois `todo` de moisson qui rougissent encore ne portent PAS sur ce
  *   classement-là : ils gèlent la COMPOSITION de la récolte (les trois « hope »
  *   en quatorze segments, le « fr » en sept segments), et le barème en compose
@@ -273,34 +299,58 @@ export const CAS_ARBITRAGE = Object.freeze([
     // à droite (« Après »), la tête de la branche `operateurs-et-crans` (f07e3a4)
     apres: "?sce!p25.200.50.150!fl+mqwc+meg$4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
   },
+  // ★ LES TROIS CAS DU TRI STRICT — 20 septembre 2026, branche
+  //   `tri-qui-respecte-lordre`. Ils remplacent les trois sortants dont
+  //   l'en-tête rend compte. Relevés par le chemin réel (`resoudre` au cran du
+  //   cas, `rejouer(lire(lien))` des deux côtés), comme `arbitrage-remesure.mjs`.
   {
-    id: "2026-09-19-raoult-cran3-2e",
+    id: "2026-09-20-raoult-cran3-2e-tri-strict",
     place: 2,
-    titre: "[gauche 3ᵉ] Didier Raoult, cran 3 — 2ᵉ place : le redécoupage exact qui range les restes (mrtE, quatre séries) entre",
+    titre: "[gauche 3ᵉ] Didier Raoult, cran 3 — 2ᵉ place : la ligne TRIÉE SANS EXCEPTION puis retournée (mt9E+mr9, cinq séries) prend la place que tenait mrtE",
     saisie: "Didier Raoult",
-    // à gauche (« Avant ») : la 2ᵉ de `redecoupages-respectueux` (0858dd5)
+    // à gauche (« Avant ») : ce que `main` (c616f4f) a de mieux à cette place
+    //   une fois la voie `mrtE` retirée — elle y était 2ᵉ, elle ne se rejoue
+    //   plus, et `fr16+mas+mrn+meg` est la suivante.
     avant: "?sce!f3!fr16+mas+mrn+meg$6hVamBkJyG1MWtPRwR",
-    // à droite (« Après ») : la 2ᵉ de `variantes-neuf-et-tri` (d8b8114)
-    apres: "?sce!f3!fmaj+mas+mrtE$6hVamBkJyG1MWtPRwR",
+    // à droite (« Après ») : la 2ᵉ de `tri-qui-respecte-lordre` — le rangement
+    //   y est un vrai tri, les 6 tombent entre les 5 et les 7.
+    apres: "?sce!f3!2:fr10;fmaj+mas+mt9E+mr9$6hVamBkJyG1MWtPRwR",
+    mesure: {
+      commit: "4f5c6e0", date: "2026-09-20",
+      avant: { rangMoteur: 3, rangGlobal: 2, global: 717, score: 3315, mode: "GROUPEMENT", series: 4 },
+      apres: { rangMoteur: 2, rangGlobal: 1, global: 721, score: 3407, mode: "GROUPEMENT", series: 5 },
+    },
   },
   {
-    id: "2026-09-19-raoult-cran3-1re",
+    id: "2026-09-20-raoult-cran3-1re-tri-strict",
     place: 1,
-    titre: "[gauche 1ʳᵉ] Didier Raoult, cran 3 — 1ʳᵉ place : la tête garde mrdE (deux séries) devant mrtE (quatre séries) ; laquelle en tête ?",
+    titre: "[gauche 1ʳᵉ] Didier Raoult, cran 3 — 1ʳᵉ place : la tête garde mrdE (deux séries) devant la ligne triée sans exception (cinq séries) ; laquelle en tête ?",
     saisie: "Didier Raoult",
-    // à gauche (« Avant ») : la tête actuelle de `variantes-neuf-et-tri`, fmaj+mas+mrdE
+    // à gauche (« Avant ») : la tête, des deux côtés — elle n’a pas bougé
     avant: "?sce!f3!fmaj+mas+mrdE$6hVamBkJyG1MWtPRwR",
-    // à droite (« Après ») : sa 2ᵉ, fmaj+mas+mrtE, qu’on mettrait en tête
-    apres: "?sce!f3!fmaj+mas+mrtE$6hVamBkJyG1MWtPRwR",
+    // à droite (« Après ») : sa 2ᵉ, qu’on mettrait en tête
+    apres: "?sce!f3!2:fr10;fmaj+mas+mt9E+mr9$6hVamBkJyG1MWtPRwR",
+    mesure: {
+      commit: "4f5c6e0", date: "2026-09-20",
+      avant: { rangMoteur: 1, rangGlobal: 4, global: 701, score: 3665, mode: "GROUPEMENT", series: 2 },
+      apres: { rangMoteur: 2, rangGlobal: 1, global: 721, score: 3407, mode: "GROUPEMENT", series: 5 },
+    },
   },
   {
-    id: "2026-09-19-fouche-cran3-2e",
+    id: "2026-09-20-fouche-cran3-2e-tri-strict",
     place: 2,
-    titre: "[gauche hors liste] Louis Fouché, cran 3 — 2ᵉ place : la version avec 9 rangée puis retournée (mt9E+mr9, cinq séries) entre",
+    titre: "[gauche hors liste] Louis Fouché, cran 3 — 2ᵉ place : la voie à cinq séries n’en écrit plus que quatre et sort ; mrd9+meg prend la place",
     saisie: "Louis Fouché",
-    // à gauche (« Avant ») : la 2ᵉ de `redecoupages-respectueux` (0858dd5)
-    avant: "?sce!f3!fr9+mas+mrd+meg$7NFn8xBqb5eNAq3YCY",
-    // à droite (« Après ») : la 2ᵉ de `variantes-neuf-et-tri` (d8b8114)
-    apres: "?sce!f3!2:fr22;fmaj+mas+mt9E+mr9$7NFn8xBqb5eNAq3YCY",
+    // à gauche (« Avant ») : la 2ᵉ de `main` (c616f4f) — cinq séries là-bas,
+    //   quatre ici, et hors des 68 voies retenues. C’est la perte franche du
+    //   tri strict sur cette saisie, montrée plutôt que résumée.
+    avant: "?sce!f3!2:fr22;fmaj+mas+mt9E+mr9$7NFn8xBqb5eNAq3YCY",
+    // à droite (« Après ») : la 2ᵉ de `tri-qui-respecte-lordre`
+    apres: "?sce!f3!fr9+mas+mrd9+meg$7NFn8xBqb5eNAq3YCY",
+    mesure: {
+      commit: "4f5c6e0", date: "2026-09-20",
+      avant: { absente: true, series: 4, mode: "GROUPEMENT" },
+      apres: { rangMoteur: 2, rangGlobal: 2, global: 713, score: 3321, mode: "GROUPEMENT", series: 4 },
+    },
   },
 ]);
