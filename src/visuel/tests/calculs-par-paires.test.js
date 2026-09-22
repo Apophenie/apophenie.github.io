@@ -33,7 +33,7 @@ import { construireScenario, suivreLaLigne } from '../../recherche/scenario.js';
 setGlyphes(GLYPHES, 'fixtures/glyphes.js');
 
 /** Les opérateurs dont la mise en scène est désormais binaire. */
-const PERIMETRE = ['mab', 'mabx', 'mabd', 'mad', 'mrd', 'mrdE', 'mam', 'mrdf', 'mrfE', 'cs', 'cp', 'cst'];
+const PERIMETRE = ['mab', 'mabx', 'mabd', 'mad', 'mrd', 'mrdE', 'mam', 'mrdf', 'mrfE', 'mrn', 'cs', 'cp', 'cst'];
 
 const nums = (vs) => ({ type: 'NUMS', valeur: vs, traces: vs.map(() => [0, 1]) });
 const jetonsNums = (vs) => vs.map((v, i) => ({ id: `t${i}`, text: String(v), kind: 'number' }));
@@ -116,7 +116,17 @@ test('★ aucun geste à plus de deux opérandes dans les steps du périmètre �
      à deux chiffres, sont presque toutes au-dessus de 6 : il n'en exercerait
      aucune. Il reçoit donc les mêmes lignes ramenées à de petits chiffres
      (modulo 7), fixes et déterministes comme elles. */
-  const PROPRES = { mam: lignes.map((l) => l.map((v) => v % 7)) };
+  /* ★ `mrn` a le besoin INVERSE : son arbre ne se déploie que sur un nombre
+     d'au moins trois chiffres — deux chiffres ne font qu'une paire, donc
+     jamais de seconde passe. Les lignes témoins n'en portent presque pas. On
+     les ramène donc dans la plage à trois chiffres, par la même arithmétique
+     fixe et déterministe que celle de `mam`. Ce n'est pas un aménagement pour
+     faire passer le test : c'est le seul régime où la promesse qu'il vérifie —
+     « à la passe suivante tu pourras faire 8 + 10 » — a un sens pour lui. */
+  const PROPRES = {
+    mam: lignes.map((l) => l.map((v) => v % 7)),
+    mrn: lignes.map((l) => l.map((v) => 100 + (v % 900))),
+  };
   for (const code of PERIMETRE) {
     const o = PAR_CODE.get(code);
     assert.ok(o, `« ${code} » doit exister au catalogue`);
@@ -267,4 +277,124 @@ test('★ mrdE sur Didier Raoult : chaque temps joue tous ses paquets ensemble, 
   const fautes = finsDesAccolades(tl, lignes).filter((f) => f.faute);
   assert.deepEqual(fautes.map((f) => `${f.id} : ${f.faute}`), []);
   assert.deepEqual(compile(sc).warnings, [], 'et la scène entière, verdict compris');
+});
+
+/* ══════════════ `mrn` — en largeur, et deux items à la fois ═══════════════
+ *
+ * > « L'animation de `mrn` est à revoir : largeur d'abord plutôt que profondeur
+ * >   d'abord, et opération entre 2 items à la fois, pas plus. Ça marchera bien
+ * >   mieux avec le mode parallèle. » (l'auteur, sur `f3!fr16+mas+mrn+meg`)
+ *
+ * MESURÉ avant correction, sur « Didier Raoult » : quinze étapes, une par
+ * `reduce`, la boucle externe sur le NOMBRE et l'interne sur le palier — donc
+ * `84 → 12` puis `12 → 3` avant que le nombre suivant ne commence. Et dix
+ * `reduce` sur quinze ouvraient leur nombre en TROIS chiffres d'un coup.
+ */
+
+test('★ mrn : tous les nombres s’ouvrent ensemble, puis tous les couples du même tour', () => {
+  const avant = nums([44, 15]);
+  const op = PAR_CODE.get('mrn');
+  const apres = appliquer(op, avant);
+  assert.deepEqual(apres.valeur, [8, 6]);
+  const steps = op.steps(avant, apres, { ids: ['t0', 't1'], cle: 'x0', langue: 'fr' });
+
+  // Premier temps : l'ÉCRITURE, et elle porte les deux nombres d'un coup.
+  const eclat = steps[0].ops.filter((o) => o.op === 'substitute');
+  assert.equal(eclat.length, 1, 'un seul éclatement pour toute la ligne');
+  assert.equal(eclat[0].pairs.length, 2, 'les deux nombres s’ouvrent dans la MÊME étape');
+  assert.deepEqual(eclat[0].pairs.map((p) => p.to.map((t) => t.text).join('')), ['44', '15']);
+
+  // Deuxième temps : les couples, tous ensemble, et deux termes chacun.
+  const sommes = steps[1].ops.filter((o) => o.op === 'sum');
+  assert.equal(sommes.length, 2, 'les deux additions du premier tour sont dans la même étape');
+  for (const s of sommes) assert.equal(s.targets.length, 2, 'deux items, jamais trois');
+  assert.equal(new Set(sommes.map((o) => o.at)).size, 1, 'elles partent au même instant déclaré');
+});
+
+/**
+ * ★ **LE PARCOURS EST EN LARGEUR, et le test le prouve sur un cas où les deux
+ *   parcours DIFFÈRENT.** Il faut pour cela deux nombres dont l'un demande plus
+ *   de paliers que l'autre : `199` en veut trois (19, 10, 1), `23` un seul (5).
+ *   En profondeur, les trois paliers de `199` se joueraient avant que `23` ne
+ *   bouge ; en largeur, `23` fait son unique addition dans le MÊME tour que la
+ *   première de `199`.
+ */
+test('★ mrn : le tour d’un nombre court tombe dans le même temps que celui d’un long', () => {
+  const avant = nums([199, 23]);
+  const op = PAR_CODE.get('mrn');
+  const apres = appliquer(op, avant);
+  assert.deepEqual(apres.valeur, [1, 5]);
+  const steps = op.steps(avant, apres, { ids: ['t0', 't1'], cle: 'x0', langue: 'fr' });
+
+  // Le premier temps ouvre les DEUX nombres ; en profondeur, `23` aurait
+  // attendu que `199` ait fini ses trois paliers.
+  const premier = steps[0].ops.find((o) => o.op === 'substitute');
+  assert.equal(premier.pairs.length, 2, '199 et 23 s’ouvrent ensemble');
+
+  // Et l'unique addition de `23` (2 + 3 = 5) tombe dans un temps où `199`
+  // additionne encore — donc avant la fin de sa descente.
+  const legendes = steps.map((s) => s.caption);
+  const iCourt = legendes.findIndex((c) => c.includes('2 + 3 = 5'));
+  const iDernier = legendes.findIndex((c) => c.includes('1 + 0 = 1'));
+  assert.ok(iCourt >= 0, `l’addition de 23 est introuvable : ${legendes.join(' | ')}`);
+  assert.ok(iDernier >= 0, `le dernier palier de 199 est introuvable : ${legendes.join(' | ')}`);
+  assert.ok(iCourt < iDernier,
+    `en largeur, 23 additionne avant que 199 ait fini — vu ${iCourt} puis ${iDernier}`);
+});
+
+test('★ mrn : plus jamais trois chiffres dans une même opération', () => {
+  const op = PAR_CODE.get('mrn');
+  let vus = 0;
+  // Des nombres à trois chiffres et plus : c'est là que l'ancien `reduce`
+  // ouvrait `1 + 1 + 6` d'un seul coup.
+  for (const ligne of [[116], [199, 23], [84, 121, 116, 121], [9999]]) {
+    const avant = nums(ligne);
+    const apres = appliquer(op, avant);
+    if (!apres) continue;
+    const ids = ligne.map((_, i) => `t${i}`);
+    for (const o of opsDe(op.steps(avant, apres, { ids, cle: 'x0', langue: 'fr' }))) {
+      assert.ok(!troplarge(o), `${JSON.stringify(ligne)} : geste à plus de deux valeurs — ${JSON.stringify(o).slice(0, 140)}`);
+      if (o.op === 'sum') vus++;
+    }
+  }
+  assert.ok(vus >= 8, `seulement ${vus} additions vues : le test n’exerce pas assez`);
+});
+
+/**
+ * ★ **ET LE GESTE TIENT LES DEUX RYTHMES.**
+ *
+ * C'est ce que l'auteur annonçait — « ça marchera bien mieux avec le mode
+ * parallèle » —, et c'est vérifiable : les gestes d'un même tour vivent dans le
+ * MÊME step et portent sur des caractères disjoints, donc « Simultané » les
+ * joue en vague et « Pas à pas » les met à la file. Ni l'un ni l'autre ne doit
+ * produire d'animation concurrente, ni faire faire du yoyo à une accolade.
+ *
+ * ⚠️ La garde des accolades est ce qui a rattrapé le vrai défaut : en Pas à
+ *   pas, l'accolade de la première somme — déjà refermée sur son résultat, mais
+ *   pas encore effacée — était étirée de 105 à 225 unités pour couvrir la place
+ *   réservée au résultat de sa VOISINE (`helpers.js › reserverLaPlace`). Le
+ *   défaut préexistait au geste de `mrn` : il attendait qu'on sérialise deux
+ *   sommes d'une même étape pour se montrer.
+ */
+test('★ mrn : les deux rythmes compilent sans concurrence et sans yoyo d’accolade', async () => {
+  const { compilerEnRelevant } = await import('./_cadre.js');
+  const { finsDesAccolades } = await import('./_accolades.js');
+  const op = PAR_CODE.get('mrn');
+  const avant = nums([44, 15, 199]);
+  const apres = appliquer(op, avant);
+  const tokens = jetonsNums(avant.valeur);
+  const steps = op.steps(avant, apres, { ids: tokens.map((t) => t.id), cle: 'x0', langue: 'fr' });
+  const scenario = { version: 1, tokens, steps };
+
+  for (const rythme of ['pasAPas', 'simultane']) {
+    const tl = compile(scenario, { rythme });
+    assert.deepEqual(tl.warnings, [], `${rythme} : ${tl.warnings.slice(0, 2).join(' | ')}`);
+    const { tl: tl2, lignes } = compilerEnRelevant(scenario, { rythme });
+    const fautes = finsDesAccolades(tl2, lignes).filter((f) => f.faute);
+    assert.deepEqual(fautes.map((f) => `${f.id} : ${f.faute}`), [], `${rythme}`);
+  }
+
+  // Et l'arithmétique est la même des deux côtés : mêmes jetons, mêmes textes.
+  const vus = (r) => compile(scenario, { rythme: r }).nodes.map((n) => `${n.id}=${n.text}`).sort();
+  assert.deepEqual(vus('simultane'), vus('pasAPas'));
 });

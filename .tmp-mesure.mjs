@@ -56,6 +56,20 @@ sc.steps.forEach((st, i) => {
 });
 console.log(`\n=> ${chevauchements} chevauchements de même type`);
 
+console.log('\n--- détail des sommes et éclatements ---');
+sc.steps.forEach((st, i) => {
+  const sommes = (st.ops || []).filter((o) => o.op === 'sum');
+  const subs = (st.ops || []).filter((o) => o.op === 'substitute');
+  if (sommes.length) {
+    console.log(`${String(i).padStart(2)} ${sommes.length} sommes, opérandes par somme : `
+      + `${[...new Set(sommes.map((o) => (o.targets || []).length))].join('/')}`);
+  }
+  for (const o of subs) {
+    console.log(`${String(i).padStart(2)} substitute ${(o.pairs || []).length} paires : `
+      + (o.pairs || []).map((pr) => `${pr.target}→${(pr.to || []).map((x) => x.text).join('')}`).slice(0, 6).join(' '));
+  }
+});
+
 console.log('\n--- détail des `reduce` ---');
 sc.steps.forEach((st, i) => {
   for (const o of (st.ops || [])) {

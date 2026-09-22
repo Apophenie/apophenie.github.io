@@ -1478,9 +1478,41 @@ export function reserverLaPlace(ctx, sources) {
   // Les accolades qui se refermeront sur ce qui prendra la place : celles qui
   // embrassent ce qu'elle remplace, et celles qui attendent un résultat.
   const remplaces = new Set(sources);
+  /* ★ **UNE ACCOLADE NE S'ENGAGE QUE DANS UNE SEULE PLACE GARDÉE.**
+   *
+   * ⚠️ **LE DÉFAUT, ET IL NE SE VOYAIT PAS AVANT LE RYTHME.** La clause
+   *   `attendResultat` dit « les sources de ce tracé sont toutes parties, un
+   *   résultat va venir : il comptera comme encore là ». Elle ne regardait pas
+   *   DE QUI est le résultat attendu — si bien que toute accolade encore en vie
+   *   et encore en attente adoptait les cales de la place réservée par
+   *   n'importe quelle op suivante.
+   *
+   *   Tant que les sommes d'une étape étaient SIMULTANÉES, personne ne le
+   *   voyait : elles réservaient toutes leur place au même instant, chaque
+   *   tracé s'étendait sur l'ensemble, et tout se refermait ensemble. Le mode
+   *   « Pas à pas » (`visuel/rythme.js`) les met à la file, et le défaut sort.
+   *   MESURÉ sur `mrn` (`44 15 → 8 6`), deux sommes dans une étape : pendant
+   *   la SECONDE, l'accolade de la PREMIÈRE — déjà refermée sur son 8, mais pas
+   *   encore effacée puisque l'étape finit par une fermeture commune — était
+   *   étirée de 105 à 225 unités pour couvrir la place réservée au résultat de
+   *   sa voisine. Elle embrassait donc un calcul qui n'était pas le sien, puis
+   *   revenait à 29 : le yoyo que la garde de routine interdit
+   *   (`tests/fin-des-accolades.test.js`).
+   *
+   * Le critère ajouté est le plus simple qui soit exact : une accolade DÉJÀ
+   * engagée dans une place gardée a trouvé son résultat, ou l'attend là. Elle
+   * ne s'engage pas dans une seconde. Celles qui embrassent vraiment ce que
+   * cette place-ci remplace continuent d'être adoptées — c'est le critère
+   * géométrique, et il n'a jamais menti. */
+  const dejaEngagees = new Set();
+  for (const p of ctx.scene.placesGardees) {
+    for (const idAcc of p.accolades || []) dejaEngagees.add(idAcc);
+  }
   const accolades = [...ctx.scene.accolades].filter(([id, srcs]) => {
     const nd = ctx.scene.get(id);
-    return nd && nd.alive && ((nd.data && nd.data.attendResultat) || srcs.some((s) => remplaces.has(s)));
+    if (!nd || !nd.alive) return false;
+    if (srcs.some((s) => remplaces.has(s))) return true;
+    return !!(nd.data && nd.data.attendResultat) && !dejaEngagees.has(id);
   }).map(([id]) => id);
   // ★ UNE PLACE GARDÉE COMPTE COMME « LÀ » : ses cales entrent dans ce que ces
   //   accolades embrassent. Tout suivi (`suivreLesAccolades`, `anticiperLaPlace`)
