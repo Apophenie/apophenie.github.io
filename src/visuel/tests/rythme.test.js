@@ -337,6 +337,35 @@ test('★ rythme — en mouvement réduit, il n’y a pas de rythme du tout', ()
   assert.equal(b.rythme, null);
 });
 
+/* ═════════════ Le chemin RÉEL : de la préférence jusqu'à la scène ════════ */
+
+/**
+ * ⚠️ **LE RÉGLAGE DOIT ALLER JUSQU'AU COMPILATEUR, et il n'y allait pas.**
+ *
+ * Tous les tests ci-dessus appellent `compile()` en direct. Ils étaient verts
+ * alors que la bascule n'avait AUCUN effet à l'écran : le réglage voyageait de
+ * `reglages.js` jusqu'aux options du lecteur, mais `player.js › _buildAll` ne
+ * le relayait pas à `compile()`. On changeait l'étiquette du bouton, la clé de
+ * stockage et l'attribut de la racine — et rien d'autre.
+ *
+ * Le défaut a été trouvé en relisant le diff, pas par un test : c'est
+ * exactement le genre de trou qu'une suite qui teste les pièces sans tester le
+ * raccord laisse passer. Celui-ci gèle le RACCORD, sur la liste des options que
+ * le lecteur passe au compilateur.
+ */
+test('★ rythme — le lecteur relaie bien le réglage au compilateur', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync(new URL('../player.js', import.meta.url), 'utf8');
+  // L'appel à `compile()` de `_buildAll`, et ce qu'il transmet.
+  const appel = source.slice(source.indexOf('this.timeline = compile('));
+  const bloc = appel.slice(0, appel.indexOf('});'));
+  assert.match(bloc, /rythme:\s*this\.options\.rythme/,
+    'le lecteur doit passer « rythme » à compile(), sinon la bascule ne fait rien');
+  // Et il doit l'accepter dans ses options, sans recopier le défaut.
+  assert.match(source, /rythme:\s*undefined/,
+    'le défaut se lit dans `rythme.js`, il ne se recopie pas dans le lecteur');
+});
+
 /* ══════════════════════════════ L'empreinte ══════════════════════════════ */
 
 test('★ rythme — l’empreinte lit les cibles ET les jetons produits', () => {
