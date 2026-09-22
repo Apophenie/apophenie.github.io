@@ -86,7 +86,18 @@
     absente aux crans 3, 4 et 5 (69, 76 et 89 voies). **Le défaut ne se reproduit
     plus** ; il a été refermé par les commits du 19-21 septembre (`mrd9`, `mrtE`,
     `mt9E`). Rien à faire.
-  → À reprendre comme une question de FABRICATION (`assemblage.js`), pas de barème.
+  ⚠️ **ET CE N'EST PAS UNE VOIE, C'EST UNE FAMILLE.** La suite lente de `main`
+  est déjà ROUGE sur le même phénomène, et pas en `todo` : le test affirmatif
+  « ★ moisson — la voie groupée de `hope-hope-hope.fr` est dans la liste au cran
+  2, et `fl+m14` avec elle » échoue des deux côtés, au mot près — « cran 2 : la
+  voie groupée est absente des 64 voies », « cran 0 : […] des 34 voies ». Ce test
+  gèle une préférence de l'autrice (README des lents, § « Les `todo` d'arbitrage »
+  : le `todo` a été RETIRÉ le 16 septembre, l'énoncé est devenu affirmatif). Il
+  est tombé depuis, sans que personne le rattache à sa cause.
+  → À reprendre comme une question de FABRICATION (`assemblage.js`), pas de
+  barème — et en traitant les moissons de `hope-hope-hope.fr` avec celles de
+  l'auteur : c'est vraisemblablement le même mécanisme qui les fait toutes
+  disparaître.
 - **Les absorptions en ficelles (`mab`/`mabx`/`mabd`) — essayé, mesuré, écarté.**
   « Peut-être que c'est `mab` qu'il faudrait ajouter aux ficelles pour que ça ne
   soit utilisé qu'en dernier recours » (l'autrice). C'est FAISABLE : le registre
