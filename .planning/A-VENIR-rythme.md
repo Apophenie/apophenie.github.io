@@ -33,7 +33,8 @@ la conversion concernée au moment où elle commence, avec les voisines déjà e
 cours. Le nombre d’entrées et les indices restent identiques quand on change
 le rythme. En mouvement réduit, les étapes demeurent séparées.
 
-Les étapes dotées d’une durée ou d’une pause explicite ne sont pas regroupées.
+Les étapes dotées d’une durée explicite ne sont pas regroupées. Les pauses
+`hold` sont mutualisées en fin de vague : leur maximum est conservé une fois.
 Les dépendances entre caractères interdisent également un regroupement.
 
 ## Vérifications et maintenance
