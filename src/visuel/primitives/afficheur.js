@@ -122,7 +122,7 @@ export function planAfficheur(ctx, modele) {
   // pour la table et le clavier — sans quoi une seconde série non consécutive
   // sur le même afficheur le croirait déjà monté et jouerait dans le vide.
   const deployer = ctx.op.montre === true || !decorEnLAir(ctx, `@encart:${cle}`);
-  const replier = ctx.op.retire !== false;
+  const replier = ctx.encarts ? true : ctx.op.retire !== false;
 
   // --- 1. l'encart s'ouvre, la lettre y monte ------------------------------
   const encart = ouvrirEncart(ctx, src, { at: 0, dur: T * 0.12, titre, cle, famille, deployer });
@@ -218,7 +218,7 @@ export function planAfficheur(ctx, modele) {
      encore à l'écran s'ils n'ont pas été relayés : les laisser là ferait rester
      l'outil après que la démonstration en a fini avec lui. L'outil s'en va, et
      il s'en va en entier. */
-  if (replier) replierLaFamille(ctx, famille, { at: T * 0.86, dur: T * 0.14 });
+  if (replier && !ctx.encarts) replierLaFamille(ctx, famille, { at: T * 0.86, dur: T * 0.14 });
   // Les segments allumés reprennent la couleur de l'éteint — et, si l'afficheur
   // reste en place, l'opacité du fantôme. C'est vrai même quand tout s'efface :
   // le décor n'est pas détruit, il est rangé, et il doit être rangé PROPRE pour

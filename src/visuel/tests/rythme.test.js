@@ -102,12 +102,13 @@ test('★ rythme — les deux modes rendent exactement la même arithmétique', 
       pas.steps.map((st) => [st.id, JSON.stringify(st.title)]),
       `${nom} : les étapes diffèrent`);
 
-    // Les animations : mêmes couples (jeton, canal), mêmes valeurs d'arrivée.
-    // L'instant, lui, a le droit de changer — c'est tout l'objet du réglage.
-    const valeurs = (tl) => tl.anims
-      .map((a) => `${a.id}::${a.prop}::${JSON.stringify(a.keyframes.map((k) => k.value))}`)
-      .sort();
-    assert.deepEqual(valeurs(sim), valeurs(pas), `${nom} : une valeur d'arrivée a bougé`);
+    // Le trajet et le décor changent quand plusieurs encarts se partagent la
+    // scène ; le résultat arithmétique et l'ordre des jetons vivants restent.
+    const resultat = (tl) => tl.scene.flow.map((id) => {
+      const n = tl.scene.get(id);
+      return [n.id, n.text, n.kind];
+    });
+    assert.deepEqual(resultat(sim), resultat(pas), `${nom} : le résultat a changé`);
   }
 });
 
@@ -408,4 +409,36 @@ test('★ rythme — l’étendue d’une op tient compte de son « stagger »',
   const pairs = Array.from({ length: 12 }, (_, i) => ({ target: `t${i}`, to: { id: `u${i}`, text: 'x' } }));
   assert.equal(etendueDe({ op: 'substitute', pairs, dur: 1100, stagger: 90 }), 1100 + 90 * 11);
   assert.equal(etendueDe({ op: 'substitute', pairs, dur: 1100 }), 1100);
+});
+
+
+test('rythme — des instants rabattus sur une même borne gardent leur ordre temporel initial', () => {
+  const step = { ops: [
+    { op: 'sum', targets: ['b'], at: 1100, dur: 1000 },
+    { op: 'highlight', target: 'x', at: 1000 },
+    { op: 'sum', targets: ['a'], at: 0, dur: 1000 },
+  ] };
+  const ordre = step.ops.map((op, i) => ({ op, i })).sort((a, b) => a.op.at - b.op.at).map((e) => e.i);
+  assert.deepEqual(ordonnerLesOps(step, { rythme: 'simultane' }).map((e) => e.i), ordre);
+});
+
+
+test('Pas à pas — deux gestes de types différents attendent aussi leur tour', () => {
+  const step = { ops: [
+    { op: 'substitute', pairs: [{ target: 'a', to: { id: 'b', text: '2' } }], at: 0, dur: 900 },
+    { op: 'drop', targets: ['c'], at: 100, dur: 600 },
+    { op: 'highlight', target: 'd', at: 100, dur: 4000 },
+    { op: 'sum', targets: ['b', 'd'], to: { id: 'r', text: '4' }, at: 200, dur: 1200 },
+  ] };
+  const plan = ordonnerLesOps(step, { rythme: 'pasAPas' });
+  assert.deepEqual(plan.map((e) => e.at), [0, 900, 900, 1500]);
+});
+
+
+test('Simultané — les fusions qui redistribuent la ligne ne sont pas indépendantes', () => {
+  const step = { ops: [
+    { op: 'merge', targets: ['a', 'b'], to: { id: 'ab', text: '22' }, at: 0, dur: 1000 },
+    { op: 'merge', targets: ['c', 'd'], to: { id: 'cd', text: '44' }, at: 1000, dur: 1000 },
+  ] };
+  assert.deepEqual(ordonnerLesOps(step, { rythme: 'simultane' }).map((e) => e.at), [0, 1000]);
 });

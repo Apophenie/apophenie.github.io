@@ -115,7 +115,9 @@ export function ouvrirEncart(ctx, src, spec = {}) {
   const pSrc = ctx.scene.pos(src.id);
   const souhait = pSrc && Number.isFinite(pSrc.x) ? pSrc.x : vue.x;
 
-  const rangee = rangerLaRangee(ctx, { famille, frame, souhait, y, cote, fs, at, dur });
+  const rangee = ctx.encarts?.has(src.id)
+    ? { x: ctx.encarts.get(src.id), ordre: ctx.scene.prochainOrdreEncart() }
+    : rangerLaRangee(ctx, { famille, frame, souhait, y, cote, fs, at, dur });
   const centre = { x: rangee.x, y };
 
   const deployer = cle === null || spec.deployer !== false || !ctx.scene.has(frame);
@@ -376,7 +378,7 @@ export function refermerEncart(ctx, spec) {
   const { src, to, encart } = spec;
   const at = spec.at;
   const dur = spec.dur;
-  const replier = spec.replier !== false;
+  const replier = ctx.encarts ? true : spec.replier !== false;
 
   // Tout ce qui était montré s'efface : le cadre, le titre, l'afficheur.
   const cadre = replier ? [encart.frame, ...(encart.titre ? [encart.titre] : [])] : [];
@@ -413,5 +415,9 @@ export function refermerEncart(ctx, spec) {
   ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: at + dur * 0.1, dur: dur * 0.2 });
   ctx.anim({ id: spec.compteur, prop: 'opacity', to: 0, at: at + dur * 0.2, dur: dur * 0.2 });
   ctx.anim({ id: to.id, prop: 'scale', to: 1, at: at + dur * 0.3, dur: dur * 0.5, ease: EASE.move });
-  ctx.reflow({ at: at + dur * 0.3, dur: dur * 0.7, ease: EASE.move });
+  if (ctx.encarts) {
+    const destination = ctx.scene.pos(src.id);
+    ctx.place(to.id, { x: destination.x, y: destination.y },
+      { at: at + dur * 0.3, dur: dur * 0.7, ease: EASE.move });
+  } else ctx.reflow({ at: at + dur * 0.3, dur: dur * 0.7, ease: EASE.move });
 }

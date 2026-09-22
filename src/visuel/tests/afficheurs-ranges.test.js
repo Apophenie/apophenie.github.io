@@ -234,3 +234,58 @@ test('★ afficheurs — les nombres produits sont les mêmes dans les deux ryth
   assert.deepEqual(lus('pasAPas').filter((s) => s.startsWith('n')),
     ['n0=3', 'n1=4', 'n2=3', 'n3=3']);
 });
+
+
+test('afficheurs simultanés — vagues de 0,1 s, conversions et figures toutes navigables', () => {
+  const scenario = conversions('hopehope');
+  scenario.steps.forEach((s, i) => { s.caption = `Conversion ${i}`; });
+  const tl = compile(scenario, { rythme: 'simultane' });
+  assert.equal(tl.steps.length, scenario.steps.length);
+  assert.deepEqual(tl.steps.map((s) => [s.id, s.caption, s.figure]),
+    scenario.steps.map((s) => [s.id, s.caption, s.figure ?? null]));
+  assert.deepEqual(tl.bounds.slice(0, 4), [0, 100, 200, tl.steps[3].t0]);
+  assert.ok(tl.steps[3].t0 > 3000, 'la vague suivante attend la fin du comptage');
+  assert.ok(tl.total < compile(scenario).total * 0.6, 'les conversions se jouent réellement ensemble');
+  assert.deepEqual(tl.warnings, []);
+  for (let i = 0; i < tl.steps.length; i++) {
+    assert.equal(tl.steps[i].t0, tl.bounds[i]);
+    assert.equal(tl.steps[i].t1, tl.bounds[i + 1]);
+  }
+});
+
+test('afficheurs simultanés — encarts sans chevauchement ni débordement pendant les vagues', () => {
+  for (const mot of ['ho', 'hopehopehopehope']) {
+    const tl = compile(conversions(mot), { rythme: 'simultane' });
+    for (let t = 0; t <= tl.total; t += 25) {
+      const vus = visiblesA(tl, t);
+      for (const c of vus) {
+        assert.ok(c.x - DEMI >= VIEWBOX.x + MARGIN - 1);
+        assert.ok(c.x + DEMI <= VIEWBOX.x + VIEWBOX.w - MARGIN + 1);
+      }
+      for (let i = 1; i < vus.length; i++) {
+        assert.ok(vus[i].x - vus[i - 1].x >= 2 * DEMI + RESPIRATION - 1);
+      }
+    }
+    assert.deepEqual(visiblesA(tl, tl.total), []);
+    assert.deepEqual(tl.warnings, []);
+  }
+});
+
+test('comptage et quatorze segments — mêmes nombres, départs en vague sans animation concurrente', () => {
+  for (const op of [
+    { op: 'countStrokes', glyph: 'H', mode: 'traits', count: 3 },
+    { op: 'fourteenSeg', segments: ['a', 'b', 'c', 'd', 'e', 'f'], fusion: false, count: 6 },
+  ]) {
+    const scenario = conversions('hhhhhh');
+    scenario.steps.forEach((s, i) => {
+      s.ops = [{ ...op, target: `t${i}`, to: { id: `n${i}`, text: String(op.count) } }];
+    });
+    const sim = compile(scenario, { rythme: 'simultane' });
+    const pas = compile(scenario, { rythme: 'pasAPas' });
+    assert.equal(sim.steps[1].t0, 100);
+    assert.ok(sim.total < pas.total * 0.6);
+    assert.deepEqual(sim.warnings, []);
+    assert.deepEqual(sim.scene.flow.map((id) => sim.scene.get(id).text),
+      pas.scene.flow.map((id) => pas.scene.get(id).text));
+  }
+});

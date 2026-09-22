@@ -54,6 +54,7 @@
 import {
   EPS, MIN_STEP_DURATION, MIN_HINGE_GAP, DEFAULT_DUR, DUR_REDUCED_STEP,
   DUR_REDUCED_OP, EASE, VIEWBOX, PALETTE, PAN_ID,
+  MARGIN,
 } from './constants.js';
 import { ciblesDuStep, boiteDuFlux, panPour, memePan } from './defilement.js';
 import { bboxOf } from './layout.js';
@@ -63,7 +64,9 @@ import { Scene } from './scene.js';
 import { defaultMetrics, defaultLayoutOptions } from './layout.js';
 import { PRIMITIVES } from './primitives/index.js';
 import { indexDiscrete } from './clock.js';
-import { ordonnerLesOps, normaliserRythme } from './rythme.js';
+import { ordonnerLesOps, normaliserRythme, ONDE_SIMULTANE, empreinteDe } from './rythme.js';
+import { ENCART } from './primitives/encart.js';
+import { rangerLesAfficheurs, combienTiennent } from './placement.js';
 
 /**
  * Vitesse de croisière du panoramique, en unités de viewBox par seconde, et ses
@@ -231,7 +234,38 @@ export function compile(scenario, options = {}) {
   const bounds = [0];
   let cursor = 0;
 
-  scenario.steps.forEach((step, si) => {
+  // Les entrées accessibles restent intactes. Seule la compilation rassemble
+  // les conversions indépendantes ; chaque entrée garde une borne de départ.
+  const placeEncarts = {
+    cote: 2 * metrics.fontSize * Math.max(ENCART.cote / 2, ENCART.compteurX + 0.45),
+    cadre: { min: viewBox.x + MARGIN, max: viewBox.x + viewBox.w - MARGIN },
+    plancher: 1,
+  };
+  const conversions = new Set(['sevenSeg', 'fourteenSeg', 'countStrokes']);
+  const regroupable = (s) => s.ops?.length === 1 && conversions.has(s.ops[0].op)
+    && !s.duration && !s.hold && !(s.ops[0].at ?? 0);
+  const vagues = [];
+  for (const original of scenario.steps) {
+    const precedente = vagues.at(-1);
+    const op = original.ops?.[0];
+    const emp = op && empreinteDe(op);
+    const rejoint = !reduced && rythme === 'simultane' && regroupable(original)
+      && precedente && regroupable(precedente.entrees[0])
+      && precedente.ops[0].op === op.op
+      && precedente.entrees.length < combienTiennent(placeEncarts)
+      && emp instanceof Set && precedente.ops.every((autre) => {
+        const pris = empreinteDe(autre);
+        return pris instanceof Set && [...emp].every((id) => !pris.has(id));
+      });
+    if (rejoint) {
+      precedente.entrees.push(original);
+      precedente.ops.push(op);
+    } else vagues.push({ ...original, ops: [...(original.ops || [])], entrees: [original] });
+  }
+
+  vagues.forEach((step) => {
+    const si = steps.length;
+    const enVague = step.entrees.length > 1;
     const t0 = cursor;
     const where = { step: si, stepId: step.id };
     let extent = 0;
@@ -276,6 +310,15 @@ export function compile(scenario, options = {}) {
       ? (step.ops || []).map((op, i) => ({ op, i, at: 0, fadeAt: op.fadeAt }))
       : ordonnerLesOps(step, { rythme });
 
+    let encarts = null;
+    if (enVague) {
+      const { x } = rangerLesAfficheurs(step.ops.map((op) => scene.pos(op.target).x), {
+        ...placeEncarts,
+        cadre: { min: placeEncarts.cadre.min - panFocus.x, max: placeEncarts.cadre.max - panFocus.x },
+      });
+      encarts = new Map(step.ops.map((op, i) => [op.target, x[i]]));
+    }
+    let dernierCtx;
     for (const { op, i, at, fadeAt } of ops) {
       const prim = PRIMITIVES[op.op];
       if (!prim) {
@@ -288,6 +331,7 @@ export function compile(scenario, options = {}) {
 
       const ctx = {
         op,
+        encarts,
         scene,
         metrics,
         layoutOpts,
@@ -544,7 +588,11 @@ export function compile(scenario, options = {}) {
       };
 
       prim.plan(ctx);
+      dernierCtx = ctx;
     }
+    // Tous les nombres redescendent à la place de leur caractère. La ligne
+    // ne se redistribue qu'une fois la vague terminée.
+    if (enVague) dernierCtx.reflow({ at: extent - dernierCtx.debutOp, dur: scale(DEFAULT_DUR.move, speed) });
 
     // --- défilement : le cadrage de repos, une fois le geste accompli --------
     //
@@ -592,20 +640,17 @@ export function compile(scenario, options = {}) {
     }
 
     cursor = round(cursor + duration);
-    bounds.push(cursor);
-    steps.push({
-      index: si,
-      id: step.id,
-      title: step.title,
-      caption: step.caption ?? null,
-      // L'illustration du Registre voyage avec le libellé : `creerRegistre`
-      // lit `lecteur.steps`, pas le scénario brut (CONTRACTS §6).
-      figure: step.figure ?? null,
-      t0: round(t0),
-      t1: cursor,
-      duration,
-      hold: round(hold),
-      speed: stepSpeed,
+    step.entrees.forEach((entree, rang) => {
+      const debut = round(t0 + scale(rang * ONDE_SIMULTANE, speed));
+      const fin = rang === step.entrees.length - 1 ? cursor
+        : round(t0 + scale((rang + 1) * ONDE_SIMULTANE, speed));
+      bounds.push(fin);
+      steps.push({
+        index: si + rang, id: entree.id, title: entree.title,
+        caption: entree.caption ?? null, figure: entree.figure ?? null,
+        t0: debut, t1: fin, duration: round(fin - debut),
+        hold: round(hold), speed: stepSpeed,
+      });
     });
   });
 

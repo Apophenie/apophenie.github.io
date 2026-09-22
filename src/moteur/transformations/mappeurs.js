@@ -4488,13 +4488,10 @@ function etapeMappeur(spec) {
 
     const afficheur = spec.geste === 'sevenSeg' || spec.geste === 'fourteenSeg';
     if (afficheur || spec.geste === 'countStrokes') {
-      // ★ UN STEP PAR JETON. Les trois primitives — sept segments, quatorze
-      // segments, tracé de crayon — montent la lettre dans un
-      // encart, l'y changent de police (afficheur, ou tracé de crayon), posent
-      // un compteur, allument un élément à la fois — et c'est le nombre du
-      // compteur qui, à la fin, redescend remplacer la lettre. Montrer quatre
-      // lettres à la fois donnerait quatre chantiers simultanés : illisible.
-      // Une chose à la fois, et tant pis pour la durée.
+      // Une entrée accessible par caractère, avec sa figure et son résultat.
+      // En Simultané, le compilateur rassemble temporairement les conversions
+      // indépendantes en vagues adaptées au cadre, tout en conservant ces
+      // entrées et leurs indices pour le Registre et la navigation.
       //
       // `count` est le contrôle croisé exigé par CONTRACTS §0.3 : le moteur
       // visuel refuse d'allumer, de tracer ou de pointer un nombre différent de

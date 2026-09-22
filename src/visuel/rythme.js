@@ -25,35 +25,15 @@
  *   part `r × ONDE` après le premier.
  *
  *   · **Pas à pas** : une vague ne prend JAMAIS deux membres. Chaque op attend
- *     donc la fin de la précédente de son type — « les unes après les autres ».
+ *     donc la fin de la précédente — « les unes après les autres ».
  *   · **Simultané** : une vague prend tout ce qui ne se marche pas dessus,
  *     c'est-à-dire toute op dont l'empreinte est disjointe de celles déjà dans
  *     la vague. Une op qui touche un caractère déjà pris ouvre une vague neuve.
  *
- * ## ★ Pourquoi la règle porte sur les ops de MÊME TYPE, et pas sur toutes
- *
- * « Une opération à la fois, strictement » pourrait se lire comme une
- * sérialisation TOTALE : plus aucune op d'un step ne recouvrirait une autre.
- * Ce n'est pas ce qui est implémenté, et le refus est argumenté.
- *
- * Une étape de ce moteur n'est pas une liste de calculs, c'est une
- * CHORÉGRAPHIE. Le `dim` qui estompe le hors-groupe part pendant le
- * `partition` qui trace les accolades — c'est un seul geste pour l'œil, et les
- * séparer en deux temps ne le rendrait pas plus lisible, seulement plus long et
- * faux. De même le `highlight` qui désigne et le `drop` qui laisse tomber, ou
- * l'`insertOperators` qui écarte la ligne et le `sum` qui s'y installe. Ces
- * recouvrements-là sont écrits à la main, avec des `at` choisis (voir
- * `moteur/transformations/commun.js › enchainer`), et personne ne s'en est
- * jamais plaint.
- *
- * Ce dont l'auteur se plaint est PRÉCIS : « tu fais plusieurs additions en
- * parallèle au lieu de les faire les unes après les autres, ce que j'ai
- * interdit ». Plusieurs ADDITIONS — plusieurs ops du même type, donc plusieurs
- * fois le même geste, que l'œil ne sait pas suivre en parallèle parce qu'il n'a
- * qu'un seul endroit où regarder à la fois. Et c'est exactement le critère que
- * l'autre mode emploie dans l'autre sens (« les opérations de MÊME TYPE »). Les
- * deux modes règlent donc la même chose, et c'est ce qui en fait une BASCULE
- * plutôt que deux réglages sans rapport.
+ * En Pas à pas, chaque geste transformant attend la fin du précédent,
+ * quel que soit son type. Les marques (étiquettes, surlignages, attentes)
+ * accompagnent les gestes sans occuper ce verrou. En Simultané, seules les
+ * opérations de même type et d'empreintes disjointes rejoignent une vague.
  *
  * ## ★ L'ORDRE DE LECTURE EST PRÉSERVÉ, ET C'EST UNE CONTRAINTE DURE
  *
@@ -201,6 +181,9 @@ export function empreinteDe(op) {
   };
 
   if (!op || typeof op !== 'object') return ids;
+  // merge redistribue toute la ligne : même des sources disjointes animent
+  // les voisins (mrdf/mrf9). Cette empreinte inclut donc le reflow implicite.
+  if (op.op === 'merge') return PARTOUT;
 
   // — ce que l'op DÉSIGNE ----------------------------------------------------
   // La liste suit le tableau des champs du vocabulaire fermé (CONTRACTS §3.1).
@@ -345,6 +328,7 @@ export function ordonnerLesOps(step, { rythme } = {}) {
      raisonnement. Un geste peut donc rattraper son prédécesseur, jamais le
      doubler. */
   let dernierDebut = -Infinity;
+  let finDuGeste = 0;
   const sortie = [];
 
   for (const { op, i } of ops) {
@@ -370,11 +354,12 @@ export function ordonnerLesOps(step, { rythme } = {}) {
     } else {
       // Vague neuve : elle part au plus tôt à son instant écrit, et jamais
       // avant que la vague précédente du même type soit finie.
-      debut = Math.max(v ? Math.max(base, v.fin) : base, dernierDebut);
+      debut = Math.max(v ? Math.max(base, v.fin) : base, dernierDebut, simultane ? 0 : finDuGeste);
       v = { debut, rang: 0, membres: [], fin: 0 };
       vagues.set(type, v);
     }
     dernierDebut = debut;
+    finDuGeste = Math.max(finDuGeste, debut + etendueDe(op));
 
     // Tout ce qui suit est poussé d'autant : l'ordre de lecture est une
     // contrainte dure, et une op retardée retarde sa suite (voir l'en-tête).
@@ -400,6 +385,6 @@ export function ordonnerLesOps(step, { rythme } = {}) {
   // Un décalage ne peut pas défaire l'ordre temporel, mais il peut rendre deux
   // instants égaux : on re-trie pour que `compile.js` planifie bien dans
   // l'ordre où les choses se produisent.
-  sortie.sort((a, b) => a.at - b.at || a.i - b.i);
+  sortie.sort((a, b) => a.at - b.at);
   return sortie;
 }
