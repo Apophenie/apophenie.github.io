@@ -215,6 +215,28 @@ test('★ intégration — les deux copies du vocabulaire d’ops coïncident',
     assert.deepEqual([...VOCABULAIRE].sort(), [...OP_NAMES].sort());
   });
 
+/**
+ * ★ **LA SECONDE PAIRE DE JUMELLES : « ne refait pas la mise en page ».**
+ *
+ * `recherche/scenario.js › SANS_LAYOUT` s'en sert pour n'autoriser qu'une op
+ * géométrique par step ; `visuel/rythme.js › MARQUES` s'en sert pour décider ce
+ * que le rythme gouverne — une op qui ne transforme pas la ligne DÉSIGNE, et une
+ * désignation n'attend pas son tour (deux étiquettes « MAX » et « MIN » posées
+ * l'une après l'autre à 4,6 s d'écart seraient absurdes).
+ *
+ * C'est la même propriété, lue deux fois, pour la même raison que le
+ * vocabulaire d'ops : l'agent heuristique ne dépend pas du moteur visuel
+ * (CONTRACTS §1). Et comme pour le vocabulaire, la divergence ne ferait ÉCHOUER
+ * personne — elle changerait silencieusement le rythme d'une op. Ce test est le
+ * seul endroit où les deux se regardent.
+ */
+test('★ intégration — les deux copies des ops « sans mise en page » coïncident',
+  { skip: compile ? false : 'src/visuel/ absent' }, async () => {
+    const { MARQUES } = await import('../../../visuel/rythme.js');
+    const { SANS_LAYOUT } = await import('../../scenario.js');
+    assert.deepEqual([...MARQUES].sort(), [...SANS_LAYOUT].sort());
+  });
+
 test('★ intégration — la figure quatorze segments traverse elle aussi le compilateur',
   { skip: compile ? false : 'src/visuel/ absent' }, () => {
     const m = creerMoteur(catalogue);

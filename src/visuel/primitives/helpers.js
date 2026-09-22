@@ -1305,8 +1305,16 @@ export function suivreLaZone(ctx, acc, spec = {}) {
      les départs de ses sources, et la ligne qui se referme. Le second attend la
      fin du premier ; l'instant est tenu en temps d'ÉTAPE (le début de l'op plus
      `at`), puisque deux ops différentes le comparent. Le centième de
-     milliseconde de marge absorbe les arrondis de la compilation. */
-  const debutOp = (ctx.op && ctx.op.at ? ctx.op.at : 0) / (ctx.speed || 1);
+     milliseconde de marge absorbe les arrondis de la compilation.
+
+     ⚠️ **L'ORIGINE SE LIT SUR LE CONTEXTE, PLUS SUR L'OP.** Elle valait
+       `ctx.op.at / ctx.speed`, ce qui était exact tant que l'instant écrit dans
+       le scénario était l'instant joué. Le rythme a rompu cette égalité : en
+       « Pas à pas », sept sommes écrites au même `at` démarrent les unes après
+       les autres (`visuel/rythme.js`). `ctx.debutOp` porte l'instant RÉEL, déjà
+       mis à l'échelle ; `ctx.op.at` porterait celui d'avant l'ordonnancement, et
+       deux suivis se remettraient à se chevaucher sans que rien le dise. */
+  const debutOp = ctx.debutOp ?? 0;
   const pret = ctx.scene.zonesJusqua.get(acc.id);
   const at0 = spec.at ?? 0;
   const fin0 = at0 + Math.max(1, spec.dur ?? ctx.dur);

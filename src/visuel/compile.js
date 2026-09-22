@@ -63,6 +63,7 @@ import { Scene } from './scene.js';
 import { defaultMetrics, defaultLayoutOptions } from './layout.js';
 import { PRIMITIVES } from './primitives/index.js';
 import { indexDiscrete } from './clock.js';
+import { ordonnerLesOps, normaliserRythme } from './rythme.js';
 
 /**
  * Vitesse de croisière du panoramique, en unités de viewBox par seconde, et ses
@@ -154,7 +155,7 @@ function jalonsDuPan(precedent, focus, repos, duree) {
 
 /**
  * @param {object} scenario
- * @param {{speed?:number, reduced?:boolean,
+ * @param {{speed?:number, reduced?:boolean, rythme?:'pasAPas'|'simultane',
  *          metrics?:object, layoutOpts?:object, glyphes?:object,
  *          viewBox?:object}} [options]
  */
@@ -166,6 +167,10 @@ export function compile(scenario, options = {}) {
     fail(`option « speed » invalide : ${JSON.stringify(speed)} — un multiplicateur > 0 est attendu.`);
   }
   const reduced = !!options.reduced;
+  /* Le RYTHME des gestes — « Pas à pas » ou « Simultané » (voir `rythme.js`).
+     C'est une option de COMPILATION au même titre que `reduced` : la timeline
+     reste une fonction pure du temps, seul l'instant de chaque geste change. */
+  const rythme = normaliserRythme(options.rythme);
   const viewBox = options.viewBox || VIEWBOX;
   const metrics = options.metrics || defaultMetrics();
   // Copie : la compilation ÉCRIT dans ces options (`partition` y pose le report
@@ -255,18 +260,29 @@ export function compile(scenario, options = {}) {
     );
     scene.pan = panFocus;
 
-    const ops = (step.ops || []).map((op, i) => ({ op, i }));
-    // Planification dans l'ordre temporel : la valeur « dernière connue » d'un
-    // couple (élément, propriété) doit suivre le temps, pas l'ordre du tableau.
-    ops.sort((a, b) => (a.op.at ?? 0) - (b.op.at ?? 0) || a.i - b.i);
+    /* ─────────────────────────── Le RYTHME ────────────────────────────
+     * `ordonnerLesOps` rend les ops dans l'ordre temporel — ce dont la
+     * planification a de toute façon besoin, la valeur « dernière connue » d'un
+     * couple (élément, propriété) devant suivre le temps et non l'ordre du
+     * tableau — et leur donne au passage l'instant que le rythme demandé leur
+     * assigne. Voir `rythme.js` : il ne permute jamais, il ne fait que décaler.
+     *
+     * ★ **EN MOUVEMENT RÉDUIT, PAS DE RYTHME DU TOUT.** Le moteur n'y joue
+     *   rien : il pose l'image d'un instant, tous les `at` valent zéro et toutes
+     *   les durées valent `DUR_REDUCED_OP`. Ordonner des gestes qui n'ont pas
+     *   lieu serait un calcul sans objet — et c'est la même raison qui retire le
+     *   bouton de la barre dans ce cas (`app/transport.js`). */
+    const ops = reduced
+      ? (step.ops || []).map((op, i) => ({ op, i, at: 0, fadeAt: op.fadeAt }))
+      : ordonnerLesOps(step, { rythme });
 
-    for (const { op, i } of ops) {
+    for (const { op, i, at, fadeAt } of ops) {
       const prim = PRIMITIVES[op.op];
       if (!prim) {
         fail(`${loc({ ...where, op: i, opName: op.op })}primitive « ${op.op} » non implémentée.`);
       }
       const where2 = loc({ ...where, op: i, opName: op.op });
-      const opAt = reduced ? 0 : scale(op.at ?? 0, stepSpeed);
+      const opAt = reduced ? 0 : scale(at, stepSpeed);
       const opDur = reduced ? DUR_REDUCED_OP : scale(op.dur ?? DEFAULT_DUR[op.op], stepSpeed);
       const opStagger = reduced ? 0 : scale(op.stagger ?? 0, stepSpeed);
 
@@ -290,6 +306,21 @@ export function compile(scenario, options = {}) {
         where: where2,
         glyphes: options.glyphes,
         dur: opDur,
+        /* ★ L'INSTANT OÙ CETTE OP COMMENCE DANS SON STEP, déjà mis à l'échelle.
+           Une primitive qui compare son calendrier à celui d'une AUTRE op du
+           même step a besoin de cette origine (`helpers.suivreLaZone`, qui
+           empêche deux suivis d'une même accolade de se chevaucher). Elle la
+           lisait sur `ctx.op.at` ; depuis le rythme, l'instant écrit dans le
+           scénario n'est plus l'instant joué — c'est `rythme.js` qui le décide.
+           La lire ailleurs qu'ici serait lire une valeur périmée. */
+        debutOp: opAt,
+        /* ★ `fadeAt` REPORTÉ — l'instant où l'accolade de cette op s'efface.
+           Même raison que `debutOp`, en plus grave : `op.fadeAt` est une
+           DÉPENDANCE (« quand l'action du step finit ») figée en nombre par
+           l'émetteur, sur les instants qu'il avait déclarés. Le rythme les
+           ayant changés, c'est `rythme.js` qui reporte la valeur ; la lire sur
+           l'op ferait s'effacer l'accolade au milieu de l'action. */
+        fadeAt,
         ease: op.ease || null,
         stagger: opStagger,
         gensym: (hint) => scene.gensym(hint),
@@ -644,6 +675,9 @@ export function compile(scenario, options = {}) {
     scenario,
     reduced,
     speed,
+    // Le rythme EFFECTIF : en mouvement réduit, aucun ordonnancement n'a lieu,
+    // et la timeline ne doit pas prétendre le contraire.
+    rythme: reduced ? null : rythme,
     metrics,
     layoutOpts,
     viewBox,
