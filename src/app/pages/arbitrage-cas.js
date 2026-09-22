@@ -213,6 +213,11 @@ export const CAS_ARBITRAGE = Object.freeze([
     apres: "?sce!fmaj+mas+mrdE$6hVamBkJyG1MWtPRwR",
   },
   {
+    // ★ LE DÉPARTAGE DEMANDÉ N'A PLUS D'OBJET (22 septembre 2026). « Je préfère
+    //   `mz26` à `mas`, mais à part ça les deux me vont » (l'auteur) : mesurée,
+    //   la voie à `mz26` n'est plus fabriquée — absente aux crans 0, 1 et 2
+    //   (16, 27 et 40 voies). On ne peut pas préférer une voie qui n'existe
+    //   plus ; la préférence reste écrite ici pour le jour où elle reviendra.
     id: "2026-09-19-marie-curie",
     place: 1,
     titre: "[gauche hors liste] Marie Curie — 1ʳᵉ place : le code ASCII casse comprise (mas) prend la tête",
@@ -263,6 +268,16 @@ export const CAS_ARBITRAGE = Object.freeze([
     apres: "?sce!f10!2:fr16;fc+masc+megf$2HuP1G8mNg3sJWhqR",
   },
   {
+    // ★ LA CAUSE EST NOMMÉE (22 septembre 2026) : la voie de gauche n'est pas
+    //   mal classée, elle n'est plus FABRIQUÉE — absente aux crans 0, 1 et 2
+    //   (23, 38 et 65 voies), ce qui distingue « reléguée » de « inexistante ».
+    //   `git bisect` en quatre étapes, entre 3.1.0 (où elle était 1ʳᵉ) et
+    //   `c616f4f`, désigne **`7b80556`** — « Le code ASCII casse comprise, le
+    //   point de code Unicode, et l'addition qui prépare l'égalisation », soit
+    //   les trois opérateurs `mas`, `mu8`, `mam`. C'est une question de
+    //   fabrication (`assemblage.js`), pas de barème ; le cas
+    //   `2026-09-22-numherololgeek-v2-sans-perte`, plus bas, repose la question
+    //   de l'auteur sur deux voies qui, elles, existent.
     id: "2026-09-19-numherololgeek-v2",
     place: 1,
     titre: "[gauche hors liste] numherololgeek.1000i100.fr, curseurs v2 — 1ʳᵉ place : ton verdict n° 7 n’est plus fabriqué",
@@ -294,6 +309,12 @@ export const CAS_ARBITRAGE = Object.freeze([
     apres: "?sce!f3!fmaj+mas+mrtE$6hVamBkJyG1MWtPRwR",
   },
   {
+    // ★ LE DÉFAUT SIGNALÉ SUR CETTE VOIE EST REFERMÉ (22 septembre 2026).
+    //   « Celle de gauche a l'air toute buggée. Elle finit sur 3 » (l'auteur).
+    //   Vérifié : `fr9+mas+mrd+meg` n'est plus proposée aux crans 3, 4 ni 5
+    //   (69, 76 et 89 voies). Les commits du 19-21 septembre (`mrd9`, `mrtE`,
+    //   `mt9E`) l'ont fait sortir. La voie de gauche reste écrite ici parce
+    //   qu'un cas se juge sur ce qu'il opposait, mais il n'y a rien à corriger.
     id: "2026-09-19-fouche-cran3-2e",
     place: 2,
     titre: "[gauche hors liste] Louis Fouché, cran 3 — 2ᵉ place : la version avec 9 rangée puis retournée (mt9E+mr9, cinq séries) entre",
@@ -302,5 +323,64 @@ export const CAS_ARBITRAGE = Object.freeze([
     avant: "?sce!f3!fr9+mas+mrd+meg$7NFn8xBqb5eNAq3YCY",
     // à droite (« Après ») : la 2ᵉ de `variantes-neuf-et-tri` (d8b8114)
     apres: "?sce!f3!2:fr22;fmaj+mas+mt9E+mr9$7NFn8xBqb5eNAq3YCY",
+  },
+  {
+    // ★ **LE VERDICT N° 7, REPOSÉ SUR DEUX VOIES QUI EXISTENT.**
+    //
+    //   > « Les deux sont chouettes, mais trop de perte dans celui de droite :
+    //   >   `meg` ne tombe pas juste, et 1000 100 sont supprimés, ça fait
+    //   >   beaucoup. Celui de gauche est plus élégant, il devrait passer devant
+    //   >   / être conservé. » (l'auteur, 22 septembre 2026)
+    //
+    //   Le cas `2026-09-19-numherololgeek-v2`, juste au-dessus, oppose la tête
+    //   d'aujourd'hui à la moisson qu'il préférait — mais celle-là n'est PLUS
+    //   FABRIQUÉE (absente aux crans 0, 1 et 2, soit 23, 38 et 65 voies ;
+    //   `git bisect` désigne `7b80556`, les trois opérateurs `mas`/`mu8`/`mam`).
+    //   Un cas dont la voie de gauche n'existe pas ne peut plus rien trancher.
+    //
+    //   Celui-ci repose donc la MÊME question sur la meilleure voie SANS PERTE
+    //   qui reste dans la liste : la moisson qui lit les 24 caractères
+    //   signifiants sur 24, contre la tête qui n'en lit que 17 — les sept
+    //   manquants étant exactement « 1000 » et « 100 », ce que la saisie a de
+    //   reconnaissable.
+    //
+    //   ⚠️ **ET IL A UNE BONNE RÉPONSE MESURÉE, qui n'est pas celle qu'on
+    //     croit.** Ce n'est PAS un barème qui sous-pèse la perte : la tête paie
+    //     déjà −3 000 d'égalisation et −648 de saisie supprimée, pour un crédit
+    //     brut de −1 951 et un facteur collé au plancher (520) — le barème ne
+    //     peut plus la punir. L'écart qui les sépare n'est pas un écart de
+    //     perte, c'est un écart de COHÉRENCE : 709 contre 130. La moisson gagne
+    //     l'exhaustivité de 1 000 à 753 et perd tout le reste. Renverser
+    //     demanderait de descendre l'exhaustivité de la tête à ~460, soit une
+    //     couverture de 38 ‰ pour 17 caractères lus sur 24 : aucune pondération
+    //     honnête de la perte ne produit cela.
+    //   C'est donc bien un GOÛT qu'on demande ici — « une moisson qui lit tout
+    //   mais saute d'une méthode à l'autre vaut-elle mieux qu'une lecture nette
+    //   qui jette les chiffres ? » —, et non un réglage à trouver.
+    //   → `.planning/A-VENIR.md`, « Descendre le plancher du facteur d'élégance ».
+    id: "2026-09-22-numherololgeek-v2-sans-perte",
+    place: 1,
+    question: "bareme",
+    titre: "[gauche 1ʳᵉ] numherololgeek.1000i100.fr, curseurs v2 — 1ʳᵉ place : la tête jette « 1000 » et « 100 » ; la moisson qui lit tout doit-elle passer devant ?",
+    saisie: "numherololgeek.1000i100.fr",
+    curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
+    // à gauche (« Avant ») : la tête d'aujourd'hui — lit 17 signifiants sur 24,
+    // 15 valeurs égalisées, et son `meg` ne tombe pas juste (arrondi 235 ‰).
+    avant: "?sce!p25.200.50.150!fl+mqwc+meg$4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
+    // à droite (« Après ») : la 9ᵉ — lit 24 signifiants sur 24, aucun abandon,
+    // aucune égalisation, aucun reliquat ; élégance 727 contre 0.
+    apres: "?sce!p25.200.50.150!0:nv,1+4:mas+cs+pm10,2+3:flt+mpy+mr9,5:fr13+nlc+pc9$4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
+    mesure: {
+      commit: "c616f4f",
+      date: "2026-09-22",
+      avant: {
+        rangMoteur: 1, rangGlobal: 1, global: 725, score: 2226, mode: "GROUPEMENT", series: 5,
+        axes: { simplicite: 935, exhaustivite: 753, quantite: 556, coherence: 709 },
+      },
+      apres: {
+        rangMoteur: 9, rangGlobal: 9, global: 588, score: 2513, mode: "MOISSON", series: 4,
+        axes: { simplicite: 313, exhaustivite: 1000, quantite: 444, coherence: 130 },
+      },
+    },
   },
 ]);
