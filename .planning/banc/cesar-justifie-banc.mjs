@@ -4,6 +4,7 @@
 //   node .planning/banc/cesar-justifie-banc.mjs            → la lecture, saisie par saisie
 //   node .planning/banc/cesar-justifie-banc.mjs --classement → les listes, avant / après
 //   node .planning/banc/cesar-justifie-banc.mjs --jumeau   → la preuve de l'éviction
+//   …--classement --fouille 10                             → à la profondeur qui compte
 //
 // ★ `--jumeau` est la mesure qui explique tout le reste, et c'est la seule qui
 //   compte si l'on ne doit en lire qu'une. Le césar justifié rend EXACTEMENT ce
@@ -57,14 +58,19 @@ if (args.includes('--jumeau')) {
 }
 
 const moteur = (ops) => creerMoteur(ops, { filetTemporel: false });
-const listes = (ops, saisie, cran) => {
-  const r = moteur(ops).resoudre(saisie, { cran });
+// ⚠️ L'option s'appelle `fouille`, PAS `cran` — c'est le marqueur `f3!` de
+//    l'URL. Passer `{ cran }` est accepté en silence et ne règle RIEN : toutes
+//    les profondeurs rendent alors la même liste, ce qui m'a fait conclure trop
+//    vite que le césar justifié n'apparaissait à aucune profondeur. Il apparaît
+//    à `fouille: 10`, sous les leviers (b)+(c). La leçon vaut pour tout le banc.
+const listes = (ops, saisie, fouille) => {
+  const r = moteur(ops).resoudre(saisie, { fouille });
   return (r.approches || []).map((a) => a.url || (a.fragments || []).map(
     (f) => (f.chemin.ops || []).map((o) => o.code).join('+'),
   ).join(','));
 };
 
-const CRAN = Number(args[args.indexOf('--cran') + 1]) || 0;
+const CRAN = Number(args[args.indexOf('--fouille') + 1]) || 0;
 const sansEux = CATALOGUE.filter((op) => !estJustifie(op));
 let listesChangees = 0;
 let tetesChangees = 0;

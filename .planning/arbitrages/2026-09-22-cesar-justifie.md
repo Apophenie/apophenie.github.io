@@ -244,9 +244,18 @@ catalogue ; la comparaison se refait à tout moment.
    la concaténation tombe sous 26 — la conjonction est rare. Tout le reste du
    corpus ne rend aucune lecture (le plus souvent : aucun caractère commun, ou
    un seul mot).
- · **⛔ AUCUNE VOIE JUSTIFIÉE N'ATTEINT AUCUNE LISTE, À AUCUN CRAN** (mesuré de
-   0 à 10, sur les trois saisies qui portent une lecture). Le mécanisme est donc
-   **inerte** là où il devrait servir.
+ · **⛔ AUCUNE VOIE JUSTIFIÉE N'ATTEINT AUCUNE LISTE**, à aucune profondeur de
+   fouille (0, 3, 6, 10 — soit 17, 68, 120 puis 309 voies proposées). Le
+   mécanisme est donc **inerte** là où il devrait servir.
+
+   > ⚠️ **UNE PREMIÈRE VERSION DE CETTE LIGNE ÉTAIT JUSTE PAR ACCIDENT, et il
+   > faut le dire.** Elle annonçait « mesuré de 0 à 10 » en passant `{ cran }` à
+   > `resoudre`, alors que l'option s'appelle **`fouille`** — le marqueur `f3!`
+   > de l'URL. L'option inconnue est acceptée en silence, si bien que les onze
+   > « profondeurs » mesurées étaient onze fois la même. Le signe qui aurait dû
+   > m'alerter était sous les yeux : dix-sept voies à chaque profondeur, alors
+   > qu'une fouille profonde en rend trois cents. Refaite correctement, la
+   > mesure donne le même verdict — mais elle ne le donnait pas encore.
  · **Et la cause n'est pas le classement, c'est la recherche.** `fj22+fl+m14`
    marque 2 006, ce qui le placerait devant **six des dix-sept** voies listées
    sur « Louis Fouché » (les 6ᵉ, 9ᵉ, 12ᵉ, 15ᵉ, 16ᵉ et 17ᵉ marquent de 1 436 à
@@ -300,12 +309,12 @@ suffisant** : il nomme un verrou réel, il n'en nomme pas le dernier. Trois
 interventions ont été montées dans un bac à sable (une copie de `src/`, pour ne
 pas remuer l'arbre pendant la suite lente) et mesurées séparément.
 
-| levier | vecteurs à `fj` | dans la fenêtre de 20 | **dans la liste** |
-|---|---|---|---|
-| aucun (état livré) | 0 | 0 | **0** |
-| **(b)** l'aîné inéligible là où le cadet s'applique | 4 | 1 — 15ᵉ | **0** |
-| **(c)** une famille de réglages propre (`frj`) | 0 | 0 | **0** |
-| **(b) + (c)** | 4 | 1 — **11ᵉ**, la mieux notée de toutes | **0** |
+| levier | vecteurs à `fj` | dans la fenêtre de 20 | liste, fouille 0/3/6 | **liste, fouille 10** |
+|---|---|---|---|---|
+| aucun (état livré) | 0 | 0 | **0** | **0** sur 309 voies |
+| **(b)** l'aîné inéligible là où le cadet s'applique | 4 | 1 — 15ᵉ | **0** | — |
+| **(c)** une famille de réglages propre (`frj`) | 0 | 0 | **0** | — |
+| **(b) + (c)** | 4 | 1 — **11ᵉ**, la mieux notée de toutes | **0** | **9** sur 297 voies, la meilleure **47ᵉ** |
 
  · **(c) seule ne fait rien**, et c'est logique : sans (b), l'aîné pré-empte
    toujours le cadet en amont de toute question de siège.
@@ -327,13 +336,38 @@ fenêtre. Le filtre qui les écarte, entre la fenêtre et la liste, **ne regarde
 pas la justification** : il écarte la FORME, justifiée ou non. Il pré-existe
 entièrement à ce chantier.
 
+★ **MAIS (b)+(c) FINIT PAR PASSER — à `fouille: 10`, et là seulement.** Neuf
+voies justifiées entrent alors dans la liste, la meilleure au **47ᵉ** rang :
+
+```
+47ᵉ  ?sce!f10!0:fr13;fj22+mas+mrdf+megf$7NFn8xBqb5eNAq3YCY
+74ᵉ  ?sce!f10!0:fmaj;fj22+mas+mrdf+megf$…
+154ᵉ ?sce!f10!fj22+mas+mrdf+megf$…
+```
+
+L'état LIVRÉ, lui, en rend **zéro** à la même profondeur, sur 309 voies. Les
+deux leviers font donc bien quelque chose — et le mécanisme n'est pas
+inatteignable par nature.
+
+⚠️ **Le prix, à cette profondeur, est net et défavorable** : la liste passe de
+**309 voies à 297**. Douze voies partent, neuf arrivent — un **déficit de
+trois**, et toutes les arrivantes portent le même `fj22`. C'est exactement la
+« sortie sèche » dont il faut se méfier, à l'échelle d'une liste entière.
+
+★ **Et le critère demandé n'est pas atteint** : « sur *Louis Fouché* au cran 3,
+une voie portant un césar justifié doit entrer dans la liste ». À `fouille: 3`,
+(b)+(c) rend **0 sur 68 voies**. Il faut descendre à 10 pour voir la première, au
+47ᵉ rang.
+
 ★ **La piste (a) est DOMINÉE, et n'a donc pas eu à être écrite.** Départager les
 jumeaux par la note au moment de dédupliquer donne au cadet, au mieux, les
 occasions que (b) lui donne déjà — (b) ne se contente pas de le préférer, elle
-supprime le concurrent. Or (b), et même (b)+(c), rendent **zéro** voie en liste.
-Aucun départage ne peut donc faire mieux, et il était inutile de payer pour lui
-le remue-ménage sur tous les jumeaux du catalogue que le coordinateur redoutait
-à juste titre.
+**supprime le concurrent**, ce qu'aucun départage ne fait. Tout ce que (a)
+pourrait rendre, (b) le rend donc aussi. Or (b)+(c) ne rend rien avant
+`fouille: 10`, et rien au rang demandé. Payer pour (a) le remue-ménage sur tous
+les jumeaux du catalogue — que le coordinateur redoutait à juste titre — aurait
+donc acheté, au mieux, ce que (b) achète déjà : trop peu, trop bas, trop
+profond.
 
 > ⚠️ **Une note sur le prix caché de (b)**, s'il devait être repris un jour :
 > écrite comme un `admet`, elle est appliquée aussi au REJEU, pas seulement à la
@@ -357,10 +391,14 @@ n'ont pas su forcer par le bord.
 
 Trois suites possibles, et **aucune n'est de mon ressort** :
 
- 1. **Chercher le filtre qui sépare la fenêtre de la liste**, celui qui écarte
-    `*+tca+mu8+mrd` en bloc alors qu'il occupe trois des quinze places de la
-    fenêtre et qu'il porte la voie la mieux notée du lot. C'est le seul levier
-    que je n'ai pas su isoler, et c'est désormais le seul qui reste. Il n'a
+ 1. **Reprendre (b)+(c) comme un chantier à part entière**, puisque c'est le
+    seul couple qui fasse entrer quelque chose. Il lui manque trois choses, et
+    aucune n'est petite : un canal d'inéligibilité propre à la RECHERCHE (sans
+    quoi (b) tue les liens existants, voir l'encadré ci-dessus) ; de quoi
+    remonter du 47ᵉ rang, ce qui passe par le filtre qui sépare la fenêtre de la
+    liste — celui qui écarte `*+tca+mu8+mrd` en bloc alors qu'il occupe trois
+    des quinze places de la fenêtre et porte la voie la mieux notée du lot ; et
+    de quoi ne pas perdre douze voies pour en gagner neuf. Ce filtre-là n'a
     **rien à voir avec les césars** : le trouver profiterait à tout le monde.
  2. **Déprécier les quatorze codes** et s'en tenir au constat : un décalage qui
     ne se choisit plus ne sert plus à ce pour quoi on prenait un césar. C'est la
