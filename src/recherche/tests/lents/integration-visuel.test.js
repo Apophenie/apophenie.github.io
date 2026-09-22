@@ -820,3 +820,155 @@ test('★ intégration — la ligne principale reste à l’écran sur toutes le
     assert.deepEqual(fautes, [], `${fautes.length} sortie(s) de cadre :\n  ${fautes.join('\n  ')}`);
     console.log(`    ${scenes.length} scènes, ${etapes} étapes : la ligne ne quitte jamais le cadre`);
   });
+
+/**
+ * ★ **EN SOBRE, LE COURONNEMENT N'EST PAS DISCRET : IL N'EST PAS.**
+ *
+ * > « En mode sobre, ces étapes ne doivent pas apparaître en fantôme, ni comme
+ * >   étape instantanée dans l'animation, ni dans le registre, elles doivent
+ * >   juste être absentes. » (l'auteur)
+ *
+ * Trois absences à prouver, et ce test est le seul endroit d'où les trois se
+ * voient en même temps — parce que c'est ici qu'un scénario rencontre le vrai
+ * compilateur :
+ *
+ *  1. **dans le scénario** — aucune op `horns`, aucune étape portant le titre du
+ *     couronnement ;
+ *  2. **dans l'animation** — la timeline compte exactement autant de steps que
+ *     le scénario, donc aucune étape de durée nulle ne s'y est glissée (le
+ *     compilateur en refuserait une de moins de 16 ms, mais il ne peut pas
+ *     refuser ce qu'on ne lui donne pas : c'est l'ÉGALITÉ des deux comptes qui
+ *     ferme la porte, pas le plancher) ;
+ *  3. **dans le registre** — `app/registre.js` énumère `lecteur.steps` un pour
+ *     un, sans filtre : une étape absente de `steps` est absente du Registre, et
+ *     réciproquement. Le test relit donc `sc.steps` comme le ferait le Registre,
+ *     titre par titre, plutôt que de monter un DOM pour redécouvrir une boucle
+ *     de sept lignes.
+ *
+ * ★ **Et la preuve par le contraire est dans le test** : la MÊME voie en
+ * scénique porte ses couronnements. Sans cela, on prouverait seulement qu'on a
+ * choisi une voie sans 666 contigu.
+ */
+test('★ registre sobre — les étapes de couronnement sont ABSENTES, pas neutralisées',
+  { skip: compile ? false : 'src/visuel/ absent' }, () => {
+    const m = creerMoteur(catalogue);
+    // La voie qui couronne le plus dans le corpus : quatre triptyques, dont un
+    // rassemblé au dernier calcul (`scenario.test.js`).
+    const r = m.rejouer(lireUrl(`#so!2:fr15;fl+tca+masc+mab#${encoderTexte('Donald Trump')}`,
+      { catalogue }));
+    assert.ok(r.ok, r.detail || r.raison);
+
+    const scenique = m.scenarioDe(r.approche, { saisie: 'Donald Trump', registre: 'scenique' });
+    const sobre = m.scenarioDe(r.approche, { saisie: 'Donald Trump', registre: 'sobre' });
+
+    // ── la preuve par le contraire : en scénique, elles sont bien là ─────────
+    const cornesScenique = scenique.steps.filter((s) => (s.ops || []).some((o) => o.op === 'horns'));
+    assert.equal(cornesScenique.length, 4, 'la même voie couronne quatre fois en scénique');
+    const titreCouronnement = cornesScenique[0].title;
+
+    // ── 1. absentes du scénario ─────────────────────────────────────────────
+    assert.equal(sobre.steps.filter((s) => (s.ops || []).some((o) => o.op === 'horns')).length, 0,
+      'aucune op « horns » en sobre');
+    assert.equal(sobre.steps.filter((s) => s.title === titreCouronnement).length, 0,
+      'et aucune étape n’en porte plus le titre — ni en fantôme, ni réécrite');
+    assert.equal(sobre.steps.length, scenique.steps.length - 4,
+      'le sobre compte exactement quatre étapes de moins, pas une de plus');
+    assert.equal(sobre.cornes, undefined, 'et il ne publie aucun jalon de cornes');
+    // Les identifiants se suivent : une étape retirée ne laisse pas de trou.
+    assert.deepEqual(sobre.steps.map((s) => s.id), sobre.steps.map((_, i) => `s${i}`));
+    // Aucune étape vide — une étape sans op serait le fantôme sous un autre nom.
+    for (const [i, s] of sobre.steps.entries()) {
+      assert.ok((s.ops || []).length, `l’étape ${i + 1} « ${s.title} » ne fait rien`);
+    }
+
+    // ── 2. absentes de l'animation ──────────────────────────────────────────
+    const tl = compile(sobre, { scenographie: false });
+    assert.deepEqual(tl.warnings, []);
+    assert.equal(tl.steps.length, sobre.steps.length,
+      'la timeline ne fabrique ni ne perd d’étape');
+    // Et aucune n'est instantanée : la plus courte dure au moins le plancher.
+    const plusCourte = Math.min(...tl.steps.map((s) => s.duration));
+    assert.ok(plusCourte >= 16, `une étape de ${plusCourte} ms s’est glissée dans la timeline`);
+
+    // ── 3. absentes du registre ─────────────────────────────────────────────
+    //     `app/registre.js` : une ligne par `lecteur.steps`, numérotée `i + 1`.
+    const registre = sobre.steps.map((s, i) => `${i + 1}. ${s.title}`);
+    assert.equal(registre.length, sobre.steps.length);
+    assert.deepEqual(registre.filter((l) => l.includes(titreCouronnement)), [],
+      'Le Registre ne porte aucune ligne de couronnement');
+  });
+
+/**
+ * ★ **LE VERDICT DÉCHOIT AUSSI LES COURONNEMENTS NOUVELLEMENT ADMIS.**
+ *
+ * > « Je préfère que tous les 666 en mode scénique reçoivent leur corne, et que
+ * >   le verdict retire celles à ceux qui sont en 2ⁿᵈ ligne. » (l'auteur)
+ *
+ * La seconde moitié de la phrase est une PROMESSE DE RATTRAPAGE : si
+ * l'assemblage couronne tout, c'est que le verdict sait dépouiller. Elle est
+ * déjà tenue en laboratoire — `visuel/tests/solidarite.test.js` fait s'effriter
+ * les rangs du bas sur des scénarios écrits à la main, jusqu'à huit séries.
+ * Elle ne l'était pas de bout en bout : sur un scénario que le moteur de
+ * recherche a réellement produit, avec des couronnements que la règle d'hier
+ * refusait.
+ *
+ * ★ **Le cas est choisi pour ça.** `fl+tca+mpy+meg` sur
+ * `https://hope-hope-hope.fr/` écrit SIX séries et les couronne toutes — cinq
+ * d'un coup à l'égalisation, et **la sixième après le tri**, c'est-à-dire à la
+ * place exacte que l'ancienne quatrième condition interdisait. Six séries font
+ * deux rangs de trois (`repartirEnLignes`), donc les séries 3, 4 et 5 vont en
+ * seconde ligne — et la sixième, la nouvelle venue, est du lot. Si `detrones`
+ * l'oubliait, une corne survivrait au rang du bas.
+ *
+ * ★ Et il n'y a rien à ajouter dans `reveal.js` pour que ça marche : `detrones`
+ * interroge la SCÈNE (`ctx.scene.accrochesA`), pas une liste de couronnements.
+ * Ce test le prouve plutôt que de le supposer.
+ */
+test('★ verdict — les cornes du rang du bas s’effritent, y compris celle du dernier calcul',
+  { skip: compile ? false : 'src/visuel/ absent' }, () => {
+    const m = creerMoteur(catalogue);
+    // La forme canonique que le site écrit lui-même (`a.urlScenique`) : `fl`
+    // est un marqueur de DÉCOUPE, il ne s'écrit pas dans la portée, et `tca`
+    // est implicite.
+    const r = m.rejouer(lireUrl(
+      `?sce!fl+mpy+meg$${encoderTexte('https://hope-hope-hope.fr/')}`, { catalogue },
+    ));
+    assert.ok(r.ok, r.detail || r.raison);
+    const sc = m.scenarioDe(r.approche, { saisie: 'https://hope-hope-hope.fr/', registre: 'scenique' });
+
+    const tri = sc.steps.findIndex((s) => s.recolte);
+    const cornes = sc.steps
+      .map((s, i) => ({ i, o: (s.ops || []).find((x) => x.op === 'horns') }))
+      .filter((x) => x.o);
+    assert.equal(cornes.length, 6, 'les six séries sont couronnées');
+    assert.ok(tri >= 0 && cornes.some((c) => c.i > tri),
+      'et l’une d’elles l’est APRÈS le tri — c’est le cas que l’ancienne règle refusait');
+
+    const reveal = sc.steps[sc.steps.length - 1].ops.find((o) => o.op === 'reveal');
+    const series = [0, 1, 2, 3, 4, 5].map((k) => reveal.targets.slice(k * 3, k * 3 + 3));
+    // La série couronnée en dernier est bien l'une de celles du rang du bas :
+    // sans cela le test passerait sans rien éprouver.
+    const derniere = cornes[cornes.length - 1].o.targets.join('|');
+    assert.ok(series.slice(3).some((s) => s.join('|') === derniere),
+      'la série couronnée après le tri part en seconde ligne');
+
+    const tl = compile(sc, { scenographie: true });
+    assert.deepEqual(tl.warnings, []);
+
+    /* Une corne effritée se reconnaît à son TRACÉ animé — canal discret `d`,
+       fonction pure du temps (`horns.js › effriterLesCornes`). Entière au
+       départ, ébréchée à mi-chemin, disparue à la fin : les trois ensemble, une
+       corne qui saute directement à rien ne s'effrite pas. Même lecture que
+       `visuel/tests/solidarite.test.js`, sur un scénario réel cette fois. */
+    const rongee = (id) => {
+      const e = tl.discrete.filter((x) => x.id === id && x.channel === 'd').at(-1);
+      if (!e) return false;
+      const milieu = e.render(0.5);
+      return e.render(0).length > 0 && milieu.length > 0 && milieu !== e.render(0)
+        && e.render(1) === '';
+    };
+    // Une série porte DEUX cornes, une par 6 extérieur (« UNE CORNE, UN NŒUD »).
+    const etat = series.map((s) => [`@cornes:${s[0]}`, `@cornes:${s[2]}`].filter(rongee).length);
+    assert.deepEqual(etat, [0, 0, 0, 2, 2, 2],
+      'le rang du haut garde ses six cornes, le rang du bas perd les siennes — les deux de chaque série');
+  });

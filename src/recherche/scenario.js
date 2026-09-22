@@ -1894,6 +1894,46 @@ export function dUnSeulTenant(ligne, trio) {
  *     final ; c'est `visuel/primitives/reveal.js` qui, au moment de l'agencer,
  *     fait s'effriter les cornes des triptyques relégués.
  *
+ * ★ **TROIS, ET PAS QUATRE — LE COURONNEMENT NE SE MARCHANDE PLUS.**
+ *
+ * Il y a eu une quatrième condition, demandée par l'auteur puis retirée par
+ * lui : elle refusait le couronnement quand plus rien ne suivait que le
+ * verdict, au motif qu'un couronnement qui n'anticipe rien n'est pas une
+ * anticipation. Elle est tombée.
+ *
+ * > « Je t'avais fait ajouter une règle pour ne pas ajouter de cornes si c'est
+ * >   la dernière étape. Retire-la, en fait, je préfère que tous les 666 en
+ * >   mode scénique reçoivent leur corne, et que le verdict retire celles à
+ * >   ceux qui sont en 2ⁿᵈ ligne. » (l'auteur)
+ *
+ * **La doctrine tient donc en une phrase : en registre SCÉNIQUE, tout 666 que
+ * la ligne écrit d'un seul tenant et garde jusqu'au bout est couronné, où que
+ * soit l'étape qui l'écrit — fût-elle la dernière avant le verdict.** Le
+ * partage des rôles en sort plus net, et c'est l'essentiel : ce module répond à
+ * « ce 666 est-il écrit ? », il ne répond pas à « où finira-t-il ? ». La
+ * seconde question est celle du verdict, qui agence les rangs et **déchoit**
+ * ceux du bas (`visuel/primitives/reveal.js › detrones`, qui relève les cornes
+ * sur la SCÈNE : les couronnements nouvellement admis s'effritent comme les
+ * autres, sans qu'une seule ligne ait eu à les prévoir).
+ *
+ * L'ancienne règle 4 contredisait d'ailleurs la règle 3 à moitié : celle-ci
+ * affranchit le couronnement de l'agencement final, celle-là rendait au verdict
+ * la décision dès que le couronnement venait le toucher. On ne garde pas deux
+ * règles qui se mordent ; on garde celle que l'auteur a redite deux fois.
+ *
+ * **MESURÉ** (`.planning/banc/cornes-banc.mjs`, les dix-neuf saisies du corpus,
+ * 380 voies) : les couronnements passent de **325 à 653**, et les voies qui en
+ * portent au moins un de **163 à 314** — quatre voies sur cinq ont désormais
+ * leurs cornes. Le classement, lui, ne bouge pas d'un rang : le barème ne lit
+ * pas le scénario (voir `jalonsDesCornes`, publié et jamais consommé).
+ *
+ * ⚠ **Et le prix est connu** : une démonstration peut désormais se terminer par
+ * plusieurs couronnements d'affilée, juste avant le verdict — un par série
+ * rassemblée au dernier calcul. C'est assumé. Le registre SOBRE, lui, n'en
+ * porte aucun, et pas même en creux (voir `construireScenario`, « les cornes ne
+ * poussent pas » : en sobre l'étape n'est pas réécrite, elle n'est jamais
+ * créée).
+ *
  * ★ **Pourquoi ICI et pas dans le catalogue** (CONTRACTS §3.1, et le même
  * argument que pour le décor mutualisé des tables). Un opérateur ne voit que sa
  * propre étape : `m14` appliqué au « h » du deuxième `hope` ne peut savoir ni
@@ -2047,7 +2087,13 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
       if (!lignes[k] || !dUnSeulTenant(lignes[k], trio)) { tient = false; break; }
     }
     if (!tient) continue;
-    // ★ **QUATRIÈME CONDITION : IL DOIT RESTER QUELQUE CHOSE À FAIRE APRÈS.**
+    // ★ **ET IL N'Y A PLUS DE QUATRIÈME CONDITION — ce pavé est le souvenir de
+    //   celle qui a existé, pour qu'on ne la réinvente pas.**
+    //
+    //   Elle exigeait « qu'il reste quelque chose à faire après », c'est-à-dire
+    //   qu'un CALCUL occupe encore un rang au-delà de la place d'insertion
+    //   (`complet + 1 < finDeLaPreuve`, la position de l'étape et non celle du
+    //   trio) :
     //
     //   > « Deux étapes pour faire apparaître les cornes alors qu'il n'y a plus
     //   >   rien d'autre que le verdict qui les aurait ajoutées : ce n'est pas
@@ -2061,12 +2107,31 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
     //   rien — il ajoute deux étapes pour montrer un instant plus tôt ce que le
     //   verdict allait montrer de toute façon.
     //
-    //   ⚠️ **ET C'EST LA POSITION D'INSERTION QU'ON JUGE, pas celle du trio.**
-    //     L'étape va en `complet + 1` ; il faut donc qu'un CALCUL occupe encore
-    //     un rang au-delà, c'est-à-dire `complet + 1 < finDeLaPreuve`. Les
-    //     autres couronnements ne comptent pas : ils ne transforment rien, et
-    //     trois cornes qui se regardent ne font pas une démonstration.
-    if (complet + 1 >= finDeLaPreuve) continue;
+    //   ★ **ELLE EST RETIRÉE, ET C'EST L'AUTEUR QUI REVIENT SUR SA PROPRE
+    //     RÈGLE.**
+    //
+    //   > « Je t'avais fait ajouter une règle pour ne pas ajouter de cornes si
+    //   >   c'est la dernière étape. Retire-la, en fait, je préfère que tous les
+    //   >   666 en mode scénique reçoivent leur corne, et que le verdict retire
+    //   >   celles à ceux qui sont en 2ⁿᵈ ligne. » (l'auteur)
+    //
+    //   L'argument d'hier n'était pas faux, il répondait à la mauvaise
+    //   question. Il demandait « ce couronnement gagne-t-il du temps sur le
+    //   verdict ? » ; la question est « ce 666 est-il écrit, et le reste-t-il ? ».
+    //   Quand il l'est, on le dit — la démonstration montre ce qu'elle
+    //   constate, et elle le constate là. Le tri, lui, n'appartient pas à ce
+    //   module : c'est `visuel/primitives/reveal.js` qui, au moment d'agencer
+    //   les rangs, fait s'effriter les cornes des triptyques relégués en
+    //   seconde ligne (`detrones`) — y compris celles de ces couronnements
+    //   nouvellement admis, puisqu'il les lit sur la SCÈNE et non sur une
+    //   liste.
+    //
+    //   ⚠️ **Et elle contredisait à moitié la règle 3**, deux pavés plus haut :
+    //     « la ligne d'arrivée au verdict n'entre pas en compte ». Celle-ci dit
+    //     que l'agencement final ne décide de rien ICI ; celle-là redonnait au
+    //     verdict la décision dès que le couronnement venait le toucher. Les
+    //     deux ne pouvaient pas tenir ensemble. C'est la règle 3 qui reste, et
+    //     les conditions cumulatives sont de nouveau TROIS.
     poses.push({ rang, trio, apres: complet });
   }
   if (!poses.length) return 0;
@@ -2186,54 +2251,83 @@ function reglerLesCornes(steps) {
 }
 
 /**
- * LE REGISTRE SOBRE — les cornes ne poussent pas, et la trouvaille se dit
- * quand même.
+ * LE REGISTRE SOBRE — les cornes ne poussent pas, et l'étape non plus.
  *
- * ★ **Ce qu'on retire, c'est le DESSIN, et rien d'autre.** Un couronnement ne
- * transforme aucune valeur : il constate que trois 6 sont écrits côte à côte
- * (`couronnerLesTriptyques`). Le registre sobre ne peut donc pas le supprimer
- * sans supprimer un constat — il le RÉÉCRIT dans ce que le vocabulaire sait
- * dire de plus sobre : on DÉSIGNE les trois 6 (`highlight`), sans rien poser
- * dessus.
+ * ★ **ABSENTES. Pas discrètes, pas silencieuses, pas instantanées : ABSENTES.**
  *
- * La LÉGENDE ne bouge pas, le titre non plus, le nombre d'étapes non plus. Le
- * spectateur lit la même démonstration, avec la même justification écrite dans
- * Le Registre ; seule la mise en scène a changé, ce qui est très exactement la
- * promesse du registre — même programme, même verdict, même score, même rang,
- * deux mises en scène.
+ * > « En mode sobre, ces étapes ne doivent pas apparaître en fantôme, ni comme
+ * >   étape instantanée dans l'animation, ni dans le registre, elles doivent
+ * >   juste être absentes. » (l'auteur)
  *
- * ★ **Et `efface` n'existe plus ici.** Le geste des cornes ne portait un
- * effacement que du temps où `m36` les émettait, couronnement et troncature
- * d'un seul tenant. Les deux ont été séparés à la source : l'effacement est
- * resté chez `m36`, sous forme d'étape à part entière, identique dans les deux
- * registres (`transformations/mappeurs.js`). On garde néanmoins la branche —
- * la primitive accepte toujours un `efface`, et un scénario relu d'ailleurs
- * pourrait en porter un.
+ * ⚠️ **ET C'EST UN REVIREMENT — voici ce que faisait cette fonction, et
+ *   pourquoi ce n'était pas assez.** Elle RÉÉCRIVAIT le couronnement : l'étape
+ *   restait, avec son titre, sa légende et sa durée, et le geste des cornes y
+ *   devenait une simple désignation (`highlight`). L'argument était honnête —
+ *   « un couronnement ne transforme aucune valeur, mais il CONSTATE quelque
+ *   chose, et le registre sobre ne retire que le dessin, jamais un constat ».
  *
- * ★ **Les verrous du contrôle croisé ne sont pas relâchés.** Ils ont déjà joué
- * quand cette fonction s'exécute : l'assemblage n'a couronné qu'un triptyque
- * d'un seul tenant, vérifié sur la ligne rejouée et jusqu'au verdict. Ce que la
- * réécriture fait disparaître, c'est le troisième verrou
- * (`primitives/horns.js`), et il n'a plus rien à vérifier puisqu'il n'y a plus
- * de couronne à mériter.
+ *   Il ne tenait pas à l'usage. Ce qui restait en sobre était une étape qui ne
+ *   fait rien : le Registre lui donnait une ligne numérotée, la jauge une case,
+ *   le lecteur une charnière, et le spectateur attendait quatre cents
+ *   millisecondes devant trois chiffres soulignés pour rien. Le constat, lui,
+ *   n'a jamais eu besoin de cette étape : c'est le VERDICT qui le fait, en
+ *   posant les séries côte à côte, et il le fait dans les deux registres.
+ *
+ * ★ **La suppression se fait À LA SOURCE, pas ici.** En sobre, `construireScenario`
+ * n'appelle tout simplement pas `couronnerLesTriptyques` : l'étape n'est pas
+ * créée, donc il n'y a rien à retirer, rien à vider, rien à renuméroter. C'est
+ * la seule façon d'obtenir une absence qui ne laisse aucune trace — une étape
+ * créée puis neutralisée finit toujours par se voir quelque part, dans un
+ * compteur, dans un identifiant, dans un journal.
+ *
+ * ★ **Cette fonction est donc devenue une GARDE, et elle le reste pour une
+ * raison précise** : un scénario relu d'ailleurs peut porter des `horns` que ce
+ * module n'a pas posés. Elle les retire, et retire l'étape avec eux si elle
+ * n'en portait pas d'autre.
+ *
+ * ★ **Sauf ce qui relèverait de l'ARITHMÉTIQUE.** Un `horns` qui EFFACE — la
+ * forme qu'émettait `m36` du temps où couronnement et troncature ne faisaient
+ * qu'un geste — enlève des valeurs de la ligne. Retirer ce geste-là ferait
+ * diverger la LIGNE entre les deux registres, et les deux boutons du panneau ne
+ * mèneraient plus à la même voie (CONTRACTS §4.2). On garde donc la gomme, et
+ * l'étape avec elle. Aucun opérateur du catalogue n'émet plus rien de tel
+ * (`transformations/mappeurs.js`, « CET OPÉRATEUR NE COURONNE PLUS ») : la
+ * branche ne se joue jamais aujourd'hui, et elle vaut exactement le peu qu'elle
+ * coûte le jour où elle se jouera.
+ *
+ * ★ **Ce qui change entre les deux registres, et ce qui ne change pas.** Le
+ * nombre d'étapes change désormais — c'est le prix, et il est assumé
+ * (CONTRACTS §4.2, amendement « les cornes reviennent sur tous les 666 »). Ne
+ * changent pas : le programme, les valeurs, la ligne, le verdict, le score et
+ * le rang. Ce que le sobre perd, c'est un commentaire visuel sur un 666 que le
+ * verdict montrera de toute façon.
  *
  * @param {Array} steps — modifié en place
  * @returns {null} aucun jalon : sans couronnement, il n'y a rien à mesurer
  */
-function sobrifierLesCornes(steps) {
-  for (const st of steps) {
-    const ops = st.ops || [];
-    const i = ops.findIndex((o) => o && o.op === 'horns');
-    if (i < 0) continue;
-    const { targets, efface } = ops[i];
-    const sobre = [{ op: 'highlight', targets: [...targets] }];
-    // `efface` peut être vide — un 666 qui occupe déjà toute la ligne n'a rien
-    // autour de lui. Un `drop` sans cible serait refusé par `validerFormeOp`.
-    if (efface && efface.length) {
-      sobre.push({ op: 'drop', targets: [...efface], mode: 'erase', regroup: false });
+function retirerLesCornes(steps) {
+  // De la fin vers le début : on SUPPRIME des étapes, et remonter le tableau
+  // par l'arrière est la seule façon de ne pas se décaler sous ses propres pas.
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const ops = steps[i].ops || [];
+    if (!ops.some((o) => o && o.op === 'horns')) continue;
+    const restantes = [];
+    for (const o of ops) {
+      if (!o || o.op !== 'horns') { restantes.push(o); continue; }
+      // `efface` peut être vide — un 666 qui occupe déjà toute la ligne n'a
+      // rien autour de lui. Un `drop` sans cible serait refusé par
+      // `validerFormeOp`, et surtout il n'aurait rien à effacer.
+      if (o.efface && o.efface.length) {
+        restantes.push({ op: 'drop', targets: [...o.efface], mode: 'erase', regroup: false });
+      }
     }
-    ops.splice(i, 1, ...sobre);
+    if (restantes.length) steps[i].ops = restantes;
+    else steps.splice(i, 1);
   }
+  // Les identifiants suivent la lecture : `s0`, `s1`… Une étape retirée au
+  // milieu laisserait sinon un trou dans la numérotation, et tout journal
+  // deviendrait illisible. L'URL ne les porte pas (voir `reglerLesCornes`).
+  steps.forEach((s, i) => { s.id = `s${i}`; });
   return null;
 }
 
@@ -3254,19 +3348,42 @@ export function construireScenario(approche, ctx = {}) {
   //
   // ★ …ou ne poussent pas du tout : c'est ici, et ici seulement, que le
   //   REGISTRE sobre se distingue du scénique côté scénario. Tout le reste —
-  //   l'arithmétique, les codes, le verdict, le score, le rang — est
-  //   rigoureusement identique dans les deux (voir `sobrifierLesCornes`).
+  //   l'arithmétique, les codes, la ligne, le verdict, le score, le rang — est
+  //   rigoureusement identique dans les deux.
+  //
+  // ★ **EN SOBRE, ON NE PLANTE MÊME PAS CE QU'ON NE VEUT PAS VOIR POUSSER.**
+  //
+  //   > « En mode sobre, ces étapes ne doivent pas apparaître en fantôme, ni
+  //   >   comme étape instantanée dans l'animation, ni dans le registre, elles
+  //   >   doivent juste être absentes. » (l'auteur)
+  //
+  //   `couronnerLesTriptyques` est donc appelé DANS la branche scénique, et pas
+  //   avant l'aiguillage. Le sobre n'a pas d'étape à neutraliser, à vider ou à
+  //   raccourcir : il n'en a pas. C'est la seule construction qui rende
+  //   l'absence vraie partout à la fois — dans `steps`, donc dans la
+  //   compilation, donc dans la jauge, donc dans Le Registre (`app/registre.js`
+  //   énumère `lecteur.steps`, il ne filtre rien et n'a pas à le faire).
+  //
+  //   ⚠ Le prix est connu et assumé : les deux registres n'ont plus le même
+  //     NOMBRE d'étapes. Ce qu'ils partagent — et qui est ce que promettait le
+  //     panneau à deux accès — reste entier : même programme, même ligne, même
+  //     verdict, même score, même rang (CONTRACTS §4.2).
+  //
   // ★ Les triptyques que PERSONNE n'aurait couronnés le sont ici — voir
   //   `couronnerLesTriptyques`. Avant `reglerLesCornes`, qui se charge ensuite
   //   de les avancer plus tôt encore si la ligne le permet : les deux fonctions
   //   ne répondent pas à la même question. Celle-ci demande « où le 666 est-il
   //   écrit pour la première fois ? » ; celle-là, « peut-on le dire plus tôt
   //   que là où l'étape a été posée ? ». La seconde suppose la première.
-  couronnerLesTriptyques(steps, tokens, aReveler, langue, cible);
-
-  const cornes = registre === 'sobre'
-    ? sobrifierLesCornes(steps)
-    : reglerLesCornes(steps);
+  let cornes = null;
+  if (registre === 'sobre') {
+    // Rien à retirer de ce qu'on n'a pas posé — la garde ne sert que pour un
+    // scénario relu d'ailleurs (voir `retirerLesCornes`).
+    cornes = retirerLesCornes(steps);
+  } else {
+    couronnerLesTriptyques(steps, tokens, aReveler, langue, cible);
+    cornes = reglerLesCornes(steps);
+  }
 
   // ★ Le DÉCOR des tables se mutualise ici, et nulle part ailleurs : c'est le
   //   seul endroit qui voit la suite complète des étapes. Un opérateur ne

@@ -470,12 +470,14 @@ export function plan(ctx) {
   // ★ **Cinq restrictions, et chacune répond à une phrase de l'auteur.**
   //
   //  1. **Le registre SCÉNIQUE, jamais le sobre.** « Sous "sobre", il reste
-  //     sans orage mais perd ses cornes » (CONTRACTS §3.1). Le scénario sobre a
-  //     déjà vu ses couronnements réécrits en simple désignation
-  //     (`sobrifierLesCornes`, `recherche/scenario.js`) ; en remettre au verdict
-  //     rendrait par la fenêtre ce que le registre a sorti par la porte.
-  //     `ctx.scenographie` EST le registre — la page le pose depuis le même
-  //     booléen que l'orage et le son (`app/pages/demonstration.js`).
+  //     sans orage mais perd ses cornes » (CONTRACTS §3.1). Le scénario sobre
+  //     n'a AUCUN couronnement — pas même une étape vidée de son dessin :
+  //     l'assemblage ne la crée pas (`retirerLesCornes`, `recherche/
+  //     scenario.js`, et « ces étapes doivent juste être absentes », l'auteur).
+  //     En remettre au verdict rendrait par la fenêtre ce que le registre a
+  //     sorti par la porte. `ctx.scenographie` EST le registre — la page le
+  //     pose depuis le même booléen que l'orage et le son
+  //     (`app/pages/demonstration.js`).
   //  2. ~~**PLUSIEURS séries, jamais un 666 seul.**~~ **LEVÉE — ARBITRÉE.**
   //
   //     J'avais lu « quand il y a plusieurs séries de 666, [les cornes]

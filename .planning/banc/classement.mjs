@@ -29,6 +29,17 @@
 // ★ Le filet temporel est NEUTRALISÉ ici (`filetTemporel: false`) : comparer un
 // barème avant/après sur une base qui bouge sous la charge de la machine ne veut
 // rien dire. C'est une option explicite, jamais un contournement silencieux.
+//
+// ⚠️ **ET ÇA NE SUFFIT PAS : NE LANCEZ PAS CE BANC PENDANT AUTRE CHOSE.**
+// Constaté le 22 septembre 2026, et ça a coûté une fausse conclusion : la même
+// mesure lancée pendant `bun run test` et lancée machine au repos donne deux
+// classements DIFFÉRENTS — des voies entrent, d'autres sortent, sur des saisies
+// que le changement mesuré ne touchait pas. Le filet temporel n'est donc pas le
+// seul chemin par lequel l'horloge entre dans la recherche. Deux lancements
+// consécutifs sur une machine au repos, eux, rendent le même octet : le banc est
+// déterministe, c'est la CHARGE qui ne l'est pas. Mesurez au repos, et comparez
+// deux mesures prises dans les mêmes conditions — jamais une d'hier avec une
+// d'aujourd'hui.
 
 import { creerMoteur } from '../../src/recherche/index.js';
 import { CATALOGUE } from '../../src/moteur/catalogue.js';
