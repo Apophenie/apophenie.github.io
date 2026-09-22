@@ -4678,3 +4678,21 @@ attendu sur les 7 méthodes du README sert de premier jeu de vérification.
    en base64 dans le CSS (le build les inline, voir §0.1). Les deux afficheurs
    pèsent ensemble **2 252 octets** : 3,3 % du budget consommé, et 0,9 % de la
    cible.
+
+
+### Amendement — rythme des conversions indépendantes
+
+En « Simultané », les étapes simples de comptage (`sevenSeg`, `fourteenSeg`,
+`countStrokes`) peuvent se jouer en vagues de 0,1 s entre départs à vitesse
+normale. Le scénario garde une étape par conversion ; la compilation garde
+le même nombre d’entrées accessibles, avec leurs titres, légendes et figures.
+Les bornes des membres d’une vague sont leurs départs, et la dernière borne
+attend la fin de toutes les opérations et de leur redistribution commune.
+Une animation peut donc dépasser la borne de navigation de sa conversion,
+mais jamais celle de sa vague. Ce regroupement ne s’applique pas au mouvement
+réduit ni aux étapes portant une pause ou une durée explicite.
+
+En « Pas à pas », chaque geste transformant attend la fin du précédent, même
+s’ils sont de types différents. Les marques accompagnent le geste sans
+retarder son lancement. L’arithmétique et l’ordre des entrées sont identiques
+dans les deux rythmes.

@@ -18,7 +18,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { compile, repeatOrigins } from '../compile.js';
+import { compile } from '../compile.js';
 import { setGlyphes } from '../glyphes.js';
 import { GLYPHES } from '../fixtures/glyphes.js';
 import { tableGeometry, pasDeGlissiere, DISPOSITIONS } from '../assets.js';
@@ -213,13 +213,30 @@ test('la table montrée est dérivée de la fonction qui chiffre, pas d’une co
   }
 });
 
-test('redite : même chiffrement ET même lettre s’accélère, même chiffrement seul non', () => {
+/**
+ * ★ **CE QUI ÉTAIT TESTÉ ICI, ET CE QUI LE REMPLACE.**
+ *
+ * Un test gelait la détection des redites sur `https` : le second « t » redit
+ * le premier — même table, même lettre, même résultat — quand le « h », le
+ * « p » et le « s » inaugurent chacun leur geste. Il servait à prouver que le
+ * critère de l'auteur était bien « même table ET même lettre », et non « même
+ * table » tout court.
+ *
+ * Le mode redites est parti (voir `src/visuel/compile.js`), et avec lui le
+ * critère. Ce qui reste vrai et vaut d'être gelé, c'est le fait ARITHMÉTIQUE
+ * qu'il exploitait : la double lettre de `https` donne bien deux conversions
+ * identiques, et la réglette n'en confond aucune avec ses voisines.
+ */
+test('★ la double lettre de « https » donne deux conversions identiques', () => {
   const { steps } = stepsDe('f.atbash', 'https');
-  const scenario = sc(steps.map((s, i) => ({ ...s, id: `s${i}` })), lettres('https'));
-  const origines = repeatOrigins(scenario);
-  // « h », « t », « p », « s » inaugurent chacun leur geste ; le second « t »
-  // redit le premier — même table, même lettre, même résultat.
-  assert.deepEqual(origines, [-1, -1, 1, -1, -1]);
+  const conversions = steps.map((s) => {
+    const o = s.ops.find((x) => x.op === 'table');
+    return `${o.letter}→${o.to.text}`;
+  });
+  assert.equal(conversions.length, 5);
+  assert.equal(conversions[1], conversions[2], 'les deux « t » se convertissent pareil');
+  const distinctes = new Set(conversions);
+  assert.equal(distinctes.size, 4, 'quatre conversions distinctes pour cinq lettres');
 });
 
 test('Atbash : le geste compile, et c’est celui du clavier', () => {

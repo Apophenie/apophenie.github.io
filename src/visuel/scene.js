@@ -117,6 +117,21 @@ export class Scene {
     return `${ENGINE_PREFIX}${hint}:${this.autoSeq++}`;
   }
 
+  /**
+   * Le rang d'arrivée du prochain encart — qui est arrivé avant qui dans une
+   * rangée d'afficheurs (`primitives/encart.js`).
+   *
+   * ★ On ne LIT pas cet ordre sur la ligne, et c'est délibéré : le jeton qu'un
+   *   encart commente est souvent déjà mort quand un autre arrive (la lettre a
+   *   été remplacée par son nombre), et son rang dans le flux n'existe plus.
+   *   Le rang d'ARRIVÉE, lui, ne dépend que de la compilation — donc il est
+   *   déterministe (§4.4) et il ne s'efface pas.
+   */
+  prochainOrdreEncart() {
+    this.ordreEncart = (this.ordreEncart ?? 0) + 1;
+    return this.ordreEncart;
+  }
+
   has(id) { return this.nodes.has(id); }
 
   get(id) { return this.nodes.get(id); }

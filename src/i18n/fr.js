@@ -370,9 +370,20 @@ export const fr = {
   },
 
   transport: {
-      vitesse: 'Vitesse de lecture',
-      vitesseCourt: 'Vitesse',
-      vitesseFacteur: '×{n}',
+    vitesse: 'Vitesse de lecture',
+    vitesseCourt: 'Vitesse',
+    vitesseFacteur: '×{n}',
+    /* Le RYTHME des gestes. Les deux mots sont choisis pour le grand public
+       parmi ceux que l'auteur proposait (« séquentiel / parallèle », « par
+       lots ») : « pas à pas » et « simultané » se comprennent sans savoir ce
+       qu'est une opération, là où « parallèle » demande de connaître le
+       contraire pour vouloir dire quelque chose. Le nom accessible dit ce que
+       le réglage GOUVERNE, pas ce qu'il vaut — c'est un choix parmi deux, pas
+       une bascule, et son état se lit dans la valeur affichée. */
+    rythme: 'Rythme des opérations',
+    rythmeCourt: 'Rythme',
+    rythmePasAPas: 'Pas à pas',
+    rythmeSimultane: 'Simultané',
     groupe: 'Contrôles de la démonstration',
     jauge: 'Aller à une étape',
     jaugeCase: 'Aller à l’étape {i} sur {total}',
@@ -391,13 +402,6 @@ export const fr = {
     rejouer: 'Rejouer la démonstration',
     suivant: 'Transformation suivante',
     fin: 'Aller au résultat',
-    // Les redites : une étape qui refait exactement le geste d'une étape déjà
-    // vue, sur un autre morceau de la saisie. La première enseigne, les
-    // suivantes confirment — d'où l'accéléré, et d'où le droit de le refuser.
-    reditesCourt: 'Redites',
-    reditesAccelerer: 'Accélérer les répétitions ({facteur}×)',
-    reditesRalentir: 'Montrer les répétitions en entier',
-    reditesSansEffet: 'Accélération des répétitions sans effet : les animations sont réduites',
     /* La coupure du son. Trois libellés pour trois états réels — voir
        `src/app/sons.js` : le bouton dit ce qu'un clic FERA, et l'infobulle
        dit ce qui se passe quand la préférence est « actif » mais que le

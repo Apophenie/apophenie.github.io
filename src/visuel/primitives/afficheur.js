@@ -49,7 +49,9 @@
  */
 
 import { tokenSpec } from './helpers.js';
-import { ouvrirEncart, poserCompteur, refermerEncart, ENCART } from './encart.js';
+import {
+  ouvrirEncart, poserCompteur, refermerEncart, replierLaFamille, ENCART,
+} from './encart.js';
 import { decorEnLAir } from './decor.js';
 import { EASE } from '../constants.js';
 import { fail } from '../errors.js';
@@ -97,29 +99,43 @@ export function planAfficheur(ctx, modele) {
   // chacune. C'est mot pour mot le partage de `decor.js`, et l'assemblage pose
   // les mêmes drapeaux (`mutualiserDecor`, `src/recherche/scenario.js`).
   //
-  // ★ L'identité du décor est celle de ce qu'il MONTRE : l'afficheur, son
-  // régime (segments comptés un par un, ou traits fusionnés) et le nom sous
-  // lequel il s'annonce. Deux régimes, ce sont deux dessins — les segments
-  // n'ont même pas la même forme — et deux méthodes qui ne se nomment pas
-  // pareil ne sont pas le même outil.
+  // ★ **LA FAMILLE est celle de ce qu'on MONTRE** : l'afficheur, son régime
+  // (segments comptés un par un, ou traits fusionnés) et le nom sous lequel il
+  // s'annonce. Deux régimes, ce sont deux dessins — les segments n'ont même pas
+  // la même forme — et deux méthodes qui ne se nomment pas pareil ne sont pas le
+  // même outil.
+  //
+  // ★ **MAIS LE CADRE, LUI, EST CELUI DE SON CARACTÈRE.** C'était l'inverse :
+  // un seul cadre pour toute la famille, au centre de la vue, dans lequel les
+  // lettres défilaient. Le raisonnement est retourné dans `encart.js` — un
+  // afficheur central ne dit pas QUEL caractère il convertit, et deux
+  // conversions jouées ensemble auraient partagé les mêmes nœuds de segments,
+  // ce qui interdisait purement et simplement le mode « Simultané ».
+  //
+  // La famille reste ce qui se MUTUALISE — elle décide quels cadres forment une
+  // rangée, et c'est elle qui s'en va d'un coup à la dernière conversion.
   const titre = typeof ctx.op.titre === 'string' ? ctx.op.titre.trim() : '';
-  const cle = `${modele.nom}:${plein ? 'segments' : 'traits'}${titre ? `:${titre}` : ''}`;
+  const famille = `${modele.nom}:${plein ? 'segments' : 'traits'}${titre ? `:${titre}` : ''}`;
+  const cle = `${famille}:${src.id}`;
   // Le nœud n'est jamais retiré du DOM (CONTRACTS §3.2 règle 7) : « il existe »
   // ne veut pas dire « il est visible ». C'est l'état NOTÉ qui fait foi, comme
   // pour la table et le clavier — sans quoi une seconde série non consécutive
   // sur le même afficheur le croirait déjà monté et jouerait dans le vide.
   const deployer = ctx.op.montre === true || !decorEnLAir(ctx, `@encart:${cle}`);
-  const replier = ctx.op.retire !== false;
+  const replier = ctx.encarts ? true : ctx.op.retire !== false;
 
   // --- 1. l'encart s'ouvre, la lettre y monte ------------------------------
-  const encart = ouvrirEncart(ctx, src, { at: 0, dur: T * 0.12, titre, cle, deployer });
+  const encart = ouvrirEncart(ctx, src, { at: 0, dur: T * 0.12, titre, cle, famille, deployer });
 
   // --- 2. changement de police : l'afficheur entier, tous segments éteints --
   const apparition = T * 0.2;
   const segIds = {};
   modele.ORDER.forEach((k) => {
-    // Le segment appartient à l'AFFICHEUR, pas à la lettre : c'est le même
-    // trait qu'on rallume d'une lettre à l'autre, et son identité le dit.
+    // ★ Le segment appartient à SON afficheur, donc à SON caractère — et son
+    // identité le dit, puisque `cle` porte désormais l'un et l'autre. Il
+    // appartenait à la famille entière, et c'était le verrou : deux lettres
+    // converties ensemble auraient allumé le même trait pour deux comptes
+    // différents.
     const id = `@seg:${cle}:${k}`;
     if (!ctx.scene.has(id)) {
       ctx.scene.create({
@@ -130,6 +146,9 @@ export function planAfficheur(ctx, modele) {
         data: {
           d: geometrie[k].d,
           segment: k,
+          // `encart` : ce segment voyage avec son cadre quand la rangée se
+          // réarrange, et s'efface avec lui quand le relais l'emporte.
+          encart: encart.frame,
           scale: ENCART.zoomGlyphe,
           // Un polygone plein n'a pas d'épaisseur de trait à recevoir : il PORTE
           // la sienne, celle que la police lui donne.
@@ -164,7 +183,7 @@ export function planAfficheur(ctx, modele) {
   const compteur = `@compteur:${src.id}`;
   poserCompteur(ctx, {
     id: compteur, centre: encart.centre, cote: encart.cote,
-    total: groupes.length, debut, cadence,
+    total: groupes.length, debut, cadence, encart: encart.frame,
   });
 
   groupes.forEach((g, i) => {
@@ -193,6 +212,13 @@ export function planAfficheur(ctx, modele) {
     at: T * 0.86,
     dur: T * 0.14,
   });
+  /* ★ **LA DERNIÈRE CONVERSION EMPORTE TOUTE LA RANGÉE.**
+     `retire` ne concernait qu'un cadre parce qu'il n'y en avait qu'un. Il y en
+     a maintenant un par caractère, et ceux des conversions précédentes sont
+     encore à l'écran s'ils n'ont pas été relayés : les laisser là ferait rester
+     l'outil après que la démonstration en a fini avec lui. L'outil s'en va, et
+     il s'en va en entier. */
+  if (replier && !ctx.encarts) replierLaFamille(ctx, famille, { at: T * 0.86, dur: T * 0.14 });
   // Les segments allumés reprennent la couleur de l'éteint — et, si l'afficheur
   // reste en place, l'opacité du fantôme. C'est vrai même quand tout s'efface :
   // le décor n'est pas détruit, il est rangé, et il doit être rangé PROPRE pour

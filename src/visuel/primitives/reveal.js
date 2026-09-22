@@ -131,7 +131,7 @@
  *
  * Elle est donc pilotée par `ctx.scenographie`, une option de COMPILATION,
  * posée par la page qui a lu le lien (`app/pages/demonstration.js`), au même
- * titre que `reduced` et `repeatSpeed`.
+ * titre que `reduced` et `rythme`.
  *
  * ★ **Tout est fonction du temps, rien n'est tiré au sort** (CONTRACTS §4.4) :
  * l'éclair est une enveloppe d'opacité écrite à la main, en `values` /

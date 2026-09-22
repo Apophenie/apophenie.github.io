@@ -31,8 +31,9 @@ import * as nav from './nav.js';
 /**
  * @param {SVGSVGElement} svgRoot
  * @param {object} scenario
- * @param {{reducedMotion?:'auto'|'force'|'off', speed?:number, repeatSpeed?:number, autoplay?:boolean,
- *          scenographie?:boolean, glyphes?:object, palette?:object, viewBox?:object}} [options]
+ * @param {{reducedMotion?:'auto'|'force'|'off', speed?:number, autoplay?:boolean,
+ *          rythme?:'pasAPas'|'simultane', scenographie?:boolean, glyphes?:object,
+ *          palette?:object, viewBox?:object}} [options]
  */
 export function createPlayer(svgRoot, scenario, options = {}) {
   return new Player(svgRoot, scenario, options);
@@ -48,9 +49,12 @@ class Player {
     this.options = {
       reducedMotion: 'auto',
       speed: 1,
-      // Facteur appliqué aux SEULES étapes qui redisent une étape déjà jouée
-      // (voir `compile.js`, bloc « Répétitions »). 1 = aucune accélération.
-      repeatSpeed: 1,
+      /* ★ **LE RYTHME DES GESTES** — « Pas à pas » ou « Simultané »
+         (`visuel/rythme.js`). C'est une option de COMPILATION, comme
+         `reducedMotion` : elle change l'instant de chaque geste, donc les
+         charnières, donc toute la ligne de temps. `undefined` laisse le
+         compilateur prendre `RYTHME_DEFAUT` — le défaut ne se recopie pas ici. */
+      rythme: undefined,
       autoplay: true,
       // ★ La SCÉNOGRAPHIE du verdict — la nuit, l'éclair, l'embrasement. C'est
       //   une option de COMPILATION, comme `reducedMotion` : la timeline reste
@@ -306,7 +310,14 @@ class Player {
 
     this.timeline = compile(this.scenario, {
       speed: this.options.speed,
-      repeatSpeed: this.options.repeatSpeed,
+      /* ⚠️ **IL FAUT LE PASSER, et il ne l'était pas.** Le réglage voyageait
+         jusqu'à `this.options` — la page le lit dans `reglages.js` et le donne
+         au lecteur — mais `_buildAll` ne le relayait pas à `compile()` : la
+         bascule changeait l'étiquette du bouton, la clé de stockage et
+         l'attribut de la racine, et RIEN à l'écran. Les tests du compilateur ne
+         pouvaient pas le voir, puisqu'ils l'appellent en direct ; c'est la
+         relecture du diff qui l'a trouvé, et `player.test.js` le gèle. */
+      rythme: this.options.rythme,
       reduced,
       scenographie: !!this.options.scenographie,
       metrics: this.metrics,

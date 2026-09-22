@@ -304,9 +304,17 @@ export const en = {
   },
 
   transport: {
-      vitesse: 'Playback speed',
-      vitesseCourt: 'Speed',
-      vitesseFacteur: '×{n}',
+    vitesse: 'Playback speed',
+    vitesseCourt: 'Speed',
+    vitesseFacteur: '×{n}',
+    // The RHYTHM of the gestures. Same reasoning as the French: two plain words
+    // anyone can read, rather than the engineering pair « sequential /
+    // parallel » — the latter only means something to someone who already knows
+    // what it is the opposite of.
+    rythme: 'Rhythm of the operations',
+    rythmeCourt: 'Rhythm',
+    rythmePasAPas: 'Step by step',
+    rythmeSimultane: 'Simultaneous',
     groupe: 'Demonstration controls',
     jauge: 'Jump to a step',
     jaugeCase: 'Jump to step {i} of {total}',
@@ -325,13 +333,6 @@ export const en = {
     rejouer: 'Replay the demonstration',
     suivant: 'Next transformation',
     fin: 'Jump to the result',
-    // Repeats: a step that redoes the exact same gesture as an earlier one, on
-    // another piece of the input. The first one teaches, the others confirm —
-    // hence the fast-forward, and hence the right to turn it off.
-    reditesCourt: 'Repeats',
-    reditesAccelerer: 'Speed up repeated steps ({facteur}×)',
-    reditesRalentir: 'Play repeated steps in full',
-    reditesSansEffet: 'Speeding up repeats has no effect: animations are reduced',
     sonCourt: 'Sound',
     sonActiver: 'Turn sound on',
     sonCouper: 'Turn sound off',

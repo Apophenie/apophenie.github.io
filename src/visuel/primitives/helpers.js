@@ -1305,8 +1305,16 @@ export function suivreLaZone(ctx, acc, spec = {}) {
      les départs de ses sources, et la ligne qui se referme. Le second attend la
      fin du premier ; l'instant est tenu en temps d'ÉTAPE (le début de l'op plus
      `at`), puisque deux ops différentes le comparent. Le centième de
-     milliseconde de marge absorbe les arrondis de la compilation. */
-  const debutOp = (ctx.op && ctx.op.at ? ctx.op.at : 0) / (ctx.speed || 1);
+     milliseconde de marge absorbe les arrondis de la compilation.
+
+     ⚠️ **L'ORIGINE SE LIT SUR LE CONTEXTE, PLUS SUR L'OP.** Elle valait
+       `ctx.op.at / ctx.speed`, ce qui était exact tant que l'instant écrit dans
+       le scénario était l'instant joué. Le rythme a rompu cette égalité : en
+       « Pas à pas », sept sommes écrites au même `at` démarrent les unes après
+       les autres (`visuel/rythme.js`). `ctx.debutOp` porte l'instant RÉEL, déjà
+       mis à l'échelle ; `ctx.op.at` porterait celui d'avant l'ordonnancement, et
+       deux suivis se remettraient à se chevaucher sans que rien le dise. */
+  const debutOp = ctx.debutOp ?? 0;
   const pret = ctx.scene.zonesJusqua.get(acc.id);
   const at0 = spec.at ?? 0;
   const fin0 = at0 + Math.max(1, spec.dur ?? ctx.dur);
@@ -1492,17 +1500,20 @@ export function reserverLaPlace(ctx, sources) {
      sienne si elle en remplace un morceau — exactement le critère des autres,
      appliqué à la mémoire plutôt qu'au registre. */
   const remplaces = new Set(sources);
-  const laSienne = (nd, srcs) => {
-    if (srcs.some((s) => remplaces.has(s))) return true;
-    if (!(nd.data && nd.data.attendResultat)) return false;
-    const zone = nd.data.zoneAttendue;
-    // Sans mémoire — une accolade née sans sources —, on ne peut rien
-    // départager : elle garde l'ancien bénéfice du doute.
-    return !Array.isArray(zone) || !zone.length || zone.some((s) => remplaces.has(s));
-  };
+  // Une accolade en attente ne réserve qu'une place à la fois. La mémoire
+  // de sa zone empêche aussi d'adopter la place d'un autre paquet simultané.
+  const dejaEngagees = new Set();
+  for (const p of ctx.scene.placesGardees) {
+    for (const idAcc of p.accolades || []) dejaEngagees.add(idAcc);
+  }
   const accolades = [...ctx.scene.accolades].filter(([id, srcs]) => {
     const nd = ctx.scene.get(id);
-    return nd && nd.alive && laSienne(nd, srcs);
+    if (!nd || !nd.alive) return false;
+    if (srcs.some((s) => remplaces.has(s))) return true;
+    if (!nd.data?.attendResultat || dejaEngagees.has(id)) return false;
+    const zone = nd.data.zoneAttendue;
+    return !Array.isArray(zone) || !zone.length || zone.some((s) => remplaces.has(s));
+
   }).map(([id]) => id);
   // ★ UNE PLACE GARDÉE COMPTE COMME « LÀ » : ses cales entrent dans ce que ces
   //   accolades embrassent. Tout suivi (`suivreLesAccolades`, `anticiperLaPlace`)

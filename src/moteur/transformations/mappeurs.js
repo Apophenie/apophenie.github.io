@@ -2865,28 +2865,61 @@ function chantierDuPaquet({ termes, somme, mode, paliers = [], sorties, racine, 
   if (mode === 'eclate') {
     temps.push({ eclat: { target: racine, somme, to: chiffresDe(somme).map((d, t) => token(sorties[t], d, 'digit')) } });
   } else if (mode === 'racine') {
-    let source = racine;
-    let valeur = somme;
-    paliers.forEach((v, k) => {
-      const chiffres = chiffresDe(valeur);
-      const ids = chiffres.map((_, t) => nomPalier(k, t));
-      temps.push({ eclat: { target: source, somme: valeur, to: chiffres.map((d, t) => token(ids[t], d, 'digit')) } });
-      const vers = k === paliers.length - 1 ? sorties[0] : nomPalier(k, 'r');
-      const palier = passesBinaires(chiffres.map((d, t) => ({ id: ids[t], v: d, ou: termes[0].ou + t })), {
-        combiner: (x, y) => x + y,
-        nommer: (b) => nomPalier(k, `i${b}`),
-        racine: vers,
-      });
-      if (palier.racine.v !== v) {
-        throw new Error(`redécoupage : ${chiffres.join(' + ')} ne fait pas ${v}, le palier annoncé.`);
-      }
-      temps.push({ sommes: palier.gestes.map((g) => ({ ...g, signe: nomPalier(k, `s${g.k}`) })) });
-      source = vers;
-      valeur = v;
-    });
-    if (valeur > 9) throw new Error(`redécoupage : la réduction de ${somme} s'arrête sur ${valeur}.`);
+    temps.push(...tempsDeReduction({
+      source: racine, valeur: somme, paliers, ou: termes[0].ou, sortie: sorties[0], nomPalier,
+    }));
   }
   return { temps };
+}
+
+/**
+ * ★ **LA RÉDUCTION THÉOSOPHIQUE, EN TEMPS ALTERNÉS — écrire, puis additionner.**
+ *
+ * Extrait de `chantierDuPaquet` pour être partagé avec `mrn`, qui fait
+ * exactement cela et rien d'autre : `199 → 1 + 9 + 9 → 19 → 1 + 9 → 10 → 1 + 0
+ * → 1`. Le partage n'est pas une économie de lignes, c'est une garantie — les
+ * deux opérateurs montrent LE MÊME geste, et il serait absurde qu'ils se
+ * mettent à le montrer différemment parce qu'ils l'écrivent chacun de leur
+ * côté.
+ *
+ * Chaque palier fait DEUX temps, et l'alternance est le sujet :
+ *
+ *  1. un **éclatement** — le nombre s'écrit chiffre à chiffre, sur place ;
+ *  2. un **arbre d'additions par paires** (`passesBinaires`) — jamais plus de
+ *     deux termes à la fois, et autant de niveaux qu'il en faut.
+ *
+ * ★ **DEUX ITEMS, JAMAIS TROIS.** « Opération entre 2 items à la fois, pas
+ *   plus » (l'auteur). C'est la même consigne que celle qui gouverne tout le
+ *   reste du moteur — « ne fais que des calculs entre 2 nombres, jamais entre
+ *   plus » — et `passesBinaires` est l'endroit unique où elle se tient.
+ *
+ * @param {{source:string, valeur:number, paliers:number[], ou:number,
+ *          sortie:string, nomPalier:(k:number|string, t:number|string)=>string}} spec
+ * @returns {Array<{eclat?:object, sommes?:object[]}>} les temps, dans l'ordre
+ */
+function tempsDeReduction({ source, valeur, paliers, ou, sortie, nomPalier }) {
+  const temps = [];
+  let courant = source;
+  let v0 = valeur;
+  paliers.forEach((v, k) => {
+    const chiffres = chiffresDe(v0);
+    const ids = chiffres.map((_, t) => nomPalier(k, t));
+    temps.push({ eclat: { target: courant, somme: v0, to: chiffres.map((d, t) => token(ids[t], d, 'digit')) } });
+    const vers = k === paliers.length - 1 ? sortie : nomPalier(k, 'r');
+    const palier = passesBinaires(chiffres.map((d, t) => ({ id: ids[t], v: d, ou: ou + t })), {
+      combiner: (x, y) => x + y,
+      nommer: (b) => nomPalier(k, `i${b}`),
+      racine: vers,
+    });
+    if (palier.racine.v !== v) {
+      throw new Error(`réduction : ${chiffres.join(' + ')} ne fait pas ${v}, le palier annoncé.`);
+    }
+    temps.push({ sommes: palier.gestes.map((g) => ({ ...g, signe: nomPalier(k, `s${g.k}`) })) });
+    courant = vers;
+    v0 = v;
+  });
+  if (v0 > 9) throw new Error(`réduction : elle s'arrête sur ${v0}.`);
+  return temps;
 }
 
 
@@ -4476,13 +4509,10 @@ function etapeMappeur(spec) {
 
     const afficheur = spec.geste === 'sevenSeg' || spec.geste === 'fourteenSeg';
     if (afficheur || spec.geste === 'countStrokes') {
-      // ★ UN STEP PAR JETON. Les trois primitives — sept segments, quatorze
-      // segments, tracé de crayon — montent la lettre dans un
-      // encart, l'y changent de police (afficheur, ou tracé de crayon), posent
-      // un compteur, allument un élément à la fois — et c'est le nombre du
-      // compteur qui, à la fin, redescend remplacer la lettre. Montrer quatre
-      // lettres à la fois donnerait quatre chantiers simultanés : illisible.
-      // Une chose à la fois, et tant pis pour la durée.
+      // Une entrée accessible par caractère, avec sa figure et son résultat.
+      // En Simultané, le compilateur rassemble temporairement les conversions
+      // indépendantes en vagues adaptées au cadre, tout en conservant ces
+      // entrées et leurs indices pour le Registre et la navigation.
       //
       // `count` est le contrôle croisé exigé par CONTRACTS §0.3 : le moteur
       // visuel refuse d'allumer, de tracer ou de pointer un nombre différent de
@@ -5589,32 +5619,65 @@ const AUTRES_MAPPEURS = [
     sortie: (avant, apres, ctx) => (apres ? apres.valeur.map((v, i) => (v === avant.valeur[i]
       ? ctx.ids[i] : nomToken(ctx, i))) : ctx.ids),
     /**
-     * Un `reduce` par PALIER et un step par palier (research visuel §4.8) : le
-     * moteur visuel ne boucle jamais tout seul, et `reduce` refuse d'afficher
-     * une somme de chiffres qui ne tombe pas sur son résultat — 199 passe donc
-     * par 19 puis 10, jamais d'un bond.
+     * ★ **EN LARGEUR, ET DEUX ITEMS À LA FOIS.**
+     *
+     * > « Largeur d'abord plutôt que profondeur d'abord, et opération entre 2
+     * >   items à la fois, pas plus. Ça marchera bien mieux avec le mode
+     * >   parallèle. » (l'auteur, sur `f3!fr16+mas+mrn+meg`)
+     *
+     * ⚠️ **CE QU'IL Y AVAIT AVANT, ET LES DEUX DÉFAUTS MESURÉS.** Un `reduce`
+     *   par palier, un step par `reduce`, la boucle externe sur le NOMBRE et
+     *   l'interne sur le palier. Sur « Didier Raoult » en `f3!fr16+mas+mrn+meg`,
+     *   quinze étapes, et :
+     *
+     *   · **en profondeur** — le nombre 0 faisait `84 → 12` (étape 25) puis
+     *     `12 → 3` (étape 26) AVANT que le nombre 1 ne commence. C'est
+     *     exactement le parcours que `etapesEnLargeur` a chassé de `mrd` :
+     *     « on s'acharnait sur un morceau pendant que le reste attendait » ;
+     *   · **plus de deux items** — dix `reduce` sur quinze ouvraient le nombre
+     *     en TROIS chiffres d'un coup (`1 + 2 + 1`, `1 + 1 + 6`…), et les
+     *     trois signes `+` étaient posés ensemble sur la ligne.
+     *
+     * ★ **AUCUNE MACHINERIE NEUVE.** Le geste demandé est mot pour mot celui
+     *   que `mrd`/`mrdE` jouent déjà : `tempsDeReduction` alterne l'éclatement
+     *   et l'arbre binaire, `etapesEnLargeur` joue le temps `t` de TOUS les
+     *   nombres dans une seule étape. `mrn` n'est que le cas où il n'y a pas
+     *   d'addition préalable — le nombre est déjà là, il n'y a qu'à le réduire.
+     *   Réécrire un second ordonnanceur pour lui aurait été une deuxième table
+     *   de vérité, et les deux se seraient mises à diverger.
+     *
+     * ★ **ET C'EST CE QUI LE REND LISIBLE EN « SIMULTANÉ »** (`visuel/rythme.js`).
+     *   Les gestes d'un même tour vivent désormais dans le MÊME step et portent
+     *   sur des caractères disjoints : le rythme peut donc les jouer en vague,
+     *   ce qu'il ne pouvait pas faire quand chacun avait son étape. C'est la
+     *   remarque de l'auteur — « ça marchera bien mieux avec le mode
+     *   parallèle » — et elle décrit une conséquence, pas un souhait.
      */
     steps: (avant, apres, ctx) => {
-      const steps = [];
+      const chantiers = [];
       apres.valeur.forEach((cible, i) => {
         if (cible === avant.valeur[i]) return;
-        const suite = paliersReduction(avant.valeur[i], cible);
-        let source = ctx.ids[i];
-        let texte = String(Math.abs(avant.valeur[i]));
-        suite.forEach((v, k) => {
-          const dernier = k === suite.length - 1;
-          const cibleId = dernier ? nomToken(ctx, i) : `${ctx.cle}_${i}r${k}`;
-          steps.push(etape(ctx, dire(LIB_REDUIRE_CHAQUE, ctx.langue), `${texte} → ${[...texte].join(' + ')} → ${v}`, [{
-            op: 'reduce',
-            target: source,
-            digits: [...texte].map((d, j) => token(`${ctx.cle}_${i}d${k}x${j}`, d, 'digit')),
-            to: token(cibleId, v, 'number'),
-          }], { id: `s_${ctx.cle}_${i}_${k}` }));
-          source = cibleId;
-          texte = String(v);
+        const paliers = paliersReduction(avant.valeur[i], cible);
+        if (!paliers.length) return;
+        chantiers.push({
+          temps: tempsDeReduction({
+            source: ctx.ids[i],
+            valeur: Math.abs(avant.valeur[i]),
+            paliers,
+            // La position dans la ligne, qui départage deux gestes d'un même
+            // niveau : on lit de gauche à droite, nombre par nombre puis
+            // chiffre par chiffre. Cent chiffres par nombre est un majorant
+            // large — la ligne entière en porte au plus trente-six.
+            ou: i * 100,
+            sortie: nomToken(ctx, i),
+            nomPalier: (k, t) => `${ctx.cle}_${i}d${k}x${t}`,
+          }),
         });
       });
-      return steps;
+      if (!chantiers.length) return [];
+      return etapesEnLargeur(chantiers, {
+        ctx, titre: dire(LIB_REDUIRE_CHAQUE, ctx.langue), prefixe: 'rn',
+      });
     },
   }),
   def({

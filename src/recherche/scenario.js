@@ -628,7 +628,15 @@ function signatureChemin(chemin) {
 // `horns` en fait partie : il efface sur place et pose un décor accroché, sans
 // jamais appeler `reflow` — le 666 est déjà d'un seul tenant, il n'y a aucun
 // trou à refermer entre ses trois chiffres.
-const SANS_LAYOUT = new Set(['highlight', 'dim', 'pulse', 'reveal', 'annotate', 'wait', 'horns']);
+// ⚠️ **EXPORTÉ POUR ÊTRE CONFRONTÉ À SA JUMELLE.** `visuel/rythme.js › MARQUES`
+// tient la même liste, sous un autre nom et pour un autre usage : ici « ne
+// recalcule pas le flux, donc peut cohabiter dans un step », là-bas « ne
+// transforme pas la ligne, donc n'entre pas dans le rythme ». C'est la même
+// propriété lue deux fois, et les deux copies existent parce que l'agent
+// heuristique ne dépend pas du moteur visuel (CONTRACTS §1). Deux copies, c'est
+// deux occasions de diverger en silence — d'où l'export, et le test qui les
+// fait se regarder (`tests/lents/integration-visuel.test.js`).
+export const SANS_LAYOUT = new Set(['highlight', 'dim', 'pulse', 'reveal', 'annotate', 'wait', 'horns']);
 
 /** Ops dont la fusion consiste simplement à réunir les cibles. */
 const FUSION_PAR_CIBLES = new Set(['drop', 'highlight', 'dim', 'pulse', 'reveal']);

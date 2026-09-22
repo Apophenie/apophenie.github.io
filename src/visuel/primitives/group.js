@@ -138,9 +138,9 @@ export function plan(ctx) {
   // pendant les trois — donc au-delà de sa propre durée — puis disparaître.
   // Sans quoi elle survivait au step, et l'on voyait « # · On compte les
   // voyelles » flotter sous les trois 6 du verdict.
-  if (acc && typeof ctx.op.fadeAt === 'number') {
+  if (acc && typeof ctx.fadeAt === 'number') {
     for (const id of acc.ids) {
-      ctx.anim({ id, prop: 'opacity', to: 0, at: ctx.op.fadeAt, dur: 300 });
+      ctx.anim({ id, prop: 'opacity', to: 0, at: ctx.fadeAt, dur: 300 });
       // Effacée par l'émetteur : la fin commune (`finirSousAccolade`) ne l'efface pas deux fois.
       ctx.scene.get(id).data.retiree = true;
     }
@@ -267,7 +267,7 @@ function planModulo(ctx, ids) {
      tomber dedans. L'émetteur dit donc quand elle s'en va (`retirerAccolade`) ;
      faute de quoi elle part avec ce geste-ci, comme avant. */
   if (acc) {
-    const part = typeof ctx.op.fadeAt === 'number' ? ctx.op.fadeAt : T * 0.88;
+    const part = typeof ctx.fadeAt === 'number' ? ctx.fadeAt : T * 0.88;
     for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: part, dur: 300 });
   }
   ctx.reflow({ at: T * 0.9, dur: T * 0.1, ease: EASE.move });
