@@ -43,6 +43,50 @@
 - **Les bornes de l'étage des retouches**, jamais balayées l'une contre l'autre.
   → [A-VENIR-retouches.md](A-VENIR-retouches.md), §3, « Ce qui reste ouvert sur
   cet étage »
+- **Descendre le plancher du facteur d'élégance — mesuré, écarté le 22 septembre 2026.**
+  L'auteur demande que « la QUANTITÉ DE SAISIE PERDUE, et le fait qu'une
+  égalisation ne tombe pas juste » pèsent davantage. Mesuré, **le barème les pèse
+  déjà, et lourdement** : sur la tête de « numherololgeek.1000i100.fr » aux
+  curseurs `p25.200.50.150` (`fl+mqwc+meg`), l'égalisation coûte −3 000 et la
+  saisie supprimée −648, pour un crédit brut de −1 951.
+  ⚠️ **Le problème n'est pas le poids, c'est le PLAFONNEMENT.** `facteur()` borne
+  le crédit à [`FACTEUR_PLANCHER`, 1 000], et **252 voies du corpus sur 381
+  (66 %), 11 têtes de liste sur 19 (58 %), sont AU PLANCHER** — leur facteur vaut
+  520 que le crédit brut soit à −294 ou à −3 242. Pour deux tiers de la liste, le
+  barème mesure la perte puis jette sa mesure, et aucune repondération d'un poste
+  de perte ne peut se voir sur une voie déjà écrasée. Reproductible :
+  `node .planning/banc/classement.mjs --json --plancher N`.
+  ⚠️ **Ce que ça coûte** (plancher 520 → 200, 19 saisies) : **0 tête change**,
+  77 déplacements, et une **SORTIE SÈCHE** — sur « Emmanuel Macron »,
+  `fl+tca+mt9+mtri` quitte la 3ᵉ place et RIEN n'entre (19 → 18 voies).
+  « Le chat dort sur le tapis rouge » perd de même `fc+nlc,fc+nlc,fc+nlc` de la
+  11ᵉ place, sa remplaçante n'arrivant qu'au rang 28.
+  ⚠️ **Ce que ça rapporte** : rien de mesurable. Aucune tête ne bouge, et les
+  trois cas qui motivaient la demande ne peuvent pas en profiter (voir ci-dessous).
+  ⚠️ **Et il y a une raison de fond de ne pas s'y fier** : aux curseurs
+  PERSONNALISÉS, l'ordre affiché est celui du global (`index.js ›
+  rangerParLeGlobal`), qui ne lit PAS le crédit d'élégance — il ne lit que les
+  quatre axes. Le crédit n'a alors prise que sur la SÉLECTION, jamais sur l'ordre.
+  Faire peser la perte sur une tête à curseurs personnalisés demanderait de passer
+  par l'axe `exhaustivite` de `score.js`, pas par le barème.
+- **Les trois voies nommées par l'auteur le 22 septembre 2026 ne sont plus
+  fabriquées.** Vérifié en élargissant la fouille, ce qui distingue « mal classée »
+  de « inexistante » :
+  · `0:nv,2+3:flt+mpy+mr9` sur « numherololgeek.1000i100.fr » — absente aux crans
+    0, 1 et 2 (23, 38 et 65 voies). Elle était 1ʳᵉ en 3.1.0 ; `git bisect` (4
+    étapes, sonde `.planning/banc/_bisect-cas7.mjs`, rejouable telle quelle)
+    désigne
+    **`7b80556`**, « Le code ASCII casse comprise, le point de code Unicode, et
+    l'addition qui prépare l'égalisation » — les trois opérateurs `mas`, `mu8`,
+    `mam`.
+  · `fl+mz26+mr9+mrdE` sur « Marie Curie » — absente aux crans 0, 1 et 2 (16, 27
+    et 40 voies). Le départage « je préfère `mz26` à `mas` » n'a donc plus d'objet
+    en l'état : la voie à `mz26` n'existe plus pour être préférée.
+  · `fr9+mas+mrd+meg` sur « Louis Fouché » au cran 3 (« elle finit sur 3 ») —
+    absente aux crans 3, 4 et 5 (69, 76 et 89 voies). **Le défaut ne se reproduit
+    plus** ; il a été refermé par les commits du 19-21 septembre (`mrd9`, `mrtE`,
+    `mt9E`). Rien à faire.
+  → À reprendre comme une question de FABRICATION (`assemblage.js`), pas de barème.
 - **Les absorptions en ficelles (`mab`/`mabx`/`mabd`) — essayé, mesuré, écarté.**
   « Peut-être que c'est `mab` qu'il faudrait ajouter aux ficelles pour que ça ne
   soit utilisé qu'en dernier recours » (l'autrice). C'est FAISABLE : le registre

@@ -57,6 +57,24 @@ if (args.includes('--sans-triches')) {
   BAREME.REDECOUPAGE = 0;
 }
 
+// ★ `--plancher N` — DESCENDRE LE PLANCHER DU FACTEUR, et voir ce que la perte
+//   pèserait si le barème cessait de jeter sa propre mesure.
+//
+//   Il répond à une question de l'auteur du 22 septembre 2026 : « la QUANTITÉ DE
+//   SAISIE PERDUE […] doit peser ». Mesuré, le barème la pèse déjà, et
+//   lourdement — mais `facteur()` borne le crédit à [`FACTEUR_PLANCHER`, 1 000],
+//   et **66 % des voies du corpus (252 sur 381), 58 % des têtes de liste (11 sur
+//   19), sont AU PLANCHER**. Pour elles, le facteur vaut 520 que le crédit brut
+//   soit à −294 ou à −3 242 : perdre un peu et perdre énormément se paient
+//   exactement pareil. Aucune repondération d'un poste de perte ne peut se voir
+//   sur une voie déjà écrasée.
+//
+//   Le drapeau ne sert qu'à la mesure — le barème, lui, ne le lit pas. Il rend
+//   reproductible un réglage qui a été mesuré PUIS ÉCARTÉ ; ce qu'il coûte est
+//   écrit dans `.planning/A-VENIR.md`.
+const iPlancher = args.indexOf('--plancher');
+if (iPlancher >= 0) BAREME.FACTEUR_PLANCHER = Number(args[iPlancher + 1]);
+
 const moteur = creerMoteur(CATALOGUE, {
   filetTemporel: false,
   elegance: !avant,
