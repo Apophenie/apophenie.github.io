@@ -446,3 +446,63 @@ prix tant que le point 1 n'a pas été levé.
 distingue de son aîné que par sa JUSTIFICATION est, pour le moteur, le même
 chemin. Tant que la recherche déduplique sur le résultat, toute « variante mieux
 notée d'un opérateur existant » sera invisible, quelle que soit sa note.
+
+## 9. Reprise du 22 septembre : les voies sont désormais proposées
+
+Cette section remplace le constat d’inertie et les recommandations du §8.5.
+Le catalogue alloue **trois codes**, pas quatorze. Aucun code neuf n’est ajouté.
+
+Le verrou manquant était la **composition des filtres** : `fj22+fl+m14`
+requiert deux filtres STR, alors que l’énumération des vecteurs n’en déroulait
+qu’un. Le BFS cherche des nombres isolés, il ne remplace pas cette énumération
+de vecteurs. Donner une place à `fj22+mu8+mrd`, qui ne porte pas les trois
+chiffres exigés du groupement, ne pouvait donc pas résoudre ce cas.
+
+La correction comporte trois gestes bornés :
+
+- Préférer le jumeau justifié dans les vecteurs lorsque la lecture de son état
+  d’entrée prouve exactement son décalage. Les états et traces restent identiques.
+- Après cette unique lecture, permettre une présentation des lettres : `fl`,
+  `fmin` ou `fmaj`. **Trois bases supplémentaires au maximum**, sans récursion,
+  sans deuxième décalage ni nouvelle lecture. Le compte précède le retrait des
+  séparateurs : les deux mots sont encore visibles lorsque la preuve est lue.
+- Distinguer la forme qui montre une preuve dans la fenêtre des candidats,
+  tout en conservant `familleOutil: 'fr'` pour facturer les réglages.
+
+Aucun changement du BFS, de l’admissibilité des opérateurs ou du rejeu. Les
+liens `fr22` historiques restent valides, et `fj22` reste strictement gardé par
+sa lecture. Le barème existant suffit : aucune prime supplémentaire n’est ajoutée.
+
+Mesure sur **Louis Fouché**, catalogue complet, filet temporel désactivé :
+
+| Fouille | Liste avant | Liste après | Voies justifiées après |
+|---|---:|---:|---:|
+| 0 | 17 | 17 | 1, au rang 2 |
+| 3, cumulative | 69 | 72 | 9, première au rang 9 |
+
+La voie du cran 0 est `fj22+fl+m14+meg` (score 3 282). Au cran 3, on trouve
+également `fj22+fmaj+mas+mrn+meg` et `fj22+fl+m14+mpf`. Le rang vient du
+classement ordinaire ; aucun siège imposé à une preuve n’a été ajouté.
+
+Mesure isolée des vecteurs (`minSix: 1`, plafond 1e6,
+`miseEnForme: false`, `tousLesReglages: true`, catalogue complet) :
+
+| Saisie | Travail avant | Travail après | Vecteurs justifiés avant/après |
+|---|---:|---:|---:|
+| Louis Fouché | 105 718 | 127 176 | 0 / 82 |
+| Didier Raoult | 132 665 | 158 068 | 0 / 72 |
+| hope-hope-hope.fr | 158 438 | 158 438 | 0 / 0 |
+| Macron | 318 621 | 318 621 | 0 / 0 |
+
+Le surcoût local est donc d’environ 19 à 20 % sur ces deux saisies justifiables,
+et nul en unités de travail sur les deux témoins sans preuve. Les temps de
+liste observés étaient 5,05 s au cran 0 et 24,2 s au cran 3, sur une machine
+chargée avec le filet désactivé : ce sont des observations, pas une garantie
+de latence. Les budgets de recherche sont inchangés.
+
+Vérification : `src/recherche/tests/justifications.test.js` couvre l’identité
+arithmétique, les refus, la distinction de forme, les anciens liens et la
+composition attendue. `src/recherche/tests/lents/cesars-justifies.test.js`
+vérifie la présence réelle aux crans 0 et 3, la conservation des voies entre
+ces crans, le rejeu des voies proposées et leur meilleure note que les jumeaux
+arbitraires.
