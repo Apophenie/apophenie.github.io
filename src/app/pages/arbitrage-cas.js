@@ -361,14 +361,20 @@ export const CAS_ARBITRAGE = Object.freeze([
     id: "2026-09-22-numherololgeek-v2-sans-perte",
     place: 1,
     question: "bareme",
-    titre: "[gauche 1ʳᵉ] numherololgeek.1000i100.fr, curseurs v2 — 1ʳᵉ place : la tête jette « 1000 » et « 100 » ; la moisson qui lit tout doit-elle passer devant ?",
+    titre: "[gauche 9ᵉ] numherololgeek.1000i100.fr, curseurs v2 — 1ʳᵉ place : la tête jette « 1000 » et « 100 » ; la moisson qui lit tout doit-elle passer devant ?",
     saisie: "numherololgeek.1000i100.fr",
     curseurs: { simplicite: 25, exhaustivite: 200, quantite: 50, coherence: 150 },
-    // à gauche (« Avant ») : la tête d'aujourd'hui — lit 17 signifiants sur 24,
-    // 15 valeurs égalisées, et son `meg` ne tombe pas juste (arrondi 235 ‰).
+    // ⚠️ Cas de BARÈME : la page inverse les côtés (`arbitrage.js › montrer`).
+    //    `avant` va à DROITE, sous « Aujourd'hui » ; `apres` va à GAUCHE, sous
+    //    « Ce qu'on mettrait à la place ». Le `[gauche 9ᵉ]` du titre désigne
+    //    donc bien `apres`, la moisson, qui est 9ᵉ.
+    //
+    // `avant` — la tête d'aujourd'hui (1ʳᵉ) : lit 17 signifiants sur 24, 15
+    // valeurs égalisées, et son `meg` ne tombe pas juste (arrondi 235 ‰).
     avant: "?sce!p25.200.50.150!fl+mqwc+meg$4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
-    // à droite (« Après ») : la 9ᵉ — lit 24 signifiants sur 24, aucun abandon,
-    // aucune égalisation, aucun reliquat ; élégance 727 contre 0.
+    // `apres` — la 9ᵉ, celle qu'on mettrait à la place : lit 24 signifiants sur
+    // 24, aucun abandon, aucune égalisation, aucun reliquat ; élégance 727
+    // contre 0.
     apres: "?sce!p25.200.50.150!0:nv,1+4:mas+cs+pm10,2+3:flt+mpy+mr9,5:fr13+nlc+pc9$4PBFCi81yB9tnWEDrTnVjMGGaHCGR48zoD9K",
     mesure: {
       commit: "c616f4f",
