@@ -86,8 +86,16 @@
     absente aux crans 3, 4 et 5 (69, 76 et 89 voies). **Le défaut ne se reproduit
     plus** ; il a été refermé par les commits du 19-21 septembre (`mrd9`, `mrtE`,
     `mt9E`). Rien à faire.
+  ⚠️ **LA PRÉFÉRENCE GELÉE DE L'AUTEUR EST DÉJÀ ROUGE SUR `main`.** Le test
+  « score arbitre 7 — numherololgeek.1000i100.fr (v2) : la moisson nv /
+  flt+mpy+mr9 mène, le leet partiel + mab est relégué »
+  ([`tests/lents/score-arbitre.test.js`](../src/recherche/tests/lents/score-arbitre.test.js))
+  échoue, et sa liste constatée est exactement celle qu'on mesure à la main :
+  `fl+mqwc+meg · fl+mazc+meg · 0:fr3+mt9+meg · 0:fr1;fr4+mas+mdc3 · 0:maz4+mrdE`.
+  Le retour de l'auteur du 22 septembre ne signale donc pas un désaccord de goût
+  nouveau : il redit à la main ce que la suite lente criait déjà.
   ⚠️ **ET CE N'EST PAS UNE VOIE, C'EST UNE FAMILLE.** La suite lente de `main`
-  est déjà ROUGE sur le même phénomène, et pas en `todo` : le test affirmatif
+  est déjà ROUGE sur un second point, et pas en `todo` : le test affirmatif
   « ★ moisson — la voie groupée de `hope-hope-hope.fr` est dans la liste au cran
   2, et `fl+m14` avec elle » échoue des deux côtés, au mot près — « cran 2 : la
   voie groupée est absente des 64 voies », « cran 0 : […] des 34 voies ». Ce test
