@@ -4,7 +4,7 @@
  */
 import { MESURES_STR, MAPPEURS } from './mappeurs.js';
 import { COMBINATEURS } from './combinateurs.js';
-import { FILTRES } from './filtres.js';
+import { FILTRES, decouperMots } from './filtres.js';
 import { TOKENISEURS } from './tokeniseurs.js';
 import { str, tokens, nums, num } from '../etat.js';
 import { tracesDe, etape, token } from './commun.js';
@@ -24,18 +24,55 @@ export function preuvesNumeriques(valeur) {
   if (memo.has(valeur)) return memo.get(valeur);
   const entree = str(valeur);
   const preuves = [];
-  const retenir = (ops, etats) => {
+  const retenir = (ops, etats, contexte = {}) => {
     const fin = etats.at(-1);
     const valeurs = fin.type === 'NUM' ? [fin.valeur] : fin.valeur;
     valeurs.forEach((n, indice) => {
       if (Number.isInteger(n) && n >= 1 && n <= 25) {
-        preuves.push({ decalage: n, ops, etats, indice, type: 'conversion' });
+        const conversions = ops.reduce((somme, op, i) => somme +
+          (op.from === 'TOKENS' && op.to === 'NUMS' ? etats[i].valeur.length : 0), 0);
+        preuves.push({ decalage: n, ops, etats, indice, type: 'conversion',
+          lecture: 'complete', classe: 3, effort: conversions + ops.length,
+          ...contexte });
       }
     });
   };
   for (const op of MESURES_STR.filter(disponible)) {
     const apres = appliquer(op, entree);
-    if (apres) retenir([op], [entree, apres]);
+    if (apres) retenir([op], [entree, apres], { lecture: 'compte', classe: ['nl', 'nv', 'nc'].includes(op.code) ? 0 : 2 });
+  }
+  // Une justification peut ne lire que l'initiale : ne pas convertir les
+  // lettres suivantes, même pour ne retenir ensuite que le premier résultat.
+  const chars = [...valeur];
+  const debut = chars.findIndex((c) => /\p{L}/u.test(c));
+  const tca = TOKENISEURS.find((o) => o.code === 'tca');
+  const initiale = str(chars[debut]);
+  const jeton = appliquer(tca, initiale);
+  for (const op of MAPPEURS.filter((o) => disponible(o) && o.from === 'TOKENS' && o.to === 'NUMS')) {
+    const apres = appliquer(op, jeton);
+    if (apres) retenir([tca, op], [initiale, jeton, apres], {
+      lecture: 'initiale', classe: 0, sourceIndices: [debut],
+      effort: op.code === 'ma1' ? 1 : 2,
+    });
+  }
+  // Longueurs de deux mots voisins : les autres mots ne participent pas.
+  const mots = decouperMots(valeur);
+  const tm = TOKENISEURS.find((o) => o.code === 'tm');
+  const mlm = MAPPEURS.find((o) => o.code === 'mlm');
+  for (let i = 0; i + 1 < mots.length; i++) {
+    const debut = mots[i].debut, fin = mots[i + 1].fin;
+    const paire = str(chars.slice(debut, fin).join(''));
+    const decoupee = appliquer(tm, paire);
+    const longueurs = decoupee && appliquer(mlm, decoupee);
+    if (!longueurs) continue;
+    for (const op of COMBINATEURS.filter((o) => ['cst', 'cp', 'cs'].includes(o.code))) {
+      const apres = appliquer(op, longueurs);
+      if (apres) retenir([tm, mlm, op], [paire, decoupee, longueurs, apres], {
+        lecture: 'mots-voisins', classe: 1, effort: 3,
+        sourceIndices: Array.from({ length: fin - debut }, (_, j) => debut + j),
+        mots: [i + 1, i + 2],
+      });
+    }
   }
   // Toutes les découpes textuelles et toutes les conversions TOKENS → NUMS
   // entrent automatiquement, y compris les futures tables et comptages.
@@ -63,9 +100,10 @@ export function preuvesNumeriques(valeur) {
       }
     }
   }
-  // Préférence stable : lecture courte, puis première position, puis ordre
-  // du catalogue. Plusieurs lectures peuvent justifier le même décalage.
-  preuves.sort((a, b) => a.ops.length - b.ops.length || a.indice - b.indice);
+  // Barème propre aux justifications : aucune prime à l'exhaustivité.
+  // Les conversions complètes restent un repli et paient chaque lettre lue.
+  preuves.sort((a, b) => a.classe - b.classe || a.effort - b.effort
+    || a.indice - b.indice);
   if (memo.size >= 256) memo.delete(memo.keys().next().value);
   memo.set(valeur, preuves);
   return preuves;
@@ -75,11 +113,19 @@ export function etapesPreuveNumerique(preuve, avant, ctx) {
   const en = ctx.langue === 'en';
   const titre = en ? `Why shift by ${preuve.decalage}?` : `Pourquoi décaler de ${preuve.decalage} ?`;
   const cle = `${ctx.cle}_preuve`;
-  let ids = [...avant.valeur].map((_, i) => `${cle}_copie_${i}`);
+  const copie = [...preuve.etats[0].valeur];
+  const sources = preuve.sourceIndices ? preuve.sourceIndices.map((i) => ctx.ids[i]) : ctx.ids;
+  const lecture = preuve.lecture === 'initiale'
+    ? (en ? 'Read only the initial letter' : 'On lit seulement l’initiale')
+    : preuve.lecture === 'mots-voisins'
+      ? (en ? `Lengths of adjacent words ${preuve.mots.join(' and ')}`
+        : `Longueurs des mots voisins ${preuve.mots.join(' et ')}`)
+      : (en ? 'Read the shift on a copy of the text' : 'On lit le décalage sur une copie du texte');
+  let ids = copie.map((_, i) => `${cle}_copie_${i}`);
   const steps = [etape({ ...ctx, cle }, titre,
-    en ? 'Read the shift on a copy of the text' : 'On lit le décalage sur une copie du texte', [
-      { op: 'highlight', targets: ctx.ids, mode: 'select' },
-      { op: 'insert', apres: ctx.ids.at(-1), tokens: [...avant.valeur].map((c, i) => token(ids[i], c)) },
+    lecture, [
+      { op: 'highlight', targets: sources, mode: 'select' },
+      { op: 'insert', apres: ctx.ids.at(-1), tokens: copie.map((c, i) => token(ids[i], c)) },
     ])];
   preuve.ops.forEach((op, i) => {
     const a = preuve.etats[i], b = preuve.etats[i + 1];

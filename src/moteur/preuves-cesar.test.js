@@ -73,3 +73,49 @@ test('le rejeu des 25 nouveaux liens produit des scènes sans repli générique'
     assert.equal(scenario.warnings?.length || 0, 0);
   }
 });
+
+test('le César préfère l’initiale à une conversion complète ou à un comptage moins direct', () => {
+  const preuves = preuvesNumeriques('Louis Fouché').filter((p) => p.decalage === 12);
+  assert.ok(preuves.some((p) => p.lecture === 'complete'));
+  const p = parCode.get('fj12').justifie('Louis Fouché');
+  assert.equal(p.lecture, 'initiale');
+  assert.equal(p.etats[0].valeur, 'L');
+  assert.deepEqual(p.ops.map((o) => o.code), ['tca', 'ma1']);
+});
+
+test('sept et quatorze segments sur l’initiale ne convertissent qu’un caractère', () => {
+  const texte = '✨  Abeille';
+  for (const code of ['m7', 'm14']) {
+    const p = preuvesNumeriques(texte).find((p) => p.lecture === 'initiale' && p.ops.at(-1).code === code);
+    assert.ok(p, code);
+    assert.deepEqual(p.sourceIndices, [3]);
+    assert.deepEqual(p.etats[1].valeur, ['A']);
+    const ids = [...texte].map((_, i) => `source${i}`);
+    const steps = etapesPreuveNumerique(p, str(texte), { ids, cle: code, langue: 'fr' });
+    const copie = steps[0].ops.find((o) => o.op === 'insert');
+    assert.deepEqual(copie.tokens.map((t) => t.text), ['A']);
+    assert.deepEqual(steps[0].ops[0].targets, ['source3']);
+    const rendu = compile({ version: 1, tokens: [...texte].map((text, i) => ({ id: ids[i], text })), steps });
+    assert.ok(ids.every((id) => rendu.nodes.find((n) => n.id === id).alive));
+  }
+});
+
+test('les longueurs de mots voisins se multiplient ou se soustraient avant les conversions exhaustives', () => {
+  for (const [texte, decalage, code, extrait] of [
+    ['xy ab cdefghi z', 14, 'cp', 'ab cdefghi'],
+    ['abcdefghijklm pqrs tu', 9, 'cst', 'abcdefghijklm pqrs'],
+  ]) {
+    const p = parCode.get(`fj${decalage}`).justifie(texte);
+    assert.equal(p.lecture, 'mots-voisins');
+    assert.equal(p.ops.at(-1).code, code);
+    assert.equal(p.etats[0].valeur, extrait);
+    assert.equal(p.etats.at(-1).valeur, decalage);
+    const ids = [...texte].map((_, i) => `source${i}`);
+    const rendu = compile({ version: 1, tokens: [...texte].map((text, i) => ({ id: ids[i], text })),
+      steps: etapesPreuveNumerique(p, str(texte), { ids, cle: code, langue: 'fr' }) });
+    assert.ok(ids.every((id) => rendu.nodes.find((n) => n.id === id).alive));
+  }
+  const repli = parCode.get('fj25').justifie('Sept');
+  assert.equal(repli.lecture, 'complete', 'les preuves complexes restent un repli disponible');
+  assert.ok(repli.classe > parCode.get('fj14').justifie('xy ab cdefghi z').classe);
+});

@@ -1127,8 +1127,8 @@ const CESARS = Object.freeze([
 /**
  * Césars justifiés 1 à 25. À la demande de l'auteur, toutes les mesures du
  * texte et les conversions lettres/mots → nombres peuvent fournir la preuve.
- * La lecture historique des caractères communs reste prioritaire lorsqu'elle
- * donne le décalage ; sinon le répertoire numérique choisit une preuve stable.
+ * Les comptages simples et l’initiale passent avant les caractères communs ;
+ * les conversions complètes sont un repli. Le choix reste déterministe.
  * Les conversions sont exécutées et montrées sur une copie, sans consommer la
  * saisie. Voir preuves-cesar.js et la note 2026-09-22-cesars-1-25.md.
  */
@@ -1207,8 +1207,10 @@ const DECALAGES_ALLOUES = Object.freeze([11, 21, 22,
 
 export function justificationCesar(valeur, n) {
   const communs = lectureDesCommuns(valeur);
+  const numerique = preuvesNumeriques(valeur).find((p) => p.decalage === n);
+  if (numerique?.classe === 0) return numerique;
   if (communs?.decalage === n) return communs;
-  return preuvesNumeriques(valeur).find((p) => p.decalage === n) || null;
+  return numerique || null;
 }
 
 /** Un césar justifié, tout entier dérivé de son décalage — comme son aîné. */
