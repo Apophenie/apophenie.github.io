@@ -142,8 +142,8 @@ test('grammaire, unicité et ordre du registre (CONTRACTS §4.1)', () => {
 //   (`transformations/filtres.js › CESARS`). Le compte exact vit dans
 //   l'assertion, pas dans le titre — c'est elle qui doit rougir, pas lui.
 test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4.1)', () => {
-  assert.equal(ORDRE_CANONIQUE.length, 207); // …+2 redécoupages exacts avec tri (mrtE, mt9E), +6 variantes avec 9 (mad9, mrd9, md9E, mrf9, mf9E, mef9), +3 redécoupages qui fusionnent (mrdf, mrfE, megf), +2 codes de caractère (mas, mu8), +1 addition vers la moyenne (mam), +1 éclatement en chiffres (mecl), +1 code ASCII de chaque signe (mast), +1 code ASCII en signe (masi), +1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap)
-    assert.equal(new Set(ORDRE_CANONIQUE).size, 207, 'aucun code alloué deux fois');
+  assert.equal(ORDRE_CANONIQUE.length, 221); // …+2 redécoupages exacts avec tri (mrtE, mt9E), +6 variantes avec 9 (mad9, mrd9, md9E, mrf9, mf9E, mef9), +3 redécoupages qui fusionnent (mrdf, mrfE, megf), +2 codes de caractère (mas, mu8), +1 addition vers la moyenne (mam), +1 éclatement en chiffres (mecl), +1 code ASCII de chaque signe (mast), +1 code ASCII en signe (masi), +1 carré (mcar), +1 puissance (mpui), +1 factorielle (mfac), +1 rang en lettre (m1a), +2 touches par coordonnées (mcaz, mcqw), +3 potences à zéros de tête (md0*), +2 divisions de deux nombres (mdl0, mdlc), +3 relectures par paires (m1a2, mpol, mtap), +14 césars justifiés (fj11…fj25, le décalage lu dans la saisie)
+    assert.equal(new Set(ORDRE_CANONIQUE).size, 221, 'aucun code alloué deux fois');
   assert.deepEqual(ORDRE_CANONIQUE, CATALOGUE.map((o) => o.code),
     'le registre et l’ordre de déclaration disent la même chose');
   for (const code of ORDRE_CANONIQUE) {
@@ -153,7 +153,7 @@ test('le registre : des codes distincts, de deux à quatre signes (CONTRACTS §4
   // Deux codes qui ne diffèrent que par la casse seraient deux pièges : l'un
   // pour l'œil, l'autre pour toute lecture d'URL un jour rendue tolérante.
   const replies = ORDRE_CANONIQUE.map((c) => c.toLowerCase());
-  assert.equal(new Set(replies).size, 207, 'deux codes ne diffèrent jamais par la seule casse');
+  assert.equal(new Set(replies).size, 221, 'deux codes ne diffèrent jamais par la seule casse');
 });
 
 test('le code p9 est réservé au retournement du 9', () => {

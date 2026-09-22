@@ -105,9 +105,31 @@ function cesars(valeur) {
   return out;
 }
 
+/**
+ * ★ **LES QUATORZE CÉSARS JUSTIFIÉS, DÉRIVÉS DE LA MÊME RÈGLE QU'EUX.**
+ *
+ * Même raison qu'au-dessus — quatorze lignes à tenir d'accord dans trois tables
+ * divergeraient au premier oubli. La règle de sélection est celle de
+ * `transformations/filtres.js › DECALAGES_LISIBLES`, et elle est recopiée ici
+ * en toutes lettres plutôt qu'importée : `titres.js` ne connaît pas le
+ * catalogue, il nomme ce qu'on lui montre. Un décalage LISIBLE est un nombre
+ * d'au moins deux chiffres dont aucun n'est zéro — c'est ce que la
+ * concaténation de comptes par mot peut écrire, et rien d'autre.
+ *
+ * @param {(n:number) => any} valeur ce que la table associe au décalage `n`
+ */
+function cesarsJustifies(valeur) {
+  const out = {};
+  for (let n = 1; n <= 25; n++) {
+    if (String(n).length >= 2 && !String(n).includes('0')) out[`f.cesarJustifie${n}`] = valeur(n);
+  }
+  return out;
+}
+
 const PRIORITE = {
   'f.traduitFR': 0, 'f.traduitEN': 0, 'f.atbash': 0, 'f.rot13': 0, 'f.leet': 0,
   ...cesars(() => 0),
+  ...cesarsJustifies(() => 0),
   'f.motRepete': 1, 'f.initiales': 1,
   joker: 0,
   mappeur: 2,
@@ -633,6 +655,12 @@ export const TITRES_COURTS = {
   'f.cesar24': b('César 24', 'Caesar 24'), // fr24
   'f.cesar25': b('César 25', 'Caesar 25'), // fr25
   'f.rot13': b('César 13', 'Caesar 13'), // fr13
+  /* ★ **« JUSTIFIÉ » EST LE SEUL MOT QUI LES SÉPARE DE LEURS AÎNÉS**, et il doit
+     y être : « César 22 » tout court désignerait aussi bien `fr22`, et le
+     lecteur du Registre ne saurait plus lequel des deux il regarde — alors que
+     toute la différence est là. Le nombre reste écrit dans le titre, ce qui fait
+     taire le complément distinctif de lui-même (`titreCourtComplet`). */
+  ...cesarsJustifies((n) => b(`César ${n} justifié`, `justified Caesar ${n}`)),
   'f.tld': b('sans extension', 'no extension'), // ftld
   'f.unique': b('caractère unique', 'never repeated'), // fun
   'f.voyelles': b('voyelles', 'vowels'), // fv

@@ -19,10 +19,23 @@ const PAR_CODE = new Map(catalogue.map((op) => [op.code, op]));
 const familleDe = (code) => familleDeReglages(PAR_CODE.get(code));
 const OPS = operateursPourCible(catalogue, { defaut: true, texte: '666' });
 
-test('les vingt-cinq césars sont UNE famille, lue sur leur décalage', () => {
+/* ★ Ils étaient vingt-cinq ; ils sont TRENTE-NEUF depuis que les quatorze
+     césars justifiés (`fj11`…`fj25`) ont rejoint le catalogue — même réglette,
+     même décalage publié, mais le décalage se LIT dans la saisie au lieu d'être
+     essayé (`filtres.js › lectureDesCommuns`).
+
+     ⚠️ **C'est ici que se vérifie ce qui les empêche de doubler la liste.** La
+     devinette de `familleDeReglages` retire les chiffres de FIN du code : sur
+     `fj22` elle rendrait « fj », une famille à lui tout seul, et chaque voie
+     justifiée aurait pris une place EN PLUS de sa jumelle arbitraire. Les
+     quatorze publient donc `familleOutil: 'fr'`, et l'assertion ci-dessous est
+     ce qui le tient : une seule famille pour les trente-neuf, donc une seule
+     place dans la fenêtre — la meilleure. */
+test('les césars, justifiés ou non, sont UNE famille, lue sur leur décalage', () => {
   const cesars = catalogue.filter((op) => Number.isFinite(op.decalage) && op.forme === 'glissiere');
-  assert.equal(cesars.length, 25, 'le catalogue publie vingt-cinq décalages');
+  assert.equal(cesars.length, 39, 'le catalogue publie vingt-cinq décalages, plus quatorze justifiés');
   assert.deepEqual([...new Set(cesars.map(familleDeReglages))], ['fr']);
+  assert.equal(familleDe('fj22'), familleDe('fr22'), 'le césar justifié règle le MÊME outil que son aîné');
 });
 
 test('les autres réglages publiés : traductions par sens, dédoublonnages, alternance, potence', () => {

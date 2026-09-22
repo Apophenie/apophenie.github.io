@@ -130,6 +130,36 @@ export const VECTEURS = [
   ['fr23', S('hope'), 'elmb'],
   ['fr24', S('hope'), 'fmnc'],
   ['fr25', S('hope'), 'gnod'],
+  /* ★ LES QUATORZE CÉSARS JUSTIFIÉS — et ils ne peuvent PAS être gelés sur
+     « hope », qui n'a qu'un mot : chacun exige une saisie dont la lecture
+     « caractères communs à chaque mot » écrit son propre décalage
+     (`filtres.js › lectureDesCommuns`). Le vecteur gèle donc les deux moitiés
+     d'un coup — la preuve ET le décalage —, ce qui est exactement ce qu'on veut
+     tenir : un `fj22` qui accepterait une saisie ne disant pas 22 aurait perdu
+     sa seule raison d'exister.
+
+     ★ Les deux cas de l'auteur sont en tête, en toutes lettres. Les douze
+     autres emploient un `x` répété, et c'est délibéré : un seul caractère
+     commun, compté autant de fois qu'il paraît, met la lecture à nu (« un `x`
+     d'un côté, cinq de l'autre : 15 ») et rend la sortie vérifiable de tête —
+     `x` est la 24ᵉ lettre, on lui ajoute le décalage, on retranche 26.
+
+     Comme pour leurs aînés, les sorties sont calculées À LA MAIN, pour qu'elles
+     ne viennent pas de la fonction qu'elles vérifient. */
+  ['fj11', S('Didier Raoult'), 'Ototpc Clzfwe'],
+  ['fj22', S('Louis Fouché'), 'Hkqeo Bkqydé'],
+  ['fj12', S('x xx'), 'j jj'],
+  ['fj13', S('x xxx'), 'k kkk'],
+  ['fj14', S('x xxxx'), 'l llll'],
+  ['fj15', S('x xxxxx'), 'm mmmmm'],
+  ['fj16', S('x xxxxxx'), 'n nnnnnn'],
+  ['fj17', S('x xxxxxxx'), 'o ooooooo'],
+  ['fj18', S('x xxxxxxxx'), 'p pppppppp'],
+  ['fj19', S('x xxxxxxxxx'), 'q qqqqqqqqq'],
+  ['fj21', S('xx x'), 'ss s'],
+  ['fj23', S('xx xxx'), 'uu uuu'],
+  ['fj24', S('xx xxxx'), 'vv vvvv'],
+  ['fj25', S('xx xxxxx'), 'ww wwwww'],
   ['tca', S('hope'), ['h', 'o', 'p', 'e']],
   ['tm', S('a-b.c'), ['a', 'b', 'c']],
   ['tsp', S('a-b.c'), ['-', '.']],
