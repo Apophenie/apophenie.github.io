@@ -304,9 +304,17 @@ export const en = {
   },
 
   transport: {
-      vitesse: 'Playback speed',
-      vitesseCourt: 'Speed',
-      vitesseFacteur: '×{n}',
+    vitesse: 'Playback speed',
+    vitesseCourt: 'Speed',
+    vitesseFacteur: '×{n}',
+    // The RHYTHM of the gestures. Same reasoning as the French: two plain words
+    // anyone can read, rather than the engineering pair « sequential /
+    // parallel » — the latter only means something to someone who already knows
+    // what it is the opposite of.
+    rythme: 'Rhythm of the operations',
+    rythmeCourt: 'Rhythm',
+    rythmePasAPas: 'Step by step',
+    rythmeSimultane: 'Simultaneous',
     groupe: 'Demonstration controls',
     jauge: 'Jump to a step',
     jaugeCase: 'Jump to step {i} of {total}',

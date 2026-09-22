@@ -12,7 +12,7 @@ import { boutonPartage } from '../partage.js';
 import { creerSons, brancherSons } from '../sons.js';
 import { interrupteurs } from '../entete.js';
 import {
-  animationEffective, themeEffectif, onReglages,
+  animationEffective, themeEffectif, onReglages, rythmeChoisi,
   sonActif, sonTranche, sonParDefautActif,
 } from '../reglages.js';
 import { brancherLeRegisseur } from '../../visuel/qualite.js';
@@ -172,6 +172,10 @@ export function pageDemonstration(ctx) {
   const { lecteur, source: sourceLecteur } = pont.creerLecteur(sceneSvg, scenario, {
     reducedMotion: reglageMouvement(),
     speed: 1,
+    // Le RYTHME des gestes est un réglage de COMPILATION : le lecteur le porte
+    // dans ses options et le repasse à `compile()` à chaque construction, y
+    // compris sur `rebuild()`. Voir `src/visuel/rythme.js`.
+    rythme: rythmeChoisi(),
     // ★ La SCÉNOGRAPHIE du verdict — fond lugubre, éclair, embrasement — est
     //   une option de COMPILATION, au même titre que `reducedMotion`. Elle ne
     //   change rien au scénario, qui reste le même objet
@@ -350,8 +354,15 @@ export function pageDemonstration(ctx) {
   // Il était jusqu'ici posé une fois pour toutes à la création du lecteur, si
   // bien qu'un « réduire les animations » demandé en cours de démonstration ne
   // prenait effet qu'au rechargement. Il se recompile donc aussi.
+  //
+  // Le RYTHME se recompile exactement comme lui, et pour la même raison : il
+  // change l'instant de chaque geste, donc l'étendue de chaque étape, donc les
+  // charnières. C'est d'ailleurs le seul des quatre réglages de la barre qui
+  // touche à la timeline — la vitesse, elle, passe par `playbackRate` et ne
+  // reconstruit rien (`visuel/player.js › setRate`).
   let themeCompile = themeEffectif();
   let mouvementCompile = reglageMouvement();
+  let rythmeCompile = rythmeChoisi();
 
   function recompilerEnGardantLEtape(patch) {
     if (typeof lecteur.rebuild !== 'function') return;
@@ -368,15 +379,19 @@ export function pageDemonstration(ctx) {
   const offTheme = onReglages(() => {
     const theme = themeEffectif();
     const mouvement = reglageMouvement();
-    if (theme === themeCompile && mouvement === mouvementCompile) return;
+    const rythme = rythmeChoisi();
+    if (theme === themeCompile && mouvement === mouvementCompile
+      && rythme === rythmeCompile) return;
     // Le thème ne touche qu'aux couleurs : `currentTime` reste juste. Le niveau
-    // d'animation déplace les charnières : il faut alors conserver l'étape, pas
-    // l'instant.
-    const dureesChangent = mouvement !== mouvementCompile;
+    // d'animation et le rythme déplacent les charnières : il faut alors
+    // conserver l'étape, pas l'instant — sans quoi le spectateur sauterait à un
+    // tout autre endroit du récit.
+    const dureesChangent = mouvement !== mouvementCompile || rythme !== rythmeCompile;
     themeCompile = theme;
     mouvementCompile = mouvement;
+    rythmeCompile = rythme;
     if (dureesChangent) {
-      recompilerEnGardantLEtape({ reducedMotion: mouvement });
+      recompilerEnGardantLEtape({ reducedMotion: mouvement, rythme });
     } else if (typeof lecteur.rebuild === 'function') {
       lecteur.rebuild();
     }

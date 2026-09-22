@@ -26,7 +26,10 @@ import { t, langue } from '../i18n/index.js';
 import { interpoler } from '../i18n/resolution.js';
 import { titreEtape } from './libelles.js';
 import { infobuller } from './infobulle.js';
-import { sonActif, basculerSon, onReglages } from './reglages.js';
+import {
+  sonActif, basculerSon, onReglages, rythmeChoisi, definirRythme,
+} from './reglages.js';
+import { RYTHMES } from '../visuel/rythme.js';
 
 const ico = (...enfants) =>
   s('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', focusable: 'false' }, enfants);
@@ -125,7 +128,7 @@ function boutonTransport(cle, libelle, nomAccessible, principal = false) {
  *   quatre étapes ne sont pas des « transformations » et dont le bouton de
  *   lecture ne « lance » pas une démonstration. Toute clé absente retombe sur
  *   le dictionnaire : la barre des démonstrations n'en passe aucune.
- * @param {{vitesses?:boolean, sons?:Object, pleinEcran?:Object}} [options]
+ * @param {{vitesses?:boolean, rythmes?:boolean, sons?:Object, pleinEcran?:Object}} [options]
  *   `pleinEcran` : le contrôleur de `src/app/pleinecran.js`. La barre ne sait ni
  *   quel élément agrandir, ni comment — elle lui demande son état et lui envoie
  *   les clics, exactement comme elle fait du lecteur.
@@ -255,7 +258,71 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     });
   }
 
-  /* ── la coupure du son, SEPTIÈME contrôle ──
+  /* ══ le RYTHME DES GESTES, SEPTIÈME contrôle — juste après la vitesse ═════
+     > « Pas à pas — une opération après l'autre, la suivante ne commence que
+     >   quand la précédente est finie. Simultané — toutes les opérations de même
+     >   type qui ne touchent pas les mêmes caractères démarrent presque en même
+     >   temps. » (l'auteur)
+
+     ★ **IL PREND LA PLACE DES REDITES, IL N'EN EST PAS L'HÉRITIER.** Les redites
+       réglaient des DURÉES, et le curseur de vitesse le fait mieux — c'est pour
+       cela qu'elles sont parties. Le rythme règle un ORDONNANCEMENT, ce
+       qu'aucune vitesse ne sait faire : ×10 sur sept additions simultanées
+       donne sept additions simultanées, en plus rapide. Deux réglages voisins
+       de place, et sans rien de commun sur le fond.
+
+     ★ **DESSINÉ COMME LA VITESSE, ET POUR LA MÊME RAISON.** Une valeur
+       au-dessus, un libellé dessous, un `<select>` transparent par-dessus. Ce
+       n'est pas une bascule à deux états qu'on retourne au clic comme le son :
+       c'est un CHOIX PARMI DEUX, qui en admettra peut-être un troisième, et un
+       `<select>` dit cela quand un bouton-bascule ment dès le troisième. Il
+       garde en prime son clavier, son nom accessible et le sélecteur roulant
+       des mobiles.
+
+     ★ **PAS D'ICÔNE, ET C'EST UN CHOIX.** Aucun picto de 24 px ne distingue
+       « l'un après l'autre » de « tous ensemble » sans légende — et s'il faut la
+       légende, l'icône ne sert plus qu'à occuper la place. Le mot occupe donc la
+       place lui-même, exactement comme « ×1 » l'occupe pour la vitesse : la
+       rangée garde sa hauteur et son alignement, et personne n'a à deviner.
+
+     ★ **IL N'EXISTE QUE S'IL PEUT AGIR**, comme la vitesse, le son et le plein
+       écran. Sous `prefers-reduced-motion` ou sans WAAPI, le moteur ne joue
+       pas : il pose l'image d'un instant, tous les gestes sont à zéro et il n'y
+       a aucun ordre à régler. Le compilateur l'ignore d'ailleurs explicitement
+       dans ce mode (`visuel/compile.js`). Un bouton qui ne peut rien faire est
+       du bruit ; un bouton présent mais inerte est un mensonge. */
+  let bRythme = null;
+  let rythmeValeur = null;
+  if (options.rythmes !== false && !lecteur.reduced) {
+    const nomDuRythme = (r) => tt(r === 'simultane' ? 'rythmeSimultane' : 'rythmePasAPas');
+    const courant = rythmeChoisi();
+    rythmeValeur = e('span.transport__facteur', {
+      texte: nomDuRythme(courant), 'aria-hidden': 'true',
+    });
+    const choixRythme = e('select.transport__vitesse-choix', {
+      'aria-label': tt('rythme'),
+    }, RYTHMES.map((r) => e('option', {
+      value: r,
+      texte: nomDuRythme(r),
+      ...(r === courant ? { selected: 'selected' } : {}),
+    })));
+    bRythme = e('span.transport__bouton.transport__bouton--reglage.transport__vitesse', {}, [
+      rythmeValeur,
+      e('span.transport__libelle', { texte: tt('rythmeCourt'), 'aria-hidden': 'true' }),
+      choixRythme,
+    ]);
+    bRythme.dataset.role = 'rythme';
+    /* Le sélecteur n'appelle rien sur le lecteur : le rythme est une option de
+       COMPILATION. Il écrit la préférence, et `onReglages` fait recompiler la
+       timeline chez qui l'a construite — exactement comme le faisait la bascule
+       des redites, et pour la même raison : les charnières se déplacent. */
+    choixRythme.addEventListener('change', () => {
+      rythmeValeur.textContent = nomDuRythme(choixRythme.value);
+      definirRythme(choixRythme.value);
+    });
+  }
+
+  /* ── la coupure du son, HUITIÈME contrôle ──
      Même nature que les deux précédents, donc même place et même facture :
      une préférence de lecture, à portée immédiate de ce qu'elle règle. Le
      bouton n'existe QUE s'il y a quelque chose à couper — registre scénique
@@ -271,7 +338,7 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     bSon.dataset.role = 'son';
   }
 
-  /* ── le plein écran, HUITIÈME contrôle et dernier de la barre ────────────
+  /* ── le plein écran, NEUVIÈME contrôle et dernier de la barre ────────────
      Même famille que les deux précédents : il ne déplace pas la tête de
      lecture, il règle la façon dont on regarde. Et même règle qu'eux — il
      n'existe QUE s'il peut agir. Sur un iPhone, où `requestFullscreen` n'existe
@@ -280,8 +347,8 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
 
      Il est le DERNIER, et pas par hasard : c'est le seul dont l'effet déborde
      de la démonstration — il change ce qu'on voit de la page entière. Le lire
-     en bout de rangée, après ce qui règle le rythme puis le son, suit l'ordre
-     du plus local au plus général. */
+     en bout de rangée, après ce qui règle la vitesse, le rythme puis le son,
+     suit l'ordre du plus local au plus général. */
   const plein = options.pleinEcran || null;
   const bPlein = plein && plein.disponible
     ? boutonTransport('pleinEcran', tt('pleinEcranCourt'), tt('pleinEcran'))
@@ -319,7 +386,7 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
   const reglages = [
     // La vitesse EN TÊTE : le plus général devant, le plus particulier
     // derrière — voir le pavé de `bVitesse`.
-    ...(bVitesse ? [bVitesse] : []),
+    ...(bVitesse ? [bVitesse] : []), ...(bRythme ? [bRythme] : []),
     ...(bSon ? [bSon] : []), ...(bPlein ? [bPlein] : []),
   ];
   /* Aucun réglage disponible — la révélation du logo, un navigateur sans plein

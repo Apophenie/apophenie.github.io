@@ -75,6 +75,7 @@ globalThis.document = {
 
 const { creerTransport } = await import('./transport.js');
 const { fr } = await import('../i18n/fr.js');
+const { RYTHMES, RYTHME_DEFAUT } = await import('../visuel/rythme.js');
 
 /** Un lecteur de façade : juste ce que la barre lit (le contrat §3.3). */
 const lecteurFactice = (extra = {}) => ({
@@ -111,12 +112,71 @@ const roles = (transport) => [...parcourir(transport.element)]
  * porte sur toute la lecture ; tout ce qui la suit dans le bloc porte sur
  * moins qu'elle. C'est cette règle-là qu'on gèle, et pas la liste du jour.
  */
-test('★ transport — la vitesse ouvre le bloc des réglages', () => {
+test('★ transport — la vitesse précède le rythme', () => {
   const tr = creerTransport(lecteurFactice(), {}, options());
+  const ordre = roles(tr);
+  const iVitesse = ordre.indexOf('vitesse');
+  const iRythme = ordre.indexOf('rythme');
+  assert.ok(iVitesse >= 0, 'le sélecteur de vitesse manque');
+  assert.ok(iRythme >= 0, 'le sélecteur de rythme manque');
+  assert.ok(iVitesse < iRythme,
+    `la vitesse doit précéder le rythme, vu ${ordre.join(' → ')}`);
   const bloc = rangee(tr).enfants.find((n) => n.classes.has('transport__reglages'));
-  assert.ok(bloc, 'le bloc des réglages manque');
-  assert.equal(bloc.enfants[0].dataset.role, 'vitesse',
-    `le plus général passe devant, vu ${bloc.enfants.map((n) => n.dataset.role).join(' → ')}`);
+  assert.equal(bloc.enfants[0].dataset.role, 'vitesse', 'et elle ouvre le bloc');
+});
+
+/* ═══════════════════ Le RYTHME, septième contrôle ════════════════════════ */
+
+/**
+ * ★ **IL SE DESSINE COMME LA VITESSE, ET C'EST LA CONSIGNE.**
+ *
+ * > « Le bouton se dessine et se comporte comme le contrôle de vitesse (une
+ * >   valeur au-dessus, un libellé dessous, même famille visuelle que les six
+ * >   autres boutons). » (l'auteur)
+ *
+ * Pas d'icône : aucun picto de 24 px ne distingue « l'un après l'autre » de
+ * « tous ensemble » sans légende, et s'il faut la légende, l'icône n'occupe plus
+ * que la place. Le mot occupe donc la place lui-même, comme « ×1 » le fait pour
+ * la vitesse — la rangée garde sa hauteur et son alignement.
+ */
+test('★ transport — le rythme affiche sa valeur au-dessus de son libellé', () => {
+  const tr = creerTransport(lecteurFactice(), {}, options());
+  const bouton = [...parcourir(tr.element)].find((n) => n.dataset.role === 'rythme');
+  assert.ok(bouton, 'le contrôle de rythme manque');
+  const valeur = [...parcourir(bouton)].find((n) => n.classes.has('transport__facteur'));
+  const libelle = [...parcourir(bouton)].find((n) => n.classes.has('transport__libelle'));
+  assert.ok(valeur, 'la valeur manque');
+  assert.equal(libelle.textContent, fr.transport.rythmeCourt);
+  // Le défaut du jour — lu sur la constante, jamais recopié : le test doit
+  // rester vert le jour où l'auteur passera en simultané par défaut.
+  assert.equal(valeur.textContent,
+    RYTHME_DEFAUT === 'simultane' ? fr.transport.rythmeSimultane : fr.transport.rythmePasAPas);
+  // Même famille visuelle que la vitesse : la classe le dit.
+  assert.ok(bouton.classes.has('transport__bouton--reglage'));
+});
+
+test('★ transport — les deux rythmes, et le nom accessible sur le select', () => {
+  const tr = creerTransport(lecteurFactice(), {}, options());
+  const bouton = [...parcourir(tr.element)].find((n) => n.dataset.role === 'rythme');
+  const choix = [...parcourir(bouton)].find((n) => n.classes.has('transport__vitesse-choix'));
+  assert.ok(choix, 'le select manque');
+  assert.equal(choix.getAttribute('aria-label'), fr.transport.rythme);
+  const opts = [...parcourir(choix)].filter((n) => n.tagName === 'option');
+  assert.deepEqual(opts.map((o) => o.getAttribute('value')), [...RYTHMES]);
+  assert.deepEqual(opts.map((o) => o.textContent),
+    [fr.transport.rythmePasAPas, fr.transport.rythmeSimultane]);
+});
+
+/**
+ * ⚠️ **PAS DE RÉGLAGE QUI NE PUISSE AGIR.** Sous `prefers-reduced-motion`, le
+ *   moteur pose l'image d'un instant : tous les gestes sont à zéro, il n'y a
+ *   aucun ordre à régler, et le compilateur ignore d'ailleurs le rythme dans ce
+ *   mode (`visuel/compile.js`). Même règle que la vitesse, le son et le plein
+ *   écran — un bouton présent mais inerte est un mensonge.
+ */
+test('★ transport — pas de rythme quand le mouvement est réduit', () => {
+  const tr = creerTransport(lecteurFactice({ reduced: true }), {}, options());
+  assert.ok(!roles(tr).includes('rythme'), 'un réglage inerte ne s’affiche pas');
 });
 
 /**
@@ -219,8 +279,8 @@ test('★ transport — les réglages font un bloc, et la coupure tombe après �
   );
   assert.deepEqual(
     barre.enfants[5].enfants.map((n) => n.dataset.role),
-    ['vitesse', 'son', 'pleinEcran'],
-    'les réglages demandés, dans l’ordre, et tous dans le même bloc',
+    ['vitesse', 'rythme', 'son', 'pleinEcran'],
+    'les quatre réglages demandés, dans l’ordre, et tous dans le même bloc',
   );
 });
 
