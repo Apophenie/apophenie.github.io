@@ -39,7 +39,8 @@ const FOUCHE = '7NFn8xBqb5eNAq3YCY';
 const LIEN = `?fl+mpy+mtri+1cs+2cs+mtri+0cs+mr9+mpf$${FOUCHE}`;
 const LIEN_ELARGI = `?fl+mpy+mtri+1.2.2cs$${FOUCHE}`;
 /** `Lou` → 12 15 21 : la position 1 tombe DANS le 12, et la fenêtre dans le 15. */
-const LIEN_COUPE = '?ma1+1cs$:Lou';
+// Ce témoin obtient 3 : il vise donc 3, au lieu de revendiquer un 666 absent.
+const LIEN_COUPE = '?ma1+1cs$:Lou$:3';
 
 /** Le chemin de la page : lecture sans catalogue, rejeu, scénario. */
 function jouer(lien) {
