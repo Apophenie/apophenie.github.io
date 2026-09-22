@@ -473,6 +473,9 @@ function inventaire(o) {
     if (typeof t === 'object' && typeof t.id === 'string' && t.id) crees.push(t.id);
   };
   switch (o.op) {
+    case 'insert':
+      ajouter(o.tokens);
+      break;
     case 'substitute':
       for (const p of o.pairs || []) ajouter(p.to);
       break;
@@ -584,6 +587,10 @@ function normaliserCibles(t) {
 /** Toutes les références d'id d'une op (pour l'invariant 3). */
 function referencesDe(o) {
   const refs = [];
+  if (o.op === 'insert') {
+    refs.push(...normaliserCibles(o.avant));
+    refs.push(...normaliserCibles(o.apres));
+  }
   refs.push(...normaliserCibles(o.targets));
   refs.push(...normaliserCibles(o.target));
   refs.push(...normaliserCibles(o.between));

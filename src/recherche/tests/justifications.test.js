@@ -23,8 +23,8 @@ test('la preuve remplace le jumeau sans changer les états ni consommer la saisi
   assert.equal(prouve.etats[0].valeur, 'Louis Fouché');
 });
 
-test('un autre décalage, un seul mot et une preuve absente ne sont pas promus', () => {
-  for (const [texte, code] of [['Louis Fouché', 'fr21'], ['Louis', 'fr22']]) {
+test('un décalage sans preuve et un catalogue sans justifications ne sont pas promus', () => {
+  for (const [texte, code] of [['a', 'fr25'], ['Ω', 'fr22']]) {
     const brut = chemin(texte, code);
     assert.equal(prefererJustifications(brut, catalogue), brut);
   }
@@ -32,11 +32,11 @@ test('un autre décalage, un seul mot et une preuve absente ne sont pas promus',
   assert.equal(prefererJustifications(brut, catalogue.filter((o) => !o.justifie)), brut);
 });
 
-test('la preuve reste un réglage du même outil mais possède une forme montrée distincte', () => {
+test('la preuve reste un réglage du même outil sans prendre une seconde place dans sa famille', () => {
   const brut = chemin('Louis Fouché', 'fr22');
   const prouve = prefererJustifications(brut, catalogue);
   assert.equal(familleDeReglages(brut.ops[0]), familleDeReglages(prouve.ops[0]));
-  assert.notEqual(formeReglee(brut), formeReglee(prouve));
+  assert.equal(formeReglee(brut), formeReglee(prouve));
 });
 
 test('les liens historiques et justifiés se rejouent', () => {
@@ -50,7 +50,7 @@ test('les liens historiques et justifiés se rejouent', () => {
 test('la recherche compose preuve puis retrait des séparateurs sans perdre les mots avant le compte', async () => {
   const { vecteursDeSix } = await import('../assemblage.js');
   const compte = { travail: 0 };
-  const vecteurs = vecteursDeSix('Louis Fouché', catalogue, 3, 1000, undefined, { compteur: compte });
+  const vecteurs = vecteursDeSix('Louis Fouché', catalogue, 3, 1000, undefined, { compteur: compte, miseEnForme: false });
   const justifie = vecteurs.find((c) => c.ops.map((o) => o.code).join('+') === 'fj22+fl+tca+m14');
   assert.ok(justifie, 'le chemin demandé doit être réellement candidat');
   assert.equal(justifie.etats[0].valeur, 'Louis Fouché');

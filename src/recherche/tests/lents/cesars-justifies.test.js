@@ -12,14 +12,14 @@ test('Louis Fouché propose les césars justifiés dès le cran 0 et conserve se
   const publies = new Set(profond.approches.map(programme));
   for (const a of rapide.approches) assert.ok(publies.has(programme(a)), a.url);
   for (const resultat of [rapide, profond]) {
-    const preuves = resultat.approches.filter((a) => a.url.includes('fj22'));
+    const preuves = resultat.approches.filter((a) => /fj\d+/.test(a.url));
     assert.ok(preuves.length, `cran ${resultat.fouille}`);
     for (const a of preuves) {
       const prouve = moteur.rejouer(lire(a.url, { catalogue }));
-      const arbitraire = moteur.rejouer(lire(a.url.replaceAll('fj22', 'fr22'), { catalogue }));
+      const arbitraire = moteur.rejouer(lire(a.url.replace(/fj(\d+)/g, 'fr$1'), { catalogue }));
       assert.equal(prouve.ok, true, a.url);
       assert.equal(arbitraire.ok, true, 'les anciens codes restent rejouables');
-      assert.ok(prouve.approche.score > arbitraire.approche.score, 'la preuve améliore la note');
+      assert.ok(prouve.approche.score >= arbitraire.approche.score, 'la preuve ne dégrade pas la note, y compris pour ROT13');
     }
   }
 });

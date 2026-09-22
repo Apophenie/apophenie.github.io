@@ -1,5 +1,9 @@
 # Le César qui trouve son décalage — note de conception
 
+> Historique : la restriction à trois codes et aux caractères communs est
+> remplacée par la demande suivante de l’auteur. Voir
+> [les Césars 1 à 25](2026-09-22-cesars-1-25.md).
+
 > « Je voudrais des variantes mieux notées des césar\* qui commencent par trouver
 > le nombre utilisé pour faire le décalage dans la saisie d'origine avant de
 > l'appliquer. Par exemple, pour ces variantes mieux notées, pour césar 22, il

@@ -130,25 +130,32 @@ export const VECTEURS = [
   ['fr23', S('hope'), 'elmb'],
   ['fr24', S('hope'), 'fmnc'],
   ['fr25', S('hope'), 'gnod'],
-  /* ★ LES QUATORZE CÉSARS JUSTIFIÉS — et ils ne peuvent PAS être gelés sur
-     « hope », qui n'a qu'un mot : chacun exige une saisie dont la lecture
-     « caractères communs à chaque mot » écrit son propre décalage
-     (`filtres.js › lectureDesCommuns`). Le vecteur gèle donc les deux moitiés
-     d'un coup — la preuve ET le décalage —, ce qui est exactement ce qu'on veut
-     tenir : un `fj22` qui accepterait une saisie ne disant pas 22 aurait perdu
-     sa seule raison d'exister.
-
-     ★ Les deux cas de l'auteur sont en tête, en toutes lettres. Les douze
-     autres emploient un `x` répété, et c'est délibéré : un seul caractère
-     commun, compté autant de fois qu'il paraît, met la lecture à nu (« un `x`
-     d'un côté, cinq de l'autre : 15 ») et rend la sortie vérifiable de tête —
-     `x` est la 24ᵉ lettre, on lui ajoute le décalage, on retranche 26.
-
-     Comme pour leurs aînés, les sorties sont calculées À LA MAIN, pour qu'elles
-     ne viennent pas de la fonction qu'elles vérifient. */
+  // Les preuves historiques restent prioritaires ; les nouveaux témoins lisent A=1…Y=25.
   ['fj11', S('Didier Raoult'), 'Ototpc Clzfwe'],
   ['fj22', S('Louis Fouché'), 'Hkqeo Bkqydé'],
   ['fj21', S('xx x'), 'ss s'],
+  ['fj1', S('A'), 'B'],
+  ['fj2', S('B'), 'D'],
+  ['fj3', S('C'), 'F'],
+  ['fj4', S('D'), 'H'],
+  ['fj5', S('E'), 'J'],
+  ['fj6', S('F'), 'L'],
+  ['fj7', S('G'), 'N'],
+  ['fj8', S('H'), 'P'],
+  ['fj9', S('I'), 'R'],
+  ['fj10', S('J'), 'T'],
+  ['fj12', S('L'), 'X'],
+  ['fj13', S('M'), 'Z'],
+  ['fj14', S('N'), 'B'],
+  ['fj15', S('O'), 'D'],
+  ['fj16', S('P'), 'F'],
+  ['fj17', S('Q'), 'H'],
+  ['fj18', S('R'), 'J'],
+  ['fj19', S('S'), 'L'],
+  ['fj20', S('T'), 'N'],
+  ['fj23', S('W'), 'T'],
+  ['fj24', S('X'), 'V'],
+  ['fj25', S('Y'), 'X'],
   ['tca', S('hope'), ['h', 'o', 'p', 'e']],
   ['tm', S('a-b.c'), ['a', 'b', 'c']],
   ['tsp', S('a-b.c'), ['-', '.']],

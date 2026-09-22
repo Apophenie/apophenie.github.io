@@ -108,17 +108,12 @@ function cesars(valeur) {
 /**
  * ★ **LES CÉSARS JUSTIFIÉS, EN UNE LIGNE PAR TABLE COMME LEURS AÎNÉS.**
  *
- * Même raison qu'au-dessus — des lignes à tenir d'accord dans trois tables
- * divergeraient au premier oubli. La règle de sélection est celle de
- * `transformations/filtres.js › DECALAGES_LISIBLES`, et elle est recopiée ici
- * en toutes lettres plutôt qu'importée : `titres.js` ne connaît pas le
- * catalogue, il nomme ce qu'on lui montre. Un décalage LISIBLE est un nombre
- * d'au moins deux chiffres dont aucun n'est zéro — c'est ce que la
- * concaténation de comptes par mot peut écrire, et rien d'autre.
+ * Une même fabrique nomme les 25 décalages et leurs preuves. La lecture
+ * choisie appartient à l'opérateur ; le titre annonce le décalage obtenu.
  *
  * @param {(n:number) => any} valeur ce que la table associe au décalage `n`
  */
-const DECALAGES_JUSTIFIES = Object.freeze([11, 21, 22]);
+const DECALAGES_JUSTIFIES = Object.freeze(Array.from({ length: 25 }, (_, i) => i + 1));
 
 function cesarsJustifies(valeur) {
   const out = {};

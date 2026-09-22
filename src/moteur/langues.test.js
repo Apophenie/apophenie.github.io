@@ -49,7 +49,7 @@ const NOTATIONS = new Set([
 ]);
 
 test('★ toute chaîne affichable du catalogue porte ses deux langues', () => {
-  assert.equal(CATALOGUE.length, 210, 'le catalogue publié compte 210 opérateurs');
+  assert.equal(CATALOGUE.length, 232, 'le catalogue publié compte 232 opérateurs');
   for (const op of CATALOGUE) {
     assert.ok(estBilingue(op.libelle), `${op.code} (${op.id}) : « libelle » n’est pas bilingue`);
     assert.ok(estBilingue(op.regle), `${op.code} (${op.id}) : « regle » n’est pas bilingue`);

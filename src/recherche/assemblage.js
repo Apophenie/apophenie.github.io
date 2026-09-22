@@ -1039,7 +1039,7 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   // mots. Après cette lecture on autorise les présentations élémentaires des
   // lettres : retrait des non-lettres et casse. Trois bases au plus, aucune
   // suite de décalages, aucune récursion, aucune nouvelle lecture.
-  for (const b of bases.filter((x) => x.ops.length === 1 && x.ops[0].justifie)) {
+  for (const b of bases.filter((x) => x.ops.length === 1 && x.ops[0].justifie?.(x.etats[0].valeur)?.communs)) {
     for (const f of filtres.filter((o) => ['fl', 'fmin', 'fmaj'].includes(o.code))) {
       const r = appliquerOp(f, b.etat);
       if (r !== null && cleEtat(r) !== cleEtat(b.etat)) {
@@ -2637,7 +2637,7 @@ export function formeReglee(chemin) {
     const f = familleDeReglages(o);
     // Une preuve montre une lecture supplémentaire ; elle conserve pourtant
     // la même famille d’outil pour le coût des réglages dans le barème.
-    return f === null ? o.code : `${f}${o.justifie ? ":preuve" : ""}*`;
+    return f === null ? o.code : `${f}*`;
   }).join('+');
 }
 

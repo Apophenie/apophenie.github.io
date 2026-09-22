@@ -171,7 +171,7 @@ test('★ élus — curseurs personnalisés : les deux voies sans perte sont gar
        l'élu, « une ficelle qui n'apporte rien n'est pas proposée » pour
        l'absorption qu'elle rend superflue. La preuve est le test suivant :
        rendue à l'ancien comportement, la même liste retrouve `tm+mlm+mab`. */
-    assert.ok(garde.includes('fr1+tsy+mlm+mdc2'), `la voie sans perte : ${dit}`);
+    assert.ok(garde.includes('fj1+tsy+mlm+mdc2'), `la voie sans perte : ${dit}`);
     assert.ok(garde.includes('fl+tca+msen+mrdE'), `la voie additive : ${dit}`);
     // « Une approche addition uniquement, EN PLUS de `mab`, pas à la place » :
     // l'absorption reste proposée — plus loin, s'il le faut.
