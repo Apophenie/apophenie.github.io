@@ -113,10 +113,97 @@
  */
 
 import { DUREE_OP } from '../../moteur/transformations/commun.js';
+import { ACCOLADE } from '../primitives/helpers.js';
 import { lecteur } from './_lecteur.js';
 
 /** Unités de temps tolérées : les arrondis de compilation. */
 export const TOLERANCE_MS = 1;
+
+/**
+ * ★ **DEUX ACCOLADES NE SE SUPERPOSENT JAMAIS — l'œil qui le mesure.**
+ *
+ * > « Plusieurs accolades qui se chevauchent durant `mrdE` » (l'auteur), et le
+ * >   même défaut sur `mrtE`.
+ *
+ * Une accolade est une AFFIRMATION : « ceci, pris ensemble ». Deux affirmations
+ * dessinées l'une sur l'autre n'en font aucune — on ne sait plus laquelle
+ * embrasse quoi, ni sous quelle pointe tombera quel résultat. La règle se dit
+ * donc en une phrase : à AUCUN instant deux tracés ne partagent un morceau
+ * d'écran. Soit leurs plages sont disjointes — c'est le cas ordinaire, les
+ * paquets d'un redécoupage se suivent sur la ligne —, soit ils vivent à des
+ * hauteurs distinctes, soit ils ne sont pas vivants en même temps.
+ *
+ * **La boîte d'un tracé** à l'instant t, dans le repère de la scène :
+ *  · horizontalement, sa demi-largeur COURANTE — le dernier chemin `d` émis, à
+ *    son avancée (le tracé se redessine, il n'est jamais mis à l'échelle) ;
+ *  · verticalement, de la naissance de ses bras à sa pointe (`ACCOLADE`), du
+ *    côté où il vit (`data.sens`).
+ *
+ * **Vivant** veut dire : à l'encre (opacité > 0,1) ET déjà tiré — tant que
+ * `strokeDashoffset` vaut 100, rien n'est peint. Un tracé à demi tiré compte :
+ * ce qu'il a déjà posé est à l'écran.
+ *
+ * On ne rend que le PIRE recouvrement de chaque paire, pour que le message
+ * nomme les coupables une fois chacun plutôt qu'à chaque pas d'horloge.
+ *
+ * @param {object} tl la timeline compilée
+ * @param {number} pas le pas d'échantillonnage, en ms
+ * @returns {{t:number, dx:number, dy:number, etape:number, a:string, b:string}[]}
+ *   trié du pire au moindre
+ */
+export function accoladesQuiSeChevauchent(tl, pas = 20) {
+  const lire = lecteur(tl);
+  const traces = tl.nodes.filter((n) => n.role === 'bracket' && n.data && n.data.shape === 'brace');
+  if (traces.length < 2) return [];
+  const fin = Math.max(...tl.steps.map((s) => s.t0 + s.duration));
+  const etapeA = (t) => tl.steps.findIndex((s) => t >= s.t0 && t < s.t0 + s.duration);
+
+  // La demi-largeur dessinée à l'instant t : le dernier chemin émis, à son avancée.
+  const demiLargeur = (n, t) => {
+    const emis = tl.discrete.filter((r) => r.id === n.id && r.channel === 'd' && r.at <= t)
+      .sort((x, y) => x.at - y.at);
+    const r = emis.length ? emis[emis.length - 1] : null;
+    const chemin = r ? r.render(r.dur ? Math.min(1, Math.max(0, (t - r.at) / r.dur)) : 1) : n.data.d;
+    const m = /^M\s*(-?[\d.]+)/.exec(String(chemin || ''));
+    return m ? Math.abs(Number(m[1])) : null;
+  };
+
+  const pires = new Map();
+  for (let t = 0; t <= fin; t += pas) {
+    const vus = [];
+    for (const n of traces) {
+      if (!((lire.valeur(n.id, 'opacity', t) ?? 1) > 0.1)) continue;
+      const tire = lire.valeur(n.id, 'strokeDashoffset', t);
+      if (tire !== undefined && tire >= 100) continue;
+      const p = lire.valeur(n.id, 'translate', t);
+      const demi = demiLargeur(n, t);
+      if (!p || demi === null) continue;
+      const s = (n.data.sens ?? 1) < 0 ? -1 : 1;
+      vus.push({
+        id: n.id,
+        g: p.x - demi,
+        d: p.x + demi,
+        haut: s > 0 ? p.y - ACCOLADE.bras : p.y - ACCOLADE.pointe,
+        bas: s > 0 ? p.y + ACCOLADE.pointe : p.y + ACCOLADE.bras,
+      });
+    }
+    for (let i = 0; i < vus.length; i++) {
+      for (let j = i + 1; j < vus.length; j++) {
+        const a = vus[i];
+        const b = vus[j];
+        const dx = Math.min(a.d, b.d) - Math.max(a.g, b.g);
+        const dy = Math.min(a.bas, b.bas) - Math.max(a.haut, b.haut);
+        if (dx <= 0.5 || dy <= 0.5) continue;
+        const cle = `${a.id}|${b.id}`;
+        const vu = pires.get(cle);
+        if (!vu || dx > vu.dx) {
+          pires.set(cle, { t: Math.round(t), dx, dy, etape: etapeA(t), a: a.id, b: b.id });
+        }
+      }
+    }
+  }
+  return [...pires.values()].sort((x, y) => y.dx - x.dx);
+}
 
 /**
  * Les fins de toutes les étapes à accolade d'une scène compilée.
