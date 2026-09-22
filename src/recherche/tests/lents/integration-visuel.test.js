@@ -439,13 +439,14 @@ test('★ intégration — les quatre transformations du 27 août se MONTRENT',
       //   seul centre, donc l'accolade nue). Ce qui est commun aux deux, et ce
       //   que la primitive nommée vérifie, c'est l'annulation par paires.
       ['Le chat dort', 'fl+tca+m14+cme', 'cme', 'collapse'],
-      ['Le chat', 'fl+tca+m14+cme', 'cme', 'collapse'],
+      // La médiane impaire vaut 5 : ce témoin ne revendique pas un 6 absent.
+      ['Le chat', 'fl+tca+m14+cme', 'cme', 'collapse', '5'],
     ];
 
-    for (const [saisie, codes, code, primitive] of cas) {
-      const r = m.rejouer(lire(`#${codes}#${encoderTexte(saisie)}`));
+    for (const [saisie, codes, code, primitive, cible = '666'] of cas) {
+      const r = m.rejouer(lire(`#${codes}#${encoderTexte(saisie)}#${encoderTexte(cible)}`));
       assert.ok(r.ok, `${codes} : ${r.raison || 'rejeu impossible'}`);
-      const sc = m.scenarioDe(r.approche, { saisie });
+      const sc = m.scenarioDe(r.approche, { saisie, cible });
       assert.deepEqual(sc.avertissements || [], [],
         `${code} : le scénario est retombé sur le rendu générique — `
         + 'l’opérateur annoncerait au lieu de montrer');
@@ -787,8 +788,9 @@ test('★ intégration — la ligne principale reste à l’écran sur toutes le
     // colonne, la potence, la division, les trios, la retouche.
     const liens = [
       ['Ice', 'tca+ma1+mfac'],
-      ['Sept', 'tca+masb+mdc2'],
-      ['Sept', 'tca+masb+mdiv'],
+      // Ces divisions obtiennent un 5, aucun 6 : leur cible de test le dit.
+      ['Sept', 'tca+masb+mdc2', '5'],
+      ['Sept', 'tca+masb+mdiv', '5'],
       // ★ `mrd` ne garde plus les 9 (19 septembre 2026) : la retouche qui les
       //   garde pour `mr9` s'écrit `mrd9`, la même découpe au chiffre près.
       ['Capitalisme', 'tca+masb+mrd9+mr9'],
@@ -796,10 +798,10 @@ test('★ intégration — la ligne principale reste à l’écran sur toutes le
       ['Le chat dort sur le tapis rouge', 'fl+tca+mx6+mrn+mr9'],
       ['Donald Trump', 'so!2:fr13;fl+tca+mtal+m14+mpf'],
     ];
-    for (const [saisie, prog] of liens) {
-      const r = m.rejouer(lireUrl(`#${prog}#${encoderTexte(saisie)}`, { catalogue }));
+    for (const [saisie, prog, cible = '666'] of liens) {
+      const r = m.rejouer(lireUrl(`#${prog}#${encoderTexte(saisie)}#${encoderTexte(cible)}`, { catalogue }));
       assert.ok(r.ok, `${saisie} ${prog} : ${r.raison || 'rejeu impossible'}`);
-      scenes.push([`${saisie} #${prog}`, m.scenarioDe(r.approche, { saisie })]);
+      scenes.push([`${saisie} #${prog}`, m.scenarioDe(r.approche, { saisie, cible })]);
     }
     const fautes = [];
     let etapes = 0;
