@@ -210,6 +210,111 @@ Aucune primitive neuve — le vocabulaire reste à vingt et une (§3.1).
 
 ---
 
-## 8. La mesure
+## 8. La mesure — et elle est mauvaise
 
-*(Renseignée après implémentation — voir la section « Effet mesuré » ci-dessous.)*
+Instrument : `.planning/banc/cesar-justifie-banc.mjs`. « Avant » n'est pas un
+souvenir, c'est le même moteur avec les quatorze opérateurs retirés du
+catalogue ; la comparaison se refait à tout moment.
+
+### 8.1 Ce qui marche
+
+ · **La lecture est exacte.** Sur « Louis Fouché » elle rend `22` — les
+   caractères communs sont `o` et `u`, deux de chaque côté —, et c'est
+   l'exemple de l'auteur, au chiffre près. Sur « Didier Raoult », `11` (le seul
+   `r` partagé) ; sur « jean-michel », `11` (le seul `e`).
+ · **Le barème fait ce qu'on lui demande.** À PROGRAMME IDENTIQUE, sur les deux
+   cas de l'auteur :
+
+   | voie | score |
+   |---|---|
+   | `fr22+fl+m14` sur « Louis Fouché » | 1 923 |
+   | **`fj22+fl+m14`** | **2 006** (+83, +4,3 %) |
+   | `fr11+fl+m14` sur « Didier Raoult » | 1 846 |
+   | **`fj11+fl+m14`** | **1 925** (+79, +4,3 %) |
+
+ · **L'animation se joue**, et le rejeu d'un lien écrit à la main la montre :
+   les caractères communs sont désignés, comptés sous chaque mot, le nombre
+   paraît, et la réglette glisse ensuite **sur les mêmes caractères, toujours
+   là**.
+
+### 8.2 Ce qui ne marche pas — et c'est l'essentiel
+
+ · **La portée de la famille est étroite : 3 saisies sur 23.** Deux mots
+   exactement, une intersection non vide, deux comptes d'un seul chiffre dont
+   la concaténation tombe sous 26 — la conjonction est rare. Tout le reste du
+   corpus ne rend aucune lecture (le plus souvent : aucun caractère commun, ou
+   un seul mot).
+ · **⛔ AUCUNE VOIE JUSTIFIÉE N'ATTEINT AUCUNE LISTE, À AUCUN CRAN** (mesuré de
+   0 à 10, sur les trois saisies qui portent une lecture). Le mécanisme est donc
+   **inerte** là où il devrait servir.
+ · **Et la cause n'est pas le classement, c'est la recherche.** `fj22+fl+m14`
+   marque 2 006, ce qui le placerait devant **six des dix-sept** voies listées
+   sur « Louis Fouché » (les 6ᵉ, 9ᵉ, 12ᵉ, 15ᵉ, 16ᵉ et 17ᵉ marquent de 1 436 à
+   1 994). Il n'est pourtant pas proposé.
+
+     **MESURÉ, et sans ambiguïté** (`--jumeau`) :
+
+     | saisie | catalogue | vecteurs | dont à césar justifié |
+     |---|---|---|---|
+     | Louis Fouché | entier | 488 | **0** |
+     | Louis Fouché | sans le seul `fr22` | 488 | **4** |
+     | Didier Raoult | entier | 252 | **0** |
+     | Didier Raoult | sans le seul `fr11` | 252 | **12** |
+
+     Le total de vecteurs ne bouge pas d'une unité : le justifié ne s'ajoute
+     pas, il se **substitue** — ce qui est la définition d'un jumeau.
+
+     Le césar justifié est un **jumeau arithmétique parfait** de son aîné : même
+     décalage, mêmes lettres, mêmes nombres, même verdict. Le moteur ne garde
+     qu'un chemin par résultat (`bfs.js › chercherSix`, les états indexés par
+     `cleEtat` ; `assemblage.js › retenir`, la trace vue une seule fois), et il
+     rencontre toujours l'aîné d'abord — l'ordre d'exploration est celui du
+     registre (§4.4 règle 3), et l'append-only inscrit les codes neufs à la fin.
+     **La déduplication écarte donc systématiquement le chemin le MIEUX noté.**
+
+ · **Le prix, lui, est bien réel.** Ajouter quatorze codes remue le classement
+   par simple effet d'ordre : sur les 23 saisies, **8 listes changent, 0 tête
+   change, et il y a 1 sortie sèche** (« apophenie » perd la moisson
+   `mt9+cs+prn,mpy+cmo,m7+cs+prn` sans remplaçante). **Aucune** des voies
+   entrées ou sorties ne contient un césar justifié : c'est de la turbulence
+   pure.
+
+### 8.3 Une correction a été tentée, puis RETIRÉE
+
+Le contrat de la déduplication N1 est « deux chemins qui montrent exactement la
+même chose n'en font qu'un ». Or le césar justifié n'en montre pas la même : il
+montre une **preuve** en plus. J'ai donc fait porter à `bfs.js › cleTrace` un
+drapeau publié par l'opérateur (`montreUnePreuve`), de blast radius nul — aucun
+opérateur existant ne le porte, donc toutes les clés d'aujourd'hui restent
+identiques au caractère près.
+
+**Elle n'a rien changé : 0 vecteur `fj` avant, 0 après.** La coupe qui mord est
+en amont, dans le faisceau par état du BFS. Le correctif a donc été retiré
+plutôt que livré — ce dépôt n'embarque pas ce dont il ne peut pas montrer
+l'effet.
+
+### 8.4 Ce que je recommande, et ce que je ne décide pas
+
+Le mécanisme **tient conceptuellement** — la doctrine est claire, la lecture est
+exacte, la prime est juste et se dit en une phrase — mais il **ne tient pas la
+mesure** : il coûte quatorze codes à vie, une turbulence de huit listes et une
+sortie sèche, et il ne rend aujourd'hui aucune voie.
+
+Trois suites possibles, et **aucune n'est de mon ressort** :
+
+ 1. **Apprendre au faisceau que « mieux noté » l'emporte sur « rencontré le
+    premier ».** C'est la bonne réponse sur le fond — `comparerPrefixes` énonce
+    déjà la règle (« score décroissant, coût croissant, codes croissants »),
+    elle n'est simplement pas appliquée à la coupe par état. Mais elle rebat
+    TOUS les jumeaux du catalogue, ce qui est un chantier de recherche entier,
+    à mesurer pour lui-même.
+ 2. **Déprécier les quatorze codes** et s'en tenir au constat : un décalage qui
+    ne se choisit plus ne sert plus à ce pour quoi on prenait un césar.
+ 3. **Les garder tels quels**, inertes dans la recherche mais disponibles au
+    lien écrit à la main — c'est l'état livré, et c'est ce que les deux cas
+    d'arbitrage de `src/app/pages/arbitrage-cas.js` soumettent à l'auteur.
+
+⚠️ **Et la leçon qui vaut au-delà de ce chantier** : une variante qui ne se
+distingue de son aîné que par sa JUSTIFICATION est, pour le moteur, le même
+chemin. Tant que la recherche déduplique sur le résultat, toute « variante mieux
+notée d'un opérateur existant » sera invisible, quelle que soit sa note.
