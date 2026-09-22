@@ -286,10 +286,12 @@ test('intégration — le scénario passe aussi la validation statique du moteur
  * raisonnement complet est en tête de `src/visuel/compile.js`. Ce test-ci est
  * son NON-RETOUR, sur le vrai corpus plutôt que sur un scénario de laboratoire :
  * sur chaque approche de chaque saisie, deux étapes qui portent le même geste
- * doivent durer la même chose. Une réintroduction silencieuse de l'heuristique
- * se verrait ici avant de se voir à l'écran.
+ * doivent conserver la vitesse globale. Leur durée peut varier avec le
+ * montage du décor, le nombre de caractères ou la taille du résultat. Une
+ * réintroduction silencieuse de l'heuristique se verrait ici avant de se voir
+ * à l'écran.
  */
-test('★ intégration — deux étapes de même geste durent le même temps',
+test('★ intégration — les gestes répétés conservent la vitesse globale',
   { skip: compile ? false : 'src/visuel/ absent' }, () => {
     const m = creerMoteur(catalogue);
     let compares = 0;
@@ -306,35 +308,33 @@ test('★ intégration — deux étapes de même geste durent le même temps',
         for (const st of tl.steps) {
           assert.ok(!('accelerated' in st), `${s} #${a.rang} : « accelerated » survit`);
           assert.ok(!('repeatOf' in st), `${s} #${a.rang} : « repeatOf » survit`);
+          assert.equal(st.speed, tl.speed, `${s} #${a.rang} : une étape change de vitesse`);
         }
 
-        // Le regroupement par GESTE : la suite des noms d'ops du step, doublée
-        // de leurs instants et durées déclarés. C'est ce que l'ancien détecteur
-        // appelait le « type » d'un step — deux steps de même type et de même
-        // contenu temporel n'ont aucune raison de durer différemment.
+        // Une famille répète le même geste du même opérateur. Le décor et
+        // la quantité de travail peuvent varier ; la vitesse reste commune.
         const parGeste = new Map();
         sc.steps.forEach((st, i) => {
-          const cle = JSON.stringify((st.ops || []).map((o) => [o.op, o.at ?? 0, o.dur ?? null, o.stagger ?? 0]))
-            + `|${st.duration ?? ''}|${st.hold ?? ''}`;
+          const cle = JSON.stringify((st.ops || []).map((o) => o.op)) + `|${st.code ?? ''}`;
           if (!parGeste.has(cle)) parGeste.set(cle, []);
           parGeste.get(cle).push(i);
         });
         for (const [, indices] of parGeste) {
           if (indices.length < 2) continue;
           familles++;
-          const duree = tl.steps[indices[0]].duration;
+          const vitesse = tl.steps[indices[0]].speed;
           for (const i of indices.slice(1)) {
             compares++;
-            assert.ok(Math.abs(tl.steps[i].duration - duree) < 1e-6,
+            assert.equal(tl.steps[i].speed, vitesse,
               `${s} #${a.rang} : étapes ${indices[0]} et ${i} portent le même geste `
-              + `mais durent ${duree} ms et ${tl.steps[i].duration} ms`);
+              + `mais jouent aux vitesses ${vitesse} et ${tl.steps[i].speed}`);
           }
         }
       }
     }
     assert.ok(familles > 0,
       'aucune famille d’étapes de même geste dans tout le jeu d’essai — le test ne mesure rien');
-    console.log(`    ${familles} familles d’étapes de même geste, ${compares} comparaisons de durée`);
+    console.log(`    ${familles} familles d’étapes de même geste, ${compares} comparaisons de vitesse`);
   });
 
 /**
