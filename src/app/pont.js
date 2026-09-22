@@ -489,6 +489,18 @@ export function rejouer(lecture) {
   }
 }
 
+/** Exemple partiel réservé à la page de diagnostic, jamais au rejeu d'un lien. */
+export function rejouerExemple(lecture) {
+  if (!M.moteur) return { ok: false, raison: 'moteur absent' };
+  try {
+    const r = M.moteur.rejouerExemple(lecture);
+    return r && r.ok ? { ...r, approche: traduireApproche(r.approche) } : r;
+  } catch (err) {
+    console.error('[NumHeroLOLgeek] exemple impossible :', err);
+    return { ok: false, raison: 'exemple impossible' };
+  }
+}
+
 /**
  * Énumère les remplissages d'une voie à trous (`????`) — voir
  * `recherche/index.js › enumerer`. Rend la MÊME forme que `resoudre`, pour que
