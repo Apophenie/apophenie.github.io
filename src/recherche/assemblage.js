@@ -41,6 +41,7 @@
 // index de chemins par SIGNATURE DE MÉTHODE : une intersection de tables de
 // hachage, O(nb de chemins), quasi gratuite.
 
+import { prefererJustifications } from './justifications.js';
 import {
   signature, comparerCodes, scorePartiel, maniere, normaliserCurseurs, auDefaut, longueurRendue,
 } from './score.js';
@@ -1034,6 +1035,19 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
     empiler(b, grammaticaux.indexOf(b.ops[0]) + 1);
   }
 
+  // La preuve doit se lire AVANT un retrait qui efface les séparateurs des
+  // mots. Après cette lecture on autorise les présentations élémentaires des
+  // lettres : retrait des non-lettres et casse. Trois bases au plus, aucune
+  // suite de décalages, aucune récursion, aucune nouvelle lecture.
+  for (const b of bases.filter((x) => x.ops.length === 1 && x.ops[0].justifie)) {
+    for (const f of filtres.filter((o) => ['fl', 'fmin', 'fmaj'].includes(o.code))) {
+      const r = appliquerOp(f, b.etat);
+      if (r !== null && cleEtat(r) !== cleEtat(b.etat)) {
+        bases.push({ ops: b.ops.concat(f), etats: b.etats.concat([r]), etat: r });
+      }
+    }
+  }
+
   // Étage 2 — les découpes, dédoublonnées sur les jetons obtenus.
   const jetons = new Map();
   for (const b of bases) {
@@ -1090,18 +1104,19 @@ export function vecteursDeSix(texte, ops, minSix = SERIE, plafond = MAX_VECTEURS
   // paragraphe de 220 signes cela coûtait 750 ms pour les cent trente vecteurs
   // trouvés — vingt fois le reste de l'assemblage. On ne canonicalise donc que
   // les rescapés, une fois le tri et le plafond passés.
+  const catalogueJustifications = ops;
   const out = [];
   const vus = new Set();
   const retenir = (ops, etats) => {
     const fin = etats[etats.length - 1];
     if (!fin || fin.type !== 'NUMS') return;
     if (exigeSerie ? !ecrit(fin.valeur, cbl) : compterSix(fin, cbl) < minSix) return;
-    const chemin = {
+    const chemin = prefererJustifications({
       ops,
       etats,
       valeur: null,
       cout: ops.reduce((s, o) => s + (o.cout || 0), 0),
-    };
+    }, catalogueJustifications);
     const cle = cleTrace(chemin);
     if (vus.has(cle)) return;
     vus.add(cle);
@@ -2620,7 +2635,9 @@ export function rejouableSousLaCible(chemin, cible) {
 export function formeReglee(chemin) {
   return ((chemin && chemin.ops) || []).map((o) => {
     const f = familleDeReglages(o);
-    return f === null ? o.code : `${f}*`;
+    // Une preuve montre une lecture supplémentaire ; elle conserve pourtant
+    // la même famille d’outil pour le coût des réglages dans le barème.
+    return f === null ? o.code : `${f}${o.justifie ? ":preuve" : ""}*`;
   }).join('+');
 }
 

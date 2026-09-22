@@ -743,7 +743,82 @@ function sortieMuee(avant, apres, ctx) {
  * n'est pas dans l'alphabet : l'Atbash ne le touche pas, et rien à l'écran ne
  * doit laisser croire le contraire.
  */
+/**
+ * ★ **LA PREUVE DU DÉCALAGE, JOUÉE AVANT QUE LA RÉGLETTE NE GLISSE.**
+ *
+ * « Le nombre […] peut venir se placer à côté de césar juste avant que le
+ * décalage d'alphabet ait lieu. » (l'auteur)
+ *
+ * Une étape, trois gestes, et aucune primitive neuve — le vocabulaire reste à
+ * vingt et une (§3.1) :
+ *
+ *  1. `highlight` **désigne** les caractères communs, à leur place dans la
+ *     ligne. Ce sont les bornes que `decouperMots` a rendues, donc les VRAIS
+ *     caractères comptés — pas un dessin qui leur ressemble (§0.3) ;
+ *  2. un `annotate` **sous chaque mot** porte le compte de ce mot ;
+ *  3. un `annotate` **au-dessus** porte le nombre obtenu, celui dont la
+ *     réglette va se décaler.
+ *
+ * ★ **ET RIEN N'EST CONSOMMÉ**, ce qui est la moitié de la demande. `highlight`
+ *   désigne et relâche ; aucun `drop`, aucune `substitute`. Les caractères qui
+ *   ont fourni le nombre sont encore là quand la glissière monte, et ils
+ *   subissent le décalage comme les autres — c'est visible, et c'est le point.
+ *
+ * ★ **La scène RECOMPTE** au lieu de recevoir un résumé : `op.justifie` est la
+ *   fonction de lecture elle-même, pas son résultat mis en conserve par
+ *   `apply()`. Deux sources qui pourraient diverger, il n'y en a qu'une.
+ */
+function etapesDeJustification(op, avant, ctx) {
+  const lu = op.justifie(avant.valeur);
+  // `apply()` a déjà refusé si la lecture ne tombe pas : on ne montre jamais
+  // une preuve que l'arithmétique n'a pas faite.
+  if (!lu || lu.decalage !== op.decalage) return [];
+  const chars = [...avant.valeur];
+  const communs = new Set(lu.communs);
+  const idsDuMot = (m) => {
+    const out = [];
+    for (let i = m.debut; i < m.fin; i++) if (communs.has(pli(chars[i]))) out.push(ctx.ids[i]);
+    return out;
+  };
+  const parMot = lu.mots.map(idsDuMot);
+  const tous = parMot.flat();
+  if (!tous.length) return [];
+  return [etape(
+    ctx,
+    dire(op.outil, ctx.langue),
+    dire(op.regle, ctx.langue),
+    enchainer([
+      { op: 'highlight', targets: tous, mode: 'select' },
+      ...parMot.map((ids, j) => (ids.length
+        ? {
+          op: 'annotate', anchor: ids, text: String(lu.comptes[j]), place: 'below', ecart: 0.7,
+        }
+        : null)),
+      {
+        op: 'annotate', anchor: tous, text: String(lu.decalage), place: 'above', ecart: 1.2,
+      },
+    ].filter(Boolean)),
+    { id: `s_${ctx.cle}_preuve` },
+  )];
+}
+
 function etapeTable(op) {
+  // ★ Le césar justifié PRÉFIXE sa preuve à la série de la glissière, sans rien
+  //   changer à celle-ci : même titre, même réglette, même décalage. Le geste de
+  //   la table est intact — on lui pose une étape devant.
+  if (op.justifie) {
+    // ★ **LA PREUVE NE SE DIT QU'UNE FOIS.** `etapeTable` recopie la `regle`
+    //   sous CHAQUE lettre muée (« … : L → H »), ce qui convient à une règle
+    //   d'une ligne et pas à une justification : « les deux mots ont deux et
+    //   deux caractères en commun » se serait répété vingt-quatre fois sous la
+    //   même glissière. L'étape de preuve la porte ; le coulissement reprend la
+    //   règle NUE du césar, mot pour mot celle de son aîné (`regleDuGlissement`).
+    const geste = etapeTable({ ...op, justifie: null, regle: op.regleDuGlissement || op.regle });
+    return (avant, apres, ctx) => [
+      ...etapesDeJustification(op, avant, ctx),
+      ...geste(avant, apres, ctx),
+    ];
+  }
   return (avant, apres, ctx) => {
     const sortie = op.sortie(avant, apres, ctx);
     const av = [...avant.valeur];
@@ -1044,6 +1119,214 @@ const CESARS = Object.freeze([
     .filter((n) => n !== CESAR_CLASSIQUE)
     .map(cesarDe),
 ]);
+
+/**
+ * ★ **LES CÉSARS QUI TROUVENT LEUR DÉCALAGE — `fj11`…`fj25`.**
+ *
+ * « Je voudrais des variantes mieux notées des césar* qui commencent par
+ * trouver le nombre utilisé pour faire le décalage dans la saisie d'origine
+ * avant de l'appliquer. […] Pour césar 22, il faudrait trouver 22 dans "Louis
+ * Fouché" sans consommer les éléments correspondants. Ici je verrais bien :
+ * combien de caractères communs à chaque mot ? 2 côté Louis (o, u) et 2 côté
+ * Fouché (o, u), on a notre 22, qui peut venir se placer à côté de césar juste
+ * avant que le décalage d'alphabet ait lieu. » (l'auteur)
+ *
+ * Le grief est exactement celui que le commentaire de `cesarDe` reconnaissait
+ * déjà : « choisir "avance de sept rangs" plutôt que de six n'a aucune
+ * justification hors du résultat qu'on en attend ». Ces quatorze-ci en ont une,
+ * et c'est TOUTE la différence : l'arithmétique est la même, la réglette est la
+ * même, mais le décalage se LIT dans la saisie au lieu d'être essayé.
+ *
+ * ★ **CE QUI COMPTE COMME UNE JUSTIFICATION** — la doctrine complète est dans
+ *   `.planning/arbitrages/2026-09-22-cesar-justifie.md`, et elle tient en cinq
+ *   conditions cumulatives : la lecture doit s'énoncer AVANT de connaître son
+ *   résultat, ne rendre qu'un seul nombre (et refuser partout où il faudrait
+ *   départager), ne CONSOMMER aucun caractère, ignorer la cible, et pouvoir se
+ *   montrer à l'écran. Une lecture qui manque une seule de ces conditions est
+ *   de la ficelle : elle ne supprime pas l'arbitraire, elle le déplace.
+ *
+ * ⚠️ **ET C'EST LE RISQUE DU DISPOSITIF, qu'il faut garder sous les yeux** :
+ *   avec assez de familles de lecture, tout décalage finit par être
+ *   « justifiable », et l'on aura seulement remplacé « j'ai essayé vingt-cinq
+ *   décalages » par « j'ai essayé vingt-cinq lectures ». D'où UNE seule famille
+ *   ici, une prime qui ne dépasse jamais celle du César historique, et la
+ *   famille écrite dans le code — l'URL dit quelle lecture a servi.
+ */
+
+/**
+ * ★ **LA LECTURE — « les caractères communs à chaque mot », mot par mot.**
+ *
+ * Sept règles, dont quatre sont des REFUS. Elle rend `null` partout où elle
+ * devrait choisir : même discipline que `mpf`, `m1s2` et `mad` (§4.1).
+ *
+ * ★ **Occurrences, et non caractères distincts.** L'exemple de l'auteur ne
+ *   départage pas les deux lectures — « Louis » et « Fouché » donnent 2 et 2
+ *   dans les deux cas —, mais sa formulation, si : « combien de caractères
+ *   communs À CHAQUE MOT » compte les caractères du MOT, pas la taille de
+ *   l'intersection. Et la conséquence est décisive : en distincts, chaque mot
+ *   rendrait `|C|`, tous les comptes seraient égaux, et la famille ne saurait
+ *   produire que 11 et 22 — 33 et au-delà sortent de l'alphabet.
+ *
+ * ★ **La notion de MOT est celle du dépôt** (`decouperMots`, celle de `tm`), et
+ *   pas une expression rationnelle écrite pour l'occasion. Ses bornes servent
+ *   deux fois : à compter, et à DÉSIGNER dans la scène les caractères comptés.
+ *
+ * ★ **Le pliage est celui de la réglette** (`pli` : sans accents, en capitales),
+ *   ce qui fait que « Fouché » partage bien son `o` et son `u` avec « Louis ».
+ *
+ * @param {string} valeur la chaîne dont on tire le décalage
+ * @returns {{decalage:number, comptes:number[], communs:string[],
+ *            mots:{texte:string,debut:number,fin:number}[]}|null}
+ */
+export function lectureDesCommuns(valeur) {
+  if (typeof valeur !== 'string') return null;
+  const mots = decouperMots(valeur);
+  // 1. « Commun à chaque mot » n'a pas de sens sur un mot seul.
+  if (mots.length < 2) return null;
+  const replies = mots.map((m) => [...m.texte].map(pli));
+  // 2. L'intersection des caractères, mot après mot.
+  let communs = new Set(replies[0]);
+  for (const m of replies.slice(1)) communs = new Set([...communs].filter((c) => m.includes(c)));
+  if (!communs.size) return null;
+  // 3. Le compte de CHAQUE mot. Il ne peut pas être nul : l'intersection est
+  //    incluse dans chaque mot, donc chaque mot en porte au moins un.
+  const comptes = replies.map((m) => m.filter((c) => communs.has(c)).length);
+  // 4. Un compte à deux chiffres : la concaténation cesserait d'être lisible —
+  //    `10` et `2` ne font pas plus `102` que `12`, et rien ne tranche.
+  if (comptes.some((c) => c > 9)) return null;
+  const decalage = Number(comptes.join(''));
+  // 5. Et le nombre obtenu doit être un décalage d'alphabet. On ne le ramène
+  //    PAS dans l'alphabet par un modulo : le modulo serait une arithmétique
+  //    ajoutée sans autre motif que de faire tomber juste, c'est-à-dire
+  //    exactement le grief auquel cet opérateur répond.
+  if (!DECALAGES_LISIBLES.includes(decalage)) return null;
+  return { decalage, comptes, communs: [...communs], mots };
+}
+
+/**
+ * ★ **LES QUATORZE DÉCALAGES QUE LA LECTURE PEUT ÉCRIRE — dérivés, pas listés.**
+ *
+ * Un compte par mot, au moins deux mots, chaque compte entre 1 et 9 : le nombre
+ * obtenu a donc au moins DEUX chiffres, et aucun d'eux n'est zéro. Trois mots
+ * donneraient au moins 111, hors alphabet. Il reste `11`…`19` et `21`…`25` —
+ * quatorze, et `20` n'en est pas, faute de pouvoir écrire son zéro.
+ *
+ * ★ **Un décalage dont aucune saisie ne pourrait porter la preuve n'a pas à
+ *   occuper un code.** C'est pourquoi la liste se DÉDUIT de la forme des
+ *   nombres lisibles plutôt que de s'écrire à la main : les vingt-cinq codes
+ *   qu'on aurait alloués par symétrie en auraient laissé onze morts au registre.
+ *
+ * ★ **Et c'est ce qui fait tenir le code en QUATRE SIGNES** (`fj` + deux
+ *   chiffres), la borne que `catalogue.test.js` exige d'après l'auteur : « 2, 3
+ *   ou 4 caractères, évite d'aller au-delà ».
+ */
+const DECALAGES_LISIBLES = Object.freeze(
+  Array.from({ length: 25 }, (_, i) => i + 1)
+    .filter((n) => String(n).length >= 2 && !String(n).includes('0')),
+);
+
+/**
+ * ★ **CE QU'ON ALLOUE : ce qu'on sait MONTRER, pas ce qu'on sait calculer.**
+ *
+ * Les quatorze décalages ci-dessus sont ceux que la lecture peut écrire. Ils ne
+ * sont pas pour autant quatorze codes : `src/app/lents/debug.test.js` exige que
+ * **chaque opérateur du catalogue soit jouable sur une saisie témoin** — « ces
+ * opérateurs ne sont jouables sur aucune saisie témoin : il en faut une de
+ * plus ». MESURÉ : sur les quatorze, **trois** passent cette porte (11, 21, 22)
+ * et onze la manquent.
+ *
+ * ★ **Et l'on ne force pas la porte en fabriquant onze témoins pour eux.** Un
+ *   témoin est une saisie que Le Registre AFFICHE ; en ajouter onze, taillées
+ *   pour faire tomber onze comptes précis, remplirait la page de démonstration
+ *   de chaînes qui ne démontrent que leur propre fabrication — et diviserait
+ *   d'autant le plafond de nœuds qui sert à TOUS les opérateurs. Le dictionnaire
+ *   français du dépôt sait pourtant en fournir de vrais (« abaisser cellule »
+ *   écrit 12, « abaisser agacant » écrit 23) : ce n'est donc pas une
+ *   impossibilité, c'est un refus de payer ce prix-là pour des codes que la
+ *   recherche ne rend de toute façon pas (voir la mesure, §8 de la note).
+ *
+ * ★ **Trois codes, pas quatorze**, et c'est la seule conséquence qui compte :
+ *   un code est alloué **à vie** (§4.1 règle 1). On n'en grave pas onze que rien
+ *   n'atteint et que rien ne montre. La règle de dérivation reste écrite
+ *   au-dessus : le jour où un témoin rendra `fj15` montrable, il s'inscrira en
+ *   fin de registre, comme tout code neuf.
+ *
+ * ★ Les deux cas de l'auteur sont couverts tels quels : **22** sur « Louis
+ *   Fouché », **11** sur « Didier Raoult ».
+ */
+const DECALAGES_ALLOUES = Object.freeze([11, 21, 22]);
+
+/** Un césar justifié, tout entier dérivé de son décalage — comme son aîné. */
+function cesarJustifieDe(n) {
+  return {
+    id: `f.cesarJustifie${n}`, code: `fj${n}`, famille: 'filtre', from: 'STR', to: 'STR',
+    libelle: bilingue(`Chiffre de César (${n})`, `Caesar cipher (${n})`),
+    // ★ La règle nomme les DEUX comptes, et elle le peut sans rien supposer :
+    //   trois mots donneraient trois chiffres, donc au moins 111, que la
+    //   lecture refuse. Un décalage lisible a toujours exactement deux mots
+    //   derrière lui, le premier au rang des dizaines.
+    regle: bilingue(
+      `Les deux mots ont ${RANGS[Math.floor(n / 10)]} et ${RANGS[n % 10]} caractères en commun : `
+        + `chaque lettre avance de ${RANGS[n]} rangs`,
+      `The two words share ${RANGS_EN[Math.floor(n / 10)]} and ${RANGS_EN[n % 10]} characters: `
+        + `every letter moves ${RANGS_EN[n]} places along`,
+    ),
+    // ★ La règle NUE, celle que le coulissement reprend sous chaque lettre —
+    //   identique au mot près à celle de `fr${n}`, puisque c'est le même geste.
+    //   Elle est écrite ici plutôt que devinée du catalogue : `filtres.js` ne se
+    //   relit pas lui-même, et un césar justifié qui annoncerait un autre
+    //   décalage que celui qu'il applique serait le défaut que §0.3 interdit.
+    regleDuGlissement: bilingue(
+      `Chaque lettre avance de ${RANGS[n]} rangs`,
+      `Every letter moves ${RANGS_EN[n]} places along`,
+    ),
+    // ★ **LA PRIME, ET SA PHRASE.** Un décalage qu'on sait lire dans la saisie
+    //   se justifie AVANT qu'on ait regardé ce qu'il donne — ce qui est
+    //   exactement le critère qui vaut au César historique son 0,20 de
+    //   notoriété et son 0,25 d'ad hoc (voir `cesarDe`, juste au-dessus). Il
+    //   prend donc ces deux valeurs-là, et pas davantage : se justifier vaut
+    //   autant qu'être connu, jamais plus.
+    notoriete: 0.20,
+    adHoc: 0.25,
+    decalage: n,
+    // ★ **LA FAMILLE D'OUTIL EST PUBLIÉE**, et sans elle le barème se tairait.
+    //   `elegance.js › reglagesEnTrop` et `assemblage.js › familleDeReglages`
+    //   devinent la famille en retirant les chiffres de FIN du code — `fr14` et
+    //   `fr9` sont deux réglages de `fr`. Sur `fj22` la devinette rendrait
+    //   « fj », une famille à lui tout seul : `fj22` et `fr5` dans une même
+    //   voie auraient cessé de compter pour deux réglages d'un même outil, et
+    //   la fenêtre des sièges leur aurait donné deux places au lieu d'une.
+    //   C'est le même outil — une réglette qui glisse —, réglé deux fois.
+    familleOutil: 'fr',
+    /**
+     * ★ **LA GARDE : l'opérateur ne s'applique que s'il peut PROUVER son
+     *   décalage.** C'est tout ce qui le sépare de `fr${n}`, et c'est pour cela
+     *   qu'il vaut mieux. Le refus est un `null`, comme partout (§2.2).
+     *
+     * ⚠️ La preuve se lit sur la valeur que l'opérateur REÇOIT, qui n'est la
+     *   saisie d'origine que s'il vient en tête — ce qui est le cas normal d'un
+     *   `STR → STR` de premier rang, et le cas de la retouche. Derrière un
+     *   filtre qui a déjà réécrit le texte, c'est le texte réécrit qui fait foi,
+     *   et c'est le seul choix honnête : c'est lui qui est à l'écran au moment
+     *   où l'on compte, et §0.3 veut que ce qu'on montre soit ce qu'on a compté.
+     */
+    apply(valeur, traces) {
+      const lu = lectureDesCommuns(valeur);
+      if (!lu || lu.decalage !== n) return null;
+      return muer(valeur, traces, (s) => cesar(s, n));
+    },
+    remplace: true,
+    forme: 'glissiere',
+    table: regletteDe(LETTRES, (c) => cesar(c, n)),
+    // ★ Ce que `etapeTable` relira pour montrer la preuve avant de faire
+    //   glisser la réglette (voir `etapesDeJustification`). On republie la
+    //   LECTURE elle-même plutôt qu'un drapeau : la scène recompte ainsi ce que
+    //   `apply` a compté, au lieu de recevoir un résumé qui pourrait diverger.
+    justifie: lectureDesCommuns,
+  };
+}
+
+const CESARS_JUSTIFIES = Object.freeze(DECALAGES_ALLOUES.map(cesarJustifieDe));
 
 const brut = [
   {
@@ -1623,6 +1906,13 @@ const brut = [
     },
     couverture: (valeur) => zonesDeLaClasse(valeur, c),
   })),
+  // ★ **EN FIN DE BLOC, comme le veut l'append-only (§4.1).** Leur place
+  //   NATURELLE serait à côté des vingt-cinq décalages dont ils sont les
+  //   variantes justifiées ; leur place JUSTE est ici, parce que l'ordre du
+  //   registre est l'ordre d'exploration et qu'on n'insère pas quatorze codes
+  //   au milieu pour une commodité de lecture — c'est le raisonnement exact
+  //   que `fch` a déjà subi, quelques lignes de registre plus haut.
+  ...CESARS_JUSTIFIES,
 ];
 
 /** Première barre oblique qui ne fait pas partie d'un « :// ». */
