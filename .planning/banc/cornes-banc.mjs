@@ -19,7 +19,14 @@
 // exactement le nombre de couronnements que le scénique porte.
 //
 // ★ Le filet temporel est NEUTRALISÉ (`filetTemporel: false`) : une mesure qui
-// dépend de la charge de la machine n'est pas une mesure.
+// dépend de la charge de la machine n'est pas une mesure. ⚠️ Et ça ne suffit
+// pas — voir l'avertissement de `classement.mjs` : lancer ce banc pendant autre
+// chose change la liste des voies explorées. Machine au repos, toujours.
+//
+// **RELEVÉ DU 22 SEPTEMBRE 2026**, après le retrait de la quatrième condition du
+// couronnement : 380 voies, 314 à cornes (163 avant), 653 couronnements (325
+// avant). Écart d'étapes scénique − sobre : jusqu'à 9, et toujours égal au
+// nombre de couronnements. Le classement, lui, est identique à l'octet.
 
 import { creerMoteur } from '../../src/recherche/index.js';
 import { CATALOGUE } from '../../src/moteur/catalogue.js';
