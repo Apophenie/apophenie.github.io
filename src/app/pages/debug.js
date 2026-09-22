@@ -1360,7 +1360,8 @@ function boutonJouer(op) {
  * Passer par l'URL n'est pas un détour décoratif. `rejouer()` est le seul point
  * d'entrée qui fabrique une approche COMPLÈTE — mode déduit, score noté, titre
  * et règle composés par `titres.js` — sans relancer la recherche. Le lien
- * produit est en outre un vrai lien : il s'ouvre dans le site.
+ * décrit le programme ; un exemple partiel ne devient pas une démonstration
+ * publique. Le rejeu de diagnostic coupe la scène avant le verdict.
  */
 async function composerLaDemonstration(op, registre) {
   await pont.preparer();
@@ -1380,12 +1381,15 @@ async function composerLaDemonstration(op, registre) {
   });
   if (!hash) return { echec: 'url', prog };
   const lecture = pont.lireHash(hash);
-  const rejeu = lecture ? pont.rejouer(lecture) : null;
+  const rejeu = lecture ? pont.rejouerExemple(lecture) : null;
   if (!rejeu || !rejeu.ok) return { echec: 'rejeu', prog, hash, raison: rejeu && rejeu.raison };
 
   const { scenario, source } = pont.scenarioDe(rejeu.approche, prog.texte || prog.saisie, {
     registre: lecture.registre,
   });
+  if (!scenario.steps?.length || source !== 'moteur') {
+    return { echec: 'etape', prog, hash, raison: 'aucune étape visible de cet opérateur' };
+  }
   return { prog, hash, lecture, approche: rejeu.approche, scenario, source };
 }
 
@@ -1459,6 +1463,7 @@ function corpsDeLaScene(op, d, registre) {
     // ★ Le titre et la règle de l'approche, tels que l'interface les compose.
     //   Ils viennent de `recherche/titres.js` en passant par `libelles.js` : ce
     //   sont, mot pour mot, ceux qu'un visiteur lirait.
+    e('p.dbg__note', { texte: 'Exemple d’opérateur : cette scène ne conclut pas vers une cible.' }),
     regle ? e('p.dbg__regle', { texte: regle }) : null,
     e('div.dbg__scene', {}, [cadre, transport.element]),
     e('p.dbg__note', { texte: cadrage.note }),
@@ -1544,7 +1549,7 @@ function cadrerSurLOperateur(lecteur, scenario, op) {
   const nombre = fin - debut + 1;
   return {
     note: `Étape isolée : ${nombre === 1 ? `l’étape ${debut + 1}` : `les étapes ${debut + 1} à ${fin + 1}`} `
-        + `sur ${total} — l’approche et le verdict restent joignables par les commandes.`,
+        + `sur ${total} — les étapes de préparation restent joignables par les commandes.`,
     detacher,
   };
 }

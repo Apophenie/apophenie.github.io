@@ -1951,7 +1951,12 @@ export function creerMoteur(catalogue, options = {}) {
    * Rejoue une URL canonique SANS relancer la recherche (§4.3).
    * @returns {{ok:boolean, approche?:Object, bandeau?:string, raison?:string}}
    */
-  function rejouer(lecture) {
+  function rejouer(lecture) { return rejouerInterne(lecture, false); }
+
+  // Diagnostic d'un opérateur isolé : aucune option d'URL ne l'active.
+  function rejouerExemple(lecture) { return rejouerInterne(lecture, true); }
+
+  function rejouerInterne(lecture, exempleOperateur) {
     if (!lecture || lecture.forme !== 'canonique') {
       return { ok: false, raison: 'forme non canonique', bandeau: lecture && lecture.bandeau };
     }
@@ -2155,7 +2160,7 @@ export function creerMoteur(catalogue, options = {}) {
     // Les anciens décrets répétaient un chiffre réellement obtenu. Le mode
     // sert aussi de repli à deduireMode : il ne prouve donc pas qu'un chiffre
     // de la cible existe. Un résultat 3 ne peut pas décréter des 6.
-    if (approche.mode === 'DECRET') {
+    if (approche.mode === 'DECRET' && !exempleOperateur) {
       const chiffre = cbl.alphabet.length === 1 ? cbl.alphabet[0] : null;
       const apporteLeChiffre = (p) => {
         const fin = p.chemin.etats.at(-1);
@@ -2254,6 +2259,12 @@ export function creerMoteur(catalogue, options = {}) {
     approche.urlSobre = ecrire({ ...lien, registre: 'sobre' });
     approche.urlScenique = ecrire({ ...lien, registre: 'scenique' });
     approche.url = ecrire({ ...lien, registre });
+    if (exempleOperateur) {
+      approche.exempleOperateur = true;
+      delete approche.url;
+      delete approche.urlSobre;
+      delete approche.urlScenique;
+    }
     return { ok: true, approche };
   }
 
@@ -2274,7 +2285,7 @@ export function creerMoteur(catalogue, options = {}) {
       //   n'a pas la longueur du texte visé, et c'est lui que le verdict découpe.
       produit: approche.produit || null,
     } : null;
-    return construireScenario(approche, {
+    const scenario = construireScenario(approche, {
       saisie: ctx.saisie || approche.saisie,
       langue,
       // Le REGISTRE traverse jusqu'ici parce qu'il change ce que le SCÉNARIO
@@ -2303,6 +2314,14 @@ export function creerMoteur(catalogue, options = {}) {
       // à cacher les trois quarts de ce qu'on vient de montrer (`verdictDe`).
       resultat: rel ? undefined : (ctx.resultat || verdictDe(approche)),
     });
+    if (approche.exempleOperateur) {
+      // Le diagnostic s'arrête au dernier geste effectivement joué : ni
+      // récolte ni verdict ne peuvent être atteints par le transport.
+      const dernier = scenario.steps.findLastIndex((step) => Boolean(step.code));
+      scenario.steps = scenario.steps.slice(0, dernier + 1);
+      scenario.result = '';
+    }
+    return scenario;
   }
 
   /**
@@ -2482,7 +2501,7 @@ export function creerMoteur(catalogue, options = {}) {
     //   ÉCRITE dont le programme porte des `????` et énumère ce qui peut les
     //   remplir. La première part d'un texte, la seconde d'un programme.
     enumerer, enumererProgressif, enumererLesTrous,
-    rejouer, scenarioDe, catalogue, bassin, cache, ops,
+    rejouer, rejouerExemple, scenarioDe, catalogue, bassin, cache, ops,
   };
 }
 
