@@ -183,7 +183,8 @@ export function empreinteDe(op) {
   if (!op || typeof op !== 'object') return ids;
   // merge redistribue toute la ligne : même des sources disjointes animent
   // les voisins (mrdf/mrf9). Cette empreinte inclut donc le reflow implicite.
-  if (op.op === 'merge') return PARTOUT;
+  // Ouvrir ou conclure un atelier change le flux actif et doit rester séquentiel.
+  if (op.op === 'merge' || op.op === 'atelier') return PARTOUT;
 
   // — ce que l'op DÉSIGNE ----------------------------------------------------
   // La liste suit le tableau des champs du vocabulaire fermé (CONTRACTS §3.1).
@@ -193,7 +194,7 @@ export function empreinteDe(op) {
   // validateur de `recherche/scenario.js › referencesDe`, qui la tient aussi.
   for (const k of ['target', 'targets', 'between', 'anchor', 'order', 'up', 'down',
     'reset', 'consume', 'surnumeraires', 'efface', 'dividende', 'diviseur',
-    'couvre', 'avant', 'apres', 'ids']) {
+    'couvre', 'avant', 'apres', 'ids', 'preuve']) {
     if (op[k] !== undefined) cible(op[k]);
   }
   for (const lot of Array.isArray(op.lots) ? op.lots : []) {

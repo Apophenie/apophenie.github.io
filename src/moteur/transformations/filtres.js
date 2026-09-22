@@ -17,7 +17,7 @@
 import { LETTRES, VOYELLES, VOYELLES_Y, sansAccents, atbash, cesar } from '../tables/alphabet.js';
 import { DICO_EN_FR, DICO_FR_EN } from '../tables/traduction.js';
 import { CLASSES, formeNue } from '../tables/mots-outils.js';
-import { preuvesNumeriques, etapesPreuveNumerique } from './preuves-cesar.js';
+import { preuvesNumeriques, etapesPreuveNumerique, etapesPreuveCommuns } from './preuves-cesar.js';
 import { bilingue, dire } from '../i18n.js';
 import {
   def, apparier, sortieCreee, sortieConservee, etape, token, fusion, enchainer, nomToken,
@@ -783,33 +783,12 @@ function etapesDeJustification(op, avant, ctx) {
     return out;
   };
   const parMot = lu.mots.map(idsDuMot);
-  const tous = parMot.flat();
-  if (!tous.length) return [];
-  return [etape(
-    ctx,
-    dire(op.outil, ctx.langue),
-    ctx.langue === 'en'
-      ? `Shared characters in each word: ${lu.comptes.join(' and ')} → ${lu.decalage}`
-      : `Caractères communs dans chaque mot : ${lu.comptes.join(' et ')} → ${lu.decalage}`,
-    enchainer([
-      { op: 'highlight', targets: tous, mode: 'select' },
-      ...parMot.map((ids, j) => (ids.length
-        ? {
-          op: 'annotate', anchor: ids, text: String(lu.comptes[j]), place: 'below', ecart: 0.7,
-        }
-        : null)),
-      {
-        op: 'annotate', anchor: tous, text: String(lu.decalage), place: 'above', ecart: 1.2,
-      },
-    ].filter(Boolean)),
-    { id: `s_${ctx.cle}_preuve` },
-  )];
+  return etapesPreuveCommuns(lu, avant, ctx, parMot);
 }
 
 function etapeTable(op) {
-  // ★ Le césar justifié PRÉFIXE sa preuve à la série de la glissière, sans rien
-  //   changer à celle-ci : même titre, même réglette, même décalage. Le geste de
-  //   la table est intact — on lui pose une étape devant.
+  // Le calcul précède la glissière ; son nombre devient le titre de la table.
+  // Les lettres originales reprennent ensuite le geste du César classique.
   if (op.justifie) {
     // ★ **LA PREUVE NE SE DIT QU'UNE FOIS.** `etapeTable` recopie la `regle`
     //   sous CHAQUE lettre muée (« … : L → H »), ce qui convient à une règle
@@ -818,10 +797,15 @@ function etapeTable(op) {
     //   même glissière. L'étape de preuve la porte ; le coulissement reprend la
     //   règle NUE du césar, mot pour mot celle de son aîné (`regleDuGlissement`).
     const geste = etapeTable({ ...op, justifie: null, regle: op.regleDuGlissement || op.regle });
-    return (avant, apres, ctx) => [
-      ...etapesDeJustification(op, avant, ctx),
-      ...geste(avant, apres, ctx),
-    ];
+    return (avant, apres, ctx) => {
+      const preuve = etapesDeJustification(op, avant, ctx);
+      const resultat = preuve.at(-1)?.ops.find((o) => o.op === 'atelier' && o.action === 'conclure')?.target;
+      const suite = geste(avant, apres, ctx);
+      for (const step of suite) for (const o of step.ops) {
+        if (o.op === 'table' && resultat) o.preuve = resultat;
+      }
+      return [...preuve, ...suite];
+    };
   }
   return (avant, apres, ctx) => {
     const sortie = op.sortie(avant, apres, ctx);

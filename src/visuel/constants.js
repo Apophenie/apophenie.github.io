@@ -77,7 +77,7 @@ export const LINE_HEIGHT = 78;   // unités viewBox
  *    le contrôle croisé qui l'exige.
  */
 export const OP_NAMES = Object.freeze([
-  'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
+  'atelier', 'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
   'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse', 'fraction',
   'rule', 'convert', 'insert',
@@ -98,6 +98,7 @@ export const OP_NAMES = Object.freeze([
  * divergent pas.
  */
 export const DEFAULT_DUR = Object.freeze({
+  atelier: 1800,
   highlight: 600,
   dim: 700,
   drop: 2000,

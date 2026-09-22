@@ -58,6 +58,7 @@ import * as rule from './rule.js';
 import * as potence from './potence.js';
 import * as convert from './convert.js';
 import * as insert from './insert.js';
+import * as atelier from './atelier.js';
 
 import { OP_NAMES } from '../constants.js';
 
@@ -65,7 +66,7 @@ export const PRIMITIVES = Object.freeze({
   highlight, dim, drop, substitute, move, group, insertOperators,
   sum, reduce, flip180, sevenSeg, fourteenSeg, countStrokes, keyboard,
   annotate, pulse, reveal, wait, partition, table, horns, merge, shift, collapse, fraction,
-  rule, convert, insert, potence,
+  rule, convert, insert, potence, atelier,
 });
 
 // Garde-fou de chargement : la table des primitives et le vocabulaire déclaré

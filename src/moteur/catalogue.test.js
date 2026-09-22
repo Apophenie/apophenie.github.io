@@ -99,7 +99,7 @@ const PRIMITIVE_ATTENDUE = Object.freeze({
  * contrat.
  */
 const OPS_AUTORISEES = new Set([
-  'insert', 'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
+  'insert', 'atelier', 'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
   'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse', 'fraction',
   // ★ La division POSÉE — la potence de l'école primaire, seule disposition où

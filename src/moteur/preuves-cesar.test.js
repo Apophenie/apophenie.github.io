@@ -92,7 +92,7 @@ test('sept et quatorze segments sur l’initiale ne convertissent qu’un caract
     assert.deepEqual(p.etats[1].valeur, ['A']);
     const ids = [...texte].map((_, i) => `source${i}`);
     const steps = etapesPreuveNumerique(p, str(texte), { ids, cle: code, langue: 'fr' });
-    const copie = steps[0].ops.find((o) => o.op === 'insert');
+    const copie = steps[0].ops.find((o) => o.op === 'atelier');
     assert.deepEqual(copie.tokens.map((t) => t.text), ['A']);
     assert.deepEqual(steps[0].ops[0].targets, ['source3']);
     const rendu = compile({ version: 1, tokens: [...texte].map((text, i) => ({ id: ids[i], text })), steps });
@@ -118,4 +118,45 @@ test('les longueurs de mots voisins se multiplient ou se soustraient avant les c
   const repli = parCode.get('fj25').justifie('Sept');
   assert.equal(repli.lecture, 'complete', 'les preuves complexes restent un repli disponible');
   assert.ok(repli.classe > parCode.get('fj14').justifie('xy ab cdefghi z').classe);
+});
+
+test('les copies descendent sans déplacer les originaux et le nombre devient le titre du César', async () => {
+  const { lecteur } = await import('../visuel/tests/_lecteur.js');
+  for (const [texte, code] of [['Sept', 'fj19'], ['Louis', 'fj5'], ['Louis Fouché', 'fj22'], ['xy ab cdefghi z', 'fj14']]) {
+    const op = parCode.get(code), a = str(texte);
+    const ids = [...texte].map((_, i) => `source${i}`);
+    const steps = op.steps(a, appliquer(op, a), { ids, cle: code, langue: 'fr' });
+    const ouverture = steps[0].ops.find((o) => o.action === 'ouvrir');
+    const fin = steps.find((s) => s.ops.some((o) => o.action === 'conclure'));
+    const resultat = fin.ops[0].target;
+    const tables = steps.flatMap((s) => s.ops).filter((o) => o.preuve);
+    assert.ok(tables.length > 0);
+    assert.ok(tables.every((o) => o.preuve === resultat));
+    for (const options of [{ rythme: 'pasAPas' }, { rythme: 'simultane' }, { reduced: true }]) {
+      const tl = compile({ version: 1, tokens: [...texte].map((text, i) => ({ id: ids[i], text })), steps }, options);
+      const lire = lecteur(tl);
+      const finCopie = tl.steps[0].t1 - tl.steps[0].hold;
+      ouverture.tokens.forEach((copie, i) => {
+        const source = ouverture.targets[i];
+        const origine = tl.nodes.find((n) => n.id === source).base.translate;
+        assert.deepEqual(tl.nodes.find((n) => n.id === copie.id).base.translate, origine);
+        assert.ok(lire.valeur(copie.id, 'translate', finCopie).y > origine.y + 50);
+      });
+      const finCalcul = tl.steps.find((s) => s.id === fin.id).t1;
+      for (const id of ids) {
+        const origine = tl.nodes.find((n) => n.id === id).base.translate;
+        for (let t = 0; t < finCalcul; t += Math.max(1, finCalcul / 40)) {
+          assert.deepEqual(lire.valeur(id, 'translate', t), origine, `${code}: original immobile`);
+        }
+      }
+      assert.equal(tl.nodes.find((n) => n.id === resultat).text, code.slice(2));
+      assert.ok(lire.valeur(resultat, 'opacity', finCalcul) > 0.9);
+      const nom = tl.nodes.find((n) => n.text === 'César');
+      assert.ok(nom);
+      assert.ok(lire.valeur(nom.id, 'opacity', finCalcul) > 0.9);
+      assert.equal(lire.valeur(resultat, 'opacity', tl.total), 0);
+      assert.equal(lire.valeur(nom.id, 'opacity', tl.total), 0);
+      assert.ok(!tl.nodes.some((n) => /justifi/i.test(n.text || '')));
+    }
+  }
 });

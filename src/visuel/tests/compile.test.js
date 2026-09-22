@@ -28,7 +28,7 @@ test('les scénarios de démonstration compilent tous sans avertissement', () =>
 
 test('le parcours de vérification exerce TOUTES les primitives du vocabulaire', () => {
   const used = new Set();
-  for (const step of SCENARIOS.vocabulaire.steps) for (const op of step.ops) used.add(op.op);
+  for (const scenario of Object.values(SCENARIOS)) for (const step of scenario.steps) for (const op of step.ops) used.add(op.op);
   const manquantes = OP_NAMES.filter((n) => !used.has(n));
   assert.deepEqual(manquantes, [], `primitives jamais exercées : ${manquantes.join(', ')}`);
 });

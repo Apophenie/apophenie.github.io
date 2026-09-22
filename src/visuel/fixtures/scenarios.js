@@ -598,4 +598,15 @@ export const claviers = {
   ],
 };
 
-export const SCENARIOS = { methode4, methode5, methode6, claviers, vocabulaire };
+export const atelier = {
+  version: 1, tokens: [{ id: 'a', text: 'A' }], steps: [
+    { id: 'copie', title: 'Copie sur place', ops: [{ op: 'atelier', action: 'ouvrir', targets: ['a'], tokens: [{ id: 'copie', text: 'A' }] }] },
+    { id: 'nombre', title: 'Rang de A', ops: [{ op: 'substitute', pairs: [{ target: 'copie', to: { id: 'n', text: '1' } }] }] },
+    { id: 'nom', title: 'César', ops: [{ op: 'atelier', action: 'conclure', target: 'n' }] },
+    { id: 'cesar', title: 'Décalage', ops: [{ op: 'table', disposition: 'glissiere', preuve: 'n', target: 'a', letter: 'A',
+      entries: [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((char, i) => ({ char, value: 'BCDEFGHIJKLMNOPQRSTUVWXYZA'[i] })),
+      to: { id: 'b', text: 'B' } }] },
+  ],
+};
+
+export const SCENARIOS = { atelier, methode4, methode5, methode6, claviers, vocabulaire };

@@ -124,8 +124,7 @@ export function etapesPreuveNumerique(preuve, avant, ctx) {
   let ids = copie.map((_, i) => `${cle}_copie_${i}`);
   const steps = [etape({ ...ctx, cle }, titre,
     lecture, [
-      { op: 'highlight', targets: sources, mode: 'select' },
-      { op: 'insert', apres: ctx.ids.at(-1), tokens: copie.map((c, i) => token(ids[i], c)) },
+      { op: 'atelier', action: 'ouvrir', targets: sources, tokens: copie.map((c, i) => token(ids[i], c)) },
     ])];
   preuve.ops.forEach((op, i) => {
     const a = preuve.etats[i], b = preuve.etats[i + 1];
@@ -140,11 +139,45 @@ export function etapesPreuveNumerique(preuve, avant, ctx) {
   steps.push(etape({ ...ctx, cle: `${cle}_lu` }, titre,
     `${regles} · ${en ? 'Result at position' : 'Résultat en position'} ${preuve.indice + 1} : ${preuve.decalage}`, [
       { op: 'highlight', targets: [selection], mode: 'select' },
-      { op: 'annotate', anchor: [selection], text: String(preuve.decalage), place: 'above', ecart: 1.2 },
     ]));
   steps.push(etape({ ...ctx, cle: `${cle}_fin` }, titre,
     en ? 'The original text is kept for the Caesar shift' : 'Le texte original est conservé pour le César', [
-      { op: 'drop', targets: ids },
+      { op: 'atelier', action: 'conclure', target: selection, nom: en ? 'Caesar' : 'César' },
     ]));
+  return steps;
+}
+
+/** Même atelier pour le comptage des caractères communs, mot par mot. */
+export function etapesPreuveCommuns(lu, avant, ctx, parMot) {
+  const cle = `${ctx.cle}_preuve`, en = ctx.langue === 'en';
+  const titre = en ? 'Shared characters' : 'Caractères communs';
+  const sources = parMot.flat();
+  const chars = [...avant.valeur];
+  const copies = sources.map((source, i) => token(`${cle}_copie_${i}`, chars[ctx.ids.indexOf(source)]));
+  const steps = [etape({ ...ctx, cle }, titre,
+    en ? 'Copy the shared characters from each word' : 'On copie les caractères communs de chaque mot',
+    [{ op: 'atelier', action: 'ouvrir', targets: sources, tokens: copies }])];
+  const comptes = [], valeurs = [];
+  let offset = 0;
+  const compter = COMBINATEURS.find((o) => o.code === 'cnj');
+  parMot.forEach((groupe, i) => {
+    const selection = copies.slice(offset, offset + groupe.length);
+    offset += groupe.length;
+    const a = tokens(selection.map((t) => t.text)), b = appliquer(compter, a);
+    const ids = selection.map((t) => t.id);
+    const c = { ...ctx, cle: `${cle}_mot_${i}`, ids, elements: a.valeur,
+      groupes: ids.map((id, j) => [id, a.valeur[j]]), cibles: [String(b.valeur)], op: compter };
+    steps.push(...compter.steps(a, b, c));
+    comptes.push(...compter.sortie(a, b, c));
+    valeurs.push(b.valeur);
+  });
+  const coller = COMBINATEURS.find((o) => o.code === 'ccat');
+  const a = nums(valeurs), b = appliquer(coller, a);
+  const c = { ...ctx, cle: `${cle}_concat`, ids: comptes, elements: valeurs.map(String),
+    groupes: comptes.map((id, i) => [id, String(valeurs[i])]), cibles: [String(b.valeur)], op: coller };
+  steps.push(...coller.steps(a, b, c));
+  steps.push(etape({ ...ctx, cle: `${cle}_fin` }, titre,
+    en ? 'The number gives the Caesar shift' : 'Le nombre donne le décalage du César',
+    [{ op: 'atelier', action: 'conclure', target: coller.sortie(a, b, c)[0], nom: en ? 'Caesar' : 'César' }]));
   return steps;
 }

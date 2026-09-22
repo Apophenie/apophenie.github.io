@@ -655,7 +655,7 @@ export const TITRES_COURTS = {
      lecteur du Registre ne saurait plus lequel des deux il regarde — alors que
      toute la différence est là. Le nombre reste écrit dans le titre, ce qui fait
      taire le complément distinctif de lui-même (`titreCourtComplet`). */
-  ...cesarsJustifies((n) => b(`César ${n} justifié`, `justified Caesar ${n}`)),
+  ...cesarsJustifies((n) => b(`César ${n}`, `Caesar ${n}`)),
   'f.tld': b('sans extension', 'no extension'), // ftld
   'f.unique': b('caractère unique', 'never repeated'), // fun
   'f.voyelles': b('voyelles', 'vowels'), // fv

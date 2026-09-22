@@ -71,7 +71,7 @@ function dire(texte, langue = LANGUE_DEFAUT) {
 
 /** Vocabulaire fermé des ops — CONTRACTS.md §3.1. Hors de cette liste = erreur. */
 export const VOCABULAIRE = new Set([
-  'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
+  'atelier', 'highlight', 'dim', 'drop', 'substitute', 'move', 'group', 'insertOperators',
   'sum', 'reduce', 'flip180', 'sevenSeg', 'fourteenSeg', 'countStrokes', 'keyboard',
   'annotate', 'pulse', 'reveal', 'wait', 'partition', 'table', 'horns', 'merge', 'shift', 'collapse', 'fraction',
   'rule', 'convert', 'insert', 'potence',
@@ -473,6 +473,9 @@ function inventaire(o) {
     if (typeof t === 'object' && typeof t.id === 'string' && t.id) crees.push(t.id);
   };
   switch (o.op) {
+    case 'atelier':
+      if (o.action === 'ouvrir') ajouter(o.tokens);
+      break;
     case 'insert':
       ajouter(o.tokens);
       break;
@@ -593,6 +596,7 @@ function referencesDe(o) {
   }
   refs.push(...normaliserCibles(o.targets));
   refs.push(...normaliserCibles(o.target));
+  refs.push(...normaliserCibles(o.preuve));
   refs.push(...normaliserCibles(o.between));
   // `insertOperators` en `lots` — chaque lot désigne ses deux termes.
   for (const lot of Array.isArray(o.lots) ? o.lots : []) refs.push(...normaliserCibles(lot && lot.between));
@@ -3760,6 +3764,11 @@ export function validerFormeOp(o) {
       if (o.to !== undefined && !(Array.isArray(o.to) && o.to.length && o.to.every(tok))) {
         return '« to » doit lister les jetons de l’expression obtenue';
       }
+      return null;
+    case 'atelier':
+      if (o.action === 'conclure') return chaine(o.target) ? null : 'résultat manquant';
+      if (o.action !== 'ouvrir' || !cibles(o.targets) || !Array.isArray(o.tokens)
+        || !o.tokens.length || !o.tokens.every(tok)) return 'copies et sources attendues';
       return null;
     case 'insert': {
       if (!Array.isArray(o.tokens) || !o.tokens.length || !o.tokens.every(tok)) {

@@ -260,9 +260,13 @@ function motCommun(labels) {
  * moment où la ligne se recentre, noyé dans le mouvement d'ensemble du verdict.
  */
 function recentrerLeDecoupage(ctx, groupes) {
-  const opts = ctx.layoutOpts;
+  const atelier = ctx.scene.atelierActif;
+  const opts = atelier ? ctx.scene.ateliers.get(atelier) : ctx.layoutOpts;
   const vb = opts.viewBox;
-  const vivants = ctx.scene.flow.filter((id) => ctx.scene.get(id).alive);
+  const vivants = ctx.scene.flow.filter((id) => {
+    const n = ctx.scene.get(id);
+    return n.alive && (n.data?.atelier || null) === atelier;
+  });
   const ids = [];
   for (const g of groupes) for (const id of g.ids) if (vivants.includes(id)) ids.push(id);
   if (!ids.length) return;

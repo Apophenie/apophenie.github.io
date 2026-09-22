@@ -27,6 +27,8 @@ export class Scene {
     this.order = [];       // ordre de création = ordre du DOM
     this.flow = [];        // ids participant au layout, dans l'ordre de lecture
     this.positions = new Map();
+    this.ateliers = new Map();
+    this.atelierActif = null;
     this.everIds = new Set();
     this.deadIds = new Set();
     this.autoSeq = 0;
@@ -202,6 +204,7 @@ export class Scene {
         ...(spec.base || {}),
       },
     });
+    if (this.atelierActif) node.data = { ...node.data, atelier: this.atelierActif };
     this.nodes.set(id, node);
     this.order.push(id);
     this.everIds.add(id);
@@ -357,7 +360,16 @@ export class Scene {
          se voit que le jour où quelque chose se pose à la droite du trait. */
       return { id, w: n.w, gapBefore: n.gapBefore, breakBefore: n.breakBefore, axe: n.role === 'filet' };
     });
-    const res = layoutFlow(items, this.layoutOpts);
+    const res = layoutFlow(items.filter((it) => !this.nodes.get(it.id).data?.atelier), this.layoutOpts);
+    for (const [atelier, options] of this.ateliers) {
+      const groupe = items.filter((it) => this.nodes.get(it.id).data?.atelier === atelier);
+      if (!groupe.length) continue;
+      const r = layoutFlow(groupe, options);
+      for (const [id, pos] of r.positions) res.positions.set(id, pos);
+      res.width = Math.max(res.width, r.width);
+      res.height = Math.max(res.height, options.centerY - this.layoutOpts.centerY + r.height);
+      res.overflow ||= r.overflow;
+    }
     this.lastLayout = res;
     const moved = [];
     for (const [id, p] of res.positions) {

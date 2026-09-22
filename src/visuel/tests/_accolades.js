@@ -284,7 +284,10 @@ export function finsDesAccolades(tl, lignes) {
     const couvreAuFondu = (acc, ids, t) => ids.filter((id) => {
       const base = acc.base && acc.base.translate;
       const p = lire.valeur(id, 'translate', t);
-      return base && p && p.x >= base.x - acc.w / 2 && p.x <= base.x + acc.w / 2;
+      // Deux flux indépendants peuvent partager une abscisse : une accolade
+      // de l'atelier ne couvre pas les originaux restés sur la ligne du haut.
+      const memeFlux = (acc.data?.atelier || null) === (noeuds.get(id)?.data?.atelier || null);
+      return memeFlux && base && p && p.x >= base.x - acc.w / 2 && p.x <= base.x + acc.w / 2;
     });
     // Un résultat SOUS l'accolade est animé par les ops ouvertes avant son
     // effacement : ce qu'une op suivante écrit ensuite (le relevé d'identité de

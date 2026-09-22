@@ -124,6 +124,7 @@
  * caméra ne bouge plus, et les lettres se succèdent dans un cadrage stable.
  */
 
+import { placerNomCesar } from './atelier.js';
 import { tokenSpec, ancreVue } from './helpers.js';
 // ★ Le geste — monter le décor, allumer la case, faire passer le caractère
 //   PAR-DESSUS, faire redescendre la valeur — est écrit une seule fois, et
@@ -212,7 +213,7 @@ export function plan(ctx) {
   // ★ Le TITRE fait partie de l'identité du décor. Deux ops qui dessinent la
   //   même table mais l'annoncent autrement ne montrent pas le même outil : les
   //   confondre laisserait la seconde s'afficher sous le nom de la première.
-  const titre = typeof op.titre === 'string' ? op.titre.trim() : '';
+  const titre = !op.preuve && typeof op.titre === 'string' ? op.titre.trim() : '';
   const board = `@table:${cleDeTable(disposition, geo, titre)}`;
   // ★ Le décor se mutualise, le geste non. On déploie quand on nous le demande
   //   — et de toute façon quand la table n'existe pas encore, pour qu'une op
@@ -253,11 +254,15 @@ export function plan(ctx) {
     pos: boardPos, width: geo.width, deployer, titreAt,
     encombrement: {
       haut: boardPos.y - geo.height / 2,
-      bas: boardPos.y + geo.height / 2,
+      bas: boardPos.y + geo.height / 2 + (op.preuve ? ctx.metrics.fontSize * 0.82 : 0),
       largeur: geo.width,
       pad: PAD,
     },
   });
+  if (op.preuve) {
+    const nom = placerNomCesar(ctx, op.preuve, boardPos.y + geo.height / 2 + ctx.metrics.fontSize * 0.52, boardPos.x);
+    ctx.scene.get(board).data.preuveTitre = [op.preuve, nom];
+  }
   if (bandeSeparee) t0 = poserBande(ctx, { board, boardPos, geo, deployer, t0 });
 
   // ── 2. l'aller-retour de CETTE lettre, en entier ────────────────────────

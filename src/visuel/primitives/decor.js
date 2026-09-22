@@ -43,6 +43,7 @@
  * ne fait pas clignoter le décor, puisque aucune animation ne le touche.
  */
 
+import { cadrageAtelier } from './atelier.js';
 import { espacementDe } from './helpers.js';
 import { CAMERA_ID, EASE } from '../constants.js';
 
@@ -298,6 +299,7 @@ export function allerRetour(ctx, spec) {
 export function replierDecor(ctx, id, at) {
   const T = ctx.dur;
   const cam = ctx.scene.get(CAMERA_ID);
+  const repos = ctx.scene.atelierActif ? cadrageAtelier(ctx) : { scale: cam.base.scale ?? 1, translate: cam.base.translate ?? { x: 0, y: 0 } };
   ctx.scene.get(id).data.deploye = false;
   ctx.anim({ id, prop: 'opacity', to: 0, at, dur: T * TEMPS.DECOR_FONDU });
   // Le titre s'en va avec ce qu'il nomme : un nom d'outil qui survivrait à son
@@ -305,12 +307,17 @@ export function replierDecor(ctx, id, at) {
   if (ctx.scene.has(idTitre(id))) {
     ctx.anim({ id: idTitre(id), prop: 'opacity', to: 0, at, dur: T * TEMPS.DECOR_FONDU });
   }
+  for (const sid of (ctx.scene.get(id).data.preuveTitre || [])) {
+    ctx.anim({ id: sid, prop: 'opacity', to: 0, at, dur: T * TEMPS.DECOR_FONDU });
+    ctx.scene.kill(sid);
+  }
+  ctx.scene.get(id).data.preuveTitre = [];
   for (const sid of (ctx.scene.get(id).data.bande || [])) {
     ctx.anim({ id: sid, prop: 'opacity', to: 0, at, dur: T * TEMPS.DECOR_FONDU });
   }
-  ctx.anim({ id: CAMERA_ID, prop: 'scale', to: cam.base.scale ?? 1, at: at + T * 0.02, dur: T * TEMPS.CAMERA, ease: EASE.move });
+  ctx.anim({ id: CAMERA_ID, prop: 'scale', to: repos.scale, at: at + T * 0.02, dur: T * TEMPS.CAMERA, ease: EASE.move });
   ctx.anim({
-    id: CAMERA_ID, prop: 'translate', to: cam.base.translate ?? { x: 0, y: 0 },
+    id: CAMERA_ID, prop: 'translate', to: repos.translate,
     at: at + T * 0.02, dur: T * TEMPS.RETRAIT * 0.9, ease: EASE.move,
   });
 }
