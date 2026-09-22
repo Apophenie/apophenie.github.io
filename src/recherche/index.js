@@ -2250,9 +2250,13 @@ export function creerMoteur(catalogue, options = {}) {
       saisie: ctx.saisie || approche.saisie,
       langue,
       // Le REGISTRE traverse jusqu'ici parce qu'il change ce que le SCÉNARIO
-      // contient : en sobre, les cornes ne poussent pas (`url.js`, et
-      // `scenario.js › sobrifierLesCornes`). La scénographie du verdict, elle,
-      // ne change rien au scénario et se règle à la compilation visuelle.
+      // contient : en sobre, les cornes ne poussent pas — et depuis que
+      // l'auteur a demandé qu'elles soient « juste absentes », l'ÉTAPE de
+      // couronnement n'est pas créée non plus (`url.js`, et `scenario.js ›
+      // retirerLesCornes`). Les deux registres n'ont donc plus le même nombre
+      // d'étapes ; ils ont le même programme, la même ligne, le même verdict,
+      // le même score et le même rang. La scénographie du verdict, elle, ne
+      // change rien au scénario et se règle à la compilation visuelle.
       registre: ctx.registre,
       // La CIBLE traverse jusqu'au scénario : c'est elle qui décide de la
       // longueur d'une série au verdict, et des libellés qui nommaient « 6 ».

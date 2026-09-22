@@ -1429,7 +1429,7 @@ ici**, puis l'émettre.
 > | seulement les **séries nues** | un nœud de cornes est nommé d'après le 6 qu'il couronne : deux couronnements sur un même chiffre se disputeraient le même identifiant |
 > | seulement le **rang du haut** | « seulement sur les 666 de la ligne du haut » : couronner le rang du bas pour l'en dépouiller aussitôt (`detrones`) serait faire puis défaire |
 > | seulement **trois « 6 »** | le contrôle croisé ne se relâche pas parce qu'on change d'endroit. La contiguïté, elle, n'a pas à être vérifiée : c'est le verdict lui-même qui pose ces trois chiffres côte à côte |
-> | seulement le registre **scénique** | « sous « sobre », il reste sans orage mais perd ses cornes ». Le scénario sobre a déjà vu ses couronnements réécrits en désignation ; en remettre au verdict rendrait par la fenêtre ce que le registre a sorti par la porte. `ctx.scenographie` EST le registre — la page le pose depuis le même booléen que l'orage et le son |
+> | seulement le registre **scénique** | « sous « sobre », il reste sans orage mais perd ses cornes ». Le scénario sobre n'a AUCUN couronnement — pas même une étape vidée de son dessin : l'assemblage ne la crée pas (amendement du 22 septembre 2026 ; auparavant elle était réécrite en désignation). En remettre au verdict rendrait par la fenêtre ce que le registre a sorti par la porte. `ctx.scenographie` EST le registre — la page le pose depuis le même booléen que l'orage et le son |
 >
 > Le geste diffère d'un cheveu : en cours de route la corne **jaillit** du
 > chiffre (`scale` 0 → 1) ; au verdict elle **paraît** à sa taille et grandit
@@ -1603,6 +1603,86 @@ ici**, puis l'émettre.
 > cornes. ⚠️ **Au-delà de dix, tout est extrapolation** — l'auteur s'est arrêté
 > là, et sa consigne « garde plus de triptyques par ligne que de lignes » cède
 > dès onze.
+
+> *Amendement — LES CORNES REVIENNENT SUR TOUS LES 666, ET LE SOBRE N'EN GARDE
+> PAS L'ÉTAPE.* — 22 septembre 2026.
+>
+> **La demande de l'auteur, mot pour mot.**
+>
+> > « Je t'avais fait ajouter une règle pour ne pas ajouter de cornes si c'est la
+> > dernière étape. Retire-la, en fait, je préfère que tous les 666 en mode
+> > scénique reçoivent leur corne, et que le verdict retire celles à ceux qui sont
+> > en 2ⁿᵈ ligne.
+> > En mode sobre, ces étapes ne doivent pas apparaître en fantôme, ni comme
+> > étape instantanée dans l'animation, ni dans le registre, elles doivent juste
+> > être absentes. »
+>
+> ★ **1. LA QUATRIÈME CONDITION DU COURONNEMENT EST SUPPRIMÉE.**
+>
+> Elle avait été demandée par l'auteur (« deux étapes pour faire apparaître les
+> cornes alors qu'il n'y a plus rien d'autre que le verdict […] ce n'est pas ce
+> que j'appelle des ajouts précoces ») et elle refusait le couronnement quand
+> aucun CALCUL n'occupait plus de rang après la place d'insertion. Elle
+> **contredisait à moitié la troisième**, qui affranchit le couronnement de
+> l'agencement final : l'une dit que la ligne d'arrivée ne décide de rien, l'autre
+> rendait au verdict la décision dès que le couronnement venait le toucher. Les
+> conditions cumulatives redeviennent **trois**, celles du tableau ci-dessus.
+>
+> **La doctrine tient en une phrase.** En registre scénique, tout 666 que la ligne
+> écrit d'un seul tenant et garde jusqu'au bout est couronné, où que soit l'étape
+> qui l'écrit — fût-elle la dernière avant le verdict. Le partage des rôles en sort
+> net : `recherche/scenario.js › couronnerLesTriptyques` répond à « ce 666 est-il
+> écrit ? », `visuel/primitives/reveal.js › detrones` répond à « où finira-t-il ? »
+> et **déchoit** les séries reléguées au rang du bas. `detrones` relève les cornes
+> sur la SCÈNE, pas sur une liste : les couronnements nouvellement admis
+> s'effritent comme les autres, sans qu'une ligne ait eu à les prévoir.
+>
+> ⚠️ **Conséquence assumée : une démonstration peut se terminer par plusieurs
+> couronnements d'affilée**, un par série rassemblée au dernier calcul, et le tri
+> (« On ne garde que les 6 ») n'est donc plus l'avant-dernière étape. Ce qu'il
+> reste — et ce que le test défend désormais — est qu'il est le **dernier geste
+> qui TRANSFORME** : ce qui le suit ne touche ni aux valeurs ni à la ligne.
+>
+> **MESURÉ** (`.planning/banc/cornes-banc.mjs`, dix-neuf saisies, 380 voies) :
+> 325 couronnements deviennent **653**, 163 voies à cornes deviennent **314**.
+> **Le classement ne bouge pas d'un rang** — le barème ne lit pas le scénario, il
+> lit la contiguïté sur les états du chemin (`elegance.js ›
+> TRIPTYQUE_CONTIGU`) ; `scenario.cornes` reste publié et non consommé.
+>
+> ⚠️ **Et les deux comptes divergent désormais, d'un écart qui se NOMME.** Le
+> bilan compte la contiguïté sur le VECTEUR ; la scène la lit sur la LIGNE, où le
+> tri rapproche ce que l'arithmétique avait laissé épars. Mesuré sur treize
+> saisies : 168 voies à cornes, 22 en écart, et dans les vingt-deux cas l'écart
+> vaut **exactement** le nombre de couronnements posés après le tri. Ce n'est pas
+> une tolérance, c'est une identité, et `elegance.test.js` la tient comme telle.
+>
+> ★ **2. EN SOBRE, L'ÉTAPE DE COURONNEMENT EST ABSENTE — pas réécrite.**
+>
+> Elle était RÉÉCRITE : l'étape restait, avec son titre, sa légende et sa durée, et
+> les cornes y devenaient une simple désignation (`highlight`). L'argument était
+> qu'un couronnement CONSTATE quelque chose et que le sobre ne retire que le
+> dessin. Il ne tenait pas à l'usage : ce qui restait était une étape qui ne fait
+> rien, à qui Le Registre donnait une ligne numérotée, la jauge une case et le
+> lecteur une charnière. Le constat, lui, n'a jamais eu besoin d'elle — c'est le
+> verdict qui le fait, et il le fait dans les deux registres.
+>
+> La suppression est faite **à la source** : en sobre, `construireScenario`
+> n'appelle pas `couronnerLesTriptyques`. L'étape n'est pas créée, donc il n'y a
+> rien à vider ni à raccourcir, et l'absence est vraie partout à la fois — dans
+> `steps`, donc dans la compilation, donc dans la jauge, donc dans Le Registre
+> (`app/registre.js` énumère `lecteur.steps` un pour un et ne filtre rien).
+> `sobrifierLesCornes` devient `retirerLesCornes` : une GARDE pour un scénario relu
+> d'ailleurs, qui retire les `horns` étrangers et l'étape avec eux — **sauf** quand
+> le `horns` porte un `efface`, car celui-là relève de l'arithmétique et la ligne
+> doit rester la même dans les deux registres.
+>
+> ⚠️ **Le nombre d'étapes DIFFÈRE désormais entre les deux registres**, et
+> l'argument de §4.2 (« un lien qui promettait 23 étapes en rendrait 22 ») ne s'y
+> oppose pas : il portait sur un lien SANS MARQUEUR dont on changerait la lecture,
+> pas sur deux registres explicitement nommés. Ce que les deux accès du panneau
+> promettent reste entier — même programme, même ligne, même verdict, même score,
+> même rang. Ce que le sobre perd est un commentaire visuel sur un 666 que le
+> verdict montrera de toute façon.
 
 > *Amendement — L'ORAGE DU VERDICT, et pourquoi il n'entre PAS dans le vocabulaire.*
 >
@@ -2744,6 +2824,14 @@ programme  := code ('+' code)*
 >    sur la voie de référence. Un lien qui promettait 23 étapes en rendrait 22,
 >    avec une autre jauge, un autre badge, un autre Registre. C'est exactement
 >    ce que §4.3 interdit ;
+>    ⚠️ **Et l'écart s'est creusé depuis** (amendement §3.1 du 22 septembre
+>    2026) : les cornes ne sont plus émises par `m36`, elles poussent sur tout
+>    666 que la ligne écrit, et le sobre ne porte plus l'étape du tout. Sur
+>    `2:fr15;fl+tca+masc+mab`, le scénique compte 41 étapes et le sobre 37. **Cet
+>    argument-ci n'en est pas affaibli, il en est renforcé** : il porte sur la
+>    lecture d'un lien SANS MARQUEUR, dont il faut bien décider le sens une fois
+>    pour toutes ; deux registres explicitement nommés, eux, ont le droit de ne
+>    pas compter le même nombre d'étapes ;
 >  · **l'orage est du THÉÂTRE** — mêmes étapes, même numérotation, même
 >    Registre, même verdict, même score. L'ajouter à un vieux lien est du même
 >    ordre que d'améliorer le dessin d'une corne.
@@ -2761,9 +2849,10 @@ programme  := code ('+' code)*
 >
 > | | sobre | scénique |
 > |---|---|---|
-> | le programme, le verdict, le score, le rang | identiques | identiques |
+> | le programme, la ligne, le verdict, le score, le rang | identiques | identiques |
 > | l'opérateur `m36` | **exécuté** | exécuté |
-> | la primitive `horns` | remplacée par `highlight` + `drop` | émise |
+> | la primitive `horns` | **jamais émise, et son étape n'existe pas** (amendement du 22 septembre 2026 ; c'était « remplacée par `highlight` + `drop` ») | émise |
+> | le NOMBRE d'étapes | **plus court d'un par couronnement** | la référence |
 > | le couronnement anticipé, l'effacement différé | non | oui |
 > | l'orage du verdict (§3.1) | non | oui |
 > | le son (§6) | non chargé | disponible, coupé par défaut |
@@ -2774,12 +2863,19 @@ programme  := code ('+' code)*
 > dire pourquoi ; retirer l'opérateur donnerait un autre programme, donc une
 > autre URL, un autre score, un autre rang — alors que les deux boutons du
 > panneau doivent mener à LA MÊME VOIE. Ce qu'on retire est le DESSIN et le
-> RYTHME, pas le raisonnement : on désigne les trois 6 (`highlight`) et on
-> efface le reste sur place (`drop` en mode gomme, le même `effacerSurPlace`
-> qu'employait la primitive), à la place exacte où l'opérateur se trouve. La
-> légende ne bouge pas — `6 6 6 7 3 6 → 666`, émise par `m36` lui-même —, donc
-> Le Registre dit la même chose dans les deux registres.
-> `sobrifierLesCornes`, `src/recherche/scenario.js`.
+> RYTHME, pas le raisonnement : l'effacement que `m36` opère est une étape à part
+> entière, identique dans les deux registres (`transformations/mappeurs.js`), et
+> sa légende ne bouge pas — `6 6 6 7 3 6 → 666`, émise par `m36` lui-même.
+>
+> ⚠️ **AMENDÉ LE 22 SEPTEMBRE 2026, et sur les deux moitiés de la phrase.** Ce
+> paragraphe disait qu'on remplaçait le couronnement par « `highlight` + `drop` à
+> la place exacte où l'opérateur se trouve », et concluait que « Le Registre dit
+> la même chose dans les deux registres ». Les deux sont périmés : les cornes ont
+> quitté `m36` (§3.1, « COURONNER SANS EFFACER »), et l'étape de couronnement
+> n'est plus réécrite en sobre — **elle n'y est plus créée du tout**. Le Registre
+> sobre a donc une ligne de moins par couronnement, et c'est ce que l'auteur
+> demande : « ces étapes doivent juste être absentes ». Voir l'amendement §3.1 du
+> même jour. `retirerLesCornes`, `src/recherche/scenario.js`.
 >
 > ★ Les trois verrous du contrôle croisé des cornes ne sont pas relâchés : ils
 > ont tous joué quand la réécriture s'exécute (l'op a déjà été validée sur la
@@ -3350,7 +3446,7 @@ et `…/` étaient la même URL pour lui — mais il voit la requête. L'entrée
 | `#0.1+2.1:P;…#…` (groupe dans une retouche) | Refusée, bandeau explicite : un groupe y aurait l'air parallèle et serait séquentiel — même règle que pour `×3:`. |
 | `#c111!…#…` (marqueur de cible) | Rejouée sur la cible demandée. Absent ⇒ 666 (§4.2, amendement « LA CIBLE »). |
 | `#c1234567!…#…` (cible illisible) | Bandeau explicite : jamais un repli muet sur 666. |
-| `#sce!c111!…#…` (registre sans emblème) | **Replié sur « sobre »**, à la lecture comme à l'écriture — donc réécrit SANS marqueur de registre. Mêmes étapes, même verdict : ce qui manque est un DESSIN. |
+| `#sce!c111!…#…` (registre sans emblème) | **Replié sur « sobre »**, à la lecture comme à l'écriture — donc réécrit SANS marqueur de registre. Même programme, même verdict : ce qui manque est un DESSIN — et, depuis l'amendement §3.1 du 22 septembre 2026, l'ÉTAPE de couronnement qui le portait, absente en sobre plutôt que vidée. Une cible sans emblème n'a de toute façon pas de corne à poser (`couronnerLesTriptyques` s'arrête net hors 666), donc ce repli-ci ne retire rien qui aurait existé. |
 | `#so!…#…` (marqueur sobre, écrit par la version publiée) | **Lu exactement comme la forme sans marqueur** ; la barre d'adresse est réécrite sans `so!`, qui ne s'écrit plus — seul `sce!` se mentionne (`url.js`, « `so!` NE S'ÉCRIT PLUS »). ⚠️ Sans programme, `#so!#…` garde son sens : la 1ʳᵉ voie, et non la liste. |
 | Code inconnu / portée hors bornes / format inconnu | Bandeau explicite + repli sur la page de résultats. |
 
