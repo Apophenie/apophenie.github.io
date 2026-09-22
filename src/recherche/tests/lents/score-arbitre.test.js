@@ -110,6 +110,11 @@ test('score arbitre 6 — Henri Prunelle (v2) : l’une ou l’autre des deux re
 test('score arbitre 7 — numherololgeek.1000i100.fr (v2) : la moisson nv / flt+mpy+mr9 mène, le leet partiel + mab est relégué', () => {
   const l = liste('numherololgeek.1000i100.fr', { v2: true });
   assert.equal(tete(l), '0:nv,2+3:flt+mpy+mr9', resume(l));
+  // Lire les points en ASCII offre une autre moisson ; cela ne doit ni
+  // remplacer la moisson lexicale ni retirer la voie qu'elle dépasse.
+  assert.ok(rang(l, 'fl+mqwc+meg') > 1, resume(l));
+  assert.equal(l[0].series, 3);
+  assert.equal(l[0].bilan.abandons.alnum, 0);
   const bancale = rang(l, '2:flt;fl+ma1+mab');
   assert.ok(bancale === 0 || bancale > rang(l, '0:nv,2+3:flt+mpy+mr9'), resume(l));
 });

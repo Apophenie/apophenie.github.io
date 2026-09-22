@@ -1501,6 +1501,7 @@ function lireFragments(brut) {
 }
 
 export const BANDEAUX = {
+  nonConcluante: "Cette démonstration n’atteint pas la cible : son résultat ne permet pas de conclure.",
   recalculee: 'Démonstration recalculée : ce lien désigne des rangs, pas une méthode.',
   codeInconnu: 'Ce lien emploie une règle que cette version ne connaît pas.',
   // ★ Le refus n'est PAS l'inconnu : la règle est là, elle a dit non. Voir

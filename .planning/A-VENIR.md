@@ -25,6 +25,33 @@
 
 ## Le classement
 
+- **Reprise du 22 septembre : la moisson du domaine est restaurée.** La lecture
+  ASCII des points avait changé la récolte maximale et supprimé la variante
+  `0:nv,2+3:flt+mpy+mr9`. `assemblage.js` propose désormais aussi une récolte des
+  portées lexicales, sans retirer la maximale. Aux curseurs `p25.200.50.150`,
+  la voie demandée revient **1ʳᵉ (global 733)** devant `fl+mqwc+meg`
+  (**2ᵉ, global 725**), dans une liste de 24 voies au lieu de 23. Aucun poids du
+  barème ne change. Le test « score arbitre 7 » vérifie également que la voie
+  dépassée reste dans la liste, que la moisson annonce trois séries et qu’elle
+  ne perd aucun caractère alphanumérique selon le bilan. Les constats historiques
+  ci-dessous sur son absence sont donc dépassés ; les cas Marie Curie et la
+  moisson groupée de `hope-hope-hope.fr` restent distincts.
+- **Le vieux lien Louis Fouché est maintenant refusé comme non concluant.**
+  `fr9+mas+mrd+meg` n’était plus fabriqué, mais son rejeu restait accepté par le
+  repli `DECRET`, malgré un résultat 3. Le rejeu contrôle désormais qu’un décret
+  contient réellement le chiffre répété de sa cible avant d’accepter cette
+  compatibilité historique. Le lien fautif affiche un bandeau explicite ; un
+  vrai ancien décret (`nl,nl,nl` sur « macron », qui obtient 6) reste lisible.
+  Tests : `rejeu-non-concluant.test.js`, sans recherche coûteuse.
+- **Marie Curie : préférence légère conservée, pas de nouveau malus arbitraire.**
+  L’avis était « Je préfère mz26 à mas, mais à part ça les deux me vont ».
+  Le rejeu de `fl+mz26+mr9+mrdE` vaut 650 au global, contre 672 pour
+  `fmaj+mas+mrdE` : son retournement supplémentaire coûte en simplicité
+  (877 contre 935) et en cohérence (610 contre 643). La voie `mz26` est absente
+  de la recherche actuelle, mais sa préférence sur la conversion seule ne
+  justifie pas d’effacer le coût des autres gestes du programme. Les deux
+  démos atteignent bien 666 ; aucune demande d’arbitrage supplémentaire.
+
 - **Cas 13 — sur « hope », le simple `m14` devrait mener.** Il n'entre même pas
   dans la liste : « m14 écarté par le pré-tri des sièges de vecteursDeSix aux
   curseurs par défaut (assemblage.js) ». Test `todo` « score arbitre 13 » dans
@@ -52,6 +79,69 @@
 - **Les bornes de l'étage des retouches**, jamais balayées l'une contre l'autre.
   → [A-VENIR-retouches.md](A-VENIR-retouches.md), §3, « Ce qui reste ouvert sur
   cet étage »
+- **Descendre le plancher du facteur d'élégance — mesuré, écarté le 22 septembre 2026.**
+  L'auteur demande que « la QUANTITÉ DE SAISIE PERDUE, et le fait qu'une
+  égalisation ne tombe pas juste » pèsent davantage. Mesuré, **le barème les pèse
+  déjà, et lourdement** : sur la tête de « numherololgeek.1000i100.fr » aux
+  curseurs `p25.200.50.150` (`fl+mqwc+meg`), l'égalisation coûte −3 000 et la
+  saisie supprimée −648, pour un crédit brut de −1 951.
+  ⚠️ **Le problème n'est pas le poids, c'est le PLAFONNEMENT.** `facteur()` borne
+  le crédit à [`FACTEUR_PLANCHER`, 1 000], et **252 voies du corpus sur 381
+  (66 %), 11 têtes de liste sur 19 (58 %), sont AU PLANCHER** — leur facteur vaut
+  520 que le crédit brut soit à −294 ou à −3 242. Pour deux tiers de la liste, le
+  barème mesure la perte puis jette sa mesure, et aucune repondération d'un poste
+  de perte ne peut se voir sur une voie déjà écrasée. Reproductible :
+  `node .planning/banc/classement.mjs --json --plancher N`.
+  ⚠️ **Ce que ça coûte** (plancher 520 → 200, 19 saisies) : **0 tête change**,
+  77 déplacements, et une **SORTIE SÈCHE** — sur « Emmanuel Macron »,
+  `fl+tca+mt9+mtri` quitte la 3ᵉ place et RIEN n'entre (19 → 18 voies).
+  « Le chat dort sur le tapis rouge » perd de même `fc+nlc,fc+nlc,fc+nlc` de la
+  11ᵉ place, sa remplaçante n'arrivant qu'au rang 28.
+  ⚠️ **Ce que ça rapporte** : rien de mesurable. Aucune tête ne bouge, et les
+  trois cas qui motivaient la demande ne peuvent pas en profiter (voir ci-dessous).
+  ⚠️ **Et il y a une raison de fond de ne pas s'y fier** : aux curseurs
+  PERSONNALISÉS, l'ordre affiché est celui du global (`index.js ›
+  rangerParLeGlobal`), qui ne lit PAS le crédit d'élégance — il ne lit que les
+  quatre axes. Le crédit n'a alors prise que sur la SÉLECTION, jamais sur l'ordre.
+  Faire peser la perte sur une tête à curseurs personnalisés demanderait de passer
+  par l'axe `exhaustivite` de `score.js`, pas par le barème.
+- **Les trois voies nommées par l'auteur le 22 septembre 2026 ne sont plus
+  fabriquées.** Vérifié en élargissant la fouille, ce qui distingue « mal classée »
+  de « inexistante » :
+  · `0:nv,2+3:flt+mpy+mr9` sur « numherololgeek.1000i100.fr » — absente aux crans
+    0, 1 et 2 (23, 38 et 65 voies). Elle était 1ʳᵉ en 3.1.0 ; `git bisect` (4
+    étapes, sonde `.planning/banc/_bisect-cas7.mjs`, rejouable telle quelle)
+    désigne
+    **`7b80556`**, « Le code ASCII casse comprise, le point de code Unicode, et
+    l'addition qui prépare l'égalisation » — les trois opérateurs `mas`, `mu8`,
+    `mam`.
+  · `fl+mz26+mr9+mrdE` sur « Marie Curie » — absente aux crans 0, 1 et 2 (16, 27
+    et 40 voies). Le départage « je préfère `mz26` à `mas` » n'a donc plus d'objet
+    en l'état : la voie à `mz26` n'existe plus pour être préférée.
+  · `fr9+mas+mrd+meg` sur « Louis Fouché » au cran 3 (« elle finit sur 3 ») —
+    absente aux crans 3, 4 et 5 (69, 76 et 89 voies). **Le défaut ne se reproduit
+    plus** ; il a été refermé par les commits du 19-21 septembre (`mrd9`, `mrtE`,
+    `mt9E`). Rien à faire.
+  ⚠️ **LA PRÉFÉRENCE GELÉE DE L'AUTEUR EST DÉJÀ ROUGE SUR `main`.** Le test
+  « score arbitre 7 — numherololgeek.1000i100.fr (v2) : la moisson nv /
+  flt+mpy+mr9 mène, le leet partiel + mab est relégué »
+  ([`tests/lents/score-arbitre.test.js`](../src/recherche/tests/lents/score-arbitre.test.js))
+  échoue, et sa liste constatée est exactement celle qu'on mesure à la main :
+  `fl+mqwc+meg · fl+mazc+meg · 0:fr3+mt9+meg · 0:fr1;fr4+mas+mdc3 · 0:maz4+mrdE`.
+  Le retour de l'auteur du 22 septembre ne signale donc pas un désaccord de goût
+  nouveau : il redit à la main ce que la suite lente criait déjà.
+  ⚠️ **ET CE N'EST PAS UNE VOIE, C'EST UNE FAMILLE.** La suite lente de `main`
+  est déjà ROUGE sur un second point, et pas en `todo` : le test affirmatif
+  « ★ moisson — la voie groupée de `hope-hope-hope.fr` est dans la liste au cran
+  2, et `fl+m14` avec elle » échoue des deux côtés, au mot près — « cran 2 : la
+  voie groupée est absente des 64 voies », « cran 0 : […] des 34 voies ». Ce test
+  gèle une préférence de l'autrice (README des lents, § « Les `todo` d'arbitrage »
+  : le `todo` a été RETIRÉ le 16 septembre, l'énoncé est devenu affirmatif). Il
+  est tombé depuis, sans que personne le rattache à sa cause.
+  → À reprendre comme une question de FABRICATION (`assemblage.js`), pas de
+  barème — et en traitant les moissons de `hope-hope-hope.fr` avec celles de
+  l'auteur : c'est vraisemblablement le même mécanisme qui les fait toutes
+  disparaître.
 - **Les absorptions en ficelles (`mab`/`mabx`/`mabd`) — essayé, mesuré, écarté.**
   « Peut-être que c'est `mab` qu'il faudrait ajouter aux ficelles pour que ça ne
   soit utilisé qu'en dernier recours » (l'autrice). C'est FAISABLE : le registre

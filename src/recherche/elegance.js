@@ -2822,6 +2822,29 @@ export function bilanChemin(chemin, cible = CIBLE_DEFAUT) {
         if (apres.valeur[k] !== avant.valeur[k]) reecrites++;
       }
       b.egalisees += reecrites;
+      // ★ …ET L'ÉGALISATION QUI NE TOMBE PAS JUSTE PAIE L'ARRONDI, comme une
+      //   moyenne — parce qu'elle EN EST une.
+      //
+      //   > « `meg` ne tombe pas juste […] ça fait beaucoup. » (l'auteur)
+      //
+      //   `m.egalisation` donne 1 du plus grand au plus petit « jusqu'à ce que
+      //   tout se tienne à 1 près » (`combinateurs.js › nivellementDe`) : quand
+      //   la somme n'est pas divisible par le nombre de rangs, la ligne
+      //   s'arrête sur un mélange de ⌊moy⌋ et de ⌈moy⌉ — `[6,6,6,7]` est un
+      //   résultat accepté et publié. C'est LITTÉRALEMENT l'arrondi d'une
+      //   moyenne, et `amplitudeArrondi` le mesure déjà.
+      //
+      //   Jusqu'ici, deux `meg` sur quatre valeurs coûtaient le même
+      //   `4 × EGALISATION` que la ligne arrive à `[6,6,6,6]` ou à `[6,6,6,7]`.
+      //   Le barème annonçait pourtant la distinction — `score.js` la cite
+      //   telle quelle dans ce que l'élégance mesure, « une moyenne qui ne
+      //   tombe pas juste » — et `ARRONDISSENT` ne contenait que les trois
+      //   combinateurs. C'était une omission, pas un arbitrage.
+      //
+      //   On réemploie le poste `ARRONDI` plutôt que d'en ouvrir un : le geste
+      //   payé est le même, à la même échelle, et un poste de plus rendrait le
+      //   récapitulatif du barème moins lisible pour rien.
+      b.arrondi += amplitudeArrondi(avant.valeur);
     }
     // …et un mappeur qui ne sait pas convertir tous ses jetons en laisse tomber
     //    aussi (le quatorze segments cale sur un tiret).
