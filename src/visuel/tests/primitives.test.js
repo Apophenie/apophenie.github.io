@@ -1158,14 +1158,24 @@ test('table : un caractère hors de la table dégrade sans table', () => {
 const encartDe = (tl, id) => tl.nodes.find((n) => n.id === `@encart:${id}`);
 const compteurDe = (tl, id) => tl.nodes.find((n) => n.id === `@compteur:${id}`);
 /**
- * ★ L'afficheur est un DÉCOR, et son identité est celle de ce qu'il MONTRE —
- * l'afficheur et son régime (segments comptés un par un, ou traits fusionnés) —,
- * jamais celle de la lettre qui passe dedans. C'est ce qui lui permet de rester
- * en place d'une conversion à la suivante, comme la table et le clavier. Le
- * comptage de traits, lui, garde un encart par jeton : ce qu'il montre EST la
- * lettre.
+ * ★ **L'AFFICHEUR EST UN DÉCOR, ET SON CADRE EST CELUI DE SON CARACTÈRE.**
+ *
+ * Ce test gelait l'inverse : « son identité est celle de ce qu'il MONTRE —
+ * l'afficheur et son régime —, jamais celle de la lettre qui passe dedans »,
+ * un seul cadre au centre de la vue dans lequel les lettres défilaient.
+ *
+ * L'auteur a demandé le retournement : « un par caractère à convertir, posé
+ * près du caractère concerné ». Deux raisons, et la seconde est dirimante — un
+ * afficheur central ne dit pas QUEL caractère il convertit, et surtout deux
+ * conversions jouées ensemble (mode « Simultané ») auraient partagé les mêmes
+ * nœuds de segments : le même trait allumé deux fois pour deux comptes
+ * différents. Le raisonnement complet est en tête de `primitives/encart.js`.
+ *
+ * Ce qui reste mutualisé est la FAMILLE — l'outil, son régime, son nom : elle
+ * décide quels cadres forment une rangée, et s'en va d'un coup à la dernière
+ * conversion.
  */
-const cleSeg = (nom, regime) => `${nom}:${regime}`;
+const cleSeg = (nom, regime, cible = 't0') => `${nom}:${regime}:${cible}`;
 const segDe = (cle, k) => `@seg:${cle}:${k}`;
 
 test('sevenSeg : encart, compteur, allumage un à un, puis substitution', () => {
