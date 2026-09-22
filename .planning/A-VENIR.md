@@ -16,6 +16,33 @@
 
 ## Le classement
 
+- **Reprise du 22 septembre : la moisson du domaine est restaurée.** La lecture
+  ASCII des points avait changé la récolte maximale et supprimé la variante
+  `0:nv,2+3:flt+mpy+mr9`. `assemblage.js` propose désormais aussi une récolte des
+  portées lexicales, sans retirer la maximale. Aux curseurs `p25.200.50.150`,
+  la voie demandée revient **1ʳᵉ (global 733)** devant `fl+mqwc+meg`
+  (**2ᵉ, global 725**), dans une liste de 24 voies au lieu de 23. Aucun poids du
+  barème ne change. Le test « score arbitre 7 » vérifie également que la voie
+  dépassée reste dans la liste, que la moisson annonce trois séries et qu’elle
+  ne perd aucun caractère alphanumérique selon le bilan. Les constats historiques
+  ci-dessous sur son absence sont donc dépassés ; les cas Marie Curie et la
+  moisson groupée de `hope-hope-hope.fr` restent distincts.
+- **Le vieux lien Louis Fouché est maintenant refusé comme non concluant.**
+  `fr9+mas+mrd+meg` n’était plus fabriqué, mais son rejeu restait accepté par le
+  repli `DECRET`, malgré un résultat 3. Le rejeu contrôle désormais qu’un décret
+  contient réellement le chiffre répété de sa cible avant d’accepter cette
+  compatibilité historique. Le lien fautif affiche un bandeau explicite ; un
+  vrai ancien décret (`nl,nl,nl` sur « macron », qui obtient 6) reste lisible.
+  Tests : `rejeu-non-concluant.test.js`, sans recherche coûteuse.
+- **Marie Curie : préférence légère conservée, pas de nouveau malus arbitraire.**
+  L’avis était « Je préfère mz26 à mas, mais à part ça les deux me vont ».
+  Le rejeu de `fl+mz26+mr9+mrdE` vaut 650 au global, contre 672 pour
+  `fmaj+mas+mrdE` : son retournement supplémentaire coûte en simplicité
+  (877 contre 935) et en cohérence (610 contre 643). La voie `mz26` est absente
+  de la recherche actuelle, mais sa préférence sur la conversion seule ne
+  justifie pas d’effacer le coût des autres gestes du programme. Les deux
+  démos atteignent bien 666 ; aucune demande d’arbitrage supplémentaire.
+
 - **Cas 13 — sur « hope », le simple `m14` devrait mener.** Il n'entre même pas
   dans la liste : « m14 écarté par le pré-tri des sièges de vecteursDeSix aux
   curseurs par défaut (assemblage.js) ». Test `todo` « score arbitre 13 » dans

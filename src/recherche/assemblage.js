@@ -3143,6 +3143,14 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
   ajouter(recolter(porteesParFamille, true, reduireLeSurplusHistorique), [NEE_D_UNE_FAMILLE]);
   ajouter(recolter(portees, false, reduireLeSurplus), [NEE_DE_LA_REDUCTION]);
   ajouter(recolter(porteesParFamille, true, reduireLeSurplus), [NEE_D_UNE_FAMILLE, NEE_DE_LA_REDUCTION]);
+  // Une nouvelle lecture des séparateurs (ASCII, par exemple) ne doit pas
+  // supprimer la moisson des mots et des nombres. La maximale garde toutes
+  // ses portées ; cette variante récolte uniquement les portées lexicales.
+  // Elle concourt au classement ordinaire, comme toute autre moisson.
+  const porteesLexicales = porteesParFamille.filter((p) => /[\p{L}\p{N}]/u.test(p.texte));
+  if (porteesLexicales.length !== porteesParFamille.length) {
+    ajouter(recolter(porteesLexicales, true, reduireLeSurplusHistorique), []);
+  }
   return out;
 
   /** La récolte d'un jeu de portées — le code d'avant, tel quel. */

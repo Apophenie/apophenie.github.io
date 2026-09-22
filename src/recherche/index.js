@@ -2152,6 +2152,20 @@ export function creerMoteur(catalogue, options = {}) {
       parts,
       ...deduireMode(parts, { saisie: texte, jetons, cible: cbl, liaison: lia, segments: enSegments ? segs : undefined }),
     };
+    // Les anciens décrets répétaient un chiffre réellement obtenu. Le mode
+    // sert aussi de repli à deduireMode : il ne prouve donc pas qu'un chiffre
+    // de la cible existe. Un résultat 3 ne peut pas décréter des 6.
+    if (approche.mode === 'DECRET') {
+      const chiffre = cbl.alphabet.length === 1 ? cbl.alphabet[0] : null;
+      const apporteLeChiffre = (p) => {
+        const fin = p.chemin.etats.at(-1);
+        return chiffre !== null && (fin.type === 'NUM' ? fin.valeur === chiffre
+          : fin.type === 'NUMS' && fin.valeur.includes(chiffre));
+      };
+      if (!parts.every(apporteLeChiffre)) {
+        return { ok: false, raison: 'démonstration non concluante', bandeau: BANDEAUX.nonConcluante };
+      }
+    }
     if (enSegments) {
       // ★ **REFUSÉ, ET BRUYAMMENT : une phrase qui recopie la saisie.** Un lien
       //   écrit avant cette règle — ou à la main — dont deux segments relisent
