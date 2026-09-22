@@ -767,7 +767,7 @@ function buildTable(node, fs, palette) {
     // ★ La seconde bande d'une glissière est dessinée AILLEURS — case par case,
     //   sur des nœuds mobiles (`primitives/glissiere.js`). La dessiner ici
     //   aussi la ferait voir deux fois : une immobile, une qui coulisse.
-    if (node.data.bandeSeparee && c.ligne === 1) continue;
+    if (node.data.hautSepare || (node.data.bandeSeparee && c.ligne === 1)) continue;
     cible.appendChild(el('rect', {
       x: c.x, y: c.y, width: c.w, height: c.h, rx: 4,
       fill: fondDeCase(c, palette), stroke: palette.line, 'stroke-width': 1,

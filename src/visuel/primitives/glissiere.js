@@ -47,17 +47,12 @@
  * un chiffrement qui ne serait pas un déplacement n'aurait de toute façon pas
  * obtenu ce dessin.
  *
- * ## ★ Le sens du coulissement : le plus court, et à égalité vers la droite
- *
- * Glisser de `p` rangs vers la droite ou de `26 − p` vers la gauche donne la
- * MÊME bande : le modulo ne distingue pas. On prend donc le plus court — c'est
- * celui qui se lit, et sur un décalage de 3 personne n'a envie de regarder
- * courir 23 cases. À égalité (treize, le César classique, seul cas où les deux
- * chemins font la même longueur) on va vers la DROITE, comme l'auteur l'a
- * décrit : « fais coulisser la partie gauche de 13 crans pour la placer sous
- * celle de droite ».
+ * Le César avance désormais toujours du cran 0 vers le décalage demandé.
+ * `poserBandeCesar` garde les alphabets contigus jusqu'à l'arrivée ; le trajet
+ * historique ci-dessous reste celui du miroir et des autres glissières.
  */
 
+import { compterCrans } from './compteurCesar.js';
 import { EASE } from '../constants.js';
 // ★ Le calcul du miroir — la demi-ellipse, l'aplatissement, le rétrécissement —
 //   est écrit UNE fois et partagé avec le miroir de la LIGNE (`move.js`,
@@ -394,4 +389,81 @@ function gabarit(bas, col, board, fantome = false) {
 function fraction(xDepart, dx, cible) {
   if (!dx) return null;
   return Math.min(Math.max((cible - xDepart) / dx, 0), 1);
+}
+
+export function tempsCesar(ctx, geo, t0) {
+  const hauts = geo.cells.filter((c) => c.ligne === 0);
+  const premier = geo.cells.find((c) => c.ligne === 1);
+  const decalage = hauts.findIndex((c) => c.labels[0].text === premier.labels[0].text);
+  const descente = ctx.dur * 0.24;
+  const debut = t0 + descente + ctx.dur * 0.12;
+  const course = Math.max(1, decalage) * 150 / ctx.speed;
+  return { decalage, descente, debut, course, arrivee: debut + course, ouverture: ctx.dur * 0.24 };
+}
+
+/** César : duplication verticale, crans croissants, puis ouverture de la couture. */
+export function poserBandeCesar(ctx, spec) {
+  const { board, boardPos, geo, deployer, t0, compteur } = spec;
+  const hautes = geo.cells.filter((c) => c.ligne === 0);
+  const basses = geo.cells.filter((c) => c.ligne === 1);
+  const n = hautes.length;
+  const { decalage, descente, debut, course, arrivee, ouverture } = tempsCesar(ctx, geo, t0);
+  const noeud = ctx.scene.get(board);
+  noeud.data.bande ||= [];
+  const x = (col) => boardPos.x + (col - (n - 1) / 2) * geo.cellW;
+  const point = (c) => ({ x: boardPos.x + c.cx, y: boardPos.y + c.cy });
+  const creer = (id, c, pos) => {
+    if (!ctx.scene.has(id)) {
+      ctx.scene.create({ id, role: ROLE_CASE, inFlow: false, w: c.w,
+        data: { h: c.h, rx: 4, texte: c.labels[0].text, taille: c.labels[0].size, tone: c.labels[0].tone },
+        base: { opacity: 0, translate: pos } });
+      ctx.scene.place(id, pos);
+      noeud.data.bande.push(id);
+    }
+  };
+  for (let col = 0; col < n; col++) {
+    const haut = hautes[col], id = `${board}:haut:${col}`;
+    creer(id, haut, { x: x(col), y: boardPos.y + haut.cy });
+    if (deployer) {
+      ctx.anim({ id, prop: 'translate', to: { x: x(col), y: boardPos.y + haut.cy }, at: 0, dur: 1 / ctx.speed });
+      ctx.anim({ id, prop: 'opacity', to: 1, at: 0, dur: ctx.dur * 0.16 });
+      ctx.scene.place(id, { x: x(col), y: boardPos.y + haut.cy });
+      ctx.place(id, point(haut), { at: arrivee, dur: ouverture });
+    } else ctx.place(id, point(haut), { at: 0, dur: ctx.dur * 0.2 });
+  }
+  basses.forEach((bas, col) => {
+    const dep = (col + decalage) % n;
+    const traverse = dep < decalage;
+    for (const fantome of traverse ? [false, true] : [false]) {
+      const id = `${board}:${fantome ? 'sortant' : 'bas'}:${col}`;
+      const depart = dep + (traverse && !fantome ? n : 0);
+      const p0 = { x: x(depart), y: boardPos.y + hautes[0].cy };
+      creer(id, bas, p0);
+      if (!deployer) {
+        if (!fantome) ctx.place(id, point(bas), { at: 0, dur: ctx.dur * 0.2 });
+        continue;
+      }
+      // Les copies visibles naissent sur le haut et descendent ensemble.
+      const visible = depart < n;
+      ctx.anim({ id, prop: 'translate', to: p0, at: 0, dur: 1 / ctx.speed });
+      ctx.anim({ id, prop: 'opacity', to: visible ? 1 : 0, at: 0, dur: ctx.dur * 0.16 });
+      ctx.anim({ id, prop: 'translate', from: p0, to: { x: p0.x, y: boardPos.y + bas.cy }, at: t0, dur: descente });
+      ctx.anim({ id, prop: 'translate', from: { x: p0.x, y: boardPos.y + bas.cy },
+        to: { x: x(depart - decalage), y: boardPos.y + bas.cy }, at: debut, dur: course, ease: EASE.linear });
+      if (traverse) {
+        const bord = fantome ? (dep + 0.5) / decalage : (depart - n + 0.5) / decalage;
+        const marge = Math.min(0.08 / decalage, bord / 2, (1 - bord) / 2);
+        ctx.anim({ id, prop: 'opacity', values: fantome ? [1, 1, 0, 0] : [0, 0, 1, 1],
+          offsets: [0, bord - marge, bord + marge, 1], at: debut, dur: course, ease: EASE.linear });
+      }
+      if (!fantome) {
+        // La couture ne s'ouvre qu'une fois le bon cran atteint.
+        ctx.scene.place(id, { x: x(col), y: boardPos.y + bas.cy });
+        ctx.place(id, point(bas), { at: arrivee, dur: ouverture });
+      }
+    }
+  });
+  if (!deployer) return t0;
+  return compteur ? compterCrans(ctx, compteur, decalage, debut, course, ouverture)
+    : arrivee + ouverture + ctx.dur * 0.24;
 }

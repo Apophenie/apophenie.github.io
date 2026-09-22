@@ -380,10 +380,10 @@ export const fr = {
        contraire pour vouloir dire quelque chose. Le nom accessible dit ce que
        le réglage GOUVERNE, pas ce qu'il vaut — c'est un choix parmi deux, pas
        une bascule, et son état se lit dans la valeur affichée. */
-    rythme: 'Rythme des opérations',
-    rythmeCourt: 'Rythme',
+    rythme: 'Exécution des opérations',
+    rythmeCourt: 'Opérations',
     rythmePasAPas: 'Pas à pas',
-    rythmeSimultane: 'Simultané',
+    rythmeSimultane: 'Simultanées',
     groupe: 'Contrôles de la démonstration',
     jauge: 'Aller à une étape',
     jaugeCase: 'Aller à l’étape {i} sur {total}',

@@ -2,6 +2,7 @@
 import { tokenSpec, ancreVue } from './helpers.js';
 import { tableGeometry } from '../assets.js';
 import { EASE, CAMERA_ID } from '../constants.js';
+import { placerCibleCesar } from './compteurCesar.js';
 import { fail } from '../errors.js';
 
 export const name = 'atelier';
@@ -24,28 +25,6 @@ export function cadrageAtelier(ctx) {
 
 function cadrer(ctx, cadre) {
   for (const prop of ['scale', 'translate']) ctx.anim({ id: CAMERA_ID, prop, to: cadre[prop], at: 0, dur: ctx.dur * 0.2 });
-}
-
-export function placerNomCesar(ctx, nombre, y, x = ancreVue(ctx).x, at = 0) {
-  const n = ctx.scene.live(nombre, ctx.where);
-  const id = n.data?.nomCesar || ctx.scene.gensym('nomCesar');
-  const nom = ctx.op.nom || n.data?.cesarNom || (ctx.op.langue === 'en' ? 'Caesar' : 'César');
-  const taille = 0.5;
-  const wNom = ctx.metrics.advance * taille * [...nom].length;
-  const wNombre = n.w * taille;
-  const gap = ctx.metrics.fontSize * 0.22;
-  const gauche = x - (wNom + gap + wNombre) / 2;
-  if (!ctx.scene.has(id)) {
-    ctx.scene.create({ id, role: 'label', text: nom, inFlow: false,
-      w: wNom, data: { scale: taille }, base: { opacity: 0, fill: ctx.palette.fg2 } });
-    ctx.scene.place(id, { x: gauche + wNom / 2, y });
-  }
-  n.data = { ...n.data, nomCesar: id, cesarNom: nom };
-  ctx.place(id, { x: gauche + wNom / 2, y }, { at, dur: ctx.dur * 0.5 });
-  ctx.anim({ id, prop: 'opacity', to: 1, at, dur: ctx.dur * 0.4 });
-  ctx.place(nombre, { x: gauche + wNom + gap + wNombre / 2, y }, { at, dur: ctx.dur * 0.5 });
-  ctx.anim({ id: nombre, prop: 'scale', to: taille, at, dur: ctx.dur * 0.5 });
-  return id;
 }
 
 export function plan(ctx) {
@@ -89,6 +68,7 @@ export function plan(ctx) {
   scene.ateliers.delete(actif);
   const cam = scene.get(CAMERA_ID);
   cadrer(ctx, { scale: cam.base.scale ?? 1, translate: cam.base.translate ?? { x: 0, y: 0 } });
-  placerNomCesar(ctx, resultat.id, hauteurTitreCesar(ctx));
+  resultat.data = { ...resultat.data, cesarNom: op.nom || 'César' };
+  placerCibleCesar(ctx, resultat.id, ancreVue(ctx).x, hauteurTitreCesar(ctx));
   ctx.reflow({ dur: ctx.dur * 0.5 });
 }

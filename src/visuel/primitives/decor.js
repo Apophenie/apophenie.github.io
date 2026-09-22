@@ -220,6 +220,12 @@ export function monterDecor(ctx, spec) {
   // Déjà monté ou non, le décor suit la VUE : si la ligne a défilé entre deux
   // étapes, le milieu de l'écran n'est plus celui de la scène. Le titre est
   // solidaire du décor qu'il nomme — il le suit du même mouvement.
+  const precedent = ctx.scene.pos(id);
+  if (precedent) for (const sid of (ctx.scene.get(id).data.preuveTitre || [])) {
+    const p = ctx.scene.pos(sid);
+    if (p) ctx.place(sid, { x: p.x + pos.x - precedent.x, y: p.y + pos.y - precedent.y },
+      { at: 0, dur: T * TEMPS.DECOR_GLISSE });
+  }
   ctx.place(id, { x: pos.x, y: pos.y, w: width }, { at: 0, dur: T * TEMPS.DECOR_GLISSE });
   if (titre.texte) {
     ctx.place(idTitre(id), { x: pos.x, y: titre.y }, { at: 0, dur: T * TEMPS.DECOR_GLISSE });
@@ -275,9 +281,11 @@ export function allerRetour(ctx, spec) {
 
   // ── … et la valeur en redescend AUSSITÔT, à la place laissée libre ───────
   const idx = ctx.scene.flowIndex(src.id);
+  const placeSource = ctx.scene.pos(src.id);
   ctx.scene.create({
     id: to.id, text: to.text, kind: to.kind || spec.kind || 'number', group: to.group ?? src.group,
     role: 'text', inFlow: true, insertAt: idx < 0 ? undefined : idx + 1,
+    ...(ctx.tableVague ? { w: src.w } : {}),
     ...espacementDe(ctx, src.id),
     base: { opacity: 0, fill: ctx.palette.gold },
   }, { where: ctx.where });
@@ -289,7 +297,10 @@ export function allerRetour(ctx, spec) {
     id: to.id, prop: 'scale', values: [0.8, 1.25, 1], offsets: [0, 0.55, 1],
     at: t0 + T * TEMPS.REFLOW, dur: T * TEMPS.REFLOW_DUR, ease: EASE.pop,
   });
-  ctx.reflow({ at: t0 + T * TEMPS.REFLOW, dur: T * TEMPS.REFLOW_DUR, ease: EASE.move });
+  if (ctx.tableVague) {
+    ctx.tableVague.sorties.push(to.id);
+    ctx.place(to.id, placeSource, { at: t0 + T * TEMPS.REFLOW, dur: T * TEMPS.REFLOW_DUR, ease: EASE.move });
+  } else ctx.reflow({ at: t0 + T * TEMPS.REFLOW, dur: T * TEMPS.REFLOW_DUR, ease: EASE.move });
   ctx.anim({ id: c.id, prop: 'opacity', to: 0, at: t0 + T * TEMPS.HALO_OFF, dur: T * TEMPS.HALO_OFF_DUR });
 
   return t0 + T * TEMPS.FIN;

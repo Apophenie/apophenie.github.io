@@ -153,7 +153,7 @@ test('les copies descendent sans déplacer les originaux et le nombre devient le
       assert.ok(lire.valeur(resultat, 'opacity', finCalcul) > 0.9);
       const nom = tl.nodes.find((n) => n.text === 'César');
       assert.ok(nom);
-      assert.ok(lire.valeur(nom.id, 'opacity', finCalcul) > 0.9);
+      assert.ok(lire.valeur(nom.id, 'opacity', finCalcul) < 0.01, 'le nom paraît avec la table');
       assert.equal(lire.valeur(resultat, 'opacity', tl.total), 0);
       assert.equal(lire.valeur(nom.id, 'opacity', tl.total), 0);
       assert.ok(!tl.nodes.some((n) => /justifi/i.test(n.text || '')));

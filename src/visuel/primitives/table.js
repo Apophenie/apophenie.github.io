@@ -124,7 +124,8 @@
  * caméra ne bouge plus, et les lettres se succèdent dans un cadrage stable.
  */
 
-import { placerNomCesar } from './atelier.js';
+import { measureText } from '../layout.js';
+import { preparerCompteur } from './compteurCesar.js';
 import { tokenSpec, ancreVue } from './helpers.js';
 // ★ Le geste — monter le décor, allumer la case, faire passer le caractère
 //   PAR-DESSUS, faire redescendre la valeur — est écrit une seule fois, et
@@ -137,7 +138,7 @@ import {
 //   est faite de cases à part, parce qu'elle DOIT pouvoir bouger — elle paraît
 //   alignée sur la première, puis se déplace pour montrer le déplacement que la
 //   table, sans cela, se contenterait d'affirmer.
-import { poserBande, finDuDeplacement } from './glissiere.js';
+import { poserBande, poserBandeCesar, tempsCesar, finDuDeplacement } from './glissiere.js';
 import {
   tableGeometry, alphabetEntries,
   normalizeOrdre, normalizeDisposition, ALPHABET_ORDRES, DISPOSITIONS, TEINTES,
@@ -200,6 +201,18 @@ export function plan(ctx) {
   if (disposition === 'glissiere') verifierGlissiere(ctx, op, geo);
   else if (disposition === 'modulo') verifierModulo(ctx, op, geo);
   else if (op.cycle === true) verifierCycle(ctx, geo);
+  if (ctx.tableVague && ctx.rangVague === 0) {
+    for (const o of ctx.tableVague.ops) {
+      const source = ctx.scene.live(o.target, ctx.where);
+      if (o.to) source.w = Math.max(source.w, measureText(o.to.text, ctx.metrics));
+    }
+    ctx.reflow({ at: 0, dur: ctx.dur * 0.2 });
+    if (geo.roule) {
+      const rangs = ctx.tableVague.ops.map((o) => geo.cells[geo.index[String(o.letter).toUpperCase()].cell].ligne);
+      const premier = Math.max(0, Math.max(...rangs) - geo.fenetre + 1);
+      ctx.tableVague.roulis = -premier * geo.pas;
+    }
+  }
   const src = ctx.scene.live(op.target, `${ctx.where}« target » : `);
   const to = op.to === undefined || op.to === null ? null : tokenSpec(ctx, op.to, 'to');
 
@@ -246,24 +259,30 @@ export function plan(ctx) {
   const bandeSeparee = disposition === 'glissiere';
   // Le nom d'une glissière ne paraît qu'une fois sa bande arrivée : c'est le
   // déplacement qui prouve la règle, le nom ne fait que la conclure.
-  const titreAt = bandeSeparee && deployer
+  const temps = bandeSeparee && geo.sens === 1 ? tempsCesar(ctx, geo, ctx.dur * TEMPS_DECOR.MONTEE) : null;
+  const titreAt = temps ? temps.arrivee + temps.ouverture : bandeSeparee && deployer
     ? finDuDeplacement(ctx.dur, ctx.dur * TEMPS_DECOR.MONTEE)
     : 0;
-  let t0 = monterDecor(ctx, {
-    id: board, role: 'table', titre, data: { geo, disposition, bandeSeparee },
-    pos: boardPos, width: geo.width, deployer, titreAt,
-    encombrement: {
-      haut: boardPos.y - geo.height / 2,
-      bas: boardPos.y + geo.height / 2 + (op.preuve ? ctx.metrics.fontSize * 0.82 : 0),
-      largeur: geo.width,
-      pad: PAD,
-    },
-  });
-  if (op.preuve) {
-    const nom = placerNomCesar(ctx, op.preuve, boardPos.y + geo.height / 2 + ctx.metrics.fontSize * 0.52, boardPos.x);
-    ctx.scene.get(board).data.preuveTitre = [op.preuve, nom];
-  }
-  if (bandeSeparee) t0 = poserBande(ctx, { board, boardPos, geo, deployer, t0 });
+  let t0;
+  const suiteVague = ctx.tableVague && ctx.rangVague > 0;
+  if (!suiteVague) {
+    t0 = monterDecor(ctx, {
+      id: board, role: 'table', titre, data: { geo, disposition, bandeSeparee, hautSepare: bandeSeparee && geo.sens === 1 },
+      pos: boardPos, width: geo.width, deployer, titreAt,
+      encombrement: {
+        haut: boardPos.y - geo.height / 2,
+        bas: boardPos.y + geo.height / 2 + (op.preuve ? ctx.metrics.fontSize * 0.82 : 0),
+        largeur: geo.width,
+        pad: PAD,
+      },
+    });
+    let compteur = null;
+    if (op.preuve && deployer) {
+      compteur = preparerCompteur(ctx, op.preuve, boardPos.x, boardPos.y + geo.height / 2 + ctx.metrics.fontSize * 0.52);
+      ctx.scene.get(board).data.preuveTitre = [op.preuve, ...compteur.ids];
+    }
+    if (bandeSeparee) t0 = (geo.sens === 1 ? poserBandeCesar : poserBande)(ctx, { board, boardPos, geo, deployer, t0, compteur });
+  } else t0 = ctx.tableVague.pret;
 
   // ── 2. l'aller-retour de CETTE lettre, en entier ────────────────────────
   //   ★ Le geste est celui du clavier, au mot près (`decor.js`) : la lettre
@@ -292,9 +311,9 @@ export function plan(ctx) {
   //     ne bouge PAS — il tombe de la quotation, qui est hors du volet et ne
   //     défile pas. C'est le même écart que celui qui existe entre le barème et
   //     les rangées, et le décaler serait faire descendre le barème avec elles.
-  const roulis = geo.roule ? (place.roulis || 0) : 0;
+  const roulis = geo.roule ? (ctx.tableVague?.roulis ?? place.roulis ?? 0) : 0;
   let tRoue = t0;
-  if (roulis) {
+  if (geo.roule && !suiteVague) {
     // ★ La durée suit la COURSE, bornée aux deux bouts : en deçà de 400 ms le
     //   mouvement ne se lit pas, au-delà de 1 400 il fait attendre. Entre les
     //   deux, elle est proportionnelle — une descente de cinquante rangées doit
@@ -308,6 +327,7 @@ export function plan(ctx) {
     tRoue = t0 + duree;
   }
 
+  if (ctx.tableVague && !suiteVague) ctx.tableVague.pret = tRoue;
   const fin = allerRetour(ctx, {
     src, to, t0: tRoue, kind: 'number',
     case: {
@@ -323,7 +343,7 @@ export function plan(ctx) {
   });
 
   // ── 3. le décor se retire — seulement si la suite ne l'emploie plus ─────
-  if (replier) replierDecor(ctx, board, fin);
+  if (ctx.tableVague ? ctx.rangVague === ctx.tableVague.taille - 1 : replier) replierDecor(ctx, board, fin);
 }
 
 /* ── ce qu'il y a à montrer ──────────────────────────────────────────────── */

@@ -311,8 +311,8 @@ export const en = {
     // anyone can read, rather than the engineering pair « sequential /
     // parallel » — the latter only means something to someone who already knows
     // what it is the opposite of.
-    rythme: 'Rhythm of the operations',
-    rythmeCourt: 'Rhythm',
+    rythme: 'Operation execution',
+    rythmeCourt: 'Operations',
     rythmePasAPas: 'Step by step',
     rythmeSimultane: 'Simultaneous',
     groupe: 'Demonstration controls',

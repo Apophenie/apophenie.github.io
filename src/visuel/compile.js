@@ -57,7 +57,7 @@ import {
   MARGIN,
 } from './constants.js';
 import { ciblesDuStep, boiteDuFlux, panPour, memePan } from './defilement.js';
-import { bboxOf } from './layout.js';
+import { bboxOf, measureText } from './layout.js';
 import { fail, at as loc } from './errors.js';
 import { validateScenario } from './scenario.js';
 import { Scene } from './scene.js';
@@ -65,6 +65,7 @@ import { defaultMetrics, defaultLayoutOptions } from './layout.js';
 import { PRIMITIVES } from './primitives/index.js';
 import { indexDiscrete } from './clock.js';
 import { ordonnerLesOps, normaliserRythme, ONDE_SIMULTANE, empreinteDe } from './rythme.js';
+import { MODULO_LIGNES_MAX, tableGeometry } from './assets.js';
 import { ENCART } from './primitives/encart.js';
 import { rangerLesAfficheurs, combienTiennent } from './placement.js';
 
@@ -241,20 +242,40 @@ export function compile(scenario, options = {}) {
     cadre: { min: viewBox.x + MARGIN, max: viewBox.x + viewBox.w - MARGIN },
     plancher: 1,
   };
-  const conversions = new Set(['sevenSeg', 'fourteenSeg', 'countStrokes']);
+  const conversions = new Set(['sevenSeg', 'fourteenSeg', 'countStrokes', 'table']);
+  const geometries = new WeakMap();
+  const conversionEnTable = (o) => {
+    if (o.op !== 'table' || !o.entries || !o.letter) return true;
+    if (!geometries.has(o)) geometries.set(o, tableGeometry({ entries: o.entries,
+      disposition: o.disposition, colonnes: o.colonnes, cycle: o.cycle, teinte: o.teinte }));
+    return !!geometries.get(o).index[String(o.letter).toUpperCase()];
+  };
   const regroupable = (s) => s.ops?.length === 1 && conversions.has(s.ops[0].op)
-    && s.duration === undefined && !(s.ops[0].at ?? 0);
+    && s.duration === undefined && !(s.ops[0].at ?? 0) && conversionEnTable(s.ops[0]);
+  const cleTable = (o) => JSON.stringify([o.entries, o.ordre, o.disposition, o.colonnes, o.cycle, o.teinte, o.titre, o.preuve, o.dur, o.zoom]);
+  // Une table à volet ne peut montrer deux rangées plus éloignées que sa fenêtre.
+  const memeFenetre = (ops) => {
+    if (ops[0].disposition !== 'modulo') return true;
+    const rangs = ops.map((o) => Math.floor(o.entries.findIndex((e) => String(e.char) === String(o.letter)) / (o.colonnes || o.entries.length)));
+    return Math.max(...rangs) - Math.min(...rangs) < MODULO_LIGNES_MAX;
+  };
+  const empreinteConversion = (o) => {
+    const e = empreinteDe(o);
+    if (o.op === 'table' && e instanceof Set) e.delete(o.preuve);
+    return e;
+  };
   const vagues = [];
   for (const original of scenario.steps) {
     const precedente = vagues.at(-1);
     const op = original.ops?.[0];
-    const emp = op && empreinteDe(op);
+    const emp = op && empreinteConversion(op);
     const rejoint = !reduced && rythme === 'simultane' && regroupable(original)
       && precedente && regroupable(precedente.entrees[0])
       && precedente.ops[0].op === op.op
-      && precedente.entrees.length < combienTiennent(placeEncarts)
+      && (op.op === 'table' ? cleTable(precedente.ops[0]) === cleTable(op) && memeFenetre([...precedente.ops, op])
+        : precedente.entrees.length < combienTiennent(placeEncarts))
       && emp instanceof Set && precedente.ops.every((autre) => {
-        const pris = empreinteDe(autre);
+        const pris = empreinteConversion(autre);
         return pris instanceof Set && [...emp].every((id) => !pris.has(id));
       });
     if (rejoint) {
@@ -307,12 +328,15 @@ export function compile(scenario, options = {}) {
      *   les durées valent `DUR_REDUCED_OP`. Ordonner des gestes qui n'ont pas
      *   lieu serait un calcul sans objet — et c'est la même raison qui retire le
      *   bouton de la barre dans ce cas (`app/transport.js`). */
-    const ops = reduced
+    const tableVague = enVague && step.ops[0].op === 'table' ? { sorties: [], ops: step.ops, taille: step.ops.length } : null;
+    const ops = tableVague
+      ? step.ops.map((op, i) => ({ op, i, at: i * ONDE_SIMULTANE }))
+      : reduced
       ? (step.ops || []).map((op, i) => ({ op, i, at: 0, fadeAt: op.fadeAt }))
       : ordonnerLesOps(step, { rythme });
 
     let encarts = null;
-    if (enVague) {
+    if (enVague && !tableVague) {
       const { x } = rangerLesAfficheurs(step.ops.map((op) => scene.pos(op.target).x), {
         ...placeEncarts,
         cadre: { min: placeEncarts.cadre.min - panFocus.x, max: placeEncarts.cadre.max - panFocus.x },
@@ -333,6 +357,8 @@ export function compile(scenario, options = {}) {
       const ctx = {
         op,
         encarts,
+        tableVague,
+        rangVague: i,
         scene,
         metrics,
         layoutOpts,
@@ -593,6 +619,10 @@ export function compile(scenario, options = {}) {
     }
     // Tous les nombres redescendent à la place de leur caractère. La ligne
     // ne se redistribue qu'une fois la vague terminée.
+    if (tableVague) for (const id of tableVague.sorties) {
+      const n = scene.get(id);
+      n.w = measureText(n.text, metrics);
+    }
     if (enVague) dernierCtx.reflow({ at: extent - dernierCtx.debutOp, dur: scale(DEFAULT_DUR.move, speed) });
 
     // --- défilement : le cadrage de repos, une fois le geste accompli --------
