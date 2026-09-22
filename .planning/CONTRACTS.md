@@ -4690,7 +4690,9 @@ Les bornes des membres d’une vague sont leurs départs, et la dernière borne
 attend la fin de toutes les opérations et de leur redistribution commune.
 Une animation peut donc dépasser la borne de navigation de sa conversion,
 mais jamais celle de sa vague. Ce regroupement ne s’applique pas au mouvement
-réduit ni aux étapes portant une pause ou une durée explicite.
+réduit ni aux étapes portant une durée explicite. Les pauses `hold` sont
+mutualisées à la fin de chaque vague : leur maximum est conservé une fois,
+sans intercaler de pause entre les départs des conversions.
 
 En « Pas à pas », chaque geste transformant attend la fin du précédent, même
 s’ils sont de types différents. Les marques accompagnent le geste sans

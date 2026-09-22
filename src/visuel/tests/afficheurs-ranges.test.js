@@ -289,3 +289,39 @@ test('comptage et quatorze segments — mêmes nombres, départs en vague sans a
       pas.scene.flow.map((id) => pas.scene.get(id).text));
   }
 });
+
+test('vagues — les pauses de lecture se mutualisent à leur maximum en fin de vague', () => {
+  const scenario = conversions('hhh');
+  scenario.steps.forEach((s, i) => { s.hold = [400, 800, 600][i]; });
+  const tl = compile(scenario, { rythme: 'simultane' });
+  const sansPause = compile(conversions('hhh'), { rythme: 'simultane' });
+  assert.deepEqual(tl.steps.map((s) => s.t0), [0, 100, 200]);
+  assert.deepEqual(tl.steps.map((s) => s.hold), [0, 0, 800]);
+  assert.equal(tl.total - sansPause.total, 800);
+});
+
+test('vagues — le vrai scénario URL garde ses conversions et joue malgré les holds du pont', async () => {
+  const { creerMoteur } = await import('../../recherche/index.js');
+  const { CATALOGUE } = await import('../../moteur/catalogue.js');
+  const { lire } = await import('../../recherche/url.js');
+  const { GLYPHES: glyphesReels } = await import('../../moteur/tables/glyphes.js');
+  const m = creerMoteur(CATALOGUE);
+  const replay = m.rejouer(lire('?sce!fl+m14$:hope-hope-hope.fr'));
+  assert.ok(replay.ok, replay.raison);
+  const scenario = m.scenarioDe(replay.approche, { saisie: 'hope-hope-hope.fr' });
+  const indices = scenario.steps.flatMap((s, i) => s.ops.length === 1 && s.ops[0].op === 'fourteenSeg' ? [i] : []);
+  assert.ok(indices.length > 3);
+  assert.ok(indices.every((i) => scenario.steps[i].hold === 400));
+  const sim = compile(scenario, { rythme: 'simultane', glyphes: glyphesReels });
+  const pas = compile(scenario, { rythme: 'pasAPas', glyphes: glyphesReels });
+  const conversions = indices.map((i) => sim.steps[i]);
+  assert.deepEqual(conversions.slice(0, 3).map((s) => s.t0 - conversions[0].t0), [0, 100, 200]);
+  assert.ok(conversions[3].t0 > conversions[2].t1 - 1);
+  assert.ok(sim.total < pas.total);
+  assert.deepEqual(sim.steps.map((s) => [s.id, s.caption, s.figure]),
+    pas.steps.map((s) => [s.id, s.caption, s.figure]));
+  assert.deepEqual(sim.scene.flow.map((id) => sim.scene.get(id).text),
+    pas.scene.flow.map((id) => pas.scene.get(id).text));
+  assert.deepEqual(sim.warnings, []);
+  assert.deepEqual(conversions.slice(0, 3).map((s) => s.hold), [0, 0, 400]);
+});

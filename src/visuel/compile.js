@@ -243,7 +243,7 @@ export function compile(scenario, options = {}) {
   };
   const conversions = new Set(['sevenSeg', 'fourteenSeg', 'countStrokes']);
   const regroupable = (s) => s.ops?.length === 1 && conversions.has(s.ops[0].op)
-    && !s.duration && !s.hold && !(s.ops[0].at ?? 0);
+    && s.duration === undefined && !(s.ops[0].at ?? 0);
   const vagues = [];
   for (const original of scenario.steps) {
     const precedente = vagues.at(-1);
@@ -260,6 +260,7 @@ export function compile(scenario, options = {}) {
     if (rejoint) {
       precedente.entrees.push(original);
       precedente.ops.push(op);
+      precedente.hold = Math.max(precedente.hold ?? 0, original.hold ?? 0);
     } else vagues.push({ ...original, ops: [...(original.ops || [])], entrees: [original] });
   }
 
@@ -649,7 +650,7 @@ export function compile(scenario, options = {}) {
         index: si + rang, id: entree.id, title: entree.title,
         caption: entree.caption ?? null, figure: entree.figure ?? null,
         t0: debut, t1: fin, duration: round(fin - debut),
-        hold: round(hold), speed: stepSpeed,
+        hold: rang === step.entrees.length - 1 ? round(hold) : 0, speed: stepSpeed,
       });
     });
   });
