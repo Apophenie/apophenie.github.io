@@ -1105,13 +1105,16 @@ const LIB_REDECOUPAGE_EXACT = bilingue(
 );
 const LIB_SECONDE_PASSE = bilingue(' (seconde passe)', ' (second pass)');
 // ★ Le redécoupage exact AVEC TRI (`mrtE`, `mt9E`) : le geste, puis son rangement.
+//   ⚠️ Le tri n'a pas d'exception — voir l'arbitrage du 20 septembre en tête du
+//   bloc `operateurRedecoupageExactTrie` : « tri oui, mais avec un ordre
+//   respecté ». Aucun chiffre n'est mis à part, pas même un 6.
 const LIB_REDECOUPAGE_EXACT_TRIE = bilingue(
-  'On range à part ce qui ne tombe pas juste, puis on le fond dans la cible',
-  'Set aside what does not land right, then melt it into the target',
+  'On range la ligne dans l’ordre, puis on la fond dans la cible',
+  'Sort the line into order, then melt it into the target',
 );
 const LIB_RANGEMENT_DES_RESTES = bilingue(
-  'On garde les chiffres justes devant, et l’on range le reste par ordre croissant',
-  'Keep the right digits in front, and line up the rest in ascending order',
+  'On range toute la ligne par ordre croissant',
+  'Line the whole line up in ascending order',
 );
 const LIB_EN_LETTRES = bilingue(
   'On écrit le chiffre en toutes lettres',
@@ -3539,6 +3542,15 @@ const CRAN_DES_REDECOUPAGES_FUSIONNANTS = 2;
  *   que son modèle (l'autrice) n'a pas à prendre la tête au cran de « Révéler ».
  *   Sa variante avec 9, `mt9E`, s'ouvre plus tard encore, avec la chaîne de
  *   deux retouches (`CRAN_DU_DEMI_TOUR`).
+ *
+ * ⚠️ **CETTE MESURE EST CELLE DU 19 SEPTEMBRE, ET ELLE A VIEILLI D'UN DÉTAIL.**
+ *   Depuis que le tri n'a plus d'exception (20 septembre, voir le bloc du
+ *   geste), `fmaj+tca+mas+mrtE` ne s'applique plus du tout à « Didier Raoult » :
+ *   la ligne triée en entier n'y écrit pas plus que `mrdE`, donc le geste s'y
+ *   tait. Le cran ne bouge pas pour autant — il avait DEUX raisons, et la
+ *   seconde (le temps CPU, qui ne dépend pas de l'ordre du rangement) tient
+ *   toute seule. On garde la mesure telle qu'elle a été faite plutôt que de la
+ *   réécrire : c'est elle qui a fixé le chiffre.
  */
 const CRAN_DU_REDECOUPAGE_TRIE = CRAN_DES_REDECOUPAGES_FUSIONNANTS;
 
@@ -10343,25 +10355,64 @@ function operateurRedecoupageExact(avecNeuf) {
 //   `mtri` range des NOMBRES : `68 73 …` reste `68 73`, et les 6 s'y noient au
 //   milieu de la ligne.
 //
-// ★ **CE QUE FAIT LE GESTE INTÉGRÉ** — 43 séries sur les mêmes lignes, 50 avec
-//   la première passe :
+// ★ **CE QUE FAIT LE GESTE INTÉGRÉ** :
 //
 //  1. éventuellement une première passe, celle de `mrd` : elle écrit les
 //     paquets qui tombent juste là où ils sont ;
-//  2. la ligne s'écrit chiffre à chiffre, les chiffres JUSTES (le 6 ; le 9 en
-//     plus dans la variante avec 9) restent devant, dans l'ordre où on les a
-//     lus, et le reste se range par ordre croissant derrière eux — les intrus
-//     deviennent contigus, les petits avec les petits ;
-//  3. la passe exacte de `mrdE` fond ce reste dans la cible.
+//  2. la ligne s'écrit chiffre à chiffre, et se TRIE — par ordre croissant,
+//     stable à valeur égale (deux 8 gardent leur ordre de lecture) ;
+//  3. la passe exacte de `mrdE` fond dans la cible ce qui reste à fondre.
 //
 //   De ces deux chemins (sans ou avec la première passe), celui qui écrit le
 //   plus de séries — le plus court à égalité. Et le geste se TAIT quand `mrdE`
 //   écrit déjà autant de séries sur la ligne telle qu'elle est : ranger n'a de
 //   sens que si ça débloque (même règle que `mrfE`).
 //
-// ★ **CIBLES HOMOGÈNES SEULEMENT** (`666`, `777`…) : ranger par ordre croissant
-//   détruit l'ordre de lecture, et une cible comme `31031998` s'écrit DANS
-//   L'ORDRE. Comme `megf` et `mam`, il se désactive ailleurs.
+//   ⚠️ Le geste reste devant la chaîne, tri strict compris. Sur les 28 lignes
+//   témoins où il parle (banc `tri-respectueux.mjs`) : `mrdE` seul 10 séries,
+//   `mtri+mrdE` 27, `mrd+mtri+mrdE` 54, le geste intégré 64. Ce banc-ci n'a pas
+//   la même assiette que celui du 19 septembre (714 lignes, trois cibles,
+//   `fmaj+tca` en tête) et il lit la chaîne plus favorablement SUR L'ENSEMBLE
+//   des lignes (117 contre 92 pour `mrdE` seul) : ce qui ne change pas, c'est
+//   que là où le geste parle, il parle plus fort — et que la chaîne, elle, ne
+//   se construit pas.
+//
+// ★ **LE TRI EST UN TRI, SANS EXCEPTION — ET C'EST UN ARBITRAGE DE L'AUTRICE.**
+//
+// > « Le tri qui place les 6 devant ne va pas : tri oui, mais avec un ordre
+// >   respecté. Les 6 ne seront juste pas additionnés mais ils doivent être à
+// >   leur position dans l'ordre de tri quand même. Ça risque de casser
+// >   quelques cas de figure où un 5 était groupé avec un 7 par exemple, mais
+// >   c'est le prix d'un rendu qui ne semble pas intentionnel (alors que si on
+// >   met visiblement de côté les 6, ça fait trop ficelle). »
+// >   (l'autrice, 20 septembre 2026)
+//
+//   La première version du geste EXTRAYAIT les chiffres déjà justes (le 6 ; le
+//   9 en plus dans la variante avec 9) et les poussait en tête, le reste rangé
+//   derrière. Ça rendait plus — et ça se voyait : une ligne qui commence par
+//   `6 6 6 6 6` puis range le reste n'est pas une ligne triée, c'est une ligne
+//   à qui on a retiré ce qui gênait. Le geste ne fait plus qu'une chose :
+//   TRIER. Les 6 tombent entre les 5 et les 7, comme n'importe quel chiffre.
+//
+//   Ce qu'ils continuent de ne pas faire, c'est d'être ADDITIONNÉS : la passe
+//   exacte préfère toujours les laisser seuls (`meilleurPlanExact`, étage des
+//   avalés), et elle ne les fond que si ça écrit une série de plus — le
+//   départage du 19 septembre, inchangé. La différence est là : ils ne sont
+//   plus mis À L'ÉCART, ils sont seulement LAISSÉS SEULS là où le tri les met.
+//
+//   ★ **LE PRIX, MESURÉ** (banc `tri-respectueux.mjs`, 714 lignes témoins) :
+//     `mrtE` passe de 33 lignes où il parle à 28, et de 78 séries à 64 ; `mt9E`
+//     de 22 lignes à 15, et de 56 séries à 34. Aucune ligne n'y gagne. C'est
+//     exactement le « 5 groupé avec un 7 » annoncé : un 6 s'intercale
+//     désormais entre eux, et la plage qui les soudait n'existe plus. Le cas de
+//     référence de l'autrice — « Didier Raoult » en `fmaj+mas` — en fait les
+//     frais : `mrtE` n'y écrit plus que ce que `mrdE` écrit déjà, donc il s'y
+//     TAIT ; `mt9E+mr9` y tombe de cinq séries à quatre. L'arbitrage est
+//     assumé : « c'est le prix d'un rendu qui ne semble pas intentionnel ».
+//
+// ★ **CIBLES HOMOGÈNES SEULEMENT** (`666`, `777`…) : trier détruit l'ordre de
+//   lecture, et une cible comme `31031998` s'écrit DANS L'ORDRE. Comme `megf`
+//   et `mam`, il se désactive ailleurs.
 
 /**
  * ★ **LE PLAN DU REDÉCOUPAGE EXACT AVEC TRI.** Rend `null` quand la cible
@@ -10377,19 +10428,17 @@ function operateurRedecoupageExact(avecNeuf) {
 function planRedecoupageExactTrie(valeur, visee, premiere) {
   if (!visee.homogene || !valeur.length) return null;
   if (valeur.some((v) => !Number.isInteger(v) || v < 0)) return null;
-  const cible = visee.alphabet[0];
-  const retourne = neufRetournable(visee);
-  const juste = (d) => d === cible || (retourne && d === RETOURNABLE);
   const sansTri = planRedecoupageExact(valeur, visee);
   const barre = sansTri ? sansTri.series : 0;
   const essayer = (ligne, avecPremiere) => {
     const chiffres = ligne.flatMap(chiffresDe);
     if (chiffres.length > CHIFFRES_REDECOUPE_MAX) return null;
-    const rangs = chiffres.map((d, k) => k);
-    const justes = rangs.filter((k) => juste(chiffres[k]));
-    const reste = rangs.filter((k) => !juste(chiffres[k]))
+    // ★ UN VRAI TRI, SANS EXCEPTION — croissant, et stable à valeur égale (les
+    //   jetons d'un même chiffre gardent leur ordre de lecture). Les chiffres
+    //   déjà justes ne sont PAS extraits : ils tombent à leur place dans
+    //   l'ordre, comme les autres. Voir l'en-tête du bloc.
+    const ordre = chiffres.map((d, k) => k)
       .sort((a, b) => (chiffres[a] - chiffres[b]) || (a - b));
-    const ordre = [...justes, ...reste];
     if (ordre.every((k, i) => k === i)) return null;
     const range = ordre.map((k) => chiffres[k]);
     const exact = planRedecoupageExact(range, visee);
@@ -10448,17 +10497,15 @@ function operateurRedecoupageExactTrie(avecNeuf) {
       libelle: LIB_REDECOUPAGE_EXACT_TRIE,
       regle: (() => {
         const neuf = neufRetournable(visee);
-        const justes = neuf ? bilingue(`les ${visee.alphabet[0]} et les ${RETOURNABLE}`, `the ${visee.alphabet[0]}s and the ${RETOURNABLE}s`)
-          : bilingue(`les ${visee.alphabet[0]}`, `the ${visee.alphabet[0]}s`);
         return bilingue(
           'Au besoin, un premier redécoupage écrit ce qui tombe juste là où c’est. Puis la ligne '
-          + `s’écrit chiffre à chiffre : ${justes.fr} restent devant, le reste se range par ordre `
-          + `croissant derrière eux, et la ligne ENTIÈRE se redécoupe en paquets qui écrivent ${visee.texte}, `
+          + 's’écrit chiffre à chiffre et se range TOUTE ENTIÈRE par ordre croissant — aucun chiffre '
+          + `n’est mis à part — et elle se redécoupe en paquets qui écrivent ${visee.texte}, `
           + `rien d’autre${neuf ? ` — un ${RETOURNABLE}, qu’un demi-tour rendra, vaut un ${SIX_RETOURNE}` : ''}. `
           + 'On ne range que si le redécoupage exact de la ligne telle qu’elle est écrit moins de séries.',
           'If need be, a first recut writes what lands right where it is. Then the line is written '
-          + `out digit by digit: ${justes.en} stay in front, the rest lines up in ascending order `
-          + `behind them, and the WHOLE line is recut into packets that spell ${visee.texte}, nothing `
+          + 'out digit by digit and the WHOLE of it lines up in ascending order — no digit is set '
+          + `aside — and it is recut into packets that spell ${visee.texte}, nothing `
           + `else${neuf ? ` — a ${RETOURNABLE}, which a half-turn will settle, counts as a ${SIX_RETOURNE}` : ''}. `
           + 'The line is only rearranged when the exact recut of the line as it stands writes fewer series.',
         );
@@ -10470,11 +10517,14 @@ function operateurRedecoupageExactTrie(avecNeuf) {
       //   accolent : deux gestes où le modèle en fait un. Pas de `recours`.
       notoriete: 0.12, adHoc: 0.49, cout: 2, desLeCran: CRAN_DU_REDECOUPAGE_TRIE,
       note: bilingue(
-        'Le redécoupage exact, avec une liberté de plus : ranger les chiffres qui ne tombent pas '
-        + 'juste pour qu’ils se touchent. Il ne joue que là où le redécoupage exact de la ligne telle '
-        + 'qu’elle est écrit moins.',
-        'The exact recut with one more liberty: lining up the digits that do not land right so '
-        + 'that they touch. It only plays where the exact recut of the line as it stands writes less.',
+        'Le redécoupage exact, avec une liberté de plus : trier la ligne pour que les chiffres qui '
+        + 'vont ensemble se touchent. Un tri sans exception — les chiffres déjà justes ne sont pas '
+        + 'additionnés, mais ils restent à leur place dans l’ordre. Il ne joue que là où le '
+        + 'redécoupage exact de la ligne telle qu’elle est écrit moins.',
+        'The exact recut with one more liberty: sorting the line so that the digits that belong '
+        + 'together touch. A sort with no exception — digits already right are not added up, but '
+        + 'they keep their place in the order. It only plays where the exact recut of the line as '
+        + 'it stands writes less.',
       ),
       apply: (valeur, traces) => {
         const plan = planDe(valeur);
@@ -10552,6 +10602,11 @@ export { MENTION_SEG14 };
 
 /** Les plans des trois variantes qui fusionnent — exposés pour leurs tests, comme `plagesDe`. */
 export { planRedecoupageFusionnant, planRedecoupageFusionnantExact, planEgalisationFutee, planRedecoupageExact };
+// ★ Le plan du redécoupage exact AVEC TRI — exposé pour que ses tests lisent
+//   l'ORDRE qu'il produit (`ordre`, `range`) et non seulement la sortie. C'est
+//   l'ordre qui a été arbitré le 20 septembre ; une sortie identique peut sortir
+//   d'un rangement qui ne respecte plus le tri.
+export { planRedecoupageExactTrie };
 // ★ La visée que lit une variante avec ou sans 9 — pour que les tests des plans
 //   lisent la cible comme l'opérateur la lit.
 export { viseeDeVariante };
