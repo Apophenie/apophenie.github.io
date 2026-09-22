@@ -807,7 +807,13 @@ function etapeTable(op) {
   //   changer à celle-ci : même titre, même réglette, même décalage. Le geste de
   //   la table est intact — on lui pose une étape devant.
   if (op.justifie) {
-    const geste = etapeTable({ ...op, justifie: null });
+    // ★ **LA PREUVE NE SE DIT QU'UNE FOIS.** `etapeTable` recopie la `regle`
+    //   sous CHAQUE lettre muée (« … : L → H »), ce qui convient à une règle
+    //   d'une ligne et pas à une justification : « les deux mots ont deux et
+    //   deux caractères en commun » se serait répété vingt-quatre fois sous la
+    //   même glissière. L'étape de preuve la porte ; le coulissement reprend la
+    //   règle NUE du césar, mot pour mot celle de son aîné (`regleDuGlissement`).
+    const geste = etapeTable({ ...op, justifie: null, regle: op.regleDuGlissement || op.regle });
     return (avant, apres, ctx) => [
       ...etapesDeJustification(op, avant, ctx),
       ...geste(avant, apres, ctx),
@@ -1233,6 +1239,15 @@ function cesarJustifieDe(n) {
         + `chaque lettre avance de ${RANGS[n]} rangs`,
       `The two words share ${RANGS_EN[Math.floor(n / 10)]} and ${RANGS_EN[n % 10]} characters: `
         + `every letter moves ${RANGS_EN[n]} places along`,
+    ),
+    // ★ La règle NUE, celle que le coulissement reprend sous chaque lettre —
+    //   identique au mot près à celle de `fr${n}`, puisque c'est le même geste.
+    //   Elle est écrite ici plutôt que devinée du catalogue : `filtres.js` ne se
+    //   relit pas lui-même, et un césar justifié qui annoncerait un autre
+    //   décalage que celui qu'il applique serait le défaut que §0.3 interdit.
+    regleDuGlissement: bilingue(
+      `Chaque lettre avance de ${RANGS[n]} rangs`,
+      `Every letter moves ${RANGS_EN[n]} places along`,
     ),
     // ★ **LA PRIME, ET SA PHRASE.** Un décalage qu'on sait lire dans la saisie
     //   se justifie AVANT qu'on ait regardé ce qu'il donne — ce qui est
