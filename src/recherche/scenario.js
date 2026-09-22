@@ -1872,6 +1872,46 @@ export function dUnSeulTenant(ligne, trio) {
  *     final ; c'est `visuel/primitives/reveal.js` qui, au moment de l'agencer,
  *     fait s'effriter les cornes des triptyques relégués.
  *
+ * ★ **TROIS, ET PAS QUATRE — LE COURONNEMENT NE SE MARCHANDE PLUS.**
+ *
+ * Il y a eu une quatrième condition, demandée par l'auteur puis retirée par
+ * lui : elle refusait le couronnement quand plus rien ne suivait que le
+ * verdict, au motif qu'un couronnement qui n'anticipe rien n'est pas une
+ * anticipation. Elle est tombée.
+ *
+ * > « Je t'avais fait ajouter une règle pour ne pas ajouter de cornes si c'est
+ * >   la dernière étape. Retire-la, en fait, je préfère que tous les 666 en
+ * >   mode scénique reçoivent leur corne, et que le verdict retire celles à
+ * >   ceux qui sont en 2ⁿᵈ ligne. » (l'auteur)
+ *
+ * **La doctrine tient donc en une phrase : en registre SCÉNIQUE, tout 666 que
+ * la ligne écrit d'un seul tenant et garde jusqu'au bout est couronné, où que
+ * soit l'étape qui l'écrit — fût-elle la dernière avant le verdict.** Le
+ * partage des rôles en sort plus net, et c'est l'essentiel : ce module répond à
+ * « ce 666 est-il écrit ? », il ne répond pas à « où finira-t-il ? ». La
+ * seconde question est celle du verdict, qui agence les rangs et **déchoit**
+ * ceux du bas (`visuel/primitives/reveal.js › detrones`, qui relève les cornes
+ * sur la SCÈNE : les couronnements nouvellement admis s'effritent comme les
+ * autres, sans qu'une seule ligne ait eu à les prévoir).
+ *
+ * L'ancienne règle 4 contredisait d'ailleurs la règle 3 à moitié : celle-ci
+ * affranchit le couronnement de l'agencement final, celle-là rendait au verdict
+ * la décision dès que le couronnement venait le toucher. On ne garde pas deux
+ * règles qui se mordent ; on garde celle que l'auteur a redite deux fois.
+ *
+ * **MESURÉ** (`.planning/banc/cornes-banc.mjs`, les dix-neuf saisies du corpus,
+ * 380 voies) : les couronnements passent de **325 à 653**, et les voies qui en
+ * portent au moins un de **163 à 314** — quatre voies sur cinq ont désormais
+ * leurs cornes. Le classement, lui, ne bouge pas d'un rang : le barème ne lit
+ * pas le scénario (voir `jalonsDesCornes`, publié et jamais consommé).
+ *
+ * ⚠ **Et le prix est connu** : une démonstration peut désormais se terminer par
+ * plusieurs couronnements d'affilée, juste avant le verdict — un par série
+ * rassemblée au dernier calcul. C'est assumé. Le registre SOBRE, lui, n'en
+ * porte aucun, et pas même en creux (voir `construireScenario`, « les cornes ne
+ * poussent pas » : en sobre l'étape n'est pas réécrite, elle n'est jamais
+ * créée).
+ *
  * ★ **Pourquoi ICI et pas dans le catalogue** (CONTRACTS §3.1, et le même
  * argument que pour le décor mutualisé des tables). Un opérateur ne voit que sa
  * propre étape : `m14` appliqué au « h » du deuxième `hope` ne peut savoir ni
@@ -2025,7 +2065,13 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
       if (!lignes[k] || !dUnSeulTenant(lignes[k], trio)) { tient = false; break; }
     }
     if (!tient) continue;
-    // ★ **QUATRIÈME CONDITION : IL DOIT RESTER QUELQUE CHOSE À FAIRE APRÈS.**
+    // ★ **ET IL N'Y A PLUS DE QUATRIÈME CONDITION — ce pavé est le souvenir de
+    //   celle qui a existé, pour qu'on ne la réinvente pas.**
+    //
+    //   Elle exigeait « qu'il reste quelque chose à faire après », c'est-à-dire
+    //   qu'un CALCUL occupe encore un rang au-delà de la place d'insertion
+    //   (`complet + 1 < finDeLaPreuve`, la position de l'étape et non celle du
+    //   trio) :
     //
     //   > « Deux étapes pour faire apparaître les cornes alors qu'il n'y a plus
     //   >   rien d'autre que le verdict qui les aurait ajoutées : ce n'est pas
@@ -2039,12 +2085,31 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
     //   rien — il ajoute deux étapes pour montrer un instant plus tôt ce que le
     //   verdict allait montrer de toute façon.
     //
-    //   ⚠️ **ET C'EST LA POSITION D'INSERTION QU'ON JUGE, pas celle du trio.**
-    //     L'étape va en `complet + 1` ; il faut donc qu'un CALCUL occupe encore
-    //     un rang au-delà, c'est-à-dire `complet + 1 < finDeLaPreuve`. Les
-    //     autres couronnements ne comptent pas : ils ne transforment rien, et
-    //     trois cornes qui se regardent ne font pas une démonstration.
-    if (complet + 1 >= finDeLaPreuve) continue;
+    //   ★ **ELLE EST RETIRÉE, ET C'EST L'AUTEUR QUI REVIENT SUR SA PROPRE
+    //     RÈGLE.**
+    //
+    //   > « Je t'avais fait ajouter une règle pour ne pas ajouter de cornes si
+    //   >   c'est la dernière étape. Retire-la, en fait, je préfère que tous les
+    //   >   666 en mode scénique reçoivent leur corne, et que le verdict retire
+    //   >   celles à ceux qui sont en 2ⁿᵈ ligne. » (l'auteur)
+    //
+    //   L'argument d'hier n'était pas faux, il répondait à la mauvaise
+    //   question. Il demandait « ce couronnement gagne-t-il du temps sur le
+    //   verdict ? » ; la question est « ce 666 est-il écrit, et le reste-t-il ? ».
+    //   Quand il l'est, on le dit — la démonstration montre ce qu'elle
+    //   constate, et elle le constate là. Le tri, lui, n'appartient pas à ce
+    //   module : c'est `visuel/primitives/reveal.js` qui, au moment d'agencer
+    //   les rangs, fait s'effriter les cornes des triptyques relégués en
+    //   seconde ligne (`detrones`) — y compris celles de ces couronnements
+    //   nouvellement admis, puisqu'il les lit sur la SCÈNE et non sur une
+    //   liste.
+    //
+    //   ⚠️ **Et elle contredisait à moitié la règle 3**, deux pavés plus haut :
+    //     « la ligne d'arrivée au verdict n'entre pas en compte ». Celle-ci dit
+    //     que l'agencement final ne décide de rien ICI ; celle-là redonnait au
+    //     verdict la décision dès que le couronnement venait le toucher. Les
+    //     deux ne pouvaient pas tenir ensemble. C'est la règle 3 qui reste, et
+    //     les conditions cumulatives sont de nouveau TROIS.
     poses.push({ rang, trio, apres: complet });
   }
   if (!poses.length) return 0;

@@ -1530,20 +1530,22 @@ test('★ cornes — la scène ne couronne rien que le bilan n’ait compté', (
       /* ⚠️ **L'ÉGALITÉ ÉTAIT EXACTE, ELLE EST DEVENUE UNE INÉGALITÉ VÉRIFIÉE** —
            et c'est plus strict que l'égalité, pas moins.
 
-         Les calculs se montrent désormais EN LARGEUR : on fait ce qui part des
-         chiffres de départ sur tous les paquets, puis ce qui dépend du premier
-         niveau (`mappeurs.js › passesEnLargeur`, à la demande de l'auteur). Un
-         trio qui se complétait au milieu de la démonstration peut donc se
-         compléter à la DERNIÈRE étape de calcul — et là, `jalonsDesCornes`
-         refuse de le couronner, pour une raison qui n'a rien d'accidentel :
+         Les calculs se montrent EN LARGEUR : on fait ce qui part des chiffres
+         de départ sur tous les paquets, puis ce qui dépend du premier niveau
+         (`mappeurs.js › passesEnLargeur`, à la demande de l'auteur). Un trio
+         qui se complétait au milieu de la démonstration peut donc se compléter
+         à la DERNIÈRE étape de calcul.
 
-         > « Un couronnement anticipé n'a de sens que s'il anticipe quelque
-         >   chose. Posé entre la dernière étape de calcul et le verdict, il ne
-         >   devance plus rien. » (`scenario.js`, d'après l'auteur)
-
-         Mesuré sur « Donald Trump » `2:fr15;fl+tca+masc+mab` : douze 6, quatre
-         triptyques au bilan, trois couronnés — le quatrième se complète au
-         dernier calcul, et c'est le verdict qui le montre.
+         ⚠️ **CE CAS-LÀ EST DÉSORMAIS COURONNÉ, et l'excuse qui l'accueillait a
+           disparu de ce test.** Il ne l'était pas : une quatrième condition
+           exigeait « qu'il reste quelque chose à faire après ». L'auteur l'a
+           retirée — « je préfère que tous les 666 en mode scénique reçoivent
+           leur corne, et que le verdict retire celles à ceux qui sont en 2ⁿᵈ
+           ligne ». Le troisième cas de la disjonction ci-dessous
+           (`auDernierCalcul`) a donc été SUPPRIMÉ plutôt que laissé dormir : une
+           excuse qui n'excuse plus rien laisse passer les bogues qu'elle
+           couvrait. Mesuré sur le corpus (`.planning/banc/cornes-banc.mjs`) :
+           325 couronnements deviennent 653.
 
          Ce que ce test défend n'a pas bougé, et c'est son titre : la scène ne
          couronne RIEN que le bilan n'ait compté. L'inverse — le bilan compte
@@ -1552,8 +1554,8 @@ test('★ cornes — la scène ne couronne rien que le bilan n’ait compté', (
 
          ★ **MAIS UNE INÉGALITÉ NUE ACCEPTERAIT AUSSI UN COURONNEMENT MANQUANT
            POUR UNE MAUVAISE RAISON**, c'est-à-dire un bogue. Chaque trio non
-           couronné doit donc être EXPLICABLE, et par l'un des trois cas que
-           l'auteur a nommés :
+           couronné doit donc être EXPLICABLE, et par l'un des DEUX cas qui
+           restent des trois que l'auteur avait nommés :
 
            > « Si les 666 ne sont assemblés qu'à la fin, laisse le verdict
            >   faire. Si 666 apparaît plus tôt, n'est pas remanié — aucun des 6
@@ -1566,12 +1568,37 @@ test('★ cornes — la scène ne couronne rien que le bilan n’ait compté', (
            `scenario.js` — `suivreLaLigne`, `dUnSeulTenant` — mais son propre
            enchaînement. Le jour où l'un des deux dérive, c'est ici que ça
            rougira. */
+      /* ★ **LE BILAN NE VOIT PAS LE TRI, ET C'EST EXACTEMENT LÀ QUE LES DEUX
+           COMPTES SE SÉPARENT — d'un écart qui se NOMME.**
+
+         Le bilan lit la contiguïté sur le VECTEUR d'une portée : ce que
+         l'arithmétique écrit d'affilée, sans que rien n'ait été retiré du
+         milieu (`elegance.js › TRIPTYQUE_CONTIGU`). La scène, elle, lit la
+         LIGNE — et « On ne garde que les 6 » (le tri, `step.recolte`) est
+         précisément le geste qui rapproche ce que l'arithmétique avait laissé
+         épars. Depuis que le couronnement n'exige plus qu'il reste un calcul
+         après lui, un 666 que le tri vient d'écrire est couronné : la scène
+         peut donc dépasser le bilan, et elle le dépasse de ce nombre-là.
+
+         **MESURÉ sur les treize saisies de ce test : 168 voies à cornes, 22 en
+         écart, et dans les vingt-deux cas l'écart vaut EXACTEMENT le nombre de
+         couronnements posés après le tri.** Ce n'est donc pas une tolérance,
+         c'est une identité — on l'écrit comme telle, et la moindre corne de
+         plus ailleurs la fera rougir.
+
+         ⚠️ Et le bilan n'a pas à compter ces trios-là : il ne les récompense
+           pas, il PUNIT le tri (`score.js › rendementSix`). Les deux comptes
+           disent des choses différentes parce qu'ils répondent à deux
+           questions différentes ; ce test tient la comptabilité de l'écart, il
+           ne l'efface pas. */
       if (a.parts.length === 1) {
         const auBilan = a.bilan.triptyquesContigus + (a.bilan.triptyquesRepetes || 0);
-        assert.ok(auBilan >= jalons.couronnements.length,
+        const tri = sc.steps.findIndex((st) => st.recolte);
+        const apresLeTri = tri < 0 ? 0
+          : sc.steps.filter((st, i) => i > tri && (st.ops || []).some((o) => o.op === 'horns')).length;
+        assert.ok(auBilan + apresLeTri >= jalons.couronnements.length,
           `« ${s} » ${a.codes} : la scène couronne ${jalons.couronnements.length} trios `
-          + `pour ${auBilan} au bilan`);
-
+          + `pour ${auBilan} au bilan, dont ${apresLeTri} après le tri`);
       }
 
       /* ★ **ET CECI VAUT POUR TOUTE APPROCHE, PAS SEULEMENT LES PORTÉES
@@ -1603,12 +1630,11 @@ test('★ cornes — la scène ne couronne rien que le bilan n’ait compté', (
               }
             }
             const jamaisRassemble = quand < 0;
-            const auDernierCalcul = quand >= 0 && quand + 1 >= fin;
             let remanie = false;
             for (let k = quand + 1; quand >= 0 && k < fin; k++) {
               if (!lignes[k] || !dUnSeulTenant(lignes[k], trio)) { remanie = true; break; }
             }
-            assert.ok(jamaisRassemble || auDernierCalcul || remanie,
+            assert.ok(jamaisRassemble || remanie,
               `« ${s} » ${a.codes} : le trio ${rang} est rassemblé à l’étape ${quand} sur ${fin}, `
               + 'il tient jusqu’au bout, et pourtant il n’est pas couronné');
           }

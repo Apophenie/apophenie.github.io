@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { creerMoteur } from '../../index.js';
 import {
   construireScenario, validerScenario, VOCABULAIRE, DUREE_MIN, elementsDe, validerFormeOp,
-  placeDuCouronnement, jalonsDesCornes, suivreLaLigne, lesPlusCentraux, titreDeRecolte,
+  placeDuCouronnement, jalonsDesCornes, suivreLaLigne, dUnSeulTenant, lesPlusCentraux,
+  titreDeRecolte,
 } from '../../scenario.js';
 import { etat } from '../../bfs.js';
 import { approcheJoker } from '../../assemblage.js';
@@ -300,9 +301,30 @@ test('★ scénario — on ne trie qu’UNE fois, et juste avant le verdict', ()
       vus++;
       assert.equal(tris.length, 1,
         `« ${s} » rang ${a.rang} : ${tris.length} tris (${a.codes})`);
-      assert.equal(tris[0], sc.steps.length - 2,
-        `« ${s} » rang ${a.rang} : tri à l’étape ${tris[0] + 1} sur ${sc.steps.length} — `
-        + `il doit précéder immédiatement le verdict (${a.codes})`);
+      /* ★ **« JUSTE AVANT LE VERDICT » VEUT DIRE « DERNIER CALCUL », et ce
+           n'est plus tout à fait « avant-dernière étape ».**
+
+         Le tri était l'avant-dernière étape, point. Depuis que le couronnement
+         a perdu sa quatrième condition — « il doit rester quelque chose à faire
+         après », retirée à la demande de l'auteur (« je préfère que tous les
+         666 en mode scénique reçoivent leur corne ») —, un 666 que le tri
+         rapproche est couronné, et son étape se glisse entre le tri et le
+         verdict.
+
+         Ce que ce test défend n'a pas bougé d'un pouce : **le tri est le
+         DERNIER GESTE QUI TRANSFORME QUELQUE CHOSE.** Ce qui le suit ne doit
+         rien transformer — et un couronnement, par construction, ne transforme
+         rien : il n'a pas d'`efface`, il ne touche pas à la ligne
+         (`couronnerLesTriptyques`, « Aucun `efface` : c'est tout le propos »).
+         On l'exige donc plutôt que de compter des rangs : l'assertion est plus
+         forte que l'ancienne égalité, puisqu'elle nomme ce qu'elle refuse. */
+      const apresLeTri = sc.steps.slice(tris[0] + 1, sc.steps.length - 1);
+      for (const [k, st] of apresLeTri.entries()) {
+        const ops = (st.ops || []).map((o) => o.op);
+        assert.ok(ops.length && ops.every((op) => op === 'horns'),
+          `« ${s} » rang ${a.rang} : l’étape ${tris[0] + 2 + k} « ${st.title} » suit le tri `
+          + `avec ${JSON.stringify(ops)} — après le tri, plus rien ne transforme (${a.codes})`);
+      }
     }
   }
   assert.ok(vus >= 5, `seulement ${vus} scénarios trieurs observés — le cas est-il vivant ?`);
@@ -828,30 +850,141 @@ test('★ cornes — la voie de la vitrine couronne ses triptyques, et n’effac
 });
 
 /**
- * ★ ON COURONNE CE QU'ON CONSTATE, JAMAIS CE QU'ON A RASSEMBLÉ.
+ * ★ **TOUS LES 666 REÇOIVENT LEUR CORNE — Y COMPRIS CELUI QUI S'ÉCRIT AU
+ *   DERNIER CALCUL.**
  *
- * La distinction est la même que celle du nom de l'opérateur — « trois 6
- * D'AFFILÉE » —, et elle décide ici de l'instant regardé : celui où le
- * troisième 6 paraît, et lui seul. S'il paraît contre les deux autres, le 666
- * est écrit et on le couronne. S'il paraît ailleurs et que les trois ne se
- * touchent qu'une fois retiré ce qui les séparait, c'est l'AUTRE geste — « On
- * ne garde que les 6 » —, celui qui ne se joue qu'une fois, juste avant le
- * verdict, et qui coûte au score.
+ * > « Je t'avais fait ajouter une règle pour ne pas ajouter de cornes si c'est
+ * >   la dernière étape. Retire-la, en fait, je préfère que tous les 666 en mode
+ * >   scénique reçoivent leur corne, et que le verdict retire celles à ceux qui
+ * >   sont en 2ⁿᵈ ligne. » (l'auteur)
+ *
+ * **Le sujet de ce test est le contre-exemple d'hier**, et c'est ce qui en fait
+ * un test et pas une redite : `elegance.test.js` citait très exactement cette
+ * voie — « douze 6, quatre triptyques au bilan, TROIS couronnés — le quatrième
+ * se complète au dernier calcul, et c'est le verdict qui le montre ». Le
+ * quatrième est désormais couronné sur scène, à l'étape qui précède
+ * immédiatement le verdict. Le cas qui documentait la règle documente sa levée.
+ *
+ * ★ Ce qu'on gèle ici n'est pas un numéro d'étape mais une PLACE relative : le
+ * dernier couronnement occupe l'avant-dernier rang, celui que l'ancienne
+ * quatrième condition rendait inatteignable. Le jour où la démonstration
+ * raccourcira, la propriété tiendra toujours.
  */
-test('★ cornes — un triptyque que le TRI a rapproché n’est pas couronné', () => {
+test('★ cornes — un 666 rassemblé au DERNIER calcul est couronné quand même', () => {
+  const m = creerMoteur(catalogue);
+  const url = `#so!2:fr15;fl+tca+masc+mab#${encoderTexte('Donald Trump')}`;
+  const r = m.rejouer(lireUrl(url, { catalogue }));
+  assert.ok(r.ok, r.detail || r.raison);
+  // Le registre n'est PAS passé : le scénario retombe donc sur « scénique »,
+  // le seul où les cornes poussent (`construireScenario`).
+  const sc = m.scenarioDe(r.approche, { saisie: 'Donald Trump' });
+  assert.equal(sc.registre, 'scenique');
+  assert.deepEqual(validerScenario(sc), []);
+
+  const cornes = sc.steps
+    .map((s, i) => ({ i, o: (s.ops || []).find((x) => x.op === 'horns') }))
+    .filter((x) => x.o);
+  assert.equal(cornes.length, 4, 'les quatre triptyques sont couronnés, pas trois');
+
+  // ★ Le dernier tombe à l'AVANT-DERNIÈRE étape — juste avant le verdict.
+  //   C'est la place que l'ancienne règle refusait, mot pour mot : « il faut
+  //   qu'un calcul occupe encore un rang au-delà ».
+  const dernier = cornes[cornes.length - 1].i;
+  assert.equal(dernier, sc.steps.length - 2,
+    `le dernier couronnement est à l’étape ${dernier + 1} sur ${sc.steps.length}`);
+  const verdict = sc.steps[sc.steps.length - 1].ops.find((o) => o.op === 'reveal');
+  assert.ok(verdict, 'et ce qui suit est bien le verdict');
+
+  // ★ Et les quatre couronnements couvrent les quatre séries du verdict, sans
+  //   doublon ni intrus. L'ORDRE, lui, n'est pas celui des séries : chaque trio
+  //   se couronne à l'instant où IL s'écrit, et les quatre ne s'écrivent pas
+  //   dans l'ordre où le verdict les rangera (les calculs se montrent en
+  //   largeur — `mappeurs.js › passesEnLargeur`). Exiger l'ordre des séries ici
+  //   reviendrait à exiger que la démonstration se fasse dans l'ordre du
+  //   résultat, ce qu'elle n'a aucune raison de faire.
+  const series = [0, 1, 2, 3].map((k) => verdict.targets.slice(k * 3, k * 3 + 3).join('|'));
+  assert.deepEqual(cornes.map((c) => c.o.targets.join('|')).sort(), [...series].sort());
+
+  // ★ Rien ne s'efface : un couronnement ne touche pas à la ligne, et c'est ce
+  //   qui autorise sa place juste avant le verdict — il n'y retarde aucun calcul.
+  for (const { o } of cornes) assert.ok(!o.efface || !o.efface.length);
+  assert.equal(sc.cornes.couronnements.length, 4);
+  assert.equal(sc.cornes.total, sc.steps.length);
+});
+
+/**
+ * ★ ON COURONNE CE QU'ON CONSTATE — À L'INSTANT OÙ ON LE CONSTATE, JAMAIS
+ *   AVANT, ET MÊME QUAND C'EST LE TRI QUI L'ÉCRIT.
+ *
+ * ⚠️ **CE TEST A CHANGÉ DE THÈSE, ET L'AUTEUR EST À L'ORIGINE DES DEUX.** Il
+ *   s'appelait « un triptyque que le TRI a rapproché n'est pas couronné », et
+ *   il exigeait `i < tri` : un 666 que « On ne garde que les 6 » venait de
+ *   rapprocher restait nu jusqu'au verdict. La distinction qu'il défendait —
+ *   CONSTATER un 666 déjà écrit, contre le RASSEMBLER en ôtant ce qui le
+ *   séparait — est vraie, et elle se paie toujours au score
+ *   (`score.js › rendementSix`, le malus du tri). Mais elle ne dit pas QUAND
+ *   montrer, et l'auteur a tranché :
+ *
+ *   > « Je t'avais fait ajouter une règle pour ne pas ajouter de cornes si c'est
+ *   >   la dernière étape. Retire-la, en fait, je préfère que tous les 666 en
+ *   >   mode scénique reçoivent leur corne, et que le verdict retire celles à
+ *   >   ceux qui sont en 2ⁿᵈ ligne. » (l'auteur)
+ *
+ * **Ce qui reste, et qui est le vrai interdit : on ne couronne JAMAIS un 666
+ * qui n'est pas encore écrit.** C'est cela qui serait un mensonge visuel — pas
+ * le fait de le montrer tard. Le test le vérifie donc là où ça se voit, sur la
+ * LIGNE rejouée : à l'étape du couronnement, les trois 6 sont d'un seul tenant,
+ * et sur aucune ligne antérieure ils ne l'étaient. Le couronnement tombe au
+ * plus tôt et pas avant — y compris quand l'étape qui l'écrit est le tri.
+ *
+ * ★ **Et c'est plus difficile à satisfaire que l'ancienne inégalité** : `i < tri`
+ * se contentait d'un rang, celui-ci recalcule la contiguïté avec les primitives
+ * du module (`suivreLaLigne`, `dUnSeulTenant`) et refuserait aussi bien un
+ * couronnement trop précoce qu'un couronnement en retard d'une étape.
+ */
+test('★ cornes — un couronnement tombe à l’étape OÙ le 666 s’écrit, jamais avant', () => {
   const m = creerMoteur(catalogue);
   const r = m.resoudre('https://hope-hope-hope.fr/');
+  let vus = 0;
   for (const a of r.approches) {
     const sc = m.scenarioDe(a, { saisie: r.saisie });
-    const tri = sc.steps.findIndex((s) => s.recolte);
-    if (tri < 0) continue;
-    const cornes = sc.steps.map((s, i) => ((s.ops || []).some((o) => o.op === 'horns') ? i : -1))
-      .filter((i) => i >= 0);
-    for (const i of cornes) {
-      assert.ok(i < tri, `${a.codes} : cornes à l’étape ${i + 1}, après le tri de l’étape ${tri + 1} — `
-        + 'un 666 rapproché par le tri n’est pas un 666 trouvé');
+    const lignes = suivreLaLigne(sc.tokens, sc.steps);
+    for (const [i, st] of sc.steps.entries()) {
+      const op = (st.ops || []).find((o) => o.op === 'horns');
+      if (!op) continue;
+      vus++;
+      const trio = op.targets || [];
+      // L'étape est en `i` ; la ligne qu'elle laisse derrière elle est
+      // `lignes[i]`, et c'est celle où le 666 doit être écrit. Un couronnement
+      // ne touchant pas à la ligne, celle d'avant (`lignes[i - 1]`) est la
+      // même : c'est donc bien l'étape de CALCUL qui précède qui l'a écrit.
+      assert.ok(lignes[i] && dUnSeulTenant(lignes[i], trio),
+        `${a.codes} : couronnement à l’étape ${i + 1} alors que le 666 n’y est pas écrit d’un seul tenant`);
+      // ★ Et AUCUN CALCUL ne s'est glissé entre l'écriture et la couronne.
+      //
+      //   Ce n'est pas « le couronnement suit immédiatement l'étape qui écrit »,
+      //   et c'est volontaire : plusieurs trios peuvent se compléter à la MÊME
+      //   étape — sur `https://hope-hope-hope.fr/` en pythagoricienne,
+      //   l'égalisation en écrit cinq d'un coup, et les cinq couronnements se
+      //   suivent, dans l'ordre des séries. Ce qu'on interdit est qu'un geste
+      //   qui TRANSFORME passe entre les deux : le 666 serait alors resté nu
+      //   pendant qu'on faisait autre chose sous ses yeux.
+      let premier = -1;
+      for (let k = 0; k < lignes.length; k++) {
+        if (!lignes[k]) break;
+        if (dUnSeulTenant(lignes[k], trio)) { premier = k; break; }
+      }
+      assert.ok(premier >= 0 && premier <= i,
+        `${a.codes} : couronnement à l’étape ${i + 1} d’un 666 que la ligne n’écrit jamais`);
+      for (let k = premier + 1; k <= i; k++) {
+        const ops = (sc.steps[k].ops || []).map((o) => o.op);
+        assert.ok(ops.length && ops.every((op) => op === 'horns'),
+          `${a.codes} : le 666 est écrit à l’étape ${premier + 1} et couronné à ${i + 1} — `
+          + `l’étape ${k + 1} ${JSON.stringify(ops)} s’est glissée entre les deux`);
+      }
     }
   }
+  assert.ok(vus >= 2, `seulement ${vus} couronnements observés — le cas est-il vivant ?`);
 });
 
 /**
