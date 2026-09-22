@@ -52,7 +52,7 @@ test('amorçage — `pont` expose tout ce que les pages lui demandent', async ()
     'preparer', 'preparerVisuel', 'creerLecteur', 'etat',
     'lireHash', 'ecrireHash', 'canoniser',
     'resoudre', 'resoudreEnFond', 'rejouer', 'scenarioDe',
-    'LIMITE_SAISIE', 'bandeaux', 'facteurRepetitions',
+    'LIMITE_SAISIE', 'bandeaux',
   ];
   for (const nom of attendus) {
     assert.ok(nom in pont, `pont.js n'exporte plus « ${nom} »`);

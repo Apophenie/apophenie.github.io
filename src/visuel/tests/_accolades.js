@@ -165,8 +165,8 @@ export function finsDesAccolades(tl, lignes) {
     // l'effacement (toute l'étape s'il n'y en a pas). On ne borne pas par la
     // durée DÉCLARÉE des ops ouvertes avant : une op peut animer au-delà (la
     // potence), et sa fin aurait échappé à la mesure — mesuré, elle passait.
-    // Les instants déclarés sont ceux du scénario : une étape accélérée (redite)
-    // les joue `st.speed` fois plus vite, comme `compile.js › scale`.
+    // Les instants déclarés sont ceux du scénario : une étape compilée à une
+    // vitesse donnée les joue `st.speed` fois plus vite (`compile.js › scale`).
     const vitesse = st.speed || 1;
     const debuts = ((tl.scenario && tl.scenario.steps && tl.scenario.steps[i] && tl.scenario.steps[i].ops) || [])
       .map((o) => (o.at || 0) / vitesse);

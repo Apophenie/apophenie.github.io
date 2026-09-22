@@ -1434,7 +1434,6 @@ function corpsDeLaScene(op, d, registre) {
   const { lecteur, source: sourceLecteur } = pont.creerLecteur(scene, d.scenario, {
     reducedMotion: 'auto',
     speed: 1,
-    repeatSpeed: pont.facteurRepetitions(),
     // La scénographie du verdict n'a de sens que dans le registre qui n'est pas
     // celui par défaut : c'est la mise en scène qu'on opte (voir `url.js`).
     scenographie: registre !== pont.REGISTRE_DEFAUT,
@@ -1450,7 +1449,7 @@ function corpsDeLaScene(op, d, registre) {
   //   opérateur a-t-il l'air à l'écran ? Le reste est du contexte qui répond à
   //   côté. Voir `cadrerSurLOperateur`.
   const cadrage = cadrerSurLOperateur(lecteur, d.scenario, op);
-  const transport = creerTransport(lecteur, {}, { repetitions: pont.facteurRepetitions() });
+  const transport = creerTransport(lecteur, {});
   const registreVue = creerRegistre(lecteur, { titre: titreApproche(d.approche) });
   const detacherClavier = brancherClavier(cadre, lecteur);
 

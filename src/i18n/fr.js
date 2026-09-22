@@ -391,13 +391,6 @@ export const fr = {
     rejouer: 'Rejouer la démonstration',
     suivant: 'Transformation suivante',
     fin: 'Aller au résultat',
-    // Les redites : une étape qui refait exactement le geste d'une étape déjà
-    // vue, sur un autre morceau de la saisie. La première enseigne, les
-    // suivantes confirment — d'où l'accéléré, et d'où le droit de le refuser.
-    reditesCourt: 'Redites',
-    reditesAccelerer: 'Accélérer les répétitions ({facteur}×)',
-    reditesRalentir: 'Montrer les répétitions en entier',
-    reditesSansEffet: 'Accélération des répétitions sans effet : les animations sont réduites',
     /* La coupure du son. Trois libellés pour trois états réels — voir
        `src/app/sons.js` : le bouton dit ce qu'un clic FERA, et l'infobulle
        dit ce qui se passe quand la préférence est « actif » mais que le

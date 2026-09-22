@@ -26,17 +26,28 @@
  *  Comme le thème et la langue, le réglage SURVIT à la navigation : qui veut
  *  du son le demande une fois.
  *
- *  RÉPÉTITIONS — les démonstrations refont le même geste sur chaque fragment.
- *  La première fois enseigne, les suivantes confirment : par défaut les redites
- *  passent en accéléré. C'est une préférence de LECTURE, elle se règle donc
- *  dans les contrôles d'avancement et se persiste ici, comme le thème et la
- *  langue. Défaut : accéléré — c'est l'expérience qu'on veut par défaut, et le
- *  réglage sert à la refuser. */
+ *  ★ **CE QUI A DISPARU D'ICI : LA CLÉ `nhlg.repetitions`.**
+ *
+ *  Il y avait un quatrième réglage : l'accélération des REDITES. Les
+ *  démonstrations refont le même geste sur chaque fragment ; la première fois
+ *  enseigne, les suivantes confirment — donc les étapes reconnues comme
+ *  répétées étaient compilées cinq fois plus vite, et ce réglage servait à le
+ *  refuser.
+ *
+ *  Il est retiré, et pas parce que le besoin était faux : parce que le CURSEUR
+ *  DE VITESSE GLOBALE le couvre entièrement, et mieux. Celui-ci s'applique à la
+ *  demande, sur toute la lecture, de ×0,25 à ×10 ; l'autre décidait à la place
+ *  du spectateur, sur la foi d'une heuristique, que ce qu'il avait déjà vu ne
+ *  l'intéressait plus. Le raisonnement complet est en tête de
+ *  `src/visuel/compile.js`.
+ *
+ *  À sa place, une bascule de RYTHME — voir plus bas. Elle ne règle pas des
+ *  durées mais un ORDONNANCEMENT, ce qu'aucun curseur de vitesse ne sait faire.
+ */
 
 const CLE_THEME = 'nhlg.theme';
 const CLE_ANIM = 'nhlg.animation';
 const CLE_LOGO = 'nhlg.logo-vu';
-const CLE_REPET = 'nhlg.repetitions';
 const CLE_SON = 'nhlg.son';
 
 /** Les trois thèmes, dans l'ordre d'affichage du sélecteur : clair · auto · sombre. */
@@ -121,35 +132,14 @@ export function appliquerAnimation() {
   document.documentElement.setAttribute('data-animation', animationEffective());
 }
 
-/* ───────────────────────── Répétitions ─────────────────────────────── */
-
-/** `true` quand les étapes qui redisent une étape déjà vue passent en accéléré.
- *  Absence de clé = accéléré : c'est le défaut, seul le refus se stocke. */
-export const repetitionsAccelerees = () => magasin.lire(CLE_REPET) !== 'pleines';
-
-export function basculerRepetitions() {
-  const suivant = !repetitionsAccelerees();
-  if (suivant) magasin.effacer(CLE_REPET);
-  else magasin.ecrire(CLE_REPET, 'pleines');
-  appliquerRepetitions();
-  prevenir();
-  return suivant;
-}
-
-export function appliquerRepetitions() {
-  document.documentElement.setAttribute(
-    'data-repetitions', repetitionsAccelerees() ? 'accelerees' : 'pleines');
-}
-
 /* ─────────────────────────────── Son ───────────────────────────────── */
 
 /** `true` quand l'orage sonore est autorisé.
  *
- *  ★ Symétrique EXACT des répétitions, mais dans l'autre sens : là, l'absence
- *  de clé vaut « accéléré » parce que c'est l'expérience voulue par défaut et
- *  que seul le refus se stocke. Ici, l'absence de clé vaut **coupé**, et c'est
- *  l'acceptation qui se stocke. Deux défauts opposés, une même règle : la clé
- *  n'existe que quand l'utilisateur s'est écarté du défaut. */
+ *  ★ L'absence de clé vaut **coupé**, et c'est l'ACCEPTATION qui se stocke —
+ *  l'inverse du thème, où c'est l'écart au défaut qui s'écrit dans les deux
+ *  sens. Une même règle gouverne les deux : la clé n'existe que quand
+ *  l'utilisateur s'est écarté du défaut. */
 export const sonActif = () => magasin.lire(CLE_SON) === 'actif';
 
 /**
@@ -220,7 +210,6 @@ export function appliquerLogoVu() {
 export function appliquerTout() {
   appliquerTheme();
   appliquerAnimation();
-  appliquerRepetitions();
   appliquerSon();
   appliquerLogoVu();
 }

@@ -325,13 +325,6 @@ export const en = {
     rejouer: 'Replay the demonstration',
     suivant: 'Next transformation',
     fin: 'Jump to the result',
-    // Repeats: a step that redoes the exact same gesture as an earlier one, on
-    // another piece of the input. The first one teaches, the others confirm —
-    // hence the fast-forward, and hence the right to turn it off.
-    reditesCourt: 'Repeats',
-    reditesAccelerer: 'Speed up repeated steps ({facteur}×)',
-    reditesRalentir: 'Play repeated steps in full',
-    reditesSansEffet: 'Speeding up repeats has no effect: animations are reduced',
     sonCourt: 'Sound',
     sonActiver: 'Turn sound on',
     sonCouper: 'Turn sound off',

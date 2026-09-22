@@ -239,14 +239,13 @@ export function pageArbitrage() {
     const { lecteur } = pont.creerLecteur(svg, scenario, {
       reducedMotion: 'auto',
       speed: 1,
-      repeatSpeed: pont.facteurRepetitions(),
       scenographie: lecture.registre !== pont.REGISTRE_DEFAUT,
       // ★ Pas d'autoplay : deux scènes qui partent ensemble se disputent
       //   l'attention, et l'on ne compare plus rien. On les lance à la main,
       //   celle qu'on veut, quand on veut.
       autoplay: false,
     });
-    const transport = creerTransport(lecteur, {}, { repetitions: pont.facteurRepetitions() });
+    const transport = creerTransport(lecteur, {});
     const registre = creerRegistre(lecteur, { titre: titreApproche(rejeu.approche) });
     const detacher = brancherClavier(boite, lecteur);
     const regle = regleApproche(rejeu.approche);

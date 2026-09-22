@@ -4,7 +4,8 @@
  * Il n'y avait aucun test ici, et l'ordre des boutons n'est pas décoratif : il
  * dit la PORTÉE de chacun. C'est ce que l'auteur a corrigé — « à placer avant
  * redites pour éviter qu'on pense que c'est aux redites qu'il s'applique » —,
- * et rien ne l'aurait retenu.
+ * et rien ne l'aurait retenu. La bascule des redites est partie depuis ; la
+ * RÈGLE qu'elle avait servi à énoncer, elle, reste et gouverne ses successeurs.
  */
 
 import test from 'node:test';
@@ -104,20 +105,18 @@ const roles = (transport) => [...parcourir(transport.element)]
  * > « À placer avant redites pour éviter qu'on pense que c'est aux redites
  * >   qu'il s'applique. » (l'auteur)
  *
- * Je l'avais mis APRÈS, au motif que les deux règlent le rythme. Mauvais
- * argument : « redites accélérées » suivi de « vitesse » se lit « la vitesse
- * des redites », ce qui est faux — la vitesse porte sur toute la lecture, les
- * redites sur ce qui se répète. Le plus général passe devant.
+ * La consigne visait un voisin qui n'existe plus. Sa RAISON, elle, ne visait
+ * personne en particulier : deux réglages côte à côte se lisent comme si le
+ * second précisait le premier, donc le plus GÉNÉRAL passe devant. La vitesse
+ * porte sur toute la lecture ; tout ce qui la suit dans le bloc porte sur
+ * moins qu'elle. C'est cette règle-là qu'on gèle, et pas la liste du jour.
  */
-test('★ transport — la vitesse précède les redites', () => {
-  const tr = creerTransport(lecteurFactice(), {}, { repetitions: 5 });
-  const ordre = roles(tr);
-  const iVitesse = ordre.indexOf('vitesse');
-  const iRedites = ordre.indexOf('redites');
-  assert.ok(iVitesse >= 0, 'le sélecteur de vitesse manque');
-  assert.ok(iRedites >= 0, 'la bascule des redites manque');
-  assert.ok(iVitesse < iRedites,
-    `la vitesse doit précéder les redites, vu ${ordre.join(' → ')}`);
+test('★ transport — la vitesse ouvre le bloc des réglages', () => {
+  const tr = creerTransport(lecteurFactice(), {}, options());
+  const bloc = rangee(tr).enfants.find((n) => n.classes.has('transport__reglages'));
+  assert.ok(bloc, 'le bloc des réglages manque');
+  assert.equal(bloc.enfants[0].dataset.role, 'vitesse',
+    `le plus général passe devant, vu ${bloc.enfants.map((n) => n.dataset.role).join(' → ')}`);
 });
 
 /**
@@ -134,7 +133,7 @@ test('★ transport — la vitesse précède les redites', () => {
  * des mobiles.
  */
 test('★ transport — le facteur tient la place d’une icône, sous son libellé', () => {
-  const tr = creerTransport(lecteurFactice(), {}, { repetitions: 5 });
+  const tr = creerTransport(lecteurFactice(), {}, {});
   const bouton = [...parcourir(tr.element)].find((n) => n.dataset.role === 'vitesse');
   const facteur = [...parcourir(bouton)].find((n) => n.classes.has('transport__facteur'));
   const libelle = [...parcourir(bouton)].find((n) => n.classes.has('transport__libelle'));
@@ -151,7 +150,7 @@ test('★ transport — le facteur tient la place d’une icône, sous son libel
 });
 
 test('★ transport — les treize vitesses, et le nom accessible sur le select', () => {
-  const tr = creerTransport(lecteurFactice(), {}, { repetitions: 5 });
+  const tr = creerTransport(lecteurFactice(), {}, {});
   const choix = [...parcourir(tr.element)].find((n) => n.classes.has('transport__vitesse-choix'));
   assert.ok(choix, 'le select manque');
   assert.equal(choix.getAttribute('aria-label'), fr.transport.vitesse);
@@ -173,7 +172,7 @@ test('★ transport — les treize vitesses, et le nom accessible sur le select'
  *   exactement le mensonge que cette barre s'interdit.
  */
 test('★ transport — pas de sélecteur quand le mouvement est réduit', () => {
-  const tr = creerTransport(lecteurFactice({ reduced: true }), {}, { repetitions: 5 });
+  const tr = creerTransport(lecteurFactice({ reduced: true }), {}, {});
   assert.ok(!roles(tr).includes('vitesse'), 'un réglage inerte ne s’affiche pas');
 });
 
@@ -182,9 +181,8 @@ test('★ transport — pas de sélecteur quand le mouvement est réduit', () =>
 /** La barre elle-même : `.transport-groupe` porte la jauge PUIS la rangée. */
 const rangee = (tr) => [...parcourir(tr.element)].find((n) => n.classes.has('transport'));
 
-/** Tout ce que la barre peut porter : neuf contrôles, le maximum. */
+/** Tout ce que la barre peut porter : le maximum de contrôles. */
 const options = (extra = {}) => ({
-  repetitions: 5,
   sons: { disponible: true, debloque: false, on: () => () => {} },
   pleinEcran: { disponible: true, actif: () => false, basculer() {}, on: () => () => {} },
   ...extra,
@@ -221,15 +219,15 @@ test('★ transport — les réglages font un bloc, et la coupure tombe après �
   );
   assert.deepEqual(
     barre.enfants[5].enfants.map((n) => n.dataset.role),
-    ['vitesse', 'redites', 'son', 'pleinEcran'],
-    'les quatre réglages demandés, dans l’ordre, et tous dans le même bloc',
+    ['vitesse', 'son', 'pleinEcran'],
+    'les réglages demandés, dans l’ordre, et tous dans le même bloc',
   );
 });
 
 /** Une boîte flex sans enfant compterait quand même dans la gouttière de la
  *  rangée : elle ajouterait une gouttière après « Fin » pour ne rien contenir.
- *  Le cas se produit vraiment — la révélation du logo ne règle ni redites ni
- *  son, et le mouvement réduit retire jusqu'à la vitesse. */
+ *  Le cas se produit vraiment — la révélation du logo n'a pas de son à couper,
+ *  et le mouvement réduit retire jusqu'à la vitesse. */
 test('★ transport — pas de bloc de réglages quand il n’y a rien à régler', () => {
   const tr = creerTransport(lecteurFactice({ reduced: true }), {}, {});
   const barre = rangee(tr);

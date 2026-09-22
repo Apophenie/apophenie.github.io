@@ -23,12 +23,11 @@ import { depuisSaisie, nums } from '../../../moteur/etat.js';
 
 let compile = null;
 let TOKEN_GAP = 6;
-let REPEAT_SPEED = 5;
 let setGlyphes = null;
 let GLYPHES = null;
 let Scene = null;
 try {
-  ({ compile, REPEAT_SPEED } = await import('../../../visuel/compile.js'));
+  ({ compile } = await import('../../../visuel/compile.js'));
   ({ setGlyphes } = await import('../../../visuel/glyphes.js'));
   ({ GLYPHES } = await import('../../../moteur/tables/glyphes.js'));
   ({ Scene } = await import('../../../visuel/scene.js'));
@@ -254,93 +253,66 @@ test('intégration — le scénario passe aussi la validation statique du moteur
 
 
 /**
- * L'accélération des redites (`visuel/compile.js` § Répétitions) doit rester
- * SANS EFFET sur ce qui est montré : mêmes steps, mêmes titres, mêmes valeurs
- * d'arrivée, mêmes charnières distinctes — seules les durées changent. Et elle
- * ne doit jamais fabriquer un step sous le minimum de CONTRACTS §3.
+ * ★ **PLUS AUCUNE ÉTAPE NE S'ACCÉLÈRE TOUTE SEULE.**
+ *
+ * Il y avait ici deux tests de l'accélération des redites : « elle ne change
+ * QUE les durées » (mêmes steps, mêmes titres, mêmes valeurs d'arrivée, mêmes
+ * charnières distinctes) et « les trois “hope” ne se lisent qu'une fois en
+ * entier » (plus d'un tiers de temps gagné sur la méthode 5 du README).
+ *
+ * Le mode est retiré — le curseur de vitesse globale le rend inutile, et le
+ * raisonnement complet est en tête de `src/visuel/compile.js`. Ce test-ci est
+ * son NON-RETOUR, sur le vrai corpus plutôt que sur un scénario de laboratoire :
+ * sur chaque approche de chaque saisie, deux étapes qui portent le même geste
+ * doivent durer la même chose. Une réintroduction silencieuse de l'heuristique
+ * se verrait ici avant de se voir à l'écran.
  */
-test('intégration — l’accélération des redites ne change QUE les durées',
+test('★ intégration — deux étapes de même geste durent le même temps',
   { skip: compile ? false : 'src/visuel/ absent' }, () => {
     const m = creerMoteur(catalogue);
-    let accelerees = 0;
-    let gainMax = 0;
-    let saisieMax = '';
+    let compares = 0;
+    let familles = 0;
     for (const s of SAISIES) {
       const r = m.resoudre(s);
       for (const a of r.approches) {
         let sc;
         try { sc = m.scenarioDe(a, { saisie: r.saisie }); } catch { continue; }
-        const plein = compile(sc, { repeatSpeed: 1 });
-        const rapide = compile(sc, { repeatSpeed: REPEAT_SPEED });
+        const tl = compile(sc);
 
-        assert.deepEqual(rapide.steps.map((st) => st.id), plein.steps.map((st) => st.id));
-        assert.deepEqual(rapide.steps.map((st) => st.title), plein.steps.map((st) => st.title));
-        assert.equal(rapide.anims.length, plein.anims.length, `${s} #${a.rang} : animations perdues`);
-        assert.deepEqual(
-          rapide.anims.map((x) => [x.id, x.prop, JSON.stringify(x.keyframes)]),
-          plein.anims.map((x) => [x.id, x.prop, JSON.stringify(x.keyframes)]),
-          `${s} #${a.rang} : une valeur d'arrivée a bougé`);
-        assert.deepEqual(rapide.warnings, plein.warnings, `${s} #${a.rang} : nouvel avertissement`);
+        // Aucun résidu du mode : ni sur la timeline, ni sur les steps.
+        assert.ok(!('repeatSpeed' in tl), `${s} #${a.rang} : « repeatSpeed » survit`);
+        for (const st of tl.steps) {
+          assert.ok(!('accelerated' in st), `${s} #${a.rang} : « accelerated » survit`);
+          assert.ok(!('repeatOf' in st), `${s} #${a.rang} : « repeatOf » survit`);
+        }
 
-        for (const st of rapide.steps) {
-          assert.ok(st.duration >= 16, `${s} #${a.rang} : step « ${st.id} » à ${st.duration} ms`);
-          assert.ok(st.duration <= plein.steps[st.index].duration + 1e-6, 'une redite ne rallonge jamais');
-          if (st.accelerated) accelerees++;
+        // Le regroupement par GESTE : la suite des noms d'ops du step, doublée
+        // de leurs instants et durées déclarés. C'est ce que l'ancien détecteur
+        // appelait le « type » d'un step — deux steps de même type et de même
+        // contenu temporel n'ont aucune raison de durer différemment.
+        const parGeste = new Map();
+        sc.steps.forEach((st, i) => {
+          const cle = JSON.stringify((st.ops || []).map((o) => [o.op, o.at ?? 0, o.dur ?? null, o.stagger ?? 0]))
+            + `|${st.duration ?? ''}|${st.hold ?? ''}`;
+          if (!parGeste.has(cle)) parGeste.set(cle, []);
+          parGeste.get(cle).push(i);
+        });
+        for (const [, indices] of parGeste) {
+          if (indices.length < 2) continue;
+          familles++;
+          const duree = tl.steps[indices[0]].duration;
+          for (const i of indices.slice(1)) {
+            compares++;
+            assert.ok(Math.abs(tl.steps[i].duration - duree) < 1e-6,
+              `${s} #${a.rang} : étapes ${indices[0]} et ${i} portent le même geste `
+              + `mais durent ${duree} ms et ${tl.steps[i].duration} ms`);
+          }
         }
-        for (let i = 1; i < rapide.bounds.length; i++) {
-          assert.ok(rapide.bounds[i] - rapide.bounds[i - 1] >= 8, `${s} #${a.rang} : charnières trop proches`);
-        }
-        const gain = 1 - rapide.total / plein.total;
-        if (gain > gainMax) { gainMax = gain; saisieMax = `${s} #${a.rang}`; }
       }
     }
-    assert.ok(accelerees > 0, 'aucune redite détectée dans tout le jeu d’essai — la détection est morte');
-    console.log(`    ${accelerees} étapes accélérées ; meilleur gain ${(gainMax * 100).toFixed(0)} %`
-      + ` sur ${saisieMax}`);
-  });
-
-test('intégration — « hope-hope-hope » : les trois « hope » ne se lisent qu’une fois en entier',
-  { skip: compile ? false : 'src/visuel/ absent' }, () => {
-    const m = creerMoteur(catalogue);
-    // Ce que ce test mesure est la détection des REDITES : « le même geste, trois
-    // fois de suite, ne se lit qu'une fois en entier ». Il lui faut donc une
-    // approche qui RÉPÈTE, et une qui répète LONGUEMENT — une résonance de deux
-    // étapes n'a que deux redites à trouver, et le test passerait pour de
-    // mauvaises raisons.
-    //
-    // ⚠ Elle est donc REJOUÉE depuis un lien, plus cherchée dans le classement.
-    // « La première résonance venue » a changé trois fois : à l'arrivée du
-    // GROUPEMENT (qui fait ses trois 6 d'un seul geste et n'a rien à redire),
-    // puis au renommage des codes en codes parlants — le classement départage
-    // ses ex æquo sur la suite des codes (CONTRACTS §4.4-1), et rebaptiser les
-    // opérateurs rebat donc les égalités. Le lien, lui, ne dépend d'aucun
-    // classement : c'est la méthode 5 du README, sept segments à traits
-    // fusionnés sur chacun des trois « hope ».
-    const rejeu = m.rejouer(lireUrl(`#×3:tca+m7F+cs+prn#${encoderTexte('hope-hope-hope.fr')}`));
-    assert.ok(rejeu.ok, 'la méthode 5 du README se rejoue sur le cas d’école');
-    assert.equal(rejeu.approche.mode, 'RESONANCE');
-    const sc = m.scenarioDe(rejeu.approche, { saisie: 'hope-hope-hope.fr' });
-    const plein = compile(sc, { repeatSpeed: 1 });
-    const rapide = compile(sc, { repeatSpeed: REPEAT_SPEED });
-    const redites = rapide.steps.filter((st) => st.accelerated);
-    assert.ok(redites.length >= 8,
-      `seules ${redites.length} étapes reconnues comme redites sur ${rapide.steps.length}`);
-    // Chaque redite pointe vers une étape ANTÉRIEURE, jamais vers elle-même.
-    for (const st of redites) {
-      assert.ok(st.repeatOf >= 0 && st.repeatOf < st.index, `étape ${st.index} : repeatOf=${st.repeatOf}`);
-    }
-    // ★ LE GAIN A BAISSÉ, ET C'EST LE PRIX D'UNE RÈGLE. Une redite ne
-    //   s'accélère plus que si elle est ENTOURÉE de gestes du même type
-    //   (`compile.js › repeatAccelerables`) : les pas de bord — celui qui monte
-    //   la réglette, celui qui la retire — gardent leur rythme plein, et ce
-    //   sont précisément ceux dont l'expédition escamotait la disparition du
-    //   décor. On perd donc quelques dixièmes de gain pour ne plus bâcler ce
-    //   qu'on avait mis une seconde à monter. Le seuil dit ce qu'on exige :
-    //   que les redites fassent encore gagner plus d'un tiers du temps.
-    assert.ok(rapide.total < plein.total * 0.7,
-      `${Math.round(plein.total)} ms → ${Math.round(rapide.total)} ms : gain insuffisant`);
-    console.log(`    hope-hope-hope : ${(plein.total / 1000).toFixed(1)} s → `
-      + `${(rapide.total / 1000).toFixed(1)} s (${rapide.steps.length} étapes, ${redites.length} accélérées)`);
+    assert.ok(familles > 0,
+      'aucune famille d’étapes de même geste dans tout le jeu d’essai — le test ne mesure rien');
+    console.log(`    ${familles} familles d’étapes de même geste, ${compares} comparaisons de durée`);
   });
 
 /**

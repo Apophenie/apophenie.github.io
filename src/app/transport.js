@@ -11,13 +11,14 @@
  *    · un seul bouton Lecture/Pause, dont le NOM ACCESSIBLE change, et SANS
  *      `aria-pressed` — les deux ensemble produisent une annonce contradictoire.
  *
- *  Une seule exception au « pur reflet » : la BASCULE DES REDITES. Ce n'est pas
- *  une commande d'avancement, c'est une préférence de lecture — mais elle règle
- *  le rythme de l'avancement, donc sa place est ici, à côté des cinq boutons, et
- *  pas dans la barre haute avec le thème. Elle n'agit pas sur le lecteur : elle
- *  écrit dans `reglages.js`, et c'est la page de démonstration qui, prévenue,
- *  fait recompiler la timeline. La barre reste un reflet, d'un réglage cette
- *  fois plutôt que du lecteur.
+ *  Une seule exception au « pur reflet » : les PRÉFÉRENCES DE LECTURE — la
+ *  vitesse, le rythme, le son, le plein écran. Ce ne sont pas des commandes
+ *  d'avancement, mais elles règlent la façon dont l'avancement se joue, donc
+ *  leur place est ici, à côté des cinq boutons, et pas dans la barre haute avec
+ *  le thème. Celles qui changent la TIMELINE n'agissent pas sur le lecteur :
+ *  elles écrivent dans `reglages.js`, et c'est la page de démonstration qui,
+ *  prévenue, fait recompiler. La barre reste un reflet, d'un réglage cette fois
+ *  plutôt que du lecteur.
  */
 
 import { e, svg as s } from './dom.js';
@@ -25,10 +26,7 @@ import { t, langue } from '../i18n/index.js';
 import { interpoler } from '../i18n/resolution.js';
 import { titreEtape } from './libelles.js';
 import { infobuller } from './infobulle.js';
-import {
-  repetitionsAccelerees, basculerRepetitions, animationEffective,
-  sonActif, basculerSon, onReglages,
-} from './reglages.js';
+import { sonActif, basculerSon, onReglages } from './reglages.js';
 
 const ico = (...enfants) =>
   s('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', focusable: 'false' }, enfants);
@@ -48,23 +46,10 @@ const ICONES = {
   fin: () => ico(
     s('path', { class: 'ico-plein', d: 'M5 5 L15 12 L5 19 Z' }),
     s('path', { class: 'ico-trait', d: 'M18 5V19' })),
-  // Les redites : DEUX chevrons quand elles filent, UN quand elles se lisent en
-  // entier — l'idiome universel de la vitesse de lecture, et le seul qui tienne
-  // à 24 px. La barre oblique a été essayée puis abandonnée : sur un chevron au
-  // trait de 2 px, le liseré de fond qui l'empêche de se fondre dedans hachait
-  // le glyphe en morceaux illisibles.
-  //
-  // Ces deux-là sont AU TRAIT quand les cinq commandes d'avancement sont
-  // pleines : la différence de facture dit du premier coup d'œil que ce bouton
-  // règle quelque chose au lieu de déplacer la tête de lecture.
-  rapide: () => ico(
-    s('path', { class: 'ico-trait', d: 'M4 6 L10 12 L4 18' }),
-    s('path', { class: 'ico-trait', d: 'M13 6 L19 12 L13 18' })),
-  pleines: () => ico(
-    s('path', { class: 'ico-trait', d: 'M8 5 L15 12 L8 19' })),
-  // Le son : le haut-parleur, et ses ondes ou sa croix. Au TRAIT comme les
-  // redites — même famille de facture, parce que c'est le même genre de
-  // bouton : il règle, il ne déplace pas la tête de lecture.
+  // Le son : le haut-parleur, et ses ondes ou sa croix. AU TRAIT quand les cinq
+  // commandes d'avancement sont pleines : la différence de facture dit du
+  // premier coup d'œil que ce bouton règle quelque chose au lieu de déplacer la
+  // tête de lecture.
   //
   // ★ Trois icônes et non deux, parce qu'il y a trois états RÉELS (voir
   // `src/app/sons.js`) : coupé ; actif ; et « actif, mais le navigateur n'a pas
@@ -91,10 +76,10 @@ const ICONES = {
   // états ne se distinguent pas par une couleur ni par une barre ajoutée, mais
   // par la POSITION des coins : dehors, ils poussent vers les bords ; dedans,
   // ils rentrent vers le centre. Le geste que le bouton fera se lit donc dans
-  // la direction du dessin, à l'exacte manière du chevron des redites.
+  // la direction du dessin.
   //
-  // Au TRAIT comme les redites et le son, et pour la même raison : ce bouton
-  // règle l'affichage, il ne déplace pas la tête de lecture.
+  // Au TRAIT comme le son, et pour la même raison : ce bouton règle
+  // l'affichage, il ne déplace pas la tête de lecture.
   pleinEcran: () => ico(
     s('path', { class: 'ico-trait', d: 'M4 9 V4 H9' }),
     s('path', { class: 'ico-trait', d: 'M15 4 H20 V9' }),
@@ -140,11 +125,7 @@ function boutonTransport(cle, libelle, nomAccessible, principal = false) {
  *   quatre étapes ne sont pas des « transformations » et dont le bouton de
  *   lecture ne « lance » pas une démonstration. Toute clé absente retombe sur
  *   le dictionnaire : la barre des démonstrations n'en passe aucune.
- * @param {{repetitions?:boolean|number, sons?:Object, pleinEcran?:Object}} [options]
- *   `repetitions` : une valeur véridique ajoute la bascule « redites
- *   accélérées » ; un nombre donne en plus le facteur à annoncer dans le
- *   libellé. Réservé aux démonstrations : la révélation du logo ne répète aucun
- *   geste, le bouton n'y aurait rien à régler.
+ * @param {{vitesses?:boolean, sons?:Object, pleinEcran?:Object}} [options]
  *   `pleinEcran` : le contrôleur de `src/app/pleinecran.js`. La barre ne sait ni
  *   quel élément agrandir, ni comment — elle lui demande son état et lui envoie
  *   les clics, exactement comme elle fait du lecteur.
@@ -204,31 +185,17 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
   const bSuiv = boutonTransport('suivant', tt('suivCourt'), tt('suivant'));
   const bFin = boutonTransport('fin', tt('finCourt'), tt('fin'));
 
-  /* ── la bascule des redites, sixième contrôle et seule préférence ──
-     Elle ne pilote pas le lecteur, elle règle le RYTHME de ce que les cinq
-     autres parcourent : c'est pourquoi elle vit ici et pas dans la barre haute.
-     Un bouton unique à nom accessible variable, sans `aria-pressed` — même
-     règle que Lecture/Pause. */
-  const facteurRedites = typeof options.repetitions === 'number' ? options.repetitions : 5;
-  const bRedites = options.repetitions
-    ? boutonTransport('rapide', tt('reditesCourt'), tt('reditesAccelerer', { facteur: facteurRedites }))
-    : null;
-  if (bRedites) {
-    bRedites.classList.add('transport__bouton--reglage');
-    bRedites.dataset.role = 'redites';
-  }
-
-  /* ══ la VITESSE GLOBALE, SIXIÈME contrôle — AVANT les redites ════════════
+  /* ══ la VITESSE GLOBALE, SIXIÈME contrôle ════════════════════════════════
      > « Je voudrais un réglage de vitesse globale […] x0.25 … x10 » puis « à
      >   placer avant redites pour éviter qu'on pense que c'est aux redites
      >   qu'il s'applique » (l'auteur).
 
-     ★ **L'ORDRE PORTE UNE PORTÉE.** Je l'avais mis APRÈS les redites au motif
-       que les deux règlent le rythme, et c'était le mauvais argument :
-       l'adjacence se lit comme une SUBORDINATION. « Redites accélérées » puis
-       « vitesse » se lit « la vitesse des redites », ce qui est faux — la
-       vitesse porte sur toute la lecture, les redites sur ce qui se répète. Le
-       plus général passe donc devant, et le plus particulier le suit.
+     ★ **L'ORDRE PORTE UNE PORTÉE.** La consigne visait le voisin d'alors — la
+       bascule des redites, retirée depuis (`reglages.js`) —, mais sa RAISON
+       survit au voisin : l'adjacence se lit comme une SUBORDINATION, donc le
+       réglage le plus général passe devant et le plus particulier le suit. La
+       vitesse porte sur toute la lecture ; le rythme, qui la suit désormais,
+       ne porte que sur l'ordre des gestes à l'intérieur d'une étape.
 
      ★ **NI LIÈVRE NI TORTUE.** « Vu le design, abandonne les lièvre et
        tortue » (l'auteur). Les émoji sont en couleur et d'une autre famille de
@@ -288,8 +255,8 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     });
   }
 
-  /* ── la coupure du son, SEPTIÈME contrôle, juste après les redites ──
-     Même nature que la bascule des redites, donc même place et même facture :
+  /* ── la coupure du son, SEPTIÈME contrôle ──
+     Même nature que les deux précédents, donc même place et même facture :
      une préférence de lecture, à portée immédiate de ce qu'elle règle. Le
      bouton n'existe QUE s'il y a quelque chose à couper — registre scénique
      ET format lisible par ce navigateur (`options.sons`). Un bouton qui ne
@@ -327,7 +294,9 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
   /* ══ LES RÉGLAGES SONT UN BLOC, ET C'EST CE BLOC QUI PASSE À LA LIGNE ══════
      > « En portrait, la scène déborde sur le côté […] ce player doit passer sur
      >   2 lignes sur écran étroit (en coupant après Fin, pour que vitesse,
-     >   redite, agrandir et son soient sur la 2nde ligne) » (l'auteur).
+     >   redite, agrandir et son soient sur la 2nde ligne) » (l'auteur ;
+     >   « redite » est depuis devenu « rythme », mais la consigne de coupure
+     >   est la même, et le bloc qui bascule est toujours le même bloc).
 
      ⚠️ **LE DÉBORDEMENT VENAIT D'ICI, ET IL TIRAIT LA SCÈNE AVEC LUI.** Mesuré
        sur un écran de 390 px : la barre réclamait 466 px de large (526 avec le
@@ -348,9 +317,9 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
        seconde ligne dès qu'il n'y tient plus. La coupure tombe donc toujours
        APRÈS « Fin », sans qu'aucun seuil n'ait à être maintenu. */
   const reglages = [
-    // La vitesse AVANT les redites : le plus général devant, le plus
-    // particulier derrière — voir le pavé de `bVitesse`.
-    ...(bVitesse ? [bVitesse] : []), ...(bRedites ? [bRedites] : []),
+    // La vitesse EN TÊTE : le plus général devant, le plus particulier
+    // derrière — voir le pavé de `bVitesse`.
+    ...(bVitesse ? [bVitesse] : []),
     ...(bSon ? [bSon] : []), ...(bPlein ? [bPlein] : []),
   ];
   /* Aucun réglage disponible — la révélation du logo, un navigateur sans plein
@@ -380,9 +349,6 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     lecteur.playing ? lecteur.pause() : lecteur.play();
     rafraichir();
   });
-  // La bascule n'appelle rien sur le lecteur : elle écrit la préférence, et
-  // `onReglages` fait recompiler la timeline chez qui l'a construite.
-  if (bRedites) bRedites.addEventListener('click', basculerRepetitions);
   // ★ Le clic sur ce bouton EST un geste utilisateur : c'est donc l'occasion
   //   où le navigateur laissera passer le son. On bascule la préférence, et le
   //   joueur en profite pour se déverrouiller (`sons.js › sonder`, branché sur
@@ -429,35 +395,7 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
       c.dataset.etat = i < courant ? 'franchie' : (i === courant ? 'courante' : 'a-venir');
       if (i === courant) c.setAttribute('aria-current', 'true');
       else c.removeAttribute('aria-current');
-      // Une case plus étroite pour les redites accélérées : la jauge dit alors
-      // POURQUOI ça vient de filer, sans mentir sur le nombre d'étapes.
-      // `rafraichir` tourne à chaque image pendant la lecture : on n'écrit que
-      // si la valeur change, sinon c'est un recalcul de style par image et par
-      // case pour rien.
-      const redite = !!(etapes[i] && etapes[i].accelerated);
-      if (redite === (c.dataset.redite === '1')) return;
-      if (redite) c.dataset.redite = '1';
-      else delete c.dataset.redite;
     });
-  }
-
-  /* Le bouton dit ce qu'un clic FERA, comme Lecture/Pause. En mouvement réduit,
-     il n'y a plus de trajet à abréger — seulement un temps de lecture — et le
-     compilateur ignore l'accélération : on le dit au lieu de faire semblant. */
-  function peindreRedites() {
-    if (!bRedites) return;
-    const rapide = repetitionsAccelerees();
-    const sansEffet = animationEffective() === 'reduite';
-    const nom = sansEffet
-      ? tt('reditesSansEffet')
-      : (rapide ? tt('reditesRalentir') : tt('reditesAccelerer', { facteur: facteurRedites }));
-    bRedites.setAttribute('aria-label', nom);
-    bRedites.dataset.etat = rapide ? 'accelerees' : 'pleines';
-    if (sansEffet) bRedites.dataset.inoperant = '1';
-    else delete bRedites.dataset.inoperant;
-    const neuve = rapide ? ICONES.rapide() : ICONES.pleines();
-    bRedites.replaceChild(neuve, bRedites._icone);
-    bRedites._icone = neuve;
   }
 
   /* ★ Le bouton du son dit L'ÉTAT RÉEL, pas la préférence.
@@ -518,14 +456,13 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
      qu'on le lit, et ne sait pas aller à la ligne. Les raisons qui l'ont banni
      ailleurs valaient ici aussi.
 
-     ⚠ Le libellé de ces deux boutons CHANGE d'état — accéléré ou plein, son
-     coupé, actif ou en attente. On passe donc une FONCTION, que l'infobulle
+     ⚠ Le libellé de ces boutons CHANGE d'état — son coupé, actif ou en
+     attente ; plein écran ou fenêtre. On passe donc une FONCTION, que l'infobulle
      rappelle à chaque ouverture : un texte figé à la construction mentirait dès
      la première bascule. Le son a en outre un mot de plus lorsqu'il attend un
      geste du navigateur, que son nom accessible ne porte pas — c'est
      précisément le genre de précision qu'une infobulle sait dire et qu'un nom
      accessible n'a pas à répéter. */
-  if (bRedites) detachements.push(infobuller(bRedites, () => bRedites.getAttribute('aria-label')));
   if (bSon) {
     detachements.push(infobuller(bSon, () => {
       const attente = sonActif() && !sons.debloque;
@@ -533,7 +470,7 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
     }));
   }
 
-  // `rafraichir` suit le lecteur — donc chaque image de la lecture. Les deux
+  // `rafraichir` suit le lecteur — donc chaque image de la lecture. Les
   // bascules, elles, ne suivent que les réglages : elles se repeignent sur
   // `onReglages`, pas soixante fois par seconde pour rien. Le bouton du son
   // écoute EN PLUS le joueur, qui prévient quand le déblocage change — c'est
@@ -541,12 +478,9 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
   // Le plein écran, lui, n'écoute QUE le navigateur : ce n'est ni un réglage
   // persisté ni un état du lecteur.
   const desabonner = lecteur.on ? lecteur.on('change', rafraichir) : () => {};
-  const desabonnerReglages = (bRedites || bSon)
-    ? onReglages(() => { peindreRedites(); peindreSon(); })
-    : () => {};
+  const desabonnerReglages = bSon ? onReglages(peindreSon) : () => {};
   const desabonnerSons = bSon ? sons.on(peindreSon) : () => {};
   const desabonnerPlein = bPlein ? plein.on(peindrePleinEcran) : () => {};
-  peindreRedites();
   peindreSon();
   peindrePleinEcran();
   rafraichir();

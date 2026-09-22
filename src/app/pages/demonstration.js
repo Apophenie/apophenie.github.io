@@ -12,7 +12,7 @@ import { boutonPartage } from '../partage.js';
 import { creerSons, brancherSons } from '../sons.js';
 import { interrupteurs } from '../entete.js';
 import {
-  animationEffective, themeEffectif, repetitionsAccelerees, onReglages,
+  animationEffective, themeEffectif, onReglages,
   sonActif, sonTranche, sonParDefautActif,
 } from '../reglages.js';
 import { brancherLeRegisseur } from '../../visuel/qualite.js';
@@ -160,11 +160,6 @@ export function pageDemonstration(ctx) {
 
   /* ──────────────────────── lecteur et reflets ──────────────────── */
 
-  // Le rythme des redites est un réglage de COMPILATION : le lecteur le porte
-  // dans ses options et le repasse à `compile()` à chaque construction, y
-  // compris sur `rebuild()`. Voir `visuel/compile.js` § Répétitions.
-  const facteurRedites = () => (repetitionsAccelerees() ? pont.facteurRepetitions() : 1);
-
   // ★ Déclaré AVANT le lecteur, et initialisé à `null`.
   //
   // La condition d'autoplay ci-dessous le lit dans une fermeture. Un `const`
@@ -177,10 +172,9 @@ export function pageDemonstration(ctx) {
   const { lecteur, source: sourceLecteur } = pont.creerLecteur(sceneSvg, scenario, {
     reducedMotion: reglageMouvement(),
     speed: 1,
-    repeatSpeed: facteurRedites(),
     // ★ La SCÉNOGRAPHIE du verdict — fond lugubre, éclair, embrasement — est
-    //   une option de COMPILATION, au même titre que `reducedMotion` et
-    //   `repeatSpeed`. Elle ne change rien au scénario, qui reste le même objet
+    //   une option de COMPILATION, au même titre que `reducedMotion`. Elle ne
+    //   change rien au scénario, qui reste le même objet
     //   pur dans les deux registres : elle décide seulement de ce que le
     //   compilateur ajoute autour du verdict (`visuel/primitives/reveal.js`).
     scenographie: scenique,
@@ -245,7 +239,6 @@ export function pageDemonstration(ctx) {
   });
 
   transport = creerTransport(lecteur, {}, {
-    repetitions: pont.facteurRepetitions(),
     sons,
     pleinEcran,
   });
@@ -347,20 +340,17 @@ export function pageDemonstration(ctx) {
   // le réglage d'animation et pour une bascule système en mode « auto ». On
   // compare donc le thème EFFECTIF à celui avec lequel la timeline a été bâtie.
   //
-  // Le rythme des redites impose lui aussi une recompilation, mais pas la même :
+  // Le NIVEAU D'ANIMATION, lui, impose une recompilation d'une autre sorte :
   // il CHANGE LES DURÉES, donc les charnières se déplacent. Conserver
   // `currentTime` tel quel — ce que fait `rebuild()` — ferait sauter le
   // spectateur à un tout autre endroit du récit. On conserve l'ÉTAPE et la
   // fraction parcourue à l'intérieur : le geste en cours reste le geste en
-  // cours, à la même avancée, seule sa vitesse change.
+  // cours, à la même avancée, seul son déroulé change.
   //
-  // Même raisonnement pour le NIVEAU D'ANIMATION : il était jusqu'ici posé une
-  // fois pour toutes à la création du lecteur, si bien qu'un « réduire les
-  // animations » demandé en cours de démonstration ne prenait effet qu'au
-  // rechargement — et la bascule des redites annonçait « sans effet » alors que
-  // l'accélération, elle, courait toujours. Il se recompile donc aussi.
+  // Il était jusqu'ici posé une fois pour toutes à la création du lecteur, si
+  // bien qu'un « réduire les animations » demandé en cours de démonstration ne
+  // prenait effet qu'au rechargement. Il se recompile donc aussi.
   let themeCompile = themeEffectif();
-  let reditesCompile = repetitionsAccelerees();
   let mouvementCompile = reglageMouvement();
 
   function recompilerEnGardantLEtape(patch) {
@@ -377,18 +367,16 @@ export function pageDemonstration(ctx) {
 
   const offTheme = onReglages(() => {
     const theme = themeEffectif();
-    const redites = repetitionsAccelerees();
     const mouvement = reglageMouvement();
-    if (theme === themeCompile && redites === reditesCompile && mouvement === mouvementCompile) return;
-    // Le thème ne touche qu'aux couleurs : `currentTime` reste juste. Le rythme
-    // des redites et le niveau d'animation déplacent les charnières : il faut
-    // alors conserver l'étape, pas l'instant.
-    const dureesChangent = redites !== reditesCompile || mouvement !== mouvementCompile;
+    if (theme === themeCompile && mouvement === mouvementCompile) return;
+    // Le thème ne touche qu'aux couleurs : `currentTime` reste juste. Le niveau
+    // d'animation déplace les charnières : il faut alors conserver l'étape, pas
+    // l'instant.
+    const dureesChangent = mouvement !== mouvementCompile;
     themeCompile = theme;
-    reditesCompile = redites;
     mouvementCompile = mouvement;
     if (dureesChangent) {
-      recompilerEnGardantLEtape({ reducedMotion: mouvement, repeatSpeed: facteurRedites() });
+      recompilerEnGardantLEtape({ reducedMotion: mouvement });
     } else if (typeof lecteur.rebuild === 'function') {
       lecteur.rebuild();
     }

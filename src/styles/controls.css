@@ -36,14 +36,13 @@
 .jauge__case[data-etat="courante"] { background: var(--gold); }
 .jauge__case:hover { border-color: var(--fg-2); }
 
-/* Les redites accélérées : une case plus ÉTROITE. La jauge continue de compter
-   une case par transformation — elle ne ment pas sur le nombre d'étapes — mais
-   sa largeur se met à dire le temps que chacune prendra. Le repère est une
-   GÉOMÉTRIE, jamais une couleur : les trois états (franchie, courante, à venir)
-   gardent la leur, et la largeur se lit sur les trois pareillement, ce qu'un
-   creusement au fond de la page ne faisait pas — il disparaissait sur les cases
-   pâles. Le `min-width` de 24 px continue de tenir la cible tactile. */
-.jauge__case[data-redite] { flex-grow: .3; }
+/* ★ TOUTES LES CASES ONT LA MÊME LARGEUR, DE NOUVEAU.
+   Il y avait ici une exception — `.jauge__case[data-redite] { flex-grow: .3 }`
+   —, qui rétrécissait la case d'une étape reconnue comme redite pour que la
+   jauge dise POURQUOI ça venait de filer. Elle est partie avec le mode redites
+   (voir `src/visuel/compile.js`) : plus rien ne file tout seul, donc plus rien
+   à annoncer. La largeur d'une case redit simplement ce que la jauge a toujours
+   promis — une transformation, une case. */
 
 /* ★ LA BARRE SE REPLIE, ELLE NE POUSSE PLUS.
    ⚠️ Sans `flex-wrap`, une rangée de neuf boutons à `min-width: 48px` réclamait
@@ -168,28 +167,19 @@
 }
 .transport__bouton[aria-disabled="true"]:hover { border-color: transparent; }
 
-/* ── La bascule des redites ──────────────────────────────────────────────
-   Sixième bouton de la barre, mais pas une commande d'avancement : un filet
-   vertical l'en sépare, et il se pose à droite du groupe. Son état se lit sur
-   le picto (double chevron, barré ou non) ET sur le cadre — jamais sur la
-   seule couleur. */
+/* ── La famille des RÉGLAGES ─────────────────────────────────────────────
+   Ce ne sont pas des commandes d'avancement : un filet vertical les sépare des
+   cinq premières, et ils se posent à droite du groupe. Leur état se lit sur le
+   picto (ou sur la valeur, pour la vitesse et le rythme) ET sur le cadre —
+   jamais sur la seule couleur. */
 .transport__bouton--reglage {
   margin-inline-start: var(--e1);
   border-inline-start: var(--rule) solid var(--line-ui);
   border-radius: 0;
   padding-inline-start: calc(var(--e1) + var(--e1));
 }
-/* L'état ne se dit PAS par la couleur — le picto barré le dit déjà, et une
-   pastille dorée au milieu de cinq icônes d'encre se lirait comme une alerte.
-   La couleur ne fait qu'atténuer l'état « rythme plein », qui est le refus. */
-.transport__bouton--reglage[data-etat="accelerees"] { color: var(--fg); }
-.transport__bouton--reglage[data-etat="pleines"] { color: var(--fg-2); }
-/* En mouvement réduit il n'y a plus de trajet à abréger : le compilateur
-   ignore l'accélération. Le bouton reste opérant — la préférence se garde pour
-   le jour où les animations reviennent — mais il dit qu'il ne fait rien ici. */
-.transport__bouton--reglage[data-inoperant] { opacity: .5; }
 
-/* Le son suit la MÊME règle que les redites : l'état se dit par le picto —
+/* Le son : l'état se dit par le picto —
    haut-parleur barré, haut-parleur qui sonne —, jamais par la couleur seule.
    Celle-ci ne fait qu'atténuer l'état de refus, ici « coupé ». */
 .transport__bouton--reglage[data-etat="actif"] { color: var(--fg); }

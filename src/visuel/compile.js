@@ -17,13 +17,38 @@
  * les durées WAAPI sont fixées en JS et ignoreraient une règle CSS. Le mode
  * réduit sert aussi de repli pour les navigateurs sans WAAPI complet.
  *
- * ACCÉLÉRATION DES RÉPÉTITIONS — voir le bloc « Répétitions » plus bas. Une
- * démonstration montre trois fois le même geste sur trois fragments ; la
- * première fois enseigne, les suivantes confirment. Les redites sont donc
- * compilées avec un multiplicateur de vitesse propre. C'est un choix de
- * DURÉES, fait à la compilation : rien ne change à l'exécution, la timeline
- * reste une fonction pure du temps et le nettoyage/rejeu du scrubbing est
- * exactement celui du multiplicateur global `speed`.
+ * ★ **CE QUI A DISPARU D'ICI : L'ACCÉLÉRATION DES REDITES, et pourquoi.**
+ *
+ * Il y avait là un bloc « Répétitions » : une démonstration montre trois fois
+ * le même geste sur trois fragments, la première fois enseigne, les suivantes
+ * confirment — donc on reconnaissait les étapes qui redisaient une étape déjà
+ * jouée (alpha-équivalence de leurs ops) et on les compilait cinq fois plus
+ * vite. Le raisonnement était juste ; c'est la RÉPONSE qui ne l'était plus.
+ *
+ * Trois raisons de le retirer plutôt que de le garder :
+ *
+ *  1. **Le curseur de vitesse globale fait le travail, et mieux** (`transport.js`
+ *     § LA VITESSE GLOBALE, `player.js › setRate`). Il couvre ×0,25 à ×10, il
+ *     s'applique à TOUTE la lecture, et il s'applique **à la demande** — celui
+ *     qui trouve une redite longue l'accélère au moment où elle l'ennuie, au
+ *     lieu de recevoir une accélération décidée pour lui par une heuristique.
+ *  2. **L'accélération automatique devinait l'ennui.** Elle supposait qu'un
+ *     geste déjà vu n'avait plus rien à apprendre, ce qui est faux pour qui
+ *     n'avait pas compris la première fois — et c'est précisément celui-là
+ *     qu'une démonstration doit servir. Elle lui retirait le temps de lecture
+ *     au moment exact où il en avait le plus besoin.
+ *  3. **Elle coûtait cher en doctrine pour ce qu'elle rendait.** Détection par
+ *     signature alpha-équivalente, exclusion des drapeaux de décor, règle des
+ *     pas de bord, plancher de durée, jalons de panoramique exprimés en
+ *     FRACTIONS d'étape pour ne pas dépendre d'un facteur temporel — six règles
+ *     imbriquées, chacune née d'un défaut observé, pour un gain qu'un curseur
+ *     rend en un geste.
+ *
+ * Ce qui la remplace n'est pas « rien » : c'est le curseur de vitesse, plus la
+ * bascule de RYTHME (voir `rythme.js`), qui règle l'ORDONNANCEMENT au lieu de
+ * la durée. Les jalons du panoramique gardent leur expression en fractions
+ * d'étape — elle ne devait rien aux redites, seulement à la géométrie, et c'est
+ * la bonne raison (voir `jalonsDuPan`).
  */
 
 import {
@@ -39,62 +64,6 @@ import { defaultMetrics, defaultLayoutOptions } from './layout.js';
 import { PRIMITIVES } from './primitives/index.js';
 import { indexDiscrete } from './clock.js';
 
-/* ──────────────────────────── Répétitions ────────────────────────────
- *
- * « Une étape correspond exactement à une déjà exécutée dans la même
- * séquence. » Définition retenue, et elle ne regarde JAMAIS le libellé
- * (`title` / `caption` sont bilingues et cosmétiques) :
- *
- *   Deux steps sont ÉQUIVALENTS quand leurs `ops` sont identiques à un
- *   renommage près des identifiants de jetons — une alpha-équivalence.
- *
- * Autrement dit : même suite d'opérateurs, dans le même ordre, avec les mêmes
- * options et le même contenu dessiné (glyphe, segments, comptes, textes
- * produits, sommes partielles, `at`/`dur`/`stagger`…) ; seuls les `id`
- * diffèrent, et ils diffèrent forcément puisqu'un id n'est jamais réutilisé
- * (CONTRACTS §3, invariant 4). Les identifiants sont remplacés par leur rang
- * de première apparition DANS LE STEP, ce qui rend la comparaison insensible
- * à la numérotation des jetons.
- *
- * Sont donc exclus de la signature : `step.id`, `step.title`, `step.caption`,
- * `step.duration`, `step.hold` — l'emballage, pas le geste.
- *
- * Conséquence voulue : sur `hope-hope-hope.fr`, le comptage de segments du
- * « h » du deuxième groupe est la redite exacte de celui du premier ; celui du
- * « o » ne l'est pas (autre glyphe, autres segments, autre compte), il est la
- * redite du « o » du premier groupe. Chaque geste garde donc UNE lecture
- * pleine, la première, et une seule.
- *
- * ★ **Les drapeaux de décor mutualisé ne font pas partie du geste.** Quand
- * plusieurs conversions d'affilée emploient la même table, l'assemblage marque
- * la première d'un `montre` et la dernière d'un `retire` (CONTRACTS §3.1,
- * amendement « `table` ») : la réglette monte une fois, demeure, se retire une
- * fois. Ces deux booléens décrivent le CYCLE DE VIE DU DÉCOR, pas la
- * conversion ; les laisser dans la signature avait deux effets, tous deux
- * faux :
- *
- *   · l'étape du MILIEU d'une série ne se reconnaissait plus dans l'étape de
- *     TÊTE d'une série précédente — sur `hope-hope-hope.fr`, le « h » du
- *     deuxième groupe (phase 6) ne voyait pas qu'il redisait le « h » du
- *     premier (phase 2), au seul motif que celui-là avait, en plus, déployé la
- *     réglette ;
- *   · l'étape de QUEUE d'une série n'était jamais une redite de personne —
- *     phase 13, le « e » du troisième groupe, alors qu'il redit mot pour mot
- *     le « e » du premier.
- *
- * Le critère énoncé par l'auteur est **même table ET même conversion**. C'est
- * exactement ce qu'on obtient en retirant ces deux drapeaux : une même table
- * employée pour une AUTRE lettre reste une lecture pleine (le `letter` et le
- * `to.text` diffèrent, donc la signature aussi), et le repli du décor, qui ne
- * montre rien de neuf, suit le rythme de la conversion qu'il accompagne.
- */
-
-/** Ce qui, dans une op, décrit le décor et non le geste — hors signature. */
-const HORS_SIGNATURE = new Set(['montre', 'retire']);
-
-/** Le facteur proposé à l'interface (CONTRACTS §3.3 : « 5× par exemple »). */
-export const REPEAT_SPEED = 5;
-
 /**
  * Vitesse de croisière du panoramique, en unités de viewBox par seconde, et ses
  * deux bornes en millisecondes. Voir `jalonsDuPan`. Les 450 sont pris au milieu
@@ -104,102 +73,10 @@ export const REPEAT_SPEED = 5;
 /* La distance qui vaut le trajet le plus long, en unités de viewBox, et les
    deux bornes de la fraction d'étape qu'un trajet peut prendre. Trois nombres
    de GÉOMÉTRIE et de PROPORTION : aucun ne dépend du temps, donc aucun ne bouge
-   quand une redite s'accélère. */
+   quand la lecture change de vitesse ou de rythme. */
 const PAN_REFERENCE = 620;
 const PAN_PART_MIN = 0.04;
 const PAN_PART_MAX = 0.22;
-
-/** Une étape déjà courte ne s'accélère pas : la compilation refuserait une
- *  durée sous `MIN_STEP_DURATION` (CONTRACTS §3). Garde-fou, jamais atteint
- *  par les scénarios réels — leurs étapes durent 2 à 4 secondes. */
-const REPEAT_FLOOR = 10 * MIN_STEP_DURATION;
-
-
-/**
- * Règle le facteur d'accélération des redites pour les compilations qui ne
- * passent pas d'option `repeatSpeed`.
- *
- * C'est une **préférence de lecture**, pas un paramètre de scénario : elle vit
- * donc à côté du thème et de la langue, côté application, et le lecteur n'a
- * qu'à `rebuild()` pour que la timeline s'y conforme. Le jour où
- * `player.js` relaiera `options.repeatSpeed` jusqu'ici, ce défaut de module
- * n'aura plus d'utilité.
- *
- * @param {number|boolean|null} facteur `true` ⇒ `REPEAT_SPEED`, `false`/`null`/`1` ⇒ désactivé.
- * @returns {number} le facteur retenu
- */
-
-
-function normalizeRepeatSpeed(facteur) {
-  if (facteur === true) return REPEAT_SPEED;
-  if (facteur === false || facteur === null || facteur === undefined) return 1;
-  const v = Number(facteur);
-  if (!Number.isFinite(v) || v < 1) {
-    fail(`option « repeatSpeed » invalide : ${JSON.stringify(facteur)} — un multiplicateur ≥ 1 est attendu (1 = pas d'accélération).`);
-  }
-  return v;
-}
-
-/**
- * La signature structurelle de chaque step — sa « forme de geste ».
- * @param {object} scenario
- * @returns {string[]} une signature par step, dans l'ordre du scénario
- */
-export function stepSignatures(scenario) {
-  const ids = collectIds(scenario);
-  return (scenario.steps || []).map((step) => signStep(step, ids));
-}
-
-/**
- * Pour chaque step, l'index du **premier** step de même signature, ou `-1`
- * quand ce step inaugure sa forme. Les `-1` gardent leur rythme plein.
- * @param {object} scenario
- * @returns {number[]}
- */
-export function repeatOrigins(scenario) {
-  const vues = new Map();
-  return stepSignatures(scenario).map((sig, i) => {
-    if (!vues.has(sig)) { vues.set(sig, i); return -1; }
-    return vues.get(sig);
-  });
-}
-
-/**
- * ★ UNE REDITE NE S'ACCÉLÈRE QU'AU MILIEU DE SES PAREILLES.
- *
- * Avoir déjà été vu ne suffit pas, et c'est une leçon d'usage. Une série de
- * conversions — des lettres qui montent l'une après l'autre vers la même
- * réglette — commence par MONTER le décor et finit par le RETIRER. Ces deux
- * moments ne sont pas dans le geste : ils l'encadrent, et c'est pourquoi
- * `montre` et `retire` sont hors signature (ils décrivent le cycle de vie du
- * décor, pas ce qu'on fait dessus). Conséquence : le dernier pas d'une série
- * portait la signature d'un pas antérieur, se déclarait redite, et s'expédiait
- * cinq fois plus vite — emportant avec lui la disparition de la table, que
- * personne n'avait le temps de voir.
- *
- * La règle ferme les deux bouts : « l'accélération ne doit s'activer que si
- * l'opération précédente ET l'opération suivante sont du même type, et que la
- * conversion précise actuelle a déjà eu lieu » (l'auteur). Un pas de bord — le
- * premier, le dernier, ou celui qui touche un geste étranger — garde son
- * rythme plein quoi qu'il ait déjà été joué.
- *
- * ★ Le TYPE est LU sur le step, jamais déclaré : la suite des noms d'ops qu'il
- *   émet. Deux passages de réglette sont du même type ; une réglette et un
- *   verdict ne le sont pas. Rien à tenir à jour le jour où une primitive
- *   s'ajoute — ce qui serait une seconde table de vérité à laisser diverger.
- *
- * @returns {number[]} par step, l'origine de la redite ACCÉLÉRABLE, ou -1
- */
-export function repeatAccelerables(scenario) {
-  const steps = scenario.steps || [];
-  const types = steps.map(typeDeStep);
-  return repeatOrigins(scenario).map((origine, i) => {
-    if (origine < 0) return -1;
-    if (i === 0 || i === steps.length - 1) return -1;
-    if (types[i - 1] !== types[i] || types[i + 1] !== types[i]) return -1;
-    return origine;
-  });
-}
 
 /**
  * ★ **LE RECENTRAGE DURE CE QUE SON TRAJET DEMANDE — plus toute l'étape.**
@@ -216,11 +93,6 @@ export function repeatAccelerables(scenario) {
  * panoramiques sains du même scénario tiennent entre 127 et 637. Quatorze fois
  * trop lent : ce n'est pas une lenteur perçue, c'est une lenteur mesurée.
  *
- * ★ **ET LA REDITE AGGRAVAIT LE CAS AU LIEU DE L'AIDER.** Accélérer un step
- *   raccourcit ses gestes ; le panoramique, lui, s'étirait sur ce qui restait.
- *   Le temps gagné sur le geste était rendu au déplacement — exactement ce que
- *   l'auteur décrit.
- *
  * ★ **CE QU'ON CHANGE N'EST PAS LA DURÉE, CE SONT LES JALONS.** L'animation
  *   couvre toujours le step : la caméra doit être au repos à sa fin, et rien
  *   d'autre ne peut le garantir. Mais chaque TRAJET prend le temps de sa
@@ -236,25 +108,27 @@ function jalonsDuPan(precedent, focus, repos, duree) {
 
      La première version donnait à chaque trajet un temps ABSOLU, tiré d'une
      vitesse de croisière en unités par seconde. C'était le plus direct, et
-     c'était faux pour une raison qu'un test a rattrapée : « l'accélération des
-     redites ne change QUE les durées ». Un temps absolu ne suit pas
-     l'accélération — dans une redite jouée cinq fois plus vite, le panoramique
-     occupait cinq fois plus de l'étape, et la redite ne jouait plus la même
-     chose, seulement plus vite.
+     c'était faux : un temps absolu ne suit pas la mise à l'échelle des durées.
+     Dans une étape compilée cinq fois plus vite, le panoramique occupait cinq
+     fois plus de l'étape — la même étape ne jouait donc plus la même chose,
+     seulement plus vite. Le défaut a été trouvé du temps de l'accélération des
+     redites (retirée depuis, voir l'en-tête), mais il ne lui devait rien : il
+     vaut pour tout ce qui met les durées à l'échelle, à commencer par l'option
+     `speed` de compilation, qui n'a jamais disparu.
 
-     ⚠️ Diviser par la vitesse du step ne répare pas : certaines étapes sont
-       marquées accélérées sans que leur étendue rétrécisse (mesuré — un
-       panoramique de 7 900 ms identique dans les deux compilations, pour un
-       `stepSpeed` de 5). Il n'existe donc aucun facteur temporel fiable ; la
-       seule grandeur qui ne bouge JAMAIS avec la vitesse est la DISTANCE, qui
-       est de la géométrie.
+     ⚠️ Diviser par la vitesse de l'étape ne répare pas : une étape peut être
+       compilée à une vitesse donnée sans que son étendue rétrécisse d'autant
+       (mesuré — un panoramique de 7 900 ms identique dans deux compilations, à
+       un facteur 5 près sur les gestes). Il n'existe donc aucun facteur
+       temporel fiable ; la seule grandeur qui ne bouge JAMAIS avec la vitesse
+       est la DISTANCE, qui est de la géométrie.
 
      Chaque trajet prend donc une fraction de l'étape proportionnelle à ce qu'il
      parcourt, rapportée à `PAN_REFERENCE` — la distance qui mérite le trajet le
      plus long. Un déplacement court prend peu, un long prend le plafond, et la
      vue TIENT entre les deux : c'est ce que l'auteur demandait — « corrige ce
-     timing de recentrage qui est bien trop long » — et c'est désormais vrai à
-     toutes les vitesses. */
+     timing de recentrage qui est bien trop long » — et c'est vrai à toutes les
+     vitesses, quelle que soit la raison pour laquelle elles changent. */
   const part = (d) => (d <= 0.5 ? 0
     : Math.min(PAN_PART_MAX, Math.max(PAN_PART_MIN, d / PAN_REFERENCE)));
   const f1 = part(dist(precedent, focus));
@@ -278,74 +152,9 @@ function jalonsDuPan(precedent, focus, repos, duree) {
   ];
 }
 
-/** La « forme de geste » d'un step, aux valeurs près : la suite de ses ops. */
-function typeDeStep(step) {
-  return ((step && step.ops) || []).map((o) => (o && o.op) || '?').join('>');
-}
-
-/** L'ensemble des chaînes qui DÉSIGNENT un jeton — pas ce qui est dessiné. */
-function collectIds(scenario) {
-  const ids = new Set();
-  for (const tok of scenario.tokens || []) {
-    if (tok && typeof tok.id === 'string') ids.add(tok.id);
-  }
-  // Les ids créés en cours de route : `to.id`, `digits[].id`, `ids[]` de
-  // `insertOperators`, `tag` de `partition`. Tout le reste (`target`,
-  // `targets`, `consume`, `between`…) ne fait que les référencer : c'est
-  // l'appartenance à cet ensemble qui les fera reconnaître, pas leur clé.
-  const parcourir = (v) => {
-    if (Array.isArray(v)) { v.forEach(parcourir); return; }
-    if (!v || typeof v !== 'object') return;
-    for (const [k, val] of Object.entries(v)) {
-      if ((k === 'id' || k === 'tag') && typeof val === 'string') ids.add(val);
-      else if (k === 'ids' && Array.isArray(val)) {
-        for (const s of val) if (typeof s === 'string') ids.add(s);
-      }
-      parcourir(val);
-    }
-  };
-  for (const step of scenario.steps || []) parcourir(step.ops || []);
-  return ids;
-}
-
-/** Sérialisation canonique des ops d'un step, identifiants alpha-renommés. */
-function signStep(step, ids) {
-  const alias = new Map();
-  const renommer = (s) => {
-    if (!alias.has(s)) alias.set(s, `#${alias.size}`);
-    return alias.get(s);
-  };
-  const norm = (v) => {
-    if (typeof v === 'string') return ids.has(v) ? renommer(v) : v;
-    if (Array.isArray(v)) return v.map(norm);
-    if (v && typeof v === 'object') {
-      const out = {};
-      // Clés triées : deux ops identiques écrites dans un ordre de champs
-      // différent doivent produire la même signature.
-      for (const k of Object.keys(v).sort()) {
-        if (HORS_SIGNATURE.has(k)) continue;   // cycle de vie du décor, pas le geste
-        out[k] = norm(v[k]);
-      }
-      return out;
-    }
-    return v;
-  };
-  return JSON.stringify(norm(step.ops || []));
-}
-
-/** Minorant de la durée d'un step, connu AVANT de planifier ses ops. */
-function nominalDuration(step) {
-  if (step.duration !== undefined) return step.duration;
-  let e = 0;
-  for (const op of step.ops || []) {
-    e = Math.max(e, (op.at ?? 0) + (op.dur ?? DEFAULT_DUR[op.op] ?? 0));
-  }
-  return e + (step.hold ?? 0);
-}
-
 /**
  * @param {object} scenario
- * @param {{speed?:number, repeatSpeed?:number|boolean, reduced?:boolean,
+ * @param {{speed?:number, reduced?:boolean,
  *          metrics?:object, layoutOpts?:object, glyphes?:object,
  *          viewBox?:object}} [options]
  */
@@ -356,7 +165,6 @@ export function compile(scenario, options = {}) {
   if (typeof speed !== 'number' || !Number.isFinite(speed) || speed <= 0) {
     fail(`option « speed » invalide : ${JSON.stringify(speed)} — un multiplicateur > 0 est attendu.`);
   }
-  const repeatSpeed = normalizeRepeatSpeed(options.repeatSpeed ?? 1);
   const reduced = !!options.reduced;
   const viewBox = options.viewBox || VIEWBOX;
   const metrics = options.metrics || defaultMetrics();
@@ -418,21 +226,17 @@ export function compile(scenario, options = {}) {
   const bounds = [0];
   let cursor = 0;
 
-  // En mouvement réduit, un step ne PARCOURT rien : il pose l'état d'arrivée et
-  // laisse `DUR_REDUCED_STEP` pour le LIRE. Diviser ce temps de lecture par 5
-  // n'abrégerait pas un trajet, ça rendrait la redite illisible — et le
-  // spectateur qui a demandé moins de mouvement n'a pas demandé moins de temps.
-  // L'accélération est donc purement et simplement ignorée dans ce mode.
-  const origines = (!reduced && repeatSpeed > 1) ? repeatAccelerables(scenario) : null;
-
   scenario.steps.forEach((step, si) => {
     const t0 = cursor;
     const where = { step: si, stepId: step.id };
     let extent = 0;
 
-    const repeteDe = origines ? origines[si] : -1;
-    const accelere = repeteDe >= 0 && nominalDuration(step) / repeatSpeed >= REPEAT_FLOOR;
-    const stepSpeed = accelere ? speed * repeatSpeed : speed;
+    // ★ **UNE SEULE VITESSE, LA GLOBALE.** Il y en avait deux : celle-ci et
+    //   celle des redites, qui multipliait la première sur les étapes reconnues
+    //   comme répétées. La seconde est partie avec le mode redites (voir
+    //   l'en-tête) ; `stepSpeed` n'avait plus qu'une valeur possible, et un nom
+    //   qui promettait une variation qui n'existait plus.
+    const stepSpeed = speed;
 
     // Les promesses d'accolade ne valent que pour le geste en cours (§3.1) :
     // un step commence sans ancre héritée du précédent.
@@ -770,10 +574,6 @@ export function compile(scenario, options = {}) {
       t1: cursor,
       duration,
       hold: round(hold),
-      // Ce que la barre de transport et le débogage ont besoin de savoir :
-      // cette étape est-elle une redite, et de laquelle ?
-      repeatOf: repeteDe,
-      accelerated: accelere,
       speed: stepSpeed,
     });
   });
@@ -844,7 +644,6 @@ export function compile(scenario, options = {}) {
     scenario,
     reduced,
     speed,
-    repeatSpeed: origines ? repeatSpeed : 1,
     metrics,
     layoutOpts,
     viewBox,
