@@ -46,6 +46,19 @@ la première voie, en cinq secondes environ : sa recherche est bornée pour ça.
 « Énumérer les voies occultes » mène à la liste complète, et Révéler y retombe
 lui-même s'il n'obtient pas de lien direct.
 
+### Le rythme de la démonstration
+
+Le lecteur propose **Pas à pas**, une opération après l'autre, et
+**Simultané**, où les opérations indépendantes du même type démarrent avec
+un décalage de 0,1 seconde. Chaque caractère converti possède son afficheur ;
+quand la place manque, les conversions se répartissent en plusieurs vagues.
+Le Registre conserve toutes ses entrées dans les deux modes.
+
+Ce choix remplace l'accélération des redites et se mémorise. Le curseur de
+vitesse reste indépendant. En mode sobre, les étapes de couronnement sont
+entièrement absentes ; en scénique, les cornes apparaissent également après
+le dernier calcul.
+
 ### Le classement
 
 Chaque voie porte un **score global** : la moyenne de ses quatre axes, pondérée par

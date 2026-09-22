@@ -14,14 +14,14 @@
   à part entière, ou deux variantes de `sce!` ?
   → [A-VENIR-cibles.md](A-VENIR-cibles.md)
 
-- **Le RYTHME des gestes — « Pas à pas » ou « Simultané ».** Le chantier est
-  livré : le mode redites est retiré, la bascule existe, Pas à pas ne superpose
-  plus deux gestes de même type, Simultané les met en vague de 0,1 s, `mrn` se
-  joue en largeur par couples, et chaque caractère a son afficheur. Reste UNE
-  décision de produit : faire jouer plusieurs conversions dans une SEULE étape
-  — ce qui est la condition pour que Simultané ait quelque chose à ordonner sur
-  `m7`/`m14`/`mas`, et ce qui se paie sur le grain du Registre.
-  → [A-VENIR-rythme.md](A-VENIR-rythme.md), §2
+- **Rythme livré lors de la reprise du 22 septembre.** « Pas à pas » attend
+  chaque geste transformant ; « Simultané » décale les gestes indépendants de
+  0,1 s. Les conversions en afficheurs se regroupent sans perdre d'entrée dans
+  le Registre : le compilateur partage leur pause en fin de vague. Chaque
+  caractère a son afficheur et `mrn` procède en largeur, par paires.
+  Le défaut reste « Pas à pas ».
+  → [Compte rendu du rythme](A-VENIR-rythme.md),
+  [bilan des six chantiers](arbitrages/2026-09-22-reprise.md)
 
 ## Le classement
 
