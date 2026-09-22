@@ -303,4 +303,58 @@ export const CAS_ARBITRAGE = Object.freeze([
     // à droite (« Après ») : la 2ᵉ de `variantes-neuf-et-tri` (d8b8114)
     apres: "?sce!f3!2:fr22;fmaj+mas+mt9E+mr9$7NFn8xBqb5eNAq3YCY",
   },
+  /* ★ **LES DEUX CAS DU CÉSAR JUSTIFIÉ — 22 septembre 2026.**
+   *
+   * > « Je voudrais des variantes mieux notées des césar* qui commencent par
+   * >   trouver le nombre utilisé pour faire le décalage dans la saisie
+   * >   d'origine avant de l'appliquer. » (l'auteur)
+   *
+   * ⚠️ **CES DEUX CAS NE SONT PAS DES CAS DE PLACE, et il faut le savoir avant
+   *   de les regarder.** Les huit cas ci-dessus opposent deux candidats à une
+   *   même place dans une liste. Ici, AUCUNE des quatre voies n'est dans la
+   *   liste, à aucun cran — et c'est justement ce qu'il y a à arbitrer. Le
+   *   césar justifié est un JUMEAU ARITHMÉTIQUE de son aîné : il rend les mêmes
+   *   lettres, donc les mêmes nombres, donc le même verdict. Le moteur ne garde
+   *   qu'un chemin par résultat, et il rencontre toujours l'aîné le premier
+   *   puisque l'ordre d'exploration est celui du registre (§4.4 règle 3) et que
+   *   l'append-only inscrit les codes neufs à la fin.
+   *
+   *   MESURÉ : retirer le seul `fr22` du catalogue fait apparaître quatre voies
+   *   `fj22` qui n'existaient nulle part avant. Ce n'est donc pas un verdict de
+   *   classement, c'est une éviction de recherche — et la trancher demanderait
+   *   d'apprendre au faisceau que « mieux noté » l'emporte sur « rencontré le
+   *   premier », ce qui touche tous les jumeaux du catalogue.
+   *
+   * ★ **CE QUI EST SOUMIS, DONC** : à programme identique, la version justifiée
+   *   vaut-elle son prix ? Elle montre une étape de plus — les caractères
+   *   communs désignés et comptés, sans être consommés — et elle marque 83
+   *   points de plus à gauche, 79 à droite. Si la réponse est oui, le chantier
+   *   du faisceau se justifie ; si elle est non, les quatorze codes sont à
+   *   déprécier plutôt qu'à servir.
+   *
+   * Relevés par `rejouer(lire(lien))` sur la branche `cesar-trouve-son-decalage`.
+   * La mesure complète est dans `.planning/arbitrages/2026-09-22-cesar-justifie.md`.
+   */
+  {
+    id: "2026-09-22-fouche-cesar-justifie",
+    place: 1,
+    titre: "[aucune des deux en liste] Louis Fouché — le décalage 22 : essayé parmi vingt-cinq (gauche), ou lu dans la saisie (droite, +83 points)",
+    saisie: "Louis Fouché",
+    // à gauche (« Avant ») : le césar arbitraire, celui de `main`
+    avant: "?sce!fr22+fl+m14$7NFn8xBqb5eNAq3YCY",
+    // à droite (« Après ») : le même décalage, mais « Louis » et « Fouché »
+    // ont deux caractères en commun chacun (o, u) — 2 et 2 font 22
+    apres: "?sce!fj22+fl+m14$7NFn8xBqb5eNAq3YCY",
+  },
+  {
+    id: "2026-09-22-raoult-cesar-justifie",
+    place: 1,
+    titre: "[aucune des deux en liste] Didier Raoult — le décalage 11 : arbitraire (gauche), ou lu dans le seul r que les deux mots partagent (droite, +79 points)",
+    saisie: "Didier Raoult",
+    // à gauche (« Avant ») : le césar arbitraire, celui de `main`
+    avant: "?sce!fr11+fl+m14$6hVamBkJyG1MWtPRwR",
+    // à droite (« Après ») : « Didier » et « Raoult » n'ont que le `r` en
+    // commun, un de chaque côté — 1 et 1 font 11
+    apres: "?sce!fj11+fl+m14$6hVamBkJyG1MWtPRwR",
+  },
 ]);
