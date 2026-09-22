@@ -293,26 +293,89 @@ en amont, dans le faisceau par état du BFS. Le correctif a donc été retiré
 plutôt que livré — ce dépôt n'embarque pas ce dont il ne peut pas montrer
 l'effet.
 
-### 8.4 Ce que je recommande, et ce que je ne décide pas
+### 8.4 Trois leviers essayés, chacun mesuré — et le vrai verrou est ailleurs
+
+Le diagnostic du §8.2 (« le jumeau arrive le premier ») était **exact mais pas
+suffisant** : il nomme un verrou réel, il n'en nomme pas le dernier. Trois
+interventions ont été montées dans un bac à sable (une copie de `src/`, pour ne
+pas remuer l'arbre pendant la suite lente) et mesurées séparément.
+
+| levier | vecteurs à `fj` | dans la fenêtre de 20 | **dans la liste** |
+|---|---|---|---|
+| aucun (état livré) | 0 | 0 | **0** |
+| **(b)** l'aîné inéligible là où le cadet s'applique | 4 | 1 — 15ᵉ | **0** |
+| **(c)** une famille de réglages propre (`frj`) | 0 | 0 | **0** |
+| **(b) + (c)** | 4 | 1 — **11ᵉ**, la mieux notée de toutes | **0** |
+
+ · **(c) seule ne fait rien**, et c'est logique : sans (b), l'aîné pré-empte
+   toujours le cadet en amont de toute question de siège.
+ · **(b) seule fait apparaître les vecteurs** mais laisse `fj22` derrière son
+   propre siège : j'avais publié `familleOutil: 'fr'`, ce qui fait concourir le
+   justifié pour **l'unique place** que `unePlaceParFamille` accorde aux
+   trente-neuf césars — et cette place va à `fr5`, qui a le droit de choisir son
+   décalage. La décision de conception du §6, prise pour éviter l'inflation de
+   liste, est donc aussi ce qui étouffe le cadet. C'est un vrai arbitrage, et il
+   n'a pas de bon côté.
+ · **(b)+(c) va le plus loin** : `fj22+tca+mu8+mrd`, qui marque **3 974** —
+   davantage que **toutes** les voies de la liste, dont la meilleure est à
+   3 628 —, entre en fenêtre au 11ᵉ rang sur 15. **Et n'entre pas dans la
+   liste.**
+
+★ **Et c'est là le fait qui tranche.** Son jumeau `fr22+tca+mu8+mrd` n'y entre
+pas davantage, ni `fr5+tca+mu8+mrd` qui occupe pourtant le 9ᵉ rang de la même
+fenêtre. Le filtre qui les écarte, entre la fenêtre et la liste, **ne regarde
+pas la justification** : il écarte la FORME, justifiée ou non. Il pré-existe
+entièrement à ce chantier.
+
+★ **La piste (a) est DOMINÉE, et n'a donc pas eu à être écrite.** Départager les
+jumeaux par la note au moment de dédupliquer donne au cadet, au mieux, les
+occasions que (b) lui donne déjà — (b) ne se contente pas de le préférer, elle
+supprime le concurrent. Or (b), et même (b)+(c), rendent **zéro** voie en liste.
+Aucun départage ne peut donc faire mieux, et il était inutile de payer pour lui
+le remue-ménage sur tous les jumeaux du catalogue que le coordinateur redoutait
+à juste titre.
+
+> ⚠️ **Une note sur le prix caché de (b)**, s'il devait être repris un jour :
+> écrite comme un `admet`, elle est appliquée aussi au REJEU, pas seulement à la
+> recherche (`bfs.js › appliquerOp`, « la même porte que `catalogue.js ›
+> appliquer` »). Tout lien existant portant `fr22` sur une saisie qui justifie 22
+> cesserait donc de se rejouer — y compris les deux cas d'arbitrage de ce
+> chantier. Il faudrait un canal d'inéligibilité propre à la RECHERCHE, qui
+> n'existe pas aujourd'hui.
+
+### 8.5 Ce que je recommande, et ce que je ne décide pas
 
 Le mécanisme **tient conceptuellement** — la doctrine est claire, la lecture est
 exacte, la prime est juste et se dit en une phrase — mais il **ne tient pas la
 mesure** : il coûte quatorze codes à vie, une turbulence de huit listes et une
 sortie sèche, et il ne rend aujourd'hui aucune voie.
 
+**La réponse honnête est : le mécanisme est là, et le moteur ne sait pas encore
+le préférer.** Ce n'est pas une fatalité — c'est un troisième chantier, qui
+porte sur ce qui sépare la fenêtre de la liste, et que trois leviers mesurés
+n'ont pas su forcer par le bord.
+
 Trois suites possibles, et **aucune n'est de mon ressort** :
 
- 1. **Apprendre au faisceau que « mieux noté » l'emporte sur « rencontré le
-    premier ».** C'est la bonne réponse sur le fond — `comparerPrefixes` énonce
-    déjà la règle (« score décroissant, coût croissant, codes croissants »),
-    elle n'est simplement pas appliquée à la coupe par état. Mais elle rebat
-    TOUS les jumeaux du catalogue, ce qui est un chantier de recherche entier,
-    à mesurer pour lui-même.
+ 1. **Chercher le filtre qui sépare la fenêtre de la liste**, celui qui écarte
+    `*+tca+mu8+mrd` en bloc alors qu'il occupe trois des quinze places de la
+    fenêtre et qu'il porte la voie la mieux notée du lot. C'est le seul levier
+    que je n'ai pas su isoler, et c'est désormais le seul qui reste. Il n'a
+    **rien à voir avec les césars** : le trouver profiterait à tout le monde.
  2. **Déprécier les quatorze codes** et s'en tenir au constat : un décalage qui
-    ne se choisit plus ne sert plus à ce pour quoi on prenait un césar.
+    ne se choisit plus ne sert plus à ce pour quoi on prenait un césar. C'est la
+    suite à prendre si l'on refuse un catalogue qui grossit de codes que rien
+    n'atteint — et ce refus est légitime.
  3. **Les garder tels quels**, inertes dans la recherche mais disponibles au
     lien écrit à la main — c'est l'état livré, et c'est ce que les deux cas
-    d'arbitrage de `src/app/pages/arbitrage-cas.js` soumettent à l'auteur.
+    d'arbitrage de `src/app/pages/arbitrage-cas.js` soumettent à l'auteur. Le
+    césar justifié s'y voit, se rejoue et montre sa preuve ; il ne se trouve
+    simplement pas tout seul.
+
+⚠️ **Ce que je ne recommande PAS : fusionner en l'état sans trancher entre 2 et
+3.** Quatorze codes sont alloués à vie (§4.1 règle 1), et ceux-ci ne rendent
+aujourd'hui aucune voie tout en remuant huit listes. Le bénéfice ne paie pas le
+prix tant que le point 1 n'a pas été levé.
 
 ⚠️ **Et la leçon qui vaut au-delà de ce chantier** : une variante qui ne se
 distingue de son aîné que par sa JUSTIFICATION est, pour le moteur, le même
