@@ -1467,12 +1467,42 @@ export function reserverLaPlace(ctx, sources) {
   // fasse « venir » de l'origine.
   ctx.scene.place(gauche, { x: pG.x - noeudPremier.w / 2 + Math.max(0, largeur) / 2, y: pG.y, w: Math.max(0, largeur) });
   ctx.scene.place(droite, { x: pD.x + ctx.scene.get(dernier).w / 2, y: pD.y, w: 0 });
-  // Les accolades qui se refermeront sur ce qui prendra la place : celles qui
-  // embrassent ce qu'elle remplace, et celles qui attendent un résultat.
+  /* Les accolades qui se refermeront sur ce qui prendra la place : celles qui
+     embrassent ce qu'elle remplace, et celles qui attendent un résultat DE
+     CETTE ZONE.
+
+     ⚠️ **UNE PLACE N'EST PAS OFFERTE À TOUTE ACCOLADE QUI ATTEND.**
+
+     > « Plusieurs accolades qui se chevauchent durant `mrdE` » (l'auteur), et
+     >   le même défaut sur `mrtE`.
+
+     On prenait ici toute accolade portant `attendResultat`, sans regarder OÙ.
+     C'était juste tant qu'une étape n'ouvrait qu'un paquet : la seule accolade
+     en attente était celle de la place qu'on réserve. Depuis que les
+     redécoupages jouent tous leurs paquets en même temps, une étape en ouvre
+     sept à dix, l'une après l'autre — et chaque place venait s'ajouter aux
+     sources de TOUTES les accolades de l'étape. Au suivi suivant
+     (`suivreLesAccolades`), chacune embrassait donc sa zone ET celles de toutes
+     les suivantes : MESURÉ sur `fmaj+tca+mas+mrdE` et « Didier Raoult », sept
+     tracés étirés jusqu'au bout de la ligne, se recouvrant sur 890 unités.
+
+     Une accolade en attente dit maintenant de quelle zone elle attend son
+     résultat (`suivreSesSources › data.zoneAttendue`) : c'est ce qu'elle
+     embrassait juste avant que sa dernière source ne parte. La place est la
+     sienne si elle en remplace un morceau — exactement le critère des autres,
+     appliqué à la mémoire plutôt qu'au registre. */
   const remplaces = new Set(sources);
+  const laSienne = (nd, srcs) => {
+    if (srcs.some((s) => remplaces.has(s))) return true;
+    if (!(nd.data && nd.data.attendResultat)) return false;
+    const zone = nd.data.zoneAttendue;
+    // Sans mémoire — une accolade née sans sources —, on ne peut rien
+    // départager : elle garde l'ancien bénéfice du doute.
+    return !Array.isArray(zone) || !zone.length || zone.some((s) => remplaces.has(s));
+  };
   const accolades = [...ctx.scene.accolades].filter(([id, srcs]) => {
     const nd = ctx.scene.get(id);
-    return nd && nd.alive && ((nd.data && nd.data.attendResultat) || srcs.some((s) => remplaces.has(s)));
+    return nd && nd.alive && laSienne(nd, srcs);
   }).map(([id]) => id);
   // ★ UNE PLACE GARDÉE COMPTE COMME « LÀ » : ses cales entrent dans ce que ces
   //   accolades embrassent. Tout suivi (`suivreLesAccolades`, `anticiperLaPlace`)
@@ -1824,12 +1854,29 @@ export function suivreSesSources(ctx, idAccolade, restantes, spec = {}) {
     const n = ctx.scene.get(id);
     return n && n.alive && ctx.scene.pos(id);
   });
+  // Ce que le tracé embrassait AVANT ce départ : quand il ne lui reste rien,
+  // c'est la seule trace de la zone dont il attend le résultat (voir plus bas).
+  const avant = ctx.scene.accolades.get(idAccolade) || [];
   if (ctx.scene.accolades.has(idAccolade)) ctx.scene.poserAccolade(idAccolade, presentes);
   if (!presentes.length) {
     // ★ Un résultat va arriver sous l'accolade : il comptera comme « encore là ».
     //   Le tracé l'attend, et se refermera sur lui (`refermerSurLesResultats`).
     if (spec.resultatAttendu) {
       trace.data.attendResultat = true;
+      /* ★ **ET IL DIT DE QUELLE ZONE IL ATTEND CE RÉSULTAT.**
+
+         Le registre des accolades ne retient que ce qui est ENCORE là ; une
+         accolade dont tout est parti a donc une liste vide, et plus rien ne la
+         rattache à l'endroit de la ligne qu'elle désigne. Tant qu'une étape
+         n'ouvrait qu'un paquet, personne ne s'en plaignait : la seule place
+         gardée de l'étape était forcément la sienne. Depuis que les
+         redécoupages jouent tous leurs paquets en même temps, il y en a sept ou
+         dix, et l'oubli se voit — voir `reserverLaPlace`.
+
+         On garde donc les dernières sources connues. Elles ne servent qu'à
+         reconnaître SA place parmi celles qui s'ouvrent ; le tracé, lui, ne les
+         embrasse plus. */
+      if (avant.length) trace.data.zoneAttendue = [...avant];
       // Une place gardée compte comme « là » : le tracé reste où il est.
       if (!spec.laLigneSeReferme) return;
       // `laLigneSeReferme` + `vers` : la ligne se referme sur la place que la
