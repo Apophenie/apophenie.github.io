@@ -227,7 +227,11 @@
  * ★ À l'écran, ce que le moteur fait aujourd'hui est à DROITE et l'autre voie à
  *   gauche, quel que soit le type de cas (`arbitrage.js › montrer`).
  */
-export const CAS_ARBITRAGE = Object.freeze([
+// Les avis du 22 septembre sont appliqués lors de la reprise des six chantiers.
+// Ces mesures décrivent les anciennes branches, pas le classement intégré.
+// Les liens et identifiants restent archivés sans redemander les mêmes avis.
+// Bilan : .planning/arbitrages/2026-09-22-reprise.md.
+export const CAS_ARCHIVES = Object.freeze([
   {
     id: "2026-09-19-raoult",
     place: 1,
@@ -488,3 +492,6 @@ export const CAS_ARBITRAGE = Object.freeze([
     apres: "?sce!fj11+fl+m14$6hVamBkJyG1MWtPRwR",
   },
 ]);
+
+// Aucun nouvel arbitrage nécessaire pour les changements déjà demandés.
+export const CAS_ARBITRAGE = Object.freeze([]);
