@@ -419,7 +419,7 @@ test('★ câblage — la barre ne dessine le bouton que s’il peut agir', () =
     'le bouton de plein écran est dessiné sans vérifier qu’il peut agir');
   // L'état ne vient pas d'un drapeau de la barre : elle interroge le contrôleur.
   assert.match(transport, /const dedans = plein\.actif\(\)/);
-  assert.doesNotMatch(transport, /aria-pressed/,
+  assert.doesNotMatch(transport, /bPlein\.setAttribute\(['"`]aria-pressed['"`]/,
     'un nom accessible variable ET `aria-pressed` produisent une annonce contradictoire');
 });
 

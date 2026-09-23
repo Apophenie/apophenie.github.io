@@ -166,6 +166,12 @@ export function creerRechercheEnFond(options = {}) {
   let generation = 0;
   let transport = null;
   let mode = 'attente';
+  let workerArrete = false;
+  const choisir = (voie) => {
+    transport = voie;
+    mode = voie ? voie.forme : 'aucun';
+    return voie;
+  };
 
   const distribuer = (message) => {
     if (!message || typeof message.generation !== 'number') return;
@@ -204,7 +210,13 @@ export function creerRechercheEnFond(options = {}) {
     const conclure = (valeur) => { if (!conclu) { conclu = true; tenir(valeur); } };
     const minuterie = setTimeout(() => { conclure(null); worker.terminate(); }, delai);
     worker.onerror = () => {
+      if (workerArrete) return;
+      workerArrete = true;
       clearTimeout(minuterie);
+      worker.onmessage = null;
+      worker.onerror = null;
+      worker.terminate();
+      if (mode !== 'attente') choisir(transportLocal());
       // ★ DEUX MORTS POSSIBLES, ET LA SECONDE EST LA PLUS TRAÎTRE. Avant le
       //   choix, `onerror` veut dire « ce travailleur ne naîtra pas » : on
       //   conclut sur `null` et le repli local prend la suite. APRÈS, il veut
@@ -229,9 +241,7 @@ export function creerRechercheEnFond(options = {}) {
       if (message && message.type === 'erreur' && message.generation === undefined) {
         // Le travailleur a démarré mais n'a pas pu charger le catalogue : il ne
         // servira à rien, et le repli local a peut-être plus de chance.
-        clearTimeout(minuterie);
-        conclure(null);
-        worker.terminate();
+        worker.onerror();
         return;
       }
       distribuer(message);
@@ -240,16 +250,14 @@ export function creerRechercheEnFond(options = {}) {
   });
 
   const pret = naissance.then((viaWorker) => {
-    transport = viaWorker || transportLocal();
-    mode = transport ? transport.forme : 'aucun';
-    return transport;
+    return choisir((!workerArrete && viaWorker) || transportLocal());
   });
 
   return {
     /** `'fichier-unique'`, `'sources'`, `'tranches'` ou `'aucun'`. */
     mode: () => mode,
     /** La promesse du choix — les tests et le diagnostic en ont besoin. */
-    pret: () => pret,
+    pret: async () => { await pret; return transport; },
     /**
      * Lance une recherche et rend son résultat sérialisé.
      * @param {string} saisie
@@ -258,7 +266,8 @@ export function creerRechercheEnFond(options = {}) {
      * @returns {Promise<Object|null>}  `null` si aucun moteur n'est disponible
      */
     async chercher(saisie, cible, reglages = {}) {
-      const voie = await pret;
+      await pret;
+      const voie = transport;
       if (!voie) return null;
       const mienne = ++generation;
       // Les recherches précédentes n'intéressent plus personne : on les oublie

@@ -107,3 +107,28 @@ test('★ réglages — changer le rythme prévient les auditeurs', async () => 
   definirRythme('simultane');
   assert.equal(appels, 2, 'un auditeur détaché ne doit plus être appelé');
 });
+
+test('les préférences restent actives quand le stockage refuse les écritures', async () => {
+  const stockage = globalThis.localStorage;
+  const r = await import('./reglages.js?stockage-refuse');
+  const off = r.onReglages(() => {
+    assert.equal(document.documentElement.getAttribute('data-rythme'), r.rythmeChoisi());
+  });
+  try {
+    globalThis.localStorage = {
+      getItem: () => 'pasAPas',
+      setItem() { throw new Error('refus'); },
+      removeItem() { throw new Error('refus'); },
+    };
+    r.definirRythme('simultane');
+    assert.equal(r.rythmeChoisi(), 'simultane');
+    globalThis.localStorage.getItem = () => { throw new Error('refus'); };
+    assert.equal(r.rythmeChoisi(), 'simultane');
+    r.definirRythme('pasAPas');
+    assert.equal(r.rythmeChoisi(), 'pasAPas');
+    r.definirTheme('sombre');
+    assert.equal(r.themePrefere(), 'sombre');
+    r.definirTheme('auto');
+    assert.equal(r.themePrefere(), 'auto', 'la suppression refusée reste effective en mémoire');
+  } finally { off(); globalThis.localStorage = stockage; }
+});

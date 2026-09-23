@@ -56,10 +56,28 @@ const CLE_RYTHME = 'nhlg.rythme';
 /** Les trois thèmes, dans l'ordre d'affichage du sélecteur : clair · auto · sombre. */
 export const THEMES = ['clair', 'auto', 'sombre'];
 
+// Une préférence reste utilisable pendant la session si sa persistance échoue.
+const secours = new Map();
+const nonPersistes = new Set();
 const magasin = {
-  lire(cle) { try { return localStorage.getItem(cle); } catch { return null; } },
-  ecrire(cle, v) { try { localStorage.setItem(cle, v); } catch { /* mode privé */ } },
-  effacer(cle) { try { localStorage.removeItem(cle); } catch { /* mode privé */ } },
+  lire(cle) {
+    if (nonPersistes.has(cle)) return secours.get(cle) ?? null;
+    try {
+      const v = localStorage.getItem(cle);
+      secours.set(cle, v);
+      return v;
+    } catch { return secours.get(cle) ?? null; }
+  },
+  ecrire(cle, v) {
+    secours.set(cle, String(v));
+    try { localStorage.setItem(cle, v); nonPersistes.delete(cle); }
+    catch { nonPersistes.add(cle); }
+  },
+  effacer(cle) {
+    secours.set(cle, null);
+    try { localStorage.removeItem(cle); nonPersistes.delete(cle); }
+    catch { nonPersistes.add(cle); }
+  },
 };
 
 const auditeurs = new Set();

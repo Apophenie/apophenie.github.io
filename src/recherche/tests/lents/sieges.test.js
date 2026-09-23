@@ -63,7 +63,8 @@ test('★ curseurs personnalisés — les deux voies sans perte sont proposées 
      moins de ficelles d'abord », « une ficelle qui n'apporte rien n'est pas
      proposée ». Preuve et démonstration : `score-intermediaire.test.js`, où la
      même liste, rendue à l'ancienne potence, retrouve `tm+mlm+mab`. */
-  assert.ok(liste.includes('fr1+tsy+mlm+mdc2'), `la voie sans perte : ${dit}`);
+  // Le César est désormais justifié ; sa recette dépend de la saisie.
+  assert.ok(liste.some((c) => /^fj1(?:~[a-zA-Z0-9.]+)+\+tsy\+mlm\+mdc2$/.test(c)), `la voie sans perte : ${dit}`);
   assert.ok(liste.includes('fl+tca+msen+mrdE'), `la voie sans perte par addition : ${dit}`);
   // « Une approche addition uniquement, EN PLUS de `mab`, pas à la place » :
   // l'absorption reste proposée.

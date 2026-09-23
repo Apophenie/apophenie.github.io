@@ -231,7 +231,7 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
   const facteurAffiche = (v) => tt('vitesseFacteur', { n: formaterFacteur(v) });
   let bVitesse = null;
   let vitesseValeur = null;
-  if (options.vitesses !== false && !lecteur.reduced) {
+  if (options.vitesses !== false) {
     const courante = lecteur.vitesse ?? 1;
     vitesseValeur = e('span.transport__facteur', {
       texte: facteurAffiche(courante), 'aria-hidden': 'true',
@@ -289,7 +289,7 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
   let bRythme = null;
   let rythmeValeur = null;
   let peindreRythme = () => {};
-  if (options.rythmes !== false && !lecteur.reduced) {
+  if (options.rythmes !== false) {
     const nomDuRythme = (r) => tt(r === 'simultane' ? 'rythmeSimultane' : 'rythmePasAPas');
     const courant = rythmeChoisi();
     rythmeValeur = e('span.transport__facteur', {
@@ -428,7 +428,16 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
 
   const neutraliser = (b, off) => b.setAttribute('aria-disabled', off ? 'true' : 'false');
 
+  let reductionAffichee = null;
   function rafraichir() {
+    const reduit = Boolean(lecteur.reduced);
+    if (blocReglages && reductionAffichee !== reduit) {
+      const visibles = reglages.filter((b) => !reduit || (b !== bVitesse && b !== bRythme));
+      blocReglages.replaceChildren(...visibles);
+      barre.replaceChildren(bDebut, bPrec, bLect, bSuiv, bFin,
+        ...(visibles.length ? [blocReglages] : []));
+      reductionAffichee = reduit;
+    }
     const debut = lecteur.atStart;
     const fin = lecteur.atEnd;
     neutraliser(bDebut, debut);

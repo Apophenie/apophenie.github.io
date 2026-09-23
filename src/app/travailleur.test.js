@@ -190,3 +190,27 @@ test('une liste provisoire est remise à sa recherche sans la clore, et ne se de
   assert.equal('provisoires' in demandes().at(-1), false,
     'sans personne pour les montrer, les listes provisoires ne se demandent pas');
 });
+
+test('après une panne, les recherches suivantes utilisent durablement le repli', async () => {
+  for (const repli of [true, false]) {
+    const ne = travailleurFactice();
+    const fond = creerRechercheEnFond({
+      ouvrir: () => ne,
+      canalLocal: repli ? (recevoir) => ({
+        traiterProgressif(m) {
+          recevoir({ type: 'resultat', generation: m.generation, saisie: m.saisie });
+        },
+      }) : undefined,
+    });
+    await fond.pret();
+    ne.worker.postMessage = () => {};
+    const premiere = fond.chercher('première');
+    await Promise.resolve();
+    ne.worker.onerror();
+    await assert.rejects(premiere, /travailleur/);
+    assert.equal(ne.worker.arrete, true);
+    assert.equal(fond.mode(), repli ? 'tranches' : 'aucun');
+    const suivante = await fond.chercher('seconde');
+    assert.equal(suivante?.saisie ?? null, repli ? 'seconde' : null);
+  }
+});

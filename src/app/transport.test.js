@@ -45,6 +45,8 @@ class Noeud {
   addEventListener(nom, cb) { (this.ecouteurs ||= {})[nom] = cb; }
   removeEventListener(nom, cb) { if (this.ecouteurs?.[nom] === cb) delete this.ecouteurs[nom]; }
 
+  replaceChildren(...enfants) { this.enfants = enfants; }
+
   appendChild(n) { this.enfants.push(n); return n; }
 
   replaceChild(neuf, ancien) {
@@ -324,4 +326,18 @@ test('★ transport — la rangée sait se replier (le CSS le dit)', async () =>
     'sans `flex-wrap`, la rangée déborde au lieu de passer à la ligne');
   assert.match(css, /\.transport__reglages \{[\s\S]*?flex-wrap:\s*wrap[\s\S]*?\n\}/,
     'le bloc des réglages doit se replier lui aussi sur un écran très étroit');
+});
+
+test('les commandes suivent les changements du niveau d’animation sans recharger', () => {
+  for (const initial of [true, false]) {
+    const lecteur = lecteurFactice({ reduced: initial });
+    const tr = creerTransport(lecteur, {}, {});
+    for (const reduced of [initial, !initial, initial]) {
+      lecteur.reduced = reduced;
+      tr.rafraichir();
+      assert.equal(roles(tr).includes('vitesse'), !reduced);
+      assert.equal(roles(tr).includes('rythme'), !reduced);
+    }
+    tr.detruire();
+  }
 });
