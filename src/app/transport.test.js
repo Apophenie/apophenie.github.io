@@ -43,6 +43,7 @@ class Noeud {
   removeAttribute(k) { delete this.attributs[k]; }
 
   addEventListener(nom, cb) { (this.ecouteurs ||= {})[nom] = cb; }
+  removeEventListener(nom, cb) { if (this.ecouteurs?.[nom] === cb) delete this.ecouteurs[nom]; }
 
   appendChild(n) { this.enfants.push(n); return n; }
 
@@ -68,14 +69,22 @@ function* parcourir(noeud) {
 }
 
 globalThis.document = {
+  documentElement: new Noeud('html'),
   createElement: (b) => new Noeud(b),
   createElementNS: (_ns, b) => new Noeud(b),
   createTextNode: (d) => ({ textContent: String(d) }),
 };
 
+const preferences = new Map();
+globalThis.localStorage = {
+  getItem: (cle) => preferences.get(cle) ?? null,
+  setItem: (cle, valeur) => preferences.set(cle, String(valeur)),
+  removeItem: (cle) => preferences.delete(cle),
+};
+
 const { creerTransport } = await import('./transport.js');
 const { fr } = await import('../i18n/fr.js');
-const { RYTHMES, RYTHME_DEFAUT } = await import('../visuel/rythme.js');
+const { RYTHME_DEFAUT } = await import('../visuel/rythme.js');
 
 /** Un lecteur de façade : juste ce que la barre lit (le contrat §3.3). */
 const lecteurFactice = (extra = {}) => ({
@@ -155,16 +164,22 @@ test('★ transport — le rythme affiche sa valeur au-dessus de son libellé', 
   assert.ok(bouton.classes.has('transport__bouton--reglage'));
 });
 
-test('★ transport — les deux rythmes, et le nom accessible sur le select', () => {
+test('transport — un clic bascule les opérations, sans menu, puis le suivant revient au départ', () => {
   const tr = creerTransport(lecteurFactice(), {}, options());
   const bouton = [...parcourir(tr.element)].find((n) => n.dataset.role === 'rythme');
-  const choix = [...parcourir(bouton)].find((n) => n.classes.has('transport__vitesse-choix'));
-  assert.ok(choix, 'le select manque');
-  assert.equal(choix.getAttribute('aria-label'), fr.transport.rythme);
-  const opts = [...parcourir(choix)].filter((n) => n.tagName === 'option');
-  assert.deepEqual(opts.map((o) => o.getAttribute('value')), [...RYTHMES]);
-  assert.deepEqual(opts.map((o) => o.textContent),
-    [fr.transport.rythmePasAPas, fr.transport.rythmeSimultane]);
+  const valeur = bouton.querySelector('.transport__facteur');
+  assert.equal(bouton.tagName, 'button');
+  assert.ok(![...parcourir(bouton)].some((n) => n.tagName === 'select'));
+  assert.equal(bouton.getAttribute('aria-label'), `${fr.transport.rythmeCourt} : ${fr.transport.rythmeSimultane}`);
+  const initial = valeur.textContent;
+  const presse = bouton.getAttribute('aria-pressed');
+  bouton.ecouteurs.click();
+  assert.notEqual(valeur.textContent, initial);
+  assert.notEqual(bouton.getAttribute('aria-pressed'), presse);
+  bouton.ecouteurs.click();
+  assert.equal(valeur.textContent, initial);
+  assert.equal(bouton.getAttribute('aria-pressed'), presse);
+  tr.detruire();
 });
 
 /**

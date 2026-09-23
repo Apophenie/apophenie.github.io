@@ -29,7 +29,6 @@ import { infobuller } from './infobulle.js';
 import {
   sonActif, basculerSon, onReglages, rythmeChoisi, definirRythme,
 } from './reglages.js';
-import { RYTHMES } from '../visuel/rythme.js';
 
 const ico = (...enfants) =>
   s('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true', focusable: 'false' }, enfants);
@@ -271,13 +270,9 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
        donne sept additions simultanées, en plus rapide. Deux réglages voisins
        de place, et sans rien de commun sur le fond.
 
-     ★ **DESSINÉ COMME LA VITESSE, ET POUR LA MÊME RAISON.** Une valeur
-       au-dessus, un libellé dessous, un `<select>` transparent par-dessus. Ce
-       n'est pas une bascule à deux états qu'on retourne au clic comme le son :
-       c'est un CHOIX PARMI DEUX, qui en admettra peut-être un troisième, et un
-       `<select>` dit cela quand un bouton-bascule ment dès le troisième. Il
-       garde en prime son clavier, son nom accessible et le sélecteur roulant
-       des mobiles.
+     Deux états seulement : le bouton bascule au clic, comme celui du son.
+     La valeur reste au-dessus du libellé, et aria-pressed indique si les
+     opérations simultanées sont activées.
 
      ★ **PAS D'ICÔNE, ET C'EST UN CHOIX.** Aucun picto de 24 px ne distingue
        « l'un après l'autre » de « tous ensemble » sans légende — et s'il faut la
@@ -293,32 +288,30 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
        du bruit ; un bouton présent mais inerte est un mensonge. */
   let bRythme = null;
   let rythmeValeur = null;
+  let peindreRythme = () => {};
   if (options.rythmes !== false && !lecteur.reduced) {
     const nomDuRythme = (r) => tt(r === 'simultane' ? 'rythmeSimultane' : 'rythmePasAPas');
     const courant = rythmeChoisi();
     rythmeValeur = e('span.transport__facteur', {
       texte: nomDuRythme(courant), 'aria-hidden': 'true',
     });
-    const choixRythme = e('select.transport__vitesse-choix', {
-      'aria-label': tt('rythme'),
-    }, RYTHMES.map((r) => e('option', {
-      value: r,
-      texte: nomDuRythme(r),
-      ...(r === courant ? { selected: 'selected' } : {}),
-    })));
-    bRythme = e('span.transport__bouton.transport__bouton--reglage.transport__vitesse', {}, [
+    bRythme = e('button.transport__bouton.transport__bouton--reglage', {
+      type: 'button',
+      'aria-label': `${tt('rythmeCourt')} : ${tt('rythmeSimultane')}`,
+    }, [
       rythmeValeur,
       e('span.transport__libelle', { texte: tt('rythmeCourt'), 'aria-hidden': 'true' }),
-      choixRythme,
     ]);
     bRythme.dataset.role = 'rythme';
-    /* Le sélecteur n'appelle rien sur le lecteur : le rythme est une option de
-       COMPILATION. Il écrit la préférence, et `onReglages` fait recompiler la
-       timeline chez qui l'a construite — exactement comme le faisait la bascule
-       des redites, et pour la même raison : les charnières se déplacent. */
-    choixRythme.addEventListener('change', () => {
-      rythmeValeur.textContent = nomDuRythme(choixRythme.value);
-      definirRythme(choixRythme.value);
+    peindreRythme = () => {
+      const simultane = rythmeChoisi() === 'simultane';
+      rythmeValeur.textContent = nomDuRythme(rythmeChoisi());
+      bRythme.setAttribute('aria-pressed', String(simultane));
+    };
+    peindreRythme();
+    // La préférence déclenche la recompilation chez le propriétaire du lecteur.
+    bRythme.addEventListener('click', () => {
+      definirRythme(rythmeChoisi() === 'simultane' ? 'pasAPas' : 'simultane');
     });
   }
 
@@ -545,7 +538,7 @@ export function creerTransport(lecteur, libelles = {}, options = {}) {
   // Le plein écran, lui, n'écoute QUE le navigateur : ce n'est ni un réglage
   // persisté ni un état du lecteur.
   const desabonner = lecteur.on ? lecteur.on('change', rafraichir) : () => {};
-  const desabonnerReglages = bSon ? onReglages(peindreSon) : () => {};
+  const desabonnerReglages = bSon || bRythme ? onReglages(() => { peindreSon(); peindreRythme(); }) : () => {};
   const desabonnerSons = bSon ? sons.on(peindreSon) : () => {};
   const desabonnerPlein = bPlein ? plein.on(peindrePleinEcran) : () => {};
   peindreSon();
