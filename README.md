@@ -10,8 +10,25 @@ Venez vous essayer à la science des nombre enfin rendu accessible à toutes et 
 
 ## Ce que le site fait aujourd'hui
 
-La version 3.0.0, en bref. Plus bas, « Méthodologie » et « L'interface du site »
+La version 3.2.0, en bref. Plus bas, « Méthodologie » et « L'interface du site »
 sont le cahier des charges d'origine : il tient toujours, le site a grandi autour.
+
+### Nouveautés de la version 3.2.0
+
+Les 25 décalages de César peuvent être justifiés par une conversion numérique
+courte de la saisie. La recette figure dans le lien : rejouer une démonstration
+ne relance pas sa recherche. L’animation montre le calcul, puis l’alignement de
+la table avec un compteur et un pointeur.
+
+Les opérations se jouent au choix simultanément ou pas à pas, avec une bascule
+au clic. Les calculs indépendants et les conversions en table partent en vague ; les phases de calcul
+s’enchaînent plus rapidement. La scène utilise davantage la largeur disponible
+tout en gardant ses commandes visibles à l’arrivée.
+
+La recherche intègre aussi les nouveaux opérateurs ASCII et Unicode, les
+opérateurs positionnels et les redécoupages, avec les ajustements de classement
+et de sélection des voies. Les réglages restent utilisables sans stockage local
+et la recherche dispose d’un repli durable après une panne de son worker.
 
 ### D'autres cibles que 666
 
