@@ -52,7 +52,7 @@
  * historique ci-dessous reste celui du miroir et des autres glissières.
  */
 
-import { compterCrans } from './compteurCesar.js';
+import { compterCrans, instantCran } from './compteurCesar.js';
 import { EASE } from '../constants.js';
 // ★ Le calcul du miroir — la demi-ellipse, l'aplatissement, le rétrécissement —
 //   est écrit UNE fois et partagé avec le miroir de la LIGNE (`move.js`,
@@ -403,7 +403,7 @@ export function tempsCesar(ctx, geo, t0) {
 
 /** César : duplication verticale, crans croissants, puis ouverture de la couture. */
 export function poserBandeCesar(ctx, spec) {
-  const { board, boardPos, geo, deployer, t0, compteur } = spec;
+  const { board, boardPos, geo, deployer, t0, compteur, ease = EASE.linear } = spec;
   const hautes = geo.cells.filter((c) => c.ligne === 0);
   const basses = geo.cells.filter((c) => c.ligne === 1);
   const n = hautes.length;
@@ -449,12 +449,12 @@ export function poserBandeCesar(ctx, spec) {
       ctx.anim({ id, prop: 'opacity', to: visible ? 1 : 0, at: 0, dur: ctx.dur * 0.16 });
       ctx.anim({ id, prop: 'translate', from: p0, to: { x: p0.x, y: boardPos.y + bas.cy }, at: t0, dur: descente });
       ctx.anim({ id, prop: 'translate', from: { x: p0.x, y: boardPos.y + bas.cy },
-        to: { x: x(depart - decalage), y: boardPos.y + bas.cy }, at: debut, dur: course, ease: EASE.linear });
+        to: { x: x(depart - decalage), y: boardPos.y + bas.cy }, at: debut, dur: course, ease });
       if (traverse) {
         const bord = fantome ? (dep + 0.5) / decalage : (depart - n + 0.5) / decalage;
         const marge = Math.min(0.08 / decalage, bord / 2, (1 - bord) / 2);
         ctx.anim({ id, prop: 'opacity', values: fantome ? [1, 1, 0, 0] : [0, 0, 1, 1],
-          offsets: [0, bord - marge, bord + marge, 1], at: debut, dur: course, ease: EASE.linear });
+          offsets: [0, bord - marge, bord + marge, 1].map((p) => instantCran(p, ease)), at: debut, dur: course, ease: EASE.linear });
       }
       if (!fantome) {
         // La couture ne s'ouvre qu'une fois le bon cran atteint.
@@ -464,6 +464,6 @@ export function poserBandeCesar(ctx, spec) {
     }
   });
   if (!deployer) return t0;
-  return compteur ? compterCrans(ctx, compteur, decalage, debut, course, ouverture)
+  return compteur ? compterCrans(ctx, compteur, decalage, debut, course, ouverture, ease)
     : arrivee + ouverture + ctx.dur * 0.24;
 }

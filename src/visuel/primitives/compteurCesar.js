@@ -1,5 +1,16 @@
 /** Le résultat calculé sert de cible au compteur de la glissière. */
-import { EASE } from '../constants.js';
+import { EASE, progressionDe } from '../constants.js';
+
+export function instantCran(p, ease = EASE.linear) {
+  if (ease === EASE.linear || p === 0 || p === 1) return p;
+  const progression = progressionDe(ease);
+  let a = 0, b = 1;
+  for (let i = 0; i < 28; i++) {
+    const m = (a + b) / 2;
+    if (progression(m) < p) a = m; else b = m;
+  }
+  return (a + b) / 2;
+}
 
 function disposition(ctx, nombre, x, y) {
   const n = ctx.scene.get(nombre), fs = ctx.metrics.fontSize, av = ctx.metrics.advance * 0.5;
@@ -50,13 +61,13 @@ export function preparerCompteur(ctx, nombre, x, y, geo) {
   return { ids, nombre, x, y, nom, gap, av };
 }
 
-export function compterCrans(ctx, compteur, n, debut, course, ouverture) {
+export function compterCrans(ctx, compteur, n, debut, course, ouverture, ease = EASE.linear) {
   const { ids, nombre, x, y, nom, gap, av } = compteur;
   const [nomId, pointeur, courant, egalite] = ids;
-  const cran = course / n;
+  const progression = progressionDe(ease);
   ctx.anim({ id: pointeur, prop: 'opacity', to: 1, at: Math.max(0, debut - ctx.dur * 0.12), dur: ctx.dur * 0.12 });
   ctx.discrete({ id: courant, channel: 'text', at: debut, dur: course,
-    render: (p) => String(Math.min(n, Math.floor(p * n + 1e-7))) });
+    render: (p) => String(Math.min(n, Math.floor(progression(p) * n + 1e-7))) });
   const { longueur, distanceBord, pas } = ctx.scene.get(pointeur).data;
   const angle = Math.acos(distanceBord / longueur) * 180 / Math.PI;
   const courseContact = Math.sqrt(longueur ** 2 - distanceBord ** 2);
@@ -67,8 +78,14 @@ export function compterCrans(ctx, compteur, n, debut, course, ouverture) {
   const instants = angles.map((_, i) => relache * i / 8);
   angles.push(angle * 0.18, 0, 0);
   instants.push(relache + (1 - relache) * 0.4, relache + (1 - relache) * 0.75, 1);
-  for (let i = 0; i < n; i++) ctx.anim({ id: pointeur, prop: 'rotate', values: angles,
-    offsets: instants, at: debut + i * cran, dur: cran, ease: EASE.linear });
+  for (let i = 0; i < n; i++) {
+    const a = instantCran(i / n, ease), b = instantCran((i + 1) / n, ease);
+    const start = Math.round((debut + a * course) * 1000) / 1000;
+    const end = Math.round((debut + b * course) * 1000) / 1000;
+    ctx.anim({ id: pointeur, prop: 'rotate', values: angles,
+      offsets: instants.map((p) => (instantCran((i + p) / n, ease) - a) / (b - a)),
+      at: start, dur: end - start, ease: EASE.linear });
+  }
   const arrivee = debut + course;
   ctx.discrete({ id: egalite, channel: 'text', at: arrivee, dur: 1 / ctx.speed, render: () => '=' });
   const fin = arrivee + ouverture;

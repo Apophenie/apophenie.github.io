@@ -257,9 +257,10 @@ export function plan(ctx) {
   //   bas est faite de cases mobiles (`glissiere.js`), qui paraissent alignées
   //   sur elle avant de se déplacer.
   const bandeSeparee = disposition === 'glissiere';
-  // Le nom d'une glissière ne paraît qu'une fois sa bande arrivée : c'est le
-  // déplacement qui prouve la règle, le nom ne fait que la conclure.
+  // Les César sont nommés dès le départ par leur compteur. Les autres
+  // glissières gardent leur titre après le déplacement de la bande.
   const temps = bandeSeparee && geo.sens === 1 ? tempsCesar(ctx, geo, ctx.dur * TEMPS_DECOR.MONTEE) : null;
+  const cesarNu = !op.preuve && temps && temps.decalage > 0;
   const titreAt = temps ? temps.arrivee + temps.ouverture : bandeSeparee && deployer
     ? finDuDeplacement(ctx.dur, ctx.dur * TEMPS_DECOR.MONTEE)
     : 0;
@@ -267,21 +268,33 @@ export function plan(ctx) {
   const suiteVague = ctx.tableVague && ctx.rangVague > 0;
   if (!suiteVague) {
     t0 = monterDecor(ctx, {
-      id: board, role: 'table', titre, data: { geo, disposition, bandeSeparee, hautSepare: bandeSeparee && geo.sens === 1 },
+      id: board, role: 'table', titre: cesarNu ? '' : titre, data: { geo, disposition, bandeSeparee, hautSepare: bandeSeparee && geo.sens === 1 },
       pos: boardPos, width: geo.width, deployer, titreAt,
       encombrement: {
         haut: boardPos.y - geo.height / 2,
-        bas: boardPos.y + geo.height / 2 + (op.preuve ? ctx.metrics.fontSize * 0.82 : 0),
+        bas: boardPos.y + geo.height / 2 + (op.preuve || cesarNu ? ctx.metrics.fontSize * 0.82 : 0),
         largeur: geo.width,
         pad: PAD,
       },
     });
     let compteur = null;
-    if (op.preuve && deployer) {
-      compteur = preparerCompteur(ctx, op.preuve, boardPos.x, boardPos.y + geo.height / 2 + ctx.metrics.fontSize * 0.52, geo);
-      ctx.scene.get(board).data.preuveTitre = [op.preuve, ...compteur.ids];
+    if ((op.preuve || cesarNu) && deployer) {
+      let cible = op.preuve;
+      if (!cible) {
+        cible = ctx.gensym('cesar-cible');
+        const text = String(temps.decalage);
+        ctx.scene.create({ id: cible, role: 'label', text, inFlow: false,
+          w: text.length * ctx.metrics.advance,
+          data: { scale: 0.5, cesarNom: titre.includes('Caesar') ? 'Caesar' : 'César' },
+          base: { opacity: 0, fill: ctx.palette.fg2 } });
+        ctx.anim({ id: cible, prop: 'opacity', to: 1, at: 0, dur: ctx.dur * 0.16 });
+      }
+      compteur = preparerCompteur(ctx, cible, boardPos.x, boardPos.y + geo.height / 2 + ctx.metrics.fontSize * 0.52, geo);
+      ctx.scene.get(board).data.preuveTitre = [cible, ...compteur.ids];
     }
-    if (bandeSeparee) t0 = (geo.sens === 1 ? poserBandeCesar : poserBande)(ctx, { board, boardPos, geo, deployer, t0, compteur });
+    if (bandeSeparee) t0 = (geo.sens === 1 ? poserBandeCesar : poserBande)(ctx, {
+      board, boardPos, geo, deployer, t0, compteur, ease: cesarNu ? EASE.move : EASE.linear,
+    });
   } else t0 = ctx.tableVague.pret;
 
   // ── 2. l'aller-retour de CETTE lettre, en entier ────────────────────────
@@ -498,4 +511,3 @@ function entreesDe(ctx) {
   }
   return oracle;
 }
-

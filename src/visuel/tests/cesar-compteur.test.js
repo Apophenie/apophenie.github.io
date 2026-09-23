@@ -74,3 +74,35 @@ test('le compteur reste déterministe en mouvement réduit et à vitesse doublé
     assert.equal(trace.render(1), '24');
   }
 });
+
+test('fr1 à fr25 : titre immédiat, pointeur synchronisé, vitesse variable et couture Z–A avant le vol', () => {
+  for (let n = 1; n <= 25; n++) for (const speed of [1, 2]) {
+    const op = CATALOGUE.find((o) => o.code === `fr${n}`), a = str('T');
+    const tl = compile({ version: 1, tokens: [{ id: 'source', text: 'T' }],
+      steps: op.steps(a, appliquer(op, a), { ids: ['source'], cle: `fr${n}`, langue: 'fr' }) }, { speed });
+    const lire = lecteur(tl);
+    assert.deepEqual(tl.warnings, [], `fr${n} ×${speed}`);
+    const nom = tl.nodes.find((v) => v.data?.cesarRole === 'nom');
+    const compteur = tl.nodes.find((v) => v.data?.cesarRole === 'compteur');
+    const pointeur = tl.nodes.find((v) => v.data?.cesarPointeur);
+    const compte = tl.discrete.find((d) => d.id === compteur.id && d.channel === 'text');
+    const apparition = tl.anims.find((a) => a.id === nom.id && a.prop === 'opacity');
+    assert.equal(apparition.delay, 0);
+    assert.ok(apparition.duration < compte.at);
+    const course = tl.anims.find((a) => a.id.includes(':bas:') && a.prop === 'translate' && a.delay === compte.at);
+    assert.notEqual(course.easing, 'linear');
+    const tours = tl.anims.filter((a) => a.id === pointeur.id && a.prop === 'rotate');
+    assert.equal(tours.length, n);
+    if (n >= 4) assert.ok(tours[0].duration > tours[Math.floor(n / 2)].duration * 1.2);
+    for (let i = 1; i < n; i++) {
+      const p = (tours[i].delay - compte.at) / compte.dur;
+      assert.equal(compte.render(Math.min(1, p + 0.00001)), String(i));
+    }
+    const vol = tl.anims.find((a) => a.id === 'source' && a.prop === 'translate');
+    const bas = tl.nodes.filter((v) => v.id.includes(':bas:'));
+    const z = bas.find((v) => v.data.texte === 'Z'), debut = bas.find((v) => v.data.texte === 'A');
+    const ecart = lire.valeur(debut.id, 'translate', vol.delay).x - lire.valeur(z.id, 'translate', vol.delay).x;
+    assert.ok(ecart > z.w + 5, `fr${n} : couture visible (${ecart}, case ${z.w})`);
+    assert.ok(lire.valeur(pointeur.id, 'opacity', vol.delay) < 0.01);
+  }
+});
