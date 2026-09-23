@@ -1,8 +1,9 @@
 # Présentation des César sans preuve
 
 Les `fr1` à `fr25` affichent désormais leur titre avec la table, sans attendre
-la fin du déplacement. Le décalage connu fournit directement la cible du
-compteur : `César 0 != N`, puis `César N`. Aucune justification n’est recherchée.
+la fin du déplacement. Le compteur affiche `César 0`, puis incrémente jusqu’à `César N`, sans
+comparaison ni nombre cible supplémentaire. Les `fj*` conservent seuls
+la comparaison, avec le signe Unicode `≠`, puis `=`. Aucune justification n’est recherchée.
 
 Ils utilisent le même pointeur fin que les César avec preuve, avec sa pointe
 au contact des bords des cases. Le coulissement utilise `EASE.move` : départ

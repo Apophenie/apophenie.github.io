@@ -12,12 +12,13 @@ export function instantCran(p, ease = EASE.linear) {
   return (a + b) / 2;
 }
 
-function disposition(ctx, nombre, x, y) {
-  const n = ctx.scene.get(nombre), fs = ctx.metrics.fontSize, av = ctx.metrics.advance * 0.5;
-  const nom = n.data?.cesarNom || 'César';
-  const largeurs = [[...nom].length * av, fs * 0.4, Math.max(2, n.text.length) * av, 2 * av, n.w * 0.5];
+function disposition(ctx, nombre, x, y, options = {}) {
+  const n = nombre ? ctx.scene.get(nombre) : null, fs = ctx.metrics.fontSize, av = ctx.metrics.advance * 0.5;
+  const nom = n?.data?.cesarNom || options.nom || 'César';
+  const largeurs = [[...nom].length * av, fs * 0.4, Math.max(2, (n?.text || String(options.decalage)).length) * av];
+  if (n) largeurs.push(2 * av, n.w * 0.5);
   const gap = fs * 0.18;
-  let gauche = x - (largeurs.reduce((a, b) => a + b, 0) + 4 * gap) / 2;
+  let gauche = x - (largeurs.reduce((a, b) => a + b, 0) + (largeurs.length - 1) * gap) / 2;
   const positions = largeurs.map((w) => { const p = { x: gauche + w / 2, y }; gauche += w + gap; return p; });
   return { n, nom, positions, largeurs, gap, av };
 }
@@ -28,8 +29,8 @@ export function placerCibleCesar(ctx, nombre, x, y) {
   ctx.anim({ id: nombre, prop: 'scale', to: 0.5, at: 0, dur: ctx.dur * 0.5 });
 }
 
-export function preparerCompteur(ctx, nombre, x, y, geo) {
-  const { n, nom, positions, largeurs, gap, av } = disposition(ctx, nombre, x, y);
+export function preparerCompteur(ctx, nombre, x, y, geo, options = {}) {
+  const { n, nom, positions, largeurs, gap, av } = disposition(ctx, nombre, x, y, options);
   // Aligner la pointe sur une jointure de l'alphabet encore contigu. Tout
   // le libellé suit cet ajustement pour conserver ses espacements.
   const bordGauche = x - geo.cols * geo.cellW / 2;
@@ -39,8 +40,10 @@ export function preparerCompteur(ctx, nombre, x, y, geo) {
   const distanceBord = ctx.metrics.fontSize * 0.52;
   const longueur = distanceBord + ctx.metrics.fontSize * 0.065;
   const demiLargeur = ctx.metrics.fontSize * 0.085;
-  ctx.place(nombre, positions[4], { at: 0, dur: ctx.dur * 0.2 });
-  const ids = ['nom', 'pointeur', 'compteur', 'egalite'].map((role) => ctx.gensym(`cesar-${role}`));
+  if (nombre) ctx.place(nombre, positions[4], { at: 0, dur: ctx.dur * 0.2 });
+  const roles = ['nom', 'pointeur', 'compteur'];
+  if (nombre) roles.push('egalite');
+  const ids = roles.map((role) => ctx.gensym(`cesar-${role}`));
   ids.forEach((id, i) => {
     ctx.scene.create(i === 1 ? {
       id, role: 'bracket', inFlow: false, w: largeurs[i],
@@ -50,14 +53,14 @@ export function preparerCompteur(ctx, nombre, x, y, geo) {
       },
       base: { opacity: 0, fill: ctx.palette.gold, stroke: ctx.palette.gold, rotate: 0 },
     } : {
-      id, role: 'label', text: [nom, '', '0', '!='][i], inFlow: false, w: largeurs[i],
+      id, role: 'label', text: [nom, '', '0', '≠'][i], inFlow: false, w: largeurs[i],
       data: { scale: 0.5, cesarRole: ['nom', '', 'compteur', 'egalite'][i] },
       base: { opacity: 0, fill: ctx.palette.fg2 },
     });
     ctx.scene.place(id, positions[i]);
     if (i !== 1) ctx.anim({ id, prop: 'opacity', to: 1, at: 0, dur: ctx.dur * 0.16 });
   });
-  n.data = { ...n.data, nomCesar: ids[0] };
+  if (n) n.data = { ...n.data, nomCesar: ids[0] };
   return { ids, nombre, x, y, nom, gap, av };
 }
 
@@ -87,9 +90,9 @@ export function compterCrans(ctx, compteur, n, debut, course, ouverture, ease = 
       at: start, dur: end - start, ease: EASE.linear });
   }
   const arrivee = debut + course;
-  ctx.discrete({ id: egalite, channel: 'text', at: arrivee, dur: 1 / ctx.speed, render: () => '=' });
+  if (egalite) ctx.discrete({ id: egalite, channel: 'text', at: arrivee, dur: 1 / ctx.speed, render: () => '=' });
   const fin = arrivee + ouverture;
-  for (const id of [pointeur, egalite, nombre]) ctx.anim({ id, prop: 'opacity', to: 0, at: fin, dur: ctx.dur * 0.16 });
+  for (const id of [pointeur, egalite, nombre].filter(Boolean)) ctx.anim({ id, prop: 'opacity', to: 0, at: fin, dur: ctx.dur * 0.16 });
   const range = fin + ctx.dur * 0.16;
   const wNom = [...nom].length * av, wNombre = String(n).length * av;
   const gauche = x - (wNom + gap + wNombre) / 2;

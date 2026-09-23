@@ -279,18 +279,10 @@ export function plan(ctx) {
     });
     let compteur = null;
     if ((op.preuve || cesarNu) && deployer) {
-      let cible = op.preuve;
-      if (!cible) {
-        cible = ctx.gensym('cesar-cible');
-        const text = String(temps.decalage);
-        ctx.scene.create({ id: cible, role: 'label', text, inFlow: false,
-          w: text.length * ctx.metrics.advance,
-          data: { scale: 0.5, cesarNom: titre.includes('Caesar') ? 'Caesar' : 'César' },
-          base: { opacity: 0, fill: ctx.palette.fg2 } });
-        ctx.anim({ id: cible, prop: 'opacity', to: 1, at: 0, dur: ctx.dur * 0.16 });
-      }
-      compteur = preparerCompteur(ctx, cible, boardPos.x, boardPos.y + geo.height / 2 + ctx.metrics.fontSize * 0.52, geo);
-      ctx.scene.get(board).data.preuveTitre = [cible, ...compteur.ids];
+      compteur = preparerCompteur(ctx, op.preuve, boardPos.x,
+        boardPos.y + geo.height / 2 + ctx.metrics.fontSize * 0.52, geo,
+        { nom: titre.includes('Caesar') ? 'Caesar' : 'César', decalage: temps?.decalage });
+      ctx.scene.get(board).data.preuveTitre = [op.preuve, ...compteur.ids].filter(Boolean);
     }
     if (bandeSeparee) t0 = (geo.sens === 1 ? poserBandeCesar : poserBande)(ctx, {
       board, boardPos, geo, deployer, t0, compteur, ease: cesarNu ? EASE.move : EASE.linear,

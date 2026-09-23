@@ -22,7 +22,7 @@ test('chaque César compte tous ses crans dans le même sens avant toute convers
     const egalite = tl.nodes.find((v) => v.data?.cesarRole === 'egalite');
     const compte = tl.discrete.find((d) => d.id === compteur.id && d.channel === 'text');
     assert.equal(compteur.text, '0');
-    assert.equal(egalite.text, '!=');
+    assert.equal(egalite.text, '≠');
     assert.equal(tl.anims.filter((a) => a.id === pointeur.id && a.prop === 'rotate').length, n);
     for (let k = 0; k <= n; k++) {
       assert.equal(compte.render(k / n), String(k));
@@ -85,6 +85,7 @@ test('fr1 à fr25 : titre immédiat, pointeur synchronisé, vitesse variable et 
     const nom = tl.nodes.find((v) => v.data?.cesarRole === 'nom');
     const compteur = tl.nodes.find((v) => v.data?.cesarRole === 'compteur');
     const pointeur = tl.nodes.find((v) => v.data?.cesarPointeur);
+    assert.ok(!tl.nodes.some((v) => v.data?.cesarRole === 'egalite' || v.id.includes('cesar-cible')), 'aucune comparaison ni cible pour fr');
     const compte = tl.discrete.find((d) => d.id === compteur.id && d.channel === 'text');
     const apparition = tl.anims.find((a) => a.id === nom.id && a.prop === 'opacity');
     assert.equal(apparition.delay, 0);
