@@ -17,7 +17,7 @@
 import { LETTRES, VOYELLES, VOYELLES_Y, sansAccents, atbash, cesar } from '../tables/alphabet.js';
 import { DICO_EN_FR, DICO_FR_EN } from '../tables/traduction.js';
 import { CLASSES, formeNue } from '../tables/mots-outils.js';
-import { preuvesNumeriques, etapesPreuveNumerique, etapesPreuveCommuns } from './preuves-cesar.js';
+import { preuvesNumeriques, etapesPreuveNumerique, etapesPreuveCommuns, rejouerPreuveNumerique } from './preuves-cesar.js';
 import { bilingue, dire } from '../i18n.js';
 import {
   def, apparier, sortieCreee, sortieConservee, etape, token, fusion, enchainer, nomToken,
@@ -1258,6 +1258,19 @@ function cesarJustifieDe(n) {
     //   LECTURE elle-même plutôt qu'un drapeau : la scène recompte ainsi ce que
     //   `apply` a compté, au lieu de recevoir un résumé qui pourrait diverger.
     justifie: (valeur) => justificationCesar(valeur, n),
+    avecPreuve(description, table) {
+      const justifie = (valeur) => {
+        const p = description.communs ? lectureDesCommuns(valeur)
+          : rejouerPreuveNumerique(valeur, description, table);
+        return p?.decalage === n ? p : null;
+      };
+      const derive = { ...this, code: description.ecrit, preuveCesar: description, justifie,
+        apply(valeur, traces) {
+          return justifie(valeur) ? muer(valeur, traces, (s) => cesar(s, n)) : null;
+        } };
+      derive.steps = etapeTable(derive);
+      return derive;
+    },
   };
 }
 

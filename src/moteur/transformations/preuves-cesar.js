@@ -19,6 +19,38 @@ function appliquer(op, avant) {
 }
 const disponible = (op) => !op.deprecated && !op.isJoker;
 
+/** Exécute UNE preuve nommée par le lien, sans explorer le catalogue. */
+export function rejouerPreuveNumerique(valeur, description, table) {
+  if (typeof valeur !== 'string') return null;
+  const chars = [...valeur], source = description.source;
+  if (source && source.debut + source.longueur > chars.length) return null;
+  const sourceIndices = source ? Array.from({ length: source.longueur }, (_, i) => source.debut + i) : undefined;
+  const entree = str(source ? chars.slice(source.debut, source.debut + source.longueur).join('') : valeur);
+  const ops = [], etats = [entree];
+  const avancer = (op) => {
+    if (!op || !disponible(op) || op.justifie || etats.at(-1).type !== op.from) return false;
+    const lecture = op.code === 'fl' || (op.from === 'STR' && ['NUM', 'TOKENS'].includes(op.to))
+      || (op.from === 'TOKENS' && ['NUM', 'NUMS'].includes(op.to)) || (op.from === 'NUMS' && op.to === 'NUM');
+    if (!lecture) return false;
+    const apres = appliquer(op, etats.at(-1));
+    if (!apres) return false;
+    ops.push(op); etats.push(apres); return true;
+  };
+  for (const code of description.ops) {
+    const op = table.get(code);
+    if (!op) return null;
+    if (etats.at(-1).type === 'STR' && op.from === 'TOKENS' && !avancer(table.get('tca'))) return null;
+    if (!avancer(op)) return null;
+  }
+  const fin = etats.at(-1);
+  if (!['NUM', 'NUMS'].includes(fin.type)) return null;
+  const valeurs = fin.type === 'NUM' ? [fin.valeur] : fin.valeur;
+  const n = valeurs[description.indice];
+  if (!Number.isInteger(n) || n !== Number(description.base.slice(2))) return null;
+  return { decalage: n, type: 'conversion', ops, etats, indice: description.indice,
+    lecture: source ? 'extrait' : 'complete', sourceIndices };
+}
+
 export function preuvesNumeriques(valeur) {
   if (typeof valeur !== 'string' || !/\p{L}/u.test(valeur)) return [];
   if (memo.has(valeur)) return memo.get(valeur);
@@ -117,6 +149,8 @@ export function etapesPreuveNumerique(preuve, avant, ctx) {
   const sources = preuve.sourceIndices ? preuve.sourceIndices.map((i) => ctx.ids[i]) : ctx.ids;
   const lecture = preuve.lecture === 'initiale'
     ? (en ? 'Read only the initial letter' : 'On lit seulement l’initiale')
+    : preuve.lecture === 'extrait'
+      ? (en ? 'Read the selected part of the text' : 'On lit le passage sélectionné')
     : preuve.lecture === 'mots-voisins'
       ? (en ? `Lengths of adjacent words ${preuve.mots.join(' and ')}`
         : `Longueurs des mots voisins ${preuve.mots.join(' et ')}`)

@@ -534,6 +534,7 @@
 // catalogue. Ici un lien est rejouable sans recherche.
 
 import { encoderTexte, decoderTexte, estBase58, LIMITE_SAISIE } from './base58.js';
+import { lirePreuveCesar, codePreuveCesar } from '../moteur/code-preuve-cesar.js';
 import { normaliserCatalogue } from './bfs.js';
 import {
   lireCible, normaliserCible, CIBLE_DEFAUT, MAX_CHIFFRES, MAX_SIGNES_TEXTE,
@@ -659,6 +660,8 @@ export function lirePositionnel(ecrit) {
 
 /** Le code du catalogue que désigne un code écrit — lui-même, ou celui qu'un préfixe localise. */
 export function codeDeBase(ecrit) {
+  const preuve = lirePreuveCesar(ecrit);
+  if (preuve) return preuve.base;
   const p = lirePositionnel(ecrit);
   return p && !p.raison ? p.code : ecrit;
 }
@@ -704,6 +707,9 @@ export { CODE_DECOUPE_IMPLICITE, CODE_LECTURE_IMPLICITE };
 export function codesEcrits(codes) {
   // Un code positionnel s'écrit sous sa forme canonique (voir `RE_POSITIONNEL`).
   const liste = [...codes].map((c) => {
+    if (/^fj\d+$/.test(c)) throw new Error(`url : ${c} exige une preuve explicite`);
+    const preuve = lirePreuveCesar(c);
+    if (preuve) return preuve.ecrit;
     const p = lirePositionnel(c);
     return p && !p.raison ? p.ecrit : c;
   });
@@ -1324,7 +1330,7 @@ export function lire(hash, options = {}) {
         const op = parCode.get(base);
         const nombres = op.from === 'NUMS'
           && ((op.famille === 'combinateur' && op.to === 'NUM') || (op.famille === 'mappeur' && op.to === 'NUMS'));
-        if (base !== c && !nombres) {
+        if (base !== c && !lirePreuveCesar(c) && !nombres) {
           return {
             ...vide, saisie, saisieBrute,
             raison: `« ${c} » : ${op.code} (${op.from} → ${op.to}) ne se localise pas`,
@@ -1464,7 +1470,10 @@ function lireFragments(brut) {
     : programme.split('+');
   if (!RE_A_TROUVER.test(programme)) {
     for (let k = 0; k < codes.length; k++) {
+      if (/^fj\d+$/.test(codes[k])) return null;
       if (RE_CODE.test(codes[k])) continue;
+      const preuve = lirePreuveCesar(codes[k]);
+      if (preuve) { codes[k] = preuve.ecrit; continue; }
       // ★ Un code POSITIONNEL se lit ici, et se rend sous sa forme canonique :
       //   en aval, `1.1.1cs` et `1cs` sont le même code, écrit d'une seule façon.
       const p = lirePositionnel(codes[k]);
@@ -1787,7 +1796,7 @@ function ecrireFragment(f) {
  */
 export function descripteursDe(approche, ctx = {}) {
   const parts = approche.parts.map((p) => ({
-    codes: codesEcrits(p.chemin.ops.map((o) => o.code)),
+    codes: codesDuChemin(p.chemin),
     fragment: p.fragment,
   }));
   const memeProgramme = parts.length === 3
@@ -1822,7 +1831,18 @@ export function retouchesDe(approche, ctx = {}) {
   return (approche.retouches || []).map((r) => ({
     portee: porteeDe(r.fragment, ctx),
     resonance: null,
-    codes: codesEcrits(r.chemin.ops.map((o) => o.code)),
+    codes: codesDuChemin(r.chemin),
+  }));
+}
+
+// Finalisation d'un résultat de recherche : la preuve choisie entre dans le
+// lien. Le rejeu refuse les fjN nus et n'appelle jamais cette sélection.
+export function codesDuChemin(chemin) {
+  return codesEcrits(chemin.ops.map((op, i) => {
+    if (!/^fj\d+$/.test(op.code)) return op.code;
+    const preuve = op.justifie(chemin.etats[i].valeur);
+    if (!preuve) throw new Error(`url : preuve absente pour ${op.code}`);
+    return codePreuveCesar(op.code, preuve);
   }));
 }
 

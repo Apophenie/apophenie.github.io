@@ -79,14 +79,14 @@ export function titreCourtDuCode(code, catalogue = null) {
   const table = Array.isArray(catalogue) ? catalogue
     : (catalogue && Array.isArray(catalogue.operateurs) ? catalogue.operateurs : null);
   if (!table || !code) return null;
-  const op = table.find((o) => o.code === code);
+  const op = resoudreCode(new Map(table.map((o) => [o.code, o])), code).op;
   return op ? titreCourtDe(op) : null;
 }
 
 /** La forme courte d'un opérateur — l'énumération des cartes s'en sert. */
 export { titreCourtDe };
 import {
-  lire, ecrire, descripteursDe, retouchesDe, ecrireRetouches, BANDEAUX, RE_A_TROUVER,
+  lire, ecrire, descripteursDe, retouchesDe, ecrireRetouches, codesDuChemin, BANDEAUX, RE_A_TROUVER,
 } from './url.js';
 import { IMPLICITE_DEPUIS } from '../config.js';
 import {
@@ -1374,7 +1374,7 @@ export function creerMoteur(catalogue, options = {}) {
             portee: f.tokenDebut >= 0 && f.tokenLong > 0
               ? { offset: f.tokenDebut, longueur: f.tokenLong } : null,
             resonance: null,
-            codes: chemins[0].ops.map((o) => o.code),
+            codes: codesDuChemin(chemins[0]),
           }],
         }),
       });
@@ -2236,7 +2236,7 @@ export function creerMoteur(catalogue, options = {}) {
         portee: p.fragment.tokenDebut >= 0 && p.fragment.tokenLong > 0
           ? { offset: p.fragment.tokenDebut, longueur: p.fragment.tokenLong } : null,
         resonance: null,
-        codes: p.chemin.ops.map((o) => o.code),
+        codes: codesDuChemin(p.chemin),
       }))
       : lecture.fragments;
     // Et les réglages voyagent avec, à l'identique : un lien réécrit doit rester
@@ -2443,7 +2443,7 @@ export function creerMoteur(catalogue, options = {}) {
         fragments.push({
           portee: x.portee,
           resonance: null,
-          codes: c.chemin.ops.map((o) => o.code),
+          codes: codesDuChemin(c.chemin),
         });
       }
       const r = rejouer({ ...lecture, fragments });
@@ -3114,7 +3114,7 @@ function executerProgramme(texte, codes, parCode, journal = null) {
     // Un code nu, ou un code POSITIONNEL localisé sur la même table : le
     // `mr9` d'un `3.2mr9` est celui qui vise la cible du lien, comme tout autre.
     const resolu = resoudreCode(parCode, code);
-    const op = resolu.op;
+    const op = /^fj\d+$/.test(code) ? null : resolu.op;
     /* ★ **LES IMPLICITES SE RÉINSÈRENT ICI.** Voir `url.js` : `tca` — « un
        caractère, un jeton » — et `m09` — « chaque chiffre vaut lui-même » — ne
        s'écrivent plus dans les liens. On les remet quand — et seulement quand —

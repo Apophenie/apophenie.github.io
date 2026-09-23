@@ -1,73 +1,79 @@
 # Séparer le choix d’une preuve César de son rejeu
 
-## Constat mesuré
+## Constat
 
-`fjN` ne transporte que le décalage. `justificationCesar` appelle
-`preuvesNumeriques`, qui énumère et trie les lectures possibles, même si une
-preuve courte suffit. `apply` et la construction de l’animation demandent
-cette justification. Le cache de 256 saisies évite de refaire l’énumération
-dans le même processus ; il ne garantit rien à la première ouverture du lien.
+Le choix implicite de `fjN` énumérait et triait les lectures possibles au
+chargement du lien. Mesures initiales locales : environ 35 à 88 ms médians
+pour des textes courts, 888 ms pour 100 caractères. Le cache du processus
+ne supprimait pas le coût de première ouverture. Modifier le classement des
+preuves pouvait aussi changer la démonstration d’un même lien.
 
-Mesure locale sous Node, cinq processus neufs par saisie, imports exclus :
-environ 35 ms médians pour « Test », 49 ms pour « Didier Raoult », 88 ms pour
-« Anticonstitutionnellement ». Une première mesure sur 100 lettres identiques
-prend 821 ms. Les valeurs dépendent du matériel et de la saisie ; elles ne
-mesurent ni le réseau ni la compilation de l’animation. Le choix n’est donc
-pas négligeable dans tous les cas. Reproduction :
-`node scripts/mesurer-preuves-cesar.mjs`.
+## Syntaxe implémentée
 
-Le problème est aussi sémantique : changer le classement des preuves peut
-changer la démonstration d’un ancien lien, alors que son décalage reste égal.
+`fjN~[DEBUT[.LONGUEUR]~]OPERATIONS[~INDEX]`
 
-## Syntaxe proposée — pas encore implémentée
-
-Une preuve numérique accompagne son opérateur :
-
-`fjN~1~SOURCE~OP.OP~INDEX`
-
-- `1` : version du descripteur de preuve.
-- `SOURCE` : `a` pour toute l’entrée du César, ou `sDEBUT.LONGUEUR` pour une
-  tranche en points de code Unicode, indexée à partir de zéro. C’est l’entrée
-  après les opérations précédentes, pas nécessairement la saisie d’origine.
-- `OP.OP` : codes des opérations effectivement retenues, dans leur ordre.
-- `INDEX` : indice du nombre retenu dans le résultat, à partir de zéro ; zéro
-  pour un scalaire.
+- Sans portée : toute l’entrée du César, après les opérations précédentes.
+- Portée : indices en points de code Unicode, à partir de zéro ; longueur 1
+  implicite. `0` désigne le premier caractère, `3.2` les deux à partir de 3.
+- Opérations : codes séparés par des points. `tca` est implicite lorsque la
+  conversion suivante exige des jetons et que l’entrée est encore du texte.
+- Résultat : indice zéro implicite, y compris pour un scalaire.
+- `fjN~c` désigne exclusivement le comptage historique des caractères communs.
 
 Exemples :
 
-- `fj5~1~a~nl~0` sur « Louis » : nombre de lettres.
-- `fj4~1~s0.1~tca.ma1~0` sur « Didier Raoult » : rang de D.
-- `fj6~1~s0.6~tm.mlm.cp~0` sur « un mot » : produit des longueurs 2 et 3.
+- `fj5~nl` sur « Louis » : nombre de lettres.
+- `fj4~0~ma1` sur « Didier Raoult » : rang de D.
+- `fj6~0.6~tm.mlm.cp` sur « un mot » : produit des longueurs 2 et 3.
+- `fj2~ma1~1` sur « AB » : second résultat du rang alphabétique.
+- `fj22~c` sur « Louis Fouché » : caractères communs.
 
-La lecture historique des caractères communs possède son descripteur dédié :
-`fj22~1~communs`, par exemple sur « Louis Fouché ». Elle recalcule seulement
-cette règle déterminée, sans énumérer les autres preuves.
+Les formes explicites comme `fj4~0.1~tca.ma1~0` se canonicalisent en
+`fj4~0~ma1`. Aucun marqueur de version n’est nécessaire pour cette première
+syntaxe. Les séparateurs externes `+`, `,`, `:`, `;`, `$` et `#` restent
+inchangés. Deux recettes différentes restent deux programmes distincts.
 
-Les caractères proposés n’ajoutent aucun `+`, `,`, `:`, `;`, `$` ou `#` : les
-séparateurs actuels de programmes, fragments, portées et saisies restent
-distincts. Le lecteur des codes doit néanmoins être étendu explicitement ;
-ces exemples ne sont pas encore des liens exécutables.
+## Frontière entre recherche et rejeu
 
-## Frontière entre les deux métiers
+La recherche choisit la preuve et dérive un opérateur propre à l’occurrence,
+avec le même identifiant, la même famille et le même coût que le César.
+La finalisation des chemins issus des autres branches de recherche inscrit
+également leur preuve dans les descripteurs de fragments et de retouches.
+Les exemples du débogueur produisent la même syntaxe.
 
-La recherche choisit une preuve et la conserve sur chaque occurrence du
-César dans le chemin, sans muter l’opérateur partagé du catalogue. L’écriture
-du lien sérialise cette preuve avec les codes de cette occurrence.
+Le rejeu résout cet opérateur dérivé, exécute seulement les opérations
+indiquées sur une copie de la source et exige un entier égal à N dans 1…25.
+L’animation utilise cette même recette. Aucun tri, aucune énumération,
+aucun repli vers une autre preuve si celle fournie est fausse. Les opérations
+admises sont les lectures numériques et leurs combinaisons ; une recherche
+arithmétique telle que `mrdE` n’est pas admise dans une recette.
 
-Le rejeu lit et valide le descripteur, applique uniquement ses opérations à
-une copie de la source indiquée, vérifie que le résultat sélectionné est un
-entier égal à N dans 1…25, puis construit l’atelier et le César. Aucun tri,
-aucune énumération, aucun repli vers une autre preuve en cas d’erreur. La
-vérification arithmétique reste indispensable : un nombre écrit dans le lien
-n’est pas une preuve.
+**Aucune rétrocompatibilité**, à la demande de l’auteur : les `fjN` nus sont
+refusés à la lecture et à l’écriture des liens. Ils restent des opérateurs
+internes à la recherche, pas une syntaxe publique de rejeu. `frN` conserve
+son sens de décalage sans preuve.
 
-Les anciens `fjN` restent lisibles via une résolution de compatibilité,
-suivie d’une réécriture explicite du lien. C’est l’exception historique,
-identifiée comme telle ; les nouveaux liens n’en dépendent plus. `frN`
-conserve son sens de décalage sans preuve.
+## Vérification
 
-L’intégration devra couvrir le parseur et l’écriture canonique, les chemins
-de recherche, le rejeu, les retouches et fragments répétés, puis vérifier
-qu’aucun appel à l’énumérateur n’a lieu lors du rejeu d’une preuve explicite.
-Elle devra conserver la famille et le score de l’opérateur César, ainsi que
-la distinction entre liens utilisant des preuves différentes.
+Tests : canonicalisation des implicites, refus des preuves fausses ou
+incomplètes, indices Unicode, résultat non initial, fragments groupés,
+retouches, conservation du catalogue, les 25 décalages et toutes les recettes
+numériques découvertes sur trois saisies témoins. Les tests de rejeu remplacent
+les sélecteurs implicites par des fonctions qui lèvent une erreur pour
+vérifier qu’ils ne sont jamais appelés, y compris en construisant la scène.
+
+Le script `node scripts/mesurer-preuves-cesar.mjs` compare la résolution et
+la vérification d’une preuve d’initiale explicite avec l’énumération implicite,
+dans cinq processus neufs par saisie, imports hors mesure. Après modification,
+le rejeu explicite mesuré reste sous 8 ms sur les quatre saisies (4 à 100
+caractères) ; l’énumération atteint encore environ 755 ms médians sur 100
+caractères. Ce sont des mesures locales, pas une garantie pour toute recette
+ni une mesure du chargement complet de la page.
+
+Validation finale : 1 007 tests dans la suite rapide, 1 005 réussites, un
+TODO de glyphe préexistant et un échec de mesure CPU du lanceur de tests
+(`scripts/test-lent.test.js:856`), réussi au rejeu isolé. Les cinq tests dédiés
+passent aussi après le dernier ajustement de grammaire. Les cinq builds
+réussissent. Ouverture vérifiée dans Chromium du lien
+`?sce!fj22~c+fl+m14$7NFn8xBqb5eNAq3YCY` : atelier de preuve, César et registre
+complet jusqu’au verdict.

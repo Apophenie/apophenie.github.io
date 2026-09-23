@@ -63,6 +63,7 @@ import {
 } from './commun.js';
 import { nums, num } from '../etat.js';
 import { bilingue, dire } from '../i18n.js';
+import { lirePreuveCesar } from '../code-preuve-cesar.js';
 
 /** `position(.largeur)*code` — le code, lui, garde toute sa grammaire §4.1. */
 export const RE_POSITIONNEL = new RegExp(`^(\\d+)((?:\\.\\d+)*)(${RE_CODE.source.slice(1, -1)})$`);
@@ -412,6 +413,12 @@ export function localiser(base, { position, largeurs }) {
 export function resoudreCode(table, ecrit) {
   const nu = table.get(ecrit);
   if (nu) return { op: nu, raison: null, inconnu: false };
+  const preuve = lirePreuveCesar(ecrit);
+  if (preuve) {
+    const base = table.get(preuve.base);
+    const op = base?.avecPreuve?.(preuve, table);
+    return { op: op || null, raison: null, inconnu: !op };
+  }
   const lu = lirePositionnel(ecrit);
   if (!lu) return { op: null, raison: null, inconnu: true };
   if (lu.raison) return { op: null, raison: lu.raison, inconnu: false };

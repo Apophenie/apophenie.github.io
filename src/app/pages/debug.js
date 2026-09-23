@@ -70,6 +70,12 @@ import {
 import { lireCible, normaliserCible, MAX_CHIFFRES, TEXTE_DEFAUT } from '../../recherche/cible.js';
 import { operateursExplorables, operateursPourCible } from '../../recherche/bfs.js';
 import { depuisSaisie, signature } from '../../moteur/etat.js';
+import { codePreuveCesar } from '../../moteur/code-preuve-cesar.js';
+
+function codePourEtat(op, etat) {
+  return /^fj\d+$/.test(op.code) ? codePreuveCesar(op.code, op.justifie(etat.valeur)) : op.code;
+}
+
 import {
   BAREME, NATURE, FICELLES, NOTE_MAX, bilanApproche, credit, facteur,
 } from '../../recherche/elegance.js';
@@ -495,7 +501,7 @@ function deplierJusqua(niveau) {
           if (p.vus.has(cle)) continue;
           p.vus.add(cle);
           p.noeuds++;
-          suivante.push({ etat: apres, codes: [...noeud.codes, amontOp.code] });
+          suivante.push({ etat: apres, codes: [...noeud.codes, codePourEtat(amontOp, noeud.etat)] });
         }
       }
       p.niveaux.push(suivante);
@@ -645,7 +651,7 @@ export function programmePour(op) {
           if (!replis[niveau]) replis[niveau] = [];
           replis[niveau].push({
             saisie: p.saisie, texte: p.texte, portee: p.portee,
-            codes: [...noeud.codes, op.code],
+            codes: [...noeud.codes, codePourEtat(op, noeud.etat)],
             distingue: discrimination(op, noeud.etat, resultat),
             semblables: rivaux,
             poids: encombrement(noeud.etat),
@@ -656,7 +662,7 @@ export function programmePour(op) {
           saisie: p.saisie,
           texte: p.texte,
           portee: p.portee,
-          codes: [...noeud.codes, op.code],
+          codes: [...noeud.codes, codePourEtat(op, noeud.etat)],
           distingue: discrimination(op, noeud.etat, resultat),
           semblables: rivaux,
           poids: encombrement(noeud.etat),

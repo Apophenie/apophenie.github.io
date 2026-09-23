@@ -64,7 +64,7 @@ test('le rejeu des 25 nouveaux liens produit des scènes sans repli générique'
   const moteur = creerMoteur(CATALOGUE);
   for (let n = 1; n <= 25; n++) {
     const saisie = String.fromCharCode(64 + n);
-    const lecture = lire(ecrire({ saisie, fragments: [{ codes: [`fj${n}`] }] }));
+    const lecture = lire(ecrire({ saisie, fragments: [{ codes: [`fj${n}~0~ma1`] }] }));
     const r = moteur.rejouerExemple(lecture);
     assert.ok(r.ok, `${n}: ${r.raison}`);
     const scenario = moteur.scenarioDe(r.approche);
