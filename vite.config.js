@@ -344,6 +344,9 @@ function adressePubliee() {
     },
     writeBundle(options) {
       const dossier = options.dir ?? resolve(racine, 'dist');
+      // La validation Search Console par fichier exige cette URL exacte à la racine.
+      copyFileSync(resolve(racine, 'src/google7e873b8c9ed69fc7.html'),
+        resolve(dossier, 'google7e873b8c9ed69fc7.html'));
       // Sur ce site, tout est public sauf les ateliers — et le plan se dit.
       writeFileSync(resolve(dossier, 'robots.txt'),
         `User-agent: *\n${HORS_PLAN.map((p) => `Disallow: ${p}\n`).join('')}`
