@@ -43,3 +43,7 @@ préexistant** ; cinq builds réussis. Après synchronisation du retour du zoom
 avec le resserrement final, les 32 tests ciblant le rythme et les ateliers
 César passent également. La suite lente exhaustive de publication reste
 séparée de ce verdict et n’a pas encore rendu un bilan vert.
+
+Le regroupement efface aussi les anciens horaires séquentiels des répétitions
+indépendantes inscrites dans une seule étape. La vérification finale du moteur
+visuel et des ateliers César compte **490 tests réussis, aucun échec**.

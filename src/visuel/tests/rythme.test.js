@@ -474,7 +474,7 @@ for (const [nom, mode, valeurs, sorties] of [
   assert.equal(sim.steps[2].t0 - sim.steps[1].t0, ONDE_SIMULTANE);
   assert.ok(sim.total < pas.total / 2);
   assert.equal(sim.steps.length, pas.steps.length);
-  const ensemble = { ...scenario, steps: [{ ...scenario.steps[0], ops: scenario.steps.flatMap((s) => s.ops) }] };
+  const ensemble = { ...scenario, steps: [{ ...scenario.steps[0], ops: scenario.steps.flatMap((s, i) => s.ops.map((op) => ({ ...op, at: i * 6000 }))) }] };
   const memeEtape = compile(ensemble, { rythme: 'simultane' });
   assert.deepEqual(memeEtape.warnings, []);
   assert.equal(memeEtape.steps.length, 1, 'la navigation garde l’étape d’origine');

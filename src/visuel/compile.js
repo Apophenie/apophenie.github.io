@@ -271,7 +271,7 @@ export function compile(scenario, options = {}) {
   const gestes = scenario.steps.flatMap((s) => {
     if (reduced || rythme !== 'simultane' || s.ops?.length < 2 || s.duration !== undefined
       || conversions.has(s.ops?.[0]?.op)) return [s];
-    const morceaux = s.ops.map((op) => ({ ...s, ops: [op] }));
+    const morceaux = s.ops.map((op) => ({ ...s, ops: [{ ...op, at: 0 }] }));
     const empreintes = morceaux.map(empreinteEtape);
     const independants = morceaux.every((m, i) => empreintes[i] && memeGeste(morceaux[0], m)
       && empreintes.slice(0, i).every((e) => [...empreintes[i]].every((id) => !e.has(id))));
