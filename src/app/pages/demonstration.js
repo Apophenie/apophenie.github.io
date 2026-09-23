@@ -516,6 +516,25 @@ export function pageDemonstration(ctx) {
   };
   section.addEventListener('keydown', surTouche);
 
+  // La largeur peut croître sans pousser les commandes sous la fenêtre.
+  // Mesurer le haut dans le document évite de redimensionner au défilement.
+  let cadreMesure = 0;
+  const ajusterHauteur = () => {
+    cadreMesure = 0;
+    if (!section.isConnected || colonneGauche.hasAttribute('data-plein-ecran')) return;
+    const haut = cadre.getBoundingClientRect().top + window.scrollY;
+    const commandes = transport.element.getBoundingClientRect().height
+      + (parseFloat(getComputedStyle(transport.element).marginTop) || 0);
+    const bordures = cadre.getBoundingClientRect().height - sceneSvg.getBoundingClientRect().height;
+    const reserve = `${Math.ceil(haut + commandes + bordures + 16)}px`;
+    if (colonneGauche.style.getPropertyValue('--scene-reserve') !== reserve)
+      colonneGauche.style.setProperty('--scene-reserve', reserve);
+  };
+  const mesurerHauteur = () => {
+    if (!cadreMesure) cadreMesure = requestAnimationFrame(ajusterHauteur);
+  };
+  const dimensions = new ResizeObserver(mesurerHauteur);
+
   /**
    * Le rideau : un voile sur la scène, et un gros bouton de lecture devant.
    *
@@ -580,6 +599,13 @@ export function pageDemonstration(ctx) {
   return {
     element: section,
     monter() {
+      ajusterHauteur();
+      dimensions.observe(section);
+      dimensions.observe(section.querySelector('.demo__entete'));
+      dimensions.observe(transport.element);
+      const entete = document.querySelector('.barre-haute');
+      if (entete) dimensions.observe(entete);
+      window.addEventListener('resize', mesurerHauteur);
       // ★ En scénique, c'est le BOUTON qui reçoit le focus, pas la scène : il
       //   est la seule action possible à cet instant, et l'y poser évite de
       //   faire chercher au clavier ce qui saute aux yeux à la souris.
@@ -587,6 +613,9 @@ export function pageDemonstration(ctx) {
       (cible || cadre).focus({ preventScroll: true });
     },
     detruire() {
+      dimensions.disconnect();
+      window.removeEventListener('resize', mesurerHauteur);
+      if (cadreMesure) cancelAnimationFrame(cadreMesure);
       section.removeEventListener('keydown', surTouche);
       detacherClavier();
       if (typeof offChange === 'function') offChange();

@@ -774,9 +774,23 @@
 
 /* ════════════════════════════ 3. DÉMONSTRATION ═══════════════════════════ */
 
-.demo { padding-top: var(--e5); }
+.demo { max-width: 112rem; padding-top: var(--e5); }
+
+.demo__scene { min-width: 0; }
+/* La place du titre et des commandes est mesurée après montage, afin de
+   garder l'ensemble visible même lorsque les commandes se replient. */
+.demo__scene:not([data-plein-ecran]) .scene {
+  max-height: max(0px, calc(100dvh - var(--scene-reserve, 20rem)));
+}
 
 .demo__entete { margin-bottom: var(--e5); }
+
+@media (max-height: 600px) {
+  .demo { padding-top: var(--e2); }
+  .demo__entete { margin-bottom: var(--e2); }
+  .demo__titre h1 { font-size: 1.5rem; margin-bottom: 0; }
+  .demo__titre .surtitre { margin-bottom: var(--e1); }
+}
 
 /* ★ Le titre à gauche, le partage tout à droite.
    « Le bouton partager […] au-dessus de la scène à droite (et donc tout à
