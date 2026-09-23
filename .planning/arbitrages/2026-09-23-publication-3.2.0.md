@@ -1,9 +1,9 @@
-# Publication 3.2.0 — bloquée par la validation lente
+# Publication 3.2.0 — décision et validation
 
-L’auteur a autorisé la publication si la suite lente réussit. Aucun push,
-aucun tag de version finale ni aucun déploiement n’ont été effectués.
-Le numéro 3.2.0 et le README sont préparés localement, sans constituer une
-publication. Le tag local `v3.1.0-debug` conserve l’état avant corrections.
+La publication avait d’abord été conditionnée à la suite lente exhaustive.
+Le numéro 3.2.0 et le README étaient préparés localement. Le tag
+`v3.1.0-debug` conserve l’état avant corrections. Les constats ci-dessous
+décrivent ce premier arrêt et les raisons de la décision ultérieure.
 
 ## Défaut reproduit
 
@@ -43,7 +43,22 @@ La correction des opérations simultanées est indépendante de ces verdicts :
 visuels et de preuves César passent après le dernier ajustement des horaires.
 Les cinq builds du code final réussissent.
 
-Avant publication, résoudre les défauts confirmés et obtenir une validation
-complète verte du code destiné à être publié. Les deux remotes sont `origin`
+La condition initiale demandait de résoudre les défauts confirmés et d'obtenir
+une passe exhaustive verte. Les deux remotes sont `origin`
 (Framagit, référence) et `apophenie` (GitHub Pages) ; la publication du site est
 déclenchée par `main`. Les deux distants étaient sur `v3.1.0` lors du fetch.
+
+## Décision ultérieure
+
+Le défaut des traductions divergentes est corrigé. Une autre passe exhaustive
+a atteint la limite mémoire de Node dans `cible-mot` après environ sept minutes.
+Le coût historique de cette passe était de 6 614 secondes de CPU et 43 minutes
+au mur. Après audit, `bun run check` conserve les tests rapides, deux parcours
+complets représentatifs et les cinq builds ; les balayages historiques se
+lancent séparément avec `bun run test:exhaustif`.
+
+L’auteur a ensuite demandé explicitement de publier sans attendre cette passe
+exhaustive. Le contrôle courant est vert : 1 017 tests rapides réussis, un TODO
+préexistant, deux parcours complets réussis, cinq builds réussis. La
+reproductibilité du logo et des segments, ainsi que les fichiers de partage,
+ont été vérifiés avant la publication.
