@@ -61,7 +61,7 @@ import { bboxOf, measureText } from './layout.js';
 import { fail, at as loc } from './errors.js';
 import { validateScenario } from './scenario.js';
 import { Scene } from './scene.js';
-import { empreinteEtape, memeGeste, preparerZones } from './vagues.js';
+import { empreinteEtape, memeGeste, ordonnerGestesDisponibles, preparerZones } from './vagues.js';
 import { defaultMetrics, defaultLayoutOptions } from './layout.js';
 import { PRIMITIVES } from './primitives/index.js';
 import { indexDiscrete } from './clock.js';
@@ -277,7 +277,9 @@ export function compile(scenario, options = {}) {
       && empreintes.slice(0, i).every((e) => [...empreintes[i]].every((id) => !e.has(id))));
     return independants ? morceaux : [s];
   });
-  for (const original of gestes) {
+  const ordonnes = !reduced && rythme === 'simultane'
+    ? ordonnerGestesDisponibles(gestes, scenario.tokens || [], conversions) : gestes;
+  for (const original of ordonnes) {
     const precedente = vagues.at(-1);
     const op = original.ops?.[0];
     const emp = op && empreinteConversion(op);

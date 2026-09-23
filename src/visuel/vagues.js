@@ -23,6 +23,60 @@ export function memeGeste(a, b) {
       && ['carre', 'puissance', 'factorielle', 'division', 'modulo', 'egaliser', 'denombrement', 'symbol'].every((k) => op[k] === b.ops[i][k]));
 }
 
+// Un calcul peut dépasser un calcul dépendant si ses propres sources existent
+// déjà. Les jetons produits sont exclus de la vérification de disponibilité :
+// ils n'existeront qu'à la fin de la vague.
+function produitsDe(step) {
+  const produits = new Set();
+  const ajouter = (v) => {
+    if (Array.isArray(v)) v.forEach(ajouter);
+    else if (v && typeof v === 'object' && typeof v.id === 'string') produits.add(v.id);
+  };
+  for (const op of step.ops || []) {
+    ajouter(op.to);
+    ajouter(op.digits);
+    ajouter(op.tokens);
+    for (const paire of op.pairs || []) ajouter(paire.to);
+    if (typeof op.tag === 'string') produits.add(op.tag);
+  }
+  return produits;
+}
+
+export function ordonnerGestesDisponibles(gestes, tokens, conversions) {
+  const disponibles = new Set(tokens.map((t) => t.id));
+  const restants = [...gestes];
+  const ordonnes = [];
+  while (restants.length) {
+    const premier = restants.shift();
+    const vague = [premier];
+    const pris = empreinteEtape(premier);
+    const traverses = [];
+    if (pris && premier.ops.length === 1 && !conversions.has(premier.ops[0].op)) {
+      for (let i = 0; i < restants.length;) {
+        const candidat = restants[i];
+        const empreinte = empreinteEtape(candidat);
+        // Une action globale ou une marque temporelle garde sa place.
+        if (!empreinte) break;
+        const produits = produitsDe(candidat);
+        const sourcesPretes = [...empreinte].every((id) => produits.has(id) || disponibles.has(id));
+        const disjoint = [...empreinte].every((id) => !pris.has(id)
+          && traverses.every((autre) => !autre.has(id)));
+        if (candidat.ops.length === 1 && memeGeste(premier, candidat)
+          && sourcesPretes && disjoint) {
+          vague.push(restants.splice(i, 1)[0]);
+          for (const id of empreinte) pris.add(id);
+        } else {
+          traverses.push(empreinte);
+          i++;
+        }
+      }
+    }
+    ordonnes.push(...vague);
+    for (const step of vague) for (const id of produitsDe(step)) disponibles.add(id);
+  }
+  return ordonnes;
+}
+
 // Les reflows des primitives travaillent dans des zones indépendantes. Chaque
 // zone est dimensionnée par une compilation isolée du geste, puis toutes les
 // places sont ouvertes ensemble avant le départ de la vague.

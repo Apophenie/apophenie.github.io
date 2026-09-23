@@ -203,13 +203,12 @@ test('★ rythme — en Simultané, deux gestes sur le MÊME caractère attenden
     `la troisième touche « c » : elle ouvre une vague neuve, vu ${sommes[2].debut}`);
 });
 
-/* ═══════════════════ 5. L'ordre de lecture est préservé ══════════════════ */
+/* ═══════════════ 5. L'ordre interne de chaque étape est préservé ═════════ */
 
 /**
- * Réordonner n'est jamais PERMUTER. Le scénario dit une suite de gestes, et
- * cette suite porte le raisonnement qu'on démontre : une addition qui passerait
- * devant celle dont elle consomme le résultat ne serait pas « un autre rythme »,
- * ce serait une autre démonstration — et fausse.
+ * Les gestes d'une même étape conservent leur ordre. Entre étapes, le mode
+ * simultané peut avancer un calcul indépendant, mais jamais devant celui qui
+ * produit ses données.
  */
 test('★ rythme — l’ordre de lecture n’est jamais permuté, seulement décalé', () => {
   const cas = { ...SCENARIOS, troisAdditions: troisAdditions() };
@@ -533,4 +532,47 @@ test('des carrés dépendants restent séquentiels ; vitesse et mode réduit son
   assert.equal(reduit.steps.length, 2);
   assert.equal(reduit.rythme, null);
   assert.equal(JSON.stringify(scenario), original);
+});
+
+test('un carré prêt rejoint la première vague malgré un carré dépendant intercalé', () => {
+  const carre = (id, source, resultat, valeur) => ({ id, title: 'Carré', code: 'mcar',
+    ops: [{ op: 'group', carre: true, dur: 6000, targets: [source],
+      to: { id: resultat, text: valeur, kind: 'number' } }] });
+  const scenario = { version: 1,
+    tokens: [{ id: 'a', text: '2', kind: 'number' }, { id: 'b', text: '3', kind: 'number' }],
+    steps: [
+      carre('a2', 'a', 'a2r', '4'),
+      carre('a4', 'a2r', 'a4r', '16'),
+      carre('b2', 'b', 'b2r', '9'),
+      carre('b4', 'b2r', 'b4r', '81'),
+    ] };
+  const original = JSON.stringify(scenario);
+  const pas = compile(scenario, { rythme: 'pasAPas' });
+  const sim = compile(scenario, { rythme: 'simultane' });
+  assert.deepEqual(sim.warnings, []);
+  assert.deepEqual(sim.steps.map((s) => s.id), ['a2', 'b2', 'a4', 'b4']);
+  assert.ok(Math.abs(sim.steps[1].t0 - sim.steps[0].t0 - DEFAULT_DUR.move - ONDE_SIMULTANE) < 0.01,
+    'le carré prêt rejoint la première vague');
+  assert.ok(Math.abs(sim.steps[3].t0 - sim.steps[2].t0 - DEFAULT_DUR.move - ONDE_SIMULTANE) < 0.01,
+    'les deux carrés dépendants forment ensuite une seconde vague');
+  assert.ok(sim.steps[2].t0 >= sim.steps[0].t1, 'le second carré attend le premier');
+  assert.deepEqual(sim.scene.flow.map((id) => sim.scene.get(id).text), ['16', '81']);
+  assert.deepEqual(pas.scene.flow.map((id) => pas.scene.get(id).text), ['16', '81']);
+  assert.ok(sim.total < pas.total);
+  assert.equal(JSON.stringify(scenario), original);
+});
+
+test('une attente explicite sépare deux calculs indépendants', () => {
+  const scenario = { version: 1,
+    tokens: [{ id: 'a', text: '2', kind: 'number' }, { id: 'b', text: '3', kind: 'number' }],
+    steps: [
+      { id: 'a2', title: 'Carré', ops: [{ op: 'group', carre: true, targets: ['a'],
+        to: { id: 'a2r', text: '4', kind: 'number' } }] },
+      { id: 'pause', title: 'Pause', ops: [{ op: 'wait', dur: 500 }] },
+      { id: 'b2', title: 'Carré', ops: [{ op: 'group', carre: true, targets: ['b'],
+        to: { id: 'b2r', text: '9', kind: 'number' } }] },
+    ] };
+  const sim = compile(scenario, { rythme: 'simultane' });
+  assert.deepEqual(sim.steps.map((s) => s.id), ['a2', 'pause', 'b2']);
+  assert.ok(sim.steps[2].t0 >= sim.steps[1].t1);
 });

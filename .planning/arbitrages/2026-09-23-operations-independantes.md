@@ -11,6 +11,14 @@ peuvent occuper une seule étape ou plusieurs étapes consécutives. Les étapes
 d’origine restent accessibles dans le registre. Deux calculs dont les
 références se recoupent restent séquentiels.
 
+La recherche d’une vague dépasse maintenant les étapes voisines. Par exemple,
+pour « carré de A, carré du résultat A, carré de B », le carré de B rejoint
+celui de A dès le départ ; le second carré de A attend leur résultat. Le
+compilateur vérifie que toutes les sources du calcul avancé existent déjà et
+qu’il ne franchit aucune opération qui touche ces sources ou résultats. Une
+étape à effet global ou une attente arrête cette recherche. L’ordre des étapes
+accessibles suit alors l’ordre réellement montré à l’écran.
+
 Chaque calcul dispose d’un flux local et d’une place dimensionnée d’après le
 geste effectivement compilé, y compris ses agrandissements. Les places
 s’ouvrent ensemble, puis les calculs partent à 100 ms d’intervalle. Les

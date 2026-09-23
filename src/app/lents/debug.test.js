@@ -39,6 +39,8 @@ import {
 import { titreCourtDe } from '../../recherche/titres.js';
 import { depuisSaisie, signature } from '../../moteur/etat.js';
 import { creerMoteur } from '../../recherche/index.js';
+import { codeDeBase } from '../../recherche/url.js';
+import { resoudreCode } from '../../moteur/transformations/positionnel.js';
 import { BAREME, NATURE, FICELLES, detailDuCredit } from '../../recherche/elegance.js';
 
 const ici = dirname(fileURLToPath(import.meta.url));
@@ -104,11 +106,13 @@ test('chaque opérateur a un exemple, et cet exemple l’emploie réellement', (
   for (const op of CATALOGUE) {
     const prog = programmePour(op);
     if (!prog) { orphelins.push(op.code); continue; }
-    assert.equal(prog.codes[prog.codes.length - 1], op.code, op.code);
+    assert.equal(codeDeBase(prog.codes[prog.codes.length - 1]), op.code, op.code);
     assert.ok(prog.codes.length <= PROFONDEUR_EXEMPLE + 1, `${op.code} : programme trop long`);
     let etat = depuisSaisie(prog.saisie);
     for (const code of prog.codes) {
-      etat = appliquer(PAR_CODE.get(code), etat);
+      const resolu = resoudreCode(PAR_CODE, code);
+      assert.ok(resolu.op, `${op.code} : le code ${code} ne se résout pas`);
+      etat = appliquer(resolu.op, etat);
       assert.ok(etat !== null, `${op.code} : le programme ${prog.codes.join('+')} ne s’applique pas`);
     }
   }
