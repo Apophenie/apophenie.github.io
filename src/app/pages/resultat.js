@@ -1164,7 +1164,7 @@ export function pageResultat({
 /** L'en-tête commun aux pages internes. */
 export function enteteResultat() {
   return e('header.barre-haute', {}, [
-    e('a.lien-retour', { href: '#' }, [
+    e('a.lien-retour', { href: '?' }, [
       e('span', { texte: '◂', 'aria-hidden': 'true' }),
       e('span', { texte: t('entete.accueil') }),
     ]),

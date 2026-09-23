@@ -9151,8 +9151,7 @@ function operateurEclatement() {
  *   Actif en recherche, comme eux.
  */
 function operateurAscii() {
-  const libelle = bilingue('Chaque caractère vaut son code ASCII, casse comprise',
-    'Each character is worth its ASCII code, case included');
+  const libelle = bilingue('Code ASCII', 'ASCII code');
   const regle = bilingue(
     'M = 77, m = 109, \' = 39, - = 45, l’espace = 32 ; un accent se retire, la casse reste : '
     + 'é = 101, É = 69',

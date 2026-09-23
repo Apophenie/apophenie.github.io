@@ -201,16 +201,16 @@ export function plan(ctx) {
   if (disposition === 'glissiere') verifierGlissiere(ctx, op, geo);
   else if (disposition === 'modulo') verifierModulo(ctx, op, geo);
   else if (op.cycle === true) verifierCycle(ctx, geo);
-  if (ctx.tableVague && ctx.rangVague === 0) {
-    for (const o of ctx.tableVague.ops) {
+  if (ctx.decorVague && ctx.rangVague === 0) {
+    for (const o of ctx.decorVague.ops) {
       const source = ctx.scene.live(o.target, ctx.where);
       if (o.to) source.w = Math.max(source.w, measureText(o.to.text, ctx.metrics));
     }
     ctx.reflow({ at: 0, dur: ctx.dur * 0.2 });
     if (geo.roule) {
-      const rangs = ctx.tableVague.ops.map((o) => geo.cells[geo.index[String(o.letter).toUpperCase()].cell].ligne);
+      const rangs = ctx.decorVague.ops.map((o) => geo.cells[geo.index[String(o.letter).toUpperCase()].cell].ligne);
       const premier = Math.max(0, Math.max(...rangs) - geo.fenetre + 1);
-      ctx.tableVague.roulis = -premier * geo.pas;
+      ctx.decorVague.roulis = -premier * geo.pas;
     }
   }
   const src = ctx.scene.live(op.target, `${ctx.where}« target » : `);
@@ -265,7 +265,7 @@ export function plan(ctx) {
     ? finDuDeplacement(ctx.dur, ctx.dur * TEMPS_DECOR.MONTEE)
     : 0;
   let t0;
-  const suiteVague = ctx.tableVague && ctx.rangVague > 0;
+  const suiteVague = ctx.decorVague && ctx.rangVague > 0;
   if (!suiteVague) {
     t0 = monterDecor(ctx, {
       id: board, role: 'table', titre: cesarNu ? '' : titre, data: { geo, disposition, bandeSeparee, hautSepare: bandeSeparee && geo.sens === 1 },
@@ -287,7 +287,7 @@ export function plan(ctx) {
     if (bandeSeparee) t0 = (geo.sens === 1 ? poserBandeCesar : poserBande)(ctx, {
       board, boardPos, geo, deployer, t0, compteur, ease: cesarNu ? EASE.move : EASE.linear,
     });
-  } else t0 = ctx.tableVague.pret;
+  } else t0 = ctx.decorVague.pret;
 
   // ── 2. l'aller-retour de CETTE lettre, en entier ────────────────────────
   //   ★ Le geste est celui du clavier, au mot près (`decor.js`) : la lettre
@@ -316,7 +316,7 @@ export function plan(ctx) {
   //     ne bouge PAS — il tombe de la quotation, qui est hors du volet et ne
   //     défile pas. C'est le même écart que celui qui existe entre le barème et
   //     les rangées, et le décaler serait faire descendre le barème avec elles.
-  const roulis = geo.roule ? (ctx.tableVague?.roulis ?? place.roulis ?? 0) : 0;
+  const roulis = geo.roule ? (ctx.decorVague?.roulis ?? place.roulis ?? 0) : 0;
   let tRoue = t0;
   if (geo.roule && !suiteVague) {
     // ★ La durée suit la COURSE, bornée aux deux bouts : en deçà de 400 ms le
@@ -332,7 +332,7 @@ export function plan(ctx) {
     tRoue = t0 + duree;
   }
 
-  if (ctx.tableVague && !suiteVague) ctx.tableVague.pret = tRoue;
+  if (ctx.decorVague && !suiteVague) ctx.decorVague.pret = tRoue;
   const fin = allerRetour(ctx, {
     src, to, t0: tRoue, kind: 'number',
     case: {
@@ -348,7 +348,7 @@ export function plan(ctx) {
   });
 
   // ── 3. le décor se retire — seulement si la suite ne l'emploie plus ─────
-  if (ctx.tableVague ? ctx.rangVague === ctx.tableVague.taille - 1 : replier) replierDecor(ctx, board, fin);
+  if (ctx.decorVague ? ctx.rangVague === ctx.decorVague.taille - 1 : replier) replierDecor(ctx, board, fin);
 }
 
 /* ── ce qu'il y a à montrer ──────────────────────────────────────────────── */

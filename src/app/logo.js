@@ -278,6 +278,6 @@ export function logoTitre() {
 /** Le logo réduit, en tête des pages internes : un lien vers l'accueil. */
 export function logoEntete() {
   const svg = cloner();
-  if (!svg) return e('a.lien-retour', { href: '#', texte: LECTURE });
-  return e('a.logo-entete', { href: '#', 'aria-label': t('global.logoRetour', { lecture: LECTURE }) }, [svg]);
+  if (!svg) return e('a.lien-retour', { href: '?', texte: LECTURE });
+  return e('a.logo-entete', { href: '?', 'aria-label': t('global.logoRetour', { lecture: LECTURE }) }, [svg]);
 }

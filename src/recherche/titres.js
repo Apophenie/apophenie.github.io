@@ -414,7 +414,7 @@ export const NOMS = {
   'm.eclatement': b('En éclatant les nombres', 'By splitting the numbers'),
   // ★ Deux conversions qui disent CE QU'ELLES LISENT : la casse telle qu'écrite
   //   pour l'une, le numéro Unicode — et non les octets UTF-8 — pour l'autre.
-  'm.ascii': b('Par le code ASCII, casse comprise', 'By ASCII, case included'),
+  'm.ascii': b('Par le code ASCII', 'By ASCII code'),
   'm.utf8': b('Par le point de code Unicode', 'By Unicode code point'),
   // Mappeur de service : ce nom ne devrait jamais paraître, mais le registre
   // des noms est exhaustif.
@@ -705,7 +705,7 @@ export const TITRES_COURTS = {
   'm.asciiEnSigne': b('table ASCII', 'ASCII table'), // masi
   'm.asciiDeChaqueSigne': b('code ASCII de chaque signe', 'ASCII code of each sign'), // mast
   'm.eclatement': b('', ''), // mecl — sans étape, comme `tca` : il ne se nomme pas
-  'm.ascii': b('code ASCII, casse comprise', 'ASCII code, case included'), // mas
+  'm.ascii': b('code ASCII', 'ASCII code'), // mas
   'm.utf8': b('point de code Unicode', 'Unicode code point'), // mu8
   'm.additionVersLaMoyenne': b('addition vers la moyenne', 'addition towards the average'), // mam
   'm.longueurToken': b('nombre de caractères', 'character count'), // mlm
@@ -731,7 +731,7 @@ export const TITRES_COURTS = {
   'm.absorption': b('absorption sans perte', 'lossless absorption'), // mab
   'm.absorptionProduit': b('absorption en produits', 'absorption by products'), // mabx
   'm.absorptionDifference': b('absorption en différences', 'absorption by differences'), // mabd
-  'm.redecoupageExact': b('additions sans reste', 'additions with no remainder'), // mrdE
+  'm.redecoupageExact': b('addition', 'addition'), // mrdE
   'm.redecoupageFusionnant': b('additions accolées', 'joined additions'), // mrdf
   // ⚠️ Pas « additions accolées sans reste » : vingt-neuf signes, un de trop pour
   //   la largeur d'une carte (`debug.test.js › titres courts`).
@@ -984,7 +984,7 @@ export const PRECISIONS = {
   'm.asciiEnSigne': b('chaque trio lu dans la table ASCII', 'each triple read in the ASCII table'),
   'm.asciiDeChaqueSigne': b('ponctuation comprise', 'punctuation included'),
   'm.eclatement': b('en éclatant les nombres', 'splitting the numbers'),
-  'm.ascii': b('en ASCII, casse comprise', 'in ASCII, case included'),
+  'm.ascii': b('en ASCII', 'in ASCII'),
   'm.utf8': b('en points de code Unicode', 'in Unicode code points'),
   'm.additionVersLaMoyenne': b('des voisins additionnés vers la moyenne', 'with neighbours added towards the average'),
   // ★ Muet sur ce qu'il souligne — voir `MAPPEURS_DE_SERVICE`. « 666 déjà

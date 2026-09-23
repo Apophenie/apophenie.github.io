@@ -20,6 +20,8 @@ import { sansSaut, effacerEnDouceur, DELAI_ADIEU_MS } from './defilement.js';
 
 let vueCourante = null;      // { detruire() } de la page démonstration
 let derniereClef = null;
+const estAncreLocale = () => location.hash.length > 1
+  && !!document.getElementById(location.hash.slice(1));
 
 /**
  * ★ LE JETON DE ROUTE — ce qui empêche une recherche en retard de repeindre
@@ -535,9 +537,10 @@ export function router() {
   //   monté, et un `#registre-titre` collé dans une barre d'adresse vierge
   //   redevient une saisie. C'est le prix d'un test qui ne suppose l'existence
   //   d'aucune liste d'ancres, et il se paie une fois sur mille.
-  //   ⚠️ Et l'ancre ne vaut que si la requête ne porte RIEN : `?…$…#scene`
-  //     est une démonstration qu'on regarde, pas un défilement qu'on demande.
-  if (!charge && hash.length > 1 && document.getElementById(hash.slice(1))) return;
+  //   Au chargement initial, `#app` désigne l'accueil ; le routeur doit quand
+  //   même le peindre. Pendant un clic, `surChangement` laisse le navigateur
+  //   suivre l'ancre sans reconstruire la page courante.
+  if (!charge && estAncreLocale()) { routeAccueil(); return; }
 
   const lecture = pont.lireHash(lien);
   if (!lecture) { routeAccueil({ bandeau: t('bandeaux.lienIllisible') }); return; }
@@ -637,9 +640,12 @@ export function demarrer() {
      fragment laisserait passer deux démonstrations qui ne diffèrent que par
      leur requête, c'est-à-dire toutes celles d'aujourd'hui. */
   const clef = () => (location.search || '') + (location.hash || '');
-  const surChangement = () => {
+  const surChangement = (event) => {
     if (clef() === derniereClef) return;
     derniereClef = clef();
+    // Une ancre de la page courante défile seulement : reconstruire une
+    // démonstration portée par `?…` ferait disparaître sa cible sous le clic.
+    if (event?.type === 'hashchange' && estAncreLocale()) return;
     router();
   };
   window.addEventListener('hashchange', surChangement);

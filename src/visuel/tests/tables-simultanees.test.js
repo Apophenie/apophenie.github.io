@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { compile } from '../compile.js';
 import { CATALOGUE, appliquer } from '../../moteur/catalogue.js';
 import { str } from '../../moteur/etat.js';
+import { tokens } from '../../moteur/etat.js';
 
 function scenario(disposition, texte = 'ABC') {
   const entries = disposition === 'glissiere'
@@ -29,6 +30,25 @@ test('toutes les lettres partent à 100 ms d’écart après le déploiement uni
     assert.ok(pas.total > tl.total);
     assert.deepEqual(compile(s, { reduced: true, rythme: 'simultane' }).scene.flow, ['n0', 'n1', 'n2', 'n3']);
   }
+});
+
+for (const code of ['mqwc', 'mazc']) test(`${code} partage un seul clavier en simultané et conserve toutes les conversions`, () => {
+  const op = CATALOGUE.find((o) => o.code === code);
+  const texte = 'hope', avant = tokens([...texte]);
+  const ids = [...texte].map((_, i) => `c${i}`);
+  const s = { version: 1, tokens: [...texte].map((text, i) => ({ id: ids[i], text })),
+    steps: op.steps(avant, appliquer(op, avant), { ids, cle: code, langue: 'fr' }) };
+  const sim = compile(s, { rythme: 'simultane' });
+  const pas = compile(s, { rythme: 'pasAPas' });
+  assert.deepEqual(sim.warnings, []);
+  assert.deepEqual(sim.steps.map((step) => step.id), s.steps.map((step) => step.id));
+  assert.deepEqual(sim.scene.flow.map((id) => sim.scene.get(id).text),
+    pas.scene.flow.map((id) => pas.scene.get(id).text));
+  const clavier = sim.nodes.find((n) => n.role === 'keyboard');
+  assert.equal(sim.anims.filter((a) => a.id === clavier.id && a.prop === 'opacity').length, 2);
+  const vols = ids.map((id) => sim.anims.filter((a) => a.id === id && a.prop === 'translate').at(-1));
+  for (let i = 1; i < vols.length; i++) assert.equal(vols[i].delay - vols[i - 1].delay, 100);
+  assert.ok(sim.total < pas.total);
 });
 
 test('le compteur de César finit avant la vague de conversions, puis son titre disparaît', () => {

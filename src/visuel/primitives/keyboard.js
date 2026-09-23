@@ -77,7 +77,7 @@ import {
 } from './decor.js';
 import { keyboardGeometry, findKey, keyboardValue, normalizeLayout } from '../assets.js';
 import { fail } from '../errors.js';
-import { bboxOf } from '../layout.js';
+import { bboxOf, measureText } from '../layout.js';
 import { EASE } from '../constants.js';
 
 export const name = 'keyboard';
@@ -143,6 +143,17 @@ export function plan(ctx) {
       + 'Le moteur visuel refuse d’afficher autre chose que ce qui est compté.');
   }
 
+  // Une vague garde chaque valeur à la largeur de sa lettre jusqu'au reflow
+  // commun. Réserver d'abord la place des nombres plus larges évite qu'ils se
+  // chevauchent pendant que les autres lettres sont encore en vol.
+  if (ctx.decorVague && ctx.rangVague === 0) {
+    for (const o of ctx.decorVague.ops) {
+      const source = ctx.scene.live(o.target, ctx.where);
+      if (o.to) source.w = Math.max(source.w, measureText(o.to.text, ctx.metrics));
+    }
+    ctx.reflow({ at: 0, dur: ctx.dur * 0.2 });
+  }
+
   // Le clavier se pose au centre de la VUE — pas du viewBox : si la ligne
   // défile, le milieu de l'écran n'est plus le milieu de la scène (`ancreVue`).
   const vue = ancreVue(ctx);
@@ -185,10 +196,11 @@ export function plan(ctx) {
   });
   const flux = bboxOf(vivants, ctx.scene.positions, ctx.metrics, 0);
   const bas = flux ? Math.max(vue.y, flux.y + flux.h) : vue.y;
-  const boardPos = {
+  const boardPos = ctx.decorVague?.position || {
     x: vue.x,
     y: bas + ctx.metrics.fontSize * 0.9 + geo.height / 2 + debordHaut,
   };
+  if (ctx.decorVague && ctx.rangVague === 0) ctx.decorVague.position = boardPos;
   const keyPos = { x: boardPos.x + key.cx, y: boardPos.y + key.cy };
   const halo = haloDe(geo, key, mesure);
   // ★ D'où tombe le nombre : la touche, la réglette, ou la marge.
@@ -209,7 +221,8 @@ export function plan(ctx) {
   const deployer = !decorEnLAir(ctx, board) || ctx.op.montre === true;
   const replier = ctx.op.retire !== false;
 
-  const t0 = monterDecor(ctx, {
+  const suiteVague = ctx.decorVague && ctx.rangVague > 0;
+  const t0 = suiteVague ? ctx.decorVague.pret : monterDecor(ctx, {
     id: board, role: 'keyboard', titre, data: { geo, mesure, layout },
     pos: boardPos, width: geo.width, deployer,
     encombrement: {
@@ -221,6 +234,7 @@ export function plan(ctx) {
       pad: PAD,
     },
   });
+  if (ctx.decorVague && !suiteVague) ctx.decorVague.pret = t0;
 
   // ── 2. l'aller-retour de CE caractère, en entier ────────────────────────
   const fin = allerRetour(ctx, {
@@ -234,7 +248,7 @@ export function plan(ctx) {
   });
 
   // ── 3. le décor se retire — seulement si la suite ne l'emploie plus ─────
-  if (replier) replierDecor(ctx, board, fin);
+  if (ctx.decorVague ? ctx.rangVague === ctx.decorVague.taille - 1 : replier) replierDecor(ctx, board, fin);
 }
 
 const DIT = Object.freeze({

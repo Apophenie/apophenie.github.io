@@ -245,7 +245,7 @@ export function compile(scenario, options = {}) {
     cadre: { min: viewBox.x + MARGIN, max: viewBox.x + viewBox.w - MARGIN },
     plancher: 1,
   };
-  const conversions = new Set(['sevenSeg', 'fourteenSeg', 'countStrokes', 'table']);
+  const conversions = new Set(['sevenSeg', 'fourteenSeg', 'countStrokes', 'table', 'keyboard']);
   const geometries = new WeakMap();
   const conversionEnTable = (o) => {
     if (o.op !== 'table' || !o.entries || !o.letter) return true;
@@ -255,7 +255,9 @@ export function compile(scenario, options = {}) {
   };
   const regroupable = (s) => s.ops?.length === 1 && conversions.has(s.ops[0].op)
     && s.duration === undefined && !(s.ops[0].at ?? 0) && conversionEnTable(s.ops[0]);
-  const cleTable = (o) => JSON.stringify([o.entries, o.ordre, o.disposition, o.colonnes, o.cycle, o.teinte, o.titre, o.preuve, o.dur, o.zoom]);
+  const cleDecor = (o) => o.op === 'keyboard'
+    ? JSON.stringify([o.layout, o.mesure, o.titre, o.dur])
+    : JSON.stringify([o.entries, o.ordre, o.disposition, o.colonnes, o.cycle, o.teinte, o.titre, o.preuve, o.dur, o.zoom]);
   // Une table à volet ne peut montrer deux rangées plus éloignées que sa fenêtre.
   const memeFenetre = (ops) => {
     if (ops[0].disposition !== 'modulo') return true;
@@ -286,7 +288,8 @@ export function compile(scenario, options = {}) {
     const rejoint = !reduced && rythme === 'simultane' && regroupable(original)
       && precedente && regroupable(precedente.entrees[0])
       && precedente.ops[0].op === op.op
-      && (op.op === 'table' ? cleTable(precedente.ops[0]) === cleTable(op) && memeFenetre([...precedente.ops, op])
+      && (op.op === 'table' || op.op === 'keyboard'
+        ? cleDecor(precedente.ops[0]) === cleDecor(op) && memeFenetre([...precedente.ops, op])
         : precedente.entrees.length < combienTiennent(placeEncarts))
       && emp instanceof Set && precedente.ops.every((autre) => {
         const pris = empreinteConversion(autre);
@@ -362,19 +365,20 @@ export function compile(scenario, options = {}) {
      *   les durées valent `DUR_REDUCED_OP`. Ordonner des gestes qui n'ont pas
      *   lieu serait un calcul sans objet — et c'est la même raison qui retire le
      *   bouton de la barre dans ce cas (`app/transport.js`). */
-    const tableVague = enVague && step.ops[0].op === 'table' ? { sorties: [], ops: step.ops, taille: step.ops.length } : null;
+    const decorVague = enVague && (step.ops[0].op === 'table' || step.ops[0].op === 'keyboard')
+      ? { sorties: [], ops: step.ops, taille: step.ops.length } : null;
     const ops = zones
       ? step.entrees.flatMap((e, rang) => ordonnerLesOps(e, { rythme }).map((o) => ({
         ...o, at: o.at + rang * ONDE_SIMULTANE + DEFAULT_DUR.move, rang,
       })))
-      : tableVague
+      : decorVague
       ? step.ops.map((op, i) => ({ op, i, at: i * ONDE_SIMULTANE }))
       : reduced
       ? (step.ops || []).map((op, i) => ({ op, i, at: 0, fadeAt: op.fadeAt }))
       : ordonnerLesOps(step, { rythme });
 
     let encarts = null;
-    if (enVague && !tableVague && !zones) {
+    if (enVague && !decorVague && !zones) {
       const { x } = rangerLesAfficheurs(step.ops.map((op) => scene.pos(op.target).x), {
         ...placeEncarts,
         cadre: { min: placeEncarts.cadre.min - panFocus.x, max: placeEncarts.cadre.max - panFocus.x },
@@ -396,7 +400,7 @@ export function compile(scenario, options = {}) {
       const ctx = {
         op,
         encarts,
-        tableVague,
+        decorVague,
         rangVague: i,
         scene,
         metrics,
@@ -665,7 +669,7 @@ export function compile(scenario, options = {}) {
     }
     // Tous les nombres redescendent à la place de leur caractère. La ligne
     // ne se redistribue qu'une fois la vague terminée.
-    if (tableVague) for (const id of tableVague.sorties) {
+    if (decorVague) for (const id of decorVague.sorties) {
       const n = scene.get(id);
       n.w = measureText(n.text, metrics);
     }

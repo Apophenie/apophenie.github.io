@@ -650,7 +650,7 @@ export function pageDemonstration(ctx) {
  */
 export function enteteDemonstration() {
   return e('header.barre-haute', {}, [
-    e('a.lien-retour', { href: '#' }, [
+    e('a.lien-retour', { href: '?' }, [
       e('span', { texte: '◂', 'aria-hidden': 'true' }),
       e('span', { texte: t('entete.accueil') }),
     ]),

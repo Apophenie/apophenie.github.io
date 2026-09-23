@@ -285,7 +285,7 @@ export function allerRetour(ctx, spec) {
   ctx.scene.create({
     id: to.id, text: to.text, kind: to.kind || spec.kind || 'number', group: to.group ?? src.group,
     role: 'text', inFlow: true, insertAt: idx < 0 ? undefined : idx + 1,
-    ...(ctx.tableVague ? { w: src.w } : {}),
+    ...(ctx.decorVague ? { w: src.w } : {}),
     ...espacementDe(ctx, src.id),
     base: { opacity: 0, fill: ctx.palette.gold },
   }, { where: ctx.where });
@@ -297,8 +297,8 @@ export function allerRetour(ctx, spec) {
     id: to.id, prop: 'scale', values: [0.8, 1.25, 1], offsets: [0, 0.55, 1],
     at: t0 + T * TEMPS.REFLOW, dur: T * TEMPS.REFLOW_DUR, ease: EASE.pop,
   });
-  if (ctx.tableVague) {
-    ctx.tableVague.sorties.push(to.id);
+  if (ctx.decorVague) {
+    ctx.decorVague.sorties.push(to.id);
     ctx.place(to.id, placeSource, { at: t0 + T * TEMPS.REFLOW, dur: T * TEMPS.REFLOW_DUR, ease: EASE.move });
   } else ctx.reflow({ at: t0 + T * TEMPS.REFLOW, dur: T * TEMPS.REFLOW_DUR, ease: EASE.move });
   ctx.anim({ id: c.id, prop: 'opacity', to: 0, at: t0 + T * TEMPS.HALO_OFF, dur: T * TEMPS.HALO_OFF_DUR });
