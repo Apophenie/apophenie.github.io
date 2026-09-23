@@ -53,7 +53,7 @@
 
 import {
   EPS, MIN_STEP_DURATION, MIN_HINGE_GAP, DEFAULT_DUR, DUR_REDUCED_STEP,
-  DUR_REDUCED_OP, EASE, VIEWBOX, PALETTE, PAN_ID,
+  DUR_REDUCED_OP, EASE, VIEWBOX, PALETTE, PAN_ID, CAMERA_ID,
   MARGIN,
 } from './constants.js';
 import { ciblesDuStep, boiteDuFlux, panPour, memePan } from './defilement.js';
@@ -61,6 +61,7 @@ import { bboxOf, measureText } from './layout.js';
 import { fail, at as loc } from './errors.js';
 import { validateScenario } from './scenario.js';
 import { Scene } from './scene.js';
+import { empreinteEtape, memeGeste, preparerZones } from './vagues.js';
 import { defaultMetrics, defaultLayoutOptions } from './layout.js';
 import { PRIMITIVES } from './primitives/index.js';
 import { indexDiscrete } from './clock.js';
@@ -198,6 +199,8 @@ export function compile(scenario, options = {}) {
 
   const scene = new Scene(scenario.tokens, { metrics, layoutOpts, palette });
 
+  options.preparerScene?.(scene);
+
   const anims = [];
   const discrete = [];
   const warnings = [];
@@ -236,7 +239,7 @@ export function compile(scenario, options = {}) {
   let cursor = 0;
 
   // Les entrées accessibles restent intactes. Seule la compilation rassemble
-  // les conversions indépendantes ; chaque entrée garde une borne de départ.
+  // les gestes indépendants ; chaque entrée garde une borne de départ.
   const placeEncarts = {
     cote: 2 * metrics.fontSize * Math.max(ENCART.cote / 2, ENCART.compteurX + 0.45),
     cadre: { min: viewBox.x + MARGIN, max: viewBox.x + viewBox.w - MARGIN },
@@ -265,7 +268,16 @@ export function compile(scenario, options = {}) {
     return e;
   };
   const vagues = [];
-  for (const original of scenario.steps) {
+  const gestes = scenario.steps.flatMap((s) => {
+    if (reduced || rythme !== 'simultane' || s.ops?.length < 2 || s.duration !== undefined
+      || conversions.has(s.ops?.[0]?.op)) return [s];
+    const morceaux = s.ops.map((op) => ({ ...s, ops: [op] }));
+    const empreintes = morceaux.map(empreinteEtape);
+    const independants = morceaux.every((m, i) => empreintes[i] && memeGeste(morceaux[0], m)
+      && empreintes.slice(0, i).every((e) => [...empreintes[i]].every((id) => !e.has(id))));
+    return independants ? morceaux : [s];
+  });
+  for (const original of gestes) {
     const precedente = vagues.at(-1);
     const op = original.ops?.[0];
     const emp = op && empreinteConversion(op);
@@ -278,9 +290,17 @@ export function compile(scenario, options = {}) {
         const pris = empreinteConversion(autre);
         return pris instanceof Set && [...emp].every((id) => !pris.has(id));
       });
-    if (rejoint) {
+    const empEtape = empreinteEtape(original);
+    const rejointGeste = !reduced && rythme === 'simultane' && !conversions.has(op?.op)
+      && precedente && empEtape && memeGeste(precedente.entrees[0], original)
+      && precedente.entrees.every((e) => {
+        const pris = empreinteEtape(e);
+        return pris && [...empEtape].every((id) => !pris.has(id));
+      });
+    if (rejoint || rejointGeste) {
       precedente.entrees.push(original);
-      precedente.ops.push(op);
+      precedente.ops.push(...original.ops);
+      precedente.zonesIndependantes ||= rejointGeste;
       precedente.hold = Math.max(precedente.hold ?? 0, original.hold ?? 0);
     } else vagues.push({ ...original, ops: [...(original.ops || [])], entrees: [original] });
   }
@@ -289,6 +309,18 @@ export function compile(scenario, options = {}) {
     const si = steps.length;
     const enVague = step.entrees.length > 1;
     const t0 = cursor;
+    // Les titres et les points d’exclamation appartiennent à chaque calcul
+    // parallèle ; le scénario pas à pas garde son annonce commune.
+    if (step.zonesIndependantes && step.ops[0].factorielle) {
+      step.entrees = step.entrees.map((e, i) => ({ ...e, ops: e.ops.map((o) => ({ ...o,
+        titre: { ...o.titre, id: `${o.titre.id}_vague${i}` },
+        annonce: [{ cible: o.targets[0], id: o.point }], dernier: true,
+      })) }));
+    }
+    const zones = step.zonesIndependantes ? preparerZones(scene, step.entrees,
+      (s, preparerScene) => compile(s, { ...options, preparerScene, rythme: 'pasAPas', reduced: false })) : null;
+    const zoomAvant = zones ? lastValue(CAMERA_ID, 'scale') : 1;
+    const ouverture = zones ? scale(DEFAULT_DUR.move, speed) : 0;
     const where = { step: si, stepId: step.id };
     let extent = 0;
 
@@ -329,14 +361,18 @@ export function compile(scenario, options = {}) {
      *   lieu serait un calcul sans objet — et c'est la même raison qui retire le
      *   bouton de la barre dans ce cas (`app/transport.js`). */
     const tableVague = enVague && step.ops[0].op === 'table' ? { sorties: [], ops: step.ops, taille: step.ops.length } : null;
-    const ops = tableVague
+    const ops = zones
+      ? step.entrees.flatMap((e, rang) => ordonnerLesOps(e, { rythme }).map((o) => ({
+        ...o, at: o.at + rang * ONDE_SIMULTANE + DEFAULT_DUR.move, rang,
+      })))
+      : tableVague
       ? step.ops.map((op, i) => ({ op, i, at: i * ONDE_SIMULTANE }))
       : reduced
       ? (step.ops || []).map((op, i) => ({ op, i, at: 0, fadeAt: op.fadeAt }))
       : ordonnerLesOps(step, { rythme });
 
     let encarts = null;
-    if (enVague && !tableVague) {
+    if (enVague && !tableVague && !zones) {
       const { x } = rangerLesAfficheurs(step.ops.map((op) => scene.pos(op.target).x), {
         ...placeEncarts,
         cadre: { min: placeEncarts.cadre.min - panFocus.x, max: placeEncarts.cadre.max - panFocus.x },
@@ -344,7 +380,8 @@ export function compile(scenario, options = {}) {
       encarts = new Map(step.ops.map((op, i) => [op.target, x[i]]));
     }
     let dernierCtx;
-    for (const { op, i, at, fadeAt } of ops) {
+    for (const { op, i, at, fadeAt, rang } of ops) {
+      if (zones) zones.activer(rang);
       const prim = PRIMITIVES[op.op];
       if (!prim) {
         fail(`${loc({ ...where, op: i, opName: op.op })}primitive « ${op.op} » non implémentée.`);
@@ -361,7 +398,7 @@ export function compile(scenario, options = {}) {
         rangVague: i,
         scene,
         metrics,
-        layoutOpts,
+        layoutOpts: zones ? { ...layoutOpts, ...scene.ateliers.get(scene.atelierActif) } : layoutOpts,
         palette,
         reduced,
         // ★ La scénographie du verdict (CONTRACTS §3.1, amendement « l'orage »).
@@ -372,7 +409,7 @@ export function compile(scenario, options = {}) {
         scenographie: !!options.scenographie,
         // Le cadrage en vigueur pendant ce step : le centre de la VUE n'est le
         // centre du viewBox que si la ligne ne défile pas (`ancreVue`).
-        pan: panFocus,
+        pan: zones ? { x: 0, y: 0 } : panFocus,
         speed: stepSpeed,
         where: where2,
         glyphes: options.glyphes,
@@ -402,6 +439,7 @@ export function compile(scenario, options = {}) {
           const d = reduced ? DUR_REDUCED_OP : Math.max(1, spec.dur ?? opDur);
           const prop = spec.prop;
           const id = spec.id;
+          if (zones && id === CAMERA_ID && !spec.vague) return;
           if (!scene.has(id)) fail(`${where2}animation sur un nœud inconnu « ${id} ».`);
           let frames;
           if (Array.isArray(spec.values)) {
@@ -614,6 +652,12 @@ export function compile(scenario, options = {}) {
         },
       };
 
+      if (zones && !dernierCtx) for (const m of zones.mouvements) {
+        ctx.anim({ id: m.id, prop: 'translate', from: m.from, to: m.to,
+          at: -opAt, dur: ouverture, ease: EASE.move });
+      }
+      if (zones && !dernierCtx && zones.zoom < 1) ctx.anim({ id: CAMERA_ID, prop: 'scale',
+        to: Math.min(zoomAvant, zones.zoom), at: -opAt, dur: ouverture, vague: true });
       prim.plan(ctx);
       dernierCtx = ctx;
     }
@@ -623,7 +667,11 @@ export function compile(scenario, options = {}) {
       const n = scene.get(id);
       n.w = measureText(n.text, metrics);
     }
-    if (enVague) dernierCtx.reflow({ at: extent - dernierCtx.debutOp, dur: scale(DEFAULT_DUR.move, speed) });
+    const finVague = extent;
+    if (zones && zones.zoom < 1) dernierCtx.anim({ id: CAMERA_ID, prop: 'scale', to: zoomAvant,
+      at: finVague - dernierCtx.debutOp, dur: scale(DEFAULT_DUR.move, speed), vague: true });
+    zones?.terminer();
+    if (enVague) dernierCtx.reflow({ at: finVague - dernierCtx.debutOp, dur: scale(DEFAULT_DUR.move, speed) });
 
     // --- défilement : le cadrage de repos, une fois le geste accompli --------
     //
@@ -671,16 +719,18 @@ export function compile(scenario, options = {}) {
     }
 
     cursor = round(cursor + duration);
-    step.entrees.forEach((entree, rang) => {
-      const debut = round(t0 + scale(rang * ONDE_SIMULTANE, speed));
-      const fin = rang === step.entrees.length - 1 ? cursor
-        : round(t0 + scale((rang + 1) * ONDE_SIMULTANE, speed));
+    const navigables = step.entrees.map((entree, rang) => ({ entree, rang }))
+      .filter(({ entree }, i) => !i || entree.id !== step.entrees[i - 1].id);
+    navigables.forEach(({ entree, rang }, index) => {
+      const debut = round(t0 + (rang ? ouverture : 0) + scale(rang * ONDE_SIMULTANE, speed));
+      const fin = index === navigables.length - 1 ? cursor
+        : round(t0 + ouverture + scale(navigables[index + 1].rang * ONDE_SIMULTANE, speed));
       bounds.push(fin);
       steps.push({
         index: si + rang, id: entree.id, title: entree.title,
         caption: entree.caption ?? null, figure: entree.figure ?? null,
         t0: debut, t1: fin, duration: round(fin - debut),
-        hold: rang === step.entrees.length - 1 ? round(hold) : 0, speed: stepSpeed,
+        hold: index === navigables.length - 1 ? round(hold) : 0, speed: stepSpeed,
       });
     });
   });
@@ -738,7 +788,8 @@ export function compile(scenario, options = {}) {
     list.sort((a, b) => a.delay - b.delay);
     for (let i = 1; i < list.length; i++) {
       const prev = list[i - 1];
-      if (list[i].delay + 1e-6 < prev.delay + prev.duration) {
+      // Délais et durées sont arrondis séparément au millième de ms.
+      if (list[i].delay + 0.001001 < prev.delay + prev.duration) {
         warnings.push(`animations concurrentes sur ${key} : [${prev.delay}, ${prev.delay + prev.duration}] et [${list[i].delay}, ${list[i].delay + list[i].duration}]. Deux ops se contredisent sur le même token (recherche §2.4, contrainte 4).`);
       }
     }

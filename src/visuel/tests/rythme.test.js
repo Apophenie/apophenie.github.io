@@ -18,6 +18,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { compile } from '../compile.js';
+import { lecteur } from './_lecteur.js';
 import {
   ordonnerLesOps, empreinteDe, etendueDe, normaliserRythme,
   RYTHMES, RYTHME_DEFAUT, ONDE_SIMULTANE, MARQUES,
@@ -452,4 +453,84 @@ test('Simultané — les fusions qui redistribuent la ligne ne sont pas indépen
     { op: 'merge', targets: ['c', 'd'], to: { id: 'cd', text: '44' }, at: 1000, dur: 1000 },
   ] };
   assert.deepEqual(ordonnerLesOps(step, { rythme: 'simultane' }).map((e) => e.at), [0, 1000]);
+});
+
+for (const [nom, mode, valeurs, sorties] of [
+  ['carrés', { carre: true }, ['3', '12', '5'], ['9', '144', '25']],
+  ['factorielles', { factorielle: true }, ['3', '4', '5'], ['6', '24', '120']],
+]) test(`${nom} : étapes parallèles, calculs sans collision`, () => {
+  const scenario = {
+    version: 1,
+    tokens: valeurs.map((text, i) => ({ id: `n${i}`, text, kind: 'number' })),
+    steps: valeurs.map((_, i) => ({ id: `s${i}`, title: `${nom} — nombre ${i + 1}`,
+      ops: [{ op: 'group', targets: [`n${i}`], ...mode, dur: 6000, ...(mode.factorielle ? { titre: { id: `titre${i}`, text: `${valeurs[i]}!` }, annonce: [{ cible: `n${i}`, id: `point${i}` }], point: `point${i}`, dernier: true } : {}),
+        to: { id: `r${i}`, text: sorties[i], kind: 'number' } }],
+    })),
+  };
+  const pas = compile(scenario, { rythme: 'pasAPas' });
+  const sim = compile(scenario, { rythme: 'simultane' });
+  assert.deepEqual(sim.warnings, []);
+  assert.deepEqual(sim.scene.flow.map((id) => sim.scene.get(id).text), sorties);
+  assert.equal(sim.steps[2].t0 - sim.steps[1].t0, ONDE_SIMULTANE);
+  assert.ok(sim.total < pas.total / 2);
+  assert.equal(sim.steps.length, pas.steps.length);
+  const ensemble = { ...scenario, steps: [{ ...scenario.steps[0], ops: scenario.steps.flatMap((s) => s.ops) }] };
+  const memeEtape = compile(ensemble, { rythme: 'simultane' });
+  assert.deepEqual(memeEtape.warnings, []);
+  assert.equal(memeEtape.steps.length, 1, 'la navigation garde l’étape d’origine');
+  assert.deepEqual(memeEtape.scene.flow.map((id) => memeEtape.scene.get(id).text), sorties);
+  assert.equal(memeEtape.total, sim.total);
+  if (mode.carre) {
+    const oeil = lecteur(sim);
+    const proprietaires = new Map(valeurs.flatMap((v, i) => [[v, i], [sorties[i], i]]));
+    for (let t = 0; t <= sim.total; t += sim.total / 300) {
+      const visibles = oeil.visibles(t).filter((n) => proprietaires.has(n.texte));
+      for (const a of visibles) for (const b of visibles) {
+        if (proprietaires.get(a.texte) === proprietaires.get(b.texte)) continue;
+        if (Math.abs(a.y - b.y) > Math.min(a.h, b.h) * 0.7) continue;
+        assert.ok(Math.min(a.d, b.d) - Math.max(a.g, b.g) < 1,
+          `${a.texte} et ${b.texte} se chevauchent à ${t} ms`);
+      }
+    }
+  }
+});
+
+test('les opérateurs réels du catalogue répètent leurs calculs en vague', async () => {
+  const { PAR_CODE, appliquer } = await import('../../moteur/catalogue.js');
+  for (const code of ['mcar', 'mpui', 'mfac', 'mcc', 'mecl']) {
+    const valeur = code === 'mcc' ? [6, 6, 6, 4, 4, 4, 5, 5, 5] : code === 'mecl' ? [123, 456, 789] : [3, 4, 5];
+    const avant = { type: 'NUMS', valeur, traces: valeur.map((_, i) => [i, i + 1]) };
+    const op = PAR_CODE.get(code);
+    const apres = appliquer(op, avant);
+    assert.ok(apres, code);
+    const tokens = valeur.map((v, i) => ({ id: `n${i}`, text: String(v), kind: 'number' }));
+    const scenario = { version: 1, tokens,
+      steps: op.steps(avant, apres, { ids: tokens.map((t) => t.id), cle: 'x0', langue: 'fr' }) };
+    const pas = compile(scenario, { rythme: 'pasAPas' });
+    const sim = compile(scenario, { rythme: 'simultane' });
+    assert.deepEqual(sim.warnings, [], code);
+    assert.deepEqual(sim.scene.flow.map((id) => sim.scene.get(id).text),
+      pas.scene.flow.map((id) => pas.scene.get(id).text), code);
+    if (scenario.steps.length > 1) assert.ok(sim.total < pas.total, code);
+  }
+});
+
+test('des carrés dépendants restent séquentiels ; vitesse et mode réduit sont conservés', () => {
+  const scenario = { version: 1, tokens: [{ id: 'a', text: '2', kind: 'number' }],
+    steps: [
+      { id: 's0', title: 'Carré', ops: [{ op: 'group', carre: true, targets: ['a'], to: { id: 'b', text: '4', kind: 'number' } }] },
+      { id: 's1', title: 'Carré', ops: [{ op: 'group', carre: true, targets: ['b'], to: { id: 'c', text: '16', kind: 'number' } }] },
+    ] };
+  const original = JSON.stringify(scenario);
+  const pas = compile(scenario, { rythme: 'pasAPas' });
+  const sim = compile(scenario, { rythme: 'simultane' });
+  assert.deepEqual(sim.bounds, pas.bounds);
+  assert.deepEqual(sim.warnings, []);
+  assert.equal(sim.scene.get('c').text, '16');
+  const rapide = compile(scenario, { rythme: 'simultane', speed: 2 });
+  assert.ok(Math.abs(rapide.total * 2 - sim.total) < 0.01);
+  const reduit = compile(scenario, { rythme: 'simultane', reduced: true });
+  assert.equal(reduit.steps.length, 2);
+  assert.equal(reduit.rythme, null);
+  assert.equal(JSON.stringify(scenario), original);
 });

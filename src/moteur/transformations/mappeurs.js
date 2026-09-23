@@ -7987,9 +7987,8 @@ const AUTRES_MAPPEURS = [
      * qui ne l'égale pas.
      *
      * ★ **UN NOMBRE À LA FOIS**, comme la division et le modulo : une accolade
-     *   par nombre, qui s'efface avant que la suivante ne se tire. Toutes
-     *   ensemble, cinq expressions descendraient en même temps sous cinq
-     *   accolades — « une chose à la fois, et tant pis pour la durée ».
+     *   par nombre. Le mode pas à pas les enchaîne ; le mode simultané
+     *   rassemble les calculs indépendants dans des espaces distincts.
      *
      * ★ **0 ET 1 AUSSI.** « 1² est à faire aussi par cohérence, même si le
      *   résultat est 1 comme le point de départ » (l'autrice). Ils étaient
