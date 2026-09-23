@@ -25,40 +25,9 @@ cache:
   paths:
     - .bun/install/cache/
 
-# `bun run check` enchaîne les tests (node --test, sans build préalable) puis le
-# build. Les deux comptent : le site doit être vert ET constructible.
-#
-# La commande ne change pas, mais ce qu'elle écrit, si : la suite lente passe
-# désormais par `scripts/test-lent.mjs`, qui annonce chaque fichier au départ
-# puis à son verdict, horloge en tête. Un job qui tourne n'est plus un job muet
-# pendant trois quarts d'heure — on voit où il en est, et lequel a rougi. Le
-# lanceur rejoue SEUL tout fichier rouge : un rouge dû à la charge du runner se
-# rattrape ici, signalé « vert seul, rouge sous charge » dans le bilan, sans
-# masquer un vrai échec — celui-là rougit deux fois et fait échouer le job.
-#
-# ⚠️ **SI CE RUNNER EST NETTEMENT PLUS LENT QUE LA MACHINE DE RÉFÉRENCE**, relevez
-# les facteurs de garde plutôt que de subir des dépassements — par exemple
-# `TEST_LENT_FACTEUR_CPU: "8"` et `TEST_LENT_FACTEUR_MUR: "16"` dans les
-# `variables:` ci-dessus. Les deux montent ENSEMBLE : le temps CPU est insensible
-# à la charge d'un runner, pas à la vitesse de son processeur. L'ancien nom
-# `TEST_LENT_FACTEUR_DELAI` reste accepté et couvre les deux, mais le lanceur
-# écrit alors une ligne le rappelant — il n'honore rien en silence.
-#
-# Chaque fichier a DEUX bornes (`scripts/durees-lentes.json`, qui porte sa date,
-# ses cœurs, sa charge, et un champ `metrique` disant en quoi ses nombres sont
-# libellés) : un BUDGET DE TRAVAIL en temps CPU, valant 4 × sa référence CPU —
-# insensible à ce qui tourne d'autre sur le runner, c'est tout l'intérêt — et un
-# FILET ANTI-BLOCAGE mural, 8 × sa référence murale, parce qu'un test arrêté sur
-# une attente ne consomme aucun CPU et qu'aucune garde CPU ne le couperait. Un
-# dépassement compte rouge et part en relance seule, et le message DIT laquelle
-# des deux a sauté. Une VAGUE de « dépassement du délai de garde mural » se lit
-# comme un problème de machine et non de code : le bilan le dit lui-même quand
-# tous les échecs sont de ce type. Une vague de « dépassement du budget CPU »
-# dit l'inverse — le travail a vraiment enflé — et relever le facteur la cacherait.
-#
-# ⚠️ Le CPU se lit par `/proc` et par le builtin `times` d'un `sh` de service.
-# Une image SANS `/bin/sh` ou sans `/proc` n'échoue pas : elle se rabat sur le
-# mural, et le dit dans le journal comme dans la table.
+# `bun run check` exécute les tests rapides, deux parcours de recherche courts,
+# puis les cinq builds. Les balayages historiques sont disponibles séparément
+# avec `bun run test:exhaustif`.
 #
 # ⚠️ **`rsvg-convert` EST INDISPENSABLE, ET SON ABSENCE NE SE VOIT PAS.**
 # `vite.config.js › carteDePartage` rastérise `favicon.svg` en `og-card.png`, et

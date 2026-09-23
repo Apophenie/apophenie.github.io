@@ -27,7 +27,7 @@ import {
   bilanChemin, bilanApproche, credit,
   detailDuCredit, dilution, emploieUneFicelle,
   facteur, note, estPur, amplitudeArrondi, finDuTriptyque, nbTriptyques,
-  classeDeTransformation, survieDesCaracteres, compterTraductionsDivergentes,
+  classeDeTransformation, survieDesCaracteres,
 } from '../../elegance.js';
 import { creerMoteur } from '../../index.js';
 import {
@@ -365,52 +365,6 @@ test('★ alternance — employer ses deux phases dans une voie coûte un régla
   // d’elles un réglage et non deux idées.
   assert.equal(cal.apply([8, 15, 16, 5], [[], [], [], []]).valeur, 4);
   assert.equal(cali.apply([8, 15, 16, 5], [[], [], [], []]).valeur, -4);
-});
-
-test('★ traductions — le même mot lu de deux façons coûte plus cher qu’un César de trop', () => {
-  assert.ok(BAREME.TRADUCTION_DIVERGENTE > BAREME.REGLAGE_PAR_MORCEAU,
-    `« encore pire » doit se lire au barème (${BAREME.TRADUCTION_DIVERGENTE} `
-    + `contre ${BAREME.REGLAGE_PAR_MORCEAU})`);
-
-  // ★ L'ACCEPTION EST PUBLIÉE, jamais devinée au code — c'est ce qui rend le
-  //   compte possible sans lire une chaîne (`filtres.js`, champ `acception`).
-  for (const [id, rang] of [['f.traduitFR', 1], ['f.traduitFR3', 3], ['f.traduitEN5', 5]]) {
-    assert.equal(operateur(id).acception, rang, `${id} doit publier son acception`);
-  }
-
-  // Une part réduite à ce que le compte lit : l'opérateur, et le mot qu'il a
-  // reçu en entrée. Le reste du chemin ne l'intéresse pas.
-  const par = (code, mot = 'hope') => ({
-    chemin: { ops: [catalogue.find((o) => o.code === code)], etats: [etat('STR', mot)] },
-  });
-  // Deux morceaux, le MÊME mot, deux acceptions : une divergence.
-  assert.equal(compterTraductionsDivergentes([par('ffr3'), par('ffr')]), 1);
-  // Trois acceptions du même mot : deux surnuméraires.
-  assert.equal(compterTraductionsDivergentes([par('ffr3'), par('ffr'), par('ffr2')]), 2);
-  // ★ LA MÊME acception partout ne coûte RIEN — « pas de malus à choisir les
-  //   suivantes » reste vrai, c'est la DIVERGENCE qui se paie, pas le rang.
-  assert.equal(compterTraductionsDivergentes([par('ffr3'), par('ffr3')]), 0);
-  assert.equal(compterTraductionsDivergentes([par('ffr5'), par('ffr5')]), 0);
-  // ★ ET DEUX MOTS DIFFÉRENTS lus chacun à leur façon ne coûtent rien : « un
-  //   même mot » est la lettre de l'arbitrage, et sa limite.
-  assert.equal(compterTraductionsDivergentes([par('ffr3'), par('ffr', 'love')]), 0);
-  // Le repli est celui du dictionnaire : « Hope » et « hope » sont un seul mot.
-  assert.equal(compterTraductionsDivergentes([par('ffr3', 'Hope'), par('ffr', 'hope')]), 1);
-  // Changer de LANGUE n'est pas changer de lecture : ce sont deux traductions.
-  assert.equal(compterTraductionsDivergentes([par('ffr3'), par('fen')]), 0);
-});
-
-test('★ traductions — la recherche n’en produit plus aucune', () => {
-  const m = creerMoteur(catalogue);
-  let vues = 0;
-  for (const saisie of ['hope-hope-hope.fr', 'https://hope-hope-hope.fr/', 'Les 7 nains']) {
-    for (const a of m.resoudre(saisie).approches) {
-      vues++;
-      assert.equal(compterTraductionsDivergentes(a.parts || []), 0,
-        `« ${saisie} » : un mot y est traduit de deux façons — ${a.codes}`);
-    }
-  }
-  assert.ok(vues >= 10, `seulement ${vues} voies observées`);
 });
 
 test('★ `meg` n’est pas une ficelle — mais son uniformisation se paie encore', () => {

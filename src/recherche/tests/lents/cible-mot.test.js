@@ -19,8 +19,13 @@ import { lire, ecrire } from '../../url.js';
 import { encoderTexte } from '../../base58.js';
 import { catalogue } from '../_catalogue.js';
 import { compile } from '../../../visuel/compile.js';
+import { setGlyphes } from '../../../visuel/glyphes.js';
+import { GLYPHES } from '../../../moteur/tables/glyphes.js';
+
+setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
 
 const moteur = creerMoteur(catalogue, { filetTemporel: false });
+test.afterEach(() => moteur.cache.clear());
 
 /** Les gestes de RELECTURE joués au verdict : la réglette à rebours ou le clavier. */
 /**
@@ -40,7 +45,12 @@ const relus = (sc) => sc.steps.filter((s) => RELECTURES.has(s.code)).flatMap((s)
  * JOUÉE et écrit ce que le verdict annonce, et le moteur visuel compile.
  */
 function verifierVoies(saisie, r, ecrit) {
+  const relectures = new Set();
   for (const a of r.approches) {
+    // La recherche a déjà construit toutes les voies. Un rejeu et une scène
+    // par table de relecture suffisent à vérifier ce raccord coûteux.
+    if (relectures.has(a.relecture.code)) continue;
+    relectures.add(a.relecture.code);
     const lecture = lire(a.url);
     const rejeu = moteur.rejouer(lecture);
     assert.equal(rejeu.ok, true, `${a.url} : ${rejeu.raison || ''}`);

@@ -3140,6 +3140,10 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
 
   const out = [];
   const signatures = new Set();
+  // L'ordonnancement peut choisir deux acceptions d'un même mot avant que la
+  // réduction ne commence. Celle-ci interdit d'aggraver une divergence, mais
+  // ne répare pas un choix déjà divergent : il ne doit pas être publié.
+  const lectureCoherente = (a) => compterTraductionsDivergentes(a.approche.parts) === 0;
   /* ★ **QUATRE RÉCOLTES, UNE RÉUNION.** Les fenêtres d'avant avec l'ancienne
        réduction — la récolte d'hier, telle quelle —, puis ce que chaque extension
        AJOUTE : la fenêtre par famille, la nouvelle réduction, et les deux ensemble.
@@ -3147,9 +3151,14 @@ function moissons(saisie, jetons, fragments, parFrag, ops, cible = CIBLE_DEFAUT,
        moisson ajoutée n'entre que si son lien se REJOUE (`rejouableSousLaCible`) :
        la nouvelle réduction peut choisir, sur les portées d'avant, un chemin que
        l'ancienne ne publiait jamais — `tca+mtc+mr6+cs+pr9` y figure. */
-  for (const a of recolter(portees, false, reduireLeSurplusHistorique)) { signatures.add(a.cle); out.push(a.approche); }
+  for (const a of recolter(portees, false, reduireLeSurplusHistorique)) {
+    if (!lectureCoherente(a)) continue;
+    signatures.add(a.cle);
+    out.push(a.approche);
+  }
   const ajouter = (recoltees, marques) => {
     for (const a of recoltees) {
+      if (!lectureCoherente(a)) continue;
       if (signatures.has(a.cle)) continue;
       if (!a.approche.parts.every((p) => rejouableSousLaCible(p.chemin, cbl))) continue;
       signatures.add(a.cle);

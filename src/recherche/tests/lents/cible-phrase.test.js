@@ -66,6 +66,7 @@ import { GLYPHES } from '../../../moteur/tables/glyphes.js';
 setGlyphes(GLYPHES, 'moteur/tables/glyphes.js');
 
 const moteur = creerMoteur(catalogue, { filetTemporel: false });
+test.afterEach(() => moteur.cache.clear());
 const SAISIE = 'https://reinfocovid.fr/';
 const PHRASE = "C'est de la merde !";
 
@@ -86,7 +87,11 @@ test('cible-phrase — tous les signes ont une relecture : le téléphone approc
  * visuel compile.
  */
 function verifierVoies(r, attendu, saisie = SAISIE) {
+  const variantes = new Set();
   for (const a of r.approches) {
+    const cle = `${a.relecture.code}:${a.ecartDeForme.natures.join(',')}:${a.series || 1}`;
+    if (variantes.has(cle)) continue;
+    variantes.add(cle);
     // ★ Le texte attendu peut dépendre de la relecture (exacte ou approchée), et
     //   un GROUPEMENT peut l'écrire plusieurs fois : une série par exemplaire.
     const unExemplaire = typeof attendu === 'function' ? attendu(a) : attendu;

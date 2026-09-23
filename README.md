@@ -168,158 +168,31 @@ Le site est écrit en modules ES natifs et n'a **aucune dépendance à l'exécut
 | `bun run dev` | le serveur Vite sur `src/` |
 | `bun run build` | replie le site dans `dist/`, ouvrable en `file://` |
 | `bun run test` | la suite de routine (`npm test` lance la même) : `node --test` sur les sources, sans build préalable |
-| `bun run test:lent` | la suite lente : les recherches complètes, le classement, les arbitrages, les budgets — voir juste en dessous |
+| `bun run test:lent` | deux parcours complets courts, dont la régression des traductions divergentes |
+| `bun run test:exhaustif` | les anciens balayages complets, à lancer pour une enquête ciblée |
 | `bun run test:tout` | les deux suites, l'une après l'autre |
 | `bun run check` | les deux suites puis le build — ce que la CI exécute |
 | `bun run logo` | régénère le logo, le favicon et le banc d'essai |
 
-### La suite lente parle pendant qu'elle tourne
+### Vérifications de recherche
 
-`bun run test:lent` passe par `scripts/test-lent.mjs` plutôt que par un `node --test`
-direct, pour une raison simple : sur dix-sept fichiers qui lancent de vraies recherches,
-`node --test` n'écrit **rien** avant la fin — trois quarts d'heure de silence, une heure
-sous charge. Le lanceur exécute **un processus par fichier** et annonce chacun deux fois,
-au départ puis au verdict, avec l'horloge depuis le début :
+`bun run test` vérifie les règles, le catalogue, les URL et la compilation sans
+lancer de recherche exhaustive. `bun run test:lent` exécute deux parcours
+représentatifs : une recherche rejouée et compilée en scène, puis une moisson
+sur une URL répétitive dont toutes les traductions doivent rester cohérentes.
+`bun run check` inclut ces parcours et les cinq builds.
 
-```
-[  0:00] départ   src/recherche/tests/lents/monotonie.test.js  ·  budget CPU 1 h 30 min · mur 2 h 00 min
-[  0:00] départ   src/recherche/tests/lents/cible-phrase.test.js  ·  budget CPU 1 h 30 min · mur 2 h 14 min
-[  7:19] vert     src/recherche/tests/lents/cible-mot.test.js  ·  13 tests, 7 min 19 s au mur, 6 min 07 s de CPU  ·  1/17
-[ 14:58] vert     src/recherche/tests/lents/recherche.test.js  ·  69 tests, 14 min 58 s au mur, 21 min 08 s de CPU  ·  4/17
-[ 21:50] vert     src/recherche/tests/lents/sieges.test.js  ·  5 tests, 20,1 s au mur, 25,6 s de CPU  ·  12/17
-```
-
-Ce que cette passe-là a donné, le 16 septembre, à quatre voies sur machine chargée : deux
-fichiers rouges sur dix-sept. `recherche.test.js` a rougi sur des tests de budget et de
-temps, puis la relance seule l'a rendu vert — « vert seul, rouge sous charge ».
-`monotonie.test.js` a rougi **et est resté rouge seul** : c'était une vraie régression, pas
-la machine. Sans ce lanceur, il y aurait eu une heure de silence et une excuse toute
-trouvée. À l'inverse, `progression.test.js` — longtemps soupçonné de rougir sous charge —
-est passé du premier coup : la suite n'a qu'un seul fichier réellement sensible à la
-charge, et c'est `recherche.test.js`.
-
-Le 17 septembre, machine calme, la même passe est verte de bout en bout : 17 fichiers,
-360 tests, **43 min 35 s au mur pour 1 h 50 min de CPU cumulées sur quatre voies** — et la
-somme des CPU relevés par fichier retombe à **0,0 %** près sur ce que le noyau compte au
-lanceur pour tous ses enfants.
-
-Ce 0,0 % vaut pour une passe **verte du premier coup**, et il faut le dire, parce qu'une
-relance change l'arithmétique : elle *remplace* le résultat de la passe 1, si bien que le
-fichier ne compte plus qu'une fois dans la somme alors que le noyau a vu tourner les deux
-exécutions. Mesuré sur deux passes ne différant que par ce point : **0,1 % d'écart sans
-relance, 48,7 % avec** — et la différence valait exactement le CPU de l'exécution écartée.
-La sonde ne perdait rien ; c'était la soustraction qui était mauvaise. La ligne de contrôle
-réconcilie donc désormais les deux, nomme le CPU écarté, et n'affiche plus qu'un **écart
-résiduel** — sans quoi elle aurait crié au loup à chaque passe comportant un rouge, et on
-aurait cessé de la lire. La mesure CPU répond du même coup à la question que le mur
-laissait ouverte sur `recherche.test.js` : ce fichier ne dépasse aucun budget de travail,
-il **brûle plus de CPU que de mur** — 21 min contre 15 — parce qu'il occupe plus d'un cœur.
-S'il rougit sous charge, ce n'est donc pas le garde du lanceur qui le tue, c'est
-`test('budget — chaque fragment reste sous BUDGET_MS')`, qui mesure au `performance.now()`
-réel. **Et cette assertion-là doit rester murale** : elle teste une promesse faite à
-l'utilisateur, et le temps d'attente d'un humain ne se compte pas en cycles. La métrique
-du lanceur et celle du produit n'ont pas à être la même — c'est exactement pourquoi
-l'étiquette « vert seul, rouge sous charge » continue d'exister à côté des deux bornes.
-
-**La démonstration, mesurée plutôt qu'affirmée.** Le même sous-ensemble de quatre fichiers,
-même parallélisme, même table — d'abord sur machine libre, puis sous huit brûleurs occupant
-les huit cœurs (charge 4,2 contre 18,0) :
-
-| fichier | mur au calme → sous charge | | CPU au calme → sous charge | |
-| --- | --- | --- | --- | --- |
-| `titres` | 194 s → 303 s | **×1,56** | 198 s → 190 s | ×0,96 |
-| `elegance` | 194 s → 314 s | **×1,62** | 198 s → 206 s | ×1,04 |
-| `cible` | 194 s → 314 s | **×1,62** | 193 s → 203 s | ×1,05 |
-| `curseurs` | 223 s → 360 s | **×1,61** | 232 s → 242 s | ×1,04 |
-| **cumul** | 805 s → 1 291 s | **×1,60** | 821 s → 841 s | **×1,02** |
-
-Le mur enfle de **61 %**, le CPU de **2,4 %**. La dispersion dit le reste : les quatre
-ratios muraux tiennent dans une bande étroite — 1,56 à 1,62 — parce qu'ils ne mesurent pas
-les fichiers, ils mesurent la machine ; les ratios CPU tiennent entre 0,96 et 1,05,
-c'est-à-dire du bruit. C'est ce résultat, et lui seul, qui autorise une table **commitée** :
-elle décrit ce que le travail coûte, et non le jour où on l'a relevée.
-
-Cinq règles, et elles se tiennent :
-
-* **Un seul niveau de parallélisme.** `node --test` a le sien (`--test-concurrency`, qui
-  compte des fichiers) ; on lui passe `--test-concurrency=1` et c'est le lanceur, et lui
-  seul, qui ouvre les voies — `availableParallelism() / 2`, au moins une, réglable par
-  `TEST_LENT_PARALLELISME`. Sans ça, les deux niveaux se multiplieraient.
-* **Tout fichier rouge est rejoué SEUL**, rien d'autre en vol. S'il passe alors, il compte
-  vert mais il est **signalé** « vert seul, rouge sous charge » dans le bilan : c'est une
-  information sur la machine, pas un défaut à cacher. S'il rougit encore, c'est un vrai
-  échec et le code de sortie est non nul. Un fichier dont le bilan TAP est illisible —
-  processus tué, sortie tronquée — est un échec, jamais un succès par défaut.
-  Cet isolement est strict, et il coûte : les relances n'attendent pas seulement qu'une
-  voie se libère, mais que **toute** la passe soit finie. C'est le prix de l'étiquette —
-  rejouer un rouge pendant que d'autres fichiers tournent ne permettrait plus d'écrire
-  « vert seul » sans mentir.
-* **Chaque fichier a DEUX bornes, et le verdict dit laquelle a sauté.** Le budget de
-  **travail** se compte en **temps CPU** — `4 × sa référence CPU` (table
-  `scripts/durees-lentes.json`), avec un plancher de 3 min. C'est ce que le fichier
-  coûte, et cela ne bouge pas quand la machine se remplit : mesuré en temps écoulé, le
-  même fichier enfle de 1,3× à 2,7× selon ce qui tourne à côté, et on compensait ce
-  gonflement à la main. Le filet **anti-blocage**, lui, reste **mural** et plus large —
-  `8 × sa référence murale`, plancher 5 min — parce qu'un test arrêté sur une attente, un
-  verrou ou une socket ne consomme *aucun* CPU : une garde en CPU ne le couperait jamais.
-  Dépasser l'une ou l'autre compte **rouge**, donc part en relance seule — sur une machine
-  vide, où la charge a disparu. Aucune ne pouvait être une valeur unique : du plus court au
-  plus long, ces fichiers s'étalent sur 39×.
-  Le message distingue les deux, et c'est tout l'intérêt : « dépassement du budget CPU »
-  accuse le fichier, qui travaille vraiment plus que sa référence ; « dépassement du délai
-  de garde mural (2,0 s) alors qu'il n'a brûlé que 0,2 s de CPU » accuse une **attente**.
-  Sans cette distinction, on diagnostique de travers.
-* **Les plus longs partent en premier.** La queue d'une passe parallèle est dictée par son
-  fichier le plus long ; le lancer en dernier ajoute sa durée entière au temps au mur.
-  L'ordre de **lancement** suit donc les durées décroissantes — c'est un changement visible
-  dans le journal — tandis que le **bilan reste trié par chemin**.
-* **La reprise se demande.** Les fichiers verts sont notés au fil de l'eau dans
-  `.test-lent-etat.json` (ignoré par git) ; `--reprise` (ou `TEST_LENT_REPRISE=1`) repart
-  de là après une interruption. Une exécution normale repart **de zéro** : une reprise
-  implicite mentirait sur ce qui a été vérifié.
-
-Et jamais plus de soixante secondes sans nouvelles : quand rien ne tombe, une ligne de vie
-dit ce qui est encore en vol, depuis combien de temps, combien de tests y sont déjà faits,
-**combien de CPU il a brûlé**, et quels budgets lui restent — un dépassement devient
-prévisible au lieu d'être brutal. Le CPU en vol est l'information qui manquait le plus :
-un fichier à trente minutes de mur et deux minutes de CPU n'est pas lent, il attend.
-
-```
-[  2:15] en vol   src/recherche/tests/lents/recherche.test.js — 2 min 15 s, 0 test fait, 2 min 18 s de CPU, budget CPU 1 h 30 min · mur 2 h 00 min
-```
-
-Le verdict, lui, ne dépend ni de l'ordre ni du parallélisme : chaque fichier a son propre
-processus, donc son propre état. `node scripts/test-lent.mjs --aide` liste les options.
-
-**Comment le CPU est mesuré**, puisque Node n'expose pas le `rusage` de ses enfants. Le
-fichier est lancé sous un `sh` de service dont le builtin `times` rend, à la sortie, le CPU
-cumulé de toute la descendance — exact, sans échantillonnage. En parallèle, `/proc` est
-échantillonné à la seconde : c'est la seule source *pendant* la course, donc la seule qui
-puisse armer la garde CPU. Les deux sont des **minorants** — `times` rate une descendance
-non moissonnée quand le garde a tué le processus, l'échantillon rate le CPU brûlé depuis le
-dernier tic — et le lanceur retient la plus grande, en disant laquelle. Il faut l'**arbre**
-et pas le fils : `node --test` isole chaque fichier dans un petit-fils, et le fils direct
-affichait `0,11 s` de CPU pendant que son petit-fils en brûlait `2 536`. Le bilan recoupe
-enfin sa somme avec ce que le noyau compte au lanceur (`cutime`/`cstime`), deux chemins
-indépendants sur la même quantité. **Hors Linux**, pas de `/proc` : la garde CPU disparaît,
-le filet mural reste seul, et la sortie comme la table le **disent** — jamais un chiffre
-muet dont on ignore la nature.
-
-**Sur un runner nettement plus lent que la machine du relevé**, relevez les facteurs —
-`TEST_LENT_FACTEUR_CPU=8` et `TEST_LENT_FACTEUR_MUR=16` — plutôt que de subir des
-dépassements. Le temps CPU est insensible à la *charge* d'une machine, pas à la *vitesse*
-de son processeur : les deux bornes montent ensemble. Les anciens noms
-(`TEST_LENT_FACTEUR_DELAI`, `TEST_LENT_PLANCHER_DELAI`, `TEST_LENT_DELAI_INCONNU`) restent
-acceptés, et chacun fait dire une ligne rappelant sur quelle borne il retombe — jamais en
-silence. Une vague de « dépassement du délai de garde mural » est un signe de machine, pas
-de code, et le bilan le dit lui-même quand tous les échecs sont de ce type ; une vague de
-« dépassement du budget CPU » dit l'inverse, et relever le facteur ne ferait que la cacher.
-
-La table se régénère par `node scripts/test-lent.mjs --releve-durees`, jamais
-automatiquement. Elle porte ses conditions de relevé (date, cœurs, charge, d'où vient son
-CPU) **et un champ `metrique` qui dit en toutes lettres en quoi ses nombres sont
-libellés** : une table dont il faut deviner l'unité est exactement ce qui a permis, des
-semaines durant, de prendre une métrique mal choisie pour une fatalité de la mesure.
+Les balayages historiques restent disponibles avec `bun run test:exhaustif`.
+Cette commande passe par `scripts/test-lent.mjs`, annonce le coût CPU de chaque
+fichier et permet la reprise avec `--reprise`. Elle sert aux enquêtes ciblées,
+plus à la validation ordinaire : son relevé du 17 septembre comptait 6 614 s
+de CPU pour 2 615 s au mur sur quatre voies. `monotonie` (2 521 s) et
+`recherche` (1 268 s) représentaient à eux seuls 57 % du travail. Ces tests
+refont des recherches à plusieurs crans, parfois avec le filet temporel
+désactivé, et certains compilent chaque voie trouvée. En septembre, une passe
+a aussi atteint la limite de mémoire de Node, environ 4 Go, dans `cible-mot`.
+Les balayages restent utiles pour explorer un changement profond du moteur ;
+les règles qui se testent directement résident dans la suite rapide.
 
 `bun run logo` appelle `src/gfx/logo-jost-trace.py` (fontTools requis). Il réécrit quatre
 fichiers : le banc d'essai `src/gfx/_logo-test.html`, `favicon.svg`, et — entre les repères
