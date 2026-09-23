@@ -2159,6 +2159,16 @@ function couronnerLesTriptyques(steps, tokens, aReveler, langue, cible = CIBLE_D
   // visées par les suivantes. À place égale, du dernier triptyque au premier,
   // pour que l'ordre de lecture reste celui des séries.
   for (const p of [...poses].sort((a, b) => b.apres - a.apres || b.rang - a.rang)) {
+    const fermeture = steps[p.apres].ops.find((o) => o.op === 'move' && o.sansReflow);
+    if (fermeture) {
+      // Entre deux calculs, le constat accompagne le retrait des accolades.
+      // Les sommes sont terminées et la ligne est encore immobile : aucune
+      // pause supplémentaire ne doit interrompre sa redistribution suivante.
+      steps[p.apres].ops.push({
+        op: 'horns', targets: [...p.trio], at: fermeture.at, dur: fermeture.dur,
+      });
+      continue;
+    }
     steps.splice(p.apres + 1, 0, {
       id: `s${steps.length}`,
       title: MOTS.couronner[langue],
@@ -2221,7 +2231,8 @@ function reglerLesCornes(steps) {
     if (ops.length !== 1 || ops[0].op !== 'horns') continue;
     couronnements.push({ index: i, op: ops[0] });
   }
-  if (!couronnements.length) return null;
+  if (!couronnements.length) return steps.some((s) => s.ops.some((o) => o.op === 'horns'))
+    ? jalonsDesCornes({ steps }) : null;
 
   // ── 1. jusqu'où chaque couronnement peut-il remonter ? ───────────────────
   for (const c of couronnements) {
@@ -3503,6 +3514,7 @@ export function validerFormeOp(o) {
     case 'highlight': case 'dim': case 'drop': case 'pulse': case 'group':
       return cibles(o.targets) ? null : '« targets » manquant ou mal formé';
     case 'move':
+      if (o.sansReflow !== undefined && typeof o.sansReflow !== 'boolean') return '« sansReflow » doit être un booléen';
       // Le CHEMIN, quand la ligne droite ment : un miroir se joue en ellipse,
       // sans quoi deux jetons qui échangent leurs places se traversent et rien
       // ne dit lequel est allé où (`visuel/primitives/ellipse.js`).
@@ -3553,6 +3565,7 @@ export function validerFormeOp(o) {
       return o.to === undefined || tok(o.to) ? null : '« to » doit être {id, text}';
     }
     case 'substitute': {
+      if (o.sansReflow !== undefined && typeof o.sansReflow !== 'boolean') return '« sansReflow » doit être un booléen';
       if (!Array.isArray(o.pairs) || !o.pairs.length) return '« pairs » manquant';
       for (const p of o.pairs) {
         const source = chaine(p.target) || (Array.isArray(p.targets) && p.targets.length === 1 && chaine(p.targets[0]));

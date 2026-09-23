@@ -261,7 +261,7 @@ test('★ mrdE sur Didier Raoult : chaque temps joue tous ses paquets ensemble, 
     const signes = s.ops.filter((o) => o.op === 'insertOperators');
     assert.equal(signes.length, 1, `${s.caption} : un seul écartement pour tous les signes`);
     assert.equal(signes[0].lots.length, sommes.length);
-    const fin = s.ops[s.ops.length - 1];
+    const fin = s.ops.filter((o) => o.op !== 'horns').at(-1);
     assert.ok(fin.op === 'move' && fin.retirer === true && fin.attendre > 0,
       `${s.caption} : la fin commune — les résultats posés, PUIS les accolades s'effacent et la ligne se referme`);
   }
@@ -397,4 +397,35 @@ test('★ mrn : les deux rythmes compilent sans concurrence et sans yoyo d’acc
   // Et l'arithmétique est la même des deux côtés : mêmes jetons, mêmes textes.
   const vus = (r) => compile(scenario, { rythme: r }).nodes.map((n) => `${n.id}=${n.text}`).sort();
   assert.deepEqual(vus('simultane'), vus('pasAPas'));
+});
+
+test('les phases de mrdE se raccordent en une frame de découpe et un seul mouvement bref', () => {
+  const saisie = 'Didier Raoult';
+  const sc = construireScenario(approcheSur(saisie, ['fmaj', 'tca', 'mas', 'mrdE']), { saisie });
+  const fermetures = sc.steps.filter((s) => s.ops.some((o) => o.op === 'move' && o.sansReflow));
+  assert.ok(fermetures.length >= 7, 'raccords entre niveaux, réductions et passes');
+  const ref = compile(sc);
+  const resultat = ref.scene.flow.map((id) => ref.scene.get(id).text);
+  for (const rythme of ['pasAPas', 'simultane']) for (const speed of [1, 10]) {
+    const tl = compile(sc, { rythme, speed });
+    assert.deepEqual(tl.warnings, []);
+    for (const fermeture of fermetures) {
+      const i = sc.steps.indexOf(fermeture);
+      let j = i + 1;
+      while (sc.steps[j].ops.every((o) => o.op === 'substitute')) {
+        const ecriture = tl.steps[j];
+        assert.ok(ecriture.duration <= 16.01, `la découpe ${ecriture.id} réserve ${ecriture.duration} ms (${rythme}, x${speed})`);
+        assert.equal(tl.anims.filter((a) => a.prop === 'translate' && a.delay >= ecriture.t0 && a.delay < ecriture.t1 && !a.id.startsWith('@')).length, 0,
+          'les chiffres se séparent sur place sans redistribuer les voisins');
+        j++;
+      }
+      const suivante = tl.steps[j];
+      const debut = tl.steps[i].t1;
+      const premiereAccolade = tl.anims.find((a) => a.prop === 'strokeDashoffset' && a.delay >= suivante.t0 && a.delay < suivante.t1);
+      assert.ok(premiereAccolade, `la phase ${suivante.id} ${suivante.t0}-${suivante.t1} trace ses accolades (${rythme}, x${speed})`);
+      assert.ok(premiereAccolade.delay - debut <= 16 + 150 / speed + 0.01,
+        `${rythme} : ${premiereAccolade.delay - debut} ms avant l’accolade suivante`);
+    }
+    assert.deepEqual(tl.scene.flow.map((id) => tl.scene.get(id).text), resultat);
+  }
 });

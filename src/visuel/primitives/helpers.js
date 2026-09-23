@@ -1174,7 +1174,7 @@ export function tracerAccolade(ctx, ids, spec = {}) {
   ctx.place(id, { x: box.cx, y: anchorY, w: box.w });
   ctx.anim({
     id, prop: 'strokeDashoffset', from: 100, to: 0,
-    at: at + dur * 0.2, dur: dur * 0.6, ease: EASE.fade,
+    at: at + (spec.signes ? 0 : dur * 0.2), dur: dur * 0.6, ease: EASE.fade,
   });
 
   const crees = [id];

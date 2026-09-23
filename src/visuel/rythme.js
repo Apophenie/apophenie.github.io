@@ -244,6 +244,7 @@ function seCroisent(a, b) {
  *   derniers caractères — exactement le chevauchement qu'on vient d'interdire.
  */
 export function etendueDe(op) {
+  if (op.op === 'partition' && op.visible === false) return 0;
   const dur = op.dur ?? DEFAULT_DUR[op.op] ?? 0;
   const stagger = op.stagger ?? 0;
   if (!stagger) return dur;

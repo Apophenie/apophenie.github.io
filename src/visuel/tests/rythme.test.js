@@ -30,6 +30,17 @@ import { DEFAULT_DUR } from '../constants.js';
 
 setGlyphes(GLYPHES, 'fixtures/glyphes.js');
 
+test('un découpage invisible ne retarde pas le calcul dans les deux modes', () => {
+  const partition = { op: 'partition', groups: [{ id: 'g', targets: ['a', 'b'] }], visible: false };
+  assert.equal(etendueDe(partition), 0);
+  for (const rythme of RYTHMES) {
+    const step = troisAdditions().steps[0];
+    const sans = ordonnerLesOps(step, { rythme });
+    const avec = ordonnerLesOps({ ...step, ops: [partition, ...step.ops] }, { rythme });
+    assert.deepEqual(avec.slice(1).map((e) => e.at), sans.map((e) => e.at));
+  }
+});
+
 /* ── le cas d'école : plusieurs additions dans un même step ──────────────
  *
  * C'est la forme exacte de `moteur/transformations/mappeurs.js ›

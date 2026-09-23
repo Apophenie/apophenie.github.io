@@ -36,7 +36,7 @@ import {
   tokenSpec, espacementDe, exigerPoint, reserverLaPlace, occuperLaPlace, rangDansLaPlace, ouvrirLaPlace, anticiperLaPlace,
   suivreSesSources,
 } from './helpers.js';
-import { EASE, colorForKind } from '../constants.js';
+import { EASE, colorForKind, MIN_STEP_DURATION } from '../constants.js';
 import { charCenter } from '../layout.js';
 import { fail } from '../errors.js';
 
@@ -202,7 +202,10 @@ export function plan(ctx) {
   // 2. FLIP des voisins vers le layout d'arrivée. Sous une accolade, ce premier
   //    reflow ne prend que la moitié du temps : la seconde est pour la remontée.
   const fermeture = sousAccolade ? ctx.dur * 0.44 : ctx.dur;
-  ctx.reflow({ at: 0, dur: fermeture, ease: EASE.move });
+  if (ctx.op.sansReflow) {
+    if (sousAccolade || jobs.some((j) => !j.eclatement)) fail(`${ctx.where}sansReflow exige un éclatement sur place`);
+    ctx.occupy(Math.max(ctx.dur, MIN_STEP_DURATION));
+  } else ctx.reflow({ at: 0, dur: fermeture, ease: EASE.move });
 
   // 3. crossfade, décalé token par token.
   let rang = 0;

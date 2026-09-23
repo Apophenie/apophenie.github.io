@@ -2842,6 +2842,36 @@ function etapesEnLargeur(chantiers, { ctx, titre, prefixe }) {
     [...parNiveau.keys()].sort((a, b) => a - b)
       .forEach((n) => steps.push(etapeDAdditions(parNiveau.get(n), `s_${ctx.cle}_${prefixe}t${t}n${n}`)));
   }
+  return raccorderPhases(steps);
+}
+
+/** Après les accolades, une seule redistribution courte prépare la suite. */
+function raccorderPhases(steps) {
+  for (let i = -1; i < steps.length; i++) {
+    const fermeture = steps[i]?.ops.at(-1);
+    if (i >= 0 && (fermeture?.op !== 'move' || !fermeture.retirer)) continue;
+    let j = i + 1;
+    const ecritures = [];
+    while (j < steps.length && steps[j].ops.length === 1 && steps[j].ops[0].op === 'substitute') {
+      ecritures.push(steps[j]);
+      j++;
+    }
+    const suite = steps[j];
+    const signes = suite?.ops.find((o) => o.op === 'insertOperators' && o.lots);
+    if (!signes || !suite.ops.some((o) => o.op === 'sum' && o.garderPlace)) continue;
+    if (!fermeture && !ecritures.length) continue;
+    if (fermeture) {
+      Object.assign(fermeture, { sansReflow: true, attendre: 300, dur: 480 });
+      steps[i].hold = 0;
+    }
+    for (const ecriture of ecritures) {
+      Object.assign(ecriture.ops[0], { sansReflow: true, dur: 16 });
+      ecriture.hold = 0;
+    }
+    const ancien = signes.dur ?? DUREE_OP.insertOperators;
+    signes.dur = 150;
+    for (const o of suite.ops) if (o !== signes && typeof o.at === 'number' && o.at >= ancien) o.at -= ancien - 150;
+  }
   return steps;
 }
 
@@ -10401,7 +10431,7 @@ function operateurRedecoupageExact(avecNeuf, garderJustes = false) {
             glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
             ids = passe.paquets.flatMap((p, j) => idsSortieExacte(ctx, q, j, p, ids));
           });
-          return steps;
+          return raccorderPhases(steps);
         },
       }, avecNeuf);
     })();

@@ -144,7 +144,7 @@ export function plan(ctx) {
     //   se referme d'abord sur lui, PUIS la ligne se referme pendant qu'il s'efface
     //   (`commun.js › retirerAccolade`).
     if (typeof op.attendre === 'number' && op.attendre > 0) {
-      const attente = Math.min(op.attendre, ctx.dur * 0.5);
+      const attente = Math.min(op.attendre / ctx.speed, op.sansReflow ? ctx.dur : ctx.dur * 0.5);
       refermerSurLesResultats(ctx, { at: 0, dur: attente });
       bouge.at = attente;
       bouge.dur = Math.max(1, ctx.dur - attente);
@@ -157,10 +157,13 @@ export function plan(ctx) {
          l'accolade s'efface, et la ligne se réajuste. Une pièce déjà effacée
          par son geste (`data.retiree`) ne l'est pas deux fois. */
     if (op.retirer === true) {
-      retirerLesAccolades(ctx, { at: bouge.at, dur: Math.max(1, bouge.dur * 0.6) });
+      retirerLesAccolades(ctx, { at: bouge.at, dur: Math.max(1, bouge.dur * (op.sansReflow ? 1 : 0.6)) });
     }
     rendreLesPlaces(ctx);
   }
+  // La phase suivante prépare les signes et referme les trous en un seul
+  // mouvement. Ici, les résultats restent aux places où on vient de les lire.
+  if (op.sansReflow) { ctx.occupy(ctx.dur); return; }
   const moved = ctx.reflow(bouge);
   // Ce qu'une accolade embrasse vient peut-être de changer de largeur : elle
   // suit, sinon elle désignerait autre chose que ce qu'elle a promis.
