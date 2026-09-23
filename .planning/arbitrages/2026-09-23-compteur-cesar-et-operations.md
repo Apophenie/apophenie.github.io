@@ -59,3 +59,17 @@ Après le raccord du titre au déplacement du décor, les 51 tests ciblés
 et la cible restent solidaires de la table quand une saisie longue défile.
 Les cinq builds finaux réussissent. Une saisie de 55 lettres compile sans
 avertissement dans les deux modes.
+
+## Pointeur au contact des cases
+
+Le pointeur est affiné et allongé jusqu'au bord inférieur de la réglette.
+Le libellé est légèrement aligné pour placer sa pointe sur une jointure de
+l'alphabet contigu. La jointure pousse la pointe pendant son passage :
+l'angle suit son déplacement horizontal jusqu'au dégagement sous la case,
+puis le pointeur revient en place.
+
+Son fondu s'achève entièrement avant le recentrage de « César » et du nombre.
+Les tests des 25 décalages contrôlent le contact géométrique et cet ordre de
+retrait. Les 51 tests ciblés passent ; le contact est aussi vérifié dans
+Chromium sur le César 4.
+Les cinq builds passent après cet ajustement.

@@ -17,14 +17,26 @@ export function placerCibleCesar(ctx, nombre, x, y) {
   ctx.anim({ id: nombre, prop: 'scale', to: 0.5, at: 0, dur: ctx.dur * 0.5 });
 }
 
-export function preparerCompteur(ctx, nombre, x, y) {
+export function preparerCompteur(ctx, nombre, x, y, geo) {
   const { n, nom, positions, largeurs, gap, av } = disposition(ctx, nombre, x, y);
+  // Aligner la pointe sur une jointure de l'alphabet encore contigu. Tout
+  // le libellé suit cet ajustement pour conserver ses espacements.
+  const bordGauche = x - geo.cols * geo.cellW / 2;
+  const jointure = bordGauche + Math.round((positions[1].x - bordGauche) / geo.cellW) * geo.cellW;
+  const ajustement = jointure - positions[1].x;
+  for (const p of positions) p.x += ajustement;
+  const distanceBord = ctx.metrics.fontSize * 0.52;
+  const longueur = distanceBord + ctx.metrics.fontSize * 0.065;
+  const demiLargeur = ctx.metrics.fontSize * 0.085;
   ctx.place(nombre, positions[4], { at: 0, dur: ctx.dur * 0.2 });
   const ids = ['nom', 'pointeur', 'compteur', 'egalite'].map((role) => ctx.gensym(`cesar-${role}`));
   ids.forEach((id, i) => {
     ctx.scene.create(i === 1 ? {
       id, role: 'bracket', inFlow: false, w: largeurs[i],
-      data: { d: 'M 0 -14 C -3 -8 -9 -3 -9 3 A 9 9 0 1 0 9 3 C 9 -3 3 -8 0 -14 Z', cesarPointeur: true },
+      data: {
+        d: `M 0 ${-longueur} Q ${-demiLargeur} -5 ${-demiLargeur} 1 A ${demiLargeur} ${demiLargeur} 0 1 0 ${demiLargeur} 1 Q ${demiLargeur} -5 0 ${-longueur} Z`,
+        cesarPointeur: true, longueur, distanceBord, pas: geo.cellW,
+      },
       base: { opacity: 0, fill: ctx.palette.gold, stroke: ctx.palette.gold, rotate: 0 },
     } : {
       id, role: 'label', text: [nom, '', '0', '!='][i], inFlow: false, w: largeurs[i],
@@ -45,15 +57,26 @@ export function compterCrans(ctx, compteur, n, debut, course, ouverture) {
   ctx.anim({ id: pointeur, prop: 'opacity', to: 1, at: Math.max(0, debut - ctx.dur * 0.12), dur: ctx.dur * 0.12 });
   ctx.discrete({ id: courant, channel: 'text', at: debut, dur: course,
     render: (p) => String(Math.min(n, Math.floor(p * n + 1e-7))) });
-  for (let i = 0; i < n; i++) ctx.anim({ id: pointeur, prop: 'rotate', values: [0, -28, 12, 0],
-    offsets: [0, 0.65, 0.85, 1], at: debut + i * cran, dur: cran, ease: EASE.linear });
+  const { longueur, distanceBord, pas } = ctx.scene.get(pointeur).data;
+  const angle = Math.acos(distanceBord / longueur) * 180 / Math.PI;
+  const courseContact = Math.sqrt(longueur ** 2 - distanceBord ** 2);
+  const relache = courseContact / pas;
+  // Tant que le bord pousse la pointe, son abscisse suit exactement la case.
+  // Elle se libère quand elle atteint le dessous de la réglette, puis revient.
+  const angles = Array.from({ length: 9 }, (_, i) => -Math.asin(courseContact * i / 8 / longueur) * 180 / Math.PI);
+  const instants = angles.map((_, i) => relache * i / 8);
+  angles.push(angle * 0.18, 0, 0);
+  instants.push(relache + (1 - relache) * 0.4, relache + (1 - relache) * 0.75, 1);
+  for (let i = 0; i < n; i++) ctx.anim({ id: pointeur, prop: 'rotate', values: angles,
+    offsets: instants, at: debut + i * cran, dur: cran, ease: EASE.linear });
   const arrivee = debut + course;
   ctx.discrete({ id: egalite, channel: 'text', at: arrivee, dur: 1 / ctx.speed, render: () => '=' });
   const fin = arrivee + ouverture;
   for (const id of [pointeur, egalite, nombre]) ctx.anim({ id, prop: 'opacity', to: 0, at: fin, dur: ctx.dur * 0.16 });
+  const range = fin + ctx.dur * 0.16;
   const wNom = [...nom].length * av, wNombre = String(n).length * av;
   const gauche = x - (wNom + gap + wNombre) / 2;
-  ctx.place(nomId, { x: gauche + wNom / 2, y }, { at: fin, dur: ctx.dur * 0.2 });
-  ctx.place(courant, { x: gauche + wNom + gap + wNombre / 2, y }, { at: fin, dur: ctx.dur * 0.2 });
-  return fin + ctx.dur * 0.24;
+  ctx.place(nomId, { x: gauche + wNom / 2, y }, { at: range, dur: ctx.dur * 0.2 });
+  ctx.place(courant, { x: gauche + wNom + gap + wNombre / 2, y }, { at: range, dur: ctx.dur * 0.2 });
+  return range + ctx.dur * 0.24;
 }

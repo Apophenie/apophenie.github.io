@@ -40,6 +40,24 @@ test('chaque César compte tous ses crans dans le même sens avant toute convers
     const hauts = tl.nodes.filter((v) => v.id.includes(':haut:'));
     const p = hauts.map((v) => lire.valeur(v.id, 'translate', compte.at));
     for (let k = 1; k < p.length; k++) assert.ok(Math.abs(p[k].x - p[k - 1].x - hauts[k].w) < 0.1, 'alphabet contigu pendant les crans');
+    const pivot = lire.valeur(pointeur.id, 'translate', compte.at);
+    const pas = pointeur.data.pas;
+    const jointure = (pivot.x - (p[0].x - pas / 2)) / pas;
+    assert.ok(Math.abs(jointure - Math.round(jointure)) < 0.001, 'la pointe part sur une jointure');
+    const oscillation = tl.anims.find((a) => a.id === pointeur.id && a.prop === 'rotate');
+    const contact = oscillation.keyframes[8];
+    const radians = contact.value * Math.PI / 180;
+    const bordParcouru = pas * contact.offset;
+    assert.ok(Math.abs(pointeur.data.longueur * Math.sin(radians) + bordParcouru) < 0.001,
+      'la pointe suit le bord de la case pendant la poussée');
+    assert.ok(Math.abs(pointeur.data.longueur * Math.cos(radians) - pointeur.data.distanceBord) < 0.001,
+      'elle se libère au bord inférieur de la table');
+    const fondu = tl.anims.find((a) => a.id === pointeur.id && a.prop === 'opacity' && a.keyframes.at(-1).value === 0);
+    const nom = tl.nodes.find((v) => v.data?.cesarRole === 'nom');
+    const rangement = tl.anims.find((a) => a.id === nom.id && a.prop === 'translate');
+    assert.ok(rangement.delay >= fondu.delay + fondu.duration - 0.001,
+      'César attend la disparition complète du pointeur');
+    assert.ok(lire.valeur(pointeur.id, 'opacity', rangement.delay) < 0.001);
     assert.ok(lire.valeur(pointeur.id, 'opacity', vol.delay) < 0.01);
     assert.ok(lire.valeur(egalite.id, 'opacity', vol.delay) < 0.01);
     assert.ok(lire.valeur(compteur.id, 'opacity', vol.delay) > 0.9);

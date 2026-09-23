@@ -278,7 +278,7 @@ export function plan(ctx) {
     });
     let compteur = null;
     if (op.preuve && deployer) {
-      compteur = preparerCompteur(ctx, op.preuve, boardPos.x, boardPos.y + geo.height / 2 + ctx.metrics.fontSize * 0.52);
+      compteur = preparerCompteur(ctx, op.preuve, boardPos.x, boardPos.y + geo.height / 2 + ctx.metrics.fontSize * 0.52, geo);
       ctx.scene.get(board).data.preuveTitre = [op.preuve, ...compteur.ids];
     }
     if (bandeSeparee) t0 = (geo.sens === 1 ? poserBandeCesar : poserBande)(ctx, { board, boardPos, geo, deployer, t0, compteur });
