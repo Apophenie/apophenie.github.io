@@ -290,7 +290,8 @@ export function compile(scenario, options = {}) {
       && precedente.ops[0].op === op.op
       && (op.op === 'table' || op.op === 'keyboard'
         ? cleDecor(precedente.ops[0]) === cleDecor(op) && memeFenetre([...precedente.ops, op])
-        : precedente.entrees.length < combienTiennent(placeEncarts))
+        : (op.op === 'sevenSeg' || op.op === 'fourteenSeg'
+          || precedente.entrees.length < combienTiennent(placeEncarts)))
       && emp instanceof Set && precedente.ops.every((autre) => {
         const pris = empreinteConversion(autre);
         return pris instanceof Set && [...emp].every((id) => !pris.has(id));
@@ -377,8 +378,9 @@ export function compile(scenario, options = {}) {
       ? (step.ops || []).map((op, i) => ({ op, i, at: 0, fadeAt: op.fadeAt }))
       : ordonnerLesOps(step, { rythme });
 
+    const vagueSegments = enVague && ['sevenSeg', 'fourteenSeg'].includes(step.ops[0].op);
     let encarts = null;
-    if (enVague && !decorVague && !zones) {
+    if (enVague && !decorVague && !zones && !vagueSegments) {
       const { x } = rangerLesAfficheurs(step.ops.map((op) => scene.pos(op.target).x), {
         ...placeEncarts,
         cadre: { min: placeEncarts.cadre.min - panFocus.x, max: placeEncarts.cadre.max - panFocus.x },
@@ -400,6 +402,9 @@ export function compile(scenario, options = {}) {
       const ctx = {
         op,
         encarts,
+        rythme,
+        vagueSegments,
+        nombreDansVague: step.ops.length,
         decorVague,
         rangVague: i,
         scene,

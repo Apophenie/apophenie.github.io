@@ -91,13 +91,12 @@ function fenetres(step, rythme) {
 /* ═════════════════ 1. La même arithmétique dans les deux modes ═══════════ */
 
 /**
- * ★ **LE MODE NE CHANGE QUE L'ORDONNANCEMENT.**
+ * ★ **LE MODE NE CHANGE PAS L'ARITHMÉTIQUE.**
  *
  * C'est la contrainte la plus dure du chantier, et celle qu'un test doit tenir
- * plutôt qu'un commentaire : « le mode ne doit changer QUE l'ordonnancement et
- * la disposition, jamais l'arithmétique ». On compare donc tout ce qui n'est pas
- * un instant — les jetons et leurs textes, les étapes et leurs titres, et les
- * VALEURS de chaque animation — et on exige l'égalité stricte.
+ * plutôt qu'un commentaire : le décor peut changer (un afficheur central en
+ * pas à pas, les segments sur chaque lettre en simultané), mais pas les jetons
+ * métier, les étapes, leurs titres ou le résultat final.
  */
 test('★ rythme — les deux modes rendent exactement la même arithmétique', () => {
   const cas = { ...SCENARIOS, troisAdditions: troisAdditions() };
@@ -106,9 +105,9 @@ test('★ rythme — les deux modes rendent exactement la même arithmétique', 
     const sim = compile(scenario, { rythme: 'simultane' });
 
     assert.deepEqual(
-      sim.nodes.map((n) => [n.id, n.text, n.role]),
-      pas.nodes.map((n) => [n.id, n.text, n.role]),
-      `${nom} : les jetons diffèrent d'un mode à l'autre`);
+      sim.nodes.filter((n) => !n.id.startsWith('@')).map((n) => [n.id, n.text, n.role]),
+      pas.nodes.filter((n) => !n.id.startsWith('@')).map((n) => [n.id, n.text, n.role]),
+      `${nom} : les jetons métier diffèrent d'un mode à l'autre`);
     assert.deepEqual(
       sim.steps.map((st) => [st.id, JSON.stringify(st.title)]),
       pas.steps.map((st) => [st.id, JSON.stringify(st.title)]),

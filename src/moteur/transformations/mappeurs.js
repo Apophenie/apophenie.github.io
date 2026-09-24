@@ -11,12 +11,11 @@
  *
  * - **`sevenSeg`** (`m7`, `m7F`), **`fourteenSeg`** (`m14`, `m14F`) et
  *   **`countStrokes`** (`mtrc`…`mbob` — traits,
- *   extrémités, boucles) partagent une seule grammaire (`src/visuel/primitives/
- *   encart.js`), et l'émission est la même : **un step par jeton**. La lettre
- *   monte dans un encart, y change de police (l'afficheur sept segments, ou son
- *   propre tracé de crayon), un compteur paraît, les segments — ou les traits,
- *   les pointes, les boucles — s'allument **un par un** en faisant monter le
- *   compteur, et le nombre du compteur redescend remplacer la lettre.
+ *   extrémités, boucles) émettent **un step par jeton**. Le comptage des tracés
+ *   se joue dans un encart. Les afficheurs à segments partagent un encart centré
+ *   en pas à pas ; en simultané, chaque lettre devient son afficheur sur place.
+ *   Segments, traits, pointes ou boucles s'allument **un par un** avec un compteur,
+ *   puis le nombre prend la place de la lettre.
  *   C'est l'exigence de CONTRACTS §0.3 : « ce que le spectateur voit à l'écran
  *   est, littéralement, ce qui a été compté ». Les tables de comptage
  *   (`tables/derivees.js`) et le tracé animé sortent du même
@@ -4509,10 +4508,8 @@ function parLettre(fn) {
  * Les primitives dédiées travaillent **jeton par jeton** — `target`, pas
  * `pairs` : une op par lettre, pas une op pour toute la ligne.
  *
- * `sevenSeg` et `countStrokes` MONTRENT le comptage au-dessus de chaque lettre
- * sans rien remplacer : la substitution des lettres par leurs nombres vient dans
- * un SECOND step, sinon les deux animeraient l'opacité des mêmes tokens en même
- * temps.
+ * Les gestes de comptage portent leur nombre de sortie : l'image montrée et la
+ * valeur produite restent ainsi liées dans le même step.
  *
  * `keyboard` émet **un step par jeton** : chaque op anime la caméra (recul,
  * recentrage, retour), et deux claviers dans un même step se contrediraient —

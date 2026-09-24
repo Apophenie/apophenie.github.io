@@ -3,13 +3,10 @@
  *
  * Les deux primitives font le MÊME geste, sur deux afficheurs différents :
  *
- *  1. la lettre **monte dans un encart**, seule, au centre (`encart.js`) ;
- *  2. elle y **change de police** : le glyphe typographique se fond dans
- *     l'afficheur, dont tous les segments sont d'abord éteints, en fantôme —
- *     on voit ce qui *pourrait* s'allumer ;
- *  3. un **compteur** paraît à côté, à zéro ;
- *  4. les segments **s'allument un par un**, et chacun fait monter le compteur ;
- *  5. le nombre du compteur **descend remplacer la lettre** dans la ligne.
+ * En pas à pas, un afficheur centré accueille les lettres l'une après l'autre.
+ * En simultané, chaque lettre se transforme sur sa place en segments, s'estompe,
+ * puis ses segments s'allument avec un compteur juste dessous. Le nombre remonte
+ * sur la ligne après le dernier allumage. Un seul titre annonce toute la vague.
  *
  * Le stagger suit les **traits continus fusionnés** quand `fusion` est demandé,
  * les segments individuels sinon. Ce qui change d'un afficheur à l'autre n'est
@@ -48,12 +45,13 @@
  * `stroke`.
  */
 
-import { tokenSpec } from './helpers.js';
+import { tokenSpec, espacementDe, ancreVue } from './helpers.js';
 import {
   ouvrirEncart, poserCompteur, refermerEncart, replierLaFamille, ENCART,
 } from './encart.js';
 import { decorEnLAir } from './decor.js';
 import { EASE } from '../constants.js';
+import { ONDE_SIMULTANE } from '../rythme.js';
 import { fail } from '../errors.js';
 
 /** Opacité de l'afficheur ÉTEINT — ce qui *pourrait* s'allumer. */
@@ -88,35 +86,17 @@ export function planAfficheur(ctx, modele) {
   }
 
   const T = ctx.dur;
+  if (ctx.rythme === 'simultane' && !ctx.reduced) {
+    planSurPlace(ctx, { src, to, modele, geometrie, canal, on, strokes, fusion, T });
+    return;
+  }
 
-  // ── ★ L'AFFICHEUR SE GARDE D'UNE LETTRE À L'AUTRE ───────────────────────
-  //
-  // « Comme pour les tables ou claviers, pas besoin de l'effacer entre chaque
-  // conversion d'affilée, tu peux garder l'afficheur d'une fois sur l'autre »
-  // (l'auteur). Le DÉCOR — le cadre, son titre, l'afficheur éteint en fantôme
-  // — monte à la première lettre, demeure, et se retire à la dernière ; le
-  // GESTE — l'allumage, le compteur, la substitution — reste entier pour
-  // chacune. C'est mot pour mot le partage de `decor.js`, et l'assemblage pose
-  // les mêmes drapeaux (`mutualiserDecor`, `src/recherche/scenario.js`).
-  //
-  // ★ **LA FAMILLE est celle de ce qu'on MONTRE** : l'afficheur, son régime
-  // (segments comptés un par un, ou traits fusionnés) et le nom sous lequel il
-  // s'annonce. Deux régimes, ce sont deux dessins — les segments n'ont même pas
-  // la même forme — et deux méthodes qui ne se nomment pas pareil ne sont pas le
-  // même outil.
-  //
-  // ★ **MAIS LE CADRE, LUI, EST CELUI DE SON CARACTÈRE.** C'était l'inverse :
-  // un seul cadre pour toute la famille, au centre de la vue, dans lequel les
-  // lettres défilaient. Le raisonnement est retourné dans `encart.js` — un
-  // afficheur central ne dit pas QUEL caractère il convertit, et deux
-  // conversions jouées ensemble auraient partagé les mêmes nœuds de segments,
-  // ce qui interdisait purement et simplement le mode « Simultané ».
-  //
-  // La famille reste ce qui se MUTUALISE — elle décide quels cadres forment une
-  // rangée, et c'est elle qui s'en va d'un coup à la dernière conversion.
+  // Le mode pas à pas garde le même cadre, les mêmes segments et le même titre
+  // pendant la série. L'identité de la famille comprend le modèle, le régime
+  // de comptage et le titre ; deux outils distincts ne se partagent rien.
   const titre = typeof ctx.op.titre === 'string' ? ctx.op.titre.trim() : '';
   const famille = `${modele.nom}:${plein ? 'segments' : 'traits'}${titre ? `:${titre}` : ''}`;
-  const cle = `${famille}:${src.id}`;
+  const cle = famille;
   // Le nœud n'est jamais retiré du DOM (CONTRACTS §3.2 règle 7) : « il existe »
   // ne veut pas dire « il est visible ». C'est l'état NOTÉ qui fait foi, comme
   // pour la table et le clavier — sans quoi une seconde série non consécutive
@@ -125,17 +105,14 @@ export function planAfficheur(ctx, modele) {
   const replier = ctx.encarts ? true : ctx.op.retire !== false;
 
   // --- 1. l'encart s'ouvre, la lettre y monte ------------------------------
-  const encart = ouvrirEncart(ctx, src, { at: 0, dur: T * 0.12, titre, cle, famille, deployer });
+  const encart = ouvrirEncart(ctx, src, { at: 0, dur: T * 0.12, titre, cle, famille, deployer, centreVue: true });
 
   // --- 2. changement de police : l'afficheur entier, tous segments éteints --
   const apparition = T * 0.2;
   const segIds = {};
   modele.ORDER.forEach((k) => {
-    // ★ Le segment appartient à SON afficheur, donc à SON caractère — et son
-    // identité le dit, puisque `cle` porte désormais l'un et l'autre. Il
-    // appartenait à la famille entière, et c'était le verrou : deux lettres
-    // converties ensemble auraient allumé le même trait pour deux comptes
-    // différents.
+    // En pas à pas, les segments du cadre central servent tour à tour à chaque
+    // lettre. Le rendu simultané crée des segments distincts sur chaque source.
     const id = `@seg:${cle}:${k}`;
     if (!ctx.scene.has(id)) {
       ctx.scene.create({
@@ -166,7 +143,7 @@ export function planAfficheur(ctx, modele) {
   });
   // La lettre s'efface pendant que l'afficheur paraît : c'est le fondu d'une
   // police vers l'autre, sur le même point d'ancrage.
-  ctx.anim({ id: src.id, prop: 'opacity', to: 0.06, at: apparition, dur: T * 0.1, ease: EASE.fade });
+  ctx.anim({ id: src.id, prop: 'opacity', to: 0, at: apparition, dur: T * 0.1, ease: EASE.fade });
 
   // --- 3 et 4. le compteur, puis l'allumage un par un ----------------------
   const groupes = fusion
@@ -196,12 +173,8 @@ export function planAfficheur(ctx, modele) {
 
   // --- 5. le nombre du compteur remplace la lettre -------------------------
   //
-  // ★ Ce qui s'efface dépend de la suite. La dernière lettre d'une série
-  // referme tout — cadre, titre, afficheur. Les autres ne referment RIEN : les
-  // segments allumés retournent simplement à l'état fantôme, prêts pour la
-  // lettre suivante. Éteindre puis rallumer l'afficheur entier entre deux
-  // conversions ferait un clignotement qui dirait, faussement, qu'on a changé
-  // d'outil.
+  // La dernière lettre referme le cadre. Entre deux lettres, seuls les segments
+  // allumés retournent à l'état fantôme : le titre et le cadre restent visibles.
   refermerEncart(ctx, {
     src,
     to,
@@ -212,12 +185,7 @@ export function planAfficheur(ctx, modele) {
     at: T * 0.86,
     dur: T * 0.14,
   });
-  /* ★ **LA DERNIÈRE CONVERSION EMPORTE TOUTE LA RANGÉE.**
-     `retire` ne concernait qu'un cadre parce qu'il n'y en avait qu'un. Il y en
-     a maintenant un par caractère, et ceux des conversions précédentes sont
-     encore à l'écran s'ils n'ont pas été relayés : les laisser là ferait rester
-     l'outil après que la démonstration en a fini avec lui. L'outil s'en va, et
-     il s'en va en entier. */
+  // La dernière conversion retire le cadre central et tous ses satellites.
   if (replier && !ctx.encarts) replierLaFamille(ctx, famille, { at: T * 0.86, dur: T * 0.14 });
   // Les segments allumés reprennent la couleur de l'éteint — et, si l'afficheur
   // reste en place, l'opacité du fantôme. C'est vrai même quand tout s'efface :
@@ -229,4 +197,85 @@ export function planAfficheur(ctx, modele) {
       ctx.anim({ id: segIds[k], prop: canal, to: ctx.palette.fg3, at: T * 0.9, dur: T * 0.1 });
     }
   }
+}
+
+/** En simultané, chaque lettre devient son propre afficheur, sur la ligne. */
+function planSurPlace(ctx, { src, to, modele, geometrie, canal, on, strokes, fusion, T }) {
+  const pos = ctx.scene.pos(src.id);
+  const fs = ctx.metrics.fontSize;
+  const titre = typeof ctx.op.titre === 'string' ? ctx.op.titre.trim() : '';
+  if (titre && (!ctx.vagueSegments || ctx.rangVague === 0)) {
+    const id = ctx.gensym('titreSegments');
+    const centre = ancreVue(ctx);
+    ctx.scene.create({
+      id, role: 'label', text: titre, inFlow: false,
+      w: ctx.metrics.advance * 0.55 * [...titre].length,
+      data: { scale: 0.6 }, base: { opacity: 0, fill: ctx.palette.fg2 },
+    }, { where: ctx.where });
+    ctx.scene.place(id, { x: centre.x, y: centre.y - fs * 2.35 });
+    ctx.anim({ id, prop: 'opacity', to: 1, at: 0, dur: T * 0.1 });
+    const derniere = ctx.vagueSegments
+      ? (ctx.nombreDansVague - 1) * ONDE_SIMULTANE / ctx.speed : 0;
+    ctx.anim({ id, prop: 'opacity', to: 0, at: derniere + T * 0.88, dur: T * 0.1 });
+  }
+
+  const groupes = fusion
+    ? strokes.map((s) => ({ members: modele.ORDER.filter((k) => on.has(k) && modele.SEGMENTS[k].stroke === s) }))
+    : modele.ORDER.filter((k) => on.has(k)).map((k) => ({ members: [k] }));
+  const segIds = {};
+  for (const k of modele.ORDER) {
+    const id = `@seg:${modele.nom}:${src.id}:${k}`;
+    ctx.scene.create({
+      id, role: 'seg', inFlow: false, w: 0,
+      data: { d: geometrie[k].d, segment: k, scale: 1.05,
+        plein: !fusion, ...(!fusion && modele.largeur ? { width: modele.largeur } : {}) },
+      base: { opacity: 0, [canal]: ctx.palette.fg3 },
+    }, { where: ctx.where });
+    ctx.scene.place(id, pos);
+    segIds[k] = id;
+    // La forme segmentée remplace la lettre à l'endroit même où elle se lit.
+    ctx.anim({ id, prop: 'opacity', to: on.has(k) ? 1 : FANTOME,
+      at: T * 0.12, dur: T * 0.12 });
+    if (on.has(k)) ctx.anim({ id, prop: 'opacity', to: FANTOME,
+      at: T * 0.27, dur: T * 0.09 });
+  }
+  ctx.anim({ id: src.id, prop: 'opacity', to: 0, at: T * 0.12, dur: T * 0.12 });
+
+  const debut = T * 0.4;
+  const cadence = T * 0.4 / Math.max(1, groupes.length);
+  const compteur = `@compteur:${src.id}`;
+  poserCompteur(ctx, {
+    id: compteur, centre: pos, position: { x: pos.x, y: pos.y + fs * 1.35 },
+    total: groupes.length, debut, cadence,
+  });
+  groupes.forEach((g, i) => {
+    const at = debut + i * cadence;
+    for (const k of g.members) {
+      ctx.anim({ id: segIds[k], prop: 'opacity', to: 1, at, dur: cadence * 0.55 });
+      ctx.anim({ id: segIds[k], prop: canal, to: ctx.palette.phos, at, dur: cadence * 0.55 });
+    }
+  });
+  for (const k of modele.ORDER) {
+    ctx.anim({ id: segIds[k], prop: 'opacity', to: 0, at: T * 0.84, dur: T * 0.1 });
+  }
+  if (!to) {
+    ctx.anim({ id: src.id, prop: 'opacity', to: 1, at: T * 0.86, dur: T * 0.1 });
+    ctx.anim({ id: compteur, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.1 });
+    return;
+  }
+
+  const idx = ctx.scene.flowIndex(src.id);
+  ctx.scene.create({
+    id: to.id, text: to.text, kind: to.kind || 'number', group: to.group ?? src.group,
+    role: 'text', inFlow: true, insertAt: idx < 0 ? undefined : idx + 1,
+    ...espacementDe(ctx, src.id),
+    base: { opacity: 0, fill: ctx.palette.gold },
+  }, { where: ctx.where });
+  const depart = ctx.scene.pos(compteur);
+  ctx.scene.place(to.id, depart);
+  ctx.scene.kill(src.id, ctx.where);
+  ctx.anim({ id: compteur, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.1 });
+  ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: T * 0.87, dur: T * 0.08 });
+  if (ctx.vagueSegments) ctx.place(to.id, pos, { at: T * 0.87, dur: T * 0.12, ease: EASE.move });
+  else ctx.reflow({ at: T * 0.87, dur: T * 0.12, ease: EASE.move });
 }

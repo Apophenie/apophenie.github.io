@@ -3,11 +3,8 @@
  *
  * ## Ce qui a changé, et pourquoi
  *
- * L'ancien rendu empilait, **au-dessus de chaque lettre de la ligne**, un tracé
- * de référence fantôme, un afficheur, et des badges numérotés semés autour :
- * quatre lettres côte à côte donnaient quatre petits chantiers simultanés,
- * illisibles. On tient désormais la grammaire commune de `encart.js`, dont le
- * déroulé complet vit dans `afficheur.js` — partagé avec `fourteenSeg`.
+ * Le déroulé commun des deux rythmes vit dans `afficheur.js`, partagé avec
+ * `fourteenSeg`.
  *
  * Le stagger suit les **traits continus fusionnés** (`b`+`c`, `e`+`f`) quand
  * `fusion` est demandé, les segments individuels sinon. C'est la méthode 5 du

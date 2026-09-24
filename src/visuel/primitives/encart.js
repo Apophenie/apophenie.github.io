@@ -1,13 +1,12 @@
 /**
- * L'encart de comptage — la grammaire commune de `sevenSeg` et `countStrokes`.
+ * L'encart de comptage — utilisé par `countStrokes` et par les afficheurs à
+ * segments en mode pas à pas.
  *
- * ## Une seule mécanique pour trois comptages
+ * ## Une mécanique pour les comptages en encart
  *
- * Segments d'un afficheur, extrémités d'une lettre, boucles fermées : ce sont
- * trois choses différentes, comptées **du même geste**, et c'est ce geste
- * partagé qui rend les trois lisibles là où l'ancien rendu — badges numérotés
- * semés autour d'un tracé fantôme, au-dessus de chaque lettre de la ligne —
- * était surchargé et illisible.
+ * Les segments en pas à pas et les tracés de lettres se comptent ici, dans un
+ * cadre. En simultané, les afficheurs à segments se dessinent directement sur
+ * la ligne (`afficheur.js`) et n'ouvrent aucun encart.
  *
  *  1. **l'encart** — un cadre, toujours au même endroit, au-dessus de la ligne.
  *     Une lettre à la fois, jamais deux : ce qu'on regarde est désigné par le
@@ -42,7 +41,7 @@ export const ENCART = Object.freeze({
 });
 
 /**
- * ★ **UN ENCART PAR CARACTÈRE, POSÉ PRÈS DU SIEN — et ce qui a changé.**
+ * ★ **LES ENCARTS PEUVENT SUIVRE LEUR CARACTÈRE OU RESTER AU CENTRE.**
  *
  * > « Aujourd'hui `m7`/`m14` montrent UN afficheur central. Il en faut un par
  * >   caractère à convertir, posé près du caractère concerné. » (l'auteur)
@@ -113,7 +112,7 @@ export function ouvrirEncart(ctx, src, spec = {}) {
      sans position connue (cas pathologique que le compilateur refuse par
      ailleurs) retombe sur le centre de la vue : l'ancien comportement. */
   const pSrc = ctx.scene.pos(src.id);
-  const souhait = pSrc && Number.isFinite(pSrc.x) ? pSrc.x : vue.x;
+  const souhait = spec.centreVue ? vue.x : pSrc && Number.isFinite(pSrc.x) ? pSrc.x : vue.x;
 
   const rangee = ctx.encarts?.has(src.id)
     ? { x: ctx.encarts.get(src.id), ordre: ctx.scene.prochainOrdreEncart() }
@@ -318,7 +317,7 @@ export function poserCompteur(ctx, spec) {
   const fs = ctx.metrics.fontSize;
   const tone = spec.tone || 'gold';
   const id = spec.id;
-  const pos = { x: spec.centre.x + fs * ENCART.compteurX, y: spec.centre.y };
+  const pos = spec.position || { x: spec.centre.x + fs * ENCART.compteurX, y: spec.centre.y };
 
   ctx.scene.create({
     id, role: 'label', text: '0', inFlow: false,

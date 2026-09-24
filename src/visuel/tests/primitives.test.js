@@ -1175,7 +1175,7 @@ const compteurDe = (tl, id) => tl.nodes.find((n) => n.id === `@compteur:${id}`);
  * décide quels cadres forment une rangée, et s'en va d'un coup à la dernière
  * conversion.
  */
-const cleSeg = (nom, regime, cible = 't0') => `${nom}:${regime}:${cible}`;
+const cleSeg = (nom, regime) => `${nom}:${regime}`;
 const segDe = (cle, k) => `@seg:${cle}:${k}`;
 
 test('sevenSeg : encart, compteur, allumage un à un, puis substitution', () => {
