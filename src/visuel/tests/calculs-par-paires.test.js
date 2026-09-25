@@ -244,21 +244,20 @@ test('★ par le chemin du site, les paires sont JOUÉES — et rien ne se cheva
  * côte. Chaque accolade se ferme après SON résultat ; un seul réajustement de
  * la ligne termine l'étape (`_accolades.js`, sur plusieurs lots).
  */
-test('★ mrdE sur Didier Raoult : une branche prête avance avant la dernière paire indépendante', async () => {
+test('★ mrdE sur Didier Raoult : les calculs des deux passes suivent leurs dépendances', async () => {
   const { compilerEnRelevant } = await import('./_cadre.js');
   const { finsDesAccolades } = await import('./_accolades.js');
   const saisie = 'Didier Raoult';
   const sc = construireScenario(approcheSur(saisie, ['fmaj', 'tca', 'mas', 'mrdE']), { saisie });
   assert.equal(sc.avertissements, undefined, (sc.avertissements || []).join(' | '));
   const calculs = sc.steps.filter((s) => s.ops.some((o) => o.op === 'sum'));
-  // Neuf temps d'additions, là où vingt-deux additions se montraient une à une.
-  assert.equal(calculs.length, 9, calculs.map((s) => s.caption).join('\n'));
-  assert.equal(calculs[0].caption,
-    '8 + 7 = 15 · 3 + 6 = 9 · 9 + 8 = 17 · 2 + 3 = 5 · 7 + 9 = 16 · 8 + 5 = 13',
-    'les deux premières paires de chaque paquet sont disponibles ensemble');
-  assert.equal(calculs[1].caption,
-    '15 + 9 = 24 · 8 + 7 = 15 · 17 + 5 = 22 · 16 + 13 = 29',
-    'les trois branches prêtes avancent pendant que la paire restante se calcule');
+  assert.equal(calculs.length, 7, calculs.map((s) => s.caption).join('\n'));
+  const rangDe = (calcul) => calculs.findIndex((s) => s.caption.includes(calcul));
+  for (const calcul of ['8 + 2 = 10', '6 + 5 = 11', '8 + 4 = 12']) {
+    assert.equal(rangDe(calcul), 0, `${calcul} se calcule avec les premières paires de la passe précédente`);
+  }
+  assert.ok(rangDe('6 + 6 = 12') < rangDe('3 + 3 = 6'),
+    'la quatrième somme libre avance dès que le 6 de la passe précédente existe');
   for (const s of calculs) {
     const sommes = s.ops.filter((o) => o.op === 'sum');
     assert.equal(new Set(sommes.map((o) => o.at)).size, 1, `${s.caption} : les sommes partent ensemble`);
@@ -283,15 +282,19 @@ test('★ mrdE sur Didier Raoult : une branche prête avance avant la dernière 
   assert.deepEqual(compile(sc).warnings, [], 'et la scène entière, verdict compris');
 });
 
-test('mrdE : le lien signalé déroule le même entrelacement dans les deux modes', () => {
-  const lu = lire('?fmaj+mas+mrdE$6hVamBkJyG1MWtPRwR', { catalogue: CATALOGUE });
+test('mrdE et md9E : les liens signalés démarrent les additions libres dans les deux modes', () => {
   const moteur = creerMoteur(CATALOGUE);
-  const recherche = moteur.rejouer(lu);
-  const sc = moteur.scenarioDe(recherche.approche, { saisie: lu.saisie });
-  const calculs = sc.steps.filter((s) => s.ops.some((o) => o.op === 'sum'));
-  assert.match(calculs[1].caption, /15 \+ 9 = 24 · 8 \+ 7 = 15/);
-  for (const rythme of ['pasAPas', 'simultane']) {
-    assert.deepEqual(compile(sc, { rythme }).warnings, [], rythme);
+  for (const code of ['mrdE', 'md9E+mr9']) {
+    const lu = lire(`?fmaj+mas+${code}$6hVamBkJyG1MWtPRwR`, { catalogue: CATALOGUE });
+    const recherche = moteur.rejouer(lu);
+    const sc = moteur.scenarioDe(recherche.approche, { saisie: lu.saisie });
+    const calculs = sc.steps.filter((s) => s.ops.some((o) => o.op === 'sum'));
+    assert.match(calculs[0].caption, /8 \+ 2 = 10/);
+    assert.match(calculs[0].caption, /6 \+ 5 = 11/);
+    assert.match(calculs[0].caption, /8 \+ 4 = 12/);
+    for (const rythme of ['pasAPas', 'simultane']) {
+      assert.deepEqual(compile(sc, { rythme }).warnings, [], `${code} : ${rythme}`);
+    }
   }
 });
 
@@ -419,7 +422,7 @@ test('les phases de mrdE se raccordent en une frame de découpe et un seul mouve
   const saisie = 'Didier Raoult';
   const sc = construireScenario(approcheSur(saisie, ['fmaj', 'tca', 'mas', 'mrdE']), { saisie });
   const fermetures = sc.steps.filter((s) => s.ops.some((o) => o.op === 'move' && o.sansReflow));
-  assert.ok(fermetures.length >= 7, 'raccords entre niveaux, réductions et passes');
+  assert.ok(fermetures.length >= 5, 'raccords entre additions, réductions et passes');
   const ref = compile(sc);
   const resultat = ref.scene.flow.map((id) => ref.scene.get(id).text);
   for (const rythme of ['pasAPas', 'simultane']) for (const speed of [1, 10]) {

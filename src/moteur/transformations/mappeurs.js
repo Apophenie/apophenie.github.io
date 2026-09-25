@@ -2704,76 +2704,81 @@ function glisserLeDecoupage(steps, groupes) {
 }
 
 /**
- * ★ **EN LARGEUR, ET PAS EN PROFONDEUR.**
+ * ★ **LE PLAN D'ABSORPTION SE JOUE SELON SES DÉPENDANCES.**
  *
- * > « Au lieu de faire tous les calculs d'un paquet avant de passer au suivant
- * >   — un parcours en profondeur —, on fait le ou les calculs qui se font
- * >   directement à partir des chiffres de départ, sur TOUS les paquets, puis
- * >   ceux impliquant les résultats du premier niveau, etc. : un parcours en
- * >   largeur. » (l'auteur)
- *
- * Les calculs ne changent pas, la recherche non plus — c'est l'ordre où on les
- * MONTRE. L'ordre d'avant s'acharnait sur un morceau pendant que le reste
- * attendait ; celui-ci balaie la ligne entière à chaque niveau, comme on pose
- * une opération.
- *
- * ⚠️ **UN GESTE NE PEUT PAS PRÉCÉDER CE DONT IL DÉPEND**, et c'est le `niveau`
- *   qui le garantit : il vaut 0 pour ce qui se calcule sur les chiffres de
- *   départ, et un de plus que le plus profond de ses opérandes sinon. Trier par
- *   niveau croissant respecte donc toutes les dépendances par construction,
- *   sans qu'on ait à les vérifier une à une.
- *
- * ★ **À NIVEAU ÉGAL, ON GROUPE PAR OPÉRATEUR** — l'autre consigne de l'auteur :
- *   « un changement d'opérateur coûte cher, il faut le faire le moins souvent
- *   possible ». Deux gestes de même niveau sont indépendants ; les ranger par
- *   famille ne viole donc aucune dépendance, et évite d'alterner soustraction
- *   et produit dans une même passe. À famille égale, la position dans la ligne
- *   tranche — de gauche à droite, comme on lit.
+ * Les gestes de `mab`, `mabx` et `mabd` décrivent chacun leurs sources et leurs
+ * sorties par leurs ops. Le même ordonnanceur que les redécoupages attend les
+ * sources de chaque geste, puis émet ceux de la même famille qui sont prêts.
+ * L'ordre de la ligne départage les gestes d'une vague ; le moteur visuel
+ * décide ensuite du pas à pas ou de la simultanéité.
  */
-const ORDRE_DES_FAMILLES = Object.freeze(['addition', 'difference', 'produit', 'reduction']);
+/** Frontières de scène tirées des identifiants produits, pas des rangs du plan. */
+function vaguesDeDependances(taches) {
+  const restantes = [...taches];
+  const attendus = new Set(taches.flatMap((t) => t.sorties));
+  const produits = new Set();
+  const consommes = new Set();
+  const vagues = [];
+  while (restantes.length) {
+    const pretes = restantes.filter((t) => t.sources.every((id) => !attendus.has(id) || produits.has(id)));
+    if (!pretes.length) throw new Error('calcul : dépendances cycliques ou source absente.');
+    const type = pretes[0].type;
+    const retenues = pretes.filter((t) => t.type === type);
+    vagues.push({ taches: retenues, produits: new Set(produits), consommes: new Set(consommes) });
+    for (const t of retenues) {
+      for (const id of t.sorties) produits.add(id);
+      for (const id of t.sources) consommes.add(id);
+      restantes.splice(restantes.indexOf(t), 1);
+    }
+  }
+  return vagues;
+}
+
+/** Sources et sorties externes d'un geste composé (`mab` et ses variantes). */
+function dependancesDuStep(step) {
+  const sources = new Set();
+  const sorties = new Set();
+  const locales = new Set();
+  const lire = (id) => {
+    if (typeof id === 'string' && !locales.has(id)) sources.add(id);
+  };
+  const produire = (v) => {
+    for (const item of Array.isArray(v) ? v : [v]) {
+      const id = typeof item === 'string' ? item : item?.id;
+      if (typeof id === 'string') { sorties.add(id); locales.add(id); }
+    }
+  };
+  for (const op of step.ops) {
+    for (const id of [op.target, ...(op.targets || []), ...(op.between || []), ...(op.consume || [])]) lire(id);
+    for (const pair of op.pairs || []) lire(pair.target);
+    for (const lot of op.lots || []) for (const id of lot.between || []) lire(id);
+    produire(op.ids || []);
+    for (const lot of op.lots || []) produire(lot.ids || []);
+    produire(op.to || []);
+    produire(op.digits || []);
+    for (const pair of op.pairs || []) produire(pair.to || []);
+  }
+  return { sources: [...sources], sorties: [...sorties] };
+}
 
 function passesEnLargeur(parPaquet) {
   const tous = [];
   for (const q of parPaquet) for (const g of q.gestes) tous.push({ ...g, rang: tous.length });
-  // ⚠️ Quatre clés ENTIÈRES, aucune comparaison de texte : deux exécutions
-  //   doivent rendre exactement la même scène (§4.4).
-  // ★ La quatrième, le RANG D'ÉMISSION, départage deux gestes d'un même paquet
-  //   posés au même endroit — les paires d'un palier de réduction éclaté, dont
-  //   la première porte l'éclatement et doit donc passer avant ses sœurs. Le
-  //   tri natif est stable et l'aurait fait de lui-même ; on l'écrit plutôt
-  //   que d'en dépendre.
-  tous.sort((a, b) => (a.niveau - b.niveau)
-    || (ORDRE_DES_FAMILLES.indexOf(a.famille) - ORDRE_DES_FAMILLES.indexOf(b.famille))
-    || (a.ou - b.ou)
-    || (a.rang - b.rang));
-  return tous.map((g) => g.step);
+  const taches = tous.map((g) => ({ ...g, ...dependancesDuStep(g.step), type: g.famille }));
+  return vaguesDeDependances(taches).flatMap((vague) => vague.taches
+    .sort((a, b) => a.ou - b.ou || a.rang - b.rang).map((g) => g.step));
 }
 
 
 /**
- * ★ **LES REDÉCOUPAGES SE JOUENT EN LARGEUR, ET CHAQUE TEMPS EN MÊME TEMPS.**
+ * ★ **LES REDÉCOUPAGES SUIVENT LES DÉPENDANCES DES JETONS.**
  *
- * > « Toutes les premières additions de tous les paquets en même temps, puis
- * >   toutes les deuxièmes, etc., puis les réductions ensemble. » (l'autrice,
- * >   19 septembre, sur `fmaj+mas+mrdE` et « Didier Raoult »)
- *
- * `passesEnLargeur` ORDONNAIT déjà les gestes par niveau, mais en jouait un par
- * étape — vingt-deux étapes sur la ligne de Raoult — et collait l'écriture ou
- * la réduction d'un paquet à sa dernière addition : le premier paquet, `8 + 7`,
- * finissait `= 15 → 1 + 5 → 6` avant que le deuxième ait commencé. C'est le
- * parcours en profondeur que le parcours horizontal (`recherche/scenario.js ›
- * jouerEnsemble`) a déjà chassé ailleurs.
- *
- * Ici chaque temps est réparti en étapes, et tous les paquets y avancent ensemble :
- *
- *  1. **les additions par paires** (`passesBinaires`) : en `mrdE`, une branche
- *     dont les deux termes sont prêts avance sans attendre une autre branche
- *     du même paquet ; les autres voies gardent leurs paliers par niveau ;
- *  2. **les sommes qui débordent s'écrivent chiffre à chiffre**, toutes
- *     ensemble — qu'elles restent ainsi (`36 → 3 6`) ou qu'elles se réduisent
- *     (`39 → 3 9`) ;
- *  3. **les réductions**, qui sont des additions comme les autres : `3 + 9`,
- *     puis `12 → 1 2`, puis `1 + 2`… toutes au même palier en même temps.
+ * Le plan arithmétique est déjà trouvé. Chaque somme ou écriture chiffre à
+ * chiffre devient une tâche avec ses sources et ses sorties. À chaque étape,
+ * toutes les tâches prêtes du même type se jouent ensemble, même si elles
+ * viennent d'un autre paquet, d'un autre palier ou d'une autre passe. `8 + 2`
+ * peut donc partir avant la réduction indépendante `3 + 9 → 12 → 1 + 2`.
+ * Une tâche ne part jamais avant que ses deux termes soient produits.
  *
  * ★ **CE QUI REND LA SIMULTANÉITÉ POSSIBLE, et c'est mesuré.** Deux `sum`
  *   ordinaires au même instant écartent et referment la ligne chacun de son
@@ -2794,13 +2799,13 @@ function passesEnLargeur(parPaquet) {
  *   suite de ses temps, en alternance `{ sommes: [gestes] }` — ceux de
  *   `passesBinaires`, munis de leur `signe` — et `{ eclat: {target, to, somme} }`.
  *   Le temps 0 est toujours l'arbre des additions du paquet.
- * @param {boolean} [entrelacer] En `mrdE`, laisser avancer chaque branche prête
- *   au prochain temps. Deux gestes prêts par paquet laissent à la vague
- *   suivante mêler un résultat déjà calculé et une paire encore indépendante,
- *   sans faire se chevaucher les réajustements de la ligne.
+ * `partitions` nomme silencieusement les groupes au premier geste de chaque
+ * passe. Si une passe commence pendant la précédente, seuls les jetons déjà
+ * présents sont nommés ; ils suffisent aux gestes concernés, qui visent leurs
+ * opérandes par identifiant.
  * @returns {Array} les étapes, dans l'ordre
  */
-function etapesEnLargeur(chantiers, { ctx, titre, prefixe, entrelacer = false }) {
+function etapesEnLargeur(chantiers, { ctx, titre, prefixe, partitions = [] }) {
   const steps = [];
   const I = DUREE_OP.insertOperators;
   const S = DUREE_OP.sum;
@@ -2833,55 +2838,38 @@ function etapesEnLargeur(chantiers, { ctx, titre, prefixe, entrelacer = false })
     eclats.map((e) => `${e.somme} → ${e.to.map((t) => t.text).join(' ')}`).join(' · '),
     [{ op: 'substitute', pairs: eclats.map((e) => ({ target: e.target, to: e.to })), at: 0 }], { id });
 
-  const nbTemps = Math.max(0, ...chantiers.map((c) => c.temps.length));
-  for (let t = 0; t < nbTemps; t++) {
-    if (entrelacer && t === 0) {
-      // Les étapes restent des frontières de mise en page : les franchir au
-      // milieu d'une somme ferait courir deux reflows sur les mêmes jetons.
-      // On avance donc l'arbre par petites vagues topologiques. Priorité aux
-      // résultats déjà produits ; la place libre va aux feuilles restantes.
-      const vagues = [];
-      for (const c of chantiers) {
-        const restants = [...(c.temps[0]?.sommes || [])];
-        const produits = new Set();
-        const attendus = new Set(restants.map((g) => g.resultat.id));
-        let rang = 0;
-        while (restants.length) {
-          const prets = restants.filter((g) => [g.gauche.id, g.droite.id]
-            .every((id) => !attendus.has(id) || produits.has(id)))
-            .sort((a, b) => b.niveau - a.niveau || a.ou - b.ou);
-          if (!prets.length) throw new Error('redécoupage : arbre d’additions cyclique.');
-          const choisis = prets.slice(0, 2);
-          vagues[rang] ||= [];
-          vagues[rang].push(...choisis);
-          for (const g of choisis) {
-            produits.add(g.resultat.id);
-            restants.splice(restants.indexOf(g), 1);
-          }
-          rang++;
-        }
-      }
-      vagues.forEach((gestes, rang) => steps.push(etapeDAdditions(gestes,
-        `s_${ctx.cle}_${prefixe}t${t}v${rang}`)));
-      continue;
+  const taches = [];
+  for (const c of chantiers) for (const temps of c.temps) {
+    if (temps.eclat) taches.push({ type: 'ecriture', donnees: temps.eclat,
+      sources: [temps.eclat.target], sorties: temps.eclat.to.map((x) => x.id), passe: c.passe });
+    for (const g of temps.sommes || []) taches.push({ type: 'addition', donnees: g,
+      sources: [g.gauche.id, g.droite.id], sorties: [g.resultat.id], passe: c.passe });
+  }
+  const attendus = new Set(taches.flatMap((t) => t.sorties));
+  const passesDecoupees = new Set();
+  let rang = 0;
+  for (const vague of vaguesDeDependances(taches)) {
+    const retenues = vague.taches;
+    const type = retenues[0].type;
+    const id = `s_${ctx.cle}_${prefixe}d${rang++}`;
+    const step = type === 'addition'
+      ? etapeDAdditions(retenues.map((t) => t.donnees), id)
+      : etapeDEcriture(retenues.map((t) => t.donnees), id);
+    if (retenues.every((t) => t.passe > 0)) {
+      step.title += dire(LIB_SECONDE_PASSE, ctx.langue);
     }
-    const eclats = [];
-    const parNiveau = new Map();
-    for (const c of chantiers) {
-      const x = c.temps[t];
-      if (!x) continue;
-      if (x.eclat) { eclats.push(x.eclat); continue; }
-      for (const g of x.sommes) {
-        if (!parNiveau.has(g.niveau)) parNiveau.set(g.niveau, []);
-        parNiveau.get(g.niveau).push(g);
-      }
+    const decoupes = [];
+    for (const q of new Set(retenues.map((t) => t.passe).filter((v) => v !== undefined))) {
+      if (passesDecoupees.has(q)) continue;
+      passesDecoupees.add(q);
+      const groupes = (partitions[q] || []).map((g) => ({ ...g,
+        targets: g.targets.filter((idCible) => !vague.consommes.has(idCible)
+          && (!attendus.has(idCible) || vague.produits.has(idCible))),
+      })).filter((g) => g.targets.length);
+      if (groupes.length >= 2) decoupes.push({ op: 'partition', groups: groupes, visible: false });
     }
-    if (eclats.length && parNiveau.size) {
-      throw new Error('redécoupage : un même temps mêle écriture et addition — les chantiers sont désaccordés.');
-    }
-    if (eclats.length) steps.push(etapeDEcriture(eclats, `s_${ctx.cle}_${prefixe}t${t}`));
-    [...parNiveau.keys()].sort((a, b) => a - b)
-      .forEach((n) => steps.push(etapeDAdditions(parNiveau.get(n), `s_${ctx.cle}_${prefixe}t${t}n${n}`)));
+    step.ops.unshift(...decoupes);
+    steps.push(step);
   }
   return raccorderPhases(steps);
 }
@@ -10378,8 +10366,8 @@ function operateurRedecoupageExact(avecNeuf, garderJustes = false) {
           }
           return { valeur: sortie, traces: org };
         },
-        // ★ Toutes les additions, passe après passe, dans l'ordre de lecture —
-        //   c'est ce que le barème dilue (`commun.js › additions`).
+        // Le barème compte toujours les additions du plan ; leur animation
+        // pourra avancer les branches indépendantes entre les passes.
         additions: (valeur) => {
           const plan = planDe(valeur);
           return plan ? plan.passes.flatMap((ps) => ps.paquets
@@ -10390,16 +10378,13 @@ function operateurRedecoupageExact(avecNeuf, garderJustes = false) {
           return plan ? idsFinalesExactes(plan, ctx) : [];
         },
         /**
-         * ★ LA MÊME MISE EN SCÈNE QUE `mrd`, PASSE APRÈS PASSE.
+         * ★ LA MÊME MISE EN SCÈNE QUE `mrd`, SELON LES DÉPENDANCES.
          *
          * 1. **Chiffre à chiffre**, une fois, pour les nombres à plusieurs chiffres.
-         * 2. **Pour chaque passe**, la découpe muette en tête, puis UNE ÉTAPE PAR
-         *    TEMPS, tous les paquets ensemble (`etapesEnLargeur`, 19 septembre) :
-         *    les premières paires de tous les paquets, puis leurs résultats ; puis
-         *    les sommes qui débordent s'écrivent chiffre à chiffre, toutes
-         *    ensemble ; puis, s'il faut une racine, leurs chiffres s'additionnent,
-         *    palier par palier. Rien ne disparaît sans avoir été additionné sous
-         *    les yeux.
+         * 2. Chaque addition ou écriture avance dès que ses sources existent,
+         *    même si elle appartient à la passe suivante. Les gestes prêts du
+         *    même type jouent ensemble (`etapesEnLargeur`). Rien ne disparaît
+         *    sans avoir été additionné sous les yeux.
          *
          * Contrôle croisé (§0.3) : `apply`, `sortie`, `additions` et `steps`
          * relisent le MÊME plan mémoïsé ; `sum` recoupe chaque somme et chaque
@@ -10424,23 +10409,15 @@ function operateurRedecoupageExact(avecNeuf, garderJustes = false) {
               enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_x` }));
           }
 
-          // ── 2. les passes
+          // ── 2. les passes : le plan reste intact, leurs gestes sont ensuite
+          // ordonnés selon les jetons réellement nécessaires à chaque calcul.
+          const chantiersDuPlan = [];
+          const partitionsDuPlan = [];
           plan.passes.forEach((passe, q) => {
-            const titre = dire(LIB_REDECOUPAGE_EXACT, ctx.langue)
-              + (q > 0 ? dire(LIB_SECONDE_PASSE, ctx.langue) : '');
-            /* ★ **PAS DE DÉCOUPE D'AVANCE ICI NON PLUS** — voir `mab`. La passe
-                 annonçait ses paquets tous ensemble avant de calculer quoi que
-                 ce soit ; chaque somme trace son accolade sur ses propres
-                 termes, au moment où elle s'en sert, et c'est assez.
-               ⚠️ Ce qui reste vrai et qu'on ne touche pas : la passe ENTIÈRE se
-                 joue de gauche à droite avant que la suivante commence. C'est
-                 déjà l'ordre que l'auteur demande — « l'itération doit se faire
-                 après un parcours de gauche à droite ». */
-            const groupesMuets = passe.paquets.map((p, j) => ({
-              targets: ids.slice(p.debut, p.fin),
-              tag: `${ctx.cle}q${q}g${j}`,
-            }));
-            const avantLesCalculs = steps.length;
+            /* Les paquets sont ceux du plan, mais leur ordre d'animation ne
+               dépend que des jetons produits. Chaque somme trace son accolade
+               au moment où elle se fait ; la passe suivante peut déjà employer
+               un chiffre qui n'attend plus personne. */
             /* ★ **DEUX CHIFFRES À LA FOIS, ET TOUS LES PAQUETS ENSEMBLE** — voir
                  `commun.js › passesBinaires` et `etapesEnLargeur`. Les branches
                  déjà prêtes avancent pendant que les autres paires indépendantes
@@ -10450,11 +10427,14 @@ function operateurRedecoupageExact(avecNeuf, garderJustes = false) {
                  c'est elle, ENTIÈRE, qui s'écrit ou se réduit — jamais un
                  résultat partiel, qui écrirait autre chose que ce que la passe
                  écrit. */
+            partitionsDuPlan[q] = passe.paquets.map((p, j) => ({
+              targets: ids.slice(p.debut, p.fin), tag: `${ctx.cle}q${q}g${j}`,
+            }));
             const chantiers = passe.paquets.map((p, j) => {
               if (p.fin - p.debut < 2) return null;
               const termes = ids.slice(p.debut, p.fin)
                 .map((id, t) => ({ id, v: passe.entree[p.debut + t], ou: p.debut + t }));
-              return chantierDuPaquet({
+              const chantier = chantierDuPaquet({
                 termes,
                 somme: p.somme,
                 mode: p.mode,
@@ -10465,11 +10445,15 @@ function operateurRedecoupageExact(avecNeuf, garderJustes = false) {
                 signe: (k) => `${ctx.cle}q${q}p${j}x${k}`,
                 nomPalier: (k, t) => `${ctx.cle}q${q}r${j}k${k}x${t}`,
               });
+              return chantier && { ...chantier, passe: q };
             }).filter(Boolean);
-            steps.push(...etapesEnLargeur(chantiers, { ctx, titre, prefixe: `q${q}`, entrelacer: true }));
-            glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
+            chantiersDuPlan.push(...chantiers);
             ids = passe.paquets.flatMap((p, j) => idsSortieExacte(ctx, q, j, p, ids));
           });
+          steps.push(...etapesEnLargeur(chantiersDuPlan, {
+            ctx, titre: dire(LIB_REDECOUPAGE_EXACT, ctx.langue), prefixe: 'dag',
+            partitions: partitionsDuPlan,
+          }));
           return raccorderPhases(steps);
         },
       }, avecNeuf);
