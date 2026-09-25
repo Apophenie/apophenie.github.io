@@ -453,24 +453,30 @@ export function insertOperatorTokens(ctx, spec) {
  * les jetons à droite des deux paires reçoivent deux `translate` concurrents,
  * que le compilateur signale et que l'écran joue de travers. Ici, chaque lot
  * pose ses signes sans rien déplacer, puis la ligne s'écarte UNE fois pour
- * tous, et tous les signes paraissent ensemble.
+ * tous. Avec `apparitions`, chaque lot paraît au tour de sa somme, sans
+ * nouveau reflow ; les places des signes sont déjà réservées.
  *
  * @param {{lots:{between:string[], ids:string[]}[], glyph:string, at:number, dur:number}} spec
  * @returns {string[]} les signes créés, tous lots confondus
  */
 export function insererParLots(ctx, spec) {
   const created = [];
+  const parLot = [];
   for (const lot of spec.lots) {
-    created.push(...insertOperatorTokens(ctx, {
+    const signes = insertOperatorTokens(ctx, {
       between: lot.between, ids: lot.ids, glyph: spec.glyph, at: spec.at, dur: spec.dur, sansApparition: true,
-    }));
+    });
+    parLot.push(signes);
+    created.push(...signes);
   }
   ctx.reflow({ at: spec.at, dur: spec.dur * 0.6, ease: EASE.move });
-  for (const id of created) {
-    const a = spec.at + spec.dur * 0.35;
-    ctx.anim({ id, prop: 'opacity', to: 1, at: a, dur: spec.dur * 0.65 });
-    ctx.anim({ id, prop: 'scale', to: 1, at: a, dur: spec.dur * 0.65, ease: EASE.pop });
-  }
+  parLot.forEach((signes, k) => signes.forEach((id) => {
+    const progressif = !!spec.apparitions;
+    const a = progressif ? spec.apparitions[k] : spec.at + spec.dur * 0.35;
+    const dur = progressif ? Math.max(1, 150 / ctx.speed) : spec.dur * 0.65;
+    ctx.anim({ id, prop: 'opacity', to: 1, at: a, dur });
+    ctx.anim({ id, prop: 'scale', to: 1, at: a, dur, ease: EASE.pop });
+  }));
   return created;
 }
 
@@ -586,11 +592,17 @@ export function jouerTransferts(ctx, spec) {
   const { operands, transferts, paliers } = spec;
   const tB = spec.at;
   const tNiv = spec.dur;
+  const vague = ctx.rythme === 'simultane' && !ctx.reduced
+    && transferts.every((tr) => tr.montant === undefined);
   // --- 4. le nivellement : un `1` du plus grand au plus petit --------------
-  const pas = tNiv / (transferts.length + 0.35);
+  const pasNormal = tNiv / (transferts.length + 0.35);
+  const pas = vague ? Math.min(100 / ctx.speed, pasNormal) : pasNormal;
+  const dureeVol = vague
+    ? Math.max(1, Math.min(830 / ctx.speed, tNiv - (transferts.length - 1) * pas))
+    : Math.max(1, pasNormal * 1.25);
   transferts.forEach((tr, k) => {
     const a = tB + k * pas;
-    const dur = Math.max(1, pas * 1.25);
+    const dur = dureeVol;
     const src = ctx.scene.pos(operands[tr.de]);
     const dst = ctx.scene.pos(operands[tr.vers]);
     const id = ctx.gensym('unite');
@@ -635,7 +647,14 @@ export function jouerTransferts(ctx, spec) {
   const SEUIL = { de: 0.20, vers: 0.94 };
   for (const [id, ps] of paliers) {
     if (ps.length < 2) continue;
-    const seuils = ps.map((p) => ({
+    // Des vols espacés de 100 ms peuvent se croiser. La valeur visible suit
+    // donc les départs et arrivées réels, et non les états finaux successifs
+    // calculés pour une exécution strictement séquentielle.
+    const evenements = vague ? transferts.flatMap((tr, k) => [
+      { u: (k * pas + SEUIL.de * dureeVol) / tNiv, id: operands[tr.de], delta: -1 },
+      { u: (k * pas + SEUIL.vers * dureeVol) / tNiv, id: operands[tr.vers], delta: 1 },
+    ]).filter((e) => e.id === id).sort((a, b) => a.u - b.u) : null;
+    const seuils = vague ? null : ps.map((p) => ({
       u: p.k === 0 ? 0
         : (p.k - 1 + (SEUIL[p.role] ?? SEUIL.vers)) / (transferts.length + 0.35),
       text: p.text,
@@ -646,6 +665,11 @@ export function jouerTransferts(ctx, spec) {
       at: tB,
       dur: Math.max(1, tNiv),
       render: (x) => {
+        if (vague) {
+          let valeur = Number(ps[0].text);
+          for (const e of evenements) if (x >= e.u) valeur += e.delta;
+          return String(valeur);
+        }
         let out = seuils[0].text;
         for (const s of seuils) if (x >= s.u) out = s.text;
         return out;
@@ -1733,6 +1757,7 @@ export function retirerLesAccolades(ctx, spec) {
   const at = spec.at ?? 0;
   const dur = Math.max(1, spec.dur ?? 300);
   for (const [id] of ctx.scene.accolades) {
+    if (spec.ids && !spec.ids.includes(id)) continue;
     const noeud = ctx.scene.get(id);
     if (!noeud) continue;
     for (const pid of [id, ...ctx.scene.accrochesA(id)]) {
@@ -1781,14 +1806,25 @@ export function refermerLaLigne(ctx, spec) {
 export function refermerSurLesResultats(ctx, spec = {}) {
   const at = spec.at ?? 0;
   const dur = Math.max(1, spec.dur ?? 300);
+  const choisies = spec.ids ? new Set(spec.ids) : null;
   let n = 0;
+  const enAttente = [];
   for (const arrivee of ctx.scene.resultatsArrives) {
+    if (choisies && !arrivee.accolades.some((id) => choisies.has(id))) {
+      enAttente.push(arrivee);
+      continue;
+    }
+    if (choisies) {
+      const restantes = arrivee.accolades.filter((id) => !choisies.has(id));
+      if (restantes.length) enAttente.push({ ...arrivee, accolades: restantes });
+    }
     const ids = arrivee.ids.filter((id) => {
       const nd = ctx.scene.get(id);
       return nd && nd.alive && ctx.scene.pos(id);
     });
     if (!ids.length) continue;
     for (const idAcc of arrivee.accolades) {
+      if (choisies && !choisies.has(idAcc)) continue;
       const trace = ctx.scene.get(idAcc);
       if (!trace || !trace.alive || !trace.data || trace.data.traceEffacee || trace.data.fermeeSurResultat) continue;
       if (ctx.scene.accolades.has(idAcc)) ctx.scene.poserAccolade(idAcc, ids);
@@ -1798,13 +1834,14 @@ export function refermerSurLesResultats(ctx, spec = {}) {
       n++;
     }
   }
-  ctx.scene.resultatsArrives.length = 0;
+  ctx.scene.resultatsArrives.splice(0, ctx.scene.resultatsArrives.length, ...enAttente);
   /* ★ **LE RÉAJUSTEMENT FINAL, AUSSI QUAND LE RÉSULTAT EST CE QUI RESTE.**
      Des sources sont parties sans que le tracé bouge — leur place était tenue
      (`suivreSesSources`) — et le résultat n'est pas arrivé d'ailleurs : c'est ce
      qui demeure sous l'accolade (le reste réécrit d'un modulo). Le tracé se
      réajuste une fois sur ce qui reste, cales exclues, avant de s'effacer. */
   for (const [idAcc, sources] of ctx.scene.accolades) {
+    if (choisies && !choisies.has(idAcc)) continue;
     const trace = ctx.scene.get(idAcc);
     if (!trace || !trace.alive || !trace.data || !trace.data.suitSesSources
       || trace.data.traceEffacee || trace.data.retiree || trace.data.fermeeSurResultat) continue;
@@ -1900,6 +1937,12 @@ export function suivreSesSources(ctx, idAccolade, restantes, spec = {}) {
       if (attendu.length) {
         suivreLaZone(ctx, { id: idAccolade, shape: 'brace', sources: attendu }, { at, dur, garderY: true });
       }
+      return;
+    }
+    // Une fermeture déclarée par `group.fadeAt` est déjà programmée. Le dernier
+    // départ ne doit pas lancer un second fondu sur le même tracé.
+    if (trace.data.retiree) {
+      trace.data.traceEffacee = true;
       return;
     }
     ctx.anim({ id: idAccolade, prop: 'opacity', to: 0, at, dur });

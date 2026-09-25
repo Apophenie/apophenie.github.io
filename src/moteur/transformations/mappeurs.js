@@ -112,6 +112,11 @@ import { nivellementDe, dureeRamassage, MAX_TRANSFERTS } from './combinateurs.js
 // d'ouverture — voir `declinerAvecNeuf`.
 import { premierCranPourRetouches } from '../../config.js';
 
+// Le geste simultané garde un vrai vol par unité, mais seuls leurs départs
+// sont espacés de 100 ms. Deux temps courts encadrent la vague : l'accolade
+// paraît, puis se ferme une fois la dernière unité arrivée.
+const dureeEgalisationSimultanee = (n) => 600 + 830 + Math.max(0, n - 1) * 100 + 600;
+
 const pli = (c) => sansAccents(String(c)).toUpperCase();
 
 /**
@@ -2774,10 +2779,10 @@ function passesEnLargeur(parPaquet) {
  *   côté : sur la ligne de Raoult, le prototype en donnait 437 animations
  *   concurrentes. Chaque étape d'additions pose donc tous ses signes d'un seul
  *   écartement (`insertOperators` en `lots`), joue ses sommes en GARDANT LEUR
- *   PLACE (`sum › garderPlace` : aucune ne bouge la ligne sous les autres), puis
- *   un `move` final (`retirer: true`) fait la fin commune de tout geste à
- *   accolade — les résultats sont posés, PUIS les accolades s'effacent, PUIS la
- *   ligne se réajuste, une fois. Aucune primitive nouvelle : deux options.
+ *   PLACE (`sum › garderPlace` : aucune ne bouge la ligne sous les autres).
+ *   Chaque somme referme puis efface sa propre accolade à l'arrivée de son
+ *   résultat ; le `move` final (`retirer: true`) rend les places et réajuste la
+ *   ligne une seule fois. Aucune primitive nouvelle : des options des gestes.
  *
  * ★ **UNE ACCOLADE N'EMBRASSE QUE CE QUI EST ENCORE LÀ, ET RIEN NE PARAÎT DU
  *   NÉANT** : chaque somme trace la sienne sur ses deux termes au moment où
@@ -2803,6 +2808,7 @@ function etapesEnLargeur(chantiers, { ctx, titre, prefixe }) {
           op: 'insertOperators',
           lots: rangees.map((g) => ({ between: [g.gauche.id, g.droite.id], ids: [g.signe] })),
           glyph: '+',
+          progressif: true,
           at: 0,
         },
         ...rangees.map((g) => ({
@@ -2812,6 +2818,7 @@ function etapesEnLargeur(chantiers, { ctx, titre, prefixe }) {
           to: token(g.resultat.id, g.resultat.v, 'number'),
           symbol: '+',
           garderPlace: true,
+          fermerAccolade: true,
           at: I,
         })),
         { op: 'move', at: I + S, attendre: REFERME, dur: DUREE_OP.move + REFERME, retirer: true },
@@ -6534,6 +6541,7 @@ const AUTRES_MAPPEURS = [
             label: dire(bilingue('Égalisation', 'Evening out'), ctx.langue),
             resultat: apres.valeur,
             dur: dureeRamassage({ transferts: transferts.length }),
+            durSimultane: dureeEgalisationSimultanee(transferts.length),
           },
           // Le relevé d'identité : même texte, même place, fondu imperceptible.
           // Il ne montre rien — il DIT ce que le nivellement vient de faire.
@@ -9866,6 +9874,7 @@ function operateurEgalisationFutee(avecNeuf) {
                 label: dire(bilingue('Égalisation', 'Evening out'), ctx.langue),
                 resultat: plan.egalisees,
                 dur: dureeRamassage({ transferts: plan.transferts.length }),
+                durSimultane: dureeEgalisationSimultanee(plan.transferts.length),
               },
               {
                 op: 'substitute',

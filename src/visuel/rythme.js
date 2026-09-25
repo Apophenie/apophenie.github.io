@@ -307,7 +307,17 @@ export function ordonnerLesOps(step, { rythme } = {}) {
   // C'est celui que `compile.js` employait déjà pour suivre les valeurs
   // « dernière connue » d'un couple (élément, propriété), et il ne change pas :
   // on ne permute jamais, on ne fait que décaler.
-  const ops = (step.ops || []).map((op, i) => ({ op, i }));
+  // `durSimultane` décrit une op dont les gestes internes se recouvrent :
+  // raccourcir sa seule animation laisserait l'op suivante attendre son ancien
+  // départ. On reporte donc la différence sur tout ce qui suit dans le step.
+  const ops = (step.ops || []).map((source, i) => {
+    const compacte = simultane && typeof source.durSimultane === 'number';
+    return {
+      op: compacte ? { ...source, dur: source.durSimultane } : source,
+      i,
+      reduction: compacte ? (source.dur ?? DEFAULT_DUR[source.op]) - source.durSimultane : 0,
+    };
+  });
   ops.sort((a, b) => (a.op.at ?? 0) - (b.op.at ?? 0) || a.i - b.i);
 
   // Par type d'op, la vague en cours : quand elle a commencé, combien de
@@ -333,7 +343,7 @@ export function ordonnerLesOps(step, { rythme } = {}) {
   let finDuGeste = 0;
   const sortie = [];
 
-  for (const { op, i } of ops) {
+  for (const { op, i, reduction } of ops) {
     const type = op.op;
 
     // Une MARQUE accompagne, elle n'opère pas : elle reçoit le décalage de ses
@@ -365,14 +375,15 @@ export function ordonnerLesOps(step, { rythme } = {}) {
 
     // Tout ce qui suit est poussé d'autant : l'ordre de lecture est une
     // contrainte dure, et une op retardée retarde sa suite (voir l'en-tête).
-    decalage += debut - base;
+    const dA = decalage + debut - base;
+    decalage = dA - reduction;
 
     v.rang += 1;
     v.membres.push(emp);
     v.fin = Math.max(v.fin, debut + etendueDe(op));
 
     // `dA` — de combien CETTE op a glissé. Sert au report de `fadeAt`.
-    sortie.push({ op, i, at: debut, dA: decalage });
+    sortie.push({ op, i, at: debut, dA });
   }
 
   // Second passage : les dépendances figées en nombres suivent le décalage

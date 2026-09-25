@@ -78,3 +78,26 @@ les vecteurs isolés ; elles ont des tests ciblés ailleurs.
 Le correctif exploratoire de `mrdE` n’est pas inclus dans le point de retour :
 il produisait encore des échecs de géométrie et de chronologie des accolades.
 La refonte doit résoudre ce contrat commun avant de le réintroduire.
+
+## Avancement du 25 septembre
+
+Les deux défauts directement observés ont été corrigés. `fcnj` et `faux` ne
+programment plus deux fondus sur le même tracé. Dans les additions par paquets,
+chaque signe paraît au tour de son calcul et chaque accolade se referme puis
+s’efface dès l’arrivée de son résultat ; les places restent réservées jusqu’au
+réajustement commun de la ligne. La garde des fins d’accolades compare désormais
+chaque tracé à son propre calcul, sans prendre la dernière somme de l’étape pour
+la fin de toutes.
+
+Un test rapide compile les vecteurs gelés des 231 opérateurs qui émettent des
+étapes dans les deux modes, compare la ligne finale et exige zéro avertissement
+d’animation concurrente. Il couvre ces exemples représentatifs, sans remplacer
+les vérifications des enchaînements et des images intermédiaires. Les points 3
+et 4 de l’audit restent des pistes de refonte du modèle, non des défauts
+supplémentaires constatés sur les vecteurs.
+
+Le nivellement de `meg` et de ses variantes lance aussi ses unités à 100 ms
+d’écart en mode simultané. Les valeurs affichées suivent les départs et les
+arrivées réels, y compris quand plusieurs unités sont en vol à la fois. La durée
+de l’étape se contracte avec la vague : la fermeture ne garde pas le délai de
+la version pas à pas après la dernière arrivée.

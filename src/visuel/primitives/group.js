@@ -807,6 +807,11 @@ function planEgalisation(ctx, ids) {
   }
 
   const T = ctx.dur;
+  const vague = ctx.rythme === 'simultane' && !ctx.reduced;
+  const tAcc = vague ? Math.min(600 / ctx.speed, T * 0.28) : T * 0.28;
+  const tFin = vague ? Math.min(600 / ctx.speed, T * 0.14) : T * 0.12;
+  const tNiv = vague ? T - tAcc - tFin : T * 0.58;
+  const tFinDebut = vague ? tAcc + tNiv : T * 0.88;
   const acc = tracerAccolade(ctx, ids, {
     shape: 'brace', tighten: 0.66,
     symbol: ctx.op.symbol || '≡', label: ctx.op.label || null,
@@ -815,7 +820,7 @@ function planEgalisation(ctx, ids) {
     promet: false,
     // Et elle n'écarte pas non plus : les valeurs vont changer sous elle.
     marquer: false,
-    at: 0, dur: T * 0.28,
+    at: 0, dur: tAcc,
   });
   // Les largeurs réservées, comme dans `accumulate` : un jeton qui passera de
   // `8` à `11` doit avoir sa place avant de changer, sinon il recouvre son
@@ -833,10 +838,10 @@ function planEgalisation(ctx, ids) {
     node.w = Math.max(node.w, large * ctx.metrics.advance);
   }
   if (transferts.length) {
-    jouerTransferts(ctx, { operands: ids, transferts, paliers, at: T * 0.28, dur: T * 0.58 });
+    jouerTransferts(ctx, { operands: ids, transferts, paliers, at: tAcc, dur: tNiv });
   }
   if (acc) {
-    for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.12 });
+    for (const id of acc.ids) ctx.anim({ id, prop: 'opacity', to: 0, at: tFinDebut, dur: tFin });
   }
   // ★ **ON REND LES LARGEURS RÉSERVÉES AVANT DE REPOSER LA LIGNE.**
   //
@@ -860,7 +865,7 @@ function planEgalisation(ctx, ids) {
     const node = ctx.scene.get(id);
     node.w = [...String(nivelees[i])].length * ctx.metrics.advance;
   });
-  ctx.reflow({ at: T * 0.88, dur: T * 0.12, ease: EASE.move });
+  ctx.reflow({ at: tFinDebut, dur: tFin, ease: EASE.move });
 }
 
 /**

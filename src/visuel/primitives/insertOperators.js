@@ -37,7 +37,13 @@ export function plan(ctx) {
         fail(`${ctx.where}lots[${k}] : « ids » doit contenir exactement ${lot.between.length - 1} identifiant(s) — c'est l'émetteur qui nomme (CONTRACTS §3).`);
       }
     });
-    insererParLots(ctx, { lots, glyph, at: 0, dur: ctx.dur });
+    const apparitions = ctx.op.progressif ? lots.map((lot) => {
+      const somme = ctx.opsPlanifies.find((e) => e.op.op === 'sum'
+        && lot.ids.every((id) => e.op.consume?.includes(id)));
+      if (!somme) fail(`${ctx.where}le lot « ${lot.ids.join(', ')} » n’a pas de somme qui le consomme.`);
+      return Math.max(0, somme.at / ctx.speed - ctx.debutOp - 150 / ctx.speed);
+    }) : null;
+    insererParLots(ctx, { lots, glyph, at: 0, dur: ctx.dur, apparitions });
     suivreLesAccolades(ctx, { at: 0, dur: ctx.dur * 0.6 });
     return;
   }

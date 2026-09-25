@@ -149,13 +149,9 @@ export function plan(ctx) {
       bouge.at = attente;
       bouge.dur = Math.max(1, ctx.dur - attente);
     }
-    /* ★ `retirer: true` — ce `move` ferme des gestes qui ont GARDÉ LEUR PLACE
-         sans effacer leur accolade (`sum` en `garderPlace`, joués ensemble) :
-         il les efface ici, toutes à la fois, au moment où la ligne se referme.
-         C'est la fin de `helpers.js › finirSousAccolade`, jouée une fois pour
-         toutes les accolades de l'étape : le résultat s'est posé, PUIS
-         l'accolade s'efface, et la ligne se réajuste. Une pièce déjà effacée
-         par son geste (`data.retiree`) ne l'est pas deux fois. */
+    /* `retirer: true` ferme les accolades encore ouvertes. Celles des sommes
+       progressives se sont déjà refermées et effacées à l'arrivée de leur
+       résultat (`data.retiree`) ; elles ne reçoivent pas un second fondu. */
     if (op.retirer === true) {
       retirerLesAccolades(ctx, { at: bouge.at, dur: Math.max(1, bouge.dur * (op.sansReflow ? 1 : 0.6)) });
     }

@@ -401,6 +401,7 @@ export function compile(scenario, options = {}) {
 
       const ctx = {
         op,
+        opsPlanifies: ops,
         encarts,
         rythme,
         vagueSegments,

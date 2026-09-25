@@ -15,7 +15,7 @@
  * est écrit entre les deux. Voir `group.js` pour le détail du dessin.
  */
 
-import { targetsOf, tokenSpec, accumulate } from './helpers.js';
+import { targetsOf, tokenSpec, accumulate, refermerSurLesResultats, retirerLesAccolades } from './helpers.js';
 import { fail } from '../errors.js';
 
 export const name = 'sum';
@@ -33,16 +33,14 @@ export function plan(ctx) {
   const partials = Array.isArray(ctx.op.partials) ? ctx.op.partials : null;
   // Le symbole n'est pas une décoration : une accolade nue ne dit pas si l'on
   // additionne, si l'on multiplie ou si l'on dénombre (voir `group.js`).
+  const fermerIci = ctx.op.fermerAccolade === true;
+  const fermeture = fermerIci ? Math.min(300 / ctx.speed, ctx.dur * 0.25) : 0;
   const res = accumulate(ctx, {
-    operands, consume, to, at: 0, dur: ctx.dur, partials,
-    /* ★ `garderPlace` — la somme se pose dans sa place gardée et S'ARRÊTE LÀ :
-         ni son accolade ne s'efface, ni la ligne ne se referme. C'est ce qui
-         permet à plusieurs sommes de se jouer EN MÊME TEMPS dans une étape —
-         « toutes les premières additions de tous les paquets, puis toutes les
-         deuxièmes » (l'autrice, 19 septembre) : aucune ne bouge la ligne sous
-         les autres, et c'est le `move` qui ferme l'étape (`retirer: true`) qui
-         efface toutes leurs accolades puis referme la ligne, UNE fois. Le
-         même contrat que `group` en ramassage (`combinateurs.js`). */
+    operands, consume, to, at: 0, dur: ctx.dur - fermeture, partials,
+    /* `garderPlace` retient la largeur du calcul jusqu'au `move` commun :
+       plusieurs sommes peuvent avancer sans déplacer les voisines. L'option
+       `fermerAccolade` referme et efface celle de CE calcul dès son résultat ;
+       le `move` ne fait alors plus que rendre les places et réajuster la ligne. */
     garderPlace: ctx.op.garderPlace === true,
     // ★ `avant` — les signes déjà posés DEVANT le premier opérande, que
     //   l'accolade doit embrasser avec lui (voir `insertOperators › tete`).
@@ -66,5 +64,10 @@ export function plan(ctx) {
   const shown = res.partials[res.partials.length - 1];
   if (String(shown) !== to.text) {
     fail(`${ctx.where}incohérence : la somme des opérandes vaut ${shown}, mais « to.text » annonce « ${to.text} ». Le moteur visuel refuse d'afficher un calcul faux.`);
+  }
+  if (fermerIci && res.brace) {
+    const ids = [res.brace.id];
+    refermerSurLesResultats(ctx, { ids, at: ctx.dur - fermeture, dur: fermeture / 3 });
+    retirerLesAccolades(ctx, { ids, at: ctx.dur - fermeture * 2 / 3, dur: fermeture * 2 / 3 });
   }
 }

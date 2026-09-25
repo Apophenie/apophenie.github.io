@@ -240,8 +240,8 @@ test('★ par le chemin du site, les paires sont JOUÉES — et rien ne se cheva
  * (`construireScenario` puis `compile`) : dans une étape d'additions, toutes
  * les sommes partent au même instant, et pas une animation ne se contredit —
  * c'était 437 conflits quand on posait simplement les `sum` ordinaires côte à
- * côte. Puis la fin commune : les accolades ne s'effacent qu'après la pose de
- * TOUS les résultats (`_accolades.js`, sur des étapes à plusieurs lots).
+ * côte. Chaque accolade se ferme après SON résultat ; un seul réajustement de
+ * la ligne termine l'étape (`_accolades.js`, sur plusieurs lots).
  */
 test('★ mrdE sur Didier Raoult : chaque temps joue tous ses paquets ensemble, sans rien de concurrent', async () => {
   const { compilerEnRelevant } = await import('./_cadre.js');
@@ -263,7 +263,7 @@ test('★ mrdE sur Didier Raoult : chaque temps joue tous ses paquets ensemble, 
     assert.equal(signes[0].lots.length, sommes.length);
     const fin = s.ops.filter((o) => o.op !== 'horns').at(-1);
     assert.ok(fin.op === 'move' && fin.retirer === true && fin.attendre > 0,
-      `${s.caption} : la fin commune — les résultats posés, PUIS les accolades s'effacent et la ligne se referme`);
+      `${s.caption} : un seul réajustement de la ligne après les calculs`);
   }
   // L'écriture chiffre à chiffre vient APRÈS toutes les additions : aucun paquet ne finit seul.
   const legendes = sc.steps.map((s) => s.caption);

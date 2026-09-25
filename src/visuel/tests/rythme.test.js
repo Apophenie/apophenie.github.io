@@ -42,6 +42,20 @@ test('un découpage invisible ne retarde pas le calcul dans les deux modes', () 
   }
 });
 
+test('une durée simultanée raccourcit aussi l’attente avant le geste suivant', () => {
+  const step = { ops: [
+    { op: 'group', targets: ['a', 'b'], dur: 5000, durSimultane: 2300, at: 0 },
+    { op: 'substitute', target: 'a', to: { id: 'r', text: '3' }, dur: 120, at: 5000 },
+  ] };
+  const original = JSON.stringify(step);
+  const pas = ordonnerLesOps(step, { rythme: 'pasAPas' });
+  const sim = ordonnerLesOps(step, { rythme: 'simultane' });
+  assert.equal(pas[1].at, 5000);
+  assert.equal(sim[0].op.dur, 2300);
+  assert.equal(sim[1].at, 2300);
+  assert.equal(JSON.stringify(step), original, 'le scénario source reste immuable');
+});
+
 /* ── le cas d'école : plusieurs additions dans un même step ──────────────
  *
  * C'est la forme exacte de `moteur/transformations/mappeurs.js ›

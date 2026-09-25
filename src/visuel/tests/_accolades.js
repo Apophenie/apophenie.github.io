@@ -557,8 +557,22 @@ export function finsDesAccolades(tl, lignes) {
         return dernier ? arrivee(dernier) > 0.1 : (n.base.opacity ?? 1) > 0.1;
       });
       if (visible) faute = 'l’accolade ne s’efface pas dans son étape';
-    } else if (tEff + TOLERANCE_MS < tAction) {
-      faute = `l’accolade s’efface à ${Math.round(tEff)} ms, avant la fin de l’action (${Math.round(tAction)} ms)`;
+    } else if (accolades.some((acc) => {
+      const fondu = fonduDuTrace(acc);
+      if (fondu === null) return false;
+      const tire = anims.find((a) => a.id === acc.id && a.prop === 'strokeDashoffset');
+      const instant = tire ? tire.delay : t0;
+      const base = acc.base?.translate;
+      const propres = new Set([...entree, ...nouveaux].filter((id) => {
+        const p = lire.valeur(id, 'translate', instant);
+        return texte(id) && base && p && p.x >= base.x - acc.w / 2 - 1
+          && p.x <= base.x + acc.w / 2 + 1;
+      }));
+      return anims.some((a) => propres.has(a.id) && ['translate', 'scale', 'opacity'].includes(a.prop)
+        && !((ligne(a.id) || accroche(a.id)) && horizontal(a))
+        && a.delay < fondu && a.delay + a.duration > fondu + TOLERANCE_MS);
+    })) {
+      faute = 'une accolade s’efface avant la fin de son propre calcul';
     } else if (tSerre !== null && tSerre + TOLERANCE_MS < tEff) {
       faute = `la ligne se resserre à ${Math.round(tSerre)} ms, avant l’effacement de l’accolade (${Math.round(tEff)} ms)`;
     }
