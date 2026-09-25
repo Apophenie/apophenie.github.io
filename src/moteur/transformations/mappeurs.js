@@ -2764,10 +2764,11 @@ function passesEnLargeur(parPaquet) {
  * parcours en profondeur que le parcours horizontal (`recherche/scenario.js ›
  * jouerEnsemble`) a déjà chassé ailleurs.
  *
- * Ici chaque TEMPS est une étape, et tous les paquets y avancent ensemble :
+ * Ici chaque temps est réparti en étapes, et tous les paquets y avancent ensemble :
  *
- *  1. **les additions, niveau par niveau** (`passesBinaires`) : toutes les
- *     premières paires de tous les paquets, puis leurs résultats deux à deux ;
+ *  1. **les additions par paires** (`passesBinaires`) : en `mrdE`, une branche
+ *     dont les deux termes sont prêts avance sans attendre une autre branche
+ *     du même paquet ; les autres voies gardent leurs paliers par niveau ;
  *  2. **les sommes qui débordent s'écrivent chiffre à chiffre**, toutes
  *     ensemble — qu'elles restent ainsi (`36 → 3 6`) ou qu'elles se réduisent
  *     (`39 → 3 9`) ;
@@ -2793,9 +2794,13 @@ function passesEnLargeur(parPaquet) {
  *   suite de ses temps, en alternance `{ sommes: [gestes] }` — ceux de
  *   `passesBinaires`, munis de leur `signe` — et `{ eclat: {target, to, somme} }`.
  *   Le temps 0 est toujours l'arbre des additions du paquet.
+ * @param {boolean} [entrelacer] En `mrdE`, laisser avancer chaque branche prête
+ *   au prochain temps. Deux gestes prêts par paquet laissent à la vague
+ *   suivante mêler un résultat déjà calculé et une paire encore indépendante,
+ *   sans faire se chevaucher les réajustements de la ligne.
  * @returns {Array} les étapes, dans l'ordre
  */
-function etapesEnLargeur(chantiers, { ctx, titre, prefixe }) {
+function etapesEnLargeur(chantiers, { ctx, titre, prefixe, entrelacer = false }) {
   const steps = [];
   const I = DUREE_OP.insertOperators;
   const S = DUREE_OP.sum;
@@ -2830,6 +2835,36 @@ function etapesEnLargeur(chantiers, { ctx, titre, prefixe }) {
 
   const nbTemps = Math.max(0, ...chantiers.map((c) => c.temps.length));
   for (let t = 0; t < nbTemps; t++) {
+    if (entrelacer && t === 0) {
+      // Les étapes restent des frontières de mise en page : les franchir au
+      // milieu d'une somme ferait courir deux reflows sur les mêmes jetons.
+      // On avance donc l'arbre par petites vagues topologiques. Priorité aux
+      // résultats déjà produits ; la place libre va aux feuilles restantes.
+      const vagues = [];
+      for (const c of chantiers) {
+        const restants = [...(c.temps[0]?.sommes || [])];
+        const produits = new Set();
+        const attendus = new Set(restants.map((g) => g.resultat.id));
+        let rang = 0;
+        while (restants.length) {
+          const prets = restants.filter((g) => [g.gauche.id, g.droite.id]
+            .every((id) => !attendus.has(id) || produits.has(id)))
+            .sort((a, b) => b.niveau - a.niveau || a.ou - b.ou);
+          if (!prets.length) throw new Error('redécoupage : arbre d’additions cyclique.');
+          const choisis = prets.slice(0, 2);
+          vagues[rang] ||= [];
+          vagues[rang].push(...choisis);
+          for (const g of choisis) {
+            produits.add(g.resultat.id);
+            restants.splice(restants.indexOf(g), 1);
+          }
+          rang++;
+        }
+      }
+      vagues.forEach((gestes, rang) => steps.push(etapeDAdditions(gestes,
+        `s_${ctx.cle}_${prefixe}t${t}v${rang}`)));
+      continue;
+    }
     const eclats = [];
     const parNiveau = new Map();
     for (const c of chantiers) {
@@ -10407,11 +10442,11 @@ function operateurRedecoupageExact(avecNeuf, garderJustes = false) {
             }));
             const avantLesCalculs = steps.length;
             /* ★ **DEUX CHIFFRES À LA FOIS, ET TOUS LES PAQUETS ENSEMBLE** — voir
-                 `commun.js › passesBinaires` et `etapesEnLargeur`. Toutes les
-                 premières paires de la passe dans une étape, puis leurs
-                 résultats ; puis les sommes qui débordent s'écrivent chiffre à
-                 chiffre, toutes ensemble ; puis les réductions, palier par
-                 palier, toutes ensemble. La somme du paquet est celle du plan ;
+                 `commun.js › passesBinaires` et `etapesEnLargeur`. Les branches
+                 déjà prêtes avancent pendant que les autres paires indépendantes
+                 finissent leur calcul ; puis les sommes qui débordent s'écrivent
+                 chiffre à chiffre, toutes ensemble ; puis les réductions, palier
+                 par palier, toutes ensemble. La somme du paquet est celle du plan ;
                  c'est elle, ENTIÈRE, qui s'écrit ou se réduit — jamais un
                  résultat partiel, qui écrirait autre chose que ce que la passe
                  écrit. */
@@ -10431,7 +10466,7 @@ function operateurRedecoupageExact(avecNeuf, garderJustes = false) {
                 nomPalier: (k, t) => `${ctx.cle}q${q}r${j}k${k}x${t}`,
               });
             }).filter(Boolean);
-            steps.push(...etapesEnLargeur(chantiers, { ctx, titre, prefixe: `q${q}` }));
+            steps.push(...etapesEnLargeur(chantiers, { ctx, titre, prefixe: `q${q}`, entrelacer: true }));
             glisserLeDecoupage(steps.slice(avantLesCalculs), groupesMuets);
             ids = passe.paquets.flatMap((p, j) => idsSortieExacte(ctx, q, j, p, ids));
           });

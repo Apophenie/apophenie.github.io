@@ -25,7 +25,9 @@ import assert from 'node:assert/strict';
 import { compile } from '../compile.js';
 import { setGlyphes } from '../glyphes.js';
 import { GLYPHES } from '../fixtures/glyphes.js';
-import { PAR_CODE, appliquer } from '../../moteur/catalogue.js';
+import { CATALOGUE, PAR_CODE, appliquer } from '../../moteur/catalogue.js';
+import { creerMoteur } from '../../recherche/index.js';
+import { lire } from '../../recherche/url.js';
 import { depuisSaisie } from '../../moteur/etat.js';
 import { passesBinaires } from '../../moteur/transformations/commun.js';
 import { construireScenario, suivreLaLigne } from '../../recherche/scenario.js';
@@ -232,9 +234,8 @@ test('★ par le chemin du site, les paires sont JOUÉES — et rien ne se cheva
 // ───────────────────── 4. tous les paquets au même temps
 
 /**
- * > « Toutes les premières additions de tous les paquets en même temps, puis
- * >   toutes les deuxièmes, etc., puis les réductions ensemble. » (l'autrice,
- * >   19 septembre, sur `fmaj+mas+mrdE` et « Didier Raoult »)
+ * Une branche dont les deux résultats sont disponibles avance au tour suivant,
+ * même s'il reste une première paire indépendante dans le même paquet.
  *
  * On le vérifie sur la ligne même de Raoult, par le chemin du site
  * (`construireScenario` puis `compile`) : dans une étape d'additions, toutes
@@ -243,7 +244,7 @@ test('★ par le chemin du site, les paires sont JOUÉES — et rien ne se cheva
  * côte. Chaque accolade se ferme après SON résultat ; un seul réajustement de
  * la ligne termine l'étape (`_accolades.js`, sur plusieurs lots).
  */
-test('★ mrdE sur Didier Raoult : chaque temps joue tous ses paquets ensemble, sans rien de concurrent', async () => {
+test('★ mrdE sur Didier Raoult : une branche prête avance avant la dernière paire indépendante', async () => {
   const { compilerEnRelevant } = await import('./_cadre.js');
   const { finsDesAccolades } = await import('./_accolades.js');
   const saisie = 'Didier Raoult';
@@ -253,8 +254,11 @@ test('★ mrdE sur Didier Raoult : chaque temps joue tous ses paquets ensemble, 
   // Neuf temps d'additions, là où vingt-deux additions se montraient une à une.
   assert.equal(calculs.length, 9, calculs.map((s) => s.caption).join('\n'));
   assert.equal(calculs[0].caption,
-    '8 + 7 = 15 · 3 + 6 = 9 · 8 + 7 = 15 · 9 + 8 = 17 · 2 + 3 = 5 · 7 + 9 = 16 · 8 + 5 = 13',
-    'les premières paires de TOUS les paquets de la passe, dans l’ordre de la ligne');
+    '8 + 7 = 15 · 3 + 6 = 9 · 9 + 8 = 17 · 2 + 3 = 5 · 7 + 9 = 16 · 8 + 5 = 13',
+    'les deux premières paires de chaque paquet sont disponibles ensemble');
+  assert.equal(calculs[1].caption,
+    '15 + 9 = 24 · 8 + 7 = 15 · 17 + 5 = 22 · 16 + 13 = 29',
+    'les trois branches prêtes avancent pendant que la paire restante se calcule');
   for (const s of calculs) {
     const sommes = s.ops.filter((o) => o.op === 'sum');
     assert.equal(new Set(sommes.map((o) => o.at)).size, 1, `${s.caption} : les sommes partent ensemble`);
@@ -277,6 +281,18 @@ test('★ mrdE sur Didier Raoult : chaque temps joue tous ses paquets ensemble, 
   const fautes = finsDesAccolades(tl, lignes).filter((f) => f.faute);
   assert.deepEqual(fautes.map((f) => `${f.id} : ${f.faute}`), []);
   assert.deepEqual(compile(sc).warnings, [], 'et la scène entière, verdict compris');
+});
+
+test('mrdE : le lien signalé déroule le même entrelacement dans les deux modes', () => {
+  const lu = lire('?fmaj+mas+mrdE$6hVamBkJyG1MWtPRwR', { catalogue: CATALOGUE });
+  const moteur = creerMoteur(CATALOGUE);
+  const recherche = moteur.rejouer(lu);
+  const sc = moteur.scenarioDe(recherche.approche, { saisie: lu.saisie });
+  const calculs = sc.steps.filter((s) => s.ops.some((o) => o.op === 'sum'));
+  assert.match(calculs[1].caption, /15 \+ 9 = 24 · 8 \+ 7 = 15/);
+  for (const rythme of ['pasAPas', 'simultane']) {
+    assert.deepEqual(compile(sc, { rythme }).warnings, [], rythme);
+  }
 });
 
 /* ══════════════ `mrn` — en largeur, et deux items à la fois ═══════════════
