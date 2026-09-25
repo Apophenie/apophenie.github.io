@@ -74,6 +74,36 @@ for (const modele of MODELES) {
       pas.scene.flow.map((id) => pas.scene.get(id).text));
     assert.deepEqual(tl.warnings, []);
   });
+
+  test(`${modele.op} : toute la version segmentée reste lisible avant l’estompage`, () => {
+    const mesure = (taille, speed = 1) => {
+      const tl = compile(conversions('h'.repeat(taille), modele), { rythme: 'simultane', speed });
+      const instants = Array.from({ length: taille }, (_, i) => {
+        const ops = animations(tl, `@seg:${modele.op}:t${i}:b`, 'opacity');
+        const apparition = ops.find((a) => valeurFinale(a) === 1);
+        const estompage = ops.find((a) => valeurFinale(a) > 0 && valeurFinale(a) < 1);
+        return { finApparition: apparition.delay + apparition.duration, estompage: estompage.delay };
+      });
+      const premierFondu = Math.min(...instants.map((x) => x.estompage));
+      const derniereLettre = Math.max(...instants.map((x) => x.finApparition));
+      instants.forEach((x, i) => assert.ok(Math.abs(x.estompage - premierFondu - i * 100 / speed) < 1,
+        'l’estompage reprend avec 100 ms entre deux lettres'));
+      assert.ok(premierFondu > derniereLettre,
+        'aucune lettre ne s’estompe pendant qu’une autre se transforme');
+      const comptes = Array.from({ length: taille }, (_, i) => tl.discrete
+        .find((d) => d.id === `@compteur:t${i}` && d.channel === 'text').at);
+      comptes.forEach((at, i) => assert.ok(Math.abs(at - comptes[0] - i * 100 / speed) < 1,
+        'les compteurs reprennent eux aussi avec 100 ms d’écart'));
+      assert.deepEqual(tl.warnings, []);
+      return premierFondu - derniereLettre;
+    };
+    const court = mesure(2);
+    const long = mesure(12);
+    assert.ok(court >= 600, `la lecture courte dure ${court} ms`);
+    assert.ok(long > court + 300, `la lecture longue (${long} ms) doit dépasser la courte (${court} ms)`);
+    assert.ok(Math.abs(mesure(12, 2) * 2 - long) < 2,
+      'la vitesse du lecteur s’applique aussi à la pause');
+  });
 }
 
 test('segments simultanés : les entrées de navigation restent distinctes, même sur une longue ligne', () => {

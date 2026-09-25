@@ -204,6 +204,16 @@ function planSurPlace(ctx, { src, to, modele, geometrie, canal, on, strokes, fus
   const pos = ctx.scene.pos(src.id);
   const fs = ctx.metrics.fontSize;
   const titre = typeof ctx.op.titre === 'string' ? ctx.op.titre.trim() : '';
+  const nombre = ctx.vagueSegments ? ctx.nombreDansVague : 1;
+  // On laisse d'abord TOUTE la phrase lisible dans sa nouvelle écriture.
+  // Les lettres arrivent avec 100 ms d'écart : la première attend donc la
+  // dernière. Le temps de lecture supplémentaire croît avec la longueur,
+  // mais moins vite qu'elle, car le décalage initial en paie déjà une partie.
+  // La reprise garde les 100 ms d'écart : chaque lettre reçoit la MÊME pause
+  // relative, et non une pause raccourcie pour celles qui sont parties après.
+  const lecture = 650 + 180 * Math.sqrt(nombre - 1);
+  const decalageVague = (nombre - 1) * ONDE_SIMULTANE / ctx.speed;
+  const attente = lecture / ctx.speed + decalageVague;
   if (titre && (!ctx.vagueSegments || ctx.rangVague === 0)) {
     const id = ctx.gensym('titreSegments');
     const centre = ancreVue(ctx);
@@ -214,9 +224,8 @@ function planSurPlace(ctx, { src, to, modele, geometrie, canal, on, strokes, fus
     }, { where: ctx.where });
     ctx.scene.place(id, { x: centre.x, y: centre.y - fs * 2.35 });
     ctx.anim({ id, prop: 'opacity', to: 1, at: 0, dur: T * 0.1 });
-    const derniere = ctx.vagueSegments
-      ? (ctx.nombreDansVague - 1) * ONDE_SIMULTANE / ctx.speed : 0;
-    ctx.anim({ id, prop: 'opacity', to: 0, at: derniere + T * 0.88, dur: T * 0.1 });
+    ctx.anim({ id, prop: 'opacity', to: 0,
+      at: decalageVague + T * 0.88 + attente, dur: T * 0.1 });
   }
 
   const groupes = fusion
@@ -237,11 +246,11 @@ function planSurPlace(ctx, { src, to, modele, geometrie, canal, on, strokes, fus
     ctx.anim({ id, prop: 'opacity', to: on.has(k) ? 1 : FANTOME,
       at: T * 0.12, dur: T * 0.12 });
     if (on.has(k)) ctx.anim({ id, prop: 'opacity', to: FANTOME,
-      at: T * 0.27, dur: T * 0.09 });
+      at: T * 0.27 + attente, dur: T * 0.09 });
   }
   ctx.anim({ id: src.id, prop: 'opacity', to: 0, at: T * 0.12, dur: T * 0.12 });
 
-  const debut = T * 0.4;
+  const debut = T * 0.4 + attente;
   const cadence = T * 0.4 / Math.max(1, groupes.length);
   const compteur = `@compteur:${src.id}`;
   poserCompteur(ctx, {
@@ -256,11 +265,11 @@ function planSurPlace(ctx, { src, to, modele, geometrie, canal, on, strokes, fus
     }
   });
   for (const k of modele.ORDER) {
-    ctx.anim({ id: segIds[k], prop: 'opacity', to: 0, at: T * 0.84, dur: T * 0.1 });
+    ctx.anim({ id: segIds[k], prop: 'opacity', to: 0, at: T * 0.84 + attente, dur: T * 0.1 });
   }
   if (!to) {
-    ctx.anim({ id: src.id, prop: 'opacity', to: 1, at: T * 0.86, dur: T * 0.1 });
-    ctx.anim({ id: compteur, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.1 });
+    ctx.anim({ id: src.id, prop: 'opacity', to: 1, at: T * 0.86 + attente, dur: T * 0.1 });
+    ctx.anim({ id: compteur, prop: 'opacity', to: 0, at: T * 0.88 + attente, dur: T * 0.1 });
     return;
   }
 
@@ -274,8 +283,8 @@ function planSurPlace(ctx, { src, to, modele, geometrie, canal, on, strokes, fus
   const depart = ctx.scene.pos(compteur);
   ctx.scene.place(to.id, depart);
   ctx.scene.kill(src.id, ctx.where);
-  ctx.anim({ id: compteur, prop: 'opacity', to: 0, at: T * 0.88, dur: T * 0.1 });
-  ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: T * 0.87, dur: T * 0.08 });
-  if (ctx.vagueSegments) ctx.place(to.id, pos, { at: T * 0.87, dur: T * 0.12, ease: EASE.move });
-  else ctx.reflow({ at: T * 0.87, dur: T * 0.12, ease: EASE.move });
+  ctx.anim({ id: compteur, prop: 'opacity', to: 0, at: T * 0.88 + attente, dur: T * 0.1 });
+  ctx.anim({ id: to.id, prop: 'opacity', to: 1, at: T * 0.87 + attente, dur: T * 0.08 });
+  if (ctx.vagueSegments) ctx.place(to.id, pos, { at: T * 0.87 + attente, dur: T * 0.12, ease: EASE.move });
+  else ctx.reflow({ at: T * 0.87 + attente, dur: T * 0.12, ease: EASE.move });
 }
