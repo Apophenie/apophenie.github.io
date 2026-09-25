@@ -139,11 +139,11 @@ const aplatissementPour = (a) => (a > 0 ? Math.min(1, (LINE_HEIGHT * PART_DE_LIG
  *   comme un retournement. C'était le défaut mesuré : « l'animation est
  *   bancale » (l'auteur).
  *
- *   `demiEllipse` porte déjà exactement cette règle pour le miroir, et la bosse
- *   y garde le SIGNE du déplacement : celui qui part à droite se creuse d'un
- *   côté, celui qui part à gauche de l'autre. Les deux passent donc l'un
- *   au-dessus, l'autre au-dessous, et le central — qui ne se déplace pas — reste
- *   sur place à tourner sur lui-même. C'est le mouvement d'une seule pièce.
+ *   `demiEllipse` fournit les deux arcs opposés. Ici, le bloc tourne dans le
+ *   sens horaire comme chacun de ses chiffres : celui de gauche passe PAR LE
+ *   HAUT, celui de droite PAR LE BAS. Le central reste sur place à tourner
+ *   sur lui-même. La translation et la rotation partagent la même durée et la
+ *   même courbe, comme les points d'une seule pièce.
  *
  * ★ **LE 6 QUI NAÎT PARCOURT LE MÊME ARC QUE LE 9 QUI MEURT.** Le crossfade se
  *   joue au voisinage de 90°, c'est-à-dire au SOMMET de la course : si le jeton
@@ -221,7 +221,7 @@ function planBloc(ctx) {
   const arc = (depart, arrivee) => {
     if (!depart || !arrivee || Math.abs(arrivee.x - depart.x) <= 0.5) return null;
     const { trajet } = demiEllipse(depart, arrivee,
-      { aplatissement: aplatissementPour(Math.abs(arrivee.x - depart.x) / 2) });
+      { aplatissement: aplatissementPour(Math.abs(arrivee.x - depart.x) / 2), horaire: true });
     return { values: trajet, offsets: trajet.map((_, i) => i / (trajet.length - 1)) };
   };
 

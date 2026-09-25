@@ -89,8 +89,9 @@ export const RETRECISSEMENT = 0.55;
  * @param {{x:number,y:number}} arrivee — l'ordonnée d'arrivée fait la ligne de
  *   base ; un miroir ne change pas de ligne, les deux sont normalement égales
  * @param {{echantillons?:number, aplatissement?:number, retrecissement?:number,
- *   hauteurMin?:number}} [opts]  `hauteurMin` : la bosse minimale en unités de
+ *   hauteurMin?:number, horaire?:boolean}} [opts]  `hauteurMin` : la bosse minimale en unités de
  *   scène, pour qu'un trajet court s'arque tout de même (voir `APLATISSEMENT`)
+ *   `horaire` inverse les arcs pour accompagner une rotation horaire du bloc.
  * @returns {{trajet:{x:number,y:number}[], tailles:number[]}}
  *   `trajet` compte `echantillons + 1` points, départ et arrivée compris ;
  *   `tailles` porte le facteur d'échelle au même pas.
@@ -105,7 +106,7 @@ export function demiEllipse(depart, arrivee, opts = {}) {
   // passe, et donc que les deux voisins ne se croisent pas au même endroit.
   const planche = opts.hauteurMin === undefined ? 0 : Math.abs(opts.hauteurMin);
   const ampleur = Math.max(Math.abs(a * plat), a === 0 ? 0 : planche);
-  const b = Math.sign(a || 1) * ampleur;
+  const b = (opts.horaire ? -1 : 1) * Math.sign(a || 1) * ampleur;
   const trajet = [];
   const tailles = [];
   for (let k = 0; k <= n; k++) {

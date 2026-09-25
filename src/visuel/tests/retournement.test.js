@@ -27,6 +27,9 @@ import { GLYPHES } from '../fixtures/glyphes.js';
 import { MAPPEURS } from '../../moteur/transformations/mappeurs.js';
 import { POSTS } from '../../moteur/transformations/posts.js';
 import { DUREE_OP } from '../../moteur/transformations/commun.js';
+import { CATALOGUE } from '../../moteur/catalogue.js';
+import { creerMoteur } from '../../recherche/index.js';
+import { lire } from '../../recherche/url.js';
 
 setGlyphes(GLYPHES, 'fixtures/glyphes.js');
 
@@ -221,4 +224,57 @@ test('★ `flip180` ne retourne que 9 ⇄ 6, dans les deux sens', () => {
   assert.ok(compile(sc([{
     id: 'a', title: 'On fait tourner', ops: [{ op: 'flip180', target: 't0' }],
   }], [{ id: 't0', text: '4', kind: 'number' }])));
+});
+
+test('★ un bloc de 9 ou de 6 suit le sens horaire de ses chiffres, au même rythme', () => {
+  const verifier = (tl, op) => {
+    const animation = (id, prop, delay) => tl.anims.find((a) => a.id === id && a.prop === prop
+      && (delay === undefined || a.delay === delay));
+    const sources = op.targets.map((id) => animation(id, 'translate', animation(id, 'rotate').delay));
+    const y = sources[0].keyframes[0].value.y;
+    const milieu = (a) => a.keyframes.find((f) => f.offset === 0.5).value;
+    assert.ok(milieu(sources[0]).y < y, 'le chiffre gauche monte quand il tourne vers la droite');
+    assert.ok(milieu(sources.at(-1)).y > y, 'le chiffre droit descend quand il tourne vers la gauche');
+
+    op.targets.forEach((id, k) => {
+      const rotation = animation(id, 'rotate');
+      const trajet = animation(id, 'translate', rotation.delay);
+      if (trajet) {
+        assert.equal(trajet.delay, rotation.delay);
+        assert.equal(trajet.duration, rotation.duration);
+        assert.equal(trajet.easing, rotation.easing);
+      }
+      const arrivee = op.to[op.targets.length - 1 - k].id;
+      const rotationArrivee = animation(arrivee, 'rotate');
+      const trajetArrivee = animation(arrivee, 'translate', rotationArrivee.delay);
+      assert.equal(rotationArrivee.delay, rotation.delay);
+      assert.equal(rotationArrivee.duration, rotation.duration);
+      assert.equal(rotationArrivee.easing, rotation.easing);
+      if (trajet) {
+        assert.deepEqual(trajetArrivee.keyframes, trajet.keyframes,
+          'le glyphe de remplacement suit exactement celui qu’il remplace');
+      }
+    });
+  };
+
+  for (const [avant, apres] of [['9', '6'], ['6', '9']]) {
+    const op = {
+      op: 'flip180', targets: ['t0', 't1', 't2'],
+      to: [0, 1, 2].map((i) => ({ id: `r${i}`, text: apres, kind: 'number' })),
+    };
+    const tl = compile(sc([{ id: 'tour', title: 'Retournement', ops: [op] }],
+      ['t0', 't1', 't2'].map((id) => ({ id, text: avant, kind: 'number' }))));
+    assert.deepEqual(tl.warnings, []);
+    verifier(tl, op);
+  }
+
+  // Le lien qui a révélé le défaut comporte trois 9 retournés ensemble.
+  const lecture = lire('?sce!2:fatb;fl+mpy+mtri+mr9+mpf$6hVamBkJyG1MWtPRwR', { catalogue: CATALOGUE });
+  const moteur = creerMoteur(CATALOGUE);
+  const rejeu = moteur.rejouer(lecture);
+  assert.equal(rejeu.ok, true);
+  const scenario = moteur.scenarioDe(rejeu.approche, { saisie: lecture.saisie, registre: 'scenique' });
+  const op = scenario.steps.flatMap((s) => s.ops).find((o) => o.op === 'flip180' && o.targets?.length === 3);
+  assert.ok(op, 'le lien déclenche le retournement du triplet');
+  verifier(compile(scenario), op);
 });
