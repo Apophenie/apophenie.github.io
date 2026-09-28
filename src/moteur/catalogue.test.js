@@ -1269,8 +1269,7 @@ test('★ `mrdE` — le redécoupage exact ne laisse rien, ou ne fait rien', () 
 
      Le partitionnement demeure — il pose les groupes, c'est de la structure —
      mais il se glisse en tête du premier calcul de sa passe, avec
-     `visible: false`. Ce qui n'a pas bougé : une étape par addition, et la
-     seconde passe qui se nomme.
+     `visible: false`. La seconde passe se nomme toujours.
 
      ★ **ET CHAQUE ADDITION NE PORTE PLUS QUE DEUX TERMES** — « ne fais les
      opérations qu'entre deux valeurs » (l'auteur). `8 + 7 + 1` se montre
@@ -1280,9 +1279,9 @@ test('★ `mrdE` — le redécoupage exact ne laisse rien, ou ne fait rien', () 
      ★ **ET CHAQUE TEMPS EST UNE ÉTAPE, TOUS LES PAQUETS ENSEMBLE** (19
      septembre) — « toutes les premières additions de tous les paquets en même
      temps, puis toutes les deuxièmes, etc., puis les réductions ensemble »
-     (l'autrice). L'écriture chiffre à chiffre n'est plus collée à la dernière
-     paire de SON paquet : elle a son temps, commun à tous les paquets, après
-     toutes les additions. Chaque étape d'additions finit par le `move` qui
+     (l'autrice). L'écriture chiffre à chiffre suit les additions dont elle
+     dépend ; furtive, elle prépare le calcul suivant dans sa propre étape.
+     Chaque étape d'additions finit par le `move` qui
      efface les accolades puis referme la ligne (`retirer`). La sortie, elle,
      n'a pas bougé d'un identifiant. */
   const entree = N([5, 8, 7, 1]);
@@ -1293,14 +1292,14 @@ test('★ `mrdE` — le redécoupage exact ne laisse rien, ou ne fait rien', () 
   assert.deepEqual(steps.map((s) => s.ops.map((o) => o.op)), [
     ['partition', 'insertOperators', 'sum', 'move'],
     ['insertOperators', 'sum', 'move'],
-    ['substitute'],
-    ['partition', 'insertOperators', 'sum', 'move'],
-  ], 'deux passes ; un temps par niveau de paires, puis l’écriture ; le découpage en tête de chacune');
-  assert.ok(steps.every((x) => x.ops[0].op !== 'partition' || x.ops[0].visible === false),
+    ['substitute', 'partition', 'insertOperators', 'sum', 'move'],
+  ], 'deux passes ; l’écriture furtive prépare directement le calcul suivant');
+  assert.ok(steps.every((x) => x.ops.every((o) => o.op !== 'partition' || o.visible === false)),
     'le découpage est MUET : il ne trace rien, il pose les groupes');
   assert.deepEqual(steps.map((s) => s.caption),
-    ['8 + 7 = 15', '15 + 1 = 16', '16 → 1 6', '5 + 1 = 6']);
-  assert.ok(steps[3].title.includes('seconde passe'), 'la seconde passe se nomme');
+    ['8 + 7 = 15', '15 + 1 = 16', '5 + 1 = 6']);
+  assert.equal(steps[2].ops[0].dur, 16, 'la réécriture dure une frame');
+  assert.ok(steps[2].title.includes('seconde passe'), 'la seconde passe se nomme');
   assert.deepEqual(vise.sortie(entree, apres, ctx), ['e0q1s0', 'e0q0s1x1'],
     'le 6 de gauche naît en seconde passe, celui de droite est l’unité du 16');
   // ── et la racine se MONTRE — sur la somme ENTIÈRE du paquet : elle s'écrit
@@ -1309,8 +1308,9 @@ test('★ `mrdE` — le redécoupage exact ne laisse rien, ou ne fait rien', () 
   //    réductions de tous les paquets se jouent ensemble, après les additions.
   const r = etapes(op, N([6, 5, 1, 9, 3, 3]), appliquer(op, N([6, 5, 1, 9, 3, 3])),
     { ids: ['t0', 't1', 't2', 't3', 't4', 't5'], cle: 'e0', langue: 'fr' });
-  assert.deepEqual(r.map((s) => s.caption), ['5 + 1 = 6 · 9 + 3 = 12', '12 + 3 = 15', '15 → 1 5', '1 + 5 = 6'],
+  assert.deepEqual(r.map((s) => s.caption), ['5 + 1 = 6 · 9 + 3 = 12', '12 + 3 = 15', '1 + 5 = 6'],
     'les premières paires des deux paquets ensemble, puis 12 + 3, puis la réduction 15 → 6 montrée');
+  assert.equal(r[2].ops[0].op, 'substitute', '15 se réécrit dans le calcul suivant, sans étape dédiée');
   assert.equal(r[0].ops.filter((o) => o.op === 'sum').length, 2, 'deux sommes dans la même étape');
   assert.ok(r[0].ops.filter((o) => o.op === 'sum').every((o) => o.garderPlace === true),
     'elles gardent leur place : aucune ne bouge la ligne sous l’autre');

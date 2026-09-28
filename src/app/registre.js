@@ -69,14 +69,16 @@ function figureDe(etape) {
  */
 export function creerRegistre(lecteur, options = {}) {
   const etapes = lecteur.steps || [];
-  const total = etapes.length;
+  const visibles = etapes.map((etape, index) => ({ etape, index }))
+    .filter(({ etape }) => etape.registre !== false);
+  const total = visibles.length;
   const items = [];
 
   const liste = e('ol.registre__liste');
-  etapes.forEach((etape, i) => {
+  visibles.forEach(({ etape, index }, i) => {
     const bouton = e('button.registre__lien', {
       type: 'button',
-      sur: { click: () => lecteur.seekToStep(i) },
+      sur: { click: () => lecteur.seekToStep(index) },
     }, [
       e('span.registre__num', { texte: String(i + 1) + '.', 'aria-hidden': 'true' }),
       e('span', {}, [
@@ -128,7 +130,7 @@ export function creerRegistre(lecteur, options = {}) {
 
   /** Texte de l'étape i, tel qu'annoncé et affiché. */
   function phraseEtape(i) {
-    const etape = etapes[i];
+    const etape = visibles[i]?.etape;
     if (!etape) return '';
     return t('registre.etape', { i: i + 1, total, titre: titreEtape(etape, i) });
   }
@@ -205,11 +207,14 @@ export function creerRegistre(lecteur, options = {}) {
    *  `src/visuel/player.js` émet `{stepIndex, step}` ; le lecteur de secours
    *  émet un entier. On accepte les deux plutôt que d'imposer une forme. */
   function surCharniere(arg) {
-    const i = typeof arg === 'number' ? arg : (arg && arg.stepIndex) || 0;
+    const index = typeof arg === 'number' ? arg : (arg && arg.stepIndex) || 0;
+    const i = visibles.findLastIndex((v) => v.index <= index);
+    if (i < 0) return;
     marquer(i);
+    if (etapes[index]?.registre === false) return;
     if (i === dernierAnnonce) return;      // au plus une annonce par étape
     dernierAnnonce = i;
-    const etape = etapes[i];
+    const etape = visibles[i].etape;
     region.textContent = '';
     region.appendChild(e('strong', { texte: phraseEtape(i) }));
     const legende = legendeEtape(etape);
@@ -231,7 +236,7 @@ export function creerRegistre(lecteur, options = {}) {
   return {
     element: bloc,
     regionLive: region,
-    badge: (i) => badgeT(i, total),
+    badge: (i) => badgeT(visibles.findLastIndex((v) => v.index <= i), total),
     detruire() { if (typeof off1 === 'function') off1(); if (typeof off2 === 'function') off2(); },
   };
 }

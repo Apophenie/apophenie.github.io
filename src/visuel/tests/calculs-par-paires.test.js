@@ -23,6 +23,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { compile } from '../compile.js';
+import { ordonnerLesOps } from '../rythme.js';
 import { setGlyphes } from '../glyphes.js';
 import { GLYPHES } from '../fixtures/glyphes.js';
 import { CATALOGUE, PAR_CODE, appliquer } from '../../moteur/catalogue.js';
@@ -251,28 +252,30 @@ test('★ mrdE sur Didier Raoult : les calculs des deux passes suivent leurs dé
   const sc = construireScenario(approcheSur(saisie, ['fmaj', 'tca', 'mas', 'mrdE']), { saisie });
   assert.equal(sc.avertissements, undefined, (sc.avertissements || []).join(' | '));
   const calculs = sc.steps.filter((s) => s.ops.some((o) => o.op === 'sum'));
-  assert.equal(calculs.length, 7, calculs.map((s) => s.caption).join('\n'));
+  assert.equal(calculs.length, 6, calculs.map((s) => s.caption).join('\n'));
   const rangDe = (calcul) => calculs.findIndex((s) => s.caption.includes(calcul));
   for (const calcul of ['8 + 2 = 10', '6 + 5 = 11', '8 + 4 = 12']) {
     assert.equal(rangDe(calcul), 0, `${calcul} se calcule avec les premières paires de la passe précédente`);
   }
   assert.ok(rangDe('6 + 6 = 12') < rangDe('3 + 3 = 6'),
     'la quatrième somme libre avance dès que le 6 de la passe précédente existe');
+  assert.match(calculs.at(-1).caption, /3 \+ 3 = 6 · 2 \+ 4 = 6/,
+    'les deux dernières additions indépendantes partent dans la même vague');
   for (const s of calculs) {
     const sommes = s.ops.filter((o) => o.op === 'sum');
     assert.equal(new Set(sommes.map((o) => o.at)).size, 1, `${s.caption} : les sommes partent ensemble`);
     const signes = s.ops.filter((o) => o.op === 'insertOperators');
     assert.equal(signes.length, 1, `${s.caption} : un seul écartement pour tous les signes`);
     assert.equal(signes[0].lots.length, sommes.length);
-    const fin = s.ops.filter((o) => o.op !== 'horns').at(-1);
+    const fin = s.ops.find((o) => o.op === 'move');
     assert.ok(fin.op === 'move' && fin.retirer === true && fin.attendre > 0,
       `${s.caption} : un seul réajustement de la ligne après les calculs`);
   }
-  // L'écriture chiffre à chiffre vient APRÈS toutes les additions : aucun paquet ne finit seul.
-  const legendes = sc.steps.map((s) => s.caption);
-  assert.ok(legendes.indexOf('39 → 3 9 · 24 → 2 4 · 36 → 3 6')
-    > legendes.indexOf('24 + 15 = 39 · 22 + 2 = 24 · 29 + 7 = 36'),
-  'les sommes de la passe s’écrivent chiffre à chiffre ensemble, après la dernière addition');
+  assert.ok(!sc.steps.some((s) => s.ops.length === 1 && s.ops[0].op === 'substitute' && /^\d+ →/.test(s.caption)),
+    'les écritures intermédiaires ne prennent aucune étape du registre');
+  for (const ecriture of calculs.flatMap((s) => s.ops.filter((o) => o.op === 'substitute'))) {
+    assert.equal(ecriture.dur, 16, 'le changement d’écriture tient dans une frame');
+  }
   // La garde de fin d'accolade, sans le verdict : il change la largeur des
   // jetons révélés, et la garde lit la largeur finale des nœuds.
   const { tl, lignes } = compilerEnRelevant({ ...sc, steps: sc.steps.filter((s) => !s.ops.some((o) => o.op === 'reveal')) });
@@ -292,8 +295,63 @@ test('mrdE et md9E : les liens signalés démarrent les additions libres dans le
     assert.match(calculs[0].caption, /8 \+ 2 = 10/);
     assert.match(calculs[0].caption, /6 \+ 5 = 11/);
     assert.match(calculs[0].caption, /8 \+ 4 = 12/);
+    assert.ok(!sc.steps.some((s) => /^\d+ → \d/.test(s.caption)),
+      `${code} : une réécriture numérique ne doit pas occuper le registre`);
+    if (code === 'mrdE') {
+      const dernier = calculs.at(-1);
+      assert.equal(dernier.caption, '3 + 3 = 6 · 2 + 4 = 6',
+        'les anciennes étapes 23 et 25 partagent la même vague');
+      const depart = ordonnerLesOps(dernier, { rythme: 'simultane' })
+        .filter(({ op }) => op.op === 'sum').map(({ at }) => at);
+      assert.equal(depart[1] - depart[0], 100, 'les deux sommes se suivent de 100 ms');
+      assert.equal(dernier.ops[0].op, 'substitute');
+      assert.equal(dernier.ops[0].dur, 16, '24 → 2 4 est préparé en une frame');
+    }
     for (const rythme of ['pasAPas', 'simultane']) {
       assert.deepEqual(compile(sc, { rythme }).warnings, [], `${code} : ${rythme}`);
+    }
+  }
+});
+
+test('mrd : le dernier éclatement suit les accolades sans créer de charnière', () => {
+  const avant = nums([8, 7, 1]);
+  const op = PAR_CODE.get('mrd');
+  const apres = appliquer(op, avant);
+  const steps = op.steps(avant, apres, { ids: ['t0', 't1', 't2'], cle: 'x0', langue: 'fr' });
+  assert.equal(steps.length, 2, 'seules les deux vagues de calcul sont des étapes');
+  const dernier = steps.at(-1);
+  const fermeture = dernier.ops.find((o) => o.op === 'move');
+  const eclatement = dernier.ops.at(-1);
+  assert.equal(eclatement.op, 'substitute');
+  assert.equal(eclatement.at, fermeture.at + fermeture.dur,
+    'la réécriture commence après la fermeture complète des accolades');
+  assert.equal(eclatement.dur, 16);
+  const scenario = { version: 1, tokens: jetonsNums(avant.valeur), steps };
+  for (const rythme of ['pasAPas', 'simultane']) {
+    const tl = compile(scenario, { rythme });
+    assert.deepEqual(tl.warnings, []);
+    assert.equal(tl.steps.length, 2, `${rythme} : aucune charnière technique dans le lecteur`);
+  }
+});
+
+test('2 4 → 24 : le collage préalable à une table est immédiat et absent du registre', () => {
+  for (const [code, valeurs] of [['m1a2', [2, 4]], ['mpol', [2, 4]], ['masi', [0, 6, 5]]]) {
+    const avant = nums(valeurs);
+    const op = PAR_CODE.get(code);
+    const apres = appliquer(op, avant);
+    const steps = op.steps(avant, apres, {
+      ids: valeurs.map((_, i) => `t${i}`), cle: 'x0', langue: 'fr',
+    });
+    assert.equal(steps[0].ops[0].op, 'merge', code);
+    assert.equal(steps[0].registre, false, `${code} : le collage n'occupe pas le registre`);
+    assert.equal(steps[0].ops[0].dur, 16, `${code} : un collage prend une frame`);
+    assert.notEqual(steps[1].registre, false, `${code} : la lecture de la table reste visible`);
+    const scenario = { version: 1, tokens: jetonsNums(valeurs), steps };
+    for (const rythme of ['pasAPas', 'simultane']) {
+      const tl = compile(scenario, { rythme });
+      assert.deepEqual(tl.warnings, [], `${code} : ${rythme}`);
+      assert.equal(tl.steps[0].registre, false);
+      assert.equal(tl.steps[0].duration, 16);
     }
   }
 });
@@ -317,14 +375,14 @@ test('★ mrn : tous les nombres s’ouvrent ensemble, puis tous les couples du 
   assert.deepEqual(apres.valeur, [8, 6]);
   const steps = op.steps(avant, apres, { ids: ['t0', 't1'], cle: 'x0', langue: 'fr' });
 
-  // Premier temps : l'ÉCRITURE, et elle porte les deux nombres d'un coup.
+  // L'écriture est une préparation discrète du calcul, sans étape du registre.
   const eclat = steps[0].ops.filter((o) => o.op === 'substitute');
   assert.equal(eclat.length, 1, 'un seul éclatement pour toute la ligne');
   assert.equal(eclat[0].pairs.length, 2, 'les deux nombres s’ouvrent dans la MÊME étape');
   assert.deepEqual(eclat[0].pairs.map((p) => p.to.map((t) => t.text).join('')), ['44', '15']);
 
-  // Deuxième temps : les couples, tous ensemble, et deux termes chacun.
-  const sommes = steps[1].ops.filter((o) => o.op === 'sum');
+  // Les couples suivent dans la même étape, tous ensemble, et deux termes chacun.
+  const sommes = steps[0].ops.filter((o) => o.op === 'sum');
   assert.equal(sommes.length, 2, 'les deux additions du premier tour sont dans la même étape');
   for (const s of sommes) assert.equal(s.targets.length, 2, 'deux items, jamais trois');
   assert.equal(new Set(sommes.map((o) => o.at)).size, 1, 'elles partent au même instant déclaré');

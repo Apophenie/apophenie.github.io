@@ -725,6 +725,9 @@ export function compile(scenario, options = {}) {
       duration = extent + hold;
     }
     duration = round(duration);
+    // Les réécritures muettes tiennent dans une frame, même accélérées : deux
+    // charnières plus proches seraient indiscernables pour la navigation.
+    if (step.registre === false) duration = Math.max(MIN_STEP_DURATION, duration);
 
     if (duration < MIN_STEP_DURATION) {
       fail(`${loc(where)}durée compilée de ${duration} ms — le minimum est ${MIN_STEP_DURATION} ms (CONTRACTS §3 : deux charnières confondues rendraient stepIndex ambigu). Un step vide doit porter une op « wait ».`);
@@ -741,6 +744,7 @@ export function compile(scenario, options = {}) {
       steps.push({
         index: si + rang, id: entree.id, title: entree.title,
         caption: entree.caption ?? null, figure: entree.figure ?? null,
+        ...(entree.registre === false ? { registre: false } : {}),
         t0: debut, t1: fin, duration: round(fin - debut),
         hold: index === navigables.length - 1 ? round(hold) : 0, speed: stepSpeed,
       });

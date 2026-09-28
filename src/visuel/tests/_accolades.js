@@ -248,15 +248,30 @@ export function finsDesAccolades(tl, lignes) {
       && !(noeuds.get(a.id).data && noeuds.get(a.id).data.suitSesSources));
     const tEff = effacements.length ? Math.min(...effacements.map(debut)) : null;
 
+    // La sortie de l'étape peut déjà porter une autre identité que celle que
+    // l'accolade a connue : « 16 → 1 6 » se fait après son effacement, sans
+    // modifier le dessin. Pour juger l'accolade, remonter ces substitutions
+    // tardives jusqu'aux jetons présents pendant le calcul.
+    const vitesse = st.speed || 1;
+    const ops = (tl.scenario?.steps?.[i]?.ops || []);
+    if (tEff !== null) {
+      for (const op of [...ops].reverse()) {
+        if (op.op !== 'substitute' || (op.at || 0) / vitesse < tEff - TOLERANCE_MS) continue;
+        for (const pair of op.pairs || []) {
+          if (!Array.isArray(pair.to) || !pair.to.every((to) => sortie.has(to.id))) continue;
+          for (const to of pair.to) sortie.delete(to.id);
+          sortie.add(pair.target);
+        }
+      }
+    }
+
     // La fenêtre de l'action : jusqu'au DÉBUT de la première op qui s'ouvre après
     // l'effacement (toute l'étape s'il n'y en a pas). On ne borne pas par la
     // durée DÉCLARÉE des ops ouvertes avant : une op peut animer au-delà (la
     // potence), et sa fin aurait échappé à la mesure — mesuré, elle passait.
     // Les instants déclarés sont ceux du scénario : une étape compilée à une
     // vitesse donnée les joue `st.speed` fois plus vite (`compile.js › scale`).
-    const vitesse = st.speed || 1;
-    const debuts = ((tl.scenario && tl.scenario.steps && tl.scenario.steps[i] && tl.scenario.steps[i].ops) || [])
-      .map((o) => (o.at || 0) / vitesse);
+    const debuts = ops.map((o) => (o.at || 0) / vitesse);
     const suivantes = tEff === null ? [] : debuts.filter((d) => d >= tEff - TOLERANCE_MS);
     const borne = suivantes.length ? Math.min(...suivantes) : Infinity;
 

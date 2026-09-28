@@ -2712,19 +2712,36 @@ function glisserLeDecoupage(steps, groupes) {
  * L'ordre de la ligne départage les gestes d'une vague ; le moteur visuel
  * décide ensuite du pas à pas ou de la simultanéité.
  */
-/** Frontières de scène tirées des identifiants produits, pas des rangs du plan. */
-function vaguesDeDependances(taches) {
+/** Frontières de scène tirées des identifiants produits, pas des rangs du plan.
+ * Une simple réécriture numérique est préparée avant la prochaine vague :
+ * elle ne doit ni occuper un rang ni retarder une addition indépendante. */
+function vaguesDeDependances(taches, { transparents = new Set() } = {}) {
   const restantes = [...taches];
   const attendus = new Set(taches.flatMap((t) => t.sorties));
   const produits = new Set();
   const consommes = new Set();
   const vagues = [];
   while (restantes.length) {
-    const pretes = restantes.filter((t) => t.sources.every((id) => !attendus.has(id) || produits.has(id)));
-    if (!pretes.length) throw new Error('calcul : dépendances cycliques ou source absente.');
+    const preparations = [];
+    let pretes = restantes.filter((t) => t.sources.every((id) => !attendus.has(id) || produits.has(id)));
+    while (pretes.some((t) => transparents.has(t.type))) {
+      const immediates = pretes.filter((t) => transparents.has(t.type));
+      for (const t of immediates) {
+        preparations.push(t);
+        for (const id of t.sorties) produits.add(id);
+        for (const id of t.sources) consommes.add(id);
+        restantes.splice(restantes.indexOf(t), 1);
+      }
+      pretes = restantes.filter((t) => t.sources.every((id) => !attendus.has(id) || produits.has(id)));
+    }
+    if (!pretes.length) {
+      if (restantes.length) throw new Error('calcul : dépendances cycliques ou source absente.');
+      vagues.push({ taches: [], preparations, produits: new Set(produits), consommes: new Set(consommes) });
+      break;
+    }
     const type = pretes[0].type;
     const retenues = pretes.filter((t) => t.type === type);
-    vagues.push({ taches: retenues, produits: new Set(produits), consommes: new Set(consommes) });
+    vagues.push({ taches: retenues, preparations, produits: new Set(produits), consommes: new Set(consommes) });
     for (const t of retenues) {
       for (const id of t.sorties) produits.add(id);
       for (const id of t.sources) consommes.add(id);
@@ -2810,16 +2827,23 @@ function etapesEnLargeur(chantiers, { ctx, titre, prefixe, partitions = [] }) {
   const I = DUREE_OP.insertOperators;
   const S = DUREE_OP.sum;
   const REFERME = 300;
-  const etapeDAdditions = (gestes, id) => {
+  const ecritureFurtive = (eclats, at = 0) => ({
+    op: 'substitute',
+    pairs: eclats.map((e) => ({ target: e.target, to: e.to })),
+    at, dur: 16, sansReflow: true,
+  });
+  const etapeDAdditions = (gestes, id, eclats = []) => {
     const rangees = gestes.slice().sort((a, b) => a.ou - b.ou);
+    const decalage = eclats.length ? 16 : 0;
     return etape(ctx, titre,
       rangees.map((g) => `${g.gauche.v} + ${g.droite.v} = ${g.resultat.v}`).join(' · '), [
+        ...(eclats.length ? [ecritureFurtive(eclats)] : []),
         {
           op: 'insertOperators',
           lots: rangees.map((g) => ({ between: [g.gauche.id, g.droite.id], ids: [g.signe] })),
           glyph: '+',
           progressif: true,
-          at: 0,
+          at: decalage,
         },
         ...rangees.map((g) => ({
           op: 'sum',
@@ -2829,14 +2853,11 @@ function etapesEnLargeur(chantiers, { ctx, titre, prefixe, partitions = [] }) {
           symbol: '+',
           garderPlace: true,
           fermerAccolade: true,
-          at: I,
+          at: I + decalage,
         })),
-        { op: 'move', at: I + S, attendre: REFERME, dur: DUREE_OP.move + REFERME, retirer: true },
+        { op: 'move', at: I + S + decalage, attendre: REFERME, dur: DUREE_OP.move + REFERME, retirer: true },
       ], { id });
   };
-  const etapeDEcriture = (eclats, id) => etape(ctx, titre,
-    eclats.map((e) => `${e.somme} → ${e.to.map((t) => t.text).join(' ')}`).join(' · '),
-    [{ op: 'substitute', pairs: eclats.map((e) => ({ target: e.target, to: e.to })), at: 0 }], { id });
 
   const taches = [];
   for (const c of chantiers) for (const temps of c.temps) {
@@ -2848,13 +2869,21 @@ function etapesEnLargeur(chantiers, { ctx, titre, prefixe, partitions = [] }) {
   const attendus = new Set(taches.flatMap((t) => t.sorties));
   const passesDecoupees = new Set();
   let rang = 0;
-  for (const vague of vaguesDeDependances(taches)) {
+  for (const vague of vaguesDeDependances(taches, { transparents: new Set(['ecriture']) })) {
     const retenues = vague.taches;
-    const type = retenues[0].type;
+    const eclats = vague.preparations.map((t) => t.donnees);
+    if (!retenues.length) {
+      // Le dernier éclatement conserve le même dessin. Après la fermeture des
+      // accolades, il ne fait que remplacer l'identité des jetons, sans
+      // nouvelle charnière ni nouveau geste visible.
+      const precedent = steps.at(-1);
+      if (!precedent) throw new Error('redécoupage : écriture sans calcul précédent.');
+      const fermeture = precedent.ops.findLast((o) => o.op === 'move');
+      precedent.ops.push(ecritureFurtive(eclats, fermeture.at + fermeture.dur));
+      continue;
+    }
     const id = `s_${ctx.cle}_${prefixe}d${rang++}`;
-    const step = type === 'addition'
-      ? etapeDAdditions(retenues.map((t) => t.donnees), id)
-      : etapeDEcriture(retenues.map((t) => t.donnees), id);
+    const step = etapeDAdditions(retenues.map((t) => t.donnees), id, eclats);
     if (retenues.every((t) => t.passe > 0)) {
       step.title += dire(LIB_SECONDE_PASSE, ctx.langue);
     }
@@ -2868,7 +2897,7 @@ function etapesEnLargeur(chantiers, { ctx, titre, prefixe, partitions = [] }) {
       })).filter((g) => g.targets.length);
       if (groupes.length >= 2) decoupes.push({ op: 'partition', groups: groupes, visible: false });
     }
-    step.ops.unshift(...decoupes);
+    step.ops.splice(eclats.length ? 1 : 0, 0, ...decoupes);
     steps.push(step);
   }
   return raccorderPhases(steps);
@@ -4295,17 +4324,22 @@ function etapesDuMontage(avant, montage, ctx) {
     });
   });
   if (paires.length) {
-    steps.push(etape(ctx, dire(LIB_COUPES, ctx.langue),
+    const step = etape(ctx, dire(LIB_COUPES, ctx.langue),
       `${avant.valeur.join(' ')} → ${montage.morceaux.map((m) => m.texte).join(' ')}`,
-      enchainer([{ op: 'substitute', pairs: paires }]), { id: `s_${ctx.cle}_fc` }));
+      enchainer([{ op: 'substitute', pairs: paires, dur: 16, sansReflow: true }]),
+      { id: `s_${ctx.cle}_fc` });
+    step.registre = false;
+    steps.push(step);
   }
   const soudes = montage.montes.filter((t) => t.morceaux.length > 1);
   if (soudes.length) {
-    steps.push(etape(ctx, dire(LIB_SOUDURES, ctx.langue),
+    const step = etape(ctx, dire(LIB_SOUDURES, ctx.langue),
       soudes.map((t) => `${t.morceaux.map((m) => m.texte).join(' ')} → ${t.v}`).join(' ; '),
       enchainer(soudes.map((t) => ({
-        op: 'merge', targets: t.morceaux.map((m) => m.id), to: token(t.id, t.v, 'number'),
-      }))), { id: `s_${ctx.cle}_fs` }));
+        op: 'merge', targets: t.morceaux.map((m) => m.id), to: token(t.id, t.v, 'number'), dur: 16,
+      }))), { id: `s_${ctx.cle}_fs` });
+    step.registre = false;
+    steps.push(step);
   }
   return steps;
 }
@@ -8813,11 +8847,14 @@ function operateurParPaires({
         const a = avant.valeur[2 * i];
         const b = avant.valeur[2 * i + 1];
         const cle = `${a}${b}`;
-        steps.push(etape(ctx, titre, `${dit} · ${a} ${b} → ${cle}`, [{
+        const collage = etape(ctx, titre, `${dit} · ${a} ${b} → ${cle}`, [{
           op: 'merge',
           targets: [ctx.ids[2 * i], ctx.ids[2 * i + 1]],
           to: token(idColle(ctx, i), cle, 'number'),
-        }], { id: `s_${ctx.cle}_c${i}` }));
+          dur: 16,
+        }], { id: `s_${ctx.cle}_c${i}` });
+        collage.registre = false;
+        steps.push(collage);
         steps.push(etape(ctx, titre, `${dit} · ${cle} → ${lettre === ' ' ? '␣' : lettre}`, [{
           op: 'table',
           disposition: 'reglette',
@@ -8937,11 +8974,14 @@ function operateurAsciiEnSigne() {
       apres.valeur.forEach((signe, i) => {
         const trio = [0, 1, 2].map((k) => avant.valeur[3 * i + k]);
         const cle = trio.join('');
-        steps.push(etape(ctx, titre, `${dit} · ${trio.join(' ')} → ${cle}`, [{
+        const collage = etape(ctx, titre, `${dit} · ${trio.join(' ')} → ${cle}`, [{
           op: 'merge',
           targets: [0, 1, 2].map((k) => ctx.ids[3 * i + k]),
           to: token(idColle(ctx, i), cle, 'number'),
-        }], { id: `s_${ctx.cle}_c${i}` }));
+          dur: 16,
+        }], { id: `s_${ctx.cle}_c${i}` });
+        collage.registre = false;
+        steps.push(collage);
         steps.push(etape(ctx, titre, `${dit} · ${cle} → ${signe === ' ' ? '␣' : signe}`, [{
           op: 'table',
           disposition: 'reglette',
